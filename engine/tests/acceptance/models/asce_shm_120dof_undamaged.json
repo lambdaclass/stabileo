@@ -27,7 +27,7 @@
  },
  "modelling": [
   "Columns/beams Euler-Bernoulli 3D frames; columns oriented by cal_model's k-nodes (localY = k - i), beams with local y horizontal (see below); braces are trusses; G = E/2.6.",
-  "Rigid floors: XY diaphragm on each floor's centre node (cal_model's reference point).",
+  "Rigid floors: XY diaphragm on each floor's centre node (cal_model's reference point); the diaphragm ties every slave's rz to the master, as cal_model's T does.",
   "Member masses lumped (mbar*L/2 per end, 3 translations; 967.213 kg above the base) and floor panel masses (x, y, theta only) carried by mass-only truss stubs; see generator docstring.",
   "Member torsional rotary inertia (Io/A*mbar*L/2 about each member axis) carried by rotary-inertia frame stubs (torsion mass only).",
   "Floor beams oriented with the strong axis in vertical bending (paper p. 10: Table 2 is from the HKUST code with corrected floor-beam orientation; the archived cal_model.m has the old one)."
@@ -6380,7 +6380,7 @@
     "rz": true,
     "rrx": true,
     "rry": true,
-    "rrz": true
+    "rrz": false
    },
    "155": {
     "nodeId": 1145,
@@ -6398,7 +6398,7 @@
     "rz": true,
     "rrx": true,
     "rry": true,
-    "rrz": true
+    "rrz": false
    },
    "157": {
     "nodeId": 1147,
@@ -6416,7 +6416,7 @@
     "rz": true,
     "rrx": true,
     "rry": true,
-    "rrz": true
+    "rrz": false
    },
    "159": {
     "nodeId": 1149,
@@ -6434,7 +6434,7 @@
     "rz": true,
     "rrx": true,
     "rry": true,
-    "rrz": true
+    "rrz": false
    },
    "161": {
     "nodeId": 1151,
@@ -6452,7 +6452,7 @@
     "rz": true,
     "rrx": true,
     "rry": true,
-    "rrz": true
+    "rrz": false
    },
    "163": {
     "nodeId": 1153,
@@ -6470,7 +6470,7 @@
     "rz": true,
     "rrx": true,
     "rry": true,
-    "rrz": true
+    "rrz": false
    },
    "165": {
     "nodeId": 1155,
@@ -6488,7 +6488,7 @@
     "rz": true,
     "rrx": true,
     "rry": true,
-    "rrz": true
+    "rrz": false
    },
    "167": {
     "nodeId": 1157,
@@ -6506,7 +6506,7 @@
     "rz": true,
     "rrx": true,
     "rry": true,
-    "rrz": true
+    "rrz": false
    },
    "169": {
     "nodeId": 1159,
@@ -6524,7 +6524,7 @@
     "rz": true,
     "rrx": true,
     "rry": true,
-    "rrz": true
+    "rrz": false
    },
    "171": {
     "nodeId": 1161,
@@ -6542,7 +6542,7 @@
     "rz": true,
     "rrx": true,
     "rry": true,
-    "rrz": true
+    "rrz": false
    },
    "173": {
     "nodeId": 1163,
@@ -6560,7 +6560,7 @@
     "rz": true,
     "rrx": true,
     "rry": true,
-    "rrz": true
+    "rrz": false
    },
    "175": {
     "nodeId": 1165,
@@ -6578,7 +6578,7 @@
     "rz": true,
     "rrx": true,
     "rry": true,
-    "rrz": true
+    "rrz": false
    },
    "177": {
     "nodeId": 1167,
@@ -6596,7 +6596,7 @@
     "rz": true,
     "rrx": true,
     "rry": true,
-    "rrz": true
+    "rrz": false
    },
    "179": {
     "nodeId": 1169,
@@ -6614,7 +6614,7 @@
     "rz": true,
     "rrx": true,
     "rry": true,
-    "rrz": true
+    "rrz": false
    },
    "181": {
     "nodeId": 1171,
@@ -6632,7 +6632,7 @@
     "rz": true,
     "rrx": true,
     "rry": true,
-    "rrz": true
+    "rrz": false
    },
    "183": {
     "nodeId": 1173,
@@ -6650,7 +6650,7 @@
     "rz": true,
     "rrx": true,
     "rry": true,
-    "rrz": true
+    "rrz": false
    },
    "185": {
     "nodeId": 1175,
@@ -6668,7 +6668,7 @@
     "rz": true,
     "rrx": true,
     "rry": true,
-    "rrz": true
+    "rrz": false
    },
    "187": {
     "nodeId": 1177,
@@ -6686,7 +6686,7 @@
     "rz": true,
     "rrx": true,
     "rry": true,
-    "rrz": true
+    "rrz": false
    },
    "189": {
     "nodeId": 1179,
@@ -6704,7 +6704,7 @@
     "rz": true,
     "rrx": true,
     "rry": true,
-    "rrz": true
+    "rrz": false
    },
    "191": {
     "nodeId": 1181,
@@ -6722,7 +6722,7 @@
     "rz": true,
     "rrx": true,
     "rry": true,
-    "rrz": true
+    "rrz": false
    },
    "193": {
     "nodeId": 1183,
@@ -6740,7 +6740,7 @@
     "rz": true,
     "rrx": true,
     "rry": true,
-    "rrz": true
+    "rrz": false
    },
    "195": {
     "nodeId": 1185,
@@ -6758,7 +6758,7 @@
     "rz": true,
     "rrx": true,
     "rry": true,
-    "rrz": true
+    "rrz": false
    },
    "197": {
     "nodeId": 1187,
@@ -6776,7 +6776,7 @@
     "rz": true,
     "rrx": true,
     "rry": true,
-    "rrz": true
+    "rrz": false
    },
    "199": {
     "nodeId": 1189,
@@ -6794,7 +6794,7 @@
     "rz": true,
     "rrx": true,
     "rry": true,
-    "rrz": true
+    "rrz": false
    },
    "201": {
     "nodeId": 1191,
@@ -6812,7 +6812,7 @@
     "rz": true,
     "rrx": true,
     "rry": true,
-    "rrz": true
+    "rrz": false
    },
    "203": {
     "nodeId": 1193,
@@ -6830,7 +6830,7 @@
     "rz": true,
     "rrx": true,
     "rry": true,
-    "rrz": true
+    "rrz": false
    },
    "205": {
     "nodeId": 1195,
@@ -6848,7 +6848,7 @@
     "rz": true,
     "rrx": true,
     "rry": true,
-    "rrz": true
+    "rrz": false
    },
    "207": {
     "nodeId": 1197,
@@ -6866,7 +6866,7 @@
     "rz": true,
     "rrx": true,
     "rry": true,
-    "rrz": true
+    "rrz": false
    },
    "209": {
     "nodeId": 1199,
@@ -6884,7 +6884,7 @@
     "rz": true,
     "rrx": true,
     "rry": true,
-    "rrz": true
+    "rrz": false
    },
    "211": {
     "nodeId": 1201,
@@ -6902,7 +6902,7 @@
     "rz": true,
     "rrx": true,
     "rry": true,
-    "rrz": true
+    "rrz": false
    },
    "213": {
     "nodeId": 1203,
@@ -6920,7 +6920,7 @@
     "rz": true,
     "rrx": true,
     "rry": true,
-    "rrz": true
+    "rrz": false
    },
    "215": {
     "nodeId": 1205,
@@ -6938,7 +6938,7 @@
     "rz": true,
     "rrx": true,
     "rry": true,
-    "rrz": true
+    "rrz": false
    },
    "217": {
     "nodeId": 1207,
@@ -6956,7 +6956,7 @@
     "rz": true,
     "rrx": true,
     "rry": true,
-    "rrz": true
+    "rrz": false
    },
    "219": {
     "nodeId": 1209,
@@ -6974,7 +6974,7 @@
     "rz": true,
     "rrx": true,
     "rry": true,
-    "rrz": true
+    "rrz": false
    },
    "221": {
     "nodeId": 1211,
@@ -6992,7 +6992,7 @@
     "rz": true,
     "rrx": true,
     "rry": true,
-    "rrz": true
+    "rrz": false
    },
    "223": {
     "nodeId": 1213,
@@ -7010,7 +7010,7 @@
     "rz": true,
     "rrx": true,
     "rry": true,
-    "rrz": true
+    "rrz": false
    },
    "225": {
     "nodeId": 1215,
@@ -7028,7 +7028,7 @@
     "rz": true,
     "rrx": true,
     "rry": true,
-    "rrz": true
+    "rrz": false
    },
    "227": {
     "nodeId": 1217,
@@ -7046,7 +7046,7 @@
     "rz": true,
     "rrx": true,
     "rry": true,
-    "rrz": true
+    "rrz": false
    },
    "229": {
     "nodeId": 1219,
@@ -7064,7 +7064,7 @@
     "rz": true,
     "rrx": true,
     "rry": true,
-    "rrz": true
+    "rrz": false
    },
    "231": {
     "nodeId": 1221,
@@ -7082,7 +7082,7 @@
     "rz": true,
     "rrx": true,
     "rry": true,
-    "rrz": true
+    "rrz": false
    },
    "233": {
     "nodeId": 1223,
@@ -7100,7 +7100,7 @@
     "rz": true,
     "rrx": true,
     "rry": true,
-    "rrz": true
+    "rrz": false
    },
    "235": {
     "nodeId": 1225,
@@ -7118,7 +7118,7 @@
     "rz": true,
     "rrx": true,
     "rry": true,
-    "rrz": true
+    "rrz": false
    },
    "237": {
     "nodeId": 1227,
@@ -7136,7 +7136,7 @@
     "rz": true,
     "rrx": true,
     "rry": true,
-    "rrz": true
+    "rrz": false
    },
    "239": {
     "nodeId": 1229,
@@ -7154,7 +7154,7 @@
     "rz": true,
     "rrx": true,
     "rry": true,
-    "rrz": true
+    "rrz": false
    },
    "241": {
     "nodeId": 1231,
@@ -7172,7 +7172,7 @@
     "rz": true,
     "rrx": true,
     "rry": true,
-    "rrz": true
+    "rrz": false
    },
    "243": {
     "nodeId": 1233,
@@ -7190,7 +7190,7 @@
     "rz": true,
     "rrx": true,
     "rry": true,
-    "rrz": true
+    "rrz": false
    },
    "245": {
     "nodeId": 1235,
@@ -7208,7 +7208,7 @@
     "rz": true,
     "rrx": true,
     "rry": true,
-    "rrz": true
+    "rrz": false
    },
    "247": {
     "nodeId": 1237,
@@ -7226,7 +7226,7 @@
     "rz": true,
     "rrx": true,
     "rry": true,
-    "rrz": true
+    "rrz": false
    },
    "249": {
     "nodeId": 1239,
@@ -7244,7 +7244,7 @@
     "rz": true,
     "rrx": true,
     "rry": true,
-    "rrz": true
+    "rrz": false
    },
    "251": {
     "nodeId": 1241,
@@ -7262,7 +7262,7 @@
     "rz": true,
     "rrx": true,
     "rry": true,
-    "rrz": true
+    "rrz": false
    },
    "253": {
     "nodeId": 1243,
@@ -7280,7 +7280,7 @@
     "rz": true,
     "rrx": true,
     "rry": true,
-    "rrz": true
+    "rrz": false
    },
    "255": {
     "nodeId": 1245,
@@ -7298,7 +7298,7 @@
     "rz": true,
     "rrx": true,
     "rry": true,
-    "rrz": true
+    "rrz": false
    },
    "257": {
     "nodeId": 1247,
@@ -7316,7 +7316,7 @@
     "rz": true,
     "rrx": true,
     "rry": true,
-    "rrz": true
+    "rrz": false
    },
    "259": {
     "nodeId": 1249,
@@ -7334,7 +7334,7 @@
     "rz": true,
     "rrx": true,
     "rry": true,
-    "rrz": true
+    "rrz": false
    },
    "261": {
     "nodeId": 1251,
@@ -7352,7 +7352,7 @@
     "rz": true,
     "rrx": true,
     "rry": true,
-    "rrz": true
+    "rrz": false
    },
    "263": {
     "nodeId": 1253,
@@ -7370,7 +7370,7 @@
     "rz": true,
     "rrx": true,
     "rry": true,
-    "rrz": true
+    "rrz": false
    },
    "265": {
     "nodeId": 1255,
@@ -7388,7 +7388,7 @@
     "rz": true,
     "rrx": true,
     "rry": true,
-    "rrz": true
+    "rrz": false
    },
    "267": {
     "nodeId": 1257,
@@ -7406,7 +7406,7 @@
     "rz": true,
     "rrx": true,
     "rry": true,
-    "rrz": true
+    "rrz": false
    },
    "269": {
     "nodeId": 1259,
@@ -7424,7 +7424,7 @@
     "rz": true,
     "rrx": true,
     "rry": true,
-    "rrz": true
+    "rrz": false
    },
    "271": {
     "nodeId": 1261,
@@ -7442,7 +7442,7 @@
     "rz": true,
     "rrx": true,
     "rry": true,
-    "rrz": true
+    "rrz": false
    },
    "273": {
     "nodeId": 1263,
@@ -7460,7 +7460,7 @@
     "rz": true,
     "rrx": true,
     "rry": true,
-    "rrz": true
+    "rrz": false
    },
    "275": {
     "nodeId": 1265,
@@ -7478,7 +7478,7 @@
     "rz": true,
     "rrx": true,
     "rry": true,
-    "rrz": true
+    "rrz": false
    },
    "277": {
     "nodeId": 1267,
@@ -7496,7 +7496,7 @@
     "rz": true,
     "rrx": true,
     "rry": true,
-    "rrz": true
+    "rrz": false
    },
    "279": {
     "nodeId": 1269,
@@ -7514,7 +7514,7 @@
     "rz": true,
     "rrx": true,
     "rry": true,
-    "rrz": true
+    "rrz": false
    },
    "281": {
     "nodeId": 1271,

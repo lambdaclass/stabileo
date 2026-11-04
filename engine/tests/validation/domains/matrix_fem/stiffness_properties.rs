@@ -119,6 +119,8 @@ fn validation_rigid_body_3d_frame_6_zero_eigenvalues() {
     secs.insert("1".to_string(), SolverSection3D {
         id: 1, name: None, a: A, iy: IZ, iz: IZ, j: 5e-5, cw: None,
         as_y: None, as_z: None,
+        shear_center_y: None,
+        shear_center_z: None,
     });
 
     let mut elems = HashMap::new();
@@ -129,7 +131,7 @@ fn validation_rigid_body_3d_frame_6_zero_eigenvalues() {
     });
 
     let input = SolverInput3D {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes, materials: mats, sections: secs, elements: elems,
         supports: HashMap::new(), // No supports!
         loads: vec![], constraints: vec![], left_hand: None, plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_beams: vec![],

@@ -50,7 +50,7 @@
     "low": 75,
     "break": null
   },
-  "concurrency": 3,
+  "concurrency": 4,
   "timeoutMS": 60000,
   "coverageAnalysis": "perTest",
   "tempDirName": ".stryker-tmp",

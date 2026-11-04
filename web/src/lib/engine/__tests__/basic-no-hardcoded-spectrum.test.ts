@@ -76,10 +76,10 @@ describe('Basic cannot launch the hardcoded CIRSOC spectrum', () => {
     expect('cirsoc103Spectrum' in resultTypes).toBe(false);
   });
 
-  it('PRO keeps its own selectable-zone spectral workflow, on the regulation spectrum', () => {
-    const pro = read('../../../components/pro/ProAdvancedTab.svelte');
+  it.each(['ProAdvancedTab.svelte', 'ProAutoLoadsDialog.svelte'])('%s keeps PRO’s selectable-zone regulation spectrum', (component) => {
+    const pro = read(`../../../components/pro/${component}`);
     expect(pro).not.toContain('cirsoc103Spectrum');
-    // Zone and site come from state there, not from literals.
-    expect(pro).toMatch(/designSpectrum\(\{\s*zone:\s*seismicZone\s*,\s*site:\s*siteClass\s*\}\)/);
+    // The preview adapter handles engine failures; zone and site still come from user state.
+    expect(pro).toMatch(/previewCodeSpectrum\(\{\s*zone:\s*seismicZone\s*,\s*site:\s*siteClass\s*\}\)/);
   });
 });

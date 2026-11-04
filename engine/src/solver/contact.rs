@@ -755,10 +755,10 @@ pub fn solve_contact_2d(input: &ContactInput) -> Result<ContactResult, String> {
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
     let use_sparse = ns >= linear::SPARSE_THRESHOLD;
 
-    let node_by_id: HashMap<usize, &SolverNode> = input.solver.nodes.values().map(|n| (n.id, n)).collect();
-    let elem_by_id: HashMap<usize, &SolverElement> = input.solver.elements.values().map(|e| (e.id, e)).collect();
-    let mat_by_id: HashMap<usize, &SolverMaterial> = input.solver.materials.values().map(|m| (m.id, m)).collect();
-    let sec_by_id: HashMap<usize, &SolverSection> = input.solver.sections.values().map(|s| (s.id, s)).collect();
+    let node_by_id: HashMap<usize, &SolverNode> = crate::ordered::values(&input.solver.nodes).map(|n| (n.id, n)).collect();
+    let elem_by_id: HashMap<usize, &SolverElement> = crate::ordered::values(&input.solver.elements).map(|e| (e.id, e)).collect();
+    let mat_by_id: HashMap<usize, &SolverMaterial> = crate::ordered::values(&input.solver.materials).map(|m| (m.id, m)).collect();
+    let sec_by_id: HashMap<usize, &SolverSection> = crate::ordered::values(&input.solver.sections).map(|s| (s.id, s)).collect();
 
     // Element behaviours, resolved and checked: an id that names no member
     // or a behaviour that is not one of the two would otherwise be dropped.
@@ -1225,10 +1225,10 @@ pub fn solve_contact_3d(input: &ContactInput3D) -> Result<ContactResult3D, Strin
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
     let use_sparse = ns >= linear::SPARSE_THRESHOLD;
 
-    let node_by_id: HashMap<usize, &SolverNode3D> = input_solver.nodes.values().map(|n| (n.id, n)).collect();
-    let elem_by_id: HashMap<usize, &SolverElement3D> = input_solver.elements.values().map(|e| (e.id, e)).collect();
-    let mat_by_id: HashMap<usize, &SolverMaterial> = input_solver.materials.values().map(|m| (m.id, m)).collect();
-    let sec_by_id: HashMap<usize, &SolverSection3D> = input_solver.sections.values().map(|s| (s.id, s)).collect();
+    let node_by_id: HashMap<usize, &SolverNode3D> = crate::ordered::values(&input_solver.nodes).map(|n| (n.id, n)).collect();
+    let elem_by_id: HashMap<usize, &SolverElement3D> = crate::ordered::values(&input_solver.elements).map(|e| (e.id, e)).collect();
+    let mat_by_id: HashMap<usize, &SolverMaterial> = crate::ordered::values(&input_solver.materials).map(|m| (m.id, m)).collect();
+    let sec_by_id: HashMap<usize, &SolverSection3D> = crate::ordered::values(&input_solver.sections).map(|s| (s.id, s)).collect();
 
     let mut behaviors: Vec<(usize, &str)> = Vec::new();
     for (eid_str, behavior) in &input.element_behaviors {

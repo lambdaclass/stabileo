@@ -21,6 +21,7 @@
  * been true at some point during the change that added this state.
  */
 
+import { noteText } from '../drawings';
 import { describe, it, expect, beforeAll } from 'vitest';
 import { workspaceScene, ROLLED_BEAMS } from './helpers/workspace-scene';
 import { modelStore } from '../../../store/model.svelte';
@@ -91,7 +92,14 @@ describe('a provisional proposal, across every projection', { timeout: 30_000 },
       expect(scene.solids.some((s) => s.elementIds.includes(id)),
         `member ${id} has concrete in the scene`).toBe(true);
     }
-    expect(scene.unreinforcedMembers, 'and no beam is left bare').toEqual([]);
+    // And no beam is left bare but the ones the design refuses since it reads the column cages
+    // (41: no layout of their bars passes the columns' bars, or anchors where one does). None of
+    // them is a proposal: refused with a reason, no steel invented. Before: none bare.
+    expect(scene.unreinforcedMembers, 'and no beam is left bare but the refused').toHaveLength(41);
+    for (const id of scene.unreinforcedMembers) {
+      expect(provisional, `member ${id}`).not.toContain(id);
+      expect(verificationStore.outcomeFor(id)?.limiting.some((l) => l === 'congestion' || l === 'anchorage'), `member ${id}`).toBe(true);
+    }
   });
 
   it('gives the workspace a state that is neither modelled nor a refusal', () => {
@@ -129,11 +137,11 @@ describe('a provisional proposal, across every projection', { timeout: 30_000 },
       const mine = drawings.sheets.filter((s) => s.name.includes(a.id));
       expect(mine.length, `assembly ${a.id} produced sheets`).toBeGreaterThan(0);
       for (const s of mine) {
-        expect(s.sheet.notes.some((n) => NOT_FOR_CONSTRUCTION.test(n)),
+        expect(s.sheet.notes.some((n) => NOT_FOR_CONSTRUCTION.test(noteText(n, 'es'))),
           `sheet ${s.name} carries the provisional note`).toBe(true);
         // The note must be FIRST: note order is read order, and a reader who stops after
         // two lines has to have read this one.
-        expect(NOT_FOR_CONSTRUCTION.test(s.sheet.notes[0]),
+        expect(NOT_FOR_CONSTRUCTION.test(noteText(s.sheet.notes[0]!, 'es')),
           `sheet ${s.name} states it first`).toBe(true);
       }
     }

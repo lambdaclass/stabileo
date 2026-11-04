@@ -26,6 +26,8 @@ fn make_plastic_cantilever_3d() -> PlasticInput3D {
         id: 1, name: None, a: 0.01,
         iy: 8.33e-6, iz: 8.33e-6, j: 1.41e-5,
         cw: None, as_y: None, as_z: None,
+        shear_center_y: None,
+        shear_center_z: None,
     });
 
     let mut elements = HashMap::new();
@@ -53,7 +55,7 @@ fn make_plastic_cantilever_3d() -> PlasticInput3D {
     });
 
     let solver = SolverInput3D {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes, materials, sections, elements, supports,
         loads: vec![],
         constraints: vec![], left_hand: None,
@@ -115,6 +117,8 @@ fn plastic_3d_fixed_beam_two_hinges() {
         id: 1, name: None, a: 0.01,
         iy: 8.33e-6, iz: 8.33e-6, j: 1.41e-5,
         cw: None, as_y: None, as_z: None,
+        shear_center_y: None,
+        shear_center_z: None,
     });
 
     let mut elements = HashMap::new();
@@ -152,7 +156,7 @@ fn plastic_3d_fixed_beam_two_hinges() {
     }
 
     let solver = SolverInput3D {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes, materials, sections, elements, supports,
         loads: vec![SolverLoad3D::Nodal(SolverNodalLoad3D {
             node_id: 2, fx: 0.0, fy: 0.0, fz: -1.0,
@@ -265,6 +269,8 @@ fn plastic_3d_portal_frame_mechanism() {
         id: 1, name: None, a: 0.01,
         iy: 8.33e-6, iz: 8.33e-6, j: 1.41e-5,
         cw: None, as_y: None, as_z: None,
+        shear_center_y: None,
+        shear_center_z: None,
     });
 
     let mut elements = HashMap::new();
@@ -313,7 +319,7 @@ fn plastic_3d_portal_frame_mechanism() {
     }
 
     let solver = SolverInput3D {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes, materials, sections, elements, supports,
         loads: vec![
             // Lateral load at beam level

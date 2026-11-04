@@ -73,17 +73,35 @@ export interface SolverPointLoadOnElement {
   my?: number; // kN·m (moment at position a — positive = CCW)
 }
 
+/**
+ * A load along the member axis (kN/m, positive toward J), from qI at a to qJ at b — the part of
+ * a load in global axes, or at an angle, that runs along an inclined member. As loads at the
+ * end nodes it moved the structure right but left N constant along the member.
+ */
+export interface SolverAxialDistributedLoad {
+  elementId: number;
+  qI: number;
+  qJ: number;
+  a?: number;  // start position from node I (m). Default: 0
+  b?: number;  // end position from node I (m). Default: L
+}
+
 export interface SolverThermalLoad {
   elementId: number;
   dtUniform: number;  // °C — uniform temperature change (causes axial expansion)
   dtGradient: number; // °C — temperature difference top-bottom (causes bending)
+  /** The material's α, 1/°C. Absent: the engine's 12·10⁻⁶, with a warning (#407). */
+  alpha?: number;
+  /** The section's real depth the gradient acts across. Absent: √(12·Iz/A), with a warning. */
+  depth?: number;
 }
 
 export type SolverLoad =
   | { type: 'nodal'; data: SolverNodalLoad }
   | { type: 'distributed'; data: SolverDistributedLoad }
   | { type: 'pointOnElement'; data: SolverPointLoadOnElement }
-  | { type: 'thermal'; data: SolverThermalLoad };
+  | { type: 'thermal'; data: SolverThermalLoad }
+  | { type: 'axialDistributed'; data: SolverAxialDistributedLoad };
 
 export interface SolverInput {
   nodes: Map<number, SolverNode>;
@@ -99,7 +117,12 @@ export interface SolverInput {
    *  `connectors: HashMap<String, ConnectorElement>`). 2D uses kAxial/kShear/kMoment;
    *  the 3D-only fields on ConnectorElement are ignored by the 2D solver. */
   connectors?: Map<number, import('./types-3d').ConnectorElement>;
+  /** Mass beyond the densities, for the dynamic analyses only (engine `MassInput`). */
+  masses?: { nodal?: NodalMass2D[] };
 }
+
+/** A lumped mass at a plane node, t: `mass` in both translations unless `massX`/`massZ` say otherwise. */
+export interface NodalMass2D { nodeId: number; mass: number; massX?: number; massZ?: number }
 
 export interface Displacement {
   nodeId: number;
@@ -130,6 +153,8 @@ export interface ElementForces {
   pointLoads: Array<{ a: number; p: number; px?: number; my?: number }>; // point loads
   // All distributed loads on this element (supports partial loads with a/b)
   distributedLoads: Array<{ qI: number; qJ: number; a: number; b: number }>;
+  /** Axial span loads (kN/m, positive toward J), as `ElementForces3D.distributedLoadsX`. */
+  distributedLoadsX?: Array<{ qI: number; qJ: number; a: number; b: number }>;
   // Hinge flags (needed for correct deformed shape visualization)
   hingeStart: boolean;
   hingeEnd: boolean;
@@ -252,6 +277,11 @@ export interface SolverDiagnostic {
   details?: Record<string, unknown>;
   /** Shells this is about, as `uiStore.selectedShells` keys: `q{id}` quads, `p{id}` plates. */
   shellKeys?: string[];
+  /**
+   * Modelling objects this is about, above the analysis entities: a physical plate, a use zone.
+   * A click selects the object whole and opens the panel where it is fixed.
+   */
+  objects?: Array<{ kind: 'plate' | 'zone'; id: number }>;
 }
 
 

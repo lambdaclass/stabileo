@@ -32,6 +32,7 @@ export function memberSpecifications(e: Element, t: T, m?: Pick<StructureModel, 
   const spec = (what: string, value: string) => { out.push({ what, value }); };
   if (e.behaviour) spec(t('spec.members.axial'), t(e.behaviour === 'cable' ? 'spec.axial.cable' : `behaviour.${e.behaviour}`));
   else if (e.type === 'truss') spec(t('spec.members.axial'), t('spec.axial.truss'));
+  if (e.behaviour === 'cable' && e.cablePretension !== undefined) spec(t('spec.axial.cablePretension'), `${e.cablePretension} kN`);
   for (const [end, r] of [['I', e.releaseI], ['J', e.releaseJ]] as const) {
     const free = r ? (['my', 'mz', 't'] as const).filter((k) => r[k]).map((k) => (k === 't' ? 'T' : k === 'my' ? 'My' : 'Mz')) : [];
     if (free.length) spec(`${t('spec.members.releases')} ${end}`, free.join(' · '));

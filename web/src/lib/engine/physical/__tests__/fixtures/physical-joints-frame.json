@@ -1,0 +1,622 @@
+{
+ "name": "Physical joints frame",
+ "materials": [
+  {
+   "id": 1,
+   "name": "H30",
+   "e": 30000,
+   "nu": 0.2,
+   "rho": 25,
+   "fy": 30
+  }
+ ],
+ "sections": [
+  {
+   "id": 1,
+   "name": "Col 300x300",
+   "a": 0.09,
+   "iy": 0.000675,
+   "iz": 0.000675,
+   "j": 0.0011408,
+   "b": 0.3,
+   "h": 0.3,
+   "shape": "rect"
+  },
+  {
+   "id": 2,
+   "name": "Beam 400x500",
+   "a": 0.2,
+   "iy": 0.00266667,
+   "iz": 0.00416667,
+   "j": 0.00585,
+   "b": 0.4,
+   "h": 0.5,
+   "shape": "rect"
+  }
+ ],
+ "nodes": [
+  {
+   "id": 1,
+   "x": 0,
+   "y": 0,
+   "z": 0
+  },
+  {
+   "id": 2,
+   "x": 5,
+   "y": 0,
+   "z": 0
+  },
+  {
+   "id": 3,
+   "x": 10,
+   "y": 0,
+   "z": 0
+  },
+  {
+   "id": 4,
+   "x": 0,
+   "y": 4,
+   "z": 0
+  },
+  {
+   "id": 5,
+   "x": 5,
+   "y": 4,
+   "z": 0
+  },
+  {
+   "id": 6,
+   "x": 10,
+   "y": 4,
+   "z": 0
+  },
+  {
+   "id": 7,
+   "x": 0,
+   "y": 0,
+   "z": 3
+  },
+  {
+   "id": 8,
+   "x": 5,
+   "y": 0,
+   "z": 3
+  },
+  {
+   "id": 9,
+   "x": 10,
+   "y": 0,
+   "z": 3
+  },
+  {
+   "id": 10,
+   "x": 0,
+   "y": 4,
+   "z": 3
+  },
+  {
+   "id": 11,
+   "x": 5,
+   "y": 4,
+   "z": 3
+  },
+  {
+   "id": 12,
+   "x": 10,
+   "y": 4,
+   "z": 3
+  },
+  {
+   "id": 13,
+   "x": 12,
+   "y": 0,
+   "z": 3
+  },
+  {
+   "id": 14,
+   "x": 12,
+   "y": 4,
+   "z": 3
+  }
+ ],
+ "elements": [
+  {
+   "id": 1,
+   "type": "frame",
+   "nodeI": 1,
+   "nodeJ": 7,
+   "materialId": 1,
+   "sectionId": 1,
+   "hingeStart": false,
+   "hingeEnd": false
+  },
+  {
+   "id": 2,
+   "type": "frame",
+   "nodeI": 2,
+   "nodeJ": 8,
+   "materialId": 1,
+   "sectionId": 1,
+   "hingeStart": false,
+   "hingeEnd": false
+  },
+  {
+   "id": 3,
+   "type": "frame",
+   "nodeI": 3,
+   "nodeJ": 9,
+   "materialId": 1,
+   "sectionId": 1,
+   "hingeStart": false,
+   "hingeEnd": false
+  },
+  {
+   "id": 4,
+   "type": "frame",
+   "nodeI": 4,
+   "nodeJ": 10,
+   "materialId": 1,
+   "sectionId": 1,
+   "hingeStart": false,
+   "hingeEnd": false
+  },
+  {
+   "id": 5,
+   "type": "frame",
+   "nodeI": 5,
+   "nodeJ": 11,
+   "materialId": 1,
+   "sectionId": 1,
+   "hingeStart": false,
+   "hingeEnd": false,
+   "offset": {
+    "frame": "global",
+    "i": {
+     "x": 0,
+     "y": 0.1,
+     "z": 0
+    },
+    "j": {
+     "x": 0,
+     "y": 0.1,
+     "z": 0
+    }
+   }
+  },
+  {
+   "id": 6,
+   "type": "frame",
+   "nodeI": 6,
+   "nodeJ": 12,
+   "materialId": 1,
+   "sectionId": 1,
+   "hingeStart": false,
+   "hingeEnd": false
+  },
+  {
+   "id": 7,
+   "type": "frame",
+   "nodeI": 7,
+   "nodeJ": 8,
+   "materialId": 1,
+   "sectionId": 2,
+   "hingeStart": false,
+   "hingeEnd": false
+  },
+  {
+   "id": 8,
+   "type": "frame",
+   "nodeI": 8,
+   "nodeJ": 9,
+   "materialId": 1,
+   "sectionId": 2,
+   "hingeStart": false,
+   "hingeEnd": false
+  },
+  {
+   "id": 9,
+   "type": "frame",
+   "nodeI": 9,
+   "nodeJ": 13,
+   "materialId": 1,
+   "sectionId": 2,
+   "hingeStart": false,
+   "hingeEnd": false
+  },
+  {
+   "id": 10,
+   "type": "frame",
+   "nodeI": 10,
+   "nodeJ": 11,
+   "materialId": 1,
+   "sectionId": 2,
+   "hingeStart": false,
+   "hingeEnd": false
+  },
+  {
+   "id": 11,
+   "type": "frame",
+   "nodeI": 11,
+   "nodeJ": 12,
+   "materialId": 1,
+   "sectionId": 2,
+   "hingeStart": false,
+   "hingeEnd": false
+  },
+  {
+   "id": 12,
+   "type": "frame",
+   "nodeI": 12,
+   "nodeJ": 14,
+   "materialId": 1,
+   "sectionId": 2,
+   "hingeStart": false,
+   "hingeEnd": false
+  },
+  {
+   "id": 13,
+   "type": "frame",
+   "nodeI": 7,
+   "nodeJ": 10,
+   "materialId": 1,
+   "sectionId": 2,
+   "hingeStart": false,
+   "hingeEnd": false
+  },
+  {
+   "id": 14,
+   "type": "frame",
+   "nodeI": 8,
+   "nodeJ": 11,
+   "materialId": 1,
+   "sectionId": 2,
+   "hingeStart": false,
+   "hingeEnd": false
+  },
+  {
+   "id": 15,
+   "type": "frame",
+   "nodeI": 9,
+   "nodeJ": 12,
+   "materialId": 1,
+   "sectionId": 2,
+   "hingeStart": false,
+   "hingeEnd": false
+  },
+  {
+   "id": 16,
+   "type": "frame",
+   "nodeI": 13,
+   "nodeJ": 14,
+   "materialId": 1,
+   "sectionId": 2,
+   "hingeStart": false,
+   "hingeEnd": false
+  }
+ ],
+ "supports": [
+  {
+   "id": 1,
+   "nodeId": 1,
+   "type": "fixed3d"
+  },
+  {
+   "id": 2,
+   "nodeId": 2,
+   "type": "fixed3d"
+  },
+  {
+   "id": 3,
+   "nodeId": 3,
+   "type": "fixed3d"
+  },
+  {
+   "id": 4,
+   "nodeId": 4,
+   "type": "fixed3d"
+  },
+  {
+   "id": 5,
+   "nodeId": 5,
+   "type": "fixed3d"
+  },
+  {
+   "id": 6,
+   "nodeId": 6,
+   "type": "fixed3d"
+  }
+ ],
+ "loads": [
+  {
+   "type": "distributed3d",
+   "data": {
+    "id": 1,
+    "elementId": 7,
+    "qYI": 0,
+    "qYJ": 0,
+    "qZI": -20,
+    "qZJ": -20,
+    "caseId": 1
+   }
+  },
+  {
+   "type": "distributed3d",
+   "data": {
+    "id": 2,
+    "elementId": 7,
+    "qYI": 0,
+    "qYJ": 0,
+    "qZI": -10,
+    "qZJ": -10,
+    "caseId": 2
+   }
+  },
+  {
+   "type": "distributed3d",
+   "data": {
+    "id": 3,
+    "elementId": 8,
+    "qYI": 0,
+    "qYJ": 0,
+    "qZI": -20,
+    "qZJ": -20,
+    "caseId": 1
+   }
+  },
+  {
+   "type": "distributed3d",
+   "data": {
+    "id": 4,
+    "elementId": 8,
+    "qYI": 0,
+    "qYJ": 0,
+    "qZI": -10,
+    "qZJ": -10,
+    "caseId": 2
+   }
+  },
+  {
+   "type": "distributed3d",
+   "data": {
+    "id": 5,
+    "elementId": 9,
+    "qYI": 0,
+    "qYJ": 0,
+    "qZI": -20,
+    "qZJ": -20,
+    "caseId": 1
+   }
+  },
+  {
+   "type": "distributed3d",
+   "data": {
+    "id": 6,
+    "elementId": 9,
+    "qYI": 0,
+    "qYJ": 0,
+    "qZI": -10,
+    "qZJ": -10,
+    "caseId": 2
+   }
+  },
+  {
+   "type": "distributed3d",
+   "data": {
+    "id": 7,
+    "elementId": 10,
+    "qYI": 0,
+    "qYJ": 0,
+    "qZI": -20,
+    "qZJ": -20,
+    "caseId": 1
+   }
+  },
+  {
+   "type": "distributed3d",
+   "data": {
+    "id": 8,
+    "elementId": 10,
+    "qYI": 0,
+    "qYJ": 0,
+    "qZI": -10,
+    "qZJ": -10,
+    "caseId": 2
+   }
+  },
+  {
+   "type": "distributed3d",
+   "data": {
+    "id": 9,
+    "elementId": 11,
+    "qYI": 0,
+    "qYJ": 0,
+    "qZI": -20,
+    "qZJ": -20,
+    "caseId": 1
+   }
+  },
+  {
+   "type": "distributed3d",
+   "data": {
+    "id": 10,
+    "elementId": 11,
+    "qYI": 0,
+    "qYJ": 0,
+    "qZI": -10,
+    "qZJ": -10,
+    "caseId": 2
+   }
+  },
+  {
+   "type": "distributed3d",
+   "data": {
+    "id": 11,
+    "elementId": 12,
+    "qYI": 0,
+    "qYJ": 0,
+    "qZI": -20,
+    "qZJ": -20,
+    "caseId": 1
+   }
+  },
+  {
+   "type": "distributed3d",
+   "data": {
+    "id": 12,
+    "elementId": 12,
+    "qYI": 0,
+    "qYJ": 0,
+    "qZI": -10,
+    "qZJ": -10,
+    "caseId": 2
+   }
+  },
+  {
+   "type": "distributed3d",
+   "data": {
+    "id": 13,
+    "elementId": 13,
+    "qYI": 0,
+    "qYJ": 0,
+    "qZI": -20,
+    "qZJ": -20,
+    "caseId": 1
+   }
+  },
+  {
+   "type": "distributed3d",
+   "data": {
+    "id": 14,
+    "elementId": 13,
+    "qYI": 0,
+    "qYJ": 0,
+    "qZI": -10,
+    "qZJ": -10,
+    "caseId": 2
+   }
+  },
+  {
+   "type": "distributed3d",
+   "data": {
+    "id": 15,
+    "elementId": 14,
+    "qYI": 0,
+    "qYJ": 0,
+    "qZI": -20,
+    "qZJ": -20,
+    "caseId": 1
+   }
+  },
+  {
+   "type": "distributed3d",
+   "data": {
+    "id": 16,
+    "elementId": 14,
+    "qYI": 0,
+    "qYJ": 0,
+    "qZI": -10,
+    "qZJ": -10,
+    "caseId": 2
+   }
+  },
+  {
+   "type": "distributed3d",
+   "data": {
+    "id": 17,
+    "elementId": 15,
+    "qYI": 0,
+    "qYJ": 0,
+    "qZI": -20,
+    "qZJ": -20,
+    "caseId": 1
+   }
+  },
+  {
+   "type": "distributed3d",
+   "data": {
+    "id": 18,
+    "elementId": 15,
+    "qYI": 0,
+    "qYJ": 0,
+    "qZI": -10,
+    "qZJ": -10,
+    "caseId": 2
+   }
+  },
+  {
+   "type": "distributed3d",
+   "data": {
+    "id": 19,
+    "elementId": 16,
+    "qYI": 0,
+    "qYJ": 0,
+    "qZI": -20,
+    "qZJ": -20,
+    "caseId": 1
+   }
+  },
+  {
+   "type": "distributed3d",
+   "data": {
+    "id": 20,
+    "elementId": 16,
+    "qYI": 0,
+    "qYJ": 0,
+    "qZI": -10,
+    "qZJ": -10,
+    "caseId": 2
+   }
+  }
+ ],
+ "plates": [],
+ "quads": [],
+ "constraints": [],
+ "loadCases": [
+  {
+   "id": 1,
+   "type": "D",
+   "name": "Dead Load"
+  },
+  {
+   "id": 2,
+   "type": "L",
+   "name": "Live Load"
+  }
+ ],
+ "combinations": [
+  {
+   "id": 1,
+   "name": "1.4D",
+   "factors": [
+    {
+     "caseId": 1,
+     "factor": 1.4
+    }
+   ]
+  },
+  {
+   "id": 2,
+   "name": "1.2D+1.6L",
+   "factors": [
+    {
+     "caseId": 1,
+     "factor": 1.2
+    },
+    {
+     "caseId": 2,
+     "factor": 1.6
+    }
+   ]
+  }
+ ],
+ "analysis": {
+  "selfWeight": [
+   {
+    "caseId": 1,
+    "direction": "Z",
+    "factor": -1
+   }
+  ]
+ }
+}

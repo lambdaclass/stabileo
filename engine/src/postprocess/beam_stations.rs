@@ -41,7 +41,10 @@ fn sign_convention_2d() -> SignConvention2D {
         local_x: "node_i to node_j".into(),
         axial: "positive = tension".into(),
         shear: "positive = clockwise rotation of left segment".into(),
-        moment: "positive = sagging (tension on bottom fiber); solver uses f = K*u - FEF".into(),
+        // The values are the end forces f = K·u − FEF read on the start side of
+        // the cut: a simply supported beam along +X under gravity has M(L/2) = −qL²/8.
+        // This string said "sagging" until docs/solver/frames.md (FR-2).
+        moment: "positive = hogging (tension on the local +y fibre); M(x) = M_start − V_start·x − …; solver uses f = K*u - FEF".into(),
         station_x: "metres from node_i along member axis".into(),
     }
 }
@@ -51,11 +54,14 @@ fn sign_convention_3d() -> SignConvention3D {
         local_x: "node_i to node_j".into(),
         local_yz: "per element orientation node or default rule".into(),
         axial: "positive = tension".into(),
-        shear_y: "positive = shear in local +y".into(),
-        shear_z: "positive = shear in local +z".into(),
-        moment_z: "positive = sagging in x-y plane (bending about local z)".into(),
-        moment_y: "positive = sagging in x-z plane (bending about local y)".into(),
-        torsion: "positive = right-hand rule about local x".into(),
+        // Vy, Vz, Mx, My, Mz are the components along the local axes of the
+        // resultant on the negative (−x) face of the cut: the start-side end
+        // forces of f = K·u − FEF. docs/solver/frames.md §7 (FR-2).
+        shear_y: "positive = force along local +y on the negative (-x) face of the cut".into(),
+        shear_z: "positive = force along local +z on the negative (-x) face of the cut".into(),
+        moment_z: "positive = tension on the local +y fibre (moment vector along +z on the negative face)".into(),
+        moment_y: "positive = tension on the local -z fibre, i.e. sagging for the default axes with local z up (moment vector along +y on the negative face)".into(),
+        torsion: "positive = moment vector along +x on the negative (-x) face; a tip torque +T about local x on a cantilever gives Mx = -T".into(),
         station_x: "metres from node_i along member axis".into(),
     }
 }
@@ -773,7 +779,7 @@ mod tests {
             v_start: 30.0, v_end: -30.0,
             m_start: 0.0, m_end: 0.0,
             q_i: -10.0, q_j: -10.0,
-            point_loads: vec![], distributed_loads: vec![],
+            point_loads: vec![], distributed_loads: vec![], distributed_loads_x: Vec::new(),
             hinge_start: false, hinge_end: false,
         }
     }
@@ -846,7 +852,7 @@ mod tests {
             v_start: 5.0, v_end: -5.0,
             m_start: -100.0, m_end: 100.0,
             q_i: 0.0, q_j: 0.0,
-            point_loads: vec![], distributed_loads: vec![],
+            point_loads: vec![], distributed_loads: vec![], distributed_loads_x: Vec::new(),
             hinge_start: false, hinge_end: false,
         };
         let ef1 = ElementForces {
@@ -855,7 +861,7 @@ mod tests {
             v_start: 200.0, v_end: -200.0,
             m_start: -10.0, m_end: 10.0,
             q_i: 0.0, q_j: 0.0,
-            point_loads: vec![], distributed_loads: vec![],
+            point_loads: vec![], distributed_loads: vec![], distributed_loads_x: Vec::new(),
             hinge_start: false, hinge_end: false,
         };
 
@@ -906,7 +912,7 @@ mod tests {
             element_id: 99, length: 6.0,
             n_start: 0.0, n_end: 0.0, v_start: 0.0, v_end: 0.0,
             m_start: 0.0, m_end: 0.0, q_i: 0.0, q_j: 0.0,
-            point_loads: vec![], distributed_loads: vec![],
+            point_loads: vec![], distributed_loads: vec![], distributed_loads_x: Vec::new(),
             hinge_start: false, hinge_end: false,
         };
 
@@ -937,7 +943,7 @@ mod tests {
             element_id: 99, length: 6.0,
             n_start: 0.0, n_end: 0.0, v_start: 0.0, v_end: 0.0,
             m_start: 0.0, m_end: 0.0, q_i: 0.0, q_j: 0.0,
-            point_loads: vec![], distributed_loads: vec![],
+            point_loads: vec![], distributed_loads: vec![], distributed_loads_x: Vec::new(),
             hinge_start: false, hinge_end: false,
         };
 
@@ -993,7 +999,7 @@ mod tests {
             v_start: 5.0, v_end: -5.0,
             m_start: -100.0, m_end: 100.0,
             q_i: 0.0, q_j: 0.0,
-            point_loads: vec![], distributed_loads: vec![],
+            point_loads: vec![], distributed_loads: vec![], distributed_loads_x: Vec::new(),
             hinge_start: false, hinge_end: false,
         };
         let ef1 = ElementForces {
@@ -1002,7 +1008,7 @@ mod tests {
             v_start: 200.0, v_end: -200.0,
             m_start: -10.0, m_end: 10.0,
             q_i: 0.0, q_j: 0.0,
-            point_loads: vec![], distributed_loads: vec![],
+            point_loads: vec![], distributed_loads: vec![], distributed_loads_x: Vec::new(),
             hinge_start: false, hinge_end: false,
         };
 
@@ -1192,7 +1198,7 @@ mod tests {
             v_start: -25.0, v_end: 25.0,
             m_start: 50.0, m_end: 150.0,
             q_i: 0.0, q_j: 0.0,
-            point_loads: vec![], distributed_loads: vec![],
+            point_loads: vec![], distributed_loads: vec![], distributed_loads_x: Vec::new(),
             hinge_start: false, hinge_end: false,
         };
         let ef_b = ElementForces {
@@ -1201,7 +1207,7 @@ mod tests {
             v_start: 20.0, v_end: -20.0,
             m_start: -40.0, m_end: -120.0,
             q_i: 0.0, q_j: 0.0,
-            point_loads: vec![], distributed_loads: vec![],
+            point_loads: vec![], distributed_loads: vec![], distributed_loads_x: Vec::new(),
             hinge_start: false, hinge_end: false,
         };
 
@@ -1271,7 +1277,7 @@ mod tests {
             v_start: -25.0, v_end: 25.0,
             m_start: 50.0, m_end: 150.0,
             q_i: 0.0, q_j: 0.0,
-            point_loads: vec![], distributed_loads: vec![],
+            point_loads: vec![], distributed_loads: vec![], distributed_loads_x: Vec::new(),
             hinge_start: false, hinge_end: false,
         };
 
@@ -1304,7 +1310,7 @@ mod tests {
             element_id: 99, length: 6.0,
             n_start: 0.0, n_end: 0.0, v_start: 0.0, v_end: 0.0,
             m_start: 0.0, m_end: 0.0, q_i: 0.0, q_j: 0.0,
-            point_loads: vec![], distributed_loads: vec![],
+            point_loads: vec![], distributed_loads: vec![], distributed_loads_x: Vec::new(),
             hinge_start: false, hinge_end: false,
         };
 
@@ -1333,7 +1339,7 @@ mod tests {
             v_start: 5.0, v_end: -5.0,
             m_start: 200.0, m_end: 180.0,
             q_i: 0.0, q_j: 0.0,
-            point_loads: vec![], distributed_loads: vec![],
+            point_loads: vec![], distributed_loads: vec![], distributed_loads_x: Vec::new(),
             hinge_start: false, hinge_end: false,
         };
         let ef2_c1 = ElementForces {
@@ -1342,7 +1348,7 @@ mod tests {
             v_start: 3.0, v_end: -3.0,
             m_start: -10.0, m_end: 10.0,
             q_i: 0.0, q_j: 0.0,
-            point_loads: vec![], distributed_loads: vec![],
+            point_loads: vec![], distributed_loads: vec![], distributed_loads_x: Vec::new(),
             hinge_start: false, hinge_end: false,
         };
         let ef1_c2 = ElementForces {
@@ -1351,7 +1357,7 @@ mod tests {
             v_start: 2.0, v_end: -2.0,
             m_start: -5.0, m_end: 5.0,
             q_i: 0.0, q_j: 0.0,
-            point_loads: vec![], distributed_loads: vec![],
+            point_loads: vec![], distributed_loads: vec![], distributed_loads_x: Vec::new(),
             hinge_start: false, hinge_end: false,
         };
         let ef2_c2 = ElementForces {
@@ -1360,7 +1366,7 @@ mod tests {
             v_start: 300.0, v_end: -300.0,
             m_start: -20.0, m_end: 20.0,
             q_i: 0.0, q_j: 0.0,
-            point_loads: vec![], distributed_loads: vec![],
+            point_loads: vec![], distributed_loads: vec![], distributed_loads_x: Vec::new(),
             hinge_start: false, hinge_end: false,
         };
 

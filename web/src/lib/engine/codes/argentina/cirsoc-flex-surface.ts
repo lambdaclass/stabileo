@@ -23,21 +23,18 @@
  * at 29.7° — which is the same fact that made the old perpendicular
  * assumption overestimate skew capacity by up to 8.9 %. Tracing by the axis
  * and reading the moment off the result cannot make that mistake.
+ *
+ * The searches run in the engine (`Section::at_axial`, `moment_capacity_at_axial` in
+ * `engine/src/postprocess/cirsoc201_section.rs`); this module only shapes the answers. The
+ * TypeScript it replaced is the oracle in `__tests__/differential/oracle/`.
  */
 
-import { interactionCurve, prepareSection, type PreparedSection, type Bar, type Outline, type Materials, type SectionPoint }
+import { prepareSection, withSection, type PreparedSection, type Bar, type Outline, type Materials, type SectionPoint }
   from './cirsoc201-section';
 
 /*
- * ── Signs are the SHEET's, not the section engine's ────────────────
- *
- * `sectionPoint` reports a section compressed on top (θ = π/2) with a
- * NEGATIVE Mnx — its sign is a statement about vector direction. The sheet
- * calls that same state a positive Mxu: "positivo tracciona fibra inferior".
- * Everything this module returns is flipped into the sheet's convention once,
- * here, so a caller comparing with a workbook cell never has to remember.
- * `utilisation` in `cirsoc-flex.ts` picks θ by the same rule, which is why the
- * two agree on which face a positive demand compresses.
+ * Signs are the SHEET's, not the section engine's: a section compressed on top reports a
+ * NEGATIVE Mnx, which the sheet calls a positive Mxu ("positivo tracciona fibra inferior").
  */
 const sheetMx = (p: SectionPoint) => -p.phiMnx;
 const sheetMy = (p: SectionPoint) => -p.phiMny;
@@ -52,51 +49,21 @@ export interface CutPoint {
   state: SectionPoint;
 }
 
-/**
- * The section-engine angle for a sheet Fi, inside the quadrant (sx, sy).
- *
- * Pure positive Mx is θ = π/2 in `sectionPoint`'s convention and pure
- * positive My is θ = π; the signs rotate that quarter into whichever quadrant
- * the demand lives in.
- */
+/** θ (outward normal of the compressed face) for the sheet's angle Fi in the moments' quadrant. */
 function thetaFor(fi: number, sx: number, sy: number): number {
   return Math.atan2(sx * Math.cos(fi), -sy * Math.sin(fi));
 }
 
-/**
- * The depth at which φPn = Pu, and the state there — or null when this axis
- * cannot reach that load (above the cap, or below pure tension).
- *
- * Bracketed on a coarse curve, then bisected on c itself. Interpolating
- * between curve points instead is what made εt wrong wherever it is steep:
- * εt goes as 1/c, and a straight line between two samples of a hyperbola
- * overstates everything in between.
- */
+/** The state where φPn = Pu with the axis at θ; null when the section cannot carry Pu there. */
 export function stateAtAxial(
   outline: Outline, bars: readonly Bar[], mat: Materials, theta: number, Pu: number,
 ): SectionPoint | null {
-  const section = prepareSection(outline, bars, mat);
-  try { return stateAtAxialPrepared(section, theta, Pu); } finally { section.free(); }
-}
-function stateAtAxialPrepared(section: PreparedSection, theta: number, Pu: number): SectionPoint | null {
-  const curve = section.curve(theta, 60);
-  for (let k = 0; k < curve.length - 1; k++) {
-    const A = curve[k];
-    const B = curve[k + 1];
-    const fA = A.phiPn - Pu;
-    const fB = B.phiPn - Pu;
-    if (fA === 0) return A;
-    if (fA * fB < 0) return refinePrepared(section, theta, A.c, B.c, (p) => p.phiPn - Pu);
-  }
-  return null;
+  return withSection(outline, bars, mat, (s) => s.atAxial(theta, Pu));
 }
 
 /**
- * Bisection on the neutral-axis depth between two bracketing states.
- *
- * `f` is whatever has to vanish — φPn minus a load, a capacity minus a ray.
- * Fifty halvings of a bracket a few centimetres wide is below a nanometre,
- * so what comes back is the section's own state and not an interpolation.
+ * Bisect `f` on the neutral-axis depth between `cA` and `cB` — a search; every state it reads
+ * is the engine's.
  */
 export function refine(
   outline: Outline, bars: readonly Bar[], mat: Materials, theta: number,
@@ -105,7 +72,7 @@ export function refine(
   const section = prepareSection(outline, bars, mat);
   try { return refinePrepared(section, theta, cA, cB, f); } finally { section.free(); }
 }
-function refinePrepared(section: PreparedSection, theta: number, cA: number, cB: number, f: (p: SectionPoint) => number): SectionPoint {
+export function refinePrepared(section: PreparedSection, theta: number, cA: number, cB: number, f: (p: SectionPoint) => number): SectionPoint {
   let a = cA;
   let b = cB;
   let fa = f(section.point(theta, a));
@@ -119,31 +86,24 @@ function refinePrepared(section: PreparedSection, theta: number, cA: number, cB:
   return section.point(theta, (a + b) / 2);
 }
 
-/**
- * The load contour at φPn = Pu, in one quadrant, at the sheet's own angles.
- *
- * `steps` divisions of the quarter; twelve is the sheet's 7.5°, which is what
- * lets each point be compared with the workbook's cell for the same Fi. The
- * figure asks for more, to draw a curve rather than a polygon.
- */
+/** The load contour at Pu, Fi = 0 … 90° in `steps`, in the quadrant of (sx, sy). */
 export function surfaceCut(
   outline: Outline, bars: readonly Bar[], mat: Materials, Pu: number,
   opts: { sx?: number; sy?: number; steps?: number } = {},
 ): CutPoint[] {
-  const section = prepareSection(outline, bars, mat);
-  try {
+  return withSection(outline, bars, mat, (section) => {
     const sx = (opts.sx ?? 1) < 0 ? -1 : 1;
     const sy = (opts.sy ?? 1) < 0 ? -1 : 1;
     const steps = opts.steps ?? 12;
     const out: CutPoint[] = [];
     for (let k = 0; k <= steps; k++) {
       const fi = (k / steps) * (Math.PI / 2);
-      const st = stateAtAxialPrepared(section, thetaFor(fi, sx, sy), Pu);
+      const st = section.atAxial(thetaFor(fi, sx, sy), Pu);
       if (!st) continue;
       out.push({ fi, phiMnx: sheetMx(st), phiMny: sheetMy(st), state: st });
     }
     return out;
-  } finally { section.free(); }
+  });
 }
 
 export interface MomentCapacity {
@@ -156,59 +116,17 @@ export interface MomentCapacity {
   state: SectionPoint;
 }
 
-/**
- * The sheet's "φMn" for a biaxial demand: where the ray from the origin
- * through (Mxu, Myu) meets the contour at the demand's own axial load.
- *
- * Solved for Fi by bisection on the direction of the moment that comes back,
- * which is monotone over the quarter. Null when the load itself is out of
- * reach — above the axial cap, where no moment at all can be added.
- */
+/** The moment capacity at Pu along the direction of (Mx, My) — the engine's load contour. */
 export function momentCapacityAtAxial(
   outline: Outline, bars: readonly Bar[], mat: Materials,
   Pu: number, Mx: number, My: number,
 ): MomentCapacity | null {
-  const section = prepareSection(outline, bars, mat);
-  try {
-    const sx = Mx < 0 ? -1 : 1;
-    const sy = My < 0 ? -1 : 1;
-    const want = Math.atan2(Math.abs(My), Math.abs(Mx));
-    const at = (fi: number) => stateAtAxialPrepared(section, thetaFor(fi, sx, sy), Pu);
-    const dirOf = (p: SectionPoint) => Math.atan2(Math.abs(sheetMy(p)), Math.abs(sheetMx(p)));
-
-    const pack = (fi: number, p: SectionPoint): MomentCapacity => ({
-      phiMn: Math.hypot(p.phiMnx, p.phiMny), phiMnx: sheetMx(p), phiMny: sheetMy(p), fi, state: p,
-    });
-
-    /* On an axis the answer is the end of the contour; no search needed. */
-    if (Math.abs(My) < 1e-9 || Math.abs(Mx) < 1e-9) {
-      const fi = Math.abs(My) < 1e-9 ? 0 : Math.PI / 2;
-      const p = at(fi);
-      return p ? pack(fi, p) : null;
-    }
-
-    let lo = 0;
-    let hi = Math.PI / 2;
-    const pLo = at(lo);
-    const pHi = at(hi);
-    if (!pLo || !pHi) return null;
-    let best = pack(lo, pLo);
-    for (let i = 0; i < 40; i++) {
-      const mid = (lo + hi) / 2;
-      const p = at(mid);
-      if (!p) return null;
-      best = pack(mid, p);
-      const d = dirOf(p) - want;
-      if (Math.abs(d) < 1e-7) break;
-      if (d < 0) lo = mid; else hi = mid;
-    }
-    return best;
-  } finally { section.free(); }
+  return withSection(outline, bars, mat, (s) => s.momentCapacityAtAxial(Pu, Mx, My));
 }
 
-/** The greatest and least φPn the section reaches, kN — the ends of any cut. */
+/** The design diagram's axial extremes (kN), θ = π/2. */
 export function axialRange(outline: Outline, bars: readonly Bar[], mat: Materials): { max: number; min: number } {
-  const curve = interactionCurve(outline, bars, mat, Math.PI / 2, 60);
+  const curve = withSection(outline, bars, mat, (s) => s.curve(Math.PI / 2, 60));
   return {
     max: Math.max(...curve.map((p) => p.phiPn)),
     min: Math.min(...curve.map((p) => p.phiPn)),

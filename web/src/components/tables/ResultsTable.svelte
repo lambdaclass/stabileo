@@ -2,6 +2,7 @@
   import { resultCaseName } from '../../lib/engine/settlement-case';
   import { modelStore, uiStore, resultsStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
+  import { knownIssueMessage } from '../../lib/engine/known-issues';
   import { shellRef } from '../../lib/engine/model-findings';
   import { toDisplay, unitLabel } from '../../lib/utils/units';
   import {
@@ -47,7 +48,7 @@
     // `shellKeys`, not `elementIds`, so they are never labelled as a frame.
     const modelDiags = is3D ? resultsStore.structuredDiagnostics3D : resultsStore.structuredDiagnostics;
     for (const d of [...asmDiags, ...modelDiags]) {
-      items.push({ source: entityLabel(d) || d.source, type: d.code, message: d.message, severity: d.severity });
+      items.push({ source: entityLabel(d) || d.source, type: d.code, message: 'phase' in d ? knownIssueMessage(d) : d.message, severity: d.severity });
     }
     const solverDiags = is3D ? resultsStore.solverDiagnostics3D : resultsStore.solverDiagnostics;
     for (const d of solverDiags) {

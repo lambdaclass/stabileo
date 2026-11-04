@@ -15,8 +15,10 @@ Element pairs (see README.md for the justification of each):
                            AZ = A/asY, AY = A/asZ (the engine pairs asY with Iy)
   truss                    BARRE
   support springs          DIS_TR / DIS_T on a POI1 cell, K_TR_D_N global
-  connectors               DIS_TR on a SEG2 cell, K_TR_D_L in the connector's
-                           local axes (ported from element/connector.rs)
+  connectors               DIS_TR on a SEG2 cell (ported from
+                           element/connector.rs): zero-length K_TR_D_L in the
+                           connector's local axes; finite-length the full
+                           global K_TR_L (shear at the midpoint via rigid arms)
   releases (My, Mz, T)     the released end on its own node, tied to the
                            joint by LIAISON_DDL on the three translations and
                            on the local rotation components that are not
@@ -110,6 +112,90 @@ def connector_axes(pi, pj):
     dy = _unit(_cross(ref, dx))
     dz = _cross(dx, dy)
     return dx, dy, dz, n
+
+
+# element/connector.rs CONNECTOR_SHEAR_POSITION: where the shear springs of a
+# finite-length connector act, as a fraction of its length from node i.
+CONNECTOR_SHEAR_POSITION = 0.5
+
+
+def connector_matrix(kv, ex, ey, ez, length):
+    """Port of element/connector.rs connector_stiffness_3d: global 12x12
+    stiffness over [u_i, theta_i, u_j, theta_j], the sum of k * b b^T over the
+    spring compatibility rows b. kv = (axial, shear y, shear z, torsion,
+    bend y, bend z) in the connector axes ex, ey, ez."""
+    a = CONNECTOR_SHEAR_POSITION
+
+    def trans(e, arm):
+        b = [0.0] * 12
+        for p in range(3):
+            b[p] = -e[p]
+            b[3 + p] = a * length * arm[p]
+            b[6 + p] = e[p]
+            b[9 + p] = (1.0 - a) * length * arm[p]
+        return b
+
+    def rot(e):
+        b = [0.0] * 12
+        for p in range(3):
+            b[3 + p] = -e[p]
+            b[9 + p] = e[p]
+        return b
+
+    rows = [trans(ex, [0.0, 0.0, 0.0]), trans(ey, [-v for v in ez]), trans(ez, ey),
+            rot(ex), rot(ey), rot(ez)]
+    k = [[0.0] * 12 for _ in range(12)]
+    for kk, b in zip(kv, rows):
+        if kk:
+            for i in range(12):
+                if b[i]:
+                    for j in range(12):
+                        k[i][j] += kk * b[i] * b[j]
+    return k
+
+
+def _rank(rows, tol=1e-10):
+    """Rank of a list of sparse rows {column: coefficient} (Gaussian
+    elimination with partial pivoting, tolerance relative to each row)."""
+    rows = [dict(r) for r in rows if r]
+    rank = 0
+    while rows:
+        r = rows.pop()
+        scale = max((abs(v) for v in r.values()), default=0.0)
+        if scale == 0.0:
+            continue
+        col, piv = max(r.items(), key=lambda kv: abs(kv[1]))
+        if abs(piv) <= tol * scale:
+            continue
+        rank += 1
+        nxt = []
+        for o in rows:
+            f = o.get(col, 0.0) / piv
+            if f:
+                o = {c: o.get(c, 0.0) - f * r.get(c, 0.0) for c in set(o) | set(r)}
+                big = max((abs(v) for v in o.values()), default=0.0)
+                o = {c: v for c, v in o.items() if abs(v) > tol * max(big, scale)}
+            nxt.append(o)
+        rows = nxt
+    return rank
+
+
+def constraints_redundant(mpcs, fixed, inclined):
+    """True when the constraint rows together with the support rows on the
+    DOFs they touch are linearly dependent (some equation is implied by the
+    others, so a multiplier is not determined)."""
+    eqs = [{(n, k): c for n, k, c in row} for row in mpcs if row]
+    if not eqs:
+        return False
+    cols = {key for e in eqs for key in e}
+    sup = []
+    for n, k in sorted(cols):
+        if (fixed.get(n) or [False] * 6)[k]:
+            sup.append({(n, k): 1.0})
+    for n in sorted({n for n, k in cols if k < 3 and n in inclined}):
+        sup.append({(n, k): inclined[n][k] for k in range(3) if abs(inclined[n][k]) > 0.0})
+    rows = sup + eqs
+    return _rank(rows) < len(rows)
 
 
 def rank3(vs, tol=1e-9):
@@ -363,6 +449,15 @@ def translate(d):
             if fx[3 + k] or springs.get(nid, [0.0] * 6)[3 + k] > 0:
                 rot_dirs[nid].append(E3[k])
     mpcs = _constraint_rows(d, pts)
+    # Constraint equations that are linearly dependent on the supports (or on
+    # each other): Code_Aster enforces every one with a Lagrange multiplier,
+    # and dependent rows make its matrix singular (FACTOR_42, aster3d-744151:
+    # a rigid link whose dependent node also has a support). The engine keeps
+    # such a model solvable and reports over_constrained_dof. Not comparable,
+    # so unsupported; independent rows, whatever the term order (-2*rx_1 +
+    # uy_2 = 0 with node 1 fixed), are translated as before.
+    if constraints_redundant(mpcs, fixed, inclined):
+        raise Unsupported("constraint equations dependent on the supports")
     for row in mpcs:
         for nid, k, _ in row:
             if k >= 3:
@@ -532,7 +627,16 @@ def translate(d):
         dx, dy, dz, n = connector_axes(pts[c["nodeI"]], pts[c["nodeJ"]])
         kv = [c.get(k) or 0.0 for k in ("kAxial", "kShear", "kShearZ", "kMoment", "kBendY", "kBendZ")]
         g = f"C{c['id']}"
-        discret.append(f"_F(GROUP_MA={g!r}, CARA='K_TR_D_L', REPERE='LOCAL', VALE=({', '.join(_f(v) for v in kv)}))")
+        if n > 1e-12:
+            # Finite length: the shear springs act at the midpoint through rigid
+            # arms (element/connector.rs), which couples shear to the end
+            # rotations: a full 12x12 matrix, not a diagonal one.
+            kfull = connector_matrix(kv, dx, dy, dz, n)
+            vals = [kfull[i][j] for j in range(12) for i in range(j + 1)]
+            discret.append(f"_F(GROUP_MA={g!r}, CARA='K_TR_L', REPERE='GLOBAL', "
+                           f"VALE=({', '.join(_f(v) for v in vals)}))")
+        else:
+            discret.append(f"_F(GROUP_MA={g!r}, CARA='K_TR_D_L', REPERE='LOCAL', VALE=({', '.join(_f(v) for v in kv)}))")
         if n > 1e-12:
             orient.append(f"_F(GROUP_MA={g!r}, CARA='VECT_Y', VALE=({', '.join(_f(v) for v in dy)}))")
         else:
@@ -572,6 +676,10 @@ def translate(d):
             liais.append(_liaison(row))
     for row in mpcs:
         liais.append(_liaison([(f"N{n}", k, c) for n, k, c in row]))
+    if not ddl and not liais:
+        # Nothing restrains the model (Code_Aster rejects an empty
+        # AFFE_CHAR_MECA): a free body, singular by its rigid-body motions.
+        raise Unsupported("free body: no support or constraint")
     w("BC = AFFE_CHAR_MECA(MODELE=MO,")
     if ddl:
         w("    DDL_IMPO=(" + "".join(f"\n        {s}," for s in ddl) + "\n    ),")
@@ -736,7 +844,10 @@ def _constraint_rows(d, pts):
       rigidLink   u_s = u_m + th_m x r (dofs listed; default translations),
                   rotations listed: th_s = th_m; r = x_s - x_m
       diaphragm   in-plane translations of each slave follow the master's
-                  in-plane rigid motion (slave rotation is NOT tied)
+                  in-plane rigid motion, theta x r (right-handed: XY about z,
+                  YZ about x, XZ about y), and the slave's in-plane rotation
+                  equals the master's (a rigid floor turns as one body; the
+                  engine ties it since 89bed56b4, as SAP2000/OpenSees do)
       equalDOF    u_s,k = u_m,k
       linearMPC   sum c_i u_i = 0
       eccentricConnection  rigidLink with an explicit offset, every DOF not
@@ -775,14 +886,16 @@ def _constraint_rows(d, pts):
         elif t == "linearMPC":
             rows.append([(tm["nodeId"], tm["dof"], tm["coefficient"]) for tm in x["terms"]])
         elif t == "diaphragm":
-            plane = x.get("plane", "XY")
-            d0, d1, dr, i0, i1 = {"XZ": (0, 2, 4, 0, 2), "YZ": (1, 2, 3, 1, 2)}.get(plane, (0, 1, 5, 0, 1))
+            plane = (x.get("plane") or "XY").upper()
+            d0, d1, dr = {"XZ": (0, 2, 4), "YZ": (1, 2, 3)}.get(plane, (0, 1, 5))
             ms = x["masterNode"]
             for sl in x["slaveNodes"]:
-                o0 = pts[sl][i0] - pts[ms][i0]
-                o1 = pts[sl][i1] - pts[ms][i1]
-                rows.append([t_ for t_ in [(sl, d0, 1.0), (ms, d0, -1.0), (ms, dr, o1)] if abs(t_[2]) > 1e-15])
-                rows.append([t_ for t_ in [(sl, d1, 1.0), (ms, d1, -1.0), (ms, dr, -o0)] if abs(t_[2]) > 1e-15])
+                dx, dy, dz = (pts[sl][k] - pts[ms][k] for k in range(3))
+                # u_slave = u_master + c * theta_master (constraints.rs, diaphragm_lever)
+                c0, c1 = {"XZ": (dz, -dx), "YZ": (-dz, dy)}.get(plane, (-dy, dx))
+                rows.append([t_ for t_ in [(sl, d0, 1.0), (ms, d0, -1.0), (ms, dr, -c0)] if abs(t_[2]) > 1e-15])
+                rows.append([t_ for t_ in [(sl, d1, 1.0), (ms, d1, -1.0), (ms, dr, -c1)] if abs(t_[2]) > 1e-15])
+                rows.append([(sl, dr, 1.0), (ms, dr, -1.0)])
         else:
             raise Unsupported(f"constraint {t}")
     return rows

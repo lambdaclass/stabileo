@@ -57,6 +57,9 @@ import { whatIf } from '../../store/whatif.svelte';
 import { t } from '../../i18n';
 import type { AnalysisResults, ElementForces, SolverInput, SolverLoad } from '../types';
 import { generate, FAMILIES, rng, type GenMeta, type Family } from './helpers/random-models-2d';
+import { runPDelta2D } from '../second-order/run-pdelta';
+import { runBuckling2D } from '../second-order/run-buckling';
+import { DEFAULT_SETTINGS } from '../second-order/settings';
 
 // ── Size of the sweep ────────────────────────────────────────────────
 const SEEDS_PER_FAMILY = 50;
@@ -238,6 +241,10 @@ function memberLoads(input: SolverInput, id: number): MemberLoads {
       const p = l.data.p ?? 0, px = l.data.px ?? 0, my = l.data.my ?? 0;
       fx += -s * p + c * px; fz += c * p + s * px; m += p * l.data.a + my;
       scale = Math.max(scale, Math.abs(p), Math.abs(px), Math.abs(my) / Math.max(L, 1e-9));
+    } else if (l.type === 'axialDistributed' && l.data.elementId === id) {
+      // Along the member: no moment about I, which lies on its line.
+      const total = ((l.data.qI + l.data.qJ) / 2) * ((l.data.b ?? L) - (l.data.a ?? 0));
+      fx += c * total; fz += s * total; scale = Math.max(scale, Math.abs(total));
     }
   }
   return { fx, fz, m, scale };
@@ -414,6 +421,11 @@ function checkBuckling(label: string, input: SolverInput, res: AnalysisResults):
       if (compressed.length) fail('buckling', `${label}: "no compressed elements" but e${compressed[0].elementId} has N=${compressed[0].nStart.toFixed(3)} → ${compressed[0].nEnd.toFixed(3)} kN`);
       return { none: 'noCompression' };
     }
+    /*
+     * A compressed member whose every degree of freedom is held (one fixed-fixed member under a
+     * load along it) has nothing free to buckle: the analysis says so, which is the answer.
+     */
+    if (/Every degree of freedom is restrained/.test(m) && compressed.length) return { none: 'failed' };
     fail('buckling', `${label}: threw "${m.slice(0, 120)}"${trussOnlyNodes(input) ? ' [truss-only nodes]' : ''}`);
     return { none: 'failed' };
   }
@@ -425,6 +437,26 @@ function checkBuckling(label: string, input: SolverInput, res: AnalysisResults):
   for (let k = 1; k < lf.length; k++) if (lf[k] < lf[k - 1] * (1 - 1e-9)) { fail('buckling', `${label}: modes not ascending ${lf.map((x: number) => x.toPrecision(4))}`); break; }
   if (!compressed.length) fail('buckling', `${label}: modes found (λ1=${lf[0]}) with no compressed member`);
   return { lambda1: lf[0] };
+}
+
+/** The buckling the Basic panel runs: the members cut at the solve, also where a force along them acts. */
+function checkBasicBuckling(label: string, res: AnalysisResults, input: SolverInput): number | null {
+  ran('buckling-basic');
+  const nScale = Math.max(1e-9, ...res.elementForces.map((f) => Math.max(Math.abs(f.nStart), Math.abs(f.nEnd))));
+  const compressed = res.elementForces.some((f) => Math.min(f.nStart, f.nEnd) < -1e-6 * nScale && Math.min(f.nStart, f.nEnd) < -1e-9);
+  let got;
+  try { got = runBuckling2D(input, DEFAULT_SETTINGS); } catch (e) {
+    const m = errMsg(e);
+    if (/no compressed elements/i.test(m) && !compressed) return null;
+    if (/Every degree of freedom is restrained/.test(m)) return null;
+    fail('buckling-basic', `${label}: threw "${m.slice(0, 120)}"`);
+    return null;
+  }
+  if (!got.ok) { fail('buckling-basic', `${label}: refused ${got.reason.key}`); return null; }
+  const lf = got.result.modes.map((m) => m.loadFactor);
+  if (!lf.length || lf.some((x) => !(x > 0) || !Number.isFinite(x))) fail('buckling-basic', `${label}: λ ${lf}`);
+  for (let k = 1; k < lf.length; k++) if (lf[k] < lf[k - 1] * (1 - 1e-9)) { fail('buckling-basic', `${label}: modes not ascending`); break; }
+  return lf[0] ?? null;
 }
 
 function checkPDelta(label: string, input: SolverInput, bk: Buck, hasLoads: boolean) {
@@ -449,15 +481,26 @@ function checkPDelta(label: string, input: SolverInput, bk: Buck, hasLoads: bool
   }
   const lambda1 = bk.lambda1;
   if (lambda1 > 1.5) {
-    ran('pdelta-b2');
+    ran('pdelta-b2-engine');
     if (!pd.converged || !pd.isStable) { fail('pdelta', `${label}: λ1=${lambda1.toFixed(2)} but converged=${pd.converged} stable=${pd.isStable}`); return; }
     const exp = 1 / (1 - 1 / lambda1);
     if (!(pd.b2Factor >= 0.9) || Math.abs(pd.b2Factor - exp) > 0.25 * exp) {
-      fail('pdelta-b2', `${label}: λ1=${lambda1.toFixed(3)} → 1/(1−1/λ1)=${exp.toFixed(3)}, B2=${pd.b2Factor.toFixed(3)}`);
+      fail('pdelta-b2-engine', `${label}: λ1=${lambda1.toFixed(3)} → 1/(1−1/λ1)=${exp.toFixed(3)}, B2=${pd.b2Factor.toFixed(3)}`);
     }
   } else if (lambda1 < 0.95 && pd.isStable) {
     fail('pdelta', `${label}: λ1=${lambda1.toFixed(3)} < 1 (loads above the critical load) but P-Δ reports stable, B2=${pd.b2Factor}`);
   }
+}
+
+/** The B₂ the Basic panel shows: 1/(1 − 1/λ₁) with λ₁ of the Basic buckling, at the same discretization. */
+function checkBasicB2(label: string, input: SolverInput, lambda1: number | null) {
+  if (lambda1 === null || !(lambda1 > 1.5)) return;
+  ran('pdelta-b2');
+  const got = runPDelta2D(input, DEFAULT_SETTINGS);
+  if (!got.ok) { fail('pdelta-b2', `${label}: refused ${got.reason.key}`); return; }
+  const exp = 1 / (1 - 1 / lambda1);
+  const b2 = got.result.secondOrder.b2;
+  if (!(Math.abs(b2 - exp) <= 0.25 * exp)) fail('pdelta-b2', `${label}: λ1=${lambda1.toFixed(3)} → 1/(1−1/λ1)=${exp.toFixed(3)}, Basic B2=${b2.toFixed(3)}`);
 }
 
 const densities = () => new Map([...modelStore.materials].map(([id, m]) => [id, (m.rho * 1000) / 9.81]));
@@ -533,6 +576,10 @@ function checkPlastic(label: string, meta: GenMeta, input: SolverInput, res: Ana
   const r = run.result;
   if (!Number.isFinite(r.collapseFactor) || !(r.collapseFactor > 0)) { fail('plastic', `${label}: λc=${r.collapseFactor} mechanism=${r.isMechanism}`); return; }
   const fy = firstYield(input, res, new Map(run.mps.map((m) => [m.sectionId, m.mp])));
+  if (r.unconfirmed) {
+    fail('plastic', `${label}: unconfirmed, stopped on its work limit at λ=${r.collapseFactor} (${r.hinges.length} hinges, ${r.hinges.filter((h) => h.unloadedAt !== undefined).length} closed)`);
+    return;
+  }
   if (!r.isMechanism) {
     // A structure under forces collapses at some factor; only self-equilibrated actions cannot.
     fail('plastic', `${label}: no mechanism (λ=${r.collapseFactor}, ${r.hinges.length} hinges, first yield at ${fy.lambda.toFixed(3)} in ${fy.where})${meta.thermal || meta.settlement ? ' [has thermal/settlement]' : ''}`);
@@ -570,7 +617,8 @@ function ilValueFromStatic(q: Q, res: AnalysisResults, node?: number, elem?: num
   }
   const drawn = resultsToDrawnAxes(res, signOf);
   const ef = drawn.elementForces.find((f) => f.elementId === elem)!;
-  return computeDiagramValueAt(q === 'M' ? 'moment' : 'shear', 0.5, ef);
+  // The line reads M positive when it tensions the bottom fibre: the drawn diagram's value turned over.
+  return q === 'M' ? -computeDiagramValueAt('moment', 0.5, ef) : computeDiagramValueAt('shear', 0.5, ef);
 }
 
 const rigidVertical = (s: { type: string; angle?: number }) => (s.type === 'fixed' || s.type === 'pinned' || s.type === 'rollerX') && !s.angle;
@@ -819,6 +867,7 @@ function auditModel(meta: GenMeta) {
 
   const bk = checkBuckling(label, input, res);
   checkPDelta(label, input, bk, modelStore.model.loads.length > 0);
+  checkBasicB2(label, input, checkBasicBuckling(label, res, input));
   const sample = meta.seed % SAMPLE_EVERY === 0;
   checkModal(label, input, sample, meta);
   if (modelStore.model.loads.length > 0) checkPlastic(label, meta, input, res, degree);
@@ -843,20 +892,31 @@ function auditModel(meta: GenMeta) {
  */
 const itFails = process.env.SWEEP_SHOW_FAILS ? it : it.fails;
 const KNOWN: Array<{ check: string; defect: string; match: (m: string) => boolean }> = [
-  // D10 — engine/src/solver/pdelta.rs:228 b2_factor: the largest per-DOF ratio u_PΔ/u_lin
-  //       over the translations it selects, not the amplification of the first mode.
+  // D10 — engine/src/solver/pdelta.rs:173-196 b2_factor: the largest per-DOF ratio u_PΔ/u_lin
+  //       over the translations it selects, not the amplification of the first mode. The Basic
+  //       panel no longer shows this field as B2: it shows 1/(1 − 1/λ1) from its own buckling
+  //       ('pdelta-b2', plain check) and the largest displacement amplification beside it.
+  //       The engine's raw field is still per-DOF, which this entry keeps in view.
   //       (a) On an arch a DOF whose linear value is small but above the 5 % cut reports
   //       B2 = 1.35 at λ1 = 15.9 (1/(1 − 1/λ1) = 1.07; max |u| grows 3 %). (b) On mixed#50
   //       the load barely excites mode 1 (λ1 = 1.86), so no DOF is amplified by
   //       1/(1 − 1/λ1) = 2.16 and B2 = 1.09: the per-DOF ratio is right for that load, but
   //       it is not the B2 the check (and AISC's B2) means. Both need the engine.
-  { check: 'pdelta-b2', defect: 'ENGINE D10 (pdelta.rs:228): B2 is a per-DOF ratio, not the first-mode amplification', match: (m) => m.startsWith('arch#') || m.startsWith('mixed#50:') },
-  // D12 — engine/src/solver/buckling.rs:64 and geometric_stiffness.rs:254 take one axial
-  //       force per member, the mean of its two ends: a member compressed over part of its
+  { check: 'pdelta-b2-engine', defect: 'ENGINE D10 (pdelta.rs:173-196): the engine\'s raw b2Factor is a per-DOF ratio, not the first-mode amplification', match: (m) => m.startsWith('arch#') || m.startsWith('mixed#50:') },
+  // D12 — engine/src/solver/buckling.rs:91-93 takes one mean axial force per member,
+  //       EA·δ/L since 540aeb13a: a member compressed over part of its
   //       length (axial point load) reads as "no compressed elements", and a model whose
-  //       only compression is small next to a tension ends in buckling.rs:144 "No positive
-  //       buckling load factors found" instead of a (large) factor.
-  { check: 'buckling', defect: 'ENGINE D12 (buckling.rs:64, geometric_stiffness.rs:254): one mean N per member misses partial or small compression', match: (m) => /no compressed elements" but|No positive buckling/.test(m) },
+  //       only compression is small next to a tension ends in "No positive buckling load
+  //       factors found" instead of a (large) factor. Still open in the engine (beam#28,
+  //       beam#36); the Basic panel cuts members where a force along them acts, and
+  //       'buckling-basic' checks that path whole.
+  // The step-by-step plastic collapse of beam#5 (a settlement, an inclined roller, axial yield and
+  //       a member load) needs 346 hinge closings and about 350 events to reach its mechanism
+  //       (λc = 186.27, ~24 s): the span hinge walks along the member a sampling step at a time.
+  //       Within the 200 events the panel allows it stops and says the collapse is not confirmed;
+  //       with a 10-closing cap it used to report a false collapse at 160.23.
+  { check: 'plastic', defect: 'beam#5 needs ~350 events (a hinge drifting a sampling step per closing): the run stops unconfirmed within the panel\'s 200', match: (m) => m.startsWith('beam#5:') && m.includes('unconfirmed') },
+  { check: 'buckling', defect: 'ENGINE D12 (buckling.rs:91-93): one mean N per member misses partial or small compression (Basic cuts the member: see buckling-basic)', match: (m) => /no compressed elements" but|No positive buckling/.test(m) },
 ];
 
 // ── Suite ────────────────────────────────────────────────────────────
@@ -922,7 +982,9 @@ describe('advanced 2D functions on generated models', () => {
     ['buckling', 'buckling: λ > 0, ascending, "no compression" only without compression'],
     ['pdelta', 'P-Δ: converges, finite, stable/unstable as λ1 says'],
     ['pdelta-noloads', 'P-Δ: a model without loads converges'],
-    ['pdelta-b2', 'P-Δ: B2 ≈ 1/(1 − 1/λ1) within 25 %'],
+    ['buckling-basic', 'Basic buckling (members cut at the solve): λ > 0, ascending'],
+    ['pdelta-b2', 'P-Δ (Basic panel): B2 = 1/(1 − 1/λ1) of the Basic buckling within 25 %'],
+    ['pdelta-b2-engine', 'P-Δ: the engine\'s b2Factor ≈ 1/(1 − 1/λ1) within 25 %'],
     ['modal', 'modal: frequencies and mass ratios'],
     ['modal-scaling', 'modal: f ∝ √E and f ∝ 1/√ρ'],
     ['plastic', 'plastic: a finite collapse factor and a mechanism'],
@@ -1255,14 +1317,14 @@ describe('hand-built: textbook values', () => {
     expect(cf.frequency / ((1.875104 ** 2 / (2 * Math.PI * 16)) * Math.sqrt(EI / m))).toBeCloseTo(1, 2);
   });
 
-  it('influence line: simply supported beam, M at midspan peaks at L/4 with the sign of the static diagram; Rz is 1 − x/L', () => {
+  it('influence line: simply supported beam, M at midspan peaks at L/4, positive where the static diagram sags; Rz is 1 − x/L', () => {
     build(() => { const n = [0, 2, 4, 6, 8, 10].map((x) => N(x, 0)); for (let i = 0; i < 5; i++) E(n[i], n[i + 1]); modelStore.addSupport(n[0], 'pinned'); modelStore.addSupport(n[5], 'rollerX'); });
     const il = computeInfluenceLine(modelStore.model as never, 'M' as never, undefined, 3, 0.5) as { points: Array<{ x: number; value: number }> };
     const at = (x: number) => il.points.find((p) => Math.abs(p.x - x) < 1e-9)!.value;
     expect(Math.abs(at(5))).toBeCloseTo(2.5, 6);
     expect(Math.abs(at(2))).toBeCloseTo(1, 6);
     const st = staticWith([unitDownAt(3, 1)]) as AnalysisResults;
-    expect(Math.sign(at(5))).toBe(Math.sign(computeDiagramValueAt('moment', 0.5, st.elementForces.find((f) => f.elementId === 3)!)));
+    expect(Math.sign(at(5))).toBe(-Math.sign(computeDiagramValueAt('moment', 0.5, st.elementForces.find((f) => f.elementId === 3)!)));
     const rz = computeInfluenceLine(modelStore.model as never, 'Rz' as never, 1) as { points: Array<{ x: number; value: number }> };
     for (const p of rz.points) expect(p.value).toBeCloseTo(1 - p.x / 10, 6);
   });

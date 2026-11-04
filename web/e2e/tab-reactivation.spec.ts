@@ -21,14 +21,14 @@
  * the timer clamping or the rAF suspension that precede them. The numbers here are therefore a
  * FLOOR on the real-world improvement, not a simulation of it.
  */
-import { test, expect, designAll, loadModel, openDocumentsStage } from './fixtures';
+import { test, expect, designAll, loadModel, openDocumentsStage, designPlace, openFloorPass } from './fixtures';
 
 type Page = import('@playwright/test').Page;
 
 async function openWorkspace(page: Page, example: string, withFloors = false) {
   await loadModel(page, example);
   await designAll(page);
-  await page.getByTestId('detailing-disclosure').locator('> summary').click();
+  await designPlace(page, 'detailing');
   const gen = page.getByTestId('cmd-generate-detailing');
   await expect(gen).toBeEnabled();
   await gen.click();
@@ -36,7 +36,7 @@ async function openWorkspace(page: Page, example: string, withFloors = false) {
     (window.__stabileo as unknown as { detailingAssemblies(): unknown[] })
       .detailingAssemblies().length), { timeout: 30_000 }).toBeGreaterThan(0);
   if (withFloors) {
-    await page.getByTestId('floor-families-disclosure').locator('> summary').click();
+    await openFloorPass(page);
     const f = page.getByTestId('floor-design-run');
     await expect(f).toBeEnabled();
     await f.click();

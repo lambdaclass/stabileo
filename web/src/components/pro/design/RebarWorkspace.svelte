@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { editorActivity } from '../../../lib/utils/editor-activity';
+  const editorActive = editorActivity();
   /**
    * The 3-D reinforcement workspace: the whole window, not a corner of it.
    *
@@ -10,9 +12,7 @@
    * `uiStore.proPanelWidth`. No amount of width inside it can exceed the sidebar, so
    * inspecting a cage of thousands of bars was being done through a slot a few hundred pixels
    * wide. Widening the sidebar would have traded one cramped surface for another and broken
-   * the model view beside it.
-   *
-   * So the workspace mounts at App level and covers the window. The sidebar keeps the summary
+   * the model view beside it. So the workspace mounts at App level and covers the window. The sidebar keeps the summary
    * and the export; the inspection happens here.
    *
    * ── Why closing does not destroy anything ─────────────────────────
@@ -29,9 +29,8 @@
   import { detailingAuthor } from '../../../lib/store/detailing-author.svelte';
   import { openRebar3D } from '../../../lib/store/rebar-open';
   import { rebarWorkspace, SOLID_KINDS } from '../../../lib/store/rebar-workspace.svelte';
-  import {
-    filterScene, summariseScene, type SceneFilter,
-  } from '../../../lib/engine/detailing/scene-model';
+  import { filterScene, summariseScene, type SceneFilter } from '../../../lib/engine/detailing/scene-model';
+  import { projectPhysicalFrame } from '../../../lib/store/physical-frame';
   import { membersFromModel } from '../../../lib/engine/detailing/member-geometry';
   import { cachedSceneModel } from '../../../lib/engine/detailing/scene-cache';
   import {
@@ -103,7 +102,7 @@
        * the only question that matters — same document, same members — so a checkbox, a
        * slider or a selection no longer rebuilds the projection.
        */
-      const scene = cachedSceneModel(doc, members);
+      const scene = cachedSceneModel(doc, members, { physical: projectPhysicalFrame() });
       markOpenPhase('scene');
       return { scene, refused };
   });
@@ -272,7 +271,7 @@
   });
 
   function onKeydown(e: KeyboardEvent) {
-    if (!rebarWorkspace.open) return;
+    if (!editorActive() || !rebarWorkspace.open) return;
     if (e.key === 'Escape') { rebarWorkspace.close(); return; }
     if (cycleTabWithin(dialogEl, e)) e.preventDefault();
   }
@@ -437,7 +436,9 @@
   .workspace {
     position: fixed;
     inset: 0;
-    z-index: 900;
+    /* Above design's full-screen sheet (900, phone), which opens it on a member: the view opened
+       last is the one on top, and its Escape returns to design. */
+    z-index: 910;
     display: flex;
     flex-direction: column;
     background: var(--st-bg);

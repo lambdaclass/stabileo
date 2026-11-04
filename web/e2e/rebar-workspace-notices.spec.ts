@@ -18,18 +18,23 @@
  */
 
 import { test, expect, openPreparedWorkspace } from './prepared-building';
+import { open3D } from './fixtures';
 import type { Page } from '@playwright/test';
 
 /*
  * On the 408-member frame. The 7-storey building these were written against has had no proposal
  * since self-weight became a member load (its beams fell under the biaxial threshold), so it
- * carries one notice, not both; the frame carries 13 proposals and unevaluated torsion.
+ * carries one notice, not both; the frame carries 13 proposals.
  */
 test.use({ preparedBuilding: 'rc-design-frame' });
 
+/*
+ * The torsion notice said torsion went unchecked; the CIRSOC adapter checks it now (§22.7), so no
+ * fixture raises it in the app and its fold is covered where the flag can be turned off
+ * (`detailing/__tests__/torsion-notice.test.ts`). The provisional notice is the standing one.
+ */
 const NOTICES = [
   { kind: 'provisional', testid: 'rebar-provisional-banner' },
-  { kind: 'torsion', testid: 'rebar-torsion-banner' },
 ] as const;
 
 function heightOf(page: Page, testid: string): Promise<number> {
@@ -124,7 +129,7 @@ test.describe('@slow the standing notices, on the building that carries both', (
 
     await page.keyboard.press('Escape');
     await expect(page.getByTestId('rebar-workspace')).toBeHidden();
-    await page.getByTestId('cmd-open-3d').click();
+    await open3D(page);
     await expect(page.getByTestId('rebar-workspace')).toBeVisible();
 
     /**
@@ -135,9 +140,6 @@ test.describe('@slow the standing notices, on the building that carries both', (
     await expect(page.getByTestId('rebar-provisional-banner'),
       'the fold is session state, not component state')
       .toHaveAttribute('data-folded', 'true');
-    /* And the other notice was not folded along with it — they are separate facts. */
-    await expect(page.getByTestId('rebar-torsion-banner'))
-      .toHaveAttribute('data-folded', 'false');
   });
 
   test('unfolding brings the explanation back', async (
@@ -146,15 +148,15 @@ test.describe('@slow the standing notices, on the building that carries both', (
     test.setTimeout(240_000);
     await openPreparedWorkspace(page, preparedProject);
 
-    const full = (await page.getByTestId('rebar-torsion-banner').innerText()).length;
-    await page.getByTestId('rebar-torsion-banner-fold').click();
-    const folded = (await page.getByTestId('rebar-torsion-banner').innerText()).length;
+    const full = (await page.getByTestId('rebar-provisional-banner').innerText()).length;
+    await page.getByTestId('rebar-provisional-banner-fold').click();
+    const folded = (await page.getByTestId('rebar-provisional-banner').innerText()).length;
     expect(folded, 'the paragraph went away').toBeLessThan(full);
 
-    await page.getByTestId('rebar-torsion-banner-fold').click();
-    await expect(page.getByTestId('rebar-torsion-banner'))
+    await page.getByTestId('rebar-provisional-banner-fold').click();
+    await expect(page.getByTestId('rebar-provisional-banner'))
       .toHaveAttribute('data-folded', 'false');
-    expect((await page.getByTestId('rebar-torsion-banner').innerText()).length,
+    expect((await page.getByTestId('rebar-provisional-banner').innerText()).length,
       'and came back whole').toBe(full);
   });
 
@@ -192,9 +194,16 @@ test.describe('@slow the standing notices, on the building that carries both', (
      * `rebarWorkspace.statusFilter` — the channel that already existed — and not a second one.
      */
     await filter.click();
-    await expect(filter).toHaveAttribute('aria-pressed', 'true');
+    /*
+     * Sixty seconds, not the default ten. On a CI runner the page is busy for 40 s after this
+     * press (the trace of a failure on main: 28.7 s before `aria-pressed` read true, then a
+     * first `count()` that had not answered 15 s later), so the poll expired before the page
+     * could answer a single query. This test is about the filter narrowing the list; how long
+     * the press blocks the page is issue #608.
+     */
+    await expect(filter).toHaveAttribute('aria-pressed', 'true', { timeout: 60_000 });
     await expect
-      .poll(() => page.locator('[data-testid^="rebar-element-"][data-testid]').count())
+      .poll(() => page.locator('[data-testid^="rebar-element-"][data-testid]').count(), { timeout: 60_000 })
       .toBeLessThan(preparedProject.elements);
   });
 });

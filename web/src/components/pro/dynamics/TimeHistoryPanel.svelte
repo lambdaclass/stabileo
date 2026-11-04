@@ -16,6 +16,8 @@
   import { resultsStore } from '../../../lib/store';
   import { solveTimeHistory3D } from '../../../lib/engine/wasm-solver';
   import { errorText } from '../../../lib/utils/error-text';
+  import { te } from '../../../lib/i18n/engine-text';
+  import { timeHistoryRefusal } from '../../../lib/engine/dynamics/time-history-refusal';
   import { peakBaseShear, HHT_ALPHA_RANGE } from '../../../lib/engine/dynamics/requests';
   import { recordSummary } from '../../../lib/engine/dynamics/accelerogram';
   import { timeHistoryView, type TimeHistoryResult3D } from '../../../lib/store/time-history-view.svelte';
@@ -111,6 +113,9 @@
     onError(null);
     running = true;
     try {
+      // The spec run is the one saved, first: saving it is a model edit (`setDynamics`), and a
+      // result stamped before it would read as stale the moment it is shown.
+      save(JSON.stringify(spec));
       const { input, densities } = buildDynamicInput();
       const fields = timeHistoryInput(spec, densities, spectrumSa);
       const res = solveTimeHistory3D({ solver: input, ...fields }) as TimeHistoryResult3D;
@@ -118,9 +123,10 @@
       const main = (['x', 'y', 'z'] as const).find((d) => spec.ground[d].source !== 'none') ?? 'x';
       component = main === 'z' ? 'uz' : main === 'y' ? 'uy' : 'ux';
       nodeId = peakNode(res);
-      save(JSON.stringify(spec));
     } catch (e) {
-      onError(`${t('pro.th.title')}: ${errorText(e, 'Error')}`);
+      const text = errorText(e, 'Error');
+      const refusal = timeHistoryRefusal(text);
+      onError(`${t('pro.th.title')}: ${refusal ? te(refusal) : text}`);
     } finally {
       running = false;
     }

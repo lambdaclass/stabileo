@@ -23,9 +23,8 @@
    */
   import { modelStore, resultsStore, uiStore, verificationStore } from '../../lib/store';
   import { designRunStore } from '../../lib/store/design-run.svelte';
-  import { diagnosticsWarning } from '../../lib/store/diagnostics-warning.svelte';
   import { t, tp } from '../../lib/i18n';
-  import { clearReinforcement, revertReinforcement } from '../../lib/store/rebar-edit';
+  import { revertReinforcement } from '../../lib/store/rebar-edit';
   import {
     groupByElevation, groupByPlane, groupByFrameLine, groupByConnectivity,
     groupBySection, groupByMaterial, groupByKind, sectionOptions, materialOptions,
@@ -36,15 +35,16 @@
   import type { MemberDesignOutcome } from '../../lib/engine/design/outcome';
   import {
     matchesFilter, matchesSearch, sortRows, filterCounts, nextFailingId,
-    type DesignRow, type RowFilter, type SortKey,
+    type DesignRow, type SortKey,
   } from './design/design-view';
   import DesignToolbar from './design/DesignToolbar.svelte';
+  import { designTableUi } from './design/design-table-ui.svelte';
   import DesignFamilyPanel from './design/DesignFamilyPanel.svelte';
-  import { detailingStore } from '../../lib/store/detailing.svelte';
   import DesignFilterBar from './design/DesignFilterBar.svelte';
   import DesignTable from './design/DesignTable.svelte';
   import RebarEditorBeam from './design/RebarEditorBeam.svelte';
   import RebarEditorColumn from './design/RebarEditorColumn.svelte';
+  import RebarEditorShapedColumn from './design/RebarEditorShapedColumn.svelte';
   import RebarSchematics from './design/RebarSchematics.svelte';
   import VerificationDetail from './design/VerificationDetail.svelte';
   import BatchEditDialog from './design/BatchEditDialog.svelte';
@@ -58,17 +58,11 @@
    * copied handler is a second source of truth about what the action does. Nothing changes on
    * screen: same testids, same disabled logic, same store effects, same arming.
    */
-  import {
-    rcAutoDesignSelected,
-  } from '../../lib/flow/rc-commands';
+  import { rcCodeCheck } from '../../lib/flow/rc-commands';
 
   // ─── View state (survives edits — nothing here is reset by a rebar write) ──
-  let filter = $state<RowFilter>('all');
-  let search = $state('');
-  let sortKey = $state<SortKey>('element');
-  let sortAsc = $state(true);
-  let expandedId = $state<number | null>(null);
-  let focusedId = $state<number | null>(null);
+  // Kept for the session, not by this component: see `design-table-ui.svelte.ts`.
+  const view = designTableUi;
   let checked = $state<Set<number>>(new Set());
   let lastCheckedId: number | null = null;
   let groupLabel = $state('');
@@ -161,6 +155,7 @@
           && !designRunStore.manualOverrides.has(id),
         sloped: slopedIds.has(id),
         provided: pv,
+        ...(ctx.span ? { span: { label: ctx.span.label ?? ctx.span.key, k: ctx.span.index + 1, n: ctx.span.elements.length } } : {}),
       });
     }
     return out;
@@ -168,8 +163,8 @@
 
   const counts = $derived(filterCounts(allRows, uiStore.selectedElements));
   const rows = $derived(sortRows(
-    allRows.filter(r => matchesFilter(r, filter, uiStore.selectedElements) && matchesSearch(r, search)),
-    sortKey, sortAsc,
+    allRows.filter(r => matchesFilter(r, view.filter, uiStore.selectedElements) && matchesSearch(r, view.search)),
+    view.sortKey, view.sortAsc,
   ));
 
   /** Batch acts on checked rows when present, otherwise on the viewport selection. */
@@ -235,7 +230,7 @@
    * checked.
    */
   function focusRow(id: number) {
-    focusedId = id;
+    view.focusedId = id;
     if (checked.size > 0) return;
     tableDrivenSelection = true;
     uiStore.selectMode = 'elements';
@@ -243,7 +238,7 @@
   }
 
   function expandRow(id: number) {
-    expandedId = expandedId === id ? null : id;
+    view.expandedId = view.expandedId === id ? null : id;
   }
 
   function selectIds(ids: number[], label: string) {
@@ -256,7 +251,7 @@
     checked = next;
     groupLabel = label.startsWith('sec:') || label.startsWith('mat:') ? '' : label;
     syncViewport(next);
-    filter = 'selected';
+    view.filter = 'selected';
   }
 
   function selectConnected() {
@@ -267,17 +262,17 @@
     selectIds(groupByKind(md, kind), t(kind === 'beam' ? 'design.group.kindBeam' : 'design.group.kindColumn'));
   }
 
-  function gotoNextFailing() {
-    const id = nextFailingId(rows, focusedId);
+  function gotoNextFailing(step: 1 | -1 = 1) {
+    const id = nextFailingId(rows, view.focusedId, step);
     if (id === null) return;
     focusRow(id);
-    expandedId = id;
+    view.expandedId = id;
     document.querySelector(`[data-testid="design-row-${id}"]`)?.scrollIntoView({ block: 'center' });
   }
 
   function onSort(k: SortKey) {
-    if (sortKey === k) sortAsc = !sortAsc;
-    else { sortKey = k; sortAsc = k !== 'utilization'; }
+    if (view.sortKey === k) view.sortAsc = !view.sortAsc;
+    else { view.sortKey = k; view.sortAsc = k !== 'utilization'; }
   }
 
   function applyAdvice(o: MemberDesignOutcome) { adviceFor = o; }
@@ -298,6 +293,7 @@
   function revertAllEdits() {
     revertReinforcement([...designRunStore.manualOverrides]);
   }
+  /** Members the design run covers that have no bars yet. */
 </script>
 
 <div class="design-tab" data-testid="pro-design-tab">
@@ -311,12 +307,7 @@
     selectedCount={batchSelection.length}
     {hasResults} {hasCombinations}
     editedCount={designRunStore.manualOverrides.size}
-    onAutoDesignSelected={() => rcAutoDesignSelected(batchSelection)}
-    onAutoDesignUndesigned={() => {
-      diagnosticsWarning.arm();
-      const ids = [...verificationStore.contexts.keys()].filter(id => !modelStore.elements.get(id)?.reinforcement);
-      designRunStore.autoDesign(ids.length > 0 ? ids : [...verificationStore.contexts.keys()]);
-    }}
+    onCodeCheck={() => rcCodeCheck()}
     onOpenDiagnostics={() => (uiStore.proActiveTab = 'diagnostics')}
     onReviewChanges={() => (showChanged = true)}
     onRevertEdits={revertAllEdits}
@@ -326,17 +317,12 @@
   <!--
     One selection, one run.
 
-    The toolbar's own `Diseñar todo` stays as the quick path for the frame. This is the whole
-    building: pick the families, run once, and the result names what each one did with the
-    3-D view beside it — instead of sending the user to a second command in another disclosure
-    to discover their floors were never designed.
+    The families «Size…» covers over the whole building (the same selection its dialog shows), and
+    after a run what each one did, with the 3-D view beside it — instead of sending the user to a
+    second command in another disclosure to discover their floors were never designed.
   -->
   <DesignFamilyPanel
     canDesign={hasResults && hasCombinations}
-    onView3d={() => detailingStore.buildDocument({
-      author: t('detailing.doc.unnamedAuthor'),
-      at: new Date().toISOString(),
-    })}
   />
 
   {#if !hasResults}
@@ -345,11 +331,11 @@
     <div class="placeholder" data-testid="design-placeholder-demands">{t('design.table.needDemands')}</div>
   {:else}
     <DesignFilterBar
-      {filter} {search} {sortKey} {sortAsc} {counts}
+      filter={view.filter} search={view.search} sortKey={view.sortKey} sortAsc={view.sortAsc} {counts}
       {elevation} {planes} {frameLines} {sections} {materials}
       hasSelection={batchSelection.length > 0}
-      onFilter={(f) => (filter = f)}
-      onSearch={(s) => (search = s)}
+      onFilter={(f) => (view.filter = f)}
+      onSearch={(s) => (view.search = s)}
       onSort={onSort}
       onSelectIds={selectIds}
       onSelectConnected={selectConnected}
@@ -367,7 +353,8 @@
       </span>
       <button class="act" data-testid="batch-open" disabled={batchSelection.length === 0}
               onclick={() => (showBatch = true)}>{t('design.batch.open')}</button>
-      <button class="act" data-testid="next-failing" onclick={gotoNextFailing}>
+      <button class="act" data-testid="prev-failing" onclick={() => gotoNextFailing(-1)} title={t('design.nav.prevFailing')}>‹</button>
+      <button class="act" data-testid="next-failing" onclick={() => gotoNextFailing(1)}>
         ⤢ {t('design.nav.nextFailing')}
       </button>
       <button class="act" data-testid="review-changes" onclick={() => (showChanged = !showChanged)}>
@@ -377,7 +364,7 @@
     </div>
 
     <DesignTable
-      {rows} {checked} {expandedId} {focusedId} {sortKey} {sortAsc}
+      {rows} {checked} expandedId={view.expandedId} focusedId={view.focusedId} sortKey={view.sortKey} sortAsc={view.sortAsc}
       onToggleCheck={toggleCheck}
       onToggleAll={toggleAll}
       onExpand={expandRow}
@@ -390,15 +377,16 @@
           <div class="detail-wrap">
             <div class="detail-head">
               {#if row.hasReinforcement}
+                <!-- Labelled «revert», and it used to clear the bars: it goes back to the proposal now. -->
                 <button class="act act-sm" data-testid={`clear-rebar-${row.elementId}`}
-                        onclick={() => clearReinforcement(row.elementId)}>{t('design.changed.revertOne')}</button>
+                        onclick={() => revertReinforcement([row.elementId])}>{t('design.changed.revertOne')}</button>
               {:else}
                 <button class="act act-sm" data-testid={`design-one-${row.elementId}`}
                         onclick={() => designRunStore.designOne(row.elementId)}>{t('design.cmd.autoDesign')}</button>
               {/if}
             </div>
             {#if ctx.elementType === 'column'}
-              <RebarEditorColumn elementId={row.elementId} {ctx} version={verificationStore.providedRevision} />
+              {#if ctx.shape}<RebarEditorShapedColumn elementId={row.elementId} {ctx} version={verificationStore.providedRevision} />{:else}<RebarEditorColumn elementId={row.elementId} {ctx} version={verificationStore.providedRevision} />{/if}
             {:else}
               <RebarEditorBeam elementId={row.elementId} {ctx} version={verificationStore.providedRevision} />
             {/if}
@@ -415,7 +403,7 @@
     </DesignTable>
 
     {#if showChanged}
-      <ChangedMembersPanel onClose={() => (showChanged = false)} onFocusElement={(id) => { focusRow(id); expandedId = id; }} />
+      <ChangedMembersPanel onClose={() => (showChanged = false)} onFocusElement={(id) => { focusRow(id); view.expandedId = id; }} />
     {/if}
   {/if}
 </div>

@@ -26,6 +26,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { resolve, dirname, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { CORPUS } from '../../results-snapshot/corpus';
 
 const WEB_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..');
 const CONFIG = readFileSync(resolve(WEB_ROOT, 'vite.config.ts'), 'utf8');
@@ -41,6 +42,9 @@ function configArray(name: string): string[] {
 
 const PRODUCTION_BUILD_TESTS = configArray('PRODUCTION_BUILD_TESTS');
 const NOT_VITEST = configArray('NOT_VITEST');
+/** The results snapshot gate's directory (#716): its own pass, `results`. */
+const RESULTS_SNAPSHOT_TESTS = configArray('RESULTS_SNAPSHOT_TESTS');
+const inResultsPass = (f: string) => RESULTS_SNAPSHOT_TESTS.some((g) => f.startsWith(g.replace(/\*\*$/, '')));
 
 /** Every Vitest file in the tree, as a repo-relative path with forward slashes. */
 function allTestFiles(dir = resolve(WEB_ROOT, 'src')): string[] {
@@ -94,13 +98,13 @@ describe('Vitest harness architecture', () => {
       + 'or stop them spawning processes').toEqual([]);
   });
 
-  it('the unit pass excludes ONLY dependencies, Playwright and the build tests', () => {
+  it('the unit pass excludes ONLY dependencies, Playwright, the build tests and the results snapshots', () => {
     // The split must never become a way to drop a file. The only legitimate exclusions are
     // the two known groups; anything else means a test stopped running and nobody noticed.
     const unitExclude = CONFIG.match(/name: 'unit',[\s\S]*?exclude: \[([\s\S]*?)\]/);
     expect(unitExclude, "the 'unit' project no longer declares an exclude list").not.toBeNull();
     const spread = [...unitExclude![1].matchAll(/\.\.\.(\w+)/g)].map((m) => m[1]).sort();
-    expect(spread).toEqual(['NOT_VITEST', 'PRODUCTION_BUILD_TESTS']);
+    expect(spread).toEqual(['NOT_VITEST', 'PRODUCTION_BUILD_TESTS', 'RESULTS_SNAPSHOT_TESTS']);
     // and no extra inline literal alongside the two spreads
     expect([...unitExclude![1].matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1])).toEqual([]);
   });
@@ -129,11 +133,36 @@ describe('Vitest harness architecture', () => {
     expect(build![1]).toMatch(/maxWorkers: 1/);
   });
 
-  it('`npm test` runs BOTH passes and propagates either failure', () => {
+  it('the build pass gives a spawned process more than the default 5 s', () => {
+    const build = CONFIG.match(/name: 'build',([\s\S]*?)\n\s{8}\}/);
+    const timeout = build![1].match(/testTimeout: ([\d_]+)/);
+    expect(timeout, 'the build project needs a testTimeout').not.toBeNull();
+    expect(Number(timeout![1].replace(/_/g, ''))).toBeGreaterThanOrEqual(60_000);
+  });
+
+  it('the results pass runs the results snapshot tests, and only them', () => {
+    const results = CONFIG.match(/name: 'results',([\s\S]*?)\n\s{8}\}/);
+    expect(results).not.toBeNull();
+    expect(results![1]).toMatch(/include: RESULTS_SNAPSHOT_TESTS/);
+    expect(RESULTS_SNAPSHOT_TESTS).toEqual(['src/lib/results-snapshot/__tests__/**']);
+    // Exactly one entry point per corpus group, beside the coverage, governing-envelope, negative and self-check tests: a group
+    // whose file went missing would leave its cases unrun (`results-snapshot/coverage.ts`).
+    const groups = [...new Set(CORPUS.map((c) => c.group))].sort();
+    expect(files.filter(inResultsPass).map((f) => f.split('/').pop()).sort()).toEqual([
+      'coverage.test.ts', 'governing-envelope.test.ts', 'negative.test.ts', 'self-checks-preserve-snapshots.test.ts',
+      ...groups.map((g) => `snapshot-${g}.test.ts`),
+    ].sort());
+  });
+
+  it('the project-scale timing budgets run outside the parallel unit pool', () => {
+    expect(PRODUCTION_BUILD_TESTS).toContain('src/lib/engine/__tests__/scale-budget.test.ts');
+  });
+
+  it('`npm test` runs ALL THREE passes and propagates any failure', () => {
     expect(PKG.scripts.test).toBe('node scripts/test-all.mjs');
     const projects = [...RUNNER.matchAll(/project: '(\w+)'/g)].map((m) => m[1]);
-    expect(projects).toEqual(['unit', 'build']);
-    // Both passes run before the verdict, so one broken pass cannot hide the other.
+    expect(projects).toEqual(['unit', 'build', 'results']);
+    // Every pass runs before the verdict, so one broken pass cannot hide another.
     expect(RUNNER).toMatch(/process\.exit\(1\)/);
     expect(RUNNER).toMatch(/results\.filter\(\(r\) => r\.code !== 0\)/);
   });
@@ -158,14 +187,15 @@ describe('Vitest harness architecture', () => {
     expect(RUNNER).not.toMatch(/for \(let attempt/);
   });
 
-  it('the two passes together still account for every test file', () => {
+  it('the passes together still account for every test file', () => {
     // 4 421 assertions ran before this architecture existed and 4 421 must run after it.
     // The arithmetic that proves it: nothing is excluded except the declared build tests,
     // and those are exactly what the build pass includes.
     const inBuildPass = files.filter((f) => PRODUCTION_BUILD_TESTS.includes(f));
-    const inUnitPass = files.filter((f) => !PRODUCTION_BUILD_TESTS.includes(f));
+    const inResults = files.filter(inResultsPass);
+    const inUnitPass = files.filter((f) => !PRODUCTION_BUILD_TESTS.includes(f) && !inResultsPass(f));
     expect(inBuildPass.sort()).toEqual([...PRODUCTION_BUILD_TESTS].sort());
-    expect(inUnitPass.length + inBuildPass.length).toBe(files.length);
+    expect(inUnitPass.length + inBuildPass.length + inResults.length).toBe(files.length);
     expect(inUnitPass.length).toBeGreaterThan(200);
   });
 

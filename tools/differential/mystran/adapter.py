@@ -275,6 +275,12 @@ def write_bdf(model, analysis="static", densities=None, n_modes=6):
             raise Unsupported("unloaded model")
     else:
         # EIGRL: SID V1 V2 ND (Lanczos); mass-normalized vectors.
+        # (EIGR METHOD=MGIV was tried for the repeated-eigenvalue cases below
+        # and gave frequencies off by ~90% on most lumped-mass models: not a
+        # usable reference without more work.) Known limits of this Lanczos:
+        # it can return one copy of a double eigenvalue (symmetric frames,
+        # modal3d_lumped-744145/-744159/-744272) or a spurious vector for one
+        # (-744255), and refuses models with only a few free DOFs (9776).
         out.append(card("EIGRL", [1, "", "", int(n_modes), "", "", "", "MASS"]))
     out.append("ENDDATA")
     return "\n".join(out) + "\n", dict(info=info, art_rot=art_rot, native=native, nspc=nspc)

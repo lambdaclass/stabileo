@@ -32,6 +32,14 @@
       </label>
       <label class="al-check"><input type="checkbox" bind:checked={config.blocked} data-testid="al-wind-blocked" /> {t('wind.other.blocked')}</label>
     </div>
+    <div class="al-row">
+      <label class="al-field al-field-narrow"><span class="al-label">{t('wind.other.areaX')}</span>
+        <QuantityInput bind:value={config.areaX} quantity="planArea" min={0} placeholder={t('wind.other.envelope')} testid="al-wind-area-x" wrap="al-unit-field" />
+      </label>
+      <label class="al-field al-field-narrow"><span class="al-label">{t('wind.other.areaY')}</span>
+        <QuantityInput bind:value={config.areaY} quantity="planArea" min={0} placeholder={t('wind.other.envelope')} testid="al-wind-area-y" wrap="al-unit-field" />
+      </label>
+    </div>
   {:else if config.kind === 'latticeTower' || config.kind === 'openSign'}
     <div class="al-row">
       <label class="al-field al-field-narrow"><span class="al-label">{t('wind.other.solidity')}</span>

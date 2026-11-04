@@ -17,7 +17,7 @@ import { viewVisibility } from '../store/view-state.svelte';
 import { NO_RELEASE, type Release } from '../store/model.svelte';
 import { uiStore } from '../store/ui.svelte';
 import { resultsStore } from '../store/results.svelte';
-import { noteAxisConventionMigrationIfNeeded, noteBasicSelfWeightRuleIfNeeded, statedSelfWeightCaseId } from '../store/file';
+import { onProjectOpened, noteBasicSelfWeightRuleIfNeeded, statedSelfWeightCaseId } from '../store/file';
 import { packJointDesigns, unpackJointDesigns } from '../connection/joint-share';
 import { CODE_HASH, readCodeFragment, codeShareUrl } from '../model/code/share';
 import { mergeCode } from '../model/code/apply';
@@ -247,6 +247,9 @@ function toCompact(snapshot: ModelSnapshot, meta?: ShareMeta): Record<string, un
   // self-describing and the migration note (see noteAxisConventionMigrationIfNeeded)
   // does not false-fire on URL load; absence still flags a genuine legacy model.
   if (snapshot.localAxisConvention) c.lx = snapshot.localAxisConvention;
+  // Which build last solved it (provenance/solve-stamp.ts): without it every opened link would
+  // read as solved with the oldest version and raise the re-check notice.
+  if (snapshot.solvedWith) c.sw = snapshot.solvedWith;
 
   // Nodes: [[id, x, y, z?], ...]  (z omitted when undefined/0 in 2D)
   c.n = snapshot.nodes.map(([, v]) => {
@@ -465,6 +468,7 @@ function fromCompact(c: Record<string, unknown>): ModelSnapshot {
     analysisMode: c.m as '2d' | '3d' | 'pro' | 'edu' | undefined,
     name: c.nm as string | undefined,
     localAxisConvention: c.lx as ModelSnapshot['localAxisConvention'],
+    ...(c.sw && typeof c.sw === 'object' ? { solvedWith: c.sw as ModelSnapshot['solvedWith'] } : {}),
 
     // Nodes
     nodes: (c.n as number[][]).map(a => [a[0], { id: a[0], x: a[1], y: a[2], ...(a[3] !== undefined ? { z: a[3] } : {}) }]),
@@ -692,7 +696,7 @@ export function decompressSnapshot(data: string): ModelSnapshot | null {
     const parsed = prepareSharedSnapshot(JSON.parse(json));
     if (!parsed) return null;
 
-    const elems = parsed.elements as Array<[number, Record<string, unknown>]>;
+    const elems = parsed.elements as unknown as Array<[number, Record<string, unknown>]>;
     if (Array.isArray(elems)) {
       for (const [, elem] of elems) {
         if (!elem) continue;
@@ -945,7 +949,7 @@ export function loadFromURLHash(): 'data' | 'embed' | null {
   // Same pre-metadata convention note as a .ded open — a shared link is the most
   // common cross-machine entry point, so a legacy 3D model must not change axes
   // silently here. (New models carry the tag below, so this never false-fires.)
-  noteAxisConventionMigrationIfNeeded(snapshot, loadedMode);
+  onProjectOpened(snapshot, loadedMode);
 
   // Notify 3D viewport to restore camera from uiStore
   queueMicrotask(() => {
@@ -1013,7 +1017,7 @@ export function loadFromShareLink(url: string): boolean {
   // Same pre-metadata convention note as a .ded open — a shared link is the most
   // common cross-machine entry point, so a legacy 3D model must not change axes
   // silently here. (New models carry the tag below, so this never false-fires.)
-  noteAxisConventionMigrationIfNeeded(snapshot, loadedMode);
+  onProjectOpened(snapshot, loadedMode);
 
   // Notify 3D viewport to restore camera from uiStore
   queueMicrotask(() => {

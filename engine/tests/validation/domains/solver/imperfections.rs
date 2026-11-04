@@ -79,7 +79,7 @@ fn validation_notional_loads_2d_basic() {
     let notional = NotionalLoadDef {
         ratio: 0.005,
         direction: 0, // X
-        gravity_axis: 1, // Y
+        gravity_axis: Some(1), // Y
     };
 
     let loads = imperfections::notional_loads_2d(&input, &notional);
@@ -118,7 +118,7 @@ fn validation_notional_loads_3d_direction() {
     let notional = NotionalLoadDef {
         ratio: 0.005,
         direction: 0, // X
-        gravity_axis: 1, // Y
+        gravity_axis: Some(1), // Y
     };
 
     let loads = imperfections::notional_loads_3d(&input, &notional);
@@ -230,7 +230,7 @@ fn validation_notional_load_y_direction() {
     let notional = NotionalLoadDef {
         ratio: 0.01,
         direction: 1, // Y direction
-        gravity_axis: 0, // gravity collected from X axis
+        gravity_axis: Some(0), // gravity collected from X axis
     };
 
     let loads = imperfections::notional_loads_2d(&input, &notional);
@@ -368,7 +368,7 @@ fn validation_notional_load_multiple_gravity() {
     let notional = NotionalLoadDef {
         ratio: 0.005,
         direction: 0, // X
-        gravity_axis: 1, // Y
+        gravity_axis: Some(1), // Y
     };
 
     let loads = imperfections::notional_loads_2d(&input, &notional);

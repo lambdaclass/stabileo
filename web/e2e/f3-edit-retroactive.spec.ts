@@ -14,7 +14,7 @@
  * uses. Nothing here goes through a test hook.
  */
 
-import { test, expect, loadModel, solveModel, computeDemands } from './fixtures';
+import { test, expect, loadModel, solveModel, computeDemands, designPlace } from './fixtures';
 import type { Page } from '@playwright/test';
 
 test.use({ viewport: { width: 1400, height: 900 } });
@@ -50,9 +50,9 @@ async function detailed(page: Page): Promise<number[]> {
  * timeout rather than an assertion failure.
  */
 async function openPanel(page: Page) {
-  const d = page.getByTestId('detailing-disclosure');
+  await designPlace(page, 'detailing');
+  const d = page.getByTestId('desk-detailing');
   await expect(d).toBeAttached();
-  if (await d.getAttribute('open') === null) await d.locator('> summary').click();
 }
 
 /** Change one beam's bottom-bar count through the real control. Returns the member. */
@@ -60,6 +60,8 @@ async function editABeam(page: Page, ids: number[]): Promise<number> {
   const beam = await page.evaluate(
     (list) => list.find((id) => window.__stabileo.rebarSummary(id).startsWith('b')) ?? list[0],
     ids);
+  // The bars are edited in the member list's inline editor.
+  await designPlace(page, 'list');
   await page.getByTestId('filter-all').click();
   await page.getByTestId(`row-expand-${beam}`).click();
   const count = page.getByTestId(`count-bottomSpanLayers-0-${beam}`);
@@ -169,11 +171,9 @@ test.describe('@slow the drawing follows the assemblies', () => {
    * what is DRAWN comes from them, so the sheet's title block must carry the revision the
    * assembly carries — not one cached from before the edit.
    *
-   * What this deliberately does NOT assert is that the regenerated steel differs from the
-   * steel before the edit. It does not, and that is the app's design rather than a defect:
-   * `runDetailing` details from the DESIGN outcomes, so a regeneration reproduces the designed
-   * arrangement. The app's answer to "keep my arrangement through a regeneration" is the pin —
-   * `lockedBars`, objective 6 — and `detailing.spec.ts` D21 pins exactly that.
+   * The regenerated steel is the edited steel: an edited member is detailed from the bars it
+   * HAS (`designOutcomeMap`, `outcomeFromProvided`), and an edit that does not verify is not
+   * drawn. `rebar-review-fixes.test.ts` pins that a regeneration after an edit draws the edit.
    */
   test('E6 — the sheet carries the revision the assembly carries', async ({ pro: page }) => {
     const ids = await detailed(page);

@@ -11,8 +11,7 @@
 //! with local_y = None). Axis-level roll / left-hand / cardinal-vector checks
 //! live in `src/element/transform.rs`'s unit tests.
 
-#[path = "common/mod.rs"]
-mod common;
+use crate::common;
 
 use common::make_3d_input;
 use dedaliano_engine::solver::linear;

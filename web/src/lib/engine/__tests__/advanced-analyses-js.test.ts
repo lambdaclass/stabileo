@@ -75,14 +75,16 @@ describe('imperfections', () => {
     portal({ w: 10 });
     const input = inputOf();
     const ratio = 1 / 200;
-    // The engine reads nodal loads only: a portal loaded on its girder got no notional load.
-    const engine = wasm.solveWithImperfections3D({ solver: input, imperfections: { notionalLoads: [{ ratio, direction: 0, gravityAxis: 2 }] } });
-    const linear = wasm.solve3D(input);
-    expect(Math.abs(engine.displacements.find((d: any) => d.nodeId === 2).ux - linear.displacements.find((d) => d.nodeId === 2)!.ux)).toBeLessThan(1e-12);
     // Here: H = ratio · 60 kN, at the girder's ends.
     const { input: withH, totalH } = withNotionalLoads(input, ratio, 'X');
     expect(totalH).toBeCloseTo(ratio * 60, 9);
     const r = wasm.solve3D(withH);
+    // The engine read nodal loads only, so a portal loaded on its girder got no notional load
+    // (NL-10). It now lumps member loads as this panel does: the same sway.
+    const engine = wasm.solveWithImperfections3D({ solver: input, imperfections: { notionalLoads: [{ ratio, direction: 0, gravityAxis: 2 }] } });
+    const ux = (res: { displacements: Array<{ nodeId: number; ux: number }> }) => res.displacements.find((d) => d.nodeId === 2)!.ux;
+    expect(Math.abs(ux(engine) - ux(r))).toBeLessThan(1e-9 * Math.abs(ux(r)) + 1e-15);
+    expect(Math.abs(ux(r) - ux(wasm.solve3D(input)))).toBeGreaterThan(1e-9);
     const rx = r.reactions.reduce((s, x) => s + x.fx, 0);
     expect(rx).toBeCloseTo(-ratio * 60, 6);
   });

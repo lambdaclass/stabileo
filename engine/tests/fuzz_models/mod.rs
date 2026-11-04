@@ -174,7 +174,8 @@ pub fn random_2d_model(seed: u64) -> SolverInput {
     // Loads: 1-5 random loads
     let n_loads = rng.gen_range(1..=5);
     let mut loads = Vec::new();
-    let elem_ids: Vec<usize> = elems_map.values().map(|e| e.id).collect();
+    let mut elem_ids: Vec<usize> = elems_map.values().map(|e| e.id).collect();
+    elem_ids.sort_unstable();
 
     for _ in 0..n_loads {
         let load_kind = rng.gen_range(0..3);
@@ -225,7 +226,7 @@ pub fn random_2d_model(seed: u64) -> SolverInput {
     }
 
     SolverInput {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes: nodes_map,
         materials: mats_map,
         sections: secs_map,
@@ -289,6 +290,8 @@ pub fn random_3d_model(seed: u64) -> SolverInput3D {
                 cw: None,
                 as_y: None,
                 as_z: None,
+                shear_center_y: None,
+                shear_center_z: None,
             },
         );
     }
@@ -426,7 +429,8 @@ pub fn random_3d_model(seed: u64) -> SolverInput3D {
     // Loads: 1-4 random nodal and distributed loads
     let n_loads = rng.gen_range(1..=4);
     let mut loads = Vec::new();
-    let elem_ids: Vec<usize> = elems_map.values().map(|e| e.id).collect();
+    let mut elem_ids: Vec<usize> = elems_map.values().map(|e| e.id).collect();
+    elem_ids.sort_unstable();
 
     for _ in 0..n_loads {
         let load_kind = rng.gen_range(0..3);
@@ -481,7 +485,7 @@ pub fn random_3d_model(seed: u64) -> SolverInput3D {
     }
 
     SolverInput3D {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes: nodes_map,
         materials: mats_map,
         sections: secs_map,
@@ -674,6 +678,8 @@ pub fn random_2d_model_rich(seed: u64) -> (SolverInput, HashMap<String, f64>) {
             })),
             _ => loads.push(SolverLoad::Thermal(SolverThermalLoad {
                 element_id: eid, dt_uniform: rng.gen_range(-40.0..40.0), dt_gradient: rng.gen_range(-20.0..20.0),
+                // Some members state α and depth (#407), without drawing from the RNG.
+                alpha: if eid % 2 == 0 { Some(23e-6) } else { None }, depth: if eid % 3 == 0 { Some(0.3) } else { None },
             })),
         }
     }
@@ -694,7 +700,7 @@ pub fn random_2d_model_rich(seed: u64) -> (SolverInput, HashMap<String, f64>) {
 
     let densities = random_densities(&mut rng, n_mats);
     let input = SolverInput {
-        solver_options: None, nodes, materials, sections, elements, supports, loads,
+        solver_options: None, masses: Default::default(), nodes, materials, sections, elements, supports, loads,
         constraints: vec![], connectors,
     };
     (input, densities)
@@ -811,6 +817,8 @@ pub fn random_3d_model_rich(seed: u64) -> (SolverInput3D, HashMap<String, f64>) 
             cw: if warping && i == 1 { Some(10f64.powf(rng.gen_range(-8.0..-5.0))) } else { None },
             as_y: if rng.gen_bool(0.4) { Some(a * rng.gen_range(0.4..0.9)) } else { None },
             as_z: if rng.gen_bool(0.4) { Some(a * rng.gen_range(0.4..0.9)) } else { None },
+            shear_center_y: None,
+            shear_center_z: None,
         });
     }
 
@@ -1005,6 +1013,8 @@ pub fn random_3d_model_rich(seed: u64) -> (SolverInput3D, HashMap<String, f64>) 
             3 => loads.push(SolverLoad3D::Thermal(SolverThermalLoad3D {
                 element_id: eid, dt_uniform: rng.gen_range(-40.0..40.0),
                 dt_gradient_y: rng.gen_range(-20.0..20.0), dt_gradient_z: rng.gen_range(-20.0..20.0),
+                alpha: if eid % 2 == 0 { Some(23e-6) } else { None },
+                depth_y: if eid % 3 == 0 { Some(0.15) } else { None }, depth_z: if eid % 3 != 1 { Some(0.3) } else { None },
             })),
             _ if warping => loads.push(SolverLoad3D::Bimoment(SolverBimomentLoad {
                 node_id: rng.gen_range(1..=n_nodes), bimoment: q(&mut rng),
@@ -1064,7 +1074,7 @@ pub fn random_3d_model_rich(seed: u64) -> (SolverInput3D, HashMap<String, f64>) 
 
     let densities = random_densities(&mut rng, n_mats);
     let input = SolverInput3D {
-        solver_options: None, nodes, materials, sections, elements, supports, loads,
+        solver_options: None, masses: Default::default(), nodes, materials, sections, elements, supports, loads,
         constraints: vec![],
         left_hand: if rng.gen_bool(0.2) { Some(true) } else { None },
         plates, quads, quad9s, solid_shells, curved_shells,

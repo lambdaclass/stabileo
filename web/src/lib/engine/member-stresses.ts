@@ -10,7 +10,9 @@
  * one table over thousands of members does not call the engine once per station.
  *
  * A section known by its properties alone (no geometry) is read over its bounding rectangle,
- * N/A ± My·(h/2)/Iy ± Mz·(b/2)/Iz, when it states b and h, and is not read otherwise.
+ * N/A ± My·(h/2)/Iy ± Mz·(b/2)/Iz, when it states b and h, and is not read otherwise. A section
+ * with a geometry the engine cannot read (or with the engine not loaded) is not read either: it
+ * never falls back to that rectangle.
  *
  * MPa, tension positive.
  */
@@ -65,9 +67,15 @@ export function sectionStressModel(sec: SectionLike): SectionStressModel | null 
         f.basis = 'geometry';
         return f;
       }
-    } catch {
-      // Fall through to the bounding rectangle.
+    } catch (err) {
+      // A section with a geometry is read by the engine or not at all. It used to fall through to
+      // the bounding rectangle below, which for an angle or a channel is not even a bound (its
+      // geometric axes are not principal). Not read, it is counted among the members the table
+      // says it could not read.
+      console.warn('[member stresses] the engine could not read a section:', (err as Error)?.message ?? err);
+      return null;
     }
+    return null;
   }
   // No strong-axis inertia is no strong-axis stress: the weak one in its place would read a bound
   // several times too high, which is the substitution the verification refuses too.

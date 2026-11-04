@@ -29,7 +29,7 @@ fn empty() -> SolverInput3D {
         nodes: HashMap::new(), materials: HashMap::new(), sections: HashMap::new(), elements: HashMap::new(),
         supports: HashMap::new(), loads: vec![], constraints: vec![], left_hand: None, plates: HashMap::new(),
         quads: HashMap::new(), quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_shells: HashMap::new(),
-        curved_beams: vec![], connectors: HashMap::new(), solver_options: None,
+        curved_beams: vec![], connectors: HashMap::new(), solver_options: None, masses: Default::default(),
     }
 }
 fn node(s: &mut SolverInput3D, id: usize, x: f64, y: f64, z: f64) {
@@ -91,7 +91,7 @@ fn strip(nx: usize, p: f64) -> SolverInput3D {
 
 /// Add an independent fixed frame cantilever far away (6 DOFs per node).
 fn with_frame(mut s: SolverInput3D, n: usize) -> SolverInput3D {
-    s.sections.insert("1".into(), SolverSection3D { id: 1, name: None, a: 0.01, iy: 1e-5, iz: 1e-5, j: 2e-5, cw: None, as_y: None, as_z: None });
+    s.sections.insert("1".into(), SolverSection3D { id: 1, name: None, a: 0.01, iy: 1e-5, iz: 1e-5, j: 2e-5, cw: None, as_y: None, as_z: None, shear_center_y: None, shear_center_z: None });
     for k in 0..=n {
         node(&mut s, 5000 + k, 100.0 + k as f64, 0.0, 0.0);
     }
@@ -208,7 +208,7 @@ fn solid_shell_propped_by_a_frame_matches_springs() {
     let (a, i, lp) = (1e-5, 1e-7, 1.0);
     let tip = bot(NX, 1);
     let mut with_prop = strip(NX, 2.0);
-    with_prop.sections.insert("1".into(), SolverSection3D { id: 1, name: None, a, iy: i, iz: i, j: 2.0 * i, cw: None, as_y: None, as_z: None });
+    with_prop.sections.insert("1".into(), SolverSection3D { id: 1, name: None, a, iy: i, iz: i, j: 2.0 * i, cw: None, as_y: None, as_z: None, shear_center_y: None, shear_center_z: None });
     node(&mut with_prop, 6000, L, 0.0, -T / 2.0 - lp);
     frame(&mut with_prop, 6000, 6000, tip);
     sup(&mut with_prop, 6000, [true; 6]);
@@ -235,7 +235,7 @@ fn solid_shell_propped_by_a_frame_matches_springs() {
 #[test]
 fn frame_pinned_to_a_solid_shell_node_is_still_a_mechanism() {
     let mut s = strip(NX, 2.0);
-    s.sections.insert("1".into(), SolverSection3D { id: 1, name: None, a: 0.01, iy: 1e-5, iz: 1e-5, j: 2e-5, cw: None, as_y: None, as_z: None });
+    s.sections.insert("1".into(), SolverSection3D { id: 1, name: None, a: 0.01, iy: 1e-5, iz: 1e-5, j: 2e-5, cw: None, as_y: None, as_z: None, shear_center_y: None, shear_center_z: None });
     node(&mut s, 6000, L + 1.0, 0.0, -T / 2.0);
     frame(&mut s, 6000, bot(NX, 1), 6000);
     nodal(&mut s, 6000, [0.0, 0.0, -1.0, 0.0, 0.0, 0.0]);
@@ -442,7 +442,7 @@ fn kinematic_check_with_solid_shells_and_frames() {
     assert!(kinematic::analyze_kinematics_3d(&strip(NX, 2.0)).is_solvable);
     assert!(kinematic::analyze_kinematics_3d(&with_frame(strip(NX, 2.0), 10)).is_solvable);
     let mut s = strip(NX, 2.0);
-    s.sections.insert("1".into(), SolverSection3D { id: 1, name: None, a: 0.01, iy: 1e-5, iz: 1e-5, j: 2e-5, cw: None, as_y: None, as_z: None });
+    s.sections.insert("1".into(), SolverSection3D { id: 1, name: None, a: 0.01, iy: 1e-5, iz: 1e-5, j: 2e-5, cw: None, as_y: None, as_z: None, shear_center_y: None, shear_center_z: None });
     node(&mut s, 6000, L + 1.0, 0.0, -T / 2.0);
     frame(&mut s, 6000, bot(NX, 1), 6000);
     let k = kinematic::analyze_kinematics_3d(&s);
@@ -456,7 +456,7 @@ fn kinematic_check_with_solid_shells_and_frames() {
 fn frame_with_zero_torsion_constant_is_refused() {
     let mut s = empty();
     s.materials.insert("1".into(), SolverMaterial { id: 1, e: E, nu: 0.3 });
-    s.sections.insert("1".into(), SolverSection3D { id: 1, name: None, a: 0.01, iy: 5e-5, iz: 1e-4, j: 0.0, cw: None, as_y: None, as_z: None });
+    s.sections.insert("1".into(), SolverSection3D { id: 1, name: None, a: 0.01, iy: 5e-5, iz: 1e-4, j: 0.0, cw: None, as_y: None, as_z: None, shear_center_y: None, shear_center_z: None });
     node(&mut s, 1, 0.0, 0.0, 0.0);
     node(&mut s, 2, 5.0, 0.0, 0.0);
     frame(&mut s, 1, 1, 2);

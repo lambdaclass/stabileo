@@ -14,14 +14,14 @@
  * at half width.
  */
 
-import { test, expect, PRO_URL } from './fixtures';
+import { test, expect, PRO_URL, ribbonCmd } from './fixtures';
 import { insertGenerated, pickGenerator, placeButton } from './generator-helpers';
 import type { Page } from '@playwright/test';
 
 async function openGenerators(page: Page): Promise<void> {
   await page.goto(PRO_URL);
   await page.getByTestId('pr-stage-model').click();
-  await page.getByTestId('pr-cmd-generators').click();
+  await ribbonCmd(page, 'generators');
   await expect(page.getByTestId('pro-generators-panel')).toBeVisible();
   await pickGenerator(page, 'truss');
 }
@@ -229,7 +229,7 @@ test.describe('the three languages', () => {
     test(`renders no raw keys in ${lang}`, async ({ page }) => {
       await page.goto(`${PRO_URL}&lang=${lang}`);
       await page.getByTestId('pr-stage-model').click();
-      await page.getByTestId('pr-cmd-generators').click();
+      await ribbonCmd(page, 'generators');
       await pickGenerator(page, 'truss');
       const text = await page.getByTestId('pro-generators-panel').innerText();
       // A missing key renders as its own dotted name.
@@ -248,7 +248,7 @@ test.describe('the three languages', () => {
 test.describe('@smoke the sectioned generator form', () => {
   test('opens folded, each section saying what it holds', async ({ pro: page }) => {
     await page.getByTestId('pr-stage-model').click();
-    await page.getByTestId('pr-cmd-generators').click();
+    await ribbonCmd(page, 'generators');
     await page.getByTestId('gen-card-shed').click();
     for (const id of ['frames', 'columns', 'roof', 'bracing', 'members', 'where']) {
       await expect(page.getByTestId(`gen-sec-${id}`)).not.toHaveAttribute('open', '');
@@ -260,7 +260,7 @@ test.describe('@smoke the sectioned generator form', () => {
   test('the Place button stays at the foot, pinned preview or not, every section open', async ({ pro: page }) => {
     await page.setViewportSize({ width: 1440, height: 700 });
     await page.getByTestId('pr-stage-model').click();
-    await page.getByTestId('pr-cmd-generators').click();
+    await ribbonCmd(page, 'generators');
     await pickGenerator(page, 'shed');
     for (const pinned of [true, false]) {
       expect(await fullyVisible(page, 'gen-place-mouse'), `pinned: ${pinned}`).toBe(true);
@@ -273,7 +273,7 @@ test.describe('@smoke the sectioned generator form', () => {
   test('hovering a field at the bottom of the list moves nothing', async ({ pro: page }) => {
     await page.setViewportSize({ width: 1440, height: 700 });
     await page.getByTestId('pr-stage-model').click();
-    await page.getByTestId('pr-cmd-generators').click();
+    await ribbonCmd(page, 'generators');
     await page.getByTestId('gen-card-shed').click();
     await page.getByTestId('gen-sec-bracing').locator('summary').click();
     await page.getByTestId('gen-scroll').evaluate((e) => { e.scrollTop = e.scrollHeight; });

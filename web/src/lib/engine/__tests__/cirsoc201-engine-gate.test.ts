@@ -7,6 +7,13 @@ import { verifyElement, type VerificationInput } from '../codes/argentina/cirsoc
 import { engineRecheckElement } from '../codes/argentina/cirsoc201-engine-gate';
 import { registerCirsoc201BeamKernel } from '../codes/argentina/cirsoc201-beam-kernel';
 import { initSolver } from '../wasm-solver';
+/*
+ * The legacy designer as it was (2005-style TypeScript sizing). It now sizes against the engine,
+ * so the defects these tests feed the gate come from the oracle: the gate must still catch them.
+ */
+import { verifyElement as legacyVerify } from './differential/oracle/cirsoc201';
+import type { ElementVerification } from '../codes/argentina/cirsoc201';
+const legacyVerifyElement = (i: VerificationInput) => legacyVerify(i) as unknown as ElementVerification;
 
 const beam = (over: Partial<VerificationInput> = {}): VerificationInput => ({
   elementId: 1, elementType: 'beam', Mu: 120, Vu: 90, Nu: 0,
@@ -46,34 +53,60 @@ describe('engine re-check gate', () => {
   });
 
   it('no engine, no pass', () => {
+    const legacy = legacyVerifyElement(beam());
     registerCirsoc201BeamKernel(null);
-    const g = engineRecheckElement(verifyElement(beam()), { stirrupDia: 8, NuShear: 0 });
+    // The designer itself asks the engine now: without it there is no design at all.
+    expect(() => verifyElement(beam())).toThrow(expect.objectContaining({ code: 'ENGINE_UNAVAILABLE' }));
+    const g = engineRecheckElement(legacy, { stirrupDia: 8, NuShear: 0 });
     expect(g.engineRecheck.unavailable).toBe(true);
     expect(g.overallStatus).toBe('fail');
     expect(g.diagnostics?.some((d) => d.code === 'VERIF_ENGINE_UNAVAILABLE')).toBe(true);
   });
 
   it('a beam that is not tension-controlled fails CIRSOC 201-2025 9.3.3.1', () => {
-    // A heavy moment on a small section: the TypeScript designer passes it ('warn').
-    const v = verifyElement(beam({ Mu: 330, b: 0.25, h: 0.5, Vu: 10 }));
+    // A heavy moment on a small section: the legacy TypeScript designer passed it ('warn').
+    const v = legacyVerifyElement(beam({ Mu: 330, b: 0.25, h: 0.5, Vu: 10 }));
     const g = engineRecheckElement(v, { stirrupDia: 8, NuShear: 0, edition: '2025' });
     expect(g.engineRecheck.ductilityRatio!).toBeGreaterThan(1);
     expect(g.flexure.status).toBe('fail');
-    // Its εt, with the bars it chose, is 2,6 ‰: below the 2005 floor of 4 ‰ (10.3.5) as well.
-    // The TypeScript reported the εt of the REQUIRED steel (2,9 ‰) and checked neither.
+    // The legacy designer (the oracle) chose bars with εt = 2,6 ‰: below the 2005 floor of 4 ‰
+    // (10.3.5) as well. The TypeScript reported the εt of the REQUIRED steel (2,9 ‰) and checked neither.
     const g05 = engineRecheckElement(v, { stirrupDia: 8, NuShear: 0, edition: '2005' });
     expect(g05.engineRecheck.disagreements).toContain('ductility');
     expect(g05.engineRecheck.ductilityRatio!).toBeCloseTo(0.004 / 0.00255, 2);
   });
 
+  it('the designer, sizing against the engine, now designs that beam ductile, and the gate agrees', () => {
+    for (const edition of ['2005', '2025'] as const) {
+      const v = verifyElement(beam({ Mu: 330, b: 0.25, h: 0.5, Vu: 10, edition }));
+      expect(v.flexure.status).not.toBe('fail');
+      const g = engineRecheckElement(v, { stirrupDia: 8, NuShear: 0, edition });
+      expect(g.engineRecheck.disagreements).toEqual([]);
+      expect(g.engineRecheck.ductilityRatio!).toBeLessThanOrEqual(1);
+      expect(g.engineRecheck.flexureRatio!).toBeLessThanOrEqual(1);
+    }
+  });
+
   it('a column is re-checked under the tension it also sees', () => {
-    const v = verifyElement({ ...beam({ elementType: 'column', b: 0.3, h: 0.3, Mu: 30, Vu: 10, Nu: 300 }) });
+    // The legacy designer sized this column for the compression only.
+    const v = legacyVerifyElement({ ...beam({ elementType: 'column', b: 0.3, h: 0.3, Mu: 30, Vu: 10, Nu: 300 }) });
     // 4 Ø32 yield at 0,9·420·32,2 cm² = 1 216 kN; 1 500 kN of tension is more than the bars hold.
     expect(v.column!.bars).toBe('4 Ø32');
     const withTension = engineRecheckElement(v, { stirrupDia: 8, NuShear: -1500 });
     expect(withTension.engineRecheck.columnRatio!).toBeGreaterThan(1);
     expect(withTension.column!.status).toBe('fail');
     expect(engineRecheckElement(v, { stirrupDia: 8, NuShear: -900 }).engineRecheck.columnRatio!).toBeLessThan(1);
+  });
+
+  it('the designer sizes a column for every axial force it sees, tension included', () => {
+    const input = beam({ elementType: 'column', b: 0.3, h: 0.3, Mu: 30, Vu: 10, Nu: 300, NuShear: -1500,
+      axialLoads: [300, -1500] });
+    const v = verifyElement(input);
+    // 1 500 kN of tension needs at least 1 500/(0,9·420) = 39,7 cm² of bars.
+    expect(v.column!.AsProv).toBeGreaterThanOrEqual(1500 / (0.9 * 42) - 1e-9);
+    const g = engineRecheckElement(v, { stirrupDia: 8, NuShear: -1500, axialLoads: [300, -1500] });
+    expect(g.engineRecheck.columnRatio!).toBeLessThanOrEqual(1);
+    expect(g.engineRecheck.disagreements).toEqual([]);
   });
 });
 

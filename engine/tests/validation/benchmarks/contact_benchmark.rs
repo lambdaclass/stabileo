@@ -70,7 +70,7 @@ fn sec() -> SolverSection {
 ///   Node 1 (fixed) ---[bar 1, L=1]--- Node 2 <gap> Node 3 ---[bar 2, L=1]--- Node 4 (fixed)
 fn bar_gap_bar(gap: f64, force: f64, k_gap: f64, al: Option<f64>, al_max_iter: Option<usize>) -> ContactInput {
     let solver = SolverInput {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes: hm(vec![
             (1, node(1, 0.0, 0.0)),
             (2, node(2, 1.0, 0.0)),
@@ -125,7 +125,7 @@ fn bar_gap_bar(gap: f64, force: f64, k_gap: f64, al: Option<f64>, al_max_iter: O
 /// Build the simple bar+gap+fixed-wall model.
 fn bar_gap_wall(gap: f64, force: f64, k_gap: f64) -> ContactInput {
     let solver = SolverInput {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes: hm(vec![
             (1, node(1, 0.0, 0.0)),
             (2, node(2, 1.0, 0.0)),
@@ -247,7 +247,7 @@ fn benchmark_contact_multi_pair() {
     let gap_b = 0.001;
 
     let solver = SolverInput {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes: hm(vec![
             (1, node(1, 0.0, 0.0)),
             (2, node(2, 1.0, 0.0)),
@@ -419,7 +419,7 @@ fn benchmark_contact_friction_limit() {
     let tangential_force = 100.0;
 
     let solver = SolverInput {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes: hm(vec![
             (1, node(1, 0.0, 0.0)),
             (2, node(2, 1.0, 0.0)),
@@ -529,6 +529,8 @@ fn benchmark_contact_3d_gap_closure() {
     let mut secs_map = HashMap::new();
     secs_map.insert("1".to_string(), dedaliano_engine::types::SolverSection3D {
         id: 1, name: None, a, iy, iz, j, cw: None, as_y: None, as_z: None,
+        shear_center_y: None,
+        shear_center_z: None,
     });
 
     let mut elems_map = HashMap::new();
@@ -570,7 +572,7 @@ fn benchmark_contact_3d_gap_closure() {
     });
 
     let solver_3d = dedaliano_engine::types::SolverInput3D {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes: nodes_map,
         materials: mats_map,
         sections: secs_map,

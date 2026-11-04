@@ -112,7 +112,7 @@ fn make_ss_plate_3d(n: usize) -> SolverInput3D {
         curved_shells: HashMap::new(),
         curved_beams: vec![],
         connectors: HashMap::new(),
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
     }
 }
 
@@ -199,7 +199,7 @@ fn make_compressed_plate(n: usize) -> SolverInput3D {
         curved_shells: HashMap::new(),
         curved_beams: vec![],
         connectors: HashMap::new(),
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
     }
 }
 
@@ -238,6 +238,8 @@ fn make_building_frame_3d(stories: usize, bays_x: usize, bays_y: usize) -> Solve
         SolverSection3D {
             id: 1, name: None, a: 0.01, iy: 1e-4, iz: 1e-4, j: 1.5e-4,
             cw: None, as_y: None, as_z: None,
+            shear_center_y: None,
+            shear_center_z: None,
         },
     );
 
@@ -332,7 +334,7 @@ fn make_building_frame_3d(stories: usize, bays_x: usize, bays_y: usize) -> Solve
         curved_shells: HashMap::new(),
         curved_beams: vec![],
         connectors: HashMap::new(),
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
     }
 }
 

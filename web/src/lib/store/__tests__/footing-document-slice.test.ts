@@ -54,6 +54,8 @@ function buildFootingModel() {
   modelStore.addSupport(base, 'fixed3d');
   const column = modelStore.addElement(base, top, 'frame');
   const sectionId = modelStore.addSection({ name: '40×40', a: 0.16, iz: 0.00213, b: 0.4, h: 0.4 });
+  // The footing's concrete: f'c used to be read off any material, the default steel's fy too.
+  modelStore.addMaterial({ name: 'H-30', e: 25740, nu: 0.2, rho: 25, fy: 30, fc: 30 });
   modelStore.updateElementSection(column, sectionId);
 
   const profileId = modelStore.addSoilProfile('Arena densa');
@@ -65,7 +67,9 @@ function buildFootingModel() {
 
   const footingId = modelStore.addFooting(base, 'Z1');
   modelStore.updateFooting(footingId, {
-    B: 2.0, L: 2.0, thickness: 0.5, columnElementId: column, foundingElevation: -1.2,
+    // 2,40 m: with the concrete's real f'c, the Ø16 mat of a 2,00 m footing does not anchor
+    // straight past the column face (876 mm needed, 775 mm there).
+    B: 2.4, L: 2.4, thickness: 0.5, columnElementId: column, foundingElevation: -1.2,
   });
 
   verificationStore.setDesignOutcomes({
@@ -139,7 +143,7 @@ describe('the footing slice reaches its record and certificate', () => {
 
     // The real inputs, reconstructible with no UI state.
     expect(rec!.geometry.name).toBe('Z1');
-    expect(rec!.geometry.B).toBeCloseTo(2.0, 9);
+    expect(rec!.geometry.B).toBeCloseTo(2.4, 9);
     expect(rec!.geometry.thickness).toBeCloseTo(0.5, 9);
     expect(rec!.geometry.d).toBeGreaterThan(0);
     expect(rec!.ground?.allowableBearingKPa).toBe(250);
@@ -247,7 +251,7 @@ describe('the footing slice reaches its documents', () => {
 
     // Geometry and the supported column.
     expect(html).toContain('Z1');
-    expect(html).toMatch(/2\.00 × 2\.00 × 0\.50 m/);
+    expect(html).toMatch(/2\.40 × 2\.40 × 0\.50 m/);
     // Ground conditions WITH provenance. Bearing pressure has no regulatory source, so the
     // reference must travel onto every document that relies on it.
     expect(html).toContain('Arena densa');
@@ -435,7 +439,7 @@ describe('supersession: editing a footing retires the document it justified', ()
     const html = renderReportHtml(retired!, { locale: 'en', projectName: 'Site' },
       translator('en'));
     expect(html).toMatch(/SUPERSEDED BY REVISION/);
-    expect(html).toMatch(/2\.00 × 2\.00 × 0\.50 m/);
+    expect(html).toMatch(/2\.40 × 2\.40 × 0\.50 m/);
   });
 
   it('a geotechnical edit supersedes it too', () => {
@@ -526,8 +530,8 @@ describe('the footing slice reaches its drawings', () => {
     expect(h).toBeGreaterThan(2.0);
     // Both plan dimensions are annotated, in millimetres.
     const labels = plan.dimensions.map((d) => d.label);
-    expect(labels).toContain('B = 2000');
-    expect(labels).toContain('L = 2000');
+    expect(labels).toContain('B = 2400');
+    expect(labels).toContain('L = 2400');
   });
 
   it('sections carry the thickness, the cover and the founding level', () => {
@@ -667,7 +671,7 @@ describe('the footing run cannot present superseded geometry as current', () => 
     expect(detailingStore.footingRunStale).toBe(false);
     // A footing edit bumps that footing's own revision, which is in the fingerprint.
     const id = [...modelStore.model.footings.keys()][0];
-    modelStore.updateFooting(id, { B: 2.4 });
+    modelStore.updateFooting(id, { B: 2.6 });
     expect(detailingStore.footingRunStale).toBe(true);
   });
 

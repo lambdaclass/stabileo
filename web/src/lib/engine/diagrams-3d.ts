@@ -3,7 +3,7 @@
 // using equilibrium equations with distributed and point loads.
 
 import { type UnitSystem, formatDiagramValue } from '../utils/units';
-import type { ElementForces3D } from './types-3d';
+import type { ElementForces3D, EnvelopeDiagramData3D } from './types-3d';
 
 export type Diagram3DKind = 'momentY' | 'momentZ' | 'shearY' | 'shearZ' | 'axial' | 'torsion';
 
@@ -98,6 +98,26 @@ export function computeGlobalMax3D(
     globalMax = Math.max(globalMax, Math.abs(d.maxValue), Math.abs(d.minValue));
   }
   return globalMax;
+}
+
+/**
+ * A member's envelope as diagrams: its positive and its negative station curve, each drawn as it
+ * stands. Envelope end forces (`maxAbsResults3D`) are each end's largest from its own
+ * combination, no load state to integrate with `computeDiagram3D`.
+ */
+export function envelopeDiagrams3D(env: EnvelopeDiagramData3D, elementId: number): ElementDiagram3D[] {
+  const e = env.elements.find((e) => e.elementId === elementId);
+  if (!e) return [];
+  return [e.posValues, e.negValues].map((values) => {
+    let maxValue = -Infinity, minValue = Infinity, maxAbsValue = 0;
+    const points = e.tPositions.map((t, i) => {
+      const value = values[i] ?? 0;
+      maxValue = Math.max(maxValue, value); minValue = Math.min(minValue, value);
+      if (Math.abs(value) > Math.abs(maxAbsValue)) maxAbsValue = value;
+      return { t, value };
+    });
+    return { elementId, points, maxValue, minValue, maxAbsValue };
+  }).filter((d) => d.points.length > 0);
 }
 
 /**

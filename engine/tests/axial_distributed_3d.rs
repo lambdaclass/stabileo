@@ -1,4 +1,4 @@
-mod common;
+use crate::common;
 use common::make_3d_input;
 use dedaliano_engine::postprocess::{
     combinations::{combine_results_3d_refs, CombinationFactor},

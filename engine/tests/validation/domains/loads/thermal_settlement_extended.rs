@@ -51,6 +51,7 @@ fn validation_thermal_ext_1_restrained_bar() {
             element_id: i,
             dt_uniform: dt,
             dt_gradient: 0.0,
+            alpha: None, depth: None,
         }));
     }
 
@@ -111,6 +112,7 @@ fn validation_thermal_ext_2_gradient_cantilever() {
             element_id: i,
             dt_uniform: 0.0,
             dt_gradient,
+            alpha: None, depth: None,
         }));
     }
 
@@ -197,6 +199,7 @@ fn validation_thermal_ext_3_continuous_beam_thermal() {
             element_id: i,
             dt_uniform: 0.0,
             dt_gradient: dt_gradient,
+            alpha: None, depth: None,
         }));
     }
 
@@ -269,6 +272,7 @@ fn validation_thermal_ext_4_portal_thermal() {
         element_id: 2,
         dt_uniform: dt,
         dt_gradient: 0.0,
+        alpha: None, depth: None,
     })];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
@@ -384,7 +388,7 @@ fn validation_thermal_ext_5_settlement_propped() {
         });
     }
     let input = SolverInput {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes: nodes_map, materials: mats_map, sections: secs_map,
         elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![],
         connectors: HashMap::new(), };
@@ -476,7 +480,7 @@ fn validation_thermal_ext_6_double_settlement() {
         });
     }
     let input = SolverInput {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes: nodes_map, materials: mats_map, sections: secs_map,
         elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![],
         connectors: HashMap::new(), };
@@ -579,6 +583,7 @@ fn validation_thermal_ext_7_thermal_truss() {
         element_id: 2,
         dt_uniform: dt,
         dt_gradient: 0.0,
+        alpha: None, depth: None,
     })];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
@@ -679,6 +684,7 @@ fn validation_thermal_ext_8_combined_thermal_mech() {
             element_id: i,
             dt_uniform: 0.0,
             dt_gradient,
+            alpha: None, depth: None,
         }));
     }
     let input_therm = make_beam(n, l, E, A, IZ, "fixed", None, loads_therm);
@@ -696,6 +702,7 @@ fn validation_thermal_ext_8_combined_thermal_mech() {
             element_id: i,
             dt_uniform: 0.0,
             dt_gradient,
+            alpha: None, depth: None,
         }));
     }
     let input_combined = make_beam(n, l, E, A, IZ, "fixed", None, loads_combined);

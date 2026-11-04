@@ -271,19 +271,21 @@ function appendTube(
 // ─── Concrete prisms ─────────────────────────────────────────────
 
 /**
- * A prism from a convex base polygon and a sweep vector.
+ * A prism from a base polygon, its holes and a sweep vector.
  *
- * Fan-triangulated, which is correct for the convex bases this model produces — rectangular
- * members, rectangular pads, rectangular panels. A concave base would need a real
- * triangulator, and would be silently wrong here; nothing in the detailing engine produces
- * one, and if something ever does, it needs its own case rather than a fan that folds.
+ * A convex base with no holes (a member, a pad, a panel) is fan-triangulated. A joint or a slab
+ * net of the frame can be concave or holed (the union of a column and the beams wider than it, a
+ * panel round a column), which a fan folds; those caps are triangulated in the base's own plane
+ * (`THREE.ShapeUtils`, ear clipping with holes), and every ring, holes included, gets its walls.
  */
 function appendPrism(
   base: readonly THREE.Vector3[], extrude: THREE.Vector3,
   pos: number[], nor: number[], idx: number[],
+  holes: ReadonlyArray<readonly THREE.Vector3[]> = [],
 ): void {
   const n = base.length;
   if (n < 3) return;
+  if (holes.length || !convex(base)) { appendHoledPrism(base, holes, extrude, pos, nor, idx); return; }
   const top = base.map((p) => p.clone().add(extrude));
 
   const pushFace = (pts: THREE.Vector3[]) => {
@@ -304,6 +306,61 @@ function appendPrism(
     const j = (i + 1) % n;
     pushFace([base[i], base[j], top[j], top[i]]);
   }
+}
+
+/** Whether a planar polygon turns one way all round. */
+function convex(ring: readonly THREE.Vector3[]): boolean {
+  const n = ring.length;
+  if (n <= 3) return true;
+  const normal = new THREE.Vector3();
+  let sign = 0;
+  for (let i = 0; i < n; i++) {
+    const a = ring[i]!, b = ring[(i + 1) % n]!, c = ring[(i + 2) % n]!;
+    const t = new THREE.Vector3().subVectors(b, a).cross(new THREE.Vector3().subVectors(c, b));
+    if (normal.lengthSq() === 0 && t.lengthSq() > 1e-18) normal.copy(t).normalize();
+    const d = t.dot(normal);
+    if (Math.abs(d) < 1e-12) continue;
+    if (sign === 0) sign = Math.sign(d);
+    else if (Math.sign(d) !== sign) return false;
+  }
+  return true;
+}
+
+function appendHoledPrism(
+  base: readonly THREE.Vector3[], holes: ReadonlyArray<readonly THREE.Vector3[]>, extrude: THREE.Vector3,
+  pos: number[], nor: number[], idx: number[],
+): void {
+  // The base plane's own axes, so a cap is triangulated where it lies.
+  const e = extrude.clone().normalize();
+  const u = Math.abs(e.z) < 0.9 ? new THREE.Vector3(0, 0, 1).cross(e).normalize() : new THREE.Vector3(1, 0, 0).cross(e).normalize();
+  const v = new THREE.Vector3().crossVectors(e, u);
+  const o = base[0]!;
+  const flat = (p: THREE.Vector3) => new THREE.Vector2(new THREE.Vector3().subVectors(p, o).dot(u), new THREE.Vector3().subVectors(p, o).dot(v));
+  const contour = base.map(flat), hole2 = holes.map((h) => h.map(flat));
+  if (THREE.ShapeUtils.isClockWise(contour)) { contour.reverse(); base = [...base].reverse(); }
+  const hs = hole2.map((h, k) => (THREE.ShapeUtils.isClockWise(h) ? { h, r: holes[k]! } : { h: [...h].reverse(), r: [...holes[k]!].reverse() }));
+  const ring = [...base, ...hs.flatMap((x) => x.r)];
+  const tris = THREE.ShapeUtils.triangulateShape(contour, hs.map((x) => x.h));
+  const capN = e.clone(), push = (p: THREE.Vector3, nv: THREE.Vector3) => { pos.push(p.x, p.y, p.z); nor.push(nv.x, nv.y, nv.z); };
+  // Bottom cap faces against the sweep, top cap along it.
+  let first = pos.length / 3;
+  for (const p of ring) push(p, capN.clone().negate());
+  for (const [a, b, c] of tris) idx.push(first + a!, first + c!, first + b!);
+  first = pos.length / 3;
+  for (const p of ring) push(p.clone().add(extrude), capN);
+  for (const [a, b, c] of tris) idx.push(first + a!, first + b!, first + c!);
+  // Walls of the outer ring (counter-clockwise seen along the sweep) and of each hole (clockwise).
+  const walls = (r: readonly THREE.Vector3[]) => {
+    for (let i = 0; i < r.length; i++) {
+      const a = r[i]!, b = r[(i + 1) % r.length]!, at = a.clone().add(extrude), bt = b.clone().add(extrude);
+      const nv = new THREE.Vector3().subVectors(b, a).cross(e).normalize();
+      const f = pos.length / 3;
+      for (const p of [a, b, bt, at]) push(p, nv);
+      idx.push(f, f + 1, f + 2, f, f + 2, f + 3);
+    }
+  };
+  walls(base);
+  for (const x of hs) walls(x.r);
 }
 
 // ─── The group ───────────────────────────────────────────────────
@@ -883,7 +940,8 @@ export function createRebarScene(
           appendPrism(
             s.base.map((p) => new THREE.Vector3(p.x, p.y, p.z)),
             new THREE.Vector3(s.extrude.x, s.extrude.y, s.extrude.z),
-            pos, nor, idx);
+            pos, nor, idx,
+            (s.holes ?? []).map((h) => h.map((p) => new THREE.Vector3(p.x, p.y, p.z))));
           const written = idx.length / 3 - before;
           if (written === 0) continue;
           ranges.push({ solidId: s.id, firstTri: tri, triCount: written });

@@ -12,13 +12,13 @@
  * finding reaches the screen.
  */
 
-import { test, expect } from './fixtures';
+import { test, expect, ribbonCmd } from './fixtures';
 import { insertGenerated, pickGenerator, placeButton } from './generator-helpers';
 import type { Page } from '@playwright/test';
 
 async function openShed(page: Page) {
   await page.getByTestId('pr-stage-model').click();
-  await page.getByTestId('pr-cmd-generators').click();
+  await ribbonCmd(page, 'generators');
   await expect(page.getByTestId('pro-generators-panel')).toBeVisible();
   await pickGenerator(page, 'truss');
   await pickGenerator(page, 'shed');

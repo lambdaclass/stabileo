@@ -53,7 +53,7 @@ export function envelopeSectionHtml(sources: readonly Source[], tr: Tr, heading:
     // beam's largest moment read 0. The envelope table below stays per member end.
     const summ = summaryRows(kind, sources, { resultant: true, ...(kind === 'forces' ? { stations: 13 } : {}) });
     out.push(`<h3>${esc(title)}: ${esc(tr('report.env.summary'))}</h3>`);
-    out.push(`<table><thead><tr><th></th><th>${esc(tr('tables.max'))}</th><th>${esc(tr('report.env.where'))}</th><th>${esc(tr('tables.source'))}</th><th>${esc(tr('tables.min'))}</th><th>${esc(tr('report.env.where'))}</th><th>${esc(tr('tables.source'))}</th></tr></thead><tbody>`);
+    out.push(`<table data-printed="summary"><thead><tr><th></th><th>${esc(tr('tables.max'))}</th><th>${esc(tr('report.env.where'))}</th><th>${esc(tr('tables.source'))}</th><th>${esc(tr('tables.min'))}</th><th>${esc(tr('report.env.where'))}</th><th>${esc(tr('tables.source'))}</th></tr></thead><tbody>`);
     for (const s of summ) {
       out.push(`<tr><td>${esc(s.column.label)} (${esc(s.column.unit)})</td>`
         + (s.max ? `<td class="num">${num(s.max.value)}</td><td>${esc(whereOf(s.max, kind === 'forces'))}</td><td>${esc(s.max.source.name)}</td>` : '<td colspan="3">—</td>')
@@ -63,7 +63,7 @@ export function envelopeSectionHtml(sources: readonly Source[], tr: Tr, heading:
     out.push(`</tbody></table>`);
     const env = envelopeRows(kind, sources, { resultant: true });
     out.push(`<h3>${esc(title)}: ${esc(tr('report.env.envelope'))} (${env.length})</h3>`);
-    out.push(`<table class="env"><thead><tr><th>${kind === 'forces' ? esc(tr('report.env.memberEnd')) : esc(tr('report.nodes'))}</th><th></th>${cols.map((c) => `<th>${esc(c.label)} (${esc(c.unit)})</th>`).join('')}</tr></thead><tbody>`);
+    out.push(`<table class="env" data-printed="envelope-${kind}"><thead><tr><th>${kind === 'forces' ? esc(tr('report.env.memberEnd')) : esc(tr('report.nodes'))}</th><th></th>${cols.map((c) => `<th>${esc(c.label)} (${esc(c.unit)})</th>`).join('')}</tr></thead><tbody>`);
     for (const r of env) {
       out.push(`<tr><td rowspan="2">${esc(whereOf(r))}</td><td>${esc(tr('tables.max'))}</td>${r.max.map((m) => `<td class="num">${num(m.value)}</td>`).join('')}</tr>`);
       out.push(`<tr><td>${esc(tr('tables.min'))}</td>${r.min.map((m) => `<td class="num">${num(m.value)}</td>`).join('')}</tr>`);
@@ -77,7 +77,7 @@ export function envelopeSectionHtml(sources: readonly Source[], tr: Tr, heading:
 export function staticsSectionHtml(rows: StaticsRows | null, tr: Tr, heading: string): string[] {
   if (!rows) return [];
   const out = [`<h2 id="sec-statics">${esc(heading)}</h2>`];
-  out.push(`<table><thead><tr><th>${esc(tr('pro.statics.case'))}</th><th>ΣFx</th><th>ΣFy</th><th>ΣFz</th><th>ΣMx</th><th>ΣMy</th><th>ΣMz</th><th>${esc(tr('pro.statics.relative'))}</th></tr></thead><tbody>`);
+  out.push(`<table data-printed="statics"><thead><tr><th>${esc(tr('pro.statics.case'))}</th><th>ΣFx</th><th>ΣFy</th><th>ΣFz</th><th>ΣMx</th><th>ΣMy</th><th>ΣMz</th><th>${esc(tr('pro.statics.relative'))}</th></tr></thead><tbody>`);
   const K = ['fx', 'fy', 'fz', 'mx', 'my', 'mz'] as const;
   for (const r of [...rows.cases, ...rows.combos]) {
     out.push(`<tr><td rowspan="2">${esc(r.caseName || tr('pro.statics.singleSolve'))}</td>${K.map((k) => `<td class="num">${num(r.applied[k], 2)}</td>`).join('')}<td rowspan="2" class="num">${r.worstRelative < 1e-6 ? '✓' : (r.worstRelative * 100).toFixed(2) + ' %'}</td></tr>`);
@@ -92,11 +92,11 @@ export interface DeflectionReportRow { span: string; L: number; delta: number; l
 export function deflectionSectionHtml(rows: readonly DeflectionReportRow[], tr: Tr, heading: string): string[] {
   if (rows.length === 0) return [];
   const out = [`<h2 id="sec-deflections">${esc(heading)}</h2>`];
-  out.push(`<table><thead><tr><th>${esc(tr('pro.elemLabel'))}</th><th>L (m)</th><th>δ (mm)</th><th>${esc(tr('defl.limits.rule'))}</th><th>${esc(tr('defl.limits.direction'))}</th><th>%</th><th></th></tr></thead><tbody>`);
+  out.push(`<table data-printed="deflections"><thead><tr><th>${esc(tr('pro.elemLabel'))}</th><th>L (m)</th><th>δ (mm)</th><th>${esc(tr('defl.limits.rule'))}</th><th>${esc(tr('defl.limits.direction'))}</th><th>%</th><th></th></tr></thead><tbody>`);
   for (const r of rows) {
     out.push(`<tr><td>${esc(r.span)}${r.cantilever ? ' ⌐' : ''}</td><td class="num">${r.L.toFixed(2)}</td><td class="num">${(r.delta * 1000).toFixed(2)}</td><td>${esc(r.limit)}</td><td>${esc(r.direction)}</td><td class="num">${(r.ratio * 100).toFixed(0)}</td><td class="${r.status === 'ok' ? 'status-ok' : r.status === 'fail' ? 'status-fail' : 'status-warn'}">${r.status === 'ok' ? '✓' : r.status === 'fail' ? '✗' : '⚠'}</td></tr>`);
   }
-  out.push(`</tbody></table><p class="note">${esc(tr('defl.checkHint'))}</p>`);
+  out.push(`</tbody></table><p class="note">${esc(tr('defl.checkHintTable'))}</p>`);
   return out;
 }
 

@@ -14,7 +14,6 @@ beforeEach(() => { modelStore.clear(); historyStore.clear(); });
 
 const cases: Array<[string, () => void, () => unknown]> = [
   ['the grid', () => modelStore.setGrid({ axes: [{ id: 'a', name: '1', axis: 'x', at: 0 }], levels: [] } as never), () => modelStore.snapshot().grid],
-  ['the dynamics', () => modelStore.setDynamics({ timeHistory: { method: 'newmark', dt: 0.01, duration: 1 } } as never), () => modelStore.snapshot().dynamics],
   ['the notes', () => modelStore.setNotes([{ id: 1, text: 'check', at: { x: 0, y: 0, z: 0 } }] as never), () => modelStore.snapshot().notes],
   ['the project data', () => modelStore.setProjectInfo({ client: 'someone' }), () => modelStore.snapshot().projectInfo],
   ['the deflection limits', () => modelStore.setDeflectionLimits({ rules: [{ id: 1, scope: { kind: 'memberKind', value: 'beam' }, n: 300, direction: 'resultant' }] } as never), () => modelStore.snapshot().deflectionLimits],
@@ -31,5 +30,16 @@ describe('the views undo channel', () => {
     expect(modelStore.modelVersion).toBe(v0);
     historyStore.redo();
     expect(read()).toEqual(stated);
+  });
+
+  it('undoes a dynamics edit a session saved on this channel as a model edit', () => {
+    // Before the spectra fed the solve, `setDynamics` recorded here; such entries still restore it.
+    const before = modelStore.snapshot();
+    modelStore.setDynamics({ timeHistory: { method: 'newmark', dt: 0.01, duration: 1 } } as never);
+    historyStore.setStacks([before], [], ['views'], []);
+    const v0 = modelStore.modelVersion;
+    historyStore.undo();
+    expect(modelStore.snapshot().dynamics).toBeUndefined();
+    expect(modelStore.modelVersion).toBeGreaterThan(v0);
   });
 });

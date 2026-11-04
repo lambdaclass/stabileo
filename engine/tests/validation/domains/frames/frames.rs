@@ -219,7 +219,7 @@ fn validation_fixed_fixed_settlement() {
     });
 
     let input = SolverInput {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes: nodes_map, materials: mats_map, sections: secs_map,
         elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![],
         connectors: std::collections::HashMap::new(), };
@@ -304,7 +304,7 @@ fn validation_cantilever_tip_spring() {
     }
 
     let input = SolverInput {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes: nodes_map, materials: mats_map, sections: secs_map,
         elements: elems_map, supports: sups_map, loads, constraints: vec![],
         connectors: std::collections::HashMap::new(), };
@@ -358,5 +358,5 @@ fn validation_symmetric_portal_reactions() {
     let r4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap();
     assert_close(r1.rz, r4.rz, 0.001, "symmetric Ry");
     // Moments should be equal in magnitude (same sign due to symmetry)
-    assert_close(r1.my.abs(), r4.my.abs(), 0.001, "symmetric Mz");
+    assert_close_abs(r1.my.abs(), r4.my.abs(), 0.001, 1e-6, "symmetric Mz");
 }

@@ -1,8 +1,11 @@
-import { defineConfig, type Plugin } from 'vite';
+import { defineConfig, searchForWorkspaceRoot, type Plugin } from 'vite';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
-import { existsSync, readFileSync } from 'fs';
-import { execSync } from 'child_process';
+import { copyFileSync, cpSync, existsSync, readFileSync } from 'fs';
+import { execSync, execFileSync } from 'child_process';
 import { resolve } from 'path';
+import { PUBLIC_KEY_PREFIXES } from './src/lib/i18n/public-prefixes';
+import { isComplete } from './src/lib/i18n/offered';
+import { resultChangeMetadataPlugin } from './scripts/result-change-metadata.mjs';
 
 /**
  * Stub out the WASM glue module when it hasn't been built yet.
@@ -25,14 +28,51 @@ function wasmStubPlugin(): Plugin {
   };
 }
 
+/**
+ * `virtual:public-i18n`: the dictionaries' entries the public pages read (`landing.*`, `blog.*`, `lang.*`,
+ * `contact.*`), in en, es and pt. The landing and the blog load these instead of the whole
+ * dictionaries (3 MB of source, most of the public bundle); the application registers the rest
+ * when it loads (`lib/i18n/full-dictionaries.ts`). The entries are copied line by line, which
+ * `union-merge-safe.test.ts` keeps possible: one entry per line.
+ */
+function publicI18nPlugin(): Plugin {
+  const id = 'virtual:public-i18n';
+  return {
+    name: 'public-i18n',
+    resolveId(s) {
+      return s === id ? '\0' + id : null;
+    },
+    load(resolved) {
+      if (resolved !== '\0' + id) return null;
+      let out = '';
+      for (const loc of ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
+        if (!isComplete(loc)) {
+          out += `export const ${loc} = {};\n`;
+          continue;
+        }
+        const file = resolve(__dirname, 'src/lib/i18n/locales', `${loc}.ts`);
+        this.addWatchFile(file);
+        const lines = readFileSync(file, 'utf8').split('\n').filter((l) => {
+          const m = /^\s*(['"])([^'"]+)\1: /.exec(l);
+          return !!m && PUBLIC_KEY_PREFIXES.some((p) => m[2].startsWith(p));
+        });
+        out += `export const ${loc} = {\n${lines.join('\n')}\n};\n`;
+      }
+      return out;
+    },
+  };
+}
+
 /** Not Vitest's business: dependencies, build output, and Playwright's own specs. */
 // `.stryker-tmp` holds Stryker's sandbox copies of the tests (without the gitignored WASM build):
 // collected here, a mutation run in progress made every engine test fail.
 // determinism/ is a Playwright suite of its own (determinism/playwright.config.ts).
-const NOT_VITEST = ['**/node_modules/**', '**/dist/**', 'e2e/**', 'determinism/**', '**/.stryker-tmp/**'];
+// scripts/*.test.mjs are node:test suites (the Research workflow runs them with node --test).
+const NOT_VITEST = ['**/node_modules/**', '**/dist/**', 'e2e/**', 'determinism/**', '**/.stryker-tmp/**', 'scripts/**/*.test.mjs'];
 
 /**
- * Tests that shell out to a real build or to another project script.
+ * Tests that shell out to a real build or another project script, plus timing budgets
+ * that need the runner to themselves.
  *
  * These run in their own SERIAL pass rather than inside the general pool — see
  * `scripts/test-all.mjs` for the measurements behind that. Listed explicitly rather than
@@ -42,7 +82,19 @@ const NOT_VITEST = ['**/node_modules/**', '**/dist/**', 'e2e/**', 'determinism/*
  *
  * `harness-architecture.test.ts` fails if a test spawns a build without being listed here.
  */
+/**
+ * The results snapshot gate (#716): the reference corpus solved through the app's path and
+ * compared with `results-snapshots/`. Its own pass and its own CI job (`Results Snapshot`), so a
+ * result change is reported as one, by name, rather than as a unit failure among hundreds.
+ */
+const RESULTS_SNAPSHOT_TESTS = ['src/lib/results-snapshot/__tests__/**'];
+
 const PRODUCTION_BUILD_TESTS = [
+  'src/lib/utils/__tests__/benchmark-build.test.ts',
+  'src/lib/provenance/__tests__/notice-bundle.test.ts',
+  // Wall-clock budgets must not compete with the parallel unit workers. Keep the full
+  // 5,000-member fixture and thresholds; run it in the serial pass, including in CI.
+  'src/lib/engine/__tests__/scale-budget.test.ts',
   'src/lib/utils/__tests__/e2e-hook-gating.test.ts',
   // Runs `scripts/typecheck.mjs` itself, to prove the gate cannot report a green it has not
   // earned. It spawns a Node process rather than a vite build, but it is the same reason for
@@ -66,6 +118,70 @@ const PRODUCTION_BUILD_TESTS = [
 ];
 
 
+const ADMIN = process.env.VITE_APP_TYPE === 'admin';
+
+const ADMIN_PUBLIC_ASSETS = ['fonts', 'favicon.svg'];
+
+function adminPublicAssetsPlugin(): Plugin {
+  return {
+    name: 'admin-public-assets',
+    apply: 'build',
+    config: () => ({ publicDir: false }),
+    closeBundle() {
+      for (const asset of ADMIN_PUBLIC_ASSETS) {
+        const from = resolve(__dirname, 'public', asset);
+        const to = resolve(__dirname, 'dist-admin', asset);
+        if (asset.includes('.')) copyFileSync(from, to);
+        else cpSync(from, to, { recursive: true });
+      }
+    },
+  };
+}
+
+/** This checkout's instance (`INST`, else the `.stabileo-inst` that `make inst.claim` writes); every dev port shifts by `INST * 10`. */
+function instance(): number {
+  let raw = process.env.INST;
+  if (raw === undefined) {
+    try {
+      raw = readFileSync(resolve(__dirname, '../.stabileo-inst'), 'utf8');
+    } catch {
+      raw = '0';
+    }
+  }
+  const n = Number.parseInt(raw.trim(), 10);
+  return Number.isInteger(n) && n >= 0 ? n : 0;
+}
+
+const INST = instance();
+const DEV_API_URL = process.env.VITE_API_URL || `http://localhost:${4100 + INST * 10}`;
+
+const ADMIN_CLIENT_ROUTES = ['/', '/settings', '/allowlist', '/oauth/callback'];
+
+function adminRootPlugin(): Plugin {
+  const rewrite = (req: { url?: string }) => {
+    if (!req.url) return;
+    const cut = req.url.indexOf('?');
+    const path = cut === -1 ? req.url : req.url.slice(0, cut);
+    const normalized = path.length > 1 ? path.replace(/\/+$/, '') : path;
+    if (ADMIN_CLIENT_ROUTES.includes(normalized)) req.url = `/admin.html${cut === -1 ? '' : req.url.slice(cut)}`;
+  };
+  return {
+    name: 'admin-root',
+    configureServer(server) {
+      server.middlewares.use((req, _res, next) => {
+        rewrite(req);
+        next();
+      });
+    },
+    configurePreviewServer(server) {
+      server.middlewares.use((req, _res, next) => {
+        rewrite(req);
+        next();
+      });
+    },
+  };
+}
+
 /** The commit this bundle is built from, for the project workbook's cover (`lib/build-info.ts`). */
 function buildCommit(): string {
   if (process.env.GITHUB_SHA) return process.env.GITHUB_SHA.slice(0, 12);
@@ -76,28 +192,47 @@ function buildCommit(): string {
   }
 }
 
-/** The app version shown in the status bar and the what's-new notice (`lib/build-info.ts`). */
+/** The app version: the status bar, the what's-new notice (`lib/build-info.ts`) and result
+ * provenance (`lib/provenance/build-identity.ts`). */
 function appVersion(): string {
   return JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf8')).version;
 }
 
+const researchManifest = resolve(__dirname, 'public/research-wasm/build.json');
+const researchBuildId = existsSync(researchManifest) ? JSON.parse(readFileSync(researchManifest, 'utf8')).build_id : 'unavailable';
+if (researchBuildId !== 'unavailable') {
+  const actual = execFileSync('python3', [resolve(__dirname, '../research/tools/asset_identity.py'), resolve(__dirname, '..'), resolve(__dirname, 'public/research-wasm/shauer-2025')], { encoding: 'utf8' }).trim();
+  if (actual !== researchBuildId) throw new Error('Research assets are stale: run make research.wasm');
+}
+
 export default defineConfig({
-  plugins: [wasmStubPlugin(), svelte()],
+  plugins: [wasmStubPlugin(), publicI18nPlugin(), resultChangeMetadataPlugin(), svelte(), ...(ADMIN ? [adminRootPlugin(), adminPublicAssetsPlugin()] : [])],
   define: {
+    "import.meta.env.RESEARCH_BUILD_ID": JSON.stringify(researchBuildId),
     __STABILEO_COMMIT__: JSON.stringify(buildCommit()),
     __STABILEO_VERSION__: JSON.stringify(appVersion()),
+    __STABILEO_APP_VERSION__: JSON.stringify(appVersion()),
+    __STABILEO_DEV_API_URL__: JSON.stringify(DEV_API_URL),
   },
   base: process.env.BASE_PATH || '/',
   server: {
-    port: 4000,
+    port: (ADMIN ? 4001 : 4000) + INST * 10,
+    // The /research pages import the catalog and reference results from ../research.
+    fs: { allow: [searchForWorkspaceRoot(process.cwd()), resolve(__dirname, '../research')] },
   },
   worker: {
     format: 'es',
     plugins: () => [wasmStubPlugin()],
   },
-  build: {
-    target: 'esnext',
-  },
+  build: ADMIN
+    ? {
+        target: 'esnext',
+        outDir: 'dist-admin',
+        rollupOptions: { input: { admin: resolve(__dirname, 'admin.html') } },
+      }
+    : {
+        target: 'esnext',
+      },
   optimizeDeps: {
     exclude: ['dedaliano-engine', 'web-ifc'],
   },
@@ -112,7 +247,7 @@ export default defineConfig({
           name: 'unit',
           setupFiles: ['./vitest.setup.ts'],
           // Everything except the production-build tests, which get their own pass.
-          exclude: [...NOT_VITEST, ...PRODUCTION_BUILD_TESTS],
+          exclude: [...NOT_VITEST, ...PRODUCTION_BUILD_TESTS, ...RESULTS_SNAPSHOT_TESTS],
           // THREADS, NOT FORKS — and this is the line that fixed the RPC timeout.
           //
           // `onTaskUpdate` is the worker → coordinator RPC, and birpc gives it a SIXTY
@@ -166,6 +301,20 @@ export default defineConfig({
           // for the whole suite by itself, and it peaked at 1.75 GB RSS / 78 % CPU.
           fileParallelism: false,
           maxWorkers: 1,
+          // Every file here spawns a process; on a hosted runner `npm ls --all` alone took 64 s.
+          testTimeout: 120_000,
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: 'results',
+          setupFiles: ['./vitest.setup.ts'],
+          include: RESULTS_SNAPSHOT_TESTS,
+          // One file per corpus group, each on its own worker; the cases of a group in order,
+          // since they share the app's stores.
+          pool: 'threads',
+          testTimeout: 180_000,
         },
       },
     ],

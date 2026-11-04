@@ -4,7 +4,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { profileByName, profileToSectionFull } from '../../../data/steel-profiles';
-import { checkSteelMember, missingSteelInputs } from '../../verification-service';
+import { checkSteelMember, missingSteelInputs, steelGoverningRatio } from '../../verification-service';
 import { angleSection } from '../angle-section';
 import { lightestPassing } from '../profile-optimise';
 
@@ -23,7 +23,8 @@ describe('single angles', () => {
   it('in compression without an end condition: NOT EVALUATED by name (E.5), never a pass', () => {
     const v = checkSteelMember(1, push(20), L80(), mat, { L: 2, Lb: 2 })!;
     expect(v.compression!.notEvaluatedMessage!.key).toBe('c301.refuse.e5Condition');
-    expect(v.overallStatus).toBe('fail');
+    // held, not failed: a refused check is never a pass and proves no failure (`cirsoc301-verdict.ts`).
+    expect(v.overallStatus).toBe('held');
   });
 
   it('with E.5(a) through the long leg: (kL/r)m of E.5.1 and a confirmed result', () => {
@@ -47,7 +48,8 @@ describe('single angles', () => {
   it('in flexure: refused by name (F.10 is not implemented)', () => {
     const v = checkSteelMember(1, { ...push(0), MuStrong: 1 }, L80(), mat, { L: 2, Lb: 2 })!;
     expect(v.flexureZ.notEvaluatedMessage!.key).toBe('c301.refuse.f10');
-    expect(v.overallStatus).toBe('fail');
+    // held, not failed: a refused check is never a pass and proves no failure (`cirsoc301-verdict.ts`).
+    expect(v.overallStatus).toBe('held');
   });
 });
 
@@ -89,7 +91,9 @@ describe('the profile search over angles', () => {
     const r = lightestPassing('L', [{ elementId: 1, demand: push(60), lengths: { L: 2, Lb: 2, angle: { endCondition: 'e5aLong' } } }], mat);
     expect(r.chosen).not.toBeNull();
     const v = checkSteelMember(1, push(60), profileToSectionFull(r.chosen!.profile), mat, { L: 2, Lb: 2, angle: { endCondition: 'e5aLong' } })!;
-    expect(v.overallStatus).toBe('ok');
+    // A pass: the lightest passing angle sits near the limit, so above 0,95 it reads `warn`, the
+    // near-limit band every design surface uses (still a pass, never a failure).
+    expect(v.overallStatus).toBe(steelGoverningRatio(v) > 0.95 ? 'warn' : 'ok');
     expect(v.engineRecheck.certifiedOk).toBe(true);
   });
 });

@@ -1,7 +1,7 @@
 /**
  * PRO 10/10: tapered members from the edit panel, and the shed generator's tapered columns.
  */
-import { test, expect, loadModel } from './fixtures';
+import { test, expect, loadModel, designPlace, CURRENT_STAMP } from './fixtures';
 
 test.use({ viewport: { width: 1280, height: 800 } });
 
@@ -30,8 +30,7 @@ test.describe('@smoke PRO direct analysis', () => {
       window.__stabileoActions.combineCases('1.0 todos');
       await window.__stabileoActions.solve();
     });
-    await page.getByTestId('pr-stage-design').click();
-    await page.getByTestId('pr-cmd-otherCodes').click();
+    await designPlace(page, 'otherCodes');
     await page.getByTestId('other-codes-source-direct').click();
     await expect(page.getByTestId('other-codes-run')).toBeDisabled();
     await page.getByTestId('direct-run').click();
@@ -52,6 +51,7 @@ test.describe('@smoke PRO direct analysis', () => {
     const project = {
       version: '2.0', name: 'Stable and unstable combinations', analysisMode: 'pro',
       snapshot: {
+        solvedWith: CURRENT_STAMP,
         nodes: [[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: 0, y: 0, z: 4 }]],
         elements: [[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1 }]],
         materials: [[1, { id: 1, name: 'Steel', e: 200000, nu: .3, rho: 0, fy: 355 }]],
@@ -67,8 +67,7 @@ test.describe('@smoke PRO direct analysis', () => {
     await page.getByTestId('pp-open-file').setInputFiles({
       name: 'direct.ded', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(project)),
     });
-    await page.getByTestId('pr-stage-design').click();
-    await page.getByTestId('pr-cmd-otherCodes').click();
+    await designPlace(page, 'otherCodes');
     await page.getByTestId('other-codes-source-direct').click();
     await page.getByTestId('direct-run').click();
     await expect(page.getByTestId('direct-table').locator('tbody tr')).toHaveCount(2);
@@ -88,8 +87,7 @@ test.describe('@smoke PRO optimiser criteria', () => {
     await page.getByTestId('pp-gallery').locator('[data-example="pipe-rack"] .pp-ex').click();
     await expect.poll(() => page.evaluate(() => window.__stabileo.elementIds().length)).toBeGreaterThan(0);
     await page.evaluate(async () => { await window.__stabileoActions.solve(); });
-    await page.getByTestId('pr-stage-design').click();
-    await page.getByTestId('pr-cmd-steel').click();
+    await designPlace(page, 'steel');
     const opt = page.getByTestId('steel-optimise');
     await opt.scrollIntoViewIfNeeded();
     await page.getByTestId('opt-criteria').locator('summary').click();

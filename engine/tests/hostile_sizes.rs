@@ -2,8 +2,7 @@
 //! allocation or a loop. A hostile project must get an `Err` back, not exhaust
 //! memory, spin forever, or wrap an id into an existing one.
 
-#[path = "common/mod.rs"]
-mod common;
+use crate::common;
 
 use common::make_3d_input;
 use dedaliano_engine::types::*;
@@ -32,7 +31,7 @@ fn beam_2d() -> SolverInput {
         loads: vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: -10.0, my: 0.0 })],
         constraints: vec![],
         connectors: HashMap::new(),
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
     }
 }
 

@@ -29,7 +29,7 @@ fn make_ef(n: f64, v: f64, m: f64) -> ElementForces {
         n_end: -n, v_end: -v, m_end: -m,
         length: 6.0,
         q_i: 0.0, q_j: 0.0,
-        point_loads: vec![], distributed_loads: vec![],
+        point_loads: vec![], distributed_loads: vec![], distributed_loads_x: Vec::new(),
         hinge_start: false, hinge_end: false,
     }
 }

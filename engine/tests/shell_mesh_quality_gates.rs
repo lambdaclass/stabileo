@@ -46,7 +46,7 @@ fn make_quad_input(
     }
 
     SolverInput3D {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes: nodes_map,
         materials: mats,
         sections: HashMap::new(),
@@ -87,7 +87,7 @@ fn make_plate_input(
     }
 
     SolverInput3D {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes: nodes_map,
         materials: mats,
         sections: HashMap::new(),
@@ -412,7 +412,7 @@ fn make_quad9_input(
         );
     }
     SolverInput3D {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes: nodes_map,
         materials: mats,
         sections: HashMap::new(),
@@ -450,7 +450,7 @@ fn make_solid_shell_input(
         );
     }
     SolverInput3D {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes: nodes_map,
         materials: mats,
         sections: HashMap::new(),
@@ -494,7 +494,7 @@ fn make_curved_shell_input(
         );
     }
     SolverInput3D {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes: nodes_map,
         materials: mats,
         sections: HashMap::new(),
@@ -842,7 +842,7 @@ mod end_to_end {
         }
 
         let input = SolverInput3D {
-            solver_options: None,
+            solver_options: None, masses: Default::default(),
             nodes,
             materials: mats,
             sections: HashMap::new(),

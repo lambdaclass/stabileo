@@ -22,12 +22,11 @@
  * Portuguese: `regulations.rolePurpose.*` is a sentence per role and the longest of them decide
  * whether the row fits.
  */
-import { test, expect, setAppLanguage } from './fixtures';
+import { test, expect, setAppLanguage, designPlace } from './fixtures';
 import type { Page } from '@playwright/test';
 
 async function openRegulations(page: Page) {
-  const d = page.getByTestId('code-settings-disclosure');
-  if (await d.getAttribute('open') === null) await d.locator('> summary').click();
+  await designPlace(page, 'designData');
   await expect(page.getByTestId('project-regulations')).toBeVisible();
 }
 
@@ -62,9 +61,9 @@ test.describe('@smoke Project regulations is on the Stabileo visual system', () 
     await openRegulations(page);
 
     const sizes = await page.evaluate(() => {
-      const stage = document.querySelector('[data-testid="code-settings-disclosure"]')!;
-      const title = stage.querySelector(':scope > summary .title')
-        ?? stage.querySelector(':scope > summary');
+      // The section's title in its place of design (Prepare › Design data).
+      const stage = document.querySelector('[data-testid="desk-regulations"]')!;
+      const title = stage.querySelector(':scope > h4');
       const body = document.querySelector('[data-testid="project-regulations"]')!;
       const px = (el: Element) => parseFloat(getComputedStyle(el).fontSize);
       const inner = [...body.querySelectorAll('*')]
@@ -130,7 +129,7 @@ test.describe('Project regulations fits the panel in the three languages', () =>
 
       const overflow = await page.evaluate(() => {
         const root = document.querySelector('[data-testid="project-regulations"]') as HTMLElement;
-        const panel = document.querySelector('.rc-workflow') as HTMLElement;
+        const panel = document.querySelector('.dd-canvas-body') as HTMLElement;
         return {
           section: root.scrollWidth - root.clientWidth,
           panel: panel.scrollWidth - panel.clientWidth,

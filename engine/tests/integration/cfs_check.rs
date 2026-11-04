@@ -21,6 +21,9 @@ fn typical_c_section() -> CfsMemberData {
         lb: 3.0,
         lc: 3.0,
         k: Some(1.0),
+        xo: Some(-0.035), // shear centre behind the web, approximate
+        kx_lx: None,
+        kt_lt: None,
         cb: Some(1.0),
         fcrd: None,
         fcrd_flex: None,

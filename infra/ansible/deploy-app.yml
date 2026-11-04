@@ -1,0 +1,183 @@
+- name: Deploy stabileo (artifact-based deployment)
+  hosts: app
+
+  vars_files:
+    - vars.yml
+
+  vars:
+    artifact_path: "{{ incoming_dir }}/stabileo-release-{{ commit_sha }}.tar.gz"
+    tmp_dir: "{{ app_root }}/tmp-{{ commit_sha }}"
+
+  tasks:
+    - name: Verify commit_sha is set
+      fail:
+        msg: "commit_sha must be set"
+      when: commit_sha is not defined
+
+    - name: Verify the required runtime settings are set
+      fail:
+        msg: "{{ item }} must be set"
+      when: lookup('env', item) | length == 0
+      loop: "{{ required_env }}"
+
+    - name: Verify artifact exists
+      stat:
+        path: "{{ artifact_path }}"
+      register: artifact_stat
+      failed_when: not artifact_stat.stat.exists
+
+    - name: Create temp directory
+      file:
+        path: "{{ tmp_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Extract release artifact
+      unarchive:
+        src: "{{ artifact_path }}"
+        dest: "{{ tmp_dir }}"
+        remote_src: yes
+
+    # The daemon admits only paths signed by the trusted key: never pass --no-check-sigs.
+    - name: Import the release's signed Nix closure
+      shell: |
+        set -euo pipefail
+        xargs {{ nix_bin }}/nix --extra-experimental-features nix-command \
+          copy --from "file://{{ tmp_dir }}/nix-cache" < {{ tmp_dir }}/store-paths.txt
+      args:
+        executable: /bin/bash
+
+    - name: Pin the closure against garbage collection
+      shell: |
+        set -euo pipefail
+        mkdir -p {{ gcroots_dir }}/{{ commit_sha }}
+        while read -r p; do
+          {{ nix_bin }}/nix-store --realise "$p" --add-root "{{ gcroots_dir }}/{{ commit_sha }}/$(basename "$p")" > /dev/null
+        done < {{ tmp_dir }}/store-paths.txt
+        rm -rf {{ tmp_dir }}/nix-cache
+      args:
+        executable: /bin/bash
+
+    - name: Create .env file
+      template:
+        src: templates/env.j2
+        dest: "{{ tmp_dir }}/.env"
+        mode: '0600'
+
+    - name: Let Caddy read the frontends
+      shell: |
+        find {{ tmp_dir }} -type d -exec chmod o+x {} \;
+        find {{ tmp_dir }}/frontends -type f -exec chmod o+r {} \;
+      args:
+        executable: /bin/bash
+
+    - name: Preflight - validate the new release boots its runtime config
+      shell: |
+        cd {{ tmp_dir }}
+        set -a && source .env && set +a
+        RELEASE_DISTRIBUTION=none ./backend/bin/stabileo eval ":ok"
+      args:
+        executable: /bin/bash
+
+    - name: Stage the Caddyfile
+      copy:
+        src: "{{ tmp_dir }}/caddy/Caddyfile"
+        dest: "{{ caddy_dir }}/Caddyfile.next"
+        remote_src: yes
+        mode: '0644'
+
+    - name: Validate the Caddyfile
+      command: sudo -n /usr/bin/caddy validate --config {{ caddy_dir }}/Caddyfile.next --adapter caddyfile --envfile /etc/caddy/stabileo.env
+
+    - name: Install the Caddyfile
+      command: sudo -n /usr/bin/install -m 0644 -o root -g root {{ caddy_dir }}/Caddyfile.next /etc/caddy/Caddyfile
+
+    - name: Reload Caddy
+      command: sudo -n /usr/bin/systemctl reload caddy
+
+    - name: Stop the backend service
+      command: sudo -n /usr/bin/systemctl stop {{ service_name }}
+      ignore_errors: yes
+
+    - name: Run database migrations
+      shell: |
+        cd {{ tmp_dir }}
+        set -a && source .env && set +a
+        RELEASE_DISTRIBUTION=none ./backend/bin/stabileo eval "StabileoRepo.Release.migrate()"
+      args:
+        executable: /bin/bash
+
+    - name: Create releases directory
+      file:
+        path: "{{ releases_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Check if current deployment exists
+      stat:
+        path: "{{ deploy_dir }}"
+      register: current_deploy
+
+    - name: Create backup name
+      set_fact:
+        backup_name: "stabileo-{{ ansible_date_time.year }}{{ ansible_date_time.month }}{{ ansible_date_time.day }}_{{ ansible_date_time.hour }}{{ ansible_date_time.minute }}{{ ansible_date_time.second }}-{{ commit_sha[:8] }}"
+      when: current_deploy.stat.exists
+
+    - name: Keep the current deployment as the rollback target
+      command: mv {{ deploy_dir }} {{ releases_dir }}/{{ backup_name }}
+      when: current_deploy.stat.exists
+
+    - name: Install new deployment (atomic swap)
+      command: mv {{ tmp_dir }} {{ deploy_dir }}
+
+    - name: Start the backend service
+      command: sudo -n /usr/bin/systemctl start {{ service_name }}
+
+    - name: Wait for backend port to be ready
+      wait_for:
+        port: "{{ backend_port | int }}"
+        host: 127.0.0.1
+        timeout: 60
+
+    - name: Health check
+      uri:
+        url: "http://127.0.0.1:{{ backend_port }}/api/v1/health"
+        method: GET
+        status_code: 200
+      register: health_check
+      retries: 15
+      delay: 2
+      until: health_check.status == 200
+
+    - name: Cleanup old releases (keep {{ max_releases }})
+      shell: |
+        cd {{ releases_dir }}
+        ls -t | tail -n +{{ max_releases + 1 }} | while read -r dir; do
+          rm -rf -- "$dir"
+        done
+      args:
+        executable: /bin/bash
+      ignore_errors: yes
+
+    - name: Unpin closures no kept release needs
+      shell: |
+        cd {{ gcroots_dir }}
+        ls -t | tail -n +{{ max_releases + 2 }} | while read -r dir; do
+          rm -rf -- "$dir"
+        done
+      args:
+        executable: /bin/bash
+      ignore_errors: yes
+
+    - name: Cleanup artifact
+      file:
+        path: "{{ artifact_path }}"
+        state: absent
+
+    - name: Deploy complete
+      debug:
+        msg: |
+          Deploy successful! Health check passed.
+          Commit: {{ commit_sha }}
+          Current: {{ deploy_dir }}
+          Backup: {{ backup_name | default('none (first deploy)') }}

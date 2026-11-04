@@ -152,7 +152,7 @@ fn benchmark_notional_load_equivalence() {
     let notional_def = NotionalLoadDef {
         ratio,
         direction: 0,
-        gravity_axis: 1,
+        gravity_axis: Some(1),
     };
     let notional = notional_loads_2d(&input_base, &notional_def);
     let mut loads_a = gravity_loads.clone();
@@ -345,7 +345,7 @@ fn benchmark_imperfection_equilibrium() {
     let notional_def = NotionalLoadDef {
         ratio,
         direction: 0,
-        gravity_axis: 1,
+        gravity_axis: Some(1),
     };
     let notional = notional_loads_2d(&input_base, &notional_def);
 

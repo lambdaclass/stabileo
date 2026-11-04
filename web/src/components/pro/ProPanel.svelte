@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { ReportFormat } from '../../lib/export/report-formats';
   /**
    * The PRO panel: which destination is open, and the three commands the ribbon delegates here.
    *
@@ -37,6 +38,7 @@
    * branch has already fixed twice.
    */
   import { onDestroy } from 'svelte';
+  import { runEngineActionAsync } from '../../lib/store/engine-action';
   import { t } from '../../lib/i18n';
   import { leaveSelfWeightRule, selfWeightRuleEffect } from '../../lib/store/self-weight-migration';
   import SelectionPanel from '../SelectionPanel.svelte';
@@ -45,6 +47,9 @@
   import ProGridPanel from './ProGridPanel.svelte';
   import ProEditPanel from './ProEditPanel.svelte';
   import ProGroupsPanel from './ProGroupsPanel.svelte';
+  import ProPhysicalPanel from './ProPhysicalPanel.svelte';
+  import ProBuildingPanel from './ProBuildingPanel.svelte';
+  import ProFoundationModelPanel from './ProFoundationModelPanel.svelte';
   import ProCodePanel from './ProCodePanel.svelte';
   import ProViewPanel from './ProViewPanel.svelte';
   import ProProjectFileActions from './ProProjectFileActions.svelte';
@@ -53,6 +58,7 @@
   import AiDrawer from '../AiDrawer.svelte';
   import type { ReportConfig, ReportData } from '../../lib/engine/pro-report';
   import { exportReportAs, type ReportFigureChoices } from '../../lib/pro/report-export';
+  import { tellIfEmpty } from '../../lib/export/empty-model';
   import { runGlobalSolve } from '../../lib/engine/live-calc';
   import { proExampleGroups, type ProExample } from '../../lib/data/pro-examples';
   import ProReportDialog from './ProReportDialog.svelte';
@@ -65,15 +71,11 @@
   import ProLoadsTab from './ProLoadsTab.svelte';
   import ProResultsTab from './ProResultsTab.svelte';
   import ProInstabilityReport from './ProInstabilityReport.svelte';
-  import ProRcWorkflowTab from './ProRcWorkflowTab.svelte';
   import ProShellTab from './ProShellTab.svelte';
   import ProSpecificationsTab from './spec/ProSpecificationsTab.svelte';
-  import ProDesignCompleteness from './design/ProDesignCompleteness.svelte';
   import { resetProjectProvenance } from '../../lib/store/project-provenance';
   import ProAdvancedTab from './ProAdvancedTab.svelte';
   import ProDiagnosticsTab from './ProDiagnosticsTab.svelte';
-  import ProConnectionsTab from './ProConnectionsTab.svelte';
-  import ProOtherCodesPanel from './ProOtherCodesPanel.svelte';
   /*
    * The metallic tab renders the WORKFLOW, and the workflow renders `SteelPanel` as its last
    * stage — so the inventory is still there, one disclosure in, rather than replaced or duplicated.
@@ -82,14 +84,13 @@
    * a subset of the other, and a user having to know which. This is the same tab with the stages
    * around it.
    */
-  import ProSteelWorkflowTab from './ProSteelWorkflowTab.svelte';
   import ProGeneratorsPanel from './generators/ProGeneratorsPanel.svelte';
   import { checkCurrentModel } from '../../lib/engine/solve-diagnostics';
   import { createPhoneShell } from '../../lib/pro/phone-shell.svelte';
   import ProPhoneNav from './ProPhoneNav.svelte';
   import ProPhoneGrid from './ProPhoneGrid.svelte';
 
-  type ProTab = 'selection' | 'project' | 'nodes' | 'elements' | 'shells' | 'materials' | 'sections' | 'specifications' | 'supports' | 'loads' | 'advanced' | 'results' | 'design' | 'steel' | 'generators' | 'connections' | 'diagnostics' | 'settings' | 'grid' | 'transform' | 'edit' | 'groups' | 'code' | 'view' | 'otherCodes';
+  type ProTab = 'selection' | 'project' | 'nodes' | 'elements' | 'shells' | 'materials' | 'sections' | 'specifications' | 'supports' | 'loads' | 'advanced' | 'results' | 'design' | 'desk' | 'steel' | 'generators' | 'connections' | 'diagnostics' | 'settings' | 'grid' | 'transform' | 'edit' | 'groups' | 'physical' | 'building' | 'foundations' | 'designData' | 'code' | 'view' | 'otherCodes';
 
 
   // activeTab is shared via uiStore.proActiveTab so App.svelte can render the nav strip
@@ -109,7 +110,7 @@
   export function report() { handleOpenReportDialog(); }
   export function isSolving() { return solving; }
   export function canSolve() { return hasModel && !solving; }
-  export function canReport() { return modelStore.nodes.size > 0; }
+  export function canReport() { return !solving; }
   /**
    * The model's error count, for the ribbon's stage badge.
    *
@@ -145,7 +146,9 @@
 
     solving = true;
     try {
-      await runGlobalSolve();
+      const outcome = await runGlobalSolve();
+      // A solve stopped before it ran (plates that need a mesh) says why, not "no results".
+      if (!outcome.ok) { solveError = outcome.error; solving = false; return; }
       if (!resultsStore.results3D) {
         solveError = t('pro.noResults');
         solving = false;
@@ -161,28 +164,26 @@
   }
 
   async function handleOpenReportDialog() {
-    // Auto-solve if no results yet
-    if (!resultsStore.results3D) {
-      if (modelStore.nodes.size === 0) { uiStore.toast(t('pro.solveFirst'), 'error'); return; }
+    // Auto-solve if no results yet; an empty model's report still opens, and comes out empty.
+    if (!resultsStore.results3D && modelStore.nodes.size > 0) {
       await runGlobalSolve();
+      if (!resultsStore.results3D) return;
     }
-    if (!resultsStore.results3D) return;
-
 
     showReportDialog = true;
   }
 
   /* The assembly lives in `lib/pro/report-export.ts`: this component is a
      layout shell, and the 600-line ceiling on it is what said so. */
-  function exportReport(config: ReportConfig, figureOptions: ReportFigureChoices) {
+  function exportReport(config: ReportConfig, figureOptions: ReportFigureChoices, format?: ReportFormat) {
     showReportDialog = false;
+    tellIfEmpty();
     void exportReportAs({
       config,
-      // The report prints the Design panel's verification (`reportDesignChecks`), not a design of its own.
-      verifications: [],
       advancedResults: advancedResultsRef,
       t,
       figureOptions,
+      ...(format ? { format } : {}),
     });
   }
 
@@ -192,8 +193,9 @@
   onDestroy(leaveSelfWeightRule);
 
   async function loadProExample(ex: ProExample) {
-    // The example states its own self-weight and combinations (`lib/data/pro-examples.ts`).
-    await ex.load();
+    // The example states its own self-weight and combinations (`lib/data/pro-examples.ts`); the
+    // combinations are the engine's, so an example cannot load without it, and says so.
+    if ((await runEngineActionAsync(async () => { await ex.load(); return true; })) !== true) return;
     // A new project: nothing of the previous one's session state (figures, direct analysis,
     // export records) belongs to it.
     resetProjectProvenance();
@@ -253,6 +255,9 @@
     groups: 'groups.title',
     code: 'code.title',
     view: 'view.title',
+    building: 'building.title',
+    foundations: 'fdn.title',
+    physical: 'physical.title',
   };
 </script>
 
@@ -340,6 +345,12 @@
           <ProEditPanel />
         {:else if activeTab === 'groups'}
           <ProGroupsPanel />
+        {:else if activeTab === 'physical'}
+          <ProPhysicalPanel />
+        {:else if activeTab === 'building'}
+          <ProBuildingPanel />
+        {:else if activeTab === 'foundations'}
+          <ProFoundationModelPanel />
         {:else if activeTab === 'code'}
           <ProCodePanel />
         {:else if activeTab === 'view'}
@@ -366,18 +377,15 @@
           <ProAdvancedTab bind:advancedResults={advancedResultsRef} />
         {:else if activeTab === 'results'}
           <ProResultsTab />
-        {:else if activeTab === 'design'}
-          <ProDesignCompleteness />
-          <ProRcWorkflowTab />
-        {:else if activeTab === 'steel'}
-          <ProDesignCompleteness />
-          <ProSteelWorkflowTab />
+        <!--
+          Design's views (design, designData, steel, connections, otherCodes, desk) have no
+          branch here: the Design stage is the desk, docked around the viewer, and those panels
+          are its places (`DesignDesk.svelte`). A design view opens the desk on its place
+          (`syncDeskWithTab`), so this panel never shows one, and mounting a second copy beside
+          the desk's would give every control in it two elements.
+        -->
         {:else if activeTab === 'generators'}
           <ProGeneratorsPanel />
-        {:else if activeTab === 'connections'}
-          <ProConnectionsTab />
-        {:else if activeTab === 'otherCodes'}
-          <ProOtherCodesPanel />
         {:else if activeTab === 'ai'}
       <AiDrawer docked />
     {:else if activeTab === 'diagnostics'}

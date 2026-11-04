@@ -18,6 +18,7 @@
  */
 import type { SolverInput3D, SolverLoad3D, SolverElement3D } from '../types-3d';
 import { solveDetailed3D } from '../solver-detailed-3d';
+import { loadAlpha, loadDepth } from '../thermal-alpha';
 import type { DSMStepData } from '../solver-detailed';
 import { computeLocalAxes3D } from '../local-axes-3d';
 import { countIndeterminacy3D, candidates3D, buildPrimary3D, restrained3D, realSprings3D } from './primary-3d';
@@ -27,8 +28,6 @@ import {
   type ForceMethodResult, type StateResult, type BarState, type TermRow, type Geometry,
 } from './solve';
 import { breakpoints, integrate, type BarLoads } from './internal';
-
-const ALPHA = 12e-6;
 
 /** Loads along a space bar, local axes: transverse y and z. */
 interface BarLoads3D {
@@ -365,10 +364,19 @@ export function solveForceMethod3D(input: SolverInput3D): ForceMethodResult {
     }
   }
 
+  /* A bar's free thermal strain α·ΔT and curvatures α·ΔTy/hy, α·ΔTz/hz, each load with its own
+     α and depths as the analysis reads them (`thermal-alpha.ts`). */
   const thermalOf = (id: number) => {
     let u = 0, gy = 0, gz = 0;
+    const e = input.elements.get(id);
+    const sec = e && input.sections.get(e.sectionId);
     for (const l of input.loads) {
-      if (l.type === 'thermal' && l.data.elementId === id) { u += l.data.dtUniform ?? 0; gy += l.data.dtGradientY ?? 0; gz += l.data.dtGradientZ ?? 0; }
+      if (l.type === 'thermal' && l.data.elementId === id) {
+        const alpha = loadAlpha(l.data);
+        u += alpha * (l.data.dtUniform ?? 0);
+        if (sec && l.data.dtGradientY) gy += (alpha * l.data.dtGradientY) / loadDepth(l.data.depthY, sec.a, sec.iz);
+        if (sec && l.data.dtGradientZ) gz += (alpha * l.data.dtGradientZ) / loadDepth(l.data.depthZ, sec.a, sec.iy);
+      }
     }
     return { u, gy, gz };
   };
@@ -381,13 +389,11 @@ export function solveForceMethod3D(input: SolverInput3D): ForceMethodResult {
       const th = thermalOf(bar.e.id);
       if (!th.u && !th.gy && !th.gz) continue;
       const f = unit[i].forces(bar.e.id)!;
-      let v = th.u ? (-f[0]) * ALPHA * th.u * bar.L : 0;
+      let v = th.u ? (-f[0]) * th.u * bar.L : 0;
       if (bar.e.type === 'frame' && (th.gy || th.gz)) {
-        const hy = Math.sqrt((12 * bar.sec.iz) / bar.sec.a);
-        const hz = Math.sqrt((12 * bar.sec.iy) / bar.sec.a);
         /* Signs pinned by reading δᵢ₀ both ways on a heated space portal. */
-        const kz = -(ALPHA * th.gy) / hy;
-        const ky = -(ALPHA * th.gz) / hz;
+        const kz = -th.gy;
+        const ky = -th.gz;
         v += integrate([0, bar.L], (x) => { const p = internal3D(f, NONE, x); return p.mz * kz + p.my * ky; });
       }
       rows.push({ elementId: bar.e.id, source: 'thermal', value: v });
@@ -396,7 +402,7 @@ export function solveForceMethod3D(input: SolverInput3D): ForceMethodResult {
     if (ri.kind === 'barForce') {
       const th = thermalOf(ri.elementId!);
       const e = input.elements.get(ri.elementId!)!;
-      if (th.u) rows.push({ elementId: e.id, source: 'thermal', value: ALPHA * th.u * axesOf(input, e).L });
+      if (th.u) rows.push({ elementId: e.id, source: 'thermal', value: th.u * axesOf(input, e).L });
     }
     let settle = 0;
     for (const s of p0.input.supports.values()) {

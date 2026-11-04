@@ -16,6 +16,8 @@ export function fragmentFromIfc(m: IfcMappingResult): Fragment {
       id: k + 1, type: e.type, nodeI: e.nodeI, nodeJ: e.nodeJ,
       materialId: e.material + 1, sectionId: e.section + 1,
       releaseI: { ...NO_RELEASE }, releaseJ: { ...NO_RELEASE },
+      ...(e.roll !== undefined ? { rollAngle: e.roll } : {}),
+      ...(e.offset ? { offset: { frame: 'global', i: e.offset.i, j: e.offset.j } } : {}),
     }) as Element),
     quads: [], plates: [], supports: [], loads: [], groups: [],
     materials: m.materials.map((x, i) => ({ id: i + 1, ...x }) as Material),

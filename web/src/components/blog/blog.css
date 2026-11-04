@@ -17,37 +17,94 @@
 }
 
 .landing.blog .blog-head {
-  padding-top: clamp(6rem, 12vw, 9rem);
-  padding-bottom: clamp(2.5rem, 5vw, 4rem);
+  /* Enough room under the fixed nav, and no more: the posts are what the reader came for, and a
+     masthead the height of the screen pushed the first one below the fold. */
+  padding-top: clamp(5rem, 9vw, 6.5rem);
+  padding-bottom: clamp(1.75rem, 3.5vw, 2.5rem);
 }
 
-/* The index is one column, top to bottom: the masthead sits over the cards
-   rather than starting at the full-bleed left edge the landing sections use. */
+.landing.blog .blog-list {
+  padding-top: clamp(2rem, 4vw, 3rem);
+}
+
+/* The masthead and the cards share one column: wide enough for two cards side by side, narrow
+   enough that a featured excerpt keeps a readable measure. */
 .landing.blog .blog-head .wrap,
 .landing.blog .blog-list .wrap {
-  max-width: 58rem;
+  max-width: 68rem;
 }
 
 /* ─── INDEX ──────────────────────────────────────────────────────────────── */
 
 .landing.blog .post-cards {
   list-style: none;
-  /* The index is a reading surface too: a card the full 1360px wide sets its
-     excerpt to a measure nobody wants to read. */
-  max-width: 58rem;
+  max-width: 68rem;
   margin: 0 auto;
   padding: 0;
   display: grid;
   gap: 1.25rem;
 }
 
+/* The newest post across the full width; the rest two to a row on a wide screen, so the reader
+   sees several posts at once instead of one card per screen. */
+@media (min-width: 52rem) {
+  .landing.blog .post-cards {
+    grid-template-columns: 1fr 1fr;
+  }
+  .landing.blog .post-cards > li.featured {
+    grid-column: 1 / -1;
+  }
+}
+
+.landing.blog .post-cards > li {
+  display: grid;
+}
+
 .landing.blog .post-card {
+  position: relative;
   background: var(--card);
   border: 1px solid var(--card-hair);
   border-radius: var(--lp-radius);
-  padding: clamp(1.5rem, 3vw, 2.25rem);
+  padding: clamp(1.25rem, 2.4vw, 1.75rem);
   display: grid;
-  gap: 0.75rem;
+  align-content: start;
+  gap: 0.65rem;
+  transition: border-color 0.15s ease;
+}
+
+.landing.blog .post-card:hover {
+  border-color: var(--accent-text);
+}
+
+.landing.blog .post-card--featured {
+  padding: clamp(1.5rem, 3vw, 2.5rem);
+  gap: 0.85rem;
+  border-color: var(--accent-text);
+}
+
+.landing.blog .post-card-kicker {
+  margin: 0;
+  font-family: var(--lp-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.14em;
+  color: var(--accent-text);
+}
+
+/* Excerpts of the smaller cards stop after three lines; the featured one is read in full. */
+.landing.blog .post-card:not(.post-card--featured) .post-card-excerpt {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.landing.blog .post-card-tags {
+  margin: 0.15rem 0 0;
+}
+
+.landing.blog .post-card .link-arrow {
+  margin-top: 0.25rem;
 }
 
 .landing.blog .post-card-meta,
@@ -73,7 +130,7 @@
   margin: 0;
   font: inherit;
   font-family: var(--lp-display);
-  font-size: clamp(1.4rem, 2.6vw, 2rem);
+  font-size: clamp(1.2rem, 1.9vw, 1.45rem);
   line-height: 1.15;
   letter-spacing: -0.02em;
   color: var(--fg);
@@ -81,8 +138,40 @@
   cursor: pointer;
 }
 
-.landing.blog .post-card-title:hover {
+/* The whole card is the link: the title's link is stretched over it (the "Read the post" link
+   stays on top for keyboard and screen-reader users). The title is underlined only when the card
+   is pointed at or focused, so the index does not read as a wall of underlined headings. */
+.landing.blog .post-card-title {
+  text-decoration: none;
+}
+
+.landing.blog .post-card-title::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: var(--lp-radius);
+}
+
+.landing.blog .post-card:hover .post-card-title,
+.landing.blog .post-card:focus-within .post-card-title {
   color: var(--accent-text);
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+  text-decoration-thickness: 2px;
+}
+
+.landing.blog .post-card .link-arrow {
+  position: relative;
+  z-index: 1;
+}
+
+.landing.blog .post-card:focus-within {
+  outline: 2px solid var(--accent-text);
+  outline-offset: 2px;
+}
+
+.landing.blog .post-card--featured .post-card-title {
+  font-size: clamp(1.5rem, 3vw, 2.1rem);
 }
 
 .landing.blog .post-card p {
@@ -109,9 +198,15 @@
    set to the full 1360px measure is a paragraph nobody finishes. The tables
    are allowed to scroll past it — a row of seven numbers reads worse wrapped
    than a little wider than the prose around it.
+
+   The measure is set on the TEXT, gutter added on top. It used to be 46rem
+   including the gutter, which grows with the screen (up to 6.5rem a side),
+   so the wider the screen the narrower the text: 37rem, about 70 characters,
+   at 1280px. 48rem of 18px text is about 82 characters a line, inside the
+   45–90 that Practical Typography gives for body text.
 */
 .landing.blog .post-wrap {
-  max-width: 46rem;
+  max-width: calc(48rem + 2 * var(--lp-gut));
 }
 
 .landing.blog .post-back {
@@ -122,6 +217,7 @@
 .landing.blog .post-title {
   margin: 0 0 1.25rem;
   font-size: clamp(2rem, 5vw, 3.4rem);
+  text-wrap: balance; /* no one-word last line in a display title */
 }
 
 .landing.blog .post-tags {
@@ -148,14 +244,22 @@
   margin: 1.75rem 0 0;
   padding-bottom: 1.75rem;
   border-bottom: 1px solid var(--hair);
-  font-size: clamp(1.05rem, 1.6vw, 1.2rem);
-  line-height: 1.65;
+  font-size: clamp(1.1rem, 1.6vw, 1.25rem);
+  line-height: 1.5;
   color: var(--fg);
 }
 
+/*
+   Body text, by Practical Typography: 18px (15–25 on screens), line spacing
+   a little above its 120–145% because the measure is long and the ground is
+   dark, kerning and ligatures on. It was 16.3px at 1.75.
+*/
 .landing.blog .post-body {
-  font-size: 1.02rem;
-  line-height: 1.75;
+  margin-top: 1.75rem; /* space after the rule under the lead, as above it */
+  font-size: 1.125rem;
+  line-height: 1.55;
+  font-kerning: normal;
+  font-variant-ligatures: common-ligatures;
 }
 
 .landing.blog .post-h {
@@ -165,21 +269,41 @@
   letter-spacing: -0.015em;
   color: var(--fg);
   margin: 3rem 0 1rem;
+  text-wrap: balance;
+}
+
+/*
+   Prose in a colour between the two text tokens: the secondary grey was too
+   dim for paragraph after paragraph on the dark ground (body text wants the
+   strongest contrast that does not glare); --fg is kept for headings and the
+   lead so the hierarchy still reads.
+*/
+.landing.blog .post-p,
+.landing.blog .post-list {
+  color: var(--fg-2);
+  color: color-mix(in srgb, var(--fg) 82%, var(--fg-2));
 }
 
 .landing.blog .post-p {
-  margin: 0 0 1.15rem;
-  color: var(--fg-2);
+  margin: 0 0 1.1rem;
 }
 
 .landing.blog .post-list {
   margin: 0 0 1.5rem;
   padding-left: 1.25rem;
-  color: var(--fg-2);
 }
 
 .landing.blog .post-list li {
   margin-bottom: 0.6rem;
+}
+
+/* A phone column: 17px keeps about 40 characters a line (18 left 38). No
+   hyphenation: in Spanish it broke a word on nearly every line, worse than the
+   ragged edge it avoids. */
+@media (max-width: 640px) {
+  .landing.blog .post-body {
+    font-size: 1.0625rem;
+  }
 }
 
 .landing.blog .post-list li::marker {
@@ -257,6 +381,7 @@
   font-family: var(--lp-mono);
   font-size: 0.8rem;
   white-space: nowrap;
+  font-variant-numeric: tabular-nums; /* columns of numbers line up digit by digit */
 }
 
 .landing.blog .post-table th,
@@ -282,6 +407,15 @@
   text-align: left;
   color: var(--fg);
   font-weight: 500;
+}
+
+.landing.blog .post-table td.post-cell-text {
+  white-space: normal;
+  text-align: left;
+  font-family: var(--lp-sans);
+  font-size: 0.85rem;
+  min-width: 13rem;
+  line-height: 1.4;
 }
 
 .landing.blog .post-table tbody tr:last-child th,
@@ -408,4 +542,105 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--accent-text);
+}
+
+
+/* ─── KEEP READING ───────────────────────────────────────────────────────── */
+
+.landing.blog .post-related {
+  margin-top: clamp(2.5rem, 5vw, 3.5rem);
+  padding-top: clamp(1.5rem, 3vw, 2rem);
+  border-top: 1px solid var(--hair);
+}
+
+.landing.blog .post-related-title {
+  margin: 0 0 1rem;
+  font-family: var(--lp-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--fg-2);
+}
+
+.landing.blog .post-related-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.85rem;
+}
+
+@media (min-width: 52rem) {
+  .landing.blog .post-related-list {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.landing.blog .post-related-list > li {
+  display: grid;
+}
+
+.landing.blog .post-card--compact {
+  padding: 1rem 1.15rem;
+  gap: 0.4rem;
+}
+
+.landing.blog .post-card--compact h3 {
+  margin: 0;
+}
+
+.landing.blog .post-card--compact .post-card-title {
+  font-size: 1.05rem;
+  line-height: 1.25;
+}
+
+.landing.blog .post-pager {
+  margin-top: clamp(1.5rem, 3vw, 2rem);
+  display: grid;
+  gap: 0.85rem;
+}
+
+@media (min-width: 52rem) {
+  .landing.blog .post-pager {
+    grid-template-columns: 1fr 1fr;
+  }
+  .landing.blog .post-pager-older {
+    grid-column: 2;
+    text-align: right;
+  }
+}
+
+.landing.blog .post-pager-link {
+  display: grid;
+  gap: 0.3rem;
+  padding: 1rem 1.15rem;
+  border: 1px solid var(--hair);
+  border-radius: var(--lp-radius);
+  text-decoration: none;
+  color: var(--fg);
+}
+
+.landing.blog .post-pager-link:hover,
+.landing.blog .post-pager-link:focus-visible {
+  border-color: var(--accent-text);
+}
+
+.landing.blog .post-pager-dir {
+  font-family: var(--lp-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent-text);
+}
+
+.landing.blog .post-pager-title {
+  font-family: var(--lp-display);
+  font-size: 1.05rem;
+  line-height: 1.25;
+}
+
+/* ─── STANDING PAGE ──────────────────────────────────────────────────────── */
+
+.landing.blog .standing-cta {
+  margin: 1.75rem 0 0;
 }

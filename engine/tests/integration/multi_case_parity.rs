@@ -164,19 +164,32 @@ fn reference_2d(input: &MultiCaseInput) -> (Vec<AnalysisResults>, Vec<(String, A
             loads: lc.loads.clone(),
             constraints: vec![],
             connectors: HashMap::new(),
-            solver_options: None,        };
+            solver_options: None, masses: Default::default(),        };
         cases.push(solve_2d(&case_input).expect("reference solve_2d failed"));
         case_map.insert(lc.name.clone(), idx);
     }
+    // The model's prescribed displacements are in every case's solution; a
+    // combination counts them once: R_0 (settlement only) with 1 − Σ f.
+    let settles = input.solver.supports.values().any(|x| [x.dx, x.dz, x.dry].iter().any(|d| d.is_some_and(|v| v != 0.0)));
+    let settlement_only = settles.then(|| {
+        let mut s = input.solver.clone();
+        s.loads = vec![];
+        solve_2d(&s).expect("reference settlement-only solve failed")
+    });
     let mut combos = Vec::new();
     for combo in &input.combinations {
-        let factors: Vec<CombinationFactor> = combo.factors.iter()
+        let mut factors: Vec<CombinationFactor> = dedaliano_engine::ordered::entries(&combo.factors)
             .filter_map(|(name, &factor)| case_map.get(name)
                 .map(|&idx| CombinationFactor { case_id: idx, factor }))
             .collect();
-        let cases: Vec<CaseEntry> = cases.iter().enumerate()
+        let mut cases: Vec<CaseEntry> = cases.iter().enumerate()
             .map(|(idx, r)| CaseEntry { case_id: idx, results: r.clone() })
             .collect();
+        if let Some(r0) = &settlement_only {
+            let sum: f64 = factors.iter().map(|f| f.factor).sum();
+            factors.push(CombinationFactor { case_id: cases.len(), factor: 1.0 - sum });
+            cases.push(CaseEntry { case_id: cases.len(), results: r0.clone() });
+        }
         let combined = combine_results(&CombinationInput { factors, cases }).unwrap();
         combos.push((combo.name.clone(), combined));
     }
@@ -203,19 +216,32 @@ fn reference_3d(input: &MultiCaseInput3D) -> (Vec<AnalysisResults3D>, Vec<(Strin
             curved_beams: input.solver.curved_beams.clone(),
             constraints: input.solver.constraints.clone(),
             connectors: HashMap::new(),
-            solver_options: None,        };
+            solver_options: None, masses: Default::default(),        };
         cases.push(solve_3d(&case_input).expect("reference solve_3d failed"));
         case_map.insert(lc.name.clone(), idx);
     }
+    // The model's prescribed displacements are in every case's solution; a
+    // combination counts them once: R_0 (settlement only) with 1 − Σ f.
+    let settles = input.solver.supports.values().any(|x| [x.dx, x.dy, x.dz, x.drx, x.dry, x.drz].iter().any(|d| d.is_some_and(|v| v != 0.0)));
+    let settlement_only = settles.then(|| {
+        let mut s = input.solver.clone();
+        s.loads = vec![];
+        solve_3d(&s).expect("reference settlement-only solve failed")
+    });
     let mut combos = Vec::new();
     for combo in &input.combinations {
-        let factors: Vec<CombinationFactor> = combo.factors.iter()
+        let mut factors: Vec<CombinationFactor> = dedaliano_engine::ordered::entries(&combo.factors)
             .filter_map(|(name, &factor)| case_map.get(name)
                 .map(|&idx| CombinationFactor { case_id: idx, factor }))
             .collect();
-        let cases: Vec<CaseEntry3D> = cases.iter().enumerate()
+        let mut cases: Vec<CaseEntry3D> = cases.iter().enumerate()
             .map(|(idx, r)| CaseEntry3D { case_id: idx, results: r.clone() })
             .collect();
+        if let Some(r0) = &settlement_only {
+            let sum: f64 = factors.iter().map(|f| f.factor).sum();
+            factors.push(CombinationFactor { case_id: cases.len(), factor: 1.0 - sum });
+            cases.push(CaseEntry3D { case_id: cases.len(), results: r0.clone() });
+        }
         let combined = combine_results_3d(&CombinationInput3D { factors, cases }).unwrap();
         combos.push((combo.name.clone(), combined));
     }
@@ -270,7 +296,7 @@ fn make_frame_2d_dense() -> SolverInput {
 
     SolverInput {
         nodes, materials, sections, elements, supports,
-        loads: vec![], constraints: vec![], connectors: HashMap::new(), solver_options: None,
+        loads: vec![], constraints: vec![], connectors: HashMap::new(), solver_options: None, masses: Default::default(),
     }
 }
 
@@ -304,7 +330,7 @@ fn make_beam_2d_sparse() -> SolverInput {
 
     SolverInput {
         nodes, materials, sections, elements, supports,
-        loads: vec![], constraints: vec![], connectors: HashMap::new(), solver_options: None,
+        loads: vec![], constraints: vec![], connectors: HashMap::new(), solver_options: None, masses: Default::default(),
     }
 }
 
@@ -341,6 +367,8 @@ fn section_3d() -> SolverSection3D {
         id: 1, name: None, a: 0.09,
         iy: 6.75e-4, iz: 6.75e-4, j: 1.0e-3,
         cw: None, as_y: None, as_z: None,
+        shear_center_y: None,
+        shear_center_z: None,
     }
 }
 
@@ -385,7 +413,7 @@ fn make_mixed_3d_dense() -> SolverInput3D {
         solid_shells: HashMap::new(), curved_shells: HashMap::new(),
         curved_beams: vec![],
         connectors: HashMap::new(),
-        solver_options: None,    }
+        solver_options: None, masses: Default::default(),    }
 }
 
 /// 3D sparse model (nf = 150 >= 64): 4×4 quad slab on 4 fixed frame columns.
@@ -472,7 +500,7 @@ fn make_frame_slab_3d_sparse() -> SolverInput3D {
         solid_shells: HashMap::new(), curved_shells: HashMap::new(),
         curved_beams: vec![],
         connectors: HashMap::new(),
-        solver_options: None,    }
+        solver_options: None, masses: Default::default(),    }
 }
 
 // ==================== 2D tests ====================
@@ -511,9 +539,11 @@ fn parity_2d_dense_multi_case() {
                 loads: vec![
                     SolverLoad::Thermal(SolverThermalLoad {
                         element_id: 1, dt_uniform: 15.0, dt_gradient: 8.0,
+                        alpha: None, depth: None,
                     }),
                     SolverLoad::Thermal(SolverThermalLoad {
                         element_id: 3, dt_uniform: -10.0, dt_gradient: 0.0,
+                        alpha: None, depth: None,
                     }),
                 ],
             },
@@ -578,9 +608,11 @@ fn parity_2d_sparse_multi_case() {
                 loads: vec![
                     SolverLoad::Thermal(SolverThermalLoad {
                         element_id: 5, dt_uniform: 20.0, dt_gradient: 12.0,
+                        alpha: None, depth: None,
                     }),
                     SolverLoad::Thermal(SolverThermalLoad {
                         element_id: 25, dt_uniform: 0.0, dt_gradient: -15.0,
+                        alpha: None, depth: None,
                     }),
                 ],
             },
@@ -649,6 +681,7 @@ fn parity_3d_dense_multi_case() {
                 loads: vec![
                     SolverLoad3D::Thermal(SolverThermalLoad3D {
                         element_id: 1, dt_uniform: 12.0, dt_gradient_y: 6.0, dt_gradient_z: 0.0,
+                        alpha: None, depth_y: None, depth_z: None,
                     }),
                     SolverLoad3D::QuadThermal(SolverPlateThermalLoad {
                         element_id: 1, dt_uniform: 10.0, dt_gradient: 5.0, alpha: None,
@@ -722,6 +755,7 @@ fn parity_3d_sparse_multi_case() {
                 loads: vec![
                     SolverLoad3D::Thermal(SolverThermalLoad3D {
                         element_id: 2, dt_uniform: 18.0, dt_gradient_y: 4.0, dt_gradient_z: -3.0,
+                        alpha: None, depth_y: None, depth_z: None,
                     }),
                     SolverLoad3D::QuadThermal(SolverPlateThermalLoad {
                         element_id: 1006, dt_uniform: 15.0, dt_gradient: 6.0, alpha: None,

@@ -6,7 +6,7 @@
 //! independent of both the LP heuristic and the exact checker. Refusal tests
 //! tamper with the exact candidates and with the model.
 
-mod common;
+use crate::common;
 
 use common::*;
 use dedaliano_engine::certify::exact::{q, qi, Q};
@@ -340,7 +340,7 @@ fn unsupported_models_are_refused() {
     s.supports.get_mut("2").unwrap().dz = Some(0.01);
     assert!(certify(&plastic(s)).reason.unwrap().contains("prescribed"));
     let mut s = base();
-    s.loads.push(SolverLoad::Thermal(SolverThermalLoad { element_id: 1, dt_uniform: 10.0, dt_gradient: 0.0 }));
+    s.loads.push(SolverLoad::Thermal(SolverThermalLoad { element_id: 1, dt_uniform: 10.0, dt_gradient: 0.0, alpha: None, depth: None }));
     assert!(certify(&plastic(s)).reason.unwrap().contains("thermal"));
     let mut s = base();
     s.elements.get_mut("1").unwrap().elem_type = "cable".into();

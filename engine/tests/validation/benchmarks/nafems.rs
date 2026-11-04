@@ -206,6 +206,7 @@ fn validation_nafems_t3_thermal_stress() {
             element_id: i,
             dt_uniform: delta_t,
             dt_gradient: 0.0,
+            alpha: None, depth: None,
         }));
     }
 

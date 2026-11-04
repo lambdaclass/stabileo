@@ -5,8 +5,7 @@
 //! (they live in a separate list, not in `elements`, so the model had no
 //! members at all → spurious mechanism/singularity).
 
-#[path = "common/mod.rs"]
-mod common;
+use crate::common;
 
 use common::make_3d_input;
 use dedaliano_engine::solver::linear;

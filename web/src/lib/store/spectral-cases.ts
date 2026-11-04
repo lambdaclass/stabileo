@@ -19,6 +19,7 @@ import { modalUntilMass } from '../engine/dynamics/requests';
 import { solveModal3D, solve3D } from '../engine/wasm-solver';
 import { finalizeSolve3DResults } from '../engine/solver-service';
 import { designSpectrum, isBlocked, spectralOrdinate, RISK_FACTOR } from '../codes/cirsoc103/spectrum';
+import { engineFailureMessage } from '../engine/engine-unavailable';
 import { findBehaviour, R_ELASTIC } from '../codes/cirsoc103/behaviour';
 import { excitedDirections, modeShapeField, spectralCaseResult, userSa, G, type Direction, type SpectralCaseDef } from '../engine/spectral-case';
 import type { AnalysisResults3D, Displacement3D, Reaction3D, SolverInput3D, SolverSupport3D } from '../engine/types-3d';
@@ -31,7 +32,15 @@ export const PARTICIPATION_TARGET = 0.9;
 export function codeSa(): ((t: number) => number) | string {
   const s = regulationsStore.binding('seismic')?.settings as { zone?: number; site?: string } | undefined;
   if (!s?.zone || !s.site) return t('spectralCase.noCodeSpectrum');
-  const spec = designSpectrum({ zone: s.zone as never, site: s.site as never });
+  let spec;
+  try {
+    spec = designSpectrum({ zone: s.zone as never, site: s.site as never });
+  } catch (err) {
+    // The code spectrum is the engine's: without it, the reason, not a spectrum.
+    const m = engineFailureMessage(err);
+    if (!m) throw err;
+    return tp(m.key, m.params ?? {});
+  }
   if (isBlocked(spec)) return t('spectralCase.noCodeSpectrum');
   return (period) => spectralOrdinate(period, spec) * G;
 }

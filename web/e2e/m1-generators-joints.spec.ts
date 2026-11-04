@@ -21,15 +21,15 @@
  * about the things a wrong answer makes wrong in text: a count, a refusal, a state, a warning.
  */
 
-import { test, expect, PRO_URL, loadModel } from './fixtures';
+import { test, expect, PRO_URL, loadModel, clickStage, ribbonCmd } from './fixtures';
 import { insertGenerated, pickGenerator, placeButton } from './generator-helpers';
 import type { Page } from '@playwright/test';
 
 const STAGE_OF = { generators: 'model', steel: 'design', connections: 'design' } as const;
 
 async function openTab(page: Page, tab: keyof typeof STAGE_OF): Promise<void> {
-  await page.getByTestId(`pr-stage-${STAGE_OF[tab]}`).click();
-  await page.getByTestId(`pr-cmd-${tab}`).click();
+  await clickStage(page, STAGE_OF[tab]);
+  await ribbonCmd(page, tab);
 }
 
 async function openGenerators(page: Page): Promise<void> {
@@ -50,7 +50,7 @@ function elementCount(page: Page): Promise<number> {
 test.beforeEach(async ({ page }) => {
   await page.goto(PRO_URL);
   await expect
-    .poll(() => page.evaluate(() => window.__stabileo.solverReady()), { timeout: 60_000 })
+    .poll(() => page.evaluate(() => window.__stabileo?.solverReady() ?? false), { timeout: 45_000 })
     .toBe(true);
 });
 
@@ -111,7 +111,7 @@ test.describe('the three generators', () => {
     for (const kind of ['truss', 'column', 'shed'] as const) {
       await page.goto(PRO_URL);
       await expect
-        .poll(() => page.evaluate(() => window.__stabileo.solverReady()), { timeout: 60_000 })
+        .poll(() => page.evaluate(() => window.__stabileo?.solverReady() ?? false), { timeout: 45_000 })
         .toBe(true);
       await openGenerators(page);
       await pickKind(page, kind);

@@ -55,6 +55,14 @@ struct ElementState {
 pub fn solve_nonlinear_material_2d(
     input: &NonlinearMaterialInput,
 ) -> Result<NonlinearMaterialResult, String> {
+    let mut r = solve_nonlinear_material_2d_inner(input)?;
+    crate::known_issues::attach(&mut r.results.structured_diagnostics, crate::known_issues::for_2d(&input.solver, crate::known_issues::Analysis::MaterialNonlinear));
+    Ok(r)
+}
+
+fn solve_nonlinear_material_2d_inner(
+    input: &NonlinearMaterialInput,
+) -> Result<NonlinearMaterialResult, String> {
     // Assembly resolves ids by direct map indexing: an element naming a
     // node that does not exist panicked there, which in WASM ends the
     // module rather than the call.
@@ -83,33 +91,15 @@ pub fn solve_nonlinear_material_2d(
     let f_total = asm.f.clone();
     let art = assembly::artificial_stiffness_entries(&asm);
 
-    // Build prescribed displacement vector u_r for restrained DOFs.
-    let mut u_r = vec![0.0; nr];
-    for sup in solver.supports.values() {
-        if sup.support_type == "spring" {
-            continue;
-        }
-        let prescribed: [(usize, Option<f64>); 3] = [
-            (0, sup.dx),
-            (1, sup.dz),
-            (2, sup.dry),
-        ];
-        for &(local_dof, val) in &prescribed {
-            if let Some(v) = val {
-                if v.abs() > 1e-15 {
-                    if let Some(&d) = dof_num.map.get(&(sup.node_id, local_dof)) {
-                        if d >= nf {
-                            u_r[d - nf] = v;
-                        }
-                    }
-                }
-            }
-        }
-    }
+    // Prescribed displacements, in the inclined-support frames the restrained
+    // DOFs are numbered in (one definition with the linear solver: this
+    // hand-rolled copy assigned a rotated roller's raw global dz to its
+    // normal DOF — found by the metamorphic rotation check).
+    let u_r = super::linear::prescribed_displacements_2d(solver, &dof_num);
 
     // Pre-build lookup maps for O(1) access by ID.
     let mat_by_id: std::collections::HashMap<usize, &SolverMaterial> =
-        solver.materials.values().map(|m| (m.id, m)).collect();
+        crate::ordered::values(&solver.materials).map(|m| (m.id, m)).collect();
 
     // Initialize element states: all elastic.
     let mut states: Vec<(usize, ElementState)> = solver
@@ -347,11 +337,14 @@ pub fn solve_nonlinear_material_2d(
     );
     reactions.sort_by_key(|r| r.node_id);
 
-    let mut element_forces = super::linear::compute_internal_forces_2d(solver, &dof_num, &u_geom);
+    // Member forces from the stiffness the solve balanced: a yielded member at α·EI (NL-4).
+    // They were recovered with the elastic EI, so after yield they were up to ~100× off and did
+    // not balance the reactions.
+    let mut element_forces = secant_member_forces_2d(solver, &states, &dof_num, &u_geom);
     element_forces.sort_by_key(|ef| ef.element_id);
 
-    // Build element plastic status.
-    let element_status = build_element_status(solver, input, &dof_num, &u_geom, &states);
+    // Utilization from the same forces (NL-4): from K_el·u it read ~100× high after yield.
+    let element_status = build_element_status(solver, input, &dof_num, &u_geom, &element_forces, &states);
 
     let final_load_factor = last_converged_factor;
 
@@ -385,6 +378,95 @@ pub fn solve_nonlinear_material_2d(
 }
 
 // ---------------------------------------------------------------------------
+/// Member forces as the solve balanced them: the displacement part from the secant stiffness
+/// (yielded members at α·EI) and the fixed-end part exactly as assembled. Recovering through the
+/// secant model alone would also recompute the fixed-end forces with the reduced section, which
+/// changes thermal and Timoshenko member loads (Codex review of #510). Recovery is linear in u and
+/// in the loads, so: elastic with loads + (secant − elastic) without loads.
+fn secant_member_forces_2d(solver: &SolverInput, states: &[(usize, ElementState)], dof: &DofNumbering, u: &[f64]) -> Vec<ElementForces> {
+    let mut forces = super::linear::compute_internal_forces_2d(solver, dof, u);
+    let mut unloaded = solver.clone();
+    unloaded.loads.clear();
+    let elastic: std::collections::HashMap<usize, ElementForces> =
+        super::linear::compute_internal_forces_2d(&unloaded, dof, u).into_iter().map(|f| (f.element_id, f)).collect();
+    let secant: std::collections::HashMap<usize, ElementForces> =
+        super::linear::compute_internal_forces_2d(&secant_model_2d(&unloaded, states), dof, u).into_iter().map(|f| (f.element_id, f)).collect();
+    for f in &mut forces {
+        let (Some(e), Some(c)) = (elastic.get(&f.element_id), secant.get(&f.element_id)) else { continue };
+        f.n_start += c.n_start - e.n_start;
+        f.n_end += c.n_end - e.n_end;
+        f.v_start += c.v_start - e.v_start;
+        f.v_end += c.v_end - e.v_end;
+        f.m_start += c.m_start - e.m_start;
+        f.m_end += c.m_end - e.m_end;
+    }
+    forces
+}
+
+/// As `secant_member_forces_2d`, in 3D.
+fn secant_member_forces_3d(solver: &SolverInput3D, states: &[(usize, ElementState3D)], dof: &DofNumbering, u: &[f64]) -> Vec<ElementForces3D> {
+    let mut forces = super::linear::compute_internal_forces_3d(solver, dof, u);
+    let mut unloaded = solver.clone();
+    unloaded.loads.clear();
+    let elastic: std::collections::HashMap<usize, ElementForces3D> =
+        super::linear::compute_internal_forces_3d(&unloaded, dof, u).into_iter().map(|f| (f.element_id, f)).collect();
+    let secant: std::collections::HashMap<usize, ElementForces3D> =
+        super::linear::compute_internal_forces_3d(&secant_model_3d(&unloaded, states), dof, u).into_iter().map(|f| (f.element_id, f)).collect();
+    for f in &mut forces {
+        let (Some(e), Some(c)) = (elastic.get(&f.element_id), secant.get(&f.element_id)) else { continue };
+        f.n_start += c.n_start - e.n_start;
+        f.n_end += c.n_end - e.n_end;
+        f.vy_start += c.vy_start - e.vy_start;
+        f.vy_end += c.vy_end - e.vy_end;
+        f.vz_start += c.vz_start - e.vz_start;
+        f.vz_end += c.vz_end - e.vz_end;
+        f.mx_start += c.mx_start - e.mx_start;
+        f.mx_end += c.mx_end - e.mx_end;
+        f.my_start += c.my_start - e.my_start;
+        f.my_end += c.my_end - e.my_end;
+        f.mz_start += c.mz_start - e.mz_start;
+        f.mz_end += c.mz_end - e.mz_end;
+    }
+    forces
+}
+
+/// The model as the converged state sees it: every yielded member on a section of its own with
+/// α·Iz, the stiffness `compute_global_internal_forces` balanced. Used to recover member forces.
+fn secant_model_2d(solver: &SolverInput, states: &[(usize, ElementState)]) -> SolverInput {
+    let mut m = solver.clone();
+    let mut next = crate::ordered::values(&m.sections).map(|s| s.id).max().unwrap_or(0) + 1;
+    for (id, st) in states {
+        if !(st.yielded_start || st.yielded_end) {
+            continue;
+        }
+        let Some(e) = m.elements.values_mut().find(|e| e.id == *id && e.elem_type == "frame") else { continue };
+        let Some(sec) = crate::ordered::values(&solver.sections).find(|s| s.id == e.section_id) else { continue };
+        let reduced = SolverSection { id: next, iz: st.alpha * sec.iz, ..sec.clone() };
+        m.sections.insert(next.to_string(), reduced);
+        e.section_id = next;
+        next += 1;
+    }
+    m
+}
+
+/// As `secant_model_2d`, for 3D: α on both bending inertias.
+fn secant_model_3d(solver: &SolverInput3D, states: &[(usize, ElementState3D)]) -> SolverInput3D {
+    let mut m = solver.clone();
+    let mut next = crate::ordered::values(&m.sections).map(|s| s.id).max().unwrap_or(0) + 1;
+    for (id, st) in states {
+        if !(st.yielded_start || st.yielded_end) {
+            continue;
+        }
+        let Some(e) = m.elements.values_mut().find(|e| e.id == *id && e.elem_type == "frame") else { continue };
+        let Some(sec) = crate::ordered::values(&solver.sections).find(|s| s.id == e.section_id) else { continue };
+        let reduced = SolverSection3D { id: next, iy: st.alpha * sec.iy, iz: st.alpha * sec.iz, ..sec.clone() };
+        m.sections.insert(next.to_string(), reduced);
+        e.section_id = next;
+        next += 1;
+    }
+    m
+}
+
 // Helper: look up the hardening ratio alpha for an element.
 // ---------------------------------------------------------------------------
 
@@ -466,15 +548,15 @@ fn assemble_tangent_stiffness_scatter(
 ) {
 
     let node_by_id: std::collections::HashMap<usize, &SolverNode> =
-        solver.nodes.values().map(|n| (n.id, n)).collect();
+        crate::ordered::values(&solver.nodes).map(|n| (n.id, n)).collect();
     let mat_by_id: std::collections::HashMap<usize, &SolverMaterial> =
-        solver.materials.values().map(|m| (m.id, m)).collect();
+        crate::ordered::values(&solver.materials).map(|m| (m.id, m)).collect();
     let sec_by_id: std::collections::HashMap<usize, &SolverSection> =
-        solver.sections.values().map(|s| (s.id, s)).collect();
+        crate::ordered::values(&solver.sections).map(|s| (s.id, s)).collect();
 
     let mut scatter_diag = |gi: usize, gj: usize, v: f64| scatter(gi, gj, v);
 
-    for elem in solver.elements.values() {
+    for elem in crate::ordered::values(&solver.elements) {
         let node_i = node_by_id[&elem.node_i];
         let node_j = node_by_id[&elem.node_j];
         let mat = mat_by_id[&elem.material_id];
@@ -579,13 +661,13 @@ fn compute_global_internal_forces(
     let mut f_int = vec![0.0; n];
 
     let node_by_id: std::collections::HashMap<usize, &SolverNode> =
-        solver.nodes.values().map(|n| (n.id, n)).collect();
+        crate::ordered::values(&solver.nodes).map(|n| (n.id, n)).collect();
     let mat_by_id: std::collections::HashMap<usize, &SolverMaterial> =
-        solver.materials.values().map(|m| (m.id, m)).collect();
+        crate::ordered::values(&solver.materials).map(|m| (m.id, m)).collect();
     let sec_by_id: std::collections::HashMap<usize, &SolverSection> =
-        solver.sections.values().map(|s| (s.id, s)).collect();
+        crate::ordered::values(&solver.sections).map(|s| (s.id, s)).collect();
 
-    for elem in solver.elements.values() {
+    for elem in crate::ordered::values(&solver.elements) {
         let node_i = node_by_id[&elem.node_i];
         let node_j = node_by_id[&elem.node_j];
         let mat = mat_by_id[&elem.material_id];
@@ -683,11 +765,13 @@ fn update_element_states(
     states: &mut Vec<(usize, ElementState)>,
 ) {
     // Compute internal forces using the full elastic stiffness for yield check.
-    // This gives us the "demand" forces on each element.
+    // This gives us the "demand" forces on each element. A yielded member's K_el·u stays above
+    // its capacity, so once yielded it stays yielded: part of the secant model (NL-5, #428); the
+    // reported forces and utilization use the secant forces (NL-4).
     let element_forces = super::linear::compute_internal_forces_2d(solver, dof_num, u);
 
     let elem_by_id: std::collections::HashMap<usize, &SolverElement> =
-        solver.elements.values().map(|e| (e.id, e)).collect();
+        crate::ordered::values(&solver.elements).map(|e| (e.id, e)).collect();
 
     for ef in &element_forces {
         let elem = match elem_by_id.get(&ef.element_id) {
@@ -786,15 +870,15 @@ fn build_element_status(
     input: &NonlinearMaterialInput,
     dof_num: &DofNumbering,
     u: &[f64],
+    element_forces: &[ElementForces],
     states: &[(usize, ElementState)],
 ) -> Vec<ElementPlasticStatus> {
-    let element_forces = super::linear::compute_internal_forces_2d(solver, dof_num, u);
     let mut statuses = Vec::new();
 
     let elem_by_id: std::collections::HashMap<usize, &SolverElement> =
-        solver.elements.values().map(|e| (e.id, e)).collect();
+        crate::ordered::values(&solver.elements).map(|e| (e.id, e)).collect();
 
-    for ef in &element_forces {
+    for ef in element_forces {
         let elem = match elem_by_id.get(&ef.element_id) {
             Some(e) => *e,
             None => continue,
@@ -873,12 +957,21 @@ struct ElementState3D {
 /// Solve a 3D nonlinear material analysis using incremental load-stepping
 /// with Newton-Raphson equilibrium iterations at each increment.
 ///
-/// The yield criterion is a resultant-based biaxial interaction:
-///   (N/Np)^2 + (My/Mpy)^2 + (Mz/Mpz)^2 <= 1.0
+/// The yield criterion is a resultant-based biaxial interaction that reduces to the 2D one for
+/// bending about a single axis:
+///   (N/Np)^2 + |My|/Mpy + |Mz|/Mpz <= 1.0
 ///
 /// When an element yields at an end, its flexural stiffness is reduced to
 /// alpha * EI (bilinear hardening).
 pub fn solve_nonlinear_material_3d(
+    input: &NonlinearMaterialInput3D,
+) -> Result<NonlinearMaterialResult3D, String> {
+    let mut r = solve_nonlinear_material_3d_inner(input)?;
+    crate::known_issues::attach(&mut r.results.structured_diagnostics, crate::known_issues::for_3d(&input.solver, crate::known_issues::Analysis::MaterialNonlinear));
+    Ok(r)
+}
+
+fn solve_nonlinear_material_3d_inner(
     input: &NonlinearMaterialInput3D,
 ) -> Result<NonlinearMaterialResult3D, String> {
     super::linear::validate_input_3d(&input.solver)?;
@@ -915,29 +1008,15 @@ pub fn solve_nonlinear_material_3d(
     // Build constraint system (if constraints present)
     let cs = FreeConstraintSystem::build_3d(&solver, &dof_num)?;
 
-    // Prescribed displacements (from settlement supports).
-    let mut u_r = vec![0.0; nr];
-    for sup in solver.supports.values() {
-        let prescribed: [(usize, Option<f64>); 6] = [
-            (0, sup.dx), (1, sup.dy), (2, sup.dz),
-            (3, sup.drx), (4, sup.dry), (5, sup.drz),
-        ];
-        for &(local_dof, val) in &prescribed {
-            if let Some(v) = val {
-                if v.abs() > 1e-15 {
-                    if let Some(&d) = dof_num.map.get(&(sup.node_id, local_dof)) {
-                        if d >= nf {
-                            u_r[d - nf] = v;
-                        }
-                    }
-                }
-            }
-        }
-    }
+    // Prescribed displacements, in the inclined-support frames the restrained
+    // DOFs are numbered in (one definition with the linear solver: this
+    // hand-rolled copy assigned a rotated roller's raw global dz to its
+    // normal DOF — found by the metamorphic rotation check).
+    let u_r = super::linear::prescribed_displacements_3d(&solver, &dof_num);
 
     // Pre-build lookup map for O(1) access by ID.
     let mat_by_id: std::collections::HashMap<usize, &SolverMaterial> =
-        solver.materials.values().map(|m| (m.id, m)).collect();
+        crate::ordered::values(&solver.materials).map(|m| (m.id, m)).collect();
 
     // Initialize element states: all elastic.
     let mut states: Vec<(usize, ElementState3D)> = solver
@@ -1150,10 +1229,11 @@ pub fn solve_nonlinear_material_3d(
     );
     reactions.sort_by_key(|r| r.node_id);
 
-    let mut element_forces = super::linear::compute_internal_forces_3d(solver, &dof_num, &u_geom);
+    // Member forces from the stiffness the solve balanced, as in 2D (NL-4).
+    let mut element_forces = secant_member_forces_3d(solver, &states, &dof_num, &u_geom);
     element_forces.sort_by_key(|ef| ef.element_id);
 
-    let element_status = build_element_status_3d(solver, input, &dof_num, &u_geom, &states);
+    let element_status = build_element_status_3d(solver, input, &dof_num, &u_geom, &element_forces, &states);
 
     // Compute constraint forces if constraints are active
     let constraint_forces = if let Some(ref fcs) = cs {
@@ -1267,13 +1347,13 @@ fn assemble_tangent_stiffness_3d_scatter(
     let left_hand = solver.left_hand.unwrap_or(false);
 
     let node_by_id: std::collections::HashMap<usize, &SolverNode3D> =
-        solver.nodes.values().map(|n| (n.id, n)).collect();
+        crate::ordered::values(&solver.nodes).map(|n| (n.id, n)).collect();
     let mat_by_id: std::collections::HashMap<usize, &SolverMaterial> =
-        solver.materials.values().map(|m| (m.id, m)).collect();
+        crate::ordered::values(&solver.materials).map(|m| (m.id, m)).collect();
     let sec_by_id: std::collections::HashMap<usize, &SolverSection3D> =
-        solver.sections.values().map(|s| (s.id, s)).collect();
+        crate::ordered::values(&solver.sections).map(|s| (s.id, s)).collect();
 
-    for elem in solver.elements.values() {
+    for elem in crate::ordered::values(&solver.elements) {
         let node_i = node_by_id[&elem.node_i];
         let node_j = node_by_id[&elem.node_j];
         let mat = mat_by_id[&elem.material_id];
@@ -1372,7 +1452,7 @@ fn assemble_tangent_stiffness_3d_scatter(
     }
 
     // Add spring stiffness contributions.
-    for sup in solver.supports.values() {
+    for sup in crate::ordered::values(&solver.supports) {
         let spring_dofs: [(usize, Option<f64>); 6] = [
             (0, sup.kx), (1, sup.ky), (2, sup.kz),
             (3, sup.krx), (4, sup.kry), (5, sup.krz),
@@ -1408,13 +1488,13 @@ fn compute_global_internal_forces_3d(
     let left_hand = solver.left_hand.unwrap_or(false);
 
     let node_by_id: std::collections::HashMap<usize, &SolverNode3D> =
-        solver.nodes.values().map(|n| (n.id, n)).collect();
+        crate::ordered::values(&solver.nodes).map(|n| (n.id, n)).collect();
     let mat_by_id: std::collections::HashMap<usize, &SolverMaterial> =
-        solver.materials.values().map(|m| (m.id, m)).collect();
+        crate::ordered::values(&solver.materials).map(|m| (m.id, m)).collect();
     let sec_by_id: std::collections::HashMap<usize, &SolverSection3D> =
-        solver.sections.values().map(|s| (s.id, s)).collect();
+        crate::ordered::values(&solver.sections).map(|s| (s.id, s)).collect();
 
-    for elem in solver.elements.values() {
+    for elem in crate::ordered::values(&solver.elements) {
         let node_i = node_by_id[&elem.node_i];
         let node_j = node_by_id[&elem.node_j];
         let mat = mat_by_id[&elem.material_id];
@@ -1522,7 +1602,7 @@ fn compute_global_internal_forces_3d(
     }
 
     // Add spring force contributions.
-    for sup in solver.supports.values() {
+    for sup in crate::ordered::values(&solver.supports) {
         let spring_dofs: [(usize, Option<f64>); 6] = [
             (0, sup.kx), (1, sup.ky), (2, sup.kz),
             (3, sup.krx), (4, sup.kry), (5, sup.krz),
@@ -1546,14 +1626,20 @@ fn compute_global_internal_forces_3d(
 }
 
 // ---------------------------------------------------------------------------
-// 3D yield interaction criterion: (N/Np)^2 + (My/Mpy)^2 + (Mz/Mpz)^2
+// 3D yield interaction criterion: (N/Np)^2 + |My|/Mpy + |Mz|/Mpz
 // ---------------------------------------------------------------------------
 
+/// The 2D surface `(N/Np)^2 + |M|/Mp` with the two moments added linearly. For bending about one
+/// axis it is exactly `yield_utilization`, so a 3D member yields at the same load as the same 2D
+/// member. Between the axes it is the chord between the two uniaxial points at the same N, which
+/// lies inside any convex section interaction through them (the exact rectangle interaction is
+/// convex), so it never yields later than either uniaxial limit implies. It replaced
+/// `(N/Np)^2 + (My/Mpy)^2 + (Mz/Mpz)^2`, which gave 0.74 where 2D gives 0.95 (NL-6, #429).
 fn yield_utilization_3d(n: f64, my: f64, mz: f64, np: f64, mpy: f64, mpz: f64) -> f64 {
     let axial_ratio = if np > 1e-20 { n / np } else { 0.0 };
-    let my_ratio = if mpy > 1e-20 { my / mpy } else { 0.0 };
-    let mz_ratio = if mpz > 1e-20 { mz / mpz } else { 0.0 };
-    axial_ratio * axial_ratio + my_ratio * my_ratio + mz_ratio * mz_ratio
+    let my_ratio = if mpy > 1e-20 { my.abs() / mpy } else { 0.0 };
+    let mz_ratio = if mpz > 1e-20 { mz.abs() / mpz } else { 0.0 };
+    axial_ratio * axial_ratio + my_ratio + mz_ratio
 }
 
 // ---------------------------------------------------------------------------
@@ -1570,7 +1656,7 @@ fn update_element_states_3d(
     let element_forces = super::linear::compute_internal_forces_3d(solver, dof_num, u);
 
     let elem_by_id: std::collections::HashMap<usize, &SolverElement3D> =
-        solver.elements.values().map(|e| (e.id, e)).collect();
+        crate::ordered::values(&solver.elements).map(|e| (e.id, e)).collect();
 
     for ef in &element_forces {
         let elem = match elem_by_id.get(&ef.element_id) {
@@ -1628,15 +1714,15 @@ fn build_element_status_3d(
     input: &NonlinearMaterialInput3D,
     dof_num: &DofNumbering,
     u: &[f64],
+    element_forces: &[ElementForces3D],
     states: &[(usize, ElementState3D)],
 ) -> Vec<ElementPlasticStatus3D> {
-    let element_forces = super::linear::compute_internal_forces_3d(solver, dof_num, u);
     let mut statuses = Vec::new();
 
     let elem_by_id: std::collections::HashMap<usize, &SolverElement3D> =
-        solver.elements.values().map(|e| (e.id, e)).collect();
+        crate::ordered::values(&solver.elements).map(|e| (e.id, e)).collect();
 
-    for ef in &element_forces {
+    for ef in element_forces {
         let elem = match elem_by_id.get(&ef.element_id) {
             Some(e) => *e,
             None => continue,

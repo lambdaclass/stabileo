@@ -29,6 +29,8 @@ fn make_staged_3d_base() -> StagedInput3D {
         id: 1, name: None, a: 0.01,
         iy: 8.33e-6, iz: 8.33e-6, j: 1.41e-5,
         cw: None, as_y: None, as_z: None,
+        shear_center_y: None,
+        shear_center_z: None,
     });
 
     let mut elements = HashMap::new();
@@ -332,6 +334,8 @@ fn staged_3d_multistory_erection() {
         id: 1, name: None, a: 0.02,
         iy: 1.0e-5, iz: 1.0e-5, j: 2.0e-5,
         cw: None, as_y: None, as_z: None,
+        shear_center_y: None,
+        shear_center_z: None,
     });
 
     let mut elements = HashMap::new();
@@ -477,6 +481,8 @@ fn portal_with_slab() -> StagedInput3D {
     sections.insert("1".into(), SolverSection3D {
         id: 1, name: None, a: 0.09, iy: 6.75e-4, iz: 6.75e-4, j: 1.14e-3,
         cw: None, as_y: None, as_z: None,
+        shear_center_y: None,
+        shear_center_z: None,
     });
 
     let frame = |id: usize, i: usize, j: usize| SolverElement3D {

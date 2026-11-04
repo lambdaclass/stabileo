@@ -54,6 +54,7 @@ fn rc_force(id: usize) -> RCDesignForces {
 ///
 /// Quadratic: 1.6e9 comparisons (~31 s in debug). Indexed: 40,000 hash lookups.
 #[test]
+#[ignore = "wall clock: runs alone in Engine Gates (make test.engine.gates)"]
 fn rc_check_scales_linearly_in_member_count() {
     const N: usize = 40_000;
 
@@ -130,6 +131,7 @@ fn element_forces_with_loads() -> ElementForces {
             DistributedLoadInfo { q_i: -5e3, q_j: -8e3, a: 1.0, b: 7.0 },
             DistributedLoadInfo { q_i: -2e3, q_j: -2e3, a: 0.0, b: 8.0 },
         ],
+        distributed_loads_x: Vec::new(),
         hinge_start: false,
         hinge_end: false,
     }
@@ -181,7 +183,7 @@ fn diagram_values_match_hand_calculation() {
         length: 8.0,
         q_i: 0.0, q_j: 0.0,
         point_loads: vec![PointLoadInfo { a: 2.0, p: -15e3, px: None, my: None }],
-        distributed_loads: vec![],
+        distributed_loads: vec![], distributed_loads_x: Vec::new(),
         hinge_start: false, hinge_end: false,
     };
 

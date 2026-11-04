@@ -65,6 +65,7 @@ fn validation_thermal_ext_fixed_fixed_equivalent_force() {
             element_id: i,
             dt_uniform: dt,
             dt_gradient: 0.0,
+            alpha: None, depth: None,
         }))
         .collect();
 
@@ -124,6 +125,7 @@ fn validation_thermal_ext_ss_free_expansion_zero_forces() {
             element_id: i,
             dt_uniform: dt,
             dt_gradient: 0.0,
+            alpha: None, depth: None,
         }))
         .collect();
 
@@ -202,6 +204,7 @@ fn validation_thermal_ext_portal_frame_differential_temperature() {
         element_id: 2,
         dt_uniform: dt,
         dt_gradient: 0.0,
+        alpha: None, depth: None,
     })];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
@@ -274,6 +277,7 @@ fn validation_thermal_ext_fixed_fixed_restraint_force() {
             element_id: i,
             dt_uniform: dt,
             dt_gradient: 0.0,
+            alpha: None, depth: None,
         }))
         .collect();
 
@@ -349,6 +353,7 @@ fn validation_thermal_ext_propped_cantilever_expansion() {
             element_id: i,
             dt_uniform: dt_uniform,
             dt_gradient: 0.0,
+            alpha: None, depth: None,
         }))
         .collect();
 
@@ -378,6 +383,7 @@ fn validation_thermal_ext_propped_cantilever_expansion() {
             element_id: i,
             dt_uniform: 0.0,
             dt_gradient: dt_grad,
+            alpha: None, depth: None,
         }))
         .collect();
 
@@ -445,6 +451,7 @@ fn validation_thermal_ext_continuous_beam_partial_restraint() {
             element_id: i,
             dt_uniform: dt,
             dt_gradient: 0.0,
+            alpha: None, depth: None,
         }))
         .collect();
 
@@ -509,6 +516,7 @@ fn validation_thermal_ext_gradient_equivalent_moment() {
             element_id: i,
             dt_uniform: 0.0,
             dt_gradient: dt_grad,
+            alpha: None, depth: None,
         }))
         .collect();
 
@@ -588,6 +596,7 @@ fn validation_thermal_ext_two_span_moment_redistribution() {
             element_id: i,
             dt_uniform: 0.0,
             dt_gradient: dt_grad,
+            alpha: None, depth: None,
         }))
         .collect();
 

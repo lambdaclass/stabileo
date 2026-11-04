@@ -14,7 +14,7 @@
   import { resolveColumnReinf, computeColumnLayout } from '../../../lib/engine/station-design-forces';
   import { maxTieSpacing, COLUMN_LIMITS } from '../../../lib/engine/design/candidate-enumerate-column';
   import type { MemberContext } from '../../../lib/engine/design/member-context';
-  import { getReinforcement, setColumnBars, setTies } from '../../../lib/store/rebar-edit';
+  import { getReinforcement, setColumnBars, setTies, setTieZones } from '../../../lib/store/rebar-edit';
 
   interface Props { elementId: number; ctx: MemberContext; version: number }
   let { elementId, ctx, version }: Props = $props();
@@ -34,7 +34,7 @@
       : null;
     const area = layout?.totalArea ?? 0;
     const rho = area / (ctx.section.b * ctx.section.h * 1e4);
-    const sMax = maxTieSpacing(cornerDia, p?.stirrups?.diameter ?? 8, ctx.section.b, ctx.section.h);
+    const sMax = maxTieSpacing(cornerDia, p?.stirrups?.diameter ?? 8, ctx.section.b, ctx.section.h, ctx.codeEdition);
     return {
       p, col, cornerDia, faceDia, layout, area, rho, sMax,
       nBottom: p?.column?.nBottom ?? 0, nTop: p?.column?.nTop ?? 0,
@@ -44,8 +44,8 @@
   });
 
   const FACES = [
-    { key: 'nBottom', label: 'Bottom' }, { key: 'nTop', label: 'Top' },
-    { key: 'nLeft', label: 'Left' }, { key: 'nRight', label: 'Right' },
+    { key: 'nBottom', label: 'design.editor.faceBottom' }, { key: 'nTop', label: 'design.editor.faceTop' },
+    { key: 'nLeft', label: 'design.editor.faceLeft' }, { key: 'nRight', label: 'design.editor.faceRight' },
   ] as const;
 </script>
 
@@ -69,7 +69,7 @@
     <div class="faces">
       {#each FACES as f (f.key)}
         <label class="face">
-          <span class="sub">{f.label}</span>
+          <span class="sub">{t(f.label)}</span>
           <input type="number" class="num" min="0" max={COLUMN_LIMITS.maxPerFace}
                  value={state[f.key]}
                  data-testid={`col-${f.key}-${elementId}`}
@@ -117,6 +117,18 @@
       <span class="total" class:bad={(state.ties?.spacing ?? 0) > state.sMax + 1e-9}>
         s,max = {fmtQ(state.sMax, 'sectionDim')} {unitQ('sectionDim')}
       </span>
+    </div>
+    <div class="line" data-testid={`tie-zones-${elementId}`}>
+      <label class="sub"><input type="checkbox" checked={!!state.p?.tieZones}
+        onchange={(e) => setTieZones(elementId, e.currentTarget.checked ? { endLength: Math.max(ctx.section.b, ctx.section.h, ctx.L / 6, 0.45), endSpacing: Math.max(0.05, (state.ties?.spacing ?? 0.15) / 2) } : null)} /> {t('colZones.ends')}</label>
+      {#if state.p?.tieZones}
+        <span class="sub">lo</span>
+        <QuantityInput quantity="length" cls="num num-sp" min={0.1} max={2} value={state.p.tieZones.endLength}
+          ariaLabel={t('colZones.length')} onchange={(v) => setTieZones(elementId, { ...state.p!.tieZones!, endLength: v })} />
+        <span class="sub">c/</span>
+        <QuantityInput quantity="length" cls="num num-sp" min={0.05} max={0.3} value={state.p.tieZones.endSpacing}
+          ariaLabel={t('colZones.spacing')} onchange={(v) => setTieZones(elementId, { ...state.p!.tieZones!, endSpacing: v })} />
+      {/if}
     </div>
   </div>
 </div>

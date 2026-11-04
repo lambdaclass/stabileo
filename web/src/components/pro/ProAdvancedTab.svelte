@@ -1,5 +1,7 @@
 <script lang="ts">
+  import Hint from './Hint.svelte';
   import { centerlineInput, dynamicInput } from '../../lib/store/dynamic-input';
+  import { previewCodeSpectrum } from '../../lib/store/spectrum-preview';
   import { userSpectrumPointsInG } from '../../lib/engine/spectral-case';
   import { lateralPatternLoads } from '../../lib/engine/pushover-pattern';
   import { incrementalOutcome, convergedPercent } from '../../lib/engine/incremental-outcome';
@@ -10,6 +12,7 @@
   import ProMovingLoadsPanel from './ProMovingLoadsPanel.svelte';
   import BucklingCertificate from '../advanced/BucklingCertificate.svelte';
   import PDeltaCertificate from '../advanced/PDeltaCertificate.svelte';
+  import FiniteSpectrumWarning from '../advanced/FiniteSpectrumWarning.svelte';
   import ModalCertificate from '../advanced/ModalCertificate.svelte';
   import SpectralCertificate from '../advanced/SpectralCertificate.svelte';
   import HarmonicCertificate from '../advanced/HarmonicCertificate.svelte';
@@ -19,13 +22,13 @@
   import ProDiagnosticsTab from './ProDiagnosticsTab.svelte';
   import { modelStore, resultsStore, uiStore } from '../../lib/store';
   import { t, tp } from '../../lib/i18n';
-  import { te } from '../../lib/i18n/engine-text';
+  import { te, localizeEngineText } from '../../lib/i18n/engine-text';
   import { modelHasMemberOffsets } from '../../lib/engine/member-offsets';
   import { modelHasShellOffsets } from '../../lib/engine/shell-offsets';
   import { hasLoadCarrying3D } from '../../lib/engine/solver-service';
   import { plasticInput3D } from '../../lib/engine/plastic-moments';
   import {
-    withNotionalLoads, creepSteps, concreteMaterials, stagedLoadsByCase, stagedStagesPayload,
+    withNotionalLoads, notionalLoadsRefusal, creepSteps, concreteMaterials, stagedLoadsByCase, stagedStagesPayload,
     stagedRefusal, plasticForSolve, pushoverNonSteel,
   } from '../../lib/engine/advanced-analyses';
   import { caseSolverLoads3D } from '../../lib/engine/solver-service';
@@ -58,9 +61,10 @@
   // `.message`. Reading it with `e.message` reported "Error" for every engine
   // refusal and discarded the sentence the solver wrote.
   import { errorText } from '../../lib/utils/error-text';
+  import { eigenRefusalText } from '../../lib/engine/finite-spectrum-warning';
   import type { DesignSpectrum } from '../../lib/engine/result-types';
   import {
-    designSpectrum, isBlocked, spectrumPoints, spectralOrdinate, RISK_FACTOR,
+    isBlocked, spectrumPoints, spectralOrdinate, RISK_FACTOR,
     type SeismicZone, type SiteClass, type DestinationGroup,
   } from '../../lib/codes/cirsoc103/spectrum';
   import { findBehaviour, R_ELASTIC } from '../../lib/codes/cirsoc103/behaviour';
@@ -69,13 +73,14 @@
   import { collapseVariableResults, variableExpansionFor } from '../../lib/engine/variable-members';
   import QuantityInput from './loads/QuantityInput.svelte';
   import { fmtQ, unitQ } from '../../lib/store/display-units.svelte';
+  import { siteData, stagesForAnalysis } from '../../lib/store/site.svelte';
   // Wind loads moved to ProAutoLoadsDialog
   // enforceConstraints3D removed — WASM solvers handle quads/constraints natively
 
   // Expose advanced results to parent via bindable props
   interface AdvancedResults3D {
     pdelta?: { converged: boolean; iterations: number; b2Factor?: number; isStable?: boolean };
-    modal?: { modes: Array<{ frequency: number; period: number; participationX?: number; participationY?: number; participationZ?: number; massRatioX?: number; massRatioY?: number }>; totalMass?: number; ratiosWithheld?: boolean };
+    modal?: { modes: Array<{ frequency: number; period: number; participationX?: number; participationY?: number; participationZ?: number; massRatioX?: number; massRatioY?: number }>; totalMass?: number; finiteSpectrumDiagnostic?: string; ratiosWithheld?: boolean; structuredDiagnostics?: import('../../lib/engine/types').StructuredDiagnostic[] };
     buckling?: { factors: number[] };
     spectral?: { baseShearX?: number; baseShearY?: number; baseShearZ?: number };
   }
@@ -225,6 +230,8 @@
   // ─── 2. Modal ───────────────────────────────────────────────────
 
   let modalResult = $state<any | null>(null);
+  let modalGroup = $state<HTMLDivElement | undefined>();
+  $effect(() => { if (modalResult) modalGroup?.scrollIntoView({ block: 'start' }); });
   let numModes = $state(6);
   /** Add modes until 90 % of the mass participates in X and in Y (INPRES-CIRSOC 103 asks for it). */
   let modalAuto = $state(false);
@@ -262,7 +269,7 @@
         if (modalAuto) modalAutoNote = t('pro.modalAutoConstrained');
       }
       const elapsed = performance.now() - t0;
-      if (typeof res === 'string') { solveError = tp('adv.failed', { analysis: t('adv.name.modal'), error: String(res) }); solving = false; return; }
+      if (typeof res === 'string') { solveError = tp('adv.failed', { analysis: t('adv.name.modal'), error: eigenRefusalText(String(res), t) }); solving = false; return; }
       modalElapsed = elapsed;
       modalResult = res;
       // Published, so the viewport can draw and animate the mode picked in the table below.
@@ -281,10 +288,10 @@
             massRatioX: m.massRatioX, massRatioY: m.massRatioY,
           }),
         }));
-        advancedResults = { ...advancedResults, modal: { modes, totalMass: res.totalMass, ratiosWithheld: modalConstrained } };
+        advancedResults = { ...advancedResults, modal: { modes, totalMass: res.totalMass, finiteSpectrumDiagnostic: res.finiteSpectrumDiagnostic, ratiosWithheld: modalConstrained, structuredDiagnostics: res.structuredDiagnostics } };
       }
     } catch (e: any) {
-      solveError = tp('adv.failed', { analysis: t('adv.name.modal'), error: errorText(e, 'Error') });
+      solveError = tp('adv.failed', { analysis: t('adv.name.modal'), error: eigenRefusalText(errorText(e, 'Error'), t) });
     }
     solving = false;
   }
@@ -314,7 +321,7 @@
   /** Damping ratio for the modal combination (CQC correlation). The spectrum is the code's. */
   let spectralXi = $state(0.05);
   const fromProject = seismicSettings?.zone !== undefined;
-  const codeSpectrum = $derived(designSpectrum({ zone: seismicZone, site: siteClass }));
+  const codeSpectrum = $derived(previewCodeSpectrum({ zone: seismicZone, site: siteClass }));
 
   function handleSpectral() {
     solveError = null;
@@ -378,14 +385,14 @@
       const t0 = performance.now();
       res = wasmBuckling3D(input, numBucklingModes);
       const elapsed = performance.now() - t0;
-      if (typeof res === 'string') { solveError = tp('adv.failed', { analysis: t('adv.name.buckling'), error: String(res) }); solving = false; return; }
+      if (typeof res === 'string') { solveError = tp('adv.failed', { analysis: t('adv.name.buckling'), error: eigenRefusalText(String(res), t) }); solving = false; return; }
       bucklingElapsed = elapsed;
       bucklingResult = res;
       resultsStore.setBucklingResult3D(res);
       const factors = res.factors ?? res.eigenvalues ?? (res.modes?.map((m: any) => m.loadFactor ?? m.factor ?? m.eigenvalue) ?? []);
       advancedResults = { ...advancedResults, buckling: { factors } };
     } catch (e: any) {
-      solveError = tp('adv.failed', { analysis: t('adv.name.buckling'), error: errorText(e, 'Error') });
+      solveError = tp('adv.failed', { analysis: t('adv.name.buckling'), error: eigenRefusalText(errorText(e, 'Error'), t) });
     }
     solving = false;
   }
@@ -566,7 +573,11 @@
        * only, so a frame loaded along its members took a fraction of its sway force or none
        * (78 % short on the seven-storey building). The input with them is solved as it stands.
        */
-      const { input: withN, totalH } = withNotionalLoads(buildInput({ caseDisplacements: true }), imperfRatio, imperfDir);
+      const base = buildInput({ caseDisplacements: true });
+      // Loads that would move nothing are refused, not solved and shown as the imperfect structure.
+      const refusal = notionalLoadsRefusal(base, imperfRatio, imperfDir);
+      if (refusal) throw new Error(t(refusal === 'noGravity' ? 'adv.imperfNoGravity' : 'adv.imperfRestrained').replace('{dir}', imperfDir));
+      const { input: withN, totalH } = withNotionalLoads(base, imperfRatio, imperfDir);
       // Shown in this panel only; see `handleStaged` for why it is not published.
       imperfResult = { ...asModel(solve3D(withN)), notionalTotal: totalH };
     } catch (e: any) {
@@ -626,6 +637,10 @@
   let ssiDirection = $state<'Y' | 'Z'>('Y');
   let ssiCurveType = $state<'softClay' | 'sand' | 'stiffClay'>('softClay');
   let ssiEps50 = $state(0.01);
+  /** Matlock's J (0.25–0.5; 0.5 for soft Gulf of Mexico clays): the engine refuses a curve without it. */
+  let ssiJ = $state(0.5);
+  /** API sand: static or cyclic loading sets the factor A; the engine refuses a curve without it. */
+  let ssiLoading = $state<'static' | 'cyclic'>('static');
   let ssiSu = $state(50);
   let ssiGamma = $state(18);
   let ssiDiameter = $state(0.6);
@@ -648,11 +663,11 @@
 
   function ssiCurvePayload(): Record<string, unknown> {
     const common = { gamma_eff: ssiGamma, d: ssiDiameter, depth: ssiDepth };
-    if (ssiCurveType === 'sand') return { type: 'py_sand', phi: ssiPhi, ...common };
-    return {
-      type: ssiCurveType === 'stiffClay' ? 'py_stiff_clay' : 'py_soft_clay',
-      su: ssiSu, eps_50: ssiEps50, ...common,
-    };
+    if (ssiCurveType === 'sand') return { type: 'py_sand', phi: ssiPhi, loading: ssiLoading, ...common };
+    // The engine's stiff clay is Welch & Reese's, without free water: the
+    // option says so, and the payload states it rather than leaving it assumed.
+    if (ssiCurveType === 'stiffClay') return { type: 'py_stiff_clay', su: ssiSu, eps_50: ssiEps50, j: ssiJ, free_water: false, ...common };
+    return { type: 'py_soft_clay', su: ssiSu, eps_50: ssiEps50, j: ssiJ, ...common };
   }
 
   function addSsiSpring() {
@@ -988,14 +1003,11 @@
     {/if}
   </div>
 
-  <div class="adv-wip-banner">
-    {t('pro.advancedWip')}
-  </div>
   <!-- What every analysis here loads: the unfactored sum of the cases, which none of them said. -->
   <p class="adv-hint" data-testid="adv-loads-note">{t('adv.loadsNote')}</p>
 
   {#if solveError}
-    <div class="adv-error">{solveError}</div>
+    <div class="adv-error">{localizeEngineText(solveError)}</div>
   {/if}
 
   <div class="adv-scroll">
@@ -1021,7 +1033,7 @@
       </div>
       {#if pdeltaResult}
         <div class="adv-inline" data-testid="pdelta-summary">
-          {pdeltaResult.converged ? t('pro.converged') : t('pro.notConverged')} — {pdeltaResult.iterations} iter.
+          {pdeltaResult.converged ? t('pro.converged') : t('pro.notConverged')} — {pdeltaResult.iterations} {t('pro.iterationsAbbr')}
           — {pdeltaResult.stable ? t('advanced.stable') : t('advanced.unstable')}
           — B2 = {formatPDeltaFactor(pdeltaResult.b2)}
           {#if pdeltaElapsed != null} — {pdeltaElapsed >= 1000 ? (pdeltaElapsed / 1000).toFixed(2) + ' s' : pdeltaElapsed.toFixed(0) + ' ms'}{/if}
@@ -1036,7 +1048,7 @@
     </div>
 
     <!-- ── 2. Modal ── -->
-    <div class="adv-group">
+    <div class="adv-group modal-group" bind:this={modalGroup}>
       <div class="adv-row">
         <button class="adv-run-btn" onclick={handleModal} disabled={!hasModel || solving} data-testid="adv-run-modal">{t('pro.adv.modal')}</button>
         <label class="adv-label">
@@ -1045,7 +1057,10 @@
         </label>
         <label class="adv-check"><input type="checkbox" bind:checked={modalAuto} data-testid="modal-auto" /> {t('pro.modalAuto')}</label>
       </div>
+      <Hint text={t('adv.help.modal')} />
       {#if modalResult}
+        <ModalCertificate result={resultsStore.modalResult3D ?? modalResult} mode={resultsStore.diagramType === 'modeShape' ? resultsStore.activeModeIndex : null} />
+        <FiniteSpectrumWarning result={modalResult} />
         <div class="adv-inline">
           {#if modalResult.totalMass != null}{t('pro.modalMass')}: {fmtNum(modalResult.totalMass)} t — {/if}
           {tp('adv.modesCount', { n: modalResult.modes?.length ?? 0 })}{#if modalElapsed != null} — {modalElapsed >= 1000 ? (modalElapsed / 1000).toFixed(2) + ' s' : modalElapsed.toFixed(0) + ' ms'}{#if wasmAvailable} (WASM){/if}{/if}
@@ -1054,14 +1069,14 @@
         {#if modalAutoNote}<div class="adv-hint" data-testid="modal-auto-note">{modalAutoNote}</div>{/if}
         <ProRecordVideo testid="modal-record" />
         <div class="adv-table-scroll">
-          <table class="adv-table">
-            <thead><tr><th>{t('adv.mode')}</th><th>f (Hz)</th><th>T (s)</th><th>Part. X</th><th>Part. Y</th><th>Part. Z</th><th>ΣM X</th><th>ΣM Y</th></tr></thead>
+          <table class="adv-table modal-table">
+            <thead><tr><th>{t('adv.mode')}</th><th>f (Hz)</th><th>T (s)</th><th>{t('adv.participationAbbr')} X</th><th>{t('adv.participationAbbr')} Y</th><th>{t('adv.participationAbbr')} Z</th><th>ΣM X</th><th>ΣM Y</th></tr></thead>
             <tbody>
               {#each modalResult.modes as mode, i}
                 <tr class="adv-mode-row" class:adv-mode-on={resultsStore.diagramType === 'modeShape' && resultsStore.activeModeIndex === i}
-                  onclick={() => { resultsStore.activeModeIndex = i; resultsStore.diagramType = 'modeShape'; }}
                   title={t('pro.showMode')} data-testid="adv-modal-row-{i}">
-                  <td class="col-id">{i + 1}</td>
+                  <td class="col-id"><button class="mode-select" aria-label={`${t('pro.showMode')} ${i + 1}`} aria-pressed={resultsStore.diagramType === 'modeShape' && resultsStore.activeModeIndex === i}
+                    onclick={() => { resultsStore.activeModeIndex = i; resultsStore.diagramType = 'modeShape'; }}>{i + 1}</button></td>
                   <td class="col-num">{fmtNum(mode.frequency)}</td>
                   <td class="col-num">{fmtNum(mode.period)}</td>
                   {#if modalConstrained}
@@ -1078,7 +1093,6 @@
             </tbody>
           </table>
         </div>
-        <ModalCertificate result={modalResult} mode={resultsStore.diagramType === 'modeShape' ? resultsStore.activeModeIndex : null} />
       {/if}
     </div>
 
@@ -1127,6 +1141,7 @@
           <input type="number" class="adv-num" min="0" max="0.3" step="0.01" bind:value={spectralXi} data-testid="spectral-xi" />
         </label>
       </div>
+      <Hint text={t('adv.help.spectral')} />
       <div class="adv-hint" data-testid="spectral-basis">
         {#if isBlocked(codeSpectrum)}
           {te(codeSpectrum.blocked)}
@@ -1172,6 +1187,7 @@
           <input type="number" class="adv-num" bind:value={numBucklingModes} min={1} max={20} />
         </label>
       </div>
+      <Hint text={t('adv.help.buckling')} />
       {#if bucklingResult}
         {#if bucklingElapsed != null}
           <div class="adv-inline">{bucklingElapsed >= 1000 ? (bucklingElapsed / 1000).toFixed(2) + ' s' : bucklingElapsed.toFixed(0) + ' ms'}{#if wasmAvailable} (WASM){/if}</div>
@@ -1251,6 +1267,7 @@
         </div>
         <button class="adv-run-btn" onclick={handleHarmonic} disabled={!hasModel || solving || !wasmAvailable}>{solving ? t('pro.solving') : t('pro.runHarmonic')}</button>
       </div>
+      <Hint text={t('adv.help.harmonic')} />
       {#if harmResult}
         <div class="adv-inline">
           {#if harmResult.peakAmplitude != null}{t('pro.peakAmplitude')}: {fmtNum(harmResult.peakAmplitude)} m{/if}
@@ -1305,7 +1322,7 @@
               </select>
             </label>
             {#if pushTargetKind !== 'none'}<QuantityInput cls="adv-num adv-num-wide" bind:value={pushTarget} quantity={pushTargetKind === 'shear' ? 'force' : 'displacement'} testid="push-target" />{/if}
-            {#if pushPattern !== 'loads' && pushPattern !== 'case'}<p class="adv-hint">{t('pushover.patternHint')}</p>{/if}
+            {#if pushPattern !== 'loads' && pushPattern !== 'case'}<Hint text={t('pushover.patternHint')} />{/if}
           {:else}
             <label class="adv-label">{t('adv.maxIter')}: <input type="number" class="adv-num" bind:value={nlMaxIter} min={1} max={500} /></label>
             <label class="adv-label">Tol: <input type="number" class="adv-num adv-num-wide" bind:value={nlTol} min={1e-12} max={1} step={1e-6} /></label>
@@ -1314,6 +1331,7 @@
         </div>
         <button class="adv-run-btn" onclick={handleNonlinear} disabled={!hasModel || solving || !wasmAvailable}>{t('pro.run')}</button>
       </div>
+      <Hint text={t('adv.help.nonlinear')} />
       {#if nlResult}
         <!--
           Each of the three runs returns a different result type, and the panel
@@ -1353,6 +1371,7 @@
         </div>
         <button class="adv-run-btn" onclick={handleImperfections} disabled={!hasModel || solving || !wasmAvailable}>{solving ? t('pro.solving') : t('pro.runImperfections')}</button>
       </div>
+      <Hint text={t('adv.help.imperfections')} />
       {#if imperfResult}
         <div class="adv-inline">
           <!-- The engine returns the solved model, not a summary of the
@@ -1401,6 +1420,7 @@
         {/if}
         <button class="adv-run-btn" onclick={handleWinkler} disabled={!hasModel || solving || !wasmAvailable || winklerSprings.length === 0}>{solving ? t('pro.solving') : t('pro.solveWinkler')}</button>
       </div>
+      <Hint text={t('adv.help.winkler')} />
       {#if winklerResult}
         <div class="adv-result-title">{t('pro.resultWinkler')}</div>
         <!-- Winkler is a linear solve on a modified stiffness: it returns the
@@ -1444,10 +1464,17 @@
             <!-- Matlock/Reese both key the curve on ε50; it has no default in
                  the engine, so the run needs it. -->
             <label class="adv-label">&#949;50: <input type="number" class="adv-num" bind:value={ssiEps50} min={0.001} max={0.05} step={0.001} /></label>
+            <label class="adv-label">{t('adv.ssiJ')}: <input type="number" class="adv-num" bind:value={ssiJ} min={0.25} max={0.5} step={0.05} /></label>
           </div>
         {:else if ssiCurveType === 'sand'}
           <div class="adv-form">
-            <label class="adv-label">&#966; (deg): <input type="number" class="adv-num" bind:value={ssiPhi} min={0} max={50} step={1} /></label>
+            <label class="adv-label">&#966; (deg): <input type="number" class="adv-num" bind:value={ssiPhi} min={25} max={40} step={1} /></label>
+            <label class="adv-label">{t('adv.ssiLoading')}:
+              <select class="adv-sel" bind:value={ssiLoading}>
+                <option value="static">{t('adv.ssiStatic')}</option>
+                <option value="cyclic">{t('adv.ssiCyclic')}</option>
+              </select>
+            </label>
             <label class="adv-label">&#947;: <QuantityInput cls="adv-num" bind:value={ssiGamma} quantity="density" min={0} /></label>
             <label class="adv-label">d: <QuantityInput cls="adv-num" bind:value={ssiDiameter} quantity="length" min={0.1} /></label>
             <label class="adv-label">{t('adv.ssiDepth')}: <QuantityInput cls="adv-num" bind:value={ssiDepth} quantity="length" min={0} /></label>
@@ -1479,6 +1506,7 @@
         </div>
         <button class="adv-run-btn" onclick={handleSSI} disabled={!hasModel || solving || !wasmAvailable || ssiSprings.length === 0}>{solving ? t('pro.solving') : t('pro.solveSsi')}</button>
       </div>
+      <Hint text={t('adv.help.ssi')} />
       {#if ssiResult}
         <div class="adv-result-title">{t('pro.resultSsi')}</div>
         <div class="adv-inline">
@@ -1495,6 +1523,7 @@
       <div class="adv-panel">
         <p class="adv-hint" data-testid="staged-engine-note">{t('adv.stagedNote')}</p>
         <button class="adv-btn-sm" onclick={addStage}>{t('pro.addStage')}</button>
+        {#if siteData().phases.length}<button class="adv-btn-sm" onclick={() => (stages = stagesForAnalysis())} data-testid="stages-from-phases">{t('site.ui.stagesFromPhases')}</button>{/if}
         {#each stages as stage, i}
           <div class="adv-stage-card">
             <div class="adv-stage-header">
@@ -1545,6 +1574,7 @@
         {/each}
         <button class="adv-run-btn" onclick={handleStaged} disabled={!hasModel || solving || !wasmAvailable || stages.length === 0}>{solving ? t('pro.solving') : t('pro.solveStaged')}</button>
       </div>
+      <Hint text={t('adv.help.staged')} />
       {#if stagedResult}
         <div class="adv-result-title">{t('pro.resultStaged')}</div>
         <div class="adv-inline">
@@ -1584,6 +1614,7 @@
         <button class="adv-btn-sm" onclick={addCreepStep}>{t('pro.addStep')}</button>
         <button class="adv-run-btn" onclick={handleCreep} disabled={!hasModel || solving || !wasmAvailable || creepTimeSteps.length === 0}>{solving ? t('pro.calculating') : t('pro.calcCreep')}</button>
       </div>
+      <Hint text={t('adv.help.creep')} />
       {#if creepResult}
         <div class="adv-result-title">{t('pro.resultCreep')}</div>
         <!-- Creep is reported PER STEP; there is no single φ on the result. -->
@@ -1640,6 +1671,7 @@
           disabled={!hasModel || solving || !wasmAvailable || (ilResponse === 'reaction' ? ilNodeId == null : ilElementId == null)}
         >{solving ? t('pro.solving') : t('pro.computeIL')}</button>
       </div>
+      <Hint text={t('adv.help.influence')} />
       {#if ilResult?.points?.length}
         <div class="adv-inline">
           {t('pro.maxPos')}: {fmtNum(Math.max(...ilResult.points.map((p: any) => p.value)))}
@@ -1708,6 +1740,7 @@
         {/if}
         <button class="adv-run-btn" onclick={handleSectionAnalysis} disabled={!wasmAvailable}>{t('pro.analyzeSection')}</button>
       </div>
+      <Hint text={t('adv.help.section')} />
       {#if secResult}
         <!-- The engine names these a / yc / zc / syTop / szRight, not
              area / centroidY / wy — so area and the centroid never printed. -->
@@ -1778,25 +1811,6 @@
     flex: 1;
     overflow-y: auto;
     min-height: 0;
-  }
-
-  /*
-     A caveat, at the size of a caveat.
-     ─────────────────────────────────
-     It was a full-width amber strip that reappeared on every visit to the
-     panel, permanently, above whatever you came to do — an announcement for
-     something that is a footnote. It says the same thing in one quiet line.
-  */
-  .adv-wip-banner {
-    display: block;
-    margin: 0 0 0.5rem;
-    padding: 0.1rem 0 0.3rem;
-    border-bottom: 1px solid var(--st-hair);
-    background: none;
-    color: var(--st-text-3);
-    font-size: 0.66rem;
-    font-style: italic;
-    text-align: left;
   }
 
   .adv-error {
@@ -1984,6 +1998,16 @@
     gap: 6px;
     padding: 6px 0;
   }
+
+  .modal-group .adv-inline, .modal-group .adv-hint, .modal-group .adv-label,
+  .modal-group .adv-check, .modal-group .adv-num, .modal-group .adv-run-btn { font-size: 12px; }
+  .modal-group .adv-run-btn, .modal-group .adv-num, .modal-group .adv-check { min-height: 44px; min-width: 44px; box-sizing: border-box; }
+  .modal-group .adv-check { display: flex; align-items: center; }
+  .modal-group .adv-row { flex-wrap: wrap; }
+  .mode-select { min-width: 44px; min-height: 44px; font-size: 12px; cursor: pointer; color: inherit; background: transparent; border: 1px solid var(--st-hair); border-radius: 3px; }
+  .adv-table.modal-table th, .adv-table.modal-table td { font-size: 12px; padding: 3px 1px; overflow-wrap: anywhere; }
+  .modal-table { table-layout: fixed; }
+  .modal-table th:first-child { width: 46px; }
 
   .adv-table-scroll {
     max-height: 150px;

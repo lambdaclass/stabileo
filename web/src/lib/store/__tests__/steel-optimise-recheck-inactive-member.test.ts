@@ -29,6 +29,8 @@ describe('optimiser recheck with an inactive member sharing the section', () => 
 
   it('re-verifies a section row after a new solve', () => {
     modelStore.clear();
+    // The one solve is the design load only with no combination defined; a new model has four.
+    for (const c of [...modelStore.combinations]) modelStore.removeCombination(c.id);
     historyStore.clear();
     const heavy = PROFILE_FAMILIES.IPE[PROFILE_FAMILIES.IPE.length - 1]!;
     const sid = modelStore.addSection({ name: heavy.name, profileFamily: heavy.family, ...profileToSectionFull(heavy) } as never);

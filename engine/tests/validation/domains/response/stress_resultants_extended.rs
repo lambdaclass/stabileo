@@ -64,9 +64,9 @@ fn validation_sr_ss_beam_udl_linear_shear_parabolic_moment() {
         let x_end: f64 = i as f64 * elem_len;
         let v_start_expected: f64 = q * l / 2.0 - q * x_start;
         let v_end_expected: f64 = q * l / 2.0 - q * x_end;
-        assert_close(ef.v_start, v_start_expected, 0.03,
+        assert_close_abs(ef.v_start, v_start_expected, 0.03, 1e-6,
             &format!("SS UDL SR: V at x={:.1}", x_start));
-        assert_close(ef.v_end, v_end_expected, 0.03,
+        assert_close_abs(ef.v_end, v_end_expected, 0.03, 1e-6,
             &format!("SS UDL SR: V at x={:.1}", x_end));
     }
 

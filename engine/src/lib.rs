@@ -8,9 +8,14 @@ pub mod linalg;
 pub mod element;
 pub mod solver;
 pub mod postprocess;
+pub mod loads;
 pub mod section;
 pub mod certify;
 pub mod sanity;
+pub mod metamorphic;
+pub mod known_issues;
+pub mod reproduce;
+pub mod ordered;
 #[cfg(kani)]
 mod kani_proofs;
 
@@ -50,11 +55,30 @@ pub fn review_model_sanity(json: &str) -> Result<String, JsValue> {
     sanity::review_json(json).map_err(|e| JsValue::from_str(&e))
 }
 
+/// Which engine this is: `{"engineVersion": CARGO_PKG_VERSION, "engineCommit": <git commit>}`.
+/// The web app records it in the provenance of every result and report.
+#[wasm_bindgen]
+pub fn engine_build_info() -> String {
+    serde_json::json!({
+        "engineVersion": env!("CARGO_PKG_VERSION"),
+        "engineCommit": env!("STABILEO_ENGINE_COMMIT"),
+    })
+    .to_string()
+}
+
+/// Solve a linear model and hash its input and result for reproduction
+/// (`reproduce::linear_hashes`). JSON in → `ReproduceHashes` JSON out.
+#[wasm_bindgen]
+pub fn engine_reproduce_hashes(json: &str, is_3d: bool) -> Result<String, JsValue> {
+    let h = reproduce::linear_hashes(json, is_3d).map_err(|e| JsValue::from_str(&e))?;
+    serde_json::to_string(&h).map_err(|e| JsValue::from_str(&e.to_string()))
+}
+
 /// Solve 2D linear static analysis. JsValue in → JsValue out (hot path).
 #[wasm_bindgen]
 pub fn solve_2d(input: JsValue) -> Result<JsValue, JsValue> {
-    let input: types::SolverInput = from_js_value(input)?;
-    let results = solver::linear::solve_2d(&input)
+    let input: types::units::ElasticInput2D = from_js_value(input)?;
+    let results = solver::linear::solve_2d_typed(&input)
         .map_err(|e| JsValue::from_str(&e))?;
     to_js_value(&results)
 }
@@ -66,6 +90,28 @@ pub fn solve_3d(input: JsValue) -> Result<JsValue, JsValue> {
     let results = solver::linear::solve_3d(&input)
         .map_err(|e| JsValue::from_str(&e))?;
     to_js_value(&results)
+}
+
+/// Solve a 3D linear static model and estimate its discretization (mesh) error
+/// (docs/verification/DISCRETIZATION.md): a Zienkiewicz–Zhu/SPR energy-norm estimate per shell
+/// element and for the model. An estimate, never a bound (`certified` is always false).
+#[wasm_bindgen]
+pub fn estimate_discretization_3d(input: JsValue) -> Result<JsValue, JsValue> {
+    let input: types::SolverInput3D = from_js_value(input)?;
+    let out = postprocess::discretization::solve_and_estimate_3d(&input).map_err(|e| JsValue::from_str(&e))?;
+    to_js_value(&out)
+}
+
+/// Convergence check of a 3D linear static model: re-solve on uniformly refined meshes and
+/// report the governing quantities with a Richardson extrapolation and observed order
+/// (docs/verification/DISCRETIZATION.md). `options` may be null for the defaults.
+#[wasm_bindgen]
+pub fn convergence_study_3d(input: JsValue, options: JsValue) -> Result<JsValue, JsValue> {
+    let input: types::SolverInput3D = from_js_value(input)?;
+    let opts: postprocess::discretization::convergence::ConvergenceOptions =
+        if options.is_null() || options.is_undefined() { Default::default() } else { from_js_value(options)? };
+    let out = postprocess::discretization::convergence::convergence_study_3d(&input, &opts).map_err(|e| JsValue::from_str(&e))?;
+    to_js_value(&out)
 }
 
 /// Solve 2D linear static analysis and certify the displacements
@@ -532,28 +578,28 @@ pub fn solve_staged_3d(json: &str) -> Result<String, JsValue> {
 // ==================== Cable Analysis ====================
 
 /// Solve 2D cable analysis. JSON in → JSON out.
-/// Input: { "solver": SolverInput, "densities": { materialId: density_kg_m3 } }
+/// Input: { "solver": SolverInput, "densities": { materialId: density_kg_m3 }, "pretension"?: { elementId: kN } }
 #[wasm_bindgen]
 pub fn solve_cable_2d(json: &str, max_iter: usize, tolerance: f64) -> Result<String, JsValue> {
-    let input: types::ModalInput = serde_json::from_str(json)
+    let input: types::CableInput<types::SolverInput> = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
-    let result = solver::cable::solve_cable_2d(&input.solver, &input.densities, max_iter, tolerance)
+    let result = solver::cable::solve_cable_2d_pretensioned(&input.solver, &input.densities, &input.pretension, max_iter, tolerance)
         .map_err(|e| JsValue::from_str(&e))?;
     serde_json::to_string(&result.results)
         .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
 }
 
 /// Solve 3D cable analysis. JSON in → JSON out.
-/// Input: { "solver": SolverInput3D, "densities": { materialId: density_kg_m3 } }
+/// Input: { "solver": SolverInput3D, "densities": { materialId: density_kg_m3 }, "pretension"?: { elementId: kN } }
 ///
 /// Returns the whole result, not only the structural one: `results`, `iterations`, `converged`
 /// and `cableForces` (per cable element: tension, horizontal thrust, sag, Ernst modulus and
-/// unstretched length). The unstretched length is the chord: the solver takes no pretension.
+/// unstretched length). The unstretched length is the chord, or the one a pretension given sets.
 #[wasm_bindgen]
 pub fn solve_cable_3d(json: &str, max_iter: usize, tolerance: f64) -> Result<String, JsValue> {
-    let input: types::ModalInput3D = serde_json::from_str(json)
+    let input: types::CableInput<types::SolverInput3D> = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
-    let result = solver::cable::solve_cable_3d(&input.solver, &input.densities, max_iter, tolerance)
+    let result = solver::cable::solve_cable_3d_pretensioned(&input.solver, &input.densities, &input.pretension, max_iter, tolerance)
         .map_err(|e| JsValue::from_str(&e))?;
     serde_json::to_string(&result)
         .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
@@ -1524,6 +1570,63 @@ pub fn cirsoc201_beam_batch(data: &[f64]) -> Result<Vec<f64>, JsValue> {
     postprocess::cirsoc201_check::beam_batch(data).map_err(JsValue::from_str)
 }
 
+/// The CIRSOC 201 provisions every section shares, for one material and section.
+///
+/// In: `[edition (2005 | 2025), fc, fy, Es, confinement (0 ties | 1 spiral), Ag, Ast, bw, d]`
+/// (Pa, m², m). Out: `[β1, φ compression-controlled, εty, εt tension-controlled, εt,min for a
+/// beam (9.3.3.1), Po, φPn,max, As,min of a beam (9.6.1.2), ρ min, ρ max of a column (10.6.1.1)]`.
+#[wasm_bindgen]
+pub fn cirsoc201_basis(input: &[f64]) -> Result<Vec<f64>, JsValue> {
+    use postprocess::cirsoc201_check as c;
+    use postprocess::cirsoc201_section as s;
+    if input.len() != 9 || input.iter().any(|v| !v.is_finite()) {
+        return Err(JsValue::from_str("cirsoc201_basis: expected 9 finite values"));
+    }
+    let edition = rc_section_kernel::edition_of(input[0]).map_err(JsValue::from_str)?;
+    let confinement = rc_section_kernel::confinement_of(input[4]).map_err(JsValue::from_str)?;
+    let (fc, fy, es, ag, ast, bw, d) = (input[1], input[2], input[3], input[5], input[6], input[7], input[8]);
+    if !(fc > 0.0 && fy > 0.0 && es > 0.0) {
+        return Err(JsValue::from_str("cirsoc201_basis: f'c, fy and Es must be positive"));
+    }
+    Ok(vec![
+        c::beta1(fc),
+        s::phi_compression(edition, confinement),
+        fy / es,
+        c::tension_controlled_strain(edition, fy, es),
+        c::ductility_strain(edition, fy, es),
+        s::squash_load(fc, fy, ag, ast),
+        s::axial_cap(edition, confinement, fc, fy, ag, ast),
+        s::min_flexural_steel(fc, fy, bw, d),
+        s::COLUMN_STEEL_RATIO_MIN,
+        s::COLUMN_STEEL_RATIO_MAX,
+    ])
+}
+
+/// Least flexural reinforcement the CIRSOC 201 beam check passes; layout in
+/// `postprocess::cirsoc201_design::design_batch`.
+#[wasm_bindgen]
+pub fn cirsoc201_design_beam(data: &[f64]) -> Result<Vec<f64>, JsValue> {
+    postprocess::cirsoc201_design::design_batch(data).map_err(JsValue::from_str)
+}
+
+/// Slab minimum steel and maximum spacings; layout in
+/// `postprocess::cirsoc201_design::slab_provisions`.
+#[wasm_bindgen]
+pub fn cirsoc201_slab_provisions(data: &[f64]) -> Result<Vec<f64>, JsValue> {
+    postprocess::cirsoc201_design::slab_provisions(data).map_err(JsValue::from_str)
+}
+
+/// φ (Tabla 21.2.2) for each net tensile strain in `strains`.
+#[wasm_bindgen]
+pub fn cirsoc201_phi(edition: f64, confinement: f64, fy: f64, es: f64, strains: &[f64]) -> Result<Vec<f64>, JsValue> {
+    let edition = rc_section_kernel::edition_of(edition).map_err(JsValue::from_str)?;
+    let confinement = rc_section_kernel::confinement_of(confinement).map_err(JsValue::from_str)?;
+    if !(fy > 0.0 && es > 0.0 && fy.is_finite() && es.is_finite()) || strains.iter().any(|e| e.is_nan()) {
+        return Err(JsValue::from_str("cirsoc201_phi: invalid input"));
+    }
+    Ok(strains.iter().map(|&e| postprocess::cirsoc201_section::phi(edition, confinement, e, fy, es)).collect())
+}
+
 #[wasm_bindgen]
 pub fn check_cirsoc201_members(json: &str) -> Result<String, JsValue> {
     let input: postprocess::cirsoc201_check::Cirsoc201CheckInput =
@@ -1558,6 +1661,38 @@ pub fn check_cfs_members(json: &str) -> Result<String, JsValue> {
     let input: postprocess::cfs_check::CfsCheckInput = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let results = postprocess::cfs_check::check_cfs_members(&input);
+    serde_json::to_string(&results)
+        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+}
+
+/// Load generation (CIRSOC 101 combinations, INPRES-CIRSOC 103 seismic). JSON `LoadsRequest`
+/// (tagged by `op`) in → JSON answer.
+#[wasm_bindgen]
+pub fn loads_request(json: &str) -> Result<String, JsValue> {
+    let req: loads::LoadsRequest = serde_json::from_str(json)
+        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    let v = loads::answer(req).map_err(|e| JsValue::from_str(&e))?;
+    serde_json::to_string(&v).map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+}
+
+/// CIRSOC 201-2025 isolated footings: service bearing with biaxial eccentricity, factored
+/// one-way shear, punching and column-face flexure. JSON `IsolatedFootingInput` in → JSON results.
+#[wasm_bindgen]
+pub fn check_isolated_footings(json: &str) -> Result<String, JsValue> {
+    let input: postprocess::isolated_footing::IsolatedFootingInput = serde_json::from_str(json)
+        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    let results = postprocess::isolated_footing::check_isolated_footings(&input);
+    serde_json::to_string(&results)
+        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+}
+
+/// Certified isolated-footing utilizations: the same formulas in outward-rounded interval
+/// arithmetic. JSON `IsolatedFootingInput` in → JSON `CertifiedMemberResult` per footing.
+#[wasm_bindgen]
+pub fn certify_isolated_footings(json: &str) -> Result<String, JsValue> {
+    let input: postprocess::isolated_footing::IsolatedFootingInput = serde_json::from_str(json)
+        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    let results = certify::design::certify_isolated_footings(&input);
     serde_json::to_string(&results)
         .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
 }
@@ -1635,21 +1770,10 @@ pub fn solve_with_imperfections_2d(json: &str) -> Result<String, JsValue> {
         solver: types::SolverInput,
         imperfections: types::ImperfectionInput,
     }
-    let mut input: Input = serde_json::from_str(json)
+    let input: Input = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
-
-    // Apply geometric imperfections
-    solver::imperfections::apply_geometric_imperfections_2d(
-        &mut input.solver, &input.imperfections.node_imperfections,
-    );
-
-    // Add notional loads
-    for notional in &input.imperfections.notional_loads {
-        let loads = solver::imperfections::notional_loads_2d(&input.solver, notional);
-        input.solver.loads.extend(loads);
-    }
-
-    let results = solver::linear::solve_2d(&input.solver)
+    // Node offsets, notional loads, a linear solve; refuses what it would not apply.
+    let results = solver::imperfections::solve_with_imperfections_2d(input.solver, &input.imperfections)
         .map_err(|e| JsValue::from_str(&e))?;
     serde_json::to_string(&results)
         .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
@@ -1664,19 +1788,9 @@ pub fn solve_with_imperfections_3d(json: &str) -> Result<String, JsValue> {
         solver: types::SolverInput3D,
         imperfections: types::ImperfectionInput,
     }
-    let mut input: Input = serde_json::from_str(json)
+    let input: Input = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
-
-    solver::imperfections::apply_geometric_imperfections_3d(
-        &mut input.solver, &input.imperfections.node_imperfections,
-    );
-
-    for notional in &input.imperfections.notional_loads {
-        let loads = solver::imperfections::notional_loads_3d(&input.solver, notional);
-        input.solver.loads.extend(loads);
-    }
-
-    let results = solver::linear::solve_3d(&input.solver)
+    let results = solver::imperfections::solve_with_imperfections_3d(input.solver, &input.imperfections)
         .map_err(|e| JsValue::from_str(&e))?;
     serde_json::to_string(&results)
         .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
@@ -1758,7 +1872,7 @@ mod tests {
                 kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None,
             });
         }
-        SolverInput { nodes: nodes_map, materials: mats_map, sections: secs_map, elements: elems_map, supports: sups_map, loads, constraints: vec![] , connectors: HashMap::new(), solver_options: None }
+        SolverInput { nodes: nodes_map, materials: mats_map, sections: secs_map, elements: elems_map, supports: sups_map, loads, constraints: vec![] , connectors: HashMap::new(), solver_options: None, masses: Default::default() }
     }
 
     #[test]

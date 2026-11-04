@@ -50,7 +50,7 @@ pub fn make_input(
             dx: None, dz: None, dry: None, angle: None,
         });
     }
-    SolverInput { solver_options: None, nodes: nodes_map, materials: mats_map, sections: secs_map, elements: elems_map, supports: sups_map, loads, constraints: vec![] , connectors: HashMap::new() }
+    SolverInput { solver_options: None, masses: Default::default(), nodes: nodes_map, materials: mats_map, sections: secs_map, elements: elems_map, supports: sups_map, loads, constraints: vec![] , connectors: HashMap::new() }
 }
 
 /// Build a multi-element column along X for buckling/modal tests.
@@ -170,17 +170,31 @@ pub fn make_portal_frame(
     make_input(nodes, vec![(1, e, 0.3)], vec![(1, a, iz)], elems, sups, loads)
 }
 
-/// Assert relative closeness (with absolute tolerance fallback for near-zero).
+/// Assert |actual − expected| ≤ rel_tol·|expected|. Purely relative, so an expected value of
+/// zero needs [`assert_close_abs`].
 #[allow(dead_code)]
+#[track_caller]
 pub fn assert_close(actual: f64, expected: f64, rel_tol: f64, label: &str) {
-    let abs_tol = 1e-6;
+    assert!(actual.is_finite() && expected.is_finite(), "{}: non-finite comparison, actual={:e}, expected={:e}", label, actual, expected);
     let diff = (actual - expected).abs();
-    let denom = expected.abs().max(1.0);
-    let rel_err = diff / denom;
     assert!(
-        diff < abs_tol || rel_err < rel_tol,
-        "{}: actual={:.6}, expected={:.6}, rel_err={:.4}%",
-        label, actual, expected, rel_err * 100.0
+        diff <= rel_tol * expected.abs(),
+        "{}: actual={:.9e}, expected={:.9e}, rel_err={:.4e} > {:.1e}",
+        label, actual, expected, diff / expected.abs(), rel_tol
+    );
+}
+
+/// Assert |actual − expected| < abs_tol or ≤ rel_tol·|expected|, for quantities that are zero
+/// or vanish against the model's scale; `abs_tol` is in the quantity's own units.
+#[allow(dead_code)]
+#[track_caller]
+pub fn assert_close_abs(actual: f64, expected: f64, rel_tol: f64, abs_tol: f64, label: &str) {
+    assert!(actual.is_finite() && expected.is_finite(), "{}: non-finite comparison, actual={:e}, expected={:e}", label, actual, expected);
+    let diff = (actual - expected).abs();
+    assert!(
+        diff < abs_tol || diff <= rel_tol * expected.abs(),
+        "{}: actual={:.9e}, expected={:.9e}, diff={:.3e} (abs_tol={:.1e}, rel_tol={:.1e})",
+        label, actual, expected, diff, abs_tol, rel_tol
     );
 }
 
@@ -276,7 +290,7 @@ pub fn make_3d_input(
     }
     let mut secs_map = HashMap::new();
     for (id, a, iy, iz, j) in secs {
-        secs_map.insert(id.to_string(), SolverSection3D { id, name: None, a, iy, iz, j, cw: None, as_y: None, as_z: None });
+        secs_map.insert(id.to_string(), SolverSection3D { id, name: None, a, iy, iz, j, cw: None, as_y: None, as_z: None, shear_center_y: None, shear_center_z: None });
     }
     let mut elems_map = HashMap::new();
     for (id, t, ni, nj, mi, si) in elems {
@@ -302,7 +316,7 @@ pub fn make_3d_input(
             });
     }
     SolverInput3D {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes: nodes_map, materials: mats_map, sections: secs_map,
         elements: elems_map, supports: sups_map, loads, constraints: vec![], left_hand: None, plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_beams: vec![],
             curved_shells: HashMap::new(),

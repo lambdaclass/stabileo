@@ -91,7 +91,7 @@ fn sec() -> SolverSection {
 /// Each span is 4 m long (total 12 m).
 fn three_span_beam() -> SolverInput {
     SolverInput {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes: hm(vec![
             (1, node(1, 0.0, 0.0)),
             (2, node(2, 4.0, 0.0)),
@@ -133,7 +133,7 @@ fn three_span_beam() -> SolverInput {
 ///   Each span 2 m. Tip load at node 5.
 fn five_node_cantilever() -> SolverInput {
     SolverInput {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes: hm(vec![
             (1, node(1, 0.0, 0.0)),
             (2, node(2, 2.0, 0.0)),
@@ -165,7 +165,7 @@ fn five_node_cantilever() -> SolverInput {
 ///   Each span 2 m. Distributed load on all elements.
 fn six_node_beam() -> SolverInput {
     SolverInput {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes: hm(vec![
             (1, node(1, 0.0, 0.0)),
             (2, node(2, 2.0, 0.0)),
@@ -640,7 +640,7 @@ fn large_ss_beam() -> SolverInput {
         ]),
         loads,
         constraints: vec![],
-        connectors: HashMap::new(), solver_options: None,
+        connectors: HashMap::new(), solver_options: None, masses: Default::default(),
     }
 }
 

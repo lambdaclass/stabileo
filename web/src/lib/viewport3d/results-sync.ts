@@ -10,6 +10,7 @@ import * as THREE from 'three';
 import { canvasUnitSystem } from '../canvas/canvas-units';
 import { fixedQuantity, displacementText } from '../utils/unit-format';
 import { modelStore, uiStore, resultsStore } from '../store';
+import { tp } from '../i18n';
 import { forEachElementVisual } from './scene-sync';
 export { forEachElementVisual };
 import { colourScaleSource } from '../store/result-view';
@@ -19,15 +20,17 @@ import { deformedView, nodesToLabel } from '../store/deformed-view.svelte';
 import { viewState, memberLabelText, nodeLabelText, viewVisibility, visibleElements, visiblePlates, visibleQuads, visibleNodes } from '../store/view-state.svelte';
 import { createDiagramGroup3D, createEnvelopeDiagramGroup3D } from '../three/diagram-render-3d';
 import { structureNodes } from '../three/node-scale';
-import { COLORS, setGroupColor, disposeObject, axialForceColor, verificationStateColor, createTextSpriteCached, heatmapColor } from '../three/selection-helpers';
+import { COLORS, setGroupColor, disposeObject, axialForceColor, verificationVisual, createTextSpriteCached, heatmapColor } from '../three/selection-helpers';
 import { verificationStore } from '../store/verification.svelte';
+import { discretizationStore } from '../store/discretization.svelte';
 import { createReactionArrow, createConstraintForceArrow } from '../three/create-load-arrow';
 import { dofQuantity } from '../utils/units';
 import type { Diagram3DKind } from '../engine/diagrams-3d';
 import type { Displacement3D } from '../engine/types-3d';
 import { timeHistoryView } from '../store/time-history-view.svelte';
 import { sampleElementValues, createHeatmapCylinder, orientHeatmapMesh, applyShellNodalColors, displaceShellFace, type HeatmapVariable } from '../three/stress-heatmap';
-import { shellContourField } from '../engine/shell-contour-field';
+import { currentShellContourField, shellNodesOf, shellStressInputs } from '../store/shell-contour';
+import { buildShellOverlay, overlayUnit, replaceShellOverlay } from './shell-overlay';
 import { contourOptions } from '../store/contour-options.svelte';
 import { colourMapUnit } from '../three/colour-ramp';
 import { restoreShellColor } from '../three/create-shell-mesh';
@@ -106,6 +109,8 @@ export interface ResultsSyncContext {
   elementLabelsGroup: THREE.Group | null;
   lengthLabelsGroup: THREE.Group | null;
   shellLabelsGroup: THREE.Group | null;
+  /** Principal directions and the extreme values written over a shell contour (`shell-overlay.ts`). */
+  shellOverlayGroup?: THREE.Group | null;
   verificationLabelsGroup: THREE.Group | null;
 
   // Mutable state flags
@@ -261,7 +266,7 @@ export function syncDeformed(ctx: ResultsSyncContext, scaleOverride?: number): v
   const sigVer = modelStore.modelVersion;
   const sigHand = uiStore.axisConvention3D === 'leftHand';
   // The labels' text depends on the unit system too: a change rebuilds them.
-  const sigLabels = staticDeformed && resultsStore.showDiagramValues ? uiStore.unitSystem : false;
+  const sigLabels = staticDeformed && resultsStore.showDeformedValues ? uiStore.unitSystem : false;
   const prev = ctx.deformedGroup?.userData;
   if (ctx.deformedGroup && prev?.sigDt === sigDt && prev?.sigDisp === sigDisp
       && prev?.sigForces === sigForces && prev?.sigVer === sigVer && prev?.sigHand === sigHand
@@ -474,6 +479,21 @@ export function syncColorMap3D(ctx: ResultsSyncContext): void {
   const wireframe = uiStore.renderMode3D === 'wireframe';
   const eb = ctx.elementsBatched;
 
+  // The discretization-error map (an estimate, `store/discretization.svelte.ts`) takes over the
+  // shells while it is switched on; members are dimmed so the shells read.
+  if (r3d && discretizationStore.mapActive()) {
+    clearHeatmapMeshes(ctx);
+    forEachElementVisual(ctx, (id, group) => {
+      if (group) { showOriginalMeshes(group, true); setGroupColor(group, 0x888888); }
+      eb.setBaseColor(id, 0x888888);
+    });
+    eb.flush();
+    applyDiscretizationMap(ctx);
+    resultsStore.setColourScale(null);
+    ctx.colorMapApplied = true;
+    return;
+  }
+
   // Restore default state if not in color mode
   if (!r3d || (dt !== 'axialColor' && dt !== 'colorMap' && dt !== 'verification')) {
     if (ctx.colorMapApplied) {
@@ -580,10 +600,9 @@ export function syncColorMap3D(ctx: ResultsSyncContext): void {
     // construction) and therefore stayed green after a user weakened rebar.
     forEachElementVisual(ctx, (id, group) => {
       if (group) showOriginalMeshes(group, true);
-      const ds = verificationStore.getDisplayStatus(id);
-      const state = ds === 'unavailable' ? 'unavailable' : ds === 'stale' ? 'stale' : 'current';
-      const ratio = state === 'unavailable' ? null : verificationStore.getDisplayRatio(id);
-      const c = verificationStateColor(ratio, state);
+      // The colour follows the member's verdict, not its worst local ratio (`verificationVisual`).
+      const v = verificationStore.memberVerdict(id);
+      const c = verificationVisual({ status: v.status, local: v.local, ratio: verificationStore.getDisplayRatio(id) }).color;
       if (group) setGroupColor(group, c);
       eb.setBaseColor(id, c);
     });
@@ -620,10 +639,9 @@ export function syncVerificationLabels(ctx: ResultsSyncContext): void {
   // Same partial-registry trap as the colour maps: in wireframe the labels
   // would appear only on the handful of members that happen to have a group.
   forEachElementVisual(ctx, (id) => {
-    const ds = verificationStore.getDisplayStatus(id);
-    if (ds === 'unavailable') return;
-    const ratio = verificationStore.getDisplayRatio(id);
-    if (ratio === null) return;
+    const v = verificationStore.memberVerdict(id);
+    const label = verificationVisual({ status: v.status, local: v.local, ratio: verificationStore.getDisplayRatio(id) }).label;
+    if (!label) return;
 
     const elem = modelStore.elements.get(id);
     if (!elem) return;
@@ -638,13 +656,8 @@ export function syncVerificationLabels(ctx: ResultsSyncContext): void {
     const my = (sceneI.y + sceneJ.y) / 2;
     const mz = (sceneI.z + sceneJ.z) / 2;
 
-    // Colour + glyph carry the state so it is never colour-only (a11y).
-    const status = verificationStore.getStatus(id);
-    const baseColor = status === 'fail' ? '#ff4444' : status === 'warn' ? '#ffaa00' : '#44ff88';
-    const textColor = ds === 'stale' ? '#b9b9a8' : baseColor;
-    const glyph = ds === 'stale' ? '⌛ ' : status === 'fail' ? '✗ ' : status === 'warn' ? '⚠ ' : '';
-
-    const sprite = createTextSpriteCached(`${glyph}${ratio.toFixed(2)}`, textColor, 32);
+    // Colour + glyph carry the verdict so it is never colour-only (a11y); ⊘ marks a held member.
+    const sprite = createTextSpriteCached(label.text, label.color, 32);
     sprite.position.set(mx, my + 0.15, mz); // offset slightly above element
     sprite.scale.set(0.45, 0.45, 1);
     group.add(sprite);
@@ -682,30 +695,34 @@ function showOriginalMeshes(group: THREE.Group, visible: boolean): void {
 
 /** Reset shell meshes to default teal */
 function resetShellColors(ctx: ResultsSyncContext): void {
-  for (const [, group] of ctx.shellGroups) {
-    // Clear any contour vertex-colour, then restore the per-material base
-    // colour stored on the group at creation (CP1).
-    group.traverse((child) => {
-      // Only the shell FACE mesh carries a contour colour + its own material.
-      // Restrict the mutation to it so a non-owning child (were one ever added)
-      // can't have its material altered.
-      if (child instanceof THREE.Mesh && child.userData.shellFace) {
-        const geo = child.geometry;
-        if (geo.hasAttribute('color')) geo.deleteAttribute('color');
-        displaceShellFace(child, null, 0, false);
-        const mat = child.material as THREE.MeshStandardMaterial;
-        mat.vertexColors = false;
-        // Restore the mode's base look (contour may have forced it opaque).
-        if (child.userData.baseOpacity !== undefined) {
-          mat.opacity = child.userData.baseOpacity;
-          mat.transparent = child.userData.baseTransparent;
-          mat.depthWrite = child.userData.baseDepthWrite;
-        }
-        mat.needsUpdate = true;
+  for (const [, group] of ctx.shellGroups) resetShellGroup(group);
+  ctx.shellOverlayGroup = replaceShellOverlay(ctx.resultsParent, ctx.shellOverlayGroup, null);
+}
+
+/** One shell back to its base look: no contour colours, undisplaced, base opacity and colour. */
+function resetShellGroup(group: THREE.Group): void {
+  // Clear any contour vertex-colour, then restore the per-material base
+  // colour stored on the group at creation (CP1).
+  group.traverse((child) => {
+    // Only the shell FACE mesh carries a contour colour + its own material.
+    // Restrict the mutation to it so a non-owning child (were one ever added)
+    // can't have its material altered.
+    if (child instanceof THREE.Mesh && child.userData.shellFace) {
+      const geo = child.geometry;
+      if (geo.hasAttribute('color')) geo.deleteAttribute('color');
+      displaceShellFace(child, null, 0, false);
+      const mat = child.material as THREE.MeshStandardMaterial;
+      mat.vertexColors = false;
+      // Restore the mode's base look (contour may have forced it opaque).
+      if (child.userData.baseOpacity !== undefined) {
+        mat.opacity = child.userData.baseOpacity;
+        mat.transparent = child.userData.baseTransparent;
+        mat.depthWrite = child.userData.baseDepthWrite;
       }
-    });
-    restoreShellColor(group);
-  }
+      mat.needsUpdate = true;
+    }
+  });
+  restoreShellColor(group);
 }
 
 /** Build section props for an element */
@@ -888,18 +905,12 @@ function applyShellContour(
   ctx: ResultsSyncContext,
   r3d: NonNullable<typeof resultsStore.results3D>,
 ): void {
-  const plates = r3d.plateStresses ?? [], quads = r3d.quadStresses ?? [];
-  if (plates.length === 0 && quads.length === 0) return;
-  const field = shellContourField(
-    { plates, quads },
-    (key) => (key.startsWith('p') ? modelStore.plates.get(+key.slice(1))?.nodes : modelStore.quads.get(+key.slice(1))?.nodes),
-    resultsStore.shellContourComponent,
-    contourOptions,
-  );
+  const field = currentShellContourField(r3d);
+  if (!field) { ctx.shellOverlayGroup = replaceShellOverlay(ctx.resultsParent, ctx.shellOverlayGroup, null); return; }
   const disp = contourOptions.onDeformed ? new Map(r3d.displacements.map((d) => [d.nodeId, d])) : null;
   for (const [key, group] of ctx.shellGroups) {
     const values = field.corners.get(key);
-    if (!values) continue;
+    if (!values) { resetShellGroup(group); continue; }
     const isQuad = key.startsWith('q');
     const nodes = isQuad ? modelStore.quads.get(+key.slice(1))?.nodes : modelStore.plates.get(+key.slice(1))?.nodes;
     const corners = disp && nodes
@@ -909,6 +920,46 @@ function applyShellContour(
       if (child instanceof THREE.Mesh && child.userData?.shellFace) {
         applyShellNodalColors(child, values, field.range, isQuad, contourOptions.bands);
         displaceShellFace(child, corners, resultsStore.deformedScale, isQuad);
+      }
+    });
+  }
+  const component = resultsStore.shellContourComponent;
+  const project2D = projectFlag();
+  const scale = resultsStore.deformedScale;
+  const at = (id: number) => {
+    const n = modelStore.nodes.get(id);
+    if (!n) return null;
+    const p = projectNodeToScene(n, project2D);
+    const d = disp?.get(id);
+    return { x: p.x + (d ? d.ux * scale : 0), y: p.y + (d ? d.uy * scale : 0), z: (p.z ?? 0) + (d ? d.uz * scale : 0) };
+  };
+  const unit = overlayUnit(component);
+  const overlay = contourOptions.directions || contourOptions.values ? buildShellOverlay({
+    field, stresses: shellStressInputs(r3d, component), component, face: contourOptions.face,
+    directions: contourOptions.directions, values: contourOptions.values,
+    corners: (key) => { const ids = shellNodesOf(key); const pts = ids?.map(at); return pts && pts.every(Boolean) ? pts as Array<{ x: number; y: number; z: number }> : null; },
+    format: (v) => `${Math.abs(v) >= 100 ? v.toFixed(0) : Math.abs(v) >= 1 ? v.toFixed(2) : v.toPrecision(3)} ${unit}`,
+  }) : null;
+  ctx.shellOverlayGroup = replaceShellOverlay(ctx.resultsParent, ctx.shellOverlayGroup, overlay);
+}
+
+/**
+ * Paint each plate and quad by its estimated discretization error (one colour per element, on
+ * the scale of the global percentage; `mapRange` is also the scale of the panel's legend). Shells
+ * without an indicator get their base colour back.
+ */
+function applyDiscretizationMap(ctx: ResultsSyncContext): void {
+  const values = discretizationStore.elementMap();
+  const range = discretizationStore.mapRange();
+  for (const [key, group] of ctx.shellGroups) {
+    const v = values.get(key);
+    // A stress contour left on it (on the deformed shape, maybe) would read as an error value.
+    if (v === undefined) { resetShellGroup(group); continue; }
+    const isQuad = key.startsWith('q');
+    group.traverse((child) => {
+      if (child instanceof THREE.Mesh && child.userData?.shellFace) {
+        applyShellNodalColors(child, isQuad ? [v, v, v, v] : [v, v, v], range, isQuad, 0);
+        displaceShellFace(child, null, 0, isQuad);
       }
     });
   }
@@ -1041,8 +1092,24 @@ export function keepLabelBeside(
   };
 }
 
+/**
+ * The most labels of one kind drawn at once. Each is a canvas texture on the GPU: the 20 000
+ * nodes of a building's exchange file, all numbered, took the tab's graphics memory with them.
+ * Past it, a kind is labelled on the selection only, and the view says so once.
+ */
+const LABEL_BUDGET = 2000;
+let crowdedNotice = '';
+
 export function syncLabels3D(ctx: ResultsSyncContext): void {
   if (!ctx.initialized) return;
+  /** Whether a kind with `count` items is labelled on the selection only (asked, or too many). */
+  const crowded: string[] = [];
+  const selectionOnly = (count: number, kind: string) => {
+    if (viewState.labelsOnSelection) return true;
+    if (count <= LABEL_BUDGET) return false;
+    crowded.push(kind);
+    return true;
+  };
 
   // Clear old labels
   if (ctx.nodeLabelsGroup) {
@@ -1083,8 +1150,9 @@ export function syncLabels3D(ctx: ResultsSyncContext): void {
     ctx.nodeLabelsGroup = new THREE.Group();
     ctx.nodeLabelsGroup.name = 'nodeLabels';
 
-    const only = viewState.labelsOnSelection;
-    for (const [id, node] of visibleNodes()) {
+    const nodes = visibleNodes();
+    const only = selectionOnly(nodes.size, 'nodes');
+    for (const [id, node] of nodes) {
       if (only && !uiStore.selectedNodes.has(id)) continue;
       const pos = projectNodeToScene(node, project2D);
       const sprite = createTextSpriteCached(nodeLabelText(viewState.memberLabel, node), '#ffffff', 28, true);
@@ -1101,8 +1169,9 @@ export function syncLabels3D(ctx: ResultsSyncContext): void {
     ctx.elementLabelsGroup = new THREE.Group();
     ctx.elementLabelsGroup.name = 'elementLabels';
 
+    const only = selectionOnly(visibleElements().size, 'elements');
     for (const [, elem] of visibleElements()) {
-      if (viewState.labelsOnSelection && !uiStore.selectedElements.has(elem.id)) continue;
+      if (only && !uiStore.selectedElements.has(elem.id)) continue;
       const nI = modelStore.nodes.get(elem.nodeI);
       const nJ = modelStore.nodes.get(elem.nodeJ);
       if (!nI || !nJ) continue;
@@ -1130,7 +1199,9 @@ export function syncLabels3D(ctx: ResultsSyncContext): void {
     ctx.lengthLabelsGroup = new THREE.Group();
     ctx.lengthLabelsGroup.name = 'lengthLabels';
 
+    const only = selectionOnly(visibleElements().size, 'lengths');
     for (const [, elem] of visibleElements()) {
+      if (only && !uiStore.selectedElements.has(elem.id)) continue;
       const nI = modelStore.nodes.get(elem.nodeI);
       const nJ = modelStore.nodes.get(elem.nodeJ);
       if (!nI || !nJ) continue;
@@ -1183,8 +1254,15 @@ export function syncLabels3D(ctx: ResultsSyncContext): void {
       ctx.shellLabelsGroup!.add(sprite);
     };
 
-    for (const [id, p] of visiblePlates()) centroidLabel(p.nodes, String(id));
-    for (const [id, q] of visibleQuads()) centroidLabel(q.nodes, String(id));
+    // Shells have no selection of their own to fall back on: past the budget they go unlabelled.
+    if (!selectionOnly(visiblePlates().size + visibleQuads().size, 'shells')) {
+      for (const [id, p] of visiblePlates()) centroidLabel(p.nodes, String(id));
+      for (const [id, q] of visibleQuads()) centroidLabel(q.nodes, String(id));
+    }
     ctx.scene.add(ctx.shellLabelsGroup);
   }
+
+  const notice = crowded.join(',');
+  if (notice && notice !== crowdedNotice) uiStore.toast(tp('viewport.labelsCrowded', { n: LABEL_BUDGET }), 'info');
+  crowdedNotice = notice;
 }

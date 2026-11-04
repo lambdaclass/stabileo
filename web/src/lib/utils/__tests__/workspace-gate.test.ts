@@ -33,6 +33,7 @@ const WHICH_MODE: Array<{ file: string; snippet: string; why: string }> = [
   { file: 'components/Toolbar.svelte', snippet: "class:active={uiStore.analysisMode === '2d'}", why: 'the Basic 2D mode button' },
   { file: 'components/Toolbar.svelte', snippet: "class:active={uiStore.analysisMode === '3d'}", why: 'the Basic 3D mode button' },
   { file: 'components/AiDrawer.svelte', snippet: "snapshotMode === '2d' && is3DMode", why: "restores a snapshot's own mode; one without a mode leaves it alone" },
+  { file: 'lib/engine/solver-service.ts', snippet: "if (!input || input.dim !== '3d') return null;", why: "the certifiable solver input's own dimension tag (the all-loads input exists only for 3D solves), not the workspace" },
 ];
 
 describe('the space-workspace check', () => {

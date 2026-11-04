@@ -13,6 +13,10 @@
  * Pure: no store access, no side effects.
  */
 
+import type { BeamCornerRecord } from './end-support-anchorage';
+import type { LateralReading } from '../../model/lateral-system';
+import { columnShapeOf } from './shaped-column';
+import { concreteFc } from '../../model/design-data';
 import { columnDeltaNs } from './slenderness';
 import { computeJointPsiFromModel } from '../codes/argentina/cirsoc201';
 import { classifyElement } from '../codes/argentina/cirsoc201';
@@ -22,7 +26,7 @@ import {
   type ElementDesignDemands,
   type ElementStationResult,
 } from '../station-design-forces';
-import { resolveDesignAxes, type DesignAxes } from './design-axes';
+import { resolveDesignAxes, uprightBeam, type DesignAxes } from './design-axes';
 import type { LimitingConstraint } from './outcome';
 import type { ProvenancedValue, RegulationEdition } from '../../codes/regulation';
 import { resolveMaxAggregateSize, type ConcreteProjectData } from '../../codes/project-code-settings';
@@ -55,6 +59,11 @@ export interface CodeMaterials {
    * certificate has to be able to say which one it is.
    */
   maxAggregateSize: ProvenancedValue<number>;
+  /** The diameters the design may choose from, mm. Absent: every standard one. */
+  longDiametersMm?: readonly number[];
+  /** Denser ties at both ends of columns (project option, `design-data.ts`). */
+  columnEndZones?: boolean;
+  stirrupDiametersMm?: readonly number[];
 }
 
 /** Model slices the builder reads. Structurally typed so tests can pass literals. */
@@ -77,6 +86,21 @@ export interface ContextModelData {
 
 export interface MemberContext {
   /**
+   * The span this element is a piece of, when the analysis cut a beam into several elements
+   * (`design-spans.ts`). Present, the context IS the span's — its length, stations, demands and
+   * critical sections — under this piece's id. Absent, the element is the member.
+   */
+  span?: import('./design-spans').SpanRef;
+  /**
+   * The flange it acts with as a T or L beam, when a slab is cast with it. `datum` says whether the
+   * model's insertions put the slab at the beam's top or that was assumed (`beam-flange.ts`).
+   */
+  flange?: { bf: number; hf: number; kind: 'T' | 'L'; datum?: 'insertion' | 'assumed' };
+  /** A beam in the plane of a slab cast with its top, flange or not: the slab's diaphragm is there. */
+  inSlabPlane?: boolean;
+  /** The factor on J the member was analysed with, when below 1 (`AnalysisSettings.beamTorsion`). */
+  torsionStiffness?: number;
+  /**
    * The member's FINAL physical geometry, when coordination has moved its steel.
    *
    * Absent during design, present during post-coordination re-verification. It adjusts the
@@ -85,6 +109,46 @@ export interface MemberContext {
    * because a bar moved within the section.
    */
   finalGeometry?: { bottomRaise?: number; topLower?: number; depthTolerance?: number };
+  /**
+   * The largest longitudinal bar of each designed column, mm, by element id: the cage a beam's
+   * hooks keep clear of (`end-support-anchorage.ts`). Set once the columns are designed — by the
+   * design run for the beams it designs after them, by the store from the published outcomes.
+   * A column absent here is read at the project's default cage.
+   */
+  columnCages?: ReadonlyMap<number, number>;
+  /**
+   * Each designed column's longitudinal bars, by element id: the cage a beam's bars pass through
+   * at a joint (`joint-threading-check.ts`). Set with `columnCages`; a column absent here has
+   * no design, is not detailed, and has no bars to pass.
+   */
+  columnBars?: ReadonlyMap<number, { count: number; diameterMm: number }>;
+  /**
+   * Each designed beam's corner bar diameters and stirrup, by element id: the seats a crossing
+   * beam's hooks keep clear of at a joint. Set like `columnCages`; a beam absent here is read at
+   * every seat it could take.
+   */
+  beamCorners?: ReadonlyMap<number, BeamCornerRecord>;
+  /**
+   * The beams known to have no design, by element id: refused, or left out of a design the store
+   * holds in full. They carry no bars, so the detailing does not continue a line through them, and
+   * the design reads the line the same way; at a joint they still stand, read at every seat they
+   * could take. A beam in no registry is one the design has not reached yet: read as present.
+   */
+  absentBeams?: ReadonlySet<number>;
+  /**
+   * Whether the member is part of the lateral-force-resisting system, as the project declares it
+   * (`model/lateral-system.ts`). §9.7.3.8.2 reads it at the supports, through `developsAtFace`,
+   * in the design and the detailing alike: declared part of the system, or not declared, the
+   * positive steel develops fy at the face; declared outside it, the 150 mm. Absent: not declared.
+   * Never read off the geometry.
+   */
+  lateral?: LateralReading;
+  /**
+   * How the analysis joined the slab of the member's floor to its columns, and whether that leaves
+   * the split of the slab's load between beams and columns unestablished (`analysis-validity.ts`):
+   * set by the design run, absent before it.
+   */
+  slabColumnJoint?: import('./analysis-validity').SlabColumnJoint;
   elementId: number;
   elementType: 'beam' | 'column' | 'wall';
   /**
@@ -105,6 +169,10 @@ export interface MemberContext {
   axes: DesignAxes;
   /** Slenderness magnifier for columns (>= 1). */
   slenderDeltaNs: number;
+  /** A column that is not a rectangle: circular, T or L (`shaped-column.ts`). */
+  shape?: import('./shaped-column').ColumnShape;
+  /** Sway magnifier δs of the column's storey (§6.6.4.6), 1 in a non-sway storey. */
+  slenderDeltaS: number;
   /** True when this member's force components look inconsistent with its
    *  geometry — certification is blocked (O6). */
   orientationSuspect: boolean;
@@ -171,14 +239,35 @@ export interface BuildContextOptions {
   demandRevision?: number;
   solveGeneration?: number;
   cover?: number;
+  /** The clear cover for a kind of member, from the project's design data; wins over `cover`. */
+  /** Cover for a kind of member, m; given the element id, a cover set for that member replaces its kind's. */
+  coverFor?: (kind: 'beam' | 'column', elementId?: number) => number;
   stirrupDia?: number;
   rebarFy?: number;
+  /** The diameters the project lets the design choose from, mm. */
+  longDiametersMm?: readonly number[];
+  /** Denser ties at both ends of columns (project option, `design-data.ts`). */
+  columnEndZones?: boolean;
+  stirrupDiametersMm?: readonly number[];
   /** Edition of CIRSOC 201 to design to. Defaults to the edition in force. */
   codeEdition?: RegulationEdition;
+  /**
+   * Each bar's physical kind, from the model's physical elements. A bar a person declared a
+   * column is designed as one, whatever its slope; absent, the kind is read off the geometry.
+   */
+  physicalKindOf?: (elementId: number) => string | undefined;
   /** Project concrete data. Absent aggregate size becomes a visible assumption. */
   concrete?: ConcreteProjectData;
   /** Resolves PR #132's `Material.gradeId`. See `steel/material-family.ts`. */
   lookupGrade?: GradeFamilyLookup;
+  /** The flange a beam acts with, from the slab cast with it (`design/beam-flange.ts`). */
+  flangeOf?: (elementId: number) => { bf: number; hf: number; kind: 'T' | 'L'; datum?: 'insertion' | 'assumed' } | undefined;
+  /** Whether a beam lies in the plane of a slab cast with its top, flange or not (`beamsInSlabPlane`). */
+  inSlabPlane?: (elementId: number) => boolean;
+  /** The factor on J a member is analysed with (`solveStiffnessFactors`). */
+  torsionStiffnessOf?: (elementId: number) => number;
+  /** The project's declaration of each member's role in the lateral system (`store/lateral-system.ts`). */
+  lateralOf?: (elementId: number, kind: 'beam' | 'column' | 'wall') => LateralReading;
 }
 
 /**
@@ -200,9 +289,10 @@ export function buildMemberContext(
 
   const blocking: LimitingConstraint[] = [];
   if (!nI || !nJ) blocking.push('missingSection');
-  if (!sec || !sec.b || !sec.h) blocking.push('missingSection');
-  // In this model fy on a material doubles as f'c for concrete (<= 80 MPa).
-  const fc = mat?.fy;
+  // A solid circle stores only its diameter (h); every other section needs both sides.
+  if (!sec || !sec.h || (!sec.b && columnShapeOf(sec as never)?.kind !== 'circle')) blocking.push('missingSection');
+  // A concrete's f'c: its own field, or the `fy` older projects kept it in.
+  const fc = concreteFc(mat);
   if (!mat || fc === undefined || fc <= 0) blocking.push('missingMaterial');
 
   /**
@@ -228,18 +318,23 @@ export function buildMemberContext(
   const dz = (nJ?.z ?? 0) - (nI?.z ?? 0);
   const L = Math.sqrt(dx * dx + dy * dy + dz * dz);
 
-  const b = sec?.b ?? 0;
+  const shapeOf = columnShapeOf(sec as never);
   const h = sec?.h ?? 0;
-  const elementType = (nI && nJ)
-    ? classifyElement(nI.x, nI.y, nI.z ?? 0, nJ.x, nJ.y, nJ.z ?? 0, b || undefined, h || undefined)
-    : 'beam';
+  // A circle stores its diameter as h; the rectangle arithmetic reads it as a D × D square.
+  const b = sec?.b ?? (shapeOf?.kind === 'circle' ? h : 0);
+  const declared = opts.physicalKindOf?.(elementId);
+  const elementType = declared === 'column' || declared === 'beam'
+    ? declared
+    : (nI && nJ)
+      ? classifyElement(nI.x, nI.y, nI.z ?? 0, nJ.x, nJ.y, nJ.z ?? 0, b || undefined, h || undefined)
+      : 'beam';
 
   const demands = opts.demands?.get(elementId);
   const stations = opts.stations?.get(elementId);
   if (!demands || demands.demands.length === 0) blocking.push('missingDemand');
   if (!stations || stations.comboResults.length === 0) blocking.push('missingCombinations');
 
-  const cover = opts.cover ?? DEFAULT_COVER;
+  const cover = opts.coverFor?.(elementType === 'column' ? 'column' : 'beam', elementId) ?? opts.cover ?? DEFAULT_COVER;
   const stirrupDia = opts.stirrupDia ?? DEFAULT_STIRRUP_DIA;
   const fy = opts.rebarFy ?? DEFAULT_REBAR_FY;
   const codeEdition = opts.codeEdition ?? DEFAULT_CODE_EDITION;
@@ -247,7 +342,11 @@ export function buildMemberContext(
     opts.concrete ?? { maxAggregateSizeMm: null, shotcrete: false },
   );
 
-  const axes = resolveDesignAxes(elementType, { b, h }, demands);
+  // A beam with its slab, its section upright: the in-plane axis is the slab's diaphragm
+  // (`withSlabDiaphragm`). A beam turned about its axis bends sideways under its own vertical
+  // load, which no slab takes, and keeps its biaxial check.
+  const inSlab = elementType === 'beam' && (!!opts.flangeOf?.(elementId) || !!opts.inSlabPlane?.(elementId));
+  const axes = resolveDesignAxes(elementType, { b, h }, demands, { slab: inSlab && uprightBeam(elem as { rollAngle?: number }) });
   if (axes.basis === 'no-demand' && !blocking.includes('missingDemand')) blocking.push('missingDemand');
 
   return {
@@ -256,12 +355,23 @@ export function buildMemberContext(
     materialFamily: family.family,
     L,
     section: { id: sec?.id ?? -1, name: sec?.name ?? '—', b, h },
-    material: { fc: fc ?? 0, fy, cover, stirrupDia, maxAggregateSize },
+    ...(elementType === 'beam' && opts.flangeOf?.(elementId) ? { flange: opts.flangeOf(elementId)! } : {}),
+    ...(inSlab ? { inSlabPlane: true } : {}),
+    ...((() => { const j = opts.torsionStiffnessOf?.(elementId); return j !== undefined && j < 1 ? { torsionStiffness: j } : {}; })()),
+    ...(opts.lateralOf ? { lateral: opts.lateralOf(elementId, elementType) } : {}),
+    material: {
+      fc: fc ?? 0, fy, cover, stirrupDia, maxAggregateSize,
+      ...(opts.longDiametersMm ? { longDiametersMm: opts.longDiametersMm } : {}),
+      ...(opts.columnEndZones ? { columnEndZones: true } : {}),
+      ...(opts.stirrupDiametersMm ? { stirrupDiametersMm: opts.stirrupDiametersMm } : {}),
+    },
     demands,
     stations,
     criticalSections: opts.criticalSections?.get(elementId),
     axes,
     slenderDeltaNs: Math.max(1, opts.slenderDeltaNs?.get(elementId) ?? 1),
+    slenderDeltaS: 1,
+    ...(elementType === 'column' && shapeOf ? { shape: shapeOf } : {}),
     codeEdition,
     orientationSuspect: opts.orientationSuspect?.has(elementId) ?? false,
     analysisRevision: opts.analysisRevision ?? 0,
@@ -347,5 +457,6 @@ export function verifierSection(ctx: MemberContext) {
     fy: ctx.material.fy,
     cover: ctx.material.cover,
     stirrupDia: ctx.material.stirrupDia,
+    ...(ctx.flange ? { flange: { bf: ctx.flange.bf, hf: ctx.flange.hf } } : {}),
   };
 }

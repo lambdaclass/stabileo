@@ -41,6 +41,7 @@
     type PerpNAPoint,
   } from '../lib/engine/section-stress-3d';
   import { computeDiagramValueAt } from '../lib/engine/diagrams';
+  import { isEngineUnavailable, engineFailureText } from '../lib/engine/engine-unavailable';
   import { fmtForce, isPointInConvexPolygon } from './stress/fmt';
   import { toQ, unitQ } from '../lib/store/display-units.svelte';
   import UnitInput from './UnitInput.svelte';
@@ -248,11 +249,23 @@
    * fails now reads as "nothing to show at this station", which leaves the
    * panel, its close and the rest of the page working.
    */
+  /*
+   * A failure is not hidden, though. Each computation's last failure is kept
+   * here (a plain record, written inside the derivation, read by
+   * `stressFailure` below), and the panel shows it in place of the stresses:
+   * "engine not available" when the engine is not loaded, the engine's own
+   * message when it refused. The stresses come from the engine only; there is
+   * no TypeScript computation to fall back to.
+   */
+  const failures: Record<string, unknown> = {};
   function guarded<T>(what: string, run: () => T): T | null {
     try {
-      return run();
+      const value = run();
+      delete failures[what];
+      return value;
     } catch (err) {
       console.warn(`[section analysis] ${what}:`, (err as Error)?.message ?? err);
+      failures[what] = err;
       return null;
     }
   }
@@ -642,6 +655,16 @@
   // When isRotated2D, analysis3D is populated (from decomposed forces), analysis2D is null
   const uses3DPath = $derived(is3D || isRotated2D || eccentricActive);
   const hasAnalysis = $derived(uses3DPath ? analysis3D !== null : analysis2D !== null);
+
+  /** Why the stresses are missing, when the engine failed or is not loaded. */
+  const stressFailure = $derived.by((): { unavailable: boolean; message: string } | null => {
+    // Read after the analyses, so this follows them.
+    const ran = uses3DPath ? analysis3D : analysis2D;
+    if (ran !== null) return null;
+    const err = failures[uses3DPath ? '3D' : '2D'];
+    if (err === undefined) return null;
+    return { unavailable: isEngineUnavailable(err), message: engineFailureText(err) };
+  });
   const resolved = $derived(uses3DPath ? analysis3D?.resolved : analysis2D?.resolved);
 
   // Shear flow (2D only)
@@ -1369,6 +1392,26 @@
       {/if}
     </div>
   </div>
+{:else if query && stressFailure && !isAmorphous}
+  <div class="ssp-panel ssp-amorphous-warning" class:docked={docked} data-testid="stress-engine-failure"
+    style="{uiStore.isMobile && tourStore.isActive ? `bottom:auto; top:${uiStore.floatingToolsTopOffset}px` : ''}"
+  >
+    {#if !docked}
+      <div class="ssp-header">
+        <span class="ssp-title">{t('stress.panelTitle')}</span>
+        <button class="ssp-close" onclick={close}>&#x2715;</button>
+      </div>
+    {/if}
+    <div class="ssp-amorph-msg">
+      <span class="ssp-amorph-icon">⚠</span>
+      {#if stressFailure.unavailable}
+        <p>{t('engine.unavailable')}</p>
+      {:else}
+        <p>{t('engine.failed')}</p>
+        <p class="ssp-engine-msg">{stressFailure.message}</p>
+      {/if}
+    </div>
+  </div>
 {:else if query && isAmorphous}
   <div class="ssp-panel ssp-amorphous-warning" class:docked={docked}
     style="{uiStore.isMobile && tourStore.isActive ? `bottom:auto; top:${uiStore.floatingToolsTopOffset}px` : ''}"
@@ -1884,5 +1927,10 @@
   .ssp-amorph-icon {
     font-size: 1.5rem;
     text-align: center;
+  }
+
+  .ssp-amorph-msg p.ssp-engine-msg {
+    font-family: var(--st-mono);
+    word-break: break-word;
   }
 </style>

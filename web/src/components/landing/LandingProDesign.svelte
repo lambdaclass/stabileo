@@ -1,6 +1,7 @@
 <script lang="ts">
   import { tPublic as t } from '../../lib/i18n/store.svelte';
   import Eyebrow from './Eyebrow.svelte';
+  import PublicLink from './PublicLink.svelte';
   import Shot from './Shot.svelte';
 
   /**
@@ -22,6 +23,7 @@
       <span class="badge badge-dev">{t('landing.badgeDevOpen')}</span>
     </div>
     <p class="lead">{t('landing.proDesignP')}</p>
+    <PublicLink to="/cirsoc" class="link-arrow">{t('landing.proDesignCirsocLink')}</PublicLink>
 
     <div class="card-row cols-1 cap-shots">
       <article class="card card-media card-wide">

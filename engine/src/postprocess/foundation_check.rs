@@ -43,6 +43,11 @@ pub struct SpreadFootingData {
     /// taken is the least the code allows, never more.
     #[serde(default)]
     pub rho_w: Option<f64>,
+    /// Take λs = 1 in one-way and two-way shear, as ACI 318-19 §13.2.6.2
+    /// permits for isolated footings. Absent or false: λs is applied (the
+    /// lower, conservative strength).
+    #[serde(default)]
+    pub neglect_size_effect: Option<bool>,
 }
 
 /// Applied loads on a spread footing.
@@ -196,7 +201,11 @@ fn check_single_footing(
     // row (c)) and in punching (Tabla 22.6.5.2). Both were missing: at d = 500 mm, λs = 0,82,
     // so the check overstated the footing's shear strength by 22 %.
     let sqrt_fc = fc_mpa.sqrt().min(8.3);
-    let lambda_s = (2.0 / (1.0 + 0.004 * d_mm)).sqrt().min(1.0);
+    let lambda_s = if ftg.neglect_size_effect.unwrap_or(false) {
+        1.0
+    } else {
+        (2.0 / (1.0 + 0.004 * d_mm)).sqrt().min(1.0)
+    };
     let rho_w = ftg.rho_w.unwrap_or(0.0018).max(0.0);
 
     // phi*Vc = phi * 0.17 * sqrt(f'c_MPa) * bw_mm * d_mm (ACI 318 metric)

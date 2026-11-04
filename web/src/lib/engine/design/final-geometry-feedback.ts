@@ -37,6 +37,7 @@ import type { ProvidedRebarCheck, ProvidedRebarResult } from '../station-design-
 import { compareCandidates } from './objective';
 import { rebarHash } from './rebar-hash';
 import { isPassingVerdict } from './candidate-search';
+import { completeAnchorage } from './anchorage-hooks';
 import {
   DESIGN_TARGET_UTILIZATION, UTIL_EPSILON, UTIL_FAIL_THRESHOLD,
   UTILIZATION_CONVENTION,
@@ -435,7 +436,12 @@ export function selectCandidateUnderFinalGeometry(
   // ── A candidate verifies at the final geometry ──
   if (passing.length > 0) {
     passing.sort((a, b) => compareCandidates(a, b));
-    const win = passing[0];
+    let win = passing[0];
+    // The hooks the design gave a bottom group that anchors only hooked (§25.4.3), kept here.
+    const done = completeAnchorage(adapter, ctxAtFinalGeometry, win.reinf, win.verdict,
+      (v) => isPassingVerdict({ candidate: win.reinf, verdict: v, worstUtilization: v.worstUtilization, failingCheckCount: v.checks.filter((c) => c.status === 'fail').length, governing: null, cost: win.cost }));
+    if (done.verified) stats.verifierCalls++;
+    if (done.reinf !== win.reinf) win = { ...win, reinf: done.reinf, verdict: done.verdict };
     const prov = adapter.provenance();
     // The winner is not "rejected"; every other arrangement judged here is.
     const winHash = rebarHash(win.reinf);

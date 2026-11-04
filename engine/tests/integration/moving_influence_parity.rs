@@ -7,7 +7,11 @@
 /// point, over load sets built with TEST-LOCAL transcriptions of the
 /// pre-refactor algorithm (the `legacy_*` functions — no production helper is
 /// shared, so a future transcription drift in production fails these tests).
-/// All f64 comparisons are exact (`==`).
+/// All f64 comparisons are exact up to 1e-12 relative: exact (`==`) held while the
+/// permanent loads were nodal and distributed only; permanent point loads on members
+/// (kept since batch 4, they were dropped) put their fixed-end forces through the prepared
+/// and the full solve in a different order, which moves the last bits (5.7e-14 on 309).
+/// Elements are walked in key order, as production walks them (`dedaliano_engine::ordered`).
 
 use dedaliano_engine::postprocess::influence::*;
 use dedaliano_engine::solver::linear::{solve_2d, solve_3d};
@@ -16,7 +20,37 @@ use dedaliano_engine::types::*;
 use std::collections::HashMap;
 
 fn assert_f64_eq(a: f64, b: f64, what: &str) {
-    assert!(a == b, "mismatch at {}: {} vs {} (diff {:e})", what, a, b, (a - b).abs());
+    assert!(a == b || (a - b).abs() <= 1e-12 * a.abs().max(b.abs()).max(1.0), "mismatch at {}: {} vs {} (diff {:e})", what, a, b, (a - b).abs());
+}
+
+/// The least and greatest value of a 2D diagram along a member, transcribed from the
+/// envelope rule (#437): the ends, the stations the diagrams sample (every point load among
+/// them) and, for N, where the axial span load changes sign. Uses only the public diagram
+/// evaluation, not the moving-load code.
+fn legacy_range_2d(ef: &ElementForces, kind: &str, start: f64, end: f64) -> (f64, f64) {
+    use dedaliano_engine::postprocess::diagrams::{compute_diagram_value_at, diagram_positions_2d};
+    let mut ts = diagram_positions_2d(ef, kind);
+    if kind == "axial" && ef.length > 0.0 {
+        let mut xs = vec![0.0, ef.length];
+        for d in &ef.distributed_loads_x { xs.push(d.a); xs.push(d.b); }
+        xs.sort_by(|a, b| a.total_cmp(b));
+        let q = |x: f64| -> f64 {
+            ef.distributed_loads_x.iter().filter(|d| d.b > d.a && x >= d.a && x <= d.b)
+                .map(|d| d.q_i + (d.q_j - d.q_i) * (x - d.a) / (d.b - d.a)).sum()
+        };
+        for w in xs.windows(2) {
+            if w[1] - w[0] < 1e-12 { continue; }
+            let h = (w[1] - w[0]) * 1e-9;
+            let (q0, q1) = (q(w[0] + h), q(w[1] - h));
+            if q0 * q1 < 0.0 { ts.push((w[0] + (w[1] - w[0]) * q0 / (q0 - q1)) / ef.length); }
+        }
+    }
+    let (mut lo, mut hi) = (start.min(end), start.max(end));
+    for t in ts {
+        let v = compute_diagram_value_at(kind, t.clamp(0.0, 1.0), ef);
+        if v.is_finite() { lo = lo.min(v); hi = hi.max(v); }
+    }
+    (lo, hi)
 }
 
 // ==================== Model builders ====================
@@ -62,12 +96,12 @@ fn make_beam_2d_inclined() -> SolverInput {
         SolverLoad::Distributed(SolverDistributedLoad {
             element_id: 1, q_i: -2.0, q_j: -2.0, a: None, b: None,
         }),
-        SolverLoad::Thermal(SolverThermalLoad { element_id: 2, dt_uniform: 5.0, dt_gradient: 0.0 }),
+        SolverLoad::Thermal(SolverThermalLoad { element_id: 2, dt_uniform: 5.0, dt_gradient: 0.0, alpha: None, depth: None }),
     ];
 
     SolverInput {
         nodes, materials, sections, elements, supports,
-        loads, constraints: vec![], connectors: HashMap::new(), solver_options: None,
+        loads, constraints: vec![], connectors: HashMap::new(), solver_options: None, masses: Default::default(),
     }
 }
 
@@ -100,6 +134,8 @@ fn make_beam_3d_inclined() -> SolverInput3D {
         id: 1, name: None, a: 0.05,
         iy: 1.0e-4, iz: 5.0e-5, j: 1.5e-4,
         cw: None, as_y: None, as_z: None,
+        shear_center_y: None,
+        shear_center_z: None,
     });
 
     let mut elements = HashMap::new();
@@ -137,7 +173,7 @@ fn make_beam_3d_inclined() -> SolverInput3D {
         curved_beams: vec![],
         connectors: HashMap::new(),
 
-        solver_options: None,    }
+        solver_options: None, masses: Default::default(),    }
 }
 
 fn train_3axle() -> LoadTrain {
@@ -170,7 +206,7 @@ fn legacy_build_path_2d(solver_input: &SolverInput, path_element_ids: Option<&[u
     let elem_ids: Vec<usize> = match path_element_ids {
         Some(ids) => ids.to_vec(),
         None => {
-            let mut elem_list: Vec<&SolverElement> = solver_input.elements.values().collect();
+            let mut elem_list: Vec<&SolverElement> = dedaliano_engine::ordered::values(&solver_input.elements).collect();
             elem_list.sort_by(|a, b| {
                 let na = node_by_id[&a.node_i];
                 let nb = node_by_id[&b.node_i];
@@ -195,6 +231,8 @@ fn legacy_build_path_2d(solver_input: &SolverInput, path_element_ids: Option<&[u
             length: l,
             cos,
             sin,
+            // These parity models draw every deck member along the travel.
+            reversed: false,
         });
         cum_pos += l;
     }
@@ -218,9 +256,8 @@ fn legacy_loads_at_position_2d(
     pos: f64,
     total_length: f64,
 ) -> Vec<SolverLoad> {
-    let mut loads: Vec<SolverLoad> = solver_input.loads.iter().filter(|l| {
-        matches!(l, SolverLoad::Nodal(_) | SolverLoad::Distributed(_) | SolverLoad::Thermal(_))
-    }).cloned().collect();
+    // Every input load is permanent (the axle loads are built below).
+    let mut loads: Vec<SolverLoad> = solver_input.loads.clone();
 
     for axle in &train.axles {
         let axle_pos = pos + axle.offset;
@@ -262,7 +299,7 @@ fn legacy_build_path_3d(solver_input: &SolverInput3D, path_element_ids: Option<&
     let elem_ids: Vec<usize> = match path_element_ids {
         Some(ids) => ids.to_vec(),
         None => {
-            let mut elem_list: Vec<&SolverElement3D> = solver_input.elements.values().collect();
+            let mut elem_list: Vec<&SolverElement3D> = dedaliano_engine::ordered::values(&solver_input.elements).collect();
             elem_list.sort_by(|a, b| {
                 let na = node_by_id[&a.node_i];
                 let nb = node_by_id[&b.node_i];
@@ -287,6 +324,7 @@ fn legacy_build_path_3d(solver_input: &SolverInput3D, path_element_ids: Option<&
             dir_x: dx / l,
             dir_y: dy / l,
             dir_z: dz / l,
+            reversed: false,
         });
         cum_pos += l;
     }
@@ -311,9 +349,7 @@ fn legacy_loads_at_position_3d(
     pos: f64,
     total_length: f64,
 ) -> Vec<SolverLoad3D> {
-    let mut loads: Vec<SolverLoad3D> = solver_input.loads.iter().filter(|l| {
-        matches!(l, SolverLoad3D::Nodal(_) | SolverLoad3D::Distributed(_) | SolverLoad3D::Thermal(_))
-    }).cloned().collect();
+    let mut loads: Vec<SolverLoad3D> = solver_input.loads.clone();
 
     let node_by_id: HashMap<usize, &SolverNode3D> = solver_input.nodes.values().map(|n| (n.id, n)).collect();
     let elem_by_id: HashMap<usize, &SolverElement3D> = solver_input.elements.values().map(|e| (e.id, e)).collect();
@@ -523,12 +559,9 @@ fn legacy_moving_2d(input: &MovingLoadInput) -> MovingLoadEnvelope {
         if let Ok(results) = solve_2d(&modified_input) {
             for ef in &results.element_forces {
                 if let Some(env) = envelopes.get_mut(&ef.element_id.to_string()) {
-                    let m_max = ef.m_start.max(ef.m_end);
-                    let m_min = ef.m_start.min(ef.m_end);
-                    let v_max = ef.v_start.max(ef.v_end);
-                    let v_min = ef.v_start.min(ef.v_end);
-                    let n_max = ef.n_start.max(ef.n_end);
-                    let n_min = ef.n_start.min(ef.n_end);
+                    let (m_min, m_max) = legacy_range_2d(ef, "moment", ef.m_start, ef.m_end);
+                    let (v_min, v_max) = legacy_range_2d(ef, "shear", ef.v_start, ef.v_end);
+                    let (n_min, n_max) = legacy_range_2d(ef, "axial", ef.n_start, ef.n_end);
                     env.m_max_pos = env.m_max_pos.max(m_max);
                     env.m_max_neg = env.m_max_neg.min(m_min);
                     env.v_max_pos = env.v_max_pos.max(v_max);
@@ -693,7 +726,7 @@ fn parity_influence_line_2d() {
             .map(|n| (n.id, (n.x, n.z)))
             .collect();
         let mut legacy_points = Vec::new();
-        for elem in input.solver.elements.values() {
+        for elem in dedaliano_engine::ordered::values(&input.solver.elements) {
             let (nix, niy) = *node_pos.get(&elem.node_i).unwrap();
             let (njx, njy) = *node_pos.get(&elem.node_j).unwrap();
             let dx = njx - nix;
@@ -752,7 +785,7 @@ fn parity_influence_line_3d() {
             .collect();
         let gravity_dir = [0.0_f64, 0.0, -1.0];
         let mut legacy_points = Vec::new();
-        for elem in input.solver.elements.values() {
+        for elem in dedaliano_engine::ordered::values(&input.solver.elements) {
             if elem.elem_type != "frame" && elem.elem_type != "beam" { continue; }
             let (nix, niy, niz) = *node_pos.get(&elem.node_i).unwrap();
             let (njx, njy, njz) = *node_pos.get(&elem.node_j).unwrap();
@@ -846,7 +879,7 @@ fn moving_loads_with_constraints_uses_legacy_fallback() {
             })],
             connectors: HashMap::new(),
 
-            solver_options: None,        },
+            solver_options: None, masses: Default::default(),        },
         train,
         path_element_ids: Some(vec![1, 2]),
         step: Some(1.0),

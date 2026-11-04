@@ -1,0 +1,39 @@
+name: "SSH to the deploy host"
+description: "Install the deploy key and the host's key, so later steps can ssh/scp/rsync to it by name"
+
+inputs:
+  host:
+    description: "The deploy host (DEPLOY_HOST)"
+    required: true
+  user:
+    description: "The SSH user on it (DEPLOY_USER)"
+    required: true
+  key:
+    description: "The private key (DEPLOY_SSH_KEY)"
+    required: true
+  known-hosts:
+    description: "known_hosts lines for the host (DEPLOY_KNOWN_HOSTS), from `ssh-keyscan <host>`"
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Configure SSH
+      shell: bash
+      env:
+        HOST: ${{ inputs.host }}
+        SSH_USER: ${{ inputs.user }}
+        KEY: ${{ inputs.key }}
+        KNOWN_HOSTS: ${{ inputs.known-hosts }}
+      run: |
+        set -euo pipefail
+        mkdir -p ~/.ssh
+        chmod 700 ~/.ssh
+        printf '%s\n' "$KEY" > ~/.ssh/deploy_key
+        chmod 600 ~/.ssh/deploy_key
+        printf 'Host %s\n  User %s\n  IdentityFile ~/.ssh/deploy_key\n  IdentitiesOnly yes\n  StrictHostKeyChecking yes\n' "$HOST" "$SSH_USER" >> ~/.ssh/config
+        if [ -z "$KNOWN_HOSTS" ]; then
+          echo "::error::DEPLOY_KNOWN_HOSTS is not set; refusing to trust whatever key $HOST presents. See docs/DEPLOY.md."
+          exit 1
+        fi
+        printf '%s\n' "$KNOWN_HOSTS" >> ~/.ssh/known_hosts

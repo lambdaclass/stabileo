@@ -2,6 +2,7 @@
  * CIRSOC 101-2025 — imposed (live) loads.
  *
  * Table 4.1  minimum uniform and concentrated imposed loads by occupancy
+ * §4.3.2      the partition live load ("sobrecarga de repartición")
  * §4.7.2      live-load reduction, Eq. (4.1), with K_LL from Table 4.2
  * §4.7.3–4.7.6 the limits on that reduction
  * §4.8        minimum roof imposed loads
@@ -210,6 +211,61 @@ export const OCCUPANCY_TABLE_2025: readonly OccupancyEntry[] = Object.freeze([
 
 export function findOccupancy(key: string): OccupancyEntry | undefined {
   return OCCUPANCY_TABLE_2025.find((o) => o.key === key);
+}
+
+// ─── §4.3.2 partition live load ──────────────────────────────────
+
+/**
+ * §4.3.2 — the least partition load, kN/m² of floor: "La carga de dichos elementos deberá ser
+ * mayor o igual que 0,75 kN/m²".
+ *
+ * A LIVE load. The article sits in chapter 4 (Sobrecargas de diseño) and releases the designer
+ * with "no se requerirá sobrecarga de repartición": it is the allowance for partitions that may
+ * be built or moved anywhere, as ASCE 7 §4.3.2, which it follows. It used to be loaded as a dead
+ * row, so it entered 1,2 D (0,90 kN/m² factored) instead of 1,6 L (1,20). The weight of KNOWN
+ * partitions stays in the dead load (§3.1.4, `dead-loads.ts`).
+ *
+ * Not reduced by §4.7: §4.7.1 reduces "las sobrecargas mínimas uniformemente distribuidas Lo,
+ * especificadas en la Tabla 4.1", and this one is not a Tabla 4.1 value.
+ */
+export const PARTITION_LIVE_MINIMUM_KNM2 = 0.75;
+
+/** §4.3.2 — "Cuando el valor de la sobrecarga sea mayor que 3,85 kN/m²", none is owed. */
+export const PARTITION_LIVE_EXEMPTION_KNM2 = 3.85;
+
+export const PARTITION_LIVE_REF = clause('cirsoc-101', '2025', '4.3.2',
+  'requerimientos para elementos divisorios');
+
+export interface PartitionLiveAllowance {
+  /** kN/m² added to the floor live load: the asked value, or 0 when exempt or off. */
+  qKNm2: number;
+  /** The occupancy's Lo is over 3,85 kN/m². */
+  exempt: boolean;
+  message: EngineMessage;
+  refs: ClauseRef[];
+}
+
+/**
+ * The §4.3.2 allowance a floor of live load `loKNm2` takes, when `requestedKNm2` is asked for
+ * (0: none). The value is used as asked: one under the minimum is said, not raised.
+ */
+export function partitionLiveAllowance(loKNm2: number, requestedKNm2: number): PartitionLiveAllowance {
+  const refs = [PARTITION_LIVE_REF];
+  if (loKNm2 > PARTITION_LIVE_EXEMPTION_KNM2) {
+    return {
+      qKNm2: 0, exempt: true, refs,
+      message: msg('loads.cirsoc101.live.partitionExempt', { lo: round(loKNm2, 2), limit: PARTITION_LIVE_EXEMPTION_KNM2 }),
+    };
+  }
+  const q = requestedKNm2 > 0 ? requestedKNm2 : 0;
+  return {
+    qKNm2: q, exempt: false, refs,
+    message: q === 0
+      ? msg('loads.cirsoc101.live.partitionOff', { min: PARTITION_LIVE_MINIMUM_KNM2 })
+      : q < PARTITION_LIVE_MINIMUM_KNM2
+        ? msg('loads.cirsoc101.live.partitionBelowMinimum', { q: round(q, 3), min: PARTITION_LIVE_MINIMUM_KNM2 })
+        : msg('loads.cirsoc101.live.partitionApplied', { q: round(q, 3) }),
+  };
 }
 
 // ─── §4.7 live-load reduction ────────────────────────────────────

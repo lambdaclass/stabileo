@@ -52,7 +52,7 @@ fn make_3d_input_modal(
     }
     let mut secs_map = HashMap::new();
     for (id, a, iy, iz, j) in secs {
-        secs_map.insert(id.to_string(), SolverSection3D { id, name: None, a, iy, iz, j, cw: None, as_y: None, as_z: None });
+        secs_map.insert(id.to_string(), SolverSection3D { id, name: None, a, iy, iz, j, cw: None, as_y: None, as_z: None, shear_center_y: None, shear_center_z: None });
     }
     let mut elems_map = HashMap::new();
     for (id, t, ni, nj, mi, si) in elems {
@@ -73,7 +73,7 @@ fn make_3d_input_modal(
             });
     }
     SolverInput3D {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes: nodes_map, materials: mats_map, sections: secs_map,
         elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![], left_hand: None, plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_beams: vec![],
             curved_shells: HashMap::new(),

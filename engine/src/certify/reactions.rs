@@ -145,7 +145,7 @@ fn single_support_nodes<S>(supports: impl Iterator<Item = (usize, S)>) -> Vec<(u
 
 /// The restrained rows of the K the certificate checks for this 2D model.
 pub(crate) fn restrained_rows_2d(input: &SolverInput) -> Result<(DofNumbering, RestrainedRows), String> {
-    if !input.constraints.is_empty() || input.supports.values().any(|s| s.support_type == "inclinedRoller") {
+    if !input.constraints.is_empty() || crate::ordered::values(&input.supports).any(|s| s.support_type == "inclinedRoller") {
         return Err("reactions not bounded: constraints or inclined supports".into());
     }
     let dof = DofNumbering::build_2d(input);
@@ -183,7 +183,7 @@ pub(crate) fn reaction_bounds_2d_with(
     let u = gather_u_2d(dof, &results.displacements).map_err(|c| format!("{c:?}"))?;
     let reported: HashMap<usize, &Reaction> = results.reactions.iter().map(|r| (r.node_id, r)).collect();
     let mut out = Vec::new();
-    for (node, sup) in single_support_nodes(input.supports.values().map(|s| (s.node_id, s))) {
+    for (node, sup) in single_support_nodes(crate::ordered::values(&input.supports).map(|s| (s.node_id, s))) {
         let spring_type = sup.support_type == "spring";
         let angled = sup.angle.is_some_and(|a| a.abs() > 1e-15)
             && (sup.kx.unwrap_or(0.0) > 0.0 || sup.ky.unwrap_or(0.0) > 0.0);
@@ -212,7 +212,7 @@ pub(crate) fn reaction_bounds_2d_with(
 /// The restrained rows and load assembly the certificate uses for this 3D model
 /// (already passed through `expand_curved_beams_3d`).
 pub(crate) fn restrained_rows_3d(input: &SolverInput3D) -> Result<(DofNumbering, RestrainedRows, bool), String> {
-    if !input.constraints.is_empty() || input.supports.values().any(|s| s.is_inclined.unwrap_or(false)) {
+    if !input.constraints.is_empty() || crate::ordered::values(&input.supports).any(|s| s.is_inclined.unwrap_or(false)) {
         return Err("reactions not bounded: constraints or inclined supports".into());
     }
     let dof = DofNumbering::build_3d(input);
@@ -257,7 +257,7 @@ pub(crate) fn reaction_bounds_3d_with(
     let u = gather_u_3d(dof, &results.displacements).map_err(|c| format!("{c:?}"))?;
     let reported: HashMap<usize, &Reaction3D> = results.reactions.iter().map(|r| (r.node_id, r)).collect();
     let mut out = Vec::new();
-    for (node, sup) in single_support_nodes(input.supports.values().map(|s| (s.node_id, s))) {
+    for (node, sup) in single_support_nodes(crate::ordered::values(&input.supports).map(|s| (s.node_id, s))) {
         let Some(r) = reported.get(&node) else { continue };
         let springs = [sup.kx, sup.ky, sup.kz, sup.krx, sup.kry, sup.krz];
         let rep = [r.fx, r.fy, r.fz, r.mx, r.my, r.mz];

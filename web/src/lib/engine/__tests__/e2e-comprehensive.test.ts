@@ -241,7 +241,7 @@ describe('1. Isostatic 2D — Simply Supported Beams', () => {
         [2, 2, 3, 'frame'],
       ],
       supports: [[1, 1, 'pinned'], [2, 3, 'rollerX']],
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: 0, mz: M0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: 0, my: M0 } }],
     });
 
     const r = solve(input);
@@ -263,7 +263,7 @@ describe('1. Isostatic 2D — Cantilever Beams', () => {
       nodes: [[1, 0, 0], [2, L, 0]],
       elements: [[1, 1, 2, 'frame']],
       supports: [[1, 1, 'fixed']],
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: P, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: P, my: 0 } }],
     });
 
     const r = solve(input);
@@ -305,7 +305,7 @@ describe('1. Isostatic 2D — Cantilever Beams', () => {
       nodes: [[1, 0, 0], [2, L, 0]],
       elements: [[1, 1, 2, 'frame']],
       supports: [[1, 1, 'fixed']],
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: 0, mz: M0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: 0, my: M0 } }],
     });
 
     const r = solve(input);
@@ -332,7 +332,7 @@ describe('1. Isostatic 2D — Trusses', () => {
         [3, 1, 2, 'truss'],
       ],
       supports: [[1, 1, 'pinned'], [2, 2, 'rollerX']],
-      loads: [{ type: 'nodal', data: { nodeId: 3, fx: 0, fy: P, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 3, fx: 0, fz: P, my: 0 } }],
     });
 
     const r = solve(input);
@@ -371,7 +371,7 @@ describe('1. Isostatic 2D — Trusses', () => {
       nodes,
       elements,
       supports: [[1, 1, 'pinned'], [2, panels + 1, 'rollerX']],
-      loads: [{ type: 'nodal', data: { nodeId: 3, fx: 0, fy: P, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 3, fx: 0, fz: P, my: 0 } }],
     });
 
     const r = solve(input);
@@ -393,7 +393,7 @@ describe('1. Isostatic 2D — Trusses', () => {
       ],
       supports: [[1, 1, 'pinned'], [2, 2, 'rollerX']],
       loads: [
-        { type: 'nodal', data: { nodeId: 4, fx: 5, fy: -10, mz: 0 } },
+        { type: 'nodal', data: { nodeId: 4, fx: 5, fz: -10, my: 0 } },
       ],
     });
 
@@ -503,7 +503,7 @@ describe('2. Hyperstatic 2D structures', () => {
       supports: [[1, 1, 'fixed'], [2, 4, 'fixed']],
       loads: [
         { type: 'distributed', data: { elementId: 2, qI: q, qJ: q } },
-        { type: 'nodal', data: { nodeId: 2, fx: Hlat, fy: 0, mz: 0 } },
+        { type: 'nodal', data: { nodeId: 2, fx: Hlat, fz: 0, my: 0 } },
       ],
     });
 
@@ -553,7 +553,7 @@ describe('3. Articulations & internal hinges', () => {
         [2, 2, 3, 'frame', true, false],   // hinge at crown (node 2)
       ],
       supports: [[1, 1, 'pinned'], [2, 3, 'pinned']],
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: -20, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: -20, my: 0 } }],
     });
 
     const r = solve(input);
@@ -609,7 +609,7 @@ describe('3. Articulations & internal hinges', () => {
         [2, 2, 3, 'frame', true, true],        // double-hinged = truss-like
       ],
       supports: [[1, 1, 'fixed'], [2, 2, 'rollerX'], [3, 3, 'rollerX']],
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: P, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: P, my: 0 } }],
     });
 
     const r = solve(input);
@@ -682,7 +682,7 @@ describe('4. Complex loads', () => {
       loads: [
         { type: 'distributed', data: { elementId: 1, qI: -10, qJ: -10 } },
         { type: 'pointOnElement', data: { elementId: 1, a: L / 2, p: -20 } },
-        { type: 'nodal', data: { nodeId: 2, fx: 5, fy: -5, mz: 0 } },
+        { type: 'nodal', data: { nodeId: 2, fx: 5, fz: -5, my: 0 } },
       ],
     });
 
@@ -740,7 +740,7 @@ describe('5. Extreme values — Very small structures', () => {
       nodes: [[1, 0, 0], [2, L, 0]],
       elements: [[1, 1, 2, 'frame']],
       supports: [[1, 1, 'fixed']],
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: P, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: P, my: 0 } }],
       e: 10,       // 10 MPa (polymer-like)
       a: 1e-4,     // 1 cm² cross-section
       iz: 1e-8,    // small inertia
@@ -779,7 +779,7 @@ describe('5. Extreme values — Very small structures', () => {
       nodes: [[1, 0, 0], [2, L, 0]],
       elements: [[1, 1, 2, 'frame']],
       supports: [[1, 1, 'fixed']],
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: P, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: P, my: 0 } }],
       a: 1e-6,
       iz: 1e-12,
     });
@@ -795,7 +795,7 @@ describe('5. Extreme values — Very small structures', () => {
       nodes: [[1, 0, 0], [2, L, 0]],
       elements: [[1, 1, 2, 'frame']],
       supports: [[1, 1, 'fixed']],
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: P, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: P, my: 0 } }],
       e: 1,
     });
 
@@ -832,7 +832,7 @@ describe('5. Extreme values — Very large structures', () => {
       nodes: [[1, 0, 0], [2, L, 0]],
       elements: [[1, 1, 2, 'frame']],
       supports: [[1, 1, 'fixed']],
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: P, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: P, my: 0 } }],
       e: 1e6,
     });
 
@@ -850,7 +850,7 @@ describe('5. Extreme values — Very large structures', () => {
       nodes: [[1, 0, 0], [2, L, 0]],
       elements: [[1, 1, 2, 'frame']],
       supports: [[1, 1, 'pinned'], [2, 2, 'rollerX']],
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: P, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: P, my: 0 } }],
     });
 
     const r = solve(input);
@@ -919,7 +919,7 @@ describe('5. Extreme values — Dimension combinations', () => {
       nodes: [[1, 0, 0], [2, L, 0]],
       elements: [[1, 1, 2, 'frame']],
       supports: [[1, 1, 'fixed']],
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: -1, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: -1, my: 0 } }],
     });
 
     const r = solve(input);
@@ -933,7 +933,7 @@ describe('5. Extreme values — Dimension combinations', () => {
       nodes: [[1, 0, 0], [2, L, 0]],
       elements: [[1, 1, 2, 'frame']],
       supports: [[1, 1, 'pinned'], [2, 2, 'rollerX']],
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: P, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: P, my: 0 } }],
     });
 
     const r = solve(input);
@@ -1210,7 +1210,7 @@ describe('7. Edge cases — Mechanisms & errors', () => {
       nodes: [[1, 0, 0], [2, 5, 0]],
       elements: [[1, 1, 2, 'frame']],
       supports: [],
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: -10, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: -10, my: 0 } }],
     });
 
     expect(() => solve(input)).toThrow();
@@ -1221,7 +1221,7 @@ describe('7. Edge cases — Mechanisms & errors', () => {
       nodes: [[1, 0, 0], [2, 5, 0]],
       elements: [[1, 1, 2, 'frame']],
       supports: [[1, 1, 'rollerX']],
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: -10, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: -10, my: 0 } }],
     });
 
     expect(() => solve(input)).toThrow();
@@ -1236,7 +1236,7 @@ describe('7. Edge cases — Mechanisms & errors', () => {
         [2, 2, 3, 'frame'],
       ],
       supports: [[1, 1, 'rollerX'], [2, 2, 'rollerX'], [3, 3, 'rollerX']],
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: -10, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: -10, my: 0 } }],
     });
 
     expect(() => solve(input)).toThrow();
@@ -1250,7 +1250,7 @@ describe('7. Edge cases — Mechanisms & errors', () => {
         [2, 3, 4, 'frame'],
       ],
       supports: [[1, 1, 'fixed'], [2, 3, 'fixed']],
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: -10, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: -10, my: 0 } }],
     });
 
     // Should either throw or detect disconnected components
@@ -1266,7 +1266,7 @@ describe('7. Edge cases — Mechanisms & errors', () => {
       nodes: [[1, 0, 0], [2, 0, 0]], // same position!
       elements: [[1, 1, 2, 'frame']],
       supports: [[1, 1, 'fixed']],
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: -10, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: -10, my: 0 } }],
     });
 
     expect(() => solve(input)).toThrow(/longitud cero|zero/i);
@@ -1277,7 +1277,7 @@ describe('7. Edge cases — Mechanisms & errors', () => {
       nodes: [[1, 0, 0], [2, 5, 0]],
       elements: [[1, 1, 2, 'frame']],
       supports: [[1, 1, 'fixed']],
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: -10, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: -10, my: 0 } }],
       a: 0,
     });
 
@@ -1289,7 +1289,7 @@ describe('7. Edge cases — Mechanisms & errors', () => {
       nodes: [[1, 0, 0], [2, 5, 0]],
       elements: [[1, 1, 2, 'frame']],
       supports: [[1, 1, 'fixed']],
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: -10, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: -10, my: 0 } }],
       iz: 0,
     });
 
@@ -1324,7 +1324,7 @@ describe('7. Edge cases — Special supports', () => {
         [1, 1, 'pinned'],
         [2, 2, 'spring', { ky: k }],
       ],
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: P, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: P, my: 0 } }],
     });
 
     const r = solve(input);
@@ -1420,7 +1420,7 @@ describe('8. Numerical stability — Float precision', () => {
       nodes: [[1, 0, 0], [2, L, 0]],
       elements: [[1, 1, 2, 'frame']],
       supports: [[1, 1, 'pinned'], [2, 2, 'rollerX']],
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: -20, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: -20, my: 0 } }],
     });
 
     // Combined
@@ -1430,7 +1430,7 @@ describe('8. Numerical stability — Float precision', () => {
       supports: [[1, 1, 'pinned'], [2, 2, 'rollerX']],
       loads: [
         { type: 'distributed', data: { elementId: 1, qI: -10, qJ: -10 } },
-        { type: 'nodal', data: { nodeId: 2, fx: 0, fy: -20, mz: 0 } },
+        { type: 'nodal', data: { nodeId: 2, fx: 0, fz: -20, my: 0 } },
       ],
     });
 
@@ -1482,7 +1482,7 @@ describe('8. Numerical stability — Float precision', () => {
         [1, 1, 2, 'frame'], [2, 2, 3, 'frame'], [3, 3, 4, 'frame'],
       ],
       supports: [[1, 1, 'pinned'], [2, 4, 'rollerX']],
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: -P, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: -P, my: 0 } }],
     });
     const r1 = solve(input1);
     const d12 = getDisp(r1, 3).uz; // displacement at node 3 due to load at node 2
@@ -1494,7 +1494,7 @@ describe('8. Numerical stability — Float precision', () => {
         [1, 1, 2, 'frame'], [2, 2, 3, 'frame'], [3, 3, 4, 'frame'],
       ],
       supports: [[1, 1, 'pinned'], [2, 4, 'rollerX']],
-      loads: [{ type: 'nodal', data: { nodeId: 3, fx: 0, fy: -P, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 3, fx: 0, fz: -P, my: 0 } }],
     });
     const r2 = solve(input2);
     const d21 = getDisp(r2, 2).uz; // displacement at node 2 due to load at node 3
@@ -1519,7 +1519,7 @@ describe('9. Real-world structural configurations', () => {
         [2, 2, 3, 'frame'], // horizontal beam
       ],
       supports: [[1, 1, 'fixed']],
-      loads: [{ type: 'nodal', data: { nodeId: 3, fx: 0, fy: P, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 3, fx: 0, fz: P, my: 0 } }],
     });
 
     const r = solve(input);
@@ -1548,8 +1548,8 @@ describe('9. Real-world structural configurations', () => {
       loads: [
         { type: 'distributed', data: { elementId: 5, qI: -20, qJ: -20 } },
         { type: 'distributed', data: { elementId: 6, qI: -15, qJ: -15 } },
-        { type: 'nodal', data: { nodeId: 3, fx: 10, fy: 0, mz: 0 } },
-        { type: 'nodal', data: { nodeId: 5, fx: 8, fy: 0, mz: 0 } },
+        { type: 'nodal', data: { nodeId: 3, fx: 10, fz: 0, my: 0 } },
+        { type: 'nodal', data: { nodeId: 5, fx: 8, fz: 0, my: 0 } },
       ],
     });
 
@@ -1607,7 +1607,7 @@ describe('9. Real-world structural configurations', () => {
         [1, 1, 2, 'truss'], [2, 1, 3, 'truss'], [3, 2, 3, 'truss'],
       ],
       supports: [[1, 1, 'pinned'], [2, 2, 'rollerX']],
-      loads: [{ type: 'nodal', data: { nodeId: 3, fx: 5, fy: -15, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 3, fx: 5, fz: -15, my: 0 } }],
     });
     const rTruss = solve(trussInput);
     for (const ef of rTruss.elementForces) {
@@ -1628,7 +1628,7 @@ describe('10. Material property validation', () => {
       nodes: [[1, 0, 0], [2, 5, 0]],
       elements: [[1, 1, 2, 'frame']],
       supports: [[1, 1, 'fixed']],
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: -10, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: -10, my: 0 } }],
       a: -0.01,
     });
 
@@ -1640,7 +1640,7 @@ describe('10. Material property validation', () => {
       nodes: [[1, 0, 0], [2, 5, 0]],
       elements: [[1, 1, 2, 'frame']],
       supports: [[1, 1, 'fixed']],
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: -10, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: -10, my: 0 } }],
       iz: -1e-4,
     });
 
@@ -1740,7 +1740,7 @@ describe('11. Diagram consistency', () => {
       nodes: [[1, 0, 0], [2, L, 0]],
       elements: [[1, 1, 2, 'truss']],
       supports: [[1, 1, 'pinned'], [2, 2, 'rollerX']],
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: P, fy: 0, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: P, fz: 0, my: 0 } }],
     });
 
     const r = solve(input);

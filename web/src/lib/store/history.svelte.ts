@@ -5,7 +5,7 @@ import type { ProjectCodeSettings } from '../codes/project-code-settings';
 // Undo/Redo history store using full model snapshots
 import { modelStore } from './model.svelte';
 import { uiStore } from './ui.svelte';
-import { pruneStaleSelection } from './selection-prune';
+import { pruneDeletedMembers, pruneStaleSelection } from './selection-prune';
 import type { Release, ProvidedReinforcement } from './model.svelte';
 import type { Element3DMetadata } from '../model/element-3d-metadata';
 import type { ModelProvenance } from '../model/provenance';
@@ -72,6 +72,10 @@ export interface ModelSnapshot {
   analysis?: import('../engine/analysis-settings').AnalysisSettings;
   projectInfo?: import('../model/project-info').ProjectInfo;
   notes?: import('../model/annotations').ViewNote[];
+  /** Background drawings laid at levels (`model/underlay.ts`). Absent: none. */
+  underlays?: import('../model/underlay').Underlay[];
+  designData?: import('../model/design-data').ProjectDesignData;
+  designDecisions?: import('../design-contract/decisions').StoredDecisions;
   /** Structural grid and named levels. Absent: none defined. */
   grid?: import('../model/grid').StructuralGrid;
   /** Named camera views. Absent: none saved. */
@@ -99,7 +103,7 @@ export interface ModelSnapshot {
    * `setFootingMatPreferences` is what pushes the entry.
    */
   footingMatPreferences?: FootingMatPreferences;
-  nextId: { node: number; material: number; section: number; element: number; support: number; load: number; loadCase?: number; combination?: number; plate?: number; quad?: number; group?: number; connector?: number; footing?: number; soilProfile?: number };
+  nextId: { node: number; material: number; section: number; element: number; support: number; load: number; loadCase?: number; combination?: number; plate?: number; quad?: number; group?: number; connector?: number; footing?: number; soilProfile?: number; spectrum?: number };
   /** Jurisdiction, adopted regulation editions and concrete data. Absent on
    *  models saved before this existed — see migrateCodeSettings. */
   codeSettings?: ProjectCodeSettings;
@@ -125,6 +129,13 @@ export interface ModelSnapshot {
   exports?: ExportRecord[];
   manualEdits?: number[];
   /**
+   * Which build last solved the project (`provenance/solve-stamp.ts`). Absent: not known — a
+   * project saved before stamps existed, read as solved with the oldest version. Adopted on open
+   * like `exports`, never by undo.
+   */
+  solvedWith?: import('../provenance/solve-stamp').SolveStamp;
+  pendingRecheckNotice?: import('./recheck.svelte').PendingRecheckNotice;
+  /**
    * The joint designs the project carries — the bolts, plate, weld and battens chosen per node.
    *
    * Choices only; every capacity and every outline is recomputed from the model on read, so a
@@ -135,6 +146,9 @@ export interface ModelSnapshot {
 }
 
 const MAX_HISTORY = 50;
+
+/** A step taken in the plane workspace has no space view to come back to: its model is a plane one. */
+const presentationNow = () => (uiStore.is3DWorkspace ? uiStore.viewportPresentation3D : undefined);
 
 /**
  * What kind of transaction produced a history entry.
@@ -150,8 +164,11 @@ const MAX_HISTORY = 50;
  *  - 'views': a named-view save/rename/remove — undo/redo goes through the
  *    silent `modelStore.restoreViewsOnly()` path: only `model.views` is
  *    restored, no modelVersion bump, no mutation hook, so the solve survives.
+ *  - 'design': a physical element's kind or grouping, a group's name — undo/redo goes through
+ *    `modelStore.restoreDesignOnly()`: groups and design data only; the solve survives and the
+ *    design is invalidated.
  */
-export type SnapshotKind = 'structural' | 'reinforcement' | 'foundation' | 'views';
+export type SnapshotKind = 'structural' | 'reinforcement' | 'foundation' | 'views' | 'design';
 
 /**
  * The selection when an entry was pushed, so an undo puts back what was selected before the edit
@@ -178,7 +195,7 @@ function createHistoryStore() {
   let selection: SelectionAccess | null = null;
   const selNow = () => selection?.get() ?? null;
   // The supports and loads selected are not part of the entry; whatever the step took away is let go.
-  const selRestore = (s: SelectionState | null) => { if (s && selection) selection.set(s); pruneStaleSelection(); };
+  const selRestore = (s: SelectionState | null) => { if (s && selection) selection.set(s); pruneStaleSelection(); pruneDeletedMembers(); };
 
   const store = {
     get canUndo() { return undoStack.length > 0; },
@@ -206,7 +223,7 @@ function createHistoryStore() {
      * pass it explicitly: worst case is a full restore, never a skipped one.
      */
     pushState(opts?: { notifyMutation?: boolean; kind?: SnapshotKind }): void {
-      const snapshot = { ...modelStore.snapshot(), presentation3D: uiStore.viewportPresentation3D };
+      const snapshot = { ...modelStore.snapshot(), presentation3D: presentationNow() };
       const kind: SnapshotKind = opts?.kind ?? 'structural';
       undoStack.push(snapshot);
       undoKinds.push(kind);
@@ -226,7 +243,7 @@ function createHistoryStore() {
 
     undo(): void {
       if (undoStack.length === 0) return;
-      const current = { ...modelStore.snapshot(), presentation3D: uiStore.viewportPresentation3D };
+      const current = { ...modelStore.snapshot(), presentation3D: presentationNow() };
       const kind = undoKinds.pop() ?? 'structural';
       const prev = undoStack.pop()!;
       const prevSel = undoSel.pop() ?? null;
@@ -239,16 +256,19 @@ function createHistoryStore() {
         modelStore.restoreFoundationOnly(prev);
       } else if (kind === 'views') {
         modelStore.restoreViewsOnly(prev);
+      } else if (kind === 'design') {
+        modelStore.restoreDesignOnly(prev);
       } else {
         modelStore.restore(prev);
       }
       if (prev.presentation3D) uiStore.viewportPresentation3D = prev.presentation3D;
+      else if (uiStore.is3DWorkspace) uiStore.choosePresentation3D();
       selRestore(prevSel);
     },
 
     redo(): void {
       if (redoStack.length === 0) return;
-      const current = { ...modelStore.snapshot(), presentation3D: uiStore.viewportPresentation3D };
+      const current = { ...modelStore.snapshot(), presentation3D: presentationNow() };
       const kind = redoKinds.pop() ?? 'structural';
       const next = redoStack.pop()!;
       const nextSel = redoSel.pop() ?? null;
@@ -261,10 +281,13 @@ function createHistoryStore() {
         modelStore.restoreFoundationOnly(next);
       } else if (kind === 'views') {
         modelStore.restoreViewsOnly(next);
+      } else if (kind === 'design') {
+        modelStore.restoreDesignOnly(next);
       } else {
         modelStore.restore(next);
       }
       if (next.presentation3D) uiStore.viewportPresentation3D = next.presentation3D;
+      else if (uiStore.is3DWorkspace) uiStore.choosePresentation3D();
       selRestore(nextSel);
     },
 

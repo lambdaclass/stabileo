@@ -16,10 +16,14 @@
  * Pure: no store access, no side effects.
  */
 
+import type { RegulationEdition } from '../../codes/regulation';
+import { columnTieSpacing } from '../../codes/cirsoc201/transverse-spacing';
 import { REBAR_DB } from '../codes/argentina/cirsoc201';
 import type { ProvidedReinforcement, StirrupDef } from '../../store/model.svelte';
 import { computeColumnLayout } from '../station-design-forces';
 import type { MemberContext } from './member-context';
+import { grossAreaOf, minClear, shapedBarPositions, type ColumnShape } from './shaped-column';
+import { DESIGN_TARGET_UTILIZATION } from './outcome';
 import { STANDARD_LONG_DIAS, STANDARD_STIRRUP_DIAS, SPACING_GRID, computeCandidateCost } from './objective';
 import type { Candidate, CandidateFeedback, CandidateGenerator } from './candidate-generator';
 
@@ -53,7 +57,7 @@ export function buildColumnLongOptions(ctx: MemberContext): ColumnLongOption[] {
   if (Ag <= 0) return [];
   const { cover, stirrupDia } = ctx.material;
   const out: ColumnLongOption[] = [];
-  for (const dia of STANDARD_LONG_DIAS) {
+  for (const dia of ctx.material.longDiametersMm ?? STANDARD_LONG_DIAS) {
     const a = areaOf(dia);
     if (a <= 0) continue;
     for (let perFace = 0; perFace <= COLUMN_LIMITS.maxPerFace; perFace++) {
@@ -75,20 +79,23 @@ export function buildColumnLongOptions(ctx: MemberContext): ColumnLongOption[] {
   return out.slice(0, COLUMN_LIMITS.maxLongOptions);
 }
 
-/** Maximum tie spacing per CIRSOC 201 §7.10.5: min(12 dB, 48 de, min(b,h)). */
-export function maxTieSpacing(cornerDia: number, tieDia: number, b: number, h: number): number {
-  return Math.min(12 * cornerDia / 1000, 48 * tieDia / 1000, Math.min(b, h));
+/** Maximum tie spacing for the edition designed to (`columnTieSpacing`). */
+export function maxTieSpacing(cornerDia: number, tieDia: number, b: number, h: number, edition: RegulationEdition): number {
+  return columnTieSpacing(edition, cornerDia, tieDia, Math.min(b, h)).spacing;
 }
 
 /** Ordered tie options for a given longitudinal diameter. */
 export function buildTieOptions(ctx: MemberContext, cornerDia: number): StirrupDef[] {
   const { b, h } = ctx.section;
   const out: StirrupDef[] = [];
-  for (const dia of STANDARD_STIRRUP_DIAS) {
-    const sMax = maxTieSpacing(cornerDia, dia, b, h);
+  for (const dia of ctx.material.stirrupDiametersMm ?? STANDARD_STIRRUP_DIAS) {
+    const sMax = maxTieSpacing(cornerDia, dia, b, h, ctx.codeEdition);
     if (sMax < COLUMN_LIMITS.minSpacing) continue;
     for (let legs = 2; legs <= COLUMN_LIMITS.maxLegs; legs += 2) {
-      const top = Math.floor(sMax / SPACING_GRID) * SPACING_GRID;
+      // The design target (O5) applies to the tie spacing too: c/25 against a 25,6 cm maximum
+      // reads 0,977, near the limit, so the widest option offered is the one at or below 0,95.
+      const atTarget = Math.floor((sMax * DESIGN_TARGET_UTILIZATION + 1e-9) / SPACING_GRID) * SPACING_GRID;
+      const top = atTarget >= COLUMN_LIMITS.minSpacing - 1e-9 ? atTarget : Math.floor(sMax / SPACING_GRID) * SPACING_GRID;
       for (let s = top; s >= COLUMN_LIMITS.minSpacing - 1e-9; s -= SPACING_GRID) {
         out.push({ diameter: dia, legs, spacing: +s.toFixed(4) });
       }
@@ -100,7 +107,89 @@ export function buildTieOptions(ctx: MemberContext, cornerDia: number): StirrupD
 
 type Knob = 'long' | 'tie';
 
+/**
+ * The project's denser end zones (`columnEndZones`): lo = max(largest side, clear height/6,
+ * 450 mm), the clear height read as the member length, at half the spacing on the 25 mm grid and
+ * not under 50 mm. Absent where the project does not ask for them.
+ */
+export function endZoneFor(ctx: MemberContext, spacing: number): ProvidedReinforcement['tieZones'] {
+  if (!ctx.material.columnEndZones) return undefined;
+  const endLength = +Math.max(Math.max(ctx.section.b, ctx.section.h), ctx.L / 6, 0.45).toFixed(3);
+  const endSpacing = Math.max(COLUMN_LIMITS.minSpacing, Math.floor((spacing / 2) / SPACING_GRID + 1e-9) * SPACING_GRID);
+  return { endLength, endSpacing: +endSpacing.toFixed(4) };
+}
+
+/** The least dimension a tie spacing reads on a shaped column: D, or the thinnest web. */
+function shapedMinDim(shape: ColumnShape): number {
+  return shape.kind === 'circle' ? shape.D : shape.kind === 'tee' ? Math.min(shape.bw, shape.hf) : Math.min(shape.tw, shape.tf);
+}
+
+/** Ordered bar options around a shaped outline: least steel first, the bars clear of each other. */
+export function buildShapedLongOptions(ctx: MemberContext, shape: ColumnShape): Array<{ count: number; dia: number; area: number }> {
+  const Ag = grossAreaOf(shape);
+  const corners = shape.kind === 'circle' ? 6 : shape.kind === 'tee' ? 8 : 6;
+  const out: Array<{ count: number; dia: number; area: number }> = [];
+  for (const dia of ctx.material.longDiametersMm ?? STANDARD_LONG_DIAS) {
+    const a = areaOf(dia);
+    if (a <= 0) continue;
+    for (let count = corners; count <= corners + 24; count++) {
+      const area = count * a;
+      const rho = area / (Ag * 1e4);
+      if (rho < COLUMN_LIMITS.rhoMin - 1e-9) continue;
+      if (rho > COLUMN_LIMITS.rhoMax + 1e-9) break;
+      const pts = shapedBarPositions(shape, count, dia, ctx.material.cover, ctx.material.stirrupDia);
+      if (minClear(pts, dia) < Math.max(0.04, 1.5 * dia / 1000) - 1e-9) break;
+      out.push({ count, dia, area });
+    }
+  }
+  out.sort((x, y) => x.area - y.area || x.count - y.count || x.dia - y.dia);
+  return out.slice(0, COLUMN_LIMITS.maxLongOptions);
+}
+
+function createShapedColumnGenerator(ctx: MemberContext, shape: ColumnShape): CandidateGenerator {
+  const longOpts = buildShapedLongOptions(ctx, shape);
+  const dim = shapedMinDim(shape);
+  const tiesFor = (dia: number) => buildTieOptions({ ...ctx, section: { ...ctx.section, b: dim, h: dim } }, dia);
+  const idx = { long: 0, tie: 0 };
+  let tieOpts = longOpts.length ? tiesFor(longOpts[0]!.dia) : [];
+  let produced = 0, exhausted = false, started = false;
+  const build = (): Candidate | null => {
+    const lo = longOpts[Math.min(idx.long, longOpts.length - 1)];
+    const tie = tieOpts[Math.min(idx.tie, tieOpts.length - 1)];
+    if (!lo || !tie) return null;
+    const zones = endZoneFor(ctx, tie.spacing);
+    const reinforcement: ProvidedReinforcement = { shaped: { count: lo.count, diameter: lo.dia }, longitudinal: { count: lo.count, diameter: lo.dia }, stirrups: { ...tie }, ...(zones ? { tieZones: zones } : {}) };
+    const cost = computeCandidateCost(reinforcement, { L: ctx.L, layoutIssues: 0, arrangements: 2, spacings: [tie.spacing] });
+    return { reinforcement, meta: { index: produced, cost, label: `shaped#${idx.long}(${lo.count}Ø${lo.dia}) tie#${idx.tie}` } };
+  };
+  const escalate = (fb: CandidateFeedback): boolean => {
+    let tie = false, long = false;
+    for (const c of fb.verdict.checks) {
+      if (c.status === 'ok') continue;
+      if (c.category.startsWith('Ties') || c.category === 'Tie spacing') tie = true; else long = true;
+    }
+    if (!tie && !long) { tie = true; long = true; }
+    let moved = false;
+    if (tie && idx.tie < tieOpts.length - 1) { idx.tie++; moved = true; }
+    if (long && idx.long < longOpts.length - 1) { idx.long++; tieOpts = tiesFor(longOpts[idx.long]!.dia); idx.tie = Math.min(idx.tie, tieOpts.length - 1); moved = true; }
+    return moved;
+  };
+  return {
+    next(feedback: CandidateFeedback | null): Candidate | null {
+      if (started && feedback && !escalate(feedback)) { exhausted = true; return null; }
+      started = true;
+      const c = build();
+      if (!c) { exhausted = true; return null; }
+      produced++;
+      return c;
+    },
+    get envelopeExhausted() { return exhausted; },
+    get produced() { return produced; },
+  };
+}
+
 export function createColumnCandidateGenerator(ctx: MemberContext): CandidateGenerator {
+  if (ctx.shape) return createShapedColumnGenerator(ctx, ctx.shape);
   const longOpts = buildColumnLongOptions(ctx);
   const idx: Record<Knob, number> = { long: 0, tie: 0 };
   let tieOpts: StirrupDef[] = longOpts.length > 0 ? buildTieOptions(ctx, longOpts[0].dia) : [];
@@ -128,6 +217,7 @@ export function createColumnCandidateGenerator(ctx: MemberContext): CandidateGen
       // Legacy mirror kept in sync so older consumers stay consistent.
       longitudinal: { count: lo.totalCount, diameter: lo.dia },
       stirrups: { ...tie },
+      ...(endZoneFor(ctx, tie.spacing) ? { tieZones: endZoneFor(ctx, tie.spacing) } : {}),
     };
     const cost = computeCandidateCost(reinforcement, {
       L: ctx.L, layoutIssues: 0, arrangements: 2, spacings: [tie.spacing],

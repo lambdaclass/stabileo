@@ -63,6 +63,8 @@ pub trait Real:
     fn powf(self, e: Self) -> Self;
     /// `tan` (interval version: arguments in (−π/2, π/2) only).
     fn tan(self) -> Self;
+    /// `acos` (interval version: arguments in [−1, 1] only, else NaN).
+    fn acos(self) -> Self;
     /// Smallest set containing both (only reached on undecided branches).
     fn hull(self, o: Self) -> Self;
     fn lt(self, o: Self) -> Tri;
@@ -161,6 +163,10 @@ impl Real for f64 {
     #[inline]
     fn tan(self) -> Self {
         f64::tan(self)
+    }
+    #[inline]
+    fn acos(self) -> Self {
+        f64::acos(self)
     }
     #[inline]
     fn hull(self, _o: Self) -> Self {
@@ -264,6 +270,16 @@ impl Real for Interval {
         }
         let (a, b) = (self.lo.tan(), self.hi.tan());
         let lo = (a - a.abs() * POW_ULPS - f64::MIN_POSITIVE).next_down();
+        let hi = (b + b.abs() * POW_ULPS + f64::MIN_POSITIVE).next_up();
+        Interval::new(lo, hi)
+    }
+    fn acos(self) -> Self {
+        // Decreasing on [−1, 1]; the extremes are at the ends, widened like `tan`.
+        if !self.is_finite() || !(self.lo >= -1.0 && self.hi <= 1.0) {
+            return Interval::NAN;
+        }
+        let (a, b) = (self.hi.acos(), self.lo.acos());
+        let lo = (a - a.abs() * POW_ULPS - f64::MIN_POSITIVE).next_down().max(0.0);
         let hi = (b + b.abs() * POW_ULPS + f64::MIN_POSITIVE).next_up();
         Interval::new(lo, hi)
     }
@@ -373,6 +389,18 @@ mod tests {
         let r = iv(2.0, 3.0).powf(iv(-1.0, 2.0));
         assert!(r.lo <= 1.0 / 3.0 && r.hi >= 9.0);
         assert!(!iv(-1.0, 2.0).powf(iv(1.0, 1.0)).is_finite());
+    }
+
+    #[test]
+    fn acos_encloses_and_refuses_outside_its_domain() {
+        for (lo, hi) in [(-1.0, -0.5), (-0.3, 0.2), (0.7, 1.0), (0.25, 0.25)] {
+            let r = iv(lo, hi).acos();
+            for k in 0..=20 {
+                let x: f64 = lo + (hi - lo) * k as f64 / 20.0;
+                assert!(r.lo <= x.acos() && x.acos() <= r.hi, "{x}: {r:?}");
+            }
+        }
+        assert!(iv(0.5, 1.0 + 1e-12).acos().lo.is_nan());
     }
 
     #[test]

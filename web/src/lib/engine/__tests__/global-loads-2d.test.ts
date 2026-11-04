@@ -8,6 +8,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { historyStore, modelStore, uiStore } from '../../store';
 import { solve } from '../wasm-solver';
 import { buildSolverInput3D } from '../solver-service';
+import { axialEquivalentLoads } from '../axial-span-2d';
 
 const sum = (r: { reactions: Array<{ rx: number; rz: number }> }) =>
   r.reactions.reduce((acc, x) => ({ rx: acc.rx + x.rx, rz: acc.rz + x.rz }), { rx: 0, rz: 0 });
@@ -26,11 +27,20 @@ describe('global and angled loads in 2D', () => {
     const e = modelStore.addElement(a, b);
     modelStore.addSupport(a, 'fixed');
     modelStore.addDistributedLoad(e, qI, qJ, 0, true, undefined, start, end);
-    for (const input of [modelStore.buildSolverInput(false)!, buildSolverInput3D(modelStore.model)!]) {
-      for (const [nodeId, expected] of [[a, fI], [b, fJ]]) {
-        const actual = input.loads.reduce((sum, l) => sum + (l.type === 'nodal' && l.data.nodeId === nodeId ? l.data.fz : 0), 0);
-        expect(actual).toBeCloseTo(expected, 8);
-      }
+    // Both solves take the load along the member as a span load (plane `axialDistributed`, space
+    // `qX`); its consistent end loads are the ones the nodes used to be given.
+    const plane = modelStore.buildSolverInput(false)!;
+    const space = buildSolverInput3D(modelStore.model)!;
+    expect([...plane.loads, ...space.loads].some((l) => l.type === 'nodal')).toBe(false);
+    const spans = [
+      ...plane.loads.flatMap((l) => (l.type === 'axialDistributed' ? [l.data] : [])),
+      ...space.loads.flatMap((l) => (l.type === 'distributed' ? [{ qI: l.data.qXI ?? 0, qJ: l.data.qXJ ?? 0, a: l.data.a, b: l.data.b }] : [])),
+    ];
+    expect(spans).toHaveLength(2);
+    for (const d of spans) {
+      const [i, j] = axialEquivalentLoads(d.qI, d.qJ, d.a ?? 0, d.b ?? 6, 6);
+      expect(i).toBeCloseTo(fI, 8);
+      expect(j).toBeCloseTo(fJ, 8);
     }
     const r = modelStore.solve(false);
     expect(r).toBeTypeOf('object');

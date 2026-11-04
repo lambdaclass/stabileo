@@ -274,7 +274,7 @@
       aria-busy={opening3d ? 'true' : undefined}
     >
       <span aria-hidden="true">◫</span>
-      {opening3d ? t('detailing.scene.opening') : t('detailing.scene.openMain')}
+      {opening3d ? t('detailing.scene.opening') : t('desk.rebar3d')}
       {#if canOpen3d}
         <span class="n3d" data-testid="member-list-open-3d-count">{assemblyCount}</span>
       {/if}

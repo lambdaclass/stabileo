@@ -47,6 +47,7 @@ fn bug_3d_thermal_load_uniform_produces_displacement() {
             dt_uniform: dt,
             dt_gradient_y: 0.0,
             dt_gradient_z: 0.0,
+            alpha: None, depth_y: None, depth_z: None,
         }));
     }
 
@@ -88,6 +89,7 @@ fn bug_3d_thermal_gradient_produces_bending() {
             dt_uniform: 0.0,
             dt_gradient_y: dt_grad,
             dt_gradient_z: 0.0,
+            alpha: None, depth_y: None, depth_z: None,
         }));
     }
 
@@ -286,7 +288,7 @@ fn bug_3d_plate_mass_contributes_to_modal() {
     });
 
     let input = SolverInput3D {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes: nodes_map,
         materials: mats_map,
         sections: HashMap::new(),

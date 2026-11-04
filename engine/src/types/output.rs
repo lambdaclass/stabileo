@@ -63,6 +63,10 @@ pub struct ElementForces {
     pub q_j: f64,
     pub point_loads: Vec<PointLoadInfo>,
     pub distributed_loads: Vec<DistributedLoadInfo>,
+    /// The axial span loads (positive toward J), as in `ElementForces3D`: N between the ends
+    /// is not linear under a trapezoidal or partial one.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub distributed_loads_x: Vec<DistributedLoadInfo>,
     #[serde(default)]
     pub hinge_start: bool,
     #[serde(default)]
@@ -238,6 +242,17 @@ pub enum DiagnosticCode {
     CircularConstraint,
     /// DOF is both constrained and restrained by a support.
     OverConstrainedDof,
+
+    // ---- Containment ----
+    /// A known issue that can make this result wrong, contained until it is fixed
+    /// (`known_issues.rs`): the finding id in `phase`, the issue number in `value`.
+    KnownIssue,
+    /// A frame or truss thermal load was solved with a default the input did not state:
+    /// `phase` "alpha" (α = 12·10⁻⁶ /°C assumed) or "depth" (√(12·I/A) assumed for a gradient).
+    ThermalDefaultAssumed,
+    /// A cable's own weight gives it over a quarter of its tension with its drawn chord as its
+    /// unstressed length (#527): `value` the largest share, `threshold` the quarter.
+    CableSelfWeightTension,
 }
 
 /// A structured diagnostic with enum code, severity, optional element/node
@@ -362,6 +377,9 @@ impl From<&StructuredDiagnostic> for SolverDiagnostic {
             DiagnosticCode::HighAspectRatio | DiagnosticCode::NegativeJacobian | DiagnosticCode::HighWarping | DiagnosticCode::PoorJacobianRatio | DiagnosticCode::SmallMinAngle => "element_quality",
             DiagnosticCode::NoFreeDofs | DiagnosticCode::LocalMechanism | DiagnosticCode::SingularMatrix | DiagnosticCode::DisconnectedNode | DiagnosticCode::NearDuplicateNodes | DiagnosticCode::InstabilityRisk | DiagnosticCode::ShellDistortion | DiagnosticCode::SuspiciousLocalAxis | DiagnosticCode::ExcessiveDisplacement | DiagnosticCode::StiffnessNotPositiveDefinite => "model_quality",
             DiagnosticCode::ConflictingConstraints | DiagnosticCode::CircularConstraint | DiagnosticCode::OverConstrainedDof => "constraints",
+            DiagnosticCode::KnownIssue => "known_issue",
+            DiagnosticCode::ThermalDefaultAssumed => "assumption",
+            DiagnosticCode::CableSelfWeightTension => "assumption",
         };
         let severity = match sd.severity {
             Severity::Info => "info",
@@ -384,6 +402,10 @@ impl From<&StructuredDiagnostic> for SolverDiagnostic {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EquilibriumSummary {
+    /// Individual translational RHS components, retained before resultant cancellation.
+    /// Internal only: normalize after scaling to avoid overflow in an absolute sum.
+    #[serde(skip)]
+    pub applied_force_components: Vec<f64>,
     /// Relative residual: ||K*u - f|| / ||f||  (0 = perfect).
     pub relative_residual: f64,
     /// Whether the residual is within the solver's tolerance.

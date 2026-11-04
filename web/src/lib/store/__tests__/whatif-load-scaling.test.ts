@@ -136,7 +136,11 @@ function proveLinear(types: Load['type'][]) {
     flush();
     uiStore.liveCalc = true; // so close() does not start a solve of its own
     await whatIf.close();
-    expect(modelStore.snapshot()).toEqual(snap);
+    // The model, not the solve stamp: live calc re-solves the restored model, and that solve is
+    // recorded (`solvedWith`, provenance/solve-stamp.ts).
+    const { solvedWith: _a, ...after } = modelStore.snapshot();
+    const { solvedWith: _b, ...before } = snap;
+    expect(after).toEqual(before);
     expect(mismatch(solve(), base)).toBeLessThan(1e-12);
   });
 }

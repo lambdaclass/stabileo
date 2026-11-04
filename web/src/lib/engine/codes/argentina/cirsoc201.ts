@@ -1,13 +1,22 @@
 // CIRSOC 201 — Reinforced Concrete Verification Engine
-// Implements design checks for flexure, shear, and flexo-compression
-// per Argentine code CIRSOC 201-2005 (based on ACI 318)
+// Implements design checks for flexure, shear, and flexo-compression per Argentine code CIRSOC
+// 201 (based on ACI 318). Flexure, shear, columns and biaxial bending are sized against the
+// engine (`cirsoc201_design_beam`, `cirsoc201_check`, the section engine) by the edition asked
+// for, 2025 when none is. Torsion is computed here: §22.7 with the 2025 material limits
+// (§22.7.2) when the edition is 2025, and the cross-section limit of §22.7.7.1 from the shared
+// §22.7 module.
 //
 // Units: kN, m, MPa, cm² (for reinforcement areas)
 
-import { deriveDevelopment, topBarFactor, concreteBelowTopBars } from '../../../codes/cirsoc201/anchorage';
+import { deriveDevelopment, deriveHookedDevelopment, topBarFactor, concreteBelowTopBars } from '../../../codes/cirsoc201/anchorage';
 import type { SolverDiagnostic } from '../../types';
 import { transverseSpacingLimits } from '../../../codes/cirsoc201/transverse-spacing';
-import { beta1, yieldStrain, phiFromStrain, ES_MPA } from './cirsoc201-basis';
+import { minFlexuralSteelCm2, tensionControlledStrain, COLUMN_STEEL_RATIO, editionCode, shearFy, shearSqrtFc, type Cirsoc201EditionLike } from './cirsoc201-basis';
+import type { RegulationEdition } from '../../../codes/regulation';
+import { evaluateBeamSection } from './cirsoc201-beam-kernel';
+import { cirsoc201Engine, Cirsoc201EngineUnavailable } from './cirsoc201-engine';
+import { computeColumnLayout, computeColumnCapacity, computeBiaxialCapacity } from '../../station-design-forces';
+import { checkTorsion2025 } from '../../../codes/cirsoc201/torsion';
 
 // ─── Rebar Database ─────────────────────────────────────────────
 
@@ -95,6 +104,8 @@ export interface ShearResult {
   Vs: number;          // steel contribution required (kN)
   AvOverS: number;     // required Av/s (cm²/m)
   AvOverSMin: number;  // minimum Av/s (cm²/m)
+  /** Av/s the shear asks before the minimum applies (cm²/m). */
+  AvOverSReq?: number;
   spacing: number;     // proposed stirrup spacing (m)
   stirrupDia: number;  // mm
   stirrupLegs: number;
@@ -137,10 +148,14 @@ export interface BiaxialResult {
   Muy: number;          // moment about Y axis (kN·m)
   Muz: number;          // moment about Z axis (kN·m)
   Nu: number;           // axial force (kN)
-  phiPnx: number;       // capacity for Muz alone
-  phiPny: number;       // capacity for Muy alone
-  phiPn0: number;       // pure axial capacity
-  phiPn: number;        // biaxial capacity (Bresler)
+  /** No longer computed (Bresler's uniaxial loads); NaN. */
+  phiPnx: number;
+  phiPny: number;
+  phiPn0: number;       // φPn,max (kN)
+  phiPn: number;        // the axial force the load contour is cut at (kN, + compression)
+  /** Moment capacity on the load contour along the demand's direction, and the demand (kN·m). */
+  phiMn: number;
+  Mres: number;
   ratio: number;
   status: VerifStatus;
   steps: string[];
@@ -176,15 +191,18 @@ export interface ElementVerification {
   cover: number; // m
   // Results
   flexure: FlexureResult;
-  /** Local bending axis the beam flexure check used: 'My' (vertical-plane,
-   *  gravity, depth=h) or 'Mz' (horizontal-plane, lateral, depth=b). Columns
-   *  always use 'Mz' (strong axis, SEAM-3). Set by auto-verify. */
+  /** Local bending axis of `Mu`: 'My' bends over the section's h, 'Mz' over its b, and then
+   *  `b`/`h` here are the section's turned. Set by auto-verify. */
   flexureAxis?: 'My' | 'Mz';
   shear: ShearResult;
+  /** A column's secondary-axis shear, over the turned section (`VerificationInput.VuSecondary`). */
+  shearSecondary?: ShearResult;
   column?: ColumnResult;
   torsion?: TorsionResult;
   biaxial?: BiaxialResult;
   slender?: SlenderResult;
+  /** The secondary axis's own slenderness, over the section turned: its magnified moment is the biaxial partner. */
+  slenderSecondary?: SlenderResult;
   overallStatus: VerifStatus;
   diagnostics?: SolverDiagnostic[];
   /** Governing combination per force component (from combo-driven verification). */
@@ -194,6 +212,7 @@ export interface ElementVerification {
     axial?: { comboId: number; comboName: string };
     momentY?: { comboId: number; comboName: string };
     shearZ?: { comboId: number; comboName: string };
+    shearSecondary?: { comboId: number; comboName: string };
     torsion?: { comboId: number; comboName: string };
   };
   /** RC detailing rules per CIRSOC 201 Ch. 12 */
@@ -222,9 +241,7 @@ export interface DetailingResult {
 
 // ─── CIRSOC 201 Constants ───────────────────────────────────────
 
-const PHI_FLEXURE = 0.9;    // φ for flexure (tension-controlled)
-const PHI_SHEAR = 0.75;     // φ for shear
-const PHI_COLUMN = 0.65;    // φ for tied columns (compression-controlled)
+const PHI_SHEAR = 0.75;     // φ for shear, Tabla 21.2.1 (b)
 /**
  * The yield strain the φ ramp starts from.
  *
@@ -274,319 +291,179 @@ function selectRebar(AsReq: number): { count: number; dia: number; area: number;
   return candidates[0];
 }
 
-// ─── Flexure Check (CIRSOC 201 §10.2-10.3) ─────────────────────
+// ─── Flexure (CIRSOC 201-2025 §22.2, 21.2.2, 9.3.3.1, 9.6.1.2) ─────────
+//
+// The legacy designer sizes against the ENGINE. It used to carry its own 2005-style rules — ρ
+// from the quadratic at φ = 0,90, a doubly-reinforced branch anchored at εt = 4 ‰ with the
+// compression steel assumed to yield, a capacity re-derived with fs = fy — and then the engine
+// gate (`cirsoc201-engine-gate.ts`) had to reject what they got wrong (a 25×50 under 330 kN·m
+// came out at εt = 2,6 ‰). Now the requirement is the least steel the engine's beam check
+// passes (`cirsoc201_design_beam`, which searches `cirsoc201_check` itself), the bars are
+// chosen for it, and the verdict is the engine's check of the bars chosen, at the depth those
+// bars give. The TypeScript that did it is the oracle in __tests__/differential/oracle/.
 
 /** Bar diameter this check assumes for `d` when the caller states none, mm. */
 export const ASSUMED_FLEXURE_BAR_DIA_MM = 16;
 
 export interface FlexureOptions {
   /**
-   * Bar diameter the tension steel will actually be, mm — sets `d`.
-   *
-   * Omitted, the check keeps assuming Ø16, so every existing caller is numerically
-   * IDENTICAL (pinned by a regression test). Stated, it lets a caller that has already
-   * chosen its bar — a footing mat whose diameter is a persisted project preference — get
-   * the effective depth of the section it is really going to build, instead of designing
-   * for a depth that belongs to a different bar.
+   * Bar diameter the tension steel will be, mm — sets the `d` the requirement is sized and
+   * reported at. Omitted: Ø16. Either way the bars chosen are checked where THEY sit.
    */
   barDiameterMm?: number;
+  /** CIRSOC 201 edition. Absent: 2025, the edition in force. */
+  edition?: RegulationEdition;
+  /** A compression flange (T or L section), m. Absent: a rectangle of width `b`. */
+  flange?: { bf: number; hf: number };
+}
+
+interface EngineFlexureDesign {
+  kind: 'singly' | 'doubly' | 'impossible';
+  /** cm² */
+  As: number; AsComp: number;
+  /** kN·m, –, m, m, – */
+  phiMn: number; phi: number; c: number; a: number; epsilonT: number; epsilonTMin: number;
+}
+
+/** The engine's least reinforcement for Mu (kN·m) under Nu (kN, + compression). */
+function engineFlexureDesign(
+  edition: RegulationEdition, fc: number, fy: number, b: number, h: number, d: number, dPrime: number,
+  Mu: number, Nu: number, flange?: { bf: number; hf: number }, allowCompressionSteel = true,
+): EngineFlexureDesign {
+  const v = cirsoc201Engine('designBeam')(Float64Array.of(
+    edition === '2005' ? 2005 : 2025, fc * 1e6, fy * 1e6, 0, b, h, d, dPrime,
+    flange?.bf ?? 0, flange?.hf ?? 0, 0, Math.abs(Mu) * 1e3, Nu * 1e3, allowCompressionSteel ? 1 : 0, 0,
+  ));
+  return {
+    kind: v[0] === 0 ? 'singly' : v[0] === 1 ? 'doubly' : 'impossible',
+    As: v[1] * 1e4, AsComp: v[2] * 1e4, phiMn: v[3] / 1e3, phi: v[4], c: v[5], a: v[6],
+    epsilonT: v[7], epsilonTMin: v[8],
+  };
 }
 
 export function checkFlexure(
   params: ConcreteDesignParams, Mu: number, Nu: number = 0, opts: FlexureOptions = {},
 ): FlexureResult {
   const { fc, fy, cover, b, h, stirrupDia } = params;
+  const edition = opts.edition ?? '2025';
   const steps: string[] = [];
-
-  const assumedBarDia = opts.barDiameterMm !== undefined && opts.barDiameterMm > 0
-    ? opts.barDiameterMm
-    : ASSUMED_FLEXURE_BAR_DIA_MM;
-  const d = effectiveDepth(h, cover, stirrupDia, assumedBarDia);
-  const dPrime = cover + (stirrupDia / 1000) + 0.008; // d' for compression steel
-  steps.push(`d = ${(d * 100).toFixed(1)} cm, d' = ${(dPrime * 100).toFixed(1)} cm`);
-
   const MuAbs = Math.abs(Mu);
-  // Reduce moment to centroid of tension steel if axial force present
-  const phi0 = PHI_FLEXURE;
-  const NuPhiTerm = Nu !== 0 ? (Nu / phi0) * (d - h / 2) : 0;
-  const Mus = MuAbs + NuPhiTerm; // Mus = |Mu| + (Nu/φ)·(d - h/2), sign convention
-  steps.push(`Mu = ${MuAbs.toFixed(2)} kN·m`);
-  if (Nu !== 0) steps.push(`Mus = |Mu| + (Nu/φ)·(d-h/2) = ${Mus.toFixed(2)} kN·m`);
+  const fixedDia = opts.barDiameterMm !== undefined && opts.barDiameterMm > 0 ? opts.barDiameterMm : undefined;
+  const flange = opts.flange && opts.flange.bf > b && opts.flange.hf > 0 ? opts.flange : undefined;
+  /* d' to the compression bars' centre, as before (Ø16 assumed until bars are chosen). */
+  const dPrimeAssumed = cover + (stirrupDia / 1000) + 0.008;
+  const AsMaxPractical = 0.04 * b * h * 1e4; // cm², the stated practical ceiling (not a clause)
 
-  const fc_kPa = fc * 1000; // MPa → kN/m²
-  const fy_kPa = fy * 1000;
-
-  // α1 and β1
-  const alpha1 = 0.85;
-  const b1 = beta1(fc);
-
-  // Minimum reinforcement: As,min = max(√f'c/(4·fy), 1.4/fy) · bw · d
-  const rhoMin1 = (0.25 * Math.sqrt(fc)) / fy;
-  const rhoMin2 = 1.4 / fy;
-  const rhoMin = Math.max(rhoMin1, rhoMin2);
-  const AsMin = rhoMin * b * d * 1e4;
-  steps.push(`As,mín = ${AsMin.toFixed(2)} cm²`);
-
-  // Maximum reinforcement (singly reinforced): ρ_max for εt = 5‰
-  // At εt=5‰: c/d = 3/(3+5) = 0.375, a = β1·c
-  const cAtEt5 = d * 0.003 / (0.003 + 0.005); // c at εt = 5‰
-  const aAtEt5 = b1 * cAtEt5;
-  const AsMaxSingly = alpha1 * fc * b * aAtEt5 / fy * 1e4; // cm²
-  steps.push(`As,máx (simple) = ${AsMaxSingly.toFixed(2)} cm²`);
-
-  // Try singly-reinforced design first
-  let phi = phi0;
-  const MuDesign = Math.max(Mus, 0.01); // avoid zero
-  const Rn = MuDesign / (phi * b * d * d);
-  const term = 2 * Rn / (alpha1 * fc_kPa);
-
-  let isDoubly = false;
-  let AsReq: number;
-  let AsCompReq = 0; // compression steel
-  let a: number;
-  let c: number;
-
-  if (term < 1) {
-    // Singly reinforced — quadratic formula for ρ
-    const rho = (alpha1 * fc / fy) * (1 - Math.sqrt(1 - term));
-    AsReq = rho * b * d * 1e4;
-    a = (AsReq * 1e-4 * fy_kPa) / (alpha1 * fc_kPa * b);
-    c = a / b1;
-
-    // Verify εt
-    const epsilonT = 0.003 * (d - c) / c;
-
-    if (epsilonT >= 0.005) {
-      phi = 0.9;
-    } else if (epsilonT >= yieldStrain(fy)) {
-      // Transition zone — need to iterate with reduced φ
-      phi = phiFromStrain(epsilonT, fy);
-      // Re-solve with new φ: c/d = 3/(3+εt·1000), use εt at limit c/dt = 3/7
-      const cLimit = d * 3 / 7; // c at εt = 4‰ transition boundary
-      const aLimit = b1 * cLimit;
-      const CcLimit = alpha1 * fc_kPa * aLimit * b;
-      const MnStar = CcLimit * (d - aLimit / 2);
-      /*
-       * φ belongs to the section `MnStar` describes — the one at cLimit,
-       * εt = 4 ‰ — not to the trial that got us here. `phi` above is the
-       * trial's, and using it to judge and to size the LIMIT section is the
-       * same mismatch that made the branch below disagree with this one.
-       */
-      const phiAtLimit = phiFromStrain(0.004, fy);
-      const MdStar = phiAtLimit * MnStar;
-      steps.push(`εt = ${(epsilonT * 1000).toFixed(2)}‰ → zona transición → φ = ${phi.toFixed(3)}`);
-
-      /*
-       * ── The ductility floor has to bind here too ───────────────
-       *
-       * Re-solving at the reduced φ produces a heavier section, and nothing
-       * below re-checked what that did to εt. It could — and did — land
-       * under §10.3.5's 4 ‰ floor for a flexural member, so the singly path
-       * kept designing sections the code does not allow, and then handed
-       * over to the doubly path which anchors AT 4 ‰. The two branches met
-       * at different places and the required steel DROPPED by 17 % as the
-       * moment rose through the switch.
-       *
-       * So the candidate is computed first and accepted only if it is still
-       * a section the code permits.
-       */
-      let singlyWorks = false;
-      if (MdStar >= MuDesign) {
-        const RnNew = MuDesign / (phi * b * d * d);
-        const termNew = 2 * RnNew / (alpha1 * fc_kPa);
-        if (termNew < 1) {
-          const rhoNew = (alpha1 * fc / fy) * (1 - Math.sqrt(1 - termNew));
-          const AsTry = rhoNew * b * d * 1e4;
-          const aTry = (AsTry * 1e-4 * fy_kPa) / (alpha1 * fc_kPa * b);
-          const cTry = aTry / b1;
-          const epsTry = cTry > 1e-9 ? (0.003 * (d - cTry)) / cTry : Infinity;
-          if (epsTry >= 0.004) {
-            AsReq = AsTry;
-            a = aTry;
-            c = cTry;
-            singlyWorks = true;
-          }
-        }
-      }
-      if (!singlyWorks) {
-        // Needs compression reinforcement
-        isDoubly = true;
-        steps.push(`φMn* = ${MdStar.toFixed(2)} < Mu → se necesita A's (doble armadura)`);
-        const deltaM = MuDesign / phiAtLimit - MnStar;
-        const jds = d - dPrime;
-        const Cs = deltaM / jds; // kN
-        // Check if A's yields: ε's = 3‰·(c-d')/c
-        const epsPrime = 0.003 * (cLimit - dPrime) / cLimit;
-        const fsPrime = epsPrime >= yieldStrain(fy) ? fy_kPa : epsPrime * ES_MPA * 1000; // kN/m²
-        AsCompReq = (Cs / (fsPrime - alpha1 * fc_kPa)) * 1e4; // cm²
-        // Extra tension steel to balance compression: As_extra = Cs / fy
-        const AsExtra = (Cs / fy_kPa) * 1e4; // cm²
-        /*
-         * The steel that balances `MnStar`, which is the moment at cLimit —
-         * εt = 4 ‰. `AsMaxSingly` is the steel at εt = 5 ‰, a DIFFERENT
-         * section, and pairing it with this moment was the other half of the
-         * discontinuity: the anchor's moment and the anchor's steel have to
-         * describe the same section or the two branches cannot meet.
-         */
-        const AsAtLimit = (CcLimit / fy_kPa) * 1e4; // cm²
-        AsReq = AsAtLimit + AsExtra; // total tension steel
-        a = aLimit;
-        c = cLimit;
-        steps.push(`ΔM = ${(deltaM).toFixed(2)} kN·m, Cs = ${(Cs).toFixed(2)} kN`);
-        steps.push(`A's,req = ${AsCompReq.toFixed(2)} cm²`);
-      }
-    } else {
-      // εt < 2.1‰ — compression-controlled, definitely needs A's
-      isDoubly = true;
-      /*
-       * φ AT THE SECTION BEING DESIGNED, not at the rejected trial.
-       *
-       * This branch designs to `cTarget` — εt = 4 ‰ — exactly like the
-       * "sección insuficiente" branch below it. It used to size ΔM with
-       * φ = 0.65, the value for the compression-controlled trial it had just
-       * discarded, while its twin used φ at 4 ‰. Same section, two φ, and
-       * the required steel fell 17 % as the moment rose through the point
-       * where one branch hands over to the other.
-       *
-       * 0.65 is the conservative side of that pair, so nothing built to it
-       * was light — but a design that gets cheaper as the load grows is
-       * telling the reader something false about the section.
-       */
-      phi = phiFromStrain(0.004, fy);
-      steps.push(`εt = ${(epsilonT * 1000).toFixed(2)}‰ < 2.1‰ → se necesita A's`);
-
-      // Use c at εt = 4‰ (c/d = 3/7) as the target for doubly reinforced
-      const cTarget = d * 3 / 7;
-      const aTarget = b1 * cTarget;
-      const CcStar = alpha1 * fc_kPa * aTarget * b;
-      const MnStar = CcStar * (d - aTarget / 2);
-
-      const deltaM = MuDesign / phi - MnStar;
-      const jds = d - dPrime;
-      const Cs = deltaM / jds;
-      const epsPrime = 0.003 * (cTarget - dPrime) / cTarget;
-      const fsPrime = epsPrime >= yieldStrain(fy) ? fy_kPa : epsPrime * ES_MPA * 1000;
-      AsCompReq = (Cs / (fsPrime - alpha1 * fc_kPa)) * 1e4;
-      AsReq = (CcStar / fy_kPa + Cs / fy_kPa) * 1e4;
-      a = aTarget;
-      c = cTarget;
-      steps.push(`ΔM = ${deltaM.toFixed(2)} kN·m, A's,req = ${AsCompReq.toFixed(2)} cm²`);
-    }
-  } else {
-    // Section insufficient even at ρ_max — doubly reinforced mandatory
-    isDoubly = true;
-    steps.push(`⚠ Sección insuficiente para flexión simple → doble armadura`);
-
-    const cTarget = d * 3 / 7;
-    const aTarget = b1 * cTarget;
-    const CcStar = alpha1 * fc_kPa * aTarget * b;
-    const MnStar = CcStar * (d - aTarget / 2);
-
-    // Use φ for transition at εt = 4‰
-    const epsTTarget = 0.003 * (d - cTarget) / cTarget;
-    phi = phiFromStrain(epsTTarget, fy);
-
-    const deltaM = Math.max(0, MuDesign / phi - MnStar);
-    const jds = d - dPrime;
-    const Cs = deltaM / jds;
-    const epsPrime = 0.003 * (cTarget - dPrime) / cTarget;
-    const fsPrime = epsPrime >= yieldStrain(fy) ? fy_kPa : epsPrime * ES_MPA * 1000;
-    AsCompReq = Math.max(0, (Cs / (fsPrime - alpha1 * fc_kPa)) * 1e4);
-    AsReq = (CcStar / fy_kPa + Cs / fy_kPa) * 1e4;
-    a = aTarget;
-    c = cTarget;
-    steps.push(`Mn* = ${MnStar.toFixed(2)} kN·m, ΔM = ${deltaM.toFixed(2)} kN·m`);
-    steps.push(`A's,req = ${AsCompReq.toFixed(2)} cm²`);
-  }
-
-  // The strength requirement on its own, kept before the minimum swallows it. See
-  // `FlexureResult.AsFlexural`: a member whose minimum comes from another clause needs this
-  // number, and re-deriving it elsewhere would be a second flexural engine.
-  const AsFlexural = AsReq;
-
-  // Apply minimum
-  const AsDesign = Math.max(AsReq, AsMin);
-  const AsMax = isDoubly ? AsDesign * 1.5 : AsMaxSingly; // relax max for doubly reinforced
-  steps.push(`As,req (tracción) = ${AsDesign.toFixed(2)} cm²`);
-
-  // Select tension reinforcement
-  const rebar = selectRebar(AsDesign);
-  steps.push(`Armadura tracción: ${rebar.label} (${rebar.area.toFixed(2)} cm²)`);
-
-  // Select compression reinforcement if doubly reinforced
-  let rebarComp: { count: number; dia: number; area: number; label: string } | undefined;
-  if (isDoubly && AsCompReq > 0.1) {
-    AsCompReq = Math.max(AsCompReq, AsMin * 0.5); // practical minimum
-    rebarComp = selectRebar(AsCompReq);
-    steps.push(`Armadura compresión: ${rebarComp.label} (${rebarComp.area.toFixed(2)} cm²)`);
-  }
-
-  // Recalculate capacity with provided steel
-  const AsProv_m2 = rebar.area * 1e-4;
-  const AsComp_m2 = rebarComp ? rebarComp.area * 1e-4 : 0;
-
-  // T = As·fy, Cs = A's·(f's - α1·f'c), Cc = α1·f'c·β1·c·b
-  // Equilibrium: T - Cc - Cs = Nu/φ → solve for c iteratively
-  // Simplified: recalculate a from provided As
-  let aFinal: number;
-  let cFinal: number;
-  if (isDoubly && AsComp_m2 > 0) {
-    // T = AsProv·fy, Cs = AsComp·(fy - α1·f'c) [assuming A's yields]
-    const T = AsProv_m2 * fy_kPa;
-    const Cs = AsComp_m2 * (fy_kPa - alpha1 * fc_kPa);
-    const Cc = T - Cs - (Nu / phi);
-    aFinal = Math.max(0.001, Cc / (alpha1 * fc_kPa * b));
-    cFinal = aFinal / b1;
-  } else {
-    aFinal = (AsProv_m2 * fy_kPa) / (alpha1 * fc_kPa * b);
-    cFinal = aFinal / b1;
-  }
-
-  steps.push(`a = ${(aFinal * 100).toFixed(2)} cm, c = ${(cFinal * 100).toFixed(2)} cm`);
-
-  // Final εt check
-  const epsilonTFinal = cFinal > 0 ? 0.003 * (d - cFinal) / cFinal : 999;
-  steps.push(`εt = ${(epsilonTFinal * 1000).toFixed(2)}‰`);
-
-  phi = phiFromStrain(epsilonTFinal, fy);
-  if (epsilonTFinal >= 0.005) {
-    steps.push(`εt ≥ 5‰ → F.C.T. → φ = 0.90`);
-  } else if (epsilonTFinal >= yieldStrain(fy)) {
-    steps.push(`zona transición → φ = ${phi.toFixed(3)}`);
-  } else {
-    steps.push(`compresión controlada → φ = 0.65`);
-  }
-
-  // Moment capacity
-  let phiMn: number;
-  if (isDoubly && AsComp_m2 > 0) {
-    const Cc = alpha1 * fc_kPa * aFinal * b;
-    const Cs = AsComp_m2 * (fy_kPa - alpha1 * fc_kPa);
-    const jdc = d - aFinal / 2;
-    const jds = d - dPrime;
-    phiMn = phi * (Cc * jdc + Cs * jds);
-  } else {
-    phiMn = phi * AsProv_m2 * fy_kPa * (d - aFinal / 2);
-  }
-  steps.push(`φMn = ${phiMn.toFixed(2)} kN·m`);
-
-  const ratio = MuAbs / phiMn;
-  let status: VerifStatus = 'ok';
-  if (ratio > 1.0) status = 'fail';
-  else if (ratio > 0.9) status = 'warn';
+  const Ag = flange ? flange.bf * flange.hf + b * (h - flange.hf) : b * h;
+  const ductilityApplies = MuAbs > 0 && Nu < 0.10 * fc * 1000 * Ag;
 
   /*
-   * A practical ceiling, stated as one because CIRSOC does not state it.
-   *
-   * The doubly-reinforced path above is unbounded by construction: anchored
-   * at εt = 4‰, every extra kN·m is another couple of compression and
-   * tension steel, and the arithmetic never says no — a 20×50 beam "carries"
-   * 9 000 kN·m with 600 cm² of steel. No clause caps the steel in a beam,
-   * but the bars do not fit: 4 % of b·h is the usual practical maximum, the
-   * value the codes themselves use where congestion is the binding concern.
-   * Past it the honest answer is a bigger section, not a bigger number.
+   * Size at the depth the assumed bar gives (Ø16, or the caller's), choose bars, and check the
+   * bars chosen at the depth THEY give. If that check fails (a bigger bar sits higher), size
+   * again at that depth — until the bars chosen pass, or the depth stops changing.
    */
-  const AsMaxPractical = 0.04 * b * h * 1e4; // cm²
+  let barDia = fixedDia ?? ASSUMED_FLEXURE_BAR_DIA_MM;
+  let d = 0, AsMin = 0, AsDesign = 0;
+  let design!: EngineFlexureDesign;
+  let rebar!: { count: number; dia: number; area: number; label: string };
+  let rebarComp: { count: number; dia: number; area: number; label: string } | undefined;
+  let check!: NonNullable<ReturnType<typeof evaluateBeamSection>>;
+  let first: { d: number; design: EngineFlexureDesign; AsMin: number; AsDesign: number } | undefined;
+  for (let pass = 0; pass < 5; pass++) {
+    d = effectiveDepth(h, cover, stirrupDia, barDia);
+    design = engineFlexureDesign(edition, fc, fy, b, h, d, dPrimeAssumed, MuAbs, Nu, flange);
+    AsMin = minFlexuralSteelCm2(fc, fy, b, d);
+    // No steel within the engine's search (tension steel up to 10 % of Ag) works: report that
+    // bound, which is above every feasible requirement, so the answer never falls as Mu rises.
+    AsDesign = design.kind === 'impossible' ? 0.10 * Ag * 1e4 : Math.max(design.As, AsMin);
+    first ??= { d, design, AsMin, AsDesign };
+    rebar = selectRebar(AsDesign);
+    rebarComp = design.kind === 'doubly' ? selectRebar(Math.max(design.AsComp, AsMin * 0.5)) : undefined;
+    // The verdict: the engine's check of the bars chosen, at the depths those bars give.
+    const dReal = effectiveDepth(h, cover, stirrupDia, rebar.dia);
+    const dPrimeReal = rebarComp ? cover + stirrupDia / 1000 + rebarComp.dia / 2000 : 0;
+    const r = evaluateBeamSection({
+      edition, fc: fc * 1e6, fy: fy * 1e6, b, h, d: dReal,
+      As: rebar.area * 1e-4, AsComp: rebarComp ? rebarComp.area * 1e-4 : 0, dPrime: dPrimeReal,
+      Ag, NuCompression: Nu * 1e3, bf: flange?.bf, hf: flange?.hf,
+    });
+    if (!r) throw new Cirsoc201EngineUnavailable('beam flexure check');
+    check = r;
+    /*
+     * Bars come in whole numbers, so the tension steel provided is more than required — and a
+     * section sized AT the ductility limit then falls below it. Top up the compression steel
+     * until the bars actually chosen are ductile again (a search; each step is the engine's
+     * check), as a designer would, rather than hand back a section the check rejects.
+     */
+    if (r.flexureValid && ductilityApplies && r.epsilonT < r.epsilonTMin && design.kind !== 'impossible') {
+      const compDia = rebarComp?.dia ?? ASSUMED_FLEXURE_BAR_DIA_MM;
+      const dPrimeTop = cover + stirrupDia / 1000 + compDia / 2000;
+      const ask = (AsCompCm2: number) => evaluateBeamSection({
+        edition, fc: fc * 1e6, fy: fy * 1e6, b, h, d: dReal, As: rebar.area * 1e-4,
+        AsComp: AsCompCm2 * 1e-4, dPrime: dPrimeTop, Ag, NuCompression: Nu * 1e3, bf: flange?.bf, hf: flange?.hf,
+      });
+      const ok = (x: number) => { const q = ask(x); return !!q && q.flexureValid && q.epsilonT >= q.epsilonTMin && q.phiMn / 1e3 >= MuAbs; };
+      const hiComp = 0.08 * Ag * 1e4;
+      if (dPrimeTop < dReal && ok(hiComp)) {
+        let lo = rebarComp?.area ?? 0, hi = hiComp;
+        for (let k = 0; k < 50; k++) { const mid = (lo + hi) / 2; if (ok(mid)) hi = mid; else lo = mid; }
+        rebarComp = selectRebar(hi);
+        // Checked where THOSE bars sit.
+        const q = evaluateBeamSection({
+          edition, fc: fc * 1e6, fy: fy * 1e6, b, h, d: dReal, As: rebar.area * 1e-4,
+          AsComp: rebarComp.area * 1e-4, dPrime: cover + stirrupDia / 1000 + rebarComp.dia / 2000,
+          Ag, NuCompression: Nu * 1e3, bf: flange?.bf, hf: flange?.hf,
+        });
+        if (q) check = q;
+      }
+    }
+    const passes = check.flexureValid && check.phiMn / 1e3 >= MuAbs && !(ductilityApplies && check.epsilonT < check.epsilonTMin);
+    if (passes || design.kind === 'impossible' || rebar.dia === barDia) break;
+    barDia = rebar.dia;
+  }
+  /*
+   * The requirement reported is the one at the stated depth (the assumed bar, or the caller's):
+   * it is what a worked example prints, and it rises with the moment. The bars, and the verdict,
+   * are those of the last pass, at the depth the chosen bars give.
+   */
+  const barsDesign = design;
+  ({ d, design, AsMin, AsDesign } = first!);
+  // "Needs compression steel" also when no singly-reinforced steel works at all (a footing reports it).
+  const isDoubly = barsDesign.kind !== 'singly' || rebarComp !== undefined;
+  steps.push(`d = ${(d * 100).toFixed(1)} cm, d' = ${(dPrimeAssumed * 100).toFixed(1)} cm`);
+  steps.push(`Mu = ${MuAbs.toFixed(2)} kN·m${Nu !== 0 ? `, Nu = ${Nu.toFixed(2)} kN (+ compresión)` : ''}`);
+  steps.push(`As,mín = ${AsMin.toFixed(2)} cm²`);
+  if (design.kind === 'impossible') {
+    steps.push('⚠ Ninguna armadura dentro de los límites cumple flexión y ductilidad (motor) — sección insuficiente: agrandar la sección');
+  } else {
+    steps.push(
+      `As,req (motor, CIRSOC 201-${edition}) = ${design.As.toFixed(2)} cm²: φMn = ${design.phiMn.toFixed(2)} kN·m, ` +
+      `εt = ${(design.epsilonT * 1000).toFixed(2)} ‰${design.epsilonTMin > 0 ? ` ≥ εt,mín = ${(design.epsilonTMin * 1000).toFixed(2)} ‰` : ''}`,
+    );
+    if (rebarComp) {
+      steps.push(`A's,req = ${design.AsComp.toFixed(2)} cm² → armadura compresión: ${rebarComp.label} (${rebarComp.area.toFixed(2)} cm²), ` +
+        `dúctil con las barras elegidas`);
+    }
+  }
+  steps.push(`As,req (tracción) = ${AsDesign.toFixed(2)} cm²`);
+  steps.push(`Armadura tracción: ${rebar.label} (${rebar.area.toFixed(2)} cm²)`);
+
+  const phiMn = check.flexureValid && Number.isFinite(check.phiMn) ? check.phiMn / 1e3 : 0;
+  const epsilonTProv = check.flexureValid ? check.epsilonT : 0;
+  const notDuctile = ductilityApplies && check.flexureValid && epsilonTProv < check.epsilonTMin;
+  steps.push(`a = ${(check.a * 100).toFixed(2)} cm, c = ${(check.c * 100).toFixed(2)} cm`);
+  steps.push(`εt = ${(epsilonTProv * 1000).toFixed(2)}‰ → φ = ${check.phi.toFixed(3)}`);
+  steps.push(`φMn = ${phiMn.toFixed(2)} kN·m`);
+
+  const ratio = phiMn > 0 ? MuAbs / phiMn : Infinity;
+  let status: VerifStatus = 'ok';
+  if (!(ratio <= 1.0)) status = 'fail';
+  else if (ratio > 0.9) status = 'warn';
+  if (notDuctile) {
+    status = 'fail';
+    steps.push(`⚠ εt = ${(epsilonTProv * 1000).toFixed(2)} ‰ < εt,mín = ${(check.epsilonTMin * 1000).toFixed(2)} ‰ (${edition === '2005' ? '§10.3.5' : '§9.3.3.1'})`);
+  }
+  if (design.kind === 'impossible' || barsDesign.kind === 'impossible') status = 'fail';
   if (AsDesign > AsMaxPractical) {
     status = 'fail';
     steps.push(
@@ -594,30 +471,13 @@ export function checkFlexure(
     );
   }
 
-  /*
-   * The state of the section at the steel it REQUIRES, alongside the state at
-   * the steel it will be built with.
-   *
-   * `a` above is the block for `AsProv` — the bars actually selected, which
-   * are always a little more than asked for. That is the honest number for
-   * the member as built, and it is not the number a published example prints:
-   * a worked calculation stops at the requirement. Anyone cross-checking
-   * against one found our `a` 50 % larger and no way to tell why.
-   *
-   * So both are reported, named. Outputs only — nothing above this line reads
-   * them, and no existing caller's numbers move.
-   */
-  const aReq = (AsFlexural * 1e-4 * fy_kPa) / (alpha1 * fc_kPa * b);
-  const cReq = aReq / b1;
-  const cMax = (d * 0.003) / (0.003 + 0.005); // c at εt = 5 ‰, §10.3.4
-  const epsilonTReq = cReq > 1e-9 ? (0.003 * (d - cReq)) / cReq : Infinity;
-
+  const etc = tensionControlledStrain(fy, edition);
   return {
-    Mu: MuAbs, d, a: aFinal,
-    aReq, c: cReq, cMax, epsilonT: epsilonTReq,
+    Mu: MuAbs, d, a: check.a,
+    aReq: design.a, c: design.c, cMax: (d * 0.003) / (0.003 + etc), epsilonT: design.epsilonT,
     AsReq: AsDesign,
-    AsFlexural,
-    AsMin, AsMax,
+    AsFlexural: design.kind === 'impossible' ? 0.10 * Ag * 1e4 : design.As,
+    AsMin, AsMax: AsMaxPractical,
     AsProv: rebar.area,
     bars: rebar.label,
     barCount: rebar.count,
@@ -634,214 +494,194 @@ export function checkFlexure(
   };
 }
 
-// ─── Shear Check (CIRSOC 201 §11.2-11.4) ───────────────────────
+// ─── Shear (CIRSOC 201-2025 §22.5, 9.6.3, 9.7.6.2.2) ────────────────
+//
+// Stirrups are chosen against the engine's shear strength (Tabla 22.5.5.1 with λs, the √f'c
+// and fyt caps, Vs ≤ 0,66·√f'c·bw·d, Av,min of 9.6.3.4): the widest spacing, within the
+// spacing table, whose φVn reaches Vu with at least Av,min. It used to be 2005's
+// (1 + Nu/14Ag)·√f'c/6 with fy uncapped for Vs.
 
-export function checkShear(params: ConcreteDesignParams, Vu: number, Nu: number = 0): ShearResult {
+export function checkShear(
+  params: ConcreteDesignParams, Vu: number, Nu: number = 0,
+  opts: { edition?: RegulationEdition; AsTensionCm2?: number; spacing?: number; legs?: number } = {},
+): ShearResult {
   const { fc, fy, cover, b, h, stirrupDia } = params;
+  const edition = opts.edition ?? '2025';
   const steps: string[] = [];
   const d = effectiveDepth(h, cover, stirrupDia, 16);
   const VuAbs = Math.abs(Vu);
-
+  const stirrupBar = REBAR_DB.find(r => r.diameter === stirrupDia) ?? REBAR_DB[1]; // default Ø8
   steps.push(`Vu = ${VuAbs.toFixed(2)} kN`);
   steps.push(`d = ${(d * 100).toFixed(1)} cm`);
 
-  // Concrete contribution: Vc = (1/6)·√f'c·bw·d (CIRSOC 201 §11.2.1.1)
-  // With axial compression: Vc = (1 + Nu/(14·Ag))·(1/6)·√f'c·bw·d
-  // With axial tension: Vc = (1 + 0.3·Nu/Ag)·(1/6)·√f'c·bw·d (Nu negative)
-  const Ag = b * h; // m²
-  const Vc0 = (1 / 6) * Math.sqrt(fc) * (b * 1000) * (d * 1000) / 1000; // kN
-  let Vc: number;
-  if (Nu > 0) {
-    // Compression improves shear resistance
-    const factor = 1 + (Nu) / (14 * Ag * 1000); // Nu in kN, Ag in m², convert
-    Vc = factor * Vc0;
-    steps.push(`Vc = (1+Nu/(14Ag))·(1/6)·√f'c·bw·d = ${Vc.toFixed(2)} kN`);
-  } else if (Nu < 0) {
-    // Tension reduces shear resistance
-    const factor = 1 + 0.3 * (Nu) / (Ag * 1000); // Nu negative in kN
-    Vc = Math.max(0, factor * Vc0);
-    steps.push(`Vc = (1+0.3·Nu/Ag)·(1/6)·√f'c·bw·d = ${Vc.toFixed(2)} kN`);
-  } else {
-    Vc = Vc0;
-    steps.push(`Vc = (1/6)·√f'c·bw·d = ${Vc.toFixed(2)} kN`);
-  }
+  const ask = (legs: number, s: number) => {
+    const r = evaluateBeamSection({
+      edition, fc: fc * 1e6, fy: fy * 1e6, b, h, d,
+      As: Math.max(opts.AsTensionCm2 ?? 0, 0) * 1e-4,
+      Av: legs * stirrupBar.area * 1e-4, s, fyt: fy * 1e6, Ag: b * h, NuCompression: Nu * 1e3,
+    });
+    if (!r) throw new Cirsoc201EngineUnavailable('beam shear check');
+    return r;
+  };
 
+  // The concrete's share with the minimum stirrups present (row (a) of Tabla 22.5.5.1).
+  const trial = ask(2, Math.max(0.05, Math.floor((d / 2) * 40) / 40));
+  const Vc = trial.shearValid ? trial.Vc / 1e3 : 0;
   const phiVc = PHI_SHEAR * Vc;
-  steps.push(`φVc = ${phiVc.toFixed(2)} kN`);
-
-  // Required steel shear: Vs = (Vu/φ) - Vc
   const VsReq = Math.max(0, VuAbs / PHI_SHEAR - Vc);
+  steps.push(`φVc (motor, CIRSOC 201-${edition}) = ${phiVc.toFixed(2)} kN`);
   steps.push(`Vs,req = ${VsReq.toFixed(2)} kN`);
 
-  // Maximum shear: Vs,max = (2/3)·√f'c·bw·d (CIRSOC 201)
-  const VsMax = (2 / 3) * Math.sqrt(fc) * (b * 1000) * (d * 1000) / 1000;
-
-  // Av/s required = Vs / (fy·d)
-  // Units: kN / (MPa * m) = kN / (kN/m² * m) ... need care
-  // Av/s (m²/m) = Vs(kN) / (fy(MPa) * d(m)) × (1/1000)
-  const AvOverS = VsReq > 0 ? (VsReq / (fy * d)) * 10 : 0; // cm²/m
-
-  // Minimum stirrups: Av,min/s = max((1/16)·√f'c, 0.33)·bw/fyt (CIRSOC 201)
-  const AvOverSMin = Math.max((1 / 16) * Math.sqrt(fc), 0.33) * (b * 100) / fy; // cm²/cm → cm²/m ×100
-  const AvOverSMinCm2m = AvOverSMin * 100;
-
-  const AvOverSDesign = Math.max(AvOverS, AvOverSMinCm2m);
-
-  const stirrupBar = REBAR_DB.find(r => r.diameter === stirrupDia) ?? REBAR_DB[1]; // default Ø8
-
-  // Table 9.7.6.2.2, through THE one evaluator. This function used to carry its own copy of
-  // the rule — with the same invented `0.8·d` branch and the same 300 mm row-1 cap as the
-  // (now removed) `maxStirrupSpacing`. Two implementations of one table is how they drifted
-  // apart; there is now exactly one, and it supplies the LEG COUNT as well as the spacing.
-  // The leg count used to be a hardcoded 2, which silently ignored the across-width column.
+  // Table 9.7.6.2.2, through THE one evaluator: the spacing along the member and the legs.
   const table = transverseSpacingLimits('2025', {
     VsRequired: VsReq, bw: b, d, fc, cover, stirrupDiaMm: stirrupBar.diameter,
   });
-  const legs = table.requiredLegs;
-  const AvLeg = legs * stirrupBar.area; // cm² per stirrup set
+  const legs = Math.max(table.requiredLegs, opts.legs ?? 0);
 
-  // Spacing = Av / (Av/s)
-  let spacing = AvOverSDesign > 0 ? AvLeg / AvOverSDesign : d; // m
-  const maxSpacing = table.alongMax;
-  spacing = Math.min(spacing, maxSpacing);
-  // Round down to nearest 2.5cm
-  spacing = Math.floor(spacing * 40) / 40;
-  spacing = Math.max(spacing, 0.05); // min 5cm
-
-  steps.push(`Av/s,req = ${AvOverSDesign.toFixed(2)} cm²/m`);
+  // The widest spacing (multiples of 2,5 cm, 5 cm at least) the engine passes.
+  let spacing = opts.spacing ?? 0.05;
+  let chosen = ask(legs, spacing);
+  for (let s = Math.floor(table.alongMax * 40) / 40; opts.spacing === undefined && s >= 0.05 - 1e-9; s -= 0.025) {
+    const r = ask(legs, s);
+    if (r.shearValid && !r.avBelowMin && r.phiVn / 1e3 >= VuAbs) { spacing = s; chosen = r; break; }
+  }
+  const phiVn = chosen.shearValid ? chosen.phiVn / 1e3 : 0;
+  const AvProv = legs * stirrupBar.area; // cm² per set
+  /*
+   * The Av/s the demand requires: the spacing at which the engine's φVn equals Vu (a search on
+   * s; Vs is Av·fyt·d/s with fyt capped, 22.5.8.5.3), never below Av,min/s.
+   */
+  let AvOverSReq = 0;
+  if (VuAbs > phiVc) {
+    let lo = 1e-4, hi = 10;
+    for (let k = 0; k < 80; k++) {
+      const mid = Math.sqrt(lo * hi);
+      const r = ask(legs, mid);
+      if (r.shearValid && r.phiVn / 1e3 >= VuAbs) lo = mid; else hi = mid;
+    }
+    AvOverSReq = AvProv / lo;
+  }
+  const AvOverSMin = spacing > 0 ? (chosen.AvMin * 1e4) / spacing : 0;
+  steps.push(`Av/s,req = ${Math.max(AvOverSReq, AvOverSMin).toFixed(2)} cm²/m`);
   steps.push(`Estribos: ${legs} ramas ${stirrupBar.label} c/${(spacing * 100).toFixed(0)} cm`);
-
-  // Actual capacity
-  const VsProv = (AvLeg / spacing) * fy * d / 10; // kN
-  const phiVn = PHI_SHEAR * (Vc + VsProv);
   steps.push(`φVn = ${phiVn.toFixed(2)} kN`);
 
-  const ratio = VuAbs / phiVn;
+  const ratio = phiVn > 0 ? VuAbs / phiVn : Infinity;
   let status: VerifStatus = 'ok';
-  if (VsReq > VsMax) {
+  if (chosen.vsCapped && ratio > 1.0) {
     status = 'fail';
-    steps.push(`⚠ Vs > Vs,max = ${VsMax.toFixed(0)} kN — sección insuficiente`);
-  } else if (ratio > 1.0) {
+    steps.push(`⚠ Vs limitado a Vs,máx (§22.5.1.2) — sección insuficiente`);
+  } else if (!(ratio <= 1.0)) {
     status = 'fail';
   } else if (ratio > 0.9) {
     status = 'warn';
   }
+  if (chosen.avBelowMin && h > 0.25) {
+    status = 'fail';
+    steps.push(`⚠ Av < Av,mín (§9.6.3.4)`);
+  }
 
   return {
     Vu: VuAbs, d, phiVc, Vs: VsReq,
-    AvOverS: AvOverSDesign,
-    AvOverSMin: AvOverSMinCm2m,
+    AvOverS: Math.max(AvOverSReq, AvOverSMin),
+    AvOverSReq,
+    AvOverSMin,
     spacing, stirrupDia: stirrupBar.diameter, stirrupLegs: legs,
     phiVn, ratio, status, steps,
   };
 }
 
-// ─── Column Check (Simplified Interaction, CIRSOC 201 §10.3) ───
+// ─── Column (CIRSOC 201-2025 §22.4, 10.6.1.1) ─────────────────────
+//
+// Sized against the engine: the least bars, on the app's standard column layout
+// (`computeColumnLayout`, the layout the provided-reinforcement verifier and the engine gate
+// read), whose design moment at the design axial force reaches Mu — for the compression AND for
+// any tension the member sees (`axialLoads`). It used to add an "As for the moment" to half an
+// "As for the axial load", a rule with no interaction in it, and to check a straight-line
+// interaction with φMn = 0,9·As·fy·0,8·(d − d'); and it took the axial force as a magnitude, so a
+// member in tension was checked as if compressed.
 
-export function checkColumn(params: ConcreteDesignParams, Nu: number, Mu: number): ColumnResult {
+export function checkColumn(
+  params: ConcreteDesignParams, Nu: number, Mu: number,
+  opts: { edition?: RegulationEdition; axialLoads?: number[] } = {},
+): ColumnResult {
   const { fc, fy, cover, b, h, stirrupDia } = params;
+  const edition = opts.edition ?? '2025';
   const steps: string[] = [];
-
-  const NuAbs = Math.abs(Nu);
   const MuAbs = Math.abs(Mu);
-  const d = effectiveDepth(h, cover, stirrupDia, 16);
-  const dPrime = cover + (stirrupDia / 1000) + 0.008; // d' — distance to compression steel center
-
-  steps.push(`Nu = ${NuAbs.toFixed(2)} kN (compresión)`);
+  const loads = [...new Set([Nu, ...(opts.axialLoads ?? [])].filter(Number.isFinite))];
+  steps.push(`Nu = ${loads.map((n) => `${n.toFixed(2)}`).join(' / ')} kN (+ compresión, − tracción)`);
   steps.push(`Mu = ${MuAbs.toFixed(2)} kN·m`);
-  steps.push(`d = ${(d * 100).toFixed(1)} cm, d' = ${(dPrime * 100).toFixed(1)} cm`);
 
-  const Ag = b * h; // m²
-  const fc_kPa = fc * 1000;
-  const fy_kPa = fy * 1000;
+  const Ag = b * h;
+  const AsMin = COLUMN_STEEL_RATIO.min * Ag * 1e4;
+  const AsMax = COLUMN_STEEL_RATIO.max * Ag * 1e4;
 
-  // Minimum reinforcement: 1% Ag, Maximum: 8% Ag (CIRSOC 201 §10.9.1)
-  const AsMin = 0.01 * Ag * 1e4; // cm²
-  const AsMax = 0.08 * Ag * 1e4;
+  type Candidate = { count: number; dia: number; area: number; worst: number; phiMn: number; phiPn: number; layout: ReturnType<typeof computeColumnLayout> };
+  const evaluate = (count: number, dia: number): Candidate | null => {
+    const layout = computeColumnLayout(count, dia, b, h, cover, stirrupDia);
+    if (layout.bars.length < 4) return null;
+    let worst = 0;
+    let phiMn = Infinity;
+    let phiPn = 0;
+    for (const load of loads) {
+      const cap = computeColumnCapacity(layout.totalArea, b, h, fc, fy, cover, stirrupDia, load, MuAbs, layout.bars, 'z', edition);
+      const u = cap.strainCompatible && cap.ratio > 0 ? 1 / cap.ratio : Infinity;
+      worst = Math.max(worst, u);
+      phiMn = Math.min(phiMn, cap.phiMn);
+      phiPn = cap.phiPn;
+    }
+    return { count, dia, area: layout.totalArea, worst, phiMn, phiPn, layout };
+  };
 
-  // Simplified approach: design for combined Nu + Mu using interaction
-  // Pure axial capacity: φPn,max = φ·0.80·(0.85·f'c·(Ag-Ast) + fy·Ast)
-  // We iterate to find required Ast
-
-  let AsTotal: number;
-
-  if (MuAbs < 0.01) {
-    // Pure compression — minimum reinforcement
-    AsTotal = AsMin;
-    steps.push(`Momento despreciable → armadura mínima`);
-  } else {
-    // Approximate: treat as eccentric compression
-    // e = Mu / Nu (eccentricity)
-    const e = NuAbs > 0.1 ? MuAbs / NuAbs : 999;
-    steps.push(`e = Mu/Nu = ${(e * 100).toFixed(1)} cm`);
-
-    // Use Bresler reciprocal method simplified for rectangular sections
-    // As a practical simplification: design for flexure with reduced d
-    // Then add area for axial
-
-    // Flexure component
-    const flexAs = MuAbs / (PHI_FLEXURE * fy_kPa * (d - dPrime) * 0.8) * 1e4; // rough cm²
-
-    // Axial component
-    const axialAs = NuAbs / (PHI_COLUMN * fy_kPa) * 1e4; // cm²
-
-    // Combined (conservative: sum)
-    AsTotal = Math.max(flexAs + axialAs * 0.5, AsMin);
-    steps.push(`As,flexión ≈ ${flexAs.toFixed(2)} cm²`);
-    steps.push(`As,axial ≈ ${(axialAs * 0.5).toFixed(2)} cm²`);
+  // Every standard arrangement within 1 %–8 % of Ag, least steel first.
+  const options: Array<{ count: number; dia: number; area: number }> = [];
+  for (const rebar of REBAR_DB) {
+    if (rebar.diameter < 12) continue;
+    for (let count = 4; count <= 24; count += 2) {
+      const area = count * rebar.area;
+      if (area >= AsMin - 1e-9 && area <= AsMax + 1e-9) options.push({ count, dia: rebar.diameter, area });
+    }
   }
+  options.sort((p, q) => p.area - q.area || p.count - q.count);
+  let chosen: Candidate | null = null;
+  let heaviest: Candidate | null = null;
+  for (const o of options) {
+    const c = evaluate(o.count, o.dia);
+    if (!c) continue;
+    if (!c.layout.constructible) continue;
+    heaviest = !heaviest || c.area > heaviest.area ? c : heaviest;
+    if (c.worst <= 1) { chosen = c; break; }
+  }
+  const impossible = !chosen;
+  const pick = chosen ?? heaviest ?? evaluate(4, REBAR_DB[REBAR_DB.length - 1].diameter);
+  if (!pick) throw new Cirsoc201EngineUnavailable('column check');
+  const barSpec = REBAR_DB.find(r => r.diameter === pick.dia)!;
 
-  AsTotal = Math.max(AsTotal, AsMin);
-  steps.push(`As,total,req = ${AsTotal.toFixed(2)} cm²`);
-  steps.push(`As,min = ${AsMin.toFixed(2)} cm² (1% Ag)`);
-  steps.push(`As,max = ${AsMax.toFixed(2)} cm² (8% Ag)`);
+  steps.push(`As,mín = ${AsMin.toFixed(2)} cm² (1 % Ag), As,máx = ${AsMax.toFixed(2)} cm² (8 % Ag)`);
+  steps.push(`Armadura: ${pick.count} ${barSpec.label} (As = ${pick.area.toFixed(2)} cm²)`);
+  steps.push(`φPn,máx = ${pick.phiPn.toFixed(0)} kN, φMn(Nu) = ${pick.phiMn.toFixed(2)} kN·m (motor, CIRSOC 201-${edition})`);
+  steps.push(`Relación demanda/capacidad = ${pick.worst.toFixed(3)}`);
+  if (impossible) steps.push('⚠ Ninguna disposición hasta 8 % de Ag resiste la demanda — sección insuficiente');
 
-  // Select rebar (distribute symmetrically, minimum 4 bars for columns)
-  const rebar = selectRebar(AsTotal);
-  let barCount = Math.max(rebar.count, 4); // columns need at least 4 bars
-  if (barCount % 2 !== 0) barCount++;
-  const barSpec = REBAR_DB.find(r => r.diameter === rebar.dia)!;
-  const AsProv = barCount * barSpec.area;
-
-  steps.push(`Armadura: ${barCount} ${barSpec.label} (As = ${AsProv.toFixed(2)} cm²)`);
-
-  // Capacity check (simplified)
-  const AsProv_m2 = AsProv * 1e-4;
-  const phiPn = PHI_COLUMN * 0.80 * (0.85 * fc_kPa * (Ag - AsProv_m2) + fy_kPa * AsProv_m2);
-  const phiMn = PHI_FLEXURE * AsProv_m2 * fy_kPa * (d - dPrime) * 0.8;
-
-  steps.push(`φPn = ${phiPn.toFixed(0)} kN`);
-  steps.push(`φMn = ${phiMn.toFixed(2)} kN·m`);
-
-  // Utilization ratio (linear interaction, conservative)
-  const ratio = (NuAbs / phiPn) + (MuAbs / phiMn);
-  steps.push(`Ratio interacción = ${ratio.toFixed(3)}`);
-
-  // Stirrups for columns (CIRSOC 201): Se = min(12·dB,min, 48·de, menor dim)
-  const sMax1 = 12 * rebar.dia / 1000;
-  const sMax2 = 48 * stirrupDia / 1000;
-  const sMax3 = Math.min(b, h);
-  const colStirrupSpacing = Math.min(sMax1, sMax2, sMax3);
-  const roundedSpacing = Math.floor(colStirrupSpacing * 40) / 40;
+  // Stirrups for columns: s ≤ min(12·db, 48·dst, least dimension), as before (detailing).
+  const sMax = Math.min(12 * pick.dia / 1000, 48 * stirrupDia / 1000, Math.min(b, h));
+  const roundedSpacing = Math.floor(sMax * 40) / 40;
   steps.push(`Estribos: Ø${stirrupDia} c/${(roundedSpacing * 100).toFixed(0)} cm`);
 
   let status: VerifStatus = 'ok';
-  if (ratio > 1.0) status = 'fail';
-  else if (ratio > 0.85) status = 'warn';
-  if (AsProv > AsMax) {
-    status = 'fail';
-    steps.push(`⚠ As > As,max — sección insuficiente`);
-  }
+  if (impossible || !(pick.worst <= 1.0)) status = 'fail';
+  else if (pick.worst > 0.85) status = 'warn';
 
   return {
-    Nu: NuAbs, Mu: MuAbs,
-    AsTotal,
-    AsProv,
-    bars: `${barCount} ${barSpec.label}`,
-    barCount,
-    barDia: rebar.dia,
-    phiPn, phiMn,
-    ratio,
+    Nu, Mu: MuAbs,
+    AsTotal: pick.area,
+    AsProv: pick.area,
+    bars: `${pick.count} ${barSpec.label}`,
+    barCount: pick.count,
+    barDia: pick.dia,
+    phiPn: pick.phiPn, phiMn: Number.isFinite(pick.phiMn) ? pick.phiMn : 0,
+    ratio: pick.worst,
     status,
     stirrupDia,
     stirrupSpacing: roundedSpacing,
@@ -851,9 +691,18 @@ export function checkColumn(params: ConcreteDesignParams, Nu: number, Mu: number
 
 // ─── Torsion Check (CIRSOC 201 §11.5) ────────────────────────────
 
-export function checkTorsion(params: ConcreteDesignParams, Tu: number, Vu: number = 0): TorsionResult {
-  const { fc, fy, b, h, cover, stirrupDia } = params;
+/**
+ * `edition` '2025' applies §22.7.2: √f'c ≤ 8,3 MPa in Tcr (22.7.2.1) and in Vc (22.5.3.1), fy and
+ * fyt ≤ 420 MPa in the torsion steel (22.7.2.2 → 20.2.1.3). The default '2005' is unchanged.
+ */
+export function checkTorsion(params: ConcreteDesignParams, Tu: number, Vu: number = 0, edition: Cirsoc201EditionLike = '2005'): TorsionResult {
+  const { fc, b, h, cover, stirrupDia } = params;
+  const lim = editionCode(edition) === 2025;
+  const fy = lim ? shearFy(params.fy) : params.fy;
+  const sqT = lim ? shearSqrtFc(fc) : Math.sqrt(fc);
   const steps: string[] = [];
+  if (lim && fy < params.fy) steps.push(`fy, fyt = ${fy} MPa en la armadura de torsión (§22.7.2.2, §20.2.1.3)`);
+  if (lim && sqT < Math.sqrt(fc)) steps.push(`√f'c = ${sqT} MPa en Tcr y Vc (§22.7.2.1, §22.5.3.1)`);
   const TuAbs = Math.abs(Tu);
   steps.push(`Tu = ${TuAbs.toFixed(3)} kN·m`);
 
@@ -862,7 +711,7 @@ export function checkTorsion(params: ConcreteDesignParams, Tu: number, Vu: numbe
   const pcp = 2 * (b + h); // m — perimeter
 
   // Cracking torsion: Tcr = 0.33·√f'c · Acp² / pcp (CIRSOC 201 §11.5.1)
-  const Tcr = 0.33 * Math.sqrt(fc) * (Acp * Acp * 1e6) / (pcp) / 1000; // kN·m
+  const Tcr = 0.33 * sqT * (Acp * Acp * 1e6) / (pcp) / 1000; // kN·m
   steps.push(`Tcr = 0.33·√f'c·Acp²/pcp = ${Tcr.toFixed(3)} kN·m`);
 
   // Neglect torsion if Tu < φ·Tcr/4 (§11.5.1)
@@ -884,33 +733,47 @@ export function checkTorsion(params: ConcreteDesignParams, Tu: number, Vu: numbe
 
   steps.push(`Aoh = ${(Aoh * 1e4).toFixed(1)} cm², ph = ${(ph * 100).toFixed(1)} cm`);
 
-  // Check combined shear + torsion limit (§11.5.3.1)
+  /*
+   * The cross-section limit is §22.7.7.1(a) for a solid section, evaluated below through the
+   * shared §22.7 module. The limit this function kept added the two stresses linearly, which is
+   * (b), the hollow-section form, and took the torsion stress in kN/m² divided by 1e6 instead of
+   * 1e3, a thousand times too small: it never bound (Tu = 120 kN·m on a 30×60 passed). It is
+   * removed, not repaired: one limit, one place.
+   */
   const d = effectiveDepth(h, cover, stirrupDia, 16);
   const VuAbs = Math.abs(Vu);
-  const vShear = VuAbs / (b * d) / 1000; // MPa
-  const vTorsion = TuAbs / (1.7 * Aoh * Aoh * 1e6) * ph; // approx
-  const Vc = 0.17 * Math.sqrt(fc); // MPa — simplified Vc/(bw·d)
-  const vLimit = PHI_SHEAR * (Vc + 0.66 * Math.sqrt(fc));
 
-  // At/s required for torsion (one leg): At/s = Tu / (φ·2·Ao·fy·cotθ)
-  // cotθ = 1.0 (θ=45°, simplified)
-  const AtOverS = (TuAbs / (PHI_SHEAR * 2 * Ao * fy * 1000)) * 1e6; // cm²/m
+  // At/s required for torsion (one leg): At/s = Tu / (φ·2·Ao·fyt·cotθ), cotθ = 1 (θ = 45°).
+  // kN·m / (m²·kN/m²) = m²/m; ×1e4 is cm²/m. It was ×1e6, a hundred times too large.
+  const AtOverS = (TuAbs / (PHI_SHEAR * 2 * Ao * fy * 1000)) * 1e4; // cm²/m
   steps.push(`At/s,req = ${AtOverS.toFixed(2)} cm²/m (una rama)`);
 
-  // Longitudinal steel for torsion: Al = (At/s)·ph·(fy_stirrup/fy_long)·cotθ²
-  // Assuming same fy: Al = (At/s)·ph
-  const AlReq = AtOverS * ph * 100; // cm² (converting consistently)
+  // Longitudinal steel for torsion: Al = (At/s)·ph·(fyt/fy)·cot²θ, the same fy for both.
+  // cm²/m × m = cm². It was ×100 on top of the ×1e6 above: ten thousand times too large.
+  const AlReq = AtOverS * ph; // cm²
   steps.push(`Al,req = ${AlReq.toFixed(2)} cm² (longitudinal por torsión)`);
 
-  // Capacity: φTn = φ·2·Ao·At·fy/s (using provided stirrups)
-  // For now compute with required At/s
-  const phiTn = TuAbs; // at design level, capacity = demand when At/s is designed for it
-  const ratio = TuAbs > 0 ? 1.0 : 0; // designed exactly for Tu
+  /*
+   * The capacity this row states. It was the demand itself (φTn = Tu, ratio 1,00 for any Tu): the
+   * stirrups are sized here for Tu, so φ·2·Ao·At·fyt/s equals Tu by construction and says nothing.
+   * What can bind at this stage is the cross-section (§22.7.7.1): the torque the section admits
+   * alongside its Vu, from the same §22.7 module the provided-steel verifier uses. With the
+   * section ratio r(T) = √(vV² + vT²)/φ(vc + 0,66√f'c), linear in T under the root, that torque is
+   * Tu·√(1 − r(0)²)/√(r(Tu)² − r(0)²), nil when the shear alone fills the section.
+   */
+  const section = (t: number) => checkTorsion2025({
+    b, h, d, cover, stirrupDiaMm: stirrupDia, fc, fy: params.fy, fyt: params.fy, Vu: VuAbs, Tu: t,
+  }).sectionRatio;
+  const r0 = section(0), r1 = section(TuAbs);
+  const phiTn = r0 >= 1 ? 0 : TuAbs * Math.sqrt(1 - r0 * r0) / Math.sqrt(Math.max(r1 * r1 - r0 * r0, 1e-30));
+  const ratio = phiTn > 0 ? TuAbs / phiTn : Number.POSITIVE_INFINITY;
+  steps.push(`φTn,máx = ${phiTn.toFixed(3)} kN·m con Vu = ${VuAbs.toFixed(2)} kN (§22.7.7.1) → Tu/φTn = ${Number.isFinite(ratio) ? ratio.toFixed(3) : '∞'}`);
 
+  // The status the ratio states: a section the torque overfills fails (§22.7.7.1(a)).
   let status: VerifStatus = 'ok';
-  if (vShear + vTorsion > vLimit) {
+  if (!(ratio <= 1 + 1e-6)) {
     status = 'fail';
-    steps.push(`⚠ Tensiones combinadas V+T exceden límite`);
+    steps.push(`⚠ Tensiones combinadas V+T exceden el límite de la sección (§22.7.7.1a)`);
   }
 
   return {
@@ -919,89 +782,54 @@ export function checkTorsion(params: ConcreteDesignParams, Tu: number, Vu: numbe
   };
 }
 
-// ─── Biaxial Flexo-compression (Bresler, CIRSOC 201 §10.3) ──────
+// ─── Biaxial bending with axial force (CIRSOC 201-2025 §22.2, 22.4) ─────
+//
+// The engine's load contour: the moment capacity at the demand's axial force along the demand's
+// own moment direction, with the column's bars where the standard layout puts them
+// (`computeBiaxialCapacity`, `Section::biaxial`). This was Bresler's reciprocal load with
+// uniaxial capacities "estimated" by linear interpolation to a "rough balanced" point, and was
+// not re-checked by the engine.
 
 export function checkBiaxial(
   params: ConcreteDesignParams,
   Nu: number, Muy: number, Muz: number,
   AsProvided: number, // cm² — total As already designed
+  opts: { edition?: RegulationEdition; barCount?: number; barDia?: number } = {},
 ): BiaxialResult {
   const { fc, fy, b, h, cover, stirrupDia } = params;
+  const edition = opts.edition ?? '2025';
   const steps: string[] = [];
-
-  const NuAbs = Math.abs(Nu);
   const MuyAbs = Math.abs(Muy);
   const MuzAbs = Math.abs(Muz);
+  steps.push(`Nu = ${Nu.toFixed(1)} kN, Muy = ${MuyAbs.toFixed(2)} kN·m, Muz = ${MuzAbs.toFixed(2)} kN·m`);
 
-  steps.push(`Nu = ${NuAbs.toFixed(1)} kN, Muy = ${MuyAbs.toFixed(2)} kN·m, Muz = ${MuzAbs.toFixed(2)} kN·m`);
-
-  const Ag = b * h; // m²
-  const fc_kPa = fc * 1000;
-  const fy_kPa = fy * 1000;
-  const AsProv_m2 = AsProvided * 1e-4;
-
-  const dy = effectiveDepth(h, cover, stirrupDia, 16); // for Muz (bending about Z)
-  const dz = effectiveDepth(b, cover, stirrupDia, 16); // for Muy (bending about Y)
-
-  // Pure axial capacity (no moment)
-  const Pn0 = 0.85 * fc_kPa * (Ag - AsProv_m2) + fy_kPa * AsProv_m2;
-  const phiPn0 = PHI_COLUMN * 0.80 * Pn0;
-  steps.push(`φPn0 = ${phiPn0.toFixed(0)} kN (capacidad axial pura)`);
-
-  // Uniaxial capacity about Z (for Muz): eccentric about strong axis
-  // Simplified: φPnx at e = Muz/Nu
-  const phiPnx = estimateUniaxialCapacity(fc_kPa, fy_kPa, b, dy, Ag, AsProv_m2, MuzAbs, NuAbs);
-  steps.push(`φPnx (Muz solo) ≈ ${phiPnx.toFixed(0)} kN`);
-
-  // Uniaxial capacity about Y (for Muy): eccentric about weak axis
-  const phiPny = estimateUniaxialCapacity(fc_kPa, fy_kPa, h, dz, Ag, AsProv_m2, MuyAbs, NuAbs);
-  steps.push(`φPny (Muy solo) ≈ ${phiPny.toFixed(0)} kN`);
-
-  // Bresler reciprocal method: 1/φPn = 1/φPnx + 1/φPny - 1/φPn0
-  let phiPn: number;
-  if (phiPnx > 0 && phiPny > 0 && phiPn0 > 0) {
-    const reciprocal = 1 / phiPnx + 1 / phiPny - 1 / phiPn0;
-    phiPn = reciprocal > 0 ? 1 / reciprocal : phiPn0;
-  } else {
-    phiPn = Math.min(phiPnx || phiPn0, phiPny || phiPn0);
+  // The bars: the stated arrangement, or the least standard one that gives the stated area.
+  let count = opts.barCount ?? 0;
+  let dia = opts.barDia ?? 0;
+  if (!(count >= 4 && dia > 0)) {
+    const spec = REBAR_DB.filter((r) => r.diameter >= 12)
+      .map((r) => ({ r, n: Math.max(4, 2 * Math.ceil(AsProvided / r.area / 2)) }))
+      .sort((p, q) => p.n * p.r.area - q.n * q.r.area)[0];
+    count = spec.n; dia = spec.r.diameter;
   }
-  steps.push(`φPn (Bresler) = ${phiPn.toFixed(0)} kN`);
-
-  const ratio = NuAbs / phiPn;
-  steps.push(`Ratio Nu/φPn = ${ratio.toFixed(3)}`);
+  const layout = computeColumnLayout(count, dia, b, h, cover, stirrupDia);
+  const cap = computeBiaxialCapacity(layout.totalArea, b, h, fc, fy, cover, stirrupDia, Nu, MuyAbs, MuzAbs, layout.bars, edition);
+  const ratio = cap.ratio > 0 ? 1 / cap.ratio : Infinity;
+  steps.push(`Armadura: ${count} Ø${dia} (As = ${layout.totalArea.toFixed(2)} cm²)`);
+  steps.push(`φPn,máx = ${cap.phiPn0.toFixed(0)} kN`);
+  steps.push(`φMn sobre la dirección de (Muy, Muz) a Nu (motor, contorno de carga) = ${cap.phiMn.toFixed(2)} kN·m`);
+  steps.push(`Relación √(Muy² + Muz²)/φMn = ${Number.isFinite(ratio) ? ratio.toFixed(3) : '∞'}`);
 
   let status: VerifStatus = 'ok';
-  if (ratio > 1.0) status = 'fail';
+  if (!cap.rhoOk || !(ratio <= 1.0)) status = 'fail';
   else if (ratio > 0.85) status = 'warn';
 
   return {
-    Muy: MuyAbs, Muz: MuzAbs, Nu: NuAbs,
-    phiPnx, phiPny, phiPn0, phiPn,
+    Muy: MuyAbs, Muz: MuzAbs, Nu,
+    phiPnx: NaN, phiPny: NaN, phiPn0: cap.phiPn0, phiPn: Nu,
+    phiMn: cap.phiMn, Mres: Math.hypot(MuyAbs, MuzAbs),
     ratio, status, steps,
   };
-}
-
-/** Estimate uniaxial eccentric capacity for Bresler method */
-function estimateUniaxialCapacity(
-  fc_kPa: number, fy_kPa: number,
-  bw: number, d: number, Ag: number, As_m2: number,
-  Mu: number, Nu: number,
-): number {
-  if (Nu < 0.01) return PHI_COLUMN * 0.80 * (0.85 * fc_kPa * Ag + fy_kPa * As_m2);
-  const e = Mu / Nu; // eccentricity in m
-  // Simplified: linear interpolation between pure compression and balanced point
-  const eb = 0.4 * d; // approximate balanced eccentricity
-  if (e <= eb) {
-    // Compression-controlled: interpolate between Pn0 and Pb
-    const Pn0 = 0.85 * fc_kPa * (Ag - As_m2) + fy_kPa * As_m2;
-    const Pb = 0.85 * fc_kPa * bw * 0.6 * d + As_m2 * fy_kPa * 0.5; // rough balanced
-    const t = e / eb;
-    return PHI_COLUMN * ((1 - t) * Pn0 * 0.80 + t * Pb);
-  } else {
-    // Tension-controlled: capacity drops with eccentricity
-    const Mnb = As_m2 * fy_kPa * (d - 0.4 * d * 0.5);
-    return PHI_COLUMN * Mnb / e;
-  }
 }
 
 // ─── Slender Column Moment Amplification (CIRSOC 201 §10.10) ────
@@ -1065,6 +893,9 @@ export function computeJointPsiFromModel(
 ): { psiA: number; psiB: number } {
   const col = elements.get(columnId);
   if (!col) return { psiA: 1.0, psiB: 1.0 };
+  // A 3D model is Z-up; a model with no Z at all is a plane frame, Y-up.
+  let zUp = false;
+  for (const [, n] of nodes) if (Math.abs(n.z ?? 0) > 1e-9) { zUp = true; break; }
 
   function computeAtJoint(jointNodeId: number): number {
     // Check if joint has a support
@@ -1096,13 +927,15 @@ export function computeJointPsiFromModel(
       const mat = materials.get(elem.materialId);
       if (!sec || !mat) continue;
 
-      // Use Iz for strong-axis bending
-      const Ig = sec.iz;
       const E = mat.e * 1000; // MPa → kN/m²
 
-      // Classify: vertical elements are columns, horizontal are beams
-      const horizLen = Math.sqrt(dx * dx + dz * dz);
-      const isVert = Math.abs(dy) > horizLen;
+      // Classify: vertical elements are columns, horizontal are beams, along the model's up axis.
+      const up = zUp ? dz : dy;
+      const horizLen = zUp ? Math.sqrt(dx * dx + dy * dy) : Math.sqrt(dx * dx + dz * dz);
+      const isVert = Math.abs(up) > horizLen;
+      // One Ψ serves both planes: a beam bends about its strong axis (Iz), and a column takes its
+      // larger inertia, which gives the larger Ψ and so the larger magnifier.
+      const Ig = isVert ? Math.max(sec.iz, sec.iy ?? sec.iz) : sec.iz;
 
       if (isVert) {
         // Column: 0.70·E·Ig / L
@@ -1292,8 +1125,8 @@ export function checkSlender(
 export interface VerificationInput {
   elementId: number;
   elementType: 'beam' | 'column' | 'wall';
-  Mu: number;    // kN·m (max |Mz|)
-  Vu: number;    // kN (max |Vy|)
+  Mu: number;    // kN·m, the primary-axis moment, bending over depth h
+  Vu: number;    // kN, the shear of the primary axis
   Nu: number;    // kN (+ = compression)
   /**
    * Axial force for the shear check, kN, + = compression, − = tension. Absent → `Nu`.
@@ -1302,6 +1135,14 @@ export interface VerificationInput {
    * concrete's shear strength goes the other way under tension: §11.3 takes it down, not up.
    */
   NuShear?: number;
+  /**
+   * Every signed axial force the member sees, kN, + = compression. The column is checked under
+   * each; absent → `[Nu]`. (`Nu` above is a magnitude, and checking a member in tension under it
+   * as compression was the legacy column verdict's defect.)
+   */
+  axialLoads?: number[];
+  /** CIRSOC 201 edition. Absent: 2025, the edition in force. */
+  edition?: RegulationEdition;
   b: number;     // m
   h: number;     // m
   fc: number;    // MPa
@@ -1309,13 +1150,16 @@ export interface VerificationInput {
   cover: number; // m
   stirrupDia: number; // mm
   // Sprint 2 — optional additional solicitations
-  Muy?: number;   // kN·m — moment about Y (for biaxial columns)
-  Vz?: number;    // kN — shear in Z direction
+  Muy?: number;   // kN·m — secondary-axis moment, bending over b (biaxial columns)
+  /** kN — a column's secondary-axis shear, checked over the section turned (b and h swapped). */
+  VuSecondary?: number;
   Tu?: number;    // kN·m — torsion
   Lu?: number;    // m — unsupported length (for slender columns)
   // Slender column parameters (optional — conservative defaults if omitted)
   M1?: number;    // kN·m — smaller end moment (positive = same curvature as M2)
   M2?: number;    // kN·m — larger end moment (always taken positive)
+  M1Secondary?: number;
+  M2Secondary?: number;
   psiA?: number;  // restraint coefficient Ψ at end A (0.2 = fixed, 20 = pinned)
   psiB?: number;  // restraint coefficient Ψ at end B
   PuD?: number;   // kN — factored dead load for βdns
@@ -1334,20 +1178,17 @@ export interface VerificationInput {
  * 30 % more for a top bar. A column's bars are vertical: ψt = 1.
  */
 function computeDetailingRules(fc: number, fy: number, cover: number, stirrupDia: number, barDiameters: number[], member: { isBeam: boolean; h: number }): DetailingResult {
-  const sqrtFc = Math.sqrt(fc);
   const uniqueDias = [...new Set(barDiameters)].sort((a, b) => a - b);
 
   const bars = uniqueDias.map(db => {
-    const dbM = db / 1000; // mm → m
     // ld from Tabla 25.4.2.3, the same source as the design check and the drawings. The 2005
     // fy·db/(3,2·√f'c) printed about half of it in the report's detailing table.
     const concreteBelowM = member.isBeam ? concreteBelowTopBars(member.h, cover, stirrupDia, db) : 0;
     const ld = deriveDevelopment({
       diameterMm: db, fy, fc, favourableSpacing: false, psiT: topBarFactor(concreteBelowM), edition: '2025',
     }).ldM;
-    // ldh per CIRSOC 201 12.5: ldh = (0.24 × fy × db) / √f'c
-    const ldhCalc = (0.24 * fy * dbM) / sqrtFc;
-    const ldh = Math.max(ldhCalc, 8 * dbM, 0.15); // min 8db or 150mm per 12.5.1
+    // ldh by §25.4.3.1 with √f'c ≤ 8,3 MPa (§25.4.1.4), the one implementation.
+    const ldh = deriveHookedDevelopment({ diameterMm: db, fy, fc, edition: '2025' }).ldhM;
     // Lap splice Class B = 1.3 × ld (CIRSOC 201 12.15.1)
     const lapSplice = 1.3 * ld;
 
@@ -1399,31 +1240,63 @@ export function verifyElement(input: VerificationInput): ElementVerification {
       designMu = slender.Mc; // use amplified moment
     }
   }
+  let slenderSecondary: SlenderResult | undefined;
+  let designMuy = input.Muy;
+  if (isVertical && input.Lu && input.Lu > 0 && input.Muy !== undefined) {
+    slenderSecondary = checkSlender({ ...params, b: params.h, h: params.b }, input.Nu, input.Muy, input.Lu, {
+      M1: input.M1Secondary,
+      M2: input.M2Secondary,
+      PuD: input.PuD,
+      PuL: input.PuL,
+    });
+    if (slenderSecondary.isSlender) designMuy = slenderSecondary.Mc;
+  }
 
-  const flexure = checkFlexure(params, designMu);
-  const shear = checkShear(params, input.Vu, input.NuShear ?? input.Nu);
+  const edition = input.edition ?? '2025';
+  /*
+   * A beam's flexure is checked with the axial force acting on it (finding 17): the signed
+   * force the shear check uses, which is the tension whenever the member sees any. A column's
+   * flexural steel is the column check's business; its beam-style flexure stays axial-free.
+   */
+  const flexureNu = isVertical ? 0 : (input.NuShear ?? 0);
+  const flexure = checkFlexure(params, designMu, flexureNu, { edition });
+  let shear = checkShear(params, input.Vu, input.NuShear ?? input.Nu, { edition, AsTensionCm2: flexure.AsProv });
+  let shearSecondary = isVertical && input.VuSecondary !== undefined
+    ? checkShear({ ...params, b: params.h, h: params.b }, input.VuSecondary, input.NuShear ?? input.Nu, { edition })
+    : undefined;
+  if (shearSecondary && (shearSecondary.spacing !== shear.spacing || shearSecondary.stirrupLegs !== shear.stirrupLegs)) {
+    const cage = { spacing: Math.min(shear.spacing, shearSecondary.spacing), legs: Math.max(shear.stirrupLegs, shearSecondary.stirrupLegs) };
+    shear = checkShear(params, input.Vu, input.NuShear ?? input.Nu, { edition, AsTensionCm2: flexure.AsProv, ...cage });
+    shearSecondary = checkShear({ ...params, b: params.h, h: params.b }, input.VuSecondary!, input.NuShear ?? input.Nu, { edition, ...cage });
+  }
   let column: ColumnResult | undefined;
   let biaxial: BiaxialResult | undefined;
   let torsionResult: TorsionResult | undefined;
 
   if (isVertical) {
-    column = checkColumn(params, input.Nu, designMu);
+    const loads = input.axialLoads && input.axialLoads.length > 0 ? input.axialLoads : [input.Nu];
+    column = checkColumn(params, loads[0], designMu, { edition, axialLoads: loads.slice(1) });
 
-    // Biaxial check if Muy is provided
-    if (input.Muy && Math.abs(input.Muy) > 0.01) {
-      const AsProv = column.AsProv;
-      biaxial = checkBiaxial(params, input.Nu, input.Muy, designMu, AsProv);
+    // Biaxial check if Muy is provided, under every axial force the member sees
+    if (designMuy !== undefined && !(Math.abs(designMuy) <= 0.01)) {
+      let worst: BiaxialResult | undefined;
+      for (const load of loads) {
+        const r = checkBiaxial(params, load, designMuy, designMu, column.AsProv,
+          { edition, barCount: column.barCount, barDia: column.barDia });
+        if (!worst || !(r.ratio <= worst.ratio)) worst = r;
+      }
+      biaxial = worst;
     }
   }
 
   // Torsion check if Tu is provided
   if (input.Tu && Math.abs(input.Tu) > 0.001) {
-    torsionResult = checkTorsion(params, input.Tu, input.Vu);
+    torsionResult = checkTorsion(params, input.Tu, input.Vu, edition);
   }
 
   // Overall status
   let overallStatus: VerifStatus = 'ok';
-  const allStatuses = [flexure.status, shear.status, column?.status, torsionResult?.status, biaxial?.status];
+  const allStatuses = [flexure.status, shear.status, shearSecondary?.status, column?.status, torsionResult?.status, biaxial?.status];
   if (allStatuses.some(s => s === 'fail')) {
     overallStatus = 'fail';
   } else if (allStatuses.some(s => s === 'warn')) {
@@ -1439,10 +1312,12 @@ export function verifyElement(input: VerificationInput): ElementVerification {
     diags.push({ severity: 'warning', code: 'VERIF_WARN_FLEXURE', message: 'diag.verifWarnFlexure', source: 'verification', elementIds: [input.elementId], details: { ratio: flexure.ratio } });
   }
 
-  if (shear.status === 'fail') {
-    diags.push({ severity: 'error', code: 'VERIF_FAIL_SHEAR', message: 'diag.verifFailShear', source: 'verification', elementIds: [input.elementId], details: { ratio: shear.ratio, phiVn: shear.phiVn, Vu: shear.Vu } });
-  } else if (shear.status === 'warn') {
-    diags.push({ severity: 'warning', code: 'VERIF_WARN_SHEAR', message: 'diag.verifWarnShear', source: 'verification', elementIds: [input.elementId], details: { ratio: shear.ratio } });
+  for (const sh of [shear, shearSecondary]) {
+    if (sh?.status === 'fail') {
+      diags.push({ severity: 'error', code: 'VERIF_FAIL_SHEAR', message: 'diag.verifFailShear', source: 'verification', elementIds: [input.elementId], details: { ratio: sh.ratio, phiVn: sh.phiVn, Vu: sh.Vu } });
+    } else if (sh?.status === 'warn') {
+      diags.push({ severity: 'warning', code: 'VERIF_WARN_SHEAR', message: 'diag.verifWarnShear', source: 'verification', elementIds: [input.elementId], details: { ratio: sh.ratio } });
+    }
   }
 
   if (column) {
@@ -1486,10 +1361,12 @@ export function verifyElement(input: VerificationInput): ElementVerification {
     cover: input.cover,
     flexure,
     shear,
+    ...(shearSecondary ? { shearSecondary } : {}),
     column,
     torsion: torsionResult,
     biaxial,
     slender,
+    slenderSecondary,
     overallStatus,
     diagnostics: diags.length > 0 ? diags : undefined,
     detailing: computeDetailingRules(
@@ -1504,26 +1381,30 @@ export function verifyElement(input: VerificationInput): ElementVerification {
 
 // ─── Classify element as beam or column ─────────────────────────
 
-/** Heuristic: if element is more vertical than horizontal, it's a column.
- *  If it's vertical AND the section has high aspect ratio (b/h > 3 or h/b > 3), it's a wall.
- *  Convention: Z is the vertical (gravity) axis — Z-up, matching the project's canonical 3D convention. */
+/**
+ * Heuristic: if a bar is more vertical than horizontal, it's a column; otherwise a beam.
+ * Convention: Z is the vertical (gravity) axis — Z-up, matching the project's canonical 3D convention.
+ *
+ * A bar is never a wall. Walls are modelled with shells and designed by the floor pass; a bar
+ * whose section is longer than three times its width (a 20×70 column, common in practice) used
+ * to come back 'wall' here and be refused by the design. It is a column, designed with the
+ * column rules, and `isElongatedSection` lets the design surface say so.
+ * The section arguments are kept for the callers' signature and no longer change the answer.
+ */
 export function classifyElement(
   x1: number, y1: number, z1: number,
   x2: number, y2: number, z2: number,
-  sectionB?: number, sectionH?: number,
+  _sectionB?: number, _sectionH?: number,
 ): 'beam' | 'column' | 'wall' {
   const dx = Math.abs(x2 - x1);
   const dy = Math.abs(y2 - y1);
   const dz = Math.abs(z2 - z1);
   const horizontal = Math.sqrt(dx * dx + dy * dy);
-  // If vertical (Z) component dominates, it's a column or wall
-  if (dz > horizontal) {
-    // Detect wall: vertical element with high section aspect ratio
-    if (sectionB && sectionH) {
-      const ratio = Math.max(sectionB, sectionH) / Math.min(sectionB, sectionH);
-      if (ratio > 3) return 'wall';
-    }
-    return 'column';
-  }
-  return 'beam';
+  return dz > horizontal ? 'column' : 'beam';
+}
+
+/** A section longer than three times its width: designed as a column, flagged as such. */
+export function isElongatedSection(b?: number, h?: number): boolean {
+  if (!b || !h) return false;
+  return Math.max(b, h) / Math.min(b, h) > 3;
 }

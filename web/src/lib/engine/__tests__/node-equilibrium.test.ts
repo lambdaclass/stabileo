@@ -241,7 +241,7 @@ describe('Node force equilibrium — portal frames (global coords)', () => {
         [1, 1, 'fixed'],
         [2, 4, 'fixed'],
       ],
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 10, fy: 0, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 10, fz: 0, my: 0 } }],
     });
     const r = solve(input) as AnalysisResults;
     expect(r).not.toBeNull();
@@ -406,8 +406,8 @@ describe('Multi-story frame — comprehensive equilibrium', () => {
       loads: [
         { type: 'distributed', data: { elementId: 3, qI: -12, qJ: -12 } }, // floor load
         { type: 'distributed', data: { elementId: 6, qI: -8, qJ: -8 } },   // roof load
-        { type: 'nodal', data: { nodeId: 5, fx: 5, fy: 0, mz: 0 } },       // lateral wind
-        { type: 'nodal', data: { nodeId: 3, fx: 10, fy: 0, mz: 0 } },      // lateral wind
+        { type: 'nodal', data: { nodeId: 5, fx: 5, fz: 0, my: 0 } },       // lateral wind
+        { type: 'nodal', data: { nodeId: 3, fx: 10, fz: 0, my: 0 } },      // lateral wind
       ],
     });
     const r = solve(input) as AnalysisResults;

@@ -75,8 +75,7 @@ fn solve_time_history_2d_inner(
     mut trace: Option<&mut Option<DynamicTrace>>,
 ) -> Result<TimeHistoryResult, String> {
     super::linear::validate_input_2d(&input.solver)?;
-    let referenced_material_ids = super::dynamic_validation::referenced_material_ids_2d(&input.solver);
-    super::dynamic_validation::validate_densities(&input.densities, &referenced_material_ids)?;
+    super::dynamic_validation::validate_mass_2d(&input.solver, &input.densities)?;
     super::dynamic_validation::validate_time_params(input.time_step, input.n_steps)?;
     validate_integration_params(input.beta, input.gamma, input.alpha, input.damping_xi)?;
     validate_method(&input.method, input.alpha)?;
@@ -96,7 +95,7 @@ fn solve_time_history_2d_inner(
                 return Err("Force history contains a non-finite time value".to_string());
             }
             for l in &rec.loads {
-                if !input.solver.nodes.values().any(|n| n.id == l.node_id) {
+                if !crate::ordered::values(&input.solver.nodes).any(|n| n.id == l.node_id) {
                     return Err(format!("Force history load: node {} does not exist", l.node_id));
                 }
                 if [l.fx, l.fz, l.my].into_iter().any(|v| !v.is_finite()) {
@@ -179,7 +178,12 @@ fn solve_time_history_2d_inner(
     // Force is computed in nf space then reduced
     let f_0_nf = compute_force_at_step(input, &dof_num, its, m_ground_r.as_deref(), &f_static, 0, dt);
     let f_0 = if let Some(ref cs) = cs { cs.reduce_vector(&f_0_nf) } else { f_0_nf };
-    compute_initial_acceleration(&m_s, c_s, &k_s, &u, &v, &f_0, ns, &mut a_vec);
+    let slope_at = |t: f64, left: bool| {
+        let slope = force_history_slope_2d(input, &dof_num, its, t, left);
+        if let Some(ref cs) = cs { cs.reduce_vector(&slope) } else { slope }
+    };
+    let f_dot = slope_at(0.0, false);
+    let massless_rows = compute_initial_state(&m_s, c_s, &k_s, a1, &mut u, &mut v, &f_0, &f_dot, ns, &[], &mut a_vec)?;
     if let Some(t) = trace.as_deref_mut() {
         let mut tr = DynamicTrace::start(&k_s, &m_s, a0, a1, beta, gamma, alpha, dt);
         tr.push(&f_0, &u, &v, &a_vec);
@@ -260,6 +264,16 @@ fn solve_time_history_2d_inner(
         u = u_new;
         v = v_new;
         a_vec = a_new;
+        let settled = match &massless_rows {
+            Some(rows) => {
+                let slope = slope_at(t_next, true);
+                let (mut v_out, mut a_out) = (v.clone(), a_vec.clone());
+                rows.settle(&mut v_out, &mut a_out, &slope)?;
+                Some((v_out, a_out))
+            }
+            None => None,
+        };
+        let (v_out, a_out) = settled.as_ref().map_or((&v, &a_vec), |(v, a)| (v, a));
         if let Some(Some(t)) = trace.as_deref_mut() {
             t.push(&f_next, &u, &v, &a_vec);
         }
@@ -268,8 +282,8 @@ fn solve_time_history_2d_inner(
         // Record history — expand to nf for recording
         time_steps.push(t_next);
         let u_nf = expand(&u);
-        let v_nf = expand(&v);
-        let a_nf = expand(&a_vec);
+        let v_nf = expand(v_out);
+        let a_nf = expand(a_out);
         record_state(&dof_num, &tracked_nodes, &assembly::to_global(&u_nf, n, its), &assembly::to_global(&v_nf, n, its), &assembly::to_global(&a_nf, n, its), &mut histories);
 
         // Track peak displacement (nf space; the norm is frame-independent)
@@ -310,6 +324,11 @@ fn solve_time_history_2d_inner(
         format!("Newmark (beta={:.4}, gamma={:.4})", beta, gamma)
     };
 
+    let first_bad = node_histories.iter().filter_map(|h| {
+        first_non_finite(&[&h.ux, &h.uz, &h.ry, &h.vx, &h.vz, &h.ax, &h.az])
+    }).min();
+    refuse_non_finite_response(first_bad, &time_steps, peak_reactions.iter().flat_map(|r| [r.rx, r.rz, r.my]))?;
+
     Ok(TimeHistoryResult {
         time_steps,
         node_histories,
@@ -323,6 +342,33 @@ fn solve_time_history_2d_inner(
 // ============================================================================
 // Internal helpers
 // ============================================================================
+
+pub const NON_FINITE_RESPONSE: &str = "TH-NONFINITE";
+pub const MASSLESS_MECHANISM: &str = "TH-MASSLESS-MECHANISM";
+pub const MASS_SINGULAR: &str = "TH-MASS-SINGULAR";
+
+fn first_non_finite(series: &[&Vec<f64>]) -> Option<usize> {
+    series.iter().filter_map(|s| s.iter().position(|v| !v.is_finite())).min()
+}
+
+fn refuse_non_finite_response(
+    first_bad_step: Option<usize>,
+    time_steps: &[f64],
+    mut peak_reactions: impl Iterator<Item = f64>,
+) -> Result<(), String> {
+    if let Some(k) = first_bad_step {
+        return Err(format!(
+            "{NON_FINITE_RESPONSE}: Time history: the response is not finite (NaN or infinite) from step {k} (t = {} s); no result is returned",
+            time_steps.get(k).copied().unwrap_or(f64::NAN)
+        ));
+    }
+    if peak_reactions.any(|v| !v.is_finite()) {
+        return Err(format!(
+            "{NON_FINITE_RESPONSE}: Time history: the reactions at the peak response are not finite (NaN or infinite); no result is returned"
+        ));
+    }
+    Ok(())
+}
 
 /// Reject integration parameters that make the scheme amplify.
 ///
@@ -431,58 +477,210 @@ fn solve_spd_sparse_or_dense(a: &CscMatrix, b: &[f64], what: &str) -> Result<Vec
         .ok_or_else(|| format!("{what}: singular matrix (sparse Cholesky and dense LU both failed)"))
 }
 
-/// Compute initial acceleration: M * a0 = F0 - C*v0 - K*u0.
-/// Since typically u0=v0=0, this simplifies, but we handle the general case.
-///
-/// The mass matrix can be singular (lumped mass with massless rotational
-/// DOFs); the sparse Cholesky correctly reports that, and the fallback chain
-/// mirrors the previous dense path: LU, then the lumped diagonal solve.
-fn compute_initial_acceleration(
-    m: &CscMatrix, c: Option<&CscMatrix>, k: &CscMatrix,
-    u: &[f64], v: &[f64], f: &[f64],
-    n: usize, a: &mut [f64],
-) {
-    // rhs = F - C*v - K*u
-    let kv = k.sym_mat_vec(u);
-    let cv = c.map_or_else(|| vec![0.0; n], |c| c.sym_mat_vec(v));
-    let mut rhs = vec![0.0; n];
-    for i in 0..n {
-        rhs[i] = f[i] - cv[i] - kv[i];
+/// Also moves u or v: a load at t = 0 on a massless direction is met by a jump in
+/// v (damped, `C_ZZ = a1·K_ZZ`) or, undamped, in u, so that every row of step 0 holds.
+/// Returns the massless rows when M is singular, so that their rates can be settled at every step.
+#[allow(clippy::too_many_arguments)]
+fn compute_initial_state(
+    m: &CscMatrix, c: Option<&CscMatrix>, k: &CscMatrix, a1: f64,
+    u: &mut [f64], v: &mut [f64], f: &[f64], f_dot: &[f64],
+    n: usize, triads: &[[usize; 3]], a: &mut [f64],
+) -> Result<Option<MasslessRows>, String> {
+    let residual = |u: &[f64], v: &[f64]| -> Vec<f64> {
+        let ku = k.sym_mat_vec(u);
+        let cv = c.map_or_else(|| vec![0.0; n], |c| c.sym_mat_vec(v));
+        (0..n).map(|i| f[i] - cv[i] - ku[i]).collect()
+    };
+    let rhs = residual(u, v);
+
+    if let Ok(x) = solve_spd_sparse_or_dense(m, &rhs, "initial acceleration") {
+        a.copy_from_slice(&x);
+        return Ok(None);
     }
 
-    match solve_spd_sparse_or_dense(m, &rhs, "initial acceleration") {
-        Ok(x) => a.copy_from_slice(&x),
-        Err(_) => {
-            // M is singular: some DOFs carry no mass (the rotations of a node
-            // only solid shells reach, lumped-mass rotations). M is positive
-            // semi-definite, so a zero diagonal is a zero row: those DOFs
-            // follow quasi-statically and get no initial acceleration, and the
-            // massive ones solve their own block of M exactly. (The diagonal
-            // solve this used to fall back to straight away replaced a
-            // consistent M by its diagonal for every DOF: the first steps of a
-            // solid-shell model meshed with frames came out up to twice too
-            // large.)
-            let md = m.diagonal();
-            let max_m = md.iter().fold(0.0f64, |acc, v| acc.max(v.abs()));
-            let massive: Vec<usize> = (0..n).filter(|&i| md[i].abs() > max_m * 1e-12).collect();
-            a.iter_mut().for_each(|x| *x = 0.0);
-            let rhs_m: Vec<f64> = massive.iter().map(|&i| rhs[i]).collect();
-            let m_mm = m.extract_principal_submatrix(&massive);
-            match solve_spd_sparse_or_dense(&m_mm, &rhs_m, "initial acceleration") {
-                Ok(x) => {
-                    for (k, &i) in massive.iter().enumerate() {
-                        a[i] = x[k];
+    let basis = mass_triad_basis(m, n, triads);
+    let mt = rotate_symmetric(m, &basis);
+    let md = mt.diagonal();
+    let mut scale = vec![0.0f64; n];
+    for t in triads {
+        let block = t.iter().fold(0.0f64, |acc, &i| acc.max(md[i].abs()));
+        t.iter().for_each(|&i| scale[i] = block);
+    }
+    let (massive, massless): (Vec<usize>, Vec<usize>) = (0..n).partition(|&i| md[i].abs() > scale[i] * 64.0 * f64::EPSILON);
+    let kt = rotate_symmetric(k, &basis);
+    let k_zz = kt.extract_principal_submatrix(&massless);
+    let damping = (c.is_some() && a1 > 0.0).then_some(a1);
+    let factor = if massless.is_empty() {
+        None
+    } else {
+        numeric_cholesky(&std::rc::Rc::new(symbolic_cholesky(&k_zz)), &k_zz).map(FactoredMatrix::Sparse)
+    };
+    let rows = MasslessRows { basis, massless, kt, k_zz, factor, damping };
+    let has_massless = !rows.massless.is_empty();
+
+    if has_massless {
+        let y = from_basis(&rows.condense(&rotate_vector(&rhs, &rows.basis))?, &rows.basis);
+        match damping {
+            Some(a1) => v.iter_mut().zip(&y).for_each(|(x, d)| *x += d / a1),
+            None => u.iter_mut().zip(&y).for_each(|(x, d)| *x += d),
+        }
+    }
+    let rt = rotate_vector(&residual(u, v), &rows.basis);
+    let rhs_m: Vec<f64> = massive.iter().map(|&i| rt[i]).collect();
+    let m_mm = mt.extract_principal_submatrix(&massive);
+    let x = solve_spd_sparse_or_dense(&m_mm, &rhs_m, "initial acceleration").map_err(|_| {
+        format!("{MASS_SINGULAR}: Time history: the mass matrix is singular in a direction that combines several DOFs, so the state at t = 0 cannot be computed; no result is returned")
+    })?;
+    let mut at = vec![0.0; n];
+    for (j, &i) in massive.iter().enumerate() {
+        at[i] = x[j];
+    }
+    a.copy_from_slice(&from_basis(&at, &rows.basis));
+    if !has_massless {
+        return Ok(None);
+    }
+    rows.settle(v, a, f_dot)?;
+    Ok(Some(rows))
+}
+
+/// The massless directions of a singular M, in the basis that diagonalises M's rotation
+/// triads. Their rows carry no inertia, so their velocity (undamped) and acceleration
+/// follow from differentiating those rows, not from the integrator's recurrences.
+struct MasslessRows {
+    basis: Vec<Vec<(usize, f64)>>,
+    massless: Vec<usize>,
+    kt: CscMatrix,
+    k_zz: CscMatrix,
+    factor: Option<FactoredMatrix>,
+    damping: Option<f64>,
+}
+
+impl MasslessRows {
+    fn condense(&self, r: &[f64]) -> Result<Vec<f64>, String> {
+        let r_z: Vec<f64> = self.massless.iter().map(|&i| r[i]).collect();
+        let y_z = match &self.factor {
+            Some(factor) => solve_with_factored(factor, &r_z, r_z.len()),
+            None => solve_spd_sparse_or_dense(&self.k_zz, &r_z, "massless part").map_err(|_| {
+                format!("{MASSLESS_MECHANISM}: Time history: part of the model has neither mass nor stiffness in some direction (a massless mechanism), so its motion is undetermined; no result is returned")
+            })?,
+        };
+        let mut y = vec![0.0; r.len()];
+        for (j, &i) in self.massless.iter().enumerate() {
+            y[i] = y_z[j];
+        }
+        Ok(y)
+    }
+
+    /// Damped: `K_ZZ·a_Z = −(K·a_M)_Z + (ḟ − K·v)_Z / a1`; undamped: `K_ZZ·v_Z = (ḟ − K·v_M)_Z`
+    /// and `K_ZZ·a_Z = −(K·a_M)_Z`, with `f_dot` the force history's slope at that time.
+    fn settle(&self, v: &mut [f64], a: &mut [f64], f_dot: &[f64]) -> Result<(), String> {
+        let fd = rotate_vector(f_dot, &self.basis);
+        let mut vt = rotate_vector(v, &self.basis);
+        if self.damping.is_none() {
+            let r: Vec<f64> = fd.iter().zip(self.kt.sym_mat_vec(&vt)).map(|(d, k)| d - k).collect();
+            vt.iter_mut().zip(self.condense(&r)?).for_each(|(x, d)| *x += d);
+            v.copy_from_slice(&from_basis(&vt, &self.basis));
+        }
+        let mut at = rotate_vector(a, &self.basis);
+        let mut g: Vec<f64> = self.kt.sym_mat_vec(&at).iter().map(|x| -x).collect();
+        if let Some(a1) = self.damping {
+            let kv = self.kt.sym_mat_vec(&vt);
+            g.iter_mut().zip(kv.iter().zip(&fd)).for_each(|(x, (k, d))| *x += (d - k) / a1);
+        }
+        at.iter_mut().zip(self.condense(&g)?).for_each(|(x, d)| *x += d);
+        a.copy_from_slice(&from_basis(&at, &self.basis));
+        Ok(())
+    }
+}
+
+/// The free (reduced) indices of each node's three rotations (θx, θy, θz), for
+/// the nodes whose three rotations are all independent free DOFs. With
+/// constraints the reduced system keeps the independent free DOFs in ascending
+/// order (`FreeConstraintSystem::from_transform`).
+fn rotation_triads(dof_num: &DofNumbering, cs: Option<&FreeConstraintSystem>) -> Vec<[usize; 3]> {
+    if dof_num.dofs_per_node < 6 {
+        return Vec::new();
+    }
+    let nf = dof_num.n_free;
+    let reduced: Vec<Option<usize>> = match cs {
+        None => (0..nf).map(Some).collect(),
+        Some(cs) => {
+            let mut next = 0;
+            (0..nf).map(|i| if cs.is_dependent(i) { None } else { next += 1; Some(next - 1) }).collect()
+        }
+    };
+    let mut nodes: Vec<usize> = dof_num.map.keys().map(|&(node, _)| node).collect();
+    nodes.sort_unstable();
+    nodes.dedup();
+    let mut out = Vec::new();
+    for node in nodes {
+        let ids: Option<Vec<usize>> = (3..6)
+            .map(|k| dof_num.global_dof(node, k).filter(|&d| d < nf).and_then(|d| reduced[d]))
+            .collect();
+        if let Some(ids) = ids {
+            out.push([ids[0], ids[1], ids[2]]);
+        }
+    }
+    out
+}
+
+/// Q block-orthogonal: identity outside the triads, and on each triad the
+/// eigenvectors of its 3×3 diagonal block of M, by rows as (column, value) lists.
+fn mass_triad_basis(m: &CscMatrix, n: usize, triads: &[[usize; 3]]) -> Vec<Vec<(usize, f64)>> {
+    let mut basis: Vec<Vec<(usize, f64)>> = (0..n).map(|i| vec![(i, 1.0)]).collect();
+    let dense_entry = |i: usize, j: usize| -> f64 {
+        let (row, col) = if i >= j { (i, j) } else { (j, i) };
+        (m.col_ptr[col]..m.col_ptr[col + 1]).find(|&p| m.row_idx[p] == row).map_or(0.0, |p| m.values[p])
+    };
+    for t in triads {
+        let b: Vec<f64> = (0..9).map(|ab| dense_entry(t[ab / 3], t[ab % 3])).collect();
+        let eig = crate::linalg::jacobi_eigen(&b, 3, 100);
+        for a_ in 0..3 {
+            basis[t[a_]] = (0..3).map(|k| (t[k], eig.vectors[a_ * 3 + k])).collect();
+        }
+    }
+    basis
+}
+
+/// Qᵀ·A·Q over the full symmetric pattern, keeping the lower triangle.
+fn rotate_symmetric(a: &CscMatrix, basis: &[Vec<(usize, f64)>]) -> CscMatrix {
+    let (mut rows, mut cols, mut vals) = (Vec::new(), Vec::new(), Vec::new());
+    for j in 0..a.n {
+        for p in a.col_ptr[j]..a.col_ptr[j + 1] {
+            let i = a.row_idx[p];
+            let v = a.values[p];
+            let mut push = |i: usize, j: usize| {
+                for &(pi, qi) in &basis[i] {
+                    for &(pj, qj) in &basis[j] {
+                        if pi >= pj {
+                            rows.push(pi);
+                            cols.push(pj);
+                            vals.push(qi * v * qj);
+                        }
                     }
                 }
-                Err(_) => {
-                    // Last resort: lumped mass approximation (diagonal)
-                    for i in 0..n {
-                        a[i] = if md[i].abs() > 1e-30 { rhs[i] / md[i] } else { 0.0 };
-                    }
-                }
+            };
+            push(i, j);
+            if i != j {
+                push(j, i);
             }
         }
     }
+    CscMatrix::from_triplets(a.n, &rows, &cols, &vals)
+}
+
+fn rotate_vector(r: &[f64], basis: &[Vec<(usize, f64)>]) -> Vec<f64> {
+    let mut rt = vec![0.0; r.len()];
+    for (i, row) in basis.iter().enumerate() {
+        for &(p, q) in row {
+            rt[p] += q * r[i];
+        }
+    }
+    rt
+}
+
+fn from_basis(xt: &[f64], basis: &[Vec<(usize, f64)>]) -> Vec<f64> {
+    basis.iter().map(|row| row.iter().map(|&(p, q)| q * xt[p]).sum()).collect()
 }
 
 /// Build the ground-acceleration influence product M*r (2D).
@@ -501,43 +699,9 @@ fn build_ground_influence_2d(
     // Validated: "X"/"x" (default) or "Y"/"y".
     let local_dof = if matches!(dir, "Y" | "y") { 1 } else { 0 };
 
-    Some(ground_influence(dof_num, local_dof, its, m_ff, || {
+    Some(mass_matrix::ground_influence(dof_num, local_dof, its, m_ff, || {
         mass_matrix::assemble_mass_matrix_2d_sparse_block(&input.solver, dof_num, &input.densities, dof_num.n_total)
     }))
-}
-
-/// (M·r)_f for the rigid-body translation r along `local_dof` of EVERY node,
-/// restrained ones included: the relative-motion load is −(M·r)_f·a_g, and with
-/// a consistent mass the free DOFs are coupled to the supports' translations
-/// (M_fr·r_r). M_ff·r_f alone missed that part of the inertia — half of it on a
-/// bar on two supports. `m_ff` is the free block in the inclined-support frames
-/// `its` (K's basis); `m_full` assembles the whole mass in global axes and is
-/// only built when some restrained DOF moves with the ground. With
-/// T the inclined rotation, (T·M·Tᵀ)(T·r) = T·(M·r): the full product is taken
-/// in global axes and then rotated, so at an inclined roller only the
-/// tangential component of the inertia is a free load.
-fn ground_influence<T: assembly::InclinedFrame>(
-    dof_num: &DofNumbering,
-    local_dof: usize,
-    its: &[T],
-    m_ff: &CscMatrix,
-    m_full: impl FnOnce() -> CscMatrix,
-) -> Vec<f64> {
-    let nf = dof_num.n_free;
-    let mut r = vec![0.0; dof_num.n_total];
-    for &node_id in &dof_num.node_order {
-        if let Some(&d) = dof_num.map.get(&(node_id, local_dof)) {
-            r[d] = 1.0;
-        }
-    }
-    let mut r_rot = r.clone();
-    for it in its {
-        it.rotate(&mut r_rot);
-    }
-    if r_rot[nf..].iter().all(|&x| x == 0.0) {
-        return m_ff.sym_mat_vec(&r_rot[..nf]);
-    }
-    assembly::to_inclined_free(m_full().sym_mat_vec(&r), its, nf)
 }
 
 /// Compute the external force vector at a given time step.
@@ -589,6 +753,39 @@ fn compute_force_at_step(
     }
 
     f
+}
+
+/// The record times bracketing `t` on the piecewise-linear force history: the segment
+/// ending at `t` when `left`, the one starting there otherwise. None where the history is held.
+fn slope_window(times: &[f64], t: f64, left: bool) -> Option<(f64, f64)> {
+    let inside = |a: f64, b: f64| if left { a < t && t <= b } else { a <= t && t < b };
+    let first = *times.first()?;
+    if first > 0.0 && inside(0.0, first) {
+        return Some((0.0, first));
+    }
+    times.windows(2).find(|w| w[1] - w[0] >= 1e-15 && inside(w[0], w[1])).map(|w| (w[0], w[1]))
+}
+
+fn force_history_slope_2d(
+    input: &TimeHistoryInput,
+    dof_num: &DofNumbering,
+    its: &[assembly::InclinedTransformData2D],
+    t: f64,
+    left: bool,
+) -> Vec<f64> {
+    let nf = dof_num.n_free;
+    let Some(history) = input.force_history.as_ref() else { return vec![0.0; nf] };
+    let times: Vec<f64> = history.iter().map(|r| r.time).collect();
+    let Some((ta, tb)) = slope_window(&times, t, left) else { return vec![0.0; nf] };
+    let at = |t: f64| {
+        let mut f = interpolate_force_history(history, dof_num, dof_num.n_total, t);
+        for it in its {
+            assembly::rotate_inclined_f_2d(&mut f, &it.dofs, &it.r);
+        }
+        f.truncate(nf);
+        f
+    };
+    at(tb).iter().zip(at(ta)).map(|(b, a)| (b - a) / (tb - ta)).collect()
 }
 
 /// Interpolate ground acceleration at a given step.
@@ -1026,8 +1223,7 @@ fn solve_time_history_3d_inner(
     mut trace: Option<&mut Option<DynamicTrace>>,
 ) -> Result<TimeHistoryResult3D, String> {
     super::linear::validate_input_3d(&input.solver)?;
-    let referenced_material_ids = super::dynamic_validation::referenced_material_ids_3d(&input.solver);
-    super::dynamic_validation::validate_densities(&input.densities, &referenced_material_ids)?;
+    super::dynamic_validation::validate_mass_3d(&input.solver, &input.densities)?;
     super::dynamic_validation::validate_time_params(input.time_step, input.n_steps)?;
     validate_integration_params(input.beta, input.gamma, input.alpha, input.damping_xi)?;
     validate_method(&input.method, input.alpha)?;
@@ -1044,7 +1240,7 @@ fn solve_time_history_3d_inner(
                 return Err("Force history contains a non-finite time value".to_string());
             }
             for l in &rec.loads {
-                if !input.solver.nodes.values().any(|n| n.id == l.node_id) {
+                if !crate::ordered::values(&input.solver.nodes).any(|n| n.id == l.node_id) {
                     return Err(format!("Force history load: node {} does not exist", l.node_id));
                 }
                 if [l.fx, l.fy, l.fz, l.mx, l.my, l.mz].into_iter().any(|v| !v.is_finite())
@@ -1139,7 +1335,13 @@ fn solve_time_history_3d_inner(
     // Force computed in nf space, then reduced
     let f_0_nf = compute_force_at_step_3d(input, &dof_num, its, &m_ground_r_3d, &f_static, 0, dt);
     let f_0 = if let Some(ref cs) = cs3 { cs.reduce_vector(&f_0_nf) } else { f_0_nf };
-    compute_initial_acceleration(&m_s, c_s, &k_s, &u, &v, &f_0, ns, &mut a_vec);
+    let slope_at = |t: f64, left: bool| {
+        let slope = force_history_slope_3d(input, &dof_num, its, t, left);
+        if let Some(ref cs) = cs3 { cs.reduce_vector(&slope) } else { slope }
+    };
+    let f_dot = slope_at(0.0, false);
+    let triads = rotation_triads(&dof_num, cs3.as_ref());
+    let massless_rows = compute_initial_state(&m_s, c_s, &k_s, a1, &mut u, &mut v, &f_0, &f_dot, ns, &triads, &mut a_vec)?;
     if let Some(t) = trace.as_deref_mut() {
         let mut tr = DynamicTrace::start(&k_s, &m_s, a0, a1, beta, gamma, alpha, dt);
         tr.push(&f_0, &u, &v, &a_vec);
@@ -1218,6 +1420,16 @@ fn solve_time_history_3d_inner(
         u = u_new;
         v = v_new;
         a_vec = a_new;
+        let settled = match &massless_rows {
+            Some(rows) => {
+                let slope = slope_at(t_next, true);
+                let (mut v_out, mut a_out) = (v.clone(), a_vec.clone());
+                rows.settle(&mut v_out, &mut a_out, &slope)?;
+                Some((v_out, a_out))
+            }
+            None => None,
+        };
+        let (v_out, a_out) = settled.as_ref().map_or((&v, &a_vec), |(v, a)| (v, a));
         if let Some(Some(t)) = trace.as_deref_mut() {
             t.push(&f_next, &u, &v, &a_vec);
         }
@@ -1226,8 +1438,8 @@ fn solve_time_history_3d_inner(
         // Expand and record
         time_steps.push(t_next);
         let u_nf = expand3(&u);
-        let v_nf = expand3(&v);
-        let a_nf = expand3(&a_vec);
+        let v_nf = expand3(v_out);
+        let a_nf = expand3(a_out);
         record_state_3d(&dof_num, &tracked_nodes, &assembly::to_global(&u_nf, n, its), &assembly::to_global(&v_nf, n, its), &assembly::to_global(&a_nf, n, its), dpn, &mut histories);
 
         let disp_norm: f64 = u_nf.iter().map(|x| x * x).sum::<f64>().sqrt();
@@ -1263,6 +1475,11 @@ fn solve_time_history_3d_inner(
         format!("Newmark (beta={:.4}, gamma={:.4})", beta, gamma)
     };
 
+    let first_bad = node_histories.iter().filter_map(|h| {
+        first_non_finite(&[&h.ux, &h.uy, &h.uz, &h.rx, &h.ry, &h.rz, &h.vx, &h.vy, &h.vz, &h.ax, &h.ay, &h.az])
+    }).min();
+    refuse_non_finite_response(first_bad, &time_steps, peak_reactions.iter().flat_map(|r| [r.fx, r.fy, r.fz, r.mx, r.my, r.mz]))?;
+
     Ok(TimeHistoryResult3D {
         time_steps,
         node_histories,
@@ -1296,7 +1513,7 @@ fn build_ground_influence_3d(
     let mut out: [Option<Vec<f64>>; 3] = [None, None, None];
     for (slot, (accel_opt, local_dof)) in out.iter_mut().zip(accel_dirs.iter()) {
         if accel_opt.is_some() {
-            *slot = Some(ground_influence(dof_num, *local_dof, its, m_ff, || {
+            *slot = Some(mass_matrix::ground_influence(dof_num, *local_dof, its, m_ff, || {
                 mass_matrix::assemble_mass_matrix_3d_sparse_block(&input.solver, dof_num, &input.densities, dof_num.n_total)
             }));
         }
@@ -1307,6 +1524,21 @@ fn build_ground_influence_3d(
 /// Compute force vector at a given step for 3D time history.
 /// `m_ground_r` holds the precomputed per-direction M*r influence products
 /// (see `build_ground_influence_3d`).
+fn force_history_slope_3d(
+    input: &TimeHistoryInput3D,
+    dof_num: &DofNumbering,
+    its: &[assembly::InclinedTransformData],
+    t: f64,
+    left: bool,
+) -> Vec<f64> {
+    let nf = dof_num.n_free;
+    let Some(history) = input.force_history.as_ref() else { return vec![0.0; nf] };
+    let times: Vec<f64> = history.iter().map(|r| r.time).collect();
+    let Some((ta, tb)) = slope_window(&times, t, left) else { return vec![0.0; nf] };
+    let at = |t: f64| assembly::to_inclined_free(interpolate_force_history_3d(history, dof_num, dof_num.n_total, dof_num.dofs_per_node, t), its, nf);
+    at(tb).iter().zip(at(ta)).map(|(b, a)| (b - a) / (tb - ta)).collect()
+}
+
 fn compute_force_at_step_3d(
     input: &TimeHistoryInput3D,
     dof_num: &DofNumbering,
@@ -1540,6 +1772,16 @@ mod tests {
     use super::*;
     use std::collections::HashMap;
 
+    #[test]
+    fn a_non_finite_response_is_refused_at_its_first_step_and_reactions_without_one() {
+        let times = [0.0, 0.01, 0.02];
+        assert!(refuse_non_finite_response(None, &times, [1.0, -2.0].into_iter()).is_ok());
+        let at_step = refuse_non_finite_response(Some(1), &times, [f64::NAN].into_iter()).unwrap_err();
+        assert!(at_step.starts_with("TH-NONFINITE: ") && at_step.contains("from step 1 (t = 0.01 s)"), "{at_step}");
+        let reactions = refuse_non_finite_response(None, &times, [1.0, f64::INFINITY].into_iter()).unwrap_err();
+        assert!(reactions.starts_with("TH-NONFINITE: ") && reactions.contains("reactions") && !reactions.contains("step"), "{reactions}");
+    }
+
     /// Create a simple cantilever beam for testing:
     /// Node 1 (fixed) at (0,0), Node 2 (free) at (1,0).
     /// Single frame element, steel E=200000 MPa, A=0.01 m^2, Iz=8.33e-6 m^4.
@@ -1571,7 +1813,7 @@ mod tests {
         });
 
         let solver = SolverInput {
-            solver_options: None,
+            solver_options: None, masses: Default::default(),
             nodes, materials, sections, elements, supports,
             loads: vec![],
             constraints: vec![],

@@ -47,8 +47,9 @@ Inputs:
 - `--rich3d N`: `tools/opensees/gen_models.rich_3d`.
 - `--aster3d N`: `gen.py`, which is `rich_3d` plus the features listed above.
 
-Every model is solved by stabileo first. Models that stabileo refuses or
-flags as ill-conditioned are skipped. The rest are translated by `to_aster.py`
+Every model is solved by stabileo first. Models that stabileo flags as
+ill-conditioned are skipped; models it refuses are run in Code_Aster
+anyway, to check the refusal (`refused` / `false_reject`). The rest are translated by `to_aster.py`
 into a self-contained Code_Aster command file (the mesh is embedded) and run
 in `-j` batches, one Code_Aster session per batch (`aster_batch.py`; start-up
 costs about a second, a model a few tens of milliseconds). On a mismatch,
@@ -75,12 +76,14 @@ Statuses:
 | `silent_singular` | Code_Aster finds the stiffness singular (a pivot lost more than 10 digits) where stabileo solved without a warning, and with the check off Code_Aster's solution disagrees with stabileo or cannot be computed |
 | `near_singular` | Code_Aster's singularity check trips, but with the check off (`NPREC=-1`) its solution agrees with stabileo: an ill-conditioned model, not a mechanism |
 | `ill_conditioned` | stabileo flags it (`stiffness_not_positive_definite`, `residual_high`, ...), or MUMPS cannot reach its residual check (FACTOR_57, also after a FACTOR_11 rerun with the check off) |
-| `stabileo_failed` | stabileo refuses the model (mechanism, or an unsupported combination) |
+| `refused` | stabileo refuses the model and Code_Aster agrees there is no unique answer: its stiffness is singular (`FACTOR_11`/`FACTOR_42` at `NPREC=10`, or `FACTOR_57`), or the translator rejects the model for the same reason (a nodal moment on a rotation nothing stiffens, a rotational mechanism) |
+| `false_reject` | stabileo refuses a model Code_Aster solves with its singularity check on: flagged |
+| `stabileo_failed` | stabileo refuses a model the translator cannot express (undecided) |
 | `unsupported` | uses a feature with no clean Code_Aster equivalent here (shells, warping, ...) |
 | `aster_failed` | Code_Aster fails for another reason: a harness bug |
 
-Exit status: 0 when all agree, 1 on `mismatch` or `silent_singular`, 2 on
-`aster_failed`.
+Exit status: 0 when all agree, 1 on `mismatch`, `silent_singular` or
+`false_reject`, 2 on `aster_failed`.
 
 ## Comparison and tolerance
 
@@ -117,7 +120,7 @@ the `to_aster.py` docstring.
 | `frame` with `asY`/`asZ` | `POU_D_T` (Timoshenko, exact); `AZ = A/asY`, `AY = A/asZ` (the engine pairs asY with Iy); a missing area is rigid |
 | `truss` | `BARRE` |
 | support springs | `DIS_TR`/`DIS_T` on a POI1 cell, `K_TR_D_N` in global axes |
-| connectors | `DIS_TR` on a SEG2 cell, `K_TR_D_L` in the connector axes of `element/connector.rs` |
+| connectors | `DIS_TR` on a SEG2 cell in the connector axes of `element/connector.rs`: `K_TR_D_L` at zero length; `K_TR_L` (global, `to_aster.connector_matrix`) when finite: shear springs at mid-length on rigid arms |
 | releases (My, Mz, T) | the released end on its own node, tied to the joint by `LIAISON_DDL` on the translations and on the kept local rotation components |
 | supports, settlements | `DDL_IMPO`; inclined: `LIAISON_DDL` n·u = 0 |
 | constraints | `LIAISON_DDL` rows written from the documented kinematics (`types/input.rs`, `constraints.rs`), not from the engine's transform |
@@ -126,6 +129,14 @@ the `to_aster.py` docstring.
 | a joint whose members all end on hinge nodes | a zero-stiffness `DIS_TR`/`DIS_T` cell so that the joint has DOFs for the ties |
 
 ### Code_Aster behaviours the translation works around
+
+- **`K_TR_D_L` on a SEG2 has no lever arm.** Its matrix is `[K, -K; -K, K]`,
+  while the engine's finite connector (since 3aa56464) puts its shear
+  springs at mid-length on rigid arms. A finite connector is therefore a
+  full `K_TR_L` (fixed on #326). The 99 mismatches of the first nightly run
+  (aster3d seeds 744000-744399, every one with a finite connector) were
+  this; they reproduce identically under Rosetta (same 99 models, same
+  statuses), so they were not a native-vs-emulated difference.
 
 Each one was found by a disagreement and settled by a closed form or a
 convergence study, never by widening the tolerance:

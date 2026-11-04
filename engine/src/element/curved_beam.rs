@@ -50,6 +50,71 @@ pub struct CurvedBeamExpansion {
     pub new_nodes: Vec<(usize, f64, f64, f64)>,
     /// Straight frame elements: (id, node_i, node_j, mat_id, sec_id, hinge_start, hinge_end).
     pub new_elements: Vec<(usize, usize, usize, usize, usize, bool, bool)>,
+    /// How every segment orients its section (None for the straight fallback,
+    /// whose segments are one straight member and keep the default axes).
+    pub section_frame: Option<ArcSectionFrame>,
+}
+
+/// The section orientation of an arc, the same on every segment relative to the curve.
+///
+/// A curved member is one bar bent in its plane: its section does not roll
+/// along it. So every segment takes local y = a·n + b·(n × ex), with n the
+/// unit normal of the arc's plane and ex the segment's axis (in the plane): the
+/// angle between local y and the plane normal is the same on every segment.
+///
+/// (a, b) are chosen so that the segment at the middle of the arc gets the
+/// axes the default rule gives a straight member along the arc's tangent there
+/// (local z = global up projected off the axis). A plan curve therefore keeps
+/// local z vertical on every segment, as before, and an arch keeps local y
+/// normal to its plane on every segment — including the near-vertical ones at
+/// its springings, which the default rule (it switches to a global-X reference
+/// within 2.56° of vertical) used to turn by 90° outside the X–Z plane,
+/// swapping Iy and Iz on them (#418, SP-15). Rotating the whole model about the
+/// vertical turns these axes with it.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ArcSectionFrame {
+    /// Unit normal of the arc's plane.
+    pub normal: [f64; 3],
+    /// Component of local y along `normal`.
+    pub a: f64,
+    /// Component of local y along `normal × ex`.
+    pub b: f64,
+}
+
+impl ArcSectionFrame {
+    /// The local-y reference of a segment from `p_i` to `p_j` (on the arc's plane, up to
+    /// round-off): a unit vector perpendicular to the segment.
+    pub fn local_y(&self, p_i: [f64; 3], p_j: [f64; 3]) -> [f64; 3] {
+        let n = self.normal;
+        let d = sub(p_j, p_i);
+        // Off-plane drift (round-off, a snapped node) removed, so local y stays ⊥ ex.
+        let ex = sub(d, scale(n, dot(d, n)));
+        let l = norm(ex);
+        if l < 1e-300 {
+            return n;
+        }
+        let m = cross(n, scale(ex, 1.0 / l));
+        let y = [self.a * n[0] + self.b * m[0], self.a * n[1] + self.b * m[1], self.a * n[2] + self.b * m[2]];
+        // Exactly perpendicular to the actual segment, should it leave the plane by round-off.
+        let dh = scale(d, 1.0 / norm(d));
+        let y = sub(y, scale(dh, dot(y, dh)));
+        scale(y, 1.0 / norm(y))
+    }
+
+    /// The frame for an arc of plane normal `n` whose tangent at its middle is `t_mid` (units).
+    fn new(n: [f64; 3], t_mid: [f64; 3]) -> Self {
+        if t_mid[2].abs() > 0.999 {
+            // The default rule's own near-vertical branch depends on the plan
+            // orientation; a plane holding a vertical tangent is vertical, and an
+            // arch in a vertical plane has local y along the plane normal.
+            return ArcSectionFrame { normal: n, a: 1.0, b: 0.0 };
+        }
+        let e0 = crate::element::transform::default_ey_ref(&t_mid);
+        let m = cross(n, t_mid);
+        let (a, b) = (dot(e0, n), dot(e0, m));
+        let l = (a * a + b * b).sqrt();
+        ArcSectionFrame { normal: n, a: a / l, b: b / l }
+    }
 }
 
 /// Expand a curved beam definition into straight frame segments.
@@ -157,9 +222,19 @@ pub fn expand_curved_beam(
         new_elements.push((eid, ni, nj, input.material_id, input.section_id, hs, he));
     }
 
+    // Tangent at the middle of the sweep, in the direction of travel.
+    let theta_mid = 0.5 * (angle_end - angle_start);
+    let dir = if angle_end >= angle_start { 1.0 } else { -1.0 };
+    let t_mid = [
+        dir * (-theta_mid.sin() * u_axis[0] + theta_mid.cos() * v_axis[0]),
+        dir * (-theta_mid.sin() * u_axis[1] + theta_mid.cos() * v_axis[1]),
+        dir * (-theta_mid.sin() * u_axis[2] + theta_mid.cos() * v_axis[2]),
+    ];
+
     CurvedBeamExpansion {
         new_nodes,
         new_elements,
+        section_frame: Some(ArcSectionFrame::new(n_hat, t_mid)),
     }
 }
 
@@ -204,6 +279,7 @@ fn expand_straight(
     CurvedBeamExpansion {
         new_nodes,
         new_elements,
+        section_frame: None,
     }
 }
 

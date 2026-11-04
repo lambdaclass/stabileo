@@ -9,8 +9,10 @@ import './styles/touch-density.css';
 import './styles/pro-kit.css';
 import './styles/panel-scrollbars.css';
 import 'katex/dist/katex.min.css';
-import App from './App.svelte';
+import Root from './Root.svelte';
 import { mount } from 'svelte';
+import { routeKind, restoreRedirectedRoute } from './lib/public-route';
+import { i18n, ensureLocale } from './lib/i18n/store.svelte';
 
 /*
  * The prerendered page steps aside as the application takes over.
@@ -28,10 +30,6 @@ import { mount } from 'svelte';
  */
 document.getElementById('prerender')?.remove();
 
-const app = mount(App, {
-  target: document.getElementById('app')!,
-});
-
 // Browser-test hooks — BUILD-TIME GATED.
 //
 // `import.meta.env.VITE_E2E` is statically replaced by Vite, so in a normal
@@ -42,8 +40,38 @@ const app = mount(App, {
 //
 // The hooks additionally require `?e2e=1` at runtime (see e2e-hooks.ts), so both gates
 // must hold. Playwright's webServer sets VITE_E2E=1 for its build.
-if (import.meta.env.VITE_E2E === '1') {
-  void import('./lib/utils/e2e-hooks').then((m) => m.installE2EHooks());
+function installTestHooks() {
+  if (import.meta.env.VITE_E2E === '1') {
+    void import('./lib/utils/e2e-hooks').then((m) => m.installE2EHooks());
+  }
 }
 
-export default app;
+/*
+ * The application, or the public pages without it.
+ *
+ * An address that is the application's (`/app/…`, `?embed`, a shared model) mounts App.svelte
+ * at once, as it always did, and the browser-test hooks with it. Any other address mounts
+ * Root.svelte, which renders the landing and the blog without downloading the application
+ * (3 MB of JavaScript and 3 MB of WASM they used to wait on) and loads it when asked.
+ */
+// Do not await lazy chunks at module scope. Rollup can put shared public UI in
+// this entry and make App import it; top-level await would then deadlock App.
+async function bootstrap() {
+  restoreRedirectedRoute();
+  const target = document.getElementById('app')!;
+  if (routeKind().kind === 'app') {
+    await ensureLocale(i18n.locale);
+    // Keep the loader namespace separate: Vite's dynamic-import analysis treats
+    // destructuring an awaited .then() chain as destructuring the import itself.
+    const loader = await import('./load-app');
+    const application = await loader.loadApplication();
+    const app = mount(application.default, { target });
+    installTestHooks();
+    return app;
+  }
+  // Register before mounting: a ready event must never outrun its subscriber.
+  window.addEventListener('stabileo-app-ready', installTestHooks, { once: true });
+  return mount(Root, { target });
+}
+
+export default bootstrap();

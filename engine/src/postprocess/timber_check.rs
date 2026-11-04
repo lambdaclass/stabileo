@@ -33,11 +33,22 @@ pub struct TimberMemberData {
     pub b: f64,
     /// Cross-section depth d (m)
     pub d: f64,
-    /// Unbraced length for compression Le (m)
+    /// Effective column length le (m), NDS 3.7.1: buckling in the plane of d
+    /// (le1, also the FcE1 of 3.9.2) and, unless `le_b` is given, across b too.
     pub le: f64,
+    /// Effective column length for buckling across b, le2 (m). Absent: `le`.
+    /// 0 for a member braced continuously across b (sheathing on a stud wall).
+    #[serde(default)]
+    pub le_b: Option<f64>,
     /// Effective unbraced length for bending Lu (m)
     #[serde(default)]
     pub lu: Option<f64>,
+    /// Effective span length le for beam stability (m), NDS Table 3.3.3, when the
+    /// loading condition is known (e.g. 1.63·lu + 3d for a uniformly loaded single
+    /// span with lu/d >= 7). Absent: le from `lu` by the table's footnote for any
+    /// loading condition, the largest le the table gives (`effective_bending_span`).
+    #[serde(default)]
+    pub le_bending: Option<f64>,
     /// Load duration factor CD (default 1.0)
     #[serde(default)]
     pub cd: Option<f64>,
@@ -386,13 +397,14 @@ fn emin_prime<T: Real>(m: &TimberMemberData, cm: T, ct: T, ci: T) -> T {
 }
 
 /// NDS 3.7.1.4: the slenderness ratio governing column buckling is the *larger*
-/// of le1/d1 and le2/d2. With `le` applied about both axes that is
+/// of le1/d1 and le2/d2. With `le` applied about both axes (no `le_b`) that is
 /// le/min(b, d) — for the usual b < d section the weak axis controls, and
 /// checking only le/d overstates FcE and so overstates CP.
 fn governing_slenderness<T: Real>(m: &TimberMemberData) -> T {
     let zero = T::exact(0.0);
+    let le_b = m.le_b.unwrap_or(m.le);
     let about_d = if m.d > 0.0 { T::exact(m.le).dv(T::exact(m.d)) } else { zero };
-    let about_b = if m.b > 0.0 { T::exact(m.le).dv(T::exact(m.b)) } else { zero };
+    let about_b = if m.b > 0.0 { T::exact(le_b).dv(T::exact(m.b)) } else { zero };
     about_d.max(about_b)
 }
 
@@ -431,12 +443,15 @@ fn column_stability_factor<T: Real>(m: &TimberMemberData, cd: T, cm: T, ct: T, c
 
 /// NDS Table 3.3.3: effective span length le from the unbraced length lu.
 ///
-/// The table is indexed by loading condition; this uses the single-span,
-/// uniformly distributed load row, which is the common case and the one the
-/// caller's `lu` implies:
+/// The table is indexed by loading condition, which a member check does not
+/// know. This is the table's footnote for single-span or cantilever members
+/// "where the loading condition is not specified", which envelopes every row
+/// (the uniformly-loaded single span, for instance, is 2.06·lu / 1.63·lu + 3d
+/// with no 14.3 break, never more than this):
 ///   lu/d < 7          ->  le = 2.06·lu
 ///   7 <= lu/d <= 14.3 ->  le = 1.63·lu + 3d
 ///   lu/d > 14.3       ->  le = 1.84·lu
+/// A caller that knows the loading condition passes `le_bending` instead.
 fn effective_bending_span<T: Real>(lu: f64, d: f64) -> T {
     let (lu, dd) = (T::exact(lu), T::exact(d));
     if d <= 0.0 {
@@ -470,7 +485,10 @@ fn beam_stability_factor<T: Real>(m: &TimberMemberData, cd: T, cm: T, ct: T, ci:
     // Effective span length le for bending (NDS Table 3.3.3). le is always
     // longer than lu — between 1.63x and 2.06x for a single span — so taking
     // le = lu understated RB and overstated both FbE and CL.
-    let le_bend = effective_bending_span::<T>(lu, m.d);
+    let le_bend = match m.le_bending {
+        Some(le) => T::exact(le),
+        None => effective_bending_span::<T>(lu, m.d),
+    };
 
     // RB = sqrt(le * d / b²)  — NDS 3.3.3.5
     let rb_sq = (le_bend * T::exact(m.d)).dv(T::exact(m.b).sq());

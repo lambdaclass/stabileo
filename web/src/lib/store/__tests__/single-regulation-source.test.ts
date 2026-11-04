@@ -40,6 +40,8 @@ describe('the design toolbar carries no regulation selector', () => {
   const toolbar = [
     read('components/pro/design/DesignToolbar.svelte'),
     read('components/pro/design/DesignOverview.svelte'),
+    // The read-out itself, shared by the overview and the member list (interface A).
+    read('components/pro/design/ActiveConcreteCode.svelte'),
   ].join('\n');
 
   it('has no code-select control', () => {

@@ -87,6 +87,8 @@ function nodeIsBusy(nodeId: number): boolean {
   // Kept beside the model and named by node id: removing the node left the force on a number the
   // next node drawn would take.
   if ((modelStore.model.dynamics?.timeHistory?.forces ?? []).some((f) => f.nodeId === nodeId)) return true;
+  // A point mass of the mass source, likewise.
+  if ((modelStore.model.massSource?.points ?? []).some((p) => p.nodeId === nodeId)) return true;
   return false;
 }
 
@@ -103,8 +105,8 @@ function whyNot(a: Element, b: Element): RefuseReason | null {
   if (a.tensionConnection?.j || b.tensionConnection?.i) return 'endConditions';
   // What the analysis and the design read off the member: the merged one keeps only one of them.
   const same = (x: unknown, y: unknown) => JSON.stringify(x ?? null) === JSON.stringify(y ?? null);
-  const e = (m: Element) => m as { behaviour?: unknown; stiffness?: unknown; kStrong?: unknown; kWeak?: unknown; unbracedLength?: unknown };
-  if (!same(e(a).behaviour, e(b).behaviour) || !same(e(a).stiffness, e(b).stiffness)
+  const e = (m: Element) => m as { behaviour?: unknown; cablePretension?: unknown; stiffness?: unknown; kStrong?: unknown; kWeak?: unknown; unbracedLength?: unknown };
+  if (!same(e(a).behaviour, e(b).behaviour) || !same(e(a).cablePretension, e(b).cablePretension) || !same(e(a).stiffness, e(b).stiffness)
     || !same(e(a).kStrong, e(b).kStrong) || !same(e(a).kWeak, e(b).kWeak) || !same(e(a).unbracedLength, e(b).unbracedLength)) return 'differentProperties';
   return null;
 }

@@ -13,7 +13,7 @@ import { readFileSync } from 'node:fs';
 import {
   CP_SIDE_WALL, CP_WINDWARD_WALL, EXPOSURE_CONSTANTS, KD, SERVICE_WIND_FACTOR,
   classifyEnclosure, cpLeewardWall, flatRoofCp, groundElevationFactor, internalPressureCoefficient,
-  roofCp, velocityPressureExposureCoefficient, type Exposure,
+  roofCp, velocityPressure, velocityPressureExposureCoefficient, type Exposure,
 } from '../wind';
 import { claddingPressures, type CladdingRoof } from '../cladding';
 import { chimneyCf, freeRoofCn, freeRoofCnAlong, openSignCf, solidSignCf, towerCf } from '../other-structures';
@@ -115,6 +115,10 @@ describe('Tabla 1.12-1: K_e (p. 77)', () => {
   });
   it('below sea level it exceeds 1 (the conservative K_e = 1 of note 1 is then slightly unsafe, as the commentary says)', () => {
     expect(groundElevationFactor(-105)).toBeGreaterThan(1);
+  });
+  it('a site below sea level raises q_z by its K_e (the altitude field accepts it)', () => {
+    const at = (siteAltitudeM: number) => velocityPressure(10, { basicSpeed: 40, exposure: 'C', siteAltitudeM, kzt: 1, kztSurveyed: true, structureKind: 'building', enclosure: 'enclosed', meanRoofHeight: 10, L: 10, B: 10, roofSlopeDeg: 0, rigid: true });
+    expect(at(-105) / at(0)).toBeCloseTo(Math.exp(0.000119 * 105), 9);
   });
 });
 

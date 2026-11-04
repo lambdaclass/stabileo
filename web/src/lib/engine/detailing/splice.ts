@@ -162,15 +162,31 @@ function pairUp(
 ): Array<{ fromAcross: number; toAcross: number; offset: number }> | null {
   const sortedFrom = [...from].sort((a, b) => a - b);
   const sortedTo = [...to].sort((a, b) => a - b);
-  const n = Math.min(sortedFrom.length, sortedTo.length);
-  const out: Array<{ fromAcross: number; toAcross: number; offset: number }> = [];
-  for (let i = 0; i < n; i++) {
-    const offset = Math.abs(sortedTo[i] - sortedFrom[i]);
-    if (offset > maxPitch + 1e-9) return null;
-    out.push({ fromAcross: sortedFrom[i], toAcross: sortedTo[i], offset });
+  // Every bar of the shorter side takes a partner from the longer one, in order, choosing WHICH
+  // partners so the worst offset is least. Pairing the i-th with the i-th, as this did, matched
+  // a 4-bar row spread across a 350 mm web with the four leftmost of an 8-bar row and refused
+  // the transition for a 150 mm offset that the right choice of partners does not have.
+  const short = sortedFrom.length <= sortedTo.length ? sortedFrom : sortedTo;
+  const long = short === sortedFrom ? sortedTo : sortedFrom;
+  const n = short.length, m = long.length;
+  // best[i][j]: least worst offset pairing short[0..i) within long[0..j).
+  const best: number[][] = Array.from({ length: n + 1 }, (_, i) => Array.from({ length: m + 1 }, () => (i === 0 ? 0 : Number.POSITIVE_INFINITY)));
+  for (let i = 1; i <= n; i++) for (let j = i; j <= m; j++) {
+    best[i]![j] = Math.min(best[i]![j - 1]!, Math.max(best[i - 1]![j - 1]!, Math.abs(short[i - 1]! - long[j - 1]!)));
   }
-  // Any surplus incoming bars simply terminate with legal anchorage; that is not a failure.
-  return out;
+  if (best[n]![m]! > maxPitch + 1e-9) return null;
+  const pairs: Array<[number, number]> = [];
+  for (let i = n, j = m; i > 0;) {
+    if (j > i && best[i]![j - 1] === best[i]![j]) { j--; continue; }
+    pairs.push([short[i - 1]!, long[j - 1]!]); i--; j--;
+  }
+  pairs.reverse();
+  // Any surplus bars of the longer side are not partnered here; the lap materialiser continues
+  // them into the next span to develop there.
+  return pairs.map(([sa, la]) => {
+    const [f, t] = short === sortedFrom ? [sa, la] : [la, sa];
+    return { fromAcross: f, toAcross: t, offset: Math.abs(t - f) };
+  });
 }
 
 /**

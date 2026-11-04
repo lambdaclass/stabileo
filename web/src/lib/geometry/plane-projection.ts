@@ -287,7 +287,6 @@ export function buildSimplified2DModel(
       mergedCoords.push({ id, x: p.x, y: p.y, sourceIds: [id] });
     }
   }
-  const mergedNodes = mergedCoords.filter(mc => mc.sourceIds.length > 1).length;
   const totalMergedAway = [...projected.keys()].length - mergedCoords.length;
 
   // 2. Build reduced node map
@@ -345,7 +344,8 @@ export function buildSimplified2DModel(
     'custom3d': 'pinned',
   };
   const outSupports = new Map<number, { id: number; nodeId: number; type: string; [k: string]: unknown }>();
-  const supByMergedNode = new Map<number, { id: number; type: string; [k: string]: unknown }>();
+  // Every entry is set with its merged node (below), so the node id is part of the type.
+  const supByMergedNode = new Map<number, { id: number; nodeId: number; type: string; [k: string]: unknown }>();
 
   for (const s of supports) {
     const mergedId = mergeMap.get(s.nodeId) ?? s.nodeId;

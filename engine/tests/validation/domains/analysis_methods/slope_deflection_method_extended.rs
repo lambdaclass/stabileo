@@ -282,13 +282,13 @@ fn validation_sdm_ext_portal_frame_gravity() {
         "SDM Ext5: Rx_base4 ~ 0 by symmetry: {:.6}", r4.rx);
 
     // Base moments should be equal in magnitude (symmetry)
-    assert_close(r1.my.abs(), r4.my.abs(), 0.02,
+    assert_close_abs(r1.my.abs(), r4.my.abs(), 0.02, 1e-6,
         "SDM Ext5: |M_base1| = |M_base4| by symmetry");
 
     // Top joint rotations should be equal and opposite by symmetry
     let d2 = results.displacements.iter().find(|d| d.node_id == 2).unwrap();
     let d3 = results.displacements.iter().find(|d| d.node_id == 3).unwrap();
-    assert_close(d2.ry.abs(), d3.ry.abs(), 0.02,
+    assert_close_abs(d2.ry.abs(), d3.ry.abs(), 0.02, 1e-6,
         "SDM Ext5: |theta_2| = |theta_3| by symmetry");
 
     // Vertical equilibrium: sum(Ry) = 2P

@@ -63,7 +63,8 @@ Exit status: 0 nothing flagged, 1 a model flagged, 2 harness error.
 | `false_reject` | stabileo refused a model whose reference stiffness is regular (κ < 1e10) |
 | `false_warning` | stabileo flagged a model ill-conditioned whose reference stiffness is well conditioned (κ < 1e8) |
 | `ill_conditioned` | stabileo warned (singular/indefinite, LU fallback, high residual), or the reference κ > 1e12: no unique answer to compare |
-| `stabileo_failed` | stabileo refused the model (and no reference says it is regular) |
+| `refused` | stabileo refused the model and the reference finds it singular too (κ > 1e12): a correct refusal |
+| `stabileo_failed` | stabileo refused the model (and no reference says it is regular or singular) |
 | `unstable` | P-Delta past the first buckling load |
 | `unsupported` | the reference program cannot represent a feature of the model |
 | `reference_failed`, `unloaded` | the reference program failed; the model has no load |

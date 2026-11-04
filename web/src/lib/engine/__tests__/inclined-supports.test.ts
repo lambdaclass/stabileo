@@ -446,7 +446,7 @@ describe('Prescribed Displacement on Inclined Rollers', () => {
       elements: [{ id: 1, nodeI: 1, nodeJ: 2 }],
       supports: [
         { id: 1, nodeId: 1, type: 'fixed' },
-        { id: 2, nodeId: 2, type: 'rollerX', dy: -0.01 }, // 10mm downward
+        { id: 2, nodeId: 2, type: 'rollerX', dz: -0.01 }, // 10mm downward
       ],
       loads: [],
     });
@@ -472,7 +472,7 @@ describe('Prescribed Displacement on Inclined Rollers', () => {
       elements: [{ id: 1, nodeI: 1, nodeJ: 2 }],
       supports: [
         { id: 1, nodeId: 1, type: 'fixed' },
-        { id: 2, nodeId: 2, type: 'inclinedRoller', angle: alpha, dx: prescDx, dy: prescDy },
+        { id: 2, nodeId: 2, type: 'inclinedRoller', angle: alpha, dx: prescDx, dz: prescDy },
       ],
       loads: [],
     });

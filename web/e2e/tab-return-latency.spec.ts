@@ -25,7 +25,7 @@
  * Five marks, so a regression can be attributed instead of just observed:
  *
  *   1. `firstFrame`   — the transition itself: from resume to the first painted frame.
- *   2. `panelReady`   — the right panel answers a real interaction (a stage disclosure toggles).
+ *   2. `panelReady`   — the right panel answers a real interaction (a place of design shows).
  *   3. `viewerReady`  — the 3-D workspace answers one, when it is open.
  *   4. `firstClick`   — round trip of a click that changes state.
  *   5. `toggle`       — round trip of a layer toggle, the gesture the viewport-cost specs use.
@@ -33,7 +33,7 @@
  * The counters are read on both sides of the transition — `rebarSceneBuilds`, and the panel's own
  * derived work — so "the app was busy" can be told apart from "the app rebuilt the scene".
  */
-import { test, expect } from './fixtures';
+import { test, expect, designPlace } from './fixtures';
 // The prepared 7-storey project, and its own `test` — the heavy scenarios are observers of it.
 import { test as heavyTest, openPreparedWorkspace } from './prepared-building';
 import type { Page } from '@playwright/test';
@@ -163,12 +163,13 @@ async function cycle(page: Page, opts: { viewer: boolean }): Promise<Marks> {
   // 2. The panel answers a real interaction. The 3-D workspace is an overlay, so when it is up
   // the panel behind it is not reachable and this is measured on the workspace's own control.
   const panelStart = Date.now();
-  const disclosure = page.getByTestId(opts.viewer ? 'rebar-workspace' : 'code-settings-disclosure');
+  // Without the viewer: the design data and regulations, a place of design (interface A).
+  const disclosure = page.getByTestId(opts.viewer ? 'rebar-workspace' : 'desk-regulations');
   if (opts.viewer) {
     await expect(disclosure).toBeVisible();
   } else {
-    await disclosure.locator('> summary').click();
-    await expect(disclosure).toHaveAttribute('open', '');
+    await designPlace(page, 'designData');
+    await expect(disclosure).toBeVisible();
   }
   const panelReady = Date.now() - panelStart;
 
@@ -186,8 +187,9 @@ async function cycle(page: Page, opts: { viewer: boolean }): Promise<Marks> {
       await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => r(null))));
     }
   } else {
-    await disclosure.locator('> summary').click();
-    await expect(disclosure).not.toHaveAttribute('open', '');
+    // Interface A has no disclosure here: moving to another place of design is the state change.
+    await designPlace(page, 'list');
+    await expect(page.getByTestId('desk-list')).toBeVisible();
   }
   const firstClick = Date.now() - clickStart;
 

@@ -145,19 +145,74 @@ pub fn ernst_equivalent_modulus(e: f64, a: f64, w: f64, l_h: f64, tension: f64) 
     e / denominator
 }
 
-/// Cable tangent modulus for incremental analysis.
+/// Cable tangent modulus for incremental analysis: dσ/dε of the chord-tension law
+/// `cable_chord_tension`, which is Ernst's modulus itself.
 ///
-/// E_tan = E / [1 + (γ·L_h)²·E·A / (12·σ³·A³)]
-///
-/// This is the derivative of the Ernst formula at current tension.
+/// The chord of a shallow elastic cable obeys ε = T/EA − (w·l_h)²/(24T²) + const, so
+/// dT/dε = EA/(1 + (w·l_h)²·EA/(12T³)) = `ernst_equivalent_modulus`·A. This helper used to
+/// return E(1 + α(1 − 3α/(1+α)))/(1+α)², which is not that derivative and turns negative
+/// for moderate α (SP-11, #415).
 pub fn ernst_tangent_modulus(e: f64, a: f64, w: f64, l_h: f64, tension: f64) -> f64 {
-    if tension.abs() < 1e-15 {
-        return 0.0;
+    ernst_equivalent_modulus(e, a, w, l_h, tension)
+}
+
+/// Chord tension of a shallow elastic cable whose unstressed length is its chord as modelled.
+///
+/// Solves the elastic-catenary chord law ε = T/EA − (w·l_h)²/(24T²) for T, with ε the chord
+/// strain (deformed chord minus unstressed length, over the unstressed length), `w` the weight
+/// per unit cable length (kN/m) and `l_h` the horizontal projection of the chord. Elastic
+/// stretch lengthens the chord; the sag the weight forces takes some of it up again.
+///
+/// Without weight it is the taut-string law max(EA·ε, 0): a shortened chord is slack. With
+/// weight the cable always hangs with some tension: T³ − EA·ε·T² − EA·(w·l_h)²/24 = 0 has
+/// exactly one positive root for any ε, and dT/dε is Ernst's modulus times A
+/// (`ernst_equivalent_modulus`), the stiffness a Newton iteration on this law must use.
+pub fn cable_chord_tension(ea: f64, w: f64, l_h: f64, strain: f64) -> f64 {
+    if !strain.is_finite() {
+        return f64::NAN; // never a plausible tension from an invalid strain
     }
-    let wl = w * l_h;
-    let alpha = wl * wl * e * a / (12.0 * tension.powi(3));
-    let denom = (1.0 + alpha) * (1.0 + alpha);
-    e * (1.0 + alpha * (1.0 - 3.0 * alpha / (1.0 + alpha))) / denom
+    let b = ea * strain;
+    // Scale T = s·τ with s³ = EA·(w·l_h)²/24, formed without squaring (no under/overflow):
+    // τ³ − β·τ² − 1 = 0, β = EA·ε/s.
+    let (cw, cl) = (w.abs().cbrt(), l_h.abs().cbrt());
+    let s = (ea / 24.0).cbrt() * cw * cl * cw * cl;
+    if s == 0.0 {
+        return b.max(0.0); // no weight, or a vertical chord: the taut string
+    }
+    if !s.is_finite() || !b.is_finite() {
+        // Outside the floating-point range of any physical cable: refuse rather than return a
+        // plausible number.
+        return f64::NAN;
+    }
+    let beta = b / s;
+    if !beta.is_finite() {
+        // |EA·ε| overwhelms the sag scale: stretched, the taut string T = EA·ε (the sag term is
+        // below round-off); shortened, the asymptote τ = 1/√(−β), i.e. T = s·√(s/(−EA·ε)).
+        return if beta > 0.0 { b } else { s * (s.sqrt() / (-b).sqrt()) };
+    }
+    // Bracket: β ≥ 0: τ ∈ [β, β + min(1, 1/β²)]; β < 0: τ ∈ [1/√(1−β), min(1, 1/√(−β))].
+    let (mut lo, mut hi) = if beta >= 0.0 {
+        (beta, beta + 1.0_f64.min(1.0 / (beta * beta)))
+    } else {
+        (1.0 / (1.0 - beta).sqrt(), 1.0_f64.min(1.0 / (-beta).sqrt()))
+    };
+    let g = |t: f64| t * t * (t - beta) - 1.0;
+    // Newton from the upper end, bisection whenever a step leaves the bracket.
+    let mut t = hi;
+    for _ in 0..200 {
+        let gt = g(t);
+        if gt > 0.0 { hi = t } else { lo = t }
+        let dg = 3.0 * t * t - 2.0 * beta * t;
+        let mut next = if dg > 0.0 { t - gt / dg } else { f64::NAN };
+        if !(next > lo && next < hi) {
+            next = lo + 0.5 * (hi - lo);
+        }
+        if (next - t).abs() <= 4.0 * f64::EPSILON * t || hi - lo <= 4.0 * f64::EPSILON * hi {
+            return s * next;
+        }
+        t = next;
+    }
+    s * t
 }
 
 /// 2D cable global stiffness matrix (4×4) using Ernst equivalent modulus.
@@ -251,8 +306,8 @@ pub fn cable_natural_frequency(
 
 /// Irvine parameter λ² for cable dynamics.
 ///
-/// λ² = (wL/H)² * (L_e / L) * (EA·L / H·L_e)
-/// Simplified for flat cable: λ² = (wL)²·L / (H³·L_e/(EA))
+/// λ² = (wL/H)² · L / (H·L_e/(EA))   (Irvine 1981, dimensionless)
+/// with L_e ≈ L·(1 + 8(f/L)²) for a level cable of sag f = wL²/(8H).
 ///
 /// Controls in-plane symmetric mode behavior.
 /// λ² < 4π² → antisymmetric mode governs
@@ -264,7 +319,9 @@ pub fn irvine_parameter(w: f64, l: f64, h_thrust: f64, e: f64, a: f64) -> f64 {
     let wl_h = w * l / h_thrust;
     // Effective length ratio (≈1 for flat cables)
     let le_ratio = 1.0 + 8.0 * (cable_sag(w, l, h_thrust) / l).powi(2);
-    wl_h * wl_h * e * a * l / (h_thrust * le_ratio)
+    // λ² = (wL/H)²·L/(H·L_e/EA) = (wL/H)²·EA/(H·L_e/L): dimensionless. It
+    // carried an extra factor L (SP-9).
+    wl_h * wl_h * e * a / (h_thrust * le_ratio)
 }
 
 #[cfg(test)]

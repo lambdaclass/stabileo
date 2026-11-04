@@ -14,7 +14,7 @@
 ///     Axially Loaded Piles in Sand", 1984
 
 use dedaliano_engine::solver::ssi::*;
-use dedaliano_engine::solver::soil_curves::{SoilCurve, evaluate_soil_curve, py_soft_clay, py_sand, tz_curve};
+use dedaliano_engine::solver::soil_curves::{SoilCurve, SandLoading, evaluate_soil_curve, py_soft_clay, py_sand, tz_curve};
 use dedaliano_engine::types::*;
 use std::collections::HashMap;
 
@@ -77,7 +77,7 @@ fn build_pile_2d(
     });
 
     SolverInput {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes,
         materials: mats,
         sections: secs,
@@ -143,6 +143,7 @@ fn benchmark_ssi_soft_clay_lateral_pile() {
                 d: d_pile,
                 depth,
                 eps_50,
+                j: Some(0.5),
             },
             tributary_length: dy,
         });
@@ -245,6 +246,7 @@ fn benchmark_ssi_sand_py_pile() {
                 gamma_eff,
                 d: d_pile,
                 depth,
+                loading: Some(SandLoading::Static),
             },
             tributary_length: dy,
         });
@@ -331,8 +333,8 @@ fn benchmark_ssi_tz_shaft_friction() {
         soil_springs.push(SoilSpring {
             node_id,
             direction: 1, // Y-direction (axial for vertical pile)
-            curve: SoilCurve::Tz { t_ult, z_ult },
-            tributary_length: dy * perimeter, // tributary area = length × perimeter
+            curve: SoilCurve::Tz { t_ult, z_ult, perimeter: Some(perimeter) },
+            tributary_length: dy,
         });
     }
 
@@ -396,10 +398,11 @@ fn benchmark_ssi_curve_shape_unit_checks() {
     let eps_50 = 0.01;
 
     let y_50 = 2.5 * eps_50 * d; // = 0.025 m
-    let p_u: f64 = (3.0_f64 * su + gamma_eff * depth).min(9.0 * su) * d;
-    // p_u = min(150 + 45, 450) * 1.0 = 195 kN/m
+    let j = 0.5;
+    let p_u: f64 = (3.0_f64 * su + gamma_eff * depth + j * su * depth / d).min(9.0 * su) * d;
+    // p_u = min(150 + 45 + 125, 450) * 1.0 = 320 kN/m
 
-    let (p_at_y50, _) = py_soft_clay(su, gamma_eff, d, depth, eps_50, y_50);
+    let (p_at_y50, _) = py_soft_clay(su, gamma_eff, d, depth, eps_50, j, y_50);
     let expected_p = 0.5 * p_u; // At y/y_50 = 1.0, p = 0.5*p_u*1^(1/3) = 0.5*p_u
 
     let rel_err = (p_at_y50 - expected_p).abs() / expected_p;
@@ -410,7 +413,7 @@ fn benchmark_ssi_curve_shape_unit_checks() {
     );
 
     // At y = 8*y_50, should reach p_u
-    let (p_at_8y50, _) = py_soft_clay(su, gamma_eff, d, depth, eps_50, 8.0 * y_50);
+    let (p_at_8y50, _) = py_soft_clay(su, gamma_eff, d, depth, eps_50, j, 8.0 * y_50);
     let rel_err_ult = (p_at_8y50 - p_u).abs() / p_u;
     assert!(
         rel_err_ult < 0.01,
@@ -420,7 +423,7 @@ fn benchmark_ssi_curve_shape_unit_checks() {
 
     // --- Sand: at y=0, initial stiffness should be k_h * depth ---
     let phi = 35.0;
-    let (p_sand_0, k_sand_0) = py_sand(phi, 10.0, 1.0, 5.0, 0.0);
+    let (p_sand_0, k_sand_0) = py_sand(phi, 10.0, 1.0, 5.0, SandLoading::Static, 0.0).unwrap();
     assert!(
         p_sand_0.abs() < 1e-10,
         "Sand at y=0: p should be 0, got {:.6e}", p_sand_0
@@ -431,12 +434,12 @@ fn benchmark_ssi_curve_shape_unit_checks() {
     );
 
     // Sand initial stiffness = k_h * depth
-    // k_h for phi=35 ≈ 22000 kN/m³
+    // k_h for phi=35: 22 MN/m³ (API RP 2GEO Table 5)
     let k_h_expected = 22_000.0;
     let k_expected = k_h_expected * 5.0; // at depth=5m
     let k_rel = (k_sand_0 - k_expected).abs() / k_expected;
     assert!(
-        k_rel < 0.5, // Allow 50% since k_h is approximate
+        k_rel < 1e-12,
         "Sand initial stiffness: k={:.1}, expected~{:.1}, error={:.1}%",
         k_sand_0, k_expected, k_rel * 100.0
     );
@@ -463,8 +466,8 @@ fn benchmark_ssi_curve_shape_unit_checks() {
     );
 
     // --- evaluate_soil_curve wrapper consistency ---
-    let curve = SoilCurve::PySoftClay { su, gamma_eff, d, depth, eps_50 };
-    let (p_wrap, _) = evaluate_soil_curve(&curve, y_50);
+    let curve = SoilCurve::PySoftClay { su, gamma_eff, d, depth, eps_50, j: Some(j) };
+    let (p_wrap, _) = evaluate_soil_curve(&curve, y_50).unwrap();
     assert!(
         (p_wrap - p_at_y50).abs() < 1e-10,
         "evaluate_soil_curve should match direct call"
@@ -515,8 +518,8 @@ fn benchmark_ssi_vertical_pile_capacity() {
         soil_springs.push(SoilSpring {
             node_id,
             direction: 1, // Y-direction (axial for vertical pile)
-            curve: SoilCurve::Tz { t_ult, z_ult },
-            tributary_length: dy * perimeter, // tributary area = length segment * perimeter
+            curve: SoilCurve::Tz { t_ult, z_ult, perimeter: Some(perimeter) },
+            tributary_length: dy,
         });
     }
 
@@ -631,6 +634,7 @@ fn lateral_pile_case(n_elem: usize) -> SSIInput {
                 d: d_pile,
                 depth: i as f64 * dy,
                 eps_50,
+                j: Some(0.5),
             },
             tributary_length: dy,
         })

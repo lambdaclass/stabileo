@@ -364,6 +364,8 @@ export function packJoints(input: JointPackingInput): JointPackingResult {
               ...sg,
               start: { ...sg.start, x: sg.start.x + t.x * delta, y: sg.start.y + t.y * delta },
               end: { ...sg.end, x: sg.end.x + t.x * delta, y: sg.end.y + t.y * delta },
+              // A hook's arc moves with its centre, or it is redrawn about the place it left.
+              ...(sg.centre ? { centre: { ...sg.centre, x: sg.centre.x + t.x * delta, y: sg.centre.y + t.y * delta } } : {}),
             })),
             source: 'coordinated',
           });

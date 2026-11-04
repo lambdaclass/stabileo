@@ -40,7 +40,8 @@ describe('CIRSOC 301 D.2(b) from the model connection', () => {
   it('an end left undescribed keeps the check NOT EVALUATED, naming the end', () => {
     const v = checkSteelMember(1, { ...noDemand, Nt: 300 }, IPE200, steel, { L: 3, Lb: 3, tensionEnds: ends(undefined) })!;
     expect(v.tension?.notEvaluated).toMatch(/falta la union extrema.*extremo J/);
-    expect(v.overallStatus).toBe('fail');
+    // held, not failed: a refused check is never a pass and proves no failure (`cirsoc301-verdict.ts`).
+    expect(v.overallStatus).toBe('held');
   });
 
   it('a refused combination is NOT EVALUATED with its reason', () => {

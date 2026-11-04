@@ -59,13 +59,14 @@
 /* ── Controls a panel leaves unstyled ─────────────────────────────────────
    `color-scheme` makes the browser draw the native parts — a select's open list, the checkbox,
    the number spinner — for a dark surface; without it they came out white. The field styles
-   are wrapped in :where() so any component rule wins over them. */
-.pro-panel { color-scheme: dark; }
-:where(.pro-panel) select,
-:where(.pro-panel) input[type='text'],
-:where(.pro-panel) input[type='number'],
-:where(.pro-panel) input:not([type]),
-:where(.pro-panel) textarea {
+   are wrapped in :where() so any component rule wins over them. `.st-pro-surface` is the Design
+   stage's desk, whose places are the panels that lived here (interface A). */
+.pro-panel, .st-pro-surface { color-scheme: dark; }
+:where(.pro-panel, .st-pro-surface) select,
+:where(.pro-panel, .st-pro-surface) input[type='text'],
+:where(.pro-panel, .st-pro-surface) input[type='number'],
+:where(.pro-panel, .st-pro-surface) input:not([type]),
+:where(.pro-panel, .st-pro-surface) textarea {
   background: var(--st-surface-3);
   color: var(--st-text);
   border: 1px solid var(--st-hair-strong);
@@ -74,9 +75,9 @@
   font-size: 0.7rem;
   padding: 0.2rem 0.35rem;
 }
-:where(.pro-panel) select { cursor: pointer; }
-:where(.pro-panel) select:focus-visible,
-:where(.pro-panel) input:focus-visible,
-:where(.pro-panel) textarea:focus-visible { outline: 2px solid var(--st-interactive); outline-offset: 0; }
-:where(.pro-panel) input[type='checkbox'],
-:where(.pro-panel) input[type='radio'] { accent-color: var(--st-accent); }
+:where(.pro-panel, .st-pro-surface) select { cursor: pointer; }
+:where(.pro-panel, .st-pro-surface) select:focus-visible,
+:where(.pro-panel, .st-pro-surface) input:focus-visible,
+:where(.pro-panel, .st-pro-surface) textarea:focus-visible { outline: 2px solid var(--st-interactive); outline-offset: 0; }
+:where(.pro-panel, .st-pro-surface) input[type='checkbox'],
+:where(.pro-panel, .st-pro-surface) input[type='radio'] { accent-color: var(--st-accent); }

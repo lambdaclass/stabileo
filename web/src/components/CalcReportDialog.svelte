@@ -1,12 +1,13 @@
 <script lang="ts">
   import { modelStore, resultsStore, uiStore, verificationStore } from '../lib/store';
   import {
-    openCalcReport, DEFAULT_REPORT_CONTENT, RESULT_ROWS,
+    openCalcReport, generateCalcReportHtml, DEFAULT_REPORT_CONTENT, RESULT_ROWS,
     type CalcReportData, type CalcReportConfig, type ResultProvenance, type AnalysisModeLabel, type CalcReportContent, type ResultRow,
   } from '../lib/engine/calc-report';
   import ExportDialog from './export/ExportDialog.svelte';
   import ExportSection from './export/ExportSection.svelte';
   import { ensureResults } from '../lib/actions/solve';
+  import { tellIfEmpty } from '../lib/export/empty-model';
   import { kinematicReportOfModel } from '../lib/engine/kinematic-model';
   import { reportFigures } from '../lib/export/report-figures';
   import { DEFAULT_FIGURE_OPTIONS, type FigureOptions } from '../lib/export/view-figure';
@@ -14,6 +15,12 @@
   import { loadComponentsText, distributedText, pointOnElementText, thermalText } from '../lib/engine/calc-report-loads';
   import { t, tp, i18n } from '../lib/i18n';
   import { shouldProjectModelToXZ } from '../lib/geometry/coordinate-system';
+  import { captureProvenanceToken, provenanceForExport, provenanceLabels, ensureEngineHashes } from '../lib/store/result-provenance';
+  import { reportProvenanceLines } from '../lib/export/provenance-attach';
+  import type { ReportFormat } from '../lib/export/report-formats';
+
+  const FORMATS: ReportFormat[] = ['pdf', 'docx', 'html'];
+  let format = $state<ReportFormat>('pdf');
 
   let { open = $bindable(false) }: { open: boolean } = $props();
 
@@ -105,11 +112,15 @@
     if (busy) return;
     // The tab is opened now, inside the click: one opened after the solve and the figures is
     // one the pop-up blocker refuses.
-    const win = window.open('', '_blank');
+    const win = format === 'pdf' ? window.open('', '_blank') : null;
     busy = true;
     try {
       // Solved first when there are no results; a failure still gives the report, saying why.
       const solved = await ensureResults();
+      // What the report is taken from, checked again before its provenance is written.
+      const token = captureProvenanceToken();
+      // Started now, so the engine hashes are computed while the figures are drawn.
+      void ensureEngineHashes();
       const figureOptions: FigureOptions = { ...DEFAULT_FIGURE_OPTIONS, style: figStyle, values: figValues, lengths: figLengths, loads: false };
       const figures = await reportFigures(content, solved.ok, figureOptions);
       const data = reportData();
@@ -117,8 +128,17 @@
       data.figures = figures;
       data.kinematics = content.kinematics ? kinematicReportOfModel() : undefined;
       if (!solved.ok) data.solveError = solved.error;
+      // After the solve: the record names the results the report prints.
+      // Throws ExportChangedError (said below, nothing opened) if the project moved meanwhile.
+      data.resultProvenance = { record: await provenanceForExport(token), labels: provenanceLabels() };
+      tellIfEmpty();
+      if (format !== 'pdf') {
+        const { downloadReport } = await import('../lib/export/report-download');
+        const stem = (data.config.projectName || 'stabileo').replace(/[^\w.-]+/g, '-');
+        await downloadReport(format, { title: data.config.projectName || t('calcReport.title'), html: generateCalcReportHtml(data), stem, ...(data.resultProvenance ? { provenance: reportProvenanceLines(data.resultProvenance.record) } : {}) });
+        open = false;
       // No tab to be had: the report came as a file, which is said, and the dialog stays.
-      if (openCalcReport(data, win) === 'tab') open = false;
+      } else if (openCalcReport(data, win) === 'tab') open = false;
       else uiStore.toast(t('calcReport.popupBlocked'), 'info');
     } catch (e) {
       win?.close();
@@ -190,7 +210,8 @@
       analysisMode: modeLabel,
       provenance: deriveProvenance(),
       unitSystem: us,
-      hasDesignChecks: verificationStore.hasResults,
+      // The design's checks go into the report only while design is on in PRO's settings.
+      hasDesignChecks: uiStore.designInPro && verificationStore.hasResults,
       nodes: [...modelStore.nodes.values()],
       elements: [...modelStore.elements.values()],
       materials: [...modelStore.materials.values()],
@@ -215,6 +236,12 @@
 </script>
 
 <ExportDialog bind:open title={t('calcReport.title')} testid="calc-report-dialog">
+  <ExportSection title={t('export.formats')} summary={t(`proReport.format.${format}`)} open testid="calc-report-format">
+    <div class="xs-seg">
+      {#each FORMATS as f (f)}<button type="button" class:on={format === f} aria-pressed={format === f} onclick={() => (format = f)} data-testid={`calc-report-format-${f}`}>{t(`proReport.format.${f}`)}</button>{/each}
+    </div>
+    <p class="xs-note">{t(`proReport.formatNote.${format}`)}</p>
+  </ExportSection>
   <ExportSection title={t('calcReport.sectionProject')} summary={projectSummary}>
     <label class="xs-field"><span>{t('calcReport.projectName')}</span><input type="text" bind:value={projectName} /></label>
     <label class="xs-field"><span>{t('calcReport.engineerName')}</span><input type="text" bind:value={engineerName} placeholder={t('calcReport.optional')} /></label>
@@ -256,7 +283,7 @@
 
   {#snippet actions()}
     <button type="button" onclick={() => (open = false)}>{t('calcReport.cancel')}</button>
-    <button type="button" class="primary" onclick={generateReport} disabled={busy} data-testid="calc-report-generate">{busy ? t('calcReport.generating') : t('calcReport.generate')}</button>
+    <button type="button" class="primary" onclick={generateReport} disabled={busy} data-testid="calc-report-generate">{busy ? t('calcReport.generating') : tp('proReport.generate', { format: t(`proReport.format.${format}`) })}</button>
   {/snippet}
 </ExportDialog>
 

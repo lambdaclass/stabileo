@@ -35,6 +35,8 @@ function buildFootingModel(opts: { withCases?: boolean; withColumnBars?: boolean
 
   // A 400 × 400 column section, so the punching perimeter has real dimensions.
   const sectionId = modelStore.addSection({ name: '40×40', a: 0.16, iz: 0.00213, b: 0.4, h: 0.4 });
+  // The footing's concrete: f'c used to be read off any material, the default steel's fy too.
+  modelStore.addMaterial({ name: 'H-30', e: 25740, nu: 0.2, rho: 25, fy: 30, fc: 30 });
   modelStore.updateElementSection(column, sectionId);
 
   const profileId = modelStore.addSoilProfile('Arena densa');

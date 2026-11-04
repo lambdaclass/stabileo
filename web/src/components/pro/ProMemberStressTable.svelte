@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { downloadResultText } from '../../lib/export/provenance-attach';
   /**
    * Signed normal stress along the members of the result set on screen: at each station, the
    * largest tension and the largest compression on the cross-section (`engine/member-stresses.ts`).
@@ -7,8 +8,7 @@
   import { memberSectionAt } from '../../lib/section/variable';
   import { modelStore, resultsStore, uiStore } from '../../lib/store';
   import { t, tp } from '../../lib/i18n';
-  import { downloadText } from '../../lib/store/file';
-  import { toCsv } from '../../lib/engine/result-tables';
+    import { toCsv } from '../../lib/engine/result-tables';
   import { sectionStressModel, memberStationStresses, type StationStress, type SectionStressModel } from '../../lib/engine/member-stresses';
 
   const ROW_CAP = 2000;
@@ -48,7 +48,7 @@
 
   const fmt = (v: number) => (Math.abs(v) < 5e-4 ? '0' : v.toFixed(2));
   function csv() {
-    downloadText(toCsv([t('pro.elemLabel'), 'x (m)', `${t('mstress.tension')} (MPa)`, `${t('mstress.compression')} (MPa)`, t('mstress.basis')],
+    void downloadResultText(toCsv([t('pro.elemLabel'), 'x (m)', `${t('mstress.tension')} (MPa)`, `${t('mstress.compression')} (MPa)`, t('mstress.basis')],
       rows.map((r) => [r.elementId, r.x, r.sigmaMax, r.sigmaMin, r.basis])), 'member-stresses.csv', 'text/csv;charset=utf-8');
   }
   function pick(id: number) { uiStore.selectMode = 'elements'; uiStore.selectElement(id, false); }

@@ -1,5 +1,5 @@
 /**
- * The three commands that start a design, and the section that was empty under its own heading.
+ * The commands that start a design, and the section that was empty under its own heading.
  *
  * ── What was wrong ─────────────────────────────────────────────────
  *
@@ -103,14 +103,21 @@ test.describe('@smoke the families section says something before it is run', () 
     await expect(page.getByTestId('design-family-state-slab')).toContainText('skipped');
   });
 
-  test('D3 — the three scopes are stated, each naming what it does not touch', async (
+  /*
+   * Two commands now, not three (interface A): «Size…», whose scope is chosen in its dialog and
+   * which keeps what was edited by hand unless told otherwise, and the floor pass, which also
+   * details. The classic «Design all» that did the frame only is one of «Size…»'s scopes.
+   */
+  test('D3 — the two commands that start a design are stated, each with what it covers', async (
     { pro: page },
   ) => {
     const scopes = page.getByTestId('design-families-scopes');
     await expect(scopes).toBeVisible();
-    // The frame command, and the fact that it is the frame only.
-    await expect(scopes).toContainText('frame');
-    await expect(scopes).toContainText('slabs, walls or foundations');
+    await expect(scopes.locator('dt')).toHaveCount(2);
+    // «Size…», its scopes, and its one rule for the members edited by hand.
+    await expect(scopes).toContainText('Size…');
+    await expect(scopes).toContainText('the selection in the model');
+    await expect(scopes).toContainText('edited by hand is kept');
     // The floors command, and that it details as well as designs.
     await expect(scopes).toContainText('detailing');
 

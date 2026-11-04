@@ -640,6 +640,17 @@
           "factor": -1
         }
       ]
+    },
+    "solvedWith": {
+      "id": "fixture-rc-footing-cad-poc",
+      "resultsVersion": 14,
+      "resultsSchemaVersion": 1,
+      "appVersion": "0.1.0",
+      "engineVersion": "0.1.0",
+      "commit": "fixture",
+      "wasmHash": "fixture",
+      "solvedAt": "",
+      "analyses": []
     }
   },
   "appMode": "pro",

@@ -324,6 +324,7 @@ fn nuclear_ext_thermal_gradient_wall() {
             element_id: i + 1,
             dt_uniform: 0.0,
             dt_gradient,
+            alpha: None, depth: None,
         }));
     }
 
@@ -602,6 +603,7 @@ fn nuclear_ext_combined_pressure_seismic_thermal() {
             element_id: i + 1,
             dt_uniform: 0.0,
             dt_gradient,
+            alpha: None, depth: None,
         }));
     }
     let input_t = make_beam(n_elem, l, e_conc, a_sec, iz_sec, "fixed", Some("fixed"), loads_t);
@@ -625,6 +627,7 @@ fn nuclear_ext_combined_pressure_seismic_thermal() {
             element_id: i + 1,
             dt_uniform: 0.0,
             dt_gradient,
+            alpha: None, depth: None,
         }));
     }
     let input_c = make_beam(n_elem, l, e_conc, a_sec, iz_sec, "fixed", Some("fixed"), loads_combined);

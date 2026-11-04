@@ -1,17 +1,13 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 
-// Force the pure-TS section-stress path so these tests validate the TS implementation
-// deterministically. (The global vitest setup calls initSolver(), and the committed WASM
-// blob is gitignored / rebuilt only in CI — so locally it would otherwise be stale. The
-// Rust/WASM implementation is validated by the engine's own test suite in CI.)
-vi.mock('../wasm-solver', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../wasm-solver')>();
-  return { ...actual, isWasmReady: () => false };
-});
-
+// These tests pin the TypeScript statement of the section-stress formulas, which the app no
+// longer runs: it asks the engine only, and `section-stress-engine.test.ts` compares the engine
+// with this oracle. (They used to force the app's silent TS fallback with a mocked isWasmReady.)
 import {
-  analyzeSectionStress3D,
-  analyzeSectionStressFromForces,
+  analyzeSectionStress3DOracle as analyzeSectionStress3D,
+  analyzeSectionStressFromForcesOracle as analyzeSectionStressFromForces,
+} from './differential/section-stress-oracle';
+import {
   interpolateForces3D,
   suggestCriticalSections3D,
   computePerpNADistribution,

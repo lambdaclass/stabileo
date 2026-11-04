@@ -94,8 +94,8 @@ export function makeRandomModel2D(seed: number): SolverInput {
         data: {
           nodeId: targetNode,
           fx: rng.next() < 0.3 ? rng.float(-20, 20) : 0,
-          fy: rng.float(-50, -5),
-          mz: rng.next() < 0.2 ? rng.float(-10, 10) : 0,
+          fz: rng.float(-50, -5),
+          my: rng.next() < 0.2 ? rng.float(-10, 10) : 0,
         },
       });
     } else {

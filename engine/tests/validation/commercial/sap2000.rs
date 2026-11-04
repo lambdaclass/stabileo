@@ -394,7 +394,7 @@ fn validation_sap_spring_support() {
     })];
 
     let input = SolverInput {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes: nodes_map, materials: mats_map, sections: secs_map,
         elements: elems_map, supports: sups_map, loads, constraints: vec![],
         connectors: HashMap::new(), };
@@ -471,7 +471,7 @@ fn validation_sap_prescribed_displacement() {
     });
 
     let input = SolverInput {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes: nodes_map, materials: mats_map, sections: secs_map,
         elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![],
         connectors: HashMap::new(), };

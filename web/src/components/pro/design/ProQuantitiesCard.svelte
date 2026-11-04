@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { downloadResultText } from '../../../lib/export/provenance-attach';
   import { plainNumber } from '../../../lib/utils/units';
   /**
    * The project's quantities (`engine/quantities.ts`): concrete and structural steel from the
@@ -9,7 +10,6 @@
   import { t, tp } from '../../../lib/i18n';
   import { detailingStore } from '../../../lib/store/detailing.svelte';
   import { projectQuantities } from '../../../lib/engine/quantities';
-  import { downloadText } from '../../../lib/store/file';
   import { exportToExcel } from '../../../lib/export/excel';
   import { toCsv } from '../../../lib/engine/result-tables';
 
@@ -30,7 +30,7 @@
     }
     return out;
   }
-  const csv = () => { const [h, ...r] = rows(); downloadText(toCsv(h!.map(String), r), 'quantities.csv', 'text/csv;charset=utf-8'); };
+  const csv = () => { const [h, ...r] = rows(); void downloadResultText(toCsv(h!.map(String), r), 'quantities.csv', 'text/csv;charset=utf-8'); };
   const xlsx = () => exportToExcel({ filename: 'quantities.xlsx', onlyExtras: true, extraSheets: [{ name: t('report.quantities').slice(0, 31), rows: rows() }] });
   const f = (v: number, d = 2) => plainNumber(v, d);
 </script>

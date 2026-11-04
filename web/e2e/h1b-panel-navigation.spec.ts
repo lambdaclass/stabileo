@@ -9,19 +9,18 @@
  * quietly asserted away. See the last describe.
  */
 
-import { test, expect, designAll, loadModel, openDocumentsStage } from './fixtures';
+import { test, expect, designAll, loadModel, openDocumentsStage, designPlace } from './fixtures';
 import type { Page } from '@playwright/test';
 
 async function design(page: Page, model = 'rc-design-qa-8') {
   await loadModel(page, model);
   await designAll(page);
-  await page.getByTestId('pr-stage-design').click();
-  await page.getByTestId('pr-cmd-design').click();
+  await designPlace(page, 'list');
 }
 
 async function generateDetailing(page: Page) {
-  const d = page.getByTestId('detailing-disclosure');
-  if (await d.getAttribute('open') === null) await d.locator('> summary').click();
+  await designPlace(page, 'detailing');
+  const d = page.getByTestId('desk-detailing');
   const generate = page.getByTestId('cmd-generate-detailing');
   await expect(generate).toBeEnabled();
   await generate.click();
@@ -56,17 +55,21 @@ for (const locale of ['en', 'es', 'pt'] as const) {
     test.slow();
     test.use({ appLocale: locale, viewport: { width: 1280, height: 720 } });
 
-    test('the design panel skips no level', async ({ pro: page }) => {
+    test('the design places skip no level', async ({ pro: page }) => {
       await design(page);
-      const h = await headings(page, '.pro-panel');
-      expect(h, 'the panel must be on screen').not.toBeNull();
+      // Each place of design in turn, the way the classic column held them (interface A).
+      for (const place of ['list', 'detailing', 'documents'] as const) {
+      await designPlace(page, place);
+      const h = await headings(page, '.dd-canvas-body');
+      expect(h, 'the place must be on screen').not.toBeNull();
       /*
        * `h3 → h5` at "Engineer review" was the jump H1-A found, in all three languages. Both
        * headings live in `DocumentsSection`, so the fix was internal to one file: a reader
        * navigating by heading could not tell whether the review was a sibling of the documents
        * or a part of them.
        */
-      expect(jumps(h!), 'no level is skipped').toEqual([]);
+      expect(jumps(h!), `no level is skipped in ${place}`).toEqual([]);
+      }
     });
 
     test('the workspace rail skips no level', async ({ pro: page }) => {
@@ -128,9 +131,10 @@ test.describe('@slow focus and Escape', () => {
         'and returns to the control the user left').toBe('doc-3d');
     });
 
-  test('opening a stage from the strip leaves focus on the strip, which is where it belongs',
+  test('entering Design leaves focus on the stage; pressing a step moves it into its places',
     async ({ pro: page }) => {
       await design(page);
+      await page.getByTestId('pr-stage-model').click();
       /*
        * Measured rather than assumed to be a defect. Clicking a stage in the strip opens the
        * matching `<details>` and focus stays on the strip button — which is correct for a
@@ -144,30 +148,27 @@ test.describe('@slow focus and Escape', () => {
       expect(await page.evaluate(() => document.activeElement?.getAttribute('data-testid')))
         .toBe('pr-stage-design');
 
-      const d = page.getByTestId('detailing-disclosure');
-      await d.locator('> summary').click();
-      const onSummary = await page.evaluate(() =>
-        document.activeElement?.tagName.toLowerCase());
-      expect(onSummary, 'clicking the summary focuses the summary').toBe('summary');
+      // A step is a navigation within design: the keyboard follows it into the step's places.
+      await page.getByTestId('desk-step-detail').click();
+      expect(await page.evaluate(() => document.activeElement?.closest('[data-testid="desk-rail"]') !== null),
+        'pressing a step focuses its places').toBe(true);
     });
 
-  test('Escape does NOT close a stage section, and the overlay is the only modal',
+  test('Escape leaves design for the stage it came from',
     async ({ pro: page }) => {
       await design(page);
-      const d = page.getByTestId('detailing-disclosure');
-      if (await d.getAttribute('open') === null) await d.locator('> summary').click();
-      expect(await d.getAttribute('open'), 'the section is open').not.toBeNull();
+      await page.getByTestId('pr-stage-model').click();
+      await page.getByTestId('pr-stage-design').click();
+      await designPlace(page, 'detailing');
 
       await page.keyboard.press('Escape');
       /*
-       * Asserted as it is, not as it might be nicer. A `<details>` is not a dialog and Escape
-       * has no native meaning on one; the overlay closes on Escape because it IS modal. Making
-       * a disclosure close on Escape would be a new convention, and inventing one here would
-       * make the two behaviours look like a pair when only one of them is standard.
-       *
-       * Reported to Bauti as a question rather than settled in a test.
+       * Interface A: design is a stage of its own, not a section, and Escape is its way out on a
+       * keyboard (C1b of the interaction contracts). The modal surfaces above it (the 3-D view,
+       * the «Size…» dialog) take their own Escape first.
        */
-      expect(await d.getAttribute('open'), 'a disclosure ignores Escape').not.toBeNull();
+      await expect(page.getByTestId('design-desk')).toBeHidden();
+      await expect(page.getByTestId('pr-stage-model')).toHaveClass(/active/);
     });
 });
 
@@ -185,12 +186,14 @@ test.describe('@slow long content', () => {
          * labels at once, which is worse than any single one.
          */
         const r = await page.evaluate(() => {
-          const panel = document.querySelector('.pro-panel') as HTMLElement;
+          const panel = document.querySelector('.dd-canvas-body') as HTMLElement;
           const before = panel.scrollWidth - panel.clientWidth;
           const victims = [...panel.querySelectorAll('.label, .fstate, dt, dd')]
             .slice(0, 6) as HTMLElement[];
           const saved = victims.map((v) => v.textContent);
-          const long = 'Viga continua de hormigon armado sobre apoyos elasticos - nivel +12.40';
+          // Three times the 80 characters a member label reaches: the canvas under the viewer is
+          // wider than the classic column was, so one label of 80 fits on a line there.
+          const long = 'Viga continua de hormigon armado sobre apoyos elasticos - nivel +12.40 '.repeat(3);
           victims.forEach((v) => { v.textContent = long; });
           const after = panel.scrollWidth - panel.clientWidth;
           const grew = victims.map((v) => Math.round(v.getBoundingClientRect().height));
@@ -206,21 +209,21 @@ test.describe('@slow long content', () => {
   }
 });
 
-test.describe('@slow the workflow strip', () => {
+test.describe('@slow the steps of design', () => {
   test.slow();
   test.use({ viewport: { width: 1280, height: 720 } });
 
-  test('the strip itself never scrolls sideways', async ({ pro: page }) => {
+  test('the steps never scroll sideways', async ({ pro: page }) => {
     await design(page);
     for (const w of [1280, 1024, 900, 820]) {
       await page.setViewportSize({ width: w, height: 720 });
-      const over = await page.getByTestId('rc-stage-timeline').locator('ol')
+      const over = await page.getByTestId('desk-process').locator('ol')
         .evaluate((el) => el.scrollWidth - el.clientWidth);
       expect(over, `no sideways scroll at ${w}`).toBeLessThanOrEqual(1);
     }
   });
 
-  test('the strip is one row, so no chevron can point at nothing', async ({ pro: page }) => {
+  test('the steps are one row, so no chevron can point at nothing', async ({ pro: page }) => {
     /**
      * PR20 reported "the workflow strip wraps at 1280x720 with a dangling chevron". H1-A found
      * no OVERFLOW and said that was a different claim needing a different measurement. H1-B made
@@ -241,8 +244,9 @@ test.describe('@slow the workflow strip', () => {
      */
     for (const w of [1280, 1024, 900, 820]) {
       await page.setViewportSize({ width: w, height: 720 });
-      const tops = await page.getByTestId('rc-stage-timeline').locator('ol')
+      const tops = await page.getByTestId('desk-process').locator('ol')
         .evaluate((ol) => [...ol.children]
+          .filter((li) => !li.classList.contains('dp-sep'))
           .map((li) => Math.round(li.getBoundingClientRect().top)));
       expect(new Set(tops).size, `one row at ${w}`).toBe(1);
     }

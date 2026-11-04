@@ -563,6 +563,10 @@ describe('despiece equilibrium on solved models (members drawn in every directio
       } else if (l.type === 'pointOnElement' && l.data.elementId === id) {
         const p = l.data.p ?? 0, px = l.data.px ?? 0;
         fx += -s * p + c * px; fz += c * p + s * px; m += p * l.data.a + (l.data.my ?? 0);
+      } else if (l.type === 'axialDistributed' && l.data.elementId === id) {
+        // Along the member: no moment about I, which lies on its line.
+        const total = ((l.data.qI + l.data.qJ) / 2) * ((l.data.b ?? L) - (l.data.a ?? 0));
+        fx += c * total; fz += s * total;
       }
     }
     return { fx, fz, m, L, c, s };

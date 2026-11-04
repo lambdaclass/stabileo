@@ -1,0 +1,1626 @@
+{
+  "connectors": {},
+  "constraints": [],
+  "curvedBeams": [],
+  "curvedShells": {},
+  "elements": {
+    "1": {
+      "id": 1,
+      "localYx": null,
+      "localYy": null,
+      "localYz": null,
+      "materialId": 1,
+      "nodeI": 1,
+      "nodeJ": 100,
+      "releaseMyEnd": false,
+      "releaseMyStart": false,
+      "releaseMzEnd": false,
+      "releaseMzStart": false,
+      "releaseTEnd": false,
+      "releaseTStart": false,
+      "rollAngle": null,
+      "sectionId": 1,
+      "type": "frame"
+    },
+    "10": {
+      "id": 10,
+      "localYx": null,
+      "localYy": null,
+      "localYz": null,
+      "materialId": 1,
+      "nodeI": 108,
+      "nodeJ": 109,
+      "releaseMyEnd": false,
+      "releaseMyStart": false,
+      "releaseMzEnd": false,
+      "releaseMzStart": false,
+      "releaseTEnd": false,
+      "releaseTStart": false,
+      "rollAngle": null,
+      "sectionId": 1,
+      "type": "frame"
+    },
+    "11": {
+      "id": 11,
+      "localYx": null,
+      "localYy": null,
+      "localYz": null,
+      "materialId": 1,
+      "nodeI": 109,
+      "nodeJ": 110,
+      "releaseMyEnd": false,
+      "releaseMyStart": false,
+      "releaseMzEnd": false,
+      "releaseMzStart": false,
+      "releaseTEnd": false,
+      "releaseTStart": false,
+      "rollAngle": null,
+      "sectionId": 1,
+      "type": "frame"
+    },
+    "12": {
+      "id": 12,
+      "localYx": null,
+      "localYy": null,
+      "localYz": null,
+      "materialId": 1,
+      "nodeI": 110,
+      "nodeJ": 111,
+      "releaseMyEnd": false,
+      "releaseMyStart": false,
+      "releaseMzEnd": false,
+      "releaseMzStart": false,
+      "releaseTEnd": false,
+      "releaseTStart": false,
+      "rollAngle": null,
+      "sectionId": 1,
+      "type": "frame"
+    },
+    "13": {
+      "id": 13,
+      "localYx": null,
+      "localYy": null,
+      "localYz": null,
+      "materialId": 1,
+      "nodeI": 111,
+      "nodeJ": 112,
+      "releaseMyEnd": false,
+      "releaseMyStart": false,
+      "releaseMzEnd": false,
+      "releaseMzStart": false,
+      "releaseTEnd": false,
+      "releaseTStart": false,
+      "rollAngle": null,
+      "sectionId": 1,
+      "type": "frame"
+    },
+    "14": {
+      "id": 14,
+      "localYx": null,
+      "localYy": null,
+      "localYz": null,
+      "materialId": 1,
+      "nodeI": 112,
+      "nodeJ": 113,
+      "releaseMyEnd": false,
+      "releaseMyStart": false,
+      "releaseMzEnd": false,
+      "releaseMzStart": false,
+      "releaseTEnd": false,
+      "releaseTStart": false,
+      "rollAngle": null,
+      "sectionId": 1,
+      "type": "frame"
+    },
+    "15": {
+      "id": 15,
+      "localYx": null,
+      "localYy": null,
+      "localYz": null,
+      "materialId": 1,
+      "nodeI": 113,
+      "nodeJ": 114,
+      "releaseMyEnd": false,
+      "releaseMyStart": false,
+      "releaseMzEnd": false,
+      "releaseMzStart": false,
+      "releaseTEnd": false,
+      "releaseTStart": false,
+      "rollAngle": null,
+      "sectionId": 1,
+      "type": "frame"
+    },
+    "16": {
+      "id": 16,
+      "localYx": null,
+      "localYy": null,
+      "localYz": null,
+      "materialId": 1,
+      "nodeI": 114,
+      "nodeJ": 115,
+      "releaseMyEnd": false,
+      "releaseMyStart": false,
+      "releaseMzEnd": false,
+      "releaseMzStart": false,
+      "releaseTEnd": false,
+      "releaseTStart": false,
+      "rollAngle": null,
+      "sectionId": 1,
+      "type": "frame"
+    },
+    "17": {
+      "id": 17,
+      "localYx": null,
+      "localYy": null,
+      "localYz": null,
+      "materialId": 1,
+      "nodeI": 115,
+      "nodeJ": 116,
+      "releaseMyEnd": false,
+      "releaseMyStart": false,
+      "releaseMzEnd": false,
+      "releaseMzStart": false,
+      "releaseTEnd": false,
+      "releaseTStart": false,
+      "rollAngle": null,
+      "sectionId": 1,
+      "type": "frame"
+    },
+    "18": {
+      "id": 18,
+      "localYx": null,
+      "localYy": null,
+      "localYz": null,
+      "materialId": 1,
+      "nodeI": 116,
+      "nodeJ": 117,
+      "releaseMyEnd": false,
+      "releaseMyStart": false,
+      "releaseMzEnd": false,
+      "releaseMzStart": false,
+      "releaseTEnd": false,
+      "releaseTStart": false,
+      "rollAngle": null,
+      "sectionId": 1,
+      "type": "frame"
+    },
+    "19": {
+      "id": 19,
+      "localYx": null,
+      "localYy": null,
+      "localYz": null,
+      "materialId": 1,
+      "nodeI": 117,
+      "nodeJ": 118,
+      "releaseMyEnd": false,
+      "releaseMyStart": false,
+      "releaseMzEnd": false,
+      "releaseMzStart": false,
+      "releaseTEnd": false,
+      "releaseTStart": false,
+      "rollAngle": null,
+      "sectionId": 1,
+      "type": "frame"
+    },
+    "2": {
+      "id": 2,
+      "localYx": null,
+      "localYy": null,
+      "localYz": null,
+      "materialId": 1,
+      "nodeI": 100,
+      "nodeJ": 101,
+      "releaseMyEnd": false,
+      "releaseMyStart": false,
+      "releaseMzEnd": false,
+      "releaseMzStart": false,
+      "releaseTEnd": false,
+      "releaseTStart": false,
+      "rollAngle": null,
+      "sectionId": 1,
+      "type": "frame"
+    },
+    "20": {
+      "id": 20,
+      "localYx": null,
+      "localYy": null,
+      "localYz": null,
+      "materialId": 1,
+      "nodeI": 118,
+      "nodeJ": 119,
+      "releaseMyEnd": false,
+      "releaseMyStart": false,
+      "releaseMzEnd": false,
+      "releaseMzStart": false,
+      "releaseTEnd": false,
+      "releaseTStart": false,
+      "rollAngle": null,
+      "sectionId": 1,
+      "type": "frame"
+    },
+    "21": {
+      "id": 21,
+      "localYx": null,
+      "localYy": null,
+      "localYz": null,
+      "materialId": 1,
+      "nodeI": 119,
+      "nodeJ": 120,
+      "releaseMyEnd": false,
+      "releaseMyStart": false,
+      "releaseMzEnd": false,
+      "releaseMzStart": false,
+      "releaseTEnd": false,
+      "releaseTStart": false,
+      "rollAngle": null,
+      "sectionId": 1,
+      "type": "frame"
+    },
+    "22": {
+      "id": 22,
+      "localYx": null,
+      "localYy": null,
+      "localYz": null,
+      "materialId": 1,
+      "nodeI": 120,
+      "nodeJ": 121,
+      "releaseMyEnd": false,
+      "releaseMyStart": false,
+      "releaseMzEnd": false,
+      "releaseMzStart": false,
+      "releaseTEnd": false,
+      "releaseTStart": false,
+      "rollAngle": null,
+      "sectionId": 1,
+      "type": "frame"
+    },
+    "23": {
+      "id": 23,
+      "localYx": null,
+      "localYy": null,
+      "localYz": null,
+      "materialId": 1,
+      "nodeI": 121,
+      "nodeJ": 122,
+      "releaseMyEnd": false,
+      "releaseMyStart": false,
+      "releaseMzEnd": false,
+      "releaseMzStart": false,
+      "releaseTEnd": false,
+      "releaseTStart": false,
+      "rollAngle": null,
+      "sectionId": 1,
+      "type": "frame"
+    },
+    "24": {
+      "id": 24,
+      "localYx": null,
+      "localYy": null,
+      "localYz": null,
+      "materialId": 1,
+      "nodeI": 122,
+      "nodeJ": 123,
+      "releaseMyEnd": false,
+      "releaseMyStart": false,
+      "releaseMzEnd": false,
+      "releaseMzStart": false,
+      "releaseTEnd": false,
+      "releaseTStart": false,
+      "rollAngle": null,
+      "sectionId": 1,
+      "type": "frame"
+    },
+    "25": {
+      "id": 25,
+      "localYx": null,
+      "localYy": null,
+      "localYz": null,
+      "materialId": 1,
+      "nodeI": 123,
+      "nodeJ": 124,
+      "releaseMyEnd": false,
+      "releaseMyStart": false,
+      "releaseMzEnd": false,
+      "releaseMzStart": false,
+      "releaseTEnd": false,
+      "releaseTStart": false,
+      "rollAngle": null,
+      "sectionId": 1,
+      "type": "frame"
+    },
+    "26": {
+      "id": 26,
+      "localYx": null,
+      "localYy": null,
+      "localYz": null,
+      "materialId": 1,
+      "nodeI": 124,
+      "nodeJ": 125,
+      "releaseMyEnd": false,
+      "releaseMyStart": false,
+      "releaseMzEnd": false,
+      "releaseMzStart": false,
+      "releaseTEnd": false,
+      "releaseTStart": false,
+      "rollAngle": null,
+      "sectionId": 1,
+      "type": "frame"
+    },
+    "27": {
+      "id": 27,
+      "localYx": null,
+      "localYy": null,
+      "localYz": null,
+      "materialId": 1,
+      "nodeI": 125,
+      "nodeJ": 126,
+      "releaseMyEnd": false,
+      "releaseMyStart": false,
+      "releaseMzEnd": false,
+      "releaseMzStart": false,
+      "releaseTEnd": false,
+      "releaseTStart": false,
+      "rollAngle": null,
+      "sectionId": 1,
+      "type": "frame"
+    },
+    "28": {
+      "id": 28,
+      "localYx": null,
+      "localYy": null,
+      "localYz": null,
+      "materialId": 1,
+      "nodeI": 126,
+      "nodeJ": 127,
+      "releaseMyEnd": false,
+      "releaseMyStart": false,
+      "releaseMzEnd": false,
+      "releaseMzStart": false,
+      "releaseTEnd": false,
+      "releaseTStart": false,
+      "rollAngle": null,
+      "sectionId": 1,
+      "type": "frame"
+    },
+    "29": {
+      "id": 29,
+      "localYx": null,
+      "localYy": null,
+      "localYz": null,
+      "materialId": 1,
+      "nodeI": 127,
+      "nodeJ": 128,
+      "releaseMyEnd": false,
+      "releaseMyStart": false,
+      "releaseMzEnd": false,
+      "releaseMzStart": false,
+      "releaseTEnd": false,
+      "releaseTStart": false,
+      "rollAngle": null,
+      "sectionId": 1,
+      "type": "frame"
+    },
+    "3": {
+      "id": 3,
+      "localYx": null,
+      "localYy": null,
+      "localYz": null,
+      "materialId": 1,
+      "nodeI": 101,
+      "nodeJ": 102,
+      "releaseMyEnd": false,
+      "releaseMyStart": false,
+      "releaseMzEnd": false,
+      "releaseMzStart": false,
+      "releaseTEnd": false,
+      "releaseTStart": false,
+      "rollAngle": null,
+      "sectionId": 1,
+      "type": "frame"
+    },
+    "30": {
+      "id": 30,
+      "localYx": null,
+      "localYy": null,
+      "localYz": null,
+      "materialId": 1,
+      "nodeI": 128,
+      "nodeJ": 129,
+      "releaseMyEnd": false,
+      "releaseMyStart": false,
+      "releaseMzEnd": false,
+      "releaseMzStart": false,
+      "releaseTEnd": false,
+      "releaseTStart": false,
+      "rollAngle": null,
+      "sectionId": 1,
+      "type": "frame"
+    },
+    "31": {
+      "id": 31,
+      "localYx": null,
+      "localYy": null,
+      "localYz": null,
+      "materialId": 1,
+      "nodeI": 129,
+      "nodeJ": 130,
+      "releaseMyEnd": false,
+      "releaseMyStart": false,
+      "releaseMzEnd": false,
+      "releaseMzStart": false,
+      "releaseTEnd": false,
+      "releaseTStart": false,
+      "rollAngle": null,
+      "sectionId": 1,
+      "type": "frame"
+    },
+    "32": {
+      "id": 32,
+      "localYx": null,
+      "localYy": null,
+      "localYz": null,
+      "materialId": 1,
+      "nodeI": 130,
+      "nodeJ": 131,
+      "releaseMyEnd": false,
+      "releaseMyStart": false,
+      "releaseMzEnd": false,
+      "releaseMzStart": false,
+      "releaseTEnd": false,
+      "releaseTStart": false,
+      "rollAngle": null,
+      "sectionId": 1,
+      "type": "frame"
+    },
+    "33": {
+      "id": 33,
+      "localYx": null,
+      "localYy": null,
+      "localYz": null,
+      "materialId": 1,
+      "nodeI": 131,
+      "nodeJ": 132,
+      "releaseMyEnd": false,
+      "releaseMyStart": false,
+      "releaseMzEnd": false,
+      "releaseMzStart": false,
+      "releaseTEnd": false,
+      "releaseTStart": false,
+      "rollAngle": null,
+      "sectionId": 1,
+      "type": "frame"
+    },
+    "34": {
+      "id": 34,
+      "localYx": null,
+      "localYy": null,
+      "localYz": null,
+      "materialId": 1,
+      "nodeI": 132,
+      "nodeJ": 133,
+      "releaseMyEnd": false,
+      "releaseMyStart": false,
+      "releaseMzEnd": false,
+      "releaseMzStart": false,
+      "releaseTEnd": false,
+      "releaseTStart": false,
+      "rollAngle": null,
+      "sectionId": 1,
+      "type": "frame"
+    },
+    "35": {
+      "id": 35,
+      "localYx": null,
+      "localYy": null,
+      "localYz": null,
+      "materialId": 1,
+      "nodeI": 133,
+      "nodeJ": 134,
+      "releaseMyEnd": false,
+      "releaseMyStart": false,
+      "releaseMzEnd": false,
+      "releaseMzStart": false,
+      "releaseTEnd": false,
+      "releaseTStart": false,
+      "rollAngle": null,
+      "sectionId": 1,
+      "type": "frame"
+    },
+    "36": {
+      "id": 36,
+      "localYx": null,
+      "localYy": null,
+      "localYz": null,
+      "materialId": 1,
+      "nodeI": 134,
+      "nodeJ": 135,
+      "releaseMyEnd": false,
+      "releaseMyStart": false,
+      "releaseMzEnd": false,
+      "releaseMzStart": false,
+      "releaseTEnd": false,
+      "releaseTStart": false,
+      "rollAngle": null,
+      "sectionId": 1,
+      "type": "frame"
+    },
+    "37": {
+      "id": 37,
+      "localYx": null,
+      "localYy": null,
+      "localYz": null,
+      "materialId": 1,
+      "nodeI": 135,
+      "nodeJ": 136,
+      "releaseMyEnd": false,
+      "releaseMyStart": false,
+      "releaseMzEnd": false,
+      "releaseMzStart": false,
+      "releaseTEnd": false,
+      "releaseTStart": false,
+      "rollAngle": null,
+      "sectionId": 1,
+      "type": "frame"
+    },
+    "38": {
+      "id": 38,
+      "localYx": null,
+      "localYy": null,
+      "localYz": null,
+      "materialId": 1,
+      "nodeI": 136,
+      "nodeJ": 137,
+      "releaseMyEnd": false,
+      "releaseMyStart": false,
+      "releaseMzEnd": false,
+      "releaseMzStart": false,
+      "releaseTEnd": false,
+      "releaseTStart": false,
+      "rollAngle": null,
+      "sectionId": 1,
+      "type": "frame"
+    },
+    "39": {
+      "id": 39,
+      "localYx": null,
+      "localYy": null,
+      "localYz": null,
+      "materialId": 1,
+      "nodeI": 137,
+      "nodeJ": 138,
+      "releaseMyEnd": false,
+      "releaseMyStart": false,
+      "releaseMzEnd": false,
+      "releaseMzStart": false,
+      "releaseTEnd": false,
+      "releaseTStart": false,
+      "rollAngle": null,
+      "sectionId": 1,
+      "type": "frame"
+    },
+    "4": {
+      "id": 4,
+      "localYx": null,
+      "localYy": null,
+      "localYz": null,
+      "materialId": 1,
+      "nodeI": 102,
+      "nodeJ": 103,
+      "releaseMyEnd": false,
+      "releaseMyStart": false,
+      "releaseMzEnd": false,
+      "releaseMzStart": false,
+      "releaseTEnd": false,
+      "releaseTStart": false,
+      "rollAngle": null,
+      "sectionId": 1,
+      "type": "frame"
+    },
+    "40": {
+      "id": 40,
+      "localYx": null,
+      "localYy": null,
+      "localYz": null,
+      "materialId": 1,
+      "nodeI": 138,
+      "nodeJ": 2,
+      "releaseMyEnd": false,
+      "releaseMyStart": false,
+      "releaseMzEnd": false,
+      "releaseMzStart": false,
+      "releaseTEnd": false,
+      "releaseTStart": false,
+      "rollAngle": null,
+      "sectionId": 1,
+      "type": "frame"
+    },
+    "5": {
+      "id": 5,
+      "localYx": null,
+      "localYy": null,
+      "localYz": null,
+      "materialId": 1,
+      "nodeI": 103,
+      "nodeJ": 104,
+      "releaseMyEnd": false,
+      "releaseMyStart": false,
+      "releaseMzEnd": false,
+      "releaseMzStart": false,
+      "releaseTEnd": false,
+      "releaseTStart": false,
+      "rollAngle": null,
+      "sectionId": 1,
+      "type": "frame"
+    },
+    "6": {
+      "id": 6,
+      "localYx": null,
+      "localYy": null,
+      "localYz": null,
+      "materialId": 1,
+      "nodeI": 104,
+      "nodeJ": 105,
+      "releaseMyEnd": false,
+      "releaseMyStart": false,
+      "releaseMzEnd": false,
+      "releaseMzStart": false,
+      "releaseTEnd": false,
+      "releaseTStart": false,
+      "rollAngle": null,
+      "sectionId": 1,
+      "type": "frame"
+    },
+    "7": {
+      "id": 7,
+      "localYx": null,
+      "localYy": null,
+      "localYz": null,
+      "materialId": 1,
+      "nodeI": 105,
+      "nodeJ": 106,
+      "releaseMyEnd": false,
+      "releaseMyStart": false,
+      "releaseMzEnd": false,
+      "releaseMzStart": false,
+      "releaseTEnd": false,
+      "releaseTStart": false,
+      "rollAngle": null,
+      "sectionId": 1,
+      "type": "frame"
+    },
+    "8": {
+      "id": 8,
+      "localYx": null,
+      "localYy": null,
+      "localYz": null,
+      "materialId": 1,
+      "nodeI": 106,
+      "nodeJ": 107,
+      "releaseMyEnd": false,
+      "releaseMyStart": false,
+      "releaseMzEnd": false,
+      "releaseMzStart": false,
+      "releaseTEnd": false,
+      "releaseTStart": false,
+      "rollAngle": null,
+      "sectionId": 1,
+      "type": "frame"
+    },
+    "9": {
+      "id": 9,
+      "localYx": null,
+      "localYy": null,
+      "localYz": null,
+      "materialId": 1,
+      "nodeI": 107,
+      "nodeJ": 108,
+      "releaseMyEnd": false,
+      "releaseMyStart": false,
+      "releaseMzEnd": false,
+      "releaseMzStart": false,
+      "releaseTEnd": false,
+      "releaseTStart": false,
+      "rollAngle": null,
+      "sectionId": 1,
+      "type": "frame"
+    }
+  },
+  "leftHand": null,
+  "loads": [
+    {
+      "data": {
+        "bw": null,
+        "fx": 0.0,
+        "fy": 0.0,
+        "fz": -1.0,
+        "mx": 0.0,
+        "my": 0.0,
+        "mz": 0.0,
+        "nodeId": 2
+      },
+      "type": "nodal"
+    },
+    {
+      "data": {
+        "a": null,
+        "b": null,
+        "elementId": 1,
+        "qXI": 0.0,
+        "qXJ": 0.0,
+        "qYI": 0.125,
+        "qYJ": 0.125,
+        "qZI": -10.375,
+        "qZJ": -10.375
+      },
+      "type": "distributed"
+    },
+    {
+      "data": {
+        "a": null,
+        "b": null,
+        "elementId": 2,
+        "qXI": 0.0,
+        "qXJ": 0.0,
+        "qYI": 0.375,
+        "qYJ": 0.375,
+        "qZI": -11.125,
+        "qZJ": -11.125
+      },
+      "type": "distributed"
+    },
+    {
+      "data": {
+        "a": null,
+        "b": null,
+        "elementId": 3,
+        "qXI": 0.0,
+        "qXJ": 0.0,
+        "qYI": 0.625,
+        "qYJ": 0.625,
+        "qZI": -11.875,
+        "qZJ": -11.875
+      },
+      "type": "distributed"
+    },
+    {
+      "data": {
+        "a": null,
+        "b": null,
+        "elementId": 4,
+        "qXI": 0.0,
+        "qXJ": 0.0,
+        "qYI": 0.875,
+        "qYJ": 0.875,
+        "qZI": -12.625,
+        "qZJ": -12.625
+      },
+      "type": "distributed"
+    },
+    {
+      "data": {
+        "a": null,
+        "b": null,
+        "elementId": 5,
+        "qXI": 0.0,
+        "qXJ": 0.0,
+        "qYI": 1.125,
+        "qYJ": 1.125,
+        "qZI": -13.375,
+        "qZJ": -13.375
+      },
+      "type": "distributed"
+    },
+    {
+      "data": {
+        "a": null,
+        "b": null,
+        "elementId": 6,
+        "qXI": 0.0,
+        "qXJ": 0.0,
+        "qYI": 1.375,
+        "qYJ": 1.375,
+        "qZI": -14.125,
+        "qZJ": -14.125
+      },
+      "type": "distributed"
+    },
+    {
+      "data": {
+        "a": null,
+        "b": null,
+        "elementId": 7,
+        "qXI": 0.0,
+        "qXJ": 0.0,
+        "qYI": 1.625,
+        "qYJ": 1.625,
+        "qZI": -14.875,
+        "qZJ": -14.875
+      },
+      "type": "distributed"
+    },
+    {
+      "data": {
+        "a": null,
+        "b": null,
+        "elementId": 8,
+        "qXI": 0.0,
+        "qXJ": 0.0,
+        "qYI": 1.875,
+        "qYJ": 1.875,
+        "qZI": -15.625,
+        "qZJ": -15.625
+      },
+      "type": "distributed"
+    },
+    {
+      "data": {
+        "a": null,
+        "b": null,
+        "elementId": 9,
+        "qXI": 0.0,
+        "qXJ": 0.0,
+        "qYI": 2.125,
+        "qYJ": 2.125,
+        "qZI": -16.375,
+        "qZJ": -16.375
+      },
+      "type": "distributed"
+    },
+    {
+      "data": {
+        "a": null,
+        "b": null,
+        "elementId": 10,
+        "qXI": 0.0,
+        "qXJ": 0.0,
+        "qYI": 2.375,
+        "qYJ": 2.375,
+        "qZI": -17.125,
+        "qZJ": -17.125
+      },
+      "type": "distributed"
+    },
+    {
+      "data": {
+        "a": null,
+        "b": null,
+        "elementId": 11,
+        "qXI": 0.0,
+        "qXJ": 0.0,
+        "qYI": 2.625,
+        "qYJ": 2.625,
+        "qZI": -17.875,
+        "qZJ": -17.875
+      },
+      "type": "distributed"
+    },
+    {
+      "data": {
+        "a": null,
+        "b": null,
+        "elementId": 12,
+        "qXI": 0.0,
+        "qXJ": 0.0,
+        "qYI": 2.875,
+        "qYJ": 2.875,
+        "qZI": -18.625,
+        "qZJ": -18.625
+      },
+      "type": "distributed"
+    },
+    {
+      "data": {
+        "a": null,
+        "b": null,
+        "elementId": 13,
+        "qXI": 0.0,
+        "qXJ": 0.0,
+        "qYI": 3.125,
+        "qYJ": 3.125,
+        "qZI": -19.375,
+        "qZJ": -19.375
+      },
+      "type": "distributed"
+    },
+    {
+      "data": {
+        "a": null,
+        "b": null,
+        "elementId": 14,
+        "qXI": 0.0,
+        "qXJ": 0.0,
+        "qYI": 3.375,
+        "qYJ": 3.375,
+        "qZI": -20.125,
+        "qZJ": -20.125
+      },
+      "type": "distributed"
+    },
+    {
+      "data": {
+        "a": null,
+        "b": null,
+        "elementId": 15,
+        "qXI": 0.0,
+        "qXJ": 0.0,
+        "qYI": 3.625,
+        "qYJ": 3.625,
+        "qZI": -20.875,
+        "qZJ": -20.875
+      },
+      "type": "distributed"
+    },
+    {
+      "data": {
+        "a": null,
+        "b": null,
+        "elementId": 16,
+        "qXI": 0.0,
+        "qXJ": 0.0,
+        "qYI": 3.875,
+        "qYJ": 3.875,
+        "qZI": -21.625,
+        "qZJ": -21.625
+      },
+      "type": "distributed"
+    },
+    {
+      "data": {
+        "a": null,
+        "b": null,
+        "elementId": 17,
+        "qXI": 0.0,
+        "qXJ": 0.0,
+        "qYI": 4.125,
+        "qYJ": 4.125,
+        "qZI": -22.375,
+        "qZJ": -22.375
+      },
+      "type": "distributed"
+    },
+    {
+      "data": {
+        "a": null,
+        "b": null,
+        "elementId": 18,
+        "qXI": 0.0,
+        "qXJ": 0.0,
+        "qYI": 4.375,
+        "qYJ": 4.375,
+        "qZI": -23.125,
+        "qZJ": -23.125
+      },
+      "type": "distributed"
+    },
+    {
+      "data": {
+        "a": null,
+        "b": null,
+        "elementId": 19,
+        "qXI": 0.0,
+        "qXJ": 0.0,
+        "qYI": 4.625,
+        "qYJ": 4.625,
+        "qZI": -23.875,
+        "qZJ": -23.875
+      },
+      "type": "distributed"
+    },
+    {
+      "data": {
+        "a": null,
+        "b": null,
+        "elementId": 20,
+        "qXI": 0.0,
+        "qXJ": 0.0,
+        "qYI": 4.875,
+        "qYJ": 4.875,
+        "qZI": -24.625,
+        "qZJ": -24.625
+      },
+      "type": "distributed"
+    },
+    {
+      "data": {
+        "a": null,
+        "b": null,
+        "elementId": 21,
+        "qXI": 0.0,
+        "qXJ": 0.0,
+        "qYI": 5.125,
+        "qYJ": 5.125,
+        "qZI": -25.375,
+        "qZJ": -25.375
+      },
+      "type": "distributed"
+    },
+    {
+      "data": {
+        "a": null,
+        "b": null,
+        "elementId": 22,
+        "qXI": 0.0,
+        "qXJ": 0.0,
+        "qYI": 5.375,
+        "qYJ": 5.375,
+        "qZI": -26.125,
+        "qZJ": -26.125
+      },
+      "type": "distributed"
+    },
+    {
+      "data": {
+        "a": null,
+        "b": null,
+        "elementId": 23,
+        "qXI": 0.0,
+        "qXJ": 0.0,
+        "qYI": 5.625,
+        "qYJ": 5.625,
+        "qZI": -26.875,
+        "qZJ": -26.875
+      },
+      "type": "distributed"
+    },
+    {
+      "data": {
+        "a": null,
+        "b": null,
+        "elementId": 24,
+        "qXI": 0.0,
+        "qXJ": 0.0,
+        "qYI": 5.875,
+        "qYJ": 5.875,
+        "qZI": -27.625,
+        "qZJ": -27.625
+      },
+      "type": "distributed"
+    },
+    {
+      "data": {
+        "a": null,
+        "b": null,
+        "elementId": 25,
+        "qXI": 0.0,
+        "qXJ": 0.0,
+        "qYI": 6.125,
+        "qYJ": 6.125,
+        "qZI": -28.375,
+        "qZJ": -28.375
+      },
+      "type": "distributed"
+    },
+    {
+      "data": {
+        "a": null,
+        "b": null,
+        "elementId": 26,
+        "qXI": 0.0,
+        "qXJ": 0.0,
+        "qYI": 6.375,
+        "qYJ": 6.375,
+        "qZI": -29.125,
+        "qZJ": -29.125
+      },
+      "type": "distributed"
+    },
+    {
+      "data": {
+        "a": null,
+        "b": null,
+        "elementId": 27,
+        "qXI": 0.0,
+        "qXJ": 0.0,
+        "qYI": 6.625,
+        "qYJ": 6.625,
+        "qZI": -29.875,
+        "qZJ": -29.875
+      },
+      "type": "distributed"
+    },
+    {
+      "data": {
+        "a": null,
+        "b": null,
+        "elementId": 28,
+        "qXI": 0.0,
+        "qXJ": 0.0,
+        "qYI": 6.875,
+        "qYJ": 6.875,
+        "qZI": -30.625,
+        "qZJ": -30.625
+      },
+      "type": "distributed"
+    },
+    {
+      "data": {
+        "a": null,
+        "b": null,
+        "elementId": 29,
+        "qXI": 0.0,
+        "qXJ": 0.0,
+        "qYI": 7.125,
+        "qYJ": 7.125,
+        "qZI": -31.375,
+        "qZJ": -31.375
+      },
+      "type": "distributed"
+    },
+    {
+      "data": {
+        "a": null,
+        "b": null,
+        "elementId": 30,
+        "qXI": 0.0,
+        "qXJ": 0.0,
+        "qYI": 7.375,
+        "qYJ": 7.375,
+        "qZI": -32.125,
+        "qZJ": -32.125
+      },
+      "type": "distributed"
+    },
+    {
+      "data": {
+        "a": null,
+        "b": null,
+        "elementId": 31,
+        "qXI": 0.0,
+        "qXJ": 0.0,
+        "qYI": 7.625,
+        "qYJ": 7.625,
+        "qZI": -32.875,
+        "qZJ": -32.875
+      },
+      "type": "distributed"
+    },
+    {
+      "data": {
+        "a": null,
+        "b": null,
+        "elementId": 32,
+        "qXI": 0.0,
+        "qXJ": 0.0,
+        "qYI": 7.875,
+        "qYJ": 7.875,
+        "qZI": -33.625,
+        "qZJ": -33.625
+      },
+      "type": "distributed"
+    },
+    {
+      "data": {
+        "a": null,
+        "b": null,
+        "elementId": 33,
+        "qXI": 0.0,
+        "qXJ": 0.0,
+        "qYI": 8.125,
+        "qYJ": 8.125,
+        "qZI": -34.375,
+        "qZJ": -34.375
+      },
+      "type": "distributed"
+    },
+    {
+      "data": {
+        "a": null,
+        "b": null,
+        "elementId": 34,
+        "qXI": 0.0,
+        "qXJ": 0.0,
+        "qYI": 8.375,
+        "qYJ": 8.375,
+        "qZI": -35.125,
+        "qZJ": -35.125
+      },
+      "type": "distributed"
+    },
+    {
+      "data": {
+        "a": null,
+        "b": null,
+        "elementId": 35,
+        "qXI": 0.0,
+        "qXJ": 0.0,
+        "qYI": 8.625,
+        "qYJ": 8.625,
+        "qZI": -35.875,
+        "qZJ": -35.875
+      },
+      "type": "distributed"
+    },
+    {
+      "data": {
+        "a": null,
+        "b": null,
+        "elementId": 36,
+        "qXI": 0.0,
+        "qXJ": 0.0,
+        "qYI": 8.875,
+        "qYJ": 8.875,
+        "qZI": -36.625,
+        "qZJ": -36.625
+      },
+      "type": "distributed"
+    },
+    {
+      "data": {
+        "a": null,
+        "b": null,
+        "elementId": 37,
+        "qXI": 0.0,
+        "qXJ": 0.0,
+        "qYI": 9.125,
+        "qYJ": 9.125,
+        "qZI": -37.375,
+        "qZJ": -37.375
+      },
+      "type": "distributed"
+    },
+    {
+      "data": {
+        "a": null,
+        "b": null,
+        "elementId": 38,
+        "qXI": 0.0,
+        "qXJ": 0.0,
+        "qYI": 9.375,
+        "qYJ": 9.375,
+        "qZI": -38.125,
+        "qZJ": -38.125
+      },
+      "type": "distributed"
+    },
+    {
+      "data": {
+        "a": null,
+        "b": null,
+        "elementId": 39,
+        "qXI": 0.0,
+        "qXJ": 0.0,
+        "qYI": 9.625,
+        "qYJ": 9.625,
+        "qZI": -38.875,
+        "qZJ": -38.875
+      },
+      "type": "distributed"
+    },
+    {
+      "data": {
+        "a": null,
+        "b": null,
+        "elementId": 40,
+        "qXI": 0.0,
+        "qXJ": 0.0,
+        "qYI": 9.875,
+        "qYJ": 9.875,
+        "qZI": -39.625,
+        "qZJ": -39.625
+      },
+      "type": "distributed"
+    }
+  ],
+  "materials": {
+    "1": {
+      "e": 200000.0,
+      "id": 1,
+      "nu": 0.3
+    },
+    "9": {
+      "e": 200000.0,
+      "id": 9,
+      "nu": 0.3
+    }
+  },
+  "nodes": {
+    "1": {
+      "id": 1,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "100": {
+      "id": 100,
+      "x": 0.1,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "101": {
+      "id": 101,
+      "x": 0.2,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "102": {
+      "id": 102,
+      "x": 0.3,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "103": {
+      "id": 103,
+      "x": 0.4,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "104": {
+      "id": 104,
+      "x": 0.5,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "105": {
+      "id": 105,
+      "x": 0.6,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "106": {
+      "id": 106,
+      "x": 0.7,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "107": {
+      "id": 107,
+      "x": 0.8,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "108": {
+      "id": 108,
+      "x": 0.9,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "109": {
+      "id": 109,
+      "x": 1.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "110": {
+      "id": 110,
+      "x": 1.1,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "111": {
+      "id": 111,
+      "x": 1.2,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "112": {
+      "id": 112,
+      "x": 1.3,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "113": {
+      "id": 113,
+      "x": 1.4,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "114": {
+      "id": 114,
+      "x": 1.5,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "115": {
+      "id": 115,
+      "x": 1.6,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "116": {
+      "id": 116,
+      "x": 1.7,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "117": {
+      "id": 117,
+      "x": 1.8,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "118": {
+      "id": 118,
+      "x": 1.9,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "119": {
+      "id": 119,
+      "x": 2.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "120": {
+      "id": 120,
+      "x": 2.1,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "121": {
+      "id": 121,
+      "x": 2.2,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "122": {
+      "id": 122,
+      "x": 2.3,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "123": {
+      "id": 123,
+      "x": 2.4,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "124": {
+      "id": 124,
+      "x": 2.5,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "125": {
+      "id": 125,
+      "x": 2.6,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "126": {
+      "id": 126,
+      "x": 2.7,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "127": {
+      "id": 127,
+      "x": 2.8,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "128": {
+      "id": 128,
+      "x": 2.9,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "129": {
+      "id": 129,
+      "x": 3.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "130": {
+      "id": 130,
+      "x": 3.1,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "131": {
+      "id": 131,
+      "x": 3.2,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "132": {
+      "id": 132,
+      "x": 3.3,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "133": {
+      "id": 133,
+      "x": 3.4,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "134": {
+      "id": 134,
+      "x": 3.5,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "135": {
+      "id": 135,
+      "x": 3.6,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "136": {
+      "id": 136,
+      "x": 3.7,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "137": {
+      "id": 137,
+      "x": 3.8,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "138": {
+      "id": 138,
+      "x": 3.9,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "2": {
+      "id": 2,
+      "x": 4.0,
+      "y": 0.0,
+      "z": 0.0
+    }
+  },
+  "plates": {},
+  "quad9s": {},
+  "quads": {},
+  "sections": {
+    "1": {
+      "a": 0.09,
+      "asY": null,
+      "asZ": null,
+      "cw": null,
+      "id": 1,
+      "iy": 0.0006749999999999999,
+      "iz": 0.0006749999999999999,
+      "j": 0.0011407499999999998,
+      "name": null,
+      "shearCenterY": null,
+      "shearCenterZ": null
+    },
+    "6": {
+      "a": 0.27,
+      "asY": null,
+      "asZ": null,
+      "cw": null,
+      "id": 6,
+      "iy": 0.002025,
+      "iz": 0.018225,
+      "j": 0.006400749999999999,
+      "name": null,
+      "shearCenterY": null,
+      "shearCenterZ": null
+    }
+  },
+  "solidShells": {},
+  "solverOptions": null,
+  "supports": {
+    "1": {
+      "drx": null,
+      "dry": null,
+      "drz": null,
+      "dx": null,
+      "dy": null,
+      "dz": null,
+      "isInclined": null,
+      "krx": null,
+      "kry": null,
+      "krz": null,
+      "kw": null,
+      "kx": null,
+      "ky": null,
+      "kz": null,
+      "nodeId": 1,
+      "normalX": null,
+      "normalY": null,
+      "normalZ": null,
+      "rrx": true,
+      "rry": true,
+      "rrz": true,
+      "rw": null,
+      "rx": true,
+      "ry": true,
+      "rz": true
+    }
+  }
+}

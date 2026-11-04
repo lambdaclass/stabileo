@@ -103,6 +103,8 @@ export function midpointMember(a: number, b: number, spec: MemberSpec):
 
 export interface FillReport {
   quads: number[]; plates: number[]; skippedExisting: number;
+  /** The shells of each face filled, one entry per face: what a slab per panel is made of. */
+  faces: Array<{ quads: number[]; plates: number[] }>;
   /** Closed outlines inside another, left open as openings in the shell around them. */
   openings: number;
 }
@@ -316,7 +318,7 @@ function planFill(
   });
   for (const p of steps) {
     if (p.opening || p.taken) continue;
-    if (p.holes.length > 0) {
+    if (p.holes.length > 0 || meshedFree(p, density)) {
       if (!generateMesh(holedFaceInput(p, density))) return { refused: 'cannotMesh' };
       continue;
     }
@@ -333,6 +335,12 @@ const edgeMin = (f: number[]) => Math.min(...f.map((id, k) => {
   return norm([q[0] - p[0], q[1] - p[1], q[2] - p[2]]);
 }));
 
+/**
+ * A face the mesher takes whole: one that is not a convex quadrilateral, when a target size is
+ * asked for. Without one it stays the few triangles of its outline, as it always was.
+ */
+const meshedFree = (p: FillStep, density: MeshDensity) => !p.quad && density.mode === 'targetSize';
+
 /** The mesher's input for a face with openings: the face as outline, its openings as holes, through the model's nodes. */
 function holedFaceInput({ f, holes }: FillStep, density: MeshDensity): MeshInput {
   const size = density.mode === 'targetSize' ? density.size : Math.min(edgeMin(f), ...holes.map(edgeMin));
@@ -348,10 +356,10 @@ function holedFaceInput({ f, holes }: FillStep, density: MeshDensity): MeshInput
  * of them is filled on its own — the floors of a storey or a building.
  *
  * A convex hole of four corners is meshed with quads —
- * one, or a grid at the requested density, through the same mesher as the shell tab; any other
- * becomes triangles. A hole with closed outlines inside it is meshed around them, and they stay
- * open. Faces overlapping an existing coplanar shell are left alone. Nothing is built unless
- * every face can be (see planFill).
+ * one, or a grid at the requested density, through the same mesher as the shell tab; any other is
+ * meshed at the target size when one is asked for, and is its own few triangles otherwise. A hole
+ * with closed outlines inside it is meshed around them, and they stay open. Faces overlapping an
+ * existing coplanar shell are left alone. Nothing is built unless every face can be (see planFill).
  */
 export function fillHoles(
   elementIds: Iterable<number>, materialId: number, thickness: number,
@@ -362,24 +370,28 @@ export function fillHoles(
   const density: MeshDensity = opts.density ?? { mode: 'fixedDivisions', nx: 1, ny: 1 };
   const plan = planFill(elementIds, density, opts.tol ?? 1e-3);
   if ('refused' in plan) return plan;
-  const report: FillReport = { quads: [], plates: [], skippedExisting: 0, openings: 0 };
+  const report: FillReport = { quads: [], plates: [], skippedExisting: 0, openings: 0, faces: [] };
+  const filled = (quads: number[], plates: number[]) => {
+    report.quads.push(...quads); report.plates.push(...plates);
+    report.faces.push({ quads, plates });
+  };
   modelStore.batch(() => {
     for (const step of plan.flat()) {
       const { f, tris, taken, quad, opening, holes } = step;
       if (opening) { report.openings++; continue; }
       if (taken) { report.skippedExisting++; continue; }
-      if (holes.length > 0) {
+      if (holes.length > 0 || meshedFree(step, density)) {
         const m = applyMesh(holedFaceInput(step, density), { materialId, thickness, splitBeams: true });
-        if (m) { report.quads.push(...m.quads); report.plates.push(...m.plates); }
+        if (m && !m.occupied) filled(m.quads, m.plates);
         continue;
       }
       if (quad) {
         const m = meshQuadRegion(f as [number, number, number, number], { density, materialId, thickness, splitBeams: true });
         if ('refused' in m) continue; // planFill asked the mesher for each of these already
-        report.quads.push(...m.quads);
+        filled(m.quads, []);
         continue;
       }
-      for (const [a, b, c] of tris) report.plates.push(modelStore.addPlate([f[a]!, f[b]!, f[c]!], materialId, thickness));
+      filled([], tris.map(([a, b, c]) => modelStore.addPlate([f[a]!, f[b]!, f[c]!], materialId, thickness)));
     }
   });
   return report;

@@ -79,6 +79,8 @@ fn build_solver_input_3d(
     for (id, a, iy, iz, j) in secs {
         secs_map.insert(id.to_string(), SolverSection3D {
             id, name: None, a, iy, iz, j, cw: None, as_y: None, as_z: None,
+            shear_center_y: None,
+            shear_center_z: None,
         });
     }
     let mut elems_map = HashMap::new();
@@ -118,7 +120,7 @@ fn build_solver_input_3d(
         });
     }
     SolverInput3D {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes: nodes_map,
         materials: mats_map,
         sections: secs_map,

@@ -1,4 +1,5 @@
 <script module lang="ts">
+  import { downloadResultText } from '../../lib/export/provenance-attach';
   export type TableMode = 'current' | 'all' | 'summary' | 'envelope' | 'maxType';
   /** Which result sets the across-set views read. */
   export type TableBasis = 'combos' | 'cases' | 'both';
@@ -6,6 +7,7 @@
 
 <script lang="ts">
   import { resultCaseName } from '../../lib/engine/settlement-case';
+  import { engineGuarded } from '../../lib/store/engine-action';
   /**
    * The same result table read across result sets: all of them, a summary, an envelope, and, for
    * members, the governing demand of each type along the member.
@@ -19,8 +21,7 @@
   import { modelStore, resultsStore, uiStore } from '../../lib/store';
   import { t, tp } from '../../lib/i18n';
   import { activePerCombo3D, activeCombinations } from '../../lib/store/active-results';
-  import { downloadText } from '../../lib/store/file';
-  import { exportToExcel } from '../../lib/export/excel';
+    import { exportToExcel } from '../../lib/export/excel';
   import { computeStationDemands } from '../../lib/engine/verification-service';
   import {
     columnsOf, allRows, summaryRows, envelopeRows, maxByType, toCsv, whereOf, MAX_TYPES,
@@ -81,7 +82,8 @@
   const all = $derived(mode === 'all' ? allRows(kind, sources, opts, byEntity ? 'entity' : 'source') : []);
   const summary = $derived(mode === 'summary' ? summaryRows(kind, sources, opts) : []);
   const envelope = $derived(mode === 'envelope' ? envelopeRows(kind, sources, opts) : []);
-  const byType = $derived.by(() => {
+  // Station demands are the engine's: its absence or refusal is shown in place of the rows.
+  const guardedByType = $derived(engineGuarded(() => {
     if (mode !== 'maxType') return [];
     const md = { elements: modelStore.elements, nodes: modelStore.nodes, sections: modelStore.sections, materials: modelStore.materials, supports: modelStore.supports };
     let perCombo: Map<number, AnalysisResults3D> = activePerCombo3D();
@@ -92,7 +94,8 @@
       combos = [{ id: 0, name: t('tables.shown'), factors: [] }] as never;
     }
     return maxByType(computeStationDemands(perCombo, combos, md as never).demands, entities);
-  });
+  }));
+  const byType = $derived(guardedByType.value ?? []);
 
   function fmt(n: number): string {
     if (!Number.isFinite(n)) return '—';
@@ -139,7 +142,7 @@
   const stem = () => `${kind}-${mode}`;
   function csv() {
     const { header, rows } = table();
-    downloadText(toCsv(header, rows), `${stem()}.csv`, 'text/csv;charset=utf-8');
+    void downloadResultText(toCsv(header, rows), `${stem()}.csv`, 'text/csv;charset=utf-8');
   }
   function xlsx() {
     const { header, rows } = table();
@@ -250,6 +253,8 @@
     </table>
     <p class="tm-cap">{withStations ? t('tables.envelopeHintStations') : t('tables.envelopeHint')}</p>
   </div>
+{:else if mode === 'maxType' && guardedByType.error}
+  <p class="tm-cap" role="alert" data-testid="tm-maxtype-engine">{guardedByType.error}</p>
 {:else if mode === 'maxType'}
   <div class="pro-res-table-wrap">
     <table class="pro-res-table" data-testid="tm-maxtype">

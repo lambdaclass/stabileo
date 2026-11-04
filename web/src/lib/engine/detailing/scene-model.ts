@@ -31,6 +31,8 @@
  * can read the same scene.
  */
 
+import type { PhysicalFrame, PrismLayer } from '../physical/physical-frame';
+import { netOfFrame } from '../physical/physical-frame';
 import { samplePath, type BarPath, type BarRole, type Point3 }
   from '../../codes/cirsoc201/bar-geometry';
 import { msg, type EngineMessage } from '../../codes/message';
@@ -172,7 +174,7 @@ export function classifyPiece(bar: BarPath): SceneBar['piece'] {
 
 // ─── Concrete ────────────────────────────────────────────────────
 
-export type SceneSolidKind = 'beam' | 'column' | 'footing' | 'pedestal' | 'slab' | 'wall';
+export type SceneSolidKind = 'beam' | 'column' | 'joint' | 'footing' | 'pedestal' | 'slab' | 'wall';
 
 /**
  * Every concrete family, in one place.
@@ -184,8 +186,15 @@ export type SceneSolidKind = 'beam' | 'column' | 'footing' | 'pedestal' | 'slab'
  * are built in, so the two read the same way.
  */
 export const SCENE_SOLID_KINDS: readonly SceneSolidKind[] = [
-  'column', 'beam', 'slab', 'wall', 'footing', 'pedestal',
+  'column', 'beam', 'joint', 'slab', 'wall', 'footing', 'pedestal',
 ];
+
+/**
+ * The families a member belongs to: every concrete family but the joint, which is concrete with a
+ * switch of its own and no member of its own (it is its column's, or its deepest beam's). The
+ * member list and its groups enumerate these.
+ */
+export const MEMBER_SOLID_KINDS: readonly SceneSolidKind[] = SCENE_SOLID_KINDS.filter((k) => k !== 'joint');
 
 /**
  * A piece of concrete, as a prism.
@@ -204,9 +213,19 @@ export interface SceneSolid {
    * was refused. It has concrete and no steel, and it must still appear.
    */
   assemblyId?: string;
+  /**
+   * Every assembly the concrete belongs to, when there is more than one: a joint where a beam
+   * line meets another, or meets a column stack. Shown while any of them is.
+   */
+  assemblyIds?: string[];
   elementIds: number[];
   /** Closed base polygon in model coordinates, m. Never repeats the first point. */
   base: Point3[];
+  /**
+   * Holes through the base, swept with it: a slab panel a column passes through. Absent on every
+   * solid that has none, which is every solid but a slab net of the frame.
+   */
+  holes?: Point3[][];
   /** Sweep from the base to the far face, m. */
   extrude: Point3;
   label: EngineMessage;
@@ -384,6 +403,13 @@ export interface SceneModel {
 export interface SceneOptions {
   /** Member concrete, by element. Absent members land in `unresolvedMembers`. */
   members?: readonly MemberGeometry[];
+  /**
+   * The concrete as built (`engine/physical/physical-frame.ts`). Given, a member it cut is drawn
+   * between its cut ends, each joint is a solid of its own (kind `joint`, attributed to its
+   * owner), and a slab panel is drawn net of the frame; a member it did not cut is drawn as
+   * `members` states it. Absent, every member is drawn node to node.
+   */
+  physical?: PhysicalFrame;
 }
 
 // ─── Building ────────────────────────────────────────────────────
@@ -403,60 +429,8 @@ function rectBase(
   }));
 }
 
-/**
- * A prismatic member's base rectangle, in the plane normal to its own axis.
- *
- * Built from a frame rather than from world axes because a column is vertical and a beam is
- * not, and a single hard-coded "extrude in z" would put every beam's section in the wrong
- * plane. `up` is the world vertical unless the member IS vertical, in which case there is no
- * projection of it onto the section plane and the global x axis stands in — the same
- * degenerate case every framing convention has to name, made explicit here rather than
- * producing a zero-length cross product and a NaN.
- *
- * ── Why it is exported ─────────────────────────────────────────
- *
- * `sheet-geometry.ts` draws the same concrete on a 2-D sheet and needs the same frame. A
- * second copy of this arithmetic is a second convention for which way a rolled section faces,
- * and the two would agree until the first raking column — at which point the elevation and the
- * 3-D view would show the same member in two orientations with nothing to say which was right.
- */
-export function memberBase(m: MemberGeometry): { base: Point3[]; extrude: Point3 } {
-  const ax = { x: m.end.x - m.start.x, y: m.end.y - m.start.y, z: m.end.z - m.start.z };
-  const len = Math.hypot(ax.x, ax.y, ax.z) || 1;
-  const n = { x: ax.x / len, y: ax.y / len, z: ax.z / len };
-
-  const vertical = Math.abs(n.z) > 0.999;
-  const ref = vertical ? { x: 1, y: 0, z: 0 } : { x: 0, y: 0, z: 1 };
-  // u = ref × n, normalised; v = n × u. Right-handed and orthonormal by construction.
-  let u = {
-    x: ref.y * n.z - ref.z * n.y,
-    y: ref.z * n.x - ref.x * n.z,
-    z: ref.x * n.y - ref.y * n.x,
-  };
-  const ul = Math.hypot(u.x, u.y, u.z) || 1;
-  u = { x: u.x / ul, y: u.y / ul, z: u.z / ul };
-  const v = {
-    x: n.y * u.z - n.z * u.y,
-    y: n.z * u.x - n.x * u.z,
-    z: n.x * u.y - n.y * u.x,
-  };
-
-  const t = ((m.rollDeg ?? 0) * Math.PI) / 180;
-  const c = Math.cos(t);
-  const s = Math.sin(t);
-  const hw = m.width / 2;
-  const hd = m.depth / 2;
-  const base = ([[-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]] as const).map(([a, b]) => {
-    const p = a * c - b * s;
-    const q = a * s + b * c;
-    return {
-      x: m.start.x + u.x * p + v.x * q,
-      y: m.start.y + u.y * p + v.y * q,
-      z: m.start.z + u.z * p + v.z * q,
-    };
-  });
-  return { base, extrude: ax };
-}
+import { memberBase } from '../physical/member-frame';
+export { memberBase };
 
 /**
  * Every solid a floor-family record describes.
@@ -554,6 +528,29 @@ function familySolids(
   return [];
 }
 
+const ccwXY = (r: Array<[number, number]>): Array<[number, number]> => {
+  let a = 0;
+  for (let i = 0; i < r.length; i++) { const p = r[i]!, q = r[(i + 1) % r.length]!; a += p[0] * q[1] - q[0] * p[1]; }
+  return a < 0 ? [...r].reverse() : r;
+};
+
+/** Vertical prisms as scene solids: one per polygon of each layer, its holes kept. */
+function layerSolids(
+  layers: readonly PrismLayer[], head: (n: number) => Omit<SceneSolid, 'base' | 'extrude' | 'holes'>,
+): SceneSolid[] {
+  const out: SceneSolid[] = [];
+  for (const l of layers) for (const p of l.polygons) {
+    const at = (r: ReadonlyArray<readonly [number, number]>) => r.map(([x, y]) => ({ x, y, z: l.z0 }));
+    out.push({
+      ...head(out.length),
+      base: at(p.outer),
+      ...(p.holes.length ? { holes: p.holes.map(at) } : {}),
+      extrude: { x: 0, y: 0, z: l.z1 - l.z0 },
+    });
+  }
+  return out;
+}
+
 /** Which family, if any, owns each bar in this assembly. */
 function familyOfBar(a: DocumentAssembly): Map<string, FloorFamily> {
   const out = new Map<string, FloorFamily>();
@@ -645,10 +642,26 @@ export function buildSceneModel(doc: DocumentModel, opts: SceneOptions = {}): Sc
    */
   const barsOfElement = new Set(
     bars.filter((b) => b.ownerScope === 'frame').flatMap((b) => b.elementIds));
+  // A floor family's slab panel, net of the frame it is cast against, when the frame is given.
+  if (opts.physical) {
+    const physical = opts.physical;
+    for (let k = solids.length - 1; k >= 0; k--) {
+      const sl = solids[k]!;
+      if (sl.kind !== 'slab' || Math.abs(sl.extrude.x) > 1e-9 || Math.abs(sl.extrude.y) > 1e-9) continue;
+      const z0 = Math.min(sl.base[0]!.z, sl.base[0]!.z + sl.extrude.z), z1 = Math.max(sl.base[0]!.z, sl.base[0]!.z + sl.extrude.z);
+      const layers = netOfFrame(physical, [{ outer: ccwXY(sl.base.map((p) => [p.x, p.y] as [number, number])), holes: [] }], z0, z1);
+      solids.splice(k, 1, ...layerSolids(layers, (n) => ({ ...sl, id: n === 0 ? sl.id : `${sl.id}:${n}` })));
+    }
+  }
+
   for (const m of opts.members ?? []) {
     wantedMembers.add(m.elementId);
     resolvedMembers.add(m.elementId);
-    const { base, extrude } = memberBase(m);
+    const cut = opts.physical?.member.get(m.elementId);
+    const cutAxis = cut && cut.kind !== 'member' ? cut.axis : undefined;
+    // Cut, it stands between its cut ends; a member the joints took whole has no concrete of its own.
+    if (cut && cut.kind !== 'member' && cut.layers.length === 0) continue;
+    const { base, extrude } = memberBase(cutAxis ? { ...m, start: cutAxis.start, end: cutAxis.end } : m);
     solids.push({
       id: `member:${m.elementId}`,
       kind: m.kind,
@@ -659,6 +672,28 @@ export function buildSceneModel(doc: DocumentModel, opts: SceneOptions = {}): Sc
       label: msg('detailing.scene.solid.member', { id: m.elementId }),
       reinforced: barsOfElement.has(m.elementId),
     });
+  }
+
+  /**
+   * Each joint, belonging to every member that meets in it. Its owner (the column that fills it,
+   * or the deepest beam) still names its assembly first, but the joint is drawn while ANY of its
+   * members is: tied to the owner alone, isolating the other beam of a corner, or a column left
+   * out, emptied the corner the two beams share.
+   */
+  for (const j of opts.physical?.joint.values() ?? []) {
+    const owner = j.owner.elementId!;
+    const members = [...new Set([owner, ...j.elementIds])].filter((id) => wantedMembers.has(id));
+    if (members.length === 0) continue;
+    const assemblies = [...new Set(members.map((id) => assemblyOfMember.get(id)).filter((a): a is string => a !== undefined))];
+    solids.push(...layerSolids(j.layers, (n) => ({
+      id: n === 0 ? `joint:${j.nodeId}` : `joint:${j.nodeId}:${n}`,
+      kind: 'joint' as const,
+      assemblyId: assemblyOfMember.get(owner) ?? assemblies[0],
+      ...(assemblies.length > 1 ? { assemblyIds: assemblies } : {}),
+      elementIds: members,
+      label: msg('detailing.scene.solid.joint', { id: j.nodeId! }),
+      reinforced: members.some((id) => barsOfElement.has(id)),
+    })));
   }
 
   const conflicts: SceneConflictMarker[] = doc.openConflicts.map((c: OpenConflict) => ({
@@ -855,7 +890,8 @@ export function kindByElement(
   solids: readonly SceneSolid[],
 ): ReadonlyMap<number, SceneSolidKind> {
   const out = new Map<number, SceneSolidKind>();
-  for (const s of solids) for (const id of s.elementIds) out.set(id, s.kind);
+  // A joint names its owner but does not make the owner a joint: the column stays a column.
+  for (const s of solids) if (s.kind !== 'joint') for (const id of s.elementIds) out.set(id, s.kind);
   return out;
 }
 
@@ -939,8 +975,9 @@ export function solidMatchesFilter(s: SceneSolid, f: SceneFilter): boolean {
    * is false — so deriving solid visibility from the visible assemblies put it back in the
    * dark the instant a checkbox was touched. It is governed by `hideUnreinforced` above.
    */
-  if (f.assemblyIds && s.assemblyId !== undefined && !f.assemblyIds.includes(s.assemblyId)) {
-    return false;
+  if (f.assemblyIds) {
+    const own = s.assemblyIds ?? (s.assemblyId !== undefined ? [s.assemblyId] : []);
+    if (own.length > 0 && !own.some((a) => f.assemblyIds!.includes(a))) return false;
   }
   return true;
 }
@@ -1112,7 +1149,10 @@ export function summariseScene(
     fam.set(k, e);
     return e;
   };
-  for (const s of scene.solids) bump(s.kind).solids += 1;
+  // Members only: a joint is its owner's concrete, drawn apart but no member to count, and its
+  // bars are its owner's (`kindByElement`).
+  const members = scene.solids.filter((s) => s.kind !== 'joint');
+  for (const s of members) bump(s.kind).solids += 1;
   for (const b of scene.bars) {
     const e = bump(barSolidKind(b, kindOfElement) ?? 'unknown');
     if (b.role === 'transverse') e.transverse += 1; else e.longitudinal += 1;
@@ -1126,8 +1166,8 @@ export function summariseScene(
     byDiameter: [...per.entries()]
       .map(([diameterMm, v]) => ({ diameterMm, ...v }))
       .sort((a, b) => a.diameterMm - b.diameterMm),
-    solidCount: scene.solids.length,
-    reinforcedSolidCount: scene.solids.filter((s) => s.reinforced).length,
+    solidCount: members.length,
+    reinforcedSolidCount: members.filter((s) => s.reinforced).length,
     byFamily: [...fam.entries()]
       .map(([family, v]) => ({ family, ...v }))
       .sort((a, b) => String(a.family).localeCompare(String(b.family))),

@@ -112,12 +112,11 @@ fn validation_rigid_link_moment_transfer() {
     // Reference: cantilever with moment at tip
     let ref_loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fz: 0.0, my: mz_applied,
+            node_id: 3, fx: 0.0, fz: 0.0, my: mz_applied,
         }),
     ];
     let ref_input = make_beam(2, l, E, A, IZ, "fixed", Some("free"), ref_loads);
     let ref_results = linear::solve_2d(&ref_input).unwrap();
-    let _ref_d2 = ref_results.displacements.iter().find(|d| d.node_id == 2).unwrap();
 
     // Now with rigid link: load on node 3, linked to node 2
     let nodes = vec![
@@ -156,8 +155,8 @@ fn validation_rigid_link_moment_transfer() {
     let ref_d_tip = ref_results.displacements.iter()
         .find(|d| d.node_id == 3)
         .unwrap();
-    assert_close(d3.uz, ref_d_tip.uz, 1e-3, "rigid link uy transfer");
-    assert_close(d3.ry, ref_d_tip.ry, 1e-3, "rigid link rz transfer");
+    assert_close(d3.uz, ref_d_tip.uz, 1e-6, "rigid link uy transfer");
+    assert_close(d3.ry, ref_d_tip.ry, 1e-6, "rigid link rz transfer");
 
     // Slave should have identical displacements to master (zero offset)
     let d4 = results.displacements.iter().find(|d| d.node_id == 4).unwrap();
@@ -821,11 +820,17 @@ fn benchmark_constraint_force_parity_across_solvers() {
         mp_overrides: None,
     };
     let plastic_result = plastic::solve_plastic_2d(&plastic_input).expect("Plastic solve failed");
-    let plastic_cf = if !plastic_result.steps.is_empty() {
-        plastic_result.steps.last().unwrap().results.constraint_forces.clone()
-    } else {
-        vec![]
-    };
+    // Each step's results are its increment (`PlasticStep::results`): the
+    // constraint forces at the last load factor are their sum over the steps.
+    let mut plastic_cf: Vec<ConstraintForce> = Vec::new();
+    for step in &plastic_result.steps {
+        for cf in &step.results.constraint_forces {
+            match plastic_cf.iter_mut().find(|c| c.node_id == cf.node_id && c.dof == cf.dof) {
+                Some(c) => c.force += cf.force,
+                None => plastic_cf.push(cf.clone()),
+            }
+        }
+    }
 
     // 4. Fiber nonlinear (elastic fibers → matches linear)
     let fiber_section = FiberSectionDef {

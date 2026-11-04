@@ -33,6 +33,8 @@ fn cantilever_3d_nl(
     sections.insert("1".to_string(), SolverSection3D {
         id: 1, name: None, a, iy, iz, j,
         cw: None, as_y: None, as_z: None,
+        shear_center_y: None,
+        shear_center_z: None,
     });
 
     let mut elements = HashMap::new();
@@ -61,7 +63,7 @@ fn cantilever_3d_nl(
     })];
 
     let solver = SolverInput3D {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes, materials, sections, elements, supports, loads,
         constraints: vec![], left_hand: None, plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_beams: Vec::new(),
             curved_shells: HashMap::new(),
@@ -241,6 +243,8 @@ fn nonlinear_material_3d_no_free_dofs_error() {
     sections.insert("1".to_string(), SolverSection3D {
         id: 1, name: None, a: 0.01, iy: 1e-4, iz: 1e-4, j: 1e-4,
         cw: None, as_y: None, as_z: None,
+        shear_center_y: None,
+        shear_center_z: None,
     });
 
     let mut elements = HashMap::new();
@@ -264,7 +268,7 @@ fn nonlinear_material_3d_no_free_dofs_error() {
     }
 
     let solver = SolverInput3D {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes, materials, sections, elements, supports,
         loads: vec![], constraints: vec![], left_hand: None, plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_beams: Vec::new(),
             curved_shells: HashMap::new(),
@@ -299,6 +303,8 @@ fn nonlinear_material_3d_l_frame() {
     sections.insert("1".to_string(), SolverSection3D {
         id: 1, name: None, a: 0.01, iy: 1e-4, iz: 1e-4, j: 1e-4,
         cw: None, as_y: None, as_z: None,
+        shear_center_y: None,
+        shear_center_z: None,
     });
 
     let mut elements = HashMap::new();
@@ -341,7 +347,7 @@ fn nonlinear_material_3d_l_frame() {
     })];
 
     let solver = SolverInput3D {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes, materials, sections, elements, supports, loads,
         constraints: vec![], left_hand: None, plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_beams: Vec::new(),
             curved_shells: HashMap::new(),

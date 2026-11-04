@@ -94,7 +94,7 @@ export type ConvergenceState =
 
 /** One reason a member of a selected family is not in the detailing, with the members named. */
 export interface ConvergenceGap {
-  kind: 'refused' | 'unsupported' | 'demandUnavailable' | 'notDesigned' | 'notDetailable';
+  kind: 'refused' | 'exhausted' | 'unsupported' | 'demandUnavailable' | 'notDesigned' | 'notDetailable';
   /** i18n key for the sentence. Translated at the boundary. */
   key: string;
   family: DesignFamily;
@@ -136,27 +136,31 @@ export interface DesignConvergence {
  * Split by REMEDY, not by severity, because that is the only distinction that changes what the
  * engineer does next:
  *
- * - `refused` — the search covered the code-permitted envelope, or a bounded part of it, and
- *   nothing verified. Change the section.
+ * - `refused` — the section exceeds a bound of the code that no reinforcement lifts
+ *   (SECTION_INADEQUATE, with its proof). Change the section.
+ * - `exhausted` — none of the arrangements the search implements verifies (SEARCH_EXHAUSTED).
+ *   Nothing was shown about the section: the member's reasons say what limited it, what was
+ *   tried and what is not implemented, and the remedy may be one of those rather than the section.
  * - `unsupported` — this app does not implement a required check for this member. Nothing the
  *   engineer does to the model will change that answer.
  * - `demandUnavailable` — combinations, forces, material or section data are missing. Supply
  *   them and run again.
  *
- * `SECTION_INADEQUATE` and `SEARCH_EXHAUSTED` are both `refused` here although they are
- * different claims upstream — exhaustive versus bounded. The distinction governs how much the
- * engineer may conclude about feasibility, and `candidate-search.ts` keeps it for that reason;
- * it does not change that the member has no design and the next move is the section.
+ * `SECTION_INADEQUATE` and `SEARCH_EXHAUSTED` were both `refused` here, under «change the
+ * section». Only the first is a claim about the section; the second is a claim about the
+ * arrangements this app enumerates, and sending its 22 members of the flagship frame to a larger
+ * section stated a remedy nobody had shown was needed.
  */
 const GAP_OF: Partial<Record<MemberDesignOutcome['outcome'], ConvergenceGap['kind']>> = {
   SECTION_INADEQUATE: 'refused',
-  SEARCH_EXHAUSTED: 'refused',
+  SEARCH_EXHAUSTED: 'exhausted',
   UNSUPPORTED: 'unsupported',
   DEMAND_UNAVAILABLE: 'demandUnavailable',
 };
 
 const GAP_KEY: Record<ConvergenceGap['kind'], string> = {
   refused: 'detailing.convergence.refused',
+  exhausted: 'detailing.convergence.exhausted',
   unsupported: 'detailing.convergence.unsupported',
   demandUnavailable: 'detailing.convergence.demandUnavailable',
   notDesigned: 'detailing.convergence.notDesigned',

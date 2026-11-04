@@ -84,7 +84,13 @@ describe('the cap binds at the top and only at the top', () => {
     const Cc = 0.85 * PARAMS.fc * 1000 * PARAMS.b * a;
     const epsPrime = (0.003 * (cb - PARAMS.cover)) / cb;
     const fsPrime = epsPrime * 200000 * 1000;
-    const CsPrime = AsHalf * fsPrime;
+    /*
+     * The compression bars sit inside the block (d' = 0,05 < a = 0,125): they are net of the
+     * concrete they displace, 0,85·f'c — the same deduction Po = 0,85·f'c·(Ag − Ast) + fy·Ast
+     * makes (22.4.2.2). The diagram used to credit that concrete twice (+14,7 kN here); it
+     * comes from the engine's section now, which does not.
+     */
+    const CsPrime = AsHalf * (fsPrime - 0.85 * PARAMS.fc * 1000);
     const Ts = AsHalf * PARAMS.fy * 1000;
     const PnBalanced = Cc + CsPrime - Ts;
 

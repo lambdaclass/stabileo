@@ -124,6 +124,7 @@ fn validation_fire_ext_2_thermal_gradient_restrained_vs_free() {
             element_id: i,
             dt_uniform: 0.0,
             dt_gradient: dt_gradient,
+            alpha: None, depth: None,
         })
     }).collect();
 
@@ -151,6 +152,7 @@ fn validation_fire_ext_2_thermal_gradient_restrained_vs_free() {
             element_id: i,
             dt_uniform: 0.0,
             dt_gradient: dt_gradient,
+            alpha: None, depth: None,
         })
     }).collect();
 
@@ -216,12 +218,15 @@ fn validation_fire_ext_3_fire_compartment_frame() {
     let loads = vec![
         SolverLoad::Thermal(SolverThermalLoad {
             element_id: 1, dt_uniform: dt_column, dt_gradient: 0.0,
+            alpha: None, depth: None,
         }),
         SolverLoad::Thermal(SolverThermalLoad {
             element_id: 2, dt_uniform: dt_beam, dt_gradient: 0.0,
+            alpha: None, depth: None,
         }),
         SolverLoad::Thermal(SolverThermalLoad {
             element_id: 3, dt_uniform: dt_column, dt_gradient: 0.0,
+            alpha: None, depth: None,
         }),
     ];
 
@@ -488,6 +493,7 @@ fn validation_fire_ext_6_fire_one_side_bowing() {
             element_id: i,
             dt_uniform: 0.0,
             dt_gradient: dt_gradient,
+            alpha: None, depth: None,
         })
     }).collect();
 
@@ -515,6 +521,7 @@ fn validation_fire_ext_6_fire_one_side_bowing() {
             element_id: i,
             dt_uniform: 0.0,
             dt_gradient: dt_gradient,
+            alpha: None, depth: None,
         })
     }).collect();
 
@@ -586,6 +593,7 @@ fn validation_fire_ext_7_column_fire_resistance() {
                 element_id: i,
                 dt_uniform: dt,
                 dt_gradient: 0.0,
+                alpha: None, depth: None,
             })
         }).collect();
 
@@ -683,6 +691,7 @@ fn validation_fire_ext_8_superposition_thermal_mechanical() {
             element_id: i,
             dt_uniform: dt,
             dt_gradient: 0.0,
+            alpha: None, depth: None,
         })
     }).collect();
 
@@ -704,6 +713,7 @@ fn validation_fire_ext_8_superposition_thermal_mechanical() {
             element_id: i,
             dt_uniform: dt,
             dt_gradient: 0.0,
+            alpha: None, depth: None,
         }));
     }
 

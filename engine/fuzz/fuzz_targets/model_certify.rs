@@ -201,7 +201,7 @@ fn build_2d(m: &Model) -> Option<SolverInput> {
         loads,
         constraints: vec![],
         connectors: HashMap::new(),
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
     })
 }
 
@@ -221,7 +221,7 @@ fn build_3d(m: &Model) -> Option<SolverInput3D> {
     let sections = (0..ns)
         .map(|k| {
             let (a, i) = sec_props(m, k);
-            let sec = SolverSection3D { id: k + 1, name: None, a, iy: i, iz: i * 0.5, j: i * 0.3, cw: None, as_y: None, as_z: None };
+            let sec = SolverSection3D { id: k + 1, name: None, a, iy: i, iz: i * 0.5, j: i * 0.3, cw: None, as_y: None, as_z: None, shear_center_y: None, shear_center_z: None };
             ((k + 1).to_string(), sec)
         })
         .collect();
@@ -346,7 +346,7 @@ fn build_3d(m: &Model) -> Option<SolverInput3D> {
         curved_shells: HashMap::new(),
         curved_beams: vec![],
         connectors: HashMap::new(),
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
     })
 }
 

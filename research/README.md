@@ -1,0 +1,144 @@
+# Stabileo Research
+
+Research you can run: structural-engineering papers whose numerical experiments are reproduced,
+re-implemented and made interactive in Stabileo, the structural engineering software with AI.
+The scope includes classic and recent papers, benchmarks and methods across structural engineering.
+Each page states what is reproduced and how it was checked.
+
+Completed post-launch review rounds are recorded in each live entry’s `reviews` list in
+`papers.yaml`; Tools batches use `tools/batches/VALIDATION.json`. A round records `round`, `reviewers`
+and `date`. Round 1 (Codex and Kimi) completed on 2026-10-30. Round 2 is in progress
+and must only be added when complete. Tools round 2 (Codex, Grok and Claude) completed on 2026-10-31;
+Kimi is added to that round when its quota returns. Earlier implementation review notes are retained.
+
+This directory is **research, not engineering design**. The application may read the catalogue and published results data, but never research code;
+no result here is a design result. A benchmark agreement is not a
+certification.
+
+The plan every page and contribution follows is [DESIGN.md](DESIGN.md).
+
+## Layout
+
+| Path | What |
+|------|------|
+| `papers.yaml` | Curated catalog. Bibliographic fields are checked against Crossref by `tools/catalog.py` |
+| `fracture/shauer-2025/` | Phase-field fracture (AT2), after Shauer (2025), reference code and Rust implementation |
+| `optimization/andreassen-2011/` | MBB topology optimization, unmodified Octave reference capture and Rust SIMP/OC implementation |
+| `metamaterials/grossman-2026/` | Spring networks after Grossman & Boudaoud (2026): moduli, auxetic foam, honeycomb, against the paper's published values |
+| `stability/ferrari-sigmund-2025/` | Roorda-frame buckling and energy derivatives; Koiter reproduction in progress |
+| `form-finding/pastrana-2026/` | Four-cable forward FDM, pinned jax_fdm comparison and production truss check |
+| `mechanics/biggins-2026/` | Centered curvature-patterned shallow arches, using production frame buckling modes |
+| `optimisation/fairclough-2026/` | One five-node self-weight gridshell from Table 1, externally executed reference and isolated Rust/Clarabel implementation |
+| `benchmarks/macneal-harder-1985/` | Production engine accuracy cases using the shared benchmark page format |
+| `benchmarks/mattiasson-elastica/` | Production corotational cantilever benchmark with provisional reference transcriptions |
+| `benchmarks/cqc-1981/` | First version, 1 review round: close building modes, production modal + spectrum solvers versus closed form |
+| `benchmarks/navier-plate/` | First version: one simply supported plate, production DKT/MITC4 vs Navier series; published `results/stabileo_results.json` |
+| `benchmarks/lee-frame-1968/` | First-version pinned Lee frame, production arc-length replay and provisional limit-load comparison (1 review round) |
+| `numerical-methods/riks-crisfield/` | Production arc-length benchmarks against closed-form snap-through paths, with native/WASM parity checks |
+| `templates/` | Starting point for a new paper entry |
+| `tools/` | Catalog checker and other research-only tooling |
+
+## Isolation from the product
+
+- Research crates are their own Cargo workspaces (`[workspace]` in their manifests); they are not
+  members of the engine's or the backend's workspaces and have their own lockfiles.
+- A research crate may depend on `engine/` through a path dependency. The engine and the web
+  application never import research code. The web allowlist is `research/papers.json`,
+  `research/<field>/<paper>/VALIDATION.json`, and CSV/JSON files in that paper’s
+  `reference-results/`, plus `results/stabileo_results.json`; engine tests may read reference JSON case files; production engine code has no exception. `tools/check_isolation.sh` enforces this.
+- Research CI is `.github/workflows/research.yml`. Its offline checks (validation, reference hashes,
+  catalogue, isolation, route budgets) are part of the required CI OK on pull requests that touch
+  research or mix areas (full pipeline); a tools-only PR runs only the route budgets, an engine-only PR runs them
+  all (research crates depend on the engine) and a docs-only PR skips them. The merge queue runs only the route budgets; pushes to main and the nightly 03:30 run run all of them. The online checks (Crossref, licences, links) run only as the standalone Research
+  workflow on research/catalog PRs, pushes to main and weekly runs. Unrelated PRs do not run the online audit.
+
+## Reproducibility statuses
+
+Statuses in `papers.yaml` are assigned from evidence in the repository, not by hand-waving:
+
+| Status | Evidence required |
+|--------|-------------------|
+| `proposed` | Catalogued; metadata verified against Crossref |
+| `reference-reproduced` | The authors' code ran here; its outputs are committed with the exact environment |
+| `implementation-in-progress` | A Stabileo implementation exists but its validation tests do not yet pass |
+| `numerically-validated` | Tests compare our implementation with the reproduced reference within documented tolerances, and pass in CI. When the authors publish no code, the reference is the paper's published values plus exact results (see that experiment's README). Whether published numbers were reproduced is the separate `reproduced_published_results` field |
+| `published-figures-compared` | Numerical validation plus `reproduced_published_results: true` and `PUBLISHED_COMPARISON.json` with passing checks naming published sources, metrics, observations and tolerances |
+| `interactive` | Numerical validation plus an existing repository-relative `page` file; this does not imply published-results agreement |
+
+`summary_source` is declared provenance for human review, not machine-verified summary content.
+The checker verifies the allowed source label; it does not compare the prose to the source.
+
+## Product route size baseline
+
+Research CI builds current `main` and the candidate in separate directories using the
+candidate's pinned Nix toolchain and the same measurement script. Each installs its own locked
+dependencies. The main build writes a temporary baseline; no candidate baseline is checked in.
+Measuring against `main` rather than the event's base keeps a merge-queue train from adding
+128 bytes per entry.
+
+Changes to shipped research JSON/CSV (outside `research/tools/`),
+`web/src/components/research/`, `web/public/research-*` or
+`web/vite.research-viewer.config.ts` retain the 128-byte per-route isolation tolerance.
+This includes mixed product/research changes and merge-queue candidates. A push to main, which has
+no base revision, always enforces research isolation.
+
+Every measured candidate also uses `web/scripts/product-route-growth-budgets.json`, the
+per-route growth allowed for product changes relative to `main`. It is 128 bytes for every
+route, the same as the research tolerance: raising any of these numbers is a product decision
+made in its own reviewed change, never as a side effect of another PR.
+Static research imports fail for both product and research changes.
+
+The script measures uncompressed dependency bytes for `/en/`, `/es/`, `/pt/` and every `/app/*`
+mode. Landing routes count the entry's static closure; app routes also count App's static and
+lazy product dependencies. Explicit lazy route boundaries are excluded: research, tools, and the
+blog page (`BLOG_ROUTE_BOUNDARY`, `components/blog/BlogPage.svelte`, loaded only on a blog
+address). Modules the blog shares with App still count. Static research imports fail. HTML, bundled JS/CSS, manifest assets and statically referenced public files count once.
+Runtime-generated asset URLs and the engine binary are outside this gate; a fixed engine stub
+makes the measurements independent of locally built WASM.
+
+The catalogue (`research/papers.json`), experiment registry (including thumbnail metadata),
+gallery strings and research translations (`components/research/i18n.ts`) are imported only
+below `ResearchPage.svelte`. Root and App dynamically import `components/research/load-page.ts`,
+which in turn dynamically imports ResearchPage. Keep both boundaries: a direct dynamic import
+of ResearchPage puts Vite's transitive preload filename list into Root/App, so adding a paper
+can grow product bytes even without a static import of the paper's data. The loader has no
+static dependencies; its preload list lives on the research side of the boundary. Shared
+navigation labels (`landing.navResearch`, `blog.tag.research`) remain public and do not grow
+with the catalogue. Prerendering still opens every research URL and waits for its rendered page.
+
+The route-size gate also checks Rollup's module membership: any chunk containing a research
+component, registry, translation module or research JSON is forbidden in the landing's static
+closure and App's product dependency closure. Thus adding an experiment entry cannot add a
+static product import unnoticed, even if the entry is smaller than the byte tolerance. The
+byte comparison additionally catches generated preload metadata growth. Do not move per-paper
+strings into public locale dictionaries or add static imports to the lazy loader.
+
+For local comparisons, run `nix develop .. -c node scripts/check-research-route-size.mjs
+--baseline /tmp/route-main.json --update` from the main build's `web/`, then the same command
+without `--update` from the candidate's `web/`, using the same Nix toolchain for both.
+Local comparisons default to research isolation; set `RESEARCH_ISOLATION=false` only for
+product-only changes.
+`node --test web/scripts/research-route-budget.test.mjs` checks both budget modes, their exact
+boundaries, environment selection, unchanged routes and missing measurements.
+
+The Mattiasson engine benchmark (`benchmarks/mattiasson-elastica`) reads the
+engine-owned `engine/tests/benchmarks/mattiasson_elastica.json` through its native
+adapter and production WASM page. It publishes no research solver or imported
+research results. Reference transcriptions remain unverified and status proposed.
+## Newmark (1959), first version
+
+`benchmarks/newmark-1959/` documents one exact SDOF step-response benchmark using
+production Newmark average acceleration. Shared input and native tests live under
+`engine/tests/benchmarks/newmark_1959.*`; published native replay data is
+`benchmarks/newmark-1959/results/stabileo_results.json`. The page uses the existing
+production WASM wrapper and shared Stabileo viewer. Stage: first-version; 1 review round.
+## First-version engine benchmarks
+
+`benchmarks/plastic-collapse/` documents one Horne-style portal using the production
+3D plastic-collapse solver. Its shared case lives in
+`engine/tests/benchmarks/plastic_collapse.json` (test data only); its published
+`results/stabileo_results.json` is allowed web replay data. Stage: first-version,
+1 review round. The page reports hand mechanism bounds separately from the solver result.
+## First-version engine benchmark
+
+`benchmarks/dadeppo-arch-1975/` is one 215° clamped–hinged arch solved by the production corotational arc-length solver. Its shared case lives in `engine/tests/benchmarks/dadeppo_arch.json`; the web reads only that engine-owned input and the published replay `research/benchmarks/dadeppo-arch-1975/results/stabileo_results.json`. Stage: first-version, 1 review round. See its README for the corrected normalization (PR²/EI = 8.97), source, reproduction commands and limitations.

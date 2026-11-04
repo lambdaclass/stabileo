@@ -18,6 +18,8 @@ fn masonry_axial_compression() {
             an: None,
             av: None,
             s_stirrup: None,
+            laterally_tied: None,
+            gamma_g: None,
         }],
         forces: vec![MasonryDesignForces {
             element_id: 1,
@@ -56,6 +58,8 @@ fn masonry_slender_wall() {
             an: None,
             av: None,
             s_stirrup: None,
+            laterally_tied: None,
+            gamma_g: None,
         }],
         forces: vec![MasonryDesignForces {
             element_id: 1,
@@ -92,6 +96,8 @@ fn masonry_pure_flexure() {
             an: None,
             av: None,
             s_stirrup: None,
+            laterally_tied: None,
+            gamma_g: None,
         }],
         forces: vec![MasonryDesignForces {
             element_id: 1,
@@ -135,6 +141,8 @@ fn masonry_shear() {
             an: Some(3.0 * 0.20), // An = 0.60 m²
             av: Some(1.42e-4),    // #4 horizontal
             s_stirrup: Some(0.40),
+            laterally_tied: None,
+            gamma_g: None,
         }],
         forces: vec![MasonryDesignForces {
             element_id: 1,
@@ -169,6 +177,8 @@ fn masonry_combined_axial_flexure() {
             an: None,
             av: None,
             s_stirrup: None,
+            laterally_tied: None,
+            gamma_g: None,
         }],
         forces: vec![MasonryDesignForces {
             element_id: 1,
@@ -211,6 +221,8 @@ fn masonry_high_strength() {
             an: None,
             av: None,
             s_stirrup: None,
+            laterally_tied: None,
+            gamma_g: None,
         }],
         forces: vec![MasonryDesignForces {
             element_id: 1,
@@ -254,6 +266,8 @@ fn masonry_axial_fails() {
             an: None,
             av: None,
             s_stirrup: None,
+            laterally_tied: None,
+            gamma_g: None,
         }],
         forces: vec![MasonryDesignForces {
             element_id: 1,
@@ -289,6 +303,8 @@ fn masonry_multiple_members() {
                 an: None,
                 av: None,
                 s_stirrup: None,
+                laterally_tied: None,
+                gamma_g: None,
             },
             MasonryMemberData {
                 element_id: 1,
@@ -304,6 +320,8 @@ fn masonry_multiple_members() {
                 an: None,
                 av: None,
                 s_stirrup: None,
+                laterally_tied: None,
+                gamma_g: None,
             },
         ],
         forces: vec![

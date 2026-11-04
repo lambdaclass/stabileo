@@ -12,18 +12,30 @@ pub struct DofNumbering {
 }
 
 impl DofNumbering {
+    /// Every `((node, local DOF), global index)` in increasing global index.
+    ///
+    /// `map` is a `HashMap`, whose iteration order changes with every instance (its hash
+    /// keys are random). A floating-point sum taken in that order can differ in the last bit
+    /// between two solves of the same model; any loop that ACCUMULATES over the DOFs must
+    /// iterate this instead (tests/determinism.rs).
+    pub fn entries_by_dof(&self) -> Vec<((usize, usize), usize)> {
+        let mut v: Vec<((usize, usize), usize)> = self.map.iter().map(|(&k, &g)| (k, g)).collect();
+        v.sort_unstable_by_key(|&((n, l), g)| (g, n, l));
+        v
+    }
+
     /// DOFs per node of a 2D model: 3 (ux, uz, θ) with frames, 2 for all-truss.
     pub fn dofs_per_node_2d(input: &SolverInput) -> usize {
-        let has_frame = input.elements.values().any(|e| e.elem_type == "frame");
+        let has_frame = crate::ordered::values(&input.elements).any(|e| e.elem_type == "frame");
         if has_frame { 3 } else { 2 }
     }
 
     /// DOFs per node of a 3D model: 7 with warping, 6 with frames or shells,
     /// 3 (translations only) otherwise.
     pub fn dofs_per_node_3d(input: &SolverInput3D) -> usize {
-        let has_frame = input.elements.values().any(|e| e.elem_type == "frame");
+        let has_frame = crate::ordered::values(&input.elements).any(|e| e.elem_type == "frame");
         let has_plate = !input.plates.is_empty() || !input.quads.is_empty() || !input.quad9s.is_empty() || !input.curved_shells.is_empty();
-        let has_warping = input.sections.values().any(|s| s.cw.is_some());
+        let has_warping = crate::ordered::values(&input.sections).any(|s| s.cw.is_some());
         if has_warping { 7 } else if has_frame || has_plate { 6 } else { 3 }
     }
 
@@ -32,14 +44,14 @@ impl DofNumbering {
         let dofs_per_node = Self::dofs_per_node_2d(input);
 
         // Sort nodes by ID for deterministic ordering
-        let mut node_ids: Vec<usize> = input.nodes.values().map(|n| n.id).collect();
+        let mut node_ids: Vec<usize> = crate::ordered::values(&input.nodes).map(|n| n.id).collect();
         node_ids.sort();
 
         // Supports per node. Several on one node merge by OR (any of them
         // restraining a DOF restrains it); validate_input_2d only lets plain
         // rigid restraints share a node, so the merge is unambiguous.
         let mut supports_at: HashMap<usize, Vec<&SolverSupport>> = HashMap::new();
-        for s in input.supports.values() {
+        for s in crate::ordered::values(&input.supports) {
             supports_at.entry(s.node_id).or_default().push(s);
         }
 
@@ -85,13 +97,13 @@ impl DofNumbering {
     pub fn build_3d(input: &SolverInput3D) -> Self {
         let dofs_per_node = Self::dofs_per_node_3d(input);
 
-        let mut node_ids: Vec<usize> = input.nodes.values().map(|n| n.id).collect();
+        let mut node_ids: Vec<usize> = crate::ordered::values(&input.nodes).map(|n| n.id).collect();
         node_ids.sort();
 
         // Merge supports: when multiple supports target the same node,
         // OR their constraint flags together (any support restraining a DOF
         // makes that DOF restrained). Sort supports by ID for determinism.
-        let mut sorted_supports: Vec<&SolverSupport3D> = input.supports.values().collect();
+        let mut sorted_supports: Vec<&SolverSupport3D> = crate::ordered::values(&input.supports).collect();
         sorted_supports.sort_by_key(|s| {
             // Sort by node_id (primary), then by number of restrained DOFs ascending
             // so the most-restrained support is last (wins on overwrite)
@@ -229,7 +241,7 @@ impl DofNumbering {
     }
 }
 
-fn is_dof_restrained_2d(sup: &SolverSupport, local_dof: usize) -> bool {
+pub(crate) fn is_dof_restrained_2d(sup: &SolverSupport, local_dof: usize) -> bool {
     // A "spring" support leaves every DOF free (its stiffness is added to K);
     // the rigid types restrain theirs whatever spring values they carry.
     match sup.support_type.as_str() {

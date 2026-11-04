@@ -31,9 +31,10 @@
  * Pure: no store, no runes. Forces kN, lengths m, pressures kPa.
  */
 
+import { engineFailureMessage } from '../engine-unavailable';
 import { memberMeanArea } from '../../section/variable';
 import type { CombinationInputs, LoadCombinationSpec, LoadSymbol } from '../../codes/cirsoc101/combinations';
-import type { ElementKind, OccupancyEntry } from '../../codes/cirsoc101/live-loads';
+import { partitionLiveAllowance, type ElementKind, type OccupancyEntry } from '../../codes/cirsoc101/live-loads';
 import type { Enclosure, Exposure, ServiceRecurrence } from '../../codes/cirsoc102/wind';
 import type { WindCaseSet, WindDirection } from './wind-cases';
 import { gravityLayout, type GravityLayout } from './plan-gravity';
@@ -121,20 +122,26 @@ export interface LoadPlanInput {
   dead: DeadComponent[];
   /** Occupancy key from the CIRSOC 101 Table 4.1 catalogue. */
   occupancyKey: string;
+  /**
+   * The CIRSOC 101-2025 §4.3.2 partition live load asked for, kN/m² of floor (absent or 0: none).
+   * A live load: it goes into L with the floor's Lo, unreduced (§4.7.1 reduces Tabla 4.1 values
+   * only), patterned with it, and not at all when Lo is over 3,85 kN/m² (`partitionLiveAllowance`).
+   */
+  partitionLive?: number;
   /** Tributary width used to convert area loads to line loads on beams, m. */
   tributaryWidth: number;
   /**
    * How area loads reach the structure (`plan-gravity.ts`): by the real tributary area of the
    * panels the beams close, or with `tributaryWidth` on every beam. Absent: the width.
    */
-  gravity?: { mode: 'panels' | 'width'; slab?: 'twoWay' | 'oneWay'; spanAxis?: 'x' | 'y' };
+  gravity?: { mode: 'panels' | 'width'; slab?: 'twoWay' | 'oneWay'; spanAxis?: 'x' | 'y'; loadEveryPanel?: boolean };
   /**
    * The roof's own loads (`plan-area-loads.ts`): its superimposed dead load and either the roof
    * live load Lr of §4.8.1 (`maintenance`) or the live load of an occupancy (`occupancy`, §4.8.2).
    * Absent: roofs are loaded as floors. `weight` absent: from the roof's own structure and its
    * dead load (`roofWeightOf`).
    */
-  roof?: { use: 'maintenance' | 'occupancy'; weight?: RoofWeight; dead: number; occupancyKey?: string; slopeDeg: number };
+  roof?: { use: 'maintenance' | 'occupancy'; weight?: RoofWeight; dead: number; occupancyKey?: string; slopeDeg: number; deadFromFloors?: boolean };
   /**
    * Partial live loading of §4.3.3 (`plan-area-loads.ts`): L and Lr also as two checkerboards and,
    * with `all`, on the spans each side of every interior grid line. `true` is the checkerboard.
@@ -413,6 +420,8 @@ export interface LoadPlan {
     occupancy: ProvenancedValue<number>;
     liveReduced: ProvenancedValue<number>;
     deadTotal: ProvenancedValue<number>;
+    /** The §4.3.2 partition live load added to the floor's L, when one was asked for. */
+    partitionLive?: ProvenancedValue<number>;
     windQh?: ProvenancedValue<number>;
     /** Each wind axis's gust effect factor and its derivation, when computed (§1.9). */
     windGust?: Partial<Record<'x' | 'y', import('../../codes/cirsoc102/gust').GustResult>>;
@@ -470,10 +479,10 @@ export function levelsWithPlanArea(
   return buckets;
 }
 
-/** Member self-weight apportioned half to each end node's level. */
+/** A shell's weight is spread evenly over its corners' levels, so a wall weighs half on each floor. */
 function selfWeightByLevel(
   model: LoadModelData, levelOfNode: Map<number, number>, count: number,
-): { weights: number[]; skipped: number } {
+): { weights: number[]; skipped: number; skippedShells: number } {
   const weights = new Array(count).fill(0);
   const sectionWeight = createSectionWeight(model.materials);
   let skipped = 0;
@@ -492,7 +501,29 @@ function selfWeightByLevel(
       if (lv !== undefined) weights[lv] += w / 2;
     }
   }
-  return { weights, skipped };
+  let skippedShells = 0;
+  for (const q of model.quads?.values() ?? []) {
+    const pts = q.nodes.map((id) => model.nodes.get(id));
+    const rho = q.materialId !== undefined ? model.materials.get(q.materialId)?.rho : undefined;
+    if (pts.some((p) => !p) || !(q.thickness! > 0) || rho === undefined || !(rho >= 0)) { skippedShells++; continue; }
+    const xyz = pts.map((p) => [p!.x, p!.y, elevationOf(p!)] as [number, number, number]);
+    const w = q.thickness! * rho * surfaceArea(xyz);
+    for (const id of q.nodes) {
+      const lv = levelOfNode.get(id);
+      if (lv !== undefined) weights[lv] += w / q.nodes.length;
+    }
+  }
+  return { weights, skipped, skippedShells };
+}
+
+function surfaceArea(p: Array<[number, number, number]>): number {
+  let s = 0;
+  for (let i = 1; i + 1 < p.length; i++) {
+    const a = p[0]!, b = p[i]!, c = p[i + 1]!;
+    const u = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], v = [c[0] - a[0], c[1] - a[1], c[2] - a[2]];
+    s += Math.hypot(u[1]! * v[2]! - u[2]! * v[1]!, u[2]! * v[0]! - u[0]! * v[2]!, u[0]! * v[1]! - u[1]! * v[0]!) / 2;
+  }
+  return s;
 }
 
 /**
@@ -541,7 +572,7 @@ export function roofWeightFor(
   model: LoadModelData, gravity: LoadPlanInput['gravity'], tributaryWidth: number, dead: number,
 ): RoofWeight {
   const layout = gravityLayout(model, {
-    mode: gravity?.mode === 'panels' ? 'panels' : 'width', slab: gravity?.slab, spanAxis: gravity?.spanAxis, tributaryWidth,
+    mode: gravity?.mode === 'panels' ? 'panels' : 'width', slab: gravity?.slab, spanAxis: gravity?.spanAxis, tributaryWidth, loadEveryPanel: gravity?.loadEveryPanel,
   });
   return roofWeightOf(model, layout, dead).weight;
 }
@@ -558,7 +589,34 @@ export function findCase(model: LoadModelData, type: string, nameMatch?: string)
  * BLOCKED, with reasons, when the bound roles cannot produce loads — an unusable role is
  * reported rather than silently substituted with a default.
  */
+/**
+ * The plan for `input`. The code arithmetic runs in the engine (combinations and seismic,
+ * `engine/src/loads`): without it, or when it refuses, the plan is BLOCKED by name with the
+ * engine's message, never a plan computed some other way and never an exception for the dialog.
+ */
+/** A roof at this slope or steeper is pitched: sheeting on purlins, not a deck that takes a floor's finishes. */
+export const PITCHED_ROOF_DEG = 5;
+
 export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
+  try {
+    return buildLoadPlanWithEngine(input);
+  } catch (err) {
+    const m = engineFailureMessage(err);
+    if (!m) throw err;
+    return {
+      outcome: 'BLOCKED', cases: [], distributed: [], nodal: [], surface: [], thermal: [], combinations: [],
+      factors: {
+        occupancy: fromProject(0, 'kN/m²'),
+        liveReduced: fromProject(0, 'kN/m²'),
+        deadTotal: fromProject(0, 'kN/m²'),
+      },
+      levels: [], assumptions: [], unsupportedKeys: [], refs: [], derivation: [],
+      blockedKeys: [msg(m.key, m.params)],
+    };
+  }
+}
+
+function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
   const derivation: EngineMessage[] = [];
   const assumptions: EngineMessage[] = [];
   const refs: ClauseRef[] = [];
@@ -664,6 +722,20 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
     derivation.push(msg('loadPlan.derivation.reductionDisabled'));
   }
 
+  /*
+   * §4.3.2 — the partition live load, on the floors' L beside Lo. Unreduced, so it is added after
+   * the reduction, member by member; the roofs take their own loads, not this one.
+   */
+  const partitionAsked = input.partitionLive ?? 0;
+  const partition = partitionLiveAllowance(lo, partitionAsked);
+  if (partitionAsked > 0) {
+    derivation.push(partition.message);
+    refs.push(...partition.refs);
+  }
+  const partitionQ = partition.qKNm2;
+  /** The floor's live load before §4.7, kN/m²: Lo and the partition allowance. */
+  const floorLo = lo + partitionQ;
+
   // ── Cases ──
   /*
    * The live load, reduced here, never goes into a live case the user reduces by hand: the case's
@@ -688,10 +760,14 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
   // ── Dead, live and roof live, where the area loads go (`plan-gravity.ts`, `plan-area-loads.ts`) ──
   const panelMode = input.gravity?.mode === 'panels';
   const layout = gravityLayout(input.model, {
-    mode: panelMode ? 'panels' : 'width', slab: input.gravity?.slab, spanAxis: input.gravity?.spanAxis,
+    mode: panelMode ? 'panels' : 'width', slab: input.gravity?.slab, spanAxis: input.gravity?.spanAxis, loadEveryPanel: input.gravity?.loadEveryPanel,
     tributaryWidth: input.tributaryWidth,
   });
   derivation.push(...layout.notes);
+  // A flat roof may well carry the floors' screed and tiles; a pitched one with no slab, on rafters or trusses, may not.
+  if (input.roof?.deadFromFloors && input.roof.slopeDeg >= PITCHED_ROOF_DEG && ![...layout.areaOf.values()].some((a) => a > 0) && layout.shellQuads.length === 0) {
+    return { ...empty, blockedKeys: [msg('loadPlan.blocked.roofDeadWithoutFloors')] };
+  }
   /*
    * The design live load of a member for an occupancy, by its own tributary area: in panel mode the
    * area of the panels it carries; by width, the width times its length in plan, which is the area
@@ -712,9 +788,10 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
   // Without roof settings a roof is a floor: its area counts as floor area.
   const floorAreas = input.roof ? layout.areaOf : new Map([...layout.areaOf].map(([id, a]) => [id, a + (layout.roofAreaOf.get(id) ?? 0)]));
   for (const [id, a] of layout.roofAreaOf) if (!input.roof && !floorAreas.has(id)) floorAreas.set(id, a);
-  const liveOf = reducedFor(occ, lo, liveDesign, floorAreas);
+  const liveOfTable = reducedFor(occ, lo, liveDesign, floorAreas);
+  const liveOf = partitionQ > 0 ? (id: number) => liveOfTable(id) + partitionQ : liveOfTable;
   if (input.applyLiveReduction) {
-    const ls = [...floorAreas.keys()].map(liveOf);
+    const ls = [...floorAreas.keys()].map(liveOfTable);
     if (ls.length) derivation.push(msg('loadPlan.derivation.reductionPerMember', { min: round(Math.min(...ls), 3), max: round(Math.max(...ls), 3), n: ls.length }));
   }
   let roofLoads: RoofLoads | undefined;
@@ -758,7 +835,7 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
   }
   const area = planAreaLoads({
     layout, tributaryWidth: input.tributaryWidth,
-    floor: { dead: deadTotal, lo, liveOf }, roof: roofLoads, patterns: input.patterns, model: input.model,
+    floor: { dead: deadTotal, lo: floorLo, liveOf }, roof: roofLoads, patterns: input.patterns, model: input.model,
   });
   derivation.push(...area.derivation);
   refs.push(...area.refs);
@@ -804,6 +881,11 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
   const sw = selfWeightByLevel(input.model, levelOfNode, levelsRaw.length);
   if (sw.skipped > 0) {
     const note = msg('loadPlan.assumption.selfWeightSkipped', { count: sw.skipped });
+    assumptions.push(note);
+    derivation.push(note);
+  }
+  if (sw.skippedShells > 0) {
+    const note = msg('loadPlan.assumption.shellWeightSkipped', { count: sw.skippedShells });
     assumptions.push(note);
     derivation.push(note);
   }
@@ -874,7 +956,7 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
     const atRoof = byExtent && roofLevel(i);
     const area = byExtent ? lv.planAreaM2 : ba.area;
     const superimposed = byExtent ? (atRoof ? roofLoads!.dead : deadTotal) * area : ba.dead;
-    const liveTotal = byExtent ? (atRoof ? (roofLoads!.use === 'occupancy' ? roofLoads!.lo ?? 0 : 0) : lo) * area : ba.live;
+    const liveTotal = byExtent ? (atRoof ? (roofLoads!.use === 'occupancy' ? roofLoads!.lo ?? 0 : 0) : floorLo) * area : ba.live;
     const liveP = liveTotal * participation.value;
     return {
       elevation: lv.elevation, nodeIds: lv.nodeIds, planAreaM2: area,
@@ -1037,6 +1119,7 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
       occupancy: fromProject(lo, 'kN/m²'),
       liveReduced: fromProject(liveDesign, 'kN/m²'),
       deadTotal: fromProject(deadTotal, 'kN/m²'),
+      ...(partitionAsked > 0 ? { partitionLive: fromProject(partitionQ, 'kN/m²') } : {}),
       windQh, ...(windGust ? { windGust } : {}), seismicWeight, baseShear,
     },
     levels,

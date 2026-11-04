@@ -13,6 +13,7 @@
  * care which sign convention is chosen as long as it is the same for both.
  */
 import type { SolverInput, SolverPointLoadOnElement } from '../types';
+import { axialLoadUpTo } from '../axial-span-2d';
 
 /** The loads that act ALONG a bar, in its local axes. */
 export interface BarLoads {
@@ -20,6 +21,8 @@ export interface BarLoads {
   dist: Array<{ qI: number; qJ: number; a: number; b: number }>;
   /** Point loads: transverse p, axial px, couple my, at a. */
   point: Array<{ a: number; p: number; px: number; my: number }>;
+  /** Along the axis (towards J): q from a to b, linear. */
+  axial?: Array<{ qI: number; qJ: number; a: number; b: number }>;
 }
 
 export const NO_LOADS: BarLoads = { dist: [], point: [] };
@@ -36,9 +39,26 @@ export function barLoadsOf(input: SolverInput, elementId: number, L: number): Ba
       && (load.data as SolverPointLoadOnElement).elementId === elementId) {
       const pl = load.data as SolverPointLoadOnElement;
       out.point.push({ a: pl.a, p: pl.p ?? 0, px: pl.px ?? 0, my: pl.my ?? 0 });
+    } else if (load.type === 'axialDistributed' && load.data.elementId === elementId) {
+      (out.axial ??= []).push({
+        qI: load.data.qI, qJ: load.data.qJ,
+        a: Math.max(0, load.data.a ?? 0), b: Math.min(L, load.data.b ?? L),
+      });
     }
   }
   return out;
+}
+
+/**
+ * What of a bar's loads a truss bar answers with its N: the axial point loads and span loads.
+ * Its transverse loads go to its nodes and leave N alone.
+ */
+export function axialLoadsOnly(l: BarLoads): BarLoads {
+  return {
+    dist: [],
+    point: l.point.filter((p) => p.px !== 0).map((p) => ({ a: p.a, p: 0, px: p.px, my: 0 })),
+    ...(l.axial?.length ? { axial: l.axial } : {}),
+  };
 }
 
 /**
@@ -46,7 +66,7 @@ export function barLoadsOf(input: SolverInput, elementId: number, L: number): Ba
  * forces the nodes exert on the bar — and the loads on [0, x).
  *
  * Equilibrium of the piece [0, x]: m(x) = Mi − Vi·x + Σ (a − x)·p + Σ my,
- * n(x) = −Ni − Σ px. At x = 0 this is (−Ni, Mi), which is the analysis
+ * n(x) = −Ni − Σ px − ∫₀ˣ qx. At x = 0 this is (−Ni, Mi), which is the analysis
  * solver's (nStart, mStart).
  */
 export function internalAt(fI: { N: number; V: number; M: number }, loads: BarLoads, x: number) {
@@ -69,6 +89,7 @@ export function internalAt(fI: { N: number; V: number; M: number }, loads: BarLo
     const mid = (d.a + hi) / 2;
     m += (len / 6) * ((d.a - x) * q(d.a) + 4 * (mid - x) * q(mid) + (hi - x) * q(hi));
   }
+  for (const d of loads.axial ?? []) n -= axialLoadUpTo(d, x);
   return { m, n };
 }
 
@@ -84,7 +105,7 @@ export function breakpoints(L: number, ...loads: BarLoads[]): number[] {
   const pts = new Set<number>([0, L]);
   for (const l of loads) {
     for (const p of l.point) if (p.a > 0 && p.a < L) pts.add(p.a);
-    for (const d of l.dist) {
+    for (const d of [...l.dist, ...(l.axial ?? [])]) {
       if (d.a > 0 && d.a < L) pts.add(d.a);
       if (d.b > 0 && d.b < L) pts.add(d.b);
     }

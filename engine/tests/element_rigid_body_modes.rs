@@ -646,7 +646,7 @@ fn assembled_free_model_rigid_modes_and_kernel() {
     let mut materials = HashMap::new();
     materials.insert("1".into(), SolverMaterial { id: 1, e: 30_000.0, nu: 0.2 });
     let mut sections = HashMap::new();
-    sections.insert("1".into(), SolverSection3D { id: 1, name: None, a: 0.02, iy: 2e-4, iz: 1e-4, j: 5e-5, cw: None, as_y: None, as_z: None });
+    sections.insert("1".into(), SolverSection3D { id: 1, name: None, a: 0.02, iy: 2e-4, iz: 1e-4, j: 5e-5, cw: None, as_y: None, as_z: None, shear_center_y: None, shear_center_z: None });
     let frame = |id: usize, i: usize, j: usize, ty: &str, rel: bool| SolverElement3D {
         id, elem_type: ty.into(), node_i: i, node_j: j, material_id: 1, section_id: 1,
         release_my_start: false, release_my_end: rel, release_mz_start: false, release_mz_end: false,
@@ -667,7 +667,7 @@ fn assembled_free_model_rigid_modes_and_kernel() {
         left_hand: None, plates, quads, quad9s: HashMap::new(), solid_shells: HashMap::new(),
         curved_shells: HashMap::new(),
         curved_beams: vec![CurvedBeamInput { node_start: 8, node_mid: 6, node_end: 7, material_id: 1, section_id: 1, num_segments: 6, hinge_start: false, hinge_end: false }],
-        connectors: HashMap::new(), solver_options: None,
+        connectors: HashMap::new(), solver_options: None, masses: Default::default(),
     };
     let input = expand_curved_beams_3d(&input);
     assert!(input.nodes.len() > 9, "curved beam was not expanded");

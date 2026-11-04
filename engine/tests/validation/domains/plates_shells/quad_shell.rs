@@ -85,7 +85,7 @@ fn make_base_input(
     materials.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: NU });
 
     SolverInput3D {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes, materials,
         sections: HashMap::new(), elements: HashMap::new(),
         supports: HashMap::new(), loads: vec![],
@@ -454,7 +454,7 @@ fn test_quad_scordelis_lo_barrel_vault() {
     materials.insert("1".to_string(), SolverMaterial { id: 1, e: e_mat, nu: nu_mat });
 
     let mut input = SolverInput3D {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes, materials,
         sections: HashMap::new(), elements: HashMap::new(),
         supports: HashMap::new(), loads: vec![],

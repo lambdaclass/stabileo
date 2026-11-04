@@ -524,7 +524,7 @@ fn validation_found_ext_mat_foundation_winkler() {
             SolverLoad::Nodal(SolverNodalLoad { node_id: node_p2, fx: 0.0, fz: -p2, my: 0.0 }),
         ];
         SolverInput {
-            solver_options: None,
+            solver_options: None, masses: Default::default(),
             nodes: nodes_map, materials: mats_map, sections: secs_map,
             elements: elems_map, supports: sups_map, loads, constraints: vec![],
             connectors: HashMap::new(), }

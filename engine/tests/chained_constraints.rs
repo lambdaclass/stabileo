@@ -8,8 +8,7 @@
 //!   - Invalid chains (circular, over-constrained) emit diagnostics, never panic
 //!   - Chain depth does not cause stack overflow (max 10-pass substitution)
 
-#[path = "common/mod.rs"]
-mod common;
+use crate::common;
 
 use common::make_3d_input;
 use common::make_input;
@@ -897,7 +896,7 @@ fn regression_2d_rigid_link_chain_kinematics() {
     });
 
     let solver = SolverInput {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes, materials, sections, elements, supports,
         loads: vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: 2, fx: 0.0, fz: -10.0, my: 0.0,

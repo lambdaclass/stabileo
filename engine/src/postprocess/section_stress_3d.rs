@@ -128,8 +128,15 @@ fn torsion_shear(mx: f64, rs: &ResolvedSection) -> f64 {
             (mx / (2.0 * am * rs.t)) / 1000.0
         }
         _ => {
-            // Saint-Venant open: τ = Mx*t_max/J
-            let t_max = rs.tw.max(rs.tf).max(rs.t);
+            // Saint-Venant open: τ = Mx*t_max/J. A solid rectangle (or a generic section) has no
+            // wall thickness: its "thickness" is the shorter side, τ = Mx·min(b,h)/J, which bounds
+            // the exact Saint-Venant peak from above (×1,48 for a square). It used to take
+            // max(tw, tf, t) = 0 for a rectangle and report no torsional shear at all.
+            let t_max = if matches!(rs.shape.as_str(), "rect" | "generic") {
+                rs.b.min(rs.h)
+            } else {
+                rs.tw.max(rs.tf).max(rs.t)
+            };
             if t_max < 1e-12 { return 0.0; }
             (mx * t_max / rs.j) / 1000.0
         }
@@ -172,10 +179,18 @@ fn compute_q_and_b_3d(y: f64, rs: &ResolvedSection) -> (f64, f64) {
             (q_flange + q_web, 2.0 * rs.t)
         }
         "CHS" => {
+            // A cut severs TWO walls (width 2t) and Q is the first moment of the whole area
+            // beyond it: Q = 2·t·R·√(R²−y²), τ_max = 2V/A, as `section_stress.rs` (2D) and the
+            // TypeScript oracle have it. This was the one-sided t·(R²−y²) over the two-sided
+            // width: HALF the shear of a tube, found by the engine/oracle differential test.
+            // t = 0 is a solid bar: Q = (2/3)(R²−y²)^(3/2) over the chord, τ_max = 4V/3A.
             let r = rs.h / 2.0;
-            if y.abs() >= r { return (0.0, rs.t); }
-            let q = rs.t * (r * r - y * y);
-            (q, 2.0 * rs.t)
+            if y.abs() >= r { return (0.0, if rs.t > 0.0 { rs.t } else { r }); }
+            if rs.t > 0.0 {
+                return (2.0 * rs.t * r * (r * r - y * y).sqrt(), 2.0 * rs.t);
+            }
+            let chord = (r * r - y * y).sqrt();
+            ((2.0 / 3.0) * (r * r - y * y) * chord, 2.0 * chord)
         }
         _ => {
             let q = (rs.b / 2.0) * (half_h * half_h - y * y);
@@ -213,10 +228,18 @@ fn compute_qy_and_width(z: f64, rs: &ResolvedSection) -> (f64, f64) {
             (q_side + q_top, 2.0 * rs.t)
         }
         "CHS" => {
+            // A cut severs TWO walls (width 2t) and Q is the first moment of the whole area
+            // beyond it: Q = 2·t·R·√(R²−z²), τ_max = 2V/A, as `section_stress.rs` (2D) and the
+            // TypeScript oracle have it. This was the one-sided t·(R²−z²) over the two-sided
+            // width: HALF the shear of a tube, found by the engine/oracle differential test.
+            // t = 0 is a solid bar: Q = (2/3)(R²−z²)^(3/2) over the chord, τ_max = 4V/3A.
             let r = rs.h / 2.0;
-            if z.abs() >= r { return (0.0, rs.t); }
-            let q = rs.t * (r * r - z * z);
-            (q, 2.0 * rs.t)
+            if z.abs() >= r { return (0.0, if rs.t > 0.0 { rs.t } else { r }); }
+            if rs.t > 0.0 {
+                return (2.0 * rs.t * r * (r * r - z * z).sqrt(), 2.0 * rs.t);
+            }
+            let chord = (r * r - z * z).sqrt();
+            ((2.0 / 3.0) * (r * r - z * z) * chord, 2.0 * chord)
         }
         _ => {
             let q = (rs.h / 2.0) * (half_b * half_b - z * z);

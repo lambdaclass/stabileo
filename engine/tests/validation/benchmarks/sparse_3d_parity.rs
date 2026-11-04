@@ -128,7 +128,7 @@ fn make_shell_input(
     mats.insert("1".to_string(), SolverMaterial { id: 1, e: 200_000.0, nu: 0.3 });
 
     SolverInput3D {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes,
         materials: mats,
         sections: HashMap::new(),
@@ -485,6 +485,8 @@ fn sparse_3d_parity_prescribed_displacements() {
     let mut secs = HashMap::new();
     secs.insert("1".to_string(), SolverSection3D {
         id: 1, name: None, a, iy, iz, j, cw: None, as_y: None, as_z: None,
+        shear_center_y: None,
+        shear_center_z: None,
     });
 
     let mut elems = HashMap::new();
@@ -514,7 +516,7 @@ fn sparse_3d_parity_prescribed_displacements() {
     })];
 
     let input = SolverInput3D {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes, materials: mats, sections: secs, elements: elems,
         supports, loads, constraints: vec![], left_hand: None,
         plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_shells: HashMap::new(),
@@ -559,6 +561,8 @@ fn sparse_3d_parity_inclined_supports() {
     secs.insert("1".to_string(), SolverSection3D {
         id: 1, name: None, a: 0.01, iy: 8.33e-6, iz: 8.33e-6, j: 1.41e-5,
         cw: None, as_y: None, as_z: None,
+        shear_center_y: None,
+        shear_center_z: None,
     });
 
     let mut elems = HashMap::new();
@@ -633,7 +637,7 @@ fn sparse_3d_parity_inclined_supports() {
     })];
 
     let input = SolverInput3D {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes, materials: mats, sections: secs, elements: elems,
         supports, loads, constraints: vec![], left_hand: None,
         plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_shells: HashMap::new(),
@@ -667,6 +671,8 @@ fn sparse_3d_parity_mixed_beam_shell() {
     secs.insert("1".to_string(), SolverSection3D {
         id: 1, name: None, a: 0.01, iy: 8.33e-6, iz: 8.33e-6, j: 1.41e-5,
         cw: None, as_y: None, as_z: None,
+        shear_center_y: None,
+        shear_center_z: None,
     });
 
     // Add 4 column nodes at ground level under corners
@@ -711,7 +717,7 @@ fn sparse_3d_parity_mixed_beam_shell() {
     }).collect();
 
     let input = SolverInput3D {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes, materials: mats, sections: secs, elements: elems,
         supports, loads, constraints: vec![], left_hand: None,
         plates: HashMap::new(), quads, quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_shells: HashMap::new(),
@@ -812,6 +818,8 @@ fn sparse_3d_parity_inclined_support_skew_member() {
     secs.insert("1".to_string(), SolverSection3D {
         id: 1, name: None, a: 0.01, iy: 8.33e-6, iz: 8.33e-6, j: 1.41e-5,
         cw: None, as_y: None, as_z: None,
+        shear_center_y: None,
+        shear_center_z: None,
     });
 
     let mut elems = HashMap::new();
@@ -887,7 +895,7 @@ fn sparse_3d_parity_inclined_support_skew_member() {
         nodes, materials: mats, sections: secs, elements: elems,
         supports, loads, constraints: vec![], left_hand: None,
         plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_shells: HashMap::new(),
-        curved_beams: vec![], connectors: HashMap::new(), solver_options: None,
+        curved_beams: vec![], connectors: HashMap::new(), solver_options: None, masses: Default::default(),
     };
 
     // Full-K parity (dense n×n vs sparse k_full reconstituted) — this is where

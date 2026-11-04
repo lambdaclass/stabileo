@@ -40,23 +40,35 @@ Educational tool with step-by-step solver visualization for civil/structural eng
 
 - `npm run dev` — Start dev server (port 4000)
 - `npm run build` — Production build to `dist/`
-- `npm run test` — The full Vitest gate. Runs **two passes** and fails if either fails:
-  `unit` (everything, in a bounded parallel pool) and `build` (the tests that shell out to a
-  real `vite build`, serially). See `scripts/test-all.mjs` for the measurements behind the
+- `npm run test` — The full Vitest gate. Runs **three passes** and fails if any fails:
+  `unit` (everything, in a bounded parallel pool), `build` (the tests that shell out to a
+  real `vite build`, serially) and `results` (the results snapshot gate). See `scripts/test-all.mjs` for the measurements behind the
   split — briefly: a nested production build does not occupy one worker slot, it occupies the
   machine, and Vitest's default worker count leaves the coordinator no core, which together
   made the suite exit 1 with `[vitest-worker]: Timeout calling "onTaskUpdate"` while every
   assertion passed.
-- `npm run test:unit` / `npm run test:build` — one pass on its own.
+- `npm run test:unit` / `npm run test:build` / `npm run test:results` — one pass on its own.
+  `results` is the results snapshot gate (#716): a reference corpus solved through the app's
+  path against `results-snapshots/`; after a deliberate result change, `npm run snapshots:update`
+  and register it (`docs/verification/PROVENANCE.md`, "Results snapshot gate").
 - `npm run test:watch` — Watch mode (the `unit` pass)
-- In CI the two passes run as separate jobs: `web-unit` shards the unit pass two ways
+- In CI the three passes run as separate jobs (`results` as Results Snapshot): `web-unit` shards the unit pass two ways
   (`vitest run --project unit --shard=i/2`), `web-build` builds and runs the build pass. A test
   file is the unit of parallelism, so one file that runs a minute of heavy cases serially sets
   the floor for everyone — split it (see `design-families-fixture.ts`) rather than let it grow.
-- E2E in CI runs in 5 shards of whole spec files balanced by measured duration
-  (`scripts/e2e-shard.mjs`, weights in `e2e/shard-timings.json`). Refresh the weights from a
-  CI run's `playwright-artifacts-*/.artifacts/results.json` with
-  `node scripts/e2e-shard.mjs --update <results.json>…` when a shard runs noticeably longer.
+- E2E in CI runs in 10 shards of whole spec files balanced by measured duration
+  (`scripts/e2e-shard.mjs`, weights in `e2e/shard-timings.json` for @smoke and
+  `e2e/shard-timings-slow.json` for @slow). Refresh the weights from a CI run's
+  `playwright-artifacts-*/.results/<suite>.json` with
+  `node scripts/e2e-shard.mjs [--suite slow] --update <reports>…` when a shard runs noticeably
+  longer. A shard is never shorter than its longest spec file: keep files under ~10 min.
+- `@flaky` quarantines an intermittent e2e test, and only with a linked issue
+  (`e2e/README.md`). The blocking runs skip it; the non-required `e2e-flaky` job runs it.
+- Locally, run parallel shards with `node scripts/e2e-parallel.mjs --shards 5 [-- playwright args]`
+  (preview server started first), not with N bare `playwright test --shard` launches: those share
+  Playwright's transform cache, and on a spec or fixture changed since the last run one of them
+  reads another's half-written entry and dies at startup with a SyntaxError. The script warms the
+  cache once and gives each shard its own artifacts and report folder.
 - `npm run wasm` — Build the Rust/WASM engine into `src/lib/wasm` (needs Rust and wasm-pack). Required
   to run the app or any test that solves: without it `vite.config.ts` substitutes a stub, so
   `npm run build` still succeeds in CI, but the stub's `solve_3d` returns `{}`.
@@ -307,6 +319,25 @@ Key test patterns:
   Writes are asked for by `requestAutosave()` after every expensive operation (solve, design,
   floor design, detailing), not only by the 30 s timer.
 - IFC import (3D only, via web-ifc WASM — dynamic import)
+
+## Changelog
+
+`src/lib/changelog/index.ts` holds what reached stabileo.com, newest first: one entry per month from
+the first commit (February 2026) to April, marked `period: 'month'`, then one per weekly report.
+`/<locale>/changelog`, linked from the landing nav beside Blog and from the footer, draws them on a
+timeline by month with a filter by area (`src/components/blog/ChangelogView.svelte`).
+`src/lib/blog/pages/changelog.ts` only gives that page its address, date and metadata (es, en and pt;
+de, fr and tr in `src/lib/blog/translations/<code>/page-changelog.ts`). Items are
+grouped by area on screen, so their order within an area is the order they are read in.
+
+Every Friday, with the weekly report, add one entry dated that Friday:
+- only what was merged to `main` that week, in the six languages (es, en, pt, de, fr, tr; the type
+  requires all six, and so does the alt of a screenshot), one item per area in `areas`, translated
+  with the glossary the dictionaries use;
+- optionally one screenshot under `public/screenshots/` at 800 and 1600 px, AVIF and WebP
+  (see `scripts/take-screenshots.ts` for the conversion);
+- set `updated` in `pages/changelog.ts` to the new date. `changelog.test.ts` fails otherwise,
+  and also on a date that is not a Friday, a language with a different item count, or a missing image.
 
 ## Feedback System
 

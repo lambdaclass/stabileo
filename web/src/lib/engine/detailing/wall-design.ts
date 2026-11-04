@@ -13,9 +13,9 @@
  *
  * §11.3.1.1  minimum thickness: the greater of 100 mm and 1/25 of the lesser of the
  *            unsupported length and unsupported height, for bearing walls
- * §11.5.4.6  in-plane shear strength V_n ≤ 0,83 √f'c A_cv
- * §11.6.1    minimum distributed reinforcement ratios: ρ_l ≥ 0,0012 for Ø16 and smaller
- *            with f_y ≥ 420 MPa, otherwise 0,0015; ρ_t ≥ 0,0020 (or 0,0025)
+ * §11.5.4.2  in-plane shear strength V_n ≤ 0,66 √f'c A_cv (0,83 in CIRSOC 201-2005)
+ * §11.6.1    minimum distributed reinforcement, Tabla 11.6.1, by each direction's bar size
+ *            and f_y; §11.6.2 where the in-plane shear passes 0,04·φ·λ·√f'c·Acv
  * §11.7.2    longitudinal bar spacing ≤ the lesser of 3h and 450 mm
  * §11.7.3    transverse bar spacing ≤ the lesser of 3h and 450 mm
  * §11.7.5    reinforcement around openings
@@ -34,6 +34,9 @@ import { clause, type ClauseRef, type RegulationEdition } from '../../codes/regu
 import { deriveMaturity, type MaturityRecord } from '../../codes/maturity';
 import { msg } from '../../codes/message';
 import { sqrtFcCapped } from './punching-shear';
+import type { WallReinforcement } from '../../design-contract/reinforcement';
+import { proposeWallReinforcement, wallInPlane, wallOpenings, wallOutOfPlane } from './wall-member';
+import { wallCurtains } from './floor-transverse';
 
 /** §21.2 — φ for shear and for compression-controlled sections. */
 export const PHI_WALL_SHEAR = 0.75;
@@ -51,23 +54,51 @@ export interface WallReinforcementRatios {
 }
 
 /**
- * §11.6.1 minimum distributed reinforcement.
+ * The minimum distributed reinforcement of a cast-in-place wall, CIRSOC 201-2025 §11.6
+ * (docs/codes/CIRSOC/markdown/cirsoc-201-2025/capitulo-11-tabiques.md:517-575, 590-608).
  *
- * The relaxed ratios apply only to deformed bars Ø16 or smaller with f_y ≥ 420 MPa. A
- * design using Ø20 verticals does not get the 0,0012 ratio, and applying it anyway
- * under-reinforces the wall.
+ * Vu ≤ 0,04·φ·λ·√f'c·Acv in the plane (§11.6.1), Tabla 11.6.1, deformed bars cast in place, by
+ * the size of the bars in each direction (ρl for the verticals, ρt for the horizontals):
+ *     ≤ 16 mm, fy ≥ 420 MPa:   ρl 0,0012   ρt 0,0020
+ *     ≤ 16 mm, fy < 420 MPa:   ρl 0,0015   ρt 0,0025
+ *     > 16 mm, any fy:         ρl 0,0015   ρt 0,0025
+ * Vu above it (§11.6.2): ρt ≥ 0,0025 and ρl ≥ max(0,0025; 0,0025 + 0,5·(2,5 − hw/ℓw)·(ρt − 0,0025))
+ * (11.6.2), ρt the horizontal ratio provided. "No necesita exceder el ρt requerido para
+ * resistencia" is a relaxation and is not taken. √f'c is capped at 8,3 MPa in the threshold (the
+ * lower threshold: the safe side).
+ *
+ * Without `shear` (the in-plane shear unknown) the table applies.
  */
 export function minimumWallRatios(
   barDiameterMm: number, fy: number, edition: RegulationEdition,
+  opts: {
+    /** The horizontal bars' diameter, when it is not the verticals'. */
+    horizontalDiameterMm?: number;
+    shear?: { vu: number; fc: number; acv: number; hw: number; lw: number; rhoTProvided?: number };
+  } = {},
 ): WallReinforcementRatios {
-  const relaxed = barDiameterMm <= 16 && fy >= 420;
+  const hd = opts.horizontalDiameterMm ?? barDiameterMm;
+  const small = (d: number) => d <= 16 && fy >= 420;
+  const sh = opts.shear;
+  const threshold = sh ? 0.04 * PHI_WALL_SHEAR * sqrtFcCapped(sh.fc) * sh.acv * 1000 : Number.POSITIVE_INFINITY;
+  if (sh && sh.vu > threshold) {
+    const rhoT = 0.0025;
+    const rt = Math.max(sh.rhoTProvided ?? rhoT, rhoT);
+    const rhoL = Math.max(0.0025, 0.0025 + 0.5 * (2.5 - sh.hw / sh.lw) * (rt - 0.0025));
+    return {
+      rhoL, rhoT,
+      refs: [clause('cirsoc-201', edition, '11.6.2', 'armadura mínima de tabiques con corte en el plano')],
+      note: `Vu = ${sh.vu.toFixed(0)} kN > 0,04·φ·√f'c·Acv = ${threshold.toFixed(0)} kN: rigen ρt ≥ 0,0025 y ρl ≥ ${rhoL.toFixed(4)} (11.6.2).`,
+    };
+  }
+  const rhoL = small(barDiameterMm) ? 0.0012 : 0.0015;
+  const rhoT = small(hd) ? 0.0020 : 0.0025;
   return {
-    rhoL: relaxed ? 0.0012 : 0.0015,
-    rhoT: relaxed ? 0.0020 : 0.0025,
+    rhoL, rhoT,
     refs: [clause('cirsoc-201', edition, '11.6.1', 'límites de la armadura en tabiques')],
-    note: relaxed
-      ? `Ø${barDiameterMm} ≤ 16 mm y fy = ${fy} MPa ≥ 420: se aplican las cuantías reducidas.`
-      : `Ø${barDiameterMm} > 16 mm o fy < 420 MPa: NO corresponden las cuantías reducidas.`,
+    note: `Tabla 11.6.1: verticales Ø${barDiameterMm} ${small(barDiameterMm) ? '≤ 16 mm con fy ≥ 420 MPa' : '> 16 mm o fy < 420 MPa'} → ρl ≥ ${rhoL}; `
+      + `horizontales Ø${hd} ${small(hd) ? '≤ 16 mm con fy ≥ 420 MPa' : '> 16 mm o fy < 420 MPa'} → ρt ≥ ${rhoT}.`
+      + (small(barDiameterMm) && small(hd) ? ' Se aplican las cuantías reducidas.' : ' NO corresponden las cuantías reducidas en todas las direcciones.'),
   };
 }
 
@@ -113,7 +144,7 @@ export interface WallShearResult {
 /**
  * In-plane shear per §11.5.4.
  *
- * The §11.5.4.6 ceiling matters and is checked explicitly: above `0,83 √f'c A_cv` the
+ * The §11.5.4.2 ceiling matters and is checked explicitly: above `0,66 √f'c A_cv` the
  * wall fails by web crushing and adding horizontal steel does not help. Reporting a
  * shortfall that more reinforcement would fix, when it would not, sends the engineer
  * down the wrong path.
@@ -167,6 +198,8 @@ export function checkWallInPlaneShear(opts: {
 // ─── Axial-flexural interaction ──────────────────────────────────
 
 export interface WallAxialFlexureResult {
+  /** Design moment capacity at the applied axial load, kN·m, when read by strain compatibility. */
+  phiMn?: number;
   /** Factored axial force, kN, compression positive. */
   pu: number;
   /** Factored in-plane moment, kN·m. */
@@ -254,8 +287,14 @@ export interface WallDesignInput {
   pu: number;
   muInPlane: number;
   vuInPlane: number;
-  /** Out-of-plane moment per metre, kN·m/m. */
+  /** Out-of-plane moment per metre, kN·m/m: bending the verticals (the larger one). */
   muOutOfPlane?: number;
+  /** Out-of-plane moment per metre bending the horizontals, kN·m/m. */
+  muOutOfPlaneHorizontal?: number;
+  /** Reinforcement a person set; absent, the design proposes it. */
+  provided?: WallReinforcement;
+  /** Openings in the wall on this level. */
+  openingCount?: number;
   openings?: Array<{ x: number; y: number; w: number; h: number }>;
   /** True when the project requires seismic design. */
   seismicRequired: boolean;
@@ -278,6 +317,12 @@ export interface WallDesignResult {
   memo: string[];
   refs: ClauseRef[];
   unsupported: string[];
+  /** The reinforcement checked: the person's, or the design's proposal. */
+  reinforcement: WallReinforcement;
+  /** Out of the plane and around the openings (`wall-member.ts`). */
+  checks: Array<{ category: string; utilization: number; description: string; ok: boolean }>;
+  /** What it was designed from, without the bars: the editor re-checks a draft on it. */
+  input: Omit<WallDesignInput, 'provided'>;
 }
 
 const BAR_AREA = (d: number) => Math.PI * (d / 2000) ** 2;
@@ -288,7 +333,8 @@ export function designWall(input: WallDesignInput): WallDesignResult {
   const refs: ClauseRef[] = [];
   const unsupported: string[] = [];
 
-  const ratios = minimumWallRatios(input.barDiameterMm, input.fy, input.edition);
+  const wallShear = { vu: input.vuInPlane, fc: input.fc, acv: input.length * input.thickness, hw: input.height, lw: input.length };
+  const ratios = minimumWallRatios(input.barDiameterMm, input.fy, input.edition, { shear: wallShear });
   memo.push(ratios.note);
   refs.push(...ratios.refs);
 
@@ -310,16 +356,38 @@ export function designWall(input: WallDesignInput): WallDesignResult {
   const area = BAR_AREA(input.barDiameterMm);
   const asVertPerM = ratios.rhoL * input.thickness;
   const asHorPerM = ratios.rhoT * input.thickness;
-  const verticalSpacing = Math.min(
-    sMax, Math.floor((2 * area / asVertPerM) / 0.025) * 0.025);
-  const horizontalSpacing = Math.min(
-    sMax, Math.floor((2 * area / asHorPerM) / 0.025) * 0.025);
+  // §11.7.2.3: two curtains past 250 mm, one below; the spacing is for the curtains there are.
+  const curtains = wallCurtains(input.thickness);
+  const minVertical = Math.min(sMax, Math.floor((curtains * area / asVertPerM) / 0.025) * 0.025);
+  const minHorizontal = Math.min(sMax, Math.floor((curtains * area / asHorPerM) / 0.025) * 0.025);
+  const openingCount = input.openingCount ?? input.openings?.length ?? 0;
+  // The person's bars, or the design's: the distributed minimum, boundary bars where the in-plane
+  // moment needs them, and the opening bars.
+  const r: WallReinforcement = input.provided ?? proposeWallReinforcement({
+    length: input.length, thickness: input.thickness, cover: input.cover, fc: input.fc, fy: input.fy,
+    pu: input.pu, mu: input.muInPlane, barDiameterMm: input.barDiameterMm,
+    verticalSpacing: minVertical, horizontalSpacing: minHorizontal, curtains, openingCount,
+  });
+  const verticalSpacing = r.vertical.spacing;
+  const horizontalSpacing = r.horizontal.spacing;
   memo.push(
-    `Dos cortinas Ø${input.barDiameterMm}: verticales c/${(verticalSpacing * 1000).toFixed(0)} mm, ` +
-    `horizontales c/${(horizontalSpacing * 1000).toFixed(0)} mm (máximo ` +
-    `${(sMax * 1000).toFixed(0)} mm).`);
+    `${r.curtains === 2 ? 'Dos cortinas' : 'Una cortina'}: verticales Ø${r.vertical.diameter} c/${(verticalSpacing * 1000).toFixed(0)} mm, ` +
+    `horizontales Ø${r.horizontal.diameter} c/${(horizontalSpacing * 1000).toFixed(0)} mm (máximo ` +
+    `${(sMax * 1000).toFixed(0)} mm)` +
+    (r.boundary ? `; ${r.boundary.count}Ø${r.boundary.diameter} en cada extremo` : '') + '.');
+  const checks: WallDesignResult['checks'] = [];
+  const rhoLProvided = (r.curtains * BAR_AREA(r.vertical.diameter) / verticalSpacing) / input.thickness;
+  const rhoTProvided = (r.curtains * BAR_AREA(r.horizontal.diameter) / horizontalSpacing) / input.thickness;
+  // The minimum of the bars there are: Tabla 11.6.1 reads each direction's own bar size, and
+  // 11.6.2's ρl the horizontal ratio provided.
+  const placed = minimumWallRatios(r.vertical.diameter, input.fy, input.edition, {
+    horizontalDiameterMm: r.horizontal.diameter, shear: { ...wallShear, rhoTProvided: rhoTProvided },
+  });
+  const minClause = placed.refs[0]!.clause;
+  checks.push({ category: 'Min vertical ratio', utilization: placed.rhoL / Math.max(rhoLProvided, 1e-12), ok: rhoLProvided >= placed.rhoL - 1e-12, description: `ρl = ${(rhoLProvided * 100).toFixed(3)}% ≥ ${(placed.rhoL * 100).toFixed(3)}%, Ø${r.vertical.diameter}, fy ${input.fy} MPa (${minClause})` });
+  checks.push({ category: 'Min horizontal ratio', utilization: placed.rhoT / Math.max(rhoTProvided, 1e-12), ok: rhoTProvided >= placed.rhoT - 1e-12, description: `ρt = ${(rhoTProvided * 100).toFixed(3)}% ≥ ${(placed.rhoT * 100).toFixed(3)}%, Ø${r.horizontal.diameter}, fy ${input.fy} MPa (${minClause})` });
+  checks.push({ category: 'Bar spacing', utilization: Math.max(verticalSpacing, horizontalSpacing) / sMax, ok: Math.max(verticalSpacing, horizontalSpacing) <= sMax + 1e-9, description: `s = ${(Math.max(verticalSpacing, horizontalSpacing) * 1000).toFixed(0)} mm ≤ ${(sMax * 1000).toFixed(0)} mm (11.7.2)` });
 
-  const rhoTProvided = (2 * area / horizontalSpacing) / input.thickness;
   const shear = checkWallInPlaneShear({
     length: input.length, thickness: input.thickness, fc: input.fc,
     vu: input.vuInPlane, rhoT: rhoTProvided, fy: input.fy, edition: input.edition,
@@ -334,31 +402,39 @@ export function designWall(input: WallDesignInput): WallDesignResult {
         : `El corte en el plano no verifica (utilización ${shear.utilization.toFixed(2)}).`);
   }
 
-  const rhoLProvided = (2 * area / verticalSpacing) / input.thickness;
-  const axialFlexure = checkWallAxialFlexure({
-    length: input.length, thickness: input.thickness, fc: input.fc, fy: input.fy,
-    rhoL: rhoLProvided, pu: input.pu, mu: input.muInPlane, edition: input.edition,
-  });
+  // In-plane axial force and moment on the wall's own bars, by strain compatibility.
+  const inPlane = wallInPlane({ length: input.length, thickness: input.thickness, cover: input.cover, fc: input.fc, fy: input.fy, pu: input.pu, mu: input.muInPlane, r });
+  const ag = input.length * input.thickness;
+  const ast = rhoLProvided * ag;
+  const axialFlexure: WallAxialFlexureResult = {
+    pu: input.pu, mu: input.muInPlane,
+    pn0: (0.85 * input.fc * (ag - ast) + input.fy * ast) * 1000,
+    mn: inPlane.phiMn, phiMn: inPlane.phiMn,
+    utilization: inPlane.utilization, ok: inPlane.ok,
+    memo: `Flexocompresión en el plano por compatibilidad de deformaciones sobre las barras del tabique: ${inPlane.description}.`,
+    refs: [
+      clause('cirsoc-201', input.edition, '11.5.2', 'carga axial y flexión en el plano'),
+      clause('cirsoc-201', input.edition, '22.4.2', 'resistencia axial máxima'),
+    ],
+  };
   memo.push(axialFlexure.memo);
   refs.push(...axialFlexure.refs);
   if (!axialFlexure.ok) {
     unsupported.push(
       `La interacción carga axial-flexión no verifica ` +
-      `(utilización ${axialFlexure.utilization.toFixed(2)}).`);
+      `(utilización ${Number.isFinite(axialFlexure.utilization) ? axialFlexure.utilization.toFixed(2) : '∞'}).`);
   }
 
-  if (input.muOutOfPlane !== undefined && input.muOutOfPlane > 0) {
-    unsupported.push(
-      'Hay momento fuera del plano. La verificación combinada dentro y fuera del plano ' +
-      '(11.5.2) no está implementada; verificar sólo en el plano daría por aprobado un ' +
-      'tabique que puede no serlo.');
+  // Out of the plane, on a metre strip (11.5.2.2), and around the openings (11.7.5).
+  for (const c of wallOutOfPlane({ length: input.length, thickness: input.thickness, cover: input.cover, fc: input.fc, fy: input.fy, pu: input.pu, muV: input.muOutOfPlane ?? 0, muH: input.muOutOfPlaneHorizontal ?? 0, r })) {
+    checks.push(c);
+    if (!c.ok) unsupported.push(`${c.category}: no verifica (${c.description}).`);
   }
-
-  if (input.openings && input.openings.length > 0) {
-    unsupported.push(
-      `El tabique tiene ${input.openings.length} abertura(s). El refuerzo perimetral de ` +
-      'aberturas (11.7.5) y la redistribución de esfuerzos alrededor de ellas no se ' +
-      'generan automáticamente.');
+  const op = wallOpenings(openingCount, r);
+  if (op) {
+    checks.push(op);
+    refs.push(clause('cirsoc-201', input.edition, '11.7.5', 'armadura alrededor de aberturas'));
+    if (!op.ok) unsupported.push(`Aberturas: ${op.description}.`);
   }
 
   if (input.seismicRequired) {
@@ -391,6 +467,7 @@ export function designWall(input: WallDesignInput): WallDesignResult {
   return {
     wallId: input.wallId, ratios, verticalSpacing, horizontalSpacing,
     shear, axialFlexure, minThickness: minT.thickness, thicknessOk,
-    maturity, memo, refs, unsupported,
+    maturity, memo, refs, unsupported, reinforcement: r, checks,
+    input: (({ provided: _p, ...rest }) => rest)(input),
   };
 }

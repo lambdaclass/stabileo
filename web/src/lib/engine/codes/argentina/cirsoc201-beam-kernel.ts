@@ -1,7 +1,7 @@
 /**
  * The CIRSOC 201 beam-section checker, as the engine computes it.
  *
- * Flexure and shear strength of a rectangular section with the bars and stirrups it has, in
+ * Flexure and shear strength of a rectangular or flanged section with the bars and stirrups it has, in
  * Rust (`engine/src/postprocess/cirsoc201_check.rs`, `beam_batch`), where the clause is
  * tested, fuzzed and mutation-tested with the rest of the engine. This module is the numeric
  * boundary and nothing else: it packs SI inputs, unpacks SI outputs, and holds no rule.
@@ -26,8 +26,13 @@ export interface BeamSectionQuery {
   b: number; h: number; d: number;
   As: number; AsComp?: number; dPrime?: number;
   Av?: number; s?: number; fyt?: number; Ag?: number;
-  /** Axial force acting with the shear, N, POSITIVE IN COMPRESSION. */
+  /**
+   * Axial force, N, POSITIVE IN COMPRESSION. It acts on the shear (Tabla 22.5.5.1) and on the
+   * flexure, at the gross centroid about which the moment is then taken (22.4 with 22.2).
+   */
   NuCompression?: number;
+  /** A compression flange: effective width and thickness, m. Absent: a rectangle. */
+  bf?: number; hf?: number;
 }
 
 export interface BeamSectionAnswer {
@@ -42,7 +47,7 @@ export interface BeamSectionAnswer {
   Vc: number; Vs: number; AvMin: number; avBelowMin: boolean; vsCapped: boolean; phiVn: number;
 }
 
-const IN = 15;
+const IN = 17;
 const OUT = 16;
 
 /** Evaluate many sections in one engine call. `null` when the engine is not available. */
@@ -53,6 +58,7 @@ export function evaluateBeamSections(queries: readonly BeamSectionQuery[]): Beam
     data.set([
       q.edition === '2005' ? 2005 : 2025, q.fc, q.fy, q.es ?? 0, q.b, q.h, q.d,
       q.As, q.AsComp ?? 0, q.dPrime ?? 0, q.Av ?? 0, q.s ?? 0, q.fyt ?? 0, q.Ag ?? 0, q.NuCompression ?? 0,
+      q.bf ?? 0, q.hf ?? 0,
     ], i * IN);
   });
   const out = kernel(data);

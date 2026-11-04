@@ -7,7 +7,7 @@
  * behaves, and that the sheet actually renders the three standards apart.
  */
 
-import { test, expect, PRO_URL } from './fixtures';
+import { test, expect, PRO_URL, ribbonCmd } from './fixtures';
 import { insertGenerated, pickGenerator, placeButton } from './generator-helpers';
 import type { Page } from '@playwright/test';
 
@@ -389,7 +389,7 @@ test.describe('the generators are unaffected', () => {
   test('their material selector offers no hand-entry division', async ({ page }) => {
     await page.goto(PRO_URL);
     await page.getByTestId('pr-stage-model').click();
-    await page.getByTestId('pr-cmd-generators').click();
+    await ribbonCmd(page, 'generators');
     await expect(page.getByTestId('pro-generators-panel')).toBeVisible();
     await pickGenerator(page, 'truss');
     await page.getByTestId('gen-grade-trigger').click();

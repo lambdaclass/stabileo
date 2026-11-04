@@ -434,6 +434,7 @@ fn validation_nafems_t1_thermal_stress_fixed_bar() {
             element_id: i,
             dt_uniform: delta_t,
             dt_gradient: 0.0,
+            alpha: None, depth: None,
         }));
     }
 

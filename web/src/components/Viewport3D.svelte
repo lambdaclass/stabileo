@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { editorActivity } from '../lib/utils/editor-activity';
+  const editorActive = editorActivity();
   import { is3DWorkspace } from '../lib/utils/workspace';
   import { displayUnits, fmtCoord, unitQ } from '../lib/store/display-units.svelte';
   import QuickInfoCard from './viewport/QuickInfoCard.svelte';
@@ -13,9 +15,23 @@
   import { onMount, onDestroy, untrack } from 'svelte';
   import { t, tp } from '../lib/i18n';
   import * as THREE from 'three';
+  import '../styles/viewer-chrome.css';
+  import { drawAxisGizmoOn } from '../lib/viewport3d/axis-gizmo';
+  import { createViewerScene, createViewerPerspectiveCamera, createViewerOrthographicCamera, createViewerRenderer, createViewerControls, applyDefaultNavigation, addViewerLights } from '../lib/viewport3d/scene-setup';
   import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
   import { modelStore, uiStore, resultsStore, historyStore, dsmStepsStore, verificationStore } from '../lib/store';
+  import { setGeometryDrag } from '../lib/store/physical-frame';
+  import { discretizationStore } from '../lib/store/discretization.svelte';
   import { syncStructuralGrid } from '../lib/three/structural-grid-3d';
+  import { sceneHost } from '../lib/viewport3d/scene-host.svelte';
+  import SplitView3D from './viewport/SplitView3D.svelte';
+  import { currentShellContourField, shellStressInputs } from '../lib/store/shell-contour';
+  import { shellComponentValue, shellComponentMeta, shellComponentLabelKey } from '../lib/engine/shell-stress';
+  import { toneObject } from '../lib/viewport3d/category-tone';
+  import { viewCategories, type ViewCategory } from '../lib/store/view-categories.svelte';
+  import { syncUnderlays } from '../lib/three/underlay-3d';
+  import { syncFootings } from '../lib/three/footings-3d';
+  import { osnapUnderlays } from '../lib/model/osnap';
   import { PlacementGhost } from '../lib/three/placement-ghost';
   import { placementStore } from '../lib/store/placement.svelte';
   import { editPreview } from '../lib/store/edit-preview.svelte';
@@ -34,8 +50,10 @@
   import { activeStretchHandles, handleUnder, stationOnRay, moveStretchEnd, handleMeshes, type StretchHandles } from '../lib/viewport3d/load-handles';
   import { drawState } from '../lib/store/draw-state.svelte';
   import { createDrawFeedback } from '../lib/viewport3d/draw-feedback';
+  import PlanViewChip from './viewport/PlanViewChip.svelte';
   import PointerModeButton from './PointerModeButton.svelte';
   import SelectionDeleteButton from './ribbon/SelectionDeleteButton.svelte';
+  import SelectionClipboardButtons from './ribbon/SelectionClipboardButtons.svelte';
   import ConnectionPrompt from './ConnectionPrompt.svelte';
   import { askAboutNewMember } from '../lib/model/edit/connection-questions';
   import { addThermalLoadIfAny } from '../lib/store/load-ops';
@@ -48,12 +66,18 @@
   import { nodeRadiusFor, diagonalOf, structureNodes } from '../lib/three/node-scale';
   import { jointSceneLayout, hasSceneContent } from '../lib/three/joint-layout';
   import { buildJointMeshes } from '../lib/three/joint-meshes';
+  import { buildTypologyMeshes } from '../lib/three/joint-typology-meshes';
   import { jointDesignStore } from '../lib/store/joint-design.svelte';
   import { detectJoints } from '../lib/engine/connection-design';
   import { ElementsBatched } from '../lib/three/elements-batched';
   import { ElementsPicking } from '../lib/three/elements-picking';
   import { fatLineResolution } from '../lib/three/create-element-mesh';
   import { resolveHitUserData, shellSelectionKey } from '../lib/viewport3d/picking';
+  import { plateOfShell, platesInMarquee } from '../lib/store/physical-plates';
+  import { selectPiece } from '../lib/store/curved-members';
+  import { zoneDraw } from '../lib/store/zone-draw.svelte';
+  import { useZoneMap } from '../lib/store/use-zone-map.svelte';
+  import { syncUseZoneMap } from '../lib/three/use-zone-map-3d';
   import { currentLoadDrawView, isLoadDrawn } from '../lib/viewport3d/load-drawn';
   import { evaluateDiagramAt, formatDiagramValue3D, type Diagram3DKind } from '../lib/engine/diagrams-3d';
   import { certificateStore, formatBound } from '../lib/store/certificate.svelte';
@@ -69,6 +93,7 @@
   import { syncNodes as _syncNodes, syncElements as _syncElements, syncSupports as _syncSupports, syncLoads as _syncLoads, syncShells as _syncShells, syncSelection as _syncSelection, syncLocalAxes as _syncLocalAxes, syncMemberOffsets as _syncMemberOffsets, syncShellOffsets as _syncShellOffsets, applyElementVisibility, type SceneSyncContext } from '../lib/viewport3d/scene-sync';
   import { syncDeformed as _syncDeformed, syncDiagrams3D as _syncDiagrams3D, syncColorMap3D as _syncColorMap3D, syncVerificationLabels as _syncVerificationLabels, syncReactions as _syncReactions, syncConstraintForces as _syncConstraintForces, syncLabels3D as _syncLabels3D, DIAGRAM_3D_TYPES, type ResultsSyncContext } from '../lib/viewport3d/results-sync';
   import { applyLowDetail, isHeavyModel } from '../lib/viewport3d/lod';
+  import { meshHidden } from '../lib/viewport3d/shell-members';
   import { buildTimelapse, FORMAT_SIZE } from '../lib/store/build-timelapse.svelte';
   import { createTimelapseView } from '../lib/viewport3d/build-timelapse-view';
   import { createTimelapseCompositor } from '../lib/viewport3d/timelapse-compositor';
@@ -86,7 +111,8 @@
   let perspCamera: THREE.PerspectiveCamera;
   let orthoCamera: THREE.OrthographicCamera;
   let controls: OrbitControls;
-  let animFrameId: number;
+  /** Drops the render loop's pending frame; assigned once the loop exists. */
+  let cancelRenderLoop: () => void = () => {};
   let initialized = false;
 
   // ─── Invalidation-based rendering ───────────────────────────
@@ -137,6 +163,8 @@
 
   // ─── Clipping plane ─────────────────────────────────────────
   const clippingPlane = new THREE.Plane(planeNormal('XY').clone().negate(), 0);
+  /** The plan view's cut: everything above `planCutZ` is cut away. */
+  const planPlane = new THREE.Plane(planeNormal('XY').clone().negate(), 0);
 
   // ─── Raycaster ───────────────────────────────────────────────
   const raycaster = new THREE.Raycaster();
@@ -175,7 +203,9 @@
   /** The render's aspect while the timelapse draws at its own size; null otherwise. */
   let timelapseAspect: number | null = null;
   let toolBeforeTimelapse: typeof uiStore.currentTool | null = null;
-  let renderModeBeforeSections: 'wireframe' | 'solid' = 'wireframe';
+  /** How the bars can be drawn, one at a time, from the lightest to the building as built. */
+  const RENDER_MODES = ['wireframe', 'solid', 'sections', 'physical'] as const;
+  const RENDER_GLYPH: Record<(typeof RENDER_MODES)[number], string> = { wireframe: '╱', solid: '▬', sections: '⬡', physical: '▣' };
   let boxSelect3D = $state<{ startX: number; startY: number; endX: number; endY: number; additive: boolean } | null>(null);
   /** The lasso's outline while one is being drawn (`viewState.lasso`). */
   let lassoPath = $state<Array<{ x: number; y: number }>>([]);
@@ -381,7 +411,7 @@
      * the scene graph. Both branches of this rebase hid the markers in sections mode
      * and each did it its own way; this is the one that says why.
      */
-    const drawn = uiStore.renderMode3D !== 'sections';
+    const drawn = uiStore.renderMode3D !== 'sections' && uiStore.renderMode3D !== 'physical';
     nodesInstanced.setDrawn(drawn);
     publishMarkerState(drawn, drawn ? undefined : null);
     if (!drawn) return;
@@ -497,6 +527,19 @@
       ? { x: b.x - a.x, y: b.y - a.y, z: ((b as { z?: number }).z ?? 0) - ((a as { z?: number }).z ?? 0) }
       : { x: 1, y: 0, z: 0 };
 
+    // A joint with a typology draws its parts (plates, bolts, fillets, stiffeners, anchors).
+    if (design.typology?.parts.length) {
+      const built = buildTypologyMeshes(design.typology.parts, nodeId);
+      for (const mesh of built.meshes) jointsParent.add(mesh);
+      nodesInstanced.suppress(nodeId);
+      jointBoundingRadiusM = built.boundingRadiusM;
+      jointCentreM = built.centreM;
+      uiStore.jointSceneEmptyReasons = [];
+      (window as unknown as { __jointMeshCount?: number }).__jointMeshCount = built.meshes.length;
+      (window as unknown as { __jointScene?: unknown }).__jointScene = { typology: design.typology.kind, parts: design.typology.parts.map((p) => p.kind) };
+      invalidate();
+      return;
+    }
     const layout = jointSceneLayout(design, axis);
     /*
      * Why nothing is drawn, published rather than swallowed.
@@ -564,8 +607,7 @@
 
   onMount(() => {
     // Scene
-    scene = new THREE.Scene();
-    scene.background = new THREE.Color(COLORS.background);
+    scene = createViewerScene();
 
     // Parent groups
     nodesParent = new THREE.Group();
@@ -610,47 +652,42 @@
      * both follow the distance to what is looked at (`nearPlaneFor`,
      * `farPlaneFor`).
      */
-    perspCamera = new THREE.PerspectiveCamera(50, 1, 0.1, 1000);
-    setCameraUp(perspCamera);
-    perspCamera.position.set(12, 8, 12);
-    perspCamera.lookAt(0, 0, 0);
+    perspCamera = createViewerPerspectiveCamera();
 
     // Orthographic camera (frustum updated on resize)
-    orthoCamera = new THREE.OrthographicCamera(-10, 10, 10, -10, 0.1, 1000);
-    setCameraUp(orthoCamera);
-    orthoCamera.position.set(12, 8, 12);
-    orthoCamera.lookAt(0, 0, 0);
+    orthoCamera = createViewerOrthographicCamera();
 
     camera = uiStore.cameraMode3D === 'orthographic' ? orthoCamera : perspCamera;
 
     // Renderer
-    renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
-    renderer.setPixelRatio(window.devicePixelRatio);
-    renderer.localClippingEnabled = true;
-    container.appendChild(renderer.domElement);
+    renderer = createViewerRenderer(container);
 
-    // Orbit controls
-    controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-    controls.dampingFactor = 0.1;
-    controls.target.set(0, 0, 0);
-    // The wheel zooms toward what is under the pointer, as in the 2D view and
-    // in CAD, rather than toward the orbit centre: a detail far from the
-    // middle of the model can be reached without panning to it first.
-    controls.zoomToCursor = true;
+    // Orbit controls. The wheel zooms toward what is under the pointer, as in the 2D view and
+    // in CAD, rather than toward the orbit centre.
+    controls = createViewerControls(camera, renderer.domElement);
     // Close in on a small part, the near plane follows (see nearPlaneFor).
     controls.addEventListener('change', syncNearPlane);
+    applyNavigation();
 
     // ── Keyboard camera navigation ──
-    // WASD = pan, Arrows = orbit, Q/E = up/down, Shift/Ctrl = speed boost
+    // WASD = pan, Arrows = orbit, Q/E = up/down, Shift = speed boost
     const keysPressed = new Set<string>();
     let navShiftHeld = false;
+    const releaseNavKeys = () => {
+      keysPressed.clear();
+      navShiftHeld = false;
+      controls.enablePan = true;
+    };
 
     const onNavKeyDown = (e: KeyboardEvent) => {
+    if (!editorActive()) return;
       // Skip when typing in inputs
       const tag = document.activeElement?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
       if (e.key === 'Shift') navShiftHeld = true;
+      // A letter with Ctrl, Cmd or Alt is a shortcut (Ctrl+S, Cmd+A): its release can go to the
+      // dialog it opens, and a Mac sends none while Cmd is down, so the view would never stop.
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
       const k = e.key.toLowerCase();
       if ('wasdqe'.includes(k) || e.key.startsWith('Arrow')) {
         const wasEmpty = keysPressed.size === 0;
@@ -665,13 +702,18 @@
       }
     };
     const onNavKeyUp = (e: KeyboardEvent) => {
+      // A Mac reports no release of a letter let go while Cmd was down.
+      if (e.key === 'Meta') { releaseNavKeys(); return; }
       if (e.key === 'Shift') navShiftHeld = false;
       const k = e.key.toLowerCase();
       keysPressed.delete(k.startsWith('arrow') ? e.key : k);
       if (e.key === 'Shift') controls.enablePan = true;
     };
+    const onNavHidden = () => { if (document.hidden) releaseNavKeys(); };
     window.addEventListener('keydown', onNavKeyDown);
     window.addEventListener('keyup', onNavKeyUp);
+    window.addEventListener('blur', releaseNavKeys);
+    document.addEventListener('visibilitychange', onNavHidden);
 
     // Sync camera state to uiStore on orbit change (throttled)
     let cameraSyncTimer: ReturnType<typeof setTimeout> | null = null;
@@ -688,15 +730,7 @@
       }, 100);
     });
 
-    // Lighting
-    const ambient = new THREE.AmbientLight(0xffffff, 0.6);
-    scene.add(ambient);
-    const dir1 = new THREE.DirectionalLight(0xffffff, 0.8);
-    dir1.position.set(10, 20, 10);
-    scene.add(dir1);
-    const dir2 = new THREE.DirectionalLight(0xffffff, 0.3);
-    dir2.position.set(-10, 10, -10);
-    scene.add(dir2);
+    addViewerLights(scene);
 
     // Grid (reactive — updated by syncGrid effect)
     updateGrid();
@@ -711,6 +745,7 @@
     const ro = new ResizeObserver(() => { if (buildTimelapse.active) applyTimelapseSize(); else handleResize(); invalidate(); });
     ro.observe(container);
     handleResize();
+    sceneHost.attach({ scene, redraw: () => { toneDirty = true; invalidate(); } });
 
     // Initialize sync contexts (must be after parent groups are created)
     initSyncContexts();
@@ -754,24 +789,28 @@
     }
 
     /*
-     * One frame pending at most. While the loop renders continuously it reschedules itself, and
-     * `needsRender` is false between frames, so an invalidate then used to start a second chain
-     * beside it: every effect that fired during an animation added one, and the scene was drawn
-     * that many times per frame.
+     * At most ONE frame is ever pending, whoever asks for it.
+     *
+     * `renderOnce` clears `needsRender` on entry, and inside the same frame
+     * `controls.update()` fires `change` whenever the camera moved, which
+     * invalidates again. With two independent schedulers (here and the
+     * "keep looping" request at the end of `renderOnce`) every frame that both
+     * moved the camera and needed to continue queued TWO next frames, so a held
+     * arrow key doubled the number of render chains on every tick: 2^n renders
+     * of the scene per display frame after n frames, each one turning the camera
+     * another step. Measured in viewport-perf.spec: 8192 renders in one half-second
+     * keyboard-orbit window on the 24-member tower (65536 at 4x CPU throttling),
+     * the main thread blocked up to 59 s in a GL call while the GPU process
+     * drained the backlog, and input stalled behind it. The coalescer drops a
+     * second request while one is pending, so the loop is one chain by
+     * construction.
      */
-    let framePending = false;
-    function scheduleFrame() {
-      if (framePending) return;
-      framePending = true;
-      animFrameId = requestAnimationFrame(renderOnce);
-    }
+    const frame = createFrameCoalescer<void>(() => renderOnce());
 
-    /** Mark the scene as needing a re-render. Schedules a frame if one isn't pending. */
+    /** Mark the scene as needing a re-render and make sure a frame is pending. */
     function _invalidate() {
-      if (!needsRender) {
-        needsRender = true;
-        scheduleFrame();
-      }
+      needsRender = true;
+      frame.schedule();
     }
     // Expose invalidate to the outer scope for use in $effect blocks
     invalidate = _invalidate;
@@ -786,16 +825,23 @@
       const panSpeed = dist * 0.012 * boost;   // scale with zoom level
       const orbitSpeed = 0.02 * boost;          // radians per frame
 
-      // WASD — pan relative to camera orientation
-      const forward = _panVec.set(0, 0, 0);
-      if (keysPressed.has('w')) forward.z -= panSpeed;
-      if (keysPressed.has('s')) forward.z += panSpeed;
-      if (keysPressed.has('a')) forward.x -= panSpeed;
-      if (keysPressed.has('d')) forward.x += panSpeed;
-      if (forward.lengthSq() > 0) {
-        // Transform pan vector from camera-local to world space
-        forward.applyQuaternion(camera.quaternion);
-        forward.z = 0; // keep horizontal
+      // WASD — pan over the floor, relative to the camera. W/S move along the view's depth laid
+      // flat; looking down from above that depth is vertical, so they use the screen's up instead
+      // (laid flat it had shrunk to a sliver, and W/S barely moved the plan view).
+      const fw = (keysPressed.has('w') ? 1 : 0) - (keysPressed.has('s') ? 1 : 0);
+      const rt = (keysPressed.has('d') ? 1 : 0) - (keysPressed.has('a') ? 1 : 0);
+      if (fw || rt) {
+        // The camera's own axes in the world: right, screen-up, and back (it looks down its −back).
+        const side = new THREE.Vector3(), screenUp = new THREE.Vector3(), back = new THREE.Vector3();
+        camera.updateMatrixWorld();
+        camera.matrixWorld.extractBasis(side, screenUp, back);
+        const look = back.negate();
+        const ahead = Math.abs(look.z) > 0.9 ? screenUp : look;
+        ahead.z = 0;
+        side.z = 0;
+        if (ahead.lengthSq() > 1e-12) ahead.normalize();
+        if (side.lengthSq() > 1e-12) side.normalize();
+        const forward = _panVec.copy(ahead.multiplyScalar(fw * panSpeed)).add(side.multiplyScalar(rt * panSpeed));
         controls.target.add(forward);
         camera.position.add(forward);
       }
@@ -826,7 +872,6 @@
     }
 
     function renderOnce() {
-      framePending = false;
       if (!needsRender && !needsContinuous()) return;
       needsRender = false;
 
@@ -933,7 +978,9 @@
 
       const _perfT0 = perfHud.on ? performance.now() : 0;
       nodesInstanced.setPixelRatio(renderer.getPixelRatio());
+      if (toneDirty) { toneDirty = false; applyCategoryTones(); }
       renderer.render(scene, camera);
+      splitView?.render();
       drawFreeBody3D();
       if (timelapseInfo && timelapseFrame) composeTimelapse(timelapseInfo);
       else renderInset();
@@ -968,9 +1015,10 @@
         }
       }
 
-      // Keep looping if continuous rendering is needed
+      // Keep looping if continuous rendering is needed (a no-op when an
+      // invalidate during this frame already queued the next one).
       if (needsContinuous() || needsRender) {
-        scheduleFrame();
+        frame.schedule();
       } else if (perfHud.on) {
         // The loop is about to STOP. This viewport renders on demand, so the next
         // frame may be seconds away — and without this, that idle gap would be
@@ -987,7 +1035,8 @@
       }
     }
     // Kick off the first frame
-    scheduleFrame();
+    frame.schedule();
+    cancelRenderLoop = () => frame.cancel();
 
     // When OrbitControls interaction ends, allow damping frames to settle
     // During camera manipulation, drop to pixelRatio=1 so the GPU pushes ~4× fewer
@@ -1152,6 +1201,7 @@
 
     // Keyboard shortcuts for 3D viewport
     const handleKeyDown = (e: KeyboardEvent) => {
+    if (!editorActive()) return;
       // Shift+P — toggle the dev perf HUD live (also persisted for next load). Only in development
       // and test builds, and never while typing: a capital P in a field used to switch it on, and
       // it stayed on through reloads.
@@ -1178,10 +1228,11 @@
     window.addEventListener('keydown', handleKeyDown);
 
     return () => {
+      sceneHost.attach(null);
       ghost?.dispose(); ghost = null; ghostFragment = null;
       previewGhost?.dispose(); previewGhost = null; previewFragment = null;
       initialized = false;
-      cancelAnimationFrame(animFrameId);
+      cancelRenderLoop();
       ro.disconnect();
       /*
        * The context is released, not just the renderer's own objects.
@@ -1212,6 +1263,8 @@
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keydown', onNavKeyDown);
       window.removeEventListener('keyup', onNavKeyUp);
+      window.removeEventListener('blur', releaseNavKeys);
+      document.removeEventListener('visibilitychange', onNavHidden);
       if (renderer.domElement.parentNode) {
         renderer.domElement.parentNode.removeChild(renderer.domElement);
       }
@@ -1275,11 +1328,24 @@
 
   // Thin wrappers that delegate to extracted modules + keep local refs in sync.
   // Wrapped in perfTimed so the HUD can attribute per-edit CPU cost to scene sync.
-  function syncNodes() { perfTimed(() => _syncNodes(sceneCtx)); }
-  function syncElements() { perfTimed(() => _syncElements(sceneCtx)); }
-  function syncSupports() { perfTimed(() => _syncSupports(sceneCtx)); }
-  function syncLoads() { perfTimed(() => _syncLoads(sceneCtx)); }
-  function syncShells() { perfTimed(() => _syncShells(sceneCtx)); }
+  function syncNodes() { perfTimed(() => _syncNodes(sceneCtx)); toneDirty = true; }
+  function syncElements() { perfTimed(() => _syncElements(sceneCtx)); toneDirty = true; }
+  function syncSupports() { perfTimed(() => _syncSupports(sceneCtx)); toneDirty = true; }
+  function syncLoads() { perfTimed(() => _syncLoads(sceneCtx)); toneDirty = true; }
+  function syncShells() { perfTimed(() => _syncShells(sceneCtx)); toneDirty = true; }
+  /** Set by every rebuild of a category's objects: the next frame draws them in their state again. */
+  let toneDirty = true;
+  function applyCategoryTones() {
+    const s = (c: ViewCategory) => viewCategories.state(c);
+    toneObject(elementsParent, s('members'));
+    toneObject(nodesParent, s('nodes'));
+    toneObject(shellsParent, s('shells'));
+    toneObject(supportsParent, s('supports'));
+    toneObject(loadsParent, s('loads'));
+    for (const g of [resultsCtx?.nodeLabelsGroup, resultsCtx?.elementLabelsGroup, resultsCtx?.shellLabelsGroup]) toneObject(g, s('labels'));
+    toneObject(underlaysGroup, s('underlays'));
+    for (const [obj, c] of sceneHost.toned) toneObject(obj, s(c));
+  }
   // Decorative overlays (member/shell local-axis triads, offset viz) fully rebuild
   // on every call. The nodes $effect re-runs them on every modelVersion bump, i.e.
   // every node-drag tick. Suppress them while a node is being dragged (the cheap,
@@ -1292,6 +1358,10 @@
   function syncShellOffsets() { if (draggedNodeId3D !== null) return; perfTimed(() => _syncShellOffsets(sceneCtx)); }
   /** Run the drag-suppressed decorative syncs once after a node drag finishes. */
   function finalizeDecorAfterDrag() {
+    // The concrete followed the drag at a lower rate: drawn once more where the node was left.
+    setGeometryDrag(false);
+    syncElements();
+    syncShells();
     syncLocalAxes();
     syncMemberOffsets();
     syncShellOffsets();
@@ -1299,6 +1369,8 @@
   }
   function syncSelection() {
     _syncSelection(sceneCtx);
+    // Drawn as members, a shell shows its offset while selected (`shell-members.ts`).
+    if (meshHidden()) syncShellOffsets();
     // Re-apply color map if active (syncSelection overwrites element colors)
     const dt = resultsStore.diagramType;
     if (resultsStore.results3D && (dt === 'axialColor' || dt === 'colorMap' || dt === 'verification')) {
@@ -1390,6 +1462,7 @@
   }
   function syncLabels3D() {
     _syncLabels3D(resultsCtx);
+    toneDirty = true;
   }
 
   // ─── Clear stress query when leaving stress mode ────────────
@@ -1409,10 +1482,24 @@
   // are rebuilt from the visible part of the model. Nothing in the model changes.
   $effect(() => {
     viewVisibility.version;
+    void viewCategories.hiddenKey;
     untrack(() => {
       syncNodes(); syncElements(); syncSupports(); syncLoads(); syncShells();
       syncLocalAxes(); syncDiagrams3D(); syncDeformed(); syncLabels3D(); syncReactions();
     });
+    invalidate();
+  });
+
+  $effect(() => {
+    void viewCategories.version;
+    toneDirty = true;
+    invalidate();
+  });
+
+  // Meshed plates as pieces or with their mesh: only the drawing changes.
+  $effect(() => {
+    void uiStore.platesShowMesh;
+    syncShells();
     invalidate();
   });
 
@@ -1439,6 +1526,14 @@
     modelStore.quads;
     uiStore.renderMode3D; // flat ↔ extruded slab rebuild
     syncShells();
+    invalidate();
+  });
+
+  // The slabs and walls as members or as their mesh (`shell-members.ts`): results arriving or
+  // cleared, the view's switch, the model crossing the size, all redraw them and the mesh's nodes.
+  $effect(() => {
+    meshHidden();
+    untrack(() => { syncShells(); syncNodes(); syncShellOffsets(); });
     invalidate();
   });
 
@@ -1499,9 +1594,9 @@
     uiStore.unitSystem;
     resultsStore.modalResult3D;
     resultsStore.activeModeIndex;
-    // Quick/exact, and the displacement labels "show values" adds.
+    // Quick/exact, and the displacement labels "show displacements" adds.
     deformedView.exact;
-    resultsStore.showDiagramValues;
+    resultsStore.showDeformedValues;
     // A time-history instant is drawn through the deformed view; scrubbing re-syncs it.
     timeHistoryView.step;
     timeHistoryView.shown;
@@ -1719,6 +1814,8 @@
     resultsStore.colorMapKind;
     resultsStore.shellContourComponent;
     contourOptions.signature;
+    discretizationStore.showMap;
+    discretizationStore.estimate;
     // Deformed contours follow the deformed view's scale.
     if (contourOptions.onDeformed) resultsStore.deformedScale;
     // Shell meshes rebuild on render-mode / geometry change → re-apply contour.
@@ -1839,6 +1936,38 @@
     invalidate();
   });
 
+  // The footings, at their founding levels (PRO).
+  let footingsGroup: THREE.Group | null = null;
+  $effect(() => {
+    const list = uiStore.analysisMode === 'pro' ? modelStore.model.footings.values() : [];
+    const nodes = modelStore.nodes;
+    if (!scene) return;
+    footingsGroup = syncFootings(scene, footingsGroup, list, nodes);
+    invalidate();
+  });
+
+  // The background drawings, each at its level (PRO).
+  let underlaysGroup: THREE.Group | null = null;
+  $effect(() => {
+    const list = uiStore.analysisMode === 'pro' ? modelStore.underlays : [];
+    const z = uiStore.workingPlane === 'XY' ? uiStore.nodeCreateZ : null;
+    if (!scene) return;
+    underlaysGroup = syncUnderlays(scene, underlaysGroup, list, z);
+    toneDirty = true;
+    invalidate();
+  });
+
+  // The use zones over their floors, coloured by use, state or intensity (PRO).
+  let useZonesGroup: THREE.Group | null = null;
+  $effect(() => {
+    const mode = uiStore.analysisMode === 'pro' ? useZoneMap.mode : 'off';
+    const zones = [...modelStore.model.groups.values()].filter((g) => g.kind === 'loadZone');
+    const nodes = modelStore.nodes;
+    if (!scene) return;
+    useZonesGroup = syncUseZoneMap(scene, useZonesGroup, zones, nodes, mode);
+    invalidate();
+  });
+
   // The structural grid, drawn on the active level (PRO).
   function syncStructGrid() {
     const grid = uiStore.analysisMode === 'pro' ? modelStore.grid : undefined;
@@ -1881,6 +2010,8 @@
     uiStore.clippingEnabled;
     uiStore.clippingAxis;
     uiStore.clippingPosition;
+    uiStore.planView3D;
+    uiStore.planCutZ;
     invalidate();
   });
 
@@ -1983,8 +2114,34 @@
   }
 
   // ─── Context menu (right-click) ──────────────────────────
+  /**
+   * A right DRAG pans the view and must not open the menu; a right CLICK opens it. Where the
+   * browser fires the menu event on the press (Chrome on macOS) nothing has moved yet, so the
+   * menu waits for the release and opens only if the pointer stayed put; where it fires on the
+   * release, the distance is already known.
+   */
+  let rightDownAt: { x: number; y: number } | null = null;
+  let rightHeld = false;
+  let pendingMenu: MouseEvent | null = null;
+  const RIGHT_CLICK_PX = 5;
+  function onRightDown(e: PointerEvent) { if (e.button === 2) { rightDownAt = { x: e.clientX, y: e.clientY }; rightHeld = true; pendingMenu = null; } }
+  function onRightUp(e: PointerEvent) {
+    if (e.button !== 2) return;
+    rightHeld = false;
+    const moved = rightDownAt ? Math.hypot(e.clientX - rightDownAt.x, e.clientY - rightDownAt.y) : 0;
+    const pending = pendingMenu;
+    pendingMenu = null;
+    if (pending && moved <= RIGHT_CLICK_PX) openContextMenu3D(pending);
+  }
   function handleContextMenu3D(e: MouseEvent) {
     e.preventDefault();
+    if (rightHeld) { pendingMenu = e; return; }
+    if (rightDownAt && Math.hypot(e.clientX - rightDownAt.x, e.clientY - rightDownAt.y) > RIGHT_CLICK_PX) { rightDownAt = null; return; }
+    rightDownAt = null;
+    openContextMenu3D(e);
+  }
+  function openContextMenu3D(e: MouseEvent) {
+    if (uiStore.viewerMode) return;
     updateMouseNDC(e);
     if (!camera) return;
     raycaster.setFromCamera(mouse, camera);
@@ -2032,14 +2189,14 @@
          * handler); a release before that is a plain click.
          */
         // A handle of the selected load's stretch takes the press first.
-        const stretch = tool === 'select' ? activeStretchHandles() : null;
+        const stretch = tool === 'select' && !uiStore.viewerMode ? activeStretchHandles() : null;
         const end = stretch && camera ? handleUnder(stretch, camera, container.getBoundingClientRect(), e.clientX, e.clientY) : null;
         if (stretch && end) {
           stretchDrag = { h: stretch, end, moved: false };
           controls.enabled = false;
           return;
         }
-        const nodeId = tool === 'select' && uiStore.selectsKind('nodes') ? findNodeHit(e) : null;
+        const nodeId = tool === 'select' && !uiStore.viewerMode && uiStore.selectsKind('nodes') ? findNodeHit(e) : null;
 
         if (nodeId !== null) {
           controls.enabled = false;
@@ -2074,7 +2231,20 @@
    * A point on the working plane, snapped: onto an intersection or an axis of the structural
    * grid when one is within a few pixels (PRO, horizontal plane), else to the drawing grid.
    */
-  function snapToStructure(pos: THREE.Vector3): { x: number; y: number; z: number; label?: string } {
+  /** The point drawn last, for the perpendicular snap: the member's first node, else the one node selected. */
+  function osnapFrom(): { x: number; y: number } | null {
+    const id = drawState.memberStart ?? (uiStore.selectedNodes.size === 1 ? [...uiStore.selectedNodes][0]! : null);
+    const n = id !== null ? modelStore.nodes.get(id) : undefined;
+    return n ? { x: n.x, y: n.y } : null;
+  }
+
+  function snapToStructure(pos: THREE.Vector3): { x: number; y: number; z: number; label?: string; mode?: string } {
+    // A point of the background drawing on this level, of the kinds turned on, within a few pixels.
+    if (uiStore.analysisMode === 'pro' && uiStore.snapToAxes && uiStore.workingPlane === 'XY' && modelStore.underlays.length > 0 && camera && container) {
+      const tol = worldPerPixel(camera, pos, container.clientHeight) * 10;
+      const hit = osnapUnderlays(modelStore.underlays, pos.x, pos.y, tol, uiStore.nodeCreateZ, uiStore.osnapModes, osnapFrom());
+      if (hit) return { x: hit.x, y: hit.y, z: uiStore.nodeCreateZ, label: t(`osnap.${hit.mode}`), mode: hit.mode };
+    }
     const grid = uiStore.analysisMode === 'pro' && uiStore.snapToAxes && uiStore.workingPlane === 'XY' ? modelStore.grid : undefined;
     if (grid && camera && container) {
       const tol = worldPerPixel(camera, pos, container.clientHeight) * 10;
@@ -2255,6 +2425,29 @@
 
   /** The node tool's marker under the pointer (mouse only: a touch has no hover). */
   let nodeHint = $state<NodePlacement3D | null>(null);
+  /** Drawing members in PRO: the snap point under the pointer, where a click with no node there puts one. */
+  let snapHint = $state<{ sx: number; sy: number; mode: string; label?: string; p: { x: number; y: number; z: number } } | null>(null);
+  let snapHintFrame = 0;
+  let snapHintEvent: MouseEvent | null = null;
+  function scheduleSnapHint(e: MouseEvent) {
+    snapHintEvent = e;
+    if (snapHintFrame) return;
+    snapHintFrame = requestAnimationFrame(() => {
+      snapHintFrame = 0;
+      const ev = snapHintEvent; snapHintEvent = null;
+      snapHint = ev && !isOrbiting ? memberSnapPoint(ev) : null;
+    });
+  }
+  /** The snap point a member click would take, when no node is under the pointer (PRO, horizontal plane). */
+  function memberSnapPoint(e: MouseEvent): { sx: number; sy: number; mode: string; label?: string; p: { x: number; y: number; z: number } } | null {
+    if (uiStore.appMode !== 'pro' || uiStore.workingPlane !== 'XY' || memberSnapNode(e) !== null) return null;
+    const ground = getGroundIntersection(e);
+    if (!ground) return null;
+    const p = snapToStructure(ground);
+    if (!p.mode && !p.label) return null;
+    const s = projectToScreen(p.x, p.y, p.z);
+    return { sx: s.x, sy: s.y, mode: p.mode ?? 'grid', label: p.label, p: { x: p.x, y: p.y, z: p.z } };
+  }
   let nodeHintFrame = 0;
   let nodeHintEvent: MouseEvent | null = null;
   function scheduleNodeHint(e: MouseEvent) {
@@ -2317,11 +2510,14 @@
   }
 
   function handleElementTool(e: MouseEvent) {
-    const nodeId = memberSnapNode(e);
+    let nodeId = memberSnapNode(e);
     if (nodeId === null) {
-      // Clicked empty → cancel pending
-      cancelPendingElement();
-      return;
+      // On a snap point (a background drawing's, a grid axis's) with no node there, PRO puts the
+      // node and goes on drawing: a plan is traced point by point. Elsewhere, an empty click still
+      // cancels the member pending.
+      const sp = memberSnapPoint(e);
+      if (!sp) { cancelPendingElement(); return; }
+      nodeId = modelStore.addNode(sp.p.x, sp.p.y, sp.p.z);
     }
 
     const start = drawState.memberStart;
@@ -2908,6 +3104,19 @@
 
         // Reassign sets to trigger Svelte reactivity (manual box-select)
         uiStore.setSelection(newNodes, newElems, true, newShells);
+        // Picking plates whole: the plates the marquee takes (by their shells, or by their outline
+        // when they have no mesh) are selected whole, mesh and all.
+        if (allowShells && uiStore.shellPickScope === 'plate') {
+          const cornerIn = (nodeId: number): boolean => {
+            const nd = modelStore.getNode(nodeId);
+            if (!nd) return false;
+            const sp = projectNodeToScene(nd, project2D);
+            const sc = projectToScreen(sp.x, sp.y, sp.z);
+            return sc.x >= x1 && sc.x <= x2 && sc.y >= y1 && sc.y <= y2;
+          };
+          const plates = platesInMarquee(newShells, cornerIn, isWindow);
+          if (plates.length) uiStore.selectPlates(plates, true);
+        }
       } else {
         // Small drag = click → delegate to normal click selection
         boxSelect3D = null;
@@ -2959,7 +3168,7 @@
   /** Every load whose drawing is within a few pixels of the pointer, with its distance, nearest first. */
   function loadsNearPointer(e: MouseEvent): { id: number; d: number }[] {
     const fp = sceneCtx?.loadFootprints;
-    if (!fp || fp.size === 0) return [];
+    if (!fp || fp.size === 0 || viewCategories.isHidden('loads')) return [];
     const rect = container.getBoundingClientRect();
     const pointLoads = new Set<number>();
     for (const l of modelStore.loads) if (l.type === 'nodal' || l.type === 'nodal3d' || l.type === 'pointOnElement' || l.type === 'pointOnElement3d') pointLoads.add(l.data.id);
@@ -3065,7 +3274,7 @@
    * (`ProQuickEdit.svelte`). The two clicks before it have already selected it.
    */
   function handleDoubleClick3D(e: MouseEvent) {
-    if (uiStore.analysisMode !== 'pro' || uiStore.currentTool !== 'select' || !camera) return;
+    if (uiStore.analysisMode !== 'pro' || uiStore.currentTool !== 'select' || !camera || uiStore.viewerMode) return;
     if (uiStore.shellNodePick.active || drawState.active) return;
     // A node or member the clicks on this spot stepped to (see pick-cycle) is what is lit, and what opens.
     const rect = container.getBoundingClientRect();
@@ -3099,15 +3308,30 @@
     raycaster.setFromCamera(mouse, camera);
     raycaster.camera = camera;
 
+    // ── Drawing a use zone: a click is a point of its outline, captured as a new node would be ──
+    if (zoneDraw.active) {
+      const place = nodePlacement3D(e);
+      if (place) {
+        const p = place.kind === 'onNode' ? modelStore.nodes.get(place.nodeId)
+          : place.kind === 'onMember' ? (() => {
+            const el = modelStore.elements.get(place.elementId);
+            const i = el ? modelStore.nodes.get(el.nodeI) : undefined, j = el ? modelStore.nodes.get(el.nodeJ) : undefined;
+            return i && j ? { x: i.x + (j.x - i.x) * place.t, y: i.y + (j.y - i.y) * place.t } : undefined;
+          })()
+            : { x: place.p.x, y: place.p.y };
+        if (p) zoneDraw.add({ x: p.x, y: p.y });
+      }
+      return;
+    }
+
     // ── Shell node-pick mode: clicks collect node ids for a shell creator ──
     if (uiStore.shellNodePick.active) {
       const nodeHits = raycaster.intersectObjects(nodesParent.children, true);
       for (const hit of nodeHits) {
         const ud = resolveHitUserData(hit);
-        if (ud?.type === 'node') { uiStore.pushShellNodePick(ud.id); break; }
+        // The last corner, or the first one again on an outline, makes the plate (`drawState`).
+        if (ud?.type === 'node') { drawState.pickPlateNode(ud.id); break; }
       }
-      // The last corner makes the plate; see `drawState.finishPlate`.
-      drawState.finishPlate();
       return; // consume the click while picking (no normal selection / clear)
     }
 
@@ -3195,16 +3419,27 @@
     // select mode, only that entity class is pickable. This also keeps
     // selectedElements type-consistent — frame elements and plates/quads have
     // overlapping numeric ids, disambiguated only by selectMode. ──
-    if (sm === 'shells') {
-      const shellHits = raycaster.intersectObjects(shellsParent.children, true);
-      for (const hit of shellHits) {
-        const key = shellSelectionKey(resolveHitUserData(hit));
+    /**
+     * The plate or shell under the pointer, selected as the shell scope says: a physical plate with no
+     * mesh is only ever the plate; an element of a plate's mesh is the plate when picking plates whole.
+     */
+    const pickShell = (): boolean => {
+      for (const hit of raycaster.intersectObjects(shellsParent.children, true)) {
+        const ud = resolveHitUserData(hit);
+        if (ud?.type === 'physicalPlate') { uiStore.selectPlates([ud.id], addToSel); return true; }
+        const key = shellSelectionKey(ud);
         if (key) {
-          uiStore.selectShell(key, addToSel);
-          return;
+          const plate = uiStore.shellPickScope === 'plate' ? plateOfShell(key) : null;
+          if (plate !== null) uiStore.selectPlates([plate], addToSel);
+          else uiStore.selectShell(key, addToSel);
+          return true;
         }
       }
-      if (!addToSel) uiStore.clearSelection();
+      return false;
+    };
+
+    if (sm === 'shells') {
+      if (!pickShell() && !addToSel) uiStore.clearSelection();
       return;
     }
 
@@ -3231,11 +3466,11 @@
       let hit = false;
       if (pick?.kind === 'node') { uiStore.selectNode(pick.id, addToSel); hit = true; }
       else if (pick?.kind === 'element') {
-        uiStore.selectElement(pick.id, addToSel);
+        selectPiece(pick.id, addToSel);
         if (dsmStepsStore.isOpen) dsmStepsStore.selectElement(pick.id);
         hit = true;
       } else if (pick?.kind === 'load') { uiStore.selectLoad(pick.id, addToSel); hit = true; }
-      if (!hit && uiStore.selectsKind('supports')) {
+      if (!hit && uiStore.selectsKind('supports') && !viewCategories.isHidden('supports')) {
         for (const h of raycaster.intersectObjects(supportsParent.children, true)) {
           const ud = findUserData(h.object);
           if (ud?.type === 'support') {
@@ -3245,6 +3480,8 @@
           }
         }
       }
+      // Plates and shells last: a node, member, load or support on them is what the click meant.
+      if (!hit && uiStore.selectsKind('shells')) pickShell();
       return;
     }
 
@@ -3256,7 +3493,7 @@
     }
 
     if (sm === 'supports') {
-      const supHits = raycaster.intersectObjects(supportsParent.children, true);
+      const supHits = !viewCategories.isHidden('supports') ? raycaster.intersectObjects(supportsParent.children, true) : [];
       for (const hit of supHits) {
         const ud = findUserData(hit.object);
         if (ud?.type === 'support') {
@@ -3284,10 +3521,22 @@
      */
     const pick = pickUnderPointer(e, { nodes: false, elements: true });
     if (pick) {
-      uiStore.selectElement(pick.id, addToSel);
+      // In PRO, the whole piece the member belongs to unless one segment is asked for.
+      selectPiece(pick.id, addToSel);
       // Sync with DSM Matrix Explorer if wizard is open
       if (dsmStepsStore.isOpen) dsmStepsStore.selectElement(pick.id);
       return;
+    }
+    /*
+     * No member under the pointer, and a plate is: a plate is an object of PRO's model, and a click
+     * on it with nothing else there takes it, in the plates' mode (as opening the Plates panel
+     * does). A member under the pointer still wins. Basic draws no physical plates.
+     */
+    if (uiStore.appMode === 'pro' && !addToSel && sm === 'elements') {
+      const before = uiStore.selectMode;
+      uiStore.selectMode = 'shells';
+      if (pickShell()) return;
+      uiStore.selectMode = before;
     }
 
     // Clicked on empty space → clear selection
@@ -3322,6 +3571,8 @@
 
     if (uiStore.currentTool === 'node' && uiStore.nodeMode !== 'hinge') scheduleNodeHint(e);
     else if (nodeHint) nodeHint = null;
+    if (uiStore.currentTool === 'element') scheduleSnapHint(e);
+    else if (snapHint) snapHint = null;
     if (uiStore.currentTool === 'load' && uiStore.loadType === 'distributed' && uiStore.distLoadPartial && uiStore.appMode !== 'pro') scheduleStretchHint(e);
     else if (stretchHint) stretchHint = null;
 
@@ -3364,6 +3615,7 @@
         if (delta.lengthSq() < 1e-18) return;
         if (!dragMoved3D) {
           historyStore.pushState();
+          setGeometryDrag(true);
           // Dragging a node that is not selected takes it (shift adds it).
           if (!uiStore.selectedNodes.has(draggedNodeId3D)) uiStore.selectNode(draggedNodeId3D, e.shiftKey);
         }
@@ -3497,6 +3749,8 @@
       } else if (newHover.type === 'plate' || newHover.type === 'quad') {
         const sh = newHover.type === 'plate' ? modelStore.plates.get(newHover.id) : modelStore.quads.get(newHover.id);
         if (sh) tooltipText = `${newHover.type === 'plate' ? 'Plate' : 'Quad'} ${newHover.id} · t=${sh.thickness}m`;
+        const reading = sh && shellContourActive() ? shellReading(newHover.type === 'plate' ? 'p' : 'q', newHover.id) : null;
+        if (reading) tooltipText += ` · ${reading}`;
       }
       if (tooltipText) {
         hoverTooltip = { text: tooltipText, x: e.clientX - rect.left + 15, y: e.clientY - rect.top - 10 };
@@ -3658,6 +3912,23 @@
 
   /** Mirror of scene-sync's contour check (so hover/selection don't clobber an
    *  active shell contour). */
+  /** The contour's value on one shell, as the hover reads it: the element's own, and the painted corners' span. */
+  function shellReading(prefix: 'p' | 'q', id: number): string | null {
+    const r3d = resultsStore.results3D;
+    if (!r3d) return null;
+    const c = resultsStore.shellContourComponent;
+    const inputs = shellStressInputs(r3d, c);
+    const st = (prefix === 'p' ? inputs.plates : inputs.quads).find((x) => x.elementId === id);
+    if (!st) return null;
+    const v = shellComponentValue(st, c, contourOptions.face);
+    if (!Number.isFinite(v)) return null;
+    const meta = shellComponentMeta(c);
+    const fmt = (x: number) => (Math.abs(x) >= 100 ? x.toFixed(0) : Math.abs(x) >= 1 ? x.toFixed(2) : x.toPrecision(3));
+    const corners = currentShellContourField(r3d, c)?.corners.get(`${prefix}${id}`);
+    const span = corners && corners.length ? ` (${fmt(Math.min(...corners))} … ${fmt(Math.max(...corners))})` : '';
+    return `${t(shellComponentLabelKey(c))} = ${fmt(v)} ${meta.unit}${span}`;
+  }
+
   function shellContourActive(): boolean {
     if (resultsStore.diagramType !== 'colorMap') return false;
     const k = resultsStore.colorMapKind;
@@ -3708,6 +3979,71 @@
     invalidate();
   }
 
+  // ─── Navigation: what a drag does, and the plan view ──────────
+  /**
+   * What the mouse does to the camera. By default a left drag orbits (right drag and Shift slide).
+   * With the Pan tool set to slide, or in the plan view, a left drag slides the view over its own
+   * plane, which seen from above is the floor; the plan view also holds the camera there (no orbit).
+   */
+  function applyNavigation() {
+    if (!controls) return;
+    const plan = uiStore.planView3D;
+    // In the plan view the Pan tool slides over the floor; another tool keeps its own drag.
+    const leftSlides = uiStore.currentTool === 'pan' && (plan || uiStore.dragMode3D === 'slide');
+    applyDefaultNavigation(controls, { leftSlides, plan });
+  }
+  $effect(() => {
+    void uiStore.planView3D; void uiStore.dragMode3D; void uiStore.currentTool;
+    untrack(applyNavigation);
+  });
+
+  /** What the plan view replaced, put back when it is left. */
+  let beforePlan: { mode: 'perspective' | 'orthographic'; tool: typeof uiStore.currentTool } | null = null;
+  /** Above the working level, a little over its floor: the beams and the slab on it stay, the storeys above go. */
+  const PLAN_CUT_M = 0.15;
+  /**
+   * The plan view on level `z`: the camera over it and the plan's own cut a little above its floor.
+   * The cut plane a person set stays as it was: the two are separate (QA of 20-oct).
+   */
+  function followLevel(z: number) {
+    if (!camera || !controls) return;
+    uiStore.planCutZ = z + PLAN_CUT_M;
+    const dz = z - controls.target.z;
+    controls.target.z += dz;
+    camera.position.z += dz;
+    controls.update();
+    invalidate();
+  }
+  function enterPlanView() {
+    if (!camera || !controls || beforePlan) return;
+    beforePlan = { mode: uiStore.cameraMode3D, tool: uiStore.currentTool };
+    setView('top');
+    if (uiStore.cameraMode3D === 'perspective') toggleCameraMode();
+    followLevel(uiStore.nodeCreateZ);
+    // On entering, a drag slides over the floor (the Pan tool); any other tool can still be taken.
+    uiStore.currentTool = 'pan';
+    applyNavigation();
+  }
+  function exitPlanView() {
+    if (!beforePlan) return;
+    const b = beforePlan;
+    beforePlan = null;
+    uiStore.planCutZ = null;
+    if (uiStore.currentTool === 'pan' && b.tool !== 'pan') uiStore.currentTool = b.tool;
+    if (uiStore.cameraMode3D !== b.mode) toggleCameraMode();
+    applyNavigation();
+    invalidate();
+  }
+  $effect(() => {
+    const on = uiStore.planView3D;
+    untrack(() => { if (on) enterPlanView(); else exitPlanView(); });
+  });
+  // The working level moves the plan view with it: the camera and the cut follow.
+  $effect(() => {
+    const z = uiStore.nodeCreateZ;
+    untrack(() => { if (uiStore.planView3D && beforePlan) followLevel(z); });
+  });
+
   function handleCameraViewEvent(e: Event) {
     const which = (e as CustomEvent<PresetView>).detail;
     if (['top', 'bottom', 'front', 'back', 'right', 'left', 'side', 'iso'].includes(which)) setView(which);
@@ -3751,6 +4087,8 @@
   }
 
   function setView(view: PresetView) {
+    // Another standard view leaves the plan view (which holds the camera above the floor).
+    if (view !== 'top' && uiStore.planView3D) uiStore.planView3D = false;
     _setView(view, camera, controls, modelStore.nodes);
     invalidate();
   }
@@ -3793,40 +4131,9 @@
 
   function drawAxisGizmo() {
     if (!gizmoCanvas || !camera) return;
-    const gc = gizmoCanvas.getContext('2d');
-    if (!gc) return;
-    const s = gizmoCanvas.width;
-    gc.clearRect(0, 0, s, s);
-
-    // Use the rotation part of the view matrix to project world axes to screen
-    camera.updateMatrixWorld();
-    const viewMat = camera.matrixWorldInverse;
-    const axes = [
-      { label: 'X', color: '#ff4444', dir: GLOBAL_X.clone() },
-      { label: 'Y', color: '#44ff44', dir: GLOBAL_Y.clone() },
-      { label: 'Z', color: '#4488ff', dir: GLOBAL_Z.clone() },
-    ];
-
-    const cx = s / 2, cy = s / 2, len = s * 0.35;
-    const projected = axes.map(a => {
-      const d = a.dir.clone().transformDirection(viewMat);
-      return { ...a, sx: d.x * len, sy: -d.y * len, depth: d.z };
-    }).sort((a, b) => a.depth - b.depth);
-
-    for (const ax of projected) {
-      gc.strokeStyle = ax.color;
-      gc.lineWidth = 2;
-      gc.globalAlpha = ax.depth > 0 ? 1 : 0.3;
-      gc.beginPath();
-      gc.moveTo(cx, cy);
-      gc.lineTo(cx + ax.sx, cy + ax.sy);
-      gc.stroke();
-      gc.globalAlpha = 1;
-      gc.fillStyle = ax.color;
-      gc.font = 'bold 12px sans-serif';
-      gc.fillText(ax.label, cx + ax.sx * 1.2 - 4, cy + ax.sy * 1.2 + 4);
-    }
+    drawAxisGizmoOn(gizmoCanvas, camera);
   }
+
 
   function toggleCameraMode() {
     if (!camera || !controls || !renderer) return;
@@ -3864,6 +4171,12 @@
 
   function updateClippingPlane() {
     if (!renderer) return;
+    const planes: THREE.Plane[] = [];
+    // The plan view's own cut, beside the cut plane a person set.
+    if (uiStore.planView3D && uiStore.planCutZ !== null) {
+      planPlane.constant = uiStore.planCutZ;
+      planes.push(planPlane);
+    }
     if (uiStore.clippingEnabled) {
       // Normal vector: axis direction (clips on negative side of plane)
       const normal = new THREE.Vector3(
@@ -3873,10 +4186,9 @@
       );
       clippingPlane.normal.copy(normal);
       clippingPlane.constant = uiStore.clippingPosition;
-      renderer.clippingPlanes = [clippingPlane];
-    } else {
-      renderer.clippingPlanes = [];
+      planes.push(clippingPlane);
     }
+    renderer.clippingPlanes = planes;
   }
 
   function syncOrthoFrustum(aspect?: number) {
@@ -3969,20 +4281,28 @@
   function addAxisLabels() {
     axisLabelSprites = _addAxisLabels(scene);
   }
+  /** The view split in two (PRO, not on a phone): this view on the left, the other half beside it. */
+  const splitOn = $derived(viewState.split && uiStore.analysisMode === 'pro' && !uiStore.isMobile);
+  let splitView: { render: () => void } | undefined = $state();
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
   class="viewport3d-wrapper"
+  class:split-main={splitOn}
   bind:this={container}
   style="cursor: {cursorStyle};"
   onmousedown={handleMouseDown}
+  onpointerdowncapture={onRightDown}
+  onpointerupcapture={onRightUp}
   onmouseup={handleMouseUp}
   ondblclick={handleDoubleClick3D}
   onmousemove={handleMouseMove}
   onmouseleave={handleMouseLeave}
   oncontextmenu={handleContextMenu3D}
 >
+  {#if uiStore.planView3D}<PlanViewChip />{/if}
+
   <!-- The despiece, drawn over the scene in screen space (`canvas/free-body.ts`); only while it is on. -->
   {#if resultsStore.diagramType === 'despiece'}
     <canvas class="fb-overlay" bind:this={fbCanvas} aria-hidden="true"></canvas>
@@ -4014,9 +4334,32 @@
       {:else if h.kind === 'onNode'}
         <circle class="nh-there" cx={h.sx} cy={h.sy} r="11" />
         <text class="nh-text nh-warn" x={h.sx + 14} y={h.sy - 12}>{t('viewport.nodeAlreadyThere')}</text>
+      {:else if h.snap?.mode}
+        {@render osnapGlyph(h.snap.mode, h.sx, h.sy, h.snap.label)}
       {:else}
         <circle class="nh-free" cx={h.sx} cy={h.sy} r="5" />
+        {#if h.snap?.label}<text class="nh-text" x={h.sx + 12} y={h.sy - 12}>{h.snap.label}</text>{/if}
       {/if}
+    </svg>
+  {/if}
+  <!-- The snap's mark, as CAD programs draw them: square end, triangle middle, circle centre,
+       diamond quadrant, cross intersection, right angle perpendicular, hourglass nearest. -->
+  {#snippet osnapGlyph(mode: string, x: number, y: number, label?: string)}
+    <g class="osnap" data-mode={mode}>
+      {#if mode === 'endpoint'}<rect x={x - 6} y={y - 6} width="12" height="12" />
+      {:else if mode === 'midpoint'}<path d={`M${x} ${y - 7}L${x + 7} ${y + 5}L${x - 7} ${y + 5}Z`} />
+      {:else if mode === 'center'}<circle cx={x} cy={y} r="7" />
+      {:else if mode === 'quadrant'}<path d={`M${x} ${y - 7}L${x + 7} ${y}L${x} ${y + 7}L${x - 7} ${y}Z`} />
+      {:else if mode === 'intersection'}<path d={`M${x - 6} ${y - 6}L${x + 6} ${y + 6}M${x + 6} ${y - 6}L${x - 6} ${y + 6}`} />
+      {:else if mode === 'perpendicular'}<path d={`M${x - 7} ${y + 6}H${x + 7}M${x - 3} ${y + 6}V${y - 7}M${x - 3} ${y + 2}H${x + 1}V${y + 6}`} />
+      {:else if mode === 'grid'}<circle cx={x} cy={y} r="5" /><path d={`M${x - 8} ${y}H${x + 8}M${x} ${y - 8}V${y + 8}`} />
+      {:else}<path d={`M${x - 6} ${y - 6}H${x + 6}L${x - 6} ${y + 6}H${x + 6}Z`} />{/if}
+      {#if label}<text class="nh-text" x={x + 12} y={y - 12}>{label}</text>{/if}
+    </g>
+  {/snippet}
+  {#if snapHint && uiStore.currentTool === 'element'}
+    <svg class="node-hint" aria-hidden="true" data-testid="osnap-hint" data-mode={snapHint.mode}>
+      {@render osnapGlyph(snapHint.mode, snapHint.sx, snapHint.sy, snapHint.label)}
     </svg>
   {/if}
   <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -4031,7 +4374,7 @@
          A press here is not a press on the model. -->
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div class="vp-delete" onmousedown={(e) => e.stopPropagation()} onpointerdown={(e) => e.stopPropagation()}
-      ontouchstart={(e) => e.stopPropagation()}><SelectionDeleteButton floating /></div>
+      ontouchstart={(e) => e.stopPropagation()}><SelectionClipboardButtons floating /><SelectionDeleteButton floating /></div>
   {/if}
   <!-- Dev perf HUD (Shift+P or ?perf). Reads: high `calls` + stable `geos` = GPU
        draw-call bound; `geos`/`texs` spiking + high `syncMs` while editing = CPU
@@ -4116,6 +4459,16 @@
             a reader turning clipping on usually wants to reach for the axis
             next, and a menu that vanished would make them open it again.
           -->
+          <!-- The plan view and what a drag does: states too, how the reader holds the view while modelling. -->
+          <button class="cam-item" class:on={uiStore.planView3D} onclick={() => { uiStore.planView3D = !uiStore.planView3D; }}
+                  title={uiStore.planView3D ? t('viewport.planViewOff') : t('viewport.planViewOn')} data-testid="nav-plan-view">
+            <span class="cam-glyph">▦</span><span>{t('viewport.planView')}</span>
+          </button>
+          {#if uiStore.analysisMode === 'pro' && !uiStore.isMobile}
+            <button class="cam-item" class:on={viewState.split} onclick={() => { viewState.split = !viewState.split; }} data-testid="nav-split-view">
+              <span class="cam-glyph">◫</span><span>{t('viewport.split')}</span>
+            </button>
+          {/if}
           <button class="cam-item" onclick={toggleCameraMode}>
             <span class="cam-glyph">{uiStore.cameraMode3D === 'perspective' ? 'P' : 'O'}</span>
             <span>{uiStore.cameraMode3D === 'perspective'
@@ -4137,21 +4490,22 @@
             <span>{uiStore.measureMode
               ? t('viewport3d.disableMeasure') : t('viewport3d.enableMeasure')}</span>
           </button>
-          <button
-            class="cam-item" class:on={uiStore.renderMode3D === 'sections'}
-            onclick={() => {
-              if (uiStore.renderMode3D === 'sections') {
-                uiStore.renderMode3D = renderModeBeforeSections;
-              } else {
-                renderModeBeforeSections = uiStore.renderMode3D === 'solid' ? 'solid' : 'wireframe';
-                uiStore.renderMode3D = 'sections';
-              }
-            }}
-          >
-            <span class="cam-glyph">{uiStore.renderMode3D === 'sections' ? '◫' : '⬡'}</span>
-            <span>{uiStore.renderMode3D === 'sections'
-              ? t('config.wireframe') : t('config.sections')}</span>
-          </button>
+          <div class="cam-sep"></div>
+          <!--
+            How the bars are drawn: one choice of four (QA of 20-oct: «Modelo con secciones» and
+            «Geometría física» read as two things on at once). Each says what it draws.
+          -->
+          <div class="cam-group" role="radiogroup" aria-label={t('viewport.render.title')} data-testid="cam-render">
+            <span class="cam-group-title">{t('viewport.render.title')}</span>
+            {#each RENDER_MODES as m (m)}
+              <button class="cam-item" class:on={uiStore.renderMode3D === m} role="radio" aria-checked={uiStore.renderMode3D === m}
+                      onclick={() => { uiStore.renderMode3D = m; }} title={t(`viewport.render.${m}Hint`)}
+                      data-testid={m === 'physical' ? 'cam-physical' : `cam-render-${m}`}>
+                <span class="cam-glyph">{RENDER_GLYPH[m]}</span>
+                <span class="cam-two"><span>{t(`config.${m}`)}</span><small>{t(`viewport.render.${m}Hint`)}</small></span>
+              </button>
+            {/each}
+          </div>
           <div class="cam-sep"></div>
           <button
             class="cam-item" class:on={buildTimelapse.active} data-testid="cam-build-timelapse"
@@ -4343,6 +4697,10 @@
   <ShellContourLegend />
   <QuickInfoCard />
 </div>
+{#if splitOn && scene}
+  <SplitView3D bind:this={splitView} {scene} parents={() => ({ elements: elementsParent, nodes: nodesParent })} />
+{/if}
+
 
 <style>
   .viewport3d-wrapper {
@@ -4351,6 +4709,7 @@
     position: relative;
     overflow: hidden;
   }
+  .viewport3d-wrapper.split-main { width: 50%; }
 
   /* Dev perf HUD — measurement only (Shift+P / ?perf). */
   .perf-hud {
@@ -4381,6 +4740,7 @@
   .nh-split { fill: var(--st-surface); stroke: var(--st-accent); stroke-width: 2; }
   .nh-plus { stroke: var(--st-accent); stroke-width: 2; }
   .nh-free { fill: none; stroke: var(--st-accent); stroke-width: 1.5; opacity: 0.85; }
+  .osnap rect, .osnap path, .osnap circle { fill: none; stroke: var(--st-warn, #e2b33c); stroke-width: 2; }
   .nh-there { fill: none; stroke: var(--st-amber, #e0a030); stroke-width: 1.5; stroke-dasharray: 3 3; }
   .nh-text { font: 11px sans-serif; fill: var(--st-accent); paint-order: stroke; stroke: var(--st-bg, #0b1220); stroke-width: 3px; }
   .nh-warn { fill: var(--st-amber, #e0a030); }
@@ -4413,191 +4773,14 @@
   .vp-prompt, .vp-hidden-chip { display: contents; }
 
   .vp-delete {
+    display: flex;
+    gap: 6px;
     position: absolute;
     right: 12px;
     bottom: calc(14px + env(safe-area-inset-bottom, 0px));
     z-index: 11;
   }
 
-  .axis-gizmo {
-    position: absolute;
-    bottom: 8px;
-    left: 8px;
-    width: 80px !important;
-    height: 80px !important;
-    pointer-events: none;
-    z-index: 10;
-  }
-
-  .camera-controls {
-    position: absolute;
-    right: 12px;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    z-index: 10;
-    transition: top 0.15s ease;
-    /* Right-aligned so every button in the stack shares an edge. */
-    align-items: flex-end;
-}
-
-  /*
-     Dressed from the tokens, like every other floating control. These were
-     written against a palette this application no longer uses — #445 borders,
-     rgba(22, 33, 62) fills and #aabbcc text — so the camera stack stayed the
-     colour of the old interface while the ribbon and the panels moved on.
-  */
-  /*
-     DIRECT children only. `.cam-item` is a button too, and it lives inside
-     this container — so a bare `.camera-controls button` forced every menu
-     row into a 32 × 32 box, which is the column of empty squares sitting
-     behind the labels. The stack's buttons are its own children; the menu's
-     are not.
-  */
-  .camera-controls > button,
-  .camera-controls > .cam-menu-wrap > .cam-btn {
-    width: 32px;
-    height: 32px;
-    border: 1px solid var(--st-hair-strong);
-    border-radius: var(--st-radius);
-    background: color-mix(in srgb, var(--st-surface) 90%, transparent);
-    color: var(--st-text-2);
-    font-size: 14px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: background 0.15s, color 0.15s, border-color 0.15s;
-  }
-
-  .camera-controls > button:hover,
-  .camera-controls > .cam-menu-wrap > .cam-btn:hover {
-    background: var(--st-surface-3);
-    color: var(--st-text);
-  }
-
-  .cam-menu-wrap { position: relative; display: flex; }
-
-  /* The chevron says the cube opens something. */
-  .cam-cube { position: relative; }
-
-  .cam-caret {
-    position: absolute;
-    right: 3px;
-    bottom: 3px;
-    width: 0;
-    height: 0;
-    border-left: 3px solid transparent;
-    border-right: 3px solid transparent;
-    border-top: 4px solid currentColor;
-    opacity: 0.75;
-  }
-
-  .cam-btn.on {
-    border-color: var(--st-accent);
-    color: var(--st-accent);
-  }
-
-  .cam-backdrop {
-    position: fixed;
-    inset: 0;
-    z-index: 20;
-    border: none;
-    padding: 0;
-    background: transparent;
-    cursor: default;
-  }
-
-  /*
-     Opens to the LEFT of its button, because the stack is pinned to the right
-     edge and a menu growing rightwards would leave the viewport.
-  */
-  .cam-menu {
-    position: absolute;
-    top: 0;
-    right: calc(100% + 6px);
-    z-index: 21;
-    min-width: 190px;
-    padding: 4px;
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-    border: 1px solid var(--st-hair-strong);
-    border-radius: var(--st-radius);
-    background: var(--st-surface);
-    box-shadow: 0 10px 22px -8px rgba(0, 0, 0, 0.55);
-  }
-
-  .cam-item {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    width: 100%;
-    /*
-       One height for every row. The glyphs are a mixed bag — an SVG icon, box
-       drawing characters, a letter and an emoji — and each brings its own
-       line box, so rows ranged from 23 to 30 px and the list read as ragged.
-       Fixing the row and centring inside it makes the glyph column line up
-       whatever is in it.
-    */
-    min-height: 26px;
-    line-height: 1;
-    padding: 0 0.45rem;
-    border: none;
-    border-radius: 3px;
-    background: none;
-    color: var(--st-text-2);
-    font-size: 0.72rem;
-    text-align: left;
-    cursor: pointer;
-    white-space: nowrap;
-  }
-
-  .cam-item:hover { background: var(--st-surface-3); color: var(--st-text); }
-
-  .cam-item.on { color: var(--st-accent); }
-
-  .cam-glyph {
-    width: 16px;
-    flex: none;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    /* Emoji render larger than the box-drawing glyphs at the same size. */
-    font-size: 0.78rem;
-    line-height: 1;
-  }
-
-  .cam-sep {
-    height: 1px;
-    margin: 3px 2px;
-    background: var(--st-hair);
-  }
-
-  /*
-     ── Two leftovers from the old stack, and one of them was a disaster ──
-     When the stack was collapsed into a menu, its size and colour rules were
-     scoped to direct children; these two were missed. The backdrop that
-     closes the menu is a `button` inside this container, full-screen by
-     design — so `:hover` painted rgba(40, 60, 100, 0.95) over the entire
-     application the moment the pointer left the menu box. The whole model
-     went blue.
-
-     They are scoped now, and dressed from the tokens like everything else.
-     `.active-cam` no longer has a user: the states that used it live in the
-     menu and mark themselves with `.cam-item.on`.
-  */
-  .camera-controls > button:hover,
-  .camera-controls > .cam-menu-wrap > .cam-btn:hover {
-    background: var(--st-surface-3);
-    color: var(--st-text);
-  }
-
-  .camera-controls > button.active-cam {
-    background: var(--st-selected-bg);
-    color: var(--st-accent);
-    border-color: var(--st-accent);
-  }
 
   .clip-controls {
     position: absolute;

@@ -353,7 +353,7 @@ fn validation_ca_ssll107a_beam_on_winkler() {
     })];
 
     let solver_input = SolverInput {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes: nodes_map,
         materials: mats_map,
         sections: secs_map,
@@ -437,6 +437,7 @@ fn validation_ca_ssll110a_thermal_fixed_beam() {
             element_id: i + 1,
             dt_uniform: dt,
             dt_gradient: 0.0,
+            alpha: None, depth: None,
         }))
         .collect();
 
@@ -462,6 +463,7 @@ fn validation_ca_ssll110a_thermal_fixed_beam() {
             element_id: i + 1,
             dt_uniform: 0.0,
             dt_gradient: dt_grad,
+            alpha: None, depth: None,
         }))
         .collect();
 

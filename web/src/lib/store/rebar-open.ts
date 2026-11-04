@@ -42,6 +42,10 @@
  */
 
 import { detailingStore } from './detailing.svelte';
+import { resultsStore } from './results.svelte';
+import { verificationStore } from './verification.svelte';
+import { detailingAuthor } from './detailing-author.svelte';
+import { t } from '../i18n';
 import { rebarWorkspace } from './rebar-workspace.svelte';
 import { markOpenPhase } from '../utils/open-timeline';
 import type { DesignFamily } from '../engine/design/design-families';
@@ -104,4 +108,31 @@ export function openRebar3D(opts: OpenRebar3DOptions): OpenRebar3DResult {
   markOpenPhase('document');
   rebarWorkspace.openWorkspace();
   return { ok: true };
+}
+
+/**
+ * The 3-D reinforcement view, from any button: signed by whoever is named in the detailing
+ * (`detailingAuthor`), at the moment of the press. Every entry calls this one, so no button can
+ * build the document under another name: two of them signed it «unnamed» whatever the detailing
+ * said (the footing editor, and the design family panel's «view in 3-D»).
+ */
+export function openRebar3DView(scope?: OpenRebar3DOptions['scope']): OpenRebar3DResult {
+  return openRebar3D({
+    author: detailingAuthor.resolve(t('detailing.doc.unnamedAuthor')),
+    at: new Date().toISOString(),
+    ...(scope ? { scope } : {}),
+  });
+}
+
+/**
+ * What the 3-D reinforcement view still waits on, as i18n keys, in the order they are supplied:
+ * the solve, the design, the detailing. Every entry that is disabled for want of them names
+ * them from here (the ribbon, the phone grid, the desk's rail), so none goes stale.
+ */
+export function rebar3DMissingSteps(): string[] {
+  const steps: string[] = [];
+  if (resultsStore.results3D == null && resultsStore.results == null) steps.push('proRibbon.need.solve');
+  if (verificationStore.providedSummary.total === 0) steps.push('proRibbon.need.design');
+  if (detailingStore.assemblies.length === 0) steps.push('proRibbon.need.detailing');
+  return steps;
 }

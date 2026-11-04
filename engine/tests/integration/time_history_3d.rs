@@ -26,6 +26,8 @@ fn make_3d_cantilever() -> TimeHistoryInput3D {
         id: 1, name: None, a: 0.01,
         iy: 8.33e-6, iz: 8.33e-6, j: 1.41e-5,
         cw: None, as_y: None, as_z: None,
+        shear_center_y: None,
+        shear_center_z: None,
     });
 
     let mut elements = HashMap::new();
@@ -53,7 +55,7 @@ fn make_3d_cantilever() -> TimeHistoryInput3D {
     });
 
     let solver = SolverInput3D {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes, materials, sections, elements, supports,
         loads: vec![],
         constraints: vec![], left_hand: None,

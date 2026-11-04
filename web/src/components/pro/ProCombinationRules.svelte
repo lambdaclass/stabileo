@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from './Hint.svelte';
   /**
    * The project's own combination rules: written in load symbols, saved with the project, and
    * expanded onto the load cases by the same generator as the regulation's
@@ -10,6 +11,7 @@
    * uses the same rules over the cases already in the model.
    */
   import { modelStore, uiStore } from '../../lib/store';
+  import { runEngineAction } from '../../lib/store/engine-action';
   import { t, tp } from '../../lib/i18n';
   import { downloadText } from '../../lib/store/file';
   import { generateCombinations } from '../../lib/codes/cirsoc101/combinations';
@@ -51,7 +53,8 @@
   /** Start from CIRSOC 101, strength and service, for the loads the model has. */
   function seed() {
     const present = presentSymbols(modelStore.model.loadCases);
-    const specs = [...generateCombinations({ present }), ...generateServiceCombinations({ present })];
+    const specs = runEngineAction(() => [...generateCombinations({ present }), ...generateServiceCombinations({ present })]);
+    if (!specs) return;
     const ids = freshRuleIds(rules, specs.length);
     write([...rules, ...specs.map((s, i) => specToRule(s, ids[i]!))]);
   }
@@ -90,7 +93,7 @@
 </script>
 
 <div class="cr" data-testid="combo-rules">
-  <p class="al-hint">{t('combos.rules.hint')}</p>
+  <Hint text={t('combos.rules.hint')} />
   {#if rules.length === 0}<p class="al-hint" data-testid="combo-rules-none">{t('combos.rules.none')}</p>{/if}
   {#if rules.length > 0}
     <div class="cr-wrap">
@@ -146,7 +149,7 @@
         {/each}
       </ul>
     {/if}
-    <p class="al-hint">{t('combos.library.hint')}</p>
+    <Hint text={t('combos.library.hint')} />
   </div>
 </div>
 

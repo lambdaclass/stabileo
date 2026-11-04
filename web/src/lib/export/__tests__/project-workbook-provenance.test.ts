@@ -4,7 +4,7 @@ import { modelStore } from '../../store/model.svelte';
 import { uiStore } from '../../store/ui.svelte';
 import { resultsStore } from '../../store/results.svelte';
 import '../../store/index';
-import { runSolve3D } from '../../actions/solve';
+import { solveNow } from '../../actions/solve';
 import { currentWorkbookSheets } from '../../store/project-workbook';
 import { publishCombinations3D, unstableCombinations } from '../../store/active-results';
 import { parseWorkbook } from '../../excel-import/parse';
@@ -35,7 +35,7 @@ it('labels an all-loads solve consistently without attributing it to the first c
   const [dead, live] = modelStore.model.loadCases;
   modelStore.addNodalLoad3D(b, 0, 0, -10, 0, 0, 0, dead!.id);
   modelStore.addNodalLoad3D(b, 0, 0, -20, 0, 0, 0, live!.id);
-  await runSolve3D();
+  await solveNow();
   expect(resultsStore.results3D).not.toBeNull();
   expect(resultsStore.perCase3D.size).toBe(0);
   const sheets = currentWorkbookSheets(5);

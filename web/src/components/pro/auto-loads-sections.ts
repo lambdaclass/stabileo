@@ -84,10 +84,13 @@ export interface WindStructureConfig {
   /** A lattice's face width and a chimney's D, m, for a stick model whose levels span none; 0: from the nodes. */
   width: number;
   diameter: number;
+  /** A free roof's Af per wind axis, m², for §2.1.5's minimum; 0: its whole vertical projection. */
+  areaX?: number;
+  areaY?: number;
 }
 export const defaultWindStructure = (): WindStructureConfig => ({
   kind: 'building', roof: 'pitched', blocked: false, towerSection: 'square', round: false, solidity: 0.2,
-  diagonal: true, members: 'flat', clearance: 2, chimney: 'roundRough', width: 0, diameter: 0,
+  diagonal: true, members: 'flat', clearance: 2, chimney: 'roundRough', width: 0, diameter: 0, areaX: 0, areaY: 0,
 });
 
 /** The seismic method (`ProSeismicMethod`). */

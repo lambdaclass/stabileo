@@ -198,11 +198,11 @@ pub fn solve_creep_shrinkage_2d(input: &CreepShrinkageInput) -> Result<CreepShri
 
     // Build O(1) lookup maps by numeric id
     let node_by_id: HashMap<usize, &SolverNode> =
-        input.solver.nodes.values().map(|n| (n.id, n)).collect();
+        crate::ordered::values(&input.solver.nodes).map(|n| (n.id, n)).collect();
     let section_by_id: HashMap<usize, &SolverSection> =
-        input.solver.sections.values().map(|s| (s.id, s)).collect();
+        crate::ordered::values(&input.solver.sections).map(|s| (s.id, s)).collect();
     let material_by_id: HashMap<usize, &SolverMaterial> =
-        input.solver.materials.values().map(|m| (m.id, m)).collect();
+        crate::ordered::values(&input.solver.materials).map(|m| (m.id, m)).collect();
 
     // Initial elastic solution (used for sustained stress baseline). The
     // structure is prepared once: only the load vector changes between steps
@@ -241,7 +241,7 @@ pub fn solve_creep_shrinkage_2d(input: &CreepShrinkageInput) -> Result<CreepShri
         // Build creep/shrinkage equivalent loads
         let mut cs_loads = Vec::new();
 
-        for elem in input.solver.elements.values() {
+        for elem in crate::ordered::values(&input.solver.elements) {
             let mat_key = elem.material_id.to_string();
             let params = match input.creep_params.get(&mat_key) {
                 Some(p) => p,
@@ -375,11 +375,11 @@ pub fn solve_creep_shrinkage_3d(input: &CreepShrinkageInput3D) -> Result<CreepSh
 
     // Build O(1) lookup maps by numeric id
     let node_by_id: HashMap<usize, &SolverNode3D> =
-        input.solver.nodes.values().map(|n| (n.id, n)).collect();
+        crate::ordered::values(&input.solver.nodes).map(|n| (n.id, n)).collect();
     let section_by_id: HashMap<usize, &SolverSection3D> =
-        input.solver.sections.values().map(|s| (s.id, s)).collect();
+        crate::ordered::values(&input.solver.sections).map(|s| (s.id, s)).collect();
     let material_by_id: HashMap<usize, &SolverMaterial> =
-        input.solver.materials.values().map(|m| (m.id, m)).collect();
+        crate::ordered::values(&input.solver.materials).map(|m| (m.id, m)).collect();
 
     // Initial elastic solution (used for sustained stress baseline). As in
     // 2D, the structure is prepared once and each step re-solves loads only.
@@ -409,7 +409,7 @@ pub fn solve_creep_shrinkage_3d(input: &CreepShrinkageInput3D) -> Result<CreepSh
         let mut max_eps_sh = 0.0_f64;
         let mut cs_loads = Vec::new();
 
-        for elem in input.solver.elements.values() {
+        for elem in crate::ordered::values(&input.solver.elements) {
             let mat_key = elem.material_id.to_string();
             let params = match input.creep_params.get(&mat_key) {
                 Some(p) => p,

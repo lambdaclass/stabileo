@@ -70,7 +70,7 @@ fn beam_section() -> SolverSection {
 /// Build a cantilever beam: node 0 fixed, node 1 free at (L, 0).
 fn make_cantilever(l: f64, fz: f64) -> SolverInput {
     SolverInput {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes: hm(vec![
             (0, node(0, 0.0, 0.0)),
             (1, node(1, l, 0.0)),
@@ -97,7 +97,7 @@ fn make_cantilever(l: f64, fz: f64) -> SolverInput {
 /// Lateral load at node 2.
 fn make_portal_frame(w: f64, h: f64, fx: f64) -> SolverInput {
     SolverInput {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes: hm(vec![
             (1, node(1, 0.0, 0.0)),
             (2, node(2, 0.0, h)),
@@ -134,7 +134,7 @@ fn make_portal_frame(w: f64, h: f64, fx: f64) -> SolverInput {
 /// where the apex passes through the baseline of the supports.
 fn make_toggle_frame(half_span: f64, rise: f64, p: f64) -> SolverInput {
     SolverInput {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes: hm(vec![
             (1, node(1, 0.0, 0.0)),
             (2, node(2, 2.0 * half_span, 0.0)),
@@ -259,70 +259,36 @@ fn test_load_factor_monotonic_for_stable_problem() {
     }
 }
 
-/// Test 3: Arc-length detects limit point (snap-through) for a toggle frame.
-///
-/// A shallow toggle frame (two inclined members meeting at a low apex)
-/// under a vertical load at the apex exhibits snap-through: the load
-/// factor rises to a limit point and then decreases as the structure
-/// snaps through. The arc-length method should be able to traverse
-/// this limit point — meaning the load factor should eventually decrease
-/// after the peak.
 #[test]
 fn test_arc_length_detects_limit_point() {
-    // Very shallow rise (0.1m) with half-span of 2.0m gives a rise/span
-    // ratio of 1/40, which is shallow enough for snap-through.
-    let solver = make_toggle_frame(2.0, 0.1, 50.0);
+    let mut solver = make_toggle_frame(2.0, 0.1, 50.0);
+    for element in solver.elements.values_mut() {
+        element.elem_type = "truss".into();
+    }
     let input = ArcLengthInput {
         solver,
-        max_steps: 100,
+        max_steps: 2000,
         max_iter: 30,
-        tolerance: 1e-5,
+        tolerance: 1e-10,
         initial_ds: 0.05,
         min_ds: 1e-8,
-        max_ds: 0.5,
+        max_ds: 0.25,
         target_iter: 5,
     };
-
     let result = solve_arc_length(&input).unwrap();
-
-    let converged_steps: Vec<&EquilibriumStep> =
-        result.steps.iter().filter(|s| s.converged).collect();
-    assert!(
-        !converged_steps.is_empty(),
-        "Should have at least one converged step"
-    );
-
-    // Find the maximum load factor along the path
-    let max_lambda = converged_steps
-        .iter()
-        .map(|s| s.load_factor)
-        .fold(f64::NEG_INFINITY, f64::max);
-
-    // If the solver successfully passed through the limit point,
-    // the final load factor should be less than the maximum.
-    // If it did not pass through (stopped before), we at least verify
-    // the solver produced a valid path with positive load factor at the peak.
-    assert!(
-        max_lambda > 0.0,
-        "Peak load factor should be positive, got {}",
-        max_lambda
-    );
-
-    // Check whether load factor decreased after the peak (snap-through detected).
-    // This is the key feature of arc-length: ability to trace past limit points.
-    if converged_steps.len() >= 3 {
-        let final_lambda = converged_steps.last().unwrap().load_factor;
-        if final_lambda < max_lambda - 1e-10 {
-            // Successfully traced past the limit point
-            assert!(
-                true,
-                "Arc-length successfully traced past limit point: peak={}, final={}",
-                max_lambda, final_lambda
-            );
-        }
-        // Even if it hasn't decreased yet, the solver should have made progress
-        // along the path without diverging
-    }
+    assert!(result.converged);
+    assert_eq!(result.steps.len(), input.max_steps);
+    assert!(result.steps.iter().all(|step| step.converged));
+    let peak = result.steps.iter().map(|s| s.load_factor * 50.)
+        .take_while(|&p| p > 0.).fold(0.0_f64, f64::max);
+    let trough = result.steps.iter().map(|s| s.load_factor * 50.)
+        .fold(0.0_f64, f64::min);
+    assert!((peak / 95.98504891452458 - 1.).abs() < 0.002, "peak={peak}");
+    assert!((trough / -95.98504891452458 - 1.).abs() < 0.002, "trough={trough}");
+    let apex = result.results.displacements.iter().find(|d| d.node_id == 3).unwrap();
+    assert!(-apex.uz > 0.2, "must pass both limit points and invert the truss");
+    assert!(result.steps.windows(2).any(|w| w[1].load_factor < w[0].load_factor));
+    assert!(result.final_load_factor > 0.);
 }
 
 /// Test 4: Displacement control matches expected load factor.
@@ -667,7 +633,7 @@ fn make_cantilever_meshed(n_elem: usize, l: f64, fz: f64) -> SolverInput {
             node_id: n_elem, fx: 0.0, fz, my: 0.0,
         })],
         constraints: vec![],
-        connectors: HashMap::new(), solver_options: None,
+        connectors: HashMap::new(), solver_options: None, masses: Default::default(),
     }
 }
 
@@ -699,7 +665,7 @@ fn make_twin_cantilever_tied(l: f64, fz: f64) -> SolverInput {
             slave_node: 3,
             dofs: vec![1],
         })],
-        connectors: HashMap::new(), solver_options: None,
+        connectors: HashMap::new(), solver_options: None, masses: Default::default(),
     }
 }
 

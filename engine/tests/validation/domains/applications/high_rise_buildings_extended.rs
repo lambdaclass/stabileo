@@ -418,7 +418,7 @@ fn highrise_tube_structure_lateral_stiffness() {
 
     // Vertical equilibrium: no gravity loads applied, so ry should be near zero
     let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
-    assert_close(sum_ry, 0.0, 0.05, "Tube structure vertical equilibrium");
+    assert_close_abs(sum_ry, 0.0, 0.05, 1e-6, "Tube structure vertical equilibrium");
 }
 
 // ================================================================

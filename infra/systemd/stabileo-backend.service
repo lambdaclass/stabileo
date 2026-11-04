@@ -1,0 +1,43 @@
+[Unit]
+Description=Stabileo backend (Phoenix release)
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=exec
+User=app
+Group=app
+WorkingDirectory=/srv/stabileo/live/backend
+EnvironmentFile=/srv/stabileo/live/.env
+Environment=HOME=/srv/stabileo LANG=C.UTF-8 LC_ALL=C.UTF-8
+# No distribution: `bin/stabileo stop` would not reach the node, so the unit stops it with SIGTERM.
+Environment=RELEASE_DISTRIBUTION=none
+# The release writes its generated sys.config and vm.args here; the release dir is read-only below.
+Environment=RELEASE_TMP=/run/stabileo-backend
+RuntimeDirectory=stabileo-backend
+ExecStart=/srv/stabileo/live/backend/bin/stabileo start
+KillSignal=SIGTERM
+KillMode=mixed
+TimeoutStopSec=30
+Restart=always
+RestartSec=5
+LimitNOFILE=65536
+UMask=0077
+
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+# No MemoryDenyWriteExecute: the OTP JIT needs writable and executable pages.
+
+[Install]
+WantedBy=multi-user.target

@@ -1,5 +1,6 @@
-import { setColumnCapacityKernelEnabled } from '../column-capacity-kernel';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { setColumnCapacityKernelEnabled, registerColumnCapacityKernel } from '../column-capacity-kernel';
+import { solve_column_capacity_batch } from '../../wasm/dedaliano_engine.js';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { computeColumnCapacity, computeBiaxialCapacity, prepareColumnCapacity, setColumnCapacityReuse, verifyProvidedReinforcement,
   type BarInstance, type ColumnCapacitySection, type ElementStationResult } from '../station-design-forces';
 
@@ -16,8 +17,7 @@ function reference(s: ColumnCapacitySection, Nu: number, Mu: number, axis: 'z' |
 function biaxial(s: ColumnCapacitySection, Nu: number, Muy: number, Muz: number) {
   return computeBiaxialCapacity(s.AsProv_cm2, s.b, s.h, s.fc, s.fy, s.cover, s.stirrupDia, Nu, Muy, Muz, s.bars);
 }
-beforeEach(() => setColumnCapacityKernelEnabled(false));
-afterEach(() => { vi.restoreAllMocks(); setColumnCapacityReuse(true); setColumnCapacityKernelEnabled(true); });
+afterEach(() => { vi.restoreAllMocks(); setColumnCapacityReuse(true); setColumnCapacityKernelEnabled(true); registerColumnCapacityKernel(solve_column_capacity_batch); });
 
 describe('prepared station-column capacity', () => {
   it('matches every reference field for both axes and signed axial demands', () => {
@@ -40,21 +40,25 @@ describe('prepared station-column capacity', () => {
   });
   it('reuses exact axial loads independently of moments, without sharing axes or rounding loads', () => {
     const s = section(), prepared = prepareColumnCapacity(s);
-    const strain = vi.spyOn(Math, 'sign');
+    // Each engine solve is one kernel call; a cached load makes none.
+    const strain = vi.fn(solve_column_capacity_batch);
+    registerColumnCapacityKernel(strain);
     prepared.uniaxial(300, 10);
     const first = strain.mock.calls.length;
     expect(first).toBeGreaterThan(0);
     prepared.uniaxial(300, 20);
     prepared.uniaxial(300, 100);
     expect(strain).toHaveBeenCalledTimes(first);
-    prepared.biaxial(300, 10, 20);
+    // (The biaxial load contour is the section engine's own search, not this kernel's.)
     const both = strain.mock.calls.length;
-    expect(both).toBeGreaterThan(first);
-    prepared.biaxial(300, 30, 40);
-    expect(strain).toHaveBeenCalledTimes(both);
+    prepared.uniaxial(300, 10, 'y');
+    expect(strain.mock.calls.length).toBeGreaterThan(both); // the other axis is not shared
+    const yAxis = strain.mock.calls.length;
+    prepared.uniaxial(300, 50, 'y');
+    expect(strain).toHaveBeenCalledTimes(yAxis);
     prepared.uniaxial(300 + 1e-10, 10);
     const nearby = strain.mock.calls.length;
-    expect(nearby).toBeGreaterThan(both);
+    expect(nearby).toBeGreaterThan(yAxis);
     prepared.uniaxial(-300, 10);
     expect(strain.mock.calls.length).toBeGreaterThan(nearby);
   });
@@ -71,7 +75,7 @@ describe('prepared station-column capacity', () => {
     modifiedOutput.phiMn = -1;
     expect(first.uniaxial(500, 20)).toEqual(expected);
   });
-  it('retains simplified fallback and non-finite reference behavior', () => {
+  it('without bar positions, and for non-finite loads, the prepared and direct answers agree (a failure)', () => {
     for (const bars of [undefined, [], section().bars!.slice(0, 3), section().bars]) {
       const s = { ...section(), bars }, prepared = prepareColumnCapacity(s);
       for (const n of [0, -500, 900, Infinity, NaN]) {
@@ -101,7 +105,7 @@ it('preserves complete verification reports, governing tuples and slender minimu
   }
 });
 
-it.each([false, true])('uses the provided reinforcement area regardless of extra section metadata (Rust: %s)', (rust) => {
+it.each([true])('uses the provided reinforcement area regardless of extra section metadata (Rust: %s)', (rust) => {
   setColumnCapacityKernelEnabled(rust);
   const s = section();
   const geometry = { b: s.b, h: s.h, fc: s.fc, fy: s.fy, cover: s.cover, stirrupDia: s.stirrupDia };

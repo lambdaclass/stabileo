@@ -3,8 +3,7 @@
 //! and dense/sparse checks of models with connectors. Each FINDING test was an
 //! `#[ignore]`d reproduction that failed before the fix.
 
-#[path = "common/mod.rs"]
-mod common;
+use crate::common;
 
 use common::{make_3d_input, make_input};
 use dedaliano_engine::solver::linear::{solve_2d, solve_3d};

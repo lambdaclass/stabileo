@@ -30,6 +30,15 @@
  *   isolation, the status filter and the section — they name things that may no longer exist —
  *   and leaves the LAYER switches alone, because a family is a family whatever the revision.
  *
+ * ── One selection with the model ───────────────────────────────────
+ *
+ * The members of the workspace's selection are the model's selection. Selecting here forwards
+ * the members to `uiStore` (a bar or a conflict selects the members it belongs to), and opening
+ * the workspace takes the members selected in the model, so a member chosen in design or in the
+ * model is the member the 3-D view opens on. Bars, solids and conflicts stay here: the model has
+ * no such things. A member the model deletes leaves the selection, the history and the
+ * isolation (`pruneMembers`), and a new project starts from nothing (`reset`).
+ *
  * ── Why the selection history is a stack ───────────────────────────
  *
  * Inspecting a cage is a walk: this column, then the footing under it, then back. A single
@@ -41,6 +50,7 @@ import {
   SCENE_SOLID_KINDS, type SceneConflictMarker, type SceneFilter, type SceneSolidKind,
 } from '../engine/detailing/scene-model';
 import type { ElementStatus } from '../engine/detailing/element-status';
+import { uiStore } from './ui.svelte';
 
 /** What the user has selected, however they selected it. */
 export interface WorkspaceSelection {
@@ -224,7 +234,20 @@ function createRebarWorkspace() {
       });
     },
 
-    openWorkspace() { open = true; },
+    /**
+     * Open, on the members selected in the model when there are any and they are not what is
+     * already selected here. A selection of the same members (a bar of that member, a conflict
+     * between them) is kept as it is.
+     */
+    openWorkspace() {
+      const ids = [...uiStore.selectedElements].sort((a, b) => a - b);
+      const mine = selection ? [...selection.elementIds].sort((a, b) => a - b) : [];
+      if (ids.length > 0 && !(ids.length === mine.length && ids.every((id, i) => id === mine[i]))) {
+        this.select({ elementIds: ids });
+        this.focus(ids[0]!);
+      }
+      open = true;
+    },
     /**
      * Close, keeping everything else.
      *
@@ -295,6 +318,7 @@ function createRebarWorkspace() {
         history = [...history, selection].slice(-HISTORY_LIMIT);
       }
       selection = next;
+      forwardToModel(next);
     },
 
     /** Step back to the previous selection, and point the camera at it. */
@@ -303,6 +327,7 @@ function createRebarWorkspace() {
       if (!prev) return null;
       history = history.slice(0, -1);
       selection = prev;
+      forwardToModel(prev);
       if (prev.elementIds.length > 0) {
         nonce += 1;
         focusRequest = { elementId: prev.elementIds[0], nonce };
@@ -327,6 +352,19 @@ function createRebarWorkspace() {
       this.focus(elementId);
     },
 
+    /**
+     * Forget the members the model no longer has: out of the selection (the whole selection goes
+     * when one of its members went, since a bar or a conflict of a deleted member names nothing),
+     * the history and the isolation. Called after every model change (`store/index.ts`).
+     */
+    pruneMembers(has: (id: number) => boolean) {
+      const alive = (s: WorkspaceSelection) => s.elementIds.every(has);
+      if (selection && !alive(selection)) selection = null;
+      if (history.some((s) => !alive(s))) history = history.filter(alive);
+      if (isolated.some((id) => !has(id))) isolated = isolated.filter(has);
+      if (focusRequest && !has(focusRequest.elementId)) focusRequest = null;
+    },
+
     /** Full reset. Used when the document changes under the workspace. */
     reset() {
       selection = null;
@@ -337,6 +375,14 @@ function createRebarWorkspace() {
       focusRequest = null;
     },
   };
+}
+
+/** The model selects the members a workspace selection names, unless it already does. */
+function forwardToModel(s: WorkspaceSelection | null): void {
+  if (!s || s.elementIds.length === 0) return;
+  const now = uiStore.selectedElements;
+  if (now.size === s.elementIds.length && s.elementIds.every((id) => now.has(id))) return;
+  uiStore.setSelection(new Set(), new Set(s.elementIds), true);
 }
 
 export const rebarWorkspace = createRebarWorkspace();

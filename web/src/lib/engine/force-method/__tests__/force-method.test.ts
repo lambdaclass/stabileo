@@ -34,6 +34,8 @@ function model(opts: { nodes: Array<[number, number, number]>; elements: El[]; s
 const nodal = (nodeId: number, fx: number, fz: number, my = 0): SolverLoad => ({ type: 'nodal', data: { nodeId, fx, fz, my } });
 const q = (elementId: number, qI: number, qJ = qI, extra: Record<string, number> = {}): SolverLoad =>
   ({ type: 'distributed', data: { elementId, qI, qJ, ...extra } });
+const axialQ = (elementId: number, qI: number, qJ = qI, extra: Record<string, number> = {}): SolverLoad =>
+  ({ type: 'axialDistributed', data: { elementId, qI, qJ, ...extra } });
 
 const CASES: Record<string, SolverInput> = {
   'propped cantilever, uniform load': model({
@@ -98,6 +100,19 @@ const CASES: Record<string, SolverInput> = {
     nodes: [[1, 0, 0], [2, 6, 0], [3, 10, 0]], elements: [[1, 1, 2, 'frame'], [2, 2, 3, 'frame']],
     supports: [[1, 'fixed'], [2, 'rollerX'], [3, 'fixed']],
     loads: [q(1, -6, -6, { a: 1, b: 4 }), { type: 'pointOnElement', data: { elementId: 2, a: 1.5, p: -20, px: 3 } }],
+  }),
+  /* 10 kN/m vertical on 3-4-5 rafters: 8 across each, 6 along it — N varies along the rafter. */
+  'gable on fixed feet, a load along its rafters': model({
+    nodes: [[1, 0, 0], [2, 4, 3], [3, 8, 0]], elements: [[1, 1, 2, 'frame'], [2, 2, 3, 'frame']],
+    supports: [[1, 'fixed'], [3, 'fixed']],
+    loads: [q(1, -8), q(2, -8), axialQ(1, -6), axialQ(2, 6, 6, { a: 1, b: 4 })],
+  }),
+  'truss with loads along its bars': model({
+    nodes: [[1, 0, 0], [2, 4, 0], [3, 4, 3], [4, 0, 3]],
+    elements: [[1, 1, 2, 'truss'], [2, 2, 3, 'truss'], [3, 3, 4, 'truss'], [4, 4, 1, 'truss'], [5, 1, 3, 'truss'], [6, 2, 4, 'truss']],
+    supports: [[1, 'pinned'], [2, 'rollerX']],
+    /* Bar 1 is the redundant removed: its own loads stay at its nodes. */
+    loads: [nodal(3, 10, -20), axialQ(5, -4, -2), axialQ(1, -3, 1, { a: 0.5, b: 3 }), { type: 'pointOnElement', data: { elementId: 1, a: 1, p: 0, px: 5 } }],
   }),
 };
 

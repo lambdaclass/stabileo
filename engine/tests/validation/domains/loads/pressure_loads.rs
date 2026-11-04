@@ -81,7 +81,7 @@ fn make_plate_input(
     mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: NU });
 
     SolverInput3D {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes: nodes_map,
         materials: mats_map,
         sections: HashMap::new(),

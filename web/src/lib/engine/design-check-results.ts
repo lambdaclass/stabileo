@@ -30,7 +30,11 @@ export interface MemberDesignResult {
   codeName: string;           // "CIRSOC 201" | "AISC 360" | etc.
   governingCheck: string;     // name of the check with highest ratio
   utilization: number;        // max ratio across all checks (0–∞, ≤1.0 = pass)
-  status: CheckStatus;
+  /**
+   * `held`: a limit state the member needs was not evaluated, or the verdict depends on a datum
+   * the section does not declare (CIRSOC 301, `cirsoc301-verdict.ts`). Neither a pass nor a failure.
+   */
+  status: CheckStatus | 'held';
   comboName?: string;         // governing combo for the governing check
   checks: CheckDetail[];      // all individual checks
 }
@@ -91,6 +95,18 @@ export function normalizeCirsoc201(verifs: ElementVerification[], sectionNames: 
       comboName: v.governingCombos?.shear?.comboName,
     });
 
+    if (v.shearSecondary) {
+      checks.push({
+        name: 'Shear, secondary axis',
+        demand: Math.abs(v.shearSecondary.Vu),
+        capacity: v.shearSecondary.phiVn,
+        ratio: v.shearSecondary.ratio,
+        unit: 'kN',
+        status: v.shearSecondary.status as CheckStatus,
+        comboName: v.governingCombos?.shearSecondary?.comboName,
+      });
+    }
+
     if (v.column) {
       checks.push({
         name: 'Axial + Moment',
@@ -117,11 +133,11 @@ export function normalizeCirsoc201(verifs: ElementVerification[], sectionNames: 
 
     if (v.biaxial) {
       checks.push({
-        name: 'Biaxial (Bresler)',
-        demand: Math.abs(v.Nu),
-        capacity: v.biaxial.phiPn,
+        name: 'Biaxial (load contour)',
+        demand: v.biaxial.Mres,
+        capacity: v.biaxial.phiMn,
         ratio: v.biaxial.ratio,
-        unit: 'kN',
+        unit: 'kN·m',
         status: v.biaxial.status as CheckStatus,
         comboName: v.governingCombos?.axial?.comboName,
       });
@@ -228,7 +244,7 @@ export function normalizeCirsoc301(verifs: SteelVerification[], sectionNames: Ma
       codeName: 'CIRSOC 301',
       governingCheck: governing.name,
       utilization: governing.ratio,
-      status: v.overallStatus as CheckStatus,
+      status: v.overallStatus,
       comboName: governing.comboName,
       checks,
     };

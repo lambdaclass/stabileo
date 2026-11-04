@@ -10,7 +10,7 @@
  * These journeys use visible controls only. Nothing seeds a regulation store.
  */
 
-import { test, expect, loadModel, solveModel } from './fixtures';
+import { test, expect, loadModel, solveModel, designPlace } from './fixtures';
 
 type Page = import('@playwright/test').Page;
 
@@ -18,14 +18,12 @@ async function openDesign(page: Page) {
   // By testid throughout: this journey runs in both languages. The PRO bar is a
   // two-level ribbon now — the stage, then its command — so the label-matching
   // that the old dropdown forced is no longer needed at all.
-  await page.getByTestId('pr-stage-design').click();
-  await page.getByTestId('pr-cmd-design').click();
+  await designPlace(page, 'list');
   await expect(page.getByTestId('design-toolbar')).toBeVisible();
 }
 
 async function openRegulations(page: Page) {
-  await openDesign(page);
-  await page.locator('[data-testid="code-settings-disclosure"] summary').first().click();
+  await designPlace(page, 'designData');
   await expect(page.getByTestId('project-regulations')).toBeVisible();
 }
 
@@ -85,6 +83,8 @@ for (const lang of ['en', 'es'] as const) {
         await page.getByTestId('cmd-code-check').click();
         // The commands ran against a bound code rather than being gated.
         await expect(page.getByTestId('concrete-code-gate')).toHaveCount(0);
+        // The counts are read in the design overview, in «Prepare» (interface A).
+        await designPlace(page, 'prepare');
         await expect(page.getByTestId('design-counts')).toBeVisible();
       });
   });

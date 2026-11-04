@@ -10,8 +10,7 @@
 //!   - Determinism (same input, same output):                  exact f64 equality
 //!   - Benchmark comparison (published reference values):      5% relative
 
-#[path = "common/mod.rs"]
-mod common;
+use crate::common;
 
 use common::{make_input, make_beam, make_3d_input, make_3d_beam};
 use dedaliano_engine::solver::{linear, modal, buckling};
@@ -718,7 +717,7 @@ fn make_ss_plate(nx: usize, ny: usize) -> SolverInput3D {
         solid_shells: HashMap::new(),
         curved_shells: HashMap::new(),
         curved_beams: vec![],
-        connectors: HashMap::new(), solver_options: None,
+        connectors: HashMap::new(), solver_options: None, masses: Default::default(),
     }
 }
 

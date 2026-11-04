@@ -8,7 +8,8 @@
  *
  * Paste starts a placement with the fragment (the ghost follows the pointer); paste in place
  * inserts it where it was. What comes from the system clipboard wins over what is in memory when
- * it is model code, because it is the more recent copy the user made.
+ * it is model code, because it is the more recent copy the user made. Basic copies and pastes
+ * through here too, in its plane and its space workspace (`clipboard-workspace.ts`).
  */
 import { detach, fragmentOf, closure, type EntitySet, type Fragment } from '../model/edit/fragment';
 import { fragmentFromCode, fragmentToCode } from '../model/edit/fragment-code';
@@ -18,9 +19,15 @@ import { placementStore } from './placement.svelte';
 import { modelStore } from './model.svelte';
 import { uiStore } from './ui.svelte';
 import { t, tp } from '../i18n';
+import { planeFragmentToSpace } from './clipboard-workspace';
+import { clipboardState } from './clipboard-state.svelte';
 
 let memory: Fragment | null = null;
 let memoryCode = '';
+/** The copy is in the plane's coordinates (vertical as `y`), not the space's. */
+let memoryInPlane = false;
+
+const modelInPlane = () => !uiStore.is3DWorkspace || uiStore.viewportPresentation3D === 'upright2dIn3d';
 
 export function selectionSet(): EntitySet {
   const quads: number[] = [], plates: number[] = [];
@@ -29,8 +36,10 @@ export function selectionSet(): EntitySet {
     if (key[0] === 'q' && modelStore.quads.has(id)) quads.push(id);
     if (key[0] === 'p' && modelStore.plates.has(id)) plates.push(id);
   }
+  // A physical plate selected whole brings its outline and holes, mesh or not.
+  const plateNodes = [...uiStore.selectedPlates].flatMap((id) => modelStore.model.groups.get(id)?.members.nodes ?? []);
   return {
-    nodes: [...uiStore.selectedNodes].filter((id) => modelStore.nodes.has(id)),
+    nodes: [...uiStore.selectedNodes, ...plateNodes].filter((id) => modelStore.nodes.has(id)),
     elements: [...uiStore.selectedElements].filter((id) => modelStore.elements.has(id)),
     quads, plates,
   };
@@ -46,6 +55,8 @@ export function copySelection(): boolean {
   if (isEmpty(set)) return false;
   memory = detach(fragmentOf(set, { withLoads: true, withSupports: true }));
   memoryCode = fragmentToCode(memory);
+  memoryInPlane = modelInPlane();
+  clipboardState.filled = true;
   try { void navigator.clipboard?.writeText(memoryCode).catch(() => {}); } catch { /* no clipboard: memory only */ }
   uiStore.toast(tp('clipboard.copied', { n: memory.elements.length + memory.quads.length + memory.plates.length, nodes: memory.nodes.length }), 'info');
   return true;
@@ -74,8 +85,18 @@ export function cutSelection(): boolean {
  */
 export function paste(inPlace: boolean, external?: string): boolean {
   const fromText = external && external !== memoryCode ? fragmentFromCode(external) : null;
-  const frag = fromText ?? memory;
+  let frag = fromText ?? memory;
   if (!frag) return false;
+  const inPlane = !fromText && memoryInPlane;
+  if (uiStore.is3DWorkspace) {
+    // The model is rewritten in space coordinates first, as any edit does, so the ghost, the
+    // welds and the copy all read the same axes.
+    modelStore.spaceBeforeWeld();
+    if (inPlane) frag = planeFragmentToSpace(frag);
+  } else if (!inPlane) {
+    uiStore.toast(t('clipboard.spaceInPlane'), 'info');
+    return false;
+  }
   if (inPlace) {
     const r = insertFragment(frag, [{ A: IDENTITY, t: [0, 0, 0] }], { withLoads: true, withSupports: true });
     uiStore.setSelection(new Set(r.nodes), new Set(r.elements), false,

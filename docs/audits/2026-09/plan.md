@@ -323,7 +323,7 @@ Row IDs are what the ledger cites. The owner is the Phase 2 module that must dec
 **Files:** Modify `docs/audits/2026-09/ledger.md` by adding a "Baseline @<sha>" section above the table.
 
 - [ ] **Step 1:** `cargo nextest run -p dedaliano-engine --profile ci`. Record passed/failed/skipped. Expected: 0 failures (the engine jobs were green on `6e5a600f`).
-- [ ] **Step 2:** `make test-inventory` (~10 min). Record engine-coupled and reference counts next to BM's stamp (5,655 / 1,192 @ `6c3369d6`).
+- [ ] **Step 2:** `make test.inventory` (~10 min). Record engine-coupled and reference counts next to BM's stamp (5,655 / 1,192 @ `6c3369d6`).
 - [ ] **Step 3:** `cargo test -p dedaliano-backend`. Any failure becomes a W12 ledger row (K2).
 - [ ] **Step 4:** In `web/`, run `npm test`, `npm run check:gate`, `npm run typecheck`, `npx playwright test --grep @smoke`. Record the counts; K54 claims 558 svelte-check errors, so record the real number.
 - [ ] **Step 5:** Inventory silenced tests, so W13 can apply "never silence a signal":
@@ -1214,7 +1214,7 @@ This module prints the numbers a student reads as the solution: 8.9 k lines and 
 - Create: `docs/audits/2026-09/summary.md`
 
 - [ ] **Step 1:** Re-run Task 0.4 on the final main SHA and add "after" columns. A regression over 10 % on any workload, without a correctness fix that justifies it, is a finding.
-- [ ] **Step 2:** Run `make test-inventory` and update the stamp in `docs/BENCHMARKS.md` in the same commit.
+- [ ] **Step 2:** Run `make test.inventory` and update the stamp in `docs/BENCHMARKS.md` in the same commit.
 - [ ] **Step 3:** Reconcile: every register row K1–K58, P1–P9 and C-1…C-8 has a ledger outcome of `fixed`, `deferred` (with reason and owner), `not-a-bug` (with its deciding test), or `open` (with owner).
 - [ ] **Step 4:** Write `summary.md`:
   - counts by severity and module;

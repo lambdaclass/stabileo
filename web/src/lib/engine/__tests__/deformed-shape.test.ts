@@ -115,7 +115,7 @@ describe('Deformed shape: endpoint accuracy', () => {
       nodes: [[1, 0, 0], [2, L, 0]],
       elements: [[1, 1, 2, 'frame']],
       supports: [[1, 1, 'fixed']],
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: P, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: P, my: 0 } }],
     });
     const results = solve(input);
     const dI = getDisp(results, 1);
@@ -169,7 +169,7 @@ describe('Deformed shape: fixed support tangent', () => {
       nodes: [[1, 0, 0], [2, L, 0]],
       elements: [[1, 1, 2, 'frame']],
       supports: [[1, 1, 'fixed']],
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: -10, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: -10, my: 0 } }],
     });
     const results = solve(input);
     const dI = getDisp(results, 1);
@@ -272,7 +272,7 @@ describe('Deformed shape: rigid joint angle preservation', () => {
         [2, 2, 3, 'frame'],  // vertical
       ],
       supports: [[1, 1, 'fixed'], [2, 3, 'fixed']],
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: -10, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: -10, my: 0 } }],
     });
     const results = solve(input);
 
@@ -466,7 +466,7 @@ describe('Deformed shape: analytical verification', () => {
       nodes: [[1, 0, 0], [2, L, 0]],
       elements: [[1, 1, 2, 'frame']],
       supports: [[1, 1, 'fixed']],
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: P, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: P, my: 0 } }],
     });
     const results = solve(input);
     const dJ = getDisp(results, 2);
@@ -798,7 +798,7 @@ describe('Deformed shape: inclined and vertical bars', () => {
         nodes: [[1, 0, 0], [2, x2, y2]],
         elements: [[1, 1, 2, 'frame']],
         supports: [[1, 1, 'fixed']],
-        loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: -10, mz: 0 } }],
+        loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: -10, my: 0 } }],
       });
       const results = solve(input);
       const dJ = getDisp(results, 2);
@@ -832,7 +832,7 @@ describe('Deformed shape: inclined and vertical bars', () => {
       nodes: [[1, 0, 0], [2, 0, L]],
       elements: [[1, 1, 2, 'frame']],
       supports: [[1, 1, 'fixed']],
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 10, fy: 0, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 10, fz: 0, my: 0 } }],
     });
     const results = solve(input);
     const dJ = getDisp(results, 2);
@@ -860,7 +860,7 @@ describe('Deformed shape: curvature consistency', () => {
       nodes: [[1, 0, 0], [2, L, 0]],
       elements: [[1, 1, 2, 'frame']],
       supports: [[1, 1, 'fixed']],
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: -10, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: -10, my: 0 } }],
     });
     const results = solve(input);
     const pts = deformedFromResults(results, 1, input.nodes, input.elements as any, 200);
@@ -913,7 +913,7 @@ describe('Deformed shape: truss elements', () => {
         [3, 2, 3, 'truss'],
       ],
       supports: [[1, 1, 'pinned'], [2, 2, 'rollerX']],
-      loads: [{ type: 'nodal', data: { nodeId: 3, fx: 0, fy: -20, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 3, fx: 0, fz: -20, my: 0 } }],
     });
     const results = solve(input);
 
@@ -1001,7 +1001,7 @@ describe('Deformed shape: multi-element continuity', () => {
         [3, 3, 4, 'frame'],  // right column
       ],
       supports: [[1, 1, 'fixed'], [2, 4, 'fixed']],
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 15, fy: 0, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 15, fz: 0, my: 0 } }],
     });
     const results = solve(input);
 

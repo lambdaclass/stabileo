@@ -224,7 +224,7 @@ pub fn guyan_reduce_2d(input: &GuyanInput) -> Result<GuyanResult, String> {
 
     // The reduction hardcodes u_r = 0 in the recovery/reaction path, so
     // prescribed support displacements would be silently ignored.
-    for sup in input.solver.supports.values() {
+    for sup in crate::ordered::values(&input.solver.supports) {
         let prescribed = [sup.dx, sup.dz, sup.dry];
         if prescribed.iter().flatten().any(|v| v.abs() > 1e-15) {
             return Err(format!(
@@ -594,6 +594,9 @@ fn guyan_reduce_2d_dense(input: &GuyanInput, dof_num: &DofNumbering) -> Result<G
 pub fn craig_bampton_2d(input: &CraigBamptonInput) -> Result<CraigBamptonResult, String> {
     // As above: validated before assembly indexes by id.
     super::linear::validate_input_2d(&input.solver)?;
+    // Nodal and line masses go into M: a negative one or one on a missing
+    // node is refused here as in every other dynamic analysis.
+    super::dynamic_validation::validate_mass_input_2d(&input.solver)?;
 
     let dof_num = DofNumbering::build_2d(&input.solver);
     if dof_num.n_free == 0 { return Err("No free DOFs".into()); }
@@ -683,7 +686,7 @@ fn craig_bampton_2d_dense(input: &CraigBamptonInput, dof_num: &DofNumbering) -> 
     // Interior eigenproblem: K_II * φ = ω² * M_II * φ
     // Use Lanczos shift-invert (factorizes K_II, not M_II) — works even if M_II is singular
     let eigen = lanczos_generalized_eigen(&k_ii, &m_ii, ni, n_modes, 0.0)
-        .ok_or("Interior eigenvalue decomposition failed")?;
+        .ok_or_else(|| crate::linalg::lanczos::eigen_failure_message(ni))?;
 
     // Lanczos returns eigenvalues sorted ascending, already filtered to n_modes
     let n_modes = n_modes.min(eigen.values.len());
@@ -930,7 +933,7 @@ fn craig_bampton_2d_sparse(input: &CraigBamptonInput, dof_num: &DofNumbering) ->
     // Interior eigenproblem: K_II * φ = ω² * M_II * φ
     // Sparse Lanczos shift-invert (factorizes K_II, not M_II) — works even if M_II is singular
     let eigen = lanczos_generalized_eigen_sparse(&k_ii, &m_ii, n_modes, 0.0)
-        .ok_or("Interior eigenvalue decomposition failed")?;
+        .ok_or_else(|| crate::linalg::lanczos::eigen_failure_message(k_ii.n))?;
 
     // Lanczos returns eigenvalues sorted ascending, already filtered to n_modes
     let n_modes = n_modes.min(eigen.values.len());
@@ -1095,7 +1098,7 @@ pub fn guyan_reduce_3d(input: &GuyanInput3D) -> Result<GuyanResult3D, String> {
     // Same limitation as the 2D path: u_r = 0 is hardcoded in the
     // recovery/reaction path, so prescribed support displacements would be
     // silently ignored.
-    for sup in input.solver.supports.values() {
+    for sup in crate::ordered::values(&input.solver.supports) {
         let prescribed = [sup.dx, sup.dy, sup.dz, sup.drx, sup.dry, sup.drz];
         if prescribed.iter().flatten().any(|v| v.abs() > 1e-15) {
             return Err(format!(
@@ -1296,6 +1299,8 @@ pub fn craig_bampton_3d(input: &CraigBamptonInput3D) -> Result<CraigBamptonResul
     };
     // As above: validated before assembly indexes by id.
     super::linear::validate_input_3d(&input.solver)?;
+    // Nodal, line and area masses go into M (see `craig_bampton_2d`).
+    super::dynamic_validation::validate_mass_input_3d(&input.solver)?;
     // Curved beams are expanded into straight members, as every static path
     // does; left in place they were not part of the model at all.
     let expanded = (!input.solver.curved_beams.is_empty()).then(|| {
@@ -1372,7 +1377,7 @@ pub fn craig_bampton_3d(input: &CraigBamptonInput3D) -> Result<CraigBamptonResul
     // Interior eigenproblem: K_II * φ = ω² * M_II * φ
     // Sparse Lanczos shift-invert (factorizes K_II, not M_II) — works even if M_II is singular
     let eigen = lanczos_generalized_eigen_sparse(&k_ii, &m_ii, n_modes, 0.0)
-        .ok_or("Interior eigenvalue decomposition failed")?;
+        .ok_or_else(|| crate::linalg::lanczos::eigen_failure_message(k_ii.n))?;
 
     let n_modes = n_modes.min(eigen.values.len());
     let nk = eigen.values.len();

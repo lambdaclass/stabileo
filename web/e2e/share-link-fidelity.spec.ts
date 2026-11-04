@@ -24,12 +24,12 @@
  * module reaches for the stores, which means it cannot catch anything the
  * stores do. This can.
  *
- * The shed is the case worth pinning: 232 nodes, 633 members, 242 loads, three
- * load cases and four combinations, and a link around 10 700 characters — five
+ * The shed is the case worth pinning: 232 nodes, 729 members, 254 loads, three
+ * load cases and seven combinations, and a link past 8 000 characters — four
  * times the threshold that used to warn about it.
  */
 
-import { test, expect, loadModel } from './fixtures';
+import { test, expect, loadModel, CURRENT_STAMP } from './fixtures';
 
 type Page = import('@playwright/test').Page;
 
@@ -38,7 +38,7 @@ const SHED = '3d-nave-industrial';
 
 const census = (page: Page) => page.evaluate(() => window.__stabileo.modelCensus());
 
-test.describe('@smoke a share link carries the whole model', () => {
+test.describe('@slow a share link carries the whole model', () => {
   test('the 3D shed survives being copied and opened elsewhere', async ({ page, context }) => {
     test.setTimeout(180_000);
 
@@ -124,6 +124,7 @@ test.describe('@smoke a share link carries the whole model', () => {
     const ok = await page.evaluate((f) => window.__stabileoActions.loadProject(f), {
       version: '2.0', name: 'big', timestamp: '2026-01-01T00:00:00.000Z', analysisMode: '3d',
       snapshot: {
+        solvedWith: CURRENT_STAMP,
         name: 'big', localAxisConvention: 'zUpStrongAxis', nodes, elements,
         materials: [[1, { id: 1, name: 'Acero A36', e: 200000, nu: 0.3, rho: 78.5, fy: 250 }]],
         sections: [[1, { id: 1, name: 'IPN 300', a: 0.0069, iy: 9.8e-05, iz: 4.51e-06, j: 4.666e-07, b: 0.125, h: 0.3, shape: 'I', tw: 0.0108, tf: 0.0162 }]],

@@ -8,7 +8,7 @@
  * otherwise a zip with one CSV per sheet. A large model read at stations passes both, and
  * dropping rows to fit would publish a workbook that looks complete.
  */
-import { zipSync, strToU8 } from 'fflate';
+import { Zip, ZipDeflate, zipSync, strToU8 } from 'fflate';
 import { modelStore } from './model.svelte';
 import { resultsStore } from './results.svelte';
 import { uiStore } from './ui.svelte';
@@ -16,18 +16,24 @@ import { staticsRows } from './statics-rows';
 import { unstableCombinations } from './active-results';
 import { elementStationDeflections } from './service-deflection';
 import { downloadBlob } from './file';
-import { t } from '../i18n';
+import { i18n, t } from '../i18n';
 import { buildSolverInput3D } from '../engine/solver-service';
 import { sectionStressModel } from '../engine/member-stresses';
 import { toCsv } from '../engine/result-tables';
 import type { StationSpec } from '../engine/station-forces';
 import { exportToExcel } from '../export/excel';
-import { projectWorkbookSheets, type ProjectWorkbookInput } from '../export/project-workbook';
+import { projectWorkbookParts, type ProjectWorkbookInput } from '../export/project-workbook';
 import type { WorkbookModel } from '../export/workbook-model';
 import { combinationKind, type WorkbookSource } from '../export/workbook-results';
-import { fitsInXlsx, safeText, type WorkbookSheet } from '../export/workbook-cells';
+import { isStreamed, materialize, partSize, partsFitInXlsx, safeText, type WorkbookPart, type WorkbookSheet } from '../export/workbook-cells';
+import { csvCell } from '../engine/result-query';
 import { specificationRows } from '../pro/specification-list';
 import { APP_VERSION, BUILD_COMMIT } from '../build-info';
+import { designSheets, physicalForceRows } from './design-exchange';
+import { detailingStore } from './detailing.svelte';
+import { currentResultProvenance, provenanceLabels, captureProvenanceToken, provenanceForExport, assertExportCurrent, ExportChangedError, type ProvenanceToken } from './result-provenance';
+import type { ResultProvenance } from '../provenance/result-provenance';
+import { provenanceTextLines } from '../provenance/result-provenance';
 
 function workbookModel(): WorkbookModel {
   const m = modelStore.model;
@@ -65,21 +71,40 @@ function workbookSources(pick: SourcePick = {}): WorkbookSource[] {
 /** The workbook's sheets for the project as it stands. Exported for the tests. */
 /**
  * What a caller can narrow: the model's sheets, the results', sheets of its own, which sheets by
- * name (`sheets`) and which solved sets (`sources`).
+ * name (`sheets`), which solved sets (`sources`) and the design sheets (`design`: elements,
+ * checks and verdict; absent, they go in).
  */
 export interface WorkbookOptions {
   model?: boolean; results?: boolean; extra?: readonly WorkbookSheet[];
-  sheets?: ReadonlySet<string>; sources?: SourcePick;
+  sheets?: ReadonlySet<string>; sources?: SourcePick; design?: boolean;
 }
 
-export function currentWorkbookSheets(stations: StationSpec, opts: WorkbookOptions = {}): WorkbookSheet[] {
+/**
+ * The design sheets, stamped when they describe an earlier model.
+ *
+ * The memoria, the IFC, the sheets and the exchange say it on screen (`OutdatedNotice`, from
+ * `detailingStore.modelStale`); a workbook leaves the app, so the stamp goes in the file: a first
+ * row on each design sheet, above its header, naming why and when the file was exported.
+ */
+export function stampOutdatedDesign(sheets: readonly WorkbookSheet[], exported: string, stale = detailingStore.modelStale): WorkbookSheet[] {
+  if (!stale) return [...sheets];
+  const stamp = safeText(t('outdated.workbookStamp').replace('{time}', exported));
+  return sheets.map((s) => ({ ...s, rows: [[stamp], ...s.rows] }));
+}
+
+export function currentWorkbookSheets(stations: StationSpec, opts: WorkbookOptions = {}, record?: ResultProvenance): WorkbookSheet[] {
+  return currentWorkbookParts(stations, opts, record).map(materialize);
+}
+
+export function currentWorkbookParts(stations: StationSpec, opts: WorkbookOptions = {}, record?: ResultProvenance): WorkbookPart[] {
   const model = workbookModel();
+  const exported = new Date().toISOString();
   const input: ProjectWorkbookInput = {
     model,
     solved: buildSolverInput3D(model, false, false, { expandMemberOffsets: false }),
     projectName: modelStore.model.name,
     projectInfo: modelStore.projectInfo,
-    meta: { exported: new Date().toISOString(), commit: `${APP_VERSION} (${BUILD_COMMIT})` },
+    meta: { exported, commit: `${APP_VERSION} (${BUILD_COMMIT})`, provenance: provenanceTextLines(record ?? currentResultProvenance(), provenanceLabels()) },
     results: {
       sources: workbookSources(opts.sources),
       stations,
@@ -98,9 +123,52 @@ export function currentWorkbookSheets(stations: StationSpec, opts: WorkbookOptio
     include: { model: opts.model, results: opts.results, sheets: opts.sheets },
     // The model's specifications, grouped by value as Specifications › List shows them; the
     // fields themselves are already in the Members, Supports and Quads sheets.
-    extra: [...(opts.model === false ? [] : [specificationsSheet()]), ...(opts.extra ?? [])],
+    extra: [
+      ...(opts.model === false ? [] : [specificationsSheet()]),
+      // The design as it stands: decisions and results per element, every check, and the forces
+      // of each physical member along it.
+      ...(opts.design === false ? [] : stampOutdatedDesign(designSheets(t, i18n.locale), exported)),
+      ...(opts.results === false || !resultsStore.results3D ? [] : [{ name: 'Physical member forces', rows: physicalForceRows() }]),
+      ...(opts.extra ?? []),
+    ],
   };
-  return projectWorkbookSheets(input);
+  return projectWorkbookParts(input);
+}
+
+/** How large the workbook would be and whether it fits in an xlsx file, without producing its rows. */
+export function workbookEstimate(stations: StationSpec, opts: WorkbookOptions = {}): { cells: number; xlsx: boolean } {
+  const parts = currentWorkbookParts(stations, opts);
+  return { cells: parts.reduce((n, p) => n + partSize(p).cells, 0), xlsx: partsFitInXlsx(parts) };
+}
+
+/**
+ * One CSV per part, in a zip written as the rows are produced: neither the rows nor the CSV text of
+ * a sheet are held whole, only the compressed file. Hands the event loop back every few thousand
+ * rows so the tab stays responsive.
+ */
+export async function streamWorkbookZip(parts: readonly WorkbookPart[], stillCurrent: (last: boolean) => void = () => {}): Promise<Blob> {
+  const chunks: Uint8Array[] = [];
+  let failure: Error | null = null;
+  const zip = new Zip((err, data) => { if (err) failure = err; else chunks.push(data); });
+  let sinceYield = 0;
+  for (const [i, p] of parts.entries()) {
+    const file = new ZipDeflate(`${String(i + 1).padStart(2, '0')}-${p.name}.csv`, { level: 6 });
+    zip.add(file);
+    const header = isStreamed(p) ? p.header : p.rows[0]!;
+    const body = isStreamed(p) ? p.body() : p.rows.slice(1);
+    let text = header.map((c) => csvCell(c)).join(',');
+    for (const row of body) {
+      text += '\n' + row.map((c) => csvCell(c)).join(',');
+      if (text.length > 1 << 20) { file.push(strToU8(text)); text = ''; }
+      if (++sinceYield >= 20_000) { sinceYield = 0; await new Promise((r) => setTimeout(r, 0)); stillCurrent(false); }
+    }
+    file.push(strToU8(text), true);
+    if (failure) throw failure;
+  }
+  zip.end();
+  if (failure) throw failure;
+  stillCurrent(true);
+  return new Blob(chunks as BlobPart[], { type: 'application/zip' });
 }
 
 function specificationsSheet(): WorkbookSheet {
@@ -123,23 +191,56 @@ export function workbookZip(sheets: readonly WorkbookSheet[]): Uint8Array {
  * included, as the dialog says (`proExport.dataAlways`). One sheet of data used to come as that
  * sheet alone, without the units and the signs its numbers are in.
  */
-export function downloadProjectCsv(stations: StationSpec, opts: WorkbookOptions = {}): void {
+export async function downloadProjectCsv(stations: StationSpec, opts: WorkbookOptions = {}): Promise<void> {
+  const token = captureProvenanceToken();
+  const record = await workbookRecord(token);
+  if (!record) return;
   const safeName = modelStore.model.name.replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ _-]/g, '').trim() || t('file.defaultAnalysis');
-  const sheets = currentWorkbookSheets(stations, opts);
-  const data = sheets.filter((s) => s.name !== 'Cover' && s.name !== 'Conventions');
+  const parts = currentWorkbookParts(stations, opts, record);
+  const data = parts.filter((s) => s.name !== 'Cover' && s.name !== 'Conventions');
   const name = data.length === 1 ? `${safeName}_${data[0]!.name}_csv.zip` : `${safeName}_csv.zip`;
-  downloadBlob(new Blob([workbookZip(sheets) as BlobPart], { type: 'application/zip' }), name);
+  const zip = await zipUnlessChanged(parts, token);
+  if (zip) downloadBlob(zip, name);
+}
+
+/** The zip, or null (said) when the project moved while its rows were being written: never a file of two states. */
+async function zipUnlessChanged(parts: readonly WorkbookPart[], token: ProvenanceToken): Promise<Blob | null> {
+  try {
+    return await streamWorkbookZip(parts, (last) => assertExportCurrent(token, !last));
+  } catch (e) {
+    if (e instanceof ExportChangedError) { uiStore.toast(e.message, 'error'); return null; }
+    throw e;
+  }
+}
+
+/**
+ * The cover's provenance, taken when the export starts and written only if nothing moved while the
+ * engine hashes were computed (`provenanceForExport`); the sheets are then built in the same tick.
+ * Null, said, when the project changed: nothing is exported.
+ */
+async function workbookRecord(token: ProvenanceToken): Promise<ResultProvenance | null> {
+  try {
+    return await provenanceForExport(token);
+  } catch (e) {
+    if (e instanceof ExportChangedError) { uiStore.toast(e.message, 'error'); return null; }
+    throw e;
+  }
 }
 
 /** Write the project workbook: xlsx when it fits, a zip of CSVs otherwise. */
 export async function downloadProjectWorkbook(stations: StationSpec, opts: WorkbookOptions = {}): Promise<void> {
+  const token = captureProvenanceToken();
+  const record = await workbookRecord(token);
+  if (!record) return;
   const safeName = modelStore.model.name.replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ _-]/g, '').trim() || t('file.defaultAnalysis');
-  const sheets = currentWorkbookSheets(stations, opts);
-  if (fitsInXlsx(sheets)) {
-    await exportToExcel({ filename: `${safeName}.xlsx`, onlyExtras: true, extraSheets: sheets });
+  const parts = currentWorkbookParts(stations, opts, record);
+  if (partsFitInXlsx(parts)) {
+    // The cover already carries the provenance, prepared above.
+    await exportToExcel({ filename: `${safeName}.xlsx`, onlyExtras: true, extraSheets: parts.map(materialize), provenance: false });
     return;
   }
-  const zip = workbookZip(sheets);
-  downloadBlob(new Blob([zip as BlobPart], { type: 'application/zip' }), `${safeName}.zip`);
+  const zip = await zipUnlessChanged(parts, token);
+  if (!zip) return;
+  downloadBlob(zip, `${safeName}.zip`);
   uiStore.toast(t('wb.zipped'), 'info');
 }

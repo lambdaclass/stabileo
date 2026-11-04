@@ -141,3 +141,22 @@ describe('transitionExists is what arc consistency should ask', () => {
     expect(a).toBe(b);
   });
 });
+
+describe('a row meeting a wider row pairs with the partners nearest it, not the first ones', () => {
+  it('4 bars spread over a 350 mm web against 8: four pairs within the pitch, the four between left over', () => {
+    // The flagship's e161 → e162 at node 22: 4Ø32 at the corners and two inner seats against
+    // 8 bars at 38,7 mm. Pairing the i-th with the i-th took the four leftmost of the eight and
+    // refused the transition for a 150 mm offset.
+    const four = [-0.1353, -0.0451, 0.0451, 0.1353];
+    const eight = [-0.1353, -0.0967, -0.058, -0.0193, 0.0193, 0.058, 0.0967, 0.1353];
+    const a = plan({ from: four, to: eight, diameterMm: 32 });
+    expect(a.ok, JSON.stringify(a)).toBe(true);
+    const offsets = a.schedule!.pairs.map((p) => +Math.abs(p.toAcross - p.fromAcross).toFixed(4));
+    expect(a.schedule!.pairs).toHaveLength(4);
+    expect(Math.max(...offsets)).toBeLessThanOrEqual(0.0258 + 1e-9);
+    // And the other way round, the eight arriving and the four leaving.
+    const b = plan({ from: eight, to: four, diameterMm: 32 });
+    expect(b.ok).toBe(true);
+    expect(b.schedule!.pairs.map((p) => p.toAcross)).toEqual(four);
+  });
+});

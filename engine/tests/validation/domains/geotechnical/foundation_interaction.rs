@@ -82,7 +82,7 @@ fn validation_foundation_winkler_central_load() {
         });
     }
     let input = SolverInput {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes: nodes_map, materials: mats_map, sections: secs_map,
         elements: elems_map, supports: sups_map, loads, constraints: vec![],
         connectors: HashMap::new(), };
@@ -160,7 +160,7 @@ fn validation_foundation_stiffness_effect() {
             });
         }
         let input = SolverInput {
-            solver_options: None,
+            solver_options: None, masses: Default::default(),
             nodes: nodes_map, materials: mats_map, sections: secs_map,
             elements: elems_map, supports: sups_map, loads, constraints: vec![],
             connectors: HashMap::new(), };
@@ -232,7 +232,7 @@ fn validation_foundation_rigid_limit() {
         });
     }
     let input = SolverInput {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes: nodes_map, materials: mats_map, sections: secs_map,
         elements: elems_map, supports: sups_map, loads, constraints: vec![],
         connectors: HashMap::new(), };
@@ -302,7 +302,7 @@ fn validation_foundation_winkler_udl_symmetric() {
         });
     }
     let input = SolverInput {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes: nodes_map, materials: mats_map, sections: secs_map,
         elements: elems_map, supports: sups_map, loads, constraints: vec![],
         connectors: HashMap::new(), };
@@ -377,7 +377,7 @@ fn validation_foundation_localized_deflection() {
         });
     }
     let input = SolverInput {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes: nodes_map, materials: mats_map, sections: secs_map,
         elements: elems_map, supports: sups_map, loads, constraints: vec![],
         connectors: HashMap::new(), };
@@ -453,7 +453,7 @@ fn validation_foundation_mixed_boundary() {
         });
     }
     let input = SolverInput {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes: nodes_map, materials: mats_map, sections: secs_map,
         elements: elems_map, supports: sups_map, loads, constraints: vec![],
         connectors: HashMap::new(), };
@@ -533,7 +533,7 @@ fn validation_foundation_stiff_beam_uniform() {
         });
     }
     let input = SolverInput {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes: nodes_map, materials: mats_map, sections: secs_map,
         elements: elems_map, supports: sups_map, loads, constraints: vec![],
         connectors: HashMap::new(), };
@@ -612,7 +612,7 @@ fn validation_foundation_equilibrium() {
         });
     }
     let input = SolverInput {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes: nodes_map, materials: mats_map, sections: secs_map,
         elements: elems_map, supports: sups_map, loads, constraints: vec![],
         connectors: HashMap::new(), };

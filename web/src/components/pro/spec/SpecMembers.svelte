@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from '../Hint.svelte';
   /**
    * Specifications › Members: everything a member is told beyond its geometry, section and
    * material, for the members selected. One editor per property, and each write over the whole
@@ -21,6 +22,7 @@
   import ProSteelLbEditor from '../ProSteelLbEditor.svelte';
   import TensionConnectionEditor from '../steel/TensionConnectionEditor.svelte';
   import SpecEmpty from './SpecEmpty.svelte';
+  import QuantityInput from '../loads/QuantityInput.svelte';
   import SpecVariableSection from './SpecVariableSection.svelte';
 
   const ids = $derived([...uiStore.selectedElements].filter((id) => modelStore.elements.has(id)));
@@ -32,6 +34,14 @@
 
   /** The axial behaviour: a member's type and its one-way or cable behaviour (`pro/member-axial.ts`). */
   const axial = $derived(same(axialOf) ?? 'mixed');
+
+  /** A cable's pretension, kN (#527); absent, the chord is its unstressed length. */
+  const pretension = $derived(same((e) => e.cablePretension));
+  const mixedPretension = $derived(ids.length > 1 && pretension === undefined && ids.some((id) => modelStore.elements.get(id)?.cablePretension !== undefined));
+  function setPretension(v: number | null) {
+    if (v !== null && !(Number.isFinite(v) && v > 0)) return;
+    modelStore.batch(() => { for (const id of ids) modelStore.updateElement(id, { cablePretension: v ?? undefined }); });
+  }
 
   /** Local releases: a released moment carries nothing at that end. */
   const DOFS = ['my', 'mz', 't'] as const;
@@ -88,8 +98,14 @@
         <option value="cable">{t('spec.axial.cable')}</option>
         <option value="inactive">{t('behaviour.inactive')}</option>
       </select>
-      {#if axial === 'tensionOnly' || axial === 'compressionOnly'}<p class="pk-hint">{t('behaviour.nonlinearHint')}</p>{/if}
-      {#if axial === 'cable'}<p class="pk-hint" data-testid="spec-cable-hint">{t('spec.axial.cableHint')}</p>{/if}
+      {#if axial === 'tensionOnly' || axial === 'compressionOnly'}<Hint text={t('behaviour.nonlinearHint')} />{/if}
+      {#if axial === 'cable'}
+        <label class="pk-row">{t('spec.axial.cablePretension')}
+          <QuantityInput value={pretension ?? null} quantity="force" above={0} nullable placeholder={pretension === undefined && mixedPretension ? t('behaviour.mixed') : t('spec.axial.cableChord')}
+            onchange={setPretension} testid="spec-cable-pretension" cls="sm-num" />
+        </label>
+        <Hint testid="spec-cable-hint" text={t('spec.axial.cableHint')} />
+      {/if}
     </section>
 
     <section class="pk-card">
@@ -107,7 +123,7 @@
           {/each}
         {/each}
       </div>
-      <p class="pk-hint">{t('spec.members.releasesHint')}</p>
+      <Hint text={t('spec.members.releasesHint')} />
       <ProMemberBehaviour part="ends" />
     </section>
 
@@ -119,7 +135,7 @@
       {#if hasReference}
         <button class="pk-btn" onclick={clearReference} data-testid="spec-roll-clear-ref">{t('spec.members.clearReference')}</button>
       {/if}
-      <p class="pk-hint">{t('spec.members.localAxesHint')}</p>
+      <Hint text={t('spec.members.localAxesHint')} />
     </section>
 
     <section class="pk-card">

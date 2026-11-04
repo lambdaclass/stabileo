@@ -148,7 +148,7 @@ describe('Cantilever with point load at tip', () => {
     nodes: [[1, 0, 0], [2, L, 0]],
     elements: [[1, 1, 2, 'frame']],
     supports: [[1, 1, 'fixed']],
-    loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: P, mz: 0 } }],
+    loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: P, my: 0 } }],
   });
 
   const results = solve(input);
@@ -293,7 +293,7 @@ describe('Simple triangular truss', () => {
       [3, 2, 3, 'truss'],
     ],
     supports: [[1, 1, 'pinned'], [2, 2, 'rollerX']],
-    loads: [{ type: 'nodal', data: { nodeId: 3, fx: 0, fy: -10, mz: 0 } }],
+    loads: [{ type: 'nodal', data: { nodeId: 3, fx: 0, fz: -10, my: 0 } }],
   });
 
   const results = solve(input);
@@ -358,7 +358,7 @@ describe('Portal frame with lateral load', () => {
       [3, 4, 3, 'frame'], // right column
     ],
     supports: [[1, 1, 'fixed'], [2, 4, 'fixed']],
-    loads: [{ type: 'nodal', data: { nodeId: 2, fx: 20, fy: 0, mz: 0 } }],
+    loads: [{ type: 'nodal', data: { nodeId: 2, fx: 20, fz: 0, my: 0 } }],
   });
 
   const results = solve(input);
@@ -495,7 +495,7 @@ describe('Two-span beam with internal hinge (Gerber beam)', () => {
       [2, 2, 3, 'frame', false, false], // rigid at both ends
     ],
     supports: [[1, 1, 'pinned'], [2, 2, 'rollerX'], [3, 3, 'rollerX']],
-    loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: -20, mz: 0 } }],
+    loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: -20, my: 0 } }],
   });
 
   const results = solve(input);
@@ -527,7 +527,7 @@ describe('Inclined beam under gravity', () => {
     nodes: [[1, 0, 0], [2, 1, 1]],
     elements: [[1, 1, 2, 'frame']],
     supports: [[1, 1, 'fixed'], [2, 2, 'rollerX']],
-    loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: -10, mz: 0 } }],
+    loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: -10, my: 0 } }],
   });
 
   const results = solve(input);
@@ -562,7 +562,7 @@ describe('Axial bar in tension', () => {
     nodes: [[1, 0, 0], [2, L, 0]],
     elements: [[1, 1, 2, 'truss']],
     supports: [[1, 1, 'pinned'], [2, 2, 'rollerX']],
-    loads: [{ type: 'nodal', data: { nodeId: 2, fx: P, fy: 0, mz: 0 } }],
+    loads: [{ type: 'nodal', data: { nodeId: 2, fx: P, fz: 0, my: 0 } }],
   });
 
   const results = solve(input);
@@ -673,7 +673,7 @@ describe('12. Beam on spring support', () => {
       [3, { id: 3, nodeId: 3, type: 'rollerX' }],
     ]),
     loads: [
-      { type: 'nodal', data: { nodeId: 2, fx: 0, fy: P, mz: 0 } },
+      { type: 'nodal', data: { nodeId: 2, fx: 0, fz: P, my: 0 } },
     ],
   };
 
@@ -989,7 +989,7 @@ describe('Hinge: both ends hinged → acts like truss', () => {
       [3, 4, 3, 'frame'],               // right column
     ],
     supports: [[1, 1, 'fixed'], [2, 4, 'fixed']],
-    loads: [{ type: 'nodal' as const, data: { nodeId: 2, fx: 10, fy: 0, mz: 0 } }],
+    loads: [{ type: 'nodal' as const, data: { nodeId: 2, fx: 10, fz: 0, my: 0 } }],
   });
 
   const results = solve(input);
@@ -1022,7 +1022,7 @@ describe('Hinge: collinear mechanism detection', () => {
         [2, 2, 3, 'frame', true, false],   // hinge at start (node 2)
       ],
       supports: [[1, 1, 'pinned'], [2, 3, 'pinned']],
-      loads: [{ type: 'nodal' as const, data: { nodeId: 2, fx: 0, fy: -10, mz: 0 } }],
+      loads: [{ type: 'nodal' as const, data: { nodeId: 2, fx: 0, fz: -10, my: 0 } }],
     });
 
     // Should throw (singular matrix = mechanism)
@@ -1086,13 +1086,13 @@ describe('Hinge: hingeStart and hingeEnd initialized as false work correctly', (
       nodes: [[1, 0, 0], [2, 5, 0]],
       elements: [[1, 1, 2, 'frame']],
       supports: [[1, 1, 'fixed'], [2, 2, 'rollerX']],
-      loads: [{ type: 'nodal' as const, data: { nodeId: 2, fx: 0, fy: -10, mz: 0 } }],
+      loads: [{ type: 'nodal' as const, data: { nodeId: 2, fx: 0, fz: -10, my: 0 } }],
     });
     const inputExplicitFalse = makeInput({
       nodes: [[1, 0, 0], [2, 5, 0]],
       elements: [[1, 1, 2, 'frame', false, false]],
       supports: [[1, 1, 'fixed'], [2, 2, 'rollerX']],
-      loads: [{ type: 'nodal' as const, data: { nodeId: 2, fx: 0, fy: -10, mz: 0 } }],
+      loads: [{ type: 'nodal' as const, data: { nodeId: 2, fx: 0, fz: -10, my: 0 } }],
     });
 
     const r1 = solve(inputNoHinge);

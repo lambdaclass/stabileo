@@ -39,6 +39,13 @@ export interface AnalysisSettings {
    * each section says (`Section.shearAreas`).
    */
   shearDeformation?: 'none';
+  /**
+   * A factor on the torsion constant J of the concrete beams that set none of their own: the
+   * torsional stiffness they keep once cracked (CIRSOC 201-2025 22.7.3.2, R22.7.3). A beam
+   * framed into a slab then sheds its compatibility torsion to the slab in the analysis, and the
+   * beam and the slab are both designed for the redistributed forces. Absent: J as the section has it.
+   */
+  beamTorsion?: number;
 }
 
 /** The self-weight rule a gravity case gets when none is written: the whole model, downward. */
@@ -65,7 +72,7 @@ export function editSelfWeightRule(rules: readonly SelfWeightLoad[], i: number, 
 
 /** Whether settings say anything; an empty object is stored as absent. */
 export function isEmptyAnalysis(a: AnalysisSettings | undefined): boolean {
-  return !a || ((a.selfWeight === undefined) && a.combinationMethod === undefined && a.perCombination === undefined && a.shearDeformation === undefined);
+  return !a || ((a.selfWeight === undefined) && a.combinationMethod === undefined && a.perCombination === undefined && a.shearDeformation === undefined && a.beamTorsion === undefined);
 }
 
 export interface SelfWeightPlan {

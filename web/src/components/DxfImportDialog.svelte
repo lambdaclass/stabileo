@@ -201,7 +201,7 @@
             <div class="dxf-layers">
               {#each parseResult.layers as layer}
                 <span class="dxf-layer" class:known={KNOWN_LAYERS.has(layer.toUpperCase())}>
-                  {KNOWN_LAYERS.has(layer.toUpperCase()) ? '&#10003;' : '&#8226;'} {layer}
+                  {KNOWN_LAYERS.has(layer.toUpperCase()) ? '✓' : '•'} {layer}
                 </span>
               {/each}
               {#if parseResult.layers.length === 0}
@@ -281,10 +281,10 @@
 
   .dxf-dialog {
     position: relative;
-    background: #16213e;
-    border: 1px solid #1a4a7a;
-    border-radius: 8px;
-    width: 480px;
+    background: var(--st-surface);
+    border: 1px solid var(--st-hair-strong);
+    border-radius: var(--st-radius-lg);
+    width: min(480px, calc(100vw - 32px));
     max-height: 80vh;
     display: flex;
     flex-direction: column;
@@ -296,31 +296,31 @@
     justify-content: space-between;
     align-items: center;
     padding: 1rem 1.25rem;
-    border-bottom: 1px solid #1a4a7a;
+    border-bottom: 1px solid var(--st-hair-strong);
   }
 
   .dxf-header h2 {
     font-size: 1rem;
     font-weight: 600;
-    color: #eee;
+    color: var(--st-text);
     margin: 0;
   }
 
   .dxf-close {
     background: none;
     border: none;
-    color: #888;
+    color: var(--st-text-3);
     font-size: 1.25rem;
     cursor: pointer;
     padding: 0.25rem;
   }
 
-  .dxf-close:hover { color: #fff; }
+  .dxf-close:hover { color: var(--st-text); }
 
   .dxf-error {
-    background: rgba(233, 69, 96, 0.15);
-    border: 1px solid #e94560;
-    color: #ff8a9e;
+    background: var(--st-danger-bg);
+    border: 1px solid var(--st-danger);
+    color: var(--st-red-text);
     padding: 0.5rem 1.25rem;
     font-size: 0.8rem;
   }
@@ -328,8 +328,8 @@
   .dxf-filename {
     padding: 0.5rem 1.25rem;
     font-size: 0.8rem;
-    color: #4ecdc4;
-    font-family: monospace;
+    color: var(--st-text-2);
+    font-family: var(--st-mono);
   }
 
   .dxf-body {
@@ -353,16 +353,16 @@
 
   .dxf-field label {
     font-size: 0.75rem;
-    color: #888;
+    color: var(--st-text-3);
   }
 
   .dxf-field select,
   .dxf-field input {
     padding: 0.35rem 0.5rem;
-    background: #0f3460;
-    border: 1px solid #1a4a7a;
-    border-radius: 4px;
-    color: #eee;
+    background: var(--st-surface-3);
+    border: 1px solid var(--st-hair-strong);
+    border-radius: var(--st-radius);
+    color: var(--st-text);
     font-size: 0.85rem;
   }
 
@@ -373,7 +373,7 @@
   .dxf-preview h3 {
     font-size: 0.7rem;
     text-transform: uppercase;
-    color: #888;
+    color: var(--st-text-3);
     letter-spacing: 0.05em;
     margin: 0.75rem 0 0.35rem 0;
   }
@@ -387,14 +387,14 @@
   .dxf-layer {
     font-size: 0.75rem;
     padding: 0.15rem 0.5rem;
-    background: #0f3460;
+    background: var(--st-surface-3);
     border-radius: 3px;
-    color: #888;
+    color: var(--st-text-3);
   }
 
   .dxf-layer.known {
-    color: #4ecdc4;
-    background: rgba(78, 205, 196, 0.1);
+    color: var(--st-text);
+    background: var(--st-selected-bg);
   }
 
   .dxf-stats {
@@ -402,7 +402,7 @@
     flex-wrap: wrap;
     gap: 0.5rem;
     font-size: 0.8rem;
-    color: #aaa;
+    color: var(--st-text-2);
   }
 
   .dxf-stats-main {
@@ -410,33 +410,33 @@
   }
 
   .dxf-stats-main strong {
-    color: #4ecdc4;
+    color: var(--st-value);
   }
 
   .dxf-info {
     font-size: 0.8rem;
-    color: #aaa;
+    color: var(--st-text-2);
     margin-top: 0.25rem;
   }
 
   .dxf-warnings {
     max-height: 100px;
     overflow-y: auto;
-    border: 1px solid #554400;
-    border-radius: 4px;
+    border: 1px solid var(--st-warn-bg);
+    border-radius: var(--st-radius);
     padding: 0.25rem 0.5rem;
-    background: rgba(240, 165, 0, 0.05);
+    background: var(--st-warn-bg);
   }
 
   .dxf-warning {
     font-size: 0.75rem;
-    color: #f0a500;
+    color: var(--st-warn);
     padding: 0.1rem 0;
   }
 
   .dxf-muted {
     font-size: 0.75rem;
-    color: #666;
+    color: var(--st-text-3);
     font-style: italic;
   }
 
@@ -444,26 +444,27 @@
     display: flex;
     gap: 0.5rem;
     padding: 0.75rem 1.25rem;
-    border-top: 1px solid #1a4a7a;
+    border-top: 1px solid var(--st-hair-strong);
     justify-content: flex-end;
   }
 
   .btn {
     padding: 0.4rem 1rem;
     border: none;
-    border-radius: 4px;
+    border-radius: var(--st-radius);
     cursor: pointer;
     font-size: 0.85rem;
     font-weight: 500;
   }
 
   .btn-primary {
-    background: #e94560;
+    background: var(--st-accent);
+    color: var(--st-text-on-accent);
     color: white;
   }
 
   .btn-primary:hover:not(:disabled) {
-    background: #ff6b6b;
+    background: var(--st-danger);
   }
 
   .btn-primary:disabled {
@@ -472,13 +473,13 @@
   }
 
   .btn-secondary {
-    background: #0f3460;
-    color: #aaa;
-    border: 1px solid #1a4a7a;
+    background: var(--st-surface-3);
+    color: var(--st-text-2);
+    border: 1px solid var(--st-hair-strong);
   }
 
   .btn-secondary:hover {
-    background: #1a4a7a;
+    background: var(--st-hair-strong);
     color: white;
   }
 </style>

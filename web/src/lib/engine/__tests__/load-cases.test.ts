@@ -202,7 +202,7 @@ describe('Load case combination: portal frame D + L + W', () => {
   it('solves W (wind lateral load)', () => {
     const input = makeInput({
       ...baseOpts,
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 10, fy: 0, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 10, fz: 0, my: 0 } }],
     });
     resultW = solve(input);
     // Horizontal equilibrium: sum Rx = -10

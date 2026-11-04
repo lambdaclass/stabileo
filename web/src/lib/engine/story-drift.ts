@@ -24,6 +24,8 @@ type P = { x: number; y: number; z?: number };
 export interface StoryDrift {
   /** Elevation of the story's column tops, m. */
   level: number;
+  /** The grid level the story's tops sit at, when the model names its levels. */
+  levelName?: string;
   /** Height of the governing column, m. */
   height: number;
   /** Relative lateral displacement of the governing column in X and in Y, m. */
@@ -49,7 +51,7 @@ export function storyDrifts(
   nodes: ReadonlyMap<number, P>,
   elements: Iterable<{ id: number; nodeI: number; nodeJ: number }>,
   displacements: ReadonlyArray<{ nodeId: number; ux: number; uy: number; uz: number }>,
-  opts: { limit: number; embedded2D?: boolean },
+  opts: { limit: number; embedded2D?: boolean; levels?: ReadonlyArray<{ name: string; z: number }> },
 ): StoryDrift[] {
   const up = (n: P) => (opts.embedded2D ? n.y : n.z ?? 0);
   const disp = new Map(displacements.map((d) => [d.nodeId, d]));
@@ -83,8 +85,12 @@ export function storyDrifts(
     const ratioX = gx.dx / gx.h, ratioY = gy.dy / gy.h;
     const worst = Math.max(ratioX, ratioY);
     const governing = ratioX >= ratioY ? gx : gy;
+    const level = cs.reduce((s, c) => s + c.top, 0) / cs.length;
+    // The model's own level names when it has them: "Planta 3", not "+9.00".
+    const named = opts.levels?.find((l) => Math.abs(l.z - level) < STORY_TOL);
     return {
-      level: cs.reduce((s, c) => s + c.top, 0) / cs.length,
+      level,
+      ...(named ? { levelName: named.name } : {}),
       height: governing.h,
       driftX: gx.dx, driftY: gy.dy, ratioX, ratioY, columnX: gx.id, columnY: gy.id,
       status: worst > opts.limit ? 'fail' : worst > opts.limit * 0.8 ? 'warn' : 'ok',

@@ -1,5 +1,6 @@
 <script lang="ts">
   import ProMassWeights from './ProMassWeights.svelte';
+  import ProPointMasses from './ProPointMasses.svelte';
   import { plainNumber } from '../../../lib/utils/units';
   /**
    * The mass source: which load cases are mass for the dynamic analyses, and by how much.
@@ -126,7 +127,8 @@
     <div class="ms-summary" data-testid="mass-source-summary">
       {tp('pro.massSource.summary', {
         self: fmt(report.selfWeightT),
-        added: fmt(report.totalT - report.selfWeightT),
+        added: fmt(report.totalT - report.selfWeightT - report.pointT),
+        points: fmt(report.pointT),
         total: fmt(report.totalT),
       })}
     </div>
@@ -138,6 +140,7 @@
     {/if}
   {/if}
   <ProMassWeights />
+  <ProPointMasses />
 </div>
 
 <style>

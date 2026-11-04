@@ -116,16 +116,17 @@ function buildMatrix(edition: RegulationEdition): CapabilityMatrix {
   };
 
   m.beamTorsion = {
-    facets: facets({ gate: true }),
+    facets: facets({ verify: true, generate: true, gate: true }),
     refs: edition === '2025' ? [c('9.5.4', 'torsión'), c('22.7')] : [c('11.6')],
     limitation:
-      'No se verifica torsión. Un elemento con torsión significativa no puede declararse ' +
-      'verificado; el resultado se marca como no soportado.',
+      'Vigas rectangulares macizas con estribos cerrados, θ = 45°. La armadura longitudinal de ' +
+      'torsión se compara con la de la región por encima de una estimación de la de flexión ' +
+      '(Mu / φ·fy·0,9d). No se aplica a secciones huecas ni pretensadas.',
   };
   m.nonRectangularSections = {
     facets: facets({ gate: true }),
     refs: edition === '2025' ? [c('22.2')] : [c('10.2')],
-    limitation: 'Sólo se soportan secciones rectangulares. Secciones T, L y circulares no se verifican.',
+    limitation: 'Las vigas hormigonadas con su losa trabajan como T o L con el ancho de ala de la Tabla 6.3.2.1 (2025) en flexión positiva. Una sección declarada T, L o circular no se verifica.',
   };
   m.lapsSplices = {
     facets: facets({ verify: true }),
@@ -150,17 +151,19 @@ function buildMatrix(edition: RegulationEdition): CapabilityMatrix {
       'validación aún no está satisfecha.',
   };
 
-  // ── Element families this branch does not touch ──
-  const family = (refs2025: string[], refs2005: string[], what: string) => ({
+  // ── Element families the member verifier does not take ──
+  const family = (refs2025: string[], refs2005: string[], what: string, elsewhere = true) => ({
     facets: facets({ gate: true }),
     refs: (edition === '2025' ? refs2025 : refs2005).map((x) => c(x)),
-    limitation: `${what} no se diseñan ni se verifican en esta versión.`,
+    limitation: elsewhere
+      ? `${what} no pasan por el verificador de barras: los diseñan y verifican el diseño de plantas y el de fundaciones, con su propio registro.`
+      : `${what} no se diseñan ni se verifican en esta versión.`,
   });
   m.slabsOneWay = family(['7.1'], ['13.1'], 'Las losas en una dirección');
   m.slabsTwoWay = family(['8.1'], ['13.5'], 'Las losas en dos direcciones');
   m.walls = family(['11.1'], ['14.1'], 'Los tabiques');
   m.foundations = family(['13.1'], ['15.1'], 'Las fundaciones');
-  m.diaphragms = family(['12.1'], ['21.9'], 'Los diafragmas');
+  m.diaphragms = family(['12.1'], ['21.9'], 'Los diafragmas', false);
 
   // ── Seismic: governed by INPRES-CIRSOC 103, not by CIRSOC 201 ──
   m.seismicAnalysis = {
@@ -175,9 +178,11 @@ function buildMatrix(edition: RegulationEdition): CapabilityMatrix {
     facets: facets({ gate: true }),
     refs: [clause('inpres-cirsoc-103-ii', '2005', '2.1', 'pórticos sismorresistentes')],
     limitation:
-      'El detallado sismorresistente de INPRES-CIRSOC 103 Parte II no está implementado. ' +
-      'Mientras tanto, los elementos de un proyecto sísmico no pueden declararse ' +
-      'completamente detallados.',
+      'El diseño por capacidad de pórticos (corte de vigas y columnas, columna fuerte, ' +
+      'confinamiento, nudos y piso débil) se comprueba en la pestaña Sismo de la mesa. No ' +
+      'cubre los tabiques sismorresistentes con elementos de borde ni la ubicación de los ' +
+      'empalmes fuera de las zonas críticas, así que un proyecto sísmico todavía no puede ' +
+      'declararse completamente detallado.',
   };
 
   // ── Output ──

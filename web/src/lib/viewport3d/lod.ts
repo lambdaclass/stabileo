@@ -11,7 +11,7 @@
 
 import type * as THREE from 'three';
 
-export type RenderMode3D = 'wireframe' | 'solid' | 'sections';
+export type RenderMode3D = 'wireframe' | 'solid' | 'sections' | 'physical';
 
 /** Object-like shape — matches both THREE.Object3D and mock {visible} objects. */
 export interface Visible {
@@ -123,7 +123,7 @@ export function isHeavyModel(
   const visuals = counts.elements
     + (counts.shells ?? 0)
     + (counts.supports ?? 0) * SUPPORT_VISUAL_COST;
-  return visuals > (renderMode === 'sections' ? HEAVY_MODEL_VISUALS_SECTIONS : HEAVY_MODEL_VISUALS);
+  return visuals > (renderMode === 'sections' || renderMode === 'physical' ? HEAVY_MODEL_VISUALS_SECTIONS : HEAVY_MODEL_VISUALS);
 }
 
 /** Convenience re-export type for callers that want to pass a real scene. */

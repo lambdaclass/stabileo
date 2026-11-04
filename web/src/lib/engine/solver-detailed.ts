@@ -9,6 +9,9 @@ import type {
 } from './types';
 import { t } from '../i18n';
 import { solveAllowingNullModes } from './dense-solve';
+import { loadAlpha, loadDepth } from './thermal-alpha';
+import { axialEquivalentLoads } from './axial-span-2d';
+import { applyAxialRigidity, type RigidReduction, type RigidStatus } from './dsm-axial-rigid';
 
 // ─── Types ──────────────────────────────────────────────────────
 
@@ -119,6 +122,10 @@ export interface DSMStepData {
   nullModes: string[];
 
   // Labels for display
+  /** Frame members held at their length (the "axially rigid members" option): the reduction and the axial forces from equilibrium. */
+  rigid?: RigidReduction;
+  rigidStatus?: RigidStatus;
+
   dofLabels: string[]; // nTotal labels: "u₁", "w₁", "θ₁", ...
   freeDofLabels: string[];
   restrDofLabels: string[];
@@ -143,7 +150,9 @@ export type DetailedSupport = SolverSupport & { restrainedDofs?: [boolean, boole
 function isDofRestrained(sup: SolverSupport, localDof: number): boolean {
   const explicit = (sup as DetailedSupport).restrainedDofs;
   if (explicit) return !!explicit[localDof];
-  switch (sup.type) {
+  // As a string: the store still writes the legacy 'rollerY' (the same roller as 'rollerZ'),
+  // which the solver's own SupportType no longer names.
+  switch (sup.type as string) {
     case 'fixed': return true;
     case 'pinned': return localDof === 0 || localDof === 1;
     case 'rollerX': return localDof === 1;
@@ -331,16 +340,23 @@ export function elementEquivalentLoads(
         f[0] += pl.px * (1 - xi);
         f[3] += pl.px * xi;
       }
+    } else if (load.type === 'axialDistributed' && load.data.elementId === elemId) {
+      /* Along the axis: its consistent end loads, by the linear shape functions. */
+      const d = load.data;
+      const [fI, fJ] = axialEquivalentLoads(d.qI, d.qJ, Math.max(0, d.a ?? 0), Math.min(l, d.b ?? l), l);
+      f[0] += fI;
+      f[3] += fJ;
     } else if (load.type === 'thermal' && (load.data as SolverThermalLoad).elementId === elemId) {
       const tl = load.data as SolverThermalLoad;
-      const alpha = 1.2e-5;
+      // The load's α and depth, as the analysis reads them (`thermal-alpha.ts`).
+      const alpha = loadAlpha(tl);
       if (Math.abs(tl.dtUniform) > 1e-10) {
         /* The bar wants to grow: its equivalent loads push its ends apart. */
         const nTh = eKn * secA * alpha * tl.dtUniform;
         f[0] -= nTh; f[3] += nTh;
       }
       if (Math.abs(tl.dtGradient) > 1e-10 && secIz > 0) {
-        const h = Math.sqrt(12 * secIz / secA);
+        const h = loadDepth(tl.depth, secA, secIz);
         const mTh = eKn * secIz * alpha * tl.dtGradient / h;
         addBending(0, -mTh, 0, mTh);
       }
@@ -369,7 +385,14 @@ function dofLabel(nodeId: number, localDof: number, dofsPerNode: number): string
 
 // ─── Main detailed solver ───────────────────────────────────────
 
-export function solveDetailed(input: SolverInput): DSMStepData {
+export function solveDetailed(input: SolverInput, opts: { axialRigid?: boolean } = {}): DSMStepData {
+  const out = solveDetailedFlexible(input);
+  if (!opts.axialRigid) return out;
+  const r = applyAxialRigidity(input, out);
+  return { ...r.data, rigidStatus: r.status };
+}
+
+function solveDetailedFlexible(input: SolverInput): DSMStepData {
   // ─── Step 1: DOF Numbering ────────────────────────────────────
   const hasFrames = Array.from(input.elements.values()).some(e => e.type === 'frame');
   const dofsPerNode = hasFrames ? 3 : 2;

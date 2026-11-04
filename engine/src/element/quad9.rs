@@ -7,9 +7,14 @@
 /// - MITC9 assumed natural strain (ANS) transverse shear tying
 /// - Hughes-Brezzi drilling DOF stabilization
 ///
-/// The quadratic displacement field largely eliminates membrane locking,
-/// making this element suitable for thin curved shells (R/t > 100) where
-/// MITC4 performs poorly (e.g. pinched hemisphere, twisted beam).
+/// The element is a flat facet: it is formulated on the plane normal to the corner-diagonal
+/// normal, through the element's mid-surface centroid, and each node is tied to its
+/// projection on that plane by a rigid link (`warp_offsets_9`), so curved (non-planar)
+/// nine-node geometry reproduces the six rigid-body motions exactly (SH-7, #411). Curvature is
+/// represented by the mesh (facets), not inside the element: curved shells need a mesh fine
+/// enough for the facets to follow the surface (the hemisphere of MacNeal–Harder is within
+/// 3 % at 16×16 elements on a quarter); the degenerated `curved_shell` follows the geometry
+/// inside each element.
 ///
 /// Node numbering:
 /// ```text
@@ -203,6 +208,68 @@ fn project_to_2d_9(
         pts[i] = [dot3(&d, ex), dot3(&d, ey)];
     }
     pts
+}
+
+/// Warping correction for curved (non-planar) nine-node geometry: the MITC4 rigid-link
+/// correction of `quad::warp_offsets` (MacNeal 1978; Taylor 1987) applied to all nine nodes.
+/// The element is formulated on the plane through the mid-surface centroid normal to the
+/// corner-diagonal `ez`, and node i lies off it by h_i along ez (the midside and centre nodes
+/// of any curved 9-node patch). Each node is tied to its projection by a rigid link,
+/// u_p = u + θ × (−h_i·ez), so in local axes u_p = u − h_i·θy, v_p = v + h_i·θx. With
+/// K ← WᵀKW, u ← W·u in stress recovery and f ← Wᵀf for the thermal load, a rigid motion of
+/// the real nodes is a rigid motion of the flat element, which it annihilates (SH-7, #411).
+/// The element stays a flat facet: curvature is represented by the mesh, not inside it.
+/// Zero on planar elements, so flat MITC9 results are unchanged.
+///
+/// The centroid is the parametric mean ∫x dξdη / 4 (Simpson weights 1/36, 1/9, 4/9 on the
+/// corner, midside and centre nodes), so for a uniformly curved patch the flat element sits
+/// at the mean height of the real surface and the link arms are as short as they can be.
+fn warp_offsets_9(coords: &[[f64; 3]; 9]) -> [f64; 9] {
+    let (_, _, ez) = quad9_local_axes(coords);
+    let w = |i: usize| match i { 0..=3 => 1.0 / 36.0, 4..=7 => 1.0 / 9.0, _ => 4.0 / 9.0 };
+    let c: [f64; 3] = std::array::from_fn(|a| (0..9).map(|i| w(i) * coords[i][a]).sum::<f64>());
+    std::array::from_fn(|i| dot3(&sub3(&coords[i], &c), &ez))
+}
+
+/// u ← W·u (local DOFs), see `warp_offsets_9`.
+fn warp_correct_displacements_9(coords: &[[f64; 3]; 9], u_local: &[f64]) -> Vec<f64> {
+    let h = warp_offsets_9(coords);
+    let mut u = u_local.to_vec();
+    for i in 0..9 {
+        u[i * 6] -= h[i] * u_local[i * 6 + 4];
+        u[i * 6 + 1] += h[i] * u_local[i * 6 + 3];
+    }
+    u
+}
+
+/// f ← Wᵀ·f (local DOFs), see `warp_offsets_9`.
+fn warp_correct_forces_9(coords: &[[f64; 3]; 9], f: &mut [f64]) {
+    let h = warp_offsets_9(coords);
+    for i in 0..9 {
+        f[i * 6 + 4] -= h[i] * f[i * 6];
+        f[i * 6 + 3] += h[i] * f[i * 6 + 1];
+    }
+}
+
+/// K ← Wᵀ·K·W (local 54×54), see `warp_offsets_9`.
+fn warp_correct_stiffness_9(coords: &[[f64; 3]; 9], k: &mut [f64]) {
+    let h = warp_offsets_9(coords);
+    if h.iter().all(|&v| v == 0.0) {
+        return;
+    }
+    let n = 54;
+    for i in 0..9 {
+        for r in 0..n {
+            k[r * n + i * 6 + 4] -= h[i] * k[r * n + i * 6];
+            k[r * n + i * 6 + 3] += h[i] * k[r * n + i * 6 + 1];
+        }
+    }
+    for i in 0..9 {
+        for c in 0..n {
+            k[(i * 6 + 4) * n + c] -= h[i] * k[(i * 6) * n + c];
+            k[(i * 6 + 3) * n + c] += h[i] * k[(i * 6 + 1) * n + c];
+        }
+    }
 }
 
 /// Compute Jacobian for 9-node element at (ξ, η).
@@ -498,6 +565,9 @@ pub fn mitc9_local_stiffness(
         }
     }
 
+    // Rigid links from the real (possibly curved) nodes to the flat element (SH-7).
+    warp_correct_stiffness_9(coords, &mut k);
+
     // Symmetrize (ANS tying can introduce tiny numerical asymmetry)
     for i in 0..ndof {
         for j in (i + 1)..ndof {
@@ -642,6 +712,7 @@ pub fn quad9_stresses(
     dt_uniform: f64,
     dt_gradient: f64,
 ) -> crate::element::quad::QuadStressResult {
+    let u_local = &warp_correct_displacements_9(coords, u_local);
     let (ex, ey, _) = quad9_local_axes(coords);
     let pts = project_to_2d_9(coords, &ex, &ey);
 
@@ -726,6 +797,7 @@ pub fn quad9_nodal_von_mises(
     alpha: f64,
     dt_uniform: f64,
 ) -> Vec<f64> {
+    let u_local = &warp_correct_displacements_9(coords, u_local);
     let (ex, ey, _) = quad9_local_axes(coords);
     let pts = project_to_2d_9(coords, &ex, &ey);
     let gauss = gauss_3x3();
@@ -818,6 +890,7 @@ pub fn quad9_stress_at_nodes(
     dt_uniform: f64,
     dt_gradient: f64,
 ) -> Vec<crate::types::QuadNodalStress> {
+    let u_local = &warp_correct_displacements_9(coords, u_local);
     let (ex, ey, _) = quad9_local_axes(coords);
     let pts = project_to_2d_9(coords, &ex, &ey);
     let gauss = gauss_3x3();
@@ -963,6 +1036,12 @@ pub fn quad9_pressure_load(coords: &[[f64; 3]; 9], pressure: f64) -> Vec<f64> {
 }
 
 /// Thermal load vector for quad9 element (54-DOF).
+///
+/// ∫Bᵀ·(N_th, M_th) on the flat element, carried to the real nodes by the rigid links
+/// (f ← Wᵀf, see `warp_offsets_9`). On a curved element the free expansion also moves the
+/// off-plane nodes along ez, which the facet reads as a deflection: a freely heated curved
+/// MITC9 is not exactly stress-free in transverse shear (a facet limitation, as for a warped
+/// MITC4; see docs/solver/shells.md §4).
 pub fn quad9_thermal_load(
     coords: &[[f64; 3]; 9],
     e: f64,
@@ -1004,6 +1083,8 @@ pub fn quad9_thermal_load(
             f[di + 4] += dv * dn_dx[i] * m_t;
         }
     }
+
+    warp_correct_forces_9(coords, &mut f);
 
     // Transform from local to global: f_global = T^T * f_local
     let t_mat = quad9_transform_3d(coords);

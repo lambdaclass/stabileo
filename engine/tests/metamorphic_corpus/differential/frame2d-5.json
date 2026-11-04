@@ -1,0 +1,164 @@
+{
+ "elements": {
+  "1": {
+   "hingeEnd": false,
+   "hingeStart": false,
+   "id": 1,
+   "materialId": 2,
+   "nodeI": 2,
+   "nodeJ": 1,
+   "sectionId": 2,
+   "type": "frame"
+  },
+  "2": {
+   "hingeEnd": false,
+   "hingeStart": false,
+   "id": 2,
+   "materialId": 2,
+   "nodeI": 3,
+   "nodeJ": 1,
+   "sectionId": 1,
+   "type": "frame"
+  },
+  "3": {
+   "hingeEnd": false,
+   "hingeStart": false,
+   "id": 3,
+   "materialId": 1,
+   "nodeI": 4,
+   "nodeJ": 1,
+   "sectionId": 3,
+   "type": "frame"
+  },
+  "4": {
+   "hingeEnd": false,
+   "hingeStart": false,
+   "id": 4,
+   "materialId": 2,
+   "nodeI": 2,
+   "nodeJ": 5,
+   "sectionId": 1,
+   "type": "frame"
+  },
+  "5": {
+   "hingeEnd": false,
+   "hingeStart": false,
+   "id": 5,
+   "materialId": 2,
+   "nodeI": 6,
+   "nodeJ": 3,
+   "sectionId": 3,
+   "type": "frame"
+  },
+  "6": {
+   "hingeEnd": false,
+   "hingeStart": false,
+   "id": 6,
+   "materialId": 1,
+   "nodeI": 7,
+   "nodeJ": 3,
+   "sectionId": 1,
+   "type": "frame"
+  }
+ },
+ "loads": [
+  {
+   "data": {
+    "a": 1.0742327940737566,
+    "b": 5.075711712391975,
+    "elementId": 1,
+    "qI": -11.660664278048118,
+    "qJ": 0.5152021678768222
+   },
+   "type": "distributed"
+  }
+ ],
+ "materials": {
+  "1": {
+   "e": 30000.0,
+   "id": 1,
+   "nu": 0.15262283791778045
+  },
+  "2": {
+   "e": 70000.0,
+   "id": 2,
+   "nu": 0.18641513275555574
+  }
+ },
+ "nodes": {
+  "1": {
+   "id": 1,
+   "x": 3.065,
+   "z": 2.868
+  },
+  "2": {
+   "id": 2,
+   "x": 8.285,
+   "z": 6.732
+  },
+  "3": {
+   "id": 3,
+   "x": 7.824,
+   "z": 4.24
+  },
+  "4": {
+   "id": 4,
+   "x": 10.084,
+   "z": 6.208
+  },
+  "5": {
+   "id": 5,
+   "x": 2.989,
+   "z": 0.415
+  },
+  "6": {
+   "id": 6,
+   "x": 1.882,
+   "z": 2.974
+  },
+  "7": {
+   "id": 7,
+   "x": 10.421,
+   "z": 3.046
+  }
+ },
+ "sections": {
+  "1": {
+   "a": 0.16317672034831196,
+   "id": 1,
+   "iz": 0.0022099189889707156
+  },
+  "2": {
+   "a": 0.06830774470658307,
+   "id": 2,
+   "iz": 0.0002203652086829772
+  },
+  "3": {
+   "a": 0.06714338814341375,
+   "id": 3,
+   "iz": 0.0010790319965057454
+  }
+ },
+ "supports": {
+  "1": {
+   "id": 1,
+   "nodeId": 1,
+   "type": "fixed"
+  },
+  "2": {
+   "id": 2,
+   "nodeId": 4,
+   "type": "pinned"
+  },
+  "3": {
+   "id": 3,
+   "nodeId": 5,
+   "type": "pinned"
+  },
+  "4": {
+   "id": 4,
+   "nodeId": 2,
+   "type": "guidedZ"
+  }
+ }
+}

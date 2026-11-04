@@ -4,7 +4,7 @@
 //! P-Delta by Newton's method with the residual evaluated in double-double
 //! arithmetic (so the reference fixed point is accurate to ~κ·ε²).
 
-mod common;
+use crate::common;
 
 use common::*;
 use dedaliano_engine::certify::pdelta::{
@@ -278,7 +278,7 @@ fn braced_portal() -> SolverInput {
             hinge_end: false,
         },
     );
-    input.loads.push(SolverLoad::Thermal(SolverThermalLoad { element_id: 2, dt_uniform: 30.0, dt_gradient: 0.0 }));
+    input.loads.push(SolverLoad::Thermal(SolverThermalLoad { element_id: 2, dt_uniform: 30.0, dt_gradient: 0.0, alpha: None, depth: None }));
     input
 }
 
@@ -619,11 +619,13 @@ fn interp(points: &[SpectrumPoint], t: f64) -> f64 {
 }
 
 /// Reference combined displacement (free DOFs) and base shear from the exact
-/// lowest `nm` modes.
+/// lowest `nm` modes. `mr` is the ground-motion load (M·r)_f: the full mass times
+/// the rigid translation of every node, supports included. Displacements and base
+/// shear are both combined with the requested rule.
 fn reference_spectral(
     k: &CscMatrix,
     m: &CscMatrix,
-    r: &[f64],
+    mr: &[f64],
     nm: usize,
     spectrum: &DesignSpectrum,
     scale: f64,
@@ -631,40 +633,37 @@ fn reference_spectral(
 ) -> (Vec<f64>, f64) {
     let modes = reference_modes(k, m);
     let n = k.n;
-    let md = dense_lower(m);
-    let mr: Vec<f64> = (0..n).map(|i| (0..n).map(|q| md[i * n + q] * r[q]).sum()).collect();
     let mut per = vec![];
-    let mut shear = 0.0;
+    let mut shears = vec![];
     let mut omegas = vec![];
     for (lam, phi) in modes.iter().take(nm) {
-        let gamma: f64 = phi.iter().zip(&mr).map(|(a, b)| a * b).sum(); // φᵀMφ = 1
+        let gamma: f64 = phi.iter().zip(mr).map(|(a, b)| a * b).sum(); // φᵀMφ = 1
         let w = lam.sqrt();
         let sa = interp(&spectrum.points, 2.0 * std::f64::consts::PI / w) * scale;
         per.push(phi.iter().map(|p| p * gamma * sa / lam).collect::<Vec<f64>>());
-        shear += (gamma * gamma * sa).powi(2);
+        shears.push(gamma * gamma * sa);
         omegas.push(w);
     }
-    let comb = (0..n)
-        .map(|kk| {
-            let mut s = 0.0;
-            for i in 0..nm {
-                for j in 0..nm {
-                    let rho = match cqc_xi {
-                        None => (i == j) as u8 as f64,
-                        Some(xi) => {
-                            let rr = omegas[j] / omegas[i];
-                            let num = 8.0 * xi * xi * (1.0 + rr) * rr.powf(1.5);
-                            let den = (1.0 - rr * rr).powi(2) + 4.0 * xi * xi * rr * (1.0 + rr).powi(2);
-                            num / den
-                        }
-                    };
-                    s += per[i][kk] * rho * per[j][kk];
-                }
+    let rho = |i: usize, j: usize| match cqc_xi {
+        None => (i == j) as u8 as f64,
+        Some(xi) => {
+            let rr = omegas[j] / omegas[i];
+            let num = 8.0 * xi * xi * (1.0 + rr) * rr.powf(1.5);
+            let den = (1.0 - rr * rr).powi(2) + 4.0 * xi * xi * rr * (1.0 + rr).powi(2);
+            num / den
+        }
+    };
+    let combine = |v: &dyn Fn(usize) -> f64| {
+        let mut s = 0.0;
+        for i in 0..nm {
+            for j in 0..nm {
+                s += v(i) * rho(i, j) * v(j);
             }
-            s.abs().sqrt()
-        })
-        .collect();
-    (comb, shear.sqrt())
+        }
+        s.abs().sqrt()
+    };
+    let comb = (0..n).map(|kk| combine(&|i| per[i][kk])).collect();
+    (comb, combine(&|i| shears[i]))
 }
 
 fn design_spectrum() -> DesignSpectrum {
@@ -735,15 +734,19 @@ fn certify_spectral_2d_honest() {
         let dof = DofNumbering::build_2d(&input);
         let k = assemble_stiffness_sparse_2d(&input, &dof).k_ff;
         let m = assemble_mass_matrix_2d_sparse(&input, &dof, &densities());
-        let mut r = vec![0.0; dof.n_free];
+        // (M·r)_f from the full mass (supports' translations move with the ground).
+        let n = dof.n_total;
+        let m_full = dense_lower(&dedaliano_engine::solver::mass_matrix::assemble_mass_matrix_2d_sparse_block(&input, &dof, &densities(), n));
+        let mut r = vec![0.0; n];
         for (&(_, local), &g) in &dof.map {
-            if local == 0 && g < dof.n_free {
+            if local == 0 {
                 r[g] = 1.0;
             }
         }
+        let mr: Vec<f64> = (0..dof.n_free).map(|i| (0..n).map(|q| m_full[i * n + q] * r[q]).sum()).collect();
         let scale = 9.81 * 1.2 / 3.0;
         let xi = (rule == "CQC").then_some(0.05);
-        let (ref_u, ref_shear) = reference_spectral(&k, &m, &r, 4, &sp.spectrum, scale, xi);
+        let (ref_u, ref_shear) = reference_spectral(&k, &m, &mr, 4, &sp.spectrum, scale, xi);
         let umax = ref_u.iter().fold(0.0f64, |a, &b| a.max(b));
         let slack = 1e-14 * umax;
         let mut width = 0.0f64;
@@ -862,13 +865,17 @@ fn certify_spectral_3d_building() {
     let dof = DofNumbering::build_3d(&input);
     let k = assemble_stiffness_sparse_3d(&input, &dof, false).k_ff;
     let m = assemble_mass_matrix_3d_sparse(&input, &dof, &densities());
-    let mut r = vec![0.0; dof.n_free];
+    // (M·r)_f from the full mass (supports' translations move with the ground).
+    let n = dof.n_total;
+    let m_full = dense_lower(&dedaliano_engine::solver::mass_matrix::assemble_mass_matrix_3d_sparse_block(&input, &dof, &densities(), n));
+    let mut r = vec![0.0; n];
     for (&(_, local), &g) in &dof.map {
-        if local == 0 && g < dof.n_free {
+        if local == 0 {
             r[g] = 1.0;
         }
     }
-    let (ref_u, ref_shear) = reference_spectral(&k, &m, &r, 4, &sp.spectrum, 9.81, Some(0.05));
+    let mr: Vec<f64> = (0..dof.n_free).map(|i| (0..n).map(|q| m_full[i * n + q] * r[q]).sum()).collect();
+    let (ref_u, ref_shear) = reference_spectral(&k, &m, &mr, 4, &sp.spectrum, 9.81, Some(0.05));
     let umax = ref_u.iter().fold(0.0f64, |a, &b| a.max(b));
     for ne in displacements {
         for (local, e) in ne.values.iter().enumerate() {

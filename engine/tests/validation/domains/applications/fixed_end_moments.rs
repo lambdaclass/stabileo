@@ -292,7 +292,7 @@ fn validation_fem_settlement() {
         });
     }
     let input = SolverInput {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes: nodes_map, materials: mats, sections: secs,
         elements: elems_map, supports: sups, loads: vec![], constraints: vec![],
         connectors: std::collections::HashMap::new(), };
@@ -327,12 +327,11 @@ fn validation_fem_stiffness_coefficient() {
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
 
-    // For far end fixed, near end has stiffness 3EI/L
-    // θ = M / (3EI/L) = ML / (3EI)
-    let theta_exact = m_app * l / (3.0 * e_eff * IZ);
+    // The far end (node 1) is fixed, so the near-end stiffness is 4EI/L, not 3EI/L.
+    let theta_exact = m_app * l / (4.0 * e_eff * IZ);
     let theta_actual = results.displacements.iter()
         .find(|d| d.node_id == n + 1).unwrap().ry;
 
-    assert_close(theta_actual.abs(), theta_exact, 0.05,
-        "Stiffness: θ = ML/(3EI) for pinned-far-end");
+    assert_close(theta_actual.abs(), theta_exact, 1e-6,
+        "Stiffness: θ = ML/(4EI) for fixed-far-end");
 }

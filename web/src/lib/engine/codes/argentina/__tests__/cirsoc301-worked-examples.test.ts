@@ -247,26 +247,30 @@ describe('CIRSOC 301 — refusals instead of unsafe numbers', () => {
     const p = base({ A: 5e-4, Iz: 1e-6, Iy: 2e-7, h: 0.1, b: 0.05, tw: 0.002, tf: 0.002, L: 2, shape: 'C' });
     const c = checkSteelCompression(p, 10);
     expect(c.notEvaluated).toBeTruthy();
-    expect(c.status).toBe('fail');
+    // held, not failed: a refused check is never a pass and proves no failure (`cirsoc301-verdict.ts`); the ratio stays non-finite inside.
+    expect(c.status).toBe('held');
     expect(c.ratio).toBe(Infinity);
     const f = checkSteelFlexure(p, 1, 'strong');
     expect(f.notEvaluated).toBeTruthy();
-    expect(f.status).toBe('fail');
+    expect(f.status).toBe('held');
   });
 
   it('a circular tube beyond D/t = 0,45·E/Fy is refused (E.7.2(c) does not cover it)', () => {
     const c = checkSteelCompression(base({ A: 10e-4, Iz: 1e-5, Iy: 1e-5, L: 2, shape: 'CHS', h: 0.5, tw: 0.00085 }), 10);
     expect(c.notEvaluated).toBeTruthy();
-    expect(c.status).toBe('fail');
+    // held, not failed: a refused check is never a pass and proves no failure (`cirsoc301-verdict.ts`).
+    expect(c.status).toBe('held');
   });
 
   it('LTB beyond Lp without J is refused, not evaluated with J = 0', () => {
     const r = checkSteelFlexure(base({
       A: 27.9e-4, Iz: 1450e-8, Iy: 81.3e-8, h: 0.18, b: 0.082, tw: 0.0069, tf: 0.0104,
-      Zx: 187e-6, Sx: 161e-6, L: 5, Lb: 5,
+      Zx: 187e-6, Sx: 161e-6, L: 5, Lb: 5, shape: 'I',
     }), 10, 'strong');
-    expect(r.notEvaluated).toBeTruthy();
-    expect(r.status).toBe('fail');
+    // The shape is stated: a section without one is now refused for that before J is asked for.
+    expect(r.notEvaluatedMessage?.key).toBe('c301.refuse.ltbNoJ');
+    // held, not failed: a refused check is never a pass and proves no failure (`cirsoc301-verdict.ts`).
+    expect(r.status).toBe('held');
   });
 });
 
@@ -305,7 +309,8 @@ describe('CIRSOC 301-2018 §E.4 — torsional and flexural-torsional buckling (c
     published(checkSteelCompression(tee({ shearCentreOffset: 0.051087 }), 300).phiPn, 392.8);
     const r = checkSteelCompression(tee({ J: undefined }), 300);
     expect(r.notEvaluated).toBeTruthy();
-    expect(r.status).toBe('fail');
+    // held, not failed: a refused check is never a pass and proves no failure (`cirsoc301-verdict.ts`).
+    expect(r.status).toBe('held');
   });
 
   /**

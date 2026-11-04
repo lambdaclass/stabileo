@@ -44,7 +44,6 @@ import type {
   CaseReaction, CombinationReaction, FootingColumn, NodeReactions,
 } from '../engine/detailing/run-footing-design';
 
-
 /**
  * Support reactions per footing node — per combination, and per case for the service sum.
  *
@@ -55,9 +54,11 @@ import type {
  * Only nodes that actually carry a footing are collected. Building the map for every
  * support would walk every combination's whole reaction list for nodes nobody asked about.
  */
-export function collectFootingReactions(): Map<number, NodeReactions> {
+export const collectFootingReactions = (): Map<number, NodeReactions> => collectNodeReactions([...modelStore.model.footings.values()].map((f) => f.nodeId));
+/** The same reactions for any supported nodes: what the footing pre-sizing reads. */
+export function collectNodeReactions(nodeIds: Iterable<number>): Map<number, NodeReactions> {
   const out = new Map<number, NodeReactions>();
-  const wanted = new Set([...modelStore.model.footings.values()].map((f) => f.nodeId));
+  const wanted = new Set(nodeIds);
   if (wanted.size === 0) return out;
 
   const caseTypeOf = new Map(modelStore.model.loadCases.map((c) => [c.id, c.type ?? 'D']));
@@ -183,7 +184,6 @@ export function collectFootingColumns(): Map<number, FootingColumn> {
   }
   return out;
 }
-
 
 /**
  * Every slab–column joint in the model, with the per-combination forces at it.
@@ -459,7 +459,6 @@ export function collectSlabColumns(): Map<number, SlabColumnJoint> {
   }
   return out;
 }
-
 
 /**
  * Highest revision among the PERSISTED assemblies, so a regeneration increments.

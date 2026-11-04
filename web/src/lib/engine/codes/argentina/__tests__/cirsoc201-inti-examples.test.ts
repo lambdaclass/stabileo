@@ -26,7 +26,7 @@ describe('INTI CIRSOC 201-2005 examples', () => {
    * ka = 0,18655, kc = 0,219 (< 0,375, tension-controlled); As = 415 mm².
    */
   it('2.I.1 — rectangular section, required tension steel', () => {
-    const r = checkFlexure({ fc: 25, fy: 420, cover: 0.02, b: 0.12, h: 0.40, stirrupDia: 6 }, 52);
+    const r = checkFlexure({ fc: 25, fy: 420, cover: 0.02, b: 0.12, h: 0.40, stirrupDia: 6 }, 52, 0, { edition: '2005' });
     published(r.d, 0.366);
     published(r.aReq / r.d, 0.18655);
     published(r.c / r.d, 0.219);
@@ -43,7 +43,7 @@ describe('INTI CIRSOC 201-2005 examples', () => {
    * that reproduces the printed d = h − 0,025 m with a db6 stirrup.
    */
   it('3.I — uniform stirrups without bent bars', () => {
-    const r = checkShear({ fc: 20, fy: 420, cover: 0.011, b: 0.20, h: 0.60, stirrupDia: 6 }, 174.6);
+    const r = checkShear({ fc: 20, fy: 420, cover: 0.011, b: 0.20, h: 0.60, stirrupDia: 6 }, 174.6, 0, { edition: '2005' });
     published(r.d, 0.575);
     published(r.phiVc / 0.75, 85.8);
     published(r.Vs, 147.0);

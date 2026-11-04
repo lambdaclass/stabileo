@@ -3,7 +3,7 @@
  * fluid to a level, and a floor load kept as its definition, limited to a zone, rewritten when the
  * model moves under it.
  */
-import { test, expect, loadModel } from './fixtures';
+import { test, expect, loadModel, placeFrameFromGrid } from './fixtures';
 import type { Page } from '@playwright/test';
 
 async function openWrite(page: Page) {
@@ -60,7 +60,8 @@ test.describe('@smoke PRO loads on shells and floors', () => {
     await page.getByTestId('grid-generate-y').click();
     await page.getByTestId('grid-heights').fill('3');
     await page.getByTestId('grid-generate-levels').click();
-    await page.getByTestId('grid-frame-create').click();
+    await page.getByTestId('grid-open-building').click();
+    await placeFrameFromGrid(page);
 
     // A zone over the first bay at the level: the four corner nodes, in order.
     const corners = await page.evaluate(() => {

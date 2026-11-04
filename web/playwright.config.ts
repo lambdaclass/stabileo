@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
+import { SMOKE_PATTERN, SMOKE_TIMEOUT_MS } from './scripts/e2e-budgets';
 import { fileURLToPath } from 'node:url';
 import { existsSync, readdirSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -24,6 +25,7 @@ import { resolve } from 'node:path';
  *   npm run test:e2e:install     # one-time: fetch the Chromium build
  *   npm run test:e2e:smoke       # blocking suite (fast, runs on every PR)
  *   npm run test:e2e:slow        # heavy suite (408-member model, screenshots)
+ *   npm run test:e2e:flaky       # the quarantined @flaky tests, with retries (e2e/README.md)
  *   npm run test:e2e:ui          # interactive runner
  *   npm run test:e2e:update-snapshots
  */
@@ -71,6 +73,18 @@ const HOST = '127.0.0.1';
  * configs. A stale answer here is safe in one direction only, so when in
  * doubt it rebuilds.
  */
+/**
+ * CI builds the E2E site once (the `site-e2e` job) and every shard serves that build:
+ * `E2E_PREBUILT=1` skips the build here. Only a VITE_E2E=1 build carries the hooks the tests
+ * drive, so the job leaves a marker in it, and a prebuilt dist without the marker is refused
+ * rather than served (a production dist would time every PRO fixture out, as it once did).
+ */
+const PREBUILT = process.env.E2E_PREBUILT === '1';
+export const E2E_BUILD_MARKER = 'e2e-build.txt';
+if (PREBUILT && !existsSync(resolve(fileURLToPath(new URL('.', import.meta.url)), 'dist', E2E_BUILD_MARKER))) {
+  throw new Error(`E2E_PREBUILT=1 but dist/${E2E_BUILD_MARKER} is missing: dist is not a VITE_E2E=1 build`);
+}
+
 function distIsStale(): boolean {
   const root = fileURLToPath(new URL('.', import.meta.url));
   const dist = resolve(root, 'dist', 'index.html');
@@ -141,10 +155,20 @@ export default defineConfig({
     toHaveScreenshot: { maxDiffPixelRatio: 0.02 },
   },
   reporter: process.env.CI
-    ? [['github'], ['html', { outputFolder: './e2e/.report', open: 'never' }], ['json', { outputFile: './e2e/.artifacts/results.json' }]]
+    // E2E_JSON_REPORT names the JSON report per suite (CI: e2e/.results/smoke.json, slow.json) for
+    // the shard timing tables (scripts/e2e-shard.mjs). The default sat in `.artifacts`, which every
+    // run empties first, so the slow suite's run threw away the smoke suite's timings.
+    ? [['github'], ['html', { outputFolder: './e2e/.report', open: 'never' }], ['json', { outputFile: process.env.E2E_JSON_REPORT ?? './e2e/.artifacts/results.json' }]]
     : [['list'], ['html', { outputFolder: './e2e/.report', open: 'on-failure' }]],
   use: {
     baseURL: BASE_URL,
+    /*
+     * The normative design is off by default in PRO (`uiStore.designInPro`, a per-browser
+     * preference) and most PRO specs exercise it: every browser starts with it turned on, as a
+     * reader turns it on. A spec that clears the storage restores it (`bootPro`, and the few that
+     * boot on their own); `design-optional.spec.ts` starts from an empty storage for the default.
+     */
+    storageState: { cookies: [], origins: [{ origin: BASE_URL, localStorage: [{ name: 'stabileo-design-in-pro', value: '1' }] }] },
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
@@ -168,13 +192,17 @@ export default defineConfig({
     },
   },
   projects: [
-    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    // Smoke gets a hard default budget even when invoked via --grep or without a suite filter.
+    { name: 'smoke', grep: SMOKE_PATTERN, timeout: SMOKE_TIMEOUT_MS, use: { ...devices['Desktop Chrome'] } },
+    { name: 'chromium', grepInvert: SMOKE_PATTERN, use: { ...devices['Desktop Chrome'] } },
   ],
   webServer: {
     // VITE_E2E=1 is what compiles the read-only test hooks into the bundle. A normal
     // `npm run build` omits them entirely, so a production artifact can never expose
     // `window.__stabileo` — proved by src/lib/utils/__tests__/e2e-hook-gating.test.ts.
-    command: `VITE_E2E=1 npm run build && npx vite preview --port ${PORT} --host ${HOST} --strictPort`,
+    command: PREBUILT
+      ? `npx vite preview --port ${PORT} --host ${HOST} --strictPort`
+      : `VITE_E2E=1 npm run build && npx vite preview --port ${PORT} --host ${HOST} --strictPort`,
     url: BASE_URL,
     /*
      * An explicit E2E_PORT means "give me my own server", so reuse is off for
@@ -185,7 +213,12 @@ export default defineConfig({
      * waiting for hooks that bundle does not contain.
      */
     reuseExistingServer: !process.env.CI && !process.env.E2E_PORT && !distIsStale(),
-    timeout: 240_000,
+    /*
+     * The command builds the whole site, prerender included, before serving it. On a busy CI
+     * runner that passed 240 s twice on 2026-10-22 ("Timed out waiting 240000ms from
+     * config.webServer"), failing a shard before any test ran; 10 minutes leaves room.
+     */
+    timeout: PREBUILT ? 60_000 : 600_000,
     stdout: 'pipe',
     stderr: 'pipe',
   },

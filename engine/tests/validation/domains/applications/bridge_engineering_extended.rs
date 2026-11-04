@@ -702,6 +702,7 @@ fn bridge_temperature_gradient() {
             element_id: i + 1,
             dt_uniform: 0.0,
             dt_gradient: dt_grad,
+            alpha: None, depth: None,
         }))
         .collect();
 
@@ -740,6 +741,7 @@ fn bridge_temperature_gradient() {
             element_id: i + 1,
             dt_uniform: 0.0,
             dt_gradient: dt_grad,
+            alpha: None, depth: None,
         }))
         .collect();
 

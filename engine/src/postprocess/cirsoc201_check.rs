@@ -70,6 +70,13 @@ pub struct Cirsoc201MemberData {
     pub es: Option<f64>,
     /// Web width bw (m)
     pub b: f64,
+    /// Effective width of a compression flange bf (m), for a T or L section with the flange on
+    /// the compressed face; absent (or ≤ bw) for a rectangle.
+    #[serde(default)]
+    pub bf: Option<f64>,
+    /// Flange thickness hf (m); used only with `bf`.
+    #[serde(default)]
+    pub hf: Option<f64>,
     /// Total depth h (m)
     pub h: f64,
     /// Effective depth d, to the centroid of the tension steel (m)
@@ -270,23 +277,63 @@ pub struct FlexureStateR<T> {
 
 pub type FlexureState = FlexureStateR<f64>;
 
+/// The compression flange (bf, hf) of a T or L section, when it has one: bf > bw and hf > 0.
+/// hf is limited to h.
+pub(crate) fn flange(m: &Cirsoc201MemberData) -> Option<(f64, f64)> {
+    match (m.bf, m.hf) {
+        (Some(bf), Some(hf)) if bf > m.b && hf > 0.0 => Some((bf, hf.min(m.h))),
+        _ => None,
+    }
+}
+
+/// Gross area of the concrete section, rectangle or T (m²).
+pub fn gross_area(m: &Cirsoc201MemberData) -> f64 {
+    match flange(m) {
+        Some((bf, hf)) => bf * hf + m.b * (m.h - hf),
+        None => m.b * m.h,
+    }
+}
+
+/// Depth of the gross section's centroid below the compressed face (m). The axial force acts
+/// there: it is the axis the frame analysis reports moments about.
+pub fn centroid_depth(m: &Cirsoc201MemberData) -> f64 {
+    match flange(m) {
+        Some((bf, hf)) => {
+            let (af, aw) = (bf * hf, m.b * (m.h - hf));
+            (af * hf / 2.0 + aw * (hf + m.h) / 2.0) / (af + aw)
+        }
+        None => m.h / 2.0,
+    }
+}
+
 /// The data under which the flexural formulas apply (and the residual is monotone).
 pub(crate) fn flexure_inputs_valid(m: &Cirsoc201MemberData) -> bool {
     let es = m.es.unwrap_or(200e9);
     let as_c = m.as_compression.unwrap_or(0.0).max(0.0);
     let d_p = m.d_prime.unwrap_or(0.0);
+    let flange_ok = match (m.bf, m.hf) {
+        (Some(bf), Some(hf)) => bf.is_finite() && hf.is_finite() && bf > 0.0 && hf >= 0.0,
+        (Some(bf), None) => bf.is_finite() && bf > 0.0,
+        (None, Some(hf)) => hf.is_finite(),
+        (None, None) => true,
+    };
     [m.fc, m.fy, es, m.b, m.h, m.d, m.as_tension].iter().all(|v| v.is_finite() && *v > 0.0)
         && as_c.is_finite()
         && d_p.is_finite()
         && m.d <= m.h
+        && flange_ok
 }
 
-/// (residual C − T, moment about the tension steel, a, εt, fs, fs') at neutral axis depth c.
+/// (residual C − T − Nu, moment about the section centroid, a, εt, fs, fs') at neutral axis
+/// depth c, with the axial force `nu` (compression positive) acting at the gross centroid.
 ///
-/// The residual is continuous and non-decreasing in c: the block min(β1·c, h) grows, the
-/// compression bar's net force As'·max(0, fs' − 0,85·f'c) grows, the tension steel strain
-/// falls. It is −As·fy as c → 0, so the root is unique where it is strictly increasing.
-fn flexure_at<T: Real>(m: &Cirsoc201MemberData, b1: T, c: T) -> (T, T, T, T, T, T) {
+/// The residual is continuous and non-decreasing in c: the block min(β1·c, h) grows (over the
+/// flange first, then the web), a bar in compression pushes with As·max(0, fs − 0,85·f'c) (net
+/// of the concrete it displaces, whether or not it is inside the block, which can only lower
+/// the strength), the tension steel strain falls. It is −As·fy − Nu as c → 0, so the root is
+/// unique where it is strictly increasing. With Nu = 0 the moment is the internal couple, and
+/// the arithmetic is the one this module used before the axial force was added.
+fn flexure_at<T: Real>(m: &Cirsoc201MemberData, b1: T, c: T, nu: T) -> (T, T, T, T, T, T) {
     let es = T::exact(m.es.unwrap_or(200e9));
     let fy = T::exact(m.fy);
     let as_c = m.as_compression.unwrap_or(0.0).max(0.0);
@@ -295,47 +342,80 @@ fn flexure_at<T: Real>(m: &Cirsoc201MemberData, b1: T, c: T) -> (T, T, T, T, T, 
     let ecu = T::lit(EPSILON_CU);
     let fs = |eps: T| (es * eps).max(-fy).min(fy);
     let k = T::lit(0.85) * T::exact(m.fc);
+    let zero = T::exact(0.0);
+    let two = T::exact(2.0);
     let (h, d, b) = (T::exact(m.h), T::exact(m.d), T::exact(m.b));
     let a = (b1 * c).min(h);
-    let cc = k * a * b;
+    // Concrete: the web strip over the whole block, plus the flange overhangs over min(a, hf).
+    let (cc, mc) = match flange(m) {
+        None => {
+            let cc = k * a * b;
+            (cc, cc * (d - a.dv(two)))
+        }
+        Some((bf, hf)) => {
+            let over = T::exact(bf) - b;
+            let af = a.min(T::exact(hf));
+            let web = k * a * b;
+            let wing = k * over * af;
+            (web + wing, web * (d - a.dv(two)) + wing * (d - af.dv(two)))
+        }
+    };
     let (cs, fsc) = if doubly {
         let fsc = fs(ecu * (T::exact(1.0) - T::exact(d_p).dv(c)));
-        (T::exact(as_c) * (fsc - k).max(T::exact(0.0)), fsc.max(T::exact(0.0)))
+        (T::exact(as_c) * (fsc - k).max(zero), fsc.max(zero))
     } else {
-        (T::exact(0.0), T::exact(0.0))
+        (zero, zero)
     };
     let eps_t = ecu * (d.dv(c) - T::exact(1.0));
     let fst = fs(eps_t);
-    let t = T::exact(m.as_tension) * fst;
-    let mn = cc * (d - a.dv(T::exact(2.0))) + cs * (d - T::exact(d_p));
-    (cc + cs - t, mn, a, eps_t, fst, fsc)
+    // The tension steel's force, tension positive. When a compression on the section puts it in
+    // compression (c > d) it is net of the concrete it displaces, like the compression bar:
+    // max(fs, 0) + min(fs + 0,85·f'c, 0) is fs in tension and −max(|fs| − 0,85·f'c, 0) in
+    // compression, continuous and non-increasing in c.
+    let t = T::exact(m.as_tension) * (fst.max(zero) + (fst + k).min(zero));
+    let yc = T::exact(centroid_depth(m));
+    let mn = mc + cs * (d - T::exact(d_p)) - nu * (d - yc);
+    (cc + cs - t - nu, mn, a, eps_t, fst, fsc)
 }
 
-/// Nominal flexural strength by strain compatibility, generic over `Real`. None when the
-/// inputs describe no section (no tension steel, a non-positive dimension or strength) or the
-/// neutral axis cannot be found (enclosed, for intervals).
-pub(crate) fn nominal_flexure_r<T: Real>(m: &Cirsoc201MemberData) -> Option<FlexureStateR<T>> {
-    if !flexure_inputs_valid(m) {
+/// Nominal flexural strength with an axial force `nu` (N, compression positive) acting at the
+/// gross centroid, about which the moment is taken (22.2; 22.4 for the axial force). `nu_f64`
+/// is the f64 value of `nu`, used to place the root (the interval version certifies it).
+///
+/// None when the section cannot equilibrate the axial force at all (more tension than the
+/// tension steel yields to, more compression than the section carries): such a member is not a
+/// beam and the clause gives it no flexural strength.
+pub(crate) fn nominal_flexure_axial_r<T: Real>(m: &Cirsoc201MemberData, nu: T, nu_f64: f64) -> Option<FlexureStateR<T>> {
+    if !flexure_inputs_valid(m) || !nu_f64.is_finite() {
         return None;
     }
     let b1_f = beta1(m.fc);
     let b1 = beta1_r::<T>(m.fc);
+    // Without compression the root is below d (R(d) ≥ Cc > 0). With it, the neutral axis can
+    // leave the section; every strain saturates within a few depths, so a wide bracket is safe.
+    let hi = if nu_f64 > 0.0 { 1e3 * (m.h / b1_f + m.d) } else { m.h / b1_f + m.d };
     let c = T::increasing_root(
-        |c| flexure_at::<f64>(m, b1_f, c).0,
-        |c| flexure_at::<T>(m, b1, c).0,
+        |c| flexure_at::<f64>(m, b1_f, c, nu_f64).0,
+        |c| flexure_at::<T>(m, b1, c, nu).0,
         1e-9,
-        m.h / b1_f + m.d,
+        hi,
     );
     // A root that is not bracketed (f64) or not certified (interval) is NaN, and so is
     // everything computed from it: the callers refuse non-finite results.
-    let (_, mn, a, epsilon_t, fs_tension, fs_compression) = flexure_at::<T>(m, b1, c);
+    let (_, mn, a, epsilon_t, fs_tension, fs_compression) = flexure_at::<T>(m, b1, c, nu);
     Some(FlexureStateR { mn, a, c, epsilon_t, fs_tension, fs_compression })
 }
 
 /// Nominal flexural strength by strain compatibility. None when the inputs describe no
 /// section (no tension steel, a non-positive dimension or strength).
 pub fn nominal_flexure(m: &Cirsoc201MemberData) -> Option<FlexureState> {
-    let f = nominal_flexure_r::<f64>(m)?;
+    nominal_flexure_axial(m, 0.0)
+}
+
+/// Nominal flexural strength under an axial force (N, compression positive), moment about the
+/// gross centroid. None when the inputs describe no section or no equilibrium exists.
+pub fn nominal_flexure_axial(m: &Cirsoc201MemberData, nu: f64) -> Option<FlexureState> {
+    let f = nominal_flexure_axial_r::<f64>(m, nu, nu)?;
     if f.c.is_finite() && f.mn.is_finite() { Some(f) } else { None }
 }
 
@@ -362,7 +442,7 @@ pub struct ShearState {
 
 pub(crate) fn shear_inputs_valid(m: &Cirsoc201MemberData) -> bool {
     let lambda = m.lambda.unwrap_or(1.0);
-    let ag = m.ag.unwrap_or(m.b * m.h);
+    let ag = m.ag.unwrap_or_else(|| gross_area(m));
     [m.fc, m.fy, m.b, m.h, m.d, ag, lambda, m.fyt.unwrap_or(m.fy)].iter().all(|v| v.is_finite() && *v > 0.0)
         && m.as_tension.is_finite()
         && m.as_tension >= 0.0
@@ -374,7 +454,7 @@ pub(crate) fn shear_strength_r<T: Real>(m: &Cirsoc201MemberData, axial_compressi
         return None;
     }
     let lambda = T::exact(m.lambda.unwrap_or(1.0));
-    let ag = T::exact(m.ag.unwrap_or(m.b * m.h));
+    let ag = T::exact(m.ag.unwrap_or_else(|| gross_area(m)));
     let mpa = T::exact(1e6);
     let fc_mpa = T::exact(m.fc).dv(mpa);
     let sqrt_fc = fc_mpa.sqrt().min(T::lit(SQRT_FC_MAX_MPA));
@@ -471,14 +551,14 @@ pub(crate) fn min_shear_missing<T: Real>(m: &Cirsoc201MemberData, s: &ShearState
 
 /// Whether the ductility clause applies: a moment and little compression (9.3.3.1).
 pub(crate) fn ductility_applies<T: Real>(m: &Cirsoc201MemberData, mu: T, nu: T) -> Tri {
-    let ag = T::exact(m.ag.unwrap_or(m.b * m.h));
+    let ag = T::exact(m.ag.unwrap_or_else(|| gross_area(m)));
     T::exact(0.0).lt(mu).and(nu.lt(T::lit(0.10) * T::exact(m.fc) * ag))
 }
 
 // ==================== Numeric batch boundary ====================
 
 /// Inputs per section in [`beam_batch`].
-pub const BATCH_INPUTS: usize = 15;
+pub const BATCH_INPUTS: usize = 17;
 /// Outputs per section in [`beam_batch`].
 pub const BATCH_OUTPUTS: usize = 16;
 
@@ -486,8 +566,9 @@ pub const BATCH_OUTPUTS: usize = 16;
 /// asks thousands of times per design run and cannot afford JSON per question.
 ///
 /// Per section, inputs (SI: Pa, m, m², N):
-/// `[edition (2005 | 2025), fc, fy, es, b, h, d, As, As', d', Av, s, fyt, Ag, Nu]`,
-/// with Nu positive in compression, and 0 for an absent As', d', Av or s.
+/// `[edition (2005 | 2025), fc, fy, es, b, h, d, As, As', d', Av, s, fyt, Ag, Nu, bf, hf]`,
+/// with Nu positive in compression and acting on both flexure (at the gross centroid) and
+/// shear, and 0 for an absent As', d', Av, s, Ag or flange (bf ≤ b: a rectangle).
 ///
 /// Per section, outputs:
 /// `[φMn, a, c, εt, φ, fs, fs', εt,min, Vc, Vs, Av,min, Av < Av,min, Vs capped, φVn,
@@ -495,7 +576,7 @@ pub const BATCH_OUTPUTS: usize = 16;
 /// returns 0 in its valid flag and NaN in its strengths, never a number to read as a pass.
 pub fn beam_batch(data: &[f64]) -> Result<Vec<f64>, &'static str> {
     if data.len() % BATCH_INPUTS != 0 {
-        return Err("cirsoc201_beam_batch: input length is not a multiple of 15");
+        return Err("cirsoc201_beam_batch: input length is not a multiple of 17");
     }
     let mut out = Vec::with_capacity(data.len() / BATCH_INPUTS * BATCH_OUTPUTS);
     for row in data.chunks_exact(BATCH_INPUTS) {
@@ -521,12 +602,14 @@ pub fn beam_batch(data: &[f64]) -> Result<Vec<f64>, &'static str> {
             fyt: opt(row[12]),
             ag: opt(row[13]),
             lambda: None,
+            bf: opt(row[15]),
+            hf: opt(row[16]),
             edition,
         };
         let nu = row[14];
         let es = m.es.unwrap_or(200e9);
         let nan = f64::NAN;
-        match nominal_flexure(&m) {
+        match nominal_flexure_axial(&m, nu) {
             Some(f) => {
                 let phi = phi_flexure(edition, f.epsilon_t, m.fy, es);
                 out.extend_from_slice(&[phi * f.mn, f.a, f.c, f.epsilon_t, phi, f.fs_tension, f.fs_compression,
@@ -573,8 +656,8 @@ pub fn check_single_cirsoc201(m: &Cirsoc201MemberData, f: &Cirsoc201DesignForces
     let nu = f.axial_compression.unwrap_or(0.0);
     let mut ledger = CheckLedger::new();
 
-    // ── Flexure ──
-    let flex = nominal_flexure(m);
+    // ── Flexure, with the axial force acting on the section (22.4; 9.5.2.1) ──
+    let flex = nominal_flexure_axial(m, nu);
     let (phi, phi_mn) = match flex {
         Some(s) => {
             let phi = phi_flexure(m.edition, s.epsilon_t, m.fy, es);
@@ -671,13 +754,13 @@ mod tests {
 
     #[test]
     fn batch_matches_the_json_checker() {
-        let row = [2025.0, 25e6, 420e6, 0.0, 0.3, 0.5, 0.45, 1.257e-3, 4.0e-4, 0.05, 1.57e-4, 0.15, 0.0, 0.0, 2.0e5];
+        let row = [2025.0, 25e6, 420e6, 0.0, 0.3, 0.5, 0.45, 1.257e-3, 4.0e-4, 0.05, 1.57e-4, 0.15, 0.0, 0.0, 2.0e5, 0.0, 0.0];
         let out = beam_batch(&row).unwrap();
         assert_eq!(out.len(), BATCH_OUTPUTS);
         let m = Cirsoc201MemberData {
             element_id: 1, fc: 25e6, fy: 420e6, es: None, b: 0.3, h: 0.5, d: 0.45, as_tension: 1.257e-3,
             as_compression: Some(4.0e-4), d_prime: Some(0.05), av: Some(1.57e-4), s_stirrup: Some(0.15),
-            fyt: None, ag: None, lambda: None, edition: Cirsoc201Edition::E2025,
+            fyt: None, ag: None, lambda: None, bf: None, hf: None, edition: Cirsoc201Edition::E2025,
         };
         let r = check_single_cirsoc201(&m, &Cirsoc201DesignForces {
             element_id: 1, mu: Some(1.0), vu: Some(1.0), axial_compression: Some(2.0e5) });
@@ -689,8 +772,8 @@ mod tests {
 
     #[test]
     fn batch_refuses_rather_than_guesses() {
-        assert!(beam_batch(&[0.0; 14]).is_err());
-        let mut row = [2025.0, 25e6, 420e6, 0.0, 0.3, 0.5, 0.45, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
+        assert!(beam_batch(&[0.0; 16]).is_err());
+        let mut row = [2025.0, 25e6, 420e6, 0.0, 0.3, 0.5, 0.45, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
         let out = beam_batch(&row).unwrap();
         assert_eq!(out[14], 0.0, "no tension steel: flexure not valid");
         assert!(out[0].is_nan());

@@ -54,7 +54,7 @@ describe('wind on other structures', () => {
     const m = model(pts, [[1, 2], [2, 3], [4, 5], [5, 6], [2, 5]]);
     const p = project('building');
     const out = otherStructureWind({ model: m, structure: { kind: 'freeRoof', roof: 'pitched', blocked: false }, project: p, directions: ['+x'], tributaryWidth: 3 });
-    expect(out.cases.map((c) => c.nameParams.c)).toEqual(['A', 'B']);
+    expect(out.cases.map((c) => c.nameParams.c ?? c.nameKey)).toEqual(['A', 'B', 'wind.other.minimumCase']);
     const theta = (Math.atan(1 / 5) * 180) / Math.PI;
     const k = freeRoofCn('pitched', theta, 'A', false);
     const a = out.cases[0]!.distributed;
@@ -171,5 +171,54 @@ describe('wind on other structures: diagonals, the projected width, and a flexib
     expect(rigid.notes.map((n) => n.key)).not.toContain('wind.other.flexibleAssumedRigid');
     const flexible = otherStructureWind({ model: m, structure: { kind: 'chimney', section: 'roundRough', diameter: 3 }, project: { ...project('chimneyRound'), rigid: false }, directions: ['+x'], tributaryWidth: 1 });
     expect(flexible.notes.map((n) => n.key)).toContain('wind.other.flexibleAssumedRigid');
+  });
+});
+
+describe('§2.1.5: the minimum wind force on an open building, for a free roof', () => {
+  // A pitched free roof on four columns from the ground: ridge along Y at x = 5, eaves +4 m, ridge +5 m.
+  const shed = () => model(
+    [[0, 0, 4], [5, 0, 5], [10, 0, 4], [0, 6, 4], [5, 6, 5], [10, 6, 4], [0, 0, 0], [10, 0, 0], [0, 6, 0], [10, 6, 0]],
+    [[1, 2], [2, 3], [4, 5], [5, 6], [2, 5], [7, 1], [8, 3], [9, 4], [10, 6]],
+  );
+  const low = (): WindProject => ({ ...project('building'), basicSpeed: 20 });
+  const fx = (c: { nodal: Array<{ fx: number }> }) => c.nodal.reduce((t, n) => t + n.fx, 0);
+
+  it('is a horizontal case of its own per direction, 0,75 kN/m² over the whole vertical projection by default', () => {
+    const out = otherStructureWind({ model: shed(), structure: { kind: 'freeRoof', roof: 'pitched', blocked: false }, project: low(), directions: ['+x', '-x', '+y'], tributaryWidth: 3 });
+    const min = out.cases.filter((c) => c.nameKey === 'wind.other.minimumCase');
+    expect(min.map((c) => c.nameParams.dir)).toEqual(['+X', '-X', '+Y']);
+    // Wind along X sees 5 m (ground to ridge) × 6 m; along Y, 5 m × 10 m.
+    expect(fx(min[0]!)).toBeCloseTo(0.75 * 5 * 6, 9);
+    expect(fx(min[1]!)).toBeCloseTo(-0.75 * 5 * 6, 9);
+    expect(min[2]!.nodal.reduce((t, n) => t + n.fy, 0)).toBeCloseTo(0.75 * 5 * 10, 9);
+    // At the roof's nodes only, never on the column bases.
+    expect(new Set(min[0]!.nodal.map((n) => n.nodeId))).toEqual(new Set([1, 2, 3, 4, 5, 6]));
+    expect(out.derivation.filter((m) => m.key === 'wind.other.minimumOpenEnvelope')).toHaveLength(3);
+  });
+
+  it('at a low basic speed it exceeds the horizontal force of the figures, which applied nothing more', () => {
+    const out = otherStructureWind({ model: shed(), structure: { kind: 'freeRoof', roof: 'pitched', blocked: false }, project: low(), directions: ['+x'], tributaryWidth: 3 });
+    const rafter = Math.hypot(5, 1);
+    for (const c of out.cases.filter((x) => x.nameKey === 'wind.other.freeRoofCase')) {
+      const h = Math.abs(c.distributed.reduce((t, d) => t + d.qX * rafter, 0));
+      expect(h).toBeLessThan(0.75 * 5 * 6);
+    }
+  });
+
+  it('takes the Af given per axis, and the projection on the axis given none', () => {
+    const out = otherStructureWind({ model: shed(), structure: { kind: 'freeRoof', roof: 'pitched', blocked: false, area: { x: 8 } }, project: low(), directions: ['+x', '+y'], tributaryWidth: 3 });
+    const min = out.cases.filter((c) => c.nameKey === 'wind.other.minimumCase');
+    expect(fx(min[0]!)).toBeCloseTo(0.75 * 8, 9);
+    expect(min[1]!.nodal.reduce((t, n) => t + n.fy, 0)).toBeCloseTo(0.75 * 50, 9);
+    expect(out.derivation.map((m) => m.key).filter((k) => k.startsWith('wind.other.minimumOpen'))).toEqual(['wind.other.minimumOpen', 'wind.other.minimumOpenEnvelope']);
+  });
+
+  it('a frame modelled in one plane takes the tributary width across a wind along it (Codex review)', () => {
+    // One frame in the XZ plane: every node at y = 0.
+    const frame = model([[0, 0, 4], [5, 0, 5], [10, 0, 4], [0, 0, 0], [10, 0, 0]], [[1, 2], [2, 3], [4, 1], [5, 3]]);
+    const out = otherStructureWind({ model: frame, structure: { kind: 'freeRoof', roof: 'pitched', blocked: false }, project: low(), directions: ['+x'], tributaryWidth: 3 });
+    const min = out.cases.filter((c) => c.nameKey === 'wind.other.minimumCase');
+    expect(min).toHaveLength(1);
+    expect(fx(min[0]!)).toBeCloseTo(0.75 * 5 * 3, 9);
   });
 });

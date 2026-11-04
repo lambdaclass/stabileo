@@ -24,14 +24,23 @@
  * else does.
  */
 
-import { test, expect, designAll, loadModel, openDocumentsStage } from './fixtures';
+import { test, expect, designAll, loadModel, openDocumentsStage, declareBeamsNotLateral, designPlace } from './fixtures';
 import type { Page } from '@playwright/test';
 
-/** Detailing generated, documents open, and nothing built yet. */
+/**
+ * Detailing generated, documents open, and nothing built yet.
+ *
+ * The review this file walks needs a level that reaches CONSTRUCTIBLE, so qa-8's beams declare
+ * that they are not part of the lateral system (`declareBeamsNotLateral`). Undeclared, they are
+ * designed as part of it since 292b87f68, e5 and e6 refuse on their anchorage, and the level stops
+ * at COORDINATED: `review-submit` then stays disabled with «only from CONSTRUCTIBLE onwards»
+ * beside it, which is the gate `detailing.spec.ts` D9 asserts, not the chain this file follows.
+ */
 async function toDocuments(page: Page) {
   await loadModel(page, 'rc-design-qa-8');
+  await declareBeamsNotLateral(page);
   await designAll(page);
-  await page.getByTestId('detailing-disclosure').locator('> summary').click();
+  await designPlace(page, 'detailing');
   const generate = page.getByTestId('cmd-generate-detailing');
   await expect(generate).toBeEnabled();
   await generate.click();

@@ -1,4 +1,4 @@
-import { test, expect, openBasicProjectPanel } from './fixtures';
+import { test, expect, openBasicProjectPanel, CURRENT_STAMP } from './fixtures';
 
 // A cantilever above Euler's critical load can converge on an indefinite
 // stiffness matrix. Convergence must not turn that into a stable result.
@@ -8,6 +8,7 @@ function postcriticalColumn(mode: '2d' | '3d') {
   return {
     version: '2.0', name: 'Postcritical column', analysisMode: mode,
     snapshot: {
+      solvedWith: CURRENT_STAMP,
       name: 'Postcritical column',
       nodes: Array.from({ length: n + 1 }, (_, i) => [i + 1, {
         id: i + 1, x: 0, y: mode === '2d' ? length * i / n : 0,
@@ -28,11 +29,11 @@ function postcriticalColumn(mode: '2d' | '3d') {
   };
 }
 
-test.describe('@smoke P-Delta stability', () => {
+test.describe('@engine @smoke P-Delta stability', () => {
   test.beforeEach(async ({ page }) => {
     await page.addInitScript(() => localStorage.setItem('liveCalc', 'false'));
     await page.goto('/app/basic?e2e=1');
-    await page.waitForFunction(() => !!window.__stabileoActions, null, { timeout: 60_000 });
+    await page.waitForFunction(() => !!window.__stabileoActions, null, { timeout: 45_000 });
   });
 
   for (const mode of ['2d', '3d'] as const) {
@@ -46,7 +47,7 @@ test.describe('@smoke P-Delta stability', () => {
       });
       await page.getByTestId('rb-cmd-advanced').click();
       await page.locator('button.adv-btn', { hasText: 'P-Δ' }).click();
-      await expect(page.getByTestId('pdelta-result')).toContainText('B₂ = ∞');
+      await expect(page.getByTestId('pdelta-result')).toContainText(/B₂\s*∞/);
       await expect(page.getByTestId('pdelta-result')).toContainText('unstable');
       await expect(page.getByText(/^Unstable structure \(P-Δ\)\. It is not drawn as a result/)).toBeVisible();
       // The engine's first-order results are not drawn as P-Δ: no results are on screen.
@@ -59,7 +60,7 @@ test.describe('@smoke P-Delta stability', () => {
     await page.evaluate(() => window.__stabileoActions.loadExample('settlement'));
     await page.getByTestId('rb-cmd-advanced').click();
     await page.locator('button.adv-btn', { hasText: 'P-Δ' }).click();
-    await expect(page.getByTestId('pdelta-result')).toContainText('B₂ = 1.000');
+    await expect(page.getByTestId('pdelta-result')).toContainText(/B₂\s*1\.000/);
     await expect(page.getByTestId('pdelta-result')).not.toContainText('unstable');
     await expect(page.getByText(/P-Δ converged in/)).toBeVisible();
   });

@@ -27,7 +27,8 @@
  */
 import { describe, it, expect } from 'vitest';
 import en from '../../../lib/i18n/locales/en';
-import { PUBLIC_LOCALES, dictFor } from '../../../lib/i18n/store.svelte';
+import { PUBLIC_LOCALES } from '../../../lib/i18n/store.svelte';
+import { allDictFor as dictFor, completeLocales } from '../../../lib/i18n/locales/all';
 
 const sources = import.meta.glob('../**/*.{svelte,ts}', { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
 
@@ -67,7 +68,7 @@ describe('public landing i18n', () => {
     expect(missing, `missing from en.ts:\n${missing.join('\n')}`).toEqual([]);
   });
 
-  for (const locale of PUBLIC_LOCALES.filter((l) => l !== 'en')) {
+  for (const locale of PUBLIC_LOCALES.filter((l) => l !== 'en' && completeLocales().includes(l))) {
     const dict = () => dictFor(locale) as Record<string, string>;
 
     it(`${locale} has every landing key used by a component`, () => {

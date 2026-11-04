@@ -10,7 +10,7 @@
  * test that passes when the app and the test are wrong in the same way.
  */
 
-import { test, expect, loadModel, solveModel, computeDemands, setAppLanguage } from './fixtures';
+import { test, expect, loadModel, solveModel, computeDemands, setAppLanguage, designPlace } from './fixtures';
 import en from '../src/lib/i18n/locales/en';
 import es from '../src/lib/i18n/locales/es';
 import pt from '../src/lib/i18n/locales/pt';
@@ -42,10 +42,8 @@ async function classify(page: Page, model: string): Promise<void> {
 
 /** The list lives in the DETALLE stage, which has to be open to read it. */
 async function openDetailing(page: Page): Promise<void> {
-  const section = page.getByTestId('detailing-disclosure');
-  if (await section.getAttribute('open') === null) {
-    await section.locator('> summary').click();
-  }
+  await designPlace(page, 'detailing');
+  const section = page.getByTestId('desk-detailing');
   await expect(page.getByTestId('rc-member-list')).toBeVisible();
 }
 
@@ -275,7 +273,7 @@ test.describe('the list at the four widths', () => {
       expect(over, `no horizontal overflow at ${vp.width}`).toBeLessThanOrEqual(1);
 
       // The panel itself must not start scrolling sideways because of the list either.
-      const panelOver = await page.locator('.rc-workflow').evaluate(
+      const panelOver = await page.locator('.dd-canvas-body').evaluate(
         (el) => el.scrollWidth - el.clientWidth);
       expect(panelOver, 'the panel does not scroll sideways').toBeLessThanOrEqual(1);
 

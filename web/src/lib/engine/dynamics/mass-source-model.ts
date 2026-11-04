@@ -108,7 +108,7 @@ export function withMassSource(
     if (own === undefined || own === solved || model.sections.get(own)?.drawn) return undefined;
     return input.sections.get(own)?.a;
   };
-  const r = applyMassSource(physical.input, physical.densities, cases, realArea);
+  const r = applyMassSource(physical.input, physical.densities, cases, realArea, stated?.points ?? []);
   return { ...r, factors };
 }
 

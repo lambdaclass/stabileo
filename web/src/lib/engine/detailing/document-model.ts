@@ -38,6 +38,7 @@ import type { LapInterval } from './lap-materialize';
 import type { ConstructibilityAssessment } from './constructibility';
 import type { DesignConvergence } from './design-convergence';
 import type { DesignFamily } from '../design/design-families';
+import type { SlabColumnJointVerdict, ModelSlabColumnJoint } from '../design/analysis-validity';
 import {
   certificateFreshness, finalGeometryHashOf, reinforcementHashOf,
   type FamilyCertificate, type FloorFamily, type FloorFamilyDesignRecord,
@@ -59,7 +60,12 @@ export type DocumentReadiness =
   /** Issued for construction. */
   | 'ISSUED'
   /** A later revision exists. Kept for the record and never to be built from. */
-  | 'SUPERSEDED';
+  | 'SUPERSEDED'
+  /**
+   * The model changed after the detailing was generated: the bars describe a structure that is
+   * no longer the one in the project. Never to be built from; regenerate the detailing.
+   */
+  | 'OUTDATED';
 
 export interface DocumentRevision {
   /** Monotonic per document series. */
@@ -96,6 +102,20 @@ export interface CertificateEntry {
    * case where the glance would be wrong.
    */
   provisional?: boolean;
+  /**
+   * Set when the member's floor joins its slab to a column at one node (`analysis-validity.ts`):
+   * the split of the slab's load between beams and columns its forces come from is the mesh's,
+   * not established, so the certificate does not present the steel as the structure's verified
+   * steel, and holds the document at a draft whatever its status.
+   */
+  loadSplit?: 'notEstablished';
+}
+
+/** The slab-column joint verdict a document carries: how its members' floors were idealised. */
+export interface DocumentSlabColumnJoint {
+  verdict: SlabColumnJointVerdict;
+  /** The document's members on a floor with a one-node slab-column joint, each with its reason. */
+  pointJoints: Array<{ elementId: number; reasonKey: string; params: Record<string, number> }>;
 }
 
 export interface DocumentAssembly {
@@ -166,6 +186,12 @@ export interface DocumentModel {
   /** Stable identity of the document SERIES, constant across revisions. */
   seriesId: string;
   revision: DocumentRevision;
+  /**
+   * Cross-sections placed on beam lines (`BeamLineCut`), each at its point in the model: the
+   * sheets draw one section per cut on the assemblies holding those members, in place of the
+   * section at the middle of the longest member.
+   */
+  sectionCuts?: Array<{ elementIds: number[]; label: string; at: { x: number; y: number; z: number } }>;
   readiness: DocumentReadiness;
   /** Set when this revision has been superseded, naming the one that replaced it. */
   supersededBy?: number;
@@ -182,6 +208,20 @@ export interface DocumentModel {
    * the face of the first sheet; they are the reason the document is a draft.
    */
   openConflicts: OpenConflict[];
+  /**
+   * The conditions the detailing could not resolve, across the document: each assembly's
+   * unsupported conditions, with the members they hold. A bar end anchored nowhere is one of
+   * them (`detailing.anchorage.unresolved`), and while any is open the document is a draft.
+   * Optional only for documents persisted before it existed.
+   */
+  openIssues?: OpenIssue[];
+  /**
+   * How the members' floors join the slab to the columns (`analysis-validity.ts`). With a one-node
+   * joint the split of the slab's load between beams and columns is not established, and the
+   * document is a draft that says so on its banner, whatever the buildability of its steel.
+   * Absent on documents built before it existed.
+   */
+  slabColumnJoint?: DocumentSlabColumnJoint;
   /** Rolled up across assemblies. */
   maturity: Maturity;
   assumptions: EngineMessage[];
@@ -253,6 +293,22 @@ export interface DocumentSelection {
  * was applied, what was measured against it, and what was already tried are the difference
  * between a report someone can work from and a report someone has to re-derive.
  */
+/** An unsupported condition of one assembly, as the document lists it. */
+export interface OpenIssue {
+  assemblyId: string;
+  /** An i18n key when `params` is set; otherwise a stable condition key. */
+  key: string;
+  elementIds: number[];
+  /** Language-neutral fallback. */
+  message: string;
+  params?: Record<string, string | number>;
+}
+
+/** Conditions that keep any document holding them a draft, whatever its assemblies' states. */
+const DRAFT_ONLY_ISSUES = new Set(['detailing.anchorage.unresolved', 'detailing.cover.violated', 'detailing.clash.unresolved']);
+/** A lap the detailing could not check as built, or checked and found wanting (`splice-checks.ts`). */
+export const isDraftOnlyIssue = (key: string) => DRAFT_ONLY_ISSUES.has(key) || key.startsWith('detailing.lapCheck.');
+
 export interface OpenConflict {
   assemblyId: string;
   elementIds: number[];
@@ -296,12 +352,25 @@ export function documentReadiness(input: {
   assemblies: readonly DocumentAssembly[];
   certificates: readonly CertificateEntry[];
   supersededBy?: number;
+  /** The model changed after the detailing in it was generated (`store/design-fingerprint.ts`). */
+  outdated?: boolean;
+  /** A member's floor joins its slab to a column at one node (`analysis-validity.ts`). */
+  loadSplitNotEstablished?: boolean;
 }): DocumentReadiness {
   if (input.supersededBy !== undefined) return 'SUPERSEDED';
+  if (input.outdated) return 'OUTDATED';
+  // Buildable steel designed from a split of the slab's load the model does not establish is not a
+  // document anyone may review as the structure: a draft, whatever the assemblies and the
+  // certificates say.
+  if (input.loadSplitNotEstablished || input.certificates.some((c) => c.loadSplit === 'notEstablished')) return 'REVIEW_DRAFT';
 
   const anyConflict = input.assemblies.some((a) =>
     a.conflicts.some((c) => c.severity !== 'marginal'));
   if (anyConflict) return 'REVIEW_DRAFT';
+  // A bar the detailing could not anchor is not buildable, and the sheet that draws it must not
+  // read better than a draft — checked here and not only through the assembly's state, so a state
+  // set by any other path cannot lift it.
+  if (input.assemblies.some((a) => (a.source?.unsupported ?? []).some((u) => isDraftOnlyIssue(u.key)))) return 'REVIEW_DRAFT';
 
   /**
    * A family certificate that does not apply is exactly as disqualifying as a frame one.
@@ -394,6 +463,10 @@ export function buildDocumentModel(input: {
   laps: readonly LapInterval[];
   certificates: readonly CertificateEntry[];
   supersededBy?: number;
+  /** Cross-sections placed on beam lines (`DocumentModel.sectionCuts`). */
+  sectionCuts?: DocumentModel['sectionCuts'];
+  /** The model changed after the detailing was generated: the document says so on its face. */
+  outdated?: boolean;
   /** Alternatives the coordinator tried, for the conflict records. */
   attempted?: readonly EngineMessage[];
   /**
@@ -419,6 +492,11 @@ export function buildDocumentModel(input: {
    * families named — instead of silently benign.
    */
   convergence?: Pick<DesignConvergence, 'scope' | 'outOfScope'>;
+  /**
+   * The design run's slab-column joint verdict (`analysis-validity.ts`), for the members this
+   * document holds. Absent means the caller has none, and the document claims nothing about it.
+   */
+  slabColumnJoint?: ModelSlabColumnJoint;
 }): DocumentModel {
   const docAssemblies: DocumentAssembly[] = input.assemblies.map((a) => {
     const layers = [...new Set(a.bars.map((b) => b.layerId).filter(Boolean) as string[])]
@@ -514,14 +592,33 @@ export function buildDocumentModel(input: {
     };
   });
 
+  // The joint verdict over the members this document holds (a span's representative is one). A
+  // point joint on none of them leaves the document's members represented, or not applicable.
+  const held = new Map<number, string>();
+  for (const a of docAssemblies) for (const id of a.elementIds) if (!held.has(id)) held.set(id, a.id);
+  const pointJoints = (input.slabColumnJoint?.pointJoints ?? []).filter((m) => held.has(m.elementId));
+  const joint: DocumentSlabColumnJoint | undefined = input.slabColumnJoint ? {
+    verdict: input.slabColumnJoint.verdict === 'pointJoint' && pointJoints.length === 0 ? 'notApplicable' : input.slabColumnJoint.verdict,
+    pointJoints: pointJoints.map((m) => ({ elementId: m.elementId, reasonKey: m.reasonKey ?? 'slabColumnJoint.point', params: { ...(m.params ?? {}) } })),
+  } : undefined;
+
   const readiness = documentReadiness({
     assemblies: docAssemblies,
     certificates: input.certificates,
     supersededBy: input.supersededBy,
+    ...(input.outdated ? { outdated: true } : {}),
+    ...(joint?.verdict === 'pointJoint' ? { loadSplitNotEstablished: true } : {}),
   });
 
   const openConflicts = docAssemblies
     .flatMap((a) => openConflictsOf(a, input.attempted));
+  const openIssues: OpenIssue[] = docAssemblies.flatMap((a) => (a.source.unsupported ?? []).map((u) => ({
+    assemblyId: a.id, key: u.key, elementIds: [...(u.scope.elementIds ?? [])], message: u.message,
+    ...(u.params ? { params: { ...u.params } } : {}),
+  })));
+  for (const m of joint?.pointJoints ?? []) {
+    openIssues.push({ assemblyId: held.get(m.elementId)!, key: m.reasonKey, elementIds: [m.elementId], message: 'slab joined to the columns at one node: the split of its load between beams and columns is not established', params: { ...m.params } });
+  }
 
   // Clause provenance travels on the bars themselves, so the document cites exactly the
   // rules the steel it contains was built under — not a list maintained alongside it that
@@ -537,6 +634,7 @@ export function buildDocumentModel(input: {
 
   return {
     seriesId: input.seriesId,
+    ...(input.sectionCuts?.length ? { sectionCuts: input.sectionCuts.map((c) => ({ ...c, elementIds: [...c.elementIds], at: { ...c.at } })) } : {}),
     revision: input.revision,
     readiness,
     supersededBy: input.supersededBy,
@@ -545,6 +643,8 @@ export function buildDocumentModel(input: {
     assemblies: docAssemblies,
     certificates: [...input.certificates],
     openConflicts,
+    openIssues,
+    ...(joint ? { slabColumnJoint: joint } : {}),
     // The family records' maturities count too. A footing whose punching is UNSUPPORTED must
     // not be able to raise the document's maturity above its own by being reported in a
     // section the roll-up does not read.
@@ -559,16 +659,21 @@ export function buildDocumentModel(input: {
     scope: [...(input.convergence?.scope ?? [])],
     outOfScope: [...(input.convergence?.outOfScope ?? [])],
     summary: msg(
-      readiness === 'REVIEW_DRAFT'
+      readiness === 'REVIEW_DRAFT' && joint?.verdict === 'pointJoint'
+        ? 'detailing.document.slabColumnPointJoint'
+        : readiness === 'REVIEW_DRAFT'
         ? 'detailing.document.reviewDraft'
         : readiness === 'SUPERSEDED'
           ? 'detailing.document.superseded'
-          : 'detailing.document.current',
+          : readiness === 'OUTDATED'
+            ? 'detailing.document.outdated'
+            : 'detailing.document.current',
       {
         revision: input.revision.number,
         assemblies: docAssemblies.length,
         conflicts: openConflicts.length,
         superseded: input.supersededBy ?? 0,
+        pointJoints: joint?.pointJoints.length ?? 0,
       },
     ),
   };

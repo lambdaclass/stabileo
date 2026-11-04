@@ -26,9 +26,13 @@
  * the numbers they were produced against. Renumbering under them would silently attach every one
  * to a different member. A model that carries any is not renumbered; the answer is to renumber
  * before designing.
+ *
+ * A load that names a node, member or shell the model does not have (an older file, a paste) is
+ * refused too, by load: its number is no one's, and renumbered it landed on whatever took it — a
+ * deleted support's settlement on another support, a deleted member's tendon on another member.
  */
 
-import { modelStore } from '../../store/model.svelte';
+import { modelStore, LOAD_TARGET, type Load } from '../../store/model.svelte';
 
 export type AxisOrder = 'zyx' | 'zxy' | 'xyz' | 'yxz';
 export interface RenumberOptions {
@@ -43,7 +47,8 @@ export interface RenumberOptions {
 export type RenumberResult =
   | { nodes: number; members: number; shells: number; changedNodes: number; changedMembers: number; changedShells: number }
   | { refused: 'hasDesignDocuments'; fields: string[] }
-  | { refused: 'collision'; kind: 'nodes' | 'members' | 'plates' | 'quads'; ids: number[] };
+  | { refused: 'collision'; kind: 'nodes' | 'members' | 'plates' | 'quads'; ids: number[] }
+  | { refused: 'orphanLoads'; ids: number[] };
 
 const DERIVED = ['detailing', 'exports', 'manualEdits', 'jointDesigns', 'revisions'] as const;
 
@@ -92,11 +97,26 @@ function positionalMap(
   return map;
 }
 
+/** The loads, by id, on a node, member or shell of a kind being renumbered that the model does not have. */
+function orphanLoads(loads: Load[], opts: RenumberOptions): number[] {
+  const has = (family: 'nodes' | 'elements' | 'plates' | 'quads', id: number) => modelStore.model[family].has(id);
+  return loads.filter((l) => {
+    const d = l.data as { nodeId?: number; elementId?: number; quadId?: number; on?: string };
+    switch (LOAD_TARGET[l.type]) {
+      case 'node': return opts.nodes && !has('nodes', d.nodeId!);
+      case 'member': return opts.members && !has('elements', d.elementId!);
+      case 'shell': return !!opts.shells && !has(d.on === 'plate' ? 'plates' : 'quads', d.quadId!);
+    }
+  }).map((l) => l.data.id);
+}
+
 export function renumber(opts: RenumberOptions): RenumberResult {
   const fields = designDocumentFields();
   if (fields.length > 0) return { refused: 'hasDesignDocuments', fields };
   const tol = opts.tol ?? 1e-3;
   const snap = JSON.parse(JSON.stringify(modelStore.snapshot())) as Record<string, any>;
+  const orphans = orphanLoads(snap.loads ?? [], opts);
+  if (orphans.length > 0) return { refused: 'orphanLoads', ids: orphans };
 
   const nodes = new Map<number, P>(snap.nodes);
   let nodeMap = new Map<number, number>([...nodes.keys()].map((id) => [id, id]));
@@ -175,7 +195,8 @@ export function renumber(opts: RenumberOptions): RenumberResult {
     },
   }]);
   // What the project keeps beside the model and names by id: the self-weight rule's member list,
-  // a deflection rule on chosen members, what a saved view hides, a time-history force on a node.
+  // a deflection rule on chosen members, what a saved view hides, a time-history force or a point
+  // mass on a node.
   // Left alone, each kept its old numbers and so moved to whatever member, shell or node took them.
   if (snap.analysis?.selfWeight) snap.analysis = {
     ...snap.analysis,
@@ -189,6 +210,7 @@ export function renumber(opts: RenumberOptions): RenumberResult {
   if (snap.views) snap.views = snap.views.map((v: any) => (v.display?.hidden ? {
     ...v, display: { ...v.display, hidden: { ...v.display.hidden, elements: (v.display.hidden.elements ?? []).map(re), shells: (v.display.hidden.shells ?? []).map(rShell) } },
   } : v));
+  if (snap.massSource?.points) snap.massSource = { ...snap.massSource, points: snap.massSource.points.map((p: any) => ({ ...p, nodeId: rn(p.nodeId) })) };
   const th = snap.dynamics?.timeHistory;
   if (th?.forces) snap.dynamics = { ...snap.dynamics, timeHistory: { ...th, forces: th.forces.map((f: any) => ({ ...f, nodeId: rn(f.nodeId) })) } };
   // Counters stay ahead of every id in use.

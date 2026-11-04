@@ -21,6 +21,7 @@
  */
 
 import { describe, it, expect, afterAll } from 'vitest';
+import ts from 'typescript';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { readdirSync, readFileSync, rmSync, existsSync } from 'node:fs';
@@ -83,6 +84,17 @@ describe('E2E hook build-time gating', () => {
     await build(OUT_ON, { VITE_E2E: '1' });
     const js = bundleText(OUT_ON);
     expect(js.length).toBeGreaterThan(10_000);
+    const assets = resolve(WEB_ROOT, OUT_ON, 'assets');
+    const entry = readdirSync(assets).filter(f => f.endsWith('.js')).map(f => readFileSync(resolve(assets, f), 'utf8')).find(text => text.includes('stabileo-app-ready'))!;
+    const ast = ts.createSourceFile('entry.js', entry, ts.ScriptTarget.Latest, true, ts.ScriptKind.JS);
+    function checkTopLevel(node: ts.Node) {
+      if (ts.isFunctionLike(node)) return;
+      expect(ts.isAwaitExpression(node), 'entry must finish evaluating before lazy chunks that import it').toBe(false);
+      ts.forEachChild(node, checkTopLevel);
+    }
+    checkTopLevel(ast);
+    // Vite must not rewrite the named loader namespace into a default-only import.
+    expect(entry).not.toMatch(/const\{default:\w+\}=await import\("\.\/load-app-/);
     for (const marker of HOOK_MARKERS) {
       expect(js.includes(marker), `e2e bundle must contain "${marker}"`).toBe(true);
     }

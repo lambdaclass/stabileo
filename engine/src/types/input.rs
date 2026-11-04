@@ -27,7 +27,9 @@ pub struct SolverSection {
     pub a: f64,  // m²
     pub iz: f64, // m⁴
     #[serde(default)]
-    pub as_y: Option<f64>,  // m², shear area for Timoshenko beam (enables shear deformation)
+    /// m², 2D shear area for the in-plane transverse shear (local y), paired with
+    /// `iz`: φ = 12·E·Iz/(G·as_y·L²). Note the 3D `as_y` pairs with `iy` instead.
+    pub as_y: Option<f64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -106,12 +108,86 @@ pub struct SolverPointLoadOnElement {
     pub my: Option<f64>,
 }
 
+/// A load along a plane member's axis, linear from `q_i` at `a` to `q_j` at `b` (kN/m,
+/// positive toward J). The part of a load in global axes, or at an angle, that runs along an
+/// inclined member: as equivalent loads at the end nodes the displacements come out right but
+/// the member sees no span load, so N is constant, the average of its true end values. The
+/// space solve carries it in `SolverDistributedLoad3D::q_xi`/`q_xj`; the plane load is its own
+/// variant so the many transverse-only literals stay as they are.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SolverAxialDistributedLoad {
+    pub element_id: usize,
+    #[serde(rename = "qI")]
+    pub q_i: f64,
+    #[serde(rename = "qJ")]
+    pub q_j: f64,
+    #[serde(default)]
+    pub a: Option<f64>,
+    #[serde(default)]
+    pub b: Option<f64>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SolverThermalLoad {
     pub element_id: usize,
     pub dt_uniform: f64,
     pub dt_gradient: f64,
+    /// The member material's coefficient of thermal expansion, 1/°C. Omitted: the engine's
+    /// default [`DEFAULT_FRAME_THERMAL_ALPHA`] (steel's 12·10⁻⁶), and the result says so
+    /// (`known_issues::FR-4`). Concrete is about 10·10⁻⁶, aluminium 23·10⁻⁶.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub alpha: Option<f64>,
+    /// The section's real depth across which `dt_gradient` acts (along local y, the depth
+    /// bent with `iz`). Omitted: the depth of the section's equivalent solid rectangle,
+    /// √(12·Iz/A), which is exact only for a solid rectangle, and the result says so.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub depth: Option<f64>,
+}
+
+/// The coefficient of thermal expansion a frame or truss thermal load is solved with when it
+/// states none (1/°C): steel's. Kept so that a load without `alpha` gives today's result.
+pub const DEFAULT_FRAME_THERMAL_ALPHA: f64 = 12e-6;
+
+/// The depth of a section's equivalent solid rectangle, √(12·I/A), the depth a thermal
+/// gradient acts across when the load states none. 0.1 when the section has no area (as
+/// before: such a member carries no stiffness to load anyway).
+pub fn equivalent_rectangle_depth(a: f64, i: f64) -> f64 {
+    if a > 1e-15 { (12.0 * i / a).sqrt() } else { 0.1 }
+}
+
+/// Rejects a stated α or depth no member can have: α must be finite, ≥ 0 and below 10⁻³ /°C
+/// (every structural material is below 3·10⁻⁴; a larger value is a unit slip, such as 12 for
+/// 12·10⁻⁶), and a depth finite and positive.
+pub fn check_frame_thermal_inputs(element_id: usize, alpha: Option<f64>, depths: &[(&str, Option<f64>)]) -> Result<(), String> {
+    if let Some(a) = alpha {
+        if !(a.is_finite() && (0.0..1e-3).contains(&a)) {
+            return Err(format!(
+                "Thermal load on element {element_id}: alpha = {a} is not a coefficient of thermal expansion in 1/°C (expected 0 <= alpha < 1e-3, e.g. 1.2e-5 for steel)"
+            ));
+        }
+    }
+    for (name, d) in depths {
+        if let Some(h) = d {
+            if !(h.is_finite() && *h > 0.0) {
+                return Err(format!("Thermal load on element {element_id}: {name} = {h} must be a positive, finite section depth"));
+            }
+        }
+    }
+    Ok(())
+}
+
+impl SolverThermalLoad {
+    /// α the load is solved with: its own, else [`DEFAULT_FRAME_THERMAL_ALPHA`].
+    pub fn alpha(&self) -> f64 {
+        self.alpha.unwrap_or(DEFAULT_FRAME_THERMAL_ALPHA)
+    }
+    /// The depth the gradient acts across: the load's own, else √(12·Iz/A) of the section
+    /// it is applied to.
+    pub fn depth(&self, a: f64, iz: f64) -> f64 {
+        self.depth.unwrap_or_else(|| equivalent_rectangle_depth(a, iz))
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -125,6 +201,8 @@ pub enum SolverLoad {
     PointOnElement(SolverPointLoadOnElement),
     #[serde(rename = "thermal")]
     Thermal(SolverThermalLoad),
+    #[serde(rename = "axialDistributed")]
+    AxialDistributed(SolverAxialDistributedLoad),
 }
 
 /// Optional linear-solver configuration.
@@ -146,10 +224,10 @@ pub struct SolverOptions {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct SolverInput {
+pub struct SolverInput<M = SolverMaterial, S = SolverSection> {
     pub nodes: HashMap<String, SolverNode>,
-    pub materials: HashMap<String, SolverMaterial>,
-    pub sections: HashMap<String, SolverSection>,
+    pub materials: HashMap<String, M>,
+    pub sections: HashMap<String, S>,
     pub elements: HashMap<String, SolverElement>,
     pub supports: HashMap<String, SolverSupport>,
     pub loads: Vec<SolverLoad>,
@@ -159,6 +237,62 @@ pub struct SolverInput {
     pub connectors: HashMap<String, ConnectorElement>,
     #[serde(default)]
     pub solver_options: Option<SolverOptions>,
+    /// Mass beyond the material densities: lumped masses at nodes and added
+    /// mass along members. Used by every dynamic analysis (modal, spectral,
+    /// time history, harmonic, reduction) and never as a static load.
+    #[serde(default, skip_serializing_if = "MassInput::is_empty")]
+    pub masses: MassInput,
+}
+
+/// Mass beyond the material densities (2D). Units: t (= kN·s²/m) for mass,
+/// t/m for mass per length, t·m² for rotary inertia.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct MassInput {
+    #[serde(default)]
+    pub nodal: Vec<NodalMass>,
+    #[serde(default)]
+    pub line: Vec<LineMass>,
+}
+
+impl MassInput {
+    pub fn is_empty(&self) -> bool { self.nodal.is_empty() && self.line.is_empty() }
+}
+
+/// A lumped mass at a 2D node: translational mass (t) in X and Z, and rotary
+/// inertia (t·m²) about the out-of-plane axis.
+///
+/// `mass` applies to both translations; `massX`/`massZ` replace it in their
+/// direction when given (a mass that moves with the floor horizontally but
+/// not vertically, say).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct NodalMass {
+    pub node_id: usize,
+    #[serde(default)]
+    pub mass: f64,
+    #[serde(default)]
+    pub mass_x: Option<f64>,
+    #[serde(default, rename = "massZ", alias = "massY")]
+    pub mass_z: Option<f64>,
+    /// Rotary inertia about the out-of-plane axis, t·m².
+    #[serde(default, rename = "iy", alias = "iz")]
+    pub rotary_inertia: f64,
+}
+
+impl NodalMass {
+    pub fn mx(&self) -> f64 { self.mass_x.unwrap_or(self.mass) }
+    pub fn mz(&self) -> f64 { self.mass_z.unwrap_or(self.mass) }
+}
+
+/// Mass added along a member, t/m, distributed as the member's own mass is
+/// (its consistent mass matrix, as if its density were raised by
+/// `massPerLength / A`).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct LineMass {
+    pub element_id: usize,
+    pub mass_per_length: f64,
 }
 
 // ==================== 3D Input Types ====================
@@ -185,9 +319,21 @@ pub struct SolverSection3D {
     #[serde(default)]
     pub cw: Option<f64>,
     #[serde(default)]
-    pub as_y: Option<f64>,  // m², shear area for Y-bending (Timoshenko)
+    /// m², shear area paired with `iy` (bending about local y, so shear along
+    /// local z): φy = 12·E·Iy/(G·as_y·L²). Not the area for a force along y.
+    pub as_y: Option<f64>,
     #[serde(default)]
-    pub as_z: Option<f64>,  // m², shear area for Z-bending (Timoshenko)
+    /// m², shear area paired with `iz` (bending about local z, shear along local y).
+    pub as_z: Option<f64>,
+    /// Shear-centre coordinate along local y, measured from the centroid (m).
+    /// Only the geometric stiffness reads it (flexural-torsional buckling of
+    /// monosymmetric and asymmetric sections, e.g. channels, tees, angles).
+    /// `None` = 0 (doubly symmetric, or point-symmetric like a Z or cruciform).
+    #[serde(default)]
+    pub shear_center_y: Option<f64>,
+    /// Shear-centre coordinate along local z, measured from the centroid (m).
+    #[serde(default)]
+    pub shear_center_z: Option<f64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -328,6 +474,33 @@ pub struct SolverThermalLoad3D {
     pub dt_uniform: f64,
     pub dt_gradient_y: f64,
     pub dt_gradient_z: f64,
+    /// The member material's coefficient of thermal expansion, 1/°C. Omitted:
+    /// [`DEFAULT_FRAME_THERMAL_ALPHA`], and the result says so (`known_issues::FR-4`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub alpha: Option<f64>,
+    /// The section's real depth along local y, across which `dt_gradient_y` acts (bent with
+    /// `iz`). Omitted: √(12·Iz/A), and the result says so.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub depth_y: Option<f64>,
+    /// The section's real depth along local z, across which `dt_gradient_z` acts (bent with
+    /// `iy`). Omitted: √(12·Iy/A), and the result says so.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub depth_z: Option<f64>,
+}
+
+impl SolverThermalLoad3D {
+    /// α the load is solved with: its own, else [`DEFAULT_FRAME_THERMAL_ALPHA`].
+    pub fn alpha(&self) -> f64 {
+        self.alpha.unwrap_or(DEFAULT_FRAME_THERMAL_ALPHA)
+    }
+    /// The depth along local y the y gradient acts across: the load's own, else √(12·Iz/A).
+    pub fn depth_y(&self, a: f64, iz: f64) -> f64 {
+        self.depth_y.unwrap_or_else(|| equivalent_rectangle_depth(a, iz))
+    }
+    /// The depth along local z the z gradient acts across: the load's own, else √(12·Iy/A).
+    pub fn depth_z(&self, a: f64, iy: f64) -> f64 {
+        self.depth_z.unwrap_or_else(|| equivalent_rectangle_depth(a, iy))
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -457,7 +630,78 @@ pub struct SolverInput3D {
     pub connectors: HashMap<String, ConnectorElement>,
     #[serde(default)]
     pub solver_options: Option<SolverOptions>,
+    /// Mass beyond the material densities: lumped masses at nodes, added mass
+    /// along members and over shells. Used by every dynamic analysis and never
+    /// as a static load.
+    #[serde(default, skip_serializing_if = "MassInput3D::is_empty")]
+    pub masses: MassInput3D,
 }
+
+/// Mass beyond the material densities (3D). Units: t (= kN·s²/m) for mass,
+/// t/m for mass per length, t/m² for mass per area, t·m² for rotary inertia.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct MassInput3D {
+    #[serde(default)]
+    pub nodal: Vec<NodalMass3D>,
+    #[serde(default)]
+    pub line: Vec<LineMass>,
+    #[serde(default)]
+    pub area: Vec<AreaMass>,
+}
+
+impl MassInput3D {
+    pub fn is_empty(&self) -> bool { self.nodal.is_empty() && self.line.is_empty() && self.area.is_empty() }
+}
+
+/// A lumped mass at a 3D node: translational mass (t) and rotary inertia
+/// (t·m²) about the global axes.
+///
+/// `mass` applies to all three translations; `massX`/`massY`/`massZ` replace
+/// it in their direction when given (a storey mass that is horizontal only:
+/// `mass` 0 with `massX` and `massY`, or `mass` with `massZ: 0`).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct NodalMass3D {
+    pub node_id: usize,
+    #[serde(default)]
+    pub mass: f64,
+    #[serde(default)]
+    pub mass_x: Option<f64>,
+    #[serde(default)]
+    pub mass_y: Option<f64>,
+    #[serde(default)]
+    pub mass_z: Option<f64>,
+    /// Rotary inertia about global X, Y, Z, t·m². A floor's mass moment of
+    /// inertia about the vertical axis goes in `izz` of its master node.
+    #[serde(default)]
+    pub ixx: f64,
+    #[serde(default)]
+    pub iyy: f64,
+    #[serde(default)]
+    pub izz: f64,
+}
+
+impl NodalMass3D {
+    pub fn translational(&self) -> [f64; 3] {
+        [self.mass_x.unwrap_or(self.mass), self.mass_y.unwrap_or(self.mass), self.mass_z.unwrap_or(self.mass)]
+    }
+}
+
+/// Mass added over a shell (plate, quad, quad9 or curved shell), t/m²,
+/// distributed as the shell's own mass is (its consistent mass matrix, as if
+/// its density were raised by `massPerArea / thickness`).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct AreaMass {
+    pub element_id: usize,
+    /// Which family the id names: "quad" (default), "plate", "quad9" or "curvedShell".
+    #[serde(default = "default_area_mass_kind")]
+    pub kind: String,
+    pub mass_per_area: f64,
+}
+
+fn default_area_mass_kind() -> String { "quad".into() }
 
 // ==================== Plate / Curved Beam Input Types ====================
 
@@ -676,6 +920,18 @@ pub struct ModalInput3D {
     pub densities: HashMap<String, f64>,
 }
 
+/// Cable analysis input: the model, the material densities (material id → kg/m³) that give the
+/// cables their weight, and an optional pretension per cable (element id → kN, #527).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CableInput<S> {
+    pub solver: S,
+    #[serde(default)]
+    pub densities: HashMap<String, f64>,
+    #[serde(default)]
+    pub pretension: HashMap<String, f64>,
+}
+
 /// Plastic analysis input.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -871,12 +1127,12 @@ pub struct NotionalLoadDef {
     /// Direction: 0=X, 1=Y, 2=Z
     #[serde(default)]
     pub direction: usize,
-    /// Gravity axis: 0=X, 1=Z (2D), 0=X, 1=Y, 2=Z (3D). Default 1 = vertical in 2D (Z).
-    #[serde(default = "default_gravity_axis")]
-    pub gravity_axis: usize,
+    /// Gravity axis: 0=X, 1=Z (2D), 0=X, 1=Y, 2=Z (3D). Absent: the vertical axis of the
+    /// model, Z (1 in 2D, 2 in 3D). It defaulted to 1 for both, which is Y in a Z-up 3D
+    /// model: a default 3D definition found no gravity and added nothing (NL-9).
+    #[serde(default)]
+    pub gravity_axis: Option<usize>,
 }
-
-fn default_gravity_axis() -> usize { 1 }
 
 /// Residual stress pattern for fiber sections.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1082,6 +1338,11 @@ pub struct StagedInput3D {
     pub stages: Vec<ConstructionStage3D>,
     #[serde(default)]
     pub constraints: Vec<Constraint>,
+    /// Model-wide left-handed member axes, as on `SolverInput3D`. Without the
+    /// field serde dropped the app's `leftHand` and a left-handed model was
+    /// staged with right-handed member axes.
+    #[serde(default)]
+    pub left_hand: Option<bool>,
     /*
      * Shells. These had no field here at all, and the caller sends them:
      * `input3DToWireObject` emits `plates` and `quads` for every 3D payload,
@@ -1174,7 +1435,8 @@ pub enum Constraint {
     /// Rigid link: slave follows master with rigid-body kinematics.
     #[serde(rename = "rigidLink")]
     RigidLink(RigidLinkConstraint),
-    /// Diaphragm: in-plane rigidity coupling translational DOFs.
+    /// Diaphragm: in-plane rigid body — slaves follow the master's in-plane
+    /// translations and rotation, and their own in-plane rotation equals the master's.
     #[serde(rename = "diaphragm")]
     Diaphragm(DiaphragmConstraint),
     /// General linear MPC: Σ(coeff_i × u_i) = 0
@@ -1194,7 +1456,13 @@ pub enum Constraint {
 pub struct RigidLinkConstraint {
     pub master_node: usize,
     pub slave_node: usize,
-    /// DOFs to constrain on slave: 0=ux,1=uz (2D); 0..5 (3D). Empty = all translational.
+    /// DOFs to constrain on slave: 0=ux, 1=uz, 2=θ (2D); 0..5 (3D).
+    ///
+    /// Empty means different links in the two dimensions (docs/solver/assembly-constraints.md,
+    /// AC-3): in 3D (ux, uy, uz), all translations with the slave's rotation free (a pinned
+    /// arm); in 2D (ux, uz, θ), the rotation tied too (a fixed arm). List the DOFs to say which
+    /// link is meant: 2D [0, 1] is the 3D default, 3D [0..6] the 2D one. The web app lists them
+    /// when it sends a stored link to the 2D solver (`constraint-2d-remap.ts`).
     #[serde(default)]
     pub dofs: Vec<usize>,
 }
@@ -1205,7 +1473,14 @@ pub struct RigidLinkConstraint {
 pub struct DiaphragmConstraint {
     pub master_node: usize,
     pub slave_nodes: Vec<usize>,
-    /// Plane: "XY" (default), "XZ", or "YZ"
+    /// Plane: "XY" (default), "XZ", or "YZ".
+    ///
+    /// In 3D (Z up) the plane is the diaphragm's own: "XY" is a horizontal floor, rigid in X–Y
+    /// and free to bend vertically. A 2D model is the X–Z plane; there only "XY" (the default)
+    /// is accepted, and it means the in-plane rigid body of the model plane (u_x, u_z tied to θ;
+    /// other names are refused) (docs/solver/assembly-constraints.md, AC-5). So a 3D floor diaphragm is NOT
+    /// the 2D "XY" one: its trace on a plane frame is an equal u_x (an `equalDOF` on DOF 0),
+    /// which is what the web app sends to the 2D solver (`constraint-2d-remap.ts`).
     #[serde(default = "default_diaphragm_plane")]
     pub plane: String,
 }

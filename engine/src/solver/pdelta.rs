@@ -678,10 +678,10 @@ mod tests {
         let mut materials = HashMap::new();
         materials.insert("1".into(), SolverMaterial { id: 1, e: 200_000.0, nu: 0.3 });
         let mut sections = HashMap::new();
-        sections.insert("1".into(), SolverSection3D { id: 1, name: None, a: 0.012, iy: 1.5e-4, iz: 1.5e-4, j: 2.0e-6, cw: None, as_y: None, as_z: None });
-        sections.insert("2".into(), SolverSection3D { id: 2, name: None, a: 0.008, iy: 2.5e-4, iz: 1.0e-5, j: 1.0e-6, cw: None, as_y: None, as_z: None });
+        sections.insert("1".into(), SolverSection3D { id: 1, name: None, a: 0.012, iy: 1.5e-4, iz: 1.5e-4, j: 2.0e-6, cw: None, as_y: None, as_z: None, shear_center_y: None, shear_center_z: None });
+        sections.insert("2".into(), SolverSection3D { id: 2, name: None, a: 0.008, iy: 2.5e-4, iz: 1.0e-5, j: 1.0e-6, cw: None, as_y: None, as_z: None, shear_center_y: None, shear_center_z: None });
         SolverInput3D {
-            solver_options: None,
+            solver_options: None, masses: Default::default(),
             nodes, materials, sections, elements, supports, loads, constraints, left_hand: None,
             plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(),
             solid_shells: HashMap::new(), curved_shells: HashMap::new(), curved_beams: vec![], connectors: HashMap::new(),
@@ -829,11 +829,11 @@ mod tests {
         let mut input = building(1, 1, false);
         input.nodes = (0..=4).map(|k| ((k + 1).to_string(), SolverNode3D { id: k + 1, x: 0.0, y: 0.0, z: k as f64 })).collect();
         input.elements = (1..=4).map(|k| {
-            let mut e = input.elements.values().next().unwrap().clone();
+            let mut e = crate::ordered::values(&input.elements).next().unwrap().clone();
             e.id = k; e.node_i = k; e.node_j = k + 1; e.section_id = 1;
             (k.to_string(), e)
         }).collect();
-        let fixed = input.supports.values().next().unwrap().clone();
+        let fixed = crate::ordered::values(&input.supports).next().unwrap().clone();
         input.supports = HashMap::from([("1".into(), SolverSupport3D { node_id: 1, ..fixed })]);
         input.loads = vec![SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: 5, fx: 0.5, fy: 0.0, fz: -p, mx: 0.0, my: 0.0, mz: 0.0, bw: None })];
         input

@@ -16,6 +16,8 @@ export interface MaterialPreset {
   nu: number;
   rho: number;  // kN/m³
   fy?: number;  // MPa
+  /** A concrete's f'c, MPa: the same value as `fy`, stated as what it is. */
+  fc?: number;
   /**
    * The product standard the values come from, for the metal grades.
    *
@@ -147,6 +149,7 @@ export function getMaterialPresets(): MaterialPreset[] {
       // `fy` is the generic strength field the panels read; for concrete the
       // meaningful strength is fck, so that is what goes in it.
       fy: c.fck,
+      fc: c.fck,
       standard: c.code,
       gradeId: c.id,
       region: c.region as GradeRegion,

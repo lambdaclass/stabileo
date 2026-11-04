@@ -5,18 +5,14 @@
 // values, so a one-sided sign/axis-pairing flip could pass both. This test and
 // the Rust test (engine/tests/.../stress_3d.rs::validation_stress_3d_parity_fixture)
 // assert the SAME fixture, so the two engines cannot silently drift.
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
-// Force the TS fallback path (the Rust side is covered by the Rust test).
-vi.mock('../wasm-solver', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../wasm-solver')>();
-  return { ...actual, isWasmReady: () => false };
-});
-
-import { analyzeSectionStressFromForces } from '../section-stress-3d';
+// The TypeScript oracle (the Rust side is covered by the Rust test, and the app runs only the
+// engine; `section-stress-engine.test.ts` holds the two to each other).
+import { analyzeSectionStressFromForcesOracle as analyzeSectionStressFromForces } from './differential/section-stress-oracle';
 import type { Section } from '../../store/model.svelte';
 
 const here = dirname(fileURLToPath(import.meta.url));

@@ -11,6 +11,7 @@ export type MemberLabel = 'id' | 'name' | 'section' | 'material';
 export const MEMBER_LABELS: readonly MemberLabel[] = ['id', 'name', 'section', 'material'];
 
 import { modelStore } from './model.svelte';
+import { viewCategories, type ViewCategory } from './view-categories.svelte';
 
 let memberLabel = $state<MemberLabel>('id');
 /** The saved view drawn in the corner window, or null for none. */
@@ -27,6 +28,13 @@ let showMemberEnds = $state(false);
 let quickInfo = $state(false);
 /** A drag on empty space draws a lasso instead of a rectangle. */
 let lasso = $state(false);
+/**
+ * The slabs' and walls' mesh: drawn, drawn as members (`viewport3d/shell-members.ts`), or as the
+ * model's size and results say ('auto': members above 2000 shells until there are results).
+ */
+let shellMesh = $state<'auto' | 'show' | 'hide'>('auto');
+/** The view split in two: the main view, and the plan of the working level or the model in 3D beside it. */
+let split = $state(false);
 
 export const viewState = {
   get memberLabel() { return memberLabel; },
@@ -45,6 +53,10 @@ export const viewState = {
   set showMemberEnds(v: boolean) { showMemberEnds = v; },
   get labelsOnSelection() { return labelsOnSelection; },
   set labelsOnSelection(v: boolean) { labelsOnSelection = v; },
+  get shellMesh() { return shellMesh; },
+  set shellMesh(v: 'auto' | 'show' | 'hide') { shellMesh = v; },
+  get split() { return split; },
+  set split(v: boolean) { split = v; },
   get zoomWindowArmed() { return zoomWindowArmed; },
   set zoomWindowArmed(v: boolean) { zoomWindowArmed = v; },
 };
@@ -167,7 +179,9 @@ export function isLoadHidden(d: { nodeId?: number; elementId?: number; quadId?: 
 
 /** A model map without what is hidden; the map itself when nothing is. Cached per map and change. */
 const cache = new WeakMap<object, { version: number; out: Map<number, any> }>();
-function visible<T>(src: Map<number, T>, isHidden: (id: number) => boolean): Map<number, T> {
+const none = new Map<number, never>();
+function visible<T>(src: Map<number, T>, category: ViewCategory, isHidden: (id: number) => boolean): Map<number, T> {
+  if (viewCategories.isHidden(category)) return none;
   if (!hidden) return src;
   const c = cache.get(src);
   if (c && c.version === hiddenVersion) return c.out as Map<number, T>;
@@ -175,12 +189,12 @@ function visible<T>(src: Map<number, T>, isHidden: (id: number) => boolean): Map
   cache.set(src, { version: hiddenVersion, out });
   return out;
 }
-export const visibleElements = () => visible(modelStore.elements, (id) => viewVisibility.isElementHidden(id));
-export const visibleNodes = () => visible(modelStore.nodes, (id) => viewVisibility.isNodeHidden(id));
-export const visiblePlates = () => visible(modelStore.plates, (id) => viewVisibility.isShellHidden(`p${id}`));
-export const visibleQuads = () => visible(modelStore.quads, (id) => viewVisibility.isShellHidden(`q${id}`));
+export const visibleElements = () => visible(modelStore.elements, 'members', (id) => viewVisibility.isElementHidden(id));
+export const visibleNodes = () => visible(modelStore.nodes, 'nodes', (id) => viewVisibility.isNodeHidden(id));
+export const visiblePlates = () => visible(modelStore.plates, 'shells', (id) => viewVisibility.isShellHidden(`p${id}`));
+export const visibleQuads = () => visible(modelStore.quads, 'shells', (id) => viewVisibility.isShellHidden(`q${id}`));
 /** Supports whose node is shown. */
-export const visibleSupports = () => visible(modelStore.supports, (id) => {
+export const visibleSupports = () => visible(modelStore.supports, 'supports', (id) => {
   const s = modelStore.supports.get(id);
   return !!s && viewVisibility.isNodeHidden(s.nodeId);
 });
@@ -193,6 +207,6 @@ export function visibleModel() {
   return {
     nodes: visibleNodes(), elements: visibleElements(), plates: visiblePlates(), quads: visibleQuads(),
     supports: visibleSupports(),
-    loads: hidden ? modelStore.loads.filter((l) => !isLoadHidden(l.data as never)) : modelStore.loads,
+    loads: viewCategories.isHidden('loads') ? [] : hidden ? modelStore.loads.filter((l) => !isLoadHidden(l.data as never)) : modelStore.loads,
   };
 }

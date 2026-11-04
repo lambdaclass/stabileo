@@ -15,9 +15,23 @@
  *   3D dofs 1/3/5 (uy/rx/rz)         out-of-plane — dropped (the 2D solve
  *                                    restrains those implicitly)
  *
- * Constraints left without any in-plane DOF are dropped entirely. Diaphragms
- * pass through verbatim: the Rust transform is dimension-aware for them
- * (constraints.rs picks [ux, uz, ry] when dofs_per_node <= 3).
+ * Constraints left without any in-plane DOF are dropped entirely.
+ *
+ * The plane model is the X–Z plane of the 3D one, and its rotation θ is counter-clockwise from
+ * +X to +Z, a rotation about −Y: θ = −ry (docs/solver/assembly-constraints.md §2.3). An equation
+ * that mixes ry with anything else (a linear MPC) changes the sign of its ry coefficient; an
+ * equality of rotations does not care.
+ *
+ * Two constraints meant one thing in a space solve and another in the plane one (AC-3, AC-5):
+ *   · A rigid link with no DOFs listed is "all translational" in 3D (the slave's rotation stays
+ *     free, a pinned arm), but the plane solver's default ties the rotation (a fixed arm). It is
+ *     sent with its translations listed, [ux, uz], so both solves model the same link.
+ *   · A diaphragm is a rigid body in ITS plane. The plane solver's diaphragm is always the
+ *     in-plane rigid body of the model plane, so a floor ("XY", horizontal) diaphragm made the
+ *     beams it ties rigid in vertical bending. Its trace on the X–Z plane is sent instead:
+ *       XY (a floor)            → ux_s = ux_m            (θz and Δy are out of the plane)
+ *       YZ (a wall across)      → uz_s = uz_m            (θx and Δy are out of the plane)
+ *       XZ (the model's plane)  → the rigid body, rotation tied (as the space solve ties it)
  */
 
 import type { Constraint3D } from './types-3d';
@@ -42,9 +56,11 @@ export function constraintsTo2D(constraints: Constraint3D[] | undefined): Constr
   for (const c of constraints) {
     switch (c.type) {
       case 'rigidLink': {
-        // Empty dofs = solver default (all in-plane DOFs) — keep empty.
+        // No DOFs listed: all translational, as the space solve reads it; listed for the plane
+        // solver, whose own default would tie the rotation as well.
+        if (!c.dofs || c.dofs.length === 0) { out.push({ ...c, dofs: [0, 1] }); break; }
         const dofs = mapDofs(c.dofs);
-        if (c.dofs && c.dofs.length > 0 && (!dofs || dofs.length === 0)) break; // only out-of-plane DOFs
+        if (!dofs || dofs.length === 0) break; // only out-of-plane DOFs
         out.push({ ...c, dofs });
         break;
       }
@@ -57,7 +73,8 @@ export function constraintsTo2D(constraints: Constraint3D[] | undefined): Constr
       case 'linearMPC': {
         // An equation involving an out-of-plane DOF has no 2D meaning — drop whole.
         if (c.terms.some(t => DOF_3D_TO_2D[t.dof] === undefined)) break;
-        out.push({ ...c, terms: c.terms.map(t => ({ ...t, dof: DOF_3D_TO_2D[t.dof] })) });
+        // θ = −ry: an ry term keeps its meaning with its coefficient negated.
+        out.push({ ...c, terms: c.terms.map(t => ({ ...t, dof: DOF_3D_TO_2D[t.dof], coefficient: t.dof === 4 ? -t.coefficient : t.coefficient })) });
         break;
       }
       case 'eccentricConnection': {
@@ -77,11 +94,19 @@ export function constraintsTo2D(constraints: Constraint3D[] | undefined): Constr
         });
         break;
       }
-      case 'diaphragm':
-        // The Rust transform handles diaphragms dimension-awarely (2D picks
-        // ux/uz/ry itself) — no user-authored DOF indices to translate.
-        out.push(c);
+      case 'diaphragm': {
+        // Its trace on the model plane (see the header): per slave, an equal DOF or a rigid link.
+        const plane = (c.plane ?? 'XY').toUpperCase();
+        for (const s of c.slaveNodes) {
+          if (s === c.masterNode) continue;
+          if (plane === 'XZ') out.push({ type: 'rigidLink', masterNode: c.masterNode, slaveNode: s, dofs: [0, 1, 2] });
+          else if (plane === 'YZ') out.push({ type: 'equalDOF', masterNode: c.masterNode, slaveNode: s, dofs: [1] });
+          else if (plane === 'XY') out.push({ type: 'equalDOF', masterNode: c.masterNode, slaveNode: s, dofs: [0] });
+          // Any other name: sent as it is, for the solver to refuse.
+          else out.push({ ...c, slaveNodes: [s] });
+        }
         break;
+      }
     }
   }
   return out;

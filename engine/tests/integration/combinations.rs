@@ -55,7 +55,7 @@ fn simply_supported_beam() -> SolverInput {
 
     SolverInput {
         nodes, materials, sections, elements, supports,
-        loads: vec![], constraints: vec![], connectors: HashMap::new(), solver_options: None,
+        loads: vec![], constraints: vec![], connectors: HashMap::new(), solver_options: None, masses: Default::default(),
     }
 }
 
@@ -68,7 +68,7 @@ fn ef(element_id: usize, m_start: f64) -> ElementForces {
         length: 1.0,
         q_i: 0.0, q_j: 0.0,
         point_loads: Vec::new(),
-        distributed_loads: Vec::new(),
+        distributed_loads: Vec::new(), distributed_loads_x: Vec::new(),
         hinge_start: false, hinge_end: false,
     }
 }

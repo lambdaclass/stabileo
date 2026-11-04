@@ -104,6 +104,11 @@ describe('next-failing navigation', () => {
     expect(nextFailingId(rows, 2)).toBe(3);
     expect(nextFailingId(rows, 3)).toBe(2);      // wraps back
   });
+  it('goes back the other way too, wrapping', () => {
+    expect(nextFailingId(rows, null, -1)).toBe(3);
+    expect(nextFailingId(rows, 3, -1)).toBe(2);
+    expect(nextFailingId(rows, 2, -1)).toBe(3);
+  });
   it('returns null when nothing needs attention', () => {
     expect(nextFailingId([row({ status: 'ok' })], null)).toBeNull();
   });

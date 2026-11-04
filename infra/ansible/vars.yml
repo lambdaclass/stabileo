@@ -1,0 +1,34 @@
+app_root: /srv/stabileo
+deploy_dir: "{{ app_root }}/live"
+releases_dir: "{{ app_root }}/releases"
+gcroots_dir: "{{ app_root }}/gcroots"
+incoming_dir: "{{ app_root }}/incoming"
+caddy_dir: "{{ app_root }}/caddy"
+max_releases: 3
+service_name: stabileo-backend
+backend_port: "{{ lookup('env', 'PORT') | default('4100', true) }}"
+nix_bin: /nix/var/nix/profiles/default/bin
+
+required_env:
+  - SECRET_KEY_BASE
+  - JWT_SECRET
+  - DATABASE_URL
+  - PHX_HOST
+  - API_URL
+  - ADMIN_FRONTEND_URL
+
+optional_env:
+  - PORT
+  - BIND_ADDRESS
+  - POOL_SIZE
+  - DATABASE_SSL
+  - TRUSTED_PROXIES
+  - CORS_ALLOWED_ORIGINS
+  - GOOGLE_CLIENT_ID
+  - GOOGLE_CLIENT_SECRET
+  - ADMIN_DOMAINS
+  - ACCESS_TOKEN_TTL
+  - REFRESH_TOKEN_TTL
+  - ADMIN_REFRESH_TOKEN_TTL
+  - DEPLOY_ENV
+  - GIT_COMMIT_SHA

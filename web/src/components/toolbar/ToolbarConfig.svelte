@@ -16,6 +16,7 @@
   import HelpTip from '../HelpTip.svelte';
   import UnitInput from '../UnitInput.svelte';
   import { toQ, unitQ } from '../../lib/store/display-units.svelte';
+  import { announceDesignOn, DESIGN_LIMITS } from '../../lib/store/design-presence';
 
   /*
    * The grid is kept in metres and shown in the chosen length unit. The xz
@@ -251,7 +252,7 @@
       <div class="sub-content" data-tour="cfg-model">
         <label class="checkbox-item">
           <HelpTip text={t('config.tip.nodeIds')}>
-          <input type="checkbox" checked={is3Dm ? uiStore.showNodeLabels3D : uiStore.showNodeLabels}
+          <input type="checkbox" data-testid="cfg-node-ids" checked={is3Dm ? uiStore.showNodeLabels3D : uiStore.showNodeLabels}
             onchange={(e) => { if (is3Dm) uiStore.showNodeLabels3D = e.currentTarget.checked; else uiStore.showNodeLabels = e.currentTarget.checked; }} />
           <span>{t('config.nodeIds')}</span>
           </HelpTip>
@@ -372,6 +373,7 @@
               <option value="wireframe">{t('config.wireframe')}</option>
               <option value="solid">{t('config.solid')}</option>
               <option value="sections">{t('config.sections')}</option>
+              <option value="physical">{t('config.physical')}</option>
             </select>
             </HelpTip>
           </div>
@@ -485,6 +487,45 @@
       </div>
     {/if}
 
+    <!--
+      ── The normative design, offered from PRO ──────────────────────
+      PRO's modelling and analysis stand on their own; the normative design (members,
+      reinforcement, detailing, drawings) is still being built. Off by default and remembered per
+      browser, as Basic's Educational; on, the Design stage and its desk appear. What a project
+      holds of design is kept either way.
+    -->
+    {#if uiStore.appMode === 'pro'}
+      <div class="input-group">
+        <label class="cfg-check">
+          <input
+            type="checkbox"
+            checked={uiStore.designInPro}
+            onchange={(e) => { uiStore.designInPro = e.currentTarget.checked; if (e.currentTarget.checked) announceDesignOn(); }}
+            data-testid="cfg-design-in-pro"
+          />
+          <span>{t('config.designInPro')}</span>
+        </label>
+        <p class="cfg-hint">{t('config.designInProHint')}</p>
+        <label class="cfg-check">
+          <input
+            type="checkbox"
+            checked={uiStore.inlineHelp}
+            onchange={(e) => { uiStore.inlineHelp = e.currentTarget.checked; }}
+            data-testid="cfg-inline-help"
+          />
+          <span>{t('config.inlineHelp')}</span>
+        </label>
+        <p class="cfg-hint">{t('config.inlineHelpHint')}</p>
+        <details class="cfg-limits" data-testid="cfg-design-limits">
+          <summary>{t('config.designLimits.title')}</summary>
+          <p class="cfg-hint">{t('config.designLimits.rule')}</p>
+          <ul>
+            {#each DESIGN_LIMITS as key (key)}<li>{t(`config.designLimits.${key}`)}</li>{/each}
+          </ul>
+        </details>
+      </div>
+    {/if}
+
     {#if !inline}
     <button class="config-action-btn live-calc-btn" class:live-calc-active={uiStore.liveCalc}
       onclick={() => uiStore.liveCalc = !uiStore.liveCalc}
@@ -504,6 +545,9 @@
     cursor: pointer;
   }
 
+  .cfg-limits { margin: 2px 0 6px; font-size: 0.72rem; color: var(--st-text-2, var(--st-text)); }
+  .cfg-limits summary { cursor: pointer; }
+  .cfg-limits ul { margin: 4px 0 0; padding-left: 16px; display: flex; flex-direction: column; gap: 3px; }
   .cfg-hint {
     margin: 0.2rem 0 0 1.35rem;
     font-size: 0.62rem;

@@ -184,7 +184,7 @@ def floor_points(f):
     return pts
 
 
-def stabileo_case(name, tie_rz, variant="120dof"):
+def stabileo_case(name, variant="120dof"):
     """variant: "120dof" (modal), "12dof" (modal) or "12dof_static"
     (storey stiffness). The 12DOF model of the source is the same frame with
     every floor node's uz, rx and ry fixed (cal_model cal_T, StructID = 0)."""
@@ -291,17 +291,13 @@ def stabileo_case(name, tie_rz, variant="120dof"):
             j_nodes[str(p)] = {"id": p, "x": round(x, 9), "y": round(y, 9), "z": round(f * H, 9)}
             sid += 1
             # mass acts in the floor plane only: uz, rx, ry restrained; rz is
-            # restrained too unless the diaphragm ties it (tie_rz)
+            # left free, as the diaphragm ties it to the floor's rotation (#342:
+            # a support on it would hold the whole floor against turning)
             j_sup[str(sid)] = {"nodeId": p, "rx": False, "ry": False, "rz": True, "rrx": True, "rry": True,
-                               "rrz": not tie_rz}
+                               "rrz": False}
             stub(p, m, (x, y, f * H))
             slaves.append(p)
-            if tie_rz:
-                constraints.append({"type": "equalDOF", "masterNode": master, "slaveNode": p, "dofs": [5]})
         constraints.insert(0, {"type": "diaphragm", "masterNode": master, "slaveNodes": slaves, "plane": "XY"})
-        if tie_rz:
-            for s in slaves[:8]:
-                constraints.append({"type": "equalDOF", "masterNode": master, "slaveNode": s, "dofs": [5]})
     loads = []
     refs = []
     if static:
@@ -366,7 +362,7 @@ def stabileo_case(name, tie_rz, variant="120dof"):
             "Columns/beams Euler-Bernoulli 3D frames; columns oriented by cal_model's k-nodes (localY = k - i), "
             "beams with local y horizontal (see below); braces are trusses; G = E/2.6.",
             "Rigid floors: XY diaphragm on each floor's centre node (cal_model's reference point)"
-            + ("; slave rz tied to the master by equalDOF as in cal_model's T." if tie_rz else "."),
+            + "; the diaphragm ties every slave's rz to the master, as cal_model's T does.",
             f"Member masses lumped (mbar*L/2 per end, 3 translations; {total_member:.3f} kg above the base) "
             "and floor panel masses (x, y, theta only) carried by mass-only truss stubs; see generator docstring.",
             "Member torsional rotary inertia (Io/A*mbar*L/2 about each member axis) carried by rotary-inertia "
@@ -469,9 +465,6 @@ def replay(name, rot_inertia=True, tie_rz=True, dof12=False):
     return np.sqrt(np.abs(w2[:12])) / (2 * math.pi)
 
 
-TIE_RZ = "--tie-rz" in sys.argv  # default: stabileo's own diaphragm (slave rz free)
-
-
 def main():
     here = os.path.dirname(os.path.abspath(__file__))
     def write(case):
@@ -482,7 +475,7 @@ def main():
         print("wrote", os.path.relpath(path))
 
     for name in DAMAGE:
-        write(stabileo_case(name, TIE_RZ))
+        write(stabileo_case(name))
         if "--replay" in sys.argv:
             ref = [float(t) for t in REFERENCE_HZ[name].split()[0::2]]
             a = replay(name)
@@ -491,14 +484,14 @@ def main():
             for i in range(12):
                 print(f"  mode {i+1:2}: Table 2 {ref[i]:6.2f}  replay {a[i]:9.5f}  "
                       f"(no rotary inertia {b[i]:9.5f}, slave rz not tied {c[i]:9.5f})")
-        write(stabileo_case(name, TIE_RZ, "12dof"))
+        write(stabileo_case(name, "12dof"))
         if "--replay" in sys.argv:
             ref = [float(t) for t in REFERENCE_12DOF_HZ[name].split()[0::2]]
             a = replay(name, dof12=True)
             for i in range(12):
                 print(f"  12DOF mode {i+1:2}: Table 2 {ref[i]:6.2f}  replay {a[i]:9.5f}")
         if name in STOREY_K:
-            write(stabileo_case(name, TIE_RZ, "12dof_static"))
+            write(stabileo_case(name, "12dof_static"))
 
 
 if __name__ == "__main__":

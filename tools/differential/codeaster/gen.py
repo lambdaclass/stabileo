@@ -93,8 +93,14 @@ def aster_3d(seed):
         m["loads"].append({"type": "thermal", "data": {
             "elementId": e["id"], "dtUniform": rng.uniform(-40, 40),
             "dtGradientY": rng.uniform(-20, 20), "dtGradientZ": rng.uniform(-20, 20)}})
-    # An inclined support on a free node.
-    free = _free_nodes(m)
+    # An inclined support on a free node that no constraint ties (a support
+    # on a constrained DOF is over-determined: stabileo warns
+    # over_constrained_dof, Code_Aster's multipliers are redundant).
+    tied = set()
+    for c in cons:
+        tied.update([c["slaveNode"]] if "slaveNode" in c else c.get("slaveNodes", []))
+        tied.update(t["nodeId"] for t in c.get("terms", []))
+    free = [n for n in _free_nodes(m) if n not in tied]
     if free and rng.random() < 0.25:
         nid = rng.choice(free)
         nv = [rng.uniform(-1, 1) for _ in range(3)]

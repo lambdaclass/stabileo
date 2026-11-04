@@ -75,6 +75,8 @@ fn make_3d_continuous_beam(
     secs_map.insert("1".to_string(), SolverSection3D {
         id: 1, name: None, a: A, iy: IY, iz: IZ, j: J, cw: None,
         as_y: None, as_z: None,
+        shear_center_y: None,
+        shear_center_z: None,
     });
 
     // Build nodes
@@ -157,7 +159,7 @@ fn make_3d_continuous_beam(
     let _ = total_nodes;
 
     SolverInput3D {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes: nodes_map,
         materials: mats_map,
         sections: secs_map,
@@ -427,6 +429,8 @@ fn validation_3d_continuous_elastic_support() {
     secs_map.insert("1".to_string(), SolverSection3D {
         id: 1, name: None, a: A, iy: IY, iz: IZ, j: J, cw: None,
         as_y: None, as_z: None,
+        shear_center_y: None,
+        shear_center_z: None,
     });
 
     for i in 0..n_nodes {
@@ -500,7 +504,7 @@ fn validation_3d_continuous_elastic_support() {
         .collect();
 
     let input_spring = SolverInput3D {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes: nodes_map,
         materials: mats_map,
         sections: secs_map,
@@ -684,6 +688,8 @@ fn validation_3d_continuous_moment_ei_proportionality() {
     secs_map.insert("1".to_string(), SolverSection3D {
         id: 1, name: None, a: A, iy: IY, iz: 2.0 * IZ, j: J, cw: None,
         as_y: None, as_z: None,
+        shear_center_y: None,
+        shear_center_z: None,
     });
 
     for i in 0..n_nodes {
@@ -754,7 +760,7 @@ fn validation_3d_continuous_moment_ei_proportionality() {
         .collect();
 
     let input_2ei = SolverInput3D {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes: nodes_map,
         materials: mats_map,
         sections: secs_map,

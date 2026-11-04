@@ -42,6 +42,7 @@ fn w14x22_data(eid: usize, lby: f64, lbz: f64) -> SteelMemberData {
         u_factor: None,
         aw: None,         // shear check off unless a test opts in
         cv1: None,
+        aw_weak: None,
         lby,
         lbz,
         ky: None,
@@ -66,6 +67,7 @@ fn w14x22_data(eid: usize, lby: f64, lbz: f64) -> SteelMemberData {
             AiscElement { kind: AiscElementKind::RolledFlange, b: 0.127 / 2.0, t: 8.509e-3, count: Some(4.0), kc: None },
             AiscElement { kind: AiscElementKind::Web, b: 53.3 * 5.842e-3, t: 5.842e-3, count: None, kc: None },
         ]),
+        lcz: None,
         load_position: Some(AiscLoadPosition::ShearCentre),
     }
 }
@@ -90,7 +92,7 @@ fn close(actual: f64, expected: f64, what: &str) {
 ///   ratio  = 500 kN / 1300.995 kN   = 0.38432
 #[test]
 fn steel_tension_yielding_capacity_and_ratio() {
-    let r = run(3.0, ElementDesignForces { element_id: 1, n: 500e3, my: 0.0, mz: None, vy: None });
+    let r = run(3.0, ElementDesignForces { element_id: 1, n: 500e3, my: 0.0, mz: None, v_weak: None, v_strong: None });
 
     close(r.phi_pn_tension, 1_300_995.0, "phi·Pn tension");
     close(r.tension_ratio, 0.384324, "tension ratio");
@@ -104,7 +106,7 @@ fn steel_tension_yielding_capacity_and_ratio() {
 ///   phi·Pn = 0.90·48.334e6·4.19e-3             = 182_268 N
 #[test]
 fn steel_elastic_buckling_capacity() {
-    let r = run(5.0, ElementDesignForces { element_id: 1, n: -150e3, my: 0.0, mz: None, vy: None });
+    let r = run(5.0, ElementDesignForces { element_id: 1, n: -150e3, my: 0.0, mz: None, v_weak: None, v_strong: None });
 
     close(r.phi_pn_compression, 182_268.4, "phi·Pn compression (elastic)");
     close(r.compression_ratio, 150e3 / 182_268.4, "compression ratio");
@@ -127,7 +129,7 @@ fn steel_elastic_buckling_capacity() {
 ///   (E3 alone, Ae = Ag: 1_171_517 N — 10.9 % unconservative for this shape.)
 #[test]
 fn steel_inelastic_buckling_capacity() {
-    let r = run(1.0, ElementDesignForces { element_id: 1, n: -800e3, my: 0.0, mz: None, vy: None });
+    let r = run(1.0, ElementDesignForces { element_id: 1, n: -800e3, my: 0.0, mz: None, v_weak: None, v_strong: None });
 
     close(r.phi_pn_compression, 1_056_479.7, "phi·Pn compression (inelastic, E7)");
     close(r.ae.unwrap(), 3.778459e-3, "Ae (E7)");
@@ -141,7 +143,7 @@ fn steel_compression_refused_without_elements() {
     m.compression_elements = None;
     let r = check_steel_members(&SteelCheckInput {
         members: vec![m],
-        forces: vec![ElementDesignForces { element_id: 1, n: -800e3, my: 0.0, mz: None, vy: None }],
+        forces: vec![ElementDesignForces { element_id: 1, n: -800e3, my: 0.0, mz: None, v_weak: None, v_strong: None }],
     })
     .remove(0);
     assert!(r.unevaluated.iter().any(|u| u.contains("E7")), "{:?}", r.unevaluated);
@@ -160,7 +162,7 @@ fn steel_top_flange_load_lowers_ltb() {
         m.load_position = pos;
         check_steel_members(&SteelCheckInput {
             members: vec![m],
-            forces: vec![ElementDesignForces { element_id: 1, n: 0.0, my: 50e3, mz: None, vy: None }],
+            forces: vec![ElementDesignForces { element_id: 1, n: 0.0, my: 50e3, mz: None, v_weak: None, v_strong: None }],
         })
         .remove(0)
         .phi_mn_y
@@ -178,7 +180,7 @@ fn steel_top_flange_load_lowers_ltb() {
 ///   ratio  = 80 kN·m / 140.861 kN·m                 = 0.56794
 #[test]
 fn steel_inelastic_ltb_capacity() {
-    let r = run(2.0, ElementDesignForces { element_id: 1, n: 0.0, my: 80e3, mz: None, vy: None });
+    let r = run(2.0, ElementDesignForces { element_id: 1, n: 0.0, my: 80e3, mz: None, v_weak: None, v_strong: None });
 
     close(r.phi_mn_y, 140_860.7, "phi·Mn_y (inelastic LTB)");
     close(r.flexure_y_ratio, 0.567937, "flexure-y ratio");
@@ -193,7 +195,7 @@ fn steel_inelastic_ltb_capacity() {
 ///   phi·Mn = 0.90 · 78_276                = 70_448 N·m
 #[test]
 fn steel_elastic_ltb_capacity() {
-    let r = run(4.0, ElementDesignForces { element_id: 1, n: 0.0, my: 50e3, mz: None, vy: None });
+    let r = run(4.0, ElementDesignForces { element_id: 1, n: 0.0, my: 50e3, mz: None, v_weak: None, v_strong: None });
 
     close(r.phi_mn_y, 70_448.2, "phi·Mn_y (elastic LTB)");
 }
@@ -206,7 +208,7 @@ fn steel_elastic_ltb_capacity() {
 #[test]
 fn steel_minor_axis_flexure_capacity() {
     let r = run(3.0, ElementDesignForces {
-        element_id: 1, n: 0.0, my: 0.0, mz: Some(10e3), vy: None,
+        element_id: 1, n: 0.0, my: 0.0, mz: Some(10e3), v_weak: None, v_strong: None,
     });
 
     close(r.phi_mn_z, 22_324.95, "phi·Mn_z");
@@ -222,7 +224,7 @@ fn steel_minor_axis_flexure_capacity() {
 #[test]
 fn steel_h1_interaction_ratio() {
     let r = run(4.0, ElementDesignForces {
-        element_id: 1, n: -200e3, my: 50e3, mz: Some(10e3), vy: None,
+        element_id: 1, n: -200e3, my: 50e3, mz: Some(10e3), v_weak: None, v_strong: None,
     });
 
     close(r.compression_ratio, 0.702261, "compression ratio");
@@ -244,7 +246,7 @@ fn steel_h1_interaction_ratio() {
 #[test]
 fn steel_h1b_interaction_below_the_transition() {
     let r = run(5.0, ElementDesignForces {
-        element_id: 1, n: -30e3, my: 20e3, mz: None, vy: None,
+        element_id: 1, n: -30e3, my: 20e3, mz: None, v_weak: None, v_strong: None,
     });
 
     assert!(r.compression_ratio < 0.2, "must be on the H1-1b branch: {:.4}", r.compression_ratio);
@@ -256,7 +258,7 @@ fn steel_h1b_interaction_below_the_transition() {
 /// so phi·Mn = 0.90·Mp = 168_912 N·m with no LTB reduction at all.
 #[test]
 fn steel_below_lp_develops_the_plastic_moment() {
-    let r = run(1.0, ElementDesignForces { element_id: 1, n: 0.0, my: 100e3, mz: None, vy: None });
+    let r = run(1.0, ElementDesignForces { element_id: 1, n: 0.0, my: 100e3, mz: None, v_weak: None, v_strong: None });
 
     close(r.phi_mn_y, 0.90 * 187_680.0, "phi·Mp");
     close(r.flexure_y_ratio, 100e3 / (0.90 * 187_680.0), "flexure-y ratio");
@@ -273,9 +275,9 @@ fn steel_check_multiple_members() {
             w14x22_data(2, 2.0, 2.0),
         ],
         forces: vec![
-            ElementDesignForces { element_id: 1, n: 0.0, my: 100e3, mz: None, vy: None },
-            ElementDesignForces { element_id: 2, n: 0.0, my: 80e3, mz: None, vy: None },
-            ElementDesignForces { element_id: 3, n: 0.0, my: 50e3, mz: None, vy: None },
+            ElementDesignForces { element_id: 1, n: 0.0, my: 100e3, mz: None, v_weak: None, v_strong: None },
+            ElementDesignForces { element_id: 2, n: 0.0, my: 80e3, mz: None, v_weak: None, v_strong: None },
+            ElementDesignForces { element_id: 3, n: 0.0, my: 50e3, mz: None, v_weak: None, v_strong: None },
         ],
     });
 

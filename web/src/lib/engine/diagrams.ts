@@ -2,6 +2,7 @@
 // Given end forces and distributed load, compute intermediate values
 
 import { computeDeformedShape as wasmComputeDeformedShape, isWasmReady } from './wasm-solver';
+import { axialLoadUpTo } from './axial-span-2d';
 
 export interface DiagramPoint {
   /** Position along element [0, 1] normalized */
@@ -151,7 +152,7 @@ export function computeAxialDiagram(
 export function computeDiagramValueAt(
   kind: 'moment' | 'shear' | 'axial',
   t: number,
-  ef: { mStart: number; mEnd: number; vStart: number; vEnd: number; nStart: number; nEnd: number; qI: number; qJ: number; length: number; pointLoads?: Array<{ a: number; p: number; px?: number; my?: number }>; distributedLoads?: Array<{ qI: number; qJ: number; a: number; b: number }> },
+  ef: { mStart: number; mEnd: number; vStart: number; vEnd: number; nStart: number; nEnd: number; qI: number; qJ: number; length: number; pointLoads?: Array<{ a: number; p: number; px?: number; my?: number }>; distributedLoads?: Array<{ qI: number; qJ: number; a: number; b: number }>; distributedLoadsX?: Array<{ qI: number; qJ: number; a: number; b: number }> },
 ): number {
   const xi = t * ef.length;
   const sortedPL = [...(ef.pointLoads ?? [])].sort((a, b) => a.a - b.a);
@@ -217,14 +218,21 @@ export function computeDiagramValueAt(
      * interpolate from nStart to nEnd across the whole member and then ADD
      * px past the load, so a cantilever pulled at midspan read 5 → 2.5, a
      * jump up to 7.5, and 5 again at the free end instead of 5 then 0.
+     *
+     * An axial span load (`distributedLoadsX`, towards J) lowers it by what of the load lies
+     * left of x: linearly under a uniform one, quadratically under a trapezoid, not at all
+     * outside a partial one.
      */
     const pxAll = sortedPL.reduce((s, pl) => s + (pl.px ?? 0), 0);
-    let value = ef.nStart + t * (ef.nEnd + pxAll - ef.nStart);
+    const axial = ef.distributedLoadsX ?? [];
+    const qxAll = axial.reduce((s, d) => s + axialLoadUpTo(d, ef.length), 0);
+    let value = ef.nStart + t * (ef.nEnd + pxAll + qxAll - ef.nStart);
     for (const pl of sortedPL) {
       if (pl.px && pl.a < xi - 1e-10) {
         value -= pl.px;
       }
     }
+    for (const d of axial) value -= axialLoadUpTo(d, xi);
     return value;
   }
 }

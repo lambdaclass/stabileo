@@ -46,10 +46,12 @@ describe('F.2-2 applies Cb between Lp and Lr', () => {
     const IPE300: SteelDesignParams = {
       Fy: 235, Fu: 360, E: 200000, A: 53.8e-4, Iz: 8356e-8, Iy: 604e-8,
       h: 0.300, b: 0.150, tw: 0.0071, tf: 0.0107, L: 3, Lb: 3, J: 20.1e-8, Cw: 604e-8 * (0.300 - 0.0107) ** 2 / 4,
+      // An IPE 300 is an I: the shape selects F.2. Without it the flexure is not evaluated (F.7–F.12).
+      shape: 'I',
     };
     const one = checkSteelFlexure(IPE300, 1, 'strong');
     const cb = checkSteelFlexure({ ...IPE300, Cb: 1.14 }, 1, 'strong');
-    expect(one.steps.join('\n')).toMatch(/inelastico/);
+    expect(one.steps.join('\n')).toMatch(/Lp < Lb ≤ Lr/);
     const mp = 0.9 * 235 * 628e3 / 1e6 * 1.2;   // a ceiling well above
     expect(cb.phiMn).toBeGreaterThan(one.phiMn * 1.1);
     expect(cb.phiMn).toBeLessThan(mp);

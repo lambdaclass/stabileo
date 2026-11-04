@@ -19,9 +19,10 @@ of a native conda env (`setup.sh --native` -> .work/conda/bin/python), on the
 host. All models of a run are split over J batches, each one Code_Aster
 session (aster_batch.py).
 
-Exit status: 0 = every compared model agrees, 1 = mismatches or models
+Exit status: 0 = every compared model agrees, 1 = mismatches, models
 Code_Aster finds singular that stabileo solved without a warning
-(silent_singular), 2 = harness error (Code_Aster failing for another reason).
+(silent_singular) or models stabileo refused that Code_Aster solves
+(false_reject), 2 = harness error (Code_Aster failing for another reason).
 """
 
 import argparse
@@ -101,7 +102,7 @@ def prepare(name, model, binary, workdir, flagged=False):
     try:
         sraw = C.stabileo(model, binary)
     except RuntimeError as ex:
-        return dict(r, status="stabileo_failed", why=[str(ex)[:200]])
+        return _prepare_refused(dict(r, status="stabileo_failed", why=[str(ex)[:200]]), model, workdir)
     sres = C.normalize_stabileo(sraw, 3)
     ill = sorted(set(sres["diags"]) & C.ILL_CONDITIONED)
     if ill and not flagged:
@@ -117,6 +118,51 @@ def prepare(name, model, binary, workdir, flagged=False):
     with open(os.path.join(job, "model.comm"), "w") as f:
         f.write(comm)
     return dict(r, status="pending", job=job, sres=sres, meta=meta)
+
+
+# The translator's own reasons for rejecting a model that say it has no
+# unique answer either: a load on a rotation nothing stiffens, a mechanism.
+REFUSED_TOO = ("nodal moment on a rotation-free", "rotational mechanism", "free body")
+# Code_Aster's verdicts that the stiffness is singular (a pivot lost more than
+# NPREC = 10 digits, or a null pivot) or too ill-conditioned to solve.
+SINGULAR = ("<FACTOR_11>", "<FACTOR_42>", "<FACTOR_57>")
+
+
+def _prepare_refused(r, model, workdir):
+    """stabileo refused the model: Code_Aster decides whether rightly.
+    'refused' when Code_Aster finds it singular too (or the translator rejects
+    it for the same reason), 'false_reject' when Code_Aster solves it with its
+    singularity check on, 'stabileo_failed' when it cannot be translated."""
+    try:
+        comm, meta = to_aster.translate(model)
+    except to_aster.Unsupported as ex:
+        if any(t in str(ex) for t in REFUSED_TOO):
+            return dict(r, status="refused", why=r["why"] + [f"code_aster translator: {ex}"])
+        return dict(r, why=r["why"] + [f"code_aster translator: {ex}"])
+    job = os.path.join(workdir, r["name"].replace("/", "_"))
+    os.makedirs(job, exist_ok=True)
+    with open(os.path.join(job, "model.comm"), "w") as f:
+        f.write(comm)
+    return dict(r, status="pending", job=job, sres=None, meta=meta, refused=r["why"])
+
+
+def _finish_refused(r, model, dump_dir):
+    job = r.pop("job")
+    r.pop("sres"), r.pop("meta")
+    why = r.pop("refused")
+    out, err = os.path.join(job, "result.json"), os.path.join(job, "error.txt")
+    if os.path.exists(out):
+        if dump_dir:
+            os.makedirs(dump_dir, exist_ok=True)
+            base = os.path.join(dump_dir, r["name"].replace("/", "_"))
+            with open(base + ".json", "w") as f:
+                json.dump(model, f, indent=1)
+            shutil.copy(os.path.join(job, "model.comm"), base + ".comm")
+        return dict(r, status="false_reject", why=why + ["code_aster solves it (NPREC=10 singularity check passed)"])
+    msg = open(err).read() if os.path.exists(err) else "no result (Code_Aster session died?)"
+    if any(t in msg for t in SINGULAR):
+        return dict(r, status="refused", why=why + ["code_aster: " + _first_error(msg)])
+    return dict(r, status="aster_failed", why=why + [_first_error(msg)])
 
 
 def aster_cmd(jobdirs, workdir):
@@ -170,15 +216,20 @@ def _leaked(job):
 
 
 def finish(r, tol, dump_dir, model):
+    if "refused" in r:
+        return _finish_refused(r, model, dump_dir)
     job = r.pop("job")
     sres, meta = r.pop("sres"), r.pop("meta")
     out, err = os.path.join(job, "result.json"), os.path.join(job, "error.txt")
     if not os.path.exists(out):
-        msg = open(err).read() if os.path.exists(err) else "no result (Code_Aster session died?)"
+        msg = "no result (Code_Aster session died?)"
+        if os.path.exists(err):
+            with open(err) as f:
+                msg = f.read()
         why = [_first_error(msg)]
         if "<FACTOR_11>" in msg:
-            # Singular even with the check off (a null pivot), where stabileo
-            # solved without a warning.
+            if dump_dir:
+                C._dump(dump_dir, r["name"], model)
             return dict(r, status="silent_singular", why=why)
         r.pop("near_singular", None)
         if "<FACTOR_57>" in msg:
@@ -275,7 +326,7 @@ def main():
     near = []
     for r in pending:
         err = os.path.join(r["job"], "error.txt")
-        if os.path.exists(err) and "<FACTOR_11>" in open(err).read():
+        if "refused" not in r and os.path.exists(err) and "<FACTOR_11>" in open(err).read():
             comm = os.path.join(r["job"], "model.comm")
             with open(comm) as f:
                 text = f.read()
@@ -308,7 +359,7 @@ def main():
         shutil.rmtree(workdir, ignore_errors=True)
 
     for r in results:
-        if a.verbose or r["status"] in ("mismatch", "aster_failed", "silent_singular", "harness_error"):
+        if a.verbose or r["status"] in ("mismatch", "aster_failed", "silent_singular", "false_reject", "harness_error"):
             extra = r.get("why") or {k: f"{v:.1e}" for k, v in r.get("max_err", {}).items()}
             print(f"{r['status']:16} {r['name']}  {extra}")
             for w in r.get("worst", [])[:5] if r["status"] in ("mismatch", "silent_singular") else []:
@@ -322,7 +373,8 @@ def main():
             g[k] = max(g.get(k, 0.0), v)
     if g:
         print("max normalized error over compared models: " + json.dumps({k: f"{v:.2e}" for k, v in sorted(g.items())}))
-    for st in ("unsupported", "stabileo_failed", "ill_conditioned", "silent_singular", "aster_failed"):
+    for st in ("unsupported", "refused", "false_reject", "stabileo_failed", "ill_conditioned", "silent_singular",
+               "aster_failed"):
         reasons = Counter(w[:120] for r in results if r["status"] == st for w in r["why"])
         if reasons:
             print(f"{st} reasons: " + json.dumps(dict(reasons.most_common(8))))
@@ -331,7 +383,7 @@ def main():
             json.dump(results, f, indent=1, default=str)
     if cnt.get("aster_failed") or cnt.get("harness_error"):
         return 2
-    return 1 if cnt.get("mismatch") or cnt.get("silent_singular") else 0
+    return 1 if cnt.get("mismatch") or cnt.get("silent_singular") or cnt.get("false_reject") else 0
 
 
 if __name__ == "__main__":

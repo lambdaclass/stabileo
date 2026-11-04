@@ -33,6 +33,7 @@ fn validation_thermal_ss_uniform_free_expansion() {
     let input = make_beam(8, L, E, A, IZ, "pinned", Some("rollerX"),
         (0..8).map(|i| SolverLoad::Thermal(SolverThermalLoad {
             element_id: i + 1, dt_uniform: dt, dt_gradient: 0.0,
+            alpha: None, depth: None,
         })).collect());
     let results = linear::solve_2d(&input).unwrap();
 
@@ -65,6 +66,7 @@ fn validation_thermal_fixed_fixed_uniform() {
     let input = make_beam(8, L, E, A, IZ, "fixed", Some("fixed"),
         (0..8).map(|i| SolverLoad::Thermal(SolverThermalLoad {
             element_id: i + 1, dt_uniform: dt, dt_gradient: 0.0,
+            alpha: None, depth: None,
         })).collect());
     let results = linear::solve_2d(&input).unwrap();
 
@@ -99,6 +101,7 @@ fn validation_thermal_ss_gradient() {
     let input = make_beam(8, L, E, A, IZ, "pinned", Some("rollerX"),
         (0..8).map(|i| SolverLoad::Thermal(SolverThermalLoad {
             element_id: i + 1, dt_uniform: 0.0, dt_gradient: dt_grad,
+            alpha: None, depth: None,
         })).collect());
     let results = linear::solve_2d(&input).unwrap();
 
@@ -131,6 +134,7 @@ fn validation_thermal_cantilever_gradient() {
     let input = make_beam(8, L, E, A, IZ, "fixed", None,
         (0..8).map(|i| SolverLoad::Thermal(SolverThermalLoad {
             element_id: i + 1, dt_uniform: 0.0, dt_gradient: dt_grad,
+            alpha: None, depth: None,
         })).collect());
     let results = linear::solve_2d(&input).unwrap();
 
@@ -153,6 +157,7 @@ fn validation_thermal_fixed_fixed_gradient() {
     let input = make_beam(8, L, E, A, IZ, "fixed", Some("fixed"),
         (0..8).map(|i| SolverLoad::Thermal(SolverThermalLoad {
             element_id: i + 1, dt_uniform: 0.0, dt_gradient: dt_grad,
+            alpha: None, depth: None,
         })).collect());
     let results = linear::solve_2d(&input).unwrap();
 
@@ -202,7 +207,7 @@ fn validation_settlement_ss_roller() {
     });
 
     let input = SolverInput {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes: nodes_map, materials: mats_map, sections: secs_map,
         elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![],
         connectors: HashMap::new(), };
@@ -254,7 +259,7 @@ fn validation_settlement_propped_cantilever() {
     });
 
     let input = SolverInput {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes: nodes_map, materials: mats_map, sections: secs_map,
         elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![],
         connectors: HashMap::new(), };
@@ -317,7 +322,7 @@ fn validation_settlement_fixed_fixed() {
     });
 
     let input = SolverInput {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes: nodes_map, materials: mats_map, sections: secs_map,
         elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![],
         connectors: HashMap::new(), };
@@ -341,6 +346,7 @@ fn validation_thermal_equilibrium() {
     let input = make_beam(8, L, E, A, IZ, "fixed", Some("fixed"),
         (0..8).map(|i| SolverLoad::Thermal(SolverThermalLoad {
             element_id: i + 1, dt_uniform: dt, dt_gradient: 20.0,
+            alpha: None, depth: None,
         })).collect());
     let results = linear::solve_2d(&input).unwrap();
 
@@ -371,6 +377,7 @@ fn validation_thermal_settlement_superposition() {
         let loads: Vec<SolverLoad> = if thermal {
             (0..n).map(|i| SolverLoad::Thermal(SolverThermalLoad {
                 element_id: i + 1, dt_uniform: dt, dt_gradient: 0.0,
+                alpha: None, depth: None,
             })).collect()
         } else {
             vec![]
@@ -412,7 +419,7 @@ fn validation_thermal_settlement_superposition() {
             dx: None, dz: dy, dry: None, angle: None,
         });
 
-        SolverInput { solver_options: None, nodes: nodes_map, materials: mats_map, sections: secs_map,
+        SolverInput { solver_options: None, masses: Default::default(), nodes: nodes_map, materials: mats_map, sections: secs_map,
                        elements: elems_map, supports: sups_map, loads, constraints: vec![],
                        connectors: HashMap::new(), }
     };

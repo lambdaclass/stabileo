@@ -115,6 +115,8 @@ fn increment_to_mp(mp: f64, m_acc: f64, m_unit: f64) -> f64 {
 const STATIONS: usize = 48;
 /// Two sections closer than this (fraction of the member length) are one.
 const SNAP: f64 = 1e-6;
+/// Relative load-factor resolution of an event (see the tie in the event loop).
+const TIE: f64 = 1e-6;
 
 /// A stretch `[t0, t1]` of an original member, carried by one solver element.
 /// A member is split into pieces where hinges form inside its span.
@@ -219,6 +221,8 @@ impl Member {
             q_j,
             point_loads: pls,
             distributed_loads: dls,
+            distributed_loads_x: self.template.as_ref().map(|t| t.distributed_loads_x.iter()
+                .map(|d| DistributedLoadInfo { q_i: d.q_i * scale, q_j: d.q_j * scale, a: d.a, b: d.b }).collect()).unwrap_or_default(),
             hinge_start: first.hinge_start,
             hinge_end: last.hinge_end,
         }
@@ -338,6 +342,24 @@ fn split_member(input: &mut SolverInput, m: &mut Member, t: f64, next_node: &mut
                     loads.push(dist(eid, qs, dl.q_j, 0.0, b - s, l_new));
                 }
             }
+            // An axial span load is cut at the hinge as a transverse one is.
+            SolverLoad::AxialDistributed(al) if al.element_id == old.id => {
+                let a = al.a.unwrap_or(0.0);
+                let b = al.b.unwrap_or(l_old);
+                let q_at = |x: f64| if b - a > 0.0 { al.q_i + (al.q_j - al.q_i) * (x - a) / (b - a) } else { al.q_i };
+                let ax = |element_id: usize, q_i: f64, q_j: f64, a: f64, b: f64, len: f64| {
+                    SolverLoad::AxialDistributed(SolverAxialDistributedLoad { element_id, q_i, q_j, a: (a > tol).then_some(a), b: (b < len - tol).then_some(b) })
+                };
+                if b <= s + tol {
+                    loads.push(ax(old.id, al.q_i, al.q_j, a, b.min(s), s));
+                } else if a >= s - tol {
+                    loads.push(ax(eid, al.q_i, al.q_j, (a - s).max(0.0), b - s, l_new));
+                } else {
+                    let qs = q_at(s);
+                    loads.push(ax(old.id, al.q_i, qs, a, s, s));
+                    loads.push(ax(eid, qs, al.q_j, 0.0, b - s, l_new));
+                }
+            }
             SolverLoad::PointOnElement(pl) if pl.element_id == old.id => {
                 if pl.a < s - tol {
                     loads.push(SolverLoad::PointOnElement(pl));
@@ -375,10 +397,10 @@ fn released_end_rotations(input: &SolverInput, key: &str, disp: &HashMap<usize, 
     if el.elem_type != "frame" || !(el.hinge_start || el.hinge_end) {
         return [0.0; 2];
     }
-    let node = |id: usize| input.nodes.values().find(|n| n.id == id);
+    let node = |id: usize| crate::ordered::values(&input.nodes).find(|n| n.id == id);
     let (Some(ni), Some(nj)) = (node(el.node_i), node(el.node_j)) else { return [0.0; 2] };
-    let Some(mat) = input.materials.values().find(|m| m.id == el.material_id) else { return [0.0; 2] };
-    let Some(sec) = input.sections.values().find(|s| s.id == el.section_id) else { return [0.0; 2] };
+    let Some(mat) = crate::ordered::values(&input.materials).find(|m| m.id == el.material_id) else { return [0.0; 2] };
+    let Some(sec) = crate::ordered::values(&input.sections).find(|s| s.id == el.section_id) else { return [0.0; 2] };
     let (dx, dz) = (nj.x - ni.x, nj.z - ni.z);
     let l = (dx * dx + dz * dz).sqrt();
     let (c, s) = (dx / l, dz / l);
@@ -411,8 +433,8 @@ fn released_end_rotations(input: &SolverInput, key: &str, disp: &HashMap<usize, 
                 crate::element::fef_point_load_2d(pl.p, pl.px.unwrap_or(0.0), pl.my.unwrap_or(0.0), pl.a, l, phi)
             }
             SolverLoad::Thermal(tl) if tl.element_id == el.id => {
-                let h = if sec.a > 1e-15 { (12.0 * sec.iz / sec.a).sqrt() } else { 0.1 };
-                crate::element::fef_thermal_2d(e, sec.a, sec.iz, l, tl.dt_uniform, tl.dt_gradient, 12e-6, h)
+                let h = tl.depth(sec.a, sec.iz);
+                crate::element::fef_thermal_2d(e, sec.a, sec.iz, l, tl.dt_uniform, tl.dt_gradient, tl.alpha(), h)
             }
             _ => continue,
         };
@@ -571,6 +593,13 @@ pub fn solve_plastic_2d(input: &PlasticInput) -> Result<PlasticResult, String> {
     // shape of answer for the wrong reason, and no way for the caller to tell
     // the two apart.
     super::linear::validate_input_2d(solver_input)?;
+    // Imposed deformations (temperatures, settlements) do not change a
+    // collapse load; with no mechanical load at all there is no collapse
+    // factor, and the event loop ran λ up to ~1e16 on the imposed ones.
+    let m_ref = load_moment_scale_2d(solver_input);
+    if !(m_ref > 0.0) {
+        return Err(NO_MECHANICAL_LOAD.into());
+    }
 
     let max_hinges = input.max_hinges.unwrap_or(20);
 
@@ -590,7 +619,7 @@ pub fn solve_plastic_2d(input: &PlasticInput) -> Result<PlasticResult, String> {
     }
 
     let mut current_input = solver_input.clone();
-    let node_xy: HashMap<usize, (f64, f64)> = current_input.nodes.values().map(|n| (n.id, (n.x, n.z))).collect();
+    let node_xy: HashMap<usize, (f64, f64)> = crate::ordered::values(&current_input.nodes).map(|n| (n.id, (n.x, n.z))).collect();
     let mut members: Vec<Member> = current_input
         .elements
         .iter()
@@ -631,7 +660,7 @@ pub fn solve_plastic_2d(input: &PlasticInput) -> Result<PlasticResult, String> {
     let mut rot_restrained: std::collections::HashSet<usize> = current_input
         .supports
         .values()
-        .filter(|s| matches!(s.support_type.as_str(), "fixed" | "guidedX" | "guidedY") || s.kz.unwrap_or(0.0) > 0.0)
+        .filter(|s| matches!(s.support_type.as_str(), "fixed" | "guidedX" | "guidedY" | "guidedZ") || s.kz.unwrap_or(0.0) > 0.0)
         .map(|s| s.node_id)
         .collect();
     for c in &current_input.constraints {
@@ -643,7 +672,7 @@ pub fn solve_plastic_2d(input: &PlasticInput) -> Result<PlasticResult, String> {
             Constraint::LinearMPC(m) => rot_restrained.extend(m.terms.iter().map(|t| t.node_id)),
         }
     }
-    rot_restrained.extend(current_input.connectors.values().flat_map(|c| [c.node_i, c.node_j]));
+    rot_restrained.extend(crate::ordered::values(&current_input.connectors).flat_map(|c| [c.node_i, c.node_j]));
 
     let mut cumulative_factor = 0.0;
     let mut all_hinges: Vec<PlasticHinge> = Vec::new();
@@ -826,8 +855,10 @@ pub fn solve_plastic_2d(input: &PlasticInput) -> Result<PlasticResult, String> {
             }
         }
 
-        // ---- next event: smallest increment to ±Mp at any section
-        let tol_m = unit_moment_scale(&results) * 1e-12;
+        // ---- next event: smallest increment to ±Mp at any section. A unit
+        // moment below 1e-9 of (load × model size) is round-off of a member
+        // that carries its load axially, not bending.
+        let tol_m = (unit_moment_scale(&results) * 1e-12).max(m_ref * 1e-9);
         let tol_d = 1e-10 * cumulative_factor;
         let unit_vals: Vec<[f64; 6]> = members.iter().map(|m| m.unit_vals(&by_id)).collect();
         let mut cands: Vec<(usize, f64, f64)> = Vec::new();
@@ -854,7 +885,16 @@ pub fn solve_plastic_2d(input: &PlasticInput) -> Result<PlasticResult, String> {
             ));
         }
         suppressed = f64::INFINITY;
-        let tie = 1e-10 * (cumulative_factor + min_delta);
+        // Sections reaching Mp within the event search's own resolution form
+        // together. Interior peaks are located by golden-section search to
+        // ~1e-9 in position (and snapped at SNAP = 1e-6), so a symmetric
+        // structure's twin sections differ by that much after the first
+        // interior hinge; a 1e-10 tie split them into two events, the second
+        // twin never formed, and a symmetric portal "collapsed" 15% above its
+        // mechanism load with an inadmissible moment field (found by the
+        // metamorphic rotation check: the rotated portal gave the right
+        // answer). The tie matches SNAP; the factor moves by at most that.
+        let tie = TIE * (cumulative_factor + min_delta);
         let mut chosen: Vec<(usize, f64)> = Vec::new();
         for &(mi, t, d) in &cands {
             if d - min_delta <= tie && !chosen.iter().any(|&(mj, tj)| mj == mi && (tj - t).abs() < SNAP) {
@@ -936,6 +976,9 @@ pub fn solve_plastic_2d(input: &PlasticInput) -> Result<PlasticResult, String> {
                 .into(),
         );
     }
+    if !exhausted && !is_mechanism {
+        return Err(no_bending_collapse(cumulative_factor));
+    }
     if exhausted && !is_mechanism {
         warnings.push(format!(
             "stopped after {max_hinges} events without forming a mechanism: the collapse factor \
@@ -967,6 +1010,44 @@ pub fn solve_plastic_2d(input: &PlasticInput) -> Result<PlasticResult, String> {
         is_mechanism,
         warnings,
     })
+}
+
+/// The analysis stopped because no section can yield any more, and the
+/// structure is not a mechanism: the remaining load path carries the load
+/// without bending (a funicular arch, a triangulated truss). A bending-only
+/// analysis has no collapse factor for that; the number it reached (or the
+/// ~1e16 a round-off moment would give) is not one.
+pub(crate) fn no_bending_collapse(lambda: f64) -> String {
+    format!(
+        "Plastic (pushover) analysis: after λ = {lambda:.6} no section reaches its plastic moment under further load \
+         and the structure is not a mechanism — the loads are carried without bending (axially), so a bending-only \
+         plastic analysis has no collapse factor to report. Check axial capacity and buckling instead."
+    )
+}
+
+pub(crate) const NO_MECHANICAL_LOAD: &str = "Plastic (pushover) analysis needs a mechanical load to scale to collapse: \
+     temperatures and support settlements alone do not change a collapse load and have no collapse factor.";
+
+/// Σ|load| × model size: the moment scale the loads can produce.
+fn load_moment_scale_2d(input: &SolverInput) -> f64 {
+    let xs: Vec<(f64, f64)> = crate::ordered::values(&input.nodes).map(|n| (n.x, n.z)).collect();
+    let ext = |f: fn(&(f64, f64)) -> f64| xs.iter().map(f).fold(f64::NEG_INFINITY, f64::max) - xs.iter().map(f).fold(f64::INFINITY, f64::min);
+    let l = ext(|p| p.0).max(ext(|p| p.1)).max(f64::MIN_POSITIVE);
+    let len = |id: usize| {
+        crate::ordered::values(&input.elements).find(|e| e.id == id).and_then(|e| {
+            let a = crate::ordered::values(&input.nodes).find(|n| n.id == e.node_i)?;
+            let b = crate::ordered::values(&input.nodes).find(|n| n.id == e.node_j)?;
+            Some(((b.x - a.x).powi(2) + (b.z - a.z).powi(2)).sqrt())
+        }).unwrap_or(0.0)
+    };
+    let f: f64 = input.loads.iter().map(|ld| match ld {
+        SolverLoad::Nodal(n) => n.fx.abs() + n.fz.abs() + n.my.abs() / l,
+        SolverLoad::Distributed(d) => d.q_i.abs().max(d.q_j.abs()) * len(d.element_id),
+        SolverLoad::PointOnElement(p) => p.p.abs() + p.px.unwrap_or(0.0).abs() + p.my.unwrap_or(0.0).abs() / l,
+        SolverLoad::AxialDistributed(d) => d.q_i.abs().max(d.q_j.abs()) * len(d.element_id),
+        SolverLoad::Thermal(_) => 0.0,
+    }).sum();
+    f * l
 }
 
 fn unit_moment_scale(r: &AnalysisResults) -> f64 {

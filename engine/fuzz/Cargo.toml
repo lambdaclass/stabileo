@@ -50,3 +50,10 @@ path = "fuzz_targets/model_certify.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "metamorphic"
+path = "fuzz_targets/metamorphic.rs"
+test = false
+doc = false
+bench = false

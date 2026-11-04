@@ -56,6 +56,7 @@ import {
   type JointChoices, type JointObsolescence, type ReconciledJointDesigns,
   type StoredJointDesign, type StoredJointDesigns,
 } from '../connection/joint-choices';
+import { typologyContext } from './joint-typology';
 
 /*
  * Re-exported so the panel and the viewport keep importing the type from where they always did.
@@ -259,6 +260,10 @@ function createJointDesignStore() {
           ? { arrangement: c.battens.arrangement, gapMm: c.battens.gapMm,
               lengthM: c.battens.lengthM, segments: c.battens.segments }
           : null,
+        ...(c.typology ? (() => {
+          const ctx = typologyContext(nodeId, elementIds);
+          return ctx ? { typology: c.typology, typologyContext: ctx } : {};
+        })() : {}),
       };
       return designJoint(input);
     },

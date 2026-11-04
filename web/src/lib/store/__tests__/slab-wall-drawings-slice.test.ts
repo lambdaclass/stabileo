@@ -49,7 +49,8 @@ function buildFloor() {
   const sectionId = modelStore.addSection({
     name: '40×40', a: 0.16, iz: 0.00213, b: 0.4, h: 0.4,
   });
-  const material = [...modelStore.model.materials.keys()][0];
+  // A concrete for the shells: f'c used to be read off any material, the default steel's fy too.
+  const material = modelStore.addMaterial({ name: 'H-30', e: 25740, nu: 0.2, rho: 25, fy: 30, fc: 30 });
 
   // Slab corners at +3,00 on four columns.
   const coords = [[0, 0], [5, 0], [5, 5], [0, 5]] as const;

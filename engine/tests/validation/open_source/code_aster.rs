@@ -109,6 +109,7 @@ fn validation_ca_ssll012_bar_load_cases() {
     let input2 = make_beam(n, l, E, a, iz, "pinned", Some("rollerX"),
         (0..n).map(|i| SolverLoad::Thermal(SolverThermalLoad {
             element_id: i + 1, dt_uniform: dt, dt_gradient: 0.0,
+            alpha: None, depth: None,
         })).collect());
     let res2 = linear::solve_2d(&input2).unwrap();
     let d2 = res2.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
@@ -124,6 +125,7 @@ fn validation_ca_ssll012_bar_load_cases() {
     let input3 = make_beam(n, l, E, a, iz, "fixed", Some("fixed"),
         (0..n).map(|i| SolverLoad::Thermal(SolverThermalLoad {
             element_id: i + 1, dt_uniform: dt, dt_gradient: 0.0,
+            alpha: None, depth: None,
         })).collect());
     let res3 = linear::solve_2d(&input3).unwrap();
     let n_expected = E_EFF * a * alpha * dt;

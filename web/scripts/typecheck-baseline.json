@@ -1,5 +1,5 @@
 {
-	"total": 448,
+	"total": 247,
 	"entries": [
 		{
 			"file": "src/lib/ai/__tests__/build-model.test.ts",
@@ -68,21 +68,9 @@
 			"count": 1
 		},
 		{
-			"file": "src/lib/cad/draft.ts",
-			"code": "TS6133",
-			"message": "'defaultBeamSection' is declared but its value is never read.",
-			"count": 1
-		},
-		{
 			"file": "src/lib/codes/cirsoc101/__tests__/cirsoc101.test.ts",
 			"code": "TS6133",
 			"message": "'formatCombinationLabel' is declared but its value is never read.",
-			"count": 1
-		},
-		{
-			"file": "src/lib/codes/cirsoc201/transverse-cage.ts",
-			"code": "TS6133",
-			"message": "'HookGeometry' is declared but its value is never read.",
 			"count": 1
 		},
 		{
@@ -218,12 +206,6 @@
 			"count": 25
 		},
 		{
-			"file": "src/lib/engine/__tests__/deformed-shape.test.ts",
-			"code": "TS2353",
-			"message": "Object literal may only specify known properties, and 'fy' does not exist in type 'SolverNodalLoad | SolverDistributedLoad | SolverPointLoadOnElement | SolverThermalLoad'.",
-			"count": 9
-		},
-		{
 			"file": "src/lib/engine/__tests__/design-check-results.test.ts",
 			"code": "TS6133",
 			"message": "'CheckStatus' is declared but its value is never read.",
@@ -233,12 +215,6 @@
 			"file": "src/lib/engine/__tests__/diff-fuzz-helpers.ts",
 			"code": "TS2322",
 			"message": "Type 'Map<number, { id: number; x: number; y: number; }>' is not assignable to type 'Map<number, SolverNode>'.",
-			"count": 1
-		},
-		{
-			"file": "src/lib/engine/__tests__/diff-fuzz-helpers.ts",
-			"code": "TS2353",
-			"message": "Object literal may only specify known properties, and 'fy' does not exist in type 'SolverNodalLoad | SolverDistributedLoad | SolverPointLoadOnElement | SolverThermalLoad'.",
 			"count": 1
 		},
 		{
@@ -422,12 +398,6 @@
 			"count": 2
 		},
 		{
-			"file": "src/lib/engine/__tests__/e2e-comprehensive.test.ts",
-			"code": "TS2353",
-			"message": "Object literal may only specify known properties, and 'fy' does not exist in type 'SolverNodalLoad | SolverDistributedLoad | SolverPointLoadOnElement | SolverThermalLoad'.",
-			"count": 36
-		},
-		{
 			"file": "src/lib/engine/__tests__/embed-2d-in-3d.test.ts",
 			"code": "TS2554",
 			"message": "Expected 1 arguments, but got 2.",
@@ -478,13 +448,7 @@
 		{
 			"file": "src/lib/engine/__tests__/inclined-supports.test.ts",
 			"code": "TS2353",
-			"message": "Object literal may only specify known properties, and 'dy' does not exist in type 'SolverSupport'.",
-			"count": 2
-		},
-		{
-			"file": "src/lib/engine/__tests__/inclined-supports.test.ts",
-			"code": "TS2353",
-			"message": "Object literal may only specify known properties, and 'fy' does not exist in type 'SolverNodalLoad | SolverDistributedLoad | SolverPointLoadOnElement | SolverThermalLoad'.",
+			"message": "Object literal may only specify known properties, and 'fy' does not exist in type 'SolverNodalLoad | SolverDistributedLoad | SolverPointLoadOnElement | SolverAxialDistributedLoad | SolverThermalLoad'.",
 			"count": 1
 		},
 		{
@@ -512,12 +476,6 @@
 			"count": 1
 		},
 		{
-			"file": "src/lib/engine/__tests__/kinematic-analysis.test.ts",
-			"code": "TS2353",
-			"message": "Object literal may only specify known properties, and 'fy' does not exist in type 'SolverNodalLoad | SolverDistributedLoad | SolverPointLoadOnElement | SolverThermalLoad'.",
-			"count": 5
-		},
-		{
 			"file": "src/lib/engine/__tests__/kinematic-report.test.ts",
 			"code": "TS2322",
 			"message": "Type 'Map<number, { id: number; x: number; y: number; }>' is not assignable to type 'Map<number, SolverNode>'.",
@@ -530,22 +488,10 @@
 			"count": 1
 		},
 		{
-			"file": "src/lib/engine/__tests__/load-cases.test.ts",
-			"code": "TS2353",
-			"message": "Object literal may only specify known properties, and 'fy' does not exist in type 'SolverNodalLoad | SolverDistributedLoad | SolverPointLoadOnElement | SolverThermalLoad'.",
-			"count": 1
-		},
-		{
 			"file": "src/lib/engine/__tests__/load-decomposition.test.ts",
 			"code": "TS2322",
 			"message": "Type 'Map<number, { id: number; x: number; y: number; }>' is not assignable to type 'Map<number, SolverNode>'.",
 			"count": 1
-		},
-		{
-			"file": "src/lib/engine/__tests__/load-decomposition.test.ts",
-			"code": "TS2353",
-			"message": "Object literal may only specify known properties, and 'fy' does not exist in type 'SolverNodalLoad | SolverDistributedLoad | SolverPointLoadOnElement | SolverThermalLoad'.",
-			"count": 3
 		},
 		{
 			"file": "src/lib/engine/__tests__/local-axes-parity.test.ts",
@@ -582,12 +528,6 @@
 			"code": "TS2339",
 			"message": "Property 'y' does not exist on type 'SolverNode'.",
 			"count": 2
-		},
-		{
-			"file": "src/lib/engine/__tests__/node-equilibrium.test.ts",
-			"code": "TS2353",
-			"message": "Object literal may only specify known properties, and 'fy' does not exist in type 'SolverNodalLoad | SolverDistributedLoad | SolverPointLoadOnElement | SolverThermalLoad'.",
-			"count": 3
 		},
 		{
 			"file": "src/lib/engine/__tests__/partial-distributed.test.ts",
@@ -656,18 +596,6 @@
 			"count": 2
 		},
 		{
-			"file": "src/lib/engine/__tests__/solver-mechanism.test.ts",
-			"code": "TS2353",
-			"message": "Object literal may only specify known properties, and 'fy' does not exist in type 'SolverNodalLoad | SolverDistributedLoad | SolverPointLoadOnElement | SolverThermalLoad'.",
-			"count": 21
-		},
-		{
-			"file": "src/lib/engine/__tests__/solver-phase1.test.ts",
-			"code": "TS2322",
-			"message": "Type '() => { nodes: Map<number, SolverNode>; materials: Map<number, { id: number; e: number; nu: number; }>; sections: Map<number, { id: number; a: number; iz: number; }>; elements: Map<...>; supports: Map<...>; loads: ({ ...; } | { ...; })[]; }' is not assignable to type '() => SolverInput'.",
-			"count": 2
-		},
-		{
 			"file": "src/lib/engine/__tests__/solver-phase1.test.ts",
 			"code": "TS2322",
 			"message": "Type 'Map<number, { id: number; x: number; y: number; }>' is not assignable to type 'Map<number, SolverNode>'.",
@@ -676,26 +604,8 @@
 		{
 			"file": "src/lib/engine/__tests__/solver-phase1.test.ts",
 			"code": "TS2339",
-			"message": "Property 'fy' does not exist on type 'SolverNodalLoad'.",
-			"count": 2
-		},
-		{
-			"file": "src/lib/engine/__tests__/solver-phase1.test.ts",
-			"code": "TS2339",
-			"message": "Property 'mz' does not exist on type 'SolverNodalLoad'.",
-			"count": 1
-		},
-		{
-			"file": "src/lib/engine/__tests__/solver-phase1.test.ts",
-			"code": "TS2339",
 			"message": "Property 'y' does not exist on type 'SolverNode'.",
 			"count": 10
-		},
-		{
-			"file": "src/lib/engine/__tests__/solver-phase1.test.ts",
-			"code": "TS2353",
-			"message": "Object literal may only specify known properties, and 'fy' does not exist in type 'SolverNodalLoad | SolverDistributedLoad | SolverPointLoadOnElement | SolverThermalLoad'.",
-			"count": 70
 		},
 		{
 			"file": "src/lib/engine/__tests__/solver-phase1.test.ts",
@@ -716,12 +626,6 @@
 			"count": 6
 		},
 		{
-			"file": "src/lib/engine/__tests__/solver.test.ts",
-			"code": "TS2353",
-			"message": "Object literal may only specify known properties, and 'fy' does not exist in type 'SolverNodalLoad | SolverDistributedLoad | SolverPointLoadOnElement | SolverThermalLoad'.",
-			"count": 11
-		},
-		{
 			"file": "src/lib/engine/__tests__/split-element.test.ts",
 			"code": "TS2322",
 			"message": "Type 'Map<number, { id: number; x: number; y: number; }>' is not assignable to type 'Map<number, SolverNode>'.",
@@ -730,7 +634,7 @@
 		{
 			"file": "src/lib/engine/__tests__/split-element.test.ts",
 			"code": "TS2353",
-			"message": "Object literal may only specify known properties, and 'fy' does not exist in type 'SolverNodalLoad | SolverDistributedLoad | SolverPointLoadOnElement | SolverThermalLoad'.",
+			"message": "Object literal may only specify known properties, and 'fy' does not exist in type 'SolverNodalLoad | SolverDistributedLoad | SolverPointLoadOnElement | SolverAxialDistributedLoad | SolverThermalLoad'.",
 			"count": 1
 		},
 		{
@@ -770,24 +674,6 @@
 			"count": 1
 		},
 		{
-			"file": "src/lib/engine/auto-verify.ts",
-			"code": "TS6196",
-			"message": "'ElementForces3D' is declared but never used.",
-			"count": 1
-		},
-		{
-			"file": "src/lib/engine/bar-marks.ts",
-			"code": "TS6133",
-			"message": "'legs' is declared but its value is never read.",
-			"count": 1
-		},
-		{
-			"file": "src/lib/engine/bar-marks.ts",
-			"code": "TS6196",
-			"message": "'DetailingResult' is declared but never used.",
-			"count": 1
-		},
-		{
 			"file": "src/lib/engine/design/__tests__/autodesign-regression.test.ts",
 			"code": "TS2345",
 			"message": "Argument of type '{ elementId: number; elementType: \"beam\"; L: number; section: { id: number; name: string; b: number; h: number; }; material: { fc: number; fy: number; cover: number; stirrupDia: number; }; demands: undefined; ... 10 more ...; modelData: ContextModelData; }[]' is not assignable to parameter of type 'Iterable<MemberContext>'.",
@@ -806,12 +692,6 @@
 			"count": 1
 		},
 		{
-			"file": "src/lib/engine/design/adapters/cirsoc201-adapter.ts",
-			"code": "TS6133",
-			"message": "'clause' is declared but its value is never read.",
-			"count": 1
-		},
-		{
 			"file": "src/lib/engine/detailing/__tests__/constructible.test.ts",
 			"code": "TS2363",
 			"message": "The right-hand side of an arithmetic operation must be of type 'any', 'number', 'bigint' or an enum type.",
@@ -820,7 +700,7 @@
 		{
 			"file": "src/lib/engine/detailing/__tests__/design-feedback-loop.test.ts",
 			"code": "TS2367",
-			"message": "This comparison appears to be unintentional because the types '\"warn\" | \"fail\"' and '\"ok\"' have no overlap.",
+			"message": "This comparison appears to be unintentional because the types '\"fail\" | \"warn\"' and '\"ok\"' have no overlap.",
 			"count": 1
 		},
 		{
@@ -866,120 +746,6 @@
 			"count": 1
 		},
 		{
-			"file": "src/lib/engine/detailing/generate-beam.ts",
-			"code": "TS6133",
-			"message": "'minMandrelDiameter' is declared but its value is never read.",
-			"count": 1
-		},
-		{
-			"file": "src/lib/engine/detailing/generate-column.ts",
-			"code": "TS2554",
-			"message": "Expected 3 arguments, but got 4.",
-			"count": 1
-		},
-		{
-			"file": "src/lib/engine/detailing/run-detailing.ts",
-			"code": "TS6133",
-			"message": "'envelopeIsComplete' is declared but its value is never read.",
-			"count": 1
-		},
-		{
-			"file": "src/lib/engine/detailing/run-detailing.ts",
-			"code": "TS6133",
-			"message": "'prohibitedFor' is declared but its value is never read.",
-			"count": 1
-		},
-		{
-			"file": "src/lib/engine/detailing/run-detailing.ts",
-			"code": "TS6133",
-			"message": "'root' is declared but its value is never read.",
-			"count": 3
-		},
-		{
-			"file": "src/lib/engine/detailing/run-detailing.ts",
-			"code": "TS6133",
-			"message": "'spacingFailures' is declared but its value is never read.",
-			"count": 1
-		},
-		{
-			"file": "src/lib/engine/pro-report.ts",
-			"code": "TS6133",
-			"message": "'hasCombos' is declared but its value is never read.",
-			"count": 1
-		},
-		{
-			"file": "src/lib/engine/reinforcement-svg.ts",
-			"code": "TS6133",
-			"message": "'totalLength' is declared but its value is never read.",
-			"count": 1
-		},
-		{
-			"file": "src/lib/engine/solver-detailed.ts",
-			"code": "TS2678",
-			"message": "Type '\"rollerY\"' is not comparable to type 'SupportType'.",
-			"count": 1
-		},
-		{
-			"file": "src/lib/engine/solver-service.ts",
-			"code": "TS2339",
-			"message": "Property 'curved' does not exist on type '{ id: number; nodes: [number, number, number, number]; materialId: number; thickness: number; }'.",
-			"count": 2
-		},
-		{
-			"file": "src/lib/engine/station-design-forces.ts",
-			"code": "TS6133",
-			"message": "'demands' is declared but its value is never read.",
-			"count": 1
-		},
-		{
-			"file": "src/lib/engine/station-design-forces.ts",
-			"code": "TS6133",
-			"message": "'faceR' is declared but its value is never read.",
-			"count": 1
-		},
-		{
-			"file": "src/lib/engine/station-design-forces.ts",
-			"code": "TS6192",
-			"message": "All imports in import declaration are unused.",
-			"count": 1
-		},
-		{
-			"file": "src/lib/engine/station-design-forces.ts",
-			"code": "TS6196",
-			"message": "'BeamRegions' is declared but never used.",
-			"count": 1
-		},
-		{
-			"file": "src/lib/engine/verification-service.ts",
-			"code": "TS6133",
-			"message": "'SteelVerificationInput' is declared but its value is never read.",
-			"count": 1
-		},
-		{
-			"file": "src/lib/engine/verification-service.ts",
-			"code": "TS6133",
-			"message": "'classifyElement' is declared but its value is never read.",
-			"count": 1
-		},
-		{
-			"file": "src/lib/engine/verification-service.ts",
-			"code": "TS6196",
-			"message": "'CheckStatus' is declared but never used.",
-			"count": 1
-		},
-		{
-			"file": "src/lib/geometry/plane-projection.ts",
-			"code": "TS2345",
-			"message": "Argument of type '{ id: number; type: string; }' is not assignable to parameter of type '{ [k: string]: unknown; id: number; nodeId: number; type: string; }'.",
-			"count": 1
-		},
-		{
-			"file": "src/lib/geometry/plane-projection.ts",
-			"code": "TS6133",
-			"message": "'mergedNodes' is declared but its value is never read.",
-			"count": 1
-		},
-		{
 			"file": "src/lib/store/__tests__/model-3d.test.ts",
 			"code": "TS2322",
 			"message": "Type 'Map<number, { id: number; x: number; y: number; }>' is not assignable to type 'Map<number, SolverNode>'.",
@@ -989,24 +755,6 @@
 			"file": "src/lib/store/__tests__/model-3d.test.ts",
 			"code": "TS6133",
 			"message": "'Iz' is declared but its value is never read.",
-			"count": 1
-		},
-		{
-			"file": "src/lib/store/design-run.svelte.ts",
-			"code": "TS6133",
-			"message": "'DesignCodeId' is declared but its value is never read.",
-			"count": 1
-		},
-		{
-			"file": "src/lib/store/model.svelte.ts",
-			"code": "TS2345",
-			"message": "Argument of type '{ id: number; nodeId: number; type: string; angle?: number | undefined; isGlobal?: boolean | undefined; kx?: number | undefined; ky?: number | undefined; kz?: number | undefined; dx?: number | undefined; ... 7 more ...; krz?: number | undefined; }' is not assignable to parameter of type 'Partial<Support>'.",
-			"count": 2
-		},
-		{
-			"file": "src/lib/store/verification.svelte.ts",
-			"code": "TS6133",
-			"message": "'DesignCodeId' is declared but its value is never read.",
 			"count": 1
 		},
 		{
@@ -1032,18 +780,6 @@
 			"code": "TS2353",
 			"message": "Object literal may only specify known properties, and 'hingeStart' does not exist in type '{ id: number; type: \"frame\" | \"truss\"; nodeI: number; nodeJ: number; materialId: number; sectionId: number; releaseI: Release; releaseJ: Release; reinforcement?: ProvidedReinforcement | undefined; } & Element3DMetadata'.",
 			"count": 6
-		},
-		{
-			"file": "src/lib/utils/url-sharing.ts",
-			"code": "TS2352",
-			"message": "Conversion of type '[number, { id: number; type: \"frame\" | \"truss\"; nodeI: number; nodeJ: number; materialId: number; sectionId: number; releaseI: Release; releaseJ: Release; reinforcement?: ProvidedReinforcement | undefined; } & Element3DMetadata][]' to type '[number, Record<string, unknown>][]' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.",
-			"count": 1
-		},
-		{
-			"file": "src/lib/viewport/draw-entities.ts",
-			"code": "TS6133",
-			"message": "'TWO_D_DISPLACEMENT_LABELS' is declared but its value is never read.",
-			"count": 1
 		},
 		{
 			"file": "src/lib/viewport3d/__tests__/lod.test.ts",

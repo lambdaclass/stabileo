@@ -32,7 +32,7 @@ repeatedly against the live remote.
 
 Position 19 now belongs to **RC CAD constructibility review**
 (`pr/19-rc-cad-constructibility`). Seismic is deferred with no scheduled successor position.
-Recorded in `docs/CODEX_WORKFLOW_STABILEO.md`.
+Recorded in `docs/archive/CODEX_WORKFLOW_STABILEO.md` (archived; current process in `docs/WORKFLOW.md`).
 
 ## 3. Lost commit and tag identifiers — [FACT] that they existed, [LOST] as content
 

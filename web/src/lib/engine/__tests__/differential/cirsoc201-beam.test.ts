@@ -42,36 +42,55 @@ function oraclePhi(ed: Edition, et: number, fy: number): number {
   return 0.65 + (0.25 * (et - ety)) / (etc - ety);
 }
 
-/** Strain compatibility, both steels elastic–plastic, block 0,85·f'c over β1·c ≤ h; a compression
- *  bar is net of 0,85·f'c while c > d' and not credited while it is in tension. */
+/**
+ * Strain compatibility, both steels elastic–plastic, block 0,85·f'c over β1·c ≤ h — over the web
+ * and, for a T, over the flange overhangs to min(a, hf); a compression bar is net of 0,85·f'c
+ * while c > d' and not credited while it is in tension; the tension steel, if a compression on
+ * the section puts it in compression, likewise. The axial force Nu (22.4; compression +) acts at
+ * the gross centroid, about which the moment is taken. No equilibrium (more tension than the
+ * bars yield to, more compression than the section carries): no flexural strength.
+ */
 function oracleFlexure(q: BeamSectionQuery) {
   const b1 = oracleBeta1(q.fc);
   const Asc = q.AsComp ?? 0, dp = q.dPrime ?? 0;
   const doubly = Asc > 0 && dp > 0 && dp < q.d;
+  const Nu = q.NuCompression ?? 0;
+  const flanged = (q.bf ?? 0) > q.b && (q.hf ?? 0) > 0;
+  const bf = flanged ? q.bf! : q.b, hf = flanged ? Math.min(q.hf!, q.h) : 0;
+  const yc = flanged
+    ? (bf * hf * hf / 2 + q.b * (q.h - hf) * (hf + q.h) / 2) / (bf * hf + q.b * (q.h - hf))
+    : q.h / 2;
+  const k = 0.85 * q.fc;
   const steel = (eps: number) => Math.max(-q.fy, Math.min(q.fy, ES * eps));
   const forces = (c: number) => {
     const a = Math.min(b1 * c, q.h);
-    const Cc = 0.85 * q.fc * a * q.b;
+    const af = Math.min(a, hf);
+    const web = k * a * q.b, wing = k * (bf - q.b) * af;
+    const Cc = web + wing;
+    const Mc = web * (q.d - a / 2) + wing * (q.d - af / 2);
     let Cs = 0, fsc = 0;
     if (doubly && c > dp) {
       fsc = steel((0.003 * (c - dp)) / c);
       // Net of the displaced concrete whenever the bar is in compression (c > d'), not only
       // inside the block: the force residual then stays monotone in c (one neutral axis, which
       // the certified check needs), and Mn can only be lower (integration/safety-wave).
-      Cs = Asc * Math.max(0, fsc - 0.85 * q.fc);
+      Cs = Asc * Math.max(0, fsc - k);
     }
     const et = (0.003 * (q.d - c)) / c;
     const fst = steel(et);
-    return { net: Cc + Cs - q.As * fst, Mn: Cc * (q.d - a / 2) + Cs * (q.d - dp), a, et, fst };
+    const T = q.As * (fst >= 0 ? fst : Math.min(fst + k, 0));
+    return { net: Cc + Cs - T - Nu, Mn: Mc + Cs * (q.d - dp) - Nu * (q.d - yc), a, et, fst };
   };
-  let lo = 1e-9, hi = q.h / b1 + q.d;
-  for (let i = 0; i < 200; i++) {
+  let lo = 1e-9, hi = (Nu > 0 ? 1e3 : 1) * (q.h / b1 + q.d);
+  if (!(forces(lo).net < 0 && forces(hi).net > 0)) return null;
+  for (let i = 0; i < 400; i++) {
     const mid = (lo + hi) / 2;
     if (forces(mid).net < 0) lo = mid; else hi = mid;
   }
   const c = (lo + hi) / 2;
   const s = forces(c);
   const phi = oraclePhi(q.edition as Edition, s.et, q.fy);
+  if (!(phi * s.Mn > 0)) return null;
   return { phiMn: phi * s.Mn, c, et: s.et, phi, fst: s.fst };
 }
 
@@ -120,6 +139,9 @@ const sectionArb = fc.record({
   })),
   fyt: fc.constantFrom(0, 420, 500),
   nuFrac: fc.double({ min: -0.15, max: 0.35, noNaN: true }),
+  flange: fc.oneof(fc.constant(null), fc.record({
+    bfFrac: fc.double({ min: 1.2, max: 5, noNaN: true }), hf: fc.double({ min: 0.06, max: 0.2, noNaN: true }),
+  })),
 }).map((r) => {
   const d = r.h - r.cover;
   const As = r.rho * r.b * d;
@@ -130,6 +152,7 @@ const sectionArb = fc.record({
     AsComp: r.compFrac > 0 ? As * r.compFrac : 0, dPrime: r.compFrac > 0 ? r.dPrime : 0,
     Av: r.stirrup ? r.stirrup.legs * leg[r.stirrup.dia] : 0, s: r.stirrup ? r.stirrup.s : 0,
     fyt: r.fyt * 1e6, Ag, NuCompression: r.nuFrac * r.fc * 1e6 * Ag,
+    ...(r.flange ? { bf: r.b * r.flange.bfFrac, hf: Math.min(r.flange.hf, r.h) } : {}),
   };
   return q;
 });
@@ -145,11 +168,14 @@ describe('CIRSOC 201 beam sections: engine against the clause', () => {
       qs.forEach((q, i) => {
         const r = out![i];
         const o = oracleFlexure(q);
-        expect(r.flexureValid).toBe(true);
-        // Both bisect the same monotone residual to ~1e-12·h; 1e-7 is far below any rounding
-        // that reaches a verdict (φMn is shown to 0,01 kN·m).
-        expect(rel(r.phiMn, o.phiMn)).toBeLessThan(1e-7);
-        expect(Math.abs(r.phi - o.phi)).toBeLessThan(1e-6);
+        // A section that cannot equilibrate its axial force has no flexural strength, on both.
+        expect(r.flexureValid, JSON.stringify(q)).toBe(o !== null);
+        if (o) {
+          // Both bisect the same monotone residual to ~1e-12·h; 1e-7 is far below any rounding
+          // that reaches a verdict (φMn is shown to 0,01 kN·m).
+          expect(rel(r.phiMn, o.phiMn)).toBeLessThan(1e-7);
+          expect(Math.abs(r.phi - o.phi)).toBeLessThan(1e-6);
+        }
         const v = oracleShear(q);
         expect(r.shearValid).toBe(true);
         expect(r.avBelowMin).toBe(v.below);
@@ -166,13 +192,18 @@ describe('CIRSOC 201 beam sections: engine against the clause', () => {
         elementId: i, fc: q.fc, fy: q.fy, b: q.b, h: q.h, d: q.d, asTension: q.As,
         asCompression: q.AsComp || undefined, dPrime: q.dPrime || undefined,
         av: q.Av || undefined, sStirrup: q.s || undefined, fyt: q.fyt || undefined, ag: q.Ag, edition: q.edition,
+        bf: q.bf, hf: q.hf,
       })),
       forces: qs.map((q, i) => ({ elementId: i, mu: 1, vu: 1, axialCompression: q.NuCompression })),
     }) as Array<{ elementId: number; phiMn: number; phiVn: number }>;
     expect(json).toHaveLength(qs.length);
     for (const r of json) {
-      // Equal up to the last bits JSON's decimal round trip of the inputs can move.
-      expect(rel(r.phiMn, batch[r.elementId].phiMn)).toBeLessThan(1e-12);
+      // Equal up to the last bits JSON's decimal round trip of the inputs can move. A section
+      // with no flexural strength (no equilibrium under its axial force) reads NaN in the batch
+      // and 0 in the checker, which flags it unevaluated: both refuse it.
+      const b = batch[r.elementId];
+      if (!b.flexureValid) expect(r.phiMn).toBe(0);
+      else expect(rel(r.phiMn, b.phiMn)).toBeLessThan(1e-12);
       expect(rel(r.phiVn, batch[r.elementId].phiVn)).toBeLessThan(1e-12);
     }
   });
@@ -181,9 +212,11 @@ describe('CIRSOC 201 beam sections: engine against the clause', () => {
     const qs = fc.sample(sectionArb, { numRuns: 500, seed: 11 }).filter((q) => q.edition === '2025');
     for (const q of qs) {
       const flex = computeFlexureCapacity(q.As * 1e4, q.b, q.d, q.fc / 1e6, q.fy / 1e6,
-        (q.AsComp ?? 0) * 1e4, q.dPrime ?? 0, 0, 0, { h: q.h, edition: '2025' })!;
+        (q.AsComp ?? 0) * 1e4, q.dPrime ?? 0, 0, 0, { h: q.h, edition: '2025', Nu: (q.NuCompression ?? 0) / 1e3 });
+      const o = oracleFlexure({ ...q, bf: undefined, hf: undefined, Ag: q.b * q.h });
+      expect(flex === null).toBe(o === null);
       // The adapter rounds φMn to 0,01 kN·m for display, nothing else.
-      expect(Math.abs(flex.phiMn - oracleFlexure(q).phiMn / 1e3)).toBeLessThanOrEqual(0.005 + 1e-9);
+      if (flex && o) expect(Math.abs(flex.phiMn - o.phiMn / 1e3)).toBeLessThanOrEqual(0.005 + 1e-9);
     }
     // Shear through the adapter: stirrups described by diameter and legs.
     const v = computeShearCapacity(10, 2, 0.15, 0.3, 0.54, 25, 500, 0, { Ag: 0.18, rhoW: 0.01, h: 0.6 });

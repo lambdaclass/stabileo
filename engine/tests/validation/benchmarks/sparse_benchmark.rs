@@ -173,7 +173,7 @@ fn benchmark_conditioning_detection() {
     })];
 
     let bad_input = SolverInput {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes, materials, sections, elements, supports, loads,
         constraints: vec![], connectors: HashMap::new(),
     };

@@ -20,6 +20,8 @@
  * which skipped all of that and landed every slider move on the deformed
  * shape.
  */
+import { recheckStore } from './recheck.svelte';
+import type { SolveStamp } from '../provenance/solve-stamp';
 import { scaledLoad } from '../model/loads/load-magnitudes';
 import { tick } from 'svelte';
 import { modelStore } from './model.svelte';
@@ -45,6 +47,8 @@ let timer: ReturnType<typeof setTimeout> | undefined;
  * the model under the session, and its baseline no longer describes it.
  */
 let ownVersion = -1;
+/** The project's solve stamp when Explore opened, put back when it closes. */
+let stampAtOpen: SolveStamp | undefined;
 
 const is3D = () => uiStore.is3DWorkspace;
 const ONE: MemberFactors = { e: 1, a: 1, iy: 1 };
@@ -188,6 +192,7 @@ export const whatIf = {
   open(): void {
     if (baseline) return;
     baseline = { ...modelStore.snapshot(), presentation3D: uiStore.viewportPresentation3D };
+    stampAtOpen = recheckStore.capture();
     loadFactors = modelStore.model.loads.map(() => 1);
     all = { ...ONE };
     members = {};
@@ -214,6 +219,8 @@ export const whatIf = {
     const was = liveWasOn;
     uiStore.liveCalc = was;
     restoreBaseline(snap);
+    // What the what-if solves stamped belongs to a model that no longer exists (recheck.svelte.ts).
+    recheckStore.restoreStamp(stampAtOpen);
     if (!was) {
       // Live calc is off again, so nothing re-solves the restored model on
       // its own; solve it once, after the edit has cleared the old results.

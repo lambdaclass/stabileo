@@ -1,5 +1,6 @@
 /**
- * The full Vitest gate: two passes, both always run, either failure propagates.
+ * The full Vitest gate: three passes (unit, build, and the results snapshots), all always run,
+ * any failure propagates. The history below is of the first two.
  *
  * ── Why two passes and not one run ─────────────────────────────────
  *
@@ -48,6 +49,10 @@
  * the test is the only proof that a production artifact does not ship the browser-test
  * hooks.
  *
+ * The project-scale timing budgets also run in the serial pass. In the parallel pool,
+ * report generation exceeded its 2,000 ms budget by 26 ms while other workers were busy.
+ * Isolating that measurement keeps the fixture and thresholds intact.
+ *
  * ── What was deliberately NOT done ─────────────────────────────────
  *
  * No RPC timeout was raised, no retry was added, no worker error was demoted to a warning,
@@ -57,7 +62,7 @@
 
 import { spawnSync } from 'node:child_process';
 
-/** Extra argv is forwarded to both passes; see `passWithNoTests` below. */
+/** Extra argv is forwarded to every pass; see `passWithNoTests` below. */
 const forwarded = process.argv.slice(2);
 
 /**
@@ -68,7 +73,10 @@ const filtered = forwarded.length > 0;
 
 const PASSES = [
   { project: 'unit', label: 'unit + integration (bounded parallel pool)' },
-  { project: 'build', label: 'production builds (serial, whole machine)' },
+  { project: 'build', label: 'production builds and performance budgets (serial, whole machine)' },
+  // The results snapshot gate (#716): the reference corpus solved through the app's path and
+  // compared with web/results-snapshots/. Its own pass so a result change reads as one.
+  { project: 'results', label: 'results snapshots (the reference corpus against web/results-snapshots/)' },
 ];
 
 const results = [];
@@ -94,8 +102,8 @@ for (const r of results) {
     + `  ${r.seconds}s${r.signal ? `  (signal ${r.signal})` : ''}`);
 }
 
-// Either failure fails the gate. Reported after both passes have run, so one broken pass
-// does not hide the state of the other.
+// Any failure fails the gate. Reported after every pass has run, so one broken pass
+// does not hide the state of the others.
 const failed = results.filter((r) => r.code !== 0);
 if (failed.length > 0) {
   console.error(`\n${failed.length} of ${results.length} Vitest passes failed: `

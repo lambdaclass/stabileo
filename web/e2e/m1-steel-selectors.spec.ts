@@ -21,15 +21,15 @@
  * rather than a presence check, because "the field is filled in" is true in the failure mode.
  */
 
-import { test, expect, PRO_URL } from './fixtures';
+import { test, expect, PRO_URL, clickStage, ribbonCmd } from './fixtures';
 import { insertGenerated, pickGenerator, placeButton } from './generator-helpers';
 import type { Page } from '@playwright/test';
 
 const STAGE_OF = { generators: 'model', steel: 'design' } as const;
 
 async function openTab(page: Page, tab: 'generators' | 'steel'): Promise<void> {
-  await page.getByTestId(`pr-stage-${STAGE_OF[tab]}`).click();
-  await page.getByTestId(`pr-cmd-${tab}`).click();
+  await clickStage(page, STAGE_OF[tab]);
+  await ribbonCmd(page, tab);
 }
 
 async function openGenerators(page: Page): Promise<void> {
@@ -57,7 +57,7 @@ async function selectShed(page: Page): Promise<void> {
 test.beforeEach(async ({ page }) => {
   await page.goto(PRO_URL);
   await expect
-    .poll(() => page.evaluate(() => window.__stabileo.solverReady()), { timeout: 60_000 })
+    .poll(() => page.evaluate(() => window.__stabileo?.solverReady() ?? false), { timeout: 45_000 })
     .toBe(true);
 });
 

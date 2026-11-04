@@ -14,8 +14,11 @@ mod design_check_limit_states;
 mod design_check_quantities;
 mod eccentric_connections;
 mod ec2_check;
+mod ec2_strain_compatibility;
 mod ec3_check;
 mod foundation_check;
+mod isolated_footing;
+mod loads_cirsoc;
 mod harmonic;
 mod influence_3d;
 mod load_cases;
@@ -37,3 +40,8 @@ mod steel_check;
 mod timber_check;
 mod time_history_3d;
 mod winkler;
+
+#[path = "../benchmarks/newmark_1959.rs"]
+mod newmark_1959;
+#[path = "../benchmarks/plastic_collapse.rs"]
+mod plastic_collapse_benchmark;

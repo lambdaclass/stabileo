@@ -70,7 +70,7 @@ export function transformInPlace(set: EntitySet, T: Affine, opts: { leftHand?: b
       patch.offset = carriedOffset(T, e.offset, o.sy, o.sz);
       if (e.arc) {
         const mp = (v: { x: number; y: number; z: number }) => { const q = applyPoint(T, [v.x, v.y, v.z]); return { x: q[0], y: q[1], z: q[2] }; };
-        patch.arc = { id: e.arc.id, spec: { ...e.arc.spec, start: mp(e.arc.spec.start), through: mp(e.arc.spec.through), end: mp(e.arc.spec.end) } };
+        patch.arc = { ...e.arc, id: e.arc.id, spec: { ...e.arc.spec, start: mp(e.arc.spec.start), through: mp(e.arc.spec.through), end: mp(e.arc.spec.end) } };
       }
       modelStore.updateElement(e.id, patch);
       report.rigidMembers++;

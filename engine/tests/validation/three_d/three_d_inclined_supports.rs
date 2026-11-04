@@ -73,6 +73,8 @@ fn validation_inclined_roller_45_degrees() {
     secs.insert("1".to_string(), SolverSection3D {
         id: 1, name: None, a: A, iy: IY, iz: IZ, j: J, cw: None,
         as_y: None, as_z: None,
+        shear_center_y: None,
+        shear_center_z: None,
     });
 
     let mut elems = HashMap::new();
@@ -97,7 +99,7 @@ fn validation_inclined_roller_45_degrees() {
     })];
 
     let input = SolverInput3D {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes, materials: mats, sections: secs, elements: elems,
         supports: sups, loads, constraints: vec![], left_hand: None, plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_shells: HashMap::new(),
         curved_beams: vec![],
@@ -146,6 +148,8 @@ fn validation_inclined_roller_normal_y_is_standard_roller() {
     secs.insert("1".to_string(), SolverSection3D {
         id: 1, name: None, a: A, iy: IY, iz: IZ, j: J, cw: None,
         as_y: None, as_z: None,
+        shear_center_y: None,
+        shear_center_z: None,
     });
 
     let mut elems = HashMap::new();
@@ -185,14 +189,14 @@ fn validation_inclined_roller_normal_y_is_standard_roller() {
     })];
 
     let input1 = SolverInput3D {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes: nodes.clone(), materials: mats.clone(), sections: secs.clone(),
         elements: elems.clone(), supports: sups1, loads: loads.clone(),
         constraints: vec![], left_hand: None, plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_shells: HashMap::new(), curved_beams: vec![],
         connectors: HashMap::new(),
     };
     let input2 = SolverInput3D {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes, materials: mats, sections: secs,
         elements: elems, supports: sups2, loads,
         constraints: vec![], left_hand: None, plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_shells: HashMap::new(), curved_beams: vec![],
@@ -236,6 +240,8 @@ fn validation_inclined_support_global_equilibrium() {
     secs.insert("1".to_string(), SolverSection3D {
         id: 1, name: None, a: A, iy: IY, iz: IZ, j: J, cw: None,
         as_y: None, as_z: None,
+        shear_center_y: None,
+        shear_center_z: None,
     });
 
     let mut elems = HashMap::new();
@@ -263,7 +269,7 @@ fn validation_inclined_support_global_equilibrium() {
     })];
 
     let input = SolverInput3D {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes, materials: mats, sections: secs, elements: elems,
         supports: sups, loads, constraints: vec![], left_hand: None, plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_shells: HashMap::new(),
         curved_beams: vec![],
@@ -319,6 +325,8 @@ fn validation_inclined_support_displacement_direction() {
     secs.insert("1".to_string(), SolverSection3D {
         id: 1, name: None, a: A, iy: IY, iz: IZ, j: J, cw: None,
         as_y: None, as_z: None,
+        shear_center_y: None,
+        shear_center_z: None,
     });
 
     let mut elems = HashMap::new();
@@ -344,7 +352,7 @@ fn validation_inclined_support_displacement_direction() {
     })];
 
     let input = SolverInput3D {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes, materials: mats, sections: secs, elements: elems,
         supports: sups, loads, constraints: vec![], left_hand: None, plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_shells: HashMap::new(),
         curved_beams: vec![],
@@ -390,6 +398,8 @@ fn validation_inclined_support_equilibrium_summary_correct() {
     secs.insert("1".to_string(), SolverSection3D {
         id: 1, name: None, a: A, iy: IY, iz: IZ, j: J, cw: None,
         as_y: None, as_z: None,
+        shear_center_y: None,
+        shear_center_z: None,
     });
 
     let mut elems = HashMap::new();
@@ -417,7 +427,7 @@ fn validation_inclined_support_equilibrium_summary_correct() {
     })];
 
     let input = SolverInput3D {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes, materials: mats, sections: secs, elements: elems,
         supports: sups, loads, constraints: vec![], left_hand: None,
         plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(),
@@ -473,6 +483,8 @@ fn validation_inclined_support_prescribed_global_settlement() {
     sections.insert("1".to_string(), SolverSection3D {
         id: 1, name: None, a: A, iy: IY, iz: IZ, j: J,
         cw: None, as_y: None, as_z: None,
+        shear_center_y: None,
+        shear_center_z: None,
     });
 
     let mut elements = HashMap::new();
@@ -499,7 +511,7 @@ fn validation_inclined_support_prescribed_global_settlement() {
         loads: vec![], constraints: vec![], left_hand: None,
         plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(),
         solid_shells: HashMap::new(), curved_beams: vec![],
-        curved_shells: HashMap::new(), connectors: HashMap::new(), solver_options: None,
+        curved_shells: HashMap::new(), connectors: HashMap::new(), solver_options: None, masses: Default::default(),
     };
 
     let res = linear::solve_3d(&input).unwrap();

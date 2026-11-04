@@ -417,6 +417,7 @@ fn validation_ca_ssll111_two_bar_thermal() {
             element_id: i + 1,
             dt_uniform: dt,
             dt_gradient: 0.0,
+            alpha: None, depth: None,
         })
     }).collect();
 
@@ -538,7 +539,7 @@ fn validation_ca_ssll112_beam_elastic_support() {
     })];
 
     let input = SolverInput {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes: nodes_map, materials: mats_map, sections: secs_map,
         elements: elems_map, supports: sups_map, loads, constraints: vec![],
         connectors: HashMap::new(), };

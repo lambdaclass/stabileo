@@ -11,7 +11,7 @@
 import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
 import {
-  createPlateMesh, createQuadMesh, shellColorForMaterial, paintShell, restoreShellColor,
+  createPlateMesh, createQuadMesh, shellColorForMaterial, paintShell, restoreShellColor, createPhysicalPlateMesh,
 } from '../create-shell-mesh';
 
 const V = (x: number, y: number, z: number) => ({ x, y, z });
@@ -116,5 +116,38 @@ describe('paint / restore', () => {
     expect(faceMat()).toBe(0x00ffff);
     restoreShellColor(g);
     expect(faceMat()).toBe(base);
+  });
+});
+
+describe('a physical plate with no mesh', () => {
+  // A pentagon in a vertical plane (x = 1), with a square hole.
+  const outer = [V(1, 0, 0), V(1, 4, 0), V(1, 5, 2), V(1, 2, 4), V(1, -1, 2)];
+  const hole = [V(1, 1, 1), V(1, 2, 1), V(1, 2, 2), V(1, 1, 2)];
+  const uv = { outer: outer.map((p) => [p.y, p.z] as [number, number]), holes: [hole.map((p) => [p.y, p.z] as [number, number])] };
+
+  it('is a slab of its thickness in the views that draw thickness, holes and all', () => {
+    const t = 0.25;
+    const geo = faceMeshOf(createPhysicalPlateMesh(outer, [hole], uv, 7, { renderMode: 'sections', thickness: t })).geometry;
+    geo.computeBoundingBox();
+    const size = new THREE.Vector3();
+    geo.boundingBox!.getSize(size);
+    // Thickened along the plane's normal (x), not in its plane.
+    expect(size.x).toBeCloseTo(t, 6);
+    expect(size.y).toBeCloseTo(6, 6);
+    expect(size.z).toBeCloseTo(4, 6);
+    // Top and bottom (the triangulation twice) and a wall of two triangles per edge of both loops.
+    const tris = geo.getAttribute('position').count / 3;
+    const faceTris = (outer.length + hole.length + 2 * 1 - 2);
+    expect(tris).toBe(2 * faceTris + 2 * (outer.length + hole.length));
+  });
+
+  it('is flat in the other views, and without a thickness', () => {
+    for (const [mode, th] of [['solid', 0.25], ['wireframe', 0.25], ['sections', 0]] as const) {
+      const geo = faceMeshOf(createPhysicalPlateMesh(outer, [hole], uv, 7, { renderMode: mode, thickness: th })).geometry;
+      geo.computeBoundingBox();
+      const size = new THREE.Vector3();
+      geo.boundingBox!.getSize(size);
+      expect(size.x, `${mode} ${th}`).toBeCloseTo(0, 9);
+    }
   });
 });

@@ -221,7 +221,7 @@ describe('the axial part of a load on a member that takes no bending', () => {
     const input = modelStore.buildSolverInput3D(false, false, { expandMemberOffsets: false })!;
     const res = solveSSI3D({
       solver: input,
-      soilSprings: [{ nodeId: head, direction: 0, tributaryLength: 1, curve: { type: 'py_soft_clay', su: 50, gamma_eff: 18, d: 0.6, depth: 5, eps_50: 0.01 } }],
+      soilSprings: [{ nodeId: head, direction: 0, tributaryLength: 1, curve: { type: 'py_soft_clay', su: 50, gamma_eff: 18, d: 0.6, depth: 5, eps_50: 0.01, j: 0.5 } }],
       maxIter: 20, tolerance: 1e-4,
     });
     expect(diff(res.results, p)).toBeCloseTo(0, 6);

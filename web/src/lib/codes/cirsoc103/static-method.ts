@@ -30,8 +30,9 @@
 
 import { clause, type ClauseRef } from '../regulation';
 import { msg, round, type EngineMessage } from '../message';
+import { loadsRequest } from '../../engine/wasm-solver';
 import {
-  RISK_FACTOR, spectralOrdinate,
+  engineSpectrum,
   type DesignSpectrum, type DestinationGroup, type SeismicZone,
 } from './spectrum';
 
@@ -69,8 +70,7 @@ export const PERIOD_COEFFICIENTS: Readonly<Record<PeriodSystem, { cr: number; x:
 
 /** [6.8] — Ta = Cr·H^x, with H the total height above the reference level, m. */
 export function approximatePeriod(heightM: number, system: PeriodSystem): number {
-  const { cr, x } = PERIOD_COEFFICIENTS[system];
-  return cr * Math.pow(Math.max(heightM, 0), x);
+  return designPeriod({ heightM, system }, 0.35).ta;
 }
 
 /**
@@ -80,26 +80,9 @@ export function approximatePeriod(heightM: number, system: PeriodSystem): number
  * interpolates linearly between them and holds the end values flat outside the range,
  * which is what "≥ 0,35" and "≤ 0,08" mean.
  */
-const CU_TABLE: ReadonlyArray<{ as: number; cu: number }> = Object.freeze([
-  { as: 0.08, cu: 1.70 },
-  { as: 0.15, cu: 1.60 },
-  { as: 0.25, cu: 1.45 },
-  { as: 0.35, cu: 1.40 },
-]);
 
 export function periodCapFactor(as: number): number {
-  if (as <= CU_TABLE[0].as) return CU_TABLE[0].cu;
-  const last = CU_TABLE[CU_TABLE.length - 1];
-  if (as >= last.as) return last.cu;
-  for (let i = 1; i < CU_TABLE.length; i++) {
-    const a = CU_TABLE[i - 1];
-    const b = CU_TABLE[i];
-    if (as <= b.as) {
-      const t = (as - a.as) / (b.as - a.as);
-      return a.cu + t * (b.cu - a.cu);
-    }
-  }
-  return last.cu;
+  return designPeriod({ heightM: 0, system: 'other' }, as).cu;
 }
 
 export interface PeriodInputs {
@@ -129,24 +112,22 @@ export interface PeriodResult {
  * low. The cap is the clause that stops a soft model from designing its own load away.
  */
 export function designPeriod(i: PeriodInputs, as: number): PeriodResult {
-  const ta = approximatePeriod(i.heightM, i.system);
-  const cu = periodCapFactor(as);
-  const limit = cu * ta;
-  if (i.computedT === undefined || !(i.computedT > 0)) {
+  const r = loadsRequest({
+    op: 'cirsoc103Period', height: i.heightM, system: i.system, as,
+    ...(i.computedT !== undefined ? { computedT: i.computedT } : {}),
+  }) as { t: number; ta: number; cu: number; cr: number; x: number; limit: number; capped: boolean; computed: boolean };
+  const { ta, cu, limit, capped } = r;
+  if (!r.computed) {
     return {
       t: ta, ta, cu, capped: false, refs: [REF_TA, REF_T62],
-      derivation: msg('seismic.derivation.taOnly', {
-        cr: PERIOD_COEFFICIENTS[i.system].cr, x: PERIOD_COEFFICIENTS[i.system].x,
-        h: round(i.heightM, 2), ta: round(ta, 3),
-      }),
+      derivation: msg('seismic.derivation.taOnly', { cr: r.cr, x: r.x, h: round(i.heightM, 2), ta: round(ta, 3) }),
     };
   }
-  const capped = i.computedT > limit;
   return {
-    t: capped ? limit : i.computedT, ta, cu, capped,
+    t: r.t, ta, cu, capped,
     refs: [REF_TA, REF_T62, REF_CU, clause('inpres-cirsoc-103-i', ED, '6.2.3', 'período fundamental de vibración')],
     derivation: msg(capped ? 'seismic.derivation.tCapped' : 'seismic.derivation.tComputed', {
-      computed: round(i.computedT, 3), cu: round(cu, 2), ta: round(ta, 3),
+      computed: round(i.computedT!, 3), cu: round(cu, 2), ta: round(ta, 3),
       limit: round(limit, 3),
     }),
   };
@@ -185,43 +166,21 @@ export interface CoefficientResult {
  */
 export function designSeismicCoefficient(i: CoefficientInputs): CoefficientResult {
   const s = i.spectrum;
-  const gammaR = RISK_FACTOR[i.group];
-  const r = Math.max(i.r, 1e-9);
-  const derivation: EngineMessage[] = [];
-
-  const plateau = i.t <= s.t2;
-  const sa = plateau ? 2.5 * s.ca : spectralOrdinate(i.t, s);
-  let c = (sa * gammaR) / r;
-  derivation.push(msg(plateau ? 'seismic.derivation.cPlateau' : 'seismic.derivation.cSpectrum', {
+  const e = loadsRequest({ op: 'cirsoc103Coefficient', spectrum: engineSpectrum(s), group: i.group, r: i.r, t: i.t }) as {
+    c: number; cSpectral: number; plateau: boolean; floorApplied?: 'nearFault' | 'lowZone'; gammaR: number; sa: number; r: number;
+  };
+  const { gammaR, sa, r, plateau } = e;
+  const derivation: EngineMessage[] = [msg(plateau ? 'seismic.derivation.cPlateau' : 'seismic.derivation.cSpectrum', {
     sa: round(sa, 4), gammaR, r: round(r, 2), t: round(i.t, 3),
-    t2: round(s.t2, 3), c: round(c, 4),
-  }));
-
-  let floorApplied: CoefficientResult['floorApplied'] = null;
-  if (s.zone >= 3) {
-    // [6.5] — C ≥ 0,8·as·Nv/R in zones 3 and 4.
-    const floor = (0.8 * s.as * s.nv) / r;
-    if (floor > c) {
-      c = floor;
-      floorApplied = 'nearFault';
-      derivation.push(msg('seismic.derivation.cFloorNearFault', {
-        as: s.as, nv: round(s.nv, 2), r: round(r, 2), c: round(c, 4),
-      }));
-    }
-  } else {
-    // [6.6] — C ≥ 0,11·Ca·γr in zones 0, 1 and 2. Note: no R in this one.
-    const floor = 0.11 * s.ca * gammaR;
-    if (floor > c) {
-      c = floor;
-      floorApplied = 'lowZone';
-      derivation.push(msg('seismic.derivation.cFloorLowZone', {
-        ca: round(s.ca, 3), gammaR, c: round(c, 4),
-      }));
-    }
+    t2: round(s.t2, 3), c: round(e.cSpectral, 4),
+  })];
+  if (e.floorApplied === 'nearFault') {
+    derivation.push(msg('seismic.derivation.cFloorNearFault', { as: s.as, nv: round(s.nv, 2), r: round(r, 2), c: round(e.c, 4) }));
+  } else if (e.floorApplied === 'lowZone') {
+    derivation.push(msg('seismic.derivation.cFloorLowZone', { ca: round(s.ca, 3), gammaR, c: round(e.c, 4) }));
   }
-
   return {
-    c, basis: plateau ? 'plateau' : 'spectrum', floorApplied, gammaR, sa,
+    c: e.c, basis: plateau ? 'plateau' : 'spectrum', floorApplied: e.floorApplied ?? null, gammaR, sa,
     refs: [REF_C, ...s.refs], derivation,
   };
 }
@@ -271,33 +230,19 @@ export function distributeInHeight(
   levels: readonly MassLevel[], baseShearKN: number,
   uncappedT: number, t2: number,
 ): DistributionResult {
-  const usable = levels.filter((l) => l.w > 0 && l.h > 0);
-  const sumWh = usable.reduce((s, l) => s + l.w * l.h, 0);
-  const topHeavy = uncappedT > 2 * t2;
-
-  if (sumWh <= 0) {
-    return {
-      forces: usable.map((l) => ({ h: l.h, w: l.w, f: 0 })),
-      topHeavy, refs: [REF_DIST],
-      derivation: msg('seismic.derivation.distNoMass'),
-    };
+  const r = loadsRequest({
+    // T2 = ∞ (no spectrum) crosses as null: never top-heavy.
+    op: 'cirsoc103Distribution', levels: levels.map((l) => ({ h: l.h, w: l.w })), baseShear: baseShearKN, uncappedT,
+    t2: Number.isFinite(t2) ? t2 : null,
+  }) as { forces: Array<[number, number, number]>; topHeavy: boolean; sumWh: number };
+  const forces = r.forces.map(([h, w, f]) => ({ h, w, f }));
+  if (r.sumWh <= 0) {
+    return { forces, topHeavy: r.topHeavy, refs: [REF_DIST], derivation: msg('seismic.derivation.distNoMass') };
   }
-
-  // The topmost mass by height; [6.13] places the extra tenth there.
-  let topIndex = 0;
-  for (let i = 1; i < usable.length; i++) if (usable[i].h > usable[topIndex].h) topIndex = i;
-
-  const factor = topHeavy ? 0.9 : 1.0;
-  const forces = usable.map((l, idx) => {
-    let f = (factor * l.w * l.h * baseShearKN) / sumWh;
-    if (topHeavy && idx === topIndex) f += 0.1 * baseShearKN;
-    return { h: l.h, w: l.w, f };
-  });
-
   return {
-    forces, topHeavy, refs: [REF_DIST],
-    derivation: msg(topHeavy ? 'seismic.derivation.distTopHeavy' : 'seismic.derivation.dist', {
-      levels: usable.length, sumWh: round(sumWh, 1), v0: round(baseShearKN, 1),
+    forces, topHeavy: r.topHeavy, refs: [REF_DIST],
+    derivation: msg(r.topHeavy ? 'seismic.derivation.distTopHeavy' : 'seismic.derivation.dist', {
+      levels: forces.length, sumWh: round(r.sumWh, 1), v0: round(baseShearKN, 1),
       t: round(uncappedT, 3), t2: round(t2, 3),
     }),
   };
@@ -328,20 +273,7 @@ export interface Applicability {
   refs: ClauseRef[];
 }
 
-/**
- * Tabla 2.5 — the height the static method reaches, by zone and destination group.
- *
- * Group C is not a column of Tabla 2.5. It is the least demanding group (γr = 0,8), so
- * it is read here against group B's row — stated rather than silently assumed, and never
- * used to raise a limit.
- */
-const MAX_HEIGHT: Readonly<Record<'high' | 'low', Record<DestinationGroup, number>>> =
-  Object.freeze({
-    // Zones 3 and 4
-    high: { Ao: 12, A: 30, B: 45, C: 45 },
-    // Zones 0, 1 and 2
-    low: { Ao: 16, A: 45, B: 60, C: 60 },
-  });
+/* Tabla 2.5's height limits live in the engine (`static_method_applicable`). */
 
 /**
  * Whether Capítulo 6 may be used, and whether Capítulo 7 is mandatory.
@@ -352,46 +284,20 @@ const MAX_HEIGHT: Readonly<Record<'high' | 'low', Record<DestinationGroup, numbe
  * for such a building is a number the regulation does not accept.
  */
 export function staticMethodApplicable(i: ApplicabilityInputs): Applicability {
-  const reasons: EngineMessage[] = [];
   const refs: ClauseRef[] = [REF_T25, clause('inpres-cirsoc-103-i', ED, '2.7.2', 'método estático')];
-
-  if (i.t !== undefined && i.t2 !== undefined && i.t > 3 * i.t2) {
-    return {
-      allowed: false, dynamicRequired: true,
-      reasons: [msg('seismic.blocked.dynamicRequired', {
-        t: round(i.t, 3), t2: round(i.t2, 3), limit: round(3 * i.t2, 3),
-      })],
-      refs: [...refs, REF_DYN],
-    };
-  }
-
-  // "Se admite para todas las construcciones hasta 3 niveles o de altura menor que 9 m."
-  if (i.levels <= 3 || i.heightM < 9) {
-    return { allowed: true, dynamicRequired: false, reasons, refs };
-  }
-
-  const band = i.zone >= 3 ? 'high' : 'low';
-  const limit = MAX_HEIGHT[band][i.group];
-  if (i.heightM > limit) {
-    reasons.push(msg('seismic.blocked.heightOverTable25', {
-      h: round(i.heightM, 2), limit, zone: i.zone, group: i.group,
-    }));
-  }
-  // Group Ao asks for line 1a of Tabla 2.4 (no stiffness irregularity) in every zone, and in
-  // zones 3 and 4 for line 1a of Tabla 2.3 too (torsional regularity): a medium irregularity,
-  // in plan or in elevation, is outside its columns. The other groups admit line 1b.
-  if (i.regularity === 'irregular') {
-    reasons.push(msg('seismic.blocked.irregular'));
-  } else if (i.regularity === 'medium' && i.group === 'Ao') {
-    reasons.push(msg('seismic.blocked.aoIrregular'));
-  }
-  if (i.group === 'C') {
-    reasons.push(msg('seismic.assumed.groupCAsB'));
-  }
-
-  const blocking = reasons.filter((r) => r.key.startsWith('seismic.blocked.'));
-  return {
-    allowed: blocking.length === 0, dynamicRequired: blocking.length > 0,
-    reasons, refs: blocking.length > 0 ? [...refs, REF_DYN] : refs,
-  };
+  const r = loadsRequest({
+    op: 'cirsoc103Applicability', zone: i.zone, group: i.group, height: i.heightM, levels: i.levels, regularity: i.regularity,
+    ...(i.t !== undefined ? { t: i.t } : {}), ...(i.t2 !== undefined ? { t2: i.t2 } : {}),
+  }) as { allowed: boolean; dynamicRequired: boolean; reasons: string[]; heightLimit?: number };
+  const reasons: EngineMessage[] = r.reasons.map((k) => {
+    switch (k) {
+      case 'dynamicRequired': return msg('seismic.blocked.dynamicRequired', { t: round(i.t!, 3), t2: round(i.t2!, 3), limit: round(3 * i.t2!, 3) });
+      case 'heightOverTable25': return msg('seismic.blocked.heightOverTable25', { h: round(i.heightM, 2), limit: r.heightLimit!, zone: i.zone, group: i.group });
+      case 'irregular': return msg('seismic.blocked.irregular');
+      case 'aoIrregular': return msg('seismic.blocked.aoIrregular');
+      case 'groupCAsB': return msg('seismic.assumed.groupCAsB');
+      default: throw new Error(`unknown applicability reason from the engine: ${k}`);
+    }
+  });
+  return { allowed: r.allowed, dynamicRequired: r.dynamicRequired, reasons, refs: r.dynamicRequired ? [...refs, REF_DYN] : refs };
 }

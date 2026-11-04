@@ -100,12 +100,27 @@ describe('the workbook, sheet by sheet', () => {
   it('a CSV of one sheet still carries the cover and the conventions, as the dialog says', async () => {
     slabFrame();
     downloads.length = 0;
-    downloadProjectCsv(5, { sheets: new Set(['Nodes']) });
+    await downloadProjectCsv(5, { sheets: new Set(['Nodes']) });
     expect(downloads).toHaveLength(1);
     const { blob, name } = downloads[0]!;
     expect(name).toMatch(/\.zip$/);
     const files = Object.keys(unzipSync(new Uint8Array(await blob.arrayBuffer())));
     expect(files).toEqual(['01-Cover.csv', '02-Conventions.csv', '03-Nodes.csv']);
+  });
+});
+
+describe('an export the project moved under', () => {
+  it('a CSV whose model is edited while its provenance is prepared is not written', async () => {
+    slabFrame();
+    downloads.length = 0;
+    const pending = downloadProjectCsv(5, { sheets: new Set(['Nodes']) });
+    // The edit lands while the export awaits the engine hashes.
+    modelStore.addNode(99, 99, 99);
+    await pending;
+    expect(downloads).toHaveLength(0);
+    // Exported again on the model as it is now: written, and describing it.
+    await downloadProjectCsv(5, { sheets: new Set(['Nodes']) });
+    expect(downloads).toHaveLength(1);
   });
 });
 
@@ -174,7 +189,7 @@ describe('the figures of a model with shells', () => {
 describe('the report', () => {
   const config = (over: Partial<ReportConfig> = {}): ReportConfig => ({
     companyName: '', companyLogo: null,
-    sections: { modelData: true, results: true, verification: false, advancedAnalysis: false, storyDrift: false, diagnostics: false, quantities: false, loads: true, figures: false },
+    sections: { modelData: true, results: true, advancedAnalysis: false, storyDrift: false, diagnostics: false, quantities: false, loads: true, figures: false },
     ...over,
   });
 

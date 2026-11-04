@@ -15,8 +15,9 @@ export const axialOf = (e: Element): Axial => e.behaviour ?? (e.type === 'truss'
 export function setAxial(ids: Iterable<number>, v: Axial): void {
   modelStore.batch(() => {
     for (const id of ids) {
-      if (v === 'frame' || v === 'truss') modelStore.updateElement(id, { type: v, behaviour: undefined });
-      else modelStore.updateElement(id, { behaviour: v });
+      // A pretension belongs to a cable: it goes with the behaviour.
+      if (v === 'frame' || v === 'truss') modelStore.updateElement(id, { type: v, behaviour: undefined, cablePretension: undefined });
+      else modelStore.updateElement(id, v === 'cable' ? { behaviour: v } : { behaviour: v, cablePretension: undefined });
     }
   });
 }

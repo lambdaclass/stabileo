@@ -9,7 +9,8 @@
  * remains is stated in the units the model is drawn in.
  */
 import { describe, it, expect } from 'vitest';
-import { arcThroughThree, arcPoints, chordError, segmentsForTolerance, buildArc } from '../curved-member';
+import { arcThroughThree, arcPoints, chordError, segmentsForTolerance, buildArc, arcMemberLocalY, migrateArcLocalAxes } from '../curved-member';
+import { computeLocalAxes3D } from '../../engine/local-axes-3d';
 
 const P = (x: number, y: number, z = 0) => ({ x, y, z });
 
@@ -205,5 +206,141 @@ describe('the crown of the arch, which is where a duplicate node appears', () =>
       nodeAt: () => null,
     }, 1, 7, 9);
     expect(nextNode, 'seven intermediate points, all new').toBe(7);
+  });
+});
+
+/*
+ * #418 (SP-15). Every member of an arc keeps the same section orientation relative to the curve.
+ * The default rule alone turned the near-vertical members at an arch's springings by 90° (it
+ * switches to a global-X reference within 2.56° of vertical), so outside the X–Z plane Iy and Iz
+ * swapped on them.
+ */
+describe('the section orientation along the arc (#418)', () => {
+  /** A vertical semicircular arch of radius 5 rotated `deg` about Z. */
+  const arch = (deg: number) => {
+    const c = Math.cos((deg * Math.PI) / 180), s = Math.sin((deg * Math.PI) / 180);
+    const p = (x: number, z: number) => P(x * c, x * s, z);
+    return { start: p(-5, 0), through: p(0, 5), end: p(5, 0), normal: P(-s, c, 0) };
+  };
+  const axes = (pi: { x: number; y: number; z: number }, pj: { x: number; y: number; z: number }, ly?: { x: number; y: number; z: number }) =>
+    computeLocalAxes3D({ id: 1, ...pi }, { id: 2, ...pj }, ly);
+
+  for (const deg of [0, 30, 90, 137]) {
+    it(`gives every member of an arch rotated ${deg}° local y along the plane normal`, () => {
+      const a = arch(deg);
+      const pts = arcPoints({ ...a, segments: 40 });
+      for (let i = 0; i < 40; i++) {
+        const ly = arcMemberLocalY(a, pts[i], pts[i + 1])!;
+        const { ey } = axes(pts[i], pts[i + 1], ly);
+        const along = ey[0] * a.normal.x + ey[1] * a.normal.y + ey[2] * a.normal.z;
+        expect(Math.abs(along)).toBeGreaterThan(1 - 1e-12);
+        expect(Math.sign(along)).toBe(1);
+      }
+    });
+  }
+
+  it('gives no local y to a member moved off the arc', () => {
+    const a = arch(90);
+    expect(arcMemberLocalY(a, P(0, -5, 0), P(1, -4.9, 0.5))).toBeNull();
+    // In the plane but away from the circle.
+    expect(arcMemberLocalY(a, P(0, 10, 0), P(0, 10, 3))).toBeNull();
+    // Moved out of the plane entirely, still vertical.
+    expect(arcMemberLocalY(a, P(10, 0, 0), P(10, 0, 3))).toBeNull();
+  });
+
+  it('does not migrate an X–Z arch, whose springing axes were only reversed', () => {
+    const a = arch(0);
+    const spec = { start: a.start, through: a.through, end: a.end, segments: 40 };
+    const pts = arcPoints(spec);
+    const nodes = new Map(pts.map((p, i) => [i + 1, p]));
+    const els = new Map(pts.slice(0, -1).map((_, i) => [i + 1, { nodeI: i + 1, nodeJ: i + 2, arc: { spec } } as { nodeI: number; nodeJ: number; arc: { spec: typeof spec; axes?: 1 }; localYx?: number }]));
+    expect(migrateArcLocalAxes(els, nodes)).toBe(0);
+    expect([...els.values()].every((e) => e.localYx === undefined && e.arc.axes === 1)).toBe(true);
+  });
+
+  it('leaves a plan curve on the axes the default rule gives it', () => {
+    const pts = arcPoints({ ...HALF, start: P(-5, 0, 3), through: P(0, 5, 3), end: P(5, 0, 3), segments: 12 });
+    for (let i = 0; i < 12; i++) {
+      const ly = arcMemberLocalY({ start: P(-5, 0, 3), through: P(0, 5, 3), end: P(5, 0, 3) }, pts[i], pts[i + 1])!;
+      const d = axes(pts[i], pts[i + 1]).ez, e = axes(pts[i], pts[i + 1], ly).ez;
+      expect(d[0] * e[0] + d[1] * e[1] + d[2] * e[2]).toBeGreaterThan(1 - 1e-12);
+    }
+  });
+
+  it('sets local y on every member it builds', () => {
+    const a = arch(90);
+    const set = new Map<number, { x: number; y: number; z: number }>();
+    let nextNode = 100, nextEl = 1;
+    const made = buildArc({ ...a, segments: 8 }, {
+      addNode: () => nextNode++,
+      addElement: () => nextEl++,
+      tag: () => {},
+      setLocalY: (id, v) => set.set(id, v),
+    }, 1);
+    // 8 segments: no member is within 2.56° of vertical, so automatic axes are already right.
+    expect(made.length).toBe(8);
+    expect(set.size).toBe(0);
+    set.clear(); nextNode = 100; nextEl = 1;
+    const made40 = buildArc({ ...a, segments: 40 }, {
+      addNode: () => nextNode++,
+      addElement: () => nextEl++,
+      tag: () => {},
+      setLocalY: (id, v) => set.set(id, v),
+    }, 1);
+    // 40 segments: the two springing members are near vertical and get the plane normal.
+    expect([...set.keys()]).toEqual([made40[0], made40[39]]);
+    for (const v of set.values()) {
+      expect(v.x * a.normal.x + v.y * a.normal.y + v.z * a.normal.z).toBeCloseTo(1, 12);
+    }
+  });
+
+  it('sets nothing on a flat X–Y arc, which a flat model solves embedded in X–Z', () => {
+    const set = new Map<number, unknown>();
+    let k = 1;
+    buildArc({ ...HALF, segments: 40 }, { addNode: () => 100 + k, addElement: () => k++, tag: () => {}, setLocalY: (id, v) => set.set(id, v) }, 1);
+    expect(set.size).toBe(0);
+  });
+
+  it('migrates an arch saved without them, and leaves plan curves and stated axes alone', () => {
+    const a = arch(90);
+    const pts = arcPoints({ ...a, segments: 40 });
+    const nodes = new Map(pts.map((p, i) => [i + 1, p]));
+    const spec = { start: a.start, through: a.through, end: a.end, segments: 40 };
+    const planSpecShape = spec;
+    type M = { nodeI: number; nodeJ: number; arc?: { spec: typeof planSpecShape; axes?: 1 }; localYx?: number; localYy?: number; localYz?: number; rollAngle?: number };
+    const elements = new Map<number, M>(pts.slice(0, -1).map((_, i) => [i + 1, { nodeI: i + 1, nodeJ: i + 2, arc: { spec } }]));
+    // One member whose orientation the engineer stated: kept.
+    elements.get(1)!.rollAngle = 15;
+    const changed = migrateArcLocalAxes(elements, nodes);
+    // Only the near-vertical members at the springings had the wrong axes (first and last), and
+    // the first one states its own roll.
+    expect(changed).toBe(1);
+    expect(elements.get(1)!.localYx).toBeUndefined();
+    expect(elements.get(40)!.localYx).toBeDefined();
+    expect(migrateArcLocalAxes(elements, nodes)).toBe(0);
+    // Once migrated, a member set back to automatic axes stays so (undo, redo, reopening).
+    const last = elements.get(40)!;
+    last.localYx = last.localYy = last.localYz = undefined;
+    expect(migrateArcLocalAxes(elements, nodes)).toBe(0);
+    expect(last.localYx).toBeUndefined();
+    // A member with a load in local axes is left as it is, so its load keeps its direction.
+    const loaded = new Map<number, M>(pts.slice(0, -1).map((_, i) => [i + 1, { nodeI: i + 1, nodeJ: i + 2, arc: { spec } }]));
+    expect(migrateArcLocalAxes(loaded, nodes, (id) => id === 40)).toBe(1);
+    expect(loaded.get(40)!.localYx).toBeUndefined();
+    expect(loaded.get(1)!.localYx).toBeDefined();
+    // So is one with an end release (it is about a local axis).
+    const released = new Map<number, M & { releaseI?: Record<string, unknown> }>(pts.slice(0, -1).map((_, i) => [i + 1, { nodeI: i + 1, nodeJ: i + 2, arc: { spec } }]));
+    released.get(40)!.releaseI = { my: true };
+    expect(migrateArcLocalAxes(released, nodes)).toBe(1);
+    expect(released.get(40)!.localYx).toBeUndefined();
+    // Members the arc tool built carry the mark and are not migrated.
+    const built = new Map<number, M & { arc: { spec: typeof spec; axes?: 1 } }>([[1, { nodeI: 40, nodeJ: 41, arc: { spec, axes: 1 } }]]);
+    expect(migrateArcLocalAxes(built, nodes)).toBe(0);
+
+    const plan = arcPoints({ start: P(-5, 0, 3), through: P(0, 5, 3), end: P(5, 0, 3), segments: 12 });
+    const planSpec = { start: P(-5, 0, 3), through: P(0, 5, 3), end: P(5, 0, 3), segments: 12 };
+    const planNodes = new Map(plan.map((p, i) => [i + 1, p]));
+    const planEls = new Map<number, M>(plan.slice(0, -1).map((_, i) => [i + 1, { nodeI: i + 1, nodeJ: i + 2, arc: { spec: planSpec } }]));
+    expect(migrateArcLocalAxes(planEls, planNodes)).toBe(0);
   });
 });

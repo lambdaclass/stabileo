@@ -19,7 +19,7 @@
  * keyboard path. Plus the properties the enlarge dialog already had and must keep: one `<svg>`
  * from the official projection, Escape, and focus returning to the control that opened it.
  */
-import { test, expect, setAppLanguage } from './fixtures';
+import { test, expect, setAppLanguage, designPlace } from './fixtures';
 import type { Page } from '@playwright/test';
 
 type Json = Record<string, unknown>;
@@ -60,8 +60,8 @@ async function seed(page: Page, assemblies: Json[]) {
 }
 
 async function openPanel(page: Page) {
-  const d = page.getByTestId('detailing-disclosure');
-  if (await d.getAttribute('open') === null) await d.locator('> summary').click();
+  await designPlace(page, 'detailing');
+  const d = page.getByTestId('desk-detailing');
 }
 
 /** Where the sheet preview sits inside the detailing section, and how wide it is. */
@@ -228,7 +228,7 @@ test.describe('the detailing layout survives the three languages at 1280x720', (
 
       const over = await page.evaluate(() => {
         const wf = document.querySelector('[data-testid="detailing-workflow"]') as HTMLElement;
-        const panel = document.querySelector('.rc-workflow') as HTMLElement;
+        const panel = document.querySelector('.dd-canvas-body') as HTMLElement;
         return {
           section: wf.scrollWidth - wf.clientWidth,
           panel: panel.scrollWidth - panel.clientWidth,

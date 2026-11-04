@@ -16,7 +16,7 @@
  * stops. A post that wants something else is a reason to add a block kind
  * here, with a renderer and a test, not a reason to reach for raw HTML.
  */
-import type { PublicLocale } from '../i18n/store.svelte';
+import { PUBLIC_LOCALES, type PublicLocale } from '../i18n/store.svelte';
 
 export type Block =
   | { k: 'h'; t: string }
@@ -42,7 +42,39 @@ export type Block =
    * reachable only from the index. Posts on neighbouring questions that point
    * at each other are how a reader — and a crawler — finds the next one.
    */
-  | { k: 'link'; slug: string; t: string };
+  | { k: 'link'; slug: string; t: string }
+  /**
+   * A pointer to a document outside the blog: an advisory's full text, a
+   * verification report, an issue. `t` says why the reader would follow it;
+   * `label` is the link text. Only the project's own repository is allowed
+   * (the content test enforces it), so a post cannot send readers anywhere
+   * we do not publish.
+   */
+  | { k: 'ext'; href: string; label: string; t: string };
+
+export type Localized<T> = Record<'en' | 'es' | 'pt', T> & Partial<Record<PublicLocale, T>>;
+
+export function inLocale<T>(texts: Localized<T>, locale: PublicLocale): T {
+  return texts[locale] ?? texts.en;
+}
+
+export function writtenIn(texts: Localized<unknown>): PublicLocale[] {
+  return PUBLIC_LOCALES.filter((l) => texts[l]);
+}
+
+/** Attaches `translations/<locale>/<id>.ts` bodies to the items they name, so a language arrives as files only. */
+export function addTranslations<T extends { i18n: Localized<unknown> }>(
+  items: T[],
+  id: (item: T) => string,
+  modules: Record<string, unknown>,
+): void {
+  for (const [path, body] of Object.entries(modules)) {
+    const m = /translations\/([a-z]{2})\/(.+)\.ts$/.exec(path);
+    const item = m && items.find((i) => id(i) === m[2]);
+    if (!m || !item) throw new Error(`blog translation without a match: ${path}`);
+    (item.i18n as Record<string, unknown>)[m[1]] = body;
+  }
+}
 
 /** One post in one language. */
 export type PostBody = {
@@ -62,6 +94,11 @@ export type Post = {
   /** ISO date (YYYY-MM-DD). Publication, not last edit. */
   date: string;
   /**
+   * ISO date of the last substantive edit, when there was one after publication: search engines
+   * read it as `dateModified` / `article:modified_time`, and the sitemap as the page's lastmod.
+   */
+  updated?: string;
+  /**
    * Where the post sits in the series, lowest first. NOT the date.
    *
    * The index used to sort newest-first, which is right for a blog that
@@ -77,7 +114,7 @@ export type Post = {
   authors: string[];
   /** `blog.tag.*` dictionary keys, so the tags themselves translate. */
   tagKeys: string[];
-  i18n: Record<PublicLocale, PostBody>;
+  i18n: Localized<PostBody>;
 };
 
 /**
@@ -90,6 +127,7 @@ export function wordCount(body: PostBody, linkTitle?: (slug: string) => string |
   const parts: string[] = [body.title, body.excerpt];
   for (const b of body.blocks) {
     if (b.k === 'link') parts.push(b.t, linkTitle?.(b.slug) ?? '');
+    else if (b.k === 'ext') parts.push(b.t, b.label);
     else if (b.k === 'p' || b.k === 'h' || b.k === 'quote' || b.k === 'note') parts.push(b.t);
     else if (b.k === 'ul' || b.k === 'ol') parts.push(...b.items);
     else if (b.k === 'embed') parts.push(b.label);

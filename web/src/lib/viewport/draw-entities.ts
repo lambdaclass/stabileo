@@ -9,7 +9,6 @@ import { drawMomentSymbol } from '../canvas/draw-loads';
 import type { LabelCollector } from '../canvas/label-layout';
 import { addMemberTags } from '../canvas/member-tags';
 import {
-  TWO_D_DISPLACEMENT_LABELS,
   TWO_D_NODAL_LOAD_LABELS,
   TWO_D_REACTION_LABELS,
   get2DDisplayMoment,

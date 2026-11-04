@@ -10,31 +10,83 @@ on:
     - cron: '17 3 * * *'
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  # Shards split by file run in parallel; together they cover every file of
+  # web/stryker.config.json, and a file added there must be added to a shard below (the check
+  # step fails otherwise). A shard with `split: "k/n"` mutates part k of n of its one file, cut
+  # between top-level statements by web/scripts/mutation-shard.mjs, so no mutant falls between
+  # two parts.
   stryker:
-    runs-on: ubuntu-latest
-    timeout-minutes: 300
+    name: stryker (${{ matrix.shard }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 345
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - shard: cirsoc301-serviceability
+            mutate: >-
+              src/lib/engine/codes/argentina/cirsoc301.ts,src/lib/engine/codes/argentina/serviceability.ts,src/lib/engine/codes/argentina/cirsoc201-basis.ts,src/lib/engine/codes/argentina/cirsoc201-beam-kernel.ts,src/lib/codes/cirsoc201/spacing.ts
+          - shard: foundation-check
+            mutate: >-
+              src/lib/engine/detailing/foundation-check.ts
+          - shard: punching-anchorage
+            mutate: >-
+              src/lib/engine/detailing/punching-shear.ts,src/lib/codes/cirsoc201/anchorage.ts
+          - shard: candidate-search-1
+            split: "1/4"
+            mutate: >-
+              src/lib/engine/design/candidate-search.ts
+          - shard: candidate-search-2
+            split: "2/4"
+            mutate: >-
+              src/lib/engine/design/candidate-search.ts
+          - shard: candidate-search-3
+            split: "3/4"
+            mutate: >-
+              src/lib/engine/design/candidate-search.ts
+          - shard: candidate-search-4
+            split: "4/4"
+            mutate: >-
+              src/lib/engine/design/candidate-search.ts
+          - shard: design-results
+            mutate: >-
+              src/lib/engine/design-check-results.ts,src/lib/codes/cirsoc201/transverse-spacing.ts
+          - shard: gate-verify
+            mutate: >-
+              src/lib/engine/auto-verify.ts,src/lib/engine/codes/argentina/cirsoc201-engine-gate.ts,src/lib/engine/design/outcome.ts
     steps:
-      - uses: actions/checkout@v7
-
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+        with:
+          toolchain: 1.99.1
           targets: wasm32-unknown-unknown
 
+      # Pinned release, checksum-verified by install-action (as in ci.yml). This
+      # step used to run .github/scripts/install-wasm-pack.sh, which is not in
+      # the repository: the first scheduled run failed here.
       - name: Install wasm-pack
-        run: bash .github/scripts/install-wasm-pack.sh
+        uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
+        with:
+          tool: wasm-pack@0.13.1
         timeout-minutes: 5
 
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: engine
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 20
+          node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: web/package-lock.json
 
@@ -46,14 +98,33 @@ jobs:
         working-directory: web
         run: npm ci
 
+      - name: The shards cover the configured files
+        working-directory: web
+        run: |
+          node -e '
+            const cfg = require("./stryker.config.json").mutate;
+            const wf = require("fs").readFileSync("../.github/workflows/mutation-ts.yml", "utf8");
+            const sharded = new Set([...wf.matchAll(/^\s+mutate: >-\n\s+(\S+)$/gm)].flatMap((m) => m[1].split(",")));
+            const missing = cfg.filter((f) => !sharded.has(f));
+            if (missing.length) { console.error("::error::not in any mutation-ts.yml shard: " + missing.join(", ")); process.exit(1); }
+          '
+
       - name: Stryker
         working-directory: web
-        run: npm run test:mutation
+        env:
+          MUTATE: ${{ matrix.mutate }}
+          SPLIT: ${{ matrix.split }}
+        run: |
+          if [ -n "$SPLIT" ]; then
+            MUTATE=$(node scripts/mutation-shard.mjs "$MUTATE" "$SPLIT")
+          fi
+          echo "mutate: $MUTATE"
+          npx stryker run --mutate "$MUTATE"
 
       - name: Upload report
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: stryker-report
+          name: stryker-report-${{ matrix.shard }}
           path: web/reports/mutation/
           retention-days: 30

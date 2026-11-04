@@ -20,7 +20,7 @@
   import { selectionHistory, trackSelectionHistory } from '../lib/store/selection-history.svelte';
   import { viewState, visibleModel } from '../lib/store/view-state.svelte';
   import { selectWalkItem, type WalkKind } from '../lib/actions/selection-walk';
-  import { t, tp } from '../lib/i18n';
+  import { t, tp, inSentence } from '../lib/i18n';
 
   /**
    * Section stress is deliberately absent: it is not a kind of thing to
@@ -265,8 +265,8 @@
       for (const k of byIdKinds) {
         const r = selectShownByIds(modelStore.model as never, shown() as never, k, byIdText);
         for (const ch of ['nodes', 'elements', 'supports', 'loads'] as const) for (const id of r.selection[ch] ?? []) sel[ch].add(id);
-        if (r.missing.length) missing.push(`${t(KIND_LABEL[k]).toLowerCase()} ${r.missing.join(', ')}`);
-        if (r.hidden.length) hidden.push(`${t(KIND_LABEL[k]).toLowerCase()} ${r.hidden.join(', ')}`);
+        if (r.missing.length) missing.push(`${inSentence(t(KIND_LABEL[k]))} ${r.missing.join(', ')}`);
+        if (r.hidden.length) hidden.push(`${inSentence(t(KIND_LABEL[k]))} ${r.hidden.join(', ')}`);
         bad = r.bad;
       }
       apply(sel);
@@ -339,6 +339,22 @@
       </button>
     {/each}
   </div>
+  {#if !basic && uiStore.selectsKind('elements')}
+    <!-- What a click on a curved member, or a member a plate's mesh cut, picks. -->
+    <div class="sel-scope" role="group" aria-label={t('pieces.pickScope')} data-testid="member-pick-scope">
+      <span class="sel-scope-label">{t('pieces.pickScope')}</span>
+      <button class:on={uiStore.memberPickScope === 'piece'} aria-pressed={uiStore.memberPickScope === 'piece'} onclick={() => (uiStore.memberPickScope = 'piece')} data-testid="member-pick-piece">{t('pieces.pickPiece')}</button>
+      <button class:on={uiStore.memberPickScope === 'segment'} aria-pressed={uiStore.memberPickScope === 'segment'} onclick={() => (uiStore.memberPickScope = 'segment')} data-testid="member-pick-segment">{t('pieces.pickSegment')}</button>
+    </div>
+  {/if}
+  {#if !basic && uiStore.selectsKind('shells')}
+    <!-- What a click on a plate's mesh picks; said here so that hiding the mesh never changes it unseen. -->
+    <div class="sel-scope" role="group" aria-label={t('plates.pickScope')} data-testid="shell-pick-scope">
+      <span class="sel-scope-label">{t('plates.pickScope')}</span>
+      <button class:on={uiStore.shellPickScope === 'plate'} aria-pressed={uiStore.shellPickScope === 'plate'} onclick={() => (uiStore.shellPickScope = 'plate')} data-testid="shell-pick-plate">{t('plates.pickPlate')}</button>
+      <button class:on={uiStore.shellPickScope === 'element'} aria-pressed={uiStore.shellPickScope === 'element'} onclick={() => (uiStore.shellPickScope = 'element')} data-testid="shell-pick-element">{t('plates.pickElement')}</button>
+    </div>
+  {/if}
   <p class="sel-note">{t('selection.dragNote')}</p>
 
   <!--
@@ -401,7 +417,7 @@
   </div>
 
   <div class="sel-byid">
-    <label for="sel-id-list">{basic ? tp('selection.byIdKinds', { kinds: byIdKinds.map((k) => t(KIND_LABEL[k]).toLowerCase()).join(', ') }) : t('selection.byId')}</label>
+    <label for="sel-id-list">{basic ? tp('selection.byIdKinds', { kinds: byIdKinds.map((k) => inSentence(t(KIND_LABEL[k]))).join(', ') }) : t('selection.byId')}</label>
     <div class="sel-byid-row">
       {#if !basic}
         <select class="sel-field" bind:value={byIdKind} data-testid="sel-id-kind" aria-label={t('selection.byId')}>
@@ -520,4 +536,8 @@
 
   .sel-name { font-size: 0.78rem; }
   .sel-hint { font-size: 0.66rem; color: var(--st-text-3); }
+  .sel-scope { display: flex; align-items: center; gap: 4px; margin: 6px 0 0; font-size: 0.72rem; color: var(--st-text-3); }
+  .sel-scope-label { margin-right: 4px; }
+  .sel-scope button { padding: 2px 8px; background: none; border: 1px solid var(--st-hair-strong); border-radius: var(--st-radius); color: var(--st-text-2); font: inherit; cursor: pointer; }
+  .sel-scope button.on { background: var(--st-accent); border-color: var(--st-accent); color: #fff; }
 </style>

@@ -18,7 +18,7 @@
 export const COVERED_FIELDS = [
   'name', 'analysisMode', 'localAxisConvention',
   'materials', 'sections', 'nodes', 'elements', 'plates', 'quads', 'supports',
-  'loadCases', 'combinations', 'loads', 'constraints', 'connectors', 'groups', 'massSource', 'resultScopes', 'combinationRules', 'views', 'grid', 'dynamics', 'deflectionLimits', 'analysis', 'projectInfo', 'notes',
+  'loadCases', 'combinations', 'loads', 'constraints', 'connectors', 'groups', 'massSource', 'resultScopes', 'combinationRules', 'views', 'grid', 'dynamics', 'deflectionLimits', 'analysis', 'projectInfo', 'notes', 'underlays', 'designData', 'designDecisions',
   'footings', 'geotechnical', 'footingMatPreferences', 'codeSettings', 'regulations',
 ] as const;
 
@@ -31,6 +31,8 @@ export const DERIVED_FIELDS: Readonly<Record<string, string>> = Object.freeze({
   exports: 'Records of files the application exported.',
   manualEdits: 'Edits to produced reinforcement, meaningful only against the design they edit.',
   jointDesigns: 'Connection designs produced for the current node numbering.',
+  solvedWith: 'Which build last solved the project (provenance/solve-stamp.ts); written by a solve.',
+  pendingRecheckNotice: 'An unread result re-check notice (provenance/recheck); cleared only by acknowledging it, never typed by a user.',
 });
 
 /**

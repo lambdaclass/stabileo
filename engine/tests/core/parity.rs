@@ -478,6 +478,8 @@ fn test_parity_3d_envelope_json_roundtrip() {
     sections.insert("1".to_string(), SolverSection3D {
         id: 1, name: None, a: 0.01, iy: 0.0001, iz: 0.0001, j: 0.0002, cw: None,
         as_y: None, as_z: None,
+        shear_center_y: None,
+        shear_center_z: None,
     });
 
     let mut elements = HashMap::new();
@@ -500,7 +502,7 @@ fn test_parity_3d_envelope_json_roundtrip() {
             });
 
     let input = SolverInput3D {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes, materials, sections, elements, supports,
         loads: vec![SolverLoad3D::Nodal(SolverNodalLoad3D {
             node_id: 2, fx: 0.0, fy: -10.0, fz: 0.0, mx: 0.0, my: 0.0, mz: 0.0, bw: None })],
@@ -544,6 +546,8 @@ fn test_parity_3d_combination_superposition() {
         sections.insert("1".to_string(), SolverSection3D {
             id: 1, name: None, a: 0.01, iy: 0.0001, iz: 0.0001, j: 0.0002, cw: None,
         as_y: None, as_z: None,
+        shear_center_y: None,
+        shear_center_z: None,
     });
 
         let mut elements = HashMap::new();
@@ -563,7 +567,7 @@ fn test_parity_3d_combination_superposition() {
             normal_x: None, normal_y: None, normal_z: None, is_inclined: None, rw: None, kw: None,
             });
 
-        SolverInput3D { solver_options: None, nodes, materials, sections, elements, supports, loads, constraints: vec![], left_hand: None, plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_shells: HashMap::new(), curved_beams: vec![] , connectors: HashMap::new() }
+        SolverInput3D { solver_options: None, masses: Default::default(), nodes, materials, sections, elements, supports, loads, constraints: vec![], left_hand: None, plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_shells: HashMap::new(), curved_beams: vec![] , connectors: HashMap::new() }
     };
 
     // Case 1: Fy = -10 kN at tip

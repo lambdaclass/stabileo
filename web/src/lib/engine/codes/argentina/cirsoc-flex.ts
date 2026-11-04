@@ -23,14 +23,16 @@
  */
 
 import {
-  interactionCurve, sectionPoint, grossArea,
-  type Bar, type Outline, type Materials, type SectionPoint,
+  interactionCurve, sectionPoint, grossArea, withSection,
+  type Bar, type Outline, type Materials, type SectionUtilisation,
 } from './cirsoc201-section';
-import { refine, momentCapacityAtAxial } from './cirsoc-flex-surface';
+import { refine } from './cirsoc-flex-surface';
 import {
   twoLevels, levelsFromBottom, facesA1A2A3, ring, flexural, faceShares, a3Sides,
 } from './cirsoc201-layouts';
-import { COLUMN_STEEL_RATIO, ES_MPA, minFlexuralSteelCm2, beta1, axialCap } from './cirsoc201-basis';
+import {
+  COLUMN_STEEL_RATIO, ES_MPA, minFlexuralSteelCm2, beta1, axialCap, tensionControlledStrain, ductilityStrain,
+} from './cirsoc201-basis';
 import { chooseBars, chooseBarsForCount, chooseBarsPerLevel, type BarChoice } from './cirsoc201-bars';
 import { msg, type EngineMessage } from '../../../codes/message';
 
@@ -47,6 +49,11 @@ export type FlexMode = 'design' | 'verify';
 export interface FlexInput {
   kase: FlexCase;
   mode: FlexMode;
+  /**
+   * The CIRSOC 201 edition: φ, the tension-controlled limit, the ductility floor and the axial
+   * caps follow it. Absent → 2005, the CIRSOC_FLEX workbook's edition.
+   */
+  edition?: '2005' | '2025';
 
   // ── 1. Datos generales ──
   fc: number;              // MPa
@@ -140,6 +147,8 @@ export interface FlexOutput {
    * 8 %, or (with `invalid`) the inputs describe no section at all.
    */
   impossible?: boolean;
+  /** No arrangement of the bars this calculator tries fits: its search ended, nothing was proven. */
+  exhausted?: boolean;
   /**
    * The inputs were refused before anything was computed — a material that
    * is not a positive number, a geometry that is not a section, a layout
@@ -160,6 +169,7 @@ function materials(i: FlexInput): Materials {
     fc: i.fc, fy: i.fy,
     confinement: i.confinement,
     deductDisplacedConcrete: i.deductDisplacedConcrete,
+    edition: i.edition ?? '2005',
   };
 }
 
@@ -222,6 +232,10 @@ function validate(i: FlexInput): EngineMessage[] {
   const verifyingByArea = i.mode === 'verify'
     && !(i.kase === 'FCR' && i.levels.some((l) => l.areaCm2 > 0));
   if (verifyingByArea && !(finite(i.AstGiven) && i.AstGiven >= 0)) out.push(msg('flex.step.badSteel'));
+  /* The engine refuses a demand that is not a number; say so here, in the reader's terms. */
+  const beam = i.kase === 'FSR' || i.kase === 'FST';
+  const demands = [i.Mu, ...(beam ? [] : [i.Pu]), ...(i.kase === 'FCO' ? [i.Muy] : [])];
+  if (!demands.every(finite)) out.push(msg('flex.step.badDemand'));
 
   switch (i.kase) {
     case 'FSR':
@@ -342,142 +356,35 @@ function layoutFor(i: FlexInput, AstCm2: number): Bar[] {
  * published εt of 169,7 ‰ came back as 172,0 ‰. `refine` bisects the
  * neutral-axis depth itself and returns the section's own state there.
  */
-interface Utilisation {
-  ratio: number; phiPn: number; phiMn: number;
-  /** Absent for a purely axial demand, where no neutral axis describes the answer. */
-  c?: number; epsilonT?: number;
-  phi: number; theta: number;
-  /** The demand has no moment and was measured against the axial limit alone. */
-  axialOnly?: boolean;
-}
+type Utilisation = SectionUtilisation;
 
 /**
- * ── A demand with no moment is measured on the axial axis ─────────
- *
- * Along the ray of constant eccentricity, Mu = 0 is the P axis itself, and
- * searching for where the curve crosses it went wrong both ways. On a
- * symmetric rectangle the fully compressed point has a moment of exactly
- * zero, so it was taken as the crossing whatever the sign of Pu — a column in
- * pure TENSION was checked against its compression capacity and 9 cm² passed
- * 500 kN of pull that needs 13.2. On the 360-gon of a circle that moment is a
- * rounding residue, never zero, so no crossing was found at all and every
- * circular column with Mu = 0 was refused.
- *
- * The answer is the end of the diagram on the demand's own side: the capped
- * compression φPn,max for Pu > 0 (compression-controlled, φ = 0.65 or 0.70),
- * the pure-tension φPn for Pu < 0 (every bar yielding, φ = 0.90).
+ * Demand over capacity along the ray of constant eccentricity — FCR's measure (MV res / MV sol),
+ * computed by the engine (`Section::ray`). Pure bending is read where the curve crosses φPn = 0,
+ * not at its nose.
  */
-function axialLimit(
-  outline: Outline, bars: readonly Bar[], mat: Materials, theta: number, Pu: number,
-): Utilisation {
-  const curve = interactionCurve(outline, bars, mat, theta, 90);
-  const compression = Pu >= 0;
-  const end = curve.reduce((best, p) => (compression ? p.phiPn > best.phiPn : p.phiPn < best.phiPn) ? p : best);
-  const lim = end.phiPn;
-  const reaches = compression ? lim > 1e-9 : lim < -1e-9;
-  return {
-    ratio: Math.abs(Pu) < 1e-9 ? 0 : reaches ? Pu / lim : Infinity,
-    phiPn: lim, phiMn: 0, phi: end.phi, theta, axialOnly: true,
-    /* No bar is in tension at the compression end; at the tension end every one yields without limit. */
-    ...(compression ? { epsilonT: end.epsilonT } : {}),
-  };
-}
-
-function utilisation(
-  outline: Outline, bars: Bar[], mat: Materials,
-  Pu: number, Mu: number,
-): Utilisation {
-  const Mres = Math.abs(Mu);
-  /* A positive Mu compresses the top face: θ = π/2 in `sectionPoint`'s terms. */
-  const theta = Mu < 0 ? -Math.PI / 2 : Math.PI / 2;
-  if (Mres < 1e-9 && Math.abs(Pu) >= 1e-9) return axialLimit(outline, bars, mat, theta, Pu);
-  const curve = interactionCurve(outline, bars, mat, theta, 90);
-  const cap = (p: SectionPoint) => Math.hypot(p.phiMnx, p.phiMny);
-
-  if (Math.abs(Pu) < 1e-9) {
-    /*
-     * ── Pure bending is where the curve CROSSES zero, not its nose ──
-     *
-     * Taking the greatest moment with φPn ≥ 0 credited a section carrying no
-     * axial load with the capacity it has under substantial compression. The
-     * workbook settles which is right — FCR-VERIF prints 87,79 kN·m of pure
-     * flexure for 21,34 cm².
-     */
-    for (let k = 0; k < curve.length - 1; k++) {
-      const A = curve[k];
-      const B = curve[k + 1];
-      if (A.phiPn >= 0 && B.phiPn < 0) {
-        const p = refine(outline, bars, mat, theta, A.c, B.c, (q) => q.phiPn);
-        const m = cap(p);
-        return {
-          ratio: m > 1e-9 ? Mres / m : Infinity,
-          phiPn: 0, phiMn: m, c: p.c, epsilonT: p.epsilonT, phi: p.phi, theta,
-        };
-      }
-    }
-    /* No crossing: every point carries compression, so it cannot bend alone. */
-    const last = curve[curve.length - 1];
-    return {
-      ratio: Infinity, phiPn: 0, phiMn: 0,
-      c: last.c, epsilonT: last.epsilonT, phi: last.phi, theta,
-    };
-  }
-
-  const slope = Mres / Pu;
-  const onRay = (p: SectionPoint) => cap(p) - slope * p.phiPn;
-  for (let i = 0; i < curve.length - 1; i++) {
-    const A = curve[i];
-    const B = curve[i + 1];
-    const fA = onRay(A);
-    const fB = onRay(B);
-    if (fA === 0 || fA * fB < 0) {
-      const p = fA === 0 ? A : refine(outline, bars, mat, theta, A.c, B.c, onRay);
-      const capP = p.phiPn;
-      const capM = cap(p);
-      const capacity = Math.hypot(capM, capP);
-      return {
-        ratio: capacity > 1e-9 ? Math.hypot(Mres, Pu) / capacity : Infinity,
-        phiPn: capP, phiMn: capM, c: p.c, epsilonT: p.epsilonT, phi: p.phi, theta,
-      };
-    }
-  }
-  const first = curve[0];
-  return { ratio: Infinity, phiPn: 0, phiMn: 0, c: first.c, epsilonT: first.epsilonT, phi: first.phi, theta };
+function utilisation(outline: Outline, bars: Bar[], mat: Materials, Pu: number, Mu: number): Utilisation {
+  return withSection(outline, bars, mat, (s) => s.ray(Pu, Mu));
 }
 
 /**
- * FCO's measure: Mu over the moment capacity at the demand's own axial load,
- * along the demand's own moment direction. The reciprocal of the sheet's
- * "φMn / Mu". Infinite when the load is out of reach of the section at all.
+ * FCO's measure: Mu over the moment capacity at the demand's own axial load, along the demand's
+ * own moment direction (the engine's load contour). Infinite when the load is out of reach.
  */
 function biaxialUtilisation(
   outline: Outline, bars: Bar[], mat: Materials, Pu: number, Mx: number, My: number,
 ): Utilisation {
-  const Mres = Math.hypot(Mx, My);
-  if (Mres < 1e-9) {
-    /*
-     * No moment: the question is the axial load alone, against its own limit
-     * — and φ is the one at that limit. It was reported as 0, with c, a and
-     * εt at 0 beside it, which CIRSOC 201 never gives.
-     */
-    return axialLimit(outline, bars, mat, Math.PI / 2, Pu);
-  }
-  const got = momentCapacityAtAxial(outline, bars, mat, Pu, Mx, My);
-  if (!got) {
-    return { ratio: Infinity, phiPn: Pu, phiMn: 0, c: 0, epsilonT: 0, phi: 0, theta: Math.PI / 2 };
-  }
-  const sx = Mx < 0 ? -1 : 1;
-  const sy = My < 0 ? -1 : 1;
-  return {
-    ratio: got.phiMn > 1e-9 ? Mres / got.phiMn : Infinity,
-    phiPn: Pu, phiMn: got.phiMn,
-    c: got.state.c, epsilonT: got.state.epsilonT, phi: got.state.phi,
-    theta: Math.atan2(sx * Math.cos(got.fi), -sy * Math.sin(got.fi)),
-  };
+  return withSection(outline, bars, mat, (s) => s.biaxial(Pu, Mx, My));
 }
 
 /** One call, whichever sheet the reader picked. */
-export function solveFlex(i: FlexInput): FlexOutput {
+export function solveFlex(input: FlexInput): FlexOutput {
+  /* An empty demand field is no demand (0); anything else that is not a number is refused. */
+  const blank = (v: unknown) => v === undefined || v === null || v === '';
+  const i: FlexInput = {
+    ...input,
+    Pu: blank(input.Pu) ? 0 : input.Pu, Mu: blank(input.Mu) ? 0 : input.Mu, Muy: blank(input.Muy) ? 0 : input.Muy,
+  };
   const rejected = validate(i);
   if (rejected.length > 0) return refused(i, rejected);
   const outline = outlineFor(i);
@@ -583,6 +490,9 @@ export function solveFlex(i: FlexInput): FlexOutput {
     const capacityOf = (AsCm2: number, AsCompCm2 = 0) => stateOf(AsCm2, AsCompCm2).phiMn;
 
     const MuAbs = Math.abs(i.Mu);
+    /* The edition's tension-controlled strain and ductility floor (Tabla 21.2.2, 9.3.3.1). */
+    const epsTC = tensionControlledStrain(i.fy, i.edition ?? '2005');
+    const epsDuctile = ductilityStrain(i.fy, i.edition ?? '2005');
     /*
      * ── φMn is NOT monotone in As, so the search stays where it is ──
      *
@@ -612,7 +522,7 @@ export function solveFlex(i: FlexInput): FlexOutput {
       for (let k = 0; k < 45; k++) {
         const m = (a + z) / 2;
         /* εt from the solved state, not from the nearest of 400 samples. */
-        if (stateOf(m).epsilonT > 0.005) a = m; else z = m;
+        if (stateOf(m).epsilonT > epsTC) a = m; else z = m;
       }
       return a;
     };
@@ -740,10 +650,16 @@ export function solveFlex(i: FlexInput): FlexOutput {
      * supplied the steel, so a shortfall is not the section being too small
      * — it is their bars being too few, and the ratio is what says so.
      */
-    const cannotPlace =
-      total > AstMaxHere
-      || chosen.placeable === false
-      || (chosenComp?.placeable === false);
+    /*
+     * Two different answers hide in "cannot place". Over the ratio ceiling is a bound: no steel
+     * makes the section work. No arrangement of the bars this calculator tries fitting in
+     * `maxLayers` is the end of ITS search (one diameter a face, its diameter list, its layer
+     * count), not a proof: bundles, mixed diameters or another detailing may still fit. The
+     * first is `impossible`; the second is `exhausted`, and says so.
+     */
+    const overCeiling = total > AstMaxHere;
+    const notPlaced = chosen.placeable === false || chosenComp?.placeable === false;
+    const cannotPlace = overCeiling || notPlaced;
     const shortOfDemand = st.phiMn < MuAbs * 0.999;
     /*
      * §10.3.5: a flexural member has εt ≥ 4 ‰ at nominal strength. Design
@@ -752,8 +668,9 @@ export function solveFlex(i: FlexInput): FlexOutput {
      * Only where there is a state to read it from: with no steel at all
      * there is no strain to speak of, and the moment check says why it fails.
      */
-    const overReinforced = total > 0 && st.c > 0 && st.epsilonT < 0.004 - 1e-9;
-    const impossible = i.mode === 'verify' ? cannotPlace : (cannotPlace || shortOfDemand || overReinforced);
+    const overReinforced = total > 0 && st.c > 0 && st.epsilonT < epsDuctile - 1e-9;
+    const impossible = i.mode === 'verify' ? overCeiling : (overCeiling || shortOfDemand || overReinforced);
+    const exhausted = notPlaced && !impossible;
     const verifies = !cannotPlace && !shortOfDemand && !overReinforced;
 
     return {
@@ -764,11 +681,12 @@ export function solveFlex(i: FlexInput): FlexOutput {
       rho: (total * 1e-4) / Ag,
       AsMinCm2: AsMin,
       /* §10.3.4's c at εt = 5 ‰, which is what the sheet prints as cmax. */
-      a: st.a, c: st.c, cMax: (dEff * 0.003) / 0.008, epsilonT: st.epsilonT, phi: st.phi,
+      a: st.a, c: st.c, cMax: (dEff * 0.003) / (0.003 + epsTC), epsilonT: st.epsilonT, phi: st.phi,
       phiMn: st.phiMn, theta,
       ratio: st.phiMn > 0 ? MuAbs / st.phiMn : Infinity,
       ok: verifies,
       impossible,
+      ...(exhausted ? { exhausted: true } : {}),
       bars,
       barChoice: chosen,
       barChoiceComp: chosenComp ?? undefined,
@@ -809,6 +727,7 @@ export function solveFlex(i: FlexInput): FlexOutput {
           ? [msg('flex.step.fails', { phiMn: st.phiMn, mu: MuAbs })] : []),
         ...(overReinforced ? [msg('flex.step.notDuctile', { epsT: st.epsilonT * 1000 })] : []),
         ...(impossible && i.mode !== 'verify' ? [msg('flex.step.impossible')] : []),
+        ...(exhausted ? [msg('flex.step.exhausted')] : []),
         ...(i.mode === 'verify' && AsReq < AsMin
           ? [msg('flex.step.belowMin', { as: AsReq, asMin: AsMin })] : []),
       ],
@@ -1048,7 +967,7 @@ export function solveFlex(i: FlexInput): FlexOutput {
     c: u.c, a: u.c === undefined ? undefined : b1 * u.c, epsilonT: u.epsilonT, phi: u.phi,
     phiPn: u.phiPn, phiMn: u.phiMn, theta: u.theta,
     ...(i.kase === 'FCO'
-      ? { puMax: axialCap(i.fc, i.fy, Ag, (i.mode === 'design' ? AstMax : AstCm2) * 1e-4, i.confinement) }
+      ? { puMax: axialCap(i.fc, i.fy, Ag, (i.mode === 'design' ? AstMax : AstCm2) * 1e-4, i.confinement, i.edition ?? '2005') }
       : {}),
     ratio: u.ratio,
     ok: !impossible && u.ratio <= 1,

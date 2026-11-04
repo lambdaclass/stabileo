@@ -6,18 +6,23 @@ name: Supply chain
 
 on:
   pull_request:
+  merge_group:
   push:
     branches: [main]
   schedule:
     - cron: "0 6 * * *"
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
   contents: read
 
 jobs:
   rust:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && ((github.event_name == 'merge_group' || github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo"]') || (vars.STABILEO_PR_POOL == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]') && fromJSON('["self-hosted","stabileo-pr"]')) || 'ubuntu-24.04' }}
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -26,16 +31,38 @@ jobs:
       - uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
         with:
           tool: cargo-deny@0.20.2,cargo-audit@0.22.2
+      - name: Toolchain from rust-toolchain.toml
+        run: rustup show active-toolchain || rustup toolchain install
       # Advisories, licences, banned/duplicate crates and allowed sources,
       # per deny.toml.
       - name: cargo deny
-        run: cargo deny --locked check
+        run: |
+          cargo deny --locked check
+          cargo deny --manifest-path research/mechanics/biggins-2026/Cargo.toml --locked --config deny.toml check licenses bans sources
+          cargo deny --manifest-path research/benchmarks/mattiasson-elastica/Cargo.toml --locked --config deny.toml check licenses bans sources
+          cargo deny --manifest-path research/fracture/shauer-2025/Cargo.toml --locked --config deny.toml check licenses bans sources
+          cargo deny --manifest-path research/fracture/shauer-2025/wasm/Cargo.toml --locked --config deny.toml check licenses bans sources
+          cargo deny --manifest-path research/optimization/andreassen-2011/Cargo.toml --locked --config deny.toml check licenses bans sources
+          cargo deny --manifest-path research/optimization/andreassen-2011/wasm/Cargo.toml --locked --config deny.toml check licenses bans sources
+          cargo deny --manifest-path research/optimisation/fairclough-2026/Cargo.toml --locked --config deny.toml check licenses bans sources
+          cargo deny --manifest-path research/metamaterials/grossman-2026/Cargo.toml --locked --config deny.toml check licenses bans sources
+          cargo deny --manifest-path research/metamaterials/grossman-2026/wasm/Cargo.toml --locked --config deny.toml check licenses bans sources
       # RustSec again through cargo-audit, which also reports yanked crates.
       - name: cargo audit
-        run: cargo audit --deny warnings
+        run: |
+          cargo audit --deny warnings --file research/optimization/andreassen-2011/Cargo.lock
+          cargo audit --deny warnings --file research/optimization/andreassen-2011/wasm/Cargo.lock
+          cargo audit --deny warnings
+          cargo audit --deny warnings --file research/mechanics/biggins-2026/Cargo.lock
+          cargo audit --deny warnings --file research/benchmarks/mattiasson-elastica/Cargo.lock
+          cargo audit --deny warnings --file research/fracture/shauer-2025/Cargo.lock
+          cargo audit --deny warnings --file research/fracture/shauer-2025/wasm/Cargo.lock
+          cargo audit --deny warnings --file research/optimisation/fairclough-2026/Cargo.lock
+          cargo audit --deny warnings --file research/metamaterials/grossman-2026/Cargo.lock
+          cargo audit --deny warnings --file research/metamaterials/grossman-2026/wasm/Cargo.lock
 
   npm:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && ((github.event_name == 'merge_group' || github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo"]') || (vars.STABILEO_PR_POOL == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]') && fromJSON('["self-hosted","stabileo-pr"]')) || 'ubuntu-24.04' }}
     timeout-minutes: 10
     defaults:
       run:
@@ -46,10 +73,19 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 20
+          node-version-file: .nvmrc
       # What ships to users: fail on any high or critical advisory.
+      # Retried only when the registry's audit endpoint itself failed (it has, and a rerun was
+      # the fix); an advisory fails at once.
       - name: npm audit (production dependencies)
-        run: npm audit --omit=dev --audit-level=high
+        run: |
+          for attempt in 1 2 3; do
+            out=$(npm audit --omit=dev --audit-level=high 2>&1) && { echo "$out"; exit 0; }
+            echo "$out"
+            echo "$out" | grep -qiE 'audit endpoint returned an error|ECONNRESET|ETIMEDOUT|ENOTFOUND|EAI_AGAIN|socket hang up' || exit 1
+            echo "audit endpoint failed (attempt $attempt), retrying"; sleep 20
+          done
+          exit 1
       # Build and test tooling. Reported, and failing on critical only for
       # packages with a non-breaking fix; see docs/security/AUDIT.md for the
       # dev-only advisories that wait on a major upgrade.

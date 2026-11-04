@@ -76,37 +76,37 @@ fn sorted<T: Clone, K: Ord>(items: impl Iterator<Item = T>, key: impl Fn(&T) -> 
 /// Where a feature occurs in a 2D model (a short list of ids), or `None`.
 fn find_2d(input: &SolverInput, f: Feature) -> Option<String> {
     let found: Vec<String> = match f {
-        Feature::Connectors => sorted(input.connectors.values(), |c| c.id).iter().map(|c| format!("connector {}", c.id)).collect(),
-        Feature::PrescribedDisplacements => sorted(input.supports.values(), |s| s.id)
+        Feature::Connectors => sorted(crate::ordered::values(&input.connectors), |c| c.id).iter().map(|c| format!("connector {}", c.id)).collect(),
+        Feature::PrescribedDisplacements => sorted(crate::ordered::values(&input.supports), |s| s.id)
             .iter()
             .filter(|s| nonzero(s.dx) || nonzero(s.dz) || nonzero(s.dry))
             .map(|s| format!("support {} (node {})", s.id, s.node_id))
             .collect(),
-        Feature::InclinedSupports => sorted(input.supports.values(), |s| s.id)
+        Feature::InclinedSupports => sorted(crate::ordered::values(&input.supports), |s| s.id)
             .iter()
             .filter(|s| s.support_type == "inclinedRoller")
             .map(|s| format!("support {} (node {})", s.id, s.node_id))
             .collect(),
         Feature::ShearDeformation => {
             let secs: std::collections::HashSet<usize> =
-                input.sections.values().filter(|s| s.as_y.is_some_and(|a| a > 0.0)).map(|s| s.id).collect();
-            sorted(input.elements.values(), |e| e.id)
+                crate::ordered::values(&input.sections).filter(|s| s.as_y.is_some_and(|a| a > 0.0)).map(|s| s.id).collect();
+            sorted(crate::ordered::values(&input.elements), |e| e.id)
                 .iter()
                 .filter(|e| e.elem_type == "frame" && secs.contains(&e.section_id))
                 .map(|e| format!("member {}", e.id))
                 .collect()
         }
-        Feature::MomentReleases => sorted(input.elements.values(), |e| e.id)
+        Feature::MomentReleases => sorted(crate::ordered::values(&input.elements), |e| e.id)
             .iter()
             .filter(|e| e.elem_type == "frame" && (e.hinge_start || e.hinge_end))
             .map(|e| format!("member {}", e.id))
             .collect(),
-        Feature::RotationalSprings => sorted(input.supports.values(), |s| s.id)
+        Feature::RotationalSprings => sorted(crate::ordered::values(&input.supports), |s| s.id)
             .iter()
             .filter(|s| s.kz.is_some_and(|k| k > 0.0))
             .map(|s| format!("support {} (node {})", s.id, s.node_id))
             .collect(),
-        Feature::SupportSprings => sorted(input.supports.values(), |s| s.id)
+        Feature::SupportSprings => sorted(crate::ordered::values(&input.supports), |s| s.id)
             .iter()
             .filter(|s| [s.kx, s.ky, s.kz].into_iter().any(|k| k.is_some_and(|k| k > 0.0)))
             .map(|s| format!("support {} (node {})", s.id, s.node_id))
@@ -125,13 +125,13 @@ fn find_2d(input: &SolverInput, f: Feature) -> Option<String> {
 /// Where a feature occurs in a 3D model (a short list of ids), or `None`.
 fn find_3d(input: &SolverInput3D, f: Feature) -> Option<String> {
     let found: Vec<String> = match f {
-        Feature::Connectors => sorted(input.connectors.values(), |c| c.id).iter().map(|c| format!("connector {}", c.id)).collect(),
-        Feature::PrescribedDisplacements => sorted(input.supports.values(), |s| s.node_id)
+        Feature::Connectors => sorted(crate::ordered::values(&input.connectors), |c| c.id).iter().map(|c| format!("connector {}", c.id)).collect(),
+        Feature::PrescribedDisplacements => sorted(crate::ordered::values(&input.supports), |s| s.node_id)
             .iter()
             .filter(|s| [s.dx, s.dy, s.dz, s.drx, s.dry, s.drz].into_iter().any(nonzero))
             .map(|s| format!("support at node {}", s.node_id))
             .collect(),
-        Feature::InclinedSupports => sorted(input.supports.values(), |s| s.node_id)
+        Feature::InclinedSupports => sorted(crate::ordered::values(&input.supports), |s| s.node_id)
             .iter()
             .filter(|s| s.is_inclined.unwrap_or(false))
             .map(|s| format!("support at node {}", s.node_id))
@@ -143,13 +143,13 @@ fn find_3d(input: &SolverInput3D, f: Feature) -> Option<String> {
                 .filter(|s| s.as_y.is_some_and(|a| a > 0.0) || s.as_z.is_some_and(|a| a > 0.0))
                 .map(|s| s.id)
                 .collect();
-            sorted(input.elements.values(), |e| e.id)
+            sorted(crate::ordered::values(&input.elements), |e| e.id)
                 .iter()
                 .filter(|e| e.elem_type != "truss" && e.elem_type != "cable" && secs.contains(&e.section_id))
                 .map(|e| format!("member {}", e.id))
                 .collect()
         }
-        Feature::MomentReleases => sorted(input.elements.values(), |e| e.id)
+        Feature::MomentReleases => sorted(crate::ordered::values(&input.elements), |e| e.id)
             .iter()
             .filter(|e| {
                 e.elem_type != "truss"
@@ -158,12 +158,12 @@ fn find_3d(input: &SolverInput3D, f: Feature) -> Option<String> {
             })
             .map(|e| format!("member {}", e.id))
             .collect(),
-        Feature::RotationalSprings => sorted(input.supports.values(), |s| s.node_id)
+        Feature::RotationalSprings => sorted(crate::ordered::values(&input.supports), |s| s.node_id)
             .iter()
             .filter(|s| [s.krx, s.kry, s.krz].into_iter().any(|k| k.is_some_and(|k| k > 0.0)))
             .map(|s| format!("support at node {}", s.node_id))
             .collect(),
-        Feature::SupportSprings => sorted(input.supports.values(), |s| s.node_id)
+        Feature::SupportSprings => sorted(crate::ordered::values(&input.supports), |s| s.node_id)
             .iter()
             .filter(|s| [s.kx, s.ky, s.kz, s.krx, s.kry, s.krz, s.kw].into_iter().any(|k| k.is_some_and(|k| k > 0.0)))
             .map(|s| format!("support at node {}", s.node_id))
@@ -171,8 +171,8 @@ fn find_3d(input: &SolverInput3D, f: Feature) -> Option<String> {
         Feature::Constraints => (0..input.constraints.len()).map(|i| format!("constraint {}", i + 1)).collect(),
         Feature::Warping => {
             let secs: std::collections::HashSet<usize> =
-                input.sections.values().filter(|s| s.cw.is_some_and(|c| c > 0.0)).map(|s| s.id).collect();
-            sorted(input.elements.values(), |e| e.id)
+                crate::ordered::values(&input.sections).filter(|s| s.cw.is_some_and(|c| c > 0.0)).map(|s| s.id).collect();
+            sorted(crate::ordered::values(&input.elements), |e| e.id)
                 .iter()
                 .filter(|e| secs.contains(&e.section_id))
                 .map(|e| format!("member {}", e.id))
@@ -180,11 +180,11 @@ fn find_3d(input: &SolverInput3D, f: Feature) -> Option<String> {
         }
         Feature::Shells => {
             let mut v: Vec<String> = Vec::new();
-            v.extend(sorted(input.plates.values(), |p| p.id).iter().map(|p| format!("plate {}", p.id)));
-            v.extend(sorted(input.quads.values(), |p| p.id).iter().map(|p| format!("quad {}", p.id)));
-            v.extend(sorted(input.quad9s.values(), |p| p.id).iter().map(|p| format!("quad9 {}", p.id)));
-            v.extend(sorted(input.solid_shells.values(), |p| p.id).iter().map(|p| format!("solid shell {}", p.id)));
-            v.extend(sorted(input.curved_shells.values(), |p| p.id).iter().map(|p| format!("curved shell {}", p.id)));
+            v.extend(sorted(crate::ordered::values(&input.plates), |p| p.id).iter().map(|p| format!("plate {}", p.id)));
+            v.extend(sorted(crate::ordered::values(&input.quads), |p| p.id).iter().map(|p| format!("quad {}", p.id)));
+            v.extend(sorted(crate::ordered::values(&input.quad9s), |p| p.id).iter().map(|p| format!("quad9 {}", p.id)));
+            v.extend(sorted(crate::ordered::values(&input.solid_shells), |p| p.id).iter().map(|p| format!("solid shell {}", p.id)));
+            v.extend(sorted(crate::ordered::values(&input.curved_shells), |p| p.id).iter().map(|p| format!("curved shell {}", p.id)));
             v
         }
         Feature::CurvedBeams => (0..input.curved_beams.len()).map(|i| format!("curved beam {}", i + 1)).collect(),

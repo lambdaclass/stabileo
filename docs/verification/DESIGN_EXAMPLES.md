@@ -9,11 +9,16 @@ intermediate values (λ, χ, Fcr, Lp, Lr, Mcr, Cv, Vc …) as well as its final 
 Tests:
 
 - Rust checks: [`engine/tests/design_worked_examples.rs`](../../engine/tests/design_worked_examples.rs)
+  (steel, concrete, connections) and
+  [`engine/tests/design_worked_examples_2.rs`](../../engine/tests/design_worked_examples_2.rs)
+  (cold-formed steel, timber, masonry, spread footings)
 - TypeScript checks, next to their implementations:
   - [`web/src/lib/engine/codes/argentina/__tests__/cirsoc301-worked-examples.test.ts`](../../web/src/lib/engine/codes/argentina/__tests__/cirsoc301-worked-examples.test.ts)
   - [`web/src/lib/engine/codes/argentina/__tests__/cirsoc201-inti-examples.test.ts`](../../web/src/lib/engine/codes/argentina/__tests__/cirsoc201-inti-examples.test.ts)
   - [`web/src/lib/connection/__tests__/fillet-weld-inti.test.ts`](../../web/src/lib/connection/__tests__/fillet-weld-inti.test.ts)
   - [`web/src/lib/connection/__tests__/bolted-joint-inti.test.ts`](../../web/src/lib/connection/__tests__/bolted-joint-inti.test.ts)
+  - [`web/src/lib/engine/detailing/__tests__/foundation-check-published.test.ts`](../../web/src/lib/engine/detailing/__tests__/foundation-check-published.test.ts)
+  - [`web/src/lib/codes/cirsoc201/__tests__/crack-control-published.test.ts`](../../web/src/lib/codes/cirsoc201/__tests__/crack-control-published.test.ts)
 
 ## Rules
 
@@ -43,21 +48,38 @@ Tests:
 | JRC-EC2 | F. Biasioli, G. Mancini, M. Just, M. Curbach, J. Walraven et al., *Eurocode 2: Background & Applications — Design of Concrete Buildings, Worked examples*, JRC report EUR 26566 EN (2014), ch. 3 (Walraven & Gmainer). |
 | INTI201 | V. Hernández Balat, J. F. Bissio, D. A. Ortega, *Ejemplos de Aplicación del Reglamento CIRSOC 201-2005*, INTI-CIRSOC (Aug. 2005). |
 | INTI301 | G. Troglia, D. Troglia, J. Angulo Bocco, *Ejemplos de Aplicación del Reglamento CIRSOC 301-2018*, INTI-CIRSOC (Jul. 2018). |
+| AISC-15 | AISC, *Companion to the AISC Steel Construction Manual, Vol. 1: Design Examples*, v15.1 (ANSI/AISC 360-16; E4-2 and E7 unchanged in 360-22). Free from aisc.org (retrieved via the Wayback Machine, aisc.org being behind a bot challenge). |
+| AISI-M | AISI, *Cold-Formed Steel Design Manual*, 2008 edition (AISI S100-07). Scholars' Mine, Missouri S&T, `ccfss-aisi-spec/159`. Page numbers are the manual's (II-149, III-56). |
+| WDF04 | J. Showalter, "Structural Wood Design Using ASD and LRFD", *Wood Design Focus*, Winter 2004, pp. 11–19 — Problem 10 of Wheat & Cramer's AF&PA design aid. AWC web-media `WDF-2004-UsingASDandLRFD-0512.pdf`. |
+| AWC-E | AWC/ICC, *2015/2018 Structural Wood Design Examples* (sold, not free). E1.4 and E1.8 with the printed AWC values as reproduced in Tekla Tedds, "Verification Example – Axial Compression of Wood Column (ASD)" (2026), and Dlubal Knowledge Base 001714 (C. Tjoa, 2023). Secondary: the AWC book itself was not at hand. |
+| LC19 | Lee & Chiew, "A review of Class 4 slender section properties calculation for thin-walled steel sections according to EC3", *Advanced Steel Construction* 15(3) (2019) 259–266. Example 1 (welded I in bending) divides I by the distance to the flange mid-plane and is not used. |
+| ENER | ENERCALC, *SEL Verification Example Series – Wood Column Module*, 2026 V1, hand calculation pp. 1–5. Software-vendor verification document. |
+| P751 | FEMA P-751, *2009 NEHRP Recommended Seismic Provisions: Design Examples* (2012), ch. 10 Masonry (TMS 402-08). |
+| P1051 | FEMA P-1051, *2015 NEHRP Recommended Seismic Provisions: Design Examples* (2016), ch. 13 Masonry (TMS 402-13). |
+| MCG20 | W. M. McGinley, "Design of Tall Masonry Walls – Session 2", Masonry Institute of Hawaii (March 2020), TMS 402-13. |
+| SP-WIGHT | StructurePoint, "Reinforced Concrete Spread Footing (Isolated Footing) Analysis and Design", ACI 318-14 (Sep. 2018), after Wight, *Reinforced Concrete Mechanics and Design* 7th ed., Ex. 15-2. |
+| ACI-F1 | ACI, "Footings Example 1 — Design of a square spread footing of a seven-story building" (ACI 318-14), concrete.org `318-example-1_rf_r1.pdf`. |
+| INTI-B | Same book as INTI201, chapter "Bases de Hormigón Armado", Ejemplo 7.I (pp. 122–124); copy at rdu.unc.edu.ar `11086/1161`. |
+| RFEM | Dlubal Knowledge Base 002041 (ACI 318-19 / ASD single footing). Software verification article. |
+| SP-WALL, SP-SLAB | StructurePoint, "Reinforced Concrete Cantilever Retaining Wall (ACI 318-19)" (spWall v10.50, 2026), p. 14; "One-Way Slab (ACI 318-14)" (spBeam v10.00), p. 14. |
 
 ## Inventory of design checks
 
 | Check | Code | Where | Clauses implemented |
 |---|---|---|---|
-| `steel_check` | AISC 360-16/22 LRFD | Rust | D2 tension (yield, rupture with An·U), E3 flexural buckling, F2 yielding + LTB (Lp, Lr, F2-2/F2-4, Cb input), F3 / F6.2 flange local buckling (new, optional `flangeSlenderness`), F6 minor axis, G2.1 shear (φv = 0.90, Cv1 input), H1-1 interaction |
+| `steel_check` | AISC 360-16/22 LRFD | Rust | D2 tension (yield, rupture with An·U), E3 flexural buckling, E4-2 torsional buckling of doubly symmetric members (new, `lcz`), F2 yielding + LTB (Lp, Lr, F2-2/F2-4, Cb input), F3 / F6.2 flange local buckling (new, optional `flangeSlenderness`), F6 minor axis, G2.1 shear (φv = 0.90, Cv1 input), H1-1 interaction |
 | `ec3_check` | EN 1993-1-1 | Rust | Class-dependent W/A (6.2), 6.2.3 / 6.2.4 axial, 6.2.5 bending, 6.2.6 shear (Av input), 6.3.1 flexural buckling (curves a–d), 6.3.2.2 LTB general case with Mcr(C1, zg = 0), 6.3.3 interaction (6.61)/(6.62) with Annex B factors (Cm input, default 1.0) |
-| `ec2_check` | EN 1992-1-1 | Rust | 3.1.7 rectangular block flexure (singly, doubly with one-step compression steel), 6.2.2 VRd,c with k1·σcp, 6.2.3 VRd,s and VRd,max (cot θ 1–2.5) |
+| `ec2_check` | EN 1992-1-1 | Rust | 3.1.7 rectangular block flexure by strain compatibility (εcu3 from Table 3.1, top bars at their own strain), 6.2.2 VRd,c with k1·σcp, 6.2.3 VRd,s and VRd,max (cot θ 1–2.5) |
 | `rc_check` | ACI 318-19 | Rust | 22.2 Whitney block flexure (rectangular, doubly, T-beam), P–M point at Nu by strain compatibility, 21.2.2 φ, 22.5.5.1 Vc table with λs, Vs ≤ 0.66√f'c·bw·d |
 | `cirsoc201_check` | CIRSOC 201-2005 | Rust | Flexure (Whitney, doubly), 9.3.2 φ, 11.3.1.1 Vc, 11.5.7.9 Vs cap |
 | `connection_check` | AISC 360 (elastic method) | Rust | Bolt group elastic method with φRn input; fillet weld group elastic method, Fnw = 0.60·FEXX, J2.2b(d) end-loaded β |
-| `cfs_check` | AISI S100 | Rust | Effective width, flexure with LTB, compression with distortional interaction, combined |
-| `timber_check` | NDS | Rust | 3.3 bending with CL, 3.4 shear, 3.6/3.7 compression with CP, 3.8 tension, 3.9 combined |
-| `masonry_check` | TMS 402 | Rust | 9.3.4 axial with slenderness, 9.3.5 flexure, 9.3.6 shear, interaction |
-| `foundation_check` | Bearing capacity + ACI 318 | Rust | Terzaghi/Meyerhof bearing, overturning, sliding, one-way and punching shear (22.6.5.2) |
+| `cfs_check` | AISI S100 | Rust | E2 global buckling (flexural about y, flexural-torsional / torsional from `xo`, new), Pn = Ae·Fn, E4 distortional; F2 LTB with Se, F4 distortional; G2.1 shear; D2 yielding; linear interaction |
+| `timber_check` | NDS (ASD, sawn lumber) | Rust | 3.3 bending with CL (Table 3.3.3 envelope, or `le_bending`), 3.4 shear, 3.7 CP (one le, or `le_b` across b), 3.8 tension, 3.9.1/3.9.2 combined |
+| `masonry_check` | TMS 402 strength design | Rust | Axial Eq. 9-19/9-20 (steel only when `laterally_tied`), flexure Whitney 0.80f'm, shear Vnm + Vns with cap and γg, linear interaction |
+| `foundation_check` | Bearing + ACI 318-19 | Rust | Meyerhof effective-area bearing, overturning, sliding, one-way shear Table 22.5.5.1(c), punching 22.6.5.2, λs (or 1 per §13.2.6.2 with `neglect_size_effect`) |
+| `foundation-check.ts` | CIRSOC 201-2025 | TS | Linear (P/A ± M/S) bearing with kern refusal, one-way shear, punching through `punching-shear.ts`, flexure at the column face |
+| `serviceability` | — | Rust | Deflection against L/ratio or an absolute limit, frequency against a minimum: comparisons only (no effective inertia, no crack width) |
+| `crack-control.ts` | CIRSOC 201-2025 §24.3.2 | TS | Maximum bar spacing for crack control |
 | `cirsoc301.ts` | CIRSOC 301-2018 | TS | D tension (Ae = Ag), E.3/E.7 flexural buckling with Q (φc = 0.85), F.2 (Mp ≤ 1.5My, LTB in X1/X2 form, load height), F.3/F.4/F.5 noncompact and slender flanges/webs, F.6 minor axis with F.6.2, G.2.1 shear, H.1 interaction; refuses shapes it cannot classify |
 | `cirsoc201.ts` | CIRSOC 201-2005 | TS | Flexure design (singly/doubly), 11 shear design, columns, torsion, biaxial, slenderness |
 | `cirsoc-flex*.ts` | CIRSOC 201 | TS | Section/interaction engine (already tested against the INTI CIRSOC_FLEX workbook, `cirsoc-flex-worked-examples.test.ts`) |
@@ -89,9 +111,15 @@ Status: **pass** — stabileo reproduces the printed values at the stated roundi
 | G2-1 shear | AISC G.1B (p. G-4) | Aw = 10.2 in², Vn = 306 kips | doc (D9: φv = 0.90 not 1.00) |
 | H1-1b with tension, F2-2 with Cb, F6-1 | AISC H.3 (pp. H-8–H-11) | Lp = 8.76, Lr = 33.2 ft, φtPn = 1,080, Mnx = 6,560 kip-in, φbMnx = 492, φbMny = 168 kip-ft, Pr/Pc = 0.161, H1-1b = 0.873 | pass (Cb = 1.41 of H1.2 passed in) |
 | H1-1a | — | AISC H.1B needs Table 6-1 capacities of a W14×99 whose flanges are noncompact; not reproducible without F3/F6.2 inputs not printed | uncovered |
-| E7 slender elements (E7.1 rectangular HSS, E7.2 round HSS) | — (clause by hand: HSS 12×8×3/16, Lc/r = 90; W14×22 at 1 m) | Ae = 5.835 in², Pn = 161.4 kips; W14×22 Ae = 3.778e-3 m² | clause test; refused without `compressionElements` |
+| E7.1(a) slender web, built-up I | AISC-15 E.2 (pp. E-15 – E-18) | kc = 0.516, he = 12.6 in, Ae = 19.2 in², Pn = 555, φcPn = 500 kips | pass |
+| E7.1 slender but unreduced (λ < λr√(Fy/Fcr)) | AISC-15 E.3 (pp. E-19 – E-23) | kc = 0.743, Ae = Ag = 9.69 in², Pn = 353, φcPn = 318 kips | pass |
+| E7.1(b) rectangular HSS, both walls | AISC-15 E.10 and Table E.10 (pp. E-56 – E-60) | Lc = 18 / 24 / 40 ft: Ae = 5.35 / 5.77 / 6.76 in², Pn = 197 / 168 / 82.5, φcPn = 177 / 151 / 74.2 kips | pass (replaces the hand-worked HSS case, which stays as a clause test) |
+| E7.1(a) rolled W, strong axis | AISC-15 I.13 (pp. I-127 – I-131) | he = 16.8 in, Ae = 13.9 in², Pnx = 506, φcPn = 455 kips | pass (with `lcz = 0`) |
+| E7.2 round HSS | — (clause by hand, D/t = 100) | E7-7 factor 0.9290 | clause test; no free published example with D/t > 0.11E/Fy found |
+| E4-2 torsional buckling, doubly symmetric | AISC-15 E.2, E.3 | Fe = 91.9 ksi (Cw = 5,470 in⁶, J = 5.41 in⁴), Fe = 71.2 ksi (Cw = 1,050, J = 0.407) | **fixed** (D19) |
+| E4 constrained-axis torsional buckling (Commentary C-E4-1) | AISC-15 I.13 | Fez = 6.20 ksi, Pnz = 80.0, φcPn = 72.0 kips | **open** (D20) |
 | F2 load height (Cb·1.4^(2y/h), Helwig et al. 1997) | — | top flange: φMn(F2-3) ÷ 1.4 | clause test; default top flange |
-| E4 torsional, F4/F5, G2.2 tension field, H1.2 Cb for tension | — | not implemented | uncovered (not implemented) |
+| E4-3/E4-4 flexural-torsional (singly symmetric, unsymmetric), F4/F5, G2.2 tension field, H1.2 Cb for tension | — | not implemented | uncovered (not implemented) |
 
 ### EN 1993-1-1 (`ec3_check`, Rust)
 
@@ -105,6 +133,7 @@ Status: **pass** — stabileo reproduces the printed values at the stated roundi
 | 6.3.2 Mcr with load height (SN003b eq. 2) | SBE A.1 (pp. 4-60–4-61) | zg = +165 mm, C1 = 1.127, C2 = 0.454: Mcr = 113.9 kNm, λ̄LT = 1.288 | pass (zg added; default top flange) |
 | 6.3.2 χLT | SBE A.1; P364 Ex. 3, 4, 5, 12 | — | uncovered: the examples use 6.3.2.3 with f, or take Mcr from LTBeam without printing It/Iw; stabileo implements 6.3.2.2 (D10) |
 | Class 4: EN 1993-1-5 4.3/4.4 Aeff, Weff,y, Weff,z; 6.2.9.3 with eN·NEd | — (clause by hand: welded I 600×300×12×6 and 400×300×8×8, RHS 400×200×6, S355) | ρ = 0.949 / 0.430, Aeff = 8330 mm², Weff,y = 2302.3e3, Weff,z = 164.2e3 mm³, RHS Aeff = 5268 mm² | clause test; no free published example found. Gross A/Wel used to stand in (unsafe); now refused without Aeff/Weff/eN or geometry, CHS refused (EN 1993-1-6) |
+| Class 4 Aeff, welded box in compression | LC19 Example 2 (Box 4) | λ̄p = 2.12, ρ = 0.423, Aeff = 16980 mm² | pass (box entered with h = c + 3t: welded flat width h − 2t) |
 | 6.3.3 / Annex B (Table B.2) kyy, kzy, (6.61), (6.62) | SBE-MS8 Ex. 2 (pp. 8-18–8-22) | λ̄y = 0.12, λ̄z = 0.540, χz = 0.865, Nb,y,Rd = 3507, Nb,z,Rd = 3034 kN, kyy = 0.997, kzy = 0.997, (6.61) = 0.647, (6.62) = 0.653 | **fixed** (D11); equations compared with the printed Mb,Rd (6.3.2.3, D10) |
 | Annex B with Cm < 1, both kzy branches | SBE-SS4 App. D column (pp. 4-97–4-103) | CmLT = 0.888 → kzy = 0.996, (6.62) = 0.832; CmLT = 0.6 → kzy = 0.977, 0.758; Cmy = 0.6 → kyy = 0.605, (6.61) = 0.625 | pass |
 | Annex B kyz, kzz (biaxial) | — | no free published Annex B example with Mz,Ed ≠ 0 found | uncovered |
@@ -147,6 +176,7 @@ Status: **pass** — stabileo reproduces the printed values at the stated roundi
 | E.3-2 inelastic | INTI301 Ej. 10(b) | kL/r = 111.9, Fcr = 126.04 MPa, Pd = 221.2 kN | pass |
 | D.2(b)/D.3 Ae = An·U, B.4.2.2 An (+2 mm, s²/4g) | — (clause by hand: IPE 200 bolted through the flanges, x̄ = 25, L = 150 mm; edge-welded plate) | An = 2340 mm², U = 0.833, φPn = 526.5 kN | clause test; refused without the connection (was Ae = Ag) |
 | D.3 from the model's end connection (`tension-connection.ts`): x̄, U, An | AISC Design Examples D.1 (W8x21 flanges, x̄ 0.831 in), D.2 (L4x4x1/2 one leg, x̄ 1.18 in, U 0.869), D.3 (WT6x20 flange welded, x̄ 1.09 in, U 0.932); clause by hand: L 100×10 one leg 4 × M20 @ 70, IPE 200 flanges/web, 2 × L 50×5 back to back, UPN web, 300 × 12 plate staggered, edge-welded bar | x̄ within 1 % above AISC's (sharp corners); U = 0,9 where CIRSOC's cap binds (D.1, D.3); L100: An 1680, U 0.8634, Ae 1450.5 mm² | clause test; tubes/cold-formed/drawn refused |
+| D.2/D.3 from the connection geometry: B.4.2.2 holes (+2 mm), U = 1 − x̄/L ≤ 0,9 (Rust `cirsoc301_check`) | INTI301 Ej. 4 (Ej. 4-1 – 4-3), IPB 120 tie | An = 26,08 cm², U = 0,93 → 0,9, φRn yield 719 kN, rupture 651 kN | pass |
 | E.4 torsional / flexural-torsional (E.4.2, E.4.4, E.4.5) | — (clause by hand: tee 200×150×12×10, L = 3 m; IPE 300 with ky = 0.5) | Fcr = 125.6 MPa, φPn = 392.8 kN (flexural alone 451.8) | clause test; no INTI tee/channel column example at hand |
 | E.7 slender elements (Q) | INTI301 Ej. 10(c) | Q = 0.794, Fcr = 135.70 MPa, Pd = 204.7 kN | **fixed** (D6); Q, Fcr at 1 % (2005 vs 2018 E.7.17), D17 |
 | F.2.1 Mp | INTI301 Ej. 14, V1 | Mp = 43.95 kNm | pass |
@@ -175,13 +205,72 @@ Status: **pass** — stabileo reproduces the printed values at the stated roundi
 | J.3.6 bolt shear | INTI301 Ej. 1 (Ej. 1-4) | Ab = 1.98 cm², Rd = 61.63 kN/bolt | pass |
 | J.3.10 bearing | INTI301 Ej. 1 (Ej. 1-5–1-6) | Rd = 55.95 kN end bolt, 179.2 kN group | **ex** (D16) |
 
+### AISI S100 (`cfs_check`, Rust) — units kip, in, ksi; S100-07 examples, same equations as S100-16 for every clause compared
+
+| Clause | Example | Printed values compared | Status |
+|---|---|---|---|
+| E2 / C4.1.2 flexural-torsional buckling | AISI-M III-3, 362S162-54 (pp. III-55 – III-57) | Fe = 18.5 ksi (β = 0.598, σex = 42.0, σt = 24.4), Fn = 16.3 ksi, Pn = 6.88 kips; Fe about y = 29.6 ksi | **fixed** (D18) |
+| E4 / C4.2 distortional compression | AISI-M III-3 (pp. III-59, III-61) | Fd = 22.2 → Pn = 11.0 kips; Fd = 66.5 → Pn = 17.6 kips | pass |
+| F2 / C3.1.2.1 inelastic LTB | AISI-M II-3, 550T125-54 (pp. II-148 – II-150) | Fe = 58.6 ksi, Fc = 30.93 ksi, Mn = Sc·Fc = 18.7 kip-in (Sc at Fc passed as `se_x`) | pass |
+| F2 elastic LTB | AISI-M III-9, back-to-back 9CS2.5x059 (pp. III-81 – III-84) | Fe = Fc = 29.3 ksi < 0.56Fy, Mn = 134 kip-in | pass |
+| F4 / C3.1.4 distortional flexure | AISI-M II-4, 800S200-54 (pp. II-152 – II-158) | Fd = 26.1 → Mn = 49.8; Fd = 56.4 → Mn = 66.7 kip-in | pass |
+| G2.1 inelastic shear | AISI-M II-3 | h/t = 95.7, Fv = 14.3 ksi, Vn = 4.38 kips | pass |
+| G2.1 elastic shear | AISI-M II-1 (pp. II-129 – II-130) | h/t = 121, 144: Fv = 9.69, 6.85 ksi; Vn = 5.76, 3.44 kips | pass |
+| Ae at Fn | — | the manual evaluates Ae (and Sc) at Fn; the checker takes the caller's Ae/Se, documented "at Fy" (conservative); the tests pass the example's | doc |
+
+The manual uses G = 11,300 ksi; the checker E/2.6 = 11,346 ksi (moves no printed digit). III-2's
+printed λc = 0.851 should be 0.881 (D26), so its Fn/Pn are not used.
+
+### NDS (`timber_check`, Rust) — ASD, units lbf, in, psi
+
+| Clause | Example | Printed values compared | Status |
+|---|---|---|---|
+| 3.7.1 CP, one le about both axes | AWC-E E1.4, 4x4 and 6x6 Southern Pine No. 2, 10 ft | FcE = 357 / 760 psi, CP = 0.232 / 0.801, Fc' = 336 / 421 psi, P = 4,120 / 12,725 lbs | pass (dressed sizes 3.5 / 5.5 in derived; they reproduce FcE) |
+| 3.7.1, 3.3.3 CL, Fb' | AWC-E E1.8, 2x4 truss member, CD = 1.6 | FcE1 = 3,963, FcE2 = 728 psi, CP = 0.29, Fc' = 673 psi; RB = 9.65, CL = 0.982, Fbx' = 1,729 psi | pass with `le_bending` = 1.37·lu + 3d (D24); the printed biaxial 3.9-3 (0.98) is outside the strong-axis checker |
+| 3.3.3 CL, 3.4 shear | WDF04 Problem 10, 5 × 9-5/8 glulam, CD = 1.15 | le = 498.3 in, CL = 0.956, F'b = 2198, fb = 1769, F'v = 345, fv = 83.1 psi | pass with `le_bending` (D24) |
+| 3.7.1 with weak axis braced, 3.3.3 CL, 3.4, 3.9.2 (Eq. 3.9-3) | ENER 2x6 DF-L No. 2 stud, 12 ft | CP = 0.411, F'c = 610.33 psi, fc/F'c = 0.159; CL = 0.477, F'bx = 1027.67 psi, fb/F'b = 0.667, F'v = 288 psi; Cp = 0.272, F'c = 647.07 psi, (3.9-3) = 0.702 | pass with `le_b = 0` (new) |
+| 3.9.1 tension + bending | — | U. Michigan ARCH 544 notes print only the factors; the interaction value is handwritten | uncovered |
+
+### TMS 402 (`masonry_check`, Rust)
+
+| Clause | Example | Printed values compared | Status |
+|---|---|---|---|
+| Eq. 9-20 slender axial, untied bars | MCG20 slide 38 (TMS 402-13) | h/r = 114.5, R = 0.373, φPn = 39,265 lb/ft | **fixed** (D21) |
+| Eq. 9-19 (h/r ≤ 99) | — | no free published example found | uncovered |
+| Flexure, Whitney block 0.80f'm | P751 Table 10.1-2 (p. 10-19) | C = 18.76 / 19.84 klf, Mn = 62.3 / 65.35 in-kip/ft | pass with As,eq = As + Pu/fy (D28) |
+| Shear Vnm + Vns, cap (6.67 − 2.67 M/Vd) | P751 Table 10.2-3 (p. 10-56), TMS 402-08 | five stories, Vn = 264 / 261 / 257 / 248 / 218 kips (cap in the last two) | pass (D23 at the cap) |
+| Shear with γg (Eq. 9-21) | P1051 Table 13.2-3 (p. 13-60), TMS 402-13 | Vn = 198 / 196 / 193 / 186 / 164 kips, γg = 0.75 | **fixed** (D22) |
+
+### Spread footings (`foundation_check`, Rust; `foundation-check.ts`, TS)
+
+| Clause | Example | Printed values compared | Status |
+|---|---|---|---|
+| Punching Vu and φVc (22.6.5.2) | SP-WIGHT (pp. 5–6) | Vu = 805 kips, φvc = 164 psi (b0 = 4·46 in, d = 28 in) | pass with λs = 1 (D24, D25) |
+| One-way demand at d | SP-WIGHT (p. 7) | Vu = 204 kips | pass (318-14 φVc = 308 kips is a superseded formula) |
+| Punching and one-way | ACI-F1 (pp. 4–6) | Vu = 851, φVc = 958 kips; one-way Vu = 231 kips | pass at 1 % (the example carries qu rounded to 6.7 ksf) |
+| Punching (CIRSOC 201-2005 11.12.2.1) | INTI-B 7.I | Vu = 1225 kN, φVc = 2067 kN | pass (D25: 1/3 vs 0.33) |
+| TS: qu, column-face moment, punching demand | INTI-B 7.I; SP-WIGHT; ACI-F1 | Muy = 311.11, Mux = 295.75 kNm, Vu = 1225 kN; Mu = 954 kip-ft, Vu = 805 kips; Mu = 1005 kip-ft, Vu = 231 / 851 kips | pass |
+| TS: linear bearing P/A ± M/S | RFEM 002041 | q = 2.565 ± 0.394, qmax = 2.959, qmin = 2.172 ksf, 0.993 | pass |
+| One-way φVc, Table 22.5.5.1(c), and λs | — | no hand-worked ACI 318-19 footing printing λs found (RFEM's prints λs = 1, as §13.2.6.2 allows) | uncovered |
+| Overturning, sliding, Meyerhof effective area | — | — | uncovered |
+
+### Serviceability
+
+| Clause | Example | Printed values compared | Status |
+|---|---|---|---|
+| §24.3.2 crack-control spacing (`crack-control.ts`) | SP-WALL (ACI 318-19), SP-SLAB (ACI 318-14) | s = 10 in (cc = 2.00 in, governs); 13.13 in capped at 12 in (cc = 0.75 in) | pass (D30: SI soft conversion, 2 %) |
+| Deflection / frequency limits (`serviceability.rs`) | — | the check compares a given deflection or frequency with a limit; there is no effective-inertia (ACI 435, EC2 7.4) or crack-width (EC2 7.3.4) computation to compare with a published example | not applicable |
+
 ### Not covered
 
-`cfs_check` (AISI S100), `timber_check` (NDS), `masonry_check` (TMS 402), `foundation_check`, and
-the CIRSOC 201-2025 detailing modules (`codes/cirsoc201/*`) have no published worked example in
-this pass: the free AISI/AWC/TMS example collections were not located, and the detailing rules
-are geometric limits rather than resistances. They remain covered only by the hand-derived
-tests in `engine/tests/integration/` and `web/src/lib/codes/cirsoc201/__tests__/`.
+The CIRSOC 201-2025 detailing modules (`codes/cirsoc201/*`) other than crack control have no
+published worked example: their rules are geometric limits rather than resistances, and they
+remain covered by `web/src/lib/codes/cirsoc201/__tests__/`. Also not reproduced: the ECCS
+*Design of Plated Structures* welded box with unequal flanges (via SOFiSTiK DCE-EN30) — the
+checker's effective section covers doubly symmetric I and RHS only; Weff of a Class 4 web in
+bending (LC19 Example 1 uses a non-standard lever arm). Not found freely: a CIRSOC 301 flexural-torsional (E.4) or staggered-hole (s²/4g)
+example; an AISC E7.2 slender round HSS; CFSEI technical notes and the current AISI D100 manual
+(sold); the AWC examples book (sold); NCMA TEK notes (login).
 
 ## Discrepancies
 
@@ -204,3 +293,17 @@ tests in `engine/tests/integration/` and `web/src/lib/codes/cirsoc201/__tests__/
 | D15 | INTI301 Ej. 2 | adopted 4 mm leg below its own Tabla J.2.4 minimum of 5 mm | example: the 2018 table has no "thinner part" exception; stabileo flags the minimum | example wrong |
 | D16 | INTI301 Ej. 1 | bearing unavailable in stabileo | example uses the AISC 17.5 mm hole for a 5/8" bolt; the 2018 Tabla J.3.3 is metric only. Also: stabileo gives every bolt the end bolt's Lc (conservative) | example inconsistent with the 2018 text |
 | D17 | INTI301 Ej. 10(c) | stabileo's Pd 1.1 % above the printed 204.7 kN when it derives the wall widths | the example takes b = 18 cm (plate width) for b/t and 18/17.75 cm in Aef; B.4.1(b)(c) defines b as the distance between welds, 17.5 cm. With the example's widths stabileo reproduces it | example inconsistent with B.4.1 |
+| D18 | `cfs_check` compression | AISI-M III-3: Pn = 10.4 vs 6.88 kips (+51 %, unsafe) | stabileo: weak-axis flexural buckling only; flexural-torsional buckling (E2.2) of a channel not evaluated | **fixed**: `xo`, `kx_lx`, `kt_lt`; E2.2 in cancellation-free form, same function for the certified enclosure; without `xo` a compression demand is unevaluated (and refused by the certified path) |
+| D19 | `steel_check` compression | no E4: a member braced about y more closely than it can twist kept the E3 strength | stabileo | **fixed**: E4-2 for doubly symmetric members, Lcz = `lcz` or the longer flexural length; refused when Lcz exceeds the weak-axis length and neither J nor Cw is given. AISC-15 E.2/E.3 torsional Fe reproduced |
+| D20 | `steel_check` compression | AISC-15 I.13: girt-braced W21×50 governed by constrained-axis torsional buckling, φcPn = 72.0 kips; stabileo (E4-2 at Lcz = 45 ft: Fez = 15.1 ksi) φcPn ≈ 175 kips | stabileo: constrained-axis torsion (bracing on one flange, Commentary C-E4-1) not implemented | **open**: `lbz = 0` must only be used when both flanges are braced |
+| D21 | `masonry_check` axial | MCG20: φPn 14 % above the printed 39,265 lb/ft | stabileo: fy·As counted for untied bars, which TMS 402 neglects | **fixed**: steel term only with `laterally_tied` |
+| D22 | `masonry_check` shear | P1051: Vn 33 % above the printed values for a partially grouted wall | stabileo: no γg (TMS 402-13 Eq. 9-21; 402-22: 0.70) | **fixed**: `gamma_g`; default 0.70 when An < b·t, else 1.0 |
+| D23 | `masonry_check` shear cap | up to 0.6 % below P751 where the cap governs | SI coefficients 0.50 and 0.33 are 6 and 4 √psi rounded down (0.4982, 0.3321) | documented (conservative) |
+| D24 | `timber_check` CL; `foundation_check` λs | CL from the Table 3.3.3 footnote envelope (WDF04: 0.951 vs 0.956); footing shear always reduced by λs (ACI 318-19 §13.2.6.2 permits λs = 1) | stabileo deliberate: the loading condition is unknown, the envelope is the longest le; λs is the lower strength | documented; `le_bending` and `neglect_size_effect` opt in to the example's |
+| D25 | `foundation_check` punching | 0.6 % (ACI, 4 √psi) and 1.0 % (CIRSOC 201-2005, 1/3) below the printed φVc | SI coefficient 0.33 | documented (conservative) |
+| D26 | AISI-M III-2 | printed λc = 0.851 | example arithmetic: √(33/42.52) = 0.881; its Fn and Pn are slightly high | example wrong (not used) |
+| D27 | P751 Table 10.2-3 | Vns printed 68.3 kips | example arithmetic: 0.5·0.07·60·32.67 = 68.6 | example rounding |
+| D28 | `masonry_check` flexure | P751 adds Pu to the steel force (Mn = (As·fy + Pu)(d − a/2)) | stabileo takes Mn at Pu = 0 and the axial load through the linear interaction (conservative below the balance point) | documented; the clause is reproduced with As,eq = As + Pu/fy |
+| D29 | `timber_check` glulam | no volume factor CV (NDS 5.3.6: the lesser of CL and CV) | stabileo models sawn lumber; c = 0.8 in CP is conservative for glulam (0.9) | documented: pass CV as `cf_bending` (the product CL·CV, conservative) |
+| D30 | `crack-control.ts` | 1.5–1.9 % more permissive than the inch-pound examples | the code's SI Table 24.3.2 is a soft conversion (380 mm ≈ 15 in, 280 MPa ≈ 40 ksi) | documented (the SI table is the enacted text) |
+| D31 | SP-WIGHT beam companion (spBeam simply supported beam) | printed smax = 10.31 in for cc = 1.5 in | example: 15 − 2.5·1.5 = 11.25; 10.31 is cc = 1.875 in (cover plus the #3 stirrup) | example inconsistent (not used) |

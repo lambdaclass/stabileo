@@ -1,0 +1,208 @@
+name: Verification dashboard
+
+# Regenerates docs/verification/DASHBOARD.md, dashboard.json and MATURITY.md with
+# scripts/verification-metrics.py (repository, GitHub issues and the latest CI artifacts of the
+# nightly verification jobs) and opens or updates a pull request with the result. On a release
+# tag it also measures engine coverage (cargo llvm-cov) and records a history row for the tag.
+
+on:
+  schedule:
+    - cron: "0 6 * * 1" # weekly, Monday 06:00 UTC, after the nightly jobs
+  push:
+    tags: ["v*"]
+  pull_request:
+    paths:
+      - scripts/verification-metrics.py
+      - scripts/tests/**
+      - .github/workflows/nightly.yml
+      - docs/roadmap/PRODUCT_ROADMAP.md
+      - .github/workflows/verification-dashboard.yml
+  workflow_dispatch:
+    inputs:
+      coverage:
+        description: "Also measure engine coverage with cargo llvm-cov (slow)"
+        type: boolean
+        default: false
+      record:
+        description: "Record a history row under this release name (e.g. v0.3.0)"
+        type: string
+        default: ""
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: read
+  actions: read
+
+concurrency:
+  group: verification-dashboard
+  cancel-in-progress: false
+
+jobs:
+  script-tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Unit tests of the metrics script (fake gh, no network)
+        run: python3 -m unittest discover -s scripts/tests -v
+
+  coverage:
+    if: startsWith(github.ref, 'refs/tags/') || inputs.coverage
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+    continue-on-error: true
+    outputs:
+      # continue-on-error makes the job "succeed" even when coverage failed, so the dashboard
+      # downloads the artifact only when this step ran to the end.
+      uploaded: ${{ steps.upload.outcome == 'success' }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+        with:
+          # `llvm-cov --branch` needs nightly: the dated one of scripts/check-pins.sh, named in the
+          # command too, since rust-toolchain.toml would otherwise select the stable pin.
+          toolchain: nightly-2026-10-15
+          components: llvm-tools-preview
+      # engine/.cargo/config.toml links with clang + mold.
+      # A pinned mold release tarball (wget with retries). apt used to install it here and could
+      # stall for an hour on a mirror; the version is the flake's (scripts/check-pins.sh).
+      - name: Install mold linker
+        uses: rui314/setup-mold@da13e0b42e392e3a45d1215033a2270b849d7d36 # main, 2026-10-08
+        with:
+          mold-version: 2.40.4
+          make-default: false
+        timeout-minutes: 5
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: engine
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-llvm-cov
+      - name: Coverage summary (lines, functions, branches)
+        working-directory: engine
+        run: cargo +nightly-2026-10-15 llvm-cov --release --branch --json --summary-only --output-path ../llvm-cov-summary.json
+      - uses: actions/upload-artifact@v7
+        id: upload
+        with:
+          name: llvm-cov-summary
+          path: llvm-cov-summary.json
+          if-no-files-found: error
+
+  dashboard:
+    needs: [script-tests, coverage]
+    if: always() && github.event_name != 'pull_request' && needs.script-tests.result == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # The release to snapshot: the pushed tag, or the manual `record` input.
+      RELEASE: ${{ github.ref_type == 'tag' && github.ref_name || inputs.record }}
+      # Only runs of main and of release tags publish; a manual run on another branch
+      # uploads its output as an artifact instead (to test the workflow).
+      PUBLISH: ${{ github.ref == 'refs/heads/main' || github.ref_type == 'tag' }}
+    steps:
+      # The current dashboard describes main (or, for a test run, the dispatched branch).
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.ref_type == 'tag' && 'main' || github.ref }}
+          fetch-depth: 1
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - uses: actions/download-artifact@v7
+        if: needs.coverage.outputs.uploaded == 'true'
+        continue-on-error: true
+        with:
+          name: llvm-cov-summary
+          path: cov
+      - name: Carry over release snapshots of the pending automation PR
+        run: |
+          if git fetch --depth=1 origin automation/verification-dashboard 2>/dev/null; then
+            git checkout FETCH_HEAD -- docs/verification/releases/ 2>/dev/null || true
+          fi
+      # A release snapshot is measured on the tagged revision, with this checkout's script.
+      - uses: actions/checkout@v7
+        if: env.RELEASE != ''
+        with:
+          ref: refs/tags/${{ env.RELEASE }}
+          path: tagtree
+          fetch-depth: 1
+      - name: Release snapshot (measured on the tag)
+        if: env.RELEASE != ''
+        run: |
+          cp scripts/verification-metrics.py tagtree/scripts/verification-metrics.py
+          args=()
+          # Coverage from this run was measured on the tag only when the run was triggered by it.
+          if [ "${GITHUB_REF_TYPE}" = "tag" ] && [ -f cov/llvm-cov-summary.json ]; then
+            args+=(--coverage-json "$PWD/cov/llvm-cov-summary.json")
+          fi
+          python3 -I tagtree/scripts/verification-metrics.py --max-runs 20 --record "$RELEASE" "${args[@]}"
+          mkdir -p docs/verification/releases
+          cp "tagtree/docs/verification/releases/${RELEASE}.json" docs/verification/releases/
+          rm -rf tagtree
+      - name: Current dashboard
+        run: |
+          args=()
+          if [ "${GITHUB_REF_TYPE}" != "tag" ] && [ -f cov/llvm-cov-summary.json ]; then
+            args+=(--coverage-json cov/llvm-cov-summary.json)
+          fi
+          python3 -I scripts/verification-metrics.py --max-runs 20 "${args[@]}"
+      - name: Upload the generated files (test runs)
+        if: env.PUBLISH != 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: verification-dashboard
+          path: docs/verification/
+      - name: Open or update the pull request
+        if: env.PUBLISH == 'true'
+        run: |
+          git add -N docs/verification/releases 2>/dev/null || true
+          if git diff --quiet -- docs/verification; then echo "no change"; exit 0; fi
+          branch=automation/verification-dashboard
+          # The repository's rules require verified signatures, and a commit made here with git is
+          # unsigned: the push was declined (scheduled run 40280524649, 2026-10-26). A commit made
+          # through the GraphQL API (createCommitOnBranch) is signed by GitHub. The automation
+          # branch is owned by this workflow and rebuilt from main on every run (force-reset to
+          # main's head first); release snapshots of the previous pending PR were carried over above.
+          base=$(git rev-parse HEAD)
+          gh api -X PATCH "repos/$GITHUB_REPOSITORY/git/refs/heads/$branch" -f sha="$base" -F force=true >/dev/null 2>&1 ||
+            gh api -X POST "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/heads/$branch" -f sha="$base" >/dev/null
+          git add -A docs/verification/DASHBOARD.md docs/verification/dashboard.json docs/verification/MATURITY.md \
+            docs/verification/releases
+          python3 -I - "$GITHUB_REPOSITORY" "$branch" "$base" "docs(verification): regenerate dashboard and maturity matrix (${GITHUB_REF_NAME})" > commit.json <<'PY'
+          import base64, json, subprocess, sys
+          repo, branch, base, headline = sys.argv[1:]
+          out = subprocess.run(["git", "diff", "--cached", "--name-status", "--no-renames", base],
+                               check=True, capture_output=True, text=True).stdout
+          adds, dels = [], []
+          for line in out.splitlines():
+              status, path = line.split("\t", 1)
+              if status == "D":
+                  dels.append({"path": path})
+              else:
+                  with open(path, "rb") as f:
+                      adds.append({"path": path, "contents": base64.b64encode(f.read()).decode()})
+          query = """mutation($input: CreateCommitOnBranchInput!) {
+            createCommitOnBranch(input: $input) { commit { oid url } } }"""
+          print(json.dumps({"query": query, "variables": {"input": {
+              "branch": {"repositoryNameWithOwner": repo, "branchName": branch},
+              "expectedHeadOid": base,
+              "message": {"headline": headline},
+              "fileChanges": {"additions": adds, "deletions": dels}}}}))
+          PY
+          gh api graphql --input commit.json --jq '.data.createCommitOnBranch.commit.url'
+          rm commit.json
+          # Only an OPEN pull request counts: after one is merged or closed, a new one is needed.
+          open_prs=$(gh pr list --head "$branch" --base main --state open --json number --jq 'length')
+          if [ "$open_prs" = "0" ]; then
+            gh pr create --base main --head "$branch" \
+              --title "Verification dashboard: regenerated metrics" \
+              --body "Generated by .github/workflows/verification-dashboard.yml ([run](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID})) with scripts/verification-metrics.py. Review the diff of DASHBOARD.md and MATURITY.md: a level that dropped means its evidence disappeared from the verification docs."
+          fi
+      - name: Every mutants shard ran within the roadmap's promise
+        if: env.RELEASE == '' && github.ref == 'refs/heads/main'
+        run: python3 -I scripts/verification-metrics.py --check-mutants-rotation

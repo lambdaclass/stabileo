@@ -31,5 +31,8 @@ in pkgs.calculix-ccx.overrideAttrs (old: {
   '';
   enableParallelBuilding = true;
 })"
-"$out/bin/ccx" -v | grep -q "2.23"
+# ccx -v prints its version and exits with status 201 (CalculiX's STOP code),
+# which pipefail would turn into a failure of this script.
+ver="$("$out/bin/ccx" -v 2>&1 || true)"
+grep -q "2.23" <<<"$ver" || { echo "calculix: unexpected version: $ver" >&2; exit 1; }
 echo "built $out/bin/ccx"

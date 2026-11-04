@@ -44,6 +44,18 @@ pub struct MasonryMemberData {
     /// Shear reinforcement spacing s (m)
     #[serde(default)]
     pub s_stirrup: Option<f64>,
+    /// The reinforcement is laterally tied (TMS 402 lateral ties), so its
+    /// compressive resistance counts in Pn. Absent or false: neglected, as
+    /// TMS 402 requires for untied bars (a wall's single curtain).
+    #[serde(default)]
+    pub laterally_tied: Option<bool>,
+    /// Grouting factor γg on the nominal shear strength and its cap
+    /// (TMS 402-13/16: 0.75 for partially grouted shear walls; 402-22: 0.70;
+    /// 1.0 otherwise). Absent: 1.0 for a solid or fully grouted section
+    /// (`an` absent or not below b·t), 0.70 — the least of the editions —
+    /// when `an` is below b·t, which is how a partially grouted wall is input.
+    #[serde(default)]
+    pub gamma_g: Option<f64>,
 }
 
 /// Applied forces on masonry member.
@@ -158,7 +170,12 @@ fn check_single_masonry(m: &MasonryMemberData, f: &MasonryDesignForces) -> Mason
     // zero, and reports a wall with no capacity as one with no demand.
     let h_over_r = if r_gyr > 0.0 { h_eff / r_gyr } else { f64::INFINITY };
 
-    let squash = 0.80 * (0.80 * m.fm * (an - m.as_tension) + m.fy * m.as_tension);
+    // The steel term only for laterally tied bars: TMS 402 neglects the
+    // compressive resistance of untied reinforcement. It was always counted,
+    // which overstated a wall's Pn (McGinley 2020, slide 38: "because
+    // compression reinforcement is not laterally supported, it is not counted").
+    let steel = if m.laterally_tied.unwrap_or(false) { m.fy * m.as_tension } else { 0.0 };
+    let squash = 0.80 * (0.80 * m.fm * (an - m.as_tension) + steel);
     let pn = if h_over_r <= 99.0 {
         // Pn = 0.80 * [0.80 * f'm * (An - As) + fy * As] * [1 - (h/(140r))²]
         let hr = h_eff / (140.0 * r_gyr);
@@ -218,7 +235,11 @@ fn check_single_masonry(m: &MasonryMemberData, f: &MasonryDesignForces) -> Mason
     };
     let vn_max = vn_coefficient * an_mm2 * fm_mpa.sqrt();
 
-    let vn = (vm + vs).min(vn_max);
+    // TMS 402-13 Eq. 9-21: Vn = (Vnm + Vns)·γg, and the cap is scaled by γg
+    // too. Without it a partially grouted shear wall was credited 33–43 %
+    // more shear than the code gives (FEMA P-1051, Table 13.2-3).
+    let gamma_g = m.gamma_g.unwrap_or(if an < m.b * m.t * (1.0 - 1e-9) { 0.70 } else { 1.0 });
+    let vn = ((vm + vs) * gamma_g).min(vn_max * gamma_g);
 
     let shear_ratio = ledger.ratio_if_loaded("Shear 9.3.6", vu, PHI_SHEAR * vn);
 

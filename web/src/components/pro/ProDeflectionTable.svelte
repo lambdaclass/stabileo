@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { downloadResultText } from '../../lib/export/provenance-attach';
   /**
    * Member deflections relative to the chord: under service loads, or for the result set on
    * screen.
@@ -9,7 +10,6 @@
    */
   import { modelStore, resultsStore, uiStore } from '../../lib/store';
   import { t, tp } from '../../lib/i18n';
-  import { downloadText } from '../../lib/store/file';
   import { serviceSets, serviceDeflections } from '../../lib/store/service-deflection';
   import { deflectionChecks } from '../../lib/store/serviceability';
   import { ruleLabel } from '../../lib/engine/deflection-limits';
@@ -44,7 +44,7 @@
   }
 
   function csv() {
-    downloadText(toCsv(
+    void downloadResultText(toCsv(
       [t('pro.elemLabel'), 'L (m)', 'δ (mm)', 'x (m)', 'L/δ', 'δy (mm)', 'δz (mm)', t('tables.source'), t('defl.cantilever'), t('defl.limits.rule'), t('defl.limits.direction'), t('defl.limits.ratio')],
       rows.map((r) => {
         const c = checks.get(r.id);
@@ -68,7 +68,7 @@
 </div>
 <div class="pro-res-table-wrap">
   <table class="pro-res-table" data-testid="defl-table">
-    <thead><tr><th>{t('pro.elemLabel')}</th><th>L (m)</th><th>δ (mm)</th><th>x (m)</th><th>L/δ</th><th>δy (mm)</th><th>δz (mm)</th>{#if source === 'service'}<th>{t('tables.source')}</th><th title={t('defl.checkHint')}>{t('defl.limits.rule')}</th><th>%</th>{/if}</tr></thead>
+    <thead><tr><th>{t('pro.elemLabel')}</th><th>L (m)</th><th>δ (mm)</th><th>x (m)</th><th>L/δ</th><th>δy (mm)</th><th>δz (mm)</th>{#if source === 'service'}<th>{t('tables.source')}</th><th title={t('defl.checkHintTable')}>{t('defl.limits.rule')}</th><th>%</th>{/if}</tr></thead>
     <tbody>
       {#each rows.slice(0, ROW_CAP) as r (r.id)}
         <tr onclick={() => pick(r.span)} style="cursor:pointer">

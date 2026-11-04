@@ -13,15 +13,27 @@
  *      floors, and it did not say so" defect wearing a smaller default.
  *   4. A family the model does not contain is not offered at all, so "this model has no walls"
  *      stays distinguishable from "the walls have not been designed".
+ *
+ * Interface A: the DISEÑAR stage of the classic column is the member list, a place of the Size
+ * step (`desk-list`); the one command is «Size…», at the top of the stage and in the list's
+ * toolbar, and its scope is named in its dialog before it runs.
  */
 
-import { test, expect, loadModel } from './fixtures';
+import { test, expect, loadModel, designPlace, solveModel } from './fixtures';
 import type { Page } from '@playwright/test';
 
-const stage = (page: Page) => page.getByTestId('design-stage-disclosure');
+const stage = (page: Page) => page.getByTestId('desk-list');
+/** The member list, on a frame (with no member at all the place offers the ways in instead). */
 const openDesign = async (page: Page) => {
-  await page.getByTestId('rc-stage-design').locator('button').click();
+  if (await page.evaluate(() => window.__stabileo.elementIds().length) === 0) await loadModel(page, 'rc-design-qa-8');
+  await designPlace(page, 'list');
   await expect(page.getByTestId('pro-design-tab')).toBeVisible();
+};
+/** «Size…»'s dialog, where the scope is named before the run (a solve first: it sizes from the analysis). */
+const openSize = async (page: Page) => {
+  if (await page.getByTestId('cmd-autodesign').isDisabled()) await solveModel(page);
+  await page.getByTestId('cmd-autodesign').click();
+  await expect(page.getByTestId('desk-run-options')).toBeVisible();
 };
 
 test.describe('the stage contains the surface it names', () => {
@@ -59,7 +71,7 @@ test.describe('the stage contains the surface it names', () => {
     await openDesign(page);
     const dupes = await page.evaluate(() => {
       const c: Record<string, number> = {};
-      for (const el of document.querySelectorAll('.rc-workflow [data-testid]')) {
+      for (const el of document.querySelectorAll('[data-testid="design-desk"] [data-testid]')) {
         const k = el.getAttribute('data-testid')!;
         c[k] = (c[k] ?? 0) + 1;
       }
@@ -75,12 +87,16 @@ test.describe('one command, and its scope is visible first', () => {
   test('the second design command is gone', async ({ pro: page }) => {
     await openDesign(page);
     await expect(page.getByTestId('cmd-design-families')).toHaveCount(0);
-    await expect(page.getByTestId('cmd-design-all')).toHaveCount(1);
+    await expect(page.getByTestId('cmd-design-all')).toHaveCount(0);
+    // One command, two ways to it: the top of the stage and the list's toolbar, same dialog.
+    await expect(page.getByTestId('desk-design')).toHaveCount(1);
+    await expect(page.getByTestId('cmd-autodesign')).toHaveCount(1);
   });
 
   test('the scope is named beside the command before it runs', async ({ pro: page }) => {
     await loadModel(page, 'rc-design-qa-8');
     await openDesign(page);
+    await openSize(page);
     const scope = page.getByTestId('cmd-design-scope');
     await expect(scope).toBeVisible();
     expect((await scope.innerText()).trim(), 'the families are named').toMatch(/column|beam/i);
@@ -103,7 +119,8 @@ test.describe('one command, and its scope is visible first', () => {
       await loadModel(page, 'rc-design-qa-8');
       await openDesign(page);
       await page.getByTestId('design-family-none').click();
-      await expect(page.getByTestId('cmd-design-all')).toBeDisabled();
+      await openSize(page);
+      await expect(page.getByTestId('desk-run')).toBeDisabled();
       const scope = (await page.getByTestId('cmd-design-scope').innerText()).trim();
       expect(scope.length, 'and it says the scope is empty').toBeGreaterThan(5);
     });
@@ -111,9 +128,11 @@ test.describe('one command, and its scope is visible first', () => {
   test('the scope follows the boxes', async ({ pro: page }) => {
     await loadModel(page, 'rc-design-qa-8');
     await openDesign(page);
+    await openSize(page);
     const scope = page.getByTestId('cmd-design-scope');
     const before = (await scope.innerText()).trim();
-    await page.getByTestId('design-family-beam').click();
+    // The boxes in the dialog and in the list are one selection: either moves the scope.
+    await page.getByTestId('desk-run-family-beam').click();
     await expect(scope).not.toHaveText(before);
   });
 });
@@ -156,18 +175,18 @@ test.describe('only the families the model has are offered', () => {
   });
 });
 
-test.describe('reaching it from the timeline', () => {
+test.describe('reaching it from the steps', () => {
   test.use({ viewport: { width: 1280, height: 720 } });
 
-  test('the stage takes the keyboard with it', async ({ pro: page }) => {
-    await page.getByTestId('rc-stage-design').locator('button').click();
-    await expect(stage(page).locator('> summary')).toBeFocused();
+  test('the step takes the keyboard with it', async ({ pro: page }) => {
+    await page.getByTestId('desk-step-size').click();
+    await expect(page.getByTestId('desk-rail').locator('button').first()).toBeFocused();
   });
 
-  test('and opening the floor sub-step keeps the stage marked as read', async ({ pro: page }) => {
+  test('and opening the floor sub-step keeps the step marked as read', async ({ pro: page }) => {
     await openDesign(page);
     await page.getByTestId('floor-families-disclosure').locator('> summary').click();
-    await expect(page.getByTestId('rc-stage-design')).toHaveAttribute('data-open', 'true');
+    await expect(page.getByTestId('desk-step-size')).toHaveAttribute('data-open', 'true');
   });
 });
 
@@ -180,7 +199,7 @@ for (const vp of [
     test('the stage fits without scrolling the column sideways', async ({ pro: page }) => {
       await loadModel(page, 'rc-design-qa-8');
       await openDesign(page);
-      const over = await page.locator('.rc-workflow')
+      const over = await page.locator('.dd-canvas-body')
         .evaluate((el) => el.scrollWidth - el.clientWidth);
       expect(over, `no horizontal overflow at ${vp.width}`).toBeLessThanOrEqual(1);
     });
@@ -194,7 +213,8 @@ for (const locale of ['en', 'es', 'pt'] as const) {
     test('the command, its scope and the sub-step are all translated', async ({ pro: page }) => {
       await loadModel(page, 'rc-design-qa-8');
       await openDesign(page);
-      for (const id of ['cmd-design-all', 'cmd-design-scope', 'floor-families-disclosure-purpose']) {
+      await openSize(page);
+      for (const id of ['desk-run', 'cmd-design-scope', 'floor-families-disclosure-purpose']) {
         const text = (await page.getByTestId(id).innerText()).trim();
         expect(text.length, `${id} is named in ${locale}`).toBeGreaterThan(2);
         expect(text, `${id} is translated, not a key`).not.toMatch(/^design\./);

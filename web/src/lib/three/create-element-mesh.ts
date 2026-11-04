@@ -7,6 +7,8 @@ import { createSectionShapes, canonicalShapes } from './section-profiles';
 import { drawingGeometry } from '../section/drawing';
 import { GLOBAL_Z, THREEJS_CYLINDER_AXIS } from '../geometry/coordinate-system';
 import type { Section } from '../store/model.svelte';
+import type { PrismLayer } from '../engine/physical/physical-frame';
+import { prismLayersGeometry } from './physical-mesh';
 
 /** Shared resolution vector for LineMaterial (screen-space line widths). */
 export const fatLineResolution = new THREE.Vector2(1, 1);
@@ -49,7 +51,12 @@ export interface CreateElementOpts {
   /** Element roll angle β in degrees (rotation around bar axis) */
   elementRollAngle?: number;
   /** Render mode: wireframe=simple lines, solid=cylinders, sections=extruded profiles */
-  renderMode?: 'wireframe' | 'solid' | 'sections';
+  renderMode?: 'wireframe' | 'solid' | 'sections' | 'physical';
+  /**
+   * In the `physical` and `sections` modes, the member's concrete as built and the joints it owns
+   * (`store/physical-frame.ts`). Absent, the member is drawn as its section.
+   */
+  physicalLayers?: readonly PrismLayer[];
   /** Element local axes (from computeLocalAxes3D) used to orient extruded sections. */
   localAxes?: { ex: [number, number, number]; ey: [number, number, number]; ez: [number, number, number] };
 }
@@ -84,14 +91,20 @@ export function createElementGroup(
   if (opts.selected) baseColor = COLORS.elementSelected;
   else if (opts.hovered) baseColor = COLORS.elementHovered;
 
-  const mode = opts.renderMode ?? 'solid';
+  // Cut by the physical frame: its layers, or nothing where the joints took it whole.
+  const physicalCut = (opts.renderMode === 'physical' || opts.renderMode === 'sections') && opts.physicalLayers !== undefined;
+  const physical = physicalCut ? prismLayersGeometry(opts.physicalLayers!) : null;
+  // A member the physical frame did not cut is drawn as its section, like every steel member.
+  const mode = opts.renderMode === 'physical' ? 'sections' : opts.renderMode ?? 'solid';
 
   // In wireframe mode, brighten the base colors to distinguish from the grid
   if (mode === 'wireframe' && !opts.selected && !opts.hovered) {
     baseColor = opts.elementType === 'frame' ? COLORS.frameWire : COLORS.truss;
   }
 
-  if (mode === 'wireframe') {
+  if (physicalCut) {
+    if (physical) addPhysicalConcrete(group, physical, baseColor);
+  } else if (mode === 'wireframe') {
     // Wireframe visual: rendered by the shared ElementsBatched LineSegments2
     // — one draw call for every element (frames AND trusses). This group only
     // carries the picking helper (added below) and hinges.
@@ -141,6 +154,21 @@ export function createElementGroup(
   });
 
   return group;
+}
+
+/** The physical mode's concrete: its prisms as one mesh with its edges, in world coordinates. */
+function addPhysicalConcrete(group: THREE.Group, geo: THREE.BufferGeometry, baseColor: number): void {
+  const mat = new THREE.MeshStandardMaterial({ color: baseColor, roughness: 0.75, metalness: 0.05, side: THREE.DoubleSide });
+  const mesh = new THREE.Mesh(geo, mat);
+  const edges = new THREE.LineSegments(
+    new THREE.EdgesGeometry(geo, 15),
+    new THREE.LineBasicMaterial({ color: 0x12202e, transparent: true, opacity: 0.55 }),
+  );
+  edges.userData.sectionEdge = true;
+  edges.raycast = () => {};
+  mesh.add(edges);
+  mesh.userData.physicalConcrete = true;
+  group.add(mesh);
 }
 
 /** Add a cylinder mesh to represent a frame element */

@@ -10,6 +10,7 @@ import { engineRecheckElement } from '../codes/argentina/cirsoc201-engine-gate';
 import { evaluateBeamSection } from '../codes/argentina/cirsoc201-beam-kernel';
 import { registerColumnCapacityKernel } from '../column-capacity-kernel';
 import { solve_column_capacity_batch } from '../../wasm/dedaliano_engine.js';
+import { verifyElement as legacyVerifyElement } from './differential/oracle/cirsoc201';
 
 const base: VerificationInput = {
   elementId: 7, elementType: 'beam', Mu: 120, Vu: 90, Nu: 0,
@@ -77,13 +78,18 @@ describe('engine gate ratios', () => {
     const col = verifyElement({ ...base, elementType: 'column', b: 0.4, h: 0.4, Mu: 40, Nu: 800, Muy: 30, Tu: 15, Lu: 6, M1: 20, M2: 40 });
     const g = engineRecheckElement(col, { stirrupDia: 8, NuShear: 0 });
     expect(new Set(g.engineRecheck.notRechecked)).toEqual(new Set([
-      ...(col.biaxial ? ['biaxial'] : []),
       ...(col.torsion && !col.torsion.neglect ? ['torsion'] : []),
       ...(col.slender?.isSlender ? ['slenderness'] : []),
     ]));
-    expect(g.engineRecheck.notRechecked).toContain('biaxial');
+    // Biaxial bending is re-checked now, on the engine's load contour.
+    expect(col.biaxial).toBeDefined();
+    expect(g.engineRecheck.notRechecked).not.toContain('biaxial');
+    expect(g.engineRecheck.biaxialRatio).toBeDefined();
     const beam = engineRecheckElement(verifyElement(base), { stirrupDia: 8, NuShear: 0 });
     expect(beam.engineRecheck.notRechecked).toEqual([]);
+    const sheared = engineRecheckElement(verifyElement({ ...base, elementType: 'column', b: 0.4, h: 0.4, Mu: 40, Nu: 800, VuSecondary: 60 }), { stirrupDia: 8, NuShear: 0 });
+    expect(sheared.engineRecheck.notRechecked).toContain('shear-secondary');
+    expect(g.engineRecheck.notRechecked).not.toContain('shear-secondary');
     expect(beam.diagnostics?.some((d) => d.code.startsWith('VERIF_ENGINE'))).toBeFalsy();
   });
 
@@ -151,7 +157,8 @@ describe('engine gate: the remaining mutants', () => {
   });
 
   it('the ductility ratio travels in the diagnostic, and earlier diagnostics are kept', () => {
-    const v = verifyElement({ ...base, Mu: 330, b: 0.25, h: 0.5, Vu: 10 });
+    // The legacy designer's non-ductile beam (the current designer sizes it ductile).
+    const v = legacyVerifyElement({ ...base, Mu: 330, b: 0.25, h: 0.5, Vu: 10 }) as unknown as ReturnType<typeof verifyElement>;
     const before = v.diagnostics?.length ?? 0;
     const g = engineRecheckElement(v, { stirrupDia: 8, NuShear: 0 });
     const d = g.diagnostics!.find((x) => x.code === 'VERIF_ENGINE_DISAGREES')!;

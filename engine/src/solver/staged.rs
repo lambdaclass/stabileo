@@ -82,7 +82,7 @@ pub fn solve_staged_2d(input: &StagedInput) -> Result<StagedAnalysisResults, Str
     // as a flat roller (wrong boundary condition and wrong stiffness), not
     // just mis-report results. Reject explicitly until that assembly carries
     // transforms.
-    let has_inclined = input.supports.values().any(|s| {
+    let has_inclined = crate::ordered::values(&input.supports).any(|s| {
         s.support_type == "inclinedRoller"
     });
     if has_inclined {
@@ -109,6 +109,7 @@ pub fn solve_staged_2d(input: &StagedInput) -> Result<StagedAnalysisResults, Str
 
     // Track cumulative state
     let mut cumulative_u = vec![0.0; n];
+    let mut prev_u_r = vec![0.0; n - dof_num.n_free];
     let mut active_elements: HashSet<usize> = HashSet::new();
     let mut active_supports: HashSet<usize> = HashSet::new();
     let mut cumulative_loads: Vec<SolverLoad> = Vec::new();
@@ -170,7 +171,7 @@ pub fn solve_staged_2d(input: &StagedInput) -> Result<StagedAnalysisResults, Str
 
         // Build prescribed displacement vector
         let mut u_r = vec![0.0; nr];
-        for sup in stage_solver_input.supports.values() {
+        for sup in crate::ordered::values(&stage_solver_input.supports) {
             if sup.support_type == "spring" { continue; }
             let prescribed: [(usize, Option<f64>); 3] = [
                 (0, sup.dx), (1, sup.dz), (2, sup.dry),
@@ -188,7 +189,12 @@ pub fn solve_staged_2d(input: &StagedInput) -> Result<StagedAnalysisResults, Str
             }
         }
 
-        // Extract Kff, Ff and apply F_f_modified = F_f - K_fr * u_r.
+        // Only the change of the prescribed displacements since the last
+        // stage drives this stage's increment: the full u_r re-applied every
+        // stage counted a settlement once per stage (found by the metamorphic
+        // linear-agreement check: two load stages gave twice the settlement).
+        let du_r: Vec<f64> = u_r.iter().zip(&prev_u_r).map(|(a, b)| a - b).collect();
+        // Extract Kff, Ff and apply F_f_modified = F_f - K_fr * du_r.
         // Sparse path: the full-K CSC (built once from the stage triplets)
         // provides the K_fr·u_r cross-block matvec and is reused for the
         // reaction computation at the end of the stage; the free×free CSC
@@ -200,7 +206,7 @@ pub fn solve_staged_2d(input: &StagedInput) -> Result<StagedAnalysisResults, Str
         if let Some(ref t) = asm_trips {
             let k_full = CscMatrix::from_triplets(n, &t.rows, &t.cols, &t.vals);
             let mut ff = t.f[..nf].to_vec();
-            let k_fr_ur = k_full.sparse_cross_block_matvec(&u_r, nf);
+            let k_fr_ur = k_full.sparse_cross_block_matvec(&du_r, nf);
             for i in 0..nf {
                 ff[i] -= k_fr_ur[i];
             }
@@ -216,7 +222,7 @@ pub fn solve_staged_2d(input: &StagedInput) -> Result<StagedAnalysisResults, Str
 
             // F_f_modified = F_f - K_fr * u_r
             let k_fr = extract_submatrix(&asm.k, n, &free_idx, &rest_idx);
-            let k_fr_ur = mat_vec_rect(&k_fr, &u_r, nf, nr);
+            let k_fr_ur = mat_vec_rect(&k_fr, &du_r, nf, nr);
             for i in 0..nf {
                 ff[i] -= k_fr_ur[i];
             }
@@ -229,7 +235,7 @@ pub fn solve_staged_2d(input: &StagedInput) -> Result<StagedAnalysisResults, Str
         if max_diag < 1e-30 {
             // No stiffness at this stage — skip
             let cumulative_solver_input = SolverInput {
-                solver_options: None,
+                solver_options: None, masses: Default::default(),
                 loads: cumulative_loads.clone(),
                 ..stage_solver_input.clone()
             };
@@ -293,9 +299,10 @@ pub fn solve_staged_2d(input: &StagedInput) -> Result<StagedAnalysisResults, Str
         for i in 0..nr {
             cumulative_u[nf + i] = u_r[i]; // prescribed displacements override
         }
+        prev_u_r = u_r.clone();
 
         // Cable iteration: if stage has cable elements, iterate with Ernst modulus
-        let has_cables = stage_solver_input.elements.values()
+        let has_cables = crate::ordered::values(&stage_solver_input.elements)
             .any(|e| e.elem_type == "cable");
         if has_cables {
             iterate_cables_staged_2d(
@@ -307,7 +314,7 @@ pub fn solve_staged_2d(input: &StagedInput) -> Result<StagedAnalysisResults, Str
 
         // Build cumulative input for correct FEF subtraction in internal force recovery.
         let cumulative_solver_input = SolverInput {
-            solver_options: None,
+            solver_options: None, masses: Default::default(),
             loads: cumulative_loads.clone(),
             ..stage_solver_input.clone()
         };
@@ -364,7 +371,7 @@ pub fn solve_staged_2d(input: &StagedInput) -> Result<StagedAnalysisResults, Str
 /// Convert StagedInput to a full SolverInput (all elements active) for DOF numbering.
 fn staged_to_full_solver_input(input: &StagedInput) -> SolverInput {
     SolverInput {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes: input.nodes.clone(),
         materials: input.materials.clone(),
         sections: input.sections.clone(),
@@ -398,7 +405,7 @@ fn build_stage_solver_input(
         .collect();
 
     SolverInput {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes: input.nodes.clone(),
         materials: input.materials.clone(),
         sections: input.sections.clone(),
@@ -427,13 +434,13 @@ fn assemble_staged_2d(
     let mut f_global = vec![0.0; n];
 
     // Build lookup maps to avoid O(n) linear scans per element
-    let node_by_id: HashMap<usize, &SolverNode> = full_input.nodes.values().map(|n| (n.id, n)).collect();
-    let elem_by_id: HashMap<usize, &SolverElement> = full_input.elements.values().map(|e| (e.id, e)).collect();
-    let mat_by_id: HashMap<usize, &SolverMaterial> = full_input.materials.values().map(|m| (m.id, m)).collect();
-    let sec_by_id: HashMap<usize, &SolverSection> = full_input.sections.values().map(|s| (s.id, s)).collect();
+    let node_by_id: HashMap<usize, &SolverNode> = crate::ordered::values(&full_input.nodes).map(|n| (n.id, n)).collect();
+    let elem_by_id: HashMap<usize, &SolverElement> = crate::ordered::values(&full_input.elements).map(|e| (e.id, e)).collect();
+    let mat_by_id: HashMap<usize, &SolverMaterial> = crate::ordered::values(&full_input.materials).map(|m| (m.id, m)).collect();
+    let sec_by_id: HashMap<usize, &SolverSection> = crate::ordered::values(&full_input.sections).map(|s| (s.id, s)).collect();
 
     // Assemble active element stiffness matrices
-    for elem in stage_input.elements.values() {
+    for elem in crate::ordered::values(&stage_input.elements) {
         let node_i = node_by_id[&elem.node_i];
         let node_j = node_by_id[&elem.node_j];
         let mat = mat_by_id[&elem.material_id];
@@ -462,6 +469,10 @@ fn assemble_staged_2d(
                     k_global[truss_dofs[i] * n + truss_dofs[j]] += k_elem[i * ndof + j];
                 }
             }
+            // The stage's loads on the bar, as the linear assembly takes them. They used to be
+            // dropped: a bar's member loads (an axial span load among them) never reached it.
+            let load_refs: Vec<&SolverLoad> = stage_input.loads.iter().collect();
+            super::assembly::assemble_truss_loads_2d(&load_refs, elem.id, l, cos, sin, e, sec.a, &truss_dofs, &mut f_global);
         } else {
             let phi = if let Some(as_y) = sec.as_y {
                 let g = e / (2.0 * (1.0 + mat.nu));
@@ -560,13 +571,13 @@ fn assemble_staged_2d(
 
     // Collect nodes connected to active elements
     let mut connected_nodes = HashSet::new();
-    for elem in stage_input.elements.values() {
+    for elem in crate::ordered::values(&stage_input.elements) {
         connected_nodes.insert(elem.node_i);
         connected_nodes.insert(elem.node_j);
     }
 
     // Add artificial stiffness for ALL DOFs of disconnected nodes
-    for node in full_input.nodes.values() {
+    for node in crate::ordered::values(&full_input.nodes) {
         if !connected_nodes.contains(&node.id) {
             for local_dof in 0..dof_num.dofs_per_node {
                 if let Some(&d) = dof_num.map.get(&(node.id, local_dof)) {
@@ -584,7 +595,7 @@ fn assemble_staged_2d(
         let mut node_hinge_count: std::collections::HashMap<usize, usize> = std::collections::HashMap::new();
         let mut node_frame_count: std::collections::HashMap<usize, usize> = std::collections::HashMap::new();
 
-        for elem in stage_input.elements.values() {
+        for elem in crate::ordered::values(&stage_input.elements) {
             if elem.elem_type == "frame" {
                 *node_frame_count.entry(elem.node_i).or_insert(0) += 1;
                 *node_frame_count.entry(elem.node_j).or_insert(0) += 1;
@@ -652,13 +663,13 @@ fn assemble_staged_2d_triplets(
     let mut diag = vec![0.0; n];
 
     // Build lookup maps to avoid O(n) linear scans per element
-    let node_by_id: HashMap<usize, &SolverNode> = full_input.nodes.values().map(|n| (n.id, n)).collect();
-    let elem_by_id: HashMap<usize, &SolverElement> = full_input.elements.values().map(|e| (e.id, e)).collect();
-    let mat_by_id: HashMap<usize, &SolverMaterial> = full_input.materials.values().map(|m| (m.id, m)).collect();
-    let sec_by_id: HashMap<usize, &SolverSection> = full_input.sections.values().map(|s| (s.id, s)).collect();
+    let node_by_id: HashMap<usize, &SolverNode> = crate::ordered::values(&full_input.nodes).map(|n| (n.id, n)).collect();
+    let elem_by_id: HashMap<usize, &SolverElement> = crate::ordered::values(&full_input.elements).map(|e| (e.id, e)).collect();
+    let mat_by_id: HashMap<usize, &SolverMaterial> = crate::ordered::values(&full_input.materials).map(|m| (m.id, m)).collect();
+    let sec_by_id: HashMap<usize, &SolverSection> = crate::ordered::values(&full_input.sections).map(|s| (s.id, s)).collect();
 
     // Assemble active element stiffness matrices
-    for elem in stage_input.elements.values() {
+    for elem in crate::ordered::values(&stage_input.elements) {
         let node_i = node_by_id[&elem.node_i];
         let node_j = node_by_id[&elem.node_j];
         let mat = mat_by_id[&elem.material_id];
@@ -694,6 +705,8 @@ fn assemble_staged_2d_triplets(
                 }
                 diag[truss_dofs[i]] += k_elem[i * ndof + i];
             }
+            let load_refs: Vec<&SolverLoad> = stage_input.loads.iter().collect();
+            super::assembly::assemble_truss_loads_2d(&load_refs, elem.id, l, cos, sin, e, sec.a, &truss_dofs, &mut f_global);
         } else {
             let phi = if let Some(as_y) = sec.as_y {
                 let g = e / (2.0 * (1.0 + mat.nu));
@@ -804,13 +817,13 @@ fn assemble_staged_2d_triplets(
 
     // Collect nodes connected to active elements
     let mut connected_nodes = HashSet::new();
-    for elem in stage_input.elements.values() {
+    for elem in crate::ordered::values(&stage_input.elements) {
         connected_nodes.insert(elem.node_i);
         connected_nodes.insert(elem.node_j);
     }
 
     // Add artificial stiffness for ALL DOFs of disconnected nodes
-    for node in full_input.nodes.values() {
+    for node in crate::ordered::values(&full_input.nodes) {
         if !connected_nodes.contains(&node.id) {
             for local_dof in 0..dof_num.dofs_per_node {
                 if let Some(&d) = dof_num.map.get(&(node.id, local_dof)) {
@@ -830,7 +843,7 @@ fn assemble_staged_2d_triplets(
         let mut node_hinge_count: std::collections::HashMap<usize, usize> = std::collections::HashMap::new();
         let mut node_frame_count: std::collections::HashMap<usize, usize> = std::collections::HashMap::new();
 
-        for elem in stage_input.elements.values() {
+        for elem in crate::ordered::values(&stage_input.elements) {
             if elem.elem_type == "frame" {
                 *node_frame_count.entry(elem.node_i).or_insert(0) += 1;
                 *node_frame_count.entry(elem.node_j).or_insert(0) += 1;
@@ -981,11 +994,11 @@ fn iterate_cables_staged_2d(
     let mut cable_tensions: HashMap<usize, f64> = HashMap::new();
 
     // Build lookup maps to avoid O(n) linear scans per element
-    let node_by_id: HashMap<usize, &SolverNode> = full_input.nodes.values().map(|n| (n.id, n)).collect();
-    let mat_by_id: HashMap<usize, &SolverMaterial> = full_input.materials.values().map(|m| (m.id, m)).collect();
-    let sec_by_id: HashMap<usize, &SolverSection> = full_input.sections.values().map(|s| (s.id, s)).collect();
+    let node_by_id: HashMap<usize, &SolverNode> = crate::ordered::values(&full_input.nodes).map(|n| (n.id, n)).collect();
+    let mat_by_id: HashMap<usize, &SolverMaterial> = crate::ordered::values(&full_input.materials).map(|m| (m.id, m)).collect();
+    let sec_by_id: HashMap<usize, &SolverSection> = crate::ordered::values(&full_input.sections).map(|s| (s.id, s)).collect();
 
-    for elem in stage_input.elements.values() {
+    for elem in crate::ordered::values(&stage_input.elements) {
         if elem.elem_type != "cable" { continue; }
 
         let node_i = node_by_id[&elem.node_i];
@@ -1234,7 +1247,7 @@ pub fn solve_staged_3d(input: &StagedInput3D) -> Result<StagedAnalysisResults3D,
     // per-element computations would be wrong for any element touching an
     // inclined-support node. Reject explicitly rather than reporting
     // silently-wrong element forces/reactions.
-    let has_inclined = input.supports.values().any(|s| {
+    let has_inclined = crate::ordered::values(&input.supports).any(|s| {
         s.is_inclined == Some(true)
     });
     if has_inclined {
@@ -1281,6 +1294,7 @@ pub fn solve_staged_3d(input: &StagedInput3D) -> Result<StagedAnalysisResults3D,
 
     // Track cumulative state
     let mut cumulative_u = vec![0.0; n];
+    let mut prev_u_r = vec![0.0; n - dof_num.n_free];
     let mut active_elements: HashSet<usize> = HashSet::new();
     let mut active_supports: HashSet<usize> = HashSet::new(); // node_ids
     // Shells track their own active sets: their ids are their own, and a plate
@@ -1301,7 +1315,9 @@ pub fn solve_staged_3d(input: &StagedInput3D) -> Result<StagedAnalysisResults3D,
     // lower-triangle triplets and no dense n×n matrix is ever built.
     let use_sparse = ns >= super::linear::SPARSE_THRESHOLD;
 
+    let mut cumulative_loads: Vec<SolverLoad3D> = Vec::new();
     for (stage_idx, stage) in input.stages.iter().enumerate() {
+        cumulative_loads.extend(stage.load_indices.iter().filter_map(|&idx| input.loads.get(idx).cloned()));
         // Update active sets
         for &eid in &stage.elements_added {
             active_elements.insert(eid);
@@ -1353,7 +1369,7 @@ pub fn solve_staged_3d(input: &StagedInput3D) -> Result<StagedAnalysisResults3D,
 
         // Build prescribed displacement vector
         let mut u_r = vec![0.0; nr];
-        for sup in stage_input.supports.values() {
+        for sup in crate::ordered::values(&stage_input.supports) {
             let prescribed = [sup.dx, sup.dy, sup.dz, sup.drx, sup.dry, sup.drz];
             for (i, pd) in prescribed.iter().enumerate() {
                 if let Some(val) = pd {
@@ -1368,7 +1384,12 @@ pub fn solve_staged_3d(input: &StagedInput3D) -> Result<StagedAnalysisResults3D,
             }
         }
 
-        // Extract Kff, Ff and apply F_f_modified = F_f - K_fr * u_r.
+        // Only the change of the prescribed displacements since the last
+        // stage drives this stage's increment: the full u_r re-applied every
+        // stage counted a settlement once per stage (found by the metamorphic
+        // linear-agreement check: two load stages gave twice the settlement).
+        let du_r: Vec<f64> = u_r.iter().zip(&prev_u_r).map(|(a, b)| a - b).collect();
+        // Extract Kff, Ff and apply F_f_modified = F_f - K_fr * du_r.
         // Sparse path: the full-K CSC (from the stage triplets) provides the
         // K_fr·u_r cross-block matvec; the free×free CSC for the solve is
         // filtered from the same triplets further below.
@@ -1378,7 +1399,7 @@ pub fn solve_staged_3d(input: &StagedInput3D) -> Result<StagedAnalysisResults3D,
         if let Some(ref t) = asm_trips {
             let k_full = CscMatrix::from_triplets(n, &t.rows, &t.cols, &t.vals);
             let mut ff = t.f[..nf].to_vec();
-            let k_fr_ur = k_full.sparse_cross_block_matvec(&u_r, nf);
+            let k_fr_ur = k_full.sparse_cross_block_matvec(&du_r, nf);
             for i in 0..nf {
                 ff[i] -= k_fr_ur[i];
             }
@@ -1393,7 +1414,7 @@ pub fn solve_staged_3d(input: &StagedInput3D) -> Result<StagedAnalysisResults3D,
 
             // F_f_modified = F_f - K_fr * u_r
             let k_fr = extract_submatrix(&asm.k, n, &free_idx, &rest_idx);
-            let k_fr_ur = mat_vec_rect(&k_fr, &u_r, nf, nr);
+            let k_fr_ur = mat_vec_rect(&k_fr, &du_r, nf, nr);
             for i in 0..nf {
                 ff[i] -= k_fr_ur[i];
             }
@@ -1404,12 +1425,11 @@ pub fn solve_staged_3d(input: &StagedInput3D) -> Result<StagedAnalysisResults3D,
 
         // Check if K_ff has any non-zero diagonal
         if max_diag < 1e-30 {
+            let cum_input = SolverInput3D { loads: cumulative_loads.clone(), ..stage_input.clone() };
             stage_results.push(StageResult3D {
                 stage_name: stage.name.clone(),
                 stage_index: stage_idx,
-                results: build_results_from_u_3d(
-                    &cumulative_u, &dof_num, input, &stage_input, &active_elements,
-                ),
+                results: build_results_from_u_3d(&cumulative_u, &dof_num, &cum_input, &vec![0.0; nr], nf),
             });
             continue;
         }
@@ -1460,14 +1480,30 @@ pub fn solve_staged_3d(input: &StagedInput3D) -> Result<StagedAnalysisResults3D,
         for i in 0..nr {
             cumulative_u[nf + i] = u_r[i];
         }
+        prev_u_r = u_r.clone();
+
+        // Reactions (K·u − F_cumulative)_r with this stage's stiffness.
+        let cum_input = SolverInput3D { loads: cumulative_loads.clone(), ..stage_input.clone() };
+        let reactions_vec = if let Some(ref t) = asm_trips {
+            let k_full = CscMatrix::from_triplets(n, &t.rows, &t.cols, &t.vals);
+            let f_cum = super::sparse_assembly::assemble_load_vector_sparse_3d(&cum_input, &cum_input.loads, &dof_num, &[]);
+            compute_stage_reactions_sparse(&k_full, &f_cum, nf, nr, &cumulative_u)
+        } else {
+            let asm = asm_dense.as_ref().unwrap();
+            let f_cum = assemble_3d(&cum_input, &dof_num).f;
+            (0..nr)
+                .map(|r| {
+                    let row = nf + r;
+                    (0..n).map(|c| asm.k[row * n + c] * cumulative_u[c]).sum::<f64>() - f_cum[row]
+                })
+                .collect()
+        };
 
         // Build results for this stage
         stage_results.push(StageResult3D {
             stage_name: stage.name.clone(),
             stage_index: stage_idx,
-            results: build_results_from_u_3d(
-                &cumulative_u, &dof_num, input, &stage_input, &active_elements,
-            ),
+            results: build_results_from_u_3d(&cumulative_u, &dof_num, &cum_input, &reactions_vec, nf),
         });
     }
 
@@ -1498,7 +1534,7 @@ pub fn solve_staged_3d(input: &StagedInput3D) -> Result<StagedAnalysisResults3D,
 /// Convert StagedInput3D to a full SolverInput3D (all elements active) for DOF numbering.
 fn staged_to_full_solver_input_3d(input: &StagedInput3D) -> SolverInput3D {
     SolverInput3D {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes: input.nodes.clone(),
         materials: input.materials.clone(),
         sections: input.sections.clone(),
@@ -1506,7 +1542,7 @@ fn staged_to_full_solver_input_3d(input: &StagedInput3D) -> SolverInput3D {
         supports: input.supports.clone(),
         loads: input.loads.clone(),
         constraints: input.constraints.clone(),
-        left_hand: None,
+        left_hand: input.left_hand,
         /*
          * EVERY shell, active or not, because this input decides the DOF LAYOUT
          * and the shells are what widen it.
@@ -1574,7 +1610,7 @@ fn build_stage_solver_input_3d(
         .collect();
 
     SolverInput3D {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes: input.nodes.clone(),
         materials: input.materials.clone(),
         sections: input.sections.clone(),
@@ -1582,7 +1618,7 @@ fn build_stage_solver_input_3d(
         supports,
         loads,
         constraints: input.constraints.clone(),
-        left_hand: None,
+        left_hand: input.left_hand,
         plates,
         quads,
         // quad9s carry no per-stage list yet, and `solve_staged_3d` refuses an
@@ -1613,13 +1649,13 @@ fn add_artificial_stiffness_3d(
 
     // Collect nodes connected to active elements
     let mut connected_nodes = HashSet::new();
-    for elem in stage_input.elements.values() {
+    for elem in crate::ordered::values(&stage_input.elements) {
         connected_nodes.insert(elem.node_i);
         connected_nodes.insert(elem.node_j);
     }
 
     // Add artificial stiffness for ALL DOFs of disconnected nodes
-    for node in full_input.nodes.values() {
+    for node in crate::ordered::values(&full_input.nodes) {
         if !connected_nodes.contains(&node.id) {
             for local_dof in 0..dof_num.dofs_per_node {
                 if let Some(&d) = dof_num.map.get(&(node.id, local_dof)) {
@@ -1637,7 +1673,7 @@ fn add_artificial_stiffness_3d(
         let mut node_hinge_count: HashMap<usize, usize> = HashMap::new();
         let mut node_frame_count: HashMap<usize, usize> = HashMap::new();
 
-        for elem in stage_input.elements.values() {
+        for elem in crate::ordered::values(&stage_input.elements) {
             if elem.elem_type == "frame" {
                 *node_frame_count.entry(elem.node_i).or_insert(0) += 1;
                 *node_frame_count.entry(elem.node_j).or_insert(0) += 1;
@@ -1721,13 +1757,13 @@ fn assemble_staged_3d_triplets(
 
     // Collect nodes connected to active elements
     let mut connected_nodes = HashSet::new();
-    for elem in stage_input.elements.values() {
+    for elem in crate::ordered::values(&stage_input.elements) {
         connected_nodes.insert(elem.node_i);
         connected_nodes.insert(elem.node_j);
     }
 
     // Add artificial stiffness for ALL DOFs of disconnected nodes
-    for node in full_input.nodes.values() {
+    for node in crate::ordered::values(&full_input.nodes) {
         if !connected_nodes.contains(&node.id) {
             for local_dof in 0..dof_num.dofs_per_node {
                 if let Some(&d) = dof_num.map.get(&(node.id, local_dof)) {
@@ -1747,7 +1783,7 @@ fn assemble_staged_3d_triplets(
         let mut node_hinge_count: HashMap<usize, usize> = HashMap::new();
         let mut node_frame_count: HashMap<usize, usize> = HashMap::new();
 
-        for elem in stage_input.elements.values() {
+        for elem in crate::ordered::values(&stage_input.elements) {
             if elem.elem_type == "frame" {
                 *node_frame_count.entry(elem.node_i).or_insert(0) += 1;
                 *node_frame_count.entry(elem.node_j).or_insert(0) += 1;
@@ -1781,219 +1817,41 @@ fn assemble_staged_3d_triplets(
     StagedTriplets3D { rows, cols, vals, f: f_global, diag }
 }
 
-/// Build AnalysisResults3D from cumulative displacements.
+/// Results of a 3D stage from the cumulative displacements, by the linear
+/// solver's own recovery: member forces from `compute_internal_forces_3d_with_loads`
+/// with the cumulative member loads (fixed-end forces included, the engine's
+/// end-force sign convention), reactions as (K·u − F)_r of the stage's
+/// stiffness and the cumulative loads, shell stresses by the linear routines.
+///
+/// This used to be a hand-rolled recovery: f = K_e·u_e reported raw, so N at
+/// the start and every end value had the opposite sign to every other
+/// analysis, member loads were left out of the end forces, reactions were
+/// summed from those forces (missing loads applied at supports, springs and
+/// fixed-end forces), and quad stresses were never reported (found by the
+/// metamorphic energy and member-reversal checks).
 fn build_results_from_u_3d(
     u: &[f64],
     dof_num: &DofNumbering,
-    full_input: &StagedInput3D,
-    stage_input: &SolverInput3D,
-    active_elements: &HashSet<usize>,
+    cum_input: &SolverInput3D,
+    reactions_vec: &[f64],
+    nf: usize,
 ) -> AnalysisResults3D {
-    // Displacements
     let displacements = build_displacements_3d(dof_num, u);
-
-    // Element forces (for active frame/truss elements)
-    let left_hand = stage_input.left_hand.unwrap_or(false);
-    let mut element_forces = Vec::new();
-
-    // Build lookup maps to avoid O(n) linear scans per element
-    let node_by_id: HashMap<usize, &SolverNode3D> = full_input.nodes.values().map(|n| (n.id, n)).collect();
-    let elem_by_id: HashMap<usize, &SolverElement3D> = full_input.elements.values().map(|e| (e.id, e)).collect();
-    let mat_by_id: HashMap<usize, &SolverMaterial> = full_input.materials.values().map(|m| (m.id, m)).collect();
-    let sec_by_id: HashMap<usize, &SolverSection3D> = full_input.sections.values().map(|s| (s.id, s)).collect();
-
-    for elem in full_input.elements.values() {
-        if !active_elements.contains(&elem.id) { continue; }
-
-        let node_i = node_by_id[&elem.node_i];
-        let node_j = node_by_id[&elem.node_j];
-        let mat = mat_by_id[&elem.material_id];
-        let sec = sec_by_id[&elem.section_id];
-
-        let dx = node_j.x - node_i.x;
-        let dy = node_j.y - node_i.y;
-        let dz = node_j.z - node_i.z;
-        let l = (dx * dx + dy * dy + dz * dz).sqrt();
-        let e = mat.e * 1000.0;
-        let g = e / (2.0 * (1.0 + mat.nu));
-
-        if elem.elem_type == "truss" || elem.elem_type == "cable" {
-            let dir = [dx / l, dy / l, dz / l];
-            let ui: Vec<f64> = (0..3).map(|i| {
-                dof_num.global_dof(elem.node_i, i).map(|d| u[d]).unwrap_or(0.0)
-            }).collect();
-            let uj: Vec<f64> = (0..3).map(|i| {
-                dof_num.global_dof(elem.node_j, i).map(|d| u[d]).unwrap_or(0.0)
-            }).collect();
-            let delta: f64 = (0..3).map(|i| (uj[i] - ui[i]) * dir[i]).sum();
-            let n_axial = e * sec.a / l * delta;
-
-            element_forces.push(ElementForces3D {
-                element_id: elem.id, length: l,
-                n_start: n_axial, n_end: n_axial,
-                vy_start: 0.0, vy_end: 0.0,
-                vz_start: 0.0, vz_end: 0.0,
-                mx_start: 0.0, mx_end: 0.0,
-                my_start: 0.0, my_end: 0.0,
-                mz_start: 0.0, mz_end: 0.0,
-                release_my_start: false, release_my_end: false, release_mz_start: false, release_mz_end: false, release_t_start: false, release_t_end: false,
-                q_yi: 0.0, q_yj: 0.0,
-                distributed_loads_y: vec![], point_loads_y: vec![],
-                q_zi: 0.0, q_zj: 0.0,
-                distributed_loads_x: Vec::new(),
-                distributed_loads_z: vec![], point_loads_z: vec![],
-                bimoment_start: None, bimoment_end: None,
-            });
-            continue;
-        }
-
-        let (ex, ey, ez) = compute_local_axes_3d(
-            node_i.x, node_i.y, node_i.z,
-            node_j.x, node_j.y, node_j.z,
-            elem.local_yx, elem.local_yy, elem.local_yz,
-            elem.roll_angle,
-            left_hand,
-        );
-
-        let (phi_y, phi_z) = if sec.as_y.is_some() || sec.as_z.is_some() {
-            let l2 = l * l;
-            let py = sec.as_y.map(|ay| 12.0 * e * sec.iy / (g * ay * l2)).unwrap_or(0.0);
-            let pz = sec.as_z.map(|az| 12.0 * e * sec.iz / (g * az * l2)).unwrap_or(0.0);
-            (py, pz)
-        } else {
-            (0.0, 0.0)
-        };
-
-        let elem_dofs = dof_num.element_dofs(elem.node_i, elem.node_j);
-
-        // Compute f_local = K_local * u_local
-        let k_local = frame_local_stiffness_3d(
-            e, sec.a, sec.iy, sec.iz, sec.j, l, g,
-            Hinge3D::from_elem(elem), phi_y, phi_z,
-        );
-        let t = frame_transform_3d(&ex, &ey, &ez);
-
-        // Get element global displacements and transform to local
-        let ndof = 12;
-        let u_global: Vec<f64> = if dof_num.dofs_per_node >= 7 {
-            // Map from 14-DOF space to 12-DOF
-            const DOF_MAP: [usize; 12] = [0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12];
-            DOF_MAP.iter().map(|&idx| u[elem_dofs[idx]]).collect()
-        } else {
-            elem_dofs.iter().map(|&d| u[d]).collect()
-        };
-        let u_local = transform_displacement(&u_global, &t, ndof);
-
-        let mut f_local = vec![0.0; ndof];
-        for i in 0..ndof {
-            for j in 0..ndof {
-                f_local[i] += k_local[i * ndof + j] * u_local[j];
-            }
-        }
-
-        element_forces.push(ElementForces3D {
-            element_id: elem.id,
-            length: l,
-            n_start: f_local[0],
-            n_end: f_local[6],
-            vy_start: f_local[1],
-            vy_end: f_local[7],
-            vz_start: f_local[2],
-            vz_end: f_local[8],
-            mx_start: f_local[3],
-            mx_end: f_local[9],
-            my_start: f_local[4],
-            my_end: f_local[10],
-            mz_start: f_local[5],
-            mz_end: f_local[11],
-            release_my_start: elem.release_my_start,
-            release_my_end: elem.release_my_end,
-            release_mz_start: elem.release_mz_start,
-            release_mz_end: elem.release_mz_end,
-            release_t_start: elem.release_t_start,
-            release_t_end: elem.release_t_end,
-            q_yi: 0.0, q_yj: 0.0,
-            distributed_loads_y: vec![],
-            point_loads_y: vec![],
-            q_zi: 0.0, q_zj: 0.0,
-            distributed_loads_x: Vec::new(),
-            distributed_loads_z: vec![],
-            point_loads_z: vec![],
-            bimoment_start: None,
-            bimoment_end: None,
-        });
-    }
+    let mut element_forces = super::linear::compute_internal_forces_3d_with_loads(cum_input, &cum_input.loads, dof_num, u);
     element_forces.sort_by_key(|ef| ef.element_id);
-
-    // Compute reactions from equilibrium at supported nodes
-    let mut node_forces = HashMap::<usize, [f64; 6]>::new();
-    for ef in &element_forces {
-        if let Some(&elem) = elem_by_id.get(&ef.element_id) {
-            let node_i = node_by_id[&elem.node_i];
-            let node_j = node_by_id[&elem.node_j];
-
-            let (ex, ey, ez) = compute_local_axes_3d(
-                node_i.x, node_i.y, node_i.z,
-                node_j.x, node_j.y, node_j.z,
-                elem.local_yx, elem.local_yy, elem.local_yz,
-                elem.roll_angle,
-                left_hand,
-            );
-            let t = frame_transform_3d(&ex, &ey, &ez);
-
-            let f_local = [
-                ef.n_start, ef.vy_start, ef.vz_start,
-                ef.mx_start, ef.my_start, ef.mz_start,
-                ef.n_end, ef.vy_end, ef.vz_end,
-                ef.mx_end, ef.my_end, ef.mz_end,
-            ];
-
-            // Transform local forces to global: f_global = T^T * f_local
-            let mut f_global = [0.0; 12];
-            for i in 0..12 {
-                for j in 0..12 {
-                    f_global[i] += t[j * 12 + i] * f_local[j];
-                }
-            }
-
-            let entry_i = node_forces.entry(elem.node_i).or_insert([0.0; 6]);
-            for k in 0..6 { entry_i[k] += f_global[k]; }
-
-            let entry_j = node_forces.entry(elem.node_j).or_insert([0.0; 6]);
-            for k in 0..6 { entry_j[k] += f_global[k + 6]; }
-        }
-    }
-
-    let mut reactions = Vec::new();
-    for sup in full_input.supports.values() {
-        if let Some(nf) = node_forces.get(&sup.node_id) {
-            reactions.push(Reaction3D {
-                node_id: sup.node_id,
-                fx: nf[0], fy: nf[1], fz: nf[2],
-                mx: nf[3], my: nf[4], mz: nf[5],
-                bimoment: None,
-            });
-        } else {
-            reactions.push(Reaction3D {
-                node_id: sup.node_id,
-                fx: 0.0, fy: 0.0, fz: 0.0,
-                mx: 0.0, my: 0.0, mz: 0.0,
-                bimoment: None,
-            });
-        }
-    }
+    let mut reactions = super::linear::build_reactions_3d(cum_input, dof_num, reactions_vec, &[], nf, u);
     reactions.sort_by_key(|r| r.node_id);
-
-    // Plate stresses (delegated to existing function)
-    let plate_stresses = compute_plate_stresses(stage_input, dof_num, u, None);
+    let plate_stresses = compute_plate_stresses(cum_input, dof_num, u, Some(&cum_input.loads));
+    let quad_stresses = super::linear::compute_quad_stresses(cum_input, dof_num, u, Some(&cum_input.loads));
+    let quad_nodal_stresses = super::linear::compute_quad_nodal_stresses(cum_input, dof_num, u, Some(&cum_input.loads));
 
     AnalysisResults3D {
         displacements,
         reactions,
         element_forces,
         plate_stresses,
-        quad_stresses: vec![],
-        quad_nodal_stresses: vec![],
+        quad_stresses,
+        quad_nodal_stresses,
         constraint_forces: vec![],
         diagnostics: vec![],
         solver_diagnostics: vec![],

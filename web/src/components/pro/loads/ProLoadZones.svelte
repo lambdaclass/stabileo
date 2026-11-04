@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from '../Hint.svelte';
   /**
    * Load zones: a named outline of nodes, picked in order around it; the members picked with it are
    * left out of it; other zones can be its openings. A floor load can target a zone
@@ -9,9 +10,10 @@
    */
   import { modelStore, uiStore } from '../../../lib/store';
   import { t, tp } from '../../../lib/i18n';
-  import { addLoadZone, removeLoadZone } from '../../../lib/store/defined-loads';
-  import { zoneArea, zoneChanged, zoneOutlineProblem, type DefinitionModel, type ZoneData } from '../../../lib/model/loads/floor-definitions';
+  import { addLoadZone } from '../../../lib/store/defined-loads';
+  import { zoneOutlineProblem, type DefinitionModel } from '../../../lib/model/loads/floor-definitions';
   import PickKind from '../PickKind.svelte';
+  import UseZonesPanel from './UseZonesPanel.svelte';
 
   const zones = $derived([...modelStore.model.groups.values()].filter((g) => g.kind === 'loadZone'));
   let name = $state('');
@@ -21,8 +23,6 @@
   /** The nodes picked, in the order they were picked. */
   const outline = $derived([...uiStore.selectedNodes]);
   const dm = () => modelStore.model as unknown as DefinitionModel;
-  /** In plan, less its openings: the area a floor load on it covers. */
-  const area = (id: number) => zoneArea(dm(), id);
 
   function add() {
     const problem = zoneOutlineProblem(dm(), outline);
@@ -32,13 +32,11 @@
     note = tp('loadZone.added', { name: label, n: outline.length });
     name = ''; openings = [];
   }
-  /** The zones it was an opening of lose it, and the loads follow (`removeLoadZone`). */
-  const remove = (id: number) => removeLoadZone(id);
 </script>
 
 <div class="lz" data-testid="load-zones">
   <div class="lz-title">{t('loadZone.title')}</div>
-  <p class="lz-hint">{t('loadZone.hint')}</p>
+  <Hint text={t('loadZone.hint')} />
   <div class="lz-row">
     <PickKind kind="nodes" />
     <span data-testid="lz-count">{tp('loadZone.picked', { n: outline.length, m: uiStore.selectedElements.size })}</span>
@@ -56,21 +54,7 @@
   {/if}
   <button class="pk-btn" onclick={add} data-testid="lz-add">{t('loadZone.add')}</button>
   {#if note}<p class="lz-hint" data-testid="lz-note">{note}</p>{/if}
-  {#if zones.length}
-    <ul class="lz-list" data-testid="lz-list">
-      {#each zones as z (z.id)}
-        {@const d = z.data as ZoneData | undefined}
-        <li>
-          <span>{z.name}</span>
-          <span class="lz-n">{area(z.id).toFixed(2)} m²</span>
-          {#if zoneChanged(dm(), z.id)}<span class="lz-warn" title={t('loadZone.changed')} data-testid="lz-changed">!</span>{/if}
-          {#if d?.openings?.length}<span class="lz-n">{tp('loadZone.withOpenings', { n: d.openings.length })}</span>{/if}
-          {#if z.members.elements?.length}<span class="lz-n">{tp('loadZone.excluded', { n: z.members.elements.length })}</span>{/if}
-          <button class="pro-delete-btn" onclick={() => remove(z.id)} aria-label={t('loadTables.delete')}>×</button>
-        </li>
-      {/each}
-    </ul>
-  {/if}
+  <UseZonesPanel />
 </div>
 
 <style>

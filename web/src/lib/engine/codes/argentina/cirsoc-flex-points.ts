@@ -28,10 +28,7 @@
  * Pure: no store, no runes, no i18n. The names are keys.
  */
 
-import { interactionCurve, sectionPoint, outlineRings, type Bar, type Outline, type Materials, type SectionPoint }
-  from './cirsoc201-section';
-import { EPSILON_TENSION_CONTROLLED, EPSILON_CU, yieldStrain } from './cirsoc201-basis';
-import { refine } from './cirsoc-flex-surface';
+import { withSection, type Bar, type Outline, type Materials } from './cirsoc201-section';
 
 /** Which named state on the diagram this is. `key` is an i18n key suffix. */
 export type CharacteristicKey =
@@ -41,7 +38,7 @@ export type CharacteristicKey =
   | 'zeroStrain'
   /** That steel at its yield strain. */
   | 'yieldStrain'
-  /** εt = 5 ‰, where φ has reached 0,90. */
+  /** Tension-controlled: εt = 5 ‰ (2005), εty + 3 ‰ (2025), where φ has reached 0,90. */
   | 'epsilon5'
   /** φPn = 0 — pure flexure. */
   | 'pureFlexure'
@@ -67,61 +64,12 @@ export function characteristicPoints(
   outline: Outline, bars: readonly Bar[], mat: Materials,
   theta = -Math.PI / 2,
 ): CharacteristicPoint[] {
-  const nx = Math.cos(theta);
-  const ny = Math.sin(theta);
-  const top = Math.max(...outlineRings(outline).outer.map((p) => nx * p.x + ny * p.y));
-  const dt = bars.length
-    ? top - Math.min(...bars.map((b) => nx * b.x + ny * b.y))
-    : 0;
-
-  const state = (c: number) => sectionPoint(outline, bars, mat, theta, c);
-  /* The sheet's sign: `sectionPoint` calls a compressed top a negative Mnx. */
-  const at = (key: CharacteristicKey, p: SectionPoint): CharacteristicPoint => ({
-    key, phiMn: -p.phiMnx, phiPn: p.phiPn, phi: p.phi, epsilonT: p.epsilonT,
-  });
-
-  const curve = interactionCurve(outline, bars, mat, theta, 120);
-  /** Bracket a sign change of `f` along the curve and bisect it on c. */
-  const solve = (f: (p: SectionPoint) => number): SectionPoint | null => {
-    for (let i = 1; i < curve.length; i++) {
-      const fa = f(curve[i - 1]);
-      const fb = f(curve[i]);
-      if (fa === 0) return curve[i - 1];
-      if (fa * fb < 0) return refine(outline, bars, mat, theta, curve[i - 1].c, curve[i].c, f);
-    }
-    return null;
-  };
-
-  /*
-   * The cap is a plateau — φPn is clamped over every axis deep enough — and
-   * the moment on it grows as the axis rises. The sheet prints the widest
-   * point, which is where the UNCAPPED φ·Pn comes down to the ceiling.
-   */
-  const phiPnMax = Math.max(...curve.map((p) => p.phiPn));
-  const capPoint = solve((p) => p.phi * p.Pn - phiPnMax) ?? curve[0];
-
-  const flexure = solve((p) => p.phiPn);
-  /* Pure tension carries no moment: the sheet prints 0,00 and so does this. */
-  const tension = state(1e-7);
-
-  return [
-    at('axialCap', capPoint),
-    at('zeroStrain', state(dt)),
-    at('yieldStrain', state((EPSILON_CU * dt) / (EPSILON_CU + yieldStrain(mat.fy)))),
-    at('epsilon5', state((EPSILON_CU * dt) / (EPSILON_CU + EPSILON_TENSION_CONTROLLED))),
-    flexure ? { ...at('pureFlexure', flexure), phiPn: 0 } : at('pureFlexure', tension),
-    { ...at('maxTension', tension), phiMn: 0 },
-  ];
+  /* Computed by the engine (`Section::characteristic_points`), in the sheet's order. */
+  const keys: CharacteristicKey[] = ['axialCap', 'zeroStrain', 'yieldStrain', 'epsilon5', 'pureFlexure', 'maxTension'];
+  const v = withSection(outline, bars, mat, (s) => s.characteristicPoints(theta));
+  return keys.map((key, i) => ({ key, phiMn: v[i][0], phiPn: v[i][1], phi: v[i][2], epsilonT: v[i][3] }));
 }
 
-/**
- * Both halves of the sheet's table: the bottom edge compressed, then the top.
- *
- * Each computed from its own edge. Mirroring one set into the other — as this
- * used to — is only true of a section symmetric about its bending axis, and
- * FCR-VERIF exists precisely to check sections that are not: five levels at
- * arbitrary heights.
- */
 export function characteristicPointsBothEdges(
   outline: Outline, bars: readonly Bar[], mat: Materials,
 ): { bottomCompressed: CharacteristicPoint[]; topCompressed: CharacteristicPoint[] } {

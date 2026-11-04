@@ -302,7 +302,7 @@ fn test_rect_pure_bending_normal_stress() {
         q_i: 0.0,
         q_j: 0.0,
         point_loads: vec![],
-        distributed_loads: vec![],
+        distributed_loads: vec![], distributed_loads_x: Vec::new(),
         hinge_start: false,
         hinge_end: false,
     };
@@ -358,7 +358,7 @@ fn test_rect_pure_shear_parabolic_tau() {
         q_i: 0.0,
         q_j: 0.0,
         point_loads: vec![],
-        distributed_loads: vec![],
+        distributed_loads: vec![], distributed_loads_x: Vec::new(),
         hinge_start: false,
         hinge_end: false,
     };
@@ -411,7 +411,7 @@ fn test_failure_check_exists() {
         q_i: 0.0,
         q_j: 0.0,
         point_loads: vec![],
-        distributed_loads: vec![],
+        distributed_loads: vec![], distributed_loads_x: Vec::new(),
         hinge_start: false,
         hinge_end: false,
     };

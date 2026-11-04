@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from './Hint.svelte';
   import { positiveInput } from '../../lib/utils/positive-input';
   /**
    * The declared design lengths of the selected steel members: Lb, and K about each axis.
@@ -15,6 +16,7 @@
   import type { Element } from '../../lib/store/model.svelte';
   import { fmtQ, unitQ } from '../../lib/store/display-units.svelte';
   import QuantityInput from './loads/QuantityInput.svelte';
+  import ProSteelBracingEditor from './ProSteelBracingEditor.svelte';
 
   /** `bare`: inside a card that already names it (Specifications › Members). */
   let { steelIds, bare = false }: { steelIds: ReadonlySet<number>; bare?: boolean } = $props();
@@ -64,7 +66,7 @@
 
 <div class={bare ? 'lb-bare' : 'pk-card lb'} data-testid="steel-lb-editor">
   {#if !bare}<h4 class="pk-heading">{t('steel.lb.title')}</h4>{/if}
-  <p class="pk-hint">{t('steel.lb.hint')}</p>
+  <Hint text={t('steel.lb.hint')} />
   {#if selected.length === 0}
     <p class="pk-hint" data-testid="steel-lb-none">{t('steel.lb.none')}</p>
   {:else}
@@ -81,7 +83,7 @@
     </div>
 
     <p class="lb-now" data-testid="steel-k-now">{tp('steel.k.now', { k: kNow })}</p>
-    <p class="pk-hint">{t('steel.k.hint')}</p>
+    <Hint text={t('steel.k.hint')} />
     <div class="pk-row">
       <input class="pk-grow" type="number" min="0" step="0.05" placeholder={t('steel.k.strong')} bind:value={kStrong} data-testid="steel-k-strong" />
       <input class="pk-grow" type="number" min="0" step="0.05" placeholder={t('steel.k.weak')} bind:value={kWeak} data-testid="steel-k-weak" />
@@ -89,6 +91,7 @@
       <button class="pk-btn" onclick={() => write({ kStrong: undefined, kWeak: undefined })}
         disabled={!anyDeclared('kStrong') && !anyDeclared('kWeak')} data-testid="steel-k-clear">{t('steel.k.clear')}</button>
     </div>
+    <ProSteelBracingEditor {selected} />
   {/if}
 </div>
 

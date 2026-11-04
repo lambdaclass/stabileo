@@ -479,7 +479,7 @@ fn validation_ext_joints_symmetric_loading() {
     // Mirror symmetry: diagonal 6-3 matches 7-2
     let ef_d2 = results.element_forces.iter().find(|e| e.element_id == 12).unwrap();
     let ef_d3 = results.element_forces.iter().find(|e| e.element_id == 13).unwrap();
-    assert_close(ef_d2.n_start.abs(), ef_d3.n_start.abs(), 0.02,
+    assert_close_abs(ef_d2.n_start.abs(), ef_d3.n_start.abs(), 0.02, 1e-6,
         "Symmetric: |diag 6-3| = |diag 7-2|");
 
     // End verticals: symmetric forces
@@ -667,7 +667,7 @@ fn validation_ext_joints_horizontal_load() {
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
     let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_rx, -fx_load, 0.02, "Horiz truss SumRx = -Fx");
-    assert_close(sum_ry, 0.0, 0.02, "Horiz truss SumRy = 0");
+    assert_close_abs(sum_ry, 0.0, 0.02, 1e-6, "Horiz truss SumRy = 0");
 
     // The diagonals should carry non-zero force (they resist the shear)
     let ef_d1 = results.element_forces.iter().find(|e| e.element_id == 5).unwrap();

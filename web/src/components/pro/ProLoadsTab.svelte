@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from './Hint.svelte';
   import ProWriteLoadCard from './loads/ProWriteLoadCard.svelte';
   import ProLoadTables from './loads/ProLoadTables.svelte';
   import ProLoadCases from './ProLoadCases.svelte';
@@ -9,7 +10,8 @@
   import { addGeneratedCombinations, addCompositeCases, combinationExists, templateCombinationSpecs } from '../../lib/store/generated-combinations';
   import { withNotionalVariants } from '../../lib/engine/loads/notional-combinations';
   import { modelStore, uiStore } from '../../lib/store';
-  import { t } from '../../lib/i18n';
+  import { runEngineAction } from '../../lib/store/engine-action';
+  import { t, tp, capitalized } from '../../lib/i18n';
   import WriteInPanelButton from './WriteInPanelButton.svelte';
   import WriteCard from './WriteCard.svelte';
   import { drawState } from '../../lib/store/draw-state.svelte';
@@ -101,8 +103,11 @@
       uiStore.toast(t('pro.needDeadCase'), 'error');
       return;
     }
+    // The regulation's combinations are the engine's: without it, say so and open nothing.
+    const candidates = runEngineAction(() => buildCandidates(template));
+    if (!candidates) return;
     activeTemplate = template;
-    candidateCombos = buildCandidates(template);
+    candidateCombos = candidates;
     showComboModal = true;
   }
 
@@ -146,11 +151,12 @@
     <button class="pro-btn-autogen" data-testid="pro-auto-loads-btn"
       onclick={() => showAutoLoadsDialog = true}>{t('autoLoad.autoGenBtn')}</button>
   </div>
+  <Hint text={t('pro.loadsHint')} />
 
   <!-- Add a load: the card the "Add load" button opens. -->
   {#if drawState.writing === 'load'}
   <div class="pro-addload-section">
-  <WriteCard title={`${t('pro.add')} ${t('pro.oneLoad')}`} testid="write-load-card">
+  <WriteCard title={capitalized(tp('pro.addWhat', { what: t('pro.oneLoad') }))} testid="write-load-card">
   <ProWriteLoadCard />
   </WriteCard>
   </div>
@@ -227,20 +233,20 @@
       </div>
       {#if hasSeismicCases}
         <label class="combo-wind-basis" data-testid="combo-both-senses">
-          <input type="checkbox" bind:checked={seismicBothSenses} onchange={() => { candidateCombos = buildCandidates(activeTemplate); }} />
+          <input type="checkbox" bind:checked={seismicBothSenses} onchange={() => { candidateCombos = runEngineAction(() => buildCandidates(activeTemplate)) ?? candidateCombos; }} />
           <span>{t('autoLoad.seismicBothSenses')}</span>
         </label>
       {/if}
       {#if hasWindCases}
         <label class="combo-wind-basis" data-testid="combo-wind-by-sign">
-          <input type="checkbox" bind:checked={windBySign} onchange={() => { candidateCombos = buildCandidates(activeTemplate); }} />
+          <input type="checkbox" bind:checked={windBySign} onchange={() => { candidateCombos = runEngineAction(() => buildCandidates(activeTemplate)) ?? candidateCombos; }} />
           <span>{t('combos.windBySign')}</span>
         </label>
         <p class="combo-senses-hint">{t('combos.windBySignHint')}</p>
       {/if}
       {#if hasNotionalCases}
         <label class="combo-wind-basis" data-testid="combo-add-notionals">
-          <input type="checkbox" bind:checked={addNotionals} onchange={() => { candidateCombos = buildCandidates(activeTemplate); }} />
+          <input type="checkbox" bind:checked={addNotionals} onchange={() => { candidateCombos = runEngineAction(() => buildCandidates(activeTemplate)) ?? candidateCombos; }} />
           <span>{t('combos.addNotionals')}</span>
         </label>
       {/if}

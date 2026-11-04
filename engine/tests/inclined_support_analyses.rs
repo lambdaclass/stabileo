@@ -114,7 +114,7 @@ fn model_2d(theta: f64, rotated: bool, sub: usize, loads: &[(usize, f64, f64)]) 
     }).collect();
     SolverInput {
         nodes, materials, sections, elements, supports, loads,
-        constraints: vec![], connectors: HashMap::new(), solver_options: None,
+        constraints: vec![], connectors: HashMap::new(), solver_options: None, masses: Default::default(),
     }
 }
 
@@ -384,8 +384,8 @@ fn model_3d(normal: [f64; 3], q: Option<&Mat3>, sub: usize, loads: &[(usize, [f6
     let mut materials = HashMap::new();
     materials.insert("1".to_string(), SolverMaterial { id: 1, e: 200_000.0, nu: 0.3 });
     let mut sections = HashMap::new();
-    sections.insert("1".to_string(), SolverSection3D { id: 1, name: None, a: 0.01, iy: 1e-4, iz: 1e-4, j: 2e-4, cw: None, as_y: None, as_z: None });
-    sections.insert("2".to_string(), SolverSection3D { id: 2, name: None, a: 0.002, iy: 1e-6, iz: 1e-6, j: 2e-6, cw: None, as_y: None, as_z: None });
+    sections.insert("1".to_string(), SolverSection3D { id: 1, name: None, a: 0.01, iy: 1e-4, iz: 1e-4, j: 2e-4, cw: None, as_y: None, as_z: None, shear_center_y: None, shear_center_z: None });
+    sections.insert("2".to_string(), SolverSection3D { id: 2, name: None, a: 0.002, iy: 1e-6, iz: 1e-6, j: 2e-6, cw: None, as_y: None, as_z: None, shear_center_y: None, shear_center_z: None });
     let mut elements = HashMap::new();
     let mut next_node = 100;
     let mut next_elem = 1;
@@ -432,7 +432,7 @@ fn model_3d(normal: [f64; 3], q: Option<&Mat3>, sub: usize, loads: &[(usize, [f6
         constraints: vec![], left_hand: None,
         plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(),
         solid_shells: HashMap::new(), curved_shells: HashMap::new(), curved_beams: vec![],
-        connectors: HashMap::new(), solver_options: None,
+        connectors: HashMap::new(), solver_options: None, masses: Default::default(),
     }
 }
 

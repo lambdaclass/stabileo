@@ -1,0 +1,539 @@
+{
+  "connectors": {},
+  "constraints": [],
+  "curvedBeams": [],
+  "curvedShells": {
+    "1": {
+      "id": 1,
+      "materialId": 2,
+      "nodes": [
+        100,
+        103,
+        104,
+        101
+      ],
+      "normals": null,
+      "thickness": 0.1
+    },
+    "10": {
+      "id": 10,
+      "materialId": 2,
+      "nodes": [
+        113,
+        116,
+        117,
+        114
+      ],
+      "normals": null,
+      "thickness": 0.1
+    },
+    "11": {
+      "id": 11,
+      "materialId": 2,
+      "nodes": [
+        115,
+        118,
+        119,
+        116
+      ],
+      "normals": null,
+      "thickness": 0.1
+    },
+    "12": {
+      "id": 12,
+      "materialId": 2,
+      "nodes": [
+        116,
+        119,
+        120,
+        117
+      ],
+      "normals": null,
+      "thickness": 0.1
+    },
+    "13": {
+      "id": 13,
+      "materialId": 2,
+      "nodes": [
+        118,
+        121,
+        122,
+        119
+      ],
+      "normals": null,
+      "thickness": 0.1
+    },
+    "14": {
+      "id": 14,
+      "materialId": 2,
+      "nodes": [
+        119,
+        122,
+        123,
+        120
+      ],
+      "normals": null,
+      "thickness": 0.1
+    },
+    "15": {
+      "id": 15,
+      "materialId": 2,
+      "nodes": [
+        121,
+        124,
+        125,
+        122
+      ],
+      "normals": null,
+      "thickness": 0.1
+    },
+    "16": {
+      "id": 16,
+      "materialId": 2,
+      "nodes": [
+        122,
+        125,
+        126,
+        123
+      ],
+      "normals": null,
+      "thickness": 0.1
+    },
+    "2": {
+      "id": 2,
+      "materialId": 2,
+      "nodes": [
+        101,
+        104,
+        105,
+        102
+      ],
+      "normals": null,
+      "thickness": 0.1
+    },
+    "3": {
+      "id": 3,
+      "materialId": 2,
+      "nodes": [
+        103,
+        106,
+        107,
+        104
+      ],
+      "normals": null,
+      "thickness": 0.1
+    },
+    "4": {
+      "id": 4,
+      "materialId": 2,
+      "nodes": [
+        104,
+        107,
+        108,
+        105
+      ],
+      "normals": null,
+      "thickness": 0.1
+    },
+    "5": {
+      "id": 5,
+      "materialId": 2,
+      "nodes": [
+        106,
+        109,
+        110,
+        107
+      ],
+      "normals": null,
+      "thickness": 0.1
+    },
+    "6": {
+      "id": 6,
+      "materialId": 2,
+      "nodes": [
+        107,
+        110,
+        111,
+        108
+      ],
+      "normals": null,
+      "thickness": 0.1
+    },
+    "7": {
+      "id": 7,
+      "materialId": 2,
+      "nodes": [
+        109,
+        112,
+        113,
+        110
+      ],
+      "normals": null,
+      "thickness": 0.1
+    },
+    "8": {
+      "id": 8,
+      "materialId": 2,
+      "nodes": [
+        110,
+        113,
+        114,
+        111
+      ],
+      "normals": null,
+      "thickness": 0.1
+    },
+    "9": {
+      "id": 9,
+      "materialId": 2,
+      "nodes": [
+        112,
+        115,
+        116,
+        113
+      ],
+      "normals": null,
+      "thickness": 0.1
+    }
+  },
+  "elements": {},
+  "leftHand": null,
+  "loads": [
+    {
+      "data": {
+        "bw": null,
+        "fx": -50.0,
+        "fy": 0.0,
+        "fz": -0.5,
+        "mx": 0.0,
+        "my": 0.0,
+        "mz": 0.0,
+        "nodeId": 124
+      },
+      "type": "nodal"
+    },
+    {
+      "data": {
+        "bw": null,
+        "fx": -100.0,
+        "fy": 0.0,
+        "fz": -1.0,
+        "mx": 0.0,
+        "my": 0.0,
+        "mz": 0.0,
+        "nodeId": 125
+      },
+      "type": "nodal"
+    },
+    {
+      "data": {
+        "bw": null,
+        "fx": -50.0,
+        "fy": 0.0,
+        "fz": -0.5,
+        "mx": 0.0,
+        "my": 0.0,
+        "mz": 0.0,
+        "nodeId": 126
+      },
+      "type": "nodal"
+    }
+  ],
+  "materials": {
+    "1": {
+      "e": 200000.0,
+      "id": 1,
+      "nu": 0.3
+    },
+    "2": {
+      "e": 200000.0,
+      "id": 2,
+      "nu": 0.0
+    },
+    "9": {
+      "e": 200000.0,
+      "id": 9,
+      "nu": 0.3
+    }
+  },
+  "nodes": {
+    "100": {
+      "id": 100,
+      "x": 0.0,
+      "y": -0.3,
+      "z": 0.0
+    },
+    "101": {
+      "id": 101,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "102": {
+      "id": 102,
+      "x": 0.0,
+      "y": 0.3,
+      "z": 0.0
+    },
+    "103": {
+      "id": 103,
+      "x": 0.5,
+      "y": -0.3,
+      "z": 0.0
+    },
+    "104": {
+      "id": 104,
+      "x": 0.5,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "105": {
+      "id": 105,
+      "x": 0.5,
+      "y": 0.3,
+      "z": 0.0
+    },
+    "106": {
+      "id": 106,
+      "x": 1.0,
+      "y": -0.3,
+      "z": 0.0
+    },
+    "107": {
+      "id": 107,
+      "x": 1.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "108": {
+      "id": 108,
+      "x": 1.0,
+      "y": 0.3,
+      "z": 0.0
+    },
+    "109": {
+      "id": 109,
+      "x": 1.5,
+      "y": -0.3,
+      "z": 0.0
+    },
+    "110": {
+      "id": 110,
+      "x": 1.5,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "111": {
+      "id": 111,
+      "x": 1.5,
+      "y": 0.3,
+      "z": 0.0
+    },
+    "112": {
+      "id": 112,
+      "x": 2.0,
+      "y": -0.3,
+      "z": 0.0
+    },
+    "113": {
+      "id": 113,
+      "x": 2.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "114": {
+      "id": 114,
+      "x": 2.0,
+      "y": 0.3,
+      "z": 0.0
+    },
+    "115": {
+      "id": 115,
+      "x": 2.5,
+      "y": -0.3,
+      "z": 0.0
+    },
+    "116": {
+      "id": 116,
+      "x": 2.5,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "117": {
+      "id": 117,
+      "x": 2.5,
+      "y": 0.3,
+      "z": 0.0
+    },
+    "118": {
+      "id": 118,
+      "x": 3.0,
+      "y": -0.3,
+      "z": 0.0
+    },
+    "119": {
+      "id": 119,
+      "x": 3.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "120": {
+      "id": 120,
+      "x": 3.0,
+      "y": 0.3,
+      "z": 0.0
+    },
+    "121": {
+      "id": 121,
+      "x": 3.5,
+      "y": -0.3,
+      "z": 0.0
+    },
+    "122": {
+      "id": 122,
+      "x": 3.5,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "123": {
+      "id": 123,
+      "x": 3.5,
+      "y": 0.3,
+      "z": 0.0
+    },
+    "124": {
+      "id": 124,
+      "x": 4.0,
+      "y": -0.3,
+      "z": 0.0
+    },
+    "125": {
+      "id": 125,
+      "x": 4.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "126": {
+      "id": 126,
+      "x": 4.0,
+      "y": 0.3,
+      "z": 0.0
+    }
+  },
+  "plates": {},
+  "quad9s": {},
+  "quads": {},
+  "sections": {
+    "1": {
+      "a": 0.09,
+      "asY": null,
+      "asZ": null,
+      "cw": null,
+      "id": 1,
+      "iy": 0.0006749999999999999,
+      "iz": 0.0006749999999999999,
+      "j": 0.0011407499999999998,
+      "name": null,
+      "shearCenterY": null,
+      "shearCenterZ": null
+    },
+    "6": {
+      "a": 0.27,
+      "asY": null,
+      "asZ": null,
+      "cw": null,
+      "id": 6,
+      "iy": 0.002025,
+      "iz": 0.018225,
+      "j": 0.006400749999999999,
+      "name": null,
+      "shearCenterY": null,
+      "shearCenterZ": null
+    }
+  },
+  "solidShells": {},
+  "solverOptions": null,
+  "supports": {
+    "100": {
+      "drx": null,
+      "dry": null,
+      "drz": null,
+      "dx": null,
+      "dy": null,
+      "dz": null,
+      "isInclined": null,
+      "krx": null,
+      "kry": null,
+      "krz": null,
+      "kw": null,
+      "kx": null,
+      "ky": null,
+      "kz": null,
+      "nodeId": 100,
+      "normalX": null,
+      "normalY": null,
+      "normalZ": null,
+      "rrx": true,
+      "rry": true,
+      "rrz": true,
+      "rw": null,
+      "rx": true,
+      "ry": true,
+      "rz": true
+    },
+    "101": {
+      "drx": null,
+      "dry": null,
+      "drz": null,
+      "dx": null,
+      "dy": null,
+      "dz": null,
+      "isInclined": null,
+      "krx": null,
+      "kry": null,
+      "krz": null,
+      "kw": null,
+      "kx": null,
+      "ky": null,
+      "kz": null,
+      "nodeId": 101,
+      "normalX": null,
+      "normalY": null,
+      "normalZ": null,
+      "rrx": true,
+      "rry": true,
+      "rrz": true,
+      "rw": null,
+      "rx": true,
+      "ry": true,
+      "rz": true
+    },
+    "102": {
+      "drx": null,
+      "dry": null,
+      "drz": null,
+      "dx": null,
+      "dy": null,
+      "dz": null,
+      "isInclined": null,
+      "krx": null,
+      "kry": null,
+      "krz": null,
+      "kw": null,
+      "kx": null,
+      "ky": null,
+      "kz": null,
+      "nodeId": 102,
+      "normalX": null,
+      "normalY": null,
+      "normalZ": null,
+      "rrx": true,
+      "rry": true,
+      "rrz": true,
+      "rw": null,
+      "rx": true,
+      "ry": true,
+      "rz": true
+    }
+  }
+}

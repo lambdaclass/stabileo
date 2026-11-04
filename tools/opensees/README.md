@@ -50,6 +50,32 @@ free-DOF stiffness (from OpenSees' assembled matrix): both solvers lose about
 reported as `ill_conditioned`, not compared. Well-conditioned models
 (κ < 1e6) agree to ~1e-10.
 
+stabileo's refusals and warnings are checked against OpenSees too:
+
+| status | meaning |
+|---|---|
+| `refused` | stabileo refuses the model and OpenSees finds no unique answer either (κ > 1e12, or the converter rejects it for the same reason: a nodal moment on a rotation nothing stiffens, a rotational mechanism) |
+| `false_reject` | stabileo refuses a model whose OpenSees stiffness is regular (κ < 1e10): flagged, exit 1 |
+| `false_warning` | stabileo flags a model ill-conditioned whose OpenSees stiffness is well conditioned (κ < 1e8): flagged, exit 1 |
+| `not_applicable` | buckling with no load factor on either side (no member in compression, or none whose compression reaches a free DOF); an OpenSees factor above 1e9 comes from axial forces of round-off size and counts as none |
+| `stabileo_failed` | a refusal neither side decides (1e10 ≤ κ ≤ 1e12, or OpenSees failed for a reason other than a singular stiffness) |
+
+The converter used to drop nodal moments silently in truss-only models
+(no rotation DOFs, `ndf` 2 / 3), so both sides compared a model without
+the moment; such a model is now `unsupported` ("nodal moment on a
+rotation-free node"), and a `refused` when stabileo refuses it.
+
+Modal and buckling jobs check the static probe's conditioning before the
+eigen solve, so a mechanism is `ill_conditioned` whatever the eigen solver
+then reports. `engine/tests/fuzz_models` (`--random2d/--random3d`) are
+mostly mechanisms by design (they exercise these refusals); the rich
+generators repair theirs (see `gen_models.py`, `stability.py`): in 90 % of
+the models the hinges / releases that make a mechanism are dropped, the
+other 10 % stay as drawn. `stability.py` counts mechanisms exactly from the
+compatibility matrix (pure Python, independent of both programs); on the
+first nightly's 1000 rich seeds it agreed with stabileo's flags on every
+model.
+
 ## Model mapping
 
 Conventions were taken from the engine source:
@@ -64,7 +90,7 @@ Conventions were taken from the engine source:
 | hinges / releases on Timoshenko members | the released end on its own node, `equalDOF` to the joint on every other DOF (3D: only when the local axes lie along global axes); its constraint force is added to the joint's reaction |
 | `truss` | `Truss` + `Elastic` material |
 | hinges / `releaseMy*`, `releaseMz*` | `-release` / `-releasey`, `-releasez` |
-| supports (2D types; 3D flags OR-ed per node) | `fix` |
+| supports (2D types, several plain rigid ones on a node OR-ed; 3D flags OR-ed per node) | `fix` |
 | springs (2D rotated by `angle`) | `zeroLength` to a fixed ground node |
 | settlements `dx…drz` | `sp` |
 | full-length uniform member load | `-beamUniform` |
@@ -163,7 +189,15 @@ make the two Kg the same matrix, linear in N:
   Euler–Bernoulli one the engine uses (φ ~ 1e-12);
 * trusses: an `elasticBeamColumn` released at both ends on a `PDelta`
   transformation: the string stiffness N/L of the engine's truss Kg (`Truss`
-  has none, `corotTruss` is not linear in N).
+  has none, `corotTruss` is not linear in N);
+* the Wagner term of the engine's 3D frame Kg, P·r0²/L·[1, −1; −1, 1] on the
+  member twist with r0² = (Iy + Iz)/A, which no OpenSees beam has: added to
+  Kg in numpy (`_wagner`, P = EA·elongation/L), and in P-Delta as a parallel
+  torsion-only `elasticBeamColumn` whose J = P·r0²/G is iterated to the fixed
+  point. Without it every 3D buckling and P-Delta model with a compressed
+  frame mismatched by 1e-5..1e-2 from 2026-10-18, when the engine added the
+  term. Sections with a shear-centre offset are unsupported (the engine's
+  bending–twist coupling is not built).
 
 Not compared (unsupported): hinges/releases (the engine condenses Kg with the
 elastic map of the released rotation; OpenSees would keep the rotation as an
@@ -258,6 +292,13 @@ which equilibrium fixes for any formulation (a lost, doubled or misdirected
 load, a wrong pressure normal or support).
 
 ### Findings (fixed; regression tests in `engine/tests/opensees_differential_regressions.rs`)
+
+* 2D nodal moments on a node where every frame is hinged went into the
+  artificial rotational spring and never reached the structure; the solver
+  refused only when the rotation exceeded 100 rad, so a smaller moment
+  (3 kN·m on a stiff bar) solved with zero reactions and `equilibriumOk`
+  (#452, found triaging rich2d-744020). `validate_loads_2d` now refuses
+  them by topology, as the 3D solver does.
 
 * Buckling took each member's axial force as (N_start + N_end)/2; the
   geometric stiffness needs the mean of N along the member, which that is only

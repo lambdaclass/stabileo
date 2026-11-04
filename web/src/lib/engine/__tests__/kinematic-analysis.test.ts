@@ -545,7 +545,7 @@ describe('Integration with solve()', () => {
       nodes: [[1, 0, 0], [2, 6, 0]],
       elements: [[1, 1, 2, 'frame']],
       supports: [[1, 1, 'pinned'], [2, 2, 'rollerX']],
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: -10, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: -10, my: 0 } }],
     });
     const result = solve(input);
     expect(result).toBeTruthy();
@@ -557,7 +557,7 @@ describe('Integration with solve()', () => {
       nodes: [[1, 0, 0], [2, 6, 0]],
       elements: [[1, 1, 2, 'frame']],
       supports: [],
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 10, fy: 0, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 10, fz: 0, my: 0 } }],
     });
     expect(() => solve(input)).toThrow();
   });
@@ -577,7 +577,7 @@ describe('Integration with solve()', () => {
     }
     const loads: SolverLoad[] = [];
     for (let i = 1; i < nSeg; i++) {
-      loads.push({ type: 'nodal', data: { nodeId: i + 1, fx: 0, fy: -10, mz: 0 } });
+      loads.push({ type: 'nodal', data: { nodeId: i + 1, fx: 0, fz: -10, my: 0 } });
     }
     const input = makeInput({
       nodes: pts,
@@ -641,8 +641,8 @@ describe('Edge cases and special structures', () => {
       ],
       supports: [[1, 1, 'fixed'], [2, 4, 'fixed']],
       loads: [
-        { type: 'nodal', data: { nodeId: 2, fx: 20, fy: 0, mz: 0 } },
-        { type: 'nodal', data: { nodeId: 5, fx: 10, fy: 0, mz: 0 } },
+        { type: 'nodal', data: { nodeId: 2, fx: 20, fz: 0, my: 0 } },
+        { type: 'nodal', data: { nodeId: 5, fx: 10, fz: 0, my: 0 } },
       ],
     });
     const kin = analyzeKinematics(input);

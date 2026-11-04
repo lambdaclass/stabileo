@@ -34,6 +34,7 @@ import { finishSolve3D } from './solve-finish';
 import { addConstraintConnectivity } from './constraint-connectivity';
 import { t } from '../i18n';
 import { massDensities } from './dynamics/requests';
+import { CONCRETE_FY_CEILING } from '../model/material-family';
 
 /**
  * `cable`: tension only, and softened by its own weight (Ernst's equivalent modulus), solved by the
@@ -56,7 +57,7 @@ export function presetModifiers(p: StiffnessPreset): StiffnessModifiers {
   return { preset: p, a: 1, iy: f, iz: f };
 }
 
-type El = { id: number; nodeI: number; nodeJ: number; behaviour?: MemberBehaviour };
+type El = { id: number; nodeI: number; nodeJ: number; behaviour?: MemberBehaviour; cablePretension?: number };
 
 /** The model without its inactive members, their loads, and the nodes only they held. */
 export function activeModel<M extends ModelData>(model: M): M {
@@ -269,6 +270,12 @@ export function solveNonlinear3D(model: ModelData, input: SolverInput3D): { resu
     const mid = input.elements.get(id)!.materialId;
     if ((kgPerM3.get(mid) ?? 0) > 0) densities[String(mid)] = kgPerM3.get(mid)!;
   }
+  // The pretensions given (#527); a cable without one is as long as its chord.
+  const pretension: Record<string, number> = {};
+  for (const id of cables) {
+    const p = (model.elements.get(id) as El | undefined)?.cablePretension;
+    if (p !== undefined) pretension[String(id)] = p;
+  }
 
   // One-way members and cables as trusses, their transverse loads at their end nodes.
   const refs = new Map<number, MemberRef>();
@@ -288,7 +295,7 @@ export function solveNonlinear3D(model: ModelData, input: SolverInput3D): { resu
   const linearSolve = (trial: SolverInput3D): AnalysisResults3D => {
     if (cables.size === 0) return solve3D(trial);
     const typed: SolverInputCable3D = { ...trial, elements: new Map([...trial.elements].map(([id, e]) => [id, cables.has(id) ? { ...e, type: 'cable' as const } : e])) };
-    const r = solveCable3D(typed, 50, 1e-8, densities);
+    const r = solveCable3D(typed, 50, 1e-8, densities, pretension);
     cablesConverged = r.converged;
     cableForces = r.cableForces.map((c) => ({ elementId: c.elementId, tension: c.tension, horizontalThrust: c.horizontalThrust, sag: c.sag, ernstModulus: c.ernstModulus }));
     // Finished as a linear solve is: the other members keep the axial part of their loads.
@@ -448,7 +455,27 @@ export function compositeReferenceFactor(model: ModelData, memberId: number): { 
 export function solveStiffnessFactors(model: ModelData, id: number): { a: number; iy: number; iz: number; j: number } {
   const m = (model.elements.get(id) as { stiffness?: StiffnessModifiers } | undefined)?.stiffness ?? {};
   const c = compositeReferenceFactor(model, id);
-  return { a: (m.a ?? 1) * c.e, iy: (m.iy ?? 1) * c.e, iz: (m.iz ?? 1) * c.e, j: (m.j ?? 1) * c.g };
+  const j = m.j ?? beamTorsionFactor(model, id);
+  return { a: (m.a ?? 1) * c.e, iy: (m.iy ?? 1) * c.e, iz: (m.iz ?? 1) * c.e, j: j * c.g };
+}
+
+/**
+ * The project's factor on J for a concrete beam (`AnalysisSettings.beamTorsion`): a frame member
+ * lying level, of a concrete (its strength within the concrete band, as the material family reads
+ * it). 1 for anything else, and when the project sets none.
+ */
+export function beamTorsionFactor(model: ModelData, id: number): number {
+  const f = model.analysis?.beamTorsion;
+  if (f === undefined || !(f > 0) || f === 1) return 1;
+  const e = model.elements.get(id) as { nodeI: number; nodeJ: number; materialId: number; type?: string } | undefined;
+  if (!e || (e.type !== undefined && e.type !== 'frame')) return 1;
+  const a = model.nodes.get(e.nodeI), b = model.nodes.get(e.nodeJ);
+  if (!a || !b) return 1;
+  const L = Math.hypot(b.x - a.x, b.y - a.y, (b.z ?? 0) - (a.z ?? 0));
+  if (!(L > 0) || Math.abs((b.z ?? 0) - (a.z ?? 0)) > 0.1 * L) return 1;
+  const mat = model.materials.get(e.materialId) as { fy?: number; fc?: number } | undefined;
+  const strength = mat?.fc ?? mat?.fy;
+  return strength !== undefined && strength > 0 && strength <= CONCRETE_FY_CEILING ? f : 1;
 }
 
 export function applyStiffnessModifiers(input: SolverInput3D, model: ModelData): void {

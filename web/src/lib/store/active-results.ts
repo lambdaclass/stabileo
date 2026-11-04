@@ -12,7 +12,7 @@ import { modelStore } from './model.svelte';
 import { resultsStore } from './results.svelte';
 import { uiStore } from './ui.svelte';
 import { t } from '../i18n';
-import { activeComboIds, isMagnitudeCombination, isServiceCombination, narrowPerCombo } from '../engine/result-scopes';
+import { activeComboIds, designComboIds, isMagnitudeCombination, isServiceCombination, narrowPerCombo } from '../engine/result-scopes';
 import { computeGoverning3D } from '../engine/governing-case';
 import type { AnalysisResults3D, FullEnvelope3D } from '../engine/types-3d';
 
@@ -43,17 +43,55 @@ export function activePerCombo3D(): Map<number, AnalysisResults3D> {
 /**
  * The one result set footings, joints and floors read when no linear combination is active.
  *
- * With no combination solved it is the result on screen, as before. With combinations solved and
- * none of them active and linear (every active one an SRSS or ABS, say), it is the solve of every
- * load ("All loads", `singleResults3D`): the result on screen could be the magnitude, read as a
- * signed state (a footing's 60,13 kN for 56,0). Never a result that is a magnitude; null when
- * there is no other, and the caller says why (`noLinearCombinationActive`).
+ * With no combination solved it is the result on screen, as before, unless the model has
+ * combinations to design for and they are not solved (`combinationsUnsolved`). With combinations
+ * solved and none of them active and linear, it is the solve of every load ("All loads",
+ * `singleResults3D`) only when the model has no linear combination to design for (every one an
+ * SRSS or ABS, say): the result on screen could be the magnitude, read as a signed state (a
+ * footing's 60,13 kN for 56,0). With linear ones defined and none active, "All loads" is those
+ * loads at factor 1, and design waits for the list (`designCombinationsWithheld`). Never a result
+ * that is a magnitude; null when there is no other, and the caller says why.
  */
 export function activeResultSet3D(): AnalysisResults3D | null {
   const shown = resultsStore.results3D;
-  if (resultsStore.perCombo3D.size === 0) return shown && !shown.magnitude ? shown : null;
+  if (resultsStore.perCombo3D.size === 0) return shown && !shown.magnitude && !combinationsUnsolved() ? shown : null;
+  if (designCombinationsWithheld()) return null;
   const single = resultsStore.singleResults3D;
   return single && !single.magnitude ? single : null;
+}
+
+/**
+ * The model is solved, has combinations design reads, and none of them is solved. Live calc leaves
+ * them out while the single view is on screen (`engine/live-calc.ts`, for a large model's sake), so
+ * after an edit the results on hand are every load at factor 1: a footing or a joint designed for
+ * D + W where 1.2D + 1.6W acts. Not in Basic with load cases off, which solves no combination.
+ * An empty active list counts: the combination solve refuses it, and the model still has
+ * combinations to design for (`designCombinationsDefined`).
+ */
+export function combinationsUnsolved(): boolean {
+  return !!resultsStore.results3D && resultsStore.perCombo3D.size === 0 && uiStore.showLoadCasePicker
+    && designCombinationsDefined();
+}
+
+/**
+ * The model defines combinations design would read: the active ones, or, with an active list that
+ * names none, the linear ones it could name (`designComboIds`). Then the solve of every load is
+ * not the design load, whatever the list says; it is only with no such combination at all.
+ */
+function designCombinationsDefined(): boolean {
+  return activeCombinationIds().length > 0 || designComboIds(modelStore.model.combinations).length > 0;
+}
+
+/**
+ * Why design has no factored result to read when the model defines combinations for it, as the
+ * key of the message that says so; null when it has one, or when the model defines none (the one
+ * solve is then the design load). Not solved (`combinationsUnsolved`), or solved with no linear
+ * one active: every active one an SRSS or ABS, or an active list that names no solved one.
+ */
+export function designCombinationsWithheld(): 'design.error.combinationsUnsolved' | 'design.error.noLinearCombination' | 'scopes.noneActive' | null {
+  if (combinationsUnsolved()) return 'design.error.combinationsUnsolved';
+  if (resultsStore.perCombo3D.size === 0 || activePerCombo3D().size > 0 || !designCombinationsDefined()) return null;
+  return noLinearCombinationActive() ? 'design.error.noLinearCombination' : 'scopes.noneActive';
 }
 
 /** Combinations are solved, none active and linear, and an SRSS or ABS one among them. */

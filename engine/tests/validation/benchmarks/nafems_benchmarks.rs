@@ -313,6 +313,7 @@ fn validation_nafems_t2_thermal_expansion_free_bar() {
             element_id: i,
             dt_uniform: delta_t,
             dt_gradient: 0.0,
+            alpha: None, depth: None,
         }));
     }
 
@@ -604,15 +605,18 @@ fn validation_nafems_r0024_portal_lateral_load() {
     let _ = k_col;
     let _ = k_beam;
 
-    // The sway stiffness of a single fixed-base portal:
-    // K_sway = 24EI/h³ × (1 + 6r)/(2 + 6r) where r = (I_b/w)/(I_c/h)
-    // With equal I: r = h/w = 4/6 = 2/3
+    // Slope-deflection, inextensible members: K_sway = 24EI/h³ · (1 + 6r)/(4 + 6r),
+    // r = (I_b/w)/(I_c/h). Axial strain of the members adds 0.484 % here: the exact
+    // frame-theory sway with EA = 2·10⁶ kN is 4.287313679814e-3 m (direct stiffness, 3 members).
     let r_param = h / w;
-    let k_sway = 24.0 * e_eff * iz / h.powi(3) * (1.0 + 6.0 * r_param) / (2.0 + 6.0 * r_param);
-    let delta_sway_exact = p / k_sway;
-
-    assert_close(d2.ux, delta_sway_exact, 0.05,
-        "NAFEMS R0024: sway displacement matches analytical");
+    let k_sway = 24.0 * e_eff * iz / h.powi(3) * (1.0 + 6.0 * r_param) / (4.0 + 6.0 * r_param);
+    let delta_sway_inextensible = p / k_sway;
+    let delta_sway_exact = 4.287313679814e-3;
+    assert!((delta_sway_inextensible / 4.266666666667e-3 - 1.0).abs() < 1e-12);
+    assert!((d2.ux / delta_sway_exact - 1.0).abs() < 1e-9,
+        "NAFEMS R0024: sway {:.12e}, frame theory {delta_sway_exact:.12e}", d2.ux);
+    assert!((d2.ux / delta_sway_inextensible - 1.0).abs() < 0.006,
+        "NAFEMS R0024: sway {:.6e}, inextensible slope-deflection {delta_sway_inextensible:.6e}", d2.ux);
 
     // 7. Column base moments: for equal-section portal under lateral sway
     // M_base = 6EI/h² × δ × factor

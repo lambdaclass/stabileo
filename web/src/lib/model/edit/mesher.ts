@@ -41,8 +41,16 @@ export interface MeshInput {
   /** Per side of a polygon outline, in order. */
   sides?: SideSpec[];
   element: 'quad' | 'tri';
-  /** Model points that must be mesh points if they lie on a boundary. */
+  /**
+   * Model points that must be mesh points: on a boundary, as stations of its side; inside the
+   * region, as vertices of the mesh (a column standing in a slab with no beam round it).
+   */
   fixedPoints?: Vec3[];
+  /**
+   * Model segments the mesh must follow where they lie in the region (a beam in the slab's plane):
+   * edges of the mesh along their whole length, so the members share the slab's nodes along them.
+   */
+  fixedSegments?: Array<[Vec3, Vec3]>;
   /** Normal of a circle outline's plane; default +Z. */
   normal?: Vec3;
 }
@@ -168,6 +176,35 @@ function loopPoints(f: Frame, loop: Loop2, h: number, sides: SideSpec[] | undefi
 
 // ─── Geometry helpers ─────────────────────────────────────────────
 
+/** Where on `a` (0…1) it crosses `b` at a point inside both, away from their ends; null otherwise. */
+function crossingParam(a: [P2, P2], b: [P2, P2]): number | null {
+  if (!segmentsCross(a, b)) return null;
+  const r: P2 = [a[1][0] - a[0][0], a[1][1] - a[0][1]], s: P2 = [b[1][0] - b[0][0], b[1][1] - b[0][1]];
+  const den = r[0] * s[1] - r[1] * s[0];
+  if (Math.abs(den) < 1e-15) return null;
+  return ((b[0][0] - a[0][0]) * s[1] - (b[0][1] - a[0][1]) * s[0]) / den;
+}
+
+/** Whether two segments cross at a point inside both, away from their ends. */
+function segmentsCross(a: [P2, P2], b: [P2, P2]): boolean {
+  const d = (p: P2, q: P2, r: P2) => (q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0]);
+  const e = 1e-9;
+  const d1 = d(b[0], b[1], a[0]), d2 = d(b[0], b[1], a[1]), d3 = d(a[0], a[1], b[0]), d4 = d(a[0], a[1], b[1]);
+  return ((d1 > e && d2 < -e) || (d1 < -e && d2 > e)) && ((d3 > e && d4 < -e) || (d3 < -e && d4 > e));
+}
+
+/** Whether two segments lie on one line and share a stretch of it longer than a point. */
+function segmentsOverlap(a: [P2, P2], b: [P2, P2]): boolean {
+  const L = Math.hypot(a[1][0] - a[0][0], a[1][1] - a[0][1]);
+  if (L < 1e-9) return false;
+  const u: P2 = [(a[1][0] - a[0][0]) / L, (a[1][1] - a[0][1]) / L];
+  const off = (p: P2) => Math.abs((p[0] - a[0][0]) * u[1] - (p[1] - a[0][1]) * u[0]);
+  if (off(b[0]) > 1e-4 || off(b[1]) > 1e-4) return false;
+  const t = (p: P2) => (p[0] - a[0][0]) * u[0] + (p[1] - a[0][1]) * u[1];
+  const lo = Math.max(0, Math.min(t(b[0]), t(b[1]))), hi = Math.min(L, Math.max(t(b[0]), t(b[1])));
+  return hi - lo > 1e-4;
+}
+
 function signedArea(p: P2[]): number {
   let a = 0;
   for (let i = 0; i < p.length; i++) { const q = p[(i + 1) % p.length]!; a += p[i]![0] * q[1] - q[0] * p[i]![1]; }
@@ -235,6 +272,14 @@ function delaunay(pts: P2[]): Array<[number, number, number]> {
 // ─── The mesher ───────────────────────────────────────────────────
 
 export function generateMesh(input: MeshInput): MeshOutput | null {
+  // The segments are followed where they can be; a region they cannot be followed in (the
+  // conforming triangulation does not settle) is meshed as it was without them.
+  const m = meshRegion(input);
+  if (m || !input.fixedSegments?.length) return m;
+  return meshRegion({ ...input, fixedSegments: [] });
+}
+
+function meshRegion(input: MeshInput): MeshOutput | null {
   if (!Number.isFinite(input.size) || input.size <= 0) return null;
   const loops3 = [input.outer, ...input.holes];
   if (loops3.some((l) => l.kind === 'circle'
@@ -245,6 +290,26 @@ export function generateMesh(input: MeshInput): MeshOutput | null {
   const h = Math.max(input.size, 1e-3);
   if (input.outer.kind === 'polygon' && input.outer.points.some((p) => outOfPlane(f, p) > 1e-3)) return null;
   const fixed2 = (input.fixedPoints ?? []).filter((p) => outOfPlane(f, p) < 1e-4).map((p) => to2(f, p));
+  // The segments in the plane, cut where they cross the outline or a hole's: the crossings become
+  // stations of the outline, so the part of a segment inside the region can be an edge of the mesh
+  // (a perimeter beam reaching past the slab's edge to a column outside it).
+  const rawLoops = [input.outer, ...input.holes].filter((l): l is Extract<Loop2, { kind: 'polygon' }> => l.kind === 'polygon').map((l) => l.points.map((p) => to2(f, p)));
+  const segs2: Array<[P2, P2]> = (input.fixedSegments ?? [])
+    .filter(([p, q]) => outOfPlane(f, p) < 1e-4 && outOfPlane(f, q) < 1e-4)
+    .flatMap(([p3, q3]) => {
+      const p = to2(f, p3), q = to2(f, q3);
+      const ts: number[] = [];
+      for (const loop of rawLoops) for (let k = 0; k < loop.length; k++) {
+        const t = crossingParam([p, q], [loop[k]!, loop[(k + 1) % loop.length]!]);
+        if (t !== null) ts.push(t);
+      }
+      if (ts.length === 0) return [[p, q] as [P2, P2]];
+      const at = (t: number): P2 => [p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t];
+      const cuts = [...new Set(ts.map((t) => Math.round(t * 1e9) / 1e9))].sort((a, b) => a - b);
+      for (const t of cuts) fixed2.push(at(t));
+      const chain = [p, ...cuts.map(at), q];
+      return chain.slice(1).map((b, k) => [chain[k]!, b] as [P2, P2]);
+    });
 
   const outer = loopPoints(f, input.outer, h, input.sides, fixed2);
   if (!outer) return null;
@@ -256,8 +321,38 @@ export function generateMesh(input: MeshInput): MeshOutput | null {
     holes.push(loop.pts);
   }
 
+  // The fixed points strictly inside the region: vertices the mesh must have. A structured grid
+  // cannot place them, so a region holding any is meshed the unstructured way.
+  const outerPoly = outer.pts;
+  const insideRegion = (p: P2) => inPoly(p, outerPoly) && !holes.some((hl) => inPoly(p, hl));
+  const nearLoop = (p: P2) => [outerPoly, ...holes].some((loop) => loop.some((a, k) => segDist(p, a, loop[(k + 1) % loop.length]!) < 1e-4));
+  const interiorFixed = fixed2.filter((p) => insideRegion(p) && !nearLoop(p))
+    .filter((p, i, all) => all.findIndex((q) => Math.hypot(q[0] - p[0], q[1] - p[1]) < 1e-6) === i);
+  // The segments in the region's plane that run through its inside (a segment on its outline is
+  // already a side of it): ends inside or on the outline, middle strictly inside.
+  const reaches = (p: P2) => insideRegion(p) || nearLoop(p);
+  const interiorSegs: Array<[P2, P2]> = segs2
+    .filter(([p, q]) => {
+      const mid: P2 = [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2];
+      return Math.hypot(q[0] - p[0], q[1] - p[1]) > 1e-6 && reaches(p) && reaches(q) && insideRegion(mid) && !nearLoop(mid);
+    })
+    // Cut at the fixed points lying on it: they are vertices of the mesh, so of the segment too.
+    .flatMap(([p, q]) => {
+      const L = Math.hypot(q[0] - p[0], q[1] - p[1]);
+      const ts = interiorFixed.map((x) => ({ x, t: ((x[0] - p[0]) * (q[0] - p[0]) + (x[1] - p[1]) * (q[1] - p[1])) / (L * L) }))
+        .filter(({ x, t }) => t > 1e-6 && t < 1 - 1e-6 && segDist(x, p, q) < 1e-4).sort((a, b) => a.t - b.t).map(({ x }) => x);
+      const chain = [p, ...ts, q];
+      return chain.slice(1).map((b, k) => [chain[k]!, b] as [P2, P2]);
+    })
+    // One that crosses another, or the outline, anywhere but at an end; one with a fixed point
+    // beside it but not on it; one overlapping another along a line: none can be an edge of the
+    // triangulation as it stands, and each is left out (the beam still meets the slab at its nodes).
+    .filter((sg, i, all) => !all.some((o, j) => j !== i && (segmentsCross(sg, o) || segmentsOverlap(sg, o)))
+      && ![outerPoly, ...holes].some((loop) => loop.some((a, k) => segmentsCross(sg, [a, loop[(k + 1) % loop.length]!])))
+      && !interiorFixed.some((x) => { const d = segDist(x, sg[0], sg[1]); return d >= 1e-4 && d < 0.3 * h && Math.hypot(x[0] - sg[0][0], x[1] - sg[0][1]) > 1e-4 && Math.hypot(x[0] - sg[1][0], x[1] - sg[1][1]) > 1e-4; }));
+
   // ── Structured: four sides, no holes, opposite sides matching ──
-  if (input.outer.kind === 'polygon' && input.outer.points.length === 4 && holes.length === 0 && convex(input.outer.points.map((p) => to2(f, p)))) {
+  if (interiorFixed.length === 0 && interiorSegs.length === 0 && input.outer.kind === 'polygon' && input.outer.points.length === 4 && holes.length === 0 && convex(input.outer.points.map((p) => to2(f, p)))) {
     const s = outer.perSide.map((pts, i) => [...pts, outer.perSide[(i + 1) % 4]![0]!]);
     if (s[0]!.length === s[2]!.length && s[1]!.length === s[3]!.length) {
       const nu = s[0]!.length - 1, nv = s[1]!.length - 1;
@@ -300,7 +395,7 @@ export function generateMesh(input: MeshInput): MeshOutput | null {
   // when existing nodes lie on the circle, so their connections survive meshing.
   const fixedCircleBoundary = input.outer.kind === 'circle'
     && fixed2.some((p) => Math.abs(Math.hypot(p[0], p[1]) - (input.outer as { radius: number }).radius) <= 1e-4);
-  if (input.outer.kind === 'circle' && holes.length === 0 && input.element === 'quad' && !fixedCircleBoundary) {
+  if (input.outer.kind === 'circle' && holes.length === 0 && input.element === 'quad' && !fixedCircleBoundary && interiorFixed.length === 0 && interiorSegs.length === 0) {
     const r = input.outer.radius;
     // Divisions per quarter, even, so the centre is a node (a dome's crown, a plate's middle).
     const n = Math.max(2, 2 * Math.round((Math.PI * r) / 4 / h));
@@ -351,6 +446,22 @@ export function generateMesh(input: MeshInput): MeshOutput | null {
     pts.push(...loop);
     for (let k = 0; k < loop.length; k++) segs.push([base + k, base + ((k + 1) % loop.length)]);
   }
+  // The interior segments, each divided at the target size, joined to the points already there.
+  const ptIndex = (p: P2): number => {
+    const k = pts.findIndex((q) => Math.hypot(q[0] - p[0], q[1] - p[1]) < 1e-6);
+    if (k >= 0) return k;
+    pts.push(p);
+    return pts.length - 1;
+  };
+  for (const [p, q] of interiorSegs) {
+    const n = Math.max(1, Math.round(Math.hypot(q[0] - p[0], q[1] - p[1]) / h));
+    let prev = ptIndex(p);
+    for (let k = 1; k <= n; k++) {
+      const cur = ptIndex([p[0] + ((q[0] - p[0]) * k) / n, p[1] + ((q[1] - p[1]) * k) / n]);
+      if (cur !== prev) segs.push([prev, cur]);
+      prev = cur;
+    }
+  }
   const nBoundary0 = pts.length;
   if (nBoundary0 > MAX_TRIANGULATION_POINTS) return null;
   const inside = (p: P2) => inPoly(p, outer.pts) && !holes.some((hl) => inPoly(p, hl));
@@ -371,22 +482,27 @@ export function generateMesh(input: MeshInput): MeshOutput | null {
   for (let y = y0 + dy / 2; y < y1; y += dy, row++) {
     for (let x = x0 + (row % 2 ? h / 2 : h / 4); x < x1; x += h) {
       const p: P2 = [x, y];
-      if (inside(p) && boundaryDist(p) > 0.6 * h) interior.push(p);
+      // A lattice point gives way to a fixed point near it, which takes its place.
+      if (inside(p) && boundaryDist(p) > 0.6 * h && !interiorFixed.some((q) => Math.hypot(q[0] - p[0], q[1] - p[1]) < 0.5 * h)) interior.push(p);
     }
     if (interior.length + nBoundary0 > MAX_TRIANGULATION_POINTS) return null;
   }
   pts.push(...interior);
+  const fixedFrom = pts.length;
+  // The fixed points not already placed as points of an interior segment.
+  pts.push(...interiorFixed.filter((p) => !pts.some((q) => Math.hypot(q[0] - p[0], q[1] - p[1]) < 1e-6)));
 
   // Conforming: split any boundary segment the triangulation does not contain.
   let tris: Array<[number, number, number]> = [];
   let boundarySegs = [...segs];
-  for (let pass = 0; pass < 12; pass++) {
+  const passes = interiorSegs.length ? 24 : 12;
+  for (let pass = 0; pass < passes; pass++) {
     tris = delaunay(pts);
     const edges = new Set<string>();
     for (const t of tris) for (const [u, v] of [[t[0], t[1]], [t[1], t[2]], [t[2], t[0]]] as const) edges.add(u < v ? `${u},${v}` : `${v},${u}`);
     const missing = boundarySegs.filter(([a, b]) => !edges.has(a < b ? `${a},${b}` : `${b},${a}`));
     if (missing.length === 0) break;
-    if (pass === 11 || pts.length + missing.length > MAX_TRIANGULATION_POINTS) return null;
+    if (pass === passes - 1 || pts.length + missing.length > MAX_TRIANGULATION_POINTS) return null;
     const next: Array<[number, number]> = [];
     const miss = new Set(missing.map(([a, b]) => `${a},${b}`));
     for (const [a, b] of boundarySegs) {
@@ -415,7 +531,7 @@ export function generateMesh(input: MeshInput): MeshOutput | null {
   const area2 = (t: [number, number, number]) => (pts[t[1]]![0] - pts[t[0]]![0]) * (pts[t[2]]![1] - pts[t[0]]![1]) - (pts[t[2]]![0] - pts[t[0]]![0]) * (pts[t[1]]![1] - pts[t[0]]![1]);
   for (let it = 0; it < 4; it++) {
     for (let i = 0; i < pts.length; i++) {
-      if (isBoundary.has(i) || i < nBoundary0) continue;
+      if (isBoundary.has(i) || i < nBoundary0 || i >= fixedFrom) continue;
       const nb = nbrs.get(i);
       if (!nb || nb.size === 0) continue;
       let sx = 0, sy = 0;

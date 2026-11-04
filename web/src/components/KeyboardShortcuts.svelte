@@ -2,17 +2,14 @@
   import { viewportCanvas } from '../lib/utils/viewport-canvas';
   import { connectionPrompt } from '../lib/store/connection-prompt.svelte';
   import { viewState } from '../lib/store/view-state.svelte';
-  import { copyTransformed } from '../lib/model/edit/transformed-copy';
-  import { pasteClipboardRecord } from '../lib/store/clipboard-paste';
-  import { translation } from '../lib/model/edit/affine';
   import { uiStore, modelStore, resultsStore, historyStore } from '../lib/store';
   import { saveProject, saveSession, loadFile } from '../lib/store/file';
   import { deleteSelection } from '../lib/actions/delete-selection';
-  import type { ClipboardData } from '../lib/store/ui.svelte.ts';
-  import { pickElement3DMetadata } from '../lib/model/element-3d-metadata';
+  import { copySelection, cutSelection, paste, hasClipboard } from '../lib/store/model-clipboard';
   import { runSolve } from '../lib/actions/solve';
   import { TOOL_KEYS, TOOL_DATA_TAB, OPEN_PANEL_EVENT, type OpenPanelRequest } from '../lib/tool-keys';
   import { t } from '../lib/i18n';
+  import { overlayWasOpenAtKeydown } from '../lib/utils/modal-overlay';
 
   /**
    * Every keyboard shortcut in Basic, in the one place that is always mounted.
@@ -42,6 +39,8 @@
    * to Toolbar's markup — so on desktop `fileInput?.click()` optional-chained
    * its way to doing nothing at all. This component brings its own.
    */
+  let { enabled = true }: { enabled?: boolean } = $props();
+
   let fileInput: HTMLInputElement | undefined = $state();
 
   async function handleLoadFile(e: Event) {
@@ -91,91 +90,6 @@
     uiStore.zoomToFit(modelStore.nodes.values(), canvas.width, canvas.height);
   }
 
-  function handleCopy() {
-    // Collect selected nodes + nodes from selected elements
-    const nodeIds = new Set<number>(uiStore.selectedNodes);
-    for (const elemId of uiStore.selectedElements) {
-      const elem = modelStore.elements.get(elemId);
-      if (elem) {
-        nodeIds.add(elem.nodeI);
-        nodeIds.add(elem.nodeJ);
-      }
-    }
-    if (nodeIds.size === 0) return;
-
-    const nodes: ClipboardData['nodes'] = [];
-    for (const id of nodeIds) {
-      const n = modelStore.getNode(id);
-      if (n) nodes.push({ origId: n.id, x: n.x, y: n.y, z: n.z ?? 0 });
-    }
-
-    // Collect elements where both nodes are in the set
-    const elements: ClipboardData['elements'] = [];
-    for (const elem of modelStore.elements.values()) {
-      if (nodeIds.has(elem.nodeI) && nodeIds.has(elem.nodeJ)) {
-        elements.push({
-          origId: elem.id,
-          origNodeI: elem.nodeI,
-          origNodeJ: elem.nodeJ,
-          type: elem.type,
-          materialId: elem.materialId,
-          sectionId: elem.sectionId,
-          releaseI: elem.releaseI,
-          releaseJ: elem.releaseJ,
-          ...pickElement3DMetadata(elem),
-        });
-      }
-    }
-
-    // Collect supports on copied nodes
-    const supports: ClipboardData['supports'] = [];
-    for (const sup of modelStore.supports.values()) {
-      if (nodeIds.has(sup.nodeId)) {
-        supports.push({ origNodeId: sup.nodeId, type: sup.type as any });
-      }
-    }
-
-    uiStore.clipboard = { nodes, elements, supports };
-  }
-
-  function handlePaste() {
-    const clip = uiStore.clipboard;
-    if (!clip || clip.nodes.length === 0) return;
-
-    // Offset: in 3D mode offset in Z, in 2D offset in XY
-    const is3D = uiStore.is3DWorkspace;
-    const ox = is3D ? 0 : 1;
-    const oy = is3D ? 0 : 1;
-    const oz = is3D ? 3 : 0;
-
-    /*
-     * When everything copied is still in the model, where it was, paste IS a translated copy, and
-     * goes through the edit layer: offsets, joints, curve tags and the member frame are carried,
-     * coincident nodes weld, and it is one undo step. Otherwise — the originals were edited or
-     * deleted since the copy — the clipboard's own record is pasted, as before.
-     */
-    const unchanged = clip.nodes.every((n) => {
-      const m = modelStore.nodes.get(n.origId);
-      return !!m && m.x === n.x && m.y === n.y && (m.z ?? 0) === (n.z ?? 0);
-    }) && clip.elements.every((e) => {
-      const m = e.origId !== undefined ? modelStore.elements.get(e.origId) : undefined;
-      return !!m && m.nodeI === e.origNodeI && m.nodeJ === e.origNodeJ;
-    });
-    if (unchanged) {
-      const r = copyTransformed(
-        { nodes: clip.nodes.map((n) => n.origId), elements: clip.elements.map((e) => e.origId!) },
-        [translation([ox, oy, oz])],
-        { withSupports: true, withLoads: false, leftHand: uiStore.axisConvention3D === 'leftHand' },
-      );
-      uiStore.setSelection(new Set(r.nodes), new Set(r.elements), true);
-      return;
-    }
-
-    // The clipboard's own record, through the same edit layer (`store/clipboard-paste.ts`).
-    const r = pasteClipboardRecord(clip, [ox, oy, oz], uiStore.axisConvention3D === 'leftHand');
-    uiStore.setSelection(new Set(r.maps[0]?.nodes.values() ?? []), new Set(r.elements), true);
-  }
-
   /*
    * ── Copy, cut and paste belong to the page first ──────────────────
    * These took Cmd/Ctrl+C, X and V unconditionally for the model's own
@@ -190,12 +104,30 @@
   }
   const modelSelected = () => uiStore.selectedNodes.size > 0 || uiStore.selectedElements.size > 0;
 
+  /*
+   * ── An overlay keeps its keys ─────────────────────────────────────
+   * The design desk, the 3-D reinforcement workspace and every `aria-modal` dialog cover the
+   * model, and this handler listens on the window, so their keys reached it: Delete with the desk
+   * open deleted the members still selected behind it, and the Escape that closed the desk also
+   * cleared the model selection. While one is open the shortcuts that edit the model or its
+   * selection stand down (the overlay's own Escape still closes it). See `modal-overlay.ts` for
+   * why the question is asked of the moment the key went down.
+   */
+  /** The shortcuts that change the model or its selection — the ones an overlay silences. */
+  function editsModel(e: KeyboardEvent, key: string): boolean {
+    if (e.key === 'Delete' || e.key === 'Backspace' || e.key === 'Escape') return true;
+    if ((e.ctrlKey || e.metaKey) && (key === 'A' || key === 'X' || key === 'V')) return true;
+    return !e.ctrlKey && !e.metaKey && !e.altKey && tools.some((tl) => tl.key === key);
+  }
+
   function handleKeydown(e: KeyboardEvent) {
+    if (!enabled) return;
     // Ignore if typing in an input or textarea
     if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'SELECT' || (e.target as HTMLElement).tagName === 'TEXTAREA') return;
     if ((e.target as HTMLElement).isContentEditable) return;
 
     const key = e.key.toUpperCase();
+    if (overlayWasOpenAtKeydown() && editsModel(e, key)) return;
 
     // Alt + letter: labels and the magnifier. Read from `code`, not `key` — on a Mac Alt turns
     // the letter into a symbol (Alt+N is "˜"). PRO and 3-D only, where these labels exist.
@@ -259,34 +191,22 @@
       return;
     }
 
-    // Ctrl+C: Copy
+    // Copy, cut and paste: PRO's clipboard (`store/model-clipboard.ts`). Paste places a ghost
+    // that follows the pointer; Shift pastes in place.
     if ((e.ctrlKey || e.metaKey) && key === 'C') {
       if (textSelected() || !modelSelected()) return;
-      e.preventDefault();
-      handleCopy();
+      if (copySelection()) e.preventDefault();
       return;
     }
-
-    // Ctrl+X: Cut
     if ((e.ctrlKey || e.metaKey) && key === 'X') {
       if (textSelected() || !modelSelected()) return;
-      e.preventDefault();
-      handleCopy();
-      const nodesToDelete = [...uiStore.selectedNodes];
-      const elemsToDelete = [...uiStore.selectedElements];
-      modelStore.batch(() => {
-        for (const nodeId of nodesToDelete) modelStore.removeNode(nodeId);
-        for (const elemId of elemsToDelete) modelStore.removeElement(elemId);
-      });
-      uiStore.clearSelection();
+      if (cutSelection()) e.preventDefault();
       return;
     }
-
-    // Ctrl+V: Paste
     if ((e.ctrlKey || e.metaKey) && key === 'V') {
-      if (!uiStore.clipboard) return;
+      if (!hasClipboard()) return;
       e.preventDefault();
-      handlePaste();
+      paste(e.shiftKey);
       return;
     }
 

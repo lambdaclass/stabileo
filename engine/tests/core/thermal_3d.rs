@@ -36,6 +36,8 @@ fn make_3d_input(
         secs_map.insert(id.to_string(), SolverSection3D {
             id, name: None, a, iy, iz, j,
             cw: None, as_y: None, as_z: None,
+            shear_center_y: None,
+            shear_center_z: None,
         });
     }
     let mut elems_map = HashMap::new();
@@ -61,7 +63,7 @@ fn make_3d_input(
         });
     }
     SolverInput3D {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes: nodes_map, materials: mats_map, sections: secs_map,
         elements: elems_map, supports: sups_map, loads,
         constraints: vec![], left_hand: None,
@@ -88,6 +90,7 @@ fn thermal_cantilever_positive_displacement() {
             dt_uniform: DT,
             dt_gradient_y: 0.0,
             dt_gradient_z: 0.0,
+            alpha: None, depth_y: None, depth_z: None,
         })],
     );
 
@@ -120,6 +123,7 @@ fn thermal_fixed_fixed_compressive_force() {
             dt_uniform: DT,
             dt_gradient_y: 0.0,
             dt_gradient_z: 0.0,
+            alpha: None, depth_y: None, depth_z: None,
         })],
     );
 
@@ -159,6 +163,7 @@ fn thermal_truss_3d_fixed_fixed_axial_force() {
             dt_uniform: DT,
             dt_gradient_y: 0.0,
             dt_gradient_z: 0.0,
+            alpha: None, depth_y: None, depth_z: None,
         })],
     );
 
@@ -198,6 +203,7 @@ fn thermal_truss_3d_free_expansion() {
             dt_uniform: DT,
             dt_gradient_y: 0.0,
             dt_gradient_z: 0.0,
+            alpha: None, depth_y: None, depth_z: None,
         })],
     );
 

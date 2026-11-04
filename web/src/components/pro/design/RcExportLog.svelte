@@ -39,11 +39,13 @@
   /**
    * The revision a record is compared against.
    *
-   * The CURRENT document's when there is one, and the last one built otherwise. Zero means
-   * nothing has been built this session, and nothing is then marked stale — a record cannot
-   * have gone out of date against a revision the app cannot name.
+   * The CURRENT document's when there is one, and otherwise the project's persisted revision
+   * once any document was built, in this session or an earlier one: a change after it moved the
+   * revision on, so what left before is out of date after a reload too. Zero means nothing was
+   * ever built, and nothing is then marked stale.
    */
-  const current = $derived(detailingStore.document?.revision.number ?? 0);
+  const current = $derived(detailingStore.document?.revision.number
+    ?? (detailingStore.documentEverBuilt ? detailingStore.documentRevision : 0));
 
   function stale(r: ExportRecord): boolean {
     return current > 0 && exportRecordStore.isStale(r, current);

@@ -14,6 +14,7 @@ import { solveModal3D } from '../wasm-solver';
 import { G } from '../dynamics/requests';
 import { resolveMassFactors, normalizeMassSource } from '../dynamics/mass-source';
 import { withMassSource } from '../dynamics/mass-source-model';
+import type { SolverInput3D } from '../types-3d';
 
 beforeAll(async () => {
   await new Promise(r => setTimeout(r, 0));
@@ -292,5 +293,112 @@ describe('stiffness modifiers', () => {
     // …and still weighs its whole section, in the report and in the engine's mass matrix.
     expect(report.totalT).toBeCloseTo(PORTAL_SELF_T, 6);
     expect(modal.totalMass).toBeCloseTo(PORTAL_SELF_T, 6);
+  });
+});
+
+/**
+ * The input as this module built it before the engine took masses: each member or shell with load
+ * mass on its own copy of its material, the density raised by the mass over A (or t). Used as the
+ * oracle that the line and area masses change no result of an existing project.
+ */
+function asRaisedDensities(input: SolverInput3D, densities: Map<number, number>): { input: SolverInput3D; densities: Map<number, number> } {
+  const materials = new Map(input.materials);
+  const dens = new Map(densities);
+  const elements = new Map(input.elements);
+  const quads = input.quads ? new Map(input.quads) : undefined;
+  const plates = input.plates ? new Map(input.plates) : undefined;
+  let next = Math.max(0, ...materials.keys()) + 1;
+  const clone = (baseId: number, addKgM3: number) => {
+    const id = next++;
+    materials.set(id, { ...materials.get(baseId)!, id });
+    dens.set(id, (densities.get(baseId) ?? 0) + addKgM3);
+    return id;
+  };
+  for (const l of input.masses?.line ?? []) {
+    const e = elements.get(l.elementId)!;
+    const a = input.sections.get(e.sectionId)!.a;
+    elements.set(l.elementId, { ...e, materialId: clone(e.materialId, l.massPerLength * 1000 / a) });
+  }
+  for (const m of input.masses?.area ?? []) {
+    const map = (m.kind === 'plate' ? plates : quads)!;
+    const q = map.get(m.elementId)!;
+    map.set(m.elementId, { ...q, materialId: clone(q.materialId, m.massPerArea * 1000 / q.thickness) } as never);
+  }
+  const { masses: _drop, ...rest } = input;
+  return { input: { ...rest, materials, elements, ...(quads ? { quads } : {}), ...(plates ? { plates } : {}) }, densities: dens };
+}
+
+describe('load mass sent as line and area masses', () => {
+  it('gives the modes the raised-density copies gave: existing projects keep their results', () => {
+    frame({ slab: true });
+    modelStore.setMassSource(CIRSOC);
+    modelStore.addDistributedLoad3D(2, 0, 0, -10, -6, undefined, undefined, 1);  // D on the girder, trapezoidal
+    modelStore.addDistributedLoad3D(1, -3, 0, 0, 0, undefined, undefined, 2);    // L on a column, sideways: weighs 0
+    modelStore.addDistributedLoad3D(2, 0, 0, -5, -5, undefined, undefined, 2);   // L × 0.25
+    const q = modelStore.quads.keys().next().value!;
+    modelStore.addSurfaceLoad3D(q, 2, 1);                                         // D on the slab
+    const now = run();
+    expect(now.input.masses?.line?.length).toBeGreaterThan(0);
+    expect(now.input.masses?.area?.length).toBe(1);
+    const old = asRaisedDensities(now.input, now.densities);
+    const before = solveModal3D(old.input as never, old.densities, 4);
+    expect(now.modal.modes.length).toBe(before.modes.length);
+    for (let k = 0; k < before.modes.length; k++) {
+      expect(Math.abs(now.modal.modes[k].frequency / before.modes[k].frequency - 1)).toBeLessThan(1e-10);
+      expect(now.modal.modes[k].effectiveMassX).toBeCloseTo(before.modes[k].effectiveMassX, 9);
+      expect(now.modal.modes[k].effectiveMassY).toBeCloseTo(before.modes[k].effectiveMassY, 9);
+    }
+    expect(now.modal.totalMass).toBeCloseTo(before.totalMass, 9);
+    expect(now.modal.totalMass).toBeCloseTo(now.report.totalT, 6);
+  });
+});
+
+describe('point masses', () => {
+  it('reach the engine as nodal masses: the total the engine integrates is the report\'s', () => {
+    frame();
+    modelStore.setMassSource({ kind: 'custom', factors: [], points: [{ nodeId: 2, m: 3, horizontalOnly: true }, { nodeId: 3, m: 1.5 }] });
+    const { report, modal, input } = run();
+    expect(input.masses?.nodal).toEqual([{ nodeId: 2, mass: 3, massZ: 0 }, { nodeId: 3, mass: 1.5 }]);
+    expect(report.pointT).toBeCloseTo(4.5, 12);
+    expect(report.totalT).toBeCloseTo(PORTAL_SELF_T + 4.5, 9);
+    // The horizontal total: every point mass moves sideways.
+    expect(modal.totalMass).toBeCloseTo(report.totalT, 6);
+  });
+
+  it('lengthen the sway period as √ of the mass when they dominate', () => {
+    frame();
+    const big = 500;
+    modelStore.setMassSource({ kind: 'custom', factors: [], points: [{ nodeId: 2, m: big, horizontalOnly: true }, { nodeId: 3, m: big, horizontalOnly: true }] });
+    const t1 = run().modal.modes[0].period;
+    modelStore.setMassSource({ kind: 'custom', factors: [], points: [{ nodeId: 2, m: 4 * big, horizontalOnly: true }, { nodeId: 3, m: 4 * big, horizontalOnly: true }] });
+    const t2 = run().modal.modes[0].period;
+    expect(t2 / t1).toBeCloseTo(2, 2);
+  });
+
+  it('on a node that is gone are refused, not dropped', () => {
+    frame();
+    modelStore.setMassSource({ kind: 'custom', factors: [], points: [{ nodeId: 99, m: 3 }] });
+    expect(() => run()).toThrow(/node 99/);
+  });
+
+  it('survive the file, a change of rule and the removal of a case', () => {
+    frame();
+    const points = [{ nodeId: 2, m: 3, horizontalOnly: true, izz: 12 }, { nodeId: 3, m: 1 }];
+    modelStore.setMassSource({ kind: 'custom', factors: [{ caseId: 1, factor: 1 }, { caseId: 2, factor: 0.5 }], points });
+    const snap = JSON.parse(JSON.stringify(modelStore.snapshot()));
+    modelStore.clear();
+    modelStore.restore(snap);
+    expect(modelStore.model.massSource?.points).toEqual(points);
+    modelStore.removeLoadCase(2);
+    expect(modelStore.model.massSource?.points).toEqual(points);
+    modelStore.setMassSource(CIRSOC);
+    expect(modelStore.model.massSource?.points).toEqual(points);
+    modelStore.setMassSource(null);
+    expect(modelStore.model.massSource?.points).toEqual(points);
+  });
+
+  it('drop an unreadable entry when read, keep the rest', () => {
+    expect(normalizeMassSource({ kind: 'custom', factors: [], points: [{ nodeId: 2, m: -1 }, { nodeId: 3, m: 2, izz: 'x' }, { nodeId: 4, m: 2 }] }))
+      .toEqual({ kind: 'custom', factors: [], points: [{ nodeId: 4, m: 2 }] });
   });
 });

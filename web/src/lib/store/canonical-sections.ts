@@ -70,7 +70,9 @@ export function refreshCanonicalSections(
   const m = new Map(sections);
   for (const [id, sec] of m) {
     const before = sec.canonical;
-    if (before?.kind === 'geometry-backed' && before.jProvenance !== 'unavailable') continue;
+    // `shearCentre === undefined`: restored from a file written before the shear centre and Cw
+    // were part of the torsion pass (#439), so it is resolved once more.
+    if (before?.kind === 'geometry-backed' && before.jProvenance !== 'unavailable' && before.shearCentre !== undefined) continue;
     const next = resolveSectionState(sec, { torsion: true });
     const sameKind = before?.kind === next.kind;
     const sameDigest =
@@ -83,6 +85,7 @@ export function refreshCanonicalSections(
     const sameTorsion =
       before?.kind === 'geometry-backed' && next.kind === 'geometry-backed'
         ? before.j === next.j && before.jProvenance === next.jProvenance
+          && before.cw === next.cw && String(before.shearCentre) === String(next.shearCentre)
         : true;
     if (!sameDigest || !sameTorsion) {
       m.set(id, { ...sec, canonical: next });

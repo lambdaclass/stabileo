@@ -84,9 +84,9 @@ fn factor(s: f64) -> f64 {
 
 /// Per-member deflection factors of a 2D model (element id → factor).
 pub(crate) fn deflection_factors_2d(input: &SolverInput) -> Vec<(usize, f64)> {
-    let nodes: HashMap<usize, &SolverNode> = input.nodes.values().map(|n| (n.id, n)).collect();
-    let mats: HashMap<usize, &SolverMaterial> = input.materials.values().map(|m| (m.id, m)).collect();
-    let secs: HashMap<usize, &SolverSection> = input.sections.values().map(|s| (s.id, s)).collect();
+    let nodes: HashMap<usize, &SolverNode> = crate::ordered::values(&input.nodes).map(|n| (n.id, n)).collect();
+    let mats: HashMap<usize, &SolverMaterial> = crate::ordered::values(&input.materials).map(|m| (m.id, m)).collect();
+    let secs: HashMap<usize, &SolverSection> = crate::ordered::values(&input.sections).map(|s| (s.id, s)).collect();
     let mut out: Vec<(usize, f64)> = input
         .elements
         .values()
@@ -111,9 +111,9 @@ pub(crate) fn deflection_factors_2d(input: &SolverInput) -> Vec<(usize, f64)> {
 
 /// Per-member deflection factors of a 3D model (frames and trusses).
 pub(crate) fn deflection_factors_3d(input: &SolverInput3D) -> Vec<(usize, f64)> {
-    let nodes: HashMap<usize, &SolverNode3D> = input.nodes.values().map(|n| (n.id, n)).collect();
-    let mats: HashMap<usize, &SolverMaterial> = input.materials.values().map(|m| (m.id, m)).collect();
-    let secs: HashMap<usize, &SolverSection3D> = input.sections.values().map(|s| (s.id, s)).collect();
+    let nodes: HashMap<usize, &SolverNode3D> = crate::ordered::values(&input.nodes).map(|n| (n.id, n)).collect();
+    let mats: HashMap<usize, &SolverMaterial> = crate::ordered::values(&input.materials).map(|m| (m.id, m)).collect();
+    let secs: HashMap<usize, &SolverSection3D> = crate::ordered::values(&input.sections).map(|s| (s.id, s)).collect();
     let mut out: Vec<(usize, f64)> = input
         .elements
         .values()

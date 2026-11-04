@@ -1,25 +1,33 @@
+import { materialToWire, sectionToWire, type ElasticMaterialWire, type ElasticSectionWire } from './unit-types';
 import { registerColumnCapacityKernel } from './column-capacity-kernel';
+import { noteEngineBuild } from '../provenance/build-identity';
 import { registerCirsoc201BeamKernel } from './codes/argentina/cirsoc201-beam-kernel';
 import { registerCirsoc301Kernel } from './codes/argentina/cirsoc301-kernel';
-import { packedShellCombinationKernel, registerShellCombinationKernel } from './shell-combination-kernel';
-import { registerRcSectionKernel } from './codes/argentina/rc-section-kernel';
+import { packedShellCombinationKernel, packedShellEnvelopeKernel, registerShellCombinationKernel, registerShellEnvelopeKernel } from './shell-combination-kernel';
+import { registerCirsoc201Engine } from './codes/argentina/cirsoc201-engine';
 import { registerCollisionKernel } from './detailing/collision-kernel';
 /**
  * WASM solver wrapper — replaces the pure-TS solver pipeline.
  * Serializes SolverInput (with Maps) → JSON → Rust/WASM → JSON → AnalysisResults.
  *
- * Uses dynamic imports so the app works without the WASM build (falls back to JS solver).
+ * The engine is the only source of engineering results. There is no JS solver to fall back to:
+ * until `initSolver()` has finished, or if the WASM build is missing, every entry point here
+ * either throws or returns a value its caller must read as "not computed" — never a number
+ * computed some other way.
  */
 
 import { mergeAllHingedJoints2D, restrainOrphanRotations2D } from './orphan-rotations-2d';
 import { stripStabilisedReactions } from './stabilised-reactions';
 import type { SpectralModeInput3D } from './dynamics/requests';
 import type { SolverInput, AnalysisResults, FullEnvelope } from './types';
-import type { SolverInput3D, SolverElement3D, AnalysisResults3D, FullEnvelope3D } from './types-3d';
+import type { SolverInput3D, SolverElement3D, SolverSection3D, AnalysisResults3D, FullEnvelope3D } from './types-3d';
+import { bucklingWarpingInput, hasBucklingWarping, torsionGaps3D } from './buckling-warping';
 import { finishSolve3D, finishPDelta3D } from './solve-finish';
 import { plainDeepCopy, findUncloneablePath } from '../utils/plain-deep-copy';
 import { errorText } from '../utils/error-text';
+import { EngineUnavailableError, EngineCheckError } from './engine-unavailable';
 import { tagCertifyJob } from './certify-tags';
+import { modalMechanismRefusal } from './dynamics/time-history-refusal';
 
 let wasmReady = false;
 let wasmInitPromise: Promise<void> | null = null;
@@ -154,7 +162,7 @@ let wasmExtractBeamStations3d: ((json: string) => string) | null = null;
 let wasmExtractBeamStationsGrouped: ((json: string) => string) | null = null;
 let wasmExtractBeamStationsGrouped3d: ((json: string) => string) | null = null;
 
-// Design Checks (not yet compiled into WASM binary — graceful fallback via ?? null)
+// Design checks. A build without one of them leaves it null, and the wrapper says so.
 let wasmCheckSteelMembers: ((json: string) => string) | null = null;
 let wasmCheckRcMembers: ((json: string) => string) | null = null;
 let wasmCheckTimberMembers: ((json: string) => string) | null = null;
@@ -167,6 +175,9 @@ let wasmCheckServiceability: ((json: string) => string) | null = null;
 let wasmCheckBoltGroups: ((json: string) => string) | null = null;
 let wasmCheckWeldGroups: ((json: string) => string) | null = null;
 let wasmCheckSpreadFootings: ((json: string) => string) | null = null;
+let wasmLoadsRequest: ((json: string) => string) | null = null;
+let wasmCheckIsolatedFootings: ((json: string) => string) | null = null;
+let wasmCertifyIsolatedFootings: ((json: string) => string) | null = null;
 
 // Certified results (docs/verification/CERTIFY.md). Absent from older WASM builds.
 let wasmCertifyLinear2d: ((input: any) => any) | null = null;
@@ -192,6 +203,13 @@ export function getWasmBytes(): Promise<ArrayBuffer> {
   return wasmBytesPromise;
 }
 
+/** The engine's own account of its version and commit; null from a build without the export. */
+function engineInfoOf(wasm: unknown): { engineVersion?: string; engineCommit?: string } | null {
+  const f = (wasm as { engine_build_info?: () => string }).engine_build_info;
+  if (typeof f !== 'function') return null;
+  try { return JSON.parse(f()); } catch { return null; }
+}
+
 /** Initialize the WASM module. Call once at app startup. */
 export async function initSolver(): Promise<void> {
   if (wasmReady) return;
@@ -207,17 +225,25 @@ export async function initSolver(): Promise<void> {
       const wasmUrl = new URL('../wasm/dedaliano_engine_bg.wasm', import.meta.url);
       const wasmBytes = readFileSync(fileURLToPath(wasmUrl));
       wasm.initSync({ module: wasmBytes });
+      noteEngineBuild(new Uint8Array(wasmBytes), engineInfoOf(wasm));
     } else {
-      await wasm.default(await getWasmBytes());
+      const bytes = await getWasmBytes();
+      await wasm.default(bytes);
+      // The worker pool compiles these same bytes, so one hash names the binary everywhere.
+      noteEngineBuild(bytes, engineInfoOf(wasm));
     }
     registerCollisionKernel(wasm.CollisionGeometry ?? null);
-    registerRcSectionKernel(wasm.RcSectionGeometry ?? null);
+    registerCirsoc201Engine({
+      Section: wasm.Cirsoc201SectionKernel, basis: wasm.cirsoc201_basis, phi: wasm.cirsoc201_phi,
+      designBeam: wasm.cirsoc201_design_beam, slabProvisions: wasm.cirsoc201_slab_provisions,
+    });
     registerColumnCapacityKernel(wasm.solve_column_capacity_batch ?? null);
     registerCirsoc201BeamKernel(wasm.cirsoc201_beam_batch ?? null);
     registerCirsoc301Kernel({ check: wasm.check_cirsoc301_members ?? null, certify: wasm.certify_cirsoc301_members ?? null });
     loadSession2D = wasm.LoadSession2D ?? null;
     loadSession3D = wasm.LoadSession3D ?? null;
     registerShellCombinationKernel(wasm.combine_shell_stresses ? packedShellCombinationKernel(wasm.combine_shell_stresses) : null);
+    registerShellEnvelopeKernel(wasm.envelope_shell_stresses ? packedShellEnvelopeKernel(wasm.envelope_shell_stresses) : null);
     wasmSolve2d = wasm.solve_2d;
     wasmSolve3d = wasm.solve_3d;
     wasmSolvePdelta2d = wasm.solve_pdelta_2d;
@@ -344,6 +370,9 @@ export async function initSolver(): Promise<void> {
     wasmCheckBoltGroups = wasm.check_bolt_groups ?? null;
     wasmCheckWeldGroups = wasm.check_weld_groups ?? null;
     wasmCheckSpreadFootings = wasm.check_spread_footings ?? null;
+    wasmLoadsRequest = (wasm as Record<string, unknown>).loads_request as typeof wasmLoadsRequest ?? null;
+    wasmCheckIsolatedFootings = (wasm as Record<string, unknown>).check_isolated_footings as typeof wasmCheckIsolatedFootings ?? null;
+    wasmCertifyIsolatedFootings = (wasm as Record<string, unknown>).certify_isolated_footings as typeof wasmCertifyIsolatedFootings ?? null;
 
     // Beam Station Extraction
     wasmExtractBeamStationBuffer3d = wasm.extract_beam_station_buffer_3d ?? null;
@@ -439,16 +468,20 @@ export function assertFiniteWire(value: any, path = 'input'): void {
 
 /** Convert SolverInput (with Maps) to the plain JSON-ready wire object,
  *  without a string round trip. */
-export function input2DToWireObject(input: SolverInput): Record<string, any> {
+export function input2DToWireObject(input: SolverInput): Record<string, any> & {
+  materials: Record<string, ElasticMaterialWire>;
+  sections: Record<string, ElasticSectionWire>;
+} {
   return {
     nodes: mapToObj(input.nodes),
-    materials: mapToObj(input.materials),
-    sections: mapToObj(input.sections),
+    materials: Object.fromEntries(Array.from(input.materials, ([id, m]) => [String(id), materialToWire(plainDeepCopy(m))])),
+    sections: Object.fromEntries(Array.from(input.sections, ([id, s]) => [String(id), sectionToWire(plainDeepCopy(s))])),
     elements: mapToObj(input.elements),
     supports: mapToObj(input.supports),
     loads: input.loads,
     constraints: plainDeepCopy(input.constraints ?? []),
     connectors: input.connectors ? mapToPlainObj(input.connectors) : {},
+    ...(input.masses?.nodal?.length ? { masses: plainDeepCopy(input.masses) } : {}),
   };
 }
 
@@ -481,11 +514,18 @@ function serializeInput2D(input: SolverInput): string {
  * before both consumers, so "the payload is plain data" holds for every caller, present and
  * future.
  */
+/** A section as the engine takes it: the web-only fields (`bucklingCw`, `torsionGap`) left out. */
+function wireSection3D(s: SolverSection3D): SolverSection3D {
+  if (!('bucklingCw' in s) && !('torsionGap' in s)) return s;
+  const { bucklingCw: _cw, torsionGap: _gap, ...wire } = s;
+  return wire;
+}
+
 export function input3DToWireObject(input: SolverInput3D): Record<string, any> {
   return {
     nodes: mapToObj(input.nodes),
     materials: mapToObj(input.materials),
-    sections: mapToObj(input.sections),
+    sections: mapToObj(new Map(Array.from(input.sections, ([id, s]) => [id, wireSection3D(s)]))),
     elements: mapToObj(input.elements),
     supports: mapToObj(input.supports),
     loads: input.loads,
@@ -495,6 +535,8 @@ export function input3DToWireObject(input: SolverInput3D): Record<string, any> {
     constraints: plainDeepCopy(input.constraints ?? []),
     connectors: input.connectors ? mapToPlainObj(input.connectors) : {},
     leftHand: input.leftHand ?? false,
+    // Nodal, line and area masses (the mass source); absent when there are none.
+    ...(input.masses ? { masses: plainDeepCopy(input.masses) } : {}),
   };
 }
 
@@ -553,6 +595,11 @@ function refuse(msg: string | null | undefined): void {
 
 const NO_FREE_DOFS = /^No free DOFs/;
 
+function translateModalMechanism(e: unknown): void {
+  const m = guards ? modalMechanismRefusal(thrownText(e)) : null;
+  if (m) throw new Error(guards!.text(m.key, m.params as Record<string, string | number>));
+}
+
 /** Largest nodal translation or rotation of a result. */
 function maxDisplacement(r: { displacements?: Array<Record<string, number>> } | undefined): number {
   let m = 0;
@@ -589,15 +636,10 @@ function dominantDof(mode: { displacements?: Array<Record<string, number>> }): {
 }
 
 /**
- * A frequency under this is none: no structure in this app sways once in 20 minutes.
- *
- * Each mode is judged by its own value, never against the largest one found: one spurious or very
- * stiff mode in the batch (a load factor of 1e12 from a bar with almost no axial force, a
- * 20 000 Hz local mode) raised a relative cut above the structure's real modes and threw them
- * away as mechanisms — the real λcr = 3,5 went, and 1e12 was shown as the critical factor.
+ * A load factor under this is none: the mechanism's zero, 1e-12 as the engine returns it. Each mode
+ * is judged by its own value, never against the largest one found: a relative cut once threw away
+ * the real λcr = 3,5 next to a spurious 1e12.
  */
-const NULL_FREQUENCY_HZ = 1e-3;
-/** And a load factor under this is none: the mechanism's zero, 1e-12 as the engine returns it. */
 const NULL_LOAD_FACTOR = 1e-6;
 
 export interface DiscardedMode { value: number; nodeId: number; dof: string }
@@ -634,9 +676,12 @@ function mechanismOnly(): never {
 
 /** A modal result without its null modes, the mass sums and Rayleigh damping taken over what is kept. */
 export function filterModal<R extends { modes: any[]; rayleigh?: any; [k: string]: any }>(result: R, dirs: string[]): R & { discardedModes: DiscardedMode[] } {
-  const { kept, discarded } = withoutNullModes(result.modes ?? [], (m: any) => m.frequency, NULL_FREQUENCY_HZ);
+  const { kept, discarded: below } = withoutNullModes(result.modes ?? [], (m: any) => m.frequency, Number.MIN_VALUE);
+  const engineNull: DiscardedMode[] = (result.nullModes ?? []).map((m: { omegaSq: number; nodeId: number; dof: string }) => ({ value: Math.sign(m.omegaSq) * Math.sqrt(Math.abs(m.omegaSq)) / (2 * Math.PI), nodeId: m.nodeId, dof: m.dof }));
+  const discarded = [...engineNull, ...below];
   if (!discarded.length) return { ...result, discardedModes: [] };
-  if (!kept.length) mechanismOnly();
+  if (!kept.length && below.length) mechanismOnly();
+  if (!below.length) return { ...result, discardedModes: discarded };
   const out: any = { ...result, modes: kept, discardedModes: discarded };
   for (const d of dirs) out[`cumulativeMassRatio${d}`] = kept.reduce((a: number, m: any) => a + (m[`massRatio${d}`] ?? 0), 0);
   if (result.rayleigh && Array.isArray(result.rayleigh.dampingRatios)) {
@@ -854,8 +899,24 @@ export interface ShownBounds<S = StationBound2D | StationBound3D, R = ReactionBo
   reactionReason?: string;
 }
 
-export interface CertifiedLinear2D extends ShownBounds<StationBound2D, ReactionBound2D> { results: AnalysisResults; certificate: LinearCertificate; forceBounds: ForceBound2D[] }
-export interface CertifiedLinear3D extends ShownBounds<StationBound3D, ReactionBound3D> { results: AnalysisResults3D; certificate: LinearCertificate; forceBounds: ForceBound3D[]; shellBounds?: ShellBound[] }
+/**
+ * The linear result checked against an independent re-assembly of the model (docs/verification/
+ * CERTIFY.md, "End-to-end certificates"): `certified` bounds ‖u* − ũ‖₂ for the exact solution of the
+ * model as written, over every DOF it determines; `failed` means the engine's K, f or displacements
+ * disagree with the model; `uncertified` / `outOfScope` / `notChecked` say why there is no such bound.
+ */
+export type EndToEnd =
+  | { status: 'certified'; absBound: number; relBound: number | null; mu: number; residualNorm: number;
+      kDiscrepancy: number; fDiscrepancy: number; excludedDofs: Array<{ nodeId: number; dof: number }> }
+  | { status: 'failed' | 'uncertified' | 'outOfScope'; reason: string }
+  | { status: 'notChecked' };
+/** How much of model → K → result a certified linear result covers. */
+export type CertificateLevel = 'endToEnd' | 'assembled' | 'none';
+/** The end-to-end fields of a certified linear answer (absent from older WASM builds). */
+export interface EndToEndFields { endToEnd?: EndToEnd; certificateLevel?: CertificateLevel }
+
+export interface CertifiedLinear2D extends ShownBounds<StationBound2D, ReactionBound2D>, EndToEndFields { results: AnalysisResults; certificate: LinearCertificate; forceBounds: ForceBound2D[] }
+export interface CertifiedLinear3D extends ShownBounds<StationBound3D, ReactionBound3D>, EndToEndFields { results: AnalysisResults3D; certificate: LinearCertificate; forceBounds: ForceBound3D[]; shellBounds?: ShellBound[] }
 
 /** One load case of a certified multi-case solve: a linear certificate of its own. */
 export interface CaseCertificate<F> extends ShownBounds { name: string; certificate: LinearCertificate; forceBounds: F[] }
@@ -881,7 +942,10 @@ export interface MultiCaseCertificate<F = ForceBound2D | ForceBound3D, S = Stati
  */
 export type BucklingCertificate =
   | { status: 'certified'; lambdaLower: number; lambdaUpper: number | null; lambdaComputed: number }
-  | { status: 'uncertified'; reason: string };
+  | { status: 'uncertified'; reason: string; refusal?: BucklingRefusal };
+
+/** A buckling refusal stated by code, so the app can word it in the reader's language. */
+export type BucklingRefusal = { code: 'computedAboveUpperBound'; lambdaComputed: number; lambdaUpper: number };
 
 /** Whether this WASM build carries the certificate exports. */
 export function hasCertifyExport(): boolean {
@@ -915,14 +979,14 @@ export function certifyLinearWire(dim: '2d' | '3d', wire: Record<string, any>): 
 }
 
 /** A linear certificate without the results it re-solved (3D carries the shells' bounds). */
-export interface LinearCertificateOnly extends ShownBounds {
+export interface LinearCertificateOnly extends ShownBounds, EndToEndFields {
   certificate: LinearCertificate; forceBounds: Array<ForceBound2D | ForceBound3D>; shellBounds?: ShellBound[];
 }
 
 /** A certify answer without its results (what a worker posts back). */
 export function certificateOnly(out: LinearCertificateOnly & { results?: unknown }): LinearCertificateOnly {
-  const { certificate, forceBounds, shellBounds, stationBounds, deflectionBounds, reactionBounds, reactionReason } = out;
-  return { certificate, forceBounds, shellBounds: shellBounds ?? [], stationBounds, deflectionBounds, reactionBounds, reactionReason };
+  const { certificate, forceBounds, shellBounds, stationBounds, deflectionBounds, reactionBounds, reactionReason, endToEnd, certificateLevel } = out;
+  return { certificate, forceBounds, shellBounds: shellBounds ?? [], stationBounds, deflectionBounds, reactionBounds, reactionReason, endToEnd, certificateLevel };
 }
 
 /**
@@ -939,8 +1003,27 @@ const CERTIFY_EXPORTS = [
   'export_linear_bundle_2d', 'export_linear_bundle_3d',
   'export_plastic_bundle_2d', 'export_plastic_bundle_3d',
   'export_combination_bundle_2d', 'export_combination_bundle_3d',
+  // Not a certificate, but the same kind of job: a re-solve to hash, run off the main thread
+  // (`store/result-provenance.ts` ensureEngineHashes).
+  'engine_reproduce_hashes',
+  // Not certificates: the discretization-error estimate and convergence check
+  // (docs/verification/DISCRETIZATION.md) ride the same worker path because they re-solve too.
+  'estimate_discretization_3d', 'convergence_study_3d',
 ] as const;
 export type CertifyExport = (typeof CERTIFY_EXPORTS)[number];
+
+/** The registry itself, for tests that walk it. */
+export const CERTIFY_EXPORT_NAMES: readonly CertifyExport[] = CERTIFY_EXPORTS;
+
+/**
+ * Whether `name` is one of the exports above: the one registry both the main thread and the
+ * worker (`solver-worker.ts`) dispatch by, so an export added here runs in the worker too (the
+ * worker used to keep its own name pattern, and the discretization exports, which match none of
+ * it, failed there while working on the main thread).
+ */
+export function isCertifyExport(name: string): name is CertifyExport {
+  return (CERTIFY_EXPORTS as readonly string[]).includes(name);
+}
 const certifyExports = new Map<string, (...args: any[]) => any>();
 
 /** Whether this WASM build carries the certify export `name`. */
@@ -1060,6 +1143,7 @@ export function solveModal(
     result = JSON.parse(wasmSolveModal2d(payload, numModes));
   } catch (e) {
     if (NO_FREE_DOFS.test(thrownText(e))) noFreeDofs('modal');
+    translateModalMechanism(e);
     throw e;
   }
   return tagCertifyJob(filterModal(result, ['X', 'Y']), { name: 'certify_modal_2d', args: [payload, numModes] });
@@ -1163,6 +1247,7 @@ export function solvePDelta3D(input: SolverInput3D, maxIter = 20, tolerance = 1e
   if (!wasmReady || !wasmSolvePdelta3d) throw new Error('WASM P-Delta 3D solver not available.');
   const wire = input3DToWireObject(input);
   refuse(guards?.refuse3D(input));
+  refuse(torsionGapRefusal(input, 'pdelta'));
   let result;
   const json = JSON.stringify(wire);
   try {
@@ -1193,6 +1278,7 @@ export function solveModal3D(input: SolverInput3D, densities: Map<number, number
     }), numModes)));
   } catch (e) {
     if (NO_FREE_DOFS.test(thrownText(e))) noFreeDofs('modal');
+    translateModalMechanism(e);
     throw e;
   }
   const out = filterModal(run.result, ['X', 'Y', 'Z']);
@@ -1203,10 +1289,22 @@ export function solveModal3D(input: SolverInput3D, densities: Map<number, number
 export function solveBuckling3D(input: SolverInput3D, numModes = 4) {
   if (!wasmReady || !wasmSolveBuckling3d) throw new Error('WASM Buckling 3D solver not available.');
   refuse(guards?.refuse3D(input));
+  refuse(torsionGapRefusal(input, 'buckling'));
+  // Cw for the members that can take it, from their axial forces in the linear solve
+  // (`buckling-warping.ts`). The static solve itself never sees `cw`.
+  let axial: Map<number, number> | null = null;
+  if (hasBucklingWarping(input)) {
+    try {
+      axial = new Map(solve3D(input).elementForces.map((f) => [f.elementId, (f.nStart + f.nEnd) / 2]));
+    } catch { axial = null; /* The buckling solve below says why. */ }
+  }
+  let warpingMembers: number[] = [];
   let run;
   try {
     run = eigen3D(guards ? guards.eigenInput3D(input) : input, (i) => {
-      const json = serializeInput3D(i);
+      const w = axial ? bucklingWarpingInput(i, axial) : { input: i, warped: [] };
+      warpingMembers = w.warped;
+      const json = serializeInput3D(w.input);
       return bucklingWithCertificate(wasmCertifyBuckling3d, json, numModes) ?? JSON.parse(wasmSolveBuckling3d!(json, numModes));
     });
   } catch (e) {
@@ -1214,7 +1312,24 @@ export function solveBuckling3D(input: SolverInput3D, numModes = 4) {
     throw e;
   }
   const out = filterBuckling(run.result);
-  return withoutStaleCertificate({ ...out, discardedModes: [...run.held, ...out.discardedModes] });
+  return withoutStaleCertificate({ ...out, discardedModes: [...run.held, ...out.discardedModes], warpingMembers });
+}
+
+/**
+ * The refusal of an analysis whose geometric stiffness needs a section's torsional data and does
+ * not have it (`buckling-warping.ts`, `torsionGaps3D`): no J, or no shear centre for a tee,
+ * channel or angle. Null when nothing is missing.
+ */
+export function torsionGapRefusal(input: SolverInput3D, analysis: 'buckling' | 'pdelta' | 'nonlinear'): string | null {
+  const gaps = torsionGaps3D(input);
+  if (gaps.length === 0) return null;
+  const g = gaps[0]!;
+  const list = g.elements.slice(0, 8).join(', ') + (g.elements.length > 8 ? ', …' : '');
+  const params = { section: g.sectionName ? `${g.sectionId} (${g.sectionName})` : String(g.sectionId), members: list, analysis: guards ? guards.text(`svc.torsionGap.analysis.${analysis}`) : analysis };
+  if (guards) return guards.text(g.kind === 'j' ? 'svc.torsionGap.j' : 'svc.torsionGap.shearCentre', params);
+  return g.kind === 'j'
+    ? `Section ${params.section} has no torsion constant J (members ${list}): ${analysis} cannot form their torsional buckling.`
+    : `Section ${params.section} has no shear centre (members ${list}): ${analysis} cannot form their flexural-torsional buckling.`;
 }
 
 /**
@@ -1264,26 +1379,25 @@ export function solveCorotational2D(input: SolverInput, maxIter = 50, tolerance 
 export function solveTimeHistory2D(config: {
   solver: SolverInput;
   densities: Map<number, number>;
-  accelerogram: { dt: number; values: number[] };
-  direction: 'X' | 'Y';
-  damping?: number;
-  method?: 'Newmark' | 'Wilson';
+  timeStep: number;
+  nSteps: number;
+  /** Ground acceleration, m/s², one value per step from t = 0. */
+  groundAccel?: number[];
+  groundDirection?: 'X' | 'Y';
+  /** Nodal forces at given times, interpolated linearly between records. */
+  forceHistory?: Array<{ time: number; loads: Array<{ nodeId: number; fx: number; fz: number; my: number }> }>;
+  /** Rayleigh damping with this ratio on the first two modes; none when absent or 0. */
+  dampingXi?: number;
 }) {
   if (!wasmReady || !wasmSolveTimeHistory2d) throw new Error('WASM Time History solver not available.');
   const payload = JSON.stringify({
-    solver: {
-      nodes: mapToObj(config.solver.nodes),
-      materials: mapToObj(config.solver.materials),
-      sections: mapToObj(config.solver.sections),
-      elements: mapToObj(config.solver.elements),
-      supports: mapToObj(config.solver.supports),
-      loads: config.solver.loads,
-    },
+    solver: input2DToWireObject(config.solver),
     densities: mapToObj(config.densities),
-    accelerogram: config.accelerogram,
-    direction: config.direction,
-    damping: config.damping,
-    method: config.method,
+    timeStep: config.timeStep,
+    nSteps: config.nSteps,
+    ...(config.groundAccel ? { groundAccel: config.groundAccel, groundDirection: config.groundDirection ?? 'X' } : {}),
+    ...(config.forceHistory ? { forceHistory: config.forceHistory } : {}),
+    ...(config.dampingXi ? { dampingXi: config.dampingXi } : {}),
   });
   const resultJson = wasmSolveTimeHistory2d(payload);
   return tagCertifyJob(JSON.parse(resultJson), { name: 'certify_time_history_2d', args: [payload] });
@@ -1486,90 +1600,97 @@ export function isWasmReady(): boolean {
 }
 
 // ─── Design Check Wrappers ───────────────────────────────────────
-// These return null gracefully if the WASM function is not yet compiled.
+// Each returns the engine's parsed results, or throws: `EngineUnavailableError` when the engine
+// (or this checker in the loaded build) is missing, `EngineCheckError` carrying the engine's own
+// message when the check fails. They used to turn every failure into `null`, which lost the
+// engine's reason; a caller that catches must still treat the member as not verified.
 
-/** AISC 360 LRFD steel member checks via WASM. */
-export function checkSteelMembers(input: any): any | null {
-  if (!wasmReady || !wasmCheckSteelMembers) return null;
-  try { return JSON.parse(wasmCheckSteelMembers(JSON.stringify(input))); }
-  catch { return null; }
+function runDesignCheck(what: string, check: ((json: string) => string) | null, input: unknown): any {
+  if (!wasmReady || !check) throw new EngineUnavailableError(what);
+  let raw: string;
+  try { raw = check(JSON.stringify(input)); }
+  catch (e) { throw new EngineCheckError(what, errorText(e, 'the engine raised an error without a message')); }
+  try { return JSON.parse(raw); }
+  catch (e) { throw new EngineCheckError(what, `unreadable answer (${errorText(e, 'not JSON')})`); }
 }
 
-/** Reinforced concrete member checks via WASM. */
-export function checkRcMembers(input: any): any | null {
-  if (!wasmReady || !wasmCheckRcMembers) return null;
-  try { return JSON.parse(wasmCheckRcMembers(JSON.stringify(input))); }
-  catch { return null; }
+/** AISC 360 LRFD steel member checks via WASM. Throws `EngineUnavailableError` without the engine, `EngineCheckError` with the engine's message when it fails. */
+export function checkSteelMembers(input: any): any {
+  return runDesignCheck('AISC 360 LRFD steel member checks', wasmCheckSteelMembers, input);
 }
 
-/** Timber member checks via WASM. */
-export function checkTimberMembers(input: any): any | null {
-  if (!wasmReady || !wasmCheckTimberMembers) return null;
-  try { return JSON.parse(wasmCheckTimberMembers(JSON.stringify(input))); }
-  catch { return null; }
+/** Reinforced concrete member checks via WASM. Throws `EngineUnavailableError` without the engine, `EngineCheckError` with the engine's message when it fails. */
+export function checkRcMembers(input: any): any {
+  return runDesignCheck('reinforced concrete member checks', wasmCheckRcMembers, input);
 }
 
-/** Eurocode 3 steel member checks via WASM. */
-export function checkEc3Members(input: any): any | null {
-  if (!wasmReady || !wasmCheckEc3Members) return null;
-  try { return JSON.parse(wasmCheckEc3Members(JSON.stringify(input))); }
-  catch { return null; }
+/** Timber member checks via WASM. Throws `EngineUnavailableError` without the engine, `EngineCheckError` with the engine's message when it fails. */
+export function checkTimberMembers(input: any): any {
+  return runDesignCheck('timber member checks', wasmCheckTimberMembers, input);
 }
 
-/** Eurocode 2 RC member checks via WASM. */
-export function checkEc2Members(input: any): any | null {
-  if (!wasmReady || !wasmCheckEc2Members) return null;
-  try { return JSON.parse(wasmCheckEc2Members(JSON.stringify(input))); }
-  catch { return null; }
+/** Eurocode 3 steel member checks via WASM. Throws `EngineUnavailableError` without the engine, `EngineCheckError` with the engine's message when it fails. */
+export function checkEc3Members(input: any): any {
+  return runDesignCheck('Eurocode 3 steel member checks', wasmCheckEc3Members, input);
 }
 
-/** CIRSOC 201 RC member checks via WASM. */
-export function checkCirsoc201Members(input: any): any | null {
-  if (!wasmReady || !wasmCheckCirsoc201Members) return null;
-  try { return JSON.parse(wasmCheckCirsoc201Members(JSON.stringify(input))); }
-  catch { return null; }
+/** Eurocode 2 RC member checks via WASM. Throws `EngineUnavailableError` without the engine, `EngineCheckError` with the engine's message when it fails. */
+export function checkEc2Members(input: any): any {
+  return runDesignCheck('Eurocode 2 RC member checks', wasmCheckEc2Members, input);
 }
 
-/** Cold-formed steel member checks via WASM. */
-export function checkCfsMembers(input: any): any | null {
-  if (!wasmReady || !wasmCheckCfsMembers) return null;
-  try { return JSON.parse(wasmCheckCfsMembers(JSON.stringify(input))); }
-  catch { return null; }
+/** CIRSOC 201 RC member checks via WASM. Throws `EngineUnavailableError` without the engine, `EngineCheckError` with the engine's message when it fails. */
+export function checkCirsoc201Members(input: any): any {
+  return runDesignCheck('CIRSOC 201 RC member checks', wasmCheckCirsoc201Members, input);
 }
 
-/** Masonry member checks via WASM. */
-export function checkMasonryMembers(input: any): any | null {
-  if (!wasmReady || !wasmCheckMasonryMembers) return null;
-  try { return JSON.parse(wasmCheckMasonryMembers(JSON.stringify(input))); }
-  catch { return null; }
+/** Cold-formed steel member checks via WASM. Throws `EngineUnavailableError` without the engine, `EngineCheckError` with the engine's message when it fails. */
+export function checkCfsMembers(input: any): any {
+  return runDesignCheck('cold-formed steel member checks', wasmCheckCfsMembers, input);
 }
 
-/** Serviceability checks (deflection/vibration) via WASM. */
-export function checkServiceability(input: any): any | null {
-  if (!wasmReady || !wasmCheckServiceability) return null;
-  try { return JSON.parse(wasmCheckServiceability(JSON.stringify(input))); }
-  catch { return null; }
+/** Masonry member checks via WASM. Throws `EngineUnavailableError` without the engine, `EngineCheckError` with the engine's message when it fails. */
+export function checkMasonryMembers(input: any): any {
+  return runDesignCheck('masonry member checks', wasmCheckMasonryMembers, input);
 }
 
-/** Bolt group capacity checks via WASM. */
-export function checkBoltGroups(input: any): any | null {
-  if (!wasmReady || !wasmCheckBoltGroups) return null;
-  try { return JSON.parse(wasmCheckBoltGroups(JSON.stringify(input))); }
-  catch { return null; }
+/** Serviceability checks (deflection/vibration) via WASM. Throws `EngineUnavailableError` without the engine, `EngineCheckError` with the engine's message when it fails. */
+export function checkServiceability(input: any): any {
+  return runDesignCheck('serviceability checks (deflection/vibration)', wasmCheckServiceability, input);
 }
 
-/** Weld group capacity checks via WASM. */
-export function checkWeldGroups(input: any): any | null {
-  if (!wasmReady || !wasmCheckWeldGroups) return null;
-  try { return JSON.parse(wasmCheckWeldGroups(JSON.stringify(input))); }
-  catch { return null; }
+/** Bolt group capacity checks via WASM. Throws `EngineUnavailableError` without the engine, `EngineCheckError` with the engine's message when it fails. */
+export function checkBoltGroups(input: any): any {
+  return runDesignCheck('bolt group capacity checks', wasmCheckBoltGroups, input);
 }
 
-/** Spread footing bearing checks via WASM. */
-export function checkSpreadFootings(input: any): any | null {
-  if (!wasmReady || !wasmCheckSpreadFootings) return null;
-  try { return JSON.parse(wasmCheckSpreadFootings(JSON.stringify(input))); }
-  catch { return null; }
+/** Weld group capacity checks via WASM. Throws `EngineUnavailableError` without the engine, `EngineCheckError` with the engine's message when it fails. */
+export function checkWeldGroups(input: any): any {
+  return runDesignCheck('weld group capacity checks', wasmCheckWeldGroups, input);
+}
+
+/** Spread footing bearing checks via WASM. Throws `EngineUnavailableError` without the engine, `EngineCheckError` with the engine's message when it fails. */
+export function checkSpreadFootings(input: any): any {
+  return runDesignCheck('spread footing bearing checks', wasmCheckSpreadFootings, input);
+}
+
+/**
+ * Load generation in the engine (`engine/src/loads`): CIRSOC 101 combinations, INPRES-CIRSOC 103
+ * spectrum and static method. `req` is a `LoadsRequest` tagged by `op`. Throws
+ * `EngineUnavailableError` without the engine, `EngineCheckError` with its message on a refusal.
+ */
+export function loadsRequest(req: { op: string } & Record<string, unknown>): any {
+  return runDesignCheck(`load generation (${req.op})`, wasmLoadsRequest, req);
+}
+
+/** CIRSOC 201 isolated footings (`isolated_footing.rs`). Throws like the checks above. */
+export function checkIsolatedFootings(input: any): any {
+  return runDesignCheck('CIRSOC 201 isolated footing checks', wasmCheckIsolatedFootings, input);
+}
+
+/** Certified CIRSOC 201 isolated footings: the same formulas in interval arithmetic. */
+export function certifyIsolatedFootings(input: any): any {
+  return runDesignCheck('certified CIRSOC 201 isolated footing checks', wasmCertifyIsolatedFootings, input);
 }
 
 /** Check if a specific WASM design check function is available. */
@@ -1625,6 +1746,7 @@ export function solveNonlinearMaterial2D(config: {
 /** Solve 3D corotational (large displacement) analysis via WASM. */
 export function solveCorotational3D(input: SolverInput3D, maxIter = 50, tolerance = 1e-6, nIncrements = 10): any {
   if (!wasmReady || !wasmSolveCorotational3d) throw new Error('WASM Corotational 3D solver not available.');
+  refuse(torsionGapRefusal(input, 'nonlinear'));
   return JSON.parse(wasmSolveCorotational3d(serializeInput3D(input), maxIter, tolerance, nIncrements));
 }
 
@@ -1814,7 +1936,7 @@ export interface CableForce3D {
   sag: number;
   /** The equivalent (Ernst) modulus the iteration settled on, kN/m². */
   ernstModulus: number;
-  /** The engine takes the chord as the unstretched length: there is no pretension. */
+  /** The chord, or with a pretension given, the length it sets (#527). */
   unstretchedLength: number;
 }
 
@@ -1835,17 +1957,19 @@ export interface CableAnalysis3D {
  * Solve a 3D cable analysis via WASM: the members typed `cable` carry tension only, and their own
  * weight, from the densities, softens them (Ernst's equivalent modulus) and sets the sag they
  * report. It is not applied to them as a load. The rest of the model is linear. Same payload as
- * the 2D one, `{ solver, densities }`, with densities in kg/m³.
+ * the 2D one, `{ solver, densities, pretension }`, with densities in kg/m³ and a pretension per
+ * cable in kN (element id → its tension on the drawn chord under its own weight; #527).
  */
 export function solveCable3D(
   input: SolverInputCable3D,
   maxIter = 50,
   tolerance = 1e-6,
   densities: Record<string, number> = {},
+  pretension: Record<string, number> = {},
 ): CableAnalysis3D {
   if (!wasmReady || !wasmSolveCable3d) throw new Error('WASM cable 3D solver not available.');
   // The wire form does not look at the member type; it passes `cable` through to the engine.
-  const payload = { solver: JSON.parse(serializeInput3D(input as unknown as SolverInput3D)), densities };
+  const payload = { solver: JSON.parse(serializeInput3D(input as unknown as SolverInput3D)), densities, pretension };
   // As the engine answers: its caller finishes the results (`solve-finish.ts`, member-behaviour.ts).
   return JSON.parse(wasmSolveCable3d(JSON.stringify(payload), maxIter, tolerance)) as CableAnalysis3D;
 }
@@ -1975,6 +2099,7 @@ export function solveWithImperfections2D(config: any): any {
 export function solveWithImperfections3D(config: any): any {
   if (!wasmReady || !wasmSolveWithImperfections3d) throw new Error('WASM imperfections 3D solver not available.');
   if (config.solver && config.solver.nodes instanceof Map) {
+    refuse(torsionGapRefusal(config.solver, 'nonlinear'));
     config = { ...config, solver: JSON.parse(serializeInput3D(config.solver)) };
   }
   return JSON.parse(wasmSolveWithImperfections3d(JSON.stringify(config)));

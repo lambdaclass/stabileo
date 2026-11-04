@@ -17,6 +17,11 @@
  *   shape (members and shells), the M, V and N diagrams in the plane the 3D view draws each one
  *   in (both bending planes when both carry load, each on its layer), and the reactions.
  *
+ * An envelope is no load state: its diagrams are its two station curves (as the figures draw
+ * them), and it has no deformed shape. Nor has an SRSS or ABS set, whose displacements are
+ * magnitudes. The reactions of either are written as values, without an arrow: their components
+ * are not one force. The RESULTS layer says what is left out.
+ *
  * Diagrams and the deformed shape are drawn to a size relative to the structure, as the figures
  * are; the RESULTS layer states the set and the scale used, and that an SRSS or ABS set's values
  * are magnitudes (printed without a sign).
@@ -25,9 +30,9 @@
  * the store part is `pro/dxf-export.ts`.
  */
 import type { DxfUnit } from './types';
-import type { AnalysisResults3D, Displacement3D } from '../engine/types-3d';
+import type { AnalysisResults3D, Displacement3D, FullEnvelope3D } from '../engine/types-3d';
 import type { Element, Load, Node, Plate, Quad, Section, Support, Material } from '../store/model.svelte';
-import { computeDiagram3D, computeGlobalMax3D, getDiagramLocalDirection, type Diagram3DKind } from '../engine/diagrams-3d';
+import { computeDiagram3D, computeGlobalMax3D, envelopeDiagrams3D, getDiagramLocalDirection, type Diagram3DKind } from '../engine/diagrams-3d';
 import { computeDiagramDisplayDirection } from '../three/diagram-render-3d';
 import { computeDeformedShape3D, type ElementEI } from '../three/deformed-shape-3d';
 import { eiOf } from '../engine/member-deflection';
@@ -53,6 +58,8 @@ export interface DxfWriteOptions {
   units: DxfUnit;
   contents: DxfContents;
   results: AnalysisResults3D | null;
+  /** The envelope `results` are the largest values of (its `maxAbsResults3D`), when they are. */
+  envelope?: FullEnvelope3D;
   /** The result set's name, written on the RESULTS layer. */
   resultsName?: string;
   /** Largest diagram ordinate, as a fraction of the structure's size. */
@@ -329,6 +336,9 @@ export function writeDxf(model: DxfModel, opts: DxfWriteOptions, tr: (key: strin
   // ── The results ──
   const ef = new Map((r3d?.elementForces ?? []).map((x) => [x.elementId, x]));
   const notes: string[] = [];
+  const env = opts.envelope;
+  // One state of the structure, which has a deflected shape and reactions that are forces.
+  const oneState = !env && !r3d?.magnitude;
   if (r3d && (c.moment || c.shear || c.axial)) {
     const kinds: Diagram3DKind[] = [
       ...(c.moment ? (['momentZ', 'momentY'] as const) : []),
@@ -338,7 +348,7 @@ export function writeDxf(model: DxfModel, opts: DxfWriteOptions, tr: (key: strin
     const SYM: Record<string, string> = { momentZ: 'Mz', momentY: 'My', shearY: 'Vy', shearZ: 'Vz', axial: 'N' };
     const LAYER: Record<string, string> = { momentZ: 'dxf.layerMoments', momentY: 'dxf.layerMoments', shearY: 'dxf.layerShear', shearZ: 'dxf.layerShear', axial: 'dxf.layerAxial' };
     for (const kind of kinds) {
-      const gmax = computeGlobalMax3D(r3d.elementForces, kind);
+      const gmax = env ? env[kind].globalMax : computeGlobalMax3D(r3d.elementForces, kind);
       if (!(gmax > 1e-9)) continue;
       const L = use(kind === 'axial' ? tr(LAYER[kind]!) : `${tr(LAYER[kind]!)}_${SYM[kind]}`, COLOUR[kind as keyof typeof COLOUR] as number);
       const k = ((opts.diagramSize ?? 0.08) * size) / gmax;
@@ -353,19 +363,22 @@ export function writeDxf(model: DxfModel, opts: DxfWriteOptions, tr: (key: strin
         let axes;
         try { axes = computeLocalAxes3D({ id: 0, ...pI }, { id: 0, ...pJ }, localY, roll || undefined, opts.leftHand); } catch { continue; }
         const { perpVec, sign } = computeDiagramDisplayDirection(axes, getDiagramLocalDirection(kind), opts.towardLocalAxes);
-        const dg = computeDiagram3D(forces, kind);
         const base = (t: number): P3 => ({ x: pI.x + (pJ.x - pI.x) * t, y: pI.y + (pJ.y - pI.y) * t, z: pI.z + (pJ.z - pI.z) * t });
         const tip = (t: number, v: number): P3 => { const b = base(t); const o = sign * v * k; return { x: b.x + perpVec.x * o, y: b.y + perpVec.y * o, z: b.z + perpVec.z * o }; };
-        polyline(L, [base(0), ...dg.points.map((p) => tip(p.t, p.value)), base(1)], true);
-        if (Math.abs(dg.maxAbsValue) > 0.02 * gmax) {
-          const at = dg.points.find((p) => p.value === dg.maxAbsValue) ?? dg.points[0]!;
-          // A moment is printed in the screen's sign; an SRSS or ABS magnitude has none to flip.
-          text(L, tip(at.t, at.value), fmt(isMoment && !r3d.magnitude ? -dg.maxAbsValue : dg.maxAbsValue));
+        // An envelope's end forces come from different combinations: its own curves, not integrated.
+        for (const dg of env ? envelopeDiagrams3D(env[kind], e.id) : [computeDiagram3D(forces, kind)]) {
+          polyline(L, [base(0), ...dg.points.map((p) => tip(p.t, p.value)), base(1)], true);
+          if (Math.abs(dg.maxAbsValue) > 0.02 * gmax) {
+            const at = dg.points.find((p) => p.value === dg.maxAbsValue) ?? dg.points[0]!;
+            // A moment is printed in the screen's sign; an SRSS or ABS magnitude has none to flip.
+            text(L, tip(at.t, at.value), fmt(isMoment && !r3d.magnitude ? -dg.maxAbsValue : dg.maxAbsValue));
+          }
         }
       }
     }
   }
-  if (r3d && c.deformed) {
+  if (r3d && c.deformed && !oneState) notes.push(tr(env ? 'dxf.noDeformedEnvelope' : 'dxf.noDeformedMagnitude'));
+  if (r3d && c.deformed && oneState) {
     const L = use(tr('dxf.layerDeformed'), COLOUR.deformed);
     const disp = new Map<number, Displacement3D>(r3d.displacements.map((d) => [d.nodeId, d]));
     let dmax = 0;
@@ -392,13 +405,14 @@ export function writeDxf(model: DxfModel, opts: DxfWriteOptions, tr: (key: strin
   }
   if (r3d && c.reactions) {
     const L = use(tr('dxf.layerReactions'), COLOUR.reactions);
+    if (!oneState) notes.push(tr('dxf.reactionsValuesOnly'));
     for (const r of r3d.reactions) {
       const p = scene(r.nodeId); if (!p) continue;
       const parts = ([['Fx', r.fx], ['Fy', r.fy], ['Fz', r.fz], ['Mx', r.mx], ['My', r.my], ['Mz', r.mz]] as Array<[string, number]>)
         .filter(([, v]) => Math.abs(v) > 1e-3).map(([k, v]) => `${k}=${fmt(v)}`);
       if (parts.length) text(L, { x: p.x + textH, y: p.y, z: p.z - 3 * textH }, parts.join(' '));
       const F: V3 = [r.fx, r.fy, r.fz];
-      if (Math.hypot(...F) > 1e-6) arrow(L, p, F, arrowL);
+      if (oneState && Math.hypot(...F) > 1e-6) arrow(L, p, F, arrowL);
     }
   }
   if (r3d && notes.length) {

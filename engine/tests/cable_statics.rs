@@ -7,7 +7,7 @@
 //! displacements solved with Ernst's E_eq·A, and the reactions used the full E: 2 % off on a steel
 //! tripod, and a slack cable kept its stiffness in the reactions.
 
-mod common;
+use crate::common;
 
 use common::make_input;
 use dedaliano_engine::solver::cable;
@@ -90,10 +90,10 @@ fn tripod(tie_down: bool) -> SolverInput3D {
     if tie_down { elements.insert("4".into(), cable(4, 5, 4)); }
     let supports = [1, 2, 3, 5].into_iter().map(|n| (n.to_string(), pin(n))).collect();
     SolverInput3D {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes,
         materials: HashMap::from([("1".into(), SolverMaterial { id: 1, e: 160_000.0, nu: 0.3 })]),
-        sections: HashMap::from([("1".into(), SolverSection3D { id: 1, name: None, a: 1e-3, iy: 1e-10, iz: 1e-10, j: 1e-10, cw: None, as_y: None, as_z: None })]),
+        sections: HashMap::from([("1".into(), SolverSection3D { id: 1, name: None, a: 1e-3, iy: 1e-10, iz: 1e-10, j: 1e-10, cw: None, as_y: None, as_z: None, shear_center_y: None, shear_center_z: None })]),
         elements, supports,
         loads: vec![SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: 4, fx: 0.0, fy: 0.0, fz: -120.0, mx: 0.0, my: 0.0, mz: 0.0, bw: None })],
         constraints: vec![], left_hand: None,
@@ -174,4 +174,86 @@ fn a_slack_cable_can_become_taut_after_load_redistribution() {
     let expected = 5.0 / 11.0;
     assert!((taut.tension - expected).abs() < GEOMETRY * expected, "reactivated tension {} vs {expected}", taut.tension);
     for c in r.cable_forces.iter().filter(|c| c.element_id != 3) { assert_eq!(c.tension, 0.0); }
+}
+
+// ── #527: a cable's own weight, and a pretension given ──────────────
+
+fn heavy(mut i: SolverInput3D, a: f64) -> SolverInput3D {
+    i.sections.get_mut("1").unwrap().a = a;
+    i
+}
+fn warned(r: &cable::CableAnalysisResult3D) -> Option<&StructuredDiagnostic> {
+    r.results.structured_diagnostics.iter().find(|d| d.code == DiagnosticCode::CableSelfWeightTension)
+}
+
+#[test]
+fn heavy_cables_whose_weight_gives_most_of_their_tension_are_warned() {
+    // An IPN 300's 69 cm² typed as cables: T₀³ = EA·(w·l_h)²/24 gives T₀ ≈ 78 kN on each, over
+    // the 50 kN the statics give them.
+    let r = cable::solve_cable_3d(&heavy(tripod(false), 6.9e-3), &steel(), 100, 1e-10).unwrap();
+    let d = warned(&r).expect("the self-weight tension must be warned");
+    assert_eq!(d.severity, Severity::Warning);
+    let mut ids = d.element_ids.clone();
+    ids.sort();
+    assert_eq!(ids, vec![1, 2, 3]);
+    assert!(d.value.unwrap() > 1.0 && d.threshold == Some(cable::SELF_WEIGHT_SHARE));
+    // The 10 cm² cables of the tripod: T₀ ≈ 11 kN of 50, under a quarter.
+    let light = cable::solve_cable_3d(&tripod(false), &steel(), 100, 1e-10).unwrap();
+    assert!(warned(&light).is_none());
+}
+
+#[test]
+fn a_weightless_cable_is_never_warned() {
+    let r = cable::solve_cable_3d(&heavy(tripod(false), 6.9e-3), &HashMap::new(), 100, 1e-10).unwrap();
+    assert!(warned(&r).is_none());
+}
+
+/// Two cables in a line, 10 m each, between two pins through a free node, loaded by nothing:
+/// the tension is the pretension.
+fn single() -> SolverInput3D {
+    let mut i = tripod(false);
+    i.nodes = HashMap::from([
+        ("1".into(), SolverNode3D { id: 1, x: 0.0, y: 0.0, z: 0.0 }),
+        ("2".into(), SolverNode3D { id: 2, x: 20.0, y: 0.0, z: 0.0 }),
+        ("3".into(), SolverNode3D { id: 3, x: 10.0, y: 0.0, z: 0.0 }),
+    ]);
+    let e = i.elements.remove("1").unwrap();
+    i.elements = HashMap::from([
+        ("1".into(), SolverElement3D { node_i: 1, node_j: 3, ..e.clone() }),
+        ("2".into(), SolverElement3D { id: 2, node_i: 3, node_j: 2, ..e }),
+    ]);
+    // The middle node slides along the line only: two collinear cables give it no stiffness across.
+    let mut supports: HashMap<String, SolverSupport3D> = [1, 2].into_iter().map(|n| (n.to_string(), pin(n))).collect();
+    supports.insert("3".into(), SolverSupport3D { rx: false, ..pin(3) });
+    i.supports = supports;
+    i.loads = vec![];
+    i
+}
+
+#[test]
+fn a_pretension_given_is_reproduced_and_sets_the_unstressed_length() {
+    for t in [5.0, 20.0, 80.0] {
+        let p = HashMap::from([("1".to_string(), t), ("2".to_string(), t)]);
+        let r = cable::solve_cable_3d_pretensioned(&single(), &steel(), &p, 100, 1e-12).unwrap();
+        assert!(r.converged);
+        // Its unstressed length: ε = T/EA − (w·l)²/(24 T²) on the 10 m chord.
+        let (ea, wl) = (160e6 * 1e-3, RHO / 1000.0 * 1e-3 * 9.80665 * 10.0);
+        let eps = t / ea - wl * wl / (24.0 * t * t);
+        for c in &r.cable_forces {
+            assert!((c.tension - t).abs() < 1e-6 * t, "T = {} for {t}", c.tension);
+            assert!((c.unstretched_length - 10.0 / (1.0 + eps)).abs() < 1e-12, "{}", c.unstretched_length);
+        }
+        assert!(warned(&r).is_none(), "a cable given its pretension is not warned");
+    }
+    // Without one, the cable is as long as its chord and hangs at T₀.
+    let r = cable::solve_cable_3d(&single(), &steel(), 100, 1e-12).unwrap();
+    assert!(r.cable_forces.iter().all(|c| c.unstretched_length == 10.0));
+}
+
+#[test]
+fn a_pretension_that_is_not_a_positive_force_is_refused() {
+    for t in [0.0, -5.0, f64::NAN] {
+        let p = HashMap::from([("1".to_string(), t)]);
+        assert!(cable::solve_cable_3d_pretensioned(&single(), &steel(), &p, 100, 1e-12).is_err(), "{t}");
+    }
 }

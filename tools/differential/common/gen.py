@@ -83,6 +83,8 @@ def restrict(model, caps):
             elif k != "nodeId" and v is not None:
                 t[k] = v
     m["supports"] = {str(k + 1): v for k, v in enumerate(merged[n] for n in sorted(merged))}
+    if any(f in s for s in m["supports"].values() for f in FLAGS):
+        m = gen_models._imposed_settlements_only(m, 3)
     return m
 
 
@@ -106,7 +108,7 @@ def frame2d(seed):
 
 def frame3d(seed):
     rng = random.Random(seed ^ 0x5F3D)
-    m = restrict(gen_models.rich_3d(seed), {"timoshenko", "point_load", "partial_load", "axial_load"})
+    m = restrict(gen_models.rich_3d_raw(seed), {"timoshenko", "point_load", "partial_load", "axial_load"})
     if rng.random() < 0.4:
         for s in m["sections"].values():
             k = rng.uniform(0.3, 0.9)
@@ -200,7 +202,7 @@ def building(seed, timo=None, uniform_only=False, braces=True):
 
 def modal3d(seed):
     rng = random.Random(seed)
-    m = building(seed, timo=False) if rng.random() < 0.5 else restrict(gen_models.rich_3d(seed), set())
+    m = building(seed, timo=False) if rng.random() < 0.5 else restrict(gen_models.rich_3d_raw(seed), set())
     m["loads"] = []
     for s in m["sections"].values():
         s["j"] = s["iy"] + s["iz"]
@@ -218,7 +220,7 @@ def pdelta3d(seed):
     if rng.random() < 0.7:
         m = building(seed, timo=False, uniform_only=True, braces=rng.random() < 0.5)
     else:
-        m = restrict(gen_models.rich_3d(seed), set())
+        m = restrict(gen_models.rich_3d_raw(seed), set())
     # Heavy gravity on top nodes: scaled down later by the driver if the
     # engine reports an unstable P-Delta.
     zmax = max(n["z"] for n in m["nodes"].values())
@@ -228,6 +230,11 @@ def pdelta3d(seed):
         m["loads"].append({"type": "nodal", "data": {"nodeId": n, "fx": rng.uniform(-10, 10), "fy": rng.uniform(-10, 10),
                                                      "fz": -scale * rng.uniform(0.5, 1.0),
                                                      "mx": 0.0, "my": 0.0, "mz": 0.0}})
+    # J = Iy + Iz: stabileo's K_G carries the Wagner term N r0^2 / L with
+    # r0^2 = (Iy + Iz) / A about the shear centre (fe99db4aa, #404), Frame3DD's
+    # the torsional term N J / (A L); they agree when J = Iy + Iz.
+    for s in m["sections"].values():
+        s["j"] = s["iy"] + s["iz"]
     return m
 
 

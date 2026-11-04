@@ -293,6 +293,7 @@ fn chimney_temperature_gradient() {
             element_id: i + 1,
             dt_uniform: 0.0,
             dt_gradient: dt_gradient,
+            alpha: Some(alpha), depth: Some(d),
         }));
     }
 
@@ -311,14 +312,14 @@ fn chimney_temperature_gradient() {
     let delta_exact: f64 = alpha * dt_gradient * h * h / (2.0 * d);
 
     let d_tip = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
-    assert_close(d_tip.uz.abs(), delta_exact, 0.05,
+    assert_close(d_tip.uz.abs(), delta_exact, 1e-6,
         "Thermal gradient: δ_tip = α*ΔT*L²/(2d)");
 
     // For a cantilever, the base moment should be zero (free to deform)
     // Actually for cantilever with thermal gradient, M is constant = 0
     // because the cantilever is free to curve. Reactions have zero moment.
     let r = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r.my, 0.0, 0.05, "Thermal gradient cantilever: M_base ≈ 0");
+    assert_close_abs(r.my, 0.0, 0.05, 1e-6, "Thermal gradient cantilever: M_base ≈ 0");
 }
 
 // ================================================================
@@ -501,7 +502,7 @@ fn chimney_guy_wire_spring_support() {
     });
 
     let input_guyed = SolverInput {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes: nodes_map, materials: mats_map, sections: secs_map,
         elements: elems_map, supports: sups_map, loads: loads_guyed,
     constraints: vec![],

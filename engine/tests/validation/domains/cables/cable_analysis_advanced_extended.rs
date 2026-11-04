@@ -205,15 +205,17 @@ fn cable_advanced_ext_parabolic_ordinate() {
 // ================================================================
 //
 // The Ernst tangent modulus gives the instantaneous stiffness for
-// incremental (iterative) cable analysis:
+// incremental (iterative) cable analysis. The chord of a shallow elastic
+// cable obeys ε = T/EA − (wL)²/(24T²) + const, so
 //
-//   E_tan = dF/dε = E * [1 + α*(1 - 3α/(1+α))] / (1+α)^2
+//   E_tan = dσ/dε = E / (1 + α),   α = (wL)^2 * EA / (12 T^3),
 //
-// where α = (wL)^2 * EA / (12 T^3).
+// which is Ernst's equivalent modulus itself (SP-11, #415: this helper
+// used to return E(1 + α(1 − 3α/(1+α)))/(1+α)², negative for moderate α).
 //
 // Key properties:
-//   - At very high tension, E_tan -> E (same as secant modulus)
-//   - At moderate tension, E_tan < E_eq (tangent is softer than secant)
+//   - At very high tension, E_tan -> E
+//   - It equals E_eq at every tension and is the derivative of the chord law
 //   - E_tan is always positive for positive tension
 //   - For zero sag (w=0 or L=0), E_tan = E
 //
@@ -241,14 +243,12 @@ fn cable_advanced_ext_ernst_tangent_modulus() {
     let e_tan_mod = element::ernst_tangent_modulus(e, a, w, l_h, t_mod);
     let e_eq_mod = element::ernst_equivalent_modulus(e, a, w, l_h, t_mod);
 
-    // Tangent modulus should be less than or equal to secant (equivalent) modulus
-    // at the same tension level
-    assert!(
-        e_tan_mod <= e_eq_mod + 1e-3,
-        "Ernst tangent: E_tan ({:.0}) <= E_eq ({:.0}) at moderate T",
-        e_tan_mod,
-        e_eq_mod
-    );
+    // The tangent is Ernst's modulus: the derivative of the chord law
+    let eps = |t: f64| t / (e * a) - (w * l_h).powi(2) / (24.0 * t * t);
+    let dt = 1e-4 * t_mod;
+    let fd = 2.0 * dt / (eps(t_mod + dt) - eps(t_mod - dt)) / a;
+    assert_close(e_tan_mod, fd, 1e-6, "Ernst tangent: dT/dε/A of the chord law");
+    assert_close(e_tan_mod, e_eq_mod, 1e-12, "Ernst tangent: E_tan = E_eq");
 
     // Both should be less than E
     assert!(
@@ -262,11 +262,9 @@ fn cable_advanced_ext_ernst_tangent_modulus() {
         "Ernst tangent: E_tan > 0 and E_eq > 0"
     );
 
-    // Case 3: Lower tension — tangent modulus decreases faster than equivalent
-    // Note: At very low tension, the Ernst tangent modulus can become negative
-    // (indicating the cable has entered a sag-dominated regime where incremental
-    // stiffness is lost). We use a moderate-low tension to stay in the valid range.
-    let t_low: f64 = 600.0; // kN
+    // Case 3: Lower tension — lower tangent modulus, still positive (the old
+    // formula went negative here: the chord law has no softening branch).
+    let t_low: f64 = 100.0; // kN
     let e_tan_low = element::ernst_tangent_modulus(e, a, w, l_h, t_low);
     let _e_eq_low = element::ernst_equivalent_modulus(e, a, w, l_h, t_low);
 

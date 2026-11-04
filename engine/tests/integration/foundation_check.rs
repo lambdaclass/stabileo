@@ -17,7 +17,7 @@ fn foundation_concentric_bearing() {
             col_width: 0.40,
             d: None,
             mu_sliding: None,
-            rho_w: None,
+            rho_w: None, neglect_size_effect: None,
         }],
         forces: vec![SpreadFootingForces {
             footing_id: 1,
@@ -57,7 +57,7 @@ fn foundation_eccentric_bearing() {
             col_width: 0.40,
             d: None,
             mu_sliding: None,
-            rho_w: None,
+            rho_w: None, neglect_size_effect: None,
         }],
         forces: vec![SpreadFootingForces {
             footing_id: 1,
@@ -106,7 +106,7 @@ fn foundation_bearing_fails() {
             col_width: 0.30,
             d: None,
             mu_sliding: None,
-            rho_w: None,
+            rho_w: None, neglect_size_effect: None,
         }],
         forces: vec![SpreadFootingForces {
             footing_id: 1,
@@ -142,7 +142,7 @@ fn foundation_overturning() {
             col_width: 0.50,
             d: None,
             mu_sliding: None,
-            rho_w: None,
+            rho_w: None, neglect_size_effect: None,
         }],
         forces: vec![SpreadFootingForces {
             footing_id: 1,
@@ -191,7 +191,7 @@ fn foundation_sliding() {
             col_width: 0.40,
             d: None,
             mu_sliding: Some(0.45),
-            rho_w: None,
+            rho_w: None, neglect_size_effect: None,
         }],
         forces: vec![SpreadFootingForces {
             footing_id: 1,
@@ -234,7 +234,7 @@ fn foundation_oneway_shear() {
             col_width: 0.40,
             d: Some(0.425), // d = 500 - 75 = 425mm
             mu_sliding: None,
-            rho_w: None,
+            rho_w: None, neglect_size_effect: None,
         }],
         forces: vec![SpreadFootingForces {
             footing_id: 1,
@@ -275,7 +275,7 @@ fn foundation_punching_shear() {
             col_width: 0.30,
             d: Some(0.325),
             mu_sliding: None,
-            rho_w: None,
+            rho_w: None, neglect_size_effect: None,
         }],
         forces: vec![SpreadFootingForces {
             footing_id: 1,
@@ -320,7 +320,7 @@ fn foundation_multiple_footings() {
                 col_width: 0.50,
                 d: None,
                 mu_sliding: None,
-                rho_w: None,
+                rho_w: None, neglect_size_effect: None,
             },
             SpreadFootingData {
                 footing_id: 1,
@@ -335,7 +335,7 @@ fn foundation_multiple_footings() {
                 col_width: 0.40,
                 d: None,
                 mu_sliding: None,
-                rho_w: None,
+                rho_w: None, neglect_size_effect: None,
             },
         ],
         forces: vec![
@@ -377,7 +377,7 @@ fn punching_includes_the_size_factor() {
         footings: vec![SpreadFootingData {
             footing_id: 1, length: 3.0, width: 3.0, thickness: 0.60, depth: 1.0,
             q_allowable: 1e9, gamma_soil: 18_000.0, fc: 25e6, col_length: 0.40, col_width: 0.40,
-            d: None, mu_sliding: None, rho_w: None,
+            d: None, mu_sliding: None, rho_w: None, neglect_size_effect: None,
         }],
         forces: vec![SpreadFootingForces { footing_id: 1, p: 1_500_000.0, mx: None, my: None, h: None }],
     });

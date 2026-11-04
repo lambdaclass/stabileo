@@ -70,9 +70,10 @@ geometric/material nonlinear paths (corotational, material nonlinearity): per-it
 state updates operate on the same consistently back-rotated frame, not the raw mixed-frame
 solve vector.
 
-Dynamics paths (modal, spectral, harmonic, time history) do not yet back-rotate
-inclined-support DOFs — mode shapes and time-history displacements at such nodes
-are reported in the rotated support frame.
+Dynamics paths (modal, spectral, harmonic, time history) also back-rotate
+inclined-support DOFs: mode shapes and time-history displacements are reported in
+global axes (`engine/tests/inclined_support_analyses.rs`; see
+[mass-geometric-dynamics.md §10](solver/mass-geometric-dynamics.md)).
 
 Support-local reaction components are not yet exposed; if added, they will be an
 additive field, not a change to the global-frame default.
@@ -156,7 +157,22 @@ How to read the outcome:
   the model. When shifted IC restores degraded pivots, an info diagnostic
   reports how many.
 
-## 5. Diagnostics and Trust
+## 5. Element and Solver Formulations (for independent review)
+
+The mathematics of every element and key solver formulation, written so a structural engineer
+or FE specialist can review the math without reading the code. Each file gives the assumptions,
+conventions, derivations of K, M, Kg and the equivalent loads, limits of validity, references,
+the tests that verify each part, and the open questions found while writing it.
+
+- [Review guide](solver/REVIEW_GUIDE.md): where to start and what to check
+- [Frames and trusses](solver/frames.md)
+- [Shells and plates](solver/shells.md)
+- [Cables, curved beams, connectors, fiber beams](solver/special-elements.md)
+- [Assembly, supports and constraints](solver/assembly-constraints.md)
+- [Geometric stiffness, mass and dynamics](solver/mass-geometric-dynamics.md)
+- [Nonlinear formulations](solver/nonlinear.md)
+
+## 6. Diagnostics and Trust
 
 The repo treats trust as a first-class product surface, not a hidden implementation detail.
 
@@ -166,16 +182,16 @@ Use these docs for that layer:
 - [BENCHMARKS.md](BENCHMARKS.md)
 - [SOLVER_ROADMAP.md](roadmap/SOLVER_ROADMAP.md)
 
-## 6. Engine, Web, and AI Seams
+## 7. Engine, Web, and AI Seams
 
 If you need implementation-level detail, start with:
 
 - [`engine/README.md`](../engine/README.md)
 - [`web/src/lib/engine/`](../web/src/lib/engine)
 - [`web/src/lib/ai/client.ts`](../web/src/lib/ai/client.ts)
-- [`backend/src/main.rs`](../backend/src/main.rs)
+- [`ai-backend/src/main.rs`](../ai-backend/src/main.rs)
 
-## 7. Recommended Reading Order
+## 8. Recommended Reading Order
 
 If you are new:
 

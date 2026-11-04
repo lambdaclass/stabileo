@@ -1,4 +1,8 @@
 <script lang="ts">
+  import VariableSectionNotice from './design/VariableSectionNotice.svelte';
+  import SheetsPanel from './design/SheetsPanel.svelte';
+  import MemoriaButton from './design/MemoriaButton.svelte';
+  import ExchangePanel from './design/ExchangePanel.svelte';
   import ProSteelOptimise from './ProSteelOptimise.svelte';
   /**
    * Flujo de diseño metálico — the whole workflow, including the part that cannot happen.
@@ -58,6 +62,7 @@
   import { CIRSOC301_CLAUSE_MAP, CIRSOC301_CLAUSES_UNVALIDATED } from '../../lib/engine/design/adapters/cirsoc301-clause-map';
   import { e4Applicability, e4GapKey } from '../../lib/engine/steel/torsional-buckling';
   import { f62Report, f62BranchKey } from '../../lib/engine/steel/flange-local-buckling';
+  import { steelSectionConstants } from '../../lib/engine/steel/section-constants';
   import { structuralGradeSource } from '../../lib/grades/catalogue';
   import { steelProfileSource } from '../../lib/profiles/catalogue';
   import { CIRSOC301_JS_ASSUMPTIONS } from '../../lib/engine/design/adapters/cirsoc301-capabilities';
@@ -185,25 +190,23 @@
       ? modelStore.model.sections.get(sectionOf(sRows[0].elementId) ?? -1)
       : undefined,
   );
-  const e4 = $derived(e4Applicability({
-    shape: (firstSection as { shape?: string } | undefined)?.shape,
-    j: (firstSection as { j?: number } | undefined)?.j,
-  }));
-  // Fy selects F.6.2's branch (Table B.4.1b case 14), the same limits the checker applies.
   const firstMaterial = $derived(
-    sRows.length > 0
-      ? modelStore.model.materials.get(
-          (modelStore.model.elements.get(sRows[0].elementId) as { materialId?: number } | undefined)?.materialId ?? -1,
-        )
-      : undefined,
+    sRows.length > 0 ? modelStore.model.materials.get(modelStore.model.elements.get(sRows[0].elementId)?.materialId ?? -1) : undefined,
   );
+  const e4 = $derived.by(() => {
+    const k = firstSection ? steelSectionConstants(firstSection as never) : undefined;
+    return e4Applicability({
+      shape: (firstSection as { shape?: string } | undefined)?.shape,
+      j: k?.J ?? (firstSection as { j?: number } | undefined)?.j,
+      ...(k?.Cw !== undefined ? { cw: k.Cw * 1e12 } : {}),
+    });
+  });
   const f62 = $derived(f62Report({
     shape: (firstSection as { shape?: string } | undefined)?.shape,
     b: (firstSection as { b?: number } | undefined)?.b,
     tf: (firstSection as { tf?: number } | undefined)?.tf,
     iMinor: (firstSection as { iz?: number } | undefined)?.iz,
-    fy: (firstMaterial as { fy?: number } | undefined)?.fy,
-    e: (firstMaterial as { e?: number } | undefined)?.e,
+    ...(firstMaterial?.fy ? { fy: firstMaterial.fy } : {}), ...(firstMaterial?.e ? { e: firstMaterial.e } : {}),
   }));
 
   const LIMITATIONS = [
@@ -360,6 +363,7 @@
 </script>
 
 <div class="steel-workflow" data-testid="pro-steel-workflow">
+  <VariableSectionNotice testid="steel-variable-section" />
   <!-- ── 1 · Modelling ──────────────────────────────────────────── -->
   <StageSection
     testid="steel-stage-model" step={1}
@@ -806,6 +810,10 @@
     bind:open={documentsOpen}
   >
     <p class="line" data-testid="steel-stage-documents-body">{t('steel.workflow.documents.body')}</p>
+    <!-- The framing, anchor and joint drawings read the model and the joints: no detailing. -->
+    <MemoriaButton />
+    <SheetsPanel resolve={() => null} projectName={modelStore.model.detailing?.titleBlock?.project || t('detailing.doc.project')} />
+    <ExchangePanel projectName={modelStore.model.detailing?.titleBlock?.project || modelStore.model.name} />
   </StageSection>
 
   <!--

@@ -22,6 +22,7 @@ import type {
 } from './solver-detailed';
 
 import { computeLocalAxes3D } from './local-axes-3d';
+import { loadAlpha, loadDepth } from './thermal-alpha';
 
 // ─── Inlined stiffness/transformation primitives (pedagogical tool) ──
 
@@ -953,7 +954,8 @@ function assembleDistLoadDetailed(
 
 /**
  * Thermal equivalent loads for one frame element, local 12-vector — the
- * analysis solver's `fef_thermal_3d` convention (α = 12e-6, h = √(12 I / A)),
+ * analysis solver's `fef_thermal_3d` convention (the load's α and depths, else
+ * α = 12e-6 and h = √(12 I / A): `thermal-alpha.ts`),
  * with the same per-axis hinge condensation the other loads get.
  *
  * Thermal loads were not read at all: the wizard showed a load vector
@@ -967,13 +969,13 @@ function thermalEquivalent3D(
   const mat = input.materials.get(elem.materialId)!;
   const sec = input.sections.get(elem.sectionId)!;
   const E = mat.e * 1000;
-  const alpha = 12e-6;
-  const hy = sec.a > 1e-15 ? Math.sqrt(12 * sec.iz / sec.a) : 0.1;
-  const hz = sec.a > 1e-15 ? Math.sqrt(12 * sec.iy / sec.a) : 0.1;
   for (const load of input.loads) {
     if (load.type !== 'thermal' || load.data.elementId !== elem.id) continue;
     any = true;
     const tl = load.data as SolverThermalLoad3D;
+    const alpha = loadAlpha(tl);
+    const hy = loadDepth(tl.depthY, sec.a, sec.iz);
+    const hz = loadDepth(tl.depthZ, sec.a, sec.iy);
     const fx = E * sec.a * alpha * (tl.dtUniform ?? 0);
     f[0] += -fx; f[6] += fx;
     const mz = hy > 1e-12 ? E * sec.iz * alpha * (tl.dtGradientY ?? 0) / hy : 0;
@@ -991,14 +993,14 @@ function thermalEquivalent3D(
   return any ? f : null;
 }
 
-/** E·A·α·ΔT of a truss bar's uniform temperature change (α as the analysis solver uses, 12e-6). */
+/** E·A·α·ΔT of a truss bar's uniform temperature change (each load's α as the analysis reads it). */
 function trussThermalForce3D(input: SolverInput3D, elem: SolverElement3D): number {
-  let dt = 0;
-  for (const l of input.loads) if (l.type === 'thermal' && l.data.elementId === elem.id) dt += l.data.dtUniform ?? 0;
-  if (!dt) return 0;
+  let eps = 0;
+  for (const l of input.loads) if (l.type === 'thermal' && l.data.elementId === elem.id) eps += loadAlpha(l.data) * (l.data.dtUniform ?? 0);
+  if (!eps) return 0;
   const mat = input.materials.get(elem.materialId)!;
   const sec = input.sections.get(elem.sectionId)!;
-  return mat.e * 1000 * sec.a * 12e-6 * dt;
+  return mat.e * 1000 * sec.a * eps;
 }
 
 function assemblePointLoadDetailed(

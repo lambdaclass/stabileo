@@ -23,6 +23,8 @@ fn timber(b: f64, d: f64, le: f64, lu: Option<f64>, e: f64, e_min: Option<f64>) 
         d,
         le,
         lu,
+        le_b: None,
+            le_bending: None,
         cd: None, cm: None, ct: None,
         cf_bending: None, cf_tension: None, cf_compression: None,
         cfu: None, ci: None, cr: None,
@@ -265,6 +267,7 @@ fn w14x22_without_depth(lb: f64) -> SteelMemberData {
         fu: None,
         aw: None,
         cv1: None,
+        aw_weak: None,
         an: None,
         u_factor: None,
         lby: lb,
@@ -289,6 +292,7 @@ fn w14x22_without_depth(lb: f64) -> SteelMemberData {
         flange_slenderness: None,
         compression_elements: None,
         // The expected 49.8 kN·m is the F2-4 value at the shear centre.
+        lcz: None,
         load_position: Some(AiscLoadPosition::ShearCentre),
     }
 }
@@ -314,7 +318,7 @@ fn aisc_flange_centroid_distance_comes_from_the_warping_constant() {
     let results = check_steel_members(&SteelCheckInput {
         members: vec![w14x22_without_depth(5.0)],
         forces: vec![ElementDesignForces {
-            element_id: 1, n: 0.0, my: 30_000.0, mz: None, vy: None,
+            element_id: 1, n: 0.0, my: 30_000.0, mz: None, v_weak: None, v_strong: None,
         }],
     });
     let r = &results[0];
@@ -335,12 +339,12 @@ fn aisc_explicit_depth_agrees_with_the_derived_value() {
 
     let derived = check_steel_members(&SteelCheckInput {
         members: vec![w14x22_without_depth(5.0)],
-        forces: vec![ElementDesignForces { element_id: 1, n: 0.0, my: 30_000.0, mz: None, vy: None }],
+        forces: vec![ElementDesignForces { element_id: 1, n: 0.0, my: 30_000.0, mz: None, v_weak: None, v_strong: None }],
     })[0].phi_mn_y;
 
     let explicit = check_steel_members(&SteelCheckInput {
         members: vec![with_depth],
-        forces: vec![ElementDesignForces { element_id: 1, n: 0.0, my: 30_000.0, mz: None, vy: None }],
+        forces: vec![ElementDesignForces { element_id: 1, n: 0.0, my: 30_000.0, mz: None, v_weak: None, v_strong: None }],
     })[0].phi_mn_y;
 
     assert!(

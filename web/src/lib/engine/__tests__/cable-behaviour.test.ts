@@ -53,11 +53,33 @@ describe('a cable', () => {
 
   it('goes slack where it would be compressed', () => {
     const { ids } = tripod(true);
+    // Weightless: a cable with weight is never exactly slack (SA-2026-015, below).
+    for (const id of modelStore.materials.keys()) modelStore.updateMaterial(id, { rho: 0 });
     const r = modelStore.solveCombinations3D(false, false, true);
     if (!r || typeof r === 'string') throw new Error(String(r));
     const res = [...r.perCombo.values()][0]!;
     const tie = res.nonlinear!.cables!.find((c) => c.elementId === ids[3])!;
     expect(Math.abs(tie.tension)).toBeLessThan(1e-9 * P);
+  });
+
+  it('with its weight, hangs from its chord at the chord-law tension', () => {
+    /*
+     * The unstressed length of a cable is its chord as drawn, so a cable with weight must stretch
+     * to sag: with no load it hangs at T₀³ = EA·(w·l_h)²/24 (SA-2026-015). The three heavy tripod
+     * cables pull the hub up by that much and the vertical tie, which has no sag, holds it: it
+     * carries tension although the load alone would compress it. The statics still close.
+     */
+    const { ids } = tripod(true);
+    const r = modelStore.solveCombinations3D(false, false, true);
+    if (!r || typeof r === 'string') throw new Error(String(r));
+    const res = [...r.perCombo.values()][0]!;
+    const cables = res.nonlinear!.cables!;
+    const tie = cables.find((c) => c.elementId === ids[3])!;
+    const legs = cables.filter((c) => c.elementId !== ids[3]);
+    expect(tie.tension).toBeGreaterThan(0);
+    // Hub equilibrium: the legs' vertical components carry the load and the tie.
+    for (const c of legs) expect(c.tension * 0.8 * 3).toBeCloseTo(P + tie.tension, 4);
+    expect(res.reactions.reduce((s, x) => s + x.fz, 0)).toBeCloseTo(P, 6);
   });
 
   it('is a truss to the other analyses', async () => {
@@ -69,12 +91,12 @@ describe('a cable', () => {
   });
 });
 
-describe('a cable whose iteration does not settle', () => {
+describe('a cable that shares its load with a column', () => {
   /*
    * A horizontal 6 m rod from the head of a cantilever column to an anchor, the head pulled away
    * from it. The cable shares the pull with the column and carries little tension for its own
-   * weight: the engine's equivalent-modulus iteration oscillates there, and more iterations do
-   * not help. That used to abort the whole analysis with "the cable analysis did not converge".
+   * weight. The old equivalent-modulus iteration oscillated here and reported "did not converge";
+   * Newton on the chord law converges (SA-2026-015).
    */
   function headTie(pull: number) {
     const foot = modelStore.addNode(0, 0, 0), head = modelStore.addNode(0, 0, 4), anchor = modelStore.addNode(6, 0, 4);
@@ -88,16 +110,14 @@ describe('a cable whose iteration does not settle', () => {
     return cable;
   }
 
-  it('is reported, with the results of the last iteration, and does not abort the analysis', async () => {
+  it('converges, and the statics close on the pull', async () => {
     const cable = headTie(5);
     const r = await modelStore.solve3DAsync(false, false, true);
     expect(typeof r, String(r)).toBe('object');
     const res = r as import('../types-3d').AnalysisResults3D;
-    expect(res.nonlinear?.converged).toBe(false);
-    expect(res.nonlinear?.cablesConverged).toBe(false);
+    expect(res.nonlinear?.cablesConverged).toBeUndefined();
     expect(res.nonlinear?.cables?.map((c) => c.elementId)).toEqual([cable]);
-    // Whatever the cable did, the statics still close on the pull.
+    expect(res.nonlinear!.cables![0]!.tension).toBeGreaterThan(0);
     expect(res.reactions.reduce((s, x) => s + x.fx, 0)).toBeCloseTo(5, 6);
   });
 });
-

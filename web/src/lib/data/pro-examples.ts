@@ -29,6 +29,8 @@ import { modelStore } from '../store/model.svelte';
 import { t } from '../i18n';
 import { windCaseReversible } from '../store/wind-reversal';
 import { generateCombinations } from '../codes/cirsoc101/combinations';
+import { initSolver } from '../engine/wasm-solver';
+import { EngineUnavailableError } from '../engine/engine-unavailable';
 import { withOrigin } from '../codes/families';
 import { CIRSOC101_BASIS } from '../codes/families/cirsoc';
 import { expandCombinations, presentSymbols } from '../engine/loads/combination-cases';
@@ -130,6 +132,9 @@ function regulationCombinations(bothSenses: boolean): void {
 }
 
 async function loadExample(ex: ProExample): Promise<void> {
+  // The regulation's combinations come from the engine: an example opened while it is still
+  // loading waits for it rather than fail.
+  try { await initSolver(); } catch { throw new EngineUnavailableError("the example's combinations"); }
   if (ex.source === 'code') await loadCodeExample(ex.id as CodeExampleId);
   else await modelStore.loadExample(ex.id);
   modelStore.batch(() => {

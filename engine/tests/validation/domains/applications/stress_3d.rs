@@ -224,6 +224,41 @@ fn validation_stress_3d_torsion() {
     assert!(tau_t_max > 0.0, "Torsion shear should be non-zero");
 }
 
+/// The app sends a rectangle resolved with zero wall thicknesses (`resolveSectionGeometryLegacy`).
+/// Its torsional shear is Mx·min(b,h)/J, not zero: the engine took max(tw, tf, t) = 0 and
+/// reported no torsion at all (found by the differential test against the TypeScript oracle).
+#[test]
+fn validation_stress_3d_torsion_rect_with_zero_thicknesses() {
+    let (b, h, mx): (f64, f64, f64) = (0.1, 0.2, 2.0);
+    let mut section = rect_section(b, h);
+    section.tw = Some(0.0);
+    section.tf = Some(0.0);
+    section.t = Some(0.0);
+    let j = section.j.unwrap();
+    let r = compute_stress_3d_from_raw(0.0, 0.0, 0.0, mx, 0.0, 0.0, &section, None, Some(0.0), Some(0.0));
+    let expected = mx * b.min(h) / j / 1000.0;
+    assert!((r.tau_torsion.abs() - expected).abs() < 1e-12 * expected, "{} vs {expected}", r.tau_torsion);
+}
+
+/// A thin tube peaks at 2V/A in shear, both from Vz over the depth and from Vy over the width.
+/// The 3D engine reported half of it (one-sided Q over the two-sided width).
+#[test]
+fn validation_stress_3d_chs_shear_peaks_at_2v_over_a() {
+    let (d, t): (f64, f64) = (0.3, 0.004);
+    let r = d / 2.0;
+    let i = std::f64::consts::PI / 4.0 * (r.powi(4) - (r - t).powi(4));
+    let section = SectionGeometry {
+        shape: "CHS".into(), a: std::f64::consts::PI * (r * r - (r - t).powi(2)), iy: i, iz: i,
+        j: Some(2.0 * i), h: d, b: d, tw: Some(0.0), tf: Some(0.0), t: Some(t),
+    };
+    let v = 10.0;
+    let expected = v * r * r / i / 1000.0; // V·R·√(R²−0)/I
+    let z = compute_stress_3d_from_raw(0.0, 0.0, v, 0.0, 0.0, 0.0, &section, None, Some(0.0), Some(0.0));
+    assert!((z.tau_vz_at_fiber.abs() - expected).abs() < 1e-12 * expected, "{} vs {expected}", z.tau_vz_at_fiber);
+    let y = compute_stress_3d_from_raw(0.0, v, 0.0, 0.0, 0.0, 0.0, &section, None, Some(0.0), Some(0.0));
+    assert!((y.tau_vy_at_fiber.abs() - expected).abs() < 1e-12 * expected, "{} vs {expected}", y.tau_vy_at_fiber);
+}
+
 // ================================================================
 // 5. Von Mises: Combined Bending + Shear
 // ================================================================

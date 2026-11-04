@@ -22,9 +22,11 @@
 
 import { describe, it, expect } from 'vitest';
 import {
-  circularSegment, barRing, generateCircularInteraction,
+  barRing, generateCircularInteraction,
   checkColumnCircular, designCircular, type CircularParams,
 } from '../cirsoc201-circular';
+/* The closed form is the TypeScript oracle's now; the engine clips a 360-gon (see section-engine.test). */
+import { circularSegment } from '../../../__tests__/differential/oracle/cirsoc201-circular';
 
 const COL: CircularParams = {
   D: 0.50, fc: 25, fy: 420, cover: 0.05, AstCm2: 40, barCount: 8,

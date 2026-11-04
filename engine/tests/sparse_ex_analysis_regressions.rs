@@ -67,7 +67,7 @@ fn model(rotated: bool, loads: &[(usize, f64, f64)]) -> SolverInput {
     }).collect();
     SolverInput {
         nodes, materials, sections, elements, supports, loads,
-        constraints: vec![], connectors: HashMap::new(), solver_options: None,
+        constraints: vec![], connectors: HashMap::new(), solver_options: None, masses: Default::default(),
     }
 }
 
@@ -297,7 +297,7 @@ fn column_3d(inclined: bool) -> SolverInput3D {
     let mut materials = HashMap::new();
     materials.insert("1".to_string(), SolverMaterial { id: 1, e: 200_000.0, nu: 0.3 });
     let mut sections = HashMap::new();
-    sections.insert("1".to_string(), SolverSection3D { id: 1, name: None, a: 0.01, iy: 1e-4, iz: 1e-4, j: 2e-4, cw: None, as_y: None, as_z: None });
+    sections.insert("1".to_string(), SolverSection3D { id: 1, name: None, a: 0.01, iy: 1e-4, iz: 1e-4, j: 2e-4, cw: None, as_y: None, as_z: None, shear_center_y: None, shear_center_z: None });
     let mut elements = HashMap::new();
     for (id, ni, nj) in [(1, 1, 2), (2, 2, 3)] {
         elements.insert(id.to_string(), SolverElement3D {
@@ -323,7 +323,7 @@ fn column_3d(inclined: bool) -> SolverInput3D {
         constraints: vec![], left_hand: None,
         plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(),
         solid_shells: HashMap::new(), curved_shells: HashMap::new(), curved_beams: vec![],
-        connectors: HashMap::new(), solver_options: None,
+        connectors: HashMap::new(), solver_options: None, masses: Default::default(),
     }
 }
 

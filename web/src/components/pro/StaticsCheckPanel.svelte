@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { downloadResultText } from '../../lib/export/provenance-attach';
   import { plainNumber } from '../../lib/utils/units';
   /**
    * Does the structure balance? One row per solved load case.
@@ -14,8 +15,7 @@
    * carries them all.
    */
   import { t, tp } from '../../lib/i18n';
-  import { downloadText } from '../../lib/store/file';
-  import { staticsRows, staticsCsv, BALANCED } from '../../lib/store/statics-rows';
+    import { staticsRows, staticsCsv, BALANCED } from '../../lib/store/statics-rows';
   import type { StaticsCheckRow } from '../../lib/engine/statics-check';
 
   const all = $derived(staticsRows());
@@ -25,7 +25,7 @@
 
   function csv() {
     if (!all) return;
-    downloadText(staticsCsv(all, {
+    void downloadResultText(staticsCsv(all, {
       kind: t('pro.statics.kind'), name: t('pro.statics.case'), caseLabel: t('pro.statics.kindCase'), comboLabel: t('pro.statics.kindCombo'),
       applied: t('pro.statics.applied'), reactions: t('pro.statics.reactions'), residual: t('pro.statics.residual'), relative: t('pro.statics.relative'),
     }), 'statics.csv', 'text/csv;charset=utf-8');

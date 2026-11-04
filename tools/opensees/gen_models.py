@@ -10,9 +10,16 @@ frames, nodal/full-length loads and rigid supports, and mostly mechanisms):
       and rotational springs, settlements, partial trapezoidal loads with
       axial component, point loads.
 
-Geometry and properties stay in engineering ranges so most models are
-well-conditioned; mechanisms are filtered out by the harness (both solvers
-must succeed). Deterministic in the seed.
+Geometry and properties stay in engineering ranges. Hinges and releases
+are drawn at random and often leave a mechanism (a member hanging on a
+hinge, a node free to turn about one axis): before this was checked, 40 %
+of rich3d and 25 % of rich2d models were mechanisms that no comparison
+could use. `stability.py` finds them exactly (independently of stabileo
+and of the references), and in 90 % of the models the hinges / releases
+that cause one are dropped, and nodal moments on rotations nothing
+stiffens are zeroed. The other 10 % are kept as drawn, so that stabileo's
+singularity diagnostics and refusals stay exercised (and cross-checked:
+refused / false_reject / false_warning). Deterministic in the seed.
 """
 
 import json
@@ -34,7 +41,96 @@ def _connected_edges(rng, n, extra):
     return [(i, j, t) if rng.random() < 0.5 else (j, i, t) for i, j, t in out]
 
 
+# Fraction of rich models kept exactly as drawn, mechanisms included.
+KEEP_DEGENERATE = 0.1
+
+
+def _well_posed(m, seed, dim):
+    """Drop the hinges / releases that make m a mechanism (greedily, each
+    one whose removal lowers the number of mechanisms), and the nodal
+    moments on rotations only the engine's artificial stiffness holds;
+    unless this seed keeps its model as drawn (KEEP_DEGENERATE)."""
+    import stability
+    if random.Random(1_000_003 * seed + 17).random() < KEEP_DEGENERATE:
+        return m
+    count = stability.mechanisms_3d if dim == 3 else stability.mechanisms_2d
+    keys = ("hingeStart", "hingeEnd") if dim == 2 else \
+        ("releaseMyStart", "releaseMyEnd", "releaseMzStart", "releaseMzEnd")
+    n = count(m)
+    while n > 0:
+        cands = [(e, k) for _, e in sorted(m["elements"].items(), key=lambda kv: kv[1]["id"])
+                 for k in keys if e.get(k)]
+        if not cands:
+            break
+        for e, k in cands:
+            e[k] = False
+            n2 = count(m)
+            if n2 < n:
+                n = n2
+                break
+            e[k] = True
+        else:
+            for e, k in cands:  # no single release matters alone: drop them all
+                e[k] = False
+            n = count(m)
+    if dim == 2:
+        orphan = stability.orphan_rotation_nodes_2d(m)
+        for ld in m["loads"]:
+            if ld["type"] == "nodal" and ld["data"]["nodeId"] in orphan:
+                ld["data"]["my"] = 0.0
+    return m
+
+
 def rich_2d(seed):
+    return _imposed_settlements_only(_well_posed(_rich_2d(seed), seed, 2), 2)
+
+
+def rich_3d(seed):
+    return _imposed_settlements_only(rich_3d_raw(seed), 3)
+
+
+def rich_3d_raw(seed):
+    """rich_3d before dropping the settlements on sprung DOFs: for callers that strip the springs
+    first (common/gen.py restrict) and filter afterwards."""
+    return _well_posed(_rich_3d(seed), seed, 3)
+
+
+# 2D support type -> the local DOFs (ux, uz, ry) it restrains rigidly, as in
+# engine/src/solver/dof.rs is_dof_restrained_2d. A "spring" support restrains
+# none (its stiffness is added to K).
+_RESTRAINED_2D = {
+    "fixed": (0, 1, 2), "pinned": (0, 1), "rollerX": (1,), "rollerY": (0,), "rollerZ": (0,),
+    "guidedX": (1, 2), "guidedY": (0, 2), "guidedZ": (0, 2), "inclinedRoller": (1,),
+}
+
+
+def _imposed_settlements_only(m, dim):
+    """Drop the settlements the engine would refuse (AC-10,
+    docs/solver/assembly-constraints.md; reject_unimposed_settlements_2d/3d in
+    engine/src/solver/linear.rs): a prescribed displacement on a DOF the
+    support leaves free (2D: by support type; 3D: flag not set, or a spring on
+    that direction). The reference programs drop such a value silently, so
+    every model carrying one was a `false_reject` (and was shrunk, which is
+    what made the PyNite and Frame3DD jobs time out). The draws stay as they
+    were, so the rest of each model is unchanged for its seed."""
+    has_frame = any(e.get("type") == "frame" for e in m["elements"].values())
+    for s in m["supports"].values():
+        if dim == 2:
+            keep = _RESTRAINED_2D.get(s.get("type"), ())
+            for i, key in enumerate(("dx", "dz", "dry")):
+                if i not in keep or (i == 2 and not has_frame):
+                    s.pop(key, None)
+        else:
+            for i, (flag, spring, key) in enumerate(zip(
+                    ("rx", "ry", "rz", "rrx", "rry", "rrz"),
+                    ("kx", "ky", "kz", "krx", "kry", "krz"),
+                    ("dx", "dy", "dz", "drx", "dry", "drz"))):
+                if not s.get(flag) or (s.get(spring) or 0.0) > 0.0 or (i >= 3 and not has_frame):
+                    s.pop(key, None)
+    return m
+
+
+def _rich_2d(seed):
     rng = random.Random(seed)
     n = rng.randint(3, 9)
     pts = []
@@ -78,9 +174,12 @@ def rich_2d(seed):
             if rng.random() < 0.4:
                 s["angle"] = rng.uniform(-1.2, 1.2)
         elif rng.random() < 0.3:
-            s["dx"] = rng.uniform(-0.01, 0.01)
-            s["dz"] = rng.uniform(-0.01, 0.01)
-            s["dry"] = rng.uniform(-0.002, 0.002)
+            restrained = {"fixed": (0, 1, 2), "pinned": (0, 1), "rollerX": (1,), "rollerZ": (0,),
+                          "guidedX": (1, 2), "guidedZ": (0, 2)}[typ]
+            for d, (key, amp) in enumerate((("dx", 0.01), ("dz", 0.01), ("dry", 0.002))):
+                v = rng.uniform(-amp, amp)  # drawn either way: the stream stays as it was
+                if d in restrained:
+                    s[key] = v
         sups[str(k)] = s
     loads = []
     lengths = {e["id"]: math.dist(pts[e["nodeI"] - 1], pts[e["nodeJ"] - 1]) for e in elems.values()}
@@ -111,7 +210,7 @@ def rich_2d(seed):
             "supports": sups, "loads": loads}
 
 
-def rich_3d(seed):
+def _rich_3d(seed):
     rng = random.Random(seed)
     n = rng.randint(3, 9)
     pts = []
@@ -163,10 +262,10 @@ def rich_3d(seed):
                 if rng.random() < 0.4:
                     s[key] = rng.uniform(1e3, 1e6)
         if rng.random() < 0.3:
-            for key in ("dx", "dy", "dz"):
-                s[key] = rng.uniform(-0.01, 0.01)
-            for key in ("drx", "dry", "drz"):
-                s[key] = rng.uniform(-0.002, 0.002)
+            for d, key in enumerate(("dx", "dy", "dz", "drx", "dry", "drz")):
+                v = rng.uniform(-0.01, 0.01) if d < 3 else rng.uniform(-0.002, 0.002)
+                if s[flag[d]]:
+                    s[key] = v
         sups[str(k)] = s
     loads = []
     lengths = {e["id"]: math.dist(pts[e["nodeI"] - 1], pts[e["nodeJ"] - 1]) for e in elems.values()}

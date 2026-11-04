@@ -21,6 +21,7 @@ never weaken a property to make a finding go away.
 | `json_dynamics` | same | modal, buckling, spectral, time history, harmonic, each with its certificate (2D/3D) |
 | `json_plastic` | same | incremental plastic collapse and the exact collapse certificate (2D/3D) |
 | `model_certify` | `arbitrary`-built model | linear solve, linear, buckling and modal certificates on small 2D/3D frames that always parse |
+| `metamorphic` | selector byte + model JSON | any model the linear solver accepts gives the same physical answer after a rigid motion, a renumbering and a unit change (`engine/src/metamorphic`, [METAMORPHIC.md](METAMORPHIC.md)) |
 
 The JSON targets go through the same `serde_json` deserialization as `engine/src/lib.rs`,
 so a malformed or hostile model file reaches the code exactly as it would from the web
@@ -113,8 +114,8 @@ JSON), find the root cause, fix it, and keep the test. A timeout is a finding to
 the engine does unbounded work on that input (a bug), or the input is legitimately large,
 in which case record it under *Slow but correct* above and tighten the harness caps.
 
-CI (`.github/workflows/verify.yml`, job `fuzz`) runs each target for 30 minutes nightly
-and on manual dispatch, seeded from the templates, and uploads failing inputs as an
+CI (`.github/workflows/nightly.yml`, job `fuzz`) runs each target for 2 hours on self-hosted runners
+and 30 minutes on hosted fallback runners, nightly and on manual dispatch, seeded from the templates, and uploads failing inputs as an
 artifact.
 
 ## Mutation testing
@@ -130,13 +131,20 @@ would put a wrong number in front of an engineer:
 
     scripts/mutants.sh                                  # all scopes
     MUTANTS_SCOPE=certify scripts/mutants.sh --jobs 4   # one scope
-    scripts/mutants.sh --shard 3/8 --jobs 2             # extra arguments go to cargo-mutants
+    scripts/mutants.sh --shard 3/64 --jobs 2            # extra arguments go to cargo-mutants
     cargo mutants --package dedaliano-engine -f engine/src/certify/interval.rs -- --lib
 
 Each scope runs the library unit tests plus the integration tests that target it (listed
-in the script). Results land in `mutants.out/`: `caught.txt`, `missed.txt`,
-`timeout.txt`, `unviable.txt`. CI (job `mutants`, sharded 8 ways) runs nightly and fails
-on any missed mutant.
+in the script). The end-to-end certificate tests (`certify_end_to_end*`, CERTIFY.md) run
+in the `solver` and `element` scopes too: a mutant in an element kernel or in the
+assembly makes the engine's `K` or `f` disagree with the independent re-assembly. Results
+land in `mutants.out/`: `caught.txt`, `missed.txt`,
+`timeout.txt`, `unviable.txt`. CI (`.github/workflows/nightly.yml`, job `mutants`) splits
+the ~23,000 mutants into 512 shards and runs 32 of them each night, rotating with the day, so
+every mutant is tested every 16 nights (docs/verification/NIGHTLY.md). A shard fails on any
+missed mutant, and fails loudly if it does not finish within its time budget;
+`scripts/mutants-summary.py` prints how far it got and the time per mutant. One shard by
+hand: `gh workflow run nightly.yml -f only=mutants -f mutants_shards='[5]'`.
 
 ### Triaging a surviving mutant
 
@@ -149,7 +157,11 @@ For each line of `missed.txt`:
 2. **Equivalent**: the mutant cannot change any output (for example `>` to `>=` where
    equality gives the same result, or a heuristic whose failure only makes a
    certificate fail, never wrong). Add it to `exclude_re` in `.cargo/mutants.toml` with a
-   one-line justification.
+   one-line justification. One class is excluded automatically: an operator inside an
+   index made only of integer literals whose mutated index has exactly the same value
+   (`k[0 * 6 + 0]` to `k[0 * 6 - 0]` or `k[0 / 6 + 0]`). `scripts/mutants-equivalent.py`
+   finds them on every run by evaluating both indices; a mutant that changes the index
+   is still tested.
 3. **Dead or diagnostics-only code**: timings, log text, diagnostics that do not gate a
    result. Exclude by name with the reason, or delete the code.
 

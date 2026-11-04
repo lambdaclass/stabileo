@@ -696,6 +696,7 @@ fn validation_composite_extended_temperature_effects() {
                 element_id: i + 1,
                 dt_uniform: 0.0,
                 dt_gradient,
+                alpha: None, depth: None,
             }));
         }
         make_beam(n_elem, l, e_steel, a, iz, "fixed", Some("fixed"), loads)
@@ -736,6 +737,7 @@ fn validation_composite_extended_temperature_effects() {
                 element_id: i + 1,
                 dt_uniform: 0.0,
                 dt_gradient,
+                alpha: None, depth: None,
             }));
         }
         make_beam(n_elem, l, e_steel, a, iz, "pinned", Some("rollerX"), loads)

@@ -1,0 +1,196 @@
+{
+ "elements": {
+  "1": {
+   "hingeEnd": false,
+   "hingeStart": false,
+   "id": 1,
+   "materialId": 2,
+   "nodeI": 1,
+   "nodeJ": 2,
+   "sectionId": 3,
+   "type": "frame"
+  },
+  "2": {
+   "hingeEnd": false,
+   "hingeStart": false,
+   "id": 2,
+   "materialId": 1,
+   "nodeI": 3,
+   "nodeJ": 2,
+   "sectionId": 2,
+   "type": "frame"
+  },
+  "3": {
+   "hingeEnd": false,
+   "hingeStart": false,
+   "id": 3,
+   "materialId": 2,
+   "nodeI": 4,
+   "nodeJ": 2,
+   "sectionId": 2,
+   "type": "frame"
+  },
+  "4": {
+   "hingeEnd": false,
+   "hingeStart": false,
+   "id": 4,
+   "materialId": 2,
+   "nodeI": 5,
+   "nodeJ": 3,
+   "sectionId": 3,
+   "type": "frame"
+  },
+  "5": {
+   "hingeEnd": false,
+   "hingeStart": false,
+   "id": 5,
+   "materialId": 2,
+   "nodeI": 3,
+   "nodeJ": 7,
+   "sectionId": 3,
+   "type": "frame"
+  },
+  "6": {
+   "hingeEnd": false,
+   "hingeStart": false,
+   "id": 6,
+   "materialId": 2,
+   "nodeI": 8,
+   "nodeJ": 3,
+   "sectionId": 1,
+   "type": "frame"
+  },
+  "7": {
+   "hingeEnd": false,
+   "hingeStart": false,
+   "id": 7,
+   "materialId": 1,
+   "nodeI": 6,
+   "nodeJ": 5,
+   "sectionId": 1,
+   "type": "frame"
+  },
+  "8": {
+   "hingeEnd": false,
+   "hingeStart": false,
+   "id": 8,
+   "materialId": 1,
+   "nodeI": 8,
+   "nodeJ": 9,
+   "sectionId": 2,
+   "type": "frame"
+  },
+  "9": {
+   "hingeEnd": false,
+   "hingeStart": false,
+   "id": 9,
+   "materialId": 2,
+   "nodeI": 4,
+   "nodeJ": 8,
+   "sectionId": 1,
+   "type": "frame"
+  }
+ },
+ "loads": [
+  {
+   "data": {
+    "a": 1.6038803670586002,
+    "elementId": 1,
+    "p": 50.23560406668025,
+    "px": -29.77702926793434
+   },
+   "type": "pointOnElement"
+  }
+ ],
+ "materials": {
+  "1": {
+   "e": 200000.0,
+   "id": 1,
+   "nu": 0.32420659367359406
+  },
+  "2": {
+   "e": 70000.0,
+   "id": 2,
+   "nu": 0.33155002203585937
+  }
+ },
+ "nodes": {
+  "1": {
+   "id": 1,
+   "x": 11.374,
+   "z": 0.452
+  },
+  "2": {
+   "id": 2,
+   "x": 1.018,
+   "z": 6.684
+  },
+  "3": {
+   "id": 3,
+   "x": 8.832,
+   "z": 5.358
+  },
+  "4": {
+   "id": 4,
+   "x": 3.698,
+   "z": 4.848
+  },
+  "5": {
+   "id": 5,
+   "x": 7.282,
+   "z": 4.65
+  },
+  "6": {
+   "id": 6,
+   "x": 1.901,
+   "z": 3.445
+  },
+  "7": {
+   "id": 7,
+   "x": 4.722,
+   "z": 5.784
+  },
+  "8": {
+   "id": 8,
+   "x": 11.938,
+   "z": 7.595
+  },
+  "9": {
+   "id": 9,
+   "x": 6.53,
+   "z": 3.559
+  }
+ },
+ "sections": {
+  "1": {
+   "a": 0.12014228297268827,
+   "id": 1,
+   "iz": 0.005257285958144526
+  },
+  "2": {
+   "a": 0.05100803107284764,
+   "id": 2,
+   "iz": 0.0002992554612694145
+  },
+  "3": {
+   "a": 0.04487804030651762,
+   "id": 3,
+   "iz": 0.0002623684332694987
+  }
+ },
+ "supports": {
+  "1": {
+   "id": 1,
+   "nodeId": 1,
+   "type": "fixed"
+  },
+  "2": {
+   "dry": -0.001906229255112911,
+   "dx": -0.002795630369800182,
+   "dz": -0.005009966094379807,
+   "id": 2,
+   "nodeId": 8,
+   "type": "fixed"
+  }
+ }
+}

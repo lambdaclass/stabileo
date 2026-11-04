@@ -83,7 +83,7 @@ fn build_large_plate(nx: usize, ny: usize) -> SolverInput3D {
     }).collect();
 
     SolverInput3D {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes, materials: mats, sections: HashMap::new(),
         elements: HashMap::new(), supports, loads,
         constraints: vec![], left_hand: None,

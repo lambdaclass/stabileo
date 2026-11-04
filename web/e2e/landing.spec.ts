@@ -1,5 +1,14 @@
 import { test, expect, type Page } from '@playwright/test';
 import { pickLanguage } from './fixtures';
+import { PUBLIC_LOCALES, isComplete, type Locale } from '../src/lib/i18n/offered';
+import fullDe from '../src/lib/i18n/locales/full/de';
+import fullFr from '../src/lib/i18n/locales/full/fr';
+import fullTr from '../src/lib/i18n/locales/full/tr';
+
+const NAME: Record<Locale, string> = { en: 'English', es: 'Español', pt: 'Português', de: 'Deutsch', fr: 'Français', tr: 'Türkçe' };
+const OG: Record<Locale, string> = { en: 'en_US', es: 'es_AR', pt: 'pt_BR', de: 'de_DE', fr: 'fr_FR', tr: 'tr_TR' };
+/** The Open Graph alternates a public page in `locale` declares: every other public language. */
+const ogAlternates = (locale: Locale) => PUBLIC_LOCALES.filter((l) => l !== locale).map((l) => OG[l]);
 
 /**
  * Landing-page coverage.
@@ -48,6 +57,7 @@ const SECTIONS = [
   'pro-calc',
   'pro-design',
   'ai',
+  'verification',
   'education',
   'pricing',
   'blog',
@@ -74,12 +84,62 @@ async function bootLanding(page: Page, opts: { locale?: string; manual?: boolean
 }
 
 test.describe('@landing landing page', () => {
+  test('a long German compound in the hero does not widen the page on a phone', async ({ page }) => {
+    // "Tragwerksberechnung" once set the hero grid's minimum width: 424 px of page at 390 px.
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/de/');
+    await expect(page.locator('.landing h1').first()).toBeVisible();
+    const widths = await page.evaluate(() => {
+      const root = document.querySelector<HTMLElement>('.landing')!;
+      return { page: document.documentElement.scrollWidth, landing: root.scrollWidth, view: window.innerWidth };
+    });
+    expect(widths.page).toBeLessThanOrEqual(widths.view);
+    expect(widths.landing).toBeLessThanOrEqual(widths.view);
+  });
+
+  test('the nav\'s Changelog item, beside Blog, opens the whole history, and the landing ends at the blog', async ({ page }) => {
+    await bootLanding(page, { locale: 'es' });
+    await expect(page.locator('#changelog')).toHaveCount(0);
+    await expect(page.locator('.landing [data-section]').last()).toHaveAttribute('data-section', 'blog');
+
+    const links = page.locator('.landing nav.nav .nav-links a.nav-link');
+    await expect(links.nth(0)).toHaveAttribute('data-nav', 'tools');
+    await expect(links.nth(1)).toHaveAttribute('data-nav', 'blog');
+    const changelog = links.nth(2);
+    await expect(changelog).toHaveAttribute('data-nav', 'changelog');
+    await expect(changelog).toHaveText('Changelog');
+    await expect(changelog).toHaveAttribute('href', '/es/changelog/');
+    await changelog.click();
+    await expect(page).toHaveURL(/\/es\/changelog\/$/);
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Historial de cambios de Stabileo');
+    await expect(page.getByTestId('changelog-entry').first()).toBeVisible();
+  });
+
+  test('the nav\'s Blog item opens the blog, not the teaser at the foot of the page', async ({ page }) => {
+    // It used to be a button scrolling to the #blog section. Now a real link:
+    // crawlable, middle-clickable, in the reader's language.
+    await bootLanding(page, { locale: 'es' });
+    const blog = page.locator('.landing nav.nav .nav-links a.nav-link[data-nav="blog"]');
+    await expect(blog).toHaveText('Blog');
+    await expect(blog).toHaveAttribute('href', '/es/blog/');
+    // Nav items are written as words, not as the uppercase section eyebrows
+    // ("PRECIOS" used to sit between "Educativo" and "Blog").
+    await expect(page.locator('.landing nav.nav .nav-links button', { hasText: 'Precios' })).toHaveText('Precios');
+    await blog.click();
+    await expect(page).toHaveURL(/\/es\/blog\/$/);
+    await expect(page.locator('.post-card')).not.toHaveCount(0);
+  });
+
   test('renders the landing overlay at /', async ({ page }) => {
+    // The engine is never fetched for a public page: it is half of what the landing used to download.
+    const wasm: string[] = [];
+    page.on('request', (r) => { if (r.url().endsWith('.wasm')) wasm.push(r.url()); });
     await bootLanding(page);
 
     await expect(page.locator('.landing')).toBeVisible();
-    // The application stays mounted behind the overlay rather than unmounting.
-    await expect(page.locator('.app-container.hidden-behind-landing')).toHaveCount(1);
+    // The application is not loaded behind the landing (Root.svelte): it loads on the first app route.
+    await expect(page.locator('.app-container')).toHaveCount(0);
+    expect(wasm).toEqual([]);
 
     const h1 = page.locator('.landing h1');
     await expect(h1).toHaveCount(1);
@@ -223,17 +283,15 @@ test.describe('@landing landing page', () => {
     expect(await page.evaluate(() => localStorage.getItem('stabileo-lang-manual'))).toBe('1');
   });
 
-  test('the landing offers exactly the languages it fully speaks', async ({ page }) => {
+  test('the landing offers the application\'s languages', async ({ page }) => {
     await bootLanding(page);
 
-    // PUBLIC_LOCALES. Portuguese joined once every landing key existed — the
-    // list and the copy are kept in step by landing-i18n-parity.test.ts.
     await page.getByTestId('nav-lang-button').click();
     const names = await page
       .getByTestId('nav-lang-list')
       .getByRole('option')
       .allInnerTexts();
-    expect(names.map((n) => n.trim())).toEqual(['English', 'Español', 'Português']);
+    expect(names.map((n) => n.trim())).toEqual(PUBLIC_LOCALES.map((l) => NAME[l]));
   });
 
   test('a Brazilian browser gets the Portuguese landing', async ({ browser }) => {
@@ -253,10 +311,16 @@ test.describe('@landing landing page', () => {
     await ctx.close();
   });
 
-  test('any other browser language gets the English landing', async ({ browser }) => {
-    // French is a language the *application* speaks, so this asserts the
-    // landing's allow-list rather than a missing dictionary.
+  test('a French browser gets the French landing once French is complete, and English until then', async ({ browser }) => {
     const ctx = await browser.newContext({ locale: 'fr-FR' });
+    const page = await ctx.newPage();
+    await bootLanding(page, { manual: false });
+    await expect(page.getByTestId('nav-lang')).toHaveAttribute('data-value', isComplete('fr') ? 'fr' : 'en');
+    await ctx.close();
+  });
+
+  test('any other browser language gets the English landing', async ({ browser }) => {
+    const ctx = await browser.newContext({ locale: 'it-IT' });
     const page = await ctx.newPage();
     await bootLanding(page, { manual: false });
     await expect(page.locator('.landing h1')).toHaveText('Structural analysis, in a browser tab.');
@@ -417,7 +481,7 @@ test.describe('@landing landing page', () => {
    */
   test.describe('metadata', () => {
     const SOCIAL = 'https://stabileo.com/og/stabileo-social.png';
-    const EN_TITLE = 'Stabileo — Structural analysis, in a browser tab.';
+    const EN_TITLE = 'Stabileo — Open-source structural engineering software';
 
     function readHead(page: Page) {
       return page.evaluate(() => {
@@ -459,7 +523,7 @@ test.describe('@landing landing page', () => {
        * file a crawler receives already holds the page's real metadata — there
        * is no longer a generic head to be refined later.
        */
-      expect(one(h, 'description')).toMatch(/open structural-analysis platform/i);
+      expect(one(h, 'description')).toMatch(/^Free in your browser: .*bring your own Claude or OpenAI key/);
       expect(one(h, 'theme-color')).toBe('#0c1620');
       expect(one(h, 'og:type')).toBe('website');
       // og:url names the page, and the page here is /en — the same address
@@ -469,7 +533,7 @@ test.describe('@landing landing page', () => {
       expect(one(h, 'og:site_name')).toBe('Stabileo');
       expect(one(h, 'og:locale')).toBe('en_US');
       // One tag per alternate language, which is how Open Graph reads them.
-      expect(h.meta['og:locale:alternate']).toEqual(['es_AR', 'pt_BR']);
+      expect(h.meta['og:locale:alternate']).toEqual(ogAlternates('en'));
       expect(one(h, 'og:title')).toBe(EN_TITLE);
       expect(one(h, 'twitter:card')).toBe('summary_large_image');
       expect(one(h, 'twitter:title')).toBe(EN_TITLE);
@@ -530,15 +594,14 @@ test.describe('@landing landing page', () => {
 
       expect(h.headTitles).toBe(1);
       expect(h.lang).toBe('es');
-      expect(h.title).toBe('Stabileo — Cálculo estructural, en una pestaña del navegador.');
+      expect(h.title).toBe('Stabileo — Software de ingeniería estructural de código abierto');
       expect(one(h, 'og:title')).toBe(h.title);
       expect(one(h, 'og:locale')).toBe('es_AR');
-      expect(h.meta['og:locale:alternate']).toEqual(['en_US', 'pt_BR']);
+      expect(h.meta['og:locale:alternate']).toEqual(ogAlternates('es'));
       expect(h.canonicals).toEqual(['https://stabileo.com/es/']);
       // The description is the hero lead, which now carries the positioning:
       // a free, open platform with three modes, rather than live re-solving.
-      expect(one(h, 'description')).toMatch(/plataforma abierta de análisis estructural/);
-      expect(one(h, 'description')).toMatch(/plataforma abierta de análisis estructural/);
+      expect(one(h, 'description')).toMatch(/^Gratis en el navegador: .*tu propia clave de Claude u OpenAI/);
       expect(one(h, 'twitter:description')).toBe(one(h, 'description'));
       // The canonical DOES vary by locale now: each language is its own
       // indexable page, which is the whole reason the prefixes exist.
@@ -553,10 +616,10 @@ test.describe('@landing landing page', () => {
 
       expect(h.headTitles).toBe(1);
       expect(h.lang).toBe('pt');
-      expect(h.title).toBe('Stabileo — Cálculo estrutural, numa aba do navegador.');
+      expect(h.title).toBe('Stabileo — Software de engenharia estrutural de código aberto');
       expect(one(h, 'og:title')).toBe(h.title);
       expect(one(h, 'og:locale')).toBe('pt_BR');
-      expect(h.meta['og:locale:alternate']).toEqual(['en_US', 'es_AR']);
+      expect(h.meta['og:locale:alternate']).toEqual(ogAlternates('pt'));
       expect(h.canonicals).toEqual(['https://stabileo.com/pt/']);
       expect(one(h, 'twitter:description')).toBe(one(h, 'description'));
     });
@@ -570,7 +633,7 @@ test.describe('@landing landing page', () => {
       await expect(page.locator('.landing')).toHaveCount(0);
 
       const h = await readHead(page);
-      expect(h.meta['og:locale:alternate']).toEqual(['es_AR', 'pt_BR']);
+      expect(h.meta['og:locale:alternate']).toEqual(ogAlternates('en'));
       expect(one(h, 'og:locale')).toBe('en_US');
     });
 
@@ -580,7 +643,7 @@ test.describe('@landing landing page', () => {
       await bootLanding(page, { manual: false });
       const h = await readHead(page);
       expect(h.lang).toBe('es');
-      expect(h.title).toMatch(/Cálculo estructural/);
+      expect(h.title).toMatch(/ingeniería estructural/);
       expect(h.headTitles).toBe(1);
       await ctx.close();
     });
@@ -609,7 +672,7 @@ test.describe('@landing landing page', () => {
        * file a crawler receives already holds the page's real metadata — there
        * is no longer a generic head to be refined later.
        */
-      expect(one(h, 'description')).toMatch(/open structural-analysis platform/i);
+      expect(one(h, 'description')).toMatch(/^Free in your browser: .*bring your own Claude or OpenAI key/);
     });
 
     test('the social card exists, resolves, and is a 1200x630 PNG', async ({ page }) => {
@@ -631,7 +694,17 @@ test.describe('@landing landing page', () => {
       // pass; this is the guard that says so.
       await bootLanding(page);
       await expect(page.locator('.landing')).toBeVisible();
-      await expect(page.locator('.app-container.hidden-behind-landing')).toHaveCount(1);
+      await expect(page.locator('.app-container')).toHaveCount(0);
+
+      // Entering the application from the landing loads it in place.
+      await page.locator('.landing .btn-primary').first().click();
+      await expect(page).toHaveURL(/\/app\/basic/);
+      await expect(page.locator('.app-container')).toBeVisible();
+
+      // A shared model at the root (`/#data=…`) still loads the application, which restores it
+      // behind the landing as it always did.
+      await page.goto('/#data=x');
+      await expect(page.locator('.app-container')).toHaveCount(1);
 
       await page.goto('/app/basic');
       await expect(page.locator('.landing')).toHaveCount(0);
@@ -884,7 +957,7 @@ test.describe('@landing the model the deck states', () => {
 });
 
 /*
- * The deck in the three languages it ships.
+ * The deck in every language it ships.
  *
  * `t()` falls back to English and then to the key itself, so a locale missing
  * a key does not error — it renders `landing.proCalcH` on the page, or worse,
@@ -892,16 +965,20 @@ test.describe('@landing the model the deck states', () => {
  * working page to anyone who does not read that language.
  */
 test.describe('@landing every language gets the whole deck', () => {
-  const HEADING = {
+  const HEADING: Record<Locale, string> = {
     es: 'Cómo pensamos sostener un proyecto abierto',
     en: 'How we plan to sustain an open project',
     pt: 'Como pensamos sustentar um projeto aberto',
-  } as const;
+    de: fullDe['landing.pricingH'], fr: fullFr['landing.pricingH'], tr: fullTr['landing.pricingH'],
+  };
 
-  const FREE = { es: 'Gratis', en: 'Free', pt: 'Grátis' } as const;
+  const FREE: Record<Locale, string> = {
+    es: 'Gratis', en: 'Free', pt: 'Grátis',
+    de: fullDe['landing.priceFree'], fr: fullFr['landing.priceFree'], tr: fullTr['landing.priceFree'],
+  };
 
-  for (const locale of ['es', 'en', 'pt'] as const) {
-    test(`${locale}: eight sections, no raw keys, and a priced table`, async ({ page }) => {
+  for (const locale of PUBLIC_LOCALES) {
+    test(`${locale}: nine sections, no raw keys, and a priced table`, async ({ page }) => {
       await bootLanding(page, { locale });
 
       const order = await page

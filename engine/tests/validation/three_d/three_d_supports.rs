@@ -84,7 +84,7 @@ fn validation_3d_prescribed_settlement() {
     let mut mats_map = HashMap::new();
     mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: NU });
     let mut secs_map = HashMap::new();
-    secs_map.insert("1".to_string(), SolverSection3D { id: 1, name: None, a: A, iy: IY, iz: IZ, j: J, cw: None, as_y: None, as_z: None });
+    secs_map.insert("1".to_string(), SolverSection3D { id: 1, name: None, a: A, iy: IY, iz: IZ, j: J, cw: None, as_y: None, as_z: None, shear_center_y: None, shear_center_z: None });
     let mut elems_map = HashMap::new();
     for (id, t, ni, nj, mi, si) in &elems {
         elems_map.insert(id.to_string(), SolverElement3D {
@@ -96,7 +96,7 @@ fn validation_3d_prescribed_settlement() {
     }
 
     let input = SolverInput3D {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes: nodes_map, materials: mats_map, sections: secs_map,
         elements: elems_map, supports: sups_map, loads: vec![],
         constraints: vec![], left_hand: None, plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_beams: vec![],
@@ -230,7 +230,7 @@ fn validation_3d_differential_settlement() {
     let mut mats_map = HashMap::new();
     mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: NU });
     let mut secs_map = HashMap::new();
-    secs_map.insert("1".to_string(), SolverSection3D { id: 1, name: None, a: A, iy: IY, iz: IZ, j: J, cw: None, as_y: None, as_z: None });
+    secs_map.insert("1".to_string(), SolverSection3D { id: 1, name: None, a: A, iy: IY, iz: IZ, j: J, cw: None, as_y: None, as_z: None, shear_center_y: None, shear_center_z: None });
     let mut elems_map = HashMap::new();
     for (id, t, ni, nj, mi, si) in &elems {
         elems_map.insert(id.to_string(), SolverElement3D {
@@ -242,7 +242,7 @@ fn validation_3d_differential_settlement() {
     }
 
     let input = SolverInput3D {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes: nodes_map, materials: mats_map, sections: secs_map,
         elements: elems_map, supports: sups_map, loads: vec![],
         constraints: vec![], left_hand: None, plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_beams: vec![],

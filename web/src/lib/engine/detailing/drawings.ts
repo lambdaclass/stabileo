@@ -1,8 +1,8 @@
 /**
  * Geometry-driven reinforcement drawings.
  *
- * The existing `reinforcement-svg.ts` builds schematics from counts and diameters — it
- * draws a picture of what the numbers say. This module draws the actual `BarPath`
+ * The report's old schematics were built from counts and diameters: a picture of what the
+ * numbers said. This module draws the actual `BarPath`
  * geometry: the same arcs, the same hook extensions, the same cut lengths that the
  * collision engine tested and the schedule will order. A bar that appears on the sheet
  * is by construction the bar that was checked.
@@ -138,7 +138,14 @@ export interface DrawnPolyline {
 }
 
 export interface DrawnCircle { layer: string; centre: Pt2; radius: number }
-export interface DrawnText { layer: string; at: Pt2; height: number; text: string }
+export interface DrawnText {
+  layer: string; at: Pt2; height: number; text: string;
+  /** A label in words: translated in the document's language by each writer, `text` the fallback. */
+  msg?: EngineMessage;
+}
+
+/** A drawing text in the document's language. */
+export const drawnText = (t: DrawnText, locale: string): string => (t.msg ? teAt(t.msg, locale) : t.text);
 export interface DrawnDimension {
   layer: string;
   from: Pt2;
@@ -288,6 +295,47 @@ function hangerTopMembersOf(a: DetailingAssembly): number[] {
     .flatMap((b) => b.ownerElementIds))].sort((x, y) => x - y);
 }
 
+/**
+ * A sheet note, as data: a key and its parameters, translated when the sheet is drawn.
+ *
+ * A sheet has no locale, and its notes used to be either Spanish sentences, the same in every
+ * language, or bare keys printed as they were. `noteText` turns one into words in the
+ * document's language, and the sheet keeps the key a test or a reader can match.
+ */
+export function noteKey(key: string, params?: Record<string, string | number | boolean | null | undefined>): string {
+  if (!params) return key;
+  const kept = Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined && v !== null));
+  return `${key}|${JSON.stringify(kept)}`;
+}
+
+/** A sheet note in the given language: keyed, `label:value`, or already words. */
+export function noteText(note: string, locale: string): string {
+  const bar = note.indexOf('|{');
+  if (bar > 0) {
+    let params: Record<string, string | number> = {};
+    try { params = JSON.parse(note.slice(bar + 1)); } catch { /* words with a bar in them */ return note; }
+    return teAt({ key: note.slice(0, bar), params }, locale);
+  }
+  if (/^[a-zA-Z][\w.]*$/.test(note)) {
+    const own = tAt(note, locale);
+    if (own !== note) return own;
+    const value = tAt(`detailing.note.value.${note}`, locale);
+    if (value !== `detailing.note.value.${note}`) return value;
+    return note;
+  }
+  const m = /^([a-z][\w.]*):(.*)$/.exec(note);
+  if (m) {
+    const label = tAt(`detailing.note.${m[1]}`, locale);
+    if (label !== `detailing.note.${m[1]}`) {
+      const parts = m[2]!.split(':');
+      const head = tAt(`detailing.note.value.${parts[0]}`, locale);
+      const first = head !== `detailing.note.value.${parts[0]}` ? head : parts[0]!;
+      return `${label}: ${[first, ...parts.slice(1)].join(' ')}`;
+    }
+  }
+  return note;
+}
+
 function noteLines(
   conflicts: readonly BarConflict[], unsupported: readonly UnsupportedCondition[],
   provisionalMembers: readonly number[] = [],
@@ -303,11 +351,7 @@ function noteLines(
    * stops after two lines must have read that one.
    */
   if (provisionalMembers.length > 0) {
-    out.push(
-      `PROPUESTA PROVISIONAL — NO APTO PARA EMISIÓN CONSTRUCTIVA. `
-      + `${provisionalMembers.length} elemento(s) de esta lámina (${provisionalMembers.join(', ')}) `
-      + 'llevan armadura del diseño del eje principal; su eje secundario no lo verifica ninguna '
-      + 'comprobación de esta aplicación. Diseñar ese eje antes de emitir.');
+    out.push(noteKey('detailing.note.provisional', { n: provisionalMembers.length, list: provisionalMembers.join(', ') }));
   }
   /**
    * The torsion warning, immediately after it, and for the same reason.
@@ -318,13 +362,7 @@ function noteLines(
    * sheet as a complete verification. See `torsion-notice.ts`.
    */
   if (torsionUnevaluatedMembers.length > 0) {
-    out.push(
-      'TORSIÓN NO EVALUADA — función en desarrollo. '
-      + `${torsionUnevaluatedMembers.length} elemento(s) de esta lámina `
-      + `(${torsionUnevaluatedMembers.join(', ')}) reciben torsión según el análisis, y ninguna `
-      + 'comprobación de esta aplicación la verifica. La armadura indicada NO contempla torsión. '
-      + 'No usar como verificación final; verificar la torsión aparte antes de emitir. '
-      + 'Se corregirá en PR21.');
+    out.push(noteKey('detailing.note.torsion', { n: torsionUnevaluatedMembers.length, list: torsionUnevaluatedMembers.join(', ') }));
   }
   /**
    * The assembly bars, third, and a note rather than a refusal.
@@ -335,48 +373,34 @@ function noteLines(
    * designed top bar are drawn with the same line at the same elevation.
    */
   if (hangerTopMembers.length > 0) {
-    out.push(
-      'ARMADURA SUPERIOR DE ARMADO — '
-      + `${hangerTopMembers.length} elemento(s) de esta lámina (${hangerTopMembers.join(', ')}) `
-      + 'no tienen momento negativo de envolvente en ningún apoyo. Sus barras superiores cumplen '
-      + '25.7.1.2 (cada doblez del estribo contiene una barra longitudinal) y NO son armadura '
-      + 'resistente: no se les verificó capacidad a momento negativo. El Reglamento no fija su '
-      + 'diámetro; el indicado es un criterio de esta aplicación.');
+    out.push(noteKey('detailing.note.hanger', { n: hangerTopMembers.length, list: hangerTopMembers.join(', ') }));
   }
   for (const u of unsupported) {
-    out.push(`NO VERIFICADO — ${u.key}: ${u.message}`);
+    out.push(noteKey('detailing.note.unsupported', { key: u.key, message: u.message }));
   }
   /**
    * Conflicts: a legend, then a bounded list.
    *
-   * This used to emit one line per conflict, unbounded. On `Edificio H.A. 7 pisos — PRO` that
-   * is 40 065 lines, which is not a note block — it is a sheet with no drawing on it, and the
-   * one line that mattered is on page 300.
-   *
-   * Bounding it is not hiding it. The count is stated first, the breakdown by severity is
-   * stated, the warning that the cage is not constructible is stated, and then the worst
-   * `MAX_CONFLICT_NOTES` are listed in full with both bar ids, the measured clearance and the
-   * requirement. The remainder is named as a remainder — `… y N más` — never silently
-   * dropped, and the complete list is what the detailing panel and the conflict inventory are
-   * for. Worst first, by shortfall, so the bounded list is the useful end of it.
+   * One line per conflict, unbounded, was 40 065 lines on the seven-storey example: a sheet
+   * with no drawing on it. The count is stated first, the breakdown by severity, the warning
+   * that the cage is not constructible, and then the worst `MAX_CONFLICT_NOTES` in full; the
+   * remainder is named as a remainder, never silently dropped.
    */
   const reportable = conflicts.filter((c) => c.severity !== 'marginal');
   if (reportable.length > 0) {
     const overlaps = reportable.filter((c) => c.severity === 'overlap').length;
-    out.push(
-      `CONFLICTOS: ${reportable.length} sin resolver (${overlaps} interpenetración, `
-      + `${reportable.length - overlaps} separación). NO CONSTRUIBLE SIN REVISIÓN — esta lámina `
-      + 'documenta el armado y sus conflictos, no autoriza su ejecución.');
+    out.push(noteKey('detailing.note.conflicts', { n: reportable.length, overlaps, spacing: reportable.length - overlaps }));
     const worst = [...reportable].sort((a, b) => b.shortfall - a.shortfall);
     for (const c of worst.slice(0, MAX_CONFLICT_NOTES)) {
-      out.push(
-        `CONFLICTO ${c.severity === 'overlap' ? 'SOLAPE' : 'SEPARACIÓN'} — barras ${c.barA}/${c.barB}`
-        + `${c.elementIds.length > 0 ? ` (elem. ${c.elementIds.join(', ')})` : ''}: `
-        + `${(c.clearance * 1000).toFixed(0)} mm libres contra ${(c.required * 1000).toFixed(0)} mm `
-        + `requeridos${c.pairClass ? ` — ${c.pairClass}` : ''}.`);
+      out.push(noteKey(c.severity === 'overlap' ? 'detailing.note.conflictOverlap' : 'detailing.note.conflictSpacing', {
+        a: c.barA, b: c.barB,
+        elements: c.elementIds.length > 0 ? ` (${c.elementIds.join(', ')})` : '',
+        clear: (c.clearance * 1000).toFixed(0), required: (c.required * 1000).toFixed(0),
+        pair: c.pairClass ? ` — ${c.pairClass}` : '',
+      }));
     }
     if (worst.length > MAX_CONFLICT_NOTES) {
-      out.push(`… y ${worst.length - MAX_CONFLICT_NOTES} conflicto(s) más, en la planilla de conflictos.`);
+      out.push(noteKey('detailing.note.conflictsMore', { n: worst.length - MAX_CONFLICT_NOTES }));
     }
   }
   return out;
@@ -699,6 +723,19 @@ function labelHeight(sheet: Sheet): number {
   return Math.min(0.05, Math.max(0.012, w / 40));
 }
 
+/** The title block's fixed lines, in the document's language. Shared by the DXF and the SVG. */
+function titleLines(sheet: Sheet, locale: string): string[] {
+  const T = sheet.title;
+  const out = [
+    teAt({ key: 'detailing.title.codeScale', params: { code: T.codeEdition, scale: T.scale } }, locale),
+    teAt({ key: 'detailing.title.revision', params: { revision: T.revision, state: T.reviewState } }, locale),
+  ];
+  if (T.reviewer) out.push(teAt({ key: 'detailing.title.reviewedBy', params: { reviewer: T.reviewer, at: T.reviewedAt ?? '' } }, locale));
+  if (T.clauses.length > 0) out.push(teAt({ key: 'detailing.title.clauses', params: { list: T.clauses.join('; ') } }, locale));
+  if (T.superseded) out.push(tAt('detailing.title.superseded', locale));
+  return out;
+}
+
 /**
  * Emit a sheet as DXF.
  *
@@ -740,7 +777,7 @@ export function sheetToDxf(sheet: Sheet, arcs: DrawnArc[] = [], locale = 'es'): 
   for (const t of sheet.texts) {
     out.push('0', 'TEXT', '8', t.layer,
       '10', num(t.at.x), '20', num(t.at.y), '30', '0.0',
-      '40', num(t.height), '1', t.text);
+      '40', num(t.height), '1', drawnText(t, locale));
   }
 
   for (const d of sheet.dimensions) {
@@ -776,14 +813,46 @@ export function sheetToDxf(sheet: Sheet, arcs: DrawnArc[] = [], locale = 'es'): 
   put(`${sheet.title.sheetNumber} — ${sheet.title.title}`);
   // The norms, one line each, exactly as the Reglamentos stage has them.
   for (const c of sheet.title.codes ?? []) put(c.text);
-  put(`Reglamento: ${sheet.title.codeEdition}   Escala 1:${sheet.title.scale}`);
-  put(`Revisión ${sheet.title.revision} — estado ${sheet.title.reviewState}`);
-  if (sheet.title.reviewer) put(`Revisado por: ${sheet.title.reviewer} (${sheet.title.reviewedAt ?? ''})`);
-  if (sheet.title.clauses.length > 0) put(`Artículos: ${sheet.title.clauses.join('; ')}`);
-  if (sheet.title.superseded) put('*** SUPERSEDED — la revisión revisada ya no es la vigente ***');
+  for (const line of titleLines(sheet, locale)) put(line);
   if (sheet.title.provisionalNote) put(teAt(sheet.title.provisionalNote, locale));
-  for (const n of sheet.notes) put(n);
+  for (const n of sheet.notes) put(noteText(n, locale));
 
+  out.push('0', 'ENDSEC', '0', 'EOF');
+  return out.join('\n') + '\n';
+}
+
+/**
+ * Several sheets as ONE DXF: one HEADER, one ENTITIES section and one EOF, with each sheet
+ * laid out to the right of the one before it.
+ *
+ * The drawings were exported as every sheet's own complete file joined end to end, and a CAD
+ * program stops reading at the first EOF: it opened the first sheet and nothing else. Each
+ * sheet's entities are read out of its own file and shifted along X (group codes 10 and 11),
+ * so the per-sheet writer stays the one place that knows how to draw a sheet.
+ */
+export function combineDxfSheets(items: ReadonlyArray<{ dxf: string; sheet: Sheet }>, gap = 2): string {
+  const out: string[] = [
+    '0', 'SECTION', '2', 'HEADER',
+    '9', '$ACADVER', '1', 'AC1009',
+    '9', '$INSUNITS', '70', '6',
+    '0', 'ENDSEC',
+    '0', 'SECTION', '2', 'ENTITIES',
+  ];
+  let cursor = 0;
+  for (const { dxf, sheet } of items) {
+    const lines = dxf.replace(/\n$/, '').split('\n');
+    // Pairs of (group code, value); the entities sit between "2 ENTITIES" and the next "0 ENDSEC".
+    let i = 0;
+    while (i + 1 < lines.length && !(lines[i] === '2' && lines[i + 1] === 'ENTITIES')) i += 2;
+    i += 2;
+    const dx = cursor - sheet.extents.min.x;
+    for (; i + 1 < lines.length; i += 2) {
+      const code = lines[i]!, value = lines[i + 1]!;
+      if (code === '0' && value === 'ENDSEC') break;
+      out.push(code, code === '10' || code === '11' ? num(Number(value) + dx) : value);
+    }
+    cursor += (sheet.extents.max.x - sheet.extents.min.x) + gap;
+  }
   out.push('0', 'ENDSEC', '0', 'EOF');
   return out.join('\n') + '\n';
 }
@@ -1063,7 +1132,7 @@ export function sheetToSvg(sheet: Sheet, widthPx = 1200, locale = 'es'): string 
   const ty = (y: number) => (h - pad + min.y) - y;
   for (const t of sheet.texts) {
     parts.push(`<text x="${(t.at.x + pad - min.x).toFixed(4)}" y="${ty(t.at.y).toFixed(4)}" ` +
-      `font-size="${t.height}" fill="#111" font-family="sans-serif">${esc(t.text)}</text>`);
+      `font-size="${t.height}" fill="#111" font-family="sans-serif">${esc(drawnText(t, locale))}</text>`);
   }
   const dimText = labelHeight(sheet);
   for (const d of sheet.dimensions) {
@@ -1092,11 +1161,9 @@ export function sheetToSvg(sheet: Sheet, widthPx = 1200, locale = 'es'): string 
   if (sheet.title.office) line(sheet.title.office, 'normal', '#444', 0.07);
   line(`${sheet.title.sheetNumber} — ${sheet.title.title}`, 'bold');
   for (const c of sheet.title.codes ?? []) line(c.text, 'normal', '#111', 0.075);
-  line(`${sheet.title.codeEdition} · Escala 1:${sheet.title.scale} · Revisión ${sheet.title.revision} · ${sheet.title.reviewState}`);
-  if (sheet.title.reviewer) line(`Revisado por: ${sheet.title.reviewer} — ${sheet.title.reviewedAt ?? ''}`);
-  if (sheet.title.clauses.length > 0) line(`Artículos: ${sheet.title.clauses.join('; ')}`, 'normal', '#444', 0.07);
+  for (const s of titleLines(sheet, locale)) line(s, 'normal', '#333', 0.075);
   if (sheet.title.provisionalNote) line(teAt(sheet.title.provisionalNote, locale), 'bold', '#8a5a00', 0.07);
-  for (const n of sheet.notes) line(n, 'normal', '#a11', 0.07);
+  for (const n of sheet.notes) line(noteText(n, locale), 'normal', '#a11', 0.07);
 
   if (sheet.title.superseded) {
     parts.push(

@@ -530,3 +530,44 @@ fn hinged_plane_frame_kg_matches_its_3d_model() {
         assert!(close(ux2, ux3, 1e-9), "hinges {hs}/{he}: P-Delta sway 2D {ux2} vs 3D {ux3}");
     }
 }
+
+/// A nodal moment on a node where every frame is hinged went into the
+/// assembler's artificial rotational spring (1e-10 of the largest diagonal):
+/// the 2D solver refused it only when the rotation exceeded 100 rad, so a
+/// 3 kN·m moment on a stiff bar solved with zero reactions, a 60 rad rotation
+/// and `equilibriumOk`. Found triaging the OpenSees nightly (rich2d-744020,
+/// where the 100 rad heuristic caught a larger moment). The 3D solver already
+/// refused these moments by topology; the 2D one now does too.
+#[test]
+fn moment_on_all_hinged_node_2d_is_refused() {
+    for (my, a) in [(3.0, 10.0), (0.5, 0.01), (1e-9, 0.01)] {
+        let input = input_2d(json!({
+            "nodes": {"1": {"id": 1, "x": 0.0, "z": 0.0}, "2": {"id": 2, "x": 4.0, "z": 0.0}},
+            "materials": {"1": {"id": 1, "e": 200000.0, "nu": 0.3}},
+            "sections": {"1": {"id": 1, "a": a, "iz": 1e-4}},
+            "elements": {"1": {"id": 1, "type": "frame", "nodeI": 1, "nodeJ": 2, "materialId": 1,
+                               "sectionId": 1, "hingeStart": false, "hingeEnd": true}},
+            "supports": {"1": {"id": 1, "nodeId": 1, "type": "fixed"},
+                         "2": {"id": 2, "nodeId": 2, "type": "pinned"}},
+            "loads": [{"type": "nodal", "data": {"nodeId": 2, "fx": 0.0, "fz": 0.0, "my": my}}]
+        }));
+        let err = solve_2d(&input).expect_err("a moment on an all-hinged node must be refused");
+        assert!(err.contains("Nodal moment at node 2 is not supported"), "{err}");
+    }
+    // The same moment where the frame is not hinged reaches the fixed end.
+    let input = input_2d(json!({
+        "nodes": {"1": {"id": 1, "x": 0.0, "z": 0.0}, "2": {"id": 2, "x": 4.0, "z": 0.0}},
+        "materials": {"1": {"id": 1, "e": 200000.0, "nu": 0.3}},
+        "sections": {"1": {"id": 1, "a": 10.0, "iz": 1e-4}},
+        "elements": {"1": {"id": 1, "type": "frame", "nodeI": 1, "nodeJ": 2, "materialId": 1,
+                           "sectionId": 1, "hingeStart": false, "hingeEnd": false}},
+        "supports": {"1": {"id": 1, "nodeId": 1, "type": "fixed"},
+                     "2": {"id": 2, "nodeId": 2, "type": "pinned"}},
+        "loads": [{"type": "nodal", "data": {"nodeId": 2, "fx": 0.0, "fz": 0.0, "my": 3.0}}]
+    }));
+    let res = solve_2d(&input).unwrap();
+    // Moments about node 1 (counter-clockwise in the x-z view): M1 + 4·Rz2 + my = 0.
+    let r = |id: usize| res.reactions.iter().find(|r| r.node_id == id).unwrap();
+    let m_sum = r(1).my + 4.0 * r(2).rz;
+    assert!(close(-m_sum, 3.0, 1e-9), "moment equilibrium about node 1: {m_sum}");
+}

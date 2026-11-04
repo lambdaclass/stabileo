@@ -5,7 +5,7 @@
  * rc-design-visual.spec.ts and are non-blocking on this first landing.
  */
 
-import { test, expect, loadModel, solveModel, computeDemands } from './fixtures';
+import { test, expect, loadModel, solveModel, computeDemands, designPlace, sizeAll } from './fixtures';
 
 const QA = 'rc-design-qa-8';
 const FLAGSHIP = 'rc-design-frame';
@@ -62,6 +62,8 @@ test.describe('@smoke RC design workflow', () => {
     await expect.poll(() => page.evaluate((id) => window.__stabileo.displayRatio(id), beam)).toBeGreaterThan(1);
     const after = await page.evaluate(() => window.__stabileo.counts());
     expect(after.fail).toBeGreaterThan(before.fail);
+    // The summary is the project's status, the first place of design (interface A).
+    await designPlace(page, 'prepare');
     await expect(page.getByTestId('summary-count-fail')).toContainText(String(after.fail));
   });
 
@@ -229,8 +231,31 @@ test.describe('@smoke RC design workflow', () => {
   test('B10 — every generated design VERIFIES under the selected code', async ({ pro: page }) => {
     const ids = await loadModel(page, QA);
     await solveModel(page);
+
+    /*
+     * Since 292b87f68 a beam that declares no role in the lateral-force-resisting system is
+     * designed as part of it (§9.7.3.8.2: its bottom bars develop fy at the column face). On that
+     * reading e5 and e6 were refused on their anchorage until the verifier took the axial force
+     * acting with each moment (concrete in the engine): the compression they carry lifts their φMn
+     * enough for bars whose ends anchor, so undeclared every design verifies too
+     * (`lateral-fixtures.test.ts`). Then the beams are declared not part of the system through the
+     * design data panel, which is what a user of this frame states, and every design verifies.
+     */
     await page.evaluate(() => window.__stabileoActions.designAll());
     await expect.poll(() => page.evaluate(() => window.__stabileo.runCounts()?.total ?? 0)).toBe(ids.length);
+    const undeclared = await page.evaluate((list) => list
+      .filter((id) => window.__stabileo.outcome(id) !== 'VERIFIED')
+      .map((id) => [id, window.__stabileo.outcome(id)]), ids);
+    expect(undeclared, 'undeclared, every beam anchors with the concurrent compression').toEqual([]);
+
+    await designPlace(page, 'designData');
+    await page.getByTestId('design-data-lateral-beams').selectOption('gravity');
+    const runBefore = await page.evaluate(() => window.__stabileo.designRunId());
+    await page.evaluate(() => window.__stabileoActions.designAll());
+    await expect.poll(() => page.evaluate(() => window.__stabileo.designRunId())).not.toBe(runBefore);
+    await expect.poll(() => page.evaluate(() => window.__stabileo.runCounts()?.total ?? 0)).toBe(ids.length);
+    // Back from the design data to the design table, where the certificate is read below.
+    await designPlace(page, 'list');
 
     const counts = (await page.evaluate(() => window.__stabileo.runCounts()))!;
     expect(counts.verified).toBe(ids.length);
@@ -385,7 +410,7 @@ test.describe('@slow RC design at scale', () => {
     await solveModel(page);
 
     const runIdBefore = await page.evaluate(() => window.__stabileo.designRunId());
-    await page.getByTestId('cmd-design-all').click();
+    await sizeAll(page);
     await expect.poll(() => page.evaluate(() => window.__stabileo.runCounts()?.total ?? 0), { timeout: 180_000 })
       .toBe(408);
     expect(await page.evaluate(() => window.__stabileo.designRunId())).not.toBe(runIdBefore);
@@ -420,16 +445,50 @@ test.describe('@slow RC design at scale', () => {
      * axis and adds nothing lateral, and nine of the 22 fell under the threshold (0,104–0,125
      * before, 0,080–0,097 after). They are verified now.
      */
+    /**
+     * 373 and 22 refused since the design reads the column cage its bars must pass and anchor in
+     * (`end-support-anchorage.ts`, `joint-threading-check.ts`): beams 161, 164–172, 180–184,
+     * 186–188 and 196–199 had no layout that threads the columns' bars and anchors in them
+     * (13 of them also on the anchorage alone). They read SECTION_INADEQUATE then.
+     */
+    /**
+     * 331 and 64 refused since 292b87f68, read under the undeclared lateral reading: the
+     * flagship's beams declare no role in the lateral-force-resisting system, so they are
+     * designed as part of it (§9.7.3.8.2, fy developed at the column face), and 42 more beams
+     * cannot anchor their bottom bars so (373 verified and 22 refused before). And the refused
+     * are SEARCH_EXHAUSTED, not SECTION_INADEQUATE: an exhausted search is called inadequate only
+     * on a proof, a code bound no reinforcement lifts, and none of these carries one. Limited by
+     * anchorage (27), anchorage and congestion (17), congestion (16), anchorage, shear and
+     * congestion (164, 168), flexure, shear and congestion (199), flexure and shear (238).
+     *
+     * 356 and 39 since the verifier checks the ductility of a flexural member (CIRSOC 201-2025
+     * §9.3.3.1): over-reinforced candidates are rejected before the joint and anchorage stages
+     * and the search reaches arrangements that pass every check, cages and anchorage included
+     * (`lateral-fixtures.test.ts` measures it against the run without that check: 331/64).
+     */
+    /*
+     * 360 and 35 since the verifier checks the minimum shear reinforcement of CIRSOC 201-2025
+     * §9.6.3.1 on beams deeper than 250 mm and the generator stops offering stirrups under
+     * Av,min (§9.6.3.4): four more beams reach an arrangement that threads and anchors
+     * (`lateral-fixtures.test.ts` measures it: 356/39 without it).
+     */
+    /*
+     * 359 and 36 since main of 24 October came into the line (68047c908 on the concrete branch):
+     * member 185, which verified, is refused because no implemented layout threads and anchors.
+     * Measured member by member against a6013dcf1 (360/35, its own engine): the only outcome
+     * that moves on this branch is member 185's.
+     */
     const counts = (await page.evaluate(() => window.__stabileo.runCounts()))!;
-    expect(counts.verified).toBe(395);
-    expect(counts.searchExhausted, 'nothing was exhausted').toBe(0);
+    expect(counts.verified).toBe(359);
+    expect(counts.sectionInadequate, 'nothing is called inadequate without a proof').toBe(0);
+    expect(counts.searchExhausted, 'the members no implemented layout threads and anchors').toBe(36);
     expect(counts.unsupported, 'and nothing is refused outright any more').toBe(0);
     expect(counts.provisionalBiaxial, 'the 13 are proposals').toBe(13);
     expect(counts.aborted).toBe(0);
     expect(counts.notReached).toBe(0);
     // Every member is accounted for by exactly one bucket. A member that fell out of the
     // classification would otherwise hide inside the 408.
-    expect(counts.verified + counts.provisionalBiaxial, 'nothing unclassified').toBe(408);
+    expect(counts.verified + counts.provisionalBiaxial + counts.searchExhausted, 'nothing unclassified').toBe(408);
 
     /**
      * The proposals, member by member.
@@ -508,15 +567,47 @@ test.describe('@slow RC design at scale', () => {
      *
      * Measured, not assumed: 395 checked, 13 provisional, 0 fail, 0 unavailable (386 and 22
      * until self-weight became a member load; see above).
+     *
+     * Design all also details, and the display now holds a member the detailing could not
+     * build at fail: 15 of the 395. Each carries a bottom Ø32 hooked into a 50 cm edge column,
+     * whose ldh (0,589 m) exceeds even the column depth less the cover (0,475 m; 0,35–0,407 m
+     * inside its cage), or a bar the repair ladder left outside the section, reported. Their
+     * sections verify; the steel as it can be built does not (`detailing-flagship-anchorage`).
+     *
+     * Since the bars are threaded between the columns' and the repair ladder is bounded by the
+     * section: no end is left unanchored and no bar outside, but 206 members keep a clash the
+     * detailing cannot separate (lap zones and crossing mats, `detailing.clash.unresolved`), so
+     * 197 of the 373 verified read fail; the 22 refused have no steel and read unavailable.
+     *
+     * Since the splices are checked on the bars as built (292b87f68, `splice-checks.ts`), a lap
+     * the checks cannot evaluate yet is an open condition that holds its members too
+     * (`detailing.lapCheck.*`: unarranged, integrity, spacing, no partner, pitch). Measured: 235
+     * members keep an unresolved clash and 88 more are held only by an open lap, so 310 of the
+     * 331 verified read fail (197 of 373 before); the 64 refused have no steel and read
+     * unavailable.
+     *
+     * Since the ductility check (see the run counts above): 333 of the 356 verified read fail,
+     * held by the detailing as described, and the 39 refused read unavailable.
+     *
+     * Since the minimum shear reinforcement of §9.6.3.1 (run counts above): 339 of the 360
+     * verified read fail, held by the detailing as described, and the 35 refused read
+     * unavailable.
+     *
+     * Since the lower column bars are cranked into contact laps and clearances are read to
+     * 0.01 mm (no lap on one centreline is left open, no slot refused for microns): 285 of the
+     * 360 verified read fail.
+     *
+     * Measured on this branch with main of 25 October: 289 of the 359 verified read fail and the
+     * 36 refused, member 185 among them, read unavailable.
      */
     const display = await page.evaluate(() => window.__stabileo.counts());
-    expect(display.ok + display.warn, 'the fully checked members').toBe(395);
+    expect(display.ok + display.warn + display.fail, 'the fully checked members').toBe(359);
     expect(display.provisional, 'the proposals, named as proposals').toBe(13);
-    expect(display.fail, 'and nothing is called a failure that is not one').toBe(0);
-    expect(display.unavailable, 'nothing is left without a status at all').toBe(0);
+    expect(display.fail, 'and only what the detailing could not build is called a failure').toBe(289);
+    expect(display.unavailable, 'only the refused members are left without steel').toBe(36);
     // A proposal is never folded into the passes. This is the assertion that would catch the
     // exception being widened into a way of making red things green.
-    expect(display.ok + display.warn, 'proposals are not counted as verified').toBe(395);
+    expect(display.ok + display.warn, 'proposals are not counted as verified').toBe(70);
     // Every member lands in exactly one display bucket. A member missing from all of them
     // would be a row the summary bar does not describe.
     expect(display.ok + display.warn + display.fail + display.provisional
@@ -531,6 +622,8 @@ test.describe('@slow RC design at scale', () => {
       expect(perMember.find((x) => x.id === p.id)!.display, `member ${p.id} display status`)
         .toBe('provisional');
     }
+    // The counts are the project's status, the first place of design.
+    await designPlace(page, 'prepare');
     await expect(page.getByTestId('summary-count-verified')).toContainText(String(display.ok));
     await expect(page.getByTestId('summary-count-warn')).toContainText(String(display.warn));
     await expect(page.getByTestId('summary-count-fail')).toContainText(String(display.fail));
@@ -538,20 +631,23 @@ test.describe('@slow RC design at scale', () => {
     /**
      * And the bar itself says so.
      *
-     * The run-outcome chips hide at zero, so `exhausted` and `unsupported` are gone because
-     * nothing landed in them. The provisional chip lives with the DISPLAY counts, which are
-     * always rendered — it reports what the members ARE rather than what the last run decided,
-     * and those two can diverge the moment a user edits a member's steel.
+     * The run-outcome chips hide at zero, so `unsupported` is gone because nothing landed in it;
+     * `exhausted` holds the 35 (absent while the refused read SECTION_INADEQUATE). The
+     * provisional chip lives with the DISPLAY counts, which are always rendered — it reports what
+     * the members ARE rather than what the last run decided, and those two can diverge the
+     * moment a user edits a member's steel.
      */
-    await expect(page.getByTestId('summary-count-exhausted')).toHaveCount(0);
+    await expect(page.getByTestId('summary-count-exhausted')).toContainText(String(counts.searchExhausted));
     await expect(page.getByTestId('summary-count-unsupported')).toHaveCount(0);
     await expect(page.getByTestId('summary-count-provisional'))
       .toContainText(String(display.provisional));
 
-    // Auto-design selected is the default scope; all-un-designed is explicit.
+    // The list's «Size…» opens the one dialog; what has no bars yet is an explicit scope in it.
+    await designPlace(page, 'list');
     await expect(page.getByTestId('cmd-autodesign')).toBeVisible();
-    await page.getByTestId('cmd-autodesign-menu').click();
-    await expect(page.getByTestId('cmd-autodesign-undesigned')).toBeVisible();
+    await page.getByTestId('cmd-autodesign').click();
+    await expect(page.getByTestId('desk-run-scope-undesigned')).toBeVisible();
+    await page.getByTestId('desk-run-cancel').click();
   });
 
   test('B16 — the batch dialog is usable at a narrow viewport', async ({ pro: page }) => {

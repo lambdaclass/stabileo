@@ -17,7 +17,7 @@ fn section(fc: f64, fy: f64, b: f64, h: f64, d: f64, as_tension: f64) -> Cirsoc2
         s_stirrup: None,
         fyt: None,
         ag: None,
-        lambda: None,
+        lambda: None, bf: None, hf: None,
         edition: Cirsoc201Edition::E2025,
     }
 }
@@ -247,6 +247,8 @@ fn beam(fc: f64, fy: f64, b: f64, d: f64, as_t: f64) -> Cirsoc201MemberData {
         fyt: None,
         ag: None,
         lambda: None,
+        bf: None,
+        hf: None,
         // These regressions follow the CIRSOC 201-2005 clauses they cite.
         edition: Cirsoc201Edition::E2005,
     }

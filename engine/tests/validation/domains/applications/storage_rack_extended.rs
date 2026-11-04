@@ -317,7 +317,7 @@ fn validation_rack_semirigid_connector() {
         }));
     }
     let input_semi = SolverInput {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes,
         materials: mats,
         sections: secs,
@@ -458,7 +458,7 @@ fn validation_rack_down_aisle_stability() {
 
     // Vertical equilibrium (no vertical loads)
     let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
-    assert_close(sum_ry, 0.0, 0.02, "Down-aisle: vertical equilibrium (no gravity)");
+    assert_close_abs(sum_ry, 0.0, 0.02, 1e-6, "Down-aisle: vertical equilibrium (no gravity)");
 }
 
 // ================================================================
@@ -659,7 +659,7 @@ fn validation_rack_base_plate_semirigid() {
     })];
 
     let input_semi = SolverInput {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes: nodes_sr,
         materials: mats_sr,
         sections: secs_sr,

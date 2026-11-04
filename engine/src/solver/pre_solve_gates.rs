@@ -23,17 +23,17 @@ use crate::types::{
 /// Warn about nodes that are not referenced by any element.
 pub fn check_isolated_nodes_2d(input: &SolverInput) -> Vec<StructuredDiagnostic> {
     let mut referenced: HashSet<usize> = HashSet::new();
-    for el in input.elements.values() {
+    for el in crate::ordered::values(&input.elements) {
         referenced.insert(el.node_i);
         referenced.insert(el.node_j);
     }
-    for conn in input.connectors.values() {
+    for conn in crate::ordered::values(&input.connectors) {
         referenced.insert(conn.node_i);
         referenced.insert(conn.node_j);
     }
 
     let mut diags = Vec::new();
-    for node in input.nodes.values() {
+    for node in crate::ordered::values(&input.nodes) {
         if !referenced.contains(&node.id) {
             diags.push(
                 StructuredDiagnostic::global(
@@ -58,48 +58,48 @@ pub fn check_isolated_nodes_3d(input: &SolverInput3D) -> Vec<StructuredDiagnosti
     let mut referenced: HashSet<usize> = HashSet::new();
 
     // Frame / truss elements
-    for el in input.elements.values() {
+    for el in crate::ordered::values(&input.elements) {
         referenced.insert(el.node_i);
         referenced.insert(el.node_j);
     }
     // Connectors
-    for conn in input.connectors.values() {
+    for conn in crate::ordered::values(&input.connectors) {
         referenced.insert(conn.node_i);
         referenced.insert(conn.node_j);
     }
     // Plates (3-node)
-    for pl in input.plates.values() {
+    for pl in crate::ordered::values(&input.plates) {
         for &nid in &pl.nodes {
             referenced.insert(nid);
         }
     }
     // Quads (4-node)
-    for q in input.quads.values() {
+    for q in crate::ordered::values(&input.quads) {
         for &nid in &q.nodes {
             referenced.insert(nid);
         }
     }
     // Quad9s (9-node)
-    for q9 in input.quad9s.values() {
+    for q9 in crate::ordered::values(&input.quad9s) {
         for &nid in &q9.nodes {
             referenced.insert(nid);
         }
     }
     // Solid shells (8-node)
-    for ss in input.solid_shells.values() {
+    for ss in crate::ordered::values(&input.solid_shells) {
         for &nid in &ss.nodes {
             referenced.insert(nid);
         }
     }
     // Curved shells (4-node)
-    for cs in input.curved_shells.values() {
+    for cs in crate::ordered::values(&input.curved_shells) {
         for &nid in &cs.nodes {
             referenced.insert(nid);
         }
     }
 
     let mut diags = Vec::new();
-    for node in input.nodes.values() {
+    for node in crate::ordered::values(&input.nodes) {
         if !referenced.contains(&node.id) {
             diags.push(
                 StructuredDiagnostic::global(
@@ -121,7 +121,7 @@ pub fn check_isolated_nodes_3d(input: &SolverInput3D) -> Vec<StructuredDiagnosti
 
 /// Warn when two nodes are closer than 1e-6 * L_char.
 pub fn check_near_duplicate_nodes_2d(input: &SolverInput) -> Vec<StructuredDiagnostic> {
-    let nodes: Vec<_> = input.nodes.values().collect();
+    let nodes: Vec<_> = crate::ordered::values(&input.nodes).collect();
     let n = nodes.len();
     if n >= 10_000 {
         return vec![]; // skip O(n^2) for large models
@@ -132,7 +132,7 @@ pub fn check_near_duplicate_nodes_2d(input: &SolverInput) -> Vec<StructuredDiagn
     // fold ran before it was reached and scanned `nodes.values()` twice per
     // element — the more expensive half, and unguarded. Indexed once instead.
     let node_by_id: HashMap<usize, &SolverNode> =
-        input.nodes.values().map(|n| (n.id, n)).collect();
+        crate::ordered::values(&input.nodes).map(|n| (n.id, n)).collect();
     let l_char = input
         .elements
         .values()
@@ -180,7 +180,7 @@ pub fn check_near_duplicate_nodes_2d(input: &SolverInput) -> Vec<StructuredDiagn
 
 /// Warn when two 3D nodes are closer than 1e-6 * L_char.
 pub fn check_near_duplicate_nodes_3d(input: &SolverInput3D) -> Vec<StructuredDiagnostic> {
-    let nodes: Vec<_> = input.nodes.values().collect();
+    let nodes: Vec<_> = crate::ordered::values(&input.nodes).collect();
     let n = nodes.len();
     if n >= 10_000 {
         return vec![]; // skip O(n^2) for large models
@@ -189,7 +189,7 @@ pub fn check_near_duplicate_nodes_3d(input: &SolverInput3D) -> Vec<StructuredDia
     // Characteristic length = max element length (min 1e-3). Indexed once,
     // for the same reason as the 2D gate above.
     let node_by_id: HashMap<usize, &SolverNode3D> =
-        input.nodes.values().map(|n| (n.id, n)).collect();
+        crate::ordered::values(&input.nodes).map(|n| (n.id, n)).collect();
     let l_char = input
         .elements
         .values()
@@ -241,7 +241,7 @@ pub fn check_near_duplicate_nodes_3d(input: &SolverInput3D) -> Vec<StructuredDia
 pub fn check_instability_risk_2d(input: &SolverInput) -> Vec<StructuredDiagnostic> {
     // Collect rotational-restrained node IDs
     let mut rot_restrained: HashSet<usize> = HashSet::new();
-    for sup in input.supports.values() {
+    for sup in crate::ordered::values(&input.supports) {
         match sup.support_type.as_str() {
             // guidedZ is a 2D alias of guidedY (dof::is_dof_restrained_2d): ux+ry fixed
             "fixed" | "guidedX" | "guidedY" | "guidedZ" => {
@@ -260,7 +260,7 @@ pub fn check_instability_risk_2d(input: &SolverInput) -> Vec<StructuredDiagnosti
     let mut has_non_truss: HashSet<usize> = HashSet::new();
     let mut connected_nodes: HashSet<usize> = HashSet::new();
 
-    for el in input.elements.values() {
+    for el in crate::ordered::values(&input.elements) {
         connected_nodes.insert(el.node_i);
         connected_nodes.insert(el.node_j);
 
@@ -276,7 +276,7 @@ pub fn check_instability_risk_2d(input: &SolverInput) -> Vec<StructuredDiagnosti
     }
 
     let mut diags = Vec::new();
-    for &nid in &connected_nodes {
+    for &nid in crate::ordered::members(&connected_nodes) {
         if !has_non_truss.contains(&nid) && !rot_restrained.contains(&nid) {
             diags.push(
                 StructuredDiagnostic::global(
@@ -407,10 +407,10 @@ pub fn check_shell_distortion_3d(input: &SolverInput3D) -> Vec<StructuredDiagnos
     // O(shell corners × nodes): measured at 190 ms on a 10k-node shell mesh,
     // against 0.8 ms for the isolated-node gate on the same model.
     let node_by_id: HashMap<usize, &SolverNode3D> =
-        input.nodes.values().map(|n| (n.id, n)).collect();
+        crate::ordered::values(&input.nodes).map(|n| (n.id, n)).collect();
 
     // ── Quad (MITC4) elements ──
-    for q in input.quads.values() {
+    for q in crate::ordered::values(&input.quads) {
         let coords: Option<[[f64; 3]; 4]> = (|| {
             let mut c = [[0.0; 3]; 4];
             for (i, &nid) in q.nodes.iter().enumerate() {
@@ -551,7 +551,7 @@ pub fn check_shell_distortion_3d(input: &SolverInput3D) -> Vec<StructuredDiagnos
     }
 
     // ── Triangular plate (DKT) elements ──
-    for pl in input.plates.values() {
+    for pl in crate::ordered::values(&input.plates) {
         let coords: Option<[[f64; 3]; 3]> = (|| {
             let mut c = [[0.0; 3]; 3];
             for (i, &nid) in pl.nodes.iter().enumerate() {
@@ -647,7 +647,7 @@ pub fn check_shell_distortion_3d(input: &SolverInput3D) -> Vec<StructuredDiagnos
     }
 
     // ── Quad9 (MITC9) elements ──
-    for q9 in input.quad9s.values() {
+    for q9 in crate::ordered::values(&input.quad9s) {
         let coords: Option<[[f64; 3]; 9]> = (|| {
             let mut c = [[0.0; 3]; 9];
             for (i, &nid) in q9.nodes.iter().enumerate() {
@@ -783,7 +783,7 @@ pub fn check_shell_distortion_3d(input: &SolverInput3D) -> Vec<StructuredDiagnos
     }
 
     // ── Solid shell (SHB8-ANS) elements ──
-    for ss in input.solid_shells.values() {
+    for ss in crate::ordered::values(&input.solid_shells) {
         let coords: Option<[[f64; 3]; 8]> = (|| {
             let mut c = [[0.0; 3]; 8];
             for (i, &nid) in ss.nodes.iter().enumerate() {
@@ -884,7 +884,7 @@ pub fn check_shell_distortion_3d(input: &SolverInput3D) -> Vec<StructuredDiagnos
     }
 
     // ── Curved shell elements ──
-    for cs in input.curved_shells.values() {
+    for cs in crate::ordered::values(&input.curved_shells) {
         let coords: Option<[[f64; 3]; 4]> = (|| {
             let mut c = [[0.0; 3]; 4];
             for (i, &nid) in cs.nodes.iter().enumerate() {
@@ -1046,9 +1046,9 @@ pub fn check_suspicious_local_axes_3d(input: &SolverInput3D) -> Vec<StructuredDi
     // gate cost O(elements × nodes): on a 10k-node frame it was the single
     // most expensive thing in the solve.
     let node_by_id: HashMap<usize, &SolverNode3D> =
-        input.nodes.values().map(|n| (n.id, n)).collect();
+        crate::ordered::values(&input.nodes).map(|n| (n.id, n)).collect();
 
-    for el in input.elements.values() {
+    for el in crate::ordered::values(&input.elements) {
         let (Some(ni), Some(nj)) = (
             node_by_id.get(&el.node_i).copied(),
             node_by_id.get(&el.node_j).copied(),
@@ -1179,10 +1179,10 @@ pub fn check_rigid_body_restraint_3d(input: &SolverInput3D) -> Vec<StructuredDia
     if !input.constraints.is_empty() || !input.connectors.is_empty() || !input.curved_beams.is_empty() {
         return Vec::new();
     }
-    if input.supports.values().any(|s| s.is_inclined == Some(true)) {
+    if crate::ordered::values(&input.supports).any(|s| s.is_inclined == Some(true)) {
         return Vec::new();
     }
-    let pos: HashMap<usize, [f64; 3]> = input.nodes.values().map(|n| (n.id, [n.x, n.y, n.z])).collect();
+    let pos: HashMap<usize, [f64; 3]> = crate::ordered::values(&input.nodes).map(|n| (n.id, [n.x, n.y, n.z])).collect();
     let mut ids: Vec<usize> = pos.keys().copied().collect();
     ids.sort_unstable();
     let index: HashMap<usize, usize> = ids.iter().enumerate().map(|(k, &id)| (id, k)).collect();
@@ -1209,7 +1209,7 @@ pub fn check_rigid_body_restraint_3d(input: &SolverInput3D) -> Vec<StructuredDia
         true
     };
     let left_hand = input.left_hand.unwrap_or(false);
-    for e in input.elements.values() {
+    for e in crate::ordered::values(&input.elements) {
         if !link(&mut parent, &[e.node_i, e.node_j]) {
             return Vec::new();
         }
@@ -1234,11 +1234,11 @@ pub fn check_rigid_body_restraint_3d(input: &SolverInput3D) -> Vec<StructuredDia
         }
     }
     let full = [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]];
-    let shells: Vec<(Vec<usize>, bool)> = input.plates.values().map(|x| (x.nodes.to_vec(), true))
-        .chain(input.quads.values().map(|x| (x.nodes.to_vec(), true)))
-        .chain(input.quad9s.values().map(|x| (x.nodes.to_vec(), true)))
-        .chain(input.curved_shells.values().map(|x| (x.nodes.to_vec(), true)))
-        .chain(input.solid_shells.values().map(|x| (x.nodes.to_vec(), false)))
+    let shells: Vec<(Vec<usize>, bool)> = crate::ordered::values(&input.plates).map(|x| (x.nodes.to_vec(), true))
+        .chain(crate::ordered::values(&input.quads).map(|x| (x.nodes.to_vec(), true)))
+        .chain(crate::ordered::values(&input.quad9s).map(|x| (x.nodes.to_vec(), true)))
+        .chain(crate::ordered::values(&input.curved_shells).map(|x| (x.nodes.to_vec(), true)))
+        .chain(crate::ordered::values(&input.solid_shells).map(|x| (x.nodes.to_vec(), false)))
         .collect();
     for (nodes, rotations) in &shells {
         if !link(&mut parent, nodes) {
@@ -1279,7 +1279,7 @@ pub fn check_rigid_body_restraint_3d(input: &SolverInput3D) -> Vec<StructuredDia
     }
     // restraints per node: [translations, rotations], rigid flag or spring
     let mut held: HashMap<usize, [bool; 6]> = HashMap::new();
-    for s in input.supports.values() {
+    for s in crate::ordered::values(&input.supports) {
         let h = held.entry(s.node_id).or_insert([false; 6]);
         let springs = [s.kx, s.ky, s.kz, s.krx, s.kry, s.krz];
         let flags = [s.rx, s.ry, s.rz, s.rrx, s.rry, s.rrz];
@@ -1288,7 +1288,7 @@ pub fn check_rigid_body_restraint_3d(input: &SolverInput3D) -> Vec<StructuredDia
         }
     }
     let mut diags = Vec::new();
-    for nodes in comps.values() {
+    for nodes in crate::ordered::values(&comps) {
         let n = nodes.len() as f64;
         let mut c = [0.0; 3];
         for id in nodes {

@@ -34,9 +34,19 @@
  * identity, and never the prose.
  */
 
-import { test, expect, openBasicProjectPanel } from './fixtures';
+import { test, expect, openBasicProjectPanel, designPlace } from './fixtures';
 import type { Page } from '@playwright/test';
-import { CIRSOC_VERIFIER_ID } from '../src/lib/engine/design/adapters/cirsoc201-adapter';
+import { readFileSync } from 'node:fs';
+
+/*
+ * The verifier id, read from the adapter's source rather than imported: importing the adapter
+ * pulls the station-design forces, then the local axes, then the i18n store, whose `$state` only
+ * exists inside a Svelte compile, and the spec failed to load at all (`$state is not defined`).
+ * Still derived from the one definition, never a pasted literal.
+ */
+const ADAPTER = new URL('../src/lib/engine/design/adapters/cirsoc201-adapter.ts', import.meta.url).pathname;
+const CIRSOC_VERIFIER_ID = /export const CIRSOC_VERIFIER_ID = '([^']+)'/.exec(readFileSync(ADAPTER, 'utf8'))?.[1]
+  ?? (() => { throw new Error('CIRSOC_VERIFIER_ID not found in the adapter source'); })();
 
 const FIXTURE = new URL(
   '../src/lib/export/__fixtures__/rc-footing-cad-poc.ded.json', import.meta.url).pathname;
@@ -77,9 +87,8 @@ async function openProject(page: Page) {
  * what made this journey unrunnable rather than failing.
  */
 async function openDesignTab(page: Page) {
-  await page.getByTestId('pr-stage-design').click();
-  await page.getByTestId('pr-cmd-design').click();
-  await expect(page.getByTestId('cmd-design-all')).toBeVisible({ timeout: 30_000 });
+  await designPlace(page, 'list');
+  await expect(page.getByTestId('cmd-autodesign')).toBeVisible({ timeout: 30_000 });
 }
 
 /**
@@ -126,7 +135,10 @@ async function runProductionChainFromUi(page: Page) {
     .poll(() => page.evaluate(() => window.__stabileo.baselineRevision()), { timeout: 180_000 })
     .toBeGreaterThan(0);
 
-  await page.getByTestId('cmd-design-all').click();
+  // «Size…», the one design command, over every member.
+  await page.getByTestId('cmd-autodesign').click();
+  await page.getByTestId('desk-run-resize').setChecked(false);
+  await page.getByTestId('desk-run').click();
   await expect
     .poll(() => page.evaluate(() => window.__stabileo.runCounts()?.verified ?? 0), { timeout: 180_000 })
     .toBeGreaterThan(0);
@@ -246,7 +258,13 @@ test.describe('@slow rc cad handoff — the production download', () => {
       ].sort());
 
     // ── the mat IS here, and every limitation is coded ──────────
-    const unsupportedCodes = (m.unsupported as Array<{ code: string }>).map((u) => u.code).sort();
+    // Designed from the factored results (SA-2026-024), the joint's unbalanced moment passes the
+    // significance threshold on this journey, and the footing check does not evaluate moment
+    // transfer (§8.4.4.2): the handoff says so, coded, as main's own expectation has it. The
+    // detailing's own record travels as its two notes (the unevaluated transfer and the record's
+    // unverified conditions), keyed `foundation` as the committed V2 golden carries them.
+    const entries = m.unsupported as Array<{ code?: string; messageKey?: string }>;
+    const unsupportedCodes = entries.filter((u) => u.code).map((u) => u.code).sort();
     expect(unsupportedCodes).toEqual([
       'COLUMN_COVER_OUT_OF_SCOPE',
       'FOOTING_BOTTOM_MAT_MODELED',
@@ -255,6 +273,7 @@ test.describe('@slow rc cad handoff — the production download', () => {
       'NO_PRODUCTION_CONTAINMENT_CHECKER',
       'PUNCHING_UNBALANCED_MOMENT_UNSUPPORTED',
     ]);
+    expect(entries.filter((u) => !u.code).map((u) => u.messageKey)).toEqual(['foundation', 'foundation']);
     // The inverse of what this used to assert. V1 declared the mats absent and this checked that
     // no mat bar had slipped in; V2 carries them, so the check is that they ARE here and remain
     // individually addressable rather than folded into the dowel family.

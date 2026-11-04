@@ -2,8 +2,7 @@
 //! `feature_matrix.rs` found. Each test states the reference the fix was
 //! checked against; the matrix itself covers every pair.
 
-#[path = "common/mod.rs"]
-mod common;
+use crate::common;
 
 use common::{make_3d_input, make_input};
 use dedaliano_engine::postprocess::influence;

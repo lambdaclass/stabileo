@@ -39,6 +39,7 @@ import { designRunStore } from './design-run.svelte';
 import { documentScope } from './document-scope.svelte';
 import { reportFigures } from './report-figures.svelte';
 import { directAnalysis } from './direct-analysis.svelte';
+import { recheckStore } from './recheck.svelte';
 
 /**
  * What the session holds for the project on screen and must not carry to another: the report's
@@ -50,7 +51,7 @@ function forgetSessionProjectState(): void {
 }
 
 /** The provenance fields of a snapshot, taken from the live session. */
-export function captureProjectProvenance(): Pick<ModelSnapshot, 'exports' | 'manualEdits'> {
+export function captureProjectProvenance(): Pick<ModelSnapshot, 'exports' | 'manualEdits' | 'solvedWith' | 'pendingRecheckNotice'> {
   return {
     // Copied out of reactive state. A snapshot that aliased the store's array would let a
     // later export mutate an undo entry — the same hazard `restore()` documents for footings.
@@ -61,6 +62,10 @@ export function captureProjectProvenance(): Pick<ModelSnapshot, 'exports' | 'man
       retouched: { ...r.retouched, members: [...r.retouched.members] },
     })),
     manualEdits: [...designRunStore.manualOverrides].sort((a, b) => a - b),
+    // Which build last solved it: adopted on open by `onProjectOpened` (file.ts), which also
+    // decides whether to show the re-check notice.
+    solvedWith: recheckStore.capture(),
+    pendingRecheckNotice: recheckStore.captureNotice(),
   };
 }
 
@@ -94,4 +99,5 @@ export function resetProjectProvenance(): void {
   designRunStore.hydrateManual([]);
   documentScope.reset();
   forgetSessionProjectState();
+  recheckStore.reset();
 }

@@ -2,7 +2,8 @@
  * A 3D support from its restraints: which degrees of freedom are held, and the springs on the
  * free ones. Pure: no store.
  */
-import type { SupportType } from '../store/model.svelte';
+import type { Support, SupportType } from '../store/model.svelte';
+import { supportDofs3D } from '../engine/support-dofs-3d';
 
 export type Dof3D = 'tx' | 'ty' | 'tz' | 'rx' | 'ry' | 'rz';
 export type SpringKey = 'kx' | 'ky' | 'kz' | 'krx' | 'kry' | 'krz';
@@ -31,4 +32,17 @@ export function support3DFrom(
     ? Object.fromEntries(active.map(([, key]) => [key, springsOnFree[key]!]))
     : undefined;
   return { type, springs, opts: { dofRestraints: r, dofFrame } };
+}
+
+/** The named 3D support types whose restraints follow from the type alone. */
+const TYPES_3D: ReadonlySet<SupportType> = new Set<SupportType>(['fixed3d', 'pinned3d', 'rollerXZ', 'rollerXY', 'rollerYZ', 'spring3d']);
+
+export function is3DSupportType(type: SupportType): boolean {
+  return TYPES_3D.has(type);
+}
+
+/** The degrees of freedom a named 3D support type holds (the solver's own mapping). */
+export function dofRestraintsOfType3D(type: SupportType): Record<Dof3D, boolean> {
+  const d = supportDofs3D({ type } as Support);
+  return { tx: d.rx, ty: d.ry, tz: d.rz, rx: d.rrx, ry: d.rry, rz: d.rrz };
 }

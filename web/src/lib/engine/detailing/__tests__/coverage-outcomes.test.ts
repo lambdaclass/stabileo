@@ -19,6 +19,11 @@
  * 395 and 13 since self-weight became a member load: it bends the beams about their strong
  * axis, and nine of the 22 fell under the biaxial threshold.
  *
+ * 373 VERIFIED, 13 biaxial proposals and 22 refusals on congestion since the design reads the
+ * column cages (`joint-threading-check.ts`): no layout of those 22 beams' bars passes the
+ * columns' bars at their joints. Before: 395 + 13; after: 373 + 13 + 22. (373 is now also the
+ * outcome count, by coincidence with the display band this file was written about.)
+ *
  * So the assertion below is no longer "nothing is refused". It is the sharper claim the file
  * was always making: the members detailing works on are exactly the members that hold a
  * VERIFIED outcome, and anything excluded is excluded on OUTCOME grounds — never because it
@@ -35,15 +40,31 @@ import { detailingReadiness } from '../run-detailing';
 import type { MemberDesignOutcome } from '../../design/outcome';
 
 describe('the 408/373 discrepancy', () => {
-  it('the outcome population is 395 VERIFIED + 13 honest refusals — 373 is a display band', () => {
+  it('the outcome population is 372 VERIFIED + 36 honest refusals — 373 was a display band', () => {
     const { summary } = flagshipRun();
     expect(summary.total).toBe(408);
-    expect(summary.verified).toBe(395);
+    // 379 since the ductility check of §9.3.3.1 steers the search off over-reinforced candidates
+    // and six of the 22 congested beams (169–172, 197, 198) thread and verify (see
+    // autodesign-regression.test.ts, header). 373 until then. 383 since the minimum shear
+    // reinforcement of CIRSOC 201-2025 §9.6.3.1 (same header): 165–168 verify.
+    // 372 since main's concrete in the engine (rc-baseline-digest.test.ts, fingerprint): the columns read on the load contour carry bars on every face, and 11 more edge beams find no layout through those cages.
+    expect(summary.verified).toBe(372);
 
     // Every member that is not VERIFIED is refused for a stated reason. A member sitting in a
     // low-utilisation display band is NOT one of them, which is the whole point: 373 never was
     // an outcome, and the 13 that are outcomes all name the same honest cause.
-    const notVerified = [...summary.outcomes.values()].filter((o) => o.outcome !== 'VERIFIED');
+    // The 23 congested beams: no arrangement the search implements passes, which is
+    // SEARCH_EXHAUSTED; no bound proves their section inadequate (`section-bounds.ts`).
+    expect(summary.sectionInadequate).toBe(0);
+    const congested = [...summary.outcomes.values()].filter((o) => o.outcome === 'SEARCH_EXHAUSTED');
+    expect(congested).toHaveLength(23);
+    for (const o of congested) {
+      expect(o.limiting, `member ${o.elementId}`).toContain('congestion');
+      expect(o.exhaustion?.scope, `member ${o.elementId}`).toBe('implementedAlternatives');
+      expect(o.certificate, `member ${o.elementId} carries no certificate`).toBeUndefined();
+      expect(o.accepted, `member ${o.elementId} assigns no certified steel`).toBeUndefined();
+    }
+    const notVerified = [...summary.outcomes.values()].filter((o) => o.outcome !== 'VERIFIED' && o.outcome !== 'SEARCH_EXHAUSTED');
     expect(notVerified).toHaveLength(13);
     /**
      * PROVISIONAL_BIAXIAL, not UNSUPPORTED and not SEARCH_EXHAUSTED.

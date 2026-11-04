@@ -255,6 +255,7 @@ fn validation_strand7_bm3_fixed_fixed_thermal() {
                 element_id: i + 1,
                 dt_uniform,
                 dt_gradient,
+                alpha: None, depth: None,
             })
         })
         .collect();
@@ -804,7 +805,7 @@ fn validation_lusas_bm2_continuous_beam_settlement() {
     }
 
     let input = SolverInput {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes: nodes_map,
         materials: mats_map,
         sections: secs_map,

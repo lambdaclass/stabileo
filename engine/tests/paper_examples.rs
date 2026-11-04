@@ -39,8 +39,7 @@
 //! cannot drift: columns 1–15 (interior ground-floor column = 3), beams 16–27.
 //! Beam 21 governs the damaged state, which is the beam the paper singles out.
 
-#[path = "common/mod.rs"]
-mod common;
+use crate::common;
 
 use common::make_3d_input;
 use dedaliano_engine::solver::linear;

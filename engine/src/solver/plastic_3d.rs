@@ -4,7 +4,7 @@
 //! and hinge bookkeeping it shares), with the biaxial yield condition
 //! `(My/Mp_y)² + (Mz/Mp_z)² ≤ 1` (local axes) at every section.
 
-use super::{golden_min, span_candidates, unique_key, Piece, PlasticHinge3D, PlasticResult3D, PlasticStep3D, SNAP, STATIONS};
+use super::{golden_min, span_candidates, unique_key, Piece, PlasticHinge3D, PlasticResult3D, PlasticStep3D, SNAP, STATIONS, TIE};
 use crate::element;
 use crate::types::*;
 use std::collections::{HashMap, HashSet};
@@ -27,6 +27,10 @@ struct Member3 {
     /// Bending releases of the model at [start, end] × (my, mz).
     orig_rel: [[bool; 2]; 2],
 }
+
+/// Span sections closer than this (fraction of the member length) to a hinge
+/// of the member are that hinge (see the event search).
+const HINGE_GAP: f64 = 1e-3;
 
 /// A plastic hinge formed by the analysis (never a release of the model).
 struct Hinge3 {
@@ -190,8 +194,8 @@ fn set_hinge(input: &mut SolverInput3D, m: &Member3, t: f64, on: bool) {
 }
 
 fn local_axes(input: &SolverInput3D, el: &SolverElement3D) -> Option<([f64; 3], [f64; 3], [f64; 3])> {
-    let ni = input.nodes.values().find(|n| n.id == el.node_i)?;
-    let nj = input.nodes.values().find(|n| n.id == el.node_j)?;
+    let ni = crate::ordered::values(&input.nodes).find(|n| n.id == el.node_i)?;
+    let nj = crate::ordered::values(&input.nodes).find(|n| n.id == el.node_j)?;
     Some(element::compute_local_axes_3d(
         ni.x, ni.y, ni.z, nj.x, nj.y, nj.z,
         el.local_yx, el.local_yy, el.local_yz, el.roll_angle,
@@ -324,10 +328,10 @@ fn released_end_rotations(input: &SolverInput3D, key: &str, disp: &HashMap<usize
     if el.elem_type != "frame" || !rel.iter().any(|r| r.1) {
         return [[0.0; 2]; 2];
     }
-    let node = |id: usize| input.nodes.values().find(|n| n.id == id);
+    let node = |id: usize| crate::ordered::values(&input.nodes).find(|n| n.id == id);
     let (Some(ni), Some(nj)) = (node(el.node_i), node(el.node_j)) else { return [[0.0; 2]; 2] };
-    let Some(mat) = input.materials.values().find(|m| m.id == el.material_id) else { return [[0.0; 2]; 2] };
-    let Some(sec) = input.sections.values().find(|s| s.id == el.section_id) else { return [[0.0; 2]; 2] };
+    let Some(mat) = crate::ordered::values(&input.materials).find(|m| m.id == el.material_id) else { return [[0.0; 2]; 2] };
+    let Some(sec) = crate::ordered::values(&input.sections).find(|s| s.id == el.section_id) else { return [[0.0; 2]; 2] };
     let Some((ex, ey, ez)) = local_axes(input, el) else { return [[0.0; 2]; 2] };
     let l = ((nj.x - ni.x).powi(2) + (nj.y - ni.y).powi(2) + (nj.z - ni.z).powi(2)).sqrt();
     let e = mat.e * 1000.0;
@@ -399,9 +403,8 @@ fn local_fef(
                 element::fef_point_load_3d(pl.py, pl.pz, pl.a, l, phi_y, phi_z)
             }
             SolverLoad3D::Thermal(tl) if tl.element_id == el.id => {
-                let hy = if sec.a > 1e-15 { (12.0 * sec.iz / sec.a).sqrt() } else { 0.1 };
-                let hz = if sec.a > 1e-15 { (12.0 * sec.iy / sec.a).sqrt() } else { 0.1 };
-                element::fef_thermal_3d(e, sec.a, sec.iy, sec.iz, l, tl.dt_uniform, tl.dt_gradient_y, tl.dt_gradient_z, 12e-6, hy, hz)
+                let (hy, hz) = (tl.depth_y(sec.a, sec.iz), tl.depth_z(sec.a, sec.iy));
+                element::fef_thermal_3d(e, sec.a, sec.iy, sec.iz, l, tl.dt_uniform, tl.dt_gradient_y, tl.dt_gradient_z, tl.alpha(), hy, hz)
             }
             _ => continue,
         };
@@ -436,7 +439,7 @@ fn increment_to_yield(acc: (f64, f64), unit: (f64, f64), mp: (f64, f64)) -> f64 
 }
 
 fn node_pos(input: &SolverInput3D, id: usize) -> [f64; 3] {
-    input.nodes.values().find(|n| n.id == id).map_or([0.0; 3], |n| [n.x, n.y, n.z])
+    crate::ordered::values(&input.nodes).find(|n| n.id == id).map_or([0.0; 3], |n| [n.x, n.y, n.z])
 }
 
 /// Whether the directions span all of space (Gram determinant of the unit
@@ -489,7 +492,7 @@ fn carry(input: &SolverInput3D) -> Option<AnalysisResults3D> {
     if !balanced(input, &r) {
         return None;
     }
-    let supported: HashSet<usize> = input.supports.values().map(|s| s.node_id).collect();
+    let supported: HashSet<usize> = crate::ordered::values(&input.supports).map(|s| s.node_id).collect();
     r.reactions.retain(|x| supported.contains(&x.node_id));
     Some(r)
 }
@@ -499,10 +502,10 @@ fn with_soft_springs(input: &SolverInput3D) -> SolverInput3D {
     // relative to the softest bending stiffness, so that the springs take a
     // negligible share of the ordinary (elastic) displacements
     let (mut kt, mut kr) = (f64::INFINITY, f64::INFINITY);
-    for el in input.elements.values() {
+    for el in crate::ordered::values(&input.elements) {
         let (Some(mat), Some(sec)) = (
-            input.materials.values().find(|m| m.id == el.material_id),
-            input.sections.values().find(|x| x.id == el.section_id),
+            crate::ordered::values(&input.materials).find(|m| m.id == el.material_id),
+            crate::ordered::values(&input.sections).find(|x| x.id == el.section_id),
         ) else {
             continue;
         };
@@ -518,7 +521,7 @@ fn with_soft_springs(input: &SolverInput3D) -> SolverInput3D {
         (kt, kr) = (1.0, 1.0);
     }
     let (kt, kr) = (1e-10 * kt, 1e-10 * kr);
-    let has: HashSet<usize> = input.supports.values().map(|s| s.node_id).collect();
+    let has: HashSet<usize> = crate::ordered::values(&input.supports).map(|s| s.node_id).collect();
     for sup in out.supports.values_mut() {
         if sup.is_inclined == Some(true) {
             continue;
@@ -531,7 +534,7 @@ fn with_soft_springs(input: &SolverInput3D) -> SolverInput3D {
             }
         }
     }
-    let mut ids: Vec<usize> = input.nodes.values().map(|n| n.id).filter(|id| !has.contains(id)).collect();
+    let mut ids: Vec<usize> = crate::ordered::values(&input.nodes).map(|n| n.id).filter(|id| !has.contains(id)).collect();
     ids.sort();
     for id in ids {
         out.supports.insert(
@@ -573,19 +576,19 @@ fn with_soft_springs(input: &SolverInput3D) -> SolverInput3D {
 /// checked, nor are models with constraints or connectors).
 fn balanced(input: &SolverInput3D, r: &AnalysisResults3D) -> bool {
     let mut skip: HashSet<usize> = HashSet::new();
-    for p in input.plates.values() {
+    for p in crate::ordered::values(&input.plates) {
         skip.extend(p.nodes);
     }
-    for p in input.quads.values() {
+    for p in crate::ordered::values(&input.quads) {
         skip.extend(p.nodes);
     }
-    for p in input.quad9s.values() {
+    for p in crate::ordered::values(&input.quad9s) {
         skip.extend(p.nodes);
     }
-    for p in input.solid_shells.values() {
+    for p in crate::ordered::values(&input.solid_shells) {
         skip.extend(p.nodes);
     }
-    for p in input.curved_shells.values() {
+    for p in crate::ordered::values(&input.curved_shells) {
         skip.extend(p.nodes);
     }
     if !input.constraints.is_empty() || !input.connectors.is_empty() {
@@ -603,7 +606,7 @@ fn balanced(input: &SolverInput3D, r: &AnalysisResults3D) -> bool {
         }
     }
     let by_id: HashMap<usize, &ElementForces3D> = r.element_forces.iter().map(|ef| (ef.element_id, ef)).collect();
-    for el in input.elements.values() {
+    for el in crate::ordered::values(&input.elements) {
         let Some(ef) = by_id.get(&el.id) else { continue };
         let Some((ex, ey, ez)) = local_axes(input, el) else { return false };
         // forces exerted by the nodes on the member, local axes
@@ -662,16 +665,16 @@ fn balanced(input: &SolverInput3D, r: &AnalysisResults3D) -> bool {
 /// Nodes whose rotation a shell element can hold.
 fn rotation_coupled_nodes(input: &SolverInput3D) -> HashSet<usize> {
     let mut out: HashSet<usize> = HashSet::new();
-    for p in input.plates.values() {
+    for p in crate::ordered::values(&input.plates) {
         out.extend(p.nodes);
     }
-    for p in input.quads.values() {
+    for p in crate::ordered::values(&input.quads) {
         out.extend(p.nodes);
     }
-    for p in input.quad9s.values() {
+    for p in crate::ordered::values(&input.quad9s) {
         out.extend(p.nodes);
     }
-    for p in input.curved_shells.values() {
+    for p in crate::ordered::values(&input.curved_shells) {
         out.extend(p.nodes);
     }
     out
@@ -701,6 +704,13 @@ fn mechanism(input: &SolverInput3D) -> bool {
 /// (`unloaded_at`), and a closed one still on the yield surface that would be
 /// loaded outward reopens. When the structure is a mechanism, a hinge that
 /// would unload under the mechanism's motion closes and loading continues.
+/// Every choice among hinges goes by rate (the one reaching the yield surface
+/// first, turning backwards or loaded outward the most), never by element
+/// number, so the result does not depend on the numbering (#511). When no
+/// consistent set of active hinges exists (a biaxial hinge holds the moment
+/// vector it formed with, so closing one hinge can drive another out of the
+/// yield surface and back), the analysis stops at the last consistent state:
+/// `is_mechanism` is false and the factor is a lower bound.
 /// `warnings` lists what keeps the result from being the collapse load.
 pub fn solve_plastic_3d(input: &PlasticInput3D) -> Result<PlasticResult3D, String> {
     // Same reason as the 2D entry: keep `Err` from the inner solve meaning
@@ -719,6 +729,11 @@ pub fn solve_plastic_3d(input: &PlasticInput3D) -> Result<PlasticResult3D, Strin
     super::super::feature_gates::refuse_3d(&input.solver, "Plastic (pushover) analysis", &[
         super::super::feature_gates::Feature::Constraints, super::super::feature_gates::Feature::Connectors, super::super::feature_gates::Feature::SupportSprings,
     ])?;
+    // Imposed deformations alone: see the 2D solver.
+    let m_ref = load_moment_scale_3d(&input.solver);
+    if !(m_ref > 0.0) {
+        return Err(super::NO_MECHANICAL_LOAD.into());
+    }
     let max_hinges = input.max_hinges.unwrap_or(30);
 
     let mut mp_map: HashMap<usize, (f64, f64)> = HashMap::new();
@@ -735,7 +750,7 @@ pub fn solve_plastic_3d(input: &PlasticInput3D) -> Result<PlasticResult3D, Strin
     // Curved beams become ordinary frame members first, so that hinges can
     // form on them like on any other member.
     let mut current_input = super::super::linear::expand_curved_beams_3d(&input.solver);
-    let node_xyz: HashMap<usize, [f64; 3]> = current_input.nodes.values().map(|n| (n.id, [n.x, n.y, n.z])).collect();
+    let node_xyz: HashMap<usize, [f64; 3]> = crate::ordered::values(&current_input.nodes).map(|n| (n.id, [n.x, n.y, n.z])).collect();
     let mut members: Vec<Member3> = current_input
         .elements
         .iter()
@@ -764,17 +779,17 @@ pub fn solve_plastic_3d(input: &PlasticInput3D) -> Result<PlasticResult3D, Strin
         })
         .collect();
     members.sort_by_key(|m| m.id);
-    let original_nodes: HashSet<usize> = input.solver.nodes.values().map(|n| n.id).collect();
+    let original_nodes: HashSet<usize> = crate::ordered::values(&input.solver.nodes).map(|n| n.id).collect();
     let mut next_node = node_xyz.keys().max().copied().unwrap_or(0) + 1;
     let mut next_elem = current_input
         .elements
         .values()
         .map(|e| e.id)
-        .chain(current_input.plates.values().map(|p| p.id))
-        .chain(current_input.quads.values().map(|p| p.id))
-        .chain(current_input.quad9s.values().map(|p| p.id))
-        .chain(current_input.solid_shells.values().map(|p| p.id))
-        .chain(current_input.curved_shells.values().map(|p| p.id))
+        .chain(crate::ordered::values(&current_input.plates).map(|p| p.id))
+        .chain(crate::ordered::values(&current_input.quads).map(|p| p.id))
+        .chain(crate::ordered::values(&current_input.quad9s).map(|p| p.id))
+        .chain(crate::ordered::values(&current_input.solid_shells).map(|p| p.id))
+        .chain(crate::ordered::values(&current_input.curved_shells).map(|p| p.id))
         .max()
         .unwrap_or(0)
         + 1;
@@ -784,7 +799,9 @@ pub fn solve_plastic_3d(input: &PlasticInput3D) -> Result<PlasticResult3D, Strin
     let mut hinges: Vec<Hinge3> = Vec::new();
     let mut steps: Vec<PlasticStep3D> = Vec::new();
     let mut warnings: Vec<String> = Vec::new();
-    let mut reversal_unresolved = false;
+    // No consistent set of active hinges exists at the current load factor
+    // (see the reversal loop below): the analysis stops there.
+    let mut stalled = false;
     let mut suppressed = f64::INFINITY;
     let mut exhausted = true;
     let mut last_event: Vec<usize> = Vec::new();
@@ -796,6 +813,9 @@ pub fn solve_plastic_3d(input: &PlasticInput3D) -> Result<PlasticResult3D, Strin
         // ---- a consistent set of active hinges, and its unit-load solution
         let mut visited: HashSet<Vec<bool>> = HashSet::new();
         let mut tie_closed: Vec<usize> = Vec::new();
+        // the state the last event left, restored if no consistent one exists
+        let entry: Vec<(bool, usize)> = hinges.iter().map(|h| (h.active, h.record)).collect();
+        let entry_records = all_hinges.clone();
         let results = loop {
             let fresh = visited.insert(hinges.iter().map(|h| h.active).collect());
             let state = carry(&current_input);
@@ -829,29 +849,34 @@ pub fn solve_plastic_3d(input: &PlasticInput3D) -> Result<PlasticResult3D, Strin
                 }
                 // With hinge h closed, its unit moment increment pointing into
                 // the yield surface means h turns backwards in the mechanism.
-                let mut closed = false;
-                for hi in (0..hinges.len()).rev() {
+                // Of those, the one turning backwards the fastest (by rate, not
+                // by the order the hinges formed in) closes.
+                let mut backwards: Option<(usize, f64)> = None;
+                for hi in 0..hinges.len() {
                     if !hinges[hi].active {
                         continue;
                     }
                     let (mi, t) = (hinges[hi].member, hinges[hi].t);
                     set_hinge(&mut current_input, &members[mi], t, false);
-                    {
-                        if let Some(r) = carry(&current_input) {
-                            let by_id: HashMap<usize, &ElementForces3D> = r.element_forces.iter().map(|ef| (ef.element_id, ef)).collect();
-                            let m = &members[mi];
-                            let mu = m.diagram(m.unit_vals(&by_id), 1.0, &current_input).at(t);
-                            let n = m.normal(m.diagram(m.acc, cumulative_factor, &current_input).at(t));
-                            let nn = (n.0 * n.0 + n.1 * n.1).sqrt();
-                            if n.0 * mu.0 + n.1 * mu.1 < -unit_moment_scale(&r) * nn * 1e-9 {
-                                hinges[hi].active = false;
-                                all_hinges[hinges[hi].record].unloaded_at = Some(cumulative_factor);
-                                closed = true;
-                                break;
-                            }
+                    if let Some(r) = carry(&current_input) {
+                        let by_id: HashMap<usize, &ElementForces3D> = r.element_forces.iter().map(|ef| (ef.element_id, ef)).collect();
+                        let m = &members[mi];
+                        let mu = m.diagram(m.unit_vals(&by_id), 1.0, &current_input).at(t);
+                        let n = m.normal(m.diagram(m.acc, cumulative_factor, &current_input).at(t));
+                        let nn = (n.0 * n.0 + n.1 * n.1).sqrt();
+                        let scale = unit_moment_scale(&r);
+                        let rate = (n.0 * mu.0 + n.1 * mu.1) / (nn * scale).max(f64::MIN_POSITIVE);
+                        if rate < -1e-9 && backwards.is_none_or(|(_, x)| rate < x) {
+                            backwards = Some((hi, rate));
                         }
                     }
                     set_hinge(&mut current_input, &members[mi], t, true);
+                }
+                let closed = backwards.is_some();
+                if let Some((hi, _)) = backwards {
+                    set_hinge(&mut current_input, &members[hinges[hi].member], hinges[hi].t, false);
+                    hinges[hi].active = false;
+                    all_hinges[hinges[hi].record].unloaded_at = Some(cumulative_factor);
                 }
                 if !closed {
                     for &h in &tie_closed {
@@ -867,8 +892,31 @@ pub fn solve_plastic_3d(input: &PlasticInput3D) -> Result<PlasticResult3D, Strin
             }
             let Some(r) = state else { break None };
             if !fresh {
-                reversal_unresolved = true;
-                break Some(r);
+                // The reversal checks cycle: closing a hinge that turns
+                // backwards drives another closed one out of the yield
+                // surface, and reopening it turns the first backwards again.
+                // A biaxial hinge here holds the moment vector it formed with,
+                // so no choice of active hinges is consistent. Going on from
+                // any state of the cycle took a closed section through the
+                // yield surface (the event search sees no yield ahead of a
+                // section already on it and moving out), and which state the
+                // cycle was left in depended on the order the hinges were
+                // visited: the collapse factor came out anywhere from 0.4 to
+                // 2.4 times the certified one depending on the element
+                // numbering (#511). Stop at the last consistent state: its
+                // moment field is in equilibrium with λ·P and on or inside the
+                // yield surface everywhere, so λ is a lower bound (static
+                // theorem).
+                for (h, &(active, record)) in hinges.iter_mut().zip(&entry) {
+                    if h.active != active {
+                        set_hinge(&mut current_input, &members[h.member], h.t, active);
+                    }
+                    h.active = active;
+                    h.record = record;
+                }
+                all_hinges = entry_records;
+                stalled = true;
+                break None;
             }
             let by_id: HashMap<usize, &ElementForces3D> = r.element_forces.iter().map(|ef| (ef.element_id, ef)).collect();
             // active hinges whose plastic rotation would work against their moment
@@ -900,9 +948,11 @@ pub fn solve_plastic_3d(input: &PlasticInput3D) -> Result<PlasticResult3D, Strin
                     continue;
                 }
             }
-            // closed hinges still on the yield surface that would be loaded outward
+            // closed hinges still on the yield surface that would be loaded
+            // outward: the one loaded outward the most reopens (by rate, not
+            // by the order the hinges formed in)
             let tol_m = unit_moment_scale(&r) * 1e-9;
-            let mut reopened = false;
+            let mut outward: Option<(usize, f64)> = None;
             for hi in 0..hinges.len() {
                 if hinges[hi].active {
                     continue;
@@ -913,28 +963,31 @@ pub fn solve_plastic_3d(input: &PlasticInput3D) -> Result<PlasticResult3D, Strin
                 let mu = m.diagram(m.unit_vals(&by_id), 1.0, &current_input).at(t);
                 let n = m.normal(ma);
                 let nn = (n.0 * n.0 + n.1 * n.1).sqrt();
-                if m.ratio(ma) >= 1.0 - 1e-9 && n.0 * mu.0 + n.1 * mu.1 > tol_m * nn {
-                    hinges[hi].active = true;
-                    set_hinge(&mut current_input, m, t, true);
-                    let rec = &mut all_hinges[hinges[hi].record];
-                    if rec.unloaded_at == Some(cumulative_factor) {
-                        rec.unloaded_at = None;
-                    } else {
-                        let mut again = rec.clone();
-                        again.unloaded_at = None;
-                        again.load_factor = cumulative_factor;
-                        again.step = step;
-                        again.moment_y = ma.0;
-                        again.moment_z = ma.1;
-                        again.interaction_ratio = m.ratio(ma).sqrt();
-                        all_hinges.push(again);
-                        hinges[hi].record = all_hinges.len() - 1;
-                    }
-                    reopened = true;
-                    break;
+                let rate = (n.0 * mu.0 + n.1 * mu.1) / nn.max(f64::MIN_POSITIVE);
+                if m.ratio(ma) >= 1.0 - 1e-9 && rate > tol_m && outward.is_none_or(|(_, x)| rate > x) {
+                    outward = Some((hi, rate));
                 }
             }
-            if reopened {
+            if let Some((hi, _)) = outward {
+                let m = &members[hinges[hi].member];
+                let t = hinges[hi].t;
+                let ma = m.diagram(m.acc, cumulative_factor, &current_input).at(t);
+                hinges[hi].active = true;
+                set_hinge(&mut current_input, m, t, true);
+                let rec = &mut all_hinges[hinges[hi].record];
+                if rec.unloaded_at == Some(cumulative_factor) {
+                    rec.unloaded_at = None;
+                } else {
+                    let mut again = rec.clone();
+                    again.unloaded_at = None;
+                    again.load_factor = cumulative_factor;
+                    again.step = step;
+                    again.moment_y = ma.0;
+                    again.moment_z = ma.1;
+                    again.interaction_ratio = m.ratio(ma).sqrt();
+                    all_hinges.push(again);
+                    hinges[hi].record = all_hinges.len() - 1;
+                }
                 continue;
             }
             break Some(r);
@@ -960,7 +1013,7 @@ pub fn solve_plastic_3d(input: &PlasticInput3D) -> Result<PlasticResult3D, Strin
         }
 
         // ---- next event: smallest increment to the yield surface anywhere
-        let tol_m = unit_moment_scale(&results) * 1e-12;
+        let tol_m = (unit_moment_scale(&results) * 1e-12).max(m_ref * 1e-9);
         let tol_d = 1e-10 * cumulative_factor;
         let unit_vals: Vec<[f64; 12]> = members.iter().map(|m| m.unit_vals(&by_id)).collect();
         let mut cands: Vec<(usize, f64, f64)> = Vec::new();
@@ -977,9 +1030,29 @@ pub fn solve_plastic_3d(input: &PlasticInput3D) -> Result<PlasticResult3D, Strin
                 }
                 increment_to_yield(acc.at(t), mu, m.mp)
             };
-            let (out, sup) = span_candidates(&m.bounds(), m.loaded, &m.breakpoints, |t| m.hinged(&current_input, t) || merged.contains(&(mi, t.to_bits())), dfun, tol_d);
+            let hinged = |t: f64| m.hinged(&current_input, t) || merged.contains(&(mi, t.to_bits()));
+            let bounds = m.bounds();
+            let (out, sup) = span_candidates(&bounds, m.loaded, &m.breakpoints, hinged, dfun, tol_d);
             suppressed = suppressed.min(sup);
-            cands.extend(out.into_iter().map(|(t, d)| (mi, t, d)));
+            for (t, d) in out {
+                // A span peak this close to a hinge of the member (one formed
+                // in the span, open or closed, or a hinged end) is that
+                // hinge's peak, moved: a hinge there would cut a sliver of the
+                // member whose stiffness swamps the solve in round-off, and
+                // the order of the elements then decided the next events
+                // (#511). It is reported as a peak moving past the hinge, so
+                // the result says it is approximate. An unhinged member end
+                // keeps its own peaks, and so does a load breakpoint (a point
+                // load or the edge of a partial load): that peak is where the
+                // load is, not a drift.
+                let at_load = m.breakpoints.iter().any(|&x| (x - t).abs() < SNAP);
+                let near = bounds.iter().any(|&b| b != t && (b - t).abs() < HINGE_GAP && ((b > 0.0 && b < 1.0) || hinged(b)));
+                if near && !at_load {
+                    suppressed = suppressed.min(d);
+                    continue;
+                }
+                cands.push((mi, t, d));
+            }
         }
         let min_delta = cands.iter().fold(f64::INFINITY, |a, c| a.min(c.2));
         if !min_delta.is_finite() || min_delta <= 0.0 {
@@ -994,20 +1067,35 @@ pub fn solve_plastic_3d(input: &PlasticInput3D) -> Result<PlasticResult3D, Strin
             ));
         }
         suppressed = f64::INFINITY;
-        let tie = 1e-10 * (cumulative_factor + min_delta);
-        let mut chosen: Vec<(usize, f64)> = Vec::new();
+        // Sections reaching Mp within the event search's own resolution form
+        // together. Interior peaks are located by golden-section search to
+        // ~1e-9 in position (and snapped at SNAP = 1e-6), so a symmetric
+        // structure's twin sections differ by that much after the first
+        // interior hinge; a 1e-10 tie split them into two events, the second
+        // twin never formed, and a symmetric portal "collapsed" 15% above its
+        // mechanism load with an inadmissible moment field (found by the
+        // metamorphic rotation check: the rotated portal gave the right
+        // answer). The tie matches SNAP; the factor moves by at most that.
+        let tie = TIE * (cumulative_factor + min_delta);
+        let mut chosen: Vec<(usize, f64, f64)> = Vec::new();
         for &(mi, t, d) in &cands {
-            if d - min_delta <= tie && !chosen.iter().any(|&(mj, tj)| mj == mi && (tj - t).abs() < SNAP) {
-                chosen.push((mi, t));
+            if d - min_delta <= tie && !chosen.iter().any(|&(mj, tj, _)| mj == mi && (tj - t).abs() < SNAP) {
+                chosen.push((mi, t, d));
             }
         }
+        // In the order they reach the yield surface, not in element-id order:
+        // the spin rule below and the tie resolution of the next step keep
+        // the first ones. Only increments equal to the last bit fall back to
+        // the member order (twin sections of a symmetric structure, where
+        // either choice gives the same factor).
+        chosen.sort_by(|a, b| a.2.total_cmp(&b.2).then(a.0.cmp(&b.0)).then(a.1.total_cmp(&b.1)));
         // A node whose every frame end turns freely in bending, and whose
         // rotation neither the members' torsion nor a support restrains,
         // spins freely: the last hinge there adds nothing but that spin (the
         // corner of a planar frame needs one hinge, not two).
         let mut pending: HashMap<usize, usize> = HashMap::new();
         let coupled = rotation_coupled_nodes(&current_input);
-        chosen.retain(|&(mi, t)| {
+        chosen.retain(|&(mi, t, _)| {
             let m = &members[mi];
             let Some(n) = m.slot(t).map(|(key, end)| {
                 let e = &current_input.elements[key];
@@ -1029,7 +1117,7 @@ pub fn solve_plastic_3d(input: &PlasticInput3D) -> Result<PlasticResult3D, Strin
             }
             let mut free = 0;
             let mut axes: Vec<[f64; 3]> = Vec::new();
-            for e in current_input.elements.values().filter(|e| e.elem_type == "frame") {
+            for e in crate::ordered::values(&current_input.elements).filter(|e| e.elem_type == "frame") {
                 for (at, rel_b, rel_t, other) in [
                     (e.node_i, e.release_my_start && e.release_mz_start, e.release_t_start, e.node_j),
                     (e.node_j, e.release_my_end && e.release_mz_end, e.release_t_end, e.node_i),
@@ -1051,7 +1139,7 @@ pub fn solve_plastic_3d(input: &PlasticInput3D) -> Result<PlasticResult3D, Strin
                 *used += 1;
                 return true;
             }
-            for sup in current_input.supports.values().filter(|s| s.node_id == n) {
+            for sup in crate::ordered::values(&current_input.supports).filter(|s| s.node_id == n) {
                 let k = |v: Option<f64>| v.unwrap_or(0.0) > 0.0;
                 if sup.rrx || k(sup.krx) {
                     axes.push([1.0, 0.0, 0.0]);
@@ -1083,8 +1171,7 @@ pub fn solve_plastic_3d(input: &PlasticInput3D) -> Result<PlasticResult3D, Strin
 
         let mut step_hinges = Vec::new();
         last_event.clear();
-        chosen.sort_by(|a, b| a.0.cmp(&b.0).then(a.1.total_cmp(&b.1)));
-        for (mi, t) in chosen {
+        for (mi, t, _) in chosen {
             let mm = {
                 let m = &members[mi];
                 m.diagram(m.acc, cumulative_factor, &current_input).at(t)
@@ -1113,14 +1200,11 @@ pub fn solve_plastic_3d(input: &PlasticInput3D) -> Result<PlasticResult3D, Strin
         steps.push(PlasticStep3D { load_factor: cumulative_factor, hinges_formed: step_hinges, results: step_results });
     }
 
-    let is_mechanism = mechanism(&current_input);
+    // A stalled analysis stops short of a mechanism.
+    let is_mechanism = !stalled && mechanism(&current_input);
 
-    if reversal_unresolved {
-        warnings.push(
-            "a hinge rotation reversed and no consistent set of active hinges was found; \
-             the collapse factor is not guaranteed"
-                .into(),
-        );
+    if !exhausted && !is_mechanism && !stalled {
+        return Err(super::no_bending_collapse(cumulative_factor));
     }
     if exhausted && !is_mechanism {
         warnings.push(format!(
@@ -1162,6 +1246,23 @@ pub fn solve_plastic_3d(input: &PlasticInput3D) -> Result<PlasticResult3D, Strin
                 worst = worst.max((-v).max(0.0).sqrt());
             }
         }
+    }
+    if stalled {
+        // a lower bound only when the field it stopped with is admissible
+        warnings.push(if worst > 1.0 + 1e-6 {
+            format!(
+                "at λ = {cumulative_factor:.6} a hinge rotation reverses and no consistent set of active hinges \
+                 exists (biaxial hinges hold the moment vector they formed with): the analysis stops there, \
+                 before a mechanism forms"
+            )
+        } else {
+            format!(
+                "at λ = {cumulative_factor:.6} a hinge rotation reverses and no consistent set of active hinges \
+                 exists (biaxial hinges hold the moment vector they formed with): the analysis stops there, \
+                 before a mechanism forms. The collapse factor is a lower bound (the moment field is in \
+                 equilibrium and within the yield surface); the collapse load may be higher"
+            )
+        });
     }
     if worst > 1.0 + 1e-6 {
         warnings.push(format!(
@@ -1290,4 +1391,31 @@ mod tests {
         // outside and moving out: never
         assert!(increment_to_yield((2.0, 0.0), (1.0, 0.0), (1.0, 1.0)).is_infinite());
     }
+}
+
+/// Σ|load| × model size (see the 2D `load_moment_scale_2d`).
+fn load_moment_scale_3d(input: &SolverInput3D) -> f64 {
+    let mut lo = [f64::INFINITY; 3];
+    let mut hi = [f64::NEG_INFINITY; 3];
+    for n in crate::ordered::values(&input.nodes) {
+        for (k, v) in [n.x, n.y, n.z].into_iter().enumerate() {
+            lo[k] = lo[k].min(v);
+            hi[k] = hi[k].max(v);
+        }
+    }
+    let l = (0..3).map(|k| hi[k] - lo[k]).fold(f64::MIN_POSITIVE, f64::max);
+    let len = |id: usize| {
+        crate::ordered::values(&input.elements).find(|e| e.id == id).and_then(|e| {
+            let a = crate::ordered::values(&input.nodes).find(|n| n.id == e.node_i)?;
+            let b = crate::ordered::values(&input.nodes).find(|n| n.id == e.node_j)?;
+            Some(((b.x - a.x).powi(2) + (b.y - a.y).powi(2) + (b.z - a.z).powi(2)).sqrt())
+        }).unwrap_or(0.0)
+    };
+    let f: f64 = input.loads.iter().map(|ld| match ld {
+        SolverLoad3D::Nodal(n) => n.fx.abs() + n.fy.abs() + n.fz.abs() + (n.mx.abs() + n.my.abs() + n.mz.abs()) / l,
+        SolverLoad3D::Distributed(d) => [d.q_xi, d.q_xj, d.q_yi, d.q_yj, d.q_zi, d.q_zj].iter().fold(0.0f64, |a, b| a.max(b.abs())) * len(d.element_id),
+        SolverLoad3D::PointOnElement(p) => p.py.abs() + p.pz.abs(),
+        _ => 0.0,
+    }).sum();
+    f * l
 }

@@ -26,6 +26,8 @@ fn make_ss_beam_3d() -> SolverInput3D {
         id: 1, name: None, a: 0.05,
         iy: 1.0e-4, iz: 5.0e-5, j: 1.5e-4,
         cw: None, as_y: None, as_z: None,
+        shear_center_y: None,
+        shear_center_z: None,
     });
 
     let mut elements = HashMap::new();
@@ -67,7 +69,7 @@ fn make_ss_beam_3d() -> SolverInput3D {
     });
 
     SolverInput3D {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes, materials, sections, elements, supports,
         loads: vec![],
         constraints: vec![], left_hand: None,
@@ -209,6 +211,8 @@ fn influence_3d_multispan() {
         id: 1, name: None, a: 0.05,
         iy: 1.0e-4, iz: 5.0e-5, j: 1.5e-4,
         cw: None, as_y: None, as_z: None,
+        shear_center_y: None,
+        shear_center_z: None,
     });
 
     let mut elements = HashMap::new();
@@ -247,7 +251,7 @@ fn influence_3d_multispan() {
     }
 
     let solver = SolverInput3D {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes, materials, sections, elements, supports,
         loads: vec![],
         constraints: vec![], left_hand: None,

@@ -44,9 +44,9 @@ const DEMOS = [
 
 async function openBasic(page: Page) {
   await page.goto('/app/basic?e2e=1');
-  await page.waitForFunction(() => !!window.__stabileo, null, { timeout: 60_000 });
+  await page.waitForFunction(() => !!window.__stabileo, null, { timeout: 45_000 });
   await expect
-    .poll(() => page.evaluate(() => window.__stabileo.solverReady()), { timeout: 60_000 })
+    .poll(() => page.evaluate(() => window.__stabileo?.solverReady() ?? false), { timeout: 45_000 })
     .toBe(true);
 }
 
@@ -108,7 +108,7 @@ test.describe('@smoke the tutorials menu', () => {
  * reason it could rot: a spotlight aimed at a missing element looks like a
  * dark screen, not like an error.
  */
-test.describe('@smoke every step has something to point at', () => {
+test.describe('@slow every step has something to point at', () => {
   for (const demo of DEMOS) {
     test(`${demo.id}: targets exist all the way through`, async ({ page }) => {
       test.setTimeout(120_000);
@@ -145,7 +145,7 @@ test.describe('@smoke every step has something to point at', () => {
  * middle steps waits on a count. Both hangs found by hand were here or in a
  * step shaped like these.
  */
-test.describe('@smoke drawing a beam', () => {
+test.describe('@slow drawing a beam', () => {
   /*
    * Retries, declared rather than hidden.
    *
@@ -170,7 +170,14 @@ test.describe('@smoke drawing a beam', () => {
      */
     const canvasBox = async () =>
       (await page.locator('canvas:not(.axis-gizmo)').first().boundingBox())!;
+    /*
+     * The canvas has to be what is under the pointer. The card of these steps sits at the bottom
+     * of the viewport, and in a 720 px window its top edge is where the canvas's middle row
+     * was: a click there went to the card, the node never appeared, and the step waited.
+     */
     const click = async (x: number, y: number) => {
+      const under = await page.evaluate(([px, py]) => document.elementFromPoint(px, py)?.tagName ?? null, [x, y]);
+      expect(under, `the canvas, not something over it, at (${Math.round(x)}, ${Math.round(y)})`).toBe('CANVAS');
       await page.mouse.click(x, y);
       await page.waitForTimeout(400);
     };
@@ -188,7 +195,8 @@ test.describe('@smoke drawing a beam', () => {
     const modelSize = () =>
       page.evaluate(() => window.__stabileo.nodeCount()
         + window.__stabileo.elementIds().length
-        + window.__stabileo.supportCount());
+        + window.__stabileo.supportCount()
+        + window.__stabileo.allLoads().length);
 
     const doUntil = async (want: string, gesture: () => Promise<void>) => {
       for (let attempt = 0; attempt < 3; attempt++) {
@@ -212,23 +220,32 @@ test.describe('@smoke drawing a beam', () => {
     // step notices.
     await doUntil('member', async () => {
       const box = await canvasBox();
-      await click(box.x + box.width * 0.34, box.y + box.height * 0.55);
-      await click(box.x + box.width * 0.64, box.y + box.height * 0.55);
+      await click(box.x + box.width * 0.34, box.y + box.height * 0.3);
+      await click(box.x + box.width * 0.64, box.y + box.height * 0.3);
     });
 
     /*
      * The nodes' screen positions rather than the coordinates just clicked:
      * snapping moves a node to the nearest grid intersection, which at a metre
-     * spacing is up to half a grid square from the pointer.
+     * spacing is up to half a grid square from the pointer. Read before each
+     * gesture, since the walkthrough frames the model as it grows: the second
+     * node can land at another height, and the member's middle is then the
+     * mean of both ends, not a point at the first node's height.
      */
     const at = async (id: number) =>
       (await page.evaluate((n) => window.__stabileo.nodeScreenPos(n), id))!;
-    const a = await at(1);
-    const z = await at(2);
+    const ends = async () => {
+      const a = await at(1), z = await at(2);
+      await click(a.x, a.y);
+      await click(z.x, z.y);
+    };
 
-    await doUntil('supports', async () => { await click(a.x, a.y); await click(z.x, z.y); });
-    await doUntil('load', async () => { await click(a.x, a.y); await click(z.x, z.y); });
-    await doUntil('sections', async () => { await click((a.x + z.x) / 2, a.y); });
+    await doUntil('supports', ends);
+    await doUntil('load', ends);
+    await doUntil('sections', async () => {
+      const a = await at(1), z = await at(2);
+      await click((a.x + z.x) / 2, (a.y + z.y) / 2);
+    });
 
     // Properties come BEFORE the solve — model data, not an adjustment.
     await advance(page, 'materials');
@@ -245,7 +262,7 @@ test.describe('@smoke drawing a beam', () => {
 });
 
 /** A step that claims a result is on screen has to have switched to it. */
-test.describe('@smoke the cards do not contradict the screen', () => {
+test.describe('@slow the cards do not contradict the screen', () => {
   test('each result step shows the result it describes', async ({ page }) => {
     test.setTimeout(120_000);
     await openBasic(page);
@@ -323,7 +340,7 @@ test.describe('@smoke the cards do not contradict the screen', () => {
  * walkthrough also holds while its example loads (`tourStore.hold`), a race of the same kind that
  * the trace ruled out as this one's cause.
  */
-test.describe('@smoke the section walkthrough', () => {
+test.describe('@slow the section walkthrough', () => {
   test.describe.configure({ retries: 2 });
   test('advances when the reader clicks the member', async ({ page }) => {
     test.setTimeout(150_000);
@@ -391,7 +408,7 @@ test.describe('@smoke the section walkthrough', () => {
 });
 
 /** A walkthrough that ends leaves the app usable, not mid-gesture. */
-test.describe('@smoke walkthroughs clean up after themselves', () => {
+test.describe('@slow walkthroughs clean up after themselves', () => {
   test('the first one leaves no tour open and no stray tool armed', async ({ page }) => {
     test.setTimeout(120_000);
     await openBasic(page);

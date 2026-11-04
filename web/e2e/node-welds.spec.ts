@@ -1,13 +1,24 @@
-import { test, expect, openBasicProjectPanel } from './fixtures';
+import { test, expect, openBasicProjectPanel, CURRENT_STAMP } from './fixtures';
 const mod = process.platform === 'darwin' ? 'Meta' : 'Control';
 
-test('@smoke a fallback paste keeps the existing support at a welded destination', async ({ page }) => {
+/** Paste, and place the copy's anchor (its lowest-left node) at (x, z) through the placement bar. */
+async function pasteAt(page: import('@playwright/test').Page, x: number, z: number) {
+  await page.keyboard.press(`${mod}+v`);
+  const hud = page.getByTestId('placement-hud');
+  await hud.getByTestId('placement-x').fill(String(x));
+  await hud.getByTestId('placement-y').fill(String(z));
+  await hud.getByTestId('placement-y').press('Enter');
+  await expect(hud).toHaveCount(0);
+}
+
+test('@smoke a paste keeps the existing support at a welded destination', async ({ page }) => {
   await page.goto('/app/basic?e2e=1');
   await page.waitForFunction(() => !!window.__stabileoActions);
   await openBasicProjectPanel(page);
   const project = {
     version: '2.0', name: 'Paste support', analysisMode: '2d',
     snapshot: {
+      solvedWith: CURRENT_STAMP,
       name: 'Paste support',
       nodes: [[1, { id: 1, x: 0, y: 0 }], [2, { id: 2, x: 4, y: 0 }], [3, { id: 3, x: 1, y: 1 }]],
       elements: [[1, { id: 1, nodeI: 1, nodeJ: 2, type: 'frame', materialId: 1, sectionId: 1, releaseI: {}, releaseJ: {} }]],
@@ -24,16 +35,18 @@ test('@smoke a fallback paste keeps the existing support at a welded destination
   await page.keyboard.press(`${mod}+x`);
   await expect.poll(() => page.evaluate(() => window.__stabileo.elementIds().length)).toBe(0);
   const undoBefore = await page.evaluate(() => window.__stabileo.undoCount());
-  await page.keyboard.press(`${mod}+v`);
+  await pasteAt(page, 1, 1);
   await expect.poll(() => page.evaluate(() => window.__stabileo.elementIds().length)).toBe(1);
   expect(await page.evaluate(() => window.__stabileo.entityData('support', 2))).toEqual(before);
   expect(await page.evaluate(() => window.__stabileo.entityData('support', 4))).toMatchObject({ nodeId: 4, type: 'rollerX' });
   expect(await page.evaluate(() => window.__stabileo.undoCount())).toBe(undoBefore + 1);
+  // The cut took the member and the two nodes nothing else used (as in PRO): node 3 is left, and
+  // the paste adds one node, its other end welding onto node 3.
   await page.keyboard.press(`${mod}+z`);
-  expect(await page.evaluate(() => window.__stabileo.nodeCount())).toBe(3);
+  expect(await page.evaluate(() => window.__stabileo.nodeCount())).toBe(1);
   expect(await page.evaluate(() => window.__stabileo.entityData('support', 2))).toEqual(before);
   await page.keyboard.press(`${mod}+Shift+z`);
-  expect(await page.evaluate(() => window.__stabileo.nodeCount())).toBe(4);
+  expect(await page.evaluate(() => window.__stabileo.nodeCount())).toBe(2);
   expect(await page.evaluate(() => window.__stabileo.entityData('support', 2))).toEqual(before);
 });
 
@@ -87,13 +100,14 @@ test('@smoke a new node can share X and Y with another and still stand apart', a
   expect(await page.evaluate(() => window.__stabileo.nodeCount())).toBe(2);
 });
 
-test('@smoke a second fallback paste welds onto the first without stacking a member', async ({ page }) => {
+test('@smoke a second paste in the same place welds onto the first without stacking a member', async ({ page }) => {
   await page.goto('/app/basic?e2e=1');
   await page.waitForFunction(() => !!window.__stabileoActions);
   await openBasicProjectPanel(page);
   const project = {
     version: '2.0', name: 'Paste twice', analysisMode: '2d',
     snapshot: {
+      solvedWith: CURRENT_STAMP,
       name: 'Paste twice',
       nodes: [[1, { id: 1, x: 0, y: 0 }], [2, { id: 2, x: 4, y: 0 }]],
       elements: [[1, { id: 1, nodeI: 1, nodeJ: 2, type: 'frame', materialId: 1, sectionId: 1, releaseI: {}, releaseJ: {} }]],
@@ -107,9 +121,9 @@ test('@smoke a second fallback paste welds onto the first without stacking a mem
   await page.evaluate(() => { window.__stabileoActions.selectElements([1]); (document.activeElement as HTMLElement)?.blur(); });
   await page.keyboard.press(`${mod}+x`);
   await expect.poll(() => page.evaluate(() => window.__stabileo.elementIds().length)).toBe(0);
-  await page.keyboard.press(`${mod}+v`);
+  await pasteAt(page, 1, 1);
   await expect.poll(() => page.evaluate(() => window.__stabileo.elementIds().length)).toBe(1);
-  await page.keyboard.press(`${mod}+v`);
+  await pasteAt(page, 1, 1);
   // The second paste lands on the first: the same two nodes, and no second member on them.
   await page.waitForTimeout(300);
   expect(await page.evaluate(() => window.__stabileo.elementIds().length)).toBe(1);

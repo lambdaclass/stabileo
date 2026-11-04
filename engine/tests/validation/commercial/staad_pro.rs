@@ -341,11 +341,8 @@ fn validation_staad_v5_space_truss_tripod() {
 // Reference: STAAD.Pro Verification Problem V6
 // Fixed-base portal frame under lateral load H at beam level.
 // Column height h, beam width w, same section throughout.
-// Analytical (stiffness method):
-//   For I_beam = I_col = I, fixed bases:
-//   sway delta = H*h^3 / (24EI) * (2k + 3) / (k + 6)
-//   where k = (I_b/w) / (I_c/h) = h/w (for equal I)
-//   Column base moment = H*h*(3+k) / (2*(6+k)) ... etc.
+// Slope-deflection, inextensible members:
+//   sway delta = H*h^3 / (24EI) * (4 + 6k) / (1 + 6k),  k = (I_b/w) / (I_c/h) = h/w (equal I)
 
 #[test]
 fn validation_staad_v6_portal_frame_sway() {
@@ -357,13 +354,11 @@ fn validation_staad_v6_portal_frame_sway() {
     // Stiffness ratio k = (I_beam/w) / (I_col/h) = h/w (same I)
     let k = h_col / w_beam;
 
-    // Analytical sway: delta = H*h^3*(2k+3) / (24EI*(k+6))
-    // Derivation from slope-deflection:
-    //   For a fixed-base portal with equal I, H at beam level (at node 2):
-    //   delta = H*h^3 / (24*E*I_col) * (2*k + 3) / (k + 6)
-    //   where k = (I_beam/L_beam) / (I_col/h_col) — for same I: k = h_col/w_beam
     let delta_expected = h_load * h_col.powi(3) / (24.0 * E_EFF * iz_sec)
-        * (2.0 * k + 3.0) / (k + 6.0);
+        * (4.0 + 6.0 * k) / (1.0 + 6.0 * k);
+    assert!((delta_expected / 8.497807017544e-3 - 1.0).abs() < 1e-12);
+    // Axial strain of the members adds 0.612 %: exact frame theory with EA = 2·10⁶ kN.
+    let delta_exact = 8.549837007879e-3;
 
     // Build portal: 4 nodes, 3 elements (same section),
     // use multi-element columns for better accuracy
@@ -447,7 +442,10 @@ fn validation_staad_v6_portal_frame_sway() {
 
     // Check sway at beam level
     let d_top = results.displacements.iter().find(|d| d.node_id == left_top).unwrap();
-    assert_close(d_top.ux.abs(), delta_expected, 0.02, "V6 sway deflection");
+    assert!((d_top.ux / delta_exact - 1.0).abs() < 1e-9,
+        "V6 sway {:.12e}, frame theory {delta_exact:.12e}", d_top.ux);
+    assert!((d_top.ux / delta_expected - 1.0).abs() < 0.007,
+        "V6 sway {:.6e}, inextensible slope-deflection {delta_expected:.6e}", d_top.ux);
 
     // Equilibrium: sum of horizontal reactions = H
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
@@ -457,10 +455,6 @@ fn validation_staad_v6_portal_frame_sway() {
     let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert!(sum_ry.abs() < 0.01, "V6 vertical equilibrium: sum_ry={:.6} should be ~0", sum_ry);
 
-    // Column base moments: by slope-deflection
-    // M_base = H*h*(3+k) / (2*(6+k))  — moment at each column base
-    // For portal loaded at one node, the distribution depends on the exact formulation.
-    // We verify total moment equilibrium: sum of base moments + H*h = 0
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_rb = results.reactions.iter().find(|r| r.node_id == right_bottom).unwrap();
 
@@ -470,10 +464,6 @@ fn validation_staad_v6_portal_frame_sway() {
     assert!(r1.my.abs() > 1.0, "V6 left base moment should be nonzero");
     assert!(r_rb.my.abs() > 1.0, "V6 right base moment should be nonzero");
 
-    // Column base moment analytical: for fixed-base portal with equal I,
-    // M_base = H*h/2 * (3+k)/(2*(6+k)) ... but this depends on which column.
-    // Just verify the total base shear is distributed to both columns.
-    // Each column base carries part of the horizontal load.
     assert_close(
         r1.rx.abs() + r_rb.rx.abs(), h_load, 0.01,
         "V6 base shear distribution sums to H",
@@ -695,7 +685,7 @@ fn validation_staad_v8_beam_spring_support() {
     }
 
     let input = SolverInput {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes: nodes_map,
         materials: mats_map,
         sections: secs_map,

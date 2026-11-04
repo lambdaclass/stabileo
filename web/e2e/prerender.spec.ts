@@ -1,4 +1,8 @@
 import { test, expect, type Browser, type Page } from '@playwright/test';
+import { existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { PUBLIC_LOCALES } from '../src/lib/i18n/offered';
+import { unfinishedProClaims, type CopyLocale } from '../src/lib/i18n/pro-copy';
 
 /**
  * What a crawler receives, with JavaScript switched off.
@@ -75,6 +79,15 @@ const POST_TITLE = {
 
 const LOCALES = ['en', 'es', 'pt'] as const;
 type Locale = (typeof LOCALES)[number];
+const PUBLIC = [...PUBLIC_LOCALES].sort();
+
+/** The languages a page names as its alternates: every one for the landing and the blog index, and for a post those it is written in. */
+function writtenIn(path: string): string[] {
+  if (!path.startsWith('/blog/')) return PUBLIC;
+  const slug = path.slice('/blog/'.length);
+  return PUBLIC.filter((l) => (LOCALES as readonly string[]).includes(l) ||
+    existsSync(fileURLToPath(new URL(`../src/lib/blog/translations/${l}/${slug}.ts`, import.meta.url))));
+}
 
 /**
  * Open a URL with scripting disabled.
@@ -122,15 +135,34 @@ async function expectLinks(page: Page, path: string, locale: Locale) {
     .locator('link[rel="alternate"][hreflang]')
     .evaluateAll((els) => els.map((e) => `${e.getAttribute('hreflang')} ${e.getAttribute('href')}`).sort());
   expect(alts, `hreflang set on /${locale}${canonicalPath}`).toEqual([
-    `en ${ORIGIN}/en${canonicalPath}`,
-    `es ${ORIGIN}/es${canonicalPath}`,
-    `pt ${ORIGIN}/pt${canonicalPath}`,
+    ...writtenIn(path).map((l) => `${l} ${ORIGIN}/${l}${canonicalPath}`),
     // x-default follows the page, not the home page.
     `x-default ${ORIGIN}/en${canonicalPath}`,
   ]);
 }
 
 test.describe('@smoke prerender', () => {
+  for (const locale of PUBLIC_LOCALES as CopyLocale[]) {
+    test(`/${locale}: what a crawler reads presents PRO as available`, async ({ browser }) => {
+      const { page, close } = await crawl(browser, `/${locale}/`);
+      try {
+        const section = await page.locator('#prerender [data-section="pro-calc"]').innerText();
+        expect(unfinishedProClaims(section, locale, { aboutPro: true })).toEqual([]);
+        expect(unfinishedProClaims(await page.locator('#prerender').innerText(), locale, { aboutPro: false })).toEqual([]);
+      } finally {
+        await close();
+      }
+      for (const path of ['/blog/bars-or-finite-elements', '/blog/verificacion-flexion-cirsoc-201', '/reliability', '/sap2000-alternative', '/cirsoc']) {
+        const crawled = await crawl(browser, `/${locale}${path}/`);
+        try {
+          expect(unfinishedProClaims(await crawled.page.locator('#prerender').innerText(), locale, { aboutPro: false }), path).toEqual([]);
+        } finally {
+          await crawled.close();
+        }
+      }
+    });
+  }
+
   for (const locale of LOCALES) {
     test(`/${locale} is served as ${locale}, with text, to a crawler`, async ({ browser }) => {
       const { page, close } = await crawl(browser, `/${locale}/`);
@@ -170,8 +202,7 @@ test.describe('@smoke prerender', () => {
         // The byline on screen is prose; this is the machine-readable one, and
         // it has to survive into the file rather than only exist at runtime.
         const raw = await page.locator('script[type="application/ld+json"]').textContent();
-        const data = JSON.parse(raw!);
-        expect(data['@type']).toBe('BlogPosting');
+        const data = (JSON.parse(raw!)['@graph'] as Array<Record<string, any>>).find((n) => n['@type'] === 'BlogPosting')!;
         expect(data.inLanguage).toBe(locale);
         expect(data.url).toBe(`${ORIGIN}/${locale}/blog/${SLUG}/`);
       } finally {

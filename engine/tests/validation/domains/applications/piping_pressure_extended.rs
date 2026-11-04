@@ -132,7 +132,7 @@ fn piping_lame_thick_wall_equations() {
 
     let sigma_theta_outer_exact: f64 = 2.0 * p_int * ri2 / (ro2 - ri2);
     assert_close(sigma_theta_outer, sigma_theta_outer_exact, 0.001, "Lame hoop stress at outer wall");
-    assert_close(sigma_r_outer, 0.0, 0.001, "Lame radial stress at outer wall = 0");
+    assert_close_abs(sigma_r_outer, 0.0, 0.001, 1e-6, "Lame radial stress at outer wall = 0");
 
     // Stress concentration: ratio of max hoop stress (inner) to thin-wall estimate
     let t_wall: f64 = ro - ri;
@@ -372,6 +372,7 @@ fn piping_thermal_expansion_loop() {
     let loads_straight: Vec<SolverLoad> = (0..n).map(|i| {
         SolverLoad::Thermal(SolverThermalLoad {
             element_id: i + 1, dt_uniform: dt, dt_gradient: 0.0,
+            alpha: None, depth: None,
         })
     }).collect();
 

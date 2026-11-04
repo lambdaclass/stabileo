@@ -13,6 +13,7 @@
    * Experimental like every CIRSOC 301 number in the app: no passing colour, no tick.
    */
   import { t, tp } from '../../../lib/i18n';
+  import { engineGuarded } from '../../../lib/store/engine-action';
   import { te } from '../../../lib/i18n/engine-text';
   import { modelStore, resultsStore } from '../../../lib/store';
   import { membersFor } from '../../../lib/store/steel-optimise.svelte';
@@ -39,7 +40,8 @@
     return c.status === 'fail' ? 'fail' : 'pass';
   }
 
-  const rows = $derived.by((): Row[] => {
+  // The checks are the engine's: its absence or refusal is shown in place of the rows.
+  const guardedRows = $derived(engineGuarded((): Row[] => {
     void modelStore.modelVersion;
     if (!resultsStore.results3D) return [];
     const { members, materialOf } = membersFor([...steelIds]);
@@ -65,7 +67,9 @@
       add('shear', v.shear, kN(v.shear.Vu), kN(v.shear.phiVn));
       add('interaction', v.interaction, v.interaction ? v.interaction.value.toFixed(3) : '', '1.000');
       const gov = checks.reduce((a, b) => (b.ratio > a.ratio ? b : a), checks[0]!);
-      const status: Status = checks.some((c) => c.status === 'notEvaluated') ? 'notEvaluated' : v.overallStatus === 'fail' ? 'fail' : 'pass';
+      // A held member (a limit state not evaluated, or a datum it does not state) is not a pass.
+      const status: Status = v.overallStatus === 'fail' ? 'fail'
+        : checks.some((c) => c.status === 'notEvaluated') || v.overallStatus === 'held' ? 'notEvaluated' : 'pass';
       const rc = v.engineRecheck;
       out.push({
         id: m.elementId, section: sec.name, ratio: gov.ratio, governing: gov.key, status,
@@ -75,7 +79,9 @@
       });
     }
     return out.sort((a, b) => a.id - b.id);
-  });
+  }));
+  const rows = $derived(guardedRows.value ?? []);
+  const rowsError = $derived(guardedRows.error);
 
   const skipped = $derived.by(() => {
     void modelStore.modelVersion;
@@ -93,7 +99,9 @@
   <h5 class="sr-title">{t('steel.results.title')}</h5>
   <p class="line">{t('steel.results.hint')}</p>
   <p class="line warn">{t('steel.tc.results.experimental')}</p>
-  {#if !hasDemands}
+  {#if rowsError}
+    <p class="line warn" role="alert" data-testid="steel-results-engine">{rowsError}</p>
+  {:else if !hasDemands}
     <p class="line" data-testid="steel-results-solve">{t('steel.tc.results.solveFirst')}</p>
   {:else if rows.length === 0 && skipped.length === 0}
     <p class="line" data-testid="steel-results-none">{t('steel.results.none')}</p>

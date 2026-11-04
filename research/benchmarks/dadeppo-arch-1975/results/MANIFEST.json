@@ -1,0 +1,19 @@
+{
+  "solver": "dedaliano_engine::solver::arc_length::solve_arc_length",
+  "command": "DADEPPO_EXPORT=<absolute replay path> nix develop -c cargo test --manifest-path engine/Cargo.toml --test solver dadeppo_arch -- --nocapture",
+  "date": "2026-10-29",
+  "case_sha256": "c6b6fec6fc5cc5e2c0b4154f1fea10c3ef9b922507b522faf60ffa121ba54525",
+  "files_sha256": {
+    "stabileo_results.json": "e518070e2430f4ed4b02d80feb00e9fe6a99b80b97eea0ed7bc6bb140ba6c24a"
+  },
+  "peak": {
+    "controlDisplacement": 0.01194391165729767,
+    "converged": true,
+    "iterations": 4,
+    "loadFactor": 9.0112911888175,
+    "step": 267
+  },
+  "reference": 8.97,
+  "stage": "first-version",
+  "reviews": []
+}

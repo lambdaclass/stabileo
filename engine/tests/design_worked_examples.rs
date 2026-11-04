@@ -15,6 +15,10 @@
 //! [AISC]  AISC, *Companion to the AISC Steel Construction Manual, Vol. 1:
 //!         Design Examples*, v16.0, first-semester edition (2023), keyed to
 //!         ANSI/AISC 360-22. Page numbers are the example's own (D-3, F-11 ...).
+//! [LC19]  Lee & Chiew, *Advanced Steel Construction* 15(3) (2019) 259–266.
+//! [AISC-15] AISC, *Companion to the AISC Steel Construction Manual, Vol. 1:
+//!         Design Examples*, v15.1 (keyed to ANSI/AISC 360-16; E7 and E4-2
+//!         unchanged in 360-22).
 //! [INTI301] Troglia, Troglia & Angulo Bocco, *Ejemplos de Aplicación del
 //!         Reglamento CIRSOC 301-2018*, INTI-CIRSOC (July 2018).
 //! [INTI201] Hernández Balat, Bissio & Ortega, *Ejemplos de Aplicación del
@@ -84,6 +88,7 @@ fn aisc_blank(fy: f64) -> SteelMemberData {
         u_factor: None,
         aw: None,
         cv1: None,
+        aw_weak: None,
         lby: 0.0,
         lbz: 0.0,
         ky: None,
@@ -105,6 +110,7 @@ fn aisc_blank(fy: f64) -> SteelMemberData {
         depth: None,
         flange_slenderness: None,
         compression_elements: None,
+        lcz: None,
         load_position: None,
     }
 }
@@ -112,7 +118,7 @@ fn aisc_blank(fy: f64) -> SteelMemberData {
 fn aisc_run(m: SteelMemberData, n: f64, my: f64, mz: f64, vy: f64) -> SteelCheckResult {
     check_steel_members(&SteelCheckInput {
         members: vec![m],
-        forces: vec![ElementDesignForces { element_id: 1, n, my, mz: Some(mz), vy: Some(vy) }],
+        forces: vec![ElementDesignForces { element_id: 1, n, my, mz: Some(mz), v_weak: None, v_strong: Some(vy) }],
     })
     .remove(0)
 }
@@ -174,7 +180,8 @@ fn aisc_e1c_w14x132_inelastic_flexural_buckling() {
 
 /// [AISC] Example E.1D, W14×90, Lcx = 30 ft, Lcy = 15 ft, pp. E-10 – E-12.
 ///
-/// Printed: Ag = 26.5 in², rx = 6.14, ry = 3.70 in; Lcx/rx = 58.6 governs;
+/// Printed: Ag = 26.5 in², rx = 6.14, ry = 3.70 in, torsional length 15 ft;
+/// Lcx/rx = 58.6 governs;
 /// Fe = 83.3 ksi (E3-4); Fn = 38.9 ksi (E3-2); Pn = 1,030 kips; φcPn = 927 kips.
 #[test]
 fn aisc_e1d_w14x90_major_axis_governs() {
@@ -184,6 +191,9 @@ fn aisc_e1d_w14x90_major_axis_governs() {
         rz: 3.70,
         lby: 360.0,
         lbz: 180.0,
+        // "y-y axis and torsional unbraced lengths of 15 ft" (E4 does not
+        // govern; without the torsional length the check is refused, D19).
+        lcz: Some(180.0),
         // Manual Table 1-1: bf = 14.5, tf = 0.710, tw = 0.440, h/tw = 25.9;
         // bf/2tf = 10.2 < 13.5: no slender element.
         compression_elements: rolled_i(14.5, 0.710, 25.9 * 0.440, 0.440),
@@ -289,6 +299,163 @@ fn aisc_e7_slender_hss_effective_area() {
     assert!(!r.unevaluated.is_empty());
 }
 
+/// [AISC-15] Example E.2, built-up I with a slender web, pp. E-15 – E-18.
+///
+/// Printed: PL 1 × 8 in flanges, PL 1/4 × 15 in web, Fy = 50 ksi, Lc = 15 ft
+/// both axes; Ag = 19.8 in², Iy = 85.4 in⁴, ry = 2.08 in, Ix = 1,100 in⁴;
+/// Lcy/ry = 86.5, Fe = 38.3 ksi; torsional (E4-2) Cw = 5,470 in⁶, J = 5.41
+/// in⁴, G = 11,200 ksi → Fe = 91.9 ksi (does not govern); Fcr = 28.9 ksi;
+/// flange kc = 0.516, λ = 4.00 < λr = 11.1; web λ = 60.0 > λr = 35.9,
+/// λr√(Fy/Fcr) = 47.2, Table E7.1(a) c1 = 0.18, c2 = 1.31, Fel = 30.7 ksi,
+/// he = 12.6 in; Ae = 19.8 − (15.0 − 12.6)(1/4) = 19.2 in²; Pn = 555 kips,
+/// φcPn = 500 kips.
+#[test]
+fn aisc_e2_built_up_slender_web() {
+    let m = SteelMemberData {
+        ag: 19.8,
+        iy: 1100.0,
+        iz: 85.4,
+        ry: (1100.0f64 / 19.8).sqrt(),
+        rz: 2.08,
+        lby: 180.0,
+        lbz: 180.0,
+        j: 5.41,
+        cw: Some(5470.0),
+        g: Some(11_200.0),
+        compression_elements: Some(vec![
+            AiscElement { kind: AiscElementKind::WeldedFlange, b: 4.0, t: 1.0, count: Some(4.0), kc: Some(0.516) },
+            AiscElement { kind: AiscElementKind::Web, b: 15.0, t: 0.25, count: None, kc: None },
+        ]),
+        ..aisc_blank(50.0)
+    };
+    let r = aisc_run(m.clone(), -420.0, 0.0, 0.0, 0.0);
+    assert!(r.unevaluated.is_empty(), "{:?}", r.unevaluated);
+    published(r.ae.unwrap(), 19.2, THREE_SF, "Ae (E7-3, he = 12.6 in)");
+    published(r.phi_pn_compression / 0.90, 555.0, THREE_SF, "Pn = Fcr·Ae");
+    published(r.phi_pn_compression, 500.0, THREE_SF, "φcPn");
+
+    // E4-2 alone (flexure braced, the section taken as non-slender): the
+    // printed Fe = 91.9 ksi through E3-2.
+    let torsion = SteelMemberData { lby: 0.0, lbz: 0.0, lcz: Some(180.0), compression_elements: Some(vec![]), ..m };
+    let fcr = 0.658f64.powf(50.0 / 91.9) * 50.0;
+    published(aisc_run(torsion, -1.0, 0.0, 0.0, 0.0).phi_pn_compression / (0.90 * 19.8), fcr, THREE_SF, "Fcr from E4-2 Fe");
+}
+
+/// [AISC-15] Example E.3, built-up I with slender flanges, pp. E-19 – E-23.
+///
+/// Printed: PL 3/8 × 10-1/2 in flanges, PL 1/4 × 7-1/4 in web, Fy = 50 ksi,
+/// Lc = 15 ft; Ag = 9.69 in², Iy = 72.4 in⁴, ry = 2.73 in, Ix = 122 in⁴;
+/// Fe = 65.9 ksi (flexural, y); torsional Cw = 1,050 in⁶, J = 0.407 in⁴ →
+/// Fe = 71.2 ksi; Fcr = 36.4 ksi; flange kc = 0.743, λr = 13.3 < λ = 14.0
+/// (slender) but λ < λr√(Fy/Fcr) = 15.6, so be = b and Ae = Ag;
+/// Pn = 353 kips, φcPn = 318 kips. The "slender but unreduced" branch.
+#[test]
+fn aisc_e3_built_up_slender_flanges_unreduced() {
+    let m = SteelMemberData {
+        ag: 9.69,
+        iy: 122.0,
+        iz: 72.4,
+        ry: (122.0f64 / 9.69).sqrt(),
+        rz: 2.73,
+        lby: 180.0,
+        lbz: 180.0,
+        j: 0.407,
+        cw: Some(1050.0),
+        g: Some(11_200.0),
+        compression_elements: Some(vec![
+            AiscElement { kind: AiscElementKind::WeldedFlange, b: 5.25, t: 0.375, count: Some(4.0), kc: Some(0.743) },
+            AiscElement { kind: AiscElementKind::Web, b: 7.25, t: 0.25, count: None, kc: None },
+        ]),
+        ..aisc_blank(50.0)
+    };
+    let r = aisc_run(m.clone(), -300.0, 0.0, 0.0, 0.0);
+    published(r.ae.unwrap(), 9.69, 1e-12, "Ae = Ag");
+    published(r.phi_pn_compression / 0.90, 353.0, THREE_SF, "Pn");
+    published(r.phi_pn_compression, 318.0, THREE_SF, "φcPn");
+    let torsion = SteelMemberData { lby: 0.0, lbz: 0.0, lcz: Some(180.0), compression_elements: Some(vec![]), ..m };
+    let fcr = 0.658f64.powf(50.0 / 71.2) * 50.0;
+    published(aisc_run(torsion, -1.0, 0.0, 0.0, 0.0).phi_pn_compression / (0.90 * 9.69), fcr, THREE_SF, "Fcr from E4-2 Fe");
+}
+
+/// [AISC-15] Example E.10, HSS 12×8×3/16 with slender walls, pp. E-56 – E-60,
+/// and its Table E.10 at three lengths.
+///
+/// Printed: Fy = 50 ksi, A = 6.76 in², t = 0.174 in, rx = 4.56, ry = 3.35 in,
+/// b/t = 43.0, h/t = 66.0 (h = 11.5 in), λr = 33.7, Table E7.1(b) c1 = 0.20,
+/// c2 = 1.38. Lc = 18.0 / 24.0 / 40.0 ft → Fcr = 36.9 / 29.1 / 12.2 ksi;
+/// narrow wall be = 7.05 in / unreduced / unreduced; wide wall he = 7.88 /
+/// 8.66 in / unreduced; Ae = 5.35 / 5.77 / 6.76 in²; Pn = 197 / 168 / 82.5,
+/// φcPn = 177 / 151 / 74.2 kips.
+///
+/// Wall widths per B4.1(b)(d): outside dimension − 3t (11.478 and 7.478 in;
+/// the example prints the rounded 11.5). This replaces the hand-worked HSS
+/// case above as the E7.1(b) reference.
+#[test]
+fn aisc_e10_hss_slender_walls_three_lengths() {
+    let t = 0.174;
+    let wall = |b: f64| AiscElement { kind: AiscElementKind::HssWall, b, t, count: Some(2.0), kc: None };
+    for (lc_ft, ae, pn, phi_pn) in [(18.0, 5.35, 197.0, 177.0), (24.0, 5.77, 168.0, 151.0), (40.0, 6.76, 82.5, 74.2)] {
+        let lc = lc_ft * 12.0;
+        let m = SteelMemberData {
+            ag: 6.76,
+            ry: 4.56,
+            rz: 3.35,
+            lby: lc,
+            lbz: lc,
+            compression_elements: Some(vec![wall(12.0 - 3.0 * t), wall(8.0 - 3.0 * t)]),
+            ..aisc_blank(50.0)
+        };
+        let r = aisc_run(m, -1.0, 0.0, 0.0, 0.0);
+        assert!(r.unevaluated.is_empty(), "{:?}", r.unevaluated);
+        published(r.ae.unwrap(), ae, THREE_SF, "Ae");
+        published(r.phi_pn_compression / 0.90, pn, THREE_SF, "Pn");
+        // The table's φcPn is 0.90 × its rounded Pn, rounded again: 0.6 %.
+        published(r.phi_pn_compression, phi_pn, 0.006, "φcPn");
+    }
+}
+
+/// [AISC-15] Example I.13, W21×50 girt-braced column, strong-axis buckling
+/// with a slender web, pp. I-127 – I-131.
+///
+/// Printed: A = 14.7 in², Iy = 24.9 in⁴, J = 1.14 in⁴, rx = 8.18 in,
+/// tw = 0.380 in, h/tw = 49.4, ho = 20.3 in; Lcx = 45.0 ft, Lcy = 0 (girts);
+/// Lcx/rx = 66.0, Fex = 65.7, Fcrx = 36.4 ksi; flange 6.10 < 13.5; web
+/// λr√(Fy/Fcr) = 42.1 < 49.4, Fel = 45.3 ksi, h = 18.8 in, he = 16.8 in;
+/// Ae = 13.9 in²; Pnx = 506 kips, φcPn = 455 kips.
+/// The governing limit state is constrained-axis torsional buckling about the
+/// girt line (Commentary E4, C-E4-1): Fez = 6.20 ksi, Pnz = 80.0 kips,
+/// φcPn = 72.0 kips — not implemented (D20).
+///
+/// With twisting braced (`lcz = 0`) the checker reproduces Pnx. With the
+/// default, E4-2 at Lcz = 45 ft (Cw = Iy·ho²/4 = 2,565 in⁶ from the printed
+/// Iy and ho) gives far less than Pnx but still more than the example's
+/// constrained-axis 72.0 kips: open.
+#[test]
+fn aisc_i13_w21x50_strong_axis_and_torsion() {
+    let m = SteelMemberData {
+        ag: 14.7,
+        iy: 984.0,
+        iz: 24.9,
+        ry: 8.18,
+        rz: 1.30,
+        lby: 540.0,
+        lbz: 0.0,
+        j: 1.14,
+        cw: Some(24.9 * 20.3 * 20.3 / 4.0),
+        compression_elements: rolled_i(6.10 * 2.0 * 0.535, 0.535, 18.8, 0.380),
+        ..aisc_blank(50.0)
+    };
+    let r = aisc_run(SteelMemberData { lcz: Some(0.0), ..m.clone() }, -25.0, 0.0, 0.0, 0.0);
+    assert!(r.unevaluated.is_empty(), "{:?}", r.unevaluated);
+    published(r.ae.unwrap(), 13.9, THREE_SF, "Ae");
+    published(r.phi_pn_compression / 0.90, 506.0, THREE_SF, "Pnx");
+    published(r.phi_pn_compression, 455.0, THREE_SF, "φcPnx");
+
+    let r = aisc_run(m, -25.0, 0.0, 0.0, 0.0);
+    assert!(r.phi_pn_compression < 0.5 * 455.0, "E4-2 at Lcz = 45 ft governs: {}", r.phi_pn_compression);
+    assert!(r.phi_pn_compression > 72.0, "constrained-axis E4 (72.0 kips) is not implemented");
+}
+
 /// [AISC] Example F.1-1B, W18×50 continuously braced, p. F-8.
 ///
 /// Printed: Zx = 101 in³; Mp = Fy·Zx = 5,050 kip-in; φbMn = 379 kip-ft.
@@ -324,6 +491,7 @@ fn w18x50(lb_in: f64, cb: f64) -> SteelMemberData {
         cb: Some(cb),
         // The examples take Cb from the moment diagram alone (load height
         // not considered): the shear centre.
+        lcz: None,
         load_position: Some(AiscLoadPosition::ShearCentre),
         ..aisc_blank(50.0)
     }
@@ -424,6 +592,7 @@ fn aisc_h3_w14x82_tension_and_biaxial_flexure() {
         cw: Some(iy_weak * ho * ho / 4.0),
         lb: Some(30.0 * 12.0),
         cb: Some(1.41),
+        lcz: None,
         load_position: Some(AiscLoadPosition::ShearCentre),
         ..aisc_blank(50.0)
     };
@@ -995,6 +1164,35 @@ fn ec3_class4_minor_axis_and_rhs_effective_sections() {
     assert!(r.unevaluated.iter().any(|u| u.contains("Class 4 Aeff")), "{:?}", r.unevaluated);
 }
 
+/// [LC19] Lee & Chiew, "A review of Class 4 slender section properties
+/// calculation for thin-walled steel sections according to EC3", *Advanced
+/// Steel Construction* 15(3) (2019), pp. 259–266, Example 2 (Box 4): welded
+/// square box 1000 mm, t = 10 mm, S355, pure compression.
+///
+/// Printed: hw = 980 mm, Agross = 39600 mm², ε = 0.814; kσ = 4,
+/// λ̄p = 2.12, ρ = 0.423, beff = 414.5 mm; Aeff = 16980 mm² (42.9 %).
+///
+/// The box is welded from plates, so its flat width is h − 2t = 980 mm; the
+/// checker's RHS takes c = h − 3t (EN 1993-1-1 Table 5.2 for a rolled or
+/// formed tube), so the box is entered with h = b = 980 + 3t. A, Iy, Iz are
+/// the printed gross values (Iy = Iz = 646932 cm⁴).
+#[test]
+fn ec3_class4_welded_box_compression_lee_chiew_2019() {
+    let t = 10.0;
+    let m = Ec3MemberData {
+        a: 39600.0,
+        iy: 646932e4,
+        iz: 646932e4,
+        section_class: SectionClass::Class4,
+        geometry: Some(Ec3Geometry::Rhs { h: 980.0 + 3.0 * t, b: 980.0 + 3.0 * t, t }),
+        ..ec3_blank(355.0)
+    };
+    let lp = lambda_p(980.0 / t, 355.0, 4.0);
+    published(lp, 2.12, THREE_SF, "λ̄p");
+    published((lp - 0.22) / (lp * lp), 0.423, THREE_SF, "ρ (4.2)");
+    published(effective_section(&m, m.geometry.as_ref().unwrap()).unwrap().a_eff, 16980.0, THREE_SF, "Aeff");
+}
+
 // ════════════════════════════════════════════════════════════════════════
 // EN 1992-1-1 (ec2_check) — SI units (Pa, m), as the check requires
 // ════════════════════════════════════════════════════════════════════════
@@ -1131,6 +1329,8 @@ fn inti_cirsoc(as_comp: Option<f64>) -> Cirsoc201MemberData {
         fyt: None,
         ag: None,
         lambda: None,
+        bf: None,
+        hf: None,
         // INTI's worked examples follow CIRSOC 201-2005.
         edition: dedaliano_engine::postprocess::cirsoc201_check::Cirsoc201Edition::E2005,
     }

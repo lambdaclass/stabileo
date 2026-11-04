@@ -67,6 +67,20 @@ it.each([2, -1])('factors a temperature once by %s, preserving the expansion coe
   expect(l.data).toMatchObject({ alpha: .000012, dtUniform: 20 * factor });
 });
 
+it('sends a curved quad\'s temperature to the curved shell, not to a flat quad (SA-2026-013)', () => {
+  const tq = { id: 1, quadId: 7, dtUniform: 20, dtGradient: 5 };
+  expect(convertThermalQuadLoad(tq, .000012)[0]!.type).toBe('quadThermal');
+  expect(convertThermalQuadLoad(tq, .000012, true)[0]!.type).toBe('curvedShellThermal');
+  expect(convertThermalQuadLoad(tq, .000012, true)[0]!.data).toMatchObject({ elementId: 7, dtUniform: 20, dtGradient: 5, alpha: .000012 });
+  expect(convertThermalQuadLoad({ ...tq, on: 'plate' }, undefined, true)[0]!.type).toBe('plateThermal');
+});
+
+it.each([1.5, 0, -1])('factors a member temperature by %s, keeping its α and section depths (#407)', factor => {
+  const thermal = { type: 'thermal', data: { elementId: 3, dtUniform: 20, dtGradientY: 4, dtGradientZ: 10, alpha: 23e-6, depthY: 0.15, depthZ: 0.3 } } as unknown as Parameters<typeof scaleSolverLoad>[0];
+  const l = scaleSolverLoad(thermal, factor);
+  expect(l.data).toMatchObject({ elementId: 3, alpha: 23e-6, depthY: 0.15, depthZ: 0.3, dtUniform: 20 * factor, dtGradientY: 4 * factor, dtGradientZ: 10 * factor });
+});
+
 it('counts structural self-weight only once in a mass source', () => {
   const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(6, 0, 0);
   modelStore.addElement(a, b, 'frame');

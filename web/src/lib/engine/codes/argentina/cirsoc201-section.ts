@@ -1,46 +1,32 @@
-import { getRcSectionKernel } from './rc-section-kernel';
 /**
- * One section engine, for every case the workbook solves.
+ * One section engine, for every case the workbook solves — the Rust engine's.
  *
- * ── The realisation this file is built on ──────────────────────────
+ * CIRSOC_FLEX has eight sheets and they are one problem: a rectangular beam, a T beam, a
+ * rectangular column, a round column, a hollow pier and a skew-bent column differ only in the
+ * outline of the concrete and where the bars are. Everything after that — the plane of strains,
+ * the stress block, the yield check, φ, the axial cap — is the same clause on the same geometry,
+ * and it is computed once, in `engine/src/postprocess/cirsoc201_section.rs`.
  *
- * CIRSOC_FLEX has eight sheets and they are one problem. A rectangular beam
- * in simple bending, a T beam, a rectangular column under axial load and
- * bending, a round column, a hollow pier and a skew-bent column with twenty
- * bars at arbitrary coordinates differ in exactly two things: the outline of
- * the concrete, and where the bars are. Everything after that — the plane of
- * strains, the stress block, the yield check, φ, the axial cap — is the same
- * clause applied to the same geometry.
- *
- * Written as five special cases, adding the sixth means writing it again,
- * and the five drift. Written once, adding the sixth is a new outline.
- *
- * ── What it computes ───────────────────────────────────────────────
- *
- * For a neutral axis — an angle θ and a depth — the strain plane is fixed by
- * §10.2.3's ε_cu at the extreme compressed fibre. Every bar's strain follows
- * from its distance to the axis, its stress from the elastic-perfectly-plastic
- * law, and the concrete's contribution from the equivalent rectangular block
- * clipped out of the outline. Summing gives (Pn, Mnx, Mny).
- *
- * Sweeping θ and the depth gives the interaction surface; holding θ and
- * sweeping the depth gives the familiar planar diagram.
+ * This module describes the section (outline, bars, materials, edition), hands it to the
+ * engine once (`prepareSection`) and converts the answers to the app's units. It holds no
+ * clause and no fallback: without the engine it throws. The TypeScript integration it replaced
+ * is a test oracle (`__tests__/differential/oracle/cirsoc201-section.ts`).
  *
  * ── Sign convention, stated once ───────────────────────────────────
  *
- * Compression positive, for forces and strains. Axes are the section's own,
- * origin at the centroid of the gross outline. `Mnx` bends about x — it is
- * the moment a beam has under vertical load — and `Mny` about y. A bar in
- * tension has negative force, and `Mn = Σ F·arm` needs no special case for
- * it, which is the reason for choosing this convention over the alternative.
+ * Compression positive, for forces and strains. Axes are the section's own, origin at the
+ * centroid of the gross outline. `Mnx` bends about x and `Mny` about y; a compressed +y face
+ * gives a negative Mnx. θ is the direction of the OUTWARD normal of the compressed face:
+ * θ = −π/2 compresses the bottom, which is what a sagging beam has.
+ *
+ * Units: kN, kN·m, m, MPa (the engine's SI is converted here).
  */
 
 import {
-  EPSILON_CU, ES_MPA, beta1, phiFromStrain, squashLoad, axialCap,
+  ES_MPA, editionCode, confinementCode, type Cirsoc201EditionLike, type Confinement,
 } from './cirsoc201-basis';
-import {
-  type Pt, rectPolygon, teePolygon, circlePolygon, compressedZone, polygonArea,
-} from './section-polygon';
+import { type Pt, rectPolygon, teePolygon, circlePolygon } from './section-polygon';
+import { cirsoc201Engine, STATE_LEN, UTIL_LEN, type SectionKernelInstance } from './cirsoc201-engine';
 
 /** A longitudinal bar: where it is, and how much steel. */
 export interface Bar {
@@ -51,76 +37,44 @@ export interface Bar {
   area: number;
 }
 
-/**
- * The concrete outline.
- *
- * Holes are what the workbook calls `b_h`/`h_h` on the rectangular sheets and
- * `D int` on the circular one — a hollow pier, which is ordinary for a bridge
- * and was the one modelling capability the first version of this module
- * lacked outright.
- */
+/** The concrete outline; holes are the workbook's `b_h`/`h_h` and `D int`. */
 export type Outline =
   | { kind: 'rect'; b: number; h: number; hole?: { b: number; h: number } }
   | { kind: 'tee'; bf: number; hf: number; bw: number; h: number }
-  | { kind: 'circle'; D: number; Dint?: number };
+  | { kind: 'circle'; D: number; Dint?: number }
+  /** Any outline, its vertices around it, in section coordinates about its centroid (an L column). */
+  | { kind: 'polygon'; outer: Pt[] };
 
 export interface Materials {
   /** MPa. */
   fc: number;
   fy: number;
-  confinement?: 'ties' | 'spiral';
+  confinement?: Confinement;
   /**
-   * Subtract the concrete a compression bar displaces. DEFAULTS TO ON.
-   *
-   * A bar sitting inside the stress block occupies concrete that the block
-   * has already been credited with, so not deducting counts that area twice
-   * and OVERSTATES the capacity. An earlier version of this module defaulted
-   * it off and called that the conservative side; it is the opposite, and
-   * the workbook comparison is what showed it — with the deduction the
-   * biaxial example lands within 0.7 % of the published steel and without it
-   * 5 % under.
-   *
-   * Left as a switch because the workbook has one, and a reader reproducing
-   * a calculation made with it off needs to be able to say so.
+   * Subtract the concrete a compression bar inside the stress block displaces. DEFAULTS TO ON:
+   * leaving it out counts that area twice and overstates the capacity. A switch because the
+   * workbook has one.
    */
   deductDisplacedConcrete?: boolean;
+  /**
+   * The CIRSOC 201 edition whose φ and caps apply. Defaults to 2005, the CIRSOC_FLEX
+   * workbook's edition, which is what this module computed before the engine took it over.
+   */
+  edition?: Cirsoc201EditionLike;
 }
 
 /** Outer ring and holes, in section coordinates. */
 export function outlineRings(o: Outline): { outer: Pt[]; holes: Pt[][] } {
   switch (o.kind) {
     case 'rect':
-      return {
-        outer: rectPolygon(o.b, o.h),
-        holes: o.hole ? [rectPolygon(o.hole.b, o.hole.h)] : [],
-      };
+      return { outer: rectPolygon(o.b, o.h), holes: o.hole ? [rectPolygon(o.hole.b, o.hole.h)] : [] };
     case 'tee':
       return { outer: teePolygon(o.bf, o.hf, o.bw, o.h), holes: [] };
     case 'circle':
-      return {
-        outer: circlePolygon(o.D),
-        holes: o.Dint && o.Dint > 0 ? [circlePolygon(o.Dint)] : [],
-      };
+      return { outer: circlePolygon(o.D), holes: o.Dint && o.Dint > 0 ? [circlePolygon(o.Dint)] : [] };
+    case 'polygon':
+      return { outer: o.outer.map((p) => ({ ...p })), holes: [] };
   }
-}
-
-/** Gross area, holes removed. */
-export function grossArea(o: Outline): number {
-  const { outer, holes } = outlineRings(o);
-  return Math.abs(polygonArea(outer)) - holes.reduce((s, hr) => s + Math.abs(polygonArea(hr)), 0);
-}
-
-/** How far the outline reaches along a direction, from the centroid. */
-function extentAlong(o: Outline, nx: number, ny: number): { max: number; min: number } {
-  const { outer } = outlineRings(o);
-  let max = -Infinity;
-  let min = Infinity;
-  for (const p of outer) {
-    const s = nx * p.x + ny * p.y;
-    if (s > max) max = s;
-    if (s < min) min = s;
-  }
-  return { max, min };
 }
 
 export interface SectionPoint {
@@ -129,7 +83,7 @@ export interface SectionPoint {
   /** kN·m. */
   Mnx: number;
   Mny: number;
-  /** Design values, φ applied. */
+  /** Design values, φ applied; φPn capped at φPn,max. */
   phiPn: number;
   phiMnx: number;
   phiMny: number;
@@ -140,149 +94,161 @@ export interface SectionPoint {
   c: number;
 }
 
-/**
- * The section's state for one neutral axis.
- *
- * `theta` is the direction of the OUTWARD normal to the compressed face, so
- * θ = −π/2 (pointing at −y) puts the compression at the bottom, which is what
- * a sagging beam has. `c` is measured from the extreme compressed fibre.
- */
-export function sectionPoint(
-  outline: Outline,
-  bars: readonly Bar[],
-  mat: Materials,
-  theta: number,
-  c: number,
-): SectionPoint {
-  const nx = Math.cos(theta);
-  const ny = Math.sin(theta);
-  const { max } = extentAlong(outline, nx, ny);
+/** Demand over capacity, and the section's state where the capacity is read. */
+export interface SectionUtilisation {
+  ratio: number;
+  phiPn: number;
+  phiMn: number;
+  /** Absent where no neutral axis describes the answer (a purely axial demand). */
+  c?: number;
+  epsilonT?: number;
+  phi: number;
+  /** Outward normal of the compressed face at the capacity. */
+  theta: number;
+  axialOnly?: boolean;
+}
 
-  const fc_kPa = mat.fc * 1000;
-  const fy_kPa = mat.fy * 1000;
-  const b1 = beta1(mat.fc);
+export interface SectionInfo {
+  /** m². */
+  Ag: number;
+  Ast: number;
+  /** kN. */
+  Po: number;
+  phiPnMax: number;
+  phiPntMax: number;
+  beta1: number;
+}
 
-  /*
-   * The stress block runs `a = β₁c` from the extreme fibre inward, so it is
-   * the half-plane at signed distance `max − a` and beyond.
-   */
-  const { min } = extentAlong(outline, nx, ny);
-  const a = Math.max(Math.min(b1 * c, max - min), 0);
-  const { outer, holes } = outlineRings(outline);
-  const zone = compressedZone(outer, holes, nx, ny, max - a);
+/** Run-scoped section, prepared once in the engine and asked many times. Call `free`. */
+export interface PreparedSection {
+  info(): SectionInfo;
+  /** [section depth, depth of the farthest bar] along θ, m. */
+  depths(theta: number): { depth: number; dt: number };
+  point(theta: number, c: number): SectionPoint;
+  points(theta: number, cs: readonly number[]): SectionPoint[];
+  curve(theta: number, nPoints?: number): SectionPoint[];
+  /** The state where φPn = Pu (kN), or null when the section cannot carry it. */
+  atAxial(theta: number, Pu: number): SectionPoint | null;
+  /** Uniaxial check about x along the ray of constant eccentricity (Mu > 0 compresses +y). */
+  ray(Pu: number, Mu: number): SectionUtilisation;
+  /** The axial limit on the demand's side. */
+  axialLimit(theta: number, Pu: number): SectionUtilisation;
+  /** Biaxial check on the load contour at Pu; Mx, My signed as the sheets sign them. */
+  biaxial(Pu: number, Mx: number, My: number): SectionUtilisation;
+  /** The same check with the verifier's coarser search (direction to 1e-5 rad). */
+  biaxialFast(Pu: number, Mx: number, My: number): SectionUtilisation;
+  momentCapacityAtAxial(Pu: number, Mx: number, My: number): {
+    phiMn: number; phiMnx: number; phiMny: number; fi: number; state: SectionPoint;
+  } | null;
+  /** The six characteristic points: [φMn (sheet sign), φPn, φ, εt] each, kN·m / kN. */
+  characteristicPoints(theta: number): Array<[number, number, number, number]>;
+  free(): void;
+}
 
-  const Cc = 0.85 * fc_kPa * zone.area; // kN
-  let Pn = Cc;
-  /*
-   * From the FIRST MOMENTS, not from a centroid. `compressedZone` returns
-   * `m = A·c̄` on purpose: at the tension end of the diagram the compressed
-   * area is zero, and `m/A` there is 0/0 while `0.85·f'c·m` is simply zero,
-   * which is the right answer.
-   *
-   * The sign on `Mnx` is because a compression force ABOVE the centroid
-   * (positive y) produces sagging, which this convention calls positive.
-   */
-  let Mnx = -0.85 * fc_kPa * zone.my;
-  let Mny = 0.85 * fc_kPa * zone.mx;
-
-  let epsilonT = 0;
-  for (const bar of bars) {
-    /* Distance from the neutral axis, positive toward compression. */
-    const s = nx * bar.x + ny * bar.y;
-    const strain = c > 1e-9 ? (EPSILON_CU * (s - (max - c))) / c : -10 * (mat.fy / ES_MPA);
-    const fs = Math.max(-fy_kPa, Math.min(fy_kPa, strain * ES_MPA * 1000));
-
-    let F = bar.area * fs;
-    if ((mat.deductDisplacedConcrete ?? true) && strain > 0 && s >= max - a) {
-      F -= bar.area * 0.85 * fc_kPa;
-    }
-    Pn += F;
-    Mnx += -F * bar.y;
-    Mny += F * bar.x;
-    if (strain < epsilonT) epsilonT = strain;
+function statesFrom(v: Float64Array): SectionPoint[] {
+  const out: SectionPoint[] = [];
+  for (let k = 0; k + STATE_LEN <= v.length; k += STATE_LEN) {
+    out.push({
+      Pn: v[k] / 1000, Mnx: v[k + 1] / 1000, Mny: v[k + 2] / 1000, epsilonT: v[k + 3], c: v[k + 4],
+      phi: v[k + 5], phiPn: v[k + 6] / 1000, phiMnx: v[k + 7] / 1000, phiMny: v[k + 8] / 1000,
+    });
   }
+  return out;
+}
 
-  const epsT = Math.abs(Math.min(epsilonT, 0));
-  const phi = phiFromStrain(epsT, mat.fy, mat.confinement ?? 'ties');
+function utilisationFrom(v: Float64Array): SectionUtilisation {
+  const u: SectionUtilisation = {
+    ratio: v[0], phiPn: v[1] / 1000, phiMn: v[2] / 1000, phi: v[5],
+    theta: Math.atan2(v[7], v[6]), axialOnly: v[8] === 1,
+  };
+  if (Number.isFinite(v[3])) u.c = v[3];
+  if (Number.isFinite(v[4])) u.epsilonT = v[4];
+  return u;
+}
 
-  const Ast = bars.reduce((s, b) => s + b.area, 0);
-  const cap = axialCap(mat.fc, mat.fy, grossArea(outline), Ast, mat.confinement ?? 'ties');
-
+export function prepareSection(outline: Outline, bars: readonly Bar[], mat: Materials): PreparedSection {
+  const Section = cirsoc201Engine('Section');
+  /*
+   * A circle goes to the engine as a circle — its compressed segment is computed exactly
+   * (r²·acos(t/r) − t·√(r² − t²)) — and only the drawing uses the 360-gon.
+   */
+  const circles = outline.kind === 'circle'
+    ? [0, 0, outline.D / 2, ...(outline.Dint && outline.Dint > 0 ? [0, 0, outline.Dint / 2] : [])]
+    : [];
+  const rings = outline.kind === 'circle' ? [] : (() => { const r = outlineRings(outline); return [r.outer, ...r.holes]; })();
+  const offsets = new Uint32Array(rings.length + 1);
+  for (let i = 0; i < rings.length; i++) offsets[i + 1] = offsets[i] + rings[i].length;
+  const kernel: SectionKernelInstance = new Section(
+    Float64Array.from(rings.flatMap((ring) => ring.flatMap((p) => [p.x, p.y]))), offsets,
+    Float64Array.from(circles),
+    Float64Array.from(bars.flatMap((b) => [b.x, b.y, b.area])),
+    Float64Array.of(mat.fc * 1e6, mat.fy * 1e6, ES_MPA * 1e6, editionCode(mat.edition),
+      confinementCode(mat.confinement), (mat.deductDisplacedConcrete ?? true) ? 1 : 0),
+  );
+  const dir = (theta: number) => [Math.cos(theta), Math.sin(theta)] as const;
   return {
-    Pn, Mnx, Mny,
-    phiPn: Math.min(phi * Pn, cap),
-    phiMnx: phi * Mnx,
-    phiMny: phi * Mny,
-    phi, epsilonT: epsT, c,
+    info() {
+      const v = kernel.info();
+      return { Ag: v[0], Ast: v[1], Po: v[2] / 1000, phiPnMax: v[3] / 1000, phiPntMax: v[4] / 1000, beta1: v[5] };
+    },
+    depths(theta) {
+      const v = kernel.depths(...dir(theta));
+      return { depth: v[0], dt: v[1] };
+    },
+    point: (theta, c) => statesFrom(kernel.points(...dir(theta), Float64Array.of(c)))[0],
+    points: (theta, cs) => statesFrom(kernel.points(...dir(theta), Float64Array.from(cs))),
+    curve: (theta, nPoints = 60) => statesFrom(kernel.curve(...dir(theta), nPoints)),
+    atAxial(theta, Pu) {
+      const s = statesFrom(kernel.atAxial(...dir(theta), Pu * 1000))[0];
+      return Number.isFinite(s.c) ? s : null;
+    },
+    ray: (Pu, Mu) => utilisationFrom(kernel.ray(Pu * 1000, Mu * 1000)),
+    axialLimit: (theta, Pu) => utilisationFrom(kernel.axialLimit(...dir(theta), Pu * 1000)),
+    biaxial: (Pu, Mx, My) => utilisationFrom(kernel.biaxial(Pu * 1000, Mx * 1000, My * 1000)),
+    biaxialFast: (Pu, Mx, My) => utilisationFrom(kernel.biaxialFast(Pu * 1000, Mx * 1000, My * 1000)),
+    momentCapacityAtAxial(Pu, Mx, My) {
+      const v = kernel.momentCapacityAtAxial(Pu * 1000, Mx * 1000, My * 1000);
+      if (!Number.isFinite(v[0])) return null;
+      return {
+        phiMn: v[0] / 1000, phiMnx: v[1] / 1000, phiMny: v[2] / 1000, fi: v[3],
+        state: statesFrom(v.subarray(4, 4 + STATE_LEN))[0],
+      };
+    },
+    characteristicPoints(theta) {
+      const v = kernel.characteristicPoints(...dir(theta));
+      const out: Array<[number, number, number, number]> = [];
+      for (let k = 0; k < v.length; k += 4) out.push([v[k] / 1000, v[k + 1] / 1000, v[k + 2], v[k + 3]]);
+      return out;
+    },
+    free: () => kernel.free(),
   };
 }
 
-/**
- * The interaction diagram in one bending plane.
- *
- * From a neutral axis far past the section — every fibre compressed — to one
- * that has left it, which is pure tension.
- */
-export function interactionCurve(
-  outline: Outline,
-  bars: readonly Bar[],
-  mat: Materials,
-  theta: number,
-  nPoints = 60,
-): SectionPoint[] {
-  const section = prepareSection(outline, bars, mat);
-  try { return section.curve(theta, nPoints); } finally { section.free(); }
+/** Run `f` on a prepared section and release it, whatever happens. */
+export function withSection<T>(outline: Outline, bars: readonly Bar[], mat: Materials, f: (s: PreparedSection) => T): T {
+  const s = prepareSection(outline, bars, mat);
+  try { return f(s); } finally { s.free(); }
+}
+
+/** The section's state for one neutral axis (one engine call). */
+export function sectionPoint(outline: Outline, bars: readonly Bar[], mat: Materials, theta: number, c: number): SectionPoint {
+  return withSection(outline, bars, mat, (s) => s.point(theta, c));
+}
+
+/** The interaction diagram in one bending plane, from every fibre compressed to pure tension. */
+export function interactionCurve(outline: Outline, bars: readonly Bar[], mat: Materials, theta: number, nPoints = 60): SectionPoint[] {
+  return withSection(outline, bars, mat, (s) => s.curve(theta, nPoints));
+}
+
+/** Gross area, holes removed, m² (the engine's). */
+export function grossArea(o: Outline): number {
+  return withSection(o, [], { fc: 20, fy: 420 }, (s) => s.info().Ag);
 }
 
 /** The squash load this section reaches with its bars, kN. */
 export function sectionSquashLoad(outline: Outline, bars: readonly Bar[], mat: Materials): number {
-  const Ast = bars.reduce((s, b) => s + b.area, 0);
-  return squashLoad(mat.fc, mat.fy, grossArea(outline), Ast);
+  return withSection(outline, bars, mat, (s) => s.info().Po);
 }
 
-
-/** Run-scoped geometry, shared by every angle/depth in a diagram or surface search.
- * No identity cache: edited outlines, materials and reinforcement are read afresh. */
-export interface PreparedSection {
-  point(theta: number, c: number): SectionPoint;
-  curve(theta: number, nPoints?: number): SectionPoint[];
-  free(): void;
-}
-export function prepareSection(outline: Outline, bars: readonly Bar[], mat: Materials): PreparedSection {
-  const { outer, holes } = outlineRings(outline);
-  const Constructor = getRcSectionKernel();
-  const rings = [outer, ...holes];
-  const offsets = new Uint32Array(rings.length + 1);
-  for (let i = 0; i < rings.length; i++) offsets[i + 1] = offsets[i] + rings[i].length;
-  const geometry = Constructor ? new Constructor(
-    Float64Array.from(rings.flatMap(ring => ring.flatMap(p => [p.x, p.y]))), offsets,
-    Float64Array.from(bars.flatMap(b => [b.x, b.y, b.area])),
-    Float64Array.of(mat.fc * 1000, mat.fy, ES_MPA, EPSILON_CU, beta1(mat.fc)),
-    mat.deductDisplacedConcrete ?? true,
-  ) : null;
-  const Ag = Math.abs(polygonArea(outer)) - holes.reduce((s, h) => s + Math.abs(polygonArea(h)), 0);
-  const cap = axialCap(mat.fc, mat.fy, Ag, bars.reduce((s, b) => s + b.area, 0), mat.confinement ?? 'ties');
-  const evaluate = (theta: number, depths: number[]): SectionPoint[] => {
-    if (!geometry) return depths.map(c => sectionPoint(outline, bars, mat, theta, c));
-    const values = geometry.evaluate(Math.cos(theta), Math.sin(theta), Float64Array.from(depths));
-    return depths.map((c, i) => {
-      const k = i * 5, Pn = values[k], Mnx = values[k + 1], Mny = values[k + 2], epsilonT = values[k + 3];
-      const phi = phiFromStrain(epsilonT, mat.fy, mat.confinement ?? 'ties');
-      return { Pn, Mnx, Mny, phiPn: Math.min(phi * Pn, cap), phiMnx: phi * Mnx, phiMny: phi * Mny, phi, epsilonT, c };
-    });
-  };
-  return {
-    point: (theta, c) => evaluate(theta, [c])[0],
-    curve(theta, nPoints = 60) {
-      const nx = Math.cos(theta), ny = Math.sin(theta);
-      let max = -Infinity, min = Infinity;
-      for (const p of outer) { const s = nx * p.x + ny * p.y; max = Math.max(max, s); min = Math.min(min, s); }
-      const depth = max - min;
-      const cs = [10 * depth];
-      for (let i = 0; i <= nPoints; i++) { const c = 2 * depth * (1 - i / nPoints); if (c > 1e-5) cs.push(c); }
-      cs.push(1e-5); cs.sort((p, q) => q - p);
-      return evaluate(theta, cs);
-    },
-    free: () => geometry?.free(),
-  };
-}
+/** Re-exported for the utilisation layout's consumers. */
+export { UTIL_LEN };

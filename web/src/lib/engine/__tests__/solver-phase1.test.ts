@@ -94,11 +94,11 @@ function checkGlobalEquilibrium(
   let sumFx = 0, sumFz = 0, sumMf = 0;
   for (const load of input.loads) {
     if (load.type === 'nodal') {
-      const { nodeId, fx, fy, mz } = load.data;
+      const { nodeId, fx, fz, my } = load.data;
       sumFx += fx;
-      sumFz += fy;
+      sumFz += fz;
       const node = input.nodes.get(nodeId)!;
-      sumMf += mz + node.x * fy - node.y * fx;
+      sumMf += my + node.x * fz - node.y * fx;
     } else if (load.type === 'distributed') {
       const { elementId, qI, qJ } = load.data;
       const elem = input.elements.get(elementId)!;
@@ -209,7 +209,7 @@ function checkNodalEquilibrium(
     for (const load of input.loads) {
       if (load.type === 'nodal' && load.data.nodeId === nodeId) {
         sumFx += load.data.fx;
-        sumFz += load.data.fy;
+        sumFz += load.data.fz;
         sumMz += load.data.my;
       }
     }
@@ -252,7 +252,7 @@ describe('1.1 — Global equilibrium verification', () => {
       nodes: [[1, 0, 0], [2, 5, 0]],
       elements: [[1, 1, 2, 'frame']],
       supports: [[1, 1, 'fixed']],
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: -10, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: -10, my: 0 } }],
     });
     const results = solve(input) as AnalysisResults;
     const eq = checkGlobalEquilibrium(input, results);
@@ -270,7 +270,7 @@ describe('1.1 — Global equilibrium verification', () => {
       supports: [[1, 1, 'fixed'], [2, 4, 'fixed']],
       loads: [
         { type: 'distributed', data: { elementId: 2, qI: -15, qJ: -15 } },
-        { type: 'nodal', data: { nodeId: 2, fx: 10, fy: 0, mz: 0 } },
+        { type: 'nodal', data: { nodeId: 2, fx: 10, fz: 0, my: 0 } },
       ],
     });
     const results = solve(input) as AnalysisResults;
@@ -292,9 +292,9 @@ describe('1.1 — Global equilibrium verification', () => {
       ],
       supports: [[1, 1, 'pinned'], [2, 5, 'rollerX']],
       loads: [
-        { type: 'nodal', data: { nodeId: 6, fx: 0, fy: -20, mz: 0 } },
-        { type: 'nodal', data: { nodeId: 7, fx: 0, fy: -30, mz: 0 } },
-        { type: 'nodal', data: { nodeId: 8, fx: 0, fy: -20, mz: 0 } },
+        { type: 'nodal', data: { nodeId: 6, fx: 0, fz: -20, my: 0 } },
+        { type: 'nodal', data: { nodeId: 7, fx: 0, fz: -30, my: 0 } },
+        { type: 'nodal', data: { nodeId: 8, fx: 0, fz: -20, my: 0 } },
       ],
     });
     const results = solve(input) as AnalysisResults;
@@ -411,7 +411,7 @@ const examples: Record<string, () => SolverInput> = {
     supports: [[1, 1, 'fixed'], [2, 4, 'fixed']],
     loads: [
       { type: 'distributed', data: { elementId: 2, qI: -15, qJ: -15 } },
-      { type: 'nodal', data: { nodeId: 2, fx: 10, fy: 0, mz: 0 } },
+      { type: 'nodal', data: { nodeId: 2, fx: 10, fz: 0, my: 0 } },
     ],
   }),
 
@@ -443,9 +443,9 @@ const examples: Record<string, () => SolverInput> = {
     ],
     supports: [[1, 1, 'pinned'], [2, 5, 'rollerX']],
     loads: [
-      { type: 'nodal', data: { nodeId: 6, fx: 0, fy: -20, mz: 0 } },
-      { type: 'nodal', data: { nodeId: 7, fx: 0, fy: -30, mz: 0 } },
-      { type: 'nodal', data: { nodeId: 8, fx: 0, fy: -20, mz: 0 } },
+      { type: 'nodal', data: { nodeId: 6, fx: 0, fz: -20, my: 0 } },
+      { type: 'nodal', data: { nodeId: 7, fx: 0, fz: -30, my: 0 } },
+      { type: 'nodal', data: { nodeId: 8, fx: 0, fz: -20, my: 0 } },
     ],
   }),
 
@@ -463,8 +463,8 @@ const examples: Record<string, () => SolverInput> = {
     loads: [
       { type: 'distributed', data: { elementId: 5, qI: -12, qJ: -12 } },
       { type: 'distributed', data: { elementId: 6, qI: -10, qJ: -10 } },
-      { type: 'nodal', data: { nodeId: 2, fx: 8, fy: 0, mz: 0 } },
-      { type: 'nodal', data: { nodeId: 3, fx: 5, fy: 0, mz: 0 } },
+      { type: 'nodal', data: { nodeId: 2, fx: 8, fz: 0, my: 0 } },
+      { type: 'nodal', data: { nodeId: 3, fx: 5, fz: 0, my: 0 } },
     ],
   }),
 
@@ -492,7 +492,7 @@ const examples: Record<string, () => SolverInput> = {
     loads: [
       { type: 'pointOnElement', data: { elementId: 1, a: 2, p: -25 } },
       { type: 'pointOnElement', data: { elementId: 1, a: 5, p: -40 } },
-      { type: 'nodal', data: { nodeId: 2, fx: 10, fy: 0, mz: 0 } },
+      { type: 'nodal', data: { nodeId: 2, fx: 10, fz: 0, my: 0 } },
     ],
   }),
 
@@ -527,7 +527,7 @@ const examples: Record<string, () => SolverInput> = {
     nodes: [[1, 0, 0], [2, 3, 0]],
     elements: [[1, 1, 2, 'frame']],
     supports: [[1, 1, 'fixed']],
-    loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: -15, mz: 0 } }],
+    loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: -15, my: 0 } }],
   }),
 
   'gerber-beam': () => makeInput({
@@ -585,8 +585,8 @@ const examples: Record<string, () => SolverInput> = {
       loads: [
         { type: 'distributed' as const, data: { elementId: 5, qI: -25, qJ: -25 } },
         { type: 'distributed' as const, data: { elementId: 6, qI: -18, qJ: -18 } },
-        { type: 'nodal' as const, data: { nodeId: 2, fx: 15, fy: 0, mz: 0 } },
-        { type: 'nodal' as const, data: { nodeId: 5, fx: 10, fy: 0, mz: 0 } },
+        { type: 'nodal' as const, data: { nodeId: 2, fx: 15, fz: 0, my: 0 } },
+        { type: 'nodal' as const, data: { nodeId: 5, fx: 10, fz: 0, my: 0 } },
       ],
     };
   },
@@ -604,10 +604,10 @@ const examples: Record<string, () => SolverInput> = {
     ],
     supports: [[1, 1, 'pinned'], [2, 5, 'rollerX']],
     loads: [
-      { type: 'nodal', data: { nodeId: 6, fx: 0, fy: -15, mz: 0 } },
-      { type: 'nodal', data: { nodeId: 7, fx: 0, fy: -25, mz: 0 } },
-      { type: 'nodal', data: { nodeId: 8, fx: 0, fy: -25, mz: 0 } },
-      { type: 'nodal', data: { nodeId: 9, fx: 0, fy: -15, mz: 0 } },
+      { type: 'nodal', data: { nodeId: 6, fx: 0, fz: -15, my: 0 } },
+      { type: 'nodal', data: { nodeId: 7, fx: 0, fz: -25, my: 0 } },
+      { type: 'nodal', data: { nodeId: 8, fx: 0, fz: -25, my: 0 } },
+      { type: 'nodal', data: { nodeId: 9, fx: 0, fz: -15, my: 0 } },
     ],
   }),
 
@@ -624,9 +624,9 @@ const examples: Record<string, () => SolverInput> = {
     ],
     supports: [[1, 1, 'pinned'], [2, 5, 'rollerX']],
     loads: [
-      { type: 'nodal', data: { nodeId: 2, fx: 0, fy: -20, mz: 0 } },
-      { type: 'nodal', data: { nodeId: 3, fx: 0, fy: -30, mz: 0 } },
-      { type: 'nodal', data: { nodeId: 4, fx: 0, fy: -20, mz: 0 } },
+      { type: 'nodal', data: { nodeId: 2, fx: 0, fz: -20, my: 0 } },
+      { type: 'nodal', data: { nodeId: 3, fx: 0, fz: -30, my: 0 } },
+      { type: 'nodal', data: { nodeId: 4, fx: 0, fz: -20, my: 0 } },
     ],
   }),
 
@@ -645,7 +645,7 @@ const examples: Record<string, () => SolverInput> = {
     }
     const loads: SolverLoad[] = [];
     for (let i = 1; i < nSeg; i++) {
-      loads.push({ type: 'nodal', data: { nodeId: i + 1, fx: 0, fy: -10, mz: 0 } });
+      loads.push({ type: 'nodal', data: { nodeId: i + 1, fx: 0, fz: -10, my: 0 } });
     }
     return makeInput({
       nodes: pts,
@@ -701,8 +701,8 @@ const examples: Record<string, () => SolverInput> = {
         { type: 'distributed' as const, data: { elementId: 12, qI: -8, qJ: -8 } },
         { type: 'distributed' as const, data: { elementId: 13, qI: -12, qJ: -12 } },
         { type: 'distributed' as const, data: { elementId: 14, qI: -5, qJ: -5 } },
-        { type: 'nodal' as const, data: { nodeId: 5, fx: 20, fy: 0, mz: 0 } },
-        { type: 'nodal' as const, data: { nodeId: 9, fx: 15, fy: 0, mz: 0 } },
+        { type: 'nodal' as const, data: { nodeId: 5, fx: 20, fz: 0, my: 0 } },
+        { type: 'nodal' as const, data: { nodeId: 9, fx: 15, fz: 0, my: 0 } },
       ],
     };
   },
@@ -864,7 +864,7 @@ describe('1.3 — Analytical benchmarks', () => {
         [3, 1, 2, 'truss'],
       ],
       supports: [[1, 1, 'pinned'], [2, 2, 'rollerX']],
-      loads: [{ type: 'nodal', data: { nodeId: 3, fx: 0, fy: -30, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 3, fx: 0, fz: -30, my: 0 } }],
     });
     const results = solve(input) as AnalysisResults;
 
@@ -926,7 +926,7 @@ describe('1.3 — Analytical benchmarks', () => {
     const totalW = P * (nSeg - 1); // = 70 kN total vertical load
     const loads: SolverLoad[] = [];
     for (let i = 1; i < nSeg; i++) {
-      loads.push({ type: 'nodal', data: { nodeId: i + 1, fx: 0, fy: -P, mz: 0 } });
+      loads.push({ type: 'nodal', data: { nodeId: i + 1, fx: 0, fz: -P, my: 0 } });
     }
     const input = makeInput({
       nodes: pts,
@@ -1001,7 +1001,7 @@ describe('1.3 — Analytical benchmarks', () => {
       nodes: [[1, 0, 0], [2, L, 0]],
       elements: [[1, 1, 2, 'frame']],
       supports: [[1, 1, 'fixed']],
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: 0, mz: M } }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: 0, my: M } }],
     });
     const results = solve(input) as AnalysisResults;
 
@@ -1071,8 +1071,8 @@ describe('1.2 — Symmetry tests', () => {
       ],
       supports: [[1, 1, 'pinned'], [2, 5, 'rollerX']],
       loads: [
-        { type: 'nodal', data: { nodeId: 2, fx: 0, fy: -10, mz: 0 } },
-        { type: 'nodal', data: { nodeId: 4, fx: 0, fy: 10, mz: 0 } },
+        { type: 'nodal', data: { nodeId: 2, fx: 0, fz: -10, my: 0 } },
+        { type: 'nodal', data: { nodeId: 4, fx: 0, fz: 10, my: 0 } },
       ],
     });
     const results = solve(input) as AnalysisResults;
@@ -1107,7 +1107,7 @@ describe('1.2 — Symmetry tests', () => {
       ],
       supports: [[1, 1, 'fixed'], [2, 5, 'fixed']],
       loads: [
-        { type: 'nodal', data: { nodeId: 3, fx: 0, fy: -50, mz: 0 } },
+        { type: 'nodal', data: { nodeId: 3, fx: 0, fz: -50, my: 0 } },
       ],
     });
     const results = solve(input) as AnalysisResults;
@@ -1141,7 +1141,7 @@ describe('1.4 — Stability and edge cases', () => {
       nodes: [[1, 0, 0], [2, 5, 0]],
       elements: [[1, 1, 2, 'frame']],
       supports: [[1, 1, 'rollerX']], // only 1 DOF restrained, need at least 3
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: -10, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: -10, my: 0 } }],
     });
     let isError = false;
     try {
@@ -1164,7 +1164,7 @@ describe('1.4 — Stability and edge cases', () => {
         [2, 2, 3, 'frame', true, false],   // hinge at start (node 2)
       ],
       supports: [[1, 1, 'pinned'], [2, 3, 'rollerX']],
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: -10, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: -10, my: 0 } }],
     });
     let errorOrBadResult = false;
     try {
@@ -1263,7 +1263,7 @@ describe('1.4 — Stability and edge cases', () => {
         [2, 3, 4, 'frame'], // disconnected from first
       ],
       supports: [[1, 1, 'fixed'], [2, 3, 'fixed']],
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: -10, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: -10, my: 0 } }],
     });
     try {
       solve(input);
@@ -1313,7 +1313,7 @@ describe('1.5 — Maxwell reciprocity (δ_ij = δ_ji)', () => {
         [1, 1, 2, 'frame'], [2, 2, 3, 'frame'], [3, 3, 4, 'frame'],
       ],
       supports: [[1, 1, 'pinned'], [2, 4, 'rollerX']],
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: -1, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: -1, my: 0 } }],
     });
     const r1 = solve(input1) as AnalysisResults;
     const d_23_from_load_at_13 = getDisp(r1, 3)!.uz;
@@ -1325,7 +1325,7 @@ describe('1.5 — Maxwell reciprocity (δ_ij = δ_ji)', () => {
         [1, 1, 2, 'frame'], [2, 2, 3, 'frame'], [3, 3, 4, 'frame'],
       ],
       supports: [[1, 1, 'pinned'], [2, 4, 'rollerX']],
-      loads: [{ type: 'nodal', data: { nodeId: 3, fx: 0, fy: -1, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 3, fx: 0, fz: -1, my: 0 } }],
     });
     const r2 = solve(input2) as AnalysisResults;
     const d_13_from_load_at_23 = getDisp(r2, 2)!.uz;
@@ -1348,7 +1348,7 @@ describe('1.5 — Maxwell reciprocity (δ_ij = δ_ji)', () => {
     // Case 1: Horizontal unit load at node 2, measure horizontal disp at node 3
     const i1 = makeInput({
       ...input_base,
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 1, fy: 0, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 1, fz: 0, my: 0 } }],
     });
     const r1 = solve(i1) as AnalysisResults;
     const d3x_from_F2x = getDisp(r1, 3)!.ux;
@@ -1356,7 +1356,7 @@ describe('1.5 — Maxwell reciprocity (δ_ij = δ_ji)', () => {
     // Case 2: Horizontal unit load at node 3, measure horizontal disp at node 2
     const i2 = makeInput({
       ...input_base,
-      loads: [{ type: 'nodal', data: { nodeId: 3, fx: 1, fy: 0, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 3, fx: 1, fz: 0, my: 0 } }],
     });
     const r2 = solve(i2) as AnalysisResults;
     const d2x_from_F3x = getDisp(r2, 2)!.ux;
@@ -1377,7 +1377,7 @@ describe('1.5 — Maxwell reciprocity (δ_ij = δ_ji)', () => {
     // Case 1: unit vertical load at 2, measure uy at 3
     const i1 = makeInput({
       ...input_base2,
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: -1, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: -1, my: 0 } }],
     });
     const r1 = solve(i1) as AnalysisResults;
     const d3y_from_F2y = getDisp(r1, 3)!.uz;
@@ -1385,7 +1385,7 @@ describe('1.5 — Maxwell reciprocity (δ_ij = δ_ji)', () => {
     // Case 2: unit vertical load at 3, measure uy at 2
     const i2 = makeInput({
       ...input_base2,
-      loads: [{ type: 'nodal', data: { nodeId: 3, fx: 0, fy: -1, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 3, fx: 0, fz: -1, my: 0 } }],
     });
     const r2 = solve(i2) as AnalysisResults;
     const d2y_from_F3y = getDisp(r2, 2)!.uz;
@@ -1407,7 +1407,7 @@ describe('1.5 — Maxwell reciprocity (δ_ij = δ_ji)', () => {
     // Case 1: Fx=1 at node 3, measure uy at node 3 (same node, different DOF)
     const i1 = makeInput({
       ...input_base,
-      loads: [{ type: 'nodal', data: { nodeId: 3, fx: 1, fy: 0, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 3, fx: 1, fz: 0, my: 0 } }],
     });
     const r1 = solve(i1) as AnalysisResults;
     const d3y_from_F3x = getDisp(r1, 3)!.uz;
@@ -1415,7 +1415,7 @@ describe('1.5 — Maxwell reciprocity (δ_ij = δ_ji)', () => {
     // Case 2: Fy=1 at node 3, measure ux at node 3
     const i2 = makeInput({
       ...input_base,
-      loads: [{ type: 'nodal', data: { nodeId: 3, fx: 0, fy: 1, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 3, fx: 0, fz: 1, my: 0 } }],
     });
     const r2 = solve(i2) as AnalysisResults;
     const d3x_from_F3y = getDisp(r2, 3)!.ux;
@@ -1459,7 +1459,7 @@ describe('1.6 — Mechanism and hypostatic detection', () => {
       nodes: [[1, 0, 0], [2, 5, 0]],
       elements: [[1, 1, 2, 'truss']],
       supports: [[1, 1, 'fixed'], [2, 2, 'rollerY']],
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: -10, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: -10, my: 0 } }],
     });
     expectMechanism(input);
   });
@@ -1470,7 +1470,7 @@ describe('1.6 — Mechanism and hypostatic detection', () => {
       nodes: [[1, 0, 0], [2, 5, 0]],
       elements: [[1, 1, 2, 'frame']],
       supports: [[1, 1, 'fixed'], [2, 2, 'rollerY']],
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: -10, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: -10, my: 0 } }],
     });
     // Frame with fixed end CAN resist this — should solve without error
     const result = solve(input);
@@ -1482,7 +1482,7 @@ describe('1.6 — Mechanism and hypostatic detection', () => {
       nodes: [[1, 0, 0], [2, 5, 0]],
       elements: [[1, 1, 2, 'truss']],
       supports: [[1, 1, 'rollerX'], [2, 2, 'rollerX']],
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 10, fy: 0, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 10, fz: 0, my: 0 } }],
     });
     expectMechanism(input);
   });
@@ -1503,7 +1503,7 @@ describe('1.6 — Mechanism and hypostatic detection', () => {
         [5, 3, 4, 'truss'],
       ],
       supports: [[1, 1, 'fixed'], [2, 3, 'rollerY']],
-      loads: [{ type: 'nodal', data: { nodeId: 4, fx: 0, fy: -20, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 4, fx: 0, fz: -20, my: 0 } }],
     });
     expectMechanism(input);
   });
@@ -1520,7 +1520,7 @@ describe('1.6 — Mechanism and hypostatic detection', () => {
         [5, 3, 4, 'truss'],
       ],
       supports: [[1, 1, 'pinned'], [2, 3, 'rollerX']],
-      loads: [{ type: 'nodal', data: { nodeId: 4, fx: 0, fy: -20, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 4, fx: 0, fz: -20, my: 0 } }],
     });
     const result = solve(input) as AnalysisResults;
     expect(typeof result).not.toBe('string');
@@ -1541,7 +1541,7 @@ describe('1.6 — Mechanism and hypostatic detection', () => {
         [6, 2, 5, 'truss'], [7, 3, 5, 'truss'],     // diagonals right
       ],
       supports: [[1, 1, 'pinned'], [2, 3, 'rollerY']],
-      loads: [{ type: 'nodal', data: { nodeId: 4, fx: 0, fy: -30, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 4, fx: 0, fz: -30, my: 0 } }],
     });
     expectMechanism(input);
   });
@@ -1556,7 +1556,7 @@ describe('1.6 — Mechanism and hypostatic detection', () => {
         [6, 2, 5, 'truss'], [7, 3, 5, 'truss'],
       ],
       supports: [[1, 1, 'pinned'], [2, 3, 'rollerX']],
-      loads: [{ type: 'nodal', data: { nodeId: 4, fx: 0, fy: -30, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 4, fx: 0, fz: -30, my: 0 } }],
     });
     const result = solve(input) as AnalysisResults;
     expect(typeof result).not.toBe('string');
@@ -1572,7 +1572,7 @@ describe('1.6 — Mechanism and hypostatic detection', () => {
       nodes: [[1, 0, 0], [2, 5, 0]],
       elements: [[1, 1, 2, 'truss']],
       supports: [[1, 1, 'pinned'], [2, 1, 'pinned']], // both at node 1
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: -10, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: -10, my: 0 } }],
     });
     expectMechanism(input);
   });
@@ -1584,7 +1584,7 @@ describe('1.6 — Mechanism and hypostatic detection', () => {
       nodes: [[1, 0, 0], [2, 5, 0], [3, 10, 0]],
       elements: [[1, 1, 2, 'truss'], [2, 2, 3, 'truss']],
       supports: [[1, 1, 'rollerY'], [2, 2, 'rollerY'], [3, 3, 'rollerY']],
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: -10, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: -10, my: 0 } }],
     });
     expectMechanism(input);
   });
@@ -1600,7 +1600,7 @@ describe('1.6 — Mechanism and hypostatic detection', () => {
         [5, 2, 4, 'truss'],
       ],
       supports: [[1, 1, 'pinned'], [2, 3, 'rollerX']],
-      loads: [{ type: 'nodal', data: { nodeId: 4, fx: 5, fy: -20, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 4, fx: 5, fz: -20, my: 0 } }],
     });
     const result = solve(input) as AnalysisResults;
     expect(typeof result).not.toBe('string');
@@ -1618,7 +1618,7 @@ describe('1.6 — Mechanism and hypostatic detection', () => {
         [3, 1, 3, 'truss'],
       ],
       supports: [[1, 1, 'fixed'], [2, 3, 'rollerX']],
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: -15, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: -15, my: 0 } }],
     });
     const result = solve(input) as AnalysisResults;
     expect(typeof result).not.toBe('string');
@@ -1770,7 +1770,7 @@ describe('2.2 — Portal frame sidesway (fixed-fixed)', () => {
   ]);
   const input: SolverInput = {
     nodes, materials, sections, elements, supports,
-    loads: [{ type: 'nodal' as const, data: { nodeId: 2, fx: H, fy: 0, mz: 0 } }],
+    loads: [{ type: 'nodal' as const, data: { nodeId: 2, fx: H, fz: 0, my: 0 } }],
   };
   const results = solve(input) as AnalysisResults;
 
@@ -1898,8 +1898,8 @@ describe('2.3 — Portal frame symmetry tests', () => {
       ],
       supports: [[1, 1, 'fixed'], [2, 4, 'fixed']],
       loads: [
-        { type: 'nodal', data: { nodeId: 2, fx: 10, fy: 0, mz: 0 } },
-        { type: 'nodal', data: { nodeId: 3, fx: -10, fy: 0, mz: 0 } },
+        { type: 'nodal', data: { nodeId: 2, fx: 10, fz: 0, my: 0 } },
+        { type: 'nodal', data: { nodeId: 3, fx: -10, fz: 0, my: 0 } },
       ],
     });
     const results = solve(input) as AnalysisResults;
@@ -1957,7 +1957,7 @@ describe('2.4 — Maxwell reciprocity on asymmetric structures', () => {
     // Case 1: unit vertical load at 2, measure uy at 3
     const i1 = makeInput({
       ...input_base,
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: -1, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: -1, my: 0 } }],
     });
     const r1 = solve(i1) as AnalysisResults;
     const d3y_case1 = getDisp(r1, 3)!.uz;
@@ -1965,7 +1965,7 @@ describe('2.4 — Maxwell reciprocity on asymmetric structures', () => {
     // Case 2: unit vertical load at 3, measure uy at 2
     const i2 = makeInput({
       ...input_base,
-      loads: [{ type: 'nodal', data: { nodeId: 3, fx: 0, fy: -1, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 3, fx: 0, fz: -1, my: 0 } }],
     });
     const r2 = solve(i2) as AnalysisResults;
     const d2y_case2 = getDisp(r2, 2)!.uz;
@@ -1988,7 +1988,7 @@ describe('2.4 — Maxwell reciprocity on asymmetric structures', () => {
     // Case 1: unit moment at node 2, measure rotation at node 3
     const i1 = makeInput({
       ...input_base,
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: 0, mz: 1 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: 0, my: 1 } }],
     });
     const r1 = solve(i1) as AnalysisResults;
     const ry3_case1 = getDisp(r1, 3)!.ry;
@@ -1996,7 +1996,7 @@ describe('2.4 — Maxwell reciprocity on asymmetric structures', () => {
     // Case 2: unit moment at node 3, measure rotation at node 2
     const i2 = makeInput({
       ...input_base,
-      loads: [{ type: 'nodal', data: { nodeId: 3, fx: 0, fy: 0, mz: 1 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 3, fx: 0, fz: 0, my: 1 } }],
     });
     const r2 = solve(i2) as AnalysisResults;
     const ry2_case2 = getDisp(r2, 2)!.ry;
@@ -2022,7 +2022,7 @@ describe('2.4 — Maxwell reciprocity on asymmetric structures', () => {
     // Case 1: Fx=1 at node 2, measure uz at node 6
     const i1 = makeInput({
       ...input_base,
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 1, fy: 0, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 1, fz: 0, my: 0 } }],
     });
     const r1 = solve(i1) as AnalysisResults;
     const d6z_case1 = getDisp(r1, 6)!.uz;
@@ -2030,7 +2030,7 @@ describe('2.4 — Maxwell reciprocity on asymmetric structures', () => {
     // Case 2: Fz=1 at node 6, measure ux at node 2
     const i2 = makeInput({
       ...input_base,
-      loads: [{ type: 'nodal', data: { nodeId: 6, fx: 0, fy: 1, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 6, fx: 0, fz: 1, my: 0 } }],
     });
     const r2 = solve(i2) as AnalysisResults;
     const d2x_case2 = getDisp(r2, 2)!.ux;
@@ -2057,7 +2057,7 @@ describe('2.4 — Maxwell reciprocity on asymmetric structures', () => {
     // Case 1: Fy=1 at node 2, measure uy at node 4
     const i1 = makeInput({
       ...input_base,
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: -1, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: -1, my: 0 } }],
     });
     const r1 = solve(i1) as AnalysisResults;
     const d4y_case1 = getDisp(r1, 4)!.uz;
@@ -2065,7 +2065,7 @@ describe('2.4 — Maxwell reciprocity on asymmetric structures', () => {
     // Case 2: Fy=1 at node 4, measure uy at node 2
     const i2 = makeInput({
       ...input_base,
-      loads: [{ type: 'nodal', data: { nodeId: 4, fx: 0, fy: -1, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 4, fx: 0, fz: -1, my: 0 } }],
     });
     const r2 = solve(i2) as AnalysisResults;
     const d2y_case2 = getDisp(r2, 2)!.uz;
@@ -2093,8 +2093,8 @@ describe('2.5 — Nodal equilibrium at internal nodes', () => {
       ],
       supports: [[1, 1, 'fixed'], [2, 4, 'fixed']],
       loads: [
-        { type: 'nodal', data: { nodeId: 2, fx: 10, fy: -50, mz: 0 } },
-        { type: 'nodal', data: { nodeId: 3, fx: 0, fy: -30, mz: 0 } },
+        { type: 'nodal', data: { nodeId: 2, fx: 10, fz: -50, my: 0 } },
+        { type: 'nodal', data: { nodeId: 3, fx: 0, fz: -30, my: 0 } },
       ],
     });
     const results = solve(input) as AnalysisResults;
@@ -2114,10 +2114,10 @@ describe('2.5 — Nodal equilibrium at internal nodes', () => {
       ],
       supports: [[1, 1, 'fixed'], [2, 4, 'fixed']],
       loads: [
-        { type: 'nodal', data: { nodeId: 2, fx: 8, fy: -40, mz: 0 } },
-        { type: 'nodal', data: { nodeId: 3, fx: 5, fy: -30, mz: 0 } },
-        { type: 'nodal', data: { nodeId: 5, fx: 0, fy: -40, mz: 0 } },
-        { type: 'nodal', data: { nodeId: 6, fx: 0, fy: -30, mz: 0 } },
+        { type: 'nodal', data: { nodeId: 2, fx: 8, fz: -40, my: 0 } },
+        { type: 'nodal', data: { nodeId: 3, fx: 5, fz: -30, my: 0 } },
+        { type: 'nodal', data: { nodeId: 5, fx: 0, fz: -40, my: 0 } },
+        { type: 'nodal', data: { nodeId: 6, fx: 0, fz: -30, my: 0 } },
       ],
     });
     const results = solve(input) as AnalysisResults;
@@ -2134,8 +2134,8 @@ describe('2.5 — Nodal equilibrium at internal nodes', () => {
       ],
       supports: [[1, 1, 'pinned'], [2, 3, 'rollerX']],
       loads: [
-        { type: 'nodal', data: { nodeId: 4, fx: 5, fy: -20, mz: 0 } },
-        { type: 'nodal', data: { nodeId: 2, fx: 0, fy: -10, mz: 0 } },
+        { type: 'nodal', data: { nodeId: 4, fx: 5, fz: -20, my: 0 } },
+        { type: 'nodal', data: { nodeId: 2, fx: 0, fz: -10, my: 0 } },
       ],
     });
     const results = solve(input) as AnalysisResults;
@@ -2169,7 +2169,7 @@ describe('2.6 — Superposition principle', () => {
     // Case 2: only lateral load
     const i2 = makeInput({
       ...base,
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 10, fy: 0, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 10, fz: 0, my: 0 } }],
     });
     const r2 = solve(i2) as AnalysisResults;
 
@@ -2178,7 +2178,7 @@ describe('2.6 — Superposition principle', () => {
       ...base,
       loads: [
         { type: 'distributed', data: { elementId: 2, qI: -15, qJ: -15 } },
-        { type: 'nodal', data: { nodeId: 2, fx: 10, fy: 0, mz: 0 } },
+        { type: 'nodal', data: { nodeId: 2, fx: 10, fz: 0, my: 0 } },
       ],
     });
     const rCombined = solve(iCombined) as AnalysisResults;

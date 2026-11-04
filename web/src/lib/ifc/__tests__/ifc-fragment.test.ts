@@ -14,8 +14,8 @@ import type { IfcMappingResult } from '../ifc-mapper';
 const MAPPING: IfcMappingResult = {
   nodes: [{ id: 10, x: 0, y: 0, z: 0 }, { id: 11, x: 0, y: 0, z: 3 }, { id: 12, x: 5, y: 0, z: 3 }],
   elements: [
-    { nodeI: 10, nodeJ: 11, type: 'frame', material: 0, section: 1 },
-    { nodeI: 11, nodeJ: 12, type: 'frame', material: 0, section: 0 },
+    { nodeI: 10, nodeJ: 11, type: 'frame', material: 0, section: 1, member: 1 },
+    { nodeI: 11, nodeJ: 12, type: 'frame', material: 0, section: 0, member: 2 },
   ],
   materials: [{ name: 'S275', e: 200000, nu: 0.3, rho: 78.5 }],
   sections: [{ name: 'IPE 300', a: 0.00538, iz: 8.356e-5 }, { name: 'HEB 200', a: 0.00781, iz: 5.696e-5 }],

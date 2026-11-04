@@ -4,7 +4,7 @@ Layer 9 of [`VERIFICATION.md`](../VERIFICATION.md): building-like models from
 **public benchmarks with published reference results**, solved by stabileo
 and compared against those results. Every release must pass it.
 
-- Test target: `engine/tests/acceptance.rs` (`cargo test --release --test acceptance -- --nocapture`
+- Test target: `engine/tests/acceptance.rs` (`cargo test --release --test gates acceptance:: -- --nocapture`
   prints the full comparison table).
 - Cases: `engine/tests/acceptance/models/*.json`, one file per case: the model
   in stabileo's solver JSON, the analysis, the source of every reference
@@ -52,7 +52,7 @@ and compared against those results. Every release must pass it.
 | `asce_shm_12dof_storey_stiffness_damage_i` | same, damage (i) | same, Table 3 | same | same | pass (max 0.021%) |
 | `bathe_wilson_10bay_9storey` | 10-bay, 9-storey plane frame (110 members), lumped member mass | Bathe & Wilson 1972, J. Eng. Mech. Div. 98(EM6); data and values as quoted in CSI SAP2000 Example 1-021 / ETABS | ω1²-ω3² | [printed, printed + 1 unit): the values are truncated to 6 significant figures | pass (< 1e-6 rel) |
 
-All 105 reference values in 13 cases pass. In every case stabileo agrees with
+All 105 reference values in 12 cases pass. In every case stabileo agrees with
 the replay of the benchmark's own model code to about 1e-5 relative or better.
 What is left is the rounding in the printed reference values.
 

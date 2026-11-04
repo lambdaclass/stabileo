@@ -265,7 +265,8 @@ export function generateRcDraft(
   }
 
   const defaultColSection = b.rectSection('Col', a.columnSection.b, a.columnSection.h, false);
-  const defaultBeamSection = b.rectSection('Beam', a.beamSection.b, a.beamSection.h, false);
+  // Registered here, unused by name: it keeps the section ids in the order drafts have always had.
+  b.rectSection('Beam', a.beamSection.b, a.beamSection.h, false);
 
   let tinyCadSections = 0;
   let columnScheduleSegments = 0;

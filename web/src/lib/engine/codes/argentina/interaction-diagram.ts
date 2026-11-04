@@ -1,13 +1,13 @@
-import {
-  beta1, phiFromStrain, yieldStrain,
-  EPSILON_CU, ES_MPA, PHI_TENSION, PHI_COMPRESSION_TIED,
-} from './cirsoc201-basis';
-// P-M Interaction Diagram Generator
-// Generates point-by-point interaction diagrams for reinforced concrete sections
-// per CIRSOC 201 (based on ACI 318). Does NOT modify the solver.
+// P-M interaction diagram of a rectangular column with bars on two faces — from the engine.
 //
-// Computes φPn-φMn pairs for a rectangular section with known reinforcement,
-// scanning from pure compression to pure tension.
+// Every point is the Rust section engine's (`engine/src/postprocess/cirsoc201_section.rs`):
+// strain compatibility with the concrete the compression bars displace taken out, φ from the
+// strain of the most stretched bar (Tabla 21.2.2 of the edition asked for) and the axial cap of
+// Tabla 22.4.2.1. This module chooses the neutral-axis depths to plot and draws the SVG; the
+// TypeScript that computed the points is the oracle in __tests__/differential/oracle/.
+
+import { prepareSection, type Bar } from './cirsoc201-section';
+import { yieldStrain, EPSILON_CU, type Cirsoc201EditionLike } from './cirsoc201-basis';
 
 export interface InteractionPoint {
   phiPn: number;  // kN (+ = compression)
@@ -41,138 +41,50 @@ export interface DiagramParams {
   barCount: number;
   barDia: number; // mm
   nPoints?: number; // default 40
+  /** CIRSOC 201 edition. Default 2025, the edition PRO designs to. */
+  edition?: Cirsoc201EditionLike;
 }
 
-
 /**
- * Generate P-M interaction diagram for a rectangular section
+ * The diagram about the section's strong axis: half the steel on each face, at `cover` from it,
+ * the face at +y compressed (positive moment).
  */
 export function generateInteractionDiagram(params: DiagramParams): InteractionDiagram {
   const { b, h, fc, fy, cover, AsProv, barCount, barDia } = params;
   const nPts = params.nPoints ?? 40;
-
-  const d = h - cover;         // effective depth to tension steel (m)
-  const dPrime = cover;        // depth to compression steel (m)
-  const As = AsProv / 2 * 1e-4;  // tension steel area (m²), half of total
-  const AsPrime = As;            // compression steel (m², symmetric)
-  const b1 = beta1(fc);
-  const fc_kPa = fc * 1000;     // kN/m²
-  const fy_kPa = fy * 1000;     // kN/m²
-  const Es = ES_MPA * 1000;     // kN/m² (200 GPa)
-
-  /*
-   * §10.3.6's ceiling, computed ONCE.
-   *
-   * No column is loaded at truly zero eccentricity, so the code caps the
-   * design axial load at 0.80·φC·Pn0 (ties), with Pn0 the squash load — the
-   * whole section at εcu, every bar yielding, the concrete the bars displace
-   * not counted twice. The cap binds near the top of the diagram and nowhere
-   * else; this line used to read `min(Pn, 0.80·Pn/φ·φ)` per point, which
-   * collapses to 0.80·Pn and taxed EVERY point of the diagram 20 % of its
-   * axial capacity — the balanced point included, where §10.3.6 asks for
-   * nothing.
-   */
-  const Ag = b * h;
-  const Ast = AsProv * 1e-4;
-  const Pn0 = 0.85 * fc_kPa * (Ag - Ast) + fy_kPa * Ast;
-  const phiPnMax = PHI_COMPRESSION_TIED * 0.80 * Pn0;
-
-  const points: InteractionPoint[] = [];
-  let balancedPt: InteractionPoint | null = null;
-
-  // Scan neutral axis c from very large (pure compression) to very small (pure tension)
-  // c ranges from > h (full compression) to ~ 0 (full tension)
-  const cValues: number[] = [];
-
-  // Pure compression (c → ∞, but practically c = 10h)
-  cValues.push(10 * h);
-
-  // Intermediate points
-  for (let i = 0; i <= nPts; i++) {
-    const c = h * 2 * (1 - i / nPts); // from 2h to 0
-    if (c > 0.001) cValues.push(c);
-  }
-
-  // Add balanced point explicitly: c_b = d × εcu / (εcu + εy)
-  const ey = yieldStrain(fy);
-  const cb = d * EPSILON_CU / (EPSILON_CU + ey);
-  cValues.push(cb);
-
-  // Pure tension (c → 0)
-  cValues.push(0.001);
-
-  // Sort by c descending
-  cValues.sort((a, b_val) => b_val - a);
-
-  for (const c of cValues) {
-    // Concrete compression block
-    const a = b1 * c;
-    const aEff = Math.min(a, h); // can't exceed section height
-
-    // Concrete force: Cc = 0.85·f'c·b·a
-    const Cc = 0.85 * fc_kPa * b * aEff; // kN (compression, +)
-
-    // Strain in compression steel: εs' = εcu × (c - d') / c
-    const epsPrime = c > 0.001 ? EPSILON_CU * (c - dPrime) / c : -ey;
-    const fsPrime = Math.min(Math.abs(epsPrime) * Es, fy_kPa) * Math.sign(epsPrime);
-    const CsPrime = AsPrime * fsPrime; // kN (+ if compression)
-
-    // Strain in tension steel: εs = εcu × (d - c) / c
-    const eps = c > 0.001 ? EPSILON_CU * (d - c) / c : ey * 10;
-    const fs = Math.min(Math.abs(eps) * Es, fy_kPa) * Math.sign(eps);
-    const Ts = As * fs; // kN (+ if tension)
-
-    // Nominal forces
-    const Pn = Cc + CsPrime - Ts; // kN (+ = compression)
-    const Mn = Cc * (h / 2 - aEff / 2) + CsPrime * (h / 2 - dPrime) + Ts * (d - h / 2); // kN·m
-
-    // Determine φ based on strain in tension steel — the one ramp, tied section
-    const phi = phiFromStrain(Math.abs(eps), fy);
-
-    // Max axial: φPn ≤ 0.80·φC·Pn0 (§10.3.6) — a ceiling, not a factor
-    const phiPn = Math.min(phi * Pn, phiPnMax);
-    const phiMn = phi * Mn;
-
-    const pt: InteractionPoint = { phiPn, phiMn, c };
-
-    // Check if this is the balanced point
-    if (Math.abs(c - cb) < 0.001) {
-      pt.label = 'Balanceado';
-      balancedPt = pt;
+  const half = (AsProv / 2) * 1e-4;
+  const bars: Bar[] = [
+    { x: 0, y: h / 2 - cover, area: half },
+    { x: 0, y: -(h / 2 - cover), area: half },
+  ];
+  const section = prepareSection({ kind: 'rect', b, h }, bars, { fc, fy, edition: params.edition ?? '2025' });
+  try {
+    const d = h - cover;
+    const cb = (d * EPSILON_CU) / (EPSILON_CU + yieldStrain(fy));
+    const cValues: number[] = [10 * h];
+    for (let i = 0; i <= nPts; i++) {
+      const c = h * 2 * (1 - i / nPts);
+      if (c > 0.001) cValues.push(c);
     }
+    cValues.push(cb, 0.001);
+    cValues.sort((x, y) => y - x);
 
-    points.push(pt);
+    const theta = Math.PI / 2;
+    const states = section.points(theta, cValues);
+    const points: InteractionPoint[] = states.map((p) => ({ phiPn: p.phiPn, phiMn: -p.phiMnx, c: p.c }));
+    const balanced = points.find((p) => Math.abs(p.c - cb) < 1e-12) ?? points[Math.floor(points.length / 2)];
+    balanced.label = 'Balanceado';
+    const info = section.info();
+    return {
+      points,
+      balanced,
+      pureCompression: { phiPn: info.phiPnMax, phiMn: 0, c: 999, label: 'Compresión pura' },
+      pureTension: { phiPn: info.phiPntMax, phiMn: 0, c: 0, label: 'Tracción pura' },
+      b, h, fc, fy, AsProv, barCount, barDia,
+    };
+  } finally {
+    section.free();
   }
-
-  // Pure compression point — the cap itself
-  const pureComp: InteractionPoint = {
-    phiPn: phiPnMax,
-    phiMn: 0,
-    c: 999,
-    label: 'Compresión pura',
-  };
-
-  // Pure tension point
-  const pureTens: InteractionPoint = {
-    phiPn: -PHI_TENSION * fy_kPa * Ast,
-    phiMn: 0,
-    c: 0,
-    label: 'Tracción pura',
-  };
-
-  // Ensure balanced point exists
-  if (!balancedPt) {
-    balancedPt = points[Math.floor(points.length / 2)];
-  }
-
-  return {
-    points,
-    balanced: balancedPt,
-    pureCompression: pureComp,
-    pureTension: pureTens,
-    b, h, fc, fy,
-    AsProv, barCount, barDia,
-  };
 }
 
 /**

@@ -1,4 +1,4 @@
-import { test, expect } from './fixtures';
+import { test, expect, CURRENT_STAMP } from './fixtures';
 
 test('@smoke a node on another level does not block placement on the working plane', async ({ page }) => {
   await page.goto('/app/basic?e2e=1');
@@ -6,6 +6,7 @@ test('@smoke a node on another level does not block placement on the working pla
   expect(await page.evaluate(file => window.__stabileoActions.loadProject(file), {
     version: '2.0', name: 'Upper beam', analysisMode: '3d', timestamp: '2026-01-01T00:00:00.000Z',
     snapshot: {
+      solvedWith: CURRENT_STAMP,
       name: 'Upper beam', localAxisConvention: 'zUpStrongAxis',
       nodes: [[1, { id: 1, x: 0, y: 0, z: 3 }], [2, { id: 2, x: 4, y: 0, z: 3 }]],
       elements: [[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1,
@@ -22,6 +23,15 @@ test('@smoke a node on another level does not block placement on the working pla
   await expect.poll(() => page.evaluate(() => window.__stabileo.cameraState()!.polarDeg)).toBeLessThan(5);
   await page.getByTestId('rb-cmd-node').click();
   await expect.poll(() => page.evaluate(() => window.__stabileo.nodeCreateZ())).toBe(0);
+  // Arming the tool opens the data panel, and the narrower canvas is framed again a few frames
+  // later: read where node 1 is once it has stopped moving, not where it was.
+  let last = '';
+  await expect.poll(async () => {
+    const p = JSON.stringify(await page.evaluate(() => window.__stabileo.nodeScreenPos(1)));
+    const still = p === last && p !== 'null';
+    last = p;
+    return still;
+  }, { intervals: [250] }).toBe(true);
   const top = await page.evaluate(() => window.__stabileo.nodeScreenPos(1));
   expect(top).not.toBeNull();
   await page.mouse.click(top!.x, top!.y);

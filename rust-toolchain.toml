@@ -1,0 +1,9 @@
+# The one Rust toolchain: the nix devShell (flake.nix, fromRustupToolchainFile), rustup and every
+# CI job read it. Change it here and in the `toolchain:` lines of .github/workflows
+# (scripts/check-pins.sh fails the lint job while they differ). Only cargo-fuzz and branch coverage,
+# which need nightly, use the dated nightly named in scripts/check-pins.sh.
+[toolchain]
+channel = "1.99.1"
+components = ["rustfmt", "clippy", "rust-src", "rust-analyzer", "llvm-tools"]
+targets = ["wasm32-unknown-unknown"]
+profile = "minimal"

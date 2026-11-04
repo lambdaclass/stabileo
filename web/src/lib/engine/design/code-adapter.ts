@@ -20,7 +20,7 @@ import type { MemberContext } from './member-context';
 import type { CandidateGenerator } from './candidate-generator';
 import type {
   LimitingConstraint, SectionRecommendation, DesignReason,
-  UTILIZATION_CONVENTION,
+  UTILIZATION_CONVENTION, InsufficiencyProof, ExhaustionRecord,
 } from './outcome';
 import type { ObjectiveSpec } from './objective';
 import type { AdviceDemands } from './section-advice';
@@ -110,6 +110,13 @@ export interface DesignCodeAdapter {
   optimizationObjective(ctx: MemberContext): ObjectiveSpec;
   adviceDemands(ctx: MemberContext): AdviceDemands;
   recommendSection(ctx: MemberContext, limiting: LimitingConstraint[]): SectionRecommendation | null;
+  /**
+   * A bound of the code the section exceeds for EVERY admissible reinforcement, or null. The
+   * only evidence SECTION_INADEQUATE may rest on; absent, an empty search is SEARCH_EXHAUSTED.
+   */
+  insufficiency?(ctx: MemberContext): InsufficiencyProof | null;
+  /** The alternatives the generator enumerates for this member, as an exhausted search reports them. */
+  alternatives?(ctx: MemberContext): Omit<ExhaustionRecord['tried'], 'candidates' | 'crossingSeatsRetried'>;
   /** Capability gaps for THIS member (e.g. a non-rectangular section). */
   unsupported(ctx: MemberContext): LimitingConstraint[];
   provenance(): CodeProvenance;

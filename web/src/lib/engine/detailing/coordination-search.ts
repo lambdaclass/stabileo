@@ -315,6 +315,11 @@ function unaryCompatible(
 // ─── The search ──────────────────────────────────────────────────
 
 interface Ctx {
+  /**
+   * Members no layout of which clears a joint's own obstacles: each keeps its least-bad layout,
+   * fixed, and neither constrains nor is constrained by its neighbours (`coordinate`).
+   */
+  relaxed: Set<number>;
   vars: Map<number, MemberVariable>;
   joints: JointConstraint[];
   jointsOf: Map<number, JointConstraint[]>;
@@ -327,6 +332,14 @@ function compat(
   ctx: Ctx, joint: JointConstraint, aId: number, aC: LayoutCandidate,
   bId: number, bC: LayoutCandidate,
 ): boolean {
+  // A member given up on still continues its line: its collinear neighbours align with the layout
+  // it keeps (one bar through the joint, or a legal lap), and nothing else of it constrains them.
+  if (ctx.relaxed.has(aId) || ctx.relaxed.has(bId)) {
+    if (joint.relation(aId, bId) !== 'collinear') return true;
+    const a = ctx.vars.get(aId)!, b = ctx.vars.get(bId)!;
+    if (a.diameterMm === b.diameterMm && aC.id === bC.id) return true;
+    return joint.transitionExists?.(aId, aC, bId, bC) ?? a.diameterMm === b.diameterMm;
+  }
   const key = aId < bId
     ? `${joint.jointId}|${aId}:${aC.id}|${bId}:${bC.id}`
     : `${joint.jointId}|${bId}:${bC.id}|${aId}:${aC.id}`;
@@ -357,7 +370,7 @@ function propagate(ctx: Ctx): Array<{ elementId: number; jointId: string }> {
   for (const joint of ctx.joints) {
     for (const id of joint.elementIds) {
       const v = ctx.vars.get(id);
-      if (!v) continue;
+      if (!v || ctx.relaxed.has(id)) continue;
       const before = v.domain.length;
       v.domain = v.domain.filter((c) =>
         unaryCompatible(joint, id, v.diameterMm, c).ok);
@@ -374,7 +387,7 @@ function propagate(ctx: Ctx): Array<{ elementId: number; jointId: string }> {
     for (const joint of ctx.joints) {
       for (const aId of joint.elementIds) {
         const a = ctx.vars.get(aId);
-        if (!a || a.domain.length === 0) continue;
+        if (!a || a.domain.length === 0 || ctx.relaxed.has(aId)) continue;
         for (const bId of joint.elementIds) {
           if (bId === aId) continue;
           const b = ctx.vars.get(bId);
@@ -422,15 +435,20 @@ function solveChain(
     const next: typeof prev = [];
     for (const c of cur.domain) {
       let best: (typeof prev)[number] | null = null;
+      let bestStep = 0;
       for (const p of prev) {
         ctx.stats.dpTransitions++;
         if (joint && !compat(ctx, joint, chain[i - 1].elementId, p.candidate, cur.elementId, c)) {
           continue;
         }
-        if (best === null || p.total < best.total) best = p;
+        // One bar through the joint where both sides can take the same layout; a lap otherwise.
+        // A lap puts both sides' bars side by side over its length, at the support where the
+        // section is most crowded, so it costs more than any difference in layers.
+        const step = p.candidate.id === c.id && chain[i - 1].diameterMm === cur.diameterMm ? 0 : LAP_COST;
+        if (best === null || p.total + step < best.total + bestStep) { best = p; bestStep = step; }
       }
       if (best === null) continue;
-      next.push({ candidate: c, total: best.total + cost(cur, c), path: [...best.path, c] });
+      next.push({ candidate: c, total: best.total + bestStep + cost(cur, c), path: [...best.path, c] });
     }
     ctx.stats.dpStates += next.length;
     if (next.length === 0) return null;
@@ -563,29 +581,42 @@ export function coordinate(input: CoordinationInput): CoordinationResult {
       jointsOf.set(id, [...(jointsOf.get(id) ?? []), j]);
     }
   }
-  const ctx: Ctx = { vars, joints, jointsOf, limits, stats, cache: new Map() };
+  const ctx: Ctx = { vars, joints, jointsOf, limits, stats, cache: new Map(), relaxed: new Set() };
 
   // 2. Propagation.
-  const emptied = propagate(ctx);
-  if (emptied.length > 0) {
-    // A domain emptied against a joint's own obstacles: no arrangement of this member fits
-    // this column, whatever its neighbours do. That is geometry, and it is exhaustive.
+  //
+  // A domain emptied against a joint's own obstacles: no arrangement of this member fits this
+  // column, whatever its neighbours do. That is geometry, and it is exhaustive — for THAT member.
+  // It used to end the search for the whole building: one member no layout of which clears its
+  // column, and not one beam anywhere got a coordinated layout, every one laid centred against
+  // cages it then crossed (the 408-member frame: 227 such members, 0 assigned of 2 000-odd). Now
+  // such a member keeps the layout that overlaps least, fixed, is reported with its joint, and
+  // stops constraining its neighbours; the rest of the floor is coordinated around it, and a
+  // neighbour that empties because of it is treated the same way, until nothing empties.
+  const original = new Map(members.map((m) => [m.elementId, [...m.domain]]));
+  const emptied: Array<{ elementId: number; jointId: string }> = [];
+  for (let round = 0, fresh = propagate(ctx); fresh.length > 0 && round < members.length; round++, fresh = propagate(ctx)) {
+    for (const e of fresh) {
+      emptied.push(e);
+      if (ctx.relaxed.has(e.elementId)) continue;
+      const v = vars.get(e.elementId)!;
+      const least = leastOverlap(ctx, e.elementId, v.diameterMm, original.get(e.elementId) ?? []);
+      v.domain = least ? [least] : [];
+      ctx.relaxed.add(e.elementId);
+    }
+  }
+  if (members.some((m) => m.domain.length === 0)) {
     return {
-      outcome: classifyExhaustion(
-        evidenceFor(
-          ['coordination.limiting.noLayoutClearsJoint'],
-          ['coordination.advice.widenSectionOrReduceBarSize'],
-        ), stats.truncated),
-      envelope,
-      evidence: evidenceFor(
-        ['coordination.limiting.noLayoutClearsJoint'],
-        ['coordination.advice.widenSectionOrReduceBarSize'],
-      ),
-      assignment: new Map(),
-      infeasibleJoints: infeasibleReport(ctx, emptied),
+      outcome: 'UNSUPPORTED', envelope,
+      evidence: evidenceFor(['coordination.limiting.noRepresentableLayout'], []),
+      assignment: new Map(), infeasibleJoints: infeasibleReport(ctx, emptied),
       emptiedDomains: emptied, stats,
     };
   }
+  /** What the search proved about the members it had to give up on: their joints, and why. */
+  const partial = emptied.length > 0
+    ? { limiting: ['coordination.limiting.noLayoutClearsJoint'], advice: ['coordination.advice.widenSectionOrReduceBarSize'] }
+    : null;
 
   // 3. Chains first: solve each line exactly and fix its members.
   const fixed = new Map<number, LayoutCandidate>();
@@ -645,10 +676,35 @@ export function coordinate(input: CoordinationInput): CoordinationResult {
     };
   }
 
+  if (partial) {
+    return {
+      outcome: classifyExhaustion(evidenceFor(partial.limiting, partial.advice), stats.truncated),
+      envelope, evidence: evidenceFor(partial.limiting, partial.advice),
+      assignment, infeasibleJoints: infeasibleReport(ctx, emptied), emptiedDomains: emptied, stats,
+    };
+  }
   return {
     outcome: 'ASSIGNMENT_FOUND', envelope, evidence: evidenceFor([], []),
     assignment, infeasibleJoints: [], emptiedDomains: [], stats,
   };
+}
+
+/**
+ * The layout of a member that overlaps its joints' obstacles least: the smallest sum, over its
+ * joints, of the worst overlap there (`candidateClears`); ties to the domain's own order.
+ */
+function leastOverlap(ctx: Ctx, elementId: number, diameterMm: number, domain: readonly LayoutCandidate[]): LayoutCandidate | undefined {
+  // The line first: a layout its collinear neighbours already given up on can continue into.
+  const aligned = domain.filter((c) => (ctx.jointsOf.get(elementId) ?? []).every((j) => j.elementIds.every((o) =>
+    o === elementId || !ctx.relaxed.has(o) || j.relation(elementId, o) !== 'collinear'
+    || compat(ctx, j, elementId, c, o, ctx.vars.get(o)!.domain[0]!))));
+  let best: LayoutCandidate | undefined, bestScore = -Infinity;
+  for (const c of aligned.length ? aligned : domain) {
+    let score = 0;
+    for (const j of ctx.jointsOf.get(elementId) ?? []) score += unaryCompatible(j, elementId, diameterMm, c).worstOverlap;
+    if (score > bestScore + 1e-12) { best = c; bestScore = score; }
+  }
+  return best;
 }
 
 /**
@@ -658,8 +714,12 @@ export function coordinate(input: CoordinationInput): CoordinationResult {
  * scalar, which is safe ONLY because the terms that must never be traded away (zero
  * conflicts, verification, locked bars) are enforced as constraints and are not in here.
  */
+/** What a lap at a joint costs the chain DP against one bar through it (`solveChain`): more than a layer. */
+const LAP_COST = 5000;
+
 function objectiveCost(_v: MemberVariable, c: LayoutCandidate): number {
-  return c.layers * 1000 + c.maxPerLayer * 10 + Math.round(c.halfSpan * 100);
+  // A row no stirrup can close on (`closable`) costs more than a layer: it cannot be built.
+  return c.layers * 1000 + (c.closable === false ? 2000 : 0) + c.maxPerLayer * 10 + Math.round(c.halfSpan * 100);
 }
 
 /** Which joints are the trouble, with how badly they overlap. */

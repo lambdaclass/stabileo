@@ -92,7 +92,7 @@ fn make_plate_input(
     mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: NU });
 
     SolverInput3D {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes,
         materials: mats_map,
         sections: HashMap::new(),
@@ -713,7 +713,7 @@ fn convergence_plate_modal_fundamental_frequency() {
     mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: NU });
 
     let input = SolverInput3D {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes,
         materials: mats_map,
         sections: HashMap::new(),

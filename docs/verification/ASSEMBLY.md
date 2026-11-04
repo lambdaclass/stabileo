@@ -3,7 +3,9 @@
 The engine builds the same matrices along several independent code paths. A result
 certificate (`CERTIFY.md`) checks a solve against the K it was given; it cannot see that
 another path would have given a different K. `engine/tests/assembly_paths.rs` compares the
-paths with each other.
+paths with each other. For frames and trusses, the end-to-end certificate (CERTIFY.md, "End-to-end
+certificates") also compares the dense and sparse paths with an independent interval
+re-assembly of the model, on every certified linear solve.
 
 ## What it compares
 
@@ -39,10 +41,10 @@ stops exercising a path cannot pass silently.
 
 ## Running
 
-    cargo test --test assembly_paths -- --nocapture     # default sweep, ~15 s in debug
-    cargo test --release --test assembly_paths assembly_paths_agree_large -- --ignored --nocapture
-    cargo test --features parallel --test assembly_paths  # the parallel 3D paths for real
-    ORACLE_SEED=53 ORACLE_DIM=3 cargo test --test assembly_paths oracle_one -- --ignored --nocapture
+    cargo test --test solver assembly_paths:: -- --nocapture     # default sweep, ~15 s in debug
+    cargo test --release --test solver assembly_paths::assembly_paths_agree_large -- --ignored --nocapture
+    cargo test --features parallel --test solver assembly_paths::  # the parallel 3D paths for real
+    ORACLE_SEED=53 ORACLE_DIM=3 cargo test --test solver assembly_paths::oracle_one -- --ignored --nocapture
 
 The default sweep runs in the normal suite; the large one runs nightly in the
 `certify-large` job. Without the `parallel` feature the parallel names resolve to the

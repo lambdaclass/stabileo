@@ -7,7 +7,7 @@
 
 <p align="center">
   <strong>Cálculo estructural, en una pestaña del navegador.</strong><br>
-  Una plataforma abierta de análisis estructural. El solver corre en tu máquina:
+  Software de ingeniería estructural de código abierto. El solver corre en tu máquina:
   sin instalar nada, sin licencias y sin cuenta.
 </p>
 
@@ -31,7 +31,8 @@
 
 ## Qué es
 
-Stabileo es un programa de cálculo estructural que funciona en cualquier navegador actual. Modelás,
+Stabileo es un programa de cálculo y diseño estructural que funciona en cualquier navegador actual,
+con un asistente de IA en desarrollo (con tu propia clave de Claude u OpenAI). Modelás,
 cargás, resolvés y leés resultados en 2D y en 3D. El motor de cálculo está escrito en Rust y
 compilado a WebAssembly, así que corre en tu propia computadora: el modelo no se manda a un
 servidor para calcularlo.
@@ -186,9 +187,12 @@ Para reportar una vulnerabilidad, escribí a security@lambdaclass.com.
 
 ## Hecho por
 
+Stabileo está respaldado por [Ergodic Group](https://ergodicgroup.com/) y lo desarrolla
+[LambdaClass](https://lambdaclass.com), su brazo de desarrollo.
+
 - **Bautista Chesta**: Ingeniero civil (FIUBA), UX/UI y gestión del proyecto
 - **Diego Kingston**: Doctor en Ingeniería (UBA), integración producto–solver
-- **Federico Carrone**: Fundador de [Lambda Class](https://lambdaclass.com), líder del solver
+- **Federico Carrone**: Fundador de [LambdaClass](https://lambdaclass.com), líder del solver
 
 Con aportes de matemáticos, físicos, ingenieros en computación y científicos de la computación de
-[Lambda Class](https://lambdaclass.com).
+[LambdaClass](https://lambdaclass.com).

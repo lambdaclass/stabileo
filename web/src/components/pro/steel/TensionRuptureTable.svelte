@@ -12,6 +12,7 @@
    * Experimental like every CIRSOC 301 number in the app: never a pass, never green.
    */
   import { t, tp } from '../../../lib/i18n';
+  import { engineGuarded } from '../../../lib/store/engine-action';
   import { modelStore, resultsStore, uiStore } from '../../../lib/store';
   import { membersFor } from '../../../lib/store/steel-optimise.svelte';
   import { checkSteelMember } from '../../../lib/engine/verification-service';
@@ -36,7 +37,8 @@
     messages?: EngineMessage[];
   }
 
-  const rows = $derived.by((): Row[] => {
+  // The checks are the engine's: its absence or refusal is shown in place of the rows.
+  const guardedRows = $derived(engineGuarded((): Row[] => {
     void modelStore.modelVersion;
     if (!resultsStore.results3D) return [];
     const { members, materialOf } = membersFor([...steelIds]);
@@ -83,7 +85,9 @@
       });
     }
     return out.sort((a, b) => a.id - b.id);
-  });
+  }));
+  const rows = $derived(guardedRows.value ?? []);
+  const rowsError = $derived(guardedRows.error);
 
   let open = $state<number | null>(null);
 
@@ -100,7 +104,9 @@
   <h5 class="tr-title">{t('steel.tc.results.title')}</h5>
   <p class="line">{t('steel.tc.results.hint')}</p>
   <p class="line warn">{t('steel.tc.results.experimental')}</p>
-  {#if !hasDemands}
+  {#if rowsError}
+    <p class="line warn" role="alert" data-testid="tc-results-engine">{rowsError}</p>
+  {:else if !hasDemands}
     <p class="line" data-testid="tc-results-solve">{t('steel.tc.results.solveFirst')}</p>
   {:else if rows.length === 0}
     <p class="line" data-testid="tc-results-none">{t('steel.tc.results.none')}</p>

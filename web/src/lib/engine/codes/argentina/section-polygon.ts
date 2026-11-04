@@ -1,5 +1,10 @@
 /**
- * Polygon geometry for a cracked concrete section.
+ * The outlines of the concrete sections the app draws and hands to the engine.
+ *
+ * Only the vertices live here. The engineering arithmetic on them — area, the compressed zone
+ * clipped by the neutral axis, its first moments — is the Rust section engine's
+ * (`engine/src/postprocess/cirsoc201_section.rs`); the TypeScript that did it is kept as a
+ * test oracle (`__tests__/differential/oracle/section-polygon.ts`).
  *
  * ── Why a polygon and not more closed forms ────────────────────────
  *
@@ -33,77 +38,18 @@ export interface Pt {
   y: number;
 }
 
-/** Signed area, positive for a counter-clockwise ring. */
-export function polygonArea(poly: readonly Pt[]): number {
-  let a = 0;
-  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-    a += poly[j].x * poly[i].y - poly[i].x * poly[j].y;
-  }
-  return a / 2;
-}
-
 /**
- * Area and centroid together, because a caller that wants one almost always
- * wants the other and computing them separately walks the ring twice.
- *
- * A degenerate ring returns zero area and the origin rather than NaN: a
- * vanishing compression zone is an ordinary state at the tension end of an
- * interaction diagram, not an error.
+ * Whether the vertices run counter-clockwise (x right, y up): the order of the drawing, read from
+ * the sign of the shoelace sum. The section's area is the engine's; this only says which way the
+ * outline turns, for the callers that offset or walk it.
  */
-export function polygonAreaCentroid(poly: readonly Pt[]): { area: number; cx: number; cy: number } {
-  let a = 0;
-  let cx = 0;
-  let cy = 0;
-  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-    const cross = poly[j].x * poly[i].y - poly[i].x * poly[j].y;
-    a += cross;
-    cx += (poly[j].x + poly[i].x) * cross;
-    cy += (poly[j].y + poly[i].y) * cross;
+export function isCounterClockwise(poly: readonly Pt[]): boolean {
+  let s = 0;
+  for (let i = 0, n = poly.length; i < n; i++) {
+    const p = poly[i], q = poly[(i + 1) % n];
+    s += p.x * q.y - q.x * p.y;
   }
-  a /= 2;
-  if (Math.abs(a) < 1e-14) return { area: 0, cx: 0, cy: 0 };
-  return { area: a, cx: cx / (6 * a), cy: cy / (6 * a) };
-}
-
-/**
- * The part of `poly` on the compressed side of a line.
- *
- * The line is given by its unit normal `(nx, ny)` pointing INTO compression
- * and its offset `d`, so the kept half-plane is `n·p ≥ d`. Sutherland–Hodgman:
- * walk the edges, keep what is inside, and insert the crossing point wherever
- * an edge changes side.
- *
- * Convex clipping of a possibly concave polygon — a T section is concave — is
- * safe here because the CLIP region is the half-plane, and Sutherland–Hodgman
- * is exact whenever the clip is convex. The known artefact, a degenerate
- * zero-width bridge across a concavity, contributes exactly zero area and
- * zero first moment, so it cannot disturb either quantity this file exists to
- * produce.
- */
-export function clipHalfPlane(
-  poly: readonly Pt[],
-  nx: number,
-  ny: number,
-  d: number,
-): Pt[] {
-  const out: Pt[] = [];
-  const side = (p: Pt) => nx * p.x + ny * p.y - d;
-
-  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-    const A = poly[j];
-    const B = poly[i];
-    const sA = side(A);
-    const sB = side(B);
-    const inA = sA >= 0;
-    const inB = sB >= 0;
-
-    if (inA !== inB) {
-      const t = sA / (sA - sB);
-      out.push({ x: A.x + t * (B.x - A.x), y: A.y + t * (B.y - A.y) });
-    }
-    if (inB) out.push(B);
-  }
-  return out;
+  return s > 0;
 }
 
 /** A rectangle centred on the origin, counter-clockwise. */
@@ -156,39 +102,4 @@ export function circlePolygon(D: number, sides = 360): Pt[] {
     out.push({ x: r * Math.cos(a), y: r * Math.sin(a) });
   }
   return out;
-}
-
-/**
- * Area and first moment of a compression zone made of one outer ring and any
- * number of holes.
- *
- * Each ring is clipped independently and the holes are subtracted. The
- * subtraction is why this returns a first moment rather than a centroid: the
- * centroid of a difference is not the difference of centroids, and a caller
- * that added them would get a plausible wrong answer.
- */
-export function compressedZone(
-  outer: readonly Pt[],
-  holes: ReadonlyArray<readonly Pt[]>,
-  nx: number,
-  ny: number,
-  d: number,
-): { area: number; mx: number; my: number } {
-  const take = (ring: readonly Pt[], sign: number) => {
-    const cut = clipHalfPlane(ring, nx, ny, d);
-    if (cut.length < 3) return { area: 0, mx: 0, my: 0 };
-    const { area, cx, cy } = polygonAreaCentroid(cut);
-    const A = Math.abs(area) * sign;
-    return { area: A, mx: A * cx, my: A * cy };
-  };
-
-  let area = 0;
-  let mx = 0;
-  let my = 0;
-  for (const part of [take(outer, +1), ...holes.map((hRing) => take(hRing, -1))]) {
-    area += part.area;
-    mx += part.mx;
-    my += part.my;
-  }
-  return { area: Math.max(area, 0), mx, my };
 }

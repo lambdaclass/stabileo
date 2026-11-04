@@ -7,6 +7,9 @@
 
 // Tabla J.3.2 lists A307 (read here as 4.6), A325 (8.8) and A490 (10.9); it has no 5.6 row, and
 // the 5.6 this offered carried strengths the table does not publish.
+import { nominalShearMPa, nominalTensionMPa, type BoltGrade as ConnBoltGrade } from '../connection/bolted-joint';
+import { effectiveLengthMm, effectiveThroatMm, maximumLegMm, minimumLegMm } from '../connection/fillet-weld';
+
 export type BoltGrade = '4.6' | '8.8' | '10.9';
 
 interface BoltProps {
@@ -15,19 +18,18 @@ interface BoltProps {
   FvExcl: number;    // MPa — shear, threads excluded (0 if N/A)
 }
 
-export const BOLT_TABLE: Record<BoltGrade, BoltProps> = {
-  '4.6':  { Ft: 260, FvIncl: 140, FvExcl: 0 },
-  '8.8':  { Ft: 620, FvIncl: 330, FvExcl: 415 },
-  '10.9': { Ft: 778, FvIncl: 414, FvExcl: 517 },
-};
+/**
+ * Read from the clause modules of `lib/connection/` (Tabla J.3.2 in `bolted-joint.ts`, Tabla J.2.4
+ * in `fillet-weld.ts`), so this calculator and the joint design cannot drift apart. The ISO grades
+ * are read as the table's rows: 4.6 as A307, 8.8 as A325, 10.9 as A490.
+ */
+const ASTM: Record<BoltGrade, ConnBoltGrade> = { '4.6': 'A307', '8.8': 'A325', '10.9': 'A490' };
+export const BOLT_TABLE: Record<BoltGrade, BoltProps> = Object.fromEntries((['4.6', '8.8', '10.9'] as const).map((g) => [g, {
+  Ft: nominalTensionMPa(ASTM[g]), FvIncl: nominalShearMPa(ASTM[g], 'included') ?? 0, FvExcl: nominalShearMPa(ASTM[g], 'excluded') ?? 0,
+}])) as Record<BoltGrade, BoltProps>;
 
-/** Minimum fillet weld size by thickest plate (CIRSOC 301 Tabla J.2.4) */
-export const MIN_FILLET_SIZE: Array<{ maxThickness: number; minWeld: number }> = [
-  { maxThickness: 6,  minWeld: 3 },
-  { maxThickness: 13, minWeld: 5 },
-  { maxThickness: 19, minWeld: 6 },
-  { maxThickness: Infinity, minWeld: 8 },
-];
+/** Minimum fillet weld size by thickest plate (CIRSOC 301 Tabla J.2.4), from `fillet-weld.ts`. */
+export const MIN_FILLET_SIZE: Array<{ maxThickness: number; minWeld: number }> = [6, 13, 19, Infinity].map((t) => ({ maxThickness: t, minWeld: minimumLegMm(Number.isFinite(t) ? t : 25) }));
 
 const PHI_BOLT = 0.75;
 const PHI_BEARING = 0.75;
@@ -150,18 +152,11 @@ export interface WeldResult {
 export function checkFilletWeld(input: WeldInput): WeldResult {
   const { legSize: w, length: L, Fexx, Vu, plateThickness: tp, endLoaded = true } = input;
 
-  const throatEff = 0.707 * w;
-
-  // End-loaded length reduction (§J.2.1 / AISC J2.2b(d)): β = 1,2 − 0,002 L/w ≤ 1 for
-  // 100 w < L ≤ 300 w, and above 300 w the effective length is 180 w — NOT 0,6 L, which at
-  // L = 600 w would credit 360 w, twice what the clause allows. Applied to the total length
-  // given, which can only make β smaller than per-run (the conservative side).
-  const ratio_Lw = L / w;
-  let Le = L;
-  if (endLoaded && w > 0) {
-    if (ratio_Lw > 300) Le = 180 * w;
-    else if (ratio_Lw > 100) Le = Math.min(1, 1.2 - 0.002 * ratio_Lw) * L;
-  }
+  // Throat and effective length by §J.2.2 and §J.2.1 (`fillet-weld.ts`): end-loaded unless the
+  // caller says otherwise (β = 1,2 − 0,002 L/w ≤ 1, and 180 w beyond 300 w), on the total length
+  // given, which can only make β smaller than per run (the conservative side).
+  const throatEff = effectiveThroatMm(w);
+  const Le = effectiveLengthMm(L, w, endLoaded ? 'endLoaded' : 'other');
 
   const Aw = throatEff * Le; // mm²
   const phiRn = PHI_WELD * 0.6 * Fexx * Aw / 1000; // kN
@@ -169,10 +164,8 @@ export function checkFilletWeld(input: WeldInput): WeldResult {
   const ratio = Math.abs(Vu) > 0.001 ? Math.abs(Vu) / phiRn : 0;
 
   // Min size check (Tabla J.2.4)
-  const minEntry = MIN_FILLET_SIZE.find(e => tp <= e.maxThickness);
-  const minSize = minEntry?.minWeld ?? 3;
-  // Max size: t < 6mm → w ≤ t; t ≥ 6mm → w ≤ t - 2mm
-  const maxSize = tp < 6 ? tp : tp - 2;
+  const minSize = minimumLegMm(tp);
+  const maxSize = maximumLegMm(tp);
   const sizeOk = w >= minSize && w <= Math.max(maxSize, minSize);
   const lengthOk = L >= 4 * w;
 

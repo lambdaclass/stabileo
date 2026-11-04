@@ -1,0 +1,1698 @@
+{
+ "schema": 1,
+ "generated": "2026-10-19 01:28 UTC",
+ "commit": "d5b7e2c05c",
+ "metrics": {
+  "safety_open": {
+   "label": "Open `safety` issues",
+   "value": 55,
+   "display": "55",
+   "status": "measured",
+   "source": "GitHub label `safety`",
+   "note": "0 closed",
+   "section": "Release safety"
+  },
+  "advisories": {
+   "label": "Safety advisories published (GitHub)",
+   "value": 0,
+   "display": "0",
+   "status": "measured",
+   "source": "GitHub label `safety-advisory`",
+   "note": "",
+   "section": "Release safety"
+  },
+  "rust_share": {
+   "label": "Engineering logic in Rust (share of lines)",
+   "value": 64.6,
+   "display": "64.6 %",
+   "status": "measured",
+   "source": "engine/src vs TS_ENGINE_LOGIC.md classes (b)+(c)",
+   "note": "TypeScript (b)+(c): 58924 lines in 161 modules; 13 TS modules not yet classified",
+   "section": "Engineering coverage"
+  },
+  "ts_high_safety": {
+   "label": "TypeScript (b)+(c) modules rated high safety",
+   "value": 88,
+   "display": "88 modules, 35935 lines",
+   "status": "measured",
+   "source": "TS_ENGINE_LOGIC.md inventory (Safety column)",
+   "note": "",
+   "section": "Engineering coverage"
+  },
+  "ts_engineering_lines": {
+   "label": "TypeScript engineering arithmetic, classes (b)+(c) (lines)",
+   "value": 58924,
+   "display": "58924",
+   "status": "measured",
+   "source": "TS_ENGINE_LOGIC.md inventory, recounted",
+   "note": "",
+   "section": "Engineering coverage"
+  },
+  "certified_analyses": {
+   "label": "Analyses certified",
+   "value": 11,
+   "display": "11 of 27 (40.7 %)",
+   "status": "measured",
+   "source": "MATURITY.md (CERTIFY.md)",
+   "note": "",
+   "section": "Trust and verification"
+  },
+  "certified_design": {
+   "label": "Design checks certified",
+   "value": 8,
+   "display": "8 of 16 (50.0 %)",
+   "status": "measured",
+   "source": "MATURITY.md (CERTIFY.md)",
+   "note": "",
+   "section": "Trust and verification"
+  },
+  "acceptance_cases": {
+   "label": "Acceptance-suite cases",
+   "value": null,
+   "display": "not yet measured",
+   "status": "not_measured",
+   "source": "",
+   "note": "suite not on main yet (PR #337)",
+   "section": "Engineering coverage"
+  },
+  "acceptance_refs": {
+   "label": "Acceptance-suite reference values",
+   "value": null,
+   "display": "not yet measured",
+   "status": "not_measured",
+   "source": "",
+   "note": "suite not on main yet (PR #337)",
+   "section": "Engineering coverage"
+  },
+  "mutation_rust": {
+   "label": "Mutation score, Rust (cargo-mutants)",
+   "value": 59.9,
+   "display": "59.9 % (partial: 1251 of 23264 mutants tested)",
+   "status": "partial",
+   "source": "verify.yml [2026-10-18](https://github.com/lambdaclass/stabileo/actions/runs/39099586668)",
+   "note": "caught/(caught+missed); 8 shards; jobs: cancelled",
+   "section": "Solver and proof depth",
+   "evidence_sha": [
+    "fa6620a17064ea69258fed65b29f85d663a81010"
+   ]
+  },
+  "mutation_ts": {
+   "label": "Mutation score, TypeScript (Stryker)",
+   "value": null,
+   "display": "not yet measured",
+   "status": "not_measured",
+   "source": "",
+   "note": "no successful Stryker run with a defined score found on main",
+   "section": "Engineering coverage"
+  },
+  "coverage_lines": {
+   "label": "Engine line coverage (llvm-cov)",
+   "value": null,
+   "display": "not yet measured",
+   "status": "not_measured",
+   "source": "",
+   "note": "no llvm-cov run yet (artifact llvm-cov-summary)",
+   "section": "Solver and proof depth"
+  },
+  "coverage_branches": {
+   "label": "Engine branch coverage (llvm-cov)",
+   "value": null,
+   "display": "not yet measured",
+   "status": "not_measured",
+   "source": "",
+   "note": "no llvm-cov run with branch coverage yet",
+   "section": "Solver and proof depth"
+  },
+  "differential_compared": {
+   "label": "Differential models compared (latest run per harness)",
+   "value": 6317,
+   "display": "6317 (6216 agree, 101 mismatch)",
+   "status": "measured",
+   "source": "codeaster, frame3dd, kratos, opensees, pynite",
+   "note": "see Details; no report yet: mystran, calculix",
+   "section": "Trust and verification",
+   "evidence_sha": [
+    "fa6620a17064ea69258fed65b29f85d663a81010"
+   ]
+  },
+  "fuzz_execs": {
+   "label": "Fuzz executions (latest nightly)",
+   "value": null,
+   "display": "not yet measured",
+   "status": "not_measured",
+   "source": "",
+   "note": "the nightly fuzz job does not publish execution counts yet (artifact fuzz-stats-<target>)",
+   "section": "Trust and verification"
+  },
+  "fm_cells": {
+   "label": "Feature-matrix cells (2D + 3D)",
+   "value": 1384,
+   "display": "R 85, ~ 20, · 267, ✓ 1012",
+   "status": "measured",
+   "source": "FEATURE_MATRIX.md",
+   "note": "",
+   "section": "Engineering coverage"
+  },
+  "fm_bad": {
+   "label": "Feature-matrix cells E / IGN / BAD / K",
+   "value": 0,
+   "display": "0",
+   "status": "measured",
+   "source": "FEATURE_MATRIX.md",
+   "note": "",
+   "section": "Engineering coverage"
+  },
+  "engine_tests": {
+   "label": "Engine `#[test]` functions",
+   "value": 7899,
+   "display": "7899",
+   "status": "measured",
+   "source": "git grep engine",
+   "note": "",
+   "section": "Solver and proof depth"
+  },
+  "kani_harnesses": {
+   "label": "Kani harnesses",
+   "value": 54,
+   "display": "54",
+   "status": "measured",
+   "source": "git grep `kani::proof`",
+   "note": "",
+   "section": "Solver and proof depth"
+  },
+  "lean_theorems": {
+   "label": "Lean theorems and lemmas",
+   "value": 177,
+   "display": "177",
+   "status": "measured",
+   "source": "verify/*.lean",
+   "note": "",
+   "section": "Solver and proof depth"
+  },
+  "issues_multiplier": {
+   "label": "Backlog issues closed (`roadmap:multiplier`)",
+   "value": 0,
+   "display": "0 of 10",
+   "status": "measured",
+   "source": "GitHub label `roadmap:multiplier`",
+   "note": "",
+   "section": "Multipliers"
+  },
+  "issues_verification": {
+   "label": "Backlog issues closed (`roadmap:verification`)",
+   "value": 0,
+   "display": "0 of 16",
+   "status": "measured",
+   "source": "GitHub label `roadmap:verification`",
+   "note": "",
+   "section": "Trust and verification"
+  },
+  "issues_coverage": {
+   "label": "Backlog issues closed (`roadmap:coverage`)",
+   "value": 0,
+   "display": "0 of 15",
+   "status": "measured",
+   "source": "GitHub label `roadmap:coverage`",
+   "note": "",
+   "section": "Engineering coverage"
+  },
+  "issues_solver-proofs": {
+   "label": "Backlog issues closed (`roadmap:solver-proofs`)",
+   "value": 0,
+   "display": "0 of 10",
+   "status": "measured",
+   "source": "GitHub label `roadmap:solver-proofs`",
+   "note": "",
+   "section": "Solver and proof depth"
+  },
+  "issues_release-safety": {
+   "label": "Backlog issues closed (`roadmap:release-safety`)",
+   "value": 0,
+   "display": "0 of 8",
+   "status": "measured",
+   "source": "GitHub label `roadmap:release-safety`",
+   "note": "",
+   "section": "Release safety"
+  }
+ },
+ "maturity": {
+  "analyses": [
+   {
+    "name": "Linear static",
+    "level": "Certified",
+    "evidence": {
+     "Certified": "[Certified linear static results](CERTIFY.md#certified-linear-static-results)",
+     "Benchmarked": "[BENCHMARKS](../BENCHMARKS.md#solver-capability-matrix): 2D linear static (Strong); 3D linear static (Strong)",
+     "Differential": "[Frame3DD](../../tools/differential/frame3dd/README.md), [PyNite](../../tools/differential/pynite/README.md), [MYSTRAN](../../tools/differential/mystran/README.md), [Kratos](../../tools/differential/kratos/README.md), [CalculiX](../../tools/differential/calculix/README.md), [OpenSees](../../tools/opensees/README.md), [Code_Aster](../../tools/differential/codeaster/README.md)",
+     "Tested": "[feature matrix](FEATURE_MATRIX.md) [2D](FEATURE_MATRIX.md#2d), [3D](FEATURE_MATRIX.md#3d)"
+    },
+    "issues": [
+     343,
+     435,
+     443,
+     452
+    ]
+   },
+   {
+    "name": "Constraints (rigid links, diaphragms, EqualDOF, MPC)",
+    "level": "Certified",
+    "evidence": {
+     "Certified": "[Constraints (multi-point constraints)](CERTIFY.md#constraints-multi-point-constraints)",
+     "Benchmarked": "[BENCHMARKS](../BENCHMARKS.md#solver-capability-matrix): Constraint technology (Good)",
+     "Differential": "[Code_Aster](../../tools/differential/codeaster/README.md)",
+     "Tested": "[feature matrix](FEATURE_MATRIX.md) [2D](FEATURE_MATRIX.md#2d), [3D](FEATURE_MATRIX.md#3d)"
+    },
+    "issues": [
+     342,
+     445
+    ]
+   },
+   {
+    "name": "Load combinations and envelopes",
+    "level": "Certified",
+    "evidence": {
+     "Certified": "[Load combinations and envelopes](CERTIFY.md#load-combinations-and-envelopes)",
+     "Benchmarked": "[BENCHMARKS](../BENCHMARKS.md#solver-capability-matrix): Load combinations / envelopes (Strong)",
+     "Tested": "[feature matrix](FEATURE_MATRIX.md) [2D](FEATURE_MATRIX.md#2d), [3D](FEATURE_MATRIX.md#3d)"
+    },
+    "issues": []
+   },
+   {
+    "name": "Member forces, diagrams, deflections, reactions",
+    "level": "Certified",
+    "evidence": {
+     "Certified": "[Member force bounds](CERTIFY.md#member-force-bounds), [Diagrams, extremes, deflections and reactions](CERTIFY.md#diagrams-extremes-deflections-and-reactions)",
+     "Benchmarked": "[BENCHMARKS](../BENCHMARKS.md#solver-capability-matrix): Diagrams / section forces / deformed shape (Strong)",
+     "Differential": "[Frame3DD](../../tools/differential/frame3dd/README.md), [PyNite](../../tools/differential/pynite/README.md), [OpenSees](../../tools/opensees/README.md), [Code_Aster](../../tools/differential/codeaster/README.md)"
+    },
+    "issues": [
+     343
+    ]
+   },
+   {
+    "name": "P-Delta (second order)",
+    "level": "Certified",
+    "evidence": {
+     "Certified": "[P-Delta (second-order) displacements](CERTIFY.md#p-delta-second-order-displacements)",
+     "Benchmarked": "[BENCHMARKS](../BENCHMARKS.md#solver-capability-matrix): 2D P-Delta (Strong); 3D P-Delta (Strong)",
+     "Differential": "[Frame3DD](../../tools/differential/frame3dd/README.md), [OpenSees](../../tools/opensees/README.md)",
+     "Tested": "[feature matrix](FEATURE_MATRIX.md) [2D](FEATURE_MATRIX.md#2d), [3D](FEATURE_MATRIX.md#3d)"
+    },
+    "issues": [
+     404,
+     431,
+     439,
+     442
+    ]
+   },
+   {
+    "name": "Linear buckling",
+    "level": "Certified",
+    "evidence": {
+     "Certified": "[Buckling load-factor enclosure](CERTIFY.md#buckling-load-factor-enclosure)",
+     "Benchmarked": "[BENCHMARKS](../BENCHMARKS.md#solver-capability-matrix): 2D buckling (Strong); 3D buckling (Strong)",
+     "Differential": "[OpenSees](../../tools/opensees/README.md)",
+     "Tested": "[feature matrix](FEATURE_MATRIX.md) [2D](FEATURE_MATRIX.md#2d), [3D](FEATURE_MATRIX.md#3d)"
+    },
+    "issues": [
+     404,
+     439
+    ]
+   },
+   {
+    "name": "Modal",
+    "level": "Certified",
+    "evidence": {
+     "Certified": "[Modal enclosures and completeness](CERTIFY.md#modal-enclosures-and-completeness)",
+     "Benchmarked": "[BENCHMARKS](../BENCHMARKS.md#solver-capability-matrix): 2D modal (Strong); 3D modal (Strong)",
+     "Differential": "[Frame3DD](../../tools/differential/frame3dd/README.md), [MYSTRAN](../../tools/differential/mystran/README.md), [OpenSees](../../tools/opensees/README.md)",
+     "Tested": "[feature matrix](FEATURE_MATRIX.md) [2D](FEATURE_MATRIX.md#2d), [3D](FEATURE_MATRIX.md#3d)"
+    },
+    "issues": [
+     338,
+     341,
+     405
+    ]
+   },
+   {
+    "name": "Response spectrum (SRSS / CQC)",
+    "level": "Certified",
+    "evidence": {
+     "Certified": "[Response spectrum (SRSS / CQC)](CERTIFY.md#response-spectrum-srss--cqc)",
+     "Benchmarked": "[BENCHMARKS](../BENCHMARKS.md#solver-capability-matrix): 2D response spectrum (Strong); 3D response spectrum (Strong)",
+     "Tested": "[feature matrix](FEATURE_MATRIX.md) [2D](FEATURE_MATRIX.md#2d), [3D](FEATURE_MATRIX.md#3d)"
+    },
+    "issues": [
+     335,
+     405,
+     424
+    ]
+   },
+   {
+    "name": "Time history",
+    "level": "Certified",
+    "evidence": {
+     "Certified": "[Time-history integration](CERTIFY.md#time-history-integration)",
+     "Benchmarked": "[BENCHMARKS](../BENCHMARKS.md#solver-capability-matrix): 2D time history (Good); 3D time history (Good)",
+     "Differential": "[OpenSees](../../tools/opensees/README.md)",
+     "Tested": "[feature matrix](FEATURE_MATRIX.md) [2D](FEATURE_MATRIX.md#2d), [3D](FEATURE_MATRIX.md#3d)"
+    },
+    "issues": [
+     425
+    ]
+   },
+   {
+    "name": "Harmonic (steady state)",
+    "level": "Certified",
+    "evidence": {
+     "Certified": "[Harmonic (steady-state) response](CERTIFY.md#harmonic-steady-state-response)",
+     "Benchmarked": "[BENCHMARKS](../BENCHMARKS.md#solver-capability-matrix): Harmonic response (2D/3D) (Good)",
+     "Tested": "[feature matrix](FEATURE_MATRIX.md) [2D](FEATURE_MATRIX.md#2d), [3D](FEATURE_MATRIX.md#3d)"
+    },
+    "issues": []
+   },
+   {
+    "name": "Plastic collapse (2D, 3D)",
+    "level": "Certified",
+    "evidence": {
+     "Certified": "[Plastic collapse load factor](CERTIFY.md#plastic-collapse-load-factor), [Plastic collapse load factor, 3D](CERTIFY.md#plastic-collapse-load-factor-3d)",
+     "Benchmarked": "[BENCHMARKS](../BENCHMARKS.md#solver-capability-matrix): Plastic collapse / hinge sequencing (Good)",
+     "Tested": "[feature matrix](FEATURE_MATRIX.md) [2D](FEATURE_MATRIX.md#2d), [3D](FEATURE_MATRIX.md#3d)"
+    },
+    "issues": []
+   },
+   {
+    "name": "Co-rotational (geometric nonlinear)",
+    "level": "Benchmarked",
+    "evidence": {
+     "Benchmarked": "[BENCHMARKS](../BENCHMARKS.md#solver-capability-matrix): 2D geometric nonlinear (corotational) (Good); 3D geometric nonlinear (Good)",
+     "Tested": "[feature matrix](FEATURE_MATRIX.md) [2D](FEATURE_MATRIX.md#2d), [3D](FEATURE_MATRIX.md#3d)"
+    },
+    "issues": [
+     426,
+     442
+    ]
+   },
+   {
+    "name": "Material nonlinear",
+    "level": "Benchmarked",
+    "evidence": {
+     "Benchmarked": "[BENCHMARKS](../BENCHMARKS.md#solver-capability-matrix): 2D material nonlinear (Good); 3D material nonlinear (Good)",
+     "Tested": "[feature matrix](FEATURE_MATRIX.md) [2D](FEATURE_MATRIX.md#2d), [3D](FEATURE_MATRIX.md#3d)"
+    },
+    "issues": [
+     427,
+     428,
+     429
+    ]
+   },
+   {
+    "name": "Fiber nonlinear",
+    "level": "Benchmarked",
+    "evidence": {
+     "Benchmarked": "[BENCHMARKS](../BENCHMARKS.md#solver-capability-matrix): Fiber nonlinear (2D/3D) (Good)",
+     "Tested": "[feature matrix](FEATURE_MATRIX.md) [2D](FEATURE_MATRIX.md#2d), [3D](FEATURE_MATRIX.md#3d)"
+    },
+    "issues": [
+     420,
+     433
+    ]
+   },
+   {
+    "name": "Arc length",
+    "level": "Benchmarked",
+    "evidence": {
+     "Benchmarked": "[BENCHMARKS](../BENCHMARKS.md#solver-capability-matrix): Nonlinear solution controls (Good)",
+     "Tested": "[feature matrix](FEATURE_MATRIX.md) [2D](FEATURE_MATRIX.md#2d)"
+    },
+    "issues": []
+   },
+   {
+    "name": "Displacement control",
+    "level": "Benchmarked",
+    "evidence": {
+     "Benchmarked": "[BENCHMARKS](../BENCHMARKS.md#solver-capability-matrix): Nonlinear solution controls (Good)",
+     "Tested": "[feature matrix](FEATURE_MATRIX.md) [2D](FEATURE_MATRIX.md#2d)"
+    },
+    "issues": []
+   },
+   {
+    "name": "Staged construction",
+    "level": "Benchmarked",
+    "evidence": {
+     "Benchmarked": "[BENCHMARKS](../BENCHMARKS.md#solver-capability-matrix): Construction staging (Good)",
+     "Tested": "[feature matrix](FEATURE_MATRIX.md) [2D](FEATURE_MATRIX.md#2d), [3D](FEATURE_MATRIX.md#3d)"
+    },
+    "issues": []
+   },
+   {
+    "name": "Winkler foundation",
+    "level": "Benchmarked",
+    "evidence": {
+     "Benchmarked": "[BENCHMARKS](../BENCHMARKS.md#solver-capability-matrix): Winkler foundation solvers (2D/3D) (Good)",
+     "Tested": "[feature matrix](FEATURE_MATRIX.md) [2D](FEATURE_MATRIX.md#2d), [3D](FEATURE_MATRIX.md#3d)"
+    },
+    "issues": [
+     444
+    ]
+   },
+   {
+    "name": "Contact / gaps",
+    "level": "Benchmarked",
+    "evidence": {
+     "Benchmarked": "[BENCHMARKS](../BENCHMARKS.md#solver-capability-matrix): Contact / gap / unilateral support behavior (Good)",
+     "Tested": "[feature matrix](FEATURE_MATRIX.md) [2D](FEATURE_MATRIX.md#2d), [3D](FEATURE_MATRIX.md#3d)"
+    },
+    "issues": [
+     432
+    ]
+   },
+   {
+    "name": "Soil-structure interaction (p-y, t-z, q-z)",
+    "level": "Benchmarked",
+    "evidence": {
+     "Benchmarked": "[BENCHMARKS](../BENCHMARKS.md#solver-capability-matrix): Nonlinear SSI beyond Winkler (Good)",
+     "Tested": "[feature matrix](FEATURE_MATRIX.md) [2D](FEATURE_MATRIX.md#2d), [3D](FEATURE_MATRIX.md#3d)"
+    },
+    "issues": [
+     421,
+     422,
+     423
+    ]
+   },
+   {
+    "name": "Creep and shrinkage",
+    "level": "Benchmarked",
+    "evidence": {
+     "Benchmarked": "[BENCHMARKS](../BENCHMARKS.md#solver-capability-matrix): Creep / shrinkage / relaxation response (Good)",
+     "Tested": "[feature matrix](FEATURE_MATRIX.md) [2D](FEATURE_MATRIX.md#2d), [3D](FEATURE_MATRIX.md#3d)"
+    },
+    "issues": []
+   },
+   {
+    "name": "Cable solver",
+    "level": "Benchmarked",
+    "evidence": {
+     "Benchmarked": "[BENCHMARKS](../BENCHMARKS.md#solver-capability-matrix): Cable / catenary element (Good)",
+     "Tested": "[feature matrix](FEATURE_MATRIX.md) [2D](FEATURE_MATRIX.md#2d), [3D](FEATURE_MATRIX.md#3d)"
+    },
+    "issues": [
+     416,
+     417
+    ]
+   },
+   {
+    "name": "Guyan reduction",
+    "level": "Benchmarked",
+    "evidence": {
+     "Benchmarked": "[BENCHMARKS](../BENCHMARKS.md#solver-capability-matrix): Model reduction / substructuring (Good)",
+     "Tested": "[feature matrix](FEATURE_MATRIX.md) [2D](FEATURE_MATRIX.md#2d), [3D](FEATURE_MATRIX.md#3d)"
+    },
+    "issues": []
+   },
+   {
+    "name": "Craig–Bampton",
+    "level": "Benchmarked",
+    "evidence": {
+     "Benchmarked": "[BENCHMARKS](../BENCHMARKS.md#solver-capability-matrix): Model reduction / substructuring (Good)",
+     "Tested": "[feature matrix](FEATURE_MATRIX.md) [2D](FEATURE_MATRIX.md#2d), [3D](FEATURE_MATRIX.md#3d)"
+    },
+    "issues": []
+   },
+   {
+    "name": "Kinematic / mechanism check",
+    "level": "Benchmarked",
+    "evidence": {
+     "Benchmarked": "[BENCHMARKS](../BENCHMARKS.md#solver-capability-matrix): Kinematic / mechanism diagnostics (Strong)",
+     "Tested": "[feature matrix](FEATURE_MATRIX.md) [2D](FEATURE_MATRIX.md#2d), [3D](FEATURE_MATRIX.md#3d)"
+    },
+    "issues": [
+     338,
+     369
+    ]
+   },
+   {
+    "name": "Moving loads",
+    "level": "Benchmarked",
+    "evidence": {
+     "Benchmarked": "[BENCHMARKS](../BENCHMARKS.md#solver-capability-matrix): Moving loads / influence workflows (2D/3D) (Good)",
+     "Tested": "[feature matrix](FEATURE_MATRIX.md) [2D](FEATURE_MATRIX.md#2d), [3D](FEATURE_MATRIX.md#3d)"
+    },
+    "issues": []
+   },
+   {
+    "name": "Influence lines",
+    "level": "Benchmarked",
+    "evidence": {
+     "Benchmarked": "[BENCHMARKS](../BENCHMARKS.md#solver-capability-matrix): Moving loads / influence workflows (2D/3D) (Good)",
+     "Tested": "[feature matrix](FEATURE_MATRIX.md) [2D](FEATURE_MATRIX.md#2d), [3D](FEATURE_MATRIX.md#3d)"
+    },
+    "issues": []
+   }
+  ],
+  "elements": [
+   {
+    "name": "Frame, Euler–Bernoulli (2D, 3D)",
+    "level": "Certified",
+    "evidence": {
+     "Certified": "[symbolic derivation](SYMBOLIC.md): `frame_local_stiffness_2d`, `frame_local_stiffness_3d`",
+     "Benchmarked": "[BENCHMARKS](../BENCHMARKS.md#solver-capability-matrix): 2D frame / truss elements (Strong); 3D frame / truss elements (Strong)",
+     "Differential": "[Frame3DD](../../tools/differential/frame3dd/README.md), [PyNite](../../tools/differential/pynite/README.md), [MYSTRAN](../../tools/differential/mystran/README.md), [Kratos](../../tools/differential/kratos/README.md), [CalculiX](../../tools/differential/calculix/README.md), [OpenSees](../../tools/opensees/README.md), [Code_Aster](../../tools/differential/codeaster/README.md)",
+     "Tested": "[feature matrix](FEATURE_MATRIX.md) [2D](FEATURE_MATRIX.md#2d), [3D](FEATURE_MATRIX.md#3d)"
+    },
+    "issues": [
+     404,
+     407
+    ]
+   },
+   {
+    "name": "Truss",
+    "level": "Certified",
+    "evidence": {
+     "Certified": "[symbolic derivation](SYMBOLIC.md): `truss_local_stiffness_2d/3d`",
+     "Benchmarked": "[BENCHMARKS](../BENCHMARKS.md#solver-capability-matrix): 2D frame / truss elements (Strong); 3D frame / truss elements (Strong)",
+     "Differential": "[PyNite](../../tools/differential/pynite/README.md), [MYSTRAN](../../tools/differential/mystran/README.md), [Kratos](../../tools/differential/kratos/README.md), [OpenSees](../../tools/opensees/README.md)",
+     "Tested": "[feature matrix](FEATURE_MATRIX.md) [2D](FEATURE_MATRIX.md#2d), [3D](FEATURE_MATRIX.md#3d)"
+    },
+    "issues": []
+   },
+   {
+    "name": "Frame, Timoshenko (shear deformable)",
+    "level": "Certified",
+    "evidence": {
+     "Certified": "[symbolic derivation](SYMBOLIC.md): `frame_local_stiffness_2d`",
+     "Benchmarked": "[BENCHMARKS](../BENCHMARKS.md#solver-capability-matrix): Timoshenko beam / shear deformation (Good)",
+     "Differential": "[MYSTRAN](../../tools/differential/mystran/README.md), [Kratos](../../tools/differential/kratos/README.md), [OpenSees](../../tools/opensees/README.md)",
+     "Tested": "[feature matrix](FEATURE_MATRIX.md) [2D](FEATURE_MATRIX.md#2d), [3D](FEATURE_MATRIX.md#3d)"
+    },
+    "issues": [
+     406
+    ]
+   },
+   {
+    "name": "Warping torsion (7th DOF)",
+    "level": "Certified",
+    "evidence": {
+     "Certified": "[symbolic derivation](SYMBOLIC.md): `frame_local_stiffness_3d_warping`",
+     "Benchmarked": "[BENCHMARKS](../BENCHMARKS.md#solver-capability-matrix): Warping torsion / 7th DOF (Good)",
+     "Tested": "[feature matrix](FEATURE_MATRIX.md) [3D](FEATURE_MATRIX.md#3d)"
+    },
+    "issues": [
+     408,
+     439
+    ]
+   },
+   {
+    "name": "Curved beam",
+    "level": "Tested",
+    "evidence": {
+     "Tested": "[feature matrix](FEATURE_MATRIX.md) [3D](FEATURE_MATRIX.md#3d)"
+    },
+    "issues": [
+     418
+    ]
+   },
+   {
+    "name": "Connector (spring element)",
+    "level": "Differential",
+    "evidence": {
+     "Differential": "[Code_Aster](../../tools/differential/codeaster/README.md)",
+     "Tested": "[feature matrix](FEATURE_MATRIX.md) [2D](FEATURE_MATRIX.md#2d), [3D](FEATURE_MATRIX.md#3d)"
+    },
+    "issues": [
+     419
+    ]
+   },
+   {
+    "name": "Cable / catenary",
+    "level": "Benchmarked",
+    "evidence": {
+     "Benchmarked": "[BENCHMARKS](../BENCHMARKS.md#solver-capability-matrix): Cable / catenary element (Good)",
+     "Tested": "engine tests of `cable.rs`"
+    },
+    "issues": [
+     414,
+     415,
+     416,
+     417
+    ]
+   },
+   {
+    "name": "Fiber beam-column",
+    "level": "Benchmarked",
+    "evidence": {
+     "Benchmarked": "[BENCHMARKS](../BENCHMARKS.md#solver-capability-matrix): Fiber / section-based beam-column elements (Good)",
+     "Tested": "engine tests of `fiber_beam.rs`"
+    },
+    "issues": [
+     420,
+     433
+    ]
+   },
+   {
+    "name": "Plate, DKT triangle",
+    "level": "Benchmarked",
+    "evidence": {
+     "Benchmarked": "[BENCHMARKS](../BENCHMARKS.md#solver-capability-matrix): Plate / shell triangles (Good)",
+     "Differential": "[OpenSees](../../tools/opensees/README.md)",
+     "Tested": "[feature matrix](FEATURE_MATRIX.md) [3D](FEATURE_MATRIX.md#3d)"
+    },
+    "issues": [
+     409
+    ]
+   },
+   {
+    "name": "Shell, MITC4 quad",
+    "level": "Benchmarked",
+    "evidence": {
+     "Benchmarked": "[BENCHMARKS](../BENCHMARKS.md#solver-capability-matrix): MITC4 quadrilateral shell element (Strong)",
+     "Differential": "[OpenSees](../../tools/opensees/README.md)",
+     "Tested": "[feature matrix](FEATURE_MATRIX.md) [3D](FEATURE_MATRIX.md#3d)"
+    },
+    "issues": [
+     413
+    ]
+   },
+   {
+    "name": "Shell, MITC9 quad",
+    "level": "Benchmarked",
+    "evidence": {
+     "Benchmarked": "[BENCHMARKS](../BENCHMARKS.md#solver-capability-matrix): MITC9 9-node quadrilateral shell element (Strong)",
+     "Tested": "[feature matrix](FEATURE_MATRIX.md) [3D](FEATURE_MATRIX.md#3d)"
+    },
+    "issues": [
+     411,
+     412
+    ]
+   },
+   {
+    "name": "Curved shell",
+    "level": "Benchmarked",
+    "evidence": {
+     "Benchmarked": "[BENCHMARKS](../BENCHMARKS.md#solver-capability-matrix): Curved shell element (Strong)",
+     "Tested": "[feature matrix](FEATURE_MATRIX.md) [3D](FEATURE_MATRIX.md#3d)"
+    },
+    "issues": [
+     410
+    ]
+   },
+   {
+    "name": "Solid shell, SHB8-ANS",
+    "level": "Benchmarked",
+    "evidence": {
+     "Benchmarked": "[BENCHMARKS](../BENCHMARKS.md#solver-capability-matrix): SHB8-ANS 8-node solid-shell element (Strong)",
+     "Tested": "[feature matrix](FEATURE_MATRIX.md) [3D](FEATURE_MATRIX.md#3d)"
+    },
+    "issues": [
+     400
+    ]
+   }
+  ],
+  "design": [
+   {
+    "name": "AISC 360 steel (`steel_check`)",
+    "level": "Certified",
+    "evidence": {
+     "Certified": "[`certify_steel_members`](CERTIFY.md#certified-design-checks)",
+     "Benchmarked": "[worked examples](DESIGN_EXAMPLES.md#aisc-360-steel_check-rust): 12 of 16 clauses against published examples",
+     "Tested": "tests referencing `steel_check`"
+    },
+    "issues": [
+     366
+    ]
+   },
+   {
+    "name": "EN 1993-1-1 steel (`ec3_check`)",
+    "level": "Certified",
+    "evidence": {
+     "Certified": "[`certify_ec3_members`](CERTIFY.md#certified-design-checks)",
+     "Benchmarked": "[worked examples](DESIGN_EXAMPLES.md#en-1993-1-1-ec3_check-rust): 8 of 12 clauses against published examples",
+     "Tested": "tests referencing `ec3_check`"
+    },
+    "issues": [
+     366
+    ]
+   },
+   {
+    "name": "EN 1992-1-1 RC (`ec2_check`)",
+    "level": "Certified",
+    "evidence": {
+     "Certified": "[`certify_ec2_members`](CERTIFY.md#certified-design-checks)",
+     "Benchmarked": "[worked examples](DESIGN_EXAMPLES.md#en-1992-1-1-ec2_check-rust): 5 of 6 clauses against published examples",
+     "Tested": "tests referencing `ec2_check`"
+    },
+    "issues": []
+   },
+   {
+    "name": "ACI 318-19 RC (`rc_check`)",
+    "level": "Certified",
+    "evidence": {
+     "Certified": "[`certify_rc_members`](CERTIFY.md#certified-design-checks)",
+     "Benchmarked": "[worked examples](DESIGN_EXAMPLES.md#aci-318-19-rc_check-and-cirsoc-201-2005-cirsoc201_check-rust): 3 of 5 clauses against published examples",
+     "Tested": "tests referencing `rc_check`"
+    },
+    "issues": [
+     366
+    ]
+   },
+   {
+    "name": "CIRSOC 201 RC, engine (`cirsoc201_check`)",
+    "level": "Certified",
+    "evidence": {
+     "Certified": "[`certify_cirsoc201_members`](CERTIFY.md#certified-design-checks)",
+     "Benchmarked": "[worked examples](DESIGN_EXAMPLES.md#aci-318-19-rc_check-and-cirsoc-201-2005-cirsoc201_check-rust): 3 of 5 clauses against published examples",
+     "Differential": "[TypeScript vs Rust](TS_ENGINE_LOGIC.md#2-differential-tests-typescript-against-rust): CIRSOC 201 beam sections",
+     "Tested": "tests referencing `cirsoc201_check`"
+    },
+    "issues": [
+     366,
+     390
+    ]
+   },
+   {
+    "name": "CIRSOC 301 steel, engine (`cirsoc301_check`)",
+    "level": "Certified",
+    "evidence": {
+     "Certified": "[`certify_cirsoc301_members`](CERTIFY.md#certified-design-checks)",
+     "Benchmarked": "[worked examples](DESIGN_EXAMPLES.md#cirsoc-301-2018-cirsoc301ts-ts): 10 of 14 clauses against published examples",
+     "Differential": "[TypeScript vs Rust](TS_ENGINE_LOGIC.md#2-differential-tests-typescript-against-rust): CIRSOC 301",
+     "Tested": "tests referencing `cirsoc301`"
+    },
+    "issues": [
+     366,
+     389,
+     391
+    ]
+   },
+   {
+    "name": "NDS timber (`timber_check`)",
+    "level": "Certified",
+    "evidence": {
+     "Certified": "[`certify_timber_members`](CERTIFY.md#certified-design-checks)",
+     "Tested": "tests referencing `timber_check`"
+    },
+    "issues": [
+     368
+    ]
+   },
+   {
+    "name": "AISI S100 cold-formed (`cfs_check`)",
+    "level": "Certified",
+    "evidence": {
+     "Certified": "[`certify_cfs_members`](CERTIFY.md#certified-design-checks)",
+     "Tested": "tests referencing `cfs_check`"
+    },
+    "issues": [
+     368
+    ]
+   },
+   {
+    "name": "TMS 402 masonry (`masonry_check`)",
+    "level": "Tested",
+    "evidence": {
+     "Tested": "tests referencing `masonry_check`"
+    },
+    "issues": [
+     367,
+     368
+    ]
+   },
+   {
+    "name": "Connections, engine (`connection_check`)",
+    "level": "Benchmarked",
+    "evidence": {
+     "Benchmarked": "[worked examples](DESIGN_EXAMPLES.md#connections-connection_check-rust): 2 of 3 clauses against published examples",
+     "Tested": "tests referencing `connection_check`"
+    },
+    "issues": [
+     367
+    ]
+   },
+   {
+    "name": "Spread footings, engine (`foundation_check`)",
+    "level": "Differential",
+    "evidence": {
+     "Differential": "[TypeScript vs Rust](TS_ENGINE_LOGIC.md#2-differential-tests-typescript-against-rust): Footing shear",
+     "Tested": "tests referencing `foundation_check`"
+    },
+    "issues": [
+     367,
+     393
+    ]
+   },
+   {
+    "name": "Serviceability (`serviceability`)",
+    "level": "Differential",
+    "evidence": {
+     "Differential": "[TypeScript vs Rust](TS_ENGINE_LOGIC.md#2-differential-tests-typescript-against-rust): Serviceability",
+     "Tested": "tests referencing `check_serviceability`"
+    },
+    "issues": [
+     367
+    ]
+   },
+   {
+    "name": "CIRSOC 201 legacy designer, TypeScript (`cirsoc201.ts`)",
+    "level": "Benchmarked",
+    "evidence": {
+     "Benchmarked": "[worked examples](DESIGN_EXAMPLES.md#cirsoc-201-2005-cirsoc201ts-ts): 2 of 3 clauses against published examples",
+     "Tested": "tests referencing `cirsoc201-inti-examples`"
+    },
+    "issues": [
+     390
+    ]
+   },
+   {
+    "name": "CIRSOC 301 J welds and bolts, TypeScript (`fillet-weld.ts`, `bolted-joint.ts`)",
+    "level": "Benchmarked",
+    "evidence": {
+     "Benchmarked": "[worked examples](DESIGN_EXAMPLES.md#connections-ts): 2 of 4 clauses against published examples",
+     "Tested": "tests referencing `fillet-weld-inti`"
+    },
+    "issues": []
+   },
+   {
+    "name": "CIRSOC 201 footings, TypeScript (`foundation-check.ts`, `footing-flexure.ts`)",
+    "level": "Differential",
+    "evidence": {
+     "Differential": "[TypeScript vs Rust](TS_ENGINE_LOGIC.md#2-differential-tests-typescript-against-rust): Footing shear",
+     "Tested": "tests referencing `foundation-check`"
+    },
+    "issues": [
+     393
+    ]
+   },
+   {
+    "name": "CIRSOC 201-2025 detailing, TypeScript (`codes/cirsoc201/*`)",
+    "level": "Tested",
+    "evidence": {
+     "Tested": "tests referencing `codes/cirsoc201`"
+    },
+    "issues": [
+     374
+    ]
+   }
+  ]
+ },
+ "maturity_levels": {
+  "analyses": {
+   "Certified": 11,
+   "Benchmarked": 16,
+   "Differential": 0,
+   "Tested": 0,
+   "Unverified": 0
+  },
+  "elements": {
+   "Certified": 4,
+   "Benchmarked": 7,
+   "Differential": 1,
+   "Tested": 1,
+   "Unverified": 0
+  },
+  "design": {
+   "Certified": 8,
+   "Benchmarked": 3,
+   "Differential": 3,
+   "Tested": 2,
+   "Unverified": 0
+  }
+ },
+ "history": [
+  {
+   "release": "v0.2.0",
+   "date": "2026-10-19",
+   "commit": "5b1482c78c",
+   "values": {
+    "safety_open": "53",
+    "rust_share": "64.6 %",
+    "ts_high_safety": "88 modules, 35935 lines",
+    "certified_analyses": "11 of 27 (40.7 %)",
+    "certified_design": "8 of 16 (50.0 %)",
+    "acceptance_refs": "not yet measured",
+    "mutation_rust": "not yet measured",
+    "mutation_ts": "not yet measured",
+    "coverage_lines": "not yet measured",
+    "differential_compared": "not yet measured",
+    "fuzz_execs": "not yet measured",
+    "fm_bad": "0"
+   }
+  }
+ ],
+ "issue_state": {
+  "335": {
+   "pr": false,
+   "state": "open",
+   "title": "Verification failure: Nightly verification / fuzz (json_dynamics)"
+  },
+  "338": {
+   "pr": false,
+   "state": "open",
+   "title": "Modal analysis silently drops modes on a mechanism (hinged member with a free tip)"
+  },
+  "341": {
+   "pr": false,
+   "state": "open",
+   "title": "Nodal (lumped) masses and rotary inertia are not supported"
+  },
+  "342": {
+   "pr": false,
+   "state": "open",
+   "title": "Rigid diaphragm leaves each node's in-plane rotation free (SAP2000/ETABS/OpenSees tie it)"
+  },
+  "343": {
+   "pr": false,
+   "state": "open",
+   "title": "2D: load along an inclined member doesn't reach the member's axial force; couples on members dropped/mirrored in the 3D solve"
+  },
+  "366": {
+   "pr": false,
+   "state": "open",
+   "title": "Missing design checks: RC biaxial/torsion/slenderness, CIRSOC 301 F.7-F.11, EC3 6.2.9.1 and more"
+  },
+  "367": {
+   "pr": false,
+   "state": "open",
+   "title": "Certificates for co-rotational and material-nonlinear results, masonry, connections, foundations, serviceability"
+  },
+  "368": {
+   "pr": false,
+   "state": "open",
+   "title": "Published worked examples for masonry, foundations, serviceability, timber, CFS, CIRSOC 301, AISC E7, EC3 Class 4"
+  },
+  "369": {
+   "pr": false,
+   "state": "open",
+   "title": "Mechanism detection everywhere, with zero false positives on the corpus"
+  },
+  "374": {
+   "pr": false,
+   "state": "open",
+   "title": "Harden what stays in TypeScript: detailing property tests and nightly Stryker"
+  },
+  "389": {
+   "pr": false,
+   "state": "open",
+   "title": "Keep steel results labelled experimental until independent review of CIRSOC 301"
+  },
+  "390": {
+   "pr": false,
+   "state": "open",
+   "title": "Concrete design from the engine: all CIRSOC 201 section shapes, slabs, bar layouts"
+  },
+  "391": {
+   "pr": false,
+   "state": "open",
+   "title": "Steel check inputs from the engine: Cb, J/Cw/Z, unbraced lengths, buckling, net area"
+  },
+  "393": {
+   "pr": false,
+   "state": "open",
+   "title": "Footings and load generation (wind, snow, seismic, combinations) in Rust"
+  },
+  "400": {
+   "pr": false,
+   "state": "open",
+   "title": "SHB8 solid-shell is ~18% too stiff in thin-plate bending (thickness locking); benchmark tolerance hides it"
+  },
+  "404": {
+   "pr": false,
+   "state": "open",
+   "title": "3D buckling misses torsional and flexural-torsional buckling (no Wagner term in frame Kg)"
+  },
+  "405": {
+   "pr": false,
+   "state": "open",
+   "title": "Response spectrum: base shear always SRSS under CQC; modal participation omits support-coupled mass"
+  },
+  "406": {
+   "pr": false,
+   "state": "open",
+   "title": "FR-3: Shear-area field names mean different axes in 2D and 3D (`as_y` pairs with `iz` in 2D, `iy` in 3D)"
+  },
+  "407": {
+   "pr": false,
+   "state": "open",
+   "title": "FR-4: Frame/truss thermal loads use a fixed alpha = 12e-6 and depth sqrt(12I/A); API users get wrong thermal forces silently"
+  },
+  "408": {
+   "pr": false,
+   "state": "open",
+   "title": "FR-5: Warping DOF is shared by all members at a node (full warping transmission); no per-member warping release"
+  },
+  "409": {
+   "pr": false,
+   "state": "open",
+   "title": "SH-1: DKMT thick-plate add-on (`plate_local_stiffness_thick`) is wrong and unused: remove or implement Katili DKMT"
+  },
+  "410": {
+   "pr": false,
+   "state": "open",
+   "title": "SH-6: Curved shell reports zero bending moments, and its stresses ignore thermal strain"
+  },
+  "411": {
+   "pr": false,
+   "state": "open",
+   "title": "SH-7: MITC9 on non-planar geometry does not reproduce rigid-body motion (advertised for curved shells)"
+  },
+  "412": {
+   "pr": false,
+   "state": "open",
+   "title": "SH-8: MITC9 tying points differ from Bucalem-Bathe; confirm the variant and cite it"
+  },
+  "413": {
+   "pr": false,
+   "state": "open",
+   "title": "SH-15: Shell docstrings disagree with the code (pressure load, EAS modes, lumped vs consistent mass)"
+  },
+  "414": {
+   "pr": false,
+   "state": "open",
+   "title": "SP-10: `parabolic_ordinate` and `catenary_ordinate` put the sag on opposite sides of the chord"
+  },
+  "415": {
+   "pr": false,
+   "state": "open",
+   "title": "SP-11: `ernst_tangent_modulus` is not the derivative of the chord-tension law"
+  },
+  "416": {
+   "pr": false,
+   "state": "open",
+   "title": "SP-12: Cable solver tension is too low in indeterminate systems (Ernst tangent used as a secant from the chord)"
+  },
+  "417": {
+   "pr": false,
+   "state": "open",
+   "title": "SP-14: Linear solver lets a cable carry compression with no diagnostic"
+  },
+  "418": {
+   "pr": false,
+   "state": "open",
+   "title": "SP-15: Curved-beam segment axes depend on plan orientation (Iy/Iz swap on near-vertical segments)"
+  },
+  "419": {
+   "pr": false,
+   "state": "open",
+   "title": "SP-17: 3D connector axes are discontinuous in direction and not user-orientable"
+  },
+  "420": {
+   "pr": false,
+   "state": "open",
+   "title": "SP-18: Fiber solvers return an empty reactions list"
+  },
+  "421": {
+   "pr": false,
+   "state": "open",
+   "title": "AC-12: p-y curves depart from the cited references (soft clay J term, sand A = 0.9, sand k table)"
+  },
+  "422": {
+   "pr": false,
+   "state": "open",
+   "title": "AC-13: \"Stiff clay\" p-y curve is discontinuous at y50 and is not Reese's stiff-clay curve"
+  },
+  "423": {
+   "pr": false,
+   "state": "open",
+   "title": "AC-16: t-z and q-z curves are missing the shaft perimeter / tip area (units kPa x m, not kN)"
+  },
+  "424": {
+   "pr": false,
+   "state": "open",
+   "title": "MD-6: Spectral element forces combined from per-mode absolute end values (CQC cross terms never negative)"
+  },
+  "425": {
+   "pr": false,
+   "state": "open",
+   "title": "MD-10: TimeHistoryInput.method is ignored; the scheme follows `alpha` alone"
+  },
+  "426": {
+   "pr": false,
+   "state": "open",
+   "title": "NL-3: 3D co-rotational uses additive rotation vectors: error for large non-coaxial rotations"
+  },
+  "427": {
+   "pr": false,
+   "state": "open",
+   "title": "NL-4: Material-nonlinear solver reports elastic member forces K_el u (100x off after yield)"
+  },
+  "428": {
+   "pr": false,
+   "state": "open",
+   "title": "NL-5: Material-nonlinear solver is a whole-member secant (EI -> alpha EI), not plasticity"
+  },
+  "429": {
+   "pr": false,
+   "state": "open",
+   "title": "NL-6: 3D material-nonlinear yield surface is unconservative compared with 2D"
+  },
+  "431": {
+   "pr": false,
+   "state": "open",
+   "title": "NL-10: Notional loads ignore member (distributed/point) gravity loads"
+  },
+  "432": {
+   "pr": false,
+   "state": "open",
+   "title": "NL-13: Contact solver reports converged after freezing a chattering gap at max_flips"
+  },
+  "433": {
+   "pr": false,
+   "state": "open",
+   "title": "NL-17: Fiber solver reports an unconverged iterate on failure (no load factor)"
+  },
+  "435": {
+   "pr": false,
+   "state": "open",
+   "title": "Flat 2D model solved in 3D: nodal moments and prescribed rotations act mirrored"
+  },
+  "439": {
+   "pr": false,
+   "state": "open",
+   "title": "Web: 3D sections send no Cw and fall back to J = 0.001·Iy; with torsional buckling in Kg these now drive 3D buckling/P-Delta"
+  },
+  "442": {
+   "pr": false,
+   "state": "open",
+   "title": "Imperfection analysis can silently do nothing (3D gravity axis, member loads, residual stresses, plane model along Y)"
+  },
+  "443": {
+   "pr": false,
+   "state": "open",
+   "title": "Settlements on a DOF the support leaves free are dropped without a message"
+  },
+  "444": {
+   "pr": false,
+   "state": "open",
+   "title": "Winkler member forces leave out the foundation reaction"
+  },
+  "445": {
+   "pr": false,
+   "state": "open",
+   "title": "Rigid link and diaphragm mean different things in the 2D and the 3D solve of one model"
+  },
+  "452": {
+   "pr": false,
+   "state": "open",
+   "title": "2D: a nodal moment on a node where every frame is hinged is silently lost"
+  }
+ },
+ "details": {
+  "safety_issues": [
+   {
+    "number": 343,
+    "title": "2D: load along an inclined member doesn't reach the member's axial force; couples on members dropped/mirrored in the 3D solve"
+   },
+   {
+    "number": 354,
+    "title": "Verification jobs that run on schedule and alert on failure"
+   },
+   {
+    "number": 356,
+    "title": "Discretization error estimates next to certified results"
+   },
+   {
+    "number": 359,
+    "title": "Units in the type system (Rust and TypeScript)"
+   },
+   {
+    "number": 361,
+    "title": "Re-check prompt when an old project opens in a version with changed results"
+   },
+   {
+    "number": 366,
+    "title": "Missing design checks: RC biaxial/torsion/slenderness, CIRSOC 301 F.7-F.11, EC3 6.2.9.1 and more"
+   },
+   {
+    "number": 369,
+    "title": "Mechanism detection everywhere, with zero false positives on the corpus"
+   },
+   {
+    "number": 370,
+    "title": "Known solver gaps: unconverged nonlinear increments, co-rotational refusals, beam rotary inertia, and more"
+   },
+   {
+    "number": 375,
+    "title": "End-to-end certificates: independently re-assemble K and f from the model"
+   },
+   {
+    "number": 376,
+    "title": "Trusted computing base of certificates: audited and enforced"
+   },
+   {
+    "number": 381,
+    "title": "Nonlinear and dynamic robustness: convergence criteria, step sensitivity, energy drift"
+   },
+   {
+    "number": 382,
+    "title": "Numerical stress tests: measure where accuracy degrades and refuse beyond it"
+   },
+   {
+    "number": 385,
+    "title": "Staging before production: deploy main to staging, promote tagged releases"
+   },
+   {
+    "number": 387,
+    "title": "Tell users of saved projects what changed for their model; mark stale results"
+   },
+   {
+    "number": 388,
+    "title": "Dependency upgrades through the same gates; numerics crates must stay bit-identical"
+   },
+   {
+    "number": 389,
+    "title": "Keep steel results labelled experimental until independent review of CIRSOC 301"
+   },
+   {
+    "number": 390,
+    "title": "Concrete design from the engine: all CIRSOC 201 section shapes, slabs, bar layouts"
+   },
+   {
+    "number": 391,
+    "title": "Steel check inputs from the engine: Cb, J/Cw/Z, unbraced lengths, buckling, net area"
+   },
+   {
+    "number": 392,
+    "title": "Analysis results from the engine: remove TypeScript analysis duplicates"
+   },
+   {
+    "number": 393,
+    "title": "Footings and load generation (wind, snow, seismic, combinations) in Rust"
+   },
+   {
+    "number": 394,
+    "title": "No silent fallbacks: say so when the engine is unavailable"
+   },
+   {
+    "number": 400,
+    "title": "SHB8 solid-shell is ~18% too stiff in thin-plate bending (thickness locking); benchmark tolerance hides it"
+   },
+   {
+    "number": 404,
+    "title": "3D buckling misses torsional and flexural-torsional buckling (no Wagner term in frame Kg)"
+   },
+   {
+    "number": 405,
+    "title": "Response spectrum: base shear always SRSS under CQC; modal participation omits support-coupled mass"
+   },
+   {
+    "number": 407,
+    "title": "FR-4: Frame/truss thermal loads use a fixed alpha = 12e-6 and depth sqrt(12I/A); API users get wrong thermal forces silently"
+   },
+   {
+    "number": 408,
+    "title": "FR-5: Warping DOF is shared by all members at a node (full warping transmission); no per-member warping release"
+   },
+   {
+    "number": 410,
+    "title": "SH-6: Curved shell reports zero bending moments, and its stresses ignore thermal strain"
+   },
+   {
+    "number": 411,
+    "title": "SH-7: MITC9 on non-planar geometry does not reproduce rigid-body motion (advertised for curved shells)"
+   },
+   {
+    "number": 416,
+    "title": "SP-12: Cable solver tension is too low in indeterminate systems (Ernst tangent used as a secant from the chord)"
+   },
+   {
+    "number": 417,
+    "title": "SP-14: Linear solver lets a cable carry compression with no diagnostic"
+   },
+   {
+    "number": 418,
+    "title": "SP-15: Curved-beam segment axes depend on plan orientation (Iy/Iz swap on near-vertical segments)"
+   },
+   {
+    "number": 419,
+    "title": "SP-17: 3D connector axes are discontinuous in direction and not user-orientable"
+   },
+   {
+    "number": 421,
+    "title": "AC-12: p-y curves depart from the cited references (soft clay J term, sand A = 0.9, sand k table)"
+   },
+   {
+    "number": 422,
+    "title": "AC-13: \"Stiff clay\" p-y curve is discontinuous at y50 and is not Reese's stiff-clay curve"
+   },
+   {
+    "number": 423,
+    "title": "AC-16: t-z and q-z curves are missing the shaft perimeter / tip area (units kPa x m, not kN)"
+   },
+   {
+    "number": 425,
+    "title": "MD-10: TimeHistoryInput.method is ignored; the scheme follows `alpha` alone"
+   },
+   {
+    "number": 426,
+    "title": "NL-3: 3D co-rotational uses additive rotation vectors: error for large non-coaxial rotations"
+   },
+   {
+    "number": 427,
+    "title": "NL-4: Material-nonlinear solver reports elastic member forces K_el u (100x off after yield)"
+   },
+   {
+    "number": 428,
+    "title": "NL-5: Material-nonlinear solver is a whole-member secant (EI -> alpha EI), not plasticity"
+   },
+   {
+    "number": 429,
+    "title": "NL-6: 3D material-nonlinear yield surface is unconservative compared with 2D"
+   },
+   {
+    "number": 431,
+    "title": "NL-10: Notional loads ignore member (distributed/point) gravity loads"
+   },
+   {
+    "number": 432,
+    "title": "NL-13: Contact solver reports converged after freezing a chattering gap at max_flips"
+   },
+   {
+    "number": 433,
+    "title": "NL-17: Fiber solver reports an unconverged iterate on failure (no load factor)"
+   },
+   {
+    "number": 435,
+    "title": "Flat 2D model solved in 3D: nodal moments and prescribed rotations act mirrored"
+   },
+   {
+    "number": 439,
+    "title": "Web: 3D sections send no Cw and fall back to J = 0.001·Iy; with torsional buckling in Kg these now drive 3D buckling/P-Delta"
+   },
+   {
+    "number": 441,
+    "title": "Safety advisories: notify users when a released version produced a wrong or unconservative result"
+   },
+   {
+    "number": 442,
+    "title": "Imperfection analysis can silently do nothing (3D gravity axis, member loads, residual stresses, plane model along Y)"
+   },
+   {
+    "number": 443,
+    "title": "Settlements on a DOF the support leaves free are dropped without a message"
+   },
+   {
+    "number": 444,
+    "title": "Winkler member forces leave out the foundation reaction"
+   },
+   {
+    "number": 445,
+    "title": "Rigid link and diaphragm mean different things in the 2D and the 3D solve of one model"
+   },
+   {
+    "number": 447,
+    "title": "Contain first, fix second: per-feature runtime switches (warn/refuse) for known dangerous results"
+   },
+   {
+    "number": 452,
+    "title": "2D: a nodal moment on a node where every frame is hinged is silently lost"
+   },
+   {
+    "number": 456,
+    "title": "3D buckling: compression gate uses end-force average, misses members compressed only between their ends"
+   },
+   {
+    "number": 458,
+    "title": "Existing (assembled-level) certificate certifies singular models: all-hinged 2D node with moment/rigid link; skew unstiffened rotation"
+   },
+   {
+    "number": 459,
+    "title": "3D diaphragm in the XZ plane ties slaves with reversed rotation sign"
+   }
+  ],
+  "ts": {
+   "by_class": {
+    "a": {
+     "modules": 23,
+     "lines": 11273
+    },
+    "b": {
+     "modules": 59,
+     "lines": 26233
+    },
+    "c": {
+     "modules": 102,
+     "lines": 32691
+    },
+    "d": {
+     "modules": 148,
+     "lines": 41919
+    }
+   },
+   "high_bc": {
+    "modules": 88,
+    "lines": 35935
+   },
+   "unclassified": {
+    "modules": 13,
+    "lines": 1740,
+    "files": [
+     "pdelta-amplification.ts",
+     "certificate-types.ts",
+     "incremental-outcome.ts",
+     "certify-jobs.ts",
+     "certificate-read.ts",
+     "model-sanity.ts",
+     "certify-tags.ts",
+     "steel/tension-connection.ts",
+     "steel/angle-section.ts",
+     "codes/argentina/cirsoc301-engine-gate.ts",
+     "codes/argentina/cirsoc301-kernel.ts",
+     "codes/argentina/cirsoc201-engine-gate.ts",
+     "codes/argentina/cirsoc201-beam-kernel.ts"
+    ]
+   },
+   "missing": [
+    "pdelta-forces.ts"
+   ],
+   "rust_lines": 107634
+  },
+  "feature_matrix": {
+   "2D": {
+    "✓": 427,
+    "R": 16,
+    "·": 93,
+    "~": 8
+   },
+   "3D": {
+    "✓": 585,
+    "R": 69,
+    "·": 174,
+    "~": 12
+   }
+  },
+  "maturity_levels": {
+   "analyses": {
+    "Certified": 11,
+    "Benchmarked": 16,
+    "Differential": 0,
+    "Tested": 0,
+    "Unverified": 0
+   },
+   "elements": {
+    "Certified": 4,
+    "Benchmarked": 7,
+    "Differential": 1,
+    "Tested": 1,
+    "Unverified": 0
+   },
+   "design": {
+    "Certified": 8,
+    "Benchmarked": 3,
+    "Differential": 3,
+    "Tested": 2,
+    "Unverified": 0
+   }
+  },
+  "design_examples": {
+   "pass": 33,
+   "fixed": 10,
+   "doc": 1,
+   "uncovered": 11,
+   "clause test": 6,
+   "ex": 2
+  },
+  "differential": {
+   "pynite": {
+    "run": "https://github.com/lambdaclass/stabileo/actions/runs/39097987226",
+    "sha": "fa6620a17064ea69258fed65b29f85d663a81010",
+    "date": "2026-10-18",
+    "statuses": {
+     "ill_conditioned": 222,
+     "ok": 760,
+     "unsupported": 121,
+     "stabileo_failed": 11
+    },
+    "analyses": {
+     "static": {
+      "ill_conditioned": 222,
+      "ok": 760,
+      "unsupported": 121,
+      "stabileo_failed": 11
+     }
+    },
+    "compared": 760,
+    "ok": 760,
+    "mismatch": 0,
+    "total": 1114
+   },
+   "kratos": {
+    "run": "https://github.com/lambdaclass/stabileo/actions/runs/39097987226",
+    "sha": "fa6620a17064ea69258fed65b29f85d663a81010",
+    "date": "2026-10-18",
+    "statuses": {
+     "ok": 712,
+     "ill_conditioned": 118,
+     "unsupported": 28,
+     "stabileo_failed": 6
+    },
+    "analyses": {
+     "static": {
+      "ok": 712,
+      "ill_conditioned": 118,
+      "unsupported": 28,
+      "stabileo_failed": 6
+     }
+    },
+    "compared": 712,
+    "ok": 712,
+    "mismatch": 0,
+    "total": 864
+   },
+   "frame3dd": {
+    "run": "https://github.com/lambdaclass/stabileo/actions/runs/39097987226",
+    "sha": "fa6620a17064ea69258fed65b29f85d663a81010",
+    "date": "2026-10-18",
+    "statuses": {
+     "ok": 1099,
+     "mismatch": 1,
+     "unstable": 4,
+     "unsupported": 10
+    },
+    "analyses": {
+     "static": {
+      "ok": 803,
+      "mismatch": 1,
+      "unsupported": 10
+     },
+     "modal": {
+      "ok": 150
+     },
+     "pdelta": {
+      "ok": 146,
+      "unstable": 4
+     }
+    },
+    "compared": 1100,
+    "ok": 1099,
+    "mismatch": 1,
+    "total": 1114
+   },
+   "opensees": {
+    "run": "https://github.com/lambdaclass/stabileo/actions/runs/39099586668",
+    "sha": "fa6620a17064ea69258fed65b29f85d663a81010",
+    "date": "2026-10-18",
+    "statuses": {
+     "ok": 3233,
+     "unsupported": 73,
+     "stabileo_failed": 427,
+     "ill_conditioned": 524,
+     "unloaded": 3,
+     "mismatch": 1,
+     "unstable": 13
+    },
+    "analyses": {
+     "static": {
+      "ok": 1131,
+      "unsupported": 32,
+      "stabileo_failed": 376,
+      "ill_conditioned": 472,
+      "unloaded": 2,
+      "mismatch": 1
+     },
+     "buckling": {
+      "ok": 552,
+      "stabileo_failed": 48
+     },
+     "modal": {
+      "ok": 504,
+      "ill_conditioned": 52,
+      "stabileo_failed": 3,
+      "unsupported": 41
+     },
+     "pdelta": {
+      "ok": 587,
+      "unstable": 13
+     },
+     "th": {
+      "ok": 399,
+      "unloaded": 1
+     },
+     "shell": {
+      "ok": 60
+     }
+    },
+    "compared": 3234,
+    "ok": 3233,
+    "mismatch": 1,
+    "total": 4274
+   },
+   "codeaster": {
+    "run": "https://github.com/lambdaclass/stabileo/actions/runs/39099586668",
+    "sha": "fa6620a17064ea69258fed65b29f85d663a81010",
+    "date": "2026-10-18",
+    "statuses": {
+     "ok": 412,
+     "stabileo_failed": 62,
+     "ill_conditioned": 347,
+     "unloaded": 1,
+     "unsupported": 5,
+     "mismatch": 99,
+     "near_singular": 5,
+     "aster_failed": 1
+    },
+    "analyses": {
+     "static": {
+      "ok": 412,
+      "stabileo_failed": 62,
+      "ill_conditioned": 347,
+      "unloaded": 1,
+      "unsupported": 5,
+      "mismatch": 99,
+      "near_singular": 5,
+      "aster_failed": 1
+     }
+    },
+    "compared": 511,
+    "ok": 412,
+    "mismatch": 99,
+    "total": 932
+   }
+  },
+  "rust_mutants": {
+   "caught": 714,
+   "missed": 478,
+   "timeout": 8,
+   "unviable": 51,
+   "planned": 23264,
+   "tested": 1251,
+   "plan_known": true,
+   "sha": "fa6620a17064ea69258fed65b29f85d663a81010",
+   "shards": 8,
+   "shards_expected": 8,
+   "shards_missing": 0,
+   "complete": false,
+   "jobs": {
+    "mutants (5)": "cancelled",
+    "mutants (6)": "cancelled",
+    "mutants (2)": "cancelled",
+    "mutants (7)": "cancelled",
+    "mutants (4)": "cancelled",
+    "mutants (1)": "cancelled",
+    "mutants (0)": "cancelled",
+    "mutants (3)": "cancelled"
+   },
+   "run": "https://github.com/lambdaclass/stabileo/actions/runs/39099586668",
+   "date": "2026-10-18"
+  },
+  "ts_mutants": null
+ }
+}

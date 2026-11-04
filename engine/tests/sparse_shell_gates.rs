@@ -105,7 +105,7 @@ fn make_ss_plate(nx: usize, ny: usize) -> SolverInput3D {
         .collect();
 
     SolverInput3D {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes,
         materials: mats,
         sections: HashMap::new(),
@@ -267,7 +267,7 @@ fn sparse_vs_dense_parity() {
 /// which α makes the strict IC(0) factorization succeed on the pattern, plus
 /// the PCG iteration count when it does. Also reports Jacobi/SSOR convergence
 /// for reference. Ignored by default — run manually with:
-///   cargo test --release --test sparse_shell_gates diagnose_ic0_shift_sweep -- --ignored --nocapture
+///   cargo test --release --test gates sparse_shell_gates::diagnose_ic0_shift_sweep -- --ignored --nocapture
 ///
 /// Measured 2026-09-22 (Apple M3, release): strict IC(0) needs α ≥ 1e-1 on
 /// 10×10/20×20 and α ≥ 1e-2 on 30×30 to factorize at all; Jacobi/SSOR
@@ -348,7 +348,7 @@ fn diagnose_ic0_shift_sweep() {
 /// on SS MITC4 plates, reporting restored pivots, iterations and the true
 /// relative residual. The chosen production default is `ICS_SHIFT_REL` in
 /// `solver/linear.rs`. Ignored by default — run manually with:
-///   cargo test --release --test sparse_shell_gates diagnose_shifted_ic_sweep -- --ignored --nocapture
+///   cargo test --release --test gates sparse_shell_gates::diagnose_shifted_ic_sweep -- --ignored --nocapture
 #[test]
 #[ignore]
 fn diagnose_shifted_ic_sweep() {
@@ -451,7 +451,7 @@ fn diagnose_shifted_ic_breakdown() {
 ///   - restore-up: degraded pivot → restore_rel · max_diag (Ajiz-Jennings up)
 ///   - diag-scaled global shift: factorize K + alpha·diag(K) with strict IC(0)
 /// Ignored by default — run manually with:
-///   cargo test --release --test sparse_shell_gates diagnose_ic_restore_policy -- --ignored --nocapture
+///   cargo test --release --test gates sparse_shell_gates::diagnose_ic_restore_policy -- --ignored --nocapture
 #[test]
 #[ignore]
 fn diagnose_ic_restore_policy() {
@@ -615,7 +615,7 @@ fn diagnose_ic_restore_policy() {
 /// on MITC4 shells? IC(0) quality is ordering-sensitive; AMD reduces the
 /// effective dropped fill. Factorizes the AMD-permuted K_ff with strict IC(0),
 /// then Shifted-IC, and reports PCG convergence on the permuted system.
-///   cargo test --release --test sparse_shell_gates diagnose_ic0_ordering -- --ignored --nocapture
+///   cargo test --release --test gates sparse_shell_gates::diagnose_ic0_ordering -- --ignored --nocapture
 #[test]
 #[ignore]
 fn diagnose_ic0_ordering() {
@@ -918,10 +918,20 @@ fn fill_ratio_regression() {
     }
 }
 
+#[test]
+fn modal_refuses_the_plate_whose_in_plane_rotation_only_drilling_stiffness_holds() {
+    let mut densities = HashMap::new();
+    densities.insert("1".to_string(), 7850.0);
+    let e = modal::solve_modal_3d(&make_ss_plate(8, 8), &densities, 5).unwrap_err();
+    assert!(e.starts_with("MODAL-MECHANISM: "), "{e}");
+}
+
 /// Gate 5d: Sparse modal eigenvalues match dense Lanczos eigenvalues.
 #[test]
 fn sparse_modal_parity() {
-    let input = make_ss_plate(8, 8);
+    let mut input = make_ss_plate(8, 8);
+    let corner = input.nodes.values().find(|n| n.x == 10.0 && n.y == 0.0).unwrap().id;
+    input.supports.values_mut().find(|s| s.node_id == corner).unwrap().ry = true;
     let num_modes = 5;
 
     // Both paths need densities
@@ -973,6 +983,85 @@ fn sparse_modal_parity() {
     }
 }
 
+fn shifted_negative_inertia(k: &dedaliano_engine::linalg::CscMatrix, m: &dedaliano_engine::linalg::CscMatrix, sigma: f64) -> usize {
+    let n = k.n;
+    let (mut rows, mut cols, mut vals) = (Vec::new(), Vec::new(), Vec::new());
+    for (matrix, scale) in [(k, 1.0), (m, -sigma)] {
+        for j in 0..n { for p in matrix.col_ptr[j]..matrix.col_ptr[j + 1] {
+            rows.push(matrix.row_idx[p]); cols.push(j); vals.push(scale * matrix.values[p]);
+        }}
+    }
+    let shifted = dedaliano_engine::linalg::CscMatrix::from_triplets(n, &rows, &cols, &vals);
+    dedaliano_engine::linalg::sparse_chol::sparse_negative_inertia(&symbolic_cholesky(&shifted), &shifted)
+        .expect("K - sigma M factorization refused")
+}
+
+fn infinity_norm(matrix: &dedaliano_engine::linalg::CscMatrix) -> f64 {
+    let mut sums = vec![0.0; matrix.n];
+    for j in 0..matrix.n { for p in matrix.col_ptr[j]..matrix.col_ptr[j + 1] {
+        let i = matrix.row_idx[p];
+        sums[i] += matrix.values[p].abs();
+        if i != j { sums[j] += matrix.values[p].abs(); }
+    }}
+    sums.into_iter().fold(0.0, f64::max)
+}
+
+/// Gate: the 8×8 MITC4 plate's in-plane rotation about the pinned corner is
+/// held only by drilling stiffness (λ₁ ≈ 4e-9), so its inverse is ~2e8 and
+/// K⁻¹ rounding along it must not block locking the higher modes.
+#[test]
+fn near_mechanism_plate_modal_is_complete() {
+    let input = make_ss_plate(8, 8);
+    let mut densities = HashMap::new();
+    densities.insert("1".to_string(), 7850.0);
+    let dof_num = DofNumbering::build_3d(&input);
+    let sasm = assemble_sparse_3d(&input, &dof_num, false);
+    assert!(sasm.inclined_transforms.is_empty());
+    let k = &sasm.k_ff;
+    let m = &dedaliano_engine::solver::mass_matrix::assemble_mass_matrix_3d_sparse(&input, &dof_num, &densities);
+    let n = k.n;
+    let (k_norm, m_norm) = (infinity_norm(k), infinity_norm(m));
+    for requested in [10, 50] {
+        let refusal = modal::solve_modal_3d(&input, &densities, requested).unwrap_err();
+        assert!(refusal.starts_with("MODAL-MECHANISM: "), "{requested} modes: {refusal}");
+
+        let r = dedaliano_engine::linalg::lanczos_generalized_eigen_sparse(k, m, requested, 0.0)
+            .expect("eigensolve refused");
+        assert_eq!(r.values.len(), requested);
+        assert!(r.values.windows(2).all(|w| w[0] <= w[1]));
+        assert!(r.values[0] > 0.0 && r.values[0] < 1e-6, "near-mechanism eigenvalue {}", r.values[0]);
+        let vectors: Vec<Vec<f64>> = (0..requested)
+            .map(|c| (0..n).map(|i| r.vectors[i * requested + c]).collect()).collect();
+        let m_vectors: Vec<Vec<f64>> = vectors.iter().map(|v| m.sym_mat_vec(v)).collect();
+        let mut worst_backward = 0.0f64;
+        let mut worst_gram = 0.0f64;
+        for (c, v) in vectors.iter().enumerate() {
+            let lambda = r.values[c];
+            let kv = k.sym_mat_vec(v);
+            let v_norm = v.iter().fold(0.0f64, |a, x| a.max(x.abs()));
+            let residual = (0..n).map(|i| (kv[i] - lambda * m_vectors[c][i]).abs()).fold(0.0, f64::max);
+            let backward = residual / ((k_norm + lambda * m_norm) * v_norm);
+            assert!(backward <= 1e-10, "mode {c} (λ={lambda}) backward error {backward:e}");
+            worst_backward = worst_backward.max(backward);
+            for (d, mw) in m_vectors.iter().enumerate() {
+                let gram: f64 = v.iter().zip(mw).map(|(a, b)| a * b).sum();
+                let error = (gram - if c == d { 1.0 } else { 0.0 }).abs();
+                assert!(error <= 1e-8, "VᵀMV[{c},{d}] = {gram}");
+                worst_gram = worst_gram.max(error);
+            }
+        }
+
+        let boundary = r.values[requested - 1];
+        let below = shifted_negative_inertia(k, m, boundary * (1.0 - 1e-6));
+        let returned_below = r.values.iter().filter(|&&v| v < boundary * (1.0 - 1e-6)).count();
+        assert_eq!(below, returned_below, "{requested} modes: an eigenvalue below the boundary cluster was skipped");
+        let through = shifted_negative_inertia(k, m, boundary * (1.0 + 1e-6));
+        assert!(through >= requested, "{requested} modes: Sturm count {through} through the boundary");
+        println!("{requested} modes: λ₁={:e}, λ_k={boundary}, Sturm below/through = {below}/{through}, worst backward {worst_backward:.1e}, worst |VᵀMV−I| {worst_gram:.1e}",
+            r.values[0]);
+    }
+}
+
 /// Gate: Harmonic modal path matches direct path within tolerance.
 #[test]
 fn harmonic_modal_parity() {
@@ -1019,6 +1108,7 @@ fn harmonic_modal_parity() {
     };
     let modal_result = dedaliano_engine::solver::harmonic::solve_harmonic_3d(&harmonic_input)
         .expect("Harmonic modal solve failed");
+    assert_eq!(modal_result.method, "modal+static");
 
     // === Direct path (explicit block LU per frequency) ===
     let ns = nf; // no constraints
@@ -1066,10 +1156,12 @@ fn harmonic_modal_parity() {
     // frequencies where amplitudes are very small — use peak amplitude as scale.
     let scale = direct_peak_amp.max(1e-30);
     let mut max_norm_err = 0.0f64;
+    let mut max_rel_err = 0.0f64;
     for (i, &freq) in frequencies.iter().enumerate() {
         let modal_amp = modal_result.response_points[i].amplitude;
         let direct_amp = direct_amps[i];
         let abs_err = (modal_amp - direct_amp).abs();
+        max_rel_err = max_rel_err.max(abs_err / direct_amp.max(1e-30));
         // Normalized error: absolute difference / peak amplitude
         let norm_err = abs_err / scale;
         if norm_err > max_norm_err {
@@ -1080,7 +1172,7 @@ fn harmonic_modal_parity() {
                 freq, modal_amp, direct_amp, norm_err);
         }
     }
-    println!("Max normalized error (vs peak): {:.2e}", max_norm_err);
+    println!("Max normalized error (vs peak): {:.2e}, max relative error: {:.2e}", max_norm_err, max_rel_err);
 
     // 5% of peak amplitude is a tight enough tolerance for modal superposition
     assert!(
@@ -1182,7 +1274,7 @@ fn make_ss_plate_with_grid(nx: usize, ny: usize) -> (SolverInput3D, Vec<Vec<usiz
         .collect();
 
     let input = SolverInput3D {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes,
         materials: mats,
         sections: HashMap::new(),
@@ -1271,7 +1363,7 @@ fn make_compressed_plate(nx: usize, ny: usize) -> SolverInput3D {
     }
 
     SolverInput3D {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes, materials: mats, sections: HashMap::new(),
         elements: HashMap::new(), supports, loads,
         constraints: vec![], left_hand: None,
@@ -1624,7 +1716,7 @@ fn guyan_3d_vs_linear_parity() {
 /// PCG-Jacobi on ≥20×20 shells: measured −71% (20×20), −75% (30×30) and −85%
 /// (50×50) end-to-end vs direct. The 10×10 row stays direct (nf=684 <
 /// threshold).
-///   cargo test --release --test sparse_shell_gates diagnose_pcg_attempt_overhead -- --ignored --nocapture
+///   cargo test --release --test gates sparse_shell_gates::diagnose_pcg_attempt_overhead -- --ignored --nocapture
 #[test]
 #[ignore]
 fn diagnose_pcg_attempt_overhead() {
@@ -1869,7 +1961,7 @@ fn pcg_trace_no_guard(
 /// 10×10: 109 iters, 20×20: 235 (with ‖r‖/‖b‖ climbing to ≈11 around iter
 /// 100 before collapsing — CG's 2-norm residual is not monotone), 30×30: 338,
 /// 50×50: 495. This motivated the size-scaled stall window in `pcg_solve`.
-///   cargo test --release --test sparse_shell_gates diagnose_pcg_stall_curve -- --ignored --nocapture
+///   cargo test --release --test gates sparse_shell_gates::diagnose_pcg_stall_curve -- --ignored --nocapture
 #[test]
 #[ignore]
 fn diagnose_pcg_stall_curve() {
@@ -1921,7 +2013,7 @@ fn diagnose_pcg_stall_curve() {
 /// 0.99 factor. Grounds the size-scaled stall limit in `pcg_solve`: a fixed
 /// 50-iteration window aborts legitimate convergence (measured plateaus:
 /// Jacobi 164 @ 20×20, 272 @ 30×30, 426 @ 50×50, 527 @ 70×70 — ≈ 3.2·√nf).
-///   cargo test --release --test sparse_shell_gates diagnose_pcg_plateau_length -- --ignored --nocapture
+///   cargo test --release --test gates sparse_shell_gates::diagnose_pcg_plateau_length -- --ignored --nocapture
 #[test]
 #[ignore]
 fn diagnose_pcg_plateau_length() {
@@ -2008,7 +2100,7 @@ fn diagnose_pcg_plateau_length() {
 /// to factorize even after scaling (shifted-IC still breaks PCG down at
 /// iteration 0). Conclusion: no cheap preconditioner beats Jacobi here; the
 /// fix was the stall safeguard, not the preconditioner.
-///   cargo test --release --test sparse_shell_gates diagnose_precond_sweep -- --ignored --nocapture
+///   cargo test --release --test gates sparse_shell_gates::diagnose_precond_sweep -- --ignored --nocapture
 #[test]
 #[ignore]
 fn diagnose_precond_sweep() {
@@ -2235,7 +2327,7 @@ fn make_2d_multi_span(n_elements: usize) -> SolverInput {
     })];
 
     SolverInput {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes, materials, sections, elements, supports, loads,
         constraints: vec![], connectors: HashMap::new(),
     }
@@ -2304,13 +2396,19 @@ fn dense_modal_masses(
     let eigen = dedaliano_engine::linalg::lanczos_generalized_eigen(&k_dense, &m_ff, nf, num_modes, 0.0)
         .expect("Dense Lanczos failed");
 
-    // Influence vectors for X, Y, Z translational DOFs (same as modal.rs)
+    // Ground-motion loads (M·r)_f for X, Y, Z (same as modal.rs): r = 1 on every
+    // node's translation, supports included, times the full mass, free rows kept —
+    // the inertia the consistent mass couples to the moving supports is part of it.
     let mut r = [vec![0.0; nf], vec![0.0; nf], vec![0.0; nf]];
-    for &node_id in &dof_num.node_order {
-        for (axis, r_axis) in r.iter_mut().enumerate() {
+    for (axis, r_axis) in r.iter_mut().enumerate() {
+        let mut iota = vec![0.0; n];
+        for &node_id in &dof_num.node_order {
             if let Some(&d) = dof_num.map.get(&(node_id, axis)) {
-                if d < nf { r_axis[d] = 1.0; }
+                iota[d] = 1.0;
             }
+        }
+        for i in 0..nf {
+            r_axis[i] = (0..n).map(|j| m_full[i * n + j] * iota[j]).sum();
         }
     }
 
@@ -2334,8 +2432,8 @@ fn dense_modal_masses(
         }
         let phi_m_phi: f64 = phi.iter().zip(m_phi.iter()).map(|(a, b)| a * b).sum();
         if phi_m_phi.abs() < 1e-30 { continue; }
-        for (axis, r_axis) in r.iter().enumerate() {
-            let phi_m_r: f64 = r_axis.iter().zip(m_phi.iter()).map(|(a, b)| a * b).sum();
+        for (axis, mr_axis) in r.iter().enumerate() {
+            let phi_m_r: f64 = mr_axis.iter().zip(phi.iter()).map(|(a, b)| a * b).sum();
             let gamma = phi_m_r / phi_m_phi;
             meff_sum[axis] += gamma * gamma * phi_m_phi;
         }
@@ -2390,10 +2488,32 @@ fn assert_modal_mass_parity(input: &SolverInput3D, densities: &HashMap<String, f
 
 /// Gate: fully-sparse modal solve (sparse M + sparse eigensolve + sym_mat_vec
 /// post-processing) matches dense-computed frequencies and modal masses on an
+/// The 8×8 plate with one pinned corner keeps an in-plane rigid rotation. Its
+/// modal solve must either be refused by the self-check or pass every residual.
+#[test]
+fn sparse_modal_on_a_mechanism_is_refused_or_verified() {
+    let input = make_ss_plate(8, 8);
+    let mut densities = HashMap::new();
+    densities.insert("1".to_string(), 7850.0);
+    match modal::solve_modal_3d(&input, &densities, 5) {
+        Err(e) => assert!(e.starts_with("REFUSE: self-check modal_residual:") || e.starts_with("MODAL-MECHANISM: "), "{e}"),
+        Ok(r) => {
+            let residuals: Vec<_> = r.structured_diagnostics.iter()
+                .filter(|d| d.phase.as_deref().unwrap_or("").starts_with("self_check:modal_residual")).collect();
+            assert_eq!(residuals.len(), r.modes.len());
+            for d in residuals { assert!(d.value.unwrap() < 1e-6, "{}", d.message); }
+        }
+    }
+}
+
 /// 8×8 MITC4 plate.
 #[test]
 fn sparse_modal_mass_parity() {
-    let input = make_ss_plate(8, 8);
+    let mut input = make_ss_plate(8, 8);
+    // One pinned corner leaves in-plane rigid rotation about that corner.
+    // Restrain Y at the opposite X corner: no bending DOF is changed.
+    let corner = input.nodes.values().find(|n| n.x == 10.0 && n.y == 0.0).unwrap().id;
+    input.supports.values_mut().find(|s| s.node_id == corner).unwrap().ry = true;
     let mut densities = HashMap::new();
     densities.insert("1".to_string(), 7850.0);
     // 7 modes: the 6th mode (~28.2 Hz) belongs to a degenerate pair; retaining
@@ -2419,6 +2539,8 @@ fn make_cantilever_frame_3d(n_elem: usize) -> SolverInput3D {
     sections.insert("1".to_string(), SolverSection3D {
         id: 1, name: None, a: 0.0625, iy: 2.0e-4, iz: 3.2552e-4, j: 5.0e-4,
         cw: None, as_y: None, as_z: None,
+        shear_center_y: None,
+        shear_center_z: None,
     });
 
     let mut elements = HashMap::new();
@@ -2445,7 +2567,7 @@ fn make_cantilever_frame_3d(n_elem: usize) -> SolverInput3D {
     });
 
     SolverInput3D {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes, materials: mats, sections, elements, supports,
         loads: vec![],
         constraints: vec![], left_hand: None,

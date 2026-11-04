@@ -26,7 +26,8 @@ import type { AnalysisResults3D } from './types-3d';
 import type { Quantity } from '../utils/units';
 import { csvCell } from './result-query';
 import type { ElementDesignDemands, GoverningDemand } from './station-design-forces';
-import { extractForcesAtStation, stationTs, type StationSpec } from './station-forces';
+import { stationTs, type StationSpec } from './station-forces';
+import { evaluateDiagramAt } from './diagrams-3d';
 
 export type TableKind = 'displacements' | 'reactions' | 'forces';
 
@@ -72,10 +73,12 @@ export function columnsOf(kind: TableKind, opts: TableOptions = {}): Column[] {
   return [...COLUMNS[kind], ...(opts.resultant ? RESULTANTS[kind] : [])];
 }
 
+/** `v` with its resultants appended, in place: every caller hands it an array of its own. */
 function withResultants(kind: TableKind, v: number[]): number[] {
-  if (kind === 'displacements') return [...v, Math.hypot(v[0]!, v[1]!, v[2]!)];
-  if (kind === 'reactions') return [...v, Math.hypot(v[0]!, v[1]!, v[2]!), Math.hypot(v[3]!, v[4]!, v[5]!)];
-  return [...v, Math.hypot(v[1]!, v[2]!), Math.hypot(v[4]!, v[5]!)];
+  if (kind === 'displacements') v.push(Math.hypot(v[0]!, v[1]!, v[2]!));
+  else if (kind === 'reactions') v.push(Math.hypot(v[0]!, v[1]!, v[2]!), Math.hypot(v[3]!, v[4]!, v[5]!));
+  else v.push(Math.hypot(v[1]!, v[2]!), Math.hypot(v[4]!, v[5]!));
+  return v;
 }
 
 /** A result set with a name: a combination, or a case when nothing is combined. */
@@ -84,28 +87,52 @@ export interface Source { id: number; name: string; results: AnalysisResults3D }
 /** One row of one result set: a node, or a member end or station (`x`, m from end i). */
 export interface Row { entity: number; end?: 'i' | 'j'; x?: number; values: number[] }
 
-/** The rows of one result set, in the order the tables list them. */
-export function rowsOf(kind: TableKind, r: AnalysisResults3D, opts: TableOptions = {}): Row[] {
+/**
+ * Each row of one result set, in the order the tables list them, handed to `visit` without
+ * building a row object. `values` is the row's own array (resultants included under `resultant`).
+ *
+ * The summary reads every station of every member of every source and keeps two values per
+ * column; built as rows first, a 13-station summary of a 5 000-member frame over four
+ * combinations allocated a quarter of a million rows, each copied once more for its resultants,
+ * and the report spent nearly nine tenths of its time there (`scale-budget.test.ts`).
+ */
+function eachRow(kind: TableKind, r: AnalysisResults3D, opts: TableOptions, visit: (entity: number, end: 'i' | 'j' | undefined, x: number | undefined, values: number[]) => void): void {
   const keep = (id: number) => !opts.entities || opts.entities.has(id);
-  const fin = (row: Row): Row => (opts.resultant ? { ...row, values: withResultants(kind, row.values) } : row);
-  if (kind === 'displacements') return r.displacements.filter((d) => keep(d.nodeId)).map((d) => fin({ entity: d.nodeId, values: [d.ux, d.uy, d.uz, d.rx, d.ry, d.rz] }));
-  if (kind === 'reactions') return r.reactions.filter((x) => keep(x.nodeId)).map((x) => fin({ entity: x.nodeId, values: [x.fx, x.fy, x.fz, x.mx, x.my, x.mz] }));
-  const out: Row[] = [];
+  const fin = (v: number[]) => (opts.resultant ? withResultants(kind, v) : v);
+  if (kind === 'displacements') {
+    for (const d of r.displacements) if (keep(d.nodeId)) visit(d.nodeId, undefined, undefined, fin([d.ux, d.uy, d.uz, d.rx, d.ry, d.rz]));
+    return;
+  }
+  if (kind === 'reactions') {
+    for (const x of r.reactions) if (keep(x.nodeId)) visit(x.nodeId, undefined, undefined, fin([x.fx, x.fy, x.fz, x.mx, x.my, x.mz]));
+    return;
+  }
   const spec = opts.stations ?? 2;
   const ends = spec !== 'critical' && Math.max(2, Math.floor(spec)) === 2;
   for (const f of r.elementForces) {
     if (!keep(f.elementId)) continue;
     if (ends) {
-      out.push(fin({ entity: f.elementId, end: 'i', x: 0, values: [f.nStart, f.vyStart, f.vzStart, f.mxStart, f.myStart, f.mzStart] }));
-      out.push(fin({ entity: f.elementId, end: 'j', x: f.length, values: [f.nEnd, f.vyEnd, f.vzEnd, f.mxEnd, f.myEnd, f.mzEnd] }));
+      visit(f.elementId, 'i', 0, fin([f.nStart, f.vyStart, f.vzStart, f.mxStart, f.myStart, f.mzStart]));
+      visit(f.elementId, 'j', f.length, fin([f.nEnd, f.vyEnd, f.vzEnd, f.mxEnd, f.myEnd, f.mzEnd]));
       continue;
     }
     const ts = stationTs(f, spec);
-    ts.forEach((t, k) => {
-      const s = extractForcesAtStation(f, t);
-      out.push(fin({ entity: f.elementId, ...(k === 0 ? { end: 'i' as const } : k === ts.length - 1 ? { end: 'j' as const } : {}), x: t * f.length, values: [s.n, s.vy, s.vz, s.torsion, s.my, s.mz] }));
-    });
+    for (let k = 0; k < ts.length; k++) {
+      const t = ts[k]!;
+      // `extractForcesAtStation`'s six diagrams, without the station record it also builds.
+      const v = [evaluateDiagramAt(f, 'axial', t), evaluateDiagramAt(f, 'shearY', t), evaluateDiagramAt(f, 'shearZ', t),
+        evaluateDiagramAt(f, 'torsion', t), evaluateDiagramAt(f, 'momentY', t), evaluateDiagramAt(f, 'momentZ', t)];
+      visit(f.elementId, k === 0 ? 'i' : k === ts.length - 1 ? 'j' : undefined, t * f.length, fin(v));
+    }
   }
+}
+
+/** The rows of one result set, in the order the tables list them. */
+export function rowsOf(kind: TableKind, r: AnalysisResults3D, opts: TableOptions = {}): Row[] {
+  const out: Row[] = [];
+  eachRow(kind, r, opts, (entity, end, x, values) => {
+    out.push(kind === 'forces' ? { entity, ...(end ? { end } : {}), x, values } : { entity, values });
+  });
   return out;
 }
 
@@ -148,13 +175,14 @@ export function summaryRows(kind: TableKind, sources: readonly Source[], opts: T
   const max: Array<Extreme | null> = cols.map(() => null);
   const min: Array<Extreme | null> = cols.map(() => null);
   for (const s of sources) {
-    for (const row of rowsOf(kind, s.results, opts)) {
-      row.values.forEach((v, c) => {
-        if (!Number.isFinite(v)) return;
-        if (beatsExtreme(1, v, row.entity, row.x, max[c]!)) max[c] = { value: v, entity: row.entity, end: row.end, x: row.x, source: s };
-        if (beatsExtreme(-1, v, row.entity, row.x, min[c]!)) min[c] = { value: v, entity: row.entity, end: row.end, x: row.x, source: s };
-      });
-    }
+    eachRow(kind, s.results, opts, (entity, end, x, values) => {
+      for (let c = 0; c < values.length; c++) {
+        const v = values[c]!;
+        if (!Number.isFinite(v)) continue;
+        if (beatsExtreme(1, v, entity, x, max[c]!)) max[c] = { value: v, entity, end, x, source: s };
+        if (beatsExtreme(-1, v, entity, x, min[c]!)) min[c] = { value: v, entity, end, x, source: s };
+      }
+    });
   }
   return cols.map((column, c) => ({ column, max: max[c]!, min: min[c]! }));
 }

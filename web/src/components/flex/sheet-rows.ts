@@ -23,7 +23,7 @@ import { t } from '../../lib/i18n';
 import type { FlexCase, FlexMode, FlexOutput } from '../../lib/engine/codes/argentina/cirsoc-flex';
 import {
   beta1, yieldStrain, ES_MPA, COLUMN_STEEL_RATIO,
-  PHI_TENSION, PHI_COMPRESSION_TIED, PHI_COMPRESSION_SPIRAL,
+  PHI_TENSION, phiCompression,
 } from '../../lib/engine/codes/argentina/cirsoc201-basis';
 
 export type Row = [string, string];
@@ -74,6 +74,8 @@ export interface SheetContext {
   fc: number;
   fy: number;
   spiral: boolean;
+  /** CIRSOC 201 edition of the calculation (φ for a spiral differs). Absent: 2005. */
+  edition?: '2005' | '2025';
   /** Bars in the ring, for FCR-CIR's one-bar area. */
   barCount: number;
   Pu: number;
@@ -197,7 +199,7 @@ export function sheetRows(c: SheetContext): SheetRows {
     general.push([t('flex.out.phiTension'), PHI_TENSION.toFixed(2)]);
   } else {
     general.push(
-      [t('flex.out.phiCompression'), (c.spiral ? PHI_COMPRESSION_SPIRAL : PHI_COMPRESSION_TIED).toFixed(2)],
+      [t('flex.out.phiCompression'), phiCompression(c.spiral ? 'spiral' : 'ties', c.edition ?? '2005').toFixed(2)],
       [t('flex.out.phiTension'), PHI_TENSION.toFixed(2)],
       [t('flex.out.rhoColumnBounds'),
         `${(COLUMN_STEEL_RATIO.min * 100).toFixed(0)} % – ${(COLUMN_STEEL_RATIO.max * 100).toFixed(0)} %`],
@@ -233,6 +235,7 @@ export function sheetRows(c: SheetContext): SheetRows {
    */
   const headline = refused || !r ? t('flex.out.checkInputs')
     : r.impossible ? t('flex.out.sectionTooSmall')
+    : r.exhausted ? t('flex.out.noArrangementFits')
     : mode === 'verify' ? `φMn = ${(r.phiMn ?? 0).toFixed(2)} kN·m`
     : `${isBeam ? 'As' : 'Ast'} = ${r.AstCm2.toFixed(3)} cm²`;
 

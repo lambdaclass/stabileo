@@ -101,7 +101,7 @@ describe('every case the panel can size proposes buildable steel', () => {
       input: { mode: 'design', kase: 'FCO', fc: 25, fy: 420, b: 0.30, h: 0.30,
         dPrimeH: 0.05, dPrimeV: 0.05, dPrimeS: 0.05, dPrime: 0.05,
         pctA1: 40, pctA2: 40, pctA3: 20, nA1: 3, nA2: 3, nA3: 2,
-        Pu: 500, Mux: 60, Muy: 40 } as unknown as FlexInput,
+        Pu: 500, Mu: 60, Muy: 40 } as unknown as FlexInput,
     },
   ];
 

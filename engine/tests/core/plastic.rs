@@ -182,7 +182,7 @@ fn fixed_fixed_central(extra: Vec<SolverLoad>) -> PlasticInput {
 }
 
 fn gradient(element_id: usize, dt: f64) -> SolverLoad {
-    SolverLoad::Thermal(SolverThermalLoad { element_id, dt_uniform: 0.0, dt_gradient: dt })
+    SolverLoad::Thermal(SolverThermalLoad { element_id, dt_uniform: 0.0, dt_gradient: dt, alpha: None, depth: None })
 }
 
 #[test]

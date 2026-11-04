@@ -485,21 +485,19 @@ export class LoadArrowsBatched {
       const geo = new THREE.BufferGeometry();
       geo.setAttribute('position', new THREE.Float32BufferAttribute(this.shaftPos, 3));
       geo.setAttribute('color', new THREE.Float32BufferAttribute(this.shaftCol, 3));
-      const mat = new THREE.LineBasicMaterial({
+      group.add(overlay(new THREE.LineSegments(geo, shared('shaft', () => new THREE.LineBasicMaterial({
         vertexColors: true, toneMapped: false, depthTest: false, depthWrite: false,
-      });
-      group.add(overlay(new THREE.LineSegments(geo, mat)));
+      })))));
     }
 
     if (this.envPos.length > 0) {
       const geo = new THREE.BufferGeometry();
       geo.setAttribute('position', new THREE.Float32BufferAttribute(this.envPos, 3));
       geo.setAttribute('color', new THREE.Float32BufferAttribute(this.envCol, 3));
-      const mat = new THREE.LineBasicMaterial({
+      group.add(overlay(new THREE.LineSegments(geo, shared('envelope', () => new THREE.LineBasicMaterial({
         vertexColors: true, toneMapped: false, transparent: true, opacity: 0.5,
         depthTest: false, depthWrite: false,
-      });
-      group.add(overlay(new THREE.LineSegments(geo, mat)));
+      })))));
     }
 
     if (this.cones.length > 0) {
@@ -507,7 +505,7 @@ export class LoadArrowsBatched {
       // translated so the tip sits at the local origin.
       const geo = new THREE.ConeGeometry(0.5, 1, 8, 1);
       geo.translate(0, -0.5, 0);
-      const mat = new THREE.MeshBasicMaterial({ toneMapped: false, depthTest: false, depthWrite: false });
+      const mat = shared('cone', () => new THREE.MeshBasicMaterial({ toneMapped: false, depthTest: false, depthWrite: false }));
       const mesh = new THREE.InstancedMesh(geo, mat, this.cones.length);
       const m = new THREE.Matrix4();
       const pos = new THREE.Vector3();
@@ -530,7 +528,7 @@ export class LoadArrowsBatched {
 
     if (this.toruses.length > 0) {
       const geo = new THREE.TorusGeometry(0.2, 0.007, 8, 24, Math.PI * 1.5);
-      const mat = new THREE.MeshBasicMaterial({ toneMapped: false, depthTest: false, depthWrite: false });
+      const mat = shared('torus', () => new THREE.MeshBasicMaterial({ toneMapped: false, depthTest: false, depthWrite: false }));
       const mesh = new THREE.InstancedMesh(geo, mat, this.toruses.length);
       const m = new THREE.Matrix4();
       const pos = new THREE.Vector3();
@@ -551,11 +549,10 @@ export class LoadArrowsBatched {
       const geo = new THREE.BufferGeometry();
       geo.setAttribute('position', new THREE.Float32BufferAttribute(this.fillPos, 3));
       geo.setAttribute('color', new THREE.Float32BufferAttribute(this.fillCol, 3));
-      const mat = new THREE.MeshBasicMaterial({
+      group.add(overlay(new THREE.Mesh(geo, shared('fill', () => new THREE.MeshBasicMaterial({
         vertexColors: true, toneMapped: false, transparent: true, opacity: 0.15,
         side: THREE.DoubleSide, depthTest: false, depthWrite: false,
-      });
-      group.add(overlay(new THREE.Mesh(geo, mat)));
+      })))));
     }
 
     for (const l of this.labels) {
@@ -567,6 +564,19 @@ export class LoadArrowsBatched {
 
     return group;
   }
+}
+
+/**
+ * The arrows' materials, one of each, made once and kept (`userData.shared`, so disposing a group
+ * leaves them). The arrows are rebuilt on every edit; freeing their materials each time made WebGL
+ * drop the programs they use and compile them again on the next frame, which was most of the cost
+ * of an edit in a loaded model.
+ */
+const materials = new Map<string, THREE.Material>();
+function shared<M extends THREE.Material>(key: string, make: () => M): M {
+  let m = materials.get(key) as M | undefined;
+  if (!m) { m = make(); m.userData.shared = true; materials.set(key, m); }
+  return m;
 }
 
 export function createLoadArrowsBatched(): LoadArrowsBatched {

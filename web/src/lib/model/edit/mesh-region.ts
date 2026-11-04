@@ -13,6 +13,7 @@ import type { SurfaceLoad3D, ThermalLoadQuad3D } from '../../store/model.svelte'
 import { applyMesh, regionOccupied } from './mesh-apply';
 import { generateMesh, MAX_MESH_CELLS, type MeshInput, type MeshOutput } from './mesher';
 import { MAX_DIVISIONS_PER_AXIS } from '../../engine/shell-mesh-gen';
+import type { Vec3 } from './affine';
 
 export type MeshDensity = { mode: 'targetSize'; size: number } | { mode: 'fixedDivisions'; nx: number; ny: number };
 
@@ -104,12 +105,13 @@ export interface MeshQuadResult extends MeshRegionResult {
  * Refused, with nothing changed, when the mesher refuses the region or other shells already lie
  * in it; the quad stays.
  */
-export function meshQuad(quadId: number, o: { density: MeshDensity; splitBeams: boolean }): MeshQuadResult | MeshRegionRefusal | { refused: 'occupied' } | null {
+export function meshQuad(quadId: number, o: { density: MeshDensity; splitBeams: boolean; mesh?: MeshOutput; splitAt?: (p: Vec3) => boolean }): MeshQuadResult | MeshRegionRefusal | { refused: 'occupied' } | null {
   const quad = modelStore.quads.get(quadId);
   if (!quad) return null;
   const cornerIds = [...quad.nodes] as [number, number, number, number];
   const corners = cornerIds.map((id) => modelStore.nodes.get(id)!);
-  const planned = regionMesh(corners, o.density);
+  // A grid the caller built (`column-footprints.ts`) is used as given.
+  const planned = o.mesh ? { mesh: o.mesh } : regionMesh(corners, o.density);
   if ('refused' in planned) return planned;
   if (regionOccupied(regionMeshInput(corners, o.density), planned.mesh.plane, quadId)) return { refused: 'occupied' };
 
@@ -121,7 +123,7 @@ export function meshQuad(quadId: number, o: { density: MeshDensity; splitBeams: 
   let out!: MeshQuadResult;
   modelStore.batch(() => {
     modelStore.removeQuad(quadId);
-    const r = applyMesh(regionMeshInput(corners, o.density), { materialId, thickness, splitBeams: o.splitBeams }, planned.mesh)!;
+    const r = applyMesh(regionMeshInput(corners, o.density), { materialId, thickness, splitBeams: o.splitBeams, ...(o.splitAt ? { splitAt: o.splitAt } : {}) }, planned.mesh)!;
     out = { newNodes: r.newNodes, quadCount: r.quads.length, quads: r.quads, splitCount: r.splitCount, carriedLoads: surface.length + thermal.length };
     for (const q of r.quads) {
       if (offset) modelStore.setShellOffset('quad', q, offset);

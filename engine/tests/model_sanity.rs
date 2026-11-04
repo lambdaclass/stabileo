@@ -99,7 +99,7 @@ fn building(s: &Spec) -> Building {
     materials.insert("1".into(), SolverMaterial { id: 1, e: s.e, nu: 0.3 });
     let mut sections = HashMap::new();
     for (id, (a, iy, iz, j)) in [(1usize, s.col), (2, s.beam)] {
-        sections.insert(id.to_string(), SolverSection3D { id, name: None, a, iy, iz, j, cw: None, as_y: None, as_z: None });
+        sections.insert(id.to_string(), SolverSection3D { id, name: None, a, iy, iz, j, cw: None, as_y: None, as_z: None, shear_center_y: None, shear_center_z: None });
     }
     let mut elements = HashMap::new();
     let mut next = 1;
@@ -165,7 +165,7 @@ fn building(s: &Spec) -> Building {
             curved_shells: HashMap::new(),
             curved_beams: vec![],
             connectors: HashMap::new(),
-            solver_options: None,
+            solver_options: None, masses: Default::default(),
         },
         grid,
     }

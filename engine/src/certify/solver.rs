@@ -30,6 +30,7 @@ use super::forces::{force_bounds_2d, force_bounds_3d, shell_bounds_3d, ForceBoun
 use super::reactions::{reaction_bounds_2d, reaction_bounds_3d, ReactionBound2D, ReactionBound3D};
 use super::stations::{station_bounds_2d, station_bounds_3d, with_gaps_2d, with_gaps_3d, StationBound2D, StationBound3D};
 use super::interval::Interval;
+use super::reassembly::{end_to_end_2d, end_to_end_3d, EndToEnd};
 use super::linear::{
     certify_linear_system_auto_interval_rhs, certify_sigma_auto, certify_with_certified_sigma, Certificate, MAX_CERTIFY_N,
 };
@@ -55,6 +56,14 @@ pub struct CertifiedResults2D {
     /// What the views show beyond the end forces (empty when uncertified).
     #[serde(flatten)]
     pub shown: ShownBounds<StationBound2D, ReactionBound2D>,
+    /// Whether the model → K → result chain was checked by the independent
+    /// re-assembly (`certify::reassembly`), and its bound.
+    #[serde(default)]
+    pub end_to_end: EndToEnd,
+    /// "endToEnd" when `end_to_end` is certified, "assembled" when only the
+    /// solve of the assembled system is, "none" otherwise.
+    #[serde(default)]
+    pub certificate_level: CertificateLevel,
 }
 
 /// Bounds on the quantities the result views compute after the solve
@@ -128,12 +137,53 @@ pub struct CertifiedResults3D {
     pub shell_bounds: Vec<ShellBound>,
     #[serde(flatten)]
     pub shown: ShownBounds<StationBound3D, ReactionBound3D>,
+    #[serde(default)]
+    pub end_to_end: EndToEnd,
+    #[serde(default)]
+    pub certificate_level: CertificateLevel,
+}
+
+/// How much of the chain model → K → result a certified linear result covers.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub enum CertificateLevel {
+    /// Neither certificate holds.
+    #[default]
+    None,
+    /// The displacements solve the engine's assembled K and f (CERTIFY.md).
+    Assembled,
+    /// Also certified against an independent re-assembly of the model.
+    EndToEnd,
+}
+
+impl CertificateLevel {
+    pub fn of(assembled: &Certificate, e2e: &EndToEnd) -> Self {
+        if !assembled.is_certified() {
+            CertificateLevel::None
+        } else if e2e.is_certified() {
+            CertificateLevel::EndToEnd
+        } else {
+            CertificateLevel::Assembled
+        }
+    }
+}
+
+/// Withdraw an end-to-end claim that carries a non-finite number.
+fn guard_end_to_end(e2e: &mut EndToEnd) {
+    if !e2e.is_certified() {
+        return;
+    }
+    let bad = finite::undocumented_non_finite(&*e2e);
+    if !bad.is_empty() {
+        *e2e = EndToEnd::Uncertified { reason: format!("non-finite bound at {}", bad.join(", ")) };
+    }
 }
 
 impl CertifiedResults2D {
     /// Withdraw the certificate and every bound derived from it when any of
     /// them is not finite (outside the documented +∞ fields).
     fn guard(&mut self) {
+        guard_end_to_end(&mut self.end_to_end);
         if !self.certificate.is_certified() {
             return;
         }
@@ -149,6 +199,7 @@ impl CertifiedResults2D {
 impl CertifiedResults3D {
     /// As `CertifiedResults2D::guard`.
     fn guard(&mut self) {
+        guard_end_to_end(&mut self.end_to_end);
         if !self.certificate.is_certified() {
             return;
         }
@@ -168,8 +219,10 @@ pub fn certify_linear_2d_full(input: &SolverInput) -> Result<CertifiedResults2D,
     let (results, certificate) = certify_linear_2d(input)?;
     let force_bounds = certificate.abs_bound().map(|b| force_bounds_2d(input, b)).unwrap_or_default();
     let shown = certificate.abs_bound().map(|b| shown_bounds_2d(input, &input.loads, &results, b)).unwrap_or_default();
-    let mut out = CertifiedResults2D { results, certificate, force_bounds, shown };
+    let end_to_end = end_to_end_2d(input, &input.loads, &results);
+    let mut out = CertifiedResults2D { results, certificate, force_bounds, shown, end_to_end, certificate_level: CertificateLevel::None };
     out.guard();
+    out.certificate_level = CertificateLevel::of(&out.certificate, &out.end_to_end);
     Ok(out)
 }
 
@@ -182,8 +235,10 @@ pub fn certify_linear_3d_full(input: &SolverInput3D) -> Result<CertifiedResults3
         None => Default::default(),
     };
     let shown = certificate.abs_bound().map(|b| shown_bounds_3d(input, &input.loads, &results, b)).unwrap_or_default();
-    let mut out = CertifiedResults3D { results, certificate, force_bounds, shell_bounds, shown };
+    let end_to_end = end_to_end_3d(input, &input.loads, &results);
+    let mut out = CertifiedResults3D { results, certificate, force_bounds, shell_bounds, shown, end_to_end, certificate_level: CertificateLevel::None };
     out.guard();
+    out.certificate_level = CertificateLevel::of(&out.certificate, &out.end_to_end);
     Ok(out)
 }
 
@@ -213,6 +268,36 @@ pub fn certify_linear_3d(input: &SolverInput3D) -> Result<(AnalysisResults3D, Ce
 /// path-selection exclusions in .cargo/mutants.toml.
 fn solver_used_sparse(nf: usize) -> bool {
     nf >= SPARSE_THRESHOLD
+}
+
+/// Which assembly of K and f the linear solver factored for a solve: the same
+/// dispatch the certificates here follow (`solver_used_sparse`,
+/// `constrained_solver_used_sparse`). The end-to-end check compares exactly
+/// that assembly with its independent re-assembly.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SolverAssembly {
+    /// `assemble_stiffness_{2d,3d}` and the dense load vector.
+    Dense,
+    /// `assemble_stiffness_sparse_{2d,3d}` and the sparse-path load vector.
+    Sparse,
+    /// 3D constrained solve: `assemble_sparse_3d`.
+    SparseConstrained3D,
+}
+
+/// The assembly `solve_2d(input)` factored, given its results.
+pub fn solver_assembly_2d(input: &SolverInput, results: &AnalysisResults) -> SolverAssembly {
+    let nf = DofNumbering::build_2d(input).n_free;
+    let sparse = if input.constraints.is_empty() { solver_used_sparse(nf) } else { constrained_solver_used_sparse(nf, results) };
+    if sparse { SolverAssembly::Sparse } else { SolverAssembly::Dense }
+}
+
+/// The assembly `solve_3d(input)` factored.
+pub fn solver_assembly_3d(input: &SolverInput3D) -> SolverAssembly {
+    let expanded = expand_curved_beams_3d(input);
+    if !expanded.constraints.is_empty() {
+        return SolverAssembly::SparseConstrained3D;
+    }
+    if solver_used_sparse(DofNumbering::build_3d(&expanded).n_free) { SolverAssembly::Sparse } else { SolverAssembly::Dense }
 }
 
 /// The constrained solver's path: sparse when large enough and its sparse
@@ -252,11 +337,11 @@ pub fn certify_results_2d(input: &SolverInput, results: &AnalysisResults) -> Cer
 }
 
 fn needs_general_2d(input: &SolverInput) -> bool {
-    !input.constraints.is_empty() || input.supports.values().any(|s| s.support_type == "inclinedRoller")
+    !input.constraints.is_empty() || crate::ordered::values(&input.supports).any(|s| s.support_type == "inclinedRoller")
 }
 
 fn needs_general_3d(input: &SolverInput3D) -> bool {
-    !input.constraints.is_empty() || input.supports.values().any(|s| s.is_inclined.unwrap_or(false))
+    !input.constraints.is_empty() || crate::ordered::values(&input.supports).any(|s| s.is_inclined.unwrap_or(false))
 }
 
 /// Single case with constraints and/or inclined supports (see module docs).
@@ -352,7 +437,7 @@ fn rotated_candidate_2d(
     let mut rots = Vec::with_capacity(its.len());
     let mut prescribed = Vec::new();
     for it in its {
-        let sups: Vec<&SolverSupport> = input.supports.values().filter(|s| s.node_id == it.node_id).collect();
+        let sups: Vec<&SolverSupport> = crate::ordered::values(&input.supports).filter(|s| s.node_id == it.node_id).collect();
         let [sup] = sups.as_slice() else {
             return Err(Certificate::uncertified(format!(
                 "unsupported: several supports on inclined node {}",
@@ -569,7 +654,7 @@ fn rotated_candidate_3d(
     let mut rots = Vec::with_capacity(its.len());
     let mut prescribed = Vec::new();
     for it in its {
-        let sups: Vec<&SolverSupport3D> = input.supports.values().filter(|s| s.node_id == it.node_id).collect();
+        let sups: Vec<&SolverSupport3D> = crate::ordered::values(&input.supports).filter(|s| s.node_id == it.node_id).collect();
         let [sup] = sups.as_slice() else {
             return Err(Certificate::uncertified(format!(
                 "unsupported: several supports on inclined node {}",
@@ -708,7 +793,7 @@ pub fn reduced_sparse_2d(
     if !input.constraints.is_empty() {
         return Err(Certificate::uncertified("unsupported: constraints (constrained solver path)"));
     }
-    if input.supports.values().any(|s| s.support_type == "inclinedRoller") {
+    if crate::ordered::values(&input.supports).any(|s| s.support_type == "inclinedRoller") {
         return Err(Certificate::uncertified("unsupported: inclined supports"));
     }
     let dof_num = DofNumbering::build_2d(input);
@@ -738,7 +823,7 @@ fn reduced_sparse_3d_expanded(
     if !input.constraints.is_empty() {
         return Err(Certificate::uncertified("unsupported: constraints (constrained solver path)"));
     }
-    if input.supports.values().any(|s| s.is_inclined.unwrap_or(false)) {
+    if crate::ordered::values(&input.supports).any(|s| s.is_inclined.unwrap_or(false)) {
         return Err(Certificate::uncertified("unsupported: inclined supports"));
     }
     let dof_num = DofNumbering::build_3d(input);

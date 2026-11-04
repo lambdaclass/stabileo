@@ -889,12 +889,31 @@ pub fn plate_element_quality(coords: &[[f64; 3]; 3]) -> (f64, f64, f64) {
 /// at the element vertices instead of just the centroid.
 ///
 /// Returns an array of 3 `PlateStressLocal` values, one per node.
+/// No thermal correction: see `plate_stress_at_nodes_thermal`.
 pub fn plate_stress_at_nodes(
     coords: &[[f64; 3]; 3],
     e: f64,
     nu: f64,
     t: f64,
     u_local: &[f64],
+) -> [PlateStressLocal; 3] {
+    plate_stress_at_nodes_thermal(coords, e, nu, t, u_local, 0.0, 0.0, 0.0)
+}
+
+/// `plate_stress_at_nodes` with the thermal strain subtracted before the
+/// constitutive law, exactly as `plate_stress_recovery` does at the centroid:
+/// ε_mech = ε − α·ΔT_uniform, κ_mech = κ − α·ΔT_gradient/t. The solver's nodal
+/// von Mises comes from here; computed from the total strain, a free, heated
+/// triangle reported E·α·ΔT/(1−ν) at its nodes and zero at its centroid.
+pub fn plate_stress_at_nodes_thermal(
+    coords: &[[f64; 3]; 3],
+    e: f64,
+    nu: f64,
+    t: f64,
+    u_local: &[f64],
+    alpha: f64,
+    dt_uniform: f64,
+    dt_gradient: f64,
 ) -> [PlateStressLocal; 3] {
     assert!(u_local.len() >= 18);
 
@@ -914,6 +933,9 @@ pub fn plate_stress_at_nodes(
             eps[i] += b_cst[i * 6 + j] * u_mem[j];
         }
     }
+    eps[0] -= alpha * dt_uniform;
+    eps[1] -= alpha * dt_uniform;
+    let kappa_th = alpha * dt_gradient / t;
     let dm_coeff = e * t / (1.0 - nu * nu);
     let d_mem = [
         dm_coeff, dm_coeff * nu, 0.0,
@@ -961,6 +983,8 @@ pub fn plate_stress_at_nodes(
                 kappa[i] += b_dkt[i * 9 + j] * u_bend[j];
             }
         }
+        kappa[0] -= kappa_th;
+        kappa[1] -= kappa_th;
         let mut mom = [0.0; 3];
         for i in 0..3 {
             for j in 0..3 {

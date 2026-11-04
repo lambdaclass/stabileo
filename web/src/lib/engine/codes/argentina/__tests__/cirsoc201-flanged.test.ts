@@ -22,6 +22,7 @@
 import { describe, it, expect } from 'vitest';
 import { checkFlexure, type ConcreteDesignParams } from '../cirsoc201';
 import { checkFlexureFlanged, flangedBlockDepth } from '../cirsoc201-flanged';
+import { evaluateBeamSection } from '../cirsoc201-beam-kernel';
 
 const P: ConcreteDesignParams = {
   fc: 25, fy: 420, cover: 0.03, b: 0.2, h: 0.6, stirrupDia: 8,
@@ -37,11 +38,18 @@ describe('a T beam whose block stays in the flange', () => {
      * the module must not merely approximate the rectangle — it must BE it.
      * Any drift here means a second flexural path has appeared.
      */
-    const t = checkFlexureFlanged(P, T, 120);
-    const rect = checkFlexure({ ...P, b: T.bf }, 120);
+    const t = checkFlexureFlanged(P, T, 120, '2005');
+    const rect = checkFlexure({ ...P, b: T.bf }, 120, 0, { edition: '2005' });
     expect(t.withinFlange).toBe(true);
     expect(t.AsFlexural).toBeCloseTo(rect.AsFlexural, 6);
-    expect(t.phiMn).toBeCloseTo(rect.phiMn, 6);
+    /*
+     * And its capacity is the rectangle's for the same bars. (The rectangle of width bf picks
+     * more bars, for its bf-wide minimum; the T's minimum is on the web, so compare like with
+     * like: the T's bars in the rectangle bf wide.)
+     */
+    const asRect = evaluateBeamSection({ edition: '2005', fc: P.fc * 1e6, fy: P.fy * 1e6, b: T.bf, h: P.h,
+      d: P.h - P.cover - P.stirrupDia / 1000 - t.barDia / 2000, As: t.AsProv * 1e-4 })!;
+    expect(t.phiMn).toBeCloseTo(asRect.phiMn / 1000, 6);
     expect(t.AsFlange).toBe(0);
   });
 
@@ -137,7 +145,16 @@ describe('the block depth a given steel area produces', () => {
      */
     for (const As of [8, 20, 45, 70, 80, 120]) {
       const { a, withinFlange } = flangedBlockDepth(P, T, As);
-      const T_force = As * 1e-4 * P.fy * 1000; // kN
+      /*
+       * The tension the steel actually carries: fy if it yields, Es·εs if it does not
+       * (strain compatibility, 22.2.1; the block depth used to be closed with fy regardless,
+       * which overstated it for heavy steel). c = a/β1, εs = 0,003·(d − c)/c.
+       */
+      const b1 = P.fc <= 28 ? 0.85 : Math.max(0.65, 0.85 - (0.05 * (P.fc - 28)) / 7);
+      const d = P.h - P.cover - P.stirrupDia / 1000 - 0.008;
+      const c = a / b1;
+      const fs = Math.min(P.fy, 200000 * 0.003 * (d - c) / c); // MPa
+      const T_force = As * 1e-4 * fs * 1000; // kN
       const alpha1 = 0.85;
       const C = withinFlange
         ? alpha1 * P.fc * 1000 * T.bf * a

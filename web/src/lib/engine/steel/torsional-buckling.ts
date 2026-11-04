@@ -19,9 +19,9 @@
  * **What is missing**, each independently fatal:
  *
  *   1. **`Cw`, the warping constant (cm⁶).** E.4.9 is
- *      `Fez = (π²·E·Cw/(kz·L)² + G·J) · 1/(Ag·r̄o²)`. **No section in this app declares one** — not
- *      the catalogue, not the parametric templates, and the caller never passes it. Verified by
- *      grep. Without `Cw` the general branch cannot be evaluated at all.
+ *      `Fez = (π²·E·Cw/(kz·L)² + G·J) · 1/(Ag·r̄o²)`. `section-constants.ts` now computes `Cw` for
+ *      doubly symmetric I and H sections and for channels, but this check is not wired to it yet,
+ *      and other shapes still have none. Until it is, the general branch is not evaluated.
  *   2. **`kz`, the torsional effective length factor.** The clause fixes it: «kz = 1 cuando los
  *      extremos del miembro tienen la torsión impedida y el alabeo libre». That is a BOUNDARY
  *      CONDITION about the connections, and the model records nothing about warping restraint.
@@ -148,12 +148,20 @@ export function e4Applicability(input: E4Input): E4Verdict {
   if (input.shearCentreKnown === false || !SHEAR_CENTRE_SHAPES.has(shape ?? '')) {
     gaps.push('shearCentre');
   }
+  /*
+   * A doubly symmetric I with J and Cw is checked by E.4.4 (`cirsoc301.ts`): kz = 1, «extremos con
+   * la torsión impedida y el alabeo libre», and the torsional length the longer flexural one unless
+   * the member states its own; both are stated as assumptions, not missing data.
+   */
+  if ((shape === 'I' || shape === 'H') && gaps.length === 0) {
+    return { applicable: true, scope: 'inScope', reasonKey: 'steel.e4.evaluatedI', gaps: [] };
+  }
   // «kz = 1 cuando los extremos del miembro tienen la torsión impedida y el alabeo libre» — a fact
   // about the connections, not about the member.
   gaps.push('torsionalEndCondition');
-  // E.4.2(a) covers Tees and double angles «todas compactas o no compactas».
+  // The singly symmetric shapes need E.4.5 with the shear centre, not wired yet.
   if (shape === 'T') gaps.push('sectionClassification');
-  // The doubly-symmetric case turns on two lengths the model holds as one.
+  // An I without J or Cw: the torsional length is still the one the model cannot state.
   if (shape === 'I' || shape === 'H') gaps.push('torsionalUnbracedLength');
 
   if (gaps.length === 0) {

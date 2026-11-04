@@ -70,21 +70,25 @@ describe('staged construction, the finished structure', () => {
     expect(rz(staged)).toEqual(rz(linear));
   });
 
-  it('reads a column\'s axial force under its own weight unlike the linear solve', () => {
+  // Member forces used to differ: the staged solver read a column's self
+  // weight with the other sign and never gave it back, and left the girder's
+  // fixed-end forces out of its end moment and shear. It now recovers member
+  // forces as the linear solve does (#332), so one stage agrees with it.
+  it('reads a column\'s axial force under its own weight as the linear solve does', () => {
     restore([[1, 0, 0, 0], [2, 0, 0, 4]], [[1, 1, 2]], [1], 78.5);
     const { staged, linear } = solveBoth(true, [1], [1]);
     const W = 78.5 * A * 4;
-    // Linear: W of compression at the base, none at the top.
+    // W of compression at the base, none at the top.
     expect([force(linear, 1).nStart, force(linear, 1).nEnd].map((n) => +n.toFixed(9))).toEqual([-W, 0].map((n) => +n.toFixed(9)));
-    // Staged: the weight lumped half to each end, read with the other sign and never given back.
-    expect([force(staged, 1).nStart, force(staged, 1).nEnd].map((n) => +n.toFixed(9))).toEqual([W / 2, -W / 2].map((n) => +n.toFixed(9)));
+    expect([force(staged, 1).nStart, force(staged, 1).nEnd].map((n) => +n.toFixed(9))).toEqual([-W, 0].map((n) => +n.toFixed(9)));
   });
 
-  it('leaves the girder\'s fixed-end forces out of its end moment and shear', () => {
+  it('includes the girder\'s fixed-end forces in its end moment and shear', () => {
+    // Without them the moment and shear differed from the linear solve's by
+    // exactly wL²/12 = 30 kN·m and wL/2 = 30 kN.
     const { staged, linear } = portal();
-    const wL = 10 * 6;
-    expect(force(staged, 1).nStart).toBeCloseTo(-force(linear, 1).nStart, 6);
-    expect(force(linear, 2).myStart - force(staged, 2).myStart).toBeCloseTo(-wL * 6 / 12, 6);
-    expect(force(linear, 2).vzStart - force(staged, 2).vzStart).toBeCloseTo(wL / 2, 6);
+    expect(force(staged, 1).nStart).toBeCloseTo(force(linear, 1).nStart, 6);
+    expect(force(staged, 2).myStart).toBeCloseTo(force(linear, 2).myStart, 6);
+    expect(force(staged, 2).vzStart).toBeCloseTo(force(linear, 2).vzStart, 6);
   });
 });

@@ -188,6 +188,24 @@ describe('runFloorDesign — what it refuses to invent', () => {
       .toContain('detailing.floorRun.nonRectangularPanel');
   });
 
+  it('designs a triangle of a physical panel by the panel\'s strips, at its centroid', () => {
+    const { nodes, shells } = model();
+    // The 5 × 5 panel as two triangles: what the mesher leaves around a column or a skewed edge.
+    const tri: FloorShell[] = [
+      { id: 11, nodes: [1, 2, 3], materialId: 1, thickness: 0.20 },
+      { id: 12, nodes: [1, 3, 4], materialId: 1, thickness: 0.20 },
+      shells[1]!,
+    ];
+    const stress = (id: number) => ({ elementId: id, sigmaXx: 0, sigmaYy: 0, tauXy: 0, mx: 40, my: 30, mxy: 8 });
+    const base = { nodes, shells: tri, stresses: [stress(11), stress(12), input().stresses[1]!], factoredAreaLoad: new Map([[11, 12], [12, 12]]) };
+    expect(runFloorDesign(input(base)).unsupported.map((u) => u.message.key)).toContain('detailing.floorRun.nonRectangularPanel');
+    const r = runFloorDesign(input({ ...base, slabPanelOf: (id) => (id === 11 || id === 12 ? 'L7' : undefined) }));
+    expect(r.unsupported.map((u) => u.message.key)).not.toContain('detailing.floorRun.nonRectangularPanel');
+    const panel = r.slabs.find((s) => s.panelId === 'L7')!;
+    expect(panel.panel!.input.elements.map((e) => [e.id, +e.cx.toFixed(3), +e.cy.toFixed(3), e.area])).toEqual([[11, 3.333, 1.667, 12.5], [12, 1.667, 3.333, 12.5]]);
+    expect(panel.panel!.input.rowStep).toBeCloseTo(Math.sqrt(12.5), 6);
+  });
+
   it('says so when a wall moment came from membrane stress rather than a derivation', () => {
     const r = runFloorDesign(input());
     expect(r.unsupported.map((u) => u.message.key))
@@ -199,6 +217,30 @@ describe('runFloorDesign — what it refuses to invent', () => {
     expect(supplied.unsupported.map((u) => u.message.key))
       .not.toContain('detailing.floorRun.wallMomentFromMembraneOnly');
     expect(supplied.walls[0].axialFlexure.mu).toBeGreaterThan(0);
+  });
+
+  it('designs a wall meshed along its length as one wall, with its in-plane moment', () => {
+    // A 4 m wall at y = 0 in four 1 m pieces, with a vertical stress that grows linearly from
+    // one end to the other: compression 1000 kPa at the left piece, tension 500 kPa at the right.
+    const nodes = new Map<number, FloorNode>();
+    for (let i = 0; i <= 4; i++) { nodes.set(100 + i, { x: i, y: 0, z: 0 }); nodes.set(200 + i, { x: i, y: 0, z: 3 }); }
+    const shells: FloorShell[] = [0, 1, 2, 3].map((i) => ({ id: 30 + i, nodes: [100 + i, 101 + i, 201 + i, 200 + i], materialId: 1, thickness: 0.2 }));
+    const sig = [-1000, -500, 0, 500];
+    const r = runFloorDesign(input({
+      nodes, shells,
+      stresses: shells.map((s, i) => ({ elementId: s.id, sigmaXx: 0, sigmaYy: sig[i]!, tauXy: 100, mx: 0, my: 0, mxy: 0 })),
+      factoredAreaLoad: new Map(),
+    }));
+    expect(r.walls).toHaveLength(1);
+    const w = r.walls[0]!;
+    // P = Σ −σ·t·w = (1000 + 500 + 0 − 500)·0,2·1 = 200 kN; about the centre (x = 2) the pieces
+    // sit at −1,5, −0,5, 0,5, 1,5, with forces 200, 100, 0 and −100 kN:
+    // |M| = |200·(−1,5) + 100·(−0,5) + 0 + (−100)·1,5| = 500 kN·m.
+    // V = Σ τ·t·w = 4·100·0,2 = 80 kN.
+    expect(w.axialFlexure.pu).toBeCloseTo(200, 6);
+    expect(w.axialFlexure.mu).toBeCloseTo(500, 6);
+    expect(w.shear.vu).toBeCloseTo(80, 6);
+    expect(r.unsupported.map((u) => u.message.key)).not.toContain('detailing.floorRun.wallMomentFromMembraneOnly');
   });
 
   it('produces no footings, and the reason is data rather than engineering', () => {

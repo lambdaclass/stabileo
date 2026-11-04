@@ -150,14 +150,10 @@ describe('Bug 1: 2D Displacement uses uz/ry (not uy/rz)', () => {
     // Whether each of these treats PRO as a space workspace is `utils/__tests__/workspace-gate.test.ts`'s:
     // every such check goes through `is3DWorkspace`.
     expect(aiDrawer, 'AiDrawer.svelte should send canonical 3D mode to the AI backend').toContain("const aiAnalysisMode = $derived(is3DMode ? '3d' : '2d');");
-    expect(toolbar, 'KeyboardShortcuts.svelte should copy 3D element metadata into the clipboard through the shared helper').toContain('...pickElement3DMetadata(elem)');
-    // The paste of the clipboard's own record goes through the edit layer (`store/clipboard-paste.ts`),
-    // which carries the member frame — a complete explicit local axis only, and the roll — as every
-    // copy does; `node-welds.test.ts` pins the result.
-    const clipboardPaste = readFileSync(new URL('../../store/clipboard-paste.ts', import.meta.url), 'utf8');
-    expect(toolbar, 'KeyboardShortcuts.svelte should paste the clipboard record through the edit layer').toContain('pasteClipboardRecord(clip,');
-    expect(clipboardPaste, 'the record carries its 3D element metadata').toContain('...pickElement3DMetadata(e)');
-    expect(clipboardPaste, 'and is inserted as a fragment').toContain('insertFragment(clipboardFragment(clip)');
+    // Basic copies and pastes through PRO's clipboard, whose fragment carries every member field
+    // (the 3D frame included) and goes in through the edit layer; `node-welds.test.ts` and
+    // `basic-clipboard.test.ts` pin the result.
+    expect(toolbar, 'KeyboardShortcuts.svelte should use the shared model clipboard').toContain("from '../lib/store/model-clipboard'");
     expect(oldToolbar, 'the keyboard layer should live in ONE place, not two')
       .not.toContain('function handleKeydown');
   });
@@ -173,14 +169,8 @@ describe('Bug 1: 2D Displacement uses uz/ry (not uy/rz)', () => {
     expect(tabsStore, 'tabs.svelte.ts should restore viewportPresentation3D after analysisMode').toContain('viewportPresentation3D ?? ');
     expect(app, 'App.svelte should restore viewportPresentation3D from autosave').toContain('autosaveData.viewportPresentation3D');
   });
-
-  it('the report combo summary gives the strong-axis Mu', () => {
-    // The stress sign convention (σ = N/A − My·y/Iy + Mz·z/Iz) is `section-stress-3d.test.ts`'s, and
-    // a column's Mu = Mz, Muy = My is `auto-verify.test.ts`'s. The report's combo summary has no
-    // entry point of its own yet (comboForces is private), so its one line stays pinned here.
-    const proReportInputs = readFileSync(new URL('../pro-report-inputs.ts', import.meta.url), 'utf8');
-    expect(proReportInputs, 'the report combo summary should report strong-axis Mu').toContain('Mu: Math.max(Math.abs(ef.mzStart), Math.abs(ef.mzEnd))');
-  });
+  // The report's per-combination Mu summary fed only its retired design section and went with it;
+  // the memoria reads the design's own rows (`engine/design/check-rows.ts`).
 });
 
 // ─── Bug 2: 3D self-weight loads use wrong axis ────────────────
@@ -378,7 +368,9 @@ describe('Bug 2: 3D self-weight must apply gravity to fz (not fy)', () => {
     expect(load.data.fx).toBe(4);
     expect(load.data.fy).toBe(0);
     expect(load.data.fz).toBe(-10);
-    expect(load.data.my).toBe(6);
+    // Standing in X–Z the plane is reflected, (x, y) → (x, 0, y): a counter-clockwise couple as
+    // drawn is about −Y (embedded-plane-point-loads.test.ts; the reactions' My turns sign too).
+    expect(load.data.my).toBe(-6);
     expect(load.data.mz).toBe(0);
 
     const support = input!.supports.get(1)!;
@@ -401,12 +393,11 @@ describe('Bug 2: 3D self-weight must apply gravity to fz (not fy)', () => {
      * rather than kept in sync forever.
      */
     const solveAction = readFileSync(new URL('../../actions/solve.ts', import.meta.url), 'utf8');
+    const manualSolve = readFileSync(new URL('../live-calc.ts', import.meta.url), 'utf8');
 
-    expect(solveAction, 'actions/solve.ts must call ensureWasmReady or initSolver before solve3D')
-      .toMatch(/ensureWasmReady|initSolver/);
-
-    // The extracted action keeps the async 3D entry point.
-    expect(solveAction, 'runSolve3D must be async').toMatch(/export\s+async\s+function\s+runSolve3D/);
+    // The action's 3D arm is the manual solve, `runGlobalSolve`, which readies WASM first.
+    expect(solveAction, 'actions/solve.ts must solve 3D through runGlobalSolve').toMatch(/runGlobalSolve\(/);
+    expect(manualSolve, 'runGlobalSolve must call ensureWasmReady before solve3D').toMatch(/await ensureWasmReady\(/);
 
     // And nothing may call solve3D without going through it: ToolbarResults is
     // the button every toolbar (desktop or mobile) renders, and it delegates.

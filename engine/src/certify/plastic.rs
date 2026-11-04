@@ -245,7 +245,7 @@ pub fn build_model(input: &PlasticInput) -> Result<PlasticModel, String> {
     if s.elements.len() > MAX_PLASTIC_ELEMENTS {
         return Err(format!("more than {MAX_PLASTIC_ELEMENTS} members: too large for the exact check"));
     }
-    let mut node_list: Vec<&SolverNode> = s.nodes.values().collect();
+    let mut node_list: Vec<&SolverNode> = crate::ordered::values(&s.nodes).collect();
     node_list.sort_by_key(|n| n.id);
     let idx: HashMap<usize, usize> = node_list.iter().enumerate().map(|(i, n)| (n.id, i)).collect();
     let coords: Vec<(Q, Q)> = node_list
@@ -255,7 +255,7 @@ pub fn build_model(input: &PlasticInput) -> Result<PlasticModel, String> {
     let nn = node_list.len();
 
     let mut restrained = vec![[false; 3]; nn];
-    let mut sups: Vec<&SolverSupport> = s.supports.values().collect();
+    let mut sups: Vec<&SolverSupport> = crate::ordered::values(&s.supports).collect();
     sups.sort_by_key(|x| x.id);
     for sup in sups {
         let n = *idx.get(&sup.node_id).ok_or("support on unknown node")?;
@@ -282,7 +282,7 @@ pub fn build_model(input: &PlasticInput) -> Result<PlasticModel, String> {
         mp_by_sec.insert(sec_id, mp_interval(sec, fy, over)?);
     }
 
-    let mut elem_list: Vec<&SolverElement> = s.elements.values().collect();
+    let mut elem_list: Vec<&SolverElement> = crate::ordered::values(&s.elements).collect();
     elem_list.sort_by_key(|e| e.id);
     let eidx: HashMap<usize, usize> = elem_list.iter().enumerate().map(|(i, e)| (e.id, i)).collect();
     let mut elems = Vec::with_capacity(elem_list.len());
@@ -376,6 +376,11 @@ pub fn build_model(input: &PlasticInput) -> Result<PlasticModel, String> {
                 }
                 let ta = frac(e, pl.a, "point load")?;
                 elems[ei].loads.push(ElemLoad::Point { ta, p, px, my });
+            }
+            SolverLoad::AxialDistributed(al) => {
+                if al.q_i != 0.0 || al.q_j != 0.0 {
+                    return Err("axial span loads are not part of the plastic certificate".into());
+                }
             }
             SolverLoad::Thermal(tl) => {
                 if tl.dt_uniform != 0.0 || tl.dt_gradient != 0.0 {

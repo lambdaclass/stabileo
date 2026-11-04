@@ -116,9 +116,9 @@ impl LocalK {
 /// Every 2D member's local stiffness, as `assemble_stiffness_2d` and
 /// `compute_internal_forces_2d` build it, sorted by element id.
 pub(crate) fn local_stiffness_2d(input: &SolverInput) -> Vec<LocalK> {
-    let nodes: HashMap<usize, &SolverNode> = input.nodes.values().map(|n| (n.id, n)).collect();
-    let mats: HashMap<usize, &SolverMaterial> = input.materials.values().map(|m| (m.id, m)).collect();
-    let secs: HashMap<usize, &SolverSection> = input.sections.values().map(|s| (s.id, s)).collect();
+    let nodes: HashMap<usize, &SolverNode> = crate::ordered::values(&input.nodes).map(|n| (n.id, n)).collect();
+    let mats: HashMap<usize, &SolverMaterial> = crate::ordered::values(&input.materials).map(|m| (m.id, m)).collect();
+    let secs: HashMap<usize, &SolverSection> = crate::ordered::values(&input.sections).map(|s| (s.id, s)).collect();
     let mut out: Vec<LocalK> = input
         .elements
         .values()
@@ -152,9 +152,9 @@ pub(crate) fn local_stiffness_2d(input: &SolverInput) -> Vec<LocalK> {
 /// `assemble_stiffness_3d` and `compute_internal_forces_3d` build it, sorted by
 /// element id. Warping members in a 7-DOF-per-node model have `n = 14`.
 pub(crate) fn local_stiffness_3d(input: &SolverInput3D) -> Vec<LocalK> {
-    let nodes: HashMap<usize, &SolverNode3D> = input.nodes.values().map(|n| (n.id, n)).collect();
-    let mats: HashMap<usize, &SolverMaterial> = input.materials.values().map(|m| (m.id, m)).collect();
-    let secs: HashMap<usize, &SolverSection3D> = input.sections.values().map(|s| (s.id, s)).collect();
+    let nodes: HashMap<usize, &SolverNode3D> = crate::ordered::values(&input.nodes).map(|n| (n.id, n)).collect();
+    let mats: HashMap<usize, &SolverMaterial> = crate::ordered::values(&input.materials).map(|m| (m.id, m)).collect();
+    let secs: HashMap<usize, &SolverSection3D> = crate::ordered::values(&input.sections).map(|s| (s.id, s)).collect();
     // The solver uses the 14-DOF warping element only in a 7-DOF-per-node model.
     let warping_model = DofNumbering::build_3d(input).dofs_per_node >= 7;
     let mut out: Vec<LocalK> = input
@@ -267,12 +267,12 @@ fn probe(rows: usize, cols: usize, f: impl Fn(&[f64]) -> Vec<f64>) -> Vec<f64> {
 /// (MITC4 quads, DKT plates, MITC9 quads), given `‖u* − ũ‖₂ ≤ abs_bound`.
 pub fn shell_bounds_3d(input: &SolverInput3D, abs_bound: f64) -> Vec<ShellBound> {
     use crate::element::{plate_stress_recovery, quad, quad9};
-    let nodes: HashMap<usize, &SolverNode3D> = input.nodes.values().map(|n| (n.id, n)).collect();
-    let mats: HashMap<usize, &SolverMaterial> = input.materials.values().map(|m| (m.id, m)).collect();
+    let nodes: HashMap<usize, &SolverNode3D> = crate::ordered::values(&input.nodes).map(|n| (n.id, n)).collect();
+    let mats: HashMap<usize, &SolverMaterial> = crate::ordered::values(&input.materials).map(|m| (m.id, m)).collect();
     let xyz = |id: usize| [nodes[&id].x, nodes[&id].y, nodes[&id].z];
     let scale = |r: f64| up(up(r * T_NORM) * abs_bound);
     let mut out = Vec::new();
-    for q in input.quads.values() {
+    for q in crate::ordered::values(&input.quads) {
         let (e, nu, t) = (mats[&q.material_id].e * 1000.0, mats[&q.material_id].nu, q.thickness);
         let c: [[f64; 3]; 4] = q.nodes.map(xyz);
         let l = probe(8, 24, |u| {
@@ -291,7 +291,7 @@ pub fn shell_bounds_3d(input: &SolverInput3D, abs_bound: f64) -> Vec<ShellBound>
             qx: Some(scale(r[6])), qy: Some(scale(r[7])),
         });
     }
-    for p in input.plates.values() {
+    for p in crate::ordered::values(&input.plates) {
         let (e, nu, t) = (mats[&p.material_id].e * 1000.0, mats[&p.material_id].nu, p.thickness);
         let c: [[f64; 3]; 3] = p.nodes.map(xyz);
         let l = probe(6, 18, |u| {
@@ -307,7 +307,7 @@ pub fn shell_bounds_3d(input: &SolverInput3D, abs_bound: f64) -> Vec<ShellBound>
             qx: None, qy: None,
         });
     }
-    for q in input.quad9s.values() {
+    for q in crate::ordered::values(&input.quad9s) {
         let (e, nu, t) = (mats[&q.material_id].e * 1000.0, mats[&q.material_id].nu, q.thickness);
         let c: [[f64; 3]; 9] = q.nodes.map(xyz);
         let l = probe(6, 54, |u| {
@@ -431,6 +431,8 @@ mod tests {
         let mut sections = Map::new();
         sections.insert("1".into(), SolverSection3D {
             id: 1, name: None, a: 5e-3, iy: 4e-5, iz: 2e-6, j: 1e-7, cw: Some(2e-8), as_y: None, as_z: None,
+            shear_center_y: None,
+            shear_center_z: None,
         });
         let mut materials = Map::new();
         materials.insert("1".into(), SolverMaterial { id: 1, e: 200_000.0, nu: 0.3 });
@@ -448,7 +450,7 @@ mod tests {
             })],
             constraints: vec![], left_hand: None, plates: Map::new(), quads: Map::new(), quad9s: Map::new(),
             solid_shells: Map::new(), curved_beams: vec![], curved_shells: Map::new(), connectors: Map::new(),
-            solver_options: None,
+            solver_options: None, masses: Default::default(),
         };
         let res = solve_3d(&input).unwrap();
         let dof = DofNumbering::build_3d(&input);
@@ -563,7 +565,7 @@ mod tests {
         materials.insert("1".into(), SolverMaterial { id: 1, e: 30_000.0, nu: 0.25 });
         SolverInput3D {
             nodes, materials, sections: Map::new(), elements: Map::new(), supports, loads,
-            constraints: vec![], left_hand: None, solver_options: None,
+            constraints: vec![], left_hand: None, solver_options: None, masses: Default::default(),
             plates, quads, quad9s, solid_shells: Map::new(), curved_shells: Map::new(),
             curved_beams: vec![], connectors: Map::new(),
         }

@@ -5,11 +5,14 @@
  * the figures that do not need results still come out and the reason is told. The figures are
  * drawn as vectors (`view-figure.ts`), in 2D and in 3D.
  */
+import { captureProvenanceToken, provenanceForExport, ExportChangedError } from '../store/result-provenance';
+import { svgWithProvenance, imageWithProvenance } from './provenance-attach';
 import { zipSync } from 'fflate';
 import { modelStore, uiStore } from '../store';
 import { t, tp } from '../i18n';
 import { ensureResults } from '../actions/solve';
 import { downloadBlob } from '../store/file';
+import { modelIsEmpty, tellIfEmpty } from './empty-model';
 import {
   NEEDS_RESULTS, canvasToBlob, plan2D, sheetOf, toCanvas, toSvg,
   type FigureContent, type FigureOptions, type FigurePlan,
@@ -37,13 +40,14 @@ const SLUG: Record<FigureContent, string> = {
 
 /**
  * Solve if a chosen figure needs results, and keep the figures that can be drawn. A failed solve
- * leaves out the result figures and says why.
+ * leaves out the result figures and says why; an empty model draws its empty structure.
  */
 async function drawable(contents: FigureContent[]): Promise<FigureContent[]> {
   if (!contents.some((c) => NEEDS_RESULTS.has(c))) return contents;
   const solved = await ensureResults();
   if (solved.ok) return contents;
   const kept = contents.filter((c) => !NEEDS_RESULTS.has(c));
+  if (modelIsEmpty()) return kept.length ? kept : ['model'];
   uiStore.toast(tp(kept.length ? 'viewExport.partial' : 'viewExport.unsolved', { error: solved.error }), 'error');
   return kept;
 }
@@ -56,8 +60,10 @@ function plans(contents: FigureContent[], req: ViewExportRequest): FigurePlan[] 
 }
 
 /** The files the request makes: name and content. */
-async function files(req: ViewExportRequest): Promise<Array<{ name: string; blob: Blob }>> {
+async function files(req: ViewExportRequest, onDrawn?: () => void): Promise<Array<{ name: string; blob: Blob }>> {
   const contents = await drawable(req.contents);
+  // After the solve `drawable` may run: the state the figures are drawn from.
+  onDrawn?.();
   if (contents.length === 0) return [];
   const base = fileBase();
   const ps = plans(contents, req);
@@ -81,11 +87,32 @@ async function files(req: ViewExportRequest): Promise<Array<{ name: string; blob
 
 /** Download what the request makes: one file, or a zip of several. */
 export async function exportView(req: ViewExportRequest): Promise<boolean> {
-  const fs = await files(req);
-  if (fs.length === 0) return false;
+  // Taken when the figures are drawn (after any solve); checked again once the hashes are in.
+  let token = captureProvenanceToken();
+  const drawn = await files(req, () => { token = captureProvenanceToken(); });
+  if (drawn.length === 0) { uiStore.toast(t('viewExport.nothingDrawn'), 'error'); return false; }
+  let record;
+  try {
+    record = await provenanceForExport(token);
+  } catch (e) {
+    if (e instanceof ExportChangedError) { uiStore.toast(e.message, 'error'); return false; }
+    throw e;
+  }
+  // Each picture carries the record in its own format (PNG tEXt, JPEG comment, SVG metadata).
+  const fs: Array<{ name: string; blob: Blob }> = [];
+  for (const f of drawn) {
+    if (f.name.endsWith('.svg')) {
+      fs.push({ name: f.name, blob: new Blob([svgWithProvenance(await f.blob.text(), record)], { type: 'image/svg+xml' }) });
+    } else {
+      const bytes = imageWithProvenance(new Uint8Array(await f.blob.arrayBuffer()), record);
+      fs.push({ name: f.name, blob: new Blob([bytes as BlobPart], { type: f.blob.type }) });
+    }
+  }
+  tellIfEmpty();
   if (fs.length === 1) { downloadBlob(fs[0]!.blob, fs[0]!.name); return true; }
   const entries: Record<string, Uint8Array> = {};
   for (const f of fs) entries[f.name] = new Uint8Array(await f.blob.arrayBuffer());
+  entries['provenance.json'] = new TextEncoder().encode(JSON.stringify(record, null, 2));
   downloadBlob(new Blob([zipSync(entries, { level: 0 }) as Uint8Array<ArrayBuffer>], { type: 'application/zip' }), `${fileBase()}_${t('viewExport.figuresFile')}.zip`);
   return true;
 }

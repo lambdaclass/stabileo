@@ -35,6 +35,8 @@ export interface DesignRow {
   certified: boolean;
   sloped: boolean;
   provided: ProvidedRebarResult | null;
+  /** The span this element is a piece of (`design-spans.ts`): its name, and which piece of how many. */
+  span?: { label: string; k: number; n: number };
 }
 
 /**
@@ -115,13 +117,13 @@ export function filterCounts(rows: DesignRow[], selected: ReadonlySet<number>): 
 }
 
 /** Index of the next failing row after `fromId` (wraps). Null when none exist. */
-export function nextFailingId(rows: DesignRow[], fromId: number | null): number | null {
+export function nextFailingId(rows: DesignRow[], fromId: number | null, step: 1 | -1 = 1): number | null {
   const failing = rows.filter(r => r.status === 'fail' || r.status === 'warn');
   if (failing.length === 0) return null;
-  if (fromId === null) return failing[0].elementId;
+  if (fromId === null) return (step === 1 ? failing[0] : failing[failing.length - 1]).elementId;
   const idx = rows.findIndex(r => r.elementId === fromId);
   for (let i = 1; i <= rows.length; i++) {
-    const r = rows[(idx + i + rows.length) % rows.length];
+    const r = rows[(idx + step * i + rows.length * 2) % rows.length];
     if (r.status === 'fail' || r.status === 'warn') return r.elementId;
   }
   return failing[0].elementId;

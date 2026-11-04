@@ -207,7 +207,7 @@ fn heated_strut_2d(with_load: bool) -> dedaliano_engine::types::SolverInput {
     use dedaliano_engine::types::*;
     let mut input = make_column(SEG, L_STRUT, E, A, IZ, "fixed", "fixed", 0.0);
     for id in 1..=SEG {
-        input.loads.push(SolverLoad::Thermal(SolverThermalLoad { element_id: id, dt_uniform: DT, dt_gradient: 0.0 }));
+        input.loads.push(SolverLoad::Thermal(SolverThermalLoad { element_id: id, dt_uniform: DT, dt_gradient: 0.0, alpha: None, depth: None }));
     }
     if with_load {
         input.loads.push(SolverLoad::Nodal(SolverNodalLoad { node_id: SEG / 2 + 1, fx: 0.0, fz: -1.0, my: 0.0 }));
@@ -244,8 +244,8 @@ fn pdelta_2d_heated_truss_bar_is_softened_too() {
         vec![(1, "truss", 1, 2, 1, 1, false, false), (2, "truss", 2, 3, 1, 1, false, false)],
         vec![(1, 1, "pinned"), (2, 3, "pinned"), (3, 2, "spring")],
         vec![
-            SolverLoad::Thermal(SolverThermalLoad { element_id: 1, dt_uniform: 20.0, dt_gradient: 0.0 }),
-            SolverLoad::Thermal(SolverThermalLoad { element_id: 2, dt_uniform: 20.0, dt_gradient: 0.0 }),
+            SolverLoad::Thermal(SolverThermalLoad { element_id: 1, dt_uniform: 20.0, dt_gradient: 0.0, alpha: None, depth: None }),
+            SolverLoad::Thermal(SolverThermalLoad { element_id: 2, dt_uniform: 20.0, dt_gradient: 0.0, alpha: None, depth: None }),
             SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: -1.0, my: 0.0 }),
         ],
     );
@@ -268,7 +268,7 @@ fn pdelta_3d_heated_strut_is_softened_by_its_thermal_compression() {
     use dedaliano_engine::types::*;
     let fixed = vec![true; 6];
     let mut loads: Vec<SolverLoad3D> = (1..=SEG)
-        .map(|id| SolverLoad3D::Thermal(SolverThermalLoad3D { element_id: id, dt_uniform: DT, dt_gradient_y: 0.0, dt_gradient_z: 0.0 }))
+        .map(|id| SolverLoad3D::Thermal(SolverThermalLoad3D { element_id: id, dt_uniform: DT, dt_gradient_y: 0.0, dt_gradient_z: 0.0, alpha: None, depth_y: None, depth_z: None }))
         .collect();
     loads.push(SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: SEG / 2 + 1, fx: 0.0, fy: 0.0, fz: -1.0, mx: 0.0, my: 0.0, mz: 0.0, bw: None }));
     // Iy = IZ governs bending in the xz plane, the plane of the load.
@@ -439,7 +439,7 @@ fn heated_strut_big(with_load: bool) -> dedaliano_engine::types::SolverInput {
     use dedaliano_engine::types::*;
     let mut input = make_column(SEG_BIG, L_STRUT, E, A, IZ, "fixed", "fixed", 0.0);
     for id in 1..=SEG_BIG {
-        input.loads.push(SolverLoad::Thermal(SolverThermalLoad { element_id: id, dt_uniform: DT, dt_gradient: 0.0 }));
+        input.loads.push(SolverLoad::Thermal(SolverThermalLoad { element_id: id, dt_uniform: DT, dt_gradient: 0.0, alpha: None, depth: None }));
     }
     if with_load {
         input.loads.push(SolverLoad::Nodal(SolverNodalLoad { node_id: SEG_BIG / 2 + 1, fx: 0.0, fz: -1.0, my: 0.0 }));

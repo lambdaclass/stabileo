@@ -18,6 +18,7 @@
   import { tick } from 'svelte';
   import LazySelect from './LazySelect.svelte';
   import { progressiveRows } from '../../lib/utils/progressive-rows.svelte';
+  import { setShellProperties } from '../../lib/store/physical-plates';
 
   type Row = {
     key: string;
@@ -49,10 +50,15 @@
    * version.
    */
   function update(row: Row, patch: { materialId?: number; thickness?: number }) {
-    if (row.kind === 'plate') modelStore.updatePlate(row.id, patch);
-    else modelStore.updateQuad(row.id, patch);
+    // A shell of a physical plate's mesh is edited as the plate (`setShellProperties`).
+    sayPlates(setShellProperties([row.key], patch));
     /* A thickness or a material is a stiffness: what was solved no longer describes this. */
     resultsStore.clear();
+  }
+  function sayPlates(ids: number[]) {
+    if (!ids.length) return;
+    const names = ids.map((id) => modelStore.model.groups.get(id)?.name ?? `#${id}`).join(', ');
+    uiStore.toast(tp('plates.editedWhole', { names, n: ids.length }), 'info');
   }
 
   function setThickness(row: Row, value: string) {
@@ -120,12 +126,7 @@
   };
   function batchUpdate(patch: { materialId?: number; thickness?: number }) {
     if (patch.thickness !== undefined && !(patch.thickness > 0)) return;
-    modelStore.batch(() => {
-      for (const k of selectedKeys) {
-        const id = Number(k.slice(1));
-        if (k[0] === 'p') modelStore.updatePlate(id, patch); else modelStore.updateQuad(id, patch);
-      }
-    });
+    sayPlates(setShellProperties(selectedKeys, patch));
     resultsStore.clear();
   }
   let nodesError = $state<{ key: string; msg: string } | null>(null);

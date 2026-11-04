@@ -1,0 +1,7 @@
+# The dictionaries the app speaks: each entry is one line, so two branches that add keys keep
+# both instead of conflicting. web/src/lib/i18n/__tests__/union-merge-safe.test.ts fails on the
+# one bad outcome (a key twice) and on any entry that spans lines.
+web/src/lib/i18n/locales/en.ts merge=union
+web/src/lib/i18n/locales/es.ts merge=union
+web/src/lib/i18n/locales/pt.ts merge=union
+web/src/lib/i18n/locales/steel/*.ts merge=union

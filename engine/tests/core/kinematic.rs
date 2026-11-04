@@ -149,7 +149,7 @@ fn make_3d_input(
     }
     let mut secs_map = HashMap::new();
     for (id, a, iy, iz, j) in secs {
-        secs_map.insert(id.to_string(), SolverSection3D { id, name: None, a, iy, iz, j, cw: None, as_y: None, as_z: None });
+        secs_map.insert(id.to_string(), SolverSection3D { id, name: None, a, iy, iz, j, cw: None, as_y: None, as_z: None, shear_center_y: None, shear_center_z: None });
     }
     let mut elems_map = HashMap::new();
     for (id, t, ni, nj, mi, si) in elems {
@@ -183,7 +183,7 @@ fn make_3d_input(
             });
     }
     SolverInput3D {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes: nodes_map,
         materials: mats_map,
         sections: secs_map,
@@ -342,7 +342,7 @@ fn a_mechanism_at_size_still_falls_through_and_is_named() {
 fn sparse_proof_agrees_with_the_dense_path_on_a_heated_frame() {
     // A thermal load adds nothing to the count but exercises the load-agnostic path.
     let mut input = big_portal(6, 8, false);
-    input.loads.push(SolverLoad::Thermal(SolverThermalLoad { element_id: 1, dt_uniform: 20.0, dt_gradient: 0.0 }));
+    input.loads.push(SolverLoad::Thermal(SolverThermalLoad { element_id: 1, dt_uniform: 20.0, dt_gradient: 0.0, alpha: None, depth: None }));
     let result = analyze_kinematics_2d(&input);
     assert!(result.is_solvable);
     assert_eq!(result.mechanism_modes, 0);

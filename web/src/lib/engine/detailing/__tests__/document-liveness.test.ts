@@ -34,6 +34,7 @@ const STORE = 'lib/store/detailing.svelte.ts';
 const STORE_LAYER = [
   STORE,
   'lib/store/detailing-project-inputs.ts',
+  'lib/store/detailing-certificates.ts',
 ];
 
 function storeLayer() { return STORE_LAYER.map(read).join('\n'); }
@@ -48,6 +49,9 @@ function storeLayer() { return STORE_LAYER.map(read).join('\n'); }
 const UI_FILES = [
   'components/pro/design/DetailingWorkflow.svelte',
   'components/pro/design/DocumentsSection.svelte',
+  // The one resolution of the document the documents, the drawings and the listings places share:
+  // the UI's call to the store moved there when the drawings and the listings got places of their own.
+  'lib/store/current-document.ts',
 ];
 const EXCEL = 'lib/export/excel.ts';
 

@@ -183,6 +183,8 @@ describe('canonical PR19 CAD footing project (.ded)', () => {
     const stripVolatile = (ded: string) => {
       const d = JSON.parse(ded) as Record<string, unknown>;
       delete d.timestamp;   // the production serializer stamps this; not patched to be fixed
+      // The solve stamp names the build and carries a per-project id (provenance/solve-stamp.ts).
+      delete (d.snapshot as Record<string, unknown>).solvedWith;
       return JSON.stringify(d);
     };
     expect(stripVolatile(a.ded)).toBe(stripVolatile(b.ded));

@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { shellStressInputs } from '../../lib/store/shell-contour';
+  import { downloadResultText } from '../../lib/export/provenance-attach';
   import { resultCaseName } from '../../lib/engine/settlement-case';
   import { untrack } from 'svelte';
   import { activeQuantity, activeRepresentation, representationsFor, showQuantityAs } from '../../lib/store/result-view';
@@ -6,14 +8,14 @@
   import { modelStore, uiStore, resultsStore } from '../../lib/store';
   import ProResultScopes from './ProResultScopes.svelte';
   import ProNonlinearReport from './ProNonlinearReport.svelte';
-  import CertificateStatus from '../CertificateStatus.svelte';
+  import ResultChecks from '../ResultChecks.svelte';
+  import ResultSelfChecks from '../ResultSelfChecks.svelte';
   import { certificateStore, formatBound } from '../../lib/store/certificate.svelte';
   import ProResultTableModes, { type TableMode } from './ProResultTableModes.svelte';
   import ProDeflectionTable from './ProDeflectionTable.svelte';
   import ProStoryDriftTable from './ProStoryDriftTable.svelte';
   import { deformedView } from '../../lib/store/deformed-view.svelte';
-  import { downloadText } from '../../lib/store/file';
-  import { t } from '../../lib/i18n';
+    import { t } from '../../lib/i18n';
   // The raw forces report is one more answer to "which output am I reading", which is the
   // question this tab's strip already asks. It is NOT in Documentos: §5 keeps raw solver
   // results and reinforcement design as two documents.
@@ -22,6 +24,8 @@
   import ProMemberStressTable from './ProMemberStressTable.svelte';
   import ProShellContourOptions from './ProShellContourOptions.svelte';
   import ProShellFacesTable from './ProShellFacesTable.svelte';
+  import PlateResults from './plates/PlateResults.svelte';
+  import PieceResults from './pieces/PieceResults.svelte';
   import ProRecordVideo from './ProRecordVideo.svelte';
   import { fmtQ, unitQ } from '../../lib/store/display-units.svelte';
   import QuantityInput from './loads/QuantityInput.svelte';
@@ -38,7 +42,7 @@
     type SourceKind,
   } from '../../lib/engine/result-query';
   import {
-    SHELL_CONTOUR_COMPONENTS, shellComponentLabelKey, shellGroupLabelKey, principalStresses,
+    SHELL_CONTOUR_COMPONENTS, shellComponentLabelKey, shellGroupLabelKey, membranePrincipals,
     shellComponentStats, type ShellComponentGroup,
   } from '../../lib/engine/shell-stress';
 
@@ -52,11 +56,11 @@
     if (!r) return [] as Array<{ key: string; type: string; id: number; sigmaXx: number; sigmaYy: number; tauXy: number; sigma1: number; sigma2: number; vonMises: number; mx: number; my: number; mxy: number }>;
     const rows = [];
     for (const ps of r.plateStresses ?? []) {
-      const pr = principalStresses(ps.sigmaXx, ps.sigmaYy, ps.tauXy);
+      const pr = membranePrincipals(ps);
       rows.push({ key: 'p' + ps.elementId, type: 'Plate', id: ps.elementId, sigmaXx: ps.sigmaXx, sigmaYy: ps.sigmaYy, tauXy: ps.tauXy, sigma1: pr.sigma1, sigma2: pr.sigma2, vonMises: ps.vonMises, mx: ps.mx, my: ps.my, mxy: ps.mxy });
     }
     for (const qs of r.quadStresses ?? []) {
-      const pr = principalStresses(qs.sigmaXx, qs.sigmaYy, qs.tauXy);
+      const pr = membranePrincipals(qs);
       rows.push({ key: 'q' + qs.elementId, type: 'Quad', id: qs.elementId, sigmaXx: qs.sigmaXx, sigmaYy: qs.sigmaYy, tauXy: qs.tauXy, sigma1: pr.sigma1, sigma2: pr.sigma2, vonMises: qs.vonMises, mx: qs.mx, my: qs.my, mxy: qs.mxy });
     }
     return rows;
@@ -67,7 +71,9 @@
   // and the governing/near-zero markers in the result tables.
   const shellStats = $derived.by(() => {
     const r = resultsStore.results3D;
-    const all = [...(r?.plateStresses ?? []), ...(r?.quadStresses ?? [])];
+    if (!r) return null;
+    const inputs = shellStressInputs(r, resultsStore.shellContourComponent);
+    const all = [...inputs.plates, ...inputs.quads];
     return all.length ? shellComponentStats(all) : null;
   });
   /*
@@ -104,7 +110,10 @@
   // Components grouped by family for the selector optgroups.
   const shellGroups = $derived.by(() => {
     const groups = new Map<ShellComponentGroup, typeof SHELL_CONTOUR_COMPONENTS>();
+    const r = resultsStore.results3D;
+    const hasShear = (r?.quadStresses ?? []).some((q) => q.qx !== undefined);
     for (const c of SHELL_CONTOUR_COMPONENTS) {
+      if (c.group === 'shear' && !hasShear) continue;
       const arr = groups.get(c.group) ?? [];
       arr.push(c);
       groups.set(c.group, arr);
@@ -313,7 +322,7 @@
 
   function exportQueryCsv() {
     const csv = rowsToCsv(filteredRows, exportMeta);
-    downloadText(csv, `stabileo-query-${queryComponent}-${exportMeta.sourceKind}.csv`, 'text/csv;charset=utf-8;');
+    void downloadResultText(csv, `stabileo-query-${queryComponent}-${exportMeta.sourceKind}.csv`, 'text/csv;charset=utf-8;');
   }
 
 
@@ -401,6 +410,7 @@
 
 
 <div class="pro-res">
+  <ResultSelfChecks />
   <div class="pro-res-header">
     <!--
       Solve lives in the ribbon, once. It was here too — a filled slab at the
@@ -501,7 +511,7 @@
         {#if resultsStore.colorMapKind === 'shellVonMises' || resultsStore.colorMapKind === 'shellBending' || (resultsStore.colorMapKind === 'stress' && resultsStore.stressShowShells)}
           <div class="pro-viz-row">
             <label class="pro-viz-label">{t('pro.shellComponent')}</label>
-            <select class="pro-viz-sel" bind:value={resultsStore.shellContourComponent}>
+            <select class="pro-viz-sel" bind:value={resultsStore.shellContourComponent} data-testid="shell-component">
               {#each shellGroups as [group, comps]}
                 <optgroup label={t(shellGroupLabelKey(group))}>
                   {#each comps as c}
@@ -566,10 +576,17 @@
         {/if}
 
       <div class="pro-viz-row">
-        <label class="pro-viz-check">
-          <input type="checkbox" checked={uiStore.showLoads3D} onchange={onToggleLoads} />
-          {t('pro.showLoads')}
-        </label>
+        {#if resultsStore.diagramType === 'deformed'}
+          <label class="pro-viz-check">
+            <input type="checkbox" bind:checked={resultsStore.showDeformedValues} data-testid="pr-show-displacements" />
+            {t('results.showDisplacements')}
+          </label>
+        {:else}
+          <label class="pro-viz-check">
+            <input type="checkbox" checked={uiStore.showLoads3D} onchange={onToggleLoads} />
+            {t('pro.showLoads')}
+          </label>
+        {/if}
       </div>
       <div class="pro-viz-row">
         <label class="pro-viz-check">
@@ -594,7 +611,6 @@
 
     <ProResultScopes />
     <ProNonlinearReport />
-    <CertificateStatus />
 
     <!-- View mode selector -->
     {#if hasCombinations}
@@ -625,6 +641,8 @@
 
     <!-- Results tables — each collapsible -->
     <div class="pro-res-scroll">
+      <PlateResults />
+      <PieceResults />
 
       <!-- Result query / extraction -->
       <!--
@@ -806,7 +824,7 @@
             <thead>
               <tr>
                 <th>{t('pro.elemLabel')}</th>
-                <th>Ext.</th>
+                <th>{t('report.ext')}</th>
                 <th>N ({unitQ('force')})</th>
                 <th>Vy ({unitQ('force')})</th>
                 <th>Vz ({unitQ('force')})</th>
@@ -964,8 +982,8 @@
                 <th>{t('pro.nodalVmNode')} 2</th>
                 <th>{t('pro.nodalVmNode')} 3</th>
                 <th>{t('pro.nodalVmNode')} 4</th>
-                <th>Min (kN/m²)</th>
-                <th>Max (kN/m²)</th>
+                <th>{t('pro.queryModeMin')} (kN/m²)</th>
+                <th>{t('pro.queryModeMax')} (kN/m²)</th>
               </tr></thead>
               <tbody>
                 {#each nodalQuads as qs}
@@ -1052,6 +1070,7 @@
       {/if}
 
     </div>
+    <ResultChecks />
   {:else}
     <div class="pro-empty">
       {#if hasModel}

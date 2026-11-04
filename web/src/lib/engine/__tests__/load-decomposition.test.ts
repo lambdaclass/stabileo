@@ -85,8 +85,8 @@ function decomposePointLoad(
     const fI = pAxial * (1 - t);
     const fJ = pAxial * t;
     loads.push(
-      { type: 'nodal', data: { nodeId: nodeI.id, fx: fI * cosTheta, fy: fI * sinTheta, mz: 0 } },
-      { type: 'nodal', data: { nodeId: nodeJ.id, fx: fJ * cosTheta, fy: fJ * sinTheta, mz: 0 } },
+      { type: 'nodal', data: { nodeId: nodeI.id, fx: fI * cosTheta, fz: fI * sinTheta, my: 0 } },
+      { type: 'nodal', data: { nodeId: nodeJ.id, fx: fJ * cosTheta, fz: fJ * sinTheta, my: 0 } },
     );
   }
   return loads;
@@ -133,8 +133,8 @@ function decomposeDistLoad(
     const fI = L * (2 * qIAxialLocal + qJAxialLocal) / 6;
     const fJ = L * (qIAxialLocal + 2 * qJAxialLocal) / 6;
     loads.push(
-      { type: 'nodal', data: { nodeId: nodeI.id, fx: fI * cosTheta, fy: fI * sinTheta, mz: 0 } },
-      { type: 'nodal', data: { nodeId: nodeJ.id, fx: fJ * cosTheta, fy: fJ * sinTheta, mz: 0 } },
+      { type: 'nodal', data: { nodeId: nodeI.id, fx: fI * cosTheta, fz: fI * sinTheta, my: 0 } },
+      { type: 'nodal', data: { nodeId: nodeJ.id, fx: fJ * cosTheta, fz: fJ * sinTheta, my: 0 } },
     );
   }
   return loads;
@@ -694,8 +694,8 @@ describe('Principio: Coherencia Global↔Local', () => {
         const fI = pAxial * (1 - t);
         const fJ = pAxial * t;
         loads2.push(
-          { type: 'nodal', data: { nodeId: 1, fx: fI * cosT, fy: fI * sinT, mz: 0 } },
-          { type: 'nodal', data: { nodeId: 2, fx: fJ * cosT, fy: fJ * sinT, mz: 0 } },
+          { type: 'nodal', data: { nodeId: 1, fx: fI * cosT, fz: fI * sinT, my: 0 } },
+          { type: 'nodal', data: { nodeId: 2, fx: fJ * cosT, fz: fJ * sinT, my: 0 } },
         );
       }
       input2.loads = loads2;

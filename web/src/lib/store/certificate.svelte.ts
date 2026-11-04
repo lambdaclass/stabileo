@@ -18,7 +18,7 @@
 import { certifiableInputOf, certifiableMultiCaseOf, type CertifiableInput } from '../engine/solver-service';
 import { certifyInWorker, PoolUnavailableError } from '../engine/solver-pool';
 import {
-  certifyLinearWire, hasCertifyExport, type LinearCertificate, type LinearCertificateOnly,
+  certifyLinearWire, hasCertifyExport, type EndToEnd, type LinearCertificate, type LinearCertificateOnly,
   type ForceBound2D, type ForceBound3D, type ShellBound, type MultiCaseCertificate, type CombinationCertificate,
   type StationBound2D, type StationBound3D, type ReactionBound2D, type ReactionBound3D, type ShownBounds,
 } from '../engine/wasm-solver';
@@ -55,6 +55,8 @@ interface Certified {
   deflectionBounds: Map<number, number>;
   /** Each supported node's reaction bounds (absent: not bounded). */
   reactionBounds: Map<number, ReactionBound>;
+  /** The check against an independent re-assembly of the model (base solve only). */
+  endToEnd?: EndToEnd;
 }
 
 export type CertificateState =
@@ -85,6 +87,7 @@ function shownMaps(out: ShownBounds): Pick<Certified, 'stationBounds' | 'deflect
 function fromLinear(out: LinearCertificateOnly): Certified {
   return {
     certificate: out.certificate,
+    endToEnd: out.endToEnd,
     forceBounds: new Map((out.forceBounds ?? []).map((b) => [b.elementId, b])),
     shellBounds: new Map((out.shellBounds ?? []).map((b) => [shellKey(b.kind, b.elementId), b])),
     ...shownMaps(out),
@@ -175,6 +178,26 @@ function createCertificateStore() {
   return {
     get state() { return state; },
     get multiState() { return multi; },
+
+    /**
+     * The certificate of one result by what it IS (the base solve, a case, a combination, the
+     * active envelope), whatever is on screen: what a report's provenance records and what a
+     * reproduction compares. `pending` while it is being computed.
+     */
+    forScope(is3D: boolean, scope: { kind: 'single' } | { kind: 'case' | 'combo'; id: number } | { kind: 'envelope' }): CertificateState {
+      const dim: Dim = is3D ? '3d' : '2d';
+      switch (scope.kind) {
+        case 'single': return state.status === 'idle' || state.dim !== dim ? { status: 'idle' } : { ...state, scope: 'single' };
+        case 'case': return multiShown(dim, (m) => m.cases.get(scope.id), 'case');
+        case 'combo': return multiShown(dim, (m) => m.combos.get(scope.id), 'combo');
+        case 'envelope': return multiShown(dim, (m) => m.envelope, 'envelope');
+      }
+    },
+
+    /** Whether a certificate (the base solve's or the combinations') is still being computed. */
+    get computing(): boolean {
+      return state.status === 'pending' || multi.status === 'pending' || timer !== null || multiTimer !== null;
+    },
 
     /** A base static solve was published (or, with null, the results were cleared). */
     track(results: object | null, dim: Dim): void {

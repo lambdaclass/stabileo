@@ -262,7 +262,7 @@
                   <label class="prop"><span>Iy ({unitQ('sectionInertia')})</span><UnitInput value={sec.iy ?? sec.iz} qty="sectionInertia" unit={false} step="0.01" onchange={(v) => setSectionNumber(sec.id, 'iy', v)} /></label>
                   <label class="prop"><span>Iz ({unitQ('sectionInertia')})</span><UnitInput value={sec.iz} qty="sectionInertia" unit={false} step="0.01" onchange={(v) => setSectionNumber(sec.id, 'iz', v)} /></label>
                   {#if is3D}
-                    <label class="prop"><span>J ({unitQ('sectionInertia')})</span><UnitInput value={sec.j ?? (sec.iy ?? sec.iz) * 0.001} qty="sectionInertia" unit={false} step="0.01" onchange={(v) => setSectionNumber(sec.id, 'j', v)} /></label>
+                    <label class="prop"><span>J ({unitQ('sectionInertia')})</span><UnitInput value={sec.j ?? NaN} placeholder="—" title={sec.j == null ? t('table.torsionUnavailable') : undefined} qty="sectionInertia" unit={false} step="0.01" onchange={(v) => setSectionNumber(sec.id, 'j', v)} /></label>
                   {/if}
                 {/if}
                 <label class="prop"><span>{t('table.rotation')}</span><input type="number" step="1" min="0" max="359" value={sec.rotation ?? 0} onchange={(e) => updateSectionField(sec.id, 'rotation', e.currentTarget.value)} /></label>

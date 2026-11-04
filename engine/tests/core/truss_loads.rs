@@ -91,7 +91,7 @@ fn bar_3d(loads: Vec<SolverLoad3D>) -> SolverInput3D {
         ("2".to_string(), SolverNode3D { id: 2, x: 0.0, y: 0.0, z: 4.0 }),
     ]);
     let materials = HashMap::from([("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 })]);
-    let sections = HashMap::from([("1".to_string(), SolverSection3D { id: 1, name: None, a: A, iy: IZ, iz: IZ, j: 1e-5, cw: None, as_y: None, as_z: None })]);
+    let sections = HashMap::from([("1".to_string(), SolverSection3D { id: 1, name: None, a: A, iy: IZ, iz: IZ, j: 1e-5, cw: None, as_y: None, as_z: None, shear_center_y: None, shear_center_z: None })]);
     let elements = HashMap::from([("1".to_string(), SolverElement3D {
         id: 1, elem_type: "truss".to_string(), node_i: 1, node_j: 2, material_id: 1, section_id: 1,
         local_yx: None, local_yy: None, local_yz: None, roll_angle: None,
@@ -115,7 +115,7 @@ fn bar_3d(loads: Vec<SolverLoad3D>) -> SolverInput3D {
         nodes, materials, sections, elements, supports, loads,
         plates: HashMap::new(), quads: HashMap::new(), constraints: vec![], connectors: HashMap::new(),
         curved_shells: HashMap::new(), left_hand: None,
-        quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_beams: vec![], solver_options: None,
+        quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_beams: vec![], solver_options: None, masses: Default::default(),
     }
 }
 
@@ -183,7 +183,7 @@ fn the_parallel_3d_load_vector_carries_the_same_truss_member_loads() {
             a: Some(0.5), b: Some(3.0),
         }),
         SolverLoad3D::PointOnElement(SolverPointLoad3D { element_id: 1, a: 1.0, py: -8.0, pz: 5.0 }),
-        SolverLoad3D::Thermal(SolverThermalLoad3D { element_id: 1, dt_uniform: 15.0, dt_gradient_y: 0.0, dt_gradient_z: 0.0 }),
+        SolverLoad3D::Thermal(SolverThermalLoad3D { element_id: 1, dt_uniform: 15.0, dt_gradient_y: 0.0, dt_gradient_z: 0.0, alpha: None, depth_y: None, depth_z: None }),
     ]);
     let dof = DofNumbering::build_3d(&input);
     let dense = assemble_load_vector_3d_dense(&input, &input.loads, &dof, &[]);

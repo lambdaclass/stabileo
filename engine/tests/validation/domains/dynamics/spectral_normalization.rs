@@ -8,13 +8,19 @@
 ///   1. A single-degree-of-freedom frame (massless columns, rigid heavy girder): Γ = 1 for the
 ///      sway mode normalized to a unit girder displacement, and the spectral girder displacement
 ///      is Sd = Sa/ω².
-///   2. The modal expansion of the influence vector: with every mode kept, Σ Γₙ·φₙ = r, i.e. 1 at
-///      every free horizontal DOF and 0 at every vertical one.
+///   2. The modal expansion of the ground-motion load: with every mode kept,
+///      Σ Γₙ·φₙ = M_ff⁻¹·(M·ι)_f = ι_f + M_ff⁻¹·M_fr·ι_r. With a consistent mass the free DOFs
+///      are coupled to the moving supports (Chopra §9.7, the m_g term), so the expansion is
+///      the influence vector ι_f (1 on every free DOF along the direction) plus that
+///      correction; with a lumped mass, or away from the supports in the limit of a fine
+///      mesh, it is ι_f alone (Chopra eq. 13.2.3).
 ///
 /// Both are stated in 2D and in 3D, the expansion for every direction.
 ///
 /// References:
 ///   - Chopra, "Dynamics of Structures", 5th Ed., §13.1–13.2 (eq. 13.2.3: Σ Γₙ φₙ = ι)
+use dedaliano_engine::solver::dof::DofNumbering;
+use dedaliano_engine::solver::mass_matrix::{assemble_mass_matrix_2d, assemble_mass_matrix_3d};
 use dedaliano_engine::solver::{modal, spectral};
 use dedaliano_engine::types::*;
 use crate::common::*;
@@ -159,6 +165,28 @@ fn cantilever_2d() -> SolverInput {
     )
 }
 
+/// x = M_ff⁻¹·(M·ι)_f from the full dense mass `m` (n×n), ι = 1 on `dirs` (all DOFs).
+fn expansion_target(m: &[f64], n: usize, nf: usize, iota: &[f64]) -> Vec<f64> {
+    let rhs: Vec<f64> = (0..nf).map(|i| (0..n).map(|j| m[i * n + j] * iota[j]).sum()).collect();
+    // Gaussian elimination with partial pivoting on M_ff.
+    let mut a: Vec<Vec<f64>> = (0..nf).map(|i| (0..nf).map(|j| m[i * n + j]).chain([rhs[i]]).collect()).collect();
+    for c in 0..nf {
+        let p = (c..nf).max_by(|&x, &y| a[x][c].abs().total_cmp(&a[y][c].abs())).unwrap();
+        a.swap(c, p);
+        for r in c + 1..nf {
+            let f = a[r][c] / a[c][c];
+            for k in c..=nf {
+                a[r][k] -= f * a[c][k];
+            }
+        }
+    }
+    let mut x = vec![0.0; nf];
+    for r in (0..nf).rev() {
+        x[r] = (a[r][nf] - (r + 1..nf).map(|k| a[r][k] * x[k]).sum::<f64>()) / a[r][r];
+    }
+    x
+}
+
 #[test]
 fn modal_expansion_of_the_influence_vector_2d() {
     let input = cantilever_2d();
@@ -166,29 +194,37 @@ fn modal_expansion_of_the_influence_vector_2d() {
     d.insert("1".to_string(), 2_446.5);
     let modal_res = modal::solve_modal_2d(&input, &d, 9).unwrap();
     assert_eq!(modal_res.modes.len(), 9, "every mode is needed for the expansion to close");
+    let dof = DofNumbering::build_2d(&input);
+    let (n, nf) = (dof.n_total, dof.n_free);
+    let m = assemble_mass_matrix_2d(&input, &dof, &d);
 
-    for node in [2usize, 3, 4] {
-        let mut sum_ux = 0.0;
-        let mut sum_uz = 0.0;
-        for m in &modal_res.modes {
-            let phi = m.displacements.iter().find(|d| d.node_id == node).unwrap();
-            sum_ux += m.participation_x * phi.ux;
-            sum_uz += m.participation_x * phi.uz;
+    // Horizontal (participation_x) and vertical (participation_y) ground motion.
+    for dir in 0..2 {
+        let mut iota = vec![0.0; n];
+        for &node in &dof.node_order {
+            iota[dof.map[&(node, dir)]] = 1.0;
         }
-        assert_close(sum_ux, 1.0, 0.01, &format!("Σ Γx·φ.ux at node {node}"));
-        assert!(sum_uz.abs() < 1e-6, "Σ Γx·φ.uz at node {node} should vanish, got {sum_uz:.3e}");
-    }
-
-    // And the vertical direction, which `participation_y` carries in 2D.
-    for node in [2usize, 3, 4] {
-        let (mut sum_ux, mut sum_uz) = (0.0, 0.0);
-        for m in &modal_res.modes {
-            let phi = m.displacements.iter().find(|d| d.node_id == node).unwrap();
-            sum_ux += m.participation_y * phi.ux;
-            sum_uz += m.participation_y * phi.uz;
+        let target = expansion_target(&m, n, nf, &iota);
+        let mut max_corr = 0.0f64;
+        for node in [2usize, 3, 4] {
+            let mut sum = [0.0f64; 3];
+            for md in &modal_res.modes {
+                let g = [md.participation_x, md.participation_y][dir];
+                let phi = md.displacements.iter().find(|d| d.node_id == node).unwrap();
+                for (k, v) in [phi.ux, phi.uz, phi.ry].into_iter().enumerate() {
+                    sum[k] += g * v;
+                }
+            }
+            for k in 0..3 {
+                let t = target[dof.map[&(node, k)]];
+                assert!((sum[k] - t).abs() < 1e-6 * t.abs().max(1.0), "dir {dir} node {node} comp {k}: Σ Γφ = {} vs {t}", sum[k]);
+                if k == dir {
+                    max_corr = max_corr.max((t - 1.0).abs());
+                }
+            }
         }
-        assert_close(sum_uz, 1.0, 0.01, &format!("Σ Γy·φ.uz at node {node}"));
-        assert!(sum_ux.abs() < 1e-6, "Σ Γy·φ.ux at node {node} should vanish, got {sum_ux:.3e}");
+        // The support coupling is a correction concentrated next to the base.
+        assert!(max_corr > 1e-3 && max_corr < 0.5, "dir {dir}: correction {max_corr}");
     }
 }
 
@@ -212,25 +248,31 @@ fn modal_expansion_of_the_influence_vector_3d() {
     d.insert("1".to_string(), 2_446.5);
     let modal_res = modal::solve_modal_3d(&input, &d, 18).unwrap();
     assert_eq!(modal_res.modes.len(), 18, "every mode is needed for the expansion to close");
+    let dof = DofNumbering::build_3d(&input);
+    let (n, nf) = (dof.n_total, dof.n_free);
+    let m = assemble_mass_matrix_3d(&input, &dof, &d);
 
-    // For each direction, Σ Γ·φ is the rigid-body translation in that direction:
-    // 1 on that component, 0 on the other two translations and on every rotation.
+    // For each direction, Σ Γ·φ is M_ff⁻¹(M·ι)_f: the rigid translation in that direction
+    // plus the support-coupled correction (see the module notes).
     for dir in 0..3 {
+        let mut iota = vec![0.0; n];
+        for &node in &dof.node_order {
+            iota[dof.map[&(node, dir)]] = 1.0;
+        }
+        let target = expansion_target(&m, n, nf, &iota);
         for node in [2usize, 3, 4] {
             let mut sum = [0.0f64; 6];
-            for m in &modal_res.modes {
-                let g = [m.participation_x, m.participation_y, m.participation_z][dir];
-                let phi = m.displacements.iter().find(|d| d.node_id == node).unwrap();
+            for md in &modal_res.modes {
+                let g = [md.participation_x, md.participation_y, md.participation_z][dir];
+                let phi = md.displacements.iter().find(|d| d.node_id == node).unwrap();
                 for (k, v) in [phi.ux, phi.uy, phi.uz, phi.rx, phi.ry, phi.rz].into_iter().enumerate() {
                     sum[k] += g * v;
                 }
             }
             let axis = ["x", "y", "z"][dir];
-            assert_close(sum[dir], 1.0, 0.01, &format!("Σ Γ{axis}·φ.u{axis} at node {node}"));
-            for (k, v) in sum.iter().enumerate() {
-                if k != dir {
-                    assert!(v.abs() < 1e-6, "Σ Γ{axis}·φ component {k} at node {node} should vanish, got {v:.3e}");
-                }
+            for k in 0..6 {
+                let t = target[dof.map[&(node, k)]];
+                assert!((sum[k] - t).abs() < 1e-6 * t.abs().max(1.0), "Σ Γ{axis}·φ component {k} at node {node}: {} vs {t}", sum[k]);
             }
         }
     }

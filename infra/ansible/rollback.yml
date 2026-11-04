@@ -1,0 +1,121 @@
+- name: Rollback stabileo to the previous release
+  hosts: app
+
+  vars_files:
+    - vars.yml
+
+  tasks:
+    - name: Find latest backup
+      shell: ls -t {{ releases_dir }} | grep -v '^\(rolled-back\|failed\)-' | head -1
+      register: latest_backup
+      failed_when: latest_backup.stdout == ""
+
+    - name: Display rollback target
+      debug:
+        msg: "Rolling back to: {{ latest_backup.stdout }}"
+
+    - name: Stop the backend service
+      command: sudo -n /usr/bin/systemctl stop {{ service_name }}
+      ignore_errors: yes
+
+    - name: Skipping DB rollback (code-only rollback)
+      debug:
+        msg: "Database migration rollback skipped (code-only rollback)."
+      when: not (rollback_db | default(false) | bool)
+
+    - name: Get target migration version from backup
+      shell: |
+        set -o pipefail
+        ls {{ releases_dir }}/{{ latest_backup.stdout }}/backend/lib/stabileo_repo-*/priv/repo/migrations/ |
+        sort | tail -1 | sed 's/_.*//'
+      args:
+        executable: /bin/bash
+      register: target_migration
+      failed_when: target_migration.rc != 0 or target_migration.stdout == ""
+      when: rollback_db | default(false) | bool
+
+    - name: Display target migration version
+      debug:
+        msg: "Target migration version: {{ target_migration.stdout }}"
+      when: rollback_db | default(false) | bool
+
+    - block:
+        - name: Rollback database migrations
+          shell: |
+            cd {{ deploy_dir }}
+            set -a && source .env && set +a
+            RELEASE_DISTRIBUTION=none ./backend/bin/stabileo eval "StabileoRepo.Release.rollback(StabileoRepo.Repo, {{ target_migration.stdout }})"
+          args:
+            executable: /bin/bash
+          when: rollback_db | default(false) | bool
+
+        - name: Check if current deployment exists
+          stat:
+            path: "{{ deploy_dir }}"
+          register: current_deploy
+
+        - name: Move current deployment to releases
+          command: mv {{ deploy_dir }} {{ releases_dir }}/rolled-back-{{ ansible_date_time.year }}{{ ansible_date_time.month }}{{ ansible_date_time.day }}_{{ ansible_date_time.hour }}{{ ansible_date_time.minute }}{{ ansible_date_time.second }}
+          when: current_deploy.stat.exists
+
+        - name: Restore latest backup
+          command: mv {{ releases_dir }}/{{ latest_backup.stdout }} {{ deploy_dir }}
+
+        - name: Start the backend service
+          command: sudo -n /usr/bin/systemctl start {{ service_name }}
+
+      rescue:
+        - name: Check if deploy_dir still exists
+          stat:
+            path: "{{ deploy_dir }}"
+          register: deploy_dir_after_failure
+
+        - name: Find rolled-back deployment to restore
+          shell: ls -t {{ releases_dir }} | grep '^rolled-back-' | head -1
+          register: last_rolled_back
+          when: not deploy_dir_after_failure.stat.exists
+
+        - name: Restore deploy_dir from rolled-back deployment
+          command: mv {{ releases_dir }}/{{ last_rolled_back.stdout }} {{ deploy_dir }}
+          when: not deploy_dir_after_failure.stat.exists and last_rolled_back.stdout | default('') != ''
+
+        - name: Re-run migrations forward to restore DB consistency
+          shell: |
+            cd {{ deploy_dir }}
+            set -a && source .env && set +a
+            RELEASE_DISTRIBUTION=none ./backend/bin/stabileo eval "StabileoRepo.Release.migrate()"
+          args:
+            executable: /bin/bash
+          ignore_errors: yes
+          when: rollback_db | default(false) | bool
+
+        - name: Restart service after rollback failure (best-effort)
+          command: sudo -n /usr/bin/systemctl start {{ service_name }}
+          ignore_errors: yes
+
+        - name: Fail with descriptive message
+          fail:
+            msg: "Rollback failed. Service restarted on current binary. Investigate manually."
+
+    - name: Wait for backend port to be ready
+      wait_for:
+        port: "{{ backend_port | int }}"
+        host: 127.0.0.1
+        timeout: 60
+
+    - name: Health check
+      uri:
+        url: "http://127.0.0.1:{{ backend_port }}/api/v1/health"
+        method: GET
+        status_code: 200
+      register: health_check
+      retries: 15
+      delay: 2
+      until: health_check.status == 200
+
+    - name: Rollback complete
+      debug:
+        msg: |
+          Rollback successful! Health check passed.
+          Restored: {{ latest_backup.stdout }}
+          Current: {{ deploy_dir }}

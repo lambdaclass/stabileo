@@ -76,7 +76,7 @@ fn validation_settlement_fixed_fixed() {
     });
 
     let input = SolverInput {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes: nodes_map, materials: mats, sections: secs,
         elements: elems, supports: sups, loads: vec![], constraints: vec![],
         connectors: std::collections::HashMap::new(), };
@@ -146,7 +146,7 @@ fn validation_settlement_propped() {
     });
 
     let input = SolverInput {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes: nodes_map, materials: mats, sections: secs,
         elements: elems, supports: sups, loads: vec![], constraints: vec![],
         connectors: std::collections::HashMap::new(), };
@@ -219,7 +219,7 @@ fn validation_settlement_two_span() {
     });
 
     let input = SolverInput {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes: nodes_map, materials: mats, sections: secs,
         elements: elems, supports: sups, loads: vec![], constraints: vec![],
         connectors: std::collections::HashMap::new(), };
@@ -285,7 +285,7 @@ fn validation_settlement_moment_formula() {
         });
 
         let input = SolverInput {
-            solver_options: None,
+            solver_options: None, masses: Default::default(),
             nodes: nodes_map, materials: mats, sections: secs,
             elements: elems, supports: sups, loads: vec![], constraints: vec![],
             connectors: std::collections::HashMap::new(), };
@@ -345,7 +345,7 @@ fn validation_settlement_equal() {
     });
 
     let input = SolverInput {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes: nodes_map, materials: mats, sections: secs,
         elements: elems, supports: sups, loads: vec![], constraints: vec![],
         connectors: std::collections::HashMap::new(), };
@@ -412,7 +412,7 @@ fn validation_settlement_rotation() {
     });
 
     let input = SolverInput {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes: nodes_map, materials: mats, sections: secs,
         elements: elems, supports: sups, loads: vec![], constraints: vec![],
         connectors: std::collections::HashMap::new(), };
@@ -479,7 +479,7 @@ fn validation_settlement_superposition() {
             id: 2, node_id: n + 1, support_type: "fixed".to_string(),
             kx: None, ky: None, kz: None, dx: None, dz: dy_right, dry: None, angle: None,
         });
-        SolverInput { solver_options: None, nodes: nodes_map, materials: mats, sections: secs, elements: elems, supports: sups, loads, constraints: vec![],  connectors: std::collections::HashMap::new() }
+        SolverInput { solver_options: None, masses: Default::default(), nodes: nodes_map, materials: mats, sections: secs, elements: elems, supports: sups, loads, constraints: vec![],  connectors: std::collections::HashMap::new() }
     };
 
     let udl = |q_val: f64| -> Vec<SolverLoad> {
@@ -548,7 +548,7 @@ fn validation_settlement_linearity() {
             id: 2, node_id: n + 1, support_type: "fixed".to_string(),
             kx: None, ky: None, kz: None, dx: None, dz: Some(dz), dry: None, angle: None,
         });
-        SolverInput { solver_options: None, nodes: nodes_map, materials: mats, sections: secs, elements: elems, supports: sups, loads: vec![], constraints: vec![],  connectors: std::collections::HashMap::new() }
+        SolverInput { solver_options: None, masses: Default::default(), nodes: nodes_map, materials: mats, sections: secs, elements: elems, supports: sups, loads: vec![], constraints: vec![],  connectors: std::collections::HashMap::new() }
     };
 
     let r1 = linear::solve_2d(&build(-0.005)).unwrap();

@@ -1,6 +1,6 @@
 /**
- * Differential test: station design forces, the TypeScript extraction (`extractElementStations`,
- * the fallback `computeStationDemands` takes without WASM) against the engine's
+ * Differential test: station design forces, the TypeScript extraction (`station-oracle.ts`, the
+ * fallback `computeStationDemands` used to take without WASM, now a test oracle) against the engine's
  * (`extract_beam_station_buffer_3d` / `beam_stations.rs`, the production path).
  *
  * On solved models with distributed and point loads, at every station the two both evaluate,
@@ -11,12 +11,18 @@ import { describe, it, expect } from 'vitest';
 import qa8 from '../../../templates/fixtures/rc-design-qa-8.json';
 import { solveFixture } from '../../design/__tests__/helpers';
 import { computeStationDemands } from '../../verification-service';
+import { computeStationDemandsOracle } from './station-oracle';
+import { EngineUnavailableError } from '../../engine-unavailable';
 
-describe('station design forces: TypeScript fallback against the engine', () => {
+describe('station design forces: TypeScript oracle against the engine', () => {
   const solved = solveFixture(qa8);
   const combos = solved.model.combinations;
   const engine = computeStationDemands(solved.perCombo, combos, solved.data as never);
-  const ts = computeStationDemands(solved.perCombo, combos); // no model: the TypeScript path
+  const ts = computeStationDemandsOracle(solved.perCombo, combos);
+
+  it('without the model the engine needs, the app refuses instead of computing in TypeScript', () => {
+    expect(() => computeStationDemands(solved.perCombo, combos)).toThrow(EngineUnavailableError);
+  });
 
   it('both paths cover the same members', () => {
     expect([...engine.stations.keys()].sort()).toEqual([...ts.stations.keys()].sort());

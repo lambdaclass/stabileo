@@ -370,6 +370,7 @@ fn glass_thermal_stress_restrained() {
             element_id: i + 1,
             dt_uniform: dt,
             dt_gradient: 0.0,
+            alpha: None, depth: None,
         }));
     }
 

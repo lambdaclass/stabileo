@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { downloadResultText } from '../../lib/export/provenance-attach';
   /**
    * The shells' faces, criteria and transverse shears for the result on screen: Von Mises and
    * Tresca on the top and bottom faces (membrane ± 6M/t²) and the MITC4 quads' qx, qy. Its CSV and
@@ -6,8 +7,7 @@
    */
   import { t } from '../../lib/i18n';
   import { modelStore, resultsStore, uiStore } from '../../lib/store';
-  import { downloadText } from '../../lib/store/file';
-  import { exportToExcel } from '../../lib/export/excel';
+    import { exportToExcel } from '../../lib/export/excel';
   import { toCsv } from '../../lib/engine/result-tables';
   import { shellCentreRows } from '../../lib/engine/shell-results';
   import { shellCentreTable } from '../../lib/export/workbook-results';
@@ -24,7 +24,7 @@
   }
   function csv() {
     const s = table();
-    downloadText(toCsv(s.rows[0]!.map(String), s.rows.slice(1)), 'shells.csv', 'text/csv');
+    void downloadResultText(toCsv(s.rows[0]!.map(String), s.rows.slice(1)), 'shells.csv', 'text/csv');
   }
   function xlsx() {
     void exportToExcel({ filename: 'shells.xlsx', onlyExtras: true, extraSheets: [table()] });

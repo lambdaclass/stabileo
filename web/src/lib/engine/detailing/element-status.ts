@@ -55,6 +55,13 @@ export type ElementStatus =
   | 'REFUSED'
   /** The verification ran and the member does not pass. */
   | 'FAILED'
+  /**
+   * The member's local checks pass and something that is not one of them keeps it from
+   * conforming without failing it: the analysis it was designed from is not validated, or its
+   * seismic checks run only as a substitute (`DesignOutcomeSummary.held`). Never MODELLED: its
+   * steel is drawn and its verdict is not a pass.
+   */
+  | 'HELD'
   /** No design outcome exists for this member at all. */
   | 'NOT_EVALUATED';
 
@@ -65,7 +72,7 @@ export type ElementStatus =
  * buried under the ones that do not.
  */
 export const ELEMENT_STATUS_ORDER: readonly ElementStatus[] = [
-  'FAILED', 'UNSUPPORTED', 'REFUSED', 'PROVISIONAL', 'DESIGNED_NOT_MODELLED',
+  'FAILED', 'UNSUPPORTED', 'REFUSED', 'HELD', 'PROVISIONAL', 'DESIGNED_NOT_MODELLED',
   'NOT_EVALUATED', 'MODELLED',
 ];
 
@@ -77,6 +84,7 @@ export const ELEMENT_STATUS_ORDER: readonly ElementStatus[] = [
  */
 export const NOT_FOR_CONSTRUCTION_STATUSES: readonly ElementStatus[] = [
   'FAILED', 'UNSUPPORTED', 'REFUSED', 'PROVISIONAL',
+  'HELD',
 ];
 
 /** The half of the answer that comes from the design run, per element. */
@@ -124,6 +132,12 @@ export interface DesignOutcomeSummary {
    * numbers rather than with reassurance.
    */
   secondaryRatio?: number;
+  /**
+   * What holds the member short of conformity without failing it (`MemberHold` kinds:
+   * `analysis`, `seismic`, …), from the member's verdict. Non-empty turns a member whose local
+   * checks pass into HELD; the holds that fail it arrive as `verificationStatus: 'fail'`.
+   */
+  held?: readonly string[];
 }
 
 /**
@@ -364,6 +378,12 @@ export function statusOf(
     return 'FAILED';
   }
 
+  // Local checks that pass are not a pass while the member's verdict holds it (`member-verdict.ts`).
+  if ((summary?.held?.length ?? 0) > 0 && summary?.verificationStatus !== 'fail' && hasSteel
+    && (summary?.outcome === undefined || summary.outcome === 'VERIFIED')) {
+    return 'HELD';
+  }
+
   if (!summary?.outcome) {
     /**
      * No outcome, but steel exists.
@@ -497,7 +517,7 @@ export function reportElementStatus(
 
   const counts = {
     MODELLED: 0, DESIGNED_NOT_MODELLED: 0, PROVISIONAL: 0, UNSUPPORTED: 0,
-    REFUSED: 0, FAILED: 0, NOT_EVALUATED: 0,
+    REFUSED: 0, FAILED: 0, HELD: 0, NOT_EVALUATED: 0,
   } as Record<ElementStatus, number>;
   for (const e of entries) counts[e.status] += 1;
 

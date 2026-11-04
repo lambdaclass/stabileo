@@ -96,6 +96,24 @@ export function notionalLoads3D(input: SolverInput3D, ratio: number, dir: 'X' | 
   return out;
 }
 
+/**
+ * Why notional loads along `dir` would change nothing, or null when they act.
+ *   · 'noGravity': no node carries a downward load, so every notional load is zero.
+ *   · 'restrained': every node they load is held rigidly along `dir` — a plane model stands in
+ *     X–Z and is held out of its plane, so loads along Y reach the supports and move nothing.
+ * The analysis used to run and report the unchanged structure as the imperfect one.
+ */
+export function notionalLoadsRefusal(input: SolverInput3D, ratio: number, dir: 'X' | 'Y'): 'noGravity' | 'restrained' | null {
+  const loads = notionalLoads3D(input, ratio, dir);
+  if (loads.length === 0) return 'noGravity';
+  const held = (nodeId: number) => {
+    const s = input.supports.get(nodeId) ?? [...input.supports.values()].find((x) => x.nodeId === nodeId);
+    if (!s || s.isInclined) return false;
+    return dir === 'X' ? s.rx && !(s.kx && s.kx > 0) : s.ry && !(s.ky && s.ky > 0);
+  };
+  return loads.every((l) => l.type === 'nodal' && held(l.data.nodeId)) ? 'restrained' : null;
+}
+
 /** The input with the notional loads added, and their total, kN. */
 export function withNotionalLoads(input: SolverInput3D, ratio: number, dir: 'X' | 'Y'): { input: SolverInput3D; totalH: number; totalV: number } {
   const notional = notionalLoads3D(input, ratio, dir);
@@ -195,7 +213,7 @@ export function shrinkageInput(input: SolverInput3D, phiOf: Map<number, number>,
   for (const e of input.elements.values()) {
     const eps = epsOf.get(e.materialId);
     if (!eps) continue;
-    loads.push({ type: 'thermal', data: { elementId: e.id, dtUniform: -eps / ENGINE_ALPHA, dtGradientY: 0, dtGradientZ: 0 } });
+    loads.push({ type: 'thermal', data: { elementId: e.id, dtUniform: -eps / ENGINE_ALPHA, dtGradientY: 0, dtGradientZ: 0, alpha: ENGINE_ALPHA } });
   }
   return { ...input, materials, loads };
 }

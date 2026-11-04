@@ -180,3 +180,88 @@ export function resolveOffsetWorldVectors(
     j: off.j && vecNonZero(off.j) ? offsetVecToSolver(off.j, off.frame, axes) : null,
   };
 }
+
+// ─── The member's reference line, for everything downstream of the analysis ───
+//
+// The analysis puts an offset member's flexible length on node + offset (the helper nodes
+// above). Everything that reads the member after the solve — the design's support faces,
+// its flange, the detailing's bar elevations, joint bands and column cages, the
+// concrete solids — has to read the SAME line, or the bars are laid round an axis the forces
+// were never computed on. These helpers are that one reading, built on the resolver the
+// solver expansion and the viewport already share (`resolveOffsetWorldVectors`).
+
+export type Vec3 = { x: number; y: number; z: number };
+const ZERO: Vec3 = { x: 0, y: 0, z: 0 };
+
+/** What an element must carry for its reference line to be read. */
+export interface OffsetCarrier {
+  offset?: MemberOffset;
+  localYx?: number; localYy?: number; localYz?: number;
+  rollAngle?: number;
+  sectionId?: number;
+}
+
+export interface MemberReferenceLine {
+  /** The member's centroidal axis at its i and j ends, model coordinates, m. */
+  i: Vec3;
+  j: Vec3;
+  /** Node to axis at each end, global, m: the declared insertion offset, zero where none. */
+  offsetI: Vec3;
+  offsetJ: Vec3;
+  /**
+   * Where the line comes from. `insertion`: the model declares an offset, and the axis is the
+   * nodes plus it. `node`: the model declares none, so the axis is taken through the nodes —
+   * the centroidal convention, which is an assumption about the model and is said as one by
+   * whoever reports the derivation.
+   */
+  datum: 'insertion' | 'node';
+}
+
+/**
+ * The reference line of a member: its nodes plus its declared insertion offsets, resolved on
+ * the axes the solver expansion uses (roll plus section rotation, right-handed). `sections`
+ * is needed only for a `local` offset on a rotated section; a `global` one needs nothing.
+ */
+export function memberReferenceLine(
+  elem: OffsetCarrier,
+  nI: { x: number; y: number; z?: number },
+  nJ: { x: number; y: number; z?: number },
+  sections?: ReadonlyMap<number, { rotation?: number }>,
+): MemberReferenceLine {
+  const pI = { x: nI.x, y: nI.y, z: nI.z ?? 0 };
+  const pJ = { x: nJ.x, y: nJ.y, z: nJ.z ?? 0 };
+  const rot = elem.sectionId !== undefined ? sections?.get(elem.sectionId)?.rotation : undefined;
+  const off = resolveOffsetWorldVectors(elem, pI, pJ, rot, false);
+  const oI = off?.i ?? ZERO, oJ = off?.j ?? ZERO;
+  return {
+    i: { x: pI.x + oI.x, y: pI.y + oI.y, z: pI.z + oI.z },
+    j: { x: pJ.x + oJ.x, y: pJ.y + oJ.y, z: pJ.z + oJ.z },
+    offsetI: { ...oI }, offsetJ: { ...oJ },
+    datum: off ? 'insertion' : 'node',
+  };
+}
+
+/** Node to axis of a member at one of its nodes, global, m (zero where it declares none). */
+export function memberOffsetAt(
+  elem: OffsetCarrier & { nodeI: number; nodeJ: number },
+  nodeId: number,
+  nodes: ReadonlyMap<number, { x: number; y: number; z?: number }>,
+  sections?: ReadonlyMap<number, { rotation?: number }>,
+): Vec3 {
+  if (!hasMemberOffset(elem)) return { ...ZERO };
+  const a = nodes.get(elem.nodeI), b = nodes.get(elem.nodeJ);
+  if (!a || !b) return { ...ZERO };
+  const line = memberReferenceLine(elem, a, b, sections);
+  return { ...(nodeId === elem.nodeI ? line.offsetI : line.offsetJ) };
+}
+
+/** The datum, in words, for a derivation: the offset declared, or the centroidal assumption. */
+export function referenceLineNote(line: Pick<MemberReferenceLine, 'datum' | 'offsetI' | 'offsetJ'>): string {
+  if (line.datum === 'node') {
+    return 'Línea de referencia: el modelo no declara punto de inserción ni excentricidad para la barra; '
+      + 'se toma su eje baricéntrico por los nodos (convención supuesta, no un dato).';
+  }
+  const v = (o: Vec3) => `(${o.x.toFixed(3)}; ${o.y.toFixed(3)}; ${o.z.toFixed(3)}) m`;
+  return `Línea de referencia: eje baricéntrico a ${v(line.offsetI)} del nodo i y ${v(line.offsetJ)} `
+    + 'del nodo j, según la inserción declarada en el modelo (la misma que recibe el análisis).';
+}

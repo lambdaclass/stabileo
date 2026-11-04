@@ -31,6 +31,7 @@
 
 import { clause, type ClauseRef } from '../regulation';
 import { msg, round, type EngineMessage } from '../message';
+import { loadsRequest } from '../../engine/wasm-solver';
 
 const ED = '2018';
 
@@ -90,19 +91,11 @@ export const RISK_FACTOR: Readonly<Record<DestinationGroup, number>> =
 
 // ─── Tabla 3.1 ───────────────────────────────────────────────────
 
-/**
- * Ca and Cv, as printed: a plain number in zones 1 and 2, and a multiple of Na or Nv in
- * zones 3 and 4, which are where fault proximity is treated.
+/*
+ * Ca and Cv as printed (a multiple of Na or Nv in zones 3 and 4) live in the engine,
+ * `table_3_1` in engine/src/loads/cirsoc103_seismic.rs; `seismic-engine.test.ts` diffs them against
+ * the oracle's transcription and `verification-tables.test.ts` against the official text.
  */
-const T31: Readonly<Record<SpectralType, Record<1 | 2 | 3 | 4, { ca: number; cv: number; near: boolean }>>> =
-  Object.freeze({
-    1: { 4: { ca: 0.37, cv: 0.51, near: true }, 3: { ca: 0.29, cv: 0.39, near: true },
-         2: { ca: 0.18, cv: 0.25, near: false }, 1: { ca: 0.09, cv: 0.13, near: false } },
-    2: { 4: { ca: 0.40, cv: 0.59, near: true }, 3: { ca: 0.32, cv: 0.47, near: true },
-         2: { ca: 0.22, cv: 0.32, near: false }, 1: { ca: 0.12, cv: 0.18, near: false } },
-    3: { 4: { ca: 0.36, cv: 0.90, near: true }, 3: { ca: 0.35, cv: 0.74, near: true },
-         2: { ca: 0.30, cv: 0.50, near: false }, 1: { ca: 0.19, cv: 0.26, near: false } },
-  });
 
 /**
  * Tabla 3.1, closing note — the floors on the fault-proximity coefficients.
@@ -157,43 +150,38 @@ export function isBlocked(r: DesignSpectrum | SpectrumBlocked): r is SpectrumBlo
  * site-specific study.
  */
 export function designSpectrum(i: SpectrumInputs): DesignSpectrum | SpectrumBlocked {
-  if (i.zone === 0) {
-    return {
-      blocked: msg('seismic.blocked.zone0'),
-      refs: [REF_ZONING, clause('inpres-cirsoc-103-i', ED, '2.5.2', 'construcciones en Zona 0')],
-    };
+  // Tabla 3.1, [3.13] and [3.14] are evaluated by the engine (engine/src/loads/cirsoc103_seismic.rs).
+  const r = loadsRequest({
+    op: 'cirsoc103Spectrum',
+    inputs: { zone: i.zone, site: i.site, ...(i.na !== undefined ? { na: i.na } : {}), ...(i.nv !== undefined ? { nv: i.nv } : {}) },
+  }) as { kind: 'blocked'; reason: 'zone0' | 'siteSF' } | { kind: 'spectrum'; spectrum: EngineSpectrum };
+  if (r.kind === 'blocked') {
+    return r.reason === 'zone0'
+      ? { blocked: msg('seismic.blocked.zone0'), refs: [REF_ZONING, clause('inpres-cirsoc-103-i', ED, '2.5.2', 'construcciones en Zona 0')] }
+      : { blocked: msg('seismic.blocked.siteSF'), refs: [REF_SITE, clause('inpres-cirsoc-103-i', ED, '2.3.2', 'suelos que requieren evaluación específica del sitio')] };
   }
-  const type = spectralType(i.site);
-  if (type === null) {
-    return {
-      blocked: msg('seismic.blocked.siteSF'),
-      refs: [REF_SITE, clause('inpres-cirsoc-103-i', ED, '2.3.2', 'suelos que requieren evaluación específica del sitio')],
-    };
-  }
-
-  const row = T31[type][i.zone];
-  const assumptions: EngineMessage[] = [];
-  let na = 1;
-  let nv = 1;
-  if (row.near) {
-    na = Math.max(NA_MIN, i.na ?? NA_MIN);
-    nv = Math.max(NV_MIN, i.nv ?? NV_MIN);
-    if (i.na === undefined || i.nv === undefined) {
-      assumptions.push(msg('seismic.assumed.faultProximity', { na: NA_MIN, nv: NV_MIN }));
-    }
-  }
-
-  const ca = row.ca * na;
-  const cv = row.cv * nv;
-  const t2 = cv / (2.5 * ca);        // [3.13]
-  const t1 = 0.2 * t2;               // [3.14]
-
+  const e = r.spectrum;
   return {
-    zone: i.zone, type, as: ZONE_AS[i.zone], ca, cv, na, nv,
-    t1, t2, t3: ZONE_T3[i.zone],
+    zone: e.zone as 1 | 2 | 3 | 4, type: e.type as SpectralType, as: e.as, ca: e.ca, cv: e.cv, na: e.na, nv: e.nv,
+    t1: e.t1, t2: e.t2, t3: e.t3,
     refs: [REF_ZONING, REF_SITE, REF_T31, REF_T32],
-    assumptions,
+    assumptions: e.faultProximityAssumed ? [msg('seismic.assumed.faultProximity', { na: NA_MIN, nv: NV_MIN })] : [],
   };
+}
+
+interface EngineSpectrum {
+  zone: number; type: number; as: number; ca: number; cv: number; na: number; nv: number;
+  t1: number; t2: number; t3: number; faultProximityAssumed: boolean;
+}
+
+/** The engine's view of a spectrum (the fields it reads). */
+export function engineSpectrum(s: DesignSpectrum): EngineSpectrum {
+  return { zone: s.zone, type: s.type, as: s.as, ca: s.ca, cv: s.cv, na: s.na, nv: s.nv, t1: s.t1, t2: s.t2, t3: s.t3, faultProximityAssumed: false };
+}
+
+/** Sa(T) for many periods at once, by the engine ([3.1]–[3.4]). */
+export function spectralOrdinates(periods: readonly number[], s: DesignSpectrum): number[] {
+  return loadsRequest({ op: 'cirsoc103Ordinates', spectrum: engineSpectrum(s), periods: [...periods] }) as number[];
 }
 
 /**
@@ -205,10 +193,7 @@ export function designSpectrum(i: SpectrumInputs): DesignSpectrum | SpectrumBloc
  * over-designs everything above about half a second.
  */
 export function spectralOrdinate(t: number, s: DesignSpectrum): number {
-  if (t <= s.t1) return s.ca * (1 + 1.5 * (t / s.t1));   // [3.1]
-  if (t <= s.t2) return 2.5 * s.ca;                       // [3.2]
-  if (t <= s.t3) return s.cv / t;                         // [3.3]
-  return (s.cv * s.t3) / (t * t);                         // [3.4]
+  return spectralOrdinates([t], s)[0]!;
 }
 
 export const SPECTRUM_REF = REF_SPECTRUM;
@@ -220,11 +205,9 @@ export const SPECTRUM_REF = REF_SPECTRUM;
  * interpolation reproduces the 1/T and 1/T² branches (steps of 0,01 s to 2 s, 0,05 s after),
  * and every corner — T1, T2, T3 — is a sample of its own, so no plateau is cut short.
  */
-export function spectrumPoints(s: DesignSpectrum, tMax = Math.max(10, s.t3 * 1.5)): Array<{ period: number; sa: number }> {
-  const ts = new Set<number>([0, s.t1, s.t2, s.t3]);
-  for (let t = 0.01; t <= Math.min(2, tMax) + 1e-9; t += 0.01) ts.add(Math.round(t * 1000) / 1000);
-  for (let t = 2.05; t <= tMax + 1e-9; t += 0.05) ts.add(Math.round(t * 1000) / 1000);
-  return [...ts].filter((t) => t <= tMax).sort((a, b) => a - b).map((t) => ({ period: t, sa: spectralOrdinate(t, s) }));
+export function spectrumPoints(s: DesignSpectrum, tMax?: number): Array<{ period: number; sa: number }> {
+  const pts = loadsRequest({ op: 'cirsoc103SpectrumPoints', spectrum: engineSpectrum(s), ...(tMax !== undefined ? { tMax } : {}) }) as Array<[number, number]>;
+  return pts.map(([period, sa]) => ({ period, sa }));
 }
 
 // ─── §3.6 — the gravity load that shakes ─────────────────────────
@@ -295,10 +278,11 @@ export interface SeismicWeightResult {
 
 /** [3.15] — Wi = Di + f1·Li + f2·Si. */
 export function seismicWeight(i: SeismicWeightInputs): SeismicWeightResult {
-  const f1 = SIMULTANEITY_F1[i.occupancy];
-  const f2 = i.snowRetaining ? SIMULTANEITY_F2.retaining : SIMULTANEITY_F2.other;
   const snow = i.snowKN ?? 0;
-  const w = i.deadKN + f1 * i.liveKN + f2 * snow;
+  const r = loadsRequest({
+    op: 'cirsoc103Weight', dead: i.deadKN, live: i.liveKN, snow, occupancy: i.occupancy, snowRetaining: !!i.snowRetaining,
+  }) as { weightKN: number; f1: number; f2: number };
+  const { weightKN: w, f1, f2 } = r;
   return {
     weightKN: w, f1, f2,
     refs: [REF_T33, clause('inpres-cirsoc-103-i', ED, '3.6', 'acciones gravitatorias para la acción sísmica horizontal')],

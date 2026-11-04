@@ -35,6 +35,10 @@ export function canonicalSections(): boolean {
   return readFlag('canonical-sections', true);
 }
 
+export function accounts(): boolean {
+  return readFlag('accounts', import.meta.env.DEV || import.meta.env.VITE_ACCOUNTS === '1');
+}
+
 /** Override a flag for the current session (used by tests and support). */
 export function setFeatureFlag(name: string, value: boolean): void {
   try {

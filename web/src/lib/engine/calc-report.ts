@@ -6,6 +6,7 @@
  * Uses Blob URL + browser print for PDF output (same pattern as pro-report.ts).
  */
 
+import { provenanceBlockHtml, type ResultProvenance as ProvenanceRecord, type ProvenanceLabels } from '../provenance/result-provenance';
 import type { Node, Material, Section, Element, Support } from '../store/model.svelte';
 import type { AnalysisResults, FullEnvelope } from './types';
 import type { AnalysisResults3D, FullEnvelope3D } from './types-3d';
@@ -79,6 +80,12 @@ export interface CalcReportData {
   kinematics?: KinematicReport | null;
   /** The model could not be solved: why. The results sections say so instead. */
   solveError?: string;
+  /**
+   * Which build produced these results from which model and settings, printed after the report
+   * metadata and embedded as JSON (`provenance/result-provenance.ts`). Every report the app
+   * writes carries it; absent only in callers that build a report outside the app.
+   */
+  resultProvenance?: { record: ProvenanceRecord; labels: ProvenanceLabels };
 }
 
 // ─── Formatting utilities ────────────────────────────────────────
@@ -613,6 +620,7 @@ export function generateCalcReportHtml(data: CalcReportData): string {
   html.push(buildTOC(sections));
   html.push('<div class="page">');
   html.push(buildReportMetadata(data));
+  if (data.resultProvenance) html.push(provenanceBlockHtml(data.resultProvenance.record, data.resultProvenance.labels));
   html.push('</div>');
   parts.forEach((p, i) => html.push(p.html(String(i + 1))));
 

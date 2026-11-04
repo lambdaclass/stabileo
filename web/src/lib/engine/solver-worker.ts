@@ -9,12 +9,13 @@
  *   { type: 'pdelta3d', id, input, maxIter, tol }      → 3D P-Delta, one load set
  *   { type: 'certify2d' | 'certify3d', id, input }      → certificate of a linear solve
  *                                                         ({ certificate, forceBounds, …bounds }, no results)
- *   { type: 'certify', id, name, input: args }          → any other `certify_*` / `export_*_bundle_*`
- *                                                         export (`certify-jobs.ts`), its results dropped
+ *   { type: 'certify', id, name, input: args }          → any export of the registry in `wasm-solver.ts`
+ *                                                         (`isCertifyExport`: certificates, bundles, the
+ *                                                         discretization estimate), its results dropped
  * Inputs/outputs are plain JS objects — structured-cloned both ways, no JSON text.
  */
 
-import { assertFiniteWire, certificateOnly, readCertifyAnswer } from './wasm-solver';
+import { assertFiniteWire, certificateOnly, isCertifyExport, readCertifyAnswer } from './wasm-solver';
 import { finishSolve3D, finishPDelta3D } from './solve-finish';
 
 let solve_2d: ((input: any) => any) | null = null;
@@ -97,7 +98,8 @@ self.onmessage = async (e: MessageEvent) => {
 
   if (msg.type === 'certify') {
     const name = String(msg.name ?? '');
-    const fn = /^(certify_|export_(linear|plastic|combination)_bundle_)/.test(name) ? wasmExports[name] : undefined;
+    // The main thread's registry, not a name pattern of our own (`isCertifyExport`).
+    const fn = isCertifyExport(name) ? wasmExports[name] : undefined;
     if (!ready || typeof fn !== 'function') {
       self.postMessage({ type: 'result', id: msg.id, error: `Worker certificate ${name} not available` });
       return;

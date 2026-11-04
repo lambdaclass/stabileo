@@ -31,6 +31,8 @@ pub struct CableAnalysisResult2D {
     pub iterations: usize,
     pub converged: bool,
     pub cable_forces: Vec<CableElementResult>,
+    /// As `CableAnalysisResult3D::self_weight_tension`.
+    pub self_weight_tension: Vec<(usize, f64)>,
 }
 
 /// Result of a 3D cable analysis.
@@ -41,6 +43,10 @@ pub struct CableAnalysisResult3D {
     pub iterations: usize,
     pub converged: bool,
     pub cable_forces: Vec<CableElementResult>,
+    /// Per cable given no pretension and with weight, the tension its own weight gives it with
+    /// the chord as its unstressed length, kN (`self_weight_warning`).
+    #[serde(skip)]
+    pub self_weight_tension: Vec<(usize, f64)>,
 }
 
 /// Per-cable-element results.
@@ -61,6 +67,10 @@ struct CableGeom {
     node_i_id: usize,
     node_j_id: usize,
     l0: f64,
+    /// The unstressed length: the chord `l0` unless a pretension was given (`unstressed_length`).
+    lu: f64,
+    /// Whether the reader gave the pretension (no self-weight warning then).
+    pretensioned: bool,
     dx: f64,
     dy: f64,
     cos_a: f64,
@@ -77,6 +87,10 @@ struct CableGeom3D {
     node_i_id: usize,
     node_j_id: usize,
     l0: f64,
+    /// The unstressed length: the chord `l0` unless a pretension was given (`unstressed_length`).
+    lu: f64,
+    /// Whether the reader gave the pretension (no self-weight warning then).
+    pretensioned: bool,
     dx: f64,
     dy: f64,
     dz: f64,
@@ -87,9 +101,67 @@ struct CableGeom3D {
     w: f64,
 }
 
+/// The share of a cable's tension above which `self_weight_warning` warns that its own weight
+/// gave most of it (#527).
+pub const SELF_WEIGHT_SHARE: f64 = 0.25;
+
+/// A cable's unstressed length: its chord `l0`, or with a pretension `t` given, the length at
+/// which the chord law gives `t` on the drawn chord under the cable's own weight `w` (kN/m) over
+/// the horizontal projection `l_h`: ε = t/EA − (w·l_h)²/(24 t²), L = l0/(1 + ε).
+fn unstressed_length(id: usize, l0: f64, ea: f64, w: f64, l_h: f64, t: Option<f64>) -> Result<f64, String> {
+    let Some(t) = t else { return Ok(l0) };
+    if !(t.is_finite() && t > 0.0) {
+        return Err(format!("Cable {id}: the pretension must be a positive force in kN, not {t}"));
+    }
+    let wl = w * l_h;
+    let eps = t / ea - wl * wl / (24.0 * t * t);
+    if !(eps.is_finite() && 1.0 + eps > 0.0) {
+        return Err(format!("Cable {id}: a pretension of {t} kN gives no unstressed length (too low for its weight)"));
+    }
+    Ok(l0 / (1.0 + eps))
+}
+
+/// A cable whose own weight gives it a large share of its tension (#527). Drawn as its chord, a
+/// cable with weight hangs at T₀³ = EA·(w·l_h)²/24 under nothing else and never goes slack: a
+/// heavy member typed as a cable (a rolled section, say) reports a tension that is mostly that.
+/// Warned, with the cables and their largest share, when T₀ is over `SELF_WEIGHT_SHARE` of the
+/// tension: give a pretension, or make it a truss member.
+fn self_weight_warning(forces: &[CableElementResult], t0: &[(usize, f64)]) -> Option<StructuredDiagnostic> {
+    let mut ids = Vec::new();
+    let mut worst: f64 = 0.0;
+    for &(id, t) in t0 {
+        let Some(f) = forces.iter().find(|f| f.element_id == id) else { continue };
+        if f.tension > 0.0 && t > SELF_WEIGHT_SHARE * f.tension {
+            ids.push(id);
+            worst = worst.max(t / f.tension);
+        }
+    }
+    if ids.is_empty() {
+        return None;
+    }
+    let mut d = StructuredDiagnostic::global(
+        DiagnosticCode::CableSelfWeightTension,
+        Severity::Warning,
+        format!(
+            "Up to {:.0} % of these cables' tension comes from their own weight with the drawn chord as their unstressed length, which keeps them taut whatever the loads: give each its pretension, or make it a truss member if it is not a cable",
+            100.0 * worst.min(1.0)
+        ),
+    );
+    d.value = Some(worst);
+    d.threshold = Some(SELF_WEIGHT_SHARE);
+    Some(d.with_elements(ids))
+}
+
 /// E_eq/E of a cable whose stiffness is assembled at `tension` on iteration `iter`: Ernst's
 /// reduction for the sag of its own weight over the horizontal projection `l_h`, zero for a cable
 /// that went slack on an earlier pass, one otherwise.
+///
+/// This is the TANGENT dT/dε of the chord law `element::cable_chord_tension` divided by EA, and
+/// the iteration uses it only as one: each pass linearises T(ε) about the last state, with the
+/// offset T_k − (E_eq/E)·EA·ε_k as a pair of nodal forces, so the converged state satisfies the
+/// chord law itself. It used to be used as a secant from the stress-free chord, T = E_eq(T)·A·ε,
+/// i.e. ε = T/EA + (w·l_h)²/(12T²) instead of T/EA − (w·l_h)²/(24T²), and an indeterminate system
+/// gave its cables too little tension (SP-12, #416).
 ///
 /// The same factor has to reach everything the stiffness produced. The tension used to be
 /// EA·strain on displacements solved with E_eq·A, and the reactions and member forces came from
@@ -97,7 +169,7 @@ struct CableGeom3D {
 /// determinate at 50 kN, the cables reported 51.07 and a slack cable kept its full stiffness in the
 /// reactions.
 fn ernst_factor(w: f64, l_h: f64, ea: f64, tension: f64, iter: usize) -> f64 {
-    if tension > 1e-10 && w > 1e-15 {
+    if tension > 0.0 && w > 1e-15 {
         let wl = w * l_h;
         1.0 / (1.0 + wl * wl * ea / (12.0 * tension.powi(3)))
     } else if tension <= 0.0 && iter > 0 {
@@ -107,12 +179,15 @@ fn ernst_factor(w: f64, l_h: f64, ea: f64, tension: f64, iter: usize) -> f64 {
     }
 }
 
+/// The horizontal projection of the chord, over which the cable's weight makes it sag: zero for a
+/// vertical cable, which then follows the taut-string law (no sag term, slack when shortened).
 fn horizontal_projection_2d(ci: &CableGeom) -> f64 {
-    ci.dx.abs().max(1e-10)
+    ci.dx.abs()
 }
 
+/// 3D twin of `horizontal_projection_2d` (the XY projection).
 fn horizontal_projection_3d(ci: &CableGeom3D) -> f64 {
-    (ci.dx * ci.dx + ci.dy * ci.dy).sqrt().max(1e-10)
+    (ci.dx * ci.dx + ci.dy * ci.dy).sqrt()
 }
 
 /// The correction (E_eq/E − 1)·EA/L that turns the full-E truss block of a cable into the one
@@ -137,6 +212,95 @@ fn ernst_diff_2d(ci: &CableGeom, tension: f64, iter: usize) -> Option<f64> {
 /// 3D twin of `ernst_diff_2d` (horizontal projection for the sag term).
 fn ernst_diff_3d(ci: &CableGeom3D, tension: f64, iter: usize) -> Option<f64> {
     ernst_diff(ernst_factor(ci.w, horizontal_projection_3d(ci), ci.ea, tension, iter), ci.ea, ci.l0)
+}
+
+/// A cable's raw DOFs and the coefficients c of its axial direction (+d at node i, −d at node j):
+/// the cable's internal force on its DOFs is −c·T, and c·u = −(chord elongation).
+///
+/// The coefficients are in the solver's frame: at a node on an inclined support they are rotated
+/// the way the assembly rotates that node's rows of K and f, so c·cᵀ·EA/L0 is exactly the cable's
+/// block of the assembled (rotated) truss and c·T exactly the force it puts on the rotated DOFs.
+fn cable_slots_2d(ci: &CableGeom, dof_num: &DofNumbering, inclined: &[assembly::InclinedTransformData2D]) -> ([usize; 4], [f64; 4]) {
+    let dofs = [
+        dof_num.global_dof(ci.node_i_id, 0).unwrap(),
+        dof_num.global_dof(ci.node_i_id, 1).unwrap(),
+        dof_num.global_dof(ci.node_j_id, 0).unwrap(),
+        dof_num.global_dof(ci.node_j_id, 1).unwrap(),
+    ];
+    let mut coef = [ci.cos_a, ci.sin_a, -ci.cos_a, -ci.sin_a];
+    for it in inclined {
+        for a in 0..2 {
+            if dofs[2 * a] == it.dofs[0] && dofs[2 * a + 1] == it.dofs[1] {
+                let v = [coef[2 * a], coef[2 * a + 1]];
+                for k in 0..2 {
+                    coef[2 * a + k] = it.r[k][0] * v[0] + it.r[k][1] * v[1];
+                }
+            }
+        }
+    }
+    (dofs, coef)
+}
+
+/// 3D twin of `cable_slots_2d`; a DOF the numbering does not have is `usize::MAX`.
+fn cable_slots_3d(ci: &CableGeom3D, dof_num: &DofNumbering, inclined: &[assembly::InclinedTransformData]) -> ([usize; 6], [f64; 6]) {
+    let mut dofs = [usize::MAX; 6];
+    let mut coef = [0.0; 6];
+    for a in 0..2 {
+        let node = if a == 0 { ci.node_i_id } else { ci.node_j_id };
+        let sign = if a == 0 { 1.0 } else { -1.0 };
+        for i in 0..3 {
+            coef[a * 3 + i] = sign * ci.dir[i];
+            if let Some(&d) = dof_num.map.get(&(node, i)) { dofs[a * 3 + i] = d; }
+        }
+    }
+    for it in inclined {
+        for a in 0..2 {
+            if (0..3).all(|k| dofs[3 * a + k] == it.dofs[k]) {
+                let v = [coef[3 * a], coef[3 * a + 1], coef[3 * a + 2]];
+                for k in 0..3 {
+                    coef[3 * a + k] = it.r[k][0] * v[0] + it.r[k][1] * v[1] + it.r[k][2] * v[2];
+                }
+            }
+        }
+    }
+    (dofs, coef)
+}
+
+/// Adds diff·c·cᵀ (a cable's tangent correction) to a dense n×n K at the cable's DOFs.
+fn add_block_dense(k: &mut [f64], n: usize, dofs: &[usize], coef: &[f64], diff: f64) {
+    for (p, &dp) in dofs.iter().enumerate() {
+        if dp == usize::MAX { continue; }
+        for (q, &dq) in dofs.iter().enumerate() {
+            if dq == usize::MAX { continue; }
+            k[dp * n + dq] += diff * coef[p] * coef[q];
+        }
+    }
+}
+
+/// Lower-triangle triplets of diff·c·cᵀ on the free DOFs (the sparse twin of `add_block_dense`).
+fn add_block_triplets(rows: &mut Vec<usize>, cols: &mut Vec<usize>, vals: &mut Vec<f64>, nf: usize, dofs: &[usize], coef: &[f64], diff: f64) {
+    for p in 0..dofs.len() {
+        for q in 0..=p {
+            let (dp, dq) = (dofs[p], dofs[q]);
+            if dp < nf && dq < nf {
+                rows.push(dp);
+                cols.push(dq);
+                vals.push(diff * coef[p] * coef[q]);
+            }
+        }
+    }
+}
+
+/// c·v over a cable's DOFs.
+fn along(v: &[f64], dofs: &[usize], coef: &[f64]) -> f64 {
+    dofs.iter().zip(coef).filter(|(d, _)| **d != usize::MAX).map(|(d, c)| c * v[*d]).sum()
+}
+
+/// v += c·s over a cable's DOFs.
+fn add_along(v: &mut [f64], dofs: &[usize], coef: &[f64], s: f64) {
+    for (d, c) in dofs.iter().zip(coef) {
+        if *d != usize::MAX { v[*d] += c * s; }
+    }
 }
 
 /// Solve K*u = F with Cholesky fallback to LU.
@@ -169,6 +333,32 @@ pub fn solve_cable_2d(
     max_iter: usize,
     tolerance: f64,
 ) -> Result<CableAnalysisResult2D, String> {
+    solve_cable_2d_pretensioned(input, densities, &HashMap::new(), max_iter, tolerance)
+}
+
+/// `solve_cable_2d` with a pretension per cable (`pretension`: element id → kN): the tension each
+/// one has on its drawn chord under its own weight alone, from which its unstressed length is set.
+/// A cable not in the map is as long as its chord.
+pub fn solve_cable_2d_pretensioned(
+    input: &SolverInput,
+    densities: &HashMap<String, f64>,
+    pretension: &HashMap<String, f64>,
+    max_iter: usize,
+    tolerance: f64,
+) -> Result<CableAnalysisResult2D, String> {
+    let mut r = solve_cable_2d_inner(input, densities, pretension, max_iter, tolerance)?;
+    r.results.structured_diagnostics.extend(self_weight_warning(&r.cable_forces, &r.self_weight_tension));
+    crate::known_issues::attach(&mut r.results.structured_diagnostics, crate::known_issues::for_2d(input, crate::known_issues::Analysis::Cable));
+    Ok(r)
+}
+
+fn solve_cable_2d_inner(
+    input: &SolverInput,
+    densities: &HashMap<String, f64>,
+    pretension: &HashMap<String, f64>,
+    max_iter: usize,
+    tolerance: f64,
+) -> Result<CableAnalysisResult2D, String> {
     // The same input checks as every other analysis (non-finite values,
     // dangling ids, unknown support types, ambiguous shared supports).
     linear::validate_input_2d(input)?;
@@ -186,7 +376,7 @@ pub fn solve_cable_2d(
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 
     // Identify cable elements
-    let has_cables = input.elements.values().any(|e| e.elem_type == "cable");
+    let has_cables = crate::ordered::values(&input.elements).any(|e| e.elem_type == "cable");
 
     if !has_cables {
         let results = linear::solve_2d(input)?;
@@ -195,22 +385,26 @@ pub fn solve_cable_2d(
             iterations: 1,
             converged: true,
             cable_forces: Vec::new(),
+            self_weight_tension: Vec::new(),
         });
     }
 
     // Build O(1) lookup maps by id
     let node_by_id: HashMap<usize, &SolverNode> =
-        input.nodes.values().map(|n| (n.id, n)).collect();
+        crate::ordered::values(&input.nodes).map(|n| (n.id, n)).collect();
     let mat_by_id: HashMap<usize, &SolverMaterial> =
-        input.materials.values().map(|m| (m.id, m)).collect();
+        crate::ordered::values(&input.materials).map(|m| (m.id, m)).collect();
     let sec_by_id: HashMap<usize, &SolverSection> =
-        input.sections.values().map(|s| (s.id, s)).collect();
+        crate::ordered::values(&input.sections).map(|s| (s.id, s)).collect();
 
     // Precompute cable geometry
     let mut cables: Vec<CableGeom> = Vec::new();
     let mut cable_tensions: HashMap<usize, f64> = HashMap::new();
+    // Per cable, the small-displacement chord strain d·(u_j − u_i)/L0 of the last solve: the
+    // strain the assembled truss block sees, about which the chord law is linearised.
+    let mut cable_eps_lin: HashMap<usize, f64> = HashMap::new();
 
-    for elem in input.elements.values() {
+    for elem in crate::ordered::values(&input.elements) {
         if elem.elem_type != "cable" {
             continue;
         }
@@ -227,19 +421,28 @@ pub fn solve_cable_2d(
         let density = densities.get(&elem.material_id.to_string())
             .copied().unwrap_or(0.0) / 1000.0; // kg/m³ → t/m³
         let w = element::cable_self_weight(density, sec.a);
+        // Below this the sag term is round-off; the cable is a taut string.
+        let w = if w > 1e-15 { w } else { 0.0 };
 
+        let given = pretension.get(&elem.id.to_string()).copied();
+        let lu = unstressed_length(elem.id, l0, e * sec.a, w, dx.abs(), given)?;
         cables.push(CableGeom {
             elem_id: elem.id,
             node_i_id: elem.node_i,
             node_j_id: elem.node_j,
-            l0, dx, dy,
+            l0, lu, pretensioned: given.is_some(), dx, dy,
             cos_a: dx / l0,
             sin_a: dy / l0,
             ea: e * sec.a,
             e,
             w,
         });
-        cable_tensions.insert(elem.id, 0.0);
+        // The state the first pass linearises about: the undeformed chord, at the tension the
+        // chord law gives it (the pretension given; otherwise zero without weight and, with
+        // weight, the tension at which a cable as long as its chord hangs between its nodes).
+        let ci = cables.last().unwrap();
+        cable_tensions.insert(elem.id, element::cable_chord_tension(ci.ea, ci.w, horizontal_projection_2d(ci), (ci.l0 - ci.lu) / ci.lu));
+        cable_eps_lin.insert(elem.id, 0.0);
     }
 
     // Dispatch dense vs sparse once per solve call (not per iteration).
@@ -293,6 +496,8 @@ pub fn solve_cable_2d(
         }
     }
 
+    // Each cable's DOFs and solver-frame direction coefficients (fixed geometry).
+    let slots: Vec<_> = cables.iter().map(|ci| cable_slots_2d(ci, &dof_num, inclined_2d)).collect();
     let mut u_full = vec![0.0; n];
     let mut converged = false;
     let mut total_iterations = 0;
@@ -307,108 +512,49 @@ pub fn solve_cable_2d(
     for iter in 0..max_iter {
         total_iterations = iter + 1;
 
+        // Newton on the chord law. The assembled cable block is the tangent (E_eq/E)·EA/L0 at the
+        // last tension T_k; the rest of T(ε) ≈ T_k + (E_eq/E)·EA·(ε − ε_k) goes to the right-hand
+        // side as nodal forces. They are built from what the matrix actually produces (the base
+        // truss with its full EA, rotated at inclined supports, plus the correction block as
+        // assembled, both in the solver's frame), so at the fixed point the cables pull with
+        // T(ε) exactly, whatever the tangent: c·(T_k − EA·ε_k) plus diff·c·(c·u_k).
+        let mut f_cable = vec![0.0; n];
+        let mut tangent: Vec<Option<f64>> = Vec::with_capacity(cables.len());
+        for (ci, (dofs, coef)) in cables.iter().zip(&slots) {
+            let diff = ernst_diff_2d(ci, cable_tensions[&ci.elem_id], iter);
+            let mut s = cable_tensions[&ci.elem_id] - ci.ea * cable_eps_lin[&ci.elem_id];
+            if let Some(diff) = diff {
+                s += diff * along(&u_full, dofs, coef);
+            }
+            add_along(&mut f_cable, dofs, coef, s);
+            tangent.push(diff);
+        }
+        let f_f: Vec<f64> = (0..nf).map(|i| f_global[i] + f_cable[i]).collect();
+
         let u_indep = if use_sparse {
             // Sparse path: rebuild the corrected CSC from the cached base
             // triplets plus the Ernst correction triplets — no dense matrix.
             let mut rows = base_tr.clone();
             let mut cols = base_tc.clone();
             let mut vals = base_tv.clone();
-            for ci in &cables {
-                let tension = cable_tensions[&ci.elem_id];
-                if let Some(diff) = ernst_diff_2d(ci, tension, iter) {
-                    let cable_dofs = [
-                        dof_num.global_dof(ci.node_i_id, 0).unwrap(),
-                        dof_num.global_dof(ci.node_i_id, 1).unwrap(),
-                        dof_num.global_dof(ci.node_j_id, 0).unwrap(),
-                        dof_num.global_dof(ci.node_j_id, 1).unwrap(),
-                    ];
-                    let c2 = ci.cos_a * ci.cos_a;
-                    let s2 = ci.sin_a * ci.sin_a;
-                    let cs2 = ci.cos_a * ci.sin_a;
-
-                    // Correction matrix: adds (E_eq - E) * A/L contribution.
-                    // Same KNOWN RESIDUAL GAP as the dense path (see below):
-                    // dk is built in the true-global cable frame and added
-                    // unrotated at `cable_dofs`, even if a cable end sits on
-                    // an inclined support. Symmetric block: push each lower-
-                    // triangle pair once, filtered to free DOFs (restrained
-                    // entries never entered k_ff in the dense path either).
-                    let dk = [
-                        [diff * c2,  diff * cs2, -diff * c2, -diff * cs2],
-                        [diff * cs2, diff * s2,  -diff * cs2, -diff * s2],
-                        [-diff * c2, -diff * cs2,  diff * c2,  diff * cs2],
-                        [-diff * cs2, -diff * s2,  diff * cs2,  diff * s2],
-                    ];
-                    for i in 0..4 {
-                        for j in 0..=i {
-                            let (gi, gj) = (cable_dofs[i], cable_dofs[j]);
-                            if gi < nf && gj < nf {
-                                rows.push(gi);
-                                cols.push(gj);
-                                vals.push(dk[i][j]);
-                            }
-                        }
-                    }
+            for ((dofs, coef), diff) in slots.iter().zip(&tangent) {
+                if let Some(diff) = *diff {
+                    add_block_triplets(&mut rows, &mut cols, &mut vals, nf, dofs, coef, diff);
                 }
             }
-            let f_f: Vec<f64> = f_global[..nf].to_vec();
             let f_solve = if let Some(ref cs) = cs { cs.reduce_vector(&f_f) } else { f_f };
             let k_csc = tangent_free_sparse_triplets(&rows, &cols, &vals, nf, &cs);
             solve_tangent_sparse(&k_csc, &f_solve, &mut sparse_sym_cache)?
         } else {
             let mut k_global = dense_asm.as_ref().unwrap().k.clone();
-
-            // Modify cable stiffnesses based on current tension
-            for ci in &cables {
-                let tension = cable_tensions[&ci.elem_id];
-
-                let cable_dofs = [
-                    dof_num.global_dof(ci.node_i_id, 0).unwrap(),
-                    dof_num.global_dof(ci.node_i_id, 1).unwrap(),
-                    dof_num.global_dof(ci.node_j_id, 0).unwrap(),
-                    dof_num.global_dof(ci.node_j_id, 1).unwrap(),
-                ];
-
-                if let Some(diff) = ernst_diff_2d(ci, tension, iter) {
-                    let c2 = ci.cos_a * ci.cos_a;
-                    let s2 = ci.sin_a * ci.sin_a;
-                    let cs2 = ci.cos_a * ci.sin_a;
-
-                    // Correction matrix: adds (E_eq - E) * A/L contribution
-                    //
-                    // KNOWN RESIDUAL GAP: `dk` is built in the true-global (cos_a,
-                    // sin_a) cable frame and added directly at `cable_dofs`
-                    // positions into `k_global`, which is already in the rotated
-                    // (mixed) frame for any inclined-support DOFs (base_asm.k came
-                    // out of assemble_2d with apply_inclined_transform_2d already
-                    // applied). If a cable end happens to sit on an inclined-
-                    // support node, this correction is added unrotated — it would
-                    // need to be rotated the same way apply_inclined_transform_2d
-                    // rotates a full K (see assembly.rs), scoped to just this 4×4
-                    // block. Not implemented: cable-on-inclined-support is a rare
-                    // combination and doing this correctly needs either a per-
-                    // iteration full-matrix rotation pass (expensive) or a new
-                    // local-block rotation helper — deferred as documented,
-                    // low-severity residual gap (see C4 review Finding 2).
-                    let dk = [
-                        [diff * c2,  diff * cs2, -diff * c2, -diff * cs2],
-                        [diff * cs2, diff * s2,  -diff * cs2, -diff * s2],
-                        [-diff * c2, -diff * cs2,  diff * c2,  diff * cs2],
-                        [-diff * cs2, -diff * s2,  diff * cs2,  diff * s2],
-                    ];
-
-                    for i in 0..4 {
-                        for j in 0..4 {
-                            k_global[cable_dofs[i] * n + cable_dofs[j]] += dk[i][j];
-                        }
-                    }
+            // The tangent correction (E_eq/E − 1)·EA/L0·c·cᵀ, in the solver's frame like the base.
+            for ((dofs, coef), diff) in slots.iter().zip(&tangent) {
+                if let Some(diff) = *diff {
+                    add_block_dense(&mut k_global, n, dofs, coef, diff);
                 }
             }
-
-            // Solve
             let free_idx: Vec<usize> = (0..nf).collect();
             let k_ff = extract_submatrix(&k_global, n, &free_idx, &free_idx);
-            let f_f: Vec<f64> = f_global[..nf].to_vec();
             let (k_solve, f_solve) = if let Some(ref cs) = cs {
                 (cs.reduce_matrix(&k_ff), cs.reduce_vector(&f_f))
             } else {
@@ -439,6 +585,8 @@ pub fn solve_cable_2d(
         }
 
         let mut max_tension_change = 0.0_f64;
+        let mut tension_scale = 0.0_f64;
+        let mut reactivated = false;
 
         for ci in &cables {
             let u_xi = dof_num.global_dof(ci.node_i_id, 0).map(|d| u_geom[d]).unwrap_or(0.0);
@@ -450,26 +598,34 @@ pub fn solve_cable_2d(
             let dy_def = ci.dy + u_yj - u_yi;
             let l_def = (dx_def * dx_def + dy_def * dy_def).sqrt();
 
-            let strain = (l_def - ci.l0) / ci.l0;
+            let strain = (l_def - ci.lu) / ci.lu;
             let old_tension = cable_tensions[&ci.elem_id];
             // The modulus the displacements were solved with: the one this pass assembled.
             let factor = ernst_factor(ci.w, horizontal_projection_2d(ci), ci.ea, old_tension, iter);
             assembled_factor.insert(ci.elem_id, factor);
-            // A slack cable has no assembled stiffness, but positive trial strain must
-            // reactivate it. This trial tension forces another iteration, which restores
-            // its stiffness before a converged result can be published.
-            let tension = if strain > 0.0 {
-                (if factor == 0.0 { 1.0 } else { factor }) * ci.ea * strain
-            } else { 0.0 };
-
-            let change = (tension - old_tension).abs();
-            let ref_val = old_tension.abs().max(tension.abs()).max(1.0);
-            max_tension_change = max_tension_change.max(change / ref_val);
+            // The chord law at the new chord. A slack cable (no weight, shortened chord) has
+            // no assembled stiffness; positive strain gives it tension again, which forces
+            // another pass with its stiffness restored before a result can converge.
+            let tension = element::cable_chord_tension(ci.ea, ci.w, horizontal_projection_2d(ci), strain);
+            let eps_lin = (ci.cos_a * (u_xj - u_xi) + ci.sin_a * (u_yj - u_yi)) / ci.l0;
+            let old_eps_lin = cable_eps_lin.insert(ci.elem_id, eps_lin).unwrap_or(0.0);
+            // The force the solved system gave the cable (its linearised law at the new strain):
+            // at a solution it is the chord-law tension of the new chord.
+            let t_sys = old_tension + factor * ci.ea * (eps_lin - old_eps_lin);
+            let change = (tension - old_tension).abs().max((tension - t_sys).abs());
+            max_tension_change = max_tension_change.max(change);
+            tension_scale = tension_scale.max(old_tension.abs()).max(tension.abs());
+            // A slack cable that takes tension again has to be solved with its stiffness back.
+            if factor == 0.0 && tension > 0.0 {
+                reactivated = true;
+            }
 
             cable_tensions.insert(ci.elem_id, tension);
         }
 
-        if max_tension_change < tolerance && iter > 0 {
+        // Relative to the largest cable tension of the model, so a model of small forces is held
+        // to the same tolerance as one of large forces.
+        if !reactivated && max_tension_change <= tolerance * tension_scale && iter > 0 {
             converged = true;
             break;
         }
@@ -493,21 +649,14 @@ pub fn solve_cable_2d(
     for i in 0..nr {
         reactions_vec[i] = k_rf_uf[i] - f_r[i];
     }
-    // The base block has every cable at its full E; the supports feel the modulus it was solved with.
-    for ci in &cables {
-        let factor = assembled_factor.get(&ci.elem_id).copied().unwrap_or(1.0);
-        let Some(diff) = ernst_diff(factor, ci.ea, ci.l0) else { continue };
-        let dofs = [
-            dof_num.global_dof(ci.node_i_id, 0).unwrap(),
-            dof_num.global_dof(ci.node_i_id, 1).unwrap(),
-            dof_num.global_dof(ci.node_j_id, 0).unwrap(),
-            dof_num.global_dof(ci.node_j_id, 1).unwrap(),
-        ];
-        let coef = [ci.cos_a, ci.sin_a, -ci.cos_a, -ci.sin_a];
-        let stretch: f64 = (0..4).filter(|&q| dofs[q] < nf).map(|q| coef[q] * u_f[dofs[q]]).sum();
-        for p in 0..4 {
-            if dofs[p] >= nf { reactions_vec[dofs[p] - nf] += diff * coef[p] * stretch; }
-        }
+    // The base block gives every cable the force EA·ε_lin of a full-E truss; the supports feel its
+    // tension T instead: add −c·(T − EA·ε_lin) at the restrained DOFs (c in the solver's frame).
+    let mut r_cable = vec![0.0; n];
+    for (ci, (dofs, coef)) in cables.iter().zip(&slots) {
+        add_along(&mut r_cable, dofs, coef, -(cable_tensions[&ci.elem_id] - ci.ea * cable_eps_lin[&ci.elem_id]));
+    }
+    for i in 0..nr {
+        reactions_vec[i] += r_cable[nf + i];
     }
 
     // Reverse inclined transforms on displacements before building results —
@@ -537,12 +686,14 @@ pub fn solve_cable_2d(
     // Compute constraint forces if constraints are active. Uses u_f/f_global
     // (pre-reversal, rotated-frame convention) — u_full has already been
     // reversed above for reporting, so it can no longer be sliced here.
+    // The base K gives each cable EA·ε_lin; its force is T: K·u − (f − r_cable) on the free DOFs.
+    let f_constraint: Vec<f64> = (0..nf).map(|i| f_global[i] - r_cable[i]).collect();
     let constraint_forces = if let Some(ref fcs) = cs {
         let raw = if let Some(ref s) = sparse_stiff {
-            fcs.compute_constraint_forces_sparse(&s.k_ff, &u_f, &f_global[..nf])
+            fcs.compute_constraint_forces_sparse(&s.k_ff, &u_f, &f_constraint)
         } else {
             let k_ff = extract_submatrix(&dense_asm.as_ref().unwrap().k, n, &free_idx, &free_idx);
-            fcs.compute_constraint_forces(&k_ff, &u_f, &f_global[..nf])
+            fcs.compute_constraint_forces(&k_ff, &u_f, &f_constraint)
         };
         fcs.constraint_forces(&raw, &dof_num)
     } else {
@@ -579,15 +730,18 @@ pub fn solve_cable_2d(
             horizontal_thrust: h_thrust,
             sag,
             ernst_modulus: e_eq,
-            unstretched_length: ci.l0,
+            unstretched_length: ci.lu,
         }
     }).collect();
 
+    let self_weight_tension = cables.iter().filter(|c| !c.pretensioned && c.w > 0.0)
+        .map(|c| (c.elem_id, element::cable_chord_tension(c.ea, c.w, horizontal_projection_2d(c), 0.0))).collect();
     Ok(CableAnalysisResult2D {
         results,
         iterations: total_iterations,
         converged,
         cable_forces,
+        self_weight_tension,
     })
 }
 
@@ -595,6 +749,30 @@ pub fn solve_cable_2d(
 pub fn solve_cable_3d(
     input: &SolverInput3D,
     densities: &HashMap<String, f64>,
+    max_iter: usize,
+    tolerance: f64,
+) -> Result<CableAnalysisResult3D, String> {
+    solve_cable_3d_pretensioned(input, densities, &HashMap::new(), max_iter, tolerance)
+}
+
+/// 3D twin of `solve_cable_2d_pretensioned`.
+pub fn solve_cable_3d_pretensioned(
+    input: &SolverInput3D,
+    densities: &HashMap<String, f64>,
+    pretension: &HashMap<String, f64>,
+    max_iter: usize,
+    tolerance: f64,
+) -> Result<CableAnalysisResult3D, String> {
+    let mut r = solve_cable_3d_inner(input, densities, pretension, max_iter, tolerance)?;
+    r.results.structured_diagnostics.extend(self_weight_warning(&r.cable_forces, &r.self_weight_tension));
+    crate::known_issues::attach(&mut r.results.structured_diagnostics, crate::known_issues::for_3d(input, crate::known_issues::Analysis::Cable));
+    Ok(r)
+}
+
+fn solve_cable_3d_inner(
+    input: &SolverInput3D,
+    densities: &HashMap<String, f64>,
+    pretension: &HashMap<String, f64>,
     max_iter: usize,
     tolerance: f64,
 ) -> Result<CableAnalysisResult3D, String> {
@@ -614,7 +792,7 @@ pub fn solve_cable_3d(
     let cs = FreeConstraintSystem::build_3d(&input, &dof_num)?;
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 
-    let has_cables = input.elements.values().any(|e| e.elem_type == "cable");
+    let has_cables = crate::ordered::values(&input.elements).any(|e| e.elem_type == "cable");
 
     if !has_cables {
         let results = linear::solve_3d(input)?;
@@ -623,21 +801,25 @@ pub fn solve_cable_3d(
             iterations: 1,
             converged: true,
             cable_forces: Vec::new(),
+            self_weight_tension: Vec::new(),
         });
     }
 
     // Build O(1) lookup maps by id
     let node_by_id: HashMap<usize, &SolverNode3D> =
-        input.nodes.values().map(|n| (n.id, n)).collect();
+        crate::ordered::values(&input.nodes).map(|n| (n.id, n)).collect();
     let mat_by_id: HashMap<usize, &SolverMaterial> =
-        input.materials.values().map(|m| (m.id, m)).collect();
+        crate::ordered::values(&input.materials).map(|m| (m.id, m)).collect();
     let sec_by_id: HashMap<usize, &SolverSection3D> =
-        input.sections.values().map(|s| (s.id, s)).collect();
+        crate::ordered::values(&input.sections).map(|s| (s.id, s)).collect();
 
     let mut cables: Vec<CableGeom3D> = Vec::new();
     let mut cable_tensions: HashMap<usize, f64> = HashMap::new();
+    // Per cable, the small-displacement chord strain d·(u_j − u_i)/L0 of the last solve: the
+    // strain the assembled truss block sees, about which the chord law is linearised.
+    let mut cable_eps_lin: HashMap<usize, f64> = HashMap::new();
 
-    for elem in input.elements.values() {
+    for elem in crate::ordered::values(&input.elements) {
         if elem.elem_type != "cable" {
             continue;
         }
@@ -655,18 +837,27 @@ pub fn solve_cable_3d(
         let density = densities.get(&elem.material_id.to_string())
             .copied().unwrap_or(0.0) / 1000.0; // kg/m³ → t/m³
         let w = element::cable_self_weight(density, sec.a);
+        // Below this the sag term is round-off; the cable is a taut string.
+        let w = if w > 1e-15 { w } else { 0.0 };
 
+        let given = pretension.get(&elem.id.to_string()).copied();
+        let lu = unstressed_length(elem.id, l0, e * sec.a, w, (dx * dx + dy * dy).sqrt(), given)?;
         cables.push(CableGeom3D {
             elem_id: elem.id,
             node_i_id: elem.node_i,
             node_j_id: elem.node_j,
-            l0, dx, dy, dz,
+            l0, lu, pretensioned: given.is_some(), dx, dy, dz,
             dir: [dx / l0, dy / l0, dz / l0],
             ea: e * sec.a,
             e,
             w,
         });
-        cable_tensions.insert(elem.id, 0.0);
+        // The state the first pass linearises about: the undeformed chord, at the tension the
+        // chord law gives it (the pretension given; otherwise zero without weight and, with
+        // weight, the tension at which a cable as long as its chord hangs between its nodes).
+        let ci = cables.last().unwrap();
+        cable_tensions.insert(elem.id, element::cable_chord_tension(ci.ea, ci.w, horizontal_projection_3d(ci), (ci.l0 - ci.lu) / ci.lu));
+        cable_eps_lin.insert(elem.id, 0.0);
     }
 
     // Dispatch dense vs sparse once per solve call (not per iteration).
@@ -717,6 +908,8 @@ pub fn solve_cable_3d(
         }
     }
 
+    // Each cable's DOFs and solver-frame direction coefficients (fixed geometry).
+    let slots: Vec<_> = cables.iter().map(|ci| cable_slots_3d(ci, &dof_num, inclined_3d)).collect();
     let mut u_full = vec![0.0; n];
     let mut converged = false;
     let mut total_iterations = 0;
@@ -731,90 +924,49 @@ pub fn solve_cable_3d(
     for iter in 0..max_iter {
         total_iterations = iter + 1;
 
+        // Newton on the chord law. The assembled cable block is the tangent (E_eq/E)·EA/L0 at the
+        // last tension T_k; the rest of T(ε) ≈ T_k + (E_eq/E)·EA·(ε − ε_k) goes to the right-hand
+        // side as nodal forces. They are built from what the matrix actually produces (the base
+        // truss with its full EA, rotated at inclined supports, plus the correction block as
+        // assembled, both in the solver's frame), so at the fixed point the cables pull with
+        // T(ε) exactly, whatever the tangent: c·(T_k − EA·ε_k) plus diff·c·(c·u_k).
+        let mut f_cable = vec![0.0; n];
+        let mut tangent: Vec<Option<f64>> = Vec::with_capacity(cables.len());
+        for (ci, (dofs, coef)) in cables.iter().zip(&slots) {
+            let diff = ernst_diff_3d(ci, cable_tensions[&ci.elem_id], iter);
+            let mut s = cable_tensions[&ci.elem_id] - ci.ea * cable_eps_lin[&ci.elem_id];
+            if let Some(diff) = diff {
+                s += diff * along(&u_full, dofs, coef);
+            }
+            add_along(&mut f_cable, dofs, coef, s);
+            tangent.push(diff);
+        }
+        let f_f: Vec<f64> = (0..nf).map(|i| f_global[i] + f_cable[i]).collect();
+
         let u_indep = if use_sparse {
             // Sparse path: rebuild the corrected CSC from the cached base
             // triplets plus the Ernst correction triplets — no dense matrix.
             let mut rows = base_tr.clone();
             let mut cols = base_tc.clone();
             let mut vals = base_tv.clone();
-            for ci in &cables {
-                let tension = cable_tensions[&ci.elem_id];
-                if let Some(diff) = ernst_diff_3d(ci, tension, iter) {
-                    // Same KNOWN RESIDUAL GAP as the dense path (see below):
-                    // the correction is assembled in the true-global cable
-                    // direction and added unrotated at the raw node DOFs, even
-                    // if a cable end sits on an inclined support. The 6×6
-                    // block is symmetric: slot p = a*3+i with coefficient
-                    // sign(a)*dir[i]; push each pair once, free DOFs only
-                    // (restrained entries never entered k_ff in the dense
-                    // path either).
-                    let mut sdofs = [usize::MAX; 6];
-                    let mut coef = [0.0; 6];
-                    for a in 0..2 {
-                        let node_a = if a == 0 { ci.node_i_id } else { ci.node_j_id };
-                        let sign = if a == 0 { 1.0 } else { -1.0 };
-                        for i in 0..3 {
-                            coef[a * 3 + i] = sign * ci.dir[i];
-                            if let Some(&d) = dof_num.map.get(&(node_a, i)) {
-                                sdofs[a * 3 + i] = d;
-                            }
-                        }
-                    }
-                    for p in 0..6 {
-                        for q in 0..=p {
-                            let (dp, dq) = (sdofs[p], sdofs[q]);
-                            if dp < nf && dq < nf {
-                                rows.push(dp);
-                                cols.push(dq);
-                                vals.push(diff * coef[p] * coef[q]);
-                            }
-                        }
-                    }
+            for ((dofs, coef), diff) in slots.iter().zip(&tangent) {
+                if let Some(diff) = *diff {
+                    add_block_triplets(&mut rows, &mut cols, &mut vals, nf, dofs, coef, diff);
                 }
             }
-            let f_f: Vec<f64> = f_global[..nf].to_vec();
             let f_solve = if let Some(ref cs) = cs { cs.reduce_vector(&f_f) } else { f_f };
             let k_csc = tangent_free_sparse_triplets(&rows, &cols, &vals, nf, &cs);
             solve_tangent_sparse(&k_csc, &f_solve, &mut sparse_sym_cache)?
         } else {
             let mut k_global = dense_asm.as_ref().unwrap().k.clone();
-
-            for ci in &cables {
-                let tension = cable_tensions[&ci.elem_id];
-
-                if let Some(diff) = ernst_diff_3d(ci, tension, iter) {
-                    // KNOWN RESIDUAL GAP (3D twin of the 2D dk comment above): this
-                    // correction is assembled in the true-global cable direction
-                    // and added directly at the raw node/dof indices into
-                    // `k_global`, which is already rotated for any inclined-
-                    // support DOFs. If a cable end sits on an inclined-support
-                    // node, the correction should be rotated the same way
-                    // apply_inclined_transform (assembly.rs) rotates a full K,
-                    // scoped to this local block. Not implemented — deferred as a
-                    // documented, low-severity residual gap (C4 review Finding 2).
-                    for a in 0..2 {
-                        for b in 0..2 {
-                            let sign = if a == b { 1.0 } else { -1.0 };
-                            let node_a = if a == 0 { ci.node_i_id } else { ci.node_j_id };
-                            let node_b = if b == 0 { ci.node_i_id } else { ci.node_j_id };
-                            for i in 0..3 {
-                                for j in 0..3 {
-                                    if let (Some(&da), Some(&db)) = (
-                                        dof_num.map.get(&(node_a, i)),
-                                        dof_num.map.get(&(node_b, j)),
-                                    ) {
-                                        k_global[da * n + db] += sign * diff * ci.dir[i] * ci.dir[j];
-                                    }
-                                }
-                            }
-                        }
-                    }
+            // The tangent correction (E_eq/E − 1)·EA/L0·c·cᵀ, in the solver's frame like the base.
+            for ((dofs, coef), diff) in slots.iter().zip(&tangent) {
+                if let Some(diff) = *diff {
+                    add_block_dense(&mut k_global, n, dofs, coef, diff);
                 }
             }
-
             let free_idx: Vec<usize> = (0..nf).collect();
             let k_ff = extract_submatrix(&k_global, n, &free_idx, &free_idx);
-            let f_f: Vec<f64> = f_global[..nf].to_vec();
             let (k_solve, f_solve) = if let Some(ref cs) = cs {
                 (cs.reduce_matrix(&k_ff), cs.reduce_vector(&f_f))
             } else {
@@ -842,6 +994,8 @@ pub fn solve_cable_3d(
         }
 
         let mut max_tension_change = 0.0_f64;
+        let mut tension_scale = 0.0_f64;
+        let mut reactivated = false;
 
         for ci in &cables {
             let u_i: Vec<f64> = (0..3).map(|d| {
@@ -856,26 +1010,34 @@ pub fn solve_cable_3d(
             let dz_def = ci.dz + u_j[2] - u_i[2];
             let l_def = (dx_def * dx_def + dy_def * dy_def + dz_def * dz_def).sqrt();
 
-            let strain = (l_def - ci.l0) / ci.l0;
+            let strain = (l_def - ci.lu) / ci.lu;
             let old_tension = cable_tensions[&ci.elem_id];
             // The modulus the displacements were solved with: the one this pass assembled.
             let factor = ernst_factor(ci.w, horizontal_projection_3d(ci), ci.ea, old_tension, iter);
             assembled_factor.insert(ci.elem_id, factor);
-            // A slack cable has no assembled stiffness, but positive trial strain must
-            // reactivate it. This trial tension forces another iteration, which restores
-            // its stiffness before a converged result can be published.
-            let tension = if strain > 0.0 {
-                (if factor == 0.0 { 1.0 } else { factor }) * ci.ea * strain
-            } else { 0.0 };
-
-            let change = (tension - old_tension).abs();
-            let ref_val = old_tension.abs().max(tension.abs()).max(1.0);
-            max_tension_change = max_tension_change.max(change / ref_val);
+            // The chord law at the new chord. A slack cable (no weight, shortened chord) has
+            // no assembled stiffness; positive strain gives it tension again, which forces
+            // another pass with its stiffness restored before a result can converge.
+            let tension = element::cable_chord_tension(ci.ea, ci.w, horizontal_projection_3d(ci), strain);
+            let eps_lin = (0..3).map(|d| ci.dir[d] * (u_j[d] - u_i[d])).sum::<f64>() / ci.l0;
+            let old_eps_lin = cable_eps_lin.insert(ci.elem_id, eps_lin).unwrap_or(0.0);
+            // The force the solved system gave the cable (its linearised law at the new strain):
+            // at a solution it is the chord-law tension of the new chord.
+            let t_sys = old_tension + factor * ci.ea * (eps_lin - old_eps_lin);
+            let change = (tension - old_tension).abs().max((tension - t_sys).abs());
+            max_tension_change = max_tension_change.max(change);
+            tension_scale = tension_scale.max(old_tension.abs()).max(tension.abs());
+            // A slack cable that takes tension again has to be solved with its stiffness back.
+            if factor == 0.0 && tension > 0.0 {
+                reactivated = true;
+            }
 
             cable_tensions.insert(ci.elem_id, tension);
         }
 
-        if max_tension_change < tolerance && iter > 0 {
+        // Relative to the largest cable tension of the model, so a model of small forces is held
+        // to the same tolerance as one of large forces.
+        if !reactivated && max_tension_change <= tolerance * tension_scale && iter > 0 {
             converged = true;
             break;
         }
@@ -898,24 +1060,14 @@ pub fn solve_cable_3d(
     for i in 0..nr {
         reactions_vec[i] = k_rf_uf[i] - f_r[i];
     }
-    // The base block has every cable at its full E; the supports feel the modulus it was solved with.
-    for ci in &cables {
-        let factor = assembled_factor.get(&ci.elem_id).copied().unwrap_or(1.0);
-        let Some(diff) = ernst_diff(factor, ci.ea, ci.l0) else { continue };
-        let mut dofs = [usize::MAX; 6];
-        let mut coef = [0.0; 6];
-        for a in 0..2 {
-            let node = if a == 0 { ci.node_i_id } else { ci.node_j_id };
-            let sign = if a == 0 { 1.0 } else { -1.0 };
-            for i in 0..3 {
-                coef[a * 3 + i] = sign * ci.dir[i];
-                if let Some(&d) = dof_num.map.get(&(node, i)) { dofs[a * 3 + i] = d; }
-            }
-        }
-        let stretch: f64 = (0..6).filter(|&q| dofs[q] < nf).map(|q| coef[q] * u_f[dofs[q]]).sum();
-        for p in 0..6 {
-            if dofs[p] != usize::MAX && dofs[p] >= nf { reactions_vec[dofs[p] - nf] += diff * coef[p] * stretch; }
-        }
+    // The base block gives every cable the force EA·ε_lin of a full-E truss; the supports feel its
+    // tension T instead: add −c·(T − EA·ε_lin) at the restrained DOFs (c in the solver's frame).
+    let mut r_cable = vec![0.0; n];
+    for (ci, (dofs, coef)) in cables.iter().zip(&slots) {
+        add_along(&mut r_cable, dofs, coef, -(cable_tensions[&ci.elem_id] - ci.ea * cable_eps_lin[&ci.elem_id]));
+    }
+    for i in 0..nr {
+        reactions_vec[i] += r_cable[nf + i];
     }
 
     // Reverse inclined transforms on displacements before building results —
@@ -943,12 +1095,14 @@ pub fn solve_cable_3d(
 
     // Compute constraint forces if constraints are active. Uses u_f/f_global
     // (pre-reversal, rotated-frame convention) — see 2D solve_cable for why.
+    // The base K gives each cable EA·ε_lin; its force is T: K·u − (f − r_cable) on the free DOFs.
+    let f_constraint: Vec<f64> = (0..nf).map(|i| f_global[i] - r_cable[i]).collect();
     let constraint_forces = if let Some(ref fcs) = cs {
         let raw = if let Some(ref s) = sparse_asm {
-            fcs.compute_constraint_forces_sparse(&s.k_ff, &u_f, &f_global[..nf])
+            fcs.compute_constraint_forces_sparse(&s.k_ff, &u_f, &f_constraint)
         } else {
             let k_ff = extract_submatrix(&dense_asm.as_ref().unwrap().k, n, &free_idx, &free_idx);
-            fcs.compute_constraint_forces(&k_ff, &u_f, &f_global[..nf])
+            fcs.compute_constraint_forces(&k_ff, &u_f, &f_constraint)
         };
         fcs.constraint_forces(&raw, &dof_num)
     } else {
@@ -987,14 +1141,17 @@ pub fn solve_cable_3d(
             sag,
             // kN/m²; this used to report EA/L.
             ernst_modulus: ci.e * assembled_factor.get(&ci.elem_id).copied().unwrap_or(1.0),
-            unstretched_length: ci.l0,
+            unstretched_length: ci.lu,
         }
     }).collect();
 
+    let self_weight_tension = cables.iter().filter(|c| !c.pretensioned && c.w > 0.0)
+        .map(|c| (c.elem_id, element::cable_chord_tension(c.ea, c.w, horizontal_projection_3d(c), 0.0))).collect();
     Ok(CableAnalysisResult3D {
         results,
         iterations: total_iterations,
         converged,
         cable_forces,
+        self_weight_tension,
     })
 }

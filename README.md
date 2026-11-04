@@ -7,7 +7,7 @@
 
 <p align="center">
   <strong>Structural analysis, in a browser tab.</strong><br>
-  An open structural-analysis platform. The solver runs on your machine:
+  Open-source structural engineering software. The solver runs on your machine:
   nothing to install, no licences, no account.
 </p>
 
@@ -31,7 +31,8 @@
 
 ## What it is
 
-Stabileo is structural analysis software that runs in any modern browser. You model, load, solve
+Stabileo is structural analysis and design software that runs in any modern browser, with an AI
+assistant in development (bring your own Claude or OpenAI key). You model, load, solve
 and read results in 2D and 3D. The analysis engine is written in Rust and compiled to WebAssembly,
 so it runs on your own computer: the model is not sent to a server to be solved.
 
@@ -40,14 +41,14 @@ Aires), and it keeps that origin: besides giving the answer, **it shows the work
 of indeterminacy, the stiffness matrix step by step, which torsion theory applies to a section and
 why.
 
-The interface is available in **English, Spanish and Portuguese**.
+The interface is available in **English, Spanish, Portuguese, German, French and Turkish**.
 
 ## The modes
 
 | Mode | Status | What it does |
 |------|--------|--------------|
 | **Basic** | Available | Frame and truss structures in 2D and 3D. Axial, shear and moment diagrams, stresses, and advanced tools: kinematic analysis, section analysis, second order, buckling, modal analysis, plastic collapse, influence lines and the stiffness method step by step. Models load from Excel templates, save to a file or travel in a link. |
-| **PRO** | In development | Finite elements and complex models: slabs and walls as plates and shells, constraints, code-based load generation, import from AutoCAD (DXF) or Excel, and dynamic, staged and non-linear analysis. |
+| **PRO** | Available | Finite elements and complex models: slabs and walls as plates and shells, constraints, code-based load generation, import from AutoCAD (DXF), Excel or IFC, and dynamic, staged and non-linear analysis. Code design (reinforcement, detailing and connections) is a separate switch in PRO, still in development and off by default. |
 | **Education** | In development | The teacher writes an exercise inside the app and hands it out as a link. The student solves it without the result in view and hands the answers back as a file or a short code. |
 | **Stabileo AI** | In development | An agent being built to create, review and explain models, working on the same structured model and the same solver you use. The AI proposes; the solver decides. |
 
@@ -154,9 +155,30 @@ npm test           # the web test suite
 npm run build:only # production build -> web/dist/
 ```
 
-Requires Node.js 18 or later. `npm run build` also prerenders every public route by driving the
+Requires Node.js 22 (`.nvmrc`). With nix, `nix develop` gives the pinned Rust, Node, wasm-pack and
+sccache; `make worktree NAME=fix-x` makes a worktree ready to test in seconds (dependencies cloned,
+the WASM engine from a cache keyed by its sources) and `make worktree-prune` removes the finished
+ones. `npm run build` also prerenders every public route by driving the
 page in headless Chromium, so it needs `npx playwright install chromium` first; `dev`, `test` and
 `build:only` do not.
+
+`make test-changed` runs only the tests your branch most likely affects (related web unit tests,
+the engine's unit tests and the changed test targets) and says what it skipped; `make hooks` adds
+a pre-push hook that runs the web typecheck and related unit tests (`git push --no-verify` skips it).
+
+### With accounts (backend)
+
+The app runs fully in the browser; accounts come from an Elixir/Phoenix backend in `backend/`.
+Its toolchain and PostgreSQL come from the Nix flake:
+
+```bash
+make setup         # claim an instance, start PostgreSQL, fetch deps, create and seed the DB
+make backend.run   # http://localhost:4100 (4100 + INST*10)
+make web.run       # http://localhost:4000 (4000 + INST*10), pointed at that backend
+make test.backend  # backend tests
+```
+
+See [CLAUDE.md](CLAUDE.md) for the conventions and [specs/](specs/) for the backend design.
 
 ## Contributing
 
@@ -190,9 +212,12 @@ To report a vulnerability, email security@lambdaclass.com.
 
 ## Built by
 
+Stabileo is backed by [Ergodic Group](https://ergodicgroup.com/) and developed by
+[LambdaClass](https://lambdaclass.com), its development arm.
+
 - **Bautista Chesta**: Civil Engineer (FIUBA), UX/UI and project management
 - **Diego Kingston**: Ph.D. in Engineering (UBA), product–solver integration
-- **Federico Carrone**: Founder of [Lambda Class](https://lambdaclass.com), solver lead
+- **Federico Carrone**: Founder of [LambdaClass](https://lambdaclass.com), solver lead
 
 With contributions from mathematicians, physicists, computer engineers and computer scientists at
-[Lambda Class](https://lambdaclass.com).
+LambdaClass.

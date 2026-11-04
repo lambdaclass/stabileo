@@ -233,7 +233,8 @@ describe('CIRSOC 101-2025 §2.3.2 — every subset of loads present', () => {
       for (const c of opp) if (c.basic) expect(c.terms.find((t) => t.symbol === 'H')?.factor, c.id).toBe(0.9);
       const tmp = generateCombinations({ present: { ...p, H: true }, earthPressureAction: 'opposes' });
       for (const c of tmp) expect(c.terms.some((t) => t.symbol === 'H'), c.id).toBe(false);
-      const both = generateCombinations({ present: { ...p, H: true } }).filter((c) => c.basic);
+      // The printed ones, in pairs; the principal load not acting is generated only beside H (#580).
+      const both = generateCombinations({ present: { ...p, H: true } }).filter((c) => c.basic && !c.id.includes('-no'));
       expect(both.filter((c) => c.terms.some((t) => t.symbol === 'H' && t.factor === 1.6)).length).toBe(both.filter((c) => !c.terms.some((t) => t.symbol === 'H')).length);
     }
   });

@@ -24,7 +24,8 @@ pub struct FiberNonlinearInput {
     pub solver: SolverInput,
     /// Fiber section definitions per section ID
     pub fiber_sections: HashMap<String, FiberSectionDef>,
-    /// Number of integration points per element (3-7, default 5)
+    /// Number of Gauss-Lobatto integration points per element (3-7, default 5;
+    /// other values are refused)
     #[serde(default = "default_n_ip")]
     pub n_integration_points: usize,
     /// Maximum N-R iterations per load increment
@@ -95,7 +96,17 @@ pub fn solve_fiber_nonlinear_2d(input: &FiberNonlinearInput) -> Result<FiberNonl
 
     let n = dof_num.n_total;
     let nf = dof_num.n_free;
-    let n_ip = input.n_integration_points.max(2).min(7);
+    // 3..=7 Gauss-Lobatto points: 2 (the end sections only) integrates the
+    // quadratic κ² of the cubic element with the trapezoidal rule, so even an
+    // elastic member would get the wrong stiffness; it used to be clamped
+    // silently into [2, 7] (SP-5).
+    let n_ip = input.n_integration_points;
+    if !(3..=7).contains(&n_ip) {
+        return Err(format!(
+            "Fiber-nonlinear analysis: nIntegrationPoints = {n_ip}; use 3 to 7 integration points \
+             (Gauss-Lobatto, end sections included)"
+        ));
+    }
 
     // Build constraint system (if constraints present)
     let cs = FreeConstraintSystem::build_2d(&input.solver, &dof_num)?;
@@ -113,7 +124,7 @@ pub fn solve_fiber_nonlinear_2d(input: &FiberNonlinearInput) -> Result<FiberNonl
 
     // Initialize per-element fiber states
     let mut elem_states: HashMap<usize, ElementFiberState> = HashMap::new();
-    for elem in input.solver.elements.values() {
+    for elem in crate::ordered::values(&input.solver.elements) {
         let sec_key = elem.section_id.to_string();
         if let Some(sec) = input.fiber_sections.get(&sec_key) {
             let n_fibers = sec.fibers.len();
@@ -142,6 +153,14 @@ pub fn solve_fiber_nonlinear_2d(input: &FiberNonlinearInput) -> Result<FiberNonl
         let f_ext: Vec<f64> = f_total.iter().map(|&f| load_factor * f).collect();
 
         let mut nr_converged = false;
+        // Fiber history (plastic strain, back stress, cracking) at the start of
+        // the increment. Every iteration evaluates the elements from it, so a
+        // trial iterate that overshoots leaves nothing behind; the state of the
+        // converged iterate is what stays (SP-6).
+        let committed: HashMap<usize, Vec<SectionState>> = elem_states
+            .iter()
+            .map(|(&id, es)| (id, es.section_states.clone()))
+            .collect();
         let mut cached_l: Option<(Vec<f64>, usize)> = None;
         // Modified-NR sparse cache: numeric factor of the increment's first
         // tangent (sparse analogue of cached_l).
@@ -149,6 +168,9 @@ pub fn solve_fiber_nonlinear_2d(input: &FiberNonlinearInput) -> Result<FiberNonl
 
         for _iter in 0..input.max_iter {
             total_iters += 1;
+            for (id, es) in elem_states.iter_mut() {
+                es.section_states.clone_from(&committed[id]);
+            }
 
             // Assemble tangent stiffness and internal forces from fiber elements.
             // Below SPARSE_THRESHOLD the tangent is assembled dense (n×n); at
@@ -344,11 +366,12 @@ pub fn solve_fiber_nonlinear_2d(input: &FiberNonlinearInput) -> Result<FiberNonl
 
     // Build results
     let displacements = super::linear::build_displacements_2d(&dof_num, &u_full);
-    let element_forces = super::linear::compute_internal_forces_2d(&input.solver, &dof_num, &u_full);
+    let mut element_forces = super::linear::compute_internal_forces_2d(&input.solver, &dof_num, &u_full);
+    fiber_member_forces_2d(&input.solver, &input.fiber_sections, &dof_num, &u_full, &elem_states, n_ip, &mut element_forces);
 
     // Collect fiber status
     let mut fiber_status = Vec::new();
-    for elem in input.solver.elements.values() {
+    for elem in crate::ordered::values(&input.solver.elements) {
         if let Some(es) = elem_states.get(&elem.id) {
             let mut max_strain = 0.0_f64;
             let mut max_stress = 0.0_f64;
@@ -417,6 +440,126 @@ pub fn solve_fiber_nonlinear_2d(input: &FiberNonlinearInput) -> Result<FiberNonl
     })
 }
 
+/// Member end forces of the fiber members from their fiber section resultants.
+///
+/// `compute_internal_forces_2d` gives K_elastic·u_local − FEF with the
+/// SolverSection's A and Iz; once a section yields that is not the force the
+/// member carries (SP-7). For each fiber member this replaces the K_elastic·u
+/// part by the element's internal force vector f = Σ w·Bᵀ·s at the converged
+/// state, keeping the fixed-end-force part and the sign mapping of the linear
+/// recovery (n_start = −f₀, n_end = f₃, v_start = f₁, v_end = −f₄,
+/// m_start = f₂, m_end = −f₅).
+fn fiber_member_forces_2d(
+    solver: &SolverInput,
+    fiber_sections: &HashMap<String, FiberSectionDef>,
+    dof_num: &DofNumbering,
+    u_full: &[f64],
+    elem_states: &HashMap<usize, ElementFiberState>,
+    n_ip: usize,
+    forces: &mut [ElementForces],
+) {
+    let node_by_id: HashMap<usize, &SolverNode> = crate::ordered::values(&solver.nodes).map(|n| (n.id, n)).collect();
+    let mat_by_id: HashMap<usize, &SolverMaterial> = crate::ordered::values(&solver.materials).map(|m| (m.id, m)).collect();
+    let sec_by_id: HashMap<usize, &SolverSection> = crate::ordered::values(&solver.sections).map(|s| (s.id, s)).collect();
+    for ef in forces.iter_mut() {
+        let Some(elem) = crate::ordered::values(&solver.elements).find(|e| e.id == ef.element_id) else { continue };
+        if elem.elem_type == "truss" || elem.elem_type == "cable" { continue; }
+        let (Some(section), Some(es)) = (fiber_sections.get(&elem.section_id.to_string()), elem_states.get(&elem.id)) else { continue };
+        let (ni, nj) = (node_by_id[&elem.node_i], node_by_id[&elem.node_j]);
+        let (dx, dy) = (nj.x - ni.x, nj.z - ni.z);
+        let l = (dx * dx + dy * dy).sqrt();
+        let dofs = dof_num.element_dofs(elem.node_i, elem.node_j);
+        if dofs.len() < 6 { continue; }
+        let t = frame_transform_2d(dx / l, dy / l);
+        let mut u_local = [0.0; 6];
+        for i in 0..6 {
+            for j in 0..6 {
+                u_local[i] += t[i * 6 + j] * u_full[dofs[j]];
+            }
+        }
+        let mut states = es.section_states.clone();
+        let (f_fiber, _) = fiber_element_response_2d(&u_local, l, section, &mut states, n_ip);
+        let e = mat_by_id[&elem.material_id].e * 1000.0;
+        let sec = sec_by_id[&elem.section_id];
+        // The elastic end forces to remove are those the linear recovery added:
+        // with the same Timoshenko φ when the section has a shear area.
+        let phi = crate::element::timoshenko_phi_2d(sec, e, mat_by_id[&elem.material_id].nu, l);
+        let k_el = crate::element::frame_local_stiffness_2d(e, sec.a, sec.iz, l, elem.hinge_start, elem.hinge_end, phi);
+        let mut d = [0.0; 6];
+        for i in 0..6 {
+            d[i] = f_fiber[i] - (0..6).map(|j| k_el[i * 6 + j] * u_local[j]).sum::<f64>();
+        }
+        ef.n_start -= d[0];
+        ef.n_end += d[3];
+        ef.v_start += d[1];
+        ef.v_end -= d[4];
+        ef.m_start += d[2];
+        ef.m_end -= d[5];
+    }
+}
+
+/// 3D twin of [`fiber_member_forces_2d`] (12 DOFs, same start/end sign mapping
+/// as `compute_internal_forces_3d`).
+fn fiber_member_forces_3d(
+    solver: &SolverInput3D,
+    fiber_sections: &HashMap<String, FiberSectionDef>,
+    dof_num: &DofNumbering,
+    u_full: &[f64],
+    elem_states: &HashMap<usize, ElementFiberState>,
+    n_ip: usize,
+    forces: &mut [ElementForces3D],
+) {
+    let node_by_id: HashMap<usize, &SolverNode3D> = crate::ordered::values(&solver.nodes).map(|n| (n.id, n)).collect();
+    let mat_by_id: HashMap<usize, &SolverMaterial> = crate::ordered::values(&solver.materials).map(|m| (m.id, m)).collect();
+    let sec_by_id: HashMap<usize, &SolverSection3D> = crate::ordered::values(&solver.sections).map(|s| (s.id, s)).collect();
+    for ef in forces.iter_mut() {
+        let Some(elem) = crate::ordered::values(&solver.elements).find(|e| e.id == ef.element_id) else { continue };
+        if elem.elem_type == "truss" || elem.elem_type == "cable" { continue; }
+        let (Some(section), Some(es)) = (fiber_sections.get(&elem.section_id.to_string()), elem_states.get(&elem.id)) else { continue };
+        let (ni, nj) = (node_by_id[&elem.node_i], node_by_id[&elem.node_j]);
+        let (dx, dy, dz) = (nj.x - ni.x, nj.y - ni.y, nj.z - ni.z);
+        let l = (dx * dx + dy * dy + dz * dz).sqrt();
+        let dofs = dof_num.element_dofs(elem.node_i, elem.node_j);
+        if dofs.len() < 12 { continue; }
+        let (ex, ey, ez) = compute_local_axes_3d(
+            ni.x, ni.y, ni.z, nj.x, nj.y, nj.z,
+            elem.local_yx, elem.local_yy, elem.local_yz, elem.roll_angle, false,
+        );
+        let t = frame_transform_3d(&ex, &ey, &ez);
+        let mut u_local = [0.0; 12];
+        for i in 0..12 {
+            for j in 0..12 {
+                u_local[i] += t[i * 12 + j] * u_full[dofs[j]];
+            }
+        }
+        let mat = mat_by_id[&elem.material_id];
+        let sec = sec_by_id[&elem.section_id];
+        let e = mat.e * 1000.0;
+        let g = e / (2.0 * (1.0 + mat.nu));
+        let mut states = es.section_states.clone();
+        let (f_fiber, _) = fiber_element_response_3d(&u_local, l, section, &mut states, n_ip, g * sec.j);
+        // Same Timoshenko (φy, φz) as the linear recovery whose elastic forces this removes.
+        let (phi_y, phi_z) = crate::element::timoshenko_phi_3d(sec, e, g, l);
+        let k_el = crate::element::frame_local_stiffness_3d(e, sec.a, sec.iy, sec.iz, sec.j, l, g, Hinge3D::from_elem(elem), phi_y, phi_z);
+        let mut d = [0.0; 12];
+        for i in 0..12 {
+            d[i] = f_fiber[i] - (0..12).map(|j| k_el[i * 12 + j] * u_local[j]).sum::<f64>();
+        }
+        ef.n_start -= d[0];
+        ef.n_end += d[6];
+        ef.vy_start += d[1];
+        ef.vy_end -= d[7];
+        ef.vz_start += d[2];
+        ef.vz_end -= d[8];
+        ef.mx_start += d[3];
+        ef.mx_end -= d[9];
+        ef.my_start += d[4];
+        ef.my_end -= d[10];
+        ef.mz_start += d[5];
+        ef.mz_end -= d[11];
+    }
+}
+
 /// Assemble fiber element contributions to global K_t and f_int.
 ///
 /// `scatter(gi, gj, v)` accumulates one tangent entry: dense `k_t[gi*n+gj]`
@@ -431,9 +574,9 @@ fn assemble_fiber_elements(
     f_int: &mut [f64],
     scatter: &mut impl FnMut(usize, usize, f64),
 ) {
-    let node_by_id: HashMap<usize, &SolverNode> = solver.nodes.values().map(|n| (n.id, n)).collect();
+    let node_by_id: HashMap<usize, &SolverNode> = crate::ordered::values(&solver.nodes).map(|n| (n.id, n)).collect();
 
-    for elem in solver.elements.values() {
+    for elem in crate::ordered::values(&solver.elements) {
         if elem.elem_type == "truss" || elem.elem_type == "cable" { continue; }
 
         let sec_key = elem.section_id.to_string();
@@ -509,11 +652,11 @@ fn assemble_elastic_elements(
     f_int: &mut [f64],
     scatter: &mut impl FnMut(usize, usize, f64),
 ) {
-    let node_by_id: HashMap<usize, &SolverNode> = solver.nodes.values().map(|n| (n.id, n)).collect();
-    let mat_by_id: HashMap<usize, &SolverMaterial> = solver.materials.values().map(|m| (m.id, m)).collect();
-    let sec_by_id: HashMap<usize, &SolverSection> = solver.sections.values().map(|s| (s.id, s)).collect();
+    let node_by_id: HashMap<usize, &SolverNode> = crate::ordered::values(&solver.nodes).map(|n| (n.id, n)).collect();
+    let mat_by_id: HashMap<usize, &SolverMaterial> = crate::ordered::values(&solver.materials).map(|m| (m.id, m)).collect();
+    let sec_by_id: HashMap<usize, &SolverSection> = crate::ordered::values(&solver.sections).map(|s| (s.id, s)).collect();
 
-    for elem in solver.elements.values() {
+    for elem in crate::ordered::values(&solver.elements) {
         let sec_key = elem.section_id.to_string();
 
         if elem.elem_type == "truss" || elem.elem_type == "cable" {
@@ -673,7 +816,17 @@ pub fn solve_fiber_nonlinear_3d(input: &FiberNonlinearInput3D) -> Result<FiberNo
 
     let n = dof_num.n_total;
     let nf = dof_num.n_free;
-    let n_ip = input.n_integration_points.max(2).min(7);
+    // 3..=7 Gauss-Lobatto points: 2 (the end sections only) integrates the
+    // quadratic κ² of the cubic element with the trapezoidal rule, so even an
+    // elastic member would get the wrong stiffness; it used to be clamped
+    // silently into [2, 7] (SP-5).
+    let n_ip = input.n_integration_points;
+    if !(3..=7).contains(&n_ip) {
+        return Err(format!(
+            "Fiber-nonlinear analysis: nIntegrationPoints = {n_ip}; use 3 to 7 integration points \
+             (Gauss-Lobatto, end sections included)"
+        ));
+    }
 
     // Build constraint system (if constraints present)
     let cs = FreeConstraintSystem::build_3d(&input.solver, &dof_num)?;
@@ -685,7 +838,7 @@ pub fn solve_fiber_nonlinear_3d(input: &FiberNonlinearInput3D) -> Result<FiberNo
 
     // Initialize per-element fiber states
     let mut elem_states: HashMap<usize, ElementFiberState> = HashMap::new();
-    for elem in input.solver.elements.values() {
+    for elem in crate::ordered::values(&input.solver.elements) {
         let sec_key = elem.section_id.to_string();
         if let Some(sec) = input.fiber_sections.get(&sec_key) {
             let n_fibers = sec.fibers.len();
@@ -713,6 +866,14 @@ pub fn solve_fiber_nonlinear_3d(input: &FiberNonlinearInput3D) -> Result<FiberNo
         let f_ext: Vec<f64> = f_total.iter().map(|&f| load_factor * f).collect();
 
         let mut nr_converged = false;
+        // Fiber history (plastic strain, back stress, cracking) at the start of
+        // the increment. Every iteration evaluates the elements from it, so a
+        // trial iterate that overshoots leaves nothing behind; the state of the
+        // converged iterate is what stays (SP-6).
+        let committed: HashMap<usize, Vec<SectionState>> = elem_states
+            .iter()
+            .map(|(&id, es)| (id, es.section_states.clone()))
+            .collect();
         let mut cached_l: Option<(Vec<f64>, usize)> = None;
         // Modified-NR sparse cache: numeric factor of the increment's first
         // tangent (sparse analogue of cached_l).
@@ -720,6 +881,9 @@ pub fn solve_fiber_nonlinear_3d(input: &FiberNonlinearInput3D) -> Result<FiberNo
 
         for _iter in 0..input.max_iter {
             total_iters += 1;
+            for (id, es) in elem_states.iter_mut() {
+                es.section_states.clone_from(&committed[id]);
+            }
 
             // Assemble tangent stiffness and internal forces from fiber elements.
             // Below SPARSE_THRESHOLD the tangent is assembled dense (n×n); at
@@ -907,10 +1071,11 @@ pub fn solve_fiber_nonlinear_3d(input: &FiberNonlinearInput3D) -> Result<FiberNo
 
     // Build results
     let displacements = super::linear::build_displacements_3d(&dof_num, &u_full);
-    let element_forces = super::linear::compute_internal_forces_3d(&input.solver, &dof_num, &u_full);
+    let mut element_forces = super::linear::compute_internal_forces_3d(&input.solver, &dof_num, &u_full);
+    fiber_member_forces_3d(&input.solver, &input.fiber_sections, &dof_num, &u_full, &elem_states, n_ip, &mut element_forces);
 
     let mut fiber_status = Vec::new();
-    for elem in input.solver.elements.values() {
+    for elem in crate::ordered::values(&input.solver.elements) {
         if let Some(es) = elem_states.get(&elem.id) {
             let mut max_strain = 0.0_f64;
             let mut max_stress = 0.0_f64;
@@ -1013,11 +1178,11 @@ fn assemble_fiber_elements_3d(
     f_int: &mut [f64],
     scatter: &mut impl FnMut(usize, usize, f64),
 ) {
-    let node_by_id: HashMap<usize, &SolverNode3D> = solver.nodes.values().map(|n| (n.id, n)).collect();
-    let mat_by_id: HashMap<usize, &SolverMaterial> = solver.materials.values().map(|m| (m.id, m)).collect();
-    let sec_by_id: HashMap<usize, &SolverSection3D> = solver.sections.values().map(|s| (s.id, s)).collect();
+    let node_by_id: HashMap<usize, &SolverNode3D> = crate::ordered::values(&solver.nodes).map(|n| (n.id, n)).collect();
+    let mat_by_id: HashMap<usize, &SolverMaterial> = crate::ordered::values(&solver.materials).map(|m| (m.id, m)).collect();
+    let sec_by_id: HashMap<usize, &SolverSection3D> = crate::ordered::values(&solver.sections).map(|s| (s.id, s)).collect();
 
-    for elem in solver.elements.values() {
+    for elem in crate::ordered::values(&solver.elements) {
         if elem.elem_type == "truss" || elem.elem_type == "cable" { continue; }
 
         let sec_key = elem.section_id.to_string();
@@ -1101,11 +1266,11 @@ fn assemble_elastic_elements_3d(
     f_int: &mut [f64],
     scatter: &mut impl FnMut(usize, usize, f64),
 ) {
-    let node_by_id: HashMap<usize, &SolverNode3D> = solver.nodes.values().map(|n| (n.id, n)).collect();
-    let mat_by_id: HashMap<usize, &SolverMaterial> = solver.materials.values().map(|m| (m.id, m)).collect();
-    let sec_by_id: HashMap<usize, &SolverSection3D> = solver.sections.values().map(|s| (s.id, s)).collect();
+    let node_by_id: HashMap<usize, &SolverNode3D> = crate::ordered::values(&solver.nodes).map(|n| (n.id, n)).collect();
+    let mat_by_id: HashMap<usize, &SolverMaterial> = crate::ordered::values(&solver.materials).map(|m| (m.id, m)).collect();
+    let sec_by_id: HashMap<usize, &SolverSection3D> = crate::ordered::values(&solver.sections).map(|s| (s.id, s)).collect();
 
-    for elem in solver.elements.values() {
+    for elem in crate::ordered::values(&solver.elements) {
         let sec_key = elem.section_id.to_string();
 
         // Skip fiber elements (handled separately)
@@ -1195,7 +1360,7 @@ mod tests {
         });
 
         let solver = SolverInput {
-            solver_options: None,
+            solver_options: None, masses: Default::default(),
             nodes, materials, sections, elements, supports,
             loads: vec![SolverLoad::Nodal(SolverNodalLoad {
                 node_id: 1, fx: 0.0, fz: -50.0, my: 0.0,
@@ -1219,6 +1384,122 @@ mod tests {
             tolerance: 1e-6,
             n_increments: 1,
             modified_nr: false,
+        }
+    }
+
+    /// Review of #330. `fiber_member_forces_2d/3d` replace the elastic end forces K·u that the
+    /// linear recovery reported with the fiber resultants. They subtracted the Euler–Bernoulli K
+    /// while the recovery used the Timoshenko K of a section with shear areas, so a spurious
+    /// (K_T − K_EB)·u stayed in the result. Now both use `timoshenko_phi_2d/3d`, and the
+    /// reported end forces are exactly the fiber resultants minus the FEF.
+    ///
+    /// The fiber solvers refuse shear areas today (feature gate), so this is checked here on
+    /// the helper directly, at an arbitrary displacement, instead of through a solve.
+    #[test]
+    fn fiber_member_forces_with_shear_areas_are_resultants_minus_fef_2d() {
+        let mut input = make_cantilever_fiber();
+        input.solver.sections.get_mut("1").unwrap().as_y = Some(0.0667);
+        let q = -12.0;
+        input.solver.loads = vec![SolverLoad::Distributed(SolverDistributedLoad { element_id: 1, q_i: q, q_j: q, a: None, b: None })];
+        let dof_num = DofNumbering::build_2d(&input.solver);
+        let mut u_full = vec![0.0; dof_num.n_total];
+        for (k, v) in [(0usize, 1.0e-4), (1, -3.0e-3), (2, 8.0e-4)] {
+            u_full[dof_num.global_dof(1, k).unwrap()] = v;
+        }
+        let n_ip = 3;
+        let section = &input.fiber_sections["1"];
+        let mut elem_states = HashMap::new();
+        elem_states.insert(1, ElementFiberState {
+            _section_id: "1".into(),
+            section_states: (0..n_ip).map(|_| SectionState::new(section.fibers.len())).collect(),
+        });
+        let mut forces = super::super::linear::compute_internal_forces_2d(&input.solver, &dof_num, &u_full);
+        fiber_member_forces_2d(&input.solver, &input.fiber_sections, &dof_num, &u_full, &elem_states, n_ip, &mut forces);
+
+        let l = 5.0;
+        let u_local = [0.0, 0.0, 0.0, u_full[dof_num.global_dof(1, 0).unwrap()], u_full[dof_num.global_dof(1, 1).unwrap()], u_full[dof_num.global_dof(1, 2).unwrap()]];
+        let mut st: Vec<SectionState> = (0..n_ip).map(|_| SectionState::new(section.fibers.len())).collect();
+        let (f, _) = fiber_element_response_2d(&u_local, l, section, &mut st, n_ip);
+        let fef = crate::element::fef_distributed_2d(q, q, l, 0.0); // uniform: independent of φ
+        let d: Vec<f64> = (0..6).map(|i| f[i] - fef[i]).collect();
+        let ef = &forces[0];
+        let got = [ef.n_start, ef.v_start, ef.m_start, ef.n_end, ef.v_end, ef.m_end];
+        let want = [-d[0], d[1], d[2], d[3], -d[4], -d[5]];
+        let scale = want.iter().fold(0.0f64, |a, v| a.max(v.abs()));
+        for k in 0..6 {
+            assert!((got[k] - want[k]).abs() < 1e-9 * scale, "component {k}: {} vs {}", got[k], want[k]);
+        }
+    }
+
+    #[test]
+    fn fiber_member_forces_with_shear_areas_are_resultants_minus_fef_3d() {
+        use std::collections::HashMap as Map;
+        let l = 4.0;
+        let mut nodes = Map::new();
+        nodes.insert("1".to_string(), SolverNode3D { id: 1, x: 0.0, y: 0.0, z: 0.0 });
+        nodes.insert("2".to_string(), SolverNode3D { id: 2, x: l, y: 0.0, z: 0.0 });
+        let mut materials = Map::new();
+        materials.insert("1".to_string(), SolverMaterial { id: 1, e: 200_000.0, nu: 0.3 });
+        let mut sections = Map::new();
+        sections.insert("1".to_string(), SolverSection3D {
+            id: 1, name: None, a: 0.08, iy: 0.2 * 0.4f64.powi(3) / 12.0, iz: 0.4 * 0.2f64.powi(3) / 12.0, j: 1e-4,
+            cw: None, as_y: Some(0.0667), as_z: Some(0.0667), shear_center_y: None, shear_center_z: None,
+        });
+        let mut elements = Map::new();
+        elements.insert("1".to_string(), SolverElement3D {
+            id: 1, elem_type: "frame".into(), node_i: 1, node_j: 2, material_id: 1, section_id: 1,
+            release_my_start: false, release_my_end: false, release_mz_start: false, release_mz_end: false,
+            release_t_start: false, release_t_end: false, local_yx: None, local_yy: None, local_yz: None, roll_angle: None,
+        });
+        let mut supports = Map::new();
+        supports.insert("1".to_string(), SolverSupport3D {
+            node_id: 1, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true,
+            kx: None, ky: None, kz: None, krx: None, kry: None, krz: None, dx: None, dy: None, dz: None,
+            drx: None, dry: None, drz: None, normal_x: None, normal_y: None, normal_z: None, is_inclined: None, rw: None, kw: None,
+        });
+        let (qy, qz) = (-7.0, 11.0);
+        let solver = SolverInput3D {
+            solver_options: None, nodes, materials, sections, elements, supports,
+            loads: vec![SolverLoad3D::Distributed(SolverDistributedLoad3D {
+                q_xi: 0.0, q_xj: 0.0, element_id: 1, q_yi: qy, q_yj: qy, q_zi: qz, q_zj: qz, a: None, b: None })],
+            constraints: vec![], left_hand: None, plates: Map::new(), quads: Map::new(), quad9s: Map::new(),
+            solid_shells: Map::new(), curved_shells: Map::new(), curved_beams: vec![], connectors: Map::new(),
+            masses: Default::default(),
+        };
+        let mut fiber_sections = Map::new();
+        fiber_sections.insert("1".to_string(), rectangular_fiber_section(0.2, 0.4, 10, FiberMaterial::Elastic { e: 200_000.0 }));
+        let section = &fiber_sections["1"];
+        let dof_num = DofNumbering::build_3d(&solver);
+        let mut u_full = vec![0.0; dof_num.n_total];
+        for (k, v) in [(0usize, 1e-4), (1, -2e-3), (2, 3e-3), (3, 1e-4), (4, -6e-4), (5, 5e-4)] {
+            u_full[dof_num.global_dof(2, k).unwrap()] = v;
+        }
+        let n_ip = 3;
+        let mut elem_states = HashMap::new();
+        elem_states.insert(1, ElementFiberState {
+            _section_id: "1".into(),
+            section_states: (0..n_ip).map(|_| SectionState::new(section.fibers.len())).collect(),
+        });
+        let mut forces = super::super::linear::compute_internal_forces_3d(&solver, &dof_num, &u_full);
+        fiber_member_forces_3d(&solver, &fiber_sections, &dof_num, &u_full, &elem_states, n_ip, &mut forces);
+
+        let mut u_local = [0.0; 12];
+        for k in 0..6 {
+            u_local[6 + k] = u_full[dof_num.global_dof(2, k).unwrap()];
+        }
+        let e = 200_000.0 * 1000.0;
+        let g = e / 2.6;
+        let mut st: Vec<SectionState> = (0..n_ip).map(|_| SectionState::new(section.fibers.len())).collect();
+        let (f, _) = fiber_element_response_3d(&u_local, l, section, &mut st, n_ip, g * 1e-4);
+        let fef = crate::element::fef_distributed_3d(qy, qy, qz, qz, l, 0.0, 0.0); // uniform: independent of φ
+        let d: Vec<f64> = (0..12).map(|i| f[i] - fef[i]).collect();
+        let ef = &forces[0];
+        let got = [ef.n_start, ef.vy_start, ef.vz_start, ef.mx_start, ef.my_start, ef.mz_start,
+                   ef.n_end, ef.vy_end, ef.vz_end, ef.mx_end, ef.my_end, ef.mz_end];
+        let want = [-d[0], d[1], d[2], d[3], d[4], d[5], d[6], -d[7], -d[8], -d[9], -d[10], -d[11]];
+        let scale = want.iter().fold(0.0f64, |a, v| a.max(v.abs()));
+        for k in 0..12 {
+            assert!((got[k] - want[k]).abs() < 1e-9 * scale, "component {k}: {} vs {}", got[k], want[k]);
         }
     }
 

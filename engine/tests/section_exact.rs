@@ -492,22 +492,24 @@ fn polygonised_circles_match_the_exact_regular_polygon() {
 /// (the kernel's sign: Mx = -sum F y), My = 0 by symmetry, eps_t = 0.006.
 #[test]
 fn rc_section_kernel_matches_a_hand_strain_compatibility_calculation() {
-    use dedaliano_engine::rc_section_kernel::RcSectionGeometry;
+    use dedaliano_engine::rc_section_kernel::section_from_buffers;
+    // [f'c, fy, Es (Pa), edition, ties, deduct]
+    let params = [25e6, 420e6, 200e9, 2025.0, 0.0, 1.0];
     let ring = [-0.15, -0.25, 0.15, -0.25, 0.15, 0.25, -0.15, 0.25];
     let bars = [-0.10, -0.20, 3e-4, 0.10, -0.20, 3e-4, -0.10, 0.20, 3e-4, 0.10, 0.20, 3e-4];
-    let k = RcSectionGeometry::new(&ring, &[0, 4], &bars, &[25000.0, 420.0, 200000.0, 0.003, 0.85], true)
-        .unwrap_or_else(|_| panic!("valid section"));
-    let out = k.evaluate(0.0, 1.0, &[0.15]).unwrap_or_else(|_| panic!("valid query"));
+    let k = section_from_buffers(&ring, &[0, 4], &[], &bars, &params).unwrap_or_else(|_| panic!("valid section"));
+    let p = k.point(0.0, 1.0, 0.15);
+    // kN, kN·m in the hand calculation; the engine is SI.
+    let got = [p.s.pn / 1e3, p.s.mnx / 1e3, p.s.mny / 1e3, p.s.eps_t, p.c];
     let want = [788.0625, -247.236328125, 0.0, 0.006, 0.15];
-    for (i, (g, w)) in out.iter().zip(want).enumerate() {
+    for (i, (g, w)) in got.iter().zip(want).enumerate() {
         assert!((g - w).abs() < 1e-9 * (1.0 + w.abs()), "component {i}: {g} vs {w}");
     }
     // Same section, wound clockwise and turned 90 degrees (compression on +x):
-    // the kernel must give the same axial force.
+    // the engine must give the same axial force.
     let turned: Vec<f64> = [0.25, -0.15, 0.25, 0.15, -0.25, 0.15, -0.25, -0.15].to_vec();
     let tb = [0.20, -0.10, 3e-4, 0.20, 0.10, 3e-4, -0.20, -0.10, 3e-4, -0.20, 0.10, 3e-4];
-    let k2 = RcSectionGeometry::new(&turned, &[0, 4], &tb, &[25000.0, 420.0, 200000.0, 0.003, 0.85], true)
-        .unwrap_or_else(|_| panic!("valid section"));
-    let o2 = k2.evaluate(1.0, 0.0, &[0.15]).unwrap_or_else(|_| panic!("valid query"));
-    assert!((o2[0] - 788.0625).abs() < 1e-9 && (o2[2] - 247.236328125).abs() < 1e-9, "{o2:?}");
+    let k2 = section_from_buffers(&turned, &[0, 4], &[], &tb, &params).unwrap_or_else(|_| panic!("valid section"));
+    let o2 = k2.point(1.0, 0.0, 0.15);
+    assert!((o2.s.pn / 1e3 - 788.0625).abs() < 1e-9 && (o2.s.mny / 1e3 - 247.236328125).abs() < 1e-9, "{o2:?}");
 }

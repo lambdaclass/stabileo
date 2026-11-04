@@ -9,6 +9,8 @@
  */
 import { modelStore } from './model.svelte';
 import { uiStore } from './ui.svelte';
+import { rebarWorkspace } from './rebar-workspace.svelte';
+import { designDrafts } from './design-drafts.svelte';
 
 const loadIds = () => new Set(modelStore.loads.map((l) => l.data.id));
 
@@ -34,4 +36,23 @@ export function pruneStaleSelection(): void {
     const loads = [...uiStore.selectedLoads].filter((id) => ids.has(id));
     if (loads.length !== uiStore.selectedLoads.size) uiStore.selectedLoads = new Set(loads);
   }
+}
+
+/**
+ * Drop the members and nodes the model no longer has from every selection that names them: the
+ * model's, the 3-D reinforcement view's (its selection, history and isolation) and design's
+ * drafts. Design's current member is read from the model's selection, so it follows.
+ *
+ * Run after the change that removed them, not inside it: the mutation hook fires before the
+ * model is edited (`_pushUndo`), so `store/index.ts` queues this behind it.
+ */
+export function pruneDeletedMembers(): void {
+  const has = (id: number) => modelStore.elements.has(id);
+  const els = [...uiStore.selectedElements].filter(has);
+  const nodes = [...uiStore.selectedNodes].filter((id) => modelStore.nodes.has(id));
+  if (els.length !== uiStore.selectedElements.size || nodes.length !== uiStore.selectedNodes.size) {
+    uiStore.setSelection(new Set(nodes), new Set(els), uiStore.elementSelectionManual, uiStore.selectedShells);
+  }
+  rebarWorkspace.pruneMembers(has);
+  designDrafts.prune(has);
 }

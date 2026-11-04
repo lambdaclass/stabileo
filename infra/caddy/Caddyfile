@@ -1,0 +1,73 @@
+{
+	log {
+		format console
+		output stdout
+		level INFO
+		include http.log.access
+	}
+}
+
+import /etc/caddy/sites.d/*.caddy
+
+(common) {
+	encode zstd gzip
+
+	header {
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()"
+		X-Robots-Tag "{$ROBOTS_TAG}"
+		-Server
+	}
+
+	handle /api/* {
+		reverse_proxy 127.0.0.1:{$BACKEND_PORT:4100}
+	}
+}
+
+{$APP_DOMAIN} {
+	root * {$STABILEO_ROOT}/live/frontends/app
+	import common
+
+	# The sitemap and canonicals carry only the slashed form; /en must answer 301, not 200.
+	@dirNoSlash {
+		not path */
+		file {path}/index.html
+	}
+	redir @dirNoSlash {path}/ 301
+
+	@static path_regexp \.
+	handle @static {
+		@assets path /assets/*
+		header @assets Cache-Control "public, max-age=31536000, immutable"
+		@html path *.html
+		header @html Cache-Control "no-cache"
+		file_server
+	}
+
+	handle {
+		header Cache-Control "no-cache"
+		try_files {path} {path}/index.html /index.html
+		file_server
+	}
+}
+
+{$ADMIN_DOMAIN} {
+	root * {$STABILEO_ROOT}/live/frontends/admin
+	import common
+
+	@static path_regexp \.
+	handle @static {
+		@assets path /assets/*
+		header @assets Cache-Control "public, max-age=31536000, immutable"
+		@html path *.html
+		header @html Cache-Control "no-cache"
+		file_server
+	}
+
+	handle {
+		header Cache-Control "no-cache"
+		try_files {path} /admin.html
+		file_server
+	}
+}

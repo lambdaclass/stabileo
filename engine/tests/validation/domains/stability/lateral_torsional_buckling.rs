@@ -38,6 +38,12 @@ const A: f64 = 0.005381;    // m^2
 const IY: f64 = 8.356e-5;   // m^4 (strong axis)
 const IZ_SEC: f64 = 6.038e-6; // m^4 (weak axis)
 const J: f64 = 2.007e-7;    // m^4 (torsional constant)
+/// m^6 (warping constant). The 3D Kg carries the Wagner term, so the members' torsional
+/// buckling load (GJ + π²ECw/L²)/r0² is part of the eigenproblem: without Cw an IPE 300
+/// would buckle in torsion at GJ/r0² ≈ 927 kN, which governs the short and the
+/// heavy-flange cases below. With its real Cw (warping DOFs) flexure governs, as these
+/// tests assume.
+const CW: f64 = 1.259e-7;
 
 // Default beam length
 const L: f64 = 6.0; // m
@@ -92,12 +98,16 @@ fn ss_end_dofs() -> Vec<bool> {
 /// Build a simply-supported 3D beam with end moments and small axial compression.
 fn make_ss_ltb_beam(n: usize, length: f64, a: f64, iy: f64, iz: f64, j: f64) -> SolverInput3D {
     let loads = ltb_loads(n, M0, P_SMALL);
-    make_3d_beam(
+    let mut input = make_3d_beam(
         n, length, E, NU, a, iy, iz, j,
         ss_start_dofs(),
         Some(ss_end_dofs()),
         loads,
-    )
+    );
+    for sec in input.sections.values_mut() {
+        sec.cw = Some(CW);
+    }
+    input
 }
 
 // ================================================================

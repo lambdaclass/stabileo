@@ -70,7 +70,7 @@ fn make_input(
         constraints: vec![],
         connectors: HashMap::new(),
 
-        solver_options: None,    }
+        solver_options: None, masses: Default::default(),    }
 }
 
 /// Simply-supported beam with n_elem frame elements and UDL.
@@ -341,6 +341,8 @@ fn make_mixed_frame_slab_3d(n_stories: usize, nx: usize, ny: usize) -> SolverInp
     sections.insert("1".to_string(), SolverSection3D {
         id: 1, name: None, a: 0.16, iy: 2.13e-3, iz: 2.13e-3, j: 3.6e-3,
         cw: None, as_y: None, as_z: None,
+        shear_center_y: None,
+        shear_center_z: None,
     });
 
     // Fixed base supports
@@ -379,7 +381,7 @@ fn make_mixed_frame_slab_3d(n_stories: usize, nx: usize, ny: usize) -> SolverInp
         constraints: vec![], left_hand: None,
         plates: HashMap::new(), quads, quad9s: HashMap::new(),
         solid_shells: HashMap::new(), curved_shells: HashMap::new(),
-        curved_beams: vec![], connectors: HashMap::new(), solver_options: None,
+        curved_beams: vec![], connectors: HashMap::new(), solver_options: None, masses: Default::default(),
     }
 }
 
@@ -469,7 +471,7 @@ fn make_flat_plate_3d(nx: usize, ny: usize) -> SolverInput3D {
         constraints: vec![], left_hand: None,
         plates: HashMap::new(), quads, quad9s: HashMap::new(),
         solid_shells: HashMap::new(), curved_shells: HashMap::new(),
-        curved_beams: vec![], connectors: HashMap::new(), solver_options: None,
+        curved_beams: vec![], connectors: HashMap::new(), solver_options: None, masses: Default::default(),
     }
 }
 
@@ -717,7 +719,7 @@ fn make_flat_plate_quad9(nx: usize, ny: usize) -> SolverInput3D {
         constraints: vec![], left_hand: None,
         plates: HashMap::new(), quads: HashMap::new(), quad9s,
         solid_shells: HashMap::new(), curved_shells: HashMap::new(),
-        curved_beams: vec![], connectors: HashMap::new(), solver_options: None,
+        curved_beams: vec![], connectors: HashMap::new(), solver_options: None, masses: Default::default(),
     }
 }
 
@@ -853,7 +855,7 @@ fn make_hemisphere_curved_shell(n: usize) -> SolverInput3D {
         constraints: vec![], left_hand: None,
         plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(),
         solid_shells: HashMap::new(), curved_shells,
-        curved_beams: vec![], connectors: HashMap::new(), solver_options: None,
+        curved_beams: vec![], connectors: HashMap::new(), solver_options: None, masses: Default::default(),
     }
 }
 

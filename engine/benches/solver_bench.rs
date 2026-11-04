@@ -77,7 +77,7 @@ fn make_input(
         elements: elems_map,
         supports: sups_map,
         loads, constraints: vec![],
-        connectors: HashMap::new(), solver_options: None, }
+        connectors: HashMap::new(), solver_options: None, masses: Default::default(), }
 }
 
 /// Multi-element simply-supported beam with UDL.
@@ -251,7 +251,7 @@ fn make_input_3d(
     for (id, a, iy, iz, j) in secs {
         secs_map.insert(
             id.to_string(),
-            SolverSection3D { id, name: None, a, iy, iz, j, cw: None, as_y: None, as_z: None },
+            SolverSection3D { id, name: None, a, iy, iz, j, cw: None, as_y: None, as_z: None, shear_center_y: None, shear_center_z: None },
         );
     }
     let mut elems_map = HashMap::new();
@@ -303,7 +303,7 @@ fn make_input_3d(
         loads,
         constraints: vec![], left_hand: None, plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(),
         solid_shells: HashMap::new(), curved_shells: HashMap::new(), curved_beams: vec![],
-        connectors: HashMap::new(), solver_options: None,    }
+        connectors: HashMap::new(), solver_options: None, masses: Default::default(),    }
 }
 
 /// 3D cantilever beam along X-axis with tip load in Z.
@@ -1281,7 +1281,7 @@ fn bench_multi_case(c: &mut Criterion) {
                         constraints: vec![],
                         connectors: HashMap::new(),
 
-                        solver_options: None,                    };
+                        solver_options: None, masses: Default::default(),                    };
                     criterion::black_box(linear::solve_3d(&case_input).unwrap());
                 }
             });

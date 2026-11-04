@@ -4,8 +4,10 @@
  *  - detailing assemblies read back from storage never count as generated against THIS
  *    session's demands (`demandRevision` is a per-session counter).
  */
-import { describe, expect, it } from 'vitest';
-import { acceptSessionTabs, deserializeProject, forgetSessionDemandRevisions, acceptAutosavePayload } from '../store/file';
+import { describe, expect, it, vi } from 'vitest';
+import { acceptSessionTabs, deserializeProject, forgetSessionDemandRevisions, acceptAutosavePayload, loadFile, sessionPayload } from '../store/file';
+import { tabManager } from '../store/tabs.svelte';
+import { uiStore } from '../store/ui.svelte';
 import { modelStore } from '../store/model.svelte';
 
 function snapshot(extra: Record<string, unknown> = {}) {
@@ -35,24 +37,29 @@ function tab(snap: unknown, extra: Record<string, unknown> = {}) {
 
 describe('acceptSessionTabs', () => {
   it('accepts a well-formed session', () => {
-    expect(acceptSessionTabs([tab(snapshot())])).toHaveLength(1);
+    expect(acceptSessionTabs([tab(snapshot())]).tabs).toHaveLength(1);
   });
 
-  it('refuses a tab whose element references a missing node', () => {
+  // Changed expectation: this used to refuse the whole session (null). All or nothing cost the
+  // localStorage workspace every valid tab (App restored nothing, the next save wrote over it),
+  // so the gate now refuses the tab, keeps the others and reports the refused one by name.
+  it('refuses a tab whose element references a missing node, and keeps the others', () => {
     const bad = snapshot({ elements: [[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 99, materialId: 1, sectionId: 1 }]] });
-    expect(acceptSessionTabs([tab(snapshot()), tab(bad, { id: 't2' })])).toBeNull();
+    const verdict = acceptSessionTabs([tab(snapshot()), tab(bad, { id: 't2', name: 'Bad' })]);
+    expect(verdict.tabs.map((t) => t.id)).toEqual(['t1']);
+    expect(verdict.dropped).toEqual([{ index: 1, name: 'Bad' }]);
   });
 
   it('refuses malformed shapes without throwing', () => {
-    expect(acceptSessionTabs([tab(snapshot({ elements: [[1, null]] }))])).toBeNull();
-    expect(acceptSessionTabs([tab(snapshot(), { analysisMode: 'nope' })])).toBeNull();
-    expect(acceptSessionTabs([null])).toBeNull();
-    expect(acceptSessionTabs([])).toBeNull();
-    expect(acceptSessionTabs('x')).toBeNull();
+    expect(acceptSessionTabs([tab(snapshot({ elements: [[1, null]] }))]).tabs).toEqual([]);
+    expect(acceptSessionTabs([tab(snapshot(), { analysisMode: 'nope' })]).tabs).toEqual([]);
+    expect(acceptSessionTabs([null])).toEqual({ tabs: [], dropped: [{ index: 0, name: null }] });
+    expect(acceptSessionTabs([])).toEqual({ tabs: [], dropped: [] });
+    expect(acceptSessionTabs('x')).toEqual({ tabs: [], dropped: [] });
   });
 
   it('drops undo/redo stacks containing an invalid snapshot', () => {
-    const [t] = acceptSessionTabs([tab(snapshot(), { undoStack: [snapshot(), { nodes: 'x' }], undoKinds: ['structural', 'structural'] })])!;
+    const [t] = acceptSessionTabs([tab(snapshot(), { undoStack: [snapshot(), { nodes: 'x' }], undoKinds: ['structural', 'structural'] })]).tabs;
     expect(t.undoStack).toEqual([]);
     expect(t.redoStack).toEqual([]);
   });
@@ -61,9 +68,44 @@ describe('acceptSessionTabs', () => {
     const [t] = acceptSessionTabs([tab(
       snapshot({ detailing: { version: 1, assemblies: [assembly(0)] } }),
       { undoStack: [snapshot({ detailing: { version: 1, assemblies: [assembly(2)] } })] },
-    )])!;
+    )]).tabs;
     expect((t.modelSnapshot as any).detailing.assemblies[0].demandRevision).toBe(-1);
     expect((t.undoStack[0] as any).detailing.assemblies[0].demandRevision).toBe(-1);
+  });
+});
+
+describe('session file opened from disk', () => {
+  const sessionFile = (tabs: unknown[]) => ({
+    text: async () => JSON.stringify({ version: '1.0', type: 'session', timestamp: '', activeTabId: 't2', tabs }),
+  }) as unknown as File;
+  const bad = () => snapshot({ elements: [[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 99, materialId: 1, sectionId: 1 }]] });
+
+  // The file stays on disk unchanged, so opening the valid tabs loses nothing; refusing the
+  // file over one tab kept every good one out of reach. The refused tabs are named in a toast.
+  it('opens the valid tabs and names the refused one', async () => {
+    const toast = vi.spyOn(uiStore, 'toast').mockImplementation(() => {});
+    try {
+      const r = await loadFile(sessionFile([tab(snapshot(), { name: 'Good' }), tab(bad(), { id: 't2', name: 'Bad' })]));
+      expect(r).toEqual({ type: 'session', count: 1 });
+      expect(tabManager.tabs.map((x) => x.name)).toEqual(['Good']);
+      expect(toast).toHaveBeenCalledWith(expect.stringContaining('Bad'), 'error');
+    } finally {
+      toast.mockRestore();
+    }
+  });
+
+  it('a session with no valid tab is still refused as a format error', async () => {
+    await expect(loadFile(sessionFile([tab(bad())]))).rejects.toThrow();
+  });
+});
+
+describe('session payload', () => {
+  // `$state.snapshot` in this plain .ts module was a ReferenceError: Guardar sesión threw and the
+  // workspace was never written. The payload is now a plain copy of the tabs.
+  it('serialises every tab without throwing', () => {
+    tabManager.restoreSession(acceptSessionTabs([tab(snapshot(), { name: 'One' })]).tabs, 't1');
+    const { content } = sessionPayload();
+    expect(JSON.parse(content).tabs.map((x: { name: string }) => x.name)).toEqual(['One']);
   });
 });
 

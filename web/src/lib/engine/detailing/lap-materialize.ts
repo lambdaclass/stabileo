@@ -85,6 +85,9 @@ const LAYER_MATCH_M = 0.080;
  */
 export interface LapInterval {
   jointId: string;
+  /** The members the lap joins, incoming and outgoing. Optional for laps persisted before it. */
+  fromElementId?: number;
+  toElementId?: number;
   /** Bar continuing through the joint. */
   fromBarId: string;
   /** Bar starting after the joint. */
@@ -130,6 +133,11 @@ export interface PlannedTransition {
   /** Unit vector transverse to the line, in plan. */
   across: Point3;
   schedule: SpliceSchedule;
+  /**
+   * Both members' bars are of one steel (the same fy). Absent: they are. Two steels on one line
+   * are lapped, never fused into one bar.
+   */
+  sameSteel?: boolean;
 }
 
 export interface MaterialisationResult {
@@ -215,67 +223,15 @@ function endpointsAt(
     // The `from` member's bar arrives from behind the joint; the `to` member's leaves ahead.
     const far = endIsJointSide ? aStart : aEnd;
     if (side === 'from' ? far > 0 : far < 0) continue;
+    // A bar a person drew ends where it was drawn: only an end left to the line (`pending`, a bar
+    // drawn running through this joint) is the planner's to fuse or lap (`line-bars.ts`).
+    if (bar.source === 'manual' && (endIsJointSide ? bar.anchorage?.end : bar.anchorage?.start)?.solution !== 'pending') continue;
     const p = endIsJointSide ? seg.end : seg.start;
     out.push({ bar, body, endIsJointSide, across: acrossOf(p, t), level: p.z });
   }
   return out;
 }
 
-/**
- * Group endpoints into physical layers.
- *
- * ── Why not rounding ───────────────────────────────────────────────
- *
- * This used to key on `round(level / 20 mm)`. Fixed-grid rounding has a boundary, and two
- * bars a few millimetres apart land on opposite sides of it whenever they happen to
- * straddle one. A Ø32 top bar and a Ø20 top bar sit 6 mm apart in elevation — the bar
- * centre is half a diameter below the face — so at a support where the two members carry
- * different diameters they fell into different buckets, never paired, and their steel
- * simply coexisted. That was 405 parallel cross-member overlaps.
- *
- * The elevation difference was never a layer difference. Diameter is bar geometry; it is
- * not a layer identity. What makes a layer is the face, the elevation the bars actually
- * share, and the region they run through.
- *
- * Clustering has no grid and therefore no boundary: bars join a layer when they are within
- * `SAME_LEVEL_M` of a bar already in it. A top mat and a bottom mat are half a metre apart
- * and never merge; a Ø32 and a Ø20 in the same mat are 6 mm apart and always do.
- *
- * ── And why pairwise proximity alone is not enough either ──────────
- *
- * Pure single linkage is transitive, so it chains: elevations 0, 15 and 30 mm all join one
- * cluster at a 20 mm threshold even though the first and last bars are 30 mm apart and are
- * plainly two layers. §25.2.2 puts 25 mm between layers, so a chain of three is exactly the
- * case that arises in a real two-layer mat.
- *
- * So the cluster also has a bounded TOTAL SPAN. A bar joins only if it is within
- * `SAME_LEVEL_M` of the previous bar AND within `MAX_LAYER_SPAN_M` of the cluster's lowest.
- * Both conditions, because either alone is wrong: proximity alone chains, and span alone
- * would split a wide single layer of graded diameters.
- *
- * This remains a geometric FALLBACK. An explicit layer identity carried from candidate
- * generation through assignment, materialisation and persistence is the right answer and
- * is what `barLayers` is for; clustering is what happens when a bar reaches here without
- * one.
- */
-function byLevel(eps: Endpoint[]): Endpoint[][] {
-  // Declared identity wins. The generator knows which layer it placed each bar in; when
-  // every endpoint carries that, grouping is a lookup and no geometry is inferred at all.
-  // Clustering below is the documented fallback for bars that arrive without one.
-  if (eps.length > 0 && eps.every((e) => e.bar.layerId)) {
-    const byId = new Map<string, Endpoint[]>();
-    for (const e of eps) {
-      const key = e.bar.layerId!;
-      const g = byId.get(key);
-      if (g) g.push(e); else byId.set(key, [e]);
-    }
-    const groups = [...byId.values()];
-    for (const g of groups) g.sort((a, b) => a.across - b.across);
-    // Ordered by elevation so the caller can match one member's layers to the other's.
-    return groups.sort((a, b) => meanLevel(a) - meanLevel(b));
-  }
-  return clusterByLevel(eps);
-}
 
 /**
  * Geometric fallback: cluster endpoints by elevation.
@@ -334,10 +290,21 @@ function fuse(a: Endpoint, b: Endpoint): BarPath {
     : b.bar.segments.slice(b.body + 1);
 
   const segments = [...leading, straight, ...trailing];
+  // The anchorage records follow the far ends: what the through bar does at the joint is run.
+  const aFarRecord = a.endIsJointSide ? a.bar.anchorage?.start : a.bar.anchorage?.end;
+  const bFarRecord = b.endIsJointSide ? b.bar.anchorage?.start : b.bar.anchorage?.end;
+  const anchorage = { ...(aFarRecord ? { start: aFarRecord } : {}), ...(bFarRecord ? { end: bFarRecord } : {}) };
   return withSegments(a.bar, segments, {
     id: `${a.bar.id}+${b.bar.id}`,
+    anchorage: Object.keys(anchorage).length ? anchorage : undefined,
+    // One bar through the joint resists the moment either side resists: it is a hanger only
+    // where both bars it was made of were.
+    purpose: a.bar.purpose === 'stirrupHanger' && b.bar.purpose === 'stirrupHanger' ? 'stirrupHanger' : undefined,
     startTreatment: a.endIsJointSide ? a.bar.startTreatment : a.bar.endTreatment,
-    endTreatment: b.endIsJointSide ? b.bar.endTreatment : b.bar.startTreatment,
+    // The outgoing bar's FAR end: its start when its end is at the joint. This read the joint
+    // side's treatment, so a bar fused through a joint lost the hook at its far support from its
+    // schedule and its drawing while the segments still drew it.
+    endTreatment: b.endIsJointSide ? b.bar.startTreatment : b.bar.endTreatment,
     ownerElementIds: [...new Set([...a.bar.ownerElementIds, ...b.bar.ownerElementIds])]
       .sort((x, y) => x - y),
   });
@@ -346,6 +313,7 @@ function fuse(a: Endpoint, b: Endpoint): BarPath {
 /** Move one terminus of a bar's body to a new along-coordinate, dropping its hook there. */
 function retermine(
   ep: Endpoint, targetAlong: number, t: PlannedTransition,
+  lap: { available: number; required: number },
 ): BarPath {
   const seg = ep.bar.segments[ep.body];
   const moved = ep.endIsJointSide
@@ -356,10 +324,96 @@ function retermine(
   const kept = ep.endIsJointSide
     ? [...ep.bar.segments.slice(0, ep.body), moved]
     : [moved, ...ep.bar.segments.slice(ep.body + 1)];
+  // The joint-side end is now a lap: the interval it shares with its partner, against the
+  // lap length the splice class asks for.
+  const lapped = { support: 'interior' as const, solution: 'lap' as const, available: lap.available, required: lap.required, rule: 'lap' as const };
   return withSegments(ep.bar, kept, {
     startTreatment: ep.endIsJointSide ? ep.bar.startTreatment : { kind: 'straight' },
     endTreatment: ep.endIsJointSide ? { kind: 'straight' } : ep.bar.endTreatment,
+    anchorage: ep.endIsJointSide
+      ? { ...(ep.bar.anchorage?.start ? { start: ep.bar.anchorage.start } : {}), end: lapped }
+      : { start: lapped, ...(ep.bar.anchorage?.end ? { end: ep.bar.anchorage.end } : {}) },
   });
+}
+
+/** The face a generator layer id names: `e5:topJ:1` → `top`, `e5:bottom:0` → `bottom`. */
+function faceKey(layerId: string): string {
+  const face = layerId.split(':')[1] ?? '';
+  return face.startsWith('top') ? 'top' : face;
+}
+
+/**
+ * The groups of each side that meet at the joint: the same face.
+ *
+ * The generator names a top bar's layer by its REGION too (`topRun`, `topI`, `topJ`), and those
+ * regions share one physical row; and two members meeting at a support may split one face into
+ * different layer counts (a two-layer coordinated layout against a one-layer one). Grouped by the
+ * full id, the continuous pair of one member and the support group of the other were different
+ * "layers", matched one group at a time, so a face of three met a face of two plus one and paired
+ * two bars out of three: the third stopped in the column, neither lapped nor anchored. A lap is
+ * between bars of one face; which layer of it pairs with which is `pairAcross`'s to decide.
+ * Bars that arrive without a declared layer fall back to elevation clusters, as before.
+ */
+function matchedGroups(fromEps: Endpoint[], toEps: Endpoint[]): Array<[Endpoint[], Endpoint[]]> {
+  const declared = [...fromEps, ...toEps].every((e) => e.bar.layerId);
+  const group = (eps: Endpoint[]) => {
+    if (!declared) return clusterByLevel(eps);
+    const by = new Map<string, Endpoint[]>();
+    for (const e of eps) by.set(faceKey(e.bar.layerId!), [...(by.get(faceKey(e.bar.layerId!)) ?? []), e]);
+    return [...by.values()].map((g) => g.sort((a, b) => a.across - b.across || a.level - b.level));
+  };
+  const from = group(fromEps), to = group(toEps);
+  const out: Array<[Endpoint[], Endpoint[]]> = [];
+  const usedTo = new Set<number>();
+  // Closest pairs of groups first, so an exact layer is never taken by a near one.
+  const candidates: Array<{ f: number; t: number; gap: number }> = [];
+  from.forEach((fg, f) => to.forEach((tg, ti) => {
+    const sameFace = !declared || faceKey(fg[0]!.bar.layerId!) === faceKey(tg[0]!.bar.layerId!);
+    const gap = Math.abs(meanLevel(fg) - meanLevel(tg));
+    if (sameFace && gap <= LAYER_MATCH_M) candidates.push({ f, t: ti, gap });
+  }));
+  candidates.sort((a, b) => a.gap - b.gap || a.f - b.f || a.t - b.t);
+  const usedFrom = new Set<number>();
+  for (const c of candidates) {
+    if (usedFrom.has(c.f) || usedTo.has(c.t)) continue;
+    usedFrom.add(c.f); usedTo.add(c.t);
+    out.push([from[c.f]!, to[c.t]!]);
+  }
+  return out;
+}
+
+/**
+ * Pair two faces' bar ends across the joint without crossing: the most pairs, then the least
+ * total offset (across, and in elevation so a layer keeps to its layer), order kept on both sides
+ * (`pairUp`'s rule); two ends more than one layer's height apart are not a pair. Taking the i-th
+ * of each row paired a row's continuous outer bar with the other row's inner one whenever the
+ * counts differed.
+ */
+const pairCost = (p: Endpoint, q: Endpoint) => Math.abs(p.across - q.across) + Math.abs(p.level - q.level);
+function pairAcross(a: Endpoint[], b: Endpoint[]): Array<[Endpoint, Endpoint]> {
+  const n = a.length, m = b.length;
+  const best: Array<Array<{ pairs: number; cost: number }>> = Array.from({ length: n + 1 }, () => Array.from({ length: m + 1 }, () => ({ pairs: 0, cost: 0 })));
+  const better = (p: { pairs: number; cost: number }, q: { pairs: number; cost: number }) => p.pairs > q.pairs || (p.pairs === q.pairs && p.cost < q.cost - 1e-12);
+  for (let i = 1; i <= n; i++) for (let j = 1; j <= m; j++) {
+    let v = best[i - 1]![j]!;
+    if (better(best[i]![j - 1]!, v)) v = best[i]![j - 1]!;
+    if (Math.abs(a[i - 1]!.level - b[j - 1]!.level) <= LAYER_MATCH_M) {
+      const take = { pairs: best[i - 1]![j - 1]!.pairs + 1, cost: best[i - 1]![j - 1]!.cost + pairCost(a[i - 1]!, b[j - 1]!) };
+      if (better(take, v)) v = take;
+    }
+    best[i]![j] = v;
+  }
+  const out: Array<[Endpoint, Endpoint]> = [];
+  for (let i = n, j = m; i > 0 && j > 0;) {
+    const here = best[i]![j]!;
+    const took = best[i - 1]![j - 1]!;
+    if (Math.abs(a[i - 1]!.level - b[j - 1]!.level) <= LAYER_MATCH_M
+      && here.pairs === took.pairs + 1 && Math.abs(here.cost - took.cost - pairCost(a[i - 1]!, b[j - 1]!)) < 1e-12) {
+      out.push([a[i - 1]!, b[j - 1]!]); i--; j--;
+    } else if (best[i - 1]![j]!.pairs === here.pairs && Math.abs(best[i - 1]![j]!.cost - here.cost) < 1e-12) i--;
+    else j--;
+  }
+  return out.reverse();
 }
 
 /**
@@ -387,50 +441,50 @@ export function materialiseLaps(input: MaterialisationInput): MaterialisationRes
       continue;
     }
 
-    const fromLevels = byLevel(endpointsAt(fromBars, t, 'from'));
-    const toLevels = byLevel(endpointsAt(toBars, t, 'to'));
-
     let produced = 0;
-    // Match each incoming layer to the outgoing layer at the same elevation. Ordered by
-    // height on both sides, so bottom pairs with bottom and top with top even when the two
-    // members have different depths or different bar sizes.
-    const usedTo = new Set<number>();
-    for (const fromEps of fromLevels) {
-      const fromZ = meanLevel(fromEps);
-      let bestIdx = -1;
-      let bestGap = Number.POSITIVE_INFINITY;
-      toLevels.forEach((cand, idx) => {
-        if (usedTo.has(idx)) return;
-        const gap = Math.abs(meanLevel(cand) - fromZ);
-        if (gap < bestGap) { bestGap = gap; bestIdx = idx; }
-      });
-      // A layer with no counterpart within one layer's height is not a lap; those bars
-      // terminate with their own anchorage and that is not a failure.
-      if (bestIdx < 0 || bestGap > LAYER_MATCH_M) continue;
-      usedTo.add(bestIdx);
-      const toEps = toLevels[bestIdx];
-      if (toEps.length === 0) continue;
-
-      // Order-preserving, exactly as `pairUp`: bars in a lap do not cross over each other.
-      const n = Math.min(fromEps.length, toEps.length);
-      for (let i = 0; i < n; i++) {
-        const a = fromEps[i];
-        const b = toEps[i];
+    const allFrom = endpointsAt(fromBars, t, 'from'), allTo = endpointsAt(toBars, t, 'to');
+    const pairedIds = new Set<string>();
+    for (const [fromEps, toEps] of matchedGroups(allFrom, allTo)) {
+      const matched = pairAcross(fromEps, toEps);
+      for (const [a, b] of matched) { pairedIds.add(a.bar.id); pairedIds.add(b.bar.id); }
+      for (let i = 0; i < matched.length; i++) {
+        const [a, b] = matched[i]!;
         const pair = t.schedule.pairs[Math.min(i, t.schedule.pairs.length - 1)];
         if (!pair) continue;
-        const offset = Math.abs(b.across - a.across);
+        // Offset between the two bars in the section plane: across AND in elevation. Ends of
+        // one face can now pair across its layers, and two bars 37 mm apart vertically are not
+        // the same line, whatever their plan position says.
+        const offset = Math.hypot(b.across - a.across, b.level - a.level);
 
-        if (offset <= SAME_POSITION_M) {
+        // One bar only where it is the same bar: on the same line, of the same diameter and the
+        // same steel. A Ø16 meeting a Ø12 (or two steels) is lapped: fused, the through bar took
+        // the incoming bar's diameter and a span was detailed with the other span's bars. The
+        // joint's lap is planned at the larger bar (`run-detailing`), Class factor times its ℓd,
+        // which is §25.5.2.2's larger of ℓd of the larger bar and the lap of the smaller.
+        const sameBar = a.bar.diameterMm === b.bar.diameterMm && t.sameSteel !== false;
+        if (sameBar && Math.abs(b.across - a.across) <= SAME_POSITION_M && Math.abs(b.level - a.level) <= SAME_LEVEL_M) {
           // Same line: one bar, not two lapped ones.
           const merged = fuse(a, b);
+          // The through bar goes on with the OUTGOING member, whose next joint is the line's next
+          // transition: kept with the incoming one, it was out of sight of that transition and its
+          // far end stopped in the next column, a bar fused across one support and cut at the
+          // next. Transitions are planned in line order, so each fusion hands it on.
           const fi = fromBars.findIndex((x) => x.id === a.bar.id);
-          if (fi >= 0) fromBars[fi] = merged;
+          if (fi >= 0) fromBars.splice(fi, 1);
           const ti = toBars.findIndex((x) => x.id === b.bar.id);
-          if (ti >= 0) toBars.splice(ti, 1);
+          if (ti >= 0) toBars[ti] = merged;
           fused.push({
             jointId: t.jointId, keptBarId: merged.id, removedBarId: b.bar.id,
             ownerElementIds: merged.ownerElementIds,
           });
+          // A lap an earlier joint built on either bar now joins `merged`: the bar it named is
+          // gone. Left as it was, the lap index answered for a bar that no longer exists, the
+          // classifier stopped seeing the two halves as a lap and judged the pair by §25.2.1
+          // clear spacing — on the 408-member frame 117 of 544 laps had lost their bar that way.
+          for (const lap of laps) {
+            if (lap.fromBarId === a.bar.id || lap.fromBarId === b.bar.id) lap.fromBarId = merged.id;
+            if (lap.toBarId === a.bar.id || lap.toBarId === b.bar.id) lap.toBarId = merged.id;
+          }
           produced++;
           continue;
         }
@@ -438,8 +492,9 @@ export function materialiseLaps(input: MaterialisationInput): MaterialisationRes
         // A real lap. Confine it to the interval the class earned.
         const start = pair.overlapFrom;
         const end = pair.overlapTo;
-        const extended = retermine(a, end, t);
-        const pulled = retermine(b, start, t);
+        const lapLength = { available: end - start, required: t.schedule.lapLength };
+        const extended = retermine(a, end, t, lapLength);
+        const pulled = retermine(b, start, t, lapLength);
         const fi = fromBars.findIndex((x) => x.id === a.bar.id);
         if (fi >= 0) fromBars[fi] = extended;
         const ti = toBars.findIndex((x) => x.id === b.bar.id);
@@ -449,6 +504,7 @@ export function materialiseLaps(input: MaterialisationInput): MaterialisationRes
         const kind: LapInterval['kind'] = offset <= d + 1e-9 ? 'contactLap' : 'nonContactLap';
         laps.push({
           jointId: t.jointId,
+          fromElementId: t.fromElementId, toElementId: t.toElementId,
           fromBarId: extended.id, toBarId: pulled.id,
           from: atAlong(t.jointPoint, start, t),
           to: atAlong(t.jointPoint, end, t),
@@ -463,6 +519,37 @@ export function materialiseLaps(input: MaterialisationInput): MaterialisationRes
         });
         produced++;
       }
+    }
+
+    // ── The bars with no partner across the joint ──
+    //
+    // One side carries more bars at the support than the other: the surplus has nothing to lap
+    // with, and stopped at the column's far face it has the column's depth to develop in. It is
+    // continued into the next span instead, until it has its development length past the face
+    // it resists the moment at — the record it carries says how much that is (`pending`, set by
+    // the generator: available = the column's depth, required = ld).
+    for (const [ep, side] of [...allFrom.map((e) => [e, 'from'] as const), ...allTo.map((e) => [e, 'to'] as const)]) {
+      if (pairedIds.has(ep.bar.id)) continue;
+      const list = side === 'from' ? fromBars : toBars;
+      const k = list.findIndex((x) => x.id === ep.bar.id);
+      if (k < 0) continue;
+      const end = ep.endIsJointSide ? 'end' : 'start';
+      const rec = ep.bar.anchorage?.[end];
+      if (!rec || rec.solution !== 'pending' || rec.rule !== 'ld' || rec.available >= rec.required - 1e-9) continue;
+      const face = rec.available / 2;
+      // Along the transition axis: the `from` bar resists at −face and runs on toward +; the
+      // `to` bar resists at +face and runs back toward −.
+      const target = side === 'from' ? -face + rec.required : face - rec.required;
+      const seg = ep.bar.segments[ep.body]!;
+      const moved = ep.endIsJointSide
+        ? straightSegment(seg.start, atAlong(seg.end, target, t))
+        : straightSegment(atAlong(seg.start, target, t), seg.end);
+      const segments = [...ep.bar.segments];
+      segments[ep.body] = moved;
+      list[k] = withSegments(ep.bar, segments, {
+        anchorage: { ...ep.bar.anchorage, [end]: { ...rec, solution: 'straight', available: rec.required } },
+      });
+      produced++;
     }
 
     if (produced === 0) {

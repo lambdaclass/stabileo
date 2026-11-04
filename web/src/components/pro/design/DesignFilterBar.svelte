@@ -2,9 +2,9 @@
   /**
    * Row filters, sorting, search and the DERIVED group pickers.
    *
-   * Grouping is labelled as derived everywhere: the model stores no storeys, grid
-   * lines or user groups, only node coordinates and connectivity. A grouping the
-   * geometry cannot support honestly is offered as disabled with the reason.
+   * Grouping is labelled as derived everywhere: the model's levels, grid axes and groups
+   * are not read by design yet, so the groups come from node coordinates and connectivity.
+   * A grouping the geometry cannot support honestly is offered as disabled with the reason.
    */
   import { t, tp } from '../../../lib/i18n';
   import type { RowFilter, SortKey } from './design-view';

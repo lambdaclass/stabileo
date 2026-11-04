@@ -24,17 +24,22 @@ const need25 = () => 0.025;
 
 describe('bounded repair ladder', () => {
   afterEach(() => { vi.restoreAllMocks(); });
-  it('a rung that makes things worse hands back the bars its conflicts describe', () => {
-    // b clears a by moving 7 mm up, and lands too close to c and d: two conflicts for one, so
-    // the ladder stops and keeps the state it started from — bars and conflicts alike.
+  it('a move that would make things worse is not made, and the bars its conflicts describe come back', () => {
+    // b clears a by moving 7 mm up, and would land too close to c and d: two conflicts for one.
+    // The ladder used to make that move, count two conflicts for the one it cleared, and roll the rung back
+    // (`cleared: -1, remaining: 2`). It now measures the move before making it, refuses it for
+    // the clearance to c, and the rung clears nothing: the state it started from, bars and
+    // conflicts alike, with the refusal on record.
     const bars = [
       bar('a', 0, { locked: true }), bar('b', 0.040),
       bar('c', 0.086, { locked: true, segments: [straightSegment({ x: 0, y: 0.086, z: 0 }, { x: 1.9, y: 0.086, z: 0 })] }),
       bar('d', 0.086, { locked: true, segments: [straightSegment({ x: 2.1, y: 0.086, z: 0 }, { x: 4, y: 0.086, z: 0 })] }),
     ];
     const r = repairConflicts(bars, need25);
-    expect(r.attempts).toEqual([{ rung: 'separación mínima', cleared: -1, remaining: 2 }]);
+    expect(r.attempts).toEqual([{ rung: 'separación mínima', cleared: 0, remaining: 1 }]);
     expect(r.conflicts.map((c) => [c.barA, c.barB])).toEqual([['a', 'b']]);
+    expect(r.unresolved.map((u) => u.candidates.map((c) => [c.moved, c.rejected?.reason, c.rejected?.with])))
+      .toEqual([[['b', 'clearance', 'c']]]);
     expect(r.bars.find((x) => x.id === 'b')!.segments[0].start.y).toBe(0.040);
     const again = collision.detectCollisions(r.bars, { requiredClearFor: need25 });
     expect(again.conflicts.map((c) => [c.barA, c.barB])).toEqual([['a', 'b']]);
@@ -53,8 +58,10 @@ describe('bounded repair ladder', () => {
     expect(sweep.mock.calls.length).toBeGreaterThan(1);
     expect(r.conflicts).toEqual([]);
     expect(r.attempts[0].cleared).toBeGreaterThan(0);
-    // The moved bar really moved.
-    expect(r.bars.find((b) => b.id === 'b')!.segments[0].start.y).toBeGreaterThan(0.040);
+    // The moved bar really moved. Two equal bars on one layer-less line: the one standing lower
+    // in y gives way (ties go by place, not by id), away from the other.
+    expect(r.bars.find((b) => b.id === 'a')!.segments[0].start.y).toBeLessThan(0);
+    expect(r.bars.find((b) => b.id === 'b')!.segments[0].start.y).toBe(0.040);
   });
 
   it('never moves a locked bar', () => {
@@ -95,11 +102,16 @@ describe('bounded repair ladder', () => {
       bar('a', 0), bar('b', 0.040),
       bar('c', 2, { locked: true }), bar('d', 2.040, { locked: true }),
     ], need25);
-    expect(sweep).toHaveBeenCalledTimes(2);
+    // The initial sweep, then the one candidate measured before it is made: against the bars it
+    // already clashes with, then against every bar it can reach (2 → 3 when candidates began to
+    // be measured first). The second rung finds only the locked pair and sweeps nothing.
+    expect(sweep).toHaveBeenCalledTimes(3);
     expect(result.conflicts).toHaveLength(1);
     expect([result.conflicts[0].barA, result.conflicts[0].barB]).toEqual(['c', 'd']);
     expect(result.attempts.map(a => a.cleared)).toEqual([1, 0]);
-    expect(result.bars.find(b => b.id === 'b')!.segments[0].start.y).toBeGreaterThan(0.040);
+    // a stands lower in y than b, so a gives way (by place, not by id; b moved when it was the
+    // second id of the pair).
+    expect(result.bars.find(b => b.id === 'a')!.segments[0].start.y).toBeLessThan(0);
   });
 
   it('is bounded — it stops after the ladder rather than looping', () => {

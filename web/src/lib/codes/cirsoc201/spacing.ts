@@ -13,7 +13,8 @@
  *   clear distance ≥ max(25 mm, d_b, (4/3)·d_agg)
  *
  * CIRSOC 201-2025 §25.2.2 — two or more layers: bars in upper layers directly above
- *   those below, clear distance between layers ≥ 25 mm.
+ *   those below, clear distance between layers ≥ 25 mm (held here at no less than the
+ *   larger bar of the two layers as well, `layerClearBetween`).
  *
  * CIRSOC 201-2025 §25.2.3 — longitudinal bars in columns, pedestals, struts and wall
  *   boundary elements:
@@ -120,6 +121,57 @@ export function minClearBetweenLayers(edition: RegulationEdition): SpacingRequir
     refs: [ref],
     terms: { floorMm: 25, barTermMm: 0, aggregateTermMm: null },
   };
+}
+
+/**
+ * The clear distance two consecutive horizontal layers keep, m: §25.2.2's 25 mm, and never less
+ * than the LARGER bar of the two layers. The diameter term is the one the design's effective
+ * depth has always held (`layerCentroid`, `computeSectionLayout`); the detailing laid 25 mm alone,
+ * so for bars above Ø25 the two stood their rows apart. One rule now, read by both.
+ *
+ * §25.2.1's aggregate term governs bars side by side in one layer, not the gap between layers,
+ * so it is not read here.
+ */
+export function layerClearBetween(edition: RegulationEdition, aboveDiaMm: number, belowDiaMm: number): number {
+  return Math.max(minClearBetweenLayers(edition).minClear, Math.max(aboveDiaMm, belowDiaMm, 0) / 1000);
+}
+
+/**
+ * Centre depth, m inward from a face, of a bar of `diaMm` in layer `row` of a stack of horizontal
+ * layers (§25.2.2). The one stepping the design (`layerCentroid`) and the detailing
+ * (`generate-beam`, `run-detailing`) read, so a row's depth cannot differ between them.
+ *
+ *   rows[k]  the diameters laid in layer k (layer 0 at the face), every bar of the layer: the
+ *            continuous top pair of a larger bar than its group's counts in layer 0.
+ *   seat(d)  the centre depth of a bar of `d` in layer 0, by the caller's own seat model
+ *            (cover + stirrup + d/2 for the design, the stirrup bend's seat for the detailing).
+ *
+ * Layer k's bars stand with their outer surface the clear distance (`layerClearBetween`, owed to
+ * the larger bar of the two layers) inside the INNER surface of layer k − 1, which is its largest
+ * bar's: a Ø10 layer under a Ø12 pair steps from the Ø12 pair, not from the Ø10 bars beside it.
+ * A layer the caller lists empty is read as holding `diaMm`.
+ */
+export function stackedLayerDepth(
+  rows: ReadonlyArray<ReadonlyArray<number>>, row: number, diaMm: number,
+  seat: (dMm: number) => number, edition: RegulationEdition = '2025',
+): number {
+  if (row <= 0) return seat(diaMm);
+  const diasOf = (k: number): number[] => {
+    const listed = (rows[k] ?? []).filter((d) => d > 0);
+    if (k === row) return [...listed, diaMm];
+    return listed.length > 0 ? listed : [diaMm];
+  };
+  const first = diasOf(0);
+  let inner = Math.max(...first.map((d) => seat(d) + d / 2000));
+  let above = Math.max(...first);
+  for (let k = 1; ; k++) {
+    const here = diasOf(k);
+    const largest = Math.max(...here);
+    const outerFace = inner + layerClearBetween(edition, above, largest);
+    if (k === row) return outerFace + diaMm / 2000;
+    inner = outerFace + largest / 1000;
+    above = largest;
+  }
 }
 
 /** Dispatch on member type, so callers do not re-implement the column special case. */

@@ -166,7 +166,7 @@ describe('fill refuses degenerate or occupied faces', () => {
     const first = fillHoles(members, 1, 0.15, { density });
     expect('quads' in first && first.quads.length).toBe(4);
     const again = fillHoles([...modelStore.elements.keys()], 1, 0.15, { density });
-    expect(again).toEqual({ quads: [], plates: [], skippedExisting: 1, openings: 0 });
+    expect(again).toEqual({ quads: [], plates: [], skippedExisting: 1, openings: 0, faces: [] });
     expect(modelStore.quads.size).toBe(4);
     expect(modelStore.plates.size).toBe(0);
   });
@@ -174,7 +174,7 @@ describe('fill refuses degenerate or occupied faces', () => {
   it('leaves partially occupied faces alone but fills an adjacent empty bay', () => {
     const first = rectangle();
     modelStore.addPlate(first.nodes.slice(0, 3) as [number, number, number], 1, 0.15);
-    expect(fillHoles(first.members, 1, 0.15)).toEqual({ quads: [], plates: [], skippedExisting: 1, openings: 0 });
+    expect(fillHoles(first.members, 1, 0.15)).toEqual({ quads: [], plates: [], skippedExisting: 1, openings: 0, faces: [] });
     const adjacent = rectangle(4);
     const r = fillHoles(adjacent.members, 1, 0.15);
     expect('quads' in r && r.quads.length).toBe(1);
@@ -193,7 +193,7 @@ describe('fill refuses degenerate or occupied faces', () => {
     const { members } = rectangle();
     const shell = rectangle();
     modelStore.addQuad(shell.nodes as [number, number, number, number], 1, 0.15);
-    expect(fillHoles(members, 1, 0.15)).toEqual({ quads: [], plates: [], skippedExisting: 1, openings: 0 });
+    expect(fillHoles(members, 1, 0.15)).toEqual({ quads: [], plates: [], skippedExisting: 1, openings: 0, faces: [] });
   });
 });
 
@@ -243,5 +243,19 @@ describe('hole filling the mesher refuses', () => {
     const r = meshQuadRegion(c, { density: { mode: 'fixedDivisions', nx: 2, ny: 2 }, materialId: 1, thickness: 0.15, splitBeams: false });
     expect(r).toEqual({ refused: 'cannotMesh' });
     expect(modelStore.quads.size).toBe(0);
+  });
+});
+
+describe('fill reports each face and meshes free faces at the size asked for', () => {
+  beforeEach(() => { modelStore.clear(); });
+
+  it('an L-shaped bay at a target size is meshed, not left as its few triangles', () => {
+    const pts: Array<[number, number]> = [[0, 0], [6, 0], [6, 3], [3, 3], [3, 6], [0, 6]];
+    const ids = pts.map(([x, y]) => modelStore.addNode(x, y, 3));
+    const els = ids.map((id, k) => modelStore.addElement(id, ids[(k + 1) % ids.length]!));
+    const r = fillHoles(els, 1, 0.15, { density: { mode: 'targetSize', size: 1 } });
+    if ('refused' in r) throw new Error(r.refused);
+    expect(r.faces).toHaveLength(1);
+    expect(r.faces[0]!.quads.length + r.faces[0]!.plates.length).toBeGreaterThan(20);
   });
 });

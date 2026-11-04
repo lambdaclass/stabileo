@@ -527,6 +527,7 @@ export interface StackValidation {
  */
 export function validateStack(reg: ProjectRegulations): StackValidation {
   const problems: StackProblem[] = [];
+  const unstated: StackProblem[] = [];
 
   for (const role of REGULATION_ROLES) {
     const b = reg[role];
@@ -557,10 +558,14 @@ export function validateStack(reg: ProjectRegulations): StackValidation {
         params: { name: msg(opt.nameKey, { edition: String(opt.edition) }) } });
     }
     if (b.adoption === 'unstated' && opt.maturity !== 'UNSUPPORTED') {
-      problems.push({ severity: 'warning', roles: [role], key: 'regulations.problem.adoptionUnstated',
+      unstated.push({ severity: 'warning', roles: [role], key: 'regulations.problem.adoptionUnstated',
         params: { name: msg(opt.nameKey, { edition: String(opt.edition) }) } });
     }
   }
+  if (unstated.length > 1) {
+    problems.push({ severity: 'warning', roles: unstated.flatMap((p) => p.roles), key: 'regulations.problem.adoptionUnstatedAll',
+      params: { n: unstated.length } });
+  } else problems.push(...unstated);
 
   const fam = (r: RegulationRole) => {
     const id = reg[r].adapterId;
@@ -757,7 +762,7 @@ export function migrateRegulations(raw: unknown): RegulationsMigration {
         }),
         configComplete: b.configComplete === true || !bound.requiresConfig,
         state: isState(b.state) ? b.state : 'applied',
-        appliedAtRevision: typeof b.appliedAtRevision === 'number' ? b.appliedAtRevision : 0,
+        appliedAtRevision: typeof b.appliedAtRevision === 'number' ? b.appliedAtRevision : b.appliedAtRevision === null ? null : 0,
       };
     }
     // Each code's settings come along: every restore (open, undo, autosave) goes through here,

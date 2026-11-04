@@ -1,6 +1,10 @@
 <script lang="ts">
+  import JointTypologyPanel from './connections/JointTypologyPanel.svelte';
+  import JointsOverview from './connections/JointsOverview.svelte';
+  import VariableSectionNotice from './design/VariableSectionNotice.svelte';
   import { untrack } from 'svelte';
   import { jointDesignStore } from '../../lib/store/joint-design.svelte';
+  import { designCombinationsWithheld } from '../../lib/store/active-results';
   import { jointStateKey } from '../../lib/connection/joint-design';
   import { BOLT_GRADES } from '../../lib/connection/bolted-joint';
   import { TABULATED_DIAMETERS_MM } from '../../lib/connection/bolt-geometry';
@@ -451,6 +455,7 @@
     can see the assumptions can review it — the same bargain `steel.panel.experimentalBanner`
     strikes. It is not a verification, and this panel must never read as one.
   -->
+  <VariableSectionNotice testid="conn-variable-section" />
   <div class="conn-banner" role="note" data-testid="conn-experimental-banner">
     {t('conn.experimentalBanner')}
   </div>
@@ -507,6 +512,7 @@
     bind:open={openJoints}
   >
     <p class="conn-explain" data-testid="conn-joints-what">{t('conn.joints.what')}</p>
+    <JointsOverview onselect={(id) => { selectedJointId = id; }} />
     <!--
       The filter says so. A list shorter than the model's joint count, with no explanation, is
       the kind of thing a user discovers at the worst possible moment.
@@ -631,6 +637,7 @@
 
       <!-- ── The design: the governing demand, the choices, and the verdicts ── -->
       {#if design}
+        <JointTypologyPanel nodeId={selectedJoint.nodeId} elementIds={selectedJoint.elementIds} />
         <section class="jd" data-testid="joint-design">
           <header class="jd-head">
             <span class="jd-title">{t('conn.design.title')}</span>
@@ -664,6 +671,10 @@
               </dd>
             {/each}
           </dl>
+          <!-- Combinations defined and none solved or active: no demand is read off the unfactored loads. -->
+          {#if design.demands.combinationsConsidered === 0 && designCombinationsWithheld()}
+            <p class="conn-explain" data-testid="joint-demand-unsolved">{t(designCombinationsWithheld()!)}</p>
+          {/if}
           {#if design.demands.membersWithoutForces.length > 0}
             <p class="conn-explain" data-testid="joint-demand-gaps">
               {tp('conn.demand.membersWithoutForces', { n: design.demands.membersWithoutForces.length })}
@@ -1239,7 +1250,7 @@
       {#if jointForces}
         <div class="conn-forces-table">
           <table>
-            <thead><tr><th>Elem</th><th>End</th><th>N</th><th>Vy</th><th>Vz</th><th>My</th><th>Mz</th></tr></thead>
+            <thead><tr><th>{t('pro.elemLabel')}</th><th>{t('report.ext')}</th><th>N</th><th>Vy</th><th>Vz</th><th>My</th><th>Mz</th></tr></thead>
             <tbody>
               {#each jointForces.elements as ef}
                 <tr>

@@ -10,6 +10,11 @@
  * roof's surface, positive toward its top, so each member takes it along the normal of the slope
  * it lies on, per metre of member over the tributary width, in global components.
  *
+ * §2.1.5: the design wind force on an open building is never less than 0,75 kN/m² times Af. As the
+ * commentary asks (C 2.1.5, C 4.8), it is a load case of its own in each direction, horizontal, at
+ * the roof's nodes. Af is the reader's, or the whole vertical projection when they give none: the
+ * figures alone fell short of it at low basic speeds, and nothing applied it.
+ *
  * ── Towers, lattices, signs, chimneys, §4.4 and §4.5 ──────────────
  *
  * F = qz G Cf Af by height: each level of nodes takes the band from halfway down to halfway up,
@@ -43,7 +48,12 @@ import { roofGeometry } from './snow-loads';
 import { msg, round, type EngineMessage } from '../../codes/message';
 
 export type OtherStructure =
-  | { kind: 'freeRoof'; roof: FreeRoofKind; blocked: boolean }
+  /**
+   * `area`: Af per wind axis, m², the open building's area projected on a plane normal to the
+   * wind (§2.1.5). Absent: its whole vertical projection, the envelope from the lowest node to the
+   * roof's top over the width the nodes span, which is never less than Af.
+   */
+  | { kind: 'freeRoof'; roof: FreeRoofKind; blocked: boolean; area?: { x?: number; y?: number } }
   /** `width`: the face's width, m, where a level's nodes span none (a stick model). */
   | { kind: 'latticeTower'; section: 'square' | 'triangle'; round: boolean; solidity: number; diagonal: boolean; width?: number }
   | { kind: 'openSign'; members: LatticeMembers; solidity: number; width?: number }
@@ -60,6 +70,8 @@ export interface OtherWindCase {
 }
 
 const Z = (n: { z?: number }) => n.z ?? 0;
+/** §2.1.5: the least design wind pressure on an open building, kN/m², times Af. */
+export const MIN_OPEN_KNM2 = 0.75;
 const dirLabel = (d: WindDirection) => d.toUpperCase();
 
 export function otherStructureWind(i: {
@@ -134,6 +146,26 @@ export function otherStructureWind(i: {
         }
         cases.push({ nameKey: 'wind.other.freeRoofCase', nameParams: { dir: dirLabel(d), c }, nodal: [], distributed });
       }
+    }
+    // §2.1.5: F ≥ 0,75 kN/m² × Af, a horizontal case of its own per direction, at the roof's nodes.
+    const roofNodes = [...new Set(roof.flatMap((r) => { const e = model.elements.get(r.id)!; return [e.nodeI, e.nodeJ]; }))];
+    const zBase = Math.min(...nodes.map(Z));
+    const extent = (axis: 'x' | 'y') => { const v = nodes.map((n) => n[axis]); return Math.max(...v) - Math.min(...v); };
+    for (const d of i.directions) {
+      const axis = d.endsWith('x') ? 'x' : 'y';
+      const given = s.area?.[axis];
+      // A frame modelled in one plane spans nothing across a wind along it: it takes the width
+      // its roof pressures take, the tributary width. It used to get Af = 0, and no minimum.
+      const across = extent(axis === 'x' ? 'y' : 'x');
+      const envelope = (H - zBase) * (across > 0.05 ? across : i.tributaryWidth);
+      const af = given !== undefined && given > 0 ? given : envelope;
+      if (!(af > 0)) { notes.push(msg('wind.other.minimumMissing', { dir: dirLabel(d) })); continue; }
+      const F = MIN_OPEN_KNM2 * af * (d.startsWith('-') ? -1 : 1);
+      derivation.push(msg(given !== undefined && given > 0 ? 'wind.other.minimumOpen' : 'wind.other.minimumOpenEnvelope', { dir: dirLabel(d), af: round(af, 2), f: round(Math.abs(F), 1) }));
+      cases.push({
+        nameKey: 'wind.other.minimumCase', nameParams: { dir: dirLabel(d) },
+        nodal: levelLoads(model.nodes, roofNodes, axis === 'x' ? F : 0, axis === 'y' ? F : 0, 0), distributed: [],
+      });
     }
     return { cases, derivation, notes };
   }

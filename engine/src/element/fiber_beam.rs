@@ -9,7 +9,9 @@
 ///
 /// References:
 ///   - Spacone, Filippou & Taucer (1996): fiber beam-column formulation
-///   - OpenSees: force-based beam-column implementation
+///   - Displacement-based formulation (cubic Hermite transverse, linear axial
+///     interpolation; section deformations ε₀ = u', κ = −v''), not the
+///     force-based element of Spacone et al. See docs/solver/special-elements.md.
 
 use serde::{Serialize, Deserialize};
 
@@ -115,7 +117,16 @@ fn steel_bilinear_response(
     state: &mut FiberMaterialState,
 ) -> (f64, f64) {
     state.strain = strain;
-    let e_h = alpha * e;
+    // `alpha` is the post-yield slope over E (E_t = αE). The return mapping
+    // below needs the plastic (kinematic) modulus H, whose elasto-plastic slope
+    // is E·H/(E + H); E_t = αE gives H = αE/(1 − α). H = αE (as it was) gave a
+    // slope of αE/(1 + α) (SP-3). α ≥ 1 has no plastic modulus: elastic.
+    if alpha >= 1.0 {
+        state.stress = e * (strain - state.plastic_strain);
+        state.tangent = e;
+        return (state.stress, state.tangent);
+    }
+    let e_h = alpha * e / (1.0 - alpha);
     // Trial stress (elastic predictor)
     let xi = strain - state.plastic_strain;
     let sigma_trial = e * xi - state.back_stress;
@@ -291,8 +302,29 @@ pub fn gauss_lobatto_points(n_points: usize, l: f64) -> Vec<(f64, f64)> {
             vec![-1.0, -(3.0 / 7.0_f64).sqrt(), 0.0, (3.0 / 7.0_f64).sqrt(), 1.0],
             vec![1.0 / 10.0, 49.0 / 90.0, 32.0 / 45.0, 49.0 / 90.0, 1.0 / 10.0],
         ),
+        6 => {
+            let a = (1.0 / 3.0 + 2.0 * 7.0_f64.sqrt() / 21.0).sqrt();
+            let b = (1.0 / 3.0 - 2.0 * 7.0_f64.sqrt() / 21.0).sqrt();
+            let wa = (14.0 - 7.0_f64.sqrt()) / 30.0;
+            let wb = (14.0 + 7.0_f64.sqrt()) / 30.0;
+            (
+                vec![-1.0, -a, -b, b, a, 1.0],
+                vec![1.0 / 15.0, wa, wb, wb, wa, 1.0 / 15.0],
+            )
+        }
+        7 => {
+            let a = (5.0 / 11.0 + 2.0 / 11.0 * (5.0_f64 / 3.0).sqrt()).sqrt();
+            let b = (5.0 / 11.0 - 2.0 / 11.0 * (5.0_f64 / 3.0).sqrt()).sqrt();
+            let wa = (124.0 - 7.0 * 15.0_f64.sqrt()) / 350.0;
+            let wb = (124.0 + 7.0 * 15.0_f64.sqrt()) / 350.0;
+            (
+                vec![-1.0, -a, -b, 0.0, b, a, 1.0],
+                vec![1.0 / 21.0, wa, wb, 256.0 / 525.0, wb, wa, 1.0 / 21.0],
+            )
+        }
         _ => {
-            // Default to 3-point
+            // Outside 2..=7: the fiber solvers refuse such counts before they
+            // get here; direct callers get the 3-point rule.
             return gauss_lobatto_points(3, l);
         }
     };
@@ -331,11 +363,15 @@ fn b_matrix_2d(x: f64, l: f64) -> [f64; 12] {
     b[0] = -1.0 / l; // ∂ε₀/∂u1
     b[3] = 1.0 / l;  // ∂ε₀/∂u2
 
-    // Bending: κ = d²v/dx²
-    b[6 + 1] = (12.0 * xi - 6.0) / (l * l);      // ∂κ/∂v1
-    b[6 + 2] = (6.0 * xi - 4.0) / l;               // ∂κ/∂θ1
-    b[6 + 4] = (-12.0 * xi + 6.0) / (l * l);       // ∂κ/∂v2
-    b[6 + 5] = (6.0 * xi - 2.0) / l;               // ∂κ/∂θ2
+    // Bending: κ = −d²v/dx², so that the fiber strain ε = ε₀ + κ·y of
+    // `section_response_2d` is ε₀ − y·v'' with y measured along local y (the
+    // direction of v, as the 3D element measures y). It was +v'', which
+    // mirrored the strain field in y: invisible for y-symmetric sections, the
+    // wrong axial–bending coupling for eccentric ones (SP-2).
+    b[6 + 1] = -(12.0 * xi - 6.0) / (l * l);     // ∂κ/∂v1
+    b[6 + 2] = -(6.0 * xi - 4.0) / l;              // ∂κ/∂θ1
+    b[6 + 4] = -(-12.0 * xi + 6.0) / (l * l);      // ∂κ/∂v2
+    b[6 + 5] = -(6.0 * xi - 2.0) / l;              // ∂κ/∂θ2
 
     b
 }
@@ -537,13 +573,15 @@ fn b_matrix_3d(x: f64, l: f64) -> [f64; 36] {
     b[0] = -1.0 / l;  // ∂ε₀/∂u1
     b[6] = 1.0 / l;   // ∂ε₀/∂u2
 
-    // Row 1: Curvature κy = d²w/dx² (bending about Y via w and θy)
-    // w(x) uses Hermite cubics: w1, θy1, w2, θy2 → DOFs 2, 4, 8, 10
-    // Note: θy = -dw/dx convention — the coupling signs for θy are negated
-    b[12 + 2] = (12.0 * xi - 6.0) / (l * l);      // ∂κy/∂w1
-    b[12 + 4] = -(6.0 * xi - 4.0) / l;              // ∂κy/∂θy1 (negated: θy = -dw/dx)
-    b[12 + 8] = (-12.0 * xi + 6.0) / (l * l);       // ∂κy/∂w2
-    b[12 + 10] = -(6.0 * xi - 2.0) / l;             // ∂κy/∂θy2 (negated: θy = -dw/dx)
+    // Row 1: Curvature κy = dθy/dx = −d²w/dx² (bending about Y via w and θy).
+    // w(x) uses Hermite cubics: w1, −θy1, w2, −θy2 → DOFs 2, 4, 8, 10 (θy = −dw/dx).
+    // With κy = −w'' the fiber strain ε₀ + κy·z of `section_response_3d` is
+    // ε₀ − z·w''. The row used to be +w'', mirroring the strain field in z
+    // (wrong axial–bending coupling for z-eccentric sections, SP-1).
+    b[12 + 2] = -(12.0 * xi - 6.0) / (l * l);     // ∂κy/∂w1
+    b[12 + 4] = (6.0 * xi - 4.0) / l;               // ∂κy/∂θy1
+    b[12 + 8] = -(-12.0 * xi + 6.0) / (l * l);      // ∂κy/∂w2
+    b[12 + 10] = (6.0 * xi - 2.0) / l;              // ∂κy/∂θy2
 
     // Row 2: Curvature κz = d²v/dx² (bending about Z via v and θz)
     // v(x) uses Hermite cubics: v1, θz1, v2, θz2 → DOFs 1, 5, 7, 11

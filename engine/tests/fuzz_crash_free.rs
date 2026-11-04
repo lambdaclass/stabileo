@@ -9,7 +9,7 @@ use dedaliano_engine::types::*;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 
-mod fuzz_models;
+use crate::fuzz_models;
 use fuzz_models::{random_2d_model, random_3d_model};
 
 // ==================== Assertion helpers ====================

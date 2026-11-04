@@ -1,0 +1,213 @@
+{
+ "elements": {
+  "1": {
+   "hingeEnd": false,
+   "hingeStart": false,
+   "id": 1,
+   "materialId": 2,
+   "nodeI": 1,
+   "nodeJ": 2,
+   "sectionId": 3,
+   "type": "frame"
+  },
+  "10": {
+   "hingeEnd": false,
+   "hingeStart": false,
+   "id": 10,
+   "materialId": 2,
+   "nodeI": 9,
+   "nodeJ": 4,
+   "sectionId": 3,
+   "type": "frame"
+  },
+  "11": {
+   "hingeEnd": false,
+   "hingeStart": false,
+   "id": 11,
+   "materialId": 1,
+   "nodeI": 9,
+   "nodeJ": 8,
+   "sectionId": 1,
+   "type": "frame"
+  },
+  "2": {
+   "hingeEnd": false,
+   "hingeStart": false,
+   "id": 2,
+   "materialId": 2,
+   "nodeI": 3,
+   "nodeJ": 2,
+   "sectionId": 2,
+   "type": "frame"
+  },
+  "3": {
+   "hingeEnd": false,
+   "hingeStart": false,
+   "id": 3,
+   "materialId": 1,
+   "nodeI": 4,
+   "nodeJ": 2,
+   "sectionId": 1,
+   "type": "frame"
+  },
+  "4": {
+   "hingeEnd": false,
+   "hingeStart": false,
+   "id": 4,
+   "materialId": 2,
+   "nodeI": 5,
+   "nodeJ": 2,
+   "sectionId": 2,
+   "type": "frame"
+  },
+  "5": {
+   "hingeEnd": false,
+   "hingeStart": false,
+   "id": 5,
+   "materialId": 1,
+   "nodeI": 2,
+   "nodeJ": 9,
+   "sectionId": 1,
+   "type": "frame"
+  },
+  "6": {
+   "hingeEnd": false,
+   "hingeStart": false,
+   "id": 6,
+   "materialId": 2,
+   "nodeI": 3,
+   "nodeJ": 6,
+   "sectionId": 3,
+   "type": "frame"
+  },
+  "7": {
+   "hingeEnd": false,
+   "hingeStart": false,
+   "id": 7,
+   "materialId": 1,
+   "nodeI": 6,
+   "nodeJ": 7,
+   "sectionId": 3,
+   "type": "frame"
+  },
+  "8": {
+   "hingeEnd": false,
+   "hingeStart": false,
+   "id": 8,
+   "materialId": 2,
+   "nodeI": 7,
+   "nodeJ": 8,
+   "sectionId": 3,
+   "type": "frame"
+  },
+  "9": {
+   "hingeEnd": false,
+   "hingeStart": false,
+   "id": 9,
+   "materialId": 2,
+   "nodeI": 4,
+   "nodeJ": 3,
+   "sectionId": 3,
+   "type": "frame"
+  }
+ },
+ "loads": [
+  {
+   "data": {
+    "fx": 35.53226195102232,
+    "fz": -28.122644092713255,
+    "my": 19.02721818113298,
+    "nodeId": 3
+   },
+   "type": "nodal"
+  }
+ ],
+ "materials": {
+  "1": {
+   "e": 70000.0,
+   "id": 1,
+   "nu": 0.23683436709075673
+  },
+  "2": {
+   "e": 30000.0,
+   "id": 2,
+   "nu": 0.34332127355415176
+  }
+ },
+ "nodes": {
+  "1": {
+   "id": 1,
+   "x": 4.623,
+   "z": 7.122
+  },
+  "2": {
+   "id": 2,
+   "x": 0.486,
+   "z": 7.724
+  },
+  "3": {
+   "id": 3,
+   "x": 5.831,
+   "z": 7.346
+  },
+  "4": {
+   "id": 4,
+   "x": 9.958,
+   "z": 7.742
+  },
+  "5": {
+   "id": 5,
+   "x": 2.621,
+   "z": 1.114
+  },
+  "6": {
+   "id": 6,
+   "x": 1.677,
+   "z": 0.759
+  },
+  "7": {
+   "id": 7,
+   "x": 6.391,
+   "z": 5.641
+  },
+  "8": {
+   "id": 8,
+   "x": 7.223,
+   "z": 1.176
+  },
+  "9": {
+   "id": 9,
+   "x": 10.206,
+   "z": 2.642
+  }
+ },
+ "sections": {
+  "1": {
+   "a": 0.14548039532416104,
+   "id": 1,
+   "iz": 0.006153664002914088
+  },
+  "2": {
+   "a": 0.2150955011310657,
+   "id": 2,
+   "iz": 0.008125051834219946
+  },
+  "3": {
+   "a": 0.06172251982231062,
+   "id": 3,
+   "iz": 0.00013024190079099097
+  }
+ },
+ "supports": {
+  "1": {
+   "id": 1,
+   "nodeId": 1,
+   "type": "fixed"
+  },
+  "2": {
+   "id": 2,
+   "nodeId": 7,
+   "type": "rollerX"
+  }
+ }
+}

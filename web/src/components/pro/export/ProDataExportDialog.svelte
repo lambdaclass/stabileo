@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from '../Hint.svelte';
   /**
    * Excel and CSV: the project's data, chosen sheet by sheet.
    *
@@ -16,31 +17,41 @@
   import ExportSection from '../../export/ExportSection.svelte';
   import { MODEL_SHEET_NAMES } from '../../../lib/export/workbook-model';
   import { RESULT_SHEET_NAMES } from '../../../lib/export/workbook-results';
-  import { downloadProjectCsv, downloadProjectWorkbook } from '../../../lib/store/project-workbook';
+  import { downloadProjectCsv, downloadProjectWorkbook, workbookEstimate, type WorkbookOptions } from '../../../lib/store/project-workbook';
   import type { StationSpec } from '../../../lib/engine/station-forces';
   import { ensureProResults, hasShells } from '../../../lib/pro/export-results';
+  import { modelIsEmpty, tellIfEmpty } from '../../../lib/export/empty-model';
   import CheckGroup from './CheckGroup.svelte';
+  import OutdatedNotice from '../design/OutdatedNotice.svelte';
 
   let { open = $bindable(false), format = $bindable('xlsx') }: { open: boolean; format: 'xlsx' | 'csv' } = $props();
 
-  const MODEL: string[] = [...MODEL_SHEET_NAMES, 'Specifications'];
-  const RESULTS: string[] = [...RESULT_SHEET_NAMES];
+  /** The design as it stands (`store/design-exchange.ts`): decisions, every check, the verdict. */
+  const DESIGN_SHEETS = ['Design elements', 'Design checks', 'Design verdict'];
+  const MODEL: string[] = [...MODEL_SHEET_NAMES, 'Specifications', ...DESIGN_SHEETS];
+  const RESULTS: string[] = [...RESULT_SHEET_NAMES, 'Physical member forces'];
   /** The sheets by topic, in the order a reader looks for them. */
   const MODEL_GROUPS: Array<{ key: string; sheets: string[] }> = [
     { key: 'geometry', sheets: ['Nodes', 'Members', 'Shells', 'Supports', 'Constraints', 'Groups'] },
     { key: 'properties', sheets: ['Materials', 'Sections', 'Specifications'] },
     { key: 'loads', sheets: ['LoadCases', 'LoadData', 'SelfWeight', 'Combinations'] },
+    { key: 'design', sheets: DESIGN_SHEETS },
   ];
   const RESULT_GROUPS: Array<{ key: string; sheets: string[] }> = [
     { key: 'atNodes', sheets: ['Displacements', 'Reactions'] },
-    { key: 'inMembers', sheets: ['EndForces', 'Stations', 'Deflections', 'Stresses'] },
+    { key: 'inMembers', sheets: ['EndForces', 'Stations', 'Deflections', 'Stresses', 'Physical member forces'] },
     { key: 'inShells', sheets: ['ShellCentres', 'ShellNodes', 'ShellCorners'] },
     { key: 'summaries', sheets: ['Maxima', 'Envelope', 'Statics', 'SecondOrder', 'OneWay', 'Cables'] },
   ];
   /** The sheets whose name alone does not say what is in them. */
   const HINTED = new Set(['Stations', 'ShellCentres', 'ShellNodes', 'ShellCorners', 'OneWay', 'Constraints']);
+  /** Sheet names with spaces, as the workbook writes them, and the key that labels them. */
+  const LABEL_KEY: Record<string, string> = {
+    'Design elements': 'proExport.sheet.DesignElements', 'Design checks': 'proExport.sheet.DesignChecks',
+    'Design verdict': 'proExport.sheet.DesignVerdict', 'Physical member forces': 'proExport.sheet.PhysicalForces',
+  };
   const itemsOf = (sheets: string[], shown: string[]) => sheets.filter((n) => shown.includes(n))
-    .map((n) => ({ id: n, label: t(`proExport.sheet.${n}`), hint: HINTED.has(n) ? t(`proExport.hint.${n}`) : undefined }));
+    .map((n) => ({ id: n, label: t(LABEL_KEY[n] ?? `proExport.sheet.${n}`), hint: HINTED.has(n) ? t(`proExport.hint.${n}`) : undefined }));
   const SHELL_RESULTS = new Set(['ShellCentres', 'ShellNodes', 'ShellCorners']);
   /** The sheets read at points along the members. */
   const AT_STATIONS = new Set(['Stations', 'Deflections', 'Stresses', 'Maxima']);
@@ -97,6 +108,19 @@
   const stationsSummary = $derived(t(STATIONS.find((s) => s.id === stations)!.key));
   const formatSummary = $derived(format === 'xlsx' ? t('proExport.formatXlsx') : t('proExport.formatCsv'));
 
+  function choices(results: boolean): WorkbookOptions {
+    return {
+      results, design: uiStore.designInPro,
+      sheets: new Set([...modelShown, ...(results ? resultsShown : [])].filter(on).filter((n) => uiStore.designInPro || !DESIGN_SHEETS.includes(n))),
+      sources: {
+        cases: casesOff.size ? new Set(cases.map((c) => c.id).filter((id) => !casesOff.has(id))) : undefined,
+        combinations: combosOff.size ? new Set(combos.map((c) => c.id).filter((id) => !combosOff.has(id))) : undefined,
+      },
+    };
+  }
+  /** What the chosen file will hold, counted without writing it; only once there are results to count. */
+  const estimate = $derived(open && resultsStore.results3D ? workbookEstimate(stations, choices(wantsResults)) : null);
+  const millions = (n: number) => (n / 1e6).toLocaleString(undefined, { maximumFractionDigits: n < 1e7 ? 1 : 0 });
   async function run() {
     if (busy || modelCount + resultCount === 0) return;
     busy = true;
@@ -104,18 +128,13 @@
       let results = wantsResults;
       if (results && !(await ensureProResults())) {
         results = false;
-        uiStore.toast(t('proExport.dataNoResults'), 'info');
+        if (!modelIsEmpty()) uiStore.toast(t('proExport.dataNoResults'), 'info');
       }
-      const sheets = new Set([...modelShown, ...(results ? resultsShown : [])].filter(on));
-      const opts = {
-        results, sheets,
-        sources: {
-          cases: casesOff.size ? new Set(cases.map((c) => c.id).filter((id) => !casesOff.has(id))) : undefined,
-          combinations: combosOff.size ? new Set(combos.map((c) => c.id).filter((id) => !combosOff.has(id))) : undefined,
-        },
-      };
+      // Design's sheets only where design is on in PRO's settings (`uiStore.designInPro`).
+      const opts = choices(results);
       if (format === 'xlsx') await downloadProjectWorkbook(stations, opts);
-      else downloadProjectCsv(stations, opts);
+      else await downloadProjectCsv(stations, opts);
+      tellIfEmpty();
       open = false;
     } finally {
       busy = false;
@@ -123,10 +142,23 @@
   }
 </script>
 
-<ExportDialog bind:open width={640} title={format === 'xlsx' ? t('proExport.dataTitleXlsx') : t('proExport.dataTitleCsv')} testid="pro-data-export-dialog">
+<ExportDialog bind:open width={640} title={t('proExport.resultsTitle')} testid="pro-data-export-dialog">
+  <ExportSection title={t('proExport.format')} summary={formatSummary} open testid="pro-data-export-format">
+    <div class="xs-seg">
+      <button type="button" class:on={format === 'xlsx'} onclick={() => (format = 'xlsx')} data-testid="pro-data-format-xlsx">Excel</button>
+      <button type="button" class:on={format === 'csv'} onclick={() => (format = 'csv')} data-testid="pro-data-format-csv">CSV</button>
+    </div>
+    <Hint class="xs-note" text={format === 'xlsx' ? t('proExport.formatXlsxNote') : t('proExport.formatCsvNote')} />
+    {#if estimate}
+      <p class="xs-note" class:dx-warn={format === 'xlsx' && !estimate.xlsx} data-testid="pro-data-estimate">
+        {tp(format === 'xlsx' && !estimate.xlsx ? 'proExport.estimateZip' : 'proExport.estimate', { cells: millions(estimate.cells) })}
+      </p>
+    {/if}
+    {#if busy}<p class="xs-note" role="status" data-testid="pro-data-busy">{t('proExport.writing')}</p>{/if}
+  </ExportSection>
   <ExportSection title={t('viewExport.sectionContent')} summary={contentSummary} open testid="pro-data-export-content">
     <div class="dx-bar">
-      <p class="xs-note">{t('proExport.dataAlways')}</p>
+      <Hint class="xs-note" text={t('proExport.dataAlways')} />
       <span class="dx-all">
         <button type="button" onclick={() => setAll([...modelShown, ...resultsShown], true)}>{t('proExport.all')}</button>
         <button type="button" onclick={() => setAll([...modelShown, ...resultsShown], false)}>{t('proExport.none')}</button>
@@ -135,7 +167,7 @@
     <div class="dx-cols">
       <div class="dx-col">
         <span class="dx-head">{t('proExport.groupModel')}</span>
-        {#each MODEL_GROUPS as g (g.key)}
+        {#each MODEL_GROUPS.filter((g) => g.key !== 'design' || uiStore.designInPro) as g (g.key)}
           <CheckGroup title={t(`proExport.grp.${g.key}`)} items={itemsOf(g.sheets, modelShown)} on={on} toggle={flip}
             setAll={(v) => setAll(g.sheets.filter((n) => modelShown.includes(n)), v)} testid="pro-data-sheet" />
         {/each}
@@ -149,6 +181,8 @@
       </div>
     </div>
     {#if wantsResults && !resultsStore.results3D}<p class="xs-note">{t('proExport.dataSolves')}</p>{/if}
+    <!-- The design sheets describe the model the design and its detailing were generated from. -->
+    {#if open && uiStore.designInPro && DESIGN_SHEETS.some(on)}<OutdatedNotice what="workbook" testid="pro-data-export-outdated" />{/if}
   </ExportSection>
 
   {#if wantsResults && (cases.length > 1 || combos.length > 0)}
@@ -161,7 +195,7 @@
           on={(id) => !combosOff.has(Number(id))} toggle={(id) => flipId('combos', Number(id))}
           setAll={(v) => (combosOff = v ? new Set() : new Set(combos.map((c) => c.id)))} />
       </div>
-      <p class="xs-note">{t('proExport.setsNote')}</p>
+      <Hint class="xs-note" text={t('proExport.setsNote')} />
     </ExportSection>
   {/if}
 
@@ -170,17 +204,10 @@
       {#each STATIONS as s (String(s.id))}
         <label class="xs-check"><input type="radio" name="pro-data-stations" checked={stations === s.id} onchange={() => { stations = s.id; save(); }} data-testid={`pro-data-stations-${s.id}`} />{t(s.key)}</label>
       {/each}
-      <p class="xs-note">{t('proExport.stationsNote')}</p>
+      <Hint class="xs-note" text={t('proExport.stationsNote')} />
     </ExportSection>
   {/if}
 
-  <ExportSection title={t('proExport.format')} summary={formatSummary}>
-    <div class="xs-seg">
-      <button type="button" class:on={format === 'xlsx'} onclick={() => (format = 'xlsx')} data-testid="pro-data-format-xlsx">Excel</button>
-      <button type="button" class:on={format === 'csv'} onclick={() => (format = 'csv')} data-testid="pro-data-format-csv">CSV</button>
-    </div>
-    <p class="xs-note">{format === 'xlsx' ? t('proExport.formatXlsxNote') : t('proExport.formatCsvNote')}</p>
-  </ExportSection>
 
   {#snippet actions()}
     <button type="button" onclick={() => (open = false)}>{t('calcReport.cancel')}</button>
@@ -199,4 +226,5 @@
   .dx-all { display: inline-flex; gap: 8px; }
   .dx-all button { background: none; border: none; padding: 0; color: var(--st-accent); font: inherit; font-size: 0.74rem; cursor: pointer; }
   .dx-all button:hover { text-decoration: underline; }
+  .dx-warn { color: var(--st-warn); }
 </style>

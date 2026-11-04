@@ -562,7 +562,7 @@ fn gerber_3span_two_hinges_superposition() {
         let ry_1 = res_1.reactions.iter().find(|r| r.node_id == nid).unwrap().rz;
         let ry_2 = res_2.reactions.iter().find(|r| r.node_id == nid).unwrap().rz;
         let ry_c = res_c.reactions.iter().find(|r| r.node_id == nid).unwrap().rz;
-        assert_close(ry_c, ry_1 + ry_2, 0.02,
+        assert_close_abs(ry_c, ry_1 + ry_2, 0.02, 1e-6,
             &format!("Superposition: Ry at node {} combined = sum", nid));
     }
 
@@ -571,7 +571,7 @@ fn gerber_3span_two_hinges_superposition() {
         let uy_1 = res_1.displacements.iter().find(|d| d.node_id == nid).unwrap().uz;
         let uy_2 = res_2.displacements.iter().find(|d| d.node_id == nid).unwrap().uz;
         let uy_c = res_c.displacements.iter().find(|d| d.node_id == nid).unwrap().uz;
-        assert_close(uy_c, uy_1 + uy_2, 0.02,
+        assert_close_abs(uy_c, uy_1 + uy_2, 0.02, 1e-6,
             &format!("Superposition: uy at node {} combined = sum", nid));
     }
 }

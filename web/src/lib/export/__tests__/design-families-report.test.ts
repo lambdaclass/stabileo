@@ -5,6 +5,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { designRunStore } from '../../store/design-run.svelte';
+import { verificationStore } from '../../store/verification.svelte';
 import { DESIGN_FAMILIES, totalsOf } from '../../engine/design/design-families';
 import { ready, familyOf } from './design-families-fixture';
 import { ROLLED_BEAMS } from '../../engine/detailing/__tests__/helpers/workspace-scene';
@@ -21,8 +22,18 @@ describe('the run reports what happened, family by family', () => {
     const beams = familyOf(report, 'beam');
     expect(beams.processed).toBeGreaterThan(100);
     expect(beams.refused, 'refusals are counted, not swallowed').toBeGreaterThan(0);
-    expect(beams.refused).toBeLessThanOrEqual(ROLLED_BEAMS.rollBeams.ids.length);
-    expect(beams.designed, 'and the beams that DID design are counted too').toBeGreaterThan(100);
+    // The rolled beams' biaxial refusals, and since the design reads the column cages the beams
+    // no layout of whose bars passes the 35 cm columns' bars, or anchors in them where one does:
+    // refused on congestion or anchorage (41 of the building's 119, rolled or not). Before:
+    // refused ≤ 5, the rolled ones; after: those and the 41, each counted.
+    const onTheCage = [...(verificationStore.runSummary?.outcomes.values() ?? [])]
+      .filter((o) => o.elementType === 'beam' && o.outcome !== 'VERIFIED' && o.outcome !== 'PROVISIONAL_BIAXIAL'
+        && o.limiting.some((l) => l === 'congestion' || l === 'anchorage')).length;
+    expect(onTheCage).toBe(41);
+    expect(beams.refused - onTheCage).toBeLessThanOrEqual(ROLLED_BEAMS.rollBeams.ids.length);
+    // 73 of 119 design (before: more than 100): the 41 refused on the cages and the rolled ones.
+    expect(beams.designed, 'and the beams that DID design are counted too').toBe(beams.processed - beams.refused - beams.notModelled);
+    expect(beams.designed).toBe(73);
     expect(beams.designed + beams.refused + beams.notModelled).toBe(beams.processed);
 
     const totals = totalsOf(report);

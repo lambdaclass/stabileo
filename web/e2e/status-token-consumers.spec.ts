@@ -20,7 +20,7 @@
  * and the rule now come from one hue instead of two.
  */
 
-import { test, expect, designAll, loadModel, openDocumentsStage } from './fixtures';
+import { test, expect, designAll, loadModel, openDocumentsStage, designPlace } from './fixtures';
 import type { Page } from '@playwright/test';
 
 test.use({ viewport: { width: 1280, height: 720 } });
@@ -54,8 +54,7 @@ const bgOf = (target: ReturnType<Page['locator']>) =>
 async function design(page: Page, model = 'rc-design-qa-8') {
   await loadModel(page, model);
   await designAll(page);
-  await page.getByTestId('pr-stage-design').click();
-  await page.getByTestId('pr-cmd-design').click();
+  await designPlace(page, 'list');
 }
 
 /**
@@ -257,7 +256,7 @@ for (const locale of ['en', 'es', 'pt'] as const) {
       async ({ pro: page }) => {
         await loadModel(page, 'rc-qa-diagnostic');
         await designAll(page);
-        await page.getByTestId('detailing-disclosure').locator('> summary').click();
+        await designPlace(page, 'detailing');
         const generate = page.getByTestId('cmd-generate-detailing');
         await expect(generate).toBeEnabled();
         await generate.click();

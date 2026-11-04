@@ -10,7 +10,7 @@
  },
  "modelling": [
   "Columns/beams Euler-Bernoulli 3D frames; columns oriented by cal_model's k-nodes (localY = k - i), beams with local y horizontal (see below); braces are trusses; G = E/2.6.",
-  "Rigid floors: XY diaphragm on each floor's centre node (cal_model's reference point).",
+  "Rigid floors: XY diaphragm on each floor's centre node (cal_model's reference point); the diaphragm ties every slave's rz to the master, as cal_model's T does.",
   "Member masses lumped (mbar*L/2 per end, 3 translations; 967.213 kg above the base) and floor panel masses (x, y, theta only) carried by mass-only truss stubs; see generator docstring.",
   "Member torsional rotary inertia (Io/A*mbar*L/2 about each member axis) carried by rotary-inertia frame stubs (torsion mass only).",
   "Floor beams oriented with the strong axis in vertical bending (paper p. 10: Table 2 is from the HKUST code with corrected floor-beam orientation; the archived cal_model.m has the old one).",

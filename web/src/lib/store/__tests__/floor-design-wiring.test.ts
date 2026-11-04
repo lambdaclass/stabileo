@@ -94,7 +94,8 @@ function buildSlabModel() {
     name: '40×40', a: 0.16, iz: 0.00213, b: 0.4, h: 0.4,
   });
   for (const c of columns) modelStore.updateElementSection(c, sectionId);
-  const material = [...modelStore.model.materials.keys()][0];
+  // A concrete for the shells: f'c used to be read off any material, the default steel's fy too.
+  const material = modelStore.addMaterial({ name: 'H-30', e: 25740, nu: 0.2, rho: 25, fy: 30, fc: 30 });
   const quad = modelStore.addQuad([top[0], top[1], top[2], top[3]], material, 0.20);
   return { quad, top, columns };
 }
@@ -113,7 +114,8 @@ function buildBeamSupportedSlabModel() {
     modelStore.addNode(5, 5, 3), modelStore.addNode(0, 5, 3),
   ];
   for (const n of top) modelStore.addSupport(n, 'fixed3d');
-  const material = [...modelStore.model.materials.keys()][0];
+  // A concrete for the shells: f'c used to be read off any material, the default steel's fy too.
+  const material = modelStore.addMaterial({ name: 'H-30', e: 25740, nu: 0.2, rho: 25, fy: 30, fc: 30 });
   const quad = modelStore.addQuad([top[0], top[1], top[2], top[3]], material, 0.20);
   return { quad, top };
 }
@@ -585,7 +587,8 @@ describe('punching joint transfer — modelling-direction invariance and factore
     const columns = [belowMixed, below2, below3, below4, above];
     const sectionId = modelStore.addSection({ name: '40×40', a: 0.16, iz: 0.00213, b: 0.4, h: 0.4 });
     for (const c of columns) modelStore.updateElementSection(c, sectionId);
-    const material = [...modelStore.model.materials.keys()][0];
+    // A concrete for the shells: f'c used to be read off any material, the default steel's fy too.
+  const material = modelStore.addMaterial({ name: 'H-30', e: 25740, nu: 0.2, rho: 25, fy: 30, fc: 30 });
     const quad = modelStore.addQuad([z3, z3b, z3c, z3d], material, 0.20);
     modelStore.addSurfaceLoad3D(quad, 12, 1);
 

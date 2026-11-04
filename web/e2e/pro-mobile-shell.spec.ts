@@ -38,9 +38,19 @@ const SMALL = 'rc-qa-diagnostic';
 /** iPhone SE. The narrowest width the shell claims to support. */
 const PHONE = { width: 375, height: 667 };
 
+/*
+ * A phone, on the model. The fixture boots on Design's member list (the screen the RC specs were
+ * written against); on a phone Design is a full-screen sheet over the bar these tests press, so
+ * they start where a phone user does, on the model.
+ */
+async function toPhone(page: import('@playwright/test').Page): Promise<void> {
+  await page.setViewportSize(PHONE);
+  await page.evaluate(() => window.__stabileoActions.openProTab('nodes'));
+}
+
 test.describe('@smoke PRO phone bar — Calcular', () => {
   test('is enabled with the sheet shut, and solves when pressed', async ({ pro: page }) => {
-    await page.setViewportSize(PHONE);
+    await toPhone(page);
 
     const solve = page.getByTestId('pmt-solve');
     await expect(solve, 'the phone bar mounts below 768 px').toBeVisible();
@@ -87,7 +97,7 @@ test.describe('@smoke PRO phone bar — Calcular', () => {
   });
 
   test('stays enabled after the sheet is closed again', async ({ pro: page }) => {
-    await page.setViewportSize(PHONE);
+    await toPhone(page);
     await loadModel(page, SMALL);
 
     // Open it the way a reader would, then shut it.
@@ -125,7 +135,7 @@ test.describe('@smoke PRO phone bar — the results panel', () => {
   const panel = (page: Page) => page.locator('.mrp-panel');
 
   test('a solve does not raise it, and the bar can', async ({ pro: page }) => {
-    await page.setViewportSize(PHONE);
+    await toPhone(page);
     await loadModel(page, SMALL);
 
     const opener = page.getByTestId('pmt-results');
@@ -152,7 +162,7 @@ test.describe('@smoke PRO phone bar — the results panel', () => {
   });
 
   test('its ✕ is not a one-way exit', async ({ pro: page }) => {
-    await page.setViewportSize(PHONE);
+    await toPhone(page);
     await loadModel(page, SMALL);
     await page.getByTestId('pmt-solve').click();
     await expect.poll(() => page.evaluate(() => window.__stabileo.solveCount())).toBeGreaterThan(0);

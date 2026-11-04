@@ -1,0 +1,31 @@
+id: pastrana-2026
+doi: 10.1016/j.cma.2026.118783
+scope: Section 2.1, Fig. 2 topology, Eq. (7); forward tension-only equilibrium
+inputs:
+  provenance: Explicit Stabileo demonstration inputs, not dimensions recovered from Fig. 2
+  support_coordinates_m: [[-2, -2, 0], [2, -2, 0], [2, 2, 0], [-2, 2, 0]]
+  initial_free_coordinate_m: [0, 0, 0]
+  edges: [[0, 1], [0, 2], [0, 3], [0, 4]]
+  force_density_kN_per_m: 1
+  free_node_load_kN: [0, 0, -4]
+  browser_ranges: {q: [0.5, 2], downward_load: [1, 8]}
+method:
+  equation: C_free^T Q C_free x = p - C_free^T Q C_fixed s
+  force: f = q * length
+  solver: engine library CscMatrix, symbolic_cholesky, numeric_cholesky, sparse_cholesky_solve
+  assumptions: Positive densities; every free component anchored; shape-independent nodal loads; straight pin-jointed members
+  exclusions: Adjoint differentiation, optimization, shells, shape-dependent loads, mixed signs, buckling
+reference:
+  repository: https://github.com/arpastrana/jax_fdm
+  commit: 9a17fd379071fb3511ca914f46e8d1e8c286460e
+  license: MIT
+  settings: Unmodified fdm(sparse=False), float64
+  environment: reference-results/MANIFEST.json
+  publication_revision_confirmed: false
+production_check:
+  method: solve_3d on initially unstressed linear elastic trusses at found geometry
+  E_MPa: 200000
+  area_m2: 0.001
+  density: 0
+  scope: Equal-stiffness symmetric network axial forces and exact linear elastic displacement
+  exclusions: No initial prestress, geometric stiffness or nonlinear cable analysis

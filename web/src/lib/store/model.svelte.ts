@@ -1,12 +1,17 @@
+import { migrateDesignData } from '../model/design-data';
+import { migrateStoredDecisions } from '../design-contract/decisions';
+import { migrateArcLocalAxes } from '../model/curved-member';
 import {
   defaultCodeSettings, migrateCodeSettings, type ProjectCodeSettings,
 } from '../codes/project-code-settings';
+import { engineFailureMessage } from '../engine/engine-unavailable';
 import { loadCasesInUse } from '../model/loads/load-cases-in-use';
 import { refreshRatios } from '../section/drawn';
 import {
   emptyDetailingStore, migrateDetailingStore, type DetailingStore,
 } from '../engine/detailing/assembly';
 import { migrateRegulations, type StoredRegulations } from '../codes/roles';
+import { defaultLoadCases, defaultCombinations, DEFAULT_CASE_NAME_KEYS } from '../model/default-loads';
 import {
   cloneStoredJointDesigns, type StoredJointDesigns,
 } from '../connection/joint-choices';
@@ -16,6 +21,7 @@ import {
   type Footing, type FootingMatPreferences,
 } from '../model/footing';
 import { DEFAULT_COVER } from '../engine/design/member-context';
+import { DOF_SPRING, dofRestraintsOfType3D, is3DSupportType, type SpringKey } from '../model/support-3d';
 import {
   emptyGeotechnical, migrateGeotechnical, newSoilProfile,
   type ProjectGeotechnical, type SoilProfile,
@@ -31,6 +37,9 @@ import {
 } from './canonical-sections';
 import type { SolverInput, FullEnvelope, AnalysisResults } from '../engine/types';
 import type { SolverInput3D, AnalysisResults3D, FullEnvelope3D, Constraint3D, ConnectorElement } from '../engine/types-3d';
+/** Groups that are load definitions, written into model loads by case (`store/defined-loads.ts`). */
+const DEFINED_LOAD_KINDS = new Set<string>(['floorLoad', 'curveLoad']);
+
 export type { ConnectorElement };
 import type { ModelSnapshot, SnapshotKind } from './history.svelte';
 import { normalizeMassSource, type MassSource } from '../engine/dynamics/mass-source';
@@ -45,9 +54,9 @@ import { getFixture, is2DFixture, is3DFixture } from '../templates/fixture-index
 import { loadFixture } from '../templates/load-fixture';
 import { inferLoadCaseType } from '../engine/combinations-service';
 import { addsLoop, singleSolveModel } from '../engine/case-effects';
-import { t } from '../i18n';
+import { t, tp } from '../i18n';
 import { GRAVITY_SELF_WEIGHT, planSelfWeight, type SelfWeightLoad } from '../engine/analysis-settings';
-import { type ModelData, shouldEmbedFlat2DModelIn3D, validateAndSolve2D, validateAndSolve2DAsync, buildSolverInput2D, validateAndSolve3D, validateAndSolve3DAsync, buildSolverInput3D as buildSolverInput3DFn, solveCombinations2D, solveCombinations3D as solveCombinations3DFn, solveCombinations3DParallel as solveCombinations3DParallelFn } from '../engine/solver-service';
+import { type ModelData, shouldEmbedFlat2DModelIn3D, validateAndSolve2D, validateAndSolve2DAsync, buildSolverInput2D, validateAndSolve3D, validateAndSolve3DAsync, linearSolveInput3D, buildSolverInput3D as buildSolverInput3DFn, solveCombinations2D, solveCombinations3D as solveCombinations3DFn, solveCombinations3DParallel as solveCombinations3DParallelFn } from '../engine/solver-service';
 import { computeInfluenceLine as computeInfluenceLineFn } from '../engine/influence-service';
 import { checkStretch, checkPosition, editKeepsPlace, loadedLength } from '../model/loads/load-stretch';
 import { to2D, remapNodalLoad2D, remapMoment2D, type DrawPlane } from '../geometry/plane-projection';
@@ -79,6 +88,13 @@ export interface Material {
   nu: number;
   rho: number; // kN/m³
   fy?: number; // MPa (yield stress for stress verification)
+  /** MPa: ultimate tensile strength. The steel checks read it (rupture, bearing, net section). */
+  fu?: number;
+  /**
+   * A concrete's specified compressive strength f'c, MPa. Older projects kept it in `fy`, and
+   * `concreteFc` (`model/design-data.ts`) reads `fy` when this is absent.
+   */
+  fc?: number;
   /**
    * Coefficient of thermal expansion, 1/°C. Absent: the family's (`engine/thermal-alpha.ts`),
    * and the engine's 1,2·10⁻⁵ when the family cannot be told.
@@ -94,6 +110,8 @@ export interface Material {
    * reads this should warn about its absence.
    */
   gradeId?: string;
+  /** Timber reference design values, MPa: the material is timber and is designed by CIRSOC 601. */
+  timber?: import('../engine/design/materials/timber').TimberReference;
   /**
    * Maximum nominal coarse-aggregate size, mm, or null when the project has not stated it.
    *
@@ -169,6 +187,18 @@ export interface Section {
    * section/steel pairing matches what mills actually roll.
    */
   profileFamily?: string;
+  /**
+   * Whether the section is rolled or welded, as the user declares it. Absent: not declared.
+   *
+   * CIRSOC 301 reads it in the flange's residual stress (Fr = 69 or 114 MPa, F.2.7), in the
+   * flange cases of Tabla B.4.1 (1/2, 11/12) and in F.3.2a/b. It is never inferred from
+   * `profileFamily` or from a drawing: a family names how a profile is usually made, not how
+   * this one is. Undeclared, the steel check evaluates both and holds the member when the two
+   * verdicts differ (`engine/codes/argentina/cirsoc301-verdict.ts`).
+   *
+   * Like `profileFamily`, a share link does not carry it (`utils/url-sharing.ts`).
+   */
+  fabrication?: 'rolled' | 'welded';
   /**
    * How a PARAMETRIC section was built: which template, and the numbers typed into it.
    *
@@ -333,172 +363,8 @@ export function jointHasRelease(j: Joint3D | undefined): boolean {
   return !!j && j.dof.some(Boolean);
 }
 
-/** A group of reinforcement bars (e.g., "4 Ø16"). */
-export interface RebarGroup {
-  count: number;     // number of bars
-  diameter: number;  // mm (matches REBAR_DB diameters: 6, 8, 10, 12, 16, 20, 25, 32)
-}
-
-/**
- * A single row/layer of reinforcement bars at a specific depth from the face.
- *
- * Row 0 = closest to face (outermost), row 1 = next inward, etc.
- * Centroid distance from face = cover + stirrup + barDia/2 + row × (barDia + gap).
- *
- * When only one row exists with all bars, this is equivalent to RebarGroup.
- * Multiple rows allow accurate centroid computation for d and d'.
- */
-export interface RebarLayer {
-  count: number;     // bars in this row
-  diameter: number;  // mm
-  row: number;       // 0 = outermost (closest to face), 1 = next, etc.
-}
-
-/** Stirrup definition (diameter, legs, spacing). */
-export interface StirrupDef {
-  diameter: number;   // mm
-  legs: number;       // number of legs (2, 3, 4...)
-  spacing: number;    // m (center-to-center)
-}
-
-/**
- * Region-aware beam reinforcement.
- *
- * Three zones matching real RC detailing practice:
- *   - Start support region (t ≈ 0–0.25): top bars for hogging Mz-
- *   - Span region (t ≈ 0.25–0.75): bottom bars for sagging Mz+
- *   - End support region (t ≈ 0.75–1.0): top bars for hogging Mz-
- *
- * Region boundary defaults: t=0.25 and t=0.75.
- * Real support-face offsets depend on column dimensions which are not
- * yet available per-element; t-based regions are a truthful approximation.
- */
-/**
- * Longitudinal bar continuity model for beams.
- *
- * Controls whether bars from one region are assumed to extend into adjacent regions,
- * which affects compression steel availability and anchorage requirements.
- *
- * Default: all true (standard continuous practice).
- * Setting to false means the bar group stops at the region boundary —
- * it does not contribute as compression steel in the adjacent region,
- * and an anchorage/development warning may be raised.
- */
-/**
- * A longitudinal bar group with explicit curtailment behavior.
- *
- * Each group represents a subset of bars on a face that share the same
- * continuation/cutoff behavior. Multiple groups per face allow partial
- * curtailment: some bars continue while others stop.
- *
- * Example: bottom face of a span region might have:
- *   - Group 1: 4Ø20 — "full-length" bars that continue into both supports
- *   - Group 2: 2Ø20 — "cutoff" bars that stop at the span boundaries
- */
-export interface LongBarGroup {
-  /** Bar layer(s) in this group */
-  layers: RebarLayer[];
-  /** Label for identification (e.g., "full-length", "cutoff") */
-  label?: string;
-  /** Whether this group continues into the start-adjacent region. Default: true. */
-  continueStart?: boolean;
-  /** Whether this group continues into the end-adjacent region. Default: true. */
-  continueEnd?: boolean;
-  /** Available extension length into start-adjacent region (m). undefined = assume region length. */
-  extensionStart?: number;
-  /** Available extension length into end-adjacent region (m). */
-  extensionEnd?: number;
-  /** Anchorage type at each end. */
-  anchorageStart?: 'straight' | 'hook' | 'none';
-  anchorageEnd?: 'straight' | 'hook' | 'none';
-}
-
-export interface BeamContinuity {
-  /** Bottom span bars extend into start support region (compression steel for hogging). Default: true. */
-  bottomIntoStart?: boolean;
-  /** Bottom span bars extend into end support region (compression steel for hogging). Default: true. */
-  bottomIntoEnd?: boolean;
-  /** Top start bars extend into span region (compression steel for sagging). Default: true. */
-  topStartIntoSpan?: boolean;
-  /** Top end bars extend into span region (compression steel for sagging). Default: true. */
-  topEndIntoSpan?: boolean;
-  /** Development length available at start anchorage (m). 0 = not anchored. undefined = assume adequate. */
-  ldStart?: number;
-  /** Development length available at end anchorage (m). */
-  ldEnd?: number;
-}
-
-export interface BeamRegions {
-  // ── Grouped bar fields (backward compatible, single-row assumption) ──
-  topStart?: RebarGroup;        // top bars at start support (hogging)
-  topEnd?: RebarGroup;          // top bars at end support (hogging)
-  bottomSpan?: RebarGroup;      // bottom bars at span (sagging)
-  // ── Explicit layer fields (when multiple rows are specified) ──
-  topStartLayers?: RebarLayer[];   // top rows at start support
-  topEndLayers?: RebarLayer[];     // top rows at end support
-  bottomSpanLayers?: RebarLayer[]; // bottom rows at span
-  // ── Partial curtailment: multiple bar groups per face ──
-  /** Bottom bar groups in span (each with own curtailment). Overrides bottomSpanLayers when present. */
-  bottomGroups?: LongBarGroup[];
-  /** Top bar groups at start support. Overrides topStartLayers when present. */
-  topStartGroups?: LongBarGroup[];
-  /** Top bar groups at end support. Overrides topEndLayers when present. */
-  topEndGroups?: LongBarGroup[];
-  // ── Longitudinal continuity (legacy boolean — superseded by barGroups when present) ──
-  continuity?: BeamContinuity;
-  // ── Stirrups ──
-  stirrupsSupport?: StirrupDef; // tighter stirrups near supports
-  stirrupsSpan?: StirrupDef;    // wider stirrups at midspan
-  /** Region boundary (t-value, default 0.25). Start region: [0, t1], span: [t1, 1-t1], end: [1-t1, 1] */
-  regionT?: number;
-}
-
-/**
- * Provided reinforcement for an RC element — entered or accepted by the engineer.
- *
- * For beams:
- *   - `regions`: region-aware reinforcement (start/span/end with separate stirrups)
- *   - Legacy `top`/`bottom`/`stirrups` still supported for backward compatibility
- *     and are treated as element-global (all regions use the same bars)
- *
- * For columns:
- *   - `longitudinal`: total longitudinal bars (symmetric layout assumed)
- *   - `stirrups`: transverse confinement/shear ties
- *
- * This is the engineer's stated design intent. Verification checks this
- * against the station-based governing demands, not the auto-proposed values.
- */
-/**
- * Structured column reinforcement model.
- *
- * Breaks down the longitudinal reinforcement into corner + face bars,
- * which maps directly to the perimeter distribution used in verification
- * and the section schematic.
- *
- * Total bars = 4 corners + nBottom + nTop + nLeft + nRight.
- */
-export interface ColumnReinforcement {
-  cornerDia: number;        // mm — corner bar diameter (4 corners always)
-  faceDia: number;          // mm — face bar diameter (may differ from corner)
-  nBottom: number;          // face bars on bottom edge (between corners)
-  nTop: number;             // face bars on top edge
-  nLeft: number;            // face bars on left edge
-  nRight: number;           // face bars on right edge
-}
-
-export interface ProvidedReinforcement {
-  // ─── Beam reinforcement (region-aware) ───
-  regions?: BeamRegions;
-  // ─── Beam reinforcement (legacy element-global, backward compatible) ───
-  top?: RebarGroup;             // top bars (all support regions)
-  bottom?: RebarGroup;          // bottom bars (span region)
-  // ─── Column reinforcement (structured) ───
-  column?: ColumnReinforcement;
-  // ─── Column reinforcement (legacy grouped) ───
-  longitudinal?: RebarGroup;    // total longitudinal bars
-  // ─── Transverse reinforcement (beams and columns) ───
-  stirrups?: StirrupDef;
-}
+import type { ProvidedReinforcement } from '../design-contract/reinforcement';
+export type { RebarGroup, RebarLayer, StirrupDef, LongBarGroup, BeamContinuity, BeamRegions, ColumnReinforcement, ProvidedReinforcement } from '../design-contract/reinforcement';
 
 export interface Element extends Element3DMetadata {
   id: number;
@@ -525,6 +391,11 @@ export interface Element extends Element3DMetadata {
   /** Inactive, tension only or compression only (`engine/member-behaviour.ts`). Absent: linear. */
   behaviour?: import('../engine/member-behaviour').MemberBehaviour;
   /**
+   * A cable's pretension, kN: its tension on the drawn chord under its own weight alone, from
+   * which the engine sets its unstressed length (#527). Absent: the chord is the unstressed length.
+   */
+  cablePretension?: number;
+  /**
    * The members this one lies over and was kept with ("Keep both" on the overlap question,
    * `model/edit/connection-questions.ts`): not asked about again, on this open or the next.
    * Read only by that question; the analysis and the diagnostics do not look at it.
@@ -546,7 +417,16 @@ export interface Element extends Element3DMetadata {
    * See `lib/model/curved-member.ts`. Carries no analysis meaning: the solver
    * sees straight members and is not told about this.
    */
-  arc?: { id: number; spec: import('../model/curved-member').ArcSpec };
+  arc?: {
+    id: number; spec: import('../model/curved-member').ArcSpec;
+    /**
+     * 1: the member's local axes were set by the arc rule of #418 (`arcMemberLocalY`) — when it
+     * was built, or by the one-time read-migration of an arc saved before. Absent: an arc from
+     * before #418, which `migrateArcLocalAxes` migrates once. Never migrated again after that, so
+     * a member set back to automatic axes stays automatic through undo, redo and reopening.
+     */
+    axes?: 1;
+  };
   /**
    * Stated unbraced length for lateral-torsional buckling, m — where the member is braced
    * against it more often than its geometry shows. Replaces the deduced `Lb`, never `L`; see
@@ -573,6 +453,21 @@ export interface Element extends Element3DMetadata {
    * Absent: the angle's compression check is NOT EVALUATED, by name.
    */
   angleCompression?: import('../engine/steel/angle-section').AngleCompressionInput;
+  /**
+   * Steel bracing beyond `unbracedLength`: the points where each flange is held, m from the
+   * member's start (the top flange for sagging, the bottom one for hogging), and the unbraced
+   * lengths for flexural buckling about each axis. Absent: deduced as before.
+   */
+  bracing?: import('../engine/steel/unbraced-length').SteelBracing;
+  /**
+   * Where the transverse load acts on a steel I or channel, for CIRSOC 301 F.2.2: on the web or
+   * the bottom flange (F.2.4a…F.2.6a) or on the top flange (F.2.4b…F.2.6b). Absent: not declared,
+   * and the check reads the top flange, the lower capacity, holding the member where only the other
+   * reading would pass (`cirsoc301-verdict.ts`).
+   */
+  steelLoadHeight?: 'web' | 'topFlange';
+  /** A steel-concrete member (filled or encased column, beam under a slab): AISC 360-10 Chapter I. */
+  composite?: import('../engine/design/materials/composite').CompositeSpec;
 }
 
 /** A camera the user named: where it stands and what it looks at, in scene coordinates. */
@@ -592,6 +487,10 @@ export interface SavedViewDisplay {
   hidden?: { elements: number[]; shells: string[] };
   labels: { nodes: boolean; members: boolean; memberLabel: string; lengths: boolean; shells: boolean };
   colourBy?: string;
+  /** Categories not drawn as they are: in halftone or hidden (`store/view-categories`). Absent: all drawn. */
+  categories?: Partial<Record<import('./view-categories.svelte').ViewCategory, import('./view-categories.svelte').CategoryState>>;
+  /** How members are drawn: lines, thick bars, extruded sections or the physical geometry. */
+  style?: 'wireframe' | 'solid' | 'sections' | 'physical';
 }
 
 export type ReleaseEnd = 'i' | 'j';
@@ -827,6 +726,26 @@ export type Load =
   | { type: 'prestress3d'; data: PrestressLoad3D }
   | { type: 'displacement3d'; data: NodeDisplacement3D };
 
+/**
+ * What each type of load stands on, by the number it carries: a node (`nodeId`), a member
+ * (`elementId`) or a shell (`quadId`, a plate's with `on: 'plate'`). One table for whatever
+ * deletes, renumbers or checks what a load names, so a new type of load says here where it sits.
+ * Each delete kept its own list, and the lists written before tendons and imposed displacements
+ * left those on a number the next member or node drawn would take.
+ */
+export const LOAD_TARGET: Record<Load['type'], 'node' | 'member' | 'shell'> = {
+  nodal: 'node', nodal3d: 'node', displacement3d: 'node',
+  distributed: 'member', pointOnElement: 'member', thermal: 'member',
+  distributed3d: 'member', pointOnElement3d: 'member', prestress3d: 'member',
+  surface3d: 'shell', thermalQuad3d: 'shell',
+};
+/** The node a load stands on; undefined for one on a member or a shell. */
+export const loadNodeId = (l: Load): number | undefined =>
+  LOAD_TARGET[l.type] === 'node' ? (l.data as { nodeId: number }).nodeId : undefined;
+/** The member a load stands on; undefined for one on a node or a shell. */
+export const loadMemberId = (l: Load): number | undefined =>
+  LOAD_TARGET[l.type] === 'member' ? (l.data as { elementId: number }).elementId : undefined;
+
 export type LoadCaseType = string;
 
 export interface LoadCase {
@@ -1030,6 +949,12 @@ export interface StructureModel {
   projectInfo?: import('../model/project-info').ProjectInfo;
   /** Text notes placed in the view (`model/annotations.ts`). Absent: none. */
   notes?: import('../model/annotations').ViewNote[];
+  /** Background drawings laid at levels (`model/underlay.ts`). Absent: none. */
+  underlays?: import('../model/underlay').Underlay[];
+  /** The project's design data (`model/design-data.ts`). Absent: the defaults. */
+  designData?: import('../model/design-data').ProjectDesignData;
+  /** Locks, last proposals and saved copies of the bars (`design-contract/decisions.ts`). */
+  designDecisions?: import('../design-contract/decisions').StoredDecisions;
   constraints: Constraint3D[];
   /** Joint/spring/bearing primitives between two nodes — mirrors Rust top-level
    *  `connectors: HashMap<String, ConnectorElement>`. Surfaced as joint-style
@@ -1129,7 +1054,7 @@ export type { AnalysisResults3D };
 
 // ─── Influence Line Types ───────────────────────────────────────
 
-export type InfluenceQuantity = 'Rz' | 'Ry' | 'Rx' | 'My' | 'Mz' | 'V' | 'M';
+export type InfluenceQuantity = 'Rz' | 'Ry' | 'Rx' | 'My' | 'Mz' | 'V' | 'M' | 'N' | 'ux' | 'uz' | 'ry';
 
 export interface InfluenceLineResult {
   /** What quantity is being tracked */
@@ -1152,10 +1077,36 @@ export type InfluenceDirection = 'vertical' | 'horizontal';
  * without retiring the solve (`restoreViewsOnly`). A setter that records through that channel
  * adds its field here.
  */
-const VIEW_CHANNEL_FIELDS = ['views', 'grid', 'dynamics', 'notes', 'projectInfo', 'deflectionLimits'] as const;
+const VIEW_CHANNEL_FIELDS = ['views', 'grid', 'notes', 'underlays', 'designData', 'projectInfo', 'deflectionLimits'] as const;
 
 /** Whether a floor-load definition wrote the load (`model/loads/floor-definitions.ts` `isDefinedLoad`). */
 const isDefinedLoadData = (l: Load | undefined): boolean => (l?.data as { fromDef?: number } | undefined)?.fromDef !== undefined;
+
+
+/**
+ * The detailing as a snapshot carries it, each of its parts copied once per version of it.
+ *
+ * The detailing of a detailed building runs to tens of megabytes (every bar of every assembly),
+ * and every edit pushes an undo entry. Its parts are only ever replaced whole: an edit that
+ * retires the document writes a new detailing object holding the SAME assemblies, refusals and
+ * floor readings. So each part is copied once, keyed by the object the model holds, and every
+ * snapshot taken until that part is replaced shares the copy. Nothing writes into a snapshot's
+ * detailing: `restore()` copies what it receives before adopting it.
+ */
+let detailingCopies = new WeakMap<object, unknown>();
+function copyDetailing(d: DetailingStore | undefined): DetailingStore {
+  if (!d) return emptyDetailingStore();
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(d)) {
+    if (v === null || typeof v !== 'object') { out[k] = v; continue; }
+    let copy = detailingCopies.get(v);
+    if (copy === undefined) { copy = JSON.parse(JSON.stringify($state.snapshot(v))); detailingCopies.set(v, copy); }
+    out[k] = copy;
+  }
+  return out as unknown as DetailingStore;
+}
+/** For the tests that compare a snapshot's cost before and after: forget the copies made. */
+export function forgetDetailingCopies(): void { detailingCopies = new WeakMap(); }
 
 function createModelStore() {
   /**
@@ -1169,7 +1120,7 @@ function createModelStore() {
    * store already solves it for its other cross-store hooks.
    */
   let _captureProvenance:
-    (() => Pick<ModelSnapshot, 'exports' | 'manualEdits'>) | null = null;
+    (() => Pick<ModelSnapshot, 'exports' | 'manualEdits' | 'solvedWith' | 'pendingRecheckNotice'>) | null = null;
 
   const normalize2DSupportType = (type: SupportType): SupportType =>
     type === 'rollerY' ? 'rollerZ' : type;
@@ -1187,18 +1138,8 @@ function createModelStore() {
     elements: new Map(),
     supports: new Map(),
     loads: [],
-    loadCases: [
-      { id: 1, type: 'D', name: 'Dead Load' },
-      { id: 2, type: 'L', name: 'Live Load' },
-      { id: 3, type: 'W', name: 'Wind' },
-      { id: 4, type: 'E', name: 'Earthquake' },
-    ],
-    combinations: [
-      { id: 1, name: '1.2D + 1.6L', factors: [{ caseId: 1, factor: 1.2 }, { caseId: 2, factor: 1.6 }] },
-      { id: 2, name: '1.4D', factors: [{ caseId: 1, factor: 1.4 }] },
-      { id: 3, name: '1.2D + L + 1.6W', factors: [{ caseId: 1, factor: 1.2 }, { caseId: 2, factor: 1.0 }, { caseId: 3, factor: 1.6 }] },
-      { id: 4, name: '1.2D + L + E', factors: [{ caseId: 1, factor: 1.2 }, { caseId: 2, factor: 1.0 }, { caseId: 4, factor: 1.0 }] },
-    ],
+    loadCases: defaultLoadCases((type) => t(DEFAULT_CASE_NAME_KEYS[type])),
+    combinations: defaultCombinations(),
     plates: new Map(),
     quads: new Map(),
     // A new project has no groups. Absent and empty mean the same here, unlike
@@ -1385,7 +1326,20 @@ function createModelStore() {
     connector: 1,
     footing: 1,
     soilProfile: 1,
+    spectrum: 1,
   });
+
+  /**
+   * The first spectrum number no spectrum and no spectral case uses. A spectrum's number is never
+   * given again: a case on a deleted one (an older file, a spectrum set without `addUserSpectrum`)
+   * would otherwise solve on whatever spectrum took it.
+   */
+  function firstUnusedSpectrumId(): number {
+    let max = 0;
+    for (const s of model.dynamics?.spectra ?? []) max = Math.max(max, s.id);
+    for (const c of model.loadCases) if (c.spectral?.source.kind === 'user') max = Math.max(max, c.spectral.source.spectrumId);
+    return max + 1;
+  }
 
 
 
@@ -1397,6 +1351,10 @@ function createModelStore() {
     nu: 0.3,
     rho: 78.5,
     fy: 250,
+    // ASTM A36's minimum, as the grade catalogue has it (`data/structural-grades.ts`). Without it
+    // every steel check of a new model, the bundled examples included, read "not evaluated: the
+    // material lacks Fu", which is what a first user met on opening the steel design.
+    fu: 400,
   };
 
   const defaultSection: Section = {
@@ -1428,6 +1386,13 @@ function createModelStore() {
   let _pushUndoFoundation: (() => void) | null = null;
   /** History push for a named view: undoable, but not a model edit — the solve survives it. */
   let _pushUndoView: (() => void) | null = null;
+  /**
+   * History push for a design-only edit: what a physical element is, its name, the grouping of
+   * the members into elements. Undoable; the solve survives it and the design does not.
+   */
+  let _pushUndoDesign: (() => void) | null = null;
+  /** Called when a design-only edit lands or is undone. See `_setOnDesignChange`. */
+  let _onDesignChange: (() => void) | null = null;
   /** Called after a reinforcement transaction commits, with the written ids. */
   let _onReinforcementCommit: ((written: Set<number>) => void) | null = null;
   /**
@@ -1731,13 +1696,25 @@ function createModelStore() {
       // retire the solve. Tagging these 'structural' — which is what they did — routed
       // undo/redo through the full restore(), which bumps modelVersion and clears results.
       _pushUndoView = () => fn('views');
+      // Physical elements and group names: nothing the analysis reads, everything the design
+      // reads. A kind changed from beam to column must re-check the member, not re-solve it.
+      _pushUndoDesign = () => { fn('design'); _onDesignChange?.(); };
     },
+
+    /** Register what a design-only edit invalidates (the design, the documents; not the solve). */
+    _setOnDesignChange(fn: () => void) { _onDesignChange = fn; },
 
     /** Register a callback to be called on every model mutation (used to clear stale results) */
     _setOnMutation(fn: () => void) { _onMutation = fn; },
     _setBeforeAnalysisInput(fn: () => void) { _beforeAnalysisInput = fn; },
     _setOnReplaced(fn: () => void) { _onReplaced = fn; },
     _setOnNewProject(fn: () => void) { _onNewProject = fn; },
+    /**
+     * Another project now occupies the store: opening a file and switching tabs say so after
+     * `restore()`, which is also the undo path and must not. Session state that belongs to the
+     * project (the last floor and footing runs) is dropped through it.
+     */
+    announceNewProject(): void { _onNewProject?.(); },
 
     /** Register a callback fired after a reinforcement transaction commits, with the
      *  set of element ids written. Wired in store/index.ts so this store never
@@ -1778,21 +1755,54 @@ function createModelStore() {
      * elements, so an in-place edit could previously corrupt an undo snapshot that
      * shared the same `reinforcement` object.
      */
+    /**
+     * A design-only attribute of an element (its composite definition): undoable, and the solve
+     * survives it, as with reinforcement — it changes how the member is checked, not its stiffness.
+     */
+    setElementDesign(elemId: number, patch: { composite?: Element['composite'] }): void {
+      const elem = model.elements.get(elemId);
+      if (!elem) return;
+      _pushUndoSilent?.();
+      const plain = { ...($state.snapshot(elem) as Element), ...JSON.parse(JSON.stringify(patch)) } as Element;
+      if ('composite' in patch && patch.composite === undefined) delete plain.composite;
+      model.elements.set(elemId, plain);
+      model.elements = new Map(model.elements);
+    },
+
+    /** The timber reference values of a material: design data, the analysis reads E, not these. */
+    setMaterialDesign(materialId: number, patch: { timber?: Material['timber'] }): void {
+      const mat = model.materials.get(materialId);
+      if (!mat) return;
+      _pushUndoSilent?.();
+      const plain = { ...($state.snapshot(mat) as Material), ...JSON.parse(JSON.stringify(patch)) } as Material;
+      if ('timber' in patch && patch.timber === undefined) delete plain.timber;
+      model.materials.set(materialId, plain);
+      model.materials = new Map(model.materials);
+    },
+
     reinforcementTransaction(
-      fn: (api: { setReinforcement(elemId: number, r: ProvidedReinforcement | undefined): void }) => void,
+      fn: (api: {
+        setReinforcement(elemId: number, r: ProvidedReinforcement | undefined): void;
+        /** The decisions beside the bars, in the same undo step. */
+        setDecisions(d: import('../design-contract/decisions').StoredDecisions): void;
+      }) => void,
     ): Set<number> {
       const written = new Set<number>();
       const pending = new Map<number, ProvidedReinforcement | undefined>();
+      let decisions: import('../design-contract/decisions').StoredDecisions | undefined;
       fn({
         setReinforcement(elemId: number, r: ProvidedReinforcement | undefined) {
           if (!model.elements.has(elemId)) return;
           pending.set(elemId, r);
         },
+        setDecisions(d) { decisions = d; },
       });
-      if (pending.size === 0) return written;
+      if (pending.size === 0 && !decisions) return written;
 
       // One snapshot for the whole batch, taken BEFORE any write.
       _pushUndoSilent?.();
+      if (decisions) model.designDecisions = JSON.parse(JSON.stringify(decisions));
+      if (pending.size === 0) { _onReinforcementCommit?.(written); return written; }
 
       for (const [elemId, r] of pending) {
         const elem = model.elements.get(elemId);
@@ -1827,6 +1837,10 @@ function createModelStore() {
      */
     restoreReinforcementOnly(s: ModelSnapshot): Set<number> {
       const written = new Set<number>();
+      // The decisions travel with the bars: a lock or a recovered copy undoes with them.
+      if (JSON.stringify(model.designDecisions ?? null) !== JSON.stringify(s.designDecisions ?? null)) {
+        model.designDecisions = s.designDecisions ? JSON.parse(JSON.stringify(s.designDecisions)) : undefined;
+      }
       const incoming = new Map(s.elements.map(([id, v]) => [id, v.reinforcement]));
       for (const [id, elem] of model.elements) {
         const nextReinf = incoming.get(id);
@@ -1889,6 +1903,55 @@ function createModelStore() {
     },
 
     /**
+     * Restore ONLY what the design channel records: the groups, the project design data, the
+     * deflection limits and the stored design decisions.
+     *
+     * The mirror of `restoreFoundationOnly`. A physical element's kind or its grouping is read by
+     * the design and not by the analysis, so undoing it must not retire the solve; it fires
+     * `_onDesignChange`, because the design read the state being undone.
+     */
+    restoreDesignOnly(s: ModelSnapshot): void {
+      const nextGroups = new Map((s.groups ?? []).map(([id, g]) => [id, JSON.parse(JSON.stringify(g)) as ModelGroup]));
+      const sameGroups = JSON.stringify([...model.groups.entries()]) === JSON.stringify([...nextGroups.entries()]);
+      const nextDesign = s.designData !== undefined ? JSON.parse(JSON.stringify(s.designData)) : undefined;
+      const sameDesign = JSON.stringify(model.designData ?? null) === JSON.stringify(nextDesign ?? null);
+      const sameRest = JSON.stringify(model.deflectionLimits ?? null) === JSON.stringify(s.deflectionLimits ?? null)
+        && JSON.stringify(model.designDecisions ?? null) === JSON.stringify(s.designDecisions ?? null);
+      if (sameGroups && sameDesign && sameRest) return;
+      if (!sameGroups) {
+        model.groups = nextGroups;
+        for (const id of nextGroups.keys()) if (id >= nextId.group) nextId.group = id + 1;
+      }
+      if (!sameDesign) model.designData = nextDesign;
+      // Recognition carries these two along when it moves a reference to a new element id.
+      const nextLimits = s.deflectionLimits !== undefined ? JSON.parse(JSON.stringify(s.deflectionLimits)) : undefined;
+      if (JSON.stringify(model.deflectionLimits ?? null) !== JSON.stringify(nextLimits ?? null)) model.deflectionLimits = nextLimits;
+      const nextDecisions = s.designDecisions !== undefined ? JSON.parse(JSON.stringify(s.designDecisions)) : undefined;
+      if (JSON.stringify(model.designDecisions ?? null) !== JSON.stringify(nextDecisions ?? null)) model.designDecisions = nextDecisions;
+      _onDesignChange?.();
+    },
+
+    /**
+     * Replace the stored design decisions outside a reinforcement edit (a physical element's
+     * id moved and its decisions follow it). Design channel, as the move that causes it.
+     */
+    setDesignDecisions(d: import('../design-contract/decisions').StoredDecisions | null): void {
+      if (!_undoBatching) _pushUndoDesign?.();
+      model.designDecisions = d ? JSON.parse(JSON.stringify(d)) : undefined;
+    },
+
+    /**
+     * Several design-only edits as one undo step on the design channel (see `restoreDesignOnly`).
+     * Inside another batch it is part of that one.
+     */
+    batchDesign(fn: () => void): void {
+      if (_undoBatching) { fn(); return; }
+      _pushUndoDesign?.();
+      _undoBatching = true;
+      try { fn(); } finally { _undoBatching = false; }
+    },
+
+    /**
      * Restore ONLY what the views channel records (`VIEW_CHANNEL_FIELDS`): the named views and
      * the rest of the project data the analysis does not read.
      *
@@ -1912,6 +1975,12 @@ function createModelStore() {
         const next = snap[k] !== undefined ? JSON.parse(JSON.stringify(snap[k])) : undefined;
         if (JSON.stringify(m[k] ?? null) === JSON.stringify(next ?? null)) continue;
         m[k] = next;
+      }
+      // The spectra and time history were recorded here before they were known to be analysis
+      // inputs; a session saved then still holds such entries. Undoing one is a model edit.
+      if (JSON.stringify(s.dynamics ?? null) !== JSON.stringify(model.dynamics ?? null)) {
+        model.dynamics = s.dynamics ? JSON.parse(JSON.stringify(s.dynamics)) : undefined;
+        this.bumpModelVersion();
       }
       // Names of nodes and members travel on this channel too: the analysis reads neither.
       const named = <T extends { name?: string }>(map: Map<number, T>, entries: ReadonlyArray<[number, { name?: string }]> | undefined): Map<number, T> | null => {
@@ -1999,6 +2068,17 @@ function createModelStore() {
       try { fn(); } finally { _undoBatching = false; }
     },
 
+    /**
+     * Several footing or soil edits as one undo step on the foundation channel: undoing them
+     * keeps the solve, as each one alone does. Inside another batch it is part of that one.
+     */
+    batchFoundation(fn: () => void): void {
+      if (_undoBatching) { fn(); return; }
+      _pushUndoFoundation?.();
+      _undoBatching = true;
+      try { fn(); } finally { _undoBatching = false; }
+    },
+
     /** Run a batch of structural mutations as a single reactive commit + undo step.
      *  Skips per-call Map/array reassignment; reassigns everything once at the end
      *  so the viewport syncs and `$effect`s re-run only once for the whole batch. */
@@ -2055,6 +2135,9 @@ function createModelStore() {
     get analysis() { return model.analysis; },
     get projectInfo() { return model.projectInfo; },
     get notes() { return model.notes ?? []; },
+    get underlays() { return model.underlays ?? []; },
+    get designData() { return model.designData; },
+    get designDecisions() { return model.designDecisions; },
     get plates() { return model.plates; },
     get quads() { return model.quads; },
     get constraints() { return model.constraints; },
@@ -2066,7 +2149,9 @@ function createModelStore() {
     snapshot(): ModelSnapshot {
       // $state.snapshot() is the official Svelte 5 API to deeply unwrap reactive proxies
       // into plain JavaScript objects. This avoids all proxy-related serialization issues.
-      const snap = $state.snapshot(model);
+      // The detailing is left out of it and copied once per version (`detailingSnapshot`): it is
+      // the largest part of a detailed project and an edit never changes it in place.
+      const snap = $state.snapshot({ ...model, detailing: undefined }) as unknown as ReturnType<typeof $state.snapshot<typeof model>>;
       const snapId = $state.snapshot(nextId);
       const result: ModelSnapshot = {
         name: snap.name,
@@ -2144,6 +2229,15 @@ function createModelStore() {
         ...(snap.notes?.length
           ? { notes: JSON.parse(JSON.stringify(snap.notes)) as ModelSnapshot['notes'] }
           : {}),
+        ...(snap.underlays?.length
+          ? { underlays: JSON.parse(JSON.stringify(snap.underlays)) as ModelSnapshot['underlays'] }
+          : {}),
+        ...(snap.designData
+          ? { designData: JSON.parse(JSON.stringify(snap.designData)) as ModelSnapshot['designData'] }
+          : {}),
+        ...(snap.designDecisions
+          ? { designDecisions: JSON.parse(JSON.stringify(snap.designDecisions)) as ModelSnapshot['designDecisions'] }
+          : {}),
         ...(snap.deflectionLimits?.rules.length
           ? { deflectionLimits: JSON.parse(JSON.stringify(snap.deflectionLimits)) as ModelSnapshot['deflectionLimits'] }
           : {}),
@@ -2159,9 +2253,7 @@ function createModelStore() {
         codeSettings: snap.codeSettings
           ? (JSON.parse(JSON.stringify(snap.codeSettings)) as ProjectCodeSettings)
           : defaultCodeSettings(),
-        detailing: snap.detailing
-          ? (JSON.parse(JSON.stringify(snap.detailing)) as DetailingStore)
-          : emptyDetailingStore(),
+        detailing: copyDetailing(model.detailing),
         // Both of these were declared on StructureModel AND on ModelSnapshot and
         // emitted by neither, so the regulation stack and the revision vector were
         // dropped by every path that goes through snapshot(): .ded save, undo/redo,
@@ -2196,7 +2288,12 @@ function createModelStore() {
         footings: Array.from(snap.footings.entries()).map(
           ([k, v]): [number, Footing] => [
             k,
-            { ...v, ...(v.pedestal ? { pedestal: { ...v.pedestal } } : {}) },
+            {
+              ...v, ...(v.pedestal ? { pedestal: { ...v.pedestal } } : {}),
+              ...(v.supportedNodeIds ? { supportedNodeIds: [...v.supportedNodeIds] } : {}),
+              ...(v.anchor ? { anchor: [...v.anchor] as [number, number] } : {}),
+              ...(v.piles ? { piles: { ...v.piles } } : {}),
+            },
           ],
         ),
         // Emitted even when absent, like `codeSettings` and `detailing` above: a container
@@ -2220,7 +2317,7 @@ function createModelStore() {
       return result;
     },
 
-    _setCaptureProvenance(fn: () => Pick<ModelSnapshot, 'exports' | 'manualEdits'>): void {
+    _setCaptureProvenance(fn: () => Pick<ModelSnapshot, 'exports' | 'manualEdits' | 'solvedWith' | 'pendingRecheckNotice'>): void {
       _captureProvenance = fn;
     },
 
@@ -2275,12 +2372,10 @@ function createModelStore() {
         releaseJ: { ...(v.releaseJ ?? NO_RELEASE) },
       }]));
       // Deduplicate supports: keep only the last support per node (legacy cleanup)
-      const supEntries = s.supports.map(([k, v]) => [k, {
-        ...v,
-        type: normalize2DSupportType(v.type as SupportType),
-        dz: canonicalSupportDz(v),
-        dry: canonicalSupportDry(v),
-      }] as [number, Support]);
+      const supEntries = s.supports.map(([k, v]) => {
+        const sup = { ...v, type: normalize2DSupportType(v.type as SupportType) } as Support;
+        return [k, { ...sup, dz: canonicalSupportDz(sup), dry: canonicalSupportDry(sup) }] as [number, Support];
+      });
       const seenNodes = new Set<number>();
       const dedupedEntries: [number, Support][] = [];
       for (let i = supEntries.length - 1; i >= 0; i--) {
@@ -2315,6 +2410,20 @@ function createModelStore() {
           }
         }
       }
+      // Arcs drawn before #418 (SP-15) left their members on the default local axes, which turn
+      // the near-vertical members of an arch by 90°: they take the arc's own orientation. Not a
+      // member any load or support refers to: its local data would change direction with it.
+      const referenced = new Set<number>();
+      for (const l of model.loads) {
+        const d = l.data as { elementId?: unknown; elementIds?: unknown } | undefined;
+        if (typeof d?.elementId === 'number') referenced.add(d.elementId);
+        if (Array.isArray(d?.elementIds)) for (const id of d.elementIds) if (typeof id === 'number') referenced.add(id);
+      }
+      for (const sp of model.supports.values()) {
+        const id = (sp as { dofLocalElementId?: unknown }).dofLocalElementId;
+        if (typeof id === 'number') referenced.add(id);
+      }
+      migrateArcLocalAxes(model.elements, model.nodes, (id) => referenced.has(id));
       model.loadCases = s.loadCases
         ? s.loadCases.map(c => ({ type: (c as any).type ?? inferLoadCaseType(c.name), ...c }))
         : [{ id: 1, type: 'D' as LoadCaseType, name: 'Dead Load' }, { id: 2, type: 'L' as LoadCaseType, name: 'Live Load' }, { id: 3, type: 'W' as LoadCaseType, name: 'Wind' }, { id: 4, type: 'E' as LoadCaseType, name: 'Earthquake' }];
@@ -2346,6 +2455,9 @@ function createModelStore() {
     model.analysis = s.analysis ? JSON.parse(JSON.stringify(s.analysis)) : undefined;
     model.projectInfo = s.projectInfo ? JSON.parse(JSON.stringify(s.projectInfo)) : undefined;
     model.notes = s.notes ? JSON.parse(JSON.stringify(s.notes)) : undefined;
+    model.underlays = s.underlays ? JSON.parse(JSON.stringify(s.underlays)) : undefined;
+    model.designData = s.designData ? migrateDesignData(s.designData) : undefined;
+    model.designDecisions = s.designDecisions ? migrateStoredDecisions(s.designDecisions) : undefined;
       model.constraints = (s as any).constraints
         ? ((s as any).constraints as any[])
             .map(migrateConstraint)
@@ -2450,6 +2562,9 @@ function createModelStore() {
         ?? (Math.max(0, ...model.footings.keys()) + 1);
       nextId.soilProfile = s.nextId.soilProfile
         ?? (Math.max(0, ...(model.geotechnical?.profiles ?? []).map((p) => p.id)) + 1);
+      // Older files have no spectrum counter, and a saved one is never behind what is in use.
+      const savedSpectrumId = s.nextId.spectrum;
+      nextId.spectrum = Math.max(firstUnusedSpectrumId(), Number.isSafeInteger(savedSpectrumId) ? savedSpectrumId! : 1);
     },
 
     /** Explicit user action: clear the CAD-draft "unreviewed" tag. */
@@ -2678,12 +2793,18 @@ function createModelStore() {
       if (model.connectors.size > 0) {
         model.connectors = new Map([...model.connectors].map(([id, c]) => [id, { ...c, nodeI: r(c.nodeI), nodeJ: r(c.nodeJ) }]));
       }
-      if ([...model.footings.values()].some((f) => to.has(f.nodeId))) {
-        model.footings = new Map([...model.footings].map(([id, f]) => [id, to.has(f.nodeId) ? { ...f, nodeId: r(f.nodeId), revision: f.revision + 1 } : f]));
+      if ([...model.footings.values()].some((f) => to.has(f.nodeId) || f.supportedNodeIds?.some((n) => to.has(n)))) {
+        model.footings = new Map([...model.footings].map(([id, f]) => [id, to.has(f.nodeId) || f.supportedNodeIds?.some((n) => to.has(n))
+          ? { ...f, nodeId: r(f.nodeId), ...(f.supportedNodeIds ? { supportedNodeIds: f.supportedNodeIds.map(r) } : {}), revision: f.revision + 1 } : f]));
+      }
+      // A point mass follows its node; two merged onto one node both stay (their masses add).
+      const points = model.massSource?.points;
+      if (points?.some((p) => to.has(p.nodeId))) {
+        model.massSource = { ...model.massSource!, points: points.map((p) => (to.has(p.nodeId) ? { ...p, nodeId: r(p.nodeId) } : p)) };
       }
     },
 
-    /** Node ids named by constraints, connectors and footings. */
+    /** Node ids named by constraints, connectors, footings and point masses. */
     referencedNodeIds(): Set<number> {
       const out = new Set<number>();
       for (const c of model.constraints) {
@@ -2691,7 +2812,8 @@ function createModelStore() {
         for (const n of [x.masterNode, x.slaveNode, ...(x.slaveNodes ?? []), ...(x.terms ?? []).map((t) => t.nodeId)]) if (typeof n === 'number') out.add(n);
       }
       for (const c of model.connectors.values()) { out.add(c.nodeI); out.add(c.nodeJ); }
-      for (const f of model.footings.values()) out.add(f.nodeId);
+      for (const f of model.footings.values()) { out.add(f.nodeId); for (const n of f.supportedNodeIds ?? []) out.add(n); }
+      for (const p of model.massSource?.points ?? []) out.add(p.nodeId);
       return out;
     },
 
@@ -2931,8 +3053,8 @@ function createModelStore() {
         }
       }
       model.supports = new Map(model.supports);
-      const keepLoad = (l: Load) =>
-        !((l.type === 'nodal' || l.type === 'nodal3d') && l.data.nodeId === id);
+      // Every load on the node, an imposed displacement too (`LOAD_TARGET`).
+      const keepLoad = (l: Load) => loadNodeId(l) !== id;
       model.loads = model.loads.filter(keepLoad);
       if (_bulkLoadBuffer) _bulkLoadBuffer = _bulkLoadBuffer.filter(keepLoad);
       // Cascade to connectors/constraints: a dangling node reference is worse
@@ -2952,11 +3074,18 @@ function createModelStore() {
       // under a column that is gone.
       let footingsChanged = false;
       for (const [fid, f] of model.footings) {
-        if (f.nodeId !== id) continue;
-        model.footings.delete(fid);
-        footingsChanged = true;
+        if (f.nodeId === id) { model.footings.delete(fid); footingsChanged = true; continue; }
+        // A combined or strip footing loses the node it also carried, and carries the rest.
+        if (f.supportedNodeIds?.includes(id)) {
+          model.footings.set(fid, { ...f, supportedNodeIds: f.supportedNodeIds.filter((n) => n !== id), revision: f.revision + 1 });
+          footingsChanged = true;
+        }
       }
       if (footingsChanged) model.footings = new Map(model.footings);
+      // A point mass goes with its node, as a nodal load does: left, it named a number the next
+      // node drawn would take.
+      const pts = model.massSource?.points;
+      if (pts?.some((p) => p.nodeId === id)) model.massSource = { ...model.massSource!, points: pts.filter((p) => p.nodeId !== id) };
       const pruneConstraints = (arr: Constraint3D[]) => arr
         .map((c): Constraint3D | null => {
           if (c.type === 'diaphragm') {
@@ -3005,7 +3134,8 @@ function createModelStore() {
     renameGroup(id: number, name: string): void {
       const g = model.groups.get(id);
       if (!g) return;
-      if (!_undoBatching) _pushUndo?.();
+      // A name is read by nothing the analysis computes.
+      if (!_undoBatching) _pushUndoDesign?.();
       model.groups.set(id, { ...g, name });
       model.groups = new Map(model.groups);
     },
@@ -3022,7 +3152,12 @@ function createModelStore() {
     setGroupData(id: number, data: Record<string, unknown> | null): void {
       const g = model.groups.get(id);
       if (!g) return;
-      if (!_undoBatching) _pushUndo?.();
+      // A physical element's data (kind, typology, levels) is read by the design, not by the
+      // analysis: the solve survives it. Other kinds keep the structural channel, because a
+      // generator's data drives what it rebuilds.
+      if (!_undoBatching) {
+        if (g.kind === 'physicalMember') _pushUndoDesign?.(); else _pushUndo?.();
+      }
       const { data: _old, ...rest } = g;
       model.groups.set(id, data ? { ...rest, data: JSON.parse(JSON.stringify(data)) as Record<string, unknown> } : rest);
       model.groups = new Map(model.groups);
@@ -3062,6 +3197,12 @@ function createModelStore() {
             : r)),
         };
       }
+      // The loads a floor-load definition wrote go with it (`defined-loads.ts`). The rewrite after
+      // keeps a marked load whose definition is missing as a plain load, so they stayed in every
+      // solve with nothing to say where they came from.
+      const keepLoad = (l: Load) => (l.data as { fromDef?: number }).fromDef !== id;
+      if (!model.loads.every(keepLoad)) model.loads = model.loads.filter(keepLoad);
+      if (_bulkLoadBuffer) _bulkLoadBuffer = _bulkLoadBuffer.filter(keepLoad);
       model.groups.delete(id);
       model.groups = new Map(model.groups);
       return 'removed';
@@ -3093,11 +3234,10 @@ function createModelStore() {
        */
       replaceInGroups('elements', id);
       replaceInSelfWeight(id);
-      model.loads = model.loads.filter(l =>
-        !((l.type === 'distributed' || l.type === 'pointOnElement' || l.type === 'thermal'
-          || l.type === 'distributed3d' || l.type === 'pointOnElement3d') &&
-          (l.data as any).elementId === id)
-      );
+      // Every load on the member, a tendon too (`LOAD_TARGET`).
+      const keepLoad = (l: Load) => loadMemberId(l) !== id;
+      model.loads = model.loads.filter(keepLoad);
+      if (_bulkLoadBuffer) _bulkLoadBuffer = _bulkLoadBuffer.filter(keepLoad);
       // A footing SURVIVES the loss of its column: its node, its dimensions and its soil
       // are all still there, and its bearing and thickness are still checkable. What it
       // loses is the punching perimeter and the dowel geometry, so the reference is cleared
@@ -3159,8 +3299,12 @@ function createModelStore() {
       if (!_undoBatching) _pushUndo?.();
       const plate = model.plates.get(id);
       if (!plate) return;
-      if (data.materialId !== undefined) plate.materialId = data.materialId;
-      if (data.thickness !== undefined) plate.thickness = data.thickness;
+      // A new object, not the old one changed: the undo snapshot holds the old one.
+      model.plates.set(id, {
+        ...plate,
+        ...(data.materialId !== undefined ? { materialId: data.materialId } : {}),
+        ...(data.thickness !== undefined ? { thickness: data.thickness } : {}),
+      });
       model.plates = new Map(model.plates);
     },
 
@@ -3190,9 +3334,13 @@ function createModelStore() {
       if (!_undoBatching) _pushUndo?.();
       const quad = model.quads.get(id);
       if (!quad) return;
-      if (data.materialId !== undefined) quad.materialId = data.materialId;
-      if (data.thickness !== undefined) quad.thickness = data.thickness;
-      model.quads = new Map(model.quads);
+      // A new object, not the old one changed: the undo snapshot holds the old one.
+      model.quads.set(id, {
+        ...quad,
+        ...(data.materialId !== undefined ? { materialId: data.materialId } : {}),
+        ...(data.thickness !== undefined ? { thickness: data.thickness } : {}),
+      });
+      if (!_bulkMutating) model.quads = new Map(model.quads);
     },
 
     /**
@@ -3210,7 +3358,8 @@ function createModelStore() {
       if (!_undoBatching) _pushUndo?.();
       const quad = model.quads.get(id);
       if (!quad) return;
-      if (curved) quad.curved = true; else delete quad.curved;
+      const { curved: _was, ...rest } = quad;
+      model.quads.set(id, curved ? { ...rest, curved: true } : rest);
       model.quads = new Map(model.quads);
     },
 
@@ -3225,12 +3374,14 @@ function createModelStore() {
       // also rewrite the offset that undo is supposed to restore.
       const next = { ...shell };
       if (offset) next.offset = { ...offset }; else delete next.offset;
+      // In a bulk edit the maps are committed once at its end (`bulkMutate`): a copy per shell
+      // made meshing a floor of thousands of shells quadratic.
       if (kind === 'plate') {
         model.plates.set(id, next as Plate);
-        model.plates = new Map(model.plates);
+        if (!_bulkMutating) model.plates = new Map(model.plates);
       } else {
         model.quads.set(id, next as Quad);
-        model.quads = new Map(model.quads);
+        if (!_bulkMutating) model.quads = new Map(model.quads);
       }
     },
 
@@ -3318,7 +3469,8 @@ function createModelStore() {
       if (!_undoBatching) _pushUndoFoundation?.();
       const id = nextId.footing++;
       const f = newFooting(id, nodeId, name ?? `Z${id}`, {
-        cover: DEFAULT_COVER,
+        // The project's footing cover, from its design data.
+        cover: model.designData?.covers.footing ?? DEFAULT_COVER,
         // The underside sits at the supported node unless the engineer moves it. The node
         // is where the column lands, so this is the only non-arbitrary starting point.
         foundingElevation: model.nodes.get(nodeId)?.z ?? 0,
@@ -3506,14 +3658,24 @@ function createModelStore() {
           }
         }
       }
+      // A 3D support keeps springs only on the DOFs it leaves free: switching
+      // a spring support to fixed (or ticking a DOF) used to keep the spring,
+      // and the engine then solved the "fixed" DOF as elastic (#488).
+      const nextType = data.type ? normalize2DSupportType(data.type) : sup.type;
+      const nextDofs = data.dofRestraints ?? sup.dofRestraints;
+      const restrained = nextDofs ?? (is3DSupportType(nextType) ? dofRestraintsOfType3D(nextType) : undefined);
+      const spring = (key: SpringKey, value: number | undefined) => {
+        const dof = DOF_SPRING.find(([, k]) => k === key)![0];
+        return restrained?.[dof] ? undefined : value;
+      };
       // Replace entire object to guarantee Svelte 5 reactivity
       model.supports.set(id, {
         id: sup.id,
         nodeId: data.nodeId ?? sup.nodeId,
         type: data.type ? normalize2DSupportType(data.type) : sup.type,
-        kx: data.kx ?? sup.kx,
-        ky: data.ky ?? sup.ky,
-        kz: data.kz ?? sup.kz,
+        kx: spring('kx', data.kx ?? sup.kx),
+        ky: spring('ky', data.ky ?? sup.ky),
+        kz: spring('kz', data.kz ?? sup.kz),
         dx: data.dx ?? sup.dx,
         dz: data.dz ?? data.dy ?? sup.dz ?? sup.dy,
         dry: data.dry ?? data.drz ?? sup.dry ?? sup.drz,
@@ -3521,9 +3683,9 @@ function createModelStore() {
         isGlobal: 'isGlobal' in data ? data.isGlobal : sup.isGlobal,
         // 3D fields
         drx: data.drx ?? sup.drx,
-        krx: data.krx ?? sup.krx,
-        kry: data.kry ?? sup.kry,
-        krz: data.krz ?? sup.krz,
+        krx: spring('krx', data.krx ?? sup.krx),
+        kry: spring('kry', data.kry ?? sup.kry),
+        krz: spring('krz', data.krz ?? sup.krz),
         // Per-DOF 3D configuration
         dofRestraints: data.dofRestraints ?? sup.dofRestraints,
         dofFrame: data.dofFrame ?? sup.dofFrame,
@@ -3678,6 +3840,9 @@ function createModelStore() {
       model.analysis = undefined;
       model.projectInfo = undefined;
       model.notes = undefined;
+      model.underlays = undefined;
+      model.designData = undefined;
+      model.designDecisions = undefined;
       model.constraints = [];
       model.connectors = new Map();
       model.footings = new Map();
@@ -3701,20 +3866,10 @@ function createModelStore() {
       // unresolved is what made a freshly loaded example report its section as
       // amorphous even after the engine was up.
       model.sections = new Map([[1, resolveDefaultSection(defaultSection)]]);
-      model.loadCases = [
-        { id: 1, type: 'D', name: 'Dead Load' },
-        { id: 2, type: 'L', name: 'Live Load' },
-        { id: 3, type: 'W', name: 'Wind' },
-        { id: 4, type: 'E', name: 'Earthquake' },
-      ];
+      model.loadCases = defaultLoadCases((type) => t(DEFAULT_CASE_NAME_KEYS[type]));
       // A new model has one case in use: Basic shows no load cases until they are switched on.
       uiStore.loadCasesEnabled = false;
-      model.combinations = [
-        { id: 1, name: '1.2D + 1.6L', factors: [{ caseId: 1, factor: 1.2 }, { caseId: 2, factor: 1.6 }] },
-        { id: 2, name: '1.4D', factors: [{ caseId: 1, factor: 1.4 }] },
-        { id: 3, name: '1.2D + L + 1.6W', factors: [{ caseId: 1, factor: 1.2 }, { caseId: 2, factor: 1.0 }, { caseId: 3, factor: 1.6 }] },
-        { id: 4, name: '1.2D + L + E', factors: [{ caseId: 1, factor: 1.2 }, { caseId: 2, factor: 1.0 }, { caseId: 4, factor: 1.0 }] },
-      ];
+      model.combinations = defaultCombinations();
       nextId.node = 1;
       nextId.material = 2;
       nextId.section = 2;
@@ -3729,6 +3884,7 @@ function createModelStore() {
       nextId.group = 1;
       nextId.footing = 1;
       nextId.soilProfile = 1;
+      nextId.spectrum = 1;
       model.provenance = undefined;
       lastKinematicResult = null;
       uiStore.useNative3DPresentation();
@@ -4021,6 +4177,10 @@ function createModelStore() {
       model.loadCases = model.loadCases.filter(c => c.id !== id);
       // Remove loads that belong to this case
       model.loads = model.loads.filter(l => (l.data.caseId ?? 1) !== id);
+      // And the definitions that write loads into it (an area load on a floor, a plate or a zone):
+      // left, they would be written again into a case that no longer exists.
+      const defs = [...model.groups.values()].filter((g) => DEFINED_LOAD_KINDS.has(g.kind) && (g.data as { caseId?: number } | undefined)?.caseId === id);
+      if (defs.length) { const gm = new Map(model.groups); for (const g of defs) gm.delete(g.id); model.groups = gm; }
       // Remove from combinations
       for (const combo of model.combinations) {
         combo.factors = combo.factors.filter(f => f.caseId !== id);
@@ -4028,7 +4188,8 @@ function createModelStore() {
       // And from the mass source, where a stale case id would come to mean whatever case
       // takes that number next.
       if (model.massSource?.kind === 'custom') {
-        model.massSource = { kind: 'custom', factors: model.massSource.factors.filter(f => f.caseId !== id) };
+        // Only the removed case's row goes: the weights and point masses stay.
+        model.massSource = { ...model.massSource, factors: model.massSource.factors.filter(f => f.caseId !== id) };
       }
       // And the self-weight rule: a row for a case that no longer exists would still load the
       // single solve (which takes every stated row) and not the combinations.
@@ -4059,6 +4220,11 @@ function createModelStore() {
       model.views = [...(model.views ?? []), { id, name, position: { ...position }, target: { ...target }, ...(display ? { display: JSON.parse(JSON.stringify(display)) } : {}) }];
       return id;
     },
+    /** A view takes the camera and the display it is looked at with now. */
+    updateView(id: number, position: SavedView['position'], target: SavedView['target'], display: SavedViewDisplay): void {
+      _pushUndoView?.();
+      model.views = (model.views ?? []).map((v) => (v.id === id ? { ...v, position: { ...position }, target: { ...target }, display: JSON.parse(JSON.stringify(display)) } : v));
+    },
     renameView(id: number, name: string): void {
       _pushUndoView?.();
       model.views = (model.views ?? []).map((v) => (v.id === id ? { ...v, name } : v));
@@ -4078,7 +4244,20 @@ function createModelStore() {
       model.grid = grid && (grid.axes.length > 0 || grid.levels.length > 0) ? JSON.parse(JSON.stringify(grid)) : undefined;
     },
 
-    /** State the project's dynamic analysis settings. Undoable; the solve survives it. */
+    /**
+     * State the project's design data, or withdraw it (null: the defaults). Undoable on the views
+     * channel: the solve survives it; the design it changes is retired by `store/design-data.ts`.
+     */
+    setDesignData(d: import('../model/design-data').ProjectDesignData | null): void {
+      if (!_undoBatching) _pushUndoView?.();
+      model.designData = d ? JSON.parse(JSON.stringify(d)) : undefined;
+    },
+
+    /** State the background drawings. Undoable; they touch no result. */
+    setUnderlays(list: import('../model/underlay').Underlay[]): void {
+      if (!_undoBatching) _pushUndoView?.();
+      model.underlays = list.length ? JSON.parse(JSON.stringify(list)) : undefined;
+    },
     /** State the notes in the view. Undoable; they touch no result. */
     setNotes(notes: import('../model/annotations').ViewNote[]): void {
       if (!_undoBatching) _pushUndoView?.();
@@ -4119,9 +4298,17 @@ function createModelStore() {
       model.deflectionLimits = d && d.rules.length > 0 ? JSON.parse(JSON.stringify(d)) : undefined;
     },
 
+    /**
+     * State the project's spectra and time history. They change what a solve computes (a user
+     * spectrum feeds the spectral load cases, the time history its run), so this is a model edit:
+     * undoable, and the results on hand are retired. A write that changes nothing takes no step.
+     */
     setDynamics(d: { timeHistory?: import('../engine/dynamics/time-history-spec').TimeHistorySpec; spectra?: import('../engine/spectral-case').UserSpectrum[] } | null): void {
-      if (!_undoBatching) _pushUndoView?.();
-      model.dynamics = d && (d.timeHistory || d.spectra?.length) ? JSON.parse(JSON.stringify(d)) : undefined;
+      const next = d && (d.timeHistory || d.spectra?.length) ? JSON.parse(JSON.stringify(d)) : undefined;
+      if (JSON.stringify(next ?? null) === JSON.stringify(model.dynamics ?? null)) return;
+      if (!_undoBatching) _pushUndo?.();
+      model.dynamics = next;
+      this.bumpModelVersion();
     },
 
     /** State the project's combination rules; an empty list withdraws them. */
@@ -4144,9 +4331,12 @@ function createModelStore() {
      */
     setMassSource(ms: MassSource | null): void {
       if (!_undoBatching) _pushUndo?.();
-      // The weights stay through a change of the case factors unless the change names them.
+      // The weights and point masses stay through a change of the case factors unless the
+      // change names them.
       const kept = model.massSource?.weights;
       if (kept?.length && (!ms || !('weights' in ms))) ms = ms ? { ...ms, weights: kept } : { kind: 'custom', factors: [], weights: kept };
+      const keptPoints = model.massSource?.points;
+      if (keptPoints?.length && (!ms || !('points' in ms))) ms = ms ? { ...ms, points: keptPoints } : { kind: 'custom', factors: [], points: keptPoints };
       model.massSource = normalizeMassSource(ms ? JSON.parse(JSON.stringify(ms)) : undefined);
       this.bumpModelVersion();
     },
@@ -4265,6 +4455,30 @@ function createModelStore() {
       return true;
     },
 
+    /**
+     * A spectrum of the project's own (`ProUserSpectra.svelte`), under a number never given before:
+     * as the highest in use plus one, a spectrum deleted and a new one added had the same number,
+     * and a case still on the old one solved on the new one's table without a word.
+     */
+    addUserSpectrum(make: (id: number) => import('../engine/spectral-case').UserSpectrum): number {
+      const id = Math.max(nextId.spectrum, firstUnusedSpectrumId());
+      nextId.spectrum = id + 1;
+      this.setDynamics({ ...model.dynamics, spectra: [...(model.dynamics?.spectra ?? []), { ...make(id), id }] });
+      return id;
+    },
+
+    /** The spectral cases on a spectrum. */
+    casesOnSpectrum(id: number): LoadCase[] {
+      return model.loadCases.filter((c) => c.spectral?.source.kind === 'user' && c.spectral.source.spectrumId === id);
+    },
+
+    /** Remove a spectrum; false, and nothing removed, while a spectral case is on it (`casesOnSpectrum`). */
+    removeUserSpectrum(id: number): boolean {
+      if (this.casesOnSpectrum(id).length > 0) return false;
+      this.setDynamics({ ...model.dynamics, spectra: (model.dynamics?.spectra ?? []).filter((s) => s.id !== id) });
+      return true;
+    },
+
     updateLoadCaseId(loadId: number, caseId: number): void {
       // A definition's load is in the definition's case (`removeLoad`).
       if (isDefinedLoadData(model.loads.find(l => l.data.id === loadId))) return;
@@ -4327,6 +4541,20 @@ function createModelStore() {
 
     /** Async 3D solve via the worker pool (UI stays responsive). Same result
      *  shape and string-error semantics as solve3D(). */
+    /** The engine input of a direct single solve of the model, without solving (`linearSolveInput3D`). */
+    singleSolveInput3D(includeSelfWeight = false, leftHand = false, isPro = false) {
+      if (this.hasSlidingJoints()) return null;
+      return linearSolveInput3D(
+        singleSolveModel({ nodes: model.nodes, elements: model.elements, supports: model.supports,
+          loads: model.loads, materials: model.materials, sections: model.sections, analysis: analysisFor(isPro, includeSelfWeight), groups: model.groups,
+          plates: isPro ? model.plates : undefined,
+          quads: isPro ? model.quads : undefined,
+          constraints: isPro ? model.constraints : undefined,
+          connectors: isPro ? model.connectors : undefined }, model.loadCases),
+        includeSelfWeight, leftHand,
+      );
+    },
+
     async solve3DAsync(includeSelfWeight = false, leftHand = false, isPro = false): Promise<AnalysisResults3D | string | null> {
       if (this.hasSlidingJoints()) return t('advanced.sliding3dUnsupported');
       return validateAndSolve3DAsync(
@@ -4344,15 +4572,24 @@ function createModelStore() {
      *  Shell elements are only included when isPro=true. */
     solveCombinations3D(includeSelfWeight = false, leftHand = false, isPro = false, spectral?: Map<number, AnalysisResults3D>): { perCase: Map<number, AnalysisResults3D>; perCombo: Map<number, AnalysisResults3D>; envelope: FullEnvelope3D; unstable?: number[] } | string | null {
       if (this.hasSlidingJoints()) return t('advanced.sliding3dUnsupported');
-      const r = solveCombinations3DFn(
-        { nodes: model.nodes, elements: model.elements, supports: model.supports,
-          loads: model.loads, materials: model.materials, sections: model.sections, analysis: analysisFor(isPro, includeSelfWeight), groups: model.groups,
-          plates: isPro ? model.plates : undefined,
-          quads: isPro ? model.quads : undefined,
-          constraints: isPro ? model.constraints : undefined,
-          connectors: isPro ? model.connectors : undefined },
-        model.loadCases, model.combinations, includeSelfWeight, leftHand, spectral,
-      );
+      // Shell recombination is the engine's kernel: its absence or refusal is the solve's
+      // error message, as every other solve failure is, never an exception past the button.
+      let r;
+      try {
+        r = solveCombinations3DFn(
+          { nodes: model.nodes, elements: model.elements, supports: model.supports,
+            loads: model.loads, materials: model.materials, sections: model.sections, analysis: analysisFor(isPro, includeSelfWeight), groups: model.groups,
+            plates: isPro ? model.plates : undefined,
+            quads: isPro ? model.quads : undefined,
+            constraints: isPro ? model.constraints : undefined,
+            connectors: isPro ? model.connectors : undefined },
+          model.loadCases, model.combinations, includeSelfWeight, leftHand, spectral,
+        );
+      } catch (err) {
+        const m = engineFailureMessage(err);
+        if (!m) throw err;
+        return tp(m.key, m.params ?? {});
+      }
       // The active list is a PRO definition; Basic keeps enveloping every combination.
       return isPro ? scopeBundle3D(r, model.resultScopes, model.combinations) : r;
     },
@@ -4360,15 +4597,24 @@ function createModelStore() {
     /** Async parallel version of solveCombinations3D — uses Web Workers for parallel solving. */
     async solveCombinations3DParallel(includeSelfWeight = false, leftHand = false, isPro = false, spectral?: Map<number, AnalysisResults3D>): Promise<{ perCase: Map<number, AnalysisResults3D>; perCombo: Map<number, AnalysisResults3D>; envelope: FullEnvelope3D; unstable?: number[] } | string | null> {
       if (this.hasSlidingJoints()) return t('advanced.sliding3dUnsupported');
-      const r = await solveCombinations3DParallelFn(
-        { nodes: model.nodes, elements: model.elements, supports: model.supports,
-          loads: model.loads, materials: model.materials, sections: model.sections, analysis: analysisFor(isPro, includeSelfWeight), groups: model.groups,
-          plates: isPro ? model.plates : undefined,
-          quads: isPro ? model.quads : undefined,
-          constraints: isPro ? model.constraints : undefined,
-          connectors: isPro ? model.connectors : undefined },
-        model.loadCases, model.combinations, includeSelfWeight, leftHand, spectral,
-      );
+      // Shell recombination is the engine's kernel: its absence or refusal is the solve's
+      // error message, as every other solve failure is, never an exception past the button.
+      let r;
+      try {
+        r = await solveCombinations3DParallelFn(
+          { nodes: model.nodes, elements: model.elements, supports: model.supports,
+            loads: model.loads, materials: model.materials, sections: model.sections, analysis: analysisFor(isPro, includeSelfWeight), groups: model.groups,
+            plates: isPro ? model.plates : undefined,
+            quads: isPro ? model.quads : undefined,
+            constraints: isPro ? model.constraints : undefined,
+            connectors: isPro ? model.connectors : undefined },
+          model.loadCases, model.combinations, includeSelfWeight, leftHand, spectral,
+        );
+      } catch (err) {
+        const m = engineFailureMessage(err);
+        if (!m) throw err;
+        return tp(m.key, m.params ?? {});
+      }
       // The active list is a PRO definition; Basic keeps enveloping every combination.
       return isPro ? scopeBundle3D(r, model.resultScopes, model.combinations) : r;
     },
@@ -4427,19 +4673,23 @@ function createModelStore() {
       };
     },
 
-    async loadExample(name: string): Promise<void> {
-      const loader = getFixture(name);
+    async loadExample(name: string, fixture?: () => Promise<unknown>, opts: { keepCombinations?: boolean } = {}): Promise<void> {
+      const loader = fixture ?? getFixture(name);
       if (!loader) return;
 
       if (!_undoBatching) _pushUndo?.();
       _undoBatching = true;
-      this.clear();
 
+      // Fetched before the model is cleared, so no effect ever sees it empty mid-load. Cleared
+      // first, the PRO panel's self-weight effect ran during this await, found an empty model
+      // without a rule and stated `selfWeight: []` for it, and the check below then took that
+      // [] for the example's own rule: the example solved without its self-weight.
       const json = await loader();
+      this.clear();
       const api = this.fixtureApi();
 
       this.bulkMutate(() => {
-        loadFixture(json as any, api as any);
+        loadFixture(json as any, api as any, opts);
       });
 
       // Settle canonical state once the whole model is in place. Sections the
@@ -4527,6 +4777,11 @@ function createModelStore() {
       for (const elem of model.elements.values()) {
         if (elem.materialId === id) return false;
       }
+      // Plates, quads and the physical plates they mesh need it too: removed, the solve finds no
+      // stiffness for them.
+      for (const p of model.plates.values()) if (p.materialId === id) return false;
+      for (const q of model.quads.values()) if (q.materialId === id) return false;
+      for (const g of model.groups.values()) if ((g.data as { surface?: { materialId?: number } } | undefined)?.surface?.materialId === id) return false;
       // A drawn section made of it, or expressed in it, needs it too: removed, every solve with
       // self-weight failed on a density nobody could find.
       for (const sec of model.sections.values()) {

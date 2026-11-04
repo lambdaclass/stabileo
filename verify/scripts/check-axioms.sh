@@ -97,6 +97,9 @@ theorems=(
 	Certify.certified_error_bound
 	Certify.posDef_of_interval_cholesky
 	Certify.certified_error_bound_gram
+	Certify.end_to_end_bound
+	Certify.virtual_work
+	Certify.vnorm_mulVec_le_of_rows
 	Certify.coercive_of_gram
 	Certify.Bundle.check_sound
 	Certify.Bundle.check_sound_coercive

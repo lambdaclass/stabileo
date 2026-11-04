@@ -341,7 +341,7 @@ pub struct InclinedDofs {
 /// `inclinedRoller` with an angle.
 pub fn inclined_dofs_2d(input: &SolverInput, dof_num: &DofNumbering) -> Vec<InclinedDofs> {
     let mut out = Vec::new();
-    for sup in input.supports.values() {
+    for sup in crate::ordered::values(&input.supports) {
         if sup.support_type != "inclinedRoller" { continue; }
         let Some(theta) = sup.angle else { continue; };
         if let (Some(&d0), Some(&d1)) = (dof_num.map.get(&(sup.node_id, 0)), dof_num.map.get(&(sup.node_id, 1))) {
@@ -361,7 +361,7 @@ pub fn inclined_dofs_2d(input: &SolverInput, dof_num: &DofNumbering) -> Vec<Incl
 /// `isInclined` support with a non-zero normal.
 pub fn inclined_dofs_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> Vec<InclinedDofs> {
     let mut out = Vec::new();
-    for sup in input.supports.values() {
+    for sup in crate::ordered::values(&input.supports) {
         if !sup.is_inclined.unwrap_or(false) { continue; }
         let (Some(nx), Some(ny), Some(nz)) = (sup.normal_x, sup.normal_y, sup.normal_z) else { continue; };
         if (nx * nx + ny * ny + nz * nz).sqrt() <= 1e-12 { continue; }
@@ -411,6 +411,13 @@ pub fn validate_constraint_refs(
             Constraint::Diaphragm(dia) => {
                 if !node_ids.contains(&dia.master_node) {
                     return Err(format!("Constraint {}: Diaphragm master node {} does not exist", i, dia.master_node));
+                }
+                // Any other name used to fall back to "XY" silently.
+                // Same names `diaphragm_dofs` accepts (case-insensitive; empty = XY).
+                if !matches!(dia.plane.to_ascii_uppercase().as_str(), "XY" | "XZ" | "YZ" | "") {
+                    return Err(format!(
+                        "Constraint {}: Diaphragm plane '{}' is not one of XY, XZ, YZ", i, dia.plane
+                    ));
                 }
                 for &slave in &dia.slave_nodes {
                     if !node_ids.contains(&slave) {
@@ -494,8 +501,10 @@ pub fn validate_constraints(
     let mut dep_count: HashMap<usize, Vec<usize>> = HashMap::new(); // global_dof -> [constraint indices]
     let mut master_of: HashMap<usize, HashSet<usize>> = HashMap::new(); // dep_dof -> set of master DOFs
 
+    let node_by_id_2d: Option<HashMap<usize, &SolverNode>> = nodes_2d.map(|nodes| nodes.values().map(|n| (n.id, n)).collect());
+    let node_by_id_3d: Option<HashMap<usize, &SolverNode3D>> = nodes_3d.map(|nodes| nodes.values().map(|n| (n.id, n)).collect());
     for (ci, constraint) in constraints.iter().enumerate() {
-        let slave_dofs = collect_dependent_dofs(constraint, dof_num, nodes_2d, nodes_3d);
+        let slave_dofs = collect_dependent_dofs(constraint, dof_num, node_by_id_2d.as_ref(), node_by_id_3d.as_ref());
         for (slave_global, master_globals) in &slave_dofs {
             dep_count.entry(*slave_global).or_default().push(ci);
             master_of.entry(*slave_global).or_default().extend(master_globals);
@@ -503,7 +512,7 @@ pub fn validate_constraints(
     }
 
     // 1. Conflicting constraints: same DOF constrained by multiple constraints
-    for (&dof, indices) in &dep_count {
+    for (&dof, indices) in crate::ordered::entries(&dep_count) {
         if indices.len() > 1 {
             let node_id = reverse_map.get(&dof).map(|&(n, _)| n).unwrap_or(0);
             diags.push(StructuredDiagnostic::global(
@@ -620,19 +629,60 @@ fn mpc_dependent_term(mpc: &LinearMPCConstraint, dof_num: &DofNumbering) -> Opti
     largest(true).or_else(|| largest(false))
 }
 
+/// The DOFs a diaphragm couples, by the model's dimension and its plane.
+///
+/// `d0`, `d1`: the in-plane translations; `dr`: the rotation about the
+/// plane's normal, `None` when the model has no rotational DOFs (all-truss).
+/// A rigid in-plane body moves as `u0 = u0_m + c0·θ`, `u1 = u1_m + c1·θ` with
+/// `(c0, c1)` from the offset `r` of the slave (`ω × r` about the normal):
+/// XY (θz): (−dy, +dx); YZ (θx): (−dz, +dy); XZ (θy): (+dz, −dx). In 2D the
+/// plane is the model's own (x, z, θ) and the offset is (dx, dz).
+struct DiaphragmDofs {
+    d0: usize,
+    d1: usize,
+    dr: Option<usize>,
+}
+
+fn diaphragm_dofs(plane: &str, is_3d: bool, dofs_per_node: usize) -> Result<DiaphragmDofs, String> {
+    let plane = plane.to_ascii_uppercase();
+    if is_3d {
+        let rot = dofs_per_node >= 6;
+        match plane.as_str() {
+            "XY" | "" => Ok(DiaphragmDofs { d0: 0, d1: 1, dr: rot.then_some(5) }),
+            "YZ" => Ok(DiaphragmDofs { d0: 1, d1: 2, dr: rot.then_some(3) }),
+            "XZ" => Ok(DiaphragmDofs { d0: 0, d1: 2, dr: rot.then_some(4) }),
+            other => Err(format!("Diaphragm plane \"{other}\": expected XY, XZ or YZ")),
+        }
+    } else {
+        // A 2D model lies in its own plane (x, z); "XY" is the historical name for it.
+        match plane.as_str() {
+            "XY" | "XZ" | "" => Ok(DiaphragmDofs { d0: 0, d1: 1, dr: (dofs_per_node >= 3).then_some(2) }),
+            other => Err(format!("Diaphragm plane \"{other}\" is not the plane of a 2D model (XZ)")),
+        }
+    }
+}
+
+/// `(c0, c1)`: the coefficients of the master's in-plane rotation in the
+/// slave's two in-plane translations (see `DiaphragmDofs`).
+fn diaphragm_lever(plane: &str, is_3d: bool, (dx, dy, dz): (f64, f64, f64)) -> (f64, f64) {
+    if !is_3d {
+        // 2D offset is (dx, dz, 0): get_node_offset puts dz second.
+        return (-dy, dx);
+    }
+    match plane.to_ascii_uppercase().as_str() {
+        "YZ" => (-dz, dy),
+        "XZ" => (dz, -dx),
+        _ => (-dy, dx),
+    }
+}
+
 /// Collect dependent DOFs from a single constraint, returning (slave_global, [master_globals]).
 fn collect_dependent_dofs(
     constraint: &Constraint,
     dof_num: &DofNumbering,
-    nodes_2d: Option<&HashMap<String, SolverNode>>,
-    nodes_3d: Option<&HashMap<String, SolverNode3D>>,
+    node_by_id_2d: Option<&HashMap<usize, &SolverNode>>,
+    node_by_id_3d: Option<&HashMap<usize, &SolverNode3D>>,
 ) -> Vec<(usize, Vec<usize>)> {
-    let node_by_id_2d: Option<HashMap<usize, &SolverNode>> = nodes_2d.map(|nodes| {
-        nodes.values().map(|n| (n.id, n)).collect()
-    });
-    let node_by_id_3d: Option<HashMap<usize, &SolverNode3D>> = nodes_3d.map(|nodes| {
-        nodes.values().map(|n| (n.id, n)).collect()
-    });
     let mut result = Vec::new();
 
     match constraint {
@@ -648,8 +698,9 @@ fn collect_dependent_dofs(
                     if let Some(&m) = dof_num.map.get(&(rl.master_node, dof)) {
                         masters.push(m);
                     }
-                    // Rotation coupling DOFs
-                    if dof_num.dofs_per_node <= 3 {
+                    // Rotation coupling DOFs (2D: θ = DOF 2; 3D: DOFs 3..5,
+                    // absent in a translation-only model)
+                    if node_by_id_2d.is_some() {
                         if let Some(&rz) = dof_num.map.get(&(rl.master_node, 2)) {
                             masters.push(rz);
                         }
@@ -665,12 +716,9 @@ fn collect_dependent_dofs(
             }
         }
         Constraint::Diaphragm(dia) => {
-            let is_3d = dof_num.dofs_per_node > 3;
-            let (d0, d1, dr) = match dia.plane.as_str() {
-                "XZ" => (0usize, 2usize, 4usize),  // ux, uz, ry
-                "YZ" => (1, 2, 3),                   // uy, uz, rx
-                _ if is_3d => (0, 1, 5),             // 3D XY: ux, uy, rz
-                _ => (0, 1, 2),                      // 2D XY: ux, uz, ry
+            // An unusable plane is refused by `build_constraint_transform`.
+            let Ok(DiaphragmDofs { d0, d1, dr }) = diaphragm_dofs(&dia.plane, node_by_id_3d.is_some(), dof_num.dofs_per_node) else {
+                return result;
             };
             for &slave_id in &dia.slave_nodes {
                 for &dof in &[d0, d1] {
@@ -679,10 +727,20 @@ fn collect_dependent_dofs(
                         if let Some(&m) = dof_num.map.get(&(dia.master_node, dof)) {
                             masters.push(m);
                         }
-                        if let Some(&m) = dof_num.map.get(&(dia.master_node, dr)) {
+                        if let Some(&m) = dr.and_then(|r| dof_num.map.get(&(dia.master_node, r))) {
                             masters.push(m);
                         }
                         result.push((s, masters));
+                    }
+                }
+                // The slave's in-plane rotation is the master's: a rigid
+                // diaphragm rotates as one body (see `build_constraint_transform`).
+                if let Some(r) = dr {
+                    if let (Some(&s), Some(&m)) = (
+                        dof_num.map.get(&(slave_id, r)),
+                        dof_num.map.get(&(dia.master_node, r)),
+                    ) {
+                        result.push((s, vec![m]));
                     }
                 }
             }
@@ -698,7 +756,8 @@ fn collect_dependent_dofs(
         }
         Constraint::EccentricConnection(ec) => {
             let dpn = dof_num.dofs_per_node;
-            let all_dofs: Vec<usize> = (0..dpn.min(if dpn <= 3 { 3 } else { 6 })).collect();
+            let is_2d = node_by_id_2d.is_some();
+            let all_dofs: Vec<usize> = (0..dpn.min(if is_2d { 3 } else { 6 })).collect();
             for &dof in &all_dofs {
                 if ec.releases.get(dof).copied().unwrap_or(false) { continue; }
                 if let Some(&slave_global) = dof_num.map.get(&(ec.slave_node, dof)) {
@@ -706,7 +765,7 @@ fn collect_dependent_dofs(
                     if let Some(&m) = dof_num.map.get(&(ec.master_node, dof)) {
                         masters.push(m);
                     }
-                    if dpn > 3 {
+                    if !is_2d {
                         for rot_dof in 3..6 {
                             if let Some(&rd) = dof_num.map.get(&(ec.master_node, rot_dof)) {
                                 masters.push(rd);
@@ -787,7 +846,11 @@ pub fn build_constraint_transform(
                         // 3D: u_slave = u_master + ω_master × r
                         let mut terms = Vec::new();
 
-                        if dof_num.dofs_per_node <= 3 {
+                        // Branch on the model's dimension, not on DOFs per
+                        // node: a 3D model of trusses alone has 3 DOFs per
+                        // node, and the 2D branch read its DOF 2 (uz) as the
+                        // master rotation.
+                        if node_by_id_2d.is_some() {
                             // 2D rigid link
                             if let Some(&master_dof) = dof_num.map.get(&(rl.master_node, dof)) {
                                 terms.push((master_dof, 1.0));
@@ -859,58 +922,62 @@ pub fn build_constraint_transform(
             }
 
             Constraint::Diaphragm(dia) => {
-                // Diaphragm: in-plane rigid body motion
-                // All slave nodes share master's in-plane translation + rotation
-                let is_3d = dof_num.dofs_per_node > 3;
-                let (d0, d1, dr) = match dia.plane.as_str() {
-                    "XZ" => (0usize, 2usize, 4usize), // ux, uz, ry
-                    "YZ" => (1, 2, 3),                  // uy, uz, rx
-                    _ if is_3d => (0, 1, 5),            // 3D XY: ux, uy, rz
-                    _ => (0, 1, 2),                      // 2D XY: ux, uz, ry
+                // Diaphragm: in-plane rigid body motion. Every slave node
+                // moves with the master's in-plane translation and rotation,
+                // and its own in-plane rotation equals the master's: a rigid
+                // diaphragm rotates as one body. SAP2000/ETABS diaphragms and
+                // OpenSees `rigidDiaphragm` tie it; leaving it free let each
+                // slave joint rotate in plane on its own, so a column under a
+                // rigid floor was restrained against twist by its own
+                // stiffness only (too soft in torsion, wrong end moments).
+                let is_3d = node_by_id_3d.is_some();
+                let DiaphragmDofs { d0, d1, dr } = diaphragm_dofs(&dia.plane, is_3d, dof_num.dofs_per_node)?;
+                // Without rotational DOFs (an all-truss model) the floor's
+                // in-plane rotation has nowhere to live: tying the slaves'
+                // translations to the master's alone would forbid it, and
+                // borrowing another DOF for it (as the index arithmetic
+                // once did, with uz) ties the wrong motion. Refused.
+                let Some(dr) = dr else {
+                    return Err(format!(
+                        "Diaphragm with master node {}: the model has no rotational DOFs (all members \
+                         are trusses), so the floor's in-plane rotation cannot be represented; \
+                         use frame members or equal-DOF constraints",
+                        dia.master_node
+                    ));
                 };
 
                 for &slave_id in &dia.slave_nodes {
-                    let (dx, dy, dz) = get_node_offset(
+                    let offset = get_node_offset(
                         dia.master_node, slave_id,
                         node_by_id_2d.as_ref(), node_by_id_3d.as_ref(),
                     );
-                    // Offset in the diaphragm plane
-                    let (off_0, off_1) = match dia.plane.as_str() {
-                        "XZ" => (dx, dz),
-                        "YZ" => (dy, dz),
-                        _ => (dx, dy),
-                    };
+                    let (c0, c1) = diaphragm_lever(&dia.plane, is_3d, offset);
 
-                    // u0_slave = u0_master - off_1 * θ_master
-                    if let Some(&s_dof) = dof_num.map.get(&(slave_id, d0)) {
-                        let mut terms = Vec::new();
-                        if let Some(&m_dof) = dof_num.map.get(&(dia.master_node, d0)) {
-                            terms.push((m_dof, 1.0));
-                        }
-                        if let Some(&m_r) = dof_num.map.get(&(dia.master_node, dr)) {
-                            if off_1.abs() > 1e-15 {
-                                terms.push((m_r, -off_1));
+                    // u0_slave = u0_master + c0 · θ_master
+                    // u1_slave = u1_master + c1 · θ_master
+                    for (d, c) in [(d0, c0), (d1, c1)] {
+                        if let Some(&s_dof) = dof_num.map.get(&(slave_id, d)) {
+                            let mut terms = Vec::new();
+                            if let Some(&m_dof) = dof_num.map.get(&(dia.master_node, d)) {
+                                terms.push((m_dof, 1.0));
                             }
-                        }
-                        if !terms.is_empty() {
-                            eqs.push((s_dof, terms));
+                            if let Some(&m_r) = dof_num.map.get(&(dia.master_node, dr)) {
+                                if c.abs() > 1e-15 {
+                                    terms.push((m_r, c));
+                                }
+                            }
+                            if !terms.is_empty() {
+                                eqs.push((s_dof, terms));
+                            }
                         }
                     }
 
-                    // u1_slave = u1_master + off_0 * θ_master
-                    if let Some(&s_dof) = dof_num.map.get(&(slave_id, d1)) {
-                        let mut terms = Vec::new();
-                        if let Some(&m_dof) = dof_num.map.get(&(dia.master_node, d1)) {
-                            terms.push((m_dof, 1.0));
-                        }
-                        if let Some(&m_r) = dof_num.map.get(&(dia.master_node, dr)) {
-                            if off_0.abs() > 1e-15 {
-                                terms.push((m_r, off_0));
-                            }
-                        }
-                        if !terms.is_empty() {
-                            eqs.push((s_dof, terms));
-                        }
+                    // θ_slave = θ_master (in-plane rotation)
+                    if let (Some(&s_r), Some(&m_r)) = (
+                        dof_num.map.get(&(slave_id, dr)),
+                        dof_num.map.get(&(dia.master_node, dr)),
+                    ) {
+                        eqs.push((s_r, vec![(m_r, 1.0)]));
                     }
                 }
             }
@@ -929,8 +996,9 @@ pub fn build_constraint_transform(
                 // Like RigidLink but with explicit offset and optional releases
                 let (dx, dy, dz) = (ec.offset_x, ec.offset_y, ec.offset_z);
                 let dpn = dof_num.dofs_per_node;
+                let is_2d = node_by_id_2d.is_some();
 
-                let all_dofs: Vec<usize> = (0..dpn.min(if dpn <= 3 { 3 } else { 6 })).collect();
+                let all_dofs: Vec<usize> = (0..dpn.min(if is_2d { 3 } else { 6 })).collect();
                 for &dof in &all_dofs {
                     // Check if this DOF is released
                     let released = ec.releases.get(dof).copied().unwrap_or(false);
@@ -939,7 +1007,7 @@ pub fn build_constraint_transform(
                     if let Some(&slave_global) = dof_num.map.get(&(ec.slave_node, dof)) {
                         let mut terms = Vec::new();
 
-                        if dpn <= 3 {
+                        if is_2d {
                             // 2D eccentric connection
                             if let Some(&master_dof) = dof_num.map.get(&(ec.master_node, dof)) {
                                 terms.push((master_dof, 1.0));
@@ -1382,6 +1450,7 @@ fn forces_to_global(raw: &[(usize, f64)], inclined: &[InclinedDofs]) -> Vec<(usi
 fn map_dof_forces_to_constraint_forces(
     raw: &[(usize, f64)],
     dof_num: &DofNumbering,
+    dimensions: usize,
 ) -> Vec<ConstraintForce> {
     // Build reverse map: global_dof → (node_id, local_dof)
     let mut reverse: HashMap<usize, (usize, usize)> = HashMap::new();
@@ -1394,7 +1463,7 @@ fn map_dof_forces_to_constraint_forces(
 
     raw.iter().filter_map(|&(gdof, force)| {
         reverse.get(&gdof).map(|&(node_id, local_dof)| {
-            let dof_name = if dof_num.dofs_per_node <= 3 {
+            let dof_name = if dimensions == 2 {
                 dof_names_2d.get(local_dof).unwrap_or(&"?")
             } else {
                 dof_names_3d.get(local_dof).unwrap_or(&"?")
@@ -1409,7 +1478,15 @@ fn map_dof_forces_to_constraint_forces(
 }
 
 /// Solve a 2D constrained analysis.
+/// Constrained 2D solve, with the known-issue warnings that apply attached (once, also when
+/// reached through `linear::solve_2d`).
 pub fn solve_constrained_2d(input: &ConstrainedInput) -> Result<AnalysisResults, String> {
+    let mut r = solve_constrained_2d_inner(input)?;
+    crate::known_issues::attach(&mut r.structured_diagnostics, crate::known_issues::for_2d(&input.solver, crate::known_issues::Analysis::Linear));
+    Ok(r)
+}
+
+fn solve_constrained_2d_inner(input: &ConstrainedInput) -> Result<AnalysisResults, String> {
     if input.constraints.is_empty() {
         return linear::solve_2d(&input.solver);
     }
@@ -1417,7 +1494,7 @@ pub fn solve_constrained_2d(input: &ConstrainedInput) -> Result<AnalysisResults,
     linear::validate_input_2d(&input.solver)?;
 
     // Constraint referential integrity
-    let node_ids: HashSet<usize> = input.solver.nodes.values().map(|n| n.id).collect();
+    let node_ids: HashSet<usize> = crate::ordered::values(&input.solver.nodes).map(|n| n.id).collect();
     validate_constraint_refs(&input.constraints, &node_ids, 3)?;
 
     let dof_num = DofNumbering::build_2d(&input.solver);
@@ -1455,7 +1532,7 @@ pub fn solve_constrained_2d_dense(
 
     // Build prescribed displacements
     let mut u_r = vec![0.0; nr];
-    for sup in input.solver.supports.values() {
+    for sup in crate::ordered::values(&input.solver.supports) {
         if sup.support_type == "spring" { continue; }
 
         if sup.support_type == "inclinedRoller" {
@@ -1549,7 +1626,7 @@ pub fn solve_constrained_2d_dense(
     }
 
     // Extract the free part of C (rows for free DOFs only), sparse.
-    let fcs = FreeConstraintSystem::from_transform(&ct, nf).with_inclined(inclined);
+    let fcs = FreeConstraintSystem::from_transform(&ct, nf, 2).with_inclined(inclined);
     let n_free_indep = fcs.n_free_indep;
 
     // Particular solution: free slaves of restrained (prescribed) masters must
@@ -1604,7 +1681,7 @@ pub fn solve_constrained_2d_dense(
                 definiteness = Some(super::definiteness::not_positive_definite(
                     "constrained CᵀKC: Cholesky failed; solved by dense LU",
                 ));
-                let mut k_work = k_reduced;
+                let mut k_work = k_reduced.clone();
                 let mut f_work = f_reduced.clone();
                 lu_solve(&mut k_work, &mut f_work, n_free_indep)
                     .ok_or("Singular stiffness in constrained system")?
@@ -1706,14 +1783,15 @@ pub fn solve_constrained_2d_dense(
     // taken off it, so the solved system is K_ff·(u_f − u_p) = f_f: without the
     // correction the residual counted K_ff·u_p twice and a correct solve tied to
     // a settling support reported ResidualHigh.
-    let rel_residual = {
+    let (rel_residual, checked_residual) = {
         let mut r_full: Vec<f64> = (0..nf)
             .map(|i| (0..nf).map(|j| k_ff[i * nf + j] * u_f[j]).sum::<f64>() - f_f[i])
             .collect();
         if let Some(k_ff_up) = &k_ff_up_opt {
             for (r, ku) in r_full.iter_mut().zip(k_ff_up) { *r -= ku; }
         }
-        reduced_relative_residual(&fcs, &r_full, &f_reduced)
+        (reduced_relative_residual(&fcs, &r_full, &f_reduced),
+         super::self_checks::residual_energy(&fcs.reduce_vector(&r_full), &f_reduced, &(0..n_free_indep).map(|i| k_reduced[i*n_free_indep+i]).collect::<Vec<_>>()))
     };
 
     let equilibrium = linear::compute_equilibrium_summary_2d(&asm.f, &reactions_vec, &dof_num, rel_residual, &asm.inclined_transforms_2d);
@@ -1748,8 +1826,9 @@ pub fn solve_constrained_2d_dense(
     });
 
     constraint_diags.extend(definiteness);
+    constraint_diags.push(checked_residual?);
 
-    Ok(AnalysisResults {
+    let mut result = AnalysisResults {
         displacements,
         reactions,
         element_forces,
@@ -1759,7 +1838,10 @@ pub fn solve_constrained_2d_dense(
         structured_diagnostics: constraint_diags,
         equilibrium: Some(equilibrium),
         result_summary: None, solver_run_meta: None,
-    })
+    };
+    let resultant = self_check_constraint_resultant(&raw_forces, &ct, &fcs, &dof_num, 2);
+    super::self_checks::static_2d(&mut result, &resultant)?;
+    Ok(result)
 }
 
 /// The 2D constrained solve over sparse matrices, for nf >= SPARSE_THRESHOLD.
@@ -1785,7 +1867,7 @@ fn solve_constrained_2d_sparse(
 
     // Prescribed displacements (same construction as the dense path).
     let mut u_r = vec![0.0; nr];
-    for sup in input.solver.supports.values() {
+    for sup in crate::ordered::values(&input.solver.supports) {
         if sup.support_type == "spring" { continue; }
         if sup.support_type == "inclinedRoller" {
             if let Some(theta) = sup.angle {
@@ -1850,7 +1932,7 @@ fn solve_constrained_2d_sparse(
         }
     }
 
-    let fcs = FreeConstraintSystem::from_transform(&ct, nf).with_inclined(inclined);
+    let fcs = FreeConstraintSystem::from_transform(&ct, nf, 2).with_inclined(inclined);
     let n_free_indep = fcs.n_free_indep;
 
     // Particular solution: free slaves of restrained (prescribed) masters.
@@ -1901,13 +1983,14 @@ fn solve_constrained_2d_sparse(
     super::linear::assert_finite_3d(&u_f)?;
 
     // Residual of the system that was solved: ||Cᵀ(K_ff·u_f − f_f)|| / ||Cᵀf_f||.
-    let rel_residual = {
+    let (rel_residual, checked_residual) = {
         let ku = k_ff.sym_mat_vec(&u_f);
         let mut r_full: Vec<f64> = (0..nf).map(|i| ku[i] - f_f[i]).collect();
         if let Some(k_ff_up) = &k_ff_up_opt {
             for (r, ku) in r_full.iter_mut().zip(k_ff_up) { *r -= ku; }
         }
-        reduced_relative_residual(&fcs, &r_full, &f_reduced)
+        (reduced_relative_residual(&fcs, &r_full, &f_reduced),
+         super::self_checks::residual_energy(&fcs.reduce_vector(&r_full), &f_reduced, &k_reduced.diagonal()))
     };
 
     // A factorization that "succeeds" on a mechanism is not a solve: the zero
@@ -1994,8 +2077,9 @@ fn solve_constrained_2d_sparse(
     });
 
     constraint_diags.extend(definiteness);
+    constraint_diags.push(checked_residual?);
 
-    Ok(Some(AnalysisResults {
+    let mut result = AnalysisResults {
         displacements,
         reactions,
         element_forces,
@@ -2006,11 +2090,21 @@ fn solve_constrained_2d_sparse(
         equilibrium: Some(equilibrium),
         result_summary: None,
         solver_run_meta: None,
-    }))
+    };
+    let resultant = self_check_constraint_resultant(&raw_forces, &ct, &fcs, dof_num, 2);
+    super::self_checks::static_2d(&mut result, &resultant)?;
+    Ok(Some(result))
 }
 
 /// Solve a 3D constrained analysis.
+/// Constrained 3D solve, with the known-issue warnings that apply attached (once).
 pub fn solve_constrained_3d(input: &ConstrainedInput3D) -> Result<AnalysisResults3D, String> {
+    let mut r = solve_constrained_3d_inner(input)?;
+    crate::known_issues::attach(&mut r.structured_diagnostics, crate::known_issues::for_3d(&input.solver, crate::known_issues::Analysis::Linear));
+    Ok(r)
+}
+
+fn solve_constrained_3d_inner(input: &ConstrainedInput3D) -> Result<AnalysisResults3D, String> {
     if input.constraints.is_empty() {
         return linear::solve_3d(&input.solver);
     }
@@ -2024,7 +2118,7 @@ pub fn solve_constrained_3d(input: &ConstrainedInput3D) -> Result<AnalysisResult
     )?;
 
     // Constraint referential integrity
-    let node_ids: HashSet<usize> = input.solver.nodes.values().map(|n| n.id).collect();
+    let node_ids: HashSet<usize> = crate::ordered::values(&input.solver.nodes).map(|n| n.id).collect();
     validate_constraint_refs(&input.constraints, &node_ids, 6)?;
 
     let dof_num = DofNumbering::build_3d(&input.solver);
@@ -2053,7 +2147,7 @@ pub fn solve_constrained_3d(input: &ConstrainedInput3D) -> Result<AnalysisResult
 
     // Build prescribed displacements
     let mut u_r = vec![0.0; nr];
-    for sup in input.solver.supports.values() {
+    for sup in crate::ordered::values(&input.solver.supports) {
         // Inclined supports: prescribed translations are given in GLOBAL
         // coords; the restrained inclined DOF (local_dof 0) is the normal
         // direction in the rotated frame. Project onto the normal —
@@ -2134,7 +2228,7 @@ pub fn solve_constrained_3d(input: &ConstrainedInput3D) -> Result<AnalysisResult
     }
 
     // Free part of C (rows 0..nf, free-independent columns), sparse.
-    let fcs = FreeConstraintSystem::from_transform(&ct, nf).with_inclined(inclined);
+    let fcs = FreeConstraintSystem::from_transform(&ct, nf, 3).with_inclined(inclined);
     let n_free_indep = fcs.n_free_indep;
 
     // Particular solution: free slaves of restrained (prescribed) masters must
@@ -2273,13 +2367,14 @@ pub fn solve_constrained_3d(input: &ConstrainedInput3D) -> Result<AnalysisResult
     // Residual of the system that was solved — see the 2D solver: unreduced,
     // it measured the constraint forces (4.4 on a correct offset cantilever).
     // Settlements as in the 2D solver: the solved system is K_ff·(u_f − u_p) = f_f.
-    let rel_residual = {
+    let (rel_residual, checked_residual) = {
         let ku = k_ff.sym_mat_vec(&u_f);
         let mut r_full: Vec<f64> = (0..nf).map(|i| ku[i] - f_f[i]).collect();
         if let Some(k_ff_up) = &k_ff_up_opt {
             for (r, ku) in r_full.iter_mut().zip(k_ff_up) { *r -= ku; }
         }
-        reduced_relative_residual(&fcs, &r_full, &f_reduced)
+        (reduced_relative_residual(&fcs, &r_full, &f_reduced),
+         super::self_checks::residual_energy(&fcs.reduce_vector(&r_full), &f_reduced, &k_reduced.diagonal()))
     };
 
     let equilibrium = linear::compute_equilibrium_summary_3d(&sasm.f, &reactions_vec, &dof_num, rel_residual, &sasm.inclined_transforms);
@@ -2319,8 +2414,9 @@ pub fn solve_constrained_3d(input: &ConstrainedInput3D) -> Result<AnalysisResult
     });
 
     constraint_diags.extend(definiteness);
+    constraint_diags.push(checked_residual?);
 
-    Ok(AnalysisResults3D {
+    let mut result = AnalysisResults3D {
         displacements,
         reactions,
         element_forces,
@@ -2338,7 +2434,10 @@ pub fn solve_constrained_3d(input: &ConstrainedInput3D) -> Result<AnalysisResult
         equilibrium: Some(equilibrium),
         timings: None,
         result_summary: None, solver_run_meta: None,
-    })
+    };
+    let resultant = self_check_constraint_resultant(&raw_forces, &ct, &fcs, &dof_num, 3);
+    super::self_checks::static_3d(&mut result, &resultant)?;
+    Ok(result)
 }
 
 // ==================== Helper functions ====================
@@ -2364,6 +2463,38 @@ fn get_node_offset(
 }
 
 // ==================== Reusable Constraint System ====================
+
+fn self_check_constraint_resultant(
+    raw: &[(usize, f64)], ct: &ConstraintTransform, fcs: &FreeConstraintSystem, dofs: &DofNumbering, dimensions: usize,
+) -> Vec<f64> {
+    let mut forces = vec![0.0; dofs.n_total];
+    for &(i, force) in raw {
+        forces[i] += force;
+        for p in ct.c.row_ptr[i]..ct.c.row_ptr[i + 1] {
+            forces[ct.independent_dofs[ct.c.col_idx[p]]] -= ct.c.vals[p] * force;
+        }
+    }
+    // Rotate indexed forces in place: each support has a fixed-size frame.
+    // Do not send the dense vector through the sparse-pair lookup routine.
+    for frame in &fcs.inclined {
+        let local: Vec<_> = frame.dofs.iter().map(|&d| forces[d]).collect();
+        for (k, &d) in frame.dofs.iter().enumerate() {
+            forces[d] = local.iter().enumerate().map(|(j, f)| frame.r[j][k] * f).sum();
+        }
+    }
+    let mut totals = vec![0.0; dimensions];
+    let mut components = vec![usize::MAX; dofs.n_total];
+    for (&(_, component), &d) in &dofs.map {
+        components[d] = component;
+    }
+    // Preserve DOF-slot summation order independently of HashMap iteration.
+    for (d, force) in forces.into_iter().enumerate() {
+        if components[d] < dimensions {
+            totals[components[d]] += force;
+        }
+    }
+    totals
+}
 
 /// ||Cᵀr|| / ||Cᵀf||: the relative residual of the reduced system CᵀKC·u = Cᵀf,
 /// from the unreduced residual r and the reduced load Cᵀf the solve used.
@@ -2397,6 +2528,7 @@ pub struct FreeConstraintSystem {
     /// Inclined-support frames the transform was built in (constraint
     /// forces there are rotated back to global components).
     inclined: Vec<InclinedDofs>,
+    dimensions: usize,
 }
 
 impl FreeConstraintSystem {
@@ -2410,7 +2542,7 @@ impl FreeConstraintSystem {
         if input.constraints.is_empty() { return Ok(None); }
         let inclined = inclined_dofs_2d(input, dof_num);
         let ct = build_constraint_transform(&input.constraints, dof_num, Some(&input.nodes), None, &inclined)?;
-        Ok(Some(Self::from_transform(&ct, dof_num.n_free).with_inclined(inclined)))
+        Ok(Some(Self::from_transform(&ct, dof_num.n_free, 2).with_inclined(inclined)))
     }
 
     /// Build a constraint system for 3D.
@@ -2418,7 +2550,7 @@ impl FreeConstraintSystem {
         if input.constraints.is_empty() { return Ok(None); }
         let inclined = inclined_dofs_3d(input, dof_num);
         let ct = build_constraint_transform(&input.constraints, dof_num, None, Some(&input.nodes), &inclined)?;
-        Ok(Some(Self::from_transform(&ct, dof_num.n_free).with_inclined(inclined)))
+        Ok(Some(Self::from_transform(&ct, dof_num.n_free, 3).with_inclined(inclined)))
     }
 
     fn with_inclined(mut self, inclined: Vec<InclinedDofs>) -> Self {
@@ -2430,10 +2562,10 @@ impl FreeConstraintSystem {
     /// forces sit on rotated DOFs, so they are turned back to global
     /// components (`Rᵀ f`; the restrained normal's share is in the reaction).
     pub fn constraint_forces(&self, raw: &[(usize, f64)], dof_num: &DofNumbering) -> Vec<ConstraintForce> {
-        map_dof_forces_to_constraint_forces(&forces_to_global(raw, &self.inclined), dof_num)
+        map_dof_forces_to_constraint_forces(&forces_to_global(raw, &self.inclined), dof_num, self.dimensions)
     }
 
-    fn from_transform(ct: &ConstraintTransform, nf: usize) -> Self {
+    fn from_transform(ct: &ConstraintTransform, nf: usize, dimensions: usize) -> Self {
         // Keep only the free-independent columns, remapped to 0..n_free_indep.
         let mut col_map = vec![usize::MAX; ct.n_independent];
         let mut n_free_indep = 0;
@@ -2469,6 +2601,7 @@ impl FreeConstraintSystem {
             nf,
             dependent,
             inclined: Vec::new(),
+            dimensions,
         }
     }
 
@@ -2610,6 +2743,33 @@ impl FreeConstraintSystem {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn self_check_resultant_large_inclined_constraint_scaling() {
+        // A sparse constraint in successively larger models. The old dense-pair
+        // path scanned billions of entries at the largest size.
+        for nodes in [100, 10_000, 100_000] {
+            let n = nodes * 3;
+            let dofs = DofNumbering {
+                map: (0..nodes).flat_map(|node| (0..3).map(move |d| ((node, d), node * 3 + d))).collect(),
+                n_free: n, n_total: n, dofs_per_node: 3, node_order: (0..nodes).collect(),
+            };
+            let ct = ConstraintTransform {
+                c: SparseTransform::from_rows(n, n - 1, (0..n).map(|i| vec![(if i == n - 3 { 0 } else if i > n - 3 { i - 1 } else { i }, 1.0)]).collect()),
+                n_independent: n - 1, n_total: n,
+                independent_dofs: (0..n).filter(|&i| i != n - 3).collect(),
+                dependent_dofs: [n - 3].into_iter().collect(),
+            };
+            let fcs = FreeConstraintSystem::from_transform(&ct, n, 2).with_inclined(vec![InclinedDofs {
+                node_id: nodes - 1, dofs: vec![n - 3, n - 2],
+                r: vec![vec![0.6, 0.8], vec![-0.8, 0.6]],
+            }]);
+            // Duplicate contributions, a rotated slave, and an unrotated master.
+            let result = self_check_constraint_resultant(&[(n - 3, 6.0), (n - 3, 4.0)], &ct, &fcs, &dofs, 2);
+            assert!((result[0] + 4.0).abs() < 1e-12);
+            assert!((result[1] - 8.0).abs() < 1e-12);
+        }
+    }
 
     /// Pins the sparse triple product: reduce_sparse must equal reduce_dense
     /// (and a naive C^T·K·C) entry by entry. Regression test for a bug where
@@ -2856,7 +3016,7 @@ mod tests {
         });
 
         SolverInput {
-            solver_options: None,
+            solver_options: None, masses: Default::default(),
             nodes, materials, sections, elements, supports,
             loads: vec![SolverLoad::Nodal(SolverNodalLoad {
                 node_id: 2, fx: 0.0, fz: -10.0, my: 0.0,
@@ -3000,7 +3160,7 @@ mod tests {
         });
 
         let solver = SolverInput {
-            solver_options: None,
+            solver_options: None, masses: Default::default(),
             nodes, materials, sections, elements, supports,
             loads: vec![SolverLoad::Nodal(SolverNodalLoad {
                 node_id: 1, fx: 10.0, fz: 0.0, my: 0.0,
@@ -3033,6 +3193,29 @@ mod tests {
             "Diaphragm ux: got {} expected {}", d2.ux, expected_ux);
         assert!((d2.uz - expected_uy).abs() < 1e-8,
             "Diaphragm uz: got {} expected {}", d2.uz, expected_uy);
+    }
+
+    #[test]
+    #[ignore = "wall clock: runs alone in Engine Gates (make test.engine.gates)"]
+    fn validate_constraints_reads_the_nodes_once_not_once_per_constraint() {
+        // A building's imported model: 20 000 nodes and 3 000 eccentric ends, each a rigid link.
+        // The node table was rebuilt for every constraint (60 M inserts here), which took a
+        // solve of such a model from about 10 s to over 2 min. Read once, this is milliseconds.
+        let n = 20_000usize;
+        let mut nodes = HashMap::new();
+        let mut map = HashMap::new();
+        for i in 0..n {
+            nodes.insert(i.to_string(), SolverNode3D { id: i, x: i as f64, y: 0.0, z: 0.0 });
+            for d in 0..6 { map.insert((i, d), i * 6 + d); }
+        }
+        let dof_num = DofNumbering { map, n_free: n * 6, n_total: n * 6, dofs_per_node: 6, node_order: (0..n).collect() };
+        let constraints: Vec<Constraint> = (0..3_000)
+            .map(|k| Constraint::RigidLink(RigidLinkConstraint { master_node: 2 * k, slave_node: 2 * k + 1, dofs: vec![0, 1, 2, 3, 4, 5] }))
+            .collect();
+        let t = std::time::Instant::now();
+        let diags = validate_constraints(&constraints, &dof_num, None, Some(&nodes));
+        assert!(t.elapsed().as_secs_f64() < 2.0, "validate_constraints took {:?}", t.elapsed());
+        assert!(diags.is_empty(), "independent links raise nothing: {:?}", diags.len());
     }
 
     #[test]
@@ -3080,6 +3263,8 @@ mod tests {
         sections.insert("1".into(), SolverSection3D {
             id: 1, name: None, a: 0.01, iy: 1e-4, iz: 1e-4, j: 2e-4,
             cw: None, as_y: None, as_z: None,
+            shear_center_y: None,
+            shear_center_z: None,
         });
 
         let mut elements = HashMap::new();
@@ -3116,7 +3301,7 @@ mod tests {
         })];
 
         let solver = SolverInput3D {
-            solver_options: None,
+            solver_options: None, masses: Default::default(),
             nodes, materials, sections, elements, supports, loads,
             constraints: vec![], left_hand: None,
             plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(),

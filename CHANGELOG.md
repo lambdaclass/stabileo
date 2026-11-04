@@ -9,6 +9,790 @@ It should capture what changed, not what should be built next.
 
 ## Unreleased
 
+One file per change in [`changelog.d/`](changelog.d/README.md); `scripts/changelog.py --release` moves them here.
+
+## 0.4.0 (2026-10-28)
+
+Release notes: [`docs/releases/v0.4.0.md`](docs/releases/v0.4.0.md) (also in
+[Spanish](docs/releases/v0.4.0.es.md) and [Portuguese](docs/releases/v0.4.0.pt.md)). Safety advisories
+SA-2026-021…024 are fixed and published in this release.
+
+### BREAKING (results)
+
+#### CIRSOC 301 steel verdicts of the design chain, registered (#461, 2026-10-25)
+
+#461 changed steel member verdicts and reached main without a changelog entry or a re-check entry;
+both are added now (results version 4, `docs/results-changes/2026-10-design-chain.md`). A limit
+state the engine refuses holds the member («not evaluated») instead of failing it with an
+infinite ratio. A section that does not state whether it is rolled or welded is checked both ways
+and held where they disagree (it was taken as welded unless it came from a rolled catalogue); an
+undeclared load height is read on the top flange and, where that fails, on the web. H.1 is rated
+on the forces that act together (each combination at each station), so some ratios fall; unbraced
+lengths are read per axis and per flange from the bracing; weak-axis shear (G.6) is checked; 0.95
+to 1.00 reads as a warning. Cold-formed sections are no longer checked by CIRSOC 301 as if they
+were hot-rolled: CIRSOC 303 is not implemented, so they read not designed, and an earlier pass is
+not a valid verification. Projects solved before are told so on opening (re-check entries
+`cirsoc301-refused-limit-state-holds`, `cirsoc301-undeclared-fabrication-and-load-height`,
+`cirsoc301-concurrent-forces-and-lengths`, `cold-formed-not-checked-by-cirsoc301`).
+
+#### Design never on the unfactored loads, completed; a NaN check and a staleness that hold on the combination path (2026-10-26)
+
+- **Slabs, walls and the steel optimiser no longer design over the unfactored solve**
+  (W2-01, SA-2026-024, which #588 fixed for footings and joints). The floor run designed slab
+  bending from the result on screen's mx and my, and the optimiser took it as its one
+  combination. With combinations to design for and none to read, every design refuses and says
+  why (`designCombinationsWithheld`): not solved, only SRSS or ABS active, or an active list that
+  names no solved one. An empty active list now counts as unsolved: the single solve stood in for
+  it and footings, joints and floors designed over it. RC design says the combinations are not
+  solved instead of "Define at least one load combination". The message no longer tells to
+  "Solve again (Calcular)", which did not help when the combinations were refused.
+- **The combination path checks for NaN displacements** before it publishes the base, the cases
+  and the combinations, as the single solve does; #588's manual solve checked only the single.
+- **Every manual solve cancels the pending live calc** (an export, the re-run), not only Enter and
+  the ribbon: a live calc firing mid-solve made it report "the model changed" for an untouched
+  model, or published its single solve in place of the combinations.
+- **A solve that left the combinations out keeps the project stale** from any entry point; a plain
+  Calcular after the refused re-run stamped it current over the same single solve. In Basic 3D the
+  combinations' failure is information, not an error, when the single solve stands in. (#649)
+
+#### Dynamic analyses refuse member insertion offsets and shell offsets (#460, 2026-10-25)
+
+Modal, response-spectrum and time-history analyses, and the modal step of the seismic and wind
+load plans, refuse a model with member insertion offsets or shell offsets and say why. They were
+solved on the node lines, without the eccentricities the static analysis takes, so their results
+for such a model did not include them. Registered with the design chain's changes (results version
+4, re-check entry `dynamic-analyses-refuse-eccentricities`).
+
+#### Free roofs get the §2.1.5 minimum wind force; with H, the dead load resisting it is checked (2026-10-22)
+
+SA-2026-021: a free roof had no horizontal wind along its ridge and, across it, less than
+CIRSOC 102-2025 §2.1.5's 0,75 kN/m² × Af at low and moderate speeds; each wind direction now has an
+"open-building minimum" load case, Af the reader's or the whole vertical projection (#581).
+SA-2026-022: with earth pressure H, 0,9 D + 1,6 H and 1,2 D + 1,6 H (the principal load not
+acting) were never generated, so an effect where the dead load resists H came out low; they are
+now, with or without wind and earthquake in the model (#581 and the advisory's PR). The site
+altitude also accepts values below sea level, where Ke > 1 (#581). Results version 2.
+
+#### RC columns are checked for both signs of the moment (D4-01, 2026-10-22)
+
+A CIRSOC 201 column whose bars are not symmetric about the bending axis gets the capacity of its
+weaker side; some columns that passed now fail, and the designer may pick more bars. The station
+moments are magnitudes, but the uniaxial column capacity was solved with the +y face compressed
+only, and the designer's 6, 10, 14… bars (and faces entered with nTop ≠ nBottom or nLeft ≠ nRight)
+put more bars on the other side: 30×30 with 6 Ø20 at Nu = 100 kN carries 101.57 kN·m one way and
+78.57 the other, and passed Mu = 100 at 0.98. The column kernel (`column_capacity_kernel.rs`) now
+solves both signs and returns the weaker, with the governing sign (`momentSign` on the column
+result); the station verifier, the designer and the engine gate all read it. Symmetric layouts are
+solved once, bit for bit as before. The biaxial check already took the worst quadrant. Projects
+solved before are told so on opening (re-check entry `column-capacity-both-signs`, results
+version 3). Advisory SA-2026-023 (#590).
+
+#### The solve path: one manual solve, design never on the unfactored loads, a re-check that says what it left out (2026-10-22)
+
+- **Footings and joints no longer design over the unfactored solve** (W2-01, SA-2026-024).
+  Live calc re-solves only "All loads" while the single view is on screen (deliberately, for a
+  large model's sake), so after one edit the combinations were gone and a footing was designed
+  for D + W at factor 1 where 1.2D + 1.6W acts. With combinations defined and none solved,
+  `activeResultSet3D` is now null and the floor and connection panels say why
+  (`combinationsUnsolved`). Re-check entry `design-on-unfactored-results`, results version 3.
+- **Enter, the ribbon, ToolbarResults, the exports and the steel optimiser's re-verify solve
+  through `runGlobalSolve`** (W5-01), Calcular's solve, and take its guard: an older Enter solve
+  landed after a newer one was published. `runSolve3D` is gone; the base is still solved directly
+  from these entry points. A view export right after PRO's solve failed no longer solves again
+  (one solve, one error toast). The manual 3D solve now checks for NaN displacements and names the
+  mechanism in PRO, as Enter did; Basic with load cases off solves no combination from any of
+  them, as Enter already did.
+- **The solve guard reads the solve settings, not only the model** (W5-03): a solve in flight
+  when self-weight (or its case, the axis convention, the mode) changed published its answer
+  under the new setting.
+- **"Re-run analysis and design" fails when the combinations were refused or failed** (W5-02),
+  and the project stays stale; it reported success over the single solve that stood in. A P-Δ
+  run with no second-order equilibrium no longer stamps the project as solved, and a modal run
+  alone no longer ends the stale state (and with it the "current" in an export's provenance).
+  (#588)
+
+### Added
+
+#### Cables: a pretension per cable, and a warning when their own weight gives most of their tension (2026-10-22)
+
+Specifications › Members › Cable takes a pretension (kN): the cable's tension on its drawn chord
+under its own weight, from which the engine sets its unstressed length. Without one, the chord is
+the unstressed length, as before. A cable given no pretension whose self-weight tension
+(T₀³ = EA·(w·l_h)²/24) is over a quarter of its reported tension is warned, in en/es/pt: a heavy
+member typed as a cable is usually a truss member (#527, #582).
+
+#### PRO curved members as whole pieces, loads along the arc, plates with curved sides, IFC export in Project (2026-10-27)
+
+An arc is picked whole (or one segment at a time), shows one local-axis triad, and has a panel with
+its radius, angle, arc length, the chord error of its segments and Remake with another count,
+keeping its id, section, material and end releases. Loads along the arc are given per metre of arc
+in a global direction and spread on the segments keeping the total force. Results read N, V, T and
+M against the length along the piece, and export as CSV. A plate side can follow an arc and share
+the curved member's nodes. Project → Export offers IFC with design on or off.
+
+#### PRO DXF templates over several levels, CAD-style snaps, assisted conversion, and per-floor plans in the CAD wizard (2026-10-27)
+
+A DXF with several plans is prepared as templates: its regions found, each laid on a level by a
+point, locked, aligned by two pairs of points (a scale mismatch is reported, never applied), its
+layers shown or hidden and snapped or not. Object snaps on templates (endpoint, midpoint, center,
+quadrant, intersection, perpendicular, nearest) are turned on one by one from the draw bar and
+remembered per browser; F3 turns them off and on. Part of a template converts to members, arcs and
+columns after a plan that reports duplicates, joins, T joints and loose ends. The CAD draft wizard
+finds the separate plans of a drawing, lays each on the one below by its columns, and gives every
+floor its plan and height in a table; the provenance records each floor's plan and the point each
+plan was laid by. The DXF and IFC import dialogs use the application's palette.
+
+#### PRO plates as physical objects, meshed on demand, with Diagnostics on the Analyse row (2026-10-27)
+
+A plate is drawn as an outline of any number of nodes, with holes, material, thickness and area
+loads kept on the plate, and holds no shells until it is meshed: from its panel or in a batch, as
+free quadrilaterals or triangles or as a grid of rectangles or squares of chosen sides, after a
+plan that lists what changes. Meshing before the analysis (on by default) meshes only plates with
+no mesh or an out-of-date one, once per solve; a plate whose old mesh carries loads put on its
+elements is never remeshed there, the analysis names it instead. A plate is picked whole or by
+element, shows one local-axis triad when picked whole, and has per-plate extremes of its moments,
+membrane forces and deflection in its own axes. Diagnostics now has its own command on the
+Analyse row. Only objects drawn this way are plates: existing shells and the slabs of the building
+generators are unchanged, and no saved result moves.
+
+#### PRO use zones per floor, their live loads from the CIRSOC 101 table, and finishes (2026-10-27)
+
+Use zones are drawn per floor or taken from a template's closed outlines, independent of the mesh.
+Each zone takes an occupancy from the CIRSOC 101 table already in the application or a stated
+value; names found in the drawing are offered as suggestions to confirm, never applied on their
+own. "No load" is a decision of its own, shown apart from a zone with no use yet. The zones' live
+loads, and finishes as a dead load of their own, are written as load definitions after a plan
+that shows what is added, changed and removed, and running it again adds nothing; loads entered
+by hand are never touched. Zones are copied between floors with their exceptions. A zone over a
+plate not yet meshed loads the slab once it is meshed; finishes in a model with no dead-load case
+are named in the plan and in Diagnostics.
+
+### Changed
+
+#### E2E runs in ten duration-balanced shards, and flaky tests have a quarantine (2026-10-23)
+
+CI's end-to-end suite runs in ten shards instead of five, and the slow suite (the merge queue's)
+is now balanced by measured duration like the smoke suite: `--shard=N/5` split it by test count
+and left the Basic advanced sweep, 54 of its 120 minutes, in one shard (49 min there, 6 in the
+lightest). The sweep is seven spec files now, none over ten minutes, over one shared harness
+(`web/e2e/basic-advanced-sweep.ts`); no test was added or removed. The required checks are
+`e2e (1)` to `e2e (10)`.
+
+A test tagged `@flaky` is left out of the blocking runs and runs in the non-required `e2e-flaky`
+job with two retries; the tag requires a linked issue (`web/e2e/README.md`). The Basic advanced
+sweep's `tower-3d-2` is quarantined (#607: the mode-shape motion check reads too little on CI;
+its frames now span a whole period before calling a shape still). The rebar workspace's
+"restored proposal is PROVISIONAL" test is fixed instead: its poll gave up after 10 s while the
+page was busy for 40 s after the filter press (#608 tracks the freeze itself).
+
+#### Normative design is optional in PRO and off by default; the design chain enters main (2026-10-26)
+
+The design stages (#462–#475: concrete design, detailing, other materials and codes, documents,
+the design workspace, polish and reliability on a real building) enter main in one merge with the
+switch of #624, so no intermediate state was deployed. PRO starts without the Design stage;
+modelling, buildings and levels, loads and combinations, the analysis and its results, the
+calculation exports and IFC need none of it. Settings → PRO → «Turn on normative design (in
+development)» adds it, with the module's open limitations listed there. A project that already
+holds design (bars, detailing, decisions) opened with design off keeps all of it and offers to turn
+design on; a link that names a place of design asks first and turns it on for that visit only.
+With design off, nothing of design runs: no sizing, no code check, no verification on a re-run.
+Concrete, other-material and footing verdicts that move with the chain are told to the projects
+they concern (results version 4, `docs/results-changes/2026-10-design-chain.md`).
+
+#### `make test-changed` and a pre-push hook, for a faster local loop (2026-10-23)
+
+`make test-changed` (scripts/test-changed.sh) runs only the tests the branch most likely affects,
+against origin/main with uncommitted work included: `vitest related` on the changed web files,
+the engine's library unit tests when engine/src changed, the integration targets whose own files
+changed plus up to six named after a changed source file, and the backend tests when backend/
+changed. It prints every command it runs and everything it skipped, and why; CI still runs it all.
+
+`make hooks` points git at the versioned hooks in scripts/hooks. The pre-push hook runs the web
+typecheck and the unit tests related to the pushed commits (usually 20 to 40 s, longer when a
+widely imported module changed); `git push --no-verify` skips it.
+
+#### IFC import keeps every straight piece of a curved edge on its own points (2026-10-27)
+
+The analytical model of an imported building joined consecutive members that were offset from
+each other, which turned the short pieces of a curved slab edge into fewer chords off the edge.
+Pieces are now joined only when they point the same way (within 0.5°). A building imported from
+now on can have more analytical members along curved edges, with the same total length; projects
+already imported are not touched.
+
+### Fixed
+
+#### The verification report's bar marks count every stirrup leg, and its table is translated (2026-10-23)
+
+The estimated bar marks of the PRO verification report read each stirrup's number of legs and
+dropped it: a 4-leg stirrup was scheduled as one 2-leg hoop, so its cut list and steel weight left
+out the inner legs. They are now listed as crossties (two per hoop for a 4-leg stirrup, across the
+depth, hooked at both ends), and beams with different leg counts are no longer grouped as one mark.
+The table's labels named keys that do not exist (`report.bm*`), so it printed the keys in every
+language; it now uses the app's `pro.bm*` strings. Quantities only: no design check changes.
+Found while clearing the type-check baseline (an unused `legs`).
+
+#### The default steel declares its ultimate strength, so a new model's steel checks run (2026-10-22)
+
+The material every new model starts with, "Acero A36", declared Fy = 250 MPa but no Fu, so every
+CIRSOC 301 check of a new model, the bundled examples included, read "not evaluated: the material
+lacks Fu" until the user typed it. It now declares Fu = 400 MPa, ASTM A36's minimum and the value
+the grade catalogue gives A36. Fu feeds the design checks only, not the analysis. Found by the new
+end-to-end test of the everyday path (#597).
+
+#### Deleting or renumbering no longer leaves a load on a number someone else takes (2026-10-21)
+
+Audit 2026-10, W1-01 to W1-05. A load names a node, a member or a definition by number, and
+numbers are reused.
+- **A deleted floor-load definition takes its loads with it.** They were kept as plain loads and
+  went on into every solve. `removeGroup` now drops the loads the definition wrote, so deleting it
+  from the panel or as a group does the same; undo brings both back. A load from a definition the
+  model never held (a link, a paste) is still kept as a plain load.
+- **Deleting a member takes its tendon, and deleting a node takes its imposed displacement.**
+  Each delete kept its own list of load types, and neither list had the newer types. They now
+  read one table, `LOAD_TARGET`, of what each load type stands on. Before, the solve skipped the
+  orphan tendon and said "solved", and the orphan displacement made every solve refuse, naming
+  the deleted node.
+- **The solve refuses a load on a member or a node the model does not have**, naming the load
+  and the number (`orphanLoadRefusal`: the single solve, both combination solves, direct
+  analysis). Such a load now comes only from an older file or a paste. Before, a member load
+  like that was skipped without a word.
+- **Renumbering refuses while a load names something the model does not have**
+  (`refused: 'orphanLoads'`, by load). The renumber left an unknown number unchanged, so a
+  deleted support's settlement ended up on another support and solved.
+- **A project spectrum's number is never given again.** Numbers were the highest in use plus
+  one, so deleting spectrum 2 and adding a new one gave 2 again, and a spectral case on the old
+  spectrum solved on the new one's placeholder table. The counter is saved with the project
+  (`nextId.spectrum`). Older files start it past every spectrum and every number a case uses. A
+  spectrum is not deleted while a spectral case uses it; the panel names the cases.
+
+#### Editing a spectrum retires the results solved on the old one (2026-10-21)
+
+A user spectrum feeds the spectral load cases of the main solve (#261), and the time history
+its own run, but `setDynamics` recorded on the views undo channel, which retires nothing, and
+the edit did not bump the model version: D + Ex solved on a 0.4 g spectrum stayed on screen
+after the spectrum became 0.8 g, live calc did not re-run, and undoing the edit kept the 0.8 g
+results (W3-01). The spectra and the time history are now a model edit: undoable, and the
+results on hand are retired on the edit, its undo and its redo; a write that changes nothing
+takes no step. Undo entries a session saved on the old channel restore them the same way.
+Test: `web/src/lib/store/__tests__/spectrum-edit-retires-results.test.ts`.
+
+#### PRO DXF of the envelope draws the envelope; no deformed shape for an envelope or SRSS set (2026-10-21)
+
+The DXF integrated the envelope's end forces as one load state: each end's largest force, from
+whichever combination gives it, with the first combination's member loads. On a portal whose
+wind combination is listed before the dead load the beam was drawn and labelled at 320.59 kN·m
+against an envelope peak of 49.16. It now draws the envelope's own positive and negative station
+curves, labelled and scaled from the envelope, as the figures do (#271); the same holds when the
+envelope is the set on screen. An envelope (each value from its own combination) and an SRSS or
+ABS set (magnitudes without a sign) are no deflected state: neither writes a deformed shape any
+more, and their reactions are written as values without an arrow. The RESULTS layer says what
+was left out (W4-01, W4-02).
+
+#### The re-check prompt names the 0.3.0 fixes to projects solved before them (2026-10 audit, V6-02)
+
+Solves have been stamped with results version 1 since #328, which is deployed; the fixes merged
+with 0.3.0 after it (#530: SA-2026-013…017) were registered at version 1 as well, so a project
+solved on a build in between opened as current and was never told that its curved-shell, arc,
+3D plastic-collapse, cable or soil-spring results had moved. Those entries are now at results
+version 2 (`currentResultsVersion` 2), with the one the registry lacked for an app workflow:
+member temperature loads (#407, FR-4, SA-2026-019; feature `memberThermalLoads`). The 3D
+material-nonlinear yield surface (SA-2026-020) stays out: no screen of the app runs that solver.
+A project solved on 0.3.0 itself also carries version 1 and is shown these entries once more.
+`results-version.test.ts` pins each version's entries, so adding one to a version already on main
+fails, and `docs/verification/PROVENANCE.md` states the rule. The committed `.ded` fixture is
+restamped at version 2. (Version 2 was taken on main first, by #582 and #597; these entries share
+it — a build stamping 2 already carries the five fixes, so it is never shown them, and a project
+stamped 1 is shown every entry that followed.)
+
+#### A member cut by a mesh keeps its loads on its pieces (2026-10-27)
+
+Meshing a region with "split members" (the quick quadrilateral mesher, slabs meshed at the
+analysis, and now physical plates) cut the members after the loads had been committed: the pieces
+came without their loads, and the loads kept naming the member that was gone. The analysis then
+refused the model ("Load N is on member M, which the model does not have"), so no result was ever
+computed on the wrong loads and none needs re-checking. Meshes made from now on keep each load on
+the pieces of its member, with its total. A project saved after hitting the defect still carries
+those loads on a member it no longer has, and still says so when solved: delete them and put them
+on the pieces.
+
+### Performance
+
+#### The landing and the blog load 0.46 MB instead of 6.4 MB (2026-10-23)
+
+Every public page downloaded and ran the whole application (3 MB of JavaScript) and the engine
+(3 MB of WASM) before it settled: Lighthouse measured performance 52 on the landing and 35 on the
+blog, with the blog's largest paint at 19 s on a mobile profile. The public pages now render on
+their own with only their share of the dictionaries, and the application and the engine load on
+the first app route; an address that is the application's mounts it at once, as before (#595).
+
+#### The engine's tests build in 7 binaries instead of 104, and rebuild three times faster (2026-10-23)
+
+Every top-level `engine/tests/*.rs` was its own test binary, and each one linked the whole
+engine: building and linking 110 binaries was most of `cargo test` and of CI's `test` and
+`suite` jobs. The files are now modules of seven binaries by area (`gates`, `certificates`,
+`shells`, `derivations`, `solver`, `elements`, `robustness`; `engine/tests/<binary>/main.rs`),
+next to the six that were already directories. The files did not move. Measured on an M-series
+Mac at 4 jobs, with the dependencies already built: building the test binaries went from 99 s
+to 48 s (CPU 336 s to 156 s), rebuilding them after an engine change from 35 s to 11 s, and
+`cargo nextest list` from 82 s to 13 s.
+
+The same 8425 tests run (8469 with the ignored ones), each once in CI: every gate step
+selects its file's module (`--test gates -E 'test(/^sparse_shell_gates::/)'`) and the suite
+excludes exactly those, checked test by test against the old filters. Test names now start
+with their file (`sparse_shell_gates::craig_bampton_deterministic`), so a single file runs
+with `cargo test --test gates sparse_shell_gates::`. Since the binaries are listed
+(`autotests = false`), `scripts/check-test-targets.py` (CI lint) fails when a test file is in
+no binary, where it would never run, or in two.
+
+#### The engine ships optimized: 25 % smaller, same results bit for bit (2026-10-23)
+
+The deployed WASM engine was built with `--no-opt` (12.0 MB). It is now optimized with
+`wasm-opt` (9.0 MB). CI checks every run that the optimized and the unoptimized builds give the
+same results on the 184 determinism cases, bit for bit, so the optimizer cannot change a number
+without failing the build.
+
+## 0.3.0 (2026-10-21)
+
+Release notes: [`docs/releases/v0.3.0.md`](docs/releases/v0.3.0.md) (also in
+[Spanish](docs/releases/v0.3.0.es.md) and [Portuguese](docs/releases/v0.3.0.pt.md)). Safety advisories
+SA-2026-005…020 are fixed in this release; SA-2026-001…020 are published.
+
+### Fixed
+
+#### Frame and truss temperature loads take the material's α and the section's depth (#407, FR-4)
+
+Member thermal loads were computed with α = 12·10⁻⁶ /°C and the depth √(12·I/A) of the
+equivalent solid rectangle, whatever the material and section (an IPE's gradient moment 30 %
+low; aluminium's thermal force about half). A `thermal` load now takes `alpha` and the section
+depth (`depth` in 2D, `depthY`/`depthZ` in 3D), and the app sends them instead of scaling the
+load; a load without them is solved with the old defaults and carries a
+`thermal_default_assumed` warning. The end-to-end certificate re-assembles thermal loads with the
+same inputs. Advisory SA-2026-019.
+
+### Added
+
+#### End-to-end certificates for frames and trusses (2026-10-18)
+
+The linear certificate proved the solution of the f64 `K` and `f` the engine assembled; an
+assembly bug would have been certified. An independent checker
+(`engine/src/certify/reassembly/`) now re-derives `K` and `f` from the model JSON in interval
+arithmetic, from formulas written for it (cantilever flexibility and equilibrium, static
+condensation of releases, work-equivalent loads on the exact Timoshenko shapes, its own DOF
+numbering, supports, inclined supports and constraints), and certifies the returned
+displacements against the exact model. The engine's assembled `K` and `f` must agree with it
+to 1e-10 and the displacements must satisfy the model's kinematics. `certify_linear_2d/3d`
+report `endToEnd` and `certificateLevel` (`endToEnd` / `assembled` / `none`). 2D and 3D frames
+(Euler–Bernoulli and Timoshenko), trusses and cables, releases, local axes, springs,
+settlements, inclined supports, rigid links, diaphragms, equal-DOF, eccentric connections,
+MPCs, nodal, distributed, point and thermal loads; shells, connectors, curved beams and
+warping are reported out of scope. Every fixture and 350 stable random frames agree and are
+certified end to end; planted assembly bugs make it fail. Lean: `Certify.end_to_end_bound`.
+Docs: `docs/verification/CERTIFY.md`, "End-to-end certificates".
+
+Found by it (pinned in `engine/tests/certify_end_to_end_findings.rs`): 3D diaphragms in the
+XZ plane tied the slaves with the rotation of the wrong sign (since fixed, #342); in 2D a nodal
+moment on a node where every member is hinged (since refused before the solve), or a rigid link
+from such a node, is held by the artificial spring and the assembled-level certificate
+certifies a model that has no solution.
+### Changed
+
+#### Re-check prompt for old projects; provenance-stamped, reproducible results (2026-10-18)
+
+**Results move in the last bits:** the engine now iterates its inputs in a fixed order, so a model
+solves to the same bits every time; before, two solves of the same model in one session could
+differ in the last digits (2D displacements, equilibrium sums, inclined-support models) and list
+3D plate stresses in a different order. See `docs/verification/PROVENANCE.md`.
+
+- `web/src/lib/provenance/result-changes.json`: machine-readable registry of result-affecting
+  changes (results version, model features, en/es/pt explanation, changelog link), seeded with
+  the October 2026 safety wave and the earlier BREAKING entries.
+- Projects record which build last solved them (`snapshot.solvedWith`). Opening one solved with
+  an older version lists the registered changes that concern that model in a notice that stays
+  until acknowledged, with "Re-run analysis and design"; results stay marked stale until re-run.
+- Every report (calc, PRO), workbook cover and CSV prints a provenance block: app and engine
+  version and commit, WASM hash, model/settings/results hashes, engine input and result hashes,
+  certificate hashes, stale flag. "Reproduce from provenance" re-solves and compares the hashes;
+  `cargo run --release --example reproduce` does the same natively from the exported solver input.
+- Engine: `crate::ordered` (key-ordered iteration of input maps), `DofNumbering::entries_by_dof`,
+  WASM `engine_build_info` and `engine_reproduce_hashes`, `tests/determinism.rs`.
+#### Discretization error: estimated next to every certified shell result (2026-10-18)
+
+Certificates bound the algebraic error of the assembled system, not the mesh error. The engine
+now estimates the second one, and never presents it as certified (docs/verification/DISCRETIZATION.md).
+
+- `engine/src/postprocess/discretization/`: Zienkiewicz–Zhu estimator with superconvergent
+  patch recovery for DKT, MITC4, MITC9, curved shells and SHB8 solid-shells (element and global
+  energy-norm indicators; effectivity 1.01 for MITC4 and 1.10 for DKT at 16 × 16 on the Navier
+  plate); uniform h-refinement (smooth or faceted geometry, frames split, supports and loads
+  carried over) and a convergence study with Richardson extrapolation and observed order.
+  WASM `estimate_discretization_3d`, `convergence_study_3d`. Frames are stated exact.
+- Results panel: "algebraic error: certified ≤ X · discretization error: estimated ~Y% (not
+  certified)", a warning above 5 %, an element error map and an on-demand convergence check
+  (en/es/pt).
+- Degenerate cases are reported as such, never as "no error": a loaded mesh that carries no
+  strain (one simply supported element under pressure) is "cannot be estimated — refine the
+  mesh", not 0 %; members with warping torsion, curved beams and members of variable section
+  (solved as prismatic pieces) are not claimed exact.
+- **Fix (results): curved-shell self-weight was 1000× too heavy** (density taken in kN/m³
+  instead of kg/m³ like every other shell). Not reachable from the web app.
+- SHB8 solid-shells are estimated from the ANS + EAS strain the element is built from (#401):
+  on the Navier plate (t/a = 0.01) the centre deflection converges to Kirchhoff (0.972, 0.995,
+  1.000 at n = 4, 8, 16) with effectivity 1.34, 1.23, 1.12, asserted like the other families.
+- Refinement supports a new node only on an exterior edge between supported nodes: a slab on a
+  column grid meshed one element per bay keeps its interior columns as points (supporting every
+  edge between columns pinned the whole refined slab and reported it converged). When the rule
+  adds supports the study says so (caveat `supportsInferred`, with the count). A model whose
+  elements name a missing node is an error, not a panic; a non-finite estimate is `nonFinite`,
+  never a NaN percentage; a last Richardson step within round-off is converged, not oscillating.
+
+#### Design checks against published worked examples, part 2 (2026-10-18)
+
+**BREAKING (results): cold-formed columns, steel columns braced about their weak axis, masonry
+walls and partially grouted masonry shear walls get lower (correct) strengths; cold-formed
+compression without `xo` is reported unevaluated.** Examples, sources and discrepancies in
+`docs/verification/DESIGN_EXAMPLES.md` (D18–D31); tests in `engine/tests/design_worked_examples_2.rs`.
+
+- `cfs_check`: flexural-torsional buckling (AISI S100 E2.2) from the new `xo`, `kx_lx`, `kt_lt`.
+  It was weak-axis flexural buckling only: AISI Design Manual Ex. III-3 gave Pn = 10.4 against
+  6.88 kips (+51 %). Without `xo` a compression demand is unevaluated.
+- `steel_check`: AISC E4-2 torsional buckling of doubly symmetric members (`lcz`, default the
+  longer flexural length); refused when the member can twist over a longer length than it buckles
+  about y and neither J nor Cw is given. Constrained-axis torsion (girts on one flange) is still
+  not covered (D20).
+- `masonry_check`: untied bars no longer count in Pn (`laterally_tied`, +14 % before); shear
+  carries γg (`gamma_g`, default 0.70 when An < b·t, +33 % before).
+- `timber_check`: `le_bending` (Table 3.3.3 row when the loading is known) and `le_b` (column
+  length across b, 0 for sheathing). Defaults unchanged.
+- `foundation_check`: `neglect_size_effect` opts in to ACI 318-19 §13.2.6.2 (λs = 1 for
+  footings). Default unchanged (λs applied).
+
+#### Nodal masses in the engine (2026-10-18)
+
+The engine took mass only from material density. `SolverInput`/`SolverInput3D` now take
+`masses`: lumped **nodal** masses (t per direction, rotary inertia in t·m²), mass per length along
+members (**line**, t/m) and, in 3D, per area over shells (**area**, t/m²). They are assembled into
+every mass matrix (dense and sparse, inclined-support frames, before constraint reduction), so
+modal, mass participation, spectral, time history, harmonic, Guyan/Craig–Bampton and their
+certificates all see them; mass ratios divide by the mass per direction. Models without `masses`
+give the same results as before. (#341)
+
+- Validated against closed forms (SDOF, 2-DOF, torsional SDOF, cantilever with a tip mass),
+  equivalent models (raised density, slave masses through a diaphragm, an MPC in place of an
+  inclined support), the Bathe–Wilson frame and the SAC LA 3-storey case with the acceptance
+  suite's mass stubs replaced by nodal masses: `engine/tests/nodal_masses.rs`.
+- Web: the mass source sends load mass as line and area masses instead of copies of the material
+  with a raised density (same modes to 1e-10, tested), and point masses — with a button for floor
+  masses on the diaphragm masters — from the mass-source panel (en/es/pt).
+
+#### Rigid diaphragm rotates as one body (2026-10-18)
+
+**BREAKING (results): every node of a rigid diaphragm now rotates in plane with its master**
+(θz for an XY diaphragm, θ in 2D). The slave nodes' own in-plane rotation was left free, so the
+columns under a rigid floor twisted against nothing at their tops: storeys were too soft in
+torsion and the column end torques came out zero. SAP2000/ETABS diaphragms and OpenSees
+`rigidDiaphragm` tie it. Engine inputs with a diaphragm get new results (torsional periods,
+column torques and moments, drifts); models without one are unchanged. Web projects are
+unchanged: the web already added an equalDOF on that rotation for every slave, which is removed
+now that the engine ties it. (#342)
+
+- `engine/src/solver/constraints.rs`: both the dependent-DOF list used by validation and the
+  constraint equations tie the slave's in-plane rotation; inclined-support frames go through the
+  same equations.
+- **BREAKING (results): 3D XZ diaphragms** coupled the slave to −θy (the XY lever pattern); they
+  now follow ω × r. **Diaphragms in all-truss models are refused**: with no rotational DOFs the
+  floor's rotation cannot be represented (a 3D one tied uz instead). In 2D, plane "XZ" is the
+  model plane as "XY" is; "YZ" is refused.
+- **BREAKING (results): web 2D solves** sent 3D floor (XY) diaphragms as a rigid body in the
+  frame's plane, making floor beams rigid in vertical bending; a floor now ties ux only, a YZ wall
+  uz only, an XZ diaphragm stays a 2D diaphragm.
+- `engine/tests/diaphragm_rotation.rs`: a storey with a diaphragm matches the same storey with a
+  floor of in-plane-rigid beams (displacements, column end forces, periods to 1e-4); slave θz =
+  master θz in static, modal, 2D and inclined-support cases. On the old code the torsional period
+  of that storey came out 6.9 % long and the column torques were zero.
+#### Solid shell: Poisson thickness locking and in-plane locking removed (2026-10-18, #400)
+
+**BREAKING (results): solid-shell (SHB8) models with ν ≠ 0 deflect more — about 22 % more in
+thin-plate bending at ν = 0.3 — and solid shells bent in their own plane deflect up to ~10×
+more.** The old values were too stiff (unconservative for deflections; moments in indeterminate
+structures and modal frequencies shift too). Re-run solid-shell models.
+
+- Root cause: the trilinear element's thickness strain is constant through the thickness, so
+  bending with ν ≠ 0 carried a spurious σ_zz and used the constrained modulus
+  E(1 − ν)/((1 + ν)(1 − 2ν)) instead of E/(1 − ν²): 1.225× too stiff at ν = 0.3 on every mesh
+  (simply supported plate centre deflection 0.80–0.82 of Navier under refinement). Separately,
+  in-plane bending locked through parasitic in-plane shear (MacNeal–Harder in-plane cantilever
+  0.09).
+- Fix (`engine/src/element/solid_shell.rs`): five condensed enhanced assumed strains, Simo–Rifai
+  mapped so the patch test holds — the thickness mode E_ζζ ∝ ζ (Büchter–Ramm–Roehl) and the
+  membrane EAS-4 set (Andelfinger–Ramm) — on top of the existing covariant ANS. Stress recovery
+  uses the same ANS + EAS strains.
+- Now: thin plate (t/a = 0.01, 0.001) → Kirchhoff at observed order 2.0 (32×32: 1.0000); thick
+  plate → Mindlin with κ = 1 (the single-layer limit, 0.8 % / 2.9 % stiffer than κ = 5/6 at
+  t/a = 0.1 / 0.2); pure bending with ν exact; Scordelis–Lo 0.997 (16×16); pinched cylinder 0.988
+  (32×32); hemisphere 0.98–1.00; MacNeal–Harder straight cantilever out-of-plane 0.96–0.98,
+  in-plane 0.98 regular / 0.62 parallelogram / 0.05 trapezoidal (trapezoidal locking, inherent).
+- Tests: `engine/tests/solid_shell_locking.rs`; solid-shell benchmarks tightened (Navier 0.5–2.0×
+  → ±1 %, Scordelis–Lo, twisted beam, hemisphere). Two benchmark bugs fixed: the Navier reference
+  lacked the series' alternating sign (5.7 % high), and the solid-shell hemisphere tests pulled
+  both equator points outward with the equator held in z (the reported "4e-4 membrane locking").
+### Fixed
+
+#### Curved shells report their bending moments and thermal stresses (SH-6, #410, 2026-10-21)
+
+**BREAKING (results), advisory SA-2026-013.** `curved_shell_stresses` returned
+mx = my = mxy = 0 whatever the bending; the moments are now the in-plane stresses integrated
+through the thickness (two Gauss points in ζ, sign as the flat MITC4, which a flat curved shell
+matches to 1e-6). Under `curvedShellThermal` the stresses, moments and corner Von Mises kept the
+free thermal strain; they now use ε − α·(ΔT + ζ·ΔTg/2), summed over the element's temperature
+loads and per load case (the curved-shell Kg takes its membrane stress from the same recovery).
+The app sent a curved quad's temperature as `quadThermal`, which named no flat quad and was
+dropped, so the shell was analysed unheated; it is sent as `curvedShellThermal`, and the engine
+refuses a shell load naming an element of another family. A cantilever strip of curved shells
+reports the static root moment, 35 kN·m/m (was 0); a free heated curved shell reports zero
+stress (was E·α·ΔT/(1−ν)). The SH-6 known-issue warning is removed.
+#### Curved members keep one section orientation along the arc (#418, #523, SA-2026-016)
+
+The straight segments of an arc took the default local axes of a straight member, which switch to
+a global-X reference within 2.56° of vertical. In an arch outside the X–Z plane the near-vertical
+segments at the springings so had Iy and Iz swapped: a 40-segment semicircle in the Y–Z plane
+gave a crown deflection 15 % lower (−6.18 mm instead of −7.29 mm) than the same arch in the X–Z
+plane. Every segment now takes local y = a·n + b·(n × x) from the arc's plane normal n, with (a, b)
+those of the default rule at the middle of the arc: plan curves keep local z vertical as before,
+arches keep local y normal to their plane, tilted arcs no longer roll. Engine curved beams
+(`expand_curved_beams_3d`, `ArcSectionFrame`) and the app's arc tool both apply it, and arcs
+saved before take it when the project opens (re-check notice `arc-member-local-axes`). The SP-15
+known-issue warning is removed. Tests: `engine/tests/derivation_special_elements.rs` (explicit
+members, rotation about the vertical, plan curves, tilted arcs) and
+`web/src/lib/model/__tests__/curved-member.test.ts`.
+#### 3D plastic collapse factor no longer depends on element numbering (2026-10-21)
+
+**BREAKING (results)** (#511, SA-2026-014). When the hinge reversal checks of
+`solve_plastic_3d` cycled under biaxial bending, the solver went on from whichever state of the
+cycle the element order left it in and pushed a closed section through the yield surface: the
+same structure, renumbered, reported 75.9 to 424.3 against a certified collapse factor of 176.5.
+It now stops at the last consistent state and reports that factor with a warning and
+`isMechanism = false` (a lower bound, static theorem); choices among hinges go by rate, not by
+element number; and a span peak within 0.1 % of the member length of a hinge of the member does
+not form a sliver hinge. The PC-3D known-issue notice is removed.
+#### Cable tension follows the elastic-catenary chord law (2026-10-21, #416, #415, #525)
+
+**BREAKING (results): cables with self-weight in statically indeterminate structures carry more
+tension.** The cable solve used Ernst's modulus (the tangent of the chord law) as a secant from the
+straight chord, ε = T/EA + (w·l_h)²/(12T²) instead of T/EA − (w·l_h)²/(24T²), so a cable that
+shares its load got too little tension (guyed mast: 4.34 kN instead of 5.18 kN) and the iteration
+often oscillated. It now runs Newton on the chord law (`element::cable_chord_tension`), with Ernst's
+modulus as the tangent and the rest of the linearised law as nodal forces, so the converged state
+satisfies the law exactly; reactions balance the reported tensions. With the unstressed length equal
+to the modelled chord, a cable with weight hangs at T₀³ = EA·(w·l_h)²/24 with no load and no longer
+goes exactly slack; a vertical cable has no sag term. `ernst_tangent_modulus` now returns the
+chord-law derivative (it was negative for moderate α). Known issue SP-12 removed. Advisory
+SA-2026-015.
+#### Soil curves follow their references (2026-10-21, #421, #422, #423, PR #526, SA-2026-017)
+
+The SSI soil curves departed from the references they cited. Soft clay omitted Matlock's
+J·c·z/D term (p_u 84 instead of 124 kN/m in the test); it is now API RP 2A's tabulation of
+Matlock's static curve with J a required input (0.25–0.5). Sand always used the cyclic A = 0.9
+and a step k table; it now takes `loading` (static A = max(3 − 0.8 z/D, 0.9), or cyclic) and
+interpolates k in API RP 2GEO Table 5, refusing φ outside 25–40°. The "stiff clay" curve jumped
+from 0.5·p_u to p_u at y50; it is now Welch & Reese (1972) stiff clay without free water,
+continuous (`free_water: true` is refused). t-z and q-z returned stresses: t-z now needs the
+shaft perimeter and q-z the tip area (kN/m and kN), q-z follows API's table, and the q-z tip
+spring is no longer multiplied by a tributary length and bears only in compression. Springs on
+missing nodes or along rotations are refused. Missing inputs are refused, never assumed.
+The app's SSI panel asks for J and the sand loading. Known-issue warnings AC-12, AC-13 and
+AC-16 removed. Tests: `engine/tests/soil_curves_references.rs`.
+#### MITC9 on curved geometry reproduces rigid-body motion (SH-7, #411, SA-2026-018) (2026-10-21)
+
+**Results change for curved MITC9 meshes (engine/WASM only; the app creates no MITC9).** The
+MITC9 projected its nine nodes onto the corner-diagonal plane with no rigid-link correction, so a
+rigid rotation strained any curved or warped element (relative K·r residual 0.11 on a 2 × 2 m
+patch with 0.2 m sag; 101 MPa of nodal von Mises stress for a 1 mrad rigid rotation, steel,
+t = 50 mm). Each node is now tied to its projection by a rigid link (the MITC4 warp correction on
+all nine nodes) in the stiffness, the stress recovery and the thermal load.
+Flat MITC9 elements are unchanged. Pinched hemisphere (MacNeal–Harder) at 16 × 16: 0.935 → 0.976
+of 0.093 (0.504 → 0.681 at 8 × 8); Scordelis–Lo and the pinched cylinder move by less than 0.1 %.
+The element is documented as a flat facet (curvature from the mesh). The `SH-7` known-issue warning
+is removed. The Scordelis–Lo MITC9 effectivity check against w₃ − w₀ is dropped: the faceted
+energies are not monotone under refinement, so that difference is not the error (θ was 0.99 by
+coincidence, 1.57 after the fix with the same displacements).
+#### 3D material-nonlinear yield surface matches 2D (2026-10-21, #429, NL-6, SA-2026-020)
+
+**BREAKING (results): 3D material-nonlinear members with axial force or biaxial bending yield
+earlier and report a higher utilization.** The 3D solver yielded at
+(N/Np)² + (My/Mpy)² + (Mz/Mpz)² > 1; squaring the moment ratios made a 3D member yield later
+than the same member in 2D ((N/Np)² + |M|/Mp): 15 % later about one axis at N = 0.5·Np,
+0.74 against 0.95 for the same planar state, and a tip moment of 0.6·Mp about each axis stayed
+elastic. It now uses (N/Np)² + |My|/Mpy + |Mz|/Mpz, in yield detection and in the utilization
+(from the reported secant forces): the 2D surface for bending about one axis, and between the
+axes the chord between the uniaxial limits. Engine and WASM API only; no app screen calls the
+solver. The NL-5 warning no longer mentions NL-6. Tests in `engine/tests/derivation_nonlinear.rs`;
+advisory `docs/advisories/SA-2026-020-material-nonlinear-3d-yield-surface.md`. Still open for 2D
+and 3D: the (N/Np)² term is the rectangle's and is unconservative for the strong axis of an
+I-section at high axial force.
+
+#### Silent errors from the element-derivations review: 2D-in-3D signs, settlements, Winkler, imperfections, constraints (2026-10-18)
+
+**BREAKING (results): a flat 2D model solved by the 3D solver now turns nodal moments and
+prescribed rotations the right way** (#435, AC-15). Standing the plane in X–Z is a reflection:
+the plane's counter-clockwise θ is a rotation about −Y. Both went in unchanged, so the embedded
+solve modelled the mirror image of the load and the support rotation (a nodal couple moved the
+loaded node up instead of down). `buildSolverLoads3D` sends `my = −M` (the hunk is identical to
+#274's) and the support mapping `dry = −θ`. Store-level test of every rotation-carrying input
+against the 2D solve (`embed-2d-rotations-store.test.ts`); member couples are #343/#274.
+
+**BREAKING (results): Winkler member forces include the bed** (AC-7). End forces are
+(K_e + K_f)·u − FEF; they were K_e·u − FEF, so a free end on a bed reported −K_f·u of shear and
+moment, and the shear jumped at every node. The bed reaction −k_f·v(x) is reported with the
+member loads (16 linear pieces) so a diagram closes. Checked against Hetényi's beam on an
+elastic foundation (w₀, M₀ = P/4λ, V = P/2, M(x)) in 2D and in 3D for both beds. The 3D `kz`
+bed uses D·K_f·D (AC-6, the hunk of #330). A bed on a member with a released end is refused. The
+Winkler solves build the prescribed displacements as the linear solve does (the inclined-roller
+projection was missing).
+
+**BREAKING (results): one stored constraint means one thing in the 2D and the 3D solve**
+(AC-3, AC-5). The web sent a floor (XY) diaphragm to the 2D solver as it was, which reads it as
+the in-plane rigid body and so made the beam it spans rigid in bending; it now sends its trace on
+the X–Z plane (XY: equal u_x, YZ: equal u_z, XZ: the rigid body). A rigid link with no DOFs
+listed, a pinned arm in 3D, was a fixed arm in 2D: it is now sent as [u_x, u_z]. A linear MPC
+term on ry keeps its meaning in 2D (θ = −ry: the coefficient turns). The engine's own defaults
+are unchanged and documented in `types/input.rs`.
+
+**New refusals instead of silently ignored input:**
+- **Settlements on a DOF the support leaves free** (AC-10): a 2D `pinned` with `dry`, any
+  settlement on a `spring` support, a roller's off-axis component, a rotation in a truss-only
+  model, a 3D unflagged DOF or one a spring frees, a free rotation at an inclined support.
+  The message names the support, the value and why. (At an inclined support the documented
+  projection of a global settlement on the normal stays.)
+- **Imperfections** (NL-9, NL-10, NL-11): 3D notional loads looked for gravity along Y by default
+  (Z is up) and found none; member loads were not counted as gravity. The gravity axis now
+  defaults to the model's vertical, and member loads on frames are lumped into it. Residual
+  stresses and initial displacements (never applied), a missing node, a lateral direction equal
+  to the gravity axis, shell gravity loads, and notional loads that find no gravity are refused.
+  `NotionalLoadDef.gravity_axis` is now `Option<usize>`. In the app, notional loads along Y on a
+  plane model (held out of its plane) and on a model without downward load are refused.
+### Fixed
+
+#### 2D: loads along inclined members reach the member; couples on members in the 3D solve (2026-10-18)
+
+**BREAKING (results): the axial force N of inclined plane members under global, angled or
+self-weight loads now varies along the member, and plane models solved in space take couples on
+members and no longer mirror nodal couples.** Rebase of #274 by @diegokingston onto the safety wave.
+
+- The part of a load that runs along an inclined member used to reach the 2D solver as nodal
+  loads at its ends. Reactions and displacements were right, but N came out constant at the mean
+  of its true end values. A 3-4-5 member under 10 kN/m vertical read N = 0 at both ends; the
+  correct values are −15 and +15. The diagram, inspector, despiece, report, Excel and design all
+  read that value. Point loads now put their axial part in `px`. Distributed loads and self-weight
+  use a new engine load, `axialDistributed` (dense, sparse, parallel, truss, corotational,
+  moving loads, combinations, plastic, diagrams).
+- In a plane model solved in space, a couple on a member was dropped: a beam loaded only by one
+  had zero reactions. Nodal couples went in about +Y, which is the mirror image of the drawn
+  load (standing in X–Z is a reflection), so the vertical reactions came out with the wrong
+  sign. Both kinds of couple now go in as −M about Y.
+- Where the safety wave met the new load: the event-to-event plastic solve cuts it at an
+  interior hinge the way it cuts a distributed load (before, part of the load was lost), the 2D
+  diagram certificate bounds N between stations under it (before, it certified a zero gap), and
+  the exact plastic certificate refuses it by name.
+- Plastic collapse reads |N| where it can peak inside a member (a sign-changing axial load
+  peaks between the ends), and when a member yields axially its axial point loads, and on a
+  truss its transverse loads too, stay on the structure at its ends. Before, part of the
+  load was lost, and a frame member with only an axial point load counted as crushed.
+- 2D buckling decides that a member is compressed from its mean axial force, the force its
+  geometric stiffness is built from. A member whose end forces are both 0 but which is
+  compressed along its span is no longer refused as "No compressed elements".
+- The 2D diagram certificate bounds N' by q_x on each interval, so an axial point load's jump
+  beside an axial span load is no longer dropped.
+- Corotational truss and cable bars recover the axial span load: N varies along them as in
+  the linear solve instead of being constant.
+- Staged construction applies member loads on truss bars. Before, it dropped all of them:
+  axial span loads, distributed and point loads, and temperature.
+- Moving-load envelopes of N, V and M read the diagram along each member, not only its end
+  values. Under a span load M peaks inside the span, and under a sign-changing axial load so
+  does N, so these envelopes can now be larger than before.
+- 2D models already materialized to PRO keep their old mirrored couples and lumped axial loads.
+  There is no migration.
+#### Web: real torsion constant, shear centre and warping constant for 3D sections (#439)
+
+**BREAKING (results): 3D sections reach the engine with their real J and shear centre, and
+3D buckling with their warping constant.** With the Wagner term in the geometric stiffness
+(#404) these decide torsional and flexural-torsional buckling, and the web sent none of them
+properly.
+- **J is never invented.** A section with no torsion constant used to get J = 0.001·Iy, which
+  with the Wagner term set a torsional buckling load out of nothing (spurious low modes, P-Delta
+  instabilities). J is now the tabulated or declared value, the exact one of a circle or tube,
+  or Saint-Venant solved on the section's mesh (IPE 300: 20.1 cm⁴, table 20.12). A section with
+  none is sent with J = 0 and its members released in torsion (they carry no torque in the
+  static solve), and buckling, P-Delta, co-rotational and imperfection analyses refuse those
+  members by name. The sections table shows "—" for an unknown J instead of the made-up value.
+- **Shear centre.** Solved on the section's mesh and sent as `shearCenterY/Z`, so channels,
+  tees and angles get their flexural-torsional coupling (UPN 200, 2 m: the coupled
+  twist mode at 1642 kN). A tee, channel or angle stated by its properties only has no shear
+  centre: the same analyses refuse it rather than take the centroid. A section stated by its
+  properties with no shape is taken as symmetric, as before. The co-rotational solver does not
+  model the offset and refuses these sections (#434), where it ran without the coupling.
+- **Warping constant in buckling only.** Cw is solved on the mesh (IPE 300: 125.9·10³ cm⁶ to
+  0.1 %; UPN 200: 8990 cm⁶, table 9070) and given to the buckling analysis alone, on straight
+  runs of compressed members with no end releases, most compressed first, so that no node ties
+  the warping of members at an angle (the engine's warping DOF is one per node; sharing it
+  across a beam-column joint would restrain the column's warping, the unconservative side).
+  Supports leave warping free (effective torsional length factor 1). Every other member keeps
+  Saint-Venant torsion, whose G·J/r0² is a lower bound. The static solve, modal, spectral and
+  P-Delta analyses get no Cw, so their results do not depend on it; P-Delta's torsional limit
+  stays the conservative G·J/r0². IPE 300 column, 2 m, fork supports: buckling is the
+  weak-axis Euler load 2981 kN, with the torsional mode at (GJ + π²ECw/L²)/r0² ≈ 4660 kN;
+  without Cw torsion governed at 928 kN.
+- Results that move: 3D buckling of open sections (higher torsional loads where Cw now counts,
+  lower flexural-torsional loads for channels, tees and angles), 3D static torsion of members
+  whose section had no J (now zero torque), and analyses refused for sections with no J or a
+  missing shear centre. Checked end to end through the model store
+  (`web/src/lib/engine/__tests__/section-torsion-buckling.test.ts`).
+- Torsional modes between twist restraints now appear even in members left as one element:
+  without warping the element's twist is linear, so a member whose two ends are held in twist
+  had no torsional freedom and its torsional buckling was never found (a king-post truss of IPN
+  300 beams, held out of plane at every node: torsional modes at λ = 11.6 behind the in-plane
+  51.7, which the space model now shows). The twist inside one warping element is a cubic, like
+  the deflection, so one element between twist restraints overestimates the Cw term (only) as it
+  overestimates the Euler load (up to 21.6 % for fork ends); two elements bring it under 1 %.
+
+#### Torsional buckling and response-spectrum combination fixed (2026-10-18)
+
+**BREAKING (results): 3D linear buckling and P-Delta now include the torsional terms of the
+frame geometric stiffness** (#404). The Wagner term P·r0²·θ'² (r0² = (Iy + Iz)/A + y0² + z0²
+about the shear centre) and the shear-centre coupling were missing, so torsional and
+flexural-torsional buckling were never found and the flexural load was reported instead
+(unconservative: a 200×10 mm cruciform, L = 1.5 m, reported 5860 kN for a governing 2993 kN,
++96%). Load factors drop for cruciforms, angles, tees, channels and short open sections.
+- New optional section fields `shearCenterY`, `shearCenterZ` (m, from the centroid, local
+  axes) for monosymmetric and asymmetric sections; absent = 0.
+- Sections without `cw` have no warping stiffness in the model, so their torsional buckling
+  load is GJ/r0²: conservative for I-sections, and for short I columns it can now govern.
+  Declare `cw` (warping DOFs) for open sections whose torsional load matters.
+- One Kg for every path: buckling, P-Delta tangent and second-order forces, the buckling
+  and P-Delta certificates, `build_kg_from_forces_3d`, 12-DOF (linear twist) and 14-DOF
+  warping (cubic twist) members, releases (a torsion release removes the terms). The
+  co-rotational solver adds the Wagner torque to its residual and tangent and refuses
+  sections with a shear-centre offset.
+- Checked against Euler, P_T = (GJ + π²ECw/L²)/r0², the flexural-torsional cubic for
+  channels, tees and an asymmetric section, the P-Delta twist amplification 1/(1 − P/P_T),
+  and unchanged I-section loads where flexure governs
+  (`engine/tests/torsional_buckling_and_spectral.rs`).
+
+**BREAKING (results): response spectrum** (#405).
+- The base shear is combined with the requested rule. It was always SRSS, also under CQC
+  (unconservative for closely spaced modes: ×1/1.23 at ω₂ = 1.1ω₁).
+- Member forces combine each end's signed per-mode value and take the envelope of the two
+  ends afterwards. They combined the per-mode max(|start|, |end|), which made every CQC cross
+  term non-negative (conservative, up to 2.7× for opposite-sign modes). Lower forces are
+  possible where modes contribute with opposite signs.
+- An unknown combination rule is refused (it ran CQC silently); SRSS/CQC are case-insensitive.
+
+**BREAKING (results): modal participation includes the support-coupled mass** (#405).
+Γ and the effective masses used M_ff·r_f; with a consistent mass the ground-motion load is
+(M·r)_f = M_ff·r_f + M_fr·r_r, as time history already applied. Participation factors,
+effective masses and mass ratios rise (a one-element cantilever: Σ M_eff from 37% to 75%
+of the mass, the rest moving rigidly with the support), and the spectral displacements and
+forces now have the exact static limit. The spectral certificate uses the same load.
+
 ## 0.2.0 (2026-10-18)
 
 **Results change: re-run your projects.** Release notes for users, in English, Spanish and
@@ -21,6 +805,83 @@ The app now shows its version in the status bar and, once, a notice that results
 changed with a link to the notes.
 
 ### Changed
+#### Element formulations documented for independent review (2026-10-18)
+
+`docs/solver/` documents each element and solver family's derivation, assumptions, conventions
+and tests (roadmap "Solver and proof depth" item 10). Findings while writing the frame family:
+
+- **3D `leftHand: true` is now refused.** It reversed local y and made the member triad
+  improper, so the element stiffness changed with the labelling of an axis (tip twist of a skew
+  cantilever changed sign). No product path sent it. Test: `derivation_frames.rs`.
+- The beam-station output's declared sign convention now matches its values (2D moments are
+  hogging-positive; 3D components are the resultant on the negative face). Values are unchanged.
+- The 2D/3D shear-area pairing (`as_y` goes with `iz` in 2D, with `iy` in 3D) is spelled out in
+  the input docs.
+
+Shells (`docs/solver/shells.md`, tests in `derivation_shells.rs`). **BREAKING (results)** for
+curved shells, walls in dynamics and heated shells:
+
+- Curved shell: transverse-shear ANS transform corrected on non-rectangular elements (it was up
+  to 1.75× too stiff in shear on a 60° parallelogram). Drilling penalty is now an area integral
+  as in MITC4 (it was h × that and unit-dependent). Self-weight was 1000× too large (kg/m³ not
+  converted to kN).
+- Shell rotary inertia is now about the element's in-plane axes. A vertical wall used to get
+  inertia about its normal (drilling) and none about one in-plane axis. Horizontal elements are
+  unchanged.
+- Geometric stiffness of DKT, MITC9 and curved shells uses the mechanical strain, so free thermal
+  expansion no longer creates membrane force (or a spurious buckling load).
+- DKT nodal stresses subtract the thermal strain, and several thermal loads on one shell are
+  summed in stress recovery (only the last was used).
+- Follow-ups from review:
+  - The summed thermal loads are keyed by (family, id), so a quad and a quad9 sharing an id
+    no longer double each other's correction.
+  - The curved-shell rotary mass is built from the nodal directors, so a spin about the
+    director is massless.
+  - The time-history initial acceleration handles mass nullspaces that are not coordinate DOFs
+    (an oblique shell's drilling rotation). It had fallen back to diagonal lumping, giving a
+    25% error on a 45°-rotated quad.
+
+Assembly, supports and constraints (`docs/solver/assembly-constraints.md`, tests in
+`derivation_assembly_constraints.rs`). **BREAKING (results)** for the cases listed:
+
+- Rigid links, eccentric connections and diaphragms in 3D truss/cable-only models (3 DOFs per
+  node) read the master's vertical displacement as its rotation. They now branch on the model's
+  dimension.
+- 2D diaphragm planes: "XZ" (the 2D plane) is now the in-plane rigid body, "YZ" ties vertical
+  displacement only, and unknown plane names are refused (they fell back to XY). The 3D "XZ"
+  diaphragm had both rigid-body signs flipped.
+- Reactions at an inclined support that also carries a spring now balance the loads. 3D rotated
+  the spring force with the normal reaction, and 2D dropped it.
+- 3D Winkler `kz` foundation: the translation–rotation coupling signs were not flipped, so a
+  symmetric beam deflected half as much under z as under y.
+- API RP 2A sand p-y: the C1, C2, C3 coefficients now follow the Reese–Cox–Koop formulas. Ultimate
+  resistance was 5× too low near the surface and 16× too low at depth.
+
+Fiber beams and cables (`docs/solver/special-elements.md`, tests in
+`derivation_special_elements.rs`). **BREAKING (results)** for fiber analyses:
+
+- Fiber beam, 2D and 3D: the sign of the bending curvature mirrored the strain field. Results
+  change for any section not symmetric about its bending axis (asymmetric reinforcement,
+  T-sections, eccentric fibers).
+- Fiber member forces are now the fiber section resultants. They were elastic-stiffness forces,
+  off by orders of magnitude after yield.
+  The elastic forces removed use the same Timoshenko shear parameters as the linear recovery.
+- Non-positive shear areas (`asY`/`asZ` ≤ 0) are refused. Zero gave a NaN stiffness and a
+  negative value a negative shear parameter, silently.
+- Fiber material history is committed only at convergence, so results no longer depend on the
+  load stepping.
+- Steel `hardening_ratio` is now the true post-yield slope over E (it gave αE/(1+α)).
+- 6 and 7 integration points really use 6 and 7 points. Counts outside 3–7 are refused (2 gave a
+  wrong elastic stiffness).
+- `irvine_parameter`: removed a spurious factor L (unused by the solvers).
+
+Nonlinear (`docs/solver/nonlinear.md`, tests in `derivation_nonlinear.rs`):
+
+- Co-rotational 2D (also arc-length and displacement control): member-end deformational rotations
+  are now reduced to (−π, π]. Members drawn right to left, or rotating past ±π, no longer get a
+  spurious 2π of bending. A cantilever fixed at its right end used to fail to converge.
+- The 3D co-rotational leaning-column reproduction (SYMBOLIC.md item 5) now passes and is a
+  regular regression test.
 
 #### CIRSOC 301 steel checks in the engine, re-checked and certified (2026-10-17)
 

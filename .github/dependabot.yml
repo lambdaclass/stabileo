@@ -11,6 +11,42 @@ updates:
       cargo-minor:
         update-types: [minor, patch]
 
+  - package-ecosystem: cargo
+    directory: /research/fracture/shauer-2025
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      cargo-minor:
+        update-types: [minor, patch]
+
+  - package-ecosystem: cargo
+    directory: /research/fracture/shauer-2025/wasm
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      cargo-minor:
+        update-types: [minor, patch]
+
+  - package-ecosystem: cargo
+    directory: /research/metamaterials/grossman-2026
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      cargo-minor:
+        update-types: [minor, patch]
+
+  - package-ecosystem: cargo
+    directory: /research/metamaterials/grossman-2026/wasm
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      cargo-minor:
+        update-types: [minor, patch]
+
   - package-ecosystem: npm
     directory: /web
     schedule:
@@ -18,6 +54,15 @@ updates:
     open-pull-requests-limit: 5
     groups:
       npm-minor:
+        update-types: [minor, patch]
+
+  - package-ecosystem: mix
+    directory: /backend
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      mix-minor:
         update-types: [minor, patch]
 
   # Keeps the SHA-pinned actions current (the version comment is updated too).

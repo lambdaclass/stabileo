@@ -4,8 +4,8 @@
 //! system computed by iterative refinement with double-double residuals and a
 //! double-double solution vector (accurate to ~κ·ε², far below any bound).
 
-mod common;
-mod fuzz_models;
+use crate::common;
+use crate::fuzz_models;
 
 use common::*;
 use dedaliano_engine::certify::buckling::{certify_buckling_2d, certify_buckling_3d, BucklingCertificate};
@@ -289,7 +289,7 @@ fn certify_3d_fixtures_small() {
     assert!(c >= 4, "only {c} 3D fixtures certified");
 }
 
-/// Larger 3D fixtures (slow in debug): `cargo test --release --test certify -- --ignored`.
+/// Larger 3D fixtures (slow in debug): `cargo test --release --test certificates certify:: -- --ignored`.
 /// Reports only: the naive interval Cholesky of CERTIFY.md may legitimately
 /// fail (Uncertified) on larger models through interval overestimation.
 #[test]
@@ -497,7 +497,7 @@ fn grid_frame(bays: usize, stories: usize) -> SolverInput {
 }
 
 /// Overhead of certification vs plain solve. Run with
-/// `cargo test --release --test certify -- --ignored --nocapture overhead`.
+/// `cargo test --release --test certificates certify::overhead -- --ignored --nocapture`.
 #[test]
 #[ignore]
 fn overhead() {
@@ -645,7 +645,7 @@ fn certify_buckling_3d_fixtures() {
         }
         let Ok(out) = certify_buckling_3d(&input, 1) else { continue }; // no compression etc.
         match &out.certificate {
-            BucklingCertificate::Uncertified { reason } => eprintln!("{name}: {reason}"),
+            BucklingCertificate::Uncertified { reason, .. } => eprintln!("{name}: {reason}"),
             c => {
                 let (lo, hi) = assert_buckling_enclosure(&name, c);
                 eprintln!("{name}: λ_cr ∈ [{lo:.6e}, {hi:?}]");

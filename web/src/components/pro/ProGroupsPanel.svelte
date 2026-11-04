@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from './Hint.svelte';
   /**
    * Named groups: create from the selection, select, rename, grow, shrink, delete.
    *
@@ -30,7 +31,8 @@
   let renaming = $state<number | null>(null);
   let renameText = $state('');
 
-  const groups = $derived([...modelStore.model.groups.values()].filter((g) => g.kind !== 'floorLoad').sort((a, b) => a.id - b.id));
+  // Physical elements have their own panel (`ProPhysicalPanel`): a building has hundreds.
+  const groups = $derived([...modelStore.model.groups.values()].filter((g) => g.kind !== 'floorLoad' && g.kind !== 'physicalMember').sort((a, b) => a.id - b.id));
 
   /** The selection, by family, read against the model. */
   const selection = $derived.by((): GroupMembers => {
@@ -82,7 +84,7 @@
 <div class="pk gp" data-testid="groups-panel">
   <section class="pk-card">
   <h4 class="pk-heading">{t('groups.newTitle')}</h4>
-  <p class="pk-hint">{t('groups.explain')}</p>
+  <Hint text={t('groups.explain')} />
   <div class="pk-row">
     <input class="gp-name" placeholder={t('groups.namePlaceholder')} bind:value={name} data-testid="gp-name" />
     <select bind:value={kind} data-testid="gp-kind">

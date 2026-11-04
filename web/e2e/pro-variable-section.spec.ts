@@ -2,11 +2,12 @@
  * A member of variable section, from Specifications: two sections of one family at its ends, the
  * transition the analysis will use, and a solve that reports the member as one with its diagrams.
  */
-import { test, expect } from './fixtures';
+import { test, expect, CURRENT_STAMP } from './fixtures';
 
 const cantilever = {
   version: '2.0', name: 'haunch', timestamp: '2026-01-01T00:00:00.000Z', analysisMode: 'pro',
   snapshot: {
+    solvedWith: CURRENT_STAMP,
     name: 'haunch', localAxisConvention: 'zUpStrongAxis',
     nodes: [[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: 6, y: 0, z: 0 }]],
     materials: [[1, { id: 1, name: 'F-24', e: 200000, nu: 0.3, rho: 78.5, fy: 240 }]],

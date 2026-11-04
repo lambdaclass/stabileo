@@ -5,6 +5,7 @@ node_modules
 
 # Build output
 web/dist/
+web/dist-admin/
 
 # IDE / OS
 .DS_Store
@@ -28,6 +29,8 @@ engine/pkg/
 web/src/lib/wasm/
 # also match a symlinked wasm pkg (worktree setups)
 web/src/lib/wasm
+# Stabileo Research page bundle, built by research/fracture/shauer-2025/wasm/build.sh
+web/public/research-wasm/
 
 # Nix (root-level build symlinks only — anchored so source files like
 # src/lib/engine/result-query.ts are not silently ignored)
@@ -53,6 +56,7 @@ web/e2e/__probe*.spec.ts
 
 web/e2e/.artifacts/
 web/e2e/.report/
+web/e2e/.results/
 web/test-results/
 web/playwright-report/
 # Playwright writes these at the repo root too when it is invoked from here.
@@ -70,7 +74,15 @@ web/.dist-hookgate-on/
 docs/codes/CIRSOC/*.pdf
 /.tools/
 
-
 # Stryker mutation testing (web/stryker.config.json)
 web/reports/mutation/
 web/.stryker-tmp/
+
+# Python bytecode (scripts/tests)
+__pycache__/
+
+# Elixir backend (deps and build live under backend/, see backend/.gitignore)
+.mix/
+.hex/
+.stabileo-inst
+.env.prod

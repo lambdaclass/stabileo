@@ -24,7 +24,7 @@ python3 -m venv tools/symbolic/.venv
 tools/symbolic/.venv/bin/pip install -r tools/symbolic/requirements.txt
 tools/symbolic/.venv/bin/python -I tools/symbolic/gen.py          # write the test
 tools/symbolic/.venv/bin/python -I tools/symbolic/gen.py --check  # CI's check
-cd engine && cargo test --release --test symbolic_elements
+cd engine && cargo test --release --test derivations symbolic_elements::
 ```
 
 ## How the comparison is exact
@@ -55,7 +55,7 @@ platform. CI relies on this to compare it byte for byte.
 | `frame_local_stiffness_2d` | axial + bending; EB from ½∫EI·v''² over cubic Hermite shapes; Timoshenko from ½∫(EI·ψ'² + GAs·(v'−ψ)²) over the interdependent shapes, which are *solved for* as the exact homogeneous solutions of the Timoshenko equations; all 4 hinge combinations by static condensation | 24 |
 | `frame_local_stiffness_3d` | axial, St-Venant torsion ½∫GJ·θ'², both bending planes (θz = v', θy = −w'), EB and Timoshenko with independent φy, φz, **all 64 release combinations** | 128 |
 | `frame_local_stiffness_3d_warping` | cubic Hermite twist, ½∫(GJ·θ'² + ECw·θ''²) (Barsoum & Gallagher 1970; McGuire, Gallagher & Ziemian §8.4), with releases | 28 |
-| `frame_kg_local_2d/3d`, `truss_kg_2d/3d` | ½∫P·v'² with cubic Hermite v. A released rotation follows the elastic (EB) map, so Kg_c = Tᵀ·Kg·T, the same work over the propped-cantilever or pinned shapes N·T. All 4 (2D) and 64 (3D) release combinations. Trusses: (P/L)(I − eeᵀ) | 92 |
+| `frame_kg_local_2d/3d`, `truss_kg_2d/3d` | ½∫P·v'² with cubic Hermite v. A released rotation follows the elastic (EB) map, so Kg_c = Tᵀ·Kg·T, the same work over the propped-cantilever or pinned shapes N·T. All 4 (2D) and 64 (3D) release combinations. Trusses: (P/L)(I − eeᵀ). The SymPy checks cover the bending blocks (`KgSection::default()`, r0 = 0); the 3D torsional terms (Wagner P·r0²θ'², shear-centre coupling 2P(z0·v'θ' − y0·w'θ')) are checked in closed form and against P_T, P_FT by `tests/torsional_buckling_and_spectral.rs` | 92 |
 | `frame_consistent_mass`, `truss_consistent_mass`, `frame_consistent_mass_3d`, `frame_consistent_mass_3d_warping` | ½∫ρA·\|u̇\|²: Hermite transverse, linear axial, ρ(Iy+Iz) linear torsion, and for warping members ½∫ρ(Ip·θ̇² + Cw·θ̇'²) over the cubic twist; half-mass lumping (translations only) with releases | 36 |
 | `fef_distributed_2d`, `fef_partial_distributed_2d`, `fef_point_load_2d` (force, axial force, couple), `fef_thermal_2d`, each followed by `adjust_fef_for_hinges` | ∫q·N + P·N(a) + M·Ψ(a) with the element's own shapes (Hermite or Timoshenko), then condensed for the hinges | 40 |
 | `fef_distributed_3d`, `fef_partial_distributed_3d`, `fef_point_load_3d`, `fef_thermal_3d`, each followed by `adjust_fef_for_hinges_3d` | same, per plane (local y ↔ φz, local z ↔ φy, θy = −w'), random releases | 32 |
@@ -151,8 +151,9 @@ Each one has a regression test, and each fix is in the CHANGELOG.
    fork-supported I-beam's first torsional frequency came out 10.6% low. Warping members now get
    the consistent 14×14 mass of their cubic twist. Test:
    `validation_warping_fork_beam_torsional_frequency`.
-5. **The 3D co-rotational solver fails on pin-ended members** (not fixed; reproduced by the ignored
-   test `corotational_3d_leaning_column_matches_pdelta`).
+5. **The 3D co-rotational solver failed on pin-ended members** (no longer reproduces: the test
+   `corotational_3d_leaning_column_matches_pdelta` now passes and is no longer ignored; see
+   [nonlinear.md](../solver/nonlinear.md), NL-7). As first found:
    - At vanishing load it does not converge on the leaning-column frame.
    - At P = 0.2·k·h it converges to *less* sway than the linear solve.
    - Its tangent also uses the fixed-fixed Kg whatever the releases. Swapping in the condensed

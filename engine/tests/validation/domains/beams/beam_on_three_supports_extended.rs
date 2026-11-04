@@ -206,7 +206,7 @@ fn point_on_element_midspan() {
 
     // Moment about A should be zero: R_B*L + R_C*2L - P_abs*(L/2) = 0
     let moment_about_a = r_b * l + r_c * 2.0 * l - p_abs * (l / 2.0);
-    assert_close(moment_about_a, 0.0, 1e-4, "PointOnElement: moment about A = 0");
+    assert_close_abs(moment_about_a, 0.0, 1e-4, 1e-6, "PointOnElement: moment about A = 0");
 }
 
 // ─── Test 3: Shear force discontinuity at interior support ───────────────────
@@ -425,7 +425,7 @@ fn symmetric_displacements_equal_spans_udl() {
         .find(|d| d.node_id == mid_node)
         .unwrap();
     assert_close(disp_mid.uz, 0.0, 1e-10, "interior support uy = 0");
-    assert_close(disp_mid.ry, 0.0, 1e-10, "interior support rz = 0 by symmetry");
+    assert_close_abs(disp_mid.ry, 0.0, 1e-10, 1e-6, "interior support rz = 0 by symmetry");
 }
 
 // ─── Test 6: UDL on one span only ───────────────────────────────────────────
@@ -689,7 +689,7 @@ fn different_stiffness_per_span_deflection() {
     let loads = udl_loads(total_elems, q);
 
     let input = SolverInput {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes: nodes_map,
         materials: mats_map,
         sections: secs_map,
@@ -814,11 +814,11 @@ fn applied_moment_at_interior_support() {
 
     // Equilibrium: sum Ry = 0 (no vertical loads applied)
     let sum_ry: f64 = reactions.iter().map(|r| r.rz).sum();
-    assert_close(sum_ry, 0.0, 1e-6, "moment only: sum_ry = 0");
+    assert_close_abs(sum_ry, 0.0, 1e-6, 1e-6, "moment only: sum_ry = 0");
 
     // Moment about A: R_B*L + R_C*2L + M_0 = 0
     let moment_about_a = r_b * l + r_c * 2.0 * l + m_0;
-    assert_close(moment_about_a, 0.0, 1e-4, "moment about A = 0");
+    assert_close_abs(moment_about_a, 0.0, 1e-4, 1e-6, "moment about A = 0");
 
     // For equal spans with moment at B:
     // R_A = M_0/(2L), R_C = -M_0/(2L), R_B = 0
@@ -827,7 +827,7 @@ fn applied_moment_at_interior_support() {
 
     assert_close(r_a, r_a_expected, 0.01, "moment at B: R_A = M/(2L)");
     assert_close(r_c, r_c_expected, 0.01, "moment at B: R_C = -M/(2L)");
-    assert_close(r_b, 0.0, 0.01, "moment at B: R_B = 0");
+    assert_close_abs(r_b, 0.0, 0.01, 1e-6, "moment at B: R_B = 0");
 
     // Verify antisymmetry: R_A = -R_C
     assert_close(r_a, -r_c, 1e-6, "R_A = -R_C by antisymmetry");

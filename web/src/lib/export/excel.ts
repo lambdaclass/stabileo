@@ -24,6 +24,9 @@
  * reachable only from `exportToExcel`, which awaits the import first. That is
  * why this is a `let` rather than being threaded through ten signatures.
  */
+import { captureProvenanceToken, provenanceForExport, provenanceLabels, ExportChangedError } from '../store/result-provenance';
+import { provenanceTextLines, type ResultProvenance } from '../provenance/result-provenance';
+import { runEngineActionAsync } from '../store/engine-action';
 import { memberSectionLabel } from '../section/variable';
 // Type-only: erased at build time, so it costs the bundle nothing.
 import type * as Xlsx from 'xlsx';
@@ -72,10 +75,18 @@ interface ExcelExportOptions {
    * coming out empty without a word.
    */
   solveError?: string;
+  /**
+   * Whether to add the provenance (status line, Provenance sheet). Default true: every workbook
+   * of results says which build produced them and whether they are stale. False only for a caller
+   * whose own sheets already carry it (the project workbook's cover).
+   */
+  provenance?: boolean;
 }
 
 /** The current export's solve failure; set for the length of one `exportToExcel`. */
 let solveError: string | null = null;
+/** The current export's provenance status line (STALE or current), for the summary's top. */
+let summaryStatus: readonly [string, string] | null = null;
 
 /** The line a results sheet carries in place of results the model could not produce. */
 function blockedRow(): string[] {
@@ -119,12 +130,15 @@ export const releaseLabel = (r?: { my: boolean; mz: boolean; t: boolean }): stri
 };
 
 function createSummarySheet(): Xlsx.WorkSheet {
+  const status = summaryStatus;
   const is3D = uiStore.is3DWorkspace;
   const r3d = resultsStore.results3D;
   const r2d = resultsStore.results;
   const data: (string | number)[][] = [];
 
   data.push([`${t('excel.structuralAnalysis')} ${is3D ? '3D' : '2D'} - ${t('excel.summary')}`]);
+  // The re-check status first (STALE or current); the full record is the Provenance sheet.
+  if (status) data.push([status[0], status[1]]);
   data.push([]);
 
   if (solveError) {
@@ -581,8 +595,38 @@ export function combinationPeakRows(): Array<[string, number, number, number, nu
   return data;
 }
 
-export async function exportToExcel(options: ExcelExportOptions = {}): Promise<void> {
-  if (!(await loadXlsxModule())) return;
+/**
+ * Write the workbook. False when it was not written (said to the reader already). Its result
+ * sheets read station forces and checks from the engine; without it, or when it refuses, the
+ * export says so (an error toast) instead of failing silently.
+ */
+export async function exportToExcel(options: ExcelExportOptions = {}): Promise<boolean> {
+  const wb = await runEngineActionAsync(() => buildExcelWorkbook(options));
+  if (!wb) return false;
+  XLSX.writeFile(wb, options.filename ?? 'analisis-estructural.xlsx');
+  return true;
+}
+
+/**
+ * The workbook `exportToExcel` writes, or null when it is not written (the library did not load,
+ * or the project moved while the provenance was prepared: said to the reader).
+ *
+ * Every workbook carries its provenance: a status line (STALE or current) on the summary (when it
+ * has one) and a Provenance sheet, prepared like every export's
+ * (`provenanceForExport`: engine hashes awaited, bound to the state the export started on).
+ */
+export async function buildExcelWorkbook(options: ExcelExportOptions = {}): Promise<Xlsx.WorkBook | null> {
+  const token = options.provenance === false ? null : captureProvenanceToken();
+  if (!(await loadXlsxModule())) return null;
+  let record: ResultProvenance | null = null;
+  if (token) {
+    try {
+      record = await provenanceForExport(token);
+    } catch (e) {
+      if (e instanceof ExportChangedError) { uiStore.toast(e.message, 'error'); return null; }
+      throw e;
+    }
+  }
 
   /*
    * Everything below reads the stores, and it reads them AFTER the await.
@@ -595,7 +639,6 @@ export async function exportToExcel(options: ExcelExportOptions = {}): Promise<v
    * than leaving for someone to discover.
    */
   const {
-    filename = 'analisis-estructural.xlsx',
     includeModel = true,
     includeResults = true,
     extraSheets = [],
@@ -608,7 +651,9 @@ export async function exportToExcel(options: ExcelExportOptions = {}): Promise<v
 
   const wb = XLSX.utils.book_new();
 
+  const provenanceLines = record ? provenanceTextLines(record, provenanceLabels()) : null;
   if (!onlyExtras) {
+    summaryStatus = provenanceLines?.[0] ?? null;
     XLSX.utils.book_append_sheet(wb, createSummarySheet(), t('excel.sheetSummary'));
     if (includeModel) {
       XLSX.utils.book_append_sheet(wb, createElementsSheet(), t('excel.sheetElements'));
@@ -637,6 +682,10 @@ export async function exportToExcel(options: ExcelExportOptions = {}): Promise<v
     }
   }
 
+  if (provenanceLines) {
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(provenanceLines.map(([k, v]) => [k, v])), t('provenance.title').slice(0, 31));
+  }
+
   for (const extra of extraSheets) {
     XLSX.utils.book_append_sheet(
       wb, XLSX.utils.aoa_to_sheet(extra.rows as (string | number)[][]),
@@ -644,5 +693,6 @@ export async function exportToExcel(options: ExcelExportOptions = {}): Promise<v
   }
 
   solveError = null;
-  XLSX.writeFile(wb, filename);
+  summaryStatus = null;
+  return wb;
 }

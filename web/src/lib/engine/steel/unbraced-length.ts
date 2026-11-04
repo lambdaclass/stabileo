@@ -28,6 +28,20 @@
 
 type P = { x: number; y: number; z?: number };
 
+/** Bracing stated on a steel member: points per flange, m from its start; lengths per axis, m. */
+export interface SteelBracing { top?: number[]; bottom?: number[]; Lx?: number; Ly?: number }
+
+/**
+ * The unbraced length of a flange held at `points` along a member of length `L`: the longest gap
+ * between consecutive points, the ends included. No points: the whole length.
+ */
+export function flangeUnbracedLength(L: number, points: readonly number[] | undefined): number {
+  const xs = [0, ...(points ?? []).filter((x) => x > 1e-9 && x < L - 1e-9), L].sort((a, b) => a - b);
+  let gap = 0;
+  for (let i = 1; i < xs.length; i++) gap = Math.max(gap, xs[i]! - xs[i - 1]!);
+  return gap;
+}
+
 export interface LengthModel {
   nodes: ReadonlyMap<number, P>;
   elements: ReadonlyMap<number, { id: number; nodeI: number; nodeJ: number; type: string; unbracedLength?: number }>;

@@ -10,10 +10,14 @@
 // heatmap / contour code uses it to colour ALL vertices of the (possibly
 // extruded) geometry instead of assuming the flat-fan layout.
 import * as THREE from 'three';
+import type { PrismLayer } from '../engine/physical/physical-frame';
+import { prismLayersGeometry } from './physical-mesh';
 
 const SHELL_COLOR = 0x4ecdc4;
 
 const EDGE_COLOR = 0x88ddcc;
+/** The shells' outline colour, for what draws them other than here. */
+export const SHELL_EDGE_COLOR = EDGE_COLOR;
 
 // Per-material palette so different shell materials read distinctly in 3D.
 // materialId 0 keeps the historic teal; others cycle a calm, high-contrast set.
@@ -28,7 +32,7 @@ export function shellColorForMaterial(materialId: number | undefined): number {
   return SHELL_PALETTE[((materialId % n) + n) % n];
 }
 
-export type ShellRenderMode = 'wireframe' | 'solid' | 'sections';
+export type ShellRenderMode = 'wireframe' | 'solid' | 'sections' | 'physical';
 
 export interface ShellRenderOpts {
   renderMode: ShellRenderMode;
@@ -36,6 +40,8 @@ export interface ShellRenderOpts {
   thickness: number;
   /** Face colour (defaults to the material palette / teal). */
   faceColor?: number;
+  /** In `physical` mode, the slab net of the frame (`store/physical-frame.ts`); absent, drawn as `sections`. */
+  physicalLayers?: readonly PrismLayer[];
 }
 
 type Vec3 = { x: number; y: number; z: number };
@@ -43,7 +49,7 @@ type Vec3 = { x: number; y: number; z: number };
 /** Build a per-shell face material (cloned per mesh so selection/contour code
  *  can mutate colour/vertexColors without touching other shells). */
 function makeFaceMaterial(color: number, mode: ShellRenderMode): THREE.MeshStandardMaterial {
-  const sections = mode === 'sections';
+  const sections = mode === 'sections' || mode === 'physical';
   const wire = mode === 'wireframe';
   return new THREE.MeshStandardMaterial({
     color,
@@ -197,13 +203,31 @@ function buildPrismGeometry(verts: Vec3[], normal: THREE.Vector3, t: number): TH
 
 /** Crisp outline geometry (coplanar fan diagonals suppressed for flat faces). */
 function buildEdges(geo: THREE.BufferGeometry, mode: ShellRenderMode): THREE.LineSegments {
-  const thresholdDeg = mode === 'sections' ? 20 : 1;
+  const thresholdDeg = mode === 'sections' || mode === 'physical' ? 20 : 1;
   const eg = new THREE.EdgesGeometry(geo, thresholdDeg);
   const mat = new THREE.LineBasicMaterial({ color: EDGE_COLOR, linewidth: 1 });
   const edges = new THREE.LineSegments(eg, mat);
   edges.userData.shellEdge = true;
   edges.raycast = () => {};
   return edges;
+}
+
+/**
+ * A net slab's painters' maps: each vertex's nearest corner (`vertexNodeIndex`) and that corner
+ * alone as its weight (`vertexNodeWeights`), so a result contour still reads on a cut outline.
+ */
+function withCornerMaps(geo: THREE.BufferGeometry, verts: Vec3[]): THREE.BufferGeometry {
+  const pos = geo.getAttribute('position');
+  const idx: number[] = [], weights: number[][] = [];
+  for (let i = 0; i < pos.count; i++) {
+    let best = 0, d = Infinity;
+    verts.forEach((v, k) => { const e = Math.hypot(pos.getX(i) - v.x, pos.getY(i) - v.y); if (e < d) { d = e; best = k; } });
+    idx.push(best);
+    const w = new Array(verts.length).fill(0); w[best] = 1; weights.push(w);
+  }
+  geo.userData.vertexNodeIndex = idx;
+  geo.userData.vertexNodeWeights = weights;
+  return geo;
 }
 
 /** Shared builder for plate (3 nodes) and quad (4 nodes). */
@@ -217,9 +241,12 @@ function buildShellGroup(
   const faceColor = opts.faceColor ?? SHELL_COLOR;
   const mode = opts.renderMode;
 
-  const geo = mode === 'sections'
-    ? buildPrismGeometry(verts, faceNormal(verts), opts.thickness)
-    : buildFlatGeometry(verts);
+  const net = mode === 'physical' && opts.physicalLayers ? prismLayersGeometry(opts.physicalLayers) : null;
+  // A slab the frame covers whole keeps its flat face, so it can still be picked.
+  const geo = mode === 'physical' && opts.physicalLayers ? (net ? withCornerMaps(net, verts) : buildFlatGeometry(verts))
+    : mode === 'sections' || mode === 'physical'
+      ? buildPrismGeometry(verts, faceNormal(verts), opts.thickness)
+      : buildFlatGeometry(verts);
 
   const faceMat = makeFaceMaterial(faceColor, mode);
   const mesh = new THREE.Mesh(geo, faceMat);
@@ -307,4 +334,87 @@ export function ensureOwnShellMaterial(mesh: THREE.Mesh): THREE.MeshStandardMate
   mesh.material = owned;
   mesh.userData.ownShellMaterial = true;
   return owned;
+}
+
+/** The outline colour of a physical plate that has no mesh yet: the plate is there, its elements are not. */
+export const UNMESHED_PLATE_EDGE = 0xe0a040;
+
+/**
+ * A physical plate with no mesh (`store/physical-plates.ts`), drawn from its outline and holes:
+ * its face triangulated only to be seen and clicked, and its loops as the outline. `uv` are the
+ * loops' points in the plate's own plane, in the same order as `outer` and `holes`.
+ */
+/**
+ * A physical plate with no mesh drawn as the slab it is, in the views that draw thickness: the
+ * outline and holes triangulated top and bottom, half the thickness each side of the mid-plane,
+ * and a wall along every loop. `faces` index the outline's points followed by each hole's.
+ */
+function plateSlabGeometry(outer: Vec3[], holes: Vec3[][], faces: number[][], thickness: number): THREE.BufferGeometry {
+  const loops = [outer, ...holes];
+  const pts = loops.flat();
+  // Newell's normal of the outline: robust for any planar polygon, whatever its winding.
+  const n = new THREE.Vector3();
+  for (let i = 0; i < outer.length; i++) {
+    const a = outer[i]!, b = outer[(i + 1) % outer.length]!;
+    n.x += (a.y - b.y) * (a.z + b.z); n.y += (a.z - b.z) * (a.x + b.x); n.z += (a.x - b.x) * (a.y + b.y);
+  }
+  if (n.lengthSq() < 1e-18) n.set(0, 0, 1); else n.normalize();
+  const h = thickness / 2;
+  const top = pts.map((p) => new THREE.Vector3(p.x, p.y, p.z).addScaledVector(n, h));
+  const bot = pts.map((p) => new THREE.Vector3(p.x, p.y, p.z).addScaledVector(n, -h));
+  const pos: number[] = [];
+  const push = (v: THREE.Vector3) => pos.push(v.x, v.y, v.z);
+  for (const [a, b, c] of faces) { push(top[a!]!); push(top[b!]!); push(top[c!]!); push(bot[a!]!); push(bot[c!]!); push(bot[b!]!); }
+  let base = 0;
+  for (const loop of loops) {
+    for (let i = 0; i < loop.length; i++) {
+      const a = base + i, b = base + (i + 1) % loop.length;
+      push(bot[a]!); push(bot[b]!); push(top[b]!);
+      push(bot[a]!); push(top[b]!); push(top[a]!);
+    }
+    base += loop.length;
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(pos), 3));
+  geo.computeVertexNormals();
+  return geo;
+}
+
+export function createPhysicalPlateMesh(
+  outer: Vec3[], holes: Vec3[][], uv: { outer: Array<[number, number]>; holes: Array<Array<[number, number]>> },
+  plateId: number, opts: { faceColor?: number; renderMode: ShellRenderMode; thickness?: number },
+): THREE.Group {
+  const group = new THREE.Group();
+  const contour = uv.outer.map(([x, y]) => new THREE.Vector2(x, y));
+  const hs = uv.holes.map((h) => h.map(([x, y]) => new THREE.Vector2(x, y)));
+  const faces = THREE.ShapeUtils.triangulateShape(contour, hs);
+  const pts = [...outer, ...holes.flat()];
+  const solid = (opts.renderMode === 'sections' || opts.renderMode === 'physical') && (opts.thickness ?? 0) > 0;
+  const geo = solid ? plateSlabGeometry(outer, holes, faces, opts.thickness!) : (() => {
+    const pos = new Float32Array(pts.length * 3);
+    pts.forEach((p, i) => { pos[i * 3] = p.x; pos[i * 3 + 1] = p.y; pos[i * 3 + 2] = p.z; });
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    g.setIndex(faces.flat());
+    g.computeVertexNormals();
+    return g;
+  })();
+  const faceColor = opts.faceColor ?? SHELL_COLOR;
+  // Drawn as a slab where the view draws thickness, with that view's opaque material; flat otherwise.
+  const faceMat = makeFaceMaterial(faceColor, solid ? opts.renderMode : opts.renderMode === 'sections' || opts.renderMode === 'physical' ? 'solid' as ShellRenderMode : opts.renderMode);
+  const mesh = new THREE.Mesh(geo, faceMat);
+  mesh.userData.shellFace = true;
+  mesh.userData.ownShellMaterial = true;
+  group.add(mesh);
+  const seg: number[] = [];
+  for (const loop of [outer, ...holes]) {
+    for (let i = 0; i < loop.length; i++) { const a = loop[i]!, b = loop[(i + 1) % loop.length]!; seg.push(a.x, a.y, a.z, b.x, b.y, b.z); }
+  }
+  const eg = new THREE.BufferGeometry();
+  eg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(seg), 3));
+  const edges = new THREE.LineSegments(eg, new THREE.LineBasicMaterial({ color: UNMESHED_PLATE_EDGE }));
+  edges.userData.shellEdge = true;
+  group.add(edges);
+  group.userData = { type: 'physicalPlate', id: plateId, baseFaceColor: faceColor, baseEdgeColor: UNMESHED_PLATE_EDGE, renderMode: opts.renderMode };
+  return group;
 }

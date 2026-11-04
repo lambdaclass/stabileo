@@ -1,10 +1,11 @@
 <script lang="ts">
+  import Hint from '../Hint.svelte';
   /**
    * The project's own response spectra (`engine/spectral-case.ts` `UserSpectrum`): a table of Sa or
    * Sd against period, pasted or typed one row per line, read linearly or on log axes. Kept with the
    * project (`model.dynamics.spectra`), used by the spectral analysis and by spectral load cases.
    */
-  import { modelStore } from '../../../lib/store';
+  import { modelStore, uiStore } from '../../../lib/store';
   import { t, tp } from '../../../lib/i18n';
   import { parseSpectrumTable, userSa, G, type UserSpectrum } from '../../../lib/engine/spectral-case';
 
@@ -16,8 +17,8 @@
   const save = (list: UserSpectrum[]) => modelStore.setDynamics({ ...modelStore.model.dynamics, spectra: list });
 
   function add() {
-    const id = Math.max(0, ...spectra.map((s) => s.id)) + 1;
-    save([...spectra, { id, name: tp('userSpectrum.defaultName', { n: id }), ordinate: 'Sa', unit: 'g', interpolation: 'linear', points: [[0, 0.4], [0.5, 1], [1, 0.5], [3, 0.17]] }]);
+    // A number never given before (`addUserSpectrum`): a case on a deleted spectrum does not take this one.
+    const id = modelStore.addUserSpectrum((id) => ({ id, name: tp('userSpectrum.defaultName', { n: id }), ordinate: 'Sa', unit: 'g', interpolation: 'linear', points: [[0, 0.4], [0.5, 1], [1, 0.5], [3, 0.17]] }));
     open(id);
   }
   function open(id: number) {
@@ -36,7 +37,11 @@
     update(id, { points: p.points });
   }
   function remove(id: number) {
-    save(spectra.filter((s) => s.id !== id));
+    // Not while a spectral case is on it: the case would have no spectrum, and say so only at the solve.
+    if (!modelStore.removeUserSpectrum(id)) {
+      uiStore.toast(tp('userSpectrum.inUse', { cases: modelStore.casesOnSpectrum(id).map((c) => c.name).join(', ') }), 'error');
+      return;
+    }
     if (editing === id) editing = null;
   }
 
@@ -76,12 +81,12 @@
             <option value="linear">{t('userSpectrum.linear')}</option><option value="log">{t('userSpectrum.log')}</option>
           </select>
         </div>
-        <textarea rows="6" bind:value={text} placeholder="T (s); valor" data-testid="us-table"></textarea>
+        <textarea rows="6" bind:value={text} placeholder={t('spectra.userTablePlaceholder')} data-testid="us-table"></textarea>
         <div class="us-row">
           <button class="pk-btn" onclick={() => apply(s.id)} data-testid="us-apply">{t('userSpectrum.apply')}</button>
           {#if error}<span class="us-err" role="alert">{error}</span>{/if}
         </div>
-        <p class="us-hint">{t('userSpectrum.hint')}</p>
+        <Hint text={t('userSpectrum.hint')} />
         <svg viewBox="0 0 {W} {H}" class="us-plot" role="img" aria-label={s.name}><path d={path(s)} class="us-line" /></svg>
       </div>
     {/if}
@@ -96,7 +101,6 @@
   .us-name { width: 150px; }
   .us-edit { display: flex; flex-direction: column; gap: 4px; padding: 4px 0 6px 10px; }
   .us-edit textarea { width: 100%; font-family: var(--st-mono); font-size: 0.68rem; background: var(--st-surface-3); color: var(--st-text); border: 1px solid var(--st-hair); border-radius: 3px; }
-  .us-hint { margin: 0; font-size: 0.6rem; color: var(--st-text-3); }
   .us-err { color: var(--st-danger); }
   .us-x { background: none; border: none; color: var(--st-text-3); cursor: pointer; }
   .us-plot { width: 100%; max-width: 260px; background: var(--st-surface-3); border-radius: var(--st-radius); }

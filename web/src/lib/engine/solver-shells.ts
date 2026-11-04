@@ -119,11 +119,15 @@ export function surfaceDownwardPressure(
  * thickness gradient). So a thermal load added to a slab in PRO was stored, drawn, and never
  * analysed: a model with ΔT on every plate solved identically to one without. The quad's
  * material α is sent with it (`thermal-alpha.ts`); without it the engine applies 1,2·10⁻⁵ /°C.
+ *
+ * A curved quad goes to the engine as a curved shell, so its temperature goes as
+ * `curvedShellThermal` (`curved`): sent as `quadThermal` it named no flat quad, and the engine,
+ * which applies each thermal load to its own family, analysed the shell as if unheated.
  */
-export function convertThermalQuadLoad(load: ThermalLoadQuad3D, alpha?: number): SolverLoad3D[] {
+export function convertThermalQuadLoad(load: ThermalLoadQuad3D, alpha?: number, curved = false): SolverLoad3D[] {
   return [{
     // A triangle takes the engine's `plateThermal`, the same fields.
-    type: load.on === 'plate' ? 'plateThermal' : 'quadThermal',
+    type: load.on === 'plate' ? 'plateThermal' : curved ? 'curvedShellThermal' : 'quadThermal',
     data: { elementId: load.quadId, dtUniform: load.dtUniform, dtGradient: load.dtGradient ?? 0, ...(alpha !== undefined ? { alpha } : {}) },
     // Not a member of `SolverLoad3D`'s union, which types the member loads the app reads back;
     // this one only travels to the engine, which knows the tag.

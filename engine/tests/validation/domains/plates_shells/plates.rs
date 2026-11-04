@@ -116,7 +116,7 @@ fn solve_ss_plate(nx: usize) -> f64 {
     mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: NU });
 
     let input = SolverInput3D {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes: nodes_map,
         materials: mats_map,
         sections: HashMap::new(),
@@ -237,7 +237,7 @@ fn validation_plate_cantilever_strip_beam_theory() {
     mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: NU });
 
     let input = SolverInput3D {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes: nodes_map,
         materials: mats_map,
         sections: HashMap::new(),
@@ -362,7 +362,7 @@ fn validation_plate_pressure_stresses_populated() {
     mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: NU });
 
     let input = SolverInput3D {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes: nodes_map,
         materials: mats_map,
         sections: HashMap::new(),

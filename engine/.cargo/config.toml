@@ -2,6 +2,8 @@
 linker = "clang"
 rustflags = ["-C", "link-arg=-fuse-ld=mold"]
 
-# Rebuild std for WASM to enable JS-backed Instant::now() (fixes time panic)
-[unstable]
-build-std = ["std", "panic_abort"]
+# There used to be an `[unstable] build-std` here "for a JS-backed Instant::now() in WASM", with an
+# engine/rust-toolchain.toml selecting a floating nightly so that cargo would read it. The clocks
+# the engine reads in WASM are gated off (`solver/linear.rs`, `now_micros`), so std needs no
+# rebuild; the one toolchain is the root rust-toolchain.toml. Under that nightly it rebuilt std for
+# every native test build in CI, for nothing.

@@ -105,7 +105,7 @@ describe('SEAM 1: Allowed field names by mode', () => {
   });
 
   it('backend AddNodalLoad uses fz/my as primary serde fields (not fy/mz)', () => {
-    const actionsRs = readFileSync(resolve(__dirname, '../../../../../backend/src/capabilities/actions.rs'), 'utf8');
+    const actionsRs = readFileSync(resolve(__dirname, '../../../../../ai-backend/src/capabilities/actions.rs'), 'utf8');
     // fz is the primary field with fy as alias
     expect(actionsRs).toMatch(/#\[serde\(alias = "fy"\)\]\s*\n\s*fz:/);
     // my is the primary field with mz as alias
@@ -113,7 +113,7 @@ describe('SEAM 1: Allowed field names by mode', () => {
   });
 
   it('backend add_nodal_load_2d emits fz and my', () => {
-    const generatorsRs = readFileSync(resolve(__dirname, '../../../../../backend/src/capabilities/generators.rs'), 'utf8');
+    const generatorsRs = readFileSync(resolve(__dirname, '../../../../../ai-backend/src/capabilities/generators.rs'), 'utf8');
     // The function signature
     expect(generatorsRs).toContain('fn add_nodal_load_2d');
     // The emitted JSON must use "fz" and "my"
@@ -163,9 +163,10 @@ describe('SEAM 2: Permitted analysis modes and PRO handling', () => {
 describe('SEAM 3: My/Mz axis identity preservation', () => {
   it('auto-verify.ts preserves column Mz/My identity and never magnitude-sorts moments', () => {
     const src = readSource('../auto-verify.ts');
-    // Columns: strong axis stays Mz (Mu), weak axis stays My (Muy) — identity intact.
-    expect(src, 'column Mu = Mz').toContain('MuMax = MzMax;');
-    expect(src, 'Muy = My').toContain('const MuyMax = MyMax;');
+    expect(src, 'one axis choice, shared with resolveDesignAxes').toContain('primaryAxis(elemType, section, MyMax, MzMax)');
+    expect(src, 'My pairs with Vz').toContain('const VuMax = onMy ? VzMax : VyAbs;');
+    expect(src, 'the section turns with the axis').toContain('const hFlex = onMy ? section.h : section.b;');
+    expect(src).not.toContain('MuMax = MzMax;');
     // Beams are axis-aware (My vs Mz chosen by stress proxy), but moments must
     // NEVER be collapsed by magnitude-sorting into a single Mu.
     expect(src).not.toContain('Math.max(MzMax, MyMax)');
@@ -175,15 +176,12 @@ describe('SEAM 3: My/Mz axis identity preservation', () => {
     expect(src).toContain('if (isVertical)');
   });
 
-  it('the report\'s combo summary computes Mu from mzStart/mzEnd only', () => {
-    // F5 moved this out of `ProPanel.svelte`, where the assembly used to live, into
-    // `pro-report-inputs.ts`. The claim is unchanged: the report's per-combination Mu is the
-    // STRONG-axis moment, never the larger of the two. Only the file it is asserted against
-    // moved — which is the same shape as the three location assertions §7.7 records.
+  it('the report no longer computes a per-combination Mu of its own', () => {
+    // The combo summary fed only the retired design section of the report. The memoria reads the
+    // design's own check rows, whose Mu is the checker's; there is no second reading to keep axis-true.
     const src = readSource('../pro-report-inputs.ts');
-    expect(src).toContain('Mu: Math.max(Math.abs(ef.mzStart), Math.abs(ef.mzEnd))');
-    expect(src, 'must not magnitude-sort My against Mz')
-      .not.toContain('Math.max(Math.abs(ef.mzStart), Math.abs(ef.myStart))');
+    expect(src).not.toMatch(/Math\.max\(Math\.abs\(ef\.mzStart\), Math\.abs\(ef\.myStart\)\)/);
+    expect(src).not.toContain('comboForces');
   });
 
   it('section-stress-3d.ts Navier formula uses PR [12] axis pairing', () => {

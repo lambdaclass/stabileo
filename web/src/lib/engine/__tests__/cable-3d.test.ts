@@ -87,4 +87,20 @@ describe('solveCable3D', () => {
       expect(c.ernstModulus).toBe(160e6);
     }
   });
+
+  // #527: the tension a cable's own weight gives it, and a pretension given.
+  const heavy = () => { const i = tripod(false); i.sections.get(1)!.a = 6.9e-3; return i; };
+  const warning = (r: ReturnType<typeof solveCable3D>) => (r.results as { structuredDiagnostics?: Array<{ code: string; elementIds?: number[] }> }).structuredDiagnostics?.find((d) => d.code === 'cable_self_weight_tension');
+
+  it('warns when the cables\' own weight gives most of their tension (an IPN 300 typed as cables)', () => {
+    expect(warning(solveCable3D(heavy(), 50, 1e-8, { '1': RHO }))?.elementIds?.slice().sort()).toEqual([1, 2, 3]);
+    expect(warning(solveCable3D(tripod(false), 50, 1e-8, { '1': RHO }))).toBeUndefined();
+    expect(warning(solveCable3D(heavy(), 50, 1e-8, {}))).toBeUndefined();
+  });
+
+  it('takes a pretension per cable: no warning for it, and an unstressed length shorter than the chord', () => {
+    const r = solveCable3D(heavy(), 50, 1e-8, { '1': RHO }, { '1': 100, '2': 100, '3': 100 });
+    expect(warning(r)).toBeUndefined();
+    for (const c of r.cableForces) expect(c.unstretchedLength).toBeLessThan(10);
+  });
 });

@@ -15,12 +15,17 @@
  *
  * ── How the mass reaches the engine ────────────────────────────────
  *
- * The engine takes mass as a density per material and nothing else — no nodal or lumped
- * masses. So a member that carries load gets its own copy of its material, identical in
- * stiffness, with the density raised by exactly the load's mass per unit volume:
+ * As mass, in the analysis input's `masses` (engine `MassInput3D`), never as a load:
  *
- *   line load, W kN over a member of length L and area A:  Δρ = W·1000 / (g·L·A)
- *   surface load, W kN over a shell of area S and thickness t:  Δρ = W·1000 / (g·S·t)
+ *   line load, W kN over a member of length L:  W / (g·L) t/m along it (`masses.line`);
+ *   surface load, W kN over a shell of area S:  W / (g·S) t/m² over it (`masses.area`);
+ *   a point mass the project states (`MassSource.points`):  t at its node (`masses.nodal`).
+ *
+ * The engine spreads a line or area mass exactly as the member's or shell's own mass (its
+ * consistent mass matrix, as if its density were raised by the mass over A or t). Earlier this
+ * module did that itself, giving each loaded member a copy of its material with the density
+ * raised by W·1000/(g·L·A); the engine's mass matrix is linear in the density, so the two give
+ * the same matrix (`mass-source.test.ts` checks the modes agree).
  *
  * The mass is spread uniformly over the member or shell, which is exact for a uniform load and
  * an approximation for a partial or a concentrated one.
@@ -42,7 +47,7 @@
  * Pure: no store, no runes, no i18n.
  */
 
-import type { SolverInput3D, SolverLoad3D, SolverMaterial } from '../types-3d';
+import type { AreaMass, LineMass, MassInput3D, NodalMass3D, SolverInput3D, SolverLoad3D, SolverMaterial } from '../types-3d';
 import { computeLocalAxes3D } from '../local-axes-3d';
 import { G } from './requests';
 import { massPresetById, presetParams, type MassPresetParamValue } from './mass-presets';
@@ -70,9 +75,21 @@ export interface MassWeight {
   w: number;
 }
 
+/**
+ * A mass at a node, stated by the user: `m` t in the translations (horizontal only when
+ * `horizontalOnly`, as a floor's mass on its diaphragm's master), `izz` t·m² about the vertical
+ * axis (a floor's polar moment of inertia about the node).
+ */
+export interface PointMass {
+  nodeId: number;
+  m: number;
+  horizontalOnly?: boolean;
+  izz?: number;
+}
+
 export type MassSource =
-  | { kind: 'preset'; presetId: string; params: Record<string, MassPresetParamValue>; weights?: MassWeight[] }
-  | { kind: 'custom'; factors: MassSourceFactor[]; weights?: MassWeight[] };
+  | { kind: 'preset'; presetId: string; params: Record<string, MassPresetParamValue>; weights?: MassWeight[]; points?: PointMass[] }
+  | { kind: 'custom'; factors: MassSourceFactor[]; weights?: MassWeight[]; points?: PointMass[] };
 
 export type FactorBasis =
   /** Nothing stated: self-weight only. */
@@ -143,7 +160,18 @@ export function normalizeMassSource(raw: unknown): MassSource | undefined {
   const weights = Array.isArray(r.weights)
     ? (r.weights as MassWeight[]).filter((w) => w && (w.on === 'members' || w.on === 'slabs' || w.on === 'floor') && Number.isFinite(w.w) && w.region && typeof w.region === 'object')
     : [];
-  const withW = weights.length ? { weights } : {};
+  // Point masses kept when they read: a node id, a finite mass ≥ 0, a finite izz ≥ 0.
+  const points = Array.isArray(r.points)
+    ? (r.points as unknown[]).flatMap((p) => {
+        const x = p as Record<string, unknown>;
+        const ok = (v: unknown) => typeof v === 'number' && Number.isFinite(v) && v >= 0;
+        if (typeof x?.nodeId !== 'number' || !ok(x.m) || (x.izz !== undefined && !ok(x.izz))) return [];
+        return [{ nodeId: x.nodeId, m: x.m as number,
+          ...(x.horizontalOnly === true ? { horizontalOnly: true } : {}),
+          ...(x.izz !== undefined ? { izz: x.izz as number } : {}) }];
+      })
+    : [];
+  const withW = { ...(weights.length ? { weights } : {}), ...(points.length ? { points } : {}) };
   if (r.kind === 'preset' && typeof r.presetId === 'string') {
     const params: Record<string, MassPresetParamValue> = {};
     for (const [k, v] of Object.entries((r.params ?? {}) as Record<string, unknown>)) {
@@ -173,6 +201,8 @@ export interface CaseMassLoads {
 export interface MassSourceReport {
   /** Mass the densities carry: self-weight. t. */
   selfWeightT: number;
+  /** Point masses the project states, t (their largest translation). */
+  pointT: number;
   /** Mass each case added, factor applied. t. */
   addedT: Map<number, number>;
   /** Weight in nodal loads, factor applied, that could not become mass. kN. */
@@ -250,6 +280,7 @@ export function applyMassSource(
   baseDensities: Map<number, number>,
   cases: ReadonlyArray<CaseMassLoads>,
   realArea?: RealArea,
+  points: ReadonlyArray<PointMass> = [],
 ): { input: SolverInput3D; densities: Map<number, number>; report: MassSourceReport } {
   const memberW = new Map<number, number>();   // kN, downward positive
   const quadW = new Map<number, number>();
@@ -332,46 +363,58 @@ export function applyMassSource(
     return real !== undefined && solvedA > 0 && Math.abs(real - solvedA) > 1e-12 * solvedA ? real / solvedA : 1;
   };
 
+  // Load mass along members and over shells, as mass the engine spreads like their own.
+  const line: LineMass[] = [];
+  const area: AreaMass[] = [];
   const elements = new Map(input.elements);
   for (const [id, w] of memberW) {
-    const e = elements.get(id)!;
     const g = memberGeometry(input, id)!;
     if (!(g.A > 0) || !(g.L > 0)) continue;
-    elements.set(id, { ...e, materialId: cloneMaterial(e.materialId, w * 1000 / (G * g.L * g.A), areaScale(id, g.A)) });
+    line.push({ elementId: id, massPerLength: w / (G * g.L) });
   }
-  // Members whose weight follows a scaled area and that carry no added mass.
+  // Members whose weight follows a scaled area: their density, not a load, is corrected.
   for (const [id, e] of input.elements) {
-    if (memberW.has(id)) continue;
     const g = memberGeometry(input, id);
     if (!g) continue;
     const k = areaScale(id, g.A);
     if (k !== 1) elements.set(id, { ...e, materialId: cloneMaterial(e.materialId, 0, k) });
   }
 
-  const quads = input.quads ? new Map(input.quads) : undefined;
-  const curvedShells = input.curvedShells ? new Map(input.curvedShells) : undefined;
-  const plates = input.plates ? new Map(input.plates) : undefined;
   for (const [id, w] of quadW) {
     if (id < 0) {
-      const p = plates?.get(-id);
-      const area = p ? triArea(input, p.nodes) : 0;
-      if (p && area > 0 && p.thickness > 0) plates!.set(-id, { ...p, materialId: cloneMaterial(p.materialId, w * 1000 / (G * area * p.thickness)) });
+      const p = input.plates?.get(-id);
+      const s = p ? triArea(input, p.nodes) : 0;
+      if (p && s > 0 && p.thickness > 0) area.push({ elementId: -id, kind: 'plate', massPerArea: w / (G * s) });
       continue;
     }
-    const map = quads?.has(id) ? quads : curvedShells;
-    const q = map!.get(id)!;
-    const area = quadArea(input, q.nodes);
-    if (!(area > 0) || !(q.thickness > 0)) continue;
-    map!.set(id, { ...q, materialId: cloneMaterial(q.materialId, w * 1000 / (G * area * q.thickness)) });
+    const isQuad = input.quads?.has(id) ?? false;
+    const q = (isQuad ? input.quads : input.curvedShells)!.get(id)!;
+    const s = quadArea(input, q.nodes);
+    if (!(s > 0) || !(q.thickness > 0)) continue;
+    area.push({ elementId: id, kind: isQuad ? 'quad' : 'curvedShell', massPerArea: w / (G * s) });
   }
 
-  const out: SolverInput3D = { ...input, materials, elements, ...(quads ? { quads } : {}), ...(curvedShells ? { curvedShells } : {}), ...(plates ? { plates } : {}) };
+  // Point masses, on nodes the input has: one on a node that is gone is refused, not dropped.
+  for (const p of points) nodeOf(input, p.nodeId);
+  const nodal: NodalMass3D[] = points
+    .filter((p) => p.m > 0 || (p.izz ?? 0) > 0)
+    .map((p) => ({ nodeId: p.nodeId, mass: p.m, ...(p.horizontalOnly ? { massZ: 0 } : {}), ...((p.izz ?? 0) > 0 ? { izz: p.izz } : {}) }));
+  const pointT = points.reduce((t, p) => t + Math.max(0, p.m), 0);
+
+  const masses: MassInput3D = {
+    ...(input.masses ?? {}),
+    ...(nodal.length ? { nodal: [...(input.masses?.nodal ?? []), ...nodal] } : {}),
+    ...(line.length ? { line: [...(input.masses?.line ?? []), ...line] } : {}),
+    ...(area.length ? { area: [...(input.masses?.area ?? []), ...area] } : {}),
+  };
+  const hasMasses = (masses.nodal?.length ?? 0) + (masses.line?.length ?? 0) + (masses.area?.length ?? 0) > 0;
+  const out: SolverInput3D = { ...input, materials, elements, ...(hasMasses ? { masses } : {}) };
   const selfWeightT = densityMassT(input, baseDensities, realArea);
   let added = 0;
   for (const t of addedT.values()) added += t;
   return {
     input: out,
     densities,
-    report: { selfWeightT, addedT, excludedNodalKN, excludedUpwardKN, totalT: selfWeightT + added },
+    report: { selfWeightT, pointT, addedT, excludedNodalKN, excludedUpwardKN, totalT: selfWeightT + added + pointT },
   };
 }

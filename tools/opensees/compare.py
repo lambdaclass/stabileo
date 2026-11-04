@@ -15,12 +15,17 @@ Usage:
 
 Every OpenSees run happens in a fresh interpreter (openseespy keeps state
 across ops.wipe()). Models are reported as ok / mismatch, or skipped as
-unsupported (no clean OpenSees equivalent), stabileo_failed /
-ill_conditioned (mechanisms and near-singular systems, where neither answer
-is meaningful) or unloaded.
+unsupported (no clean OpenSees equivalent), ill_conditioned (stabileo
+warns, or OpenSees' scaled condition number exceeds 1e12: no unique answer
+to compare) or unloaded. A model stabileo refuses is checked against
+OpenSees: refused (OpenSees finds no unique answer either), false_reject
+(OpenSees' stiffness is regular: flagged), not_applicable (buckling with
+no positive load factor on either side), or stabileo_failed (undecided).
+A model stabileo flags ill-conditioned whose OpenSees stiffness is well
+conditioned (kappa < 1e8) is a false_warning (flagged).
 
-Exit status: 0 = no discrepancy above tolerance, 1 = discrepancies,
-2 = harness error.
+Exit status: 0 = no discrepancy above tolerance, 1 = mismatch,
+false_reject or false_warning, 2 = harness error.
 
 Conventions (read from the engine source, see README.md):
   * E is in MPa in the JSON; the engine uses E*1000 (kN/m^2). Lengths m,
@@ -156,6 +161,39 @@ def _get(d, *keys, default=0.0):
     return default
 
 
+# 2D support type -> restrained (ux, uz, ry), as dof.rs is_dof_restrained_2d.
+SUPPORT_FLAGS_2D = {
+    "fixed": (1, 1, 1), "pinned": (1, 1, 0), "rollerX": (0, 1, 0), "rollerY": (1, 0, 0), "rollerZ": (1, 0, 0),
+    "guidedX": (0, 1, 1), "guidedY": (1, 0, 1), "guidedZ": (1, 0, 1),
+}
+_TYPE_OF_FLAGS_2D = {(1, 1, 1): "fixed", (1, 1, 0): "pinned", (0, 1, 0): "rollerX", (1, 0, 0): "rollerZ",
+                     (0, 1, 1): "guidedX", (1, 0, 1): "guidedZ"}
+
+
+def _plain_rigid_2d(s):
+    return s["type"] in SUPPORT_FLAGS_2D and all(
+        not s.get(k) for k in ("kx", "ky", "kz", "dx", "dy", "dz", "dry", "drz", "angle"))
+
+
+def supports_by_node_2d(supports):
+    """One support per node, as DofNumbering::build_2d sees them: several
+    plain rigid supports on one node merge by OR (any of them restraining a
+    DOF restrains it). Any other shared node is refused by the engine
+    (validate_input_2d, reject_ambiguous_shared_supports), so which one is
+    kept there does not matter; the highest id is."""
+    at = {}
+    for s in sorted(supports.values(), key=lambda s: s["id"]):
+        at.setdefault(s["nodeId"], []).append(s)
+    out = {}
+    for nid, ss in at.items():
+        if len(ss) > 1 and all(_plain_rigid_2d(s) for s in ss):
+            fl = tuple(max(SUPPORT_FLAGS_2D[s["type"]][k] for s in ss) for k in range(3))
+            out[nid] = dict(ss[-1], type=_TYPE_OF_FLAGS_2D[fl])
+        else:
+            out[nid] = ss[-1]
+    return out
+
+
 # ---------------------------------------------------------------- OpenSees
 
 def _ops():
@@ -275,10 +313,15 @@ def opensees_2d(d, mode="static", spec=None):
     for nid, (x, z) in sorted(nodes.items()):
         ops.node(nid, x, z)
 
-    # Supports: the highest support id per node wins (DofNumbering::build_2d).
-    sup_by_node = {}
+    # Supports (DofNumbering::build_2d): the rigid restraints of all supports
+    # of a node are OR-ed (a fixed and a pinned support on one node is fixed).
+    # Springs, settlements and inclined rollers sharing a node with another
+    # support are rejected by the engine, so the spring and settlement values
+    # come from the node's single support (the highest id, if several).
+    sup_by_node, sups_of = {}, {}
     for s in sorted(d["supports"].values(), key=lambda s: s["id"]):
         sup_by_node[s["nodeId"]] = s
+        sups_of.setdefault(s["nodeId"], []).append(s)
 
     def restrained(s, dof):
         t = s["type"]
@@ -310,7 +353,7 @@ def opensees_2d(d, mode="static", spec=None):
     springs = []  # (node, dof, k) or (node, 'rot2', kx, ky, angle)
     for nid, s in sup_by_node.items():
         for dof in range(ndf):
-            if restrained(s, dof):
+            if any(restrained(t, dof) for t in sups_of[nid]):
                 fixed[nid][dof] = True
                 v = [s.get("dx"), _get(s, "dz", "dy", default=None), _get(s, "dry", "drz", default=None)][dof]
                 if v is not None and abs(v) > 1e-15:
@@ -499,7 +542,8 @@ def opensees_2d(d, mode="static", spec=None):
         t, x = ld["type"], ld["data"]
         if t == "nodal":
             f = [x.get("fx", 0.0), _get(x, "fz", "fy"), _get(x, "my", "mz")]
-            if ndf == 3 and abs(f[2]) > 0 and x["nodeId"] in art_rot:
+            # (ndf == 2: a truss-only model has no rotation for it either.)
+            if abs(f[2]) > 0 and (ndf == 2 or x["nodeId"] in art_rot):
                 raise Unsupported("nodal moment on a rotation-free (all-hinged) node")
             add_nodal(x["nodeId"], f[:ndf])
             continue
@@ -742,12 +786,23 @@ def opensees_3d(d, mode="static", spec=None):
 
     pieces = {}  # eid -> [sub-element tags, first .. last]
     hinge_slaves = []  # (joint node, hinge node)
+    wagner = []  # frames' torsional geometric stiffness, added in numpy (see _wagner)
     for e in elems:
         L, ex, ey, ez = geo[e["id"]]
         pi, pj = nodes[e["nodeI"]], nodes[e["nodeJ"]]
         m, sec = mats[e["materialId"]], secs[e["sectionId"]]
         E = m["e"] * 1000.0
         G = E / (2 * (1 + m["nu"]))
+        if e["type"] == "frame" and geom:
+            # A parallel torsion-only beam (J = 0 until analysis_pdelta sets
+            # it) carries the Wagner term in P-Delta; see _wagner.
+            tag += 1
+            ops.geomTransf("Linear", tag, *ez)
+            tag += 1
+            ops.element("elasticBeamColumn", tag, e["nodeI"], e["nodeJ"], 0.0, E, G, 0.0, 0.0, 0.0, tag - 1)
+            wagner.append(dict(eid=e["id"], ni=e["nodeI"], nj=e["nodeJ"], ex=ex, ea=E * sec["a"], L=L,
+                               r0sq=(sec["iy"] + sec["iz"]) / sec["a"], g=G,
+                               j=sec.get("j") or sec["iy"] + sec["iz"], tag=tag))
         if e["type"] == "truss" and geom:
             # See opensees_2d: string Kg from a released beam on PDelta.
             ops.geomTransf("PDelta", e["id"], *ez)
@@ -853,7 +908,7 @@ def opensees_3d(d, mode="static", spec=None):
         t, x = ld["type"], ld["data"]
         if t == "nodal":
             f = [x.get(k, 0.0) or 0.0 for k in ("fx", "fy", "fz", "mx", "my", "mz")]
-            if x["nodeId"] in art_rot and any(abs(v) > 0 for v in f[3:]):
+            if (ndf == 3 or x["nodeId"] in art_rot) and any(abs(v) > 0 for v in f[3:]):
                 raise Unsupported("nodal moment on a rotation-free node")
             add_nodal(x["nodeId"], f[:ndf])
             continue
@@ -895,10 +950,18 @@ def opensees_3d(d, mode="static", spec=None):
     for nid, dof, v in settlements:
         ops.sp(nid, dof + 1, v)
 
-    ctx = dict(ops=ops, dim=3, ndf=ndf, nodes=nodes, fixed=fixed, art_rot=art_rot, spec=spec or {})
+    ctx = dict(ops=ops, dim=3, ndf=ndf, nodes=nodes, fixed=fixed, art_rot=art_rot, spec=spec or {},
+               wagner=wagner)
     if mode != "static":
-        ctx["collect"] = lambda: _collect_3d(ops, nodes, ndf, flags, art_rot, spring_elems,
-                                            hinge_slaves, elems, truss_axial, pieces)
+        def collect():
+            r = _collect_3d(ops, nodes, ndf, flags, art_rot, spring_elems, hinge_slaves, elems, truss_axial,
+                            pieces)
+            for w in wagner:  # the engine's end forces include the Wagner torque
+                f = list(ops.eleResponse(w["tag"], "localForce"))
+                r["forces"][w["eid"]]["mxStart"] += f[3]
+                r["forces"][w["eid"]]["mxEnd"] -= f[9]
+            return r
+        ctx["collect"] = collect
         return ANALYSES[mode](ctx)
     kappa = _analyze(ops, fixed)
     r = _collect_3d(ops, nodes, ndf, flags, art_rot, spring_elems, hinge_slaves, elems, truss_axial, pieces)
@@ -999,6 +1062,10 @@ def _check_geom(d, elems, secs, has_frame):
             # released rotation as a DOF of the eigenproblem.
             raise Unsupported("hinge/release in a geometric analysis")
         sec = secs[e["sectionId"]]
+        if sec.get("shearCenterY") or sec.get("shearCenterZ"):
+            # The engine's Kg couples bending and twist through the shear
+            # centre offset (_wagner adds the centroidal Wagner term only).
+            raise Unsupported("shear centre offset in a geometric analysis")
         if sec.get("asY") or sec.get("asZ"):
             # OpenSees' Kg is the Timoshenko one, the engine's Euler-Bernoulli.
             raise Unsupported("Timoshenko section in a geometric analysis")
@@ -1115,6 +1182,39 @@ def _gen_eig_spd(a, b):
     return mu, np.linalg.solve(l.T, y)
 
 
+def _wagner_p(ops, w):
+    """A frame's axial force at the current displacements, tension positive:
+    EA*(elongation)/L, the N the engine builds its Kg from."""
+    ui, uj = ops.nodeDisp(w["ni"]), ops.nodeDisp(w["nj"])
+    return w["ea"] * sum(w["ex"][k] * (uj[k] - ui[k]) for k in range(3)) / w["L"]
+
+
+def _wagner(ctx, eq, n):
+    """The torsional part of the engine's 3D frame Kg (geometric_stiffness.rs,
+    frame_kg_local_3d), which no OpenSees beam has: the Wagner term
+    P*r0^2/L*[1, -1; -1, 1] on the member twist (theta . ex at each end),
+    r0^2 = (Iy + Iz)/A (centroidal shear centre: _check_geom refuses offsets).
+    Without it the engine's 3D load factors came out 1e-5..1e-2 below
+    OpenSees' (every buckling3d model since the engine added the term).
+    Dense n x n, in OpenSees' equation numbers; zero in 2D."""
+    np = _np()
+    kw = np.zeros((n, n))
+    for wg in ctx.get("wagner", []):
+        ni, nj, ex = wg["ni"], wg["nj"], wg["ex"]
+        w = _wagner_p(ctx["ops"], wg) * wg["r0sq"] / wg["L"]
+        for a, sa in ((ni, 1.0), (nj, -1.0)):
+            for b, sb in ((ni, 1.0), (nj, -1.0)):
+                for r in range(3):
+                    qa = eq[a][3 + r]
+                    if qa < 0:
+                        continue
+                    for c in range(3):
+                        qb = eq[b][3 + c]
+                        if qb >= 0:
+                            kw[qa, qb] += sa * sb * w * ex[r] * ex[c]
+    return kw
+
+
 def analysis_buckling(ctx):
     np = _np()
     ops = ctx["ops"]
@@ -1123,7 +1223,7 @@ def analysis_buckling(ctx):
     if ops.analyze(1) != 0:
         raise RuntimeError("OpenSees analyze failed (singular / mechanism)")
     ops.reactions()
-    kg = _tangent(ops) - k
+    kg = _tangent(ops) - k + _wagner(ctx, eq, k.shape[0])
     linear = dict(dim=ctx["dim"], art_rot=sorted(ctx["art_rot"]), **ctx["collect"]())
     # K phi = lambda (-Kg) phi  <=>  (-Kg) phi = mu K phi, lambda = 1/mu.
     mu, vec = _gen_eig_spd(-kg, k)
@@ -1171,6 +1271,34 @@ def analysis_pdelta(ctx):
     ops.analysis("Static")
     if ops.analyze(1) != 0:
         raise RuntimeError("OpenSees P-Delta did not converge")
+    # The Wagner term (see _wagner) as the parallel torsion beams' GJ/L =
+    # P*r0^2/L, P from the current displacements: fixed-point iteration to
+    # the engine's (K + Kg(N(u)))u = F, re-solving equilibrium at each step.
+    wg = ctx.get("wagner", [])
+    for i, w in enumerate(wg, start=1):
+        ops.parameter(i, "element", w["tag"], "J")
+    ops.integrator("LoadControl", 0.0)
+    # A relative increment test has nothing to be relative to at a zero load
+    # step: a few Newton iterations per update, convergence judged on P.
+    ops.test("FixedNumIter", 3)
+    for _ in range(100) if wg else ():
+        ps = [_wagner_p(ops, w) for w in wg]
+        for i, (w, p) in enumerate(zip(wg, ps), start=1):
+            ops.updateParameter(i, p * w["r0sq"] / w["g"])
+        if ops.analyze(1) != 0:
+            raise RuntimeError("OpenSees P-Delta did not converge")
+        # Converged when no Wagner stiffness moves by 1e-12 of its member's
+        # own torsional stiffness (P of round-off size never settles relatively).
+        new = [_wagner_p(ops, w) for w in wg]
+        if all(abs(a - b) * w["r0sq"] / w["g"] <= 1e-12 * w["j"] for a, b, w in zip(new, ps, wg)):
+            break
+    else:
+        if wg:
+            raise RuntimeError("OpenSees P-Delta: Wagner fixed point did not converge")
+    if wg:
+        ops.test("NormUnbalance", 1e-6, 50, 0)
+        if ops.analyze(1) != 0:
+            raise RuntimeError("OpenSees P-Delta: out of equilibrium at the Wagner fixed point")
     ops.reactions()
     kt = _tangent(ops)
     r = ctx["collect"]()
@@ -1242,9 +1370,7 @@ def _planar_th_in_3d(d, spec):
     flags = {"fixed": (1, 1, 1), "pinned": (1, 1, 0), "rollerX": (0, 1, 0), "rollerY": (1, 0, 0),
              "rollerZ": (1, 0, 0), "guidedX": (0, 1, 1), "guidedY": (1, 0, 1), "guidedZ": (1, 0, 1),
              "spring": (0, 0, 0)}
-    win = {}
-    for s_ in sorted(d["supports"].values(), key=lambda s_: s_["id"]):
-        win[s_["nodeId"]] = s_  # the highest id wins (DofNumbering::build_2d)
+    win = supports_by_node_2d(d["supports"])  # as DofNumbering::build_2d
     sups = {}
     for nid, s_ in win.items():
         fx, fz, fr = flags[s_["type"]]
@@ -1657,6 +1783,45 @@ def _int_keys(r):
 # Models whose scaled stiffness condition number exceeds this are reported as
 # ill-conditioned instead of compared (results carry < ~4 significant digits).
 KAPPA_MAX = 1e12
+# A model stabileo refuses whose OpenSees stiffness is better conditioned than
+# this is a false rejection (the threshold of stabileo's singular-pivot test,
+# engine/src/solver/definiteness.rs, cannot flag a regular model below it).
+KAPPA_REGULAR = 1e10
+# A model stabileo flags ill-conditioned whose OpenSees stiffness is better
+# conditioned than this is a false warning.
+KAPPA_WELL = 1e8
+# OpenSees' own reasons for not taking a model that say it has no unique
+# answer either: a load on a rotation nothing stiffens, a rotational mechanism.
+REFUSED_TOO = ("nodal moment on a rotation-free", "rotational mechanism")
+
+
+def classify_refusal(r, ores):
+    """stabileo refused the static model in r ('stabileo_failed'); OpenSees'
+    outcome for the same model decides whether that was right:
+
+      refused       OpenSees finds no unique answer either (scaled condition
+                    number above KAPPA_MAX, or its translator rejects the
+                    model for the same reason): a correct refusal, not a
+                    failure;
+      false_reject  OpenSees' stiffness is regular (kappa < KAPPA_REGULAR):
+                    flagged like a mismatch;
+      stabileo_failed  anything in between, or OpenSees failed too.
+    """
+    kappa = ores.get("kappa")
+    if "unsupported" in ores:
+        if any(t in ores["unsupported"] for t in REFUSED_TOO):
+            return dict(r, status="refused", why=r["why"] + [f"opensees: {ores['unsupported']}"])
+        return dict(r, why=r["why"] + [f"opensees: unsupported ({ores['unsupported']})"])
+    if "failed" in ores and "singular" in ores["failed"]:
+        # OpenSees' own solve breaks down on the stiffness: no unique answer.
+        return dict(r, status="refused", why=r["why"] + [f"opensees: {ores['failed']}"])
+    if "failed" in ores or kappa is None:
+        return r
+    if kappa > KAPPA_MAX:
+        return dict(r, status="refused", why=r["why"] + [f"opensees kappa={kappa:.1e}"], kappa=kappa)
+    if kappa < KAPPA_REGULAR:
+        return dict(r, status="false_reject", why=r["why"] + [f"opensees kappa={kappa:.1e}"], kappa=kappa)
+    return dict(r, why=r["why"] + [f"opensees kappa={kappa:.1e}"], kappa=kappa)
 
 
 def run_one(name, model, binary, tol, verbose, dump_dir=None):
@@ -1669,11 +1834,24 @@ def run_one(name, model, binary, tol, verbose, dump_dir=None):
     try:
         sres = normalize_stabileo(stabileo(model, binary), dim)
     except RuntimeError as ex:
-        return dict(name=name, dim=dim, status="stabileo_failed", why=[str(ex)[:200]])
+        r = classify_refusal(dict(name=name, dim=dim, status="stabileo_failed", why=[str(ex)[:200]]),
+                             opensees_isolated(model))
+        if r["status"] == "false_reject" and dump_dir:
+            _dump(dump_dir, name, model)
+        return r
     ill = sorted(set(sres["diags"]) & ILL_CONDITIONED)
-    if ill:
-        return dict(name=name, dim=dim, status="ill_conditioned", why=ill)
     ores = opensees_isolated(model)
+    if ill:
+        # stabileo's warning is checked too: OpenSees must not find the same
+        # stiffness well conditioned.
+        kappa = ores.get("kappa")
+        if kappa is not None and "failed" not in ores and "unsupported" not in ores and kappa < KAPPA_WELL:
+            if dump_dir:
+                _dump(dump_dir, name, model)
+            return dict(name=name, dim=dim, status="false_warning", why=ill + [f"opensees kappa={kappa:.1e}"],
+                        kappa=kappa)
+        return dict(name=name, dim=dim, status="ill_conditioned",
+                    why=ill + ([f"opensees kappa={kappa:.1e}"] if kappa is not None else []))
     if "unsupported" in ores:
         return dict(name=name, dim=dim, status="unsupported", why=[ores["unsupported"]])
     if "failed" in ores:
@@ -1722,6 +1900,18 @@ def run_ext(name, job, binary, tol, dump_dir=None):
         return dict(base, status="unsupported", why=why)
     try:
         lin = normalize_stabileo(stabileo(_probe_loads(d) if kind in MASS_MODES else d, binary), dim)
+    except RuntimeError as ex:
+        r = classify_refusal(dict(base, status="stabileo_failed", why=[str(ex)[:200]]),
+                             opensees_isolated(_probe_loads(d) if kind in MASS_MODES else d))
+        if r["status"] == "false_reject" and dump_dir:
+            _dump(dump_dir, name, job)
+        return r
+    # The static probe flags a mechanism or a near-singular stiffness: no
+    # unique modes / load factors either, whatever the eigen solver then does.
+    ill = sorted(set(lin["diags"]) & ILL_CONDITIONED)
+    if ill:
+        return dict(base, status="ill_conditioned", why=ill)
+    try:
         sres = lin if kind == "shell" else normalize_ext(kind, stabileo_job(job, binary), dim)
     except RuntimeError as ex:
         ores = opensees_isolated(job)  # a model OpenSees cannot take either is not a failure
@@ -1732,10 +1922,21 @@ def run_ext(name, job, binary, tol, dump_dir=None):
             # A rigid-body mode (a member hanging on hinges, say): the static
             # probe does not load it, the eigenproblem finds it.
             return dict(base, status="ill_conditioned", why=[f"mechanism (OpenSees omega_1 = {v[0]:.1e})"])
-        return dict(base, status="stabileo_failed", why=[str(ex)[:200]])
-    ill = sorted(set(lin["diags"]) & ILL_CONDITIONED)
-    if ill:
-        return dict(base, status="ill_conditioned", why=ill)
+        # A load factor above 1e9 is OpenSees' eigensolver on axial forces of
+        # round-off size (1e-12 kN in buckling2d-744187), not a buckling load.
+        if kind == "buckling" and "failed" not in ores and (not v or min(v) > 1e9) and \
+                ("No compressed elements" in str(ex) or "No positive buckling load factors" in str(ex)):
+            # Nothing buckles under this load (no member in compression, or
+            # none whose compression reaches a free DOF): OpenSees' K + Kg
+            # eigenproblem has no positive load factor either.
+            return dict(base, status="not_applicable",
+                        why=[str(ex)[:200], f"opensees: no load factor below 1e9 ({v[:2]})"])
+        r = dict(base, status="stabileo_failed", why=[str(ex)[:200]])
+        if kind == "buckling" and v and min(v) <= 1e9:
+            r = dict(r, status="false_reject", why=r["why"] + [f"opensees load factors {v[:3]}"])
+            if dump_dir:
+                _dump(dump_dir, name, job)
+        return r
     ores = opensees_isolated(job)
     if kind == "pdelta" and not (sres["converged"] and sres["stable"]):
         # Beyond the buckling load: no stable equilibrium to compare (the
@@ -1838,7 +2039,7 @@ def main():
         results = list(pool.map(lambda j: run_one(j[0], j[1], a.bin, a.tol, a.verbose, a.dump_dir), jobs))
     for r in results:
         name = r["name"]
-        if a.verbose or r["status"] == "mismatch":
+        if a.verbose or r["status"] in FLAGGED:
             extra = r.get("why") or {k: f"{v:.1e}" for k, v in r.get("max_err", {}).items()}
             print(f"{r['status']:16} {name}  {extra}")
             for w in r.get("worst", [])[:5] if r["status"] == "mismatch" else []:
@@ -1862,14 +2063,20 @@ def main():
             for k, v in r["max_err"].items():
                 g[k] = max(g.get(k, 0.0), v)
         print("max normalized error over compared models:", {k: f"{v:.2e}" for k, v in sorted(g.items())})
-    for st in ("unsupported", "stabileo_failed", "opensees_failed"):
-        reasons = Counter(w for r in results if r["status"] == st for w in r["why"])
+    for st in ("unsupported", "refused", "not_applicable", "false_reject", "stabileo_failed", "opensees_failed"):
+        reasons = Counter(w[:120] for r in results if r["status"] == st for w in r["why"][:1])
         if reasons:
             print(f"{st} reasons:", dict(reasons))
     if a.report:
         with open(a.report, "w") as f:
             json.dump(results, f, indent=1, default=str)
-    return 1 if cnt.get("mismatch") else 0
+    return 1 if any(cnt.get(st) for st in FLAGGED) else 0
+
+
+# Statuses that fail the run (and are dumped): a disagreement, stabileo
+# refusing a model OpenSees solves with a regular stiffness, or warning about
+# one OpenSees finds well conditioned.
+FLAGGED = ("mismatch", "false_reject", "false_warning")
 
 
 if __name__ == "__main__":

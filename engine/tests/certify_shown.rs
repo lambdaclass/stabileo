@@ -17,8 +17,8 @@
 //!   the coverage assertions. Gaps are checked tight the same way on members
 //!   whose diagram peaks midway between two stations.
 
-mod certify_ref;
-mod fuzz_models;
+use crate::certify_ref;
+use crate::fuzz_models;
 
 use std::collections::HashMap;
 

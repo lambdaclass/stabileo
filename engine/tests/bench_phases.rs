@@ -1,7 +1,7 @@
 #![cfg(feature = "manual-bench-phases")]
 //! One-shot phase breakdown: prints SolveTimings for various MITC4 plate sizes.
 //! Opt-in only.
-//! Run with: cargo test --release --features manual-bench-phases --test bench_phases -- --nocapture
+//! Run with: cargo test --release --features manual-bench-phases --test gates bench_phases:: -- --nocapture
 
 use dedaliano_engine::solver::{linear, modal, assembly, dof::DofNumbering, fiber_nonlinear};
 use dedaliano_engine::solver::harmonic::{HarmonicInput3D};
@@ -337,7 +337,7 @@ fn assembly_overhead_breakdown() {
 }
 
 /// Long-running sparse assembly loop for profiling with `sample`.
-/// Run: cargo test --release --features manual-bench-phases --test bench_phases profile_sparse_asm -- --nocapture --ignored
+/// Run: cargo test --release --features manual-bench-phases --test gates bench_phases::profile_sparse_asm -- --nocapture --ignored
 /// Then in another terminal: sample <pid> 5 -f /tmp/sparse_profile.txt
 #[test]
 #[ignore]
@@ -367,7 +367,7 @@ fn profile_sparse_asm() {
 }
 
 /// Long-running dense assembly loop for comparison profiling.
-/// Run: cargo test --release --features manual-bench-phases --test bench_phases profile_dense_asm -- --nocapture --ignored
+/// Run: cargo test --release --features manual-bench-phases --test gates bench_phases::profile_dense_asm -- --nocapture --ignored
 #[test]
 #[ignore]
 fn profile_dense_asm() {

@@ -19,6 +19,8 @@ test.describe('@smoke placement', () => {
   test('copy, paste with the ghost, rotate, click to place, undo in one step', async ({ pro: page }) => {
     await page.evaluate(async () => {
       await window.__stabileoActions.loadExample('3d-portal-frame');
+      // Placing is modelling: the model stage, where its keys work (design holds them).
+      window.__stabileoActions.openProTab('nodes');
       window.__stabileoActions.selectElements([1, 2, 3]);
     });
     const census = () => page.evaluate(() => window.__stabileo.modelCensus());

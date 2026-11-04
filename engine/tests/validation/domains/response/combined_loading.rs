@@ -54,6 +54,7 @@ fn validation_combined_thermal_mechanical_ss() {
             element_id: i,
             dt_uniform: dt,
             dt_gradient: 0.0,
+            alpha: None, depth: None,
         }));
     }
     let input_combined = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_combined);
@@ -111,6 +112,7 @@ fn validation_combined_thermal_mechanical_fixed() {
             element_id: i,
             dt_uniform: dt,
             dt_gradient: 0.0,
+            alpha: None, depth: None,
         }));
     }
     let input_combined = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"), loads_combined);

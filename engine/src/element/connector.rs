@@ -321,7 +321,7 @@ fn scattered_entries((dofs, ke): (Vec<usize>, Vec<f64>)) -> Vec<(usize, usize, f
 /// order: the element of `connector_element_2d` (shear springs with their V·L
 /// moment arms) restricted to the DOFs the model numbers.
 pub fn connector_entries_2d(input: &SolverInput, dof_num: &DofNumbering) -> Vec<(usize, usize, f64)> {
-    let nodes: HashMap<usize, &SolverNode> = input.nodes.values().map(|n| (n.id, n)).collect();
+    let nodes: HashMap<usize, &SolverNode> = crate::ordered::values(&input.nodes).map(|n| (n.id, n)).collect();
     let mut out = Vec::new();
     for c in sorted_by_id(&input.connectors) {
         let (Some(ni), Some(nj)) = (nodes.get(&c.node_i), nodes.get(&c.node_j)) else { continue };
@@ -332,7 +332,7 @@ pub fn connector_entries_2d(input: &SolverInput, dof_num: &DofNumbering) -> Vec<
 
 /// Global stiffness entries (row, column, value) of every 3D connector, in id order.
 pub fn connector_entries_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> Vec<(usize, usize, f64)> {
-    let nodes: HashMap<usize, &SolverNode3D> = input.nodes.values().map(|n| (n.id, n)).collect();
+    let nodes: HashMap<usize, &SolverNode3D> = crate::ordered::values(&input.nodes).map(|n| (n.id, n)).collect();
     let mut out = Vec::new();
     for c in sorted_by_id(&input.connectors) {
         let (Some(ni), Some(nj)) = (nodes.get(&c.node_i), nodes.get(&c.node_j)) else { continue };
@@ -375,7 +375,7 @@ pub fn assemble_connectors_3d(input: &SolverInput3D, dof_num: &DofNumbering, k_g
 
 /// Refuse what a co-rotational analysis cannot follow through large displacements.
 pub fn refuse_for_corotational_2d(input: &SolverInput, analysis: &str) -> Result<(), String> {
-    let nodes: HashMap<usize, &SolverNode> = input.nodes.values().map(|n| (n.id, n)).collect();
+    let nodes: HashMap<usize, &SolverNode> = crate::ordered::values(&input.nodes).map(|n| (n.id, n)).collect();
     let mut bad: Vec<usize> = input
         .connectors
         .values()
@@ -403,7 +403,7 @@ pub fn refuse_for_corotational_2d(input: &SolverInput, analysis: &str) -> Result
 /// 3D twin of [`refuse_for_corotational_2d`]: a connector with length may carry
 /// only its axial stiffness.
 pub fn refuse_for_corotational_3d(input: &SolverInput3D, analysis: &str) -> Result<(), String> {
-    let nodes: HashMap<usize, &SolverNode3D> = input.nodes.values().map(|n| (n.id, n)).collect();
+    let nodes: HashMap<usize, &SolverNode3D> = crate::ordered::values(&input.nodes).map(|n| (n.id, n)).collect();
     let mut bad: Vec<usize> = input
         .connectors
         .values()
@@ -476,8 +476,8 @@ pub fn corotational_connectors_2d(
     f_int: &mut [f64],
     scatter: &mut impl FnMut(usize, usize, f64),
 ) {
-    let nodes: HashMap<usize, &SolverNode> = input.nodes.values().map(|n| (n.id, n)).collect();
-    let mut conns: Vec<&ConnectorElement> = input.connectors.values().collect();
+    let nodes: HashMap<usize, &SolverNode> = crate::ordered::values(&input.nodes).map(|n| (n.id, n)).collect();
+    let mut conns: Vec<&ConnectorElement> = crate::ordered::values(&input.connectors).collect();
     conns.sort_by_key(|c| c.id);
     for c in conns {
         let (Some(ni), Some(nj)) = (nodes.get(&c.node_i), nodes.get(&c.node_j)) else { continue };
@@ -519,8 +519,8 @@ pub fn corotational_connectors_3d(
     f_int: &mut [f64],
     scatter: &mut impl FnMut(usize, usize, f64),
 ) {
-    let nodes: HashMap<usize, &SolverNode3D> = input.nodes.values().map(|n| (n.id, n)).collect();
-    let mut conns: Vec<&ConnectorElement> = input.connectors.values().collect();
+    let nodes: HashMap<usize, &SolverNode3D> = crate::ordered::values(&input.nodes).map(|n| (n.id, n)).collect();
+    let mut conns: Vec<&ConnectorElement> = crate::ordered::values(&input.connectors).collect();
     conns.sort_by_key(|c| c.id);
     for c in conns {
         let (Some(ni), Some(nj)) = (nodes.get(&c.node_i), nodes.get(&c.node_j)) else { continue };

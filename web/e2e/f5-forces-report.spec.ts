@@ -13,7 +13,7 @@
  *   · it produces a file and says which one.
  */
 
-import { test, expect, bootPro, loadModel, solveModel } from './fixtures';
+import { test, expect, bootPro, loadModel, solveModel, openClassicDesign, designPlace } from './fixtures';
 
 /** Small on purpose: 18 nodes and 26 members solve in seconds. */
 const MODEL = 'rc-qa-diagnostic';
@@ -43,7 +43,7 @@ test.describe('@smoke F5 — the raw forces report', () => {
     await expect(page.getByTestId('res-tab-report')).toBeEnabled();
 
     // And it is NOT among the Documentos actions, which are the detailing document's.
-    await page.getByTestId('pr-stage-design').click();
+    await designPlace(page, 'documents');
     await expect(page.getByTestId('forces-report')).toHaveCount(0);
   });
 

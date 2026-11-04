@@ -25,6 +25,15 @@
     return t('certificate.certified').replace('{abs}', formatBound(c.absBound)).replace('{rel}', formatBound(c.relBound));
   }
 
+  /** The end-to-end line under a certified base solve (none for combinations or older builds). */
+  const e2e = $derived(shown.status === 'done' && shown.certificate.status === 'certified' ? shown.endToEnd : undefined);
+  function e2eText(e: NonNullable<typeof e2e>): string {
+    if (e.status === 'certified') return t('certificate.e2eCertified').replace('{abs}', formatBound(e.absBound));
+    if (e.status === 'failed') return t('certificate.e2eFailed').replace('{reason}', e.reason);
+    if (e.status === 'notChecked') return '';
+    return t('certificate.e2eNotChecked').replace('{reason}', e.reason);
+  }
+
   async function download() {
     exporting = true;
     try {
@@ -48,6 +57,11 @@
         <button class="cert-dl" title={t('certificate.bundleTooltip')} disabled={exporting} onclick={download} data-testid="certificate-download">{t('certificate.download')}</button>
       {/if}
     </div>
+    {#if e2e && e2eText(e2e)}
+      <div class="cert" class:ok={e2e.status === 'certified'} class:no={e2e.status === 'failed'} title={t('certificate.e2eTooltip')} data-testid="certificate-e2e">
+        {e2eText(e2e)}
+      </div>
+    {/if}
   {:else}
     <div class="cert no" title={tooltip} data-testid="certificate-status">
       {t('certificate.notCertified').replace('{reason}', shown.certificate.reason)}

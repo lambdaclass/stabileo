@@ -7,7 +7,7 @@
 //! (`*.tampered-*.json`, the checker must reject them) and copies with a wrong input
 //! hash (`*.wronghash.json`, the script must flag them).
 
-mod common;
+use crate::common;
 
 use common::*;
 use dedaliano_engine::certify::bundle::{export_linear_bundle_3d, from_dyadic, to_dyadic, LinearBundle};
@@ -464,7 +464,7 @@ fn make_frame_building(nx: usize, ny: usize, nz: usize) -> SolverInput3D {
 }
 
 /// Timing case (a few thousand DOFs), written to `target/cert-bundles-large/`:
-/// `cargo test --release --test certify_bundle -- --ignored`, then
+/// `cargo test --release --test certificates certify_bundle:: -- --ignored`, then
 /// `lake exe certcheck ../target/cert-bundles-large/*.json`.
 #[test]
 #[ignore]

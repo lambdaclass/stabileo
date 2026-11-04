@@ -1,9 +1,9 @@
 # Stabileo Positioning
 
 Read next:
-- entry point: [`README.md`](/Users/unbalancedparen/projects/dedaliano/README.md)
-- solver roadmap: [`SOLVER_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/docs/roadmap/SOLVER_ROADMAP.md)
-- product execution: [`PRODUCT_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/docs/roadmap/PRODUCT_ROADMAP.md)
+- entry point: [`README.md`](../README.md)
+- solver roadmap: [`SOLVER_ROADMAP.md`](../docs/roadmap/SOLVER_ROADMAP.md)
+- product execution: [`PRODUCT_ROADMAP.md`](../docs/roadmap/PRODUCT_ROADMAP.md)
 
 ## What Stabileo Is
 
@@ -55,8 +55,8 @@ The current product surface is already broad enough to support a real company na
 
 The detailed source of truth for what exists is:
 
-- [`engine/README.md`](/Users/unbalancedparen/projects/dedaliano/engine/README.md) for engine surface
-- [`BENCHMARKS.md`](/Users/unbalancedparen/projects/dedaliano/docs/BENCHMARKS.md) for capability, validation, and remaining gaps
+- [`engine/README.md`](../engine/README.md) for engine surface
+- [`BENCHMARKS.md`](../docs/BENCHMARKS.md) for capability, validation, and remaining gaps
 
 ## Strategic Advantage
 
@@ -120,7 +120,7 @@ That credibility should be built visibly. The strongest long-term trust program 
 - selective proof-oriented rigor on small critical kernels
 
 This document is about market framing, not the full solver inventory.
-Use [`BENCHMARKS.md`](/Users/unbalancedparen/projects/dedaliano/docs/BENCHMARKS.md) for capability/proof and [`SOLVER_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/docs/roadmap/SOLVER_ROADMAP.md) for execution order.
+Use [`BENCHMARKS.md`](../docs/BENCHMARKS.md) for capability/proof and [`SOLVER_ROADMAP.md`](../docs/roadmap/SOLVER_ROADMAP.md) for execution order.
 
 ## Best Competitive Wedge
 
@@ -212,13 +212,13 @@ This is why solver quality should stay the center of the company narrative.
 
 ## Related Docs
 
-- [`README.md`](/Users/unbalancedparen/projects/dedaliano/README.md)
+- [`README.md`](../README.md)
   repo identity and documentation map
-- [`engine/README.md`](/Users/unbalancedparen/projects/dedaliano/engine/README.md)
+- [`engine/README.md`](../engine/README.md)
   engine-facing overview and analysis surface
-- [`BENCHMARKS.md`](/Users/unbalancedparen/projects/dedaliano/docs/BENCHMARKS.md)
+- [`BENCHMARKS.md`](../docs/BENCHMARKS.md)
   validation status, solver capability matrix, and benchmark ledger
-- [`SOLVER_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/docs/roadmap/SOLVER_ROADMAP.md)
+- [`SOLVER_ROADMAP.md`](../docs/roadmap/SOLVER_ROADMAP.md)
   solver mechanics, validation sequencing, and technical priorities
-- [`PRODUCT_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/docs/roadmap/PRODUCT_ROADMAP.md)
+- [`PRODUCT_ROADMAP.md`](../docs/roadmap/PRODUCT_ROADMAP.md)
   app, workflow, and market sequencing

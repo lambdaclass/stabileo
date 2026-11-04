@@ -354,13 +354,13 @@ def lift_2d(model, allow_hinges=False):
             if e.get("hingeEnd"):
                 t["releaseMyEnd"] = True
         m3["elements"][k] = t
-    sup = {}
-    for s_ in sorted(model["supports"].values(), key=lambda s_: s_["id"]):
+    for s_ in model["supports"].values():
         if s_["type"] == "spring" and allow_hinges and not s_.get("angle"):
             pass
         elif s_["type"] not in _SUP2D:
             raise Unsupported(f"2D support {s_['type']}")
-        sup[s_["nodeId"]] = s_  # highest id wins (DofNumbering::build_2d)
+    # Shared plain rigid supports OR-merged, as DofNumbering::build_2d.
+    sup = _ops_compare.supports_by_node_2d(model["supports"])
     for n in model["nodes"].values():
         s_ = sup.get(n["id"])
         r = _SUP2D.get(s_["type"], (0, 0, 0)) if s_ else (0, 0, 0)

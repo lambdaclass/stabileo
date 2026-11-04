@@ -161,12 +161,24 @@ fn diaphragm_unknown_plane_is_refused() {
         s3.constraints = vec![dia(bad)];
         assert_refused(linear::solve_3d(&s3), &["plane", "\"XY\"", "\"XZ\"", "\"YZ\""]);
     }
-    // 2D: only the model plane; "XZ" named DOFs that do not exist in 2D.
+    // 2D: only the model plane. The model lies in X–Z and "XY" is its
+    // historical name; since #397 both tie the 2D DOFs (ux, uz, ry), so both
+    // are accepted and give the same result (diaphragm_rotation.rs). "YZ"
+    // names DOFs that do not exist in 2D, and a misspelt plane used to mean XY.
     let mut s2: SolverInput = serde_json::from_value(m2()).unwrap();
-    s2.constraints = vec![Constraint::Diaphragm(DiaphragmConstraint { master_node: 2, slave_nodes: vec![3], plane: "XZ".into() })];
-    assert_refused(linear::solve_2d(&s2), &["plane", "\"XY\""]);
-    s2.constraints = vec![Constraint::Diaphragm(DiaphragmConstraint { master_node: 2, slave_nodes: vec![3], plane: "XY".into() })];
-    assert!(linear::solve_2d(&s2).is_ok());
+    let dia2 = |plane: &str| vec![Constraint::Diaphragm(DiaphragmConstraint { master_node: 2, slave_nodes: vec![3], plane: plane.into() })];
+    for bad in ["YZ", "xz", "xy", "ZX", "XW"] {
+        s2.constraints = dia2(bad);
+        assert_refused(linear::solve_2d(&s2), &["plane", "\"XY\"", "\"XZ\"", "not the plane of a 2D model"]);
+    }
+    s2.constraints = dia2("XY");
+    let xy = linear::solve_2d(&s2).expect("XY is the 2D model plane");
+    s2.constraints = dia2("XZ");
+    let xz = linear::solve_2d(&s2).expect("XZ is the 2D model plane");
+    for (a, b) in xy.displacements.iter().zip(&xz.displacements) {
+        assert_eq!(a.node_id, b.node_id);
+        assert_eq!((a.ux, a.uz, a.ry), (b.ux, b.uz, b.ry), "node {}", a.node_id);
+    }
 }
 
 #[test]

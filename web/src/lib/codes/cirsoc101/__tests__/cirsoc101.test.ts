@@ -141,7 +141,8 @@ describe('§2.3.2 — fluid load F and earth pressure H', () => {
 
   it('generates both cases rather than guessing when the direction is unstated', () => {
     const c = generateCombinations(inputs({ H: true }));
-    expect(c.map((x) => x.id)).toEqual(['1-H+', '1-H-']);
+    // 1, and 6 / 7 with W and E not acting (0,9 D + H, where D resists the earth pressure).
+    expect(c.map((x) => x.id)).toEqual(['1-H+', '1-H-', '6-noWE-H+', '6-noWE-H-']);
     expect(c[0].notes.map((n) => n.key)).toContain('loads.cirsoc101.note.hUnknownAdding');
   });
 });

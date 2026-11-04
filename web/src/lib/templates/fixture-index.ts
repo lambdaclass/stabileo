@@ -16,6 +16,8 @@ const fixtures2D: Record<string, FixtureLoader> = {
   'portal-frame': () => import('./fixtures/portal-frame.json'),
   /* The portal with its top held sideways: no sway, for moment distribution without sway. */
   'portal-frame-braced': () => import('./fixtures/portal-frame-braced.json'),
+  /* A steel portal near enough to its critical load for second order to show (λ₁ ≈ 4). Not in the examples menu. */
+  'portal-second-order': () => import('./fixtures/portal-second-order.json'),
   'two-story-frame': () => import('./fixtures/two-story-frame.json'),
   'multi-section-frame': () => import('./fixtures/multi-section-frame.json'),
   'color-map-demo': () => import('./fixtures/color-map-demo.json'),
@@ -57,6 +59,9 @@ const fixtures2D: Record<string, FixtureLoader> = {
    * article fixtures.
    */
   'deep-beam-bar': () => import('./fixtures/deep-beam-bar.json'),
+  /* The structural dynamics examples of the explained catalog, with point masses; not in the examples menu. */
+  'dynamics-column-mass': () => import('./fixtures/dynamics-column-mass.json'),
+  'dynamics-shear-building': () => import('./fixtures/dynamics-shear-building.json'),
 };
 
 // 3D examples (basic + PRO)
@@ -103,6 +108,8 @@ const fixtures3D: Record<string, FixtureLoader> = {
   // Stating 22 on top of the weight gives 300×550 beams Ø16 bottom bars, and then the 135°
   // tails of every stirrup reach the second layer of the crossing beams' bars at every corner.
   'rc-design-qa-8': () => import('./fixtures/rc-design-qa-8.json'),
+  // qa-8 with its lateral case read as an earthquake, for the seismic design journeys.
+  'rc-design-qa-seismic': () => import('./fixtures/rc-design-qa-seismic.json'),
   // Same family, sized so the SUPPORT regions land in row 2 of Table 9.7.6.2.2 (V_s required
   // above 0,33·√f'c·bw·d). A 300 mm web has 242 mm between its two leg centres against row
   // 2's 200 mm across-width limit, so a third leg — a crosstie — is mandatory. qa-8 is

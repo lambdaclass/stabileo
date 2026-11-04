@@ -1,7 +1,7 @@
 <script lang="ts">
   import { untrack } from 'svelte';
   import { modelStore, uiStore } from '../../lib/store';
-  import { t, tp } from '../../lib/i18n';
+  import { t, tp, capitalized } from '../../lib/i18n';
   import { supportTypeOptions } from '../../lib/pro/support-types';
   import { drawState } from '../../lib/store/draw-state.svelte';
   import WriteInPanelButton from './WriteInPanelButton.svelte';
@@ -86,7 +86,7 @@
   </div>
 
   {#if drawState.writing === 'support'}
-    <WriteCard title={`${t('pro.add')} ${t('pro.oneSupport')}`} submitLabel={`${t('pro.add')} ${t('pro.oneSupport')}`} onsubmit={addSupport} error={wError} testid="write-support-card">
+    <WriteCard title={capitalized(tp('pro.addWhat', { what: t('pro.oneSupport') }))} submitLabel={capitalized(tp('pro.addWhat', { what: t('pro.oneSupport') }))} onsubmit={addSupport} error={wError} testid="write-support-card">
       <SupportDofFields />
       {#key drawState.writeSeq}<LoadTargetPicker entity="nodes" bind:spec={target} bind:summary />{/key}
       {#if done}<p class="pro-sup-done" role="status" data-testid="write-support-done">{done}</p>{/if}

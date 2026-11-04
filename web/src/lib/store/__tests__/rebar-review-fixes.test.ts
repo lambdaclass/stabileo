@@ -10,10 +10,12 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { modelStore, resultsStore, verificationStore, historyStore } from '../index';
 import { designRunStore } from '../design-run.svelte';
-import { setStirrups, setTies, setColumnBars, getReinforcement } from '../rebar-edit';
+import { detailingStore } from '../detailing.svelte';
+import { setStirrups, setTies, setColumnBars, getReinforcement, revertReinforcement, updateLayer, addLayerRow } from '../rebar-edit';
 import qa8 from '../../templates/fixtures/rc-design-qa-8.json';
 import { solveCombinations3D, validateAndSolve3D } from '../../engine/solver-service';
 import * as wasmSolver from '../../engine/wasm-solver';
+import { stateSuiteLateral } from './suite-lateral';
 
 beforeAll(async () => {
   await new Promise(r => setTimeout(r, 0));
@@ -37,6 +39,8 @@ function restoreFixture() {
     combinations: qa8.combinations as never,
     nextId: { node: 100, material: 10, section: 10, element: 100, support: 10, load: 100 },
   } as never);
+  // The reading of the beams' role in the lateral system this suite was written under (`suite-lateral.ts`).
+  stateSuiteLateral();
 }
 
 /** Restore + solve + demands + code check — the app's real design setup path. */
@@ -96,3 +100,50 @@ describe('designOne provisional sync', () => {
     }
   });
 });
+
+describe('undoing an edit puts back the designed bars', () => {
+  it('a retouched member gets its designed arrangement, not an empty one', () => {
+    setupForDesign();
+    const ids = [...verificationStore.contexts.keys()];
+    designRunStore.autoDesign(ids);
+    const id = ids.find((i) => verificationStore.outcomeFor(i)?.outcome === 'VERIFIED' && getReinforcement(i)?.regions?.bottomSpanLayers?.length)!;
+    expect(id, 'a verified beam with bottom layers').toBeDefined();
+    const designed = JSON.parse(JSON.stringify(getReinforcement(id)));
+    updateLayer(id, 'bottomSpanLayers', 0, 'count', designed.regions.bottomSpanLayers[0].count + 2);
+    expect(designRunStore.manualOverrides.has(id)).toBe(true);
+    revertReinforcement([id]);
+    expect(getReinforcement(id)).toEqual(designed);
+    expect(designRunStore.manualOverrides.has(id)).toBe(false);
+    expect(designRunStore.autoDesigned.has(id)).toBe(true);
+  });
+});
+
+describe('the drawings draw the bars a member has', () => {
+  /** Bars of one role a run produced for a member: count of bar paths. */
+  const barsOf = (r: ReturnType<typeof detailingStore.generate>, id: number, role: 'longitudinal' | 'transverse') =>
+    (r?.assemblies ?? []).flatMap((a) => a.bars).filter((b) => b.ownerElementIds.includes(id) && b.role === role);
+
+  it('a regeneration after an edit reproduces the edit, not the designed arrangement', () => {
+    setupForDesign();
+    const ids = [...verificationStore.contexts.keys()];
+    designRunStore.autoDesign(ids);
+    const first = detailingStore.generate();
+    expect(detailingStore.lastError, 'detailing ran').toBeNull();
+    // A verified, detailed beam that takes a second bottom row and still verifies.
+    let id: number | undefined;
+    for (const i of ids) {
+      const layer = getReinforcement(i)?.regions?.bottomSpanLayers?.[0];
+      if (verificationStore.outcomeFor(i)?.outcome !== 'VERIFIED' || !layer || barsOf(first, i, 'longitudinal').length === 0) continue;
+      addLayerRow(i, 'bottomSpanLayers');
+      const pv = verificationStore.providedFor(i);
+      if (pv?.overallStatus !== 'fail') { id = i; break; }
+      revertReinforcement([i]);
+    }
+    expect(id, 'a beam whose edit verifies').toBeDefined();
+    const before = barsOf(first, id!, 'longitudinal').length;
+    const second = detailingStore.generate();
+    // The design run's arrangement used to come back here, bar for bar.
+    expect(barsOf(second, id!, 'longitudinal').length).toBeGreaterThan(before);
+  });
+});
+

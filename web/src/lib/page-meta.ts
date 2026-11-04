@@ -18,7 +18,10 @@ import { alternateUrls, publicUrl } from './i18n/public-routes';
 const OG_LOCALE: Record<PublicLocale, string> = {
 	en: 'en_US',
 	es: 'es_AR',
-	pt: 'pt_BR'
+	pt: 'pt_BR',
+	de: 'de_DE',
+	fr: 'fr_FR',
+	tr: 'tr_TR'
 };
 
 const META_TAGS = [
@@ -27,8 +30,35 @@ const META_TAGS = [
 	['meta[property="og:description"]', 'content'],
 	['meta[property="og:locale"]', 'content'],
 	['meta[name="twitter:title"]', 'content'],
-	['meta[name="twitter:description"]', 'content']
+	['meta[name="twitter:description"]', 'content'],
+	['meta[property="og:image"]', 'content'],
+	['meta[property="og:image:alt"]', 'content'],
+	['meta[name="twitter:image"]', 'content'],
+	['meta[name="twitter:image:alt"]', 'content']
 ] as const;
+
+/** The site-wide card; a post has its own (rendered by scripts/prerender.ts). */
+const SITE_IMAGE = 'https://stabileo.com/og/stabileo-social.png';
+
+/** A post's own social card: its title on the site's card, one per language. */
+export function postImageUrl(slug: string, locale: PublicLocale): string {
+	return `https://stabileo.com/og/blog/${slug}.${locale}.png`;
+}
+
+const FEED = 'link[rel="alternate"][type="application/rss+xml"][data-page-meta]';
+
+/** A blog page advertises its language's feed, so a reader or an aggregator can follow it. */
+function setFeedLink(path: string, locale: PublicLocale) {
+	document.querySelector(FEED)?.remove();
+	if (!path.startsWith('/blog')) return;
+	const el = document.createElement('link');
+	el.setAttribute('rel', 'alternate');
+	el.setAttribute('type', 'application/rss+xml');
+	el.setAttribute('title', 'Stabileo — Blog');
+	el.setAttribute('href', `https://stabileo.com/${locale}/blog/feed.xml`);
+	el.setAttribute('data-page-meta', '');
+	document.head.appendChild(el);
+}
 
 const ALTERNATE = 'meta[property="og:locale:alternate"]';
 const HREFLANG = 'link[rel="alternate"][hreflang]';
@@ -48,32 +78,161 @@ export type ArticleMeta = {
 	description: string;
 	/** ISO day. */
 	datePublished: string;
+	/** ISO day of the last substantive edit; the publication day when absent. */
+	dateModified?: string;
 	authors: string[];
+	/** The post's topics, in the reader's language: `keywords` and `article:tag`. */
+	keywords?: string[];
 	/** Absolute; the page's own canonical. */
 	url: string;
 	locale: PublicLocale;
+	/** The breadcrumb's names for the home page and the blog, in the reader's language. */
+	crumbs?: { home: string; blog: string };
+	/** Absolute URL of the post's own social card. */
+	image?: string;
 };
 
-function setArticleData(article: ArticleMeta | undefined) {
+/** The backer and publisher. LambdaClass is its development arm, credited as the developer. */
+export const ERGODIC_GROUP = {
+	'@type': 'Organization',
+	'@id': 'https://ergodicgroup.com/#organization',
+	name: 'Ergodic Group',
+	url: 'https://ergodicgroup.com/'
+};
+
+export const LAMBDA_CLASS = {
+	'@type': 'Organization',
+	'@id': 'https://lambdaclass.com/#organization',
+	name: 'LambdaClass',
+	url: 'https://lambdaclass.com',
+	parentOrganization: { '@id': ERGODIC_GROUP['@id'] }
+};
+
+export const PUBLISHER = { '@id': ERGODIC_GROUP['@id'] };
+export const DEVELOPER = { '@id': LAMBDA_CLASS['@id'] };
+export const SOFTWARE_ID = 'https://stabileo.com/#software';
+export const WEBSITE_ID = 'https://stabileo.com/#website';
+
+/*
+ * `sameAs` and the description keep a search engine from confusing it with STABILO, the pen brand.
+ */
+const ORG = {
+	'@type': 'Organization',
+	'@id': 'https://stabileo.com/#organization',
+	name: 'Stabileo',
+	url: 'https://stabileo.com',
+	logo: 'https://stabileo.com/og/stabileo-social.png',
+	description: 'Stabileo is open-source structural engineering software that runs in the browser.',
+	parentOrganization: PUBLISHER,
+	sameAs: [
+		'https://github.com/lambdaclass/stabileo',
+		'https://www.linkedin.com/company/stabileo',
+		'https://x.com/Stabileoapp',
+		'https://www.instagram.com/stabileoapp/'
+	]
+};
+
+/** The application every public page is about, free to use: what is not free yet has no price to state. */
+export function stabileoSoftware(locale: PublicLocale, extra: object = {}) {
+	return {
+		'@type': 'SoftwareApplication',
+		'@id': SOFTWARE_ID,
+		name: 'Stabileo',
+		url: publicUrl('/', locale),
+		applicationCategory: 'EngineeringApplication',
+		operatingSystem: 'Web browser',
+		isAccessibleForFree: true,
+		license: 'https://www.gnu.org/licenses/agpl-3.0.html',
+		sameAs: 'https://github.com/lambdaclass/stabileo',
+		inLanguage: PUBLIC_LOCALES,
+		offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+		publisher: PUBLISHER,
+		author: DEVELOPER,
+		...extra
+	};
+}
+
+/** One calculator: its own free web application, part of Stabileo rather than the same thing as it. */
+export function stabileoCalculator(locale: PublicLocale, node: { '@id': string; name: string; description: string; url: string }) {
+	return {
+		'@type': 'WebApplication',
+		...node,
+		inLanguage: locale,
+		applicationCategory: 'EngineeringApplication',
+		operatingSystem: 'Web browser',
+		isAccessibleForFree: true,
+		offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+		publisher: PUBLISHER,
+		author: DEVELOPER,
+		isPartOf: { '@id': SOFTWARE_ID }
+	};
+}
+
+/** `trail` is [name, unprefixed path or absolute URL] from the home page down to the page itself. */
+export function breadcrumbs(locale: PublicLocale, trail: [string, string][]) {
+	return {
+		'@type': 'BreadcrumbList',
+		itemListElement: trail.map(([name, path], i) => ({ '@type': 'ListItem', position: i + 1, name, item: path.startsWith('https:') ? path : publicUrl(path, locale) }))
+	};
+}
+
+/** The structured data a page states: a post's article and breadcrumb, or a page's own graph, plus the site and who makes it. */
+function setStructuredData(article: ArticleMeta | undefined, graph: object[] | undefined, locale?: PublicLocale) {
 	document.querySelector(JSONLD)?.remove();
-	if (!article) return;
+	if (!locale) return;
+	const nodes: object[] = [];
+	if (article) {
+		nodes.push({
+			'@type': 'BlogPosting',
+			headline: article.headline,
+			description: article.description,
+			datePublished: article.datePublished,
+			dateModified: article.dateModified ?? article.datePublished,
+			inLanguage: article.locale,
+			author: article.authors.map((name) => ({ '@type': 'Person', name })),
+			publisher: PUBLISHER,
+			mainEntityOfPage: { '@type': 'WebPage', '@id': article.url },
+			url: article.url,
+			image: article.image ?? SITE_IMAGE,
+			...(article.keywords?.length ? { keywords: article.keywords.join(', ') } : {}),
+			isPartOf: { '@type': 'Blog', '@id': publicUrl('/blog', article.locale) }
+		});
+		if (article.crumbs) nodes.push(breadcrumbs(article.locale, [[article.crumbs.home, '/'], [article.crumbs.blog, '/blog'], [article.headline, article.url]]));
+	}
+	nodes.push(...(graph ?? []), { '@type': 'WebSite', '@id': WEBSITE_ID, name: 'Stabileo', url: 'https://stabileo.com/', inLanguage: locale, publisher: PUBLISHER }, ORG, ERGODIC_GROUP, LAMBDA_CLASS);
 	const el = document.createElement('script');
 	el.setAttribute('type', 'application/ld+json');
 	el.setAttribute('data-page-meta', '');
-	el.textContent = JSON.stringify({
-		'@context': 'https://schema.org',
-		'@type': 'BlogPosting',
-		headline: article.headline,
-		description: article.description,
-		datePublished: article.datePublished,
-		inLanguage: article.locale,
-		author: article.authors.map((name) => ({ '@type': 'Person', name })),
-		publisher: { '@type': 'Organization', name: 'Stabileo', url: 'https://stabileo.com' },
-		mainEntityOfPage: { '@type': 'WebPage', '@id': article.url },
-		url: article.url,
-		image: 'https://stabileo.com/og/stabileo-social.png'
-	});
+	el.textContent = JSON.stringify({ '@context': 'https://schema.org', '@graph': nodes });
 	document.head.appendChild(el);
+}
+
+const ARTICLE_OG = 'meta[data-page-meta-og]';
+
+/**
+ * Open Graph says what kind of thing the page is: `article` on a post, with its dates, author and
+ * topics (`article:*`), `website` everywhere else, as index.html ships it.
+ */
+function setOgArticle(article: ArticleMeta | undefined) {
+	for (const el of document.querySelectorAll(ARTICLE_OG)) el.remove();
+	const type = document.querySelector('meta[property="og:type"]');
+	type?.setAttribute('content', article ? 'article' : 'website');
+	if (!article || !type?.parentNode) return;
+	const values: [string, string][] = [
+		['article:published_time', article.datePublished],
+		['article:modified_time', article.dateModified ?? article.datePublished],
+		...article.authors.map((a): [string, string] => ['article:author', a]),
+		...(article.keywords ?? []).map((k): [string, string] => ['article:tag', k])
+	];
+	let after: Node = type;
+	for (const [property, content] of values) {
+		const el = document.createElement('meta');
+		el.setAttribute('property', property);
+		el.setAttribute('content', content);
+		el.setAttribute('data-page-meta-og', '');
+		type.parentNode.insertBefore(el, after.nextSibling);
+		after = el;
+	}
 }
 
 type Hreflang = { hreflang: string; href: string };
@@ -160,11 +319,13 @@ function setAlternateLocales(values: string[]) {
  * Both are rewritten as a set and restored as a set, like og:locale:alternate
  * above, because the count changes with the page.
  */
-function setLinks(path: string, locale: PublicLocale) {
+// A page not yet written in the reader's language shows its English text, so it names the English one as canonical.
+function setLinks(path: string, locale: PublicLocale, written: readonly PublicLocale[]) {
+	const own = written.includes(locale) ? locale : 'en';
 	const canonical = document.querySelector('link[rel="canonical"]');
-	if (canonical) canonical.setAttribute('href', publicUrl(path, locale));
-	setHreflangs(alternateUrls(path), canonical ?? document.head.lastElementChild);
-	setMeta('meta[property="og:url"]', publicUrl(path, locale));
+	if (canonical) canonical.setAttribute('href', publicUrl(path, own));
+	setHreflangs(alternateUrls(path, written), canonical ?? document.head.lastElementChild);
+	setMeta('meta[property="og:url"]', publicUrl(path, own));
 }
 
 export function applyPageMeta(meta: {
@@ -175,7 +336,12 @@ export function applyPageMeta(meta: {
 	path: string;
 	/** Present on a post; absent everywhere else. */
 	article?: ArticleMeta;
+	/** Schema.org nodes the page states about itself (the landing's app, the blog's index). */
+	graph?: object[];
+	/** The languages a post or standing page is written in; every public language otherwise. */
+	written?: readonly PublicLocale[];
 }) {
+	const written = meta.written ?? PUBLIC_LOCALES;
 	if (!original) {
 		original = {
 			title: document.title,
@@ -192,11 +358,22 @@ export function applyPageMeta(meta: {
 	setMeta('meta[property="og:title"]', meta.title);
 	setMeta('meta[property="og:description"]', meta.description);
 	setMeta('meta[property="og:locale"]', OG_LOCALE[meta.locale]);
-	setAlternateLocales(PUBLIC_LOCALES.filter((l) => l !== meta.locale).map((l) => OG_LOCALE[l]));
+	setAlternateLocales(written.filter((l) => l !== meta.locale).map((l) => OG_LOCALE[l]));
 	setMeta('meta[name="twitter:title"]', meta.title);
 	setMeta('meta[name="twitter:description"]', meta.description);
-	setLinks(meta.path, meta.locale);
-	setArticleData(meta.article);
+	setLinks(meta.path, meta.locale, written);
+	setFeedLink(meta.path, meta.locale);
+	if (meta.article?.image) {
+		for (const sel of ['meta[property="og:image"]', 'meta[name="twitter:image"]']) setMeta(sel, meta.article.image);
+		for (const sel of ['meta[property="og:image:alt"]', 'meta[name="twitter:image:alt"]']) setMeta(sel, meta.article.headline);
+	} else if (original) {
+		// Back to the site's card (and its alt) on a page that has none of its own.
+		META_TAGS.forEach(([sel, attr], i) => {
+			if (/image/.test(sel) && original!.tags[i] !== null) document.querySelector(sel)?.setAttribute(attr, original!.tags[i]!);
+		});
+	}
+	setOgArticle(meta.article);
+	setStructuredData(meta.article, meta.graph, meta.locale);
 }
 
 export function restorePageMeta() {
@@ -221,5 +398,7 @@ export function restorePageMeta() {
 	 * why it would have stayed wrong.
 	 */
 	setHreflangs(original.hreflangs, canonical ?? document.head.lastElementChild);
-	setArticleData(undefined);
+	setOgArticle(undefined);
+	setStructuredData(undefined, undefined);
+	document.querySelector(FEED)?.remove();
 }

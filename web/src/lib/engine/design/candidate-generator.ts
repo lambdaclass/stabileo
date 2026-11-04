@@ -5,7 +5,9 @@
  * back the authoritative verdict for each candidate, and the generator escalates
  * only the knobs that actually failed. That is what keeps the search bounded
  * (coordinate descent over independent regions) while still covering the
- * code-permitted envelope before any SECTION_INADEQUATE claim is made.
+ * alternatives it implements before an exhausted search is reported. Running them out is
+ * SEARCH_EXHAUSTED, never SECTION_INADEQUATE: that one needs a bound of the code no
+ * reinforcement lifts (`section-bounds.ts`), which no enumeration can stand in for.
  *
  * Determinism contract: the same context + the same feedback sequence must produce
  * the same candidate sequence. Feedback is itself deterministic (it comes from the
@@ -44,7 +46,10 @@ export interface CandidateGenerator {
    * for the candidate just returned. Returns null when the generator is done.
    */
   next(feedback: CandidateFeedback | null): Candidate | null;
-  /** True once every knob has been driven to the end of its permitted range. */
+  /**
+   * True once every knob has been driven to the end of the range this generator enumerates (its
+   * diameters, rows and retained options): the implemented alternatives, not every arrangement.
+   */
   readonly envelopeExhausted: boolean;
   /** Total candidates produced so far. */
   readonly produced: number;

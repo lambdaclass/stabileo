@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from './Hint.svelte';
   /**
    * Repeat, polar repeat, mirror, rotate and move — one panel over one edit layer.
    *
@@ -54,6 +55,9 @@
     const nodes = new Set([...uiStore.selectedNodes].filter((id) => modelStore.nodes.has(id)));
     const elements = new Set([...uiStore.selectedElements].filter((id) => modelStore.elements.has(id)));
     for (const e of modelStore.elements.values()) if (nodes.has(e.nodeI) && nodes.has(e.nodeJ)) elements.add(e.id);
+    // A physical plate selected whole brings its outline and holes, mesh or not (not the members
+    // between its nodes, which are not the plate).
+    for (const id of uiStore.selectedPlates) for (const n of modelStore.model.groups.get(id)?.members.nodes ?? []) if (modelStore.nodes.has(n)) nodes.add(n);
     const quads = new Set<number>(), plates = new Set<number>();
     for (const key of uiStore.selectedShells) {
       const id = Number(key.slice(1));
@@ -321,7 +325,7 @@
     <button class="pk-btn pk-btn-primary" disabled={!canRun} onclick={run} data-testid="tp-run">{t(`transform.run.${mode}`)}</button>
   </div>
   {#if message}<p class="pk-ok" data-testid="tp-done">{message}</p>{/if}
-  <p class="pk-hint">{t('transform.weldNote')}</p>
+  <Hint text={t('transform.weldNote')} />
   </section>
 </div>
 

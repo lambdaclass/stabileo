@@ -1,0 +1,230 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target environment
+        type: choice
+        options: [staging, production]
+        default: staging
+
+permissions: {}
+
+jobs:
+  build:
+    name: Build (${{ inputs.environment || 'production' }})
+    runs-on: ubicloud-standard-8
+    timeout-minutes: 60
+    environment: ${{ inputs.environment || 'production' }}
+    concurrency:
+      group: deploy-${{ inputs.environment || 'production' }}-build
+      cancel-in-progress: true
+    permissions:
+      contents: read
+    env:
+      TARGET: ${{ inputs.environment || 'production' }}
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Check deploy settings
+        env:
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ vars.DEPLOY_KNOWN_HOSTS }}
+          NIX_SIGNING_KEY: ${{ secrets.NIX_SIGNING_KEY }}
+          SECRET_KEY_BASE: ${{ secrets.SECRET_KEY_BASE }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          PHX_HOST: ${{ vars.PHX_HOST }}
+          API_URL: ${{ vars.API_URL }}
+          ADMIN_FRONTEND_URL: ${{ vars.ADMIN_FRONTEND_URL }}
+        run: >
+          ./.github/scripts/require-env.sh DEPLOY_HOST DEPLOY_USER DEPLOY_SSH_KEY DEPLOY_KNOWN_HOSTS
+          NIX_SIGNING_KEY SECRET_KEY_BASE JWT_SECRET DATABASE_URL PHX_HOST API_URL ADMIN_FRONTEND_URL
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
+
+      - name: Cache Nix store
+        uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+        continue-on-error: true
+        with:
+          use-flakehub: false
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: engine
+          shared-key: wasm
+
+      - name: Install web dependencies
+        run: make web.deps
+
+      - name: Install Chromium for prerendering
+        run: |
+          make e2e.web.setup
+          nix develop --command bash -c "cd web && npx playwright install-deps chromium"
+
+      - name: Build backend release
+        env:
+          GIT_COMMIT_SHA: ${{ github.sha }}
+          DEPLOY_ENV: ${{ vars.DEPLOY_ENV }}
+        run: make backend.release.build
+
+      # VITE_API_URL stays unset: both sites call /api/* on their own origin through Caddy.
+      - name: Build the app
+        env:
+          BASE_PATH: /
+          VITE_ACCOUNTS: ${{ vars.VITE_ACCOUNTS }}
+        run: make web.build
+
+      - name: Build the admin site
+        env:
+          BASE_PATH: /
+        run: make admin.build
+
+      - name: Verify the public pages were prerendered
+        working-directory: web
+        run: |
+          for f in index.html es/index.html pt/blog/index.html es/blog/the-determinism-boundary/index.html; do
+            test -f "dist/$f" || { echo "prerender missing: dist/$f"; exit 1; }
+            chars=$(sed -e 's/<script[^>]*>.*<\/script>//g' -e 's/<[^>]*>/ /g' "dist/$f" | tr -s ' \n' ' ' | wc -c)
+            if [ "$chars" -lt 800 ]; then echo "dist/$f carries only $chars characters of text"; exit 1; fi
+          done
+          test -f dist/sitemap.xml || { echo 'sitemap.xml missing'; exit 1; }
+          test -f dist/robots.txt || { echo 'robots.txt missing'; exit 1; }
+          grep -q '<html lang="en">' dist/en/index.html
+          grep -q '<html lang="es">' dist/es/index.html
+          grep -q '<html lang="pt">' dist/pt/index.html
+          grep -Eq 'src="/assets/|href="/assets/' dist/index.html
+          test -f dist-admin/admin.html
+          echo "prerendered pages verified"
+
+      - name: Validate the Caddyfile
+        run: nix run nixpkgs#caddy -- validate --config infra/caddy/Caddyfile --adapter caddyfile --envfile "infra/caddy/$TARGET.env"
+
+      - name: Package release
+        env:
+          NIX_SIGNING_KEY: ${{ secrets.NIX_SIGNING_KEY }}
+          COMMIT: ${{ github.sha }}
+          REF: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          rel=backend/_build/prod/rel/stabileo
+          pkg=release-package
+          mkdir -p "$pkg/backend" "$pkg/frontends/app" "$pkg/frontends/admin" "$pkg/caddy"
+          cp -r "$rel"/. "$pkg/backend/"
+          cp -r web/dist/. "$pkg/frontends/app/"
+          cp -r web/dist-admin/. "$pkg/frontends/admin/"
+          cp infra/caddy/Caddyfile "$pkg/caddy/Caddyfile"
+
+          ./.github/scripts/release-store-paths.sh "$rel" > "$pkg/store-paths.txt"
+          mapfile -t roots < "$pkg/store-paths.txt"
+          key="$RUNNER_TEMP/nix-signing-key"
+          (umask 077; printf '%s' "$NIX_SIGNING_KEY" > "$key")
+          nix copy --to "file://$PWD/$pkg/nix-cache?secret-key=$key&compression=zstd" "${roots[@]}"
+          rm -f "$key"
+
+          {
+            echo "commit=$COMMIT"
+            echo "ref=$REF"
+            echo "environment=$TARGET"
+            echo "built_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          } > "$pkg/VERSION"
+
+          tar -czf stabileo-release.tar.gz -C "$pkg" .
+          du -h stabileo-release.tar.gz
+
+      - name: Upload release artifact
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: stabileo-release-${{ github.sha }}
+          path: stabileo-release.tar.gz
+          retention-days: 7
+          if-no-files-found: error
+
+  deploy:
+    name: Deploy (${{ inputs.environment || 'production' }})
+    needs: [build]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: ${{ inputs.environment || 'production' }}
+    # Shared with the rollback, so neither runs while the other holds the host.
+    concurrency:
+      group: deploy-${{ inputs.environment || 'production' }}-host
+      cancel-in-progress: false
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            infra/ansible
+            .github/actions/ssh-setup
+
+      - uses: ./.github/actions/ssh-setup
+        with:
+          host: ${{ vars.DEPLOY_HOST }}
+          user: ${{ vars.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          known-hosts: ${{ vars.DEPLOY_KNOWN_HOSTS }}
+
+      - name: Download release artifact
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: stabileo-release-${{ github.sha }}
+
+      - name: Upload artifact to server
+        env:
+          HOST: ${{ vars.DEPLOY_HOST }}
+          COMMIT: ${{ github.sha }}
+        run: scp stabileo-release.tar.gz "$HOST:/srv/stabileo/incoming/stabileo-release-$COMMIT.tar.gz"
+
+      - name: Install Ansible
+        run: pipx install ansible-core
+
+      - name: Run Ansible deploy
+        working-directory: infra/ansible
+        env:
+          HOST: ${{ vars.DEPLOY_HOST }}
+          SSH_USER: ${{ vars.DEPLOY_USER }}
+          COMMIT: ${{ github.sha }}
+          SECRET_KEY_BASE: ${{ secrets.SECRET_KEY_BASE }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          PHX_HOST: ${{ vars.PHX_HOST }}
+          API_URL: ${{ vars.API_URL }}
+          ADMIN_FRONTEND_URL: ${{ vars.ADMIN_FRONTEND_URL }}
+          GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          PORT: ${{ vars.PORT }}
+          BIND_ADDRESS: ${{ vars.BIND_ADDRESS }}
+          POOL_SIZE: ${{ vars.POOL_SIZE }}
+          DATABASE_SSL: ${{ vars.DATABASE_SSL }}
+          TRUSTED_PROXIES: ${{ vars.TRUSTED_PROXIES }}
+          CORS_ALLOWED_ORIGINS: ${{ vars.CORS_ALLOWED_ORIGINS }}
+          ADMIN_DOMAINS: ${{ vars.ADMIN_DOMAINS }}
+          ACCESS_TOKEN_TTL: ${{ vars.ACCESS_TOKEN_TTL }}
+          REFRESH_TOKEN_TTL: ${{ vars.REFRESH_TOKEN_TTL }}
+          ADMIN_REFRESH_TOKEN_TTL: ${{ vars.ADMIN_REFRESH_TOKEN_TTL }}
+          DEPLOY_ENV: ${{ vars.DEPLOY_ENV }}
+          GIT_COMMIT_SHA: ${{ github.sha }}
+        run: |
+          printf 'app:\n  hosts:\n    %s:\n      ansible_user: %s\n' "$HOST" "$SSH_USER" > "$RUNNER_TEMP/inventory.yml"
+          ansible-playbook -i "$RUNNER_TEMP/inventory.yml" deploy-app.yml -e "commit_sha=$COMMIT"
+
+      - name: Verify deployment
+        env:
+          HOST: ${{ vars.DEPLOY_HOST }}
+          PORT: ${{ vars.PORT || '4100' }}
+        run: |
+          # shellcheck disable=SC2029
+          ssh "$HOST" "curl -sf http://127.0.0.1:$PORT/api/v1/health"

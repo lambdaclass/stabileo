@@ -240,6 +240,7 @@ fn validation_nafems_t1_thermal_gradient() {
             element_id: i,
             dt_uniform: 0.0,
             dt_gradient: dt_grad,
+            alpha: None, depth: None,
         }));
     }
 

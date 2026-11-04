@@ -32,6 +32,130 @@ pub struct PerModeResult {
     pub modal_force: f64,
 }
 
+/// The modal combination rule of a response-spectrum analysis.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CombinationRule {
+    /// Square root of the sum of squares.
+    Srss,
+    /// Complete quadratic combination, Der Kiureghian (1981), equal modal damping.
+    Cqc,
+}
+
+impl CombinationRule {
+    /// `None` is CQC. Anything other than exactly "SRSS" or "CQC" is refused (an unknown
+    /// rule used to fall through to CQC silently), as for every enum string of the input:
+    /// no trimming or case folding (tests/unknown_enum_strings.rs).
+    pub fn parse(rule: Option<&str>) -> Result<Self, String> {
+        match rule {
+            None | Some("CQC") => Ok(CombinationRule::Cqc),
+            Some("SRSS") => Ok(CombinationRule::Srss),
+            Some(other) => Err(format!("Spectral analysis: unknown combination rule '{other}'; expected \"SRSS\" or \"CQC\"")),
+        }
+    }
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            CombinationRule::Srss => "SRSS",
+            CombinationRule::Cqc => "CQC",
+        }
+    }
+}
+
+/// Der Kiureghian's CQC coefficient for equal damping `xi`, `r = ω_j/ω_i`:
+/// ρ = 8ξ²(1+r)r^{3/2} / ((1−r²)² + 4ξ²r(1+r)²). Symmetric in i, j; ρ_ii = 1.
+pub fn cqc_coefficient(omega_i: f64, omega_j: f64, xi: f64) -> f64 {
+    let r = omega_j / omega_i;
+    let num = 8.0 * xi * xi * (1.0 + r) * r.powf(1.5);
+    let den = (1.0 - r * r).powi(2) + 4.0 * xi * xi * r * (1.0 + r).powi(2);
+    if den > 1e-30 {
+        num / den
+    } else if (r - 1.0).abs() < 1e-12 {
+        // Coincident frequencies without damping: the limit is full correlation.
+        1.0
+    } else {
+        0.0
+    }
+}
+
+/// Combines per-mode values of one response quantity with the requested rule.
+/// Every reported quantity (displacements, end forces, base shear) goes
+/// through the same combiner: the base shear used to be SRSS whatever the
+/// rule, which under-reported it when CQC was asked for (closely spaced modes
+/// add their base shears with the same sign).
+pub(crate) struct ModalCombiner {
+    /// CQC coefficients, None for SRSS.
+    rho: Option<Vec<Vec<f64>>>,
+}
+
+impl ModalCombiner {
+    pub(crate) fn new(rule: CombinationRule, omegas: &[f64], xi: f64) -> Result<Self, String> {
+        let rho = match rule {
+            CombinationRule::Srss => None,
+            CombinationRule::Cqc => {
+                if !(xi.is_finite() && (0.0..1.0).contains(&xi)) {
+                    return Err(format!("CQC damping ratio must be in [0, 1), got {xi}"));
+                }
+                if omegas.iter().any(|w| !(w.is_finite() && *w > 0.0)) {
+                    return Err("CQC needs every mode's circular frequency finite and positive".into());
+                }
+                Some(
+                    (0..omegas.len())
+                        .map(|i| (0..omegas.len()).map(|j| if i == j { 1.0 } else { cqc_coefficient(omegas[i], omegas[j], xi) }).collect())
+                        .collect(),
+                )
+            }
+        };
+        Ok(ModalCombiner { rho })
+    }
+
+    /// The combined peak of a quantity whose signed value in mode `i` is `r(i)`.
+    pub(crate) fn combine(&self, n_modes: usize, r: impl Fn(usize) -> f64) -> f64 {
+        let vals: Vec<f64> = (0..n_modes).map(r).collect();
+        let s: f64 = match &self.rho {
+            None => vals.iter().map(|v| v * v).sum(),
+            Some(rho) => {
+                let mut s = 0.0;
+                for i in 0..n_modes {
+                    for j in 0..n_modes {
+                        s += vals[i] * rho[i][j] * vals[j];
+                    }
+                }
+                s
+            }
+        };
+        s.abs().sqrt()
+    }
+}
+
+/// Signed per-mode end forces of every member, `(element id, values)`: `values` is
+/// `[start components…, end components…]`. Each end component is a response
+/// quantity linear in the modal displacement, and it is that signed value the
+/// rule combines; the envelope of the two ends is taken after combining.
+/// (Combining per-mode max(|start|, |end|) made every CQC cross term
+/// non-negative and mixed the two ends across modes.)
+fn combine_end_forces(
+    combiner: &ModalCombiner,
+    per_mode: &[Vec<(usize, Vec<f64>)>],
+    n_comp: usize,
+) -> Vec<(usize, Vec<f64>)> {
+    let n_modes = per_mode.len();
+    let Some(first) = per_mode.first() else { return Vec::new() };
+    first
+        .iter()
+        .enumerate()
+        .map(|(e, (id, _))| {
+            let vals = (0..n_comp)
+                .map(|c| {
+                    let start = combiner.combine(n_modes, |m| per_mode[m][e].1[c]);
+                    let end = combiner.combine(n_modes, |m| per_mode[m][e].1[n_comp + c]);
+                    start.max(end)
+                })
+                .collect();
+            (*id, vals)
+        })
+        .collect()
+}
+
 /// Check the spectral data the solver trusts (issue #335): every mode has a
 /// finite ω > 0 and period > 0 and finite participation, effective mass and
 /// shape; the spectrum has finite ordinates at finite, strictly increasing
@@ -81,16 +205,6 @@ fn validate_spectral(
     Ok(())
 }
 
-/// The modal combination rule: absent means CQC; anything other than
-/// "SRSS" or "CQC" is refused (it used to fall back to CQC silently).
-pub(crate) fn spectral_rule(rule: Option<&str>) -> Result<&'static str, String> {
-    match rule {
-        None | Some("CQC") => Ok("CQC"),
-        Some("SRSS") => Ok("SRSS"),
-        Some(r) => Err(format!("Spectral analysis: unknown combination rule '{r}'; expected \"SRSS\" or \"CQC\"")),
-    }
-}
-
 /// Index of the excitation direction among `accepted` ("X", "Y"[, "Z"]);
 /// anything else is refused (it used to fall back to Y in 2D and Z in 3D).
 pub(crate) fn spectral_direction(direction: &str, accepted: &[&str]) -> Result<usize, String> {
@@ -116,6 +230,7 @@ fn check_finite_output(disps: &[f64], forces: &[f64], base_shear: f64, per_mode:
 /// Solve 2D spectral analysis using pre-computed modal data.
 pub fn solve_spectral_2d(input: &SpectralInput) -> Result<SpectralResult, String> {
     super::linear::validate_input_2d(&input.solver)?;
+    super::dynamic_validation::validate_mass_input_2d(&input.solver)?;
     if input.modes.is_empty() {
         return Err("Spectral analysis requires at least one mode (run modal analysis first)".to_string());
     }
@@ -123,7 +238,7 @@ pub fn solve_spectral_2d(input: &SpectralInput) -> Result<SpectralResult, String
     let modes = &input.modes;
     let spectrum = &input.spectrum;
     let direction = &input.direction;
-    let rule = spectral_rule(input.rule.as_deref())?;
+    let rule = CombinationRule::parse(input.rule.as_deref())?;
     let xi = input.xi.unwrap_or(0.05);
     let importance_factor = input.importance_factor.unwrap_or(1.0);
     let reduction_factor = input.reduction_factor.unwrap_or(1.0);
@@ -137,13 +252,15 @@ pub fn solve_spectral_2d(input: &SpectralInput) -> Result<SpectralResult, String
         })
         .collect();
     validate_spectral(&checked, spectrum, xi, importance_factor, reduction_factor)?;
+    let omegas: Vec<f64> = modes.iter().map(|m| m.omega).collect();
+    let combiner = ModalCombiner::new(rule, &omegas, xi)?;
 
     let dof_num = DofNumbering::build_2d(solver_input);
     let n = dof_num.n_total;
 
     // For each mode, compute peak response
     let mut modal_disps: Vec<Vec<f64>> = Vec::new();
-    let mut modal_forces: Vec<Vec<f64>> = Vec::new();
+    let mut modal_forces: Vec<Vec<(usize, Vec<f64>)>> = Vec::new();
     let mut per_mode = Vec::new();
 
     for (mode_idx, mode) in modes.iter().enumerate() {
@@ -154,7 +271,7 @@ pub fn solve_spectral_2d(input: &SpectralInput) -> Result<SpectralResult, String
         }
         sa *= importance_factor / reduction_factor;
 
-        // ω > 0 (validated).
+        // ω > 0 for every mode (validate_spectral).
         let sd = sa / (mode.omega * mode.omega);
 
         let (participation, meff) = if dir == 0 {
@@ -187,13 +304,15 @@ pub fn solve_spectral_2d(input: &SpectralInput) -> Result<SpectralResult, String
         // Compute element forces for this mode
         // The mode's response to its spectral inertia forces only: no element
         // loads, whose fixed-end forces are static and must not be combined.
-        let ef = super::linear::compute_internal_forces_2d_with_loads(solver_input, &[], &dof_num, &u_full);
-        let forces: Vec<f64> = ef.iter()
-            .flat_map(|f| vec![f.n_start.abs().max(f.n_end.abs()),
-                              f.v_start.abs().max(f.v_end.abs()),
-                              f.m_start.abs().max(f.m_end.abs())])
-            .collect();
-        modal_forces.push(forces);
+        let mut ef = super::linear::compute_internal_forces_2d_with_loads(solver_input, &[], &dof_num, &u_full);
+        // The same member order in every mode: the per-end combination pairs
+        // the modes' values by position.
+        ef.sort_by_key(|f| f.element_id);
+        modal_forces.push(
+            ef.iter()
+                .map(|f| (f.element_id, vec![f.n_start, f.v_start, f.m_start, f.n_end, f.v_end, f.m_end]))
+                .collect(),
+        );
 
         per_mode.push(PerModeResult {
             mode: mode_idx + 1,
@@ -205,40 +324,26 @@ pub fn solve_spectral_2d(input: &SpectralInput) -> Result<SpectralResult, String
         });
     }
 
-    // Combine modal responses
-    let n_elems = if modal_forces.is_empty() { 0 } else { modal_forces[0].len() / 3 };
-
-    let (combined_disps, combined_forces) = match rule {
-        "SRSS" => combine_srss(&modal_disps, &modal_forces, n, n_elems),
-        _ => combine_cqc(&modal_disps, &modal_forces, modes, xi, n, n_elems),
-    };
-
-    // Build combined displacement results
+    let n_modes = modes.len();
+    let combined_disps: Vec<f64> = (0..n).map(|k| combiner.combine(n_modes, |m| modal_disps[m][k])).collect();
     let displacements = super::linear::build_displacements_2d(&dof_num, &combined_disps);
 
-    // Build element force envelopes
-    let elem_ids: Vec<usize> = solver_input.elements.values().map(|e| e.id).collect();
-    let element_forces: Vec<SpectralElementForce> = (0..n_elems)
-        .map(|i| SpectralElementForce {
-            element_id: if i < elem_ids.len() { elem_ids[i] } else { 0 },
-            n_max: combined_forces[i * 3],
-            v_max: combined_forces[i * 3 + 1],
-            m_max: combined_forces[i * 3 + 2],
-        })
+    let element_forces: Vec<SpectralElementForce> = combine_end_forces(&combiner, &modal_forces, 3)
+        .into_iter()
+        .map(|(element_id, v)| SpectralElementForce { element_id, n_max: v[0], v_max: v[1], m_max: v[2] })
         .collect();
 
-    let base_shear: f64 = per_mode.iter()
-        .map(|pm| pm.modal_force * pm.modal_force)
-        .sum::<f64>()
-        .sqrt();
-    check_finite_output(&combined_disps, &combined_forces, base_shear, &per_mode)?;
+    // Modal base shears V_n = M*_n·Sa_n, combined with the requested rule.
+    let base_shear = combiner.combine(n_modes, |m| per_mode[m].modal_force);
+    let forces: Vec<f64> = element_forces.iter().flat_map(|f| [f.n_max, f.v_max, f.m_max]).collect();
+    check_finite_output(&combined_disps, &forces, base_shear, &per_mode)?;
 
     Ok(SpectralResult {
         displacements,
         element_forces,
         base_shear,
         per_mode,
-        rule: rule.to_string(),
+        rule: rule.as_str().to_string(),
     })
 }
 
@@ -262,73 +367,6 @@ fn interpolate_spectrum(spectrum: &DesignSpectrum, period: f64) -> f64 {
         }
     }
     last.sa
-}
-
-fn combine_srss(
-    modal_disps: &[Vec<f64>],
-    modal_forces: &[Vec<f64>],
-    n: usize,
-    n_elems: usize,
-) -> (Vec<f64>, Vec<f64>) {
-    let mut disps = vec![0.0; n];
-    for i in 0..n {
-        let sum: f64 = modal_disps.iter().map(|md| md[i] * md[i]).sum();
-        disps[i] = sum.sqrt();
-    }
-    let nf_forces = n_elems * 3;
-    let mut forces = vec![0.0; nf_forces];
-    for i in 0..nf_forces {
-        let sum: f64 = modal_forces.iter().map(|mf| mf[i] * mf[i]).sum();
-        forces[i] = sum.sqrt();
-    }
-    (disps, forces)
-}
-
-fn combine_cqc(
-    modal_disps: &[Vec<f64>],
-    modal_forces: &[Vec<f64>],
-    modes: &[SpectralModeInput],
-    xi: f64,
-    n: usize,
-    n_elems: usize,
-) -> (Vec<f64>, Vec<f64>) {
-    let n_modes = modal_disps.len();
-
-    // CQC correlation coefficients
-    let mut rho = vec![vec![0.0; n_modes]; n_modes];
-    for i in 0..n_modes {
-        for j in 0..n_modes {
-            let r = modes[j].omega / modes[i].omega;
-            let num = 8.0 * xi * xi * (1.0 + r) * r.powf(1.5);
-            let den = (1.0 - r * r).powi(2) + 4.0 * xi * xi * r * (1.0 + r).powi(2);
-            rho[i][j] = if den.abs() > 1e-30 { num / den } else { if i == j { 1.0 } else { 0.0 } };
-        }
-    }
-
-    let mut disps = vec![0.0; n];
-    for k in 0..n {
-        let mut sum = 0.0;
-        for i in 0..n_modes {
-            for j in 0..n_modes {
-                sum += modal_disps[i][k] * rho[i][j] * modal_disps[j][k];
-            }
-        }
-        disps[k] = sum.abs().sqrt();
-    }
-
-    let nf_forces = n_elems * 3;
-    let mut forces = vec![0.0; nf_forces];
-    for k in 0..nf_forces {
-        let mut sum = 0.0;
-        for i in 0..n_modes {
-            for j in 0..n_modes {
-                sum += modal_forces[i][k] * rho[i][j] * modal_forces[j][k];
-            }
-        }
-        forces[k] = sum.abs().sqrt();
-    }
-
-    (disps, forces)
 }
 
 /// 3D spectral analysis result.
@@ -357,6 +395,7 @@ pub struct SpectralElementForce3D {
 /// Solve 3D spectral analysis using pre-computed modal data.
 pub fn solve_spectral_3d(input: &SpectralInput3D) -> Result<SpectralResult3D, String> {
     super::linear::validate_input_3d(&input.solver)?;
+    super::dynamic_validation::validate_mass_input_3d(&input.solver)?;
     if input.modes.is_empty() {
         return Err("Spectral analysis requires at least one mode (run modal analysis first)".to_string());
     }
@@ -364,7 +403,7 @@ pub fn solve_spectral_3d(input: &SpectralInput3D) -> Result<SpectralResult3D, St
     let modes = &input.modes;
     let spectrum = &input.spectrum;
     let direction = &input.direction;
-    let rule = spectral_rule(input.rule.as_deref())?;
+    let rule = CombinationRule::parse(input.rule.as_deref())?;
     let xi = input.xi.unwrap_or(0.05);
     let importance_factor = input.importance_factor.unwrap_or(1.0);
     let reduction_factor = input.reduction_factor.unwrap_or(1.0);
@@ -381,12 +420,14 @@ pub fn solve_spectral_3d(input: &SpectralInput3D) -> Result<SpectralResult3D, St
         })
         .collect();
     validate_spectral(&checked, spectrum, xi, importance_factor, reduction_factor)?;
+    let omegas: Vec<f64> = modes.iter().map(|m| m.omega).collect();
+    let combiner = ModalCombiner::new(rule, &omegas, xi)?;
 
     let dof_num = DofNumbering::build_3d(solver_input);
     let n = dof_num.n_total;
 
     let mut modal_disps: Vec<Vec<f64>> = Vec::new();
-    let mut modal_forces: Vec<Vec<f64>> = Vec::new();
+    let mut modal_forces: Vec<Vec<(usize, Vec<f64>)>> = Vec::new();
     let mut per_mode = Vec::new();
 
     for (mode_idx, mode) in modes.iter().enumerate() {
@@ -394,7 +435,7 @@ pub fn solve_spectral_3d(input: &SpectralInput3D) -> Result<SpectralResult3D, St
         if spectrum.in_g.unwrap_or(true) { sa *= 9.81; }
         sa *= importance_factor / reduction_factor;
 
-        // ω > 0 (validated).
+        // ω > 0 for every mode (validate_spectral).
         let sd = sa / (mode.omega * mode.omega);
 
         let (participation, meff) = match dir {
@@ -416,87 +457,51 @@ pub fn solve_spectral_3d(input: &SpectralInput3D) -> Result<SpectralResult3D, St
         }
         modal_disps.push(u_full.clone());
         // Spectral inertia forces only: no element loads (see the 2D solver).
-        let ef = super::linear::compute_internal_forces_3d_with_loads(solver_input, &[], &dof_num, &u_full);
-        let forces: Vec<f64> = ef.iter()
-            .flat_map(|f| vec![
-                f.n_start.abs().max(f.n_end.abs()),
-                f.vy_start.abs().max(f.vy_end.abs()),
-                f.vz_start.abs().max(f.vz_end.abs()),
-                f.mx_start.abs().max(f.mx_end.abs()),
-                f.my_start.abs().max(f.my_end.abs()),
-                f.mz_start.abs().max(f.mz_end.abs()),
-            ])
-            .collect();
-        modal_forces.push(forces);
+        let mut ef = super::linear::compute_internal_forces_3d_with_loads(solver_input, &[], &dof_num, &u_full);
+        // The same member order in every mode (see the 2D solver).
+        ef.sort_by_key(|f| f.element_id);
+        modal_forces.push(
+            ef.iter()
+                .map(|f| {
+                    (f.element_id, vec![
+                        f.n_start, f.vy_start, f.vz_start, f.mx_start, f.my_start, f.mz_start,
+                        f.n_end, f.vy_end, f.vz_end, f.mx_end, f.my_end, f.mz_end,
+                    ])
+                })
+                .collect(),
+        );
 
         per_mode.push(PerModeResult {
             mode: mode_idx + 1, period: mode.period, sa, sd, participation, modal_force,
         });
     }
 
-    let n_elems = if modal_forces.is_empty() { 0 } else { modal_forces[0].len() / 6 };
-
-    let n_force_components = n_elems * 6;
-    let (combined_disps, combined_forces) = match rule {
-        "SRSS" => {
-            let mut disps = vec![0.0; n];
-            for i in 0..n {
-                disps[i] = modal_disps.iter().map(|md| md[i] * md[i]).sum::<f64>().sqrt();
-            }
-            let mut forces = vec![0.0; n_force_components];
-            for i in 0..n_force_components {
-                forces[i] = modal_forces.iter().map(|mf| mf[i] * mf[i]).sum::<f64>().sqrt();
-            }
-            (disps, forces)
-        }
-        _ => {
-            let omegas: Vec<f64> = modes.iter().map(|m| m.omega).collect();
-            let n_modes = modal_disps.len();
-            let mut rho = vec![vec![0.0; n_modes]; n_modes];
-            for i in 0..n_modes {
-                for j in 0..n_modes {
-                    let r = omegas[j] / omegas[i];
-                    let num = 8.0 * xi * xi * (1.0 + r) * r.powf(1.5);
-                    let den = (1.0 - r * r).powi(2) + 4.0 * xi * xi * r * (1.0 + r).powi(2);
-                    rho[i][j] = if den.abs() > 1e-30 { num / den } else { if i == j { 1.0 } else { 0.0 } };
-                }
-            }
-            let mut disps = vec![0.0; n];
-            for k in 0..n {
-                let mut sum = 0.0;
-                for i in 0..n_modes { for j in 0..n_modes { sum += modal_disps[i][k] * rho[i][j] * modal_disps[j][k]; } }
-                disps[k] = sum.abs().sqrt();
-            }
-            let mut forces = vec![0.0; n_force_components];
-            for k in 0..n_force_components {
-                let mut sum = 0.0;
-                for i in 0..n_modes { for j in 0..n_modes { sum += modal_forces[i][k] * rho[i][j] * modal_forces[j][k]; } }
-                forces[k] = sum.abs().sqrt();
-            }
-            (disps, forces)
-        }
-    };
-
+    let n_modes = modes.len();
+    let combined_disps: Vec<f64> = (0..n).map(|k| combiner.combine(n_modes, |m| modal_disps[m][k])).collect();
     let displacements = super::linear::build_displacements_3d(&dof_num, &combined_disps);
 
-    let elem_ids: Vec<usize> = solver_input.elements.values().map(|e| e.id).collect();
-    let element_forces: Vec<SpectralElementForce3D> = (0..n_elems)
-        .map(|i| SpectralElementForce3D {
-            element_id: if i < elem_ids.len() { elem_ids[i] } else { 0 },
-            n_max: combined_forces[i * 6],
-            vy_max: combined_forces[i * 6 + 1],
-            vz_max: combined_forces[i * 6 + 2],
-            mx_max: combined_forces[i * 6 + 3],
-            my_max: combined_forces[i * 6 + 4],
-            mz_max: combined_forces[i * 6 + 5],
+    let element_forces: Vec<SpectralElementForce3D> = combine_end_forces(&combiner, &modal_forces, 6)
+        .into_iter()
+        .map(|(element_id, v)| SpectralElementForce3D {
+            element_id,
+            n_max: v[0],
+            vy_max: v[1],
+            vz_max: v[2],
+            mx_max: v[3],
+            my_max: v[4],
+            mz_max: v[5],
         })
         .collect();
 
-    let base_shear: f64 = per_mode.iter()
-        .map(|pm| pm.modal_force * pm.modal_force).sum::<f64>().sqrt();
-    check_finite_output(&combined_disps, &combined_forces, base_shear, &per_mode)?;
+    // Modal base shears combined with the requested rule (see the 2D solver).
+    let base_shear = combiner.combine(n_modes, |m| per_mode[m].modal_force);
+    let forces: Vec<f64> = element_forces
+        .iter()
+        .flat_map(|f| [f.n_max, f.vy_max, f.vz_max, f.mx_max, f.my_max, f.mz_max])
+        .collect();
+    check_finite_output(&combined_disps, &forces, base_shear, &per_mode)?;
 
     Ok(SpectralResult3D {
-        displacements, element_forces, base_shear, per_mode, rule: rule.to_string(),
+        displacements, element_forces, base_shear, per_mode, rule: rule.as_str().to_string(),
     })
 }

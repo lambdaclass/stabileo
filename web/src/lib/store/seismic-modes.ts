@@ -13,6 +13,9 @@
  * of the mass in X and in Y (§7.2.3), as the Advanced panel's modal analysis does.
  */
 import { modelStore, uiStore } from './index';
+import { t } from '../i18n';
+import { modelHasMemberOffsets } from '../engine/member-offsets';
+import { modelHasShellOffsets } from '../engine/shell-offsets';
 import { withMassSource, densitiesFor } from '../engine/dynamics/mass-source-model';
 import { modalUntilMass } from '../engine/dynamics/requests';
 import { solveModal3D } from '../engine/wasm-solver';
@@ -24,6 +27,11 @@ const DEAD = -1, LIVE = -2;
 
 /** The model's modal result under the plan's own masses, raw (`modesForPlan`, `windFrequenciesForPlan`). */
 export function planModalResult(plan: LoadPlan, liveParticipation: number): { result: unknown; reached: boolean } | { error: string } {
+  // Solved on the node lines (no helper nodes for the offsets): refused rather than handing the
+  // seismic and wind plans modes of a centred model (`dynamic-input.ts` `centerlineInput`).
+  if (modelHasMemberOffsets(modelStore.elements.values()) || modelHasShellOffsets(modelStore.plates, modelStore.quads)) {
+    return { error: t('advanced.offsetsUnsupported') };
+  }
   const loads: unknown[] = [];
   let id = 1;
   const full = (caseType: string, caseIndex?: number) => caseIndex === undefined && (caseType === 'D' || caseType === 'L');

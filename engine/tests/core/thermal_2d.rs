@@ -27,6 +27,7 @@ fn thermal_2d_cantilever_positive_displacement() {
             element_id: 1,
             dt_uniform: DT,
             dt_gradient: 0.0,
+            alpha: None, depth: None,
         })],
     );
 
@@ -55,6 +56,7 @@ fn thermal_2d_fixed_fixed_compressive_force() {
             element_id: 1,
             dt_uniform: DT,
             dt_gradient: 0.0,
+            alpha: None, depth: None,
         })],
     );
 
@@ -90,6 +92,7 @@ fn thermal_2d_truss_fixed_fixed_axial_force() {
             element_id: 1,
             dt_uniform: DT,
             dt_gradient: 0.0,
+            alpha: None, depth: None,
         })],
     );
 
@@ -125,6 +128,7 @@ fn thermal_2d_truss_free_expansion() {
             element_id: 1,
             dt_uniform: DT,
             dt_gradient: 0.0,
+            alpha: None, depth: None,
         })],
     );
 

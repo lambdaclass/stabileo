@@ -1,173 +1,227 @@
-//! Prepared polygon/strain integration. Code provisions (beta, phi, axial cap and
-//! material constants) remain owned by the TS CIRSOC basis module.
+//! WASM boundary of the CIRSOC 201 section engine (`postprocess::cirsoc201_section`).
+//!
+//! The app builds one `Cirsoc201SectionKernel` per section and asks it many questions (a
+//! diagram, a surface cut, a design search), so the outline and bars cross the boundary once.
+//! Everything is numeric and SI (Pa, N, N·m, m, m²); every answer is the engine's: the code
+//! provisions (β1, φ, the axial caps) are applied here, not by the caller.
 use wasm_bindgen::prelude::*;
-type Point = [f64; 2];
+
+use crate::postprocess::cirsoc201_check::Cirsoc201Edition;
+use crate::postprocess::cirsoc201_section::{Confinement, Ring, Section, SectionCode, SectionPoint, Utilisation};
+
+/// Values per section state in the outputs: `[Pn, Mnx, Mny, εt, c, φ, φPn, φMnx, φMny]`.
+pub const STATE_LEN: usize = 9;
+/// Values per utilisation: `[ratio, φPn, φMn, c, εt, φ, nx, ny, axialOnly]`.
+pub const UTIL_LEN: usize = 9;
+
+pub(crate) fn edition_of(v: f64) -> Result<Cirsoc201Edition, &'static str> {
+    if v == 2005.0 {
+        Ok(Cirsoc201Edition::E2005)
+    } else if v == 2025.0 {
+        Ok(Cirsoc201Edition::E2025)
+    } else {
+        Err("CIRSOC 201 edition must be 2005 or 2025")
+    }
+}
+
+pub(crate) fn confinement_of(v: f64) -> Result<Confinement, &'static str> {
+    if v == 0.0 {
+        Ok(Confinement::Ties)
+    } else if v == 1.0 {
+        Ok(Confinement::Spiral)
+    } else {
+        Err("confinement must be 0 (ties) or 1 (spiral)")
+    }
+}
+
+fn push_state(out: &mut Vec<f64>, p: &SectionPoint) {
+    let s = &p.s;
+    out.extend_from_slice(&[s.pn, s.mnx, s.mny, s.eps_t, p.c, s.phi, s.phi_pn, s.phi_mnx, s.phi_mny]);
+}
+
+fn push_util(out: &mut Vec<f64>, u: &Utilisation) {
+    out.extend_from_slice(&[u.ratio, u.phi_pn, u.phi_mn, u.c, u.eps_t, u.phi, u.nx, u.ny, u.axial_only as u8 as f64]);
+}
+
+/// Build a section from flat buffers: polygon rings (`points`, `offsets`), then exact circles
+/// (`circles`: cx, cy, r each); the first ring of all is the outer boundary, the rest holes.
+/// `params`: `[fc, fy, Es, edition, confinement, deduct]`.
+pub fn section_from_buffers(points: &[f64], offsets: &[u32], circles: &[f64], bars: &[f64], params: &[f64]) -> Result<Section, &'static str> {
+    if points.len() % 2 != 0
+        || bars.len() % 3 != 0
+        || circles.len() % 3 != 0
+        || params.len() != 6
+        || offsets.is_empty()
+        || offsets.first() != Some(&0)
+        || offsets.last().copied().map(|n| n as usize) != Some(points.len() / 2)
+        || offsets.windows(2).any(|w| w[0] > w[1])
+    {
+        return Err("Invalid RC section buffers");
+    }
+    let mut rings: Vec<Ring> = offsets
+        .windows(2)
+        .map(|w| Ring::Polygon(points[w[0] as usize * 2..w[1] as usize * 2].chunks_exact(2).map(|p| [p[0], p[1]]).collect()))
+        .collect();
+    rings.extend(circles.chunks_exact(3).map(|c| Ring::Circle { c: [c[0], c[1]], r: c[2] }));
+    let code = SectionCode {
+        fc: params[0],
+        fy: params[1],
+        es: params[2],
+        edition: edition_of(params[3])?,
+        confinement: confinement_of(params[4])?,
+        deduct_displaced_concrete: params[5] != 0.0,
+    };
+    if params.iter().any(|v| !v.is_finite()) {
+        return Err("Invalid RC section buffers");
+    }
+    Section::with_rings(rings, bars.chunks_exact(3).map(|b| [b[0], b[1], b[2]]).collect(), code)
+}
+
+fn finite(values: &[f64]) -> Result<(), JsValue> {
+    if values.iter().all(|v| v.is_finite()) { Ok(()) } else { Err(JsValue::from_str("Invalid RC section query")) }
+}
 
 #[wasm_bindgen]
-pub struct RcSectionGeometry {
-    rings: Vec<Vec<Point>>,
-    bars: Vec<[f64; 3]>,
-    // Concrete strength (kPa), steel yield stress and modulus (MPa), ultimate strain, beta1.
-    constants: [f64; 5],
-    deduct: bool,
+pub struct Cirsoc201SectionKernel {
+    s: Section,
 }
-fn zone(ring: &[Point], nx: f64, ny: f64, d: f64, cut: &mut Vec<Point>) -> [f64; 3] {
-    cut.clear();
-    if ring.is_empty() {
-        return [0.; 3];
-    }
-    let mut a = ring[ring.len() - 1];
-    for &b in ring {
-        let sa = nx * a[0] + ny * a[1] - d;
-        let sb = nx * b[0] + ny * b[1] - d;
-        if (sa >= 0.) != (sb >= 0.) {
-            let t = sa / (sa - sb);
-            cut.push([a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])]);
-        }
-        if sb >= 0. {
-            cut.push(b);
-        }
-        a = b;
-    }
-    if cut.len() < 3 {
-        return [0.; 3];
-    }
-    let (mut area, mut mx, mut my) = (0., 0., 0.);
-    let mut a = cut[cut.len() - 1];
-    for &b in cut.iter() {
-        let cross = a[0] * b[1] - b[0] * a[1];
-        area += cross;
-        mx += (a[0] + b[0]) * cross;
-        my += (a[1] + b[1]) * cross;
-        a = b;
-    }
-    area /= 2.;
-    if area.abs() < 1e-14 {
-        return [0.; 3];
-    }
-    // Keep the same operation order as polygonAreaCentroid + compressedZone.
-    [
-        area.abs(),
-        area.abs() * (mx / (6. * area)),
-        area.abs() * (my / (6. * area)),
-    ]
-}
-impl RcSectionGeometry {
-    fn checked(
-        points: &[f64],
-        offsets: &[u32],
-        bars: &[f64],
-        constants: &[f64],
-        deduct: bool,
-    ) -> Result<Self, &'static str> {
-        if points.len() % 2 != 0
-            || bars.len() % 3 != 0
-            || constants.len() != 5
-            || offsets.len() < 2
-            || offsets.first() != Some(&0)
-            || offsets.last().copied().map(|n| n as usize) != Some(points.len() / 2)
-            || offsets.windows(2).any(|w| w[0] > w[1])
-            || points
-                .iter()
-                .chain(bars)
-                .chain(constants)
-                .any(|v| !v.is_finite())
-        {
-            return Err("Invalid RC section buffers");
-        }
-        let rings = offsets
-            .windows(2)
-            .map(|w| {
-                points[w[0] as usize * 2..w[1] as usize * 2]
-                    .chunks_exact(2)
-                    .map(|p| [p[0], p[1]])
-                    .collect()
-            })
-            .collect();
-        Ok(Self {
-            rings,
-            bars: bars.chunks_exact(3).map(|b| [b[0], b[1], b[2]]).collect(),
-            constants: constants.try_into().unwrap(),
-            deduct,
-        })
-    }
-}
+
 #[wasm_bindgen]
-impl RcSectionGeometry {
+impl Cirsoc201SectionKernel {
+    /// `points`/`offsets`: polygon rings as x, y pairs; `circles`: exact circles as cx, cy, r;
+    /// the first ring (polygons before circles) is the outer boundary, the rest are holes.
+    /// `bars`: x, y, area triples; `params`: `[fc, fy, Es, edition, confinement, deduct]`.
     #[wasm_bindgen(constructor)]
-    pub fn new(
-        points: &[f64],
-        offsets: &[u32],
-        bars: &[f64],
-        constants: &[f64],
-        deduct: bool,
-    ) -> Result<RcSectionGeometry, JsValue> {
-        Self::checked(points, offsets, bars, constants, deduct).map_err(JsValue::from_str)
+    pub fn new(points: &[f64], offsets: &[u32], circles: &[f64], bars: &[f64], params: &[f64]) -> Result<Cirsoc201SectionKernel, JsValue> {
+        section_from_buffers(points, offsets, circles, bars, params).map(|s| Cirsoc201SectionKernel { s }).map_err(JsValue::from_str)
     }
-    /// Five doubles per depth: nominal axial force, moments x/y, tensile strain, c.
-    pub fn evaluate(&self, nx: f64, ny: f64, depths: &[f64]) -> Result<Vec<f64>, JsValue> {
-        if !nx.is_finite() || !ny.is_finite() || depths.iter().any(|v| !v.is_finite()) {
-            return Err(JsValue::from_str("Invalid RC section query"));
-        }
-        let (mut max, mut min) = (f64::NEG_INFINITY, f64::INFINITY);
-        for p in &self.rings[0] {
-            let s = nx * p[0] + ny * p[1];
-            max = max.max(s);
-            min = min.min(s);
-        }
-        let [fc, fy, es, ecu, beta] = self.constants;
-        let stress = 0.85 * fc;
-        let fy_kpa = fy * 1000.0;
-        let mut cut = Vec::new();
-        let mut out = Vec::with_capacity(depths.len() * 5);
+
+    /// `[Ag, Ast, Po, φPn,max, φPnt,max (negative), β1, centroid x, centroid y]`.
+    pub fn info(&self) -> Vec<f64> {
+        let c = self.s.centroid();
+        vec![self.s.gross_area(), self.s.steel_area(), self.s.squash_load(), self.s.axial_cap(), self.s.tension_cap(), self.s.beta1(), c[0], c[1]]
+    }
+
+    /// `[depth, dt]` along the direction: the section's depth and that of the farthest bar.
+    pub fn depths(&self, nx: f64, ny: f64) -> Result<Vec<f64>, JsValue> {
+        finite(&[nx, ny])?;
+        let (d, dt) = self.s.depths(nx, ny);
+        Ok(vec![d, dt])
+    }
+
+    /// One state per depth (`STATE_LEN` values each).
+    pub fn points(&self, nx: f64, ny: f64, depths: &[f64]) -> Result<Vec<f64>, JsValue> {
+        finite(&[nx, ny])?;
+        finite(depths)?;
+        let mut out = Vec::with_capacity(depths.len() * STATE_LEN);
         for &c in depths {
-            let a = (beta * c).min(max - min).max(0.);
-            let mut z = [0.; 3];
-            for (i, ring) in self.rings.iter().enumerate() {
-                let part = zone(ring, nx, ny, max - a, &mut cut);
-                let sign = if i == 0 { 1. } else { -1. };
-                for k in 0..3 {
-                    z[k] += sign * part[k];
-                }
-            }
-            let (mut pn, mut mx, mut my) = (stress * z[0].max(0.), -stress * z[2], stress * z[1]);
-            let mut epsilon = 0.0_f64;
-            for bar in &self.bars {
-                let s = nx * bar[0] + ny * bar[1];
-                let strain = if c > 1e-9 {
-                    ecu * (s - (max - c)) / c
-                } else {
-                    -10. * (fy / es)
-                };
-                let fs = (strain * es * 1000.0).max(-fy_kpa).min(fy_kpa);
-                let mut force = bar[2] * fs;
-                if self.deduct && strain > 0. && s >= max - a {
-                    force -= bar[2] * 0.85 * fc;
-                }
-                pn += force;
-                mx += -force * bar[1];
-                my += force * bar[0];
-                epsilon = epsilon.min(strain);
-            }
-            out.extend_from_slice(&[pn, mx, my, epsilon.min(0.).abs(), c]);
+            push_state(&mut out, &self.s.point(nx, ny, c));
         }
         Ok(out)
     }
+
+    /// The sampled interaction curve (`STATE_LEN` values per point).
+    pub fn curve(&self, nx: f64, ny: f64, n: u32) -> Result<Vec<f64>, JsValue> {
+        finite(&[nx, ny])?;
+        if n == 0 {
+            return Err(JsValue::from_str("curve needs at least one step"));
+        }
+        let mut out = Vec::new();
+        for p in self.s.curve(nx, ny, n as usize) {
+            push_state(&mut out, &p);
+        }
+        Ok(out)
+    }
+
+    /// The state where φPn = Pu, or NaNs when the section cannot carry Pu in that direction.
+    #[wasm_bindgen(js_name = atAxial)]
+    pub fn at_axial(&self, nx: f64, ny: f64, pu: f64) -> Result<Vec<f64>, JsValue> {
+        finite(&[nx, ny, pu])?;
+        Ok(match self.s.at_axial(nx, ny, pu) {
+            Some(p) => {
+                let mut out = Vec::with_capacity(STATE_LEN);
+                push_state(&mut out, &p);
+                out
+            }
+            None => vec![f64::NAN; STATE_LEN],
+        })
+    }
+
+    /// Uniaxial check about x along the ray through (Mu, Pu) (`UTIL_LEN` values).
+    pub fn ray(&self, pu: f64, mu: f64) -> Result<Vec<f64>, JsValue> {
+        finite(&[pu, mu])?;
+        let mut out = Vec::with_capacity(UTIL_LEN);
+        push_util(&mut out, &self.s.ray(pu, mu));
+        Ok(out)
+    }
+
+    /// The axial limit on the demand's side (`UTIL_LEN` values).
+    #[wasm_bindgen(js_name = axialLimit)]
+    pub fn axial_limit(&self, nx: f64, ny: f64, pu: f64) -> Result<Vec<f64>, JsValue> {
+        finite(&[nx, ny, pu])?;
+        let mut out = Vec::with_capacity(UTIL_LEN);
+        push_util(&mut out, &self.s.axial_limit(nx, ny, pu));
+        Ok(out)
+    }
+
+    /// Biaxial check at the demand's axial force (`UTIL_LEN` values).
+    pub fn biaxial(&self, pu: f64, mx: f64, my: f64) -> Result<Vec<f64>, JsValue> {
+        finite(&[pu, mx, my])?;
+        let mut out = Vec::with_capacity(UTIL_LEN);
+        push_util(&mut out, &self.s.biaxial(pu, mx, my));
+        Ok(out)
+    }
+
+    /// The biaxial check with the verifier's search settings: the curve sampled in 10 steps,
+    /// regula falsi on the neutral axis and on the moment direction, to 1e-6 rad (`UTIL_LEN` values).
+    #[wasm_bindgen(js_name = biaxialFast)]
+    pub fn biaxial_fast(&self, pu: f64, mx: f64, my: f64) -> Result<Vec<f64>, JsValue> {
+        finite(&[pu, mx, my])?;
+        let mut out = Vec::with_capacity(UTIL_LEN);
+        push_util(&mut out, &self.s.biaxial_with(pu, mx, my, 10, 1e-6));
+        Ok(out)
+    }
+
+    /// `[φMn, φMnx, φMny (sheet signs), fi, …state]`, or NaNs when Pu is out of reach.
+    #[wasm_bindgen(js_name = momentCapacityAtAxial)]
+    pub fn moment_capacity_at_axial(&self, pu: f64, mx: f64, my: f64) -> Result<Vec<f64>, JsValue> {
+        finite(&[pu, mx, my])?;
+        Ok(match self.s.moment_capacity_at_axial(pu, mx, my) {
+            Some(m) => {
+                let mut out = vec![m.phi_mn, m.phi_mnx, m.phi_mny, m.fi];
+                push_state(&mut out, &m.point);
+                out.extend_from_slice(&[m.point.nx, m.point.ny]);
+                out
+            }
+            None => vec![f64::NAN; 4 + STATE_LEN + 2],
+        })
+    }
+
+    /// The six characteristic points, `[φMn (sheet sign), φPn, φ, εt]` each.
+    #[wasm_bindgen(js_name = characteristicPoints)]
+    pub fn characteristic_points(&self, nx: f64, ny: f64) -> Result<Vec<f64>, JsValue> {
+        finite(&[nx, ny])?;
+        Ok(self.s.characteristic_points(nx, ny).iter().flatten().copied().collect())
+    }
 }
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
     #[test]
-    fn clips_both_windings_and_empty_zone() {
-        let r = vec![[-1., -1.], [1., -1.], [1., 1.], [-1., 1.]];
-        let mut cut = vec![];
-        assert_eq!(zone(&r, 0., 1., 0., &mut cut), [2., 0., 1.]);
-        let reverse: Vec<_> = r.iter().copied().rev().collect();
-        assert_eq!(zone(&reverse, 0., 1., 0., &mut cut), [2., 0., 1.]);
-        assert_eq!(zone(&r, 0., 1., 2., &mut cut), [0.; 3]);
-    }
-    #[test]
-    fn rejects_invalid_offsets() {
-        assert!(RcSectionGeometry::checked(&[0.; 8], &[0, 5, 4], &[], &[1.; 5], true).is_err());
+    fn rejects_invalid_buffers() {
+        let params = [25e6, 420e6, 200e9, 2025.0, 0.0, 1.0];
+        assert!(section_from_buffers(&[0.; 8], &[0, 5, 4], &[], &[], &params).is_err());
+        assert!(section_from_buffers(&[0.; 8], &[0, 4], &[], &[], &params[..5]).is_err());
+        let square = [-0.15, -0.15, 0.15, -0.15, 0.15, 0.15, -0.15, 0.15];
+        assert!(section_from_buffers(&square, &[0, 4], &[], &[], &[25e6, 420e6, 200e9, 2019.0, 0.0, 1.0]).is_err());
+        assert!(section_from_buffers(&square, &[0, 4], &[], &[], &[25e6, 420e6, 200e9, 2025.0, 2.0, 1.0]).is_err());
+        let s = section_from_buffers(&square, &[0, 4], &[], &[0.0, 0.1, 3e-4], &params).unwrap();
+        assert!((s.gross_area() - 0.09).abs() < 1e-15);
+        let c = section_from_buffers(&[], &[0], &[0.0, 0.0, 0.25], &[], &params).unwrap();
+        assert!((c.gross_area() - std::f64::consts::PI * 0.0625).abs() < 1e-15);
+        assert!(section_from_buffers(&[], &[0], &[0.0, 0.0, -0.25], &[], &params).is_err());
+        assert!(section_from_buffers(&[], &[0], &[], &[], &params).is_err());
     }
 }

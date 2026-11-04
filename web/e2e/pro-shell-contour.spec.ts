@@ -84,7 +84,10 @@ test.describe('@smoke PRO — the shells\' faces and criteria', () => {
     await page.getByTestId('shell-faces-csv').click();
     const dl = await wait;
     expect(dl.suggestedFilename()).toBe('shells.csv');
-    const text = readFileSync((await dl.path())!, 'utf8');
+    // The CSV opens with its provenance as `# key: value` lines, then the table.
+    const raw = readFileSync((await dl.path())!, 'utf8');
+    expect(raw.split('\n')[0]).toMatch(/^# /);
+    const text = raw.split('\n').filter((l) => !l.startsWith('# ')).join('\n');
     const header = text.split('\n')[0]!;
     for (const col of ['topVonMises [kN/m²]', 'bottomTresca [kN/m²]', 'SZZ [kN/m²]', 'MXX [kN·m/m]']) expect(header).toContain(col);
     const csv = XLSX.read(text, { type: 'string' });

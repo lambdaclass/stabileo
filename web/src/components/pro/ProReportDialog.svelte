@@ -1,17 +1,16 @@
 <script lang="ts">
+  import Hint from './Hint.svelte';
   /**
-   * The calculation report, as a PDF: who it is from, what it carries and how its figures look.
+   * The calculation report, as PDF, Word or HTML (the results as data are the Results export): who
+   * it is from, what it carries and how its figures look.
    *
    * The same frame and folded sections as Basic's report (`components/export/`): each section
    * closed, its title saying in one line what is chosen inside. Each result is printed as its
    * table, its figures or both; the figures are drawn from the model (`pro/report-export.ts`),
    * and figures added from the view still go at the end.
-   *
-   * Only the PDF: the same data as a spreadsheet is Project › Export › Excel, with its own
-   * choice of sheets.
    */
   import { proNav } from '../../lib/store/pro-nav.svelte';
-  import { modelStore } from '../../lib/store';
+  import { modelStore, resultsStore } from '../../lib/store';
   import { t, tp } from '../../lib/i18n';
   import ExportDialog from '../export/ExportDialog.svelte';
   import ExportSection from '../export/ExportSection.svelte';
@@ -20,9 +19,12 @@
   import type { FigureView } from '../../lib/export/view-figure';
   import type { InkStyle } from '../../lib/export/paper-ink';
   import { SHELL_CONTOUR_COMPONENTS, shellComponentLabelKey } from '../../lib/engine/shell-stress';
+  import { reportStoryDrifts } from '../../lib/engine/pro-report-inputs';
   import { reportFigures } from '../../lib/store/report-figures.svelte';
   import { captureFigure } from '../../lib/export/figure';
   import CheckGroup from './export/CheckGroup.svelte';
+  import type { ReportFormat } from '../../lib/export/report-formats';
+  import { defaultReportSetKey, resultSetChoices, screenSetKey } from '../../lib/pro/export-results';
 
   interface Props {
     open: boolean;
@@ -32,7 +34,7 @@
     advancedRan: string[];
     hasDiagnostics: boolean;
     hasQuantities: boolean;
-    ongenerate: (config: ReportConfig, figures: ReportFigureChoices) => void;
+    ongenerate: (config: ReportConfig, figures: ReportFigureChoices, format?: ReportFormat) => void;
   }
 
   let { open = $bindable(false), hasResults, hasAdvanced, advancedRan, hasDiagnostics, hasQuantities, ongenerate }: Props = $props();
@@ -58,16 +60,22 @@
   let companyName = $state(saved.companyName ?? '');
   let companyLogo = $state<string | null>(saved.companyLogo ?? null);
   let sec = $state<Sections>({
-    modelData: true, results: true, verification: false, advancedAnalysis: true, storyDrift: false,
+    modelData: true, results: true, advancedAnalysis: true, storyDrift: true,
     diagnostics: true, quantities: true, loads: true, envelope: true, statics: true, deflections: true, figures: true,
     ...(saved.sections ?? {}),
-    // Never offered here: a code check is reported from the design, and story drift was never implemented.
+    // Never offered here: a code check is a design output, reported by the memoria (Documents).
   });
+  // The CIRSOC 103 drift check runs when the seismic settings and a solved seismic case exist.
+  const hasDrift = $derived(open && (reportStoryDrifts().drifts?.length ?? 0) > 0);
   let parts = $state<Record<ReportPart, boolean>>({
     nodes: true, materials: true, sections: true, members: true, supports: true, shells: true, combinations: true, ...(saved.parts ?? {}),
   });
   let modes = $state<Record<ReportResult, ResultMode>>({ reactions: 'both', displacements: 'both', forces: 'both', shells: 'both', ...(saved.modes ?? {}) });
   let figs = $state<ReportFigureChoices>({ style: 'color', values: true, view: 'screen', shellComponent: 'vonMises', ...(saved.figures ?? {}) });
+  const setChoices = $derived(open && hasResults ? resultSetChoices() : []);
+  let resultSetKey = $state('screen');
+  $effect(() => { if (open) resultSetKey = defaultReportSetKey(); });
+  const sumChosen = $derived(resultSetKey === 'screen' && resultsStore.activeView === 'single' && resultsStore.activeCaseId === null && resultsStore.perCase3D.size > 1);
   /** Which advanced analyses to print, of the ones that ran. */
   let advancedPicked = $state<Record<string, boolean>>({});
 
@@ -128,8 +136,9 @@
   const SUMMARIES = [
     { id: 'envelope', key: 'report.env.title' }, { id: 'statics', key: 'proExport.sheet.Statics' }, { id: 'deflections', key: 'defl.title' },
   ] as const;
-  type SecKey = 'envelope' | 'statics' | 'deflections' | 'quantities' | 'diagnostics';
+  type SecKey = 'envelope' | 'statics' | 'deflections' | 'quantities' | 'diagnostics' | 'storyDrift';
   const otherItems = $derived([
+    { id: 'storyDrift', label: t('report.secDrift'), disabled: !hasDrift, hint: hasDrift ? undefined : t('report.noData') },
     { id: 'quantities', label: t('report.secQuantities'), disabled: !hasQuantities },
     { id: 'diagnostics', label: t('report.secDiagnostics'), disabled: !hasDiagnostics, hint: hasDiagnostics ? undefined : t('proReport.noneFound') },
   ]);
@@ -153,6 +162,7 @@
     if (sec.advancedAnalysis && hasAdvanced) out.push(t('proReport.partAdvanced'));
     if (sec.quantities && hasQuantities) out.push(t('proReport.partQuantities'));
     if (sec.diagnostics && hasDiagnostics) out.push(t('proReport.partDiagnostics'));
+    if (sec.storyDrift && hasDrift) out.push(t('report.secDrift'));
     return out.join(' · ') || '—';
   });
   const figuresSummary = $derived([
@@ -162,6 +172,9 @@
     reportFigures.list.length ? tp('proReport.addedN', { n: reportFigures.list.length }) : null,
   ].filter(Boolean).join(' · '));
 
+  /** The PDF opens to print; Word and HTML download. HTML is the copy a provenance check can load. */
+  const FORMATS: ReportFormat[] = ['pdf', 'docx', 'html'];
+  let format = $state<ReportFormat>('pdf');
   function handleGenerate() {
     persist();
     ongenerate({
@@ -171,19 +184,27 @@
       hasProjectInfo,
       advancedPicked: { ...advancedPicked },
       sections: {
-        ...$state.snapshot(sec), verification: false, storyDrift: false, parts: $state.snapshot(parts),
+        ...$state.snapshot(sec), parts: $state.snapshot(parts),
         // The model's section goes when any of its tables does; what has no data is not asked for.
         modelData: partsShown.some((p) => partOn(p.id)),
         advancedAnalysis: sec.advancedAnalysis && hasAdvanced,
         quantities: sec.quantities && hasQuantities,
         diagnostics: sec.diagnostics && hasDiagnostics,
+        storyDrift: sec.storyDrift && hasDrift,
       },
       resultModes: $state.snapshot(modes),
-    }, $state.snapshot(figs));
+      resultSetKey: resultSetKey === 'screen' ? screenSetKey() : resultSetKey,
+    }, $state.snapshot(figs), format);
   }
 </script>
 
 <ExportDialog bind:open width={640} title={t('proReport.title')} testid="pro-report-dialog">
+  <ExportSection title={t('proExport.format')} summary={t(`proReport.format.${format}`)} open testid="rpt-format">
+    <div class="xs-seg">
+      {#each FORMATS as f (f)}<button type="button" class:on={format === f} aria-pressed={format === f} onclick={() => (format = f)} data-testid={`rpt-format-${f}`}>{t(`proReport.format.${f}`)}</button>{/each}
+    </div>
+    <Hint class="xs-note" text={t(`proReport.formatNote.${format}`)} />
+  </ExportSection>
   <ExportSection title={t('proReport.letterhead')} summary={projectSummary} open={hasProjectInfo} testid="rpt-project">
     <div class="rpt-logo-row">
       <span>{t('report.companyLogo')}</span>
@@ -222,6 +243,15 @@
             <input type="checkbox" bind:checked={sec.results} onchange={persist} disabled={!hasResults} />
             <span>{t('proReport.results')}</span>
           </label>
+          {#if setChoices.length > 1}
+            <label class="rpt-row rpt-row-set" class:off={!sec.results}>
+              <span>{t('proReport.resultSet')}</span>
+              <select bind:value={resultSetKey} disabled={!sec.results} data-testid="rpt-result-set">
+                {#each setChoices as c (c.key)}<option value={c.key}>{c.label}</option>{/each}
+              </select>
+            </label>
+            {#if sumChosen}<p class="xs-note rpt-sum-note" data-testid="rpt-sum-note">{t('proReport.resultSetSumNote')}</p>{:else}<Hint class="xs-note" text={t('proReport.resultSetHint')} />{/if}
+          {/if}
           {#each resultsShown as r (r.id)}
             <label class="rpt-row" class:off={!sec.results || !hasResults}>
               <span>{t(r.key)}</span>
@@ -238,6 +268,7 @@
               </label>
             {/if}
           {/each}
+          {#if hasResults && sec.results}<Hint class="xs-note" text={t('proReport.modesHint')} />{/if}
         </div>
         <CheckGroup title={t('proReport.advanced')} items={advItems}
           on={(id) => sec.advancedAnalysis && (advancedPicked[id] ?? true)}
@@ -266,7 +297,7 @@
       </select>
     </label>
     <label class="xs-check"><input type="checkbox" bind:checked={figs.values} onchange={persist} />{t('viewExport.optValuesLong')}</label>
-    <p class="xs-note">{t('proReport.figuresNote')}</p>
+    <Hint class="xs-note" text={t('proReport.figuresNote')} />
 
     <label class="xs-check"><input type="checkbox" bind:checked={sec.figures} onchange={persist} />{t('proReport.addedFigures')} ({reportFigures.list.length})</label>
     <div>
@@ -281,12 +312,12 @@
         <button type="button" class="rpt-small" onclick={() => reportFigures.remove(f.id)} aria-label={t('report.removeFigure')}>×</button>
       </div>
     {/each}
-    <p class="xs-note">{t('report.figuresHint')}</p>
+    <Hint class="xs-note" text={t('report.figuresHint')} />
   </ExportSection>
 
   {#snippet actions()}
     <button type="button" onclick={() => (open = false)}>{t('report.cancel')}</button>
-    <button type="button" class="primary" onclick={handleGenerate} data-testid="rpt-pdf">{t('proReport.generate')}</button>
+    <button type="button" class="primary" onclick={handleGenerate} data-testid="rpt-pdf">{tp('proReport.generate', { format: t(`proReport.format.${format}`) })}</button>
   {/snippet}
 </ExportDialog>
 
@@ -300,6 +331,8 @@
   .rpt-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-left: 20px; color: var(--st-text-2); font-size: 0.78rem; }
   .rpt-row.off { opacity: 0.5; }
   .rpt-row-sub { padding-left: 32px; color: var(--st-text-3); }
+  .rpt-sum-note { padding-left: 20px; margin: 0; color: var(--st-warn); }
+  .rpt-row.rpt-row-set select { width: 14em; max-width: 60%; }
   .rpt-row select { flex: none; width: 9.5em; padding: 2px 4px; background: var(--st-surface-2); border: 1px solid var(--st-hair-strong); border-radius: var(--st-radius); color: var(--st-text); font: inherit; }
   .xs-seg { justify-self: start; align-self: flex-start; }
   .rpt-logo-row { display: flex; align-items: center; gap: 8px; color: var(--st-text-2); }

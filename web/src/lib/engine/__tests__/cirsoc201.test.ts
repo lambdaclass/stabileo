@@ -9,6 +9,7 @@ import {
   computeK,
   computePsi,
   computeJointPsiFromModel,
+  isElongatedSection,
   verifyElement,
   classifyElement,
   REBAR_DB,
@@ -204,6 +205,12 @@ describe('CIRSOC 201 Verification', () => {
     // Convention: Z is the vertical (gravity) axis — Z-up, matching the project's canonical 3D convention
     it('should classify vertical (Z-up) element as column', () => {
       expect(classifyElement(0, 0, 0, 0, 0, 3)).toBe('column');
+    });
+
+    it('classifies a vertical 20×70 bar as a column, not a wall (walls are shells)', () => {
+      expect(classifyElement(0, 0, 0, 0, 0, 3, 0.20, 0.70)).toBe('column');
+      expect(isElongatedSection(0.20, 0.70)).toBe(true);
+      expect(isElongatedSection(0.30, 0.60)).toBe(false);
     });
 
     it('should classify horizontal X element as beam', () => {
@@ -692,6 +699,38 @@ describe('CIRSOC 201 Verification', () => {
 });
 
 // ─── computeJointPsiFromModel tests ────────────────────────────────
+describe('computeJointPsiFromModel in a Z-up model', () => {
+  // The same portal as below, as PRO models it: columns along Z, the beam along X.
+  const nodes = new Map([
+    [0, { id: 0, x: 0, y: 0, z: 0 }],
+    [1, { id: 1, x: 0, y: 0, z: 3 }],
+    [2, { id: 2, x: 5, y: 0, z: 0 }],
+    [3, { id: 3, x: 5, y: 0, z: 3 }],
+  ]);
+  const mat = new Map([[1, { id: 1, e: 25000 }]]);
+  const sec = new Map([[1, { id: 1, iz: 0.002133, iy: 0.002133 }]]);
+  const elems = new Map([
+    [1, { id: 1, nodeI: 0, nodeJ: 1, materialId: 1, sectionId: 1 }],
+    [2, { id: 2, nodeI: 2, nodeJ: 3, materialId: 1, sectionId: 1 }],
+    [3, { id: 3, nodeI: 1, nodeJ: 3, materialId: 1, sectionId: 1 }],
+  ]);
+  const sups = new Map([[0, { nodeId: 0, type: 'fixed3d' }], [2, { nodeId: 2, type: 'fixed3d' }]]);
+
+  it('reads the columns along Z: Ψ at the knee is (0.70/3)/(0.35/5) = 10/3', () => {
+    // Taking Y as up, nothing was vertical: the column counted as a beam and Ψ came out 0.6.
+    expect(computeJointPsiFromModel(1, nodes, elems, sec, mat, sups).psiB).toBeCloseTo(10 / 3, 6);
+  });
+
+  it('takes a column\'s larger inertia, the conservative one', () => {
+    const weak = new Map([[1, { id: 1, iz: 0.001, iy: 0.004 }]]);
+    const beams = new Map([[1, { id: 1, iz: 0.001 }], [2, { id: 2, iz: 0.001 }]]);
+    const e2 = new Map([...elems].map(([k, e]) => [k, { ...e, sectionId: k === 3 ? 2 : 1 }]));
+    const both = new Map([...weak, [2, beams.get(2)!]]);
+    // Column 0.70·0.004/3 over beam 0.35·0.001/5.
+    expect(computeJointPsiFromModel(1, nodes, e2, both, mat, sups).psiB).toBeCloseTo((0.70 * 0.004 / 3) / (0.35 * 0.001 / 5), 6);
+  });
+});
+
 describe('computeJointPsiFromModel', () => {
   // Simple portal frame: 2 columns (0→1, 2→3) + 1 beam (1→3)
   // Nodes: 0(0,0), 1(0,3), 2(5,0), 3(5,3)

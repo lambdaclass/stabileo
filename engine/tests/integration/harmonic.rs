@@ -59,7 +59,7 @@ fn make_ss_beam_2d_with_load() -> SolverInput {
     ];
 
     SolverInput {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes, materials, sections, elements, supports, loads, constraints: vec![],  connectors: HashMap::new() }
 }
 
@@ -77,6 +77,8 @@ fn make_ss_beam_3d_with_load() -> SolverInput3D {
         id: 1, name: None, a: 0.05,
         iy: 1.0e-4, iz: 5.0e-5, j: 1.5e-4,
         cw: None, as_y: None, as_z: None,
+        shear_center_y: None,
+        shear_center_z: None,
     });
 
     let mut elements = HashMap::new();
@@ -131,7 +133,7 @@ fn make_ss_beam_3d_with_load() -> SolverInput3D {
     ];
 
     SolverInput3D {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes, materials, sections, elements, supports, loads,
         constraints: vec![], left_hand: None,
         plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_shells: HashMap::new(),
@@ -368,7 +370,7 @@ fn make_large_ss_beam_2d_constrained() -> SolverInput {
     ];
 
     SolverInput {
-        nodes, materials, sections, elements, supports, loads, constraints, connectors: HashMap::new(), solver_options: None }
+        nodes, materials, sections, elements, supports, loads, constraints, connectors: HashMap::new(), solver_options: None, masses: Default::default() }
 }
 
 #[test]

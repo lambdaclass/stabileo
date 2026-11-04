@@ -1,0 +1,135 @@
+{
+ "elements": {
+  "1": {
+   "hingeEnd": false,
+   "hingeStart": false,
+   "id": 1,
+   "materialId": 2,
+   "nodeI": 2,
+   "nodeJ": 1,
+   "sectionId": 2,
+   "type": "frame"
+  },
+  "2": {
+   "hingeEnd": false,
+   "hingeStart": false,
+   "id": 2,
+   "materialId": 2,
+   "nodeI": 3,
+   "nodeJ": 2,
+   "sectionId": 1,
+   "type": "frame"
+  },
+  "3": {
+   "hingeEnd": false,
+   "hingeStart": false,
+   "id": 3,
+   "materialId": 2,
+   "nodeI": 4,
+   "nodeJ": 3,
+   "sectionId": 1,
+   "type": "frame"
+  }
+ },
+ "loads": [
+  {
+   "data": {
+    "a": 0.9527298454902005,
+    "elementId": 3,
+    "p": 25.65804242090391,
+    "px": 26.528634421868333
+   },
+   "type": "pointOnElement"
+  },
+  {
+   "data": {
+    "fx": -1.799857725245893,
+    "fz": 13.875844322000454,
+    "my": -0.9894758067199234,
+    "nodeId": 1
+   },
+   "type": "nodal"
+  },
+  {
+   "data": {
+    "elementId": 1,
+    "qI": -3.5815269061636457,
+    "qJ": -3.5815269061636457
+   },
+   "type": "distributed"
+  }
+ ],
+ "materials": {
+  "1": {
+   "e": 169393.0384378316,
+   "id": 1,
+   "nu": 0.27781362810883237
+  },
+  "2": {
+   "e": 30000.0,
+   "id": 2,
+   "nu": 0.3236090614286593
+  }
+ },
+ "nodes": {
+  "1": {
+   "id": 1,
+   "x": 7.112,
+   "z": 1.043
+  },
+  "2": {
+   "id": 2,
+   "x": 10.991,
+   "z": 3.792
+  },
+  "3": {
+   "id": 3,
+   "x": 6.97,
+   "z": 4.845
+  },
+  "4": {
+   "id": 4,
+   "x": 8.606,
+   "z": 4.328
+  }
+ },
+ "sections": {
+  "1": {
+   "a": 0.23286415979737227,
+   "id": 1,
+   "iz": 0.00774639238077741
+  },
+  "2": {
+   "a": 0.07727900728797224,
+   "id": 2,
+   "iz": 0.00023646340080378983
+  },
+  "3": {
+   "a": 0.11779812131299065,
+   "id": 3,
+   "iz": 0.0028014884342713714
+  }
+ },
+ "supports": {
+  "1": {
+   "id": 1,
+   "nodeId": 1,
+   "type": "fixed"
+  },
+  "2": {
+   "id": 2,
+   "nodeId": 3,
+   "type": "guidedZ"
+  },
+  "3": {
+   "id": 3,
+   "nodeId": 4,
+   "type": "pinned"
+  },
+  "4": {
+   "id": 4,
+   "nodeId": 2,
+   "type": "rollerX"
+  }
+ }
+}

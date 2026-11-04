@@ -140,7 +140,7 @@ fn test_full_solve_to_station_extraction_3d() {
 
     // sign_convention present
     assert_eq!(&result.sign_convention.axial, "positive = tension");
-    assert_eq!(&result.sign_convention.torsion, "positive = right-hand rule about local x");
+    assert!(result.sign_convention.torsion.contains("negative (-x) face"), "{}", result.sign_convention.torsion);
 }
 
 /// Biaxial bending: load in both Y and Z directions. Verify all 6 force components
@@ -546,7 +546,7 @@ fn test_full_pipeline_solve_to_steel_check_3d() {
             fy, ag,
             fu: None,          // no rupture check without Fu
             an: None, u_factor: None,
-            aw: None, cv1: None, // no shear check without the web area
+            aw: None, cv1: None, aw_weak: None, // no shear check without the web area
             lby: 4.0, lbz: 4.0,
             ky: None, kz: None,
             iy: iy_sec, iz: iz_sec,
@@ -565,6 +565,7 @@ fn test_full_pipeline_solve_to_steel_check_3d() {
                 AiscElement { kind: AiscElementKind::RolledFlange, b: 0.1015, t: 0.011, count: Some(4.0), kc: None },
                 AiscElement { kind: AiscElementKind::Web, b: 0.161, t: 0.0072, count: None, kc: None },
             ]),
+            lcz: None,
             load_position: None,
         }],
         forces: demands,

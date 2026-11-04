@@ -112,6 +112,7 @@ export const determinismBoundary: Post = {
             'Ejecución en el navegador. El motor compila a WebAssembly y corre localmente en la máquina del usuario, sin servidor de cálculo y sin instalación.',
           ],
         },
+        { k: 'note', t: 'Actualización del 20 de octubre de 2026: desde la versión 0.2.0 el motor vuelve a verificar cada verificación de acero CIRSOC 301 (si no confirma un resultado, se muestra como falla o como no verificado), y el módulo se prueba contra ejemplos resueltos publicados; siguen marcadas como experimentales hasta una revisión independiente. Las cifras de este artículo son las del trabajo publicado, calculadas con la versión de agosto de 2026, anterior a las correcciones de 0.2.0 en la verificación de hormigón (aviso SA-2026-002); se citan tal como figuran en él.' },
 
         { k: 'h', t: 'De un solver testeado a un solver probado' },
         { k: 'p', t: 'La frontera garantiza que toda afirmación del agente es trazable a una salida del solver. Esa garantía hereda un límite: el solver es confiable porque está extensamente testeado, pero no tiene una demostración formal de corrección. Una suite de tests, por exhaustiva que sea, cubre sólo los casos que imaginaron sus autores.' },
@@ -210,6 +211,7 @@ export const determinismBoundary: Post = {
             'Runs in the browser. The engine compiles to WebAssembly and runs locally on the user’s machine, with no compute server and nothing to install.',
           ],
         },
+        { k: 'note', t: 'Update, 20 October 2026: since version 0.2.0 the engine rechecks every CIRSOC 301 steel check (a result it does not confirm is shown as a failure or as not verified), and the module is tested against published worked examples; they remain labelled experimental until an independent review. The figures in this post are the published paper’s, computed with the August 2026 version, before the 0.2.0 fixes to the concrete checks (advisory SA-2026-002); they are quoted as they appear there.' },
 
         { k: 'h', t: 'From a tested solver to a proven one' },
         { k: 'p', t: 'The boundary guarantees that every claim the agent makes can be traced to a solver output. That guarantee inherits a limit: the solver is trustworthy because it is extensively tested, but its correctness has not been formally proven. A test suite, however thorough, only covers the cases its authors thought of.' },
@@ -308,6 +310,7 @@ export const determinismBoundary: Post = {
             'Execução no navegador. O motor é compilado para WebAssembly e roda localmente na máquina do usuário, sem servidor de cálculo e sem instalação.',
           ],
         },
+        { k: 'note', t: 'Atualização de 20 de outubro de 2026: desde a versão 0.2.0 o motor reverifica cada verificação de aço CIRSOC 301 (um resultado que ele não confirma aparece como falha ou como não verificado), e o módulo é testado contra exemplos resolvidos publicados; continuam marcadas como experimentais até uma revisão independente. Os números deste texto são os do trabalho publicado, calculados com a versão de agosto de 2026, anterior às correções da 0.2.0 na verificação de concreto (aviso SA-2026-002); são citados como aparecem nele.' },
 
         { k: 'h', t: 'De um solver testado a um solver provado' },
         { k: 'p', t: 'A fronteira garante que toda afirmação do agente pode ser rastreada até uma saída do solver. Essa garantia herda um limite: o solver é confiável porque está amplamente testado, mas não tem uma prova formal de correção. Uma suíte de testes, por mais completa que seja, só cobre os casos que seus autores imaginaram.' },

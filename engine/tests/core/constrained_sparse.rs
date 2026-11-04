@@ -63,7 +63,7 @@ fn diaphragm_frame(bays: usize, storeys: usize) -> (SolverInput, Vec<Constraint>
         nodes, materials: HashMap::from([("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 })]),
         sections: HashMap::from([("1".to_string(), SolverSection { id: 1, a: A, iz: IZ, as_y: None })]),
         elements, supports, loads, constraints: vec![],
-        connectors: HashMap::new(), solver_options: None,
+        connectors: HashMap::new(), solver_options: None, masses: Default::default(),
     };
     // One horizontal diaphragm per floor: every node's ux follows the first node's.
     let mut constraints = Vec::new();

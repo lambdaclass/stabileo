@@ -14,7 +14,7 @@
  * failure — never the unchecked verdict by default. Mirrors `cirsoc201-engine-gate.ts`.
  */
 import type { SolverDiagnostic } from '../../types';
-import type { SteelDesignParams, SteelVerification } from './cirsoc301';
+import { engineMember, type SteelDesignParams, type SteelVerification } from './cirsoc301';
 import { engineCertifyMembers, type EngineForces } from './cirsoc301-kernel';
 
 export interface SteelEngineRecheck {
@@ -51,21 +51,43 @@ export function engineGateSteel(
   params: SteelDesignParams,
   demands: readonly SteelDemandSet[],
 ): SteelVerification & { engineRecheck: SteelEngineRecheck } {
+  return engineGateSteelCases(v, [{ params, demands }]);
+}
+
+/**
+ * The same, when the verdict was read under more than one input: each case is the exact input
+ * of one reading (a Lb per flange, the fabrication or the load height taken each way when the
+ * member does not state it) with the demands read under it. The pass stands only if every case
+ * is certified to pass; the bounds are the largest over the cases.
+ */
+export function engineGateSteelCases(
+  v: SteelVerification,
+  cases: ReadonlyArray<{ params: SteelDesignParams; demands: readonly SteelDemandSet[] }>,
+): SteelVerification & { engineRecheck: SteelEngineRecheck } {
   const id = v.elementId;
   const res = engineCertifyMembers(
-    [{ ...params, elementId: id }],
-    demands.map((d) => ({ forces: { elementId: id, ...d } })),
+    cases.map((k, i) => engineMember(i + 1, k.params)),
+    cases.flatMap((k, i) => k.demands.map((d) => ({ forces: { elementId: i + 1, ...d } }))),
   );
-  const c = res?.[0];
+  const per = res ? cases.map((_, i) => res.find((r) => Number(r.elementId) === i + 1)) : [];
+  const all = res !== null && per.every((c) => !!c);
+  const certified = all && per.every((c) => c!.certified);
+  const top = certified ? per.reduce((a, c) => (c!.utilizationUpper > a!.utilizationUpper ? c : a)) : undefined;
+  const why = per.find((c) => c && !c.certified && c.reason);
   const rc: SteelEngineRecheck = {
-    certified: !!c?.certified,
-    certifiedOk: !!c?.certifiedOk,
+    certified,
+    certifiedOk: certified && per.every((c) => c!.certifiedOk),
     disagrees: false,
     unavailable: !res,
-    ...(c?.certified ? { utilizationLower: c.utilizationLower, utilizationUpper: c.utilizationUpper, governingCheck: c.governingCheck } : {}),
-    ...(c && !c.certified && c.reason ? { reason: c.reason } : {}),
+    ...(certified && top ? {
+      utilizationLower: Math.max(...per.map((c) => c!.utilizationLower)),
+      utilizationUpper: top.utilizationUpper, governingCheck: top.governingCheck,
+    } : {}),
+    ...(why?.reason ? { reason: why.reason } : {}),
   };
-  const passed = v.overallStatus !== 'fail';
+  // Only a pass is confirmed or withdrawn: a failure stands, and a held verdict (a limit state not
+  // evaluated, a datum undeclared) has nothing to confirm and stays held.
+  const passed = v.overallStatus === 'ok' || v.overallStatus === 'warn';
   if (!passed || rc.certifiedOk) return { ...v, engineRecheck: rc };
 
   // A pass the engine did not confirm: every passing check becomes a failure.

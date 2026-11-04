@@ -3,14 +3,14 @@
  * one switch, two section rows (supports and mid-span), and members that land in the model as
  * variable-section members.
  */
-import { test, expect, PRO_URL } from './fixtures';
+import { test, expect, PRO_URL, ribbonCmd } from './fixtures';
 import { insertGenerated, pickGenerator } from './generator-helpers';
 import type { Page } from '@playwright/test';
 
 async function openGenerators(page: Page, id: string): Promise<void> {
   await page.goto(PRO_URL);
   await page.getByTestId('pr-stage-model').click();
-  await page.getByTestId('pr-cmd-generators').click();
+  await ribbonCmd(page, 'generators');
   await expect(page.getByTestId('pro-generators-panel')).toBeVisible();
   await pickGenerator(page, id);
 }

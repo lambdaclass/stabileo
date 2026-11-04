@@ -1,0 +1,252 @@
+{
+ "elements": {
+  "1": {
+   "id": 1,
+   "materialId": 1,
+   "nodeI": 1,
+   "nodeJ": 5,
+   "rollAngle": 90.0,
+   "sectionId": 1,
+   "type": "frame"
+  },
+  "2": {
+   "id": 2,
+   "materialId": 1,
+   "nodeI": 2,
+   "nodeJ": 6,
+   "rollAngle": 90.0,
+   "sectionId": 1,
+   "type": "frame"
+  },
+  "3": {
+   "id": 3,
+   "materialId": 1,
+   "nodeI": 3,
+   "nodeJ": 7,
+   "rollAngle": 90.0,
+   "sectionId": 1,
+   "type": "frame"
+  },
+  "4": {
+   "id": 4,
+   "materialId": 1,
+   "nodeI": 4,
+   "nodeJ": 8,
+   "rollAngle": 90.0,
+   "sectionId": 1,
+   "type": "frame"
+  },
+  "5": {
+   "id": 5,
+   "materialId": 1,
+   "nodeI": 5,
+   "nodeJ": 6,
+   "sectionId": 2,
+   "type": "frame"
+  },
+  "6": {
+   "id": 6,
+   "materialId": 1,
+   "nodeI": 5,
+   "nodeJ": 7,
+   "sectionId": 2,
+   "type": "frame"
+  },
+  "7": {
+   "id": 7,
+   "materialId": 1,
+   "nodeI": 6,
+   "nodeJ": 8,
+   "sectionId": 2,
+   "type": "frame"
+  },
+  "8": {
+   "id": 8,
+   "materialId": 1,
+   "nodeI": 7,
+   "nodeJ": 8,
+   "sectionId": 2,
+   "type": "frame"
+  }
+ },
+ "loads": [
+  {
+   "data": {
+    "elementId": 5,
+    "qYI": 0.0,
+    "qYJ": 0.0,
+    "qZI": -35.94225982875635,
+    "qZJ": -15.479158373544715
+   },
+   "type": "distributed"
+  },
+  {
+   "data": {
+    "elementId": 6,
+    "qYI": 0.0,
+    "qYJ": 0.0,
+    "qZI": -11.185199330598133,
+    "qZJ": -9.655250873137875
+   },
+   "type": "distributed"
+  },
+  {
+   "data": {
+    "elementId": 7,
+    "qYI": 0.0,
+    "qYJ": 0.0,
+    "qZI": -22.980809015086212,
+    "qZJ": -22.980809015086212
+   },
+   "type": "distributed"
+  },
+  {
+   "data": {
+    "fx": 14.064101513638661,
+    "fy": 24.39561899385366,
+    "fz": 0.0,
+    "mx": 0.0,
+    "my": 0.0,
+    "mz": 0.0,
+    "nodeId": 8
+   },
+   "type": "nodal"
+  },
+  {
+   "data": {
+    "a": 1.2237727639224614,
+    "elementId": 7,
+    "py": 14.358672786325492,
+    "pz": -32.28844805105948
+   },
+   "type": "pointOnElement"
+  },
+  {
+   "data": {
+    "a": 1.930301796474907,
+    "elementId": 8,
+    "py": -1.5437320903208942,
+    "pz": -36.51778580617225
+   },
+   "type": "pointOnElement"
+  }
+ ],
+ "materials": {
+  "1": {
+   "e": 30000.0,
+   "id": 1,
+   "nu": 0.25
+  }
+ },
+ "nodes": {
+  "1": {
+   "id": 1,
+   "x": 0.0,
+   "y": 0.0,
+   "z": 0.0
+  },
+  "2": {
+   "id": 2,
+   "x": 4.805,
+   "y": 0.0,
+   "z": 0.0
+  },
+  "3": {
+   "id": 3,
+   "x": 0.0,
+   "y": 3.845,
+   "z": 0.0
+  },
+  "4": {
+   "id": 4,
+   "x": 4.805,
+   "y": 3.845,
+   "z": 0.0
+  },
+  "5": {
+   "id": 5,
+   "x": 0.0,
+   "y": 0.0,
+   "z": 4.175
+  },
+  "6": {
+   "id": 6,
+   "x": 4.805,
+   "y": 0.0,
+   "z": 4.175
+  },
+  "7": {
+   "id": 7,
+   "x": 0.0,
+   "y": 3.845,
+   "z": 4.175
+  },
+  "8": {
+   "id": 8,
+   "x": 4.805,
+   "y": 3.845,
+   "z": 4.175
+  }
+ },
+ "sections": {
+  "1": {
+   "a": 0.05664234861942273,
+   "id": 1,
+   "iy": 0.0005734533234849271,
+   "iz": 0.00012465349063787144,
+   "j": 0.0003714658803281164
+  },
+  "2": {
+   "a": 0.3360449575986012,
+   "id": 2,
+   "iy": 0.022673113516481533,
+   "iz": 0.0039058528545692136,
+   "j": 0.013169528967395984
+  },
+  "3": {
+   "a": 0.2632513097292476,
+   "id": 3,
+   "iy": 0.0141163712206252,
+   "iz": 0.0023626348167679247,
+   "j": 0.004703044199465093
+  }
+ },
+ "supports": {
+  "1": {
+   "nodeId": 1,
+   "rrx": true,
+   "rry": true,
+   "rrz": true,
+   "rx": true,
+   "ry": true,
+   "rz": true
+  },
+  "2": {
+   "nodeId": 2,
+   "rrx": true,
+   "rry": true,
+   "rrz": true,
+   "rx": true,
+   "ry": true,
+   "rz": true
+  },
+  "3": {
+   "nodeId": 3,
+   "rrx": true,
+   "rry": true,
+   "rrz": true,
+   "rx": true,
+   "ry": true,
+   "rz": true
+  },
+  "4": {
+   "nodeId": 4,
+   "rrx": true,
+   "rry": true,
+   "rrz": true,
+   "rx": true,
+   "ry": true,
+   "rz": true
+  }
+ }
+}

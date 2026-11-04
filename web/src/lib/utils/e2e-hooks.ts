@@ -23,18 +23,21 @@
  *  - the revision counters replace arbitrary waits with `expect.poll` on real state.
  *
  * Nothing here mutates app state except `loadExample` (the same call the
- * examples menu makes) and `clearSelection` (the same call pressing Escape
- * makes). The bundle cost is trivial and the object is absent unless the
+ * examples menu makes), `clearSelection` (the same call pressing Escape
+ * makes) and the actions below, each the same operation a UI control performs. The bundle cost is trivial and the object is absent unless the
  * query flag is present, so production pages never expose it.
  */
 
+import { openDeskAt } from '../pro/design-navigation';
 import { viewportCanvas } from './viewport-canvas';
+import { discretizationStore } from '../store/discretization.svelte';
 import { drawState } from '../store/draw-state.svelte';
 import { projectWorld } from '../viewport3d/camera-probe';
 import { projectNodeToScene } from '../geometry/coordinate-system';
 import { shouldEmbedFlat2DModelIn3D } from '../engine/solver-service';
 import { modelStore, verificationStore, uiStore, historyStore, resultsStore } from '../store';
 import { readCamera } from '../viewport3d/camera-probe';
+import { verificationVisual } from '../three/selection-helpers';
 import { detailingStore } from '../store/detailing.svelte';
 import { detailingSheet } from '../store/detailing-sheet.svelte';
 import { exportRecordStore } from '../store/export-record.svelte';
@@ -54,9 +57,12 @@ import {
 import { sceneCacheStats } from '../engine/detailing/scene-cache';
 import { openTimeline, type OpenPhase } from './open-timeline';
 import { autosaveRevisions as storedAutosaveRevisions } from '../store/autosave-db';
-import { autosaveFingerprint, clearAutosave, deserializeProject, loadAutosave, type DedalFile } from '../store/file';
+import { autosaveFingerprint, clearAutosave, deserializeProject, loadAutosave, serializeProject, type DedalFile } from '../store/file';
 import { lastAutosaveOutcome, requestAutosave } from '../store/autosave-service';
 import { loadFixture } from '../templates/load-fixture';
+import { currentResultProvenance, provenanceForExport, captureProvenanceToken } from '../store/result-provenance';
+import { recheckStore } from '../store/recheck.svelte';
+import { physicalPlates, plateLoadDefs, plateStatus } from '../store/physical-plates';
 
 export const E2E_QUERY_FLAG = 'e2e';
 
@@ -89,9 +95,15 @@ export interface StabileoTestHooks {
   baselineRevision(): number;
   isBaselineStale(): boolean;
   solveCount(): number;
+  /** The discretization store (`store/discretization.svelte.ts`): estimate status, whether it applies to what is on screen, study status. */
+  discretizationState(): { estimate: string; reason: string | null; idle: string | null; applies: boolean; study: string };
   modelVersion(): number;
   designRunId(): string | null;
   displayStatus(elementId: number): string;
+  /** The member's verdict and its local status (`member-verdict.ts`). */
+  memberVerdict(elementId: number): { status: string; local: string; holds: string[]; assumptions: string[] };
+  /** What the verification overlay paints and writes for the member (`verificationVisual`). */
+  verificationVisual(elementId: number): { color: number; label: string | null };
   displayRatio(elementId: number): number | null;
   outcome(elementId: number): string | null;
   hasCertificate(elementId: number): boolean;
@@ -177,6 +189,14 @@ export interface StabileoTestHooks {
    * when three of the four filters silently selected nothing.
    */
   selectionByKind(): { nodes: number[]; elements: number[]; supports: number[]; loads: number[] };
+  /** The physical plates: each one's mesh state and the shells it holds (`store/physical-plates.ts`). */
+  plates(): Array<{ id: number; name: string; status: string; shells: number; loads: number }>;
+  /** The plates selected whole, and the shells selected. */
+  plateSelection(): { plates: number[]; shells: string[]; scope: string };
+  /** How many local-axis triads the 3-D viewport draws now. */
+  localAxesTriads(): number;
+  /** Where a point of the model (scene coordinates) is on the screen, in page pixels. */
+  worldScreenPos(x: number, y: number, z: number): { x: number; y: number } | null;
   /** Which kinds a drag is currently armed to pick up. */
   armedKinds(): string[];
   /** What the viewport is drawing — the walkthrough audit reads this. */
@@ -240,6 +260,8 @@ export interface StabileoTestHooks {
   /** The point loads on a member as stored: direction magnitude p, axial px, couple, angle and axes. */
   /** A member's end nodes. */
   elementEnds(elementId: number): { i: number; j: number } | null;
+  /** The 2D static results' axial force N at the start of every member, ordered by member id; null before a solve. */
+  memberAxialForces(): { id: number; n: number }[] | null;
   pointLoadsOn(elementId: number): Array<{ p: number; px?: number; my?: number; angle?: number; isGlobal?: boolean }>;
   /** How many nodes and supports the model holds — what a delete must not touch. */
   /** Where the 3D viewport drew a load: the middle of its middle segment, in page coordinates. */
@@ -264,6 +286,10 @@ export interface StabileoTestHooks {
    * which is the whole reason a stair spec needs the position in model space.
    */
   nodeIds(): number[];
+  /** A node's coordinates, m. */
+  nodePosition(id: number): { x: number; y: number; z: number } | null;
+  /** What a member states beyond its geometry: buckling factors and end releases. */
+  memberStatement(id: number): { kStrong?: number; kWeak?: number; releaseI?: { my: boolean; mz: boolean }; releaseJ?: { my: boolean; mz: boolean } } | null;
   nodePos(id: number): { x: number; y: number; z: number } | null;
   /** The shells, and whether a quad carries curvature into the solve. */
   quadIds(): number[];
@@ -413,6 +439,8 @@ export interface StabileoTestHooks {
    * into the database's private layout.
    */
   autosaveRevisions(): Promise<Array<{ revision: number; timestamp: string; status: string }>>;
+  /** The project as File → Save writes it, as JSON text. */
+  serializeProject(): string;
   /** The family census of the newest readable stored project, plus how it was read. */
   autosaveStored(): Promise<{
     revision: number | null;
@@ -423,14 +451,24 @@ export interface StabileoTestHooks {
   }>;
   /** The last write attempt: what triggered it, whether it landed, and on which backend. */
   autosaveOutcome(): unknown;
+  /** The provenance record of the results on screen (`store/result-provenance.ts`). */
+  resultProvenance(): unknown;
+  /** The record as an export writes it: engine hashes awaited, bound to the state (`provenanceForExport`). */
+  exportProvenance(): Promise<unknown>;
+  /** The re-check state: notice up, results stale, the registered changes listed. */
+  recheck(): { noticeOpen: boolean; stale: boolean; changes: string[]; solvedVersion: number | null; stampVersion: number | null };
 }
 
 /**
- * Actions a spec may drive. Each one is the SAME operation a UI control performs;
- * none of them writes internal state directly.
+ * Actions a spec may drive. Ordinary actions use the same operations as UI controls;
+ * explicitly documented fixture mutators also exercise hard-to-reproduce states.
  */
 export interface StabileoTestActions {
+  /** Test-only fault injection: append a runtime warning to already solved results. */
+  seedSelfCheckWarning(count?: number, cases?: number): void;
   loadExample(name: string): Promise<void>;
+  /** Move a node, as editing its coordinates in the node table does: an undo step, then the move. */
+  moveNode(id: number, x: number, y: number, z: number): void;
   /**
    * Load a model given as an example's JSON (`templates/load-fixture.ts`), as an example loads:
    * for a spec that builds its own model, a large one to time the tables, say.
@@ -454,6 +492,12 @@ export interface StabileoTestActions {
   clearSelection(): void;
   /** Runs the same global solve the toolbar button triggers. */
   solve(): Promise<void>;
+  /**
+   * Solve the base case on the MAIN THREAD (`modelStore.solve3D`/`solve`) and publish it as a
+   * solve does; returns the published results' provenance hash. With `solve()` (the worker pool
+   * in PRO) it is how a spec checks that the thread does not change a single bit.
+   */
+  solveOnMainThread(): string | null;
   /** Activate the RC Design tab (the table only exists while it is selected). */
   openDesignTab(): void;
   seedDetailing(assemblies: unknown): void;
@@ -561,12 +605,31 @@ export function installE2EHooks(): void {
     baselineRevision: () => verificationStore.baselineRevision,
     isBaselineStale: () => verificationStore.isBaselineStale,
     solveCount: () => getStructuralSolveCount(),
+    discretizationState: () => {
+      const e = discretizationStore.estimate, st = discretizationStore.study;
+      return {
+        estimate: e.status,
+        reason: e.status === 'failed' ? e.reason : st.status === 'failed' ? st.reason : null,
+        idle: discretizationStore.idleReason,
+        applies: discretizationStore.applies(),
+        study: st.status,
+      };
+    },
     modelVersion: () => modelStore.modelVersion,
     designRunId: () => {
       const s = verificationStore.runSummary;
       return s ? `${s.codeId}:${s.total}:${s.verified}:${s.wallMs.toFixed(0)}` : null;
     },
     displayStatus: (id) => verificationStore.getDisplayStatus(id),
+    memberVerdict: (id) => {
+      const v = verificationStore.memberVerdict(id);
+      return { status: v.status, local: v.local, holds: v.holds.map((h) => h.kind), assumptions: v.assumptions.map((a) => a.key) };
+    },
+    verificationVisual: (id) => {
+      const v = verificationStore.memberVerdict(id);
+      const x = verificationVisual({ status: v.status, local: v.local, ratio: verificationStore.getDisplayRatio(id) });
+      return { color: x.color, label: x.label?.text ?? null };
+    },
     displayRatio: (id) => verificationStore.getDisplayRatio(id),
     outcome: (id) => verificationStore.outcomeFor(id)?.outcome ?? null,
     hasCertificate: (id) => !!verificationStore.outcomeFor(id)?.certificate,
@@ -646,6 +709,8 @@ export function installE2EHooks(): void {
       } : null;
     },
     currentTool: () => String(uiStore.currentTool),
+    memberAxialForces: () =>
+      resultsStore.results ? resultsStore.results.elementForces.map((f) => ({ id: f.elementId, n: f.nStart })).sort((a, b) => a.id - b.id) : null,
     elementEnds: (elementId: number) => {
       const e = modelStore.elements.get(elementId);
       return e ? { i: e.nodeI, j: e.nodeJ } : null;
@@ -713,6 +778,14 @@ export function installE2EHooks(): void {
       ? [drawState.memberStart] : [...uiStore.shellNodePick.picked]),
     nodeCount: () => modelStore.nodes.size,
     supportCount: () => modelStore.supports.size,
+    plates: () => physicalPlates().map((p) => ({
+      id: p.id, name: p.name, status: plateStatus(p.id),
+      shells: (p.group.members.quads?.length ?? 0) + (p.group.members.plates?.length ?? 0),
+      loads: plateLoadDefs(p.id).length,
+    })),
+    worldScreenPos: (x: number, y: number, z: number) => projectWorld(x, y, z),
+    localAxesTriads: () => (window as unknown as { __localAxesTriads?: number }).__localAxesTriads ?? 0,
+    plateSelection: () => ({ plates: [...uiStore.selectedPlates].sort((a, b) => a - b), shells: [...uiStore.selectedShells].sort(), scope: uiStore.shellPickScope }),
     selectionByKind: () => {
       const sorted = (s: Iterable<number>) => [...s].sort((a, b) => a - b);
       return {
@@ -726,6 +799,13 @@ export function installE2EHooks(): void {
     rebarSummary,
     elementIds: () => [...modelStore.elements.keys()].sort((a, b) => a - b),
     nodeIds: () => [...modelStore.nodes.keys()].sort((a, b) => a - b),
+    memberStatement: (id: number) => {
+      const e = modelStore.elements.get(id);
+      if (!e) return null;
+      return { ...(e.kStrong !== undefined ? { kStrong: e.kStrong } : {}), ...(e.kWeak !== undefined ? { kWeak: e.kWeak } : {}),
+        ...(e.releaseI ? { releaseI: { my: e.releaseI.my, mz: e.releaseI.mz } } : {}), ...(e.releaseJ ? { releaseJ: { my: e.releaseJ.my, mz: e.releaseJ.mz } } : {}) };
+    },
+    nodePosition: (id: number) => { const n = modelStore.nodes.get(id); return n ? { x: n.x, y: n.y, z: n.z ?? 0 } : null; },
     nodePos: (id: number) => {
       const n = modelStore.nodes.get(id);
       return n ? { x: n.x, y: n.y ?? 0, z: (n as { z?: number }).z ?? 0 } : null;
@@ -804,6 +884,7 @@ export function installE2EHooks(): void {
     canvasCount: () => document.querySelectorAll('canvas').length,
     sceneCacheStats,
     openTimeline,
+    serializeProject: () => serializeProject(),
     autosaveRevisions: async () => (await storedAutosaveRevisions())
       .map(({ revision, timestamp, status }) => ({ revision, timestamp, status })),
     autosaveStored: async () => {
@@ -817,8 +898,33 @@ export function installE2EHooks(): void {
       };
     },
     autosaveOutcome: () => JSON.parse(JSON.stringify(lastAutosaveOutcome())),
+    resultProvenance: () => JSON.parse(JSON.stringify(currentResultProvenance())),
+    exportProvenance: async () => JSON.parse(JSON.stringify(await provenanceForExport(captureProvenanceToken()))),
+    recheck: () => ({
+      noticeOpen: recheckStore.noticeOpen,
+      stale: recheckStore.stale,
+      changes: recheckStore.assessment?.changes.map((c) => c.id) ?? [],
+      solvedVersion: recheckStore.assessment?.solvedVersion ?? null,
+      stampVersion: recheckStore.stamp?.resultsVersion ?? null,
+    }),
   };
   const actions: StabileoTestActions = {
+    seedSelfCheckWarning: (count = 1, cases = 0) => {
+      for (const result of [resultsStore.results, resultsStore.results3D, resultsStore.modalResult, resultsStore.modalResult3D]) {
+        if (!result) continue;
+        result.structuredDiagnostics = [...(result.structuredDiagnostics ?? []), ...Array.from({ length: count }, (_, i) => ({
+          code: 'residual_high' as const, severity: 'warning' as const, phase: `self_check:static_balance:${i}`,
+          message: 'WARN: self-check fixture: balance needs review before using these results',
+          value: 2e-6, threshold: 1e-6,
+        }))];
+      }
+      if (resultsStore.results) resultsStore.setResults(resultsStore.results, true);
+      if (resultsStore.results3D) resultsStore.setResults3D(resultsStore.results3D, true);
+      for (let i = 0; i < cases; i++) {
+        if (resultsStore.results) resultsStore.perCase.set(i + 1, i === 0 ? resultsStore.results : { ...resultsStore.results });
+        if (resultsStore.results3D) resultsStore.perCase3D.set(i + 1, i === 0 ? resultsStore.results3D : { ...resultsStore.results3D });
+      }
+    },
     /** Seed a coordinated assembly — the same shape the pipeline writes. */
     seedDetailing: (assemblies: unknown) => {
       modelStore.model.detailing = {
@@ -859,6 +965,7 @@ export function installE2EHooks(): void {
     },
     toggleBarLock: (barId: string) => { detailingStore.toggleLock(barId); },
     loadExample: async (name: string) => { await modelStore.loadExample(name); },
+    moveNode: (id: number, x: number, y: number, z: number) => { historyStore.pushState(); modelStore.updateNode(id, x, y, z); },
     loadModelData: (json: Record<string, unknown>) => {
       modelStore.clear();
       modelStore.bulkMutate(() => loadFixture(json as never, modelStore.fixtureApi() as never));
@@ -878,7 +985,21 @@ export function installE2EHooks(): void {
     /** Reset the selection between gestures — the position, not the subject. */
     clearSelection: () => { uiStore.clearSelection(); },
     solve: async () => { await runGlobalSolve(); },
-    openDesignTab: () => { uiStore.proActiveTab = 'design'; },
+    solveOnMainThread: () => {
+      const isPro = uiStore.analysisMode === 'pro';
+      if (uiStore.is3DWorkspace) {
+        const r = modelStore.solve3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand', isPro);
+        if (!r || typeof r === 'string') return null;
+        resultsStore.setResults3D(r);
+      } else {
+        const r = modelStore.solve(uiStore.includeSelfWeight, uiStore.drawPlane2D);
+        if (!r || typeof r === 'string') return null;
+        resultsStore.setResults(r);
+      }
+      return currentResultProvenance().resultsHash;
+    },
+    // Design, on the member list: the screen the RC specs were written against.
+    openDesignTab: () => { openDeskAt('list'); },
     computeDemands: () => designRunStore.computeDemands(),
     codeCheck: () => designRunStore.runCodeCheck(),
     autoDesign: (ids: number[]) => designRunStore.autoDesign(ids),

@@ -185,7 +185,7 @@ fn deep_exc_single_anchored_wall() {
         .collect();
 
     let input = SolverInput {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes: nodes_map, materials: mats_map, sections: secs_map,
         elements: elems_map, supports: sups_map, loads, constraints: vec![],
         connectors: HashMap::new(), };
@@ -307,7 +307,7 @@ fn deep_exc_multi_propped_wall() {
         .collect();
 
     let input = SolverInput {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes: nodes_map, materials: mats_map, sections: secs_map,
         elements: elems_map, supports: sups_map, loads, constraints: vec![],
         connectors: HashMap::new(), };
@@ -443,7 +443,7 @@ fn deep_exc_apparent_earth_pressure() {
         .collect();
 
     let input = SolverInput {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes: nodes_map, materials: mats_map, sections: secs_map,
         elements: elems_map, supports: sups_map, loads, constraints: vec![],
         connectors: HashMap::new(), };
@@ -575,7 +575,7 @@ fn deep_exc_bottom_heave_stability() {
             })
             .collect();
         SolverInput {
-            solver_options: None,
+            solver_options: None, masses: Default::default(),
             nodes: nodes_map, materials: mats_map, sections: secs_map,
             elements: elems_map, supports: sups_map, loads, constraints: vec![],
             connectors: HashMap::new(), }
@@ -685,7 +685,7 @@ fn deep_exc_strut_load() {
         .collect();
 
     let input = SolverInput {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes: nodes_map, materials: mats_map, sections: secs_map,
         elements: elems_map, supports: sups_map, loads, constraints: vec![],
         connectors: HashMap::new(), };

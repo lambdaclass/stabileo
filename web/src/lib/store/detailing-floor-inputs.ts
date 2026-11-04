@@ -22,7 +22,7 @@
  * Nothing was rewritten. The bodies are the ones that were in the store, moved verbatim.
  */
 
-import { activePerCombo3D, activeResultSet3D } from './active-results';
+import { activePerCombo3D, activeResultSet3D, designCombinationsWithheld } from './active-results';
 import { activeCombinations } from './active-results';
 import { modelStore } from './model.svelte';
 import { surfaceDownwardPressure } from '../engine/solver-shells';
@@ -81,8 +81,13 @@ export function scopedShells(wants: (f: 'slab' | 'wall' | 'footing') => boolean)
  * designed face by face for the worst of them. It read only the result on screen, which after
  * a solve is the first load case, or whichever case or combination the user was looking at,
  * while the shear check of the same run used the factored envelope load.
+ *
+ * None while the model's combinations are withheld (`designCombinationsWithheld`): the result on
+ * screen is then the loads at factor 1 with no combination to carry, and a slab was designed face
+ * by face for its mx and my.
  */
 export function collectStresses(): FloorShellStress[] {
+  if (designCombinationsWithheld()) return [];
   // An SRSS or ABS magnitude on screen is no state of the slab (`activeResultSet3D`).
   const shown = resultsStore.results3D;
   const r = (shown && !shown.magnitude ? shown : activeResultSet3D()) ?? [...activePerCombo3D().values()][0];

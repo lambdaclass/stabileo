@@ -215,6 +215,14 @@ pub fn compute_diagram_value_at_sorted(
                     }
                 }
             }
+            // An axial span load lowers it continuously, by what of it lies left of x
+            // (as the space diagram reads `distributed_loads_x`).
+            for dl in &ef.distributed_loads_x {
+                let span = dl.b - dl.a;
+                if span <= 0.0 { continue; }
+                let s = (xi - dl.a).clamp(0.0, span);
+                value -= dl.q_i * s + (dl.q_j - dl.q_i) * s * s / (2.0 * span);
+            }
             value
         }
         _ => 0.0,
@@ -275,9 +283,9 @@ pub fn compute_diagrams_2d(
     // O(1) lookups once — the per-element .values().find() scans made this
     // O(E·(E+N)) per call on big models.
     let elem_by_id: std::collections::HashMap<usize, &crate::types::SolverElement> =
-        input.elements.values().map(|e| (e.id, e)).collect();
+        crate::ordered::values(&input.elements).map(|e| (e.id, e)).collect();
     let node_by_id: std::collections::HashMap<usize, &crate::types::SolverNode> =
-        input.nodes.values().map(|n| (n.id, n)).collect();
+        crate::ordered::values(&input.nodes).map(|n| (n.id, n)).collect();
 
     for ef in &results.element_forces {
         let (node_ix, node_iy, node_jx, node_jy) = if let Some(elem) = elem_by_id.get(&ef.element_id) {

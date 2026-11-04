@@ -13,7 +13,7 @@ import {
   type RcMemberListInput,
 } from '../rc-member-list';
 import { RC_ELEMENT_GROUPS, rcFamiliesIn } from '../rc-selection';
-import { SCENE_SOLID_KINDS, type SceneSolidKind } from '../../engine/detailing/scene-model';
+import { MEMBER_SOLID_KINDS, type SceneSolidKind } from '../../engine/detailing/scene-model';
 
 function input(
   membership: Array<[number, SceneSolidKind]>,
@@ -36,8 +36,9 @@ describe('grouping — objective 1', () => {
     for (const g of rcMemberList(FRAME)) {
       for (const f of g.families) seen.set(f.family, [...(seen.get(f.family) ?? []), g.group]);
     }
-    // Exhaustiveness: a seventh scene family added without a group would silently vanish.
-    expect([...seen.keys()].sort()).toEqual([...SCENE_SOLID_KINDS].sort());
+    // Exhaustiveness: a member family added without a group would silently vanish. The joint is
+    // concrete, not a member, and is listed with its owner.
+    expect([...seen.keys()].sort()).toEqual([...MEMBER_SOLID_KINDS].sort());
     for (const [family, groups] of seen) {
       expect(groups, `${family} is in one group`).toHaveLength(1);
       expect(groups[0]).toBe(rcGroupOfFamily(family));
@@ -184,7 +185,7 @@ describe('the result is complete, so a caller never has to guess', () => {
     const list = rcMemberList(input([], [], {}));
     expect(list).toHaveLength(RC_ELEMENT_GROUPS.length);
     const families = list.flatMap((g) => g.families.map((f) => f.family));
-    expect([...families].sort()).toEqual([...SCENE_SOLID_KINDS].sort());
+    expect([...families].sort()).toEqual([...MEMBER_SOLID_KINDS].sort());
   });
 
   it('detailed never exceeds total', () => {

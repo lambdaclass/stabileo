@@ -695,7 +695,7 @@ fn supports(input: &SanityInput, g: &ModelGeometry, r: &mut Report) {
     let colinear = held.iter().all(|(_, p)| off_line(*p) <= tol.max(1e-4 * far));
     if colinear {
         // A structure that is itself on the line (a straight beam) cannot tip about it.
-        let structure_off = g.nodes.values().map(|p| off_line(*p)).fold(0.0, f64::max);
+        let structure_off = crate::ordered::values(&g.nodes).map(|p| off_line(*p)).fold(0.0, f64::max);
         if structure_off > 1e-3 * far.max(g.extent) {
             let rot_held = held.iter().any(|(s, _)| (0..3).any(|k| s.holds(3 + k) && d[k].abs() > 0.1));
             if !rot_held {

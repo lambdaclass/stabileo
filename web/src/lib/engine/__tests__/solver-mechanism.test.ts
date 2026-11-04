@@ -80,7 +80,7 @@ describe('Mechanism detection — structures that must be detected as unstable',
         [2, 2, 3, 'frame', true, false],   // hinge at node 2
       ],
       supports: [[1, 1, 'pinned'], [2, 3, 'pinned']],
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: -10, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: -10, my: 0 } }],
     });
     expectMechanism(input);
   });
@@ -97,7 +97,7 @@ describe('Mechanism detection — structures that must be detected as unstable',
         [4, 4, 1, 'frame', true, true],  // left: double hinged
       ],
       supports: [[1, 1, 'pinned'], [2, 2, 'rollerX']],
-      loads: [{ type: 'nodal', data: { nodeId: 3, fx: 10, fy: 0, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 3, fx: 10, fz: 0, my: 0 } }],
     });
     expectMechanism(input);
   });
@@ -114,7 +114,7 @@ describe('Mechanism detection — structures that must be detected as unstable',
         [3, 4, 3, 'frame', true, false],   // right column: hinge at base
       ],
       supports: [[1, 1, 'pinned'], [2, 4, 'pinned']],
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 10, fy: 0, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 10, fz: 0, my: 0 } }],
     });
     expectMechanism(input);
   });
@@ -130,7 +130,7 @@ describe('Mechanism detection — structures that must be detected as unstable',
         // Missing bar to node 4
       ],
       supports: [[1, 1, 'pinned'], [2, 2, 'rollerX']],
-      loads: [{ type: 'nodal', data: { nodeId: 4, fx: 0, fy: -10, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 4, fx: 0, fz: -10, my: 0 } }],
     });
     // Node 4 is disconnected — should fail
     expectMechanism(input);
@@ -143,7 +143,7 @@ describe('Mechanism detection — structures that must be detected as unstable',
       nodes: [[1, 0, 0], [2, 6, 0]],
       elements: [[1, 1, 2, 'frame', true, true]],
       supports: [[1, 1, 'pinned'], [2, 2, 'pinned']],
-      loads: [{ type: 'nodal', data: { nodeId: 1, fx: 0, fy: 0, mz: 10 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 1, fx: 0, fz: 0, my: 10 } }],
     });
     // Applying moment to a truss-like element → mechanism for rotation
     expectMechanism(input);
@@ -154,7 +154,7 @@ describe('Mechanism detection — structures that must be detected as unstable',
       nodes: [[1, 0, 0], [2, 6, 0]],
       elements: [[1, 1, 2, 'frame']],
       supports: [],
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 10, fy: 0, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 10, fz: 0, my: 0 } }],
     });
     expectMechanism(input);
   });
@@ -170,7 +170,7 @@ describe('Mechanism detection — structures that must be detected as unstable',
         [2, 2, 3, 'frame', true, false],   // hinge at start (node 2)
       ],
       supports: [[1, 1, 'fixed'], [2, 3, 'fixed']],
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 10, fy: -10, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 10, fz: -10, my: 0 } }],
     });
     expectMechanism(input);
   });
@@ -191,7 +191,7 @@ describe('Valid structures that must NOT be flagged as mechanisms', () => {
         [2, 2, 3, 'frame', true, false],   // hinge at crown (node 2)
       ],
       supports: [[1, 1, 'pinned'], [2, 3, 'pinned']],
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: -20, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: -20, my: 0 } }],
     });
     const result = solve(input);
     expect(result).toBeTruthy();
@@ -214,7 +214,7 @@ describe('Valid structures that must NOT be flagged as mechanisms', () => {
         [2, 2, 3, 'frame', true, false],      // span 2: hinge at start (node 2)
       ],
       supports: [[1, 1, 'fixed'], [2, 3, 'rollerX']],
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: -20, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: -20, my: 0 } }],
     });
     const result = solve(input);
     expect(result).toBeTruthy();
@@ -234,7 +234,7 @@ describe('Valid structures that must NOT be flagged as mechanisms', () => {
         [3, 4, 3, 'frame'],               // right column: rigid
       ],
       supports: [[1, 1, 'fixed'], [2, 4, 'fixed']],
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 10, fy: 0, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 10, fz: 0, my: 0 } }],
     });
     const result = solve(input);
     expect(result).toBeTruthy();
@@ -273,7 +273,7 @@ describe('Valid structures that must NOT be flagged as mechanisms', () => {
         [3, 2, 3, 'truss'],
       ],
       supports: [[1, 1, 'pinned'], [2, 2, 'rollerX']],
-      loads: [{ type: 'nodal', data: { nodeId: 3, fx: 0, fy: -10, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 3, fx: 0, fz: -10, my: 0 } }],
     });
     const result = solve(input);
     expect(result).toBeTruthy();
@@ -294,7 +294,7 @@ describe('Valid structures that must NOT be flagged as mechanisms', () => {
         [2, 3, 2, 'frame', true, false],     // inclined 3-2, hinge at node 3 (start)
       ],
       supports: [[1, 1, 'fixed'], [2, 3, 'pinned']],
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: -10, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: -10, my: 0 } }],
     });
     // The kinematic gate is what blocks the solve in the UI.
     const kin = analyzeKinematics(input);
@@ -318,7 +318,7 @@ describe('Valid structures that must NOT be flagged as mechanisms', () => {
         [2, 2, 3, 'frame', true, false],     // hinge at node 2 (start of 2-3)
       ],
       supports: [[1, 1, 'fixed'], [2, 3, 'pinned']],
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: -10, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: -10, my: 0 } }],
     });
     const kin = analyzeKinematics(input);
     expect(kin.isSolvable, `kinematic flagged: ${kin.diagnosis}`).toBe(true);
@@ -337,7 +337,7 @@ describe('Valid structures that must NOT be flagged as mechanisms', () => {
         [2, 2, 3, 'frame', true, true],      // double-hinged
       ],
       supports: [[1, 1, 'fixed'], [2, 3, 'pinned']],
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: -10, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: -10, my: 0 } }],
     });
     const kin = analyzeKinematics(input);
     expect(kin.isSolvable, `kinematic flagged: ${kin.diagnosis}`).toBe(true);
@@ -356,7 +356,7 @@ describe('Valid structures that must NOT be flagged as mechanisms', () => {
         [2, 3, 2, 'truss'],                  // 3-2 truss only — no rotation stiffness at node 3
       ],
       supports: [[1, 1, 'fixed'], [2, 3, 'pinned']],
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: -10, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: -10, my: 0 } }],
     });
     const kin = analyzeKinematics(input);
     expect(kin.isSolvable, `kinematic flagged stable structure: ${kin.diagnosis}`).toBe(true);
@@ -402,7 +402,7 @@ describe('Valid structures that must NOT be flagged as mechanisms', () => {
     }
     const loads: SolverLoad[] = [];
     for (let i = 1; i < nSeg; i++) {
-      loads.push({ type: 'nodal', data: { nodeId: i + 1, fx: 0, fy: -10, mz: 0 } });
+      loads.push({ type: 'nodal', data: { nodeId: i + 1, fx: 0, fz: -10, my: 0 } });
     }
     const input = makeInput({
       nodes: pts,
@@ -431,7 +431,7 @@ describe('Hinge behavior verification', () => {
       nodes: [[1, 0, 0], [2, 4, 0]],
       elements: [[1, 1, 2, 'frame', false, true]], // hinge at end (node 2)
       supports: [[1, 1, 'fixed']],
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: -10, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: -10, my: 0 } }],
     });
     const result = solve(input);
     expect(result).toBeTruthy();
@@ -449,7 +449,7 @@ describe('Hinge behavior verification', () => {
       nodes: [[1, 0, 0], [2, 6, 0]],
       elements: [[1, 1, 2, 'frame', true, true]],
       supports: [[1, 1, 'pinned'], [2, 2, 'rollerX']],
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 50, fy: 0, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 50, fz: 0, my: 0 } }],
     });
     const result = solve(input);
     expect(result).toBeTruthy();
@@ -504,7 +504,7 @@ describe('Global equilibrium on complex structures', () => {
       if (load.type === 'nodal') {
         const d = load.data as any;
         appFx += d.fx;
-        appFz += d.fy;
+        appFz += d.fz;
       } else if (load.type === 'distributed') {
         const d = load.data as any;
         const elem = input.elements.get(d.elementId)!;
@@ -542,8 +542,8 @@ describe('Global equilibrium on complex structures', () => {
       ],
       supports: [[1, 1, 'fixed'], [2, 4, 'fixed']],
       loads: [
-        { type: 'nodal', data: { nodeId: 2, fx: 20, fy: 0, mz: 0 } },
-        { type: 'nodal', data: { nodeId: 5, fx: 10, fy: 0, mz: 0 } },
+        { type: 'nodal', data: { nodeId: 2, fx: 20, fz: 0, my: 0 } },
+        { type: 'nodal', data: { nodeId: 5, fx: 10, fz: 0, my: 0 } },
       ],
     });
     const result = solve(input);
@@ -562,7 +562,7 @@ describe('Global equilibrium on complex structures', () => {
         [4, 1, 3, 'truss'],   // diagonal brace
       ],
       supports: [[1, 1, 'fixed'], [2, 4, 'fixed']],
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 10, fy: -20, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 10, fz: -20, my: 0 } }],
     });
     const result = solve(input);
     expect(result).toBeTruthy();

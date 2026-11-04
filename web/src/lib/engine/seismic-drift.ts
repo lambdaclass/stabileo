@@ -36,6 +36,8 @@ export interface SeismicDriftInput {
   group: DestinationGroup;
   condition: DriftCondition;
   embedded2D?: boolean;
+  /** The model's named levels, to name the stories by. */
+  levels?: ReadonlyArray<{ name: string; z: number }>;
 }
 
 /** The stories' design drifts, or null when the group does not require the check. */
@@ -44,5 +46,5 @@ export function seismicDrifts(i: SeismicDriftInput): { limit: number; stories: S
   if (limit === null) return null;
   const k = i.cd / RISK_FACTOR[i.group];
   const amplified = i.displacements.map((d) => ({ ...d, ux: d.ux * k, uy: d.uy * k }));
-  return { limit, stories: storyDrifts(i.nodes, i.elements, amplified, { limit, embedded2D: i.embedded2D }) };
+  return { limit, stories: storyDrifts(i.nodes, i.elements, amplified, { limit, embedded2D: i.embedded2D, ...(i.levels ? { levels: i.levels } : {}) }) };
 }

@@ -15,6 +15,8 @@ fn doug_fir_2x12(eid: usize, le: f64) -> TimberMemberData {
         d: 0.286,     // 11.25 in
         le,
         lu: Some(le),
+        le_b: None,
+            le_bending: None,
         cd: Some(1.0),
         cm: Some(1.0),
         ct: Some(1.0),
@@ -80,6 +82,8 @@ fn timber_check_pure_compression_short() {
         d: 0.089,  // 3.5 in
         le: 0.5,   // 0.5 m — very short
         lu: Some(0.5),
+        le_b: None,
+            le_bending: None,
         cd: Some(1.0),
         cm: Some(1.0),
         ct: Some(1.0),
@@ -136,6 +140,8 @@ fn timber_check_slender_column() {
         d: 0.089,
         le: 3.0, // 3m — Le/d = 3.0/0.089 = 33.7
         lu: Some(3.0),
+        le_b: None,
+            le_bending: None,
         cd: Some(1.0),
         cm: Some(1.0),
         ct: Some(1.0),
@@ -262,6 +268,8 @@ fn timber_check_combined_compression_bending() {
         d: 0.089,
         le: 2.0,
         lu: Some(2.0),
+        le_b: None,
+            le_bending: None,
         cd: Some(1.0),
         cm: Some(1.0),
         ct: Some(1.0),

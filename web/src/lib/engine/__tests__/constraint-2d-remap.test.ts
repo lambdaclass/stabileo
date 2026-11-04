@@ -22,24 +22,32 @@ describe('constraintsTo2D mapping', () => {
     ]);
   });
 
-  it('drops constraints left with no in-plane DOF; diaphragms pass through (Rust is dimension-aware)', () => {
+  it('drops constraints left with no in-plane DOF; a diaphragm goes as its trace on the X–Z plane', () => {
     const out = constraintsTo2D([
       { type: 'equalDOF', masterNode: 1, slaveNode: 2, dofs: [1, 3, 5] },
+      // A floor (the default plane, XY): only ux is in the model plane.
       { type: 'diaphragm', masterNode: 1, slaveNodes: [2, 3] },
+      // A wall across the model plane: only uz.
+      { type: 'diaphragm', masterNode: 1, slaveNodes: [4], plane: 'YZ' },
+      // The model's own plane: the rigid body, rotation tied.
+      { type: 'diaphragm', masterNode: 1, slaveNodes: [5], plane: 'XZ' },
     ]);
     expect(out).toEqual([
-      { type: 'diaphragm', masterNode: 1, slaveNodes: [2, 3] },
+      { type: 'equalDOF', masterNode: 1, slaveNode: 2, dofs: [0] },
+      { type: 'equalDOF', masterNode: 1, slaveNode: 3, dofs: [0] },
+      { type: 'equalDOF', masterNode: 1, slaveNode: 4, dofs: [1] },
+      { type: 'rigidLink', masterNode: 1, slaveNode: 5, dofs: [0, 1, 2] },
     ]);
   });
 
-  it('keeps rigidLink default (empty dofs) and maps explicit ones', () => {
+  it('a rigidLink with no DOFs is all translational, as in 3D (listed for the 2D solver); explicit ones map', () => {
     const out = constraintsTo2D([
       { type: 'rigidLink', masterNode: 1, slaveNode: 2 },
       { type: 'rigidLink', masterNode: 1, slaveNode: 2, dofs: [0, 4] },
       { type: 'rigidLink', masterNode: 1, slaveNode: 2, dofs: [1] },
     ]);
     expect(out.length).toBe(2);
-    expect((out[0] as any).dofs).toBeUndefined();
+    expect((out[0] as any).dofs).toEqual([0, 1]);
     expect((out[1] as any).dofs).toEqual([0, 2]);
   });
 
@@ -60,7 +68,7 @@ describe('constraintsTo2D mapping', () => {
     ]);
   });
 
-  it('drops linearMPC equations touching out-of-plane DOFs, maps the rest', () => {
+  it('drops linearMPC equations touching out-of-plane DOFs, maps the rest (θ = −ry: the ry coefficient turns)', () => {
     const out = constraintsTo2D([
       { type: 'linearMPC', terms: [{ nodeId: 1, dof: 0, coefficient: 1 }, { nodeId: 2, dof: 1, coefficient: -1 }] },
       { type: 'linearMPC', terms: [{ nodeId: 1, dof: 2, coefficient: 1 }, { nodeId: 2, dof: 4, coefficient: -1 }] },
@@ -68,7 +76,7 @@ describe('constraintsTo2D mapping', () => {
     expect(out.length).toBe(1);
     expect((out[0] as any).terms).toEqual([
       { nodeId: 1, dof: 1, coefficient: 1 },
-      { nodeId: 2, dof: 2, coefficient: -1 },
+      { nodeId: 2, dof: 2, coefficient: 1 },
     ]);
   });
 });

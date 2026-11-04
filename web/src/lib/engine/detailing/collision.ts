@@ -702,8 +702,10 @@ function sweepCollisions(
         // exactly the code minimum computes to 0.024999999999999998 against 0.025 and would
         // otherwise be reported against the very requirement it satisfies — which, now that
         // the default additional margin is zero, is the commonest case in the model rather
-        // than an edge case.
-        if (shortfall <= 1e-9) continue;
+        // than an edge case. Nor is a hundredth of a millimetre: two seats computed by different
+        // arithmetic (a coordinated slot and the continuous pair's bend) stand a few microns
+        // apart, and the generator places to the same hundredth (`generate-beam` `pickLegal`).
+        if (shortfall <= 1e-5) continue;
 
         const severity: ConflictSeverity =
           worst.clearance < 0 ? 'overlap'

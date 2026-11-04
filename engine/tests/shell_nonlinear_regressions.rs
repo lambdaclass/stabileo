@@ -72,6 +72,8 @@ fn cantilever_frame_3d(
     sections.insert("1".into(), SolverSection3D {
         id: 1, name: None, a, iy, iz, j,
         cw: None, as_y: None, as_z: None,
+        shear_center_y: None,
+        shear_center_z: None,
     });
 
     let mut elements = HashMap::new();
@@ -91,7 +93,7 @@ fn cantilever_frame_3d(
     })];
 
     SolverInput3D {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes, materials, sections, elements, supports, loads,
         constraints: vec![], left_hand: None,
         plates: HashMap::new(), quads: HashMap::new(),
@@ -187,7 +189,7 @@ fn make_mitc4_plate(
     let center_node = grid[nx / 2][ny / 2];
 
     let input = SolverInput3D {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes,
         materials: mats,
         sections: HashMap::new(),
@@ -256,6 +258,8 @@ fn make_mixed_frame_shell_model() -> (SolverInput3D, usize, usize) {
         id: 1, name: None,
         a: col_a, iy: col_i, iz: col_i, j: 2.0 * col_i,
         cw: None, as_y: None, as_z: None,
+        shear_center_y: None,
+        shear_center_z: None,
     });
 
     // 4 column elements (frame): base -> plate corner
@@ -307,7 +311,7 @@ fn make_mixed_frame_shell_model() -> (SolverInput3D, usize, usize) {
     ];
 
     let input = SolverInput3D {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes, materials, sections, elements, supports, loads,
         constraints: vec![], left_hand: None,
         plates: HashMap::new(), quads, quad9s: HashMap::new(),
@@ -629,7 +633,7 @@ fn shell_nonlinear_05_arc_length_snap_through_toggle() {
     })];
 
     let solver = SolverInput {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes, materials, sections, elements, supports, loads,
         constraints: vec![], connectors: HashMap::new(),
     };
@@ -736,7 +740,7 @@ fn shell_nonlinear_06_arc_length_is_2d_only() {
     })];
 
     let solver = SolverInput {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes, materials, sections, elements, supports, loads,
         constraints: vec![], connectors: HashMap::new(),
     };
@@ -834,6 +838,8 @@ fn shell_nonlinear_08_multi_element_cantilever_convergence() {
     sections.insert("1".into(), SolverSection3D {
         id: 1, name: None, a, iy: i_val, iz: i_val, j: j_val,
         cw: None, as_y: None, as_z: None,
+        shear_center_y: None,
+        shear_center_z: None,
     });
 
     let mut elements = HashMap::new();
@@ -858,7 +864,7 @@ fn shell_nonlinear_08_multi_element_cantilever_convergence() {
     })];
 
     let input = SolverInput3D {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes, materials, sections, elements, supports, loads,
         constraints: vec![], left_hand: None,
         plates: HashMap::new(), quads: HashMap::new(),
@@ -1013,7 +1019,7 @@ fn shell_nonlinear_10_portal_frame_arc_length_regression() {
     })];
 
     let solver = SolverInput {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes, materials, sections, elements, supports, loads,
         constraints: vec![], connectors: HashMap::new(),
     };

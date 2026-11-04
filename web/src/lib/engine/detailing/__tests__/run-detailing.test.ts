@@ -268,9 +268,9 @@ describe('call-graph: no advertised capability is unreachable', () => {
       // The exports and the review moved into a stage of their own.
       'components/pro/design/DocumentsSection.svelte',
       'components/pro/design/DesignOverview.svelte',
-      // The pipeline's actions, and the strip that is now the only place they are pressed from.
+      // The pipeline's actions, and the top of the Design stage where the step's command is pressed.
       'lib/flow/rc-commands.ts',
-      'components/pro/design/RcStageTimeline.svelte',
+      'components/pro/desk/DeskProcessBar.svelte',
     ];
     return files.map((f) => readFileSync(`${SRC}/${f}`, 'utf8')).join('\n');
   }
@@ -302,8 +302,10 @@ describe('call-graph: no advertised capability is unreachable', () => {
      * failure mode this whole describe block exists to catch — wiring that no longer connects —
      * and it caught it in its own subject.
      */
+    // The strip is gone with interface A: the button is the Detail step's action at the top of
+    // the Design stage (`DeskProcessBar`), and it calls the same action.
     const surface = [
-      readFileSync(`${SRC}/components/pro/design/RcStageTimeline.svelte`, 'utf8'),
+      readFileSync(`${SRC}/components/pro/desk/DeskProcessBar.svelte`, 'utf8'),
       readFileSync(`${SRC}/lib/flow/rc-commands.ts`, 'utf8'),
     ].join('\n');
     expect(surface).toContain('cmd-generate-detailing');

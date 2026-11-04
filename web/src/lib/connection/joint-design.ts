@@ -32,6 +32,7 @@ import { designBoltedJoint, type BoltLayoutChoice, type BoltedJointDesign, type 
 import { plateForLayout, type PlateResult } from './plate-geometry';
 import { designFilletWeld, type WeldInput, type WeldDesign } from './fillet-weld';
 import { battenLayout, type BattenInput, type BattenResult } from './batten-geometry';
+import { designTypology, defaultParams, type Typology, type TypologyContext, type TypologyDesign, type TypologyParams } from './typology';
 
 export interface JointDesignInput {
   nodeId: number;
@@ -48,6 +49,9 @@ export interface JointDesignInput {
   plate?: { thicknessMm?: number; fuMPa?: number };
   weld?: WeldInput | null;
   battens?: BattenInput | null;
+  /** The typology chosen for the joint, and what it reads of the members meeting there. */
+  typology?: { kind: Typology; params?: Partial<TypologyParams>; mainId?: number } | null;
+  typologyContext?: TypologyContext;
 }
 
 export interface JointDesign {
@@ -59,6 +63,8 @@ export interface JointDesign {
   weld: WeldDesign | null;
   /** Null when the member is not a built-up one. */
   battens: BattenResult | null;
+  /** The typology's design: checks, parts and state. Null when none was chosen. */
+  typology: TypologyDesign | null;
   /**
    * The joint's overall state.
    *
@@ -122,14 +128,20 @@ export function designJoint(input: JointDesignInput): JointDesign {
 
   const battens = input.battens ? battenLayout(input.battens) : null;
 
-  const parts: JointDesignState[] = [bolts.state];
+  // A typology carries its own bolts, plates and welds: with one chosen, the loose bolt group is
+  // read only when it was chosen too.
+  const typology = input.typology && input.typologyContext
+    ? designTypology(input.typology.kind, input.typologyContext, { ...defaultParams(input.typology.kind), ...input.typology.params }, input.typology.mainId)
+    : null;
+  const parts: JointDesignState[] = typology && !input.bolts ? [] : [bolts.state];
   if (weld) parts.push(weld.state);
+  if (typology) parts.push(typology.state === 'designed' ? 'designed' : typology.state === 'exceeded' ? 'exceeded' : 'incomplete');
   /*
    * The plate does not get a state of its own in the summary. It is derived entirely from the
    * bolt layout, so a plate that could not be built means the layout could not either — and
    * `bolts.state` already says so. Counting it twice would make one missing input look like two.
    */
-  return { nodeId: input.nodeId, demands, bolts, plate, weld, battens, state: worst(parts) };
+  return { nodeId: input.nodeId, demands, bolts, plate, weld, battens, typology, state: worst(parts) };
 }
 
 /** Whether anything is drawable in 3-D for this joint. */

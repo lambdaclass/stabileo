@@ -1,26 +1,43 @@
 <script lang="ts">
+  import { editorActivity } from '../../lib/utils/editor-activity';
+  const editorActive = editorActivity();
   /**
-   * Ctrl/⌘ K: every ribbon command by name. Type, move with the arrows, Enter runs it exactly as
-   * its ribbon button would (`run` is the ribbon's own), Esc closes.
+   * Ctrl/⌘ K, "/" or the ribbon's search button: every command by name, the ribbon's and those
+   * outside it (`palette-actions`). Type, move with the arrows, Enter runs it exactly as its button
+   * would (`run` is the ribbon's own), Esc closes.
    */
   import { t } from '../../lib/i18n';
   import { paletteEntries, searchPalette } from '../../lib/pro/command-search';
+  import { paletteActions } from '../../lib/pro/palette-actions';
   import type { ProStage, ProCmd } from '../../lib/pro/stages';
 
-  let { stages, run }: { stages: readonly ProStage[]; run: (c: ProCmd) => void } = $props();
+  let { stages, run, open = $bindable(false) }: { stages: readonly ProStage[]; run: (c: ProCmd) => void; open?: boolean } = $props();
 
-  let open = $state(false);
   let query = $state('');
   let index = $state(0);
   let input: HTMLInputElement | undefined = $state();
-  const results = $derived(open ? searchPalette(paletteEntries(stages, t), query).slice(0, 40) : []);
+  const results = $derived(open ? searchPalette(paletteEntries(stages, t, paletteActions()), query).slice(0, 40) : []);
+  $effect(() => {
+    if (!open) return;
+    query = ''; index = 0;
+    queueMicrotask(() => input?.focus());
+  });
+
+  const typing = (e: KeyboardEvent) => {
+    const el = e.target as HTMLElement | null;
+    return !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable);
+  };
 
   function onKey(e: KeyboardEvent) {
+    if (!editorActive()) return;
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
       e.preventDefault();
       open = !open;
-      query = ''; index = 0;
-      if (open) queueMicrotask(() => input?.focus());
+      return;
+    }
+    if (!open && e.key === '/' && !e.ctrlKey && !e.metaKey && !e.altKey && !typing(e)) {
+      e.preventDefault();
+      open = true;
       return;
     }
     if (!open) return;

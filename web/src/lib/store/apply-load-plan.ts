@@ -11,6 +11,9 @@ import { addGeneratedCombinations, takeBackCompositeCases } from './generated-co
 import type { LoadPlan } from '../engine/loads/load-plan';
 import type { CurrentLoadState } from '../engine/loads/load-plan-delta';
 import { findPlannedCase, type Load } from './model.svelte';
+import { patchDesignData } from './design-data';
+import { untouchedDefaults, DEFAULT_CASE_NAME_KEYS } from '../model/default-loads';
+import { t } from '../i18n';
 
 export interface ApplyLoadPlanOptions {
   clearExisting: boolean;
@@ -55,10 +58,12 @@ export interface ReplaceScope {
    * brought them back, and without it the preview called them the user's.
    */
   defined: { loads: number[] };
+  /** Removed whatever "replace" says: they were never the user's. */
+  defaults: { cases: number[]; combinations: number[] };
 }
 
 type ScopeCase = { id: number; type: string; name: string; alternatives?: string; reduction?: unknown };
-type ScopeCombination = { id: number; origin?: { code?: string; edited?: boolean }; factors?: ReadonlyArray<{ caseId: number; factor: number }> };
+type ScopeCombination = { id: number; name?: string; origin?: { code?: string; edited?: boolean }; factors?: ReadonlyArray<{ caseId: number; factor: number }> };
 
 /** A combination a code wrote and nobody has edited since (`CombinationOrigin.edited`). */
 export const codeWritten = (c: { origin?: { code?: string; edited?: boolean } }): boolean => !!c.origin && !c.origin.edited;
@@ -77,6 +82,10 @@ export function replaceScope(
       : cases.find((c) => c.id === pc.existingId);
     if (found) targets.add(found.id);
   }
+  // A default case the plan writes into is the plan's target and stays; the rest of the untouched ones go.
+  const untouched = p.combinations.length > 0 ? untouchedDefaults(cases, combinations, loads, (type) => t(DEFAULT_CASE_NAME_KEYS[type])) : { cases: [], combinations: [] };
+  const defaults = { cases: untouched.cases.filter((id) => !targets.has(id)), combinations: untouched.combinations };
+  const defaultCombo = new Set(defaults.combinations);
   const marked = (l: Load) => !!(l.data as { generatedBy?: string }).generatedBy;
   const defined = (l: Load) => (l.data as { fromDef?: number }).fromDef !== undefined;
   const caseOf = (l: Load) => l.data.caseId ?? 1;
@@ -87,10 +96,11 @@ export function replaceScope(
     },
     unmarked: {
       loads: loads.filter((l) => !marked(l) && !defined(l) && targets.has(caseOf(l))).map((l) => l.data.id),
-      combinations: combinations.filter((c) => !codeWritten(c) && (c.factors ?? []).some((f) => f.factor !== 0 && targets.has(f.caseId))).map((c) => c.id),
+      combinations: combinations.filter((c) => !codeWritten(c) && !defaultCombo.has(c.id) && (c.factors ?? []).some((f) => f.factor !== 0 && targets.has(f.caseId))).map((c) => c.id),
     },
     targets: [...targets],
     defined: { loads: loads.filter((l) => defined(l) && types.has(caseType.get(caseOf(l)) ?? '')).map((l) => l.data.id) },
+    defaults,
   };
 }
 
@@ -137,11 +147,28 @@ export function loadStateForPlan(p: LoadPlan, nameOf?: ApplyLoadPlanOptions['nam
     generated: { byType: byType(s.generated.loads), combinations: s.generated.combinations.length },
     unmarked: { byType: byType(s.unmarked.loads), combinations: s.unmarked.combinations.length },
     defined: { byType: byType(s.defined.loads) },
+    defaults: {
+      cases: cases.filter((c) => s.defaults.cases.includes(c.id)).map((c) => ({ name: c.name, type: String(c.type) })),
+      combinations: s.defaults.combinations.length,
+    },
   };
 }
 
 export function applyLoadPlan(p: LoadPlan, opts: ApplyLoadPlanOptions): void {
   modelStore.batch(() => {
+    // The basis of what is about to be written, for the memoria (`LoadBasis`).
+    const { windGust: _gust, ...scalars } = p.factors;
+    const factors = Object.fromEntries(Object.entries(scalars).filter(([, v]) => v !== undefined)) as Record<string, NonNullable<(typeof scalars)[keyof typeof scalars]>>;
+    patchDesignData({ loadBasis: {
+      at: new Date().toISOString(), ...(p.generatedBy ? { generatedBy: p.generatedBy } : {}), factors,
+      levels: p.levels.map(({ nodeIds: _n, ...l }) => l), ...(p.seismic ? { seismic: p.seismic } : {}),
+      derivation: p.derivation, assumptions: p.assumptions, refs: p.refs,
+    } });
+    {
+      const { defaults } = replaceScope(p, modelStore.loads, modelStore.model.loadCases, modelStore.model.combinations, opts.nameOf);
+      for (const id of defaults.combinations) modelStore.removeCombination(id);
+      for (const id of defaults.cases) modelStore.removeLoadCase(id);
+    }
     if (opts.clearExisting) {
       const gone = replacedByPlan(p, modelStore.loads, modelStore.model.loadCases, modelStore.model.combinations, { alsoUnmarked: opts.alsoUnmarked, nameOf: opts.nameOf });
       const ids = new Set(gone.loads);

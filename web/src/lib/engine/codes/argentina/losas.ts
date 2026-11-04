@@ -1,12 +1,23 @@
-// CIRSOC 201 — Slab (Losa) Verification & Design
-// Implements reinforcement design for one-way, two-way (crossed), and cantilever slabs
-// per CIRSOC 201-2005. Does NOT modify the solver.
+// CIRSOC 201 — Slab (Losa) design per metre strip, sized and checked by the engine.
+//
+// One-way, two-way (crossed) and cantilever slabs. The strength arithmetic is the engine's: the
+// steel a 1 m strip needs is the least the engine's beam check passes (`cirsoc201_design_beam`,
+// singly reinforced, φ and the ductility floor of the edition), the capacity of the bars chosen
+// is the engine's check of them (`cirsoc201_beam_batch`), and the minimum steel and maximum
+// spacings come from `cirsoc201_slab_provisions` (2025: 0,0018·Ag, 7.6.1.1 / 8.6.1.1 / 24.4.3.2;
+// s ≤ min(3h, 300 mm) one-way 7.7.2.3, min(2h, 300 mm) two-way 8.7.2.2, min(5h, 450 mm) for
+// distribution steel 24.4.3.3). This module chooses bars and spacings (a search over the bar
+// table) and reports. The TypeScript it replaced — ρ from the quadratic at φ = 0,90, a ρmax
+// fallback that kept designing a slab too thin for its moment, φ taken at the required steel
+// and the capacity re-derived with fs = fy — is the oracle in __tests__/differential/oracle/.
 //
 // Units: kN, m, MPa, cm² (for reinforcement areas)
 
 import { REBAR_DB } from './cirsoc201';
 import type { VerifStatus } from './cirsoc201';
-import { beta1, yieldStrain, phiFromStrain } from './cirsoc201-basis';
+import type { RegulationEdition } from '../../../codes/regulation';
+import { evaluateBeamSection } from './cirsoc201-beam-kernel';
+import { cirsoc201Engine, Cirsoc201EngineUnavailable } from './cirsoc201-engine';
 
 // ─── Types ────────────────────────────────────────────────────────
 
@@ -22,6 +33,8 @@ export interface SlabDesignParams {
   Mu_y?: number;      // moment in Y direction (kN·m per m width) — required for bidirectional
   Mu_neg_x?: number;  // negative moment at supports in X (kN·m per m width)
   Mu_neg_y?: number;  // negative moment at supports in Y (kN·m per m width)
+  /** CIRSOC 201 edition. Default 2025, the edition in force. */
+  edition?: RegulationEdition;
 }
 
 export interface SlabRebarLayout {
@@ -77,57 +90,37 @@ export interface SlabTorsionResult {
   steps: string[];
 }
 
-// ─── Constants ────────────────────────────────────────────────────
+// ─── Engine helpers ───────────────────────────────────────────────
 
-const PHI_FLEXURE = 0.9;
-const RHO_MIN_SLAB = 0.0018; // CIRSOC 201 §7.12: As,min = 0.0018·b·h
 const B_UNIT = 1.0; // unit width = 1 m
-
-// ─── Helpers ──────────────────────────────────────────────────────
-
 
 /** Effective depth for slabs (single layer) */
 function slabEffectiveDepth(h: number, cover: number, barDia: number): number {
   return h - cover - barDia / 2000;
 }
 
-/** Compute required As for flexure in a unit-width strip (kN·m per m) */
+/** [As,min (cm²/m), s,max one-way, s,max two-way, s,max distribution (m)] from the engine. */
+function slabProvisions(edition: RegulationEdition, fy: number, h: number) {
+  const v = cirsoc201Engine('slabProvisions')(Float64Array.of(edition === '2005' ? 2005 : 2025, fy * 1e6, h));
+  return { AsMin: v[0] * 1e4, sOneWay: v[1], sTwoWay: v[2], sDistribution: v[3] };
+}
+
+/** The steel a 1 m strip needs for Mu (kN·m/m), from the engine: cm²/m, or NaN when none works. */
 function computeAsFlexure(
-  Mu: number, d: number, fc: number, fy: number,
-): { As: number; a: number; phi: number } {
-  const MuAbs = Math.abs(Mu);
-  const fc_kPa = fc * 1000;
-  const fy_kPa = fy * 1000;
+  Mu: number, h: number, d: number, fc: number, fy: number, edition: RegulationEdition,
+): { As: number; phi: number; possible: boolean } {
+  const v = cirsoc201Engine('designBeam')(Float64Array.of(
+    edition === '2005' ? 2005 : 2025, fc * 1e6, fy * 1e6, 0, B_UNIT, h, d, 0, 0, 0, 0,
+    Math.abs(Mu) * 1e3, 0, 0, 0,
+  ));
+  return { As: v[1] * 1e4, phi: v[4], possible: v[0] !== 2 };
+}
 
-  let phi = PHI_FLEXURE;
-  const Rn = MuAbs / (phi * B_UNIT * d * d);
-  const term = 2 * Rn / (0.85 * fc_kPa);
-
-  let rho: number;
-  if (term >= 1) {
-    // Section too thin — use ρ_max
-    rho = 0.75 * beta1(fc) * 0.85 * fc / fy * (0.003 / (0.003 + yieldStrain(fy)));
-  } else {
-    rho = (0.85 * fc / fy) * (1 - Math.sqrt(1 - term));
-  }
-
-  const As = rho * B_UNIT * d * 1e4; // cm²/m
-  const As_m2 = As * 1e-4;
-  const a = (As_m2 * fy_kPa) / (0.85 * fc_kPa * B_UNIT);
-
-  // Verify εt and adjust φ
-  const c = a / beta1(fc);
-  if (c > 0) {
-    const epsilonT = 0.003 * (d - c) / c;
-    /*
-     * The same ramp every other section type in this module uses. It was
-     * spelled out here with 0.0021 — the yield strain of a 420 bar — which
-     * is right for that bar and only that one; see `cirsoc201-basis.ts`.
-     */
-    phi = phiFromStrain(epsilonT, fy);
-  }
-
-  return { As, a, phi };
+/** φMn (kN·m/m) of a 1 m strip with `AsCm2` per metre — the engine's check. */
+function stripCapacity(AsCm2: number, h: number, d: number, fc: number, fy: number, edition: RegulationEdition): number {
+  const r = evaluateBeamSection({ edition, fc: fc * 1e6, fy: fy * 1e6, b: B_UNIT, h, d, As: AsCm2 * 1e-4 });
+  if (!r) throw new Cirsoc201EngineUnavailable('slab strip capacity');
+  return r.flexureValid && Number.isFinite(r.phiMn) ? r.phiMn / 1e3 : 0;
 }
 
 /** Select slab rebar: prefer small diameters with good distribution */
@@ -188,62 +181,47 @@ function selectSlabRebar(
 
 export function designSlab(params: SlabDesignParams): SlabDesignResult {
   const { type, h, fc, fy, cover, Mu_x, Mu_y, Mu_neg_x, Mu_neg_y } = params;
+  const edition = params.edition ?? '2025';
   const steps: string[] = [];
+  const prov = slabProvisions(edition, fy, h);
 
   // 1. Minimum reinforcement
-  const AsMin = RHO_MIN_SLAB * B_UNIT * h * 1e4; // cm²/m
-  steps.push(`As,mín = 0.0018·b·h = 0.0018·100·${(h * 100).toFixed(0)} = ${AsMin.toFixed(2)} cm²/m`);
+  const AsMin = prov.AsMin; // cm²/m
+  steps.push(`As,mín = ${AsMin.toFixed(2)} cm²/m (CIRSOC 201-${edition}, motor)`);
 
   // 2. Effective depth (assume Ø8 initially)
   const d = slabEffectiveDepth(h, cover, 8);
   steps.push(`d = ${(h * 100).toFixed(0)} - ${(cover * 100).toFixed(1)} - 0.4 = ${(d * 100).toFixed(1)} cm`);
 
-  // 3. Maximum spacings per slab type
-  let sepMaxPrimary: number;
-  let sepMaxSecondary: number;
+  // 3. Maximum spacings per slab type (the engine's)
+  const sepMaxPrimary = type === 'bidirectional' ? prov.sTwoWay : prov.sOneWay;
+  const sepMaxSecondary = type === 'bidirectional' ? prov.sTwoWay : prov.sDistribution;
   const minDiaPrimary = type === 'cantilever' ? 10 : 6;
+  steps.push(`sep,máx principal = ${(sepMaxPrimary * 100).toFixed(0)} cm, secundaria = ${(sepMaxSecondary * 100).toFixed(0)} cm`);
 
-  switch (type) {
-    case 'unidirectional':
-      // Primary: min(2.5h, 25·dB, 250mm)
-      sepMaxPrimary = Math.min(2.5 * h, 0.25);
-      // Distribution: min(3h, 250mm)
-      sepMaxSecondary = Math.min(3 * h, 0.25);
-      steps.push(`sep,máx principal = mín(2.5h, 250mm) = ${(sepMaxPrimary * 100).toFixed(0)} cm`);
-      steps.push(`sep,máx repartición = mín(3h, 250mm) = ${(sepMaxSecondary * 100).toFixed(0)} cm`);
-      break;
-    case 'bidirectional':
-      // Both directions: min(2h, 25·dB, 250mm)
-      sepMaxPrimary = Math.min(2 * h, 0.25);
-      sepMaxSecondary = Math.min(2 * h, 0.25);
-      steps.push(`sep,máx = mín(2h, 250mm) = ${(sepMaxPrimary * 100).toFixed(0)} cm`);
-      break;
-    case 'cantilever':
-      // Primary: min(2.5h, 25·dB, 250mm)
-      sepMaxPrimary = Math.min(2.5 * h, 0.25);
-      // Distribution: min(3h, 250mm)
-      sepMaxSecondary = Math.min(3 * h, 0.25);
-      steps.push(`sep,máx principal = mín(2.5h, 250mm) = ${(sepMaxPrimary * 100).toFixed(0)} cm`);
-      break;
-  }
+  let impossible = false;
+  const size = (Mu: number) => {
+    const r = computeAsFlexure(Mu, h, d, fc, fy, edition);
+    if (!r.possible) impossible = true;
+    return r;
+  };
 
   // 4. Primary reinforcement (X direction)
   const MuX = Math.abs(Mu_x);
-  const { As: AsReqX, phi: phiX } = computeAsFlexure(MuX, d, fc, fy);
-  const AsDesignX = Math.max(AsReqX, AsMin);
-  steps.push(`As,req,X = ${AsReqX.toFixed(2)} cm²/m → diseño: ${AsDesignX.toFixed(2)} cm²/m`);
+  const resX = size(MuX);
+  const AsReqX = resX.possible ? resX.As : NaN;
+  const AsDesignX = resX.possible ? Math.max(AsReqX, AsMin) : AsMin;
+  steps.push(resX.possible
+    ? `As,req,X = ${AsReqX.toFixed(2)} cm²/m → diseño: ${AsDesignX.toFixed(2)} cm²/m`
+    : `⚠ Ninguna armadura simple resiste Mu,X con la ductilidad exigida — losa demasiado delgada`);
 
   const primaryLayout = selectSlabRebar(AsDesignX, sepMaxPrimary, minDiaPrimary);
   primaryLayout.face = type === 'cantilever' ? 'top' : 'bottom';
   steps.push(`Armadura principal: ${primaryLayout.label} (As = ${primaryLayout.As.toFixed(2)} cm²/m) — cara ${primaryLayout.face === 'top' ? 'superior' : 'inferior'}`);
 
-  // Recalculate capacity
-  const AsPrimProv_m2 = primaryLayout.As * 1e-4;
-  const fc_kPa = fc * 1000;
-  const fy_kPa = fy * 1000;
-  const aPrim = (AsPrimProv_m2 * fy_kPa) / (0.85 * fc_kPa * B_UNIT);
-  const MdPrim = phiX * AsPrimProv_m2 * fy_kPa * (d - aPrim / 2);
-  const ratioPrim = MuX / MdPrim;
+  // Capacity of the bars chosen — the engine's check
+  const MdPrim = stripCapacity(primaryLayout.As, h, d, fc, fy, edition);
+  const ratioPrim = MdPrim > 0 ? MuX / MdPrim : Infinity;
   steps.push(`φMn,X = ${MdPrim.toFixed(2)} kN·m/m → ratio = ${ratioPrim.toFixed(3)}`);
 
   // Bent-up bars (half dobladas, half sin doblar) — NOT for cantilevers
@@ -253,18 +231,12 @@ export function designSlab(params: SlabDesignParams): SlabDesignResult {
     const bentSpacing = primaryLayout.spacing * 2;
     const bentAs = primaryLayout.As / 2;
     layoutBent = {
-      dia: primaryLayout.dia,
-      spacing: bentSpacing,
-      As: bentAs,
-      label: `Ø${primaryLayout.dia} c/${(bentSpacing * 100).toFixed(0)} dobladas`,
-      face: 'bottom',
+      dia: primaryLayout.dia, spacing: bentSpacing, As: bentAs,
+      label: `Ø${primaryLayout.dia} c/${(bentSpacing * 100).toFixed(0)} dobladas`, face: 'bottom',
     };
     layoutStraight = {
-      dia: primaryLayout.dia,
-      spacing: bentSpacing,
-      As: bentAs,
-      label: `Ø${primaryLayout.dia} c/${(bentSpacing * 100).toFixed(0)} sin doblar`,
-      face: 'bottom',
+      dia: primaryLayout.dia, spacing: bentSpacing, As: bentAs,
+      label: `Ø${primaryLayout.dia} c/${(bentSpacing * 100).toFixed(0)} sin doblar`, face: 'bottom',
     };
     steps.push(`Doblado: ${layoutBent.label} + ${layoutStraight.label}`);
   } else {
@@ -273,60 +245,37 @@ export function designSlab(params: SlabDesignParams): SlabDesignResult {
 
   // 5. Secondary reinforcement (Y direction or distribution)
   let AsReqY: number;
-  let phiY = PHI_FLEXURE;
   let MuY = 0;
-
   if (type === 'bidirectional' && Mu_y !== undefined) {
     MuY = Math.abs(Mu_y);
-    const resY = computeAsFlexure(MuY, d, fc, fy);
-    AsReqY = Math.max(resY.As, AsMin);
-    phiY = resY.phi;
-    steps.push(`As,req,Y = ${resY.As.toFixed(2)} cm²/m → diseño: ${AsReqY.toFixed(2)} cm²/m`);
+    const resY = size(MuY);
+    AsReqY = resY.possible ? Math.max(resY.As, AsMin) : AsMin;
+    steps.push(`As,req,Y = ${resY.possible ? resY.As.toFixed(2) : '—'} cm²/m → diseño: ${AsReqY.toFixed(2)} cm²/m`);
   } else {
-    // Distribution reinforcement: max(AsMin, As_principal/5)
+    // Distribution: at least the shrinkage-and-temperature steel, and a fifth of the main steel.
     AsReqY = Math.max(AsMin, AsDesignX / 5);
     steps.push(`Armadura repartición: máx(As,mín, As,princ/5) = ${AsReqY.toFixed(2)} cm²/m`);
   }
-
   const secondaryLayout = selectSlabRebar(AsReqY, sepMaxSecondary);
   secondaryLayout.face = 'bottom';
   steps.push(`Armadura secundaria: ${secondaryLayout.label} (As = ${secondaryLayout.As.toFixed(2)} cm²/m)`);
-
-  // Secondary capacity
-  const AsSecProv_m2 = secondaryLayout.As * 1e-4;
-  const aSec = (AsSecProv_m2 * fy_kPa) / (0.85 * fc_kPa * B_UNIT);
-  const MdSec = phiY * AsSecProv_m2 * fy_kPa * (d - aSec / 2);
-  const ratioSec = MuY > 0 ? MuY / MdSec : 0;
+  const MdSec = stripCapacity(secondaryLayout.As, h, d, fc, fy, edition);
+  const ratioSec = MuY > 0 ? (MdSec > 0 ? MuY / MdSec : Infinity) : 0;
 
   // 6. Negative moment at supports
-  let supportX: SlabDesignResult['support_x'];
-  let supportY: SlabDesignResult['support_y'];
-
-  if (Mu_neg_x !== undefined && Math.abs(Mu_neg_x) > 0.01) {
-    const MuNegX = Math.abs(Mu_neg_x);
-    const resNeg = computeAsFlexure(MuNegX, d, fc, fy);
-    const AsNeg = Math.max(resNeg.As, AsMin);
-    const layoutNeg = selectSlabRebar(AsNeg, sepMaxPrimary);
+  const support = (Mu: number, sepMax: number, label: string) => {
+    const MuNeg = Math.abs(Mu);
+    const res = size(MuNeg);
+    const AsNeg = res.possible ? Math.max(res.As, AsMin) : AsMin;
+    const layoutNeg = selectSlabRebar(AsNeg, sepMax);
     layoutNeg.face = 'top';
-    const AsNeg_m2 = layoutNeg.As * 1e-4;
-    const aNeg = (AsNeg_m2 * fy_kPa) / (0.85 * fc_kPa * B_UNIT);
-    const MdNeg = resNeg.phi * AsNeg_m2 * fy_kPa * (d - aNeg / 2);
-    supportX = { As_req: AsNeg, layout: layoutNeg, Md: MdNeg, ratio: MuNegX / MdNeg };
-    steps.push(`Apoyo X: ${layoutNeg.label} (cara sup.) — ratio = ${supportX.ratio.toFixed(3)}`);
-  }
-
-  if (Mu_neg_y !== undefined && Math.abs(Mu_neg_y) > 0.01) {
-    const MuNegY = Math.abs(Mu_neg_y);
-    const resNeg = computeAsFlexure(MuNegY, d, fc, fy);
-    const AsNeg = Math.max(resNeg.As, AsMin);
-    const layoutNeg = selectSlabRebar(AsNeg, sepMaxSecondary);
-    layoutNeg.face = 'top';
-    const AsNeg_m2 = layoutNeg.As * 1e-4;
-    const aNeg = (AsNeg_m2 * fy_kPa) / (0.85 * fc_kPa * B_UNIT);
-    const MdNeg = resNeg.phi * AsNeg_m2 * fy_kPa * (d - aNeg / 2);
-    supportY = { As_req: AsNeg, layout: layoutNeg, Md: MdNeg, ratio: MuNegY / MdNeg };
-    steps.push(`Apoyo Y: ${layoutNeg.label} (cara sup.) — ratio = ${supportY.ratio.toFixed(3)}`);
-  }
+    const MdNeg = stripCapacity(layoutNeg.As, h, d, fc, fy, edition);
+    const out = { As_req: AsNeg, layout: layoutNeg, Md: MdNeg, ratio: MdNeg > 0 ? MuNeg / MdNeg : Infinity };
+    steps.push(`${label}: ${layoutNeg.label} (cara sup.) — ratio = ${out.ratio.toFixed(3)}`);
+    return out;
+  };
+  const supportX = Mu_neg_x !== undefined && Math.abs(Mu_neg_x) > 0.01 ? support(Mu_neg_x, sepMaxPrimary, 'Apoyo X') : undefined;
+  const supportY = Mu_neg_y !== undefined && Math.abs(Mu_neg_y) > 0.01 ? support(Mu_neg_y, sepMaxSecondary, 'Apoyo Y') : undefined;
 
   // 7. Constructive reinforcement (cantilever: bottom face = distribution rebar)
   let constructive: SlabRebarLayout | undefined;
@@ -337,28 +286,20 @@ export function designSlab(params: SlabDesignParams): SlabDesignResult {
 
   // 8. Overall status
   let overallStatus: VerifStatus = 'ok';
-  if (ratioPrim > 1.0) overallStatus = 'fail';
+  if (!(ratioPrim <= 1.0)) overallStatus = 'fail';
   else if (ratioPrim > 0.9) overallStatus = 'warn';
-  if (type === 'bidirectional' && ratioSec > 1.0) overallStatus = 'fail';
-  if (supportX && supportX.ratio > 1.0) overallStatus = 'fail';
-  if (supportY && supportY.ratio > 1.0) overallStatus = 'fail';
+  if (type === 'bidirectional' && !(ratioSec <= 1.0)) overallStatus = 'fail';
+  if (supportX && !(supportX.ratio <= 1.0)) overallStatus = 'fail';
+  if (supportY && !(supportY.ratio <= 1.0)) overallStatus = 'fail';
+  if (impossible) overallStatus = 'fail';
 
   return {
     type, h, d, AsMin,
     primary: {
-      As_req: AsDesignX,
-      layout: primaryLayout,
-      layout_bent: layoutBent,
-      layout_straight: layoutStraight,
-      Md: MdPrim,
-      ratio: ratioPrim,
+      As_req: AsDesignX, layout: primaryLayout, layout_bent: layoutBent, layout_straight: layoutStraight,
+      Md: MdPrim, ratio: ratioPrim,
     },
-    secondary: {
-      As_req: AsReqY,
-      layout: secondaryLayout,
-      Md: MdSec,
-      ratio: ratioSec,
-    },
+    secondary: { As_req: AsReqY, layout: secondaryLayout, Md: MdSec, ratio: ratioSec },
     support_x: supportX,
     support_y: supportY,
     constructive,

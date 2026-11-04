@@ -23,8 +23,7 @@ import { historyStore } from '../../store/history.svelte';
 import { uiStore } from '../../store/ui.svelte';
 import { regulationsStore } from '../../store/regulations.svelte';
 import '../../store';
-import { initSolver, solveModal3D, solveSpectral3D } from '../wasm-solver';
-import { spectralModesFrom, modalUntilMass } from '../dynamics/requests';
+import { initSolver } from '../wasm-solver';
 import { dynamicInput } from '../../store/dynamic-input';
 import * as spectralCase from '../spectral-case';
 import { userSa, userSpectrumPointsInG, G, type UserSpectrum } from '../spectral-case';
@@ -34,7 +33,6 @@ import { staticsRows } from '../../store/statics-rows';
 import { singleSolveFactors } from '../case-effects';
 import { t } from '../../i18n';
 import type { AnalysisResults3D } from '../types-3d';
-import type { ModalResult3D } from '../result-types';
 
 beforeAll(async () => { await initSolver(); });
 beforeEach(() => {
@@ -90,10 +88,13 @@ describe('directions', () => {
     const s = spectral('Es', { x: 1, y: 0.3, z: 0 }, { directions: 'srss' });
     const r = results();
     const n = (id: number) => ef(r.get(id)!, 1).nStart;
-    expect(Math.abs(n(ex))).toBeCloseTo(2.828, 3);
-    expect(Math.abs(n(ey))).toBeCloseTo(4.236, 3);
+    // Engine values (snapshots), with the support-coupled mass in the participation since
+    // #434 (they were 2.828 / 4.236 / 4.099 with the free block only). The rule is what is
+    // asserted: |Ex| + 0.3·|Ey|.
+    expect(Math.abs(n(ex))).toBeCloseTo(2.869, 3);
+    expect(Math.abs(n(ey))).toBeCloseTo(4.332, 3);
     expect(Math.abs(n(e))).toBeCloseTo(Math.abs(n(ex)) + 0.3 * Math.abs(n(ey)), 9);
-    expect(Math.abs(n(e))).toBeCloseTo(4.099, 3);
+    expect(Math.abs(n(e))).toBeCloseTo(4.168, 3);
     // The sense across does not matter; the sign is the main direction's.
     expect(n(minus)).toBeCloseTo(n(e), 9);
     expect(Math.sign(n(e))).toBe(Math.sign(n(ex)));
@@ -273,6 +274,31 @@ describe('user spectra', () => {
     expect(panel).toMatch(/userSpectrum\.negative/);
     expect(panel).toMatch(/userSpectrum\.duplicate/);
   });
+
+  it('a spectrum deleted leaves its number unused: a new one is not taken by a case on the old', () => {
+    frame(1);
+    const spectrum = (sa: number) => (id: number): UserSpectrum => ({ id, name: `S${id}`, ordinate: 'Sa', unit: 'g', interpolation: 'linear', points: [[0, sa], [5, sa]] });
+    modelStore.addUserSpectrum(spectrum(0.4));
+    const s2 = modelStore.addUserSpectrum(spectrum(0.8));
+    const ex = modelStore.addLoadCase('Ex', 'E');
+    modelStore.updateLoadCaseFields(ex, { spectral: { source: { kind: 'user', spectrumId: s2 }, factors: { x: 1, y: 0, z: 0 }, rule: 'cqc', xi: 0.05, scale: 1 } as never });
+    // Refused while the case is on it, and says which case.
+    expect(modelStore.removeUserSpectrum(s2)).toBe(false);
+    expect(modelStore.casesOnSpectrum(s2).map((c) => c.name)).toEqual(['Ex']);
+    // Off the case, it goes; the next spectrum takes a new number, also after a save and a load.
+    modelStore.updateLoadCaseFields(ex, { spectral: { source: { kind: 'code' }, factors: { x: 1, y: 0, z: 0 }, rule: 'cqc', xi: 0.05, scale: 1 } as never });
+    expect(modelStore.removeUserSpectrum(s2)).toBe(true);
+    const saved = JSON.parse(JSON.stringify(modelStore.snapshot()));
+    modelStore.clear();
+    modelStore.restore(saved);
+    expect(modelStore.addUserSpectrum(spectrum(0.4))).not.toBe(s2);
+    // A file without the counter, whose case names a spectrum it lost: that number is not given.
+    delete saved.nextId.spectrum;
+    saved.loadCases.find((c: { id: number }) => c.id === ex).spectral.source = { kind: 'user', spectrumId: s2 };
+    modelStore.restore(saved);
+    expect(modelStore.addUserSpectrum(spectrum(0.4))).not.toBe(s2);
+    expect(typeof spectralStore.spectralCaseResults()).toBe('string');
+  });
 });
 
 describe('the structure the mode shapes are imposed on', () => {
@@ -288,26 +314,20 @@ describe('the structure the mode shapes are imposed on', () => {
     for (const b of [b1, b2]) expect(ef(oneWay, b).nStart).toBeCloseTo(ef(linear, b).nStart, 9);
   });
 
-  it('on the centerline the modes are found on: member offsets as the engine’s spectral analysis reads them', () => {
-    // Outside PRO: in PRO the engine's spectral analysis read this column's N as 6.68 for the same
-    // input and modes, where K·u, and the same analysis outside PRO, give 2.83 (the engine's own,
-    // not looked into here).
+  it('member offsets: the spectral case is refused by name, not solved on the centerline', () => {
+    /*
+     * Changed with the design stack (`store/dynamic-input.ts`): the modes, the mass source and the
+     * spectral cases are built on the node lines, without the helper nodes and rigid arms that carry
+     * a declared insertion. This read the centred answer as the model's (and pinned that it equals
+     * the engine's spectral analysis of the same centred input); the dynamic input now refuses a
+     * model with member or shell offsets by name, as it refuses sliding and 3D joints, while the
+     * static solve and the combinations expand the offsets. The stricter reading is kept.
+     */
     uiStore.analysisMode = '3d';
     const grid = frame(2); flat();
     modelStore.setElementsOffset([1, 2, 3, 4], { frame: 'global', i: { x: 0.2, y: 0, z: 0 }, j: { x: 0.2, y: 0, z: 0 } });
-    const e = spectral('E', { x: 1, y: 0, z: 0 }, { rule: 'srss' });
-    // The modes the case is worked out on: the project's dynamic input, as many as X asks for.
-    const { input, densities } = dynamicInput();
-    const modal = modalUntilMass((n) => solveModal3D(input, densities, n) as never, 12, 0.9, 200, ['x']).result as unknown as ModalResult3D;
-    const engine = solveSpectral3D({
-      solver: input, modes: spectralModesFrom(modal), densities,
-      spectrum: { name: 'flat', points: [{ period: 0, sa: 0.4 }, { period: 5, sa: 0.4 }], inG: true },
-      direction: 'X', rule: 'SRSS', xi: 0.05, importanceFactor: 1, reductionFactor: 1,
-    }) as unknown as { elementForces: Array<{ elementId: number; nMax: number }> };
-    // Each member's axial force is one value along it, in every mode: the engine's is its SRSS.
-    const ours = results().get(e)!;
-    expect(engine.elementForces.find((x) => x.elementId === 1)!.nMax).toBeGreaterThan(1);
-    for (const id of [1, 2, 3, 4, 9, 10, 11, 12]) expect(Math.abs(ef(ours, id).nStart)).toBeCloseTo(engine.elementForces.find((x) => x.elementId === id)!.nMax, 6);
+    spectral('E', { x: 1, y: 0, z: 0 }, { rule: 'srss' });
+    expect(() => dynamicInput()).toThrow(t('advanced.offsetsUnsupported'));
     void grid;
   });
 });

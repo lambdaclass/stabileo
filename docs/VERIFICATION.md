@@ -6,11 +6,11 @@ This document explains how Dedaliano should build solver trust.
 
 It is not the benchmark ledger and it is not the product roadmap.
 
-- Use [`BENCHMARKS.md`](/Users/unbalancedparen/projects/dedaliano/docs/BENCHMARKS.md) for benchmark status and solver maturity.
-- Use [`SOLVER_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/docs/roadmap/SOLVER_ROADMAP.md) for solver sequencing and implementation order.
-- Use [`PRODUCT_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/docs/roadmap/PRODUCT_ROADMAP.md) for app and workflow sequencing.
-- Use [`POSITIONING.md`](/Users/unbalancedparen/projects/dedaliano/docs/POSITIONING.md) for the business meaning of solver trust.
-- Use [`research/lean_formal_verification.md`](/Users/unbalancedparen/projects/dedaliano/docs/research/lean_formal_verification.md) for the Lean-specific formal-verification research plan and ROI ranking.
+- Use [`BENCHMARKS.md`](../docs/BENCHMARKS.md) for benchmark status and solver maturity.
+- Use [`SOLVER_ROADMAP.md`](../docs/roadmap/SOLVER_ROADMAP.md) for solver sequencing and implementation order.
+- Use [`PRODUCT_ROADMAP.md`](../docs/roadmap/PRODUCT_ROADMAP.md) for app and workflow sequencing.
+- Use [`POSITIONING.md`](../docs/POSITIONING.md) for the business meaning of solver trust.
+- Use [`research/lean_formal_verification.md`](../docs/research/lean_formal_verification.md) for the Lean-specific formal-verification research plan and ROI ranking.
 
 ## Goal
 
@@ -142,7 +142,7 @@ Good candidates:
 - assembly invariants
 - compact state-transition kernels
 
-For the current Lean-oriented research plan, theorem ladder, and recommended proof scope, see [`research/lean_formal_verification.md`](/Users/unbalancedparen/projects/dedaliano/docs/research/lean_formal_verification.md).
+For the current Lean-oriented research plan, theorem ladder, and recommended proof scope, see [`research/lean_formal_verification.md`](../docs/research/lean_formal_verification.md).
 
 Bad candidates:
 
@@ -182,7 +182,7 @@ These should act as release gates for major solver changes.
 The release-gate suite of public benchmark buildings with published reference
 results (SAC steel frames, IASC-ASCE SHM frame, ...) is described in
 [`verification/ACCEPTANCE.md`](verification/ACCEPTANCE.md) and runs as
-`cargo test --release --test acceptance`.
+`cargo test --release --test gates acceptance::`.
 
 ## Priority Order
 

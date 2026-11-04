@@ -34,14 +34,22 @@
  *
  * Usage (runs as part of `npm run build`):
  *   npx tsx scripts/prerender.ts
+ *   PRERENDER_CONCURRENCY=4 npx tsx scripts/prerender.ts
+ * Defaults to min(6, CPU count); set 1 for serial diagnostics.
  */
-import { chromium, type Browser } from 'playwright';
+import { chromium, type Browser, type Page } from 'playwright';
 import { createServer } from 'node:http';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join, dirname, extname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { newPrerenderPage, prerenderConcurrency, routePool } from './prerender-pool';
 import { rootHandoffScript } from './root-handoff';
+import { paperStructuredData } from './paper-structured-data';
+import { PUBLIC_LOCALES, type Locale } from '../src/lib/i18n/offered';
+import { TOOL_IDS } from '../src/components/tools/calculators';
+import { BATCH_IDS } from '../src/components/tools/batch';
+import toolReviews from '../../research/tools/batches/VALIDATION.json';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 /**
@@ -58,7 +66,7 @@ const DIST = process.env.PRERENDER_OUT
   ? resolve(process.env.PRERENDER_OUT)
   : join(ROOT, 'dist');
 const ORIGIN = 'https://stabileo.com';
-const LOCALES = ['en', 'es', 'pt'] as const;
+const LOCALES = PUBLIC_LOCALES;
 /**
  * The language a browser we do not speak is sent to, and the one the root
  * serves. Kept beside LOCALES because `ROOT_REDIRECT` is built from both.
@@ -66,29 +74,6 @@ const LOCALES = ['en', 'es', 'pt'] as const;
 const DEFAULT_LOCALE = 'en';
 /** Build day, for the sitemap's lastmod. */
 const TODAY = new Date().toISOString().slice(0, 10);
-type Locale = (typeof LOCALES)[number];
-
-/**
- * `LOCALES` above is the application's `PUBLIC_LOCALES`, restated.
- *
- * It cannot be imported: that constant lives in a `.svelte.ts` module full of
- * runes, and this script runs under tsx with no Svelte compiler. So it is read
- * out of the source instead — the same trick `publicPaths()` uses for the post
- * slugs — and the build fails rather than silently prerendering a language the
- * application no longer offers, or missing one it just gained.
- */
-async function assertLocalesMatchTheApp() {
-  const source = await readFile(join(ROOT, 'src/lib/i18n/store.svelte.ts'), 'utf8');
-  const declared = source.match(/export const PUBLIC_LOCALES\s*=\s*\[([^\]]*)\]/);
-  if (!declared) throw new Error('prerender: could not find PUBLIC_LOCALES in store.svelte.ts');
-  const found = [...declared[1].matchAll(/'([a-z-]+)'/g)].map((m) => m[1]);
-  if (found.join(',') !== LOCALES.join(',')) {
-    throw new Error(
-      `prerender: PUBLIC_LOCALES is [${found}] but this script prerenders [${LOCALES}]. ` +
-        'Update LOCALES here — the pages, the sitemap and the root handoff all come from it.',
-    );
-  }
-}
 
 const MIME: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
@@ -132,6 +117,110 @@ function serveDist(port: number) {
   });
 }
 
+/**
+ * A post's last change, for its sitemap entry: `updated` when the post states one, else its
+ * publication date. The build day said every post changed on every deploy, which teaches a
+ * crawler to ignore lastmod.
+ */
+const POST_LASTMOD = new Map<string, string>();
+/** The blog index's description in each language, for its feed. */
+const BLOG_LEAD = new Map<string, string>();
+
+/** A post's publication day, for its feed entry and its card. */
+const POST_DATE = new Map<string, string>();
+
+/** The languages always written; the others count for a post or standing page only once its translation file exists. */
+const BASE_LOCALES: readonly Locale[] = ['en', 'es', 'pt'];
+
+/** The languages a public path is written in, which are the only ones the sitemap and the feeds publish it under. */
+function writtenIn(path: string): Locale[] {
+  if (path === '/' || path === '/blog' || path === '/tools' || path.startsWith('/tools/')) return [...LOCALES];
+  const id = path.startsWith('/blog/') ? path.slice('/blog/'.length) : `page-${path.slice(1)}`;
+  return LOCALES.filter(
+    (l) => BASE_LOCALES.includes(l) || existsSync(join(ROOT, `src/lib/blog/translations/${l}/${id}.ts`)),
+  );
+}
+
+/** What a captured post says about itself, read back from its own <head>: the feed and the card use it. */
+type PostHead = { path: string; locale: Locale; title: string; description: string };
+
+function decodeEntities(s: string): string {
+  return s
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;|&#x27;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&');
+}
+
+function xmlEscape(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function headMeta(head: string, attr: string, name: string): string | undefined {
+  const re = new RegExp(`<meta[^>]*${attr}="${name}"[^>]*content="([^"]*)"`);
+  return head.match(re)?.[1];
+}
+
+/**
+ * One RSS 2.0 feed per language, newest first, at /<locale>/blog/feed.xml. Pages on the blog
+ * advertise it with <link rel="alternate" type="application/rss+xml"> (src/lib/page-meta.ts).
+ */
+function feedXml(locale: Locale, posts: PostHead[]): string {
+  const items = posts
+    .filter((p) => p.locale === locale && writtenIn(p.path).includes(locale))
+    .sort((a, b) => (POST_DATE.get(b.path) ?? '').localeCompare(POST_DATE.get(a.path) ?? ''))
+    .map((p) => {
+      const url = `${ORIGIN}/${locale}${p.path}/`;
+      const date = new Date(`${POST_DATE.get(p.path) ?? TODAY}T12:00:00Z`).toUTCString();
+      return `    <item>\n      <title>${xmlEscape(p.title)}</title>\n      <link>${url}</link>\n      <guid isPermaLink="true">${url}</guid>\n      <pubDate>${date}</pubDate>\n      <description>${xmlEscape(p.description)}</description>\n    </item>`;
+    });
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">\n  <channel>\n    <title>Stabileo — Blog</title>\n    <link>${ORIGIN}/${locale}/blog/</link>\n    <atom:link href="${ORIGIN}/${locale}/blog/feed.xml" rel="self" type="application/rss+xml"/>\n    <description>${xmlEscape(BLOG_LEAD.get(locale) ?? 'Stabileo')}</description>\n    <language>${locale}</language>\n    <lastBuildDate>${new Date(`${TODAY}T12:00:00Z`).toUTCString()}</lastBuildDate>\n${items.join('\n')}\n  </channel>\n</rss>\n`;
+}
+
+/**
+ * A post's own social card, 1200×630, in the site's palette and type: the post's title, the
+ * blog's eyebrow and the date. One per language (dist/og/blog/<slug>.<locale>.png); the post's
+ * og:image and twitter:image point at it (postImageUrl in src/lib/page-meta.ts).
+ */
+async function renderPostCard(browser: Browser, base: string, post: PostHead, out: string) {
+  const day = POST_DATE.get(post.path) ?? TODAY;
+  const date = new Date(`${day}T12:00:00Z`).toLocaleDateString(post.locale, { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' });
+  const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const html = `<!doctype html><meta charset="utf-8"><style>
+    @font-face { font-family:'Space Grotesk'; src:url('${base}/fonts/space-grotesk.woff2') format('woff2'); font-weight:700; }
+    @font-face { font-family:'IBM Plex Sans'; src:url('${base}/fonts/ibm-plex-sans.woff2') format('woff2'); font-weight:400; }
+    @font-face { font-family:'IBM Plex Mono'; src:url('${base}/fonts/ibm-plex-mono-500.woff2') format('woff2'); font-weight:500; }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { width:1200px; height:630px; background:#0c1620; color:#f4f7fa; font-family:'IBM Plex Sans',sans-serif; overflow:hidden; }
+    .card { width:1200px; height:630px; padding:72px 80px; display:flex; flex-direction:column; }
+    .eyebrow { display:flex; align-items:center; gap:16px; font-family:'IBM Plex Mono',monospace; font-size:20px; letter-spacing:.17em; text-transform:uppercase; color:#e5482a; }
+    .rule { width:52px; height:3px; background:#e5482a; }
+    h1 { font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:60px; line-height:1.08; letter-spacing:-.03em; margin-top:30px; max-width:1000px;
+         display:-webkit-box; -webkit-line-clamp:4; -webkit-box-orient:vertical; overflow:hidden; }
+    .foot { margin-top:auto; display:flex; align-items:center; gap:22px; font-family:'IBM Plex Mono',monospace; font-size:20px; letter-spacing:.11em; color:#8fa3b3; text-transform:uppercase; }
+    .logo { width:38px; height:38px; border-radius:5px; background:#e5482a; color:#fff; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:24px; display:grid; place-items:center; }
+    .name { font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:29px; color:#f4f7fa; letter-spacing:-.015em; text-transform:none; }
+    .dot { color:#e5482a; }
+  </style><div class="card">
+    <p class="eyebrow"><span class="rule"></span>Blog</p>
+    <h1>${esc(post.title)}</h1>
+    <div class="foot"><span class="logo">S</span><span class="name">Stabileo</span><span class="dot">&middot;</span><span>${esc(date)}</span><span class="dot">&middot;</span><span>stabileo.com</span></div>
+  </div>`;
+  const page = await newPrerenderPage(() => browser.newPage({ viewport: { width: 1200, height: 630 }, deviceScaleFactor: 1 }));
+  try {
+    // Same origin as the fonts: a card set on about:blank cannot load them from the build server,
+    // and falls back to the system faces.
+    await page.goto(`${base}/en/`, { waitUntil: 'domcontentloaded' });
+    await page.setContent(html, { waitUntil: 'load' });
+    await page.evaluate(() => document.fonts.ready);
+    await mkdir(dirname(out), { recursive: true });
+    await page.screenshot({ path: out });
+  } finally {
+    await page.close();
+  }
+}
+
 /** Every public route, without its language prefix. Posts are read from the bundle. */
 async function publicPaths(): Promise<string[]> {
   const source = await readFile(join(ROOT, 'src/lib/blog/index.ts'), 'utf8');
@@ -140,33 +229,63 @@ async function publicPaths(): Promise<string[]> {
   for (const file of imports) {
     const post = await readFile(join(ROOT, `src/lib/blog/posts/${file}.ts`), 'utf8');
     const slug = post.match(/slug:\s*'([^']+)'/)?.[1];
-    if (slug) slugs.push(slug);
+    if (slug) {
+      slugs.push(slug);
+      const published = post.match(/\bdate:\s*'(\d{4}-\d{2}-\d{2})'/)?.[1];
+      const day = post.match(/\bupdated:\s*'(\d{4}-\d{2}-\d{2})'/)?.[1] ?? published;
+      if (day) POST_LASTMOD.set(`/blog/${slug}`, day);
+      if (published) POST_DATE.set(`/blog/${slug}`, published);
+    }
   }
   if (slugs.length === 0) throw new Error('prerender: found no blog posts — the scan is broken');
-  return ['/', '/blog', ...slugs.map((s) => `/blog/${s}`)];
+  POST_LASTMOD.set('/blog', [...POST_LASTMOD.values()].sort().at(-1)!);
+  const reviewed = (batch: string) => toolReviews.batches.find((b) => b.id === batch)!.reviews.map((r) => r.date).sort().at(-1)!;
+  for (const id of TOOL_IDS) POST_LASTMOD.set(`/tools/${id}`, reviewed('tools-batch-1'));
+  for (const id of BATCH_IDS) POST_LASTMOD.set(`/tools/${id}`, reviewed('tools-batch-2'));
+  POST_LASTMOD.set('/tools', [reviewed('tools-batch-1'), reviewed('tools-batch-2')].sort().at(-1)!);
+  // Standing pages, read from their own files, with their last edit for the sitemap.
+  const pageIndex = await readFile(join(ROOT, 'src/lib/blog/pages/index.ts'), 'utf8');
+  const pageFiles = [...pageIndex.matchAll(/from '\.\/([\w-]+)'/g)].map((m) => m[1]);
+  const pages: string[] = [];
+  for (const file of pageFiles) {
+    const src = await readFile(join(ROOT, `src/lib/blog/pages/${file}.ts`), 'utf8');
+    const pagePath = src.match(/\bpath:\s*'(\/[\w-]+)'/)?.[1];
+    if (!pagePath) continue;
+    pages.push(pagePath);
+    const day = src.match(/\bupdated:\s*'(\d{4}-\d{2}-\d{2})'/)?.[1];
+    if (day) POST_LASTMOD.set(pagePath, day);
+  }
+  // Stabileo Research: the gallery and each runnable paper (web/src/components/research).
+  const research = ['/research/benchmarks/shell-obstacle-course', '/research', '/research/fracture/shauer-2025', '/research/metamaterials/grossman-2026', '/research/stability/ferrari-sigmund-2025', '/research/optimization/andreassen-2011', '/research/form-finding/pastrana-2026', '/research/mechanics/biggins-2026', '/research/optimisation/fairclough-2026', '/research/benchmarks/macneal-harder-1985', '/research/benchmarks/mattiasson-elastica', '/research/benchmarks/newmark-1959', '/research/benchmarks/cqc-1981', '/research/benchmarks/navier-plate', '/research/benchmarks/plastic-collapse', '/research/benchmarks/lee-frame-1968', '/research/benchmarks/dadeppo-arch-1975', '/research/benchmarks/riks-crisfield'];
+  return ['/', ...pages, '/blog', ...slugs.map((s) => `/blog/${s}`), '/paper', ...research, '/tools', '/tools/simply-supported-beam', '/tools/cantilever-beam', '/tools/column-buckling', '/tools/continuous-beam', '/tools/portal-frame', '/tools/truss-2d', '/tools/influence-line', '/tools/beam-natural-frequency'];
 }
 
 /**
  * The script the bare root carries, to hand a reader on to their language.
  *
  * Built by `scripts/root-handoff.ts`, which is where the reasoning and the
- * tests for it live. The LIST comes from `LOCALES` above, which
- * `assertLocalesMatchTheApp()` ties back to the application's own.
+ * tests for it live. The LIST comes from `LOCALES` above, which is the application's own.
  */
 const ROOT_REDIRECT = rootHandoffScript(LOCALES, DEFAULT_LOCALE);
 
-async function capture(browser: Browser, base: string, locale: Locale, path: string) {
-  const page = await browser.newPage();
-  await page.addInitScript((l) => {
+async function newCapturePage(browser: Browser) {
+  const page = await newPrerenderPage(() => browser.newPage());
+  // Read the current route on every navigation: reused pages must not accumulate
+  // locale-specific init scripts or inherit the previous route's preferences.
+  await page.addInitScript(() => {
     try {
       localStorage.clear();
-      localStorage.setItem('stabileo-lang', l);
+      sessionStorage.clear();
+      localStorage.setItem('stabileo-lang', location.pathname.split('/')[1]);
       localStorage.setItem('stabileo-lang-manual', '1');
     } catch {
       /* private mode */
     }
-  }, locale);
+  });
+  return page;
+}
 
+async function capture(page: Page, base: string, locale: Locale, path: string) {
   // Visited in the same slashed form the site publishes, so the capture
   // happens on the address a reader actually lands on.
   const href = path === '/' ? `/${locale}/` : `/${locale}${path}/`;
@@ -190,7 +309,6 @@ async function capture(browser: Browser, base: string, locale: Locale, path: str
     body: document.querySelector('#app')?.innerHTML ?? '',
   }));
   const lang = await page.evaluate(() => document.documentElement.lang);
-  await page.close();
   return { head, body, lang, href };
 }
 
@@ -231,35 +349,60 @@ async function main() {
     // through a tree this run never touched.
     throw new Error(`prerender: ${join(DIST, 'index.html')} is missing — run the build first`);
   }
-  await assertLocalesMatchTheApp();
   /*
    * Port 0 asks the OS for a free one. A fixed port made the build fail with
    * `EADDRINUSE` whenever anything else happened to be listening — including
    * the throwaway server used to check this very output — which is a confusing
    * way for a build to break and has nothing to do with the build.
    */
+  const concurrency = prerenderConcurrency();
   const { server, port } = await serveDist(0);
   const stop = () => new Promise<void>((done) => server.close(() => done()));
   const base = `http://127.0.0.1:${port}`;
   const browser = await chromium.launch();
   const paths = await publicPaths();
   const written: string[] = [];
+  const posts: PostHead[] = [];
 
   try {
-    for (const locale of LOCALES) {
-      for (const path of paths) {
-        const { head, body, lang, href } = await capture(browser, base, locale, path);
+    const routes = LOCALES.flatMap(locale => paths.map(path => ({
+      locale, path, href: path === '/' ? `/${locale}/` : `/${locale}${path}/`,
+    })));
+    const captures = await routePool(routes, concurrency,
+      () => newCapturePage(browser), p => p.close(),
+      async (p, { locale, path }) => {
+        const result = await capture(p, base, locale, path);
+        const { head, body, lang, href } = result;
         if (body.length < 500) throw new Error(`prerender: ${href} came back nearly empty (${body.length} chars)`);
         const out = join(DIST, href.slice(1), 'index.html');
         await mkdir(dirname(out), { recursive: true });
-        await writeFile(out, page(head, body, lang));
-        written.push(href);
+        await writeFile(out, page(path === '/paper' ? head + paperStructuredData(ORIGIN, locale) : head, body, lang));
+        return { head, href };
+      });
+    // Pool results retain the original route order, including feed date ties.
+    // The sitemap below likewise uses paths/locales, never completion order.
+    for (const [index, { head, href }] of captures.entries()) {
+      const { locale, path } = routes[index];
+      written.push(href);
+      if (path === '/blog') {
+        const lead = headMeta(head, 'name', 'description');
+        if (lead) BLOG_LEAD.set(locale, decodeEntities(lead));
+      }
+      if (path.startsWith('/blog/')) {
+        const title = headMeta(head, 'property', 'og:title')?.replace(/ — Stabileo$/, '');
+        const description = headMeta(head, 'name', 'description');
+        if (!title || !description) throw new Error(`prerender: ${href} has no og:title or description to put in its feed entry`);
+        posts.push({ path, locale, title: decodeEntities(title), description: decodeEntities(description) });
       }
     }
 
     // The root: the default language's content — the x-default — plus the
     // handoff script that sends everyone else on.
-    const { head, body, lang } = await capture(browser, base, DEFAULT_LOCALE, '/');
+    const [{ head, body, lang }] = await routePool(
+      [{ href: '/', locale: DEFAULT_LOCALE, path: '/' }], 1,
+      () => newCapturePage(browser), p => p.close(),
+      (p) => capture(p, base, DEFAULT_LOCALE, '/'),
+    );
     await writeFile(join(DIST, 'index.html'), page(head, body, lang, ROOT_REDIRECT));
     written.push('/');
 
@@ -267,12 +410,12 @@ async function main() {
       join(DIST, 'sitemap.xml'),
       `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">\n` +
         LOCALES.flatMap((locale) =>
-          paths.map((path) => {
+          paths.filter((path) => writtenIn(path).includes(locale)).map((path) => {
             // Trailing slash, matching the canonical the page declares — see
             // publicHref in src/lib/i18n/public-routes.ts. Without it every
             // entry in this file was a URL that answers 301.
             const loc = `${ORIGIN}/${locale}${path === '/' ? '' : path}/`;
-            const alts = LOCALES.map(
+            const alts = writtenIn(path).map(
               (l) =>
                 `    <xhtml:link rel="alternate" hreflang="${l}" href="${ORIGIN}/${l}${path === '/' ? '' : path}/"/>`,
             ).join('\n');
@@ -282,11 +425,20 @@ async function main() {
             // pointed the default of every URL in the file at the English home
             // page instead of at the page declaring it.
             const xDefault = `${ORIGIN}/${DEFAULT_LOCALE}${path === '/' ? '' : path}/`;
-            return `  <url>\n    <loc>${loc}</loc>\n    <lastmod>${TODAY}</lastmod>\n${alts}\n    <xhtml:link rel="alternate" hreflang="x-default" href="${xDefault}"/>\n  </url>`;
+            return `  <url>\n    <loc>${loc}</loc>\n    <lastmod>${POST_LASTMOD.get(path) ?? TODAY}</lastmod>\n${alts}\n    <xhtml:link rel="alternate" hreflang="x-default" href="${xDefault}"/>\n  </url>`;
           }),
         ).join('\n') +
         `\n</urlset>\n`,
     );
+
+    for (const locale of LOCALES) {
+      await mkdir(join(DIST, locale, 'blog'), { recursive: true });
+      await writeFile(join(DIST, locale, 'blog', 'feed.xml'), feedXml(locale, posts));
+    }
+    for (const post of posts) {
+      const slug = post.path.slice('/blog/'.length);
+      await renderPostCard(browser, base, post, join(DIST, 'og', 'blog', `${slug}.${post.locale}.png`));
+    }
 
     /*
      * The editor is not content and must not be indexed: its routes 404 for a
@@ -305,7 +457,7 @@ async function main() {
 
     console.log(`✅ prerendered ${written.length} pages`);
     for (const href of written) console.log(`   · ${href}`);
-    console.log('   · /sitemap.xml, /robots.txt');
+    console.log(`   · /sitemap.xml, /robots.txt, ${LOCALES.length} feeds, ${posts.length} post cards`);
   } finally {
     await browser.close();
     await stop();

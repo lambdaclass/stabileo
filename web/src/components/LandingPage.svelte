@@ -1,14 +1,15 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { tPublic as t, publicI18n } from '../lib/i18n/store.svelte';
-  import { applyPageMeta, restorePageMeta } from '../lib/page-meta';
-  import LandingNav from './landing/LandingNav.svelte';
+  import { applyPageMeta, restorePageMeta, stabileoSoftware } from '../lib/page-meta';
+  import SiteHeader from './site/SiteHeader.svelte';
   import LandingHero from './landing/LandingHero.svelte';
   import LandingPricing from './landing/LandingPricing.svelte';
   import LandingBasic from './landing/LandingBasic.svelte';
   import LandingProCalc from './landing/LandingProCalc.svelte';
   import LandingProDesign from './landing/LandingProDesign.svelte';
   import LandingAi from './landing/LandingAi.svelte';
+  import LandingVerification from './landing/LandingVerification.svelte';
   import LandingEducation from './landing/LandingEducation.svelte';
   import LandingBlog from './landing/LandingBlog.svelte';
   import LandingFooter from './landing/LandingFooter.svelte';
@@ -28,10 +29,11 @@
    */
   function syncMetadata() {
     applyPageMeta({
-      title: `Stabileo — ${t('landing.heroH')}`,
-      description: t('landing.heroP'),
+      title: t('landing.metaTitle'),
+      description: t('landing.metaDescription'),
       locale: publicI18n.locale,
       path: '/',
+      graph: [stabileoSoftware(publicI18n.locale, { description: t('landing.metaDescription') })],
     });
   }
 
@@ -126,8 +128,8 @@
     contacts fonts.googleapis.com or fonts.gstatic.com. Only the four faces the
     first screen needs are preloaded; the rest arrive with the stylesheet.
   -->
-  <link rel="preload" as="font" type="font/woff2" href="/fonts/space-grotesk-700.woff2" crossorigin="anonymous" />
-  <link rel="preload" as="font" type="font/woff2" href="/fonts/ibm-plex-sans-400.woff2" crossorigin="anonymous" />
+  <link rel="preload" as="font" type="font/woff2" href="/fonts/space-grotesk.woff2" crossorigin="anonymous" />
+  <link rel="preload" as="font" type="font/woff2" href="/fonts/ibm-plex-sans.woff2" crossorigin="anonymous" />
   <link rel="preload" as="font" type="font/woff2" href="/fonts/ibm-plex-mono-500.woff2" crossorigin="anonymous" />
 </svelte:head>
 
@@ -156,12 +158,13 @@
     between Basic and the capabilities matrix — was the second, and the deck
     is renumbered so the sequence has no gap where it was.
   -->
-  <LandingNav />
+  <SiteHeader page="landing" />
   <LandingHero {prefersReducedMotion} />
   <LandingBasic />
   <LandingProCalc />
   <LandingProDesign />
   <LandingAi />
+  <LandingVerification />
   <LandingEducation />
   <LandingPricing />
   <LandingBlog />

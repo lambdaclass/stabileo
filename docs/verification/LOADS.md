@@ -130,7 +130,7 @@ Paths are under `web/src/lib/`. Test files: **C** = `codes/cirsoc101/__tests__/v
 | Figura C AB.4.2-1 service wind factors | Official table | W1 | Verified |
 | Fig. 2.4-8 load cases | Official text, read | — | Uncovered by a test |
 | Basic wind speed V (maps Figs. 1.5-1A–D), Kzt (§1.8) | Image-only maps; Kzt is a user input | — | **Uncovered**: user inputs |
-| §2.1.5 minimum for open buildings (0,75 kN/m² × Af) on free roofs | — | — | **Uncovered and not applied: a possible unsafe gap at low speeds** (see below) |
+| §2.1.5 minimum for open buildings (0,75 kN/m² × Af) on free roofs | Official text and commentary C 2.1.5 | `wind-other.test.ts` | **Fixed** (#580): a horizontal case of its own per direction; Af the reader's, or the whole vertical projection |
 | Wind tunnel (Cap. 6), across-wind response, domes, parapets, overhangs | — | — | Not implemented |
 
 ### INPRES-CIRSOC 103-2018 Parte I, seismic
@@ -170,15 +170,10 @@ Paths are under `web/src/lib/`. Test files: **C** = `codes/cirsoc101/__tests__/v
 
 ## Open items
 
-- **§2.1.5 minimum for open buildings.** CIRSOC 102-2025 asks that the design wind force on an
-  open building be at least 0,75 kN/m² × Af. Free roofs (`wind-other.ts`) apply Figuras
-  2.4-4 to 2.4-7 without this minimum. At low basic speeds the horizontal force can come out
-  below it. Like ASCE 7's commentary, the minimum is best added as a separate horizontal load
-  case, not as a scale factor on the pressures. It is left for a follow-up.
-- **Ke below sea level.** Tabla 1.12-1 gives Ke > 1 below sea level, and the module's Ke = 1
-  is slightly low there. `verification-tables.test.ts` (W1) records this. No Argentine site where it matters was found.
-- **Loads not acting, with H.** The argument that dropping the principal load needs no
-  combination of its own uses 1,4 D to bound 1,2 D. With H, 1,2 D + 1,6 H is not bounded by
-  1,4 D + 1,6 H when D and H act in opposite senses. Earth pressure that opposes is covered by
-  the 0,9 / 0 rule, but a model with H and opposing D should state H's sense rather than rely on
-  the "both" default.
+- **Fixed in #580.** The §2.1.5 minimum for open buildings is now a load case of its own on free
+  roofs (0,75 kN/m² × Af, Af the reader's or the whole vertical projection). The wind's site
+  altitude accepts values below sea level, so Ke > 1 applies there (down to −105 m in the Gran
+  Bajo de San Julián). With H, each combination is also generated without its principal load
+  (1,2 D + 1,6 H, 0,9 D + 1,6 H), so the envelope reaches the case where D and H oppose
+  whatever sense of H is stated; with neither wind nor earthquake, 0,9 D + H is generated all the
+  same. Released results were affected: SA-2026-021 (free roofs) and SA-2026-022 (H).

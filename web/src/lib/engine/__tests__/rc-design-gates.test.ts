@@ -72,9 +72,12 @@ describe('GATE: the reinforcement-edit path never destroys verification state', 
 
 describe('GATE: status is provided-first, not baseline-first', () => {
   it('the viewport overlay reads the display status, not designMap directly', () => {
+    // The display status is the member's verdict (`memberVerdict(id).status`); the overlay reads
+    // the verdict whole so its colour follows the verdict and its label keeps the local ratio apart.
     const s = read('../../viewport3d/results-sync.ts');
-    expect(s).toContain('verificationStore.getDisplayStatus(id)');
-    expect(s).toContain('verificationStateColor');
+    expect(s).toContain('verificationStore.memberVerdict(id)');
+    expect(s).toContain('verificationVisual');
+    expect(s).not.toMatch(/verificationStore\.designMap/);
   });
 
   it('getMaxRatio / getStatus delegate to the provided-first display helpers', () => {

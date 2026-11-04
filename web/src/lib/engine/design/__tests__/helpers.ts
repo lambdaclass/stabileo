@@ -8,6 +8,7 @@
 
 import { expect } from 'vitest';
 import { isSolverReady } from '../../wasm-solver';
+import { resolveSectionState } from '../../../section/state';
 import { solveCombinations3D, validateAndSolve3D } from '../../solver-service';
 import { computeStationDemands } from '../../verification-service';
 import {
@@ -15,6 +16,7 @@ import {
   type ContextModelData, type MemberContext,
 } from '../member-context';
 import { runOrientationDiagnostic } from '../orientation-diagnostic';
+import { lateralReadingOf, type LateralSystemData } from '../../../model/lateral-system';
 import type { AnalysisResults3D } from '../../types-3d';
 
 /** A stubbed WASM solver makes design tests meaningless — fail loudly. */
@@ -29,6 +31,24 @@ export interface FixtureModel {
   data: ContextModelData;
 }
 
+/**
+ * A fixture's sections with the torsion constant the app would give them.
+ *
+ * The fixtures are the generators' JSON, whose rolled profiles carry no J (the catalogue
+ * publishes none for them). Loaded in the app they are resolved and get J by Saint-Venant on
+ * their outline; read raw here they had none, and the solve used to invent `0.001·Iy` (#439),
+ * which it no longer does. Only J is filled: A and I stay as the fixture states them.
+ */
+function withTorsionConstant(sections: Map<number, any>): Map<number, any> {
+  for (const [id, s] of sections) {
+    if (s.j > 0) continue;
+    const st = resolveSectionState(s, { torsion: true });
+    const j = st.kind === 'geometry-backed' ? st.j : null;
+    if (j != null && j > 0) sections.set(id, { ...s, j });
+  }
+  return sections;
+}
+
 /** Build a live model object from a fixture JSON. */
 export function modelFromFixture(fixture: any): FixtureModel {
   const model = {
@@ -36,7 +56,7 @@ export function modelFromFixture(fixture: any): FixtureModel {
     nodes: toMap(fixture.nodes),
     elements: toMap(fixture.elements),
     materials: toMap(fixture.materials),
-    sections: toMap(fixture.sections),
+    sections: withTorsionConstant(toMap(fixture.sections)),
     supports: toMap(fixture.supports),
     loads: JSON.parse(JSON.stringify(fixture.loads)),
     plates: new Map(), quads: new Map(), constraints: [], connectors: new Map(),
@@ -60,8 +80,21 @@ export interface SolvedFixture extends FixtureModel {
   orientationIssues: ReturnType<typeof runOrientationDiagnostic>['issues'];
 }
 
-/** Solve + build contexts, exactly as the app's `computeDemands` command does. */
-export function solveFixture(fixture: any, opts: { selfWeight?: boolean } = {}): SolvedFixture {
+/**
+ * The reading of the beams' role in the lateral-force-resisting system these suites were written
+ * under (§9.7.3.8.2, `model/lateral-system.ts`). Until the role could be declared nothing set it,
+ * and every beam was read outside the system: its positive steel ran 150 mm into the supports. The
+ * suites STATE that reading now instead of relying on it, so what they assert is unchanged and
+ * still exact. A suite about the role passes its own; `null` declares nothing, which is how the app
+ * reads a project that states nothing (designed as part of the system, fy at the face).
+ */
+export const SUITE_LATERAL: LateralSystemData = Object.freeze({ beams: 'gravity' }) as LateralSystemData;
+
+/**
+ * Solve + build contexts, exactly as the app's `computeDemands` command does, with the project's
+ * declaration of the lateral system as `opts.lateral` states it (`SUITE_LATERAL` when absent).
+ */
+export function solveFixture(fixture: any, opts: { selfWeight?: boolean; lateral?: LateralSystemData | null } = {}): SolvedFixture {
   assertRealSolver();
   const fm = modelFromFixture(fixture);
   const sw = opts.selfWeight ?? true;
@@ -76,6 +109,7 @@ export function solveFixture(fixture: any, opts: { selfWeight?: boolean } = {}):
     criticalSections: buildCriticalSectionMap(fm.data),
     orientationSuspect: orient.suspect,
     analysisRevision: 1, demandRevision: 1,
+    lateralOf: ((d) => (id: number, kind: 'beam' | 'column' | 'wall') => lateralReadingOf(d, id, { kind }))(opts.lateral === undefined ? SUITE_LATERAL : opts.lateral ?? undefined),
   });
   return {
     ...fm, results3D: res, perCombo: combo.perCombo, contexts,

@@ -5,7 +5,7 @@
 //! cover the same properties symbolically where CBMC is fast enough; see
 //! docs/verification/KANI.md).
 
-mod common;
+use crate::common;
 
 use common::make_3d_input;
 use dedaliano_engine::linalg::amd::{amd_order, inverse_perm};
@@ -229,7 +229,7 @@ fn input_2d(ids: [usize; 3], types: [&str; 2], hinges: [bool; 4], sups: [Option<
     }
     SolverInput {
         nodes, materials, sections, elements, supports,
-        loads: vec![], constraints: vec![], connectors: HashMap::new(), solver_options: None,
+        loads: vec![], constraints: vec![], connectors: HashMap::new(), solver_options: None, masses: Default::default(),
     }
 }
 

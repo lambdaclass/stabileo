@@ -1,5 +1,9 @@
 import { test, expect, type Page } from '@playwright/test';
 import { pickLanguage } from './fixtures';
+import { existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { PUBLIC_LOCALES } from '../src/lib/i18n/offered';
+import { CHANGELOG } from '../src/lib/changelog';
 
 /**
  * The blog at /blog.
@@ -37,8 +41,54 @@ async function boot(page: Page, path: string, locale = 'en') {
   await page.goto(path);
 }
 
-test.describe('@smoke blog', () => {
-  test('renders the index at /blog', async ({ page }) => {
+test.describe('blog', () => {
+  for (const locale of PUBLIC_LOCALES.filter((l) => l !== 'es')) {
+    test(`@smoke the changelog page in ${locale}: every entry in its language, no raw key, and an alternate per published language`, async ({ page }) => {
+      await boot(page, `/${locale}/changelog/`, locale);
+      const weeks = page.getByTestId('changelog-entry');
+      await expect(weeks).toHaveCount(CHANGELOG.length);
+      await expect(weeks.first().getByRole('heading', { level: 3 })).toHaveText(CHANGELOG[0].i18n[locale].title);
+      await expect(weeks.last().locator('li').first()).toHaveText(CHANGELOG.at(-1)!.i18n[locale].items[0]);
+      expect(await page.locator('main, body').first().innerText()).not.toMatch(/\b(changelog|landing|blog)\.[a-zA-Z]/);
+      const alts = await page.locator('link[rel="alternate"][hreflang]').evaluateAll((els) => els.map((e) => e.getAttribute('hreflang')).sort());
+      expect(alts).toEqual([...PUBLIC_LOCALES, 'x-default'].sort());
+    });
+  }
+
+  test('@smoke the changelog page lists every entry since February by month, and filters by area', async ({ page }) => {
+    await boot(page, '/es/changelog/', 'es');
+
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Historial de cambios de Stabileo');
+    await expect(page.locator('nav .nav-links a[data-nav="changelog"]')).toHaveAttribute('aria-current', 'page');
+    const weeks = page.getByTestId('changelog-entry');
+    await expect(weeks).toHaveCount(CHANGELOG.length);
+    await expect(weeks.first()).toHaveAttribute('data-date', CHANGELOG[0].date);
+    await expect(weeks.first().getByRole('heading', { level: 3 })).toHaveText(CHANGELOG[0].i18n.es.title);
+    await expect(weeks.first().getByRole('heading', { level: 4 }).first()).toHaveText('Motor');
+    await expect(weeks.first().locator('li').first()).toHaveText(CHANGELOG[0].i18n.es.items[0]);
+    await expect(page.getByRole('heading', { level: 2, name: 'Octubre de 2026' })).toBeVisible();
+    const total = CHANGELOG.reduce((n, e) => n + e.areas.length, 0);
+    await expect(page.getByTestId('changelog-stats')).toContainText(`${total} cambios · desde febrero de 2026`);
+    const first = weeks.last();
+    await expect(first).toHaveAttribute('data-date', '2026-02-01');
+    await expect(first.locator('time')).toHaveText(/feb\s*mes/);
+
+    const shots = page.locator('.cl-shot img');
+    await expect(shots).toHaveCount(CHANGELOG.filter((e) => e.shot).length);
+    await expect(shots.first()).toHaveAttribute('src', '/screenshots/changelog-basic-report-1600.webp');
+    await shots.first().scrollIntoViewIfNeeded();
+    await expect.poll(() => shots.first().evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0);
+
+    const edu = CHANGELOG.filter((e) => e.areas.includes('edu'));
+    await page.getByRole('button', { name: /^Educativo/ }).click();
+    await expect(weeks).toHaveCount(edu.length);
+    await expect(weeks.first().getByRole('heading', { level: 4 })).toHaveText(['Educativo']);
+    await expect(page.getByTestId('changelog-stats')).toContainText(`${edu.reduce((n, e) => n + e.areas.filter((a) => a === 'edu').length, 0)} cambios`);
+    await page.getByRole('button', { name: 'Todo' }).click();
+    await expect(weeks).toHaveCount(CHANGELOG.length);
+  });
+
+  test('@smoke renders the index at /blog', async ({ page }) => {
     await boot(page, '/blog');
 
     await expect(page.locator('.landing.blog')).toBeVisible();
@@ -47,11 +97,12 @@ test.describe('@smoke blog', () => {
     // The three index pages used to share one title, which made them
     // indistinguishable in a result list. Each names its language's copy now.
     await expect(page).toHaveTitle(/Blog — notes on the solver/);
-    // The application stays mounted behind it, as it does behind the landing.
-    await expect(page.locator('.app-container.hidden-behind-landing')).toHaveCount(1);
+    // The application is not loaded behind it: the public pages render on their own
+    // (Root.svelte), and the application and its engine load on the first app route.
+    await expect(page.locator('.app-container')).toHaveCount(0);
   });
 
-  test('opens a post and keeps its address', async ({ page }) => {
+  test('@smoke opens a post and keeps its address', async ({ page }) => {
     await boot(page, '/blog');
 
     // By slug, not by position: the index is newest-first, so "the first card"
@@ -66,7 +117,7 @@ test.describe('@smoke blog', () => {
     await expect(page).toHaveTitle(/— Stabileo$/);
   });
 
-  test('a cold deep link renders the post', async ({ page }) => {
+  test('@smoke a cold deep link renders the post', async ({ page }) => {
     // How a shared link arrives in production: 404.html hands the path over as
     // ?route=, and App.svelte restores it.
     await boot(page, `/?route=%2Fblog%2F${SLUG}`);
@@ -98,7 +149,7 @@ test.describe('@smoke blog', () => {
     await expect(page).toHaveURL(new RegExp(`/es/blog/${SLUG}/$`));
   });
 
-  test('the browser back button returns to the post', async ({ page }) => {
+  test('@smoke the browser back button returns to the post', async ({ page }) => {
     await boot(page, `/blog/${SLUG}`);
     await expect(page.locator('.post-title')).toBeVisible();
 
@@ -109,14 +160,14 @@ test.describe('@smoke blog', () => {
     await expect(page.locator('.post-title')).toBeVisible();
   });
 
-  test('an unknown slug says so instead of rendering nothing', async ({ page }) => {
+  test('@smoke an unknown slug says so instead of rendering nothing', async ({ page }) => {
     await boot(page, '/blog/no-such-post');
 
     await expect(page.locator('.blog-head h1')).toHaveText('That post does not exist.');
     await expect(page.locator('.post-title')).toHaveCount(0);
   });
 
-  test('a nested address is a missing post, not the index', async ({ page }) => {
+  test('@smoke a nested address is a missing post, not the index', async ({ page }) => {
     // App.svelte routes anything under /blog/ here, so this address IS the
     // blog's to answer. It used to answer with the INDEX: the slug pattern
     // required a single segment, missed entirely, and fell through to the
@@ -128,7 +179,7 @@ test.describe('@smoke blog', () => {
     await expect(page.locator('.post-card')).toHaveCount(0);
   });
 
-  test('the post reads in each offered language', async ({ page }) => {
+  test('@smoke the post reads in each offered language', async ({ page }) => {
     const first: Record<string, string> = {
       en: 'The determinism boundary: why an AI agent must not do the arithmetic',
       es: 'La frontera de determinismo: por qué un agente de IA no debe calcular',
@@ -157,21 +208,21 @@ test.describe('@smoke blog', () => {
   } as const;
 
   for (const [from, to] of [['pt', 'es'], ['es', 'pt'], ['en', 'es']] as const) {
-    test(`a post switched from ${from} to ${to} moves both the page and the URL`, async ({ page }) => {
+    test(`@smoke a post switched from ${from} to ${to} moves both the page and the URL`, async ({ page }) => {
       await boot(page, `/${from}/blog/${SLUG}`);
       await expect(page.locator('.post-title')).toHaveText(TITLES[from]);
 
-      await pickLanguage(page, 'blog-lang', to);
+      await pickLanguage(page, 'nav-lang', to);
 
       await expect(page.locator('.post-title')).toHaveText(TITLES[to]);
       await expect(page).toHaveURL(new RegExp(`/${to}/blog/${SLUG}/$`));
       await expect(page.locator('html')).toHaveAttribute('lang', to);
       // The picker reports where you are, not where you were.
-      await expect(page.getByTestId('blog-lang')).toHaveAttribute('data-value', to);
+      await expect(page.getByTestId('nav-lang')).toHaveAttribute('data-value', to);
     });
   }
 
-  test('the blog index switches language too, body and all', async ({ page }) => {
+  test('@smoke the blog index switches language too, body and all', async ({ page }) => {
     // The index's h1 is the word "Blog" in all three languages, so asserting
     // the heading would pass on a page that never translated. The lead does
     // the work here.
@@ -179,14 +230,14 @@ test.describe('@smoke blog', () => {
     const lead = page.locator('.landing.blog .lead');
     await expect(lead).toContainText(/verificaciones normativas/i);
 
-    await pickLanguage(page, 'blog-lang', 'en');
+    await pickLanguage(page, 'nav-lang', 'en');
 
     await expect(page).toHaveURL(/\/en\/blog\/$/);
     await expect(lead).toContainText(/code checks/i);
     await expect(page.locator(`.post-card[data-slug="${SLUG}"] .post-card-title`)).toHaveText(TITLES.en);
   });
 
-  test('the browser back button undoes a language switch', async ({ page }) => {
+  test('@smoke the browser back button undoes a language switch', async ({ page }) => {
     /*
      * Booted on the slashed address on purpose. In production the host 301s
      * `/pt/blog/x` to it before the application loads, so that is the URL a
@@ -195,7 +246,7 @@ test.describe('@smoke blog', () => {
      * `goBack` would return to it.
      */
     await boot(page, `/pt/blog/${SLUG}/`);
-    await pickLanguage(page, 'blog-lang', 'es');
+    await pickLanguage(page, 'nav-lang', 'es');
     await expect(page).toHaveURL(new RegExp(`/es/blog/${SLUG}/$`));
 
     await page.goBack();
@@ -204,7 +255,7 @@ test.describe('@smoke blog', () => {
     await expect(page.locator('.post-title')).toHaveText(TITLES.pt);
   });
 
-  test('the URL wins over a stored preference', async ({ page }) => {
+  test('@smoke the URL wins over a stored preference', async ({ page }) => {
     // Someone whose last choice was Spanish opens a Portuguese link they were
     // sent. They must get the page they were sent, not the one they last read.
     await boot(page, `/pt/blog/${SLUG}`, 'es');
@@ -212,13 +263,13 @@ test.describe('@smoke blog', () => {
     await expect(page.locator('html')).toHaveAttribute('lang', 'pt');
   });
 
-  test('an unprefixed link still opens the post', async ({ page }) => {
+  test('@smoke an unprefixed link still opens the post', async ({ page }) => {
     // Every link shared before the prefixes existed looks like this.
     await boot(page, `/blog/${SLUG}`, 'es');
     await expect(page.locator('.post-title')).toHaveText(TITLES.es);
   });
 
-  test('the embedded editor waits to be asked, then shows the post’s own numbers', async ({ page }) => {
+  test('@smoke the embedded editor waits to be asked, then shows the post’s own numbers', async ({ page }) => {
     /*
      * The landing carried an embed like this once and it taught two lessons:
      * a second application booting on every visit, and an iframe under the
@@ -241,14 +292,14 @@ test.describe('@smoke blog', () => {
 
     const app = page.frameLocator('.post-embed iframe');
     // The model is the one the post describes: a tube under 1 kN·m.
-    await expect(app.locator('body')).toContainText('1.00', { timeout: 60_000 });
+    await expect(app.locator('body')).toContainText('1.00', { timeout: 45_000 });
     // And the three theories, with the two values the table quotes.
-    await expect(app.locator('body')).toContainText('Cauchy', { timeout: 60_000 });
+    await expect(app.locator('body')).toContainText('Cauchy', { timeout: 45_000 });
     await expect(app.locator('body')).toContainText('13.34');
     await expect(app.locator('body')).toContainText('12.73');
   });
 
-  test('the CIRSOC post opens PRO on the check it describes', async ({ page }) => {
+  test('@smoke the CIRSOC post opens PRO on the check it describes', async ({ page }) => {
     /*
      * The other half of the embed contract: this post's subject lives in PRO's
      * design workflow, not in Basic's section panel, so it opens `/app/pro`.
@@ -284,13 +335,21 @@ test.describe('@smoke blog', () => {
      * post now names the button for what it does and keeps the explanation.
      */
     expect(caption).toContain('Calcular acero requerido');
-    expect(caption).toContain('Diseñar todo');
+    // «Size…» is the one design command of interface A (it was «Diseñar todo»).
+    expect(caption).toContain('Dimensionar…');
 
     await embed.locator('.post-embed-start').click();
     await expect(embed.locator('iframe')).toHaveAttribute('src', /\/app\/pro\?/);
 
     const app = page.frameLocator('.post-embed iframe');
-    await expect(app.locator('body')).toContainText('CIRSOC 201', { timeout: 60_000 });
+    // Design is off in a fresh browser: the link asks, and nothing of design is on until the
+    // reader answers. The caption names the answer, in this language.
+    expect(caption).toContain('Activar el diseño en esta visita');
+    const ask = app.getByTestId('toast-enable-design-link');
+    await expect(ask).toHaveText('Activar el diseño en esta visita', { timeout: 45_000 });
+    await expect(app.getByTestId('pr-stage-design')).toHaveCount(0);
+    await ask.click();
+    await expect(app.locator('body')).toContainText('CIRSOC 201', { timeout: 45_000 });
     // The buttons the caption promises are really there, in this language.
     await expect(app.getByTestId('cmd-compute-demands')).toHaveText('Calcular solicitaciones');
     await expect(app.getByTestId('cmd-code-check')).toHaveText('Calcular acero requerido');
@@ -304,15 +363,21 @@ test.describe('@smoke blog', () => {
    * catch that. This runs the flow the caption describes, to the end, and reads
    * the number back.
    */
-  test('the CIRSOC embed reaches the state its caption promises', async ({ page }) => {
+  test('@slow the CIRSOC embed reaches the state its caption promises', async ({ page }) => {
     test.slow();
     await boot(page, '/es/blog/verificacion-flexion-cirsoc-201', 'es');
 
     const embed = page.locator('.post-embed');
     await embed.scrollIntoViewIfNeeded();
+    // The numbers read back below are the ones the caption quotes.
+    const caption = await embed.locator('figcaption').innerText();
+    expect(caption).toContain('D/C = 0,90');
+    expect(caption).toContain('gobernados por el corte en el tramo');
     await embed.locator('.post-embed-start').click();
 
     const app = page.frameLocator('.post-embed iframe');
+    // The reader's answer to the link's question first: design is off in a fresh browser.
+    await app.getByTestId('toast-enable-design-link').click({ timeout: 60_000 });
     await expect(app.locator('body')).toContainText('CIRSOC 201', { timeout: 60_000 });
 
     // Exactly the three presses the caption asks for, in its order. Each wait is
@@ -322,15 +387,21 @@ test.describe('@smoke blog', () => {
     await app.getByTestId('cmd-compute-demands').click();
     await expect(app.getByTestId('cmd-code-check')).toBeEnabled({ timeout: 60_000 });
     await app.getByTestId('cmd-code-check').click();
-    await expect(app.getByTestId('cmd-design-all')).toBeEnabled({ timeout: 60_000 });
-    await app.getByTestId('cmd-design-all').click();
+    await expect(app.getByTestId('cmd-autodesign')).toBeEnabled({ timeout: 60_000 });
+    await app.getByTestId('cmd-autodesign').click();
+    await app.getByTestId('desk-run').click();
 
-    // Verified, not "sin verificar", and at the utilisation the caption quotes.
+    // Verified, not "sin verificar" nor "No verifica", and at the utilisation the caption quotes.
+    // Both rows read 0.90 governed by shear in the span: the 5 m span is designed as one. They
+    // read "No verifica" while the support's second Ø10 layer was stepped from the Ø10 bars and
+    // not from the Ø12 pair above it, 1,7 mm inside the pair's clear distance as laid; and the
+    // caption quoted 0.89 and 0.87 by anchorage, which the table no longer showed.
     const table = app.locator('body');
-    await expect(table).toContainText('0.89', { timeout: 90_000 });
-    await expect(table).toContainText('0.87');
-    // Both rows are governed by the anchorage of the bars, which names no combination.
-    await expect(table).toContainText('Anchorage');
+    for (const id of [1, 2]) {
+      await expect(app.getByTestId(`row-util-${id}`)).toContainText('0.90', { timeout: 90_000 });
+      await expect(app.getByTestId(`row-status-${id}`)).toContainText('Verificada');
+      await expect(app.getByTestId(`design-row-${id}`)).toContainText('Shear Span (Vz)');
+    }
     await expect(table).not.toContainText('sin armadura');
   });
 
@@ -345,7 +416,7 @@ test.describe('@smoke blog', () => {
    * tab that hosts the report on desktop Basic, so it worked on a phone and
    * did nothing on a laptop.
    */
-  test('the kinematic embed reaches the state its caption promises', async ({ page }) => {
+  test('@slow the kinematic embed reaches the state its caption promises', async ({ page }) => {
     test.slow();
     await boot(page, '/es/blog/conceptual-side-advanced-tools', 'es');
 
@@ -380,56 +451,55 @@ test.describe('@smoke blog', () => {
     await expect(body).toContainText('no se puede resolver');
   });
 
-  test('a post offers the way back to the index, and the index does not', async ({ page }) => {
-    /*
-     * There was no way back. The logo goes to the landing, so returning to the
-     * index from a post meant landing → scroll to the blog section → enter
-     * again. The link is deliberately absent on the index itself, which is
-     * what made the landing's "Blog" nav item useless here in the first place.
-     */
+  test('@smoke a post marks Blog as the current section, and its Blog item goes back to the index', async ({ page }) => {
     await boot(page, `/es/blog/${SLUG}`, 'es');
-    const back = page.locator('.landing.blog .nav-blog-link');
-    await expect(back).toBeVisible();
-    await expect(back).toHaveText('Blog');
+    const blog = page.locator('nav.site-header [data-nav="blog"]');
+    await expect(blog).toHaveText('Blog');
+    await expect(blog).toHaveAttribute('aria-current', 'page');
     // A real href, so it is crawlable and middle-clickable, not a button.
-    await expect(back).toHaveAttribute('href', '/es/blog/');
-    // And it sits before the GitHub box, where the ask put it.
-    const order = await page.locator('.landing.blog .nav-actions > *').evaluateAll((els) =>
-      els.map((e) => e.className.toString().split(' ')[0]),
-    );
-    expect(order[0]).toBe('nav-blog-link');
-    expect(order[1]).toBe('nav-gh');
-
-    await back.click();
+    await expect(blog).toHaveAttribute('href', '/es/blog/');
+    await blog.click();
     await expect(page).toHaveURL(/\/es\/blog\/$/);
     await expect(page.locator('.post-card')).not.toHaveCount(0);
-    // Now on the index, it is gone.
-    await expect(page.locator('.landing.blog .nav-blog-link')).toHaveCount(0);
   });
 
-  test('a post describes itself to a search engine', async ({ page }) => {
+
+  test('@smoke a post describes itself to a search engine', async ({ page }) => {
     // The byline on screen is prose; this is the only machine-readable
     // statement of who wrote the post and when. Without it a result is a page
     // of text; with it, it can carry an author and a date.
     await boot(page, `/es/blog/${SLUG}`);
 
     const raw = await page.locator('script[type="application/ld+json"]').textContent();
-    const data = JSON.parse(raw!);
-    expect(data['@type']).toBe('BlogPosting');
+    const graph = JSON.parse(raw!)['@graph'] as Array<Record<string, any>>;
+    const data = graph.find((n) => n['@type'] === 'BlogPosting')!;
     expect(data.inLanguage).toBe('es');
     expect(data.datePublished).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(data.dateModified).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(data.author.map((a: { name: string }) => a.name)).toContain('Bautista Chesta');
     // It must claim the address it is actually served at, in this language.
     expect(data.url).toBe(`https://stabileo.com/es/blog/${SLUG}/`);
     expect(data.mainEntityOfPage['@id']).toBe(data.url);
+    // A breadcrumb from the home page through the blog to the post.
+    const crumbs = graph.find((n) => n['@type'] === 'BreadcrumbList')!;
+    expect(crumbs.itemListElement.map((i: { item: string }) => i.item)).toEqual([
+      'https://stabileo.com/es/', 'https://stabileo.com/es/blog/', data.url,
+    ]);
+    // Open Graph calls it an article, with its date.
+    await expect(page.locator('meta[property="og:type"]')).toHaveAttribute('content', 'article');
+    await expect(page.locator('meta[property="article:published_time"]')).toHaveAttribute('content', data.datePublished);
   });
 
-  test('the index is not an article, and the post is not the homepage', async ({ page }) => {
+  test('@smoke the index is not an article, and the post is not the homepage', async ({ page }) => {
     // Two mistakes that look like nothing and cost the whole point of the
     // exercise: structured data on a page that is not an article, and a
     // canonical that hands a post's credit to the front page.
     await boot(page, '/es/blog');
-    await expect(page.locator('script[type="application/ld+json"]')).toHaveCount(0);
+    // The index states itself as the blog, not as an article.
+    const index = JSON.parse((await page.locator('script[type="application/ld+json"]').textContent())!)['@graph'];
+    const types = index.map((n: { '@type': string }) => n['@type']).sort();
+    expect(types).toEqual(['Blog', 'BreadcrumbList', 'Organization', 'Organization', 'Organization', 'WebSite']);
+    await expect(page.locator('meta[property="og:type"]')).toHaveAttribute('content', 'website');
     await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
       'href',
       'https://stabileo.com/es/blog/',
@@ -444,10 +514,11 @@ test.describe('@smoke blog', () => {
     const alts = await page
       .locator('link[rel="alternate"][hreflang]')
       .evaluateAll((els) => els.map((e) => `${e.getAttribute('hreflang')} ${e.getAttribute('href')}`).sort());
+    // The languages the post is written in: the three it is published in, and any whose translation file exists.
+    const written = ['en', 'es', 'pt', ...['de', 'fr', 'tr'].filter((l) =>
+      existsSync(fileURLToPath(new URL(`../src/lib/blog/translations/${l}/${SLUG}.ts`, import.meta.url))))];
     expect(alts).toEqual([
-      `en https://stabileo.com/en/blog/${SLUG}/`,
-      `es https://stabileo.com/es/blog/${SLUG}/`,
-      `pt https://stabileo.com/pt/blog/${SLUG}/`,
+      ...[...PUBLIC_LOCALES].sort().filter((l) => written.includes(l)).map((l) => `${l} https://stabileo.com/${l}/blog/${SLUG}/`),
       // x-default names the English version of THIS POST. English because the
       // root declares /en as its canonical, so pointing the default at the
       // root would name a URL that is not canonical for itself — and this
@@ -457,7 +528,7 @@ test.describe('@smoke blog', () => {
     ]);
   });
 
-  test('the tables render as tables, with every row filled', async ({ page }) => {
+  test('@smoke the tables render as tables, with every row filled', async ({ page }) => {
     await boot(page, `/blog/${SLUG}`);
 
     const tables = page.locator('.post-table');
@@ -475,7 +546,7 @@ test.describe('@smoke blog', () => {
     await expect(first).toContainText('105.6');
   });
 
-  test('no horizontal overflow at the QA widths', async ({ page }) => {
+  test('@smoke no horizontal overflow at the QA widths', async ({ page }) => {
     // A seven-column table on a phone must scroll inside its own box. If it
     // ever widens the document instead, the whole article slides sideways.
     for (const width of [390, 768, 1280]) {
@@ -490,7 +561,7 @@ test.describe('@smoke blog', () => {
     }
   });
 
-  test('the hero carries a quiet way in, on the first screen', async ({ page }) => {
+  test('@smoke the hero carries a quiet way in, on the first screen', async ({ page }) => {
     await boot(page, '/');
 
     const link = page.locator('.landing .hero-blog');
@@ -507,7 +578,7 @@ test.describe('@smoke blog', () => {
     await expect(page.locator('.post-card')).not.toHaveCount(0);
   });
 
-  test('the landing offers a way in, at the foot of the deck', async ({ page }) => {
+  test('@smoke the landing offers a way in, at the foot of the deck', async ({ page }) => {
     await boot(page, '/');
 
     const section = page.locator('.landing section[data-section="blog"]');
@@ -519,7 +590,37 @@ test.describe('@smoke blog', () => {
     await expect(page.locator('.post-card')).not.toHaveCount(0);
   });
 
-  test('the editor is one click away and leaves the blog behind', async ({ page }) => {
+  test('@smoke the latest post arrives on the landing without covering its way out', async ({ page }) => {
+    for (const width of [390, 820]) {
+      await page.setViewportSize({ width, height: 900 });
+      await boot(page, '/');
+      const section = page.locator('.landing section[data-section="blog"]');
+      await section.scrollIntoViewIfNeeded();
+      const latest = section.locator('.blog-latest');
+      await expect(latest).toBeVisible();
+      await expect(latest.locator('.blog-latest-title')).not.toBeEmpty();
+
+      const button = section.locator('.btn-primary');
+      const [card, link, box] = await Promise.all([latest.boundingBox(), button.boundingBox(), section.boundingBox()]);
+      expect(card!.y + card!.height, `card covers the index link at ${width}px`).toBeLessThanOrEqual(link!.y);
+      expect(link!.y + link!.height, `index link leaves its section at ${width}px`).toBeLessThanOrEqual(box!.y + box!.height);
+      const overflow = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, client: document.documentElement.clientWidth }));
+      expect(overflow.scroll, `overflows at ${width}px`).toBeLessThanOrEqual(overflow.client + 1);
+    }
+  });
+
+  test('@smoke the editor opens the blog in place', async ({ page }) => {
+    await boot(page, '/app/');
+    await page.waitForFunction(() => document.querySelector('.app-container') !== null);
+
+    await page.evaluate(() => window.dispatchEvent(new CustomEvent('stabileo-navigate', { detail: '/blog' })));
+
+    await expect(page).toHaveURL(/\/blog\/?$/);
+    await expect(page.locator('.post-card')).not.toHaveCount(0);
+    await expect(page.locator('.app-container')).toHaveClass(/hidden-behind-landing/);
+  });
+
+  test('@smoke the editor is one click away and leaves the blog behind', async ({ page }) => {
     await boot(page, `/blog/${SLUG}`);
 
     await page.locator('.landing.blog .nav .btn-primary').click();

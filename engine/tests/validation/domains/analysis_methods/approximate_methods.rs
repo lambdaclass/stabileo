@@ -205,7 +205,7 @@ fn validation_approx_inflection_point() {
     })];
 
     let input = SolverInput {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes, materials: mats, sections: secs,
         elements: elems, supports: sups, loads, constraints: vec![],
         connectors: std::collections::HashMap::new(), };
@@ -309,7 +309,7 @@ fn validation_approx_fixed_vs_pinned() {
     })];
 
     let input_pinned = SolverInput {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes, materials: mats, sections: secs,
         elements: elems, supports: sups, loads, constraints: vec![],
         connectors: std::collections::HashMap::new(), };

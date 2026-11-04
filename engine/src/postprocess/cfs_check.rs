@@ -49,6 +49,20 @@ pub struct CfsMemberData {
     /// Effective length factor K (default 1.0)
     #[serde(default)]
     pub k: Option<f64>,
+    /// Distance from the shear centre to the centroid along the x (symmetry)
+    /// axis, xo (m), for flexural-torsional buckling (E2). 0 for a doubly- or
+    /// point-symmetric section. Absent: flexural-torsional buckling cannot be
+    /// evaluated, and a compression demand is reported unevaluated — a channel
+    /// checked for weak-axis flexural buckling alone was 51 % unconservative
+    /// (AISI Design Manual Example III-3).
+    #[serde(default)]
+    pub xo: Option<f64>,
+    /// Effective length for flexural buckling about x, KxLx (m). Default K·Lc.
+    #[serde(default)]
+    pub kx_lx: Option<f64>,
+    /// Effective length for torsional buckling, KtLt (m). Default K·Lc.
+    #[serde(default)]
+    pub kt_lt: Option<f64>,
     /// Cb moment gradient factor (default 1.0)
     #[serde(default)]
     pub cb: Option<f64>,
@@ -119,7 +133,7 @@ pub struct CfsCheckResult {
     pub mn_x: f64,
     /// Nominal flexural strength Mn_y (N-m)
     pub mn_y: f64,
-    /// Global buckling stress Fe (Pa)
+    /// Global elastic buckling stress Fe (Pa), E2
     pub fe: f64,
     /// Overall pass (false when any check could not be evaluated)
     pub pass: bool,
@@ -180,7 +194,8 @@ pub(crate) struct CfsCapacities<T> {
     pub mn_y: T,
     /// Web shear Vn (G2.1), None when h and t are not given.
     pub vn: Option<T>,
-    /// Weak-axis flexural buckling stress Fe.
+    /// Global elastic buckling stress Fe (E2: least of flexural about y and
+    /// flexural-torsional / torsional).
     pub fe: T,
 }
 
@@ -195,10 +210,28 @@ pub(crate) fn cfs_capacities<T: Real>(m: &CfsMemberData) -> CfsCapacities<T> {
 
     // ==================== Compression (AISI S100 Ch. E) ====================
 
-    // Global buckling: flexural buckling about weak axis (controls for most CFS;
-    // flexural-torsional buckling of singly symmetric sections is not checked)
-    let kl_ry = (k * T::exact(m.lc)).dv(T::exact(m.ry));
-    let fe = (pi2 * e).dv(kl_ry.sq());
+    // Global buckling, E2: the least of flexural buckling about y, and
+    // flexural-torsional buckling about the symmetry axis x (E2.2,
+    //   Fe = [(σex + σt) − sqrt((σex + σt)² − 4βσex·σt)]/(2β), β = 1 − (xo/ro)²),
+    // which for xo = 0 is min(σex, σt): flexural about x, or torsional (E2.1).
+    // xo absent is taken as 0 here and the compression check is flagged by
+    // the caller. Lengths KyLy = K·Lc, KxLx and KtLt default to it.
+    let g = e.dv(T::exact(2.0) * T::lit(1.3)); // G ≈ E/2.6 for steel
+    let ky_ly = k * T::exact(m.lc);
+    let kx_lx = m.kx_lx.map_or(ky_ly, T::exact);
+    let kt_lt = m.kt_lt.map_or(ky_ly, T::exact);
+    let (rx, ry, xo) = (T::exact(m.rx), T::exact(m.ry), T::exact(m.xo.unwrap_or(0.0)));
+    let sigma_ey = (pi2 * e).dv(ky_ly.dv(ry).sq());
+    let sigma_ex = (pi2 * e).dv(kx_lx.dv(rx).sq());
+    let ro2 = rx.sq() + ry.sq() + xo.sq();
+    let sigma_t = (g * T::exact(m.j) + (pi2 * e * T::exact(m.cw)).dv(kt_lt.sq())).dv(T::exact(m.ag) * ro2);
+    let beta = one - xo.sq().dv(ro2);
+    let sum = sigma_ex + sigma_t;
+    let disc = (sum.sq() - T::exact(4.0) * beta * sigma_ex * sigma_t).max(T::exact(0.0));
+    // (sum − √disc)/(2β) rewritten as 2σex·σt/(sum + √disc): no cancellation,
+    // no division by β.
+    let fe_ft = (T::exact(2.0) * sigma_ex * sigma_t).dv(sum + disc.sqrt());
+    let fe = sigma_ey.min(fe_ft);
 
     // Inelastic/elastic buckling per AISI S100 E2
     let lambda_c = fy.dv(fe).sqrt();
@@ -238,7 +271,6 @@ pub(crate) fn cfs_capacities<T: Real>(m: &CfsMemberData) -> CfsCapacities<T> {
     //   Me = Cb·(π/Lb)·sqrt(E·Iy·G·J)·sqrt(1 + π²·E·Cw/(G·J·Lb²)).
     // This read (1 + sqrt(X)) for sqrt(1 + X), which is always larger: Me and
     // so Mn were overstated (12% on the ratio of a 3 m C 150×60×20×2).
-    let g = e.dv(T::exact(2.0) * T::lit(1.3)); // G ≈ E/2.6 for steel
     let (lb, iy, j, cw) = (T::exact(m.lb), T::exact(m.iy), T::exact(m.j), T::exact(m.cw));
     let x = (pi2 * e * cw).dv(g * j * lb * lb);
     let me = (cb * T::pi() * (e * iy * g * j).sqrt()).dv(lb) * (one + x).sqrt();
@@ -324,6 +356,11 @@ fn check_single_cfs_member(m: &CfsMemberData, f: &CfsDesignForces) -> CfsCheckRe
     // the member passed (ry = 0 gave Pn = 0 and passed any compression).
     let mut ledger = CheckLedger::new();
     let compression_ratio = ledger.ratio_if_loaded(n[0], (-axial).max(0.0), PHI_C * pn);
+    // Without xo the flexural-torsional mode of E2 is unknown: Pn above is the
+    // doubly-symmetric value, which overstates a channel's strength.
+    if axial < 0.0 && m.xo.is_none() {
+        ledger.flag(n[0]);
+    }
     let tension_ratio = ledger.ratio_if_loaded(n[1], axial.max(0.0), PHI_T * tn);
     let flexure_ratio_x = ledger.ratio_if_loaded(n[2], mx.abs(), PHI_B * mn_x);
     let flexure_ratio_y = ledger.ratio_if_loaded(n[3], my.abs(), PHI_B * mn_y);

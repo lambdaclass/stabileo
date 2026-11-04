@@ -1,0 +1,90 @@
+name: Rollback
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target environment
+        type: choice
+        options: [staging, production]
+        default: staging
+      rollback_db:
+        description: 'Also roll back database migrations (only if a bad migration was deployed)'
+        required: false
+        type: boolean
+        default: false
+      confirm_rollback_db:
+        description: 'Type "CONFIRM" to proceed with the migration rollback (required if rollback_db is checked)'
+        required: false
+        type: string
+
+permissions: {}
+
+jobs:
+  rollback:
+    name: Rollback (${{ inputs.environment }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: ${{ inputs.environment }}
+    concurrency:
+      group: deploy-${{ inputs.environment }}-host
+      cancel-in-progress: false
+    permissions:
+      contents: read
+
+    steps:
+      - name: Validate DB rollback confirmation
+        if: ${{ inputs.rollback_db && inputs.confirm_rollback_db != 'CONFIRM' }}
+        run: |
+          echo "::error::DB migration rollback requires confirmation. Type 'CONFIRM' in the confirm_rollback_db field."
+          exit 1
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            infra/ansible
+            .github/actions/ssh-setup
+            .github/scripts/require-env.sh
+
+      - name: Check deploy settings
+        env:
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ vars.DEPLOY_KNOWN_HOSTS }}
+        run: ./.github/scripts/require-env.sh DEPLOY_HOST DEPLOY_USER DEPLOY_SSH_KEY DEPLOY_KNOWN_HOSTS
+
+      - uses: ./.github/actions/ssh-setup
+        with:
+          host: ${{ vars.DEPLOY_HOST }}
+          user: ${{ vars.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          known-hosts: ${{ vars.DEPLOY_KNOWN_HOSTS }}
+
+      - name: Install Ansible
+        run: pipx install ansible-core
+
+      - name: List available releases
+        env:
+          HOST: ${{ vars.DEPLOY_HOST }}
+        run: ssh "$HOST" 'ls -t /srv/stabileo/releases 2>/dev/null || echo "No releases found"'
+
+      - name: Run Ansible rollback
+        working-directory: infra/ansible
+        env:
+          HOST: ${{ vars.DEPLOY_HOST }}
+          SSH_USER: ${{ vars.DEPLOY_USER }}
+          PORT: ${{ vars.PORT }}
+          ROLLBACK_DB: ${{ inputs.rollback_db }}
+        run: |
+          printf 'app:\n  hosts:\n    %s:\n      ansible_user: %s\n' "$HOST" "$SSH_USER" > "$RUNNER_TEMP/inventory.yml"
+          ansible-playbook -i "$RUNNER_TEMP/inventory.yml" rollback.yml -e "rollback_db=$ROLLBACK_DB"
+
+      - name: Verify rollback
+        env:
+          HOST: ${{ vars.DEPLOY_HOST }}
+          PORT: ${{ vars.PORT || '4100' }}
+        run: |
+          # shellcheck disable=SC2029
+          ssh "$HOST" "curl -sf http://127.0.0.1:$PORT/api/v1/health"

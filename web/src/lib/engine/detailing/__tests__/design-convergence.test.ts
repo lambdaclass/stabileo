@@ -216,15 +216,12 @@ describe('5 — a selected family with refused members', () => {
 
   it('names the members and the remedy, which is the only thing that differs', () => {
     /*
-     * Exhaustive and bounded refusals are one gap here and two claims upstream. The distinction
-     * governs what may be concluded about FEASIBILITY — `candidate-search.ts` keeps it for
-     * exactly that — and it does not change that neither member has a design or that the next
-     * move is the section.
+     * Two gaps, because two claims: a section a code bound rules out (change the section) and no
+     * implemented arrangement verifying, which shows nothing about the section (the member's
+     * reasons say what was tried and what was not). They were one gap under «change the section».
      */
-    expect(c.gaps).toHaveLength(1);
-    expect(c.gaps[0].kind).toBe('refused');
-    expect(c.gaps[0].family).toBe('column');
-    expect(c.gaps[0].elementIds).toEqual([1, 2]);
+    expect(c.gaps.map((g) => [g.kind, g.family, g.elementIds])).toEqual([['exhausted', 'column', [1]], ['refused', 'column', [2]]]);
+    expect(c.gaps.map((g) => g.key)).toEqual(['detailing.convergence.exhausted', 'detailing.convergence.refused']);
   });
 
   it('and a refused member of an UNSELECTED family does not block', () => {
@@ -398,21 +395,26 @@ describe('the fixture that converges, and the one the design refuses', () => {
   });
 
   it('starving the columns leaves refused members outside the scope', () => {
+    // The columns are refused, and so are the beams that frame into them: a 9 × 12 cm column has
+    // 6 cm past its face for the beams' bars, short of the 150 mm §9.7.3.8.2 asks of the bottom
+    // ones and of any hook of the top ones (`end-support-anchorage.ts`). The design used to
+    // verify those beams and leave the detailing to find no room for their ends.
     const readiness = readinessFor(true);
     expect(readiness.convergence.state).toBe('INCOMPLETE');
     expect(undetailedScopeCount(readiness.convergence)).toBeGreaterThan(0);
-    expect(readiness.convergence.gaps.some((g) => g.kind === 'refused')).toBe(true);
-    expect(readiness.convergence.gaps.every((g) => g.family === 'column')).toBe(true);
+    // The columns by a proof (two bars do not fit in 9 cm), the beams by an exhausted search.
+    expect(readiness.convergence.gaps.map((g) => [g.family, g.kind]).sort()).toEqual([['beam', 'exhausted'], ['column', 'refused']]);
   });
 
-  it('and a beams-only scope converges on that same starved model', () => {
+  it('and a beams-only scope does not converge on that same starved model either', () => {
     /*
-     * The scope rule against the real engine. The columns are genuinely refused and the beams
-     * are genuinely designed, so a run that claims only the beams is a complete, honest claim —
-     * and it says so while naming the columns it does not cover.
+     * The scope rule against the real engine. A run that claims only the beams is a complete,
+     * honest claim only where the beams are designed, and here they are not: they have nowhere to
+     * anchor. The scope still names the columns it does not cover.
      */
     const readiness = readinessFor(true, ['beam']);
-    expect(readiness.convergence.state).toBe('CONVERGED');
+    expect(readiness.convergence.state).toBe('INCOMPLETE');
+    expect(readiness.convergence.gaps.every((g) => g.family === 'beam' && g.kind === 'exhausted')).toBe(true);
     expect(readiness.convergence.outOfScope).toEqual(['column']);
   });
 
@@ -426,9 +428,13 @@ describe('the fixture that converges, and the one the design refuses', () => {
      * `ready` and `convergence` therefore disagree here, and that disagreement is the contract:
      * the run may proceed, the result may not be called construction documentation.
      */
+    //
+    // On this model nothing is left to draw: the beams are refused with the columns, since they
+    // cannot anchor in them. So the run has nothing to proceed on, which it says, and the claim
+    // stays withheld. The contract above is the restored model's partial runs' to show.
     const readiness = readinessFor(true);
-    expect(readiness.ready).toBe(true);
-    expect(readiness.detailable.length).toBeGreaterThan(0);
+    expect(readiness.detailable).toEqual([]);
+    expect(readiness.ready).toBe(false);
     expect(readiness.convergence.state).not.toBe('CONVERGED');
   });
 
@@ -447,7 +453,7 @@ describe('the fixture that converges, and the one the design refuses', () => {
     expect(restored.convergence.gaps).toEqual([]);
     // The members the starved run refused are in the restored drawing, by id.
     const refused = starved.convergence.gaps
-      .filter((g) => g.kind === 'refused').flatMap((g) => g.elementIds);
+      .filter((g) => g.kind === 'refused' || g.kind === 'exhausted').flatMap((g) => g.elementIds);
     expect(refused.length).toBeGreaterThan(0);
     for (const id of refused) {
       expect(restored.detailable, `member ${id} is drawn again`).toContain(id);

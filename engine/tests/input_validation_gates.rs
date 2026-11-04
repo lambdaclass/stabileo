@@ -1,8 +1,7 @@
 //! Gates: every solver entry point must reject degenerate input with a clean
 //! Err instead of panicking or silently computing garbage.
 
-#[path = "common/mod.rs"]
-mod common;
+use crate::common;
 
 use common::make_3d_input;
 use dedaliano_engine::solver::{harmonic, linear, modal, spectral, staged, time_integration};
@@ -34,7 +33,7 @@ fn tiny_beam_2d() -> SolverInput {
         constraints: vec![],
         connectors: HashMap::new(),
 
-        solver_options: None,    }
+        solver_options: None, masses: Default::default(),    }
 }
 
 fn densities_1() -> HashMap<String, f64> {
@@ -617,4 +616,12 @@ fn the_stable_defaults_still_run() {
         i2.alpha = Some(good);
         assert!(time_integration::solve_time_history_2d(&i2).is_ok(), "alpha={good}");
     }
+}
+
+#[test]
+fn time_history_2d_refuses_an_overflowing_response_with_its_code() {
+    let mut input = th_input(tiny_beam_2d());
+    input.ground_accel = Some(vec![1.7e308; 10]);
+    let err = time_integration::solve_time_history_2d(&input).unwrap_err();
+    assert!(err.starts_with(&format!("{}: ", time_integration::NON_FINITE_RESPONSE)), "{err}");
 }

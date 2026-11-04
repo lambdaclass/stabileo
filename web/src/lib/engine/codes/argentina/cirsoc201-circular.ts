@@ -1,45 +1,20 @@
 /**
- * Circular columns under axial load and bending. CIRSOC 201-05 §10.
+ * Circular columns under axial load and bending — computed by the engine.
  *
- * ── Why this cannot reuse the rectangular scan ─────────────────────
+ * The bars sit on a ring, each at its own depth, and are summed bar by bar; the concrete is the
+ * compressed part of the circle. Both are the Rust section engine's
+ * (`engine/src/postprocess/cirsoc201_section.rs`), with the circle as the same 360-sided polygon
+ * the CIRSOC_FLEX calculator uses (inscribed: its area is 0,005 % short of πR², on the safe
+ * side). φ (ties or spiral, Tabla 21.2.2 of the edition) and the axial cap (Tabla 22.4.2.1,
+ * 0,85·Po with a spiral) are the engine's too. This module lays out the bars (`barRing`), picks
+ * the depths to plot, and searches for the steel (`designCircular`). The TypeScript closed form
+ * it replaced (the circular segment) is the oracle in `__tests__/differential/oracle/`.
  *
- * `interaction-diagram.ts` idealises a rectangular column as two steel layers,
- * one at `d` and one at `d'`. That is exact for a section with bars on two
- * faces and meaningless for a round one: a circular column's bars sit on a
- * ring, every one at its own depth, and the two nearest the neutral axis are
- * doing almost nothing while the two at the extremes decide the answer.
- * Collapsing them into two layers would report a strength the column does not
- * have — and would be worst exactly where columns are checked, near balanced
- * failure.
- *
- * So the steel is summed bar by bar, and the concrete is a circular segment
- * rather than a rectangle. Both have closed forms; neither needs numerical
- * integration, and the two together are about forty lines. What is shared with
- * the rectangular case is the part that should be: β₁, the strain limits, the
- * φ transition, and the shape of the result, so a caller can put a round
- * column and a rectangular one on the same chart.
- *
- * ── The compression block ──────────────────────────────────────────
- *
- * A chord at depth `a` from the extreme fibre cuts off a segment of central
- * angle θ = 2·arccos((R−a)/R), whose area is R²(θ − sin θ)/2 and whose
- * centroid sits (4R·sin³(θ/2)) / (3(θ − sin θ)) from the centre, toward the
- * compressed face. Both degenerate correctly: at a = 0 the segment vanishes,
- * at a = 2R it is the whole circle with its centroid at the centre.
- *
- * ── Sign convention, stated once ───────────────────────────────────
- *
- * Compression is positive, for forces and for strains. `z` is measured from
- * the section centre toward the compressed face, so a bar in tension at the
- * far side has negative force and negative z, and its contribution to the
- * moment is positive — the same sense as the concrete's. `Mn = Σ F·z` needs no
- * special case for the tension side, which is the reason for choosing it.
+ * Sign convention: compression positive; the first bar at the top, which is compressed.
  */
 
-import {
-  EPSILON_CU, ES_MPA, beta1, phiFromStrain, yieldStrain, axialCap, COLUMN_STEEL_RATIO,
-} from './cirsoc201-basis';
-
+import { yieldStrain, EPSILON_CU, COLUMN_STEEL_RATIO, type Cirsoc201EditionLike } from './cirsoc201-basis';
+import { prepareSection, withSection, type Bar } from './cirsoc201-section';
 
 export interface CircularParams {
   /** Outside diameter, m. */
@@ -70,6 +45,8 @@ export interface CircularParams {
   deductDisplacedConcrete?: boolean;
   /** Points on the curve. */
   nPoints?: number;
+  /** CIRSOC 201 edition (a spiral's φ is 0,70 in 2005 and 0,75 in 2025). Default 2025. */
+  edition?: Cirsoc201EditionLike;
 }
 
 export interface CircularPoint {
@@ -95,24 +72,6 @@ export interface CircularDiagram {
   barCount: number;
 }
 
-/** Area and centroid of the compression segment cut at depth `a`. */
-export function circularSegment(D: number, a: number): { area: number; zc: number } {
-  const R = D / 2;
-  if (a <= 0) return { area: 0, zc: 0 };
-  if (a >= D) return { area: Math.PI * R * R, zc: 0 };
-
-  const theta = 2 * Math.acos((R - a) / R); // central angle, rad
-  const area = (R * R * (theta - Math.sin(theta))) / 2;
-  /*
-   * Guarded because the closed form is 0/0 as the segment vanishes. The limit
-   * is the extreme fibre itself, R, which is what a vanishing sliver's
-   * centroid tends to.
-   */
-  const denom = 3 * (theta - Math.sin(theta));
-  const zc = denom > 1e-12 ? (4 * R * Math.sin(theta / 2) ** 3) / denom : R;
-  return { area, zc };
-}
-
 /** Where each bar sits: z above the centre, and depth from the top fibre. */
 export function barRing(D: number, cover: number, barCount: number): Array<{ z: number; d: number }> {
   const R = D / 2;
@@ -133,85 +92,47 @@ export function barRing(D: number, cover: number, barCount: number): Array<{ z: 
   return out;
 }
 
-/** One point of the curve, for a given neutral-axis depth. */
-function pointAt(p: CircularParams, c: number): CircularPoint {
-  const { D, fc, fy, cover, AstCm2, barCount } = p;
-  const fc_kPa = fc * 1000;
-  const fy_kPa = fy * 1000;
-  const R = D / 2;
-  const b1 = beta1(fc);
-  const ey = yieldStrain(fy);
+/** The ring as engine bars, the first one at the top (+y). */
+function ringBars(p: CircularParams): Bar[] {
+  const AsBar = (p.AstCm2 * 1e-4) / Math.max(p.barCount, 1);
+  const R = p.D / 2;
+  return barRing(p.D, p.cover, p.barCount).map((b, i) => {
+    const ang = (2 * Math.PI * i) / p.barCount;
+    return { x: (R - p.cover) * Math.sin(ang), y: b.z, area: AsBar };
+  });
+}
 
-  const a = Math.min(b1 * c, D);
-  const seg = circularSegment(D, a);
-  const Cc = 0.85 * fc_kPa * seg.area; // kN
-
-  const AsBar = (AstCm2 * 1e-4) / Math.max(barCount, 1); // m² per bar
-  const bars = barRing(D, cover, barCount);
-
-  let Ps = 0;
-  let Ms = 0;
-  let epsMostTensile = 0;
-  for (const bar of bars) {
-    const eps = c > 1e-6 ? (EPSILON_CU * (c - bar.d)) / c : -10 * ey;
-    const fs = Math.max(-fy_kPa, Math.min(fy_kPa, eps * ES_MPA * 1000)); // kN/m²
-    let F = AsBar * fs; // + compression
-    if ((p.deductDisplacedConcrete ?? true) && eps > 0 && bar.d <= a) {
-      F -= AsBar * 0.85 * fc_kPa;
-    }
-    Ps += F;
-    Ms += F * bar.z;
-    if (eps < epsMostTensile) epsMostTensile = eps;
-  }
-
-  const Pn = Cc + Ps;
-  const Mn = Cc * seg.zc + Ms;
-
-  /* φ from the net tensile strain in the outermost tension bar (§9.3.2). */
-  const epsT = Math.abs(Math.min(epsMostTensile, 0));
-  const phi = phiFromStrain(epsT, fy, p.confinement ?? 'ties');
-
-  /*
-   * §10.3.6's cap on axial load, applied to the DESIGN value.
-   *
-   * It exists because no column is loaded at a truly zero eccentricity, so
-   * the code refuses to credit the pure-compression ordinate. 0.85 for a
-   * spiral against 0.80 for ties, for the same reason the φ differs.
-   */
-  const Ag = Math.PI * R * R;
-  const Ast = AstCm2 * 1e-4;
-  const phiPnMax = axialCap(fc, fy, Ag, Ast, p.confinement ?? 'ties');
-
-  const phiPn = Math.min(phi * Pn, phiPnMax);
-  return { phiPn, phiMn: phi * Mn, c, epsT, phi };
+function materialsOf(p: CircularParams) {
+  return {
+    fc: p.fc, fy: p.fy, confinement: p.confinement ?? 'ties',
+    deductDisplacedConcrete: p.deductDisplacedConcrete ?? true, edition: p.edition ?? '2025',
+  } as const;
 }
 
 /**
- * The φPn–φMn curve for a circular column, from pure compression to pure
- * tension.
+ * The φPn–φMn curve for a circular column, from pure compression to pure tension.
  */
 export function generateCircularInteraction(p: CircularParams): CircularDiagram {
   const { D, fy, cover } = p;
   const nPts = p.nPoints ?? 40;
   const R = D / 2;
   const dt = R + (R - cover); // depth to the outermost bar on the tension side
-  const ey = yieldStrain(fy);
-
   const cs: number[] = [10 * D];
   for (let i = 0; i <= nPts; i++) {
     const c = 2 * D * (1 - i / nPts);
     if (c > 1e-4) cs.push(c);
   }
   /* The balanced depth, added explicitly so the curve has the point by name. */
-  const cb = (dt * EPSILON_CU) / (EPSILON_CU + ey);
+  const cb = (dt * EPSILON_CU) / (EPSILON_CU + yieldStrain(fy));
   cs.push(cb);
   cs.push(1e-4);
   cs.sort((x, y) => y - x);
-
-  const points = cs.map((c) => pointAt(p, c));
-  const balanced = pointAt(p, cb);
+  const states = withSection({ kind: 'circle', D }, ringBars(p), materialsOf(p), (s) => s.points(Math.PI / 2, [...cs, cb]));
+  const toPoint = (st: (typeof states)[number]): CircularPoint =>
+    ({ phiPn: st.phiPn, phiMn: -st.phiMnx, c: st.c, epsT: st.epsilonT, phi: st.phi });
+  const points = states.slice(0, cs.length).map(toPoint);
+  const balanced = toPoint(states[cs.length]);
   balanced.label = 'Balanceado';
-
   return {
     points,
     balanced,
@@ -245,74 +166,30 @@ export interface CircularCheck {
 }
 
 /**
- * Is (Pu, Mu) inside the curve?
- *
- * Measured along the ray from the origin through the demand point, which is
- * the comparison an engineer draws by hand: it holds the eccentricity fixed
- * and asks how much further the column could be pushed at that eccentricity.
- * Comparing moments at constant axial load instead would report an infinite
- * reserve for a point above the nose of the curve, where there is none.
+ * Is (Pu, Mu) inside the curve? Measured by the engine along the ray from the origin through the
+ * demand (`Section::ray`): it holds the eccentricity fixed and asks how much further the column
+ * could be pushed. A pure moment is read where the curve crosses φPn = 0 (not at its nose).
  */
 export function checkColumnCircular(p: CircularParams, Pu: number, Mu: number): CircularCheck {
-  const diag = generateCircularInteraction(p);
   const MuAbs = Math.abs(Mu);
-  const steps: string[] = [
-    `Columna circular D = ${(p.D * 100).toFixed(0)} cm, ${p.barCount} barras, Ast = ${p.AstCm2.toFixed(2)} cm²`,
-    `Pu = ${Pu.toFixed(2)} kN, Mu = ${MuAbs.toFixed(2)} kN·m`,
-  ];
-
-  /*
-   * Pure bending is the ray straight along the moment axis, and the search
-   * below cannot represent it — every segment crossing would need Pu ≠ 0. It
-   * is also the case a beam-column reduces to, so it is answered directly.
-   */
-  if (Math.abs(Pu) < 1e-9) {
-    let best = 0;
-    let at = diag.points[0];
-    for (const pt of diag.points) {
-      if (pt.phiPn >= 0 && pt.phiMn > best) { best = pt.phiMn; at = pt; }
-    }
-    const ratio = best > 0 ? MuAbs / best : Infinity;
-    steps.push(`Flexión pura: φMn,máx = ${best.toFixed(2)} kN·m`);
+  const section = prepareSection({ kind: 'circle', D: p.D }, ringBars(p), materialsOf(p));
+  try {
+    const u = section.ray(Pu, MuAbs);
+    const steps: string[] = [
+      `Columna circular D = ${(p.D * 100).toFixed(0)} cm, ${p.barCount} barras, Ast = ${p.AstCm2.toFixed(2)} cm²`,
+      `Pu = ${Pu.toFixed(2)} kN, Mu = ${MuAbs.toFixed(2)} kN·m`,
+      Math.abs(Pu) < 1e-9
+        ? `Flexión pura: φMn = ${u.phiMn.toFixed(2)} kN·m`
+        : `Capacidad sobre la recta de excentricidad: φPn = ${u.phiPn.toFixed(2)} kN, φMn = ${u.phiMn.toFixed(2)} kN·m`,
+      `Relación demanda/capacidad = ${u.ratio.toFixed(3)}`,
+    ];
     return {
-      Pu, Mu: MuAbs, phiPn: 0, phiMn: best, ratio,
-      status: ratio <= 1 ? 'ok' : 'fail', epsT: at.epsT, phi: at.phi, c: at.c, steps,
+      Pu, Mu: MuAbs, phiPn: u.phiPn, phiMn: u.phiMn, ratio: u.ratio,
+      status: u.ratio <= 1 ? 'ok' : 'fail', epsT: u.epsilonT ?? 0, phi: u.phi, c: u.c ?? 0, steps,
     };
+  } finally {
+    section.free();
   }
-
-  /*
-   * Walk the curve and find where it crosses the ray. The curve is ordered by
-   * neutral-axis depth, so consecutive points bracket the crossing exactly
-   * once for a demand in the first quadrant.
-   */
-  const slope = MuAbs / Pu; // M per unit P along the ray
-  let capP = 0;
-  let capM = 0;
-  let at = diag.points[0];
-  for (let i = 0; i < diag.points.length - 1; i++) {
-    const A = diag.points[i];
-    const B = diag.points[i + 1];
-    const fA = A.phiMn - slope * A.phiPn;
-    const fB = B.phiMn - slope * B.phiPn;
-    if (fA === 0 || fA * fB < 0) {
-      const t = fA / (fA - fB);
-      capP = A.phiPn + t * (B.phiPn - A.phiPn);
-      capM = A.phiMn + t * (B.phiMn - A.phiMn);
-      at = Math.abs(t) < 0.5 ? A : B;
-      break;
-    }
-  }
-
-  const demand = Math.hypot(MuAbs, Pu);
-  const capacity = Math.hypot(capM, capP);
-  const ratio = capacity > 1e-9 ? demand / capacity : Infinity;
-  steps.push(`Capacidad sobre la recta de excentricidad: φPn = ${capP.toFixed(2)} kN, φMn = ${capM.toFixed(2)} kN·m`);
-  steps.push(`Relación demanda/capacidad = ${ratio.toFixed(3)}`);
-
-  return {
-    Pu, Mu: MuAbs, phiPn: capP, phiMn: capM, ratio,
-    status: ratio <= 1 ? 'ok' : 'fail', epsT: at.epsT, phi: at.phi, c: at.c, steps,
-  };
 }
 
 /**

@@ -11,6 +11,7 @@
   import { onMount } from 'svelte';
   import PointerModeButton from './PointerModeButton.svelte';
   import SelectionDeleteButton from './ribbon/SelectionDeleteButton.svelte';
+  import SelectionClipboardButtons from './ribbon/SelectionClipboardButtons.svelte';
   import Icon from './ribbon/Icon.svelte';
   import { t } from '../lib/i18n';
   import { modelStore, uiStore, resultsStore, historyStore, dsmStepsStore } from '../lib/store';
@@ -18,7 +19,9 @@
   import { scaleCanvasText } from '../lib/canvas/text-scale';
   import HiddenItemsChip from './viewport/HiddenItemsChip.svelte';
   import { TWO_D_VERTICAL_AXIS_LABEL, TWO_D_DISPLACEMENT_LABELS, get2DDisplayDisplacementVertical, get2DDisplayedVertical } from '../lib/geometry/coordinate-system';
-  import { projectNode, to3D } from '../lib/geometry/plane-projection';
+  import { projectNode, to2D, to3D } from '../lib/geometry/plane-projection';
+  import { placementStore } from '../lib/store/placement.svelte';
+  import { drawPlacementGhost } from '../lib/canvas/draw-placement';
   import { drawDiagrams, drawEnvelopeDiagrams, computeDiagramGlobalMax, setDiagramUnitSystem, type DiagramKind } from '../lib/canvas/draw-diagrams';
   import { computeDiagramValueAt, computeDisplacementAt } from '../lib/engine/diagrams';
   import { effectiveBendingInertia } from '../lib/engine/solver-service';
@@ -34,7 +37,11 @@
   import { createLabelCollector, type LabelCollector } from '../lib/canvas/label-layout';
   import { computeAxleWorldPositions } from '../lib/engine/moving-loads';
   import { drawInfluenceLine } from '../lib/canvas/draw-influence';
+  import { pickInfluenceTarget } from '../lib/actions/influence-line';
+  import { influenceTool } from '../lib/store/influence-tool.svelte';
   import { drawModeShape, drawPlasticHinges } from '../lib/canvas/draw-modes';
+  import { drawPlasticCourseLayer, tapPlasticHinge } from '../lib/canvas/plastic-course-layer';
+  import { plasticCourse } from '../lib/store/plastic-course.svelte';
   import { computeElementStress } from '../lib/store/results.svelte';
   import { colourScaleSource } from '../lib/store/result-view';
   import { colourRampCss, colourMapUnit } from '../lib/three/colour-ramp';
@@ -69,14 +76,15 @@
   import { boxSelect as boxSelectTargets, normaliseDrag, type BoxSelectMode } from '../lib/viewport/box-select';
   import { canvasTheme } from '../lib/canvas/theme';
   import { registerFigure2D, diagramFor, type ExportFrame, type FrameView } from '../lib/export/view-figure';
+  import { drawHiddenLabelsNote } from '../lib/export/hidden-labels-note';
   import { drawMemberDimensions } from '../lib/canvas/draw-member-dimensions';
   import { drawMemberSnap } from '../lib/canvas/draw-member-snap';
   import ConnectionPrompt from './ConnectionPrompt.svelte';
   import { askAboutNewMember, askToConnectNode } from '../lib/model/edit/connection-questions';
   import { resolveMemberSnap, MEMBER_SNAP_PX, type MemberSnap, type SnapMember } from '../lib/viewport/member-snap';
   import { toolStretch } from '../lib/model/loads/load-stretch';
-  import type { InfluenceLineResult } from '../lib/store/model.svelte';
   import { resolveNodePlacement2D, type NodePlacement } from '../lib/viewport/node-placement';
+  import { modeDrawGeometry } from '../lib/engine/second-order/mode-geometry';
 
   let canvas: HTMLCanvasElement;
   let ctx: CanvasRenderingContext2D | null = null;
@@ -92,6 +100,7 @@
   let pendingNode: { x: number; y: number } | null = null;
   /** Where the member tool's next click would put an end, and what it catches (see memberEndAt). */
   let memberSnapPreview: MemberSnap | null = null;
+  let placementDown: { x: number; y: number } | null = null;
   /** What a dragged node has caught (another node, a member), or null on the grid. */
   let dragSnap: MemberSnap | null = null;
 
@@ -246,6 +255,7 @@
 
   // Model data changes
   $effect(() => { modelStore.nodes; modelStore.elements; invalidate(); });
+  $effect(() => { void placementStore.revision; invalidate(); });
   $effect(() => { modelStore.supports; invalidate(); });
   $effect(() => { modelStore.loads; invalidate(); });
   $effect(() => { modelStore.materials; modelStore.sections; invalidate(); });
@@ -263,7 +273,7 @@
     }
   });
   $effect(() => { resultsStore.deformedScale; resultsStore.diagramScale; invalidate(); });
-  $effect(() => { resultsStore.showDiagramValues; resultsStore.drawPositiveTowardLocalAxes; invalidate(); });
+  $effect(() => { resultsStore.showDiagramValues; resultsStore.showDeformedValues; resultsStore.drawPositiveTowardLocalAxes; invalidate(); });
   $effect(() => { resultsStore.colorMapKind; invalidate(); });
   $effect(() => { resultsStore.showReactions; resultsStore.showConstraintForces; invalidate(); });
   // Despiece controls must redraw the canvas immediately (no mouse-move needed).
@@ -274,12 +284,13 @@
     uiStore.despieceInspect;
     invalidate();
   });
-  $effect(() => { resultsStore.influenceLine; invalidate(); });
+  $effect(() => { resultsStore.influenceLine; influenceTool.envelope; invalidate(); });
   $effect(() => { resultsStore.overlayResults; resultsStore.overlayLabel; invalidate(); });
   $effect(() => { resultsStore.movingLoadEnvelope; resultsStore.activeMovingLoadPosition; resultsStore.movingLoadShowEnvelope; invalidate(); });
   $effect(() => { resultsStore.modalResult; resultsStore.activeModeIndex; invalidate(); });
   $effect(() => { resultsStore.bucklingResult; resultsStore.activeBucklingMode; invalidate(); });
   $effect(() => { resultsStore.plasticResult; resultsStore.plasticStep; invalidate(); });
+  $effect(() => { plasticCourse.view; plasticCourse.user; plasticCourse.userShows; plasticCourse.hinges; invalidate(); });
   $effect(() => { resultsStore.stressQuery; invalidate(); });
   $effect(() => { resultsStore.envelope; invalidate(); });
 
@@ -1101,6 +1112,12 @@
       drawMemberSnap(ctx, dragSnap, null, t(`float.snap.${dragSnap.kind}`),
         (x, y) => uiStore.worldToScreen(x, y), { x: uiStore.mouseX, y: uiStore.mouseY }, canvasTheme(), { width, height }, touchInput ? 48 : 14);
     }
+    if (!exportFrame && placementStore.active && placementStore.fragment) {
+      const plane = uiStore.drawPlane2D;
+      drawPlacementGhost(ctx, placementStore.fragment, placementStore.transform(), placementStore.mergePreview().welds,
+        placementStore.target, placementStore.onNode,
+        (p) => { const q = to2D(plane, p[0], p[1], p[2]); return uiStore.worldToScreen(q.x, q.y); }, canvasTheme());
+    }
     // What the member tool's next click catches: a marker on the point and its name by the cursor.
     if (!exportFrame && uiStore.currentTool === 'element' && memberSnapPreview) {
       drawMemberSnap(ctx, memberSnapPreview, pendingNode, t(`float.snap.${memberSnapPreview.kind}`),
@@ -1133,8 +1150,10 @@
         const mdc = {
           ctx,
           worldToScreen: (wx: number, wy: number) => uiStore.worldToScreen(wx, wy),
-          nodes: modelStore.nodes as Map<number, { x: number; y: number }>,
-          elements: modelStore.elements as Map<number, { nodeI: number; nodeJ: number }>,
+          ...modeDrawGeometry(resultsStore.bucklingResult, {
+            nodes: modelStore.nodes as Map<number, { x: number; y: number }>,
+            elements: modelStore.elements as Map<number, { nodeI: number; nodeJ: number }>,
+          }),
         };
         drawModeShape(mode.displacements, mdc, uiStore.zoom, animScale, '#e96941');
       }
@@ -1369,7 +1388,9 @@
         }
       } else if (dt === 'influenceLine' && resultsStore.influenceLine) {
         drawInfluenceLine(resultsStore.influenceLine, makeDrawContext(), uiStore.zoom, resultsStore.ilAnimating ? resultsStore.ilAnimProgress : undefined);
-      } else if (dt === 'plasticHinges' && resultsStore.plasticResult) {
+      } else if (dt === 'plasticHinges' && resultsStore.plasticResult
+        && !drawPlasticCourseLayer({ ctx, worldToScreen: (wx, wy) => uiStore.worldToScreen(wx, wy) }, makeDrawContext(),
+          { scale: resultsStore.diagramScale, values: valuesNow(), towardLocal: resultsStore.drawPositiveTowardLocalAxes })) {
         /*
          * The step's accumulated moment diagram, on one scale for every step so
          * it visibly grows toward collapse, then the hinges formed so far.
@@ -1443,7 +1464,7 @@
     // Draw diagram query marker
     // A figure ends here: what follows is the pointer's (queries, hover, tooltips, box select).
     if (exportFrame) {
-      currentFrameLabels.flush(ctx, memberScreenSegments());
+      drawHiddenLabelsNote(ctx, height, currentFrameLabels.flush(ctx, memberScreenSegments(), { drop: true }));
       currentFrameLabels = undefined;
       return;
     }
@@ -1677,7 +1698,7 @@
    */
   function drawDeformedValues(scale: number) {
     const res = resultsStore.results;
-    if (!ctx || !res || !valuesNow()) return;
+    if (!ctx || !res || !(exportFrame ? exportFrame.options.values : resultsStore.showDeformedValues)) return;
     const byId = new Map(res.displacements.map((d) => [d.nodeId, d]));
     const picks = nodesToLabel(res.displacements.map((d) => ({ nodeId: d.nodeId, ux: d.ux, uy: 0, uz: d.uz })));
     ctx.font = 'bold 11px sans-serif';
@@ -1865,6 +1886,14 @@
     // Close context menu on any click
     uiStore.contextMenu = null;
 
+    // While something is being placed the left button places it, whatever tool is armed.
+    if (placementStore.active && e.button === 0) {
+      placementDown = { x: mx, y: my };
+      return;
+    }
+
+    if (plasticCourse.picking && e.button === 0) { tapPlasticHinge(world.x, world.y, pickTol(PICK_PX.loose)); return; }
+
     // Pan: middle mouse or pan tool
     if (uiStore.currentTool === 'pan' || e.button === 1) {
       isPanning = true;
@@ -1872,6 +1901,9 @@
       panStartY = my;
       return;
     }
+
+    if (placementStore.active) return;
+
 
     // Block creation/mutation tools in simplified 2D mode
     if (uiStore.simplified2DMode
@@ -2165,47 +2197,8 @@
         }
       }
     } else if (uiStore.currentTool === 'influenceLine') {
-      // Influence line: click node for Rz/Rx/My, click element for V/M
-      const q = uiStore.ilQuantity;
-      const nearNode = findNearestNode(world.x, world.y, pickTol(PICK_PX.loose));
-      const nearElem = findNearestElement(world.x, world.y, pickTol(PICK_PX.loose));
-
-      let target: { q: 'Rz' | 'Rx' | 'My' | 'V' | 'M'; node?: number; elem?: number } | null = null;
-      if ((q === 'Rz' || q === 'Rx' || q === 'My') && nearNode) target = { q, node: nearNode.id };
-      else if ((q === 'V' || q === 'M') && nearElem) target = { q, elem: nearElem.id };
-      // Clicked node but quantity is V/M → Rz; clicked element but quantity is a reaction → M
-      else if (nearNode) target = { q: 'Rz', node: nearNode.id };
-      else if (nearElem) target = { q: 'M', elem: nearElem.id };
-      else uiStore.toast(t('viewport.ilClickHint'), 'info');
-
-      if (target) {
-        uiStore.ilQuantity = target.q;
-        const run = (dir: 'vertical' | 'horizontal') => modelStore.computeInfluenceLine(target!.q, target!.node, target!.elem, 0.5, 20, dir);
-        const flat = (r: InfluenceLineResult) => r.points.every((p) => Math.abs(p.value) < 1e-9);
-        let result = run(uiStore.ilDirection);
-        if (typeof result === 'string') {
-          uiStore.toast(result, 'error');
-        } else if (flat(result)) {
-          /*
-           * Zero wherever the unit load stands: a load down a vertical member (a wall, a column)
-           * puts no shear or moment in it. The other direction is tried before saying there is
-           * no line, and used, said so, when it gives one.
-           */
-          const other = uiStore.ilDirection === 'vertical' ? 'horizontal' : 'vertical';
-          const alt = run(other);
-          if (typeof alt !== 'string' && !flat(alt)) {
-            uiStore.ilDirection = other;
-            resultsStore.setInfluenceLine(alt);
-            uiStore.toast(t(other === 'horizontal' ? 'viewport.ilSwitchedHorizontal' : 'viewport.ilSwitchedVertical').replace('{q}', target.q), 'info');
-          } else {
-            resultsStore.setInfluenceLine(result);
-            uiStore.toast(t('viewport.ilAllZero').replace('{q}', target.q), 'info');
-          }
-        } else {
-          resultsStore.setInfluenceLine(result);
-          uiStore.toast(t('viewport.ilCalculated'), 'success');
-        }
-      }
+      const tol = pickTol(PICK_PX.loose);
+      pickInfluenceTarget(world, findNearestNode(world.x, world.y, tol)?.id, findNearestElement(world.x, world.y, tol)?.id, tol);
     } else if (uiStore.currentTool === 'select') {
       // Despiece inspection: while the free-body view is active, a click inspects
       // the converging actions (node) or both member ends (member) — without
@@ -2423,6 +2416,11 @@
       return;
     }
 
+    if (placementStore.active) {
+      if (placementStore.follow) placementHover(world.x, world.y);
+      return;
+    }
+
     // Block dragging in simplified 2D mode
     if (uiStore.simplified2DMode && draggedNodeId !== null) {
       draggedNodeId = null;
@@ -2589,8 +2587,36 @@
     invalidate();
   }
 
-  function handleMouseUp() {
+  /** The placement target: a node under the pointer, else the snapped point on the plane. */
+  function placementHover(wx: number, wy: number) {
+    const s = snapWithMidpoint(wx, wy);
+    const tol = 1e-9 + 1 / Math.max(uiStore.zoom, 1e-9);
+    let nodeId: number | null = null;
+    for (const n of getPickableProjectedNodes().values()) {
+      if (Math.abs(n.x - s.x) <= tol && Math.abs(n.y - s.y) <= tol) { nodeId = n.id; break; }
+    }
+    const node = nodeId !== null ? modelStore.nodes.get(nodeId) : undefined;
+    if (node) { placementStore.setTarget([node.x, node.y, node.z ?? 0], `${t('placement.node')} ${node.id}`, true); return; }
+    const p = to3D(uiStore.drawPlane2D, s.x, s.y, { x: 0, y: 0, z: 0 });
+    placementStore.setTarget([p.x, p.y, p.z]);
+  }
+
+  function handleMouseUp(e?: MouseEvent) {
     isPanning = false;
+
+    if (placementDown) {
+      const down = placementDown;
+      placementDown = null;
+      if (!placementStore.active || !e) return;
+      const rect = canvas.getBoundingClientRect();
+      const moved = Math.hypot(e.clientX - rect.left - down.x, e.clientY - rect.top - down.y);
+      if (moved < 5 && placementStore.follow) {
+        const w = uiStore.screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
+        placementHover(w.x, w.y);
+        placementStore.commit(e.shiftKey);
+      }
+      return;
+    }
 
     if (draggedNodeId !== null) {
       if (!dragMoved) {
@@ -2798,7 +2824,7 @@
     }));
 
     touchInput = true;
-    if (touches.length === 1 && uiStore.currentTool === 'element') {
+    if (touches.length === 1 && (uiStore.currentTool === 'element' || placementStore.active)) {
       /*
        * The member tool on a finger: pressing shows where the point would go
        * (the snap, the ghost and its dimensions), sliding moves it, lifting
@@ -2927,9 +2953,16 @@
     e.preventDefault();
     cancelLongPress();
     if (touchState?.placeOnLift && !touchState.isPinch && e.touches.length === 0 && touchState.lastTouch && canvas) {
-      // The member tool: the point goes where the finger lifted.
+      // The member tool, or a placement: the point goes where the finger lifted.
       const rect = canvas.getBoundingClientRect();
       const at = touchState.lastTouch;
+      if (placementStore.active) {
+        const w = uiStore.screenToWorld(at.x, at.y);
+        placementHover(w.x, w.y);
+        placementStore.commit(false);
+        touchState = null;
+        return;
+      }
       handleMouseDown({ clientX: at.x + rect.left, clientY: at.y + rect.top, button: 0, shiftKey: false, preventDefault: () => {} } as MouseEvent);
       handleMouseUp();
       touchState = null;
@@ -3253,7 +3286,7 @@
   {#if uiStore.isMobile && uiStore.appMode === 'basico'}
     <!-- The phone's delete button: over the model's lower right corner, level
          with the axes; the canvas shrinks for the sheet, so it rises with it. -->
-    <div class="vp-delete"><SelectionDeleteButton floating /></div>
+    <div class="vp-delete"><SelectionClipboardButtons floating /><SelectionDeleteButton floating /></div>
   {/if}
   <canvas
     bind:this={canvas}
@@ -3338,6 +3371,8 @@
   }
 
   .vp-delete {
+    display: flex;
+    gap: 6px;
     position: absolute;
     right: 12px;
     bottom: calc(14px + env(safe-area-inset-bottom, 0px));

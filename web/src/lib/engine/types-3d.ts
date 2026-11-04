@@ -26,6 +26,31 @@ export interface SolverSection3D {
   asY?: number;
   /** m² — shear area paired with iz. */
   asZ?: number;
+  /**
+   * m — shear-centre coordinates from the centroid, local y and z. Read only by the
+   * geometric stiffness (flexural-torsional buckling of channels, tees, angles).
+   * Absent: 0 (doubly or point symmetric).
+   */
+  shearCenterY?: number;
+  shearCenterZ?: number;
+  /**
+   * m⁶ — warping constant. Sent only by the buckling analysis (`buckling-warping.ts`): with it
+   * the engine numbers a warping DOF at every node (Vlasov torsion), which the other analyses
+   * are not given (#439).
+   */
+  cw?: number;
+  /**
+   * Web-only, never sent (`input3DToWireObject` strips it): the section's Cw, for the buckling
+   * analysis to turn into `cw` on the members it can give warping to.
+   */
+  bucklingCw?: number;
+  /**
+   * Web-only, never sent: what is missing for the section's torsional terms. `'j'`: no torsion
+   * constant — its members are sent released in torsion (`j: 0`) and buckling and P-Δ refuse
+   * them. `'shearCentre'`: a tee, channel or angle whose shear centre nothing placed — buckling
+   * and P-Δ refuse, since taking the centroid drops its flexural-torsional coupling.
+   */
+  torsionGap?: 'j' | 'shearCentre';
 }
 
 // ─── Elements ────────────────────────────────────────────────────
@@ -150,8 +175,14 @@ export interface SolverPointLoad3D {
 export interface SolverThermalLoad3D {
   elementId: number;
   dtUniform: number;    // °C → axial (E·A·α·ΔT)
-  dtGradientY: number;  // °C → My (E·Iy·α·ΔTy/hy)
-  dtGradientZ: number;  // °C → Mz (E·Iz·α·ΔTz/hz)
+  dtGradientY: number;  // °C across local y → Mz (E·Iz·α·ΔTy/hy)
+  dtGradientZ: number;  // °C across local z → My (E·Iy·α·ΔTz/hz)
+  /** The material's α, 1/°C. Absent: the engine's 12·10⁻⁶, with a warning (#407). */
+  alpha?: number;
+  /** The section's real depth along local y (hy). Absent: √(12·Iz/A), with a warning. */
+  depthY?: number;
+  /** The section's real depth along local z (hz). Absent: √(12·Iy/A), with a warning. */
+  depthZ?: number;
 }
 
 export type SolverLoad3D =
@@ -337,6 +368,32 @@ export interface SolverInput3D {
    *  `connectors: HashMap<String, ConnectorElement>` (see Rust ConnectorElement). */
   connectors?: Map<number, ConnectorElement>;
   leftHand?: boolean;  // Terna izquierda: negate ey in local axes
+  /** Mass beyond the material densities, for the dynamic analyses only (engine `MassInput3D`). */
+  masses?: MassInput3D;
+}
+
+/** A lumped mass at a node: t in each translation (`mass`, or per direction), t·m² about global axes. */
+export interface NodalMass3D {
+  nodeId: number;
+  mass: number;
+  massX?: number;
+  massY?: number;
+  massZ?: number;
+  ixx?: number;
+  iyy?: number;
+  izz?: number;
+}
+
+/** Mass added along a member, t/m, distributed as the member's own mass is. */
+export interface LineMass { elementId: number; massPerLength: number }
+
+/** Mass added over a shell, t/m², distributed as the shell's own mass is. */
+export interface AreaMass { elementId: number; kind: 'quad' | 'plate' | 'quad9' | 'curvedShell'; massPerArea: number }
+
+export interface MassInput3D {
+  nodal?: NodalMass3D[];
+  line?: LineMass[];
+  area?: AreaMass[];
 }
 
 // ─── Results ─────────────────────────────────────────────────────
@@ -418,6 +475,22 @@ export interface ElementForces3D {
 }
 
 /** Plate stress output (triangular) */
+/**
+ * The components an envelope holds the extremes of: the element's own, the membrane principals,
+ * the Wood–Armer design moments and, for a plate, the principals of its worse face.
+ */
+export type ShellEnvelopeKey =
+  | 'sigmaXx' | 'sigmaYy' | 'tauXy' | 'mx' | 'my' | 'mxy' | 'qx' | 'qy' | 'vonMises' | 'sigma1' | 'sigma2'
+  | 'woodArmerBottomX' | 'woodArmerBottomY' | 'woodArmerTopX' | 'woodArmerTopY' | 'faceSigma1' | 'faceSigma2';
+export interface ShellEnvelopeSource { kind: 'combination' | 'case'; id: number }
+export interface ShellExtreme { max: number; maxSource: ShellEnvelopeSource; min: number; minSource: ShellEnvelopeSource }
+/**
+ * An envelope element's extremes, each with the set it comes from. Its record's components are
+ * each the extreme of larger magnitude and need not come from one set, so nothing that combines
+ * components (faces, principals, design moments) may be derived from the record: read it here.
+ */
+export type ShellEnvelope = Partial<Record<ShellEnvelopeKey, ShellExtreme>>;
+
 export interface PlateStress {
   elementId: number;
   sigmaXx: number;
@@ -430,6 +503,9 @@ export interface PlateStress {
   sigma2: number;
   vonMises: number;
   nodalVonMises?: number[];
+  qx?: number;
+  qy?: number;
+  envelope?: ShellEnvelope;
 }
 
 /** Quad stress output */
@@ -450,6 +526,7 @@ export interface QuadStress {
    */
   qx?: number;
   qy?: number;
+  envelope?: ShellEnvelope;
 }
 
 export interface AnalysisResults3D {

@@ -400,6 +400,7 @@ fn validation_ansys_vm27_ss_beam_thermal_gradient() {
                     element_id: i + 1,
                     dt_uniform: 0.0,
                     dt_gradient: dt_grad,
+                    alpha: None, depth: None,
                 })
             })
             .collect(),
@@ -777,6 +778,7 @@ fn validation_ansys_vm34_thermal_two_bar_truss() {
         element_id: 1,
         dt_uniform: dt,
         dt_gradient: 0.0,
+        alpha: None, depth: None,
     })];
 
     let input = make_input(

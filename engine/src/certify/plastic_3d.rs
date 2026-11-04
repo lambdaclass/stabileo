@@ -283,7 +283,7 @@ pub fn build_model_3d(input: &PlasticInput3D) -> Result<PlasticModel3, String> {
         return Err(format!("more than {MAX_PLASTIC_ELEMENTS_3D} members: too large for the exact check"));
     }
     let left_hand = s.left_hand.unwrap_or(false);
-    let mut node_list: Vec<&SolverNode3D> = s.nodes.values().collect();
+    let mut node_list: Vec<&SolverNode3D> = crate::ordered::values(&s.nodes).collect();
     node_list.sort_by_key(|n| n.id);
     let idx: HashMap<usize, usize> = node_list.iter().enumerate().map(|(i, n)| (n.id, i)).collect();
     let coords: Vec<V3> = node_list
@@ -327,7 +327,7 @@ pub fn build_model_3d(input: &PlasticInput3D) -> Result<PlasticModel3, String> {
         mp_by_sec.insert(sec_id, mp_3d(sec, fy, over)?);
     }
 
-    let mut elem_list: Vec<&SolverElement3D> = s.elements.values().collect();
+    let mut elem_list: Vec<&SolverElement3D> = crate::ordered::values(&s.elements).collect();
     elem_list.sort_by_key(|e| e.id);
     let eidx: HashMap<usize, usize> = elem_list.iter().enumerate().map(|(i, e)| (e.id, i)).collect();
     let mut elems = Vec::with_capacity(elem_list.len());
@@ -1395,9 +1395,9 @@ fn solver_state_field(model: &PlasticModel3, input: &PlasticInput3D, res: &Plast
     let pos: HashMap<usize, usize> = model.elems.iter().enumerate().map(|(i, e)| (e.id, i)).collect();
     let s = &input.solver;
     let mut axes = HashMap::new();
-    for el in s.elements.values() {
-        let ni = s.nodes.values().find(|n| n.id == el.node_i)?;
-        let nj = s.nodes.values().find(|n| n.id == el.node_j)?;
+    for el in crate::ordered::values(&s.elements) {
+        let ni = crate::ordered::values(&s.nodes).find(|n| n.id == el.node_i)?;
+        let nj = crate::ordered::values(&s.nodes).find(|n| n.id == el.node_j)?;
         axes.insert(
             el.id,
             crate::element::compute_local_axes_3d(

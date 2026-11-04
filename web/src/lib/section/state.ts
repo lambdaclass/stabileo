@@ -32,7 +32,7 @@ import { ALL_PROFILES } from '../data/steel-profiles';
 import { resolveCanonicalSection, catalogueOutline, type PropertiesOnlyReason } from './canonical';
 import { analyzeDrawn } from './drawn-properties';
 import type { CanonicalGeometry } from '../engine/wasm-solver';
-import { isSolverReady, hasCanonicalGeometryExport, analyzeSectionTorsion } from '../engine/wasm-solver';
+import { isSolverReady, hasCanonicalGeometryExport, analyzeSectionTorsion, analyzeSectionShear, analyzeSectionPlastic } from '../engine/wasm-solver';
 import { canonicalSections } from '../features';
 import { CANONICAL_STATE_VERSION } from './version';
 
@@ -70,6 +70,19 @@ export interface CanonicalSectionState {
   /** Torsional constant and where it came from. `null` means unavailable. */
   j: number | null;
   jProvenance: TorsionProvenance;
+  /**
+   * Shear centre, centroid-relative, in the section's own (unrotated) frame: `[y, z]`, y across
+   * the width, z up the depth — the frame `iy` and `iz` are in. Solved on the section's mesh in
+   * the same pass as `j`. `undefined`: that pass has not run; `null`: it found none (a composite
+   * section, or the solve failed). See `sectionWarping`.
+   */
+  shearCentre?: [number, number] | null;
+  /**
+   * Warping constant Cw, m⁶, about the shear centre, from the same pass. Zero for a closed
+   * section (the engine declines one, and a closed cell's Cw is negligible), `null` when
+   * unknown.
+   */
+  cw?: number | null;
   /** Several materials: transformed properties, and no homogeneous stress field. */
   composite?: true;
 }
@@ -184,6 +197,58 @@ function resolveTorsion(
   return { j: null, jProvenance: 'unavailable' };
 }
 
+/**
+ * Shear centre and warping constant of a geometry, solved on its own mesh.
+ *
+ * What the 3D geometric stiffness needs besides `J` (#439): the shear-centre offset gives a
+ * channel, tee or angle its flexural-torsional coupling, and `Cw` the warping term of the
+ * torsional buckling load (GJ + π²ECw/L²)/r0². Both come from the engine's section solvers —
+ * the shear solve places the shear centre, the warping solve (about that pole) gives `Cw` — so
+ * a catalogue, parametric or drawn outline is treated alike, fillets included. Closed-form
+ * values (`warping.ts`, `section-constants.ts`) are thin-wall theory and, for a rolled channel,
+ * some 15 % high on `Cw`, which is the unconservative side here.
+ *
+ * Offsets below 1e-4·√A are the mesh's round-off on a symmetric section and are set to zero:
+ * a doubly symmetric section must not carry a 1e-12 m offset, which the co-rotational solver
+ * refuses outright. A closed section has no `Cw` from the engine; it is negligible and reported
+ * as 0. A composite (several materials) section has neither: its shear centre is modulus
+ * weighted, which these solvers are not.
+ */
+export function sectionWarping(
+  geometry: CanonicalGeometry,
+  area: number,
+  digest?: string,
+): { shearCentre: [number, number]; cw: number } | null {
+  const key = digest ? `warp:${digest}` : undefined;
+  const hit = key ? warpingCache.get(key) : undefined;
+  if (hit !== undefined) return hit && { shearCentre: [...hit.shearCentre] as [number, number], cw: hit.cw };
+  let out: { shearCentre: [number, number]; cw: number } | null = null;
+  // Separate pieces (a battened pair, two loose plates) have no single shear centre the
+  // member's twist can be taken about.
+  if (geometry.polygons.filter((q) => !q.isVoid).length !== 1) return null;
+  try {
+    const sc = analyzeSectionShear({ geometry }).shearCentre;
+    const tol = 1e-4 * Math.sqrt(Math.max(area, 0));
+    const snap = (v: number) => (Math.abs(v) < tol ? 0 : v);
+    let cw = 0;
+    try {
+      const w = analyzeSectionPlastic({ geometry }).cw;
+      cw = w != null && Number.isFinite(w) && w > 0 ? w : 0;
+    } catch { cw = 0; }
+    if (Number.isFinite(sc[0]) && Number.isFinite(sc[1])) out = { shearCentre: [snap(sc[0]), snap(sc[1])], cw };
+  } catch {
+    // No shear solve (engine not ready, degenerate mesh): not cached, the next resolve retries.
+    return null;
+  }
+  if (key) {
+    if (warpingCache.size >= TORSION_CACHE_LIMIT) warpingCache.delete(warpingCache.keys().next().value!);
+    warpingCache.set(key, out);
+  }
+  return out;
+}
+
+const warpingCache = new Map<string, { shearCentre: [number, number]; cw: number } | null>();
+
 /** A cached J is one number; 32 entries is nothing. */
 const TORSION_CACHE_LIMIT = 32;
 const torsionJCache = new Map<string, number | null>();
@@ -260,6 +325,15 @@ export function resolveSectionState(sec: Section, opts: ResolveOptions = {}): Se
       opts.torsion ? resolved.geometry : null,
       resolved.digest,
     );
+  // Shear centre and Cw, with the torsion pass (they cost a mesh solve each). A circle or tube
+  // is doubly symmetric and closed; a composite section has no homogeneous shear centre.
+  const warping = !opts.torsion
+    ? undefined
+    : circle || isCircularFamily(resolved.geometry.source)
+      ? { shearCentre: [0, 0] as [number, number], cw: 0 }
+      : resolved.composite
+        ? null
+        : sectionWarping(resolved.geometry, p.a, resolved.digest);
   return {
     kind: 'geometry-backed',
     // The persisted-state version, not the geometry wire version: this is what
@@ -277,6 +351,7 @@ export function resolveSectionState(sec: Section, opts: ResolveOptions = {}): Se
     i2: p.i2,
     thetaP: p.thetaP,
     ...torsion,
+    ...(warping === undefined ? {} : { shearCentre: warping?.shearCentre ?? null, cw: warping?.cw ?? null }),
     ...(resolved.composite ? { composite: true as const } : {}),
   };
 }
@@ -326,6 +401,13 @@ export function solverProperties(sec: Section): {
   iyz: number;
   j: number | null;
   jProvenance: TorsionProvenance;
+  /**
+   * Shear centre `[y, z]` from the centroid, m, in the frame of `iy`/`iz`; `null` when the
+   * section is known to be mono- or asymmetric and nothing placed it (see `shearCentreOf`).
+   */
+  shearCentre: [number, number] | null;
+  /** Warping constant, m⁶; `null` when unknown. */
+  cw: number | null;
   source: 'canonical' | 'declared';
   digest?: string;
 } {
@@ -338,6 +420,8 @@ export function solverProperties(sec: Section): {
       iyz: st.iyz,
       j: st.j,
       jProvenance: st.jProvenance,
+      shearCentre: st.shearCentre !== undefined ? st.shearCentre : shearCentreOf(sec),
+      cw: st.cw !== undefined ? st.cw : declaredCw(sec),
       source: 'canonical',
       digest: st.digest,
     };
@@ -350,8 +434,44 @@ export function solverProperties(sec: Section): {
     iyz: 0,
     j: torsion.j,
     jProvenance: torsion.jProvenance,
+    shearCentre: shearCentreOf(sec),
+    cw: declaredCw(sec),
     source: 'declared',
   };
+}
+
+/** Shapes whose shear centre is the centroid: two axes of symmetry, or point symmetry (Z). */
+const CENTRED_SHAPES = new Set(['I', 'H', 'RHS', 'CHS', 'rect', 'Z']);
+/** Shapes with one axis of symmetry or none: their shear centre is off the centroid. */
+const OFFSET_SHAPES = new Set(['T', 'U', 'C', 'L', 'invL']);
+
+/**
+ * The shear centre of a section with no solved geometry, from its shape alone.
+ *
+ * At the centroid for a doubly or point symmetric shape. Unknown (`null`) for a tee, channel or
+ * angle: placing it would need the outline, and taking the centroid would drop the
+ * flexural-torsional coupling that governs those sections — the analyses that need it refuse
+ * instead (`torsionGaps3D`). A section stated by its properties only, with no shape, is taken as
+ * symmetric: that is all its A, Iy, Iz and J describe, and the engine has always read it so.
+ */
+function shearCentreOf(sec: Section): [number, number] | null {
+  if (sec.shape && OFFSET_SHAPES.has(sec.shape)) return null;
+  if (!sec.shape || sec.shape === 'generic' || CENTRED_SHAPES.has(sec.shape)) return [0, 0];
+  return null;
+}
+
+/**
+ * Cw of a section with no solved geometry: an I or H from its weak-axis inertia and flange
+ * spacing, `Iz·(h − tf)²/4`, which is exact for a doubly symmetric I (AISC Design Guide 9,
+ * eq. 3.5); zero for a tube; unknown otherwise. Unknown only leaves the warping term out of the
+ * torsional buckling load, which is the conservative side.
+ */
+function declaredCw(sec: Section): number | null {
+  if ((sec.shape === 'I' || sec.shape === 'H') && sec.h && sec.tf && sec.h > 2 * sec.tf && sec.iz > 0) {
+    return (sec.iz * (sec.h - sec.tf) ** 2) / 4;
+  }
+  if (sec.shape === 'RHS' || sec.shape === 'CHS') return 0;
+  return null;
 }
 
 /** Deep clone of canonical state, so tabs and copies never share arrays. */

@@ -33,6 +33,7 @@ fn validation_vm6_constrained_thermal_bar() {
     let input = make_beam(n, l, E, a, iz, "fixed", Some("fixed"),
         (0..n).map(|i| SolverLoad::Thermal(SolverThermalLoad {
             element_id: i + 1, dt_uniform: dt, dt_gradient: 0.0,
+            alpha: None, depth: None,
         })).collect());
 
     let results = linear::solve_2d(&input).unwrap();
@@ -74,6 +75,7 @@ fn validation_vm7_ss_beam_thermal_gradient() {
     let input = make_beam(n, l, E, a, iz, "pinned", Some("rollerX"),
         (0..n).map(|i| SolverLoad::Thermal(SolverThermalLoad {
             element_id: i + 1, dt_uniform: 0.0, dt_gradient: dt_grad,
+            alpha: None, depth: None,
         })).collect());
 
     let results = linear::solve_2d(&input).unwrap();
@@ -648,6 +650,7 @@ fn validation_vm6_free_expansion() {
     let input = make_beam(n, l, E, a, iz, "pinned", Some("rollerX"),
         (0..n).map(|i| SolverLoad::Thermal(SolverThermalLoad {
             element_id: i + 1, dt_uniform: dt, dt_gradient: 0.0,
+            alpha: None, depth: None,
         })).collect());
 
     let results = linear::solve_2d(&input).unwrap();
@@ -832,6 +835,7 @@ fn validation_vm5_combined_thermal_axial() {
     for i in 0..n {
         loads.push(SolverLoad::Thermal(SolverThermalLoad {
             element_id: i + 1, dt_uniform: dt, dt_gradient: 0.0,
+            alpha: None, depth: None,
         }));
     }
 
@@ -871,6 +875,7 @@ fn validation_vm5_analytical_decomposition() {
     let input_therm = make_beam(n, l, E, a, iz, "pinned", Some("rollerX"),
         (0..n).map(|i| SolverLoad::Thermal(SolverThermalLoad {
             element_id: i + 1, dt_uniform: dt, dt_gradient: 0.0,
+            alpha: None, depth: None,
         })).collect());
     let res_therm = linear::solve_2d(&input_therm).unwrap();
     let d_therm = res_therm.displacements.iter().find(|d| d.node_id == n + 1).unwrap().ux;
@@ -882,6 +887,7 @@ fn validation_vm5_analytical_decomposition() {
     for i in 0..n {
         loads_combined.push(SolverLoad::Thermal(SolverThermalLoad {
             element_id: i + 1, dt_uniform: dt, dt_gradient: 0.0,
+            alpha: None, depth: None,
         }));
     }
     let input_comb = make_beam(n, l, E, a, iz, "pinned", Some("rollerX"), loads_combined);
@@ -918,6 +924,7 @@ fn validation_vm5_constrained_combined() {
     let input = make_beam(n, l, E, a, iz, "fixed", Some("fixed"),
         (0..n).map(|i| SolverLoad::Thermal(SolverThermalLoad {
             element_id: i + 1, dt_uniform: dt, dt_gradient: 0.0,
+            alpha: None, depth: None,
         })).collect());
     let results = linear::solve_2d(&input).unwrap();
 

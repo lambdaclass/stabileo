@@ -50,6 +50,8 @@ import type { BuiltUpArrangement } from '../section/profile-spec';
 
 /** What a user chose for one joint. Choices only — nothing computed lives here. */
 export interface JointChoices {
+  /** The joint's typology and its parameters (`typology/`), when one was chosen or proposed. */
+  typology?: { kind: import('./typology/types').Typology; params?: Partial<import('./typology/types').TypologyParams>; mainId?: number } | null;
   bolts?: BoltLayoutChoice | null;
   plate?: { thicknessMm?: number; fuMPa?: number };
   weld?: WeldInput | null;

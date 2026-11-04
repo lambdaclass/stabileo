@@ -40,8 +40,8 @@ fn frame_with_leaning_column(p: f64, lateral: f64) -> SolverInput3D {
     let nodes = [(1, 0.0, 0.0), (2, 0.0, H), (3, 6.0, 0.0), (4, 6.0, H)]
         .into_iter().map(|(id, x, z)| (id.to_string(), SolverNode3D { id, x, y: 0.0, z })).collect();
     let sections = HashMap::from([
-        ("1".into(), SolverSection3D { id: 1, name: None, a: 0.01, iy: I, iz: I, j: 2.0 * I, cw: None, as_y: None, as_z: None }),
-        ("2".into(), SolverSection3D { id: 2, name: None, a: 1.0, iy: I, iz: I, j: 2.0 * I, cw: None, as_y: None, as_z: None }),
+        ("1".into(), SolverSection3D { id: 1, name: None, a: 0.01, iy: I, iz: I, j: 2.0 * I, cw: None, as_y: None, as_z: None, shear_center_y: None, shear_center_z: None }),
+        ("2".into(), SolverSection3D { id: 2, name: None, a: 1.0, iy: I, iz: I, j: 2.0 * I, cw: None, as_y: None, as_z: None, shear_center_y: None, shear_center_z: None }),
     ]);
     let elements = HashMap::from([
         ("1".into(), frame(1, 1, 2, 1, false, false)), // the cantilever
@@ -59,7 +59,7 @@ fn frame_with_leaning_column(p: f64, lateral: f64) -> SolverInput3D {
         loads.push(SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: 2, fx: lateral, fy: 0.0, fz: 0.0, mx: 0.0, my: 0.0, mz: 0.0, bw: None }));
     }
     SolverInput3D {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes, materials: HashMap::from([("1".into(), SolverMaterial { id: 1, e: E, nu: 0.3 })]), sections, elements,
         supports, loads, constraints: vec![], left_hand: None,
         plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(),
@@ -101,9 +101,9 @@ fn fixed_pinned_column(released: bool) -> SolverInput3D {
     // Torsion needs a hold somewhere when the head is free to turn.
     let head = if released { head } else { SolverSupport3D { rrz: true, ..head } };
     SolverInput3D {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes, materials: HashMap::from([("1".into(), SolverMaterial { id: 1, e: E, nu: 0.3 })]),
-        sections: HashMap::from([("1".into(), SolverSection3D { id: 1, name: None, a: 0.01, iy: I, iz: I, j: 2.0 * I, cw: None, as_y: None, as_z: None })]),
+        sections: HashMap::from([("1".into(), SolverSection3D { id: 1, name: None, a: 0.01, iy: I, iz: I, j: 2.0 * I, cw: None, as_y: None, as_z: None, shear_center_y: None, shear_center_z: None })]),
         elements,
         supports: HashMap::from([("1".into(), support(1, true, false)), ("2".into(), head)]),
         loads: vec![SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: top, fx: 0.0, fy: 0.0, fz: -1000.0, mx: 0.0, my: 0.0, mz: 0.0, bw: None })],
@@ -158,7 +158,7 @@ fn plane_frame_with_leaning_column(p: f64, lateral: f64) -> SolverInput {
         loads.push(SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: lateral, fz: 0.0, my: 0.0 }));
     }
     SolverInput {
-        solver_options: None, nodes, materials: HashMap::from([("1".into(), SolverMaterial { id: 1, e: E, nu: 0.3 })]),
+        solver_options: None, masses: Default::default(), nodes, materials: HashMap::from([("1".into(), SolverMaterial { id: 1, e: E, nu: 0.3 })]),
         sections, elements, supports, loads, constraints: vec![], connectors: HashMap::new(),
     }
 }
@@ -193,7 +193,7 @@ fn plane_member_released_at_one_end_buckles_as_the_pinned_column() {
         let nodes = (0..=n_el).map(|k| ((k + 1).to_string(), SolverNode { id: k + 1, x: 0.0, z: l * k as f64 / n_el as f64 })).collect();
         let elements = (1..=n_el).map(|k| (k.to_string(), plane_frame(k, k, k + 1, 1, false, released && k == n_el))).collect();
         SolverInput {
-            solver_options: None, nodes, materials: HashMap::from([("1".into(), SolverMaterial { id: 1, e: E, nu: 0.3 })]),
+            solver_options: None, masses: Default::default(), nodes, materials: HashMap::from([("1".into(), SolverMaterial { id: 1, e: E, nu: 0.3 })]),
             sections: HashMap::from([("1".into(), SolverSection { id: 1, a: 0.01, iz: I, as_y: None })]),
             elements,
             supports: HashMap::from([("1".into(), plane_support(1, 1, "fixed")), ("2".into(), plane_support(2, n_el + 1, "rollerY"))]),
@@ -208,7 +208,8 @@ fn plane_member_released_at_one_end_buckles_as_the_pinned_column() {
     assert!((by_release - euler).abs() < 5e-3 * euler, "release-pinned λ {by_release}, Euler {euler}, node-pinned {by_node}");
 }
 
-/// NOT FIXED — reproduction. The 3D co-rotational solver does not converge on the leaning-column
+/// Regression (was ignored as a reproduction; passes since the co-rotational rework, found while
+/// writing docs/solver/nonlinear.md, NL-7). The 3D co-rotational solver did not converge on the leaning-column
 /// frame even at a vanishing load (B2 ≈ 376 after 50 iterations at P = 1e-6·k·h), and at
 /// P = 0.2·k·h it converges to B2 = 0.83, less sway than the linear solve (P-Delta: 1.25). Its
 /// tangent also uses the fixed-fixed Kg whatever the releases (`frame_geo_stiffness_3d_local`),
@@ -216,7 +217,6 @@ fn plane_member_released_at_one_end_buckles_as_the_pinned_column() {
 /// in how the co-rotational element treats released ends, not in the geometric stiffness kernel.
 /// Found while checking the Kg kernels symbolically (docs/verification/SYMBOLIC.md).
 #[test]
-#[ignore = "co-rotational 3D with pin-ended members: wrong equilibrium / no convergence"]
 fn corotational_3d_leaning_column_matches_pdelta() {
     use dedaliano_engine::solver::corotational;
     for frac in [1e-6, 0.2] {

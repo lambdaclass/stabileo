@@ -81,7 +81,7 @@ fn make_beam_with_springs(
         sid += 1;
     }
 
-    SolverInput { solver_options: None, nodes, materials: mats, sections: secs, elements: elems, supports: sups, loads, constraints: vec![],  connectors: HashMap::new() }
+    SolverInput { solver_options: None, masses: Default::default(), nodes, materials: mats, sections: secs, elements: elems, supports: sups, loads, constraints: vec![],  connectors: HashMap::new() }
 }
 
 // ================================================================
@@ -322,7 +322,7 @@ fn validation_spring_rotational_sweep() {
         })];
 
         let input = SolverInput {
-            solver_options: None,
+            solver_options: None, masses: Default::default(),
             nodes, materials: mats, sections: secs,
             elements: elems, supports: sups, loads, constraints: vec![],
             connectors: HashMap::new(), };
@@ -571,7 +571,7 @@ fn validation_spring_opposing_free_beam() {
     })];
 
     let input = SolverInput {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes, materials: mats, sections: secs,
         elements: elems, supports: sups, loads, constraints: vec![],
         connectors: HashMap::new(), };

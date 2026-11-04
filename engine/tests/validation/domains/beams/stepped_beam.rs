@@ -121,7 +121,7 @@ fn make_stepped_ss_beam(
     });
 
     SolverInput {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes: nodes_map,
         materials: mats_map,
         sections: secs_map,
@@ -211,7 +211,7 @@ fn make_stepped_cantilever(
     });
 
     SolverInput {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes: nodes_map,
         materials: mats_map,
         sections: secs_map,
@@ -410,7 +410,7 @@ fn validation_stepped_beam_reaction_redistribution() {
     let total_load = q.abs() * 2.0 * l;
 
     let input_stepped = SolverInput {
-        solver_options: None,
+        solver_options: None, masses: Default::default(),
         nodes: nodes_map,
         materials: mats_map,
         sections: secs_map,

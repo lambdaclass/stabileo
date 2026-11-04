@@ -1,4 +1,8 @@
 <script lang="ts">
+  import { provideEditorActivity } from './lib/utils/editor-activity';
+  // First: every dictionary entry, before anything here renders (the store starts with the public
+  // pages' entries only; Root.svelte loads this component on the first app route).
+  import './lib/i18n/full-dictionaries';
   import { seedProStarterLibrary } from './lib/pro/pro-starter-library';
   import ProQuickEdit from './components/pro/ProQuickEdit.svelte';
   import { is3DWorkspace } from './lib/utils/workspace';
@@ -6,6 +10,9 @@
   import { viewportCanvas } from './lib/utils/viewport-canvas';
   import { onMount, untrack, tick } from 'svelte';
   import LocaleSelect from './components/LocaleSelect.svelte';
+  import AccountButton from './components/account/AccountButton.svelte';
+  import { authStore } from './lib/store/auth.svelte';
+  import { accounts } from './lib/features';
   import { hasLoadCarrying3D } from './lib/engine/solver-service';
   import Viewport from './components/Viewport.svelte';
   import Viewport3D from './components/Viewport3D.svelte';
@@ -22,18 +29,25 @@
   import SectionEditor from './components/SectionEditor.svelte';
   import { modelStore, uiStore, resultsStore, dsmStepsStore, fmStepsStore, tabManager, historyStore } from './lib/store';
   import { explainedSteps } from './lib/store/explained-steps.svelte';
+  import { markEngineReady, markEngineFailed } from './lib/store/engine-status.svelte';
   import { EDIT_TOOLS } from './lib/store/ui.svelte';
   import { syncModelTabWithResults } from './lib/store/view-mode';
   import { t, i18n, setLocale } from './lib/i18n';
   import { OFFERED_LOCALES } from './lib/i18n/store.svelte';
   import { deleteSelection } from './lib/actions/delete-selection';
+  import { overlayWasOpenAtKeydown } from './lib/utils/modal-overlay';
   import { cameraActions } from './lib/pro/camera-actions';
   import SheetGrab from './components/SheetGrab.svelte';
+  import ProVideosOffer from './components/pro/ProVideosOffer.svelte';
+  import ProViewer from './components/pro/ProViewer.svelte';
+  import StoreyScopeBar from './components/pro/StoreyScopeBar.svelte';
+  import ProLinkedLayer from './components/pro/ProLinkedLayer.svelte';
+  import ProSaveStatus from './components/pro/ProSaveStatus.svelte';
   import ContactMenu from './components/ContactMenu.svelte';
   import {
     loadAutosave, clearAutosave,
     loadWorkspaceFromLocalStorage, saveWorkspaceToLocalStorage,
-    downloadCanvasPNG, downloadDataUrlPNG, noteAxisConventionMigrationIfNeeded, noteBasicSelfWeightRuleIfNeeded,
+    downloadCanvasPNG, downloadDataUrlPNG, onProjectOpened, noteBasicSelfWeightRuleIfNeeded, adoptStoredProject,
     type DedalFile,
   } from './lib/store/file';
   import { requestAutosave } from './lib/store/autosave-service';
@@ -309,6 +323,9 @@
   import StressPickHint from './components/stress/StressPickHint.svelte';
   import ColourScaleLegend from './components/ColourScaleLegend.svelte';
   import SwitchTo2DDialog from './components/SwitchTo2DDialog.svelte';
+  import RecheckNotice from './components/RecheckNotice.svelte';
+  import { prepareExportProvenance, pngWithProvenance } from './lib/export/provenance-attach';
+  import ReproduceDialog from './components/ReproduceDialog.svelte';
   import TabBar from './components/TabBar.svelte';
   import MobileResultsPanel from './components/MobileResultsPanel.svelte';
   import KeyboardShortcuts from './components/KeyboardShortcuts.svelte';
@@ -316,6 +333,46 @@
   import Icon from './components/ribbon/Icon.svelte';
   import ProPanel from './components/pro/ProPanel.svelte';
   import RebarWorkspace from './components/pro/design/RebarWorkspace.svelte';
+  import DesignDesk from './components/pro/desk/DesignDesk.svelte';
+  import { deskUi, deskLayout } from './lib/store/design-desk-ui.svelte';
+  import { isDesignTab, syncDeskWithTab, syncTabWithDesk } from './lib/pro/design-navigation';
+  import { askDesignForLink, enableDesignForLink, announceDesignOn } from './lib/store/design-presence';
+  import { rebarWorkspace } from './lib/store/rebar-workspace.svelte';
+  /** Design docks beside the viewer on a desktop PRO screen; elsewhere it is a full-screen sheet. */
+  const deskDocked = $derived(uiStore.appMode === 'pro' && !uiStore.isMobile);
+  /*
+   * The Design stage IS the desk: a design view opens it, any other view closes it, and opening or
+   * closing it directly moves the view (`design-navigation.ts`). Outside PRO there is no desk.
+   */
+  $effect(() => {
+    const tab = uiStore.proActiveTab, pro = uiStore.appMode === 'pro';
+    untrack(() => { if (pro) syncDeskWithTab(tab); else if (deskUi.open) deskUi.open = false; });
+  });
+  $effect(() => {
+    const open = deskUi.open;
+    untrack(() => { if (uiStore.appMode === 'pro') syncTabWithDesk(open); });
+  });
+  /*
+   * Design switched off in PRO's settings (or restored off from storage): its desk, its 3-D
+   * reinforcement workspace and its verification colouring go, and a design view goes back to the
+   * model. What the project holds of design stays as it was.
+   */
+  $effect(() => {
+    if (uiStore.designInPro) return;
+    untrack(() => {
+      if (deskUi.open) deskUi.open = false;
+      if (rebarWorkspace.open) rebarWorkspace.close();
+      if (uiStore.appMode === 'pro') syncDeskWithTab(uiStore.proActiveTab);
+    });
+  });
+  /*
+   * The verification colouring is design's, and a restored tab or session can ask for it after
+   * the switch was read: watched on its own, so it never paints verdicts while design is off.
+   */
+  $effect(() => {
+    if (uiStore.designInPro || uiStore.appMode !== 'pro') return;
+    if (resultsStore.diagramType === 'verification') untrack(() => { resultsStore.diagramType = 'none'; });
+  });
   import ProProjectFileActions from './components/pro/ProProjectFileActions.svelte';
   import ProRibbon from './components/pro/ProRibbon.svelte';
   import ProDrawBar from './components/pro/ProDrawBar.svelte';
@@ -329,10 +386,12 @@
   import { tourStore } from './lib/store/tour.svelte';
   import { startDemo, DEFAULT_DEMO } from './lib/tour/demos';
   import { whatIf } from './lib/store/whatif.svelte';
-  import { runLiveCalc, runGlobalSolve } from './lib/engine/live-calc';
+  import { solveSharedView } from './lib/utils/solve-shared-view';
+  import { runLiveCalc, runGlobalSolve, registerLiveCalcCanceller } from './lib/engine/live-calc';
   import LandingPage from './components/LandingPage.svelte';
-  import BlogPage from './components/blog/BlogPage.svelte';
   import { parsePublicPath, publicHref } from './lib/i18n/public-routes';
+  import { routeKind, isAppPath, isDemoPath } from './lib/public-route';
+  import { modeToPath, pathToMode, slugifyTabName, type AppMode } from './lib/app-mode';
   import { publicI18n } from './lib/i18n/store.svelte';
   import AiDrawer from './components/AiDrawer.svelte';
   import { splitAllAtNodes } from './lib/model/edit/cut-members';
@@ -343,51 +402,26 @@
     uiStore.toast(message, 'success');
   }
 
-  if (typeof window !== 'undefined') {
-    const redirectedRoute = new URLSearchParams(location.search).get('route');
-    if (redirectedRoute) {
-      /*
-       * Restored through the URL builder, not verbatim.
-       *
-       * 404.html hands the path over exactly as it was typed or shared, and
-       * putting that straight back in the address bar reinstates whatever
-       * shape it had — including the unslashed form the site no longer
-       * publishes. A reader arriving on an old link would then be looking at
-       * an address that disagrees with the page's own canonical.
-       */
-      const { locale, path } = parsePublicPath(redirectedRoute.split('?')[0]);
-      const normalised = locale ? publicHref(path, locale) : redirectedRoute;
-      // 404.html keeps the fragment out of `route` (a shared model's `#data=` is too long for
-      // the host's request line), so it is still on this address and goes back after the path.
-      history.replaceState(null, '', normalised + (redirectedRoute.includes('#') ? '' : location.hash));
-    }
-  }
-
-  function isAppRoute(pathname: string) {
-    return pathname === '/app' || pathname === '/app/' || pathname.startsWith('/app/');
-  }
-
-  function isDemoRoute(pathname: string) {
-    return pathname === '/demo' || pathname === '/demo/';
-  }
+  // The 404.html redirect is restored by main.ts (`restoreRedirectedRoute`) before this mounts,
+  // and the route rules are `lib/public-route.ts`'s, the same ones Root.svelte reads.
+  const isAppRoute = isAppPath;
+  const isDemoRoute = isDemoPath;
 
   /**
    * The public routes, read through their language prefix.
    *
    * `/es/blog/x` and `/blog/x` are the same route; the first names its
    * language and the second is an old link that still has to work. Everything
-   * below asks these two rather than matching `location.pathname` directly,
+   * below asks these rather than matching `location.pathname` directly,
    * because a prefix would otherwise turn every public page into an app route.
    */
   function publicRoute(pathname: string) {
     return parsePublicPath(pathname);
   }
 
-  /** `/blog`, `/blog/` and `/blog/<slug>`, under any language prefix. */
+  /** `/blog`, `/blog/<slug>` and the standing pages (/cirsoc, /reliability, …), under any prefix. */
   function isBlogRoute(pathname: string) {
-    const { path } = publicRoute(pathname);
-    // `/blog/` is covered by the prefix test; only the bare form needs naming.
-    return path === '/blog' || path.startsWith('/blog/');
+    return routeKind({ pathname, search: '', hash: '' }).kind === 'blog';
   }
 
   /**
@@ -403,30 +437,6 @@
     if (locale && locale !== publicI18n.locale) setLocale(locale);
   }
   adoptLocaleFromPath();
-
-  type AppMode = 'basico' | 'educativo' | 'pro';
-
-  function slugifyTabName(name: string) {
-    return (name || '')
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '') || 'new-structure';
-  }
-
-  function modeToPath(mode: AppMode) {
-    if (mode === 'educativo') return '/app/education';
-    if (mode === 'pro') return '/app/pro';
-    return '/app/basic';
-  }
-
-  function pathToMode(pathname: string): AppMode {
-    if (pathname === '/app/pro' || pathname === '/app/pro/') return 'pro';
-    if (pathname === '/app/education' || pathname === '/app/education/') return 'educativo';
-    if (pathname === '/app/basic' || pathname === '/app/basic/') return 'basico';
-    return 'basico';
-  }
 
   function replaceAppUrl(mode: AppMode, tabName?: string) {
     const url = new URL(location.href);
@@ -557,8 +567,10 @@
     const VALID = ['project', 'nodes', 'elements', 'shells', 'materials', 'sections', 'supports',
       'specifications', 'constraints', 'loads', 'advanced', 'results', 'design', 'connections', 'diagnostics',
       'settings', 'selection', 'steel', 'grid', 'generators', 'transform', 'edit', 'groups', 'code', 'view',
-      'otherCodes'];
+      'otherCodes', 'designData', 'desk'];
     if (!VALID.includes(tab)) return;
+    // A link to a place of design while design is off asks the reader; it turns nothing on.
+    if (isDesignTab(tab) && !uiStore.designInPro) { askDesignForLink(tab); return; }
     uiStore.proActiveTab = tab;
   }
 
@@ -567,14 +579,38 @@
     return tabManager.tabs.find(tab => slugifyTabName(tab.name) === tabSlug) ?? null;
   }
 
+  /**
+   * The landing, unless the address is the application's or the blog's. The fragment is not read:
+   * a shared model at the root (`/#data=…`) shows the landing while it is restored behind it.
+   */
   function shouldShowLanding() {
-    const params = new URLSearchParams(location.search);
-    return !params.has('embed') && !isAppRoute(location.pathname) && !isDemoRoute(location.pathname)
-      && !isBlogRoute(location.pathname);
+    return routeKind({ pathname: location.pathname, search: location.search, hash: '' }).kind === 'landing';
   }
 
   let showLanding = $state(shouldShowLanding());
+  let showExperiment = $state(['research', 'tools'].includes(routeKind().kind));
+  let experiment = $state<typeof import('./components/research/ExperimentPage.svelte').default | null>(null);
+  $effect(() => {
+    if (showExperiment && !experiment) {
+      void import('./components/research/load-experiment')
+        .then((m) => m.loadExperimentPage())
+        .then((page) => (experiment = page));
+    }
+  });
+  let showPaper = $state(routeKind().kind === 'paper');
+  let paper = $state<typeof import('./components/paper/PaperPage.svelte').default | null>(null);
+  $effect(() => {
+    if (showPaper && !paper) {
+      void import('./components/paper/PaperPage.svelte').then((m) => (paper = m.default));
+    }
+  });
   let showBlog = $state(typeof window !== 'undefined' && isBlogRoute(location.pathname));
+  let blogPage = $state<typeof import('./components/blog/BlogPage.svelte').default | null>(null);
+  $effect(() => {
+    if (showBlog && !blogPage) {
+      void import('./components/blog/BlogPage.svelte').then((m) => (blogPage = m.default));
+    }
+  });
   /** The address the blog reads its slug from; kept in state so it is reactive. */
   let blogPath = $state(typeof window !== 'undefined' ? parsePublicPath(location.pathname).path : '/blog');
 
@@ -598,14 +634,18 @@
     }
     showLanding = false;
     showBlog = false;
+    showExperiment = false;
+    showPaper = false;
   }
 
   function syncRouteState() {
+    showExperiment = ['research', 'tools'].includes(routeKind().kind);
+    showPaper = routeKind().kind === 'paper';
     adoptLocaleFromPath();
     showBlog = isBlogRoute(location.pathname);
     blogPath = publicRoute(location.pathname).path;
     showLanding = shouldShowLanding();
-    if (!showLanding && !showBlog) {
+    if (!showLanding && !showBlog && !showExperiment && !showPaper) {
       const nextMode = pathToMode(location.pathname);
       currentAppMode = nextMode;
       if (nextMode === 'educativo') {
@@ -687,6 +727,7 @@
   let dxfFileInput: HTMLInputElement;
 
   let showImportDialog = $state(false);
+  const accountsEnabled = accounts();
   let importText = $state('');
   let autosaveData = $state<DedalFile | null>(null);
   /** When the offered save was written, and whether it is the newest one that exists. */
@@ -718,11 +759,11 @@
 
   function restoreAutosave() {
     if (autosaveData) {
-      modelStore.restore(autosaveData.snapshot);
-      modelStore.model.name = autosaveData.name;
+      // As a .ded open adopts it (`adoptStoredProject`): its hand edits and exports with it.
+      adoptStoredProject(autosaveData.snapshot, autosaveData.name);
       // Same convention note as a .ded open — an autosave predating the metadata
       // is restored under the corrected convention, so warn if it's a legacy 3D model.
-      noteAxisConventionMigrationIfNeeded(autosaveData.snapshot, autosaveData.analysisMode);
+      onProjectOpened(autosaveData.snapshot, autosaveData.analysisMode);
       // Restore analysis mode and axis convention from autosave
       if (autosaveData.analysisMode) uiStore.analysisMode = autosaveData.analysisMode;
       if (autosaveData.axisConvention3D) uiStore.axisConvention3D = autosaveData.axisConvention3D;
@@ -769,8 +810,13 @@
     importText = '';
   }
 
+  // In the viewer nothing is edited from the keyboard, and the command search is the editor's.
+  const editorActive = $derived(!showLanding && !showBlog && !showExperiment && !showPaper && !uiStore.viewerMode);
+  provideEditorActivity(() => editorActive);
+
   let pendingPaste = $state<{ inPlace: boolean; started: boolean } | null>(null);
   function handleProPaste(e: ClipboardEvent) {
+    if (!editorActive) return;
     if (uiStore.appMode !== 'pro' || !pendingPaste) return;
     const tag = (e.target as HTMLElement)?.tagName;
     if (tag === 'INPUT' || tag === 'TEXTAREA') return;
@@ -785,6 +831,7 @@
   }
   // A paste key with no paste event (no clipboard access) still pastes in place from memory.
   $effect(() => {
+    if (!editorActive) { pendingPaste = null; return; }
     if (!pendingPaste) return;
     const p = pendingPaste;
     const id = setTimeout(() => { if (pendingPaste === p) { pendingPaste = null; if (p.inPlace) paste(true); } }, 150);
@@ -792,10 +839,17 @@
   });
 
   function handleProKeydown(e: KeyboardEvent) {
+    if (!editorActive) return;
     if (uiStore.appMode !== 'pro') return;
     // Skip if focus is in an input/textarea/select
     const tag = (e.target as HTMLElement)?.tagName;
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+    const key = e.key.toUpperCase();
+
+    // With the design desk, the 3-D workspace or a modal dialog over the model, the keys that edit
+    // the model or its selection are the overlay's, not the model's (`lib/utils/modal-overlay.ts`).
+    if (overlayWasOpenAtKeydown() && (e.key === 'Escape' || e.key === 'Delete' || e.key === 'Backspace'
+      || ((e.ctrlKey || e.metaKey) && (key === 'X' || key === 'V')))) return;
 
     // Escape leaves whatever is being drawn: the pending member end, the plate corners, the tool.
     // With nothing being drawn it clears the selection.
@@ -805,8 +859,15 @@
       return;
     }
 
+    // F3 turns the snaps on or off, as in CAD programs: grid axes and the background drawings.
+    if (e.key === 'F3') {
+      e.preventDefault();
+      uiStore.snapToAxes = !uiStore.snapToAxes;
+      uiStore.toast(t(uiStore.snapToAxes ? 'osnap.on' : 'osnap.off'), 'info');
+      return;
+    }
+
     // Ctrl/Cmd+Z: Undo
-    const key = e.key.toUpperCase();
     if ((e.ctrlKey || e.metaKey) && key === 'Z' && !e.shiftKey) {
       e.preventDefault();
       historyStore.undo();
@@ -856,15 +917,20 @@
     if (typeof panel === 'string') openBasicPanel(panel, { toggle: false });
   }
 
-  function handleExportPNG() {
+  async function handleExportPNG() {
     // Captioned, with the colour scale drawn into the image (`lib/export/figure.ts`).
     const fig = captureFigure();
-    if (fig) { downloadDataUrlPNG(fig.dataUrl); return; }
-    const canvas = viewportCanvas();
-    if (canvas) downloadCanvasPNG(canvas);
+    const canvas = fig ? null : viewportCanvas();
+    // The picture carries its provenance (a PNG tEXt chunk), prepared like every export's.
+    const record = await prepareExportProvenance();
+    if (!record) return;
+    const embed = (png: Uint8Array) => pngWithProvenance(png, record);
+    if (fig) { downloadDataUrlPNG(fig.dataUrl, embed); return; }
+    if (canvas) downloadCanvasPNG(canvas, embed);
   }
 
   onMount(() => {
+    if (accountsEnabled) void authStore.init();
     currentAppMode = pathToMode(location.pathname);
     if (currentAppMode === 'educativo') {
       uiStore.analysisMode = 'edu';
@@ -876,14 +942,19 @@
       uiStore.analysisMode = '2d';
     }
 
-    // Initialize WASM solver (non-blocking, fallback to JS if it fails)
+    // Initialize the engine (non-blocking). There is no JS fallback: if it fails, every result
+    // that needs it says "engine not available", and the reader is told once here.
     import('./lib/engine/wasm-solver').then(m => m.initSolver()).then(() => {
+      markEngineReady();
       // Canonical section geometry needs the engine. Sections created or
       // loaded before it was ready could only resolve as properties-only, and
       // nothing else revisits that, so resolve them now that it is up.
       modelStore.refreshCanonicalSections();
-    }).catch(() => {
-      console.warn('WASM solver unavailable, using JS fallback');
+    }).catch((err) => {
+      const message = String((err as Error)?.message ?? err);
+      console.error('The calculation engine failed to load:', message);
+      markEngineFailed(message);
+      uiStore.toast(t('engine.unavailable'), 'error');
     });
 
     // Initialize tab manager with current state
@@ -907,6 +978,9 @@
     // Check for URL hash (shared model link or embed). The link is untrusted
     // input and restore() is not atomic: whatever a link still manages to break
     // must not take the app down before it starts, nor leave a half-loaded model.
+    // The public viewer reads the link's model in a tab of its own, saved only once duplicated.
+    const viewing = new URLSearchParams(location.search).has('view') && pathToMode(location.pathname) === 'pro';
+    if (viewing) { uiStore.viewerMode = true; tabManager.createTab(); }
     let hashMode: ReturnType<typeof loadFromURLHash> = null;
     try {
       hashMode = loadFromURLHash();
@@ -972,16 +1046,9 @@
       if (uiStore.pendingSolveFromURL) {
         const pendingDiagram = uiStore.pendingSolveFromURL;
         uiStore.pendingSolveFromURL = null;
-        setTimeout(() => {
-          // Dispatch global solve event (same as clicking Calcular)
-          window.dispatchEvent(new Event('stabileo-solve'));
-          // After solve completes, set the diagram type from the share link
-          setTimeout(() => {
-            if (resultsStore.results !== null || resultsStore.results3D !== null) {
-              resultsStore.diagramType = pendingDiagram as any;
-            }
-          }, 200);
-        }, 200);
+        void tick().then(() => solveSharedView(pendingDiagram, runGlobalSolve, (diagram) => {
+          resultsStore.diagramType = diagram as typeof resultsStore.diagramType;
+        })).catch((error) => console.error('Shared-link solve failed:', error));
       }
     }
 
@@ -1031,7 +1098,7 @@
     // finishes, because losing one of those to a 30 s window is losing the run.
     autosaveInterval = setInterval(() => {
       void requestAutosave('timer');
-      saveWorkspaceToLocalStorage();
+      if (!uiStore.embedMode && !uiStore.viewerMode) saveWorkspaceToLocalStorage();
     }, 30_000);
 
     // Mobile responsive: track window width
@@ -1095,7 +1162,7 @@
     window.addEventListener('stabileo-open-panel', handleOpenPanelEvent);
 
     return () => {
-      saveWorkspaceToLocalStorage();
+      if (!uiStore.embedMode && !uiStore.viewerMode) saveWorkspaceToLocalStorage();
       if (autosaveInterval) clearInterval(autosaveInterval);
       window.removeEventListener('resize', onResize);
       window.removeEventListener('stabileo-export-png', handleExportPNG);
@@ -1119,7 +1186,7 @@
    * copies or reloads is the wrong one.
    */
   $effect(() => {
-    if (showLanding || showBlog || typeof window === 'undefined') return;
+    if (showLanding || showBlog || showExperiment || showPaper || typeof window === 'undefined') return;
     replaceAppUrl(uiStore.appMode, modelStore.model.name);
   });
 
@@ -1136,6 +1203,11 @@
       liveCalcTimer = null;
     }
   }
+  // Every manual solve cancels it, from any entry point (`runGlobalSolve`).
+  $effect(() => {
+    registerLiveCalcCanceller(cancelPendingLiveCalc);
+    return () => registerLiveCalcCanceller(null);
+  });
 
   $effect(() => {
     const _v = modelStore.modelVersion;
@@ -1269,6 +1341,59 @@
     root.style.setProperty('--st-right-panel-w', `${w}px`);
   });
 
+  /*
+   * In PRO the toasts stand at the viewer's foot, measured, above its legends. Design docked: at
+   * the viewer's bottom-right corner rather than the window's. Anchored to the window they landed
+   * on design's canvas, over the plan and the editors, and took the clicks meant for them.
+   */
+  let mainAreaEl = $state<HTMLDivElement | null>(null);
+  /** The viewers' legends, which the toasts keep clear of. */
+  const LEGEND_SELECTOR = '.diagram-legend, .shell-legend, .cs-legend';
+  $effect(() => {
+    const root = document.documentElement;
+    const el = mainAreaEl;
+    const docked = deskDocked && deskUi.open;
+    // The 3-D reinforcement view covers the viewer: the toasts go back to the window's corner.
+    if (uiStore.appMode !== 'pro' || !el || rebarWorkspace.open) {
+      root.style.removeProperty('--st-toast-right');
+      root.style.removeProperty('--st-toast-bottom');
+      return;
+    }
+    /*
+     * Above the viewer's legends, not over them: the status legend runs along the viewer's foot
+     * and the contour and colour-scale legends stand at its right, and a toast anchored to the
+     * corner covered whichever was there (the solve's toast over the verification legend).
+     */
+    const place = () => {
+      const r = el.getBoundingClientRect();
+      let lift = 12;
+      for (const lg of el.querySelectorAll<HTMLElement>(LEGEND_SELECTOR)) {
+        const b = lg.getBoundingClientRect();
+        if (b.width === 0 || b.height === 0) continue;
+        // Only a legend under the toast column (the viewer's right 26 rem, all of it on a phone) is in its way.
+        if (!uiStore.isMobile && b.right < r.right - 26 * 16) continue;
+        lift = Math.max(lift, Math.round(r.bottom - b.top + 8));
+      }
+      if (docked) root.style.setProperty('--st-toast-right', `${Math.round(window.innerWidth - r.right + 16)}px`);
+      else root.style.removeProperty('--st-toast-right');
+      root.style.setProperty('--st-toast-bottom', `${Math.round(window.innerHeight - r.bottom + lift)}px`);
+    };
+    place();
+    const ro = new ResizeObserver(place);
+    ro.observe(el);
+    // A legend appears or goes with the diagram drawn: placed again when the viewer's content changes.
+    const mo = new MutationObserver(() => requestAnimationFrame(place));
+    mo.observe(el, { childList: true, subtree: true });
+    window.addEventListener('resize', place);
+    return () => {
+      ro.disconnect();
+      mo.disconnect();
+      window.removeEventListener('resize', place);
+      root.style.removeProperty('--st-toast-right');
+      root.style.removeProperty('--st-toast-bottom');
+    };
+  });
+
   function startProResize(e: MouseEvent) {
     e.preventDefault();
     const startX = e.clientX;
@@ -1304,8 +1429,21 @@
 
 <svelte:window onkeydown={handleProKeydown} onclick={handleProBarClickOutside} onpaste={handleProPaste} />
 
-{#if showBlog}
-  <BlogPage path={blogPath} />
+{#if showExperiment}
+  {#if experiment}
+    {@const Experiment = experiment}
+    <Experiment path={blogPath} />
+  {/if}
+{:else if showPaper}
+  {#if paper}
+    {@const Paper = paper}
+    <Paper />
+  {/if}
+{:else if showBlog}
+  {#if blogPage}
+    {@const Blog = blogPage}
+    <Blog path={blogPath} />
+  {/if}
 {:else if showLanding}
   <LandingPage />
 {/if}
@@ -1328,7 +1466,8 @@
       </div>
 {/snippet}
 
-<div class="app-container" class:embed-mode={uiStore.embedMode} class:hidden-behind-landing={showLanding || showBlog}>
+{#if uiStore.viewerMode}<ProViewer />{/if}
+<div class="app-container" class:embed-mode={uiStore.embedMode || uiStore.viewerMode} class:viewer-mode={uiStore.viewerMode} class:hidden-behind-landing={showLanding || showBlog || showExperiment || showPaper}>
   <header class="app-header" class:has-autosave={showAutosaveBanner}>
     <div class="logo">
       <button class="logo-home" onclick={() => { history.pushState(null, '', '/'); syncRouteState(); }} title={t('app.backHome')}>
@@ -1349,7 +1488,7 @@
       {:else if uiStore.isMobile}
         <select class="mode-select-mobile" value={uiStore.appMode} onchange={(e) => switchAppMode(e.currentTarget.value as AppMode)}>
           <option value="basico">{t('app.modeBasic')}</option>
-          <option value="pro">{t('app.modePro')} (Beta)</option>
+          <option value="pro">{t('app.modePro')}</option>
           <!--
             Educational is not offered here any more; see the toggle below.
             The option is still RENDERED when that is where you already are,
@@ -1357,7 +1496,7 @@
             is what a `value` with no matching option does.
           -->
           {#if uiStore.appMode === 'educativo'}
-            <option value="educativo">{t('app.modeEdu')} (Beta)</option>
+            <option value="educativo">{t('app.modeEdu')} ({t('app.betaBadge')})</option>
           {/if}
         </select>
       {:else}
@@ -1379,7 +1518,7 @@
           <button class:active={uiStore.appMode === 'basico'} onclick={() => switchAppMode('basico')}>
             {t('app.modeBasic')}
           </button>
-          <button class:active={uiStore.appMode === 'pro'} class="pro-mode-btn" onclick={() => switchAppMode('pro')}>{t('app.modePro')}<span class="demo-badge">Beta</span></button>
+          <button class:active={uiStore.appMode === 'pro'} class="pro-mode-btn" onclick={() => switchAppMode('pro')}>{t('app.modePro')}</button>
         </div>
       {/if}
     </div>
@@ -1431,6 +1570,10 @@
           testid="lang-select"
         />
       </div>
+
+      {#if authStore.showAccountEntry}
+        <AccountButton />
+      {/if}
 
       <!--
         Settings sits with the other application-level controls — help and
@@ -1489,6 +1632,7 @@
         assistant specifically because the two answer the same impulse, "I am
         stuck", one automatically and one with a person on the other end.
       -->
+      {#if uiStore.appMode === 'pro'}<ProSaveStatus /><ProVideosOffer />{/if}
       <ContactMenu />
 
       <!--
@@ -1604,7 +1748,7 @@
         || (uiStore.appMode === 'pro' && uiStore.rightDrawerOpen))}
   >
 
-    {#if uiStore.appMode === 'pro' && !uiStore.isMobile}
+    {#if uiStore.appMode === 'pro' && !uiStore.isMobile && !uiStore.viewerMode}
       <!-- svelte-ignore a11y_no_static_element_interactions -->
         <ProRibbon
           onSolve={() => { uiStore.proPanelVisible = true; proPanelRef?.solve(); }}
@@ -1618,7 +1762,7 @@
         />
     {/if}
     <!-- What the next click in the model does while drawing, under the bar that started it. -->
-    {#if uiStore.appMode === 'pro'}<ProDrawBar />{/if}
+    {#if uiStore.appMode === 'pro' && !uiStore.viewerMode}<ProDrawBar />{/if}
 
     <!--
       PRO's phone bar.
@@ -1636,7 +1780,7 @@
       Same slot rules as Basic's: `flex: 1 1 0`, so the row is exactly as wide
       as the screen at every width and never scrolls.
     -->
-    {#if uiStore.appMode === 'pro' && uiStore.isMobile}
+    {#if uiStore.appMode === 'pro' && uiStore.isMobile && !uiStore.viewerMode}
       <!--
         A positioned wrapper, so the camera menu resolves against THIS bar.
         ──────────────────────────────────────────────────────────────────
@@ -1801,16 +1945,30 @@
       </div>
     {/if}
 
-    <div class="app-body-inner" class:pro-body-row={uiStore.appMode === 'pro'}>
+    <div class="app-body-inner" class:pro-body-row={uiStore.appMode === 'pro'} class:desk-docked={deskDocked && deskUi.open}
+      style:--dd-canvas-h={deskDocked && deskUi.open ? `${deskLayout.canvasH}px` : undefined}>
 
-    <div class="main-area">
+    <!--
+      Design, docked around the viewer.
+      ─────────────────────────────────
+      On a desktop the design desk is the body of the Design stage rather than a sheet over the
+      window: its rail, canvas and piece sheet take the cells of this row's grid around
+      `.main-area`, which stays where it is, so the viewer is never remounted and keeps the
+      model's camera (`DesignDesk.svelte`). The PRO panel is hidden while it is open, not
+      unmounted (the ribbon is bound to it). On a phone the desk is still the full-screen sheet
+      mounted at the root below.
+    -->
+    {#if deskDocked}<DesignDesk docked />{/if}
+
+    <div class="main-area" bind:this={mainAreaEl}>
       <main class="viewport-container">
         {#if !uiStore.is3DWorkspace}
           <Viewport />
         {:else}
           <Viewport3D />
         {/if}
-        {#if uiStore.appMode === 'pro'}<PlacementHud />{/if}
+        {#if uiStore.appMode === 'pro' || uiStore.appMode === 'basico'}<PlacementHud />{/if}
+        {#if uiStore.appMode === 'pro'}{#if !uiStore.viewerMode}<StoreyScopeBar />{/if}<ProLinkedLayer />{/if}
         <!-- Instruction for the armed-but-unanswered stress mode. Inside the
              viewport container because it points at the canvas it belongs to. -->
         <!--
@@ -1923,7 +2081,7 @@
           mounting both made one keystroke undo twice.
         -->
         {#if uiStore.appMode === 'basico'}
-          <KeyboardShortcuts />
+          <KeyboardShortcuts enabled={editorActive} />
         {/if}
       </main>
     </div>
@@ -1982,7 +2140,7 @@
           >×</button>
           <ProPanel bind:this={proPanelRef} />
         </aside>
-        {#if !uiStore.proPanelVisible}
+        {#if !uiStore.proPanelVisible && !uiStore.viewerMode}
           <!-- A closed panel has to be reopenable from where it closed. -->
           <!--
             A bare chevron on the canvas edge is not a clue. It says what it
@@ -2026,7 +2184,7 @@
     </footer>
   {/if}
 
-  {#if !uiStore.embedMode && !showLanding && !showBlog}
+  {#if !uiStore.embedMode && !showLanding && !showBlog && !showExperiment && !showPaper}
     <WhatsNewNotice />
   {/if}
 
@@ -2148,6 +2306,7 @@
   and closing costs the model nothing.
 -->
 <RebarWorkspace />
+{#if !deskDocked}<DesignDesk />{/if}
 
 {#if uiStore.toasts.length > 0}
   <div class="toast-container" class:toast-over-sheet={uiStore.isMobile && uiStore.appMode === 'basico' && basicPanel !== null}>
@@ -2158,6 +2317,16 @@
           <!-- The one command that connects members to the nodes they pass (Edit › Cut). -->
           <button class="toast-action" data-testid="toast-split-at-nodes" onclick={() => { splitAtNodesFromToast(); uiStore.dismissToast(toast.id); }}>
             {t('app.splitAtNodesAction')}
+          </button>
+        {/if}
+        {#if toast.actionId === 'enable-design'}
+          <button class="toast-action" data-testid="toast-enable-design" onclick={() => { uiStore.designInPro = true; uiStore.dismissToast(toast.id); announceDesignOn(); }}>
+            {t('design.enable')}
+          </button>
+        {/if}
+        {#if toast.actionId === 'enable-design-link'}
+          <button class="toast-action" data-testid="toast-enable-design-link" onclick={() => { enableDesignForLink(); uiStore.dismissToast(toast.id); }}>
+            {t('design.enableForVisit')}
           </button>
         {/if}
         {#if toast.actionId === 'kinematic'}
@@ -2192,6 +2361,13 @@
   viewport-scoped act.
 -->
 <SwitchTo2DDialog bind:open={uiStore.switchTo2DPrompt} />
+
+<!--
+  The re-check notice for a project last solved with an older version, and the banner that keeps
+  its results marked stale until they are re-run (`lib/store/recheck.svelte.ts`).
+-->
+<RecheckNotice />
+<ReproduceDialog />
 
 <DxfImportDialog
   open={showDxfImport}
@@ -2419,23 +2595,6 @@
   .mode-toggle button.pro-mode-btn.active {
     background: var(--st-accent);
     color: white;
-  }
-
-  .demo-badge {
-    font-size: 0.45rem;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    background: rgba(255,255,255,0.15);
-    color: rgba(255,255,255,0.7);
-    padding: 0.05rem 0.3rem;
-    border-radius: 3px;
-    margin-left: 0.3rem;
-    vertical-align: middle;
-  }
-
-  .mode-toggle button.active .demo-badge {
-    background: rgba(255,255,255,0.2);
-    color: rgba(255,255,255,0.85);
   }
 
   .pro-panel-close {
@@ -2961,6 +3120,30 @@
     flex: 1;
     overflow: hidden;
   }
+  /*
+   * Design docked: the row becomes a grid of design's parts around the viewer. Head across the
+   * top; the rail on the left and the piece sheet on the right, both full height; the viewer in
+   * the centre with the canvas under it (the canvas sets its own height, dragged from its edge).
+   */
+  .app-body-inner.pro-body-row.desk-docked {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    /* The viewer keeps at least a strip on a short window; the canvas takes its height up to what it was dragged to. */
+    grid-template-rows: auto minmax(80px, 1fr) minmax(0, min(var(--dd-canvas-h, 40vh), 60vh));
+    grid-template-areas: 'head head head' 'rail view sheet' 'rail canvas sheet';
+    min-height: 0;
+  }
+  .desk-docked > .main-area { grid-area: view; min-width: 0; min-height: 0; }
+  /*
+   * A short window (≤ 600 px): the canvas takes at most half of what is left, so the viewer keeps
+   * room for the model and its legend whatever height the canvas was dragged to on a taller one.
+   */
+  @media (max-height: 600px) {
+    .app-body-inner.pro-body-row.desk-docked {
+      grid-template-rows: auto minmax(140px, 1fr) minmax(0, min(var(--dd-canvas-h, 40vh), 45vh));
+    }
+  }
+  .desk-docked > :global(.pro-sidebar), .desk-docked > :global(.pro-panel-reopen) { display: none !important; }
 
   .sidebar {
     width: 250px;
@@ -3117,9 +3300,9 @@
        next. Anchored to the bottom-right instead: out of the command surface,
        and out of the way of the model's left-anchored drawing.
     */
-    bottom: 46px;
+    bottom: var(--st-toast-bottom, 46px);
     /* Clear of the right panel when one is open — BasicPanel publishes its width. */
-    right: calc(24px + var(--st-right-panel-w, 0px));
+    right: var(--st-toast-right, calc(24px + var(--st-right-panel-w, 0px)));
     z-index: 1100;
     display: flex;
     flex-direction: column;
@@ -3305,6 +3488,10 @@
 
   .embed-mode .app-body {
     height: 100vh;
+  }
+  .viewer-mode .app-body {
+    height: calc(100vh - 52px);
+    margin-top: 52px;
   }
 
   :global(.edu-tooltip) {
@@ -3885,7 +4072,8 @@
          model; the sheet's top edge is the one place that is neither.
       */
       top: auto;
-      bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+      /* Measured in PRO, above the viewer's legends (see `LEGEND_SELECTOR`). */
+      bottom: var(--st-toast-bottom, calc(12px + env(safe-area-inset-bottom, 0px)));
     }
 
     .toast-container.toast-over-sheet {
@@ -4110,20 +4298,6 @@
     color: var(--st-text);
     background: none;
     border-bottom-color: var(--st-accent);
-  }
-
-  .demo-badge {
-    font-family: var(--st-mono);
-    font-size: 0.55rem;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--st-text-3);
-    background: none;
-    border: 1px solid var(--st-hair);
-    border-radius: var(--st-radius);
-    padding: 0.05rem 0.25rem;
-    margin-left: 0.3rem;
-    vertical-align: middle;
   }
 
   .separator { color: var(--st-hair); font-size: 1rem; }

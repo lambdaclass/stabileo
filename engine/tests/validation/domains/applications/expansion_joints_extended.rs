@@ -48,6 +48,7 @@ fn validation_free_thermal_expansion() {
             element_id: i + 1,
             dt_uniform: dt,
             dt_gradient: 0.0,
+            alpha: None, depth: None,
         }))
         .collect();
 
@@ -67,7 +68,7 @@ fn validation_free_thermal_expansion() {
 
     // No axial force should develop (beam is free to expand)
     for ef in &results.element_forces {
-        assert_close(ef.n_start.abs(), 0.0, 0.01, "free expansion: zero axial force");
+        assert_close_abs(ef.n_start.abs(), 0.0, 0.01, 1e-6, "free expansion: zero axial force");
     }
 }
 
@@ -95,6 +96,7 @@ fn validation_restrained_thermal_force() {
             element_id: i + 1,
             dt_uniform: dt,
             dt_gradient: 0.0,
+            alpha: None, depth: None,
         }))
         .collect();
 
@@ -164,6 +166,7 @@ fn validation_gap_sizing() {
             element_id: i + 1,
             dt_uniform: dt_hot,
             dt_gradient: 0.0,
+            alpha: None, depth: None,
         }))
         .collect();
     let input_hot = make_beam(n, l, e, a, iz, "pinned", Some("rollerX"), loads_hot);
@@ -175,6 +178,7 @@ fn validation_gap_sizing() {
             element_id: i + 1,
             dt_uniform: dt_cold,
             dt_gradient: 0.0,
+            alpha: None, depth: None,
         }))
         .collect();
     let input_cold = make_beam(n, l, e, a, iz, "pinned", Some("rollerX"), loads_cold);
@@ -261,6 +265,7 @@ fn validation_multi_span_bridge_expansion() {
             element_id: i + 1,
             dt_uniform: dt,
             dt_gradient: 0.0,
+            alpha: None, depth: None,
         }))
         .collect();
 
@@ -302,7 +307,7 @@ fn validation_multi_span_bridge_expansion() {
 
     // No axial forces should develop (all spans free to expand)
     for ef in &results.element_forces {
-        assert_close(ef.n_start.abs(), 0.0, 0.01,
+        assert_close_abs(ef.n_start.abs(), 0.0, 0.01, 1e-6,
             &format!("multi-span: zero axial force elem {}", ef.element_id));
     }
 }
@@ -355,6 +360,7 @@ fn validation_portal_frame_thermal_column_bending() {
             element_id: 2,
             dt_uniform: dt,
             dt_gradient: 0.0,
+            alpha: None, depth: None,
         }),
     ];
 
@@ -371,7 +377,7 @@ fn validation_portal_frame_thermal_column_bending() {
     let rx4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap().rx;
 
     // Reactions should be equal and opposite (equilibrium)
-    assert_close(rx1 + rx4, 0.0, 0.02, "portal thermal: horizontal equilibrium");
+    assert_close_abs(rx1 + rx4, 0.0, 0.02, 1e-6, "portal thermal: horizontal equilibrium");
 
     // Reactions should be non-zero (columns resist beam expansion)
     assert!(rx1.abs() > 0.1, "portal thermal: horizontal reaction should be significant");
@@ -385,7 +391,7 @@ fn validation_portal_frame_thermal_column_bending() {
     let ux3 = results.displacements.iter().find(|d| d.node_id == 3).unwrap().ux;
 
     // Symmetric: node 2 moves left, node 3 moves right, by equal amounts
-    assert_close(ux2 + ux3, 0.0, 0.05,
+    assert_close_abs(ux2 + ux3, 0.0, 0.05, 1e-6,
         "portal thermal: symmetric lateral displacement");
     // But both should be nonzero
     assert!(ux2.abs() > 1e-6, "portal thermal: node 2 should move");
@@ -431,6 +437,7 @@ fn validation_steel_vs_concrete_differential_expansion() {
             element_id: i + 1,
             dt_uniform: dt,
             dt_gradient: 0.0,
+            alpha: None, depth: None,
         }))
         .collect();
     let input_steel = make_beam(n, l, e_steel, a, iz, "pinned", Some("rollerX"), loads_steel);
@@ -445,6 +452,7 @@ fn validation_steel_vs_concrete_differential_expansion() {
             element_id: i + 1,
             dt_uniform: dt_eff,
             dt_gradient: 0.0,
+            alpha: None, depth: None,
         }))
         .collect();
     let input_concrete = make_beam(n, l, e_concrete, a, iz, "pinned", Some("rollerX"), loads_concrete);
@@ -502,6 +510,7 @@ fn validation_temperature_gradient_curvature() {
             element_id: i + 1,
             dt_uniform: 0.0,
             dt_gradient: dt_grad,
+            alpha: None, depth: None,
         }))
         .collect();
 
@@ -597,6 +606,7 @@ fn validation_bearing_movement_thermal() {
             element_id: i + 1,
             dt_uniform: dt,
             dt_gradient: 0.0,
+            alpha: None, depth: None,
         }))
         .collect();
 
@@ -640,7 +650,7 @@ fn validation_bearing_movement_thermal() {
 
     // No axial forces (free to expand at roller supports)
     for ef in &results.element_forces {
-        assert_close(ef.n_start.abs(), 0.0, 0.01,
+        assert_close_abs(ef.n_start.abs(), 0.0, 0.01, 1e-6,
             &format!("bearing: zero axial force elem {}", ef.element_id));
     }
 }

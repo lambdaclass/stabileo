@@ -32,6 +32,31 @@ pub struct PathSegment {
     pub length: f64,
     pub cos: f64,
     pub sin: f64,
+    /// The train crosses this member from node_j to node_i (the member was
+    /// drawn against the direction of travel).
+    #[serde(default)]
+    pub reversed: bool,
+}
+
+/// Direction of travel over each member of a path, from connectivity: the
+/// first member is entered at the end it does not share with the second,
+/// each later member at the node the previous one was left by. A member
+/// with no neighbour on the path keeps its own node order.
+pub(crate) fn travel_reversed(ends: &[(usize, usize)]) -> Vec<bool> {
+    let mut rev = vec![false; ends.len()];
+    if ends.len() >= 2 {
+        let (i0, j0) = ends[0];
+        let (i1, j1) = ends[1];
+        // Entered at node_j when node_i is the joint with the next member.
+        rev[0] = (i0 == i1 || i0 == j1) && !(j0 == i1 || j0 == j1);
+        let mut exit = if rev[0] { i0 } else { j0 };
+        for k in 1..ends.len() {
+            let (i, j) = ends[k];
+            rev[k] = if i == exit { false } else if j == exit { true } else { false };
+            exit = if rev[k] { i } else { j };
+        }
+    }
+    rev
 }
 
 /// Most train positions one moving-load run may solve. The step and the axle
@@ -77,7 +102,7 @@ pub fn solve_moving_loads_2d(input: &MovingLoadInput) -> Result<MovingLoadEnvelo
 
     // Initialize envelopes
     let mut envelopes: HashMap<String, ElementEnvelope> = HashMap::new();
-    for elem in solver_input.elements.values() {
+    for elem in crate::ordered::values(&solver_input.elements) {
         envelopes.insert(elem.id.to_string(), ElementEnvelope {
             m_max_pos: 0.0, m_max_neg: 0.0,
             v_max_pos: 0.0, v_max_neg: 0.0,
@@ -127,12 +152,11 @@ pub fn solve_moving_loads_2d(input: &MovingLoadInput) -> Result<MovingLoadEnvelo
         // Update envelopes
         for ef in &results.element_forces {
             if let Some(env) = envelopes.get_mut(&ef.element_id.to_string()) {
-                let m_max = ef.m_start.max(ef.m_end);
-                let m_min = ef.m_start.min(ef.m_end);
-                let v_max = ef.v_start.max(ef.v_end);
-                let v_min = ef.v_start.min(ef.v_end);
-                let n_max = ef.n_start.max(ef.n_end);
-                let n_min = ef.n_start.min(ef.n_end);
+                // Along the member, not only at its ends: under a span load M peaks inside the
+                // span, and under a sign-changing axial span load so does N.
+                let (m_min, m_max) = diagram_range_2d(ef, "moment", ef.m_start, ef.m_end);
+                let (v_min, v_max) = diagram_range_2d(ef, "shear", ef.v_start, ef.v_end);
+                let (n_min, n_max) = diagram_range_2d(ef, "axial", ef.n_start, ef.n_end);
 
                 env.m_max_pos = env.m_max_pos.max(m_max);
                 env.m_max_neg = env.m_max_neg.min(m_min);
@@ -174,37 +198,20 @@ pub fn moving_loads_at_position_2d(
 
         // Find which segment this axle is on
         if let Some((seg, local_pos)) = find_segment(path, axle_pos) {
-            // Decompose weight into perpendicular component (point on element)
-            // and axial component (nodal load in element direction)
-            let perp_force = -axle.weight; // Downward force
-
-            // Add as point load on element in local Y direction
+            // The axle weight acts straight down (−Z). In member axes (local
+            // x = (c, s) from node_i to node_j, local y = (−s, c)) that is
+            // p = −W·c transverse and px = −W·s axial — for any orientation.
+            // The former branch for near-horizontal members used −W·|c|,
+            // which pushed the train UP on a member drawn right-to-left
+            // (found by the metamorphic mirror check).
+            let a = if seg.reversed { seg.length - local_pos } else { local_pos };
             loads.push(SolverLoad::PointOnElement(SolverPointLoadOnElement {
                 element_id: seg.element_id,
-                a: local_pos,
-                p: perp_force * seg.cos.powi(2).max(0.0).sqrt().copysign(1.0),
-                px: None,
+                a,
+                p: -axle.weight * seg.cos,
+                px: if seg.sin != 0.0 { Some(-axle.weight * seg.sin) } else { None },
                 my: None,
             }));
-
-            // For vertical loads on non-horizontal members, add axial component as well
-            // Simplified: project downward force onto element axes
-            if seg.sin.abs() > 1e-6 {
-                // Perpendicular component (transverse to element)
-                let p_perp = -axle.weight * seg.cos;
-                // Axial component
-                let p_axial = -axle.weight * seg.sin;
-
-                // Replace the simple load with proper decomposition
-                loads.pop(); // Remove the one we just added
-                loads.push(SolverLoad::PointOnElement(SolverPointLoadOnElement {
-                    element_id: seg.element_id,
-                    a: local_pos,
-                    p: p_perp,
-                    px: Some(p_axial),
-                    my: None,
-                }));
-            }
         }
     }
 
@@ -219,8 +226,8 @@ pub fn build_load_path(
     let mut cum_pos = 0.0;
 
     // Build lookup maps to avoid O(n) linear scans per element
-    let node_by_id: HashMap<usize, &SolverNode> = input.nodes.values().map(|n| (n.id, n)).collect();
-    let elem_by_id: HashMap<usize, &SolverElement> = input.elements.values().map(|e| (e.id, e)).collect();
+    let node_by_id: HashMap<usize, &SolverNode> = crate::ordered::values(&input.nodes).map(|n| (n.id, n)).collect();
+    let elem_by_id: HashMap<usize, &SolverElement> = crate::ordered::values(&input.elements).map(|e| (e.id, e)).collect();
 
     let elem_ids: Vec<usize> = if let Some(ids) = path_element_ids {
         ids.to_vec()
@@ -229,7 +236,13 @@ pub fn build_load_path(
         auto_detect_path(input)?
     };
 
+    let mut ends = Vec::with_capacity(elem_ids.len());
     for eid in &elem_ids {
+        let elem = elem_by_id.get(eid).ok_or_else(|| format!("Element {} not found", eid))?;
+        ends.push((elem.node_i, elem.node_j));
+    }
+    let reversed = travel_reversed(&ends);
+    for (k, eid) in elem_ids.iter().enumerate() {
         let elem = elem_by_id.get(eid)
             .ok_or_else(|| format!("Element {} not found", eid))?;
         let ni = node_by_id[&elem.node_i];
@@ -247,6 +260,7 @@ pub fn build_load_path(
             length: l,
             cos,
             sin,
+            reversed: reversed[k],
         });
         cum_pos += l;
     }
@@ -256,8 +270,8 @@ pub fn build_load_path(
 
 fn auto_detect_path(input: &SolverInput) -> Result<Vec<usize>, String> {
     // Find a chain: start from leftmost supported node, traverse connected elements
-    let node_by_id: HashMap<usize, &SolverNode> = input.nodes.values().map(|n| (n.id, n)).collect();
-    let mut elem_list: Vec<&SolverElement> = input.elements.values().collect();
+    let node_by_id: HashMap<usize, &SolverNode> = crate::ordered::values(&input.nodes).map(|n| (n.id, n)).collect();
+    let mut elem_list: Vec<&SolverElement> = crate::ordered::values(&input.elements).collect();
     elem_list.sort_by(|a, b| {
         let na = node_by_id[&a.node_i];
         let nb = node_by_id[&b.node_i];
@@ -278,11 +292,44 @@ fn find_segment<'a>(path: &'a [PathSegment], global_pos: f64) -> Option<(&'a Pat
     None
 }
 
+/// The least and greatest value of a 2D diagram along a member: its ends and the stations
+/// the diagrams sample (`diagram_positions_2d`, which include every point load), plus, for N,
+/// where the total axial span load changes sign (N' = −q_x, so N peaks there).
+fn diagram_range_2d(ef: &ElementForces, kind: &str, start: f64, end: f64) -> (f64, f64) {
+    use crate::postprocess::diagrams::{compute_diagram_value_at, diagram_positions_2d};
+    let mut ts = diagram_positions_2d(ef, kind);
+    if kind == "axial" && ef.length > 0.0 {
+        let mut xs: Vec<f64> = vec![0.0, ef.length];
+        for d in &ef.distributed_loads_x { xs.push(d.a); xs.push(d.b); }
+        xs.sort_by(|a, b| a.total_cmp(b));
+        let q_at = |x: f64| -> f64 {
+            ef.distributed_loads_x.iter()
+                .filter(|d| d.b > d.a && x >= d.a && x <= d.b)
+                .map(|d| d.q_i + (d.q_j - d.q_i) * (x - d.a) / (d.b - d.a))
+                .sum()
+        };
+        for w in xs.windows(2) {
+            let (x0, x1) = (w[0], w[1]);
+            if x1 - x0 < 1e-12 { continue; }
+            let h = (x1 - x0) * 1e-9;
+            let (q0, q1) = (q_at(x0 + h), q_at(x1 - h));
+            if q0 * q1 < 0.0 { ts.push((x0 + (x1 - x0) * q0 / (q0 - q1)) / ef.length); }
+        }
+    }
+    let (mut lo, mut hi) = (start.min(end), start.max(end));
+    for t in ts {
+        let v = compute_diagram_value_at(kind, t.clamp(0.0, 1.0), ef);
+        if v.is_finite() { lo = lo.min(v); hi = hi.max(v); }
+    }
+    (lo, hi)
+}
+
+/// The permanent loads, all of them: every load in the input is permanent (the train's axle
+/// loads are generated per position, never read from it). Point loads on members used to be
+/// filtered out as if they were the train's, so a permanent point load on a member, and since
+/// #437 the axial part of an inclined one, was missing from every envelope.
 fn base_loads(input: &SolverInput) -> Vec<SolverLoad> {
-    // Keep existing permanent loads (nodal and distributed, but not moving point loads)
-    input.loads.iter().filter(|l| {
-        matches!(l, SolverLoad::Nodal(_) | SolverLoad::Distributed(_) | SolverLoad::Thermal(_))
-    }).cloned().collect()
+    input.loads.clone()
 }
 
 // ==================== 3D Moving Loads ====================
@@ -325,6 +372,9 @@ pub struct PathSegment3D {
     pub dir_x: f64,
     pub dir_y: f64,
     pub dir_z: f64,
+    /// Crossed from node_j to node_i (see `PathSegment::reversed`).
+    #[serde(default)]
+    pub reversed: bool,
 }
 
 /// Solve 3D moving loads analysis (envelope computation).
@@ -358,7 +408,7 @@ pub fn solve_moving_loads_3d(input: &MovingLoadInput3D) -> Result<MovingLoadEnve
 
     // Initialize envelopes
     let mut envelopes: HashMap<String, ElementEnvelope3D> = HashMap::new();
-    for elem in solver_input.elements.values() {
+    for elem in crate::ordered::values(&solver_input.elements) {
         envelopes.insert(elem.id.to_string(), ElementEnvelope3D {
             n_max_pos: 0.0, n_max_neg: 0.0,
             vy_max_pos: 0.0, vy_max_neg: 0.0,
@@ -449,8 +499,8 @@ pub struct MovingLoadMaps3d<'a> {
 impl<'a> MovingLoadMaps3d<'a> {
     pub fn new(input: &'a SolverInput3D) -> Self {
         Self {
-            node_by_id: input.nodes.values().map(|n| (n.id, n)).collect(),
-            elem_by_id: input.elements.values().map(|e| (e.id, e)).collect(),
+            node_by_id: crate::ordered::values(&input.nodes).map(|n| (n.id, n)).collect(),
+            elem_by_id: crate::ordered::values(&input.elements).map(|e| (e.id, e)).collect(),
         }
     }
 }
@@ -521,7 +571,7 @@ pub fn moving_loads_at_position_3d_with_maps(
                 // Apply as point-on-element load (proper FEF treatment)
                 loads.push(SolverLoad3D::PointOnElement(SolverPointLoad3D {
                     element_id: seg.element_id,
-                    a: local_pos,
+                    a: if seg.reversed { seg.length - local_pos } else { local_pos },
                     py,
                     pz,
                 }));
@@ -540,8 +590,8 @@ pub fn build_load_path_3d(
     let mut cum_pos = 0.0;
 
     // Build lookup maps to avoid O(n) linear scans per element
-    let node_by_id: HashMap<usize, &SolverNode3D> = input.nodes.values().map(|n| (n.id, n)).collect();
-    let elem_by_id: HashMap<usize, &SolverElement3D> = input.elements.values().map(|e| (e.id, e)).collect();
+    let node_by_id: HashMap<usize, &SolverNode3D> = crate::ordered::values(&input.nodes).map(|n| (n.id, n)).collect();
+    let elem_by_id: HashMap<usize, &SolverElement3D> = crate::ordered::values(&input.elements).map(|e| (e.id, e)).collect();
 
     let elem_ids: Vec<usize> = if let Some(ids) = path_element_ids {
         ids.to_vec()
@@ -549,7 +599,13 @@ pub fn build_load_path_3d(
         auto_detect_path_3d(input)?
     };
 
+    let mut ends = Vec::with_capacity(elem_ids.len());
     for eid in &elem_ids {
+        let elem = elem_by_id.get(eid).ok_or_else(|| format!("Element {} not found", eid))?;
+        ends.push((elem.node_i, elem.node_j));
+    }
+    let reversed = travel_reversed(&ends);
+    for (k, eid) in elem_ids.iter().enumerate() {
         let elem = elem_by_id.get(eid)
             .ok_or_else(|| format!("Element {} not found", eid))?;
         let ni = node_by_id[&elem.node_i];
@@ -567,6 +623,7 @@ pub fn build_load_path_3d(
             dir_x: dx / l,
             dir_y: dy / l,
             dir_z: dz / l,
+            reversed: reversed[k],
         });
         cum_pos += l;
     }
@@ -575,8 +632,8 @@ pub fn build_load_path_3d(
 }
 
 fn auto_detect_path_3d(input: &SolverInput3D) -> Result<Vec<usize>, String> {
-    let node_by_id: HashMap<usize, &SolverNode3D> = input.nodes.values().map(|n| (n.id, n)).collect();
-    let mut elem_list: Vec<&SolverElement3D> = input.elements.values().collect();
+    let node_by_id: HashMap<usize, &SolverNode3D> = crate::ordered::values(&input.nodes).map(|n| (n.id, n)).collect();
+    let mut elem_list: Vec<&SolverElement3D> = crate::ordered::values(&input.elements).collect();
     elem_list.sort_by(|a, b| {
         let na = node_by_id[&a.node_i];
         let nb = node_by_id[&b.node_i];
@@ -595,8 +652,8 @@ fn find_segment_3d<'a>(path: &'a [PathSegment3D], global_pos: f64) -> Option<(&'
     None
 }
 
+/// As `base_loads`: every input load is permanent (point loads on members, bimoments and
+/// shell loads used to be dropped).
 fn base_loads_3d(input: &SolverInput3D) -> Vec<SolverLoad3D> {
-    input.loads.iter().filter(|l| {
-        matches!(l, SolverLoad3D::Nodal(_) | SolverLoad3D::Distributed(_) | SolverLoad3D::Thermal(_))
-    }).cloned().collect()
+    input.loads.clone()
 }

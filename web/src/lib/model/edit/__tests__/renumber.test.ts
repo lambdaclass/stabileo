@@ -73,4 +73,17 @@ describe('renumber', () => {
     const r = renumber({ nodes: true, members: true, order: 'zyx' });
     expect(r).toMatchObject({ refused: 'hasDesignDocuments' });
   });
+
+  it('refuses while a load names a node or a member the model does not have: renumbered, it would land on another', () => {
+    const s = scrambled();
+    const snap = JSON.parse(JSON.stringify(modelStore.snapshot()));
+    // From an older file: a tendon on a member and a settlement at a node, both long deleted.
+    snap.loads.push({ type: 'prestress3d', data: { id: 90, elementId: 2 + Math.max(s.beam, s.col1, s.col2), force: 500, eI: 0, eM: -0.2, eJ: 0 } });
+    snap.loads.push({ type: 'displacement3d', data: { id: 91, nodeId: 9, dz: -0.01 } });
+    modelStore.restore(snap);
+    const before = JSON.stringify(modelStore.snapshot());
+    expect(renumber({ nodes: true, members: true, order: 'zyx' })).toEqual({ refused: 'orphanLoads', ids: [90, 91] });
+    expect(renumber({ nodes: true, members: false, order: 'zyx' })).toEqual({ refused: 'orphanLoads', ids: [91] });
+    expect(JSON.stringify(modelStore.snapshot())).toBe(before);
+  });
 });

@@ -1,5 +1,14 @@
 # Dedaliano Solver Roadmap
 
+> **Status (2026-10-18).** The long-term solver sequence below is current. The "Where We Are",
+> "ASAP Hardening Work" and "Wave 1 Trust Hardening" sections predate the October 2026 safety
+> wave and v0.2.0 (certified solver, differential testing against seven programs, fuzzing and
+> mutation testing, feature matrix, certified design checks); read them as history. For the
+> current verification state see [../verification/DASHBOARD.md](../verification/DASHBOARD.md) and
+> [../verification/MATURITY.md](../verification/MATURITY.md); for the open solver backlog with
+> issue links see "Solver and proof depth" in [PRODUCT_ROADMAP.md](PRODUCT_ROADMAP.md). Entry
+> point: [README.md](README.md).
+
 ## Purpose
 
 This is the solver roadmap for mechanics, numerical robustness, validation sequencing, verification strategy, and performance/scale work. It is not the product, market, or revenue roadmap — for that, see `PRODUCT_ROADMAP.md`. For current capability and validation status, see `BENCHMARKS.md`. Historical progress belongs in `CHANGELOG.md`.
@@ -133,7 +142,7 @@ Rust test job runs these named gates before the full suite:
 Web test job:
 8. **Web tests** (includes convention gates + boundary robustness) ← new, was not run in CI before
 
-### Branch protection (not yet enabled)
+### Branch protection (not yet enabled; tracked in [#355](https://github.com/lambdaclass/stabileo/issues/355))
 
 Main has no branch protection. When enabled, require these status checks:
 - `lint` — clippy

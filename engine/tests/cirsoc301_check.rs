@@ -233,6 +233,26 @@ fn tension_shear_lag_d32_and_floor() {
     published(val(&t, "phiPnRupture"), 0.75 * 370.0 * 1500.0 / 1000.0, 1e-12);
 }
 
+/// Ejemplo 4 (Ej. 4-1 – 4-3): IPB 120 tie, bolted flange splice, Tu = 500 kN, Fy = 235,
+/// Fu = 370 MPa. Printed: Ag = 34 cm², tf = 11,0 mm; 4 holes of 16 mm nominal, dcal = 18 mm;
+/// An = 34,0 − 1,8·1,1·4 = 26,08 cm²; x̄ = 1,22 cm (half the IPB as a tee), L = 4·4,5 = 18 cm,
+/// U = 1 − 1,22/18 = 0,93 > 0,9 → U = 0,9; φRn yield = 0,9·34·235·0,1 = 719 kN, rupture
+/// = 0,75·(0,9·26,08)·370·0,1 = 651 kN (governs). D.3 from the connection geometry, B.4.2.2
+/// holes, and the U ≤ 0,9 cap, from a published example (they had only clause tests).
+#[test]
+fn inti_4_ipb120_tie_shear_lag_and_net_area() {
+    let m = member(json!({
+        "A": 34e-4, "Iz": 864e-8, "Iy": 318e-8, "h": 0.12, "b": 0.12, "tw": 0.0065, "tf": 0.011, "L": 9.0,
+        "tensionConnection": {"holes": {"count": 4.0, "d": 0.016, "t": 0.011}, "xBar": 0.0122, "length": 0.18}
+    }));
+    let t = check_tension(&m, 500.0);
+    assert!(t.not_evaluated.is_none(), "{:?}", t.not_evaluated);
+    published(val(&t, "phiPnYield"), 719.0, 0.005);
+    published(val(&t, "phiPnRupture"), 651.0, 0.005);
+    published(t.capacity, 651.0, 0.005);
+    assert_eq!(t.clause, "D.2(b)");
+}
+
 // ───────────── §E.4 by hand ─────────────
 
 fn tee(extra: Value) -> Cirsoc301MemberData {
@@ -513,7 +533,7 @@ fn certified_enclosures_contain_the_f64_check() {
             vu: rng.range(0.0, 400.0),
         };
         let r = check_member(&m, &f);
-        let zero = DemandBound { n: 0.0, my: 0.0, mz: 0.0, vy: 0.0 };
+        let zero = DemandBound { n: 0.0, my: 0.0, mz: 0.0, v_weak: 0.0, v_strong: 0.0 };
         match cirsoc301_ratio_enclosures(&m, &f, &zero) {
             Ok(enc) => {
                 certified += 1;
@@ -545,7 +565,7 @@ fn certify_members_over_demand_boxes() {
     let m = ipn180(json!({"tensionConnection": {"allElementsConnected": true}}));
     let d = |nu: f64, mx: f64| BoundedCirsoc301Demand {
         forces: Cirsoc301DesignForces { element_id: 0, nu, mu_strong: mx, mu_weak: 0.0, vu: 10.0 },
-        bound: DemandBound { n: 1.0, my: 0.1, mz: 0.0, vy: 0.1 },
+        bound: DemandBound { n: 1.0, my: 0.1, mz: 0.0, v_weak: 0.0, v_strong: 0.1 },
     };
     let res = certify_cirsoc301_members(&CertifiedCirsoc301CheckInput { members: vec![m.clone()], demands: vec![d(-100.0, 10.0), d(-150.0, 5.0)] });
     assert_eq!(res.len(), 1);
@@ -558,4 +578,103 @@ fn certify_members_over_demand_boxes() {
     let bad = ipn180(json!({}));
     let res = certify_cirsoc301_members(&CertifiedCirsoc301CheckInput { members: vec![bad], demands: vec![d(-100.0, 10.0)] });
     assert!(!res[0].certified && !res[0].certified_ok);
+}
+
+#[test]
+fn the_strong_axis_shear_travels_as_vstrong_and_a_bare_vy_is_refused() {
+    use dedaliano_engine::postprocess::steel_check::ElementDesignForces;
+    let f: ElementDesignForces =
+        serde_json::from_value(serde_json::json!({ "elementId": 1, "n": 0.0, "my": 1.0, "vStrong": 20.0, "vWeak": 5.0 })).unwrap();
+    assert_eq!((f.v_strong, f.v_weak), (Some(20.0), Some(5.0)));
+    assert!(serde_json::to_value(&f).unwrap().get("vStrong").is_some());
+    assert!(serde_json::from_value::<ElementDesignForces>(serde_json::json!({ "elementId": 1, "n": 0.0, "my": 1.0, "vy": 20.0 })).is_err());
+    let b: DemandBound = serde_json::from_value(serde_json::json!({ "n": 0.0, "my": 0.0, "vStrong": 0.5 })).unwrap();
+    assert_eq!(b.v_strong, 0.5);
+    assert!(serde_json::from_value::<DemandBound>(serde_json::json!({ "n": 0.0, "my": 0.0, "vy": 0.5 })).is_err());
+}
+
+fn issue_467_box() -> Cirsoc301MemberData {
+    member(json!({
+        "Fy": 235.0, "Fu": 352.5, "A": 0.004154258317613479, "Iz": 0.00018670605799131143,
+        "Iy": 0.00018670373863284803, "h": 0.52128444, "b": 0.5212801394033699, "tw": 0.002,
+        "tf": 0.00417027552, "L": 0.5, "Lb": 0.0, "shape": "box", "builtUp": false, "elementId": 1
+    }))
+}
+
+#[test]
+fn issue_467_qa_not_positive_is_refused_never_above_squash() {
+    let m = issue_467_box();
+    let squash = m.a * m.fy * 1000.0;
+    let c = check_compression(&m, 0.003);
+    assert_eq!(c.not_evaluated.as_ref().map(|r| r.key.as_str()), Some("c301.refuse.qNonPositive"));
+    assert!(!c.pass);
+    assert!(c.capacity <= squash, "φPn {} above the squash load {}", c.capacity, squash);
+    let r = check_member(&m, &Cirsoc301DesignForces { element_id: 1, nu: 0.003, mu_strong: 0.0, mu_weak: 0.0, vu: 0.0 });
+    assert!(!r.pass);
+    assert!(r.unevaluated.contains(&"compression".to_string()));
+    let over = check_member(&m, &Cirsoc301DesignForces { element_id: 1, nu: 1.01 * squash, mu_strong: 0.0, mu_weak: 0.0, vu: 0.0 });
+    assert!(!over.pass);
+}
+
+#[test]
+fn issue_467_certificate_also_refuses() {
+    let m = issue_467_box();
+    let out = certify_cirsoc301_members(&CertifiedCirsoc301CheckInput {
+        members: vec![m],
+        demands: vec![BoundedCirsoc301Demand {
+            forces: Cirsoc301DesignForces { element_id: 1, nu: 0.003, mu_strong: 0.0, mu_weak: 0.0, vu: 0.0 },
+            bound: DemandBound { n: 0.0, my: 0.0, mz: 0.0, v_strong: 0.0, v_weak: 0.0 },
+        }],
+    });
+    assert!(!out[0].certified && !out[0].certified_ok);
+}
+
+#[test]
+fn compact_box_column_matches_hand_e32_and_demand_above_squash_fails() {
+    let a = 0.2f64.powi(2) - 0.18f64.powi(2);
+    let i = (0.2f64.powi(4) - 0.18f64.powi(4)) / 12.0;
+    let m = member(json!({"A": a, "Iz": i, "Iy": i, "L": 3.0, "shape": "box", "h": 0.2, "b": 0.2, "tw": 0.01, "tf": 0.01}));
+    let squash = a * 235.0 * 1000.0;
+    let r = check_compression(&m, 1000.0);
+    assert!(r.not_evaluated.is_none());
+    assert_eq!(val(&r, "Q"), 1.0);
+    published(val(&r, "KLr"), 38.62, 0.001);
+    published(val(&r, "Fe"), 1323.26, 0.001);
+    published(val(&r, "Fcr"), 218.17, 0.001);
+    published(r.capacity, 1409.35, 0.001);
+    assert!(r.capacity < squash);
+    for nu in [squash, 1.0001 * squash, 2.0 * squash] {
+        let o = check_member(&m, &Cirsoc301DesignForces { element_id: 0, nu, mu_strong: 0.0, mu_weak: 0.0, vu: 0.0 });
+        assert!(!o.pass, "Nu = {nu} kN ≥ A·Fy = {squash} kN passed");
+    }
+}
+
+#[test]
+fn every_compression_capacity_stays_below_phi_squash() {
+    let base = |l: f64| {
+        member(json!({
+            "A": 17.75e-4, "Iy": 932.24e-8, "Iz": 932.24e-8, "L": l, "shape": "box",
+            "h": 0.18, "b": 0.18, "tw": 0.0025, "tf": 0.0025, "builtUp": true
+        }))
+    };
+    for l in [1e-3, 0.05, 0.5, 2.0, 6.5, 20.0] {
+        let m = base(l);
+        let r = check_compression(&m, 1.0);
+        let cap = PHI_C * m.a * m.fy * 1000.0;
+        assert!(r.not_evaluated.is_some() || r.capacity <= cap * (1.0 + 1e-12), "L = {l}: φPn {} > φ·A·Fy {}", r.capacity, cap);
+    }
+}
+
+#[test]
+fn chs_just_past_e72c_lower_limit_keeps_q_at_one() {
+    let (d, t) = (0.3232848, 0.003369989938147201);
+    let a = std::f64::consts::PI * (d - t) * t;
+    let i = std::f64::consts::PI * (d - t).powi(3) * t / 8.0;
+    let m = member(json!({"A": a, "Iz": i, "Iy": i, "L": 0.5, "shape": "CHS", "h": d, "tw": t}));
+    assert!(d / t > 0.11 * 200000.0 / 235.0);
+    let r = check_compression(&m, 100.0);
+    assert!(r.not_evaluated.is_none(), "{:?}", r.not_evaluated);
+    assert_eq!(val(&r, "Q"), 1.0);
+    assert!(val(&r, "Fcr") <= 235.0);
+    assert!(r.capacity <= PHI_C * a * 235.0 * 1000.0);
 }

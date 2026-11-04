@@ -192,6 +192,15 @@ describe('geotechnical migration', () => {
     expect(m.notices.map((n) => n.key)).toContain('geotechnical.migration.bearingDropped');
   });
 
+  it('keeps an edge factor between 1 and 1,5, and drops one outside it', () => {
+    const read = (edgeFactor: unknown) => migrateGeotechnical({
+      version: 1, profiles: [{ id: 1, name: 'S1', bearing: { kind: 'allowablePressure', allowableBearingKPa: 300, edgeFactor } }],
+    }).geotechnical.profiles[0]!.bearing;
+    expect(read(1.25)).toEqual({ kind: 'allowablePressure', allowableBearingKPa: 300, edgeFactor: 1.25 });
+    expect(read(2)).toEqual({ kind: 'allowablePressure', allowableBearingKPa: 300 });
+    expect(read(undefined)).toEqual({ kind: 'allowablePressure', allowableBearingKPa: 300 });
+  });
+
   it('repairs a default pointing at a profile that no longer exists', () => {
     const m = migrateGeotechnical({
       version: 1, defaultProfileId: 99,

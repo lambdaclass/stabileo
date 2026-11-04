@@ -137,7 +137,7 @@ export type RcForcesScope =
  *           already falls back to when a popup is blocked, and it is the only one of the three
  *           that yields a file the app can hand over directly.
  */
-export type RcForcesFormat = 'xlsx' | 'pdf' | 'html';
+export type RcForcesFormat = 'xlsx' | 'pdf' | 'html' | 'docx' | 'csv';
 
 /** Everything the report needs to be generated. */
 export interface RcForcesReportConfig {

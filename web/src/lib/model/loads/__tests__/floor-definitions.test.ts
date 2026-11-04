@@ -93,6 +93,22 @@ describe('its loads follow the model', () => {
     historyStore.undo();
     expect(modelStore.loads.some((l) => (l.data as { fromDef?: number }).fromDef === id)).toBe(true);
   });
+
+  it('deleted, take nothing to the solve: none is left as a plain load, by either delete; undo brings them back', () => {
+    const { caseId } = bay();
+    const before = modelStore.loads.length;
+    const id = addFloorLoadDef('L floor', { caseId, q: 2, target: { by: 'level', z: 3 }, distribution: 'twoWay' });
+    const written = modelStore.loads.length - before;
+    removeFloorLoadDef(id);
+    expect(modelStore.loads).toHaveLength(before);
+    historyStore.undo();
+    expect(modelStore.model.groups.has(id)).toBe(true);
+    expect(modelStore.loads.filter((l) => (l.data as { fromDef?: number }).fromDef === id)).toHaveLength(written);
+    // As a group, the definition takes its loads too.
+    modelStore.removeGroup(id);
+    syncDefinedLoads();
+    expect(modelStore.loads).toHaveLength(before);
+  });
 });
 
 const defLoads = () => modelStore.loads.filter((l) => (l.data as { fromDef?: number }).fromDef !== undefined);

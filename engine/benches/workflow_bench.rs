@@ -72,7 +72,7 @@ fn make_input(
         constraints: vec![],
         connectors: HashMap::new(),
 
-        solver_options: None,    }
+        solver_options: None, masses: Default::default(),    }
 }
 
 fn make_frame(n_stories: usize, n_bays: usize) -> SolverInput {
@@ -166,7 +166,7 @@ fn make_input_3d(
     for (id, a, iy, iz, j) in secs {
         secs_map.insert(
             id.to_string(),
-            SolverSection3D { id, name: None, a, iy, iz, j, cw: None, as_y: None, as_z: None },
+            SolverSection3D { id, name: None, a, iy, iz, j, cw: None, as_y: None, as_z: None, shear_center_y: None, shear_center_z: None },
         );
     }
     let mut elems_map = HashMap::new();
@@ -224,7 +224,7 @@ fn make_input_3d(
         curved_beams: vec![],
         connectors: HashMap::new(),
 
-        solver_options: None,    }
+        solver_options: None, masses: Default::default(),    }
 }
 
 fn make_frame_3d(n_stories: usize, n_bays: usize) -> SolverInput3D {
@@ -544,7 +544,7 @@ fn make_flat_plate_3d(nx: usize, ny: usize) -> SolverInput3D {
         constraints: vec![], left_hand: None,
         plates: HashMap::new(), quads, quad9s: HashMap::new(),
         solid_shells: HashMap::new(), curved_shells: HashMap::new(),
-        curved_beams: vec![], connectors: HashMap::new(), solver_options: None,
+        curved_beams: vec![], connectors: HashMap::new(), solver_options: None, masses: Default::default(),
     }
 }
 

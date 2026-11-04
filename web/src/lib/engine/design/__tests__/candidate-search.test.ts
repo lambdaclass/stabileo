@@ -65,9 +65,10 @@ describe('candidate generators — bounded, fit-aware, ordered', () => {
     }
   });
 
-  it('tie spacing honours min(12dB, 48de, min(b,h))', () => {
-    expect(maxTieSpacing(20, 8, 0.4, 0.4)).toBeCloseTo(Math.min(0.24, 0.384, 0.4), 6);
-    expect(maxTieSpacing(32, 6, 0.3, 0.5)).toBeCloseTo(Math.min(0.384, 0.288, 0.3), 6);
+  it('tie spacing honours min(16dB, 48de, min(b,h)) in 2025 (25.7.2.1) and 12dB in 2005', () => {
+    expect(maxTieSpacing(20, 8, 0.4, 0.4, '2025')).toBeCloseTo(Math.min(0.32, 0.384, 0.4), 6);
+    expect(maxTieSpacing(32, 6, 0.3, 0.5, '2025')).toBeCloseTo(Math.min(0.512, 0.288, 0.3), 6);
+    expect(maxTieSpacing(20, 8, 0.4, 0.4, '2005')).toBeCloseTo(Math.min(0.24, 0.384, 0.4), 6);
   });
 
   it('is DETERMINISTIC: identical context + feedback → identical sequence', () => {
@@ -167,7 +168,7 @@ describe('designMember — outcomes and budgets', () => {
   });
 
   it('keeps a PROVISIONAL candidate on failure, never certified (O3)', () => {
-    // A deliberately impossible member: tiny section, huge demand.
+    // A deliberately undersized member: tiny section, huge demand.
     const base = ctxFor([...solved.contexts.keys()].find(i => ctxFor(i).elementType === 'beam')!);
     const ctx: MemberContext = {
       ...base,
@@ -182,11 +183,16 @@ describe('designMember — outcomes and budgets', () => {
       expect(o.provisional.worstUtilization).toBeGreaterThan(UTIL_FAIL_THRESHOLD);
     }
     expect(o.limiting.length).toBeGreaterThan(0);
+    // Either a bound no reinforcement lifts is exceeded, and the outcome states it, or the
+    // implemented alternatives ran out, and the outcome says what they were.
     if (o.outcome === 'SECTION_INADEQUATE') {
-      expect(o.searchStats.envelopeExhausted).toBe(true);
-      expect(o.sectionAdvice).toBeDefined();
-      expect(o.sectionAdvice!.preliminary).toBe(true);
+      expect(o.insufficiency).toBeDefined();
+      expect(o.insufficiency!.demand).toBeGreaterThan(o.insufficiency!.capacity);
+    } else if (o.outcome === 'SEARCH_EXHAUSTED') {
+      expect(o.insufficiency).toBeUndefined();
+      expect(o.exhaustion).toBeDefined();
     }
+    if (o.sectionAdvice) expect(o.sectionAdvice.preliminary).toBe(true);
   });
 
   it('never exceeds its per-member budget', () => {

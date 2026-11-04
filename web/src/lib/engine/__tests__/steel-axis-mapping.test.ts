@@ -46,6 +46,10 @@ const IPE200 = {
   iy: 1943e-8,   // strong, in this app's naming
   iz: 142e-8,    // weak
   h: 0.200, b: 0.100, tw: 0.0056, tf: 0.0085, j: 6.98e-8,
+  // The shape selects chapter F's section (F.2 for an I). Without it the checker cannot tell an I
+  // from any other outline and no longer evaluates the flexure at all (F.7–F.12 not carried), so
+  // Lp would not exist to be pinned.
+  shape: 'I',
 };
 
 const STEEL = { id: 1, name: 'F-24', fy: 235, fu: 360, e: 200_000 };

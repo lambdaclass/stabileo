@@ -14,7 +14,7 @@
 
 <section class="sec sec--ink education reveal" data-section="education" id="education" aria-labelledby="edu-title">
   <div class="wrap">
-    <Eyebrow n="05" label={t('landing.ebEdu')} />
+    <Eyebrow n="06" label={t('landing.ebEdu')} />
 
     <div class="mode-head">
       <h2 id="edu-title" class="display">{t('landing.eduH')}</h2>

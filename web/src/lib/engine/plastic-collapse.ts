@@ -48,6 +48,11 @@ import { solve } from './wasm-solver';
 // The normalized reading: the diagnosis in the active language and the app's axis names.
 import { analyzeKinematics } from './kinematic-2d';
 import { computeDiagramValueAt } from './diagrams';
+import { axialSpanToNodal2D, axialEquivalentLoads } from './axial-span-2d';
+import { memberEndRotations } from './plastic/rotations';
+import { buildKinematics } from './plastic/kinematics';
+import { nullspace } from './steps/sway-modes';
+import { solveLp } from './plastic/lp';
 
 export interface PlasticCollapseOptions {
   /** Plastic moment of an original frame member, kN·m. */
@@ -58,6 +63,8 @@ export interface PlasticCollapseOptions {
   samples?: number;
   /** Stop after this many events if no mechanism has formed. */
   maxEvents?: number;
+  /** How many times unloading hinges may be closed before the run stops unconfirmed; `maxEvents` if absent. */
+  maxClosings?: number;
 }
 
 export interface PlasticCollapseHinge extends PlasticHinge {
@@ -67,9 +74,23 @@ export interface PlasticCollapseHinge extends PlasticHinge {
   x: number;
 }
 
+/** What one event of the step-by-step analysis did, for explaining it. */
+export interface PlasticStepTrace {
+  /** λ before the event and the increment that reaches it. */
+  lambdaBefore: number;
+  dLambda: number;
+  /** Per hinge formed (index into `hinges`): its moment (or axial force) per unit λ in the structure of this step, and what it had before. */
+  events: Array<{ hinge: number; perUnit: number; before: number; limit: number }>;
+}
+
 export interface PlasticCollapseResult extends PlasticResult {
   hinges: PlasticCollapseHinge[];
-  steps: Array<PlasticStep & { hingesFormed: PlasticCollapseHinge[] }>;
+  /**
+   * `rotations[h]`: plastic rotation of hinge h accumulated up to this step, rad, positive when
+   * the member turns the way a sagging moment bends it (right side minus left side along the
+   * member); 0 for an axial yield and for a hinge formed at this step.
+   */
+  steps: Array<PlasticStep & { hingesFormed: PlasticCollapseHinge[]; trace: PlasticStepTrace; rotations: number[] }>;
   /** Degree of static indeterminacy of the structure as given. */
   degree: number;
   /**
@@ -78,6 +99,11 @@ export interface PlasticCollapseResult extends PlasticResult {
    * the caller says so instead of "does not collapse".
    */
   unloaded: boolean;
+  /**
+   * The run stopped on its work limit (its events, or its hinge closings) before a mechanism was
+   * shown admissible: `collapseFactor` is the last λ reached, not a collapse load.
+   */
+  unconfirmed?: boolean;
 }
 
 interface Piece { id: number; t0: number; t1: number }
@@ -120,17 +146,18 @@ function splitAt(input: SolverInput, id: number, s: number, ids: { node: number;
 
   const out: SolverLoad[] = [];
   for (const l of input.loads) {
-    if (l.type === 'distributed' && l.data.elementId === id) {
-      const d = l.data;
+    if ((l.type === 'distributed' || l.type === 'axialDistributed') && l.data.elementId === id) {
+      // Across the member or along it, a span load is cut the same way.
+      const d = l.data, type = l.type;
       const la = d.a ?? 0, lb = d.b ?? L;
       const qAt = (x: number) => (lb - la < 1e-12 ? d.qI : d.qI + ((d.qJ - d.qI) * (x - la)) / (lb - la));
       if (la < s - 1e-12) {
         const e1 = Math.min(lb, s);
-        out.push({ type: 'distributed', data: { elementId: id, qI: d.qI, qJ: qAt(e1), a: la, b: e1 } });
+        out.push({ type, data: { elementId: id, qI: d.qI, qJ: qAt(e1), a: la, b: e1 } });
       }
       if (lb > s + 1e-12) {
         const s1 = Math.max(la, s);
-        out.push({ type: 'distributed', data: { elementId: rightId, qI: qAt(s1), qJ: d.qJ, a: s1 - s, b: lb - s } });
+        out.push({ type, data: { elementId: rightId, qI: qAt(s1), qJ: d.qJ, a: s1 - s, b: lb - s } });
       }
     } else if (l.type === 'pointOnElement' && l.data.elementId === id) {
       out.push(l.data.a <= s + 1e-12
@@ -146,9 +173,75 @@ function splitAt(input: SolverInput, id: number, s: number, ids: { node: number;
   return { node: nodeId, right: rightId };
 }
 
+/** Whether a member load bends the member: a transverse force or a couple on it. */
+function carriesTransverse(l: SolverLoad): boolean {
+  if (l.type === 'distributed') return Math.abs(l.data.qI) > 1e-12 || Math.abs(l.data.qJ) > 1e-12;
+  if (l.type === 'pointOnElement') return Math.abs(l.data.p) > 1e-12 || Math.abs(l.data.my ?? 0) > 1e-12;
+  return false;
+}
+
+/** Unit vectors along and across member `id` of `input` as drawn, and its length. */
+function axesOf(input: Pick<SolverInput, 'nodes' | 'elements'>, id: number) {
+  const e = input.elements.get(id)!;
+  const ni = input.nodes.get(e.nodeI)!, nj = input.nodes.get(e.nodeJ)!;
+  const L = Math.hypot(nj.x - ni.x, nj.z - ni.z);
+  const c = (nj.x - ni.x) / L, s = (nj.z - ni.z) / L;
+  return { e, L, c, s };
+}
+
+/** A point load at `a` on member `id` (px along it, p across it), as nodal loads at its ends by the lever rule. */
+function pointToEnds2D(input: Pick<SolverInput, 'nodes' | 'elements'>, id: number, a: number, px: number, p: number): SolverLoad[] {
+  const { e, L, c, s } = axesOf(input, id);
+  const fx = px * c - p * s, fz = px * s + p * c;
+  if (Math.abs(fx) < 1e-15 && Math.abs(fz) < 1e-15) return [];
+  const t = Math.min(1, Math.max(0, a / L));
+  return [
+    { type: 'nodal', data: { nodeId: e.nodeI, fx: fx * (1 - t), fz: fz * (1 - t), my: 0 } },
+    { type: 'nodal', data: { nodeId: e.nodeJ, fx: fx * t, fz: fz * t, my: 0 } },
+  ];
+}
+
+/** A transverse span load on member `id`, as nodal loads at its ends by the lever rule (simple-span shares). */
+function transverseSpanToEnds2D(input: Pick<SolverInput, 'nodes' | 'elements'>, id: number, qI: number, qJ: number, a: number, b: number): SolverLoad[] {
+  const { e, L, c, s } = axesOf(input, id);
+  const [fI, fJ] = axialEquivalentLoads(qI, qJ, a, b, L);
+  return [
+    { type: 'nodal', data: { nodeId: e.nodeI, fx: -fI * s, fz: fI * c, my: 0 } },
+    { type: 'nodal', data: { nodeId: e.nodeJ, fx: -fJ * s, fz: fJ * c, my: 0 } },
+  ];
+}
+
+/**
+ * Positions along member `id` (from its start, m) where |N| can peak under its own loads: the
+ * ends, either side of each axial point load, the ends of each axial span load, and where the
+ * total q_x, linear between those, changes sign.
+ */
+function axialPeakStations(loads: readonly SolverLoad[], id: number, L: number): number[] {
+  const spans = loads.flatMap((l) => (l.type === 'axialDistributed' && l.data.elementId === id
+    ? [{ qI: l.data.qI, qJ: l.data.qJ, a: l.data.a ?? 0, b: l.data.b ?? L }] : []));
+  const points = loads.flatMap((l) => (l.type === 'pointOnElement' && l.data.elementId === id && Math.abs(l.data.px ?? 0) > 1e-12 ? [l.data.a] : []));
+  const eps = 1e-9 * Math.max(1, L);
+  const out = new Set<number>([0, L]);
+  for (const a of points) { out.add(Math.max(0, a - eps)); out.add(Math.min(L, a + eps)); }
+  const breaks = new Set<number>([0, L]);
+  for (const d of spans) { breaks.add(Math.max(0, Math.min(L, d.a))); breaks.add(Math.max(0, Math.min(L, d.b))); }
+  const xs = [...breaks].sort((x, y) => x - y);
+  const qAt = (x: number) => spans.reduce((sum, d) => (x >= d.a && x <= d.b && d.b > d.a ? sum + d.qI + (d.qJ - d.qI) * (x - d.a) / (d.b - d.a) : sum), 0);
+  for (let i = 0; i + 1 < xs.length; i++) {
+    const x0 = xs[i], x1 = xs[i + 1];
+    out.add(x0); out.add(x1);
+    if (x1 - x0 < 1e-12) continue;
+    // Just inside the interval, so a load that starts or ends at x0/x1 is read on the right side.
+    const h = (x1 - x0) * 1e-9, q0 = qAt(x0 + h), q1 = qAt(x1 - h);
+    if (q0 * q1 < 0) out.add(x0 + (x1 - x0) * q0 / (q0 - q1));
+  }
+  return [...out].filter((x) => x >= 0 && x <= L);
+}
+
 export function plasticCollapse2D(original: SolverInput, opts: PlasticCollapseOptions): PlasticCollapseResult {
   const S = opts.samples ?? 200;
-  const maxEvents = opts.maxEvents ?? 60;
+  const maxEvents = opts.maxEvents ?? 200;
+  const MAX_CLOSINGS = opts.maxClosings ?? maxEvents;
   const work = cloneInput(original);
 
   const kin0 = analyzeKinematics(original);
@@ -178,6 +271,10 @@ export function plasticCollapse2D(original: SolverInput, opts: PlasticCollapseOp
         if (l.type === 'pointOnElement' && l.data.elementId === e.id) ts.add(Math.min(1, Math.max(0, l.data.a / L)));
       }
     }
+    // Where N can peak: N is piecewise quadratic along a member (N' = −q_x), so |N| is largest at
+    // an end, either side of an axial point load, or where q_x changes sign. A truss used to be
+    // read at its ends only, and a sign-changing load peaks inside.
+    for (const x of axialPeakStations(original.loads, e.id, L)) ts.add(x / L);
     const t = [...ts].sort((a, b) => a - b);
     members.push({
       id: e.id, L, truss: e.type === 'truss',
@@ -207,6 +304,7 @@ export function plasticCollapse2D(original: SolverInput, opts: PlasticCollapseOp
       qI: ef.qI * lambda, qJ: ef.qJ * lambda,
       pointLoads: ef.pointLoads.map((p) => ({ ...p, p: p.p * lambda, px: (p.px ?? 0) * lambda, my: (p.my ?? 0) * lambda })),
       distributedLoads: ef.distributedLoads.map((d) => ({ ...d, qI: d.qI * lambda, qJ: d.qJ * lambda })),
+      ...(ef.distributedLoadsX ? { distributedLoadsX: ef.distributedLoadsX.map((d) => ({ ...d, qI: d.qI * lambda, qJ: d.qJ * lambda })) } : {}),
     })),
   });
 
@@ -215,22 +313,96 @@ export function plasticCollapse2D(original: SolverInput, opts: PlasticCollapseOp
   let unloaded = false;
   const hinges: PlasticCollapseHinge[] = [];
   const steps: PlasticCollapseResult['steps'] = [];
+  const hingeAt: Array<{ mb: Member; t: number; run: number[] } | null> = [];
+  /**
+   * The structure has become a mechanism; but a hinge that the mechanism turns against its moment
+   * would unload, close and stiffen the structure again (under a distributed load the peak drifts,
+   * and a second hinge beside the first is such a case). Closes those hinges and says whether any was.
+   */
+  let closings = 0;
+  let unconfirmed = false;
+  const closeUnloading = (): 'closed' | 'mechanism' | 'exhausted' => {
+    const open = hingeAt.map((ref, h) => ({ ref, h })).filter((x) => x.ref && hinges[x.h].unloadedAt === undefined && !x.ref.mb.yielded);
+    if (!open.length) return 'mechanism';
+    const removed = new Set(members.filter((mb) => mb.yielded).map((mb) => mb.id));
+    const km = buildKinematics(original, open.map((x) => ({ member: x.ref!.mb.id, t: x.ref!.t })), removed);
+    const space = nullspace(km.rows, km.n);
+    if (!space.length) return 'mechanism';
+    const dotRow = (row: number[], d: number[]) => row.reduce((acc, w, i) => acc + w * d[i], 0);
+    const th = space.map((d) => open.map((_, k) => dotRow(km.rotation[k], d)));
+    const sag = open.map((x) => -Math.sign(hinges[x.h].moment));
+    const loadWork = space.map((d) => dotRow(km.work, d));
+    const consistent = solveLp({
+      c: space.map(() => 0),
+      rows: [
+        ...open.map((_, k) => ({ a: space.map((__, j) => sag[k] * th[j][k]), op: '>=' as const, b: 0 })),
+        { a: loadWork, op: '=' as const, b: 1 },
+      ],
+      free: space.map(() => true),
+    });
+    if (consistent.status === 'optimal') return 'mechanism';
+    const norm = Math.hypot(...loadWork) || 1;
+    const theta = open.map((_, k) => space.reduce((acc, _d, j) => acc + (loadWork[j] / norm) * th[j][k], 0));
+    const big = Math.max(...theta.map(Math.abs));
+    const closing = open.filter((_, k) => theta[k] * sag[k] < -1e-6 * big);
+    if (!closing.length) return 'mechanism';
+    if (closings >= MAX_CLOSINGS) return 'exhausted';
+    closings++;
+    for (const { ref, h } of closing) {
+      const { mb, t, run } = ref!;
+      if (t <= 1e-12) work.elements.get(mb.pieces[0].id)!.hingeStart = false;
+      else if (t >= 1 - 1e-12) work.elements.get(mb.pieces[mb.pieces.length - 1].id)!.hingeEnd = false;
+      else { const left = mb.pieces.find((p) => Math.abs(p.t1 - t) < 1e-9); if (left) work.elements.get(left.id)!.hingeEnd = false; }
+      for (const k of run) mb.hinged[k] = false;
+      hinges[h].unloadedAt = lambda;
+      hingeAt[h] = null;
+    }
+    return 'closed';
+  };
+  /** A mechanism from the kinematic check or the solve: closes what unloads, else stops, confirmed or not. */
+  const atMechanism = (): boolean => {
+    const c = closeUnloading();
+    if (c === 'closed') return false;
+    if (c === 'exhausted') unconfirmed = true; else isMechanism = true;
+    return true;
+  };
+  const rotations: number[] = [];
+  /** The rotation jump at a hinge in the solve of this step, right side minus left side along the member. */
+  const jumpAt = (ref: { mb: Member; t: number }, r: AnalysisResults, efOf: Map<number, ElementForces>): number => {
+    const { mb, t } = ref;
+    if (mb.yielded) return 0;
+    const nodeRot = (id: number) => r.displacements.find((d) => d.nodeId === id)?.ry ?? 0;
+    const ends = (pieceId: number) => { const ef = efOf.get(pieceId); return ef ? memberEndRotations(work, r, ef) : null; };
+    if (t <= 1e-12) {
+      const p = mb.pieces[0], e = work.elements.get(p.id)!, rot = ends(p.id);
+      return rot ? rot.ti - nodeRot(e.nodeI) : 0;
+    }
+    if (t >= 1 - 1e-12) {
+      const p = mb.pieces[mb.pieces.length - 1], e = work.elements.get(p.id)!, rot = ends(p.id);
+      return rot ? nodeRot(e.nodeJ) - rot.tj : 0;
+    }
+    const left = mb.pieces.find((p) => Math.abs(p.t1 - t) < 1e-9);
+    if (!left) return 0;
+    const e = work.elements.get(left.id)!, rot = ends(left.id);
+    return rot ? nodeRot(e.nodeJ) - rot.tj : 0;
+  };
 
-  for (let step = 0; step < maxEvents; step++) {
+  let event = 0;
+  for (; event < maxEvents; event++) {
     /*
      * A mechanism is what the kinematic check says it is. An exception from that check or from
      * the solve after it said "solvable" is an error, and it used to be recorded as collapse:
      * an engine failure came out as a collapse factor.
      */
     const kin = analyzeKinematics(work);
-    if (!kin.isSolvable) { isMechanism = true; break; }
+    if (!kin.isSolvable) { if (atMechanism()) break; continue; }
     let r: AnalysisResults;
     try { r = solve(work); } catch (e) {
       const msg = (e as Error)?.message ?? String(e);
       // The engine has its own mechanism detection (a hinged node free to rotate, a singular
       // stiffness), finer than the kinematic count: its verdict is a mechanism. Anything else
       // is a failure and is reported as one.
-      if (/mechanism|singular|instab/i.test(msg)) { isMechanism = true; break; }
+      if (/mechanism|singular|instab/i.test(msg)) { if (atMechanism()) break; continue; }
       throw new Error(`Plastic collapse: the solve after ${hinges.length} hinge(s) failed although the `
         + `structure is not a mechanism — ${msg}`);
     }
@@ -256,9 +428,13 @@ export function plasticCollapse2D(original: SolverInput, opts: PlasticCollapseOp
       unitN.push(un);
       if (mb.yielded) continue;
       if (mb.truss) {
+        // A load along the bar makes N vary along it: every section where it can peak.
         const ef = efOf.get(mb.pieces[0].id);
-        un[0] = ef ? ef.nStart : 0;
-        axialCandidate(mb, 0, un[0]);
+        if (!ef) continue;
+        for (let k = 0; k < mb.t.length; k++) {
+          un[k] = computeDiagramValueAt('axial', mb.t[k], ef);
+          axialCandidate(mb, k, un[k]);
+        }
         continue;
       }
       for (let k = 0; k < mb.t.length; k++) {
@@ -277,10 +453,12 @@ export function plasticCollapse2D(original: SolverInput, opts: PlasticCollapseOp
       }
     }
     if (!Number.isFinite(dMin)) { // nothing left that can yield
-      if (step === 0 && ![...unit, ...unitN].some((row) => row.some((v) => Math.abs(v) > 1e-12))) unloaded = true;
+      if (steps.length === 0 && ![...unit, ...unitN].some((row) => row.some((v) => Math.abs(v) > 1e-12))) unloaded = true;
       break;
     }
 
+    const lambdaBefore = lambda;
+    hingeAt.forEach((ref, h) => { if (ref) rotations[h] += dMin * jumpAt(ref, r, efOf); });
     /* Advance every accumulated quantity by Δλ times this solution. */
     lambda += dMin;
     members.forEach((mb, i) => {
@@ -312,6 +490,15 @@ export function plasticCollapse2D(original: SolverInput, opts: PlasticCollapseOp
      */
     const events = cand.filter((c) => c.d <= dMin * (1 + EPS_EVENT) + 1e-12);
     const formed: PlasticCollapseHinge[] = [];
+    const traced: PlasticStepTrace['events'] = [];
+    const record = (mb: Member, k: number, axial: boolean, t: number | null, run: number[] = []) => {
+      const i = members.indexOf(mb);
+      const perUnit = axial ? unitN[i][k] : unit[i][k];
+      const after = axial ? mb.accN[k] : mb.acc[k];
+      traced.push({ hinge: hinges.length + formed.length, perUnit, before: after - dMin * perUnit, limit: axial ? mb.np : mb.mp });
+      hingeAt.push(t === null ? null : { mb, t, run });
+      rotations.push(0);
+    };
     const byMember = new Map<Member, number[]>();
     let crushed = false;
     for (const ev of events) {
@@ -320,14 +507,42 @@ export function plasticCollapse2D(original: SolverInput, opts: PlasticCollapseOp
         ev.m.yielded = true;
         const pieceIds = new Set(ev.m.pieces.map((p) => p.id));
         const onIt = (l: SolverLoad) => 'elementId' in l.data && pieceIds.has((l.data as { elementId: number }).elementId);
-        /* A yielded frame member that still carries a transverse load cannot hold it. */
-        if (!ev.m.truss && work.loads.some((l) => l.type !== 'thermal' && onIt(l))) crushed = true;
+        /*
+         * A yielded frame member that still carries a transverse load (or a couple) cannot hold
+         * it. A load along it is not transverse: an angled or global point load reaches the solve
+         * as its `px`, and a purely axial one is no reason to collapse.
+         */
+        if (!ev.m.truss && work.loads.some((l) => onIt(l) && carriesTransverse(l))) crushed = true;
+        /*
+         * What stays on the structure goes to the ends of the member as drawn (its pieces' own
+         * nodes go with it), as the end loads it would have reached the solve as: the axial part
+         * of span and point loads, and on a truss its transverse loads too (a truss takes those
+         * at its nodes by the lever rule). Dropping them lost load from the members that remain.
+         */
+        const alongIt = work.loads.flatMap((l) => {
+          if (!onIt(l)) return [];
+          const piece = ev.m.pieces.find((pc) => pc.id === (l.data as { elementId: number }).elementId)!;
+          const off = piece.t0 * ev.m.L, len = (piece.t1 - piece.t0) * ev.m.L;
+          if (l.type === 'axialDistributed') {
+            return axialSpanToNodal2D(original, { ...l.data, elementId: ev.m.id, a: off + (l.data.a ?? 0), b: off + (l.data.b ?? len) });
+          }
+          if (l.type === 'pointOnElement') {
+            return pointToEnds2D(original, ev.m.id, off + l.data.a, l.data.px ?? 0, ev.m.truss ? l.data.p : 0);
+          }
+          if (l.type === 'distributed' && ev.m.truss) {
+            return transverseSpanToEnds2D(original, ev.m.id, l.data.qI, l.data.qJ, off + (l.data.a ?? 0), off + (l.data.b ?? len));
+          }
+          return [];
+        });
         for (const id of pieceIds) work.elements.delete(id);
         for (const n of ev.m.splitNodes) work.nodes.delete(n);
-        work.loads = work.loads.filter((l) => !onIt(l));
+        work.loads = [...work.loads.filter((l) => !onIt(l)), ...alongIt];
+        // A truss with no load along it carries one N: it yields as a whole, shown at mid-length.
+        const pos = ev.m.truss && ev.m.t.length === 2 ? 0.5 : ev.m.t[ev.k];
+        record(ev.m, ev.k, true, null);
         formed.push({
-          elementId: ev.m.id, end: 'start', position: ev.m.truss ? 0.5 : ev.m.t[ev.k], x: (ev.m.truss ? 0.5 : ev.m.t[ev.k]) * ev.m.L, kind: 'axial',
-          moment: Math.sign(ev.m.accN[ev.k]) * ev.m.np, loadFactor: lambda, step,
+          elementId: ev.m.id, end: pos < 0.5 ? 'start' : 'end', position: pos, x: pos * ev.m.L, kind: 'axial',
+          moment: Math.sign(ev.m.accN[ev.k]) * ev.m.np, loadFactor: lambda, step: steps.length,
         });
         continue;
       }
@@ -399,18 +614,23 @@ export function plasticCollapse2D(original: SolverInput, opts: PlasticCollapseOp
             mb.pieces.splice(pi, 1, { id: p.id, t0: p.t0, t1: t }, { id: right, t0: t, t1: p.t1 });
           }
         }
+        record(mb, k, false, t, run);
         formed.push({
           elementId: mb.id, end: t < 0.5 ? 'start' : 'end', position: t, x: t * mb.L, kind: 'bending',
-          moment: Math.sign(mb.acc[k]) * mb.mp, loadFactor: lambda, step,
+          moment: Math.sign(mb.acc[k]) * mb.mp, loadFactor: lambda, step: steps.length,
         });
       }
     }
     hinges.push(...formed);
-    steps.push({ loadFactor: lambda, hingesFormed: formed, results: snapshot(lambda) });
+    steps.push({
+      loadFactor: lambda, hingesFormed: formed, results: snapshot(lambda),
+      trace: { lambdaBefore, dLambda: dMin, events: traced }, rotations: rotations.slice(),
+    });
     if (crushed) { isMechanism = true; break; }
   }
 
-  if (!isMechanism) {
+  if (event >= maxEvents) unconfirmed = true;
+  if (!isMechanism && !unconfirmed) {
     isMechanism = !analyzeKinematics(work).isSolvable;
   }
   return {
@@ -421,5 +641,6 @@ export function plasticCollapse2D(original: SolverInput, opts: PlasticCollapseOp
     redundancy: Math.max(0, kin0.degree),
     degree: kin0.degree,
     unloaded,
+    ...(unconfirmed ? { unconfirmed } : {}),
   };
 }

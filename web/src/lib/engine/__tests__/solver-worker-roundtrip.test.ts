@@ -113,4 +113,50 @@ describe('solver-worker message round-trip', () => {
     expect(res!.result).toBeUndefined();
     expect(res!.error).toBeTruthy();
   });
+
+  /** A 4 × 4 MITC4 plate, simply supported, under pressure. */
+  function plateWire(): Record<string, any> {
+    const n = 4, nodes: Record<string, any> = {}, quads: Record<string, any> = {}, supports: Record<string, any> = {}, loads: any[] = [];
+    const id = (i: number, j: number) => i * (n + 1) + j + 1;
+    for (let i = 0; i <= n; i++) for (let j = 0; j <= n; j++) {
+      nodes[id(i, j)] = { id: id(i, j), x: i / n, y: j / n, z: 0 };
+      if (i === 0 || j === 0 || i === n || j === n) {
+        const pin = i === 0 && j === 0;
+        supports[id(i, j)] = { nodeId: id(i, j), rx: pin, ry: pin || (i === n && j === 0), rz: true, rrx: false, rry: false, rrz: false };
+      }
+    }
+    let q = 1;
+    for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
+      quads[q] = { id: q, nodes: [id(i, j), id(i + 1, j), id(i + 1, j + 1), id(i, j + 1)], materialId: 1, thickness: 0.1 };
+      loads.push({ type: 'quadPressure', data: { elementId: q, pressure: -10 } });
+      q++;
+    }
+    return { nodes, materials: { 1: { id: 1, e: 30000, nu: 0.2 } }, sections: {}, elements: {}, supports, loads,
+      plates: {}, quads, curvedShells: {}, constraints: [], connectors: {}, leftHand: false };
+  }
+
+  it('runs the discretization estimate and the convergence study in the worker', async () => {
+    await dispatch({ type: 'certify', id: 50, name: 'estimate_discretization_3d', input: [plateWire()] });
+    const est = posted.find(m => m.type === 'result' && m.id === 50)!;
+    expect(est.error).toBeUndefined();
+    expect(est.result.certified).toBe(false);
+    expect(est.result.relativeError).toBeGreaterThan(0);
+
+    await dispatch({ type: 'certify', id: 51, name: 'convergence_study_3d', input: [plateWire(), null] });
+    const study = posted.find(m => m.type === 'result' && m.id === 51)!;
+    expect(study.error).toBeUndefined();
+    expect(study.result.levels).toHaveLength(3);
+  }, 60000);
+
+  it('dispatches every export of the main thread registry (none refused as unavailable)', async () => {
+    const { CERTIFY_EXPORT_NAMES } = await import('../wasm-solver');
+    let id = 100;
+    for (const name of CERTIFY_EXPORT_NAMES) {
+      // Arguments are deliberately empty: only whether the worker will call the export matters.
+      await dispatch({ type: 'certify', id, name, input: [] });
+      const r = posted.find(m => m.type === 'result' && m.id === id)!;
+      expect(r.error ?? '', name).not.toMatch(/not available/);
+      id++;
+    }
+  });
 });

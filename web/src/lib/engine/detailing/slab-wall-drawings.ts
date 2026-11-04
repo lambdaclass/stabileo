@@ -33,9 +33,10 @@
  * Lengths m.
  */
 
+import { msg } from '../../codes/message';
 import type { BarPath } from '../../codes/cirsoc201/bar-geometry';
 import type { ClauseRef } from '../../codes/regulation';
-import {
+import { noteKey,
   LAYERS, buildTitleBlock,
   type DrawnCircle, type DrawnDimension, type DrawnPolyline, type DrawnText,
   type Pt2, type Sheet,
@@ -119,8 +120,8 @@ function familyNotes(r: SlabRecord | WallRecord): string[] {
   // Every unverified condition and every assumption on the FACE of the sheet. A limitation
   // that lives only in the report is a limitation the person holding the drawing does not
   // know about.
-  for (const m of r.unsupported) notes.push(m.key);
-  for (const m of r.assumptions) notes.push(m.key);
+  for (const m of r.unsupported) notes.push(noteKey(m.key, m.params as never));
+  for (const m of r.assumptions) notes.push(noteKey(m.key, m.params as never));
   return notes;
 }
 
@@ -469,10 +470,10 @@ export function drawWallElevation(input: FamilySheetInput & { record: WallRecord
     notes.push(`boundary:designed:${be.detailing.lengthM.toFixed(3)}`);
   } else if (be?.required) {
     notes.push('boundary:requiredNotImplemented');
-    notes.push(be.reason.key);
+    notes.push(noteKey(be.reason.key, be.reason.params as never));
   } else if (be) {
     notes.push('boundary:notRequired');
-    notes.push(be.reason.key);
+    notes.push(noteKey(be.reason.key, be.reason.params as never));
   } else {
     notes.push('boundary:notAsked');
   }
@@ -535,16 +536,19 @@ export function drawWallElevation(input: FamilySheetInput & { record: WallRecord
       layer: LAYERS.text, height: 0.07, at: { x: 0, y: z1 + 0.25 },
       text: `vert: Ø${rz.verticalDiameterMm} c/${(rz.verticalSpacing * 1000).toFixed(0)} `
         + `ρ ${rz.rhoVertical.toFixed(4)} (${rz.verticalGovernedBy})`,
+      msg: msg('drawing.wall.vertical', { d: rz.verticalDiameterMm, s: (rz.verticalSpacing * 1000).toFixed(0), rho: rz.rhoVertical.toFixed(4), by: rz.verticalGovernedBy }),
     },
     {
       layer: LAYERS.text, height: 0.07, at: { x: 0, y: z1 + 0.39 },
       text: `horiz: Ø${rz.horizontalDiameterMm} c/${(rz.horizontalSpacing * 1000).toFixed(0)} `
         + `ρ ${rz.rhoHorizontal.toFixed(4)} (${rz.horizontalGovernedBy})`,
+      msg: msg('drawing.wall.horizontal', { d: rz.horizontalDiameterMm, s: (rz.horizontalSpacing * 1000).toFixed(0), rho: rz.rhoHorizontal.toFixed(4), by: rz.horizontalGovernedBy }),
     },
     {
       layer: LAYERS.text, height: 0.07, at: { x: 0, y: z1 + 0.53 },
       text: `${rz.curtains} ${rz.curtains === 1 ? 'cortina' : 'cortinas'} — `
         + `e ${(g.thickness * 1000).toFixed(0)} — ${g.twoCurtains ? '11.7.2.3' : '11.6.1'}`,
+      msg: msg(rz.curtains === 1 ? 'drawing.wall.curtain' : 'drawing.wall.curtains', { n: rz.curtains, t: (g.thickness * 1000).toFixed(0), clause: g.twoCurtains ? '11.7.2.3' : '11.6.1' }),
     },
   );
 
@@ -683,6 +687,7 @@ export function drawWallSection(input: FamilySheetInput & { record: WallRecord }
     layer: LAYERS.text, height: 0.07, at: { x: 0, y: half + 0.2 },
     text: `${g.wallId} — corte a NPT ${cutZ.toFixed(2)} m — `
       + `${input.record.reinforcement.curtains} cortina(s)`,
+    msg: msg('drawing.wall.cut', { wall: g.wallId, z: cutZ.toFixed(2), n: input.record.reinforcement.curtains }),
   });
 
   const notes = familyNotes(input.record);
