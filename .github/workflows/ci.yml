@@ -640,6 +640,9 @@ jobs:
     needs: [changes]
     if: needs.changes.outputs.web == 'true'
     steps:
+      - name: Pull request pool in use
+        if: vars.STABILEO_PR_POOL == 'true' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]' && runner.environment != 'self-hosted'
+        run: echo "::warning title=Pull request pool not used::STABILEO_PR_POOL is true, but this same-repository pull request ran on a GitHub-hosted runner. Check STABILEO_SELF_HOSTED and the stabileo-pr runners (Runner pools workflow)."
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           clean: true
