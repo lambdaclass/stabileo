@@ -1532,7 +1532,7 @@ pub fn solve_corotational_3d(
     let deformations = member_deformations_3d(input, &dof_num, &u_full, left_hand);
     if let Some(&(id, _, chord)) = deformations.iter().find(|&&(_, _, chord)| chord > MAX_RELATIVE_END_ROTATION) {
         return Err(format!(
-            "Co-rotational 3D: the chord of member {id} turns {chord:.2} rad away from its ends, more than {MAX_RELATIVE_END_ROTATION:.2} rad; split it into shorter members"
+            "Co-rotational 3D: the chord of member {id} and its ends may be up to {chord:.2} rad apart (chord turn plus half the turn between the ends), more than {MAX_RELATIVE_END_ROTATION:.2} rad; split it into shorter members"
         ));
     }
     let max_displacement = compute_max_displacement_3d(&dof_num, &u_full);

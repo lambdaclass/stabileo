@@ -12416,7 +12416,7 @@ const en: Record<string, string> = {
   'pro.pdeltaNotConverged': 'It did not converge in {n} iterations. So it is not published as a P-Δ result.',
   'pro.corotNotConverged': "No equilibrium at the full load: the last converged increment carries {pct}% of it. Its results are not shown; use more increments, or check the structure's stability.",
   'pro.corotMemberTurns': 'Member {id} turns {turn} rad between its ends, more than the 0.9π (2.83 rad) one member can carry in a co-rotational analysis: split it into shorter members and solve again.',
-  'pro.corotChordTurns': 'Member {id} bends so far that its chord turns {turn} rad away from its ends, more than the 0.9π (2.83 rad) a co-rotational member can carry: split it into shorter members and solve again.',
+  'pro.corotChordTurns': 'Member {id} bends so far that one of its ends may be up to {turn} rad from its chord (the turn of the chord plus half the turn between the ends), more than the 0.9π (2.83 rad) a co-rotational member can carry: split it into shorter members and solve again.',
   'report.modelFigureCaption': 'The model, with the node and member numbers the tables use.',
   'edit.found.overlaps': '{n} pairs of overlapping collinear members',
   'edit.overlapPair': '{a} and {b}: {l} {u}',

@@ -12252,7 +12252,7 @@ const de: Translations = {
   'pro.pdeltaNotConverged': 'Keine Konvergenz in {n} Iterationen. Daher wird es nicht als P-Δ-Ergebnis ausgegeben.',
   'pro.corotNotConverged': 'Kein Gleichgewicht unter der vollen Last: Das letzte konvergierte Inkrement trägt {pct}% davon. Seine Ergebnisse werden nicht angezeigt; verwenden Sie mehr Inkremente oder prüfen Sie die Stabilität des Tragwerks.',
   'pro.corotMemberTurns': 'Stab {id} verdreht sich zwischen seinen Enden um {turn} rad, mehr als die 0,9π (2,83 rad), die ein Stab in einer korotationalen Analyse tragen kann: teilen Sie ihn in kürzere Stäbe und rechnen Sie erneut.',
-  'pro.corotChordTurns': 'Stab {id} biegt sich so stark, dass sich seine Sehne um {turn} rad gegenüber seinen Enden dreht, mehr als die 0,9π (2,83 rad), die ein Stab in einer Korotationsberechnung tragen kann: teilen Sie ihn in kürzere Stäbe und rechnen Sie erneut.',
+  'pro.corotChordTurns': 'Stab {id} biegt sich so stark, dass eines seiner Enden bis zu {turn} rad von seiner Sehne abweichen kann (Drehung der Sehne plus die halbe Drehung zwischen den Enden), mehr als die 0,9π (2,83 rad), die ein Stab in einer Korotationsberechnung tragen kann: teilen Sie ihn in kürzere Stäbe und rechnen Sie erneut.',
   'report.modelFigureCaption': 'Das Modell mit den Knoten- und Stabnummern, die die Tabellen verwenden.',
   'edit.found.overlaps': '{n} Paare überlappender kollinearer Stäbe',
   'edit.overlapPair': '{a} und {b}: {l} {u}',

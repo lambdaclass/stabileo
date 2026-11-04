@@ -547,7 +547,7 @@
       // material laws this panel does not build, so it is out of the list until it does.
     } catch (e: any) {
       const turned = /member (\d+) turn ([\d.]+) rad/.exec(errorText(e, ''));
-      const bent = /chord of member (\d+) turns ([\d.]+) rad/.exec(errorText(e, ''));
+      const bent = /chord of member (\d+) and its ends may be up to ([\d.]+) rad/.exec(errorText(e, ''));
       solveError = turned
         ? tp('pro.corotMemberTurns', { id: turned[1], turn: turned[2] })
         : bent

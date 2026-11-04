@@ -12252,7 +12252,7 @@ const fr: Translations = {
   'pro.pdeltaNotConverged': 'Pas de convergence en {n} itérations. Le résultat n\'est donc pas publié comme résultat P-Δ.',
   'pro.corotNotConverged': 'Aucun équilibre sous la charge complète : le dernier incrément convergé en porte {pct} %. Ses résultats ne sont pas affichés ; utilisez davantage d\'incréments ou vérifiez la stabilité de la structure.',
   'pro.corotMemberTurns': 'La barre {id} tourne de {turn} rad entre ses extrémités, plus que les 0,9π (2,83 rad) qu’une barre admet dans une analyse corotationnelle : divisez-la en barres plus courtes et relancez le calcul.',
-  'pro.corotChordTurns': 'La barre {id} fléchit tant que sa corde tourne de {turn} rad par rapport à ses extrémités, plus que les 0,9π (2,83 rad) qu\'une barre admet en calcul corotationnel : divisez-la en barres plus courtes et relancez le calcul.',
+  'pro.corotChordTurns': 'La barre {id} fléchit tant qu\'une de ses extrémités peut s\'écarter jusqu\'à {turn} rad de sa corde (rotation de la corde plus la moitié de la rotation entre les extrémités), plus que les 0,9π (2,83 rad) qu\'une barre admet en calcul corotationnel : divisez-la en barres plus courtes et relancez le calcul.',
   'report.modelFigureCaption': 'Le modèle, avec les numéros de nœuds et de barres utilisés par les tableaux.',
   'edit.found.overlaps': '{n} paires de barres colinéaires superposées',
   'edit.overlapPair': '{a} et {b} : {l} {u}',
