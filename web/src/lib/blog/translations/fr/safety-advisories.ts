@@ -88,6 +88,7 @@ const body: PostBody = {
           "SA-2026-032",
           "Analyse modale : le mode à fréquence nulle d'un mécanisme était écarté et les autres modes rendus comme complets",
           "Moyenne",
+          "Corrigé dans la prochaine version"
         ],
         [
           "SA-2026-041",

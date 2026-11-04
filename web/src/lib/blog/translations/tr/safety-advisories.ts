@@ -88,6 +88,7 @@ const body: PostBody = {
           "SA-2026-032",
           "Modal analiz: bir mekanizmanın sıfır frekanslı modu atılıyor ve diğer modlar eksiksizmiş gibi döndürülüyordu",
           "Orta",
+          "Bir sonraki sürümde düzeltildi"
         ],
         [
           "SA-2026-041",
