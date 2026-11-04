@@ -91,6 +91,12 @@ const body: PostBody = {
           "Behoben in der nächsten Version"
         ],
         [
+          "SA-2026-042",
+          "2D-Knicken: Der Faktor von Stäben, deren Druck unter Lasten entlang ihrer Achse zunimmt, kam zu hoch heraus (+43 % bis +68 % bei einem Stab)",
+          "Hoch",
+          "Behoben in der nächsten Version"
+        ],
+        [
           "SA-2026-013",
           "Gekrümmte Schalen: Biegemomente als null ausgegeben; Spannungen enthielten die freie Temperaturdehnung",
           "Hoch",

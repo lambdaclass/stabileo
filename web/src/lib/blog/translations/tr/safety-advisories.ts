@@ -91,6 +91,12 @@ const body: PostBody = {
           "Bir sonraki sürümde düzeltildi"
         ],
         [
+          "SA-2026-042",
+          "2B burkulma: ekseni boyunca yük altında basıncı boyunca artan çubukların katsayısı yüksek çıkıyordu (tek çubukta +%43 ile +%68)",
+          "Yüksek",
+          "Bir sonraki sürümde düzeltildi"
+        ],
+        [
           "SA-2026-013",
           "Eğri kabuklar: eğilme momentleri sıfır olarak raporlanıyordu; gerilmeler serbest ısıl şekil değiştirmeyi içinde tutuyordu",
           "Yüksek",

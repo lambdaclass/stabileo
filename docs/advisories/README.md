@@ -45,6 +45,7 @@ section and re-check registry entry in the same way.
 | [SA-2026-026](SA-2026-026-ec3-shear-area-half-a.md) | EC3 6.2.6 took Av = 0.5·A without a shear area: Vpl,Rd 57 % high for HEB 300, and certified (engine/WASM only) | Medium | — (agy b1) | #1234 | — | Draft |
 | [SA-2026-031](SA-2026-031-time-history-massless-start.md) | Time history dropped a load at t = 0 on a massless DOF: reciprocity off by up to 33×, a two-DOF chain 24 % off its closed form | Medium | [#760](https://github.com/lambdaclass/stabileo/issues/760) | #1247 | — | Draft |
 | [SA-2026-032](SA-2026-032-modal-mechanism-dropped-mode.md) | Modal analysis dropped the zero mode of a mechanism and returned the other modes as complete (3 of 12 in #338) | Medium | [#338](https://github.com/lambdaclass/stabileo/issues/338) | #1247 | — | Draft |
+| [SA-2026-042](SA-2026-042-buckling-2d-varying-axial-force.md) | 2D buckling overstated the factor of members whose compression grows along them under axial span loads (+43 % to +68 % for one member) | High | [#1323](https://github.com/lambdaclass/stabileo/issues/1323) | #1324 | next release | Draft |
 
 Other open `safety` issues (the derivation-review findings #406–#433, #439) get an advisory
 or a recorded "no advisory needed" when they are triaged; the list is on the

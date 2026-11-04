@@ -91,6 +91,12 @@ const body: PostBody = {
           "Corrigé dans la prochaine version"
         ],
         [
+          "SA-2026-042",
+          "Flambement 2D : le facteur des barres dont la compression croît le long de la barre sous des charges dans son axe était trop élevé (+43 % à +68 % pour une barre)",
+          "Élevée",
+          "Corrigé dans la prochaine version"
+        ],
+        [
           "SA-2026-013",
           "Coques courbes : moments fléchissants affichés comme nuls ; les contraintes conservaient la déformation thermique libre",
           "Élevée",
