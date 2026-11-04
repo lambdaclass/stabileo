@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { compareRouteSizes } from './research-route-budget.mjs';
+import { readFileSync } from 'node:fs';
+import { compareRouteSizes, routeChunkFiles, BLOG_ROUTE_BOUNDARY } from './research-route-budget.mjs';
 
 test('unchanged routes and small build noise pass', () => {
   compareRouteSizes({ '/en/': 1000, '/app/basic': 2000 }, { '/en/': 1000, '/app/basic': 2128 }, true);
@@ -17,10 +18,14 @@ test('missing and non-finite measurements fail', () => {
   assert.throws(() => compareRouteSizes({ '/en/': 1000 }, { '/en/': NaN }), /grew/);
 });
 
-for (const [route, budget] of Object.entries({
-  '/en/': 128, '/es/': 128, '/pt/': 128,
-  '/app/basic': 128, '/app/education': 128, '/app/pro': 128,
-})) {
+const shippedBudgets = JSON.parse(readFileSync(new URL('./product-route-growth-budgets.json', import.meta.url), 'utf8'));
+test('the landing routes have a 128 byte budget and the app routes the one-time course and blog acceptance', () => {
+  assert.deepEqual(shippedBudgets, {
+    '/en/': 128, '/es/': 128, '/pt/': 128,
+    '/app/basic': 1226624, '/app/education': 1226624, '/app/pro': 1226624,
+  });
+});
+for (const [route, budget] of Object.entries(shippedBudgets)) {
   test(`${route} product growth passes at the budget and fails one byte over`, () => {
     compareRouteSizes({ [route]: 1000 }, { [route]: 1000 + budget }, false);
     assert.throws(() => compareRouteSizes({ [route]: 1000 }, { [route]: 1001 + budget }, false),
@@ -53,4 +58,33 @@ test('environment selects product budgets only when isolation is explicitly fals
     assert.equal(result.status, status, result.stderr);
     if (status) assert.match(result.stderr, mode === 'false' ? /product budget/ : /research isolation/);
   }
+});
+
+const manifest = {
+  'index.html': { file: 'index.html', dynamicImports: [BLOG_ROUTE_BOUNDARY, 'src/load-app.ts'] },
+  'src/load-app.ts': { file: 'load-app.js', dynamicImports: ['src/App.svelte'] },
+  'src/App.svelte': { file: 'App.js', imports: ['_shared.js'], dynamicImports: [BLOG_ROUTE_BOUNDARY, 'src/components/paper/PaperPage.svelte', 'src/components/research/load-page.ts'] },
+  [BLOG_ROUTE_BOUNDARY]: { file: 'BlogPage.js', imports: ['_shared.js', '_blog-only.js'], css: ['BlogPage.css'] },
+  '_shared.js': { file: 'shared.js' },
+  '_blog-only.js': { file: 'blog-only.js' },
+  'src/components/paper/PaperPage.svelte': { file: 'PaperPage.js' },
+  'src/components/research/load-page.ts': { file: 'research.js' },
+};
+const appRoots = [['index.html', false], ['src/App.svelte', true], ['src/load-app.ts', true]];
+
+test('the blog route boundary and what only it reaches leave the app footprint', () => {
+  const files = routeChunkFiles(manifest, appRoots);
+  for (const file of ['BlogPage.js', 'BlogPage.css', 'blog-only.js', 'research.js']) assert.ok(!files.has(file), file);
+});
+test('a chunk the blog shares with App and an ordinary lazy chunk still count', () => {
+  const files = routeChunkFiles(manifest, appRoots);
+  for (const file of ['App.js', 'shared.js', 'PaperPage.js', 'load-app.js']) assert.ok(files.has(file), file);
+});
+test('only the named blog entry is a boundary, not every blog module', () => {
+  const lazyBlogPart = { ...manifest, 'src/App.svelte': { ...manifest['src/App.svelte'], dynamicImports: ['src/components/blog/ChangelogView.svelte'] },
+    'src/components/blog/ChangelogView.svelte': { file: 'ChangelogView.js' } };
+  assert.ok(routeChunkFiles(lazyBlogPart, appRoots).has('ChangelogView.js'));
+});
+test('the landing footprint takes no lazy chunk', () => {
+  assert.deepEqual([...routeChunkFiles(manifest, [['index.html', false]])], ['index.html']);
 });

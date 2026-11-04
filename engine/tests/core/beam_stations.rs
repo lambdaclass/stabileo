@@ -435,8 +435,8 @@ fn test_steel_demands_integration() {
     for d in &demands {
         assert!(!d.n.is_nan(), "n should not be NaN for element {}", d.element_id);
         assert!(!d.my.is_nan(), "my should not be NaN for element {}", d.element_id);
-        assert!(d.vy.is_some(), "vy should be Some for 2D");
-        assert!(!d.vy.unwrap().is_nan(), "vy should not be NaN");
+        assert!(d.v_strong.is_some(), "strong-axis shear should be Some for 2D");
+        assert!(!d.v_strong.unwrap().is_nan(), "strong-axis shear should not be NaN");
         assert!(d.mz.is_none(), "mz should be None for 2D demands");
     }
 
@@ -753,9 +753,9 @@ fn test_regression_cantilever_steel_workflow() {
     assert!(demands[0].n.abs() < 0.1,
         "Steel demand n should be ~0, got {}", demands[0].n);
 
-    // |vy| should be |P| (the shear at the governing moment station)
-    assert!((demands[0].vy.unwrap().abs() - p.abs()).abs() < 0.1,
-        "Steel demand |vy|: expected {}, got {}", p.abs(), demands[0].vy.unwrap());
+    // peak strong-axis shear = |P|, constant along the cantilever
+    assert!((demands[0].v_strong.unwrap().abs() - p.abs()).abs() < 0.1,
+        "Steel demand |vy|: expected {}, got {}", p.abs(), demands[0].v_strong.unwrap());
 }
 
 // ==================== Grouped-by-Member Integration Tests ====================
