@@ -97,6 +97,12 @@ const body: PostBody = {
           "Behoben in der nächsten Version"
         ],
         [
+          "SA-2026-036",
+          "Wechsel von 3D zu 2D auf Y–Z oder X–Y: Zwangsbedingungen wurden gelesen, als stünde der Rahmen in X–Z (Verschiebungskopplungen verloren oder außerhalb der Ebene angesetzt)",
+          "Hoch",
+          "Behoben in der nächsten Version"
+        ],
+        [
           "SA-2026-013",
           "Gekrümmte Schalen: Biegemomente als null ausgegeben; Spannungen enthielten die freie Temperaturdehnung",
           "Hoch",

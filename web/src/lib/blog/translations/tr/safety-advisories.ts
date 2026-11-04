@@ -97,6 +97,12 @@ const body: PostBody = {
           "Bir sonraki sürümde düzeltildi"
         ],
         [
+          "SA-2026-036",
+          "Y–Z veya X–Y üzerinde 3D'den 2D'ye geçiş: kısıtlar çerçeve X–Z'deymiş gibi okunuyordu (yer değiştirme bağları kayboluyor ya da düzlem dışına uygulanıyordu)",
+          "Yüksek",
+          "Bir sonraki sürümde düzeltildi"
+        ],
+        [
           "SA-2026-013",
           "Eğri kabuklar: eğilme momentleri sıfır olarak raporlanıyordu; gerilmeler serbest ısıl şekil değiştirmeyi içinde tutuyordu",
           "Yüksek",

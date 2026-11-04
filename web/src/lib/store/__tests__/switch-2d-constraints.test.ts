@@ -5,8 +5,10 @@ import '../index';
 import { initSolver } from '../../engine/wasm-solver';
 import { projectOnto, resetSwitchBackup, restore3D, sliceAt } from '../switch-2d';
 import { effectiveBendingInertia, spaceBendingInertias } from '../../engine/solver-service';
-import { constraintsMisreadOn, membersBentOffAxis, planeBending } from '../../geometry/plane-cut-guard';
+import { membersBentOffAxis, planeBending } from '../../geometry/plane-cut-guard';
+import type { DrawPlane } from '../../geometry/plane-projection';
 import type { Constraint3D } from '../../engine/types-3d';
+import { t } from '../../i18n';
 
 beforeAll(async () => { await initSolver(); });
 beforeEach(() => {
@@ -26,6 +28,17 @@ function columnsInYZ(roll = 90): { b: number; d: number; columns: number[] } {
   return { b, d, columns };
 }
 
+function columnsInXZ(): { b: number; d: number } {
+  const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(0, 0, 3);
+  const c = modelStore.addNode(5, 0, 0), d = modelStore.addNode(5, 0, 3);
+  modelStore.addElement(a, b, 'frame');
+  modelStore.addElement(c, d, 'frame');
+  modelStore.addSupport(a, 'fixed3d');
+  modelStore.addSupport(c, 'fixed3d');
+  modelStore.addNodalLoad3D(b, 10, 0, 0, 0, 0, 0);
+  return { b, d };
+}
+
 function swayOfBothHeads3D(b: number, d: number): [number, number] {
   const r3 = modelStore.solve3D(false, false, true);
   if (!r3 || typeof r3 === 'string') throw new Error(`3D: ${String(r3)}`);
@@ -39,55 +52,61 @@ function swayOfBothHeads2D(b: number, d: number): [number, number] {
   return [r2.displacements.find((x) => x.nodeId === b)!.ux, r2.displacements.find((x) => x.nodeId === d)!.ux];
 }
 
-describe('a model cut along Y–Z keeps the meaning of its constraints (#466)', () => {
-  it('a sway tie on uy is refused rather than dropped from the plane solve', () => {
-    const { b, d } = columnsInYZ();
-    modelStore.addConstraint({ type: 'equalDOF', masterNode: b, slaveNode: d, dofs: [1] } as Constraint3D);
-    const [ub, ud] = swayOfBothHeads3D(b, d);
-    expect(ud).toBeCloseTo(ub, 9);
-    expect(Math.abs(ud)).toBeGreaterThan(1e-6);
-    for (const take of [() => sliceAt('yz', 0), () => projectOnto('yz')]) {
-      const outcome = take();
-      expect(outcome).toEqual({ ok: false, error: 'slice.constraintsPlane' });
-      expect(uiStore.simplified2DMode).toBe(false);
-      expect(modelStore.nodes.get(d)!.y).toBe(5);
+type Take = 'slice' | 'project' | 'solveOnPlane';
+
+function inPlane3D(plane: DrawPlane, d: { ux: number; uy: number; uz: number; rx: number; ry: number; rz: number }): [number, number, number] {
+  if (plane === 'yz') return [d.uy, d.uz, d.rx];
+  if (plane === 'xy') return [d.ux, d.uy, d.rz];
+  return [d.ux, d.uz, -d.ry];
+}
+
+function expectPlaneSolveAgreesWith3D(plane: DrawPlane, take: Take, moving: number): void {
+  const r3 = modelStore.solve3D(false, false, true);
+  if (!r3 || typeof r3 === 'string') throw new Error(`3D: ${String(r3)}`);
+  const want = new Map(r3.displacements.map((d) => [d.nodeId, inPlane3D(plane, d)]));
+  expect(Math.abs(want.get(moving)![0]) + Math.abs(want.get(moving)![1])).toBeGreaterThan(1e-6);
+  let r2;
+  if (take === 'solveOnPlane') {
+    r2 = modelStore.solve(false, plane);
+  } else {
+    expect((take === 'slice' ? sliceAt(plane, 0) : projectOnto(plane)).ok).toBe(true);
+    uiStore.analysisMode = '2d';
+    r2 = modelStore.solve(false);
+  }
+  if (!r2 || typeof r2 === 'string') throw new Error(`2D: ${String(r2)}`);
+  for (const d of r2.displacements) {
+    const [h, v, theta] = want.get(d.nodeId)!;
+    expect(d.ux).toBeCloseTo(h, 9);
+    expect(d.uz).toBeCloseTo(v, 9);
+    expect(d.ry).toBeCloseTo(theta, 9);
+  }
+}
+
+const TAKES: Take[] = ['slice', 'project', 'solveOnPlane'];
+
+describe('a plane model keeps the meaning of the constraints of a space model standing in any plane (#466)', () => {
+  const ties: Array<[string, (b: number, d: number) => Constraint3D]> = [
+    ['a sway tie on uy', (b, d) => ({ type: 'equalDOF', masterNode: b, slaveNode: d, dofs: [1] }) as Constraint3D],
+    ['an out-of-plane tie on ux', (b, d) => ({ type: 'equalDOF', masterNode: b, slaveNode: d, dofs: [0] }) as Constraint3D],
+    ['a tie of the in-plane rotations', (b, d) => ({ type: 'equalDOF', masterNode: b, slaveNode: d, dofs: [3] }) as Constraint3D],
+    ['a floor diaphragm', (b, d) => ({ type: 'diaphragm', masterNode: b, slaveNodes: [d], plane: 'XY' }) as Constraint3D],
+    ['a diaphragm in the plane of the frame', (b, d) => ({ type: 'diaphragm', masterNode: b, slaveNodes: [d], plane: 'YZ' }) as Constraint3D],
+    ['a wall diaphragm across the frame', (b, d) => ({ type: 'diaphragm', masterNode: b, slaveNodes: [d], plane: 'XZ' }) as Constraint3D],
+    ['a full rigid link', (b, d) => ({ type: 'rigidLink', masterNode: b, slaveNode: d, dofs: [0, 1, 2, 3, 4, 5] }) as Constraint3D],
+    ['a translational rigid link', (b, d) => ({ type: 'rigidLink', masterNode: b, slaveNode: d }) as Constraint3D],
+    ['a linear MPC mixing sway and rotation', (b, d) => ({ type: 'linearMPC', terms: [{ nodeId: d, dof: 1, coefficient: 1 }, { nodeId: b, dof: 3, coefficient: 2 }, { nodeId: b, dof: 1, coefficient: -1 }] }) as Constraint3D],
+    ['an eccentric connection with a released rotation', (b, d) => ({ type: 'eccentricConnection', masterNode: b, slaveNode: d, offsetX: 0, offsetY: 5, offsetZ: 0, releases: [false, false, false, true, false, false] }) as Constraint3D],
+  ];
+  for (const [what, tie] of ties) {
+    for (const take of TAKES) {
+      it(`${what} on a Y–Z frame (${take}) agrees with 3D`, () => {
+        const { b, d } = columnsInYZ();
+        modelStore.addElement(b, d, 'frame');
+        modelStore.addConstraint(tie(b, d));
+        expectPlaneSolveAgreesWith3D('yz', take, b);
+      });
     }
-  });
-
-  it('an out-of-plane tie on ux is refused rather than read as an in-plane one', () => {
-    const { b, d } = columnsInYZ();
-    modelStore.addConstraint({ type: 'equalDOF', masterNode: b, slaveNode: d, dofs: [0] } as Constraint3D);
-    expect(sliceAt('yz', 0)).toEqual({ ok: false, error: 'slice.constraintsPlane' });
-  });
-
-  it('a floor diaphragm means the same on a Y–Z cut, so the cut goes ahead and agrees with 3D', () => {
-    const { b, d } = columnsInYZ();
-    modelStore.addConstraint({ type: 'diaphragm', masterNode: b, slaveNodes: [d], plane: 'XY' } as Constraint3D);
-    const [ub3, ud3] = swayOfBothHeads3D(b, d);
-    expect(sliceAt('yz', 0).ok).toBe(true);
-    const [ub2, ud2] = swayOfBothHeads2D(b, d);
-    expect(ub2).toBeCloseTo(ub3, 9);
-    expect(ud2).toBeCloseTo(ud3, 9);
-    expect(Math.abs(ud2)).toBeGreaterThan(1e-6);
-  });
-
-  it('a full rigid link means the same on a Y–Z cut', () => {
-    const { b, d } = columnsInYZ();
-    modelStore.addConstraint({ type: 'rigidLink', masterNode: b, slaveNode: d, dofs: [0, 1, 2, 3, 4, 5] } as Constraint3D);
-    expect(sliceAt('yz', 0).ok).toBe(true);
-  });
-
-  it('an X–Z cut keeps every constraint, as the plane solver reads them', () => {
-    const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(0, 0, 3);
-    const c = modelStore.addNode(5, 0, 0), d = modelStore.addNode(5, 0, 3);
-    modelStore.addElement(a, b, 'frame');
-    modelStore.addElement(c, d, 'frame');
-    modelStore.addSupport(a, 'fixed3d');
-    modelStore.addSupport(c, 'fixed3d');
-    modelStore.addNodalLoad3D(b, 10, 0, 0, 0, 0, 0);
-    modelStore.addConstraint({ type: 'equalDOF', masterNode: b, slaveNode: d, dofs: [0] } as Constraint3D);
-    expect(sliceAt('xz', 0).ok).toBe(true);
-  });
+  }
 
   function cantileversInXY(): { b: number; d: number } {
     const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(3, 0, 0);
@@ -97,15 +116,31 @@ describe('a model cut along Y–Z keeps the meaning of its constraints (#466)', 
     }
     modelStore.addSupport(a, 'fixed3d');
     modelStore.addSupport(c, 'fixed3d');
-    modelStore.addNodalLoad3D(b, 10, 0, 0, 0, 0, 0);
+    modelStore.addNodalLoad3D(b, 10, 20, 0, 0, 0, 0);
     return { b, d };
   }
 
-  it('an axial tie written as a linear MPC on ux means the same on an X–Y cut, so the cut goes ahead and agrees with 3D', () => {
+  const xyTies: Array<[string, (b: number, d: number) => Constraint3D]> = [
+    ['an axial tie as a linear MPC on ux', (b, d) => ({ type: 'linearMPC', terms: [{ nodeId: b, dof: 0, coefficient: 1 }, { nodeId: d, dof: 0, coefficient: -1 }] }) as Constraint3D],
+    ['an out-of-plane linear MPC on uz', (b, d) => ({ type: 'linearMPC', terms: [{ nodeId: b, dof: 2, coefficient: 1 }, { nodeId: d, dof: 2, coefficient: -1 }] }) as Constraint3D],
+    ['a linear MPC mixing translation and the in-plane rotation', (b, d) => ({ type: 'linearMPC', terms: [{ nodeId: d, dof: 1, coefficient: 1 }, { nodeId: b, dof: 5, coefficient: 3 }] }) as Constraint3D],
+    ['a tie on uy', (b, d) => ({ type: 'equalDOF', masterNode: b, slaveNode: d, dofs: [1] }) as Constraint3D],
+    ['a diaphragm in the plane of the frame', (b, d) => ({ type: 'diaphragm', masterNode: b, slaveNodes: [d], plane: 'XY' }) as Constraint3D],
+  ];
+  for (const [what, tie] of xyTies) {
+    for (const take of ['slice', 'project'] as Take[]) {
+      it(`${what} on an X–Y frame (${take}) agrees with 3D`, () => {
+        const { b, d } = cantileversInXY();
+        modelStore.addElement(b, d, 'frame');
+        modelStore.addConstraint(tie(b, d));
+        expectPlaneSolveAgreesWith3D('xy', take, b);
+      });
+    }
+  }
+
+  it('an axial tie on an X–Y cut keeps the 3D slave displacement to 1e-12', () => {
     const { b, d } = cantileversInXY();
-    const tie = { type: 'linearMPC', terms: [{ nodeId: b, dof: 0, coefficient: 1 }, { nodeId: d, dof: 0, coefficient: -1 }] } as Constraint3D;
-    modelStore.addConstraint(tie);
-    expect(constraintsMisreadOn('xy', [tie], new Set([b, d]))).toEqual([]);
+    modelStore.addConstraint({ type: 'linearMPC', terms: [{ nodeId: b, dof: 0, coefficient: 1 }, { nodeId: d, dof: 0, coefficient: -1 }] } as Constraint3D);
     const r3 = modelStore.solve3D(false, false, true);
     if (!r3 || typeof r3 === 'string') throw new Error(`3D: ${String(r3)}`);
     const ux3 = r3.displacements.find((x) => x.nodeId === d)!.ux;
@@ -117,12 +152,111 @@ describe('a model cut along Y–Z keeps the meaning of its constraints (#466)', 
     expect(r2.displacements.find((x) => x.nodeId === d)!.ux).toBeCloseTo(ux3, 12);
   });
 
-  it('a linear MPC on uz, out of an X–Y cut, is refused rather than read as an in-plane one', () => {
-    const { b, d } = cantileversInXY();
-    const tie = { type: 'linearMPC', terms: [{ nodeId: b, dof: 2, coefficient: 1 }, { nodeId: d, dof: 2, coefficient: -1 }] } as Constraint3D;
+  const coupled: Array<[string, DrawPlane, (b: number, d: number) => Constraint3D]> = [
+    ['an MPC tying the Y–Z sway to an out-of-plane ux', 'yz', (b, d) => ({ type: 'linearMPC', terms: [{ nodeId: d, dof: 1, coefficient: 1 }, { nodeId: b, dof: 0, coefficient: 1 }] }) as Constraint3D],
+    ['an MPC tying the X–Z sway to an out-of-plane uy', 'xz', (b, d) => ({ type: 'linearMPC', terms: [{ nodeId: d, dof: 0, coefficient: 1 }, { nodeId: b, dof: 1, coefficient: 1 }] }) as Constraint3D],
+    ['an eccentric connection offset out of a Y–Z frame', 'yz', (b, d) => ({ type: 'eccentricConnection', masterNode: b, slaveNode: d, offsetX: 0.5, offsetY: 5, offsetZ: 0 }) as Constraint3D],
+  ];
+  for (const [what, plane, tie] of coupled) {
+    it(`${what} is refused: a plane model cannot keep it`, () => {
+      const { b, d } = plane === 'yz' ? columnsInYZ() : columnsInXZ();
+      modelStore.addElement(b, d, 'frame');
+      const free = modelStore.solve3D(false, false, true);
+      if (!free || typeof free === 'string') throw new Error(`3D: ${String(free)}`);
+      modelStore.addConstraint(tie(b, d));
+      const tied = modelStore.solve3D(false, false, true);
+      if (!tied || typeof tied === 'string') throw new Error(`3D: ${String(tied)}`);
+      const sway = (r: typeof tied) => inPlane3D(plane, r.displacements.find((x) => x.nodeId === b)!)[0];
+      expect(Math.abs(sway(tied) - sway(free))).toBeGreaterThan(1e-3 * Math.abs(sway(free)));
+      for (const take of [() => sliceAt(plane, 0), () => projectOnto(plane)]) {
+        expect(take()).toEqual({ ok: false, error: 'slice.constraintsCoupled' });
+        expect(uiStore.simplified2DMode).toBe(false);
+      }
+      expect(modelStore.solve(false, plane)).toBe(t('svc.constraintsCoupled'));
+      expect(modelStore.buildSolverInput(false, plane)).toBeNull();
+    });
+  }
+
+  for (const [what, tie] of [
+    ['a sway tie', (b: number, far: number) => ({ type: 'equalDOF', masterNode: b, slaveNode: far, dofs: [1] })],
+    ['an MPC', (b: number, far: number) => ({ type: 'linearMPC', terms: [{ nodeId: b, dof: 1, coefficient: 1 }, { nodeId: far, dof: 1, coefficient: -1 }] })],
+  ] as Array<[string, (b: number, far: number) => Constraint3D]>) {
+    it(`${what} from the cut to a node left out of it refuses the cut`, () => {
+      const { b } = columnsInYZ();
+      const ground = modelStore.addNode(5, 0, 0), far = modelStore.addNode(5, 0, 3);
+      modelStore.addElement(ground, far, 'frame');
+      modelStore.addSupport(ground, 'fixed3d');
+      modelStore.addConstraint(tie(b, far));
+      const before = modelStore.constraints.length;
+      expect(sliceAt('yz', 0)).toEqual({ ok: false, error: 'slice.constraintsCrossCut' });
+      expect(uiStore.simplified2DMode).toBe(false);
+      expect(modelStore.constraints).toHaveLength(before);
+      expect(t('switch2d.constraintsCrossCut')).not.toBe('switch2d.constraintsCrossCut');
+    });
+  }
+
+  for (const [what, tie] of [
+    ['a rigid link on uy', (b: number, far: number) => ({ type: 'rigidLink', masterNode: b, slaveNode: far, dofs: [1] })],
+    ['a translational rigid link', (b: number, far: number) => ({ type: 'rigidLink', masterNode: b, slaveNode: far })],
+    ['a floor diaphragm', (b: number, far: number) => ({ type: 'diaphragm', masterNode: b, slaveNodes: [far], plane: 'XY' })],
+  ] as Array<[string, (b: number, far: number) => Constraint3D]>) {
+    it(`${what} between parallel Y–Z frames at different depths is refused: its arm turns rz into sway`, () => {
+      const { b } = columnsInYZ();
+      const ground = modelStore.addNode(2, 0, 0), far = modelStore.addNode(2, 0, 3);
+      modelStore.addElement(ground, far, 'frame');
+      modelStore.addSupport(ground, 'fixed3d');
+      modelStore.addConstraint(tie(b, far));
+      expect(projectOnto('yz')).toEqual({ ok: false, error: 'slice.constraintsCoupled' });
+      expect(uiStore.simplified2DMode).toBe(false);
+      expect(modelStore.solve(false, 'yz')).toBe(t('svc.constraintsCoupled'));
+    });
+  }
+
+  it('a rotation-only rigid link between frames at different depths is kept: it has no arm', () => {
+    const { b } = columnsInYZ();
+    const ground = modelStore.addNode(2, 0, 0), far = modelStore.addNode(2, 0, 3);
+    modelStore.addElement(ground, far, 'frame');
+    modelStore.addSupport(ground, 'fixed3d');
+    modelStore.addConstraint({ type: 'rigidLink', masterNode: b, slaveNode: far, dofs: [3] } as Constraint3D);
+    expect(projectOnto('yz').ok).toBe(true);
+  });
+
+  it('a slice leaves behind a coupling tie on another frame and solves', () => {
+    const { b, d } = columnsInXZ();
+    modelStore.addElement(b, d, 'frame');
+    const e = modelStore.addNode(0, 5, 0), f = modelStore.addNode(0, 5, 3), g = modelStore.addNode(5, 5, 3);
+    modelStore.addElement(e, f, 'frame');
+    modelStore.addElement(f, g, 'frame');
+    modelStore.addSupport(e, 'fixed3d');
+    modelStore.addConstraint({ type: 'linearMPC', terms: [{ nodeId: f, dof: 0, coefficient: 1 }, { nodeId: g, dof: 1, coefficient: 1 }] } as Constraint3D);
+    expect(sliceAt('xz', 0).ok).toBe(true);
+    expect(modelStore.constraints).toEqual([]);
+    uiStore.analysisMode = '2d';
+    const r2 = modelStore.solve(false);
+    if (!r2 || typeof r2 === 'string') throw new Error(`2D: ${String(r2)}`);
+    expect(Math.abs(r2.displacements.find((x) => x.nodeId === b)!.ux)).toBeGreaterThan(1e-6);
+  });
+
+  it('an X–Z frame keeps its constraints as they are', () => {
+    const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(0, 0, 3);
+    const c = modelStore.addNode(5, 0, 0), d = modelStore.addNode(5, 0, 3);
+    modelStore.addElement(a, b, 'frame');
+    modelStore.addElement(c, d, 'frame');
+    modelStore.addSupport(a, 'fixed3d');
+    modelStore.addSupport(c, 'fixed3d');
+    modelStore.addNodalLoad3D(b, 10, 0, 0, 0, 0, 0);
+    modelStore.addConstraint({ type: 'linearMPC', terms: [{ nodeId: d, dof: 0, coefficient: 1 }, { nodeId: b, dof: 4, coefficient: 2 }] } as Constraint3D);
+    expectPlaneSolveAgreesWith3D('xz', 'slice', b);
+  });
+
+  it('restoring 3D brings back the constraints as they were written', () => {
+    const { b, d } = columnsInYZ();
+    const tie = { type: 'equalDOF', masterNode: b, slaveNode: d, dofs: [1] } as Constraint3D;
     modelStore.addConstraint(tie);
-    expect(constraintsMisreadOn('xy', [tie], new Set([b, d]))).toEqual([tie]);
-    expect(sliceAt('xy', 0)).toEqual({ ok: false, error: 'slice.constraintsPlane' });
+    expect(sliceAt('yz', 0).ok).toBe(true);
+    expect(modelStore.constraints).toEqual([{ ...tie, dofs: [0] }]);
+    restore3D();
+    expect(modelStore.constraints).toEqual([tie]);
   });
 });
 

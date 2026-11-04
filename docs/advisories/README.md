@@ -46,6 +46,7 @@ section and re-check registry entry in the same way.
 | [SA-2026-031](SA-2026-031-time-history-massless-start.md) | Time history dropped a load at t = 0 on a massless DOF: reciprocity off by up to 33×, a two-DOF chain 24 % off its closed form | Medium | [#760](https://github.com/lambdaclass/stabileo/issues/760) | #1247 | — | Draft |
 | [SA-2026-032](SA-2026-032-modal-mechanism-dropped-mode.md) | Modal analysis dropped the zero mode of a mechanism and returned the other modes as complete (3 of 12 in #338) | Medium | [#338](https://github.com/lambdaclass/stabileo/issues/338) | #1247 | — | Draft |
 | [SA-2026-035](SA-2026-035-cut-section-axis.md) | 3D-to-2D cut bent members about the wrong section axis (a Y–Z portal 13.5 times too stiff) | High | [#1238](https://github.com/lambdaclass/stabileo/issues/1238) | this PR | next release | Draft |
+| [SA-2026-036](SA-2026-036-cut-constraints-plane.md) | 3D-to-2D cut on Y–Z or X–Y read the constraints as if the frame stood in X–Z (sway ties dropped or applied out of plane) | High | [#466](https://github.com/lambdaclass/stabileo/issues/466) | this PR | next release | Draft |
 
 Other open `safety` issues (the derivation-review findings #406–#433, #439) get an advisory
 or a recorded "no advisory needed" when they are triaged; the list is on the

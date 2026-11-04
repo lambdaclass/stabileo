@@ -1,8 +1,47 @@
 {
   "$comment": "Registry of result-affecting changes. Read by web/scripts/result-change-metadata.mjs for build metadata and decoded by web/src/lib/provenance/full-registry.ts; schema and rules in docs/verification/PROVENANCE.md. Add an entry whenever a change makes the same saved model give different numbers, at currentResultsVersion + 1, and bump currentResultsVersion: a version on main is deployed, and an entry added to it later is never shown to the projects it stamped (results-version.test.ts). Feature ids are defined in web/src/lib/provenance/model-features.ts.",
   "schema": 1,
-  "currentResultsVersion": 15,
+  "currentResultsVersion": 25,
   "changes": [
+    {
+      "id": "constraint-cut-plane",
+      "resultsVersion": 25,
+      "date": "2026-11-03",
+      "prs": [
+        1297
+      ],
+      "area": "analysis",
+      "when": {
+        "allOf": [
+          [
+            "plane2D"
+          ],
+          [
+            "constraints"
+          ]
+        ]
+      },
+      "title": {
+        "en": "Constraints of a 2D model cut from a Y–Z or X–Y plane",
+        "es": "Restricciones de un modelo 2D cortado de un plano Y–Z o X–Y",
+        "pt": "Restrições de um modelo 2D cortado de um plano Y–Z ou X–Y",
+        "de": "Zwangsbedingungen eines aus einer Y–Z- oder X–Y-Ebene geschnittenen 2D-Modells",
+        "fr": "Contraintes d'un modèle 2D coupé dans un plan Y–Z ou X–Y",
+        "tr": "Y–Z veya X–Y düzleminden kesilmiş 2B modelin kısıtları"
+      },
+      "explanation": {
+        "en": "A 2D model cut or projected from a Y–Z or X–Y plane before this version kept its constraints as written in 3D, and the 2D solver read them as if the frame stood in X–Z: a sway tie could be dropped or a tie out of the plane applied in it (SA-2026-036). The file does not record the plane it was cut from, so its constraints cannot be corrected on opening. Re-cut it from the 3D model, or solve in 3D.",
+        "es": "Un modelo 2D cortado o proyectado de un plano Y–Z o X–Y antes de esta versión conservó sus restricciones tal como estaban en 3D, y el solver 2D las leía como si el pórtico estuviera en X–Z: podía perderse un vínculo de desplazamiento lateral o aplicarse en el plano uno que estaba fuera de él (SA-2026-036). El archivo no registra el plano del que se cortó, así que sus restricciones no pueden corregirse al abrirlo. Vuelva a cortarlo del modelo 3D, o resuélvalo en 3D.",
+        "pt": "Um modelo 2D cortado ou projetado de um plano Y–Z ou X–Y antes desta versão manteve suas restrições como escritas em 3D, e o solver 2D as lia como se o pórtico estivesse em X–Z: um vínculo de deslocamento lateral podia ser perdido ou um vínculo fora do plano aplicado nele (SA-2026-036). O arquivo não registra o plano de onde foi cortado, então suas restrições não podem ser corrigidas ao abri-lo. Corte-o de novo a partir do modelo 3D, ou resolva em 3D.",
+        "de": "Ein 2D-Modell, das vor dieser Version aus einer Y–Z- oder X–Y-Ebene geschnitten oder projiziert wurde, behielt seine Zwangsbedingungen wie in 3D, und der 2D-Löser las sie, als stünde der Rahmen in X–Z: eine Seitenkopplung konnte entfallen oder eine Kopplung außerhalb der Ebene in ihr wirken (SA-2026-036). Die Datei speichert nicht, aus welcher Ebene geschnitten wurde, daher lassen sich die Zwangsbedingungen beim Öffnen nicht korrigieren. Schneiden Sie es neu aus dem 3D-Modell oder rechnen Sie in 3D.",
+        "fr": "Un modèle 2D coupé ou projeté depuis un plan Y–Z ou X–Y avant cette version a gardé ses contraintes telles qu'écrites en 3D, et le solveur 2D les lisait comme si le portique était dans X–Z : une liaison de déplacement latéral pouvait être perdue ou une liaison hors du plan appliquée dans celui-ci (SA-2026-036). Le fichier n'enregistre pas le plan de la coupe, donc ses contraintes ne peuvent pas être corrigées à l'ouverture. Recoupez-le depuis le modèle 3D, ou résolvez en 3D.",
+        "tr": "Bu sürümden önce Y–Z veya X–Y düzleminden kesilen ya da izdüşürülen bir 2B model kısıtlarını 3B'deki gibi tuttu ve 2B çözücü bunları çerçeve X–Z'de duruyormuş gibi okudu: yanal öteleme bağı düşebilir veya düzlem dışındaki bir bağ düzlem içinde uygulanabilirdi (SA-2026-036). Dosya kesildiği düzlemi kaydetmez, bu yüzden kısıtlar açılışta düzeltilemez. 3B modelden yeniden kesin veya 3B çözün."
+      },
+      "changelog": {
+        "file": "docs/advisories/SA-2026-036-cut-constraints-plane.md",
+        "heading": "SA-2026-036: 3D-to-2D cut on Y–Z or X–Y read the constraints as if the frame stood in X–Z"
+      }
+    },
     {
       "id": "basic-plastic-unloading-hinges-withdrawn",
       "resultsVersion": 15,
