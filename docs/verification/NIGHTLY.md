@@ -2,7 +2,10 @@
 
 `nightly.yml` starts at 05:00 UTC and accepts `workflow_dispatch`. Set the
 repository Actions variable `STABILEO_SELF_HOSTED=true` to route compute jobs on
-`main` to `[self-hosted, stabileo]`. Otherwise they use `ubuntu-24.04`. Dispatches
+`main` to `[self-hosted, stabileo]`. Otherwise they use `ubuntu-24.04`. `fuzz` goes to its
+own pool, `[self-hosted, stabileo-nightly]`, only when `STABILEO_NIGHTLY_POOL=true` too, and
+otherwise to `ubuntu-24.04`: its four two-hour targets never hold the runners the merge queue
+uses. Dispatches
 on other branches always use hosted runners and dry-run reporting. There is no
 pull-request trigger. The plan and findings jobs always run on GitHub-hosted
 runners. Only `findings` has `issues: write`; compute jobs have `contents: read`.
@@ -74,9 +77,13 @@ that doubled the baseline (155 s to ~400 s, a missed mutant ~800 s) and no shard
 A shard fails whenever `mutants.out/missed.txt` is not empty, whatever cargo-mutants' exit code
 (it reports timeouts, 3, over missed mutants, 2).
 
-Mutation shards rotate by UTC day, four each night: a complete 512-shard pass
-requires 128 nights. Override `mutants_total` and `mutants_shards` for focused
-runs. This trades rotation frequency for a bounded nightly machine budget.
+Mutation shards rotate by UTC day, 32 each night, on the nightly runner pool
+(`stabileo-nightly`, or the `stabileo` pool when it is off): a complete 512-shard
+pass takes 16 nights, the roadmap's promise. A shard that runs to its verdict
+uploads `mutants-done-<k>-of-<n>`; the weekly verification dashboard fails when
+any shard has none from the last 16 days
+(`scripts/verification-metrics.py --check-mutants-rotation`). Override
+`mutants_total` and `mutants_shards` for focused runs.
 
 ## Random models and findings
 

@@ -10,9 +10,11 @@
   import type { CertificateAnswer, ModalCertificate } from '../../lib/engine/certificate-types';
   import { frequencyInterval, modeEnclosureOf, modalCutoffHz } from '../../lib/engine/certificate-read';
   import { formatEnclosure, formatDirected } from '../../lib/utils/certificate-format';
+  import SelfCheckBanner from './SelfCheckBanner.svelte';
+  import type { StructuredDiagnostic } from '../../lib/engine/types';
   import CertLine from './CertLine.svelte';
 
-  let { result, mode = null }: { result: { modes: Array<{ frequency: number }> } | null | undefined; mode?: number | null } = $props();
+  let { result, mode = null }: { result: { structuredDiagnostics?: StructuredDiagnostic[]; modes: Array<{ frequency: number }> } | null | undefined; mode?: number | null } = $props();
 
   const cert = createBackgroundCertificate<CertificateAnswer<ModalCertificate>>();
   $effect(() => cert.track(result));
@@ -35,6 +37,8 @@
   const current = $derived(mode !== null ? intervals[mode] ?? null : null);
 </script>
 
+<SelfCheckBanner results={[result]} />
+
 {#if cert.state.status === 'pending'}
   <CertLine kind="pending" text={t('certificate.pending')} testid="modal-certificate" />
 {:else if cert.state.status === 'failed'}
@@ -56,7 +60,7 @@
 {/if}
 
 <style>
-  .cert-modes { font-size: 0.62rem; color: var(--st-text-3); margin: 0 0 4px; }
-  .cert-modes summary { cursor: pointer; }
+  .cert-modes { font-size: 12px; color: var(--st-text-3); margin: 0 0 4px; }
+  .cert-modes summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; }
   .cert-modes ul { margin: 2px 0 0 14px; padding: 0; columns: 2; font-variant-numeric: tabular-nums; }
 </style>

@@ -65,7 +65,7 @@ const body: StandingPage['i18n']['en'] = {
         "Une borne d'erreur borne l'erreur numérique ; elle ne prouve pas que le modèle est juste et ne borne pas l'erreur de discrétisation du maillage.",
         "Il n'y a pas encore eu de revue indépendante par un ingénieur structure habilité, et les résultats acier selon CIRSOC 301 restent marqués comme expérimentaux.",
         "L'analyse en non-linéarité matérielle utilise un modèle sécant sur la barre entière.",
-        "Le module PRO, dimensionnement réglementaire compris, est encore en développement.",
+        "Le dimensionnement réglementaire dans PRO (armatures, ferraillage et assemblages) est encore en développement et désactivé par défaut.",
         "Les problèmes de sécurité ouverts sont publics sur GitHub, et le niveau de vérification de chaque analyse, élément et norme figure dans la matrice de maturité."
       ]
     },
@@ -89,7 +89,7 @@ const body: StandingPage['i18n']['en'] = {
   "faq": [
     {
       "q": "Stabileo est-il fiable pour un vrai travail de dimensionnement de structures ?",
-      "a": "Ses résultats sont vérifiés de cinq façons indépendantes, dont la comparaison avec sept autres programmes d'éléments finis et des bornes d'erreur prouvées en Lean, et les défauts qui ont pu affecter des résultats déjà utilisés sont publiés ; ceux qui sont encore en cours d'évaluation sont publics sur GitHub. Il n'a pas encore fait l'objet d'une revue indépendante par un ingénieur habilité et le module PRO est en développement : comme avec tout programme, l'ingénieur revoit donc le modèle et les résultats déterminants."
+      "a": "Ses résultats sont vérifiés de cinq façons indépendantes, dont la comparaison avec sept autres programmes d'éléments finis et des bornes d'erreur prouvées en Lean, et les défauts qui ont pu affecter des résultats déjà utilisés sont publiés ; ceux qui sont encore en cours d'évaluation sont publics sur GitHub. Il n'a pas encore fait l'objet d'une revue indépendante par un ingénieur habilité et le dimensionnement réglementaire est encore en développement : comme avec tout programme, l'ingénieur revoit donc le modèle et les résultats déterminants."
     },
     {
       "q": "Pourquoi Stabileo publie-t-il des avis de sécurité ?",

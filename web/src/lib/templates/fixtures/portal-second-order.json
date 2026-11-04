@@ -1,0 +1,162 @@
+{
+  "name": "Portal Frame (second order)",
+  "materials": [
+    {
+      "id": 1,
+      "name": "Acero A36",
+      "e": 200000,
+      "nu": 0.3,
+      "rho": 78.5,
+      "fy": 250
+    }
+  ],
+  "sections": [
+    {
+      "id": 1,
+      "name": "IPE 200",
+      "a": 0.00285,
+      "iy": 1.943e-05,
+      "iz": 1.42e-06,
+      "j": 7e-08,
+      "b": 0.1,
+      "h": 0.2
+    },
+    {
+      "id": 2,
+      "name": "IPE 300",
+      "a": 0.00538,
+      "iy": 8.356e-05,
+      "iz": 6.04e-06,
+      "j": 2e-07,
+      "b": 0.15,
+      "h": 0.3
+    }
+  ],
+  "nodes": [
+    {
+      "id": 1,
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    {
+      "id": 2,
+      "x": 0,
+      "y": 4,
+      "z": 0
+    },
+    {
+      "id": 3,
+      "x": 6,
+      "y": 4,
+      "z": 0
+    },
+    {
+      "id": 4,
+      "x": 6,
+      "y": 0,
+      "z": 0
+    }
+  ],
+  "elements": [
+    {
+      "id": 1,
+      "type": "frame",
+      "nodeI": 1,
+      "nodeJ": 2,
+      "materialId": 1,
+      "sectionId": 1,
+      "hingeStart": false,
+      "hingeEnd": false
+    },
+    {
+      "id": 2,
+      "type": "frame",
+      "nodeI": 2,
+      "nodeJ": 3,
+      "materialId": 1,
+      "sectionId": 2,
+      "hingeStart": false,
+      "hingeEnd": false
+    },
+    {
+      "id": 3,
+      "type": "frame",
+      "nodeI": 4,
+      "nodeJ": 3,
+      "materialId": 1,
+      "sectionId": 1,
+      "hingeStart": false,
+      "hingeEnd": false
+    }
+  ],
+  "supports": [
+    {
+      "id": 1,
+      "nodeId": 1,
+      "type": "fixed"
+    },
+    {
+      "id": 2,
+      "nodeId": 4,
+      "type": "fixed"
+    }
+  ],
+  "loads": [
+    {
+      "type": "nodal",
+      "data": {
+        "id": 1,
+        "nodeId": 2,
+        "fx": 20,
+        "fz": -400,
+        "my": 0
+      }
+    },
+    {
+      "type": "nodal",
+      "data": {
+        "id": 2,
+        "nodeId": 3,
+        "fx": 0,
+        "fz": -400,
+        "my": 0
+      }
+    },
+    {
+      "type": "distributed",
+      "data": {
+        "id": 3,
+        "elementId": 2,
+        "qI": -10,
+        "qJ": -10
+      }
+    }
+  ],
+  "plates": [],
+  "quads": [],
+  "constraints": [],
+  "loadCases": [
+    {
+      "id": 1,
+      "type": "D",
+      "name": "Dead Load"
+    },
+    {
+      "id": 2,
+      "type": "L",
+      "name": "Live Load"
+    },
+    {
+      "id": 3,
+      "type": "W",
+      "name": "Wind"
+    },
+    {
+      "id": 4,
+      "type": "E",
+      "name": "Earthquake"
+    }
+  ],
+  "combinations": []
+}

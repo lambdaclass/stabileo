@@ -1054,7 +1054,7 @@ export type { AnalysisResults3D };
 
 // ─── Influence Line Types ───────────────────────────────────────
 
-export type InfluenceQuantity = 'Rz' | 'Ry' | 'Rx' | 'My' | 'Mz' | 'V' | 'M';
+export type InfluenceQuantity = 'Rz' | 'Ry' | 'Rx' | 'My' | 'Mz' | 'V' | 'M' | 'N' | 'ux' | 'uz' | 'ry';
 
 export interface InfluenceLineResult {
   /** What quantity is being tracked */
@@ -4673,8 +4673,8 @@ function createModelStore() {
       };
     },
 
-    async loadExample(name: string): Promise<void> {
-      const loader = getFixture(name);
+    async loadExample(name: string, fixture?: () => Promise<unknown>, opts: { keepCombinations?: boolean } = {}): Promise<void> {
+      const loader = fixture ?? getFixture(name);
       if (!loader) return;
 
       if (!_undoBatching) _pushUndo?.();
@@ -4689,7 +4689,7 @@ function createModelStore() {
       const api = this.fixtureApi();
 
       this.bulkMutate(() => {
-        loadFixture(json as any, api as any);
+        loadFixture(json as any, api as any, opts);
       });
 
       // Settle canonical state once the whole model is in place. Sections the
