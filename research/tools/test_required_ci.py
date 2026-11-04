@@ -197,20 +197,23 @@ caches = {step['id'].removeprefix('research-'): step for step in steps if step.g
 assert set(caches) == {'shauer-2025', 'andreassen-2011', 'biggins-2026', 'grossman-2026', 'pastrana-2026', 'fairclough-2026'}, sorted(caches)
 for name, cache in caches.items():
     assert cache['with']['path'] == f'web/public/research-wasm/{name}', name
-    builds = [step for step in steps if step.get('name') == f'Build research WASM ({name}, cache miss)']
-    assert len(builds) == 1 and builds[0].get('if') == f"steps.research-{name}.outputs.cache-hit != 'true' && steps.retry-{name}.outputs.cache-hit != 'true'", name
-    assert builds[0]['id'] == f'build-{name}', name
+build = next(step for step in steps if step.get('name') == 'Build research WASM (cache misses, in parallel)')
+assert 'if' not in build and build['id'] == 'build-research'
+assert re.findall(r"steps\.research-([\w-]+)\.outputs\.cache-hit != 'true' && steps\.retry-([\w-]+)\.outputs\.cache-hit != 'true' && '([\w-]+)'", build['run']) == [(name, name, name) for name in caches], build['run']
+listed = subprocess.run(['.github/scripts/build-research-wasm.sh', '--list'], capture_output=True, text=True, check=True).stdout.split('\n')
+assert sorted(line.split()[0] for line in listed if line) == sorted(caches)
+for name, cache in caches.items():
     retry = next(step for step in steps if step.get('id') == f'retry-{name}')
     assert retry['if'] == f"steps.research-{name}.outputs.cache-hit != 'true'" and retry['with'] == cache['with'], name
     saves = [step for step in steps if step.get('name') == f'Save research compiled assets ({name})']
-    assert len(saves) == 1 and saves[0]['if'] == f"always() && steps.build-{name}.outcome == 'success'", name
+    assert len(saves) == 1 and saves[0]['if'] == f"always() && steps.build-research.outputs.{name} == 'ok'", name
     assert saves[0]['with']['path'] == cache['with']['path'], name
     assert saves[0]['with']['key'] == f"${{{{ steps.research-{name}.outputs.cache-primary-key || steps.retry-{name}.outputs.cache-primary-key }}}}", name
-    assert steps.index(builds[0]) < steps.index(saves[0]), name
+    assert steps.index(build) < steps.index(saves[0]), name
     for step in (cache, retry):
         assert step['uses'].startswith('actions/cache/restore@') and step.get('continue-on-error') is True, name
     assert saves[0]['uses'].startswith('actions/cache/save@') and saves[0].get('continue-on-error') is True, name
-print('ok each research bundle is cached on its own, rebuilt only on its own miss, and saved as soon as it builds')
+print('ok each research bundle is cached on its own, rebuilt only on its own miss, and saved as soon as the parallel build finishes it')
 
 def patterns_of(cache):
     return re.findall(r"'([^']+)'", re.search(r'hashFiles\((.*?)\)', cache['with']['key']).group(1))

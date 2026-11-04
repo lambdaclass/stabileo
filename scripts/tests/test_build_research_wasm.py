@@ -1,0 +1,90 @@
+import os
+import pathlib
+import subprocess
+import tempfile
+import time
+import unittest
+
+ROOT = pathlib.Path(__file__).resolve().parents[2]
+SCRIPT = ROOT / '.github/scripts/build-research-wasm.sh'
+ALL = ['shauer-2025', 'andreassen-2011', 'biggins-2026', 'grossman-2026', 'pastrana-2026', 'fairclough-2026']
+
+
+class BuildResearchWasm(unittest.TestCase):
+    def run_script(self, bundles, fail=(), target=None):
+        with tempfile.TemporaryDirectory() as directory:
+            record = pathlib.Path(directory) / 'record'
+            fake = pathlib.Path(directory) / 'fake'
+            fake.write_text(f'''#!/usr/bin/env bash
+if [[ $1 == cargo ]]; then echo "fetch $*" >> {record}; exit 0; fi
+shift
+target=
+while [[ $1 == *=* ]]; do [[ $1 == CARGO_TARGET_DIR=* ]] && target=${{1#*=}}; shift; done
+echo "build $(date +%s.%N) $1 $target" >> {record}
+sleep 2
+for f in {' '.join(fail)}; do [[ $1 == *$f* ]] && {{ echo "boom $f"; exit 1; }}; done
+echo "built $1"
+''')
+            fake.chmod(0o755)
+            outputs = pathlib.Path(directory) / 'outputs'
+            env = {**os.environ, 'BUILD_PREFIX': str(fake), 'RETRY_INFRA_DELAY_SECONDS': '0', 'GITHUB_OUTPUT': str(outputs)}
+            env.pop('CARGO_TARGET_DIR', None)
+            if target:
+                env['CARGO_TARGET_DIR'] = target
+            start = time.monotonic()
+            result = subprocess.run([str(SCRIPT), *bundles], cwd=ROOT, env=env, capture_output=True, text=True)
+            self.outputs = outputs.read_text().splitlines() if outputs.exists() else []
+            return result, time.monotonic() - start, record.read_text().splitlines() if record.exists() else []
+
+    def test_every_bundle_builds_at_once(self):
+        result, seconds, record = self.run_script(ALL)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        starts = [float(line.split()[1]) for line in record if line.startswith('build ')]
+        self.assertEqual(len(starts), 6)
+        self.assertLess(max(starts) - min(starts), 1.5)
+        for name in ALL:
+            self.assertIn(f'::group::{name} (ok)', result.stdout)
+
+    def test_a_failed_bundle_fails_the_step_and_is_named_after_the_others_finish(self):
+        result, _, record = self.run_script(ALL, fail=['grossman-2026'])
+        self.assertEqual(result.returncode, 1)
+        self.assertIn('::group::grossman-2026 (FAILED)', result.stdout)
+        self.assertIn('boom grossman-2026', result.stdout)
+        self.assertIn('::error title=Research WASM::grossman-2026 failed to build', result.stdout)
+        self.assertIn('::group::fairclough-2026 (ok)', result.stdout)
+
+    def test_only_the_bundles_that_built_are_marked_for_saving(self):
+        result, _, _ = self.run_script(ALL, fail=['grossman-2026'])
+        self.assertEqual(result.returncode, 1)
+        self.assertEqual(sorted(self.outputs), sorted(f'{name}=ok' for name in ALL if name != 'grossman-2026'))
+
+    def test_only_the_named_bundles_build(self):
+        result, _, record = self.run_script(['pastrana-2026'])
+        self.assertEqual(result.returncode, 0)
+        builds = [line for line in record if line.startswith('build ')]
+        self.assertEqual(len(builds), 1)
+        self.assertEqual(builds[0].split()[2], 'research/form-finding/pastrana-2026/wasm/build.sh')
+
+    def test_no_bundle_is_a_no_op(self):
+        result, _, record = self.run_script([])
+        self.assertEqual(result.returncode, 0)
+        self.assertEqual(record, [])
+
+    def test_each_bundle_gets_its_own_target_directory_under_the_runners(self):
+        result, _, record = self.run_script(ALL, target='/warm')
+        self.assertEqual(result.returncode, 0)
+        targets = sorted(line.split()[-1] for line in record if line.startswith('build '))
+        self.assertEqual(targets, sorted(f'/warm/research-{name}' for name in ALL))
+
+    def test_without_a_runner_target_each_crate_keeps_its_own(self):
+        result, _, record = self.run_script(['grossman-2026'])
+        self.assertEqual([line.split() for line in record if line.startswith('build ')][0][-1].endswith('build.sh'), True)
+
+    def test_an_unknown_bundle_is_refused_before_anything_builds(self):
+        result, _, record = self.run_script(['shauer-2025', 'nope'])
+        self.assertEqual(result.returncode, 2)
+        self.assertEqual(record, [])
+
+
+if __name__ == '__main__':
+    unittest.main()
