@@ -980,7 +980,12 @@ pub(crate) fn validate_response(
                 }
             }
         }
-        "plastic collapse" => add(None, None, "collapse_factor".into(), 1),
+        "plastic collapse" => {
+            add(None, None, "collapse_factor".into(), 1);
+            if r.0.iter().any(|i| i.tag == crate::response::LOWER_BOUND) {
+                add(None, None, crate::response::LOWER_BOUND.into(), 1);
+            }
+        }
         "kinematic check" => {
             for tag in ["mechanisms", "degree", "solvable"] {
                 add(None, None, tag.into(), 1);
@@ -1026,7 +1031,7 @@ pub(crate) fn validate_response(
                 for &n in shape
                     .supports
                     .iter()
-                    .filter(|_| !["SSI (no soil springs)", "fiber nonlinear"].contains(&name))
+                    .filter(|_| name != "SSI (no soil springs)")
                 {
                     add(Some(n), None, "R".into(), w);
                     add(Some(n), None, "RM".into(), rw);
