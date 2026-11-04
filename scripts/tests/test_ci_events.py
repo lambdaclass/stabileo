@@ -24,7 +24,7 @@ class JobSelectionPerEvent(unittest.TestCase):
         for key in HEAVY:
             self.assertEqual(out[key], 'false', key)
         self.assertEqual(out['research_route_only'], 'true')
-        self.assertEqual(out['e2e_shards'], str(list(range(1, 11))))
+        self.assertEqual(out['e2e_shards'], str(list(range(1, selection.E2E_SHARDS + 1))))
         self.assertEqual(out['scope'], 'full')
 
     def test_main_pushes_and_the_schedule_run_everything(self):

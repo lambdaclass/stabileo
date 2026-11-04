@@ -120,6 +120,26 @@ class CiRunners(unittest.TestCase):
             for name, job in jobs(workflow).items():
                 self.assertNotIn('stabileo-e2e', labels(job.get('runs-on', '')), name)
 
+    def test_the_engine_suite_leaves_the_queue_critical_path_runners_free(self):
+        ci = jobs('ci.yml')
+        engine = {name for name, job in ci.items() if 'stabileo-engine' in labels(job.get('runs-on', ''))}
+        self.assertEqual(engine, {'test-engine-suite', 'test-engine-metamorphic'})
+        for name in engine:
+            runs_on = ci[name]['runs-on']
+            self.assertEqual(labels(runs_on), {'stabileo-engine', 'stabileo'})
+            self.assertIn("(vars.STABILEO_ENGINE_POOL == 'true' && fromJSON('[\"self-hosted\",\"stabileo-engine\"]') || fromJSON('[\"self-hosted\",\"stabileo\"]'))", runs_on, name)
+            self.assertIn(TRUSTED, runs_on, name)
+        for name in ['wasm', 'research-wasm', 'site-e2e', 'web-build']:
+            self.assertNotIn('stabileo-engine', labels(ci[name]['runs-on']), name)
+
+    def test_free_disk_deletes_in_the_background(self):
+        action = (ROOT / '.github/actions/free-disk/action.yml').read_text()
+        command = action.split('run: |\n', 1)[1]
+        self.assertTrue(command.rstrip().endswith('> /dev/null 2>&1 &'), command)
+        self.assertEqual(command.count('rm -rf'), 1)
+        for path in ['/usr/share/dotnet', '/usr/local/lib/android', '"$AGENT_TOOLSDIRECTORY"', '/opt/hostedtoolcache/CodeQL']:
+            self.assertIn(path, command)
+
     def test_nightly_mutants_prefer_the_nightly_pool(self):
         mutants = jobs('nightly.yml')['mutants']['runs-on']
         self.assertEqual(labels(mutants), {'stabileo-nightly', 'stabileo'})

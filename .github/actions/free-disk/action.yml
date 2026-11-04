@@ -1,5 +1,5 @@
 name: "Free disk space"
-description: "Remove pre-installed software to free disk space for Nix builds"
+description: "Remove pre-installed software to free disk space for Nix builds, in the background while the job goes on"
 
 runs:
   using: "composite"
@@ -7,12 +7,6 @@ runs:
     - name: Free up disk space
       shell: bash
       run: |
-        sudo rm -rf /usr/share/dotnet || true
-        sudo rm -rf /opt/ghc || true
-        sudo rm -rf "/usr/local/share/boost" || true
-        sudo rm -rf "$AGENT_TOOLSDIRECTORY" || true
-        sudo rm -rf /usr/local/lib/android || true
-        sudo rm -rf /usr/local/share/powershell || true
-        sudo rm -rf /usr/share/swift || true
-        sudo rm -rf /opt/hostedtoolcache/CodeQL || true
-        sudo rm -rf /usr/local/.ghcup || true
+        sudo nohup rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost "$AGENT_TOOLSDIRECTORY" \
+          /usr/local/lib/android /usr/local/share/powershell /usr/share/swift /opt/hostedtoolcache/CodeQL \
+          /usr/local/.ghcup > /dev/null 2>&1 &

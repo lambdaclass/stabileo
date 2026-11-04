@@ -75,10 +75,13 @@ env:
 # reach a persistent runner. Engine Gates, Web Unit and the research engine benchmarks time
 # themselves, so outside pull requests they go to `[self-hosted, stabileo-timing]` (runners pinned
 # to cores no other runner uses) when STABILEO_TIMING_POOL is 'true' too, and to GitHub otherwise.
+# With STABILEO_ENGINE_POOL 'true', Engine Suite and Engine Metamorphic take `[self-hosted,
+# stabileo-engine]` (concrete-ci-3), so the queue's critical path (WASM, Research WASM, E2E Site)
+# never waits behind them for a `stabileo` runner.
 # On GitHub always: Detect Changes and CI OK (no build work; a full host must not delay them),
 # the checks that take a minute or less (CI scripts, backend lint, migrations, results snapshot,
-# research catalog and isolation), the E2E shards (ten start at once there and run in about
-# 11 min against 18 on the shared host; they only download the wasm and site artifacts),
+# research catalog and isolation), the E2E shards (they all start at once there and only download
+# the wasm and site artifacts),
 # Determinism (Nix WebKit does not start on the host) and Docker build smoke (no Docker for runner
 # users). Self-hosted jobs skip the Nix installer, rust-cache, magic-nix-cache and free-disk; each
 # runner keeps its own CARGO_TARGET_DIR.
@@ -378,7 +381,7 @@ jobs:
 
   test-engine-suite:
     name: Engine Suite (${{ matrix.shard }}/4)
-    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' || github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-24.04' }}
+    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' || github.ref == 'refs/heads/main') && (vars.STABILEO_ENGINE_POOL == 'true' && fromJSON('["self-hosted","stabileo-engine"]') || fromJSON('["self-hosted","stabileo"]')) || 'ubuntu-24.04' }}
     timeout-minutes: 45
     needs: [changes]
     if: needs.changes.outputs.engine == 'true'
@@ -419,7 +422,7 @@ jobs:
   # unoptimised they outlast a suite shard.
   test-engine-metamorphic:
     name: Engine Metamorphic
-    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' || github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-24.04' }}
+    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' || github.ref == 'refs/heads/main') && (vars.STABILEO_ENGINE_POOL == 'true' && fromJSON('["self-hosted","stabileo-engine"]') || fromJSON('["self-hosted","stabileo"]')) || 'ubuntu-24.04' }}
     timeout-minutes: 40
     needs: [changes]
     if: needs.changes.outputs.engine == 'true'
@@ -1197,14 +1200,10 @@ jobs:
           retention-days: 7
           if-no-files-found: warn
 
-  # Ten shards, each running whole spec files chosen by measured duration
-  # (web/scripts/e2e-shard.mjs). One runner took 40 min for the smoke suite:
-  # 569 tests of ~3 s each, serially — `workers: 1` stays, for the WebGL
-  # determinism the config explains, so the parallelism is across runners.
-  # `playwright --shard` splits by test count in file order and put the three
-  # heaviest files in one shard (12.6 vs 7.8 min); by duration it is 7.5 each
-  # over five shards, 5.7 over ten. Five shards took 16–22 min each on a PR
-  # and up to 55 in the queue, so the queue's critical path was one shard.
+  # E2E_SHARDS (select-ci.py) shards, each running whole spec files chosen by the measured durations
+  # in web/e2e/shard-timings.json (web/scripts/e2e-shard.mjs); `workers: 1` stays, for the WebGL
+  # determinism the config explains, so the parallelism is across runners. The slowest shard is
+  # the queue's critical path: refresh the table from a queue run's reports when shards drift apart.
   e2e:
     name: E2E (${{ matrix.shard }}/${{ needs.changes.outputs.e2e_total }})
     runs-on: ubuntu-24.04
@@ -1291,23 +1290,23 @@ jobs:
           else
             nix develop --command bash -c 'cd web && python3 ../.github/scripts/run-area-e2e.py'
           fi
-      - name: E2E smoke suite (shard ${{ matrix.shard }}/10)
+      - name: E2E smoke suite (shard ${{ matrix.shard }}/${{ needs.changes.outputs.e2e_total }})
         if: needs.changes.outputs.scope == 'full'
         run: |
           if [ "${{ runner.environment }}" = self-hosted ]; then
-            nix develop .#e2e -c make e2e.web.smoke SHARD=${{ matrix.shard }}/10 NIX_RUN=
+            nix develop .#e2e -c make e2e.web.smoke SHARD=${{ matrix.shard }}/${{ needs.changes.outputs.e2e_total }} NIX_RUN=
           else
-            make e2e.web.smoke SHARD=${{ matrix.shard }}/10
+            make e2e.web.smoke SHARD=${{ matrix.shard }}/${{ needs.changes.outputs.e2e_total }}
           fi
-      - name: E2E slow suite (shard ${{ matrix.shard }}/10)
+      - name: E2E slow suite (shard ${{ matrix.shard }}/${{ needs.changes.outputs.e2e_total }})
         if: needs.changes.outputs.slow_e2e == 'true' || needs.changes.outputs.run_e2e == 'true'
         env:
           NO_WALL_CLOCK: ${{ runner.environment == 'self-hosted' && '1' || '' }}
         run: |
           if [ "${{ runner.environment }}" = self-hosted ]; then
-            nix develop .#e2e -c make e2e.web.slow SHARD=${{ matrix.shard }}/10 NIX_RUN= NO_WALL_CLOCK="$NO_WALL_CLOCK"
+            nix develop .#e2e -c make e2e.web.slow SHARD=${{ matrix.shard }}/${{ needs.changes.outputs.e2e_total }} NIX_RUN= NO_WALL_CLOCK="$NO_WALL_CLOCK"
           else
-            make e2e.web.slow SHARD=${{ matrix.shard }}/10 NO_WALL_CLOCK="$NO_WALL_CLOCK"
+            make e2e.web.slow SHARD=${{ matrix.shard }}/${{ needs.changes.outputs.e2e_total }} NO_WALL_CLOCK="$NO_WALL_CLOCK"
           fi
       # Non-blocking until the Linux baselines under web/e2e/__screenshots__/linux/
       # prove stable. Never pass --update-snapshots by default: it would overwrite
