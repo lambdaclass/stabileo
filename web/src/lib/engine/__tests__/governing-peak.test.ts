@@ -34,6 +34,22 @@ describe('the governing case reads each diagram at its true peak', () => {
     expect(governingMagnitude2D(ef, 'moment') / scan).toBeCloseTo(1, 7);
   });
 
+  it('a shear peak at an off-grid boundary between opposing partial loads', () => {
+    const L = 10, q = 10, a = 3.13, b = 6.26;
+    const RB = (q * (b - a) * (a + b) / 2 - q * a * (a / 2)) / L;
+    const RA = -RB;
+    const ef: ElementForces = {
+      elementId: 1, nStart: 0, nEnd: 0, mStart: 0, mEnd: 0, length: L,
+      vStart: RA, vEnd: RA + q * a - q * (b - a), qI: 0, qJ: 0, pointLoads: [],
+      distributedLoads: [{ qI: q, qJ: q, a: 0, b: a }, { qI: -q, qJ: -q, a, b }], hingeStart: false, hingeEnd: false,
+    };
+    const scan = Math.max(...Array.from({ length: 200001 }, (_, k) => Math.abs(computeDiagramValueAt('shear', k / 200000, ef))));
+    expect(Math.abs(computeDiagramValueAt('shear', a / L, ef)) / scan).toBeCloseTo(1, 9);
+    const grid = Math.max(...Array.from({ length: 21 }, (_, k) => Math.abs(computeDiagramValueAt('shear', k / 20, ef))));
+    expect(grid).toBeLessThan(scan * (1 - 1e-2));
+    expect(governingMagnitude2D(ef, 'shear') / scan).toBeCloseTo(1, 9);
+  });
+
   it('two stationary points of a cubic between one sample and a point load: the hidden peak governs', () => {
     const k = 1000, x1 = 0.584, x2 = 0.5933, tp = 0.596, m0 = 1000;
     const sum = x1 + x2, prod = x1 * x2;

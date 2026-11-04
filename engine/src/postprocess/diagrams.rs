@@ -126,7 +126,7 @@ pub fn cubic_stationary_points(g: &dyn Fn(f64) -> f64, lo: f64, hi: f64) -> Vec<
 }
 
 /// Stations (t ∈ [0, 1]) where diagram `kind` of one member can peak off the regular grid: both
-/// sides of each point load, and every stationary point of each piece between load discontinuities.
+/// sides of each point load, every load discontinuity, and every stationary point of each piece between them.
 pub fn diagram_peak_stations_2d(ef: &ElementForces, kind: &str, sorted_pl: &[PointLoadInfo]) -> Vec<f64> {
     let len = ef.length;
     if !(len > 0.0) {
@@ -146,6 +146,7 @@ pub fn diagram_peak_stations_2d(ef: &ElementForces, kind: &str, sorted_pl: &[Poi
     }
     cuts.sort_by(|a, b| a.total_cmp(b));
     cuts.dedup();
+    out.extend(cuts.iter().copied());
     let g = |t: f64| compute_diagram_value_at_sorted(kind, t, ef, sorted_pl);
     for w in cuts.windows(2) {
         out.extend(cubic_stationary_points(&g, w[0], w[1]));
