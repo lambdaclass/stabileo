@@ -6,6 +6,7 @@
    * The editor loads only when asked: booted on arrival it would download the whole application on
    * every visit and take the wheel from the page. Not indexed and not in the sitemap.
    */
+  import './register-i18n';
   import { onMount } from 'svelte';
   import { tPublic as t, tpPublic as tp, publicI18n } from '../../lib/i18n/store.svelte';
   import { applyPageMeta, restorePageMeta } from '../../lib/page-meta';

@@ -14,7 +14,6 @@
    */
   import { tick } from 'svelte';
   import LandingPage from './components/LandingPage.svelte';
-  import RegisterPage from './components/register/RegisterPage.svelte';
   import { parsePublicPath, publicHref } from './lib/i18n/public-routes';
   import { publicI18n, setLocale, ensureLocale, i18n } from './lib/i18n/store.svelte';
   import { routeKind } from './lib/public-route';
@@ -55,6 +54,13 @@
   $effect(() => {
     if (current.kind === 'blog' && !blog) {
       void import('./components/blog/BlogPage.svelte').then((m) => (blog = m.default));
+    }
+  });
+
+  let register = $state<typeof import('./components/register/RegisterPage.svelte').default | null>(null);
+  $effect(() => {
+    if (current.kind === 'register' && !register) {
+      void import('./components/register/RegisterPage.svelte').then((m) => (register = m.default));
     }
   });
 
@@ -128,7 +134,10 @@
     <Paper />
   {/if}
 {:else if current.kind === 'register'}
-  <RegisterPage />
+  {#if register}
+    {@const Register = register}
+    <Register />
+  {/if}
 {:else if current.kind === 'landing'}
   <LandingPage />
 {/if}
