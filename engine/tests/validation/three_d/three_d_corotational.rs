@@ -263,3 +263,33 @@ fn both_ends_bent_the_same_way_past_half_a_turn_are_never_reported_converged() {
         }
     }
 }
+
+#[test]
+fn a_member_turned_through_a_whole_turn_by_stiffer_springs_is_refused_before_it_wraps() {
+    let (l, ei) = (2.0f64, 1.0e7 / 12.0);
+    let spring = 60.0 * ei / l;
+    let moment = (spring + 6.0 * ei / l) * (2.0 * std::f64::consts::PI + 0.01);
+    let input: SolverInput3D = serde_json::from_value(serde_json::json!({
+        "nodes": {"1": {"id": 1, "x": 0.0, "y": 0.0, "z": 0.0}, "2": {"id": 2, "x": l, "y": 0.0, "z": 0.0}},
+        "elements": {"1": {"id": 1, "type": "frame", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1}},
+        "materials": {"1": {"id": 1, "e": 1.0e4, "nu": 0.0}},
+        "sections": {"1": {"id": 1, "a": 1.0, "iy": 1.0 / 12.0, "iz": 1.0 / 12.0, "j": 1.0 / 6.0}},
+        "supports": {
+            "1": {"nodeId": 1, "rx": true, "ry": true, "rz": true, "rrx": true, "rry": true, "rrz": false, "krz": spring},
+            "2": {"nodeId": 2, "rx": true, "ry": true, "rz": true, "rrx": true, "rry": true, "rrz": false, "krz": spring}
+        },
+        "loads": [
+            {"type": "nodal", "data": {"nodeId": 1, "fx": 0, "fy": 0, "fz": 0, "mx": 0, "my": 0, "mz": moment}},
+            {"type": "nodal", "data": {"nodeId": 2, "fx": 0, "fy": 0, "fz": 0, "mx": 0, "my": 0, "mz": moment}}
+        ]
+    })).unwrap();
+    for increments in [1, 4, 40, 400] {
+        match solve_corotational_3d(&input, 100, 1e-10, increments, false) {
+            Err(e) => assert!(e.contains("member 1"), "{increments}: {e}"),
+            Ok(r) => {
+                let turn = r.results.displacements.iter().map(|d| d.rz.abs()).fold(0.0, f64::max);
+                assert!(!r.converged && turn <= 0.9 * std::f64::consts::PI, "{increments} increments: converged {} at {turn} rad", r.converged);
+            }
+        }
+    }
+}

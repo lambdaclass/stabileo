@@ -1342,6 +1342,7 @@ pub fn solve_corotational_3d(
     let mut converged = true;
     // The state and load factor of the last converged increment.
     let mut u_converged = u_full.clone();
+    let mut naturals = member_deformations_3d(input, &dof_num, &u_full, left_hand);
     let mut converged_factor = 0.0f64;
 
     // See solve_corotational_2d: sparse symbolic factorization cache for the
@@ -1520,21 +1521,12 @@ pub fn solve_corotational_3d(
             u_full.copy_from_slice(&u_converged);
             break;
         }
+        naturals = on_one_branch_3d(input, &dof_num, (&u_converged, &naturals), &u_full, left_hand)?;
         u_converged.copy_from_slice(&u_full);
         converged_factor = load_factor;
     }
 
-    if let Some((id, turn)) = largest_relative_end_rotation_3d(input, &dof_num, &u_full).filter(|&(_, turn)| turn > MAX_RELATIVE_END_ROTATION) {
-        return Err(format!(
-            "Co-rotational 3D: the ends of member {id} turn {turn:.2} rad relative to each other, more than {MAX_RELATIVE_END_ROTATION:.2} rad; split it into shorter members"
-        ));
-    }
-    let deformations = member_deformations_3d(input, &dof_num, &u_full, left_hand);
-    if let Some(&(id, _, chord)) = deformations.iter().find(|&&(_, _, chord)| chord > MAX_RELATIVE_END_ROTATION) {
-        return Err(format!(
-            "Co-rotational 3D: the chord of member {id} and its ends may be up to {chord:.2} rad apart (chord turn plus half the turn between the ends), more than {MAX_RELATIVE_END_ROTATION:.2} rad; split it into shorter members"
-        ));
-    }
+    let deformations = on_one_branch_3d(input, &dof_num, (&u_converged, &naturals), &u_full, left_hand)?;
     let max_displacement = compute_max_displacement_3d(&dof_num, &u_full);
     let scaled;
     let at_state = if converged_factor < 1.0 {
@@ -1544,7 +1536,7 @@ pub fn solve_corotational_3d(
         input
     };
     let mut results = build_final_results_3d(at_state, &dof_num, &u_full, left_hand, &cs, pre_solve_diags)?;
-    if deformations.iter().any(|&(_, natural, _)| natural > crate::known_issues::NL3_NATURAL_ROTATION) {
+    if deformations.iter().any(|d| d.natural > crate::known_issues::NL3_NATURAL_ROTATION) {
         crate::known_issues::attach(&mut results.structured_diagnostics, vec![crate::known_issues::corotational_natural_rotation()]);
     }
 
@@ -1957,7 +1949,52 @@ fn natural_rotations_3d(
 }
 
 /// Each frame member's largest natural rotation and the turn of its chord away from its mean end frame.
-fn member_deformations_3d(input: &SolverInput3D, dof_num: &DofNumbering, u: &[f64], left_hand: bool) -> Vec<(usize, f64, f64)> {
+struct MemberDeformation3D {
+    id: usize,
+    natural: f64,
+    chord: f64,
+    ends: [[f64; 3]; 2],
+}
+
+fn on_one_branch_3d(input: &SolverInput3D, dof_num: &DofNumbering, (u_before, before): (&[f64], &[MemberDeformation3D]), u: &[f64], left_hand: bool) -> Result<Vec<MemberDeformation3D>, String> {
+    let turned = |node: usize| {
+        let d = [3, 4, 5].map(|i| dof_num.global_dof(node, i).map(|k| u[k] - u_before[k]).unwrap_or(0.0));
+        (d[0] * d[0] + d[1] * d[1] + d[2] * d[2]).sqrt()
+    };
+    for e in crate::ordered::values(&input.elements).filter(|e| e.elem_type == "frame") {
+        if turned(e.node_i).max(turned(e.node_j)) > MAX_RELATIVE_END_ROTATION {
+            return Err(format!(
+                "Co-rotational 3D: an end of member {} turned more than {MAX_RELATIVE_END_ROTATION:.2} rad within one load increment; use more load increments",
+                e.id
+            ));
+        }
+    }
+    if let Some((id, turn)) = largest_relative_end_rotation_3d(input, dof_num, u).filter(|&(_, turn)| turn > MAX_RELATIVE_END_ROTATION) {
+        return Err(format!(
+            "Co-rotational 3D: the ends of member {id} turn {turn:.2} rad relative to each other, more than {MAX_RELATIVE_END_ROTATION:.2} rad; split it into shorter members"
+        ));
+    }
+    let now = member_deformations_3d(input, dof_num, u, left_hand);
+    if let Some(d) = now.iter().find(|d| d.chord > MAX_RELATIVE_END_ROTATION) {
+        return Err(format!(
+            "Co-rotational 3D: the chord of member {} and its ends may be up to {:.2} rad apart (chord turn plus half the turn between the ends), more than {MAX_RELATIVE_END_ROTATION:.2} rad; split it into shorter members",
+            d.id, d.chord
+        ));
+    }
+    let jump = |a: [f64; 3], b: [f64; 3]| ((a[0] - b[0]).powi(2) + (a[1] - b[1]).powi(2) + (a[2] - b[2]).powi(2)).sqrt();
+    let before: std::collections::HashMap<usize, &MemberDeformation3D> = before.iter().map(|b| (b.id, b)).collect();
+    for (d, b) in now.iter().filter_map(|d| Some((d, *before.get(&d.id)?))) {
+        if (0..2).any(|k| jump(d.ends[k], b.ends[k]) > std::f64::consts::PI) {
+            return Err(format!(
+                "Co-rotational 3D: an end of member {} turned more than half a turn against its chord within one load increment; use more load increments or split it into shorter members",
+                d.id
+            ));
+        }
+    }
+    Ok(now)
+}
+
+fn member_deformations_3d(input: &SolverInput3D, dof_num: &DofNumbering, u: &[f64], left_hand: bool) -> Vec<MemberDeformation3D> {
     let at = |node: usize, i: usize| dof_num.global_dof(node, i).map(|d| u[d]).unwrap_or(0.0);
     let norm = |v: [f64; 3]| (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt();
     let node_by_id: std::collections::HashMap<usize, &SolverNode3D> = crate::ordered::values(&input.nodes).map(|n| (n.id, n)).collect();
@@ -1969,7 +2006,7 @@ fn member_deformations_3d(input: &SolverInput3D, dof_num: &DofNumbering, u: &[f6
         let (ry_x, ry_y, ry_z) = corot_local_y_ref(ni.x, ni.y, ni.z, nj.x, nj.y, nj.z, e.local_yx, e.local_yy, e.local_yz);
         let (ex_0, ey_0, ez_0) = compute_local_axes_3d(ni.x, ni.y, ni.z, nj.x, nj.y, nj.z, ry_x, ry_y, ry_z, e.roll_angle, left_hand);
         let (_, ti, tj, chord) = natural_rotations_3d(d.map(|v| v / l_n), (&ex_0, &ey_0, &ez_0), [3, 4, 5].map(|k| at(e.node_i, k)), [3, 4, 5].map(|k| at(e.node_j, k)));
-        Some((e.id, norm(ti).max(norm(tj)), chord))
+        Some(MemberDeformation3D { id: e.id, natural: norm(ti).max(norm(tj)), chord, ends: [ti, tj] })
     }).collect()
 }
 
@@ -2484,7 +2521,7 @@ mod tests {
             u[dof_num.global_dof(2, 1).unwrap()] = 2.0 * chord.sin();
             u[dof_num.global_dof(1, 5).unwrap()] = rz_i;
             u[dof_num.global_dof(2, 5).unwrap()] = rz_j;
-            member_deformations_3d(&input, &dof_num, &u, false)[0].2
+            member_deformations_3d(&input, &dof_num, &u, false)[0].chord
         };
         assert!(bent(2.6, -1.3, 1.3) > MAX_RELATIVE_END_ROTATION);
         assert!(bent(2.6, 1.3, 1.3) < MAX_RELATIVE_END_ROTATION);
@@ -2505,7 +2542,7 @@ mod tests {
             let mut u = vec![0.0; dof_num.n_total];
             u[dof_num.global_dof(2, 0).unwrap()] = dx;
             u[dof_num.global_dof(2, 1).unwrap()] = dy;
-            member_deformations_3d(&input, &dof_num, &u, false)[0].2
+            member_deformations_3d(&input, &dof_num, &u, false)[0].chord
         };
         assert!((chord_with_tip_at(-4.0, 0.0) - std::f64::consts::PI).abs() < 1e-12);
         assert!(chord_with_tip_at(-4.0, 0.0) > MAX_RELATIVE_END_ROTATION);
