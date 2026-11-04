@@ -63,11 +63,11 @@
   import { explainedSteps } from '../../lib/store/explained-steps.svelte';
   import { openExplainedCatalog } from '../../lib/actions/step-wizards';
   import CirsocFlexPanel from '../CirsocFlexPanel.svelte';
-  import { t, tp } from '../../lib/i18n';
+  import { t } from '../../lib/i18n';
   import { errorText } from '../../lib/utils/error-text';
   import { localizeEngineText } from '../../lib/i18n/engine-text';
   import { DOF_LABEL_KEY } from '../../lib/engine/kinematic-2d';
-  import { withBasicMass } from '../../lib/engine/dynamics/basic-mass';
+  import { withSectionMass } from '../../lib/engine/dynamics/section-mass';
   import { variableRefusal2D, imposedRefusal } from '../../lib/engine/solver-service';
   import { formatPDeltaFactor } from '../../lib/engine/pdelta-result';
   import BucklingCertificate from '../advanced/BucklingCertificate.svelte';
@@ -75,21 +75,13 @@
   import FiniteSpectrumWarning from '../advanced/FiniteSpectrumWarning.svelte';
   import { finiteSpectrumWarning, eigenRefusalText } from '../../lib/engine/finite-spectrum-warning';
   import ModalCertificate from '../advanced/ModalCertificate.svelte';
-  import DynamicsCourse from '../advanced/dynamics/DynamicsCourse.svelte';
-  import SecondOrderOptions from '../advanced/SecondOrderOptions.svelte';
-  import PDeltaSummary from '../advanced/PDeltaSummary.svelte';
-  import BucklingDetails from '../advanced/BucklingDetails.svelte';
-  import { openHingeCount } from '../../lib/engine/plastic/tracks';
-  import { pdeltaBasic2D, bucklingBasic2D, withFirstModeB2 } from '../../lib/actions/second-order';
-  import { solveModal, solveModal3D as wasmModal3D, solveBuckling3D as wasmBuckling3D, initSolver, isWasmReady } from '../../lib/engine/wasm-solver';
+  import { solvePDelta, solveBuckling, solveModal, solveModal3D as wasmModal3D, solveBuckling3D as wasmBuckling3D, initSolver, isWasmReady } from '../../lib/engine/wasm-solver';
   import { solvePDelta3D as wasmPDelta3D } from '../../lib/engine/wasm-solver';
   import { amplification } from '../../lib/engine/pdelta-amplification';
   import { getPredefinedTrains, solveMovingLoadsAsync } from '../../lib/engine/moving-loads';
   import type { SectionMp } from '../../lib/engine/plastic-moments';
   import { runPlasticCollapse } from '../../lib/actions/plastic';
   import PlasticResultPanel from '../advanced/PlasticResultPanel.svelte';
-  import InfluencePanel from '../advanced/InfluencePanel.svelte';
-  import LoadStatesPanel from '../advanced/LoadStatesPanel.svelte';
 
   let showAdvanced = $state(false);
   let showTrainPanel = $state(false);
@@ -103,7 +95,6 @@
    * and a ribbon command cost the canvas ten pixels for the privilege.
    */
   let showFlex = $state(false);
-  let showLoadStates = $state(false);
 
   let advHelpKey = $state<string | null>(null);
 
@@ -150,10 +141,6 @@
     'influenceLine': {
       labelKey: 'advHelp.influenceLine.label',
       textKey: 'advHelp.influenceLine.text',
-    },
-    'loadStates': {
-      labelKey: 'course.influence.states.title',
-      textKey: 'course.influence.states.help',
     },
     'kinematic': {
       labelKey: 'advHelp.kinematic.label',
@@ -267,9 +254,6 @@
     { key: 'influenceLine', labelKey: 'advanced.influenceLine',
       isActive: () => !is3D && uiStore.currentTool === 'influenceLine',
       close: () => { uiStore.currentTool = 'select'; resultsStore.clearInfluenceLine(); } },
-    { key: 'loadStates', labelKey: 'course.influence.states.title',
-      isActive: () => showLoadStates,
-      close: () => { showLoadStates = false; } },
     { key: 'whatif', labelKey: 'advanced.whatIf',
       isActive: () => uiStore.showWhatIf,
       close: () => { void whatIf.close(); } },
@@ -284,18 +268,6 @@
 
 
   const active = $derived(ADV.find(a => a.isActive()) ?? null);
-
-  let root = $state<HTMLElement>();
-  let shownKey: string | null | undefined;
-  $effect(() => {
-    const key = active?.key ?? null;
-    if (shownKey !== undefined && key !== shownKey) {
-      let el = root?.parentElement ?? null;
-      while (el && !(el.scrollHeight > el.clientHeight && /auto|scroll/.test(getComputedStyle(el).overflowY))) el = el.parentElement;
-      if (el) el.scrollTop = 0;
-    }
-    shownKey = key;
-  });
 
   /**
    * Close one function, as "← Back" and the list's own toggle-off both do: its
@@ -440,7 +412,7 @@
     if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
     try {
       const t0 = performance.now();
-      const result = pdeltaBasic2D(input);
+      const result = solvePDelta(input);
       const dt = performance.now() - t0;
       if (typeof result === 'string') { uiStore.toast(result, 'error'); return; }
       publishPDelta(result, false, dt);
@@ -455,7 +427,7 @@
     if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
     try {
       const t0 = performance.now();
-      const physical = withBasicMass(input, modelStore.model);
+      const physical = withSectionMass(input, modelStore.model);
       const result = solveModal(physical.input, physical.densities);
       const dt = performance.now() - t0;
       if (typeof result === 'string') { uiStore.toast(eigenRefusalText(result, t), 'error'); return; }
@@ -477,7 +449,7 @@
     if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
     try {
       const t0 = performance.now();
-      const result = bucklingBasic2D(input);
+      const result = solveBuckling(input);
       const dt = performance.now() - t0;
       if (typeof result === 'string') { uiStore.toast(eigenRefusalText(result, t), 'error'); return; }
       resultsStore.setBucklingResult(result);
@@ -504,9 +476,8 @@
       plasticMps = run.mps;
       resultsStore.setPlasticResult(run.result);
       const r = run.result;
-      if (r.unconfirmed) uiStore.toast(tp('course.plastic.unconfirmed', { lambda: r.collapseFactor.toFixed(3) }), 'info', undefined, true);
-      else uiStore.toast(r.isMechanism
-        ? t('toast.plasticCollapse').replace('{lambda}', r.collapseFactor.toFixed(3)).replace('{hinges}', String(openHingeCount(r))).replace('{ms}', dt.toFixed(0))
+      uiStore.toast(r.isMechanism
+        ? t('toast.plasticCollapse').replace('{lambda}', r.collapseFactor.toFixed(3)).replace('{hinges}', String(r.hinges.length)).replace('{ms}', dt.toFixed(0))
         : t('plastic.noCollapse'), r.isMechanism ? 'info' : 'success');
     } catch (e: any) {
       uiStore.toast(errText(e, 'toast.plasticError'), 'error');
@@ -565,7 +536,7 @@
     try {
       const t0 = performance.now();
       let result: any;
-      result = withFirstModeB2(input, wasmPDelta3D(input));
+      result = wasmPDelta3D(input);
       const dt = performance.now() - t0;
       if (typeof result === 'string') { uiStore.toast(result, 'error'); return; }
       publishPDelta(result, true, dt);
@@ -582,7 +553,7 @@
     try {
       const t0 = performance.now();
       let result: any;
-      const physical = withBasicMass(input, modelStore.model);
+      const physical = withSectionMass(input, modelStore.model);
       result = wasmModal3D(physical.input, physical.densities);
       const dt = performance.now() - t0;
       if (typeof result === 'string') { uiStore.toast(eigenRefusalText(result, t), 'error'); return; }
@@ -630,7 +601,7 @@
   let { flat = false }: { flat?: boolean } = $props();
 </script>
 
-<div class="toolbar-section" class:flat data-tour="advanced-section" onclickcapture={noteOpening} bind:this={root}>
+<div class="toolbar-section" class:flat data-tour="advanced-section" onclickcapture={noteOpening}>
   {#if !flat}<button class="section-toggle" onclick={() => showAdvanced = !showAdvanced}>
     {showAdvanced ? '▾' : '▸'} {t('advanced.title')}
   </button>
@@ -821,9 +792,9 @@
     {@render helpPanel('plastic')}
       {/if}
     {/if}
-    {#if !(flat && active) && (shown('influenceLine') || shown('trainLoad') || shown('loadStates'))}
-    <!-- A load that travels, and the largest and smallest effects of loads that come and go. -->
-    <div class="adv-group" style="grid-column: span 2" data-testid="adv-group-moving">{t('course.influence.group')}</div>
+    {#if !(flat && active) && (shown('influenceLine') || shown('trainLoad'))}
+    <!-- The influence line and the moving train come from the same idea: a load that travels. -->
+    <div class="adv-group" style="grid-column: span 2" data-testid="adv-group-moving">{t('advanced.group.movingLoads')}</div>
     {/if}
     {#if shown('influenceLine')}
     <!-- 2D only; disabled with a reason rather than hidden — see Kinematic above. -->
@@ -837,6 +808,10 @@
             return;
           }
           if (blockedBySlidingJoints()) return;
+          if (!resultsStore.results && !resultsStore.results3D) {
+            uiStore.toast(t('advanced.calculateFirstF5'), 'error');
+            return;
+          }
           uiStore.currentTool = 'influenceLine';
         }}>
         {t('advanced.influenceLine')}
@@ -845,7 +820,6 @@
     </div>
     {@render helpPanel('influenceLine')}
       {/if}
-      {#if active?.key === 'influenceLine'}<InfluencePanel />{/if}
     {/if}
     {#if shown('trainLoad')}
     <!-- 2D only; disabled with a reason rather than hidden — see Kinematic above. -->
@@ -896,21 +870,6 @@
         {/if}
       </div>
     {/if}
-    {/if}
-    {#if shown('loadStates')}
-      {#if !flat || active?.key !== 'loadStates'}
-    <div class="adv-btn-wrap" style="grid-column: span 2">
-      <button class="adv-btn" style="flex:1" class:active={showLoadStates} data-testid="adv-load-states"
-        onclick={() => { if (showLoadStates) closeEntry('loadStates'); else showLoadStates = true; }}>
-        {t('course.influence.states.title')}
-      </button>
-      <button class="adv-help-btn" onclick={(e) => toggleAdvHelp('loadStates', e)} class:active={advHelpKey === 'loadStates'}>?</button>
-    </div>
-    {@render helpPanel('loadStates')}
-      {/if}
-      {#if showLoadStates}
-        <LoadStatesPanel onInfluence={() => { showLoadStates = false; if (!is3D && !blockedBySlidingJoints()) uiStore.currentTool = 'influenceLine'; }} />
-      {/if}
     {/if}
     {#if !(flat && active) && (shown('whatif') || shown('steps'))}
     <!-- Changing the model live, and each method solved step by step. -->
@@ -996,8 +955,11 @@
   {@const moR = is3D ? resultsStore.modalResult3D : resultsStore.modalResult}
   {@const buR = is3D ? resultsStore.bucklingResult3D : resultsStore.bucklingResult}
   {#if pdR}
-    {#if !is3D}<SecondOrderOptions kind="pdelta" onchange={() => handlePDelta()} />{/if}
-    <PDeltaSummary result={pdR} />
+    <div class="adv-result-info" data-testid="pdelta-result">
+      P-Δ: B₂ = {formatPDeltaFactor(pdR.b2Factor)} |
+      {pdR.converged ? `${pdR.iterations} iter` : t('advanced.notConvergedShort')} |
+      {pdR.isStable ? t('advanced.stable') : t('advanced.unstable')}
+    </div>
     <PDeltaCertificate result={pdR} />
   {/if}
   {#if moR}
@@ -1027,7 +989,6 @@
           Σ: X={(moR.cumulativeMassRatioX * 100).toFixed(1)}% Z={(moR.cumulativeMassRatioY * 100).toFixed(1)}%
         {/if}
       </div>
-      <DynamicsCourse result={moR} mode={resultsStore.activeModeIndex} {is3D} onRerun={() => (is3D ? handleModal3D() : handleModal())} />
     {/if}
   {/if}
   {#if buR}
@@ -1040,9 +1001,12 @@
     <div class="adv-result-info">
       &lambda;_cr = {buR.modes[resultsStore.activeBucklingMode]?.loadFactor.toFixed(3) ?? '—'}
     </div>
-    {#if !is3D}<SecondOrderOptions kind="buckling" onchange={() => handleBuckling()} />{/if}
     <BucklingCertificate certificate={buR.certificate} />
-    <BucklingDetails result={buR} />
+    {#if buR.elementData.length > 0}
+      <div class="adv-result-info" style="opacity:0.8">
+        Keff: {buR.elementData.slice(0, 3).map((ed: any) => `E${ed.elementId}=${ed.kEffective.toFixed(2)}`).join(', ')}{buR.elementData.length > 3 ? '...' : ''}
+      </div>
+    {/if}
   {/if}
   <PlasticResultPanel mps={plasticMps} />
   {#if resultsStore.movingLoadEnvelope}
