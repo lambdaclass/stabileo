@@ -314,7 +314,7 @@
 
   function share() {
     if (!draft) return;
-    shareLink = toShareLink(draft, globalThis.location.origin + globalThis.location.pathname);
+    shareLink = toShareLink(draft, location.origin + location.pathname);
     navigator.clipboard?.writeText(shareLink).catch(() => {});
   }
 
