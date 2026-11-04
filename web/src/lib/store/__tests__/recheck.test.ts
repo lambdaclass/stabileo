@@ -62,6 +62,11 @@ describe('recheckStore', () => {
     recheckStore.openProject(generated(RESULTS_VERSION), 'pro');
     await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
     expect(recheckStore.noticeOpen).toBe(false);
+    recheckStore.reset();
+    const { designData: _basis, ...unstamped } = generated() as unknown as Record<string, unknown>;
+    recheckStore.openProject(unstamped as never, 'pro');
+    await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
+    expect(recheckStore.assessment?.changes.map((c) => c.id)).toContain('generated-area-loads-headroom');
   });
 
   it('keeps the notice up when live calc re-solves before it was read', async () => {

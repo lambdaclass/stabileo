@@ -140,7 +140,6 @@ describe('which registered changes concern a model', () => {
     const generated = model({ elements: [member(1, 1, 'frame')], loads: [{ type: 'distributed3d', data: { caseId: 1, generatedBy: 'cirsoc-101' } }] });
     const v19 = { resultsVersion: 19, analyses: ['linear'] } as SolveStamp;
     expect(ids(generated, v19)).toContain('generated-area-loads-headroom');
-    expect(ids(generated, { resultsVersion: 20, analyses: ['linear'] } as SolveStamp)).not.toContain('generated-area-loads-headroom');
     expect(ids(frame, v19)).not.toContain('generated-area-loads-headroom');
     const v20 = { resultsVersion: 20, analyses: ['linear'] } as SolveStamp;
     const basis = (resultsVersion?: number) => ({ designData: { loadBasis: resultsVersion === undefined ? {} : { resultsVersion } } });
@@ -149,6 +148,10 @@ describe('which registered changes concern a model', () => {
     expect(ids({ ...generated, ...basis(20) }, v20)).not.toContain('generated-area-loads-headroom');
     expect(ids({ ...frame, ...basis(19) }, v20)).toContain('generated-area-loads-headroom');
     expect(ids({ ...frame, ...basis(20) }, v20)).not.toContain('generated-area-loads-headroom');
+    expect(ids(generated, v20)).toContain('generated-area-loads-headroom');
+    const stair = model({ elements: [member(1, 1, 'frame')], loads: [{ type: 'distributed3d', data: { caseId: 1, generatedBy: 'stair:1' } }] });
+    expect(ids(stair, v19)).not.toContain('generated-area-loads-headroom');
+    expect(ids(stair, v20)).not.toContain('generated-area-loads-headroom');
     const plane = { ...generated, analysisMode: '2d', ...basis() };
     expect(ids(plane, { resultsVersion: 14, analyses: ['linear'] } as SolveStamp)).toContain('basic-influence-line-moment-sign-withdrawn');
     expect(ids(plane, v20)).toEqual(['generated-area-loads-headroom']);

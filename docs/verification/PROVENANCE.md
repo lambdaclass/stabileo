@@ -225,8 +225,9 @@ A change whose condition names `generatedLoads` concerns a project until its loa
 again, not until it is solved again: solving does not change saved loads. Applying a load plan
 records the results version in `designData.loadBasis.resultsVersion`. A project whose load basis
 lacks it counts as generated with version 0, and a load basis alone makes a model `generatedLoads`,
-so a plan that wrote no loads is still covered. A project with no load basis falls back to its solve
-stamp alone.
+so a plan that wrote no loads is still covered. Loads tagged by the load plan with no load basis also
+count as generated with version 0. Loads from the stair and architecture generators (`stair:`, `arch:`)
+are not `generatedLoads`.
 
 ## Provenance of results and reports
 

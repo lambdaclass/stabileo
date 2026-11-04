@@ -130,10 +130,12 @@ function slaveNodes(c: Record<string, unknown>): number[] {
   return out;
 }
 
+const fromLoadPlan = (by: unknown) => typeof by === 'string' && !!by && !/^(stair|arch):/.test(by);
+
 export function loadsGeneratedWith(s: FeatureSnapshot): number {
   const basis = s.designData?.loadBasis;
-  if (!basis) return Infinity;
-  return Number.isInteger(basis.resultsVersion) ? (basis.resultsVersion as number) : 0;
+  if (basis) return Number.isInteger(basis.resultsVersion) ? (basis.resultsVersion as number) : 0;
+  return (Array.isArray(s.loads) ? s.loads : []).some((l) => fromLoadPlan(l.data?.generatedBy)) ? 0 : Infinity;
 }
 
 /** The features of one saved model. */
@@ -218,7 +220,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
     if (/edge/i.test(t)) f.add('shellEdgeLoads');
     const dead = caseType.get(d.caseId as number) === 'D' || d.caseId === undefined;
     if ((t === 'surface3d' || d.fromDef !== undefined) && dead) f.add('areaDeadLoads');
-    if (typeof d.generatedBy === 'string' && d.generatedBy) f.add('generatedLoads');
+    if (fromLoadPlan(d.generatedBy)) f.add('generatedLoads');
   }
   if (s.designData?.loadBasis) f.add('generatedLoads');
   if (values(s.groups).some((g) => g?.kind === 'floorLoad')) f.add('areaDeadLoads');
