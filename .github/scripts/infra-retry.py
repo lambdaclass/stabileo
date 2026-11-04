@@ -35,6 +35,7 @@ BUILD_LINE = re.compile(r'nix develop --command env RUSTC_WRAPPER= SCCACHE_DISAB
 RETRIED = 'Known infrastructure failure; retry'
 TAIL_LINES = 3
 MAKE_ERROR = re.compile(r'^make(?:\[\d+\])?: \*\*\* \[[^\]]+\] Error \d+$')
+BOILERPLATE = re.compile(r'^npm error (?:code E(?:429|50[0234])|A complete log of this run can be found in)')
 OTHER_ERROR = re.compile(r'(?i)\berror\b|\bfailed\b|\bcannot\b|\bnot found\b')
 AGGREGATE_STEP = 'Every job passed or was skipped'
 INFRA_LOG = re.compile(
@@ -100,7 +101,7 @@ def known_build(step):
 
 
 def terminal_infra(body):
-    """The infrastructure signature that ends the step's last attempt, with no other error after it."""
+    """The infrastructure signature that ends the step's last attempt, with no other error anywhere in it."""
     lines = body.splitlines()
     marks = [index for index, line in enumerate(lines) if line.startswith(RETRIED)]
     lines = [line for line in (lines[marks[-1] + 1:] if marks else lines)
@@ -108,7 +109,7 @@ def terminal_infra(body):
     hits = [index for index, line in enumerate(lines) if INFRA_LOG.search(line)]
     if not hits or hits[-1] < len(lines) - TAIL_LINES:
         return None
-    if any(OTHER_ERROR.search(line) and not INFRA_LOG.search(line) for line in lines[hits[-1] + 1:]):
+    if any(OTHER_ERROR.search(line) and not INFRA_LOG.search(line) and not BOILERPLATE.search(line) for line in lines):
         return None
     return INFRA_LOG.search(lines[hits[-1]])
 
@@ -188,8 +189,8 @@ def classify(job, annotations, log):
                 if job_level.startswith('job timeout') and (testing(step) or not known_build(step)):
                     return 'unsure', f"timeout in step '{name}', which is not a download or known build (could be a hang the change introduced)"
             elif code and code.group(1) == '137':
-                if testing(step) or not known_build(step):
-                    return 'unsure', f"exit 137 in step '{name}', which is not a download or known build (could be the change's own memory use)"
+                if testing(step) or not acquisition(step):
+                    return 'unsure', f"exit 137 in step '{name}', which is not a download or cache step (could be the change's own memory use)"
                 evidence.append(f"exit 137 (SIGKILL, OOM) in step '{name}'")
             elif code:
                 hit = terminal_infra(body)

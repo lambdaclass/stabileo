@@ -35,8 +35,8 @@ never silently wrong and verification never silently stops working.
   opens (or updates) one `ci-failure` issue per workflow, closed by the next green run once triaged; each real
   finding behind it is triaged into its own `bug` issue ([verification/NIGHTLY.md](verification/NIGHTLY.md)).
 - **Infrastructure retry.** A pull request run of CI, Research or Supply chain whose every failed
-  job shows infrastructure evidence (a job timeout, a lost runner, exit 137, or a cache, artifact
-  or network error in a download step) has its failed jobs rerun once, automatically
+  job shows infrastructure evidence (a lost runner, a job timeout in a download or research WASM
+  build step, or exit 137, a cache, artifact or network error in a download step) has its failed jobs rerun once, automatically
   (`.github/workflows/infra-retry.yml`); the decision and its evidence are in the summary of that
   workflow's run. A timeout or exit 137 inside a test step, a test failure next to an
   infrastructure warning, and anything unrecognised are never retried.

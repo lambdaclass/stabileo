@@ -102,9 +102,9 @@ class RealLogs(unittest.TestCase):
                                 'path': '.github', 'title': ''}]
         return verdict(case)
 
-    def test_exit_137_counts_only_in_a_build_or_download_step(self):
+    def test_exit_137_in_a_build_that_also_verifies_is_not_retried(self):
         result, why = self.killed('infra-research-wasm-timeout', '##[error]The operation was canceled.')
-        self.assertEqual(result, 'infra', why)
+        self.assertEqual(result, 'unsure', why)
         self.assertIn('exit 137', why)
         self.assertEqual(self.killed('real-prerender-timeout', '##[error]Process completed with exit code 2.')[0], 'unsure')
         self.assertEqual(self.killed('real-nextest-assert', '##[error]Process completed with exit code 2.')[0], 'real')
@@ -163,19 +163,24 @@ class RealLogs(unittest.TestCase):
 
 
 class AcquisitionSteps(unittest.TestCase):
-    def download_failure(self, script, body):
+    def download_failure(self, script, body, exit_code=1):
         case = fixture('infra-e2e-site-timeout')
         header = '\n'.join(f'2026-11-04T06:30:00.0000000Z \x1b[36;1m{line}\x1b[0m' for line in script)
         title = script[0]
         step = (f'2026-11-04T06:30:00.0000000Z ##[group]Run {title}\n{header}\n'
                 '2026-11-04T06:30:00.0000000Z shell: /usr/bin/bash -e {0}\n2026-11-04T06:30:00.0000000Z ##[endgroup]\n'
                 + ''.join(f'2026-11-04T06:30:01.0000000Z {line}\n' for line in body)
-                + '2026-11-04T06:31:00.0000000Z ##[error]Process completed with exit code 1.\n')
+                + f'2026-11-04T06:31:00.0000000Z ##[error]Process completed with exit code {exit_code}.\n')
         case['log'] = case['log'].split('##[group]Run actions/upload-artifact')[0].rsplit('\n', 1)[0] + '\n' + step
         case['job']['conclusion'] = 'failure'
-        case['annotations'] = [{'annotation_level': 'failure', 'message': 'Process completed with exit code 1.',
+        case['annotations'] = [{'annotation_level': 'failure', 'message': f'Process completed with exit code {exit_code}.',
                                 'path': '.github', 'title': ''}]
         return verdict(case)
+
+    def test_exit_137_in_a_download_step_retries(self):
+        result, why = self.download_failure(['.github/scripts/retry-infra.sh make web.deps'], ['added 1 package'], 137)
+        self.assertEqual(result, 'infra', why)
+        self.assertIn('exit 137', why)
 
     def test_artifact_5xx_in_a_download_step_retries(self):
         result, why = self.download_failure(
@@ -208,6 +213,18 @@ class AcquisitionSteps(unittest.TestCase):
                                             ['npm error 503 Service Unavailable', 'npm error code ETARGET',
                                              'npm error notarget No matching version'])
         self.assertEqual(result, 'unsure', why)
+
+    def test_a_signature_after_another_error_does_not(self):
+        result, why = self.download_failure(['.github/scripts/retry-infra.sh make web.deps'],
+                                            ['npm error code ETARGET', 'npm error notarget No matching version',
+                                             'npm error 503 Service Unavailable'])
+        self.assertEqual(result, 'unsure', why)
+
+    def test_npm_boilerplate_around_a_503_still_counts(self):
+        result, why = self.download_failure(['.github/scripts/retry-infra.sh make web.deps'],
+                                            ['npm error code E503', 'npm error 503 Service Unavailable - GET https://registry.npmjs.org/x',
+                                             'npm error A complete log of this run can be found in: /home/runner/.npm/_logs/x.log'])
+        self.assertEqual(result, 'infra', why)
 
     def test_a_download_step_without_a_signature_does_not(self):
         result, why = self.download_failure(['.github/scripts/retry-infra.sh make web.deps'],
