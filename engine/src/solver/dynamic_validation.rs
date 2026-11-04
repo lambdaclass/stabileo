@@ -215,6 +215,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "wall clock: runs alone in Engine Gates (make test.engine.gates)"]
     fn area_mass_validation_is_linear_in_the_number_of_shells() {
         // 40 000 quads: a search per entry is 8·10⁸ map visits (seconds);
         // a lookup per entry is milliseconds. 1 s is far from both.

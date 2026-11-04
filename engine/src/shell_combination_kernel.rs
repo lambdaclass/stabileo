@@ -36,13 +36,38 @@ struct Input {
     cases: Vec<Case>,
     combinations: Vec<Combination>,
     thicknesses: Vec<(usize, f64)>,
-    /// Existing combo order; only unmodified combos need their shell arrays.
-    envelope_order: Vec<Shells>,
+    envelope_order: Vec<Source>,
 }
 struct Output {
     combinations: Vec<Shells>,
-    envelope_plates: Vec<(usize, usize)>,
-    envelope_quads: Vec<(usize, usize)>,
+    envelope: Envelope,
+}
+#[derive(Clone, Copy)]
+struct Row {
+    element_id: usize,
+    values: [f64; ROW],
+}
+struct Source {
+    id: i64,
+    plates: Vec<Row>,
+    quads: Vec<Row>,
+}
+const ROW: usize = 11;
+const KEYS: usize = 17;
+#[derive(Clone, Copy)]
+struct Extreme {
+    max: f64,
+    max_source: usize,
+    min: f64,
+    min_source: usize,
+}
+struct EnvelopeRow {
+    element_id: usize,
+    extremes: [Option<Extreme>; KEYS],
+}
+struct Envelope {
+    plates: Vec<EnvelopeRow>,
+    quads: Vec<EnvelopeRow>,
 }
 
 fn vm(x: f64, y: f64, xy: f64) -> f64 {
@@ -60,6 +85,131 @@ fn principal(x: f64, y: f64, xy: f64) -> (f64, f64) {
     let diff = (x - y) / 2.;
     let r = (diff * diff + xy * xy).sqrt();
     (avg + r, avg - r)
+}
+fn wood_armer(mx: f64, my: f64, mxy: f64) -> [f64; 4] {
+    let a = mxy.abs();
+    let face = |px: f64, py: f64| -> (f64, f64) {
+        let dx = px + a;
+        let dy = py + a;
+        if dx >= 0. && dy >= 0. {
+            return (dx, dy);
+        }
+        if dx < 0. && dy < 0. {
+            return (0., 0.);
+        }
+        if dx < 0. {
+            let dy = py + if a > 0. { mxy * mxy / px.abs() } else { 0. };
+            (0., dy.max(0.))
+        } else {
+            let dx = px + if a > 0. { mxy * mxy / py.abs() } else { 0. };
+            (dx.max(0.), 0.)
+        }
+    };
+    let (bottom_x, bottom_y) = face(mx, my);
+    let (top_x, top_y) = face(-mx, -my);
+    [bottom_x, bottom_y, top_x, top_y]
+}
+fn envelope_keys(r: &[f64; ROW]) -> [f64; KEYS] {
+    let (sigma_1, sigma_2) = principal(r[0], r[1], r[2]);
+    let wa = wood_armer(r[3], r[4], r[5]);
+    [
+        r[0], r[1], r[2], r[3], r[4], r[5], r[6], r[7], r[8], sigma_1, sigma_2, wa[0], wa[1], wa[2],
+        wa[3], r[9], r[10],
+    ]
+}
+fn plate_row(p: &PlateStress) -> Row {
+    Row {
+        element_id: p.element_id,
+        values: [
+            p.sigma_xx,
+            p.sigma_yy,
+            p.tau_xy,
+            p.mx,
+            p.my,
+            p.mxy,
+            p.qx.unwrap_or(f64::NAN),
+            p.qy.unwrap_or(f64::NAN),
+            p.von_mises,
+            p.sigma_1,
+            p.sigma_2,
+        ],
+    }
+}
+fn quad_row(q: &QuadStress) -> Row {
+    Row {
+        element_id: q.element_id,
+        values: [
+            q.sigma_xx,
+            q.sigma_yy,
+            q.tau_xy,
+            q.mx,
+            q.my,
+            q.mxy,
+            q.qx.unwrap_or(f64::NAN),
+            q.qy.unwrap_or(f64::NAN),
+            q.von_mises,
+            f64::NAN,
+            f64::NAN,
+        ],
+    }
+}
+fn envelope_of<'a>(sources: impl Iterator<Item = (usize, &'a [Row])>) -> Vec<EnvelopeRow> {
+    let mut out: Vec<EnvelopeRow> = Vec::new();
+    let mut absent: Vec<[bool; KEYS]> = Vec::new();
+    let mut seen_in: Vec<(usize, Option<usize>)> = Vec::new();
+    let mut slot = HashMap::new();
+    let mut source_count = 0;
+    for (source, rows) in sources {
+        source_count += 1;
+        for row in rows {
+            let i = *slot.entry(row.element_id).or_insert_with(|| {
+                out.push(EnvelopeRow {
+                    element_id: row.element_id,
+                    extremes: [None; KEYS],
+                });
+                absent.push([false; KEYS]);
+                seen_in.push((0, None));
+                out.len() - 1
+            });
+            if seen_in[i].1 != Some(source) {
+                seen_in[i] = (seen_in[i].0 + 1, Some(source));
+            }
+            for (k, v) in envelope_keys(&row.values).into_iter().enumerate() {
+                if v.is_nan() {
+                    absent[i][k] = true;
+                    continue;
+                }
+                let e = out[i].extremes[k].get_or_insert(Extreme {
+                    max: v,
+                    max_source: source,
+                    min: v,
+                    min_source: source,
+                });
+                if v > e.max {
+                    e.max = v;
+                    e.max_source = source;
+                }
+                if v < e.min {
+                    e.min = v;
+                    e.min_source = source;
+                }
+            }
+        }
+    }
+    for ((row, gaps), (seen, _)) in out.iter_mut().zip(absent).zip(seen_in) {
+        for (k, gap) in gaps.into_iter().enumerate() {
+            if gap || seen < source_count {
+                row.extremes[k] = None;
+            }
+        }
+    }
+    out
+}
+fn envelope(sources: &[Source]) -> Envelope {
+    Envelope {
+        plates: envelope_of(sources.iter().enumerate().map(|(i, s)| (i, s.plates.as_slice()))),
+        quads: envelope_of(sources.iter().enumerate().map(|(i, s)| (i, s.quads.as_slice()))),
+    }
 }
 #[derive(Clone)]
 struct Sum {
@@ -241,37 +391,21 @@ fn combine(input: Input) -> Output {
         });
     }
     let updated: HashMap<_, _> = combinations.iter().map(|c| (c.id, c)).collect();
-    let mut envelope_plates = Vec::new();
-    let mut envelope_quads = Vec::new();
-    let mut slot_p = HashMap::new();
-    let mut slot_q = HashMap::new();
-    for (combo_index, old) in input.envelope_order.iter().enumerate() {
-        let c = updated.get(&old.id).copied().unwrap_or(old);
-        for (stress_index, p) in c.plate_stresses.iter().enumerate() {
-            let slot = *slot_p.entry(p.element_id).or_insert_with(|| {
-                envelope_plates.push((combo_index, stress_index));
-                (envelope_plates.len() - 1, p.von_mises)
-            });
-            if p.von_mises > slot.1 {
-                envelope_plates[slot.0] = (combo_index, stress_index);
-                slot_p.insert(p.element_id, (slot.0, p.von_mises));
-            }
-        }
-        for (stress_index, q) in c.quad_stresses.iter().enumerate() {
-            let slot = *slot_q.entry(q.element_id).or_insert_with(|| {
-                envelope_quads.push((combo_index, stress_index));
-                (envelope_quads.len() - 1, q.von_mises)
-            });
-            if q.von_mises > slot.1 {
-                envelope_quads[slot.0] = (combo_index, stress_index);
-                slot_q.insert(q.element_id, (slot.0, q.von_mises));
-            }
-        }
-    }
+    let sources: Vec<Source> = input
+        .envelope_order
+        .into_iter()
+        .map(|old| match updated.get(&old.id) {
+            Some(c) => Source {
+                id: old.id,
+                plates: c.plate_stresses.iter().map(plate_row).collect(),
+                quads: c.quad_stresses.iter().map(quad_row).collect(),
+            },
+            None => old,
+        })
+        .collect();
     Output {
+        envelope: envelope(&sources),
         combinations,
-        envelope_plates,
-        envelope_quads,
     }
 }
 
@@ -320,6 +454,47 @@ impl Reader<'_> {
         } else {
             Err("Non-finite shell shear".into())
         }
+    }
+    fn row(&mut self, plate: bool) -> Result<Row, String> {
+        let element_id = self.element_id()?;
+        let mut values = [0.; ROW];
+        for v in values.iter_mut().take(6) {
+            *v = self.number()?;
+        }
+        values[6] = self.optional()?.unwrap_or(f64::NAN);
+        values[7] = self.optional()?.unwrap_or(f64::NAN);
+        values[8] = self.number()?;
+        values[9] = self.raw()?;
+        values[10] = self.raw()?;
+        if plate && !(values[9].is_finite() && values[10].is_finite()) {
+            return Err("Non-finite plate principal stress".into());
+        }
+        if values[6].is_nan() != values[7].is_nan() {
+            return Err("A shell shear needs both components".into());
+        }
+        if !plate {
+            values[9] = f64::NAN;
+            values[10] = f64::NAN;
+        }
+        Ok(Row { element_id, values })
+    }
+    fn sources(&mut self) -> Result<Vec<Source>, String> {
+        let mut sources = Vec::new();
+        for _ in 0..self.count()? {
+            let id = self.id()?;
+            let np = self.count()?;
+            let nq = self.count()?;
+            let mut plates = Vec::new();
+            let mut quads = Vec::new();
+            for _ in 0..np {
+                plates.push(self.row(true)?);
+            }
+            for _ in 0..nq {
+                quads.push(self.row(false)?);
+            }
+            sources.push(Source { id, plates, quads });
+        }
+        Ok(sources)
     }
     fn membrane(&mut self) -> Result<Membrane, String> {
         Ok(Membrane {
@@ -372,52 +547,7 @@ fn decode(data: &[f64]) -> Result<Input, String> {
     for _ in 0..r.count()? {
         thicknesses.push((r.element_id()?, r.number()?));
     }
-    let mut envelope_order = Vec::new();
-    for _ in 0..r.count()? {
-        let id = r.id()?;
-        let np = r.count()?;
-        let nq = r.count()?;
-        let mut plate_stresses = Vec::new();
-        let mut quad_stresses = Vec::new();
-        // Only id and VM are needed to select a retained combination's row.
-        for _ in 0..np {
-            plate_stresses.push(PlateStress {
-                element_id: r.element_id()?,
-                von_mises: r.number()?,
-                sigma_xx: 0.,
-                sigma_yy: 0.,
-                tau_xy: 0.,
-                mx: 0.,
-                my: 0.,
-                mxy: 0.,
-                sigma_1: 0.,
-                sigma_2: 0.,
-                nodal_von_mises: vec![],
-                qx: None,
-                qy: None,
-            });
-        }
-        for _ in 0..nq {
-            quad_stresses.push(QuadStress {
-                element_id: r.element_id()?,
-                von_mises: r.number()?,
-                sigma_xx: 0.,
-                sigma_yy: 0.,
-                tau_xy: 0.,
-                mx: 0.,
-                my: 0.,
-                mxy: 0.,
-                nodal_von_mises: vec![],
-                qx: None,
-                qy: None,
-            });
-        }
-        envelope_order.push(Shells {
-            id,
-            plate_stresses,
-            quad_stresses,
-        });
-    }
+    let envelope_order = r.sources()?;
     if r.pos != data.len() {
         return Err("Trailing shell batch data".into());
     }
@@ -465,13 +595,44 @@ fn encode(output: Output) -> Vec<f64> {
             ]);
         }
     }
-    for rows in [output.envelope_plates, output.envelope_quads] {
+    encode_envelope(&output.envelope, &mut data);
+    data
+}
+fn encode_envelope(envelope: &Envelope, data: &mut Vec<f64>) {
+    for rows in [&envelope.plates, &envelope.quads] {
         data.push(rows.len() as f64);
-        for (c, s) in rows {
-            data.extend([c as f64, s as f64]);
+        for row in rows {
+            data.push(row.element_id as f64);
+            for e in row.extremes {
+                match e {
+                    Some(e) => data.extend([e.max, e.max_source as f64, e.min, e.min_source as f64]),
+                    None => data.extend([f64::NAN; 4]),
+                }
+            }
         }
     }
-    data
+}
+fn finite_envelope(envelope: &Envelope) -> bool {
+    [&envelope.plates, &envelope.quads].iter().all(|rows| {
+        rows.iter().all(|r| r.extremes.iter().flatten().all(|e| e.max.is_finite() && e.min.is_finite()))
+    })
+}
+/// The extremes of every shell component over result sets given in full: per element and
+/// component, the largest and smallest value and the position of the set each comes from.
+#[wasm_bindgen]
+pub fn envelope_shell_stresses(data: &[f64]) -> Result<Vec<f64>, JsValue> {
+    let mut r = Reader { data, pos: 0 };
+    let sources = r.sources().map_err(|e| JsValue::from_str(&e))?;
+    if r.pos != data.len() {
+        return Err(JsValue::from_str("Trailing shell batch data"));
+    }
+    let envelope = envelope(&sources);
+    if !finite_envelope(&envelope) {
+        return Err(JsValue::from_str("Non-finite shell envelope"));
+    }
+    let mut out = Vec::new();
+    encode_envelope(&envelope, &mut out);
+    Ok(out)
 }
 #[wasm_bindgen]
 pub fn combine_shell_stresses(data: &[f64]) -> Result<Vec<f64>, JsValue> {
@@ -512,16 +673,19 @@ pub fn combine_shell_stresses(data: &[f64]) -> Result<Vec<f64>, JsValue> {
             return Err(JsValue::from_str("Non-finite combined shell stress"));
         }
     }
+    if !finite_envelope(&output.envelope) {
+        return Err(JsValue::from_str("Non-finite shell envelope"));
+    }
     Ok(encode(output))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use proptest::prelude::*;
 
     #[test]
     fn packed_batch_rejects_truncation_invalid_counts_and_nonfinite_tensors() {
-        // One quad case, one combination, no thicknesses, one envelope entry.
         let valid = vec![
             1.,
             7.,
@@ -566,8 +730,18 @@ mod tests {
         assert!(decode(&trailing).is_err());
     }
 
+    fn quad(element_id: usize, values: [f64; 9]) -> Row {
+        let mut v = [f64::NAN; ROW];
+        v[..9].copy_from_slice(&values);
+        Row { element_id, values: v }
+    }
+
+    fn source(quads: Vec<Row>) -> Source {
+        Source { id: 0, plates: vec![], quads }
+    }
+
     #[test]
-    fn packed_result_preserves_absent_shear_and_governing_row() {
+    fn packed_result_preserves_absent_shear_and_envelopes_the_combination() {
         let data = vec![
             1.,
             7.,
@@ -595,10 +769,122 @@ mod tests {
         ];
         let result = combine(decode(&data).unwrap());
         assert_eq!(result.combinations[0].quad_stresses[0].sigma_xx, 20.);
-        assert_eq!(result.envelope_quads, vec![(0, 0)]);
+        let e = &result.envelope.quads[0];
+        assert_eq!(e.element_id, 42);
+        let sxx = e.extremes[0].unwrap();
+        assert_eq!((sxx.max, sxx.max_source, sxx.min, sxx.min_source), (20., 0, 20., 0));
+        assert!(e.extremes[6].is_none() && e.extremes[7].is_none());
         let encoded = encode(result);
         assert!(encoded[12].is_nan());
         assert!(encoded[13].is_nan());
-        assert_eq!(&encoded[14..], &[0., 1., 0., 0.]);
+        assert_eq!(encoded[14], 0.);
+        assert_eq!(encoded[15], 1.);
+        assert_eq!(encoded[16], 42.);
+        assert_eq!(&encoded[17..21], &[20., 0., 20., 0.]);
+        assert_eq!(encoded.len(), 17 + 4 * KEYS);
+    }
+
+    #[test]
+    fn mat_foundation_e10_takes_each_component_from_its_own_combination() {
+        let c1 = quad(10, [0., 0., 0., 77.94113167, 95.86955112, -24.09088352, -67.08721732, -61.37306338, 0.]);
+        let c2 = quad(10, [0., 0., 0., 90.93132028, 111.8478096, -28.10603077, -78.2684202, -71.60190728, 0.]);
+        let env = envelope(&[source(vec![c1]), source(vec![c2]), source(vec![c1])]);
+        let e = &env.quads[0];
+        let mx = e.extremes[3].unwrap();
+        assert_eq!((mx.max, mx.max_source, mx.min, mx.min_source), (90.93132028, 1, 77.94113167, 0));
+        let mxy = e.extremes[5].unwrap();
+        assert_eq!((mxy.max, mxy.max_source, mxy.min, mxy.min_source), (-24.09088352, 0, -28.10603077, 1));
+        let qx = e.extremes[6].unwrap();
+        assert_eq!((qx.min, qx.min_source), (-78.2684202, 1));
+    }
+
+    #[test]
+    fn a_shear_missing_from_one_set_has_no_envelope() {
+        let with = quad(3, [0., 0., 0., 0., 0., 0., 5., 1., 0.]);
+        let without = quad(3, [0., 0., 0., 0., 0., 0., f64::NAN, f64::NAN, 0.]);
+        let env = envelope(&[source(vec![with]), source(vec![without])]);
+        assert!(env.quads[0].extremes[6].is_none());
+        assert!(env.quads[0].extremes[7].is_none());
+        assert!(env.quads[0].extremes[3].is_some());
+    }
+
+    #[test]
+    fn an_element_missing_from_one_set_has_no_envelope() {
+        let both = quad(1, [10., 0., 0., 4., 0., 0., 1., 1., 10.]);
+        let only_first = quad(2, [10., 0., 0., 4., 0., 0., 1., 1., 10.]);
+        let env = envelope(&[source(vec![both, only_first]), source(vec![both])]);
+        let row = |id: usize| env.quads.iter().find(|r| r.element_id == id).unwrap();
+        assert!(row(1).extremes[3].is_some() && row(1).extremes[0].is_some());
+        assert!(row(2).extremes.iter().all(Option::is_none));
+    }
+
+    #[test]
+    fn an_element_twice_in_one_set_and_missing_from_another_has_no_envelope() {
+        let row = quad(1, [10., 0., 0., 4., 0., 0., 1., 1., 10.]);
+        let env = envelope(&[source(vec![row, row]), source(vec![])]);
+        assert!(env.quads[0].extremes.iter().all(Option::is_none));
+    }
+
+    #[test]
+    fn wood_armer_design_moments_match_the_slab_formula() {
+        assert_eq!(wood_armer(10., 4., 2.), [12., 6., 0., 0.]);
+        assert_eq!(wood_armer(-10., -4., 2.), [0., 0., 12., 6.]);
+        assert_eq!(wood_armer(1., -4., 2.), [2., 0., 1., 6.]);
+    }
+
+    #[test]
+    fn wood_armer_design_moments_scale_with_the_moments() {
+        for scale in [1e-12, 1e-6, 1.0, 1e6] {
+            let [bx, by, tx, ty] = wood_armer(-4. * scale, scale, 2. * scale);
+            let [ex, ey, fx, fy] = wood_armer(-4., 1., 2.);
+            for (got, unit) in [(bx, ex), (by, ey), (tx, fx), (ty, fy)] {
+                assert!((got - unit * scale).abs() <= 1e-12 * unit.abs().max(1.) * scale, "scale {scale:e}: {got:e} vs {:e}", unit * scale);
+            }
+        }
+    }
+
+    fn row_strategy() -> impl Strategy<Value = [f64; 9]> {
+        (proptest::array::uniform8(-1e3..1e3f64), 0.0..1e3f64, any::<bool>()).prop_map(|(v, vm, shear)| {
+            let mut r = [0.; 9];
+            r[..8].copy_from_slice(&v);
+            if !shear {
+                r[6] = f64::NAN;
+                r[7] = f64::NAN;
+            }
+            r[8] = vm;
+            r
+        })
+    }
+
+    proptest! {
+        #[test]
+        fn every_enveloped_component_bounds_every_set_and_names_one_that_reaches_it(
+            sets in proptest::collection::vec(proptest::collection::vec(row_strategy(), 1..4), 1..6)
+        ) {
+            let sources: Vec<Source> = sets.iter().map(|rows| {
+                source(rows.iter().enumerate().map(|(e, r)| quad(e + 1, *r)).collect())
+            }).collect();
+            let env = envelope(&sources);
+            for e in &env.quads {
+                let rows: Vec<(usize, [f64; KEYS])> = sources.iter().enumerate()
+                    .filter_map(|(i, s)| s.quads.iter().find(|r| r.element_id == e.element_id).map(|r| (i, envelope_keys(&r.values))))
+                    .collect();
+                for k in 0..KEYS {
+                    let present: Vec<(usize, f64)> = rows.iter().map(|(i, v)| (*i, v[k])).collect();
+                    match e.extremes[k] {
+                        None => prop_assert!(present.len() < sources.len() || present.iter().any(|(_, v)| v.is_nan())),
+                        Some(x) => {
+                            prop_assert_eq!(present.len(), sources.len());
+                            for &(_, v) in &present {
+                                prop_assert!(!v.is_nan());
+                                prop_assert!(x.max >= v && x.min <= v);
+                            }
+                            prop_assert!(present.iter().any(|&(i, v)| i == x.max_source && v == x.max));
+                            prop_assert!(present.iter().any(|&(i, v)| i == x.min_source && v == x.min));
+                        }
+                    }
+                }
+            }
+        }
     }
 }

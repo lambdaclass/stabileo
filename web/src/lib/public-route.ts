@@ -4,7 +4,7 @@
  * render the public pages without it, so both decide the same way.
  */
 import { parsePublicPath, publicHref } from './i18n/public-routes';
-import { findStandingPage } from './blog/pages';
+import { isStandingPagePath } from './blog/pages/paths';
 
 /**
  * The fragments `utils/url-sharing.ts` restores a model from (`CODE_HASH` is '#code='; not
@@ -42,7 +42,7 @@ export function routeKind(loc: Pick<Location, 'pathname' | 'search' | 'hash'> = 
   // A shared model (`/#data=…`, `#embed=…`, `#code=…`) is the application's to restore
   // (`loadFromURLHash`): it used to be mounted behind the landing and read the fragment.
   if (SHARED_MODEL.test(loc.hash)) return { kind: 'app', path };
-  if (path === '/blog' || path.startsWith('/blog/') || findStandingPage(path)) return { kind: 'blog', path };
+  if (path === '/blog' || path.startsWith('/blog/') || isStandingPagePath(path)) return { kind: 'blog', path };
   const top = path.split('/')[1];
   if (top === 'tools' || top === 'examples') return { kind: top, path };
   if (isResearchPath(path)) return { kind: 'research', path };

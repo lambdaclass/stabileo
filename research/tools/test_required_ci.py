@@ -65,7 +65,7 @@ for path in ['web/src/components/blog/ChangelogView.svelte', 'web/src/lib/change
 assert '[ -z "$BASE" ]' in scope['run']
 main_checkout = next(step for step in route if step.get('with', {}).get('path') == 'route-main')
 assert route.index(main_checkout) < route.index(scope)
-assert main_checkout['with']['ref'] == 'main'
+assert main_checkout['with']['ref'] == "${{ github.event.merge_group.base_sha || 'main' }}"
 assert main_checkout['with']['fetch-depth'] == 0
 assert 'if' not in main_checkout
 assert scope['env']['CANDIDATE'] == '${{ github.event.pull_request.head.sha || github.sha }}'
@@ -122,6 +122,31 @@ check_scope([], 'true', base='')
 check_scope(['research/papers.json'], None, main_checkout=False)
 check_scope([f'web/src/components/research/page{i}.svelte' for i in range(2000)], 'true')
 
+def check_stacked_group(paths, expected):
+    with tempfile.TemporaryDirectory() as directory:
+        directory = pathlib.Path(directory)
+        origin = directory / 'origin'
+        origin.mkdir()
+        git(origin, 'init', '--quiet', '--initial-branch=main')
+        commit(origin, ['README.md'], 'main')
+        git(origin, 'checkout', '--quiet', '-b', 'group-ahead')
+        group_base = commit(origin, ['research/papers.json'], 'the group queued ahead touches research')
+        git(origin, 'checkout', '--quiet', '-b', 'group')
+        candidate = commit(origin, paths, 'this group')
+        primary = directory / 'primary'
+        git(directory, 'clone', '--quiet', str(origin), str(primary))
+        git(directory, 'clone', '--quiet', str(origin), str(primary / 'route-main'))
+        git(primary / 'route-main', 'checkout', '--quiet', group_base)
+        output = directory / 'output'
+        run = subprocess.run(['bash', '--noprofile', '--norc', '-eo', 'pipefail', '-c', scope['run']], cwd=primary,
+                             env={**os.environ, **scope['env'], 'BASE': group_base, 'CANDIDATE': candidate,
+                                  'GITHUB_OUTPUT': str(output)}, capture_output=True, text=True)
+        assert run.returncode == 0, (run.stdout, run.stderr)
+        assert output.read_text() == f'research={expected}\n', output.read_text()
+
+check_stacked_group(['web/src/lib/provenance/result-changes.json'], 'false')
+check_stacked_group(['research/papers.json'], 'true')
+
 measured = [step for step in route if 'check-research-route-size.mjs' in step.get('run', '')]
 assert measured and all('if' not in step for step in measured)
 assert measured[0]['env']['RESEARCH_ISOLATION'] == '${{ steps.scope.outputs.research }}'
@@ -167,27 +192,63 @@ for caller, event, route_only, expected in [
     assert selected == expected, (caller, event, route_only, selected)
 print('ok online audit runs on research PRs without duplicating required jobs')
 
-cache = next(step for step in jobs['research-wasm']['steps'] if step.get('id') == 'research-assets')
-patterns = re.findall(r"'([^']+)'", re.search(r'hashFiles\((.*?)\)', cache['with']['key']).group(1))
+steps = jobs['research-wasm']['steps']
+caches = {step['id'].removeprefix('research-'): step for step in steps if step.get('id', '').startswith('research-')}
+assert set(caches) == {'shauer-2025', 'andreassen-2011', 'biggins-2026', 'grossman-2026', 'pastrana-2026', 'fairclough-2026'}, sorted(caches)
+for name, cache in caches.items():
+    assert cache['with']['path'] == f'web/public/research-wasm/{name}', name
+build = next(step for step in steps if step.get('name') == 'Build research WASM (cache misses, in parallel)')
+assert 'if' not in build and build['id'] == 'build-research'
+assert build['timeout-minutes'] + 10 <= jobs['research-wasm']['timeout-minutes'], 'the build step must stop early enough for the saves to run'
+assert re.findall(r"steps\.research-([\w-]+)\.outputs\.cache-hit != 'true' && steps\.retry-([\w-]+)\.outputs\.cache-hit != 'true' && '([\w-]+)'", build['run']) == [(name, name, name) for name in caches], build['run']
+listed = subprocess.run(['.github/scripts/build-research-wasm.sh', '--list'], capture_output=True, text=True, check=True).stdout.split('\n')
+assert sorted(line.split()[0] for line in listed if line) == sorted(caches)
+for name, cache in caches.items():
+    retry = next(step for step in steps if step.get('id') == f'retry-{name}')
+    assert retry['if'] == f"steps.research-{name}.outputs.cache-hit != 'true'" and retry['with'] == cache['with'], name
+    saves = [step for step in steps if step.get('name') == f'Save research compiled assets ({name})']
+    assert len(saves) == 1 and saves[0]['if'] == f"always() && steps.build-research.outputs.{name} == 'ok'", name
+    assert saves[0]['with']['path'] == cache['with']['path'], name
+    assert saves[0]['with']['key'] == f"${{{{ steps.research-{name}.outputs.cache-primary-key || steps.retry-{name}.outputs.cache-primary-key }}}}", name
+    assert steps.index(build) < steps.index(saves[0]), name
+    for step in (cache, retry):
+        assert step['uses'].startswith('actions/cache/restore@') and step.get('continue-on-error') is True, name
+    assert saves[0]['uses'].startswith('actions/cache/save@') and saves[0].get('continue-on-error') is True, name
+print('ok each research bundle is cached on its own, rebuilt only on its own miss, and saved as soon as the parallel build finishes it')
+
+def patterns_of(cache):
+    return re.findall(r"'([^']+)'", re.search(r'hashFiles\((.*?)\)', cache['with']['key']).group(1))
+
 with tempfile.TemporaryDirectory() as directory:
     checkout = pathlib.Path(directory)
-    def cache_digest():
+    def cache_digest(patterns):
         files = set()
         for glob in patterns:
             matched = checkout.glob(glob + '/*' if glob.endswith('/**') else glob)
             files.update(path for path in matched if path.is_file())
         return hashlib.sha256(b''.join(hashlib.sha256(path.read_bytes()).digest() for path in sorted(files))).hexdigest()
 
-    for crate in ['research/fracture/shauer-2025', 'research/metamaterials/grossman-2026']:
-        for relative in ['build.rs', 'wasm/build.rs', 'build/linker.ld', 'wasm/build/memory-limits.json', '.cargo/config.toml']:
-            path = checkout / crate / relative
-            path.parent.mkdir(parents=True, exist_ok=True)
-            before = cache_digest()
-            path.write_text('first input')
-            added = cache_digest()
-            assert added != before, (path, 'addition did not invalidate cache')
-            path.write_text('changed input')
-            assert cache_digest() != added, (path, 'edit did not invalidate cache')
-            path.unlink()
-            assert cache_digest() == before, (path, 'removal did not restore cache identity')
-print('ok research cache invalidates for added and changed build scripts and inputs')
+    def invalidated(path):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        before = {name: cache_digest(patterns_of(cache)) for name, cache in caches.items()}
+        path.write_text('changed input')
+        after = {name: cache_digest(patterns_of(cache)) for name, cache in caches.items()}
+        path.unlink()
+        assert {name: cache_digest(patterns_of(cache)) for name, cache in caches.items()} == before, path
+        return {name for name in caches if after[name] != before[name]}
+
+    engine = set(caches)
+    for relative in ['engine/src/lib.rs', 'engine/Cargo.toml', 'engine/build.rs', 'engine/.cargo/config.toml']:
+        assert invalidated(checkout / relative) == engine, relative
+    for crate in ['research/fracture/shauer-2025', 'research/optimization/andreassen-2011', 'research/mechanics/biggins-2026',
+                  'research/metamaterials/grossman-2026', 'research/form-finding/pastrana-2026', 'research/optimisation/fairclough-2026']:
+        assert 'dedaliano-engine' in pathlib.Path(crate, 'Cargo.toml').read_text(), crate
+    for relative in ['flake.lock', 'Cargo.lock', 'rust-toolchain.toml', 'research/tools/asset_identity.py']:
+        assert invalidated(checkout / relative) == set(caches), relative
+    assert invalidated(checkout / 'research/fracture/shauer-2025/wasm/trim_exports.py') == {'shauer-2025', 'biggins-2026'}
+    for name, crate in [('shauer-2025', 'research/fracture/shauer-2025'), ('grossman-2026', 'research/metamaterials/grossman-2026'),
+                        ('andreassen-2011', 'research/optimization/andreassen-2011'), ('pastrana-2026', 'research/form-finding/pastrana-2026'),
+                        ('biggins-2026', 'research/mechanics/biggins-2026'), ('fairclough-2026', 'research/optimisation/fairclough-2026')]:
+        for relative in ['build.rs', 'wasm/build.rs', 'build/linker.ld', 'wasm/build/memory-limits.json', '.cargo/config.toml', 'wasm/build.sh']:
+            assert invalidated(checkout / crate / relative) == {name}, (crate, relative)
+print('ok research caches invalidate for their own inputs, and every engine change for all of them')

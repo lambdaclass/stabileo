@@ -988,6 +988,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "wall clock: runs alone in Engine Gates (make test.engine.gates)"]
     fn sparse_path_scales_better_than_cubically() {
         use std::time::Instant;
         // Three refinement levels on the angle profile — the geometry with the

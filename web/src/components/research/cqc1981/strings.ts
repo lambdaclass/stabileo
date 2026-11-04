@@ -1,10 +1,9 @@
-import { reviewLabel } from '../reviews';
 import { researchLocale } from '../i18n';
 
 export const translations = {
   en: {
     srss: 'SRSS', cqc: 'CQC',
-    title: 'Closely spaced modes: SRSS vs CQC', stage: `First version · ${reviewLabel('cqc-1981', 'en')}`,
+    title: 'Closely spaced modes: SRSS vs CQC',
     lead: 'One small 3D shear-building idealization, solved by the production modal and response-spectrum engine.',
     model: 'The example', description: 'Four fixed-base columns, 3 m high on a 4 × 3 m plan. Each roof node carries 5 t in X. Roof rotations and Y/Z translations are restrained; equal-X constraints join each transverse pair. Two axial roof ties couple the two remaining coordinates. This is our illustration of the method, not the paper’s original building.',
     referenceNote: 'No authors’ code used; closed-form comparison below.', method: 'Closed-form reference', equations: 'The reduced matrices are M = diag(10, 10) t and K = [[1020, −20], [−20, 1230]] kN/m. Solve det(K − ω²M) = 0; normalize each mode to unit modal mass. For Sa = 1 m/s², the modal base shears are Γ²Sa. SRSS discards cross terms; CQC retains their equal-damping correlation at ξ = 5%.',
@@ -20,7 +19,7 @@ export const translations = {
   },
   es: {
     srss: 'SRSS', cqc: 'CQC',
-    title: 'Modos próximos: SRSS y CQC', stage: `Primera versión · ${reviewLabel('cqc-1981', 'es')}`,
+    title: 'Modos próximos: SRSS y CQC',
     lead: 'Un pequeño edificio 3D idealizado a corte, resuelto con el motor de producción modal y de espectro de respuesta.',
     model: 'El ejemplo', description: 'Cuatro columnas empotradas de 3 m en una planta de 4 × 3 m. Cada nodo de techo tiene 5 t en X. Se restringen los giros y las traslaciones Y/Z; restricciones de igual X unen cada par transversal. Dos tirantes axiales acoplan las dos coordenadas restantes. Es nuestra ilustración del método, no el edificio original del artículo.',
     referenceNote: 'Sin código de los autores; comparación analítica abajo.', method: 'Referencia analítica', equations: 'Las matrices reducidas son M = diag(10, 10) t y K = [[1020, −20], [−20, 1230]] kN/m. Se resuelve det(K − ω²M) = 0 y se normaliza cada modo a masa modal unitaria. Para Sa = 1 m/s², los cortantes modales son Γ²Sa. SRSS omite los términos cruzados; CQC conserva su correlación con amortiguamiento uniforme ξ = 5%.',
@@ -36,7 +35,7 @@ export const translations = {
   },
   pt: {
     srss: 'SRSS', cqc: 'CQC',
-    title: 'Modos próximos: SRSS e CQC', stage: `Primeira versão · ${reviewLabel('cqc-1981', 'pt')}`,
+    title: 'Modos próximos: SRSS e CQC',
     lead: 'Um pequeno edifício 3D idealizado ao cisalhamento, resolvido pelo motor de produção modal e de espectro de resposta.',
     model: 'O exemplo', description: 'Quatro colunas engastadas de 3 m numa planta de 4 × 3 m. Cada nó da cobertura tem 5 t em X. Rotações e translações Y/Z são restringidas; restrições de X igual unem cada par transversal. Dois tirantes axiais acoplam as duas coordenadas restantes. É nossa ilustração do método, não o edifício original do artigo.',
     referenceNote: 'Sem código dos autores; comparação analítica abaixo.', method: 'Referência analítica', equations: 'As matrizes reduzidas são M = diag(10, 10) t e K = [[1020, −20], [−20, 1230]] kN/m. Resolve-se det(K − ω²M) = 0 e normaliza-se cada modo para massa modal unitária. Para Sa = 1 m/s², os cortantes modais são Γ²Sa. SRSS omite termos cruzados; CQC mantém sua correlação com amortecimento uniforme ξ = 5%.',

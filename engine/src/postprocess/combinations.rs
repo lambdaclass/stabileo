@@ -95,6 +95,35 @@ pub struct EnvelopeInput3D {
 
 const N_POINTS: usize = 21;
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct EnvelopedFields<'a, D, R, E> {
+    displacements: &'a [D],
+    reactions: &'a [R],
+    element_forces: &'a [E],
+}
+
+fn check_enveloped_inputs<'a, D: Serialize + 'a, R: Serialize + 'a, E: Serialize + 'a>(
+    cases: impl Iterator<Item = (usize, EnvelopedFields<'a, D, R, E>)>,
+) -> Result<(), String> {
+    for (i, fields) in cases {
+        let bad = crate::certify::finite::non_finite_paths(&fields);
+        if let Some(first) = bad.first() {
+            return Err(format!(
+                "Cannot compute the envelope: result {i} has a non-finite number at {}",
+                first.strip_prefix("$.").unwrap_or(first)
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn envelope_station_overflow(kind: &str, element_id: usize, t: f64, r_idx: usize, val: f64) -> String {
+    format!(
+        "Cannot compute the envelope: {kind} of element {element_id} at t = {t} in result {r_idx} evaluates to {val}, beyond the range of f64"
+    )
+}
+
 /// Map each id to its slot index. Later duplicates keep the first slot, which
 /// matches the previous positional behavior for well-formed inputs.
 fn index_by_id(ids: impl Iterator<Item = usize>) -> std::collections::HashMap<usize, usize> {
@@ -205,8 +234,11 @@ pub fn combine_results_refs(factors: &[CombinationFactor], cases: &[(usize, &Ana
 // ==================== 2D Envelope ====================
 
 /// Compute pointwise envelope from multiple results.
-pub fn compute_envelope(results: &[AnalysisResults]) -> Option<FullEnvelope> {
-    let first = results.first()?;
+pub fn compute_envelope(results: &[AnalysisResults]) -> Result<FullEnvelope, String> {
+    let first = results.first().ok_or_else(|| "Cannot compute the envelope of no results".to_string())?;
+    check_enveloped_inputs(results.iter().enumerate().map(|(i, r)| {
+        (i, EnvelopedFields { displacements: &r.displacements, reactions: &r.reactions, element_forces: &r.element_forces })
+    }))?;
 
     // maxAbsResults
     let mut displacements = first.displacements.clone();
@@ -242,7 +274,7 @@ pub fn compute_envelope(results: &[AnalysisResults]) -> Option<FullEnvelope> {
 
     let max_abs_results = AnalysisResults { displacements, reactions, element_forces, constraint_forces: vec![], diagnostics: vec![], solver_diagnostics: vec![], structured_diagnostics: vec![], equilibrium: None, result_summary: None, solver_run_meta: None };
 
-    fn compute_env_diagram(kind: &str, results: &[AnalysisResults]) -> EnvelopeDiagramData {
+    fn compute_env_diagram(kind: &str, results: &[AnalysisResults]) -> Result<EnvelopeDiagramData, String> {
         let first = &results[0];
         let mut elements = Vec::new();
         let mut global_max = 0.0f64;
@@ -275,6 +307,9 @@ pub fn compute_envelope(results: &[AnalysisResults]) -> Option<FullEnvelope> {
                 for (r_idx, res) in results.iter().enumerate() {
                     let Some(ref spl) = sorted_pls[r_idx] else { continue; };
                     let val = compute_diagram_value_at_sorted(kind, t, &res.element_forces[e_idx], spl);
+                    if !val.is_finite() {
+                        return Err(envelope_station_overflow(kind, elem_id, t, r_idx, val));
+                    }
                     if val > max_pos { max_pos = val; }
                     if val < max_neg { max_neg = val; }
                 }
@@ -287,13 +322,13 @@ pub fn compute_envelope(results: &[AnalysisResults]) -> Option<FullEnvelope> {
             elements.push(ElementEnvelopeDiagram { element_id: elem_id, t_positions, pos_values, neg_values });
         }
 
-        EnvelopeDiagramData { kind: kind.to_string(), elements, global_max }
+        Ok(EnvelopeDiagramData { kind: kind.to_string(), elements, global_max })
     }
 
-    Some(FullEnvelope {
-        moment: compute_env_diagram("moment", results),
-        shear: compute_env_diagram("shear", results),
-        axial: compute_env_diagram("axial", results),
+    Ok(FullEnvelope {
+        moment: compute_env_diagram("moment", results)?,
+        shear: compute_env_diagram("shear", results)?,
+        axial: compute_env_diagram("axial", results)?,
         max_abs_results,
     })
 }
@@ -407,8 +442,11 @@ pub fn combine_results_3d_refs(factors: &[CombinationFactor], cases: &[(usize, &
 // ==================== 3D Envelope ====================
 
 /// Compute pointwise 3D envelope.
-pub fn compute_envelope_3d(results: &[AnalysisResults3D]) -> Option<FullEnvelope3D> {
-    let first = results.first()?;
+pub fn compute_envelope_3d(results: &[AnalysisResults3D]) -> Result<FullEnvelope3D, String> {
+    let first = results.first().ok_or_else(|| "Cannot compute the envelope of no results".to_string())?;
+    check_enveloped_inputs(results.iter().enumerate().map(|(i, r)| {
+        (i, EnvelopedFields { displacements: &r.displacements, reactions: &r.reactions, element_forces: &r.element_forces })
+    }))?;
 
     // maxAbsResults3D
     let mut displacements = first.displacements.clone();
@@ -457,7 +495,7 @@ pub fn compute_envelope_3d(results: &[AnalysisResults3D]) -> Option<FullEnvelope
 
     let max_abs_results_3d = AnalysisResults3D { displacements, reactions, element_forces, plate_stresses: vec![], quad_stresses: vec![], quad_nodal_stresses: vec![], constraint_forces: vec![], diagnostics: vec![], solver_diagnostics: vec![], structured_diagnostics: vec![], equilibrium: None, timings: None, result_summary: None, solver_run_meta: None };
 
-    fn compute_env_3d(kind: &str, results: &[AnalysisResults3D]) -> EnvelopeDiagramData {
+    fn compute_env_3d(kind: &str, results: &[AnalysisResults3D]) -> Result<EnvelopeDiagramData, String> {
         let first = &results[0];
         let mut elements = Vec::new();
         let mut global_max = 0.0f64;
@@ -471,9 +509,10 @@ pub fn compute_envelope_3d(results: &[AnalysisResults3D]) -> Option<FullEnvelope
             // Collect the force records for this element once instead of
             // re-indexing and bounds-checking every result at every station —
             // the 2D path already hoists its per-element work this way.
-            let element_cases: Vec<&ElementForces3D> = results
+            let element_cases: Vec<(usize, &ElementForces3D)> = results
                 .iter()
-                .filter_map(|res| res.element_forces.get(e_idx))
+                .enumerate()
+                .filter_map(|(r_idx, res)| res.element_forces.get(e_idx).map(|ef| (r_idx, ef)))
                 .collect();
 
             for j in 0..N_POINTS {
@@ -482,8 +521,11 @@ pub fn compute_envelope_3d(results: &[AnalysisResults3D]) -> Option<FullEnvelope
                 let mut max_pos = 0.0f64;
                 let mut max_neg = 0.0f64;
 
-                for ef in &element_cases {
+                for &(r_idx, ef) in &element_cases {
                     let val = evaluate_diagram_3d_at(ef, kind, t);
+                    if !val.is_finite() {
+                        return Err(envelope_station_overflow(kind, elem_id, t, r_idx, val));
+                    }
                     if val > max_pos { max_pos = val; }
                     if val < max_neg { max_neg = val; }
                 }
@@ -496,16 +538,16 @@ pub fn compute_envelope_3d(results: &[AnalysisResults3D]) -> Option<FullEnvelope
             elements.push(ElementEnvelopeDiagram { element_id: elem_id, t_positions, pos_values, neg_values });
         }
 
-        EnvelopeDiagramData { kind: kind.to_string(), elements, global_max }
+        Ok(EnvelopeDiagramData { kind: kind.to_string(), elements, global_max })
     }
 
-    Some(FullEnvelope3D {
-        moment_y: compute_env_3d("momentY", results),
-        moment_z: compute_env_3d("momentZ", results),
-        shear_y: compute_env_3d("shearY", results),
-        shear_z: compute_env_3d("shearZ", results),
-        axial: compute_env_3d("axial", results),
-        torsion: compute_env_3d("torsion", results),
+    Ok(FullEnvelope3D {
+        moment_y: compute_env_3d("momentY", results)?,
+        moment_z: compute_env_3d("momentZ", results)?,
+        shear_y: compute_env_3d("shearY", results)?,
+        shear_z: compute_env_3d("shearZ", results)?,
+        axial: compute_env_3d("axial", results)?,
+        torsion: compute_env_3d("torsion", results)?,
         max_abs_results_3d,
     })
 }

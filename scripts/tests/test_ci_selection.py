@@ -27,9 +27,35 @@ class Selection(unittest.TestCase):
             with self.subTest(scope=scope):
                 result = selection.select('pull_request', paths)
                 self.assertEqual(result['scope'], scope)
-                self.assertEqual({k for k, v in result.items() if v == 'true'}, enabled)
+                self.assertEqual(result['retest'], 'true')
+                self.assertEqual({k for k, v in result.items() if v == 'true'} - {'retest'}, enabled)
                 self.assertEqual(json.loads(result['e2e_shards']), [1])
                 self.assertEqual(json.loads(result['e2e_specs']), selection.SPECS.get(scope, []))
+
+    def test_a_pull_request_builds_docker_from_source_only_when_its_recipe_or_pins_change(self):
+        for paths in [['Dockerfile'], ['.dockerignore'], ['Cargo.lock'], ['engine/Cargo.toml'], ['rust-toolchain.toml'],
+                      ['web/package-lock.json'], ['.nvmrc'], ['engine/.cargo/config.toml'],
+                      ['research/fracture/shauer-2025/wasm/build.sh'], ['research/tools/publish_assets.py'],
+                      ['web/scripts/check-research-springs.mjs'], ['web/src/App.svelte', 'Cargo.lock']]:
+            with self.subTest(paths=paths):
+                self.assertEqual(selection.select('pull_request', paths)['docker_source'], 'true')
+        for paths in [['web/src/App.svelte'], ['engine/src/lib.rs'], ['research/fracture/shauer-2025/src/lib.rs'],
+                      ['.github/workflows/ci.yml'], ['ai-backend/src/main.rs']]:
+            with self.subTest(paths=paths):
+                result = selection.select('pull_request', paths)
+                self.assertEqual((result['docker'], result['docker_source']), ('true', 'false'))
+        self.assertEqual(selection.select('pull_request', ['docs/a.md'])['docker_source'], 'false')
+        self.assertEqual(selection.select('pull_request', ['web/src/App.svelte'], force_full=True)['docker_source'], 'true')
+        for paths in [None, [], [None]]:
+            with self.subTest(paths=paths):
+                self.assertEqual(selection.select('pull_request', paths)['docker_source'], 'true')
+        for event in ['push', 'schedule', 'workflow_dispatch']:
+            self.assertEqual(selection.select(event, ['web/src/App.svelte'])['docker_source'], 'true')
+        self.assertEqual(selection.select('merge_group', [])['docker_source'], 'false')
+        smoke = (ROOT / '.github/workflows/ci.yml').read_text().split('\n  docker-smoke:\n', 1)[1].split('\n  lint-repo:', 1)[0]
+        source = smoke.split('docker build --tag stabileo-source-smoke .', 1)[0].rsplit('      - ', 1)[1]
+        self.assertIn("if: needs.changes.outputs.docker_source == 'true'", source)
+        self.assertNotIn('if:', smoke.split('docker build --build-arg FRONTEND_STAGE=web-prebuilt', 1)[0].rsplit('      - ', 1)[1])
 
     def test_every_web_scope_runs_typechecking(self):
         for path in ['docs/a.md', 'research/a.rs', 'web/src/components/tools/a.svelte',
@@ -83,7 +109,7 @@ class Selection(unittest.TestCase):
         self.assertEqual(result['scope'], 'full')
         self.assertEqual(json.loads(result['e2e_shards']), list(range(1, 11)))
         self.assertEqual(result['unit_area'], '')
-        for key in ['engine', 'web', 'research', 'docker', 'backend', 'ai_backend', 'ci_scripts', 'web_build', 'flaky', 'determinism', 'results']:
+        for key in ['engine', 'web', 'research', 'docker', 'backend', 'ai_backend', 'ci_scripts', 'web_build', 'flaky', 'determinism', 'results', 'retest']:
             self.assertEqual(result[key], 'true', key)
 
     def test_trusted_events_and_label_are_always_full(self):
@@ -92,16 +118,14 @@ class Selection(unittest.TestCase):
                 self.assert_full(selection.select(event, paths))
         self.assert_full(selection.select('pull_request', ['research/a'], force_full=True))
 
-    def test_applying_run_e2e_label_schedules_full_ci(self):
+    def test_run_e2e_label_read_at_run_start_schedules_full_ci(self):
         workflow = (ROOT / '.github/workflows/ci.yml').read_text()
         trigger = re.search(r'^  pull_request:\n    types: \[(.*?)\]', workflow, re.MULTILINE)
         self.assertIsNotNone(trigger)
         self.assertEqual({value.strip() for value in trigger[1].split(',')},
-                         {'opened', 'synchronize', 'reopened', 'labeled'})
-        self.assertIn("FORCE_FULL: ${{ contains(github.event.pull_request.labels.*.name, 'run-e2e') }}", workflow)
-        event = {'action': 'labeled', 'label': {'name': 'run-e2e'},
-                 'pull_request': {'labels': [{'name': 'run-e2e'}]}}
-        self.assertIn(event['action'], trigger[1])
+                         {'opened', 'synchronize', 'reopened'})
+        self.assertIn("FORCE_FULL: ${{ steps.labels.outputs.run_e2e == 'true' }}", workflow)
+        event = {'pull_request': {'labels': [{'name': 'run-e2e'}]}}
         for labels, expected in [([], 'docs'), (event['pull_request']['labels'], 'full')]:
             with self.subTest(labels=labels), tempfile.TemporaryDirectory() as tmp:
                 output = Path(tmp) / 'outputs'
@@ -169,11 +193,27 @@ class Selection(unittest.TestCase):
         self.assertEqual(selection.select('pull_request', ['docs/a.md'])['web'], 'false')
         self.assertEqual(selection.select('merge_group', [])['web'], 'true')
 
+    def test_main_push_of_a_tree_the_queue_tested_runs_only_the_post_merge_additions(self):
+        result = selection.select('push', None, tested=True)
+        for key in ['backend', 'ci_scripts', 'ai_backend', 'engine', 'results', 'retest']:
+            self.assertEqual(result[key], 'false', key)
+        for key in ['web', 'web_build', 'docker', 'determinism', 'flaky', 'slow_e2e', 'research']:
+            self.assertEqual(result[key], 'true', key)
+        self.assertEqual(result['research_route_only'], 'false')
+        self.assertEqual(json.loads(result['e2e_shards']), list(range(1, 11)))
+
+    def test_every_other_main_push_or_event_runs_everything(self):
+        self.assert_full(selection.select('push', None))
+        for event in ['merge_group', 'pull_request', 'schedule', 'workflow_dispatch']:
+            with self.subTest(event=event):
+                self.assertEqual(selection.select(event, None, tested=True)['retest'], 'true')
+                self.assertEqual(selection.select(event, None, tested=True)['engine'], 'true')
+
     def test_workflow_wiring(self):
         text = (ROOT / '.github/workflows/ci.yml').read_text()
         self.assertIn('shard: ${{ fromJSON(needs.changes.outputs.e2e_shards) }}', text)
         self.assertIn('CHANGED_FILES: ${{ steps.filter.outputs.all_files }}', text)
-        self.assertIn("if: needs.changes.outputs.slow_e2e == 'true' || contains", text)
+        self.assertIn("if: needs.changes.outputs.slow_e2e == 'true' || needs.changes.outputs.run_e2e == 'true'", text)
         for key in selection.select('push', []):
             self.assertIn('${{ steps.select.outputs.' + key + ' }}', text)
         self.assertNotIn('\n  rust:', text)
