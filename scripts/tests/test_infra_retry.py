@@ -120,7 +120,7 @@ class RealLogs(unittest.TestCase):
                                {'annotation_level': 'failure', 'message': 'The operation was canceled.', 'path': '.github', 'title': ''}]
         result, why = verdict(case)
         self.assertEqual(result, 'unsure', why)
-        self.assertIn('test step', why)
+        self.assertIn('not a download or known build', why)
 
     def test_a_lost_runner_after_a_visible_test_failure_is_not_retried(self):
         case = fixture('real-nextest-assert')
@@ -128,6 +128,25 @@ class RealLogs(unittest.TestCase):
         case['annotations'] = [{'annotation_level': 'failure', 'path': '.github', 'title': '',
                                 'message': 'The self-hosted runner: stabileo-ci-1-sgha3 lost communication with the server.'}]
         self.assertEqual(verdict(case)[0], 'real')
+
+    def test_a_lost_runner_cannot_cover_an_exit_failure_without_a_log(self):
+        job = {'name': 'Engine Suite (1/4)', 'conclusion': 'failure'}
+        annotations = [{'annotation_level': 'failure', 'path': '.github', 'title': '', 'message': message}
+                       for message in ['Process completed with exit code 2.',
+                                       'The self-hosted runner: stabileo-ci-1-sgha3 lost communication with the server.']]
+        self.assertEqual(infra.classify(job, annotations, None)[0], 'unsure')
+
+    def test_the_log_must_agree_with_the_api_on_failed_steps(self):
+        case = fixture('infra-research-wasm-timeout')
+        case['job']['steps'] = [{'name': 'Build research WASM (grossman-2026, cache miss)', 'conclusion': 'cancelled'}]
+        self.assertEqual(verdict(case)[0], 'infra')
+        case['job']['steps'].append({'name': 'Test suite', 'conclusion': 'failure'})
+        self.assertEqual(verdict(case)[0], 'unsure')
+
+    def test_a_timeout_in_an_unknown_script_is_not_retried(self):
+        case = fixture('infra-research-wasm-timeout')
+        case['log'] = case['log'].replace('research/metamaterials/grossman-2026/wasm/build.sh', 'scripts/verify-everything.sh')
+        self.assertEqual(verdict(case)[0], 'unsure')
 
     def test_too_many_annotations_is_unsure(self):
         case = fixture('infra-e2e-site-timeout')
@@ -162,7 +181,8 @@ class AcquisitionSteps(unittest.TestCase):
         result, why = self.download_failure(
             ['.github/scripts/retry-infra.sh nix develop --command gh run download "$RUN_ID" --name wasm --dir web/src/lib/wasm'],
             ['error downloading wasm: HTTP 502: Bad Gateway (https://api.github.com/...)', 'Known infrastructure failure; retry 2/2',
-             'error downloading wasm: HTTP 502: Bad Gateway (https://api.github.com/...)'])
+             'error downloading wasm: HTTP 502: Bad Gateway (https://api.github.com/...)',
+             'make: *** [Makefile:12: web.deps] Error 1'])
         self.assertEqual(result, 'infra', why)
         self.assertIn('HTTP 502', why)
 
@@ -181,6 +201,12 @@ class AcquisitionSteps(unittest.TestCase):
         result, why = self.download_failure(['.github/scripts/retry-infra.sh make web.deps'],
                                             ['npm error 503 Service Unavailable', 'Known infrastructure failure; retry 1/2',
                                              'npm error code ETARGET', 'npm error notarget No matching version'])
+        self.assertEqual(result, 'unsure', why)
+
+    def test_a_signature_followed_by_another_error_does_not(self):
+        result, why = self.download_failure(['.github/scripts/retry-infra.sh make web.deps'],
+                                            ['npm error 503 Service Unavailable', 'npm error code ETARGET',
+                                             'npm error notarget No matching version'])
         self.assertEqual(result, 'unsure', why)
 
     def test_a_download_step_without_a_signature_does_not(self):

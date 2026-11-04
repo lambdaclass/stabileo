@@ -30,7 +30,12 @@ ACQUIRE_LINE = re.compile(
     r'|if \[ "[\w-]+" = [\w-]+ \]; then|else|fi')
 TEST_STEP = re.compile(r'\bmake (?:test|e2e\.web\.(?:smoke|slow|flaky|visual|build)|typecheck|lint|check)'
                        r'|vitest|nextest|playwright test|cargo (?:test|clippy)|mix test|check\.mjs|run-area-e2e')
+BUILD_LINE = re.compile(r'nix develop --command env RUSTC_WRAPPER= SCCACHE_DISABLE=1 research/[\w/.-]+/wasm/build\.sh'
+                        r'|(?:nix develop --command )?make wasm(?: NIX_RUN=)?')
 RETRIED = 'Known infrastructure failure; retry'
+TAIL_LINES = 3
+MAKE_ERROR = re.compile(r'^make(?:\[\d+\])?: \*\*\* \[[^\]]+\] Error \d+$')
+OTHER_ERROR = re.compile(r'(?i)\berror\b|\bfailed\b|\bcannot\b|\bnot found\b')
 AGGREGATE_STEP = 'Every job passed or was skipped'
 INFRA_LOG = re.compile(
     r'GitHub Actions Cache throttled|HTTP error 41[68]|429 Too Many Requests|HTTP 429|\(429\)'
@@ -87,10 +92,25 @@ def testing(step):
     return any(TEST_STEP.search(line) for line in [step['title'], *step['script']])
 
 
-def final_attempt(body):
+def known_build(step):
+    if acquisition(step):
+        return True
+    lines = [line for line in step['script'] if line] or [step['title']]
+    return all(ACQUIRE_LINE.fullmatch(line) or BUILD_LINE.fullmatch(line) for line in lines)
+
+
+def terminal_infra(body):
+    """The infrastructure signature that ends the step's last attempt, with no other error after it."""
     lines = body.splitlines()
     marks = [index for index, line in enumerate(lines) if line.startswith(RETRIED)]
-    return '\n'.join(lines[marks[-1] + 1:] if marks else lines)
+    lines = [line for line in (lines[marks[-1] + 1:] if marks else lines)
+             if line.strip() and not line.startswith('##[') and not MAKE_ERROR.match(line)]
+    hits = [index for index, line in enumerate(lines) if INFRA_LOG.search(line)]
+    if not hits or hits[-1] < len(lines) - TAIL_LINES:
+        return None
+    if any(OTHER_ERROR.search(line) and not INFRA_LOG.search(line) for line in lines[hits[-1] + 1:]):
+        return None
+    return INFRA_LOG.search(lines[hits[-1]])
 
 
 def failed_steps(log):
@@ -144,13 +164,17 @@ def classify(job, annotations, log):
         for step in steps(log):
             if REAL_FAILURE.search('\n'.join(step['body'])):
                 return 'real', f"test or compiler failure in step '{step['title'][:80]}'"
+    exits = [message for message in failures if EXIT_CODE.match(message)]
     if log is None:
-        if job_level and job_level.startswith('runner lost'):
+        if job_level and job_level.startswith('runner lost') and not exits:
             return 'infra', '; '.join(evidence)
         return 'unsure', 'job log unavailable'
     failed = failed_steps(log)
+    stopped = [step for step in job.get('steps') or [] if step.get('conclusion') in ('failure', 'cancelled')]
+    if job.get('steps') is not None and len(stopped) != len(failed):
+        return 'unsure', f'{len(stopped)} failed steps in the API but {len(failed)} in the log'
     if not failed:
-        if job_level and job_level.startswith('runner lost'):
+        if job_level and job_level.startswith('runner lost') and not exits:
             return 'infra', '; '.join(evidence)
         return 'unsure', 'no failed step in the log'
     for step, errors in failed:
@@ -161,18 +185,18 @@ def classify(job, annotations, log):
             if error == CANCELED:
                 if not job_level:
                     return 'unsure', f"step '{name}' cancelled without a job timeout or lost runner"
-                if job_level.startswith('job timeout') and testing(step):
-                    return 'unsure', f"timeout inside the test step '{name}' (could be a hang the change introduced)"
+                if job_level.startswith('job timeout') and (testing(step) or not known_build(step)):
+                    return 'unsure', f"timeout in step '{name}', which is not a download or known build (could be a hang the change introduced)"
             elif code and code.group(1) == '137':
-                if testing(step):
-                    return 'unsure', f"exit 137 inside the test step '{name}' (could be the change's own memory use)"
+                if testing(step) or not known_build(step):
+                    return 'unsure', f"exit 137 in step '{name}', which is not a download or known build (could be the change's own memory use)"
                 evidence.append(f"exit 137 (SIGKILL, OOM) in step '{name}'")
             elif code:
-                hit = INFRA_LOG.search(final_attempt(body))
+                hit = terminal_infra(body)
                 if not acquisition(step):
                     return 'unsure', f"exit {code.group(1)} in step '{name}', which is not a download or cache step"
                 if not hit:
-                    return 'unsure', f"exit {code.group(1)} in step '{name}' without an infrastructure signature in its last attempt"
+                    return 'unsure', f"exit {code.group(1)} in step '{name}' without an infrastructure signature at the end of its last attempt"
                 evidence.append(f"'{hit.group(0)}' in step '{name}'")
             else:
                 return 'unsure', f'unrecognised error line: {error[:200]}'
@@ -260,6 +284,10 @@ def summary(lines, env=os.environ):
             out.write(text)
 
 
+def check_run(repo, job):
+    return job.get('check_run_url') or f"repos/{repo}/check-runs/{job['id']}"
+
+
 def collect(repo, run_id, attempt, get=None, log=None):
     get, log = get or request, log or job_log
     run = get(f'repos/{repo}/actions/runs/{run_id}/attempts/{attempt}')
@@ -271,7 +299,7 @@ def collect(repo, run_id, attempt, get=None, log=None):
             break
         page += 1
     failed = [job for job in jobs if job.get('conclusion') in ('failure', 'cancelled', 'timed_out')]
-    annotations = {job['id']: get(f"repos/{repo}/check-runs/{job['id']}/annotations?per_page=100") for job in failed}
+    annotations = {job['id']: get(check_run(repo, job) + '/annotations?per_page=100') for job in failed}
     logs = {job['id']: log(repo, job['id']) for job in failed if job.get('name') not in AGGREGATES}
     return run, jobs, annotations, logs, newest_run(get, repo, run)
 
