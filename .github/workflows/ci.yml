@@ -1555,7 +1555,8 @@ jobs:
     name: CI OK
     runs-on: ubuntu-24.04
     timeout-minutes: 5
-    if: always()
+    # A skipped CI OK passes a required check, so only a pull request run that a newer one cancelled may skip it.
+    if: ${{ always() && (github.event_name != 'pull_request' || !cancelled()) }}
     needs:
       - changes
       - lint-repo

@@ -50,7 +50,7 @@ class JobSelectionPerEvent(unittest.TestCase):
 
     def test_ci_ok_reports_on_every_run_and_counts_skipped_jobs_as_passing(self):
         ok = job('ci-ok')
-        self.assertIn('    if: always()\n', ok)
+        self.assertIn("    if: ${{ always() && (github.event_name != 'pull_request' || !cancelled()) }}\n", ok)
         self.assertIn('case "$r" in success|skipped) ;; *) exit 1 ;; esac', ok)
 
     def test_pull_requests_keep_their_path_selection(self):
@@ -84,8 +84,17 @@ class JobSelectionPerEvent(unittest.TestCase):
         ci_ok = job('ci-ok')
         for name in ['changes', 'docker-smoke', 'determinism', 'e2e', 'research', 'web-unit', 'test-engine-gates']:
             self.assertIn(f'      - {name}\n', ci_ok)
-        self.assertIn('if: always()', ci_ok)
+        self.assertIn("if: ${{ always() && (github.event_name != 'pull_request' || !cancelled()) }}", ci_ok)
         self.assertIn('success|skipped', ci_ok)
+
+    def test_a_cancelled_run_skips_ci_ok_only_on_a_pull_request(self):
+        condition = job('ci-ok').split('    if: ${{ ', 1)[1].split(' }}', 1)[0]
+        for event in ['pull_request', 'merge_group', 'push', 'schedule', 'workflow_dispatch']:
+            for cancelled in [False, True]:
+                expression = (condition.replace('always()', 'True').replace('!cancelled()', str(not cancelled))
+                              .replace('github.event_name', repr(event)).replace('&&', ' and ').replace('||', ' or '))
+                runs = eval(expression, {'__builtins__': {}}, {})
+                self.assertEqual(runs, not (cancelled and event == 'pull_request'), (event, cancelled))
 
 
 if __name__ == '__main__':
