@@ -1,3 +1,5 @@
+import subprocess
+import json
 import importlib.util
 import pathlib
 import re
@@ -48,9 +50,9 @@ class JobSelectionPerEvent(unittest.TestCase):
         self.assertIn("FORCE_FULL: ${{ steps.labels.outputs.run_e2e == 'true' }}", changes)
         self.assertIn("run_e2e: ${{ steps.labels.outputs.run_e2e == 'true' }}", changes)
 
-    def test_ci_ok_reports_on_every_run_and_counts_skipped_jobs_as_passing(self):
+    def test_ci_ok_reports_unless_a_newer_run_replaces_it_and_counts_skipped_jobs_as_passing(self):
         ok = job('ci-ok')
-        self.assertIn('    if: always()\n', ok)
+        self.assertIn("    if: ${{ always() && needs.superseded.outputs.newer != 'true' }}\n", ok)
         self.assertIn('case "$r" in success|skipped) ;; *) exit 1 ;; esac', ok)
 
     def test_pull_requests_keep_their_path_selection(self):
@@ -84,8 +86,54 @@ class JobSelectionPerEvent(unittest.TestCase):
         ci_ok = job('ci-ok')
         for name in ['changes', 'docker-smoke', 'determinism', 'e2e', 'research', 'web-unit', 'test-engine-gates']:
             self.assertIn(f'      - {name}\n', ci_ok)
-        self.assertIn('if: always()', ci_ok)
+        self.assertIn("if: ${{ always() && needs.superseded.outputs.newer != 'true' }}", ci_ok)
         self.assertIn('success|skipped', ci_ok)
+
+    def condition(self, name):
+        return job(name).split('    if: ${{ ', 1)[1].split(' }}', 1)[0]
+
+    def evaluate(self, expression, values):
+        for key, value in values.items():
+            expression = expression.replace(key, repr(value))
+        expression = expression.replace('&&', ' and ').replace('||', ' or ').replace('!cancelled()', 'not cancelled()')
+        return eval(expression, {'__builtins__': {}, 'always': lambda: True, 'cancelled': lambda: values['cancelled()']}, {})
+
+    def test_ci_ok_skips_only_when_a_newer_run_on_the_same_head_replaces_a_cancelled_pull_request_run(self):
+        for event in ['pull_request', 'merge_group', 'push', 'schedule', 'workflow_dispatch']:
+            for cancelled in [False, True]:
+                checks = self.evaluate(self.condition('superseded'), {'github.event_name': event, 'cancelled()': cancelled})
+                self.assertEqual(checks, event == 'pull_request' and cancelled, (event, cancelled))
+                for newer in (['true', 'false', ''] if checks else ['']):
+                    runs = self.evaluate(self.condition('ci-ok'), {'needs.superseded.outputs.newer': newer, 'cancelled()': cancelled})
+                    self.assertEqual(runs, newer != 'true', (event, cancelled, newer))
+
+    def test_the_supersession_check_waits_for_every_job_and_looks_only_at_newer_runs_on_this_head(self):
+        superseded = job('superseded')
+        ci_ok = job('ci-ok')
+        needs = lambda block: re.findall(r'^      - ([\w-]+)$', re.match(r'(?:      - [\w-]+\n)+', block.split('    needs:\n', 1)[1]).group(0), re.M)
+        self.assertEqual(sorted(needs(superseded) + ['superseded']), sorted(needs(ci_ok)))
+        self.assertIn('SHA: ${{ github.event.pull_request.head.sha }}', superseded)
+        self.assertIn('actions/runs?event=pull_request&head_sha=$SHA', superseded)
+        self.assertIn('select(.path == \\".github/workflows/ci.yml\\" and .id > $RUN_ID and ([.pull_requests[].number] | index($PR)) and (.status != \\"completed\\" or .conclusion == \\"success\\"))', superseded)
+        self.assertIn('PR: ${{ github.event.pull_request.number }}', superseded)
+
+    def test_only_a_newer_run_of_this_workflow_for_this_pull_request_counts(self):
+        superseded = job('superseded')
+        query = superseded.split('--jq "', 1)[1].split(' | length")', 1)[0].replace('\\"', '"') + ' | length'
+        query = query.replace('$RUN_ID', '100').replace('$PR', '7')
+        ours = {'path': '.github/workflows/ci.yml', 'pull_requests': [{'number': 9}, {'number': 7}]}
+        runs = {'workflow_runs': [
+            {'id': 101, 'path': '.github/workflows/ci.yml', 'pull_requests': [{'number': 8}], 'status': 'in_progress'},
+            {'id': 102, 'path': '.github/workflows/verify.yml', 'pull_requests': [{'number': 7}], 'status': 'in_progress'},
+            {'id': 99, 'path': '.github/workflows/ci.yml', 'pull_requests': [{'number': 7}], 'status': 'in_progress'},
+            {'id': 103, 'path': '.github/workflows/ci.yml', 'pull_requests': [], 'status': 'in_progress'},
+            {**ours, 'id': 105, 'status': 'completed', 'conclusion': 'failure'},
+            {**ours, 'id': 106, 'status': 'completed', 'conclusion': 'cancelled'}]}
+        count = lambda data: subprocess.run(['jq', query], input=json.dumps(data), capture_output=True, text=True, check=True).stdout.strip()
+        self.assertEqual(count(runs), '0')
+        for status, conclusion in [('queued', None), ('in_progress', None), ('completed', 'success')]:
+            more = {'workflow_runs': runs['workflow_runs'] + [{**ours, 'id': 104, 'status': status, 'conclusion': conclusion}]}
+            self.assertEqual(count(more), '1', status)
 
 
 if __name__ == '__main__':
