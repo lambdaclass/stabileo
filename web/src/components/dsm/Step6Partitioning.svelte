@@ -5,9 +5,6 @@
   import MatrixDisplay from './MatrixDisplay.svelte';
   import VectorDisplay from './VectorDisplay.svelte';
 
-  import StepBlocks from '../steps/StepBlocks.svelte';
-  import { rigidStep6 } from '../../lib/engine/steps/dsm-kinematics';
-
   let { data, editable = false }: { data: DSMStepData; editable?: boolean } = $props();
 
   const nf = $derived(data.dofNumbering.nFree);
@@ -77,7 +74,6 @@
     labels={data.freeDofLabels}
     precision={4}
   />
-  {#if data.rigid}<div data-testid="dsm-rigid-6"><StepBlocks blocks={rigidStep6(data)} narrow /></div>{/if}
 </div>
 
 <style>
