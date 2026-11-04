@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from '../Hint.svelte';
   /**
    * Zones from a template's closed outlines: the template, the layers holding room outlines,
    * then each outline with the label inside it and the use it suggests (pending until confirmed).
@@ -57,7 +58,7 @@
           {/each}
         </tbody>
       </table>
-      <p class="zt-hint">{t('useZones.fromTemplateHint')}</p>
+      <Hint text={t('useZones.fromTemplateHint')} />
     {/if}
     {#if result}<p data-testid="zones-from-template-result">{result}</p>{/if}
     <div class="zt-actions">
@@ -75,7 +76,6 @@
   table { border-collapse: collapse; width: 100%; }
   th { text-align: left; color: var(--st-text-3); font-weight: 500; }
   td, th { padding: 2px 4px; border-bottom: 1px solid var(--st-hair); }
-  .zt-hint { margin: 0; color: var(--st-text-3); font-size: 0.68rem; }
   .zt-actions { display: flex; justify-content: flex-end; gap: 8px; }
   .zt-btn { padding: 4px 12px; background: var(--st-surface-3); color: var(--st-text-2); border: 1px solid var(--st-hair-strong); border-radius: var(--st-radius); font: inherit; cursor: pointer; }
   .zt-btn.primary { background: var(--st-accent); border-color: var(--st-accent); color: #fff; }

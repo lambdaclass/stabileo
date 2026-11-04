@@ -1,11 +1,12 @@
 <script lang="ts">
   /**
    * Lines on one shared y axis. Reference series are drawn first as a wide translucent underlay and
-   * ours on top as a thin line, so agreement reads as a line inside a halo. Series are labelled on
-   * the plot (`labels`), not in a legend box. A crosshair tooltip reads every series at the nearest x.
+   * ours on top as a thin line, so agreement reads as a line inside a halo. A legend and a data table
+   * sit below the plot; a crosshair tooltip reads every series at the nearest x.
    */
   import { tick } from 'svelte';
   import { chartReadout } from './chart-readout';
+  import { chartStrings } from '../shell/chart-strings';
   import type { Series } from './protocol';
   import { num, tickDecimals } from '../shell/format';
 
@@ -20,7 +21,11 @@
     labels = [],
     log = false,
     rules = [],
-    ariaLabel = '',
+    ariaLabel = null,
+    point = null,
+    nearest = 'x',
+    dataTable = false,
+    scrubber = false,
   }: {
     series: Series[];
     xLabel: string;
@@ -30,15 +35,31 @@
     marker?: number | null;
     markerLabel?: string;
     labels?: Label[];
-    ariaLabel?: string;
     /** A log10 y axis (for differences spanning orders of magnitude). */
     log?: boolean;
     /** Horizontal reference rules (tolerances), drawn dashed with their label. */
     rules?: { y: number; text: string }[];
+    ariaLabel?: string | null;
+    /** A point to mark on the curve itself, for paths that turn back in x. */
+    point?: [number, number] | null;
+    /** 'xy' reads the point nearest the pointer in both directions, so a path that turns back in x reads one branch. */
+    nearest?: 'x' | 'xy';
+    /** A legend and a data table below the plot. */
+    dataTable?: boolean;
+    /** A range input that moves the readout along the first series from the keyboard or by touch. */
+    scrubber?: boolean;
   } = $props();
 
+  const strings = $derived(chartStrings());
   let width = $state(600);
+  let readIndex = $state(0);
   let hoverX = $state<number | null>(null);
+  let hoverY = $state(0);
+  function readAt(index: number) {
+    const p = series[0]?.points[index];
+    hoverX = p?.[0] ?? null;
+    if (p) hoverY = sy(p[1]);
+  }
   const M = { l: 48, r: 28, t: 22, b: 36 };
 
   function inside(node: SVGTextElement, _layout: unknown) {
@@ -89,7 +110,7 @@
   }
   const ordered = $derived([...series].sort((a, b) => Number(!!b.dashed) - Number(!!a.dashed)));
 
-  const readout = $derived(chartReadout(series, hoverX));
+  const readout = $derived(chartReadout(series, hoverX, nearest === 'xy' ? (p) => Math.hypot(sx(p[0]) - sx(hoverX!), sy(p[1]) - hoverY) : undefined));
   const atMarker = $derived(
     marker === null ? [] : series.filter((s) => !s.dashed).map((s) => ({ s, p: s.points.reduce<[number, number] | null>((b, p) => (!b || Math.abs(p[0] - marker!) < Math.abs(b[0] - marker!) ? p : b), null) })),
   );
@@ -97,6 +118,7 @@
   function onMove(e: PointerEvent) {
     const r = (e.currentTarget as SVGSVGElement).getBoundingClientRect();
     const px = e.clientX - r.left;
+    hoverY = e.clientY - r.top;
     hoverX = px < M.l || px > width - M.r ? null : x0 + ((px - M.l) / (width - M.l - M.r)) * (x1 - x0);
   }
   const fmtX = (v: number) => num(v, { dp: tickDecimals(xt.step) });
@@ -105,7 +127,7 @@
 </script>
 
 <div class="chart" bind:clientWidth={width}>
-  <svg {width} {height} role="img" aria-label={ariaLabel || `${yLabel} / ${xLabel}`} onpointermove={onMove} onpointerleave={() => (hoverX = null)}>
+  <svg {width} {height} role="img" aria-label={ariaLabel || strings.axes.replace('{y}', yLabel).replace('{x}', xLabel)} onpointerdown={onMove} onpointermove={onMove} onpointerleave={() => (hoverX = null)}>
     <text x={M.l - 6} y={11} class="label" text-anchor="start">{yLabel}{#if yExp}&#8201;(×10<tspan baseline-shift="super" font-size="12px">{num(yExp, {})}</tspan>){/if}</text>
     {#each yt.ticks as t (t)}
       {@const yy = log ? syRaw(t) : sy(t * 10 ** yExp)}
@@ -140,6 +162,9 @@
           {#if m.p}<circle cx={sx(m.p[0])} cy={sy(m.p[1])} r="4" style:fill={m.s.color} stroke="var(--st-surface, #0f1e2b)" stroke-width="2" />{/if}
         {/each}
       {/if}
+      {#if point}
+        <circle cx={sx(point[0])} cy={sy(point[1])} r="5" style:fill={series.find((s) => !s.dashed)?.color ?? 'var(--fg)'} stroke="var(--st-surface, #0f1e2b)" stroke-width="2" data-testid="chart-point" />
+      {/if}
       {#if readout}
         <line x1={sx(readout.x)} x2={sx(readout.x)} y1={M.t} y2={height - M.b} class="cross" />
       {/if}
@@ -151,21 +176,38 @@
       <text x={sx(l.x)} y={sy(l.y) + (l.dy ?? -8)} class="dlabel" text-anchor={l.anchor ?? 'start'} use:inside={[l.text, l.x, l.y, width]}>{l.text}</text>
     {/each}
   </svg>
+  {#if dataTable}
+  <ul class="legend">{#each series as s}<li><span class="sw" style:background={s.color}></span>{s.name}</li>{/each}</ul>
+  <details><summary>{strings.table}</summary>
+    {#each series as s}<table><caption>{s.name}</caption><thead><tr><th>{xLabel}</th><th>{yLabel}</th></tr></thead><tbody>
+      {#each s.points as p}<tr><td>{fmtVal(p[0])}</td><td>{fmtVal(p[1])}</td></tr>{/each}
+    </tbody></table>{/each}
+  </details>
+  {/if}
+  {#if scrubber}
+  <input type="range" min="0" max={Math.max(0, (series[0]?.points.length ?? 1) - 1)} bind:value={readIndex}
+    aria-label={xLabel} oninput={(e) => readAt(e.currentTarget.valueAsNumber)}
+    onfocus={() => readAt(readIndex)} />
+  {/if}
   {#if readout}
-    <div class="readout" style:left="{Math.min(sx(readout.x) + 10, width - 230)}px">
+    <div aria-live="polite" class="readout" style:left="{Math.max(0, Math.min(sx(readout.x) + 10, width - 230))}px">
       <div class="rx">{xLabel}: {fmtVal(readout.x)}</div>
       {#each readout.rows as r (r.s.name)}
-        {#if r.p}<div><span class="sw" style:background={r.s.color}></span>{r.s.name}: {fmtVal(r.p[1])}</div>{/if}
+        {#if r.p}<div><span class="sw" style:background={r.s.color}></span>{r.s.name}: {#if readout.ownX}{fmtVal(r.p[0])}, {/if}{fmtVal(r.p[1])}</div>{/if}
       {/each}
     </div>
   {/if}
 </div>
 
 <style>
+  .legend { list-style: none; padding: 0; font-size: max(12px, var(--rs-micro)); }
+  summary { min-height: 44px; cursor: pointer; display: flex; align-items: center; font-size: max(12px, var(--rs-micro)); }
+  table { width: 100%; table-layout: fixed; overflow-wrap: anywhere; font-size: max(12px, var(--rs-micro)); }
   .chart {
     position: relative;
     width: 100%;
   }
+  input { width: 100%; height: 44px; }
   svg {
     display: block;
     overflow: visible;
@@ -203,8 +245,8 @@
     font: max(12px, var(--rs-micro)) var(--st-sans);
   }
   .readout {
-    position: absolute;
-    top: 8px;
+    position: relative;
+    left: 0 !important;
     pointer-events: none;
     background: var(--lp-ink, #0c1620);
     border: 1px solid var(--hair);
@@ -213,7 +255,11 @@
     font-variant-numeric: tabular-nums;
     padding: 0.35rem 0.55rem;
     border-radius: 3px;
-    white-space: nowrap;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    box-sizing: border-box;
+    width: 230px;
+    max-width: 100%;
   }
   .rx {
     color: var(--fg-2);

@@ -290,7 +290,7 @@ fn validation_zero_force_members() {
 
     // All element forces should satisfy global equilibrium
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
-    assert_close(sum_rx, 0.0, 0.01, "Zero-force: ΣRx = 0");
+    assert_close_abs(sum_rx, 0.0, 0.01, 1e-6, "Zero-force: ΣRx = 0");
 
     // With 3 supports providing 4 reaction DOFs (1 pinned = 2, 2 rollers = 2)
     // and only 1 horizontal DOF from pin, horizontal equilibrium is well-defined.
@@ -362,7 +362,7 @@ fn validation_x_braced_panel() {
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
     let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_rx, -p, 0.01, "X-brace: ΣRx = -P");
-    assert_close(sum_ry, 0.0, 0.05, "X-brace: ΣRy ≈ 0");
+    assert_close_abs(sum_ry, 0.0, 0.05, 1e-6, "X-brace: ΣRy ≈ 0");
 
     // With symmetric loading, both diagonals carry equal magnitude force
     let f5 = results.element_forces.iter().find(|e| e.element_id == 5).unwrap().n_start;

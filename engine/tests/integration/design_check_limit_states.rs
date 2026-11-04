@@ -20,6 +20,7 @@ fn w14x22() -> SteelMemberData {
         u_factor: None,
         aw: None,
         cv1: None,
+        aw_weak: None,
         lby: 3.0,
         lbz: 3.0,
         ky: None,
@@ -63,7 +64,7 @@ fn aisc_tension_rupture_on_the_net_section_governs() {
     m.an = Some(3.60e-3);
     m.u_factor = Some(0.85);
 
-    let r = steel_run(m, ElementDesignForces { element_id: 1, n: 900e3, my: 0.0, mz: None, vy: None });
+    let r = steel_run(m, ElementDesignForces { element_id: 1, n: 900e3, my: 0.0, mz: None, v_weak: None, v_strong: None });
 
     assert!(
         (r.phi_pn_tension - 1_032_750.0).abs() / 1_032_750.0 < 1e-6,
@@ -76,7 +77,7 @@ fn aisc_tension_rupture_on_the_net_section_governs() {
 /// Without Fu there is no basis for a rupture check, so yielding stands alone.
 #[test]
 fn aisc_tension_without_fu_falls_back_to_yielding() {
-    let r = steel_run(w14x22(), ElementDesignForces { element_id: 1, n: 900e3, my: 0.0, mz: None, vy: None });
+    let r = steel_run(w14x22(), ElementDesignForces { element_id: 1, n: 900e3, my: 0.0, mz: None, v_weak: None, v_strong: None });
     assert!(
         (r.phi_pn_tension - 0.90 * 345e6 * 4.19e-3).abs() < 1.0,
         "expected gross-section yielding, got {:.0} N",
@@ -95,7 +96,7 @@ fn aisc_shear_is_checked_when_the_web_area_is_known() {
     m.aw = Some(2.0184e-3);
 
     let r = steel_run(m, ElementDesignForces {
-        element_id: 1, n: 0.0, my: 10e3, mz: None, vy: Some(200e3),
+        element_id: 1, n: 0.0, my: 10e3, mz: None, v_weak: None, v_strong: Some(200e3),
     });
 
     assert!(
@@ -117,7 +118,7 @@ fn aisc_shear_can_govern_the_unity_ratio() {
     m.aw = Some(2.0184e-3);
 
     let r = steel_run(m, ElementDesignForces {
-        element_id: 1, n: 0.0, my: 10e3, mz: None, vy: Some(400e3),
+        element_id: 1, n: 0.0, my: 10e3, mz: None, v_weak: None, v_strong: Some(400e3),
     });
 
     assert!(r.shear_ratio > 1.0, "400 kN over 376 kN exceeds unity, got {:.3}", r.shear_ratio);
@@ -125,14 +126,23 @@ fn aisc_shear_can_govern_the_unity_ratio() {
     assert!((r.unity_ratio - r.shear_ratio).abs() < 1e-12);
 }
 
-/// With no web area supplied there is no shear check to report.
 #[test]
-fn aisc_shear_absent_without_web_area() {
+fn aisc_shear_without_web_area_is_unevaluated_not_passed() {
     let r = steel_run(w14x22(), ElementDesignForces {
-        element_id: 1, n: 0.0, my: 10e3, mz: None, vy: Some(400e3),
+        element_id: 1, n: 0.0, my: 10e3, mz: None, v_weak: None, v_strong: Some(400e3),
     });
     assert_eq!(r.phi_vn, 0.0);
     assert_eq!(r.shear_ratio, 0.0);
+    assert_eq!(r.unevaluated, vec!["Shear G2".to_string()]);
+    assert!(r.governing_check.ends_with("(incomplete)"), "{}", r.governing_check);
+}
+
+#[test]
+fn aisc_shear_without_web_area_or_shear_is_not_flagged() {
+    let r = steel_run(w14x22(), ElementDesignForces {
+        element_id: 1, n: 0.0, my: 10e3, mz: None, v_weak: None, v_strong: None,
+    });
+    assert!(r.unevaluated.is_empty(), "{:?}", r.unevaluated);
 }
 
 // ==================== Masonry: Vn upper limit ====================

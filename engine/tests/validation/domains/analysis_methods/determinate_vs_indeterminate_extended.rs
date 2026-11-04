@@ -345,7 +345,7 @@ fn validation_ext_portal_frame_lateral_load_sharing() {
 
     // Vertical equilibrium: no vertical loads applied
     let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
-    assert_close(sum_ry.abs(), 0.0, 0.02, "portal Fy equilibrium (no gravity)");
+    assert_close_abs(sum_ry.abs(), 0.0, 0.02, 1e-6, "portal Fy equilibrium (no gravity)");
 
     // Both bases should resist horizontal force (both have Rx != 0)
     let r_base1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();

@@ -1,7 +1,7 @@
 {
   "case": "2d-gerber-beam",
   "covers": "2D hinges (Gerber beam)",
-  "format": 1,
+  "format": 2,
   "values": {
     "base.allZero": false,
     "base.diagnosticCodes": "",

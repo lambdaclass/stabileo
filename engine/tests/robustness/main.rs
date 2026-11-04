@@ -18,6 +18,8 @@ mod determinism;
 mod differential_regressions;
 #[path = "../entry_point_validation.rs"]
 mod entry_point_validation;
+#[path = "../envelope_nonfinite.rs"]
+mod envelope_nonfinite;
 #[path = "../feature_matrix.rs"]
 mod feature_matrix;
 #[path = "../feature_matrix_regressions.rs"]
@@ -52,3 +54,5 @@ mod sparse_ex_analysis_regressions;
 mod unknown_enum_strings;
 #[path = "../unknown_enum_strings_postprocess.rs"]
 mod unknown_enum_strings_postprocess;
+#[path = "../time_history_nonfinite.rs"]
+mod time_history_nonfinite;

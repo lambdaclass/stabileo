@@ -611,10 +611,11 @@ fn fsi_chopra_period_lengthening() {
 
     // Fixed-base cantilever dam under horizontal tip load
     let f_test: f64 = 1000.0;    // kN, test load
+    // make_beam lays the dam along X, so the horizontal load is fz and the deflection is uz (fx would be axial).
     let input = make_beam(
         4, h, e_conc, col_a, col_iz, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 5, fx: f_test, fz: 0.0, my: 0.0,
+            node_id: 5, fx: 0.0, fz: f_test, my: 0.0,
         })],
     );
     let results = solve_2d(&input).expect("solve");
@@ -623,9 +624,9 @@ fn fsi_chopra_period_lengthening() {
     let ei: f64 = e_conc * 1000.0 * col_iz;
     let delta_expected: f64 = f_test * h.powi(3) / (3.0 * ei);
     let delta_actual = results.displacements.iter()
-        .find(|d| d.node_id == 5).unwrap().ux.abs();
+        .find(|d| d.node_id == 5).unwrap().uz.abs();
 
-    assert_close(delta_actual, delta_expected, 0.05, "Chopra dam deflection");
+    assert_close(delta_actual, delta_expected, 1e-6, "Chopra dam deflection");
 
     // Effective stiffness
     let _k_eff: f64 = f_test / delta_actual;

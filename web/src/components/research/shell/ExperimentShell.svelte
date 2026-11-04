@@ -3,19 +3,19 @@
    * The page of one runnable paper: a header, then two panes. Left, the article (our words: what
    * the paper shows, the model, how we reproduced it, the comparison, limitations, Cite this).
    * Right, sticky, the app: Stabileo's viewer, the controls, the step player, the plots. On narrow
-   * screens the article comes first and the app follows. Badges come from the catalogue, whose
+   * screens the app comes first and the article follows. Badges come from the catalogue, whose
    * statuses CI derives from evidence files.
    */
   import { bibliography } from '../catalogue';
-  import { reviewLabel } from '../reviews';
-  import { publicI18n } from '../../../lib/i18n/store.svelte';
   import type { Snippet } from 'svelte';
   import catalog from '../../../../../research/papers.json';
   import PublicLink from '../../landing/PublicLink.svelte';
-  import { fieldName, rs, researchLocale } from '../i18n';
+  import { fieldName, rs } from '../i18n';
+  import { paperTextLocale } from '../text-locale';
   import { provideExperiment, type ExperimentActions, type Check } from './context';
   import VerificationSummary from './VerificationSummary.svelte';
   import { BUILD_COMMIT } from '../../../lib/build-info';
+  import { paperHead } from '../head.svelte';
 
   type Props = {
     paperId: string;
@@ -38,8 +38,10 @@
     locale?: string;
     /** Keep the title above the experiment and put detailed context in the article. */
     introInArticle?: boolean;
+    /** Replaces "reproduction of" in Cite this when the page does not reproduce the paper. */
+    citationRelation?: string;
   };
-  let { paperId, citationAuthors, name, lead, checks = null, verification = null, referenceLabel = null, actions, sourcePath, article, app, wide = false, locale, compactHeader = false, introInArticle = true }: Props = $props();
+  let { paperId, citationAuthors, name, lead, checks = null, verification = null, referenceLabel = null, actions, sourcePath, article, app, wide = false, locale, citationRelation, compactHeader = false, introInArticle = true }: Props = $props();
   provideExperiment(actions);
 
   const entry = catalog.papers.find((p) => p.id === paperId)!;
@@ -47,40 +49,42 @@
   const commit = BUILD_COMMIT;
   const s = $derived(rs());
   const authors = $derived(citationAuthors ?? paper.crossref.authors.join(', '));
+  $effect(() => {
+    paperHead.current = { paperId, name, lead };
+  });
 
 </script>
 
 {#snippet introduction()}
       <p class="rs-cite">
-        {s.afterAuthors} {#if authors}{authors}, {/if} “{paper.crossref.title}”{#if paper.crossref.venue}, <em>{paper.crossref.venue}</em>{/if} ({paper.crossref.year}),
-        <a href="https://doi.org/{paper.doi}" rel="noreferrer" target="_blank">{"doi:"}{paper.doi}</a>.
+        {s.afterAuthors} <span lang="en">{#if authors}{authors}, {/if}“{paper.crossref.title}”{#if paper.crossref.venue}, <em>{paper.crossref.venue}</em>{/if} ({paper.crossref.year}),
+        <a href="https://doi.org/{paper.doi}" rel="noreferrer" target="_blank">{"doi:"}{paper.doi}</a></span>.
       </p>
       <VerificationSummary
         reference={verification?.reference ?? (checks ? { kind: 'checks', passed: checks.passed, total: checks.total, href: '#checks' } : { kind: 'none', why: '' })}
         published={verification?.published ?? { kind: 'none', why: s.notComparedWhy }}
         {referenceLabel}
       />
-      <p class="rs-review">{reviewLabel(paperId, publicI18n.locale)}</p>
-      <p class="rs-lead" lang={locale ?? researchLocale()}>{lead}</p>
+      <p class="rs-lead" lang={locale ?? paperTextLocale(paperId)}>{lead}</p>
 {/snippet}
 
 <section class="sec sec--ink rs-shell">
   <div class="wrap rs-shell-wrap">
     <header class="rs-shell-head" class:rs-compact={compactHeader}>
       <p class="rs-crumb"><PublicLink to="/research">{s.research}</PublicLink> / {fieldName(paper.area)}</p>
-      <h1 lang={locale ?? researchLocale()}>{name}</h1>
+      <h1 lang={locale ?? paperTextLocale(paperId)}>{name}</h1>
       {#if !introInArticle}{@render introduction()}{/if}
     </header>
     <div class="rs-shell-grid" class:rs-wide={wide}>
-      <article class="rs-shell-article rs-prose" lang={locale ?? researchLocale()}>
+      <article class="rs-shell-article rs-prose" lang={locale ?? paperTextLocale(paperId)}>
         {#if introInArticle}{@render introduction()}{/if}
         {@render article()}
         <h2 id="cite">{s.citeThis}</h2>
         <p class="rs-citebox">
-          {s.citationTitle}{name}{s.reproductionOf} {authors} ({paper.crossref.year}{"), doi:"}{paper.doi}{s.implementationLabel} <a href="https://github.com/lambdaclass/stabileo/tree/{commit}/{sourcePath}" rel="noreferrer" target="_blank">{sourcePath} {s.atCommit} {commit}</a>{s.engineCitation}
+          {s.citationTitle}{name}{citationRelation ?? s.reproductionOf} {authors} ({paper.crossref.year}{"), doi:"}{paper.doi}{s.implementationLabel} <a href="https://github.com/lambdaclass/stabileo/tree/{commit}/{sourcePath}" rel="noreferrer" target="_blank">{sourcePath} {s.atCommit} {commit}</a>{s.engineCitation}
         </p>
       </article>
-      <aside class="rs-shell-app" aria-label={s.theExperiment}>
+      <aside lang={locale} class="rs-shell-app" aria-label={s.theExperiment}>
         {@render app()}
       </aside>
     </div>
@@ -109,6 +113,11 @@
   }
   @media (max-width: 700px) {
     .rs-compact .rs-cite { display: none; }
+  }
+  @media (max-height: 30rem) {
+    .rs-shell:has(.rs-compact) { padding-top: 1rem; }
+    .rs-shell-head.rs-compact { margin-bottom: 0.5rem; }
+    .rs-shell-head.rs-compact h1 { font-size: 1.5rem; margin: 0.15rem 0 0.25rem; max-width: none; }
   }
   .rs-crumb,
   .rs-cite {
@@ -170,6 +179,7 @@
     display: none;
   }
   .rs-shell-article {
+    overflow-wrap: anywhere;
     max-width: var(--rs-measure);
   }
   .rs-shell-article :global(a) {

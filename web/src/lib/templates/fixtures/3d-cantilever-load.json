@@ -101,5 +101,16 @@
       "name": "Tip load"
     }
   ],
-  "combinations": []
+  "combinations": [
+    {
+      "id": 1,
+      "name": "Tip load",
+      "factors": [
+        {
+          "caseId": 5,
+          "factor": 1
+        }
+      ]
+    }
+  ]
 }

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from './Hint.svelte';
   /**
    * The project's design data, in one place: the reinforcing steel, the stirrup the depth
    * arithmetic assumes, each kind of element's exposure and clear cover against the minimum of
@@ -42,7 +43,7 @@
 <div class="pk dd" data-testid="design-data-panel">
   <section class="pk-card">
     <h4 class="pk-heading">{t('designData.title')}</h4>
-    <p class="pk-hint">{t('designData.explain')}</p>
+    <Hint text={t('designData.explain')} />
     <div class="dd-row">
       <button class="pk-btn pk-btn-primary" onclick={() => setDesignData(withCirsocCovers({ ...d, rebarGrade: 'ADN 420', rebarFy: 420 }))} data-testid="design-data-cirsoc">{t('designData.cirsocPreset')}</button>
       {#if stated}<button class="pk-btn" onclick={() => setDesignData(null)} data-testid="design-data-reset">{t('designData.reset')}</button>{/if}
@@ -69,7 +70,7 @@
 
   <section class="pk-card" data-testid="design-data-covers">
     <h5 class="dd-h">{t('designData.covers')}</h5>
-    <p class="pk-hint">{t('designData.coversHint')}</p>
+    <Hint text={t('designData.coversHint')} />
     <table class="dd-table">
       <thead><tr><th></th><th>{t('designData.exposure')}</th><th>{t('designData.cover')}</th><th>{t('designData.minimum')}</th></tr></thead>
       <tbody>
@@ -108,7 +109,7 @@
       {/each}
     </div>
     <label class="dd-inline dd-check"><input type="checkbox" checked={d.columnEndZones === true} onchange={(e) => patchDesignData({ columnEndZones: e.currentTarget.checked })} data-testid="design-data-end-zones" /> {t('designData.columnEndZones')}</label>
-    <p class="pk-hint">{t('designData.columnEndZonesHint')}</p>
+    <Hint text={t('designData.columnEndZonesHint')} />
     <label class="dd-inline">{t('designData.wallBar')}
       <select value={d.wallBarDiaMm} onchange={(e) => patchDesignData({ wallBarDiaMm: Number(e.currentTarget.value) })} data-testid="design-data-wall">
         {#each BAR_DIAMETERS_MM.filter((x) => x >= 8 && x <= 20) as dia}<option value={dia}>Ø{dia}</option>{/each}
@@ -118,7 +119,7 @@
 
   <section class="pk-card" data-testid="design-data-lateral">
     <h5 class="dd-h">{t('lateral.title')}</h5>
-    <p class="pk-hint">{t('lateral.projectHint')}</p>
+    <Hint text={t('lateral.projectHint')} />
     <label class="dd-inline">{t('lateral.beams')}
       <select value={d.lateralSystem?.beams ?? ''} onchange={(e) => { const v = e.currentTarget.value; setBeamsLateral(v === 'lateral' || v === 'gravity' ? v : null); }} data-testid="design-data-lateral-beams">
         <option value="">{t('lateral.option.undeclared')}</option>
@@ -130,7 +131,7 @@
 
   <section class="pk-card" data-testid="design-data-slab-base">
     <h5 class="dd-h">{t('designData.slabBase')}</h5>
-    <p class="pk-hint">{t('designData.slabBaseHint')}</p>
+    <Hint text={t('designData.slabBaseHint')} />
     {#each ['bottomX', 'bottomY', 'topX', 'topY'] as k}
       {@const v = d.slabBase?.[k as 'bottomX']}
       <div class="dd-row">
