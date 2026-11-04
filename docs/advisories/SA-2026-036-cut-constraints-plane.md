@@ -7,7 +7,7 @@
 | Issue | [#466](https://github.com/lambdaclass/stabileo/issues/466) |
 | Fix | PR #1297 (safety/fix-466-constraint-plane) |
 | Affected versions | every release with constraints and the 3D-to-2D switch; not bisected |
-| Re-check registry | `constraint-cut-plane` (results version 8, provisional): a 2D model with constraints solved before it opens with a notice to re-cut it from the 3D model or solve in 3D |
+| Re-check registry | `constraint-cut-plane` (results version 25): a 2D model with constraints solved before it opens with a notice to re-cut it from the 3D model or solve in 3D |
 
 ## Affected features
 
