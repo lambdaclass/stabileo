@@ -2,7 +2,9 @@
 
 The merge queue runs the full set minus the heavy jobs that combining PRs rarely breaks
 (slow E2E, visual baselines, Docker smoke, Determinism, quarantined E2E, research validation
-beyond route budgets); pushes to main and the scheduled run add them back.
+beyond route budgets); pushes to main and the scheduled run add them back. A pull request builds
+the Docker image from source only when the Dockerfile's recipe or a toolchain or dependency pin it
+reads changes; otherwise it builds the image around the tested site, and main builds both.
 """
 import json
 import os
@@ -18,6 +20,10 @@ SPECS = {
 
 
 POST_MERGE_EVENTS = ('push', 'schedule', 'workflow_dispatch')
+DOCKER_SOURCE_INPUTS = re.compile(
+    r'Dockerfile|\.dockerignore|rust-toolchain(\.toml)?|\.nvmrc|(.*/)?Cargo\.(toml|lock)|engine/\.cargo/.*'
+    r'|web/package(-lock)?\.json|web/scripts/check-research-springs\.mjs|web/vite\.research-viewer\.config\.ts'
+    r'|research/.*/wasm/.*|research/tools/publish_assets\.py')
 
 
 def area(path):
@@ -34,7 +40,7 @@ def area(path):
     return 'full'
 
 
-def select(event, paths, root=None, force_full=False):
+def select(event, paths, root=None, force_full=False, tested=False):
     scope = 'full'
     if event == 'pull_request' and isinstance(paths, list) and paths and not force_full:
         areas = {area(path) for path in paths} - {'docs'}
@@ -53,7 +59,12 @@ def select(event, paths, root=None, force_full=False):
                    research=full or scope in ('research', 'tools', 'engine'),
                    research_route_only=queue or scope == 'tools',
                    determinism=(full or scope == 'engine') and not queue, results=full or scope == 'engine',
-                   flaky=full and not queue, slow_e2e=event in POST_MERGE_EVENTS)
+                   flaky=full and not queue, slow_e2e=event in POST_MERGE_EVENTS, retest=True)
+    outputs['docker_source'] = outputs['docker'] and (
+        event != 'pull_request' or force_full or not isinstance(paths, list) or not paths
+        or any(not isinstance(path, str) or DOCKER_SOURCE_INPUTS.fullmatch(path) for path in paths))
+    if event == 'push' and tested:
+        outputs.update(backend=False, ci_scripts=False, ai_backend=False, engine=False, results=False, retest=False)
     outputs = {key: str(value).lower() for key, value in outputs.items()}
     outputs.update(scope=scope, unit_area=scope if scope in ('research', 'tools') else '',
                    e2e_specs=json.dumps(SPECS.get(scope, [])),
@@ -82,7 +93,8 @@ if __name__ == '__main__':
         except (KeyError, ValueError, subprocess.CalledProcessError):
             paths = None
     outputs = select(os.environ.get('GITHUB_EVENT_NAME'), paths,
-                     Path(__file__).resolve().parents[2], os.environ.get('FORCE_FULL') == 'true')
+                     Path(__file__).resolve().parents[2], os.environ.get('FORCE_FULL') == 'true',
+                     os.environ.get('TESTED') == 'true')
     with open(os.environ['GITHUB_OUTPUT'], 'a') as out:
         for key, value in outputs.items():
             print(f'{key}={value}', file=out)

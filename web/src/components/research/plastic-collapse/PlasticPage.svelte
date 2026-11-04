@@ -52,7 +52,6 @@
   sourcePath="research/benchmarks/plastic-collapse"
   actions={{ goToStep: i => playback.seek(i), setParams: () => {}, showTab: () => {} }}>
   {#snippet article()}
-    <p><strong>{s.stage}</strong></p>
     <p><strong>{s.note}</strong></p>
     <p>{s.model}</p>
     <p>{s.method} <a href="#portal" onclick={() => playback.seek((result?.steps.length ?? 1) - 1)}>{s.combined} →</a></p>
