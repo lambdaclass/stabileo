@@ -21,3 +21,6 @@
   between two beam strips kept 1.8 m² instead of 0.3 m²).
 - SA-2026-033: whether roof structure lies over a panel is now probed along the panel's own sides,
   not the plan's X and Y, so a shallow trussed roof turned 45° is no longer loaded as a floor.
+- The re-check notice for this change stays until the loads are generated again. Solving again no
+  longer clears it, because saved loads do not change. Applying a load plan now records the results
+  version it was generated with.

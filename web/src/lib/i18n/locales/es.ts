@@ -13948,6 +13948,7 @@ const es: Record<string, string> = {
   "recheck.title": "Los resultados cambiaron desde que se resolvió este proyecto",
   "recheck.intro": "Este proyecto se resolvió por última vez con la versión de resultados {from} de Stabileo; esta es la versión {to}. Estos cambios afectan características que usa este modelo:",
   "recheck.introUnknown": "Este proyecto no registra con qué versión de Stabileo se resolvió (se guardó antes de que eso se registrara). Estos cambios afectan características que usa este modelo:",
+  "recheck.introLoads": "Las cargas generadas de este proyecto vienen de una versión de Stabileo anterior a esta (versión de resultados {to}), y resolver de nuevo no las cambia. Estos cambios las afectan:",
   "recheck.staleWarning": "Hasta que vuelvas a correr el análisis y las verificaciones, cada resultado, verificación e informe de este proyecto queda marcado como desactualizado.",
   "recheck.ack": "Leí estos cambios",
   "recheck.rerun": "Volver a correr análisis y diseño",

@@ -13599,6 +13599,7 @@ const pt: Translations = {
   "recheck.title": "Os resultados mudaram desde a última vez que este projeto foi resolvido",
   "recheck.intro": "Este projeto foi resolvido pela última vez com a versão de resultados {from} do Stabileo; esta é a versão {to}. Estas mudanças afetam recursos que este modelo usa:",
   "recheck.introUnknown": "Este projeto não registra com qual versão do Stabileo foi resolvido (foi salvo antes de isso ser registrado). Estas mudanças afetam recursos que este modelo usa:",
+  "recheck.introLoads": "As cargas geradas deste projeto vêm de uma versão do Stabileo anterior a esta (versão de resultados {to}), e resolver de novo não as altera. Estas mudanças as afetam:",
   "recheck.staleWarning": "Até executar novamente a análise e as verificações, cada resultado, verificação e relatório deste projeto fica marcado como desatualizado.",
   "recheck.ack": "Li estas mudanças",
   "recheck.rerun": "Executar novamente análise e dimensionamento",

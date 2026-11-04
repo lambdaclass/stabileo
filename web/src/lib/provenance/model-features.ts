@@ -85,6 +85,7 @@ export interface FeatureSnapshot {
   regulations?: { roles?: Record<string, { adapterId?: string | null } | undefined> };
   dynamics?: { timeHistory?: unknown; spectra?: unknown[] };
   massSource?: unknown;
+  designData?: { loadBasis?: { resultsVersion?: unknown } };
 }
 
 export interface FeatureContext {
@@ -127,6 +128,12 @@ function slaveNodes(c: Record<string, unknown>): number[] {
   if (Array.isArray(c.nodes)) for (const n of c.nodes) if (typeof n === 'number') out.push(n);
   if (Array.isArray(c.terms)) for (const t of c.terms as Array<{ nodeId?: unknown }>) if (typeof t?.nodeId === 'number') out.push(t.nodeId);
   return out;
+}
+
+export function loadsGeneratedWith(s: FeatureSnapshot): number {
+  const basis = s.designData?.loadBasis;
+  if (!basis) return Infinity;
+  return Number.isInteger(basis.resultsVersion) ? (basis.resultsVersion as number) : 0;
 }
 
 /** The features of one saved model. */

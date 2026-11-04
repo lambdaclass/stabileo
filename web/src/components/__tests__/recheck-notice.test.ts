@@ -42,3 +42,17 @@ it('keeps acknowledgement disabled until lazy changes arrive, without changing t
   expect(recheckStore.stale).toBe(true);
   expect(recheckStore.noticeOpen).toBe(true);
 });
+
+it('says the generated loads are older when the project was solved in this build', async () => {
+  recheckStore.openProject(JSON.parse(JSON.stringify({
+    analysisMode: 'pro',
+    elements: [[1, { id: 1, type: 'frame', materialId: 1, nodeI: 1, nodeJ: 2 }]],
+    loads: [{ type: 'distributed3d', data: { caseId: 1, generatedBy: 'cirsoc-101' } }],
+    designData: { loadBasis: {} },
+    solvedWith: { ...recheckStore.capture(), analyses: ['linear'] },
+  })));
+  await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
+  const html = render(RecheckNotice).body;
+  expect(html).toContain('data-change-id="generated-area-loads-headroom"');
+  expect(html).toContain(t('recheck.introLoads').split('{to}')[0]!);
+});

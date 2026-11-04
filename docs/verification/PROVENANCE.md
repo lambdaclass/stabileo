@@ -221,6 +221,12 @@ If there are any:
 Acknowledgement is per stamp and per session: reopening the file in a new session asks again.
 A project solved with a newer version than the build opening it is flagged as `newer`.
 
+A change whose condition names `generatedLoads` concerns a project until its loads are generated
+again, not until it is solved again: solving does not change saved loads. Applying a load plan
+records the results version in `designData.loadBasis.resultsVersion`. A project whose load basis
+lacks it counts as generated with version 0. A project with no load basis falls back to its solve
+stamp alone.
+
 ## Provenance of results and reports
 
 `provenance/result-provenance.ts` (pure) and `store/result-provenance.ts` (gathered from the live

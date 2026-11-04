@@ -13798,6 +13798,7 @@ const tr: Translations = {
   'recheck.title': 'Bu proje son çözüldüğünden beri sonuçlar değişti',
   'recheck.intro': 'Bu proje en son Stabileo sonuç sürümü {from} ile çözüldü; bu sürüm {to}. Bu değişiklikler bu modelin kullandığı özellikleri ilgilendiriyor:',
   'recheck.introUnknown': 'Bu proje, hangi Stabileo sürümüyle çözüldüğünü kaydetmiyor (bu bilgi kaydedilmeden önce saklanmış). Bu değişiklikler bu modelin kullandığı özellikleri ilgilendiriyor:',
+  'recheck.introLoads': 'Bu projenin üretilmiş yükleri bu sürümden önceki bir Stabileo sürümünden geliyor (sonuç sürümü {to}) ve yeniden çözmek onları değiştirmez. Bu değişiklikler onları ilgilendiriyor:',
   'recheck.staleWarning': 'Analizi ve tasarım kontrollerini yeniden çalıştırana kadar bu projenin her sonucu, tasarım kontrolü ve raporu güncel değil olarak işaretlenir.',
   'recheck.ack': 'Bu değişiklikleri okudum',
   'recheck.rerun': 'Analizi ve tasarımı yeniden çalıştır',

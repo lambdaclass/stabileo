@@ -12,6 +12,7 @@ import type { LoadPlan } from '../engine/loads/load-plan';
 import type { CurrentLoadState } from '../engine/loads/load-plan-delta';
 import { findPlannedCase, type Load } from './model.svelte';
 import { patchDesignData } from './design-data';
+import { RESULTS_VERSION } from '../provenance/registry';
 import { untouchedDefaults, DEFAULT_CASE_NAME_KEYS } from '../model/default-loads';
 import { t } from '../i18n';
 
@@ -160,7 +161,7 @@ export function applyLoadPlan(p: LoadPlan, opts: ApplyLoadPlanOptions): void {
     const { windGust: _gust, ...scalars } = p.factors;
     const factors = Object.fromEntries(Object.entries(scalars).filter(([, v]) => v !== undefined)) as Record<string, NonNullable<(typeof scalars)[keyof typeof scalars]>>;
     patchDesignData({ loadBasis: {
-      at: new Date().toISOString(), ...(p.generatedBy ? { generatedBy: p.generatedBy } : {}), factors,
+      at: new Date().toISOString(), resultsVersion: RESULTS_VERSION, ...(p.generatedBy ? { generatedBy: p.generatedBy } : {}), factors,
       levels: p.levels.map(({ nodeIds: _n, ...l }) => l), ...(p.seismic ? { seismic: p.seismic } : {}),
       derivation: p.derivation, assumptions: p.assumptions, refs: p.refs,
     } });

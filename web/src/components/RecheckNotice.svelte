@@ -82,7 +82,9 @@
     >
       <h3 class="rc-title" id="rc-title">{t('recheck.title')}</h3>
       <p class="rc-intro" id="rc-intro">
-        {a.solvedVersion > 0
+        {a.solvedVersion >= a.currentVersion
+          ? tp('recheck.introLoads', { to: a.currentVersion })
+          : a.solvedVersion > 0
           ? tp('recheck.intro', { from: a.solvedVersion, to: a.currentVersion })
           : t('recheck.introUnknown')}
       </p>
