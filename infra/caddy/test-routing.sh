@@ -124,6 +124,7 @@ a /no-such-page 404 "$nf_en"
 a /blog/no-such-post/ 404 'content="noindex"'
 a /application 404
 a /assets/missing.js 404
+a /api/health 502
 
 expect admin.test "$admin_port" /users/42 200 ADMIN-SHELL
 expect admin.test "$admin_port" /assets/admin-abc123.js 200 immutable

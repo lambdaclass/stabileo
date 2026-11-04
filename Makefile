@@ -385,7 +385,7 @@ test.ci-scripts: test.nightly-scripts
 
 # DIST=web/dist checks a real build instead of the fixture site.
 test.infra.caddy:
-	nix shell nixpkgs#caddy nixpkgs#curl nixpkgs#python3 --command bash infra/caddy/test-routing.sh $(DIST)
+	nix shell --inputs-from . nixpkgs#caddy nixpkgs#curl nixpkgs#python3 --command bash infra/caddy/test-routing.sh $(DIST)
 
 lint.backend:
 	$(NIX_RUN) bash -c "cd backend && mix format --check-formatted"
