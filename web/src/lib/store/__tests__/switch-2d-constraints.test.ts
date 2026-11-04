@@ -240,6 +240,19 @@ describe('a cut bends each member about the axis the space model bends it about 
     expect(membersBentOffAxis('yz', columns, modelStore.elements, modelStore.nodes, modelStore.sections)).toEqual([]);
   });
 
+  it('a square rolled 45° bends with the same inertia but its corner is farther out, so the cut is refused', () => {
+    const { columns } = portalInYZ(0);
+    const sid = modelStore.addSection({ name: 'square', a: 0.04, iy: 1.3333e-4, iz: 1.3333e-4, j: 2.25e-4, b: 0.2, h: 0.2, shape: 'rect' } as never);
+    for (const id of modelStore.elements.keys()) modelStore.elements.get(id)!.sectionId = sid;
+    const guard = () => membersBentOffAxis('yz', columns, modelStore.elements, modelStore.nodes, modelStore.sections);
+    expect(guard()).toEqual([]);
+    for (const id of columns) modelStore.elements.get(id)!.rollAngle = 45;
+    expect(guard()).toEqual([...columns].sort((x, y) => x - y));
+    const tube = modelStore.addSection({ name: 'tube', a: 0.004, iy: 5e-6, iz: 5e-6, j: 1e-5, d: 0.2, t: 0.008, shape: 'CHS' } as never);
+    for (const id of columns) modelStore.elements.get(id)!.sectionId = tube;
+    expect(guard()).toEqual([]);
+  });
+
   it('a column whose section is turned 30° couples in-plane and out-of-plane bending, so even an X–Z cut is refused', () => {
     const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(0, 0, 3);
     const column = modelStore.addElement(a, b, 'frame');

@@ -97,12 +97,14 @@ export function planeBending(
     const cy = (p[0] * axes.ey[0] + p[1] * axes.ey[1] + p[2] * axes.ey[2]) / len;
     const cz = (p[0] * axes.ez[0] + p[1] * axes.ez[1] + p[2] * axes.ez[2]) / len;
     const rotation: 0 | 90 = cz * cz > cy * cy ? 90 : 0;
+    const skew = Math.min(cy * cy, cz * cz) > 1e-12;
     const sectionIds = [e.sectionId, ...(e.variableSection ? [e.variableSection.sectionJ] : [])];
     let off = false;
     const turned: number[] = [];
     for (const sid of sectionIds) {
       const s = sections.get(sid);
       if (!s) continue;
+      if (skew && s.shape !== 'CHS') { off = true; continue; }
       const props = solverProperties(s);
       const { iy, iz } = spaceBendingInertias(s, props);
       const held = iy * cy * cy + iz * cz * cz;
