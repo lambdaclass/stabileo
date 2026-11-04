@@ -127,6 +127,19 @@ class CiRunners(unittest.TestCase):
         self.assertIn("github.ref == 'refs/heads/main'", mutants)
         self.assertTrue(mutants.endswith("|| 'ubuntu-24.04' }}"))
 
+    def test_micromamba_installs_into_the_job_temp_directory(self):
+        found = 0
+        for path in sorted(WORKFLOWS.glob('*.yml')):
+            for name, job in parse(path.read_text()).items():
+                for step in re.split(r'\n      - ', job['block']):
+                    if 'mamba-org/setup-micromamba@' not in step:
+                        continue
+                    found += 1
+                    with self.subTest(workflow=path.name, job=name):
+                        self.assertIn('micromamba-binary-path: ${{ runner.temp }}/', step)
+                        self.assertIn('micromamba-root-path: ${{ runner.temp }}/', step)
+        self.assertGreater(found, 0)
+
     def test_superseded_runs_cancel_but_main_never_does(self):
         for workflow in ['ci.yml', 'research.yml', 'supply-chain.yml']:
             group = concurrency(workflow)
