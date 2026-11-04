@@ -1,3 +1,5 @@
+import subprocess
+import json
 import importlib.util
 import pathlib
 import re
@@ -112,7 +114,22 @@ class JobSelectionPerEvent(unittest.TestCase):
         self.assertEqual(sorted(needs(superseded) + ['superseded']), sorted(needs(ci_ok)))
         self.assertIn('SHA: ${{ github.event.pull_request.head.sha }}', superseded)
         self.assertIn('actions/runs?event=pull_request&head_sha=$SHA', superseded)
-        self.assertIn('select(.name == \\"$GITHUB_WORKFLOW\\" and .id > $RUN_ID)', superseded)
+        self.assertIn('select(.path == \\".github/workflows/ci.yml\\" and .id > $RUN_ID and ([.pull_requests[].number] | index($PR)))', superseded)
+        self.assertIn('PR: ${{ github.event.pull_request.number }}', superseded)
+
+    def test_only_a_newer_run_of_this_workflow_for_this_pull_request_counts(self):
+        superseded = job('superseded')
+        query = superseded.split('--jq "', 1)[1].split('")', 1)[0].replace('\\"', '"')
+        query = query.replace('$RUN_ID', '100').replace('$PR', '7')
+        runs = {'workflow_runs': [
+            {'id': 101, 'path': '.github/workflows/ci.yml', 'pull_requests': [{'number': 8}]},
+            {'id': 102, 'path': '.github/workflows/verify.yml', 'pull_requests': [{'number': 7}]},
+            {'id': 99, 'path': '.github/workflows/ci.yml', 'pull_requests': [{'number': 7}]},
+            {'id': 103, 'path': '.github/workflows/ci.yml', 'pull_requests': []}]}
+        count = lambda data: subprocess.run(['jq', query], input=json.dumps(data), capture_output=True, text=True, check=True).stdout.strip()
+        self.assertEqual(count(runs), '0')
+        runs['workflow_runs'].append({'id': 104, 'path': '.github/workflows/ci.yml', 'pull_requests': [{'number': 9}, {'number': 7}]})
+        self.assertEqual(count(runs), '1')
 
 
 if __name__ == '__main__':
