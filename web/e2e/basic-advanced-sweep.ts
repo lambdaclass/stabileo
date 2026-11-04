@@ -439,12 +439,15 @@ async function memberMiddle(page: Page): Promise<{ x: number; y: number } | null
       elementIds(): number[]; elementEnds(id: number): { i: number; j: number } | null;
       nodeScreenPos(id: number): { x: number; y: number } | null;
     };
+    const view = document.querySelector('canvas:not(.axis-gizmo)')?.getBoundingClientRect();
     let best: { x: number; y: number } | null = null, len = -1;
     for (const id of h.elementIds()) {
       const e = h.elementEnds(id); if (!e) continue;
       const a = h.nodeScreenPos(e.i), b = h.nodeScreenPos(e.j); if (!a || !b) continue;
+      const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+      if (view && (mid.x < view.left || mid.x > view.right || mid.y < view.top || mid.y > view.bottom)) continue;
       const l = Math.hypot(a.x - b.x, a.y - b.y);
-      if (l > len) { len = l; best = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }; }
+      if (l > len) { len = l; best = mid; }
     }
     return best;
   });
