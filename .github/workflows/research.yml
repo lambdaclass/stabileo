@@ -76,7 +76,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-          ref: main
+          ref: ${{ github.event.merge_group.base_sha || 'main' }}
           path: route-main
           persist-credentials: false
       - name: Select research isolation enforcement
