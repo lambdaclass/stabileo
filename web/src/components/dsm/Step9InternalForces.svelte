@@ -6,9 +6,6 @@
   import VectorDisplay from './VectorDisplay.svelte';
   import { transverseSign } from '../../lib/engine/transverse-sign-2d';
 
-  import StepBlocks from '../steps/StepBlocks.svelte';
-  import { rigidAxialBlocks } from '../../lib/engine/steps/dsm-kinematics';
-
   let { data }: { data: DSMStepData } = $props();
 
   const elemForce = $derived(
@@ -48,7 +45,6 @@
 </script>
 
 <div class="step">
-  {#if data.rigid}<div data-testid="dsm-rigid-9"><StepBlocks blocks={rigidAxialBlocks(data, false)} narrow /></div>{/if}
   <div class="explanation">
     <p>{@html t('dsm.step9.explanation')}</p>
   </div>

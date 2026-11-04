@@ -5,7 +5,8 @@
 # Top-level full PR build audit, excluding builds spawned by tests:
 # engine WASM 5 (WASM job, Docker source, three research validation jobs); research WASM sets 2 (1 on source-cache hit); site builds
 # 6: production, E2E, admin, Docker source, and route-budget main/candidate.
-# Docker tests both source and site-production paths; E2E shards share site-e2e.
+# Docker tests the site-production path on every PR and the source path when the Dockerfile or a
+# pin it reads changes (select-ci.py), and both on main; E2E shards share site-e2e.
 # Research cache excludes viewer: always rebuild viewer and republish asset identity.
 # Research WASM keeps the 60-minute budget for the expanded research crate set.
 # PR selection (docs/changelog may accompany any single area):
@@ -99,6 +100,7 @@ jobs:
       research_route_only: ${{ steps.select.outputs.research_route_only }}
       slow_e2e: ${{ steps.select.outputs.slow_e2e }}
       docker: ${{ steps.select.outputs.docker }}
+      docker_source: ${{ steps.select.outputs.docker_source }}
       backend: ${{ steps.select.outputs.backend }}
       ai_backend: ${{ steps.select.outputs.ai_backend }}
       ci_scripts: ${{ steps.select.outputs.ci_scripts }}
@@ -240,14 +242,15 @@ jobs:
           .github/scripts/retry-infra.sh gh run download "$RUN_ID" --name site-production --dir ci-site
           test -s ci-site/index.html
       # Also exercise Compose's default frontend/WASM compiler stages.
-      - run: docker build --tag stabileo-source-smoke .
+      - if: needs.changes.outputs.docker_source == 'true'
+        run: docker build --tag stabileo-source-smoke .
       - run: docker build --build-arg FRONTEND_STAGE=web-prebuilt --tag stabileo-smoke .
 
   # One version of each tool everywhere (rust-toolchain.toml, .nvmrc, flake.nix and the
   # workflows), and changelog.d/ fragments well formed. On every run: neither has a path filter.
   lint-repo:
     name: Lint Repo
-    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' || github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-24.04' }}
+    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' || (github.ref == 'refs/heads/main' && github.event_name != 'schedule')) && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-24.04' }}
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -259,7 +262,7 @@ jobs:
       - if: runner.environment == 'github-hosted'
         uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
         continue-on-error: true
-      - if: runner.environment == 'github-hosted'
+      - if: runner.environment == 'github-hosted' && github.event_name != 'pull_request'
         uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
         continue-on-error: true
         with:
@@ -291,7 +294,7 @@ jobs:
       - if: runner.environment == 'github-hosted'
         uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
         continue-on-error: true
-      - if: runner.environment == 'github-hosted'
+      - if: runner.environment == 'github-hosted' && github.event_name != 'pull_request'
         uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
         continue-on-error: true
         with:
@@ -308,7 +311,7 @@ jobs:
 
   lint-engine:
     name: Lint Engine
-    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' || github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-24.04' }}
+    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' || (github.ref == 'refs/heads/main' && github.event_name != 'schedule')) && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-24.04' }}
     timeout-minutes: 20
     needs: [changes]
     if: needs.changes.outputs.engine == 'true'
@@ -322,7 +325,7 @@ jobs:
       - if: runner.environment == 'github-hosted'
         uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
         continue-on-error: true
-      - if: runner.environment == 'github-hosted'
+      - if: runner.environment == 'github-hosted' && github.event_name != 'pull_request'
         uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
         continue-on-error: true
         with:
@@ -345,7 +348,7 @@ jobs:
   # (test.engine.gates / test.engine.suite) keep the two in step.
   test-engine-gates:
     name: Engine Gates
-    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && vars.STABILEO_TIMING_POOL == 'true' && (github.event_name == 'merge_group' || github.ref == 'refs/heads/main')) && fromJSON('["self-hosted","stabileo-timing"]') || 'ubuntu-24.04' }}
+    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && vars.STABILEO_TIMING_POOL == 'true' && (github.event_name == 'merge_group' || (github.ref == 'refs/heads/main' && github.event_name != 'schedule'))) && fromJSON('["self-hosted","stabileo-timing"]') || 'ubuntu-24.04' }}
     timeout-minutes: 45
     needs: [changes]
     if: needs.changes.outputs.engine == 'true'
@@ -358,7 +361,7 @@ jobs:
       - if: runner.environment == 'github-hosted'
         uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
         continue-on-error: true
-      - if: runner.environment == 'github-hosted'
+      - if: runner.environment == 'github-hosted' && github.event_name != 'pull_request'
         uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
         continue-on-error: true
         with:
@@ -378,7 +381,7 @@ jobs:
 
   test-engine-suite:
     name: Engine Suite (${{ matrix.shard }}/4)
-    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' || github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-24.04' }}
+    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' || (github.ref == 'refs/heads/main' && github.event_name != 'schedule')) && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-24.04' }}
     timeout-minutes: 45
     needs: [changes]
     if: needs.changes.outputs.engine == 'true'
@@ -396,7 +399,7 @@ jobs:
       - if: runner.environment == 'github-hosted'
         uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
         continue-on-error: true
-      - if: runner.environment == 'github-hosted'
+      - if: runner.environment == 'github-hosted' && github.event_name != 'pull_request'
         uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
         continue-on-error: true
         with:
@@ -419,7 +422,7 @@ jobs:
   # unoptimised they outlast a suite shard.
   test-engine-metamorphic:
     name: Engine Metamorphic
-    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' || github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-24.04' }}
+    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' || (github.ref == 'refs/heads/main' && github.event_name != 'schedule')) && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-24.04' }}
     timeout-minutes: 40
     needs: [changes]
     if: needs.changes.outputs.engine == 'true'
@@ -433,7 +436,7 @@ jobs:
       - if: runner.environment == 'github-hosted'
         uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
         continue-on-error: true
-      - if: runner.environment == 'github-hosted'
+      - if: runner.environment == 'github-hosted' && github.event_name != 'pull_request'
         uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
         continue-on-error: true
         with:
@@ -454,7 +457,7 @@ jobs:
 
   test-ai-backend:
     name: Test AI Backend
-    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' || github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-24.04' }}
+    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' || (github.ref == 'refs/heads/main' && github.event_name != 'schedule')) && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-24.04' }}
     timeout-minutes: 20
     needs: [changes]
     if: needs.changes.outputs.ai_backend == 'true'
@@ -467,7 +470,7 @@ jobs:
       - if: runner.environment == 'github-hosted'
         uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
         continue-on-error: true
-      - if: runner.environment == 'github-hosted'
+      - if: runner.environment == 'github-hosted' && github.event_name != 'pull_request'
         uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
         continue-on-error: true
         with:
@@ -500,7 +503,7 @@ jobs:
       - if: runner.environment == 'github-hosted'
         uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
         continue-on-error: true
-      - if: runner.environment == 'github-hosted'
+      - if: runner.environment == 'github-hosted' && github.event_name != 'pull_request'
         uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
         continue-on-error: true
         with:
@@ -525,7 +528,7 @@ jobs:
 
   test-backend:
     name: Test Backend
-    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' || github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-24.04' }}
+    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' || (github.ref == 'refs/heads/main' && github.event_name != 'schedule')) && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-24.04' }}
     timeout-minutes: 30
     needs: [changes]
     if: needs.changes.outputs.backend == 'true'
@@ -538,7 +541,7 @@ jobs:
       - if: runner.environment == 'github-hosted'
         uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
         continue-on-error: true
-      - if: runner.environment == 'github-hosted'
+      - if: runner.environment == 'github-hosted' && github.event_name != 'pull_request'
         uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
         continue-on-error: true
         with:
@@ -611,7 +614,7 @@ jobs:
       - if: runner.environment == 'github-hosted' && steps.new.outputs.any == 'true'
         uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
         continue-on-error: true
-      - if: runner.environment == 'github-hosted' && (steps.new.outputs.any == 'true')
+      - if: runner.environment == 'github-hosted' && github.event_name != 'pull_request' && (steps.new.outputs.any == 'true')
         uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
         continue-on-error: true
         with:
@@ -646,7 +649,7 @@ jobs:
   # Vite would substitute a stub solver; the e2e readiness gate fails loudly if that happens.
   wasm:
     name: WASM
-    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && ((github.event_name == 'merge_group' || github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo"]') || (vars.STABILEO_PR_POOL == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]') && fromJSON('["self-hosted","stabileo-pr"]')) || 'ubuntu-24.04' }}
+    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && ((github.event_name == 'merge_group' || (github.ref == 'refs/heads/main' && github.event_name != 'schedule')) && fromJSON('["self-hosted","stabileo"]') || (vars.STABILEO_PR_POOL == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]') && fromJSON('["self-hosted","stabileo-pr"]')) || 'ubuntu-24.04' }}
     timeout-minutes: 30
     needs: [changes]
     if: needs.changes.outputs.web == 'true'
@@ -663,7 +666,7 @@ jobs:
       - if: runner.environment == 'github-hosted'
         uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
         continue-on-error: true
-      - if: runner.environment == 'github-hosted'
+      - if: runner.environment == 'github-hosted' && github.event_name != 'pull_request'
         uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
         continue-on-error: true
         with:
@@ -694,7 +697,7 @@ jobs:
   # test runs the real simulation.
   research-wasm:
     name: Research WASM
-    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && ((github.event_name == 'merge_group' || github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo"]') || (vars.STABILEO_PR_POOL == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]') && fromJSON('["self-hosted","stabileo-pr"]')) || 'ubuntu-24.04' }}
+    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && ((github.event_name == 'merge_group' || (github.ref == 'refs/heads/main' && github.event_name != 'schedule')) && fromJSON('["self-hosted","stabileo"]') || (vars.STABILEO_PR_POOL == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]') && fromJSON('["self-hosted","stabileo-pr"]')) || 'ubuntu-24.04' }}
     timeout-minutes: 90
     needs: [changes]
     if: needs.changes.outputs.web == 'true'
@@ -708,7 +711,7 @@ jobs:
       - if: runner.environment == 'github-hosted'
         uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
         continue-on-error: true
-      - if: runner.environment == 'github-hosted'
+      - if: runner.environment == 'github-hosted' && github.event_name != 'pull_request'
         uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
         continue-on-error: true
         with:
@@ -891,7 +894,7 @@ jobs:
   # says so, and playwright.config.ts refuses a prebuilt dist without it.
   site-e2e:
     name: E2E Site
-    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && ((github.event_name == 'merge_group' || github.ref == 'refs/heads/main') && (vars.STABILEO_E2E_POOL == 'true' && fromJSON('["self-hosted","stabileo-e2e"]') || fromJSON('["self-hosted","stabileo"]')) || (vars.STABILEO_PR_POOL == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]') && fromJSON('["self-hosted","stabileo-pr"]')) || 'ubuntu-24.04' }}
+    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && ((github.event_name == 'merge_group' || (github.ref == 'refs/heads/main' && github.event_name != 'schedule')) && (vars.STABILEO_E2E_POOL == 'true' && fromJSON('["self-hosted","stabileo-e2e"]') || fromJSON('["self-hosted","stabileo"]')) || (vars.STABILEO_PR_POOL == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]') && fromJSON('["self-hosted","stabileo-pr"]')) || 'ubuntu-24.04' }}
     timeout-minutes: 20
     needs: [changes, wasm, research-wasm]
     if: needs.changes.outputs.web == 'true'
@@ -905,7 +908,7 @@ jobs:
       - if: runner.environment == 'github-hosted'
         uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
         continue-on-error: true
-      - if: runner.environment == 'github-hosted'
+      - if: runner.environment == 'github-hosted' && github.event_name != 'pull_request'
         uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
         continue-on-error: true
         with:
@@ -974,7 +977,7 @@ jobs:
   # with the build.
   web-unit:
     name: Web Unit (${{ matrix.shard }}/4)
-    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && vars.STABILEO_TIMING_POOL == 'true' && (github.event_name == 'merge_group' || github.ref == 'refs/heads/main')) && fromJSON('["self-hosted","stabileo-timing"]') || 'ubuntu-24.04' }}
+    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && vars.STABILEO_TIMING_POOL == 'true' && (github.event_name == 'merge_group' || (github.ref == 'refs/heads/main' && github.event_name != 'schedule'))) && fromJSON('["self-hosted","stabileo-timing"]') || 'ubuntu-24.04' }}
     timeout-minutes: 30
     needs: [changes, wasm]
     if: needs.changes.outputs.web == 'true' && needs.changes.outputs.retest == 'true'
@@ -991,7 +994,7 @@ jobs:
       - if: runner.environment == 'github-hosted'
         uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
         continue-on-error: true
-      - if: runner.environment == 'github-hosted'
+      - if: runner.environment == 'github-hosted' && github.event_name != 'pull_request'
         uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
         continue-on-error: true
         with:
@@ -1020,7 +1023,7 @@ jobs:
 
   web-build:
     name: Web Build
-    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' || github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-24.04' }}
+    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' || (github.ref == 'refs/heads/main' && github.event_name != 'schedule')) && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-24.04' }}
     timeout-minutes: 45
     needs: [changes, wasm, research-wasm]
     if: needs.changes.outputs.web_build == 'true'
@@ -1034,7 +1037,7 @@ jobs:
       - if: runner.environment == 'github-hosted'
         uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
         continue-on-error: true
-      - if: runner.environment == 'github-hosted'
+      - if: runner.environment == 'github-hosted' && github.event_name != 'pull_request'
         uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
         continue-on-error: true
         with:
@@ -1145,7 +1148,7 @@ jobs:
       - if: runner.environment == 'github-hosted'
         uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
         continue-on-error: true
-      - if: runner.environment == 'github-hosted'
+      - if: runner.environment == 'github-hosted' && github.event_name != 'pull_request'
         uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
         continue-on-error: true
         with:
@@ -1204,7 +1207,7 @@ jobs:
       - if: runner.environment == 'github-hosted'
         uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
         continue-on-error: true
-      - if: runner.environment == 'github-hosted'
+      - if: runner.environment == 'github-hosted' && github.event_name != 'pull_request'
         uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
         continue-on-error: true
         with:
@@ -1279,7 +1282,7 @@ jobs:
       - if: runner.environment == 'github-hosted'
         uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
         continue-on-error: true
-      - if: runner.environment == 'github-hosted'
+      - if: runner.environment == 'github-hosted' && github.event_name != 'pull_request'
         uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
         continue-on-error: true
         with:
@@ -1416,7 +1419,7 @@ jobs:
       - if: runner.environment == 'github-hosted'
         uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
         continue-on-error: true
-      - if: runner.environment == 'github-hosted'
+      - if: runner.environment == 'github-hosted' && github.event_name != 'pull_request'
         uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
         continue-on-error: true
         with:
@@ -1510,7 +1513,8 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/free-disk
       - uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
-      - uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+      - if: github.event_name != 'pull_request'
+        uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
         continue-on-error: true
         with:
           use-flakehub: false

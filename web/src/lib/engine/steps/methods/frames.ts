@@ -19,7 +19,6 @@
 import type { ExplainedMethod, MethodContext } from '../registry';
 import type { Block, Cell, Step, StepDoc, Txt } from '../doc';
 import { tx } from '../doc';
-import { countIndeterminacy } from '../../force-method/primary';
 import { num, numText, par, term } from '../format';
 import { endKey as key, jointLoads, modeWork, restraint, solveDense, type EndSide, type FrameKin } from '../sway-modes';
 import {
@@ -204,7 +203,7 @@ function buildCrossNoSway(ctx: MethodContext): StepDoc {
   const F = jointLoads(fk, md.values());
   const dist = distribute(fk, md, loadStart(fk, md), true);
   const steps: Step[] = [
-    kinematicsStep(fk, md, F, countIndeterminacy(ctx.input).gh),
+    kinematicsStep(fk, md, F),
     stiffnessStep(fk, md),
     femStep(fk, md),
     { title: tx('steps.frames.cross.distTitle'), blocks: [
@@ -316,7 +315,7 @@ function buildCrossSway(ctx: MethodContext): StepDoc {
   ] };
 
   const steps: Step[] = [
-    kinematicsStep(fk, md, F, countIndeterminacy(ctx.input).gh),
+    kinematicsStep(fk, md, F),
     stiffnessStep(fk, md),
     femStep(fk, md),
     stageA,
@@ -456,7 +455,7 @@ function buildSlopeDeflection(ctx: MethodContext): StepDoc {
   }
 
   const steps: Step[] = [
-    kinematicsStep(fk, md, F, countIndeterminacy(ctx.input).gh),
+    kinematicsStep(fk, md, F),
     femStep(fk, md),
     { title: tx('steps.frames.sd.eqTitle'), blocks: [
       { kind: 'p', text: tx('steps.frames.sd.eqIntro') },

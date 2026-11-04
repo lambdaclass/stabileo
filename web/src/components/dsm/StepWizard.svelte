@@ -11,7 +11,6 @@
   import Step8Reactions from './Step8Reactions.svelte';
   import Step9InternalForces from './Step9InternalForces.svelte';
   import MatrixExplorer from './MatrixExplorer.svelte';
-  import DsmAxialOption from './DsmAxialOption.svelte';
 
   import StepsHeader from '../steps/StepsHeader.svelte';
   import StepFrame from '../steps/StepFrame.svelte';
@@ -61,7 +60,6 @@
       </button>
     {/snippet}
     {#snippet top()}
-      {#if dsmStepsStore.stepData?.dofNumbering.dofsPerNode === 3 && dsmStepsStore.stepData.elements.some((e) => e.type === 'frame')}<DsmAxialOption />{/if}
       {#if dsmStepsStore.stepData && dsmStepsStore.stepData.nullModes.length > 0}
         <!--
           A mechanism the loads do not excite: the equilibrium solution exists and
