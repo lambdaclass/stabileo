@@ -548,10 +548,13 @@
     } catch (e: any) {
       const turned = /member (\d+) turn ([\d.]+) rad/.exec(errorText(e, ''));
       const bent = /chord of member (\d+) and its ends may be up to ([\d.]+) rad/.exec(errorText(e, ''));
+      const stepped = /end of member (\d+) turned more than .* within one load increment/.exec(errorText(e, ''));
       solveError = turned
         ? tp('pro.corotMemberTurns', { id: turned[1], turn: turned[2] })
         : bent
         ? tp('pro.corotChordTurns', { id: bent[1], turn: bent[2] })
+        : stepped
+        ? tp('pro.corotIncrementTurns', { id: stepped[1] })
         : tp('adv.failed', { analysis: t('adv.name.nonlinear'), error: errorText(e, 'Error') });
     }
     solving = false;

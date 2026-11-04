@@ -12057,6 +12057,7 @@ const pt: Translations = {
   'pro.corotNotConverged': 'Sem equilíbrio com a carga completa: o último incremento convergido leva {pct}% dela. Os resultados não são mostrados; use mais incrementos ou verifique a estabilidade da estrutura.',
   'pro.corotMemberTurns': 'A barra {id} gira {turn} rad entre suas extremidades, mais que os 0,9π (2,83 rad) que uma barra admite numa análise corrotacional: divida-a em barras mais curtas e resolva de novo.',
   'pro.corotChordTurns': 'A barra {id} flete tanto que uma de suas extremidades pode ficar até {turn} rad de sua corda (o giro da corda mais metade do giro entre as extremidades), mais que os 0,9π (2,83 rad) que uma barra admite em uma análise corrotacional: divida-a em barras mais curtas e resolva de novo.',
+  'pro.corotIncrementTurns': 'Uma extremidade da barra {id} girou mais de meia volta em um único incremento de carga, mais do que uma análise corrotacional consegue acompanhar: use mais incrementos de carga ou divida-a em barras mais curtas e resolva de novo.',
   'report.modelFigureCaption': 'O modelo, com os números de nós e barras que as tabelas usam.',
   'edit.found.overlaps': '{n} pares de barras colineares sobrepostas',
   'edit.overlapPair': '{a} e {b}: {l} {u}',

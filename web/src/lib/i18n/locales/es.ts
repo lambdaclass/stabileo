@@ -12406,6 +12406,7 @@ const es: Record<string, string> = {
   'pro.corotNotConverged': 'Sin equilibrio con la carga completa: el último incremento convergido lleva el {pct}% de ella. Sus resultados no se muestran; use más incrementos o revise la estabilidad de la estructura.',
   'pro.corotMemberTurns': 'La barra {id} gira {turn} rad entre sus extremos, más que los 0,9π (2,83 rad) que una barra admite en un análisis corrotacional: divídala en barras más cortas y resuelva de nuevo.',
   'pro.corotChordTurns': 'La barra {id} se flexiona tanto que uno de sus extremos puede quedar hasta {turn} rad de su cuerda (el giro de la cuerda más la mitad del giro entre los extremos), más que los 0,9π (2,83 rad) que una barra admite en un análisis corrotacional: divídala en barras más cortas y resuelva de nuevo.',
+  'pro.corotIncrementTurns': 'Un extremo de la barra {id} giró más de media vuelta en un solo incremento de carga, más de lo que un análisis corrotacional puede seguir: use más incrementos de carga o divídala en barras más cortas y resuelva de nuevo.',
   'report.modelFigureCaption': 'El modelo, con los números de nodos y barras que usan las tablas.',
   'edit.found.overlaps': '{n} pares de barras colineales superpuestas',
   'edit.overlapPair': '{a} y {b}: {l} {u}',
