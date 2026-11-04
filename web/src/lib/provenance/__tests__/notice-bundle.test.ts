@@ -6,6 +6,7 @@ import { resolve } from 'node:path';
 import { inflateRawSync } from 'node:zlib';
 import packed from 'virtual:result-change-packed';
 import { RESULT_CHANGES } from '../full-registry';
+import { REGISTRY_LOCALES } from '../registry';
 
 it('loads translated recheck notices outside the static app route closure', async () => {
   const web = resolve(__dirname, '../../../../..', 'web');
@@ -48,7 +49,7 @@ it('loads translated recheck notices outside the static app route closure', asyn
       const entry = `id:${JSON.stringify(change.id)},resultsVersion:${change.resultsVersion}`;
       expect(allProduct.includes(entry), `duplicate registry entry: ${change.id}`).toBe(false);
       expect(initial.includes(entry), `eager registry entry: ${change.id}`).toBe(false);
-      for (const locale of ['en', 'es', 'pt'] as const) {
+      for (const locale of REGISTRY_LOCALES) {
         expect(initial).not.toContain(change.explanation[locale]);
         expect(initial).not.toContain(JSON.stringify(change.explanation[locale]).slice(1, -1));
       }

@@ -2,7 +2,7 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { render } from 'svelte/server';
 import RecheckNotice from '../RecheckNotice.svelte';
 import { recheckStore } from '../../lib/store/recheck.svelte';
-import { t } from '../../lib/i18n';
+import { t, setLocale } from '../../lib/i18n';
 
 vi.mock('../../lib/store/file', () => ({ saveWorkspaceToLocalStorage: vi.fn() }));
 vi.mock('../../lib/actions/recheck', () => ({
@@ -10,7 +10,7 @@ vi.mock('../../lib/actions/recheck', () => ({
   recheckKey: (key: string) => key,
 }));
 
-afterEach(() => recheckStore.reset());
+afterEach(() => { recheckStore.reset(); setLocale('en'); });
 
 it('keeps acknowledgement disabled until lazy changes arrive, without changing the project stamp', async () => {
   const project = {
@@ -41,4 +41,25 @@ it('keeps acknowledgement disabled until lazy changes arrive, without changing t
   expect(recheckStore.capture()).toEqual(stamp);
   expect(recheckStore.stale).toBe(true);
   expect(recheckStore.noticeOpen).toBe(true);
+});
+
+it.each(['de', 'fr', 'tr'] as const)('shows each change in the reader\'s language (%s), not in English', async (locale) => {
+  const project = {
+    analysisMode: 'pro',
+    materials: [[1, { id: 1, e: 200000, fy: 250 }]],
+    elements: [[1, { id: 1, type: 'frame', materialId: 1, nodeI: 1, nodeJ: 2 }]],
+  } as const;
+  setLocale(locale);
+  recheckStore.openProject(JSON.parse(JSON.stringify(project)));
+  await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
+  const changes = recheckStore.assessment!.changes;
+  expect(changes.map(c => c.id)).toContain('cirsoc301-tension-needs-connection');
+  const html = render(RecheckNotice).body;
+  const text = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  for (const change of changes) {
+    expect(change.title[locale], change.id).not.toBe(change.title.en);
+    expect(html).toContain(text(change.title[locale]));
+    expect(html).toContain(text(change.explanation[locale]));
+    expect(html).not.toContain(text(change.explanation.en));
+  }
 });
