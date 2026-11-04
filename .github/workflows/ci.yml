@@ -246,6 +246,31 @@ jobs:
         run: docker build --tag stabileo-source-smoke .
       - run: docker build --build-arg FRONTEND_STAGE=web-prebuilt --tag stabileo-smoke .
 
+  caddy-redirects:
+    name: Caddy Language Redirects
+    needs: changes
+    if: needs.changes.outputs.ci_scripts == 'true'
+    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' || (github.ref == 'refs/heads/main' && github.event_name != 'schedule')) && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-24.04' }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          clean: true
+          persist-credentials: false
+      - if: runner.environment == 'github-hosted'
+        uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
+        continue-on-error: true
+      - if: runner.environment == 'github-hosted' && github.event_name != 'pull_request'
+        uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+        continue-on-error: true
+        with:
+          use-flakehub: false
+      - name: Prepare Nix shells (infrastructure retries)
+        run: |
+          .github/scripts/retry-infra.sh nix develop --command true
+          .github/scripts/retry-infra.sh nix shell --inputs-from . nixpkgs#caddy nixpkgs#curl nixpkgs#python3 --command true
+      - run: make test.infra.caddy.redirects
+
   # One version of each tool everywhere (rust-toolchain.toml, .nvmrc, flake.nix and the
   # workflows), and changelog.d/ fragments well formed. On every run: neither has a path filter.
   lint-repo:
@@ -1561,6 +1586,7 @@ jobs:
       - lint-repo
       - test-ci-scripts
       - docker-smoke
+      - caddy-redirects
       - lint-engine
       - test-engine-gates
       - test-engine-suite

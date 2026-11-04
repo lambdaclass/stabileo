@@ -51,7 +51,7 @@ type Glue = {
   springs_periodic: (spec: string) => string;
 };
 
-const BASE = `${import.meta.env.BASE_URL}research-wasm/grossman-2026/`;
+const BASE = new URL(`${import.meta.env.BASE_URL}research-wasm/grossman-2026/`, globalThis.location?.origin ?? 'http://localhost').href;
 let loading: Promise<Glue> | null = null;
 
 export function loadSprings(): Promise<Glue> {
