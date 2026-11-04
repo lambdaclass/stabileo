@@ -57,7 +57,7 @@ own warning or refusal. The per-defect fixes come from the solver bug-fix workst
 
 **Other wrong-result fixes** (all with a regression test that fails before the fix):
 
-- **Landed: wave B, [#1285](https://github.com/lambdaclass/stabileo/pull/1285)** (715279c26, 2026-11-03; main is at results version 13):
+- **Landed: wave B, [#1285](https://github.com/lambdaclass/stabileo/pull/1285)** (715279c26, 2026-11-03; results version 13; main is now at 14, see below):
   [#1233](https://github.com/lambdaclass/stabileo/pull/1233) ([#532](https://github.com/lambdaclass/stabileo/issues/532)), [#1236](https://github.com/lambdaclass/stabileo/pull/1236) ([#534](https://github.com/lambdaclass/stabileo/issues/534)), [#1225](https://github.com/lambdaclass/stabileo/pull/1225) ([#827](https://github.com/lambdaclass/stabileo/pull/827) repeated modes [#759](https://github.com/lambdaclass/stabileo/issues/759), [#865](https://github.com/lambdaclass/stabileo/pull/865) self-checking results, [#770](https://github.com/lambdaclass/stabileo/pull/770) old
   project files, [#786](https://github.com/lambdaclass/stabileo/pull/786) snapshot gate), [#1237](https://github.com/lambdaclass/stabileo/pull/1237) (shell envelope per component, SA-2026-027), [#1246](https://github.com/lambdaclass/stabileo/pull/1246)
   ([#467](https://github.com/lambdaclass/stabileo/issues/467) CIRSOC 301 Q ≤ 0 refused, [#766](https://github.com/lambdaclass/stabileo/issues/766) PRO design says why no member is checked, SA-2026-030),
@@ -73,9 +73,9 @@ own warning or refusal. The per-defect fixes come from the solver bug-fix workst
   re-review of the PRs merged since 2026-11-01: Codex had run at reasoning effort "none" in that
   window, and `run-engine.sh` now forces high.
 - **[#1253](https://github.com/lambdaclass/stabileo/pull/1253):** the generated area loads drop a floor's load under a low member (post-merge findings
-  on [#1076](https://github.com/lambdaclass/stabileo/pull/1076); SA-2026-033, results version 15 in landing order). Known on main; fix in review.
+  on [#1076](https://github.com/lambdaclass/stabileo/pull/1076); SA-2026-033, results version 17 in landing order). Known on main; fix in review.
 - **[#1255](https://github.com/lambdaclass/stabileo/pull/1255):** the equilibrium check says "balanced" over loads it left out, similar-storey matching
-  and replication (post-merge findings on [#1077](https://github.com/lambdaclass/stabileo/pull/1077); SA-2026-034, results version 16 in landing order).
+  and replication (post-merge findings on [#1077](https://github.com/lambdaclass/stabileo/pull/1077); SA-2026-034, results version 18 in landing order).
   Known on main; fix in review.
 - **[#807](https://github.com/lambdaclass/stabileo/pull/807)** containment (above), then the per-defect fixes of the solver bug-fix workstream.
 - **[#755](https://github.com/lambdaclass/stabileo/issues/755) (SA-2026-023):** the RC column check read one sign of the moment; close the issue once its
@@ -149,7 +149,7 @@ review, fixed forward by [#1253](https://github.com/lambdaclass/stabileo/pull/12
 
 | Workstream | PR | State |
 |---|---|---|
-| Live-site integration: soft 404 [#1059](https://github.com/lambdaclass/stabileo/pull/1059), unprefixed redirects [#1224](https://github.com/lambdaclass/stabileo/pull/1224), landing visible without scrolling [#1223](https://github.com/lambdaclass/stabileo/pull/1223) | [#1227](https://github.com/lambdaclass/stabileo/pull/1227) | draft; the changelog counts fix [#1222](https://github.com/lambdaclass/stabileo/pull/1222) moved into the docs refresh of 2026-11-04 |
+| Live-site integration: soft 404 [#1059](https://github.com/lambdaclass/stabileo/pull/1059), unprefixed redirects [#1224](https://github.com/lambdaclass/stabileo/pull/1224), landing visible without scrolling [#1223](https://github.com/lambdaclass/stabileo/pull/1223) | [#1227](https://github.com/lambdaclass/stabileo/pull/1227) | draft; the changelog counts fix [#1222](https://github.com/lambdaclass/stabileo/pull/1222) moved into [#1384](https://github.com/lambdaclass/stabileo/pull/1384) |
 | GitHub Actions bumps | [#1284](https://github.com/lambdaclass/stabileo/pull/1284) | open (Dependabot) |
 | CI speed: push to green on a full-scope PR went from 397–498 min to 51–72 min (section "CI and feedback loop"). In flight: research WASM bundles built in parallel, the Docker image built from source only when its recipe changes, scheduled runs kept off the merge queue's runners, research WASM saved bundle by bundle with a retried restore, PRs off magic-nix-cache, Code_Aster's micromamba in the job's temp directory | [#1335](https://github.com/lambdaclass/stabileo/pull/1335), [#1346](https://github.com/lambdaclass/stabileo/pull/1346), [#1348](https://github.com/lambdaclass/stabileo/pull/1348), [#1373](https://github.com/lambdaclass/stabileo/pull/1373), [#1374](https://github.com/lambdaclass/stabileo/pull/1374), [#1376](https://github.com/lambdaclass/stabileo/pull/1376) | open, not drafts; next: automatic retry of infrastructure reds, docs-only path scoping, the queue's critical path |
 | Runner pools, E2E cap per host, required proof checks, revert-bot secrets | dotfiles `servers/`, rulesets | **Decision:** see "CI and feedback loop" |
@@ -163,7 +163,7 @@ review, fixed forward by [#1253](https://github.com/lambdaclass/stabileo/pull/12
 | Landing positioning: open-source structural engineering software, AI marked in development (no provider-key claim until [#1064](https://github.com/lambdaclass/stabileo/pull/1064)); where it fits; Basic and PRO Design copy | [#1230](https://github.com/lambdaclass/stabileo/pull/1230) | ready, Codex clean on 6affce7167; landing −3362 B; reconcile with [#1061](https://github.com/lambdaclass/stabileo/pull/1061) if that lands second |
 | Research and Tools faster on phones ([#880](https://github.com/lambdaclass/stabileo/pull/880) folded in) | [#1065](https://github.com/lambdaclass/stabileo/pull/1065) | with the merge captain: ready 4–6× sooner on a phone (paper 10.8 → 5.5 s, tool 20.3 → 3.7 s), paper shift 0.38 → 0.13; needs the user's OK on four new route budgets, the per-language chunk rule and ~14 MB of .br per release |
 | Basic course, units 1 to 7: six stacked module PRs with the review fixes, replacing [#1070](https://github.com/lambdaclass/stabileo/pull/1070) and the unreviewed [#871](https://github.com/lambdaclass/stabileo/pull/871) (section 0) | [#1302](https://github.com/lambdaclass/stabileo/pull/1302) shell and shared modules, [#1303](https://github.com/lambdaclass/stabileo/pull/1303) statics and force method, [#1304](https://github.com/lambdaclass/stabileo/pull/1304) influence lines, [#1305](https://github.com/lambdaclass/stabileo/pull/1305) second order and buckling, [#1306](https://github.com/lambdaclass/stabileo/pull/1306) plastic, [#1307](https://github.com/lambdaclass/stabileo/pull/1307) dynamics (SDOF/MDOF) | drafts; to rebase on main after [#1372](https://github.com/lambdaclass/stabileo/pull/1372); [#1302](https://github.com/lambdaclass/stabileo/pull/1302) makes the course a lazy route boundary (as [#1289](https://github.com/lambdaclass/stabileo/pull/1289) does for the blog), so each module stays within 128 B. #1070 to close as superseded (user) |
-| Roadmap, CHANGELOG fragments and the website changelog (week to 2026-11-06), with the changelog counts fix [#1222](https://github.com/lambdaclass/stabileo/pull/1222) | this docs refresh (2026-11-04) | supersedes [#1228](https://github.com/lambdaclass/stabileo/pull/1228), [#1231](https://github.com/lambdaclass/stabileo/pull/1231), [#1244](https://github.com/lambdaclass/stabileo/pull/1244), [#1292](https://github.com/lambdaclass/stabileo/pull/1292) and [#1294](https://github.com/lambdaclass/stabileo/pull/1294) |
+| Roadmap, CHANGELOG fragments and the website changelog (week to 2026-11-06), with the changelog counts fix [#1222](https://github.com/lambdaclass/stabileo/pull/1222) | [#1384](https://github.com/lambdaclass/stabileo/pull/1384) | supersedes [#1228](https://github.com/lambdaclass/stabileo/pull/1228), [#1231](https://github.com/lambdaclass/stabileo/pull/1231), [#1244](https://github.com/lambdaclass/stabileo/pull/1244), [#1292](https://github.com/lambdaclass/stabileo/pull/1292) and [#1294](https://github.com/lambdaclass/stabileo/pull/1294) |
 | Blog: Research, Tools and checking our tests; blog images | [#1293](https://github.com/lambdaclass/stabileo/pull/1293) (carries #882) | open; it waited for the lazy blog ([#1290](https://github.com/lambdaclass/stabileo/pull/1290)), which has landed |
 | Blog: posts on the JAIE 2026 and Experiencia TIIC 2026 talks, with photos | [#1338](https://github.com/lambdaclass/stabileo/pull/1338) | draft |
 | Accounts: terms, usage data, cloud projects, admin site; advertising measurement on top | [#1071](https://github.com/lambdaclass/stabileo/pull/1071), [#1251](https://github.com/lambdaclass/stabileo/pull/1251) | Codex clean. **Decision:** owner OK on the legal text, company line, usage sharing on by default |
@@ -799,10 +799,10 @@ reliable queue is a safety item: a fix that cannot land leaves the wrong result 
 workstream (W2-ci).
 
 **Speed:** push to green on a full-scope pull request went from 397–498 min to 51–72 min after the
-CI speed PRs of 2026-11-03 and 2026-11-04 (four threads per job {L(1330)}, artifact 5xx retry {L(1331)}, E2E shards
-on GitHub's runners {L(1332)}, hybrid PR routing {L(1333)}, per-crate research WASM cache {L(1334)}, no rerun on
-a label {L(1336)}, queue route budgets against the group's base {L(1337)}, no second test of a merge to main
-{L(1339)}, no wall-clock assertions in the shared suite {L(1340)}, runner pool drift alert {L(1327)}). In flight, in
+CI speed PRs of 2026-11-03 and 2026-11-04 (four threads per job [#1330](https://github.com/lambdaclass/stabileo/pull/1330), artifact 5xx retry [#1331](https://github.com/lambdaclass/stabileo/pull/1331), E2E shards
+on GitHub's runners [#1332](https://github.com/lambdaclass/stabileo/pull/1332), hybrid PR routing [#1333](https://github.com/lambdaclass/stabileo/pull/1333), per-crate research WASM cache [#1334](https://github.com/lambdaclass/stabileo/pull/1334), no rerun on
+a label [#1336](https://github.com/lambdaclass/stabileo/pull/1336), queue route budgets against the group's base [#1337](https://github.com/lambdaclass/stabileo/pull/1337), no second test of a merge to main
+[#1339](https://github.com/lambdaclass/stabileo/pull/1339), no wall-clock assertions in the shared suite [#1340](https://github.com/lambdaclass/stabileo/pull/1340), runner pool drift alert [#1327](https://github.com/lambdaclass/stabileo/pull/1327)). In flight, in
 the table below: items 19 to 21.
 
 | # | Item | Why | PR | State |
@@ -1313,10 +1313,9 @@ From the same verified review. **Later (P2):**
   outside PR #888 is closed).
 - **Retriage [#742](https://github.com/lambdaclass/stabileo/issues/742)** (fuzz `model_certify`: likely the equilibrium oracle's scale, not the
   engine) and **close [#755](https://github.com/lambdaclass/stabileo/issues/755)** once its fix is confirmed on main.
-- **Changelog fragments still missing** for behaviour-changing PRs (each owner adds one in
-  `changelog.d/` on their own branch; checked 2026-11-02): [#807](https://github.com/lambdaclass/stabileo/pull/807) (also covering the folded #1074 and #1232),
-  [#1225](https://github.com/lambdaclass/stabileo/pull/1225) (#770's part has none), [#1056](https://github.com/lambdaclass/stabileo/pull/1056) (confirm `benchmark-correctness.md` covers it), [#1058](https://github.com/lambdaclass/stabileo/pull/1058), [#739](https://github.com/lambdaclass/stabileo/pull/739),
-  [#1061](https://github.com/lambdaclass/stabileo/pull/1061), [#1065](https://github.com/lambdaclass/stabileo/pull/1065), [#1071](https://github.com/lambdaclass/stabileo/pull/1071), [#1070](https://github.com/lambdaclass/stabileo/pull/1070), [#785](https://github.com/lambdaclass/stabileo/pull/785), [#878](https://github.com/lambdaclass/stabileo/pull/878).
+- **Changelog fragments:** every PR merged to main since 0.4.0 that changes behaviour has one (checked
+  2026-11-04; #770, #739, #878, #1287 and #1341 added then). Open PRs that still need theirs before they
+  land: [#1061](https://github.com/lambdaclass/stabileo/pull/1061), [#1065](https://github.com/lambdaclass/stabileo/pull/1065), [#1071](https://github.com/lambdaclass/stabileo/pull/1071), [#785](https://github.com/lambdaclass/stabileo/pull/785); [#807](https://github.com/lambdaclass/stabileo/pull/807) must carry the folded #1074 and #1232 in its own.
 
 ## Daily, Weekly, Monthly Priority Lens
 
