@@ -1,3 +1,5 @@
+import itertools
+import json
 import pathlib
 import re
 import unittest
@@ -6,7 +8,9 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 WORKFLOWS = ROOT / '.github/workflows'
 SAME_REPO = 'github.event.pull_request.head.repo.full_name == github.repository'
 NOT_DEPENDABOT = "github.event.pull_request.user.login != 'dependabot[bot]'"
-TRUSTED = "(github.event_name == 'merge_group' || github.ref == 'refs/heads/main')"
+TRUSTED = "(github.event_name == 'merge_group' || (github.ref == 'refs/heads/main' && github.event_name != 'schedule'))"
+QUEUE_POOL = {'stabileo', 'stabileo-pr', 'stabileo-e2e', 'stabileo-timing'}
+TOKEN = re.compile(r"\s*(==|!=|&&|\|\||\(|\)|,|'[^']*'|[\w.-]+)")
 
 
 def parse(text):
@@ -27,6 +31,74 @@ def concurrency(name):
     text = (WORKFLOWS / name).read_text()
     block = text.split('\nconcurrency:\n', 1)[1].split('\n\n', 1)[0]
     return dict((k, v.strip()) for k, v in re.findall(r'^  ([\w-]+):(.*)$', block, re.M))
+
+
+def evaluate(expression, context):
+    tokens = TOKEN.findall(expression)
+    assert ''.join(tokens) == re.sub(r'\s', '', expression), expression
+    pos = 0
+
+    def peek():
+        return tokens[pos] if pos < len(tokens) else None
+
+    def take():
+        nonlocal pos
+        pos += 1
+        return tokens[pos - 1]
+
+    def truthy(value):
+        return value not in (None, '', False, 0)
+
+    def primary():
+        token = take()
+        if token == '(':
+            value = either()
+            assert take() == ')', expression
+            return value
+        if token == 'fromJSON':
+            assert take() == '(', expression
+            value = json.loads(take()[1:-1])
+            assert take() == ')', expression
+            return value
+        if token.startswith("'"):
+            return token[1:-1]
+        if token in ('true', 'false'):
+            return token == 'true'
+        return context.get(token)
+
+    def compare():
+        left = primary()
+        while peek() in ('==', '!='):
+            op, right = take(), primary()
+            left = (left == right) if op == '==' else (left != right)
+        return left
+
+    def both():
+        left = compare()
+        while peek() == '&&':
+            take()
+            right = compare()
+            left = right if truthy(left) else left
+        return left
+
+    def either():
+        left = both()
+        while peek() == '||':
+            take()
+            right = both()
+            left = left if truthy(left) else right
+        return left
+
+    value = either()
+    assert pos == len(tokens), expression
+    return value
+
+
+def scheduled_events(text):
+    events = ['schedule'] if re.search(r'^  schedule:', text, re.M) else []
+    if 'cron: "0 5 * * *"' in text:
+        events.append('workflow_dispatch')
+    return events
 
 
 def labels(runs_on):
@@ -110,12 +182,39 @@ class CiRunners(unittest.TestCase):
             for name, job in jobs(workflow).items():
                 self.assertNotIn('stabileo-e2e', labels(job.get('runs-on', '')), name)
 
-    def test_nightly_mutants_prefer_the_nightly_pool(self):
-        mutants = jobs('nightly.yml')['mutants']['runs-on']
-        self.assertEqual(labels(mutants), {'stabileo-nightly', 'stabileo'})
-        self.assertIn("vars.STABILEO_NIGHTLY_POOL == 'true' && fromJSON('[\"self-hosted\",\"stabileo-nightly\"]') || fromJSON('[\"self-hosted\",\"stabileo\"]')", mutants)
-        self.assertIn("github.ref == 'refs/heads/main'", mutants)
-        self.assertTrue(mutants.endswith("|| 'ubuntu-24.04' }}"))
+    def test_nightly_self_hosted_jobs_take_only_the_nightly_pool(self):
+        for name, job in jobs('nightly.yml').items():
+            runs_on = job['runs-on']
+            if runs_on != 'ubuntu-24.04':
+                self.assertEqual(labels(runs_on), {'stabileo-nightly'}, name)
+                self.assertTrue(runs_on.endswith("|| 'ubuntu-24.04' }}"), name)
+
+    def test_scheduled_jobs_never_match_the_merge_queue_pool(self):
+        checked = 0
+        for path in sorted(WORKFLOWS.glob('*.yml')):
+            text = path.read_text()
+            for event in scheduled_events(text):
+                for name, job in parse(text).items():
+                    runs_on = job.get('runs-on', '')
+                    if not runs_on.startswith('${{'):
+                        continue
+                    variables = sorted(set(re.findall(r'vars\.\w+', runs_on)))
+                    for values in itertools.product(['true', None], repeat=len(variables)):
+                        context = dict(zip(variables, values))
+                        context.update({'github.event_name': event, 'github.ref': 'refs/heads/main', 'github.repository': 'lambdaclass/stabileo'})
+                        target = evaluate(runs_on[3:-2], context)
+                        target = set(target) if isinstance(target, list) else {target}
+                        with self.subTest(workflow=path.name, job=name, event=event, vars=context):
+                            self.assertFalse(target & QUEUE_POOL)
+                        checked += 1
+        self.assertGreater(checked, 50)
+
+    def test_the_expression_evaluator(self):
+        context = {'vars.A': 'true', 'github.event_name': 'schedule'}
+        self.assertEqual(evaluate("vars.A == 'true' && fromJSON('[\"x\"]') || 'h'", context), ['x'])
+        self.assertEqual(evaluate("vars.B == 'true' && fromJSON('[\"x\"]') || 'h'", context), 'h')
+        self.assertEqual(evaluate("(github.event_name == 'merge_group' || (vars.A == 'true' && github.event_name != 'schedule')) && 'x' || 'h'", context), 'h')
+        self.assertEqual(evaluate("github.event_name == 'merge_group' || vars.A == 'true' && 'x' || 'h'", context), 'x')
 
     def test_superseded_runs_cancel_but_main_never_does(self):
         for workflow in ['ci.yml', 'research.yml', 'supply-chain.yml']:
