@@ -43,7 +43,7 @@ The cut gives each member the inertia it bends with in 3D. A member whose sectio
 the plane but bends about local z gets its section turned a quarter turn in the 2D model, so
 stiffness, plastic modulus, thermal depth and design read the same axis. Cuts the 2D model cannot
 represent are refused: section axes skew to the plane (even with equal inertias, e.g. a square rolled 45°, whose corner is farther out; a round tube excepted), or a section that is not doubly symmetric
-that would have to be turned. Tests: `web/src/lib/store/__tests__/switch-2d-constraints.test.ts`
+that would have to be turned, or flipped because its member is rolled half a turn or drawn the other way (a T would hang its flange on the other side of the 2D member). Tests: `web/src/lib/store/__tests__/switch-2d-constraints.test.ts`
 (the portal above against 3D; X–Y beams; a rolled column against 3D and PL³/(3EIz)).
 
 ## Workaround

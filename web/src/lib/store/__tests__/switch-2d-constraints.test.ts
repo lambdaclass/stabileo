@@ -268,6 +268,32 @@ describe('a cut bends each member about the axis the space model bends it about 
     expect(guard()).toEqual([]);
   });
 
+  it('a T rolled half a turn hangs its flange on the other side, so the cut is refused unless the outline is doubly symmetric', () => {
+    const a = modelStore.addNode(0, 0, 3), b = modelStore.addNode(5, 0, 3);
+    const beam = modelStore.addElement(a, b, 'frame');
+    const tee = modelStore.addSection({ name: 'T', shape: 'T', a: 0.005, iy: 2e-5, iz: 4e-6, j: 1e-7, b: 0.15, h: 0.2, tw: 0.01, tf: 0.015 } as never);
+    const ipe = modelStore.addSection({ name: 'IPE 300', shape: 'I', a: 0.00538, iy: 8.356e-5, iz: 6.04e-6, j: 2.01e-7, b: 0.15, h: 0.3, tw: 0.0071, tf: 0.0107 } as never);
+    const guard = () => membersBentOffAxis('xz', [beam], modelStore.elements, modelStore.nodes, modelStore.sections);
+    const el = modelStore.elements.get(beam)!;
+    el.sectionId = tee;
+    expect(guard()).toEqual([]);
+    el.rollAngle = 180;
+    expect(guard()).toEqual([beam]);
+    el.sectionId = ipe;
+    expect(guard()).toEqual([]);
+  });
+
+  it('a T on a member drawn the other way faces the plane model\'s local y the other way, so the cut is refused', () => {
+    const a = modelStore.addNode(5, 0, 3), b = modelStore.addNode(0, 0, 3);
+    const beam = modelStore.addElement(a, b, 'frame');
+    const tee = modelStore.addSection({ name: 'T', shape: 'T', a: 0.005, iy: 2e-5, iz: 4e-6, j: 1e-7, b: 0.15, h: 0.2, tw: 0.01, tf: 0.015 } as never);
+    const guard = () => membersBentOffAxis('xz', [beam], modelStore.elements, modelStore.nodes, modelStore.sections);
+    modelStore.elements.get(beam)!.sectionId = tee;
+    expect(guard()).toEqual([beam]);
+    modelStore.elements.get(beam)!.rollAngle = 180;
+    expect(guard()).toEqual([]);
+  });
+
   it('a column whose section is turned 30° couples in-plane and out-of-plane bending, so even an X–Z cut is refused', () => {
     const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(0, 0, 3);
     const column = modelStore.addElement(a, b, 'frame');

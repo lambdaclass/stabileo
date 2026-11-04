@@ -62,6 +62,22 @@ function turnsSafely(s: Section): boolean {
   return QUARTER_TURN_SHAPES.has(s.shape) && !s.polygon && !s.drawn && !s.composition;
 }
 
+const DOUBLY_SYMMETRIC_SHAPES = new Set([undefined, 'generic', 'I', 'H', 'RHS', 'CHS', 'rect']);
+
+/** Whether a half turn about the member leaves the section's outline as it was. */
+function halfTurnInvariant(s: Section): boolean {
+  return DOUBLY_SYMMETRIC_SHAPES.has(s.shape) && !s.polygon && !s.drawn && !s.composition && !s.built;
+}
+
+/** The plane model's local y of a member running along `ex`, back in space coordinates. */
+function planeLocalY(plane: DrawPlane, ex: readonly number[]): [number, number, number] {
+  switch (plane) {
+    case 'xz': return [-ex[2], 0, ex[0]];
+    case 'yz': return [0, -ex[2], ex[1]];
+    default: return [-ex[1], ex[0], 0];
+  }
+}
+
 export interface PlaneBending {
   /** Members whose plane bending the plane solver cannot represent: they couple in-plane and out-of-plane bending, or would need a section turned that is not doubly symmetric. */
   offAxis: number[];
@@ -90,13 +106,15 @@ export function planeBending(
     if (!a || !b) continue;
     const localY = e.localYx !== undefined && e.localYy !== undefined && e.localYz !== undefined
       ? { x: e.localYx, y: e.localYy, z: e.localYz } : undefined;
-    let axes;
+    const ends = [{ id: a.id, x: a.x, y: a.y, z: a.z ?? 0 }, { id: b.id, x: b.x, y: b.y, z: b.z ?? 0 }] as const;
+    let axes, unturned;
     try {
-      axes = computeLocalAxes3D(
-        { id: a.id, x: a.x, y: a.y, z: a.z ?? 0 }, { id: b.id, x: b.x, y: b.y, z: b.z ?? 0 },
-        localY, memberRoll(e, sections),
-      );
+      axes = computeLocalAxes3D(ends[0], ends[1], localY, memberRoll(e, sections));
+      unturned = computeLocalAxes3D(ends[0], ends[1], localY, e.rollAngle ?? 0);
     } catch { continue; }
+    const y2 = planeLocalY(plane, axes.ex);
+    const y2Len = Math.hypot(y2[0], y2[1], y2[2]);
+    const sameUp = y2Len > 1e-9 && (unturned.ez[0] * y2[0] + unturned.ez[1] * y2[1] + unturned.ez[2] * y2[2]) / y2Len > 1 - 1e-9;
     const along = n[0] * axes.ex[0] + n[1] * axes.ex[1] + n[2] * axes.ex[2];
     const p = [n[0] - along * axes.ex[0], n[1] - along * axes.ex[1], n[2] - along * axes.ex[2]];
     const len = Math.hypot(p[0], p[1], p[2]);
@@ -112,6 +130,7 @@ export function planeBending(
       const s = sections.get(sid);
       if (!s) continue;
       if (skew && s.shape !== 'CHS') { off = true; continue; }
+      if (!sameUp && !halfTurnInvariant(s)) { off = true; continue; }
       const props = solverProperties(s);
       const { iy, iz } = spaceBendingInertias(s, props);
       const held = iy * cy * cy + iz * cz * cz;
