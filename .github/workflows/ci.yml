@@ -16,7 +16,7 @@
 # missing area tests conservatively select full CI.
 # engine/**: engine/AI-backend/research suites, determinism/results, full web unit, @engine smoke.
 # Other web/** (site, blog, locales, e2e; not package manifests or WASM): everything but the engine,
-# AI-backend, backend and CI-script jobs, with the full E2E smoke suite.
+# AI-backend and backend jobs, with the full E2E smoke suite.
 # Merge queue: docs only, or site/research/tools only (everything web, engine jobs skipped); else full.
 # Every web selection includes Web Build and its TypeScript/Svelte gates.
 # Other/mixed/unknown paths and run-e2e label: full pipeline. The label is read when the run starts:

@@ -81,8 +81,8 @@ class Selection(unittest.TestCase):
             with self.subTest(paths=paths):
                 self.assert_full(selection.select('pull_request', paths))
 
-    SITE_SKIPS = ['engine', 'ai_backend', 'backend', 'ci_scripts']
-    SITE_RUNS = ['web', 'web_build', 'research', 'research_route_only', 'results', 'retest']
+    SITE_SKIPS = ['engine', 'ai_backend', 'backend']
+    SITE_RUNS = ['web', 'web_build', 'research', 'research_route_only', 'results', 'retest', 'ci_scripts']
 
     def assert_site(self, result, queue=False):
         self.assertEqual(result['scope'], 'site')

@@ -64,7 +64,7 @@ def select(event, paths, root=None, force_full=False, tested=False):
             scope = 'full'
     full = scope == 'full'
     text = scope in ('docs', 'prose')
-    outputs = {key: full for key in ('backend', 'ci_scripts')}
+    outputs = {'backend': full, 'ci_scripts': full or scope == 'site'}
     outputs.update(docker=not text and not queue, web_build=not text, ai_backend=full or scope == 'engine',
                    engine=full or scope == 'engine', web=not text,
                    research=full or scope in ('research', 'tools', 'engine', 'site', 'prose'),
