@@ -11,7 +11,8 @@ import { addGeneratedCombinations, takeBackCompositeCases } from './generated-co
 import type { LoadPlan } from '../engine/loads/load-plan';
 import type { CurrentLoadState } from '../engine/loads/load-plan-delta';
 import { findPlannedCase, type Load } from './model.svelte';
-import { patchDesignData } from './design-data';
+import { designData, patchDesignData } from './design-data';
+import { fromLoadPlan, loadsGeneratedWith } from '../provenance/model-features';
 import { RESULTS_VERSION } from '../provenance/registry';
 import { untouchedDefaults, DEFAULT_CASE_NAME_KEYS } from '../model/default-loads';
 import { t } from '../i18n';
@@ -157,6 +158,7 @@ export function loadStateForPlan(p: LoadPlan, nameOf?: ApplyLoadPlanOptions['nam
 
 export function applyLoadPlan(p: LoadPlan, opts: ApplyLoadPlanOptions): void {
   modelStore.batch(() => {
+    const before = loadsGeneratedWith({ designData: designData(), loads: modelStore.loads as never });
     // The basis of what is about to be written, for the memoria (`LoadBasis`).
     const { windGust: _gust, ...scalars } = p.factors;
     const factors = Object.fromEntries(Object.entries(scalars).filter(([, v]) => v !== undefined)) as Record<string, NonNullable<(typeof scalars)[keyof typeof scalars]>>;
@@ -178,6 +180,9 @@ export function applyLoadPlan(p: LoadPlan, opts: ApplyLoadPlanOptions): void {
       // And the composite cases the generator wrote for them, which nothing takes now: they
       // stayed, solved and listed (`takeBackCompositeCases`).
       takeBackCompositeCases();
+    }
+    if (modelStore.loads.some((l) => fromLoadPlan((l.data as { generatedBy?: string }).generatedBy))) {
+      patchDesignData({ loadBasis: { ...designData().loadBasis!, resultsVersion: Math.min(before, RESULTS_VERSION) } });
     }
     const firstNewLoad = Math.max(0, ...modelStore.loads.map((l) => l.data.id)) + 1;
 

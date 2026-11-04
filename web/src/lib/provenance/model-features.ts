@@ -130,7 +130,7 @@ function slaveNodes(c: Record<string, unknown>): number[] {
   return out;
 }
 
-const fromLoadPlan = (by: unknown) => typeof by === 'string' && !!by && !/^(stair|arch):/.test(by);
+export const fromLoadPlan = (by: unknown): boolean => typeof by === 'string' && !!by && !/^(stair|arch):/.test(by);
 
 export function loadsGeneratedWith(s: FeatureSnapshot): number {
   const basis = s.designData?.loadBasis;
