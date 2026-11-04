@@ -259,7 +259,7 @@ jobs:
         continue-on-error: true
         with:
           use-flakehub: false
-      - run: make test.infra.caddy
+      - run: .github/scripts/retry-infra.sh make test.infra.caddy
 
   # One version of each tool everywhere (rust-toolchain.toml, .nvmrc, flake.nix and the
   # workflows), and changelog.d/ fragments well formed. On every run: neither has a path filter.
