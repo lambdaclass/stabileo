@@ -5,7 +5,9 @@ import {
   CHANGELOG,
   CHANGELOG_AREAS,
   AREA_LABELS,
+  changeCount,
   changeStamp,
+  changesPerArea,
   formatChangeWhen,
   changelogByMonth,
   entryAreas,
@@ -108,6 +110,19 @@ describe('the changelog helpers', () => {
       expect(groups.flatMap((g) => g.items)).toEqual(entry.i18n[l].items);
       expect(groups[1].items).toEqual(entry.i18n[l].items.slice(2, 5));
     }
+  });
+
+  it('counts changes, not entries, so the area counts add up to the total', () => {
+    const perArea = changesPerArea(CHANGELOG);
+    const items = CHANGELOG.reduce((n, e) => n + e.i18n.en.items.length, 0);
+    expect(changeCount(CHANGELOG)).toBe(items);
+    expect(Object.values(perArea).reduce((a, b) => a + b, 0)).toBe(items);
+    for (const area of CHANGELOG_AREAS) {
+      const shown = CHANGELOG.flatMap((e) => itemsByArea(e, 'en')).filter((g) => g.area === area).flatMap((g) => g.items);
+      expect(perArea[area], area).toBe(shown.length);
+      expect(changeCount(CHANGELOG, area), area).toBe(shown.length);
+    }
+    expect(changeCount([entry], 'basic')).toBe(3);
   });
 
   it('splits the history into months, newest first, keeping every week', () => {
