@@ -78,7 +78,7 @@
    {#each solverMessages(result.linear.structuredDiagnostics??[],t) as message}<p class="warning" role="alert">{message}</p>{/each}
   {/if}
   </div>
-  <h2>{t('tools.formula')} / {t('tools.batch.method')}</h2><p class="formula">{formula}</p>
+  <h2>{t('tools.formula')} / {t('tools.batch.method')}</h2><p class="formula" translate="no">{formula}</p>
   <h2>{t('tools.assumptionsTitle')}</h2><p>{t('tools.batch.assumptions')}</p>
   {#if id==='portal-frame'}<p>{t('tools.batch.portalNote')}</p>{/if}
   {#if id==='influence-line'}<p>{t('tools.batch.influenceSign')}</p>{:else if id!=='beam-natural-frequency'}<p>{t('tools.batch.signConvention')}</p>{/if}

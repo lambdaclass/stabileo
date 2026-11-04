@@ -7,7 +7,7 @@
   import { Playback } from '../shell/playback.svelte';
   import ScalarFieldViewer from '../../viewport/ScalarFieldViewer.svelte';
   import Curves from './Curves.svelte';
-  import { cases, runCases, viewerData, issue, type Result } from './cases';
+  import { cases, runCases, viewerData, issue, evidence, type Result } from './cases';
   import { editorURL } from './editor';
   import { strings } from './i18n';
 
@@ -21,7 +21,8 @@
   let moment = $state(false);
   const forceCases = cases.filter(c => c.kind === 'force');
   const s = $derived(strings[publicI18n.locale as keyof typeof strings] ?? strings.en);
-  const current = $derived(moment ? cases[cases.length - 1] : forceCases[playback.shown]);
+  const forceCase = $derived(forceCases[playback.shown]);
+  const current = $derived(moment ? cases[cases.length - 1] : forceCase);
   const result = $derived(rows.find(r => r.id === current.id));
   const view = $derived(viewerData(current, result));
   const checks = cases.filter(c => c.reference);
@@ -71,7 +72,7 @@
     <p>{s.referenceWhy}</p>
     <h2>{s.moment}</h2>
     <p>{s.momentDescription}</p>
-    <p><a href={issue}>{s.evidence}</a></p>
+    <p><a href={evidence}>{s.evidence}</a></p>
   {/snippet}
   {#snippet app()}
     <div class="benchmark-pane" bind:this={pane}>
@@ -79,7 +80,7 @@
       <div id="rs-panel-viewer" role="tabpanel" aria-labelledby="rs-tab-viewer" hidden={tab !== 'viewer'}>
         <ScalarFieldViewer {...view} cellSize={2} deformScale={1} showMesh={true} title={moment ? s.moment : s.force} unit="m" height="min(23rem, 48svh)" onOpenEditor={open} />
         <label><input type="checkbox" bind:checked={moment} /> {s.moment}</label>
-        <label>{s.select}: {fmt(current.parameter)} <input aria-label={s.select} aria-valuetext={`${s.force}: PL²/EI = ${fmt(current.parameter)}`} type="range" min="0" max={forceCases.length - 1} value={playback.shown} disabled={moment} oninput={e => playback.seek(Number(e.currentTarget.value))} /></label>
+        <label>{s.select}: {fmt(forceCase.parameter)} <input aria-label={s.select} aria-valuetext={`${s.force}: PL²/EI = ${fmt(forceCase.parameter)}`} type="range" min="0" max={forceCases.length - 1} value={playback.shown} disabled={moment} oninput={e => playback.seek(Number(e.currentTarget.value))} /></label>
         <p data-testid="mattiasson-step">{moment ? s.moment : s.force}: {current.id}</p>
         {#if result?.failure}<p role="alert">{s[result.failure as 'incomplete' | 'invalid' | 'solveError']}</p>{:else if !result}<p>{s.compute}</p>{/if}
         <button onclick={open}>{s.open}</button><p>{s.handoff}</p>
@@ -94,7 +95,7 @@
         </tbody></table></div>
       </div>
       <p role="status" data-testid="mattiasson-summary">{#if busy}{s.running}{:else}{s.summary}: {passed}/{checks.length}{/if}</p>
-      <p>{s.complete}: {rows.filter(r => !r.failure).length}/{cases.length} · {s.fail}: {rows.filter(r => r.failure).length}</p>
+      <p>{s.complete}: {rows.filter(r => !r.failure).length}/{cases.length} · {s.fail}: {rows.filter(r => r.pass === false).length}</p>
       <button onclick={() => { playback.interact(); void run(); }} disabled={busy}>{s.run}</button>
       <button onclick={stop}>{s.stop}</button>
       <button onclick={() => { moment = false; playback.play(); }} disabled={busy || rows.length === 0}>{s.play}</button>
@@ -107,7 +108,7 @@
   .benchmark-pane { height: 100%; overflow: auto; }
   button, input { font: inherit; } button { padding: .45rem; min-height: 44px; min-width: 44px; }
   label { display: flex; align-items: center; gap: .5rem; min-height: 44px; flex-wrap: wrap; margin: .65rem 0; } p { font-size: .875rem; }
-  input[type="range"] { min-height: 44px; min-width: 0; max-width: 100%; }
+  input[type="range"] { min-height: 44px; min-width: 44px; max-width: 100%; }
   input[type="checkbox"] { width: 44px; height: 44px; }
   :global(.rs-shell code), :global(.rs-citebox) { overflow-wrap: anywhere; }
   .table-scroll { overflow-x: auto; } table { border-collapse: collapse; width: 100%; font-size: .8rem; }

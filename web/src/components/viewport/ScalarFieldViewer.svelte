@@ -1,6 +1,12 @@
+<script module lang="ts">
+  let viewerCount = 0;
+</script>
+
 <script lang="ts">
-  import { t as appT } from '../../lib/i18n';
+  import { t as appT, i18n } from '../../lib/i18n';
   import { tAt } from '../../lib/i18n/store.svelte';
+  import { navigateScalarField, SCALAR_FIELD_SHORTCUTS } from './scalar-field-navigation';
+  import { formatLocalizedContourLabel } from './scalar-field-labels';
   import { scalarFieldScale } from './scalar-field-scale';
   /**
    * The 3D viewport's look and navigation showing one scalar field on a 2D mesh, for views that
@@ -9,9 +15,10 @@
    * bar styles.
    *
    * Navigation as in the app: left drag orbits (in 3D), right drag pans, the wheel zooms to the
-   * pointer. "2D" is the app's plan view: looking down at the XY plane, orbit locked.
+   * pointer. "2D" is the app's plan view: looking down at the XY plane, orbit locked. With the
+   * canvas focused, arrows pan, Shift+arrows orbit in 3D, + and - zoom, 0 or Home fits.
    */
-  import { onDestroy, onMount, untrack, type Snippet } from 'svelte';
+  import { onDestroy, onMount, tick, untrack, type Snippet } from 'svelte';
   import * as THREE from 'three';
   import type { OrbitControls } from 'three/addons/controls/OrbitControls.js';
   import '../../styles/viewer-chrome.css';
@@ -76,6 +83,10 @@
     editorButton?: boolean;
     /** Geometry overlays use colour categories, not a physical scalar field. */
     geometryOnly?: boolean;
+    /** Length unit of the coordinates, for the zoom readout. */
+    lengthUnit?: string;
+    /** Hide the axis triad when the drawn plane is not the global XY plane. */
+    showAxes?: boolean;
   };
   let {
     locale,
@@ -106,25 +117,14 @@
     openEditorNote,
     editorButton = true,
     geometryOnly = false,
+    lengthUnit,
+    showAxes = true,
   }: Props = $props();
 
   const t = (key: string) => locale ? tAt(key, locale) : appT(key);
   const tp = (key: string, params: Record<string, string | number>) => t(key).replace(/\{(\w+)\}/g, (match, key) => String(params[key] ?? match));
   let menuTrigger: HTMLButtonElement;
   function closeMenu() { menuOpen = false; menuTrigger?.focus(); }
-  function navigate(event: KeyboardEvent) {
-    if (!camera || !controls) return;
-    const delta = new THREE.Vector3();
-    const step = camera.position.distanceTo(controls.target) * .05;
-    if (event.key === 'ArrowLeft') delta.x = -step;
-    else if (event.key === 'ArrowRight') delta.x = step;
-    else if (event.key === 'ArrowUp') delta.y = step;
-    else if (event.key === 'ArrowDown') delta.y = -step;
-    else if (['+', '=', '-', '−'].includes(event.key)) {
-      camera.position.sub(controls.target).multiplyScalar(event.key === '+' || event.key === '=' ? .9 : 1 / .9).add(controls.target);
-    } else return;
-    event.preventDefault(); camera.position.add(delta); controls.target.add(delta); updateZoom(); invalidate();
-  }
   let container: HTMLDivElement;
   let gizmo: HTMLCanvasElement;
   let renderer: THREE.WebGLRenderer | null = null;
@@ -214,6 +214,14 @@
     fit();
   }
 
+  let menu = $state<HTMLDivElement>();
+  async function toggleMenu() {
+    menuOpen = !menuOpen;
+    if (!menuOpen) return;
+    await tick();
+    menu?.querySelector<HTMLButtonElement>('.cam-item')?.focus();
+  }
+
   function resize() {
     if (!renderer) return;
     const w = container.clientWidth;
@@ -235,13 +243,22 @@
     const r = renderer.domElement.getBoundingClientRect();
     ray.setFromCamera(new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1), camera);
     const p = new THREE.Vector3();
-    if (ray.ray.intersectPlane(plane, p)) pointer = `(${p.x.toFixed(4)}, ${p.y.toFixed(4)})`;
+    if (!ray.ray.intersectPlane(plane, p)) return;
+    const f = new Intl.NumberFormat(locale ?? i18n.locale, { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+    pointer = `(${f.format(p.x)}; ${f.format(p.y)})`;
+  }
+
+  function onKey(e: KeyboardEvent) {
+    if (!renderer) return;
+    const action = navigateScalarField(e, camera, controls);
+    if (action === 'fit') fit();
+    else if (action === 'moved') { updateZoom(); invalidate(); }
   }
 
   function updateZoom() {
     if (!renderer) return;
     const d = camera.position.distanceTo(controls.target);
-    zoomText = scalarFieldScale(container.clientHeight, d, camera.fov);
+    zoomText = scalarFieldScale(container.clientHeight, d, camera.fov, lengthUnit);
   }
 
   onMount(() => {
@@ -312,6 +329,8 @@
     fit();
   });
 
+  const keysId = `sfv-keys-${++viewerCount}`;
+  const legendFormat = (value: number, min: number, max: number, bands = 0) => formatLocalizedContourLabel(value, min, max, bands, locale ?? i18n.locale);
   const nodeCount = $derived(xy.length / 2);
   const cellCount = $derived(cells.length / cellSize);
 </script>
@@ -323,13 +342,13 @@
     <div class="sfv-navigation">
       <div class="camera-controls">
         <div class="cam-menu-wrap">
-          <button bind:this={menuTrigger} class="cam-btn cam-cube" class:on={menuOpen} onclick={() => (menuOpen = !menuOpen)} title={t('scalarViewer.view')} aria-label={t('scalarViewer.viewOptions')} aria-expanded={menuOpen}>
+          <button bind:this={menuTrigger} class="cam-btn cam-cube" class:on={menuOpen} onclick={toggleMenu} title={t('scalarViewer.view')} aria-label={t('scalarViewer.viewOptions')} aria-expanded={menuOpen}>
             <Icon name="viewCube" size={17} />
             <span class="cam-caret" aria-hidden="true"></span>
           </button>
           {#if menuOpen}
             <button class="cam-backdrop" onclick={closeMenu} aria-label={t('scalarViewer.close')} tabindex="-1"></button>
-            <div class="cam-menu">
+            <div class="cam-menu" bind:this={menu}>
               <button class="cam-item" onclick={() => { closeMenu(); fit(); }}><span class="cam-glyph" aria-hidden="true">⤢</span><span>{t('scalarViewer.fit')}</span></button>
               <div class="cam-sep"></div>
               <button class="cam-item" class:on={projection === 'plan'} onclick={() => setProjection('plan')}><span class="cam-glyph" aria-hidden="true">⊤</span><span>{t('scalarViewer.plan')}</span></button>
@@ -337,17 +356,17 @@
             </div>
           {/if}
         </div>
-        <button class="sfv-mode" onclick={() => setProjection(projection === 'plan' ? 'orbit' : 'plan')} title={t('scalarViewer.switchProjection')}>{projection === 'plan' ? '2D' : '3D'}</button>
+        <button class="sfv-mode" onclick={() => setProjection(projection === 'plan' ? 'orbit' : 'plan')} title={t('scalarViewer.switchProjection')} aria-label={t(projection === 'plan' ? 'scalarViewer.orbit' : 'scalarViewer.plan')}>{projection === 'plan' ? '2D' : '3D'}</button>
         <button class="sfv-mode" onclick={() => fit()} title={t('scalarViewer.fit')} aria-label={t('scalarViewer.fit')}>⤢</button>
       </div>
     </div>
     <div class="sfv viewport-container" style:height>
-      <!-- Interactive graphics surface: arrow pan and +/- zoom need focus on the canvas region. -->
       <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
-      <div class="sfv-canvas" bind:this={container} role="application" tabindex="0" onkeydown={navigate} aria-label={ariaLabel}></div>
-      <canvas bind:this={gizmo} class="axis-gizmo" width="80" height="80"></canvas>
+      <div class="sfv-canvas" bind:this={container} role="application" tabindex="0" onkeydown={onKey} aria-label={ariaLabel} title={t('scalarViewer.keyboard')} aria-describedby={keysId} aria-keyshortcuts={SCALAR_FIELD_SHORTCUTS}></div>
+      <span id={keysId} hidden>{t('scalarViewer.keyboard')}</span>
+      <canvas bind:this={gizmo} class="axis-gizmo" class:sfv-hidden={!showAxes} width="80" height="80" aria-hidden="true"></canvas>
       {#if displayMode === 'field' && values && !geometryOnly}
-        <ContourLegend {title} {unit} min={range.min} max={range.max} {bands} footer={legendFooter} {colourMap} />
+        <ContourLegend {title} {unit} min={range.min} max={range.max} {bands} footer={legendFooter} {colourMap} format={legendFormat} ariaLabel={`${title}${unit ? ` [${unit}]` : ''}: ${legendFormat(range.min, range.min, range.max, bands)} – ${legendFormat(range.max, range.min, range.max, bands)}`} />
       {/if}
       <span class="sfv-mark">{t('scalarViewer.viewer')}</span>
     </div>
@@ -370,6 +389,10 @@
   .sfv-wrap :global(.status-item), .sfv-wrap :global(.status-value) { font-size: 12px; }
   .sfv-editor { min-height: 44px; }
 
+  .sfv button { min-width: 44px; min-height: 44px; }
+  .sfv :global(.shell-legend), .sfv :global(.legend-unit-inline) { font-size: 12px; }
+  .sfv .cam-item { min-height: 44px; font-size: 12px; }
+  .sfv-status :global(.status-value) { font-size: 12px; }
   .sfv-wrap {
     width: 100%;
     background: var(--st-surface, #0f1e2b);
@@ -402,6 +425,10 @@
   .sfv-canvas {
     position: absolute;
     inset: 0;
+  }
+  .sfv-canvas:focus-visible {
+    outline: 2px solid var(--st-accent, #4ea1ff);
+    outline-offset: -2px;
   }
   .sfv-canvas :global(canvas) {
     display: block;
@@ -436,9 +463,16 @@
     font: 600 12px var(--st-sans);
     letter-spacing: 0.06em;
     text-transform: uppercase;
-    color: var(--st-text-3);
+    color: var(--st-text-2);
     pointer-events: none;
   }
+  .sfv-wrap :global(.status-item), .sfv-wrap :global(.status-value) { font-size: 12px; }
+  .sfv-hidden { display: none !important; }
+  .sfv-wrap :global(.cam-item) { min-height: 44px; font-size: 12px; }
+  .sfv-wrap :global(.cam-group-title),
+  .sfv-wrap :global(.cam-two small),
+  .sfv-wrap :global(.status-bar),
+  .sfv-wrap :global(.status-label) { font-size: 12px; }
   .sfv-wrap :global(.cam-btn), .sfv-wrap :global(.cam-item) { min-width: 44px; min-height: 44px; font-size: 12px; }
   .sfv-wrap :global(.shell-legend), .sfv-wrap :global(.legend-unit-inline) { font-size: 12px; }
   .sfv-status :global(.status-value) {
@@ -450,7 +484,9 @@
     color: var(--st-text-2);
     font-size: max(12px, 0.75rem);
   }
+  .sfv-status :global(.status-value) { font-size: 12px; }
   .sfv-status {
+    font-size: 0.75rem;
     flex-wrap: wrap;
     row-gap: 0.2rem;
     border-top: 1px solid var(--st-hair, rgba(143, 163, 179, 0.22));

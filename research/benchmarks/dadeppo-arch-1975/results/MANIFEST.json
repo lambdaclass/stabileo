@@ -1,10 +1,10 @@
 {
   "solver": "dedaliano_engine::solver::arc_length::solve_arc_length",
   "command": "DADEPPO_EXPORT=<absolute replay path> nix develop -c cargo test --manifest-path engine/Cargo.toml --test solver dadeppo_arch -- --nocapture",
-  "date": "2026-10-29",
-  "case_sha256": "c6b6fec6fc5cc5e2c0b4154f1fea10c3ef9b922507b522faf60ffa121ba54525",
+  "date": "2026-10-31",
+  "case_sha256": "212675790754d1f7bd4835dc808883c5fd635cb761e1ff6a3e5206c5ccee84e8",
   "files_sha256": {
-    "stabileo_results.json": "e518070e2430f4ed4b02d80feb00e9fe6a99b80b97eea0ed7bc6bb140ba6c24a"
+    "stabileo_results.json": "8371eeaeb3c91fefeb939b2954dae0a208c540223c042c70f4f42b50e8a80e72"
   },
   "peak": {
     "controlDisplacement": 0.01194391165729767,
@@ -15,5 +15,34 @@
   },
   "reference": 8.97,
   "stage": "first-version",
-  "reviews": []
+  "reviews": [
+    {
+      "round": 1,
+      "reviewers": [
+        "codex",
+        "kimi"
+      ],
+      "date": "2026-10-30"
+    },
+    {
+      "round": 2,
+      "reviewers": [
+        "kimi",
+        "codex",
+        "claude"
+      ],
+      "date": "2026-10-30"
+    }
+  ],
+  "limitPoint": {
+    "crown": {
+      "rotation": 0.05134560445613346,
+      "uOverR": 0.611893026133222,
+      "vOverR": 1.13780669990202
+    },
+    "loadFactor": 9.011295412411794,
+    "offset": -0.07357733331203162,
+    "peakStep": 267
+  },
+  "note": "frames and steps are the 2026-10-29 native replay; limitPoint was added on 2026-10-31 and convergence (the mesh study, formerly convergence.json) on 2026-11-01 by the same native test; frames and steps reproduce to 2.3e-12 relative and are kept as recorded."
 }
