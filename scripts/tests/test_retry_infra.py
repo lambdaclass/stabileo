@@ -1,3 +1,4 @@
+import importlib.util
 import os
 import re
 from pathlib import Path
@@ -239,6 +240,31 @@ if [ "$n" = 0 ]; then {first}; else {second}; fi
 
     def test_previous_infra_output_does_not_trigger_retry(self):
         self.assertEqual(self.run_attempts(['HTTP error 418', 'AssertionError'])[:2], (7, 2))
+
+
+class BrowserDeps(unittest.TestCase):
+    def test_every_browser_package_install_goes_through_the_cached_action(self):
+        text = (ROOT / '.github/workflows/ci.yml').read_text()
+        self.assertNotIn('install-deps', text)
+        self.assertGreaterEqual(text.count('uses: ./.github/actions/browser-deps'), 6)
+        for browsers in re.findall(r'uses: \./\.github/actions/browser-deps\n\s+with:\n\s+browsers: (.+)', text):
+            self.assertRegex(browsers, r'^[a-z]+( [a-z]+)*$')
+
+    def test_apt_keeps_its_downloads_in_the_cache_and_waits_for_the_lock(self):
+        text = (ROOT / '.github/actions/browser-deps/action.yml').read_text()
+        steps = dict(part.split('\n', 1) for part in text.split('\n    - name: ')[1:])
+        for setting in ('Dir::Cache::Archives', 'APT::Keep-Downloaded-Packages \\"true\\"', 'DPkg::Lock::Timeout'):
+            self.assertIn(setting.replace('\\', ''), steps['Point apt at the package cache'].replace('\\', ''))
+        keys = [re.search(r'key: (.+)', steps[name]).group(1) for name in ('Restore downloaded packages', 'Save downloaded packages')]
+        self.assertEqual(keys[0], keys[1])
+        self.assertIn("if: steps.restore.outputs.cache-hit != 'true'", steps['Save downloaded packages'])
+        install = re.search(r'run: (.+)', steps['Install browser system dependencies']).group(1)
+        install = install.replace('${{ inputs.browsers }}', 'chromium firefox webkit')
+        self.assertTrue(install.startswith('.github/scripts/retry-infra.sh '))
+        spec = importlib.util.spec_from_file_location('infra_retry', ROOT / '.github/scripts/infra-retry.py')
+        infra = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(infra)
+        self.assertTrue(infra.acquisition({'title': install, 'script': [install]}))
 
 
 if __name__ == '__main__':

@@ -1013,7 +1013,9 @@ jobs:
         run: .github/scripts/retry-infra.sh make e2e.web.setup
       - name: Install Chromium system dependencies
         if: runner.environment == 'github-hosted'
-        run: .github/scripts/retry-infra.sh nix develop --command bash -c "cd web && npx playwright install-deps chromium"
+        uses: ./.github/actions/browser-deps
+        with:
+          browsers: chromium
       - name: Build the E2E site
         run: |
           if [ "${{ runner.environment }}" = self-hosted ]; then
@@ -1145,7 +1147,9 @@ jobs:
       # The runner lacks the system libraries Chromium links against; no make target installs them.
       - name: Install Chromium system dependencies
         if: runner.environment == 'github-hosted'
-        run: .github/scripts/retry-infra.sh nix develop --command bash -c "cd web && npx playwright install-deps chromium"
+        uses: ./.github/actions/browser-deps
+        with:
+          browsers: chromium
       - name: Install build-test browser
         if: runner.environment == 'github-hosted'
         run: .github/scripts/retry-infra.sh make e2e.web.setup
@@ -1292,7 +1296,9 @@ jobs:
       - name: Install dependencies
         run: .github/scripts/retry-infra.sh make web.deps
       - name: Install browser system dependencies
-        run: .github/scripts/retry-infra.sh nix develop --command bash -c "cd web && npx playwright install-deps chromium firefox webkit"
+        uses: ./.github/actions/browser-deps
+        with:
+          browsers: chromium firefox webkit
       - name: Install determinism browsers
         run: .github/scripts/retry-infra.sh nix develop --command bash -c 'cd web && npx playwright install chromium firefox webkit'
       - name: Bit-identical in Node and every browser
@@ -1384,7 +1390,9 @@ jobs:
         run: .github/scripts/retry-infra.sh make e2e.web.setup
       - name: Install Chromium system dependencies
         if: runner.environment == 'github-hosted'
-        run: .github/scripts/retry-infra.sh nix develop --command bash -c "cd web && npx playwright install-deps chromium"
+        uses: ./.github/actions/browser-deps
+        with:
+          browsers: chromium
       # `@landing` stays out: on CI every landing case after the first wedges in
       # `browser.newContext`; run `npx playwright test --grep @landing` locally.
       # `@flaky` tests are quarantined (web/e2e/README.md): left out here, run by `e2e-flaky`.
@@ -1518,7 +1526,9 @@ jobs:
         run: .github/scripts/retry-infra.sh make e2e.web.setup
       - name: Install Chromium system dependencies
         if: runner.environment == 'github-hosted'
-        run: .github/scripts/retry-infra.sh nix develop --command bash -c "cd web && npx playwright install-deps chromium"
+        uses: ./.github/actions/browser-deps
+        with:
+          browsers: chromium
       # --pass-with-no-tests: an empty quarantine is the goal, not an error.
       - name: E2E quarantined (@flaky) tests, two retries
         run: |
@@ -1597,7 +1607,9 @@ jobs:
       - name: Install Chromium
         run: .github/scripts/retry-infra.sh make e2e.web.setup
       - name: Install Chromium system dependencies
-        run: .github/scripts/retry-infra.sh nix develop --command bash -c "cd web && npx playwright install-deps chromium"
+        uses: ./.github/actions/browser-deps
+        with:
+          browsers: chromium
       - name: Scale budgets
         run: make test.web.timing
       - name: E2E wall-clock budgets
