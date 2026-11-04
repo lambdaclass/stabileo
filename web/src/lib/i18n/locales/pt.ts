@@ -13600,6 +13600,7 @@ const pt: Translations = {
   "recheck.intro": "Este projeto foi resolvido pela última vez com a versão de resultados {from} do Stabileo; esta é a versão {to}. Estas mudanças afetam recursos que este modelo usa:",
   "recheck.introUnknown": "Este projeto não registra com qual versão do Stabileo foi resolvido (foi salvo antes de isso ser registrado). Estas mudanças afetam recursos que este modelo usa:",
   "recheck.introLoads": "As cargas geradas deste projeto vêm de uma versão do Stabileo anterior a esta (versão de resultados {to}), e resolver de novo não as altera. Estas mudanças as afetam:",
+  "recheck.regenerateLoads": "Estas mudanças afetam cargas feitas pelo gerador de cargas, e executar novamente a análise não as altera: no PRO, abra Cargas → “{button}” e aplique o plano de cargas de novo.",
   "recheck.staleWarning": "Até executar novamente a análise e as verificações, cada resultado, verificação e relatório deste projeto fica marcado como desatualizado.",
   "recheck.ack": "Li estas mudanças",
   "recheck.rerun": "Executar novamente análise e dimensionamento",

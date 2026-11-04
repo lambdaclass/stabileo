@@ -13799,6 +13799,7 @@ const de: Translations = {
   'recheck.intro': 'Dieses Projekt wurde zuletzt mit der Ergebnisversion {from} von Stabileo berechnet; dies ist Version {to}. Diese Änderungen betreffen Funktionen, die dieses Modell verwendet:',
   'recheck.introUnknown': 'Dieses Projekt speichert nicht, mit welcher Stabileo-Version es berechnet wurde (es wurde gespeichert, bevor dies erfasst wurde). Diese Änderungen betreffen Funktionen, die dieses Modell verwendet:',
   'recheck.introLoads': 'Die generierten Lasten dieses Projekts stammen aus einer älteren Stabileo-Version als dieser (Ergebnisversion {to}); erneutes Rechnen ändert sie nicht. Diese Änderungen betreffen sie:',
+  'recheck.regenerateLoads': 'Diese Änderungen betreffen Lasten aus dem Lastgenerator, und eine erneute Berechnung ändert sie nicht: Öffnen Sie in PRO Lasten → „{button}“ und wenden Sie den Lastplan erneut an.',
   'recheck.staleWarning': 'Bis Sie die Berechnung und die Nachweise erneut ausführen, wird jedes Ergebnis, jeder Nachweis und jeder Bericht dieses Projekts als veraltet markiert.',
   'recheck.ack': 'Ich habe diese Änderungen gelesen',
   'recheck.rerun': 'Berechnung und Bemessung erneut ausführen',

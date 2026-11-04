@@ -74,6 +74,10 @@ export function changelogUrl(c: Pick<ResultChange, 'changelog'>): string {
 }
 
 /** Every condition group of an entry, normalised to OR-groups that must all hold. */
+export function concernsGeneratedLoads(w: ChangeCondition): boolean {
+  return conditionGroups(w).some((g) => g.includes('generatedLoads'));
+}
+
 export function conditionGroups(w: ChangeCondition): string[][] {
   const groups: string[][] = [];
   if (w.any && w.any.length) groups.push(w.any);

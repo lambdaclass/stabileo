@@ -13799,6 +13799,7 @@ const fr: Translations = {
   'recheck.intro': 'Ce projet a été calculé pour la dernière fois avec la version de résultats {from} de Stabileo ; celle-ci est la version {to}. Ces changements concernent des fonctions utilisées par ce modèle :',
   'recheck.introUnknown': 'Ce projet n\'enregistre pas la version de Stabileo qui l\'a calculé (il a été enregistré avant que cette information ne soit consignée). Ces changements concernent des fonctions utilisées par ce modèle :',
   'recheck.introLoads': 'Les charges générées de ce projet viennent d\'une version de Stabileo antérieure à celle-ci (version de résultats {to}), et relancer le calcul ne les change pas. Ces changements les concernent :',
+  'recheck.regenerateLoads': 'Ces changements concernent des charges produites par le générateur de charges, et relancer l’analyse ne les change pas : dans PRO, ouvrez Charges → « {button} » et appliquez à nouveau le plan de charges.',
   'recheck.staleWarning': 'Tant que vous ne relancez pas l\'analyse et les vérifications, chaque résultat, vérification et note de calcul de ce projet est marqué comme obsolète.',
   'recheck.ack': 'J\'ai lu ces changements',
   'recheck.rerun': 'Relancer l\'analyse et le dimensionnement',

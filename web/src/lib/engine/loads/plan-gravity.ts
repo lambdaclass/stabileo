@@ -300,7 +300,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
       if (why === 'lowHeadroom') {
         const within = (o: { polygon: Array<[number, number]>; area: number }, p: { polygon: Array<[number, number]>; area: number }) => o !== p && o.area < p.area && o.polygon.every((q) => inside(q, p.polygon));
         const all = levels.get(z)?.res.panels ?? [];
-        const loading = all.filter((o) => within(o, panel) && deckless(o.polygon, z) !== 'wide');
+        const loading = all.filter((o) => o.loaded && o.own && within(o, panel) && deckless(o.polygon, z) !== 'wide');
         const nested = loading.filter((o) => !loading.some((m) => within(o, m)));
         const { share, kept } = deck!.uncarried(panel.polygon, z, held, nested.map((o) => o.polygon));
         if (share <= 0) { dropped.add(panel); continue; }

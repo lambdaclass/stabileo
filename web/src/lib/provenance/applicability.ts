@@ -8,17 +8,13 @@
  *
  * Pure: the store (`store/recheck.svelte.ts`) calls it on open, the tests call it directly.
  */
-import { conditionGroups, type ResultChange, type ResultChangeRegistry, type ChangeCondition } from './registry';
+import { conditionGroups, concernsGeneratedLoads, type ResultChange, type ResultChangeRegistry, type ChangeCondition } from './registry';
 import { RESULT_CHANGES } from './full-registry';
 import { loadsGeneratedWith, modelFeatures, type FeatureSnapshot } from './model-features';
 import type { SolveStamp } from './solve-stamp';
 
 export function conditionHolds(w: ChangeCondition, features: ReadonlySet<string>): boolean {
   return conditionGroups(w).every((g) => g.some((f) => features.has(f)));
-}
-
-function concernsGeneratedLoads(w: ChangeCondition): boolean {
-  return conditionGroups(w).some((g) => g.includes('generatedLoads'));
 }
 
 export interface RecheckAssessment {

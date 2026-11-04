@@ -13960,6 +13960,7 @@ const en: Record<string, string> = {
   "recheck.intro": "This project was last solved with Stabileo results version {from}; this is version {to}. These changes concern features this model uses:",
   "recheck.introUnknown": "This project does not record which version of Stabileo solved it (it was saved before that was recorded). These changes concern features this model uses:",
   "recheck.introLoads": "This project's generated loads come from a version of Stabileo before this one (results version {to}), and solving again does not change them. These changes concern them:",
+  "recheck.regenerateLoads": "These changes concern loads made by the load generator, and re-running the analysis does not change them: in PRO, open Loads → “{button}” and apply the load plan again.",
   "recheck.staleWarning": "Until you re-run the analysis and the design checks, every result, design check and report of this project is marked stale.",
   "recheck.ack": "I have read these changes",
   "recheck.rerun": "Re-run analysis and design",
