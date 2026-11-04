@@ -5,7 +5,8 @@
 # Top-level full PR build audit, excluding builds spawned by tests:
 # engine WASM 5 (WASM job, Docker source, three research validation jobs); research WASM sets 2 (1 on source-cache hit); site builds
 # 6: production, E2E, admin, Docker source, and route-budget main/candidate.
-# Docker tests both source and site-production paths; E2E shards share site-e2e.
+# Docker tests the site-production path on every PR and the source path when the Dockerfile or a
+# pin it reads changes (select-ci.py), and both on main; E2E shards share site-e2e.
 # Research cache excludes viewer: always rebuild viewer and republish asset identity.
 # Research WASM keeps the 60-minute budget for the expanded research crate set.
 # PR selection (docs/changelog may accompany any single area):
@@ -99,6 +100,7 @@ jobs:
       research_route_only: ${{ steps.select.outputs.research_route_only }}
       slow_e2e: ${{ steps.select.outputs.slow_e2e }}
       docker: ${{ steps.select.outputs.docker }}
+      docker_source: ${{ steps.select.outputs.docker_source }}
       backend: ${{ steps.select.outputs.backend }}
       ai_backend: ${{ steps.select.outputs.ai_backend }}
       ci_scripts: ${{ steps.select.outputs.ci_scripts }}
@@ -240,7 +242,8 @@ jobs:
           .github/scripts/retry-infra.sh gh run download "$RUN_ID" --name site-production --dir ci-site
           test -s ci-site/index.html
       # Also exercise Compose's default frontend/WASM compiler stages.
-      - run: docker build --tag stabileo-source-smoke .
+      - if: needs.changes.outputs.docker_source == 'true'
+        run: docker build --tag stabileo-source-smoke .
       - run: docker build --build-arg FRONTEND_STAGE=web-prebuilt --tag stabileo-smoke .
 
   # One version of each tool everywhere (rust-toolchain.toml, .nvmrc, flake.nix and the
