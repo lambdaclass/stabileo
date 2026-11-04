@@ -8930,6 +8930,7 @@ const pt: Translations = {
   'check.alu.bendingStrong': 'Flexão, eixo forte',
   'check.alu.bendingWeak': 'Flexão, eixo fraco',
   'check.alu.shear': 'Cisalhamento',
+  'check.alu.shearWeak': 'Cisalhamento, eixo fraco',
   'check.alu.interaction': 'Força axial e flexão',
   'check.alu.class': 'Classe da seção',
   'check.alu.grade': 'Liga',

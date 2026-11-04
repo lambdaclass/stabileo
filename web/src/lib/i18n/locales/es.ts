@@ -8457,6 +8457,7 @@ const es: Record<string, string> = {
   'check.alu.bendingStrong': 'Flexión, eje fuerte',
   'check.alu.bendingWeak': 'Flexión, eje débil',
   'check.alu.shear': 'Corte',
+  'check.alu.shearWeak': 'Corte, eje débil',
   'check.alu.interaction': 'Axil y flexión',
   'check.alu.class': 'Clase de sección',
   'check.alu.grade': 'Grado',
