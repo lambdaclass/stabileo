@@ -5,7 +5,9 @@ import {
   CHANGELOG,
   CHANGELOG_AREAS,
   AREA_LABELS,
+  changeCount,
   changeStamp,
+  changesPerArea,
   formatChangeWhen,
   changelogByMonth,
   entryAreas,
@@ -110,11 +112,25 @@ describe('the changelog helpers', () => {
     }
   });
 
+  it('counts changes, not entries, so the area counts add up to the total', () => {
+    const perArea = changesPerArea(CHANGELOG);
+    const items = CHANGELOG.reduce((n, e) => n + e.i18n.en.items.length, 0);
+    expect(changeCount(CHANGELOG)).toBe(items);
+    expect(Object.values(perArea).reduce((a, b) => a + b, 0)).toBe(items);
+    for (const area of CHANGELOG_AREAS) {
+      const shown = CHANGELOG.flatMap((e) => itemsByArea(e, 'en')).filter((g) => g.area === area).flatMap((g) => g.items);
+      expect(perArea[area], area).toBe(shown.length);
+      expect(changeCount(CHANGELOG, area), area).toBe(shown.length);
+    }
+    expect(changeCount([entry], 'basic')).toBe(3);
+  });
+
   it('splits the history into months, newest first, keeping every week', () => {
     const months = changelogByMonth(CHANGELOG);
-    expect(months.map((m) => m.key)).toEqual(['2026-10', '2026-09', '2026-08', '2026-07', '2026-06', '2026-04', '2026-03', '2026-02']);
+    expect(months.map((m) => m.key)).toEqual(['2026-11', '2026-10', '2026-09', '2026-08', '2026-07', '2026-06', '2026-04', '2026-03', '2026-02']);
     expect(months.flatMap((m) => m.entries)).toEqual(CHANGELOG);
-    expect(months[0].entries.map((e) => e.date)).toEqual(['2026-10-30', '2026-10-23', '2026-10-16', '2026-10-09', '2026-10-02']);
+    expect(months[0].entries.map((e) => e.date)).toEqual(['2026-11-06']);
+    expect(months[1].entries.map((e) => e.date)).toEqual(['2026-10-30', '2026-10-23', '2026-10-16', '2026-10-09', '2026-10-02']);
   });
 
   it('names the day and the month for a week, and the month alone for a monthly entry', () => {
