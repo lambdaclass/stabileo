@@ -138,10 +138,10 @@ describe('which registered changes concern a model', () => {
   it('tells models with generated loads about SA-2026-033, and no other model', () => {
     const frame = model({ elements: [member(1, 1, 'frame')] });
     const generated = model({ elements: [member(1, 1, 'frame')], loads: [{ type: 'distributed3d', data: { caseId: 1, generatedBy: 'cirsoc-101' } }] });
-    const v16 = { resultsVersion: 16, analyses: ['linear'] } as SolveStamp;
-    expect(ids(generated, v16)).toContain('generated-area-loads-headroom');
-    expect(ids(generated, { resultsVersion: 17, analyses: ['linear'] } as SolveStamp)).not.toContain('generated-area-loads-headroom');
-    expect(ids(frame, v16)).not.toContain('generated-area-loads-headroom');
+    const v19 = { resultsVersion: 19, analyses: ['linear'] } as SolveStamp;
+    expect(ids(generated, v19)).toContain('generated-area-loads-headroom');
+    expect(ids(generated, { resultsVersion: 20, analyses: ['linear'] } as SolveStamp)).not.toContain('generated-area-loads-headroom');
+    expect(ids(frame, v19)).not.toContain('generated-area-loads-headroom');
     const entry = RESULT_CHANGES.changes.find((c) => c.id === 'generated-area-loads-headroom') as unknown as { title: Record<string, string>; explanation: Record<string, string> };
     for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
       expect(entry.title[locale]?.trim(), `title.${locale}`).toBeTruthy();

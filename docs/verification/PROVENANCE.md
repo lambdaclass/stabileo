@@ -74,8 +74,8 @@ registry entry therefore flags every saved model with a time history (`timeHisto
 
 ## Generated area loads under low roof structure (PR #1253, after #1076)
 
-Results version 17 (versions 15 and 16 are held by #1372 and #1326, which land first; renumber
-at landing if that order changes) registers
+Results version 20 (the next free version when this was marked ready: 15 is #1372's, 16–19 are
+held by #1326, #1328, #1319 and #1321) registers
 `generated-area-loads-headroom`: the load generator no longer leaves out a panel's area loads when
 low roof structure stands over only part of it, and counts trusses as roof structure
 (SA-2026-033). It concerns models whose loads came from the generator (`generatedLoads`); saved
