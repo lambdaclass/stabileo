@@ -34,8 +34,8 @@
  * From `generateKinematicReport` on the `hidden-mechanism` fixture, run
  * before any of this was written:
  *
- *   formula        g = 3·m + r − 3·n
- *   substitution   g = 3×2 + 3 − 3×3 = 0
+ *   formula        GH = 3·m + r − 3·n − c
+ *   substitution   GH = 3×2 + 3 − 3×3 − 0 = 0
  *   classification HYPOSTATIC — not what the formula's zero implies
  *   mechanism      1 mode, node 3, dof ux
  *   isSolvable     false
@@ -91,13 +91,13 @@ export const conceptualAdvanced: Post = {
 
         { k: 'h', t: 'Una pantalla donde la diferencia se ve entera' },
         { k: 'p', t: 'Abajo hay una viga de dos tramos sobre tres apoyos. Los tres restringen solamente el movimiento vertical. Es el caso de manual, y a la vez el que más veces vi dar por bueno en un parcial.' },
-        { k: 'p', t: 'La fórmula del grado de hiperestaticidad da g = 3·m + r − 3·n = 3×2 + 3 − 3×3 = 0. Cero significa isostática, y cualquier programa que se quede en la fórmula lo va a informar así. Pero nada sujeta la viga horizontalmente: es un mecanismo, y no se puede resolver.' },
+        { k: 'p', t: 'La fórmula del grado de hiperestaticidad da GH = 3·m + r − 3·n − c = 3×2 + 3 − 3×3 − 0 = 0. Cero significa isostática, y cualquier programa que se quede en la fórmula lo va a informar así. Pero nada sujeta la viga horizontalmente: es un mecanismo, y no se puede resolver.' },
         {
           k: 'table',
           caption: 'Lo que devuelve el análisis cinemático sobre esa viga, paso por paso.',
           head: ['Paso', 'Qué mira', 'Resultado'],
           rows: [
-            ['2 · Grado de hiperestaticidad', 'g = 3·m + r − 3·n', '0'],
+            ['2 · Grado de hiperestaticidad', 'GH = 3·m + r − 3·n − c', '0'],
             ['3 · Matriz de rigidez', 'Modos de mecanismo detectados', '1'],
             ['3 · Matriz de rigidez', 'Grados de libertad sin restringir', '1'],
             ['4 · Sugerencias', 'Veredicto en pantalla', 'No se puede resolver'],
@@ -156,13 +156,13 @@ export const conceptualAdvanced: Post = {
 
         { k: 'h', t: 'One screen where the whole difference shows' },
         { k: 'p', t: 'Below is a two-span beam on three supports. All three restrain vertical movement only. It is the textbook case, and also the one I have most often seen accepted as correct in an exam.' },
-        { k: 'p', t: 'The formula for the degree of indeterminacy gives g = 3·m + r − 3·n = 3×2 + 3 − 3×3 = 0. Zero means statically determinate, and any program that stops at the formula will report exactly that. But nothing holds the beam horizontally: it is a mechanism, and it cannot be solved.' },
+        { k: 'p', t: 'The formula for the degree of indeterminacy gives GH = 3·m + r − 3·n − c = 3×2 + 3 − 3×3 − 0 = 0. Zero means statically determinate, and any program that stops at the formula will report exactly that. But nothing holds the beam horizontally: it is a mechanism, and it cannot be solved.' },
         {
           k: 'table',
           caption: 'What kinematic analysis returns on that beam, step by step.',
           head: ['Step', 'What it looks at', 'Result'],
           rows: [
-            ['2 · Static indeterminacy', 'g = 3·m + r − 3·n', '0'],
+            ['2 · Static indeterminacy', 'GH = 3·m + r − 3·n − c', '0'],
             ['3 · Stiffness matrix', 'Mechanism modes detected', '1'],
             ['3 · Stiffness matrix', 'Unconstrained degrees of freedom', '1'],
             ['4 · Suggestions', 'Verdict on screen', 'Cannot be solved'],
@@ -221,13 +221,13 @@ export const conceptualAdvanced: Post = {
 
         { k: 'h', t: 'Uma tela onde a diferença aparece inteira' },
         { k: 'p', t: 'Abaixo há uma viga de dois vãos sobre três apoios. Os três restringem apenas o movimento vertical. É o caso clássico de livro, e também o que eu mais vi ser aceito como certo numa prova.' },
-        { k: 'p', t: 'A fórmula do grau de hiperestaticidade dá g = 3·m + r − 3·n = 3×2 + 3 − 3×3 = 0. Zero significa isostática, e qualquer programa que pare na fórmula vai informar exatamente isso. Mas nada segura a viga na horizontal: é um mecanismo, e não tem solução.' },
+        { k: 'p', t: 'A fórmula do grau de hiperestaticidade dá GH = 3·m + r − 3·n − c = 3×2 + 3 − 3×3 − 0 = 0. Zero significa isostática, e qualquer programa que pare na fórmula vai informar exatamente isso. Mas nada segura a viga na horizontal: é um mecanismo, e não tem solução.' },
         {
           k: 'table',
           caption: 'O que a análise cinemática devolve sobre essa viga, passo a passo.',
           head: ['Passo', 'O que olha', 'Resultado'],
           rows: [
-            ['2 · Grau de indeterminação', 'g = 3·m + r − 3·n', '0'],
+            ['2 · Grau de indeterminação', 'GH = 3·m + r − 3·n − c', '0'],
             ['3 · Matriz de rigidez', 'Modos de mecanismo detectados', '1'],
             ['3 · Matriz de rigidez', 'Graus de liberdade sem restrição', '1'],
             ['4 · Sugestões', 'Veredito na tela', 'Não pode ser resolvida'],

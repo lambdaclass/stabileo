@@ -94,7 +94,7 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "Die Formel für den Grad der statischen Unbestimmtheit ergibt g = 3·m + r − 3·n = 3×2 + 3 − 3×3 = 0. Null bedeutet statisch bestimmt, und jedes Programm, das bei der Formel stehen bleibt, wird genau das melden. Aber nichts hält den Balken in horizontaler Richtung: Er ist ein Mechanismus und kann nicht berechnet werden."
+      "t": "Die Formel für den Grad der statischen Unbestimmtheit ergibt GH = 3·m + r − 3·n − c = 3×2 + 3 − 3×3 − 0 = 0. Null bedeutet statisch bestimmt, und jedes Programm, das bei der Formel stehen bleibt, wird genau das melden. Aber nichts hält den Balken in horizontaler Richtung: Er ist ein Mechanismus und kann nicht berechnet werden."
     },
     {
       "k": "table",
@@ -107,7 +107,7 @@ const body: PostBody = {
       "rows": [
         [
           "2 · Statische Unbestimmtheit",
-          "g = 3·m + r − 3·n",
+          "GH = 3·m + r − 3·n − c",
           "0"
         ],
         [
