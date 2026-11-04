@@ -73,6 +73,7 @@ const RELEASED: Record<number, string[]> = {
   22: ['hidden-mechanism-2d-refused'],
   23: ['buckling-2d-varying-axial-force'],
   24: ['corotational-3d-rotations'],
+  25: ['constraint-cut-plane'],
 };
 
 describe('results versions', () => {

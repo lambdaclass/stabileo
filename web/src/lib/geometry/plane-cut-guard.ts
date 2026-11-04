@@ -1,53 +1,10 @@
-import type { Constraint3D } from '../engine/types-3d';
 import type { Element, Node, Section } from '../store/model.svelte';
 import type { DrawPlane } from './plane-projection';
 import { computeLocalAxes3D, memberRoll } from '../engine/local-axes-3d';
 import { effectiveBendingInertia, spaceBendingInertias } from '../engine/solver-service';
 import { solverProperties } from '../section/state';
 
-/** The plane solver's [ux, uz, θ] for each space DOF that lies in the plane. */
-const PLANE_DOFS: Record<DrawPlane, Record<number, number>> = {
-  xz: { 0: 0, 2: 1, 4: 2 },
-  yz: { 1: 0, 2: 1, 3: 2 },
-  xy: { 0: 0, 1: 1, 5: 2 },
-};
-
 const NORMAL: Record<DrawPlane, [number, number, number]> = { xy: [0, 0, 1], xz: [0, 1, 0], yz: [1, 0, 0] };
-
-function planeDofs(dofs: number[], plane: DrawPlane): string {
-  return [...new Set(dofs.map((d) => PLANE_DOFS[plane][d]).filter((d) => d !== undefined))].sort().join();
-}
-
-function readAlike(c: Constraint3D, plane: DrawPlane): boolean {
-  switch (c.type) {
-    case 'rigidLink': return !c.dofs?.length || planeDofs(c.dofs, 'xz') === planeDofs(c.dofs, plane);
-    case 'equalDOF': return planeDofs(c.dofs ?? [], 'xz') === planeDofs(c.dofs ?? [], plane);
-    case 'diaphragm': return (c.plane ?? 'XY').toUpperCase() === (plane === 'yz' ? 'XY' : 'YZ');
-    case 'linearMPC': return c.terms.every((t) => PLANE_DOFS.xz[t.dof] === PLANE_DOFS[plane][t.dof]);
-    default: return false;
-  }
-}
-
-function constraintNodes(c: Constraint3D): number[] {
-  switch (c.type) {
-    case 'diaphragm': return [c.masterNode, ...c.slaveNodes];
-    case 'linearMPC': return c.terms.map((t) => t.nodeId);
-    default: return [c.masterNode, c.slaveNode];
-  }
-}
-
-/**
- * The constraints that reach a plane model cut on `plane` and that `constraintsTo2D`, which reads
- * every constraint as if the model stood in X–Z, would give another meaning there (#466).
- */
-export function constraintsMisreadOn(
-  plane: DrawPlane,
-  constraints: readonly Constraint3D[],
-  kept: ReadonlySet<number>,
-): Constraint3D[] {
-  if (plane === 'xz') return [];
-  return constraints.filter((c) => constraintNodes(c).some((n) => kept.has(n)) && !readAlike(c, plane));
-}
 
 const QUARTER_TURN_SHAPES = new Set([undefined, 'I', 'H', 'RHS', 'CHS', 'rect']);
 

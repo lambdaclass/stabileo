@@ -116,6 +116,12 @@ const body: PostBody = {
           "Corrigé dans la prochaine version"
         ],
         [
+          "SA-2026-036",
+          "Passage de la 3D à la 2D sur Y–Z ou X–Y : les liaisons étaient lues comme si le portique était dans X–Z (liaisons de déplacement perdues ou appliquées hors du plan)",
+          "Élevée",
+          "Corrigé dans la prochaine version"
+        ],
+        [
           "SA-2026-013",
           "Coques courbes : moments fléchissants affichés comme nuls ; les contraintes conservaient la déformation thermique libre",
           "Élevée",
