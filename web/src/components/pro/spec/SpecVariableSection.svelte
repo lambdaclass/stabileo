@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from '../Hint.svelte';
   /**
    * Specifications › Members › Variable section: a section at end J beside the member's own at end
    * I, and the transition between them as geometry (`section/variable.ts`). The solve cuts the
@@ -79,7 +80,7 @@
       </tbody>
     </table>
   {/if}
-  <p class="pk-hint">{t('spec.variable.hint')}</p>
+  <Hint text={t('spec.variable.hint')} />
 {:else}
   <p class="pk-hint">{t('spec.variable.offHint')}</p>
 {/if}

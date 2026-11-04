@@ -99,21 +99,20 @@ fn validation_en1993_sway_drift_classification() {
     let h_load = 2.0; // kN lateral at top
     let e_eff = E * 1000.0;
 
+    // make_beam lays the column along X, so the lateral load is fz and the drift is uz (fx would be axial).
     let input = make_beam(n, h, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: h_load, fz: 0.0, my: 0.0,
+            node_id: n + 1, fx: 0.0, fz: h_load, my: 0.0,
         })]);
     let results = linear::solve_2d(&input).unwrap();
 
     let tip = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
 
-    // Analytical: Δ = HL³/(3EI)
     let delta_exact = h_load * h.powi(3) / (3.0 * e_eff * IZ);
-    assert_close(tip.ux.abs(), delta_exact, 0.02,
+    assert_close(tip.uz.abs(), delta_exact, 1e-6,
         "EN 1993 drift: Δ = HL³/(3EI)");
 
-    // Drift ratio θ = Δ/h
-    let theta = tip.ux.abs() / h;
+    let theta = tip.uz.abs() / h;
 
     // Verify drift ratio is a consistent, positive value
     assert!(theta > 0.0, "EN 1993 drift: θ > 0");
@@ -128,7 +127,7 @@ fn validation_en1993_sway_drift_classification() {
 
     // The drift ratio should match the analytical prediction
     let theta_expected = delta_exact / h;
-    assert_close(theta, theta_expected, 0.02,
+    assert_close(theta, theta_expected, 1e-6,
         "EN 1993 drift: θ = Δ/h");
 }
 

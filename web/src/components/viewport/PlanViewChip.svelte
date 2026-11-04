@@ -20,11 +20,28 @@
     if (!Number.isFinite(lo)) return { lo: 0, hi: 3 };
     return { lo: Math.floor(lo * 10) / 10, hi: Math.ceil((hi + 0.5) * 10) / 10 };
   });
+  /** The level over and under the one the plan is on. */
+  const above = $derived([...levels].reverse().find((l) => l.z > uiStore.nodeCreateZ + 1e-6));
+  const below = $derived(levels.find((l) => l.z < uiStore.nodeCreateZ - 1e-6));
+  function step(d: 1 | -1) {
+    const l = d > 0 ? above : below;
+    if (l) uiStore.setActiveLevel(l.z);
+  }
+  function onKey(e: KeyboardEvent) {
+    const el = e.target as HTMLElement | null;
+    if (el && (el.tagName === 'INPUT' || el.tagName === 'SELECT' || el.tagName === 'TEXTAREA')) return;
+    if (e.key === 'PageUp') { e.preventDefault(); step(1); }
+    if (e.key === 'PageDown') { e.preventDefault(); step(-1); }
+  }
 </script>
+
+<svelte:window onkeydown={onKey} />
 
 <div class="pv" role="status" data-testid="plan-view-chip">
   <span>{tp('viewport.planChip', { level })}</span>
   {#if levels.length}
+    <button onclick={() => step(1)} disabled={!above} aria-label={t('viewport.planUp')} title={`${t('viewport.planUp')} (PgUp)`} data-testid="plan-view-up">▲</button>
+    <button onclick={() => step(-1)} disabled={!below} aria-label={t('viewport.planDown')} title={`${t('viewport.planDown')} (PgDn)`} data-testid="plan-view-down">▼</button>
     <select value={current?.id ?? ''} onchange={(e) => { const l = levels.find((x) => x.id === e.currentTarget.value); if (l) uiStore.setActiveLevel(l.z); }}
             aria-label={t('viewport.planLevel')} title={t('viewport.planLevel')} data-testid="plan-view-level">
       {#if !current}<option value="" disabled>{level}</option>{/if}

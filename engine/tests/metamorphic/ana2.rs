@@ -50,8 +50,12 @@ pub fn rect(a: f64, i: f64) -> (f64, f64) {
     (a / h, h)
 }
 
+/// Young's modulus of the fibers of section `sec`. A section shared by
+/// members of different materials gets the smallest of their moduli: taking
+/// the first member found would depend on the map order, which a
+/// renumbering changes (and the fiber section then with it).
 fn mat_e(s: &SolverInput, sec: usize) -> f64 {
-    s.elements.values().find(|e| e.section_id == sec).map_or(200_000.0, |e| s.materials[&e.material_id.to_string()].e)
+    s.elements.values().filter(|e| e.section_id == sec).map(|e| s.materials[&e.material_id.to_string()].e).reduce(f64::min).unwrap_or(200_000.0)
 }
 
 fn rect_fibers(b: f64, h: f64, ny: usize, nz: usize, e: f64) -> FiberSectionDef {
@@ -103,11 +107,9 @@ pub fn modal_resp(r: &modal::ModalResult) -> Resp {
         cum[0] += g[0] * g[0];
         cum[1] += g[0] * g[1];
         cum[2] += g[1] * g[1];
-        // Modes inside a cluster can mix; compare cumulative sums only at
-        // well-separated boundaries.
         // The last computed mode may be one of a repeated pair whose partner
         // was not computed: only boundaries with a known gap above.
-        let sep = r.modes.get(k + 1).is_some_and(|n| n.frequency > m.frequency * (1.0 + 1e-3));
+        let sep = r.modes.get(k + 1).is_some_and(|n| crate::response::modal_gap(m.frequency, n.frequency));
         if sep {
             o.push(None, None, &format!("meff{k:02}"), Kind::T2(Dim::MASS), cum.to_vec());
             o.set_floor(&format!("meff{k:02}"), r.total_mass);

@@ -47,9 +47,10 @@ The plan every page and contribution follows is [DESIGN.md](DESIGN.md).
   `research/<field>/<paper>/VALIDATION.json`, and CSV/JSON files in that paper’s
   `reference-results/`, plus `results/stabileo_results.json`; engine tests may read reference JSON case files; production engine code has no exception. `tools/check_isolation.sh` enforces this.
 - Research CI is `.github/workflows/research.yml`. Its offline checks (validation, reference hashes,
-  catalogue, isolation, route budgets) are part of the required CI OK whenever research, web or engine
-  files change; the online checks (Crossref, licences, links) run only as the standalone Research
-  workflow, so an outage elsewhere can't block a merge.
+  catalogue, isolation, route budgets) are part of the required CI OK on pull requests that touch
+  research or mix areas (full pipeline); a tools-only PR runs only the route budgets, an engine-only PR runs them
+  all (research crates depend on the engine) and a docs-only PR skips them. The merge queue runs only the route budgets; pushes to main and the nightly 03:30 run run all of them. The online checks (Crossref, licences, links) run only as the standalone Research
+  workflow on research/catalog PRs, pushes to main and weekly runs. Unrelated PRs do not run the online audit.
 
 ## Reproducibility statuses
 
@@ -69,20 +70,29 @@ The checker verifies the allowed source label; it does not compare the prose to 
 
 ## Product route size baseline
 
-Research CI builds `main` and the candidate in separate directories using the candidate's
-pinned Nix toolchain and the same measurement script. Each installs its own locked dependencies.
-The main build writes a temporary baseline; the candidate compares against it with a 128-byte
-per-route tolerance. No baseline from this PR is accepted or checked in.
+Research CI builds current `main` and the candidate in separate directories using the
+candidate's pinned Nix toolchain and the same measurement script. Each installs its own locked
+dependencies. The main build writes a temporary baseline; no candidate baseline is checked in.
+Measuring against `main` rather than the event's base keeps a merge-queue train from adding
+128 bytes per entry.
 
-The budget measures a change that touches research code or data shipped to the browser: the JSON and
-CSV files under `research/` (outside `research/tools/`), `web/src/components/research/`,
-`web/public/research-*` and `web/vite.research-viewer.config.ts`, plus every push to main. A product change with none of these
-(a landing section, a nav item) grows the routes on purpose and is reviewed as product; it is not measured.
+Changes to shipped research JSON/CSV (outside `research/tools/`),
+`web/src/components/research/`, `web/public/research-*` or
+`web/vite.research-viewer.config.ts` retain the 128-byte per-route isolation tolerance.
+This includes mixed product/research changes and merge-queue candidates. A push to main, which has
+no base revision, always enforces research isolation.
+
+Every measured candidate also uses `web/scripts/product-route-growth-budgets.json`, the
+per-route growth allowed for product changes relative to `main`. It is 128 bytes for every
+route, the same as the research tolerance: raising any of these numbers is a product decision
+made in its own reviewed change, never as a side effect of another PR.
+Static research imports fail for both product and research changes.
 
 The script measures uncompressed dependency bytes for `/en/`, `/es/`, `/pt/` and every `/app/*`
 mode. Landing routes count the entry's static closure; app routes also count App's static and
-lazy product dependencies. Explicit lazy research routes are excluded; static research imports
-fail. HTML, bundled JS/CSS, manifest assets and statically referenced public files count once.
+lazy product dependencies. Explicit lazy route boundaries are excluded: research, tools, and the
+blog page (`BLOG_ROUTE_BOUNDARY`, `components/blog/BlogPage.svelte`, loaded only on a blog
+address). Modules the blog shares with App still count. Static research imports fail. HTML, bundled JS/CSS, manifest assets and statically referenced public files count once.
 Runtime-generated asset URLs and the engine binary are outside this gate; a fixed engine stub
 makes the measurements independent of locally built WASM.
 
@@ -106,8 +116,10 @@ strings into public locale dictionaries or add static imports to the lazy loader
 For local comparisons, run `nix develop .. -c node scripts/check-research-route-size.mjs
 --baseline /tmp/route-main.json --update` from the main build's `web/`, then the same command
 without `--update` from the candidate's `web/`, using the same Nix toolchain for both.
-`node --test web/scripts/research-route-budget.test.mjs` checks unchanged routes, the noise
-allowance, missing measurements and negative cases for real landing/app growth.
+Local comparisons default to research isolation; set `RESEARCH_ISOLATION=false` only for
+product-only changes.
+`node --test web/scripts/research-route-budget.test.mjs` checks both budget modes, their exact
+boundaries, environment selection, unchanged routes and missing measurements.
 
 The Mattiasson engine benchmark (`benchmarks/mattiasson-elastica`) reads the
 engine-owned `engine/tests/benchmarks/mattiasson_elastica.json` through its native

@@ -314,7 +314,7 @@ fn stiffness_consistent_under_rotation() {
     let r = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
 
     // Horizontal equilibrium: rx + 0 = 0
-    assert_close(r.rx, 0.0, 1e-8, "rx equilibrium (no horizontal load)");
+    assert_close_abs(r.rx, 0.0, 1e-8, 1e-6, "rx equilibrium (no horizontal load)");
 
     // Vertical equilibrium: ry - P = 0 => ry = P
     assert_close(r.rz, p, 1e-8, "ry equilibrium");

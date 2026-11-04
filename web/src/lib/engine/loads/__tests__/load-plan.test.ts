@@ -147,6 +147,29 @@ describe('level plan areas come from real geometry', () => {
     expect(teAllAt(p.derivation, 'es').join(' ')).toMatch(/de la extensión real de los nodos/);
   });
 
+  it('weighs the slabs and walls drawn as shells, not only the members', () => {
+    const bare = buildLoadPlan(input()).levels;
+    const m = frame();
+    // A 12 cm slab over the 6 × 6 bay at +3 (nodes 5–8) and a 15 cm wall along x = 0 from +0 to +3.
+    m.quads = new Map([
+      [1, { id: 1, nodes: [5, 6, 7, 8], thickness: 0.12, materialId: 1 }],
+      [2, { id: 2, nodes: [1, 2, 6, 5], thickness: 0.15, materialId: 1 }],
+    ]);
+    const withShells = buildLoadPlan(input({ model: m })).levels;
+    const at = (lv: typeof bare, z: number) => lv.find((l) => l.elevation === z)!.selfWeightKN;
+    const slab = 0.12 * 25 * 36, wall = 0.15 * 25 * 6 * 3;
+    expect(at(withShells, 3) - at(bare, 3)).toBeCloseTo(slab + wall / 2, 6);
+    expect(at(withShells, 0) - at(bare, 0)).toBeCloseTo(wall / 2, 6);
+    expect(at(withShells, 6)).toBeCloseTo(at(bare, 6), 6);
+  });
+
+  it('says which shells it could not weigh', () => {
+    const m = frame();
+    m.quads = new Map([[1, { id: 1, nodes: [5, 6, 7, 8] }]]);
+    const p = buildLoadPlan(input({ model: m }));
+    expect(p.assumptions.some((a) => a.key === 'loadPlan.assumption.shellWeightSkipped')).toBe(true);
+  });
+
   it('gives different levels different weights', () => {
     const p = buildLoadPlan(input());
     const w = p.levels.map((l) => l.weightKN.toFixed(3));

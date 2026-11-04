@@ -321,10 +321,10 @@ fn validation_propped_cantilever_compatibility() {
 // continuous at that node (no hinge), and the analytical solution
 // is known.
 //
-// SS beam with moment M0 at point a from left end:
-//   theta(a) = M0*(2a-L)*(a-L) / (6*L*E*I)  ... left side slope at load point
-// For midspan (a = L/2):
-//   theta_left = M0*L/(16*E*I) (checking slope magnitude)
+// SS beam with moment M0 at distance b from the right end:
+//   theta_A = M0*(L^2 - 3*b^2) / (6*L*E*I)
+// For midspan (b = L/2):
+//   theta_A = M0*L/(24*E*I)
 //
 // Ref: Gere & Timoshenko, §9.5 — beam with applied moment.
 
@@ -368,17 +368,10 @@ fn validation_moment_load_rotation_continuity() {
     assert!(ef2.m_start.abs() > 1e-6,
         "Moment load: elem 2 m_start should be non-zero: {:.6}", ef2.m_start);
 
-    // End rotations: for SS beam with midspan moment M0:
-    // theta_left = M0*L/(6EI) * (1 - 3*(L/2)^2/L^2 + 2*(L/2)^3/L^3)
-    // Using general formula: theta_A = M0*b*(2L-b)*(L-b) / (6*L^2*EI)
-    // where a=L/2, b=L/2
-    // theta_A = M0*(L/2)*(2L - L/2)*(L - L/2) / (6*L^2*EI)
-    //         = M0*(L/2)*(3L/2)*(L/2) / (6*L^2*EI)
-    //         = M0*3L^3/8 / (6*L^2*EI) = M0*L/(16EI)
-    let theta_a = m0 * l / (16.0 * e_eff * IZ);
+    let theta_a = m0 * l / (24.0 * e_eff * IZ);
     let d1 = results.displacements.iter().find(|d| d.node_id == 1).unwrap();
-    assert_close(d1.ry.abs(), theta_a, 0.05,
-        "Moment load: left end slope = M0*L/(16EI)");
+    assert_close(d1.ry.abs(), theta_a, 1e-9,
+        "Moment load: left end slope = M0*L/(24EI)");
 
     // Equilibrium: sum of vertical reactions = 0 (no vertical load applied)
     let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from '../Hint.svelte';
   /**
    * Specifications › Supports: the selected supports' type and uplift over the whole selection,
    * one undo step per change; the full editor (restraints, springs, curves, inclined) for one
@@ -48,7 +49,7 @@
       <input type="checkbox" checked={!!uplift} indeterminate={uplift === undefined} onchange={(e) => setUplift(e.currentTarget.checked)} data-testid="spec-support-uplift" />
       {t('support.uplift')}
     </label>
-    <p class="pk-hint">{t('support.upliftHint')}</p>
+    <Hint text={t('support.upliftHint')} />
   </section>
   <section class="pk-card">
     <h4 class="pk-heading">{t('spec.item.restraintsTitle')}</h4>

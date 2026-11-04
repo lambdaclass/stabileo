@@ -24,6 +24,12 @@ export interface Level {
   id: string;
   name: string;
   z: number;
+  /** The master storey this one repeats (`model/similar-storeys.ts`). Absent: its own. */
+  similarTo?: string;
+  /** Columns are spliced at this level: a new piece starts here. */
+  splice?: boolean;
+  /** The colour it is shown with in the levels' lists, as a CSS colour. */
+  color?: string;
 }
 
 export interface StructuralGrid {

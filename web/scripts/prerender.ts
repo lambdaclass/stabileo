@@ -43,10 +43,14 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join, dirname, extname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { prerenderConcurrency, routePool } from './prerender-pool';
+import { newPrerenderPage, prerenderConcurrency, routePool } from './prerender-pool';
 import { rootHandoffScript } from './root-handoff';
 import { notFoundPage } from './not-found-page';
+import { paperStructuredData } from './paper-structured-data';
 import { PUBLIC_LOCALES, type Locale } from '../src/lib/i18n/offered';
+import { TOOL_IDS } from '../src/components/tools/calculators';
+import { BATCH_IDS } from '../src/components/tools/batch';
+import toolReviews from '../../research/tools/batches/VALIDATION.json';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 /**
@@ -204,7 +208,7 @@ async function renderPostCard(browser: Browser, base: string, post: PostHead, ou
     <h1>${esc(post.title)}</h1>
     <div class="foot"><span class="logo">S</span><span class="name">Stabileo</span><span class="dot">&middot;</span><span>${esc(date)}</span><span class="dot">&middot;</span><span>stabileo.com</span></div>
   </div>`;
-  const page = await browser.newPage({ viewport: { width: 1200, height: 630 }, deviceScaleFactor: 1 });
+  const page = await newPrerenderPage(() => browser.newPage({ viewport: { width: 1200, height: 630 }, deviceScaleFactor: 1 }));
   try {
     // Same origin as the fonts: a card set on about:blank cannot load them from the build server,
     // and falls back to the system faces.
@@ -235,6 +239,11 @@ async function publicPaths(): Promise<string[]> {
     }
   }
   if (slugs.length === 0) throw new Error('prerender: found no blog posts — the scan is broken');
+  POST_LASTMOD.set('/blog', [...POST_LASTMOD.values()].sort().at(-1)!);
+  const reviewed = (batch: string) => toolReviews.batches.find((b) => b.id === batch)!.reviews.map((r) => r.date).sort().at(-1)!;
+  for (const id of TOOL_IDS) POST_LASTMOD.set(`/tools/${id}`, reviewed('tools-batch-1'));
+  for (const id of BATCH_IDS) POST_LASTMOD.set(`/tools/${id}`, reviewed('tools-batch-2'));
+  POST_LASTMOD.set('/tools', [reviewed('tools-batch-1'), reviewed('tools-batch-2')].sort().at(-1)!);
   // Standing pages, read from their own files, with their last edit for the sitemap.
   const pageIndex = await readFile(join(ROOT, 'src/lib/blog/pages/index.ts'), 'utf8');
   const pageFiles = [...pageIndex.matchAll(/from '\.\/([\w-]+)'/g)].map((m) => m[1]);
@@ -261,7 +270,7 @@ async function publicPaths(): Promise<string[]> {
 const ROOT_REDIRECT = rootHandoffScript(LOCALES, DEFAULT_LOCALE);
 
 async function newCapturePage(browser: Browser) {
-  const page = await browser.newPage();
+  const page = await newPrerenderPage(() => browser.newPage());
   // Read the current route on every navigation: reused pages must not accumulate
   // locale-specific init scripts or inherit the previous route's preferences.
   await page.addInitScript(() => {
@@ -368,7 +377,7 @@ async function main() {
         if (body.length < 500) throw new Error(`prerender: ${href} came back nearly empty (${body.length} chars)`);
         const out = join(DIST, href.slice(1), 'index.html');
         await mkdir(dirname(out), { recursive: true });
-        await writeFile(out, page(head, body, lang));
+        await writeFile(out, page(path === '/paper' ? head + paperStructuredData(ORIGIN, locale) : head, body, lang));
         return { head, href };
       });
     // Pool results retain the original route order, including feed date ties.

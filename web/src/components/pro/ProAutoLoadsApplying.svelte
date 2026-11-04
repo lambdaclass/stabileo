@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from './Hint.svelte';
   /**
    * How the generated area loads reach the model (`engine/loads/plan-gravity.ts`): by the real
    * tributary area of the panels the beams close (two ways, or one way along X or Y), or with
@@ -12,10 +13,11 @@
     slab: 'twoWay' | 'oneWay';
     spanAxis: 'x' | 'y';
     tributaryWidth: number;
+    loadEveryPanel: boolean;
     clearExisting: boolean;
     onClearChange: (next: boolean) => void;
   }
-  let { mode = $bindable(), slab = $bindable(), spanAxis = $bindable(), tributaryWidth = $bindable(), clearExisting, onClearChange }: Props = $props();
+  let { mode = $bindable(), slab = $bindable(), spanAxis = $bindable(), tributaryWidth = $bindable(), loadEveryPanel = $bindable(), clearExisting, onClearChange }: Props = $props();
 </script>
 
 <div class="al-pane-body" data-testid="al-applying-section">
@@ -49,11 +51,13 @@
     <label class="al-field al-field-narrow"><span class="al-label">{t(mode === 'panels' ? 'autoLoad.gravity.fallbackWidth' : 'autoLoad.tributaryWidth')}</span>
       <QuantityInput bind:value={tributaryWidth} quantity="length" min={0.1} testid="al-trib" wrap="al-unit-field" />
     </label>
+    <label class="al-check"><input type="checkbox" bind:checked={loadEveryPanel} data-testid="al-load-every-panel" /> {t('autoLoad.gravity.loadEveryPanel')}</label>
+    <Hint text={t('autoLoad.gravity.loadEveryPanelHint')} />
   </div>
   <div class="al-sub">
     <span class="al-sub-title">{t('autoLoad.applying.existingTitle')}</span>
     <label class="al-check"><input type="checkbox" checked={clearExisting} data-testid="al-clear"
       onchange={(e) => onClearChange(e.currentTarget.checked)} /> {t('autoLoad.clearExisting')}</label>
-    <p class="al-hint">{t('autoLoad.applying.existingHint')}</p>
+    <Hint text={t('autoLoad.applying.existingHint')} />
   </div>
 </div>

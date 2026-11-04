@@ -18,6 +18,8 @@ test.describe('@slow the everyday path', () => {
     await loadModel(page, '3d-portal-frame');
     const before = await page.evaluate(() => window.__stabileo.modelCensus());
     expect(before.elements).toBeGreaterThan(0);
+    const caseIds = () => page.evaluate(() => window.__stabileo.loadCases().map((c) => c.id as number));
+    const beforeIds = await caseIds();
 
     // Loads from the code: the regulation generator, previewed, then applied.
     await page.getByTestId('pr-stage-model').click();
@@ -29,8 +31,13 @@ test.describe('@slow the everyday path', () => {
     await expect(page.getByTestId('al-delta')).toBeVisible();
     await page.getByTestId('al-apply').click();
     await expect(page.getByTestId('al-preview')).toBeHidden();
+    // The generator adds its own cases (the roof live load here) and takes away the example's empty,
+    // untouched ones (live load and earthquake); the dead load and wind cases keep their loads.
     const loaded = await page.evaluate(() => window.__stabileo.modelCensus());
-    expect(loaded.loadCases, 'the generator added load cases').toBeGreaterThan(before.loadCases);
+    const afterIds = await caseIds();
+    expect(afterIds.some((id) => !beforeIds.includes(id)), 'the generator added load cases').toBe(true);
+    expect(afterIds, 'the cases with loads stay').toEqual(expect.arrayContaining([1, 3]));
+    expect(loaded.loads, 'and loads').toBeGreaterThan(before.loads);
     expect(loaded.combinations, 'and CIRSOC combinations').toBeGreaterThan(0);
 
     // The solve sees what was just applied.

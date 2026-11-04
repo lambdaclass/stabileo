@@ -47,7 +47,7 @@ import { is3DWorkspace } from '../utils/workspace';
 export function isAnalysisMode(v: unknown): v is AnalysisMode {
   return (ANALYSIS_MODES as readonly unknown[]).includes(v);
 }
-export type ILQuantity = 'Rz' | 'Ry' | 'Rx' | 'My' | 'Mz' | 'V' | 'M';
+export type ILQuantity = import('./model.svelte').InfluenceQuantity;
 export type SupportTool = 'fixed' | 'pinned' | 'roller' | 'spring';
 /**
  * Which creator a viewport node-pick is filling. Named rather than written inline at each use
@@ -153,6 +153,10 @@ function createUIStore() {
    */
   let designInPro = $state(
     hasLocalStorage() ? localStorage.getItem('stabileo-design-in-pro') === '1' : false,
+  );
+  /** The line under each PRO option saying what it does. On unless the reader turned it off. */
+  let inlineHelp = $state(
+    hasLocalStorage() ? localStorage.getItem('stabileo-inline-help') !== '0' : true,
   );
   let supportType = $state<SupportTool>('pinned');
   let loadType = $state<LoadTool>('nodal');
@@ -445,6 +449,8 @@ function createUIStore() {
 
   // Embed mode (hides header, sidebars, footer when loaded via #embed= URL)
   let embedMode = $state<boolean>(false);
+  /** The public viewer (`?view`): the model read, nothing of it edited or saved until it is duplicated. */
+  let viewerMode = $state<boolean>(false);
 
   // Floating tools bar (persisted in localStorage)
   const savedFloatingTools = hasLocalStorage() ? localStorage.getItem('stabileo-floating-tools') : null;
@@ -762,6 +768,12 @@ function createUIStore() {
     set eduInBasic(v: boolean) {
       eduInBasic = v;
       try { localStorage.setItem('stabileo-edu-in-basic', v ? '1' : '0'); } catch { /* private mode */ }
+    },
+
+    get inlineHelp() { return inlineHelp; },
+    set inlineHelp(v: boolean) {
+      inlineHelp = v;
+      try { localStorage.setItem('stabileo-inline-help', v ? '1' : '0'); } catch { /* private mode */ }
     },
 
     get designInPro() { return designInPro; },
@@ -1162,6 +1174,8 @@ function createUIStore() {
 
     get embedMode() { return embedMode; },
     set embedMode(v: boolean) { embedMode = v; },
+    get viewerMode() { return viewerMode; },
+    set viewerMode(v: boolean) { viewerMode = v; },
 
     get showFloatingTools() { return showFloatingTools; },
     set showFloatingTools(v: boolean) {

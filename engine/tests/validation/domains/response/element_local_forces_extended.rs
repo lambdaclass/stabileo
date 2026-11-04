@@ -145,11 +145,11 @@ fn validation_ext_cantilever_udl() {
 
     // Shear at free end (last element end) ≈ 0
     let ef_last = results.element_forces.iter().find(|e| e.element_id == n).unwrap();
-    assert_close(ef_last.v_end.abs(), 0.0, 0.02,
+    assert_close_abs(ef_last.v_end.abs(), 0.0, 0.02, 1e-6,
         "Cantilever UDL: V(L) ≈ 0");
 
     // Moment at free end ≈ 0
-    assert_close(ef_last.m_end.abs(), 0.0, 0.02,
+    assert_close_abs(ef_last.m_end.abs(), 0.0, 0.02, 1e-6,
         "Cantilever UDL: M(L) ≈ 0");
 
     // Shear at midspan: V(L/2) = qL/2
@@ -319,7 +319,7 @@ fn validation_ext_inclined_member_decomposition() {
     // Equilibrium check: reaction at base
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     assert_close(r1.rz, p, 0.01, "Inclined member: R_y = P");
-    assert_close(r1.rx.abs(), 0.0, 0.02,
+    assert_close_abs(r1.rx.abs(), 0.0, 0.02, 1e-6,
         "Inclined member: R_x ≈ 0 (no horizontal applied load)");
 }
 
@@ -364,7 +364,7 @@ fn validation_ext_antisymmetric_loading() {
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_b = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
     // Sum of reactions = sum of loads = p - p = 0
-    assert_close((r_a.rz + r_b.rz).abs(), 0.0, 0.02,
+    assert_close_abs((r_a.rz + r_b.rz).abs(), 0.0, 0.02, 1e-6,
         "Antisymmetric: ΣR_y = 0 (net load is zero)");
 
     // R_A = P/2
@@ -375,7 +375,7 @@ fn validation_ext_antisymmetric_loading() {
     let mid_elem = n / 2;
     let ef_mid = results.element_forces.iter()
         .find(|e| e.element_id == mid_elem).unwrap();
-    assert_close(ef_mid.m_end.abs(), 0.0, 0.05,
+    assert_close_abs(ef_mid.m_end.abs(), 0.0, 0.05, 1e-6,
         "Antisymmetric: M(L/2) = 0");
 
     // Moment at L/4: M = R_A * L/4 = PL/8
