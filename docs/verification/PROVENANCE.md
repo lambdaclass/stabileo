@@ -102,6 +102,16 @@ Results version 7 registers `cirsoc201-column-design-axes` (SA-2026-029): the CI
 check bends each moment over its own depth. Version 6 is #817's buckling certificate, which lands
 first.
 
+## Basic course units return (PRs #1304–#1306)
+
+The course stack registers again, one results version per pull request, the three changes that
+version 15 withdrew: `basic-influence-line-moment-sign-returns` (#1304),
+`basic-second-order-split-members-returns` (#1305) and
+`basic-plastic-closes-unloading-hinges-returns` (#1306). What moves is in
+[the results change note](../results-changes/2026-11-basic-course-returns.md).
+`provenance/__tests__/basic-course-returns.test.ts` checks which a Basic frame stamped before each is
+told. The versions are provisional and take main's next free number when each pull request is ready.
+
 ## Results snapshot gate
 
 A pull request that changes any result must say so (#716; #461 changed steel verdicts and no

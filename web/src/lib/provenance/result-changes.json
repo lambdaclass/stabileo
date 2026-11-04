@@ -1,8 +1,47 @@
 {
   "$comment": "Registry of result-affecting changes. Read by web/scripts/result-change-metadata.mjs for build metadata and decoded by web/src/lib/provenance/full-registry.ts; schema and rules in docs/verification/PROVENANCE.md. Add an entry whenever a change makes the same saved model give different numbers, at currentResultsVersion + 1, and bump currentResultsVersion: a version on main is deployed, and an entry added to it later is never shown to the projects it stamped (results-version.test.ts). Feature ids are defined in web/src/lib/provenance/model-features.ts.",
   "schema": 1,
-  "currentResultsVersion": 15,
+  "currentResultsVersion": 19,
   "changes": [
+    {
+      "id": "basic-influence-line-moment-sign-returns",
+      "resultsVersion": 19,
+      "date": "2026-11-04",
+      "prs": [
+        1304
+      ],
+      "area": "analysis",
+      "when": {
+        "allOf": [
+          [
+            "plane2D"
+          ],
+          [
+            "frameMembers"
+          ]
+        ]
+      },
+      "title": {
+        "en": "Influence lines of the bending moment take sagging as positive again",
+        "es": "Las líneas de influencia del momento vuelven a tomar positivo el que tracciona la fibra inferior",
+        "pt": "As linhas de influência do momento voltam a tomar positivo o que traciona a fibra inferior",
+        "de": "Einflusslinien des Biegemoments zählen wieder Zug in der unteren Faser als positiv",
+        "fr": "Les lignes d'influence du moment fléchissant comptent de nouveau positif le moment qui tend la fibre inférieure",
+        "tr": "Eğilme momenti etki çizgileri yeniden alt lifi çeken momenti pozitif alıyor"
+      },
+      "explanation": {
+        "en": "Version 15 withdrew this change of version 14 (#871) until its review fixes reached main; it returns with them (#1304). The influence line of M at a section takes M positive when it puts the bottom fibre in tension, as every other moment in Basic. Ordinates of moment influence lines change sign; their magnitudes do not.",
+        "es": "La versión 15 retiró este cambio de la versión 14 (#871) hasta que llegaran a main sus correcciones de revisión; vuelve con ellas (#1304). La línea de influencia de M en una sección toma M positivo cuando tracciona la fibra inferior, como todo otro momento en Básico. Las ordenadas de las líneas de influencia de momento cambian de signo; sus valores absolutos no.",
+        "pt": "A versão 15 retirou esta mudança da versão 14 (#871) até que suas correções de revisão chegassem à main; ela volta com elas (#1304). A linha de influência de M numa seção toma M positivo quando traciona a fibra inferior, como todo outro momento no Básico. As ordenadas das linhas de influência de momento mudam de sinal; seus valores absolutos não.",
+        "de": "Version 15 nahm diese Änderung aus Version 14 (#871) zurück, bis ihre Korrekturen aus der Prüfung auf main waren; sie kommt mit ihnen zurück (#1304). Die Einflusslinie von M an einem Schnitt zählt M positiv, wenn es die untere Faser auf Zug beansprucht, wie jedes andere Moment in Basic. Die Ordinaten von Momenten-Einflusslinien wechseln das Vorzeichen; ihre Beträge nicht.",
+        "fr": "La version 15 avait retiré ce changement de la version 14 (#871) en attendant que ses corrections de revue arrivent sur main ; il revient avec elles (#1304). La ligne d'influence de M dans une section compte M positif quand il tend la fibre inférieure, comme tout autre moment dans Basic. Les ordonnées des lignes d'influence de moment changent de signe ; leurs valeurs absolues non.",
+        "tr": "Sürüm 15, sürüm 14'teki bu değişikliği (#871) inceleme düzeltmeleri main'e ulaşana kadar geri almıştı; değişiklik onlarla birlikte geri dönüyor (#1304). Bir kesitteki M etki çizgisi, Basic'teki diğer bütün momentler gibi, alt lifi çektiğinde M'yi pozitif alır. Moment etki çizgilerinin ordinatlarının işareti değişir; mutlak değerleri değişmez."
+      },
+      "changelog": {
+        "file": "docs/results-changes/2026-11-basic-course-returns.md",
+        "heading": "Influence line of the bending moment: sign"
+      }
+    },
     {
       "id": "basic-plastic-unloading-hinges-withdrawn",
       "resultsVersion": 15,
