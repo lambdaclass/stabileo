@@ -95,23 +95,38 @@ const body: PostBody = {
           "Wechsel von 3D zu 2D: Der Schnitt bog Stäbe um die falsche Querschnittsachse (ein Rahmen in der Y–Z-Ebene 13,5-mal zu steif)",
           "Hoch",
           "Behoben in der nächsten Version"
+        ],
+        [
           "SA-2026-040",
           "ACI-318- und EN-1992-Nachweise: Stahlbetonstäbe bestanden, ohne dass ihre Torsion nachgewiesen wurde",
           "Hoch",
           "In der nächsten Version eingedämmt"
+        ],
+        [
           "SA-2026-041",
           "Stahlbetonstützen: das größte Moment wurde nur mit der größten Druckkraft nachgewiesen",
           "Hoch",
           "In der nächsten Version behoben"
+        ],
+        [
           "SA-2026-033",
           "Lastgenerator: eine Decke mit einem einzigen niedrigen Stab über einem Teil davon verlor ihre gesamte Flächenlast (36 m² einer 6 × 6 m großen Decke in einem Beispiel); Fachwerke zählten nicht als Dachtragwerk",
           "Hoch",
+          "Behoben in der nächsten Version"
+        ],
+        [
           "SA-2026-034",
           "Die Gleichgewichtsprüfung meldete Lasten und Auflagerkräfte als übereinstimmend für Lastfälle, deren Prüfung Lasten ausließ; Bearbeitungen ähnlicher Geschosse erreichten Stäbe des anderen Typs, und Kopien verloren ihre Gelenke",
           "Mittel",
+          "Behoben in der nächsten Version"
+        ],
+        [
           "SA-2026-042",
           "2D-Knicken: Der Faktor von Stäben, deren Druck unter Lasten entlang ihrer Achse zunimmt, kam zu hoch heraus (+43 % bis +68 % bei einem Stab)",
           "Hoch",
+          "Behoben in der nächsten Version"
+        ],
+        [
           "SA-2026-037",
           "Korotationale 3D-Analyse: Rotationsvektoren wurden subtrahiert (der Bathe–Bolourchi-Bogen 1,3 % daneben, ohne Besserung bei Netzverfeinerung)",
           "Mittel",

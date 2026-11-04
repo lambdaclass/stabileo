@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { recheckStore, createRecheckStore } from '../recheck.svelte';
 import { RESULTS_VERSION } from '../../provenance/registry';
+import { RESULT_CHANGES } from '../../provenance/full-registry';
 import { resultsStore } from '../results.svelte';
 import '../index';
 
@@ -65,11 +66,12 @@ describe('recheckStore', () => {
     await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
     expect(recheckStore.noticeOpen).toBe(false);
     recheckStore.reset();
-    recheckStore.openProject(generated(RESULTS_VERSION - 1), 'pro');
+    const headroom = RESULT_CHANGES.changes.find((c) => c.id === 'generated-area-loads-headroom')!.resultsVersion;
+    recheckStore.openProject(generated(headroom - 1), 'pro');
     await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
     expect(recheckStore.assessment?.changes.map((c) => c.id)).toContain('generated-area-loads-headroom');
     recheckStore.reset();
-    recheckStore.openProject(generated(RESULTS_VERSION), 'pro');
+    recheckStore.openProject(generated(headroom), 'pro');
     await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
     expect(recheckStore.noticeOpen).toBe(false);
     recheckStore.reset();
