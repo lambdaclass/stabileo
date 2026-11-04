@@ -64,9 +64,9 @@ const RELEASED: Record<number, string[]> = {
     'basic-plastic-unloading-hinges-withdrawn', 'basic-second-order-split-members-withdrawn',
     'basic-influence-line-moment-sign-withdrawn',
   ],
-  25: ['basic-influence-line-moment-sign-returns'],
-  26: ['basic-second-order-split-members-returns'],
-  27: ['basic-plastic-closes-unloading-hinges-returns'],
+  27: ['basic-influence-line-moment-sign-returns'],
+  28: ['basic-second-order-split-members-returns'],
+  29: ['basic-plastic-closes-unloading-hinges-returns'],
 };
 
 describe('results versions', () => {
