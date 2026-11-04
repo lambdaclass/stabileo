@@ -65,6 +65,7 @@ const RELEASED: Record<number, string[]> = {
     'basic-influence-line-moment-sign-withdrawn',
   ],
   16: ['aluminium-weak-axis-shear'],
+  17: ['joint-weak-axis-moment'],
 };
 
 describe('results versions', () => {

@@ -1,7 +1,7 @@
 {
   "$comment": "Registry of result-affecting changes. Read by web/scripts/result-change-metadata.mjs for build metadata and decoded by web/src/lib/provenance/full-registry.ts; schema and rules in docs/verification/PROVENANCE.md. Add an entry whenever a change makes the same saved model give different numbers, at currentResultsVersion + 1, and bump currentResultsVersion: a version on main is deployed, and an entry added to it later is never shown to the projects it stamped (results-version.test.ts). Feature ids are defined in web/src/lib/provenance/model-features.ts.",
   "schema": 1,
-  "currentResultsVersion": 16,
+  "currentResultsVersion": 17,
   "changes": [
     {
       "id": "aluminium-weak-axis-shear",
@@ -1600,6 +1600,40 @@
         "tr": "CIRSOC 201 kolon kontrolü Mz'yi kolonun momenti olarak alıp kesit yüksekliği h üzerinden kontrol ediyordu; oysa Mz kolonu genişliği b üzerinden eğer. Ağırlıklı olarak Mz ile eğilen dikdörtgen bir kolon gerekenden az donatıyla boyutlandırılıyordu: 20×40 cm'lik bir örnekte %36 daha az çelik (SA-2026-029). Artık büyük olan moment kendi yüksekliği üzerinden belirleyici oluyor ve hiçbir kolonda kontrol edilmeyen diğer eksenin kesme kuvveti de kontrol ediliyor. CIRSOC 201 kolon veya perdesi olan modelleri etkiler: moment için dikdörtgen olanları, kesme için her kesiti."
       },
       "changelog": { "file": "docs/advisories/SA-2026-029-3d-design-axes.md", "heading": "SA-2026-029: 3D design checks read the lateral moment or shear where the strong-axis one acts" }
+    },
+    {
+      "id": "joint-weak-axis-moment",
+      "resultsVersion": 17,
+      "date": "2026-11-03",
+      "prs": [
+        1328
+      ],
+      "area": "design",
+      "when": {
+        "any": [
+          "jointDesigns"
+        ]
+      },
+      "title": {
+        "en": "Steel joints: weak-axis moments are no longer ignored",
+        "es": "Nudos de acero: ya no se ignoran los momentos en el eje débil",
+        "pt": "Ligações de aço: momentos no eixo fraco não são mais ignorados",
+        "de": "Stahlknoten: Momente um die schwache Achse werden nicht mehr ignoriert",
+        "fr": "Assemblages acier : les moments selon l’axe faible ne sont plus ignorés",
+        "tr": "Çelik birleşimler: zayıf eksen momentleri artık yok sayılmıyor"
+      },
+      "explanation": {
+        "en": "Joint typologies read only each member's strong-axis end moment: a beam carrying a moment about its weak axis into a joint had it dropped, and the joint was designed without it. Such a joint is now left unresolved, with the reason. It concerns steel joints whose members bend about their weak axis.",
+        "es": "Las tipologías de nudo leían solo el momento de extremo en el eje fuerte de cada barra: una viga que llevaba momento en su eje débil a un nudo lo perdía, y el nudo se diseñaba sin él. Ese nudo ahora queda sin resolver, con el motivo. Afecta a nudos de acero cuyas barras flexionan en el eje débil.",
+        "pt": "As tipologias de ligação liam só o momento de extremidade no eixo forte de cada barra: uma viga que levava momento no eixo fraco a uma ligação o perdia, e a ligação era dimensionada sem ele. Essa ligação agora fica sem resolver, com o motivo. Afeta ligações de aço cujas barras fletem no eixo fraco.",
+        "de": "Die Knotentypologien lasen nur das Endmoment um die starke Achse jedes Stabs: ein Träger, der ein Moment um seine schwache Achse in einen Knoten einleitete, verlor es, und der Knoten wurde ohne es bemessen. Ein solcher Knoten bleibt jetzt ungelöst, mit Begründung. Betrifft Stahlknoten, deren Stäbe um die schwache Achse biegen.",
+        "fr": "Les typologies d’assemblage ne lisaient que le moment d’extrémité selon l’axe fort de chaque barre : une poutre transmettant un moment selon son axe faible à un nœud le perdait, et l’assemblage était dimensionné sans lui. Un tel assemblage reste désormais non résolu, avec la raison. Concerne les assemblages acier dont les barres fléchissent selon l’axe faible.",
+        "tr": "Birleşim tipolojileri her çubuğun yalnızca güçlü eksen uç momentini okuyordu: zayıf ekseni etrafında moment taşıyan bir kirişin momenti düşüyordu ve birleşim onsuz boyutlandırılıyordu. Böyle bir birleşim artık nedeniyle birlikte çözümsüz bırakılıyor. Çubukları zayıf eksende eğilen çelik birleşimleri etkiler."
+      },
+      "changelog": {
+        "file": "changelog.d/532-joint-weak-axis-moment.md",
+        "heading": "Steel joints with a weak-axis moment are left unresolved (2026-11-03)"
+      }
     }
   ]
 }

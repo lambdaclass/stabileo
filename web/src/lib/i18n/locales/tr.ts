@@ -13297,6 +13297,7 @@ const tr: Translations = {
   'joint.typ.unresolved.noMembers': 'Birleşimde çubuk yok.',
   'joint.typ.unresolved.noSection': 'Ana çubuğun başlıklı ve gövdeli bir kesiti yok (d, bf, tf, tw).',
   'joint.typ.unresolved.limits': 'Sınırlar içinde çözülemedi (Ø27, 8 sıra, 50 mm levha, 16 mm köşe kaynağı, 1,20 m taban plakası). Çubukları veya birleşim düzenini gözden geçirin.',
+  'joint.typ.unresolved.weakAxisMoment': 'Bir çubuk bu düğümde zayıf ekseni etrafında moment taşıyor ve buradaki hiçbir tipoloji bunu boyutlandırmıyor. Düğüm bu eksende mafsallıysa momenti serbest bırakın veya düğümü elle boyutlandırın.',
   'joint.typ.check.boltShear': 'Kesmede bulonlar',
   'joint.typ.check.bearing': 'Delikte ezilme',
   'joint.typ.check.plateShear': 'Kesmede levha',
