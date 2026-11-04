@@ -432,7 +432,7 @@ interface Fn {
 
 const entry = (label: RegExp) => (page: Page) => page.locator('.advanced-grid .adv-btn').filter({ hasText: label }).first();
 
-/** The screen position of the middle of the longest member whose middle is on the canvas. */
+/** The screen position of the middle of the longest member. */
 async function memberMiddle(page: Page): Promise<{ x: number; y: number } | null> {
   return page.evaluate(() => {
     const h = window.__stabileo as unknown as {
@@ -444,8 +444,7 @@ async function memberMiddle(page: Page): Promise<{ x: number; y: number } | null
       const e = h.elementEnds(id); if (!e) continue;
       const a = h.nodeScreenPos(e.i), b = h.nodeScreenPos(e.j); if (!a || !b) continue;
       const l = Math.hypot(a.x - b.x, a.y - b.y);
-      const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
-      if (l > len && document.elementFromPoint(mid.x, mid.y)?.tagName === 'CANVAS') { len = l; best = mid; }
+      if (l > len) { len = l; best = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }; }
     }
     return best;
   });
