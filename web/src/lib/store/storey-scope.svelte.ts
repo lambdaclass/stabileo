@@ -43,7 +43,8 @@ export const storeyScope = {
     const sel = current();
     if (sel.elements.size + sel.nodes.size + sel.shells.size === 0) { last = null; produced = null; added = null; return 0; }
     if (produced && selectionKey(sel) === selectionKey(produced)) return 0;
-    const own = added && produced ? minus(sel, added) : sel;
+    const kept = added && produced ? minus(sel, added) : sel;
+    const own = size(kept) ? kept : sel;
     const x = expandToStoreys(model(), levels(), own, scope);
     last = x;
     const reached: Selection = { nodes: new Set(x.nodes), elements: new Set(x.elements), shells: new Set(x.shells) };
@@ -97,6 +98,8 @@ function selectionKey(s: Selection): string {
   const ids = (x: Iterable<string | number>) => [...x].map(String).sort().join(',');
   return `${ids(s.nodes)}|${ids(s.elements)}|${ids(s.shells)}`;
 }
+
+const size = (s: Selection) => s.nodes.size + s.elements.size + s.shells.size;
 
 function minus(a: Selection, b: Selection): Selection {
   return {
