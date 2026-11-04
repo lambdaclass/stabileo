@@ -19,15 +19,16 @@ test.describe('@smoke displacements on the deformed shape', () => {
     expect(c.x).toBeGreaterThan(a.x);
 
     const canvas = page.locator('canvas:not(.axis-gizmo)').first();
-    await page.waitForTimeout(300);
-    const without = await canvas.screenshot();
+    const shot = () => canvas.screenshot();
+    // The solve's toast sits over the canvas and leaves on its own 4 s timer, so it would be in one picture and not the next.
+    for (const dismiss of await page.locator('.toast .toast-dismiss').all()) await dismiss.click();
+    await expect(page.locator('.toast')).toHaveCount(0);
+    let without = await shot();
+    for (let next = await shot(); !next.equals(without); next = await shot()) without = next;
     await check.check();
-    await page.waitForTimeout(300);
-    const withValues = await canvas.screenshot();
-    expect(withValues.equals(without), 'the displacements are drawn once asked for').toBe(false);
+    await expect.poll(async () => (await shot()).equals(without), { message: 'the displacements are drawn once asked for' }).toBe(false);
     await check.uncheck();
-    await page.waitForTimeout(300);
-    expect((await canvas.screenshot()).equals(without), 'and gone again').toBe(true);
+    await expect.poll(async () => (await shot()).equals(without), { message: 'and gone again' }).toBe(true);
   });
 
   test('PRO: in the deformed view the check replaces "show loads", off by default', async ({ pro: page }) => {
