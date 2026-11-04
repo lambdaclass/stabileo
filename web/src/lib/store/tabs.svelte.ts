@@ -324,7 +324,7 @@ function createTabManager() {
     if (state.hadResults) {
       // Defer solve to let the model restore propagate
       setTimeout(() => {
-        if (signal.aborted) return;
+        if (signal.aborted || typeof window === 'undefined') return;
         window.dispatchEvent(new Event('stabileo-solve'));
         // After solve, restore diagram type
         setTimeout(() => {

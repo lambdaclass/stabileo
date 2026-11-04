@@ -16,7 +16,8 @@ export function resultChangeMetadataPlugin() {
       /** @type {import('../src/lib/provenance/registry').ResultChangeRegistry} */
       const registry = JSON.parse(readFileSync(file, 'utf8'));
       if (resolved === '\0' + packedId) {
-        const packed = deflateRawSync(JSON.stringify(registry), { level: 9 }).toString('base64');
+        const shipped = { ...registry, changes: registry.changes.map(({ quantities: _, ...change }) => change) };
+        const packed = deflateRawSync(JSON.stringify(shipped), { level: 9 }).toString('base64');
         return `export default ${JSON.stringify(packed)};`;
       }
       return `export default ${JSON.stringify({ currentResultsVersion: registry.currentResultsVersion })};`;

@@ -55,6 +55,42 @@ const body: PostBody = {
           "0.4.0'da düzeltildi"
         ],
         [
+          "SA-2026-027",
+          "Kabuk zarfı: her bileşenin uç değeri yerine en büyük Von Mises gerilmesine sahip kombinasyonu alıyordu (bir örnekte mx %14 düşük)",
+          "Yüksek",
+          "Düzeltme incelemede"
+        ],
+        [
+          "SA-2026-028",
+          "EN 1992-1-1 eğilme (PRO diğer yönetmelikler, sertifikalı): çekme donatısının aktığını varsayıyor ve üst donatıyı yinelemiyordu; MRd %22’ye kadar yüksek",
+          "Yüksek",
+          "0.4.0 sonrasında düzeltildi"
+        ],
+        [
+          "SA-2026-029",
+          "3B: uygulamadaki CIRSOC 201 kolonları Mz kesit yüksekliği üzerinden tasarlanıyordu (bir örnekte %36 eksik donatı); motorun sertifikalı 3B kontrolleri yanal kesme Vy'yi gövde kesmesi olarak okuyordu",
+          "Kritik",
+          "Bir sonraki sürümde düzeltildi"
+        ],
+        [
+          "SA-2026-030",
+          "CIRSOC 301 basınç: alanı levhalarından küçük olan bir kesit negatif bir Qa ve tam plastik eksenel yükün üzerinde bir dayanım veriyor ve geçiyordu",
+          "Yüksek",
+          "Bir sonraki sürümde düzeltildi"
+        ],
+        [
+          "SA-2026-031",
+          "Zaman tanım alanında analiz: kütlesiz bir serbestlik derecesine t = 0'da uygulanan yük ilk adımda kayboluyordu (karşıtlık 33 katına kadar bozuk, iki serbestlik dereceli bir zincir kapalı çözümünden %24 farklı)",
+          "Orta",
+          "Bir sonraki sürümde düzeltildi"
+        ],
+        [
+          "SA-2026-032",
+          "Modal analiz: bir mekanizmanın sıfır frekanslı modu atılıyor ve diğer modlar eksiksizmiş gibi döndürülüyordu",
+          "Orta",
+          "Bir sonraki sürümde düzeltildi"
+        ],
+        [
           "SA-2026-013",
           "Eğri kabuklar: eğilme momentleri sıfır olarak raporlanıyordu; gerilmeler serbest ısıl şekil değiştirmeyi içinde tutuyordu",
           "Yüksek",
@@ -137,6 +173,18 @@ const body: PostBody = {
           "3B malzeme bakımından doğrusal olmayan analiz (yalnızca hesap motoru ve WASM): akma yüzeyi 2B'dekinden daha az güvenliydi",
           "Orta",
           "0.3.0'da düzeltildi"
+        ],
+        [
+          "SA-2026-025",
+          "AISC 360 G2 kesme (yalnızca hesap motoru ve WASM): gövde alanı olmadan oran 0 ile geçiyordu ve sertifikalanıyordu",
+          "Orta",
+          "stabileo.com'da düzeltildi (#1234)"
+        ],
+        [
+          "SA-2026-026",
+          "EC3 6.2.6 kesme (yalnızca hesap motoru ve WASM): kesme alanı olmadan Av = 0,5·A alınıyordu, HEB 300'de Vpl,Rd %57 yüksek, ve sertifikalanıyordu",
+          "Orta",
+          "stabileo.com'da düzeltildi (#1234)"
         ],
         [
           "SA-2026-010",

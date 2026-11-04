@@ -1,6 +1,5 @@
 <script lang="ts">
   import { citation } from './catalogue';
-  import { reviewLabel } from './reviews';
   import { articleStrings as shellStrings } from './shell1985/article';
   import { archStrings } from './biggins2026/strings';
   /**
@@ -44,7 +43,6 @@
 
   const base = import.meta.env.BASE_URL;
   const s = $derived(rs());
-  const firstVersion = $derived(({ en: 'First version', es: 'Primera versión', pt: 'Primeira versão', de: 'Erste Version', fr: 'Première version', tr: 'İlk sürüm' } as Record<string, string>)[publicI18n.locale] ?? 'First version');
   const topopt = $derived(topoptStrings(publicI18n.locale));
   const arches = $derived(archStrings());
   const f = $derived(fs());
@@ -87,7 +85,7 @@
             {/if}
           </PublicLink>
           <div class="rs-g-runbody">
-            <div class="rs-g-meta"><span>{fieldName(p.area)}</span><span class="rs-g-status rs-g-{p.status}">{statusName(p.status)}</span><span class="rs-g-status rs-g-first">{firstVersion} · {reviewLabel(p.id, publicI18n.locale)}</span></div>
+            <div class="rs-g-meta"><span>{fieldName(p.area)}</span><span class="rs-g-status rs-g-{p.status}">{statusName(p.status)}</span></div>
             <h3><PublicLink to={e.path}>{e.paperId === "dadeppo-arch-1975" ? arch.title : e.paperId === "lee-frame-1968" ? lee.title : e.paperId === "navier-plate" ? navier.title : e.paperId === "horne-1979" ? plastic.title : e.paperId === "cqc-1981" ? cqc.title : e.paperId === "newmark-1959" ? nm.title : e.paperId === "fairclough-2026" ? f.title : e.paperId === 'zmyslony-2026' ? arches.title : e.paperId === "andreassen-2011" ? topopt.title : e.paperId === "pastrana-2026" ? s.formTitle : e.paperId === "grossman-2026" ? s.springsTitle : experimentText(e).title}</PublicLink></h3>
             <p class="rs-g-hook">{e.paperId === "dadeppo-arch-1975" ? arch.hook : e.paperId === "lee-frame-1968" ? lee.lead : e.paperId === "navier-plate" ? navier.lead : e.paperId === "horne-1979" ? plastic.lead : e.paperId === "cqc-1981" ? cqc.lead : e.paperId === "newmark-1959" ? nm.lead : e.paperId === "fairclough-2026" ? f.lead : e.paperId === 'zmyslony-2026' ? arches.lead : e.paperId === "andreassen-2011" ? topopt.hook : e.paperId === "pastrana-2026" ? s.formLead : e.paperId === "grossman-2026" ? s.springsHook : experimentText(e).hook}</p>
             <p class="rs-g-by">{p.crossref.title}. {citation(p)}.</p>
@@ -131,7 +129,7 @@
         <li class="rs-g-card">
           <FieldIcon field={p.area} size={28} />
           <div>
-            <div class="rs-g-meta"><span>{fieldName(p.area)} · {p.crossref.year}</span><span class="rs-g-status rs-g-{p.status}">{p.id === "newmark-1959" ? nm.stage : statusName(p.status)}</span></div>
+            <div class="rs-g-meta"><span>{fieldName(p.area)} · {p.crossref.year}</span><span class="rs-g-status rs-g-{p.status}">{statusName(p.status)}</span></div>
             <h3>{p.crossref.title}</h3>
             <p class="rs-g-by">{citation(p)} · <a href="https://doi.org/{p.doi}" rel="noreferrer" target="_blank">{"doi:"}{p.doi}</a></p>
             {#if p.summary && p.summary_source}
@@ -158,7 +156,6 @@
   .rs-g :global(a:link), .rs-g :global(a:visited) { color: var(--fg); }
   .rs-g :global(a:hover) { color: var(--lp-accent); }
   .rs-g :global(a.btn-primary:link), .rs-g :global(a.btn-primary:visited) { color: var(--lp-paper-2); }
-  .rs-g-first { color: var(--lp-paper); border-color: var(--lp-slate-2); }
 
   .rs-g {
     padding-top: clamp(4.5rem, 8vw, 6rem);
