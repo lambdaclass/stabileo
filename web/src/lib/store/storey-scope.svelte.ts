@@ -43,7 +43,7 @@ export const storeyScope = {
     const sel = current();
     if (sel.elements.size + sel.nodes.size + sel.shells.size === 0) { last = null; produced = null; added = null; return 0; }
     if (produced && selectionKey(sel) === selectionKey(produced)) return 0;
-    const own = added && produced && contains(sel, produced) ? minus(sel, added) : sel;
+    const own = added && produced ? minus(sel, added) : sel;
     const x = expandToStoreys(model(), levels(), own, scope);
     last = x;
     const reached: Selection = { nodes: new Set(x.nodes), elements: new Set(x.elements), shells: new Set(x.shells) };
@@ -104,10 +104,6 @@ function minus(a: Selection, b: Selection): Selection {
     elements: new Set([...a.elements].filter((v) => !b.elements.has(v))),
     shells: new Set([...a.shells].filter((v) => !b.shells.has(v))),
   };
-}
-
-function contains(a: Selection, b: Selection): boolean {
-  return [...b.nodes].every((v) => a.nodes.has(v)) && [...b.elements].every((v) => a.elements.has(v)) && [...b.shells].every((v) => a.shells.has(v));
 }
 
 /** Whether a member already joins nodes `i` and `j`, either way round. */

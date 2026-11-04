@@ -50,6 +50,17 @@ describe('the storey scope', () => {
     expect(storeyScope.expandSelection()).toBe(3);
   });
 
+  it('deselecting one copy keeps the other copies as copies: back to "this" leaves only what was picked', () => {
+    const { beamOn } = thirteen();
+    storeyScope.scope = 'similar';
+    uiStore.setSelection(new Set(), new Set([beamOn(1)]));
+    storeyScope.expandSelection();
+    uiStore.setSelection(new Set(), new Set([...uiStore.selectedElements].filter((id) => id !== beamOn(2))));
+    storeyScope.expandSelection();
+    storeyScope.scope = 'this';
+    expect([...uiStore.selectedElements]).toEqual([beamOn(1)]);
+  });
+
   it('an edit of the selection reaches them all, and is undone in one step', () => {
     const { beamOn } = thirteen();
     storeyScope.scope = 'similar';
