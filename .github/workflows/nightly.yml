@@ -18,7 +18,7 @@ run-name: ${{ inputs.force_failure && '[forced failure] Nightly verification' ||
 
 on:
   schedule:
-    - cron: "0 5 * * *"
+    - cron: "0 0 * * *"
   workflow_dispatch:
     inputs:
       only:
@@ -76,6 +76,7 @@ jobs:
       jobs: ${{ steps.plan.outputs.jobs }}
       mutants_shards: ${{ steps.plan.outputs.mutants_shards }}
       mutants_total: ${{ steps.plan.outputs.mutants_total }}
+      night: ${{ steps.plan.outputs.night }}
     steps:
       - id: plan
         name: Plan
@@ -86,6 +87,8 @@ jobs:
           MUTANTS_TOTAL: 512
           MUTANTS_SLOTS: 32
           FORCE_FAILURE: ${{ inputs.force_failure }}
+          EVENT: ${{ github.event_name }}
+          NIGHT_END_HOUR: 7
         run: |
           if [ "$FORCE_FAILURE" = true ]; then
             echo "::error::forced failure (dispatch input force_failure): verification-alert.yml must open 'CI failure: Nightly verification [forced failure]'"
@@ -104,12 +107,16 @@ jobs:
             shards=$(python3 -c "import json,sys; t,s,d=map(int,sys.argv[1:]); print(json.dumps([(d*s+i)%t for i in range(s)]))" \
               "$total" "$MUTANTS_SLOTS" "$day")
           fi
+          night=false
+          if [ "$EVENT" = schedule ] || [ "$((10#$(date -u +%H)))" -lt "$NIGHT_END_HOUR" ]; then night=true; fi
+          [ "$night" = true ] || echo "::notice title=Daytime dispatch::runs on GitHub-hosted runners; the nightly pool takes dispatches between 00:00 and 0$NIGHT_END_HOUR:00 UTC, when pull requests and the merge queue are quiet"
           echo "jobs: $only"
           echo "mutants shards (of $total): $shards"
           {
             echo "jobs= $only "
             echo "mutants_shards=$shards"
             echo "mutants_total=$total"
+            echo "night=$night"
           } >> "$GITHUB_OUTPUT"
 
   # Large-model certificate runs (release, #[ignore]d in the normal suite):
@@ -119,7 +126,7 @@ jobs:
   certify-large:
     needs: plan
     if: contains(needs.plan.outputs.jobs, ' certify-large ')
-    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo-nightly"]') || 'ubuntu-24.04' }}
+    runs-on: ${{ (needs.plan.outputs.night == 'true' && vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo-nightly"]') || 'ubuntu-24.04' }}
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -160,7 +167,7 @@ jobs:
   metamorphic-nightly:
     needs: plan
     if: contains(needs.plan.outputs.jobs, ' metamorphic-nightly ')
-    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo-nightly"]') || 'ubuntu-24.04' }}
+    runs-on: ${{ (needs.plan.outputs.night == 'true' && vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo-nightly"]') || 'ubuntu-24.04' }}
     timeout-minutes: 150
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -239,7 +246,7 @@ jobs:
   opensees-diff:
     needs: plan
     if: contains(needs.plan.outputs.jobs, ' opensees-diff ')
-    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo-nightly"]') || 'ubuntu-24.04' }}
+    runs-on: ${{ (needs.plan.outputs.night == 'true' && vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo-nightly"]') || 'ubuntu-24.04' }}
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -304,7 +311,7 @@ jobs:
   codeaster-diff:
     needs: plan
     if: contains(needs.plan.outputs.jobs, ' codeaster-diff ')
-    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo-nightly"]') || 'ubuntu-24.04' }}
+    runs-on: ${{ (needs.plan.outputs.night == 'true' && vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo-nightly"]') || 'ubuntu-24.04' }}
     timeout-minutes: 60
     defaults:
       run:
@@ -371,7 +378,7 @@ jobs:
   fuzz:
     needs: plan
     if: contains(needs.plan.outputs.jobs, ' fuzz ')
-    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && vars.STABILEO_NIGHTLY_POOL == 'true' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo-nightly"]') || 'ubuntu-24.04' }}
+    runs-on: ${{ (needs.plan.outputs.night == 'true' && vars.STABILEO_SELF_HOSTED == 'true' && vars.STABILEO_NIGHTLY_POOL == 'true' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo-nightly"]') || 'ubuntu-24.04' }}
     timeout-minutes: 180
     strategy:
       fail-fast: false
@@ -462,7 +469,7 @@ jobs:
   mutants:
     needs: plan
     if: contains(needs.plan.outputs.jobs, ' mutants ')
-    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo-nightly"]') || 'ubuntu-24.04' }}
+    runs-on: ${{ (needs.plan.outputs.night == 'true' && vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo-nightly"]') || 'ubuntu-24.04' }}
     timeout-minutes: 150
     strategy:
       fail-fast: false
@@ -545,7 +552,7 @@ jobs:
   bench:
     needs: plan
     if: contains(needs.plan.outputs.jobs, ' bench ')
-    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo-nightly"]') || 'ubuntu-24.04' }}
+    runs-on: ${{ (needs.plan.outputs.night == 'true' && vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo-nightly"]') || 'ubuntu-24.04' }}
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -590,7 +597,7 @@ jobs:
   random-models:
     needs: plan
     if: contains(needs.plan.outputs.jobs, ' random-models ')
-    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo-nightly"]') || 'ubuntu-24.04' }}
+    runs-on: ${{ (needs.plan.outputs.night == 'true' && vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo-nightly"]') || 'ubuntu-24.04' }}
     timeout-minutes: 150
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -627,7 +634,7 @@ jobs:
   properties:
     needs: plan
     if: contains(needs.plan.outputs.jobs, ' properties ')
-    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo-nightly"]') || 'ubuntu-24.04' }}
+    runs-on: ${{ (needs.plan.outputs.night == 'true' && vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo-nightly"]') || 'ubuntu-24.04' }}
     timeout-minutes: 150
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
