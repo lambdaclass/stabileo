@@ -698,7 +698,7 @@ jobs:
   research-wasm:
     name: Research WASM
     runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && ((github.event_name == 'merge_group' || (github.ref == 'refs/heads/main' && github.event_name != 'schedule')) && fromJSON('["self-hosted","stabileo"]') || (vars.STABILEO_PR_POOL == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]') && fromJSON('["self-hosted","stabileo-pr"]')) || 'ubuntu-24.04' }}
-    timeout-minutes: 60  # ~15 research crates since 2026-10-29 on GitHub runners; cached build in PR #866
+    timeout-minutes: 90
     needs: [changes]
     if: needs.changes.outputs.web == 'true'
     steps:
@@ -723,42 +723,90 @@ jobs:
       # the engine). The viewer is rebuilt and republished below.
       - name: Research compiled assets (shauer-2025)
         id: research-shauer-2025
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        continue-on-error: true
+        with:
+          path: web/public/research-wasm/shauer-2025
+          key: research-assets-v3-shauer-2025-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.nix', 'flake.lock', 'rust-toolchain.toml', 'Cargo.toml', 'Cargo.lock', '.cargo/**', 'research/tools/**', 'engine/src/**', 'engine/Cargo.toml', 'engine/build.rs', 'engine/.cargo/**', 'research/fracture/shauer-2025/**') }}
+      - name: Research compiled assets (shauer-2025, second try)
+        id: retry-shauer-2025
+        if: steps.research-shauer-2025.outputs.cache-hit != 'true'
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         continue-on-error: true
         with:
           path: web/public/research-wasm/shauer-2025
           key: research-assets-v3-shauer-2025-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.nix', 'flake.lock', 'rust-toolchain.toml', 'Cargo.toml', 'Cargo.lock', '.cargo/**', 'research/tools/**', 'engine/src/**', 'engine/Cargo.toml', 'engine/build.rs', 'engine/.cargo/**', 'research/fracture/shauer-2025/**') }}
       - name: Research compiled assets (andreassen-2011)
         id: research-andreassen-2011
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        continue-on-error: true
+        with:
+          path: web/public/research-wasm/andreassen-2011
+          key: research-assets-v3-andreassen-2011-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.nix', 'flake.lock', 'rust-toolchain.toml', 'Cargo.toml', 'Cargo.lock', '.cargo/**', 'research/tools/**', 'engine/src/**', 'engine/Cargo.toml', 'engine/build.rs', 'engine/.cargo/**', 'research/optimization/andreassen-2011/**') }}
+      - name: Research compiled assets (andreassen-2011, second try)
+        id: retry-andreassen-2011
+        if: steps.research-andreassen-2011.outputs.cache-hit != 'true'
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         continue-on-error: true
         with:
           path: web/public/research-wasm/andreassen-2011
           key: research-assets-v3-andreassen-2011-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.nix', 'flake.lock', 'rust-toolchain.toml', 'Cargo.toml', 'Cargo.lock', '.cargo/**', 'research/tools/**', 'engine/src/**', 'engine/Cargo.toml', 'engine/build.rs', 'engine/.cargo/**', 'research/optimization/andreassen-2011/**') }}
       - name: Research compiled assets (biggins-2026)
         id: research-biggins-2026
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        continue-on-error: true
+        with:
+          path: web/public/research-wasm/biggins-2026
+          key: research-assets-v3-biggins-2026-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.nix', 'flake.lock', 'rust-toolchain.toml', 'Cargo.toml', 'Cargo.lock', '.cargo/**', 'research/tools/**', 'engine/src/**', 'engine/Cargo.toml', 'engine/build.rs', 'engine/.cargo/**', 'research/mechanics/biggins-2026/**', 'research/fracture/shauer-2025/wasm/trim_exports.py') }}
+      - name: Research compiled assets (biggins-2026, second try)
+        id: retry-biggins-2026
+        if: steps.research-biggins-2026.outputs.cache-hit != 'true'
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         continue-on-error: true
         with:
           path: web/public/research-wasm/biggins-2026
           key: research-assets-v3-biggins-2026-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.nix', 'flake.lock', 'rust-toolchain.toml', 'Cargo.toml', 'Cargo.lock', '.cargo/**', 'research/tools/**', 'engine/src/**', 'engine/Cargo.toml', 'engine/build.rs', 'engine/.cargo/**', 'research/mechanics/biggins-2026/**', 'research/fracture/shauer-2025/wasm/trim_exports.py') }}
       - name: Research compiled assets (grossman-2026)
         id: research-grossman-2026
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        continue-on-error: true
+        with:
+          path: web/public/research-wasm/grossman-2026
+          key: research-assets-v3-grossman-2026-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.nix', 'flake.lock', 'rust-toolchain.toml', 'Cargo.toml', 'Cargo.lock', '.cargo/**', 'research/tools/**', 'engine/src/**', 'engine/Cargo.toml', 'engine/build.rs', 'engine/.cargo/**', 'research/metamaterials/grossman-2026/**') }}
+      - name: Research compiled assets (grossman-2026, second try)
+        id: retry-grossman-2026
+        if: steps.research-grossman-2026.outputs.cache-hit != 'true'
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         continue-on-error: true
         with:
           path: web/public/research-wasm/grossman-2026
           key: research-assets-v3-grossman-2026-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.nix', 'flake.lock', 'rust-toolchain.toml', 'Cargo.toml', 'Cargo.lock', '.cargo/**', 'research/tools/**', 'engine/src/**', 'engine/Cargo.toml', 'engine/build.rs', 'engine/.cargo/**', 'research/metamaterials/grossman-2026/**') }}
       - name: Research compiled assets (pastrana-2026)
         id: research-pastrana-2026
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        continue-on-error: true
+        with:
+          path: web/public/research-wasm/pastrana-2026
+          key: research-assets-v3-pastrana-2026-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.nix', 'flake.lock', 'rust-toolchain.toml', 'Cargo.toml', 'Cargo.lock', '.cargo/**', 'research/tools/**', 'engine/src/**', 'engine/Cargo.toml', 'engine/build.rs', 'engine/.cargo/**', 'research/form-finding/pastrana-2026/**') }}
+      - name: Research compiled assets (pastrana-2026, second try)
+        id: retry-pastrana-2026
+        if: steps.research-pastrana-2026.outputs.cache-hit != 'true'
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         continue-on-error: true
         with:
           path: web/public/research-wasm/pastrana-2026
           key: research-assets-v3-pastrana-2026-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.nix', 'flake.lock', 'rust-toolchain.toml', 'Cargo.toml', 'Cargo.lock', '.cargo/**', 'research/tools/**', 'engine/src/**', 'engine/Cargo.toml', 'engine/build.rs', 'engine/.cargo/**', 'research/form-finding/pastrana-2026/**') }}
       - name: Research compiled assets (fairclough-2026)
         id: research-fairclough-2026
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        continue-on-error: true
+        with:
+          path: web/public/research-wasm/fairclough-2026
+          key: research-assets-v3-fairclough-2026-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.nix', 'flake.lock', 'rust-toolchain.toml', 'Cargo.toml', 'Cargo.lock', '.cargo/**', 'research/tools/**', 'engine/src/**', 'engine/Cargo.toml', 'engine/build.rs', 'engine/.cargo/**', 'research/optimisation/fairclough-2026/**') }}
+      - name: Research compiled assets (fairclough-2026, second try)
+        id: retry-fairclough-2026
+        if: steps.research-fairclough-2026.outputs.cache-hit != 'true'
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         continue-on-error: true
         with:
           path: web/public/research-wasm/fairclough-2026
@@ -776,9 +824,53 @@ jobs:
       - name: Install viewer dependencies
         run: .github/scripts/retry-infra.sh make web.deps
       - name: Build research WASM (cache misses, in parallel)
+        id: build-research
+        timeout-minutes: 75
         env:
           RESEARCH_SKIP_VIEWER: '1'
-        run: .github/scripts/build-research-wasm.sh ${{ steps.research-shauer-2025.outputs.cache-hit != 'true' && 'shauer-2025' || '' }} ${{ steps.research-andreassen-2011.outputs.cache-hit != 'true' && 'andreassen-2011' || '' }} ${{ steps.research-biggins-2026.outputs.cache-hit != 'true' && 'biggins-2026' || '' }} ${{ steps.research-grossman-2026.outputs.cache-hit != 'true' && 'grossman-2026' || '' }} ${{ steps.research-pastrana-2026.outputs.cache-hit != 'true' && 'pastrana-2026' || '' }} ${{ steps.research-fairclough-2026.outputs.cache-hit != 'true' && 'fairclough-2026' || '' }}
+        run: .github/scripts/build-research-wasm.sh ${{ steps.research-shauer-2025.outputs.cache-hit != 'true' && steps.retry-shauer-2025.outputs.cache-hit != 'true' && 'shauer-2025' || '' }} ${{ steps.research-andreassen-2011.outputs.cache-hit != 'true' && steps.retry-andreassen-2011.outputs.cache-hit != 'true' && 'andreassen-2011' || '' }} ${{ steps.research-biggins-2026.outputs.cache-hit != 'true' && steps.retry-biggins-2026.outputs.cache-hit != 'true' && 'biggins-2026' || '' }} ${{ steps.research-grossman-2026.outputs.cache-hit != 'true' && steps.retry-grossman-2026.outputs.cache-hit != 'true' && 'grossman-2026' || '' }} ${{ steps.research-pastrana-2026.outputs.cache-hit != 'true' && steps.retry-pastrana-2026.outputs.cache-hit != 'true' && 'pastrana-2026' || '' }} ${{ steps.research-fairclough-2026.outputs.cache-hit != 'true' && steps.retry-fairclough-2026.outputs.cache-hit != 'true' && 'fairclough-2026' || '' }}
+      - name: Save research compiled assets (shauer-2025)
+        if: always() && steps.build-research.outputs.shauer-2025 == 'ok'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        continue-on-error: true
+        with:
+          path: web/public/research-wasm/shauer-2025
+          key: ${{ steps.research-shauer-2025.outputs.cache-primary-key || steps.retry-shauer-2025.outputs.cache-primary-key }}
+      - name: Save research compiled assets (andreassen-2011)
+        if: always() && steps.build-research.outputs.andreassen-2011 == 'ok'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        continue-on-error: true
+        with:
+          path: web/public/research-wasm/andreassen-2011
+          key: ${{ steps.research-andreassen-2011.outputs.cache-primary-key || steps.retry-andreassen-2011.outputs.cache-primary-key }}
+      - name: Save research compiled assets (biggins-2026)
+        if: always() && steps.build-research.outputs.biggins-2026 == 'ok'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        continue-on-error: true
+        with:
+          path: web/public/research-wasm/biggins-2026
+          key: ${{ steps.research-biggins-2026.outputs.cache-primary-key || steps.retry-biggins-2026.outputs.cache-primary-key }}
+      - name: Save research compiled assets (grossman-2026)
+        if: always() && steps.build-research.outputs.grossman-2026 == 'ok'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        continue-on-error: true
+        with:
+          path: web/public/research-wasm/grossman-2026
+          key: ${{ steps.research-grossman-2026.outputs.cache-primary-key || steps.retry-grossman-2026.outputs.cache-primary-key }}
+      - name: Save research compiled assets (pastrana-2026)
+        if: always() && steps.build-research.outputs.pastrana-2026 == 'ok'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        continue-on-error: true
+        with:
+          path: web/public/research-wasm/pastrana-2026
+          key: ${{ steps.research-pastrana-2026.outputs.cache-primary-key || steps.retry-pastrana-2026.outputs.cache-primary-key }}
+      - name: Save research compiled assets (fairclough-2026)
+        if: always() && steps.build-research.outputs.fairclough-2026 == 'ok'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        continue-on-error: true
+        with:
+          path: web/public/research-wasm/fairclough-2026
+          key: ${{ steps.research-fairclough-2026.outputs.cache-primary-key || steps.retry-fairclough-2026.outputs.cache-primary-key }}
       - name: Build viewer and publish matching asset identity (also on cache hits)
         run: |
           nix develop --command bash -c 'cd web && npx --no-install vite build -c vite.research-viewer.config.ts --outDir public/research-wasm/viewer --logLevel warn'
