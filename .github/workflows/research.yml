@@ -107,7 +107,7 @@ jobs:
       - if: runner.environment == 'github-hosted'
         uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
         continue-on-error: true
-      - if: runner.environment == 'github-hosted'
+      - if: runner.environment == 'github-hosted' && github.event_name != 'pull_request'
         uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
         continue-on-error: true
         with:
@@ -244,7 +244,7 @@ jobs:
       - if: runner.environment == 'github-hosted'
         uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
         continue-on-error: true
-      - if: runner.environment == 'github-hosted'
+      - if: runner.environment == 'github-hosted' && github.event_name != 'pull_request'
         uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
         continue-on-error: true
         with:
@@ -402,7 +402,7 @@ jobs:
       - if: runner.environment == 'github-hosted'
         uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
         continue-on-error: true
-      - if: runner.environment == 'github-hosted'
+      - if: runner.environment == 'github-hosted' && github.event_name != 'pull_request'
         uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
         continue-on-error: true
         with:
