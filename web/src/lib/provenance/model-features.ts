@@ -34,7 +34,7 @@ export const UNTRACKED_ANALYSES: readonly AnalysisKind[] = ['timeHistory', 'nonl
 
 /** Every feature id a registry entry may name. The registry test fails on any other. */
 export const FEATURE_IDS = [
-  'plane2D', 'members', 'frameMembers', 'trussMembers', 'hinges', 'arcMembers',
+  'plane2D', 'space3D', 'members', 'frameMembers', 'trussMembers', 'hinges', 'arcMembers',
   'steelMembers', 'steelCirsoc301', 'steelTensionWithoutConnection', 'timberOrAluminiumMembers',
   'concreteMembers', 'cirsoc201', 'aci318', 'footings', 'jointDesigns',
   'shells', 'curvedShells', 'shellEdgeLoads', 'eccentricities',
@@ -133,7 +133,7 @@ function slaveNodes(c: Record<string, unknown>): number[] {
 export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set<FeatureId> {
   const f = new Set<FeatureId>();
   const mode = ctx.analysisMode ?? s.analysisMode ?? '2d';
-  if (!is3DWorkspace(mode)) f.add('plane2D');
+  f.add(is3DWorkspace(mode) ? 'space3D' : 'plane2D');
 
   const materials = new Map(values(s.materials).map((m) => [m.id, m]));
   const elements = values(s.elements);

@@ -14,6 +14,9 @@
       "when": {
         "allOf": [
           [
+            "space3D"
+          ],
+          [
             "analysis:nonlinear"
           ],
           [

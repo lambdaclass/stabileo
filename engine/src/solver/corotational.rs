@@ -1925,6 +1925,8 @@ fn rotation_matrix(theta: [f64; 3]) -> Mat3 {
     columns(&e[0], &e[1], &e[2])
 }
 
+type Axes3 = ([f64; 3], [f64; 3], [f64; 3]);
+
 /// The nodal rotation DOFs hold total rotation vectors ψ, so they must go through exp(ψ) before
 /// being compared: differencing them is wrong for non-coaxial rotations. The last value is the
 /// angle the chord turns away from the mean end frame; at π the frame built here is a reflection.
@@ -1933,7 +1935,7 @@ fn natural_rotations_3d(
     (ex_0, ey_0, ez_0): (&[f64; 3], &[f64; 3], &[f64; 3]),
     psi_i: [f64; 3],
     psi_j: [f64; 3],
-) -> (([f64; 3], [f64; 3], [f64; 3]), [f64; 3], [f64; 3], f64) {
+) -> (Axes3, [f64; 3], [f64; 3], f64) {
     let r_i = rotation_matrix(psi_i);
     let r_j = rotation_matrix(psi_j);
     let half = rotation_vector(&mat_mul(&transposed(&r_i), &r_j)).map(|v| 0.5 * v);
@@ -2363,7 +2365,7 @@ fn elastic_corotational_forces_3d(
             ref_yx, ref_yy, ref_yz,
             elem.roll_angle, left_hand,
         );
-        let ((ex_n, ey_n, ez_n), ti, tj, _) = natural_rotations_3d(
+        let (_, ti, tj, _) = natural_rotations_3d(
             [dx_n / l_n, dy_n / l_n, dz_n / l_n], (&ex_0, &ey_0, &ez_0),
             [u_elem_12[3], u_elem_12[4], u_elem_12[5]], [u_elem_12[9], u_elem_12[10], u_elem_12[11]],
         );
