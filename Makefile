@@ -369,6 +369,7 @@ test.ci-scripts: test.nightly-scripts
 	python3 -B -I scripts/tests/test_retry_infra.py
 	python3 -B -I scripts/tests/test_ci_aggregate.py
 	python3 -B -I scripts/tests/test_ci_selection.py
+	python3 -B -I scripts/tests/test_main_tested.py
 	python3 -B -I scripts/tests/test_cancel_superseded.py
 	python3 -B -I scripts/tests/test_ci_runners.py
 	python3 -B -I scripts/tests/test_ci_events.py
