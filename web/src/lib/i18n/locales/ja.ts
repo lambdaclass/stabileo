@@ -2884,7 +2884,6 @@ const ja: Translations = {
   'pro.constraintForcesCount': '拘束力',
   'pro.selfWeightLabel': '自重',
   'pro.rigidDiaphragm': '剛床ダイアフラム',
-  'pro.advancedWip': '開発中 — 高度な機能は完全でない場合があります',
   'pro.pdeltaDesc': '二次効果',
   'pro.converged': '収束',
   'pro.notConverged': '未収束',
