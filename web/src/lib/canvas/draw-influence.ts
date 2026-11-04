@@ -1,12 +1,8 @@
 // Draw influence line diagram on Canvas 2D
 
 import type { InfluenceLineResult } from '../store/model.svelte';
-import { t, tp } from '../i18n';
+import { t } from '../i18n';
 import { canvasTheme } from './theme';
-import { numText } from '../engine/steps/format';
-import { influenceTool } from '../store/influence-tool.svelte';
-import { drawIlEnvelope } from './draw-il-envelope';
-import { plainSymbol } from '../engine/influence/quantities';
 
 interface DrawContext {
   ctx: CanvasRenderingContext2D;
@@ -28,14 +24,6 @@ export function drawInfluenceLine(
 ): void {
   const { ctx } = dc;
   if (il.points.length === 0) return;
-  const env = influenceTool.envelope;
-  if (env) {
-    drawIlEnvelope(env, dc);
-    drawTitle(ctx, il, dc);
-    drawTarget(il, dc);
-    return;
-  }
-  drawTarget(il, dc);
 
   // Find max absolute value for scaling
   let maxAbs = 0;
@@ -282,62 +270,16 @@ export function drawInfluenceLine(
     // Position label on the side of the value
     const sign = pt.value > 0 ? 1 : -1;
     const offset = 18;
-    const label = numText(pt.value, 3);
+    const label = pt.value.toFixed(4);
     ctx.fillText(label, s.x + snx * offset * sign, s.y + sny * offset * sign);
   }
 
-  drawTitle(ctx, il, dc);
-}
-
-/** The line's name in the corner: the quantity and where it is read. */
-function drawTitle(ctx: CanvasRenderingContext2D, il: InfluenceLineResult, dc: DrawContext): void {
-  ctx.fillStyle = STROKE_COLOR;
+  // Draw label
+  ctx.fillStyle = '#e8705f';
   ctx.font = 'bold 12px sans-serif';
   ctx.textAlign = 'left';
-  ctx.fillText(influenceTitle(il, dc), 10, 20);
-}
-
-export function influenceTitle(il: InfluenceLineResult, dc: Pick<DrawContext, 'getNode' | 'getElement'>): string {
-  const q = plainSymbol(il.quantity);
-  if (il.targetElementId === undefined) return tp('course.influence.titleNode', { q, n: il.targetNodeId ?? '' });
-  const e = dc.getElement(il.targetElementId);
-  const ni = e && dc.getNode(e.nodeI), nj = e && dc.getNode(e.nodeJ);
-  const L = ni && nj ? Math.hypot(nj.x - ni.x, nj.y - ni.y) : 0;
-  return tp('course.influence.titleSection', { q, e: il.targetElementId, x: ((il.targetPosition ?? 0.5) * L).toFixed(2) });
-}
-
-/** The section the line is read at: a cut across its member, or a ring on its node. */
-function drawTarget(il: InfluenceLineResult, dc: DrawContext): void {
-  const { ctx } = dc;
-  const color = canvasTheme().amber;
-  ctx.save();
-  ctx.strokeStyle = color;
-  ctx.fillStyle = color;
-  ctx.lineWidth = 2.5;
-  if (il.targetElementId !== undefined) {
-    const e = dc.getElement(il.targetElementId);
-    const a = e && dc.getNode(e.nodeI), b = e && dc.getNode(e.nodeJ);
-    if (a && b) {
-      const at = il.targetPosition ?? 0.5;
-      const p = dc.worldToScreen(a.x + (b.x - a.x) * at, a.y + (b.y - a.y) * at);
-      const pa = dc.worldToScreen(a.x, a.y), pb = dc.worldToScreen(b.x, b.y);
-      const len = Math.hypot(pb.x - pa.x, pb.y - pa.y) || 1;
-      const nx = -(pb.y - pa.y) / len, ny = (pb.x - pa.x) / len;
-      ctx.beginPath();
-      ctx.moveTo(p.x - nx * 11, p.y - ny * 11);
-      ctx.lineTo(p.x + nx * 11, p.y + ny * 11);
-      ctx.stroke();
-      ctx.font = 'bold 11px sans-serif';
-      ctx.fillText('S', p.x + nx * 14 + 2, p.y + ny * 14 + 4);
-    }
-  } else if (il.targetNodeId !== undefined) {
-    const n = dc.getNode(il.targetNodeId);
-    if (n) {
-      const p = dc.worldToScreen(n.x, n.y);
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, 9, 0, Math.PI * 2);
-      ctx.stroke();
-    }
-  }
-  ctx.restore();
+  const labelText = `${t('influence.label')}: ${il.quantity}` +
+    (il.targetNodeId !== undefined ? ` (${t('influence.node')} ${il.targetNodeId})` : '') +
+    (il.targetElementId !== undefined ? ` (${t('influence.elem')} ${il.targetElementId}, t=${(il.targetPosition ?? 0.5).toFixed(1)})` : '');
+  ctx.fillText(labelText, 10, 20);
 }
