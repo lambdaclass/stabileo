@@ -54,7 +54,7 @@ function firstOrder(input: SolverInput) {
   return first.ok ? { sys: b.sys, N0: first.N0, noise: first.noise } : undefined;
 }
 
-function engineClampedBound(input: SolverInput, pieceN: Map<number, number>): number {
+export function engineClampedBound(input: SolverInput, pieceN: Map<number, number>): number {
   let best = Infinity;
   for (const e of input.elements.values()) {
     const n = pieceN.get(e.id) ?? 0;
