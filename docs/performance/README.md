@@ -74,5 +74,5 @@ project-name field), so its median can land on either value; on 2026-11-04 the t
 given 33 to 35. Their mobile performance baseline is 46, with a margin of 13 written in their own
 entry (`"margin": { "performance": 13 }`, which overrides the top-level margin for that URL and
 preset only), so both modes pass and a median below 33 still fails. Desktop and the other
-categories keep the top-level margins. Raise these two by hand, not with `--write`, which would set
-them to whichever mode the run happened to hit.
+categories keep the top-level margins. `--write` leaves a category with its own margin alone (it would set it to
+whichever mode the run happened to hit), so these are raised by hand.

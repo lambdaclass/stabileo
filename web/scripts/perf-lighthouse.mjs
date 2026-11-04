@@ -116,6 +116,7 @@ export function raised(baseline, preset, results) {
   let changed = false;
   for (const [path, result] of Object.entries(results)) {
     for (const c of CATEGORIES) {
+      if (next.scores[preset]?.[path]?.margin?.[c] !== undefined) continue;
       const base = next.scores[preset]?.[path]?.[c];
       if (base === undefined || result.scores[c] > base) {
         next.scores[preset] ??= {};

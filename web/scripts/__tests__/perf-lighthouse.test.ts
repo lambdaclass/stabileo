@@ -74,6 +74,9 @@ describe('perf-lighthouse', () => {
     const bad = structuredClone(wide);
     (bad.scores.mobile['/en/'] as unknown as { margin: { performance: number } }).margin.performance = -1;
     expect(() => compare(bad, 'mobile', at(46))).toThrow(/margin\.performance for \/en\//);
+    const kept = raised(wide, 'mobile', at(59));
+    expect(kept.changed).toBe(false);
+    expect(kept.next.scores.mobile['/en/']).toEqual(wide.scores.mobile['/en/']);
   });
 
   it('only raises the baseline', () => {
