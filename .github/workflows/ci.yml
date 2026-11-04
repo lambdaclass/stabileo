@@ -50,6 +50,14 @@ env:
   CARGO_TERM_COLOR: always
   CARGO_HTTP_MULTIPLEXING: false
   MIX_ENV: test
+  CARGO_BUILD_JOBS: 4
+  RUST_TEST_THREADS: 4
+  NEXTEST_TEST_THREADS: 4
+  RAYON_NUM_THREADS: 4
+  VITEST_MAX_THREADS: 3
+  VITEST_MAX_FORKS: 3
+  BINARYEN_CORES: 4
+  GOMAXPROCS: 4
 
 # Every job installs the toolchain from flake.nix and runs a make target, so a
 # job that passes here passes on a developer's machine with the same command.
@@ -64,7 +72,8 @@ env:
 # themselves, so outside pull requests they go to `[self-hosted, stabileo-timing]` (runners pinned
 # to cores no other runner uses) when STABILEO_TIMING_POOL is 'true' too, and to GitHub otherwise.
 # On GitHub always: Detect Changes and CI OK (no build work; a full host
-# must not delay them), Determinism (Nix WebKit does not start on the host) and Docker build
+# must not delay them), the E2E shards (ten browsers at once start there in seconds and run in
+# about 11 min against 18 on the shared host; they only download the wasm and site artifacts), Determinism (Nix WebKit does not start on the host) and Docker build
 # smoke (no Docker for runner users). Self-hosted jobs skip the Nix installer, rust-cache,
 # magic-nix-cache and free-disk; each runner keeps its own CARGO_TARGET_DIR.
 jobs:
@@ -1130,7 +1139,7 @@ jobs:
   # and up to 55 in the queue, so the queue's critical path was one shard.
   e2e:
     name: E2E (${{ matrix.shard }}/${{ needs.changes.outputs.e2e_total }})
-    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && ((github.event_name == 'merge_group' || github.ref == 'refs/heads/main') && (vars.STABILEO_E2E_POOL == 'true' && fromJSON('["self-hosted","stabileo-e2e"]') || fromJSON('["self-hosted","stabileo"]')) || (vars.STABILEO_PR_POOL == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]') && fromJSON('["self-hosted","stabileo-pr"]')) || 'ubuntu-24.04' }}
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     needs: [changes, wasm, site-e2e]
     if: needs.changes.outputs.web == 'true'
@@ -1273,7 +1282,7 @@ jobs:
   e2e-flaky:
     needs: [changes, wasm, site-e2e]
     if: needs.changes.outputs.flaky == 'true'
-    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && ((github.event_name == 'merge_group' || github.ref == 'refs/heads/main') && (vars.STABILEO_E2E_POOL == 'true' && fromJSON('["self-hosted","stabileo-e2e"]') || fromJSON('["self-hosted","stabileo"]')) || (vars.STABILEO_PR_POOL == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]') && fromJSON('["self-hosted","stabileo-pr"]')) || 'ubuntu-24.04' }}
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
       E2E_PREBUILT: '1'

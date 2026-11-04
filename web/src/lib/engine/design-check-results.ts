@@ -95,6 +95,18 @@ export function normalizeCirsoc201(verifs: ElementVerification[], sectionNames: 
       comboName: v.governingCombos?.shear?.comboName,
     });
 
+    if (v.shearSecondary) {
+      checks.push({
+        name: 'Shear, secondary axis',
+        demand: Math.abs(v.shearSecondary.Vu),
+        capacity: v.shearSecondary.phiVn,
+        ratio: v.shearSecondary.ratio,
+        unit: 'kN',
+        status: v.shearSecondary.status as CheckStatus,
+        comboName: v.governingCombos?.shearSecondary?.comboName,
+      });
+    }
+
     if (v.column) {
       checks.push({
         name: 'Axial + Moment',

@@ -47,3 +47,15 @@ describe('shell report section (2.4)', () => {
     expect(html).not.toContain('Shell results');
   });
 });
+
+it('prints escaped modal warnings before modal frequencies', () => {
+  const data = makeData({});
+  data.advancedResults = { modal: {
+    modes: [{ frequency: 12.345, period: 1 / 12.345 }],
+    structuredDiagnostics: [{ code: 'residual_high', severity: 'warning', phase: 'self_check:modal_residual:1', message: 'WARN: modal <unsafe>' }],
+  } };
+  const html = generateReportHtml(data);
+  expect(html).toContain('WARN: modal &lt;unsafe&gt;');
+  expect(html).not.toContain('<unsafe>');
+  expect(html.indexOf('WARN: modal')).toBeLessThan(html.indexOf('12.345'));
+});

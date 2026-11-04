@@ -136,6 +136,8 @@ const c301En: Record<string, string> = {
   'c301.refuse.noShearLag': 'the connection gives no U: U, all elements connected, a welded plate or x̄ and L is needed (D.3)',
   'c301.refuse.unknownShape': 'section shape «{shape}» has no classification in Table B.4.1a',
   'c301.refuse.elementInvalid': 'compression element «{kind}» not valid for Table B.4.1a',
+  'c301.refuse.qNonPositive': 'the effective area comes out Qa = {Qa} ≤ 0 (A = {A} mm², Σ(b − be)·t = {lost} mm²): the section\'s area and its compression elements\' widths and thicknesses do not agree (§E.7)',
+  'c301.refuse.fcrAboveFy': 'Fcr = {Fcr} MPa > Fy = {Fy} MPa: the compression capacity would exceed the squash load',
   'c301.refuse.chsTooSlender': 'D/t = {Dt} > 0.45·E/Fy = {lim}: E.7.2(c) does not cover this tube',
   'c301.refuse.e4NoJCw': '§E.4: kz·Lz > ky·L and J or Cw is missing for torsional buckling',
   'c301.refuse.e4NoJ': '§E.4: J is missing for flexural-torsional buckling',

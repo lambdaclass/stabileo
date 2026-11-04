@@ -12,6 +12,7 @@
   import ProMovingLoadsPanel from './ProMovingLoadsPanel.svelte';
   import BucklingCertificate from '../advanced/BucklingCertificate.svelte';
   import PDeltaCertificate from '../advanced/PDeltaCertificate.svelte';
+  import FiniteSpectrumWarning from '../advanced/FiniteSpectrumWarning.svelte';
   import ModalCertificate from '../advanced/ModalCertificate.svelte';
   import SpectralCertificate from '../advanced/SpectralCertificate.svelte';
   import HarmonicCertificate from '../advanced/HarmonicCertificate.svelte';
@@ -21,7 +22,7 @@
   import ProDiagnosticsTab from './ProDiagnosticsTab.svelte';
   import { modelStore, resultsStore, uiStore } from '../../lib/store';
   import { t, tp } from '../../lib/i18n';
-  import { te } from '../../lib/i18n/engine-text';
+  import { te, localizeEngineText } from '../../lib/i18n/engine-text';
   import { modelHasMemberOffsets } from '../../lib/engine/member-offsets';
   import { modelHasShellOffsets } from '../../lib/engine/shell-offsets';
   import { hasLoadCarrying3D } from '../../lib/engine/solver-service';
@@ -60,6 +61,7 @@
   // `.message`. Reading it with `e.message` reported "Error" for every engine
   // refusal and discarded the sentence the solver wrote.
   import { errorText } from '../../lib/utils/error-text';
+  import { eigenRefusalText } from '../../lib/engine/finite-spectrum-warning';
   import type { DesignSpectrum } from '../../lib/engine/result-types';
   import {
     isBlocked, spectrumPoints, spectralOrdinate, RISK_FACTOR,
@@ -78,7 +80,7 @@
   // Expose advanced results to parent via bindable props
   interface AdvancedResults3D {
     pdelta?: { converged: boolean; iterations: number; b2Factor?: number; isStable?: boolean };
-    modal?: { modes: Array<{ frequency: number; period: number; participationX?: number; participationY?: number; participationZ?: number; massRatioX?: number; massRatioY?: number }>; totalMass?: number; ratiosWithheld?: boolean };
+    modal?: { modes: Array<{ frequency: number; period: number; participationX?: number; participationY?: number; participationZ?: number; massRatioX?: number; massRatioY?: number }>; totalMass?: number; finiteSpectrumDiagnostic?: string; ratiosWithheld?: boolean; structuredDiagnostics?: import('../../lib/engine/types').StructuredDiagnostic[] };
     buckling?: { factors: number[] };
     spectral?: { baseShearX?: number; baseShearY?: number; baseShearZ?: number };
   }
@@ -228,6 +230,8 @@
   // ─── 2. Modal ───────────────────────────────────────────────────
 
   let modalResult = $state<any | null>(null);
+  let modalGroup = $state<HTMLDivElement | undefined>();
+  $effect(() => { if (modalResult) modalGroup?.scrollIntoView({ block: 'start' }); });
   let numModes = $state(6);
   /** Add modes until 90 % of the mass participates in X and in Y (INPRES-CIRSOC 103 asks for it). */
   let modalAuto = $state(false);
@@ -265,7 +269,7 @@
         if (modalAuto) modalAutoNote = t('pro.modalAutoConstrained');
       }
       const elapsed = performance.now() - t0;
-      if (typeof res === 'string') { solveError = tp('adv.failed', { analysis: t('adv.name.modal'), error: String(res) }); solving = false; return; }
+      if (typeof res === 'string') { solveError = tp('adv.failed', { analysis: t('adv.name.modal'), error: eigenRefusalText(String(res), t) }); solving = false; return; }
       modalElapsed = elapsed;
       modalResult = res;
       // Published, so the viewport can draw and animate the mode picked in the table below.
@@ -284,10 +288,10 @@
             massRatioX: m.massRatioX, massRatioY: m.massRatioY,
           }),
         }));
-        advancedResults = { ...advancedResults, modal: { modes, totalMass: res.totalMass, ratiosWithheld: modalConstrained } };
+        advancedResults = { ...advancedResults, modal: { modes, totalMass: res.totalMass, finiteSpectrumDiagnostic: res.finiteSpectrumDiagnostic, ratiosWithheld: modalConstrained, structuredDiagnostics: res.structuredDiagnostics } };
       }
     } catch (e: any) {
-      solveError = tp('adv.failed', { analysis: t('adv.name.modal'), error: errorText(e, 'Error') });
+      solveError = tp('adv.failed', { analysis: t('adv.name.modal'), error: eigenRefusalText(errorText(e, 'Error'), t) });
     }
     solving = false;
   }
@@ -381,14 +385,14 @@
       const t0 = performance.now();
       res = wasmBuckling3D(input, numBucklingModes);
       const elapsed = performance.now() - t0;
-      if (typeof res === 'string') { solveError = tp('adv.failed', { analysis: t('adv.name.buckling'), error: String(res) }); solving = false; return; }
+      if (typeof res === 'string') { solveError = tp('adv.failed', { analysis: t('adv.name.buckling'), error: eigenRefusalText(String(res), t) }); solving = false; return; }
       bucklingElapsed = elapsed;
       bucklingResult = res;
       resultsStore.setBucklingResult3D(res);
       const factors = res.factors ?? res.eigenvalues ?? (res.modes?.map((m: any) => m.loadFactor ?? m.factor ?? m.eigenvalue) ?? []);
       advancedResults = { ...advancedResults, buckling: { factors } };
     } catch (e: any) {
-      solveError = tp('adv.failed', { analysis: t('adv.name.buckling'), error: errorText(e, 'Error') });
+      solveError = tp('adv.failed', { analysis: t('adv.name.buckling'), error: eigenRefusalText(errorText(e, 'Error'), t) });
     }
     solving = false;
   }
@@ -1006,7 +1010,7 @@
   <p class="adv-hint" data-testid="adv-loads-note">{t('adv.loadsNote')}</p>
 
   {#if solveError}
-    <div class="adv-error">{solveError}</div>
+    <div class="adv-error">{localizeEngineText(solveError)}</div>
   {/if}
 
   <div class="adv-scroll">
@@ -1047,7 +1051,7 @@
     </div>
 
     <!-- ── 2. Modal ── -->
-    <div class="adv-group">
+    <div class="adv-group modal-group" bind:this={modalGroup}>
       <div class="adv-row">
         <button class="adv-run-btn" onclick={handleModal} disabled={!hasModel || solving} data-testid="adv-run-modal">{t('pro.adv.modal')}</button>
         <label class="adv-label">
@@ -1058,6 +1062,8 @@
       </div>
       <Hint text={t('adv.help.modal')} />
       {#if modalResult}
+        <ModalCertificate result={resultsStore.modalResult3D ?? modalResult} mode={resultsStore.diagramType === 'modeShape' ? resultsStore.activeModeIndex : null} />
+        <FiniteSpectrumWarning result={modalResult} />
         <div class="adv-inline">
           {#if modalResult.totalMass != null}{t('pro.modalMass')}: {fmtNum(modalResult.totalMass)} t — {/if}
           {tp('adv.modesCount', { n: modalResult.modes?.length ?? 0 })}{#if modalElapsed != null} — {modalElapsed >= 1000 ? (modalElapsed / 1000).toFixed(2) + ' s' : modalElapsed.toFixed(0) + ' ms'}{#if wasmAvailable} (WASM){/if}{/if}
@@ -1066,14 +1072,14 @@
         {#if modalAutoNote}<div class="adv-hint" data-testid="modal-auto-note">{modalAutoNote}</div>{/if}
         <ProRecordVideo testid="modal-record" />
         <div class="adv-table-scroll">
-          <table class="adv-table">
+          <table class="adv-table modal-table">
             <thead><tr><th>{t('adv.mode')}</th><th>f (Hz)</th><th>T (s)</th><th>{t('adv.participationAbbr')} X</th><th>{t('adv.participationAbbr')} Y</th><th>{t('adv.participationAbbr')} Z</th><th>ΣM X</th><th>ΣM Y</th></tr></thead>
             <tbody>
               {#each modalResult.modes as mode, i}
                 <tr class="adv-mode-row" class:adv-mode-on={resultsStore.diagramType === 'modeShape' && resultsStore.activeModeIndex === i}
-                  onclick={() => { resultsStore.activeModeIndex = i; resultsStore.diagramType = 'modeShape'; }}
                   title={t('pro.showMode')} data-testid="adv-modal-row-{i}">
-                  <td class="col-id">{i + 1}</td>
+                  <td class="col-id"><button class="mode-select" aria-label={`${t('pro.showMode')} ${i + 1}`} aria-pressed={resultsStore.diagramType === 'modeShape' && resultsStore.activeModeIndex === i}
+                    onclick={() => { resultsStore.activeModeIndex = i; resultsStore.diagramType = 'modeShape'; }}>{i + 1}</button></td>
                   <td class="col-num">{fmtNum(mode.frequency)}</td>
                   <td class="col-num">{fmtNum(mode.period)}</td>
                   {#if modalConstrained}
@@ -1090,7 +1096,6 @@
             </tbody>
           </table>
         </div>
-        <ModalCertificate result={modalResult} mode={resultsStore.diagramType === 'modeShape' ? resultsStore.activeModeIndex : null} />
       {/if}
     </div>
 
@@ -2015,6 +2020,16 @@
     gap: 6px;
     padding: 6px 0;
   }
+
+  .modal-group .adv-inline, .modal-group .adv-hint, .modal-group .adv-label,
+  .modal-group .adv-check, .modal-group .adv-num, .modal-group .adv-run-btn { font-size: 12px; }
+  .modal-group .adv-run-btn, .modal-group .adv-num, .modal-group .adv-check { min-height: 44px; min-width: 44px; box-sizing: border-box; }
+  .modal-group .adv-check { display: flex; align-items: center; }
+  .modal-group .adv-row { flex-wrap: wrap; }
+  .mode-select { min-width: 44px; min-height: 44px; font-size: 12px; cursor: pointer; color: inherit; background: transparent; border: 1px solid var(--st-hair); border-radius: 3px; }
+  .adv-table.modal-table th, .adv-table.modal-table td { font-size: 12px; padding: 3px 1px; overflow-wrap: anywhere; }
+  .modal-table { table-layout: fixed; }
+  .modal-table th:first-child { width: 46px; }
 
   .adv-table-scroll {
     max-height: 150px;

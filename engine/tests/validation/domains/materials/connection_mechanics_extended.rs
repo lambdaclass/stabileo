@@ -67,51 +67,41 @@ fn validation_hinge_releases_moment_at_joint() {
         mid_a.uz.abs(), delta_exact, err_a * 100.0
     );
 
-    // Case B: Two separate beams joined at node 3 (x=3.0m) with hinges.
-    // Element 3 has hinge_end=true, element 4 has hinge_start=true.
-    // This creates a moment release at node 4 ... but we do it at node 3.
-    // We build manually: hinge at the junction of element 2 and element 3
-    // i.e., element 2 hinge_end=true, element 3 hinge_start=true
-    let input_b = make_input(
+    // Case B: the same beam with a hinge at node 3. On a pin and a roller that
+    // is a mechanism (3 reactions for 3 equations plus the hinge) and must be
+    // refused; fixed at node 1 instead it is a Gerber beam: the span 3..9 is
+    // simply supported by the hinge and the roller, so the hinge carries
+    // P·(9 − 4.5)/6 = 0.75P into a 3 m cantilever.
+    let hinged = |left: &'static str| make_input(
         vec![(1,0.0,0.0),(2,1.5,0.0),(3,3.0,0.0),(4,4.5,0.0),(5,6.0,0.0),(6,7.5,0.0),(7,9.0,0.0)],
         vec![(1, E, 0.3)],
         vec![(1, A, IZ)],
         vec![
             (1, "frame", 1, 2, 1, 1, false, false),
-            (2, "frame", 2, 3, 1, 1, false, true),   // hinge at end (node 3)
-            (3, "frame", 3, 4, 1, 1, true, false),    // hinge at start (node 3)
+            (2, "frame", 2, 3, 1, 1, false, true),
+            (3, "frame", 3, 4, 1, 1, true, false),
             (4, "frame", 4, 5, 1, 1, false, false),
             (5, "frame", 5, 6, 1, 1, false, false),
             (6, "frame", 6, 7, 1, 1, false, false),
         ],
-        vec![(1, 1, "pinned"), (2, 7, "rollerX")],
+        vec![(1, 1, left), (2, 7, "rollerX")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: 4, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
-    let res_b = linear::solve_2d(&input_b).unwrap();
+    let error = linear::solve_2d(&hinged("pinned")).err().expect("a simply supported beam with an internal hinge must not be solved");
+    assert!(error.contains("mechanism"), "{error}");
 
-    // At the hinge (node 3): moment must be zero in both adjacent elements
+    let res_b = linear::solve_2d(&hinged("fixed")).unwrap();
     let ef2 = res_b.element_forces.iter().find(|e| e.element_id == 2).unwrap();
     let ef3 = res_b.element_forces.iter().find(|e| e.element_id == 3).unwrap();
-    assert!(
-        ef2.m_end.abs() < 1e-3,
-        "Moment at hinge (elem 2 end): {:.6}, should be ~0",
-        ef2.m_end
-    );
-    assert!(
-        ef3.m_start.abs() < 1e-3,
-        "Moment at hinge (elem 3 start): {:.6}, should be ~0",
-        ef3.m_start
-    );
-
-    // Beam with hinge should deflect more than continuous beam
-    let mid_b = res_b.displacements.iter().find(|d| d.node_id == 4).unwrap();
-    assert!(
-        mid_b.uz.abs() > mid_a.uz.abs(),
-        "Hinged beam deflects more: hinged={:.6e} > continuous={:.6e}",
-        mid_b.uz.abs(), mid_a.uz.abs()
-    );
+    assert!(ef2.m_end.abs() < 1e-6 * p, "Moment at hinge (elem 2 end): {:.6}", ef2.m_end);
+    assert!(ef3.m_start.abs() < 1e-6 * p, "Moment at hinge (elem 3 start): {:.6}", ef3.m_start);
+    let fixed = res_b.reactions.iter().find(|r| r.node_id == 1).unwrap();
+    let roller = res_b.reactions.iter().find(|r| r.node_id == 7).unwrap();
+    assert!((fixed.rz - 0.75 * p).abs() < 1e-6 * p, "fixed-end reaction {}", fixed.rz);
+    assert!((roller.rz - 0.25 * p).abs() < 1e-6 * p, "roller reaction {}", roller.rz);
+    assert!((fixed.my.abs() - 0.75 * p * 3.0).abs() < 1e-6 * p, "fixed-end moment {}", fixed.my);
 }
 
 // ================================================================
