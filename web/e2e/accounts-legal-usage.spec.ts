@@ -499,7 +499,7 @@ test.describe('accounts, legal and anonymous usage', () => {
 
   for (const [locale, path, title] of [
     ['es', '/es/terms/', 'Términos de uso de Stabileo'],
-    ['en', '/en/privacy/', 'Stabileo Privacy Policy'],
+    ['en', '/en/privacy/', 'The Stabileo Privacy Policy'],
     ['pt', '/pt/usage-data/', 'Quais dados de uso anônimos o Stabileo envia'],
   ] as const) {
     test(`the ${path} page is published in ${locale}`, async ({ page }) => {
