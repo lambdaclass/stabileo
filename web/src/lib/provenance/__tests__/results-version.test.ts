@@ -66,6 +66,7 @@ const RELEASED: Record<number, string[]> = {
   ],
   19: ['basic-influence-line-moment-sign-returns'],
   20: ['basic-second-order-split-members-returns'],
+  21: ['basic-plastic-closes-unloading-hinges-returns'],
 };
 
 describe('results versions', () => {
