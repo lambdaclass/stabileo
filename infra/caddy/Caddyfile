@@ -9,16 +9,19 @@
 
 import /etc/caddy/sites.d/*.caddy
 
-(common) {
-	encode zstd gzip
-
+(headers) {
 	header {
 		X-Content-Type-Options "nosniff"
 		Referrer-Policy "strict-origin-when-cross-origin"
 		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()"
-		X-Robots-Tag "{$ROBOTS_TAG}"
+		X-Robots-Tag "{args[0]}"
 		-Server
 	}
+}
+
+(common) {
+	encode zstd gzip
+	import headers "{$ROBOTS_TAG}"
 
 	handle /api/* {
 		reverse_proxy 127.0.0.1:{$BACKEND_PORT:4100}
@@ -35,6 +38,11 @@ import /etc/caddy/sites.d/*.caddy
 		file {path}/index.html
 	}
 	redir @dirNoSlash {path}/ 301
+
+	@notFoundPage path_regexp ^/([a-z]{2}/)?404\.html$
+	handle @notFoundPage {
+		error 404
+	}
 
 	map {path} {english_twin} {
 		~^/(?:es|pt|de|fr|tr)(/[^.]*[^./])/?$ "/en${1}"
@@ -56,10 +64,38 @@ import /etc/caddy/sites.d/*.caddy
 		file_server
 	}
 
+	@spa path /app /app/* /demo /demo/
+	handle @spa {
+		header Cache-Control "no-cache"
+		rewrite * /index.html
+		file_server
+	}
+
+	# Links from before the language prefixes (/blog/x) are still drawn by the client router.
+	@unprefixed file /en{path}/index.html
+	handle @unprefixed {
+		header Cache-Control "no-cache"
+		rewrite * /index.html
+		file_server
+	}
+
 	handle {
 		header Cache-Control "no-cache"
-		try_files {path} {path}/index.html /index.html
+		try_files {path} {path}/index.html
 		file_server
+	}
+
+	handle_errors {
+		encode zstd gzip
+		import headers noindex
+		@notFound expression {err.status_code} == 404
+		handle @notFound {
+			header Cache-Control "no-cache"
+			try_files /{path.0}/404.html /404.html
+			file_server {
+				status 404
+			}
+		}
 	}
 }
 

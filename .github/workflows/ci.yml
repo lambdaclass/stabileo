@@ -253,6 +253,25 @@ jobs:
         run: docker build --tag stabileo-source-smoke .
       - run: docker build --build-arg FRONTEND_STAGE=web-prebuilt --tag stabileo-smoke .
 
+  caddy-routing:
+    name: Caddy Routing
+    needs: changes
+    if: needs.changes.outputs.ci_scripts == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
+        continue-on-error: true
+      - if: github.event_name != 'pull_request'
+        uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+        continue-on-error: true
+        with:
+          use-flakehub: false
+      - run: .github/scripts/retry-infra.sh make test.infra.caddy
+
   caddy-redirects:
     name: Caddy Language Redirects
     needs: changes
@@ -1625,6 +1644,7 @@ jobs:
       - lint-repo
       - test-ci-scripts
       - docker-smoke
+      - caddy-routing
       - caddy-redirects
       - lint-engine
       - test-engine-gates
@@ -1673,6 +1693,7 @@ jobs:
       - lint-repo
       - test-ci-scripts
       - docker-smoke
+      - caddy-routing
       - caddy-redirects
       - lint-engine
       - test-engine-gates

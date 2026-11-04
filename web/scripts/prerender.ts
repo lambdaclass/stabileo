@@ -45,6 +45,7 @@ import { join, dirname, extname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { newPrerenderPage, prerenderConcurrency, routePool, waitForRenderedApp, MIN_CAPTURE_CHARS } from './prerender-pool';
 import { rootHandoffScript } from './root-handoff';
+import { notFoundPage } from './not-found-page';
 import { buildStarCount, serveStarCount } from './build-stars';
 import { paperStructuredData } from './paper-structured-data';
 import { POST_DATE, POST_LASTMOD, publicPaths, writtenIn } from './public-paths';
@@ -287,7 +288,7 @@ async function main() {
   const { server, port } = await serveDist(0);
   const stop = () => new Promise<void>((done) => server.close(() => done()));
   const base = `http://127.0.0.1:${port}`;
-  const browser = await chromium.launch();
+  const browser = await chromium.launch({ args: ['--disable-dev-shm-usage'] });
   const stars = await buildStarCount();
   const only = process.env.PRERENDER_ONLY?.split(',');
   const paths = (await publicPaths()).filter((path) => !only || only.includes(path));
@@ -386,9 +387,14 @@ async function main() {
       `User-agent: *\nAllow: /\nDisallow: /app/\n\nSitemap: ${ORIGIN}/sitemap.xml\n`,
     );
 
+    await writeFile(join(DIST, '404.html'), notFoundPage(DEFAULT_LOCALE, LOCALES));
+    for (const locale of LOCALES) {
+      await writeFile(join(DIST, locale, '404.html'), notFoundPage(locale, LOCALES));
+    }
+
     console.log(`✅ prerendered ${written.length} pages`);
     for (const href of written) console.log(`   · ${href}`);
-    console.log(`   · /sitemap.xml, /robots.txt, ${LOCALES.length} feeds, ${posts.length} post cards`);
+    console.log(`   · /sitemap.xml, /robots.txt, ${LOCALES.length} feeds, ${posts.length} post cards, ${LOCALES.length + 1} 404 pages`);
   } finally {
     await browser.close();
     await stop();

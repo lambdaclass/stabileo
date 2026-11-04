@@ -136,7 +136,7 @@ class CiRunners(unittest.TestCase):
     def test_routing(self):
         ci = jobs('ci.yml')
         hosted = {name for name, job in ci.items() if job.get('runs-on') == 'ubuntu-24.04'}
-        self.assertEqual(hosted, {'changes', 'docker-smoke', 'determinism', 'timing-budgets', 'e2e', 'e2e-flaky', 'ci-ok', 'superseded',
+        self.assertEqual(hosted, {'changes', 'caddy-routing', 'docker-smoke', 'determinism', 'timing-budgets', 'e2e', 'e2e-flaky', 'ci-ok', 'superseded',
                                   'test-ci-scripts', 'lint-backend', 'check-migrations-immutable', 'check-migrations', 'results-snapshot'})
         self.assertEqual({name for name, job in jobs('research.yml').items() if job.get('runs-on') == 'ubuntu-24.04'}, {'isolation', 'catalog'})
         for name in ['test-engine-gates', 'web-unit']:
