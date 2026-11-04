@@ -249,6 +249,7 @@
       || (!!c.diagram && shownDiagram === c.diagram)
       || (!!c.tool && uiStore.currentTool === c.tool);
   }
+  let paletteOpen = $state(false);
 </script>
 
 {#snippet cmd(c: ProCmd, inMenu: boolean)}
@@ -413,6 +414,12 @@
 
       <span class="pr-spacer"></span>
 
+      <button class="pr-search" onclick={() => (paletteOpen = true)} title={t('palette.title')} aria-label={t('palette.title')} data-testid="pr-search">
+        <Icon name="search" size={14} />
+        <span class="pr-search-label">{t('palette.find')}</span>
+        <kbd>{mod}+K</kbd>
+      </button>
+
       <!--
         Collapse the ribbon, not the bar. On a laptop the model is the scarce
         resource, and an engineer who has settled into one stage does not need
@@ -473,7 +480,7 @@
   </div>
 </nav>
 
-<ProCommandPalette stages={STAGES} {run} />
+<ProCommandPalette stages={STAGES} {run} bind:open={paletteOpen} />
 
 <style>
   .pro-ribbon {
@@ -541,6 +548,15 @@
 
   /* ── Tab row ───────────────────────────────────────────────────────── */
 
+  .pr-search {
+    display: inline-flex; align-items: center; gap: 6px; align-self: center;
+    height: 24px; padding: 0 8px; margin-right: 6px;
+    border: 1px solid var(--st-hair-strong); border-radius: var(--st-radius);
+    background: var(--st-surface); color: var(--st-text-3); font-size: 0.7rem; cursor: pointer; white-space: nowrap;
+  }
+  .pr-search:hover { color: var(--st-text-2); border-color: var(--st-accent); }
+  .pr-search kbd { font: inherit; font-size: 0.62rem; color: var(--st-text-3); border: 1px solid var(--st-hair-strong); border-radius: 3px; padding: 0 3px; }
+  @media (max-width: 900px) { .pr-search-label, .pr-search kbd { display: none; } }
   .pr-tabrow {
     display: flex;
     align-items: stretch;

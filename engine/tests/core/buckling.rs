@@ -112,51 +112,45 @@ fn euler_cantilever_4_elements() {
     );
 }
 
-// ─── Euler Buckling: Fixed-Fixed ─────────────────────────────
+// ─── Euler Buckling: Fixed-Fixed and Fixed-Pinned ───────────
+//
+// References: continuum Pcr = 4π²EI/L² (K = 0.5) and Pcr = 20.1907·EI/L² (K = 0.6992, the root
+// of tan(kL) = kL); the 4-element ratios are det(K − λ·Kg) = 0 for cubic Hermite elements
+// with the consistent geometric stiffness, solved independently by bisection.
+
+fn column_load_factor(n_elem: usize, end_support: &str) -> f64 {
+    let p = 100.0;
+    let input = make_column(n_elem, L, E, A, IZ, "fixed", end_support, -p);
+    buckling::solve_buckling_2d(&input, 1).unwrap().modes[0].load_factor
+}
 
 #[test]
 fn euler_fixed_fixed_4_elements() {
-    // Pcr = 4π²EI/L² (Le = L/2)
-    // For fixed-fixed: apply load via distributed axial loads to create uniform compression
-    // Or: use fixed-pinned with axial load at the pinned end
-    // Actually: fixed at node 1, fixed at end but use prescribed displacement approach
-    // Simplest: fixed at base, rollerY at top (restrains ux but allows uy)
-    // This gives a "fixed-guided" column → Le ≈ L
-    // Instead, let's test fixed-pinned (Le ≈ 0.7L → Pcr = π²EI/(0.7L)² ≈ 2×pinned-pinned)
-    let p = 100.0;
-    let n_elem = 4;
-    let elem_len = L / n_elem as f64;
-    let mut nodes = Vec::new();
-    for i in 0..=n_elem {
-        nodes.push((i + 1, i as f64 * elem_len, 0.0));
-    }
-    let mut elems = Vec::new();
-    for i in 0..n_elem {
-        elems.push((i + 1, "frame", i + 1, i + 2, 1, 1, false, false));
-    }
-    // Fixed at base, rollerX at top (uy restrained, ux free, θz free) → "fixed-pinned"
-    // Le ≈ 0.7L → Pcr ≈ 2.04 × Pcr(pinned-pinned)
-    let input = make_input(
-        nodes,
-        vec![(1, E, 0.3)],
-        vec![(1, A, IZ)],
-        elems,
-        vec![(1, 1, "fixed"), (2, n_elem + 1, "rollerX")],
-        vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n_elem + 1, fx: -p, fz: 0.0, my: 0.0,
-        })],
-    );
-    let result = buckling::solve_buckling_2d(&input, 4).unwrap();
-
-    let pcr_pp = std::f64::consts::PI.powi(2) * EI / (L * L);
-    let lambda_pp = pcr_pp / p;
-
-    // Fixed-pinned should give λ > pinned-pinned (theoretical: ~2× for Le=0.7L)
-    let lambda1 = result.modes[0].load_factor;
+    let lambda_exact = 4.0 * std::f64::consts::PI.powi(2) * EI / (L * L) / 100.0;
+    let ratio = column_load_factor(4, "guidedX") / lambda_exact;
     assert!(
-        lambda1 > lambda_pp,
-        "Fixed-pinned λ={:.2} should be > pinned-pinned λ={:.2}",
-        lambda1, lambda_pp
+        (ratio - 1.0075223273773986).abs() < 1e-6,
+        "Fixed-fixed 4 elements: λ/λ_exact = {ratio:.10}, Hermite reference 1.0075223274"
+    );
+    let ratio_16 = column_load_factor(16, "guidedX") / lambda_exact;
+    assert!(
+        (ratio_16 - 1.0000327660856292).abs() < 1e-6,
+        "Fixed-fixed 16 elements: λ/λ_exact = {ratio_16:.10}, Hermite reference 1.0000327661"
+    );
+}
+
+#[test]
+fn euler_fixed_pinned_4_elements() {
+    let lambda_exact = 20.190729 * EI / (L * L) / 100.0;
+    let ratio = column_load_factor(4, "rollerX") / lambda_exact;
+    assert!(
+        (ratio - 1.0020545892660864).abs() < 1e-6,
+        "Fixed-pinned 4 elements: λ/λ_exact = {ratio:.10}, Hermite reference 1.0020545893"
+    );
+    let ratio_16 = column_load_factor(16, "rollerX") / lambda_exact;
+    assert!(
+        (ratio_16 - 1.0000085769375286).abs() < 1e-6,
+        "Fixed-pinned 16 elements: λ/λ_exact = {ratio_16:.10}, Hermite reference 1.0000085769"
     );
 }
 

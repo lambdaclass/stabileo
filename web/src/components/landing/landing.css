@@ -231,6 +231,9 @@
   margin: 0 0 1.25rem;
   max-width: 18ch;
   text-wrap: balance;
+  /* Compound words such as "Tragwerksberechnung" must not set the hero
+     grid's minimum width, or spill out of a section heading on phones. */
+  overflow-wrap: anywhere;
 }
 
 .landing h1 {

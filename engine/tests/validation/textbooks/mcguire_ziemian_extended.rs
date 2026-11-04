@@ -205,7 +205,7 @@ fn validation_mcguire_3_portal_assembly() {
     // No vertical load => vertical reactions should be equal and opposite (couple)
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap();
-    assert_close(r1.rz + r4.rz, 0.0, 0.01, "Portal sum_ry = 0 (no vertical load)");
+    assert_close_abs(r1.rz + r4.rz, 0.0, 0.01, 1e-6, "Portal sum_ry = 0 (no vertical load)");
 
     // Verify element forces: all elements should have nonzero moments
     for ef in &results.element_forces {

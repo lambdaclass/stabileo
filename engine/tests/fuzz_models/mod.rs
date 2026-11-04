@@ -174,7 +174,8 @@ pub fn random_2d_model(seed: u64) -> SolverInput {
     // Loads: 1-5 random loads
     let n_loads = rng.gen_range(1..=5);
     let mut loads = Vec::new();
-    let elem_ids: Vec<usize> = elems_map.values().map(|e| e.id).collect();
+    let mut elem_ids: Vec<usize> = elems_map.values().map(|e| e.id).collect();
+    elem_ids.sort_unstable();
 
     for _ in 0..n_loads {
         let load_kind = rng.gen_range(0..3);
@@ -428,7 +429,8 @@ pub fn random_3d_model(seed: u64) -> SolverInput3D {
     // Loads: 1-4 random nodal and distributed loads
     let n_loads = rng.gen_range(1..=4);
     let mut loads = Vec::new();
-    let elem_ids: Vec<usize> = elems_map.values().map(|e| e.id).collect();
+    let mut elem_ids: Vec<usize> = elems_map.values().map(|e| e.id).collect();
+    elem_ids.sort_unstable();
 
     for _ in 0..n_loads {
         let load_kind = rng.gen_range(0..3);

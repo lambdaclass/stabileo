@@ -6,7 +6,6 @@
 //   - DIAGRAM_3D_TYPES (constant)
 //   - syncDeformed(), syncDiagrams3D(), syncColorMap3D(), syncVerificationLabels(), syncReactions(), syncConstraintForces(), syncLabels3D()
 
-import { designData } from '../store/design-data';
 import * as THREE from 'three';
 import { canvasUnitSystem } from '../canvas/canvas-units';
 import { fixedQuantity, displacementText } from '../utils/unit-format';
@@ -30,7 +29,8 @@ import type { Diagram3DKind } from '../engine/diagrams-3d';
 import type { Displacement3D } from '../engine/types-3d';
 import { timeHistoryView } from '../store/time-history-view.svelte';
 import { sampleElementValues, createHeatmapCylinder, orientHeatmapMesh, applyShellNodalColors, displaceShellFace, type HeatmapVariable } from '../three/stress-heatmap';
-import { shellContourField } from '../engine/shell-contour-field';
+import { currentShellContourField, shellNodesOf, shellStressInputs } from '../store/shell-contour';
+import { buildShellOverlay, overlayUnit, replaceShellOverlay } from './shell-overlay';
 import { contourOptions } from '../store/contour-options.svelte';
 import { colourMapUnit } from '../three/colour-ramp';
 import { restoreShellColor } from '../three/create-shell-mesh';
@@ -109,6 +109,8 @@ export interface ResultsSyncContext {
   elementLabelsGroup: THREE.Group | null;
   lengthLabelsGroup: THREE.Group | null;
   shellLabelsGroup: THREE.Group | null;
+  /** Principal directions and the extreme values written over a shell contour (`shell-overlay.ts`). */
+  shellOverlayGroup?: THREE.Group | null;
   verificationLabelsGroup: THREE.Group | null;
 
   // Mutable state flags
@@ -694,6 +696,7 @@ function showOriginalMeshes(group: THREE.Group, visible: boolean): void {
 /** Reset shell meshes to default teal */
 function resetShellColors(ctx: ResultsSyncContext): void {
   for (const [, group] of ctx.shellGroups) resetShellGroup(group);
+  ctx.shellOverlayGroup = replaceShellOverlay(ctx.resultsParent, ctx.shellOverlayGroup, null);
 }
 
 /** One shell back to its base look: no contour colours, undisplaced, base opacity and colour. */
@@ -902,23 +905,12 @@ function applyShellContour(
   ctx: ResultsSyncContext,
   r3d: NonNullable<typeof resultsStore.results3D>,
 ): void {
-  const steel = resultsStore.shellContourComponent.startsWith('as');
-  const dd = steel ? designData() : null;
-  // The required-steel components read each shell's depth (thickness less the slab cover) and the project's fy.
-  const basis = (t: number | undefined) => (dd && t ? { steelBasis: { d: t - dd.covers.slab - 0.006, fy: dd.rebarFy } } : {});
-  const plates = (r3d.plateStresses ?? []).map((s) => (steel ? { ...s, ...basis(modelStore.plates.get(s.elementId)?.thickness) } : s));
-  const quads = (r3d.quadStresses ?? []).map((s) => (steel ? { ...s, ...basis(modelStore.quads.get(s.elementId)?.thickness) } : s));
-  if (plates.length === 0 && quads.length === 0) return;
-  const field = shellContourField(
-    { plates, quads },
-    (key) => (key.startsWith('p') ? modelStore.plates.get(+key.slice(1))?.nodes : modelStore.quads.get(+key.slice(1))?.nodes),
-    resultsStore.shellContourComponent,
-    contourOptions,
-  );
+  const field = currentShellContourField(r3d);
+  if (!field) { ctx.shellOverlayGroup = replaceShellOverlay(ctx.resultsParent, ctx.shellOverlayGroup, null); return; }
   const disp = contourOptions.onDeformed ? new Map(r3d.displacements.map((d) => [d.nodeId, d])) : null;
   for (const [key, group] of ctx.shellGroups) {
     const values = field.corners.get(key);
-    if (!values) continue;
+    if (!values) { resetShellGroup(group); continue; }
     const isQuad = key.startsWith('q');
     const nodes = isQuad ? modelStore.quads.get(+key.slice(1))?.nodes : modelStore.plates.get(+key.slice(1))?.nodes;
     const corners = disp && nodes
@@ -931,6 +923,24 @@ function applyShellContour(
       }
     });
   }
+  const component = resultsStore.shellContourComponent;
+  const project2D = projectFlag();
+  const scale = resultsStore.deformedScale;
+  const at = (id: number) => {
+    const n = modelStore.nodes.get(id);
+    if (!n) return null;
+    const p = projectNodeToScene(n, project2D);
+    const d = disp?.get(id);
+    return { x: p.x + (d ? d.ux * scale : 0), y: p.y + (d ? d.uy * scale : 0), z: (p.z ?? 0) + (d ? d.uz * scale : 0) };
+  };
+  const unit = overlayUnit(component);
+  const overlay = contourOptions.directions || contourOptions.values ? buildShellOverlay({
+    field, stresses: shellStressInputs(r3d, component), component, face: contourOptions.face,
+    directions: contourOptions.directions, values: contourOptions.values,
+    corners: (key) => { const ids = shellNodesOf(key); const pts = ids?.map(at); return pts && pts.every(Boolean) ? pts as Array<{ x: number; y: number; z: number }> : null; },
+    format: (v) => `${Math.abs(v) >= 100 ? v.toFixed(0) : Math.abs(v) >= 1 ? v.toFixed(2) : v.toPrecision(3)} ${unit}`,
+  }) : null;
+  ctx.shellOverlayGroup = replaceShellOverlay(ctx.resultsParent, ctx.shellOverlayGroup, overlay);
 }
 
 /**

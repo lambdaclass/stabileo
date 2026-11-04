@@ -187,7 +187,7 @@ pub fn check_3d(s: &SolverInput3D, dens: &HashMap<String, f64>, cond: &Condition
     for md in &r.modes {
         let mut v = vec![0.0; n];
         for d in &md.displacements {
-            for (k, val) in [d.ux, d.uy, d.uz, d.rx, d.ry, d.rz].into_iter().enumerate() {
+            for (k, val) in [d.ux, d.uy, d.uz, d.rx, d.ry, d.rz, d.warping.unwrap_or(0.0)].into_iter().enumerate() {
                 if let Some(i) = dof.global_dof(d.node_id, k) {
                     v[i] = val;
                 }
@@ -213,4 +213,27 @@ pub fn check_3d(s: &SolverInput3D, dens: &HashMap<String, f64>, cond: &Condition
         meff: r.modes.iter().map(|m| vec![m.effective_mass_x, m.effective_mass_y, m.effective_mass_z]).collect(),
     };
     check(&m, n, nf, &modes, &dirs, all, cond)
+}
+
+#[test]
+fn issue_759_warping_mode_orthogonality() {
+    let s: SolverInput3D = serde_json::from_str(include_str!("../metamorphic_corpus/feature_matrix/3d-warping-torsion-restrained-cantilever-with.json")).unwrap();
+    let densities = s.materials.keys().map(|id| (id.clone(), 7850.0)).collect();
+    let cond = dedaliano_engine::metamorphic::conditioning::of_3d(&s).unwrap();
+    let verdict = check_3d(&s, &densities, &cond);
+    assert!(matches!(verdict, Verdict::Pass(_)), "{verdict:?}");
+}
+
+#[test]
+fn issue_759_single_member_warping_orthogonality() {
+    let mut s: SolverInput3D = serde_json::from_str(include_str!("../metamorphic_corpus/feature_matrix/3d-warping-torsion-restrained-cantilever-with.json")).unwrap();
+    s.nodes.retain(|_, node| node.id <= 2);
+    s.elements.retain(|_, element| element.id == 1);
+    s.sections.retain(|_, section| section.id == 1);
+    s.materials.retain(|_, material| material.id == 1);
+    s.loads.clear();
+    let densities = HashMap::from([("1".into(), 7850.0)]);
+    let cond = dedaliano_engine::metamorphic::conditioning::of_3d(&s).unwrap();
+    let verdict = check_3d(&s, &densities, &cond);
+    assert!(matches!(verdict, Verdict::Pass(_)), "{verdict:?}");
 }

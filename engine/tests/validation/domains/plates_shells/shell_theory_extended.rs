@@ -325,7 +325,7 @@ fn validation_shell_ext_conical_membrane_selfweight() {
     // At alpha = 45 deg: cos(90) = 0 => N_theta = 0 (transition)
     let alpha_45: f64 = 45.0 * PI / 180.0;
     let cos_90: f64 = (2.0 * alpha_45).cos();
-    assert_close(cos_90, 0.0, 0.01, "cos(90) ~ 0 at alpha=45");
+    assert_close_abs(cos_90, 0.0, 0.01, 1e-6, "cos(90) ~ 0 at alpha=45");
 
     // For alpha > 45 deg: hoop becomes tensile
     let alpha_60: f64 = 60.0 * PI / 180.0;
@@ -709,7 +709,7 @@ fn validation_shell_ext_dome_selfweight() {
 
     // Verify N_theta = 0 at transition
     let n_theta_transition: f64 = w * r * (phi_transition.cos() - 1.0 / (1.0 + phi_transition.cos()));
-    assert_close(n_theta_transition, 0.0, 0.01, "N_theta = 0 at transition angle");
+    assert_close_abs(n_theta_transition, 0.0, 0.01, 1e-6, "N_theta = 0 at transition angle");
 
     // Above transition (phi < 51.8): N_theta > 0 (compression)
     let phi_30: f64 = 30.0 * PI / 180.0;

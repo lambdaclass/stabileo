@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from '../Hint.svelte';
   /**
    * The physical plates selected whole (`store/physical-plates.ts`): what each one is, its holes,
    * the area loads defined on it, and its mesh, which is made, made again or taken out from here.
@@ -168,7 +169,7 @@
           <QuantityInput value={loadQ} quantity="areaLoad" cls="pp-num" testid="plate-load-q" onchange={(v) => (loadQ = v)} />
           <button class="pp-btn" onclick={addLoad} data-testid="plate-load-add">{t('plates.addLoad')}</button>
         </div>
-        <p class="pp-hint">{t('plates.areaLoadHint')}</p>
+        <Hint text={t('plates.areaLoadHint')} />
       </details>
     {/if}
 
@@ -191,7 +192,7 @@
   .pp-label { font-weight: 600; color: var(--st-text-2); cursor: pointer; }
   .pp-name { min-width: 36px; color: var(--st-text); }
   .pp-warn { color: var(--st-warn, #d9a441); }
-  .pp-hint, .pp-msg { margin: 0; color: var(--st-text-3); font-size: 0.7rem; }
+  .pp-msg { margin: 0; color: var(--st-text-3); font-size: 0.7rem; }
   .pp-msg { color: var(--st-text-2); }
   .pp select, .pp-text, .pp :global(input.pp-num) { padding: 2px 5px; background: var(--st-ink); color: var(--st-text); border: 1px solid var(--st-hair-strong); border-radius: var(--st-radius); font: inherit; }
   .pp :global(input.pp-num) { width: 64px; font-family: var(--st-font-mono, monospace); }

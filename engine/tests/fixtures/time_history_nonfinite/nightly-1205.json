@@ -1,0 +1,125 @@
+{
+ "connectors": {},
+ "constraints": [],
+ "curvedBeams": [],
+ "curvedShells": {},
+ "elements": {
+  "1": {
+   "id": 1,
+   "localYx": null,
+   "localYy": null,
+   "localYz": null,
+   "materialId": 1,
+   "nodeI": 2,
+   "nodeJ": 1,
+   "releaseMyEnd": false,
+   "releaseMyStart": true,
+   "releaseMzEnd": false,
+   "releaseMzStart": false,
+   "releaseTEnd": false,
+   "releaseTStart": false,
+   "rollAngle": null,
+   "sectionId": 1,
+   "type": "frame"
+  }
+ },
+ "leftHand": null,
+ "loads": [],
+ "materials": {
+  "1": {
+   "e": 411189.65617069154,
+   "id": 1,
+   "nu": 0.4167823608193215
+  }
+ },
+ "nodes": {
+  "1": {
+   "id": 1,
+   "x": 16.24241961973813,
+   "y": -48.47932659445742,
+   "z": -21.62676824595364
+  },
+  "2": {
+   "id": 2,
+   "x": -17.524681661454352,
+   "y": 5.927876626838845,
+   "z": -20.052873097572576
+  }
+ },
+ "plates": {},
+ "quad9s": {},
+ "quads": {},
+ "sections": {
+  "1": {
+   "a": 0.006119374575514504,
+   "asY": null,
+   "asZ": null,
+   "cw": null,
+   "id": 1,
+   "iy": 0.00027103965471896415,
+   "iz": 2.897282815628648e-08,
+   "j": 3.0961277500949335e-08,
+   "name": null,
+   "shearCenterY": null,
+   "shearCenterZ": null
+  }
+ },
+ "solidShells": {},
+ "solverOptions": null,
+ "supports": {
+  "1": {
+   "drx": null,
+   "dry": null,
+   "drz": null,
+   "dx": null,
+   "dy": null,
+   "dz": null,
+   "isInclined": null,
+   "krx": null,
+   "kry": null,
+   "krz": null,
+   "kw": null,
+   "kx": null,
+   "ky": null,
+   "kz": null,
+   "nodeId": 1,
+   "normalX": null,
+   "normalY": null,
+   "normalZ": null,
+   "rrx": true,
+   "rry": true,
+   "rrz": true,
+   "rw": null,
+   "rx": true,
+   "ry": true,
+   "rz": true
+  },
+  "2": {
+   "drx": null,
+   "dry": null,
+   "drz": null,
+   "dx": null,
+   "dy": null,
+   "dz": null,
+   "isInclined": null,
+   "krx": null,
+   "kry": null,
+   "krz": null,
+   "kw": null,
+   "kx": null,
+   "ky": null,
+   "kz": null,
+   "nodeId": 2,
+   "normalX": null,
+   "normalY": null,
+   "normalZ": null,
+   "rrx": false,
+   "rry": true,
+   "rrz": true,
+   "rw": null,
+   "rx": false,
+   "ry": true,
+   "rz": true
+  }
+ }
+}

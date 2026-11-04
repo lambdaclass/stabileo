@@ -39,7 +39,9 @@ export type Block =
   /** A titled group of blocks inside a step ("Span A–C", "Joint B"). */
   | { kind: 'sub'; title: Txt | string; blocks: Block[] }
   /** This method against the matrix stiffness solve of the same model. */
-  | { kind: 'compare'; rows: CompareRow[]; caption?: Txt };
+  | { kind: 'compare'; rows: CompareRow[]; caption?: Txt }
+  /** A chart: curves on one pair of axes (steps/plot.ts). */
+  | { kind: 'plot'; plot: import('./plot').Plot; caption?: Txt };
 
 export interface CompareRow {
   /** What is compared: "M_AC", "A_y", "N_3". */
@@ -60,6 +62,8 @@ export interface StepDoc {
   /** Before step 1: the model, the assumptions, the units. */
   intro: Block[];
   steps: Step[];
+  /** The method's parameters (what to compute) do not apply to this document. */
+  noParams?: boolean;
 }
 
 /** Why a method cannot run on the model, in words. */

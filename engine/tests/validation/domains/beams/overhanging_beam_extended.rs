@@ -285,7 +285,7 @@ fn validation_overhang_ext_moment_distribution() {
 
     // Moment at free tip (x=9) should be zero: m_end of element 9
     let ef9 = results.element_forces.iter().find(|e| e.element_id == 9).unwrap();
-    assert_close(ef9.m_end.abs(), 0.0, 0.01, "Moment at free tip = 0");
+    assert_close_abs(ef9.m_end.abs(), 0.0, 0.01, 1e-6, "Moment at free tip = 0");
 }
 
 // ================================================================
@@ -455,7 +455,7 @@ fn validation_overhang_ext_applied_moment_at_tip() {
 
     // No net vertical load
     let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
-    assert_close(sum_ry, 0.0, 1e-3, "Sum Ry = 0 (pure couple)");
+    assert_close_abs(sum_ry, 0.0, 1e-3, 1e-6, "Sum Ry = 0 (pure couple)");
 
     // Moment at interior support (x=6): M = R1 * 6 = 30
     let ef2 = results.element_forces.iter().find(|e| e.element_id == 2).unwrap();

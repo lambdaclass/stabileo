@@ -10,7 +10,7 @@ import { uiStore } from '../ui.svelte';
 import { resultsStore } from '../results.svelte';
 import '../index';
 import { initSolver } from '../../engine/wasm-solver';
-import { currentResultProvenance, provenanceLabels, baseSolverInputJson, ensureEngineHashes, engineHashRunCount, captureProvenanceToken, provenanceForExport, ExportChangedError } from '../result-provenance';
+import { currentResultProvenance, provenanceLabels, baseSolverInputJson, ensureEngineHashes, engineHashRunCount, captureProvenanceToken, provenanceForExport, provenanceForScope, scopeOfResultSet, ExportChangedError } from '../result-provenance';
 import { certificateStore } from '../certificate.svelte';
 import { serializeProject, deserializeProject } from '../file';
 import { recheckStore } from '../recheck.svelte';
@@ -471,6 +471,29 @@ describe('an async export never pairs one state\'s data with another\'s provenan
     pending = provenanceForExport(captureProvenanceToken());
     resultsStore.activeView = 'envelope';
     await expect(pending).rejects.toBeInstanceOf(ExportChangedError);
+  });
+});
+
+describe('a report of a chosen result set records that set, not the one on screen', () => {
+  it('a combination printed while the screen shows the base solve', async () => {
+    solveWithCombinations();
+    const comboId = modelStore.model.combinations[0]!.id;
+    resultsStore.activeView = 'single';
+    const screen = currentResultProvenance();
+    const p = await provenanceForExport(captureProvenanceToken(), scopeOfResultSet(`combo:${comboId}`));
+    expect(p.scopeRef).toEqual({ kind: 'combo', id: comboId });
+    expect(p.resultsHash).toBe(provenanceForScope({ kind: 'combo', id: comboId }).resultsHash);
+    expect(p.resultsHash).not.toBe(screen.resultsHash);
+    const out = compareWithResultsOnHand(p);
+    expect(out.ok && out.verdict.status).toBe('reproduced');
+  });
+
+  it('maps every result-set key, and the screen to what is on screen', () => {
+    expect(scopeOfResultSet('envelope')).toEqual({ kind: 'envelope', name: null });
+    expect(scopeOfResultSet('case:3')).toEqual({ kind: 'case', id: 3 });
+    expect(scopeOfResultSet('combo:7')).toEqual({ kind: 'combo', id: 7 });
+    expect(scopeOfResultSet('screen')).toBeNull();
+    expect(scopeOfResultSet(undefined)).toBeNull();
   });
 });
 

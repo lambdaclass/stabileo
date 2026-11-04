@@ -1,4 +1,5 @@
 <script lang="ts" module>
+  import Hint from './Hint.svelte';
   // The config and its default live with the dialog's other sections (`auto-loads-sections.ts`).
   import type { SpecialLoadsConfig } from './auto-loads-sections';
   /** CIRSOC 101-2025 Tabla 3.2, soil unit weights, kN/m³. */
@@ -80,7 +81,7 @@
             <QuantityInput bind:value={config.soil.sideY} quantity="length" testid="al-soil-side-y" wrap="al-unit-field" /></label>
         </div>
       {/if}
-      <p class="al-hint">{t('autoLoad.special.soilHint')}</p>
+      <Hint text={t('autoLoad.special.soilHint')} />
     {/if}
   </div>
   <div class="al-sub">
@@ -101,7 +102,7 @@
             <QuantityInput bind:value={config.fluid.insideY} quantity="length" testid="al-fluid-inside-y" wrap="al-unit-field" /></label>
         </div>
       {/if}
-      <p class="al-hint">{t('autoLoad.special.fluidHint')}</p>
+      <Hint text={t('autoLoad.special.fluidHint')} />
     {/if}
   </div>
 </div>

@@ -214,3 +214,31 @@ describe('anchoring and sweep direction', () => {
     expect(pSmall.y).toBeLessThan(pMid.y);
   });
 });
+
+describe('a figure that cannot be zoomed drops what has no room', () => {
+  const crowd = () => Array.from({ length: 40 }, (_, i) => label({ dirX: 1, dirY: 0, priority: 40 - i, sweep: 'any' }));
+  const box = (l: LabelBox, p: { x: number; y: number }) => ({ x: p.x - l.width / 2, y: p.y - l.height, width: l.width, height: l.height });
+  const clash = (a: ReturnType<typeof box>, b: ReturnType<typeof box>) => a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
+
+  it('writes no label over another, keeps the largest, and says which it left out', () => {
+    const labels = crowd();
+    const placed = placeLabels(labels, [], undefined, undefined, { drop: true });
+    const shown = placed.map((p, i) => ({ p, i })).filter(({ p }) => !p.hidden);
+    expect(shown.length).toBeGreaterThan(1);
+    expect(shown.length).toBeLessThan(labels.length);
+    expect(placed[0]!.hidden).toBeFalsy();
+    for (const a of shown) for (const b of shown) {
+      if (a.i < b.i) expect(clash(box(labels[a.i]!, a.p), box(labels[b.i]!, b.p)), `${a.i}/${b.i}`).toBe(false);
+    }
+  });
+
+  it('puts a label over a member rather than leave it out when only the member is in the way', () => {
+    const member = segmentToBox({ x1: 0, y1: 95, x2: 1000, y2: 95 }, 200);
+    const [p] = placeLabels([label({ dirX: 0, dirY: -1 })], [member], undefined, undefined, { drop: true });
+    expect(p!.hidden).toBeFalsy();
+  });
+
+  it('on screen, still draws them all', () => {
+    expect(placeLabels(crowd()).every((p) => !p.hidden)).toBe(true);
+  });
+});
