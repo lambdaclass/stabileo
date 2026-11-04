@@ -643,7 +643,7 @@
     },
     "solvedWith": {
       "id": "fixture-rc-footing-cad-poc",
-      "resultsVersion": 25,
+      "resultsVersion": 27,
       "resultsSchemaVersion": 1,
       "appVersion": "0.1.0",
       "engineVersion": "0.1.0",
