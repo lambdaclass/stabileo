@@ -177,6 +177,39 @@ if n == 0:
                 self.assertEqual((result.returncode, count.read_text().count('x')), (status, 1))
                 self.assertNotIn('Download stalled', result.stderr)
 
+    def stalled_then(self, first, second, extra_env=None):
+        with tempfile.TemporaryDirectory() as directory:
+            count = Path(directory) / 'count'
+            lock = Path(directory) / 'lock'
+            command = Path(directory) / 'command.sh'
+            command.write_text(f"""n=$(cat {count} 2>/dev/null || echo 0); echo $((n + 1)) > {count}
+if [ "$n" = 0 ]; then {first}; else {second}; fi
+""".replace('LOCK', str(lock)))
+            started = time.monotonic()
+            result = subprocess.run([str(WRAPPER), 'bash', str(command)],
+                                    env={**os.environ, 'RETRY_INFRA_DELAY_SECONDS': '0', 'RETRY_INFRA_TIMEOUT_SECONDS': '2',
+                                         'RETRY_INFRA_LOCKS': str(lock), **(extra_env or {})},
+                                    capture_output=True, text=True, timeout=120)
+            return result, int(count.read_text()), time.monotonic() - started
+
+    def test_a_stalled_attempt_leaves_no_child_holding_a_lock_for_the_retry(self):
+        result, count, _ = self.stalled_then('flock LOCK sleep 300 & echo started; sleep 300',
+                                             'flock -n LOCK echo retried')
+        self.assertEqual((result.returncode, count), (0, 2), result.stderr)
+        self.assertIn('retried', result.stdout)
+
+    def test_the_retry_waits_for_a_lock_held_outside_the_attempt_session(self):
+        result, count, elapsed = self.stalled_then('setsid flock LOCK sleep 6 & echo started; sleep 300',
+                                                   'flock -n LOCK echo retried')
+        self.assertEqual((result.returncode, count), (0, 2), result.stderr)
+        self.assertIn('Waiting for the previous attempt to release its lock', result.stderr)
+        self.assertGreater(elapsed, 5)
+
+    def test_a_slow_command_that_keeps_printing_is_not_killed(self):
+        result, count, _ = self.stalled_then('for i in 1 2 3 4 5 6; do echo "Get:$i"; sleep 1; done', 'exit 9')
+        self.assertEqual((result.returncode, count), (0, 1), result.stderr)
+        self.assertNotIn('stalled', result.stderr)
+
     def test_previous_infra_output_does_not_trigger_retry(self):
         self.assertEqual(self.run_attempts(['HTTP error 418', 'AssertionError'])[:2], (7, 2))
 
