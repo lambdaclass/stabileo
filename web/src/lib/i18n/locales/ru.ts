@@ -3033,7 +3033,6 @@ const ru: Translations = {
   'pro.constraintForcesCount': 'усилий связей',
   'pro.selfWeightLabel': 'Собственный вес',
   'pro.rigidDiaphragm': 'Жёсткая диафрагма',
-  'pro.advancedWip': 'В разработке — расширенные функции могут работать не полностью',
   'pro.pdeltaDesc': 'Эффекты второго порядка',
   'pro.converged': 'Сошлось',
   'pro.notConverged': 'Не сошлось',

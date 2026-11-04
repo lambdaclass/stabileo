@@ -3030,7 +3030,6 @@ const zh: Translations = {
   'pro.constraintForcesCount': '约束力',
   'pro.selfWeightLabel': '自重',
   'pro.rigidDiaphragm': '刚性楼板',
-  'pro.advancedWip': '开发中 — 高级功能可能尚未完善',
   'pro.pdeltaDesc': '二阶效应',
   'pro.converged': '已收敛',
   'pro.notConverged': '未收敛',

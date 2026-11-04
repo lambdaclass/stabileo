@@ -2890,7 +2890,6 @@ const ar: Translations = {
   'pro.constraintForcesCount': 'قوى القيود',
   'pro.selfWeightLabel': 'الوزن الذاتي',
   'pro.rigidDiaphragm': 'حاجز صلب',
-  'pro.advancedWip': 'قيد التطوير — قد لا تكون الوظائف المتقدمة مكتملة بالكامل',
   'pro.pdeltaDesc': 'تأثيرات الرتبة الثانية',
   'pro.converged': 'تقارب',
   'pro.notConverged': 'لم يتقارب',
