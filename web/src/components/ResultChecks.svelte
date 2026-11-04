@@ -43,11 +43,11 @@
 
 <style>
   .rc { margin-top: 8px; border-top: 1px solid var(--st-hair); padding-top: 6px; }
-  summary { display: flex; align-items: baseline; gap: 8px; cursor: pointer; list-style: none; font-size: 0.72rem; color: var(--st-text-2); }
+  summary { display: flex; align-items: center; min-height: 44px; flex-wrap: wrap; gap: 8px; cursor: pointer; list-style: none; font-size: 12px; color: var(--st-text-2); }
   summary::-webkit-details-marker { display: none; }
-  summary::before { content: '▸'; color: var(--st-text-3); font-size: 0.66rem; }
+  summary::before { content: '▸'; color: var(--st-text-3); font-size: 12px; }
   details[open] > summary::before { content: '▾'; }
   .rc-title { font-weight: 500; }
-  .rc-summary { color: var(--st-text-3); font-size: 0.66rem; }
-  .warn .rc-summary { color: var(--st-warn); }
+  .rc-summary { min-width: 0; overflow-wrap: anywhere; color: var(--st-text-3); font-size: 12px; }
+  .warn .rc-summary { min-width: 0; overflow-wrap: anywhere; color: var(--st-warn); }
 </style>

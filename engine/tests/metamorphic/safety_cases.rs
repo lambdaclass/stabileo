@@ -117,7 +117,6 @@ fn modal_warping_orthogonality() {
 }
 
 #[test]
-#[ignore = "known wrong result: #760"]
 fn time_history_reciprocity() {
     let c = corpus::cases_2d(Tier::Nightly, 20754)
         .into_iter()

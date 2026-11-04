@@ -35,8 +35,8 @@ describe('null modes', () => {
     const w = (f: number) => ({ frequency: f, omega: 2 * Math.PI * f });
     const real = 2 * Math.PI * 3;
     const r = filterModal({
-      modes: [mode(w(2e-6)), mode(w(3))],
-      rayleigh: { omega1: 2 * Math.PI * 2e-6, omega2: real, a0: 0, a1: 2 * 0.05 / real, dampingRatios: [0.05, 0.05] },
+      modes: [mode(w(0)), mode(w(3))],
+      rayleigh: { omega1: 0, omega2: real, a0: 0, a1: 2 * 0.05 / real, dampingRatios: [0.05, 0.05] },
     } as Result, ['X']);
     expect(r.modes).toHaveLength(1);
     // With one mode the two-mode fit reduces to a0 = ξω, a1 = ξ/ω.

@@ -37,7 +37,21 @@ class JobSelectionPerEvent(unittest.TestCase):
     def test_pull_requests_never_run_the_slow_suite_unless_labelled(self):
         for paths in [['web/src/App.svelte'], ['engine/src/lib.rs'], ['docs/a.md']]:
             self.assertEqual(selection.select('pull_request', paths)['slow_e2e'], 'false')
-        self.assertIn("contains(github.event.pull_request.labels.*.name, 'run-e2e')", job('e2e'))
+        self.assertIn("needs.changes.outputs.run_e2e == 'true'", job('e2e'))
+
+    def test_a_label_never_restarts_ci_and_run_e2e_is_read_when_the_run_starts(self):
+        text = (ROOT / '.github/workflows/ci.yml').read_text()
+        self.assertIn('    types: [opened, synchronize, reopened]\n', text)
+        self.assertNotIn('github.event.pull_request.labels', text)
+        changes = job('changes')
+        self.assertIn('gh api "repos/$GH_REPO/pulls/$PR"', changes)
+        self.assertIn("FORCE_FULL: ${{ steps.labels.outputs.run_e2e == 'true' }}", changes)
+        self.assertIn("run_e2e: ${{ steps.labels.outputs.run_e2e == 'true' }}", changes)
+
+    def test_ci_ok_reports_on_every_run_and_counts_skipped_jobs_as_passing(self):
+        ok = job('ci-ok')
+        self.assertIn('    if: always()\n', ok)
+        self.assertIn('case "$r" in success|skipped) ;; *) exit 1 ;; esac', ok)
 
     def test_pull_requests_keep_their_path_selection(self):
         full = selection.select('pull_request', ['web/src/App.svelte'])
