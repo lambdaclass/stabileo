@@ -304,10 +304,11 @@ fn validation_truss_deep_vs_shallow_chord_force() {
 // 5. Truss with Missing Diagonal: Load Path Change
 // ================================================================
 //
-// Pratt-like truss where one diagonal is removed.
-// Without the diagonal, the shear in that panel must be
-// carried by neighboring panels → larger forces in adjacent diagonals.
-// Reference: Kassimali, "Structural Analysis" 6th Ed., §4.6 (indeterminate trusses)
+// Pratt-like truss where one diagonal is removed. The full truss is statically
+// determinate (2j = 16 = 13 bars + 3 reactions); without the panel-2 diagonal
+// 12 + 3 < 16 and that panel is a parallelogram mechanism the load at node 6
+// excites, so no equilibrium exists and the solve must be refused.
+// Reference: Kassimali, "Structural Analysis" 6th Ed., §4.4 (stability and determinacy)
 
 #[test]
 fn validation_truss_missing_diagonal_load_path() {
@@ -323,7 +324,7 @@ fn validation_truss_missing_diagonal_load_path() {
         (5, 0.0, h),   (6, panel_w, h),   (7, 2.0*panel_w, h),   (8, 3.0*panel_w, h),
     ];
 
-    let make_truss_ef = |include_diag_panel2: bool| -> Vec<f64> {
+    let make_truss = |include_diag_panel2: bool| {
         let mut elems = vec![
             (1,  "truss", 1, 2, 1, 1, false, false), // bottom chord
             (2,  "truss", 2, 3, 1, 1, false, false),
@@ -350,25 +351,19 @@ fn validation_truss_missing_diagonal_load_path() {
             nodes.clone(), vec![(1, E, 0.3)], vec![(1, A, IZ_T)],
             elems, sups, loads,
         );
-        let results = linear::solve_2d(&input).unwrap();
-        vec![
-            results.element_forces.iter().find(|e| e.element_id == 11).unwrap().n_start.abs(),
-            results.element_forces.iter().find(|e| e.element_id == 13).unwrap().n_start.abs(),
-        ]
+        linear::solve_2d(&input)
     };
 
-    let with_diag = make_truss_ef(true);
-    let without_diag = make_truss_ef(false);
+    let with_diag = make_truss(true).unwrap();
+    let force = |id: usize| with_diag.element_forces.iter().find(|e| e.element_id == id).unwrap().n_start;
+    let diagonal = (panel_w * panel_w + h * h).sqrt();
+    // Method of sections: the shear left of node 6 is the left reaction 2p/3 in
+    // panel 1 and the right reaction p/3 in panel 3; each diagonal carries V·d/h.
+    assert!((force(11).abs() - 2.0 * p / 3.0 * diagonal / h).abs() < 1e-6 * p, "{}", force(11));
+    assert!((force(13).abs() - p / 3.0 * diagonal / h).abs() < 1e-6 * p, "{}", force(13));
 
-    // Without the center diagonal, the panel 1 and panel 3 diagonals must
-    // carry more force to redistribute the shear
-    let sum_with = with_diag[0] + with_diag[1];
-    let sum_without = without_diag[0] + without_diag[1];
-    assert!(
-        sum_without > sum_with * 0.8,
-        "Missing diagonal: adjacent diagonals carry redistributed load: {:.4} vs {:.4}",
-        sum_without, sum_with
-    );
+    let error = make_truss(false).err().expect("a truss with a mechanism panel must not be solved");
+    assert!(error.contains("mechanism"), "{error}");
 }
 
 // ================================================================

@@ -636,13 +636,13 @@ fn validation_grill_ext_influence_surface() {
     let iz: f64 = 0.010;
     let j: f64 = 0.004;
 
-    let fix = vec![true, true, true, true, true, true];
-    let roller_x = vec![false, true, true, true, true, true];
+    let pin = vec![true, true, true, true, false, false];
+    let roller_x = vec![false, true, true, true, false, false];
 
     // Single simply-supported beam: PL/4 midspan moment
     let input_single = make_3d_beam(
         4, lx, e_mpa, nu, a, iy, iz, j,
-        fix.clone(), Some(roller_x.clone()),
+        pin.clone(), Some(roller_x.clone()),
         vec![SolverLoad3D::Nodal(SolverNodalLoad3D {
             node_id: 3, fx: 0.0, fy: -p, fz: 0.0,
             mx: 0.0, my: 0.0, mz: 0.0, bw: None,
@@ -654,7 +654,7 @@ fn validation_grill_ext_influence_surface() {
 
     // Analytical: delta = PL^3/(48EI_z) for midspan point load
     let d_exact: f64 = p * lx.powi(3) / (48.0 * e_eff * iz);
-    assert_close(d_single_mid, d_exact, 0.03, "SS beam midspan deflection");
+    assert_close(d_single_mid, d_exact, 1e-6, "SS beam midspan deflection");
 
     // Grillage: load at midspan of beam 1 vs load at quarter-span
     // Midspan load → larger moment on beam 1
@@ -675,7 +675,7 @@ fn validation_grill_ext_influence_surface() {
             (9, "frame", 3, 8, 1, 1),  // cross-beam at midspan
         ];
         let sups = vec![
-            (1, fix.clone()), (6, fix.clone()),
+            (1, pin.clone()), (6, pin.clone()),
             (5, roller_x.clone()), (10, roller_x.clone()),
         ];
         let loads = vec![SolverLoad3D::Nodal(SolverNodalLoad3D {
@@ -736,13 +736,13 @@ fn validation_grill_ext_beam_slab_comparison() {
     let iz: f64 = 0.010;
     let j: f64 = 0.004;
 
-    let fix = vec![true, true, true, true, true, true];
-    let roller_x = vec![false, true, true, true, true, true];
+    let pin = vec![true, true, true, true, false, false];
+    let roller_x = vec![false, true, true, true, false, false];
 
     // -- Simplified: single beam with tributary load P at midspan --
     let input_simple = make_3d_beam(
         4, lx, e_mpa, nu, a, iy, iz, j,
-        fix.clone(), Some(roller_x.clone()),
+        pin.clone(), Some(roller_x.clone()),
         vec![SolverLoad3D::Nodal(SolverNodalLoad3D {
             node_id: 3, fx: 0.0, fy: -p_per_beam, fz: 0.0,
             mx: 0.0, my: 0.0, mz: 0.0, bw: None,
@@ -754,7 +754,7 @@ fn validation_grill_ext_beam_slab_comparison() {
 
     // Analytical check: PL^3/(48EI)
     let d_analytical: f64 = p_per_beam * lx.powi(3) / (48.0 * e_eff * iz);
-    assert_close(d_simple, d_analytical, 0.03, "Simplified beam deflection = PL^3/(48EI)");
+    assert_close(d_simple, d_analytical, 1e-6, "Simplified beam deflection = PL^3/(48EI)");
 
     // -- Grillage: 3 beams, uniform load P on each at midspan --
     let nodes = vec![
@@ -778,7 +778,7 @@ fn validation_grill_ext_beam_slab_comparison() {
         (8, "frame", 5, 8, 1, 1),
     ];
     let sups = vec![
-        (1, fix.clone()), (4, fix.clone()), (7, fix.clone()),
+        (1, pin.clone()), (4, pin.clone()), (7, pin.clone()),
         (3, roller_x.clone()), (6, roller_x.clone()), (9, roller_x.clone()),
     ];
     // Equal load on each beam midspan

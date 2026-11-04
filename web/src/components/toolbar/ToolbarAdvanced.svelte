@@ -64,12 +64,16 @@
   import { openExplainedCatalog } from '../../lib/actions/step-wizards';
   import CirsocFlexPanel from '../CirsocFlexPanel.svelte';
   import { t, tp } from '../../lib/i18n';
+  import { errorText } from '../../lib/utils/error-text';
+  import { localizeEngineText } from '../../lib/i18n/engine-text';
   import { DOF_LABEL_KEY } from '../../lib/engine/kinematic-2d';
   import { withBasicMass } from '../../lib/engine/dynamics/basic-mass';
   import { variableRefusal2D, imposedRefusal } from '../../lib/engine/solver-service';
   import { formatPDeltaFactor } from '../../lib/engine/pdelta-result';
   import BucklingCertificate from '../advanced/BucklingCertificate.svelte';
   import PDeltaCertificate from '../advanced/PDeltaCertificate.svelte';
+  import FiniteSpectrumWarning from '../advanced/FiniteSpectrumWarning.svelte';
+  import { finiteSpectrumWarning, eigenRefusalText } from '../../lib/engine/finite-spectrum-warning';
   import ModalCertificate from '../advanced/ModalCertificate.svelte';
   import DynamicsCourse from '../advanced/dynamics/DynamicsCourse.svelte';
   import SecondOrderOptions from '../advanced/SecondOrderOptions.svelte';
@@ -314,14 +318,11 @@
   function bucklingFailure(e: unknown): void {
     const msg = errText(e, 'toast.bucklingError');
     if (/no compressed elements/i.test(msg)) uiStore.toast(t('toast.bucklingNoCompression'), 'info');
-    else uiStore.toast(msg, 'error');
+    else uiStore.toast(eigenRefusalText(msg, t), 'error');
   }
 
   function errText(e: unknown, fallbackKey: string): string {
-    if (typeof e === 'string' && e.trim()) return e;
-    const msg = (e as { message?: unknown } | null)?.message;
-    if (typeof msg === 'string' && msg.trim()) return msg;
-    return t(fallbackKey);
+    return localizeEngineText(errorText(e, t(fallbackKey)));
   }
 
   /**
@@ -445,15 +446,15 @@
       const physical = withBasicMass(input, modelStore.model);
       const result = solveModal(physical.input, physical.densities);
       const dt = performance.now() - t0;
-      if (typeof result === 'string') { uiStore.toast(result, 'error'); return; }
+      if (typeof result === 'string') { uiStore.toast(eigenRefusalText(result, t), 'error'); return; }
       resultsStore.setModalResult(result);
       const rayleighInfo = result.rayleigh ? ` | Rayleigh: a\u2080=${result.rayleigh.a0.toFixed(3)}, a\u2081=${result.rayleigh.a1.toFixed(5)}` : '';
       // The plane solver's y is the vertical, labelled Z everywhere else.
       const cumMassInfo = ` | \u03a3Meff: X=${(result.cumulativeMassRatioX * 100).toFixed(0)}%, Z=${(result.cumulativeMassRatioY * 100).toFixed(0)}%`;
-      uiStore.toast(t('toast.modalSuccess').replace('{modes}', String(result.modes.length)).replace('{cumMass}', cumMassInfo).replace('{rayleigh}', rayleighInfo).replace('{ms}', dt.toFixed(0)), 'success');
+      uiStore.toast([finiteSpectrumWarning(result, t), t('toast.modalSuccess').replace('{modes}', String(result.modes.length)).replace('{cumMass}', cumMassInfo).replace('{rayleigh}', rayleighInfo).replace('{ms}', dt.toFixed(0))].filter(Boolean).join(' '), result.finiteSpectrumDiagnostic ? 'info' : 'success');
       nullModesToast(result, true);
     } catch (e: any) {
-      uiStore.toast(errText(e, 'toast.modalError'), 'error');
+      uiStore.toast(eigenRefusalText(errText(e, 'toast.modalError'), t), 'error');
     }
   }
 
@@ -466,7 +467,7 @@
       const t0 = performance.now();
       const result = bucklingBasic2D(input);
       const dt = performance.now() - t0;
-      if (typeof result === 'string') { uiStore.toast(result, 'error'); return; }
+      if (typeof result === 'string') { uiStore.toast(eigenRefusalText(result, t), 'error'); return; }
       resultsStore.setBucklingResult(result);
       const factor = result.modes[0]?.loadFactor;
       const nComp = result.elementData.length;
@@ -572,13 +573,13 @@
       const physical = withBasicMass(input, modelStore.model);
       result = wasmModal3D(physical.input, physical.densities);
       const dt = performance.now() - t0;
-      if (typeof result === 'string') { uiStore.toast(result, 'error'); return; }
+      if (typeof result === 'string') { uiStore.toast(eigenRefusalText(result, t), 'error'); return; }
       resultsStore.setModalResult3D(result);
       const cumMassInfo = ` | \u03a3Meff: X=${(result.cumulativeMassRatioX * 100).toFixed(0)}%, Y=${(result.cumulativeMassRatioY * 100).toFixed(0)}%, Z=${(result.cumulativeMassRatioZ * 100).toFixed(0)}%`;
-      uiStore.toast(t('toast.modalSuccess').replace('{modes}', String(result.modes.length)).replace('{cumMass}', cumMassInfo).replace('{rayleigh}', '').replace('{ms}', dt.toFixed(0)), 'success');
+      uiStore.toast([finiteSpectrumWarning(result, t), t('toast.modalSuccess').replace('{modes}', String(result.modes.length)).replace('{cumMass}', cumMassInfo).replace('{rayleigh}', '').replace('{ms}', dt.toFixed(0))].filter(Boolean).join(' '), result.finiteSpectrumDiagnostic ? 'info' : 'success');
       nullModesToast(result, false);
     } catch (e: any) {
-      uiStore.toast(errText(e, 'toast.modalError'), 'error');
+      uiStore.toast(eigenRefusalText(errText(e, 'toast.modalError'), t), 'error');
     }
   }
 
@@ -592,7 +593,7 @@
       let result: any;
       result = wasmBuckling3D(input);
       const dt = performance.now() - t0;
-      if (typeof result === 'string') { uiStore.toast(result, 'error'); return; }
+      if (typeof result === 'string') { uiStore.toast(eigenRefusalText(result, t), 'error'); return; }
       resultsStore.setBucklingResult3D(result);
       const factor = result.modes[0]?.loadFactor;
       const nComp = result.elementData.length;
@@ -988,6 +989,8 @@
     <PDeltaCertificate result={pdR} />
   {/if}
   {#if moR}
+    <ModalCertificate result={moR} mode={resultsStore.activeModeIndex} />
+    <FiniteSpectrumWarning result={moR} />
     <div class="adv-result-row">
       <button class="adv-result-btn" class:active={resultsStore.diagramType === 'modeShape'} onclick={() => resultsStore.diagramType = 'modeShape'}>{t('advanced.dynamic')}</button>
       <button class="small-btn" onclick={() => { if (resultsStore.activeModeIndex > 0) resultsStore.activeModeIndex--; }} disabled={resultsStore.activeModeIndex === 0}>&#9664;</button>
@@ -1000,8 +1003,7 @@
         f = {mode.frequency.toFixed(2)} Hz |
         T = {mode.period.toFixed(3)} s
       </div>
-      <ModalCertificate result={moR} mode={resultsStore.activeModeIndex} />
-      <div class="adv-result-info" style="font-size:10px; opacity:0.8">
+      <div class="adv-result-info" style="opacity:0.8">
         <!-- The plane solver's second axis is the vertical, Z on screen; a space model has all three. -->
         {#if is3D}
           {@const m3 = mode as { massRatioZ?: number }}
@@ -1353,12 +1355,14 @@
 
   /* Reachable from the result panels mounted inside this section (components/advanced/). */
   :where(.toolbar-section) :global(.small-btn) {
+    min-width: 44px;
+    min-height: 44px;
     padding: 0.1rem 0.4rem;
     border: 1px solid var(--st-hair-strong);
     border-radius: 3px;
     background: var(--st-surface-2);
     color: var(--st-text);
-    font-size: 0.7rem;
+    font-size: 12px;
     cursor: pointer;
   }
 
@@ -1374,18 +1378,21 @@
 
   :where(.toolbar-section) :global(.adv-result-row) {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 0.25rem;
     margin-top: 0.25rem;
   }
 
   :where(.toolbar-section) :global(.adv-result-btn) {
+    min-width: 44px;
+    min-height: 44px;
     padding: 0.2rem 0.5rem;
     border: 1px solid var(--st-hair-strong);
     border-radius: 4px;
     background: var(--st-surface-2);
     color: var(--st-text);
-    font-size: 0.72rem;
+    font-size: 12px;
     cursor: pointer;
     flex-shrink: 0;
   }
@@ -1402,14 +1409,15 @@
   }
 
   :where(.toolbar-section) :global(.adv-result-label) {
-    font-size: 0.72rem;
+    font-size: 12px;
     color: var(--st-value);
     min-width: 2rem;
     text-align: center;
   }
 
   :where(.toolbar-section) :global(.adv-result-info) {
-    font-size: 0.68rem;
+    overflow-wrap: anywhere;
+    font-size: 12px;
     color: var(--st-text-3);
     padding: 0 0 0 0.25rem;
   }
@@ -1422,7 +1430,7 @@
   */
   .flat :global(.adv-result-info) {
     font-family: var(--st-mono);
-    font-size: 0.66rem;
+    font-size: 12px;
     letter-spacing: 0.02em;
     margin-left: 0.6rem;
     padding: 0.1rem 0 0.1rem 0.6rem;

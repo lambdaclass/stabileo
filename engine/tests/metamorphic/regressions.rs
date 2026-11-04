@@ -409,7 +409,8 @@ fn spectral_cqc_base_shear_independent_of_mode_basis() {
 #[ignore]
 fn probe_units_3d() {
     use dedaliano_engine::metamorphic::units::{scale_3d, Units};
-    let f = std::env::var("PFILE").unwrap();
+    // A debugging probe (PFILE=<model.json>); `--ignored` runs it too.
+    let Ok(f) = std::env::var("PFILE") else { return eprintln!("PFILE not set: probe skipped") };
     let s: SolverInput3D = serde_json::from_str(&std::fs::read_to_string(&f).unwrap()).unwrap();
     let base = linear::solve_3d(&s).unwrap();
     let pick = |r: &AnalysisResults3D| r.displacements.iter().map(|d| (d.node_id, d.ux, d.uz, d.ry)).collect::<Vec<_>>();
@@ -457,7 +458,8 @@ fn shell_rotary_inertia_follows_the_shell() {
 #[test]
 #[ignore]
 fn probe_plastic_file() {
-    let f = std::env::var("PFILE").unwrap();
+    // A debugging probe (PFILE=<model.json>); `--ignored` runs it too.
+    let Ok(f) = std::env::var("PFILE") else { return eprintln!("PFILE not set: probe skipped") };
     let s: SolverInput = serde_json::from_str(&std::fs::read_to_string(&f).unwrap()).unwrap();
     match plastic_2d(&s) {
         Ok(r) => { println!("factor {} mech {} warn {:?}", r.collapse_factor, r.is_mechanism, r.warnings); for h in &r.hinges { println!("  {h:?}"); } }
@@ -595,4 +597,22 @@ fn plastic_3d_frame3d_2_is_a_lower_bound_of_its_certificate() {
     assert!(r.collapse_factor <= lo && !r.is_mechanism, "{} vs [{lo}, {up}]", r.collapse_factor);
     assert!(r.warnings.iter().any(|w| w.contains("no consistent set of active hinges") && w.contains("lower bound")), "{:?}", r.warnings);
     assert!(!r.warnings.iter().any(|w| w.contains("exceeds the yield surface")), "{:?}", r.warnings);
+}
+
+/// A general rotation makes the semidefinite drilling-mass reduction refuse
+/// this shell, selecting the direct harmonic fallback. Both paths must use
+/// the same Rayleigh anchors even though the sweep keeps only one mode.
+#[test]
+fn harmonic_shell_rotation_preserves_damping_across_fallback() {
+    let s = serde_json::from_str(include_str!(
+        "../metamorphic_corpus/feature_matrix/3d-quad-shell--mitc4--strip-cantilever------0-with.json"
+    )).unwrap();
+    let c = crate::case::Case3::new(
+        "feature_matrix/3d-quad-shell--mitc4--strip-cantilever------0-with", s,
+    );
+    let tally = crate::tally::Tally::default();
+    let ctx = crate::checks3::Ctx { tally: &tally, rng_seed: 20261018 };
+    let analyses: Vec<_> = crate::ana3::rows().into_iter().filter(|a| a.name == "harmonic").collect();
+    crate::checks3::check_case(&ctx, &c, &analyses, &["rotation"]);
+    assert_eq!(tally.status("harmonic", "rotation"), "holds", "{}", tally.report());
 }

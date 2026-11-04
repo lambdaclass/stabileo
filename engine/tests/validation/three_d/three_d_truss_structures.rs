@@ -335,8 +335,8 @@ fn validation_3d_truss_bridge_symmetric_forces() {
     // Symmetry: bottom chord force in left span (elem 1) = right span (elem 4)
     let ef_left = results.element_forces.iter().find(|ef| ef.element_id == 1).unwrap();
     let ef_right = results.element_forces.iter().find(|ef| ef.element_id == 4).unwrap();
-    assert_close(
-        ef_left.n_start.abs(), ef_right.n_start.abs(), 0.01,
+    assert_close_abs(
+        ef_left.n_start.abs(), ef_right.n_start.abs(), 0.01, 1e-6,
         "3D bridge: symmetric chord forces"
     );
 }

@@ -131,11 +131,11 @@ fn validation_gable_extended_lateral_base_shear() {
     let r5 = results.reactions.iter().find(|r| r.node_id == 5).unwrap();
 
     // Horizontal equilibrium: Rx1 + Rx5 + F_lat = 0
-    assert_close(r1.rx + r5.rx + f_lat, 0.0, 0.01,
+    assert_close_abs(r1.rx + r5.rx + f_lat, 0.0, 0.01, 1e-6,
         "Lateral load: horizontal equilibrium");
 
     // Vertical equilibrium: no vertical load so Ry1 + Ry5 = 0
-    assert_close(r1.rz + r5.rz, 0.0, 0.01,
+    assert_close_abs(r1.rz + r5.rz, 0.0, 0.01, 1e-6,
         "Lateral load: vertical equilibrium");
 
     // Both columns should carry part of the shear (both Rx nonzero)
@@ -182,7 +182,7 @@ fn validation_gable_extended_ridge_point_load() {
     assert_close(r1.rz, r5.rz, 0.02, "Ridge load: Ry1 ~ Ry5 by symmetry");
 
     // Horizontal equilibrium: Rx1 + Rx5 = 0
-    assert_close(r1.rx + r5.rx, 0.0, 0.01, "Ridge load: Rx1 + Rx5 = 0");
+    assert_close_abs(r1.rx + r5.rx, 0.0, 0.01, 1e-6, "Ridge load: Rx1 + Rx5 = 0");
 
     // Rafters (elements 2 and 3) should have axial compression (n_start < 0).
     // In the solver, negative axial force means compression.
@@ -238,12 +238,12 @@ fn validation_gable_extended_unbalanced_snow() {
 
     // Vertical: sum of Ry must balance total applied vertical load component
     let sum_ry: f64 = r1.rz + r5.rz;
-    assert_close(sum_ry + applied_fz, 0.0, 0.05,
+    assert_close_abs(sum_ry + applied_fz, 0.0, 0.05, 1e-6,
         "Unbalanced snow: vertical equilibrium");
 
     // Horizontal equilibrium: Rx1 + Rx5 + applied_fx = 0
     let sum_rx: f64 = r1.rx + r5.rx;
-    assert_close(sum_rx + applied_fx, 0.0, 0.05,
+    assert_close_abs(sum_rx + applied_fx, 0.0, 0.05, 1e-6,
         "Unbalanced snow: horizontal equilibrium");
 
     // Reactions should NOT be symmetric (load is on one side only)
@@ -287,7 +287,7 @@ fn validation_gable_extended_rafter_thrust() {
     let r5 = results.reactions.iter().find(|r| r.node_id == 5).unwrap();
 
     // Horizontal thrust: Rx1 and Rx5 should be equal and opposite
-    assert_close(r1.rx + r5.rx, 0.0, 0.01, "Rafter thrust: Rx1 + Rx5 = 0");
+    assert_close_abs(r1.rx + r5.rx, 0.0, 0.01, 1e-6, "Rafter thrust: Rx1 + Rx5 = 0");
 
     // Thrust must be nonzero (the inclined rafters push outward)
     assert!(r1.rx.abs() > 0.1,
@@ -374,7 +374,7 @@ fn validation_gable_extended_knee_brace_effect() {
     // Also verify equilibrium of the braced frame
     let r1_b = res_braced.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r5_b = res_braced.reactions.iter().find(|r| r.node_id == 5).unwrap();
-    assert_close(r1_b.rx + r5_b.rx + f_lat, 0.0, 0.01,
+    assert_close_abs(r1_b.rx + r5_b.rx + f_lat, 0.0, 0.01, 1e-6,
         "Knee brace: horizontal equilibrium");
 }
 
@@ -503,23 +503,23 @@ fn validation_gable_extended_fixed_vs_pinned_base() {
     // Both frames must satisfy global equilibrium
     // Horizontal: sum Rx + applied Fx = 0
     let total_fx = f_lat;
-    assert_close(
-        r1_fixed.rx + r5_fixed.rx + total_fx, 0.0, 0.01,
+    assert_close_abs(
+        r1_fixed.rx + r5_fixed.rx + total_fx, 0.0, 0.01, 1e-6,
         "Fixed base: horizontal equilibrium",
     );
-    assert_close(
-        r1_pinned.rx + r5_pinned.rx + total_fx, 0.0, 0.01,
+    assert_close_abs(
+        r1_pinned.rx + r5_pinned.rx + total_fx, 0.0, 0.01, 1e-6,
         "Pinned base: horizontal equilibrium",
     );
 
     // Vertical: sum Ry + applied Fy = 0
     let total_fz: f64 = 3.0 * g;
-    assert_close(
-        r1_fixed.rz + r5_fixed.rz + total_fz, 0.0, 0.01,
+    assert_close_abs(
+        r1_fixed.rz + r5_fixed.rz + total_fz, 0.0, 0.01, 1e-6,
         "Fixed base: vertical equilibrium",
     );
-    assert_close(
-        r1_pinned.rz + r5_pinned.rz + total_fz, 0.0, 0.01,
+    assert_close_abs(
+        r1_pinned.rz + r5_pinned.rz + total_fz, 0.0, 0.01, 1e-6,
         "Pinned base: vertical equilibrium",
     );
 }

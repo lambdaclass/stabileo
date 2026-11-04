@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from '../Hint.svelte';
   /**
    * The Building panel's tools beyond placing one kind of element: a ramp across a bay, copying a
    * level's elements to others, and a rigid diaphragm per level.
@@ -77,7 +78,7 @@
 
 <section class="pk-card" data-testid="building-copy">
   <h5 class="bt-h">{t('building.copyTitle')}</h5>
-  <p class="pk-hint">{t('building.copyHint')}</p>
+  <Hint text={t('building.copyHint')} />
   <div class="bt-row">
     <label class="bt-inline">{t('building.copyFrom')}
       <select bind:value={copyFrom} data-testid="building-copy-from">{#each levels as l (l.id)}<option value={l.id}>{l.name}</option>{/each}</select>
@@ -99,7 +100,7 @@
 
 <section class="pk-card" data-testid="building-diaphragm">
   <h5 class="bt-h">{t('building.diaphragmTitle')}</h5>
-  <p class="pk-hint">{t('building.diaphragmHint')}</p>
+  <Hint text={t('building.diaphragmHint')} />
   <button class="pk-btn" onclick={diaphragms} data-testid="building-diaphragms">{t('building.diaphragmAdd')}</button>
 </section>
 

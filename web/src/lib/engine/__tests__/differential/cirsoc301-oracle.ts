@@ -540,7 +540,7 @@ function slenderReduction(
       return { Q: 0, Qs: 1, Qa: 0, slender: true,
         refused: `D/t = ${fmt(Dt, 1)} > 0,45·E/Fy = ${fmt(0.45 * E / Fy, 1)}: E.7.2(c) no cubre este tubo` };
     }
-    const Q = 0.038 * E / (Fy * Dt) + 2 / 3;
+    const Q = Math.min(1, 0.038 * E / (Fy * Dt) + 2 / 3);
     steps.push(`  D/t = ${fmt(Dt, 1)} > 0,11·E/Fy → Q = Qa = 0,038·E/(Fy·D/t) + 2/3 = ${fmt(Q, 3)}  (E.7.19)`);
     return { Q, Qs: 1, Qa: Q, slender: true };
   }

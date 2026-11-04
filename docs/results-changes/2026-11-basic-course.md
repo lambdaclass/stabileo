@@ -1,6 +1,6 @@
 # Basic: the course units change some advanced results (#871)
 
-Results version 6 registers the numbers that the same saved Basic 2D model gives differently
+Results version 14 registers the numbers that the same saved Basic 2D model gives differently
 after #871. None of them comes from the Rust engine, which the pull request does not touch; they
 come from how Basic calls it and reads its results. The results snapshot corpus does not run the
 Basic 2D advanced toolbar, so no committed snapshot moves.
@@ -36,9 +36,3 @@ converged values; the change is largest for slender members and members with a l
 The influence line of M at a section now takes M positive when it puts the bottom fibre in
 tension, as every other moment in Basic. Ordinates of moment influence lines change sign; their
 magnitudes do not.
-
-## Governing combination per member
-
-The governing combination of a member is chosen from the moment, shear and axial force along the
-member, not only at its ends. A member whose largest moment is inside the span (a beam under a
-distributed load) can name a different governing combination.

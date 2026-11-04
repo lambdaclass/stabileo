@@ -10,7 +10,7 @@
    * pays for a reload.
    */
   import { tPublic as t, tpPublic as tp, publicI18n } from '../../lib/i18n/store.svelte';
-  import { applyPageMeta, restorePageMeta, postImageUrl, ERGODIC_GROUP, LAMBDA_CLASS } from '../../lib/page-meta';
+  import { applyPageMeta, restorePageMeta, postImageUrl, stabileoSoftware, breadcrumbs, PUBLISHER, SOFTWARE_ID, WEBSITE_ID } from '../../lib/page-meta';
   import { publicUrl } from '../../lib/i18n/public-routes';
   import { POSTS, POSTS_NEWEST_FIRST, findPost, formatPostDate, postReadingMinutes, inLocale, writtenIn } from '../../lib/blog';
   import { enterApp } from '../landing/landing-utils';
@@ -69,7 +69,7 @@
     if (standing && standingBody) {
       const url = publicUrl(standing.path, publicI18n.locale);
       applyPageMeta({
-        title: `${standingBody.title} — Stabileo`,
+        title: standingBody.metaTitle ?? (standingBody.title.includes('Stabileo') ? standingBody.title : `${standingBody.title} — Stabileo`),
         description: standingBody.description,
         locale: publicI18n.locale,
         path: standing.path,
@@ -85,28 +85,16 @@
             description: standingBody.description,
             inLanguage: publicI18n.locale,
             dateModified: standing.updated,
-            about: { '@id': 'https://stabileo.com/#software' },
-            isPartOf: { '@id': 'https://stabileo.com/#website' },
+            about: { '@id': SOFTWARE_ID },
+            isPartOf: { '@id': WEBSITE_ID },
           },
-          {
-            '@type': 'SoftwareApplication',
-            '@id': 'https://stabileo.com/#software',
-            name: 'Stabileo',
-            url: publicUrl('/', publicI18n.locale),
-            applicationCategory: 'EngineeringApplication',
-            operatingSystem: 'Web browser',
-            isAccessibleForFree: true,
-            license: 'https://www.gnu.org/licenses/agpl-3.0.html',
-            publisher: ERGODIC_GROUP,
-            author: LAMBDA_CLASS,
-            ...(standingBody.blocks.some((b) => b.k === 'table')
-              ? {
-                  featureList: standingBody.blocks.flatMap((b) =>
-                    b.k === 'table' ? b.rows.map((r) => `${r[0]}: ${r[1]}`) : [],
-                  ),
-                }
-              : {}),
-          },
+          stabileoSoftware(
+            publicI18n.locale,
+            standingBody.blocks.some((b) => b.k === 'table')
+              ? { featureList: standingBody.blocks.flatMap((b) => (b.k === 'table' ? b.rows.map((r) => `${r[0]}: ${r[1]}`) : [])) }
+              : {},
+          ),
+          breadcrumbs(publicI18n.locale, [['Stabileo', '/'], [standingBody.title, standing.path]]),
           ...(standingBody.faq.length
             ? [
                 {
@@ -159,7 +147,7 @@
               description: t('blog.lead'),
               url: publicUrl('/blog', publicI18n.locale),
               inLanguage: publicI18n.locale,
-              publisher: { '@id': 'https://stabileo.com/#organization' },
+              publisher: PUBLISHER,
               blogPost: POSTS.map((p) => ({
                 '@type': 'BlogPosting',
                 headline: inLocale(p.i18n, publicI18n.locale).title,
@@ -168,6 +156,7 @@
                 dateModified: p.updated ?? p.date,
               })),
             },
+            breadcrumbs(publicI18n.locale, [['Stabileo', '/'], ['Blog', '/blog']]),
           ],
     });
     return restorePageMeta;

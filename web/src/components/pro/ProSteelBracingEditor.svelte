@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from './Hint.svelte';
   /**
    * Bracing of the selected steel members: the points where each flange is held (m from the
    * member's start; the top flange for sagging, the bottom one for hogging) and the unbraced
@@ -29,7 +30,7 @@
 </script>
 
 <div class="br" data-testid="steel-bracing-editor">
-  <p class="pk-hint">{t('steel.bracing.hint')}</p>
+  <Hint text={t('steel.bracing.hint')} />
   <label>{t('steel.bracing.top')}<input bind:value={top} placeholder="1,5; 3; 4,5" data-testid="steel-bracing-top" /></label>
   <label>{t('steel.bracing.bottom')}<input bind:value={bottom} placeholder="3" data-testid="steel-bracing-bottom" /></label>
   <div class="pk-row">

@@ -1,3 +1,4 @@
+use crate::types::units::{ElasticInput2D, ElasticProperties2D};
 use std::borrow::Cow;
 use crate::types::*;
 use crate::linalg::*;
@@ -415,6 +416,19 @@ pub fn solve_2d(input: &SolverInput) -> Result<AnalysisResults, String> {
     Ok(r)
 }
 
+/// Typed direct API. Frame properties stay typed from serde to stiffness/recovery.
+pub fn solve_2d_typed(input: &ElasticInput2D) -> Result<AnalysisResults, String> {
+    let legacy = input.legacy_view();
+    if !legacy.constraints.is_empty() {
+        return solve_2d(&legacy);
+    }
+    let properties = ElasticProperties2D::from_typed(input);
+    let prepared = prepare_static_2d_impl(&legacy, false, properties)?;
+    let mut result = prepared.solve_loads(&legacy.loads)?;
+    crate::known_issues::attach(&mut result.structured_diagnostics, crate::known_issues::for_2d(&legacy, crate::known_issues::Analysis::Linear));
+    Ok(result)
+}
+
 fn solve_2d_inner(input: &SolverInput) -> Result<AnalysisResults, String> {
     // Auto-delegate to constrained solver when constraints are present
     if !input.constraints.is_empty() {
@@ -448,6 +462,7 @@ enum FactorizedKff {
 /// the structure, not on the loads. Build once with `prepare_static_2d`, then
 /// solve any number of load sets with `solve_loads`.
 pub struct PreparedStatic2D<'a> {
+    properties: ElasticProperties2D,
     input: Cow<'a, SolverInput>,
     dof_num: DofNumbering,
     n: usize,
@@ -622,7 +637,7 @@ fn sparse_conditioning_2d(k_ff: &CscMatrix, nf: usize) -> super::conditioning::C
 /// and factorization of the free-free stiffness block happen exactly once here.
 /// This is exactly the load-independent part of `solve_2d`.
 pub fn prepare_static_2d(input: &SolverInput) -> Result<PreparedStatic2D<'_>, String> {
-    prepare_static_2d_impl(input, false)
+    prepare_static_2d_impl(input, false, ElasticProperties2D::from_legacy(input))
 }
 
 /// Legacy dense-assembly behavior for nf ≥ 64 (dense K_ff + CSC conversion +
@@ -630,7 +645,7 @@ pub fn prepare_static_2d(input: &SolverInput) -> Result<PreparedStatic2D<'_>, St
 /// assembly path. Not part of the public API contract.
 #[doc(hidden)]
 pub fn prepare_static_2d_dense_reference(input: &SolverInput) -> Result<PreparedStatic2D<'_>, String> {
-    prepare_static_2d_impl(input, true)
+    prepare_static_2d_impl(input, true, ElasticProperties2D::from_legacy(input))
 }
 
 /// Prescribed displacements of the restrained DOFs (`u_r`, length
@@ -708,7 +723,7 @@ pub(crate) fn prescribed_displacements_2d(input: &SolverInput, dof_num: &DofNumb
     u_r
 }
 
-fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool) -> Result<PreparedStatic2D<'_>, String> {
+fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool, properties: ElasticProperties2D) -> Result<PreparedStatic2D<'_>, String> {
     // The prepared (factor-once) path assembles no constraints. Every caller
     // routes constrained models elsewhere today; refusing here keeps a new
     // caller from silently solving the model without them (the dense
@@ -732,7 +747,7 @@ fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool) -> Result<Prep
 
     // Fully restrained: all DOFs are restrained, no solve needed.
     if nf == 0 {
-        let stiff = assemble_stiffness_2d(input, &dof_num);
+        let stiff = assemble_stiffness_2d_typed(input, &dof_num, &properties);
         let u_full = u_r.clone();
         // K · u_full via dense matvec (needed for reactions: R = K·u_r − F)
         let ku_full = if u_r.iter().any(|v| v.abs() > 1e-15) {
@@ -748,6 +763,7 @@ fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool) -> Result<Prep
         };
 
         return Ok(PreparedStatic2D {
+            properties,
             input: Cow::Borrowed(input),
             dof_num,
             n,
@@ -763,7 +779,7 @@ fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool) -> Result<Prep
 
     // ── Triplet sparse path: large models (nf >= 64) ──
     if !force_dense && nf >= SPARSE_THRESHOLD {
-        let stiff = super::sparse_assembly::assemble_stiffness_sparse_2d(input, &dof_num);
+        let stiff = super::sparse_assembly::assemble_stiffness_sparse_2d_typed(input, &dof_num, &properties);
 
         // Conditioning report from the CSC diagonal (same thresholds as dense)
         let cond_report = sparse_conditioning_2d(&stiff.k_ff, nf);
@@ -783,6 +799,7 @@ fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool) -> Result<Prep
                 vec![0.0; nf]
             };
             return Ok(PreparedStatic2D {
+                properties,
                 input: Cow::Borrowed(input),
                 dof_num,
                 n,
@@ -828,6 +845,7 @@ fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool) -> Result<Prep
                     vec![0.0; nf]
                 };
                 return Ok(PreparedStatic2D {
+                    properties,
                     input: Cow::Borrowed(input),
                     dof_num,
                     n,
@@ -852,7 +870,7 @@ fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool) -> Result<Prep
                 pre_solve_diags.push(super::definiteness::not_positive_definite("sparse Cholesky failed; solved by dense LU"));
                 // All shifts failed — dense LU of the dense K_ff (same
                 // behavior as the legacy dense-K_ff LU fallback; K-only decision)
-                let stiff_d = assemble_stiffness_2d(input, &dof_num);
+                let stiff_d = assemble_stiffness_2d_typed(input, &dof_num, &properties);
                 let free_idx: Vec<usize> = (0..nf).collect();
                 let rest_idx: Vec<usize> = (nf..n).collect();
                 let k_ff = extract_submatrix(&stiff_d.k, n, &free_idx, &free_idx);
@@ -866,6 +884,7 @@ fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool) -> Result<Prep
                 let piv = lu_factor(&mut lu, nf)
                     .ok_or_else(|| "Singular stiffness matrix — structure is a mechanism".to_string())?;
                 return Ok(PreparedStatic2D {
+                    properties,
                     input: Cow::Borrowed(input),
                     dof_num,
                     n,
@@ -890,7 +909,7 @@ fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool) -> Result<Prep
     }
 
     // ── Dense path: small models (nf < 64), or the legacy dense reference ──
-    let stiff = assemble_stiffness_2d(input, &dof_num);
+    let stiff = assemble_stiffness_2d_typed(input, &dof_num, &properties);
 
     // Extract Kff and reaction coupling blocks; precompute the
     // prescribed-displacement coupling terms (all load-independent)
@@ -941,6 +960,7 @@ fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool) -> Result<Prep
     }
 
     Ok(PreparedStatic2D {
+        properties,
         input: Cow::Borrowed(input),
         dof_num,
         n,
@@ -960,6 +980,7 @@ impl PreparedStatic2D<'_> {
     /// Own the model for a session that outlives the constructor's input buffer.
     pub fn into_owned(self) -> PreparedStatic2D<'static> {
         PreparedStatic2D {
+            properties: self.properties,
             input: Cow::Owned(self.input.into_owned()),
             dof_num: self.dof_num,
             n: self.n,
@@ -980,7 +1001,55 @@ impl PreparedStatic2D<'_> {
         let mut r = self.solve_loads_by_path(loads)?;
         // Known issues of this load set.
         crate::known_issues::attach(&mut r.structured_diagnostics, crate::known_issues::loads_2d(loads));
+        let residual = self.check_returned_displacements(loads, &r).map_err(|error| {
+            if r.structured_diagnostics.iter().any(|d| d.code == DiagnosticCode::ExcessiveDisplacement) {
+                format!("{error}; excessive displacement indicates a likely mechanism or instability")
+            } else { error }
+        })?;
+        r.structured_diagnostics.push(residual);
+        super::self_checks::static_2d(&mut r, &[])?;
         Ok(r)
+    }
+
+    pub(super) fn check_returned_displacements(&self, loads: &[SolverLoad], r: &AnalysisResults) -> Result<StructuredDiagnostic, String> {
+        let nf = self.dof_num.n_free;
+        let mut u = vec![0.0; self.dof_num.n_total];
+        for d in &r.displacements {
+            for (local, value) in [d.ux, d.uz, d.ry].into_iter().enumerate() {
+                if let Some(&index) = self.dof_num.map.get(&(d.node_id, local)) { u[index] = value; }
+            }
+        }
+        for it in &self.inclined_transforms_2d { it.rotate(&mut u); }
+        let mut f = assemble_load_vector_2d(&self.input, loads, &self.dof_num, &self.inclined_transforms_2d);
+        f.truncate(nf);
+        let ku = match &self.path {
+            PreparedPath2D::FullyRestrained { .. } => Vec::new(),
+            PreparedPath2D::Solve(p) => {
+                for (f, coupling) in f.iter_mut().zip(&p.k_fr_ur) { *f -= coupling; }
+                mat_vec_rect(&p.k_ff, &u[..nf], nf, nf)
+            },
+            PreparedPath2D::Sparse(p) => {
+                for (f, coupling) in f.iter_mut().zip(&p.kfr_ur) { *f -= coupling; }
+                p.k_ff.sym_mat_vec(&u[..nf])
+            },
+            PreparedPath2D::Pcg(p) => {
+                for (f, coupling) in f.iter_mut().zip(&p.kfr_ur) { *f -= coupling; }
+                p.k_ff.sym_mat_vec(&u[..nf])
+            },
+            PreparedPath2D::SparseDenseLu(p) => {
+                for (f, coupling) in f.iter_mut().zip(&p.k_fr_ur) { *f -= coupling; }
+                mat_vec_rect(&p.k_ff, &u[..nf], nf, nf)
+            },
+        };
+        let diagonal = match &self.path {
+            PreparedPath2D::FullyRestrained { .. } => vec![],
+            PreparedPath2D::Solve(p) => (0..nf).map(|i| p.k_ff[i*nf+i]).collect(),
+            PreparedPath2D::Sparse(p) => p.k_ff.diagonal(),
+            PreparedPath2D::Pcg(p) => p.k_ff.diagonal(),
+            PreparedPath2D::SparseDenseLu(p) => (0..nf).map(|i| p.k_ff[i*nf+i]).collect(),
+        };
+        let residual: Vec<_> = ku.iter().zip(&f).map(|(k,f)| k-f).collect();
+        super::self_checks::residual_energy(&residual, &f, &diagonal)
     }
 
     fn solve_loads_by_path(&self, loads: &[SolverLoad]) -> Result<AnalysisResults, String> {
@@ -1013,7 +1082,7 @@ impl PreparedStatic2D<'_> {
                     input, dof_num, &reactions_vec, &f_r, nf, &u_full, &self.inclined_transforms_2d,
                 );
                 reactions.sort_by_key(|r| r.node_id);
-                let mut element_forces = compute_internal_forces_2d_with_loads(input, loads, dof_num, &u_full);
+                let mut element_forces = compute_internal_forces_2d_typed(input, loads, dof_num, &u_full, &self.properties);
                 element_forces.sort_by_key(|ef| ef.element_id);
 
                 let equilibrium = compute_equilibrium_summary_2d(&f, &reactions_vec, dof_num, 0.0, &self.inclined_transforms_2d);
@@ -1111,7 +1180,7 @@ impl PreparedStatic2D<'_> {
                     input, dof_num, &reactions_vec, &f_r, nf, &u_full, &self.inclined_transforms_2d,
                 );
                 reactions.sort_by_key(|r| r.node_id);
-                let mut element_forces = compute_internal_forces_2d_with_loads(input, loads, dof_num, &u_full);
+                let mut element_forces = compute_internal_forces_2d_typed(input, loads, dof_num, &u_full, &self.properties);
                 element_forces.sort_by_key(|ef| ef.element_id);
 
                 // Compute residual: ||K_ff · u_f − f_f|| / ||f_f||
@@ -1337,7 +1406,7 @@ impl PreparedStatic2D<'_> {
                     input, dof_num, &reactions_vec, &f_r, nf, &u_full, &self.inclined_transforms_2d,
                 );
                 reactions.sort_by_key(|r| r.node_id);
-                let mut element_forces = compute_internal_forces_2d_with_loads(input, loads, dof_num, &u_full);
+                let mut element_forces = compute_internal_forces_2d_typed(input, loads, dof_num, &u_full, &self.properties);
                 element_forces.sort_by_key(|ef| ef.element_id);
 
                 let equilibrium = compute_equilibrium_summary_2d(&f, &reactions_vec, dof_num, rel_residual, &self.inclined_transforms_2d);
@@ -1578,7 +1647,7 @@ impl PreparedStatic2D<'_> {
                     input, dof_num, &reactions_vec, &f_r, nf, &u_full, &self.inclined_transforms_2d,
                 );
                 reactions.sort_by_key(|r| r.node_id);
-                let mut element_forces = compute_internal_forces_2d_with_loads(input, loads, dof_num, &u_full);
+                let mut element_forces = compute_internal_forces_2d_typed(input, loads, dof_num, &u_full, &self.properties);
                 element_forces.sort_by_key(|ef| ef.element_id);
 
                 let equilibrium = compute_equilibrium_summary_2d(&f, &reactions_vec, dof_num, rel_residual, &self.inclined_transforms_2d);
@@ -1766,7 +1835,7 @@ impl PreparedStatic2D<'_> {
                     input, dof_num, &reactions_vec, &f_r, nf, &u_full, &self.inclined_transforms_2d,
                 );
                 reactions.sort_by_key(|r| r.node_id);
-                let mut element_forces = compute_internal_forces_2d_with_loads(input, loads, dof_num, &u_full);
+                let mut element_forces = compute_internal_forces_2d_typed(input, loads, dof_num, &u_full, &self.properties);
                 element_forces.sort_by_key(|ef| ef.element_id);
 
                 // Compute residual: ||K_ff · u_f − f_f|| / ||f_f||
@@ -2527,7 +2596,64 @@ impl PreparedStatic3D {
         let mut r = self.solve_loads_by_path(loads)?;
         // Known issues of this load set (the model's are in the pre-solve diagnostics).
         crate::known_issues::attach(&mut r.structured_diagnostics, crate::known_issues::loads_3d(loads));
+        let residual = self.check_returned_displacements(loads, &r).map_err(|error| {
+            if r.structured_diagnostics.iter().any(|d| d.code == DiagnosticCode::ExcessiveDisplacement) {
+                format!("{error}; excessive displacement indicates a likely mechanism or instability")
+            } else { error }
+        })?;
+        r.structured_diagnostics.push(residual);
+        super::self_checks::static_3d(&mut r, &[])?;
         Ok(r)
+    }
+
+    pub(super) fn check_returned_displacements(&self, loads: &[SolverLoad3D], r: &AnalysisResults3D) -> Result<StructuredDiagnostic, String> {
+        let nf = self.dof_num.n_free;
+        let mut u = vec![0.0; self.dof_num.n_total];
+        for d in &r.displacements {
+            for (local, value) in [d.ux, d.uy, d.uz, d.rx, d.ry, d.rz, d.warping.unwrap_or(0.0)].into_iter().enumerate() {
+                if let Some(&index) = self.dof_num.map.get(&(d.node_id, local)) { u[index] = value; }
+            }
+        }
+        let its = match &self.path {
+            PreparedPath3D::FullyRestrained(p) => &p.inclined_transforms,
+            PreparedPath3D::Dense(p) => &p.inclined_transforms,
+            PreparedPath3D::Sparse(p) => &p.inclined_transforms,
+            PreparedPath3D::Pcg(p) => &p.inclined_transforms,
+            PreparedPath3D::SparseDenseLu(p) => &p.inclined_transforms,
+        };
+        for it in its { it.rotate(&mut u); }
+        let mut f = super::sparse_assembly::assemble_load_vector_sparse_3d(&self.input, loads, &self.dof_num, its);
+        f.truncate(nf);
+        let ku = match &self.path {
+            PreparedPath3D::FullyRestrained(_) => Vec::new(),
+            PreparedPath3D::Dense(p) => {
+                for (f, coupling) in f.iter_mut().zip(&p.k_fr_ur) { *f -= coupling; }
+                mat_vec_rect(&p.k_ff, &u[..nf], nf, nf)
+            },
+            PreparedPath3D::Sparse(p) => {
+                for (f, coupling) in f.iter_mut().zip(&p.kfr_ur) { *f -= coupling; }
+                p.k_ff.sym_mat_vec(&u[..nf])
+            },
+            PreparedPath3D::Pcg(p) => {
+                for (f, coupling) in f.iter_mut().zip(&p.kfr_ur) { *f -= coupling; }
+                p.k_ff.sym_mat_vec(&u[..nf])
+            },
+            PreparedPath3D::SparseDenseLu(p) => {
+                let ku = p.k_full.sym_mat_vec(&u);
+                let residual: Vec<_> = ku[..nf].iter().zip(&f).map(|(k,f)| k-f).collect();
+                for (f, coupling) in f.iter_mut().zip(&p.k_fr_ur) { *f -= coupling; }
+                return super::self_checks::residual_energy(&residual, &f, &p.k_full.diagonal()[..nf]);
+            },
+        };
+        let diagonal = match &self.path {
+            PreparedPath3D::FullyRestrained(_) => vec![],
+            PreparedPath3D::Dense(p) => (0..nf).map(|i| p.k_ff[i*nf+i]).collect(),
+            PreparedPath3D::Sparse(p) => p.k_ff.diagonal(),
+            PreparedPath3D::Pcg(p) => p.k_ff.diagonal(),
+            PreparedPath3D::SparseDenseLu(p) => p.k_full.diagonal()[..nf].to_vec(),
+        };
+        let residual: Vec<_> = ku.iter().zip(&f).map(|(k,f)| k-f).collect();
+        super::self_checks::residual_energy(&residual, &f, &diagonal)
     }
 
     fn solve_loads_by_path(&self, loads: &[SolverLoad3D]) -> Result<AnalysisResults3D, String> {
@@ -5134,6 +5260,14 @@ pub fn compute_internal_forces_2d_with_loads(
     dof_num: &DofNumbering,
     u: &[f64],
 ) -> Vec<ElementForces> {
+    let properties = ElasticProperties2D::from_legacy(input);
+    compute_internal_forces_2d_typed(input, loads, dof_num, u, &properties)
+}
+
+fn compute_internal_forces_2d_typed(
+    input: &SolverInput, loads: &[SolverLoad], dof_num: &DofNumbering, u: &[f64],
+    properties: &ElasticProperties2D,
+) -> Vec<ElementForces> {
     let mut forces = Vec::new();
 
     let node_map: std::collections::HashMap<usize, &SolverNode> =
@@ -5241,9 +5375,12 @@ pub fn compute_internal_forces_2d_with_loads(
             let t = crate::element::frame_transform_2d(cos, sin);
             let u_local = transform_displacement(&u_global, &t, 6);
 
-            let phi = crate::element::timoshenko_phi_2d(sec, e, mat.nu, l);
-            let k_local = crate::element::frame_local_stiffness_2d(
-                e, sec.a, sec.iz, l, elem.hinge_start, elem.hinge_end, phi,
+            let material = properties.materials[&elem.material_id];
+            let section = properties.sections[&elem.section_id];
+            let phi = section.shear_parameter(material.e.to_internal(), material.nu, crate::types::units::Length::from_m(l));
+            let k_local = crate::element::frame_local_stiffness_2d_typed(
+                material.e.to_internal(), section.a, section.iz, crate::types::units::Length::from_m(l),
+                elem.hinge_start, elem.hinge_end, phi,
             );
 
             // f_local = K_local * u_local
@@ -6266,6 +6403,17 @@ pub(super) fn compute_equilibrium_summary_3d(
         }
     }
 
+    let mut applied_force_components: Vec<f64> = dof_num.entries_by_dof().into_iter()
+        .filter(|((node, local), _)| *local < 3 && !inclined_node_app.contains_key(node))
+        .filter_map(|(_, global)| assembled_f.get(global).copied()).collect();
+    for it in inclined_transforms {
+        if let Some(rotated) = inclined_node_app.get(&it.node_id) {
+            for axis in 0..3 {
+                applied_force_components.push((0..3).map(|j| it.r[j][axis] * rotated[j]).sum());
+            }
+        }
+    }
+
     // Translational equilibrium (fx, fy, fz): applied + reactions ≈ 0
     let force_imbalance: Vec<f64> = (0..3).map(|i| applied[i] + rxn[i]).collect();
     let max_imbalance = force_imbalance.iter().map(|v| v.abs()).fold(0.0f64, f64::max);
@@ -6273,6 +6421,7 @@ pub(super) fn compute_equilibrium_summary_3d(
     let equilibrium_ok = max_imbalance < 1e-6 * max_force.max(1.0);
 
     EquilibriumSummary {
+        applied_force_components,
         relative_residual: rel_residual,
         residual_ok: rel_residual < 1e-6,
         applied_force_sum: applied.to_vec(),
@@ -6367,6 +6516,17 @@ pub(super) fn compute_equilibrium_summary_2d(
         }
     }
 
+    let mut applied_force_components: Vec<f64> = dof_num.entries_by_dof().into_iter()
+        .filter(|((node, local), _)| *local < 2 && !inclined_node_app.contains_key(node))
+        .filter_map(|(_, global)| assembled_f.get(global).copied()).collect();
+    for it in inclined_transforms {
+        if let Some(rotated) = inclined_node_app.get(&it.node_id) {
+            for axis in 0..2 {
+                applied_force_components.push((0..2).map(|j| it.r[j][axis] * rotated[j]).sum());
+            }
+        }
+    }
+
     // Translational equilibrium (fx, fy)
     let force_imbalance: Vec<f64> = (0..2).map(|i| applied[i] + rxn[i]).collect();
     let max_imbalance = force_imbalance.iter().map(|v| v.abs()).fold(0.0f64, f64::max);
@@ -6374,6 +6534,7 @@ pub(super) fn compute_equilibrium_summary_2d(
     let equilibrium_ok = max_imbalance < 1e-6 * max_force.max(1.0);
 
     EquilibriumSummary {
+        applied_force_components,
         relative_residual: rel_residual,
         residual_ok: rel_residual < 1e-6,
         applied_force_sum: applied.to_vec(),

@@ -486,11 +486,10 @@ fn validation_str_dyn_ext_half_power_bandwidth() {
                     &format!("Half-power ξ recovery for ξ={}", xi_val));
             }
 
-            // More exact formula: ξ = (r₂² - r₁²) / (4 × r_peak)
-            // where r_peak ≈ √(1-2ξ²)
-            let r_peak: f64 = (1.0 - 2.0 * xi_val.powi(2)).sqrt();
-            let xi_exact: f64 = (r2_sq - r1_sq) / (4.0 * r_peak);
-            assert_close(xi_exact, xi_val, 0.02,
+            // (r₂² - r₁²)/4 = ξ√(1-ξ²) exactly, so invert that rather than dividing by r_peak.
+            let d_bw: f64 = (r2_sq - r1_sq) / 4.0;
+            let xi_exact: f64 = ((1.0 - (1.0 - 4.0 * d_bw * d_bw).sqrt()) / 2.0).sqrt();
+            assert_close(xi_exact, xi_val, 1e-9,
                 &format!("Exact half-power for ξ={}", xi_val));
         }
 

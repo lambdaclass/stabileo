@@ -29,7 +29,7 @@ function postcriticalColumn(mode: '2d' | '3d') {
   };
 }
 
-test.describe('@smoke P-Delta stability', () => {
+test.describe('@engine @smoke P-Delta stability', () => {
   test.beforeEach(async ({ page }) => {
     await page.addInitScript(() => localStorage.setItem('liveCalc', 'false'));
     await page.goto('/app/basic?e2e=1');

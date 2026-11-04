@@ -14,24 +14,21 @@ const frame = (extra: Partial<FeatureSnapshot> = {}): FeatureSnapshot => ({
 const ids = (m: FeatureSnapshot, version: number, analyses: string[]) =>
   assessProject(m, { resultsVersion: version, analyses } as unknown as SolveStamp, '2d').changes.map((c) => c.id);
 
-describe('results version 6: the Basic course units', () => {
-  it('tells a Basic frame solved with version 5 about the plastic and second-order changes it ran', () => {
-    const seen = ids(frame(), 5, ['linear', 'plastic', 'pdelta']);
+describe('results version 14: the Basic course units', () => {
+  it('tells a Basic frame solved with version 13 about the plastic and second-order changes it ran', () => {
+    const seen = ids(frame(), 13, ['linear', 'plastic', 'pdelta']);
     expect(seen).toContain('basic-plastic-closes-unloading-hinges');
     expect(seen).toContain('basic-second-order-split-members');
     expect(seen).toContain('basic-influence-line-moment-sign');
-    expect(seen).not.toContain('basic-governing-combination-along-members');
   });
 
-  it('names the governing combination only to projects with combinations, and plastic only to those that ran it', () => {
-    const combos = frame({ combinations: [{ id: 1, name: 'C1', factors: [] }] } as never);
-    expect(ids(combos, 5, ['linear'])).toContain('basic-governing-combination-along-members');
-    expect(ids(combos, 5, ['linear'])).not.toContain('basic-plastic-closes-unloading-hinges');
+  it('names plastic only to projects that ran it', () => {
+    expect(ids(frame(), 13, ['linear'])).not.toContain('basic-plastic-closes-unloading-hinges');
   });
 
-  it('says nothing to a project already solved with version 6, nor to a PRO model', () => {
-    expect(ids(frame(), 6, ['linear', 'plastic', 'pdelta'])).toEqual([]);
-    const pro = assessProject({ ...frame(), analysisMode: 'pro' }, { resultsVersion: 5, analyses: ['linear', 'plastic', 'pdelta', 'buckling'] } as unknown as SolveStamp, 'pro');
+  it('says nothing to a project already solved with version 14, nor to a PRO model', () => {
+    expect(ids(frame(), 14, ['linear', 'plastic', 'pdelta'])).toEqual([]);
+    const pro = assessProject({ ...frame(), analysisMode: 'pro' }, { resultsVersion: 13, analyses: ['linear', 'plastic', 'pdelta', 'buckling'] } as unknown as SolveStamp, 'pro');
     expect(pro.changes.map((c) => c.id).filter((id) => id.startsWith('basic-'))).toEqual([]);
   });
 });

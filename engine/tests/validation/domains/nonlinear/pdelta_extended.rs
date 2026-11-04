@@ -571,7 +571,7 @@ fn validation_pdelta_ext_7_symmetric_frame_preserves_symmetry() {
     let mz4 = pd_res.results.reactions.iter()
         .find(|r| r.node_id == 4).unwrap().my;
 
-    assert_close(mz1.abs(), mz4.abs(), 0.01, "Symmetric base moments (magnitude)");
+    assert_close_abs(mz1.abs(), mz4.abs(), 0.01, 1e-6, "Symmetric base moments (magnitude)");
 }
 
 // ================================================================

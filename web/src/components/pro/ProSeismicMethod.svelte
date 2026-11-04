@@ -1,4 +1,5 @@
 <script lang="ts" module>
+  import Hint from './Hint.svelte';
   // The config and its default live with the dialog's other sections (`auto-loads-sections.ts`).
   import type { SeismicMethodConfig } from './auto-loads-sections';
 </script>
@@ -31,7 +32,7 @@
       </select>
     </label>
   </div>
-  {#if config.method === 'modal'}<p class="al-hint">{t('autoLoad.seismic.modalHint')}</p>{/if}
+  {#if config.method === 'modal'}<Hint text={t('autoLoad.seismic.modalHint')} />{/if}
   <label class="al-check" title={t('autoLoad.seismic.verticalHint')}>
     <input type="checkbox" bind:checked={config.vertical} data-testid="al-seismic-vertical" /> {t('autoLoad.seismic.vertical')}
   </label>
