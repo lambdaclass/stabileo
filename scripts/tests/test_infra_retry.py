@@ -94,17 +94,45 @@ class RealLogs(unittest.TestCase):
                                     'message': 'The job has exceeded the maximum execution time of 45m0s'})
         self.assertEqual(verdict(case)[0], 'real')
 
-    def test_exit_137_is_oom_evidence_unless_the_step_shows_test_failures(self):
-        case = fixture('real-prerender-timeout')
-        case['log'] = replace_last(case['log'], 'exit code 2.', 'exit code 137.')
+    def killed(self, name, error):
+        case = fixture(name)
+        case['job']['conclusion'] = 'failure'
+        case['log'] = replace_last(case['log'], error, '##[error]Process completed with exit code 137.')
         case['annotations'] = [{'annotation_level': 'failure', 'message': 'Process completed with exit code 137.',
                                 'path': '.github', 'title': ''}]
-        result, why = verdict(case)
+        return verdict(case)
+
+    def test_exit_137_counts_only_in_a_build_or_download_step(self):
+        result, why = self.killed('infra-research-wasm-timeout', '##[error]The operation was canceled.')
         self.assertEqual(result, 'infra', why)
         self.assertIn('exit 137', why)
-        failing = fixture('real-nextest-assert')
-        failing['log'] = replace_last(failing['log'], 'exit code 2.', 'exit code 137.')
-        self.assertEqual(verdict(failing)[0], 'real')
+        self.assertEqual(self.killed('real-prerender-timeout', '##[error]Process completed with exit code 2.')[0], 'unsure')
+        self.assertEqual(self.killed('real-nextest-assert', '##[error]Process completed with exit code 2.')[0], 'real')
+
+    def test_a_timeout_inside_a_test_step_is_not_retried(self):
+        case = fixture('real-vitest-unhandled-error')
+        body = case['log'].split('##[group]Run make test.web.unit')[1]
+        case['log'] = case['log'].split('##[group]Run make test.web.unit')[0] + '##[group]Run make test.web.unit' + body.split('\n')[0] + '\n' + \
+            '\n'.join(line for line in body.split('\n')[1:30]) + '\n2026-11-04T04:10:00.0000000Z ##[error]The operation was canceled.\n'
+        case['job'].update(conclusion='cancelled', started_at='2026-11-04T03:00:00Z', completed_at='2026-11-04T03:30:05Z')
+        case['annotations'] = [{'annotation_level': 'failure', 'message': 'The job has exceeded the maximum execution time of 30m0s',
+                                'path': '.github', 'title': ''},
+                               {'annotation_level': 'failure', 'message': 'The operation was canceled.', 'path': '.github', 'title': ''}]
+        result, why = verdict(case)
+        self.assertEqual(result, 'unsure', why)
+        self.assertIn('test step', why)
+
+    def test_a_lost_runner_after_a_visible_test_failure_is_not_retried(self):
+        case = fixture('real-nextest-assert')
+        case['log'] = case['log'].replace('##[error]Process completed with exit code 2.', '')
+        case['annotations'] = [{'annotation_level': 'failure', 'path': '.github', 'title': '',
+                                'message': 'The self-hosted runner: stabileo-ci-1-sgha3 lost communication with the server.'}]
+        self.assertEqual(verdict(case)[0], 'real')
+
+    def test_too_many_annotations_is_unsure(self):
+        case = fixture('infra-e2e-site-timeout')
+        case['annotations'] += [{'annotation_level': 'warning', 'message': 'w', 'path': '.github', 'title': ''}] * 100
+        self.assertEqual(verdict(case)[0], 'unsure')
 
     def test_a_lost_runner_retries_even_without_a_log(self):
         job = {'name': 'Engine Suite (1/4)', 'conclusion': 'failure'}
@@ -141,10 +169,19 @@ class AcquisitionSteps(unittest.TestCase):
     def test_the_same_text_in_a_build_or_test_step_does_not(self):
         for script in [['make test.web.unit SHARD=1/4'],
                        ['.github/scripts/retry-infra.sh nix develop --command cargo fetch --locked',
-                        'nix develop --command research/x/wasm/build.sh']]:
+                        'nix develop --command research/x/wasm/build.sh'],
+                       ['.github/scripts/retry-infra.sh nix develop --command cargo fetch --locked && make lint.engine'],
+                       ['.github/scripts/retry-infra.sh make test.web.unit'],
+                       ['.github/scripts/retry-infra.sh nix develop --command bash -c "cd web && npx vitest run"']]:
             with self.subTest(script=script):
                 result, _ = self.download_failure(script, ['upstream answered HTTP 503 Service Unavailable'])
                 self.assertEqual(result, 'unsure')
+
+    def test_a_signature_only_in_a_recovered_attempt_does_not(self):
+        result, why = self.download_failure(['.github/scripts/retry-infra.sh make web.deps'],
+                                            ['npm error 503 Service Unavailable', 'Known infrastructure failure; retry 1/2',
+                                             'npm error code ETARGET', 'npm error notarget No matching version'])
+        self.assertEqual(result, 'unsure', why)
 
     def test_a_download_step_without_a_signature_does_not(self):
         result, why = self.download_failure(['.github/scripts/retry-infra.sh make web.deps'],
@@ -162,9 +199,11 @@ class Decision(unittest.TestCase):
     def jobs(self, *names):
         cases = {name: fixture(name) for name in names}
         jobs = [{**case['job'], 'id': index} for index, case in enumerate(cases.values())]
-        jobs.append({'id': 99, 'name': 'CI OK', 'conclusion': 'failure'})
+        jobs.append({**fixture('aggregate-ci-ok')['job'], 'id': 99})
+        annotations_ok = fixture('aggregate-ci-ok')['annotations']
         jobs.append({'id': 98, 'name': 'Lint Repo', 'conclusion': 'success'})
         annotations = {index: case['annotations'] for index, case in enumerate(cases.values())}
+        annotations[99] = annotations_ok
         logs = {index: case['log'] for index, case in enumerate(cases.values())}
         return jobs, annotations, logs
 
@@ -191,19 +230,37 @@ class Decision(unittest.TestCase):
         self.assertFalse(infra.decide(run(), *jobs, 8, REPO)[0])
         self.assertFalse(infra.decide(run(), [{'id': 1, 'name': 'CI OK', 'conclusion': 'failure'}], {}, {}, 7, REPO)[0])
 
+    def test_an_aggregate_that_failed_on_its_own_blocks_the_rerun(self):
+        jobs, annotations, logs = self.jobs('infra-research-wasm-timeout')
+        broken = copy.deepcopy(jobs)
+        broken[1]['steps'][0]['conclusion'] = 'failure'
+        self.assertFalse(infra.decide(run(), broken, annotations, logs, 7, REPO)[0])
+        odd = dict(annotations)
+        odd[99] = [{'annotation_level': 'failure', 'message': 'Process completed with exit code 2.', 'path': '.github', 'title': ''}]
+        retry, _, rows = infra.decide(run(), jobs, odd, logs, 7, REPO)
+        self.assertFalse(retry)
+        self.assertEqual(rows[-1][2], 'unsure')
+
 
 class Main(unittest.TestCase):
-    def api(self, attempt_now=1, status='completed'):
+    def api(self, attempt_now=1, status='completed', newest=(7, 7)):
         case = fixture('infra-research-wasm-timeout')
         job = {**case['job'], 'id': 11}
         answers = {
             f'repos/{REPO}/actions/runs/7/attempts/1': run(),
-            f'repos/{REPO}/actions/runs/7/attempts/1/jobs?per_page=100&page=1': {'jobs': [job, {'id': 12, 'name': 'CI OK', 'conclusion': 'failure'}]},
-            f'repos/{REPO}/actions/workflows/3/runs?branch=feature&event=pull_request&per_page=1': {'workflow_runs': [{'id': 7}]},
+            f'repos/{REPO}/actions/runs/7/attempts/1/jobs?per_page=100&page=1': {'jobs': [job, {**fixture('aggregate-ci-ok')['job'], 'id': 12}]},
+            f'repos/{REPO}/check-runs/12/annotations?per_page=100': fixture('aggregate-ci-ok')['annotations'],
+            f'repos/{REPO}/actions/workflows/3/runs?branch=feature&event=pull_request&per_page=1': None,
             f'repos/{REPO}/check-runs/11/annotations?per_page=100': case['annotations'],
             f'repos/{REPO}/actions/runs/7': {'run_attempt': attempt_now, 'status': status},
         }
-        return answers.__getitem__, lambda repo, job_id: case['log']
+        newest_ids = iter(newest)
+
+        def get(path):
+            if path.startswith(f'repos/{REPO}/actions/workflows/3/runs'):
+                return {'workflow_runs': [{'id': next(newest_ids)}]}
+            return answers[path]
+        return get, lambda repo, job_id: case['log']
 
     def call(self, env=None, **api):
         get, log = self.api(**api)
@@ -220,10 +277,10 @@ class Main(unittest.TestCase):
         self.assertIn('| Research WASM | cancelled | infra | job timeout', text)
 
     def test_no_rerun_when_someone_already_reran(self):
-        for api in [{'attempt_now': 2}, {'status': 'in_progress'}]:
+        for api in [{'attempt_now': 2}, {'status': 'in_progress'}, {'newest': (7, 8)}]:
             posted, text = self.call(**api)
             self.assertEqual(posted, [])
-            self.assertIn('rerun or restarted meanwhile', text)
+            self.assertIn('restarted or superseded meanwhile', text)
 
     def test_dry_run_and_errors_never_post(self):
         posted, text = self.call({'DRY_RUN': '1'})

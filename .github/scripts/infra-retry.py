@@ -20,8 +20,18 @@ CANCELED = 'The operation was canceled.'
 
 ACQUIRE_ACTIONS = re.compile(r'^(?:actions/(?:checkout|cache|upload-artifact|download-artifact)'
                              r'|DeterminateSystems/(?:nix-installer-action|magic-nix-cache-action))@')
-ACQUIRE_LINE = re.compile(r'^(?:nix develop(?: \.#\w+)? (?:-c|--command) )?\.github/scripts/retry-infra\.sh \S'
-                          r'|^if \[ "[\w-]+" = [\w-]+ \]; then$|^else$|^fi$')
+ACQUIRE_LINE = re.compile(
+    r'(?:nix develop \.#e2e -c )?\.github/scripts/retry-infra\.sh (?:'
+    r'nix develop(?: \.#e2e)? --command true'
+    r'|(?:nix develop --command )?gh run download "\$RUN_ID" --name [\w-]+ --dir [\w/.-]+'
+    r'|make (?:web\.deps|e2e\.web\.setup)(?: NIX_RUN=)?'
+    r'|nix develop --command cargo fetch --locked(?: --manifest-path [\w/.-]+)?'
+    r'|nix develop --command bash -c "cd web && npx playwright install-deps [a-z ]+")'
+    r'|if \[ "[\w-]+" = [\w-]+ \]; then|else|fi')
+TEST_STEP = re.compile(r'\bmake (?:test|e2e\.web\.(?:smoke|slow|flaky|visual|build)|typecheck|lint|check)'
+                       r'|vitest|nextest|playwright test|cargo (?:test|clippy)|mix test|check\.mjs|run-area-e2e')
+RETRIED = 'Known infrastructure failure; retry'
+AGGREGATE_STEP = 'Every job passed or was skipped'
 INFRA_LOG = re.compile(
     r'GitHub Actions Cache throttled|HTTP error 41[68]|429 Too Many Requests|HTTP 429|\(429\)'
     r'|rate limit exceeded|exceeded a secondary rate limit|HTTP 50[0234]\b|\b50[0234] (?:Bad Gateway|Service Unavailable|Gateway Time-?out)'
@@ -70,7 +80,17 @@ def acquisition(step):
     if ACQUIRE_ACTIONS.match(step['title']):
         return True
     lines = [line for line in step['script'] if line] or [step['title']]
-    return all(ACQUIRE_LINE.match(line) for line in lines) and any('retry-infra.sh' in line for line in lines)
+    return all(ACQUIRE_LINE.fullmatch(line) for line in lines) and any('retry-infra.sh' in line for line in lines)
+
+
+def testing(step):
+    return any(TEST_STEP.search(line) for line in [step['title'], *step['script']])
+
+
+def final_attempt(body):
+    lines = body.splitlines()
+    marks = [index for index, line in enumerate(lines) if line.startswith(RETRIED)]
+    return '\n'.join(lines[marks[-1] + 1:] if marks else lines)
 
 
 def failed_steps(log):
@@ -100,6 +120,8 @@ def duration(job):
 def classify(job, annotations, log):
     """('infra', evidence) only on positive evidence and nothing contradicting it; else ('real'|'unsure', why)."""
     failures = [a.get('message', '').strip() for a in annotations if a.get('annotation_level') == 'failure']
+    if len(annotations) >= 100:
+        return 'unsure', 'too many annotations to read them all'
     if any(a.get('annotation_level') == 'failure' and (a.get('title') or a.get('path') not in (None, '', '.github'))
            for a in annotations):
         return 'real', 'a failure annotation names a test or file'
@@ -118,6 +140,10 @@ def classify(job, annotations, log):
             return 'unsure', f'unrecognised failure annotation: {message[:200]}'
     if job_level:
         evidence.append(job_level)
+    if log is not None:
+        for step in steps(log):
+            if REAL_FAILURE.search('\n'.join(step['body'])):
+                return 'real', f"test or compiler failure in step '{step['title'][:80]}'"
     if log is None:
         if job_level and job_level.startswith('runner lost'):
             return 'infra', '; '.join(evidence)
@@ -129,27 +155,37 @@ def classify(job, annotations, log):
         return 'unsure', 'no failed step in the log'
     for step, errors in failed:
         body = '\n'.join(step['body'])
-        if REAL_FAILURE.search(body):
-            return 'real', f"test or compiler failure in step '{step['title'][:80]}'"
+        name = step['title'][:80]
         for error in errors:
             code = EXIT_CODE.match(error)
             if error == CANCELED:
                 if not job_level:
-                    return 'unsure', f"step '{step['title'][:80]}' cancelled without a job timeout or lost runner"
+                    return 'unsure', f"step '{name}' cancelled without a job timeout or lost runner"
+                if job_level.startswith('job timeout') and testing(step):
+                    return 'unsure', f"timeout inside the test step '{name}' (could be a hang the change introduced)"
             elif code and code.group(1) == '137':
-                evidence.append(f"exit 137 (SIGKILL, OOM) in step '{step['title'][:80]}'")
+                if testing(step):
+                    return 'unsure', f"exit 137 inside the test step '{name}' (could be the change's own memory use)"
+                evidence.append(f"exit 137 (SIGKILL, OOM) in step '{name}'")
             elif code:
-                hit = INFRA_LOG.search(body)
+                hit = INFRA_LOG.search(final_attempt(body))
                 if not acquisition(step):
-                    return 'unsure', f"exit {code.group(1)} in step '{step['title'][:80]}', which is not a download or cache step"
+                    return 'unsure', f"exit {code.group(1)} in step '{name}', which is not a download or cache step"
                 if not hit:
-                    return 'unsure', f"exit {code.group(1)} in step '{step['title'][:80]}' without an infrastructure signature"
-                evidence.append(f"'{hit.group(0)}' in step '{step['title'][:80]}'")
+                    return 'unsure', f"exit {code.group(1)} in step '{name}' without an infrastructure signature in its last attempt"
+                evidence.append(f"'{hit.group(0)}' in step '{name}'")
             else:
                 return 'unsure', f'unrecognised error line: {error[:200]}'
     if not evidence:
         return 'unsure', 'no infrastructure evidence'
     return 'infra', '; '.join(evidence)
+
+
+def aggregate_only(job, annotations):
+    failed = [step.get('name') for step in job.get('steps') or [] if step.get('conclusion') not in ('success', 'skipped')]
+    messages = [a.get('message', '').strip() for a in annotations if a.get('annotation_level') == 'failure']
+    return (job.get('conclusion') == 'failure' and failed == [AGGREGATE_STEP]
+            and messages == ['Process completed with exit code 1.'])
 
 
 def decide(run, jobs, annotations, logs, newest_id, repository):
@@ -176,7 +212,10 @@ def decide(run, jobs, annotations, logs, newest_id, repository):
         retry = retry and verdict == 'infra'
     for job in failed:
         if job.get('name') in AGGREGATES:
-            rows.append((job['name'], job.get('conclusion'), 'derived', 'fails because a job above failed'))
+            derived = aggregate_only(job, annotations.get(job['id'], []))
+            rows.append((job['name'], job.get('conclusion'), 'derived' if derived else 'unsure',
+                         'fails because a job above failed' if derived else 'the aggregate failed in a way of its own'))
+            retry = retry and derived
     return retry, ('every failed job is infrastructure' if retry else 'a failed job is not proven infrastructure'), rows
 
 
@@ -231,14 +270,17 @@ def collect(repo, run_id, attempt, get=None, log=None):
         if len(listed['jobs']) < 100:
             break
         page += 1
+    failed = [job for job in jobs if job.get('conclusion') in ('failure', 'cancelled', 'timed_out')]
+    annotations = {job['id']: get(f"repos/{repo}/check-runs/{job['id']}/annotations?per_page=100") for job in failed}
+    logs = {job['id']: log(repo, job['id']) for job in failed if job.get('name') not in AGGREGATES}
+    return run, jobs, annotations, logs, newest_run(get, repo, run)
+
+
+def newest_run(get, repo, run):
     branch = urllib.parse.quote(run['head_branch'], safe='')
     newest = get(f"repos/{repo}/actions/workflows/{run['workflow_id']}/runs?branch={branch}"
                  f"&event=pull_request&per_page=1")['workflow_runs']
-    failed = [job for job in jobs if job.get('conclusion') in ('failure', 'cancelled', 'timed_out')
-              and job.get('name') not in AGGREGATES]
-    annotations = {job['id']: get(f"repos/{repo}/check-runs/{job['id']}/annotations?per_page=100") for job in failed}
-    logs = {job['id']: log(repo, job['id']) for job in failed}
-    return run, jobs, annotations, logs, (newest[0]['id'] if newest else None)
+    return newest[0]['id'] if newest else None
 
 
 def main(env=os.environ, get=None, log=None, post=None):
@@ -254,8 +296,9 @@ def main(env=os.environ, get=None, log=None, post=None):
             summary(head + [f'Decision: would rerun failed jobs once ({reason}); dry run', ''] + table, env)
         elif retry:
             current = get(f'repos/{repo}/actions/runs/{run_id}')
-            if current.get('run_attempt') != attempt or current.get('status') != 'completed':
-                summary(head + ['Decision: no rerun (the run was rerun or restarted meanwhile)', ''] + table, env)
+            if (current.get('run_attempt') != attempt or current.get('status') != 'completed'
+                    or newest_run(get, repo, run) != run_id):
+                summary(head + ['Decision: no rerun (the run was rerun, restarted or superseded meanwhile)', ''] + table, env)
                 return 0
             post(f'repos/{repo}/actions/runs/{run_id}/rerun-failed-jobs')
             summary(head + [f'Decision: RERUN failed jobs once ({reason})', ''] + table, env)

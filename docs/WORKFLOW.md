@@ -37,8 +37,9 @@ never silently wrong and verification never silently stops working.
 - **Infrastructure retry.** A pull request run of CI, Research or Supply chain whose every failed
   job shows infrastructure evidence (a job timeout, a lost runner, exit 137, or a cache, artifact
   or network error in a download step) has its failed jobs rerun once, automatically
-  (`.github/workflows/infra-retry.yml`); the decision and its evidence are in that run's summary.
-  Anything else, including a test failure next to an infrastructure warning, is never retried.
+  (`.github/workflows/infra-retry.yml`); the decision and its evidence are in the summary of that
+  workflow's run. A timeout or exit 137 inside a test step, a test failure next to an
+  infrastructure warning, and anything unrecognised are never retried.
   Merge-queue runs are not retried: a red required check has already dequeued the PR, so a rerun
   reports to a group that no longer exists; re-enqueue instead. Pushes to `main` are handled by
   `post-merge.yml`.
