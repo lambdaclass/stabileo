@@ -425,7 +425,8 @@ pub fn solve_fiber_nonlinear_2d(input: &FiberNonlinearInput) -> Result<FiberNonl
 
     // Build results
     let displacements = super::linear::build_displacements_2d(&dof_num, &u_full);
-    let mut element_forces = super::linear::compute_internal_forces_2d(&input.solver, &dof_num, &u_full);
+    let carried = loads_at_2d(&input.solver, last_lf);
+    let mut element_forces = super::linear::compute_internal_forces_2d(&carried, &dof_num, &u_full);
     fiber_member_forces_2d(&input.solver, &input.fiber_sections, &dof_num, &u_full, &elem_states, n_ip, &mut element_forces);
 
     // Collect fiber status
@@ -510,6 +511,65 @@ pub fn solve_fiber_nonlinear_2d(input: &FiberNonlinearInput) -> Result<FiberNonl
         history,
         fiber_status,
     })
+}
+
+/// The model under `factor` times every load it carries.
+fn loads_at_2d(solver: &SolverInput, factor: f64) -> SolverInput {
+    let mut m = solver.clone();
+    for l in m.loads.iter_mut() {
+        match l {
+            SolverLoad::Nodal(n) => { n.fx *= factor; n.fz *= factor; n.my *= factor; }
+            SolverLoad::Distributed(d) => { d.q_i *= factor; d.q_j *= factor; }
+            SolverLoad::AxialDistributed(d) => { d.q_i *= factor; d.q_j *= factor; }
+            SolverLoad::PointOnElement(p) => {
+                p.p *= factor;
+                p.px = p.px.map(|v| v * factor);
+                p.my = p.my.map(|v| v * factor);
+            }
+            SolverLoad::Thermal(t) => { t.dt_uniform *= factor; t.dt_gradient *= factor; }
+        }
+    }
+    m
+}
+
+/// 3D twin of [`loads_at_2d`].
+fn loads_at_3d(solver: &SolverInput3D, factor: f64) -> SolverInput3D {
+    let mut m = solver.clone();
+    for l in m.loads.iter_mut() {
+        match l {
+            SolverLoad3D::Nodal(n) => {
+                for v in [&mut n.fx, &mut n.fy, &mut n.fz, &mut n.mx, &mut n.my, &mut n.mz] {
+                    *v *= factor;
+                }
+                n.bw = n.bw.map(|v| v * factor);
+            }
+            SolverLoad3D::Distributed(d) => {
+                for v in [&mut d.q_xi, &mut d.q_xj, &mut d.q_yi, &mut d.q_yj, &mut d.q_zi, &mut d.q_zj] {
+                    *v *= factor;
+                }
+            }
+            SolverLoad3D::PointOnElement(p) => { p.py *= factor; p.pz *= factor; }
+            SolverLoad3D::Thermal(t) => {
+                for v in [&mut t.dt_uniform, &mut t.dt_gradient_y, &mut t.dt_gradient_z] {
+                    *v *= factor;
+                }
+            }
+            SolverLoad3D::Bimoment(b) => b.bimoment *= factor,
+            SolverLoad3D::Pressure(p) | SolverLoad3D::QuadPressure(p) | SolverLoad3D::Quad9Pressure(p)
+            | SolverLoad3D::SolidShellPressure(p) | SolverLoad3D::CurvedShellPressure(p) => p.pressure *= factor,
+            SolverLoad3D::PlateThermal(t) | SolverLoad3D::QuadThermal(t) | SolverLoad3D::Quad9Thermal(t)
+            | SolverLoad3D::CurvedShellThermal(t) => { t.dt_uniform *= factor; t.dt_gradient *= factor; }
+            SolverLoad3D::QuadEdge(e) | SolverLoad3D::Quad9Edge(e) | SolverLoad3D::CurvedShellEdge(e) => {
+                e.qn *= factor;
+                e.qt *= factor;
+            }
+            SolverLoad3D::QuadSelfWeight(w) | SolverLoad3D::Quad9SelfWeight(w) | SolverLoad3D::CurvedShellSelfWeight(w) => {
+                w.density *= factor;
+            }
+            SolverLoad3D::SolidShellSelfWeight(w) => w.density *= factor,
+        }
+    }
+    m
 }
 
 /// Member end forces of the fiber members from their fiber section resultants.
@@ -1183,7 +1243,8 @@ pub fn solve_fiber_nonlinear_3d(input: &FiberNonlinearInput3D) -> Result<FiberNo
 
     // Build results
     let displacements = super::linear::build_displacements_3d(&dof_num, &u_full);
-    let mut element_forces = super::linear::compute_internal_forces_3d(&input.solver, &dof_num, &u_full);
+    let carried = loads_at_3d(&input.solver, last_lf);
+    let mut element_forces = super::linear::compute_internal_forces_3d(&carried, &dof_num, &u_full);
     fiber_member_forces_3d(&input.solver, &input.fiber_sections, &dof_num, &u_full, &elem_states, n_ip, &mut element_forces);
 
     let mut fiber_status = Vec::new();
