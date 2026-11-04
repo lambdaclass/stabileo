@@ -12,7 +12,7 @@
    */
 </script>
 
-<section class="sec sec--ink education reveal" data-section="education" id="education" aria-labelledby="edu-title">
+<section class="sec sec--ink education" data-section="education" id="education" aria-labelledby="edu-title">
   <div class="wrap">
     <Eyebrow n="06" label={t('landing.ebEdu')} />
 
