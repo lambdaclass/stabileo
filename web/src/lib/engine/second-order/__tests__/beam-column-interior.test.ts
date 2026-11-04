@@ -3,6 +3,7 @@ import * as wasm from '../../wasm-solver';
 import { computeDiagramValueAt } from '../../diagrams';
 import { peakAlong } from '../../governing-case';
 import { interiorMoments } from '../beam-column-interior';
+import { quadrature } from '../beam-column-loads';
 import { teachingBuckling } from '../buckling';
 import { runPDelta2D, pdeltaConvergence } from '../run-pdelta';
 import { DEFAULT_SETTINGS, type SoSettings } from '../settings';
@@ -28,6 +29,16 @@ describe('the moment inside a member under its axial force, from the beam-column
       }
     });
   }
+});
+
+describe('a member whose axial stiffness ratio is not finite', () => {
+  it('returns null at once, in tension and in compression, instead of looping', () => {
+    const L = 4, q = 3;
+    const ef = { mStart: 0, mEnd: 0, vStart: -q * L / 2, vEnd: q * L / 2, nStart: 0, nEnd: 0, qI: q, qJ: q, length: L, pointLoads: [], distributedLoads: [{ a: 0, b: L, qI: q, qJ: q }] };
+    expect(quadrature(0, L, Infinity, true)).toBeNull();
+    expect(quadrature(0, L, NaN, true)).toBeNull();
+    for (const N of [-1e3, 1e3]) expect(interiorMoments(ef, 0, N, [L / 2], null, null)).toBeNull();
+  });
 });
 
 describe('the moment inside a member in tension, against the closed form of a pin-ended beam under a uniform load', () => {
