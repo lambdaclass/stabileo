@@ -1,4 +1,4 @@
-import { getShellCombinationKernel, type ShellRecord } from './shell-combination-kernel';
+import { getShellCombinationKernel, getShellEnvelopeKernel, type ShellEnvelopeRow, type ShellEnvelopeRows, type ShellRecord } from './shell-combination-kernel';
 import { EngineUnavailableError } from './engine-unavailable';
 // Combine per-case shell stresses into per-combination + envelope results.
 //
@@ -19,7 +19,7 @@ import { EngineUnavailableError } from './engine-unavailable';
 // missing kernel throws `EngineUnavailableError`. The TypeScript copy is the
 // tests' oracle (`__tests__/differential/shell-combos-oracle.ts`).
 
-import type { AnalysisResults3D, PlateStress, QuadStress } from './types-3d';
+import type { AnalysisResults3D, PlateStress, QuadStress, ShellEnvelope, ShellEnvelopeSource } from './types-3d';
 
 export interface ComboFactor { caseId: number; factor: number; }
 
@@ -75,18 +75,48 @@ export function combineShellStresses(
   return { plateStresses: combo?.plateStresses ?? [], quadStresses: combo?.quadStresses ?? [] };
 }
 
-/** Per-element governing (max Von Mises across combos) shell stresses for the
- *  envelope result, so the envelope view also contours shells. */
-export function envelopeShellStresses(
-  combos: AnalysisResults3D[],
-): { plateStresses: PlateStress[]; quadStresses: QuadStress[] } {
-  const govP = new Map<number, PlateStress>();
-  const govQ = new Map<number, QuadStress>();
-  for (const r of combos) {
-    for (const s of r.plateStresses ?? []) { const g = govP.get(s.elementId); if (!g || s.vonMises > g.vonMises) govP.set(s.elementId, s); }
-    for (const s of r.quadStresses ?? []) { const g = govQ.get(s.elementId); if (!g || s.vonMises > g.vonMises) govQ.set(s.elementId, s); }
+const signedPeak = (e: { max: number; min: number } | undefined, fallback: number) =>
+  !e ? fallback : Math.abs(e.max) >= Math.abs(e.min) ? e.max : e.min;
+
+function envelopeRecord(row: ShellEnvelopeRow, sources: readonly ShellEnvelopeSource[]): QuadStress & { sigma1: number; sigma2: number } {
+  const envelope: ShellEnvelope = {};
+  for (const [key, e] of Object.entries(row.extremes) as Array<[keyof ShellEnvelope, NonNullable<ShellEnvelopeRow['extremes'][keyof ShellEnvelope]>]>) {
+    envelope[key] = { max: e.max, maxSource: sources[e.maxSource]!, min: e.min, minSource: sources[e.minSource]! };
   }
-  return { plateStresses: [...govP.values()], quadStresses: [...govQ.values()] };
+  const x = row.extremes;
+  return {
+    elementId: row.elementId,
+    sigmaXx: signedPeak(x.sigmaXx, 0), sigmaYy: signedPeak(x.sigmaYy, 0), tauXy: signedPeak(x.tauXy, 0),
+    mx: signedPeak(x.mx, 0), my: signedPeak(x.my, 0), mxy: signedPeak(x.mxy, 0),
+    vonMises: x.vonMises?.max ?? 0,
+    sigma1: x.faceSigma1?.max ?? NaN, sigma2: x.faceSigma2?.min ?? NaN,
+    ...(x.qx && x.qy ? { qx: signedPeak(x.qx, 0), qy: signedPeak(x.qy, 0) } : {}),
+    envelope,
+  };
+}
+
+function envelopeRecords(rows: ShellEnvelopeRows, sources: readonly ShellEnvelopeSource[]): { plateStresses: PlateStress[]; quadStresses: QuadStress[] } {
+  return {
+    plateStresses: rows.plates.map((r) => envelopeRecord(r, sources)),
+    quadStresses: rows.quads.map((r) => {
+      const { sigma1: _s1, sigma2: _s2, ...quad } = envelopeRecord(r, sources);
+      return quad;
+    }),
+  };
+}
+
+/**
+ * The envelope of the shell stresses of some result sets, by the engine's kernel: each component
+ * of each element its own largest and smallest value, with the set it comes from.
+ */
+export function envelopeShellStresses(
+  sets: ReadonlyArray<{ source: ShellEnvelopeSource; results: AnalysisResults3D }>,
+): { plateStresses: PlateStress[]; quadStresses: QuadStress[] } {
+  if (!sets.some(({ results: r }) => r.plateStresses?.length || r.quadStresses?.length)) return { plateStresses: [], quadStresses: [] };
+  const kernel = getShellEnvelopeKernel();
+  if (!kernel) throw new EngineUnavailableError('the shell envelope');
+  const rows = kernel(sets.map(({ source, results }) => ({ id: source.id, plateStresses: results.plateStresses ?? [], quadStresses: results.quadStresses ?? [] })));
+  return envelopeRecords(rows, sets.map((s) => s.source));
 }
 
 /**
@@ -118,8 +148,9 @@ export function enrichComboShellStresses(
     destination.plateStresses = r.plateStresses; destination.quadStresses = r.quadStresses;
   }
   if (envelopeMaxAbs) {
-    envelopeMaxAbs.plateStresses = result.envelope.plateStresses;
-    envelopeMaxAbs.quadStresses = result.envelope.quadStresses;
+    const shells = envelopeRecords(result.envelope, [...perCombo.keys()].map((id) => ({ kind: 'combination' as const, id })));
+    envelopeMaxAbs.plateStresses = shells.plateStresses;
+    envelopeMaxAbs.quadStresses = shells.quadStresses;
   }
 }
 
