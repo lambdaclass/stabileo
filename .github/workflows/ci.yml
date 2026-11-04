@@ -1592,7 +1592,7 @@ jobs:
           PR: ${{ github.event.pull_request.number }}
         run: |
           newer=$(gh api "repos/$GH_REPO/actions/runs?event=pull_request&head_sha=$SHA&per_page=100" \
-            --jq "[.workflow_runs[] | select(.path == \".github/workflows/ci.yml\" and .id > $RUN_ID and ([.pull_requests[].number] | index($PR)))] | length")
+            --jq "[.workflow_runs[] | select(.path == \".github/workflows/ci.yml\" and .id > $RUN_ID and ([.pull_requests[].number] | index($PR)) and (.status != \"completed\" or .conclusion == \"success\"))] | length")
           echo "newer runs on $SHA: $newer"
           [ "$newer" -gt 0 ] && echo newer=true >> "$GITHUB_OUTPUT" || echo newer=false >> "$GITHUB_OUTPUT"
 
