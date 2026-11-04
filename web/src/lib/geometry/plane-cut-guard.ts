@@ -51,6 +51,13 @@ export function constraintsMisreadOn(
 
 const QUARTER_TURN_SHAPES = new Set([undefined, 'I', 'H', 'RHS', 'CHS', 'rect']);
 
+/** Whether a quarter turn leaves the section's outline as it was, so only its inertias decide. */
+function quarterTurnInvariant(s: Section): boolean {
+  if (s.shape === 'CHS') return true;
+  if (s.b === undefined || s.h === undefined) return s.shape === undefined || s.shape === 'generic';
+  return (s.shape === undefined || s.shape === 'rect' || s.shape === 'RHS') && Math.abs(s.b - s.h) <= 1e-9 * Math.max(s.b, s.h);
+}
+
 function turnsSafely(s: Section): boolean {
   return QUARTER_TURN_SHAPES.has(s.shape) && !s.polygon && !s.drawn && !s.composition;
 }
@@ -112,7 +119,14 @@ export function planeBending(
       const free = across > 0 ? (iy * iz) / across : held;
       const differs = (value: number, flat: number) => Math.abs(value - flat) > 1e-6 * Math.abs(flat);
       const flat = effectiveBendingInertia(s, props);
-      if (!differs(held, flat) && !differs(free, flat)) continue;
+      if (!differs(held, flat) && !differs(free, flat)) {
+        const outlineTurns = Math.round((s.rotation ?? 0) / 90) % 2 !== rotation / 90 && !quarterTurnInvariant(s);
+        if (outlineTurns) {
+          if (turnsSafely(s)) turned.push(sid);
+          else off = true;
+        }
+        continue;
+      }
       const planeFlat = effectiveBendingInertia({ ...s, rotation }, props);
       if (differs(held, planeFlat) || differs(free, planeFlat) || !turnsSafely(s)) off = true;
       else turned.push(sid);

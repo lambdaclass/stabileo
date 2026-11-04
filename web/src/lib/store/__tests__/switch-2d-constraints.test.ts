@@ -5,7 +5,7 @@ import '../index';
 import { initSolver } from '../../engine/wasm-solver';
 import { projectOnto, resetSwitchBackup, restore3D, sliceAt } from '../switch-2d';
 import { effectiveBendingInertia, spaceBendingInertias } from '../../engine/solver-service';
-import { constraintsMisreadOn, membersBentOffAxis } from '../../geometry/plane-cut-guard';
+import { constraintsMisreadOn, membersBentOffAxis, planeBending } from '../../geometry/plane-cut-guard';
 import type { Constraint3D } from '../../engine/types-3d';
 
 beforeAll(async () => { await initSolver(); });
@@ -238,6 +238,21 @@ describe('a cut bends each member about the axis the space model bends it about 
     const sid = modelStore.addSection({ name: 'square', a: 0.01, iy: 2e-5, iz: 2e-5, j: 3e-5, b: 0.2, h: 0.2 } as never);
     for (const id of modelStore.elements.keys()) modelStore.elements.get(id)!.sectionId = sid;
     expect(membersBentOffAxis('yz', columns, modelStore.elements, modelStore.nodes, modelStore.sections)).toEqual([]);
+  });
+
+  it('a section with equal inertias but a wide outline still turns when the plane bends it about the other axis', () => {
+    const { columns } = portalInYZ(0);
+    const sid = modelStore.addSection({ name: 'wide', a: 0.006, iy: 2e-5, iz: 2e-5, j: 1e-7, b: 0.3, h: 0.15 } as never);
+    for (const id of modelStore.elements.keys()) modelStore.elements.get(id)!.sectionId = sid;
+    const bending = planeBending('yz', columns, modelStore.elements, modelStore.nodes, modelStore.sections);
+    expect(bending.offAxis).toEqual([]);
+    for (const id of columns) expect(bending.turns.get(id)).toEqual({ rotation: 90, sections: [sid] });
+    expect(sliceAt('yz', 0).ok).toBe(true);
+    for (const id of columns) {
+      const s = modelStore.sections.get(modelStore.elements.get(id)!.sectionId)!;
+      expect(s.rotation).toBe(90);
+      expect([s.b, s.h]).toEqual([0.3, 0.15]);
+    }
   });
 
   it('a square rolled 45° bends with the same inertia but its corner is farther out, so the cut is refused', () => {
