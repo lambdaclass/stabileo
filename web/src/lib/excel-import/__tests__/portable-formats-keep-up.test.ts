@@ -58,9 +58,7 @@ function jsonModelCollections(): string[] {
  * Short on purpose. A long list here means the workbook has quietly stopped
  * being able to describe a structure.
  */
-const NO_SHEET_NEEDED: Record<string, string> = {
-  pointMasses: 'loads the point masses of the dynamics examples into model.massSource, which neither the workbook nor the share link carries yet, for PRO or Basic',
-};
+const NO_SHEET_NEEDED: Record<string, string> = {};
 
 describe('the Excel importer keeps up with the model', () => {
   it('every collection the loader accepts has a sheet, or a stated reason', () => {
