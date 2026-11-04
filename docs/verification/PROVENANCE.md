@@ -102,16 +102,6 @@ Results version 7 registers `cirsoc201-column-design-axes` (SA-2026-029): the CI
 check bends each moment over its own depth. Version 6 is #817's buckling certificate, which lands
 first.
 
-## Basic course units (PR #871)
-
-Results version 14 registers three changes to Basic 2D advanced results:
-`basic-plastic-closes-unloading-hinges`, `basic-second-order-split-members` and
-`basic-influence-line-moment-sign`. What moves and why is in
-[the results change note](../results-changes/2026-11-basic-course.md). The Rust engine is
-unchanged and no committed snapshot moves, since the corpus leaves out the Basic 2D advanced
-toolbar. `provenance/__tests__/basic-course-changes.test.ts` opens a Basic frame stamped 13 and
-checks which of the three it is told.
-
 ## Results snapshot gate
 
 A pull request that changes any result must say so (#716; #461 changed steel verdicts and no
