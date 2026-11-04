@@ -20,7 +20,7 @@ function runAggregate(results: Record<string, string>) {
 }
 
 it.each(['success', 'skipped', 'failure', 'cancelled'])('propagates docker-smoke %s through the real aggregate shell', (result) => {
-  expect(gate).toContain('    if: always()');
+  expect(gate).toContain("    if: ${{ always() && needs.superseded.outputs.newer != 'true' }}");
   expect(needs).toContain('docker-smoke');
   const results = Object.fromEntries(needs.map((job) => [job, job === 'docker-smoke' ? result : 'success']));
   expect(runAggregate(results)).toBe(['success', 'skipped'].includes(result) ? 0 : 1);

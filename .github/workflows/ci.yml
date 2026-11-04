@@ -9,17 +9,20 @@
 # pin it reads changes (select-ci.py), and both on main; E2E shards share site-e2e.
 # Research cache excludes viewer: always rebuild viewer and republish asset identity.
 # Research WASM keeps the 60-minute budget for the expanded research crate set.
-# PR selection (docs/changelog may accompany any single area):
-# docs/**, root *.md, changelog.d/**: repository lint/changelog only.
+# PR and merge-queue selection (docs/changelog may accompany any single area):
+# docs/**, root *.md, changelog.d/**: repository lint/changelog only; research/**/*.md (not tools): plus research.
 # research/**, web/src/components/research/**, web/e2e/research*.spec.ts:
 # research validation/WASM, research unit + E2E, route budgets, shared WASM/site.
 # web/src/components/tools/** (+ tools*.spec.ts): tools unit + E2E, route budgets;
 # missing area tests conservatively select full CI.
 # engine/**: engine/AI-backend/research suites, determinism/results, full web unit, @engine smoke.
+# Other web/** (site, blog, locales, e2e; not package manifests or WASM): everything but the engine,
+# AI-backend and backend jobs, with the full E2E smoke suite.
+# Merge queue: docs only, or site/research/tools only (everything web, engine jobs skipped); else full.
 # Every web selection includes Web Build and its TypeScript/Svelte gates.
 # Other/mixed/unknown paths and run-e2e label: full pipeline. The label is read when the run starts:
 # adding it does not start a run (any label would restart CI); push or re-run CI after adding it.
-# ONLY pull_request job selection is narrowed by path. The merge queue skips the heavy jobs that
+# Only pull_request and merge_group selection is narrowed by path. The merge queue skips the heavy jobs that
 # combining PRs rarely breaks (slow E2E, visual baselines, Docker smoke, Determinism, quarantined
 # E2E, research validation beyond route budgets); pushes to main and the nightly schedule run
 # everything, and post-merge.yml opens a revert PR when a main push fails. A push to main whose
@@ -42,9 +45,9 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
-  # Only PR runs share a group: a third run in a shared group cancels the pending one, even without cancel-in-progress.
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.event_name == 'push' && 'push-main' || github.run_id }}
+  # Never share a group with merge-queue runs: a third run in a shared group cancels the pending one, even without cancel-in-progress.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || github.event_name == 'push' }}
 
 permissions:
   contents: read
@@ -76,10 +79,13 @@ env:
 # reach a persistent runner. Engine Gates, Web Unit and the research engine benchmarks time
 # themselves, so outside pull requests they go to `[self-hosted, stabileo-timing]` (runners pinned
 # to cores no other runner uses) when STABILEO_TIMING_POOL is 'true' too, and to GitHub otherwise.
+# With STABILEO_ENGINE_POOL 'true', Engine Suite and Engine Metamorphic take `[self-hosted,
+# stabileo-engine]` (concrete-ci-3), so the queue's critical path (WASM, Research WASM, E2E Site)
+# never waits behind them for a `stabileo` runner.
 # On GitHub always: Detect Changes and CI OK (no build work; a full host must not delay them),
 # the checks that take a minute or less (CI scripts, backend lint, migrations, results snapshot,
-# research catalog and isolation), the E2E shards (ten start at once there and run in about
-# 11 min against 18 on the shared host; they only download the wasm and site artifacts),
+# research catalog and isolation), the E2E shards (they all start at once there and only download
+# the wasm and site artifacts),
 # Determinism (Nix WebKit does not start on the host) and Docker build smoke (no Docker for runner
 # users). Self-hosted jobs skip the Nix installer, rust-cache, magic-nix-cache and free-disk; each
 # runner keeps its own CARGO_TARGET_DIR.
@@ -217,8 +223,8 @@ jobs:
         id: select
         env:
           TESTED: ${{ steps.tested.outputs.tested }}
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
           CHANGED_FILES: ${{ steps.filter.outputs.all_files }}
           FORCE_FULL: ${{ steps.labels.outputs.run_e2e == 'true' }}
         run: python3 .github/scripts/select-ci.py
@@ -245,6 +251,31 @@ jobs:
       - if: needs.changes.outputs.docker_source == 'true'
         run: docker build --tag stabileo-source-smoke .
       - run: docker build --build-arg FRONTEND_STAGE=web-prebuilt --tag stabileo-smoke .
+
+  caddy-redirects:
+    name: Caddy Language Redirects
+    needs: changes
+    if: needs.changes.outputs.ci_scripts == 'true'
+    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' || (github.ref == 'refs/heads/main' && github.event_name != 'schedule')) && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-24.04' }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          clean: true
+          persist-credentials: false
+      - if: runner.environment == 'github-hosted'
+        uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
+        continue-on-error: true
+      - if: runner.environment == 'github-hosted' && github.event_name != 'pull_request'
+        uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+        continue-on-error: true
+        with:
+          use-flakehub: false
+      - name: Prepare Nix shells (infrastructure retries)
+        run: |
+          .github/scripts/retry-infra.sh nix develop --command true
+          .github/scripts/retry-infra.sh nix shell --inputs-from . nixpkgs#caddy nixpkgs#curl nixpkgs#python3 --command true
+      - run: make test.infra.caddy.redirects
 
   # One version of each tool everywhere (rust-toolchain.toml, .nvmrc, flake.nix and the
   # workflows), and changelog.d/ fragments well formed. On every run: neither has a path filter.
@@ -381,7 +412,7 @@ jobs:
 
   test-engine-suite:
     name: Engine Suite (${{ matrix.shard }}/4)
-    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' || (github.ref == 'refs/heads/main' && github.event_name != 'schedule')) && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-24.04' }}
+    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' || (github.ref == 'refs/heads/main' && github.event_name != 'schedule')) && (vars.STABILEO_ENGINE_POOL == 'true' && fromJSON('["self-hosted","stabileo-engine"]') || fromJSON('["self-hosted","stabileo"]')) || 'ubuntu-24.04' }}
     timeout-minutes: 45
     needs: [changes]
     if: needs.changes.outputs.engine == 'true'
@@ -422,7 +453,7 @@ jobs:
   # unoptimised they outlast a suite shard.
   test-engine-metamorphic:
     name: Engine Metamorphic
-    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' || (github.ref == 'refs/heads/main' && github.event_name != 'schedule')) && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-24.04' }}
+    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' || (github.ref == 'refs/heads/main' && github.event_name != 'schedule')) && (vars.STABILEO_ENGINE_POOL == 'true' && fromJSON('["self-hosted","stabileo-engine"]') || fromJSON('["self-hosted","stabileo"]')) || 'ubuntu-24.04' }}
     timeout-minutes: 40
     needs: [changes]
     if: needs.changes.outputs.engine == 'true'
@@ -823,12 +854,36 @@ jobs:
           shared-key: research-wasm
       - name: Install viewer dependencies
         run: .github/scripts/retry-infra.sh make web.deps
+      - name: Research compiled assets (this host's cache, pull requests)
+        id: host-cache
+        env:
+          EVENT: ${{ github.event_name }}
+          BUNDLES: >-
+            shauer-2025=${{ (steps.research-shauer-2025.outputs.cache-hit == 'true' || steps.retry-shauer-2025.outputs.cache-hit == 'true') && 'hit' || steps.research-shauer-2025.outputs.cache-primary-key || steps.retry-shauer-2025.outputs.cache-primary-key || 'none' }}
+            andreassen-2011=${{ (steps.research-andreassen-2011.outputs.cache-hit == 'true' || steps.retry-andreassen-2011.outputs.cache-hit == 'true') && 'hit' || steps.research-andreassen-2011.outputs.cache-primary-key || steps.retry-andreassen-2011.outputs.cache-primary-key || 'none' }}
+            biggins-2026=${{ (steps.research-biggins-2026.outputs.cache-hit == 'true' || steps.retry-biggins-2026.outputs.cache-hit == 'true') && 'hit' || steps.research-biggins-2026.outputs.cache-primary-key || steps.retry-biggins-2026.outputs.cache-primary-key || 'none' }}
+            grossman-2026=${{ (steps.research-grossman-2026.outputs.cache-hit == 'true' || steps.retry-grossman-2026.outputs.cache-hit == 'true') && 'hit' || steps.research-grossman-2026.outputs.cache-primary-key || steps.retry-grossman-2026.outputs.cache-primary-key || 'none' }}
+            pastrana-2026=${{ (steps.research-pastrana-2026.outputs.cache-hit == 'true' || steps.retry-pastrana-2026.outputs.cache-hit == 'true') && 'hit' || steps.research-pastrana-2026.outputs.cache-primary-key || steps.retry-pastrana-2026.outputs.cache-primary-key || 'none' }}
+            fairclough-2026=${{ (steps.research-fairclough-2026.outputs.cache-hit == 'true' || steps.retry-fairclough-2026.outputs.cache-hit == 'true') && 'hit' || steps.research-fairclough-2026.outputs.cache-primary-key || steps.retry-fairclough-2026.outputs.cache-primary-key || 'none' }}
+        run: .github/scripts/research-host-cache.sh restore
       - name: Build research WASM (cache misses, in parallel)
         id: build-research
         timeout-minutes: 75
         env:
           RESEARCH_SKIP_VIEWER: '1'
-        run: .github/scripts/build-research-wasm.sh ${{ steps.research-shauer-2025.outputs.cache-hit != 'true' && steps.retry-shauer-2025.outputs.cache-hit != 'true' && 'shauer-2025' || '' }} ${{ steps.research-andreassen-2011.outputs.cache-hit != 'true' && steps.retry-andreassen-2011.outputs.cache-hit != 'true' && 'andreassen-2011' || '' }} ${{ steps.research-biggins-2026.outputs.cache-hit != 'true' && steps.retry-biggins-2026.outputs.cache-hit != 'true' && 'biggins-2026' || '' }} ${{ steps.research-grossman-2026.outputs.cache-hit != 'true' && steps.retry-grossman-2026.outputs.cache-hit != 'true' && 'grossman-2026' || '' }} ${{ steps.research-pastrana-2026.outputs.cache-hit != 'true' && steps.retry-pastrana-2026.outputs.cache-hit != 'true' && 'pastrana-2026' || '' }} ${{ steps.research-fairclough-2026.outputs.cache-hit != 'true' && steps.retry-fairclough-2026.outputs.cache-hit != 'true' && 'fairclough-2026' || '' }}
+        run: .github/scripts/build-research-wasm.sh ${{ steps.host-cache.outputs.build }}
+      - name: Save research compiled assets (this host's cache)
+        if: always() && runner.environment == 'self-hosted'
+        env:
+          EVENT: ${{ github.event_name }}
+          BUNDLES: >-
+            shauer-2025=${{ steps.build-research.outputs.shauer-2025 == 'ok' && (steps.research-shauer-2025.outputs.cache-primary-key || steps.retry-shauer-2025.outputs.cache-primary-key) || '' }}
+            andreassen-2011=${{ steps.build-research.outputs.andreassen-2011 == 'ok' && (steps.research-andreassen-2011.outputs.cache-primary-key || steps.retry-andreassen-2011.outputs.cache-primary-key) || '' }}
+            biggins-2026=${{ steps.build-research.outputs.biggins-2026 == 'ok' && (steps.research-biggins-2026.outputs.cache-primary-key || steps.retry-biggins-2026.outputs.cache-primary-key) || '' }}
+            grossman-2026=${{ steps.build-research.outputs.grossman-2026 == 'ok' && (steps.research-grossman-2026.outputs.cache-primary-key || steps.retry-grossman-2026.outputs.cache-primary-key) || '' }}
+            pastrana-2026=${{ steps.build-research.outputs.pastrana-2026 == 'ok' && (steps.research-pastrana-2026.outputs.cache-primary-key || steps.retry-pastrana-2026.outputs.cache-primary-key) || '' }}
+            fairclough-2026=${{ steps.build-research.outputs.fairclough-2026 == 'ok' && (steps.research-fairclough-2026.outputs.cache-primary-key || steps.retry-fairclough-2026.outputs.cache-primary-key) || '' }}
+        run: .github/scripts/research-host-cache.sh save
       - name: Save research compiled assets (shauer-2025)
         if: always() && steps.build-research.outputs.shauer-2025 == 'ok'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -1253,14 +1308,10 @@ jobs:
           retention-days: 7
           if-no-files-found: warn
 
-  # Ten shards, each running whole spec files chosen by measured duration
-  # (web/scripts/e2e-shard.mjs). One runner took 40 min for the smoke suite:
-  # 569 tests of ~3 s each, serially — `workers: 1` stays, for the WebGL
-  # determinism the config explains, so the parallelism is across runners.
-  # `playwright --shard` splits by test count in file order and put the three
-  # heaviest files in one shard (12.6 vs 7.8 min); by duration it is 7.5 each
-  # over five shards, 5.7 over ten. Five shards took 16–22 min each on a PR
-  # and up to 55 in the queue, so the queue's critical path was one shard.
+  # E2E_SHARDS (select-ci.py) shards, each running whole spec files chosen by the measured durations
+  # in web/e2e/shard-timings.json (web/scripts/e2e-shard.mjs); `workers: 1` stays, for the WebGL
+  # determinism the config explains, so the parallelism is across runners. The slowest shard is
+  # the queue's critical path: refresh the table from a queue run's reports when shards drift apart.
   e2e:
     name: E2E (${{ matrix.shard }}/${{ needs.changes.outputs.e2e_total }})
     runs-on: ubuntu-24.04
@@ -1337,7 +1388,7 @@ jobs:
       # `browser.newContext`; run `npx playwright test --grep @landing` locally.
       # `@flaky` tests are quarantined (web/e2e/README.md): left out here, run by `e2e-flaky`.
       - name: Area E2E smoke suite
-        if: needs.changes.outputs.scope != 'full'
+        if: needs.changes.outputs.scope != 'full' && needs.changes.outputs.scope != 'site'
         env:
           E2E_SPECS: ${{ needs.changes.outputs.e2e_specs }}
           CI_SCOPE: ${{ needs.changes.outputs.scope }}
@@ -1347,23 +1398,23 @@ jobs:
           else
             nix develop --command bash -c 'cd web && python3 ../.github/scripts/run-area-e2e.py'
           fi
-      - name: E2E smoke suite (shard ${{ matrix.shard }}/10)
-        if: needs.changes.outputs.scope == 'full'
+      - name: E2E smoke suite (shard ${{ matrix.shard }}/${{ needs.changes.outputs.e2e_total }})
+        if: needs.changes.outputs.scope == 'full' || needs.changes.outputs.scope == 'site'
         run: |
           if [ "${{ runner.environment }}" = self-hosted ]; then
-            nix develop .#e2e -c make e2e.web.smoke SHARD=${{ matrix.shard }}/10 NIX_RUN=
+            nix develop .#e2e -c make e2e.web.smoke SHARD=${{ matrix.shard }}/${{ needs.changes.outputs.e2e_total }} NIX_RUN=
           else
-            make e2e.web.smoke SHARD=${{ matrix.shard }}/10
+            make e2e.web.smoke SHARD=${{ matrix.shard }}/${{ needs.changes.outputs.e2e_total }}
           fi
-      - name: E2E slow suite (shard ${{ matrix.shard }}/10)
+      - name: E2E slow suite (shard ${{ matrix.shard }}/${{ needs.changes.outputs.e2e_total }})
         if: needs.changes.outputs.slow_e2e == 'true' || needs.changes.outputs.run_e2e == 'true'
         env:
           NO_WALL_CLOCK: ${{ runner.environment == 'self-hosted' && '1' || '' }}
         run: |
           if [ "${{ runner.environment }}" = self-hosted ]; then
-            nix develop .#e2e -c make e2e.web.slow SHARD=${{ matrix.shard }}/10 NIX_RUN= NO_WALL_CLOCK="$NO_WALL_CLOCK"
+            nix develop .#e2e -c make e2e.web.slow SHARD=${{ matrix.shard }}/${{ needs.changes.outputs.e2e_total }} NIX_RUN= NO_WALL_CLOCK="$NO_WALL_CLOCK"
           else
-            make e2e.web.slow SHARD=${{ matrix.shard }}/10 NO_WALL_CLOCK="$NO_WALL_CLOCK"
+            make e2e.web.slow SHARD=${{ matrix.shard }}/${{ needs.changes.outputs.e2e_total }} NO_WALL_CLOCK="$NO_WALL_CLOCK"
           fi
       # Non-blocking until the Linux baselines under web/e2e/__screenshots__/linux/
       # prove stable. Never pass --update-snapshots by default: it would overwrite
@@ -1551,16 +1602,65 @@ jobs:
       - name: E2E wall-clock budgets
         run: make e2e.web.timing
 
-  ci-ok:
-    name: CI OK
+  superseded:
+    name: Superseded by a newer run
     runs-on: ubuntu-24.04
     timeout-minutes: 5
-    if: always()
+    if: ${{ always() && github.event_name == 'pull_request' && cancelled() }}
     needs:
       - changes
       - lint-repo
       - test-ci-scripts
       - docker-smoke
+      - caddy-redirects
+      - lint-engine
+      - test-engine-gates
+      - test-engine-suite
+      - test-engine-metamorphic
+      - test-ai-backend
+      - lint-backend
+      - test-backend
+      - check-migrations-immutable
+      - check-migrations
+      - wasm
+      - research-wasm
+      - research
+      - site-e2e
+      - web-unit
+      - web-build
+      - results-snapshot
+      - determinism
+      - e2e
+      - timing-budgets
+    outputs:
+      newer: ${{ steps.newer.outputs.newer }}
+    steps:
+      - id: newer
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+          RUN_ID: ${{ github.run_id }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          newer=$(gh api "repos/$GH_REPO/actions/runs?event=pull_request&head_sha=$SHA&per_page=100" \
+            --jq "[.workflow_runs[] | select(.path == \".github/workflows/ci.yml\" and .id > $RUN_ID and ([.pull_requests[].number] | index($PR)) and (.status != \"completed\" or .conclusion == \"success\"))] | length")
+          echo "newer runs on $SHA: $newer"
+          [ "$newer" -gt 0 ] && echo newer=true >> "$GITHUB_OUTPUT" || echo newer=false >> "$GITHUB_OUTPUT"
+
+  ci-ok:
+    name: CI OK
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    # A skipped CI OK passes a required check: it may skip only when a newer run on the same head replaces it.
+    if: ${{ always() && needs.superseded.outputs.newer != 'true' }}
+    needs:
+      - superseded
+      - changes
+      - lint-repo
+      - test-ci-scripts
+      - docker-smoke
+      - caddy-redirects
       - lint-engine
       - test-engine-gates
       - test-engine-suite

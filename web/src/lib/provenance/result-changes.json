@@ -1,8 +1,42 @@
 {
   "$comment": "Registry of result-affecting changes. Read by web/scripts/result-change-metadata.mjs for build metadata and decoded by web/src/lib/provenance/full-registry.ts; schema and rules in docs/verification/PROVENANCE.md. Add an entry whenever a change makes the same saved model give different numbers, at currentResultsVersion + 1, and bump currentResultsVersion: a version on main is deployed, and an entry added to it later is never shown to the projects it stamped (results-version.test.ts). Feature ids are defined in web/src/lib/provenance/model-features.ts.",
   "schema": 1,
-  "currentResultsVersion": 15,
+  "currentResultsVersion": 16,
   "changes": [
+    {
+      "id": "aluminium-weak-axis-shear",
+      "resultsVersion": 16,
+      "date": "2026-11-03",
+      "prs": [
+        1326
+      ],
+      "area": "design",
+      "when": {
+        "any": [
+          "timberOrAluminiumMembers"
+        ]
+      },
+      "title": {
+        "en": "Aluminium: weak-axis shear is checked",
+        "es": "Aluminio: se verifica el corte en el eje débil",
+        "pt": "Alumínio: o cisalhamento no eixo fraco é verificado",
+        "de": "Aluminium: Querkraft um die schwache Achse wird nachgewiesen",
+        "fr": "Aluminium : l’effort tranchant selon l’axe faible est vérifié",
+        "tr": "Alüminyum: zayıf eksen kesmesi kontrol ediliyor"
+      },
+      "explanation": {
+        "en": "The EN 1999 aluminium check had no row for shear along the weak axis: a member under lateral shear passed without a shear check. A new row checks it on the parts parallel to the shear. It concerns aluminium members with lateral shear.",
+        "es": "La verificación de aluminio EN 1999 no tenía fila para el corte en el eje débil: una barra con corte lateral pasaba sin verificación de corte. Una fila nueva lo verifica con las partes paralelas al corte. Afecta a barras de aluminio con corte lateral.",
+        "pt": "A verificação de alumínio EN 1999 não tinha linha para o cisalhamento no eixo fraco: uma barra com cisalhamento lateral passava sem verificação de cisalhamento. Uma nova linha o verifica com as partes paralelas ao cisalhamento. Afeta barras de alumínio com cisalhamento lateral.",
+        "de": "Der Aluminiumnachweis nach EN 1999 hatte keine Zeile für die Querkraft um die schwache Achse: ein Stab mit seitlicher Querkraft bestand ohne Schubnachweis. Eine neue Zeile weist sie mit den zur Querkraft parallelen Teilen nach. Betrifft Aluminiumstäbe mit seitlicher Querkraft.",
+        "fr": "La vérification aluminium EN 1999 n’avait pas de ligne pour l’effort tranchant selon l’axe faible : une barre soumise à un effort tranchant latéral passait sans vérification au cisaillement. Une nouvelle ligne le vérifie avec les parois parallèles à l’effort. Concerne les barres en aluminium avec effort tranchant latéral.",
+        "tr": "EN 1999 alüminyum kontrolünde zayıf eksen kesmesi için satır yoktu: yanal kesme altındaki bir çubuk kesme kontrolü olmadan geçiyordu. Yeni bir satır kesmeye paralel parçalarla bunu kontrol ediyor. Yanal kesmeli alüminyum çubukları etkiler."
+      },
+      "changelog": {
+        "file": "changelog.d/532-aluminium-weak-axis-shear.md",
+        "heading": "Aluminium checks shear along the weak axis (2026-11-03)"
+      }
+    },
     {
       "id": "basic-plastic-unloading-hinges-withdrawn",
       "resultsVersion": 15,

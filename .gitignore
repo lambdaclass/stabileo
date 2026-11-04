@@ -5,6 +5,7 @@ node_modules
 
 # Build output
 web/dist/
+web/.perf/
 web/dist-admin/
 
 # IDE / OS
@@ -68,6 +69,8 @@ web/.dist-hookgate-off/
 web/.dist-hookgate-on/
 web/.dist-shared/
 web/*.source-stamp
+web/.dist-reproducible-a/
+web/.dist-reproducible-b/
 
 # Official CIRSOC / INPRES-CIRSOC PDFs. The structured Markdown conversion under
 # docs/codes/CIRSOC/markdown/ IS tracked; the ~56 MB of source PDFs are not, so the

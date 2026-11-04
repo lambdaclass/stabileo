@@ -37,7 +37,7 @@ analytical value, or the linear solver in the linear limit).
 | corotational (sparse path) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | R | R | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | material nonlinear | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | material nonlinear (sparse path) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| fiber nonlinear | ✓ | ✓ | R | R | ✓ | ✓ | ✓ | ✓ | R | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| fiber nonlinear | ✓ | ✓ | R | R | ✓ | ✓ | ✓ | ✓ | R | ✓ | ✓ | ✓ | ✓ | ✓ | R | R | ✓ |
 | arc length | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | R | R | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | displacement control | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | R | R | R | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | staged (one stage) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | R | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | R |
@@ -79,7 +79,7 @@ Features:
 - **F16** constraint (rigid link)
 - **F17** connector
 
-Totals: · 93, ✓ 427, R 16, ~ 8
+Totals: · 93, ✓ 425, R 18, ~ 8
 
 Notes on every cell that is not ✓ or ·:
 
@@ -106,6 +106,8 @@ Notes on every cell that is not ✓ or ·:
 - corotational (sparse path) × thermal load: free cantilever: R Corotational analysis does not support thermal loads (member 1, member 2, member 3, … (4 in all)); it would so…
 - arc length × thermal load: free cantilever: R Arc-length analysis does not support thermal loads (member 1, member 2, member 3, … (4 in all)); it would solv…
 - displacement control × thermal load: free cantilever: R Displacement-control analysis does not support thermal loads (member 1, member 2, member 3, … (4 in all)); it …
+- fiber nonlinear × constraint (EqualDOF): tied coincident nodes: R Fiber-nonlinear analysis: constraints are not supported, because the global force and moment balance of a cons…
+- fiber nonlinear × constraint (rigid link): offset beam: R Fiber-nonlinear analysis: constraints are not supported, because the global force and moment balance of a cons…
 - staged (one stage) × connector: axial connector: R Staged construction analysis does not support connector elements; it would solve the model without them. Remov…
 
 ## 3D
@@ -123,7 +125,7 @@ Notes on every cell that is not ✓ or ·:
 | corotational (sparse path) | ✓ | ✓ | ✓ | R | ✓ | ✓ | ✓ | ✓ | ✓ | R | R | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | R | R | R | R | R | R | R | R | R |
 | material nonlinear | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | R | R | R | R | R | R | R | R | R |
 | material nonlinear (sparse path) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | R | R | R | R | R | R | R | R | R |
-| fiber nonlinear | ✓ | ✓ | R | R | R | ✓ | ✓ | ✓ | ✓ | R | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | R | R | R | R | R | R | R | R | R |
+| fiber nonlinear | ✓ | ✓ | R | R | R | ✓ | ✓ | ✓ | ✓ | R | ✓ | ✓ | ✓ | ✓ | R | R | R | ✓ | ✓ | R | R | R | R | R | R | R | R | R |
 | staged (one stage) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | R | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | R | R | ✓ | ✓ | R | R | R | ✓ | ✓ | ✓ | ✓ |
 | Winkler (no foundation) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | contact (no gaps) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
@@ -174,7 +176,7 @@ Features:
 - **F27** shell edge load
 - **F28** shell thermal load
 
-Totals: · 174, ✓ 585, R 69, ~ 12
+Totals: · 174, ✓ 582, R 72, ~ 12
 
 Notes on every cell that is not ✓ or ·:
 
@@ -205,8 +207,11 @@ Notes on every cell that is not ✓ or ·:
 - harmonic × prescribed displacement: support settlement: R Harmonic analysis does not support prescribed support displacements (support at node 7); it would solve the mo…
 - corotational × thermal load: free cantilever: R Corotational analysis does not support thermal loads (member 1, member 2, member 3, … (4 in all)); it would so…
 - corotational (sparse path) × thermal load: free cantilever: R Corotational analysis does not support thermal loads (member 1, member 2, member 3, … (4 in all)); it would so…
+- fiber nonlinear × constraint (EqualDOF): tied coincident nodes: R Fiber-nonlinear analysis: constraints are not supported, because the global force and moment balance of a cons…
 - plastic collapse × constraint (EqualDOF): tied coincident nodes: R Plastic (pushover) analysis does not support constraints (rigid links, diaphragms, EqualDOF, MPCs) (constraint…
+- fiber nonlinear × constraint (rigid link): offset beam: R Fiber-nonlinear analysis: constraints are not supported, because the global force and moment balance of a cons…
 - plastic collapse × constraint (rigid link): offset beam: R Plastic (pushover) analysis does not support constraints (rigid links, diaphragms, EqualDOF, MPCs) (constraint…
+- fiber nonlinear × constraint (diaphragm): two columns: R Fiber-nonlinear analysis: constraints are not supported, because the global force and moment balance of a cons…
 - plastic collapse × constraint (diaphragm): two columns: R Plastic (pushover) analysis does not support constraints (rigid links, diaphragms, EqualDOF, MPCs) (constraint…
 - staged (one stage) × connector: axial connector: R Staged construction analysis does not support connector elements; it would solve the model without them. Remov…
 - plastic collapse × connector: axial connector: R Plastic (pushover) analysis does not support connector elements (connector 1); it would solve the model withou…

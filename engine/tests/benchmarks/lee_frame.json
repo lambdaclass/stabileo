@@ -360,12 +360,55 @@
   "loadNode": 13,
   "reference": {
     "load": 1.83,
-    "status": "provisional",
-    "source": "de Souza, Vanalli & de Luz (2020), DOI 10.1155/2020/3613892, section 3.3 Figure 10 (pinned curve); exact numerical locator not verified",
-    "tolerance": 0.02
+    "status": "read-by-eye",
+    "source": "de Souza, Vanalli & de Luz (2020), DOI 10.1155/2020/3613892, section 3.3 Figure 10 (pinned curve, compared there with Schweizerhof & Wriggers 1986): first peak read by eye; the paper tabulates no value",
+    "displayedPercentDigits": 0
   },
   "regression": {
     "firstLimitLoad": 1.8657781212114986,
-    "absoluteTolerance": 1e-08
+    "absoluteTolerance": 1e-08,
+    "firstPeakStep": 47
+  },
+  "convergence": {
+    "absoluteTolerance": 1e-08,
+    "stepEffectBound": 0.0001,
+    "cases": [
+      {
+        "split": 1,
+        "stepScale": 1.0,
+        "maxSteps": 90,
+        "firstPeak": 1.8657781212114988
+      },
+      {
+        "split": 1,
+        "stepScale": 0.25,
+        "maxSteps": 300,
+        "firstPeak": 1.865876303677203
+      },
+      {
+        "split": 2,
+        "stepScale": 1.0,
+        "maxSteps": 90,
+        "firstPeak": 1.8581495614987202
+      },
+      {
+        "split": 2,
+        "stepScale": 0.25,
+        "maxSteps": 300,
+        "firstPeak": 1.8582372627054071
+      },
+      {
+        "split": 4,
+        "stepScale": 1.0,
+        "maxSteps": 150,
+        "firstPeak": 1.8563049717548423
+      },
+      {
+        "split": 4,
+        "stepScale": 0.0625,
+        "maxSteps": 1000,
+        "firstPeak": 1.8563164846311262
+      }
+    ]
   }
 }

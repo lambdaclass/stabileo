@@ -2046,6 +2046,8 @@ const ja: Translations = {
   'switch2d.noElements': 'There are nodes at that distance, but no members joining them — nothing to analyse.',
   'switch2d.noOffset': 'Enter a distance, or pick one of the cuts.',
   'switch2d.allCollapse': 'All members collapse or are duplicates in this projection. Use 3D mode.',
+  'switch2d.constraintsPlane': "このモデルには、2D ソルバーがこの平面では別の意味に読んでしまう拘束があります。ソルバーはすべての拘束を、骨組が X–Z 面にあるものとして読みます。X–Z で切断するか、3D で解析してください（既知の問題 #466、AC-PLANE-MAPPING）。",
+  'switch2d.sectionAxis': "一部の部材は断面軸がこの平面に対して斜めで、曲げが面内と面外で連成するか、二軸対称でない断面の別の軸まわりにこの平面内で曲がります。2D モデルはどちらも表せないため、2D の結果は誤りになります。3D で解析するか、これらの部材の断面軸がそろう面で切断してください。",
   'switch2d.loadsLeftBehind': 'loads left behind',
   'switch2d.sliceBanner': 'Cut from a 3D model',
   'tour.navigateDesc3DExtra': 'その下にプリセットビュー（平面、正面、側面）、パース/平行投影、断面カット、測定などのツールがあります。',
