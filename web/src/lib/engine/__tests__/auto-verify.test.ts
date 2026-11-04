@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { autoVerifyFromResults } from '../auto-verify';
+import { verifyElement } from '../codes/argentina/cirsoc201';
+import { normalizeCirsoc201 } from '../design-check-results';
 
 function makeElementForces(overrides: Partial<any> = {}) {
   return {
@@ -32,7 +34,7 @@ function makeElementForces(overrides: Partial<any> = {}) {
 }
 
 describe('autoVerifyFromResults', () => {
-  it('preserves Mz as Mu and My as Muy for biaxial columns', () => {
+  it('biaxial column: the larger moment is primary over its own depth, the other is the biaxial partner', () => {
     const results = {
       elementForces: [
         makeElementForces({
@@ -88,10 +90,15 @@ describe('autoVerifyFromResults', () => {
 
     const verification = concrete[0]!;
     expect(verification.elementType).toBe('column');
-    expect(verification.Mu).toBe(4);
-    expect(verification.Vu).toBe(7);
-    expect(verification.biaxial?.Muz).toBe(4);
-    expect(verification.biaxial?.Muy).toBe(12);
+    expect(verification.flexureAxis).toBe('My');
+    expect(verification.Mu).toBe(12);
+    expect(verification.Vu).toBe(30);
+    expect([verification.b, verification.h]).toEqual([0.30, 0.50]);
+    expect(verification.biaxial?.Muz).toBe(12);
+    expect(verification.slenderSecondary?.k).toBe(1);
+    expect(verification.biaxial?.Muy).toBe(verification.slenderSecondary?.isSlender ? verification.slenderSecondary.Mc : 4);
+    expect(verification.biaxial!.Muy).toBeGreaterThanOrEqual(4);
+    expect(verification.shearSecondary?.Vu).toBe(7);
   });
 
   // Helper: a horizontal beam model with one section/material.
@@ -148,5 +155,148 @@ describe('autoVerifyFromResults', () => {
     expect(v.Mu).toBe(20);              // Mz demand
     expect(v.Vu).toBe(15);              // paired Vy
     expect(v.flexure.ratio).toBeGreaterThan(0);
+  });
+});
+
+describe('autoVerifyFromResults: column design axes (#532)', () => {
+  function columnModel(b: number, h: number) {
+    return {
+      elements: new Map([[1, { id: 1, nodeI: 1, nodeJ: 2, sectionId: 1, materialId: 1, type: 'frame' }]]),
+      nodes: new Map([[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: 0, y: 0, z: 3 }]]),
+      sections: new Map([[1, { id: 1, name: 'RC', b, h, iy: b * h ** 3 / 12, iz: h * b ** 3 / 12 }]]),
+      materials: new Map([[1, { id: 1, name: 'H25', fy: 25, e: 25_000_000 }]]),
+      supports: new Map([[1, { id: 1, nodeId: 1, type: 'fixed' }]]),
+    } as any;
+  }
+  const column = (f: Partial<any>) => ({ elementForces: [makeElementForces({ nStart: -800, nEnd: -800, ...f })] }) as any;
+  const reference = (b: number, h: number, Mu: number, Vu: number) => verifyElement({
+    elementId: 1, elementType: 'column', Mu, Vu, Nu: 800, axialLoads: [800], NuShear: 800,
+    b, h, fc: 25, fy: 420, cover: 0.025, stirrupDia: 8,
+  });
+
+  it('Mz bends a 30×60 column over its 30 cm width', () => {
+    const [v] = autoVerifyFromResults(column({ mzStart: 120, mzEnd: -120, vyStart: 80, vyEnd: 80 }), columnModel(0.3, 0.6), null).concrete;
+    expect(v!.flexureAxis).toBe('Mz');
+    expect([v!.b, v!.h]).toEqual([0.6, 0.3]);
+    expect(v!.Mu).toBe(120);
+    expect(v!.Vu).toBe(80);
+    const right = reference(0.6, 0.3, 120, 80);
+    const swapped = reference(0.3, 0.6, 120, 80);
+    expect(v!.column!.ratio).toBeCloseTo(right.column!.ratio, 9);
+    expect(right.column!.ratio).toBeGreaterThan(swapped.column!.ratio);
+  });
+
+  it('My bends a 30×60 column over its 60 cm depth, with Vz as its shear', () => {
+    const [v] = autoVerifyFromResults(column({ myStart: 120, myEnd: -120, vzStart: 80, vzEnd: 80 }), columnModel(0.3, 0.6), null).concrete;
+    expect(v!.flexureAxis).toBe('My');
+    expect([v!.b, v!.h]).toEqual([0.3, 0.6]);
+    expect(v!.Mu).toBe(120);
+    expect(v!.Vu).toBe(80);
+    expect(v!.column!.ratio).toBeCloseTo(reference(0.3, 0.6, 120, 80).column!.ratio, 9);
+  });
+
+  it('slenderness end moments come from the primary axis', () => {
+    const [v] = autoVerifyFromResults(column({ myStart: 120, myEnd: 60, mzStart: 5, mzEnd: -5 }), columnModel(0.3, 0.6), null).concrete;
+    expect(v!.flexureAxis).toBe('My');
+    expect(v!.slender?.steps.some((x) => x.startsWith('M1/M2 = 0.500'))).toBe(true);
+  });
+
+  it('the secondary shear is checked over the rotated section', () => {
+    const [v] = autoVerifyFromResults(column({ myStart: 120, myEnd: -120, vzStart: 80, vzEnd: 80, vyStart: 150, vyEnd: 150 }), columnModel(0.3, 0.6), null).concrete;
+    expect(v!.shearSecondary?.Vu).toBe(150);
+    expect(v!.shearSecondary?.spacing).toBe(reference(0.6, 0.3, 120, 150).shear.spacing);
+    expect(v!.shearSecondary?.ratio).toBeCloseTo(reference(0.6, 0.3, 120, 150).shear.ratio, 9);
+  });
+
+  it('both shear axes are checked with the one stirrup spacing the tighter axis needs', () => {
+    const input = {
+      elementId: 1, elementType: 'column' as const, Mu: 120, Vu: 20, Nu: 800, axialLoads: [800], NuShear: 800,
+      b: 0.3, h: 0.6, fc: 25, fy: 420, cover: 0.025, stirrupDia: 8,
+    };
+    const alone = verifyElement(input);
+    const secondaryAlone = reference(0.6, 0.3, 120, 150).shear;
+    expect(secondaryAlone.spacing).toBeLessThan(alone.shear.spacing);
+    const v = verifyElement({ ...input, VuSecondary: 150 });
+    expect(v.shear.spacing).toBe(secondaryAlone.spacing);
+    expect(v.shearSecondary!.spacing).toBe(secondaryAlone.spacing);
+    const legs = Math.max(alone.shear.stirrupLegs, secondaryAlone.stirrupLegs);
+    expect([v.shear.stirrupLegs, v.shearSecondary!.stirrupLegs]).toEqual([legs, legs]);
+    expect(v.shearSecondary!.ratio).toBeLessThanOrEqual(secondaryAlone.ratio + 1e-12);
+    expect(v.shear.phiVn).toBeGreaterThan(alone.shear.phiVn);
+    expect(v.shear.steps).toContain(`Estribos: ${v.shear.stirrupLegs} ramas Ø8 c/${(secondaryAlone.spacing * 100).toFixed(0)} cm`);
+  });
+
+  it('the secondary axis is magnified with its own slenderness, and the magnified moment is the biaxial partner', () => {
+    const [v] = autoVerifyFromResults(column({ myStart: 120, myEnd: -120, mzStart: 110, mzEnd: 110 }), columnModel(0.2, 0.6), null).concrete;
+    expect(v!.flexureAxis).toBe('My');
+    const weak = v!.slenderSecondary!;
+    expect(weak.isSlender).toBe(true);
+    expect(weak.r).toBeCloseTo(0.3 * 0.2, 12);
+    expect(weak.Mc).toBeGreaterThan(v!.Mu);
+    expect(v!.biaxial!.Muy).toBeCloseTo(weak.Mc, 9);
+    const unmagnified = verifyElement({
+      elementId: 1, elementType: 'column', Mu: v!.Mu, Vu: 0, Nu: 800, axialLoads: [800], NuShear: 800,
+      b: 0.2, h: 0.6, fc: 25, fy: 420, cover: 0.025, stirrupDia: 8, Muy: 110,
+    });
+    expect(v!.biaxial!.ratio).toBeGreaterThan(unmagnified.biaxial!.ratio);
+  });
+
+  it('the secondary axis takes k = 1 whatever the joint restraint of the primary plane', () => {
+    const v = verifyElement({
+      elementId: 1, elementType: 'column', Mu: 120, Vu: 0, Nu: 800, axialLoads: [800], NuShear: 800,
+      b: 0.2, h: 0.6, fc: 25, fy: 420, cover: 0.025, stirrupDia: 8, Muy: 110, Lu: 4, psiA: 0.2, psiB: 0.2,
+    });
+    expect(v.slender!.k).toBeLessThan(1);
+    expect(v.slenderSecondary!.k).toBe(1);
+    expect(v.slenderSecondary!.klu_r).toBeCloseTo(4 / (0.3 * 0.2), 9);
+  });
+
+  it('a face that needs more legs gives them to the other axis too', () => {
+    const input = {
+      elementId: 1, elementType: 'column' as const, Mu: 50, Vu: 10, Nu: 300, axialLoads: [300], NuShear: 300,
+      b: 0.25, h: 0.9, fc: 25, fy: 420, cover: 0.025, stirrupDia: 8,
+    };
+    const wide = verifyElement({ ...input, b: 0.9, h: 0.25, Vu: 700 }).shear;
+    const alone = verifyElement(input).shear;
+    expect(wide.stirrupLegs).toBeGreaterThan(alone.stirrupLegs);
+    const v = verifyElement({ ...input, VuSecondary: 700 });
+    expect(v.shear.stirrupLegs).toBe(wide.stirrupLegs);
+    expect(v.shearSecondary!.stirrupLegs).toBe(wide.stirrupLegs);
+    expect(v.shear.spacing).toBe(v.shearSecondary!.spacing);
+  });
+
+  it('a non-finite demand is checked, and fails, on whichever axis it is', () => {
+    expect(() => autoVerifyFromResults(column({ myStart: NaN, myEnd: NaN, mzStart: 50, mzEnd: -50 }), columnModel(0.3, 0.6), null))
+      .toThrow(/non-finite/);
+    const [nanShear] = autoVerifyFromResults(column({ myStart: 120, myEnd: -120, vzStart: 80, vzEnd: 80, vyStart: NaN, vyEnd: NaN }), columnModel(0.3, 0.6), null).concrete;
+    expect(nanShear!.shearSecondary?.status).toBe('fail');
+    expect(nanShear!.overallStatus).toBe('fail');
+  });
+
+  it('each shear row names the combination that governs its own axis', () => {
+    const governing = new Map([[1, {
+      momentY: { comboId: 1, comboName: '1.2D+1.6L', value: 120 },
+      shearZ: { comboId: 1, comboName: '1.2D+1.6L', value: 80 },
+      shearY: { comboId: 2, comboName: '1.2D+1.0E', value: 150 },
+    }]]);
+    const forces = column({ myStart: 120, myEnd: -120, vzStart: 80, vzEnd: 80, vyStart: 150, vyEnd: 150 });
+    const [v] = autoVerifyFromResults(forces, columnModel(0.3, 0.6), governing).concrete;
+    expect(v!.governingCombos?.shear?.comboName).toBe('1.2D+1.6L');
+    expect(v!.governingCombos?.shearSecondary?.comboName).toBe('1.2D+1.0E');
+    const rows = normalizeCirsoc201([v!], new Map([[1, 'RC']]))[0]!.checks;
+    expect(rows.find((r) => r.name === 'Shear')?.comboName).toBe('1.2D+1.6L');
+    expect(rows.find((r) => r.name === 'Shear, secondary axis')?.comboName).toBe('1.2D+1.0E');
+  });
+
+  it('a Mz-governed column takes its secondary shear combination from Vz', () => {
+    const governing = new Map([[1, {
+      momentZ: { comboId: 1, comboName: '1.2D+1.6L', value: 120 },
+      shearY: { comboId: 1, comboName: '1.2D+1.6L', value: 80 },
+      shearZ: { comboId: 3, comboName: '0.9D+1.0E', value: 150 },
+    }]]);
+    const forces = column({ mzStart: 120, mzEnd: -120, vyStart: 80, vyEnd: 80, vzStart: 150, vzEnd: 150 });
+    const [v] = autoVerifyFromResults(forces, columnModel(0.3, 0.6), governing).concrete;
+    expect(v!.flexureAxis).toBe('Mz');
+    expect(v!.governingCombos?.shearSecondary?.comboName).toBe('0.9D+1.0E');
   });
 });

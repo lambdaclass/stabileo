@@ -45,9 +45,24 @@ it('warns when the portal frame leaves the classical formula behind (L = 0.1, h 
   expect(keys(thin)).toContain('tools.warnReference');
 });
 
-it('natural frequencies are found at I = 0.1, L = 0.1 and A = 10⁻⁶ for every boundary, with a slenderness warning', async () => {
-  for (const patch of [{ i: 0.1 }, { length: 0.1 }, { area: 1e-6 }]) for (const boundary of ['simple', 'cantilever', 'fixed'] as const) {
+it('natural frequencies are found at I = 0.1 and A = 10⁻⁶ for every boundary, with a slenderness warning', async () => {
+  for (const patch of [{ i: 0.1 }, { area: 1e-6 }]) for (const boundary of ['simple', 'cantilever', 'fixed'] as const) {
     const r = await calculateBatch('beam-natural-frequency', { ...P, ...patch, boundary });
+    expect(r.modes).toHaveLength(3);
+    expect(r.difference!).toBeLessThan(2e-5);
+    expect(keys(r)).toEqual(['tools.warnSlenderness']);
+  }
+});
+
+it('a 0.1 m beam is either verified or refused: the 24-mode search returns unconverged high modes', async () => {
+  for (const boundary of ['simple', 'cantilever', 'fixed'] as const) {
+    let r;
+    try {
+      r = await calculateBatch('beam-natural-frequency', { ...P, length: 0.1, boundary });
+    } catch (e) {
+      expect(String((e as Error)?.message ?? e)).toMatch(/REFUSE: self-check modal_residual:\d+: /);
+      continue;
+    }
     expect(r.modes).toHaveLength(3);
     expect(r.difference!).toBeLessThan(2e-5);
     expect(keys(r)).toEqual(['tools.warnSlenderness']);

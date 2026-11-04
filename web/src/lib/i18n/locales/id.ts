@@ -3443,6 +3443,7 @@ const id: Translations = {
   'design.error.codeUnsupported': '{code} tidak dapat mendesain tulangan — hanya dapat menilai susunan yang diberikan.',
   'design.error.noConcreteMembers': '{code} is the reinforced-concrete code and this model has no concrete member: all {n} of its members are steel. The reinforcement design workflow does not apply to this structure.',
   'design.error.concreteFyReadAsSteel': 'No member could be treated as concrete: material “{material}”, used by {n} members, has fy = {fy} MPa. For a concrete, fy holds f′c (H-30 → 30); the rebar is taken as ADN 420 separately. Correct the material and solve again.',
+  'design.error.concreteStrengthMissing': 'Tidak ada batang yang dapat diperiksa: material “{material}”, yang dipakai {n} batang, tidak memiliki f′c. Untuk beton, kolom fy berisi f′c (H-30 → 30): isi lalu hitung ulang.',
   'design.error.noRectangularSections': '{code} can only check rectangular b×h sections, and {n} concrete member(s) state none. Give them a rectangular section to design them.',
   'design.error.noConcreteMembersMixed': '{code} found no checkable member: {steel} steel and {other} with no usable section or material.',
   'design.error.nothingChecked': 'Tidak ada elemen yang diperiksa oleh {code} untuk model ini.',
@@ -3623,6 +3624,8 @@ const id: Translations = {
 
   'design.memo.flexure': 'Flexure',
   'design.memo.shear': 'Shear',
+  'design.memo.shearSecondary': 'Geser, sumbu sekunder',
+  'design.memo.slenderSecondary': 'Kelangsingan, sumbu sekunder',
   'design.memo.column': 'Flexo-compression',
   'design.memo.torsion': 'Torsion',
   'design.memo.torsionNegligible': 'Torsion (negligible)',
