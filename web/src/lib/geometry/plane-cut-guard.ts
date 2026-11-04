@@ -139,7 +139,7 @@ export function planeBending(
       const differs = (value: number, flat: number) => Math.abs(value - flat) > 1e-6 * Math.abs(flat);
       const flat = effectiveBendingInertia(s, props);
       if (!differs(held, flat) && !differs(free, flat)) {
-        const outlineTurns = Math.round((s.rotation ?? 0) / 90) % 2 !== rotation / 90 && !quarterTurnInvariant(s);
+        const outlineTurns = ((Math.round((s.rotation ?? 0) / 90) % 2) + 2) % 2 !== rotation / 90 && !quarterTurnInvariant(s);
         if (outlineTurns) {
           if (turnsSafely(s)) turned.push(sid);
           else off = true;

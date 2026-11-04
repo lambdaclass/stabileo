@@ -294,6 +294,17 @@ describe('a cut bends each member about the axis the space model bends it about 
     expect(guard()).toEqual([]);
   });
 
+  it('a section turned −90° is judged as the same section turned 270°', () => {
+    const a = modelStore.addNode(0, 0, 3), b = modelStore.addNode(5, 0, 3);
+    const beam = modelStore.addElement(a, b, 'frame');
+    const tee = (rotation: number) => modelStore.addSection({ name: 'T', shape: 'T', a: 0.005, iy: 1e-5, iz: 1e-5, j: 1e-7, b: 0.15, h: 0.2, tw: 0.01, tf: 0.015, rotation } as never);
+    const guard = () => membersBentOffAxis('xz', [beam], modelStore.elements, modelStore.nodes, modelStore.sections);
+    modelStore.elements.get(beam)!.sectionId = tee(270);
+    expect(guard()).toEqual([]);
+    modelStore.elements.get(beam)!.sectionId = tee(-90);
+    expect(guard()).toEqual([]);
+  });
+
   it('a column whose section is turned 30° couples in-plane and out-of-plane bending, so even an X–Z cut is refused', () => {
     const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(0, 0, 3);
     const column = modelStore.addElement(a, b, 'frame');
