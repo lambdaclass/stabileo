@@ -47,14 +47,14 @@ export function solveLimit(input: SolverInput, mpOf: (member: number) => number)
     history.push({ positions: used, lambda: best.lambda });
     const next = new Map(used);
     let moved = false;
-    lm.sm.sections.forEach((s, k) => {
-      if (s.kind !== 'span') return;
-      const t = peakInside(lm, s.member, moments.M, best.lambda);
-      if (t === null) return;
-      const at = Math.abs(momentAt(lm.sm, s.member, t, moments.M, best.lambda)) / s.mp;
-      if (at > 1 + 1e-9 && Math.abs(t - s.t) > 1e-7) { next.set(s.member, t); moved = true; }
-      void k;
-    });
+    for (const [member, m] of lm.sm.members) {
+      if (!m.dists.length) continue;
+      const t = peakInside(lm, member, moments.M, best.lambda);
+      if (t === null) continue;
+      const at = Math.abs(momentAt(lm.sm, member, t, moments.M, best.lambda)) / lm.sm.mpOf(member);
+      const was = used.get(member);
+      if (at > 1 + 1e-9 && (was === undefined || Math.abs(t - was) > 1e-7)) { next.set(member, t); moved = true; }
+    }
     if (!moved) return moments.ratio <= 1 + 1e-6 ? out : null;
     positions = next;
   }
