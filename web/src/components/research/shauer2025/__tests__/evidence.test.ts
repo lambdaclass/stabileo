@@ -6,6 +6,7 @@ import { shauerLocales, shauerLocaleKeys } from '../locales';
 import { checkMetadata, checkLabel, metricLabel } from '../validation-labels';
 import validation from '../../../../../../research/fracture/shauer-2025/VALIDATION.json';
 import { num } from '../../shell/format';
+import { MESHES } from '../model';
 
 const csv: Record<number, URL> = {
   1: new URL('../../../../../../research/fracture/shauer-2025/reference-results/ex1_steps.csv', import.meta.url),
@@ -67,6 +68,7 @@ it('provides German, French and Turkish copy for every Shauer and shell string i
   const keys = new Set(files.flatMap(f => [...readFileSync(new URL(`../${f}`, import.meta.url), 'utf8').matchAll(f.startsWith('../shell/') ? /\bs\.(\w+)/g : /\bstrings\.(\w+)/g)].map(m => m[1])));
   // This fallback is not used: Shauer supplies its comparison scope explicitly.
   keys.delete('notComparedWhy');
+  for (const mesh of Object.values(MESHES)) keys.add(mesh.label);
   try {
     for (const locale of ['de', 'fr', 'tr']) {
       setLocale(locale);
