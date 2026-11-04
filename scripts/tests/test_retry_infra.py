@@ -223,6 +223,20 @@ if [ "$n" = 0 ]; then {first}; else {second}; fi
         self.assertIn('Attempt still running after 3s', result.stderr)
         self.assertLess(elapsed, 60)
 
+    def test_an_attempt_that_cannot_be_signalled_stops_the_retries_in_bounded_time(self):
+        with tempfile.TemporaryDirectory() as directory:
+            Path(directory, 'pkill').write_text('#!/bin/sh\nexit 0\n')
+            Path(directory, 'pkill').chmod(0o755)
+            pause = f'sleep 299.{os.getpid()}'
+            try:
+                result, count, elapsed = self.stalled_then(pause, 'echo retried',
+                                                           {'PATH': f"{directory}:{os.environ['PATH']}"})
+            finally:
+                subprocess.run(['pkill', '-x', '-f', pause])
+            self.assertEqual((result.returncode, count), (124, 1), result.stderr)
+            self.assertIn('could not be stopped; not retrying', result.stderr)
+            self.assertLess(elapsed, 90)
+
     def test_previous_infra_output_does_not_trigger_retry(self):
         self.assertEqual(self.run_attempts(['HTTP error 418', 'AssertionError'])[:2], (7, 2))
 

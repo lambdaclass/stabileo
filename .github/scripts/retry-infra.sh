@@ -17,6 +17,12 @@ limit=${RETRY_INFRA_TIMEOUT_SECONDS:-900}
 wall=${RETRY_INFRA_WALL_SECONDS:-2400}
 locks=${RETRY_INFRA_LOCKS-/var/lib/dpkg/lock-frontend /var/lib/dpkg/lock}
 
+# kill -0 fails on a process this user cannot signal, so liveness comes from its state.
+alive() {
+  local state
+  state=$(ps -o stat= -p "$1" 2> /dev/null) && [[ $state != Z* ]]
+}
+
 lock_held() {
   local lock
   for lock in $locks; do
@@ -52,7 +58,7 @@ for attempt in 1 2 3; do
   idle=0
   elapsed=0
   size=-1
-  while kill -0 "$pid" 2> /dev/null; do
+  while alive "$pid"; do
     now=$(stat -c %s "$log")
     if [[ $now != "$size" ]]; then
       size=$now
@@ -72,7 +78,15 @@ for attempt in 1 2 3; do
     elapsed=$((elapsed + 1))
   done
   released=1
-  if (( stalled )); then reap "$pid" || released=0; fi
+  if (( stalled )); then
+    reap "$pid" || released=0
+    for _ in {1..30}; do alive "$pid" || break; sleep 1; done
+    if alive "$pid"; then
+      echo "The stalled attempt could not be stopped; not retrying" >&2
+      kill "$follow" 2> /dev/null
+      exit 124
+    fi
+  fi
   wait "$pid"
   status=$?
   wait "$follow"
