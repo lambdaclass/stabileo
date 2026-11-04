@@ -70,6 +70,7 @@ const RELEASED: Record<number, string[]> = {
   19: ['rc-column-least-compression'],
   20: ['generated-area-loads-headroom'],
   21: ['shell-figures-paint-the-screen-field'],
+  22: ['hidden-mechanism-2d-refused'],
 };
 
 describe('results versions', () => {

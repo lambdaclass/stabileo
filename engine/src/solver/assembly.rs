@@ -111,9 +111,9 @@ pub(crate) fn rotation_tied_nodes_2d(input: &SolverInput) -> std::collections::H
         match c {
             Constraint::RigidLink(r) => {
                 tied.insert(r.master_node);
-                if r.dofs.contains(&2) { tied.insert(r.slave_node); }
+                if r.dofs.is_empty() || r.dofs.contains(&2) { tied.insert(r.slave_node); }
             }
-            Constraint::Diaphragm(d) => { tied.insert(d.master_node); }
+            Constraint::Diaphragm(d) => { tied.insert(d.master_node); tied.extend(d.slave_nodes.iter().copied()); }
             Constraint::EqualDOF(e) => {
                 if e.dofs.contains(&2) { tied.extend([e.master_node, e.slave_node]); }
             }
