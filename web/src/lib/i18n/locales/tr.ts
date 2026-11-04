@@ -2171,6 +2171,8 @@ const tr: Translations = {
   'switch2d.noElements': 'O mesafede düğümler var ancak bunları birleştiren çubuk yok; analiz edilecek bir şey yok.',
   'switch2d.noOffset': 'Bir mesafe girin veya kesimlerden birini seçin.',
   'switch2d.allCollapse': 'Bu izdüşümde tüm çubuklar çöküyor veya yineleniyor. 3B modunu kullanın.',
+  'switch2d.constraintsPlane': "Bu modelde 2B çözücünün bu düzlemde başka anlamda okuyacağı kısıtlar var: hepsini çerçeve X–Z düzlemindeymiş gibi okur. X–Z boyunca kesin veya 3B olarak çözün (bilinen sorun #466, AC-PLANE-MAPPING).",
+  'switch2d.sectionAxis': "Bazı çubuklar bu düzlemde 3B'dekinden farklı bir kesit atalet momentiyle eğilir ya da eğilmeleri düzlem içi ve düzlem dışını birbirine bağlar; 2B model bunu temsil edemez, bu yüzden 2B sonuçlar yanlış olur (varsayılan eksenlerle Y–Z boyunca kesilen bir I kolon 3B'de zayıf ekseni etrafında eğilir). 3B olarak çözün veya her çubuğun kesit eksenlerinin düzlemle hizalı olduğu bir düzlem kesin (bilinen sorun #1238).",
   'switch2d.sliceBanner': '3B modelden kesit',
   'demo.action.solve': 'Hesapla',
   'demo.basics2d.title': 'İlk adımlar',

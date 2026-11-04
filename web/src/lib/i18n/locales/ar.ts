@@ -2044,6 +2044,8 @@ const ar: Translations = {
   'switch2d.noElements': 'There are nodes at that distance, but no members joining them — nothing to analyse.',
   'switch2d.noOffset': 'Enter a distance, or pick one of the cuts.',
   'switch2d.allCollapse': 'All members collapse or are duplicates in this projection. Use 3D mode.',
+  'switch2d.constraintsPlane': "يحتوي هذا النموذج على قيود سيقرؤها حلّال الثنائي الأبعاد بمعنى آخر في هذا المستوى: فهو يقرأ كل القيود كما لو كان الإطار في المستوى X–Z. اقطع على امتداد X–Z أو احسب بالنموذج الثلاثي الأبعاد (مشكلة معروفة #466، AC-PLANE-MAPPING).",
+  'switch2d.sectionAxis': "بعض العناصر ستنحني في هذا المستوى بعزم قصور ذاتي للمقطع يختلف عنه في النموذج الثلاثي الأبعاد، أو أن انحناءها يربط المستوى بالاتجاه العمودي عليه، وهو ما لا يستطيع نموذج ثنائي الأبعاد تمثيله، لذا ستكون النتائج الثنائية الأبعاد خاطئة (بالمحاور الافتراضية، عمود بمقطع I مقطوع على امتداد Y–Z ينحني في النموذج الثلاثي الأبعاد حول محوره الضعيف). احسب بالنموذج الثلاثي الأبعاد أو اقطع مستوى تتوافق معه محاور مقطع كل عنصر (مشكلة معروفة #1238).",
   'switch2d.loadsLeftBehind': 'loads left behind',
   'switch2d.sliceBanner': 'Cut from a 3D model',
   'tour.navigateDesc3DExtra': 'أسفل هذا الخيار هناك أدوات إضافية: عروض محددة مسبقاً (أعلى، أمامي، جانبي)، منظور/إسقاط متعامد، مستوى قطع وقياس.',
