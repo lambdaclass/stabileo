@@ -1,4 +1,7 @@
 import itertools
+import os
+import subprocess
+import tempfile
 import json
 import pathlib
 import re
@@ -96,7 +99,7 @@ def evaluate(expression, context):
 
 def scheduled_events(text):
     events = ['schedule'] if re.search(r'^  schedule:', text, re.M) else []
-    if 'cron: "0 5 * * *"' in text:
+    if re.search(r'^name: Nightly verification$', text, re.M):
         events.append('workflow_dispatch')
     return events
 
@@ -221,6 +224,40 @@ class CiRunners(unittest.TestCase):
             if runs_on != 'ubuntu-24.04':
                 self.assertEqual(labels(runs_on), {'stabileo-nightly'}, name)
                 self.assertTrue(runs_on.endswith("|| 'ubuntu-24.04' }}"), name)
+
+    def test_the_nightly_pool_is_taken_only_at_night(self):
+        text = (WORKFLOWS / 'nightly.yml').read_text()
+        self.assertIn('    - cron: "0 0 * * *"', text)
+        pooled = {name: job for name, job in jobs('nightly.yml').items() if 'stabileo-nightly' in job['runs-on']}
+        self.assertGreaterEqual(len(pooled), 9)
+        for name, job in pooled.items():
+            self.assertTrue(job['runs-on'].startswith("${{ (needs.plan.outputs.night == 'true' && vars.STABILEO_SELF_HOSTED == 'true' && "), name)
+            self.assertRegex(job['block'], r'(^|\n)    needs: plan\n', name)
+
+    def plan_night(self, event, hour):
+        text = (WORKFLOWS / 'nightly.yml').read_text()
+        script = re.search(r'\n        run: \|\n(.*?)\n\n', text.split('\n  plan:\n', 1)[1], re.S).group(1)
+        script = '\n'.join(line[10:] for line in script.split('\n'))
+        with tempfile.TemporaryDirectory() as directory:
+            fake = pathlib.Path(directory) / 'date'
+            fake.write_text(f'#!/bin/sh\ncase "$*" in *%H*) echo {hour:02d} ;; *) exec /bin/date "$@" ;; esac\n')
+            fake.chmod(0o755)
+            output = pathlib.Path(directory) / 'output'
+            env = {**os.environ, 'PATH': f'{directory}:{os.environ["PATH"]}', 'GITHUB_OUTPUT': str(output), 'EVENT': event,
+                   'NIGHT_END_HOUR': '7', 'ONLY': '', 'SHARDS': '', 'TOTAL': '', 'MUTANTS_TOTAL': '512', 'MUTANTS_SLOTS': '32',
+                   'FORCE_FAILURE': 'false'}
+            result = subprocess.run(['bash', '-e', '-c', script], env=env, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            values = dict(line.split('=', 1) for line in output.read_text().splitlines() if '=' in line)
+            return values['night'], result.stdout
+
+    def test_a_daytime_dispatch_runs_hosted_and_says_so(self):
+        for hour, night in [(0, 'true'), (6, 'true'), (7, 'false'), (9, 'false'), (14, 'false'), (23, 'false')]:
+            value, stdout = self.plan_night('workflow_dispatch', hour)
+            self.assertEqual(value, night, hour)
+            self.assertEqual('Daytime dispatch' in stdout, night == 'false', hour)
+        for hour in [0, 5, 9, 14]:
+            self.assertEqual(self.plan_night('schedule', hour)[0], 'true', hour)
 
     def test_scheduled_jobs_never_match_the_merge_queue_pool(self):
         checked = 0
