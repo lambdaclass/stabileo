@@ -99,6 +99,10 @@ const body: PostBody = {
           "ACI 318 ve EN 1992 kontrolleri: betonarme çubuklar burulmaları kontrol edilmeden geçiyordu",
           "Yüksek",
           "Bir sonraki sürümde sınırlandırıldı"
+          "SA-2026-041",
+          "Betonarme kolonlar: en büyük moment yalnızca en büyük basınçla kontrol ediliyordu",
+          "Yüksek",
+          "Bir sonraki sürümde düzeltildi"
         ],
         [
           "SA-2026-013",

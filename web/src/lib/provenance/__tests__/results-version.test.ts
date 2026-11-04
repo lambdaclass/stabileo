@@ -67,6 +67,7 @@ const RELEASED: Record<number, string[]> = {
   16: ['aluminium-weak-axis-shear'],
   17: ['joint-weak-axis-moment'],
   18: ['rc-other-codes-torsion-unchecked'],
+  19: ['rc-column-least-compression'],
 };
 
 describe('results versions', () => {

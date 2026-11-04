@@ -47,6 +47,7 @@ section and re-check registry entry in the same way.
 | [SA-2026-032](SA-2026-032-modal-mechanism-dropped-mode.md) | Modal analysis dropped the zero mode of a mechanism and returned the other modes as complete (3 of 12 in #338) | Medium | [#338](https://github.com/lambdaclass/stabileo/issues/338) | #1247 | — | Draft |
 | [SA-2026-035](SA-2026-035-cut-section-axis.md) | 3D-to-2D cut bent members about the wrong section axis (a Y–Z portal 13.5 times too stiff) | High | [#1238](https://github.com/lambdaclass/stabileo/issues/1238) | this PR | next release | Draft |
 | [SA-2026-040](SA-2026-040-rc-other-codes-torsion.md) | ACI 318 and EN 1992 member checks passed RC members without checking their torsion | High | [#1314](https://github.com/lambdaclass/stabileo/issues/1314) | #1319 | next release | Draft |
+| [SA-2026-041](SA-2026-041-rc-column-least-compression.md) | RC column check paired the largest moment with the largest compression only: up to 15 % unconservative in an example | High | [#1316](https://github.com/lambdaclass/stabileo/issues/1316) | #1321 | next | Draft |
 
 Other open `safety` issues (the derivation-review findings #406–#433, #439) get an advisory
 or a recorded "no advisory needed" when they are triaged; the list is on the

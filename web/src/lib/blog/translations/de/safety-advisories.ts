@@ -99,6 +99,10 @@ const body: PostBody = {
           "ACI-318- und EN-1992-Nachweise: Stahlbetonstäbe bestanden, ohne dass ihre Torsion nachgewiesen wurde",
           "Hoch",
           "In der nächsten Version eingedämmt"
+          "SA-2026-041",
+          "Stahlbetonstützen: das größte Moment wurde nur mit der größten Druckkraft nachgewiesen",
+          "Hoch",
+          "In der nächsten Version behoben"
         ],
         [
           "SA-2026-013",
