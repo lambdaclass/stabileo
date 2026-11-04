@@ -1,0 +1,85 @@
+{
+  "_nightly_dens": {
+    "1": 7850
+  },
+  "_nightly_name": "random-32-input",
+  "connectors": {},
+  "constraints": [],
+  "elements": {
+    "1": {
+      "hingeEnd": false,
+      "hingeStart": false,
+      "id": 1,
+      "materialId": 1,
+      "nodeI": 1,
+      "nodeJ": 2,
+      "sectionId": 1,
+      "type": "frame"
+    }
+  },
+  "loads": [
+    {
+      "data": {
+        "fx": 0,
+        "fz": -46.489558002213016,
+        "my": 0,
+        "nodeId": 2
+      },
+      "type": "nodal"
+    }
+  ],
+  "materials": {
+    "1": {
+      "e": 200000,
+      "id": 1,
+      "nu": 0.3
+    }
+  },
+  "nodes": {
+    "1": {
+      "id": 1,
+      "x": 0,
+      "z": 0
+    },
+    "2": {
+      "id": 2,
+      "x": 2.1155183436349034,
+      "z": 0
+    }
+  },
+  "sections": {
+    "1": {
+      "a": 0.037541370592080056,
+      "asY": null,
+      "id": 1,
+      "iz": 0.00038438543310621756
+    }
+  },
+  "solverOptions": null,
+  "supports": {
+    "1": {
+      "angle": null,
+      "dry": null,
+      "dx": null,
+      "dz": null,
+      "id": 1,
+      "kx": null,
+      "ky": null,
+      "kz": null,
+      "nodeId": 1,
+      "type": "pinned"
+    },
+    "2": {
+      "angle": null,
+      "dry": null,
+      "dx": null,
+      "dz": null,
+      "id": 2,
+      "kx": null,
+      "ky": null,
+      "kz": null,
+      "nodeId": 2,
+      "type": "rollerX"
+    }
+  }
+}

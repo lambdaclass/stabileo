@@ -832,7 +832,6 @@ fn benchmark_constraint_force_parity_across_solvers() {
         }
     }
 
-    // 4. Fiber nonlinear (elastic fibers → matches linear)
     let fiber_section = FiberSectionDef {
         fibers: vec![
             Fiber { y: -d_h / 4.0, z: 0.0, area: A / 2.0, material_idx: 0 },
@@ -853,16 +852,14 @@ fn benchmark_constraint_force_parity_across_solvers() {
         n_increments: 1,
         modified_nr: false,
     };
-    let fiber_result = fiber_nonlinear::solve_fiber_nonlinear_2d(&fiber_input)
-        .expect("Fiber nonlinear solve failed");
-    assert!(fiber_result.converged);
-    let fiber_cf = &fiber_result.results.constraint_forces;
+    let fiber_err = fiber_nonlinear::solve_fiber_nonlinear_2d(&fiber_input)
+        .err().expect("Fiber nonlinear must refuse a constrained model");
+    assert!(fiber_err.contains("constraints are not supported"), "{fiber_err}");
 
     // Report
     eprintln!("Linear constraint forces: {:?}", linear_result.constraint_forces);
     eprintln!("Corotational constraint forces: {:?}", corot_cf);
     eprintln!("Plastic constraint forces: {:?}", plastic_cf);
-    eprintln!("Fiber NL constraint forces: {:?}", fiber_cf);
 
     // Corotational should always have constraint forces
     assert!(!corot_cf.is_empty(), "Corotational should have constraint forces");
@@ -873,29 +870,6 @@ fn benchmark_constraint_force_parity_across_solvers() {
     }
     for cf in &plastic_cf {
         assert!(cf.force.is_finite(), "Plastic constraint force should be finite: {:?}", cf);
-    }
-    for cf in fiber_cf {
-        assert!(cf.force.is_finite(), "Fiber constraint force should be finite: {:?}", cf);
-    }
-
-    // If fiber produces constraint forces, compare with corotational
-    if !fiber_cf.is_empty() && !corot_cf.is_empty() {
-        for fcf in fiber_cf {
-            if let Some(ccf) = corot_cf.iter().find(|c| c.node_id == fcf.node_id && c.dof == fcf.dof) {
-                let diff = (fcf.force - ccf.force).abs();
-                let denom = ccf.force.abs().max(1.0);
-                eprintln!(
-                    "  node={} dof={}: corot={:.6} fiber={:.6} diff={:.6}",
-                    fcf.node_id, fcf.dof, ccf.force, fcf.force, diff
-                );
-                // Fiber uses approximate section (2 fibers vs exact I), so relax to 50%
-                assert!(
-                    diff / denom < 0.50,
-                    "Corot vs Fiber constraint force mismatch: node={} dof={} corot={:.6} fiber={:.6}",
-                    fcf.node_id, fcf.dof, ccf.force, fcf.force
-                );
-            }
-        }
     }
 
     // If plastic produces constraint forces, they should be finite and consistent
