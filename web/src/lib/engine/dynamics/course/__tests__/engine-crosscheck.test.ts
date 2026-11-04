@@ -342,6 +342,19 @@ describe('a floor beam holds a column top only when its far end is held up', () 
     hung((beam) => { modelStore.addDistributedLoad(beam, -10, -10); });
     expect(shearBuilding(modelStore.model, [{ nodeId: 2, m: 5 }], false)).toBe('turningFloor');
   });
+  it('a pinned foot turns with the sway: rotary inertia or a couple there is refused', () => {
+    const pinnedPortal = (couple: boolean) => build(() => {
+      const a = modelStore.addNode(0, 0), b = modelStore.addNode(0, 3), c = modelStore.addNode(4, 3), d = modelStore.addNode(4, 0);
+      modelStore.addElement(a, b); modelStore.addElement(d, c); modelStore.addElement(b, c);
+      modelStore.addSupport(a, 'pinned'); modelStore.addSupport(d, 'pinned');
+      if (couple) modelStore.addNodalLoad(a, 0, 0, 5);
+    });
+    pinnedPortal(false);
+    expect(typeof shearBuilding(modelStore.model, [{ nodeId: 2, m: 5 }], false)).toBe('object');
+    expect(shearBuilding(modelStore.model, [{ nodeId: 2, m: 5 }, { nodeId: 1, m: 0, izz: 3 }], false)).toBe('turningFloor');
+    pinnedPortal(true);
+    expect(shearBuilding(modelStore.model, [{ nodeId: 2, m: 5 }], false)).toBe('turningFloor');
+  });
   it('rotary inertia at a fixed base cannot move, and is not refused', () => {
     build(() => {
       const a = modelStore.addNode(0, 0), b = modelStore.addNode(0, 3);

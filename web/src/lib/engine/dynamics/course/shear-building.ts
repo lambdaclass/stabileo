@@ -140,6 +140,7 @@ export function shearBuilding(model: ModelData, points: readonly PointMass[], ba
     if (freeLo === 'coupled' || freeHi === 'coupled') return 'continuousColumn';
     if (freeHi && !beamHolds.has(hiNode)) turning.add(hiNode);
     if (lo > 0 && freeLo && !beamHolds.has(loNode)) turning.add(loNode);
+    if (pinnedBase) turning.add(loNode);
     const factor: 12 | 3 | 0 = freeLo && freeHi ? 0 : freeLo || freeHi ? 3 : 12;
     const E = mat.e * 1000, I = effectiveBendingInertia(s, props);
     const h = Math.abs(b.y - a.y);
@@ -166,7 +167,8 @@ export function shearBuilding(model: ModelData, points: readonly PointMass[], ba
     return false;
   };
   const swayed = [...turning].some((n) => beams.some((b) => (b.nodeI === n || b.nodeJ === n) && rigidAt(b, n)));
-  if (turning.size && points.some((p) => (p.izz ?? 0) > 0 && !supported.has(p.nodeId))) return 'turningFloor';
+  const clamped = new Set([...model.supports.values()].filter((sp) => sp.type === 'fixed').map((sp) => sp.nodeId));
+  if (turning.size && points.some((p) => (p.izz ?? 0) > 0 && !clamped.has(p.nodeId))) return 'turningFloor';
   if (swayed && (barMass && beams.length > 0 || points.some((p) => p.m > 0 && !p.horizontalOnly && !heldUp.has(p.nodeId)))) return 'turningFloor';
   for (const ld of model.loads) {
     if (vertical(ld)) {
