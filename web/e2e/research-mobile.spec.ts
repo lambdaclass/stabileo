@@ -7,6 +7,7 @@ const runnable = catalog.papers.flatMap(paper => EXPERIMENTS.filter(e => e.paper
 expect(runnable.length).toBe(EXPERIMENTS.length);
 expect(runnable.length).toBeGreaterThan(0);
 const paths = ['/research', ...runnable.map(e => e.path)];
+const APP = ':is(.rs-shell-app, .navier .app)';
 const viewports = [
   { width: 360, height: 740 },
   { width: 390, height: 844 },
@@ -42,7 +43,7 @@ async function audit(page: Page, state: string) {
   const issues = await page.evaluate(() => {
     const root = document.querySelector('.research')!;
     const visible = (el: Element) => el.checkVisibility({ checkVisibilityCSS: true, checkOpacity: true })
-      && el.getClientRects().length > 0 && !el.closest('[hidden], details:not([open]) > :not(summary)');
+      && el.getClientRects().length > 0 && !el.closest('[hidden], details:not([open]) > :not(summary), .sr-only');
     const scrolls = (el: Element) => {
       for (let a = el.parentElement; a && a !== root; a = a.parentElement) {
         if (['auto', 'scroll'].includes(getComputedStyle(a).overflowX)) return true;
@@ -75,7 +76,7 @@ async function audit(page: Page, state: string) {
     };
     const describe = (el: Element) => `${el.tagName.toLowerCase()}${el.id ? `#${el.id}` : ''}.${String(el.getAttribute('class') ?? '')} ${(el.getAttribute('aria-label') ?? el.textContent ?? '').trim().slice(0, 90)}`;
     const problems: string[] = [];
-    for (const el of [document.documentElement, document.body, root, ...root.querySelectorAll('.rs-shell-app, .rs-panel, [role="tabpanel"], .rs-g-col')]) {
+    for (const el of [document.documentElement, document.body, root, ...root.querySelectorAll('.rs-shell-app, .navier .app, .rs-panel, [role="tabpanel"], .rs-g-col')]) {
       if (visible(el) && el.scrollWidth > el.clientWidth + 1) problems.push(`overflow ${describe(el)}: ${el.scrollWidth} > ${el.clientWidth}`);
     }
     for (const el of root.querySelectorAll('*')) {
@@ -133,7 +134,7 @@ for (const locale of ['en', 'es', 'pt']) {
           await expect(page.locator('.research h1')).toBeVisible();
           const initialTabs: Locator[] = [];
           if (path !== '/research') {
-            const canvas = page.locator('.rs-shell-app .sfv-canvas canvas');
+            const canvas = page.locator(`${APP} .sfv-canvas canvas`);
             await expect(canvas).toBeVisible({ timeout: 30_000 });
             await expect.poll(async () => (await canvas.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(280);
             const top = (await canvas.boundingBox())!.y;
@@ -141,10 +142,10 @@ for (const locale of ['en', 'es', 'pt']) {
               expect(top, 'canvas begins within the first 1.5 phone screens, before any scrolling').toBeLessThanOrEqual(viewport.height * 1.5);
             }
             await audit(page, 'initial experiment');
-            const camera = page.locator('.rs-shell-app .cam-cube');
+            const camera = page.locator(`${APP} .cam-cube`);
             await camera.click();
             await audit(page, 'camera menu');
-            const outside = await page.locator('.rs-shell-app .cam-backdrop').evaluate((backdrop) => {
+            const outside = await page.locator(`${APP} .cam-backdrop`).evaluate((backdrop) => {
               const box = backdrop.getBoundingClientRect();
               for (let y = Math.min(box.bottom, innerHeight) - 2; y > Math.max(box.top, 0); y -= 8) {
                 for (let x = Math.max(box.left, 0) + 2; x < Math.min(box.right, innerWidth); x += 8) {
@@ -156,7 +157,7 @@ for (const locale of ['en', 'es', 'pt']) {
             expect(outside, 'some of the page outside the camera menu closes it').not.toBeNull();
             await page.mouse.click(outside!.x, outside!.y);
             await expect(camera).toHaveAttribute('aria-expanded', 'false');
-            const tabs = await page.locator('.rs-shell-app [role="tab"]').all();
+            const tabs = await page.locator(`${APP} [role="tab"]`).all();
             for (const tab of tabs) {
               if (await tab.getAttribute('aria-selected') === 'true') initialTabs.push(tab);
             }

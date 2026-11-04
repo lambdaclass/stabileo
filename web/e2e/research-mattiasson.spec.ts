@@ -96,7 +96,9 @@ for (const [width, height] of [[360, 800], [390, 844], [844, 390], [810, 1080]])
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
       const viewer = page.locator('.benchmark-pane .sfv');
       await expect(viewer).toBeInViewport({ ratio: 0.2 });
-      expect((await viewer.boundingBox())!.height).toBeLessThanOrEqual(height * .48 + 1);
+      const viewerHeight = (await viewer.boundingBox())!.height;
+      expect(viewerHeight).toBeGreaterThanOrEqual(279);
+      expect(viewerHeight).toBeLessThanOrEqual(Math.max(280, Math.min(368, height * .48)) + 1);
       await expect(page.locator('.rs-shell')).not.toContainText(/scalarViewer\.|Questions for the authors|provisional|not checked|pending/i);
       const inspect = async () => {
         const errors = await page.locator('.rs-shell').evaluate(root => {
