@@ -192,6 +192,29 @@ class CiRunners(unittest.TestCase):
             for name, job in jobs(workflow).items():
                 self.assertNotIn('stabileo-e2e', labels(job.get('runs-on', '')), name)
 
+    def test_the_engine_suite_leaves_the_queue_critical_path_runners_free(self):
+        ci = jobs('ci.yml')
+        engine = {name for name, job in ci.items() if 'stabileo-engine' in labels(job.get('runs-on', ''))}
+        self.assertEqual(engine, {'test-engine-suite', 'test-engine-metamorphic'})
+        for name in engine:
+            runs_on = ci[name]['runs-on']
+            self.assertEqual(labels(runs_on), {'stabileo-engine', 'stabileo'})
+            self.assertIn("(vars.STABILEO_ENGINE_POOL == 'true' && fromJSON('[\"self-hosted\",\"stabileo-engine\"]') || fromJSON('[\"self-hosted\",\"stabileo\"]'))", runs_on, name)
+            self.assertIn(TRUSTED, runs_on, name)
+        for name in ['wasm', 'research-wasm', 'site-e2e', 'web-build']:
+            self.assertNotIn('stabileo-engine', labels(ci[name]['runs-on']), name)
+
+    def test_free_disk_deletes_in_the_background_after_a_space_floor(self):
+        action = (ROOT / '.github/actions/free-disk/action.yml').read_text()
+        command = action.split('run: |\n', 1)[1]
+        self.assertIn('sudo nohup rm -rf "$trash" > /dev/null 2>&1 &', command)
+        self.assertIn('sudo mv "$dir"', command)
+        self.assertIn("df --output=avail -BG / | tail -1 | tr -dc 0-9)\" -ge 15 ] && break", command)
+        self.assertIn('sudo kill -0 "$cleaner"', command)
+        for path in ['/usr/share/dotnet', '/usr/local/lib/android', '"$AGENT_TOOLSDIRECTORY"', '/opt/hostedtoolcache/CodeQL',
+                     '/opt/ghc', '/usr/local/share/boost', '/usr/local/share/powershell', '/usr/share/swift', '/usr/local/.ghcup']:
+            self.assertIn(path, command)
+
     def test_nightly_self_hosted_jobs_take_only_the_nightly_pool(self):
         for name, job in jobs('nightly.yml').items():
             runs_on = job['runs-on']
@@ -261,12 +284,29 @@ class CiRunners(unittest.TestCase):
                     self.assertNotIn('||', condition.group(1))
         self.assertGreater(found, 20)
 
-    def test_superseded_runs_cancel_but_main_never_does(self):
-        for workflow in ['ci.yml', 'research.yml', 'supply-chain.yml']:
+    def test_superseded_runs_cancel_but_the_merge_queue_never_does(self):
+        for workflow in ['research.yml', 'supply-chain.yml']:
             group = concurrency(workflow)
             self.assertIn("github.event_name == 'pull_request' && github.ref || github.run_id", group['group'])
             self.assertEqual(group['cancel-in-progress'], "${{ github.event_name == 'pull_request' }}")
         self.assertEqual(concurrency('nightly.yml')['cancel-in-progress'], 'false')
+        ci, verify = concurrency('ci.yml'), concurrency('verify.yml')
+        self.assertEqual(ci['group'], "${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.event_name == 'push' && 'push-main' || github.run_id }}")
+        self.assertEqual(ci['cancel-in-progress'], "${{ github.event_name == 'pull_request' || github.event_name == 'push' }}")
+        self.assertEqual(verify['group'], "${{ github.workflow }}-${{ github.event_name == 'push' && 'push-main' || github.run_id }}")
+        self.assertEqual(verify['cancel-in-progress'], "${{ github.event_name == 'push' }}")
+        for name, block in [('ci.yml', ci), ('verify.yml', verify)]:
+            for event in ['merge_group', 'schedule', 'workflow_dispatch']:
+                expression = block['group'].split('-${{ ', 1)[1].rsplit(' }}', 1)[0]
+                context = {'github.event_name': event, 'github.ref': 'refs/heads/main', 'github.run_id': '7'}
+                self.assertEqual(evaluate(expression, context), '7', (name, event))
+                self.assertFalse(evaluate(block['cancel-in-progress'][4:-3], context), (name, event))
+            context = {'github.event_name': 'push', 'github.ref': 'refs/heads/main', 'github.run_id': '7'}
+            self.assertEqual(evaluate(block['group'].split('-${{ ', 1)[1].rsplit(' }}', 1)[0], context), 'push-main', name)
+        for workflow in ['ci.yml', 'verify.yml']:
+            self.assertEqual(re.findall(r'^  push:\n    branches: \[main\]$', (WORKFLOWS / workflow).read_text(), re.M), ['  push:\n    branches: [main]'], workflow)
+        for workflow in ['deploy.yml', 'post-merge.yml']:
+            self.assertNotIn('push-main', (WORKFLOWS / workflow).read_text())
 
     def test_self_hosted_backend_tests_use_a_port_of_their_own(self):
         block = jobs('ci.yml')['test-backend']['block']
