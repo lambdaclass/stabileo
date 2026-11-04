@@ -1,0 +1,35 @@
+name: Runner pools
+
+on:
+  schedule:
+    - cron: "15 12 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: runner-pools
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: Runner Pools
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/scripts
+      - uses: actions/github-script@d746ffe35508b1917358783b479e04febd2b8f71 # v9.0.0
+        env:
+          STABILEO_SELF_HOSTED: ${{ vars.STABILEO_SELF_HOSTED }}
+          STABILEO_PR_POOL: ${{ vars.STABILEO_PR_POOL }}
+          STABILEO_E2E_POOL: ${{ vars.STABILEO_E2E_POOL }}
+          HAS_RUNNER_TOKEN: ${{ secrets.RUNNER_POOL_TOKEN != '' }}
+        with:
+          github-token: ${{ secrets.RUNNER_POOL_TOKEN || github.token }}
+          script: |
+            const check = require('./.github/scripts/runner-pools.cjs');
+            await check({ github, context, core });

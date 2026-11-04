@@ -5,6 +5,7 @@
  */
 import { t } from '../../lib/i18n';
 import type { Redundant, Geometry } from '../../lib/engine/force-method/solve';
+import type { ReleaseOption } from '../../lib/engine/force-method/releases';
 
 export function sub(n: number | string): string {
   return String(n).split('').map((d) => ('0123456789'.includes(d) ? '₀₁₂₃₄₅₆₇₈₉'[Number(d)] : d)).join('');
@@ -24,9 +25,20 @@ export function redundantText(r: Redundant, g: Geometry): string {
     const key = r.component === 1 && sup?.angle !== undefined ? 'fm.x.reaction1n' : `fm.x.reaction${r.component}`;
     return t(key).replace('{node}', String(r.nodeId));
   }
-  return t(`fm.x.${r.kind}`)
+  if (r.kind === 'spring') return t(`course.statics.x.spring${r.component ?? 1}`).replace('{node}', String(r.nodeId));
+  return t(r.hinge ? 'course.statics.x.hinge' : `fm.x.${r.kind}`)
     .replace('{el}', String(r.elementId))
     .replace('{end}', r.end === 'J' ? 'j' : 'i');
+}
+
+/** One release the reader can choose, in words. */
+export function releaseLabel(o: ReleaseOption): string {
+  const end = o.end === 'J' ? 'j' : 'i';
+  if (o.kind === 'reaction') return t(`fm.x.reaction${o.component}`).replace('{node}', String(o.nodeId));
+  if (o.kind === 'spring') return t(`course.statics.x.spring${o.component}`).replace('{node}', String(o.nodeId));
+  if (o.kind === 'biela') return t('course.statics.fm.opt.biela').replace('{el}', String(o.elementId));
+  const key = o.kind === 'hinge' ? 'course.statics.fm.opt.hinge' : o.count === 2 ? 'course.statics.fm.opt.cutHinged' : 'course.statics.fm.opt.cut';
+  return t(key).replace('{el}', String(o.elementId)).replace('{end}', end);
 }
 
 /** Engineering format: fixed where it is readable, scientific where it is not. */
@@ -48,7 +60,7 @@ export function componentName(c: number, rotated = false, is3D = false): string 
 
 /** Units of a redundant: moments in kN·m, forces in kN. */
 export function redundantUnit(r: Redundant, is3D = false): string {
-  const moment = r.kind === 'cutM' || r.kind === 'cutMy' || r.kind === 'cutMz' || r.kind === 'cutT'
+  const moment = (r.kind === 'spring' && r.component === 2) || r.kind === 'cutM' || r.kind === 'cutMy' || r.kind === 'cutMz' || r.kind === 'cutT'
     || (r.kind === 'reaction' && (is3D ? (r.component ?? 0) >= 3 : r.component === 2));
   return moment ? 'kN·m' : 'kN';
 }
