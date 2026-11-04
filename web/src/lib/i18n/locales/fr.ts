@@ -12253,7 +12253,7 @@ const fr: Translations = {
   'pro.corotNotConverged': 'Aucun équilibre sous la charge complète : le dernier incrément convergé en porte {pct} %. Ses résultats ne sont pas affichés ; utilisez davantage d\'incréments ou vérifiez la stabilité de la structure.',
   'pro.corotMemberTurns': 'La barre {id} tourne de {turn} rad entre ses extrémités, plus que les 0,9π (2,83 rad) qu’une barre admet dans une analyse corotationnelle : divisez-la en barres plus courtes et relancez le calcul.',
   'pro.corotChordTurns': 'La barre {id} fléchit tant qu\'une de ses extrémités peut s\'écarter jusqu\'à {turn} rad de sa corde (rotation de la corde plus la moitié de la rotation entre les extrémités), plus que les 0,9π (2,83 rad) qu\'une barre admet en calcul corotationnel : divisez-la en barres plus courtes et relancez le calcul.',
-  'pro.corotIncrementTurns': 'Une extrémité de la barre {id} a tourné de plus d\'un demi-tour en un seul incrément de charge, plus qu\'un calcul corotationnel ne peut suivre : utilisez plus d\'incréments de charge ou divisez-la en barres plus courtes et relancez le calcul.',
+  'pro.corotIncrementTurns': 'Une extrémité de la barre {id} a tourné de 0,9π (2,83 rad) ou plus en un seul incrément de charge, plus qu\'un calcul corotationnel ne peut suivre : utilisez plus d\'incréments de charge ou divisez-la en barres plus courtes et relancez le calcul.',
   'report.modelFigureCaption': 'Le modèle, avec les numéros de nœuds et de barres utilisés par les tableaux.',
   'edit.found.overlaps': '{n} paires de barres colinéaires superposées',
   'edit.overlapPair': '{a} et {b} : {l} {u}',

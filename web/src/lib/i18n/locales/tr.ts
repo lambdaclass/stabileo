@@ -12261,7 +12261,7 @@ const tr: Translations = {
   'pro.corotNotConverged': 'Tam yükte denge yok: yakınsayan son artım yükün %{pct} kadarını taşıyor. Sonuçları gösterilmez; daha fazla artım kullanın veya yapının stabilitesini kontrol edin.',
   'pro.corotMemberTurns': '{id} numaralı çubuk uçları arasında {turn} rad dönüyor; eşdönel analizde bir çubuğun taşıyabildiği 0,9π (2,83 rad) değerinden fazla: çubuğu daha kısa çubuklara bölün ve yeniden çözün.',
   'pro.corotChordTurns': '{id} numaralı çubuk o kadar eğiliyor ki uçlarından biri kirişinden {turn} rad kadar ayrılabiliyor (kirişin dönmesi artı uçlar arasındaki dönmenin yarısı); bu, eş-dönel analizde bir çubuğun taşıyabileceği 0,9π (2,83 rad) değerinden fazla: çubuğu daha kısa çubuklara bölüp yeniden çözün.',
-  'pro.corotIncrementTurns': '{id} numaralı çubuğun bir ucu tek bir yük artımında yarım turdan fazla döndü; bu, eş-dönel analizin izleyebileceğinden fazla: daha fazla yük artımı kullanın ya da çubuğu daha kısa çubuklara bölüp yeniden çözün.',
+  'pro.corotIncrementTurns': '{id} numaralı çubuğun bir ucu tek bir yük artımında 0,9π (2,83 rad) veya daha fazla döndü; bu, eş-dönel analizin izleyebileceğinden fazla: daha fazla yük artımı kullanın ya da çubuğu daha kısa çubuklara bölüp yeniden çözün.',
   'report.modelFigureCaption': 'Tabloların kullandığı düğüm ve çubuk numaralarıyla model.',
   'edit.found.overlaps': 'Üst üste binen {n} eş doğrultulu çubuk çifti',
   'edit.overlapPair': '{a} ve {b}: {l} {u}',

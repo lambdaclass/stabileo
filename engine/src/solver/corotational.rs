@@ -1986,8 +1986,9 @@ fn on_one_branch_3d(input: &SolverInput3D, dof_num: &DofNumbering, (u_before, be
     for (d, b) in now.iter().filter_map(|d| Some((d, *before.get(&d.id)?))) {
         if (0..2).any(|k| jump(d.ends[k], b.ends[k]) > std::f64::consts::PI) {
             return Err(format!(
-                "Co-rotational 3D: an end of member {} turned more than half a turn against its chord within one load increment; use more load increments or split it into shorter members",
-                d.id
+                "Co-rotational 3D: an end of member {} turned more than {:.2} rad against its chord within one load increment; use more load increments or split it into shorter members",
+                d.id,
+                std::f64::consts::PI
             ));
         }
     }
