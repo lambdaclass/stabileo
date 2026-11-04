@@ -46,6 +46,7 @@ import { fileURLToPath } from 'node:url';
 import { newPrerenderPage, prerenderConcurrency, routePool } from './prerender-pool';
 import { rootHandoffScript } from './root-handoff';
 import { notFoundPage } from './not-found-page';
+import { buildStarCount, serveStarCount } from './build-stars';
 import { paperStructuredData } from './paper-structured-data';
 import { POST_DATE, POST_LASTMOD, publicPaths, writtenIn } from './public-paths';
 import { PUBLIC_LOCALES, type Locale } from '../src/lib/i18n/offered';
@@ -207,8 +208,9 @@ async function renderPostCard(browser: Browser, base: string, post: PostHead, ou
  */
 const ROOT_REDIRECT = rootHandoffScript(LOCALES, DEFAULT_LOCALE);
 
-async function newCapturePage(browser: Browser) {
-  const page = await newPrerenderPage(() => browser.newPage());
+async function newCapturePage(browser: Browser, stars: number | null) {
+  const page = await newPrerenderPage(() => browser.newPage({ reducedMotion: 'reduce' }));
+  await serveStarCount(page, stars);
   // Read the current route on every navigation: reused pages must not accumulate
   // locale-specific init scripts or inherit the previous route's preferences.
   await page.addInitScript(() => {
@@ -285,7 +287,10 @@ async function main() {
   const stop = () => new Promise<void>((done) => server.close(() => done()));
   const base = `http://127.0.0.1:${port}`;
   const browser = await chromium.launch({ args: ['--disable-dev-shm-usage'] });
-  const paths = await publicPaths();
+  const stars = await buildStarCount();
+  const only = process.env.PRERENDER_ONLY?.split(',');
+  const paths = (await publicPaths()).filter((path) => !only || only.includes(path));
+  if (only && paths.length !== only.length) throw new Error(`PRERENDER_ONLY names a path the site does not publish: ${only.filter((path) => !paths.includes(path)).join(', ')}`);
   const written: string[] = [];
   const posts: PostHead[] = [];
 
@@ -294,7 +299,7 @@ async function main() {
       locale, path, href: path === '/' ? `/${locale}/` : `/${locale}${path}/`,
     })));
     const captures = await routePool(routes, concurrency,
-      () => newCapturePage(browser), p => p.close(),
+      () => newCapturePage(browser, stars), p => p.close(),
       async (p, { locale, path }) => {
         const result = await capture(p, base, locale, path);
         const { head, body, lang, href } = result;
@@ -325,7 +330,7 @@ async function main() {
     // handoff script that sends everyone else on.
     const [{ head, body, lang }] = await routePool(
       [{ href: '/', locale: DEFAULT_LOCALE, path: '/' }], 1,
-      () => newCapturePage(browser), p => p.close(),
+      () => newCapturePage(browser, stars), p => p.close(),
       (p) => capture(p, base, DEFAULT_LOCALE, '/'),
     );
     await writeFile(join(DIST, 'index.html'), page(head, body, lang, ROOT_REDIRECT));
