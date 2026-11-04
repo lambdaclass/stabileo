@@ -40,7 +40,8 @@ STABILEO_ROOT=$work
 BACKEND_PORT=$(port)
 ROBOTS_TAG=noindex, nofollow
 EOF
-grep -v '^import /etc/caddy/' "$here/Caddyfile" > "$work/Caddyfile"
+grep -v '^import /etc/caddy/' "$here/Caddyfile" | sed "s#https://snapshots\.{\$APP_DOMAIN}#http://snapshots.test:$(port)#" > "$work/Caddyfile"
+if grep -q 'https://' <(grep -E '^[^[:space:]#].*\{$' "$work/Caddyfile"); then echo "FAIL: an https site in the fixture would bind :443"; exit 1; fi
 
 CADDY_ADMIN="127.0.0.1:$(port)" caddy run --config "$work/Caddyfile" --adapter caddyfile --envfile "$work/test.env" > "$work/caddy.log" 2>&1 &
 caddy_pid=$!
