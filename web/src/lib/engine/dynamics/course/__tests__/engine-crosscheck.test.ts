@@ -301,6 +301,46 @@ describe('a floor beam holds a column top only when its far end is held up', () 
     expect(r.floors[0].columns.map((c) => c.factor)).toEqual([3]);
     expect(r.floors[0].k).toBeCloseTo((3 * EI) / 27, 3);
   });
+  it('refuses, rather than drops, what turns that top: a load on the overhang, a couple, a vertical mass off the column, rotary inertia, the overhang\'s own mass', () => {
+    const overhang = (extra: (beam: number, tip: number) => void) => build(() => {
+      const a = modelStore.addNode(0, 0), b = modelStore.addNode(0, 3), c = modelStore.addNode(2, 3);
+      modelStore.addElement(a, b);
+      const beam = modelStore.addElement(b, c);
+      modelStore.addSupport(a, 'fixed');
+      extra(beam, c);
+    });
+    overhang(() => {});
+    expect(typeof shearBuilding(modelStore.model, [{ nodeId: 2, m: 5 }], false)).toBe('object');
+    for (const extra of [
+      (beam: number) => { modelStore.addPointLoadOnElement(beam, 2, -10); },
+      (beam: number) => { modelStore.addDistributedLoad(beam, -10, -10); },
+      (_: number, tip: number) => { modelStore.addNodalLoad(tip, 0, -10); },
+      () => { modelStore.addNodalLoad(2, 0, 0, 5); },
+    ]) {
+      overhang(extra);
+      expect(shearBuilding(modelStore.model, [{ nodeId: 2, m: 5 }], false)).toBe('turningFloor');
+    }
+    overhang(() => {});
+    expect(shearBuilding(modelStore.model, [{ nodeId: 2, m: 5 }, { nodeId: 3, m: 1 }], false)).toBe('turningFloor');
+    expect(typeof shearBuilding(modelStore.model, [{ nodeId: 2, m: 5 }, { nodeId: 3, m: 1, horizontalOnly: true }], false)).toBe('object');
+    expect(shearBuilding(modelStore.model, [{ nodeId: 2, m: 5, izz: 1 }], false)).toBe('turningFloor');
+    expect(shearBuilding(modelStore.model, [{ nodeId: 2, m: 5 }], true)).toBe('turningFloor');
+  });
+  it('a free-standing column takes no couple or rotary inertia at its top', () => {
+    build(() => {
+      const a = modelStore.addNode(0, 0), b = modelStore.addNode(0, 3);
+      modelStore.addElement(a, b);
+      modelStore.addSupport(a, 'fixed');
+      modelStore.addNodalLoad(b, 0, 0, 5);
+    });
+    expect(shearBuilding(modelStore.model, [{ nodeId: 2, m: 5 }], false)).toBe('turningFloor');
+    build(() => {
+      const a = modelStore.addNode(0, 0), b = modelStore.addNode(0, 3);
+      modelStore.addElement(a, b);
+      modelStore.addSupport(a, 'fixed');
+    });
+    expect(shearBuilding(modelStore.model, [{ nodeId: 2, m: 5, izz: 2 }], false)).toBe('turningFloor');
+  });
   it('a floor beam that reaches the other column only through a pin-ended link is refused, not taken as holding the column top', () => {
     const rel = { my: false, mz: true, t: false };
     build(() => {

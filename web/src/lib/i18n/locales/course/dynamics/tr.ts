@@ -234,6 +234,7 @@ const words: Translations = {
   'course.dynamics.mdof.err.shear.variableSection': 'Bir çubuğun kesiti değişken: tek bir EI, katının rijitliğini vermez.',
   'course.dynamics.mdof.err.shear.unsupportedBase': 'Taban seviyesindeki bir düğümün mesnedi yok: kayma çerçevesi her kolon ayağının ankastre veya mafsallı olmasını gerektirir.',
   'course.dynamics.mdof.err.shear.floorHinge': 'Bir kat kirişi bir kolona veya mesnede yalnızca serbest bırakılmış bir uçtan ulaşıyor: kolon başının dönmesini ne kadar tuttuğu bilinmiyor ve kayma çerçevesi bunu modellemiyor.',
+  'course.dynamics.mdof.err.shear.turningFloor': 'Bir kolon başı serbestçe dönebiliyor ve onun ya da onunla birlikte dönen kirişin üzerindeki düşey bir yük, bir moment, düşey hareket eden bir kütle veya bir dönme ataleti bu başı döndürüp katı yana ötelerdi: kayma çerçevesi bunu modellemez.',
   'course.dynamics.mdof.err.shear.continuousColumn': 'Bir kolon, kiriş uçları serbest bırakılmış bir kattan rijit olarak geçiyor: üst veya alt kata moment aktarır ve katları birbirine bağlar; kayma çerçevesi bunu modellemez.',
   'course.dynamics.mdof.err.shear.noMass': 'Bir katın kütlesi yok. Katlara tekil kütleler ekleyin.',
   'steps.m.massDiscretization.title': 'Yayılı kütle: ayrıklaştırma ve yoğunlaştırma',

@@ -142,6 +142,7 @@ export const es: Translations = {
   'course.dynamics.mdof.err.shear.variableSection': 'Alguna barra tiene sección variable: un solo EI no da la rigidez de su piso.',
   'course.dynamics.mdof.err.shear.unsupportedBase': 'Algún nudo al nivel de la base no tiene apoyo: el pórtico de corte necesita cada pie de columna empotrado o articulado.',
   'course.dynamics.mdof.err.shear.floorHinge': 'Una viga del piso llega a una columna o un apoyo solo a través de un extremo liberado: no se sabe cuánto restringe el giro de la columna, y el pórtico de corte no lo modela.',
+  'course.dynamics.mdof.err.shear.turningFloor': 'Una columna tiene la cabeza libre de girar, y una carga vertical, un par, una masa que se mueve en vertical o una inercia de rotación sobre ella o sobre la viga que gira con ella haría girar esa cabeza y desplazaría el piso: el pórtico de corte no lo representa.',
   'course.dynamics.mdof.err.shear.continuousColumn': 'Una columna sigue rígida a través de un piso cuyas vigas están liberadas: transmite momento al piso de arriba o de abajo y acopla los pisos, algo que el pórtico de corte no modela.',
   'course.dynamics.mdof.err.shear.noMass': 'Algún piso no tiene masa. Agregá masas puntuales en los pisos.',
 };
@@ -288,6 +289,7 @@ export const en: Translations = {
   'course.dynamics.mdof.err.shear.variableSection': 'A member has a variable section: one EI does not give the stiffness of its floor.',
   'course.dynamics.mdof.err.shear.unsupportedBase': 'A node at base level has no support: the shear building needs every column foot fixed or pinned.',
   'course.dynamics.mdof.err.shear.floorHinge': 'A floor beam reaches a column or a support only through a released end: how much it holds the column top against rotation is not known, and the shear building does not model it.',
+  'course.dynamics.mdof.err.shear.turningFloor': 'A column top is free to turn, and a vertical load, a couple, a vertically moving mass or a rotary inertia on it or on the beam turning with it would turn that top and sway the floor: the shear building does not model that.',
   'course.dynamics.mdof.err.shear.continuousColumn': 'A column continues rigidly through a floor whose beams are released: it carries moment to the story above or below and couples the stories, which the shear building does not model.',
   'course.dynamics.mdof.err.shear.noMass': 'A floor has no mass. Add point masses at the floors.',
 };
@@ -434,6 +436,7 @@ export const pt: Translations = {
   'course.dynamics.mdof.err.shear.variableSection': 'Alguma barra tem seção variável: um único EI não dá a rigidez do seu pavimento.',
   'course.dynamics.mdof.err.shear.unsupportedBase': 'Algum nó no nível da base não tem apoio: o pórtico de cisalhamento precisa de cada pé de pilar engastado ou articulado.',
   'course.dynamics.mdof.err.shear.floorHinge': 'Uma viga do pavimento chega a um pilar ou apoio só através de uma extremidade liberada: não se sabe quanto ela restringe o giro do pilar, e o pórtico de cisalhamento não modela isso.',
+  'course.dynamics.mdof.err.shear.turningFloor': 'Um pilar tem o topo livre para girar, e uma carga vertical, um binário, uma massa que se move na vertical ou uma inércia de rotação nele ou na viga que gira com ele faria girar esse topo e deslocaria o pavimento: o pórtico de cisalhamento não representa isso.',
   'course.dynamics.mdof.err.shear.continuousColumn': 'Um pilar continua rígido através de um pavimento cujas vigas estão liberadas: transmite momento ao pavimento de cima ou de baixo e acopla os pavimentos, o que o pórtico de cisalhamento não modela.',
   'course.dynamics.mdof.err.shear.noMass': 'Algum pavimento não tem massa. Adicione massas pontuais nos pavimentos.',
 };

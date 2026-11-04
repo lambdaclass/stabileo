@@ -234,6 +234,7 @@ const words: Translations = {
   'course.dynamics.mdof.err.shear.variableSection': 'Ein Stab hat einen veränderlichen Querschnitt: Ein einziges EI ergibt nicht die Steifigkeit seines Geschosses.',
   'course.dynamics.mdof.err.shear.unsupportedBase': 'Ein Knoten auf Fußhöhe hat kein Lager: Der Schubrahmen braucht jeden Stützenfuß eingespannt oder gelenkig gelagert.',
   'course.dynamics.mdof.err.shear.floorHinge': 'Ein Riegel erreicht eine Stütze oder ein Lager nur über ein gelöstes Ende: Wie stark er die Verdrehung des Stützenkopfs behindert, ist unbekannt, und der Schubrahmen bildet das nicht ab.',
+  'course.dynamics.mdof.err.shear.turningFloor': 'Ein Stützenkopf kann sich frei verdrehen, und eine vertikale Last, ein Moment, eine vertikal bewegte Masse oder eine Drehträgheit an ihm oder am Riegel, der sich mit ihm dreht, würde ihn verdrehen und das Geschoss seitlich verschieben: Der Schubrahmen bildet das nicht ab.',
   'course.dynamics.mdof.err.shear.continuousColumn': 'Eine Stütze läuft biegesteif durch ein Geschoss, dessen Riegelenden gelöst sind: Sie überträgt Moment in das Geschoss darüber oder darunter und koppelt die Geschosse, was der Schubrahmen nicht abbildet.',
   'course.dynamics.mdof.err.shear.noMass': 'Ein Geschoss hat keine Masse. Fügen Sie Punktmassen in den Geschossen hinzu.',
   'steps.m.massDiscretization.title': 'Verteilte Masse: Diskretisierung und Kondensation',

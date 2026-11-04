@@ -234,6 +234,7 @@ const words: Translations = {
   'course.dynamics.mdof.err.shear.variableSection': 'Une barre a une section variable : un seul EI ne donne pas la rigidité de son niveau.',
   'course.dynamics.mdof.err.shear.unsupportedBase': 'Un nœud au niveau de la base n\'a pas d\'appui : le portique de cisaillement demande chaque pied de poteau encastré ou articulé.',
   'course.dynamics.mdof.err.shear.floorHinge': 'Une poutre du niveau n’atteint un poteau ou un appui que par une extrémité libérée : on ne sait pas combien elle retient la rotation de la tête du poteau, et le portique de cisaillement ne le modélise pas.',
+  'course.dynamics.mdof.err.shear.turningFloor': 'La tête d’un poteau tourne librement, et une charge verticale, un couple, une masse qui se déplace verticalement ou une inertie de rotation sur elle ou sur la poutre qui tourne avec elle ferait tourner cette tête et déplacerait le niveau : le portique de cisaillement ne le représente pas.',
   'course.dynamics.mdof.err.shear.continuousColumn': 'Un poteau continue rigidement à travers un niveau dont les extrémités de poutre sont libérées : il transmet un moment au niveau au-dessus ou en dessous et couple les niveaux, ce que le portique de cisaillement ne modélise pas.',
   'course.dynamics.mdof.err.shear.noMass': 'Un niveau n\'a pas de masse. Ajoutez des masses ponctuelles aux niveaux.',
   'steps.m.massDiscretization.title': 'Masse répartie : discrétisation et condensation',

@@ -8,6 +8,9 @@
  * none for a column free at both ends), and the floors
  * are masses joined by those springs in series. A column held at a joint only by
  * another column, with no rigid floor beam there, couples storeys and is refused.
+ * Where a column top turns, a couple or rotary inertia there, and a vertical load
+ * or vertically moving mass on a beam turning with it, would sway the floor, so
+ * those are refused rather than dropped.
  */
 import type { ModelData } from '../../solver-service';
 import type { PointMass } from '../mass-source';
@@ -42,7 +45,7 @@ export interface ShearBuilding {
   dofs: DofRef[];
 }
 
-export type ShearRefusal = 'notFrames' | 'base' | 'shape' | 'noColumns' | 'noMass' | 'floorSplit' | 'variableSection' | 'unsupportedBase' | 'continuousColumn' | 'memberLoad' | 'otherParts' | 'floorHinge';
+export type ShearRefusal = 'notFrames' | 'base' | 'shape' | 'noColumns' | 'noMass' | 'floorSplit' | 'variableSection' | 'unsupportedBase' | 'continuousColumn' | 'memberLoad' | 'otherParts' | 'floorHinge' | 'turningFloor';
 
 const TOL = 1e-6;
 
@@ -111,6 +114,7 @@ export function shearBuilding(model: ModelData, points: readonly PointMass[], ba
     if (beamHolds.has(node)) return false;
     return (rigidEnds.get(node) ?? 0) > 1 ? 'coupled' : true;
   };
+  const turning = new Set<number>();
   for (const e of els) {
     if (e.variableSection) return 'variableSection';
     const a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
@@ -134,6 +138,8 @@ export function shearBuilding(model: ModelData, points: readonly PointMass[], ba
     const freeLo = lo === 0 ? loEnd || pinnedBase : jointFree(loNode, loEnd);
     const freeHi = jointFree(hiNode, hiEnd);
     if (freeLo === 'coupled' || freeHi === 'coupled') return 'continuousColumn';
+    if (freeHi && !hiEnd) turning.add(hiNode);
+    if (lo > 0 && freeLo && !loEnd) turning.add(loNode);
     const factor: 12 | 3 | 0 = freeLo && freeHi ? 0 : freeLo || freeHi ? 3 : 12;
     const E = mat.e * 1000, I = effectiveBendingInertia(s, props);
     const h = Math.abs(b.y - a.y);
@@ -159,10 +165,18 @@ export function shearBuilding(model: ModelData, points: readonly PointMass[], ba
     if (ld.type === 'pointOnElement') return onBeam(ld.data.elementId) && !ld.data.isGlobal && !ld.data.angle && !ld.data.px && !(ld.data.my ?? ld.data.mz);
     return false;
   };
+  const swayed = [...turning].some((n) => beams.some((b) => (b.nodeI === n || b.nodeJ === n) && rigidAt(b, n)));
+  if (turning.size && points.some((p) => (p.izz ?? 0) > 0)) return 'turningFloor';
+  if (swayed && (barMass && beams.length > 0 || points.some((p) => p.m > 0 && !p.horizontalOnly && !heldUp.has(p.nodeId)))) return 'turningFloor';
   for (const ld of model.loads) {
-    if (vertical(ld)) continue;
+    if (vertical(ld)) {
+      if (swayed) return 'turningFloor';
+      continue;
+    }
     if (ld.type !== 'nodal') return 'memberLoad';
-    const d = ld.data as { nodeId: number; fx?: number };
+    const d = ld.data as { nodeId: number; fx?: number; fz?: number; fy?: number; my?: number; mz?: number };
+    if (turning.size && (d.my ?? d.mz ?? 0) !== 0) return 'turningFloor';
+    if (swayed && (d.fz ?? d.fy ?? 0) !== 0 && !heldUp.has(d.nodeId)) return 'turningFloor';
     const n = model.nodes.get(d.nodeId);
     const l = n ? levelOf(n.y) : -1;
     if (l > 0) floors[l - 1].F += d.fx ?? 0;
