@@ -63,7 +63,7 @@ export const privacyPage: StandingPage = {
       faq: [],
     },
     en: {
-      title: 'Stabileo Privacy Policy',
+      title: 'The Stabileo Privacy Policy',
       description: 'What data Stabileo processes, why, how long it keeps it, and how to exercise your rights of access, rectification and deletion.',
       eyebrow: 'Legal',
       lead: 'This policy explains what personal data Stabileo SAS processes when you use stabileo.com, what it uses it for and how you can control it. It applies from October 27, 2026.',
