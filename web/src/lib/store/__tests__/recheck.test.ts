@@ -54,6 +54,16 @@ describe('recheckStore', () => {
     expect(recheckStore.assessment?.changes.map((c) => c.id)).toContain('generated-area-loads-headroom');
     recheckStore.acknowledge();
     recheckStore.noteSolved('linear');
+    const solved = { ...(generated() as object), solvedWith: recheckStore.capture() };
+    recheckStore.reset();
+    recheckStore.openProject(solved as never, 'pro');
+    await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
+    expect(recheckStore.noticeOpen).toBe(true);
+    expect(recheckStore.assessment?.changes.map((c) => c.id)).toEqual(['generated-area-loads-headroom']);
+    recheckStore.reset();
+    recheckStore.openProject({ ...solved, designData: { loadBasis: { resultsVersion: RESULTS_VERSION } } } as never, 'pro');
+    await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
+    expect(recheckStore.noticeOpen).toBe(false);
     recheckStore.reset();
     recheckStore.openProject(generated(RESULTS_VERSION - 1), 'pro');
     await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
