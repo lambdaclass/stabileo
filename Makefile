@@ -215,6 +215,7 @@ GATE_CONSTRAINT_BENCH = test(/benchmark_.*constraint/)
 GATE_MODULES = sparse_shell_gates solver_invariants solver_ci_coverage conditioning_adversarial kfull_overbuild_gates acceptance
 # Wall-clock gates run single-threaded, so elapsed time is CPU work, not contention.
 GATE_TIMED_MODULES = perf_regression_gates perf_regression_advanced
+GATE_TIMED_IGNORED = test(=element::solid_shell::tests::test_centroid_stress_timing_budget) + test(=section::poisson::tests::sparse_path_scales_better_than_cubically) + test(=solver::constraints::tests::validate_constraints_reads_the_nodes_once_not_once_per_constraint) + test(=solver::dynamic_validation::tests::area_mass_validation_is_linear_in_the_number_of_shells) + test(=postprocess_scaling::rc_check_scales_linearly_in_member_count)
 GATE_CERTIFICATES = test(/^certify::/) + test(/^properties_2d::/) + test(/^properties_3d::/)
 # Metamorphic tests run apart, in release: unoptimised they outlast a suite shard.
 GATE_RELEASE_BINARIES = metamorphic
@@ -239,6 +240,7 @@ test.engine.gates: check.engine.acceptance-models test.engine.units-types
 	$(NEXTEST) -E '$(GATE_CONSTRAINT_BENCH)'
 	$(foreach m,$(GATE_MODULES),($(NEXTEST) --test gates -E 'test(/^$(m)::/)') &&) true
 	$(foreach m,$(GATE_TIMED_MODULES),($(NEXTEST) --test gates -E 'test(/^$(m)::/)' --test-threads 1) &&) true
+	$(NEXTEST) --run-ignored only -E '$(GATE_TIMED_IGNORED)' --test-threads 1
 	$(NEXTEST) --test certificates -E '$(GATE_CERTIFICATES)'
 
 test.engine.metamorphic:

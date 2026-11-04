@@ -61,11 +61,21 @@ class CiRunners(unittest.TestCase):
     def test_routing(self):
         ci = jobs('ci.yml')
         hosted = {name for name, job in ci.items() if job.get('runs-on') == 'ubuntu-24.04'}
-        self.assertEqual(hosted, {'changes', 'docker-smoke', 'determinism', 'timing-budgets', 'ci-ok'})
+        self.assertEqual(hosted, {'changes', 'docker-smoke', 'determinism', 'timing-budgets', 'e2e', 'e2e-flaky', 'ci-ok',
+                                  'test-ci-scripts', 'lint-backend', 'check-migrations-immutable', 'check-migrations', 'results-snapshot'})
+        self.assertEqual({name for name, job in jobs('research.yml').items() if job.get('runs-on') == 'ubuntu-24.04'}, {'isolation', 'catalog'})
         for name in ['test-engine-gates', 'web-unit']:
             self.assertEqual(labels(ci[name]['runs-on']), {'stabileo-timing'})
         self.assertEqual(labels(jobs('research.yml')['engine-benchmarks']['runs-on']), {'stabileo-timing'})
         self.assertEqual(labels(ci['wasm']['runs-on']), {'stabileo', 'stabileo-pr'})
+
+    def test_pull_requests_take_the_host_only_for_their_critical_path_builds(self):
+        pr = set()
+        for workflow in ['ci.yml', 'research.yml']:
+            for name, job in jobs(workflow).items():
+                if 'stabileo-pr' in labels(job.get('runs-on', '')):
+                    pr.add(f'{workflow}:{name}')
+        self.assertEqual(pr, {'ci.yml:wasm', 'ci.yml:research-wasm', 'ci.yml:site-e2e'})
 
     def test_jobs_use_a_github_runners_threads_wherever_they_run(self):
         caps = {'CARGO_BUILD_JOBS': '4', 'RUST_TEST_THREADS': '4', 'NEXTEST_TEST_THREADS': '4', 'RAYON_NUM_THREADS': '4',
@@ -91,7 +101,7 @@ class CiRunners(unittest.TestCase):
     def test_browser_jobs_can_be_capped_to_the_e2e_pool(self):
         ci = jobs('ci.yml')
         browser = {name for name, job in ci.items() if 'stabileo-e2e' in labels(job.get('runs-on', ''))}
-        self.assertEqual(browser, {'e2e', 'site-e2e', 'e2e-flaky'})
+        self.assertEqual(browser, {'site-e2e'})
         for name in browser:
             runs_on = ci[name]['runs-on']
             self.assertIn("(vars.STABILEO_E2E_POOL == 'true' && fromJSON('[\"self-hosted\",\"stabileo-e2e\"]') || fromJSON('[\"self-hosted\",\"stabileo\"]'))", runs_on, name)

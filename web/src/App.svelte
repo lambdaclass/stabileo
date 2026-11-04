@@ -605,10 +605,10 @@
     }
   });
   let showBlog = $state(typeof window !== 'undefined' && isBlogRoute(location.pathname));
-  let blog = $state<typeof import('./components/blog/BlogPage.svelte').default | null>(null);
+  let blogPage = $state<typeof import('./components/blog/BlogPage.svelte').default | null>(null);
   $effect(() => {
-    if (showBlog && !blog) {
-      void import('./components/blog/BlogPage.svelte').then((m) => (blog = m.default));
+    if (showBlog && !blogPage) {
+      void import('./components/blog/BlogPage.svelte').then((m) => (blogPage = m.default));
     }
   });
   /** The address the blog reads its slug from; kept in state so it is reactive. */
@@ -1440,8 +1440,8 @@
     <Paper />
   {/if}
 {:else if showBlog}
-  {#if blog}
-    {@const Blog = blog}
+  {#if blogPage}
+    {@const Blog = blogPage}
     <Blog path={blogPath} />
   {/if}
 {:else if showLanding}

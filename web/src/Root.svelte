@@ -42,18 +42,18 @@
     }
   });
 
-  let blog = $state<typeof import('./components/blog/BlogPage.svelte').default | null>(null);
-  $effect(() => {
-    if (current.kind === 'blog' && !blog) {
-      void import('./components/blog/BlogPage.svelte').then((m) => (blog = m.default));
-    }
-  });
-
   /** The paper, with KaTeX, is its own chunk too. */
   let paper = $state<typeof import('./components/paper/PaperPage.svelte').default | null>(null);
   $effect(() => {
     if (current.kind === 'paper' && !paper) {
       void import('./components/paper/PaperPage.svelte').then((m) => (paper = m.default));
+    }
+  });
+
+  let blog = $state<typeof import('./components/blog/BlogPage.svelte').default | null>(null);
+  $effect(() => {
+    if (current.kind === 'blog' && !blog) {
+      void import('./components/blog/BlogPage.svelte').then((m) => (blog = m.default));
     }
   });
 

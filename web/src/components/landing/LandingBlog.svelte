@@ -16,9 +16,8 @@
   import PublicLink from './PublicLink.svelte';
 
   let blog = $state<typeof import('../../lib/blog') | null>(null);
-  $effect(() => {
-    void import('../../lib/blog').then((m) => (blog = m));
-  });
+  void import('../../lib/blog').then((m) => (blog = m));
+
   const latest = $derived(blog?.POSTS_NEWEST_FIRST[0]);
   const body = $derived(blog && latest ? blog.inLocale(latest.i18n, publicI18n.locale) : undefined);
 </script>
