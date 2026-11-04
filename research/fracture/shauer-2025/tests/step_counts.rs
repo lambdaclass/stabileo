@@ -14,5 +14,6 @@ fn browser_load_step_options_match_accumulated_solver_time() {
         let steps = solver.run(|_, _| {}).unwrap();
         assert_eq!(steps.len(), count, "dt={dt}");
         assert_eq!(steps.last().unwrap().step, count - 1);
+        assert!((steps.last().unwrap().pseudotime - count as f64 * dt).abs() < 1e-12);
     }
 }

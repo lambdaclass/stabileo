@@ -2039,6 +2039,8 @@ const ru: Translations = {
   'switch2d.noElements': 'There are nodes at that distance, but no members joining them — nothing to analyse.',
   'switch2d.noOffset': 'Enter a distance, or pick one of the cuts.',
   'switch2d.allCollapse': 'All members collapse or are duplicates in this projection. Use 3D mode.',
+  'switch2d.constraintsPlane': "В этой модели есть связи, которые 2D-решатель прочитал бы в этой плоскости иначе: он читает их все так, будто рама стоит в X–Z. Сделайте разрез по X–Z или выполните расчёт в 3D (известная проблема #466, AC-PLANE-MAPPING).",
+  'switch2d.sectionAxis': "У некоторых стержней оси сечения наклонены к этой плоскости, поэтому их изгиб связывает плоскость с перпендикулярным направлением, или они изгибаются здесь относительно другой оси сечения, не являющегося дважды симметричным; 2D-модель не может отразить ни то, ни другое, поэтому 2D-результаты были бы неверны. Выполните расчёт в 3D или сделайте разрез в плоскости, с которой оси сечения этих стержней совпадают.",
   'switch2d.loadsLeftBehind': 'loads left behind',
   'switch2d.sliceBanner': 'Cut from a 3D model',
   'tour.navigateDesc3DExtra': 'Ниже этой кнопки — дополнительные инструменты: предустановленные виды (план, фасад, бок), перспектива/ортография, плоскость сечения и измерение.',

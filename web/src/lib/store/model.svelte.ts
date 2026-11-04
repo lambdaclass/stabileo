@@ -3896,11 +3896,15 @@ function createModelStore() {
     },
 
     /** Replace model geometry data in-place (for simplified 2D model swap). No undo. */
-    replaceModelData(nodes: Map<number, any>, elements: Map<number, any>, supports: Map<number, any>, loads: any[]): void {
+    replaceModelData(nodes: Map<number, any>, elements: Map<number, any>, supports: Map<number, any>, loads: any[], sections?: Map<number, Section>): void {
       model.nodes = nodes;
       model.elements = elements;
       model.supports = supports;
       model.loads = loads;
+      if (sections) {
+        model.sections = sections;
+        for (const id of sections.keys()) if (id >= nextId.section) nextId.section = id + 1;
+      }
     },
 
     updateNode(id: number, x: number, y: number, z?: number): void {

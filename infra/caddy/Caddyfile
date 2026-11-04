@@ -36,6 +36,17 @@ import /etc/caddy/sites.d/*.caddy
 	}
 	redir @dirNoSlash {path}/ 301
 
+	map {path} {english_twin} {
+		~^/(?:es|pt|de|fr|tr)(/[^.]*[^./])/?$ "/en${1}"
+		default ""
+	}
+	@notInThisLanguage {
+		not vars {english_twin} ""
+		not file {path}/index.html
+		file {english_twin}/index.html
+	}
+	redir @notInThisLanguage {english_twin}/ 301
+
 	@static path_regexp \.
 	handle @static {
 		@assets path /assets/*

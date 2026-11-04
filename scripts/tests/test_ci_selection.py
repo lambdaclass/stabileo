@@ -116,7 +116,7 @@ class Selection(unittest.TestCase):
             self.assertEqual(result[key], 'false', key)
         for key in self.SITE_RUNS:
             self.assertEqual(result[key], 'true', key)
-        self.assertEqual(json.loads(result['e2e_shards']), list(range(1, 11)))
+        self.assertEqual(json.loads(result['e2e_shards']), list(range(1, selection.E2E_SHARDS + 1)))
         self.assertEqual(result['unit_area'], '')
         for key in ['docker', 'determinism', 'flaky']:
             self.assertEqual(result[key], 'false' if queue else 'true', key)
@@ -255,7 +255,7 @@ class Selection(unittest.TestCase):
 
     def assert_full(self, result):
         self.assertEqual(result['scope'], 'full')
-        self.assertEqual(json.loads(result['e2e_shards']), list(range(1, 11)))
+        self.assertEqual(json.loads(result['e2e_shards']), list(range(1, selection.E2E_SHARDS + 1)))
         self.assertEqual(result['unit_area'], '')
         for key in ['engine', 'web', 'research', 'docker', 'backend', 'ai_backend', 'ci_scripts', 'web_build', 'flaky', 'determinism', 'results', 'retest']:
             self.assertEqual(result[key], 'true', key)
@@ -348,7 +348,7 @@ class Selection(unittest.TestCase):
         for key in ['web', 'web_build', 'docker', 'determinism', 'flaky', 'slow_e2e', 'research']:
             self.assertEqual(result[key], 'true', key)
         self.assertEqual(result['research_route_only'], 'false')
-        self.assertEqual(json.loads(result['e2e_shards']), list(range(1, 11)))
+        self.assertEqual(json.loads(result['e2e_shards']), list(range(1, selection.E2E_SHARDS + 1)))
 
     def test_every_other_main_push_or_event_runs_everything(self):
         self.assert_full(selection.select('push', None))

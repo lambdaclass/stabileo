@@ -20,6 +20,7 @@ SPECS = {
 
 
 POST_MERGE_EVENTS = ('push', 'schedule', 'workflow_dispatch')
+E2E_SHARDS = 14
 DOCKER_SOURCE_INPUTS = re.compile(
     r'Dockerfile|\.dockerignore|rust-toolchain(\.toml)?|\.nvmrc|(.*/)?Cargo\.(toml|lock)|engine/\.cargo/.*'
     r'|web/package(-lock)?\.json|web/scripts/check-research-springs\.mjs|web/vite\.research-viewer\.config\.ts'
@@ -85,8 +86,8 @@ def select(event, paths, root=None, force_full=False, tested=False):
     outputs = {key: str(value).lower() for key, value in outputs.items()}
     outputs.update(scope=scope, unit_area=scope if scope in ('research', 'tools') else '',
                    e2e_specs=json.dumps(SPECS.get(scope, [])),
-                   e2e_shards=json.dumps(list(range(1, 11)) if full or scope == 'site' else [1]),
-                   e2e_total='10' if full or scope == 'site' else '1')
+                   e2e_shards=json.dumps(list(range(1, E2E_SHARDS + 1)) if full or scope == 'site' else [1]),
+                   e2e_total=str(E2E_SHARDS) if full or scope == 'site' else '1')
     return outputs
 
 

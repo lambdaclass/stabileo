@@ -30,6 +30,25 @@ never silently wrong and verification never silently stops working.
   Each PR is then merged on its own, in that order.
 - **Review before merge.** Every PR gets an independent review (Codex review, plus a human
   reviewer for solver, certificate and design-check changes) before it leaves draft and merges.
+- **When a PR merges.** All three must hold on the PR's current head commit:
+  - CI is green on that commit.
+  - The branch contains the latest `main`, merged into the branch for real. A clean local
+    `git merge-tree` preview is not enough: GitHub ignores `merge=union` and fails on criss-cross
+    merge bases where a local merge succeeds.
+  - An LLM review (Codex at high reasoning effort) of that exact commit has no unresolved blockers.
+    Any new commit needs a new review.
+- **Review rounds.** After about three review rounds on the same PR, fix only the blockers that
+  can produce a wrong result and defer the rest with the evidence in the PR body; a finding deferred
+  that way counts as resolved for the merge rule above.
+- **Bugs first.** Bug and safety fixes merge before features.
+- **Results versions.** A PR that changes results takes the next results version
+  ([verification/PROVENANCE.md](verification/PROVENANCE.md)), assigned in the order PRs become
+  ready to merge. If another results-changing PR lands first, renumber.
+- **Merge status.** The pinned issue [Merge status (#1391)](https://github.com/lambdaclass/stabileo/issues/1391)
+  and the `status:*` labels (`status:in-queue`, `status:ready`, `status:in-progress`,
+  `status:blocked`, `status:needs-owner-ok`) show every open PR's state and expected merge time.
+- **Never use `git stash`.** Every worktree of a clone shares one stash list, so a stash in one
+  worktree can be popped or dropped from another. Commit to your branch or copy the files instead.
 - **Required checks** must be green (engine, web, e2e, Kani, Lean, symbolic; see
   [#355](https://github.com/lambdaclass/stabileo/issues/355)). A red scheduled verification run
   opens (or updates) one `ci-failure` issue per workflow, closed by the next green run once triaged; each real

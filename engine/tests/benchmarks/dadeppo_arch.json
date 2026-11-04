@@ -1,7 +1,17 @@
 {
   "schemaVersion": 1,
   "reference": 8.97,
-  "relativeTolerance": 0.01,
+  "relativeTolerance": 0.006,
+  "crownReference": {
+    "uOverR": 0.6116,
+    "vOverR": 1.1372,
+    "rotation": 0.0498
+  },
+  "crownRelativeTolerance": {
+    "uOverR": 0.0011,
+    "vOverR": 0.0007,
+    "rotation": 0.04
+  },
   "radius": 1,
   "openingDegrees": 215,
   "crownNode": 20,

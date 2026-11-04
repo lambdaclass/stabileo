@@ -77,6 +77,7 @@ export const toolTranslations: Record<string, Record<string, string>> = {
   "scalarViewer.openEditor": "Open in the editor",
   "scalarViewer.soon": " (soon)",
   "scalarViewer.editorNote": "Opening experiments in the editor comes with research mode",
+  "scalarViewer.keyboard": "Keyboard: arrow keys pan, Shift+arrows orbit in 3D, + and - zoom, 0 or Home fits the view",
   },
   es: {
   "tools.simply-supported-beam.subtitle": "Flecha, cortante y momento flector de una viga sobre dos apoyos.",
@@ -155,6 +156,7 @@ export const toolTranslations: Record<string, Record<string, string>> = {
   "scalarViewer.openEditor": "Abrir en el editor",
   "scalarViewer.soon": " (próximamente)",
   "scalarViewer.editorNote": "La apertura de experimentos en el editor llega con el modo investigación",
+  "scalarViewer.keyboard": "Teclado: las flechas desplazan, Mayús+flechas orbitan en 3D, + y - hacen zoom, 0 o Inicio ajusta la vista",
   },
   pt: {
   "tools.simply-supported-beam.subtitle": "Flecha, esforço cortante e momento fletor de uma viga sobre dois apoios.",
@@ -233,6 +235,7 @@ export const toolTranslations: Record<string, Record<string, string>> = {
   "scalarViewer.openEditor": "Abrir no editor",
   "scalarViewer.soon": " (em breve)",
   "scalarViewer.editorNote": "A abertura de experimentos no editor chega com o modo pesquisa",
+  "scalarViewer.keyboard": "Teclado: as setas deslocam, Shift+setas orbitam em 3D, + e - dão zoom, 0 ou Home ajusta a vista",
   },
   de: {
   "tools.simply-supported-beam.subtitle": "Durchbiegung, Querkraft und Biegemoment eines Balkens auf zwei Lagern.",
@@ -311,6 +314,7 @@ export const toolTranslations: Record<string, Record<string, string>> = {
   'scalarViewer.openEditor': 'Im Editor öffnen',
   'scalarViewer.soon': ' (bald)',
   'scalarViewer.editorNote': 'Das Öffnen von Experimenten im Editor kommt mit dem Forschungsmodus',
+  'scalarViewer.keyboard': 'Tastatur: Pfeiltasten verschieben, Umschalt+Pfeile drehen in 3D, + und - zoomen, 0 oder Pos1 passt die Ansicht ein',
   },
   fr: {
   "tools.simply-supported-beam.subtitle": "Flèche, effort tranchant et moment fléchissant d’une poutre sur deux appuis.",
@@ -389,6 +393,7 @@ export const toolTranslations: Record<string, Record<string, string>> = {
   'scalarViewer.openEditor': 'Ouvrir dans l’éditeur',
   'scalarViewer.soon': ' (bientôt)',
   'scalarViewer.editorNote': 'L’ouverture des expériences dans l’éditeur arrive avec le mode recherche',
+  'scalarViewer.keyboard': 'Clavier : les flèches déplacent, Maj+flèches font orbiter en 3D, + et - zooment, 0 ou Début ajuste la vue',
   },
   tr: {
   "tools.simply-supported-beam.subtitle": "İki mesnetli kirişin sehimi, kesme kuvveti ve eğilme momenti.",
@@ -467,5 +472,6 @@ export const toolTranslations: Record<string, Record<string, string>> = {
   'scalarViewer.openEditor': 'Düzenleyicide aç',
   'scalarViewer.soon': ' (yakında)',
   'scalarViewer.editorNote': 'Deneyleri düzenleyicide açma, araştırma moduyla gelecek',
+  'scalarViewer.keyboard': 'Klavye: oklar kaydırır, Shift+oklar 3B’de döndürür, + ve - yakınlaştırır, 0 veya Home görünümü sığdırır',
   },
 };
