@@ -980,7 +980,12 @@ pub(crate) fn validate_response(
                 }
             }
         }
-        "plastic collapse" => add(None, None, "collapse_factor".into(), 1),
+        "plastic collapse" => {
+            add(None, None, "collapse_factor".into(), 1);
+            if r.0.iter().any(|i| i.tag == crate::response::LOWER_BOUND) {
+                add(None, None, crate::response::LOWER_BOUND.into(), 1);
+            }
+        }
         "kinematic check" => {
             for tag in ["mechanisms", "degree", "solvable"] {
                 add(None, None, tag.into(), 1);
