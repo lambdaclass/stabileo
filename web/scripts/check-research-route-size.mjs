@@ -6,7 +6,7 @@ import { build } from 'vite';
 import { readFileSync, writeFileSync, mkdtempSync, rmSync, statSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { compareRouteSizes, routeChunkFiles } from './research-route-budget.mjs';
+import { compareRouteSizes, routeChunkFiles, isLazyRouteBoundary, isBlogPostsChunk } from './research-route-budget.mjs';
 
 const baselinePath = process.argv[process.argv.indexOf('--baseline') + 1];
 if (!process.argv.includes('--baseline') || !baselinePath) throw new Error('--baseline <file> is required');
@@ -16,6 +16,7 @@ delete process.env.VITE_E2E;
 delete process.env.VITE_APP_TYPE;
 const researchChunks = new Set();
 const toolsChunks = new Set();
+const blogPostsChunks = new Set();
 try {
   // A deterministic engine stub makes this gate independent of locally built WASM. It measures
   // web dependency isolation, not the engine binary, which has its own build/validation gates.
@@ -32,6 +33,7 @@ try {
       if (id === '\0route-size-engine') return 'export function initSync() {} export function solve_3d() { return "{}"; }';
     }, generateBundle(_options, bundle) {
       for (const output of Object.values(bundle)) {
+        if (output.type === 'chunk' && isBlogPostsChunk(Object.keys(output.modules))) blogPostsChunks.add(output.fileName);
         if (output.type === 'chunk' && Object.keys(output.modules).some((id) => id.includes('/components/tools/'))) toolsChunks.add(output.fileName);
         if (output.type === 'chunk' && Object.keys(output.modules).some((id) => id.includes('/components/research/') || /\/research\/.*\.json$/.test(id))) {
           researchChunks.add(output.fileName);
@@ -49,7 +51,7 @@ try {
     const files = routeChunkFiles(manifest, roots, (key, chunk) => {
       if (toolsChunks.has(chunk.file)) throw new Error(`product statically imports tools: ${key}`);
       if (researchChunks.has(chunk.file)) throw new Error(`product statically imports research: ${key}`);
-    });
+    }, (key) => isLazyRouteBoundary(key) || blogPostsChunks.has(manifest[key]?.file));
     // Public fonts/images and emitted workers referenced by the selected bundles also count.
     // Iterating a Set visits newly added assets, so CSS reached through HTML is covered too.
     for (const file of files) {

@@ -24,7 +24,11 @@ export function isLazyRouteBoundary(key) {
   return /components\/research\//.test(key) || /components\/tools\//.test(key) || key === BLOG_ROUTE_BOUNDARY;
 }
 
-export function routeChunkFiles(manifest, roots, check = () => {}) {
+export function isBlogPostsChunk(moduleIds) {
+  return moduleIds.some((id) => id.endsWith('/src/lib/blog/index.ts')) && moduleIds.every((id) => id.includes('/src/lib/blog/'));
+}
+
+export function routeChunkFiles(manifest, roots, check = () => {}, isBoundary = isLazyRouteBoundary) {
   const files = new Set(['index.html']);
   const seen = new Set();
   function visit(key, lazy) {
@@ -37,7 +41,7 @@ export function routeChunkFiles(manifest, roots, check = () => {}) {
     files.add(chunk.file);
     for (const file of [...(chunk.css ?? []), ...(chunk.assets ?? [])]) files.add(file);
     for (const dep of chunk.imports ?? []) visit(dep, lazy);
-    if (lazy) for (const dep of chunk.dynamicImports ?? []) if (!isLazyRouteBoundary(dep)) visit(dep, true);
+    if (lazy) for (const dep of chunk.dynamicImports ?? []) if (!isBoundary(dep)) visit(dep, true);
   }
   for (const [key, lazy] of roots) visit(key, lazy);
   return files;

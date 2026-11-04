@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
-import { compareRouteSizes, routeChunkFiles, BLOG_ROUTE_BOUNDARY } from './research-route-budget.mjs';
+import { compareRouteSizes, routeChunkFiles, BLOG_ROUTE_BOUNDARY, isBlogPostsChunk, isLazyRouteBoundary } from './research-route-budget.mjs';
 
 test('unchanged routes and small build noise pass', () => {
   compareRouteSizes({ '/en/': 1000, '/app/basic': 2000 }, { '/en/': 1000, '/app/basic': 2128 }, true);
@@ -84,6 +84,20 @@ test('only the named blog entry is a boundary, not every blog module', () => {
   const lazyBlogPart = { ...manifest, 'src/App.svelte': { ...manifest['src/App.svelte'], dynamicImports: ['src/components/blog/ChangelogView.svelte'] },
     'src/components/blog/ChangelogView.svelte': { file: 'ChangelogView.js' } };
   assert.ok(routeChunkFiles(lazyBlogPart, appRoots).has('ChangelogView.js'));
+});
+test('the posts chunk the landing teaser loads lazily leaves the app footprint; imported statically it counts', () => {
+  const posts = { ...manifest, 'index.html': { ...manifest['index.html'], dynamicImports: [...manifest['index.html'].dynamicImports, '_posts.js'] },
+    'src/App.svelte': { ...manifest['src/App.svelte'], imports: ['_shared.js', 'index.html'] }, '_posts.js': { file: 'posts.js' } };
+  const boundary = (key) => isLazyRouteBoundary(key) || key === '_posts.js';
+  assert.ok(routeChunkFiles(posts, appRoots).has('posts.js'));
+  assert.ok(!routeChunkFiles(posts, appRoots, () => {}, boundary).has('posts.js'));
+  const staticPosts = { ...posts, 'src/App.svelte': { ...posts['src/App.svelte'], imports: ['_shared.js', 'index.html', '_posts.js'] } };
+  assert.ok(routeChunkFiles(staticPosts, appRoots, () => {}, boundary).has('posts.js'));
+});
+test('only a chunk of nothing but the blog posts and their index is the posts boundary', () => {
+  assert.ok(isBlogPostsChunk(['/w/src/lib/blog/index.ts', '/w/src/lib/blog/posts/a.ts', '/w/src/lib/blog/translations/de/a.ts']));
+  assert.ok(!isBlogPostsChunk(['/w/src/lib/blog/posts/a.ts']));
+  assert.ok(!isBlogPostsChunk(['/w/src/lib/blog/index.ts', '/w/src/lib/store/model.svelte.ts']));
 });
 test('the landing footprint takes no lazy chunk', () => {
   assert.deepEqual([...routeChunkFiles(manifest, [['index.html', false]])], ['index.html']);
