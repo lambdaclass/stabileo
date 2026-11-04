@@ -1,0 +1,32 @@
+{
+ "source": "PR #1346 run 41803721010 attempt 1: CI OK failed only because Research WASM timed out",
+ "job": {
+  "completed_at": "2026-11-04T10:03:29Z",
+  "conclusion": "failure",
+  "id": 126511930006,
+  "name": "CI OK",
+  "started_at": "2026-11-04T10:03:25Z",
+  "steps": [
+   {
+    "conclusion": "success",
+    "name": "Set up job"
+   },
+   {
+    "conclusion": "failure",
+    "name": "Every job passed or was skipped"
+   },
+   {
+    "conclusion": "success",
+    "name": "Complete job"
+   }
+  ]
+ },
+ "annotations": [
+  {
+   "annotation_level": "failure",
+   "message": "Process completed with exit code 1.",
+   "path": ".github",
+   "title": ""
+  }
+ ]
+}
