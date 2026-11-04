@@ -5,7 +5,7 @@ A pull request that changes only docs, the changelog or research papers' prose (
 `research/tools/`) now runs no build: repository lint, plus the research checks for research prose.
 One that changes only the site (components, blog, locale strings, end-to-end tests, route budgets,
 outside the package manifests and the compiled WASM) runs everything except the engine, AI-backend
-and backend jobs: WASM, the site build, the E2E site and every E2E shard still run.
+and backend jobs and the full research validation (only its route checks run): WASM, the site build, the E2E site and every E2E shard still run.
 
 The merge queue scopes each entry the same way, by its diff against the entry ahead of it: an entry of
 docs only runs no build, and one touching only the site, research or tools skips the engine jobs. Any entry that
