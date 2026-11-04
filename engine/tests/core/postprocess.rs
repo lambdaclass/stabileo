@@ -216,7 +216,7 @@ fn test_envelope_min_max() {
     let r2 = solve_2d(&input2).unwrap();
 
     let envelope = compute_envelope(&[r1, r2]);
-    assert!(envelope.is_some(), "Envelope should be computed");
+    assert!(envelope.is_ok(), "Envelope should be computed");
     let env = envelope.unwrap();
     assert!(!env.moment.elements.is_empty());
     assert!(!env.shear.elements.is_empty());
