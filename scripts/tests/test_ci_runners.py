@@ -61,11 +61,25 @@ class CiRunners(unittest.TestCase):
     def test_routing(self):
         ci = jobs('ci.yml')
         hosted = {name for name, job in ci.items() if job.get('runs-on') == 'ubuntu-24.04'}
-        self.assertEqual(hosted, {'changes', 'docker-smoke', 'determinism', 'timing-budgets', 'ci-ok'})
+        self.assertEqual(hosted, {'changes', 'docker-smoke', 'determinism', 'timing-budgets', 'e2e', 'e2e-flaky', 'ci-ok'})
         for name in ['test-engine-gates', 'web-unit']:
             self.assertEqual(labels(ci[name]['runs-on']), {'stabileo-timing'})
         self.assertEqual(labels(jobs('research.yml')['engine-benchmarks']['runs-on']), {'stabileo-timing'})
         self.assertEqual(labels(ci['wasm']['runs-on']), {'stabileo', 'stabileo-pr'})
+
+    def test_jobs_use_a_github_runners_threads_wherever_they_run(self):
+        caps = {'CARGO_BUILD_JOBS': '4', 'RUST_TEST_THREADS': '4', 'NEXTEST_TEST_THREADS': '4', 'RAYON_NUM_THREADS': '4',
+                'VITEST_MAX_THREADS': '3', 'VITEST_MAX_FORKS': '3', 'BINARYEN_CORES': '4', 'GOMAXPROCS': '4'}
+        for workflow in ['ci.yml', 'research.yml']:
+            text = (WORKFLOWS / workflow).read_text()
+            block = text.split('\nenv:\n', 1)[1].split('\n\n', 1)[0]
+            env = dict((k, v.strip()) for k, v in re.findall(r'^  ([A-Z_]+):(.*)$', block, re.M))
+            for key, value in caps.items():
+                with self.subTest(workflow=workflow, key=key):
+                    self.assertEqual(env.get(key), value)
+            for name, job in parse(text).items():
+                with self.subTest(workflow=workflow, job=name):
+                    self.assertIsNone(re.search(r'^\s+(%s):' % '|'.join(caps), job['block'], re.M))
 
     def test_nightly_fuzz_never_takes_a_ci_runner(self):
         fuzz = jobs('nightly.yml')['fuzz']['runs-on']
@@ -77,7 +91,7 @@ class CiRunners(unittest.TestCase):
     def test_browser_jobs_can_be_capped_to_the_e2e_pool(self):
         ci = jobs('ci.yml')
         browser = {name for name, job in ci.items() if 'stabileo-e2e' in labels(job.get('runs-on', ''))}
-        self.assertEqual(browser, {'e2e', 'site-e2e', 'e2e-flaky'})
+        self.assertEqual(browser, {'site-e2e'})
         for name in browser:
             runs_on = ci[name]['runs-on']
             self.assertIn("(vars.STABILEO_E2E_POOL == 'true' && fromJSON('[\"self-hosted\",\"stabileo-e2e\"]') || fromJSON('[\"self-hosted\",\"stabileo\"]'))", runs_on, name)
