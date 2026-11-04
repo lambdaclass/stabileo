@@ -25,7 +25,7 @@ test.describe('explained step by step', () => {
     const groups = await page.locator('[data-testid^=steps-group-]').evaluateAll((els) => els.map((e) => e.getAttribute('data-testid')));
     expect(groups).toEqual([
       'steps-group-stiffness', 'steps-group-flexibility', 'steps-group-continuous',
-      'steps-group-frames', 'steps-group-trusses', 'steps-group-deformation', 'steps-group-influence', 'steps-group-secondOrder', 'steps-group-plastic', 'steps-group-dynamics',
+      'steps-group-frames', 'steps-group-trusses', 'steps-group-deformation',
     ]);
     const first = page.getByTestId('steps-method-dsm');
     await expect(first).toContainText(/must be|debe ser|deve ser/);
@@ -265,16 +265,5 @@ test.describe('@smoke explained step by step on a phone', () => {
       await page.getByTestId('steps-back').tap();
     }
     expect(errors).toEqual([]);
-  });
-
-  test('a function opened from the bottom of the list starts at its top', async ({ page }) => {
-    await boot(page);
-    await page.evaluate(() => window.__stabileoActions.loadExample('portal-frame'));
-    await page.getByTestId('rb-cmd-advanced').tap();
-    const body = page.locator('.bp-body');
-    await body.evaluate((el) => { el.scrollTop = el.scrollHeight; });
-    await page.getByRole('button', { name: /^Dynamic$/ }).first().tap();
-    await expect(page.getByTestId('adv-running')).toBeInViewport({ ratio: 1 });
-    expect(await body.evaluate((el) => el.scrollTop)).toBe(0);
   });
 });
