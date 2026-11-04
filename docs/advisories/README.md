@@ -51,6 +51,7 @@ section and re-check registry entry in the same way.
 | [SA-2026-033](SA-2026-033-generated-area-loads-headroom.md) | The load generator left out a floor's whole area load when one low member stood over part of it (36 m² of a 6 × 6 m floor in an example); trusses did not count as roof structure | High | — (#1076 review) | #1253 | — | Draft |
 | [SA-2026-034](SA-2026-034-equilibrium-ok-over-partial-sums.md) | The equilibrium check reported loads and reactions in agreement for cases whose check left loads out; similar-storey edits reached members of the other type and copies lost their releases | Medium | — (review of #1077) | #1255 | — | Draft |
 | [SA-2026-042](SA-2026-042-buckling-2d-varying-axial-force.md) | 2D buckling overstated the factor of members whose compression grows along them under axial span loads (+43 % to +68 % for one member) | High | [#1323](https://github.com/lambdaclass/stabileo/issues/1323) | #1324 | next release | Draft |
+| [SA-2026-037](SA-2026-037-corotational-3d-rotations.md) | 3D co-rotational analysis differenced rotation vectors (the Bathe–Bolourchi bend 1.3 % off, not shrinking with refinement) | Medium | [#426](https://github.com/lambdaclass/stabileo/issues/426) | #1301 | next release | Draft |
 
 Other open `safety` issues (the derivation-review findings #406–#433, #439) get an advisory
 or a recorded "no advisory needed" when they are triaged; the list is on the

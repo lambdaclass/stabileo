@@ -187,6 +187,19 @@ describe('which registered changes concern a model', () => {
     expect(ids(model({ quads: [[1, {}]] as never }))).toContain(change);
   });
 
+  it('tells only 3D frames about the 3D co-rotational fix, never a plane model (#426)', () => {
+    const change = 'corotational-3d-rotations';
+    for (const analysisMode of ['3d', 'pro']) {
+      const frame = model({ analysisMode, elements: [member(1, 1, 'frame')] });
+      expect(modelFeatures(frame).has('space3D')).toBe(true);
+      expect(ids(frame)).toContain(change);
+    }
+    const plane = model({ analysisMode: '2d', elements: [member(1, 1, 'frame')] });
+    expect(modelFeatures(plane).has('space3D')).toBe(false);
+    expect(ids(plane)).not.toContain(change);
+    expect(ids(model({ analysisMode: '3d', elements: [member(1, 1, 'truss')] }))).not.toContain(change);
+  });
+
   it('tells CIRSOC 301 steel models solved before the Q ≤ 0 refusal about it', () => {
     const change = 'cirsoc301-q-nonpositive-refused';
     const steel = model({ elements: [member(1, 1, 'frame')] });

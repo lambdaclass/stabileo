@@ -110,6 +110,9 @@ const body: PostBody = {
           "SA-2026-042",
           "Flambement 2D : le facteur des barres dont la compression croît le long de la barre sous des charges dans son axe était trop élevé (+43 % à +68 % pour une barre)",
           "Élevée",
+          "SA-2026-037",
+          "Analyse corotationnelle 3D : les vecteurs de rotation étaient soustraits (le coude de Bathe–Bolourchi à 1,3 %, sans amélioration au raffinement)",
+          "Moyenne",
           "Corrigé dans la prochaine version"
         ],
         [

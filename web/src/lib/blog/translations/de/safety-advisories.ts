@@ -112,6 +112,9 @@ const body: PostBody = {
           "SA-2026-042",
           "2D-Knicken: Der Faktor von Stäben, deren Druck unter Lasten entlang ihrer Achse zunimmt, kam zu hoch heraus (+43 % bis +68 % bei einem Stab)",
           "Hoch",
+          "SA-2026-037",
+          "Korotationale 3D-Analyse: Rotationsvektoren wurden subtrahiert (der Bathe–Bolourchi-Bogen 1,3 % daneben, ohne Besserung bei Netzverfeinerung)",
+          "Mittel",
           "Behoben in der nächsten Version"
         ],
         [

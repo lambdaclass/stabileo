@@ -110,6 +110,9 @@ const body: PostBody = {
           "SA-2026-042",
           "2B burkulma: ekseni boyunca yük altında basıncı boyunca artan çubukların katsayısı yüksek çıkıyordu (tek çubukta +%43 ile +%68)",
           "Yüksek",
+          "SA-2026-037",
+          "3B eşdönel analiz: dönme vektörleri çıkarılıyordu (Bathe–Bolourchi eğrisi %1,3 sapmalı, ağ sıklaştırmayla düzelmiyordu)",
+          "Orta",
           "Bir sonraki sürümde düzeltildi"
         ],
         [

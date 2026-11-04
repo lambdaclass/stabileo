@@ -1,7 +1,7 @@
 {
   "$comment": "Registry of result-affecting changes. Read by web/scripts/result-change-metadata.mjs for build metadata and decoded by web/src/lib/provenance/full-registry.ts; schema and rules in docs/verification/PROVENANCE.md. Add an entry whenever a change makes the same saved model give different numbers, at currentResultsVersion + 1, and bump currentResultsVersion: a version on main is deployed, and an entry added to it later is never shown to the projects it stamped (results-version.test.ts). Feature ids are defined in web/src/lib/provenance/model-features.ts.",
   "schema": 1,
-  "currentResultsVersion": 23,
+  "currentResultsVersion": 24,
   "changes": [
     {
       "id": "aluminium-weak-axis-shear",
@@ -1844,6 +1844,48 @@
       "changelog": {
         "file": "docs/advisories/SA-2026-042-buckling-2d-varying-axial-force.md",
         "heading": "SA-2026-042: 2D buckling overstated the factor of members whose compression grows along them under axial span loads"
+      }
+    },
+    {
+      "id": "corotational-3d-rotations",
+      "resultsVersion": 24,
+      "date": "2026-11-03",
+      "prs": [
+        1301
+      ],
+      "area": "analysis",
+      "when": {
+        "allOf": [
+          [
+            "space3D"
+          ],
+          [
+            "analysis:nonlinear"
+          ],
+          [
+            "frameMembers"
+          ]
+        ]
+      },
+      "title": {
+        "en": "3D co-rotational analysis with large rotations about several axes",
+        "es": "Análisis corrotacional 3D con grandes rotaciones alrededor de varios ejes",
+        "pt": "Análise corrotacional 3D com grandes rotações em torno de vários eixos",
+        "de": "Korotationale 3D-Analyse mit großen Rotationen um mehrere Achsen",
+        "fr": "Analyse corotationnelle 3D avec de grandes rotations autour de plusieurs axes",
+        "tr": "Birden çok eksen etrafında büyük dönmeli 3B eşdönel analiz"
+      },
+      "explanation": {
+        "en": "Member end rotations were subtracted as rotation vectors, which is exact only for rotations about one axis; the Bathe–Bolourchi bend came out 1.3 % off its published solution, and refining the mesh did not help (SA-2026-037). It concerns co-rotational analyses of 3D models; planar frames do not change while their members turn less than half a turn.",
+        "es": "Las rotaciones de extremo de las barras se restaban como vectores de rotación, lo que sólo es exacto para rotaciones alrededor de un eje; la curva de Bathe–Bolourchi salía 1,3 % fuera de su solución publicada, y refinar la malla no lo corregía (SA-2026-037). Afecta a análisis corrotacionales de modelos 3D; los pórticos planos no cambian mientras sus barras giren menos de media vuelta.",
+        "pt": "As rotações de extremidade das barras eram subtraídas como vetores de rotação, o que só é exato para rotações em torno de um eixo; a curva de Bathe–Bolourchi saía 1,3 % fora da solução publicada, e refinar a malha não corrigia (SA-2026-037). Afeta análises corrotacionais de modelos 3D; pórticos planos não mudam enquanto suas barras girarem menos de meia volta.",
+        "de": "Die Endrotationen der Stäbe wurden als Rotationsvektoren subtrahiert, was nur für Rotationen um eine Achse exakt ist; der Bathe–Bolourchi-Bogen lag 1,3 % neben der veröffentlichten Lösung, und eine Netzverfeinerung half nicht (SA-2026-037). Betrifft korotationale Analysen von 3D-Modellen; ebene Rahmen ändern sich nicht, solange sich ihre Stäbe um weniger als eine halbe Umdrehung drehen.",
+        "fr": "Les rotations d’extrémité des barres étaient soustraites comme des vecteurs de rotation, ce qui n’est exact que pour des rotations autour d’un seul axe ; le coude de Bathe–Bolourchi s’écartait de 1,3 % de sa solution publiée, et raffiner le maillage n’y changeait rien (SA-2026-037). Concerne les analyses corotationnelles de modèles 3D ; les portiques plans ne changent pas tant que leurs barres tournent de moins d’un demi-tour.",
+        "tr": "Eleman uç dönmeleri dönme vektörleri olarak çıkarılıyordu; bu yalnızca tek eksen etrafındaki dönmeler için kesindir. Bathe–Bolourchi eğrisi yayımlanmış çözümden %1,3 sapıyordu ve ağı sıklaştırmak bunu düzeltmiyordu (SA-2026-037). 3B modellerin eşdönel analizlerini etkiler; çubukları yarım turdan az döndükçe düzlem çerçeveler değişmez."
+      },
+      "changelog": {
+        "file": "docs/advisories/SA-2026-037-corotational-3d-rotations.md",
+        "heading": "SA-2026-037: 3D co-rotational analysis differenced rotation vectors (Bathe–Bolourchi bend 1.3 % off)"
       }
     }
   ]
