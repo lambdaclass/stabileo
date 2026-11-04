@@ -7,7 +7,7 @@
 | Issue | [#1314](https://github.com/lambdaclass/stabileo/issues/1314) |
 | Fix | #1319 (containment: the check is marked incomplete; torsion design itself is not added) |
 | Affected versions | every release since the other-codes checks landed (2026-09-25, desktop-v0.1.0-alpha.1 to 0.4.0) and the live site until this fix |
-| Re-check registry | none: the numbers do not change, only whether the check counts as passed |
+| Re-check registry | entry `rc-other-codes-torsion-unchecked` (models with concrete members); the numbers do not change, only whether the check counts as passed |
 
 ## Affected features
 
