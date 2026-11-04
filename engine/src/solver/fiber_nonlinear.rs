@@ -1536,6 +1536,7 @@ pub(crate) fn wrench_equilibrium(
     let allowed = 10.0 * (n_dof.max(1) as f64).sqrt() * tolerance * (scale_a + scale_r);
     let within = |x: f64| x.is_finite() && x <= allowed;
     let summary = EquilibriumSummary {
+        applied_force_components: applied.iter().flat_map(|w| w.f).collect(),
         relative_residual: rel_residual,
         residual_ok: rel_residual.is_finite() && rel_residual <= tolerance,
         applied_force_sum: vec![],
