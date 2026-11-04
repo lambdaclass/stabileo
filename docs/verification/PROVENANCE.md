@@ -117,6 +117,15 @@ Results version 7 registers `cirsoc201-column-design-axes` (SA-2026-029): the CI
 check bends each moment over its own depth. Version 6 is #817's buckling certificate, which lands
 first.
 
+## Governing value and 2D envelope at the true peak (issue #1389)
+
+`governing-envelope-true-peak` (results version 26, the next free version when this was marked
+ready): `governingMagnitude2D` reads each diagram's true peak (`peakAlong`), and the engine's
+2D envelope adds each combination's peak stations to its grid
+(`diagram_peak_stations_2d`), so `governing-envelope.test.ts` still finds the governing value of
+every member equal to its envelope peak. What moves is in
+[the results change note](../results-changes/2026-11-governing-true-peak.md).
+
 ## Results snapshot gate
 
 A pull request that changes any result must say so (#716; #461 changed steel verdicts and no

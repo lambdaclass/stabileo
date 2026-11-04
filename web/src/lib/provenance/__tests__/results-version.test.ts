@@ -74,6 +74,7 @@ const RELEASED: Record<number, string[]> = {
   23: ['buckling-2d-varying-axial-force'],
   24: ['corotational-3d-rotations'],
   25: ['constraint-cut-plane'],
+  26: ['governing-envelope-true-peak'],
 };
 
 describe('results versions', () => {
