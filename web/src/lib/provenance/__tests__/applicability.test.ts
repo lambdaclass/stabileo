@@ -116,12 +116,31 @@ describe('which registered changes concern a model', () => {
     expect(a.changes).toEqual([]);
   });
 
+  it('tells projects with concrete members about the EN 1992-1-1 flexure fix, whatever their bound code', () => {
+    const change = 'ec2-flexure-strain-compatibility';
+    for (const concrete of [undefined, 'cirsoc201', 'aci-aisc', 'eurocode2']) {
+      const beam = model({
+        elements: [member(1, 2, 'frame')],
+        ...(concrete ? { regulations: { roles: { concrete: { adapterId: concrete } } } } : {}),
+      });
+      expect(ids(beam, { resultsVersion: 5, analyses: ['linear'] } as SolveStamp)).toContain(change);
+      expect(ids(beam, { resultsVersion: 7, analyses: ['linear'] } as SolveStamp)).toContain(change);
+      expect(ids(beam, { resultsVersion: 8, analyses: ['linear'] } as SolveStamp)).not.toContain(change);
+    }
+    expect(ids(model({ elements: [member(1, 1, 'frame')] }))).not.toContain(change);
+    const entry = RESULT_CHANGES.changes.find((c) => c.id === change) as unknown as { title: Record<string, string>; explanation: Record<string, string> };
+    for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
+      expect(entry.title[locale]?.trim(), `title.${locale}`).toBeTruthy();
+      expect(entry.explanation[locale]?.trim(), `explanation.${locale}`).toBeTruthy();
+    }
+  });
+
   it('tells shell models solved before #1255 that their shell figures now paint the screen\'s field', () => {
     const fig = 'shell-figures-paint-the-screen-field';
     const shell = model({ quads: [[1, { id: 1, nodes: [1, 2, 3, 4], materialId: 2, thickness: 0.2 }]] as never });
-    expect(ids(shell, { resultsVersion: 15, analyses: ['linear'] } as SolveStamp)).toContain(fig);
-    expect(ids(shell, { resultsVersion: 16, analyses: ['linear'] } as SolveStamp)).not.toContain(fig);
-    expect(ids(model({ elements: [member(1, 1, 'frame')] }), { resultsVersion: 15, analyses: ['linear'] } as SolveStamp)).not.toContain(fig);
+    expect(ids(shell, { resultsVersion: 17, analyses: ['linear'] } as SolveStamp)).toContain(fig);
+    expect(ids(shell, { resultsVersion: 18, analyses: ['linear'] } as SolveStamp)).not.toContain(fig);
+    expect(ids(model({ elements: [member(1, 1, 'frame')] }), { resultsVersion: 17, analyses: ['linear'] } as SolveStamp)).not.toContain(fig);
     const entry = RESULT_CHANGES.changes.find((c) => c.id === fig) as unknown as { title: Record<string, string>; explanation: Record<string, string> };
     for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
       expect(entry.title[locale]?.trim(), `title.${locale}`).toBeTruthy();
@@ -139,6 +158,41 @@ describe('which registered changes concern a model', () => {
       expect(ids(frame)).toContain(change);
     }
     expect(ids(model({ quads: [[1, {}]] as never }))).toContain(change);
+  });
+
+  it('tells CIRSOC 301 steel models solved before the Q ≤ 0 refusal about it', () => {
+    const change = 'cirsoc301-q-nonpositive-refused';
+    const steel = model({ elements: [member(1, 1, 'frame')] });
+    expect(ids(steel, { resultsVersion: 11, analyses: ['linear'] } as SolveStamp)).toContain(change);
+    expect(ids(steel, { resultsVersion: 12, analyses: ['linear'] } as SolveStamp)).not.toContain(change);
+    expect(ids(model({ elements: [member(1, 2, 'frame')] }))).not.toContain(change);
+    const ec3 = model({ elements: [member(1, 1, 'frame')], regulations: { roles: { steel: { adapterId: 'eurocode3' } } } });
+    expect(ids(ec3)).not.toContain(change);
+    const entry = RESULT_CHANGES.changes.find((c) => c.id === change) as unknown as { title: Record<string, string>; explanation: Record<string, string> };
+    for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
+      expect(entry.title[locale]?.trim(), `title.${locale}`).toBeTruthy();
+      expect(entry.explanation[locale]?.trim(), `explanation.${locale}`).toBeTruthy();
+    }
+  });
+
+  it('tells models with a time history or modal analysis about the dynamics fixes of SA-2026-031 and SA-2026-032', () => {
+    const frame = model({ elements: [member(1, 1, 'frame')] });
+    const linearOnly = { resultsVersion: 12, analyses: ['linear'] } as SolveStamp;
+    expect(ids(frame, linearOnly)).not.toContain('time-history-massless-start');
+    const forced = model({ elements: [member(1, 1, 'frame')], dynamics: { timeHistory: { forces: [{ nodeId: 2, dir: 'x', kind: 'step', amplitude: 1 }] } } });
+    expect(ids(forced, linearOnly)).toContain('time-history-massless-start');
+    expect(ids(model({ elements: [member(1, 1, 'frame')], dynamics: { timeHistory: { forces: [] } } }), linearOnly)).toContain('time-history-massless-start');
+    expect(ids(forced, { resultsVersion: 13, analyses: ['linear'] } as SolveStamp)).not.toContain('time-history-massless-start');
+    expect(ids(frame, linearOnly)).not.toContain('modal-mechanism-refused');
+    expect(ids(frame, { resultsVersion: 12, analyses: ['modal'] } as SolveStamp)).toContain('modal-mechanism-refused');
+    expect(ids(frame, { resultsVersion: 13, analyses: ['modal'] } as SolveStamp)).not.toContain('modal-mechanism-refused');
+    for (const change of ['time-history-massless-start', 'modal-mechanism-refused']) {
+      const entry = RESULT_CHANGES.changes.find((c) => c.id === change) as unknown as { title: Record<string, string>; explanation: Record<string, string> };
+      for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
+        expect(entry.title[locale]?.trim(), `${change} title.${locale}`).toBeTruthy();
+        expect(entry.explanation[locale]?.trim(), `${change} explanation.${locale}`).toBeTruthy();
+      }
+    }
   });
 
   it('an empty model is concerned by nothing', () => {

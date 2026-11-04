@@ -91,4 +91,4 @@ export interface CertifiedMemberCheck {
 }
 
 /** Bounds |exact − computed| on the forces sent to a design checker (its units). */
-export interface DemandBound { n: number; my: number; mz: number; vy: number }
+export interface DemandBound { n: number; my: number; mz: number; vStrong: number }

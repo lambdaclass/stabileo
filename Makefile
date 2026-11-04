@@ -34,7 +34,7 @@ POSTGRES_DIR = $(DATA_DIR)/postgres
 INST_REGISTRY = $(DATA_DIR)/instances
 
 # Not the default 5432 (nor scasaas's 5442), so this runs next to other projects' servers.
-PG_PORT = 5452
+PG_PORT = $(or $(PGPORT),5452)
 DB_USER = postgres
 
 SUBMAKE = $(MAKE) --no-print-directory
@@ -80,10 +80,10 @@ help:
 	@echo "  make lint.engine          - Clippy over the engine"
 	@echo "  make test.engine.gates    - The named engine correctness gates"
 	@echo "  make test.engine.metamorphic - Metamorphic tests, in release"
-	@echo "  make test.engine.suite [SHARD=1/2] - Every engine test outside the gates"
+	@echo "  make test.engine.suite [SHARD=1/4] - Every engine test outside the gates"
 	@echo "  make bench.engine         - Criterion benchmarks (informational)"
 	@echo "  make typecheck.web        - tsc against its baseline + svelte-check gate"
-	@echo "  make test.web.unit [SHARD=1/2] - Vitest unit pass"
+	@echo "  make test.web.unit [SHARD=1/4] - Vitest unit pass"
 	@echo "  make test.web.build       - Production build + build-pass tests"
 	@echo "  make test.web.determinism - WASM results bit-identical across Node and three browsers"
 	@echo "  make e2e.web.build        - The VITE_E2E=1 site the e2e suites run on with E2E_PREBUILT=1"
@@ -215,6 +215,7 @@ GATE_CONSTRAINT_BENCH = test(/benchmark_.*constraint/)
 GATE_MODULES = sparse_shell_gates solver_invariants solver_ci_coverage conditioning_adversarial kfull_overbuild_gates acceptance
 # Wall-clock gates run single-threaded, so elapsed time is CPU work, not contention.
 GATE_TIMED_MODULES = perf_regression_gates perf_regression_advanced
+GATE_TIMED_IGNORED = test(=element::solid_shell::tests::test_centroid_stress_timing_budget) + test(=section::poisson::tests::sparse_path_scales_better_than_cubically) + test(=solver::constraints::tests::validate_constraints_reads_the_nodes_once_not_once_per_constraint) + test(=solver::dynamic_validation::tests::area_mass_validation_is_linear_in_the_number_of_shells) + test(=postprocess_scaling::rc_check_scales_linearly_in_member_count)
 GATE_CERTIFICATES = test(/^certify::/) + test(/^properties_2d::/) + test(/^properties_3d::/)
 # Metamorphic tests run apart, in release: unoptimised they outlast a suite shard.
 GATE_RELEASE_BINARIES = metamorphic
@@ -239,6 +240,7 @@ test.engine.gates: check.engine.acceptance-models test.engine.units-types
 	$(NEXTEST) -E '$(GATE_CONSTRAINT_BENCH)'
 	$(foreach m,$(GATE_MODULES),($(NEXTEST) --test gates -E 'test(/^$(m)::/)') &&) true
 	$(foreach m,$(GATE_TIMED_MODULES),($(NEXTEST) --test gates -E 'test(/^$(m)::/)' --test-threads 1) &&) true
+	$(NEXTEST) --run-ignored only -E '$(GATE_TIMED_IGNORED)' --test-threads 1
 	$(NEXTEST) --test certificates -E '$(GATE_CERTIFICATES)'
 
 test.engine.metamorphic:
@@ -258,7 +260,7 @@ typecheck.web:
 	$(NIX_RUN) bash -c "cd web && npm run typecheck && npm run test:units:types && npm run check:gate && node scripts/check-site-header.mjs"
 
 test.web.unit:
-	$(NIX_RUN) bash -c "cd web && npx vitest run --project unit $(if $(SHARD),--shard=$(SHARD))"
+	$(NIX_RUN) bash -c "cd web && npx vitest run --project unit $${UNIT_AREA:+src/components/$$UNIT_AREA} $(if $(SHARD),--shard=$(SHARD))"
 
 # The build prerenders the public pages in Chromium, so it needs the browser.
 test.web.build:
@@ -361,12 +363,21 @@ test.nightly-scripts:
 	python3 -B -I tools/opensees/test_gen_models.py
 	$(NIX_RUN) node --test scripts/tests/nightly-findings.test.cjs
 	$(NIX_RUN) node --test scripts/tests/verification-alert.test.cjs
+	$(NIX_RUN) node --test scripts/tests/runner-pools.test.cjs
 
 test.ci-scripts: test.nightly-scripts
+	python3 -B -I scripts/tests/test_retry_infra.py
 	python3 -B -I scripts/tests/test_ci_aggregate.py
-	python3 -B -I scripts/tests/test_wall_clock.py
+	python3 -B -I scripts/tests/test_ci_selection.py
+	python3 -B -I scripts/tests/test_main_tested.py
 	python3 -B -I scripts/tests/test_cancel_superseded.py
+	python3 -B -I scripts/tests/test_ci_runners.py
+	python3 -B -I scripts/tests/test_ci_events.py
+	python3 -B -I scripts/tests/test_post_merge_revert.py
+	python3 -B -I scripts/tests/test_required_checks.py
+	python3 -B -I scripts/tests/test_wall_clock.py
 	$(NIX_RUN) bash -c 'shellcheck -S warning .github/scripts/*.sh'
+	$(NIX_RUN) actionlint .github/workflows/ci.yml .github/workflows/research.yml .github/workflows/merge-queue-supersede.yml .github/workflows/post-merge.yml
 
 lint.backend:
 	$(NIX_RUN) bash -c "cd backend && mix format --check-formatted"

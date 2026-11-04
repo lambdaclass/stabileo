@@ -193,7 +193,7 @@ fn validation_frame_two_story_stiffness() {
 // 5. Beam with Internal Hinge: Rotation Discontinuity
 // ================================================================
 //
-// SS beam with internal hinge at midspan. Under center load,
+// Propped cantilever with internal hinge at midspan. Under center load,
 // midspan deflection is larger than continuous beam.
 
 #[test]
@@ -203,7 +203,7 @@ fn validation_frame_beam_internal_hinge() {
     let p = 20.0;
 
     // Continuous beam (no hinge)
-    let input_cont = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"),
+    let input_cont = make_beam(n, l, E, A, IZ, "fixed", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: 2, fx: 0.0, fz: -p, my: 0.0,
         })]);
@@ -216,7 +216,7 @@ fn validation_frame_beam_internal_hinge() {
         (1, "frame", 1, 2, 1, 1, false, true),  // hinge at end of elem 1
         (2, "frame", 2, 3, 1, 1, true, false),   // hinge at start of elem 2
     ];
-    let sups = vec![(1, 1, "pinned"), (2, 3, "rollerX")];
+    let sups = vec![(1, 1, "fixed"), (2, 3, "rollerX")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 2, fx: 0.0, fz: -p, my: 0.0,
     })];
@@ -226,13 +226,13 @@ fn validation_frame_beam_internal_hinge() {
     let res_hinge = linear::solve_2d(&input_hinge).unwrap();
     let mid_hinge = res_hinge.displacements.iter().find(|d| d.node_id == 2).unwrap().uz.abs();
 
-    // With hinge, beam is a mechanism for moment → much larger deflection
-    // Actually SS beam with midspan hinge + point load at hinge = mechanism.
-    // The solver should still give a result (maybe very large).
-    // At minimum, deflection with hinge should be >= without hinge.
+    // Releasing moment increases compliance in this stable propped beam.
     assert!(mid_hinge >= mid_cont * 0.99,
         "Hinge should increase deflection: hinged={:.6e}, continuous={:.6e}",
         mid_hinge, mid_cont);
+    let mut mechanism = input_hinge;
+    mechanism.supports.get_mut("1").unwrap().support_type = "pinned".into();
+    assert!(linear::solve_2d(&mechanism).unwrap_err().contains("mechanism"));
 }
 
 // ================================================================
