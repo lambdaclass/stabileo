@@ -8,7 +8,7 @@ Path template (see `playwright.config.ts`):
 
 | Platform | `overlay-legend.png` | `batch-dialog.png` | Notes |
 |---|---|---|---|
-| `linux/`  | ✅ 699 × 28  | ✅ 900 × 386 | **Authoritative — this is what CI compares against.** Generated on `ubuntu-latest` with the pinned Chromium + SwiftShader. |
+| `linux/`  | ✅ 699 × 28  | ✅ 900 × 386 | **Authoritative — this is what CI compares against.** Generated on `ubuntu-24.04` with the pinned Chromium + SwiftShader. |
 | `darwin/` | ✅ 696 × 34  | ✅ 900 × 392 | Local macOS development only. CI never reads these. |
 
 The two platforms produce different image heights because font rasterisation differs;

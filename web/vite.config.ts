@@ -6,7 +6,6 @@ import { resolve } from 'path';
 import { PUBLIC_KEY_PREFIXES } from './src/lib/i18n/public-prefixes';
 import { isComplete } from './src/lib/i18n/offered';
 import { resultChangeMetadataPlugin } from './scripts/result-change-metadata.mjs';
-import { bundleGraphPlugin } from './scripts/perf-bundle-graph.mjs';
 
 /**
  * Stub out the WASM glue module when it hasn't been built yet.
@@ -207,7 +206,7 @@ if (researchBuildId !== 'unavailable') {
 }
 
 export default defineConfig({
-  plugins: [wasmStubPlugin(), publicI18nPlugin(), resultChangeMetadataPlugin(), svelte(), ...(ADMIN ? [adminRootPlugin(), adminPublicAssetsPlugin()] : [bundleGraphPlugin()])],
+  plugins: [wasmStubPlugin(), publicI18nPlugin(), resultChangeMetadataPlugin(), svelte(), ...(ADMIN ? [adminRootPlugin(), adminPublicAssetsPlugin()] : [])],
   define: {
     "import.meta.env.RESEARCH_BUILD_ID": JSON.stringify(researchBuildId),
     __STABILEO_COMMIT__: JSON.stringify(buildCommit()),
@@ -302,6 +301,8 @@ export default defineConfig({
           // for the whole suite by itself, and it peaked at 1.75 GB RSS / 78 % CPU.
           fileParallelism: false,
           maxWorkers: 1,
+          // Every file here spawns a process; on a hosted runner `npm ls --all` alone took 64 s.
+          testTimeout: 120_000,
         },
       },
       {

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from './Hint.svelte';
   /**
    * Named groups: create from the selection, select, rename, grow, shrink, delete.
    *
@@ -83,7 +84,7 @@
 <div class="pk gp" data-testid="groups-panel">
   <section class="pk-card">
   <h4 class="pk-heading">{t('groups.newTitle')}</h4>
-  <p class="pk-hint">{t('groups.explain')}</p>
+  <Hint text={t('groups.explain')} />
   <div class="pk-row">
     <input class="gp-name" placeholder={t('groups.namePlaceholder')} bind:value={name} data-testid="gp-name" />
     <select bind:value={kind} data-testid="gp-kind">

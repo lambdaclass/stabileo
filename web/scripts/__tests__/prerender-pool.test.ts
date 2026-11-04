@@ -1,5 +1,6 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { prerenderConcurrency, routePool } from '../prerender-pool';
+import { newPrerenderPage, PRERENDER_NAVIGATION_TIMEOUT_MS, prerenderConcurrency, routePool } from '../prerender-pool';
 
 const routes = ['/a/', '/b/', '/c/', '/d/'].map(href => ({ href }));
 
@@ -46,5 +47,23 @@ describe('prerender route pool', () => {
     expect(prerenderConcurrency(undefined, 16)).toBe(6);
     expect(prerenderConcurrency('1', 4)).toBe(1);
     for (const value of ['0', '-1', '1.5', 'NaN', '']) expect(() => prerenderConcurrency(value)).toThrow('PRERENDER_CONCURRENCY');
+  });
+});
+
+describe('prerender navigation timeout', () => {
+  it('gives every prerender page 120 s per navigation, so a loaded build host does not fail the build', async () => {
+    const set: number[] = [];
+    const page = await newPrerenderPage(async () => ({ setDefaultNavigationTimeout: (ms: number) => { set.push(ms); } }));
+    expect(PRERENDER_NAVIGATION_TIMEOUT_MS).toBe(120_000);
+    expect(set).toEqual([120_000]);
+    expect(page).toBeDefined();
+  });
+
+  it('creates every page in prerender.ts through newPrerenderPage', () => {
+    const source = readFileSync(new URL('../prerender.ts', import.meta.url), 'utf8');
+    const pages = source.match(/browser\.newPage\(/g) ?? [];
+    const wrapped = source.match(/newPrerenderPage\(\(\) => browser\.newPage\(/g) ?? [];
+    expect(pages.length).toBeGreaterThan(0);
+    expect(wrapped.length).toBe(pages.length);
   });
 });

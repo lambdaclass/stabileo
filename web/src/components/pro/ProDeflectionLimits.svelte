@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from './Hint.svelte';
   /**
    * The project's deflection limits: rules by kind, group or chosen members, each with L/n and the
    * direction it reads (`engine/deflection-limits.ts`). Without a rule a beam is checked at L/360
@@ -61,7 +62,7 @@
   {/each}
   <datalist id="defl-presets">{#each PRESETS as n (n)}<option value={n}></option>{/each}</datalist>
   <button class="pk-btn" onclick={add} data-testid="defl-rule-add">+ {t('defl.limits.add')}</button>
-  <p class="pk-hint">{t('defl.limits.hint')}</p>
+  <Hint text={t('defl.limits.hint')} />
 </details>
 
 <style>

@@ -1,7 +1,7 @@
 .PHONY: research.wasm paper.pdf help install-nix shell setup setup.run git.setup deps backend.run console routes \
-       lint.engine check.engine.acceptance-models test.engine.gates test.engine.metamorphic test.engine.suite bench.engine \
-       web.deps typecheck.web test.web.unit test.web.build test.web.results snapshots-update check.results-snapshot-gate test.web.determinism e2e.web.setup e2e.web.build e2e.web.smoke e2e.web.slow e2e.web.visual e2e.web.flaky \
-       perf.budget perf.budget.write perf.budget.accept perf.lighthouse.deps perf.lighthouse \
+       lint.engine test.engine.units-types check.engine.acceptance-models test.engine.gates test.engine.metamorphic test.engine.suite bench.engine \
+       web.deps typecheck.web test.web.unit test.web.build test.web.timing test.web.results snapshots-update check.results-snapshot-gate test.web.determinism e2e.web.setup e2e.web.build e2e.web.smoke e2e.web.slow e2e.web.timing e2e.web.visual e2e.web.flaky \
+       perf.lighthouse.deps perf.lighthouse \
        test.ci-scripts test.nightly-scripts \
        test test.engine test.engine.benchmark-protocol test.backend test.backend.file test.web test.ai-backend test.inventory test-changed \
        lint.backend format format.backend \
@@ -35,7 +35,7 @@ POSTGRES_DIR = $(DATA_DIR)/postgres
 INST_REGISTRY = $(DATA_DIR)/instances
 
 # Not the default 5432 (nor scasaas's 5442), so this runs next to other projects' servers.
-PG_PORT = 5452
+PG_PORT = $(or $(PGPORT),5452)
 DB_USER = postgres
 
 SUBMAKE = $(MAKE) --no-print-directory
@@ -81,10 +81,10 @@ help:
 	@echo "  make lint.engine          - Clippy over the engine"
 	@echo "  make test.engine.gates    - The named engine correctness gates"
 	@echo "  make test.engine.metamorphic - Metamorphic tests, in release"
-	@echo "  make test.engine.suite [SHARD=1/2] - Every engine test outside the gates"
+	@echo "  make test.engine.suite [SHARD=1/4] - Every engine test outside the gates"
 	@echo "  make bench.engine         - Criterion benchmarks (informational)"
 	@echo "  make typecheck.web        - tsc against its baseline + svelte-check gate"
-	@echo "  make test.web.unit [SHARD=1/2] - Vitest unit pass"
+	@echo "  make test.web.unit [SHARD=1/4] - Vitest unit pass"
 	@echo "  make test.web.build       - Production build + build-pass tests"
 	@echo "  make test.web.determinism - WASM results bit-identical across Node and three browsers"
 	@echo "  make e2e.web.build        - The VITE_E2E=1 site the e2e suites run on with E2E_PREBUILT=1"
@@ -216,6 +216,7 @@ GATE_CONSTRAINT_BENCH = test(/benchmark_.*constraint/)
 GATE_MODULES = sparse_shell_gates solver_invariants solver_ci_coverage conditioning_adversarial kfull_overbuild_gates acceptance
 # Wall-clock gates run single-threaded, so elapsed time is CPU work, not contention.
 GATE_TIMED_MODULES = perf_regression_gates perf_regression_advanced
+GATE_TIMED_IGNORED = test(=element::solid_shell::tests::test_centroid_stress_timing_budget) + test(=section::poisson::tests::sparse_path_scales_better_than_cubically) + test(=solver::constraints::tests::validate_constraints_reads_the_nodes_once_not_once_per_constraint) + test(=solver::dynamic_validation::tests::area_mass_validation_is_linear_in_the_number_of_shells) + test(=postprocess_scaling::rc_check_scales_linearly_in_member_count)
 GATE_CERTIFICATES = test(/^certify::/) + test(/^properties_2d::/) + test(/^properties_3d::/)
 # Metamorphic tests run apart, in release: unoptimised they outlast a suite shard.
 GATE_RELEASE_BINARIES = metamorphic
@@ -230,12 +231,17 @@ check.engine.acceptance-models:
 	$(NIX_RUN) bash -c 'for g in engine/tests/acceptance/generators/*.py; do python3 -I "$$g"; done'
 	git diff --exit-code -- engine/tests/acceptance/models
 
-test.engine.gates: check.engine.acceptance-models
+# nextest does not execute the compile-fail doctests protecting unit boundaries.
+test.engine.units-types:
+	$(NIX_RUN) cargo test -p dedaliano-engine --doc types::units
+
+test.engine.gates: check.engine.acceptance-models test.engine.units-types
 	$(NEXTEST) -E '$(GATE_SHELL_BENCH)'
 	$(NEXTEST) -E '$(GATE_SHELL_ACCEPTANCE)'
 	$(NEXTEST) -E '$(GATE_CONSTRAINT_BENCH)'
 	$(foreach m,$(GATE_MODULES),($(NEXTEST) --test gates -E 'test(/^$(m)::/)') &&) true
 	$(foreach m,$(GATE_TIMED_MODULES),($(NEXTEST) --test gates -E 'test(/^$(m)::/)' --test-threads 1) &&) true
+	$(NEXTEST) --run-ignored only -E '$(GATE_TIMED_IGNORED)' --test-threads 1
 	$(NEXTEST) --test certificates -E '$(GATE_CERTIFICATES)'
 
 test.engine.metamorphic:
@@ -252,26 +258,17 @@ web.deps:
 	$(NIX_RUN) bash -c "cd web && npm ci"
 
 typecheck.web:
-	$(NIX_RUN) bash -c "cd web && npm run typecheck && npm run check:gate && node scripts/check-site-header.mjs"
+	$(NIX_RUN) bash -c "cd web && npm run typecheck && npm run test:units:types && npm run check:gate && node scripts/check-site-header.mjs"
 
 test.web.unit:
-	$(NIX_RUN) bash -c "cd web && npx vitest run --project unit $(if $(SHARD),--shard=$(SHARD))"
+	$(NIX_RUN) bash -c "cd web && npx vitest run --project unit $${UNIT_AREA:+src/components/$$UNIT_AREA} $(if $(SHARD),--shard=$(SHARD))"
 
 # The build prerenders the public pages in Chromium, so it needs the browser.
 test.web.build:
-	$(NIX_RUN) bash -c "cd web && $(PLAYWRIGHT_INSTALL) chromium && npm run build && node scripts/perf-budget.mjs && npx vitest run --project build"
+	$(NIX_RUN) bash -c "cd web && $(PLAYWRIGHT_INSTALL) chromium && npm run build && NO_WALL_CLOCK=$(NO_WALL_CLOCK) npx vitest run --project build"
 
-## Route sizes of web/dist against web/perf-budget.json (docs/performance/README.md); after a build
-perf.budget:
-	$(NIX_RUN) bash -c "cd web && node scripts/perf-budget.mjs"
-
-## Lower web/perf-budget.json where a route shrank (a ratchet only tightens)
-perf.budget.write:
-	$(NIX_RUN) bash -c "cd web && node scripts/perf-budget.mjs --write"
-
-## Record a deliberate growth in web/perf-budget.json; say why in the pull request
-perf.budget.accept:
-	$(NIX_RUN) bash -c "cd web && node scripts/perf-budget.mjs --accept-growth"
+test.web.timing:
+	$(NIX_RUN) bash -c "cd web && npx vitest run --project build src/lib/engine/__tests__/scale-budget.test.ts"
 
 perf.lighthouse.deps:
 	$(NIX_RUN) bash -c "cd web/lighthouse && npm ci --no-audit --no-fund"
@@ -314,7 +311,10 @@ e2e.web.smoke:
 	$(NIX_RUN) bash -c 'cd web && E2E_JSON_REPORT=e2e/.results/smoke.json npx playwright test --grep @smoke --grep-invert @flaky $(if $(SHARD),$$(node scripts/e2e-shard.mjs $(subst /, ,$(SHARD))))'
 
 e2e.web.slow:
-	$(NIX_RUN) bash -c 'cd web && E2E_JSON_REPORT=e2e/.results/slow.json npx playwright test --grep "@slow" --grep-invert "visual baselines|@flaky" $(if $(SHARD),$$(node scripts/e2e-shard.mjs --suite slow $(subst /, ,$(SHARD))))'
+	$(NIX_RUN) bash -c 'cd web && E2E_JSON_REPORT=e2e/.results/slow.json NO_WALL_CLOCK=$(NO_WALL_CLOCK) npx playwright test --grep "@slow" --grep-invert "visual baselines|@flaky" $(if $(SHARD),$$(node scripts/e2e-shard.mjs --suite slow $(subst /, ,$(SHARD))))'
+
+e2e.web.timing:
+	$(NIX_RUN) bash -c 'cd web && npx playwright test --grep "@slow" e2e/rebar-workspace-open.spec.ts e2e/model-fluidity.spec.ts'
 
 # --pass-with-no-tests: an empty quarantine is the goal, not an error.
 e2e.web.flaky:
@@ -368,11 +368,24 @@ check.test-targets:
 
 test.nightly-scripts:
 	python3 -B -I scripts/tests/test_nightly.py
+	python3 -B -I tools/opensees/test_gen_models.py
 	$(NIX_RUN) node --test scripts/tests/nightly-findings.test.cjs
+	$(NIX_RUN) node --test scripts/tests/verification-alert.test.cjs
+	$(NIX_RUN) node --test scripts/tests/runner-pools.test.cjs
 
 test.ci-scripts: test.nightly-scripts
+	python3 -B -I scripts/tests/test_retry_infra.py
 	python3 -B -I scripts/tests/test_ci_aggregate.py
+	python3 -B -I scripts/tests/test_ci_selection.py
+	python3 -B -I scripts/tests/test_main_tested.py
+	python3 -B -I scripts/tests/test_cancel_superseded.py
+	python3 -B -I scripts/tests/test_ci_runners.py
+	python3 -B -I scripts/tests/test_ci_events.py
+	python3 -B -I scripts/tests/test_post_merge_revert.py
+	python3 -B -I scripts/tests/test_required_checks.py
+	python3 -B -I scripts/tests/test_wall_clock.py
 	$(NIX_RUN) bash -c 'shellcheck -S warning .github/scripts/*.sh'
+	$(NIX_RUN) actionlint .github/workflows/ci.yml .github/workflows/research.yml .github/workflows/merge-queue-supersede.yml .github/workflows/post-merge.yml
 
 lint.backend:
 	$(NIX_RUN) bash -c "cd backend && mix format --check-formatted"

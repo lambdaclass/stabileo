@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from './Hint.svelte';
   /**
    * The view: named cameras, a second window on one of them, what the labels say, and the
    * magnifier.
@@ -13,6 +14,7 @@
   import ViewCubeIcon, { type CubeFace } from './ViewCubeIcon.svelte';
   import { categoryCss } from '../../lib/viewport/element-colour';
   import type { SavedViewDisplay } from '../../lib/store/model.svelte';
+  import { viewCategories, VIEW_CATEGORIES, CATEGORY_STATES } from '../../lib/store/view-categories.svelte';
   import { placementStore } from '../../lib/store/placement.svelte';
   import { MESH_SHOWN_UP_TO } from '../../lib/viewport3d/shell-members';
   import { addNote } from '../../lib/model/annotations';
@@ -66,8 +68,16 @@
       ...(h ? { hidden: { elements: [...h.elements], shells: [...h.shells] } } : {}),
       labels: { nodes: uiStore.showNodeLabels3D, members: uiStore.showElementLabels3D, memberLabel: viewState.memberLabel, lengths: uiStore.showLengths3D, shells: uiStore.showShellLabels3D },
       colourBy: uiStore.elementColorMode,
+      ...(viewCategories.anyChanged ? { categories: viewCategories.snapshot() } : {}),
+      style: uiStore.renderMode3D,
     };
   }
+
+  function update(id: number) {
+    modelStore.updateView(id, uiStore.cameraPosition3D, uiStore.cameraTarget3D, display());
+  }
+
+  const STYLES = ['wireframe', 'solid', 'sections', 'physical'] as const;
 
   function save() {
     const n = name.trim() || tp('view.defaultName', { n: views.length + 1 });
@@ -88,6 +98,8 @@
       uiStore.showLengths3D = d.labels.lengths;
       uiStore.showShellLabels3D = d.labels.shells;
       if (d.colourBy) uiStore.elementColorMode = d.colourBy as never;
+      viewCategories.restore(d.categories);
+      if (d.style) uiStore.renderMode3D = d.style;
     }
     // After the projection has switched, so the camera it moves is the one on screen.
     queueMicrotask(() => window.dispatchEvent(new CustomEvent('stabileo-camera-set', { detail: { position: v.position, target: v.target, orthoZoom: d?.orthoZoom } })));
@@ -119,13 +131,36 @@
 
   <section class="pk-card">
     <h4 class="pk-heading">{t('view.visibility')}</h4>
-    <p class="pk-hint">{t('view.visibilityHint')}</p>
+    <Hint text={t('view.visibilityHint')} />
     <div class="pk-row">
       <button class="pk-btn" disabled={selectionCount === 0} onclick={() => viewVisibility.isolate(selection())} data-testid="view-isolate">{t('view.isolate')}</button>
       <button class="pk-btn" disabled={selectionCount === 0} onclick={() => viewVisibility.hide(selection())} data-testid="view-hide">{t('view.hide')}</button>
       <button class="pk-btn" disabled={!viewVisibility.active} onclick={() => viewVisibility.showAll()} data-testid="view-show-all">{t('view.showAll')}</button>
     </div>
     {#if viewVisibility.active}<p class="pk-warn" data-testid="view-hidden-note">{tp('view.hiddenNote', { n: hiddenCount })}</p>{/if}
+  </section>
+
+  <section class="pk-card" data-testid="view-categories">
+    <h4 class="pk-heading">{t('view.categories')}</h4>
+    <Hint text={t('view.categoriesHint')} />
+    <div class="vp-cats">
+      {#each VIEW_CATEGORIES as c (c)}
+        <span class="vp-cat-name">{t(`view.cat.${c}`)}</span>
+        <div class="vp-seg" role="radiogroup" aria-label={t(`view.cat.${c}`)}>
+          {#each CATEGORY_STATES as st (st)}
+            <button type="button" role="radio" aria-checked={viewCategories.state(c) === st} class:on={viewCategories.state(c) === st}
+              onclick={() => viewCategories.set(c, st)} title={t(`view.catState.${st}`)} data-testid="view-cat-{c}-{st}">{t(`view.catState.${st}`)}</button>
+          {/each}
+        </div>
+      {/each}
+    </div>
+    <div class="pk-row">
+      <span class="pk-label">{t('view.style')}</span>
+      <select bind:value={uiStore.renderMode3D} data-testid="view-style">
+        {#each STYLES as m (m)}<option value={m}>{t(`config.${m}`)}</option>{/each}
+      </select>
+      <button class="pk-btn" disabled={!viewCategories.anyChanged} onclick={() => viewCategories.reset()} data-testid="view-cat-reset">{t('view.catReset')}</button>
+    </div>
   </section>
 
   <section class="pk-card">
@@ -142,6 +177,7 @@
           <li>
             <input class="pk-grow" value={v.name} onchange={(e) => { const s = (e.target as HTMLInputElement).value.trim(); if (s && s !== v.name) modelStore.renameView(v.id, s); }} aria-label={t('view.rename')} />
             <button class="pk-btn" onclick={() => show(v.id)} data-testid="view-go">{t('view.go')}</button>
+            <button class="pk-btn" onclick={() => update(v.id)} title={t('view.updateHint')} data-testid="view-update">{t('view.update')}</button>
             <button class="pk-btn" class:on={viewState.insetViewId === v.id} onclick={() => toggleInset(v.id)} title={t('view.insetHint')} data-testid="view-inset-toggle">{t('view.inset')}</button>
             <button class="pk-btn pk-btn-icon" onclick={() => remove(v.id)} aria-label={t('view.remove')}>×</button>
           </li>
@@ -165,7 +201,7 @@
         </label>
       {/each}
     </div>
-    <p class="pk-hint">{t('view.unitsHint')}</p>
+    <Hint text={t('view.unitsHint')} />
   </section>
 
   <section class="pk-card">
@@ -204,6 +240,8 @@
 
   <section class="pk-card">
     <h4 class="pk-heading">{t('view.draw')}</h4>
+    <label class="pk-check"><input type="checkbox" bind:checked={viewState.split} data-testid="view-split" /> {t('viewport.split')}</label>
+    <Hint text={t('viewport.splitHint')} />
     <label class="pk-check"><input type="checkbox" bind:checked={viewState.showConstraints} data-testid="view-draw-constraints" /> {t('view.drawConstraints')}</label>
     <label class="pk-check"><input type="checkbox" bind:checked={viewState.showMemberEnds} data-testid="view-draw-ends" /> {t('view.drawEnds')}</label>
     <label class="pk-check">{t('view.shellMesh')}
@@ -246,12 +284,18 @@
       <kbd>F</kbd>
       <button class="pk-btn" class:on={viewState.zoomWindowArmed} onclick={() => (viewState.zoomWindowArmed = !viewState.zoomWindowArmed)} data-testid="view-zoom-window">{t('view.zoomWindow')}</button>
     </div>
-    {#if viewState.zoomWindowArmed}<p class="pk-hint" data-testid="view-zoom-window-hint">{t('view.zoomWindowHint')}</p>{/if}
-    <p class="pk-hint">{t('view.magnifierHint')}</p>
+    {#if viewState.zoomWindowArmed}<Hint testid="view-zoom-window-hint" text={t('view.zoomWindowHint')} />{/if}
+    <Hint text={t('view.magnifierHint')} />
   </section>
 </div>
 
 <style>
+  .vp-cats { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 8px; align-items: center; font-size: 0.7rem; }
+  .vp-cat-name { color: var(--st-text-2); }
+  .vp-seg { display: inline-flex; border: 1px solid var(--st-hair-strong); border-radius: var(--st-radius); overflow: hidden; }
+  .vp-seg button { border: 0; background: none; padding: 2px 7px; font-size: 0.64rem; color: var(--st-text-3); cursor: pointer; }
+  .vp-seg button + button { border-left: 1px solid var(--st-hair-strong); }
+  .vp-seg button.on { background: var(--st-selected-bg); color: var(--st-text); }
   .vp-cubes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
   .vp-cube { flex-direction: column; gap: 2px; min-height: 48px; padding: 4px 2px; font-size: 0.6rem; }
   .vp-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }

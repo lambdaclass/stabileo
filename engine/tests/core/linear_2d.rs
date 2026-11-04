@@ -215,7 +215,7 @@ fn portal_frame_lateral_load_equilibrium() {
     assert_close(sum_rx, -20.0, 0.01, "portal frame ΣFx equilibrium");
 
     let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
-    assert_close(sum_ry, 0.0, 0.01, "portal frame ΣFy = 0");
+    assert_close_abs(sum_ry, 0.0, 0.01, 1e-6, "portal frame ΣFy = 0");
 
     // Moment equilibrium about the left support (node 1 at origin (0,0)):
     // ΣM = reaction moments + reaction forces × arms + applied load moments = 0
