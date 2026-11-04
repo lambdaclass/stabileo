@@ -225,8 +225,8 @@ fn a_wrong_effective_mass_is_caught() {
 
 /// #1272.
 #[test]
-fn warned_plastic_lower_bounds_are_inconclusive() {
-    inconclusive(1272, 2026110303871, &[("plastic collapse", "units")]);
+fn the_reported_plastic_units_pair_holds() {
+    holds(1272, 2026110303871, &[("plastic collapse", "units")]);
 }
 
 #[test]
