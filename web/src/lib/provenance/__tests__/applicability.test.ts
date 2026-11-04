@@ -190,11 +190,11 @@ describe('which registered changes concern a model', () => {
     const change = 'governing-envelope-true-peak';
     const combos = { combinations: [{ id: 1, name: '1.2D', factors: [{ caseId: 1, factor: 1.2 }] }] } as Partial<FeatureSnapshot>;
     const loaded = model({ analysisMode: '2d', elements: [member(1, 1, 'frame')], loads: [{ type: 'distributed', data: { caseId: 1, elementId: 1 } }] as never, ...combos });
-    const v24 = { resultsVersion: 24, analyses: ['linear'] } as SolveStamp;
-    expect(ids(loaded, v24)).toContain(change);
-    expect(ids(loaded, { resultsVersion: 25, analyses: ['linear'] } as SolveStamp)).not.toContain(change);
-    expect(ids(model({ analysisMode: '2d', elements: [member(1, 1, 'frame')], ...combos }), v24)).not.toContain(change);
-    expect(ids(model({ analysisMode: '3d', elements: [member(1, 1, 'frame')], loads: [{ type: 'distributed', data: { caseId: 1, elementId: 1 } }] as never, ...combos }), v24)).not.toContain(change);
+    const v25 = { resultsVersion: 25, analyses: ['linear'] } as SolveStamp;
+    expect(ids(loaded, v25)).toContain(change);
+    expect(ids(loaded, { resultsVersion: 26, analyses: ['linear'] } as SolveStamp)).not.toContain(change);
+    expect(ids(model({ analysisMode: '2d', elements: [member(1, 1, 'frame')], ...combos }), v25)).not.toContain(change);
+    expect(ids(model({ analysisMode: '3d', elements: [member(1, 1, 'frame')], loads: [{ type: 'distributed', data: { caseId: 1, elementId: 1 } }] as never, ...combos }), v25)).not.toContain(change);
   });
 });
 

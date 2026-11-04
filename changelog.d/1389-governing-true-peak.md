@@ -7,4 +7,4 @@
   two stations was read low: 0.23 % under a triangular load, 1.05 % under a short partial load,
   and a combination peaking between stations could lose the governing title. Both now take the
   true peak (both sides of each point load, the stationary points between load discontinuities).
-  Governing values and envelope peaks can rise; they never fall. Results version 25.
+  Governing values and envelope peaks can rise; they never fall. Results version 26.

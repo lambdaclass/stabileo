@@ -1,4 +1,4 @@
-# Governing value and 2D envelope at the true peak (results version 25)
+# Governing value and 2D envelope at the true peak (results version 26)
 
 Issue #1389. In plane models with load combinations and loads along members, the governing
 moment, shear or axial force of a member (`computeGoverning2D`) and the 2D envelope

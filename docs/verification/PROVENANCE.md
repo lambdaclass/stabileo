@@ -104,7 +104,7 @@ first.
 
 ## Governing value and 2D envelope at the true peak (issue #1389)
 
-`governing-envelope-true-peak` (results version 25, the next free version when this was marked
+`governing-envelope-true-peak` (results version 26, the next free version when this was marked
 ready): `governingMagnitude2D` reads each diagram's true peak (`peakAlong`), and the engine's
 2D envelope adds each combination's peak stations to its grid
 (`diagram_peak_stations_2d`), so `governing-envelope.test.ts` still finds the governing value of
