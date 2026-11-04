@@ -190,12 +190,16 @@ koiter = research["jobs"]["koiter"]
 assert koiter["runs-on"].endswith("|| 'ubuntu-24.04' }}") and koiter["if"] == "${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name != 'pull_request') }}"
 assert any("cargo test --release --locked" in step.get("run", "") for step in koiter["steps"])
 
+installs = 0
 for config in [research, snapshot]:
     for job in config['jobs'].values():
         for step in job.get('steps', []):
             for line in step.get('run', '').splitlines():
-                if 'pip install' in line:
+                if re.search(r'pip3?"?\s+install', line):
+                    installs += 1
                     assert '--require-hashes -r research/tools/requirements.txt' in line, line
+assert any(re.search(r'replay-venv/bin/pip"?\s+install', step.get('run', '')) for step in research['jobs']['replay']['steps'])
+assert installs >= 3, installs
 print('research workflow Python dependencies retain hash verification')
 
 assert set(triggers['pull_request']['paths']) == {'research/**', 'web/src/components/research/**', '.github/workflows/research.yml', 'infra/caddy/**', 'infra/ansible/**', '.github/workflows/research-snapshot.yml'}

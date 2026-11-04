@@ -55,7 +55,8 @@ for (const locale of ['de', 'fr', 'tr']) {
     expect(rs().ferrariTitle).toBe(english.ferrariTitle);
     expect(body).toContain(english.ferrariComparison);
     expect(body).toContain(english.ferrariDisclaimer);
-    expect(withoutBibtex(body)).not.toMatch(/\{\w+\}|undefined/);
+    expect(withoutBibtex(body)).not.toMatch(/\{\w+\}/);
+    expect(body).not.toContain('undefined');
     expect(body).toMatch(/<article[^>]*lang="en"/);
     expect(body).not.toMatch(/lang="(de|fr|tr)"/);
     const ref = body.match(/data-testid="ferrari-reference"[^>]*>(.*?)<\/p>/s)![1];
