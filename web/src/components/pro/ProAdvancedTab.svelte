@@ -546,7 +546,13 @@
       // The fibre analysis was offered here and never ran: the engine needs fibre sections and
       // material laws this panel does not build, so it is out of the list until it does.
     } catch (e: any) {
-      solveError = tp('adv.failed', { analysis: t('adv.name.nonlinear'), error: errorText(e, 'Error') });
+      const turned = /member (\d+) turn ([\d.]+) rad/.exec(errorText(e, ''));
+      const bent = /chord of member (\d+) turns ([\d.]+) rad/.exec(errorText(e, ''));
+      solveError = turned
+        ? tp('pro.corotMemberTurns', { id: turned[1], turn: turned[2] })
+        : bent
+        ? tp('pro.corotChordTurns', { id: bent[1], turn: bent[2] })
+        : tp('adv.failed', { analysis: t('adv.name.nonlinear'), error: errorText(e, 'Error') });
     }
     solving = false;
   }

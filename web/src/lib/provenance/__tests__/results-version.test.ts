@@ -61,6 +61,7 @@ const RELEASED: Record<number, string[]> = {
     'basic-plastic-closes-unloading-hinges', 'basic-second-order-split-members',
     'basic-influence-line-moment-sign',
   ],
+  26: ['corotational-3d-rotations'],
 };
 
 describe('results versions', () => {

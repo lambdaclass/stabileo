@@ -91,6 +91,12 @@ const body: PostBody = {
           "Corrigé dans la prochaine version"
         ],
         [
+          "SA-2026-037",
+          "Analyse corotationnelle 3D : les vecteurs de rotation étaient soustraits (le coude de Bathe–Bolourchi à 1,3 %, sans amélioration au raffinement)",
+          "Moyenne",
+          "Corrigé dans la prochaine version"
+        ],
+        [
           "SA-2026-013",
           "Coques courbes : moments fléchissants affichés comme nuls ; les contraintes conservaient la déformation thermique libre",
           "Élevée",

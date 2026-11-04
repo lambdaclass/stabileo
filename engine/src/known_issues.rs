@@ -109,6 +109,14 @@ pub fn for_3d(input: &SolverInput3D, analysis: Analysis) -> Vec<StructuredDiagno
     out
 }
 
+/// 3D co-rotational end moments skip the differential of the rotation logarithm, a relative error of about half a member's natural rotation.
+pub const NL3_NATURAL_ROTATION: f64 = 0.02;
+
+/// A 3D co-rotational member whose ends turn more than [`NL3_NATURAL_ROTATION`] against its chord.
+pub fn corotational_natural_rotation() -> StructuredDiagnostic {
+    hit("NL-3", 426, "A member's end turns more than 0.02 rad against its chord in this 3D co-rotational analysis. Its end forces omit a finite-rotation term whose error grows about as half that rotation times the end moments; split the most deformed members into shorter ones until this warning clears")
+}
+
 /// Add warnings to a result's diagnostics, once each: a path that already attached a finding
 /// (a prepared solve under the solve that called it) does not repeat it.
 pub fn attach(target: &mut Vec<StructuredDiagnostic>, new: Vec<StructuredDiagnostic>) {
