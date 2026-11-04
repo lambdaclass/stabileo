@@ -343,7 +343,6 @@ const de: Translations = {
   'blog.tag.concrete': 'Beton',
   'blog.tag.ai': 'KI',
   'blog.tag.research': 'Forschung',
-  'blog.tag.events': 'Veranstaltungen',
   'blog.tag.solver': 'Löser',
   'blog.tag.safety': 'Sicherheit',
   'blog.tag.verification': 'Verifikation',

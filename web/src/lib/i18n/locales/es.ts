@@ -344,7 +344,6 @@ const es: Record<string, string> = {
   'blog.tag.concrete': 'Hormigón',
   'blog.tag.ai': 'IA',
   'blog.tag.research': 'Investigación',
-  'blog.tag.events': 'Eventos',
   'blog.tag.solver': 'Solver',
   'blog.tag.safety': 'Seguridad',
   'blog.tag.verification': 'Verificación',

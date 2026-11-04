@@ -5,7 +5,7 @@ export const tiic2026SecondPlace: Post = {
   date: '2026-10-20',
   order: 9,
   authors: ['Bautista Chesta'],
-  tagKeys: ['blog.tag.events', 'blog.tag.ai'],
+  tagKeys: ['blog.tag.ai', 'blog.tag.verification'],
   i18n: {
     es: {
       title: 'Experiencia TIIC 2026: el segundo puesto y una charla sobre algoritmos en la obra',

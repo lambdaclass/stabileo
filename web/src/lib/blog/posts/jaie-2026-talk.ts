@@ -6,7 +6,7 @@ export const jaie2026Talk: Post = {
   date: '2026-09-18',
   order: 5,
   authors: ['Bautista Chesta'],
-  tagKeys: ['blog.tag.events', 'blog.tag.research', 'blog.tag.ai'],
+  tagKeys: ['blog.tag.research', 'blog.tag.ai'],
   i18n: {
     es: {
       title: 'Presentamos Stabileo en las 29.ª Jornadas Argentinas de Ingeniería Estructural',
