@@ -54,7 +54,15 @@
     border-bottom: 2px solid transparent;
     padding: 0.6rem 0.75rem;
     min-height: 44px;
+    min-width: 44px;
+    flex: 0 1 auto;
+    overflow-wrap: anywhere;
     cursor: pointer;
+  }
+  @media (max-width: 420px) {
+    .rs-tabs button {
+      padding-inline: 0.4rem;
+    }
   }
   .rs-tabs button[aria-selected='true'] {
     color: var(--fg);

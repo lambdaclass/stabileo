@@ -11,7 +11,8 @@ workflow = yaml.safe_load((root / '.github/workflows/ci.yml').read_text())
 research = yaml.safe_load((root / '.github/workflows/research.yml').read_text())
 jobs = workflow['jobs']
 assert 'research' in jobs['ci-ok']['needs']
-assert jobs['ci-ok']['if'] == 'always()'
+assert jobs['ci-ok']['if'] == "${{ always() && needs.superseded.outputs.newer != 'true' }}"
+assert jobs['ci-ok']['needs'][0] == 'superseded'
 assert jobs['research']['uses'] == './.github/workflows/research.yml'
 assert jobs['research']['needs'] == 'changes'
 assert jobs['research']['if'] == "needs.changes.outputs.research == 'true'"

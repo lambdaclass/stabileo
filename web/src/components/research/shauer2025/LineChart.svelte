@@ -4,6 +4,7 @@
    * ours on top as a thin line, so agreement reads as a line inside a halo. A legend and a data table
    * sit below the plot; a crosshair tooltip reads every series at the nearest x.
    */
+  import { tick } from 'svelte';
   import { chartReadout } from './chart-readout';
   import { chartStrings } from '../shell/chart-strings';
   import type { Series } from './protocol';
@@ -61,6 +62,16 @@
   }
   const M = { l: 48, r: 28, t: 22, b: 36 };
 
+  function inside(node: SVGTextElement, _layout: unknown) {
+    const fit = () => {
+      node.setAttribute('dx', '0');
+      const box = node.getBBox();
+      node.setAttribute('dx', String(box.x < 0 ? -box.x : Math.min(0, width - box.x - box.width)));
+    };
+    tick().then(fit);
+    return { update: () => tick().then(fit) };
+  }
+
   function niceTicks(lo: number, hi: number, n = 5): { ticks: number[]; step: number } {
     if (!(hi > lo)) return { ticks: [lo, lo + 1], step: 1 };
     const raw = (hi - lo) / n;
@@ -89,7 +100,8 @@
   const sx = (x: number) => M.l + ((x - x0) / (x1 - x0 || 1)) * (width - M.l - M.r);
   const sy = (y: number) => M.t + (1 - (ty(y) - y0) / (y1 - y0 || 1)) * (height - M.t - M.b);
   const syRaw = (v: number) => M.t + (1 - (v - y0) / (y1 - y0 || 1)) * (height - M.t - M.b);
-  const clipId = `clip-${Math.random().toString(36).slice(2)}`;
+  const uid = $props.id();
+  const clipId = `clip-${uid}`;
 
   function path(points: [number, number][]) {
     return points
@@ -162,7 +174,7 @@
       <text x={sx(marker)} y={M.t - 6} class="tick" text-anchor="middle">{markerLabel}</text>
     {/if}
     {#each labels as l (l.text)}
-      <text x={sx(l.x)} y={sy(l.y) + (l.dy ?? -8)} class="dlabel" text-anchor={l.anchor ?? 'start'}>{l.text}</text>
+      <text x={sx(l.x)} y={sy(l.y) + (l.dy ?? -8)} class="dlabel" text-anchor={l.anchor ?? 'start'} use:inside={[l.text, l.x, l.y, width]}>{l.text}</text>
     {/each}
   </svg>
   {#if dataTable}
