@@ -56,6 +56,14 @@ const RELEASED: Record<number, string[]> = {
   11: ['shell-envelope-per-component'],
   12: ['cirsoc301-q-nonpositive-refused'],
   13: ['time-history-massless-start', 'modal-mechanism-refused'],
+  14: [
+    'basic-plastic-closes-unloading-hinges', 'basic-second-order-split-members',
+    'basic-influence-line-moment-sign',
+  ],
+  15: [
+    'basic-plastic-unloading-hinges-withdrawn', 'basic-second-order-split-members-withdrawn',
+    'basic-influence-line-moment-sign-withdrawn',
+  ],
 };
 
 describe('results versions', () => {
