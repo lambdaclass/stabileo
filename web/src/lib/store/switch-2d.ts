@@ -244,9 +244,10 @@ function constraintsReaching(kept: Iterable<number>): Constraint3D[] {
 }
 
 /** The plane model of this cut, as the space model bends it, or why there is none, as a `slice.*` key. */
-function cutBending(plane: DrawPlane, kept: Iterable<number>, members: Iterable<number>): { error: string } | { turns: PlaneBending['turns'] } {
+function cutBending(plane: DrawPlane, kept: Iterable<number>, landed: Iterable<number>, members: Iterable<number>): { error: string } | { turns: PlaneBending['turns'] } {
   const inCut = new Set(kept);
-  if (modelStore.constraints.some((c) => { const ns = constraintNodes(c); return ns.some((n) => inCut.has(n)) && ns.some((n) => !inCut.has(n)); })) {
+  const inModel = new Set(landed);
+  if (modelStore.constraints.some((c) => { const ns = constraintNodes(c); return ns.some((n) => inCut.has(n)) && ns.some((n) => !inCut.has(n) || !inModel.has(n)); })) {
     return { error: 'slice.constraintsCrossCut' };
   }
   const reaching = constraintsReaching(inCut);
@@ -269,7 +270,7 @@ export function projectOnto(plane: DrawPlane): SwitchOutcome {
     modelStore.sections,
   );
   if (!result.ok) return { ok: false, error: result.error };
-  const bending = cutBending(plane, modelStore.nodes.keys(), result.model.elements.keys());
+  const bending = cutBending(plane, modelStore.nodes.keys(), result.model.nodes.keys(), result.model.elements.keys());
   if ('error' in bending) return { ok: false, error: bending.error };
 
   takeBackup();
@@ -293,7 +294,7 @@ export function sliceAt(plane: DrawPlane, offset: number, tol = SLICE_TOL): Swit
     tol,
   );
   if (!result.ok) return { ok: false, error: result.error };
-  const bending = cutBending(plane, result.model.nodes.keys(), result.model.elements.keys());
+  const bending = cutBending(plane, result.model.nodes.keys(), result.model.nodes.keys(), result.model.elements.keys());
   if ('error' in bending) return { ok: false, error: bending.error };
 
   takeBackup();

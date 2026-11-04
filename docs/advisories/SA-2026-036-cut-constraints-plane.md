@@ -41,7 +41,8 @@ becomes ry with its sign reversed in linear MPCs. Diaphragm planes, eccentric of
 are renamed the same way. Tests: `web/src/lib/store/__tests__/switch-2d-constraints.test.ts`
 compares every node's in-plane displacements and rotation with the 3D solve, to 1e-9, for ten
 constraint kinds on a Y–Z portal and five on X–Y cantilevers. Constraints that couple the plane to
-what is out of it are now refused, by a cut and by a solve on a plane alike.
+what is out of it are now refused, by a cut and by a solve on a plane alike. So is a projection that
+merges a constrained node into another, which would leave the 2D model a link to a node it no longer has.
 
 ## Workaround
 

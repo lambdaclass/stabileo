@@ -202,7 +202,7 @@ describe('a plane model keeps the meaning of the constraints of a space model st
   ] as Array<[string, (b: number, far: number) => Constraint3D]>) {
     it(`${what} between parallel Y–Z frames at different depths is refused: its arm turns rz into sway`, () => {
       const { b } = columnsInYZ();
-      const ground = modelStore.addNode(2, 0, 0), far = modelStore.addNode(2, 0, 3);
+      const ground = modelStore.addNode(2, 2, 0), far = modelStore.addNode(2, 2, 3);
       modelStore.addElement(ground, far, 'frame');
       modelStore.addSupport(ground, 'fixed3d');
       modelStore.addConstraint(tie(b, far));
@@ -213,12 +213,32 @@ describe('a plane model keeps the meaning of the constraints of a space model st
   }
 
   it('a rotation-only rigid link between frames at different depths is kept: it has no arm', () => {
+    const { b, d } = columnsInYZ();
+    modelStore.addElement(b, d, 'frame');
+    const ground = modelStore.addNode(2, 2, 0), far = modelStore.addNode(2, 2, 3);
+    modelStore.addElement(ground, far, 'frame');
+    modelStore.addSupport(ground, 'fixed3d');
+    modelStore.addConstraint({ type: 'rigidLink', masterNode: b, slaveNode: far, dofs: [3] } as Constraint3D);
+    expect(projectOnto('yz').ok).toBe(true);
+    expect(modelStore.constraints).toHaveLength(1);
+    uiStore.analysisMode = '2d';
+    const r2 = modelStore.solve(false);
+    if (!r2 || typeof r2 === 'string') throw new Error(`2D: ${String(r2)}`);
+    const turn = (id: number) => r2.displacements.find((x) => x.nodeId === id)!.ry;
+    expect(Math.abs(turn(b))).toBeGreaterThan(1e-9);
+    expect(turn(far)).toBeCloseTo(turn(b), 12);
+  });
+
+  it('a projection that merges a constrained node into another is refused: the 2D model would keep a link to a node it no longer has', () => {
     const { b } = columnsInYZ();
     const ground = modelStore.addNode(2, 0, 0), far = modelStore.addNode(2, 0, 3);
     modelStore.addElement(ground, far, 'frame');
     modelStore.addSupport(ground, 'fixed3d');
     modelStore.addConstraint({ type: 'rigidLink', masterNode: b, slaveNode: far, dofs: [3] } as Constraint3D);
-    expect(projectOnto('yz').ok).toBe(true);
+    const before = modelStore.constraints.length;
+    expect(projectOnto('yz')).toEqual({ ok: false, error: 'slice.constraintsCrossCut' });
+    expect(uiStore.simplified2DMode).toBe(false);
+    expect(modelStore.constraints).toHaveLength(before);
   });
 
   it('a slice leaves behind a coupling tie on another frame and solves', () => {
