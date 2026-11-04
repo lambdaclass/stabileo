@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from './Hint.svelte';
   import PickKind from './PickKind.svelte';
   import QuantityInput from './loads/QuantityInput.svelte';
   import ProLoadZones from './loads/ProLoadZones.svelte';
@@ -136,7 +137,7 @@
 </script>
 
 <div class="fl" data-testid="floor-load">
-  <p class="fl-hint">{t('floorLoad.hint')}</p>
+  <Hint text={t('floorLoad.hint')} />
   <div class="fl-grid">
     <label for="fl-target">{t('floorLoad.target')}</label>
     <span class="fl-target">
@@ -229,7 +230,7 @@
         {/each}
       </tbody>
     </table>
-    <p class="fl-hint">{t('floorLoad.definedHint')}</p>
+    <Hint text={t('floorLoad.definedHint')} />
   {/if}
 
   <ProLoadZones />

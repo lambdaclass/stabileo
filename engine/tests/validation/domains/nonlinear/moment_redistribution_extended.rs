@@ -466,7 +466,7 @@ fn validation_redistrib_ext_portal_frame_lateral_load() {
     // Horizontal equilibrium: R1_x + R4_x + H = 0 (applied H is positive)
     // => R1_x + R4_x = -H (reactions oppose the load)
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
-    assert_close(sum_rx + h_load, 0.0, 0.01,
+    assert_close_abs(sum_rx + h_load, 0.0, 0.01, 1e-6,
         "Portal lateral: horizontal equilibrium");
 
     // Global moment equilibrium about node 1 base (0,0):

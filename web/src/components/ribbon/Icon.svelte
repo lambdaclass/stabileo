@@ -148,6 +148,9 @@
   {:else if name === 'code'}
     <!-- Angle brackets: the model written as text. -->
     <path d="M8.5 7L4 12l4.5 5M15.5 7L20 12l-4.5 5M13.5 5.5l-3 13" />
+  {:else if name === 'search'}
+    <circle cx="10.5" cy="10.5" r="6" />
+    <path d="M15 15l5.5 5.5" />
   {:else if name === 'eye'}
     <!-- An eye: how the model is looked at, not what it is. -->
     <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6z" />

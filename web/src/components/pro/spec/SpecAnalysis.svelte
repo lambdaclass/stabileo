@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from '../Hint.svelte';
   /**
    * Specifications › Analysis: the project's rules for how it is solved, written on the model
    * (`analysis`). How combinations with one-way behaviour are formed, linear or P-Delta per
@@ -28,7 +29,7 @@
       <input type="radio" name="combo-method" checked={method === 'superpose'} onchange={() => modelStore.setAnalysis({ combinationMethod: 'superpose' })} data-testid="combo-superpose" />
       {t('analysisRules.superpose')}
     </label>
-    {#if !oneWay}<p class="pk-hint">{t('analysisRules.methodLinear')}</p>{/if}
+    {#if !oneWay}<Hint text={t('analysisRules.methodLinear')} />{/if}
     <label class="pk-check">
       {t('analysisRules.perCombination')}
       <select value={perCombination} onchange={(e) => modelStore.setAnalysis({ perCombination: e.currentTarget.value === 'pdelta' ? 'pdelta' : undefined })} data-testid="per-combination">
@@ -44,7 +45,7 @@
       <input type="checkbox" checked={shear} onchange={(e) => modelStore.setAnalysis({ shearDeformation: e.currentTarget.checked ? undefined : 'none' })} data-testid="spec-shear" />
       {t('spec.analysis.shearOn')}
     </label>
-    <p class="pk-hint">{t('spec.analysis.shearHint')}</p>
+    <Hint text={t('spec.analysis.shearHint')} />
   </section>
   <section class="pk-card">
     <h4 class="pk-heading">{t('spec.analysis.beamTorsion')}</h4>
@@ -53,7 +54,7 @@
       <input type="number" min="0.01" max="1" step="0.05" value={beamTorsion} data-testid="spec-beam-torsion"
              onchange={(e) => { const v = Number(e.currentTarget.value); modelStore.setAnalysis({ beamTorsion: Number.isFinite(v) && v > 0 && v < 1 ? v : undefined }); }} />
     </label>
-    <p class="pk-hint">{t('spec.analysis.beamTorsionHint')}</p>
+    <Hint text={t('spec.analysis.beamTorsionHint')} />
   </section>
 </div>
 

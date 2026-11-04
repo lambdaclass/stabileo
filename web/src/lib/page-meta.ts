@@ -92,10 +92,6 @@ export type ArticleMeta = {
 	image?: string;
 };
 
-/*
- * The organization, with what it is and where else it lives: a search engine otherwise confuses it
- * with STABILO, the pen brand. `sameAs` are the profiles the footer links to.
- */
 /** The backer and publisher. LambdaClass is its development arm, credited as the developer. */
 export const ERGODIC_GROUP = {
 	'@type': 'Organization',
@@ -106,19 +102,28 @@ export const ERGODIC_GROUP = {
 
 export const LAMBDA_CLASS = {
 	'@type': 'Organization',
+	'@id': 'https://lambdaclass.com/#organization',
 	name: 'LambdaClass',
 	url: 'https://lambdaclass.com',
 	parentOrganization: { '@id': ERGODIC_GROUP['@id'] }
 };
 
+export const PUBLISHER = { '@id': ERGODIC_GROUP['@id'] };
+export const DEVELOPER = { '@id': LAMBDA_CLASS['@id'] };
+export const SOFTWARE_ID = 'https://stabileo.com/#software';
+export const WEBSITE_ID = 'https://stabileo.com/#website';
+
+/*
+ * `sameAs` and the description keep a search engine from confusing it with STABILO, the pen brand.
+ */
 const ORG = {
 	'@type': 'Organization',
 	'@id': 'https://stabileo.com/#organization',
 	name: 'Stabileo',
 	url: 'https://stabileo.com',
 	logo: 'https://stabileo.com/og/stabileo-social.png',
-	description: 'Stabileo is open-source structural analysis and design software (Argentine CIRSOC codes) that runs in the browser.',
-	parentOrganization: ERGODIC_GROUP,
+	description: 'Stabileo is open-source structural engineering software that runs in the browser.',
+	parentOrganization: PUBLISHER,
 	sameAs: [
 		'https://github.com/lambdaclass/stabileo',
 		'https://www.linkedin.com/company/stabileo',
@@ -127,9 +132,54 @@ const ORG = {
 	]
 };
 
-/** The structured data a page states: a post's article and breadcrumb, or a page's own graph. */
-function setStructuredData(article: ArticleMeta | undefined, graph: object[] | undefined) {
+/** The application every public page is about, free to use: what is not free yet has no price to state. */
+export function stabileoSoftware(locale: PublicLocale, extra: object = {}) {
+	return {
+		'@type': 'SoftwareApplication',
+		'@id': SOFTWARE_ID,
+		name: 'Stabileo',
+		url: publicUrl('/', locale),
+		applicationCategory: 'EngineeringApplication',
+		operatingSystem: 'Web browser',
+		isAccessibleForFree: true,
+		license: 'https://www.gnu.org/licenses/agpl-3.0.html',
+		sameAs: 'https://github.com/lambdaclass/stabileo',
+		inLanguage: PUBLIC_LOCALES,
+		offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+		publisher: PUBLISHER,
+		author: DEVELOPER,
+		...extra
+	};
+}
+
+/** One calculator: its own free web application, part of Stabileo rather than the same thing as it. */
+export function stabileoCalculator(locale: PublicLocale, node: { '@id': string; name: string; description: string; url: string }) {
+	return {
+		'@type': 'WebApplication',
+		...node,
+		inLanguage: locale,
+		applicationCategory: 'EngineeringApplication',
+		operatingSystem: 'Web browser',
+		isAccessibleForFree: true,
+		offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+		publisher: PUBLISHER,
+		author: DEVELOPER,
+		isPartOf: { '@id': SOFTWARE_ID }
+	};
+}
+
+/** `trail` is [name, unprefixed path or absolute URL] from the home page down to the page itself. */
+export function breadcrumbs(locale: PublicLocale, trail: [string, string][]) {
+	return {
+		'@type': 'BreadcrumbList',
+		itemListElement: trail.map(([name, path], i) => ({ '@type': 'ListItem', position: i + 1, name, item: path.startsWith('https:') ? path : publicUrl(path, locale) }))
+	};
+}
+
+/** The structured data a page states: a post's article and breadcrumb, or a page's own graph, plus the site and who makes it. */
+function setStructuredData(article: ArticleMeta | undefined, graph: object[] | undefined, locale?: PublicLocale) {
 	document.querySelector(JSONLD)?.remove();
+	if (!locale) return;
 	const nodes: object[] = [];
 	if (article) {
 		nodes.push({
@@ -140,36 +190,22 @@ function setStructuredData(article: ArticleMeta | undefined, graph: object[] | u
 			dateModified: article.dateModified ?? article.datePublished,
 			inLanguage: article.locale,
 			author: article.authors.map((name) => ({ '@type': 'Person', name })),
-			publisher: { '@id': ORG['@id'] },
+			publisher: PUBLISHER,
 			mainEntityOfPage: { '@type': 'WebPage', '@id': article.url },
 			url: article.url,
 			image: article.image ?? SITE_IMAGE,
 			...(article.keywords?.length ? { keywords: article.keywords.join(', ') } : {}),
 			isPartOf: { '@type': 'Blog', '@id': publicUrl('/blog', article.locale) }
 		});
-		if (article.crumbs) {
-			nodes.push({
-				'@type': 'BreadcrumbList',
-				itemListElement: [
-					{ '@type': 'ListItem', position: 1, name: article.crumbs.home, item: publicUrl('/', article.locale) },
-					{ '@type': 'ListItem', position: 2, name: article.crumbs.blog, item: publicUrl('/blog', article.locale) },
-					{ '@type': 'ListItem', position: 3, name: article.headline, item: article.url }
-				]
-			});
-		}
-		nodes.push(ORG);
+		if (article.crumbs) nodes.push(breadcrumbs(article.locale, [[article.crumbs.home, '/'], [article.crumbs.blog, '/blog'], [article.headline, article.url]]));
 	}
-	if (graph) nodes.push(...graph);
-	if (nodes.length === 0) return;
+	nodes.push(...(graph ?? []), { '@type': 'WebSite', '@id': WEBSITE_ID, name: 'Stabileo', url: 'https://stabileo.com/', inLanguage: locale, publisher: PUBLISHER }, ORG, ERGODIC_GROUP, LAMBDA_CLASS);
 	const el = document.createElement('script');
 	el.setAttribute('type', 'application/ld+json');
 	el.setAttribute('data-page-meta', '');
 	el.textContent = JSON.stringify({ '@context': 'https://schema.org', '@graph': nodes });
 	document.head.appendChild(el);
 }
-
-/** The Organization a page's own graph can refer to. */
-export const STABILEO_ORGANIZATION = ORG;
 
 const ARTICLE_OG = 'meta[data-page-meta-og]';
 
@@ -337,7 +373,7 @@ export function applyPageMeta(meta: {
 		});
 	}
 	setOgArticle(meta.article);
-	setStructuredData(meta.article, meta.graph);
+	setStructuredData(meta.article, meta.graph, meta.locale);
 }
 
 export function restorePageMeta() {

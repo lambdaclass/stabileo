@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from './Hint.svelte';
   /**
    * The model's physical elements: what each set of bars and shells IS to the engineer.
    *
@@ -57,7 +58,7 @@
 <div class="pk ph" data-testid="physical-panel">
   <section class="pk-card">
     <h4 class="pk-heading">{t('physical.title')}</h4>
-    <p class="pk-hint">{t('physical.explain')}</p>
+    <Hint text={t('physical.explain')} />
     <div class="pk-row">
       <button class="pk-btn pk-btn-primary" onclick={recognise} disabled={review !== null} data-testid="physical-recognize">{t('physical.recognize')}</button>
       {#if list.length > 0}<span class="pk-hint">{tp('physical.summary', { n: list.length, inferred })}</span>{/if}

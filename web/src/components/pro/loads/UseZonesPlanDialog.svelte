@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from '../Hint.svelte';
   /**
    * The zones' live loads as a plan (`model/use-zones.ts planZoneLoads`): what is added, changed
    * and removed, and the zones left unresolved, before anything is written. Manual loads are not
@@ -27,7 +28,7 @@
   <div class="zp" onclick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" tabindex="-1" aria-label={t('useZones.planTitle')} data-testid="use-zones-plan-dialog">
     <h3>{t('useZones.planTitle')}</h3>
     {#if plan}
-      <p class="zp-hint">{t('useZones.planHint')}</p>
+      <Hint text={t('useZones.planHint')} />
       {#if plan.add.length}<h4>{tp('useZones.planAdd', { n: plan.add.length })}</h4><ul>{#each plan.add as a (`${a.zoneId}|${a.role}`)}<li>{a.zone} · {t(`useZones.role.${a.role}`)}: {fmtQ(a.q, 'areaLoad')} {unitQ('areaLoad')} · {caseName(a.caseId)} · {dist(a.distribution)}</li>{/each}</ul>{/if}
       {#if plan.change.length}<h4>{tp('useZones.planChange', { n: plan.change.length })}</h4><ul>{#each plan.change as c (`${c.zoneId}|${c.role}`)}<li>{c.zone} · {t(`useZones.role.${c.role}`)}: {fmtQ(c.from.q, 'areaLoad')} → {fmtQ(c.q, 'areaLoad')} {unitQ('areaLoad')}{c.from.distribution !== c.distribution ? ` · ${dist(c.distribution)}` : ''}</li>{/each}</ul>{/if}
       {#if plan.remove.length}<h4>{tp('useZones.planRemove', { n: plan.remove.length })}</h4><ul>{#each plan.remove as r (r.defId)}<li>{r.zone}</li>{/each}</ul>{/if}
@@ -52,7 +53,6 @@
   h4 { margin: 4px 0 0; font-size: 0.75rem; color: var(--st-text); }
   h4.warn { color: var(--st-warn, #d9a441); }
   ul { margin: 0; padding-left: 16px; }
-  .zp-hint { margin: 0; color: var(--st-text-3); font-size: 0.7rem; }
   .zp-msg { margin: 0; color: var(--st-text); }
   .zp-actions { display: flex; justify-content: flex-end; gap: 8px; }
   .zp-btn { padding: 4px 12px; background: var(--st-surface-3); color: var(--st-text-2); border: 1px solid var(--st-hair-strong); border-radius: var(--st-radius); font: inherit; cursor: pointer; }

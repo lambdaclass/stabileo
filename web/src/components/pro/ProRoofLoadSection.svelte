@@ -1,4 +1,5 @@
 <script lang="ts" module>
+  import Hint from './Hint.svelte';
   // The config, its default and its dead load's reader live with the dialog's other sections
   // (`auto-loads-sections.ts`).
   import { readRoofDead, type RoofConfig } from './auto-loads-sections';
@@ -52,7 +53,7 @@
 </script>
 
 <div class="al-pane-body" data-testid="al-roof-section">
-      <p class="al-hint">{t('autoLoad.roof.hint')}</p>
+      <Hint text={t('autoLoad.roof.hint')} />
       <div class="al-row">
         <label class="al-field"><span class="al-label">{t('autoLoad.roof.use')}</span>
           <select bind:value={config.use} data-testid="al-roof-use">
@@ -79,7 +80,7 @@
               onchange={(e) => { const v = parseFloat(e.currentTarget.value); config.slopeDeg = Number.isFinite(v) && v >= 0 ? v : null; }} data-testid="al-roof-slope" /><span>°</span></span>
           </label>
         </div>
-        <p class="al-hint">{t('autoLoad.roof.weightHint')}</p>
+        <Hint text={t('autoLoad.roof.weightHint')} />
       {:else}
         <label class="al-field"><span class="al-label">{t('loads.cirsoc101.occupancy')}</span>
           <select bind:value={config.occupancyKey} data-testid="al-roof-occupancy">

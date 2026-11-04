@@ -1,5 +1,8 @@
 # Metamorphic testing: physics invariants on every analysis
 
+For the current coverage gaps, priority fast filter, stiffness-scaling extension
+and remaining slices, see [the Workstream 2 coverage matrix](../safety/metamorphic-coverage.md).
+
 Roadmap item 5 of the trust and verification backlog
 ([PRODUCT_ROADMAP.md](../roadmap/PRODUCT_ROADMAP.md)). A metamorphic test needs
 no reference solution: it solves a model, transforms the model, solves it again,
@@ -11,10 +14,10 @@ analysis the engine has and on the whole model corpus.
 
 ```sh
 cd engine
-cargo test --release --test metamorphic                       # PR tier (sampled)
-cargo test --release --test metamorphic metamorphic_nightly_ -- --ignored # nightly tier (exhaustive)
-METAMORPHIC_SEED=123 METAMORPHIC_ONLY="P-Delta" cargo test --release --test metamorphic metamorphic_nightly_ -- --ignored --nocapture
-UPDATE_METAMORPHIC_DOC=1 cargo test --release --test metamorphic metamorphic_pr   # refresh the matrices below
+cargo test --locked --release --test metamorphic                       # PR tier (sampled)
+cargo test --locked --release --test metamorphic metamorphic_nightly_ -- --ignored # nightly tier (exhaustive)
+METAMORPHIC_SEED=123 METAMORPHIC_ONLY="P-Delta" cargo test --locked --release --test metamorphic -- --ignored --nocapture metamorphic_nightly_2d metamorphic_nightly_3d
+UPDATE_METAMORPHIC_DOC=1 cargo test --locked --release --test metamorphic metamorphic_pr   # refresh the matrices below
 ```
 
 ## Pieces
@@ -52,7 +55,9 @@ UPDATE_METAMORPHIC_DOC=1 cargo test --release --test metamorphic metamorphic_pr 
   (every analysis reduced to a response whose quantities know how they
   transform), `checks2.rs` / `checks3.rs` (the invariants), `symmetry.rs`,
   `modal_checks.rs`, `corpus.rs`, `regressions.rs` (one minimal test per bug
-  found).
+  found), `active.rs` (active cable fixtures), `generated.rs` (strict generated
+  coverage), `safety_cases.rs` (issue-linked reproductions), and `stiffness.rs`
+  (priority invariances and uniform stiffness scaling).
 
 ## Invariants
 
@@ -294,7 +299,11 @@ fixture checks reject correctly shaped zero-valued responses.
 Shape and metamorphic checks alone do not establish physical correctness.
 In particular, primary linear, buckling, time-history, spectral, moving-load
 and plastic-collapse rows do not each have an independent absolute oracle;
-a consistently zero-valued adapter can satisfy homogeneous invariants.
+homogeneous invariants alone can accept a consistently zero-valued adapter.
+The spectral rows additionally require positive base shear and nonzero motion,
+and excited time-history fixtures require free-node motion after the initial
+step. These witnesses reject zero responses without constituting independent
+absolute oracles.
 A matrix checkmark denotes the stated relation and coverage, not independent
 validation of every response value or protection against every zero mutation.
 
@@ -343,11 +352,11 @@ The initial co-rotational finding is already tracked by
 
 | Reproduction | Disposition |
 |---|---|
-| Plastic rigid-link and selected rich-fuzz cases | `#[ignore = "safety #758"]` |
-| Warping cantilever modal orthogonality | `#[ignore = "safety #759"]` |
-| Rich 2D seed 20843 time-history reciprocity | `#[ignore = "safety #760"]` |
-| Generated co-rotational rotations/reflections and one-member reproducer | `#[ignore = "safety #761"]` |
-| Rich 2D seed 20800 near-mechanism units/orientation | `#[ignore = "safety #762"]` |
+| Plastic rigid-link and selected rich-fuzz cases | `#[ignore = "known wrong result: #758"]` |
+| Warping cantilever modal orthogonality | `#[ignore = "known wrong result: #759"]` |
+| Rich 2D seed 20843 time-history reciprocity | `#[ignore = "known wrong result: #760"]` |
+| Generated co-rotational rotations/reflections and one-member reproducer | `#[ignore = "known wrong result: #761"]` |
+| Rich 2D seed 20800 near-mechanism units/orientation | `#[ignore = "known wrong result: #762"]` |
 | Material nonlinear, every successful transformed solve | Require `KnownIssue`, phase `NL-5`, issue value 428 |
 
 The #761 reduction has two nodes, one fixed-end frame member, length
@@ -392,6 +401,18 @@ Reproducible base/head comparison and known corpus failures are recorded in
 [the verification evidence](metamorphic-review-813.txt). The broad nightly
 corpus is not green; generated coverage must not be presented as a passing
 result for the complete nightly selection.
+
+Historical run (2026-10-29; not validation of the current PR head): **30 passed, 12 ignored, 0 failed; 36.80 s**
+(test runtime, release build), on commit `d682fc7c65b1696867e5a3a4e45b04d26eead063`
+with the uncommitted #758 coverage assertions and their regression test.
+These counts describe that earlier working tree only; they are not current suite counts
+or certification of the committed PR head.
+The ignores comprise six issue-linked tests, three large sweeps and three pre-existing diagnostic probes. The generated fast sweep
+adds 256 models, plus 32 taut-cable models and 16 independent-time-unit models.
+Historical large-seed run: **4096 seeds per dimension (8192 models), passed in
+139.72 s**, including every stored time-history step. These are local release
+test timings, excluding compilation; the broad legacy exhaustive corpus was
+not rerun as part of this change.
 
 ### Generated matrix
 

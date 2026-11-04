@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from './Hint.svelte';
   /**
    * The shell mesher (`model/edit/mesher.ts`): an outline through nodes or a circle, holes as
    * node polygons or circles, divisions and bias per side, quadrilaterals or triangles, and the
@@ -88,7 +89,7 @@
 </script>
 
 <div class="ms" data-testid="mesher">
-  <p class="ms-hint">{t('mesher.hint')}</p>
+  <Hint text={t('mesher.hint')} />
   <div class="ms-row">
     <label><input type="radio" bind:group={outerKind} value="polygon" /> {t('mesher.polygon')}</label>
     <label><input type="radio" bind:group={outerKind} value="circle" data-testid="ms-circle" /> {t('mesher.circle')}</label>

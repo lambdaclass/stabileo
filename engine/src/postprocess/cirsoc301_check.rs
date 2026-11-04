@@ -655,7 +655,7 @@ fn slender_reduction<T: Real>(
         if dt > 0.45 * e / fy {
             return Err(refuse("chsTooSlender", &[("Dt", n(dt, 1)), ("lim", n(0.45 * e / fy, 1))]));
         }
-        let qv: T = q(lit::<T>(0.038) * ex(e), ex::<T>(fy) * ex(dt)) + q(ex::<T>(2.0), ex(3.0));
+        let qv: T = (q(lit::<T>(0.038) * ex(e), ex::<T>(fy) * ex(dt)) + q(ex::<T>(2.0), ex(3.0))).min(one);
         st.push("e.chsQ", &[("Dt", n(dt, 1)), ("Q", n(qv.mid(), 3))]);
         return Ok(QResult { q: qv, qs: one, qa: qv, slender: true, unit: false });
     }
@@ -759,6 +759,12 @@ fn slender_reduction<T: Real>(
     let qa: T = if lost_any { q(ex::<T>(area) - lost, ex(area)) } else { one };
     let unit = !qs_reduced && !lost_any;
     let qv = if unit { one } else { qs * qa };
+    if !unit && (ex::<T>(0.0).lt(qa) != Tri::True || ex::<T>(0.0).lt(qv) != Tri::True) {
+        return Err(refuse(
+            "qNonPositive",
+            &[("Qa", n(qa.mid(), 3)), ("lost", n(lost.mid() * 1e6, 0)), ("A", n(area * 1e6, 0))],
+        ));
+    }
     Ok(QResult { q: qv, qs, qa, slender, unit })
 }
 
@@ -875,6 +881,14 @@ pub struct CompressionCap<T> {
 
 /// §E: φc·Pn, kN, or why it cannot be evaluated.
 pub fn compression_capacity<T: Real>(m: &Cirsoc301MemberData, st: &mut Steps) -> Result<CompressionCap<T>, Refusal> {
+    let cap = compression_capacity_of::<T>(m, st)?;
+    if cap.fcr.le(ex(m.fy)) == Tri::False {
+        return Err(refuse("fcrAboveFy", &[("Fcr", n(cap.fcr.mid(), 1)), ("Fy", n(m.fy, 1))]));
+    }
+    Ok(cap)
+}
+
+fn compression_capacity_of<T: Real>(m: &Cirsoc301MemberData, st: &mut Steps) -> Result<CompressionCap<T>, Refusal> {
     let shape = shape_of(m.shape.as_deref()).ok_or_else(|| unknown_shape(m))?;
     if matches!(shape, Shape::SingleAngle | Shape::DoubleAngle) {
         return angle_compression(m, shape, st);
