@@ -34,7 +34,7 @@ def area(path):
     return 'full'
 
 
-def select(event, paths, root=None, force_full=False):
+def select(event, paths, root=None, force_full=False, tested=False):
     scope = 'full'
     if event == 'pull_request' and isinstance(paths, list) and paths and not force_full:
         areas = {area(path) for path in paths} - {'docs'}
@@ -53,7 +53,9 @@ def select(event, paths, root=None, force_full=False):
                    research=full or scope in ('research', 'tools', 'engine'),
                    research_route_only=queue or scope == 'tools',
                    determinism=(full or scope == 'engine') and not queue, results=full or scope == 'engine',
-                   flaky=full and not queue, slow_e2e=event in POST_MERGE_EVENTS)
+                   flaky=full and not queue, slow_e2e=event in POST_MERGE_EVENTS, retest=True)
+    if event == 'push' and tested:
+        outputs.update(backend=False, ci_scripts=False, ai_backend=False, engine=False, results=False, retest=False)
     outputs = {key: str(value).lower() for key, value in outputs.items()}
     outputs.update(scope=scope, unit_area=scope if scope in ('research', 'tools') else '',
                    e2e_specs=json.dumps(SPECS.get(scope, [])),
@@ -82,7 +84,8 @@ if __name__ == '__main__':
         except (KeyError, ValueError, subprocess.CalledProcessError):
             paths = None
     outputs = select(os.environ.get('GITHUB_EVENT_NAME'), paths,
-                     Path(__file__).resolve().parents[2], os.environ.get('FORCE_FULL') == 'true')
+                     Path(__file__).resolve().parents[2], os.environ.get('FORCE_FULL') == 'true',
+                     os.environ.get('TESTED') == 'true')
     with open(os.environ['GITHUB_OUTPUT'], 'a') as out:
         for key, value in outputs.items():
             print(f'{key}={value}', file=out)
