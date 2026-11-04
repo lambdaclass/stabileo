@@ -2039,6 +2039,8 @@ const zh: Translations = {
   'switch2d.noElements': 'There are nodes at that distance, but no members joining them — nothing to analyse.',
   'switch2d.noOffset': 'Enter a distance, or pick one of the cuts.',
   'switch2d.allCollapse': 'All members collapse or are duplicates in this projection. Use 3D mode.',
+  'switch2d.constraintsPlane': "该模型含有约束，2D 求解器在此平面上会以另一种含义读取它们：它把所有约束都当作框架位于 X–Z 平面来读取。请沿 X–Z 切割，或在 3D 中求解（已知问题 #466，AC-PLANE-MAPPING）。",
+  'switch2d.sectionAxis': "部分杆件的截面轴与此平面斜交，其弯曲使平面内与平面外相互耦合，或者它们在此平面内绕非双对称截面的另一根轴弯曲；2D 模型无法表示这两种情况，因此 2D 结果将是错误的。请在 3D 中求解，或切割与这些杆件截面轴对齐的平面。",
   'switch2d.loadsLeftBehind': 'loads left behind',
   'switch2d.sliceBanner': 'Cut from a 3D model',
   'tour.navigateDesc3DExtra': '下方还有更多工具：预设视图（平面、正面、侧面）、透视/正交、剖切面和测量。',

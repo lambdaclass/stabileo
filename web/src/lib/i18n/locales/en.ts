@@ -2188,6 +2188,8 @@ const en: Record<string, string> = {
   'switch2d.noElements': 'There are nodes at that distance, but no members joining them — nothing to analyze.',
   'switch2d.noOffset': 'Enter a distance, or pick one of the cuts.',
   'switch2d.allCollapse': 'All members collapse or are duplicates in this projection. Use 3D mode.',
+  'switch2d.constraintsPlane': "This model has constraints that the 2D solver would read with another meaning on this plane: it reads every constraint as if the frame stood in X–Z. Cut along X–Z, or solve in 3D (known issue #466, AC-PLANE-MAPPING).",
+  'switch2d.sectionAxis': "Some members have section axes skew to this plane, so their bending couples in and out of the plane, or they bend here about another axis of a section that is not doubly symmetric; a 2D model cannot represent either, so the 2D results would be wrong. Solve in 3D, or cut a plane that every such member's section axes line up with.",
   'switch2d.sliceBanner': 'Cut from a 3D model',
   'demo.action.solve': 'Solve it',
   'demo.basics2d.title': 'First steps',
