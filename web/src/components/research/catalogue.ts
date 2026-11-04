@@ -1,5 +1,5 @@
 /** Publisher metadata supplements incomplete Crossref records without changing the verified source. */
-export function bibliography(paper: { crossref: { title: string; authors: string[]; venue: string; year: number }; bibliography?: { authors: string[]; venue: string } }) {
+export function bibliography(paper: { crossref: { title: string; authors: string[]; venue: string; year: number }; bibliography?: { authors?: string[]; venue?: string; year?: number } }) {
   return { ...paper.crossref, ...paper.bibliography };
 }
 export function citation(paper: Parameters<typeof bibliography>[0]) {

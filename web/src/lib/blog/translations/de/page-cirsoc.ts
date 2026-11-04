@@ -4,7 +4,7 @@ const body: StandingPage['i18n']['en'] = {
   "title": "CIRSOC-Nachweise kostenlos im Browser: was es gibt und was nicht",
   "description": "Stabileo weist Beton (CIRSOC 201) und Stahl (CIRSOC 301, experimentell) nach, erzeugt Lasten nach CIRSOC 101–104, kostenlos im Browser. Was es gibt, was nicht.",
   "eyebrow": "CIRSOC",
-  "lead": "Stabileo ist eine Open-Source-Software für die Tragwerksberechnung, die Stahlbetonbauteile nach CIRSOC 201 (Ausgabe 2025) und Stahlbauteile nach CIRSOC 301-2018 nachweist und Lasten und Kombinationen nach CIRSOC 101-2025, 102-2025, INPRES-CIRSOC 103-2018 (Teil I) und CIRSOC 104-2005 erzeugt, den argentinischen Tragwerksnormen. Stabileo verwendet dasselbe Modell und denselben Rechenkern, mit denen Sie berechnen, läuft im Browser und braucht weder Installation noch Lizenz. Die normgemäße Bemessung gehört zum PRO-Modul, das noch in Entwicklung ist und so lange kostenlos bleibt.",
+  "lead": "Stabileo ist eine Open-Source-Software für die Tragwerksberechnung, die Stahlbetonbauteile nach CIRSOC 201 (Ausgabe 2025) und Stahlbauteile nach CIRSOC 301-2018 nachweist und Lasten und Kombinationen nach CIRSOC 101-2025, 102-2025, INPRES-CIRSOC 103-2018 (Teil I) und CIRSOC 104-2005 erzeugt, den argentinischen Tragwerksnormen. Stabileo verwendet dasselbe Modell und denselben Rechenkern, mit denen Sie berechnen, läuft im Browser und braucht weder Installation noch Lizenz. Die normgemäße Bemessung gehört zu PRO, ist noch in Entwicklung und bleibt so lange kostenlos.",
   "blocks": [
     {
       "k": "h",

@@ -8,6 +8,7 @@ import { snapshotFor, snapshotPlugin } from './scripts/snapshot';
 import { researchBuildPlugin } from './scripts/research-build';
 import { isComplete } from './src/lib/i18n/offered';
 import { resultChangeMetadataPlugin } from './scripts/result-change-metadata.mjs';
+import { blogTranslations } from './scripts/blog-translations';
 
 /**
  * Stub out the WASM glue module when it hasn't been built yet.
@@ -225,6 +226,7 @@ export default defineConfig({
     __STABILEO_VERSION__: JSON.stringify(appVersion()),
     __STABILEO_APP_VERSION__: JSON.stringify(appVersion()),
     __STABILEO_DEV_API_URL__: JSON.stringify(DEV_API_URL),
+    __BLOG_TRANSLATIONS__: JSON.stringify(blogTranslations(__dirname)),
   },
   base: process.env.BASE_PATH || '/',
   server: {
@@ -313,6 +315,8 @@ export default defineConfig({
           // for the whole suite by itself, and it peaked at 1.75 GB RSS / 78 % CPU.
           fileParallelism: false,
           maxWorkers: 1,
+          // Every file here spawns a process; on a hosted runner `npm ls --all` alone took 64 s.
+          testTimeout: 120_000,
         },
       },
       {

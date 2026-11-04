@@ -430,7 +430,7 @@ describe('every member along a panel’s sides is the panel’s, never loaded by
     const want: Array<[string, number]> = [['pipe-rack', 1890], ['3d-nave-industrial', 2844], ['suspension-bridge', 30144.6]];
     for (const [id, area] of want) {
       const f = (await import(`../../../templates/fixtures/${id}.json`)).default;
-      expect(collected(gravityLayout(fixtureModel(f), { mode: 'panels', tributaryWidth: 3 })), id).toBeCloseTo(area, 6);
+      expect(collected(gravityLayout(fixtureModel(f), { mode: 'panels', tributaryWidth: 3, loadEveryPanel: true })), id).toBeCloseTo(area, 6);
     }
   });
 });
@@ -458,7 +458,7 @@ describe('an opening’s ring is loaded once, by its own panel', () => {
   it('the stadium: each level as the Floor tool loads it, once (18 674 m² were counted twice)', async () => {
     const f = (await import('../../../templates/fixtures/full-stadium.json')).default;
     const m = fixtureModel(f);
-    const g = gravityLayout(m, { mode: 'panels', tributaryWidth: 3 });
+    const g = gravityLayout(m, { mode: 'panels', tributaryWidth: 3, loadEveryPanel: true });
     const byLevel = new Map<number, FloorBeam[]>();
     for (const e of m.elements.values()) {
       const a = m.nodes.get(e.nodeI)!, b = m.nodes.get(e.nodeJ)!;

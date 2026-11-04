@@ -24,7 +24,10 @@
   const concretes = $derived(materials.filter((m) => familyOfMaterial(m) === 'concrete'));
   const steels = $derived(materials.filter((m) => familyOfMaterial(m) === 'steel'));
   const d = $derived.by(() => { void modelStore.designData; return designData(); });
-  const codes = $derived(regulationsStore.stamps.map((s) => `${te(s.label)} ${s.edition}`.trim()).join(' · '));
+  const codes = $derived([...new Set(regulationsStore.stamps.map((s) => {
+    const label = te(s.label);
+    return label.includes(String(s.edition)) ? label : `${label} ${s.edition}`.trim();
+  }))].join(' · '));
   /** What is placed already in another concrete: offered to take the building's. */
   const others = $derived(physicalGroups().filter((g) => ['column', 'beam', 'slab', 'wall'].includes(g.physical.kind)
     && [...(g.members.elements ?? []).map((id) => modelStore.elements.get(id)?.materialId), ...(g.members.quads ?? []).map((id) => modelStore.quads.get(id)?.materialId)]

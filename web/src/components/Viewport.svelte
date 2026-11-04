@@ -72,6 +72,7 @@
   import { boxSelect as boxSelectTargets, normaliseDrag, type BoxSelectMode } from '../lib/viewport/box-select';
   import { canvasTheme } from '../lib/canvas/theme';
   import { registerFigure2D, diagramFor, type ExportFrame, type FrameView } from '../lib/export/view-figure';
+  import { drawHiddenLabelsNote } from '../lib/export/hidden-labels-note';
   import { drawMemberDimensions } from '../lib/canvas/draw-member-dimensions';
   import { drawMemberSnap } from '../lib/canvas/draw-member-snap';
   import ConnectionPrompt from './ConnectionPrompt.svelte';
@@ -1454,7 +1455,7 @@
     // Draw diagram query marker
     // A figure ends here: what follows is the pointer's (queries, hover, tooltips, box select).
     if (exportFrame) {
-      currentFrameLabels.flush(ctx, memberScreenSegments());
+      drawHiddenLabelsNote(ctx, height, currentFrameLabels.flush(ctx, memberScreenSegments(), { drop: true }));
       currentFrameLabels = undefined;
       return;
     }

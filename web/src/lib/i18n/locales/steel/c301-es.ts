@@ -147,6 +147,8 @@ const c301Es: Record<string, string> = {
   'c301.refuse.noShearLag': 'la unión no da U: falta U, todos los elementos unidos, chapa soldada o x̄ y L (D.3)',
   'c301.refuse.unknownShape': 'forma de sección «{shape}» sin clasificación según la Tabla B.4.1a',
   'c301.refuse.elementInvalid': 'elemento comprimido «{kind}» no válido para la Tabla B.4.1a',
+  'c301.refuse.qNonPositive': 'el área efectiva da Qa = {Qa} ≤ 0 (A = {A} mm², Σ(b − be)·t = {lost} mm²): el área de la sección no concuerda con los anchos y espesores de sus elementos comprimidos (§E.7)',
+  'c301.refuse.fcrAboveFy': 'Fcr = {Fcr} MPa > Fy = {Fy} MPa: la resistencia a compresión superaría la carga de aplastamiento',
   'c301.refuse.chsTooSlender': 'D/t = {Dt} > 0,45·E/Fy = {lim}: E.7.2(c) no cubre este tubo',
   'c301.refuse.e4NoJCw': '§E.4: kz·Lz > ky·L y faltan J o Cw para el pandeo torsional',
   'c301.refuse.e4NoJ': '§E.4: falta J para el pandeo flexotorsional',

@@ -20,7 +20,13 @@ export type CitationInput = {
   engineWasmSha256: string | null;
   experimentWasmSha256: string | null;
   paper: { authors: string[]; title: string; venue: string; year: number; doi: string };
+  relation?: string;
 };
+
+export function relationLabel(shellRelation: string): string {
+  const bare = shellRelation.replace(/^[\s”“„»«,]+/, '').trim();
+  return bare.charAt(0).toLocaleUpperCase() + bare.slice(1);
+}
 
 const CITATION_TEXT = {
   "en": {
@@ -115,7 +121,7 @@ export function citation(c: CitationInput, format: 'text' | 'bibtex', locale = '
   ].filter(Boolean);
   if (format === 'text') {
     return (
-      `Stabileo Research (${c.year}). ${c.name}${v}. ${labels.reproduction} ${reproduces}. ` +
+      `Stabileo Research (${c.year}). ${c.name}${v}. ${c.relation ?? labels.reproduction} ${reproduces}. ` +
       `Stabileo commit ${c.commit}${hashes.length ? `; ${hashes.join('; ')}` : ''}. ${c.url}${c.permanent === false ? ` (${labels.noPermanent}.)` : ''}`
     );
   }
@@ -125,7 +131,7 @@ export function citation(c: CitationInput, format: 'text' | 'bibtex', locale = '
     `Stabileo commit ${c.commit}`,
     ...hashes,
     ...(c.permanent === false ? [labels.noPermanent] : []),
-    `${labels.reproduces} ${authorShort(c.paper.authors, labels)} (${c.paper.year}), doi:${c.paper.doi}`,
+    `${c.relation ?? labels.reproduces} ${authorShort(c.paper.authors, labels)} (${c.paper.year}), doi:${c.paper.doi}`,
   ].join('; ');
   return [
     `@misc{${key},`,

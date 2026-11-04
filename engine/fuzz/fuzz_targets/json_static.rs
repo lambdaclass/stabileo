@@ -72,10 +72,10 @@ fuzz_target!(|data: &[u8]| {
             run("combine_results_3d", json, |i: &CombinationInput3D| some(comb::combine_results_3d(i)));
         }
         16 => {
-            run("compute_envelope_2d", json, |i: &Vec<AnalysisResults>| some(comb::compute_envelope(i)));
+            run("compute_envelope_2d", json, |i: &Vec<AnalysisResults>| comb::compute_envelope(i));
         }
         _ => {
-            run("compute_envelope_3d", json, |i: &Vec<AnalysisResults3D>| some(comb::compute_envelope_3d(i)));
+            run("compute_envelope_3d", json, |i: &Vec<AnalysisResults3D>| comb::compute_envelope_3d(i));
         }
     }
 });

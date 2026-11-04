@@ -3752,19 +3752,57 @@ fn benchmark_raasch_hook() {
 // Twisted Beam — MacNeal-Harder
 // ================================================================
 //
-// L=12, w=1.1, t=0.32, 90° linear twist from root to tip.
-// E=29000000, ν=0.22. Clamped at root.
+// L=12, w=1.1, t=0.32, 90° linear twist from root to tip, E=29·10⁶, ν=0.22 (consistent
+// units), clamped at the root, unit tip load at the mid-width node.
 //
-// Load case A: Pz=1 at tip → reference uz = 0.005424
-// Load case B: Py=1 at tip → reference uy = 0.001754
+// Load A: Pz=1 (in the tip's plane) → uz = 0.005424 (MacNeal & Harder 1985, twisted-beam problem)
+// Load B: Py=1 (normal to the tip)  → uy = 0.001754
 //
-// Reference: MacNeal & Harder, "A Proposed Standard Set of Problems", 1985
+// Second reference: Euler–Bernoulli bending of the twisted strip, δ = ∫(L−x)²·nᵀC(x)n dx with
+// the principal flexibilities rotating with the twist (`twisted_beam_beam_theory`): 0.0054259
+// and 0.0017462, within 0.05 % and 0.45 % of the paper.
+//
+// Known issue MH-TWISTED-BEAM-MITC4 (engine/tests/benchmarks/KNOWN_ISSUES.md): MITC4 converges
+// to about 1.32 (A) and 1.26 (B) times the reference, while the curved shell on the same
+// model converges to it.
+
+/// The material table holds E in MPa and the engine multiplies it by 1000 (kN/m²), so the
+/// paper's dimensionless 29·10⁶ is entered as 29·10³.
+const TWISTED_BEAM_E: f64 = 29_000.0;
+
+fn twisted_beam_beam_theory(load_case: char) -> f64 {
+    let (l, w, t, e) = (12.0_f64, 1.1_f64, 0.32_f64, 29.0e6_f64);
+    let i_weak = w * t.powi(3) / 12.0;
+    let i_strong = t * w.powi(3) / 12.0;
+    let n = 20_000;
+    let mut sum = 0.0;
+    for k in 0..n {
+        let u = (k as f64 + 0.5) / n as f64;
+        let theta = u * std::f64::consts::FRAC_PI_2;
+        let (c2, s2) = (theta.cos().powi(2), theta.sin().powi(2));
+        let flex = match load_case {
+            'A' => c2 / i_weak + s2 / i_strong,
+            'B' => s2 / i_weak + c2 / i_strong,
+            _ => unreachable!(),
+        };
+        sum += (1.0 - u).powi(2) * flex / n as f64;
+    }
+    l.powi(3) * sum / e
+}
+
+#[test]
+fn benchmark_twisted_beam_references_agree() {
+    let a = twisted_beam_beam_theory('A');
+    let b = twisted_beam_beam_theory('B');
+    assert!((a / 0.005424 - 1.0).abs() < 0.001, "beam theory A {a:.7e} vs MacNeal-Harder 0.005424");
+    assert!((b / 0.001754 - 1.0).abs() < 0.006, "beam theory B {b:.7e} vs MacNeal-Harder 0.001754");
+}
 
 fn twisted_beam_solve(nx: usize, ny: usize, load_case: char) -> f64 {
     let l = 12.0;
     let w = 1.1;
     let t_shell = 0.32;
-    let e = 29_000_000.0; // 29×10⁶ (psi unit system in original)
+    let e = TWISTED_BEAM_E;
     let nu = 0.22;
 
     let pi = std::f64::consts::PI;
@@ -3875,72 +3913,45 @@ fn twisted_beam_solve(nx: usize, ny: usize, load_case: char) -> f64 {
     }
 }
 
+fn twisted_beam_mitc4_ratios(load_case: char) -> Vec<(usize, usize, f64)> {
+    let reference = if load_case == 'A' { 0.005424 } else { 0.001754 };
+    [(6, 2), (12, 4), (24, 8)]
+        .iter()
+        .map(|&(nx, ny)| {
+            let ratio = twisted_beam_solve(nx, ny, load_case) / reference;
+            eprintln!("Twisted beam {load_case} MITC4 {nx}x{ny}: ratio={ratio:.4}");
+            (nx, ny, ratio)
+        })
+        .collect()
+}
+
+/// Tripwire for MH-TWISTED-BEAM-MITC4: fails when the over-flexibility changes either way.
 #[test]
 fn benchmark_twisted_beam_load_a() {
-    let reference = 0.005424;
-    let meshes = [(6, 2), (12, 4), (24, 8)];
-
-    let mut ratios = Vec::new();
-    for &(nx, ny) in &meshes {
-        let uz = twisted_beam_solve(nx, ny, 'A');
-        let ratio = uz / reference;
-        ratios.push((nx, ny, ratio));
-        eprintln!(
-            "Twisted beam A {}x{}: uz={:.6e}, ratio={:.4}",
-            nx, ny, uz, ratio
-        );
+    let expected = [1.2751, 1.3047, 1.3180];
+    for ((nx, ny, r), e) in twisted_beam_mitc4_ratios('A').into_iter().zip(expected) {
+        assert!((r - e).abs() < 1e-3, "MH-TWISTED-BEAM-MITC4 A {nx}x{ny}: ratio {r:.4}, recorded {e:.4}");
     }
-
-    // The twisted beam has severely warped (non-planar) elements due to the
-    // 90° twist. Flat-faceted MITC4 locks on warped quads. Current EAS-7 shows
-    // ratio ~0.001 — this tracks as an aspirational benchmark.
-    for &(nx, ny, r) in &ratios {
-        assert!(
-            r > 1e-8,
-            "Twisted beam A {}x{}: ratio={:.6e} should be nonzero",
-            nx, ny, r
-        );
-    }
-
-    let (_, _, r_fine) = ratios.last().unwrap();
-    assert!(
-        *r_fine > 1e-8 && *r_fine < 100.0,
-        "Twisted beam A finest: ratio={:.6e} outside [1e-8, 100]",
-        r_fine
-    );
 }
 
 #[test]
 fn benchmark_twisted_beam_load_b() {
-    let reference = 0.001754;
-    let meshes = [(6, 2), (12, 4), (24, 8)];
-
-    let mut ratios = Vec::new();
-    for &(nx, ny) in &meshes {
-        let uy = twisted_beam_solve(nx, ny, 'B');
-        let ratio = uy / reference;
-        ratios.push((nx, ny, ratio));
-        eprintln!(
-            "Twisted beam B {}x{}: uy={:.6e}, ratio={:.4}",
-            nx, ny, uy, ratio
-        );
+    let expected = [1.2838, 1.2653, 1.2617];
+    for ((nx, ny, r), e) in twisted_beam_mitc4_ratios('B').into_iter().zip(expected) {
+        assert!((r - e).abs() < 1e-3, "MH-TWISTED-BEAM-MITC4 B {nx}x{ny}: ratio {r:.4}, recorded {e:.4}");
     }
+}
 
-    // Same warped-element locking as load case A — aspirational benchmark.
-    for &(nx, ny, r) in &ratios {
-        assert!(
-            r > 1e-8,
-            "Twisted beam B {}x{}: ratio={:.6e} should be nonzero",
-            nx, ny, r
-        );
+#[test]
+#[ignore = "MH-TWISTED-BEAM-MITC4: MITC4 is 26-32 % too flexible on the twisted beam (engine/tests/benchmarks/KNOWN_ISSUES.md)"]
+fn benchmark_twisted_beam_mitc4_accuracy() {
+    for case in ['A', 'B'] {
+        for (nx, ny, r) in twisted_beam_mitc4_ratios(case) {
+            if nx >= 12 {
+                assert!((r - 1.0).abs() < 0.02, "Twisted beam {case} MITC4 {nx}x{ny}: ratio {r:.4} outside 1 ± 0.02");
+            }
+        }
     }
-
-    let (_, _, r_fine) = ratios.last().unwrap();
-    assert!(
-        *r_fine > 1e-8 && *r_fine < 100.0,
-        "Twisted beam B finest: ratio={:.6e} outside [1e-8, 100]",
-        r_fine
-    );
 }
 
 // ================================================================
@@ -5371,16 +5382,13 @@ fn benchmark_q9_hypar() {
 // ----------------------------------------------------------------
 // Q9-7. Twisted Beam — MacNeal-Harder (90° twist, warped elements)
 // ----------------------------------------------------------------
-// L=12, w=1.1, t=0.32, 90° linear twist. E=29×10⁶, ν=0.22.
-// Load A: Pz=1 at tip → ref uz = 0.005424
-// Load B: Py=1 at tip → ref uy = 0.001754
-// MITC4 24×8: ratio ~0.001-0.002 (severely locked on warped quads).
+// The model and references of `twisted_beam_solve`. Known issue MH-TWISTED-BEAM-MITC9.
 
 fn q9_twisted_beam_solve(nx: usize, ny: usize, load_case: char) -> f64 {
     let l = 12.0;
     let w = 1.1;
     let t_shell = 0.32;
-    let e = 29_000_000.0;
+    let e = TWISTED_BEAM_E;
     let nu = 0.22;
 
     let pi = std::f64::consts::PI;
@@ -5466,43 +5474,43 @@ fn q9_twisted_beam_solve(nx: usize, ny: usize, load_case: char) -> f64 {
     }
 }
 
+fn q9_twisted_beam_ratios(load_case: char) -> Vec<(usize, usize, f64)> {
+    let reference = if load_case == 'A' { 0.005424 } else { 0.001754 };
+    [(3, 1), (6, 2), (12, 4)]
+        .iter()
+        .map(|&(nx, ny)| {
+            let ratio = q9_twisted_beam_solve(nx, ny, load_case) / reference;
+            eprintln!("Q9 twisted beam {load_case} {nx}x{ny}: ratio={ratio:.4}");
+            (nx, ny, ratio)
+        })
+        .collect()
+}
+
+/// Tripwire for MH-TWISTED-BEAM-MITC9: fails when the over-flexibility changes either way.
 #[test]
 fn benchmark_q9_twisted_beam_load_a() {
-    let reference = 0.005424;
-    let meshes = [(3, 1), (6, 2), (12, 4)];
-
-    for &(nx, ny) in &meshes {
-        let uz = q9_twisted_beam_solve(nx, ny, 'A');
-        let ratio = uz / reference;
-        eprintln!(
-            "Q9 Twisted beam A {}x{}: uz={:.6e}, ratio={:.4} (MITC4 24x8: ~0.002)",
-            nx, ny, uz, ratio
-        );
-        // Permanent gate: MITC9 twisted beam, flat-faceted wall.
-        // Current finest (12×4): ratio≈0.0011. Floor at 1e-5 (just nonzero + order-of-magnitude).
-        assert!(uz > 1e-15, "Q9 Twisted beam A {}x{}: should deflect", nx, ny);
-        if nx == 12 {
-            assert!(ratio > 1e-5, "Q9 Twisted beam A 12×4: ratio {:.6} regressed below floor 1e-5", ratio);
-        }
+    let expected = [1.6979, 2.1416, 2.4142];
+    for ((nx, ny, r), e) in q9_twisted_beam_ratios('A').into_iter().zip(expected) {
+        assert!((r - e).abs() < 1e-3, "MH-TWISTED-BEAM-MITC9 A {nx}x{ny}: ratio {r:.4}, recorded {e:.4}");
     }
 }
 
 #[test]
 fn benchmark_q9_twisted_beam_load_b() {
-    let reference = 0.001754;
-    let meshes = [(3, 1), (6, 2), (12, 4)];
+    let expected = [2.3611, 2.3250, 2.3229];
+    for ((nx, ny, r), e) in q9_twisted_beam_ratios('B').into_iter().zip(expected) {
+        assert!((r - e).abs() < 1e-3, "MH-TWISTED-BEAM-MITC9 B {nx}x{ny}: ratio {r:.4}, recorded {e:.4}");
+    }
+}
 
-    for &(nx, ny) in &meshes {
-        let uy = q9_twisted_beam_solve(nx, ny, 'B');
-        let ratio = uy / reference;
-        eprintln!(
-            "Q9 Twisted beam B {}x{}: uy={:.6e}, ratio={:.4} (MITC4 24x8: ~0.001)",
-            nx, ny, uy, ratio
-        );
-        // Permanent gate: current finest (12×4): ratio≈0.0024. Floor at 1e-5.
-        assert!(uy > 1e-15, "Q9 Twisted beam B {}x{}: should deflect", nx, ny);
-        if nx == 12 {
-            assert!(ratio > 1e-5, "Q9 Twisted beam B 12×4: ratio {:.6} regressed below floor 1e-5", ratio);
+#[test]
+#[ignore = "MH-TWISTED-BEAM-MITC9: MITC9 is 2.1-2.4x too flexible on the twisted beam (engine/tests/benchmarks/KNOWN_ISSUES.md)"]
+fn benchmark_q9_twisted_beam_accuracy() {
+    for case in ['A', 'B'] {
+        for (nx, ny, r) in q9_twisted_beam_ratios(case) {
+            if nx >= 6 {
+                assert!((r - 1.0).abs() < 0.02, "Q9 twisted beam {case} {nx}x{ny}: ratio {r:.4} outside 1 ± 0.02");
+            }
         }
     }
 }
@@ -6584,12 +6592,6 @@ fn benchmark_shell_family_frontier_gates() {
     eprintln!("=== Shell Family Frontier Gates ===");
     eprintln!("SHB8-ANS hemisphere 8×8:   ratio = {:.4}", ss_hemi);
     eprintln!("SHB8-ANS twisted beam B 8×1: ratio = {:.4}", ss_twist);
-    eprintln!("");
-    eprintln!("Known MITC4 bests:  hemisphere ~0.03, twisted ~0.002");
-    eprintln!("Known MITC9 bests:  hemisphere ~0.04, twisted ~0.002");
-    eprintln!("Curved shell:       hemisphere ~0.94, twisted ~0.01+");
-    eprintln!("SHB8-ANS/MITC4: hemisphere {:.2}×, twisted {:.0}×",
-        ss_hemi / 0.03, ss_twist / 0.002);
 
     // Gates: SHB8-ANS-EAS 8×8 hemisphere ≈ 1.004 of 0.0924, 8×1 twisted beam ≈ 0.97.
     assert!((ss_hemi - 1.0).abs() < 0.02, "SHB8-ANS hemisphere regressed: ratio {:.4}", ss_hemi);
@@ -7258,16 +7260,12 @@ fn benchmark_curved_shell_hemisphere_16x16() {
     assert!(uz > 1e-10, "Curved shell hemisphere 16×16 produced near-zero displacement");
 }
 
-/// Twisted beam (MacNeal-Harder) with curved shell elements.
-/// L=12, w=1.1, t=0.32, E=29e6, nu=0.22
-/// 90° twist from root to tip.
-/// Load case A: unit z-load at tip, ref uz = 5.424e-3
-/// Load case B: unit y-load at tip, ref uy = 1.754e-3
+/// Twisted beam with curved shell elements: the model and references of `twisted_beam_solve`.
 fn curved_shell_twisted_beam_solve(nx: usize, ny: usize, load_case: char) -> f64 {
     let l = 12.0;
     let w = 1.1;
     let t_shell = 0.32;
-    let e = 29_000_000.0;
+    let e = TWISTED_BEAM_E;
     let nu = 0.22;
 
     let pi = std::f64::consts::PI;
@@ -7385,17 +7383,15 @@ fn benchmark_curved_shell_twisted_beam() {
     let ref_a = 5.424e-3;
     let ref_b = 1.754e-3;
 
-    let uz_a = curved_shell_twisted_beam_solve(12, 2, 'A');
-    let ratio_a = uz_a / ref_a;
-    println!("Curved shell twisted beam A 12×2: uz={uz_a:.6e}, ref={ref_a:.6e}, ratio={ratio_a:.4}");
+    let ratio_a = curved_shell_twisted_beam_solve(12, 2, 'A') / ref_a;
+    let ratio_b_12 = curved_shell_twisted_beam_solve(12, 2, 'B') / ref_b;
+    let ratio_b_24 = curved_shell_twisted_beam_solve(24, 8, 'B') / ref_b;
+    println!("Curved shell twisted beam: A 12×2 {ratio_a:.4}, B 12×2 {ratio_b_12:.4}, B 24×8 {ratio_b_24:.4}");
 
-    let uy_b = curved_shell_twisted_beam_solve(12, 2, 'B');
-    let ratio_b = uy_b / ref_b;
-    println!("Curved shell twisted beam B 12×2: uy={uy_b:.6e}, ref={ref_b:.6e}, ratio={ratio_b:.4}");
-
-    // The curved formulation should improve significantly over flat MITC4 (ratio ~0.002)
-    assert!(uz_a > 1e-15, "Curved shell twisted beam A produced near-zero displacement");
-    assert!(uy_b > 1e-15, "Curved shell twisted beam B produced near-zero displacement");
+    assert!((ratio_a - 1.0).abs() < 0.01, "Curved shell twisted beam A 12×2: ratio {ratio_a:.4} outside 1 ± 0.01");
+    assert!((ratio_b_24 - 1.0).abs() < 0.03, "Curved shell twisted beam B 24×8: ratio {ratio_b_24:.4} outside 1 ± 0.03");
+    assert!((0.91..0.94).contains(&ratio_b_12), "Curved shell twisted beam B 12×2: ratio {ratio_b_12:.4} outside 0.91..0.94");
+    assert!(ratio_b_12 < ratio_b_24 && ratio_b_24 <= 1.0, "Curved shell twisted beam B must converge from below: 12×2 {ratio_b_12:.4}, 24×8 {ratio_b_24:.4}");
 }
 
 /// Raasch hook — curved strip benchmark (stretch goal).

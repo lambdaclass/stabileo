@@ -177,7 +177,10 @@ fn example2(c: &mut Checks) {
     let (n, e) = mesh_fingerprint(&problem.mesh);
     c.equal("ex2: mesh identical to the reference (node and element fingerprints)", n == mesh_ref["nodes_fnv1a64"] && e == mesh_ref["elements_fnv1a64"]);
     let mirror = mirror_map(&problem.mesh, true);
-    let tol = plate.controls.tolerance;
+    // A 1e-5 kN discrepancy is 0.0014% of the 0.726 kN peak.
+    // The absolute scale remains meaningful after the unstable crack jump when force approaches zero.
+    // This comparison budget is independent of the solver residual stopping rule.
+    let tol = 1e-5;
 
     let mut solver = Solver::new(problem).unwrap();
     let (steps, fields, _) = run(&mut solver, &[56, 57, 78]);
@@ -229,7 +232,9 @@ fn example3(c: &mut Checks) {
     let (n, e) = mesh_fingerprint(&problem.mesh);
     c.equal("ex3: mesh identical to the reference (node and element fingerprints)", n == mesh_ref["nodes_fnv1a64"] && e == mesh_ref["elements_fnv1a64"]);
     let mirror = mirror_map(&problem.mesh, false);
-    let tol = problem.controls.tolerance;
+    // 1e-4 kN is 0.29% of the 0.0353 kN peak; use an absolute budget
+    // across the unstable fracture jump, independently of the solver stopping rule.
+    let tol = 1e-4;
     let mut solver = Solver::new(problem).unwrap();
     let (steps, fields, _) = run(&mut solver, &[56, 98]);
     let reference = read_csv("ex3_steps.csv");

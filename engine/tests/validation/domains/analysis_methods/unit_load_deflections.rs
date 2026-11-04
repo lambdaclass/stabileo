@@ -106,7 +106,7 @@ fn validation_unit_load_quarter_points() {
 // ================================================================
 //
 // Triangular load: 0 at fixed end, q_max at free end
-// δ_tip = q_max × L⁴ / (30EI)
+// δ_tip = 11 q_max × L⁴ / (120EI)  (qL⁴/(30EI) is for q_max at the fixed end)
 
 #[test]
 fn validation_unit_load_cantilever_triangular() {
@@ -131,10 +131,9 @@ fn validation_unit_load_cantilever_triangular() {
     let tip = results.displacements.iter()
         .find(|d| d.node_id == n + 1).unwrap().uz.abs();
 
-    // δ = q_max × L⁴ / (30EI)
-    let delta_exact = q_max.abs() * l.powi(4) / (30.0 * e_eff * IZ);
-    assert_close(tip, delta_exact, 0.03,
-        "Triangular cantilever: δ = qL⁴/(30EI)");
+    let delta_exact = 11.0 * q_max.abs() * l.powi(4) / (120.0 * e_eff * IZ);
+    assert_close(tip, delta_exact, 1e-6,
+        "Triangular cantilever: δ = 11qL⁴/(120EI)");
 }
 
 // ================================================================

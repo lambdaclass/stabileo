@@ -17,7 +17,7 @@
   import { citeStrings } from './cite-i18n';
   import { bibliography } from '../catalogue';
   import { experimentVersions } from './versions';
-  import { citationBuild, citation, type CitationInput } from './citation';
+  import { citationBuild, citation, relationLabel, type CitationInput } from './citation';
 
   type Props = {
     paperId: string;
@@ -28,8 +28,9 @@
     /** Where the implementation lives in the repository (`research/<field>/<id>`). */
     sourcePath: string;
     citationAuthors?: string;
+    relation?: string;
   };
-  let { paperId, name, path, sourcePath, citationAuthors }: Props = $props();
+  let { paperId, name, path, sourcePath, citationAuthors, relation }: Props = $props();
 
 
   const paper = $derived(catalog.papers.find((p) => p.id === paperId));
@@ -62,6 +63,7 @@
           engineWasmSha256: build.engineWasmSha256,
           experimentWasmSha256: build.experimentWasmSha256,
           paper: { ...bib!, authors: citationAuthors ? [citationAuthors] : bib!.authors, doi: paper.doi },
+          relation: relation ? relationLabel(relation) : undefined,
         }
       : null,
   );

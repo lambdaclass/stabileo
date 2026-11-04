@@ -68,6 +68,27 @@
       "kimi"
      ],
      "date": "2026-10-30"
+    },
+    {
+     "reviewer": "kimi",
+     "round": 2,
+     "date": "2026-10-30",
+     "findings": "Verified consolidated review: evidence, load coordinates, energies, localization and responsive accessibility.",
+     "resolution": "Addressed in research page, tests and README; engine numerics unchanged. Playwright cases await browser execution."
+    },
+    {
+     "reviewer": "codex",
+     "round": 2,
+     "date": "2026-10-30",
+     "findings": "Verified consolidated review: evidence, load coordinates, energies, localization and responsive accessibility.",
+     "resolution": "Addressed in research page, tests and README; engine numerics unchanged. Playwright cases await browser execution."
+    },
+    {
+     "reviewer": "claude",
+     "round": 2,
+     "date": "2026-10-30",
+     "findings": "Verified consolidated review: evidence, load coordinates, energies, localization and responsive accessibility.",
+     "resolution": "Addressed in research page, tests and README; engine numerics unchanged. Playwright cases await browser execution."
     }
    ]
   },
@@ -199,6 +220,15 @@
       "kimi"
      ],
      "date": "2026-10-30"
+    },
+    {
+     "round": 2,
+     "reviewers": [
+      "kimi",
+      "codex",
+      "claude"
+     ],
+     "date": "2026-10-30"
     }
    ]
   },
@@ -255,6 +285,10 @@
    ],
    "implementation": "optimization/andreassen-2011",
    "contacts": [],
+   "bibliography": {
+    "year": 2011,
+    "source": "https://doi.org/10.1007/s00158-010-0594-7"
+   },
    "reviews": [
     {
      "round": 1,
@@ -337,10 +371,28 @@
      "date": "2026-10-30"
     },
     {
+     "round": 2,
+     "reviewers": [
+      "kimi",
+      "codex",
+      "claude"
+     ],
+     "date": "2026-10-30"
+    },
+    {
      "reviewer": "codex",
      "sha": "714a79e47",
      "findings": "Frame hidden by a null scalar field; viewer status text below 12px; responsive checks did not establish viewport access, tap target sizes, or readable viewer text.",
      "resolution": "Fixed in this PR with explicit uncoloured geometry, rendering and displacement regressions, status text sizing, and responsive viewport, tap target, and text assertions."
+    },
+    {
+     "reviewers": [
+      "kimi",
+      "codex",
+      "claude"
+     ],
+     "findings": "Verified short-landscape layout, unsupported locale prerenders, literal references, missing paper-to-model checks, and live playback selection override.",
+     "resolution": "Compact landscape layout and viewport regression; translated-only research prerenders; fixture-backed values and model contracts in both native test suites; live follow respects selection. Pending comparisons replaced with the actual buckling and native/WASM regression scope; author questions moved to README Open questions. Derivative evidence and localized ticks tightened."
     }
    ],
    "contacts": []
@@ -395,6 +447,15 @@
      "reviewers": [
       "codex",
       "kimi"
+     ],
+     "date": "2026-10-30"
+    },
+    {
+     "round": 2,
+     "reviewers": [
+      "kimi",
+      "codex",
+      "claude"
      ],
      "date": "2026-10-30"
     }
@@ -496,6 +557,24 @@
       "kimi"
      ],
      "date": "2026-10-30"
+    },
+    {
+     "reviewer": "kimi",
+     "round": 2,
+     "date": "2026-10-30",
+     "resolution": "Consolidated confirmed findings fixed; evidence, replay, accessibility and responsive regressions strengthened."
+    },
+    {
+     "reviewer": "codex",
+     "round": 2,
+     "date": "2026-10-30",
+     "resolution": "Decoded editor handoff solved with production WASM; explicit comparison scope and locale coverage."
+    },
+    {
+     "reviewer": "claude",
+     "round": 2,
+     "date": "2026-10-30",
+     "resolution": "Consolidated should-fix list addressed; failure regression added, questions moved to README, tolerances justified."
     }
    ]
   },
@@ -552,6 +631,15 @@
      "reviewers": [
       "codex",
       "kimi"
+     ],
+     "date": "2026-10-30"
+    },
+    {
+     "round": 2,
+     "reviewers": [
+      "kimi",
+      "codex",
+      "claude"
      ],
      "date": "2026-10-30"
     }
@@ -1041,6 +1129,15 @@
       "kimi"
      ],
      "date": "2026-10-30"
+    },
+    {
+     "round": 2,
+     "reviewers": [
+      "kimi",
+      "codex",
+      "claude"
+     ],
+     "date": "2026-10-30"
     }
    ]
   },
@@ -1080,6 +1177,7 @@
    ],
    "implementation": "benchmarks/mattiasson-elastica",
    "stage": "first-version",
+   "final_review": true,
    "contacts": [],
    "reviews": [
     {
@@ -1110,6 +1208,14 @@
      "date": "2026-10-30",
      "findings": "Consolidated verified model, accuracy, provenance, playback, responsive and locale findings.",
      "resolution": "Corrected inputs and analytical comparisons; strengthened tests, evidence and six locales."
+    },
+    {
+     "round": 3,
+     "reviewers": [
+      "codex",
+      "grok"
+     ],
+     "date": "2026-10-31"
     }
    ]
   },
@@ -1150,11 +1256,23 @@
       "kimi"
      ],
      "date": "2026-10-30"
+    },
+    {
+     "round": 2,
+     "reviewers": [
+      "kimi",
+      "codex",
+      "claude"
+     ],
+     "date": "2026-10-30"
     }
    ],
    "reproduced_published_results": false,
-   "benchmarks": [],
-   "implementation": null,
+   "benchmarks": [
+    "undamped SDOF step response against the exact solution u(t) = (F/k)(1 - cos wt)",
+    "average-acceleration discrete solution and period T_n = pi dt / atan(w dt / 2) at dt/T = 0.025, 0.05, 0.1, 0.2"
+   ],
+   "implementation": "benchmarks/newmark-1959",
    "page": "web/src/components/research/newmark1959/NewmarkPage.svelte",
    "contacts": []
   },
@@ -1200,6 +1318,15 @@
       "kimi"
      ],
      "date": "2026-10-30"
+    },
+    {
+     "round": 2,
+     "reviewers": [
+      "kimi",
+      "codex",
+      "claude"
+     ],
+     "date": "2026-10-30"
     }
    ],
    "reproduced_published_results": false,
@@ -1237,7 +1364,7 @@
    ],
    "dependencies": [],
    "complexity": "low",
-   "relevance": "One textbook-style portal following Horne sections 2.2 and 2.4, with explicitly chosen dimensions and hand-derived mechanism bounds. Publisher attribution: M. R. Horne; Crossref book record omits authors.",
+   "relevance": "One portal with our own dimensions, checked against independent hand derivations of the beam, sway and combined mechanism bounds by the virtual-work method that Horne presents (cited as background; no page or equation numbers checked). Publisher attribution: M. R. Horne; Crossref book record omits authors.",
    "status": "proposed",
    "stage": "first-version",
    "reviews": [
@@ -1246,6 +1373,15 @@
      "reviewers": [
       "codex",
       "kimi"
+     ],
+     "date": "2026-10-30"
+    },
+    {
+     "round": 2,
+     "reviewers": [
+      "kimi",
+      "codex",
+      "claude"
      ],
      "date": "2026-10-30"
     }
@@ -1312,6 +1448,15 @@
       "kimi"
      ],
      "date": "2026-10-30"
+    },
+    {
+     "round": 2,
+     "reviewers": [
+      "kimi",
+      "codex",
+      "claude"
+     ],
+     "date": "2026-10-30"
     }
    ],
    "reproduced_published_results": false,
@@ -1361,11 +1506,20 @@
       "kimi"
      ],
      "date": "2026-10-30"
+    },
+    {
+     "round": 2,
+     "reviewers": [
+      "kimi",
+      "codex",
+      "claude"
+     ],
+     "date": "2026-10-30"
     }
    ],
    "reproduced_published_results": false,
    "benchmarks": [
-    "Pinned Lee frame, first limit point (provisional reference)"
+    "Pinned Lee frame, first sampled peak with mesh and step study, against a by-eye reading of de Souza et al. (2020) Figure 10"
    ],
    "implementation": "benchmarks/lee-frame-1968",
    "contacts": []
@@ -1407,6 +1561,15 @@
      "reviewers": [
       "codex",
       "kimi"
+     ],
+     "date": "2026-10-30"
+    },
+    {
+     "round": 2,
+     "reviewers": [
+      "kimi",
+      "codex",
+      "claude"
      ],
      "date": "2026-10-30"
     }
@@ -1511,6 +1674,15 @@
      "reviewers": [
       "codex",
       "kimi"
+     ],
+     "date": "2026-10-30"
+    },
+    {
+     "round": 2,
+     "reviewers": [
+      "kimi",
+      "codex",
+      "claude"
      ],
      "date": "2026-10-30"
     }

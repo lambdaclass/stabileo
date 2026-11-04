@@ -162,16 +162,16 @@ fn wind_vortex_shedding_strouhal_frequency() {
     let n_elem = 10;
     let p_unit = 1.0; // kN
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n_elem + 1, fx: p_unit, fz: 0.0, my: 0.0,
+        node_id: n_elem + 1, fx: 0.0, fz: p_unit, my: 0.0,
     })];
     let input = make_beam(n_elem, h, e_conc, a_chim, iz_chim, "fixed", None, loads);
     let results = linear::solve_2d(&input).unwrap();
 
-    let ux_tip = results.displacements.iter()
-        .find(|d| d.node_id == n_elem + 1).unwrap().ux;
+    let uz_tip = results.displacements.iter()
+        .find(|d| d.node_id == n_elem + 1).unwrap().uz;
 
     let delta_exact = p_unit * h.powi(3) / (3.0 * e_eff * iz_chim);
-    assert_close(ux_tip, delta_exact, 0.02, "chimney cantilever tip deflection");
+    assert_close(uz_tip, delta_exact, 1e-9, "chimney cantilever tip deflection");
 }
 
 // ================================================================

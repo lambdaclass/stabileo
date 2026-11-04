@@ -1,6 +1,6 @@
 import { pickSnapshot, permalinkUrl, type SnapshotEntry } from '../permalink';
 import { describe, expect, it } from 'vitest';
-import { citationBuild, citation, type CitationInput } from '../citation';
+import { citationBuild, citation, relationLabel, type CitationInput } from '../citation';
 
 const input: CitationInput = {
   id: 'shauer-2025',
@@ -23,6 +23,18 @@ describe('research citation', () => {
         `Stabileo commit abc1234def56; engine WASM SHA-256 ${'e'.repeat(64)}; experiment WASM SHA-256 ${'f'.repeat(64)}. ` +
         'https://stabileo.com/@abc1234/en/research/fracture/shauer-2025/',
     );
+  });
+
+  it('a benchmark page names its relation instead of claiming a reproduction', () => {
+    const relation = relationLabel('”, benchmark after');
+    expect(relation).toBe('Benchmark after');
+    expect(relationLabel(' », banc d’essai de la méthode de')).toBe('Banc d’essai de la méthode de');
+    const t = citation({ ...input, relation }, 'text');
+    expect(t).toContain('experiment version 1. Benchmark after Shauer and Duarte (2025)');
+    expect(t).not.toContain('Reproduction');
+    const b = citation({ ...input, relation }, 'bibtex');
+    expect(b).toContain('Benchmark after Shauer and Duarte (2025)');
+    expect(b).not.toContain('reproduces');
   });
 
   it('BibTeX is one @misc entry with a stable key, the URL and an escaped note', () => {

@@ -436,19 +436,19 @@ fn validation_arch_ext_horizontal_load_reactions() {
 
     // ΣFx = 0: Rx_left + Rx_right + Fx_applied = 0
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
-    assert_close(sum_rx + fx_applied, 0.0, 0.01,
+    assert_close_abs(sum_rx + fx_applied, 0.0, 0.01, 1e-6,
         "Horizontal load arch: ΣRx + Fx = 0");
 
     // ΣFy = 0: no vertical applied load, but the arch curve couples Fx to vertical reactions
     let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
-    assert_close(sum_ry, 0.0, 0.01,
+    assert_close_abs(sum_ry, 0.0, 0.01, 1e-6,
         "Horizontal load arch: ΣFy = 0");
 
     // Vertical reactions should be non-zero (equal and opposite) due to moment of Fx
     // The horizontal force at crown height creates a moment about supports
     assert!(r_left.rz.abs() > 0.1,
         "Horizontal load should create vertical reactions: Ry_left={:.4}", r_left.rz);
-    assert_close(r_left.rz + r_right.rz, 0.0, 0.01,
+    assert_close_abs(r_left.rz + r_right.rz, 0.0, 0.01, 1e-6,
         "Vertical reactions sum to zero");
 
     // Moment equilibrium about left support (counterclockwise positive):
@@ -519,7 +519,7 @@ fn validation_arch_ext_two_hinge_reaction_symmetry() {
     let crown_node = n / 2 + 1;
     let d_crown = results.displacements.iter()
         .find(|d| d.node_id == crown_node).unwrap();
-    assert_close(d_crown.ux, 0.0, 0.01,
+    assert_close_abs(d_crown.ux, 0.0, 0.01, 1e-6,
         "Two-hinge symmetric: crown ux = 0 by symmetry");
     // For a parabolic two-hinge arch under UDL (nearly funicular), the
     // crown vertical displacement is very small. It may be slightly up or
@@ -607,7 +607,7 @@ fn validation_arch_ext_polygonal_axial_thrust_line() {
     assert_close(r_right.rz, p, 0.05, "Polygonal arch: Ry_right = P");
 
     // Horizontal equilibrium: Rx_left + Rx_right = 0
-    assert_close(r_left.rx + r_right.rx, 0.0, 0.01,
+    assert_close_abs(r_left.rx + r_right.rx, 0.0, 0.01, 1e-6,
         "Polygonal arch: ΣRx = 0");
 
     // First segment goes from node 1 (0, 0) to node 2 (3, 2.25)

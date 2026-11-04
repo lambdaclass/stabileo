@@ -51,3 +51,35 @@ export function fitsInXlsx(sheets: readonly WorkbookSheet[]): boolean {
   }
   return cells <= XLSX_MAX_CELLS;
 }
+
+export type WorkbookRow = Array<string | number>;
+
+/** A sheet whose rows are produced as they are written, and counted beforehand without producing them. */
+export interface StreamedSheet { name: string; header: WorkbookRow; body: () => Iterable<WorkbookRow>; count: () => number; columns?: number }
+
+export type WorkbookPart = WorkbookSheet | StreamedSheet;
+
+export const isStreamed = (p: WorkbookPart): p is StreamedSheet => 'body' in p;
+
+export function materialize(p: WorkbookPart): WorkbookSheet {
+  return isStreamed(p) ? { name: p.name, rows: [p.header, ...p.body()] } : p;
+}
+
+/** Rows and cells a part will have once written, the header included. */
+export function partSize(p: WorkbookPart): { rows: number; cells: number } {
+  if (isStreamed(p)) { const n = p.count() + 1; return { rows: n, cells: n * (p.columns ?? p.header.length) }; }
+  let cells = 0;
+  for (const r of p.rows) cells += r.length;
+  return { rows: p.rows.length, cells };
+}
+
+/** `fitsInXlsx` before any streamed row is produced. */
+export function partsFitInXlsx(parts: readonly WorkbookPart[]): boolean {
+  let cells = 0;
+  for (const p of parts) {
+    const s = partSize(p);
+    if (s.rows > XLSX_MAX_ROWS) return false;
+    cells += s.cells;
+  }
+  return cells <= XLSX_MAX_CELLS;
+}
