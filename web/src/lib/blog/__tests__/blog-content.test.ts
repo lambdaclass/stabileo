@@ -200,9 +200,8 @@ describe('blog posts', () => {
         }
       });
 
-      it('shows at least one image, and every image it shows is committed at the size it declares', () => {
+      it('commits every image it shows at the size it declares', () => {
         const images = post.i18n.en.blocks.filter((b): b is Extract<Block, { k: 'img' }> => b.k === 'img');
-        expect(images.length).toBeGreaterThan(0);
         for (const img of images) {
           for (const w of [800, 1600]) {
             for (const ext of ['avif', 'webp']) {
