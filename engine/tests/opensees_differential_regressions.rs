@@ -335,7 +335,7 @@ fn buckling_uses_mean_axial_force_of_truss_with_axial_point_load() {
 /// The same on a 3D frame member: a cantilever column (one element) with a tip load P and a
 /// uniform axial load w on its lowest s metres, so the compression is P + w·(s − x) below s and
 /// P above. The one-member model integrates that whole force (#456): det(K − λ·G) = 0 in the
-/// tip's (v, θ) with G = ∫C(x)·φ'ᵢ·φ'ⱼ dx. Its mean alone gave 16.25 and the end average more;
+/// tip's (v, θ) with G = ∫C(x)·φ'ᵢ·φ'ⱼ dx. Its mean alone gave 16.25 and the end average, more compressive, 11.6;
 /// RK4 shooting of EI·θ'' + λ·C(x)·θ = 0 gives the exact 20.946, below the one-member 20.998.
 #[test]
 fn buckling_3d_integrates_the_axial_force_of_frame_with_partial_axial_load() {

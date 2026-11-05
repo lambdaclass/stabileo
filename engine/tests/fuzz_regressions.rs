@@ -404,7 +404,15 @@ fn generated_buckling_enclosures(cases: u64) {
                         }
                     }
                 },
-                Err(reason) => *errors[dimension].entry(reason).or_insert(0u64) += 1,
+                Err(reason) => {
+                    if dimension == 1 && reason == "No positive buckling load factors found" {
+                        let forces = dedaliano_engine::solver::linear::solve_3d(&input).unwrap().element_forces;
+                        let scale = forces.iter().fold(0.0f64, |m, e| m.max(e.n_start.abs()).max(e.n_end.abs()).max(e.vy_start.abs()).max(e.vz_start.abs()));
+                        let compression = forces.iter().fold(0.0f64, |m, e| m.max(-e.n_start).max(-e.n_end));
+                        assert!(compression <= 1e-9 * scale, "seed {seed}: no positive factor with compression {compression:e} of {scale:e}");
+                    }
+                    *errors[dimension].entry(reason).or_insert(0u64) += 1
+                }
             }
         }
     }
@@ -417,7 +425,7 @@ fn generated_buckling_enclosures(cases: u64) {
         );
         assert!(
             errors[dimension].keys().all(|reason| reason == "No compressed elements — buckling not applicable" || (dimension == 1 && reason == "No positive buckling load factors found")),
-            "{}D solver failed for a reason other than no (positive) compression: {:#?}", dimension + 2, errors[dimension]
+            "{}D solver failed for a reason other than no (resolvable) compression: {:#?}", dimension + 2, errors[dimension]
         );
     }
     assert_eq!(certified[0], cases, "every generated 2D column must certify");
