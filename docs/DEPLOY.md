@@ -95,8 +95,10 @@ database `stabileo` and `DEPLOY_ENV=prod`.
 | `GOOGLE_APP_CLIENT_ID` | variable | The product's OAuth client (Web application), its own, for users who sign in only with Google. Redirect URI `https://staging.stabileo.com/api/v1/auth/google/callback`; the consent screen open to any Google account (External, published). Unset, the product's sign-in with Google is unavailable |
 | `GOOGLE_APP_CLIENT_SECRET` | secret | The product client's secret |
 | `APP_URL` | variable | optional; the product's URL, `https://PHX_HOST` when unset. Google returns users to `APP_URL/api/v1/auth/google/callback` |
-| `USER_PASSWORD_LOGIN` | variable | optional; `1` turns email and password sign-up and sign-in back on. Unset, users sign in only with Google |
-| `CLOAK_KEY` | secret | optional; 32 random bytes in base64 (`openssl rand -base64 32`) that encrypt the advertising secrets kept in the database (Settings → Publicidad). Unset, the key is derived from `SECRET_KEY_BASE`, so changing that secret makes the saved tokens unreadable and they must be entered again |
+| `META_PIXEL_ID` | variable | optional; the Meta pixel. Unset, the browser loads no Meta tracker and the Conversions API sends nothing |
+| `META_CAPI_ACCESS_TOKEN` | secret | optional; the Conversions API token (Events Manager → the pixel → Settings) |
+| `META_CAPI_TEST_EVENT_CODE` | variable | optional, staging only; Conversions API events show under Test events and do not count toward campaigns |
+| `GTM_CONTAINER_ID` | variable | optional; `GTM-XXXXXXX`. Unset, the browser loads no Google Tag Manager |
 | `PORT`, `BIND_ADDRESS`, `POOL_SIZE`, `DATABASE_SSL`, `CORS_ALLOWED_ORIGINS`, `ADMIN_DOMAINS`, `*_TTL` | variable | optional; `backend/config/runtime.exs` is the reference |
 
 Without the Google pair the admin site shows no sign-in button; add them and redeploy.
