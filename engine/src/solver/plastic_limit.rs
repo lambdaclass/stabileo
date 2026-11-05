@@ -445,6 +445,9 @@ pub fn limit_analysis_2d(input: &SolverInput, mp: &HashMap<usize, f64>, np: &Has
                 }
             }
         }
+        if added.is_empty() && worst > 1.0 + 1e-6 {
+            return Err(format!("the limit analysis leaves a section {worst:.6} times its capacity that it cannot refine"));
+        }
         if worst <= 1.0 + 1e-10 || added.is_empty() {
             let big = signed.iter().fold(0.0f64, |x, v| x.max(v.abs()));
             let mut hinges: Vec<LimitHinge> = Vec::new();
