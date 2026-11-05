@@ -17,7 +17,7 @@
     "test:watch": "vitest --project unit",
     "check": "svelte-check --tsconfig ./tsconfig.json",
     "check:watch": "svelte-check --tsconfig ./tsconfig.json --watch",
-    "check:gate": "node scripts/svelte-check-gate.mjs",
+    "check:gate": "NODE_OPTIONS=--max-old-space-size=8192 node scripts/svelte-check-gate.mjs",
     "test:e2e:guards": "vitest run --config vitest.e2e-policy.config.ts",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
