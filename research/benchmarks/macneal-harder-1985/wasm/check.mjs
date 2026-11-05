@@ -15,6 +15,8 @@ try {
     assert.ok(ref, row.id);
     assert.ok(row.value !== null && Number.isFinite(row.value), `${row.id}: ${row.failure}`);
     assert.equal(row.pass, ref.pass, `${row.id}: WASM/native pass mismatch`);
+    assert.equal(row.pass, cases.find(c => c.id === row.id).expectedPass, `${row.id}: outcome differs from the pinned expectation`);
+    assert.equal(Math.sign(row.value), Math.sign(ref.value), `${row.id}: WASM/native sign mismatch`);
     assert.ok(Math.abs(row.value - ref.value) <= Math.max(Math.abs(ref.value) * 1e-8, 1e-12), `${row.id}: WASM/native value mismatch`);
   }
   console.log(JSON.stringify(rows.map(({ displacement, ...row }) => row), null, 2));

@@ -9,6 +9,7 @@ mod three_d_cantilever_benchmarks;
 mod three_d_cantilever_loading;
 mod three_d_cantilever_verification;
 mod three_d_continuous_beam;
+mod three_d_corotational;
 mod three_d_distributed_loads;
 mod three_d_dynamic_extended;
 mod three_d_equilibrium;

@@ -50,7 +50,7 @@ fn main() {
     let mut published = check(
         "centered 70% alpha/sqrt(epsilon): absolute error",
         (observed - 21.52).abs(),
-        0.02,
+        0.005,
     );
     published["source"]=json!("Zmyślony et al., doi:10.1103/56f8-8gsx; arXiv:2601.06598v2 p.3 following Eq.(2), Eq.(3) p.4, supplementary Table S1 p.8 (PDF p.17)");
     published["reference"] = json!(21.52);
@@ -60,8 +60,13 @@ fn main() {
             "VALIDATION.json",
             json!({"checks":checks,"published_checks":[published.clone()],"scope":"Production Euler modes and shallow-angle equilibrium thresholds; not laboratory validation or snap dynamics."}),
         ),
-        ("PUBLISHED_COMPARISON.json", json!({"checks":[published]})),
+        ("reference-results/published_comparison.json", json!({"checks":[published]})),
     ];
+    assert!(files[0].1["published_checks"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .all(|c| c["passed"] == true));
     for (name, value) in files {
         assert!(
             value["checks"]
@@ -80,23 +85,7 @@ fn main() {
             .unwrap();
         } else {
             let stored: Value = serde_json::from_str(&fs::read_to_string(target).unwrap()).unwrap();
-            assert_eq!(
-                value["checks"].as_array().unwrap().len(),
-                stored["checks"].as_array().unwrap().len()
-            );
-            for (a, b) in value["checks"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .zip(stored["checks"].as_array().unwrap())
-            {
-                assert_eq!(a["metric"], b["metric"]);
-                assert!(
-                    (a["observed"].as_f64().unwrap() - b["observed"].as_f64().unwrap()).abs()
-                        < 1e-7,
-                    "stale evidence"
-                );
-            }
+            assert_eq!(value, stored, "stale evidence: {name}");
         }
         println!("{name}: {value}");
     }

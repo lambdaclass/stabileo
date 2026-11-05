@@ -16,7 +16,7 @@ supports in [assembly-constraints.md](assembly-constraints.md).
 |---|---|---|
 | P-Delta | `pdelta.rs` | `solve_pdelta_2d`, `solve_pdelta_3d`, `b2_factor`, `second_order_forces_2d/3d` |
 | Co-rotational 2D | `corotational.rs` | `solve_corotational_2d`, `assemble_frame_corotational`, `assemble_truss_corotational`, `compute_corotational_forces`, `wrap_angle` |
-| Co-rotational 3D | `corotational.rs` | `solve_corotational_3d`, `assemble_frame_corotational_3d`, `assemble_truss_corotational_3d`, `corotated_axes_3d`, `rotation_vector`, `current_length_shears`, `elastic_corotational_forces_3d` |
+| Co-rotational 3D | `corotational.rs` | `solve_corotational_3d`, `assemble_frame_corotational_3d`, `assemble_truss_corotational_3d`, `natural_rotations_3d`, `rotation_vector`, `current_length_shears`, `elastic_corotational_forces_3d` |
 | Arc-length, displacement control | `arc_length.rs` | `solve_arc_length`, `solve_displacement_control` |
 | Lumped plasticity (secant) | `material_nonlinear.rs` | `solve_nonlinear_material_2d/3d`, `yield_utilization(_3d)` |
 | Plastic hinges, event-to-event | `plastic.rs`, `plastic_3d.rs` | `solve_plastic_2d`, `solve_plastic_3d`, `increment_to_mp`, `increment_to_yield` |
@@ -216,35 +216,39 @@ circular arc up to $\varphi = 1.5\pi$ (`nl_corot2d_elastica_end_moment_rolls_up`
 ### 4.1 Rotation parametrization
 
 The nodal rotation DOFs are **total rotation vectors updated additively**:
-$\theta \leftarrow \theta + \Delta\theta$. There are no quaternions, no incremental
-(multiplicative) update, and no tangent operator $T_s(\theta)$. The update is exact for rotations
-about a fixed axis. For non-coaxial rotations, an additive increment of the rotation vector is not
-the spatial spin (Crisfield vol. 2 §16, Battini–Pacoste 2002). The work conjugate of an applied
-nodal "moment" on these DOFs is a spatial moment only to first order in the rotation (NL-3).
+$\psi \leftarrow \psi + \Delta\psi$. The element never differences these vectors: it turns each
+into a rotation matrix $R(\psi)$ (Rodrigues) and works with the matrices (§4.2), so the
+deformations it sees are exact for any combination of rotations while the relative rotation across
+one element stays below half a turn. The end moments $k_\ell d_n$ are
+applied to the nodal DOFs without the differential of the logarithm $T_s^{-1}(\theta_n)$, which is
+exact only as the natural rotation of each element goes to zero: $T_s^{-1}(\theta) = I - \tfrac12[\theta\times] + O(\theta^2)$,
+so a member's end forces are off by about $\tfrac12\lvert\theta_n\rvert$ times its end moments
+(NL-3). Displacements converge at second order under refinement (the helix with GJ = 2EI, error
+about $0.04\,\theta_e^2$ for an element turning $\theta_e$), but the end forces of a coarse member are
+not bounded by that, so a solve with any member end turning more than 0.02 rad against its chord
+carries the NL-3 warning. Past half a turn the rotation matrices
+no longer say which whole turn separates the ends, so a solve that ends with any member's ends more
+than 0.9π apart (by the matrices or by the additive DOFs), or with a chord turned more than 0.9π
+away from its mean end frame (at π the co-rotated frame would be a reflection), is refused with the
+member named.
 
 ### 4.2 Co-rotated frame and natural deformations
 
 1. **Initial frame.** $R_0 = [e_x^0, e_y^0, e_z^0]$ comes from `compute_local_axes_3d`. Its local-y
    reference is resolved once from the initial geometry (`corot_local_y_ref`), so the default
    rule's vertical-member branch cannot switch during iteration.
-2. **Current frame** (`corotated_axes_3d`). The initial frame is turned by the *mean* end rotation
-   $\bar\psi = (\theta_i + \theta_j)/2$ (Rodrigues). It is then turned by the smallest rotation
-   that takes its $x$ axis onto the current chord $e_x = \Delta x/l$. This gives
-   $R_n = [e_x, e_y, e_z]$. It is exact for rotations about one axis, and it carries the mean
-   twist.
-3. **Rigid rotation.** $\beta = \log(R_nR_0^{\mathsf T})^\vee$ is the exact logarithmic map
-   (`rotation_vector`), including the $\theta \approx \pi$ branch. It is expressed in co-rotated
-   axes, $\beta_\ell = R_n^{\mathsf T}\beta$.
-4. **Natural deformations.**
+2. **Current frame** (`natural_rotations_3d`). The mean end rotation is
+   $R_m = R_i\exp(\tfrac12\log(R_i^{\mathsf T}R_j))$ with $R_i = R(\psi_i)$, $R_j = R(\psi_j)$. The
+   initial frame is turned by $R_m$, then by the smallest rotation that takes its $x$ axis onto the
+   current chord $e_x = \Delta x/l$. This gives $R_n = [e_x, e_y, e_z]$.
+3. **Natural deformations.**
 
 $$
-d_n = [0,0,0,\ R_n^{\mathsf T}\theta_i - \beta_\ell,\ \bar u,0,0,\ R_n^{\mathsf T}\theta_j - \beta_\ell],\qquad \bar u = l - L_0 .
+d_n = [0,0,0,\ \log(R_n^{\mathsf T}R_iR_0)^\vee,\ \bar u,0,0,\ \log(R_n^{\mathsf T}R_jR_0)^\vee],\qquad \bar u = l - L_0 ,
 $$
 
-The deformational rotations are formed by **vector subtraction** of rotation vectors, not by
-$\log(R_n^{\mathsf T}R(\theta_i)R_0)$. This is exact for a rigid motion: then
-$\theta_i = \theta_j = \beta$ and $R_n = R(\beta)R_0$. It is also exact for coaxial rotations.
-Otherwise the error is $O(\lvert\theta\rvert\,\lvert\bar\theta\rvert)$ (NL-3).
+with the exact logarithmic map (`rotation_vector`), including the $\theta \approx \pi$ branch. A
+rigid motion gives $R_i = R_j$ and $R_n = R_iR_0$, so both natural rotations vanish exactly.
 
 ### 4.3 Forces and tangent
 
@@ -494,7 +498,7 @@ Neither is called by any solver. They are library utilities, tested only in
 |---|---|---|
 | P-Delta | moderate sway, $P < P_\text{cr}$, small rotations (one cubic per member: mesh long columns) | large rotations, post-buckling |
 | Co-rotational 2D | arbitrary rigid rotation, small strain; Euler–Bernoulli or Timoshenko local element | dead (non-follower) loads only; member-load reporting under large rotation (NL-14) |
-| Co-rotational 3D | rigid rotations of any size; planar or moderately 3D deformation | large non-coaxial rotations with large deformation (NL-3); warping; follower moments |
+| Co-rotational 3D | rigid rotations of any size; planar or moderately 3D deformation | warping; follower moments |
 | Arc-length | limit points of 2D co-rotational models | snap-back with the units-mixed constraint when $\lVert F\rVert$ dominates (NL-12) |
 | Material nonlinear | bracketing a collapse load (existing validation tests) | displacements, member forces or anything past first yield (NL-4, NL-5) |
 | Plastic event-to-event | first-order collapse load (lower bound), bending-dominated frames | N–M interaction; 3D associated flow |
@@ -573,17 +577,22 @@ Neither is called by any solver. They are library utilities, tested only in
   slower than quadratic and the tangent cannot be used for stability (sign of $\det K_T$).
 - *Test.* None: the 3D element assembly is not public.
 
-**NL-3. 3D rotations are additive total rotation vectors. OPEN.**
+**NL-3. 3D rotations were differenced as rotation vectors. FIXED (#426); end moments without $T_s^{-1}$ CONTAINED.**
 
-- *Problem.* The deformational rotations are $R_n^{\mathsf T}\theta - \beta_\ell$ (vector
-  subtraction, §4.1–4.2).
-- *What is exact.* Rigid motions and coaxial rotations; frame invariance holds
-  (`nl_corot3d_solution_is_frame_invariant`).
-- *What is not.* For large non-coaxial rotations, applied nodal moments are not spatial moments
-  and the deformational rotations carry an $O(\theta\bar\theta)$ error.
-- *Question for the reviewer.* Should the element move to a multiplicative update (Battini–Pacoste
-  or Crisfield vol. 2), or should its validity be limited and gated?
-- *Test.* None against a 3D reference such as Bathe–Bolourchi.
+- *Problem.* The deformational rotations were $R_n^{\mathsf T}\theta - \beta_\ell$ about a frame
+  turned by $(\theta_i + \theta_j)/2$, an $O(\theta\bar\theta)$ error for non-coaxial rotations.
+  The Bathe–Bolourchi tip converged 1.3 % away from Simo–Vu-Quoc (1986) and did not move with
+  refinement.
+- *Fix.* §4.2: matrices and logarithms throughout.
+- *Test.* `three_d_corotational`: the Bathe–Bolourchi tip within 0.5 % of both Simo–Vu-Quoc
+  (−23.48, −13.50, 53.37) and Cardona–Géradin (−23.67, −13.74, 53.50) with 8 and 16 elements;
+  non-coaxial helices against the exact solution, including GJ = 2EI (before: converged 0.7 % off
+  in position and 0.08 in rotation, not shrinking with refinement; after: 3.9e-5 at 40 elements,
+  second order); one element twisted 0.5π and 0.8π exact, past 0.9π refused.
+- *Remaining.* End moments are applied without $T_s^{-1}(\theta_n)$, a relative error of about
+  $\tfrac12\lvert\theta_n\rvert$ in a member's end forces. Contained: the NL-3 warning on any solve
+  whose largest natural rotation exceeds 0.02 rad (`members_whose_ends_turn_past_0_02_rad_against_their_chord_carry_nl3`,
+  including a double-curvature member whose ends do not turn relative to each other).
 
 **NL-4. Material-nonlinear member forces are the elastic $K_\text{el}u$. OPEN.**
 

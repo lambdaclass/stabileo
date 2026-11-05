@@ -19,8 +19,8 @@ const header = (paperId: string) => render(ExperimentShell, { props: { paperId, 
 const REVIEW_NOTE = /First version|Primera versión|Primeira versão|Erste Version|Première version|İlk sürüm|review rounds?\b|rondas? de revisión|rodadas? de revisão|Prüfrunden?|cycles? de revue|inceleme turu/;
 
 it('shows no first-version or review-round note in any paper header, while the catalogue keeps the records', () => {
-  expect(reviewCount('mattiasson-elastica')).toBe(2);
-  expect(reviewCount('newmark-1959')).toBe(1);
+  expect(reviewCount('mattiasson-elastica')).toBe(3);
+  expect(reviewCount('newmark-1959')).toBe(2);
   for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
     setLocale(locale);
     for (const e of EXPERIMENTS) {

@@ -1,5 +1,5 @@
 use crate::types::*;
-use crate::postprocess::diagrams::{compute_diagram_value_at_sorted, sorted_point_loads};
+use crate::postprocess::diagrams::{compute_diagram_value_at_sorted, diagram_peak_stations_2d, sorted_point_loads};
 use crate::postprocess::diagrams_3d::evaluate_diagram_3d_at;
 use serde::{Deserialize, Serialize};
 
@@ -298,8 +298,16 @@ pub fn compute_envelope(results: &[AnalysisResults]) -> Result<FullEnvelope, Str
                 })
                 .collect();
 
-            for j in 0..N_POINTS {
-                let t = j as f64 / (N_POINTS - 1) as f64;
+            let mut stations: Vec<f64> = (0..N_POINTS).map(|j| j as f64 / (N_POINTS - 1) as f64).collect();
+            for (r_idx, res) in results.iter().enumerate() {
+                if let Some(ref spl) = sorted_pls[r_idx] {
+                    stations.extend(diagram_peak_stations_2d(&res.element_forces[e_idx], kind, spl));
+                }
+            }
+            stations.sort_by(|a, b| a.total_cmp(b));
+            stations.dedup_by(|b, a| (*b - *a).abs() <= 1e-12);
+
+            for t in stations {
                 t_positions.push(t);
                 let mut max_pos = 0.0f64;
                 let mut max_neg = 0.0f64;
