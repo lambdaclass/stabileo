@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { gravityLayout, type GravityModel } from '../plan-gravity';
+import { gravityLayout, loadedSides, oneSidedSomewhere, type GravityModel } from '../plan-gravity';
 import { buildLoadPlan, type LoadModelData, type LoadPlanInput } from '../load-plan';
 import { defaultRegulations, type ProjectRegulations } from '../../../codes/roles';
 
@@ -152,6 +152,26 @@ describe('one-sided slab load on an edge beam is named for a torsion check (#140
     expect(g.widthMembers.find((w) => w.elementId === 1)?.spans).toBeDefined();
     expect(g.oneSided).toContain(1);
     expect(String(advisory(staggeredNotches(), 'panels').assumption).split(', ')).toContain('1');
+  });
+
+  it('a hole on one side removes only the stations where no load is left on that side (#1426)', () => {
+    const axis = { p: [0, 0] as [number, number], u: [1, 0] as [number, number], L: 6 };
+    const rect = (x0: number, x1: number, y0: number, y1: number): Array<[number, number]> => [[x0, y0], [x1, y0], [x1, y1], [x0, y1], [x0, y0]];
+    const twoSidedBesideAHole = [
+      [rect(0, 6, 0, 1.5), rect(2, 4, 0.5, 1)],
+      [rect(0, 6, -1.5, 0)],
+    ];
+    expect(oneSidedSomewhere(loadedSides(twoSidedBesideAHole, axis))).toBe(false);
+    const oneSidedWhereTheHoleIs = [
+      [rect(0, 6, 0, 1.5), rect(2, 4, 0.5, 1)],
+      [rect(0, 2, -1.5, 0)], [rect(4, 6, -1.5, 0)],
+    ];
+    expect(oneSidedSomewhere(loadedSides(oneSidedWhereTheHoleIs, axis))).toBe(true);
+    const throughTheFullDepth = [
+      [rect(0, 2, 0, 1.5)], [rect(4, 6, 0, 1.5)],
+      [rect(0, 6, -1.5, 0)],
+    ];
+    expect(oneSidedSomewhere(loadedSides(throughTheFullDepth, axis))).toBe(true);
   });
 
   it('a lone member that bounds no panel gets no advisory', () => {
