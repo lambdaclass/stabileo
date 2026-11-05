@@ -8,6 +8,7 @@
    * fed with this component's props. Takes the props of ScalarFieldViewer, plain data only.
    */
   import { viewerInteraction } from './viewer-interaction';
+  import { holdPrerender } from '../../../lib/prerender-hold';
   import { onDestroy, onMount } from 'svelte';
 
   let { oninteract = () => {}, ...props }: Record<string, unknown> & { oninteract?: () => void } = $props();
@@ -30,7 +31,7 @@
       document.head.appendChild(script);
     }
     let cancelled = false;
-    import(/* @vite-ignore */ `${BASE}viewer.js`)
+    holdPrerender(import(/* @vite-ignore */ `${BASE}viewer.js`))
       .then((m: { mountScalarFieldViewer: (el: HTMLElement, p: Record<string, unknown>) => typeof handle }) => {
         if (cancelled) return;
         handle = m.mountScalarFieldViewer(host, { locale: publicI18n.locale, ...props });
