@@ -43,8 +43,9 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join, dirname, extname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { newPrerenderPage, prerenderConcurrency, routePool } from './prerender-pool';
+import { newPrerenderPage, prerenderConcurrency, routePool, waitForRenderedApp, MIN_CAPTURE_CHARS } from './prerender-pool';
 import { rootHandoffScript } from './root-handoff';
+import { notFoundPage } from './not-found-page';
 import { buildStarCount, serveStarCount } from './build-stars';
 import { paperStructuredData } from './paper-structured-data';
 import { POST_DATE, POST_LASTMOD, publicPaths, writtenIn } from './public-paths';
@@ -230,6 +231,8 @@ async function capture(page: Page, base: string, locale: Locale, path: string) {
   // happens on the address a reader actually lands on.
   const href = path === '/' ? `/${locale}/` : `/${locale}${path}/`;
   await page.goto(base + href, { waitUntil: 'networkidle' });
+  // Network idle is not rendered: a page whose next chunk is requested only after a long main-thread task looks idle in between.
+  await waitForRenderedApp(page);
   const { head, body } = await page.evaluate(() => ({
     head: document.head.innerHTML,
     body: document.querySelector('#app')?.innerHTML ?? '',
@@ -285,7 +288,7 @@ async function main() {
   const { server, port } = await serveDist(0);
   const stop = () => new Promise<void>((done) => server.close(() => done()));
   const base = `http://127.0.0.1:${port}`;
-  const browser = await chromium.launch();
+  const browser = await chromium.launch({ args: ['--disable-dev-shm-usage'] });
   const stars = await buildStarCount();
   const only = process.env.PRERENDER_ONLY?.split(',');
   const paths = (await publicPaths()).filter((path) => !only || only.includes(path));
@@ -302,7 +305,7 @@ async function main() {
       async (p, { locale, path }) => {
         const result = await capture(p, base, locale, path);
         const { head, body, lang, href } = result;
-        if (body.length < 500) throw new Error(`prerender: ${href} came back nearly empty (${body.length} chars)`);
+        if (body.length < MIN_CAPTURE_CHARS) throw new Error(`prerender: ${href} came back nearly empty (${body.length} chars)`);
         const out = join(DIST, href.slice(1), 'index.html');
         await mkdir(dirname(out), { recursive: true });
         await writeFile(out, page(path === '/paper' ? head + paperStructuredData(ORIGIN, locale) : head, body, lang));
@@ -384,9 +387,14 @@ async function main() {
       `User-agent: *\nAllow: /\nDisallow: /app/\n\nSitemap: ${ORIGIN}/sitemap.xml\n`,
     );
 
+    await writeFile(join(DIST, '404.html'), notFoundPage(DEFAULT_LOCALE, LOCALES));
+    for (const locale of LOCALES) {
+      await writeFile(join(DIST, locale, '404.html'), notFoundPage(locale, LOCALES));
+    }
+
     console.log(`✅ prerendered ${written.length} pages`);
     for (const href of written) console.log(`   · ${href}`);
-    console.log(`   · /sitemap.xml, /robots.txt, ${LOCALES.length} feeds, ${posts.length} post cards`);
+    console.log(`   · /sitemap.xml, /robots.txt, ${LOCALES.length} feeds, ${posts.length} post cards, ${LOCALES.length + 1} 404 pages`);
   } finally {
     await browser.close();
     await stop();

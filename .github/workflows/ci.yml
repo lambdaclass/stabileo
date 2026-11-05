@@ -17,8 +17,9 @@
 # missing area tests conservatively select full CI.
 # engine/**: engine/AI-backend/research suites, determinism/results, full web unit, @engine smoke.
 # Other web/** (site, blog, locales, e2e; not package manifests or WASM): everything but the engine,
-# AI-backend and backend jobs, with the full E2E smoke suite.
-# Merge queue: docs only, or site/research/tools only (everything web, engine jobs skipped); else full.
+# AI-backend and backend jobs and full research validation (route checks only), with the full E2E smoke suite.
+# Merge queue: each entry by its diff against the entry ahead; docs only, or site/research/tools only
+# (engine jobs skipped, research route checks only); else full.
 # Every web selection includes Web Build and its TypeScript/Svelte gates.
 # Other/mixed/unknown paths and run-e2e label: full pipeline. The label is read when the run starts:
 # adding it does not start a run (any label would restart CI); push or re-run CI after adding it.
@@ -251,6 +252,25 @@ jobs:
       - if: needs.changes.outputs.docker_source == 'true'
         run: docker build --tag stabileo-source-smoke .
       - run: docker build --build-arg FRONTEND_STAGE=web-prebuilt --tag stabileo-smoke .
+
+  caddy-routing:
+    name: Caddy Routing
+    needs: changes
+    if: needs.changes.outputs.ci_scripts == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
+        continue-on-error: true
+      - if: github.event_name != 'pull_request'
+        uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+        continue-on-error: true
+        with:
+          use-flakehub: false
+      - run: .github/scripts/retry-infra.sh make test.infra.caddy
 
   caddy-redirects:
     name: Caddy Language Redirects
@@ -1012,7 +1032,9 @@ jobs:
         run: .github/scripts/retry-infra.sh make e2e.web.setup
       - name: Install Chromium system dependencies
         if: runner.environment == 'github-hosted'
-        run: .github/scripts/retry-infra.sh nix develop --command bash -c "cd web && npx playwright install-deps chromium"
+        uses: ./.github/actions/browser-deps
+        with:
+          browsers: chromium
       - name: Build the E2E site
         run: |
           if [ "${{ runner.environment }}" = self-hosted ]; then
@@ -1144,7 +1166,9 @@ jobs:
       # The runner lacks the system libraries Chromium links against; no make target installs them.
       - name: Install Chromium system dependencies
         if: runner.environment == 'github-hosted'
-        run: .github/scripts/retry-infra.sh nix develop --command bash -c "cd web && npx playwright install-deps chromium"
+        uses: ./.github/actions/browser-deps
+        with:
+          browsers: chromium
       - name: Install build-test browser
         if: runner.environment == 'github-hosted'
         run: .github/scripts/retry-infra.sh make e2e.web.setup
@@ -1291,7 +1315,9 @@ jobs:
       - name: Install dependencies
         run: .github/scripts/retry-infra.sh make web.deps
       - name: Install browser system dependencies
-        run: .github/scripts/retry-infra.sh nix develop --command bash -c "cd web && npx playwright install-deps chromium firefox webkit"
+        uses: ./.github/actions/browser-deps
+        with:
+          browsers: chromium firefox webkit
       - name: Install determinism browsers
         run: .github/scripts/retry-infra.sh nix develop --command bash -c 'cd web && npx playwright install chromium firefox webkit'
       - name: Bit-identical in Node and every browser
@@ -1383,7 +1409,9 @@ jobs:
         run: .github/scripts/retry-infra.sh make e2e.web.setup
       - name: Install Chromium system dependencies
         if: runner.environment == 'github-hosted'
-        run: .github/scripts/retry-infra.sh nix develop --command bash -c "cd web && npx playwright install-deps chromium"
+        uses: ./.github/actions/browser-deps
+        with:
+          browsers: chromium
       # `@landing` stays out: on CI every landing case after the first wedges in
       # `browser.newContext`; run `npx playwright test --grep @landing` locally.
       # `@flaky` tests are quarantined (web/e2e/README.md): left out here, run by `e2e-flaky`.
@@ -1517,7 +1545,9 @@ jobs:
         run: .github/scripts/retry-infra.sh make e2e.web.setup
       - name: Install Chromium system dependencies
         if: runner.environment == 'github-hosted'
-        run: .github/scripts/retry-infra.sh nix develop --command bash -c "cd web && npx playwright install-deps chromium"
+        uses: ./.github/actions/browser-deps
+        with:
+          browsers: chromium
       # --pass-with-no-tests: an empty quarantine is the goal, not an error.
       - name: E2E quarantined (@flaky) tests, two retries
         run: |
@@ -1596,22 +1626,74 @@ jobs:
       - name: Install Chromium
         run: .github/scripts/retry-infra.sh make e2e.web.setup
       - name: Install Chromium system dependencies
-        run: .github/scripts/retry-infra.sh nix develop --command bash -c "cd web && npx playwright install-deps chromium"
+        uses: ./.github/actions/browser-deps
+        with:
+          browsers: chromium
       - name: Scale budgets
         run: make test.web.timing
       - name: E2E wall-clock budgets
         run: make e2e.web.timing
 
-  ci-ok:
-    name: CI OK
+  superseded:
+    name: Superseded by a newer run
     runs-on: ubuntu-24.04
     timeout-minutes: 5
-    if: always()
+    if: ${{ always() && github.event_name == 'pull_request' && cancelled() }}
     needs:
       - changes
       - lint-repo
       - test-ci-scripts
       - docker-smoke
+      - caddy-routing
+      - caddy-redirects
+      - lint-engine
+      - test-engine-gates
+      - test-engine-suite
+      - test-engine-metamorphic
+      - test-ai-backend
+      - lint-backend
+      - test-backend
+      - check-migrations-immutable
+      - check-migrations
+      - wasm
+      - research-wasm
+      - research
+      - site-e2e
+      - web-unit
+      - web-build
+      - results-snapshot
+      - determinism
+      - e2e
+      - timing-budgets
+    outputs:
+      newer: ${{ steps.newer.outputs.newer }}
+    steps:
+      - id: newer
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+          RUN_ID: ${{ github.run_id }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          newer=$(gh api "repos/$GH_REPO/actions/runs?event=pull_request&head_sha=$SHA&per_page=100" \
+            --jq "[.workflow_runs[] | select(.path == \".github/workflows/ci.yml\" and .id > $RUN_ID and ([.pull_requests[].number] | index($PR)) and (.status != \"completed\" or .conclusion == \"success\"))] | length")
+          echo "newer runs on $SHA: $newer"
+          [ "$newer" -gt 0 ] && echo newer=true >> "$GITHUB_OUTPUT" || echo newer=false >> "$GITHUB_OUTPUT"
+
+  ci-ok:
+    name: CI OK
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    # A skipped CI OK passes a required check: it may skip only when a newer run on the same head replaces it.
+    if: ${{ always() && needs.superseded.outputs.newer != 'true' }}
+    needs:
+      - superseded
+      - changes
+      - lint-repo
+      - test-ci-scripts
+      - docker-smoke
+      - caddy-routing
       - caddy-redirects
       - lint-engine
       - test-engine-gates

@@ -2,7 +2,7 @@
        lint.engine test.engine.units-types check.engine.acceptance-models test.engine.gates test.engine.metamorphic test.engine.suite bench.engine \
        web.deps typecheck.web test.web.unit test.web.build test.web.timing test.web.results snapshots-update check.results-snapshot-gate test.web.determinism e2e.web.setup e2e.web.build e2e.web.smoke e2e.web.slow e2e.web.timing e2e.web.visual e2e.web.flaky \
        perf.lighthouse.deps perf.lighthouse \
-       test.ci-scripts test.nightly-scripts test.infra.caddy.redirects check.web.translations check.web.route-size \
+       test.ci-scripts test.nightly-scripts test.infra.caddy test.infra.caddy.redirects check.web.translations check.web.route-size \
        test test.engine test.engine.benchmark-protocol test.backend test.backend.file test.web test.ai-backend test.inventory test-changed \
        lint.backend format format.backend \
        wasm web.setup web.run web.build admin.run admin.build \
@@ -406,6 +406,10 @@ test.ci-scripts: test.nightly-scripts
 	python3 -B -I scripts/tests/test_infra_retry.py
 	$(NIX_RUN) bash -c 'shellcheck -S warning .github/scripts/*.sh'
 	$(NIX_RUN) actionlint .github/workflows/ci.yml .github/workflows/research.yml .github/workflows/merge-queue-supersede.yml .github/workflows/post-merge.yml .github/workflows/infra-retry.yml
+
+# DIST=web/dist checks a real build instead of the fixture site.
+test.infra.caddy:
+	nix shell --inputs-from . nixpkgs#caddy nixpkgs#curl nixpkgs#python3 --command bash infra/caddy/test-routing.sh $(DIST)
 
 test.infra.caddy.redirects:
 	nix shell --inputs-from . nixpkgs#caddy nixpkgs#curl nixpkgs#python3 --command bash infra/caddy/test-language-redirects.sh

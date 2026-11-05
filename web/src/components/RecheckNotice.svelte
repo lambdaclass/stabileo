@@ -2,7 +2,7 @@
   import { saveWorkspaceToLocalStorage, saveSession } from '../lib/store/file';
   import { recheckStore } from '../lib/store/recheck.svelte';
   import { rerunAnalysisAndDesign, recheckKey } from '../lib/actions/recheck';
-  import { changelogUrl, type Locale3 } from '../lib/provenance/registry';
+  import { changelogUrl, registryLocale } from '../lib/provenance/registry';
   import { cycleTabWithin } from '../lib/utils/dialog-focus';
   import { t, tp, i18n } from '../lib/i18n';
 
@@ -24,7 +24,7 @@
 
   const a = $derived(recheckStore.assessment);
   const open = $derived(recheckStore.noticeOpen || reviewing);
-  const loc = $derived<Locale3>((['en', 'es', 'pt'] as const).includes(i18n.locale as Locale3) ? (i18n.locale as Locale3) : 'en');
+  const loc = $derived(registryLocale(i18n.locale));
 
   // A new notice (another project) starts unticked.
   $effect(() => {

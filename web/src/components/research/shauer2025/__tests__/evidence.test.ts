@@ -6,6 +6,7 @@ import { shauerLocales, shauerLocaleKeys } from '../locales';
 import { checkMetadata, checkLabel, metricLabel } from '../validation-labels';
 import validation from '../../../../../../research/fracture/shauer-2025/VALIDATION.json';
 import { num } from '../../shell/format';
+import { MESHES } from '../model';
 
 const csv: Record<number, URL> = {
   1: new URL('../../../../../../research/fracture/shauer-2025/reference-results/ex1_steps.csv', import.meta.url),
@@ -63,10 +64,11 @@ it('localizes every validation name and metric without changing numbers or toler
 });
 it('provides German, French and Turkish copy for every Shauer and shell string in use', () => {
   const previous = publicI18n.locale;
-  const files = ['ShauerPage.svelte', 'IterationsChart.svelte', '../shell/ExperimentShell.svelte', '../shell/VerificationSummary.svelte', '../shell/PaneTabs.svelte'];
+  const files = ['ShauerPage.svelte', 'ShauerArticle.svelte', 'ShauerParameters.svelte', 'IterationsChart.svelte', '../shell/ExperimentShell.svelte', '../shell/VerificationSummary.svelte', '../shell/PaneTabs.svelte'];
   const keys = new Set(files.flatMap(f => [...readFileSync(new URL(`../${f}`, import.meta.url), 'utf8').matchAll(f.startsWith('../shell/') ? /\bs\.(\w+)/g : /\bstrings\.(\w+)/g)].map(m => m[1])));
   // This fallback is not used: Shauer supplies its comparison scope explicitly.
   keys.delete('notComparedWhy');
+  for (const mesh of Object.values(MESHES)) keys.add(mesh.label);
   try {
     for (const locale of ['de', 'fr', 'tr']) {
       setLocale(locale);
@@ -77,13 +79,20 @@ it('provides German, French and Turkish copy for every Shauer and shell string i
   } finally { setLocale(previous); }
 });
 it('keeps the complete energy series accessible and uses distinct energy colours', () => {
-  const page = readFileSync(new URL('../ShauerPage.svelte', import.meta.url), 'utf8');
+  const read = (f: string) => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
+  const page = read('ShauerPage.svelte');
+  const article = read('ShauerArticle.svelte');
   expect(page).toContain('introInArticle');
-  expect(page).toContain('metricLabel(c.metric)');
-  expect(page).toContain('num(f.step.elastic_energy, { sig: 7 })');
-  expect(page).toContain('num(f.step.fracture_energy, { sig: 7 })');
-  expect(page).not.toMatch(/name: strings\.(?:elasticEnergy|fractureEnergy), color: (?:REFERENCE|STABILEO)/);
-  expect(page).not.toMatch(/authorsQuestions|questionsForAuthors|toFixed|toExponential/);
+  expect(page).toContain('<ShauerArticle {frames} {showsReference} />');
+  expect(article).toContain('metricLabel(c.metric)');
+  expect(article).toContain('num(f.step.elastic_energy, { sig: 7 })');
+  expect(article).toContain('num(f.step.fracture_energy, { sig: 7 })');
+  expect(page).toMatch(/name: strings\.elasticEnergy, color: '#259b86'/);
+  expect(page).toMatch(/name: strings\.fractureEnergy, color: '#b77bce'/);
+  for (const source of [page, article, read('ShauerParameters.svelte')]) {
+    expect(source).not.toMatch(/name: strings\.(?:elasticEnergy|fractureEnergy), color: (?:REFERENCE|STABILEO)/);
+    expect(source).not.toMatch(/authorsQuestions|questionsForAuthors|toFixed|toExponential/);
+  }
   const chart = readFileSync(new URL('../LineChart.svelte', import.meta.url), 'utf8');
   expect(chart).toContain('type="range"');
   expect(chart).toContain('onpointerdown={onMove}');

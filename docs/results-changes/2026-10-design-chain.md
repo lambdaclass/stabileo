@@ -66,7 +66,7 @@ member is not a valid verification.
 
 **#463, design.** A member of aluminium, timber or composite material used to be checked as
 CIRSOC 301 steel. It is now checked by its own checker, and until that check has run it is not
-shown as verified anywhere. EC3 lateral-torsional buckling (6.3.3) is read with the engine's
+shown as verified anywhere. The EC3 interaction of bending and axial compression (6.3.3) is read with the engine's
 Annex B, and certificates of other codes read «partial» where the certified checker does not
 cover the whole reading.
 
