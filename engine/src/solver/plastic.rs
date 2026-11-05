@@ -1023,6 +1023,7 @@ pub fn solve_plastic_2d(input: &PlasticInput) -> Result<PlasticResult, String> {
                 return Err(no_bending_collapse(cumulative_factor));
             }
             warnings.push(format!("the collapse factor is not confirmed by the limit analysis: {e}"));
+            is_mechanism = false;
         }
     }
 

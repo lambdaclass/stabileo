@@ -43,7 +43,9 @@ in every member), with the moment checked at the exact cubic peaks of each load 
 independent of numbering, member direction and units by construction, and checked against the
 kinematic (mechanism) value in the tests. The hinge history is still shown, with a warning when
 it ends away from the collapse load. A model that is a mechanism before any hinge forms is
-refused. Tests: `engine/tests/metamorphic/regressions.rs` (`issue_758_*`),
+refused. The limit analysis runs on models of up to 200 members; above that, or when it cannot
+settle, the step-by-step factor is reported as not confirmed (`is_mechanism` false, with a
+warning), not as the collapse factor. Tests: `engine/tests/metamorphic/regressions.rs` (`issue_758_*`),
 `engine/tests/certify_plastic.rs` (`issue_758_*`),
 `web/src/lib/engine/__tests__/plastic-collapse-invariance-758.test.ts`.
 
