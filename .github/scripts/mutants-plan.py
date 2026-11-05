@@ -3,7 +3,8 @@
 Prints a JSON list of SLOTS shard indices out of TOTAL. A shard's age comes from the newest
 mutants-done-<k>-of-<TOTAL> marker of a nightly.yml run on main; shards with no marker go first.
 Ties go by shard index, so shards a night did not finish stay ahead of every shard not yet run.
-A shard that has failed to finish twice since its last marker is dated by its last attempt
+A shard that has failed to finish twice since its last marker (two started `mutants (k of TOTAL)`
+jobs, reruns included, with no marker after them) is dated by its last attempt
 instead, so shards that never finish cannot hold every slot. If GitHub cannot be read, it falls
 back to the day-based rotation and says so.
 """
@@ -15,7 +16,7 @@ import sys
 import time
 
 MARKER = re.compile(r"mutants-done-(\d+)-of-(\d+)")
-JOB = re.compile(r"mutants \((\d+)\)")
+JOB = re.compile(r"mutants \((\d+) of (\d+)\)")
 
 
 def rotation(total, slots, day):
@@ -42,11 +43,11 @@ def markers(repo, total, days):
             for r in page["workflow_runs"]]
     last, attempts = {}, {}
     for run in runs:
-        for page in gh(f"repos/{repo}/actions/runs/{run['id']}/jobs?per_page=100"):
+        for page in gh(f"repos/{repo}/actions/runs/{run['id']}/jobs?filter=all&per_page=100"):
             for job in page["jobs"]:
                 m = JOB.fullmatch(job["name"])
-                if m and job["status"] == "completed" and int(m.group(1)) < total:
-                    attempts.setdefault(int(m.group(1)), []).append(run["created_at"])
+                if m and int(m.group(2)) == total and job["status"] == "completed" and job["started_at"]:
+                    attempts.setdefault(int(m.group(1)), []).append(job["started_at"])
         for page in gh(f"repos/{repo}/actions/runs/{run['id']}/artifacts?per_page=100"):
             for artifact in page["artifacts"]:
                 m = MARKER.fullmatch(artifact["name"])

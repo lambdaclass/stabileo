@@ -59,18 +59,28 @@ class MutantsPlan(unittest.TestCase):
 
     def test_markers_of_another_total_or_expired_do_not_count(self):
         runs = json.dumps([{'workflow_runs': [{'id': 1, 'created_at': '2026-11-02T05:00:00Z'}, {'id': 2, 'created_at': '2026-11-03T05:00:00Z'}]}])
-        jobs = json.dumps([{'jobs': [{'name': 'mutants (3)', 'status': 'completed'}, {'name': 'mutants (4)', 'status': 'in_progress'},
-                                     {'name': 'mutants (9)', 'status': 'completed'}, {'name': 'plan', 'status': 'completed'}]}])
+        started = '2026-11-02T05:10:00Z'
+        jobs = json.dumps([{'jobs': [
+            {'name': 'mutants (3 of 8)', 'status': 'completed', 'started_at': started},
+            {'name': 'mutants (4 of 8)', 'status': 'in_progress', 'started_at': started},
+            {'name': 'mutants (5 of 8)', 'status': 'completed', 'started_at': None},
+            {'name': 'mutants (6 of 16)', 'status': 'completed', 'started_at': started},
+            {'name': 'mutants (7)', 'status': 'completed', 'started_at': started},
+            {'name': 'plan', 'status': 'completed', 'started_at': started}]}])
         arts = json.dumps([{'artifacts': [
             {'name': 'mutants-done-0-of-8', 'expired': False, 'created_at': '2026-11-01T00:00:00Z'},
             {'name': 'mutants-done-1-of-8', 'expired': True, 'created_at': '2026-11-01T00:00:00Z'},
             {'name': 'mutants-done-2-of-16', 'expired': False, 'created_at': '2026-11-01T00:00:00Z'},
             {'name': 'mutants-report-2', 'expired': False, 'created_at': '2026-11-01T00:00:00Z'}]}])
-        result = self.run_script(f"#!/bin/sh\ncase \"$*\" in *workflows/nightly.yml/runs*) echo '{runs}' ;; *runs/1/artifacts*) echo '{arts}' ;; *runs/*/artifacts*) echo '[]' ;; *runs/*/jobs*) echo '{jobs}' ;; esac\n")
+        rerun = json.dumps([{'jobs': [{'name': n, 'status': 'completed', 'started_at': '2026-11-03T09:00:00Z'}
+                                      for n in ('mutants (3 of 8)', 'mutants (6 of 16)', 'mutants (7)')]}])
+        result = self.run_script(f"#!/bin/sh\ncase \"$*\" in *workflows/nightly.yml/runs*) echo '{runs}' ;; *runs/1/artifacts*) echo '{arts}' ;; *runs/*/artifacts*) echo '[]' ;; *runs/1/jobs?filter=all*) echo '{jobs}' ;; *runs/2/jobs?filter=all*) echo '{rerun}' ;; esac\n")
         self.assertEqual(json.loads(result.stdout), [1, 2, 4])
         self.assertIn('1 of 8 shards have a marker', result.stderr)
 
     def test_unreadable_markers_fall_back_to_the_rotation_and_warn(self):
+        rerun = json.dumps([{'jobs': [{'name': n, 'status': 'completed', 'started_at': '2026-11-03T09:00:00Z'}
+                                      for n in ('mutants (3 of 8)', 'mutants (6 of 16)', 'mutants (7)')]}])
         result = self.run_script('#!/bin/sh\nexit 1\n')
         self.assertEqual(json.loads(result.stdout), plan.rotation(8, 3, 0))
         self.assertIn('::warning title=Mutants rotation::', result.stderr)

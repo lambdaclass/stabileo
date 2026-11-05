@@ -475,6 +475,7 @@ jobs:
   # shard fails on a missed mutant, and fails loudly (with how far it got) if
   # it does not finish within its time budget; the report is uploaded either way.
   mutants:
+    name: mutants (${{ matrix.shard }} of ${{ needs.plan.outputs.mutants_total }})
     needs: plan
     if: contains(needs.plan.outputs.jobs, ' mutants ')
     runs-on: ${{ (needs.plan.outputs.night == 'true' && vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo-nightly"]') || 'ubuntu-24.04' }}
