@@ -11,7 +11,7 @@ import { LEGACY, readRegistryAt } from '../../../../scripts/result-changes/regis
 
 const repo = resolve(__dirname, '../../../../..');
 const git = (...args: string[]) => execFileSync('git', ['-C', repo, ...args], { encoding: 'utf8' }).trim();
-const moved = git('log', '--first-parent', '--diff-merges=first-parent', '--diff-filter=D', '--format=%H', '-1', 'HEAD', '--', LEGACY);
+const moved = git('log', '--first-parent', '--diff-merges=first-parent', '--no-renames', '--diff-filter=D', '--name-only', '--format=%H', '-1', 'HEAD', '--', LEGACY).split('\n')[0];
 const BEFORE = readRegistryAt(`${moved}^1`, repo) as ResultChangeRegistry;
 
 const projects = [
