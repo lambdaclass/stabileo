@@ -24,6 +24,7 @@ mod checks3;
 mod corpus;
 mod modal_checks;
 mod nightly_tolerances;
+mod quick;
 mod regressions;
 mod response;
 mod symmetry;
