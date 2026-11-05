@@ -64,7 +64,7 @@ def block(code, start):
     return i, len(code)
 
 
-ATTRIBUTE = re.compile(r'#\[wasm_bindgen\b[^\]]*\]')
+ATTRIBUTE = re.compile(r'#\[(?:wasm_bindgen\b|cfg_attr\s*\([^\]]*\bwasm_bindgen\b)[^\]]*\]')
 ITEM = re.compile(r'(?:\s*#\[[^\]]*\])*\s*(?:(?:pub(?:\([^)]*\))?\s+)?(?:async\s+)?fn\s+(\w+)|impl\s+(\w+)\s*\{)')
 
 

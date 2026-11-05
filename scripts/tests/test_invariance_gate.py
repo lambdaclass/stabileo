@@ -128,6 +128,10 @@ class Exports(unittest.TestCase):
     def test_an_export_without_pub_is_still_an_export(self):
         self.assertEqual(list(gate.exports({'lib.rs': '#[wasm_bindgen]\nfn solve_x() {}\n#[wasm_bindgen]\npub(crate) fn solve_y() {}\n'})), ['solve_x', 'solve_y'])
 
+    def test_a_conditional_export_is_found(self):
+        lib = '#[cfg_attr(target_arch = "wasm32", wasm_bindgen)]\npub fn solve_x() {}\n#[cfg_attr(feature = "x", wasm_bindgen(js_name = y))]\nimpl Y {\n    pub fn solve(&self) {}\n}\n'
+        self.assertEqual(sorted(gate.exports({'lib.rs': lib})), ['Y::solve', 'solve_x'])
+
     def test_a_commented_out_export_is_not_found(self):
         self.assertEqual(gate.exports({'lib.rs': '// #[wasm_bindgen]\n// pub fn solve_x() {}\n'}), {})
 
