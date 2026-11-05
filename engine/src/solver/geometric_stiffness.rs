@@ -426,8 +426,8 @@ fn frame_kg_span_local_3d(w: &[[f64; 4]; 4], e: &[f64; 4], l: f64, hinge: &crate
 /// span loads (`qXI`, `qXJ`) make vary along it, in global axes over the DOFs of its
 /// [`frame_kg_global_3d`]: with the mean-force Kg of `emit_geometric_stiffness_3d` it is the
 /// consistent Kg of the member's whole N(x), bending, Wagner and shear-centre terms alike. As in
-/// 2D, trusses and cables have none.
-pub(crate) fn span_axial_geometric_stiffness_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> Vec<(usize, Vec<usize>, Vec<f64>)> {
+/// 2D, trusses and cables have none. Also each such member's least N − N̄ along it.
+pub(crate) fn span_axial_geometric_stiffness_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> (Vec<(usize, Vec<usize>, Vec<f64>)>, std::collections::HashMap<usize, f64>) {
     let mut spans: std::collections::HashMap<usize, Vec<&SolverDistributedLoad3D>> = std::collections::HashMap::new();
     for load in &input.loads {
         if let SolverLoad3D::Distributed(dl) = load {
@@ -440,6 +440,7 @@ pub(crate) fn span_axial_geometric_stiffness_3d(input: &SolverInput3D, dof_num: 
     let node_by_id: std::collections::HashMap<usize, &SolverNode3D> = crate::ordered::values(&input.nodes).map(|n| (n.id, n)).collect();
     let sec_by_id: std::collections::HashMap<usize, &SolverSection3D> = crate::ordered::values(&input.sections).map(|s| (s.id, s)).collect();
     let mut out = Vec::new();
+    let mut least = std::collections::HashMap::new();
     for elem in crate::ordered::values(&input.elements) {
         if elem.elem_type == "truss" || elem.elem_type == "cable" {
             continue;
@@ -455,7 +456,8 @@ pub(crate) fn span_axial_geometric_stiffness_3d(input: &SolverInput3D, dof_num: 
         if sps.is_empty() {
             continue;
         }
-        let (w, e) = span_axial_weights(l, &[], &sps);
+        let (w, e, low) = span_axial_weights(l, &[], &sps);
+        least.insert(elem.id, low);
         let (ex, ey, ez) = crate::element::compute_local_axes_3d(
             ni.x, ni.y, ni.z,
             nj.x, nj.y, nj.z,
@@ -467,7 +469,7 @@ pub(crate) fn span_axial_geometric_stiffness_3d(input: &SolverInput3D, dof_num: 
         let nd = dofs.len();
         out.push((elem.id, dofs, transform_stiffness(&local, &t, nd)));
     }
-    out
+    (out, least)
 }
 
 /// Add geometric stiffness to the global stiffness matrix based on current axial forces.
@@ -578,7 +580,7 @@ pub(crate) fn span_axial_geometric_stiffness_2d(input: &SolverInput, dof_num: &D
             continue;
         }
         let sps: Vec<[f64; 4]> = raw_spans.iter().map(|al| [al.q_i, al.q_j, al.a.unwrap_or(0.0), al.b.unwrap_or(l)]).filter(|s| s[3] > s[2]).collect();
-        let (weighted, _) = span_axial_weights(l, pts, &sps);
+        let (weighted, _, _) = span_axial_weights(l, pts, &sps);
         let plane = [1, 2, 4, 5];
         let mut k = vec![0.0; 36];
         for i in 0..4 {
@@ -597,8 +599,8 @@ pub(crate) fn span_axial_geometric_stiffness_2d(input: &SolverInput, dof_num: &D
 /// axial span loads `sps` ([q_i, q_j, a, b]), with N(x) − N̄ the part of its axial force that
 /// these loads make vary along it: ∫(N − N̄)·φ'ᵢ·φ'ⱼ dx and ∫(N − N̄)·φ'ᵢ dx over the cubic
 /// Hermite functions of (v1, θ1, v2, θ2), by 4-point Gauss between the load breakpoints, exact
-/// for these polynomials.
-fn span_axial_weights(l: f64, pts: &[(f64, f64)], sps: &[[f64; 4]]) -> ([[f64; 4]; 4], [f64; 4]) {
+/// for these polynomials; and the least N − N̄ along the member.
+fn span_axial_weights(l: f64, pts: &[(f64, f64)], sps: &[[f64; 4]]) -> ([[f64; 4]; 4], [f64; 4], f64) {
     let n_of = |x: f64| -> f64 {
         let from_points: f64 = pts.iter().filter(|p| p.0 < x).map(|p| p.1).sum();
         let from_spans: f64 = sps.iter().map(|&[qi, qj, a, b]| {
@@ -638,7 +640,21 @@ fn span_axial_weights(l: f64, pts: &[(f64, f64)], sps: &[[f64; 4]]) -> ([[f64; 4
     let mean = integral / l;
     let w = std::array::from_fn(|i| std::array::from_fn(|j| weighted[i][j] - mean * plain[i][j]));
     let e = std::array::from_fn(|i| first[i] - mean * sum[i]);
-    (w, e)
+    let q_at = |x: f64| -> f64 { sps.iter().filter(|s| x >= s[2] && x <= s[3]).map(|&[qi, qj, a, b]| qi + (qj - qi) * (x - a) / (b - a)).sum() };
+    let mut least = f64::INFINITY;
+    for w in breaks.windows(2) {
+        let (x0, x1) = (w[0], w[1]);
+        let at = |t: f64| x0 + (x1 - x0) * t;
+        let (q0, q1) = (q_at(at(1e-9)), q_at(at(1.0 - 1e-9)));
+        let mut xs = vec![x0, x1];
+        if (q0 > 0.0) != (q1 > 0.0) && q0 != q1 {
+            xs.push(at((q0 / (q0 - q1)).clamp(0.0, 1.0)));
+        }
+        for x in xs {
+            least = least.min(n_of(x)).min(n_of((x - 1e-12 * l).max(0.0)));
+        }
+    }
+    (w, e, least - mean)
 }
 
 const GAUSS_4: [(f64, f64); 4] = [
@@ -1583,7 +1599,8 @@ mod tests {
                 release_my_start: bits & 1 != 0, release_mz_start: bits & 2 != 0, release_t_start: bits & 4 != 0,
                 release_my_end: bits & 8 != 0, release_mz_end: bits & 16 != 0, release_t_end: bits & 32 != 0,
             };
-            for (warping, mean) in [(false, frame_kg_local_3d(p, l, &hinge, &sec)), (true, frame_kg_local_3d_warping(p, l, &hinge, &sec))] {
+            let linear_twist = KgSection { r0_sq: 0.0, ..sec };
+            for (warping, mean) in [(false, frame_kg_local_3d(p, l, &hinge, &linear_twist)), (true, frame_kg_local_3d_warping(p, l, &hinge, &sec))] {
                 let span = frame_kg_span_local_3d(&w, &e, l, &hinge, &sec, warping);
                 let scale = mean.iter().fold(0.0f64, |m, v| m.max(v.abs()));
                 for (k, (a, b)) in span.iter().zip(&mean).enumerate() {

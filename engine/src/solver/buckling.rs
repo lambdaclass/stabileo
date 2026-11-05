@@ -385,8 +385,8 @@ pub fn buckling_system_3d(input: &SolverInput3D) -> Result<BucklingSystem3D, Str
         }
     }
     let mean_n = super::geometric_stiffness::mean_axial_forces_3d(input, &dof_num, &u_full);
-    let span_axial = span_axial_geometric_stiffness_3d(input, &dof_num);
-    let has_frame_compression = !span_axial.is_empty() || mean_n.values().any(|&n| n < -1e-6);
+    let (span_axial, span_least) = span_axial_geometric_stiffness_3d(input, &dof_num);
+    let has_frame_compression = mean_n.iter().any(|(id, &n)| n + span_least.get(id).copied().unwrap_or(0.0).min(0.0) < -1e-6);
     let has_surfaces = !input.quads.is_empty()
         || !input.plates.is_empty()
         || !input.quad9s.is_empty()

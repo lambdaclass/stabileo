@@ -208,11 +208,13 @@ fn a_member_with_zero_mean_force_and_compression_inside() {
     within(column(32).factor(), SIGN_CHANGE, 1e-3);
 }
 
-/// Tension all along: nothing to buckle, and no factor is made up.
+/// Tension all along, down to zero at both ends or at one: nothing to buckle, refused as such.
 #[test]
 fn a_member_in_tension_all_along_is_refused() {
-    let err = solve_buckling_3d(&Column::new(1, |x| -parabolic_q(x), 0.0).input(), 1).unwrap_err();
-    assert_eq!(err, "No positive buckling load factors found");
+    for (q, tip) in [(falling_q as Load, P), (|x| -parabolic_q(x), 0.0), (rising_q, 0.0)] {
+        let err = solve_buckling_3d(&Column::new(1, q, tip).input(), 1).unwrap_err();
+        assert_eq!(err, "No compressed elements — buckling not applicable", "tip {tip}");
+    }
 }
 
 /// A monosymmetric section with warping restrained, which buckles flexural-torsionally under the
