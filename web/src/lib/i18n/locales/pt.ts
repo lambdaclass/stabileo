@@ -13708,6 +13708,8 @@ const pt: Translations = {
   'provenance.reproduce.printedTampered': "Os números impressos não coincidem com o recálculo",
   'provenance.reproduce.printedNone': "Este arquivo não traz as opções do relatório necessárias para imprimir de novo suas tabelas (é de uma versão anterior, foram removidas ou esse resultado não está disponível): seus valores impressos não foram verificados, então a verificação fica incompleta.",
   'provenance.reproduce.printedOtherSet': "As opções incorporadas no relatório imprimem outro resultado que o registrado na sua impressão digital: suas tabelas não foram comparadas.",
+  'provenance.reproduce.printedManifest': "As tabelas do relatório ou as suas opções incorporadas não são as que a sua impressão digital registra: uma tabela foi removida ou adicionada, ou as suas opções foram editadas.",
+  'provenance.reproduce.printedNoManifest': "Este relatório foi feito antes de a sua impressão digital registrar a lista de tabelas impressas: as tabelas que ele traz foram comparadas, mas uma tabela removida não pode ser detectada, então a verificação fica incompleta. Exporte o relatório de novo para verificá-lo por completo.",
   'proReport.resultSetMissing': "O conjunto de resultados escolhido não está entre os resultados atuais. Calcule de novo ou escolha outro; o relatório não foi gerado.",
   'provenance.reproduce.table.reactions': "Reações",
   'provenance.reproduce.table.forces': "Esforços",

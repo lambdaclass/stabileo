@@ -14056,6 +14056,8 @@ const es: Record<string, string> = {
   'provenance.reproduce.printedTampered': "Los números impresos no coinciden con el recálculo",
   'provenance.reproduce.printedNone': "Este archivo no trae las opciones del reporte necesarias para volver a imprimir sus tablas (es de una versión anterior, se quitaron o ese resultado no está disponible): sus valores impresos no se verificaron, así que la comprobación queda incompleta.",
   'provenance.reproduce.printedOtherSet': "Las opciones incrustadas en el reporte imprimen otro resultado que el que registra su huella: sus tablas no se compararon.",
+  'provenance.reproduce.printedManifest': "Las tablas del reporte o sus opciones incrustadas no son las que registra su huella: se quitó o agregó una tabla, o se editaron sus opciones.",
+  'provenance.reproduce.printedNoManifest': "Este reporte se hizo antes de que su huella registrara la lista de tablas impresas: se compararon las tablas que trae, pero no se puede detectar una tabla quitada, así que la comprobación queda incompleta. Exportá el reporte de nuevo para verificarlo por completo.",
   'proReport.resultSetMissing': "El conjunto de resultados elegido no está entre los resultados actuales. Volvé a calcular o elegí otro; el reporte no se generó.",
   'provenance.reproduce.table.reactions': "Reacciones",
   'provenance.reproduce.table.forces': "Solicitaciones",

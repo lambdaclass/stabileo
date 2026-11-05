@@ -14067,6 +14067,8 @@ const en: Record<string, string> = {
   'provenance.reproduce.printedTampered': "The printed numbers do not match the recalculation",
   'provenance.reproduce.printedNone': "This file does not carry the report's choices needed to print its tables again (it is from an earlier version, they were removed, or that result is not on hand): its printed values were not checked, so the check is incomplete.",
   'provenance.reproduce.printedOtherSet': "The report's embedded choices print a different result than its fingerprint records: its tables were not compared.",
+  'provenance.reproduce.printedManifest': "The report's tables or its embedded choices are not the ones its fingerprint records: a table was removed, added or its choices were edited.",
+  'provenance.reproduce.printedNoManifest': "This report was made before its fingerprint recorded the list of printed tables: the tables it carries were compared, but a table removed from it cannot be detected, so the check is incomplete. Export the report again to check it fully.",
   'proReport.resultSetMissing': "The chosen result set is not in the current results. Solve again or choose another set; the report was not written.",
   'provenance.reproduce.table.reactions': "Reactions",
   'provenance.reproduce.table.forces': "Member forces",
