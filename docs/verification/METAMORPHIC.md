@@ -134,6 +134,25 @@ seven corpus models and ten fuzz models, with a fixed seed. The nightly tier
 seed that moves daily (printed; reproduce with `METAMORPHIC_SEED`), and uploads
 the per-cell report.
 
+The quick invariance tier (`make test.engine.invariance.quick`, `quick.rs`) runs
+on pull requests for the analyses the change can affect. `PATH_KINDS` maps each
+changed path to analyses: a solver module to its own analyses, a shared engine
+module (assembly, elements, types, the harness itself) to all of them, anything
+outside the engine to none. Those analyses run on a curated set of small models:
+examples, feature-matrix models with hinges, connectors, rigid links, diaphragms
+and inclined supports, and the fuzz models of #758. The transforms are rigid
+rotation, mirror (2D), renumbering, member reversal, unit scaling and load order
+(the load list reversed, which also swaps the two cases of `load combinations`),
+each drawn from two fixed seeds. It takes about 10 s plus the release build.
+`KINDS=all` (or `KINDS="plastic collapse,harmonic"`) overrides the selection, and
+`BASE=<rev>` sets the comparison base (default `origin/main`).
+
+A known open issue is an expected failure in `quick::EXPECTED`, keyed by seed,
+model, analysis and transform and linked to its issue. The run fails on any other
+violation, and also on an expected failure that no longer fails (it passes,
+refuses or is no longer checked): the fix then removes the entry. The run also
+fails when a selected analysis completes no comparison on any curated model.
+
 ## Matrix (PR tier)
 
 ✓ held on every model it ran on · ✗ violated · R refused by the analysis on

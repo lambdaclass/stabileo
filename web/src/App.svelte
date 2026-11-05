@@ -392,6 +392,7 @@
   import LandingPage from './components/LandingPage.svelte';
   import { parsePublicPath, publicHref } from './lib/i18n/public-routes';
   import { routeKind, isAppPath, isDemoPath } from './lib/public-route';
+  import { resetPublicScroll } from './lib/public-scroll';
   import { modeToPath, pathToMode, slugifyTabName, type AppMode } from './lib/app-mode';
   import { publicI18n } from './lib/i18n/store.svelte';
   import AiDrawer from './components/AiDrawer.svelte';
@@ -627,6 +628,7 @@
     // ('/pt/blog'), so a language never falls off mid-visit.
     history.pushState(null, '', publicHref(path, publicI18n.locale));
     syncRouteState();
+    void resetPublicScroll();
   }
 
   function enterApp() {
@@ -962,7 +964,10 @@
     tabManager.init();
 
     // Check for /demo path → launch guided tour
-    const onPopState = () => syncRouteState();
+    const onPopState = () => {
+      syncRouteState();
+      if (routeKind().kind !== 'app') void resetPublicScroll();
+    };
     window.addEventListener('popstate', onPopState);
 
     if (isDemoRoute(location.pathname)) {

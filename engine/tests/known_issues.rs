@@ -1780,3 +1780,18 @@ fn harmonic_above_the_kept_modes_is_warned_in_3d_1434() {
     let found = ids(&high.structured_diagnostics);
     assert!(found.contains(&"HARM-TRUNCATION".to_string()) && found.contains(&"MD-ORTHOGONALITY".to_string()), "{found:?}");
 }
+
+#[test]
+fn a_soft_spring_at_a_hinged_node_held_by_the_orphan_spring_is_warned_1437() {
+    let input: SolverInput = serde_json::from_str(r#"{"nodes":{"1":{"id":1,"x":0,"z":0},"2":{"id":2,"x":3,"z":0}},
+ "materials":{"1":{"id":1,"e":200000,"nu":0.3}},
+ "sections":{"1":{"id":1,"a":0.01,"iz":0.0001}},
+ "elements":{"1":{"id":1,"type":"frame","nodeI":1,"nodeJ":2,"materialId":1,"sectionId":1,"hingeEnd":true}},
+ "supports":{"1":{"id":1,"nodeId":1,"type":"fixed"},"2":{"id":2,"nodeId":2,"type":"spring","kz":1e-13}},
+ "loads":[{"type":"nodal","data":{"nodeId":2,"fx":0,"fz":0,"my":0.005}}]}"#).unwrap();
+    let out = dedaliano_engine::certify::solver::certify_linear_2d_full(&input).unwrap();
+    let ry = out.results.displacements.iter().find(|d| d.node_id == 2).unwrap().ry;
+    let found = ids(&out.results.structured_diagnostics);
+    assert!(ry.is_finite(), "ry {ry}: {found:?}");
+    if (ry - 5.0e10).abs() / 5.0e10 > 1e-6 { assert!(found.contains(&"ORPHAN-SOFT-ROTATION".to_string()), "ry {ry}: {found:?}"); }
+}
