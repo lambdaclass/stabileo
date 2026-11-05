@@ -34,5 +34,5 @@ it.each([390, 810])('child panels and QuantityInput render accessibly at %ipx', 
       expect(check.runAccessible, check.id).toBe(true);
       expect(check.controls).toBeGreaterThan(3);
     }
-  } finally { rmSync(profile, { recursive: true, force: true }); }
+  } finally { rmSync(profile, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 }); }
 }, 60_000);
