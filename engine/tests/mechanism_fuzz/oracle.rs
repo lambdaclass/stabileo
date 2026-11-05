@@ -99,8 +99,8 @@ pub fn violations(case: &Case, u: &Vector, abs_bound: f64, residual_norm: f64) -
             continue;
         }
         let work = dot(phi, &p).abs() / n;
-        if work > residual_norm * (1.0 + 1e-6) + 1e-9 * pn {
-            out.push(format!("mode {k}: the loads do work {work:.6e} on a zero-energy mode, so the model residual is at least that, above the certified {residual_norm:.3e}"));
+        if work > 1e-7 * pn {
+            out.push(format!("mode {k}: the loads do work {work:.6e} on a zero-energy mode, so the model has no equilibrium (certified residual {residual_norm:.3e})"));
         }
     }
     let basis = orthonormal(&case.mode_vectors());
