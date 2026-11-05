@@ -55,7 +55,7 @@ case $scope in
       local_axis_convention determinate_exact opensees_differential_regressions
       certify_end_to_end certify_end_to_end_mutations)
     ;;
-  certify | solver) ;;
+  certify | solver | safety) ;;
   *) echo "MUTANTS_SCOPE must be certify, solver, element, all or safety" >&2; exit 64 ;;
 esac
 

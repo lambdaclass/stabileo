@@ -1,6 +1,8 @@
 import importlib.util
 import json
+import os
 import re
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -55,6 +57,24 @@ class ScopeTest(unittest.TestCase):
         text = (ROOT / D).read_text()
         for fn in cfg["modules"]["design-verdict"]["files"][D]:
             self.assertRegex(text, rf"\bfn {fn}\b")
+
+
+class DispatchTest(unittest.TestCase):
+    def test_the_safety_scope_reaches_cargo_mutants_with_its_files_tests_and_regex(self):
+        bin_dir = Path(tempfile.mkdtemp())
+        log = bin_dir / "calls"
+        fake = bin_dir / "cargo"
+        fake.write_text('#!/bin/sh\nprintf "%s\\n" "$*" >> "' + str(log) + '"\ncase "$*" in *--list*) echo "[]" ;; esac\n')
+        fake.chmod(0o755)
+        env = {**os.environ, "PATH": f"{bin_dir}:{os.environ['PATH']}", "MUTANTS_SCOPE": "safety"}
+        r = subprocess.run(["bash", str(ROOT / "scripts" / "mutants.sh")], cwd=ROOT, env=env, capture_output=True, text=True)
+        self.assertNotEqual(r.returncode, 64, r.stderr)
+        run = [c for c in log.read_text().splitlines() if "--list" not in c]
+        self.assertEqual(len(run), 1)
+        self.assertIn("-f engine/src/certify/linear.rs", run[0])
+        self.assertIn("-f engine/src/known_issues.rs", run[0])
+        self.assertIn("--re ^(?:engine/src/certify/linear", run[0])
+        self.assertIn("-C --test -C", run[0])
 
 
 class ReportTest(unittest.TestCase):
