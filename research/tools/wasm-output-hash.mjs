@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 const h = createHash('sha256');
 let count = 0;
-const tag = (s) => h.update(s + '\0');
+const tag = (s) => { const b = Buffer.from(s, 'utf8'); h.update(`${b.length}:`); h.update(b); };
 export function feed(v) {
   count++;
   if (v === null || v === undefined) return tag(String(v));
@@ -12,8 +12,8 @@ export function feed(v) {
   if (Array.isArray(v)) { tag('a' + v.length); return v.forEach(feed); }
   if (typeof v === 'object') {
     if ('__wbg_ptr' in v) return tag('wasm-object');
-    const keys = Object.keys(v).sort(); tag('o' + keys.join(','));
-    return keys.forEach((k) => feed(v[k]));
+    const keys = Object.keys(v).sort(); tag('o' + keys.length);
+    return keys.forEach((k) => { tag(k); feed(v[k]); });
   }
   tag(typeof v);
 }
