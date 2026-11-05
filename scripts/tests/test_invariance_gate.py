@@ -32,7 +32,7 @@ pub struct Session { state: u8 }
 #[wasm_bindgen]
 impl Session {
     #[wasm_bindgen(constructor)]
-    pub fn new(input: JsValue) -> Result<Session, JsValue> { Ok(Session { state: 0 }) }
+    pub fn new(input: JsValue) -> Result<Session, JsValue> { Session::from_input(input) }
     pub fn solve(&self, loads: JsValue) -> Result<JsValue, JsValue> { self.prepared.solve_loads(&loads) }
     fn private(&self) {}
 }
@@ -44,6 +44,8 @@ pub fn rows() -> Vec<Ana2> {
     vec![
         Ana2 { name: "beam", run: |c| Ok(beam::solve_beam_2d_typed(&c.s)?) },
         Ana2 { name: "beam (helper)", run: |c| Ok(wrap(&c.s)?) },
+        Ana2 { name: "session", run: |c| Ok(Session::from_input(c.s.clone())?.solve_loads(&c.s.loads)?) },
+        Ana2 { name: "session (prepared only)", run: |c| Ok(prepare(&c.s)?.solve_loads(&c.s.loads)?) },
         Ana2 { name: "legacy beam", run: |c| { let x = Case { name: "inner".into() }; Ok(beam::solve_beam_2d(&c.s)?) } },
     ]
 }
@@ -56,6 +58,8 @@ DOC = '''
 | beam | ✓ | ✓ | ✓ | ✓ | R | ✓ |
 | beam (helper) | ✓ | ✓ | ✓ | ✓ | ✓ | · |
 | legacy beam | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| session | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| session (prepared only) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 <!-- END pr_2d -->
 '''
 
@@ -63,6 +67,18 @@ TEST = '''
 #[test]
 fn beam_units_scale() {
     let r = dedaliano_engine::solver::beam::solve_beam_2d_typed(&scaled());
+    check_scaled(&r, &base());
+}
+
+#[test]
+fn beam_call_only() {
+    let _ = dedaliano_engine::solver::beam::solve_beam_2d_typed(&scaled());
+}
+
+#[test]
+fn beam_assert_macro() {
+    let r = dedaliano_engine::solver::beam::solve_beam_2d_typed(&scaled());
+    assert_eq!(r, expected);
 }
 
 #[test]
@@ -88,6 +104,25 @@ fn beam_ignored_conditionally() {
     let r = solve_beam_2d_typed(&scaled());
 }
 
+use dedaliano_engine::solver::beam::{other, solve_beam_2d_typed as _, solve_beam_2d_typed};
+
+#[test]
+fn beam_imported() {
+    let r = solve_beam_2d_typed(&scaled());
+    assert!(close(&r));
+}
+
+#[test]
+fn session_prepared_only() {
+    let r = prepare(&x).solve_loads(&loads);
+}
+
+#[test]
+fn session_through_constructor() {
+    let r = Session::from_input(x)?.solve_loads(&loads);
+    compare_with_regular(&r);
+}
+
 fn not_a_test() { solve_beam_2d_typed(&x); }
 '''
 
@@ -110,7 +145,7 @@ def registry():
     return {
         'scopes': {'design': 'checks from given forces', 'session': 'its solve carries the invariances'},
         'entry_points': {
-            'solve_beam_2d': {'scope': 'solve', 'calls': 'solve_beam_2d_typed', 'invariances': statuses},
+            'solve_beam_2d': {'scope': 'solve', 'calls': 'beam::solve_beam_2d_typed', 'invariances': statuses},
             'check_members': {'scope': 'design'},
             'Session::new': {'scope': 'session'},
             'Session::solve': {'scope': 'solve', 'calls': 'solve_loads', 'invariances': {key: dict(TRACKED) for key in gate.INVARIANCES}},
@@ -207,6 +242,71 @@ class Registry(unittest.TestCase):
             self.assertEqual(len(run(reg)), 1, bad)
 
 
+class Identity(unittest.TestCase):
+    def test_calls(self):
+        uses = 'use a::beam::{solve_beam, x};\nuse a::frame::*;\n'
+        self.assertTrue(gate.calls('solver::beam::solve_beam(1)', 'beam::solve_beam'))
+        self.assertTrue(gate.calls('beam::solve_beam::<f64>(1)', 'beam::solve_beam'))
+        self.assertFalse(gate.calls('plate::solve_beam(1)', 'beam::solve_beam', uses))
+        self.assertTrue(gate.calls('solve_beam(1)', 'beam::solve_beam', uses))
+        self.assertFalse(gate.calls('solve_beam(1)', 'beam::solve_beam', 'use a::plate::solve_beam;'))
+        self.assertFalse(gate.calls('x.solve_beam(1)', 'beam::solve_beam', uses))
+        self.assertTrue(gate.calls('solve_frame(1)', 'frame::solve_frame', uses))
+        self.assertTrue(gate.calls('p.solve_loads(&l)', 'solve_loads'))
+
+    def test_a_malformed_calls_value_fails(self):
+        for bad in (None, '', [], ['ok', ''], 'a b', 3, ['a::'], [['x']]):
+            reg = registry()
+            reg['entry_points']['solve_beam_2d']['calls'] = bad
+            self.assertIn('names the function or functions it calls', run(reg)[0], bad)
+
+    def test_a_wrapper_calling_the_same_name_in_another_module_fails(self):
+        reg = registry()
+        reg['entry_points']['solve_beam_2d']['calls'] = 'plate::solve_beam_2d_typed'
+        self.assertIn('solve_beam_2d: its wrapper in engine/src/lib.rs does not call plate::solve_beam_2d_typed', run(reg))
+
+    def test_a_method_is_checked_against_its_own_body_and_the_constructor_only(self):
+        reg = registry()
+        reg['entry_points']['Session::solve']['calls'] = ['Session::from_input', 'solve_loads']
+        lib = LIB.replace('    fn private(&self) {}', '    pub fn reset(&self) -> u8 { self.rebuild_all() }\n    fn private(&self) {}')
+        reg['entry_points']['Session::reset'] = {'scope': 'session'}
+        self.assertEqual(run(reg, lib=lib), [])
+        reg['entry_points']['Session::solve']['calls'] = ['Session::from_input', 'rebuild_all']
+        self.assertEqual(run(reg, lib=lib), ['Session::solve: its wrapper in engine/src/lib.rs does not call rebuild_all'])
+        reg['entry_points']['Session::new'] = {'scope': 'solve', 'calls': 'solve_loads', 'invariances': {key: dict(TRACKED) for key in gate.INVARIANCES}}
+        self.assertIn('Session::new: its wrapper in engine/src/lib.rs does not call solve_loads', run(reg, lib=lib))
+
+    def test_a_method_export_is_checked_with_its_constructor(self):
+        reg = registry()
+        reg['entry_points']['Session::solve']['calls'] = ['Session::from_input', 'solve_loads']
+        self.assertEqual(run(reg), [])
+        reg['entry_points']['Session::solve']['calls'] = ['Other::from_input', 'solve_loads']
+        self.assertEqual(run(reg), ['Session::solve: its wrapper in engine/src/lib.rs does not call Other::from_input'])
+
+    def test_every_listed_call_must_be_in_the_wrapper(self):
+        reg = registry()
+        reg['entry_points']['Session::solve']['calls'] = ['Session::from_input', 'solve_missing']
+        self.assertEqual(run(reg), ['Session::solve: its wrapper in engine/src/lib.rs does not call solve_missing'])
+
+    def test_every_listed_call_must_be_in_the_covering_analysis(self):
+        reg = registry()
+        statuses = reg['entry_points']['Session::solve']
+        statuses['calls'] = ['Session::from_input', 'solve_loads']
+        statuses['invariances']['units'] = {'metamorphic': 'pr_2d', 'analysis': 'session (prepared only)'}
+        self.assertEqual(run(reg), ["Session::solve units: the metamorphic analysis 'session (prepared only)' does not call Session::from_input and solve_loads, so it does not cover this entry point"])
+        statuses['invariances']['units'] = {'metamorphic': 'pr_2d', 'analysis': 'session'}
+        self.assertEqual(run(reg), [])
+
+    def test_every_listed_call_must_be_in_the_covering_test(self):
+        reg = registry()
+        statuses = reg['entry_points']['Session::solve']
+        statuses['calls'] = ['Session::from_input', 'solve_loads']
+        statuses['invariances']['units'] = {'test': 'engine/tests/beam_invariance.rs::session_prepared_only'}
+        self.assertEqual(run(reg), ['Session::solve units: engine/tests/beam_invariance.rs::session_prepared_only: the test does not call Session::from_input, so it does not cover this entry point'])
+        statuses['invariances']['units'] = {'test': 'engine/tests/beam_invariance.rs::session_through_constructor'}
+        self.assertEqual(run(reg), [])
+
+
 class Coverage(unittest.TestCase):
     def status(self, key, value, reg=None, **kw):
         reg = copy.deepcopy(reg or registry())
@@ -225,7 +325,7 @@ class Coverage(unittest.TestCase):
     def test_an_analysis_that_calls_another_function_is_not_coverage(self):
         errors = self.status('relabel', {'metamorphic': 'pr_2d', 'analysis': 'legacy beam'})
         self.assertEqual(len(errors), 1)
-        self.assertIn('calls a different function than solve_beam_2d_typed', errors[0])
+        self.assertIn("'legacy beam' does not call beam::solve_beam_2d_typed", errors[0])
 
     def test_an_analysis_through_a_local_helper_is_coverage(self):
         self.assertEqual(self.status('relabel', {'metamorphic': 'pr_2d', 'analysis': 'beam (helper)'}), [])
@@ -244,7 +344,10 @@ class Coverage(unittest.TestCase):
     def test_a_named_test_must_exist_and_call_the_entry_points_function(self):
         self.assertIn('no #[test] fn', self.status('units', {'test': 'engine/tests/beam_invariance.rs::missing'})[0])
         self.assertIn('no #[test] fn', self.status('units', {'test': 'engine/tests/beam_invariance.rs::not_a_test'})[0])
-        self.assertIn('does not call solve_beam_2d_typed', self.status('units', {'test': 'engine/tests/beam_invariance.rs::beam_through_legacy'})[0])
+        self.assertIn('does not call beam::solve_beam_2d_typed', self.status('units', {'test': 'engine/tests/beam_invariance.rs::beam_through_legacy'})[0])
+        self.assertEqual(self.status('units', {'test': 'engine/tests/beam_invariance.rs::beam_imported'}), [])
+        self.assertEqual(self.status('units', {'test': 'engine/tests/beam_invariance.rs::beam_assert_macro'}), [])
+        self.assertIn('compares nothing', self.status('units', {'test': 'engine/tests/beam_invariance.rs::beam_call_only'})[0])
         self.assertIn('no such test file', self.status('units', {'test': 'engine/tests/nope.rs::x'})[0])
         self.assertIn('ignored or conditionally compiled', self.status('units', {'test': 'engine/tests/beam_invariance.rs::beam_ignored'})[0])
         self.assertIn('ignored or conditionally compiled', self.status('units', {'test': 'engine/tests/beam_invariance.rs::beam_gated'})[0])

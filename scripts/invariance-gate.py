@@ -83,12 +83,16 @@ def exports(sources):
                 a, b = block(code, item.start(2))
                 impls.append((a, b))
                 body = code[a + 1:b - 1]
-                for method in re.finditer(r'\bpub\s+(?:async\s+)?fn\s+(\w+)', body):
+                methods = {}
+                for method in re.finditer(r'((?:#\[[^\]]*\]\s*)*)\bpub\s+(?:async\s+)?fn\s+(\w+)', body):
                     if depth_at(body, method.start()) == 0:
-                        start = a + 1 + method.start()
-                        found[f'{item.group(2)}::{method.group(1)}'] = (path, code[slice(*block(code, start))])
+                        start = a + 1 + method.start(2)
+                        methods[method.group(2)] = (code[slice(*block(code, start))], 'constructor' in method.group(1))
+                constructors = ''.join(text for text, constructor in methods.values() if constructor)
+                for method, (text, constructor) in methods.items():
+                    found[f'{item.group(2)}::{method}'] = (path, text if constructor else text + constructors, code)
             else:
-                found[item.group(1)] = (path, code[slice(*block(code, item.start(1)))])
+                found[item.group(1)] = (path, code[slice(*block(code, item.start(1)))], code)
     return found
 
 
@@ -119,12 +123,28 @@ def functions(code):
     return {m.group(1): code[slice(*block(code, m.end()))] for m in re.finditer(r'\bfn\s+(\w+)\s*(?:<[^>{]*>)?\s*\(', code)}
 
 
-def reaches(code, target, helpers):
-    return calls(code, target) or any(calls(code, name) and calls(body, target) for name, body in helpers.items())
+def reaches(code, targets, helpers, context):
+    return all(calls(code, t, context) or any(calls(code, name) and calls(body, t, context) for name, body in helpers.items()) for t in targets)
 
 
-def calls(code, name):
-    return re.search(rf'(?<![\w]){re.escape(name)}\s*(?:::<[^>]*>\s*)?\(', code) is not None
+def calls(code, target, context=''):
+    qualifier, _, name = target.rpartition('::')
+    call = r'\s*(?:::<[^>]*>\s*)?\('
+    if not qualifier:
+        return re.search(rf'(?<![\w]){re.escape(name)}{call}', code) is not None
+    owner = re.escape(qualifier.rpartition('::')[2])
+    if re.search(rf'(?<![\w]){owner}::{re.escape(name)}{call}', code):
+        return True
+    imported = re.search(rf'\buse\s+[^;]*\b{owner}::(?:{re.escape(name)}\b|\*|\{{[^;]*\b{re.escape(name)}\b)', context)
+    return bool(imported) and re.search(rf'(?<![\w:.]){re.escape(name)}{call}', code) is not None
+
+
+def targets_of(entry):
+    value = entry.get('calls')
+    values = [value] if isinstance(value, str) else value
+    if not isinstance(values, list) or not values or not all(isinstance(v, str) and re.fullmatch(r'\w+(?:::\w+)*', v) for v in values):
+        return None
+    return values
 
 
 def check(registry, sources, read):
@@ -139,7 +159,7 @@ def check(registry, sources, read):
     doc = read(DOC) or ''
     tables, rows, helpers = {}, {}, {}
     for name in sorted(set(entries) & set(found)):
-        entry, (path, body) = entries[name], found[name]
+        entry, (path, body, context) = entries[name], found[name]
         scope = entry.get('scope')
         if scope != 'solve':
             if scope not in scopes or not str(scopes[scope]).strip():
@@ -147,12 +167,13 @@ def check(registry, sources, read):
             if 'invariances' in entry:
                 errors.append(f'{name}: only a solve entry point lists invariances')
             continue
-        target = entry.get('calls')
-        if not isinstance(target, str) or not target:
-            errors.append(f'{name}: a solve entry point names the function it calls ("calls")')
+        target = targets_of(entry)
+        if target is None:
+            errors.append(f'{name}: a solve entry point names the function or functions it calls ("calls": a path like "linear::solve_2d", or a list of them)')
             continue
-        if not calls(body, target):
-            errors.append(f'{name}: its wrapper in {path} does not call {target}')
+        for t in target:
+            if not calls(body, t, context):
+                errors.append(f'{name}: its wrapper in {path} does not call {t}')
         statuses = entry.get('invariances', {})
         for key in sorted(set(INVARIANCES) - set(statuses)):
             errors.append(f'{name}: invariance {key!r} has no status (covered by a test, exempt with a reason, or tracked by an issue)')
@@ -182,8 +203,12 @@ def status(value, key, target, doc, tables, rows, helpers, read):
             return [f'{value["test"]}: no #[test] fn {test!r} in {file}']
         if re.search(r'#\[\s*(?:ignore|cfg|cfg_attr)\b', attributes):
             return [f'{value["test"]}: an ignored or conditionally compiled test does not run in the PR tier']
-        if not calls(code[slice(*block(code, match.end()))], target):
-            return [f'{value["test"]}: the test does not call {target}, so it does not cover this entry point']
+        body = code[slice(*block(code, match.end()))]
+        missing = [t for t in target if not calls(body, t, code)]
+        if missing:
+            return [f'{value["test"]}: the test does not call {", ".join(missing)}, so it does not cover this entry point']
+        if not re.search(r'\b(?:assert\w*!|(?:assert|check|compare)_\w+\s*\()', body):
+            return [f'{value["test"]}: the test compares nothing (no assert!, assert_*, check_* or compare_* call), so it checks no invariance']
         return []
     if set(value) == {'metamorphic', 'analysis'}:
         section, analysis = value['metamorphic'], value['analysis']
@@ -196,13 +221,13 @@ def status(value, key, target, doc, tables, rows, helpers, read):
             tables[section] = table(doc, section)
             code = strip_rust_keep_names(read(ANALYSES[section]) or '')
             rows[section] = analysis_rows(code)
-            helpers[section] = functions(code)
+            helpers[section] = (functions(code), code)
         if tables[section] is None:
             return [f'{DOC} has no {section} table']
         if analysis not in rows[section]:
             return [f'{ANALYSES[section]} has no analysis {analysis!r}']
-        if not reaches(rows[section][analysis], target, helpers[section]):
-            return [f'the metamorphic analysis {analysis!r} calls a different function than {target}, so it does not cover this entry point']
+        if not reaches(rows[section][analysis], target, *helpers[section]):
+            return [f'the metamorphic analysis {analysis!r} does not call {" and ".join(target)}, so it does not cover this entry point']
         cell = tables[section].get(analysis, {}).get(column)
         if cell != '✓':
             return [f'{DOC} ({section}) shows {cell or "nothing"!s} for {analysis!r} × {column!r}, not ✓']
