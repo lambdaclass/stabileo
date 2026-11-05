@@ -34,6 +34,33 @@ class ContainmentTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             m.audit({}, [issue, issue])
 
+    def test_closing_keywords(self):
+        texts = ['Fix #426: rotations', 'fixes lambdaclass/stabileo#12 and Closes: #7', 'Resolved #3', 'see #5, prefix #6, fixture #8', None]
+        self.assertEqual(m.closed_by(texts), [3, 7, 12, 426])
+
+    def test_a_change_keeps_rows_and_leaves_active_issues_open(self):
+        base = {1: {'WARN'}, 2: {'SCOPE'}, 3: {'TRIAGE'}}
+        self.assertEqual(m.change_problems(base, {**base, 4: {'SCOPE'}}, []), [])
+        self.assertEqual(m.change_problems(base, {1: {'CORRECTED'}, 2: {'SCOPE'}, 3: {'SCOPE'}}, [1, 2, 3, 99]), [])
+        self.assertEqual(m.change_problems(base, {1: {'WARN'}, 3: {'TRIAGE'}}, []), ['#2: its containment row was removed'])
+        self.assertEqual(m.change_problems(base, base, [1, 2, 3]), ['#1: closed by this change while its row is WARN', '#3: closed by this change while its row is TRIAGE'])
+        self.assertEqual(m.change_problems({}, {5: {'REFUSE', 'WARN'}}, [5]), ['#5: closed by this change while its row is REFUSE / WARN'])
+
+    def test_report_lists_every_problem(self):
+        body = m.report_body(['#9: no completed containment decision', '#10: CLOSED issue still has active containment'])
+        self.assertIn('- #9: no completed containment decision\n', body)
+        self.assertIn('- #10: CLOSED issue still has active containment\n', body)
+
+    def test_pull_requests_do_not_read_the_issue_list(self):
+        workflow = (Path(__file__).parents[2] / '.github/workflows/containment-audit.yml').read_text()
+        ledger, live = workflow.split('\n  live:\n')
+        self.assertNotIn('--live', ledger)
+        self.assertNotIn('GH_TOKEN', ledger)
+        self.assertIn("github.event_name == 'pull_request' || github.event_name == 'merge_group'", ledger)
+        self.assertIn("github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'", live)
+        self.assertIn('--live --file-issue', live)
+        self.assertIn('unbalancedparentheses,Batuis', (Path(__file__).parents[1] / 'check-containment.py').read_text())
+
     def test_repository_ledger(self):
         self.assertTrue(m.decisions((Path(__file__).parents[2] / 'docs/verification/CONTAINMENT.md').read_text()))
 

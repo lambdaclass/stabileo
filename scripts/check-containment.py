@@ -56,9 +56,45 @@ def audit(recorded, issues):
     return problems
 
 
-def main():
-    ledger = Path(__file__).resolve().parents[1] / 'docs/verification/CONTAINMENT.md'
-    recorded = decisions(ledger.read_text())
+CLOSING = re.compile(r'\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\b:?\s+(?:lambdaclass/stabileo)?#(\d+)\b', re.IGNORECASE)
+REPORT_TITLE = 'Safety containment audit: open safety issues without a decision'
+LEDGER = 'docs/verification/CONTAINMENT.md'
+
+
+def closed_by(texts):
+    return sorted({int(n) for text in texts for n in CLOSING.findall(text or '')})
+
+
+def change_problems(base, head, closes):
+    problems = [f'#{n}: its containment row was removed' for n in sorted(set(base) - set(head))]
+    for n in closes:
+        if n in head and head[n] & {'WARN', 'REFUSE', 'TRIAGE'}:
+            problems.append(f'#{n}: closed by this change while its row is {" / ".join(sorted(head[n]))}')
+    return problems
+
+
+def report_body(problems):
+    lines = ['Open safety issues need a completed decision in docs/verification/CONTAINMENT.md, and an issue with an active (WARN/REFUSE) row must stay open.', '']
+    return '\n'.join(lines + [f'- {p}' for p in problems]) + '\n'
+
+
+def git(*args):
+    return subprocess.run(['git', *args], check=True, capture_output=True, text=True).stdout
+
+
+def check_change(base_ref, event_path):
+    root = Path(__file__).resolve().parents[1]
+    head = decisions((root / LEDGER).read_text())
+    shown = subprocess.run(['git', 'show', f'{base_ref}:{LEDGER}'], cwd=root, capture_output=True, text=True)
+    base = decisions(shown.stdout) if shown.returncode == 0 else {}
+    texts = [git('-C', str(root), 'log', '--format=%B', f'{base_ref}..HEAD')]
+    if event_path:
+        pr = json.loads(Path(event_path).read_text()).get('pull_request') or {}
+        texts += [pr.get('title'), pr.get('body')]
+    return change_problems(base, head, closed_by(texts))
+
+
+def live_issues():
     result = subprocess.run(
         ['gh', 'api', '--paginate', '--slurp',
          'repos/lambdaclass/stabileo/issues?state=all&per_page=100'],
@@ -67,12 +103,44 @@ def main():
     pages = json.loads(result.stdout)
     if not isinstance(pages, list) or not all(isinstance(page, list) for page in pages):
         raise ValueError('Invalid paginated issue response')
-    problems = audit(recorded, [issue for page in pages for issue in page])
+    return [issue for page in pages for issue in page]
+
+
+def file_report(problems):
+    found = json.loads(subprocess.run(
+        ['gh', 'issue', 'list', '--repo', 'lambdaclass/stabileo', '--state', 'open', '--search', f'in:title "{REPORT_TITLE}"', '--json', 'number,title'],
+        check=True, capture_output=True, text=True).stdout)
+    open_reports = [i['number'] for i in found if i['title'] == REPORT_TITLE]
+    if problems:
+        body = report_body(problems)
+        if open_reports:
+            subprocess.run(['gh', 'issue', 'edit', str(open_reports[0]), '--repo', 'lambdaclass/stabileo', '--body', body], check=True)
+        else:
+            subprocess.run(['gh', 'issue', 'create', '--repo', 'lambdaclass/stabileo', '--title', REPORT_TITLE, '--body', body, '--assignee', 'unbalancedparentheses,Batuis'], check=True)
+    for number in open_reports if not problems else []:
+        subprocess.run(['gh', 'issue', 'close', str(number), '--repo', 'lambdaclass/stabileo', '--comment', 'Every open safety issue has a decision again.'], check=True)
+
+
+def main():
+    import argparse
+    parser = argparse.ArgumentParser(description='Without --live: checks the ledger and what this change does to it (no network). With --live: audits the ledger against the issue list.')
+    parser.add_argument('--base', default='origin/main', help='commit the change is measured against')
+    parser.add_argument('--event', help='GitHub event JSON; a pull request title and body are scanned for closing keywords')
+    parser.add_argument('--live', action='store_true')
+    parser.add_argument('--file-issue', action='store_true', help='with --live: open, update or close the report issue')
+    args = parser.parse_args()
+    if args.live:
+        recorded = decisions((Path(__file__).resolve().parents[1] / LEDGER).read_text())
+        problems = audit(recorded, live_issues())
+        if args.file_issue:
+            file_report(problems)
+    else:
+        problems = check_change(args.base, args.event)
     for problem in problems:
         print(problem)
     if not problems:
-        print('All open safety issues have decisions; all active containments name open issues.')
-    return bool(problems)
+        print('Containment ledger consistent.')
+    return bool(problems) and not args.file_issue
 
 
 if __name__ == '__main__':
