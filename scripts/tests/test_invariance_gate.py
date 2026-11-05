@@ -124,12 +124,112 @@ fn session_through_constructor() {
 }
 
 fn not_a_test() { solve_beam_2d_typed(&x); }
+
+fn check_scaled(r: &R, b: &R) { assert!(close(r, b)); }
+
+fn compare_with_regular(r: &R) { assert_eq!(r, &regular()); }
+
+fn report(r: &R) { println!("{r:?}"); }
+
+#[test]
+fn beam_result_discarded() {
+    let _ = solve_beam_2d_typed(&scaled());
+    assert!(true);
+}
+
+#[test]
+fn beam_unrelated_assertion() {
+    let r = solve_beam_2d_typed(&scaled());
+    let x = 1;
+    assert_eq!(x, 1);
+}
+
+#[test]
+fn beam_helper_without_assertion() {
+    let r = solve_beam_2d_typed(&scaled());
+    report(&r);
+}
+
+#[test]
+fn beam_derived_value_asserted() {
+    let r = solve_beam_2d_typed(&scaled());
+    let tip = r.displacements.last().unwrap().uz;
+    for (a, b) in [(tip, 1.0)] {
+        assert!((a - b).abs() < 1e-9);
+    }
+}
+
+#[cfg(any())]
+mod disabled {
+    #[test]
+    fn beam_in_disabled_module() {
+        let r = solve_beam_2d_typed(&scaled());
+        assert!(close(&r));
+    }
+}
+
+#[cfg(test)]
+mod enabled {
+    #[test]
+    fn beam_in_test_module() {
+        let r = solve_beam_2d_typed(&scaled());
+        assert!(close(&r));
+    }
+}
+'''
+
+DISABLED_FILE = '''#![cfg(any())]
+
+use dedaliano_engine::solver::beam::solve_beam_2d_typed;
+
+#[test]
+fn beam_in_disabled_file() {
+    let r = solve_beam_2d_typed(&scaled());
+    assert!(close(&r));
+}
+'''
+
+CARGO = '''
+autotests = false
+
+[[test]]
+name = "beam"
+path = "tests/beam_invariance.rs"
+
+[[test]]
+name = "suite"
+path = "tests/suite/main.rs"
+'''
+
+SUITE = '''
+mod included;
+#[cfg(any())]
+mod excluded;
+#[path = "../shared/beam_shared.rs"]
+mod shared;
+'''
+
+INCLUDED = '''
+use dedaliano_engine::solver::beam::solve_beam_2d_typed;
+
+#[test]
+fn beam_units() {
+    let r = solve_beam_2d_typed(&scaled());
+    assert!(close(&r));
+}
 '''
 
 FILES = {
     gate.DOC: DOC,
     gate.ANALYSES['pr_2d']: ANA,
+    'engine/Cargo.toml': CARGO,
     'engine/tests/beam_invariance.rs': TEST,
+    'engine/tests/disabled_file.rs': DISABLED_FILE,
+    'engine/tests/suite/main.rs': SUITE,
+    'engine/tests/suite/included.rs': INCLUDED,
+    'engine/tests/suite/excluded.rs': INCLUDED,
+    'engine/tests/shared/beam_shared.rs': INCLUDED,
+    'engine/tests/orphan.rs': INCLUDED,
 }
 
 TRACKED = {'tracked': 1497}
@@ -347,12 +447,39 @@ class Coverage(unittest.TestCase):
         self.assertIn('does not call beam::solve_beam_2d_typed', self.status('units', {'test': 'engine/tests/beam_invariance.rs::beam_through_legacy'})[0])
         self.assertEqual(self.status('units', {'test': 'engine/tests/beam_invariance.rs::beam_imported'}), [])
         self.assertEqual(self.status('units', {'test': 'engine/tests/beam_invariance.rs::beam_assert_macro'}), [])
-        self.assertIn('compares nothing', self.status('units', {'test': 'engine/tests/beam_invariance.rs::beam_call_only'})[0])
         self.assertIn('no such test file', self.status('units', {'test': 'engine/tests/nope.rs::x'})[0])
         self.assertIn('ignored or conditionally compiled', self.status('units', {'test': 'engine/tests/beam_invariance.rs::beam_ignored'})[0])
         self.assertIn('ignored or conditionally compiled', self.status('units', {'test': 'engine/tests/beam_invariance.rs::beam_gated'})[0])
         self.assertIn('ignored or conditionally compiled', self.status('units', {'test': 'engine/tests/beam_invariance.rs::beam_ignored_conditionally'})[0])
         self.assertIn('no such test file', self.status('units', {'test': 'engine/src/lib.rs::solve_beam_2d'})[0])
+
+    def test_a_test_must_assert_on_what_the_entry_point_returned(self):
+        test = lambda name: self.status('units', {'test': f'engine/tests/beam_invariance.rs::{name}'})
+        for name in ['beam_result_discarded', 'beam_unrelated_assertion', 'beam_helper_without_assertion', 'beam_call_only']:
+            errors = test(name)
+            self.assertEqual(len(errors), 1, name)
+            self.assertIn('no assertion uses what beam::solve_beam_2d_typed returned', errors[0])
+        for name in ['beam_units_scale', 'beam_assert_macro', 'beam_derived_value_asserted']:
+            self.assertEqual(test(name), [], name)
+
+    def test_one_test_cannot_claim_several_invariances(self):
+        reg = registry()
+        reg['entry_points']['solve_beam_2d']['invariances']['relabel'] = {'test': 'engine/tests/beam_invariance.rs::beam_units_scale'}
+        self.assertEqual(run(reg), ['solve_beam_2d: engine/tests/beam_invariance.rs::beam_units_scale claims relabel, units; each invariance needs its own test, with its own comparison'])
+        reg['entry_points']['solve_beam_2d']['invariances']['relabel'] = {'test': 'engine/tests/beam_invariance.rs::beam_assert_macro'}
+        self.assertEqual(run(reg), [])
+
+    def test_a_test_in_a_disabled_module_or_file_does_not_count(self):
+        self.assertIn('an enclosing module is ignored or conditionally compiled', self.status('units', {'test': 'engine/tests/beam_invariance.rs::beam_in_disabled_module'})[0])
+        self.assertIn('its file is conditionally compiled', self.status('units', {'test': 'engine/tests/disabled_file.rs::beam_in_disabled_file'})[0])
+        self.assertEqual(self.status('units', {'test': 'engine/tests/beam_invariance.rs::beam_in_test_module'}), [])
+
+    def test_a_test_file_must_be_compiled_into_a_test_target(self):
+        test = lambda file: self.status('units', {'test': f'engine/tests/{file}::beam_units'})
+        self.assertEqual(test('suite/included.rs'), [])
+        self.assertEqual(test('shared/beam_shared.rs'), [])
+        for file in ['suite/excluded.rs', 'orphan.rs']:
+            self.assertIn('is not compiled into any test target', test(file)[0], file)
 
 
 if __name__ == '__main__':

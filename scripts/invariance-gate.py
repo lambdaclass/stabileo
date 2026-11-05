@@ -181,6 +181,13 @@ def check(registry, sources, read):
             errors.append(f'{name}: unknown invariance {key!r}')
         for key in sorted(set(statuses) & set(INVARIANCES)):
             errors.extend(f'{name} {key}: {e}' for e in status(statuses[key], key, target, doc, tables, rows, helpers, read))
+        claims = {}
+        for key, value in sorted(statuses.items()):
+            if isinstance(value, dict) and set(value) == {'test'}:
+                claims.setdefault(str(value['test']), []).append(key)
+        for test, keys in sorted(claims.items()):
+            if len(keys) > 1:
+                errors.append(f'{name}: {test} claims {", ".join(keys)}; each invariance needs its own test, with its own comparison')
     return errors
 
 
@@ -198,17 +205,22 @@ def status(value, key, target, doc, tables, rows, helpers, read):
             return [f'{value["test"]}: no such test file under engine/tests/']
         code = strip_rust(text)
         match = re.search(rf'\bfn\s+{re.escape(test)}\s*\(', code) if test else None
-        attributes = re.search(r'(?:#\[[^\]]*\]\s*)*$', code[:match.start()]).group(0) if match else ''
+        attributes = outer_attributes(code, match.start()) if match else ''
         if not re.search(r'#\[test\]', attributes):
             return [f'{value["test"]}: no #[test] fn {test!r} in {file}']
-        if re.search(r'#\[\s*(?:ignore|cfg|cfg_attr)\b', attributes):
+        if disabled(attributes):
             return [f'{value["test"]}: an ignored or conditionally compiled test does not run in the PR tier']
+        hidden = enclosing_cfg(code, match.start())
+        if hidden:
+            return [f'{value["test"]}: {hidden}, so the test does not run in the PR tier']
+        if file not in compiled_tests(read):
+            return [f'{value["test"]}: {file} is not compiled into any test target (engine/Cargo.toml [[test]] and their unconditional mod declarations)']
         body = code[slice(*block(code, match.end()))]
         missing = [t for t in target if not calls(body, t, code)]
         if missing:
             return [f'{value["test"]}: the test does not call {", ".join(missing)}, so it does not cover this entry point']
-        if not re.search(r'\b(?:assert\w*!|(?:assert|check|compare)_\w+\s*\()', body):
-            return [f'{value["test"]}: the test compares nothing (no assert!, assert_*, check_* or compare_* call), so it checks no invariance']
+        if not compares_result(body, target, code):
+            return [f'{value["test"]}: no assertion uses what {", ".join(target)} returned, so the test checks no invariance']
         return []
     if set(value) == {'metamorphic', 'analysis'}:
         section, analysis = value['metamorphic'], value['analysis']
@@ -233,6 +245,123 @@ def status(value, key, target, doc, tables, rows, helpers, read):
             return [f'{DOC} ({section}) shows {cell or "nothing"!s} for {analysis!r} × {column!r}, not ✓']
         return []
     return [f'status must be one of {{"metamorphic", "analysis"}}, {{"test"}}, {{"exempt"}} or {{"tracked"}}, not {value!r}']
+
+
+DISABLING = re.compile(r'#!?\[\s*(?:ignore|cfg_attr|cfg(?!\s*\(\s*test\s*\)\s*\]))\b')
+
+
+def disabled(attributes):
+    return DISABLING.search(attributes) is not None
+
+
+def outer_attributes(code, position):
+    return re.search(r'(?:#\[[^\]]*\]\s*)*$', code[:position]).group(0)
+
+
+def inner_attributes(code, position):
+    return re.match(r'\s*((?:#!\[[^\]]*\]\s*)*)', code[position:]).group(1)
+
+
+def enclosing_cfg(code, position):
+    if disabled(inner_attributes(code, 0)):
+        return 'its file is conditionally compiled'
+    for m in re.finditer(r'\b(?:pub(?:\([^)]*\))?\s+)?mod\s+\w+\s*\{', code):
+        a, b = block(code, m.start())
+        if a < position < b and (disabled(outer_attributes(code, m.start())) or disabled(inner_attributes(code, a + 1))):
+            return 'an enclosing module is ignored or conditionally compiled'
+    return None
+
+
+def compiled_tests(read):
+    cargo = read('engine/Cargo.toml') or ''
+    roots = {f'engine/{p}' for p in re.findall(r'\[\[test\]\][^\[]*?\bpath\s*=\s*"([^"]+)"', cargo)}
+    seen, queue = set(), sorted(roots)
+    while queue:
+        file = queue.pop()
+        text = read(file)
+        if file in seen or text is None:
+            continue
+        seen.add(file)
+        code = strip_rust_keep(text, r'#\[\s*path\s*=\s*"([^"\\]*)"\s*\]')
+        if disabled(inner_attributes(code, 0)):
+            continue
+        folder = pathlib.PurePosixPath(file).parent
+        if pathlib.PurePosixPath(file).name not in ('main.rs', 'mod.rs', 'lib.rs'):
+            folder = folder / pathlib.PurePosixPath(file).stem
+        for m in re.finditer(r'\b(?:pub(?:\([^)]*\))?\s+)?mod\s+(\w+)\s*;', code):
+            attributes = outer_attributes(code, m.start())
+            if disabled(attributes) or enclosing_cfg(code, m.start()):
+                continue
+            path = re.search(r'#\[\s*path\s*=\s*"([^"]*)"', attributes)
+            if path:
+                queue.append(normalize(pathlib.PurePosixPath(file).parent / path.group(1)))
+            else:
+                queue += [(folder / f'{m.group(1)}.rs').as_posix(), (folder / m.group(1) / 'mod.rs').as_posix()]
+    return seen
+
+
+def normalize(path):
+    parts = []
+    for part in path.parts:
+        if part == '..' and parts:
+            parts.pop()
+        elif part != '.':
+            parts.append(part)
+    return '/'.join(parts)
+
+
+def bracketed(code, start):
+    pairs = {'(': ')', '[': ']', '{': '}'}
+    close, depth = pairs[code[start]], 0
+    for j in range(start, len(code)):
+        if code[j] == code[start]:
+            depth += 1
+        elif code[j] == close:
+            depth -= 1
+            if depth == 0:
+                return code[start + 1:j]
+    return code[start + 1:]
+
+
+def bindings(body):
+    found = []
+    for m in re.finditer(r'\b(?:let|for)\s+(.*?)(?:\s+in\s+|\s*(?::[^=;]*)?=(?!=))', body):
+        depth, end = 0, m.end()
+        while end < len(body) and not (depth == 0 and body[end] in ';{'):
+            depth += 1 if body[end] in '([' else -1 if body[end] in ')]' else 0
+            end += 1
+        names = set(re.findall(r'\b[a-z_]\w*\b', m.group(1))) - {'mut', 'ref', '_', 'in'}
+        found.append((names, body[m.end():end]))
+    return found
+
+
+def compares_result(body, targets, context):
+    uses = lambda text, names: any(re.search(rf'(?<![\w.]){re.escape(n)}\b', text) for n in names)
+    from_target = lambda text: any(calls(text, t, context) for t in targets)
+    tainted, changed = set(), True
+    while changed:
+        changed = False
+        for names, value in bindings(body):
+            if not names <= tainted and (from_target(value) or uses(value, tainted)):
+                tainted |= names
+                changed = True
+    asserting = {name for name, b in functions(context).items() if re.search(r'\bassert\w*!', b)}
+    for m in re.finditer(r'\b(assert\w*!|\w+)\s*(?:::<[^>]*>\s*)?([(\[{])', body):
+        if m.group(1).endswith('!') or m.group(1) in asserting:
+            arguments = bracketed(body, m.end(2) - 1)
+            if from_target(arguments) or uses(arguments, tainted):
+                return True
+    return False
+
+
+def strip_rust_keep(text, pattern):
+    kept = []
+
+    def keep(m):
+        kept.append(m.group(1))
+        return m.group(0).replace(f'"{m.group(1)}"', f'K{len(kept) - 1}K')
+    code = strip_rust(re.sub(pattern, keep, text))
+    return re.sub(r'K(\d+)K', lambda m: f'"{kept[int(m.group(1))]}"', code)
 
 
 def strip_rust_keep_names(text):
