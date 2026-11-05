@@ -217,7 +217,11 @@ else flock -n {lock} echo retried; fi
                         self.assertIsNone(wrapper.poll(), log.read_text())
                         self.assertLess(time.monotonic(), deadline, log.read_text())
                         time.sleep(0.2)
-                    self.assertFalse(count.read_text().strip() == '2', 'the retry started while the lock was held')
+                    held_until = time.monotonic() + 3
+                    while time.monotonic() < held_until:
+                        self.assertEqual(count.read_text().strip(), '1', 'the retry started while the lock was held')
+                        self.assertIsNone(wrapper.poll(), log.read_text())
+                        time.sleep(0.1)
                     release.touch()
                     stdout, _ = wrapper.communicate(timeout=90)
                 finally:
