@@ -526,3 +526,18 @@ fn issue_758_course_portal_beam_mechanism() {
     assert!(result.warnings.len() == 1 && result.warnings[0].contains("history ends at"), "{:?}", result.warnings);
     assert_encloses("course portal", &certify_collapse_2d(&input, Some(&result)), exact, 1e-8);
 }
+
+#[test]
+fn issue_758_limit_analysis_refuses_axial_point_loads_too_close_to_resolve() {
+    let bar = |gap: f64| {
+        let loads = [(0.5, -9.0), (0.5 + gap, 10.0)]
+            .map(|(a, px)| SolverLoad::PointOnElement(SolverPointLoadOnElement { element_id: 1, a, p: 0.0, px: Some(px), my: None }))
+            .to_vec();
+        make_input(vec![(1, 0.0, 0.0), (2, 1.0, 0.0)], vec![(1, E, 0.3)], vec![(1, A_SEC, IZ_SEC)], vec![(1, "frame", 1, 2, 1, 1, false, false)], vec![(1, 1, "fixed")], loads)
+    };
+    let (mp, np) = (HashMap::from([(1, 1e6)]), HashMap::from([(1, 10.0)]));
+    let resolved = dedaliano_engine::solver::plastic_limit::limit_analysis_2d(&bar(1e-3), &mp, &np).unwrap();
+    assert!((resolved.lambda - 1.0).abs() <= 1e-9, "{resolved:?}");
+    let err = dedaliano_engine::solver::plastic_limit::limit_analysis_2d(&bar(1e-12), &mp, &np).unwrap_err();
+    assert!(err.contains("closer than 1e-9"), "{err}");
+}

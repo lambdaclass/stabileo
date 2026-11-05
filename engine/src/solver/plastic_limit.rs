@@ -220,6 +220,20 @@ pub fn limit_analysis_2d(input: &SolverInput, mp: &HashMap<usize, f64>, np: &Has
         }
         let ef = *ef0.get(&e.id).ok_or_else(|| format!("no forces for element {}", e.id))?;
         let len = ef.length;
+        let mut jumps: Vec<f64> = ef
+            .point_loads
+            .iter()
+            .filter(|p| (n_y.is_finite() && p.px.is_some_and(|x| x != 0.0)) || (m_y.is_finite() && p.my.is_some_and(|x| x != 0.0)))
+            .map(|p| p.a / len)
+            .chain([0.0, 1.0])
+            .collect();
+        jumps.sort_by(f64::total_cmp);
+        if jumps.windows(2).any(|w| w[1] > w[0] && w[1] - w[0] <= 1e-9) {
+            return Err(format!(
+                "element {}: point loads closer than 1e-9 of its length to each other or to its ends leave a force between them that the limit analysis cannot resolve",
+                e.id
+            ));
+        }
         let mut cuts = vec![0.0, 1.0];
         cuts.extend(ef.point_loads.iter().map(|p| p.a / len));
         cuts.extend(ef.distributed_loads.iter().chain(&ef.distributed_loads_x).flat_map(|d| [d.a / len, d.b / len]));
