@@ -3,7 +3,7 @@
 Every change that makes the same saved model give different numbers is registered here, so a
 project solved before it is told on opening ([docs/verification/PROVENANCE.md](../../../../../docs/verification/PROVENANCE.md)).
 
-- `numbered.json`: results versions 1 to 29, frozen. Never add to it, renumber it or remove from it.
+- `numbered.json`: the results versions numbered by hand, frozen. Never add to it, renumber it or remove from it.
 - `<id>.json`: one change each, **without a version**.
 
 ## Adding a results change
@@ -36,7 +36,7 @@ the change up by id.
 ## How the version is given
 
 Each merge to main that adds entry files takes the next results version, in main's merge order:
-the first after `numbered.json` is 30, the next 31, and so on. Entries merged together share
+the first takes the version above the highest in `numbered.json`, the next one more, and so on. Entries merged together share
 one. `web/scripts/result-changes/registry.mjs` reads that order from the first-parent history
 of the commit being built. The same commit always gives the same registry. A build without the
 history fails rather than guess: CI checks out the whole history, and a copy without `.git`

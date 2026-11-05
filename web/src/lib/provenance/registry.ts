@@ -9,8 +9,8 @@
  *
  * The results version is an integer, not the app version: the app version (`package.json`, still
  * 0.1.0) and the commit say which build ran, but neither orders "did the numbers change". Every
- * change that makes the same saved model give different numbers gets an entry here. Versions 1 to
- * 29 are frozen in `numbered.json`; each later merge to main that adds entries takes the next one.
+ * change that makes the same saved model give different numbers gets an entry here. The versions
+ * in `numbered.json` are frozen; each later merge to main that adds entries takes the next one.
  */
 import metadata from 'virtual:result-change-metadata';
 

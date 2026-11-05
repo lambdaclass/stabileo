@@ -25,7 +25,7 @@ not bound to another code counts as CIRSOC 301, an unbound concrete code as CIRS
 analyses a project does not record count as run.
 
 **Adding a change**: add one file, `result-changes/<id>.json`, with no `resultsVersion`
-([its README](../../web/src/lib/provenance/result-changes/README.md)). Versions 1 to 29 are
+([its README](../../web/src/lib/provenance/result-changes/README.md)). The versions numbered by hand are
 frozen in `result-changes/numbered.json`. Each later merge to main that adds entry files takes
 the next version, in main's merge order: `web/scripts/result-changes/registry.mjs` reads it from
 the first-parent history of the commit being built. Changes merged together share a version.

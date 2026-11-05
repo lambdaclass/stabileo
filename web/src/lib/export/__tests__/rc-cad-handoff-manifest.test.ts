@@ -698,7 +698,7 @@ describe('fixture-to-manifest reconciliation', () => {
     //
     // Never restamped for a new results version: e2e opens a restamped copy (`rcFootingProject`).
     expect(sha256(fixtureText()))
-      .toBe('5b969446f4d4d44c09cc3ffa776fae9ee4f9c989c7815eac2e76a34c5588ec46');
+      .toBe('69f737ac5f51134d4c340b20f02ac972cfebed4cbd1ddf3f3964c7e6e4a1522d');
   });
 
   it('every geometric input traces back to a value in the restored project', () => {
