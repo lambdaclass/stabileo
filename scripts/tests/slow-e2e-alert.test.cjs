@@ -178,7 +178,7 @@ test('red with no open issue opens one, labelled and assigned, blaming PRs since
     commits: ['Merge pull request #807 from x', 'Merge pull request #1509 from y'],
   });
   await run(github, [red, green], 2);
-  assert.deepEqual(calls.filter(c => c.name === 'listJobsForWorkflowRun').map(c => c.args.run_id), [299, 297, 298]);
+  assert.deepEqual(calls.filter(c => c.name === 'listJobsForWorkflowRun').map(c => c.args.run_id), [300, 299, 297, 298]);
   assert.deepEqual(calls.filter(c => c.name === 'getCommit').map(c => c.args.ref), ['cccccccccc', 's0']);
   const created = calls.find(c => c.name === 'create').args;
   assert.equal(created.title, 'CI failure: @slow E2E on main');
@@ -187,6 +187,25 @@ test('red with no open issue opens one, labelled and assigned, blaming PRs since
   assert.match(created.body, /explained-steps\.spec\.ts:39 › walks every method \[chromium\] \(shard 1\)/);
   assert.match(created.body, /Last green `@slow` run: r298 \(aaaaaaaaa\)\.\nCandidate PRs merged since: #807, #1509/);
   assert.match(created.body, /actions\/runs\/300/);
+});
+
+test('a red is not reported when a newer main push already passed the slow suite', async () => {
+  const {github, calls} = fakeGithub({
+    runs: [{id: 301, html_url: 'r301', head_sha: 'eeeeeeeeee'}, {id: 298, html_url: 'r298', head_sha: 'aaaaaaaaaa'}],
+    jobs: {301: [{name: 'E2E (1/1)', conclusion: 'success', steps: slowStep('success')}], 298: [{name: 'E2E (1/1)', conclusion: 'success', steps: slowStep('success')}]},
+  });
+  await run(github, [red], 1);
+  assert.equal(calls.filter(c => ['create', 'createComment'].includes(c.name)).length, 0);
+});
+
+test('a newer push that skipped the slow suite does not hide a red', async () => {
+  const {github, calls} = fakeGithub({
+    runs: [{id: 301, html_url: 'r301', head_sha: 'eeeeeeeeee'}, {id: 298, html_url: 'r298', head_sha: 'aaaaaaaaaa'}],
+    jobs: {301: [{name: 'E2E (1/1)', conclusion: 'success', steps: slowStep('skipped')}], 298: [{name: 'E2E (1/1)', conclusion: 'success', steps: slowStep('success')}]},
+    commits: ['Merge pull request #807 from x'],
+  });
+  await run(github, [red], 1);
+  assert.match(calls.find(c => c.name === 'create').args.body, /Last green `@slow` run: r298/);
 });
 
 test('red with the issue already open comments on it instead of opening another', async () => {

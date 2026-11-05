@@ -89,20 +89,26 @@ function issueBody({ shards, runUrl, sha, lastGreen, prs, complete = true }) {
   return lines.join('\n');
 }
 
-async function lastGreenRun(github, owner, repo, current) {
+async function slowGreenRuns(github, owner, repo) {
   const { data } = await github.rest.actions.listWorkflowRuns({
     owner, repo, workflow_id: 'ci.yml', branch: 'main', event: 'push', status: 'completed', per_page: SCANNED_RUNS,
   });
+  const green = [];
   for (const run of data.workflow_runs) {
-    if (run.id >= current) continue;
     const jobs = await github.paginate(github.rest.actions.listJobsForWorkflowRun, {
       owner, repo, run_id: run.id, filter: 'latest', per_page: 100,
     });
     const e2e = jobs.filter((j) => /^E2E \(\d+\/\d+\)$/.test(j.name));
     const slowPassed = (j) => (j.steps ?? []).some((step) => step.name.startsWith('E2E slow suite') && step.conclusion === 'success');
-    if (e2e.length && e2e.every(slowPassed)) return { runUrl: run.html_url, sha: run.head_sha };
+    if (e2e.length && e2e.every(slowPassed)) green.push({ id: run.id, runUrl: run.html_url, sha: run.head_sha });
   }
-  return null;
+  return green;
+}
+
+async function lastGreenRun(github, owner, repo, current) {
+  const green = await slowGreenRuns(github, owner, repo);
+  if (green.some((run) => run.id > current)) return { newer: true };
+  return green.filter((run) => run.id < current).sort((x, y) => y.id - x.id)[0] ?? null;
 }
 
 async function openIssue(github, owner, repo) {
@@ -130,6 +136,10 @@ module.exports = async function alert({ github, context, core }) {
     return;
   }
   const lastGreen = await lastGreenRun(github, owner, repo, context.runId);
+  if (lastGreen?.newer) {
+    core.info('a newer main push already passed the slow suite, so this red is not reported');
+    return;
+  }
   let prs = [];
   let complete = true;
   if (lastGreen) {
