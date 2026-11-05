@@ -270,14 +270,17 @@ class Event(unittest.TestCase):
 
     def test_in_ci_the_labels_fetched_when_the_job_runs_replace_the_payload(self):
         base = registry()
-        head = registry(quantity(tolerance=dict(relative=0.03, justification='j')))
         with tempfile.NamedTemporaryFile('w', suffix='.json', delete=False) as f:
             json.dump(dict(pull_request=dict(base=dict(sha='abc'), labels=[dict(name='tolerance-change')])), f)
         seen = {}
         original = (gate.base_revision, gate.git_reader, gate.label_check)
         gate.base_revision = lambda sha: sha
         gate.git_reader = lambda rev: lambda path: json.dumps(base) if path == gate.REGISTRY else None
-        gate.label_check = lambda b, br, h, hr, labels: seen.setdefault('labels', labels) and ([], None) or ([], None)
+
+        def label_check(base_registry, base_read, head, head_read, labels):
+            seen['labels'] = labels
+            return [], None
+        gate.label_check = label_check
         try:
             with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
                 gate.main([], dict(GITHUB_EVENT_PATH=f.name, GITHUB_EVENT_NAME='pull_request', BENCHMARK_GATE_LABELS=''))
@@ -287,7 +290,6 @@ class Event(unittest.TestCase):
         finally:
             gate.base_revision, gate.git_reader, gate.label_check = original
         self.assertEqual((removed, payload), (set(), {'tolerance-change'}))
-        self.assertEqual(head['benchmarks'][0]['quantities'][0]['tolerance']['relative'], 0.03)
 
     def test_a_pull_request_whose_base_cannot_be_read_fails(self):
         with tempfile.NamedTemporaryFile('w', suffix='.json', delete=False) as f:
