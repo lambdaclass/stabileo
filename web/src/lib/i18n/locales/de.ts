@@ -13870,6 +13870,8 @@ const de: Translations = {
   'provenance.reproduce.printedTampered': "Die gedruckten Zahlen stimmen nicht mit der Neuberechnung überein",
   'provenance.reproduce.printedNone': "Diese Datei enthält nicht die Berichtsoptionen, die zum erneuten Drucken ihrer Tabellen nötig sind (sie stammt aus einer früheren Version, sie wurden entfernt oder dieses Ergebnis liegt nicht vor): Ihre gedruckten Werte wurden nicht geprüft, die Prüfung ist daher unvollständig.",
   'provenance.reproduce.printedOtherSet': "Die im Bericht eingebetteten Optionen drucken ein anderes Ergebnis als das, das sein Fingerabdruck festhält: Seine Tabellen wurden nicht verglichen.",
+  'provenance.reproduce.printedManifest': "Die Tabellen des Berichts oder seine eingebetteten Optionen sind nicht die, die sein Fingerabdruck festhält: Eine Tabelle wurde entfernt oder hinzugefügt, oder die Optionen wurden bearbeitet.",
+  'provenance.reproduce.printedNoManifest': "Dieser Bericht wurde erstellt, bevor sein Fingerabdruck die Liste der gedruckten Tabellen festhielt: Die enthaltenen Tabellen wurden verglichen, aber eine entfernte Tabelle lässt sich nicht erkennen, daher ist die Prüfung unvollständig. Exportieren Sie den Bericht erneut, um ihn vollständig zu prüfen.",
   'proReport.resultSetMissing': "Der gewählte Ergebnissatz ist nicht in den aktuellen Ergebnissen. Rechnen Sie erneut oder wählen Sie einen anderen; der Bericht wurde nicht erstellt.",
   'provenance.reproduce.table.reactions': "Auflagerkräfte",
   'provenance.reproduce.table.forces': "Schnittgrößen",

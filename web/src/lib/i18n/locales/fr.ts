@@ -13870,6 +13870,8 @@ const fr: Translations = {
   'provenance.reproduce.printedTampered': "Les chiffres imprimés ne correspondent pas au recalcul",
   'provenance.reproduce.printedNone': "Ce fichier ne contient pas les choix du rapport nécessaires pour réimprimer ses tableaux (il vient d'une version antérieure, ils ont été retirés ou ce résultat n'est pas disponible) : ses valeurs imprimées n'ont pas été vérifiées, la vérification est donc incomplète.",
   'provenance.reproduce.printedOtherSet': "Les choix intégrés au rapport impriment un autre résultat que celui qu'enregistre son empreinte : ses tableaux n'ont pas été comparés.",
+  'provenance.reproduce.printedManifest': "Les tableaux du rapport ou ses choix intégrés ne sont pas ceux qu'enregistre son empreinte : un tableau a été retiré ou ajouté, ou ses choix ont été modifiés.",
+  'provenance.reproduce.printedNoManifest': "Ce rapport a été produit avant que son empreinte n'enregistre la liste des tableaux imprimés : les tableaux qu'il contient ont été comparés, mais un tableau retiré ne peut pas être détecté, la vérification est donc incomplète. Exportez à nouveau le rapport pour le vérifier entièrement.",
   'proReport.resultSetMissing': "Le jeu de résultats choisi ne figure pas dans les résultats actuels. Relancez le calcul ou choisissez-en un autre ; le rapport n'a pas été généré.",
   'provenance.reproduce.table.reactions': "Réactions",
   'provenance.reproduce.table.forces': "Efforts",

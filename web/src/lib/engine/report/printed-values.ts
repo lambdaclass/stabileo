@@ -1,4 +1,6 @@
 import type { ReportConfig } from '../pro-report';
+import type { PrintedManifest } from '../../provenance/result-provenance';
+import { exactHash } from '../../provenance/exact-hash';
 
 /** The numbers a report printed from its results, table by table, as text. */
 export interface PrintedTable {
@@ -9,17 +11,63 @@ export interface PrintedTable {
 
 export interface PrintedDifference { table: string; row: string; column: string; printed: string; recomputed: string }
 
-/** `labels`: whether row labels and column headers were compared too (only in the report's own language). */
-export interface PrintedComparison { compared: number; differences: PrintedDifference[]; structural: string[]; labels: boolean }
+/**
+ * `labels`: whether row labels and column headers were compared too (only in the report's own language).
+ * `manifest`: whether the set of tables was checked against the list the fingerprint records (reports from before it was recorded carry none).
+ */
+export interface PrintedComparison { compared: number; differences: PrintedDifference[]; structural: string[]; labels: boolean; manifest: boolean }
 
 const CONFIG_ID = 'stabileo-report-config';
 
 /** The report's choices of what to print and its language, embedded so a check can print the same tables again; the letterhead stays out. */
 export function reportConfigScript(config: ReportConfig | undefined, locale?: string): string {
   if (!config) return '';
-  const { companyName: _name, companyLogo: _logo, projectAddress: _address, engineerName: _engineer, revision: _revision, figures: _figures, ...rest } = config;
-  const json = JSON.stringify(locale ? { ...rest, reportLocale: locale } : rest).replace(/</g, '\\u003c');
+  const json = JSON.stringify(embeddedForm(reportChoices(config), locale ?? null)).replace(/</g, '\\u003c');
   return `<script type="application/json" id="${CONFIG_ID}">${json}</script>`;
+}
+
+/** The choices of what to print, without the letterhead. */
+export function reportChoices(config: ReportConfig): Record<string, unknown> {
+  const { companyName: _name, companyLogo: _logo, projectAddress: _address, engineerName: _engineer, revision: _revision, figures: _figures, ...rest } = config;
+  return JSON.parse(JSON.stringify(rest)) as Record<string, unknown>;
+}
+
+function embeddedForm(choices: Record<string, unknown>, locale: string | null): Record<string, unknown> {
+  return locale ? { ...choices, reportLocale: locale } : choices;
+}
+
+/** The embedded script's content exactly as the report with this manifest wrote it. */
+export function embeddedMatches(html: string, manifest: PrintedManifest): boolean {
+  const e = embedded(html);
+  return !!e && exactHash(e) === exactHash(embeddedForm(manifest.choices, manifest.locale));
+}
+
+const TABLE_SECTION: Record<string, string> = {
+  reactions: 'results', forces: 'results', displacements: 'results', shells: 'results',
+  drift: 'storyDrift', summary: 'envelope', statics: 'statics', deflections: 'deflections',
+};
+
+/** The section of the report a printed table belongs to. */
+export function tableSection(key: string): string {
+  return TABLE_SECTION[key] ?? (key.startsWith('envelope-') ? 'envelope' : 'other');
+}
+
+/** What a report printed: its choices, its language and its marked tables in order, with their row counts. */
+export function printedManifest(config: ReportConfig, locale: string | null, tables: readonly PrintedTable[]): PrintedManifest {
+  return { choices: reportChoices(config), locale, tables: tables.map((t) => ({ section: tableSection(t.key), table: t.key, rows: t.rows.length })) };
+}
+
+/** The tables that differ from the manifest's list: missing, unexpected, out of place or with another row count. */
+export function manifestDifferences(tables: readonly PrintedTable[], manifest: PrintedManifest): string[] {
+  const out: string[] = [];
+  const n = Math.max(tables.length, manifest.tables.length);
+  for (let i = 0; i < n; i++) {
+    const t = tables[i], m = manifest.tables[i];
+    if (t && m && t.key === m.table && t.rows.length === m.rows && tableSection(t.key) === m.section) continue;
+    if (t) out.push(t.key);
+    if (m) out.push(m.table);
+  }
+  return [...new Set(out)];
 }
 
 function embedded(html: string): Record<string, unknown> | null {
@@ -98,5 +146,5 @@ export function comparePrinted(claimed: readonly PrintedTable[], fresh: readonly
     });
   }
   for (const [key, left] of freshByKey) if (left.length > 0) structural.push(key);
-  return { compared, differences, structural: [...new Set(structural)], labels };
+  return { compared, differences, structural: [...new Set(structural)], labels, manifest: false };
 }
