@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
@@ -81,13 +82,18 @@ export function landingsAt(git, rev) {
 
 function readWorkingTree(root) {
   const dir = join(root, DIR);
-  const numbered = JSON.parse(readFileSync(join(dir, NUMBERED), 'utf8'));
+  const hash = createHash('sha256');
+  const read = (name) => {
+    const text = readFileSync(join(dir, name), 'utf8');
+    hash.update(`${name}\0${text}\0`);
+    return JSON.parse(text);
+  };
+  const numbered = read(NUMBERED);
   const fragments = new Map();
   for (const name of readdirSync(dir).sort()) {
-    if (!isFragmentPath(`${DIR}/${name}`)) continue;
-    fragments.set(idOf(name), JSON.parse(readFileSync(join(dir, name), 'utf8')));
+    if (isFragmentPath(`${DIR}/${name}`)) fragments.set(idOf(name), read(name));
   }
-  return { numbered, fragments };
+  return { numbered, fragments, fingerprint: hash.digest('hex') };
 }
 
 function insideGit(root) {
@@ -98,22 +104,22 @@ function insideGit(root) {
   }
 }
 
-function orderFromFile(root, fragments) {
+function orderFromFile(root, fingerprint) {
   const file = join(root, ORDER_FILE);
   if (!existsSync(file)) {
     throw new Error(`${root} is not a git checkout and has no ${ORDER_FILE}: run "make result-changes.order" in the checkout first`);
   }
-  const { landings } = JSON.parse(readFileSync(file, 'utf8'));
-  const listed = new Set(landings.flat());
-  const unlisted = [...fragments.keys()].filter((id) => !listed.has(id));
-  if (unlisted.length) throw new Error(`${ORDER_FILE} is stale: it does not list ${unlisted.join(', ')}`);
-  return landings;
+  const order = JSON.parse(readFileSync(file, 'utf8'));
+  if (order.fingerprint !== fingerprint) {
+    throw new Error(`${ORDER_FILE} is stale: it was written for other registry files than these; run "make result-changes.order" again`);
+  }
+  return order.landings;
 }
 
 /** The registry of the checkout at `root`: its files as they are on disk, ordered by its history. */
 export function readRegistry(root = REPO) {
-  const { numbered, fragments } = readWorkingTree(root);
-  const landings = insideGit(root) ? landingsAt(gitIn(root), 'HEAD') : orderFromFile(root, fragments);
+  const { numbered, fragments, fingerprint } = readWorkingTree(root);
+  const landings = insideGit(root) ? landingsAt(gitIn(root), 'HEAD') : orderFromFile(root, fingerprint);
   return assemble({ numbered, fragments, landings });
 }
 
@@ -190,7 +196,8 @@ export function compareSources(base, head) {
 /** The landing order of the checkout, for a build of it without its git history (Docker). */
 export function writeOrderFile(root = REPO) {
   const landings = landingsAt(gitIn(root), 'HEAD');
-  writeFileSync(join(root, ORDER_FILE), `${JSON.stringify({ landings })}\n`);
+  const { fingerprint } = readWorkingTree(root);
+  writeFileSync(join(root, ORDER_FILE), `${JSON.stringify({ fingerprint, landings })}\n`);
   return landings;
 }
 

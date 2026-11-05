@@ -15,7 +15,7 @@ declare module 'virtual:result-change-metadata' {
   export default registry;
 }
 
-declare module 'virtual:result-change-metadata?research-page' {
+declare module 'virtual:result-change-metadata?*' {
   const registry: { currentResultsVersion: number };
   export default registry;
 }

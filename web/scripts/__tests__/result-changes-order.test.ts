@@ -163,6 +163,23 @@ describe('results versions from the order changes reach main', { timeout: 60_000
     expect(() => readRegistry(copy)).toThrow(/stale/);
   });
 
+  it('refuses an order file written for a newer main than the copy it is in', () => {
+    const { root, git, commit, fragment, land } = repo();
+    for (const id of ['a', 'b']) {
+      git('checkout', '-q', '-b', `pr-${id}`, 'main');
+      fragment(id);
+      commit(id);
+      git('checkout', '-q', 'main');
+      land(`pr-${id}`);
+    }
+    writeOrderFile(root);
+    git('checkout', '-q', 'HEAD~1');
+    const copy = mkdtempSync(join(tmpdir(), 'result-changes-copy-'));
+    roots.push(copy);
+    for (const path of [DIR, ORDER_FILE]) cpSync(join(root, path), join(copy, path), { recursive: true });
+    expect(() => readRegistry(copy)).toThrow(/stale/);
+  });
+
   it('reads a commit from before the move in the single file it had', () => {
     const { root } = repo();
     expect(readRegistryAt('HEAD~1', root)).toMatchObject({ currentResultsVersion: 29 });

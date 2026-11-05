@@ -1,6 +1,6 @@
 import { deflateSync } from 'fflate';
 import type { SolverInput } from '../../lib/engine/types';
-import metadata from 'virtual:result-change-metadata';
+import metadata from 'virtual:result-change-metadata?tools';
 
 const next = (ids: Iterable<number>) => Math.max(0, ...ids) + 1;
 
