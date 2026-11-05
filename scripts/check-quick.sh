@@ -15,16 +15,14 @@ else
 fi
 
 changed=$( { git diff --name-only "$base"; git ls-files --others --exclude-standard; } | sort -u)
-touched() { printf '%s\n' "$changed" | grep -Eq "$1"; }
+touched() { grep -Eq "$1" <<< "$changed"; }
 
 targets=(check.changelog check-pins check.test-targets)
 touched '^engine/' && targets+=(lint.engine)
 touched '^backend/' && targets+=(lint.backend)
 touched '^(\.github/|scripts/|tools/)' && targets+=(test.ci-scripts)
-web=0
 wasm=0
 if touched '^web/'; then
-  web=1
   targets+=(typecheck.web)
   if touched '^(engine/|Cargo\.(toml|lock)$|rust-toolchain\.toml$)' || [ ! -f web/src/lib/wasm/dedaliano_engine.d.ts ]; then wasm=1; fi
 fi

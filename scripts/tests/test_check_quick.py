@@ -62,6 +62,10 @@ class CheckQuick(unittest.TestCase):
         self.assertEqual(targets(out), REPO + ['lint.engine', 'typecheck.web'])
         self.assertIn('then scripts/test-changed.sh --base HEAD', out)
 
+    def test_an_early_match_in_a_long_change_list_still_selects_its_check(self):
+        out = plan('backend/a.ex', *[f'docs/many/{i:05}.md' for i in range(20000)])
+        self.assertIn('lint.backend', targets(out))
+
     def test_make_exposes_it(self):
         makefile = (ROOT / 'Makefile').read_text()
         self.assertIn('check.quick:\n\tBASE=$(BASE) scripts/check-quick.sh\n', makefile)
