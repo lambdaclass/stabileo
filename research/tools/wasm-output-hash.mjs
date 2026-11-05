@@ -17,6 +17,13 @@ export function feed(v) {
   }
   tag(typeof v);
 }
+function accessor(object, key) {
+  for (let o = object; o; o = Object.getPrototypeOf(o)) {
+    const d = Object.getOwnPropertyDescriptor(o, key);
+    if (d) return typeof d.get === 'function';
+  }
+  return false;
+}
 const wrapped = new WeakMap();
 export function wrap(x, name) {
   if (typeof x !== 'function' && (typeof x !== 'object' || x === null || !('__wbg_ptr' in x))) return x;
@@ -27,6 +34,7 @@ export function wrap(x, name) {
     get(t, k) {
       if (k === '__real') return t;
       const v = Reflect.get(t, k, t);
+      if (accessor(t, k)) { tag('get ' + name + '.' + String(k)); feed(v); }
       return typeof v === 'function' && k !== 'constructor' ? wrap(v.bind ? v.bind(t) : v, name + '.' + String(k)) : v;
     },
   });
