@@ -1,6 +1,6 @@
 import { ApiError, setAuthHooks, type RefreshOutcome } from '../lib/api/client';
-import type { Account, LoginInput } from '../lib/api/auth';
-import { adminApi, type AdminSession } from '../lib/api/admin';
+import type { Account } from '../lib/api/auth';
+import { adminApi, type AdminSession, type LoginInput } from '../lib/api/admin';
 
 export type AdminAuthStatus = 'anonymous' | 'loading' | 'authenticated';
 

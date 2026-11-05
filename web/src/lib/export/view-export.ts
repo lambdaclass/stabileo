@@ -5,6 +5,7 @@
  * the figures that do not need results still come out and the reason is told. The figures are
  * drawn as vectors (`view-figure.ts`), in 2D and in 3D.
  */
+import { trackUsage } from '../telemetry/usage';
 import { captureProvenanceToken, provenanceForExport, ExportChangedError } from '../store/result-provenance';
 import { svgWithProvenance, imageWithProvenance } from './provenance-attach';
 import { zipSync } from 'fflate';
@@ -12,6 +13,7 @@ import { modelStore, uiStore } from '../store';
 import { t, tp } from '../i18n';
 import { ensureResults } from '../actions/solve';
 import { downloadBlob } from '../store/file';
+import { accountGate } from '../store/account-gate.svelte';
 import { modelIsEmpty, tellIfEmpty } from './empty-model';
 import {
   NEEDS_RESULTS, canvasToBlob, plan2D, sheetOf, toCanvas, toSvg,
@@ -87,6 +89,7 @@ async function files(req: ViewExportRequest, onDrawn?: () => void): Promise<Arra
 
 /** Download what the request makes: one file, or a zip of several. */
 export async function exportView(req: ViewExportRequest): Promise<boolean> {
+  trackUsage('export', { format: `view-${req.format}`, sheet: req.sheet });
   // Taken when the figures are drawn (after any solve); checked again once the hashes are in.
   let token = captureProvenanceToken();
   const drawn = await files(req, () => { token = captureProvenanceToken(); });
@@ -121,7 +124,11 @@ export async function exportView(req: ViewExportRequest): Promise<boolean> {
  * Put the figures on the clipboard as one picture (several go on one sheet), to paste into a
  * document. A PNG: the format every editor accepts from the clipboard.
  */
-export async function copyView(req: ViewExportRequest): Promise<boolean> {
+export function copyView(req: ViewExportRequest): Promise<boolean> {
+  return new Promise((resolve) => accountGate.guard('export', () => copyNow(req).then(resolve), () => resolve(false)));
+}
+
+async function copyNow(req: ViewExportRequest): Promise<boolean> {
   if (typeof ClipboardItem === 'undefined' || !navigator.clipboard?.write) {
     uiStore.toast(t('viewExport.noClipboard'), 'error');
     return false;

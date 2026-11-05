@@ -5,6 +5,7 @@
 -->
 <script lang="ts">
   import { t, i18n } from '../../../lib/i18n';
+  import { saveFile } from '../../../lib/export/save-file';
   import { exportProjectIfc } from '../../../lib/store/ifc-export';
   import { physicalForcesCsv } from '../../../lib/store/design-exchange';
   import { downloadResultText, prepareExportProvenance } from '../../../lib/export/provenance-attach';
@@ -20,9 +21,7 @@
   const base = () => (projectName || 'stabileo').replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ _-]/g, '').trim() || 'stabileo';
 
   function save(name: string, type: string, text: string) {
-    const url = URL.createObjectURL(new Blob([text], { type }));
-    const a = document.createElement('a'); a.href = url; a.download = name; a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    saveFile(name, new Blob([text], { type }));
   }
 
   /*

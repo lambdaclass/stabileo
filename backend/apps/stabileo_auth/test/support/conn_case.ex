@@ -62,8 +62,8 @@ defmodule StabileoAuth.ConnCase do
     payload
   end
 
-  def log_in(account, password \\ StabileoRepo.Factory.password()) do
-    {:ok, payload} = StabileoAuth.login(account.email, password)
+  def log_in(account) do
+    {:ok, payload} = StabileoAuth.sign_in(account, %{}, "app")
     payload
   end
 end

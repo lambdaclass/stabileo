@@ -2,13 +2,14 @@ import { ApiError } from './client';
 import { t, tp } from '../i18n';
 
 const KNOWN_CODES = new Set([
-  'invalid_credentials',
   'account_disabled',
-  'invalid_current_password',
   'refresh_failed',
   'network_error',
   'validation_error',
   'user_login_disabled',
+  'cloud_projects_disabled',
+  'project_limit_reached',
+  'project_conflict',
 ]);
 
 export function errorText(e: unknown): string {
@@ -28,6 +29,8 @@ export function fieldText(message: string): string {
   if (message === 'must have @ sign and no spaces') return t('account.field.email');
   if (message === 'must be at an allowed domain') return t('account.field.domainNotAllowed');
   if (message === 'is already allowed') return t('account.field.alreadyAllowed');
+  if (message === 'must be accepted') return t('account.field.mustAccept');
+  if (message === 'is too large') return t('account.field.tooLarge');
   const short = /^should be at least (\d+) character/.exec(message);
   if (short) return tp('account.field.tooShort', { count: short[1] });
   const long = /^should be at most (\d+) character/.exec(message);

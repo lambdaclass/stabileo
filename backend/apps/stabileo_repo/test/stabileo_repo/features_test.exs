@@ -22,6 +22,34 @@ defmodule StabileoRepo.FeaturesTest do
     assert %{"enabled" => false} = Repo.get_by!(SystemSetting, key: "user_login_enabled").value
   end
 
+  for {flag, getter, setter} <- [
+        {"usage_telemetry_enabled", :usage_telemetry_enabled?, :set_usage_telemetry_enabled},
+        {"cloud_projects_enabled", :cloud_projects_enabled?, :set_cloud_projects_enabled},
+        {"save_requires_account", :save_requires_account?, :set_save_requires_account}
+      ] do
+    test "#{flag} starts off and persists both ways" do
+      refute Repo.get_by(SystemSetting, key: unquote(flag))
+      refute apply(Features, unquote(getter), [])
+
+      {:ok, _} = apply(Features, unquote(setter), [true])
+      assert apply(Features, unquote(getter), [])
+
+      {:ok, _} = apply(Features, unquote(setter), [false])
+      refute apply(Features, unquote(getter), [])
+      assert %{"enabled" => false} = Repo.get_by!(SystemSetting, key: unquote(flag)).value
+    end
+  end
+
+  test "the cloud project limit is 1 until set, and only takes 1 to 100" do
+    assert Features.cloud_projects_limit() == 1
+    {:ok, _} = Features.set_cloud_projects_limit(3)
+    assert Features.cloud_projects_limit() == 3
+    assert %{"value" => 3} = Repo.get_by!(SystemSetting, key: "cloud_projects_limit").value
+    assert_raise FunctionClauseError, fn -> Features.set_cloud_projects_limit(0) end
+    {:ok, _} = SystemSettings.set("cloud_projects_limit", %{"value" => 500})
+    assert Features.cloud_projects_limit() == 1
+  end
+
   test "a malformed value reads as off" do
     {:ok, _} = SystemSettings.set("user_login_enabled", %{"enabled" => "yes"})
     refute Features.user_login_enabled?()

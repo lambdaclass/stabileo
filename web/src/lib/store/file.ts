@@ -11,6 +11,8 @@ import type { ModelSnapshot } from './history.svelte';
 import { NO_RELEASE, type Release } from './model.svelte';
 import { exportToExcel } from '../export/excel';
 import { tabManager } from './tabs.svelte';
+import { accountGate } from './account-gate.svelte';
+import { saveFile } from '../export/save-file';
 import type { TabState } from './tabs.svelte';
 import { resetSwitchBackup } from './switch-2d';
 import { t } from '../i18n';
@@ -118,14 +120,7 @@ export interface DedalSessionFile {
 // ─── Download Helpers ───────────────────────────────────────────
 
 export function downloadBlob(blob: Blob, filename: string): void {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  saveFile(filename, blob);
 }
 
 export function downloadText(content: string, filename: string, mime: string): void {
@@ -157,11 +152,22 @@ export function canChooseSaveLocation(): boolean {
  * and quietly downloading anyway would ignore it. `AbortError` is therefore
  * the one failure that does nothing at all.
  */
-export async function saveTextTo(
+export function saveTextTo(
   content: string,
   filename: string,
   mime: string,
   opts: { chooseLocation?: boolean } = {},
+): Promise<'saved' | 'downloaded' | 'cancelled'> {
+  return new Promise((resolve) => {
+    accountGate.guard('save', () => writeTextTo(content, filename, mime, opts).then(resolve), () => resolve('cancelled'));
+  });
+}
+
+async function writeTextTo(
+  content: string,
+  filename: string,
+  mime: string,
+  opts: { chooseLocation?: boolean },
 ): Promise<'saved' | 'downloaded' | 'cancelled'> {
   if (opts.chooseLocation && canChooseSaveLocation()) {
     try {
@@ -629,9 +635,8 @@ function validateAxisSafety(data: DedalFile): void {
 // ─── Save / Load ────────────────────────────────────────────────
 
 export function saveProject(): void {
-  const json = serializeProject();
-  const safeName = modelStore.model.name.replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ _-]/g, '').trim() || t('file.defaultProject');
-  downloadText(json, `${safeName}.ded`, 'application/json');
+  const { content, filename } = projectPayload();
+  saveFile(filename, new Blob([content], { type: 'application/json' }), 'save');
 }
 
 export async function loadProject(file: File): Promise<void> {
@@ -649,18 +654,8 @@ export async function loadProject(file: File): Promise<void> {
 // ─── Session Save / Load (all tabs) ─────────────────────────────
 
 export function saveSession(): void {
-  // Ensure the active tab is up-to-date before serializing
-  tabManager.syncCurrentTab();
-  const session: DedalSessionFile = {
-    version: '1.0',
-    type: 'session',
-    timestamp: new Date().toISOString(),
-    activeTabId: tabManager.activeTabId ?? '',
-    tabs: sessionTabsCopy(),
-  };
-  const json = JSON.stringify(session, null, 2);
-  const tabCount = session.tabs.length;
-  downloadText(json, `${t('file.session')}-${tabCount}-${t('file.tabs')}.ded`, 'application/json');
+  const { content, filename } = sessionPayload();
+  saveFile(filename, new Blob([content], { type: 'application/json' }), 'save');
 }
 
 function isSessionFile(data: unknown): data is DedalSessionFile {
