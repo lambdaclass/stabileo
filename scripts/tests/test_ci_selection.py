@@ -65,9 +65,26 @@ class Selection(unittest.TestCase):
             self.assertEqual(result['web_build'], result['web'])
             self.assertEqual(result['docker'], result['web'])
         workflow = (ROOT / '.github/workflows/ci.yml').read_text()
-        build = workflow.split('  web-build:', 1)[1].split('  results-snapshot:', 1)[0]
-        self.assertIn("if: needs.changes.outputs.web_build == 'true'", build)
-        self.assertIn('make typecheck.web', build)
+        typecheck = workflow.split('  web-typecheck:', 1)[1].split('  web-build:', 1)[0]
+        self.assertIn("if: needs.changes.outputs.web_build == 'true'", typecheck)
+        self.assertIn('make typecheck.web', typecheck)
+
+    def test_a_failed_fast_check_stops_the_rest_of_a_pull_request_run(self):
+        workflow = (ROOT / '.github/workflows/ci.yml').read_text()
+        jobs = dict(re.findall(r'(?ms)^  ([a-z0-9-]+):\n(.*?)(?=^  [a-z0-9-]+:\n|\Z)', workflow.split('\njobs:\n', 1)[1]))
+        fast = {'lint-repo', 'test-ci-scripts', 'lint-engine', 'lint-backend', 'web-typecheck', 'web-unit'}
+        stopping = {name for name, body in jobs.items() if 'gh run cancel' in body}
+        self.assertEqual(stopping, fast)
+        for name in fast:
+            body = jobs[name]
+            self.assertIn("      - name: Stop the rest of this run\n        if: failure() && github.event_name == 'pull_request'\n"
+                          "        continue-on-error: true\n", body, name)
+            self.assertIn('    permissions:\n      contents: read\n      actions: write\n', body, name)
+            steps = [line for line in body.splitlines() if line.strip() and not line.lstrip().startswith('#')]
+            self.assertEqual(steps[-1].strip(), 'run: gh run cancel "$RUN_ID"', name)
+        self.assertIn('BAIL=${{ github.event_name == \'pull_request\' && \'1\' || \'\' }}', jobs['web-unit'])
+        self.assertIn('needs: [changes, wasm]\n', jobs['web-typecheck'])
+        self.assertNotIn('free-disk', jobs['web-typecheck'])
 
     def test_product_only_pr_and_merge_queue_do_not_select_research_isolation(self):
         workflow = (ROOT / '.github/workflows/research.yml').read_text()
@@ -330,15 +347,18 @@ class Selection(unittest.TestCase):
 
     def test_typecheck_covers_every_selected_web_scope(self):
         workflow = (ROOT / '.github/workflows/ci.yml').read_text()
-        unit = workflow.split('  web-unit:', 1)[1].split('  web-build:', 1)[0]
+        unit = workflow.split('  web-unit:', 1)[1].split('  web-typecheck:', 1)[0]
         self.assertIn("if: needs.changes.outputs.web == 'true'", unit)
-        self.assertIn('shard: [1, 2, 3, 4]', unit)
-        build = workflow.split('  web-build:', 1)[1].split('  results-snapshot:', 1)[0]
-        self.assertIn('run: make typecheck.web', build)
+        self.assertIn('shard: [1, 2, 3, 4, 5, 6, 7, 8]', unit)
+        typecheck = workflow.split('  web-typecheck:', 1)[1].split('  web-build:', 1)[0]
+        self.assertIn('needs: [changes, wasm]', typecheck)
+        self.assertIn("if: needs.changes.outputs.web_build == 'true'", typecheck)
+        self.assertIn('run: make typecheck.web', typecheck)
         self.assertEqual(workflow.count('run: make typecheck.web'), 1)
         for path in ['research/a.rs', 'web/src/components/tools/a.svelte',
                      'engine/src/lib.rs', 'web/src/App.svelte']:
             self.assertEqual(selection.select('pull_request', [path])['web'], 'true')
+            self.assertEqual(selection.select('pull_request', [path])['web_build'], 'true')
         self.assertEqual(selection.select('pull_request', ['docs/a.md'])['web'], 'false')
         self.assertEqual(selection.select('merge_group', [])['web'], 'true')
 
