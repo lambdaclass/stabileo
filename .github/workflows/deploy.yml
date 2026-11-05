@@ -211,6 +211,10 @@ jobs:
           GOOGLE_APP_CLIENT_ID: ${{ vars.GOOGLE_APP_CLIENT_ID }}
           GOOGLE_APP_CLIENT_SECRET: ${{ secrets.GOOGLE_APP_CLIENT_SECRET }}
           APP_URL: ${{ vars.APP_URL }}
+          META_PIXEL_ID: ${{ vars.META_PIXEL_ID }}
+          META_CAPI_ACCESS_TOKEN: ${{ secrets.META_CAPI_ACCESS_TOKEN }}
+          META_CAPI_TEST_EVENT_CODE: ${{ vars.META_CAPI_TEST_EVENT_CODE }}
+          GTM_CONTAINER_ID: ${{ vars.GTM_CONTAINER_ID }}
           PORT: ${{ vars.PORT }}
           BIND_ADDRESS: ${{ vars.BIND_ADDRESS }}
           POOL_SIZE: ${{ vars.POOL_SIZE }}

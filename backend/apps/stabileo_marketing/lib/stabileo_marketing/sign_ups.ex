@@ -1,11 +1,5 @@
 defmodule StabileoMarketing.SignUps do
-  @moduledoc """
-  What happens when an account is created, run by `StabileoAuth.UserOAuth`
-  inside the sign-up's transaction (`config :stabileo_auth, :after_sign_up`):
-  where the visit came from is saved and `CompleteRegistration` is queued for
-  Meta. Neither may cost the sign-up: a source that does not validate is left
-  out.
-  """
+  @moduledoc "Runs inside the sign-up's transaction: nothing here may fail it."
 
   alias StabileoMarketing.{Conversions, SignupSources}
   alias StabileoRepo.Schemas.Account

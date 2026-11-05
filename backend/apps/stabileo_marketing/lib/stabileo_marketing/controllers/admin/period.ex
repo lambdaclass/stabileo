@@ -1,5 +1,5 @@
 defmodule StabileoMarketing.Controllers.Admin.Period do
-  @moduledoc "The period an admin report asks for: `from` and `to`, or the last `days` (30 when neither)."
+  @moduledoc false
 
   @max_days 366
 

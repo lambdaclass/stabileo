@@ -23,6 +23,12 @@ if config_env() == :prod do
       "You can generate one by running: mix phx.gen.secret"
     )
 
+  config :stabileo_marketing,
+    meta_pixel_id: StabileoUtils.fetch_env("META_PIXEL_ID"),
+    meta_capi_access_token: StabileoUtils.fetch_env("META_CAPI_ACCESS_TOKEN"),
+    meta_capi_test_event_code: StabileoUtils.fetch_env("META_CAPI_TEST_EVENT_CODE"),
+    gtm_container_id: StabileoUtils.fetch_env("GTM_CONTAINER_ID")
+
   host = StabileoUtils.fetch_env!("PHX_HOST")
   app_url = StabileoUtils.fetch_env("APP_URL", "https://#{host}") |> String.trim_trailing("/")
   port = StabileoUtils.fetch_env_integer("PORT", 4100)
@@ -36,14 +42,6 @@ if config_env() == :prod do
       {:error, _} ->
         raise "environment variable BIND_ADDRESS must be an IP address, got #{inspect(bind_address)}"
     end
-
-  vault_key =
-    case StabileoUtils.fetch_env("CLOAK_KEY") do
-      nil -> :crypto.mac(:hmac, :sha256, secret_key_base, "stabileo-repo-vault")
-      key -> Base.decode64!(key)
-    end
-
-  config :stabileo_repo, vault_key: vault_key
 
   config :stabileo_web, StabileoWeb.Endpoint,
     url: [host: host, port: 443, scheme: "https"],

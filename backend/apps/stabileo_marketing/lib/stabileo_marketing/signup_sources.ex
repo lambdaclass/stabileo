@@ -1,14 +1,6 @@
 defmodule StabileoMarketing.SignupSources do
   @moduledoc """
-  Where an account's visit came from, from what the browser kept of it (the
-  `stb_visit` cookie) and sends with the sign-up as `source`.
-
-  The channel is `google` or `meta` for their ads, with `paid` nil when only a
-  `fbclid` says it came from Meta, since Meta adds one to organic links too.
-  `placement` is where inside the channel: Google's ValueTrack `{network}`,
-  Meta's `{{site_source_name}}`, the search engine, the network or the site.
-  `trigger` is what asked for the account: a gate's action (`gate.save`) or a
-  button and where it was (`register.hero`).
+  `paid` is nil when only a `fbclid` says Meta, since Meta adds one to organic links too.
   """
 
   alias StabileoRepo.Repo
@@ -94,11 +86,7 @@ defmodule StabileoMarketing.SignupSources do
 
   @max_length 255
 
-  @doc """
-  Saves where `account` came from. Anything but a map is a visit with nothing
-  to say, recorded as direct. Returns the changeset error instead of raising, so
-  a caller in a transaction can skip a source it cannot keep.
-  """
+  @doc "Answers the changeset error instead of raising, so the sign-up transaction can skip it."
   def record(%Account{id: account_id}, captured) do
     attrs = normalize(if is_map(captured), do: captured, else: %{})
 
@@ -113,7 +101,6 @@ defmodule StabileoMarketing.SignupSources do
     end)
   end
 
-  @doc "The captured fields `captured` holds, trimmed and cut to what the table keeps."
   def normalize(captured) do
     Enum.reduce(@keys, %{}, fn {key, field}, acc ->
       case clean(captured[key]) do
@@ -123,7 +110,6 @@ defmodule StabileoMarketing.SignupSources do
     end)
   end
 
-  @doc "The channel, whether it was paid, and the placement inside it."
   def classify(attrs) do
     referrer = downcase(attrs[:referrer])
 

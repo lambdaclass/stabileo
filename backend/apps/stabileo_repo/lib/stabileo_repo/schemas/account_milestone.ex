@@ -1,9 +1,5 @@
 defmodule StabileoRepo.Schemas.AccountMilestone do
-  @moduledoc """
-  The first time an account did something that shows it uses Stabileo: its
-  first analysis, its first saved project (to the cloud or as a file) and its
-  first export. One row per account and kind; later ones are not recorded.
-  """
+  @moduledoc false
 
   use StabileoRepo.Schema
   import Ecto.Changeset

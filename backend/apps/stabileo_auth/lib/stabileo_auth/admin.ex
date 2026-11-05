@@ -8,7 +8,7 @@ defmodule StabileoAuth.Admin do
 
   alias StabileoAuth.{Accounts, AdminAccess, Sessions}
   alias StabileoRepo.{Listing, Repo}
-  alias StabileoRepo.Schemas.{Account, AccountMilestone, Project, SignupSource}
+  alias StabileoRepo.Schemas.{Account, Project}
 
   @sortable [:inserted_at, :last_sign_in_at, :email, :name]
 
@@ -39,7 +39,7 @@ defmodule StabileoAuth.Admin do
     {accounts, meta} =
       Account
       |> filter_status(params["status"])
-      |> filter_channel(params["channel"])
+      |> extension().filter(params)
       |> search(params["search"])
       |> Listing.paginate(params, @sortable, :inserted_at, default_dir: :desc)
 
@@ -83,22 +83,6 @@ defmodule StabileoAuth.Admin do
   defp filter_status(query, "disabled"), do: where(query, [a], not a.is_active)
   defp filter_status(query, _status), do: query
 
-  defp filter_channel(query, channel)
-       when channel in ~w(google meta search social referral email direct other) do
-    where(
-      query,
-      [a],
-      a.id in subquery(
-        from(s in SignupSource, where: s.channel == ^channel, select: s.account_id)
-      )
-    )
-  end
-
-  defp filter_channel(query, "unknown"),
-    do: where(query, [a], a.id not in subquery(from(s in SignupSource, select: s.account_id)))
-
-  defp filter_channel(query, _channel), do: query
-
   defp search(query, term) when is_binary(term) and term != "" do
     pattern = "%" <> String.replace(String.trim(term), ~r/[\\%_]/, "\\\\\\0") <> "%"
     where(query, [a], ilike(a.email, ^pattern) or ilike(a.name, ^pattern))
@@ -118,27 +102,9 @@ defmodule StabileoAuth.Admin do
     |> Map.new()
   end
 
-  @source_fields ~w(channel paid placement utm_source utm_medium utm_campaign utm_content utm_term referrer landing_path trigger first_seen_at inserted_at)a
+  @doc "What the `:admin_accounts` module (config) adds to each account's row, keyed by account id."
+  def extend(account_ids), do: extension().extend(account_ids)
 
-  @doc "Where each account came from, for the accounts given; accounts without a recorded source are absent."
-  def signup_sources([]), do: %{}
-
-  def signup_sources(account_ids) do
-    from(s in SignupSource, where: s.account_id in ^account_ids)
-    |> Repo.all()
-    |> Map.new(&{&1.account_id, Map.take(&1, @source_fields)})
-  end
-
-  @doc "The milestones each account reached, as kind to moment."
-  def milestones([]), do: %{}
-
-  def milestones(account_ids) do
-    from(m in AccountMilestone,
-      where: m.account_id in ^account_ids,
-      select: {m.account_id, m.kind, m.occurred_at}
-    )
-    |> Repo.all()
-    |> Enum.group_by(&elem(&1, 0), &{elem(&1, 1), elem(&1, 2)})
-    |> Map.new(fn {id, kinds} -> {id, Map.new(kinds)} end)
-  end
+  defp extension,
+    do: Application.get_env(:stabileo_auth, :admin_accounts, StabileoAuth.AdminAccounts)
 end

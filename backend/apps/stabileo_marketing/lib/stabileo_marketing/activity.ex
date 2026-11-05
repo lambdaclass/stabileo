@@ -1,26 +1,24 @@
 defmodule StabileoMarketing.Activity do
-  @moduledoc """
-  What an account does after signing up, for activation and return rates:
-  the first time it reaches each milestone (`AccountMilestone`) and the days
-  it used the app (`AccountActiveDay`). The first saved project is a
-  conversion too, sent to Meta as `FirstSave`.
-  """
+  @moduledoc "Nothing is recorded for an account whose current `usage_analytics` consent is not granted."
 
-  alias StabileoMarketing.Conversions
+  alias StabileoAuth.Consents
+  alias StabileoMarketing.{Conversions, Days}
   alias StabileoRepo.Repo
   alias StabileoRepo.Schemas.{Account, AccountActiveDay, AccountMilestone}
 
-  @doc """
-  Records today as an active day and each milestone in `kinds` the account
-  had not reached. Answers the milestones newly recorded, so the browser sends
-  the pixel's `FirstSave` only once.
-  """
+  @doc "Answers the milestones newly recorded, so the browser sends the pixel's `FirstSave` only once."
   def record(%Account{} = account, kinds, attribution, page, metadata) do
+    if Consents.current(account).usage_analytics,
+      do: record_granted(account, kinds, attribution, page, metadata),
+      else: {:ok, []}
+  end
+
+  defp record_granted(account, kinds, attribution, page, metadata) do
     now = DateTime.utc_now() |> DateTime.truncate(:second)
 
     Repo.insert_all(
       AccountActiveDay,
-      [%{id: Ecto.UUID.generate(), account_id: account.id, day: DateTime.to_date(now)}],
+      [%{id: Ecto.UUID.generate(), account_id: account.id, day: Days.local_date(now)}],
       on_conflict: :nothing,
       conflict_target: [:account_id, :day]
     )

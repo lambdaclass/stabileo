@@ -1,11 +1,8 @@
 defmodule StabileoMarketing.Conversions do
   @moduledoc """
-  The server-side copy, through Meta's Conversions API, of the two
-  conversions the browser pixel also sends: `CompleteRegistration` when an
-  account is created and `FirstSave` when it saves its first project. Each
-  event's `event_id` is the one the pixel sends for it (the account's id, and
-  `first_save-<account id>`), so Meta counts it once. Nothing is enqueued
-  unless the pixel id and the Conversions API token are both saved.
+  Each `event_id` is the one the pixel sends (the account's id, `first_save-<account id>`), so
+  Meta counts the event once. Nothing is queued without `"consent" => true` in `attribution`:
+  the browser sends it only after the person accepted advertising cookies.
   """
 
   alias StabileoMarketing.Configs
@@ -16,19 +13,22 @@ defmodule StabileoMarketing.Conversions do
   # sign-up's transaction); Meta keeps adding suffixes to `_fbc`.
   @pixel_cookie ~r/\Afb\.[\w.-]{1,500}\z/
 
-  @doc "The pixel cookies the browser sends as `attribution`."
+  def advertising_consent?(%{"consent" => true}), do: true
+  def advertising_consent?(_attribution), do: false
+
   def attribution(%{} = cookies),
     do: compact(%{fbp: cookie(cookies["fbp"]), fbc: cookie(cookies["fbc"])})
 
   def attribution(_cookies), do: %{}
 
-  @doc "`metadata` is the request's `ip_address` and `user_agent`."
   def enqueue_sign_up(%Account{} = account, attribution, page, metadata) do
-    enqueue(fn -> event("CompleteRegistration", account.id, page, user_data(account, attribution, metadata)) end)
+    enqueue(attribution, fn ->
+      event("CompleteRegistration", account.id, page, user_data(account, attribution, metadata))
+    end)
   end
 
   def enqueue_first_save(%Account{} = account, attribution, page, metadata) do
-    enqueue(fn ->
+    enqueue(attribution, fn ->
       event("FirstSave", "first_save-#{account.id}", page, user_data(account, attribution, metadata))
     end)
   end
@@ -40,10 +40,11 @@ defmodule StabileoMarketing.Conversions do
     end
   end
 
-  defp enqueue(build_event) do
-    case credentials() do
-      {:ok, _pixel_id, _token} -> %{events: [build_event.()]} |> MetaConversionSender.new() |> Oban.insert()
-      {:error, :not_configured} -> {:ok, :not_configured}
+  defp enqueue(attribution, build_event) do
+    case {advertising_consent?(attribution), credentials()} do
+      {false, _} -> {:ok, :no_consent}
+      {true, {:ok, _pixel_id, _token}} -> %{events: [build_event.()]} |> MetaConversionSender.new() |> Oban.insert()
+      {true, {:error, :not_configured}} -> {:ok, :not_configured}
     end
   end
 

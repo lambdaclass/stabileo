@@ -12,8 +12,6 @@ web_port = 4000 + instance * 10
 admin_port = 4001 + instance * 10
 app_url = System.get_env("APP_URL", "http://localhost:#{web_port}")
 
-config :stabileo_repo, vault_key: :crypto.hash(:sha256, "stabileo-dev-vault-key")
-
 config :stabileo_repo, StabileoRepo.Repo,
   username: System.get_env("PGUSER", "postgres"),
   password: System.get_env("PGPASSWORD", "postgres"),
@@ -75,3 +73,9 @@ config :cors_plug,
     "http://localhost:#{admin_port}",
     "http://localhost:4173"
   ]
+
+config :stabileo_marketing,
+  meta_pixel_id: System.get_env("META_PIXEL_ID"),
+  meta_capi_access_token: System.get_env("META_CAPI_ACCESS_TOKEN"),
+  meta_capi_test_event_code: System.get_env("META_CAPI_TEST_EVENT_CODE"),
+  gtm_container_id: System.get_env("GTM_CONTAINER_ID")

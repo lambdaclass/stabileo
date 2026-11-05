@@ -1,9 +1,5 @@
 defmodule StabileoMarketing.Router do
-  @moduledoc """
-  Mounted at /api/v1/marketing by `StabileoWeb.Router`. The tracking ids are
-  public, since every browser that loads the pixel needs them; an account's
-  activity needs its session.
-  """
+  @moduledoc "Mounted at /api/v1/marketing by `StabileoWeb.Router`."
 
   use Phoenix.Router, helpers: false
 
@@ -17,6 +13,7 @@ defmodule StabileoMarketing.Router do
 
   pipeline :authenticated do
     plug(StabileoAuth.Plugs.Authenticate)
+    plug(StabileoUtils.Plugs.RateLimit, bucket: :marketing_activity, limit: 30, period_ms: 60_000)
   end
 
   scope "/", StabileoMarketing.Controllers do

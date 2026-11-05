@@ -1,11 +1,5 @@
 defmodule StabileoRepo.Schemas.SignupSource do
-  @moduledoc """
-  Where the visit that ended in an account came from, saved once when the
-  account is created: the channel it was classified into, whether it was paid
-  (nil when nothing says), the UTM tags and click ids the browser kept, the
-  page it entered on and what asked for the account (`trigger`, the gate's
-  action or a button, with its `placement`).
-  """
+  @moduledoc false
 
   use StabileoRepo.Schema
   import Ecto.Changeset

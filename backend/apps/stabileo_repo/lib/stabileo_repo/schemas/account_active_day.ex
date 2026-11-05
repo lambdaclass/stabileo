@@ -1,5 +1,5 @@
 defmodule StabileoRepo.Schemas.AccountActiveDay do
-  @moduledoc "A day (UTC) on which an account used the app, for return rates by signup cohort."
+  @moduledoc "`day` is a Buenos Aires day (`StabileoMarketing.Days`)."
 
   use StabileoRepo.Schema
   import Ecto.Changeset

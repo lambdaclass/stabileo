@@ -57,7 +57,12 @@ defmodule StabileoMarketing.ConnCase do
     do: elem(StabileoAuth.Admin.login(account.email, StabileoRepo.Factory.password()), 1).access_token
 
   def configure(attrs) do
-    {:ok, config} = StabileoMarketing.Configs.update(attrs)
-    config
+    for {key, value} <- attrs do
+      key = String.to_existing_atom(key)
+      Application.put_env(:stabileo_marketing, key, value)
+      ExUnit.Callbacks.on_exit(fn -> Application.delete_env(:stabileo_marketing, key) end)
+    end
+
+    :ok
   end
 end

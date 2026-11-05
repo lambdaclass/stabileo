@@ -7,8 +7,7 @@ defmodule StabileoRepo.Application do
   def start(_type, _args) do
     children = [
       {Phoenix.PubSub, name: Stabileo.PubSub},
-      StabileoRepo.Repo,
-      StabileoRepo.Vault
+      StabileoRepo.Repo
     ]
 
     Supervisor.start_link(children, strategy: :one_for_one, name: StabileoRepo.Supervisor)

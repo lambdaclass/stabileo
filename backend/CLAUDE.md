@@ -13,7 +13,7 @@ backend/apps/
 ├── stabileo_auth      # Accounts, sessions, tokens, profile, consents, admin audit log
 ├── stabileo_projects  # Cloud projects
 ├── stabileo_insights  # Anonymous usage, feedback, admin metrics
-├── stabileo_marketing # Sign-up sources, account activity, Conversions API, ad reporting (Oban)
+├── stabileo_marketing # Sign-up sources, account activity, Conversions API (Oban)
 └── stabileo_web       # Endpoint and main router that forwards to domain routers
 ```
 
@@ -42,7 +42,7 @@ Schemas are centralized in `stabileo_repo`. Domain apps contain context modules 
 | Admin | `stabileo_auth` (`StabileoAuth.AdminRouter`) | Admin sign-in, account management, settings, audit log | `/api/v1/admin` |
 | Projects | `stabileo_projects` | Cloud projects; admin listing | `/api/v1/projects`, `/api/v1/admin/projects` |
 | Insights | `stabileo_insights` | Usage events, feedback; admin metrics and inbox | `/api/v1/insights`, `/api/v1/admin/insights` |
-| Marketing | `stabileo_marketing` | Tracking ids, sign-up sources, activity, Conversions API, ad reporting (`specs/services/marketing.md`) | `/api/v1/marketing`, `/api/v1/admin/marketing` |
+| Marketing | `stabileo_marketing` | Tracking ids, sign-up sources, activity, Conversions API, acquisition (`specs/services/marketing.md`) | `/api/v1/marketing`, `/api/v1/admin/marketing` |
 | Web | `stabileo_web` | Endpoint, health | `/api/v1/health` |
 | Utilities | `stabileo_utils` | Shared plugs and helpers | — |
 

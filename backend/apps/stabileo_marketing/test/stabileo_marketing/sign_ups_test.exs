@@ -24,7 +24,7 @@ defmodule StabileoMarketing.SignUpsTest do
     assert {:ok, payload} =
              sign_up("ads1@gmail.com", %{
                "source" => %{"utm_source" => "ig", "utm_medium" => "paid", "utm_campaign" => "c1", "trigger" => "gate.save", "page" => "/app"},
-               "attribution" => %{"fbp" => "fb.1.1700000000.123", "fbc" => "fb.1.1700000000.IwAR", "evil" => "x"}
+               "attribution" => %{"consent" => true, "fbp" => "fb.1.1700000000.123", "fbc" => "fb.1.1700000000.IwAR", "evil" => "x"}
              })
 
     account = Repo.get_by!(Account, email: "ads1@gmail.com")
@@ -44,6 +44,7 @@ defmodule StabileoMarketing.SignUpsTest do
     assert event["user_data"]["fbp"] == "fb.1.1700000000.123"
     assert event["user_data"]["client_ip_address"] == "203.0.113.9"
     refute Map.has_key?(event["user_data"], "evil")
+    refute Map.has_key?(event["user_data"], "consent")
     refute inspect(job.args) =~ "EAAB-token"
   end
 
@@ -51,6 +52,20 @@ defmodule StabileoMarketing.SignUpsTest do
     assert {:ok, _payload} = sign_up("ads2@gmail.com", %{})
     account = Repo.get_by!(Account, email: "ads2@gmail.com")
     assert Repo.get_by!(SignupSource, account_id: account.id).channel == "direct"
+    assert all_enqueued(worker: MetaConversionSender) == []
+  end
+
+  test "without advertising consent the source is kept and nothing goes to Meta" do
+    configure(%{"meta_pixel_id" => "123456789", "meta_capi_access_token" => "EAAB-token-0123456789"})
+
+    assert {:ok, _} =
+             sign_up("ads5@gmail.com", %{
+               "source" => %{"utm_source" => "ig", "utm_medium" => "paid", "utm_campaign" => "c1"},
+               "attribution" => %{"fbp" => "fb.1.1700000000.123"}
+             })
+
+    account = Repo.get_by!(Account, email: "ads5@gmail.com")
+    assert Repo.get_by!(SignupSource, account_id: account.id).utm_campaign == "c1"
     assert all_enqueued(worker: MetaConversionSender) == []
   end
 
@@ -63,7 +78,7 @@ defmodule StabileoMarketing.SignUpsTest do
 
   test "a pixel cookie with a NUL byte is dropped instead of failing the sign-up" do
     configure(%{"meta_pixel_id" => "123456789", "meta_capi_access_token" => "EAAB-token-0123456789"})
-    assert {:ok, _} = sign_up("ads4@gmail.com", %{"attribution" => %{"fbp" => "fb.1." <> <<0>>}})
+    assert {:ok, _} = sign_up("ads4@gmail.com", %{"attribution" => %{"consent" => true, "fbp" => "fb.1." <> <<0>>}})
     assert [job] = all_enqueued(worker: MetaConversionSender)
     refute Map.has_key?(hd(job.args["events"])["user_data"], "fbp")
   end

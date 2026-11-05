@@ -1,24 +1,20 @@
 defmodule StabileoMarketing.Acquisition do
   @moduledoc """
-  Where the accounts created in a period came from and what they did next,
-  from our own database: per channel and per trigger, how many reached each
-  milestone, and how many came back. Accounts created before sources were
-  recorded count under the channel `unknown`.
-
-  Coming back is having used the app on a day from the 1st to the 7th after
-  signing up; only accounts at least 7 days old are counted for it.
+  Campaign, ad set and ad are the ads' `utm_campaign`, `utm_term` and `utm_content`, as the
+  URL parameters in Settings → Advertising set them. Coming back counts only accounts at least
+  7 days old.
   """
 
   import Ecto.Query
 
-  alias StabileoMarketing.Ads
+  alias StabileoMarketing.Days
   alias StabileoRepo.Repo
   alias StabileoRepo.Schemas.{Account, AccountActiveDay, AccountMilestone, SignupSource}
 
-  @top_campaigns 10
+  @top_campaigns 20
 
   def report(%Date.Range{} = range, today) do
-    {from, to} = Ads.utc_bounds(range)
+    {from, to} = Days.utc_bounds(range)
 
     accounts =
       Repo.all(
@@ -32,7 +28,9 @@ defmodule StabileoMarketing.Acquisition do
             channel: coalesce(s.channel, "unknown"),
             paid: s.paid,
             trigger: s.trigger,
-            campaign: s.utm_campaign
+            campaign: s.utm_campaign,
+            ad_set: s.utm_term,
+            ad: s.utm_content
           }
         )
       )
@@ -53,7 +51,7 @@ defmodule StabileoMarketing.Acquisition do
     rows =
       Enum.map(accounts, fn account ->
         reached = Map.get(milestones, account.id, %{})
-        signup_day = DateTime.to_date(account.at)
+        signup_day = Days.local_date(account.at)
 
         Map.merge(account, %{
           analyzed: Map.has_key?(reached, "first_analysis"),
@@ -77,15 +75,27 @@ defmodule StabileoMarketing.Acquisition do
         rows
         |> Enum.filter(&(&1.campaign != nil))
         |> Enum.group_by(&{&1.channel, &1.campaign})
-        |> Enum.map(fn {{channel, campaign}, group} -> Map.merge(summary(group), %{channel: channel, campaign: campaign}) end)
+        |> Enum.map(fn {{channel, campaign}, group} ->
+          Map.merge(summary(group), %{channel: channel, campaign: campaign, ad_sets: ad_sets(group)})
+        end)
         |> Enum.sort_by(&{-&1.accounts, &1.campaign})
         |> Enum.take(@top_campaigns),
       daily:
         Enum.map(range, fn date ->
-          today_rows = Enum.filter(rows, &(Ads.local_date(&1.at) == date))
+          today_rows = Enum.filter(rows, &(Days.local_date(&1.at) == date))
           %{date: date, accounts: length(today_rows), by_channel: Enum.frequencies_by(today_rows, & &1.channel)}
         end)
     }
+  end
+
+  defp ad_sets(rows) do
+    rows
+    |> Enum.group_by(& &1.ad_set)
+    |> Enum.map(fn {ad_set, group} ->
+      ads = group |> Enum.group_by(& &1.ad) |> Enum.map(fn {ad, ad_rows} -> Map.put(summary(ad_rows), :ad, ad) end)
+      Map.merge(summary(group), %{ad_set: ad_set, ads: Enum.sort_by(ads, &(-&1.accounts))})
+    end)
+    |> Enum.sort_by(&(-&1.accounts))
   end
 
   defp group(rows, key, name) do

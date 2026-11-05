@@ -1,9 +1,5 @@
 defmodule StabileoMarketing.HttpClient do
-  @moduledoc """
-  HTTP transport for the Meta and Google APIs, injectable through
-  `config :stabileo_marketing, StabileoMarketing.HttpClient, Module` so tests
-  drive the parsing without the network.
-  """
+  @moduledoc "Swapped in tests through `config :stabileo_marketing, StabileoMarketing.HttpClient`."
 
   @type header :: {String.t(), String.t()}
 

@@ -1,9 +1,5 @@
 defmodule StabileoMarketing.Workers.MetaConversionSender do
-  @moduledoc """
-  Posts the events built by `StabileoMarketing.Conversions` to Meta's
-  Conversions API, with the test event code when one is saved. The access
-  token is read at send time and never kept in the job's args.
-  """
+  @moduledoc "The token is read at send time and never kept in the job's args."
 
   use Oban.Worker, queue: :ad_conversions, max_attempts: 5
 
