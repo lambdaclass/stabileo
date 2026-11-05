@@ -335,7 +335,6 @@ pub fn limit_analysis_2d(input: &SolverInput, mp: &HashMap<usize, f64>, np: &Has
         }
     }
 
-    let mut best: Option<(f64, Vec<f64>, Vec<f64>)> = None;
     for _ in 0..MAX_ROUNDS {
         let k = samples.len();
         let mut a = vec![Vec::with_capacity(2 * k); r + 1];
@@ -415,9 +414,7 @@ pub fn limit_analysis_2d(input: &SolverInput, mp: &HashMap<usize, f64>, np: &Has
                 }
             }
         }
-        best = Some((lam, z, signed));
         if worst <= 1.0 + 1e-10 || added.is_empty() {
-            let (lam, _, signed) = best.take().unwrap();
             let big = signed.iter().fold(0.0f64, |x, v| x.max(v.abs()));
             let mut hinges: Vec<LimitHinge> = Vec::new();
             for (s, &mu) in samples.iter().zip(&signed) {
