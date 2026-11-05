@@ -67,6 +67,18 @@ TEST = '''
 #[test]
 fn beam_units_scale() {
     let r = dedaliano_engine::solver::beam::solve_beam_2d_typed(&scaled());
+    check_scaled(&r, &base());
+}
+
+#[test]
+fn beam_call_only() {
+    let _ = dedaliano_engine::solver::beam::solve_beam_2d_typed(&scaled());
+}
+
+#[test]
+fn beam_assert_macro() {
+    let r = dedaliano_engine::solver::beam::solve_beam_2d_typed(&scaled());
+    assert_eq!(r, expected);
 }
 
 #[test]
@@ -97,6 +109,7 @@ use dedaliano_engine::solver::beam::{other, solve_beam_2d_typed as _, solve_beam
 #[test]
 fn beam_imported() {
     let r = solve_beam_2d_typed(&scaled());
+    assert!(close(&r));
 }
 
 #[test]
@@ -107,6 +120,7 @@ fn session_prepared_only() {
 #[test]
 fn session_through_constructor() {
     let r = Session::from_input(x)?.solve_loads(&loads);
+    compare_with_regular(&r);
 }
 
 fn not_a_test() { solve_beam_2d_typed(&x); }
@@ -321,6 +335,8 @@ class Coverage(unittest.TestCase):
         self.assertIn('no #[test] fn', self.status('units', {'test': 'engine/tests/beam_invariance.rs::not_a_test'})[0])
         self.assertIn('does not call beam::solve_beam_2d_typed', self.status('units', {'test': 'engine/tests/beam_invariance.rs::beam_through_legacy'})[0])
         self.assertEqual(self.status('units', {'test': 'engine/tests/beam_invariance.rs::beam_imported'}), [])
+        self.assertEqual(self.status('units', {'test': 'engine/tests/beam_invariance.rs::beam_assert_macro'}), [])
+        self.assertIn('compares nothing', self.status('units', {'test': 'engine/tests/beam_invariance.rs::beam_call_only'})[0])
         self.assertIn('no such test file', self.status('units', {'test': 'engine/tests/nope.rs::x'})[0])
         self.assertIn('ignored or conditionally compiled', self.status('units', {'test': 'engine/tests/beam_invariance.rs::beam_ignored'})[0])
         self.assertIn('ignored or conditionally compiled', self.status('units', {'test': 'engine/tests/beam_invariance.rs::beam_gated'})[0])

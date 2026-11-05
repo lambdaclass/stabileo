@@ -199,9 +199,12 @@ def status(value, key, target, doc, tables, rows, helpers, read):
             return [f'{value["test"]}: no #[test] fn {test!r} in {file}']
         if re.search(r'#\[\s*(?:ignore|cfg|cfg_attr)\b', attributes):
             return [f'{value["test"]}: an ignored or conditionally compiled test does not run in the PR tier']
-        missing = [t for t in target if not calls(code[slice(*block(code, match.end()))], t, code)]
+        body = code[slice(*block(code, match.end()))]
+        missing = [t for t in target if not calls(body, t, code)]
         if missing:
             return [f'{value["test"]}: the test does not call {", ".join(missing)}, so it does not cover this entry point']
+        if not re.search(r'\b(?:assert\w*!|(?:assert|check|compare)_\w+\s*\()', body):
+            return [f'{value["test"]}: the test compares nothing (no assert!, assert_*, check_* or compare_* call), so it checks no invariance']
         return []
     if set(value) == {'metamorphic', 'analysis'}:
         section, analysis = value['metamorphic'], value['analysis']
