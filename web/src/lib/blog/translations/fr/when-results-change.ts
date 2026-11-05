@@ -111,7 +111,7 @@ const body: PostBody = {
         ],
         [
           "27–29",
-          "Les changements de Basic retirés par la version 15 reviennent, revus",
+          "Trois changements de Basic retirés par la version 15 reviennent, revus : effondrement plastique, P-Δ et le signe des lignes d’influence du moment",
           "Correction"
         ]
       ]
@@ -160,8 +160,8 @@ const body: PostBody = {
       "base": "blog/results-refusal",
       "w": 1600,
       "h": 1000,
-      "alt": "Stabileo Basic avec l’exemple du mécanisme caché : une poutre à deux travées sur trois appuis à rouleau horizontaux. Le panneau d’analyse cinématique montre que le décompte des degrés est nul, et un message indique que la structure est instable, un mécanisme, car aucun appui ne retient le déplacement horizontal ; aucun résultat n’est donc affiché.",
-      "caption": "Un refus : un modèle qui est un mécanisme reçoit un message qui dit pourquoi, et aucun chiffre."
+      "alt": "Stabileo Basic avec l’exemple du mécanisme caché : une poutre à deux travées sur trois appuis qui glissent tous horizontalement, sous une charge uniforme de 10 kN/m. Après le calcul, aucun diagramme n’est tracé ; un message rouge dans le coin indique que la structure est instable, un mécanisme, car aucun appui ne retient le déplacement horizontal, avec un bouton pour voir l’analyse cinématique.",
+      "caption": "La même règle hors de l’inventaire : un modèle qui est un mécanisme reçoit un message qui dit pourquoi, et aucun chiffre."
     },
     {
       "k": "p",
@@ -289,8 +289,8 @@ const body: PostBody = {
       "base": "blog/results-changelog",
       "w": 1600,
       "h": 1000,
-      "alt": "La page du journal des modifications de Stabileo sur le site web, listant les derniers changements par date, avec en tête de chaque jour les changements de résultats et leurs avis de sécurité.",
-      "caption": "La page du journal des modifications : chaque changement arrivé sur le site, avec les changements de résultats en premier."
+      "alt": "La page du journal des modifications de Stabileo sur le site web : en premier l’entrée la plus récente, du 6 novembre, sur des résultats erronés corrigés dans les vérifications de dimensionnement et la dynamique, qui commence par ses changements du moteur, et à gauche les filtres par domaine.",
+      "caption": "La page du journal des modifications, le plus récent d’abord, qui s’ouvre sur les corrections de cette semaine qui changent des résultats."
     },
     {
       "k": "h",

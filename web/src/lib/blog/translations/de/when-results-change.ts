@@ -111,7 +111,7 @@ const body: PostBody = {
         ],
         [
           "27–29",
-          "Die von Version 15 zurückgezogenen Änderungen in Basic kehren geprüft zurück",
+          "Drei von Version 15 zurückgezogene Änderungen in Basic kehren geprüft zurück: plastischer Kollaps, P-Δ und das Vorzeichen der Momenten-Einflusslinien",
           "Korrektur"
         ]
       ]
@@ -160,8 +160,8 @@ const body: PostBody = {
       "base": "blog/results-refusal",
       "w": 1600,
       "h": 1000,
-      "alt": "Stabileo Basic mit dem Beispiel des verborgenen Mechanismus: ein Zweifeldträger auf drei horizontalen Rollenlagern. Das Panel der kinematischen Analyse zeigt, dass die Gradzählung null ergibt, und eine Meldung sagt, dass das Tragwerk instabil ist, ein Mechanismus, weil kein Lager die horizontale Bewegung behindert; daher wird kein Ergebnis angezeigt.",
-      "caption": "Eine Ablehnung: Ein Modell, das ein Mechanismus ist, erhält eine Meldung, die sagt, warum, und keine Zahlen."
+      "alt": "Stabileo Basic mit dem Beispiel des verborgenen Mechanismus: ein Zweifeldträger auf drei Lagern, die alle horizontal verschieblich sind, unter einer Gleichlast von 10 kN/m. Nach dem Berechnen wird kein Diagramm gezeichnet; eine rote Meldung in der Ecke sagt, dass das Tragwerk instabil ist, ein Mechanismus, weil kein Lager die horizontale Bewegung behindert, mit einer Schaltfläche zur kinematischen Analyse.",
+      "caption": "Dieselbe Regel außerhalb des Verzeichnisses: Ein Modell, das ein Mechanismus ist, erhält eine Meldung, die sagt, warum, und keine Zahlen."
     },
     {
       "k": "p",
@@ -289,8 +289,8 @@ const body: PostBody = {
       "base": "blog/results-changelog",
       "w": 1600,
       "h": 1000,
-      "alt": "Die Seite mit dem Änderungsprotokoll von Stabileo auf der Website, mit den neuesten Änderungen nach Datum und den Ergebnisänderungen samt ihren Sicherheitshinweisen oben an jedem Tag.",
-      "caption": "Die Seite mit dem Änderungsprotokoll: jede Änderung, die die Website erreicht hat, mit den Ergebnisänderungen zuerst."
+      "alt": "Die Seite mit dem Änderungsprotokoll von Stabileo auf der Website: zuoberst der neueste Eintrag vom 6. November über behobene falsche Ergebnisse in Bemessungsnachweisen und Dynamik, beginnend mit seinen Änderungen am Rechenkern, links die Filter nach Bereich.",
+      "caption": "Die Seite mit dem Änderungsprotokoll, das Neueste zuerst, beginnend mit den Korrekturen dieser Woche, die Ergebnisse ändern."
     },
     {
       "k": "h",

@@ -111,7 +111,7 @@ const body: PostBody = {
         ],
         [
           "27–29",
-          "15. sürümün geri çektiği Basic değişiklikleri incelenmiş olarak geri dönüyor",
+          "15. sürümün geri çektiği üç Basic değişikliği incelenmiş olarak geri dönüyor: plastik göçme, P-Δ ve moment etki çizgilerinin işareti",
           "Düzeltme"
         ]
       ]
@@ -160,8 +160,8 @@ const body: PostBody = {
       "base": "blog/results-refusal",
       "w": 1600,
       "h": 1000,
-      "alt": "Gizli mekanizma örneğiyle Stabileo Basic: üç yatay kayıcı mesnet üzerinde iki açıklıklı bir kiriş. Kinematik analiz paneli derece sayımının sıfır olduğunu gösteriyor ve bir mesaj, hiçbir mesnet yatay hareketi tutmadığı için yapının kararsız, yani bir mekanizma olduğunu söylüyor; bu yüzden hiçbir sonuç gösterilmiyor.",
-      "caption": "Bir reddetme: mekanizma olan bir model, nedenini söyleyen bir mesaj alır ve hiçbir sayı almaz."
+      "alt": "Gizli mekanizma örneğiyle Stabileo Basic: hepsi yatay olarak kayabilen üç mesnet üzerinde, 10 kN/m düzgün yayılı yük taşıyan iki açıklıklı bir kiriş. Çözdükten sonra hiçbir diyagram çizilmiyor; köşedeki kırmızı bir mesaj, hiçbir mesnet yatay hareketi tutmadığı için yapının kararsız, yani bir mekanizma olduğunu söylüyor ve kinematik analizi gösteren bir düğme sunuyor.",
+      "caption": "Aynı kural defterin dışında da geçerli: mekanizma olan bir model, nedenini söyleyen bir mesaj alır ve hiçbir sayı almaz."
     },
     {
       "k": "p",
@@ -289,8 +289,8 @@ const body: PostBody = {
       "base": "blog/results-changelog",
       "w": 1600,
       "h": 1000,
-      "alt": "Web sitesindeki Stabileo değişiklik günlüğü sayfası; son değişiklikleri tarihe göre listeliyor ve her günün en üstünde sonuç değişikliklerini ve onların güvenlik uyarılarını gösteriyor.",
-      "caption": "Değişiklik günlüğü sayfası: siteye ulaşan her değişiklik, önce sonuç değişiklikleri."
+      "alt": "Web sitesindeki Stabileo değişiklik günlüğü sayfası: en üstte 6 Kasım tarihli en yeni kayıt, tasarım kontrollerinde ve dinamikte düzeltilen yanlış sonuçlar hakkında, motor değişiklikleriyle başlıyor; solda alana göre filtreler.",
+      "caption": "Değişiklik günlüğü sayfası, en yenisi önce; bu haftanın sonuçları değiştiren düzeltmeleriyle açılıyor."
     },
     {
       "k": "h",

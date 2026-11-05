@@ -25,7 +25,7 @@ test('re-check notice on an example frame solved with results version 15', async
   await page.goto('/app/basic?e2e=1');
   await page.evaluate(() => window.__stabileoActions.loadExample('frame-cirsoc-dl'));
   await page.waitForTimeout(2000);
-  const file = JSON.parse(await page.evaluate(() => window.__stabileoActions.serializeProject()));
+  const file = JSON.parse(await page.evaluate(() => (window.__stabileo as unknown as { serializeProject(): string }).serializeProject()));
   file.snapshot.solvedWith = { id: 'blog', resultsVersion: 15, analyses: ['linear', 'buckling', 'pdelta'] };
   expect(await page.evaluate((f) => window.__stabileoActions.loadProject(f), file)).toBe(true);
   await expect(page.getByTestId('recheck-notice')).toBeVisible({ timeout: 30_000 });

@@ -70,7 +70,7 @@ export const whenResultsChange: Post = {
             'A refusal withholds the result and says why, when the number can be wrong by a large factor with no way to notice from the output, such as a factor that changes several times over with the numbering of the members.',
           ],
         },
-        { k: 'img', base: 'blog/results-refusal', w: 1600, h: 1000, alt: 'Stabileo Basic with the hidden-mechanism example: a two-span beam on three horizontal rollers. The kinematic analysis panel shows that the degree count is zero, and a message says the structure is unstable, a mechanism, because no support restrains horizontal movement, so no result is shown.', caption: 'A refusal: a model that is a mechanism gets a message that says why, and no numbers.' },
+        { k: 'img', base: 'blog/results-refusal', w: 1600, h: 1000, alt: 'Stabileo Basic with the hidden-mechanism example: a two-span beam on three supports that all roll horizontally, under a uniform load of 10 kN/m. After Solve, no diagram is drawn; a red message in the corner says “Unstable structure (mechanism): no horizontal restraint at any support.” with a button to view the kinematic analysis.', caption: 'The same rule outside the ledger: a model that is a mechanism gets a message that says why, and no numbers.' },
         { k: 'p', t: 'Containment is kept in a ledger that lists every open safety issue, its warning or refusal, the condition that triggers it and the test that shows it fires, or the evidence that no containment is needed. A test keeps the ledger and the engine’s list of known issues in agreement, and a scheduled job compares the ledger with the issues open on GitHub. The conditions are narrow on purpose: across the 39 models of the results corpus, each warning fires on at most two. The pull request that completes this ledger for every open issue (#807) is in its final review as this is written; it lands before release 0.5.0.' },
         { k: 'p', t: 'A containment ends when its fix lands, and it ends in the same pull request. This week #1295 removed the refusal of 3D-to-2D cuts that bent members about the wrong axis, because the cut is now right; #1301 replaced a warning on every 3D co-rotational solve with one that fires only when a member end turns more than 0.02 rad against its chord, where the remaining approximation can matter.' },
 
@@ -108,7 +108,7 @@ export const whenResultsChange: Post = {
             ['SA-2026-042', '2D buckling overstated the factor of members whose compression grows along them', 'High'],
           ],
         },
-        { k: 'img', base: 'blog/results-changelog', w: 1600, h: 1000, alt: 'The Stabileo changelog page on the website, listing the latest changes by date, with the result changes and their advisories at the top of each day.', caption: 'The changelog page: every change that reached the site, with the result changes first.' },
+        { k: 'img', base: 'blog/results-changelog', w: 1600, h: 1000, alt: 'The Stabileo changelog page on the website: the newest entry first, for 6 November, titled “Wrong results fixed in design checks and dynamics, corrected generated loads, and PRO’s analysis mode completed”, opening with its engine changes, and filters by area on the left.', caption: 'The changelog page, newest first, opening with this week’s fixes that change results.' },
 
         { k: 'h', t: 'What this does not do' },
         {
@@ -166,7 +166,7 @@ export const whenResultsChange: Post = {
             ['24', 'Análisis corrotacional 3D con grandes rotaciones alrededor de varios ejes (SA-2026-037)', 'Corrección'],
             ['25', 'Restricciones de un modelo 2D cortado de un plano Y–Z o X–Y (SA-2026-036)', 'Corrección'],
             ['26', 'El valor determinante de una barra y la envolvente 2D leen el pico real', 'Corrección'],
-            ['27–29', 'Vuelven, revisados, los cambios de Básico retirados por la versión 15', 'Corrección'],
+            ['27–29', 'Vuelven, revisados, tres cambios de Básico retirados por la versión 15: colapso plástico, P-Δ y el signo de las líneas de influencia de momento', 'Corrección'],
           ],
         },
 
@@ -185,7 +185,7 @@ export const whenResultsChange: Post = {
             'Un rechazo retiene el resultado y dice por qué, cuando el número puede estar equivocado por un factor grande sin forma de notarlo en la salida, como un factor que pasa a ser varias veces mayor o menor según la numeración de las barras.',
           ],
         },
-        { k: 'img', base: 'blog/results-refusal', w: 1600, h: 1000, alt: 'Stabileo Básico con el ejemplo del mecanismo oculto: una viga de dos tramos sobre tres apoyos móviles horizontales. El panel de análisis cinemático muestra que el conteo de grados es cero, y un mensaje dice que la estructura es inestable, un mecanismo, porque ningún apoyo restringe el movimiento horizontal, así que no se muestra ningún resultado.', caption: 'Un rechazo: un modelo que es un mecanismo recibe un mensaje que dice por qué, y ningún número.' },
+        { k: 'img', base: 'blog/results-refusal', w: 1600, h: 1000, alt: 'Stabileo Básico con el ejemplo del mecanismo oculto: una viga de dos tramos sobre tres apoyos que se deslizan todos en horizontal, con una carga uniforme de 10 kN/m. Después de calcular no se dibuja ningún diagrama; un mensaje rojo en la esquina dice que la estructura es inestable, un mecanismo, porque ningún apoyo restringe el movimiento horizontal, con un botón para ver el análisis cinemático.', caption: 'La misma regla fuera del inventario: un modelo que es un mecanismo recibe un mensaje que dice por qué, y ningún número.' },
         { k: 'p', t: 'La contención se lleva en un inventario que lista cada problema de seguridad abierto, su advertencia o rechazo, la condición que lo dispara y el test que muestra que se dispara, o la evidencia de que no hace falta contención. Un test mantiene de acuerdo el inventario y la lista de problemas conocidos del motor, y un trabajo programado compara el inventario con los issues abiertos en GitHub. Las condiciones son estrechas a propósito: en los 39 modelos del corpus de resultados, cada advertencia se dispara como mucho en dos. El pull request que completa este inventario para cada issue abierto (#807) está en su revisión final mientras se escribe esto; entra antes de la versión 0.5.0.' },
         { k: 'p', t: 'Una contención termina cuando entra su corrección, y termina en el mismo pull request. Esta semana #1295 quitó el rechazo de los cortes de 3D a 2D que flexionaban barras alrededor del eje equivocado, porque el corte ahora está bien; #1301 reemplazó una advertencia en cada cálculo corrotacional 3D por una que se dispara sólo cuando el extremo de una barra gira más de 0,02 rad respecto de su cuerda, donde la aproximación que queda puede importar.' },
 
@@ -223,7 +223,7 @@ export const whenResultsChange: Post = {
             ['SA-2026-042', 'El pandeo 2D sobrestimaba el factor de las barras cuya compresión crece a lo largo de ellas', 'Alta'],
           ],
         },
-        { k: 'img', base: 'blog/results-changelog', w: 1600, h: 1000, alt: 'La página del registro de cambios de Stabileo en el sitio web, con los últimos cambios por fecha y, arriba de cada día, los cambios de resultados y sus avisos de seguridad.', caption: 'La página del registro de cambios: cada cambio que llegó al sitio, con los cambios de resultados primero.' },
+        { k: 'img', base: 'blog/results-changelog', w: 1600, h: 1000, alt: 'La página del registro de cambios de Stabileo en el sitio web: primero la entrada más nueva, del 6 de noviembre, sobre resultados equivocados corregidos en verificaciones de diseño y dinámica, que empieza por sus cambios en el motor, y a la izquierda los filtros por área.', caption: 'La página del registro de cambios, lo más nuevo primero, que abre con las correcciones de esta semana que cambian resultados.' },
 
         { k: 'h', t: 'Lo que esto no hace' },
         {
@@ -281,7 +281,7 @@ export const whenResultsChange: Post = {
             ['24', 'Análise corrotacional 3D com grandes rotações em torno de vários eixos (SA-2026-037)', 'Correção'],
             ['25', 'Restrições de um modelo 2D cortado de um plano Y–Z ou X–Y (SA-2026-036)', 'Correção'],
             ['26', 'O valor determinante de uma barra e a envoltória 2D leem o pico real', 'Correção'],
-            ['27–29', 'Voltam, revisadas, as mudanças do Básico retiradas pela versão 15', 'Correção'],
+            ['27–29', 'Voltam, revisadas, três mudanças do Básico retiradas pela versão 15: colapso plástico, P-Δ e o sinal das linhas de influência de momento', 'Correção'],
           ],
         },
 
@@ -300,7 +300,7 @@ export const whenResultsChange: Post = {
             'Uma recusa retém o resultado e diz por quê, quando o número pode estar errado por um fator grande sem como perceber pela saída, como um fator que fica várias vezes maior ou menor conforme a numeração das barras.',
           ],
         },
-        { k: 'img', base: 'blog/results-refusal', w: 1600, h: 1000, alt: 'Stabileo Básico com o exemplo do mecanismo oculto: uma viga de dois vãos sobre três apoios móveis horizontais. O painel de análise cinemática mostra que a contagem de graus é zero, e uma mensagem diz que a estrutura é instável, um mecanismo, porque nenhum apoio restringe o movimento horizontal, então nenhum resultado é mostrado.', caption: 'Uma recusa: um modelo que é um mecanismo recebe uma mensagem que diz por quê, e nenhum número.' },
+        { k: 'img', base: 'blog/results-refusal', w: 1600, h: 1000, alt: 'Stabileo Básico com o exemplo do mecanismo oculto: uma viga de dois vãos sobre três apoios que deslizam todos na horizontal, com uma carga uniforme de 10 kN/m. Depois de calcular, nenhum diagrama é desenhado; uma mensagem vermelha no canto diz que a estrutura é instável, um mecanismo, porque nenhum apoio restringe o movimento horizontal, com um botão para ver a análise cinemática.', caption: 'A mesma regra fora do inventário: um modelo que é um mecanismo recebe uma mensagem que diz por quê, e nenhum número.' },
         { k: 'p', t: 'A contenção é mantida em um inventário que lista cada problema de segurança aberto, sua advertência ou recusa, a condição que a dispara e o teste que mostra que ela dispara, ou a evidência de que nenhuma contenção é necessária. Um teste mantém de acordo o inventário e a lista de problemas conhecidos do motor, e uma tarefa agendada compara o inventário com as issues abertas no GitHub. As condições são estreitas de propósito: nos 39 modelos do corpus de resultados, cada advertência dispara em no máximo dois. O pull request que completa este inventário para cada issue aberta (#807) está em revisão final enquanto isto é escrito; ele entra antes da versão 0.5.0.' },
         { k: 'p', t: 'Uma contenção termina quando sua correção entra, e termina no mesmo pull request. Esta semana, o #1295 removeu a recusa dos cortes de 3D para 2D que fletiam barras em torno do eixo errado, porque o corte agora está certo; o #1301 substituiu uma advertência em todo cálculo corrotacional 3D por uma que dispara só quando a extremidade de uma barra gira mais de 0,02 rad em relação à sua corda, onde a aproximação que resta pode importar.' },
 
@@ -338,7 +338,7 @@ export const whenResultsChange: Post = {
             ['SA-2026-042', 'A flambagem 2D superestimava o fator das barras cuja compressão cresce ao longo delas', 'Alta'],
           ],
         },
-        { k: 'img', base: 'blog/results-changelog', w: 1600, h: 1000, alt: 'A página do registro de mudanças do Stabileo no site, com as últimas mudanças por data e, no topo de cada dia, as mudanças de resultados e seus avisos de segurança.', caption: 'A página do registro de mudanças: cada mudança que chegou ao site, com as mudanças de resultados primeiro.' },
+        { k: 'img', base: 'blog/results-changelog', w: 1600, h: 1000, alt: 'A página do registro de mudanças do Stabileo no site: primeiro a entrada mais nova, de 6 de novembro, sobre resultados errados corrigidos em verificações de dimensionamento e dinâmica, que começa pelas mudanças no motor, e à esquerda os filtros por área.', caption: 'A página do registro de mudanças, o mais novo primeiro, que abre com as correções desta semana que mudam resultados.' },
 
         { k: 'h', t: 'O que isto não faz' },
         {
