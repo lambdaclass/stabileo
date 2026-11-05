@@ -80,10 +80,10 @@ impl Confirmation {
 #[serde(rename_all = "camelCase")]
 pub struct LimitInput {
     pub solver: SolverInput,
-    /// Plastic moment per element id; a missing or non-finite entry never yields in bending.
+    /// Plastic moment per element id; every frame needs a finite, positive entry or the input is refused.
     #[serde(default)]
     pub mp: HashMap<String, f64>,
-    /// Axial yield force per element id; a missing or non-finite entry never yields axially.
+    /// Axial yield force per element id, positive; a missing entry never yields axially, an infinite one is refused.
     #[serde(default)]
     pub np: HashMap<String, f64>,
 }
