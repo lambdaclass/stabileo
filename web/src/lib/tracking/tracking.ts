@@ -18,7 +18,7 @@ export type TrackingIds = { meta_pixel_id: string | null; gtm_container_id: stri
 type PixelCall = ['track' | 'trackCustom', string, Record<string, unknown>?, { eventID: string }?];
 type Emission = { pixel: PixelCall; gtm: Record<string, unknown> };
 
-const RELAY = '__stabileoTracking';
+const RELAY = 'stbTrackingRelay';
 const TIMEOUT_MS = 3000;
 
 let ready: Promise<TrackingIds | null> | null = null;

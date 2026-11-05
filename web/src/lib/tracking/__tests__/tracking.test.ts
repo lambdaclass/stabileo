@@ -96,7 +96,7 @@ describe('tracking', () => {
   it('inside the register page frame, events go to the page above', async () => {
     const relay = vi.fn();
     const { win } = stubBrowser({ framed: true });
-    (win.top as Record<string, unknown>).__stabileoTracking = relay;
+    (win.top as Record<string, unknown>).stbTrackingRelay = relay;
     await startTracking(async () => ids);
     tracking.completeRegistration('acc-2');
     expect(relay).toHaveBeenCalledWith({ pixel: ['track', 'CompleteRegistration', {}, { eventID: 'acc-2' }], gtm: { event: 'sign_up', event_id: 'acc-2' } });
