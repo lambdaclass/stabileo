@@ -43,6 +43,6 @@ it('rejects invalid inputs', () => {
 it('prerender captures the same worked-example formatter and routes', () => {
   const page = readFileSync(new URL('../ToolsPage.svelte', import.meta.url), 'utf8');
   expect(page).toContain('data-value={format(formula(id, example).value)}');
-  const script = readFileSync(new URL('../../../../scripts/prerender.ts', import.meta.url), 'utf8');
+  const script = readFileSync(new URL('../../../../scripts/public-paths.ts', import.meta.url), 'utf8');
   for (const id of TOOL_IDS) expect(script).toContain(`/tools/${id}`);
 });

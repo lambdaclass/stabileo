@@ -64,6 +64,17 @@ const RELEASED: Record<number, string[]> = {
     'basic-plastic-unloading-hinges-withdrawn', 'basic-second-order-split-members-withdrawn',
     'basic-influence-line-moment-sign-withdrawn',
   ],
+  16: ['aluminium-weak-axis-shear'],
+  17: ['joint-weak-axis-moment'],
+  18: ['rc-other-codes-torsion-unchecked'],
+  19: ['rc-column-least-compression'],
+  20: ['generated-area-loads-headroom'],
+  21: ['shell-figures-paint-the-screen-field'],
+  22: ['hidden-mechanism-2d-refused'],
+  23: ['buckling-2d-varying-axial-force'],
+  24: ['corotational-3d-rotations'],
+  25: ['constraint-cut-plane'],
+  26: ['governing-envelope-true-peak'],
   27: ['basic-influence-line-moment-sign-returns'],
 };
 
@@ -84,11 +95,12 @@ describe('results versions', () => {
     const stamp = { resultsVersion: 4, analyses: ['modal'] } as unknown as SolveStamp;
     const ids = (resultsVersion: number) => assessProject(frame, { ...stamp, resultsVersion }, 'pro').changes.map((c) => c.id).sort();
     for (const version of [4, 5, 6, 7, 8]) {
-      expect(ids(version)).toEqual(['modal-mechanism-refused', 'modal-repeated-eigenspace-completeness', 'static-modal-runtime-self-checks']);
+      expect(ids(version)).toEqual(['corotational-3d-rotations', 'modal-mechanism-refused', 'modal-repeated-eigenspace-completeness', 'static-modal-runtime-self-checks']);
     }
-    expect(ids(9)).toEqual(['modal-mechanism-refused', 'static-modal-runtime-self-checks']);
-    for (const version of [10, 11, 12]) expect(ids(version)).toEqual(['modal-mechanism-refused']);
-    expect(ids(13)).toEqual([]);
+    expect(ids(9)).toEqual(['corotational-3d-rotations', 'modal-mechanism-refused', 'static-modal-runtime-self-checks']);
+    for (const version of [10, 11, 12]) expect(ids(version)).toEqual(['corotational-3d-rotations', 'modal-mechanism-refused']);
+    expect(ids(13)).toEqual(['corotational-3d-rotations']);
+    expect(ids(RESULT_CHANGES.currentResultsVersion)).toEqual([]);
   });
 
   it('stamps the committed project fixture with the current version', () => {

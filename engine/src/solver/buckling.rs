@@ -4,7 +4,7 @@ use crate::linalg::*;
 use super::dof::DofNumbering;
 use super::assembly::*;
 use super::geometric_stiffness::{
-    emit_geometric_stiffness_2d, emit_geometric_stiffness_3d, KgTriplets,
+    emit_geometric_stiffness_2d, emit_geometric_stiffness_3d, span_axial_geometric_stiffness_2d, KgTriplets,
 };
 use super::constraints::FreeConstraintSystem;
 
@@ -106,6 +106,13 @@ pub fn buckling_system_2d(input: &SolverInput) -> Result<BucklingSystem2D, Strin
     let neg_kg_csc = {
         let mut kg = KgTriplets::new(if inclined_transforms_2d.is_empty() { nf } else { dof_num.n_total });
         emit_geometric_stiffness_2d(input, &dof_num, &u, &mut |i, j, v| if i >= j { kg.add(i, j, v) });
+        for (_, dofs, g) in span_axial_geometric_stiffness_2d(input, &dof_num) {
+            for (a, &i) in dofs.iter().enumerate() {
+                for (b, &j) in dofs.iter().enumerate() {
+                    if i >= j { kg.add(i, j, g[a * dofs.len() + b]) }
+                }
+            }
+        }
         if !inclined_transforms_2d.is_empty() {
             kg = kg.rotate_inclined(&inclined_transforms_2d, nf);
         }

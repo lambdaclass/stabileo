@@ -1,6 +1,6 @@
 # Nightly verification
 
-`nightly.yml` starts at 05:00 UTC and accepts `workflow_dispatch`. Set the
+`nightly.yml` starts at 00:00 UTC and accepts `workflow_dispatch`. A dispatch takes the nightly pool only between 00:00 and 07:00 UTC and runs on `ubuntu-24.04` the rest of the day, so pull requests and the merge queue keep the hosts' CPU. Set the
 repository Actions variable `STABILEO_SELF_HOSTED=true` to route compute jobs on
 `main` to the nightly pool, `[self-hosted, stabileo-nightly]`. Otherwise they use `ubuntu-24.04`.
 No scheduled job may reach the merge queue's runners (`stabileo`, `stabileo-pr`, `stabileo-e2e`,

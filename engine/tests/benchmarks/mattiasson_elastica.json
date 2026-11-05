@@ -6,6 +6,12 @@
   },
   "accuracyTolerance": 0.001,
   "accuracyPolicy": "Both signed components strictly below 0.1%: 16/32/64-element force errors <=0.0801/0.0384/0.0281%; residual axial extension <=0.025%. Moment circular-arc discretization error <0.1%.",
+  "meshErrorCeilings": [
+    { "elements": 16, "relativeError": 0.000801 },
+    { "elements": 32, "relativeError": 0.000384 },
+    { "elements": 64, "relativeError": 0.000281 }
+  ],
+  "axialExtensionBound": 0.00025,
   "cases": [
     {
       "id": "force-0.5",

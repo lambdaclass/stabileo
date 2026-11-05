@@ -7,7 +7,7 @@
    */
   import { onMount } from 'svelte';
   import { parseProvenance } from '../lib/provenance/result-provenance';
-  import { reproduceFrom, type ReproduceOutcome } from '../lib/actions/reproduce';
+  import { reproduceFrom, reproduceStatus, OTHER_RESULT_SET, type ReproduceOutcome } from '../lib/actions/reproduce';
   import { captureFocus, cycleTabWithin } from '../lib/utils/dialog-focus';
   import { i18n, t, tp } from '../lib/i18n';
   import { baseSolverInputJson } from '../lib/store/result-provenance';
@@ -85,18 +85,16 @@
       {#if outcome}
         {#if outcome.ok}
           {@const v = outcome.verdict}
-          {@const printedOk = !outcome.printed || (outcome.printed.differences.length === 0 && outcome.printed.structural.length === 0)}
-          {@const labelsOk = !outcome.printed || outcome.printed.labels}
-          {@const status = !printedOk ? 'printed-differs' : !labelsOk && v.status === 'reproduced' ? 'incomplete' : v.status}
-          <div class="rp-verdict" class:ok={v.reproduced && printedOk && labelsOk} data-testid="reproduce-verdict" data-reproduced={v.reproduced && printedOk && labelsOk} data-status={status}>
-            <strong>{status === 'printed-differs' ? t('provenance.reproduce.printedTampered') : status === 'reproduced' ? t('provenance.reproduce.match') : status === 'incomplete' ? t('provenance.reproduce.incomplete') : t('provenance.reproduce.mismatch')}</strong>
+          {@const { status, reproduced } = reproduceStatus(outcome)}
+          <div class="rp-verdict" class:ok={reproduced} data-testid="reproduce-verdict" data-reproduced={reproduced} data-status={status}>
+            <strong>{status === 'printed-differs' && outcome.printed?.structural.includes(OTHER_RESULT_SET) ? t('provenance.reproduce.printedOtherSet') : status === 'printed-differs' ? t('provenance.reproduce.printedTampered') : status === 'reproduced' ? t('provenance.reproduce.match') : status === 'incomplete' ? t('provenance.reproduce.incomplete') : t('provenance.reproduce.mismatch')}</strong>
             <ul data-testid="reproduce-hashes">
               {#each v.hashes as h (h.field)}
                 <li data-field={h.field} data-verdict={h.verdict}>{FIELD_LABEL[h.field] ?? h.field}: {field(h.verdict)}</li>
               {/each}
             </ul>
             {#if v.model === 'differs'}<p>{t('provenance.reproduce.modelDiffers')}</p>{/if}
-            {#if outcome.printed}
+            {#if outcome.printed && !outcome.printed.structural.includes(OTHER_RESULT_SET)}
               {@const pv = outcome.printed}
               <p data-testid="reproduce-printed" data-differences={pv.differences.length} data-compared={pv.compared}>
                 {pv.differences.length === 0 && pv.structural.length === 0
@@ -113,7 +111,7 @@
               {#if pv.structural.length > 0}<p>{tp('provenance.reproduce.printedStructure', { tables: pv.structural.join(', ') })}</p>{/if}
               {#if !pv.labels && outcome.reportLocale}<p data-testid="reproduce-printed-labels">{tp('provenance.reproduce.printedLabelsOther', { language: languageName(outcome.reportLocale) })}</p>{/if}
             {:else if outcome.printed === null}
-              <p class="rp-muted">{t('provenance.reproduce.printedNone')}</p>
+              <p data-testid="reproduce-printed-none">{t('provenance.reproduce.printedNone')}</p>
             {/if}
             {#if !v.sameBuild}<p>{tp('provenance.reproduce.buildDiffers', { fields: v.buildDifferences.join(', ') })}</p>{/if}
           </div>
@@ -142,7 +140,6 @@
   .rp-verdict.ok { border-color: var(--st-ok, #2e8b57); }
   .rp-verdict ul { margin: 6px 0 0; padding-left: 18px; }
   .rp-diffs { max-height: 160px; overflow-y: auto; }
-  .rp-muted { color: var(--st-text-3); }
   .rp-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; flex-wrap: wrap; }
   .rp-btn { padding: 6px 12px; font-size: 0.75rem; border-radius: var(--st-radius); border: 1px solid var(--st-hair-strong); background: var(--st-surface-2, var(--st-surface)); color: var(--st-text); cursor: pointer; }
   .rp-btn:disabled { opacity: 0.5; cursor: not-allowed; }

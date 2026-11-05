@@ -48,7 +48,7 @@ class WallClockOutsideTheQueue(unittest.TestCase):
     def test_every_self_hosted_step_sets_the_switch(self):
         workflow = (ROOT / '.github/workflows/ci.yml').read_text()
         for name, target in [('Build and production-build tests', 'make test.web.build'),
-                             ('E2E slow suite (shard ${{ matrix.shard }}/10)', 'make e2e.web.slow')]:
+                             ('E2E slow suite (shard ${{ matrix.shard }}/${{ needs.changes.outputs.e2e_total }})', 'make e2e.web.slow')]:
             body = step(workflow, name)
             self.assertIn("NO_WALL_CLOCK: ${{ runner.environment == 'self-hosted' && '1' || '' }}", body)
             self.assertEqual(body.count(target), 2)

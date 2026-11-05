@@ -15,6 +15,7 @@ on:
       - Verification dashboard
       - Supply chain
       - Runner pools
+      - Performance
     types: [completed]
   schedule:
     - cron: "0 13 * * *" # staleness check, after every nightly run has finished
