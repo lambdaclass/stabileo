@@ -21,8 +21,8 @@ const idOf = (path) => path.slice(path.lastIndexOf('/') + 1, -'.json'.length);
 
 /**
  * `numbered`: the frozen entries with their versions. `fragments`: id → entry without a version.
- * `landings`: the fragment ids each landing on main added, oldest first. `pending`: fragments not
- * landed yet, given the version after every landing.
+ * `landings`: the fragment ids each landing on main added, oldest first. A fragment in none of
+ * them has not landed yet and takes the version after every landing.
  */
 export function assemble({ numbered, fragments, landings }) {
   const problems = [];
