@@ -108,6 +108,8 @@ pub fn enclosure_if_loaded(demand: Interval, capacity: Interval) -> Outcome<Inte
     enclosure(demand, capacity)
 }
 
+pub(crate) const NON_FINITE: &str = "non-finite value ";
+
 /// Serializes +∞ (a refused ratio, an unbounded safety factor) as JSON null and refuses NaN and −∞.
 pub fn ser_ratio<S: serde::Serializer>(v: &f64, s: S) -> Result<S::Ok, S::Error> {
     if v.is_finite() {
@@ -115,7 +117,7 @@ pub fn ser_ratio<S: serde::Serializer>(v: &f64, s: S) -> Result<S::Ok, S::Error>
     } else if *v == f64::INFINITY {
         s.serialize_none()
     } else {
-        Err(serde::ser::Error::custom(format!("non-finite value {v}")))
+        Err(serde::ser::Error::custom(format!("{NON_FINITE}{v}")))
     }
 }
 

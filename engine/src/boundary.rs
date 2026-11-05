@@ -102,7 +102,13 @@ impl Walker {
 
     fn within<T: Serialize + ?Sized>(&mut self, segment: String, value: &T) -> Result<(), Stop> {
         self.path.push(segment);
-        let r = value.serialize(&mut *self);
+        let r = value.serialize(&mut *self).map_err(|e| match e {
+            Stop::Custom(msg) => match msg.strip_prefix(crate::check::NON_FINITE).and_then(|v| v.parse().ok()) {
+                Some(value) => Stop::NonFinite(NonFinite { path: self.here(), value }),
+                None => Stop::Custom(msg),
+            },
+            e => e,
+        });
         self.path.pop();
         r
     }
@@ -393,11 +399,17 @@ mod tests {
     }
 
     #[test]
-    fn ser_ratio_still_refuses_nan() {
-        let mut o = out();
-        o.unbounded = f64::NAN;
-        assert!(find_non_finite(&o).is_err());
-        assert!(to_json(&o).is_err());
+    fn ser_ratio_refuses_nan_and_negative_infinity_with_the_field_path() {
+        for bad in [f64::NAN, f64::NEG_INFINITY] {
+            let mut o = out();
+            o.unbounded = bad;
+            let nf = find_non_finite(&o).unwrap().unwrap();
+            assert_eq!(nf.path, "unbounded");
+            assert!(if bad.is_nan() { nf.value.is_nan() } else { nf.value == bad }, "{}", nf.value);
+            let v: serde_json::Value = serde_json::from_str(&to_json(&o).unwrap_err()).unwrap();
+            assert_eq!(v["structuredDiagnostics"][0]["code"], "non_finite_result");
+            assert_eq!(v["structuredDiagnostics"][0]["phase"], "unbounded");
+        }
     }
 
     #[test]

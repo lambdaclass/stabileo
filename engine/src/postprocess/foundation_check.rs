@@ -289,5 +289,28 @@ fn safety_factor(ledger: &mut CheckLedger, name: &str, resisting: f64, driving: 
         ledger.flag(name);
         return 0.0;
     }
-    if driving > 0.0 { resisting / driving } else { f64::INFINITY }
+    if driving > 0.0 {
+        crate::check::ratio(resisting, driving).value().unwrap_or_else(|| {
+            ledger.flag(name);
+            0.0
+        })
+    } else {
+        f64::INFINITY
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_safety_factor_that_overflows_is_unevaluated_not_unbounded() {
+        let mut ledger = CheckLedger::new();
+        assert_eq!(safety_factor(&mut ledger, "Sliding", 1e300, 1e-300), 0.0);
+        assert_eq!(ledger.into_unevaluated(), vec!["Sliding".to_string()]);
+        let mut ledger = CheckLedger::new();
+        assert_eq!(safety_factor(&mut ledger, "Sliding", 3.0, 2.0), 1.5);
+        assert_eq!(safety_factor(&mut ledger, "Sliding", 3.0, 0.0), f64::INFINITY);
+        assert!(ledger.all_evaluated());
+    }
 }
