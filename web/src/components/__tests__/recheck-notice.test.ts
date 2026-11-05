@@ -43,6 +43,42 @@ it('keeps acknowledgement disabled until lazy changes arrive, without changing t
   expect(recheckStore.noticeOpen).toBe(true);
 });
 
+it('says the generated loads are older when the project was solved in this build', async () => {
+  recheckStore.openProject(JSON.parse(JSON.stringify({
+    analysisMode: 'pro',
+    elements: [[1, { id: 1, type: 'frame', materialId: 1, nodeI: 1, nodeJ: 2 }]],
+    loads: [{ type: 'distributed3d', data: { caseId: 1, generatedBy: 'cirsoc-101' } }],
+    designData: { loadBasis: {} },
+    solvedWith: { ...recheckStore.capture(), analyses: ['linear'] },
+  })));
+  await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
+  const html = render(RecheckNotice).body;
+  expect(html).toContain('data-change-id="generated-area-loads-headroom"');
+  expect(html).toContain(t('recheck.introLoads').split('{to}')[0]!);
+  expect(html).toContain('data-testid="recheck-regenerate"');
+  expect(html).toContain(t('autoLoad.autoGenBtn'));
+  expect(html).not.toContain('data-testid="recheck-rerun"');
+  expect(html).not.toContain(t('recheck.staleWarning'));
+});
+
+it('offers both actions when a notice mixes generated-load and solve changes', async () => {
+  recheckStore.openProject(JSON.parse(JSON.stringify({
+    analysisMode: 'pro',
+    materials: [[1, { id: 1, e: 200000, fy: 250 }]],
+    elements: [[1, { id: 1, type: 'frame', materialId: 1, nodeI: 1, nodeJ: 2 }]],
+    loads: [{ type: 'distributed3d', data: { caseId: 1, generatedBy: 'cirsoc-101' } }],
+    designData: { loadBasis: {} },
+  })));
+  await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
+  const ids = recheckStore.assessment!.changes.map((c) => c.id);
+  expect(ids).toContain('generated-area-loads-headroom');
+  expect(ids).toContain('cirsoc301-tension-needs-connection');
+  const html = render(RecheckNotice).body;
+  expect(html).toContain('data-testid="recheck-regenerate"');
+  expect(html).toContain('data-testid="recheck-rerun"');
+  expect(html).toContain(t('recheck.staleWarning'));
+});
+
 it.each(['de', 'fr', 'tr'] as const)('shows each change in the reader\'s language (%s), not in English', async (locale) => {
   const project = {
     analysisMode: 'pro',

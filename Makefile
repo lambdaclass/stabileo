@@ -1,6 +1,6 @@
 .PHONY: research.wasm paper.pdf help install-nix shell setup setup.run git.setup deps backend.run console routes \
        lint.engine test.engine.units-types check.engine.acceptance-models test.engine.gates test.engine.metamorphic test.engine.suite bench.engine \
-       web.deps typecheck.web test.web.unit test.web.build test.web.timing test.web.results snapshots-update check.results-snapshot-gate test.web.determinism e2e.web.setup e2e.web.build e2e.web.smoke e2e.web.slow e2e.web.timing e2e.web.visual e2e.web.flaky \
+       web.deps typecheck.web test.web.unit test.web.build web.build.tested test.web.build.shared test.web.timing test.web.results snapshots-update check.results-snapshot-gate test.web.determinism e2e.web.setup e2e.web.build e2e.web.smoke e2e.web.slow e2e.web.timing e2e.web.visual e2e.web.flaky \
        perf.lighthouse.deps perf.lighthouse \
        test.ci-scripts test.nightly-scripts test.infra.caddy test.infra.caddy.redirects check.web.translations check.web.route-size \
        test test.engine test.engine.benchmark-protocol test.backend test.backend.file test.web test.ai-backend test.inventory test-changed \
@@ -269,9 +269,16 @@ typecheck.web:
 test.web.unit:
 	$(NIX_RUN) bash -c "cd web && npx vitest run --project unit $${UNIT_AREA:+src/components/$$UNIT_AREA} $(if $(SHARD),--shard=$(SHARD))"
 
-# The build prerenders the public pages in Chromium, so it needs the browser.
-test.web.build:
-	$(NIX_RUN) bash -c "cd web && $(PLAYWRIGHT_INSTALL) chromium && npm run build && npx tsx scripts/translation-gate.ts dist && NO_WALL_CLOCK=$(NO_WALL_CLOCK) npx vitest run --project build"
+test.web.build: web.build.tested
+	$(MAKE) test.web.build.shared
+
+# The build prerenders the public pages in Chromium, so it needs the browser. The stamp is taken
+# before building, so a tree edited mid-build fails the build tests instead of passing them.
+web.build.tested:
+	$(NIX_RUN) bash -c 'cd web && $(PLAYWRIGHT_INSTALL) chromium && stamp=$$(node scripts/build-stamp.mjs) && rm -f dist.source-stamp .dist-shared.source-stamp && npm run build && npx tsx scripts/translation-gate.ts dist && npx vite build --manifest --outDir .dist-shared --emptyOutDir --logLevel error && node scripts/build-stamp.mjs --seal dist "$$stamp" && node scripts/build-stamp.mjs --seal .dist-shared "$$stamp"'
+
+test.web.build.shared:
+	$(NIX_RUN) bash -c 'cd web && STABILEO_BUILD_ENV_STAMP=$$(node scripts/build-stamp.mjs --env) STABILEO_SHARED_BUILD=.dist-shared STABILEO_SHARED_PRERENDERED_BUILD=dist NO_WALL_CLOCK=$(NO_WALL_CLOCK) npx vitest run --project build'
 
 test.web.timing:
 	$(NIX_RUN) bash -c "cd web && npx vitest run --project build src/lib/engine/__tests__/scale-budget.test.ts"

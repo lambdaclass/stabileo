@@ -50,6 +50,41 @@ describe('the storey scope', () => {
     expect(storeyScope.expandSelection()).toBe(3);
   });
 
+  it('deselecting one copy keeps the other copies as copies: back to "this" leaves only what was picked', () => {
+    const { beamOn } = thirteen();
+    storeyScope.scope = 'similar';
+    uiStore.setSelection(new Set(), new Set([beamOn(1)]));
+    storeyScope.expandSelection();
+    uiStore.setSelection(new Set(), new Set([...uiStore.selectedElements].filter((id) => id !== beamOn(2))));
+    storeyScope.expandSelection();
+    storeyScope.scope = 'this';
+    expect([...uiStore.selectedElements]).toEqual([beamOn(1)]);
+  });
+
+  it('picking only a copy afterwards is a new pick, taken to the storeys in scope', () => {
+    const { beamOn } = thirteen();
+    storeyScope.scope = 'similar';
+    uiStore.setSelection(new Set(), new Set([beamOn(1)]));
+    storeyScope.expandSelection();
+    uiStore.setSelection(new Set(), new Set([beamOn(2)]));
+    storeyScope.expandSelection();
+    expect([...uiStore.selectedElements].map(levelOf).sort()).toEqual(['N1', 'N2', 'N3', 'N4', 'N5']);
+    storeyScope.scope = 'this';
+    expect([...uiStore.selectedElements]).toEqual([beamOn(2)]);
+  });
+
+  it('a new pick of a copy and another member keeps both, each taken to its storeys', () => {
+    const { beamOn } = thirteen();
+    storeyScope.scope = 'similar';
+    uiStore.setSelection(new Set(), new Set([beamOn(1)]));
+    storeyScope.expandSelection();
+    uiStore.setSelection(new Set(), new Set([beamOn(2), beamOn(7)]));
+    storeyScope.expandSelection();
+    expect([...uiStore.selectedElements].map(levelOf).sort()).toEqual(['N1', 'N2', 'N3', 'N4', 'N5', 'N6', 'N7', 'N8', 'N9']);
+    storeyScope.scope = 'this';
+    expect([...uiStore.selectedElements].sort((a, b) => a - b)).toEqual([beamOn(2), beamOn(7)]);
+  });
+
   it('an edit of the selection reaches them all, and is undone in one step', () => {
     const { beamOn } = thirteen();
     storeyScope.scope = 'similar';
@@ -100,6 +135,104 @@ describe('the storey scope', () => {
     const zs = [copy.nodeI, copy.nodeJ].map((n) => modelStore.nodes.get(n)!.z).sort((x, y) => x! - y!);
     expect(zs).toEqual([3, 7]);
     expect([copy.nodeI, copy.nodeJ]).toContain(floor2);
+  });
+
+  it('narrowing the scope goes back to what was selected on the storey', () => {
+    const { beamOn } = thirteen();
+    storeyScope.scope = 'similar';
+    uiStore.setSelection(new Set(), new Set([beamOn(1)]));
+    storeyScope.expandSelection();
+    expect(uiStore.selectedElements.size).toBe(5);
+    storeyScope.scope = 'this';
+    expect([...uiStore.selectedElements]).toEqual([beamOn(1)]);
+    storeyScope.scope = 'all';
+    expect(uiStore.selectedElements.size).toBe(13);
+    storeyScope.scope = 'similar';
+    expect([...uiStore.selectedElements].map(levelOf).sort()).toEqual(['N1', 'N2', 'N3', 'N4', 'N5']);
+  });
+
+  it('narrowing after adding to an expanded selection keeps only what was picked on the storey', () => {
+    const { beamOn } = thirteen();
+    storeyScope.scope = 'similar';
+    uiStore.setSelection(new Set(), new Set([beamOn(1)]));
+    storeyScope.expandSelection();
+    const column = [...modelStore.elements.values()].find((e) => e.id !== beamOn(1) && levelOf(e.id) === 'N1' && e.id !== beamOn(2))!.id;
+    uiStore.setSelection(new Set(), new Set([...uiStore.selectedElements, column]));
+    storeyScope.expandSelection();
+    expect([...uiStore.selectedElements].map(levelOf).sort()).toEqual(['N1', 'N1', 'N2', 'N2', 'N3', 'N3', 'N4', 'N4', 'N5', 'N5']);
+    storeyScope.scope = 'this';
+    expect([...uiStore.selectedElements].sort((a, b) => a - b)).toEqual([beamOn(1), column].sort((a, b) => a - b));
+  });
+
+  it('a selection changed after the expansion is the one the scope starts from', () => {
+    const { beamOn } = thirteen();
+    storeyScope.scope = 'similar';
+    uiStore.setSelection(new Set(), new Set([beamOn(1)]));
+    storeyScope.expandSelection();
+    uiStore.setSelection(new Set(), new Set([beamOn(10)]));
+    storeyScope.scope = 'this';
+    expect([...uiStore.selectedElements]).toEqual([beamOn(10)]);
+  });
+
+  it('a member copied to the similar storeys keeps every property but its place and its name', () => {
+    thirteen();
+    storeyScope.scope = 'similar';
+    const a = modelStore.addNode(0, 5, 3), b = modelStore.addNode(6, 5, 3);
+    const id = modelStore.addElement(a, b, 'truss');
+    const section = [...modelStore.sections.keys()].at(-1)!;
+    modelStore.updateElement(id, {
+      name: 'V101', sectionId: section,
+      releaseI: { my: true, mz: true, t: false }, releaseJ: { my: false, mz: true, t: true },
+      jointI: { dof: [false, false, false, false, true, true] }, rollAngle: 30, localYx: 0, localYy: 0, localYz: 1,
+      offset: { frame: 'global', i: { dx: 0, dy: 0.1, dz: -0.2 } } as never,
+      behaviour: { kind: 'tensionOnly' } as never, stiffness: { iy: 0.35, iz: 0.35 } as never,
+      semiRigid: { i: { ky: 1e4 } } as never, kStrong: 0.8, kWeak: 1.2, unbracedLength: 2,
+      steelLoadHeight: 'web', keptOver: [1],
+    });
+    const source = modelStore.elements.get(id)!;
+    const copies = storeyScope.replicateMember(id);
+    expect(copies).toHaveLength(4);
+    const { id: _id, nodeI: _i, nodeJ: _j, name: _n, keptOver: _k, ...kept } = source;
+    for (const c of copies) {
+      const { id: _cid, nodeI: _ci, nodeJ: _cj, ...copy } = modelStore.elements.get(c)!;
+      expect(copy).toEqual(kept);
+    }
+    const ends = (e: number) => { const m = modelStore.elements.get(e)!; return [m.nodeI, m.nodeJ].map((n) => modelStore.nodes.get(n)!).map((p) => [p.x, p.y, p.z]); };
+    expect(copies.map(levelOf).sort()).toEqual(['N2', 'N3', 'N4', 'N5']);
+    for (const c of copies) { const [i, j] = ends(c); expect([i![0], i![1], j![0], j![1]]).toEqual([0, 5, 6, 5]); expect(i![2]).toBe(j![2]); }
+    expect(storeyScope.lastReplication).toEqual({ copies, skipped: [], resized: [], existing: [] });
+  });
+
+  it('a storey a copy cannot reach is reported, and a copy of another length drops what is stated in metres along it', () => {
+    uiStore.analysisMode = 'pro';
+    modelStore.clear();
+    modelStore.setGrid({ axes: [], levels: [{ id: 'L0', name: 'N0', z: 0 }, { id: 'L1', name: 'N1', z: 3, similarTo: 'L0' }, { id: 'L2', name: 'N2', z: 7, similarTo: 'L0' }] });
+    storeyScope.scope = 'similar';
+    const col = modelStore.addElement(modelStore.addNode(0, 5, 0), modelStore.addNode(0, 5, 3));
+    modelStore.updateElement(col, { unbracedLength: 1.5, bracing: { top: [1] } as never, kStrong: 0.7 });
+    const copies = storeyScope.replicateMember(col);
+    expect(copies).toHaveLength(1);
+    const copy = modelStore.elements.get(copies[0]!)!;
+    expect(copy.kStrong).toBe(0.7);
+    expect(copy.unbracedLength).toBeUndefined();
+    expect(copy.bracing).toBeUndefined();
+    expect(storeyScope.lastReplication).toEqual({ copies, skipped: ['L0'], resized: ['L2'], existing: [] });
+  });
+
+  it('a storey that already has the member keeps its own, and is reported', () => {
+    uiStore.analysisMode = 'pro';
+    modelStore.clear();
+    modelStore.setGrid({ axes: [], levels: [{ id: 'L0', name: 'N0', z: 0 }, { id: 'L1', name: 'N1', z: 3, similarTo: 'L0' }, { id: 'L2', name: 'N2', z: 6, similarTo: 'L0' }] });
+    storeyScope.scope = 'similar';
+    const there = modelStore.addElement(modelStore.addNode(0, 0, 6), modelStore.addNode(5, 0, 6));
+    modelStore.updateElement(there, { kStrong: 0.5 });
+    const beam = modelStore.addElement(modelStore.addNode(0, 0, 3), modelStore.addNode(5, 0, 3));
+    modelStore.updateElement(beam, { kStrong: 0.9 });
+    const copies = storeyScope.replicateMember(beam);
+    expect(copies).toHaveLength(1);
+    expect(modelStore.nodes.get(modelStore.elements.get(copies[0]!)!.nodeI)!.z ?? 0).toBe(0);
+    expect(modelStore.elements.get(there)!.kStrong).toBe(0.5);
+    expect(storeyScope.lastReplication).toEqual({ copies, skipped: [], resized: [], existing: ['L2'] });
   });
 
   it('does nothing outside PRO, or with the scope on this storey', () => {

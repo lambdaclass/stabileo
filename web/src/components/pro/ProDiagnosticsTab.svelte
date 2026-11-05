@@ -246,7 +246,7 @@
     </div>
     {#snippet part(key: string, lines: PostAnalysisLine[])}
       {#if lines.length}
-        <h5 class="post-part">{t(`post.part.${key}`)}</h5>
+        <h5 class="post-part" data-testid="post-part-{key}">{t(`post.part.${key}`)}</h5>
         <ul class="post-list" data-testid="post-{key}">
           {#each lines as l, i (i)}
             <li>
@@ -261,7 +261,6 @@
     {/snippet}
     {@render part('analysis', extraAnalysis)}
     {@render part('design', designLines)}
-    <h5 class="post-part">{t('post.part.model')}</h5>
   </section>
 
   <!--
@@ -306,6 +305,7 @@
     {/if}
   </section>
 
+  <h5 class="post-part" data-testid="post-model-heading">{t('post.part.model')}</h5>
   {#if !hasAny}
     <div class="diag-empty">
       <span class="diag-check">&#10003;</span>

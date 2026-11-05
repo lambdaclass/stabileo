@@ -53,6 +53,7 @@ import { weldTolerance } from '../model/weld-tolerance';
 import { getFixture, is2DFixture, is3DFixture } from '../templates/fixture-index';
 import { loadFixture } from '../templates/load-fixture';
 import { inferLoadCaseType } from '../engine/combinations-service';
+import { constraintsAcrossDepth, constraintsCoupledAcrossPlane, constraintsInXZ } from '../engine/constraint-2d-remap';
 import { addsLoop, singleSolveModel } from '../engine/case-effects';
 import { t, tp } from '../i18n';
 import { GRAVITY_SELF_WEIGHT, planSelfWeight, type SelfWeightLoad } from '../engine/analysis-settings';
@@ -1235,10 +1236,13 @@ function createModelStore() {
     // Only Basic's self-weight rule rides along: which case carries it.
     const sw = basicSelfWeight(includeSelfWeight);
     const analysis = sw ? { selfWeight: sw } : undefined;
+    const constraints = plane === 'xy' ? model.constraints : constraintsInXZ(plane, model.constraints);
+    if (constraintsCoupledAcrossPlane(constraints).length > 0) return t('svc.constraintsCoupled');
+    if (plane !== 'xy' && constraintsAcrossDepth(plane, model.constraints, (id) => model.nodes.get(id)).length > 0) return t('svc.constraintsCoupled');
     if (plane === 'xy') {
       return { nodes: model.nodes, elements: model.elements, supports: model.supports,
         loads: model.loads, materials: model.materials, sections: model.sections,
-        connectors: model.connectors, constraints: model.constraints, analysis };
+        connectors: model.connectors, constraints, analysis };
     }
 
     // Remap nodes into the selected 2D plane
@@ -1303,12 +1307,9 @@ function createModelStore() {
     });
 
     // Connectors are pure node-id + stiffness pairs — no geometry to remap.
-    // Constraints are carried verbatim; the 2D wire layer (constraintsTo2D in
-    // solver-service) maps their 3D DOF semantics onto the 2D solver's
-    // [ux, uz, ry] convention.
     return { nodes: remappedNodes, elements: model.elements, supports: remappedSupports,
       loads: remappedLoads, materials: model.materials, sections: model.sections,
-      connectors: model.connectors, constraints: model.constraints, analysis };
+      connectors: model.connectors, constraints, analysis };
   }
 
   let nextId = $state({
@@ -3896,11 +3897,12 @@ function createModelStore() {
     },
 
     /** Replace model geometry data in-place (for simplified 2D model swap). No undo. */
-    replaceModelData(nodes: Map<number, any>, elements: Map<number, any>, supports: Map<number, any>, loads: any[], sections?: Map<number, Section>): void {
+    replaceModelData(nodes: Map<number, any>, elements: Map<number, any>, supports: Map<number, any>, loads: any[], sections?: Map<number, Section>, constraints?: Constraint3D[]): void {
       model.nodes = nodes;
       model.elements = elements;
       model.supports = supports;
       model.loads = loads;
+      if (constraints) model.constraints = constraints;
       if (sections) {
         model.sections = sections;
         for (const id of sections.keys()) if (id >= nextId.section) nextId.section = id + 1;
