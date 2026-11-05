@@ -72,6 +72,7 @@ const body: PostBody = {
       "k": "p",
       "t": "Buna uygun sonuçlar için Stabileo arka planda bir sertifika da dener: aralık aritmetiğiyle hesaplanan ve çözdüğü sistemin tam çözümünü içeren bir sınır. Bunu yapamadığında sonuç, gerekçesiyle birlikte sertifikasız olarak işaretlenir. Sınır sayısal hata içindir; ağın ya da zaman adımının ayrıklaştırma hatasını kapsamaz. Doğrusal analiz, kombinasyonlar, modal analiz ve plastik göçme için bu sınırın temel matematiği, bilgisayarın her adımı kontrol ettiği bir ispat asistanı olan Lean'de kanıtlanmıştır; bazı adımlar (bağlar, modal kontrolün bir koşulu) henüz biçimselleştirilmemiştir. P-Delta, spektral, harmonik ve zaman tanım alanında analizlerin de sertifikaları vardır, ancak matematikleri henüz Lean'de biçimselleştirilmemiştir. Sürekli entegrasyon her eksik ispatı veya eklenmiş aksiyomu reddeder ve bazı sertifika türlerinde çalışan denetleyici, ispatların konu aldığı Lean kodunun ta kendisidir."
     },
+    {"k": "img", "base": "blog/certificate", "w": 1600, "h": 1000, "alt": "Çerçeve örneği çözülmüş Stabileo Basic. Sonuç paneli düğüm yer değiştirmelerini ve sonuç kontrolleri altında en fazla 3,41e-16 yer değiştirme hatalı sertifikayı, indirme bağlantısıyla birlikte, ayrıca modelin bağımsız yeniden kurulumunun uyuştuğu uçtan uca kontrolü gösteriyor.", "caption": "Çözülmüş bir çerçeve: sertifikanın yer değiştirme hatası sınırı ve uçtan uca kontrol, sonuç kontrolleri altında."},
     {
       "k": "h",
       "t": "Sertifikaların söylemedikleri"

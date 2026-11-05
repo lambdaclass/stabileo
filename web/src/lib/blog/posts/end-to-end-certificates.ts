@@ -44,6 +44,7 @@ export const endToEndCertificates: Post = {
         { k: 'h', t: 'Qué afirma el certificado' },
         { k: 'p', t: 'Con esa rigidez exacta, el verificador demuestra que el modelo tiene una única solución y acota la distancia entre los desplazamientos que dio el motor y esa solución, en todos los grados de libertad que el modelo determina. Las matrices del motor no participan de esa afirmación. Se comparan aparte: deben coincidir con las reconstruidas hasta una parte en 10¹⁰, y los desplazamientos deben cumplir las condiciones de apoyo y de vínculo del modelo hasta una parte en 10⁹. Si no, el resultado se informa como no verificado de punta a punta, con el motivo.' },
         { k: 'p', t: 'El teorema que sostiene la cota está demostrado en Lean. En la aplicación, el panel de resultados muestra la línea «Verificado de punta a punta» con la cota del error de desplazamientos, o el motivo por el que no se pudo verificar.' },
+        { k: 'img', base: 'blog/certificate', w: 1600, h: 1000, alt: 'Stabileo Básico con el ejemplo del pórtico resuelto. En las verificaciones del resultado, debajo del certificado, la línea de punta a punta indica que un reensamblado independiente del modelo coincide, con un error de desplazamiento de a lo sumo 3,68e-15.', caption: 'La línea en el panel de resultados, sobre el ejemplo del pórtico.' },
 
         { k: 'h', t: 'Qué encontró' },
         {
@@ -107,6 +108,7 @@ export const endToEndCertificates: Post = {
         { k: 'h', t: 'What the certificate states' },
         { k: 'p', t: 'With that exact stiffness, the checker proves that the model has a unique solution and bounds the distance between the displacements the engine returned and that solution, over every degree of freedom the model determines. The engine’s matrices play no part in that statement. They are compared separately: they must agree with the rebuilt ones to one part in 10¹⁰, and the displacements must satisfy the model’s supports and constraints to one part in 10⁹. If they do not, the result is reported as not checked end to end, with the reason.' },
         { k: 'p', t: 'The theorem behind the bound is proved in Lean. In the app, the results panel shows the line “Checked end to end” with the bound on the displacement error, or the reason it could not be checked.' },
+        { k: 'img', base: 'blog/certificate', w: 1600, h: 1000, alt: 'Stabileo Basic with the portal frame example solved. Under Result checks in the results panel, the line “Checked end to end: an independent re-assembly of the model agrees; displacement error ≤ 3.68e-15” sits below the certificate.', caption: 'The line in the results panel, on the portal frame example.' },
 
         { k: 'h', t: 'What it found' },
         {
@@ -170,6 +172,7 @@ export const endToEndCertificates: Post = {
         { k: 'h', t: 'O que o certificado afirma' },
         { k: 'p', t: 'Com essa rigidez exata, o verificador prova que o modelo tem uma única solução e limita a distância entre os deslocamentos que o motor deu e essa solução, em todos os graus de liberdade que o modelo determina. As matrizes do motor não participam dessa afirmação. São comparadas à parte: devem coincidir com as reconstruídas até uma parte em 10¹⁰, e os deslocamentos devem cumprir as condições de apoio e de vínculo do modelo até uma parte em 10⁹. Se não, o resultado é informado como não verificado de ponta a ponta, com o motivo.' },
         { k: 'p', t: 'O teorema que sustenta a cota está provado em Lean. No aplicativo, o painel de resultados mostra a linha «Verificado de ponta a ponta» com a cota do erro de deslocamentos, ou o motivo pelo qual não foi possível verificar.' },
+        { k: 'img', base: 'blog/certificate', w: 1600, h: 1000, alt: 'Stabileo Básico com o exemplo do pórtico resolvido. Nas verificações do resultado, abaixo do certificado, a linha de ponta a ponta indica que uma remontagem independente do modelo concorda, com erro de deslocamento de no máximo 3,68e-15.', caption: 'A linha no painel de resultados, no exemplo do pórtico.' },
 
         { k: 'h', t: 'O que encontrou' },
         {
