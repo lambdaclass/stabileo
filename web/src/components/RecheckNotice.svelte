@@ -22,8 +22,16 @@
   let busy = $state(false);
   let dialog = $state<HTMLDivElement | null>(null);
 
+  const CHECK_GRACE_MS = 800;
+  let checkingLong = $state(false);
+  $effect(() => {
+    if (!recheckStore.pending) { checkingLong = false; return; }
+    const id = setTimeout(() => { checkingLong = true; }, CHECK_GRACE_MS);
+    return () => clearTimeout(id);
+  });
+
   const a = $derived(recheckStore.assessment);
-  const open = $derived(recheckStore.noticeOpen || reviewing);
+  const open = $derived((recheckStore.noticeOpen && (details || loadFailed || checkingLong)) || reviewing);
   const regenerate = $derived(!!a?.changes.some((c) => concernsGeneratedLoads(c.when)));
   const resolve = $derived(!a || !a.changes.length || a.changes.some((c) => !concernsGeneratedLoads(c.when)));
   const loc = $derived(registryLocale(i18n.locale));
@@ -82,18 +90,19 @@
       bind:this={dialog}
       data-testid="recheck-notice"
     >
-      <h3 class="rc-title" id="rc-title">{t('recheck.title')}</h3>
-      <p class="rc-intro" id="rc-intro">
-        {a.solvedVersion >= a.currentVersion
-          ? tp('recheck.introLoads', { to: a.currentVersion })
-          : a.solvedVersion > 0
-          ? tp('recheck.intro', { from: a.solvedVersion, to: a.currentVersion })
-          : t('recheck.introUnknown')}
-      </p>
-      {#if !details}
-        <p role="status">{t(loadFailed ? 'recheck.loadFailed' : 'recheck.loading')}</p>
+      <h3 class="rc-title" id="rc-title">{t(details ? 'recheck.title' : 'recheck.checkingTitle')}</h3>
+      {#if details}
+        <p class="rc-intro" id="rc-intro">
+          {a.solvedVersion >= a.currentVersion
+            ? tp('recheck.introLoads', { to: a.currentVersion })
+            : a.solvedVersion > 0
+            ? tp('recheck.intro', { from: a.solvedVersion, to: a.currentVersion })
+            : t('recheck.introUnknown')}
+        </p>
+      {:else}
+        <p role="status" id="rc-intro">{t(loadFailed ? 'recheck.loadFailed' : 'recheck.loading')}</p>
         {#if loadFailed}
-          <button class="rc-btn" onclick={loadDetails}>{t('recheck.retry')}</button>
+          <button class="rc-btn" onclick={loadDetails} data-testid="recheck-retry">{t('recheck.retry')}</button>
           <button class="rc-btn" onclick={saveAndReload} data-testid="recheck-reload">{t('recheck.saveAndReload')}</button>
           <button class="rc-btn" onclick={saveSession} data-testid="recheck-backup">{t('recheck.downloadBackup')}</button>
           <p class="rc-intro">{t('recheck.backupHelp')}</p>
@@ -136,7 +145,7 @@
   </dialog>
 {/if}
 
-{#if !open && recheckStore.stale && a}
+{#if !open && details && recheckStore.stale && a}
   <div class="rc-banner" role="status" data-testid="recheck-stale-banner">
     <span>{tp('recheck.banner', { n: a.changes.length })}</span>
     <button class="rc-banner-btn" onclick={() => (reviewing = true)} data-testid="recheck-banner-details">{t('recheck.bannerDetails')}</button>
