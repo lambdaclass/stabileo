@@ -403,3 +403,35 @@ fn a_nan_bolt_strength_is_unevaluated_whichever_of_shear_or_bearing_it_is() {
         assert!(json["phiRn"].is_null() && json["unityRatio"].is_null(), "{json}");
     }
 }
+
+#[test]
+fn a_tiny_load_on_a_group_without_strength_is_unevaluated_not_unloaded() {
+    for rn_shear in [0.0, f64::NAN] {
+        let r = check_bolt_groups(&BoltGroupInput {
+            groups: vec![BoltGroupData {
+                connection_id: 1,
+                bolts: vec![BoltPosition { x: 0.0, y: 0.0 }, BoltPosition { x: 0.1, y: 0.0 }],
+                rn_shear,
+                rn_bearing: None,
+                phi: Some(0.75),
+            }],
+            forces: vec![BoltGroupForces { connection_id: 1, vx: 1e-200, vy: 0.0, m: None }],
+        })
+        .remove(0);
+        assert_eq!(r.unity_ratio, f64::INFINITY, "rn_shear {rn_shear}");
+        assert!(r.unevaluated.iter().any(|u| u.starts_with(BOLT_CAPACITY)), "{:?}", r.unevaluated);
+        assert!(r.max_bolt_force > 0.0, "{}", r.max_bolt_force);
+    }
+    let w = check_weld_groups(&WeldGroupInput {
+        groups: vec![WeldGroupData {
+            connection_id: 1,
+            segments: vec![WeldSegment { x1: 0.0, y1: 0.0, x2: 0.2, y2: 0.0, size: 0.006, end_loaded: None }],
+            fexx: 0.0,
+            phi: Some(0.75),
+        }],
+        forces: vec![WeldGroupForces { connection_id: 1, vx: 1e-200, vy: 0.0, m: None }],
+    })
+    .remove(0);
+    assert_eq!(w.unity_ratio, f64::INFINITY);
+    assert!(w.unevaluated.iter().any(|u| u.starts_with(WELD_CAPACITY)), "{:?}", w.unevaluated);
+}

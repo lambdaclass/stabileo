@@ -282,7 +282,7 @@ fn check_single_bolt_group(group: &BoltGroupData, forces: &BoltGroupForces) -> B
 
         let fx_total = fx_direct + fx_moment;
         let fy_total = fy_direct + fy_moment;
-        let force = (fx_total * fx_total + fy_total * fy_total).sqrt();
+        let force = fx_total.hypot(fy_total);
 
         if force.is_nan() || force > max_force {
             max_force = force;
@@ -324,7 +324,10 @@ fn group_ratio(demand: f64, capacity: f64, [vx, vy, m]: [f64; 3], ip: f64, capac
     if m != 0.0 && !(ip > 0.0 && ip.is_finite()) {
         return (f64::INFINITY, vec![MOMENT_WITHOUT_IP.to_string()]);
     }
-    match crate::check::ratio_if_loaded(demand, capacity) {
+    if vx == 0.0 && vy == 0.0 && m == 0.0 {
+        return (0.0, vec![]);
+    }
+    match crate::check::ratio(demand, capacity) {
         crate::check::Outcome::Ratio(r) => (r, vec![]),
         crate::check::Outcome::Unevaluated(why) => (f64::INFINITY, vec![format!("{capacity_name}: {}", why.code())]),
     }
@@ -478,7 +481,7 @@ fn check_single_weld_group(group: &WeldGroupData, forces: &WeldGroupForces) -> W
 
             let fx = fx_direct + fx_m;
             let fy = fy_direct + fy_m;
-            let stress = (fx * fx + fy * fy).sqrt();
+            let stress = fx.hypot(fy);
             if stress.is_nan() || stress > max_stress {
                 max_stress = stress;
             }
