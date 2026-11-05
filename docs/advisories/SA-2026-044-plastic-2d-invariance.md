@@ -37,6 +37,8 @@ several near-simultaneous hinges are the ones to recheck.
 
 ## Fixed in
 
+The limit analysis below is fixed in the next release, but 2D plastic collapse stays withheld (`PL-2D-INVARIANCE`, since results version 31): the engine and the app refuse it until the separate pull request tracked by [#758](https://github.com/lambdaclass/stabileo/issues/758) lifts the refusal for results the limit analysis confirms. Until then this fix does not reach results.
+
 The collapse factor is now computed by limit analysis: the static theorem as a linear program
 over the elastic load field plus the frame's self-stress fields (from unit thermal dislocations
 in every member), with the moment checked at the exact cubic peaks of each load piece. It is
@@ -57,8 +59,9 @@ models of up to 100 members. Tests: `engine/tests/metamorphic/regressions.rs` (`
 
 ## Workaround
 
-Compare the factor with a hand mechanism analysis (beam, sway and combined mechanisms), or check
-it with `certify_plastic_2d`, which brackets it between a lower and an upper bound.
+While 2D plastic collapse is withheld, use a hand mechanism analysis (beam, sway and combined
+mechanisms) or another program, and check it against the lower and upper bounds of the static and
+kinematic theorems.
 
 ## What to do with results you already have
 
