@@ -234,16 +234,18 @@ async function capture(page: Page, base: string, locale: Locale, path: string) {
   // happens on the address a reader actually lands on.
   const href = path === '/' ? `/${locale}/` : `/${locale}${path}/`;
   await page.goto(base + href, { waitUntil: 'networkidle' });
+  if (/^\/tools\/[^/]+$/.test(path)) await page.waitForSelector('head script[data-prerendered-result]', { state: 'attached', timeout: 60_000 });
   // Network idle is not rendered: a page whose next chunk is requested only after a long main-thread task looks idle in between.
   await waitForRenderedApp(page);
-  if (/^\/tools\/[^/]+$/.test(path)) await page.waitForSelector('head script[data-prerendered-result]', { state: 'attached', timeout: 60_000 });
-  await page.evaluate(() => {
+  const { head, body } = await page.evaluate(() => {
     const listed = new Set([...document.querySelectorAll<HTMLLinkElement | HTMLScriptElement>('link[rel=modulepreload], script[src]')]
       .map((e) => new URL(e instanceof HTMLLinkElement ? e.href : e.src).pathname));
+    const loaded = new Set<string>();
     for (const entry of performance.getEntriesByType('resource') as PerformanceResourceTiming[]) {
       const path = new URL(entry.name).pathname;
-      if (entry.initiatorType !== 'script' || !/^\/assets\/[^/]+\.js$/.test(path) || listed.has(path)) continue;
-      listed.add(path);
+      if (entry.initiatorType === 'script' && /^\/assets\/[^/]+\.js$/.test(path) && !listed.has(path)) loaded.add(path);
+    }
+    for (const path of [...loaded].sort()) {
       const link = document.createElement('link');
       link.rel = 'modulepreload';
       link.setAttribute('as', 'script');
@@ -251,9 +253,6 @@ async function capture(page: Page, base: string, locale: Locale, path: string) {
       link.href = path;
       document.head.appendChild(link);
     }
-  });
-
-  const { head, body } = await page.evaluate(() => {
     for (const control of document.querySelectorAll('#app form, #app input, #app select, #app textarea')) control.setAttribute('inert', '');
     return { head: document.head.innerHTML, body: document.querySelector('#app')?.innerHTML ?? '' };
   });
