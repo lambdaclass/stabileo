@@ -122,11 +122,11 @@ fn validation_gable_lateral_wind() {
     let r5 = results.reactions.iter().find(|r| r.node_id == 5).unwrap();
 
     // ΣFx = 0
-    assert_close(r1.rx + r5.rx + f_lat, 0.0, 0.01,
+    assert_close_abs(r1.rx + r5.rx + f_lat, 0.0, 0.01, 1e-6,
         "Gable wind: ΣFx = 0");
 
     // ΣFy = 0 (no vertical load)
-    assert_close(r1.rz + r5.rz, 0.0, 0.01,
+    assert_close_abs(r1.rz + r5.rz, 0.0, 0.01, 1e-6,
         "Gable wind: ΣFy = 0");
 
     // Both bases should develop moments
@@ -229,7 +229,7 @@ fn validation_gable_a_frame() {
     assert_close(r1.rz + r5.rz, -p, 0.01, "A-frame: ΣFy = P");
 
     // ΣFx = 0
-    assert_close(r1.rx + r5.rx, 0.0, 0.01, "A-frame: ΣFx = 0");
+    assert_close_abs(r1.rx + r5.rx, 0.0, 0.01, 1e-6, "A-frame: ΣFx = 0");
 
     // By symmetry: Ry1 = Ry5 = P/2
     assert_close(r1.rz, -p / 2.0, 0.01, "A-frame: Ry1 = P/2");
@@ -326,7 +326,7 @@ fn validation_gable_rafter_udl() {
     assert!(sum_ry.abs() > 1.0, "Gable UDL: significant vertical reaction");
 
     // ΣFx = 0: horizontal reactions balance
-    assert_close(r1.rx + r5.rx, 0.0, 0.02,
+    assert_close_abs(r1.rx + r5.rx, 0.0, 0.02, 1e-6,
         "Gable UDL: ΣRx = 0 (symmetric load on symmetric frame)");
 }
 
@@ -369,7 +369,7 @@ fn validation_gable_asymmetric() {
 
     // Global equilibrium
     assert_close(r1.rz + r5.rz, -p, 0.01, "Asymmetric gable: ΣRy = P");
-    assert_close(r1.rx + r5.rx, 0.0, 0.01, "Asymmetric gable: ΣFx = 0");
+    assert_close_abs(r1.rx + r5.rx, 0.0, 0.01, 1e-6, "Asymmetric gable: ΣFx = 0");
 
     // Asymmetric: reactions should NOT be equal (different column heights)
     assert!((r1.rz - r5.rz).abs() > 0.1,

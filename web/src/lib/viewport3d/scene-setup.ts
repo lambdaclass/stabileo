@@ -41,6 +41,7 @@ export function createViewerRenderer(container: HTMLElement): THREE.WebGLRendere
 /** Damped orbit controls that zoom toward the pointer, as in the app. */
 export function createViewerControls(camera: THREE.Camera, dom: HTMLElement): OrbitControls {
   const controls = new OrbitControls(camera, dom);
+  dom.style.cursor = '';
   controls.enableDamping = true;
   controls.dampingFactor = 0.1;
   controls.target.set(0, 0, 0);

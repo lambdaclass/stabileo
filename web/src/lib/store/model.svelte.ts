@@ -11,6 +11,7 @@ import {
   emptyDetailingStore, migrateDetailingStore, type DetailingStore,
 } from '../engine/detailing/assembly';
 import { migrateRegulations, type StoredRegulations } from '../codes/roles';
+import { defaultLoadCases, defaultCombinations, DEFAULT_CASE_NAME_KEYS } from '../model/default-loads';
 import {
   cloneStoredJointDesigns, type StoredJointDesigns,
 } from '../connection/joint-choices';
@@ -52,6 +53,7 @@ import { weldTolerance } from '../model/weld-tolerance';
 import { getFixture, is2DFixture, is3DFixture } from '../templates/fixture-index';
 import { loadFixture } from '../templates/load-fixture';
 import { inferLoadCaseType } from '../engine/combinations-service';
+import { constraintsAcrossDepth, constraintsCoupledAcrossPlane, constraintsInXZ } from '../engine/constraint-2d-remap';
 import { addsLoop, singleSolveModel } from '../engine/case-effects';
 import { t, tp } from '../i18n';
 import { GRAVITY_SELF_WEIGHT, planSelfWeight, type SelfWeightLoad } from '../engine/analysis-settings';
@@ -486,6 +488,10 @@ export interface SavedViewDisplay {
   hidden?: { elements: number[]; shells: string[] };
   labels: { nodes: boolean; members: boolean; memberLabel: string; lengths: boolean; shells: boolean };
   colourBy?: string;
+  /** Categories not drawn as they are: in halftone or hidden (`store/view-categories`). Absent: all drawn. */
+  categories?: Partial<Record<import('./view-categories.svelte').ViewCategory, import('./view-categories.svelte').CategoryState>>;
+  /** How members are drawn: lines, thick bars, extruded sections or the physical geometry. */
+  style?: 'wireframe' | 'solid' | 'sections' | 'physical';
 }
 
 export type ReleaseEnd = 'i' | 'j';
@@ -1049,7 +1055,7 @@ export type { AnalysisResults3D };
 
 // ─── Influence Line Types ───────────────────────────────────────
 
-export type InfluenceQuantity = 'Rz' | 'Ry' | 'Rx' | 'My' | 'Mz' | 'V' | 'M';
+export type InfluenceQuantity = 'Rz' | 'Ry' | 'Rx' | 'My' | 'Mz' | 'V' | 'M' | 'N' | 'ux' | 'uz' | 'ry';
 
 export interface InfluenceLineResult {
   /** What quantity is being tracked */
@@ -1133,18 +1139,8 @@ function createModelStore() {
     elements: new Map(),
     supports: new Map(),
     loads: [],
-    loadCases: [
-      { id: 1, type: 'D', name: 'Dead Load' },
-      { id: 2, type: 'L', name: 'Live Load' },
-      { id: 3, type: 'W', name: 'Wind' },
-      { id: 4, type: 'E', name: 'Earthquake' },
-    ],
-    combinations: [
-      { id: 1, name: '1.2D + 1.6L', factors: [{ caseId: 1, factor: 1.2 }, { caseId: 2, factor: 1.6 }] },
-      { id: 2, name: '1.4D', factors: [{ caseId: 1, factor: 1.4 }] },
-      { id: 3, name: '1.2D + L + 1.6W', factors: [{ caseId: 1, factor: 1.2 }, { caseId: 2, factor: 1.0 }, { caseId: 3, factor: 1.6 }] },
-      { id: 4, name: '1.2D + L + E', factors: [{ caseId: 1, factor: 1.2 }, { caseId: 2, factor: 1.0 }, { caseId: 4, factor: 1.0 }] },
-    ],
+    loadCases: defaultLoadCases((type) => t(DEFAULT_CASE_NAME_KEYS[type])),
+    combinations: defaultCombinations(),
     plates: new Map(),
     quads: new Map(),
     // A new project has no groups. Absent and empty mean the same here, unlike
@@ -1240,10 +1236,13 @@ function createModelStore() {
     // Only Basic's self-weight rule rides along: which case carries it.
     const sw = basicSelfWeight(includeSelfWeight);
     const analysis = sw ? { selfWeight: sw } : undefined;
+    const constraints = plane === 'xy' ? model.constraints : constraintsInXZ(plane, model.constraints);
+    if (constraintsCoupledAcrossPlane(constraints).length > 0) return t('svc.constraintsCoupled');
+    if (plane !== 'xy' && constraintsAcrossDepth(plane, model.constraints, (id) => model.nodes.get(id)).length > 0) return t('svc.constraintsCoupled');
     if (plane === 'xy') {
       return { nodes: model.nodes, elements: model.elements, supports: model.supports,
         loads: model.loads, materials: model.materials, sections: model.sections,
-        connectors: model.connectors, constraints: model.constraints, analysis };
+        connectors: model.connectors, constraints, analysis };
     }
 
     // Remap nodes into the selected 2D plane
@@ -1308,12 +1307,9 @@ function createModelStore() {
     });
 
     // Connectors are pure node-id + stiffness pairs — no geometry to remap.
-    // Constraints are carried verbatim; the 2D wire layer (constraintsTo2D in
-    // solver-service) maps their 3D DOF semantics onto the 2D solver's
-    // [ux, uz, ry] convention.
     return { nodes: remappedNodes, elements: model.elements, supports: remappedSupports,
       loads: remappedLoads, materials: model.materials, sections: model.sections,
-      connectors: model.connectors, constraints: model.constraints, analysis };
+      connectors: model.connectors, constraints, analysis };
   }
 
   let nextId = $state({
@@ -3871,20 +3867,10 @@ function createModelStore() {
       // unresolved is what made a freshly loaded example report its section as
       // amorphous even after the engine was up.
       model.sections = new Map([[1, resolveDefaultSection(defaultSection)]]);
-      model.loadCases = [
-        { id: 1, type: 'D', name: 'Dead Load' },
-        { id: 2, type: 'L', name: 'Live Load' },
-        { id: 3, type: 'W', name: 'Wind' },
-        { id: 4, type: 'E', name: 'Earthquake' },
-      ];
+      model.loadCases = defaultLoadCases((type) => t(DEFAULT_CASE_NAME_KEYS[type]));
       // A new model has one case in use: Basic shows no load cases until they are switched on.
       uiStore.loadCasesEnabled = false;
-      model.combinations = [
-        { id: 1, name: '1.2D + 1.6L', factors: [{ caseId: 1, factor: 1.2 }, { caseId: 2, factor: 1.6 }] },
-        { id: 2, name: '1.4D', factors: [{ caseId: 1, factor: 1.4 }] },
-        { id: 3, name: '1.2D + L + 1.6W', factors: [{ caseId: 1, factor: 1.2 }, { caseId: 2, factor: 1.0 }, { caseId: 3, factor: 1.6 }] },
-        { id: 4, name: '1.2D + L + E', factors: [{ caseId: 1, factor: 1.2 }, { caseId: 2, factor: 1.0 }, { caseId: 4, factor: 1.0 }] },
-      ];
+      model.combinations = defaultCombinations();
       nextId.node = 1;
       nextId.material = 2;
       nextId.section = 2;
@@ -3911,11 +3897,16 @@ function createModelStore() {
     },
 
     /** Replace model geometry data in-place (for simplified 2D model swap). No undo. */
-    replaceModelData(nodes: Map<number, any>, elements: Map<number, any>, supports: Map<number, any>, loads: any[]): void {
+    replaceModelData(nodes: Map<number, any>, elements: Map<number, any>, supports: Map<number, any>, loads: any[], sections?: Map<number, Section>, constraints?: Constraint3D[]): void {
       model.nodes = nodes;
       model.elements = elements;
       model.supports = supports;
       model.loads = loads;
+      if (constraints) model.constraints = constraints;
+      if (sections) {
+        model.sections = sections;
+        for (const id of sections.keys()) if (id >= nextId.section) nextId.section = id + 1;
+      }
     },
 
     updateNode(id: number, x: number, y: number, z?: number): void {
@@ -4234,6 +4225,11 @@ function createModelStore() {
       _pushUndoView?.();
       model.views = [...(model.views ?? []), { id, name, position: { ...position }, target: { ...target }, ...(display ? { display: JSON.parse(JSON.stringify(display)) } : {}) }];
       return id;
+    },
+    /** A view takes the camera and the display it is looked at with now. */
+    updateView(id: number, position: SavedView['position'], target: SavedView['target'], display: SavedViewDisplay): void {
+      _pushUndoView?.();
+      model.views = (model.views ?? []).map((v) => (v.id === id ? { ...v, position: { ...position }, target: { ...target }, display: JSON.parse(JSON.stringify(display)) } : v));
     },
     renameView(id: number, name: string): void {
       _pushUndoView?.();
@@ -4683,8 +4679,8 @@ function createModelStore() {
       };
     },
 
-    async loadExample(name: string): Promise<void> {
-      const loader = getFixture(name);
+    async loadExample(name: string, fixture?: () => Promise<unknown>, opts: { keepCombinations?: boolean } = {}): Promise<void> {
+      const loader = fixture ?? getFixture(name);
       if (!loader) return;
 
       if (!_undoBatching) _pushUndo?.();
@@ -4699,7 +4695,7 @@ function createModelStore() {
       const api = this.fixtureApi();
 
       this.bulkMutate(() => {
-        loadFixture(json as any, api as any);
+        loadFixture(json as any, api as any, opts);
       });
 
       // Settle canonical state once the whole model is in place. Sections the

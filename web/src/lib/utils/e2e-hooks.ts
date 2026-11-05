@@ -94,6 +94,8 @@ export interface StabileoTestHooks {
   baselineRevision(): number;
   isBaselineStale(): boolean;
   solveCount(): number;
+  /** The influence line on screen: what it is of and where it is read; null when none. */
+  influenceLine(): { quantity: string; targetPosition?: number; targetElementId?: number; targetNodeId?: number } | null;
   /** The discretization store (`store/discretization.svelte.ts`): estimate status, whether it applies to what is on screen, study status. */
   discretizationState(): { estimate: string; reason: string | null; idle: string | null; applies: boolean; study: string };
   modelVersion(): number;
@@ -202,6 +204,7 @@ export interface StabileoTestHooks {
   diagramType(): string;
   /** Whether the workspace has results on screen (2D or 3D, as the mode reads them). */
   hasDrawnResults(): boolean;
+  verticalReaction3D(): number | null;
   /**
    * What a click on the canvas would currently mean, and whether the viewport
    * has anything to answer it with.
@@ -447,10 +450,12 @@ export interface StabileoTestHooks {
 }
 
 /**
- * Actions a spec may drive. Each one is the SAME operation a UI control performs;
- * none of them writes internal state directly.
+ * Actions a spec may drive. Ordinary actions use the same operations as UI controls;
+ * explicitly documented fixture mutators also exercise hard-to-reproduce states.
  */
 export interface StabileoTestActions {
+  /** Test-only fault injection: append a runtime warning to already solved results. */
+  seedSelfCheckWarning(count?: number, cases?: number): void;
   loadExample(name: string): Promise<void>;
   /** Move a node, as editing its coordinates in the node table does: an undo step, then the move. */
   moveNode(id: number, x: number, y: number, z: number): void;
@@ -590,6 +595,10 @@ export function installE2EHooks(): void {
     baselineRevision: () => verificationStore.baselineRevision,
     isBaselineStale: () => verificationStore.isBaselineStale,
     solveCount: () => getStructuralSolveCount(),
+    influenceLine: () => {
+      const il = resultsStore.influenceLine;
+      return il ? { quantity: il.quantity, targetPosition: il.targetPosition, targetElementId: il.targetElementId, targetNodeId: il.targetNodeId } : null;
+    },
     discretizationState: () => {
       const e = discretizationStore.estimate, st = discretizationStore.study;
       return {
@@ -677,6 +686,7 @@ export function installE2EHooks(): void {
     diagramType: () => String(resultsStore.diagramType),
     /** Whether the workspace has results on screen (2D or 3D, as the mode reads them). */
     hasDrawnResults: () => (uiStore.is3DWorkspace ? resultsStore.results3D : resultsStore.results) !== null,
+    verticalReaction3D: () => resultsStore.results3D?.reactions.reduce((sum, reaction) => sum + reaction.fz, 0) ?? null,
     cameraState: () => readCamera(),
 
     viewportPick: () => ({
@@ -880,6 +890,22 @@ export function installE2EHooks(): void {
     }),
   };
   const actions: StabileoTestActions = {
+    seedSelfCheckWarning: (count = 1, cases = 0) => {
+      for (const result of [resultsStore.results, resultsStore.results3D, resultsStore.modalResult, resultsStore.modalResult3D]) {
+        if (!result) continue;
+        result.structuredDiagnostics = [...(result.structuredDiagnostics ?? []), ...Array.from({ length: count }, (_, i) => ({
+          code: 'residual_high' as const, severity: 'warning' as const, phase: `self_check:static_balance:${i}`,
+          message: 'WARN: self-check fixture: balance needs review before using these results',
+          value: 2e-6, threshold: 1e-6,
+        }))];
+      }
+      if (resultsStore.results) resultsStore.setResults(resultsStore.results, true);
+      if (resultsStore.results3D) resultsStore.setResults3D(resultsStore.results3D, true);
+      for (let i = 0; i < cases; i++) {
+        if (resultsStore.results) resultsStore.perCase.set(i + 1, i === 0 ? resultsStore.results : { ...resultsStore.results });
+        if (resultsStore.results3D) resultsStore.perCase3D.set(i + 1, i === 0 ? resultsStore.results3D : { ...resultsStore.results3D });
+      }
+    },
     /** Seed a coordinated assembly — the same shape the pipeline writes. */
     seedDetailing: (assemblies: unknown) => {
       modelStore.model.detailing = {

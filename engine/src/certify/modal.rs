@@ -715,6 +715,25 @@ pub(crate) fn union_pattern(a: &CscMatrix, b: &CscMatrix) -> Option<Pattern> {
 mod tests {
     use super::*;
 
+    #[test]
+    fn repeated_eigenvalues_require_independent_modes_for_completeness() {
+        let k = CscMatrix::from_triplets(4, &[0, 1, 2, 3], &[0, 1, 2, 3], &[2.0, 2.0, 5.0, 9.0]);
+        let m = tridiag(4, 1.0, 0.0);
+        let first = (2.0, vec![1.0, 0.0, 0.0, 0.0]);
+        let second = (2.0, vec![0.0, 1.0, 0.0, 0.0]);
+        let third = (5.0, vec![0.0, 0.0, 1.0, 0.0]);
+        let good = vec![first.clone(), second, third.clone()];
+        let ModalCertificate::Certified { modes, complete_modes, .. } = certify_modes(&k, &m, &good) else { panic!("certificate refused") };
+        assert_eq!(complete_modes, 3);
+        for (enclosure, (exact, _)) in modes.iter().zip(&good) {
+            assert!(enclosure.omega2_lower <= *exact && *exact <= enclosure.omega2_upper);
+        }
+        for bad in [vec![first.clone(), first.clone(), third.clone()], vec![first, third]] {
+            let ModalCertificate::Certified { complete_modes, .. } = certify_modes(&k, &m, &bad) else { panic!("enclosures refused") };
+            assert_eq!(complete_modes, 0);
+        }
+    }
+
     fn tridiag(n: usize, d: f64, o: f64) -> CscMatrix {
         let (mut r, mut c, mut v) = (vec![], vec![], vec![]);
         for i in 0..n {

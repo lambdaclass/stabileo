@@ -276,16 +276,19 @@ fn validation_roark_ext_6_ss_moment_at_end() {
         .find(|d| d.node_id == n + 1).unwrap();
     assert_close(d_b.ry.abs(), theta_b_exact, 0.02, "Roark ext 1d: theta_B");
 
-    // Max deflection: delta_max = M0*L^2 / (9*sqrt(3)*EI)
+    // Max deflection: delta_max = M0*L^2 / (9*sqrt(3)*EI), at x = L/sqrt(3) measured from the far end B,
+    // where the elastic curve is y(x) = M0*x*(L-x)*(2L-x) / (6*EI*L) with x from A.
     let delta_max_exact = m0 * l * l / (9.0 * 3.0_f64.sqrt() * e_eff * IZ);
-    // Max deflection occurs at x = L/sqrt(3) ~ 0.577*L
-    // Find node closest to this location
-    let x_max = l / 3.0_f64.sqrt();
+    let x_max = l * (1.0 - 1.0 / 3.0_f64.sqrt());
     let elem_len = l / n as f64;
     let closest_node = (x_max / elem_len).round() as usize + 1;
+    let x_node = (closest_node - 1) as f64 * elem_len;
+    let delta_node_exact = m0 * x_node * (l - x_node) * (2.0 * l - x_node) / (6.0 * e_eff * IZ * l);
     let d_max = results.displacements.iter()
         .find(|d| d.node_id == closest_node).unwrap();
-    assert_close(d_max.uz.abs(), delta_max_exact, 0.02, "Roark ext 1d: delta_max");
+    assert_close(d_max.uz.abs(), delta_node_exact, 1e-6, "Roark ext 1d: delta near x_max");
+    assert!(d_max.uz.abs() <= delta_max_exact && d_max.uz.abs() > 0.99 * delta_max_exact,
+        "Roark ext 1d: delta_max {:.6e} vs node {:.6e}", delta_max_exact, d_max.uz.abs());
 
     // Reactions: R_A = -M0/L (downward), R_B = M0/L (upward) for positive M0
     // The beam deflects upward for a positive applied moment at A

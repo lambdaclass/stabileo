@@ -1,0 +1,82 @@
+name: Performance
+
+# Lighthouse against stabileo.com, median of five runs per URL and preset, checked against
+# web/perf-lighthouse.json (docs/performance/README.md). Daily, not per pull request: it measures
+# what is deployed. A failed scheduled run opens an issue (verification-alert.yml).
+
+on:
+  schedule:
+    - cron: "41 6 * * *"
+  pull_request:
+    paths:
+      - web/scripts/perf-lighthouse.mjs
+      - web/perf-lighthouse.json
+      - web/lighthouse/**
+      - .github/workflows/performance.yml
+  workflow_dispatch:
+    inputs:
+      base:
+        description: "Site to measure"
+        default: https://stabileo.com
+      runs:
+        description: "Lighthouse runs per URL"
+        default: "5"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: performance-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  lighthouse:
+    name: Lighthouse (${{ matrix.preset }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        preset: [mobile, desktop]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            Makefile
+            .nvmrc
+            web/package.json
+            web/perf-lighthouse.json
+            web/scripts/perf-lighthouse.mjs
+            web/lighthouse
+          sparse-checkout-cone-mode: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+
+      - name: Install Lighthouse and Chromium
+        run: |
+          make perf.lighthouse.deps NIX_RUN=
+          version=$(node -p "require('./web/package.json').devDependencies['@playwright/test']")
+          npm install --prefix "$RUNNER_TEMP/pw" --no-save --no-audit --no-fund "playwright@$version"
+          "$RUNNER_TEMP/pw/node_modules/.bin/playwright" install --with-deps chromium
+          echo "CHROME_PATH=$(node -e "console.log(require('$RUNNER_TEMP/pw/node_modules/playwright').chromium.executablePath())")" >> "$GITHUB_ENV"
+
+      - name: Lighthouse against the baseline
+        env:
+          BASE: ${{ inputs.base || 'https://stabileo.com' }}
+          RUNS: ${{ inputs.runs || '5' }}
+          PRESET: ${{ matrix.preset }}
+          ARGS: --json ${{ runner.temp }}/lighthouse-${{ matrix.preset }}.json
+        run: make perf.lighthouse NIX_RUN=
+
+      - if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: lighthouse-${{ matrix.preset }}
+          path: |
+            ${{ runner.temp }}/lighthouse-${{ matrix.preset }}.json
+            web/.perf/lighthouse/
+          retention-days: 30
+          if-no-files-found: ignore

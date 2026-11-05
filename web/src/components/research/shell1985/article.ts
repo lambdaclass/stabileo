@@ -37,7 +37,7 @@ const en = {
   "stabileo2": "Stabileo"
 };
 
-const translations: Record<string, Partial<typeof en>> = { en };
+export const translations: Record<string, Partial<typeof en>> = { en };
 export function articleStrings(locale: string) {
   return { ...en, ...translations[locale] };
 }

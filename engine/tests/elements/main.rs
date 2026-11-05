@@ -14,6 +14,8 @@ mod axial_distributed_2d;
 mod axial_distributed_3d;
 #[path = "../axial_span_paths.rs"]
 mod axial_span_paths;
+#[path = "../buckling_span_axial_2d.rs"]
+mod buckling_span_axial_2d;
 #[path = "../axial_span_rebase.rs"]
 mod axial_span_rebase;
 #[path = "../cable_statics.rs"]

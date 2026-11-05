@@ -54,6 +54,9 @@ jobs:
 
       - name: Cache Nix store
         uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+        continue-on-error: true
+        with:
+          use-flakehub: false
 
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
@@ -96,6 +99,9 @@ jobs:
           done
           test -f dist/sitemap.xml || { echo 'sitemap.xml missing'; exit 1; }
           test -f dist/robots.txt || { echo 'robots.txt missing'; exit 1; }
+          for f in 404.html en/404.html es/404.html; do
+            grep -q '<meta name="robots" content="noindex">' "dist/$f" || { echo "404 page missing or indexable: dist/$f"; exit 1; }
+          done
           grep -q '<html lang="en">' dist/en/index.html
           grep -q '<html lang="es">' dist/es/index.html
           grep -q '<html lang="pt">' dist/pt/index.html
@@ -149,7 +155,7 @@ jobs:
   deploy:
     name: Deploy (${{ inputs.environment || 'production' }})
     needs: [build]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     environment: ${{ inputs.environment || 'production' }}
     # Shared with the rollback, so neither runs while the other holds the host.

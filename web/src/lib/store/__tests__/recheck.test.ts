@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { recheckStore, createRecheckStore } from '../recheck.svelte';
 import { RESULTS_VERSION } from '../../provenance/registry';
+import { RESULT_CHANGES } from '../../provenance/full-registry';
 import { resultsStore } from '../results.svelte';
 import '../index';
 
@@ -39,6 +40,45 @@ describe('recheckStore', () => {
     const stamp = recheckStore.capture()!;
     expect(stamp.resultsVersion).toBe(RESULTS_VERSION);
     expect(stamp.analyses).toEqual(['linear']);
+  });
+
+  it('keeps telling a project solved in this build that its loads came from an older generator, until they are generated again', async () => {
+    const generated = (resultsVersion?: number) => ({
+      ...(steelTruss() as object),
+      loads: [{ type: 'distributed3d', data: { caseId: 1, generatedBy: 'cirsoc-101' } }],
+      designData: { loadBasis: resultsVersion === undefined ? {} : { resultsVersion } },
+      solvedWith: { ...recheckStore.capture()!, analyses: ['linear'] },
+    }) as never;
+    recheckStore.openProject(generated(), 'pro');
+    await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
+    expect(recheckStore.noticeOpen).toBe(true);
+    expect(recheckStore.assessment?.changes.map((c) => c.id)).toContain('generated-area-loads-headroom');
+    recheckStore.acknowledge();
+    recheckStore.noteSolved('linear');
+    const solved = { ...(generated() as object), solvedWith: recheckStore.capture() };
+    recheckStore.reset();
+    recheckStore.openProject(solved as never, 'pro');
+    await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
+    expect(recheckStore.noticeOpen).toBe(true);
+    expect(recheckStore.assessment?.changes.map((c) => c.id)).toEqual(['generated-area-loads-headroom']);
+    recheckStore.reset();
+    recheckStore.openProject({ ...solved, designData: { loadBasis: { resultsVersion: RESULTS_VERSION } } } as never, 'pro');
+    await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
+    expect(recheckStore.noticeOpen).toBe(false);
+    recheckStore.reset();
+    const headroom = RESULT_CHANGES.changes.find((c) => c.id === 'generated-area-loads-headroom')!.resultsVersion;
+    recheckStore.openProject(generated(headroom - 1), 'pro');
+    await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
+    expect(recheckStore.assessment?.changes.map((c) => c.id)).toContain('generated-area-loads-headroom');
+    recheckStore.reset();
+    recheckStore.openProject(generated(headroom), 'pro');
+    await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
+    expect(recheckStore.noticeOpen).toBe(false);
+    recheckStore.reset();
+    const { designData: _basis, ...unstamped } = generated() as unknown as Record<string, unknown>;
+    recheckStore.openProject(unstamped as never, 'pro');
+    await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
+    expect(recheckStore.assessment?.changes.map((c) => c.id)).toContain('generated-area-loads-headroom');
   });
 
   it('keeps the notice up when live calc re-solves before it was read', async () => {
@@ -265,7 +305,7 @@ describe('edited projects with older provenance', () => {
 
   it('clears an empty notice before adding shells, saving and reopening without a solve', async () => {
     const store = createRecheckStore();
-    const snapshot = frame();
+    const snapshot = { ...frame(), elements: [], regulations: { roles: { steel: { adapterId: 'eurocode3' } } } } as ReturnType<typeof frame>;
     store.openProject({ ...snapshot, solvedWith: oldStamp() }, 'pro');
     await vi.waitFor(() => expect(store.pending).toBe(false));
     expect(store.assessment?.changes).toEqual([]);

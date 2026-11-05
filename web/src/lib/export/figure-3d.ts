@@ -33,14 +33,13 @@ import { takesNoBending } from '../engine/member-loads';
 import { displayedLoads3D, despieceNote3D, despieceDrawsActions, despieceNoteText } from '../store/displayed-loads-3d';
 import { drawFreeBody, type P3 } from '../canvas/free-body';
 import { createLabelCollector } from '../canvas/label-layout';
+import { drawHiddenLabelsNote } from './hidden-labels-note';
+import { drawShellMap, type DrawShells } from './figure-shell-map';
 import { addMemberTags } from '../canvas/member-tags';
 import { freeBodyActions3D } from '../viewport3d/free-body-3d';
 import { fixedQuantity, displacementText } from '../utils/unit-format';
 import type { ExportFrame, Figure2DRenderer, FigureView, FrameView } from './view-figure';
 import type { AnalysisResults3D, ElementForces3D, FullEnvelope3D } from '../engine/types-3d';
-import { shellComponentMeta, shellComponentValue, type ShellContourComponent } from '../engine/shell-stress';
-import { shellContourColor } from '../three/stress-heatmap';
-import { RAW_INK } from './paper-ink';
 
 type V = [number, number, number];
 
@@ -72,6 +71,14 @@ function project2D(): boolean {
 }
 
 const fmtF = (v: number, q: 'force' | 'moment' | 'distributedLoad') => fixedQuantity(v, q, 1, uiStore.unitSystem);
+
+/** The loads of the cases asked for, or of the cases shown on screen: every case at once is no picture of anything. */
+function modelFigureLoads(cases: readonly number[] | undefined): typeof modelStore.loads {
+  const want = cases ?? uiStore.visibleLoadCases3D;
+  if (!want) return modelStore.loads;
+  const set = new Set(want);
+  return modelStore.loads.filter((l) => set.has(l.data.caseId ?? 1));
+}
 
 const COLORS: Record<string, { fill: string; stroke: string }> = {
   momentZ: { fill: 'rgba(229, 72, 42, 0.22)', stroke: '#e5482a' },
@@ -164,7 +171,7 @@ export function createFigure3DRenderer(): Figure2DRenderer {
       return out;
     },
 
-    render(ctx: CanvasRenderingContext2D, _w: number, _h: number, frame: ExportFrame, view: FrameView) {
+    render(ctx: CanvasRenderingContext2D, _w: number, h: number, frame: ExportFrame, view: FrameView) {
       const { right, up, dir } = viewBasis(frame.options.view);
       const toScreen = (p: P3) => {
         const v: V = [p.x, p.y, p.z ?? 0];
@@ -179,13 +186,14 @@ export function createFigure3DRenderer(): Figure2DRenderer {
       const leftHand = uiStore.axisConvention3D === 'leftHand';
       const labels = createLabelCollector();
       const memberSegs: Array<{ x1: number; y1: number; x2: number; y2: number }> = [];
+      const flushLabels = () => drawHiddenLabelsNote(ctx, h, labels.flush(ctx, memberSegs, { drop: true }));
 
       const fbData = freeBodyActions3D({
         elements: modelStore.elements, nodes: modelStore.nodes, forces: r3d?.elementForces ?? [], reactions: r3d?.reactions ?? [],
         sections: modelStore.sections, project2D: flat(), leftHand, basis: uiStore.despieceBasis,
         resultant: uiStore.despieceCombineVectors, showReactions: content === 'reactions' || content === 'despiece',
         // The loads of the result drawn, which the figure may have chosen, not of the one on screen.
-        loads: content === 'model' ? modelStore.loads : displayedLoads3D(r3d), loadText: (v, q) => fmtF(v, q), negligible: 0.02,
+        loads: content === 'model' ? modelFigureLoads(opts.loadCases) : displayedLoads3D(r3d), loadText: (v, q) => fmtF(v, q), negligible: 0.02,
       });
       // An envelope's or a magnitude's free body is no state of equilibrium: pieces and a note.
       const fbNote = content === 'despiece' ? despieceNote3D(r3d) : null;
@@ -213,9 +221,10 @@ export function createFigure3DRenderer(): Figure2DRenderer {
        */
       const drawMemberTags = () => {
         if (opts.numbering) {
-          ctx.font = '10px sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-          ctx.fillStyle = '#8fa3b3';
-          for (const n of modelStore.nodes.values()) { const c = toScreen(projectNodeToScene(n, flat())); ctx.fillText(String(n.id), c.x + 5, c.y - 5); }
+          for (const n of modelStore.nodes.values()) {
+            const c = toScreen(projectNodeToScene(n, flat()));
+            labels.add({ text: String(n.id), colour: '#8fa3b3', font: '10px sans-serif', box: { x: c.x + 5, y: c.y - 5, width: 0, height: 0, dirX: 0.7, dirY: -0.7, priority: 1, anchorX: 'left', sweep: 'any' } });
+          }
         }
         if (!opts.numbering && !opts.lengths) return;
         for (const m of fbData.members) {
@@ -229,8 +238,8 @@ export function createFigure3DRenderer(): Figure2DRenderer {
        * its colour (a contour's band); without it they are a light tint under the members.
        * `move` gives a corner's position (the deformed figure moves them with the nodes).
        */
-      const drawShells = (fill?: (key: string) => string | null, move?: (nodeId: number) => P3 | undefined) => {
-        if (frame.options.shells === false && !fill) return;
+      const drawShells: DrawShells = (fill, move, paint) => {
+        if (frame.options.shells === false && !fill && !paint) return;
         const faces = shellFaces().map((f) => {
           const pts = f.nodes.map((id) => move?.(id) ?? scenePos(id)).filter((p): p is P3 => !!p);
           const depth = pts.reduce((a, p) => a + towardViewer(p), 0) / Math.max(1, pts.length);
@@ -242,11 +251,17 @@ export function createFigure3DRenderer(): Figure2DRenderer {
           ctx.beginPath();
           f.pts.forEach((p, k) => { const c = toScreen(p); if (k) ctx.lineTo(c.x, c.y); else ctx.moveTo(c.x, c.y); });
           ctx.closePath();
-          const colour = fill?.(f.key);
-          ctx.fillStyle = colour ?? 'rgba(143, 163, 179, 0.16)';
-          ctx.fill();
-          ctx.strokeStyle = colour ? 'rgba(60, 70, 80, 0.45)' : 'rgba(143, 163, 179, 0.7)';
-          ctx.lineWidth = colour ? 0.5 : 0.8;
+          const painted = !!paint && paint(f.key, f.pts.map(toScreen));
+          const colour = painted ? null : fill?.(f.key);
+          if (!painted) {
+            ctx.fillStyle = colour ?? 'rgba(143, 163, 179, 0.16)';
+            ctx.fill();
+          }
+          ctx.beginPath();
+          f.pts.forEach((p, k) => { const c = toScreen(p); if (k) ctx.lineTo(c.x, c.y); else ctx.moveTo(c.x, c.y); });
+          ctx.closePath();
+          ctx.strokeStyle = colour || painted ? 'rgba(60, 70, 80, 0.45)' : 'rgba(143, 163, 179, 0.7)';
+          ctx.lineWidth = colour || painted ? 0.5 : 0.8;
           ctx.stroke();
         }
         ctx.restore();
@@ -262,7 +277,7 @@ export function createFigure3DRenderer(): Figure2DRenderer {
         drawShellMap(ctx, frame.options.shellComponent ?? 'vonMises', frame.options.style, r3d, shellFaces, drawShells, toScreen, scenePos, opts.values, labels);
         drawMembers('#8fa3b3', 1.4);
         drawSupports();
-        labels.flush(ctx, memberSegs);
+        flushLabels();
         return;
       }
 
@@ -284,7 +299,7 @@ export function createFigure3DRenderer(): Figure2DRenderer {
           labels,
         });
         drawMemberTags();
-        labels.flush(ctx, memberSegs);
+        flushLabels();
         return;
       }
 
@@ -353,7 +368,7 @@ export function createFigure3DRenderer(): Figure2DRenderer {
           }
         }
         drawMemberTags();
-        labels.flush(ctx, memberSegs);
+        flushLabels();
         return;
       }
 
@@ -405,90 +420,8 @@ export function createFigure3DRenderer(): Figure2DRenderer {
           }
         }
         drawMemberTags();
-        labels.flush(ctx, memberSegs);
+        flushLabels();
       }
     },
   };
-}
-
-/** A value's colour on the figure: the screen's contour ramp, or a grey ramp in black and white. */
-function bandColour(v: number, min: number, max: number, style: string): string {
-  if (style === 'bw') {
-    const t = max > min ? (v - min) / (max - min) : 0.5;
-    const g = Math.round(235 - 175 * Math.max(0, Math.min(1, t)));
-    return `${RAW_INK}rgb(${g},${g},${g})`;
-  }
-  return `${RAW_INK}#${shellContourColor(v, min, max).toString(16).padStart(6, '0')}`;
-}
-
-/**
- * The shells painted by one result, element by element (each its own value, as the table gives
- * it), with the scale beside the structure: its colours, the range's ends and the component.
- * The largest absolute value is written on its element when values are on.
- */
-function drawShellMap(
-  ctx: CanvasRenderingContext2D,
-  component: ShellContourComponent,
-  style: string,
-  r3d: AnalysisResults3D | null | undefined,
-  shellFaces: () => Array<{ key: string; id: number; nodes: number[] }>,
-  drawShells: (fill?: (key: string) => string | null) => void,
-  toScreen: (p: P3) => { x: number; y: number },
-  scenePos: (id: number) => P3 | undefined,
-  values: boolean,
-  labels: ReturnType<typeof createLabelCollector>,
-): void {
-  const value = new Map<string, number>();
-  for (const s of r3d?.plateStresses ?? []) value.set(`p${s.elementId}`, shellComponentValue(s, component));
-  for (const s of r3d?.quadStresses ?? []) value.set(`q${s.elementId}`, shellComponentValue(s, component));
-  let min = Infinity, max = -Infinity;
-  for (const v of value.values()) { if (v < min) min = v; if (v > max) max = v; }
-  if (!Number.isFinite(min)) { drawShells(); return; }
-  drawShells((key) => {
-    const v = value.get(key);
-    return v === undefined ? null : bandColour(v, min, max, style);
-  });
-
-  // Where the structure lands on the page, to put the scale to its right.
-  let x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
-  for (const f of shellFaces()) for (const id of f.nodes) {
-    const p = scenePos(id); if (!p) continue;
-    const c = toScreen(p);
-    x1 = Math.max(x1, c.x); y0 = Math.min(y0, c.y); y1 = Math.max(y1, c.y);
-  }
-  if (!Number.isFinite(x1)) return;
-  const meta = shellComponentMeta(component);
-  const fmt = (v: number) => (Math.abs(v) >= 1000 || (Math.abs(v) < 0.01 && v !== 0) ? v.toExponential(2) : v.toFixed(Math.abs(v) >= 100 ? 0 : 2));
-  const h = Math.max(120, Math.min(260, y1 - y0)), w = 14, x = x1 + 36, top = (y0 + y1) / 2 - h / 2;
-  const steps = 24;
-  ctx.save();
-  for (let k = 0; k < steps; k++) {
-    const v = max - ((max - min) * (k + 0.5)) / steps;
-    ctx.fillStyle = bandColour(v, min, max, style);
-    ctx.fillRect(x, top + (h * k) / steps, w, h / steps + 0.5);
-  }
-  ctx.strokeStyle = '#8fa3b3'; ctx.lineWidth = 0.8; ctx.strokeRect(x, top, w, h);
-  ctx.fillStyle = '#c7d3dd'; ctx.font = '10.5px sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-  if (max - min > 1e-9 * Math.max(1, Math.abs(max))) {
-    ctx.fillText(fmt(max), x + w + 6, top);
-    ctx.fillText(fmt((max + min) / 2), x + w + 6, top + h / 2);
-    ctx.fillText(fmt(min), x + w + 6, top + h);
-  } else {
-    // One value over every element: the scale says so rather than spreading it over a range.
-    ctx.fillText(fmt(max), x + w + 6, top + h / 2);
-  }
-  ctx.textBaseline = 'alphabetic';
-  ctx.fillText(`${meta.label} [${meta.unit}]`, x, top - 10);
-  ctx.restore();
-
-  if (values) {
-    let best: string | null = null, peak = -1;
-    for (const [k, v] of value) if (Math.abs(v) > peak) { peak = Math.abs(v); best = k; }
-    const f = best ? shellFaces().find((s) => s.key === best) : undefined;
-    const pts = f?.nodes.map(scenePos).filter((p): p is P3 => !!p) ?? [];
-    if (f && pts.length) {
-      const c = toScreen({ x: pts.reduce((a, p) => a + p.x, 0) / pts.length, y: pts.reduce((a, p) => a + p.y, 0) / pts.length, z: pts.reduce((a, p) => a + (p.z ?? 0), 0) / pts.length });
-      labels.add({ text: fmt(value.get(best!)!), colour: '#f4f7fa', font: 'bold 10.5px sans-serif', box: { x: c.x, y: c.y - 6, width: 0, height: 0, dirX: 0, dirY: -1, priority: peak, anchorX: 'center', sweep: 'any' } });
-    }
-  }
 }

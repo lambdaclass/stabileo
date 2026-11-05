@@ -37,7 +37,7 @@ import type { CombinationInputs, LoadCombinationSpec, LoadSymbol } from '../../c
 import { partitionLiveAllowance, type ElementKind, type OccupancyEntry } from '../../codes/cirsoc101/live-loads';
 import type { Enclosure, Exposure, ServiceRecurrence } from '../../codes/cirsoc102/wind';
 import type { WindCaseSet, WindDirection } from './wind-cases';
-import { gravityLayout, type GravityLayout } from './plan-gravity';
+import { gravityLayout, widthSpans, type GravityLayout } from './plan-gravity';
 import { specialLoads, type ThermalInput, type SoilInput, type FluidInput } from './special-loads';
 import type { OtherStructure } from './wind-other';
 import type { ModeShape } from './seismic-modal';
@@ -134,14 +134,14 @@ export interface LoadPlanInput {
    * How area loads reach the structure (`plan-gravity.ts`): by the real tributary area of the
    * panels the beams close, or with `tributaryWidth` on every beam. Absent: the width.
    */
-  gravity?: { mode: 'panels' | 'width'; slab?: 'twoWay' | 'oneWay'; spanAxis?: 'x' | 'y' };
+  gravity?: { mode: 'panels' | 'width'; slab?: 'twoWay' | 'oneWay'; spanAxis?: 'x' | 'y'; loadEveryPanel?: boolean };
   /**
    * The roof's own loads (`plan-area-loads.ts`): its superimposed dead load and either the roof
    * live load Lr of §4.8.1 (`maintenance`) or the live load of an occupancy (`occupancy`, §4.8.2).
    * Absent: roofs are loaded as floors. `weight` absent: from the roof's own structure and its
    * dead load (`roofWeightOf`).
    */
-  roof?: { use: 'maintenance' | 'occupancy'; weight?: RoofWeight; dead: number; occupancyKey?: string; slopeDeg: number };
+  roof?: { use: 'maintenance' | 'occupancy'; weight?: RoofWeight; dead: number; occupancyKey?: string; slopeDeg: number; deadFromFloors?: boolean };
   /**
    * Partial live loading of §4.3.3 (`plan-area-loads.ts`): L and Lr also as two checkerboards and,
    * with `all`, on the spans each side of every interior grid line. `true` is the checkerboard.
@@ -479,10 +479,10 @@ export function levelsWithPlanArea(
   return buckets;
 }
 
-/** Member self-weight apportioned half to each end node's level. */
-function selfWeightByLevel(
+/** A shell's weight is spread evenly over the levels its corners are on, so a wall weighs half on each floor. */
+export function selfWeightByLevel(
   model: LoadModelData, levelOfNode: Map<number, number>, count: number,
-): { weights: number[]; skipped: number } {
+): { weights: number[]; skipped: number; skippedShells: number } {
   const weights = new Array(count).fill(0);
   const sectionWeight = createSectionWeight(model.materials);
   let skipped = 0;
@@ -495,13 +495,33 @@ function selfWeightByLevel(
     const L = Math.hypot(nJ.x - nI.x, nJ.y - nI.y, elevationOf(nJ) - elevationOf(nI));
     // A member of variable section weighs its mean area along it (`section/variable.ts`).
     const meanRatio = (el as { variableSection?: unknown }).variableSection ? (memberMeanArea(model.sections as never, el as never) ?? sec.a) / sec.a : 1;
+    const ends = [el.nodeI, el.nodeJ].map((id) => levelOfNode.get(id)).filter((lv) => lv !== undefined);
+    if (ends.length === 0) { skipped++; continue; }
     const w = sectionWeight(sec, el.materialId) * L * meanRatio;
-    for (const id of [el.nodeI, el.nodeJ]) {
-      const lv = levelOfNode.get(id);
-      if (lv !== undefined) weights[lv] += w / 2;
-    }
+    for (const lv of ends) weights[lv] += w / ends.length;
   }
-  return { weights, skipped };
+  let skippedShells = 0;
+  for (const q of model.quads?.values() ?? []) {
+    const pts = q.nodes.map((id) => model.nodes.get(id));
+    const rho = q.materialId !== undefined ? model.materials.get(q.materialId)?.rho : undefined;
+    if (pts.some((p) => !p) || !(q.thickness! > 0) || rho === undefined || !(rho >= 0)) { skippedShells++; continue; }
+    const xyz = pts.map((p) => [p!.x, p!.y, elevationOf(p!)] as [number, number, number]);
+    const corners = q.nodes.map((id) => levelOfNode.get(id)).filter((lv) => lv !== undefined);
+    if (corners.length === 0) { skippedShells++; continue; }
+    const w = q.thickness! * rho * surfaceArea(xyz);
+    for (const lv of corners) weights[lv] += w / corners.length;
+  }
+  return { weights, skipped, skippedShells };
+}
+
+function surfaceArea(p: Array<[number, number, number]>): number {
+  let s = 0;
+  for (let i = 1; i + 1 < p.length; i++) {
+    const a = p[0]!, b = p[i]!, c = p[i + 1]!;
+    const u = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], v = [c[0] - a[0], c[1] - a[1], c[2] - a[2]];
+    s += Math.hypot(u[1]! * v[2]! - u[2]! * v[1]!, u[2]! * v[0]! - u[0]! * v[2]!, u[0]! * v[1]! - u[1]! * v[0]!) / 2;
+  }
+  return s;
 }
 
 /**
@@ -550,7 +570,7 @@ export function roofWeightFor(
   model: LoadModelData, gravity: LoadPlanInput['gravity'], tributaryWidth: number, dead: number,
 ): RoofWeight {
   const layout = gravityLayout(model, {
-    mode: gravity?.mode === 'panels' ? 'panels' : 'width', slab: gravity?.slab, spanAxis: gravity?.spanAxis, tributaryWidth,
+    mode: gravity?.mode === 'panels' ? 'panels' : 'width', slab: gravity?.slab, spanAxis: gravity?.spanAxis, tributaryWidth, loadEveryPanel: gravity?.loadEveryPanel,
   });
   return roofWeightOf(model, layout, dead).weight;
 }
@@ -572,6 +592,9 @@ export function findCase(model: LoadModelData, type: string, nameMatch?: string)
  * `engine/src/loads`): without it, or when it refuses, the plan is BLOCKED by name with the
  * engine's message, never a plan computed some other way and never an exception for the dialog.
  */
+/** A roof at this slope or steeper is pitched: sheeting on purlins, not a deck that takes a floor's finishes. */
+export const PITCHED_ROOF_DEG = 5;
+
 export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
   try {
     return buildLoadPlanWithEngine(input);
@@ -735,10 +758,14 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
   // ── Dead, live and roof live, where the area loads go (`plan-gravity.ts`, `plan-area-loads.ts`) ──
   const panelMode = input.gravity?.mode === 'panels';
   const layout = gravityLayout(input.model, {
-    mode: panelMode ? 'panels' : 'width', slab: input.gravity?.slab, spanAxis: input.gravity?.spanAxis,
+    mode: panelMode ? 'panels' : 'width', slab: input.gravity?.slab, spanAxis: input.gravity?.spanAxis, loadEveryPanel: input.gravity?.loadEveryPanel,
     tributaryWidth: input.tributaryWidth,
   });
   derivation.push(...layout.notes);
+  // A flat roof may well carry the floors' screed and tiles; a pitched one with no slab, on rafters or trusses, may not.
+  if (input.roof?.deadFromFloors && input.roof.slopeDeg >= PITCHED_ROOF_DEG && ![...layout.areaOf.values()].some((a) => a > 0) && layout.shellQuads.length === 0) {
+    return { ...empty, blockedKeys: [msg('loadPlan.blocked.roofDeadWithoutFloors')] };
+  }
   /*
    * The design live load of a member for an occupancy, by its own tributary area: in panel mode the
    * area of the panels it carries; by width, the width times its length in plan, which is the area
@@ -746,7 +773,7 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
    * area any member of the model could carry (`tributaryAreaM2` above): an edge beam 6 m long under
    * a 3 m width, KLL·AT = 36 m² < 37 m² and so not reducible by §4.7.2, came out 21 % lighter.
    */
-  const widthArea = new Map(layout.widthMembers.map((m) => [m.elementId, input.tributaryWidth * m.horizontalLength]));
+  const widthArea = new Map(layout.widthMembers.map((m) => [m.elementId, widthSpans(m, input.tributaryWidth).reduce((s, w) => s + w.width * (w.t1 - w.t0), 0) * m.horizontalLength]));
   const reducedFor = (entry: OccupancyEntry, loKNm2: number, _uniform: number, areas: Map<number, number>) => (elementId: number): number => {
     if (!input.applyLiveReduction) return loKNm2;
     return codes.loads.reduce({
@@ -852,6 +879,11 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
   const sw = selfWeightByLevel(input.model, levelOfNode, levelsRaw.length);
   if (sw.skipped > 0) {
     const note = msg('loadPlan.assumption.selfWeightSkipped', { count: sw.skipped });
+    assumptions.push(note);
+    derivation.push(note);
+  }
+  if (sw.skippedShells > 0) {
+    const note = msg('loadPlan.assumption.shellWeightSkipped', { count: sw.skippedShells });
     assumptions.push(note);
     derivation.push(note);
   }

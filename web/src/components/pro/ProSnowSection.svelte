@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from './Hint.svelte';
   /**
    * The snow block of the regulation load generator: p_g from Tablas 1.1 a 1.15 (or a site
    * value), the roof's exposure, thermal condition and category, the roof's shape, and what it
@@ -111,12 +112,12 @@
   <div class="al-sub">
     <span class="al-sub-title">{t('autoLoad.snow.patternsTitle')}</span>
     <label class="al-check"><input type="checkbox" bind:checked={config.partial} data-testid="al-snow-partial" /> {t('autoLoad.snow.partial')}</label>
-    <p class="al-hint">{t('autoLoad.snow.partialHint')}</p>
+    <Hint text={t('autoLoad.snow.partialHint')} />
   </div>
 
   <div class="al-sub">
     <span class="al-sub-title">{t('autoLoad.snow.driftsTitle')}</span>
-    <p class="al-hint">{t('autoLoad.snow.driftsHint')}</p>
+    <Hint text={t('autoLoad.snow.driftsHint')} />
     <label class="al-field al-field-narrow"><span class="al-label">{t('autoLoad.snow.parapet')}</span>
       <QuantityInput bind:value={config.parapet} quantity="length" min={0} testid="al-snow-parapet" wrap="al-unit-field" />
     </label>

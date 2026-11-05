@@ -8,7 +8,7 @@
  * otherwise a zip with one CSV per sheet. A large model read at stations passes both, and
  * dropping rows to fit would publish a workbook that looks complete.
  */
-import { zipSync, strToU8 } from 'fflate';
+import { Zip, ZipDeflate, zipSync, strToU8 } from 'fflate';
 import { modelStore } from './model.svelte';
 import { resultsStore } from './results.svelte';
 import { uiStore } from './ui.svelte';
@@ -22,15 +22,16 @@ import { sectionStressModel } from '../engine/member-stresses';
 import { toCsv } from '../engine/result-tables';
 import type { StationSpec } from '../engine/station-forces';
 import { exportToExcel } from '../export/excel';
-import { projectWorkbookSheets, type ProjectWorkbookInput } from '../export/project-workbook';
+import { projectWorkbookParts, type ProjectWorkbookInput } from '../export/project-workbook';
 import type { WorkbookModel } from '../export/workbook-model';
 import { combinationKind, type WorkbookSource } from '../export/workbook-results';
-import { fitsInXlsx, safeText, type WorkbookSheet } from '../export/workbook-cells';
+import { isStreamed, materialize, partSize, partsFitInXlsx, safeText, type WorkbookPart, type WorkbookSheet } from '../export/workbook-cells';
+import { csvCell } from '../engine/result-query';
 import { specificationRows } from '../pro/specification-list';
 import { APP_VERSION, BUILD_COMMIT } from '../build-info';
 import { designSheets, physicalForceRows } from './design-exchange';
 import { detailingStore } from './detailing.svelte';
-import { currentResultProvenance, provenanceLabels, captureProvenanceToken, provenanceForExport, ExportChangedError } from './result-provenance';
+import { currentResultProvenance, provenanceLabels, captureProvenanceToken, provenanceForExport, assertExportCurrent, ExportChangedError, type ProvenanceToken } from './result-provenance';
 import type { ResultProvenance } from '../provenance/result-provenance';
 import { provenanceTextLines } from '../provenance/result-provenance';
 
@@ -44,6 +45,8 @@ function workbookModel(): WorkbookModel {
     includeSelfWeight: uiStore.includeSelfWeight,
     loadCases: m.loadCases, combinations: modelStore.combinations,
     namedGroups: [...(m.groups?.values() ?? [])].map((g) => ({ id: g.id, name: g.name, kind: g.kind, members: g.members })),
+    pointMasses: m.massSource?.points,
+    massSource: m.massSource,
   } as WorkbookModel;
 }
 
@@ -92,6 +95,10 @@ export function stampOutdatedDesign(sheets: readonly WorkbookSheet[], exported: 
 }
 
 export function currentWorkbookSheets(stations: StationSpec, opts: WorkbookOptions = {}, record?: ResultProvenance): WorkbookSheet[] {
+  return currentWorkbookParts(stations, opts, record).map(materialize);
+}
+
+export function currentWorkbookParts(stations: StationSpec, opts: WorkbookOptions = {}, record?: ResultProvenance): WorkbookPart[] {
   const model = workbookModel();
   const exported = new Date().toISOString();
   const input: ProjectWorkbookInput = {
@@ -127,7 +134,43 @@ export function currentWorkbookSheets(stations: StationSpec, opts: WorkbookOptio
       ...(opts.extra ?? []),
     ],
   };
-  return projectWorkbookSheets(input);
+  return projectWorkbookParts(input);
+}
+
+/** How large the workbook would be and whether it fits in an xlsx file, without producing its rows. */
+export function workbookEstimate(stations: StationSpec, opts: WorkbookOptions = {}): { cells: number; xlsx: boolean } {
+  const parts = currentWorkbookParts(stations, opts);
+  return { cells: parts.reduce((n, p) => n + partSize(p).cells, 0), xlsx: partsFitInXlsx(parts) };
+}
+
+/**
+ * One CSV per part, in a zip written as the rows are produced: neither the rows nor the CSV text of
+ * a sheet are held whole, only the compressed file. Hands the event loop back every few thousand
+ * rows so the tab stays responsive.
+ */
+export async function streamWorkbookZip(parts: readonly WorkbookPart[], stillCurrent: (last: boolean) => void = () => {}): Promise<Blob> {
+  const chunks: Uint8Array[] = [];
+  let failure: Error | null = null;
+  const zip = new Zip((err, data) => { if (err) failure = err; else chunks.push(data); });
+  let sinceYield = 0;
+  for (const [i, p] of parts.entries()) {
+    const file = new ZipDeflate(`${String(i + 1).padStart(2, '0')}-${p.name}.csv`, { level: 6 });
+    zip.add(file);
+    const header = isStreamed(p) ? p.header : p.rows[0]!;
+    const body = isStreamed(p) ? p.body() : p.rows.slice(1);
+    let text = header.map((c) => csvCell(c)).join(',');
+    for (const row of body) {
+      text += '\n' + row.map((c) => csvCell(c)).join(',');
+      if (text.length > 1 << 20) { file.push(strToU8(text)); text = ''; }
+      if (++sinceYield >= 20_000) { sinceYield = 0; await new Promise((r) => setTimeout(r, 0)); stillCurrent(false); }
+    }
+    file.push(strToU8(text), true);
+    if (failure) throw failure;
+  }
+  zip.end();
+  if (failure) throw failure;
+  stillCurrent(true);
+  return new Blob(chunks as BlobPart[], { type: 'application/zip' });
 }
 
 function specificationsSheet(): WorkbookSheet {
@@ -151,13 +194,25 @@ export function workbookZip(sheets: readonly WorkbookSheet[]): Uint8Array {
  * sheet alone, without the units and the signs its numbers are in.
  */
 export async function downloadProjectCsv(stations: StationSpec, opts: WorkbookOptions = {}): Promise<void> {
-  const record = await workbookRecord();
+  const token = captureProvenanceToken();
+  const record = await workbookRecord(token);
   if (!record) return;
   const safeName = modelStore.model.name.replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ _-]/g, '').trim() || t('file.defaultAnalysis');
-  const sheets = currentWorkbookSheets(stations, opts, record);
-  const data = sheets.filter((s) => s.name !== 'Cover' && s.name !== 'Conventions');
+  const parts = currentWorkbookParts(stations, opts, record);
+  const data = parts.filter((s) => s.name !== 'Cover' && s.name !== 'Conventions');
   const name = data.length === 1 ? `${safeName}_${data[0]!.name}_csv.zip` : `${safeName}_csv.zip`;
-  downloadBlob(new Blob([workbookZip(sheets) as BlobPart], { type: 'application/zip' }), name);
+  const zip = await zipUnlessChanged(parts, token);
+  if (zip) downloadBlob(zip, name);
+}
+
+/** The zip, or null (said) when the project moved while its rows were being written: never a file of two states. */
+async function zipUnlessChanged(parts: readonly WorkbookPart[], token: ProvenanceToken): Promise<Blob | null> {
+  try {
+    return await streamWorkbookZip(parts, (last) => assertExportCurrent(token, !last));
+  } catch (e) {
+    if (e instanceof ExportChangedError) { uiStore.toast(e.message, 'error'); return null; }
+    throw e;
+  }
 }
 
 /**
@@ -165,9 +220,9 @@ export async function downloadProjectCsv(stations: StationSpec, opts: WorkbookOp
  * engine hashes were computed (`provenanceForExport`); the sheets are then built in the same tick.
  * Null, said, when the project changed: nothing is exported.
  */
-async function workbookRecord(): Promise<ResultProvenance | null> {
+async function workbookRecord(token: ProvenanceToken): Promise<ResultProvenance | null> {
   try {
-    return await provenanceForExport(captureProvenanceToken());
+    return await provenanceForExport(token);
   } catch (e) {
     if (e instanceof ExportChangedError) { uiStore.toast(e.message, 'error'); return null; }
     throw e;
@@ -176,16 +231,18 @@ async function workbookRecord(): Promise<ResultProvenance | null> {
 
 /** Write the project workbook: xlsx when it fits, a zip of CSVs otherwise. */
 export async function downloadProjectWorkbook(stations: StationSpec, opts: WorkbookOptions = {}): Promise<void> {
-  const record = await workbookRecord();
+  const token = captureProvenanceToken();
+  const record = await workbookRecord(token);
   if (!record) return;
   const safeName = modelStore.model.name.replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ _-]/g, '').trim() || t('file.defaultAnalysis');
-  const sheets = currentWorkbookSheets(stations, opts, record);
-  if (fitsInXlsx(sheets)) {
+  const parts = currentWorkbookParts(stations, opts, record);
+  if (partsFitInXlsx(parts)) {
     // The cover already carries the provenance, prepared above.
-    await exportToExcel({ filename: `${safeName}.xlsx`, onlyExtras: true, extraSheets: sheets, provenance: false });
+    await exportToExcel({ filename: `${safeName}.xlsx`, onlyExtras: true, extraSheets: parts.map(materialize), provenance: false });
     return;
   }
-  const zip = workbookZip(sheets);
-  downloadBlob(new Blob([zip as BlobPart], { type: 'application/zip' }), `${safeName}.zip`);
+  const zip = await zipUnlessChanged(parts, token);
+  if (!zip) return;
+  downloadBlob(zip, `${safeName}.zip`);
   uiStore.toast(t('wb.zipped'), 'info');
 }

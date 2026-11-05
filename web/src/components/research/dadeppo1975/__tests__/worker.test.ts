@@ -20,3 +20,27 @@ it('computes the short live path with the production solver and publishes its fi
     expect(actual.uz).toBeCloseTo(expected.uz, 8);
   }
 });
+
+it('reports a failed solve as a translatable error code, not raw text', async () => {
+  vi.resetModules();
+  vi.doMock('../../../../lib/engine/wasm-solver', () => ({ initSolver: async () => {}, solveArcLength: () => { throw new Error('engine panic: internal detail'); } }));
+  const messages: { error?: string }[] = [];
+  const worker = { onmessage: null as unknown as (event: { data: { maxSteps: number } }) => Promise<void>, postMessage: (message: typeof messages[number]) => messages.push(message) };
+  vi.stubGlobal('self', worker);
+  await import('../solver.worker');
+  await worker.onmessage({ data: { maxSteps: 20 } });
+  expect(messages).toEqual([{ error: 'solve' }]);
+  vi.doUnmock('../../../../lib/engine/wasm-solver');
+});
+
+it('reports an incomplete solver result as the invalid error code', async () => {
+  vi.resetModules();
+  vi.doMock('../../../../lib/engine/wasm-solver', () => ({ initSolver: async () => {}, solveArcLength: () => ({ converged: true, steps: [], results: { displacements: [] }, finalLoadFactor: 0 }) }));
+  const messages: { error?: string }[] = [];
+  const worker = { onmessage: null as unknown as (event: { data: { maxSteps: number } }) => Promise<void>, postMessage: (message: typeof messages[number]) => messages.push(message) };
+  vi.stubGlobal('self', worker);
+  await import('../solver.worker');
+  await worker.onmessage({ data: { maxSteps: 20 } });
+  expect(messages).toEqual([{ error: 'invalid' }]);
+  vi.doUnmock('../../../../lib/engine/wasm-solver');
+});

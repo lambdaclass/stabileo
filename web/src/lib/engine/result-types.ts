@@ -5,7 +5,7 @@
 
 import type { AnalysisResults } from './types';
 import type { AnalysisResults3D } from './types-3d';
-import type { SolverDiagnostic } from './types';
+import type { SolverDiagnostic, StructuredDiagnostic } from './types';
 import type { BucklingCertificate } from './wasm-solver';
 
 // ─── Plastic Analysis ──────────────────────────────────────────
@@ -90,7 +90,7 @@ export interface PDeltaResult3D {
   results: AnalysisResults3D;
   iterations: number;
   converged: boolean;
-  isStable: boolean;
+  isStable: boolean | null;
   b2Factor: number;
   amplification: Array<{ nodeId: number; ratio: number }>;
   linearResults: AnalysisResults3D;
@@ -126,6 +126,8 @@ export interface RayleighDamping {
 }
 
 export interface ModalResult {
+  structuredDiagnostics?: StructuredDiagnostic[];
+  finiteSpectrumDiagnostic?: string;
   modes: ModeShape[];
   nDof: number;
   totalMass: number;
@@ -155,6 +157,8 @@ export interface ModeShape3D {
 }
 
 export interface ModalResult3D {
+  structuredDiagnostics?: StructuredDiagnostic[];
+  finiteSpectrumDiagnostic?: string;
   modes: ModeShape3D[];
   nDof: number;
   totalMass: number;
@@ -168,7 +172,9 @@ export interface ModalResult3D {
 
 export interface BucklingMode {
   loadFactor: number;
-  displacements: Array<{ nodeId: number; ux: number; uy: number; rz: number }>;
+  displacements: Array<{ nodeId: number; ux: number; uz: number; ry: number }>;
+  /** A buckling inside a member with its ends held: the nodal displacements are zero and do not draw it. */
+  internal?: true;
 }
 
 export interface ElementBucklingData {

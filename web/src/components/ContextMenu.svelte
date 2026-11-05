@@ -123,7 +123,7 @@
   }
 </script>
 
-{#if uiStore.contextMenu}
+{#if uiStore.contextMenu && !uiStore.viewerMode}
   <div class="ctx-backdrop" onclick={closeContextMenu} oncontextmenu={(e) => { e.preventDefault(); closeContextMenu(); }}></div>
   <div class="ctx-menu" style="left: {uiStore.contextMenu.x}px; top: {uiStore.contextMenu.y}px">
     {#if uiStore.contextMenu.nodeId != null}

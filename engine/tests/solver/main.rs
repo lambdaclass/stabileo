@@ -22,6 +22,8 @@ mod constraints_inclined_supports;
 mod diaphragm_rotation;
 #[path = "../duplicate_support_reactions.rs"]
 mod duplicate_support_reactions;
+#[path = "../fiber_nonlinear_gate.rs"]
+mod fiber_nonlinear_gate;
 #[path = "../inclined_reporting_gates.rs"]
 mod inclined_reporting_gates;
 #[path = "../inclined_support_analyses.rs"]
@@ -30,6 +32,8 @@ mod inclined_support_analyses;
 mod kinematics_invalid_input;
 #[path = "../modal_constrained_participation.rs"]
 mod modal_constrained_participation;
+#[path = "../modal_mechanism_refusal.rs"]
+mod modal_mechanism_refusal;
 #[path = "../nonlinear_solver_findings.rs"]
 mod nonlinear_solver_findings;
 #[path = "../pcg_solver_tests.rs"]
@@ -42,6 +46,8 @@ mod silent_errors_settlement_winkler_imperfections;
 mod sparse_solver_paths;
 #[path = "../stiffness_definiteness_warning.rs"]
 mod stiffness_definiteness_warning;
+#[path = "../time_history_massless_dofs.rs"]
+mod time_history_massless_dofs;
 #[path = "../tower_fixture_test.rs"]
 mod tower_fixture_test;
 

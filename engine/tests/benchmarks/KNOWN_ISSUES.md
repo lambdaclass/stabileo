@@ -2,8 +2,8 @@
 
 This test-owned ledger records accuracy failures without changing runtime diagnostics.
 The production registry is [`engine/src/known_issues.rs`](../../src/known_issues.rs).
-It currently has no open shell entry. These findings need solver-owner triage before any
-runtime registry entry is added; no runtime issue number is implied here.
+Entries here are not runtime registry entries; a GitHub issue link tracks the finding, not
+a runtime diagnostic.
 
 ## MH-MITC4-DISTORTION
 
@@ -17,19 +17,63 @@ the page's strict 2% accuracy target for both trapezoidal and parallelogram mesh
 | Parallelogram | Out of plane | 0.4321 | 0.42257240188170075 | 2.204952% |
 | Parallelogram | In plane | 0.1081 | 0.010379694543545988 | 90.398062% |
 
-Native and production WASM agree. Reproduce with `shells macneal_harder::browser_cases`
-and `research/benchmarks/macneal-harder-1985/wasm/check.mjs`. Inputs, references and the
-accuracy threshold are in `macneal_harder.json`. These measurements are evidence of the
+Tracked as [#798](https://github.com/lambdaclass/stabileo/issues/798). Native and production
+WASM agree. `shells macneal_harder::browser_cases` pins each computed value above (`nativeBounds`,
+relative drift below 1e-8) and every case's pass/fail outcome (`expectedPass`), so a change in
+these numbers fails CI; `research/benchmarks/macneal-harder-1985/wasm/check.mjs` requires WASM
+to match. Inputs, signed references and the accuracy threshold are in `macneal_harder.json`. These measurements are evidence of the
 specified mesh's accuracy, not proof of a new implementation defect. Existing solid-shell
 regression floors document related distortion sensitivity and remain unchanged.
+
+## MH-TWISTED-BEAM-MITC4 and MH-TWISTED-BEAM-MITC9
+
+The MacNeal–Harder twisted beam (L = 12, w = 1.1, t = 0.32, 90° linear twist, E = 29·10⁶,
+ν = 0.22, unit tip load) used to enter E = 29·10⁶ into the MPa field, so every shell family
+was 1000× too stiff and the ~0.1 % ratios were read as "flat-faceted locking". With E entered
+as 29·10³ MPa (consistent units), MITC4 converges to a wrong, too-flexible answer, MITC9 stays
+too flexible without converging (load A still rising), and no warning is attached to the result:
+
+| Family | Load | 6×2 (Q9 3×1) | 12×4 (Q9 6×2) | 24×8 (Q9 12×4) | 48×16 |
+|---|---|---:|---:|---:|---:|
+| MITC4 | A (Pz, 0.005424) | 1.2751 | 1.3047 | 1.3180 | 1.3237 |
+| MITC4 | B (Py, 0.001754) | 1.2838 | 1.2653 | 1.2617 | 1.2611 |
+| MITC9 | A | 1.6979 | 2.1416 | 2.4142 | |
+| MITC9 | B | 2.3611 | 2.3250 | 2.3229 | |
+| Curved shell | A | 0.9927 | 0.9938 | 0.9968 | |
+| Curved shell | B | 0.8140 | 0.9234 | 0.9755 | |
+| SHB8-ANS | B | 4×1: 0.8995 | 8×1: 0.9715 | | |
+
+References: MacNeal & Harder (1985) 0.005424 / 0.001754; Euler–Bernoulli bending of the
+twisted strip (`twisted_beam_beam_theory` in `shell_benchmark.rs`) 0.0054259 / 0.0017462.
+Altair OptiStruct verification OS-V 0700 reports 0.992 / 0.988 for its QUAD4 on this problem.
+
+The model is not the cause: the curved shell and SHB8-ANS converge to the references on the
+same geometry, supports and load, a tip load spread over all tip nodes changes MITC4 by
+< 0.03 %, and with zero twist MITC4 and MITC9 match beam theory (A 0.006592 vs 0.006612,
+B 5.62·10⁻⁴ vs 5.60·10⁻⁴ plus shear). The error grows with the twist and does not vanish
+as the warp per element goes to zero (24×8 → 48×16): MITC4 A is +0.6 % at 15°, +8 % at 45°,
++32 % at 90°; MITC9 A is +5 % at 15°, +45 % at 45°, +141 % at 90° (Q9 12×4, the table's
+24×8 column), and MITC9 A is still rising with refinement (1.70 → 2.14 → 2.41). An element
+that is consistent on smooth twisted geometry would converge, so this points at the
+warped-element treatment (warp offsets / local frame) of `element/quad.rs` and
+`element/quad9.rs`, not at locking. Over-flexibility is the conservative direction for
+deflection but distributes forces wrongly in a statically indeterminate shell structure.
+
+Tests: `benchmark_twisted_beam_load_{a,b}` and `benchmark_q9_twisted_beam_load_{a,b}` pin the
+present ratios (±0.001) so any change fails; `benchmark_twisted_beam_mitc4_accuracy` and
+`benchmark_q9_twisted_beam_accuracy` are the ignored strict 2 % checks
+(`cargo test --test validation twisted -- --ignored`). Needs solver-owner triage, a runtime
+`known_issues.rs` entry or a warping warning, and a GitHub issue.
 
 ## MH-REFERENCE-PROVENANCE
 
 Geometry of the straight cantilever is Fig. 4, p. 7; patch geometry is Fig. 2, p. 5, and
-patch boundary fields are Table 2, p. 10. A preview of the paper supports these locators.
-The numerical tables were not accessible. Values 0.4321 and 0.1081 retain provenance from
-`solid_shell_locking.rs`; verify the numerical table/page against the full paper before
-claiming a verified transcription. Frame cases are explicitly analytical adaptations.
+patch boundary fields are Table 2, p. 10. A public transcription of the paper places 0.4321
+(out-of-plane) and 0.1081 (in-plane) in Table 3, p. 10, as theoretical tip displacements in
+the load direction; the publisher's scan was not inspected. `macneal_harder::shell_references_match_timoshenko_beam_theory`
+recomputes both from the case inputs (Timoshenko beam, shear factor 5/6: 0.4320936 and
+0.1080936) and requires them to round to the printed values. Frame cases are analytical
+Euler–Bernoulli adaptations with signed references (`every_reference_lies_along_its_load`).
 
 ## MATTIASSON-REFERENCE-AND-ACCURACY
 

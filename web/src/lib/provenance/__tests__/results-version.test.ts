@@ -48,6 +48,36 @@ const RELEASED: Record<number, string[]> = {
     'strip-footings-under-walls-whole-strip',
   ],
   5: ['solid-shell-local-stress-axes'],
+  6: ['buckling-certificate-rejects-outside-factor'],
+  7: ['cirsoc201-column-design-axes'],
+  8: ['ec2-flexure-strain-compatibility'],
+  9: ['modal-repeated-eigenspace-completeness'],
+  10: ['static-modal-runtime-self-checks'],
+  11: ['shell-envelope-per-component'],
+  12: ['cirsoc301-q-nonpositive-refused'],
+  13: ['time-history-massless-start', 'modal-mechanism-refused'],
+  14: [
+    'basic-plastic-closes-unloading-hinges', 'basic-second-order-split-members',
+    'basic-influence-line-moment-sign',
+  ],
+  15: [
+    'basic-plastic-unloading-hinges-withdrawn', 'basic-second-order-split-members-withdrawn',
+    'basic-influence-line-moment-sign-withdrawn',
+  ],
+  16: ['aluminium-weak-axis-shear'],
+  17: ['joint-weak-axis-moment'],
+  18: ['rc-other-codes-torsion-unchecked'],
+  19: ['rc-column-least-compression'],
+  20: ['generated-area-loads-headroom'],
+  21: ['shell-figures-paint-the-screen-field'],
+  22: ['hidden-mechanism-2d-refused'],
+  23: ['buckling-2d-varying-axial-force'],
+  24: ['corotational-3d-rotations'],
+  25: ['constraint-cut-plane'],
+  26: ['governing-envelope-true-peak'],
+  27: ['basic-influence-line-moment-sign-returns'],
+  28: ['basic-second-order-split-members-returns'],
+  29: ['basic-plastic-closes-unloading-hinges-returns'],
 };
 
 describe('results versions', () => {
@@ -57,6 +87,22 @@ describe('results versions', () => {
     const sorted = (r: Record<number, string[]>) => Object.fromEntries(Object.entries(r).map(([v, ids]) => [v, [...ids].sort()]));
     expect(sorted(byVersion)).toEqual(sorted(RELEASED));
     expect(RESULT_CHANGES.currentResultsVersion).toBe(Math.max(...Object.keys(RELEASED).map(Number)));
+  });
+
+  it('tells a modal frame about modal completeness up to version 8, self-checks up to 9 and the mechanism refusal up to 12, until it is re-solved', () => {
+    const frame: FeatureSnapshot = {
+      analysisMode: 'pro',
+      elements: [[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1 }]],
+    };
+    const stamp = { resultsVersion: 4, analyses: ['modal'] } as unknown as SolveStamp;
+    const ids = (resultsVersion: number) => assessProject(frame, { ...stamp, resultsVersion }, 'pro').changes.map((c) => c.id).sort();
+    for (const version of [4, 5, 6, 7, 8]) {
+      expect(ids(version)).toEqual(['corotational-3d-rotations', 'modal-mechanism-refused', 'modal-repeated-eigenspace-completeness', 'static-modal-runtime-self-checks']);
+    }
+    expect(ids(9)).toEqual(['corotational-3d-rotations', 'modal-mechanism-refused', 'static-modal-runtime-self-checks']);
+    for (const version of [10, 11, 12]) expect(ids(version)).toEqual(['corotational-3d-rotations', 'modal-mechanism-refused']);
+    expect(ids(13)).toEqual(['corotational-3d-rotations']);
+    expect(ids(RESULT_CHANGES.currentResultsVersion)).toEqual([]);
   });
 
   it('stamps the committed project fixture with the current version', () => {

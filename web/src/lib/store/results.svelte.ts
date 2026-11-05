@@ -943,9 +943,6 @@ function createResultsStore() {
     setInfluenceLine(il: InfluenceLineResult | null) {
       if (!il) { this.clearInfluenceLine(); return; }
       hold();
-      if ((il.quantity === 'M' || il.quantity === 'V') && il.targetElementId !== undefined && _signOf(il.targetElementId) < 0) {
-        il = { ...il, points: il.points.map((p) => ({ ...p, value: -p.value })) };
-      }
       influenceLine = il;
       diagramType = 'influenceLine';
       ilAnimating = false;

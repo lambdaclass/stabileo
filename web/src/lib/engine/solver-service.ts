@@ -7,6 +7,7 @@ import { isMagnitudeCombination } from './result-scopes';
 import { collapseVariableResults, collapseVariableEnvelope, variableExpansionFor, isVariableMember } from './variable-members';
 import { nodesOnMembers } from './nodes-on-members';
 import { localizeEngineText } from '../i18n/engine-text';
+import { errorText } from '../utils/error-text';
 import { createSectionWeight } from '../section/weight';
 import { expandSemiRigid3D, SemiRigidError } from './expand-semi-rigid-3d';
 import { solvableModel, applyStiffnessModifiers, hasNonlinearBehaviour, solveNonlinear3D, withZeroRows } from './member-behaviour';
@@ -177,6 +178,17 @@ export function effectiveBendingInertia(
   const alpha = (sec.rotation ?? 0) * Math.PI / 180;
   if (Math.abs(alpha) < 1e-10) return Iy;  // fast path: no rotation
   return Iy * Math.cos(alpha) ** 2 + Iz * Math.sin(alpha) ** 2;
+}
+
+/** The inertias a space solve bends a member with: `iy` about local y, `iz` about local z. */
+export function spaceBendingInertias(
+  s: Section,
+  props: ReturnType<typeof solverProperties> = solverProperties(s),
+): { iy: number; iz: number } {
+  return {
+    iy: props.source === 'canonical' ? props.iy : (s.iy ?? (s.b && s.h ? (s.b * s.h ** 3) / 12 : s.iz)),
+    iz: props.source === 'canonical' ? props.iz : s.iz,
+  };
 }
 
 /** Build solver supports map (2D), handling roller angle/inclined roller and spring rotation. */
@@ -1060,7 +1072,7 @@ export function validateAndSolve2D(
     return certifiable(finalizeSolve2DResults(results, prep), '2d', () => input2DToWireObject(prep.input));
   } catch (err: any) {
     console.error('Solver error:', err);
-    return t('svc.solverError').replace('{n}', err.message);
+    return t('svc.solverError').replace('{n}', localizeEngineText(errorText(err, String(err))));
   }
 }
 
@@ -1162,7 +1174,7 @@ export async function validateAndSolve2DAsync(
     return finalResults;
   } catch (err: any) {
     console.error('Solver error:', err);
-    return t('svc.solverError').replace('{n}', err.message);
+    return t('svc.solverError').replace('{n}', localizeEngineText(errorText(err, String(err))));
   }
 }
 
@@ -1744,14 +1756,7 @@ export function buildSolverInput3D(
           ...(model.analysis?.shearDeformation === 'none' ? {} : shearOf(s)),
         }];
       }
-      // s.iy = about Y-axis (horizontal), s.iz = about Z-axis (vertical)
-      // Solver convention: iy controls bending about Y (w, θy DOFs), iz controls bending about Z (v, θz DOFs)
-      // A geometry-backed section reports the inertia its canonical polygons
-      // actually have; a properties-only section keeps what it declared.
-      const aboutY = props.source === 'canonical'
-        ? props.iy
-        : (s.iy ?? (s.b && s.h ? (s.b * s.h ** 3) / 12 : s.iz));  // Iy: about Y horizontal
-      const aboutZ = props.source === 'canonical' ? props.iz : s.iz;  // Iz: about Z vertical
+      const { iy: aboutY, iz: aboutZ } = spaceBendingInertias(s, props);
       return [id, {
         id: s.id, name: s.name, a: props.a,
         iy: aboutY,   // solver iy = Iy (about Y horizontal) → controls Z-displacement bending (w, θy)
@@ -2839,7 +2844,7 @@ function solveCombinations3DPDelta(
   const envelope = computeEnvelope3D([...perCombo.values()]);
   if (!envelope) return t('svc.envelopeError3d');
   // The engine's envelope drops shells; each combination here carries its own second-order ones.
-  if (hasShells && envelope.maxAbsResults3D) Object.assign(envelope.maxAbsResults3D, envelopeShellStresses([...perCombo.values()]));
+  if (hasShells && envelope.maxAbsResults3D) Object.assign(envelope.maxAbsResults3D, envelopeShellStresses([...perCombo].map(([id, results]) => ({ source: { kind: 'combination' as const, id }, results }))));
   return { ...pruneComboBundle3D({ perCase: linear.perCase, perCombo, envelope }, model), unstable };
 }
 

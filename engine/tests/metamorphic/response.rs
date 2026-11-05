@@ -93,8 +93,10 @@ impl Resp {
         Resp(self.0.iter().filter(|i| keys.contains(&(i.node, i.elem, i.tag.clone()))).cloned().collect())
     }
     /// Keep only items on the given nodes/elements (drop padding).
+    /// `elems` are frame element ids: shell stresses are keyed by shell id
+    /// (the padding adds no shells), so they are kept.
     pub fn retain_ids(&mut self, nodes: &std::collections::HashSet<usize>, elems: &std::collections::HashSet<usize>) {
-        self.0.retain(|i| i.node.map_or(true, |n| nodes.contains(&n)) && i.elem.map_or(true, |e| elems.contains(&e)));
+        self.0.retain(|i| i.node.map_or(true, |n| nodes.contains(&n)) && i.elem.map_or(true, |e| matches!(i.kind, Kind::Stress) || elems.contains(&e)));
     }
 
     pub fn iso2(&self, iso: &Iso2) -> Result<Resp, String> {
@@ -233,17 +235,45 @@ impl Resp {
         let mut o = self.clone();
         for it in o.0.iter_mut() {
             it.node = it.node.map(|n| rl.n(n));
-            let table = match it.tag.as_str() {
-                "vm_plate" => Some(&rl.plate),
-                "vm_quad" => Some(&rl.quad),
-                _ => None,
+            let tables: &[&std::collections::BTreeMap<usize, usize>] = match it.tag.as_str() {
+                "vm_plate" => &[&rl.plate],
+                "vm_quad" => &[&rl.quad],
+                "vm_quad9" => &[&rl.quad9],
+                "vm_solid_shell" => &[&rl.solid_shell],
+                "vm_curved_shell" => &[&rl.curved_shell],
+                _ => &[],
             };
-            it.elem = it.elem.map(|e| match table {
-                Some(t) => *t.get(&e).unwrap_or(&e),
-                None => rl.e(e),
+            it.elem = it.elem.map(|e| {
+                if tables.is_empty() {
+                    rl.e(e)
+                } else {
+                    tables.iter().find_map(|t| t.get(&e)).copied().unwrap_or(e)
+                }
             });
         }
         o
+    }
+
+    /// `quad_stresses` lists the MITC4 quads, then the MITC9 quads, the
+    /// solid shells and the curved shells (compute_quad_stresses), each by
+    /// the id of its own family, and ids repeat across families (a model
+    /// may hold quad 1 and solid shell 1). Tag each entry with its family,
+    /// so a relabelling maps it through the right table and the comparison
+    /// pairs it with the same element. Left as is when the counts do not
+    /// match the model.
+    pub fn tag_shell_families(mut self, s: &SolverInput3D) -> Resp {
+        let idx: Vec<usize> = self.0.iter().enumerate().filter(|(_, i)| i.tag == "vm_quad").map(|(k, _)| k).collect();
+        let fams = [("vm_quad", s.quads.len()), ("vm_quad9", s.quad9s.len()), ("vm_solid_shell", s.solid_shells.len()), ("vm_curved_shell", s.curved_shells.len())];
+        if idx.len() != fams.iter().map(|f| f.1).sum::<usize>() {
+            return self;
+        }
+        let mut k = idx.into_iter();
+        for (tag, n) in fams {
+            for j in k.by_ref().take(n) {
+                self.0[j].tag = tag.into();
+            }
+        }
+        self
     }
 
     pub fn units(&self, u: &Units) -> Resp {
@@ -388,3 +418,46 @@ pub fn disp_3d(r: &AnalysisResults3D) -> Resp {
     }
     o
 }
+
+pub fn frequency_index(tag: &str) -> Option<usize> {
+    tag.strip_prefix('f')
+        .filter(|k| !k.is_empty() && k.bytes().all(|b| b.is_ascii_digit()))
+        .and_then(|k| k.parse().ok())
+}
+
+/// Cumulative effective mass is compared only at a boundary with a known gap
+/// above; modes inside a cluster can mix.
+pub fn modal_gap(lower: f64, upper: f64) -> bool {
+    upper > lower * (1.0 + 1e-3)
+}
+
+/// Davis–Kahan: an eigenvalue error of `rel·λ_k` turns the span of the modes
+/// up to `k` by `rel·λ_k / (λ_{k+1} − λ_k)`, so a quantity of that span
+/// (cumulative effective mass) is compared at `rel` times this factor.
+pub fn eigen_gap_factor(lower: f64, upper: f64) -> f64 {
+    let (a, b) = (lower * lower, upper * upper);
+    1.0 + a / (b - a)
+}
+
+pub fn gap_amplification(r: &Resp, tag: &str) -> f64 {
+    let total = r.0.iter().find(|i| i.tag == "total_mass").map_or(0.0, |i| i.v[0].abs());
+    r.0.iter().filter(|i| i.tag == tag && i.tag.starts_with("meff") && total > 0.0).map(|i| i.floor / total).fold(1.0, f64::max)
+}
+
+pub fn widened_past(r: &Resp, rel: f64, limit: f64) -> std::collections::HashSet<String> {
+    r.0.iter().filter(|i| rel * gap_amplification(r, &i.tag) > limit).map(|i| i.tag.clone()).collect()
+}
+
+impl Resp {
+    pub fn without_tags(&self, tags: &std::collections::HashSet<String>) -> Resp {
+        Resp(self.0.iter().filter(|i| !tags.contains(&i.tag)).cloned().collect())
+    }
+}
+
+pub fn incomplete_collapse(e: &str) -> bool {
+    e.contains("no section reaches its plastic moment") && e.contains("is not a mechanism")
+}
+
+/// Tag of the marker a plastic row adds when its factor is only a lower bound
+/// (no mechanism formed).
+pub const LOWER_BOUND: &str = "lower_bound";

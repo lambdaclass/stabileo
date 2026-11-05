@@ -116,8 +116,139 @@ describe('which registered changes concern a model', () => {
     expect(a.changes).toEqual([]);
   });
 
+  it('tells projects with concrete members about the EN 1992-1-1 flexure fix, whatever their bound code', () => {
+    const change = 'ec2-flexure-strain-compatibility';
+    for (const concrete of [undefined, 'cirsoc201', 'aci-aisc', 'eurocode2']) {
+      const beam = model({
+        elements: [member(1, 2, 'frame')],
+        ...(concrete ? { regulations: { roles: { concrete: { adapterId: concrete } } } } : {}),
+      });
+      expect(ids(beam, { resultsVersion: 5, analyses: ['linear'] } as SolveStamp)).toContain(change);
+      expect(ids(beam, { resultsVersion: 7, analyses: ['linear'] } as SolveStamp)).toContain(change);
+      expect(ids(beam, { resultsVersion: 8, analyses: ['linear'] } as SolveStamp)).not.toContain(change);
+    }
+    expect(ids(model({ elements: [member(1, 1, 'frame')] }))).not.toContain(change);
+    const entry = RESULT_CHANGES.changes.find((c) => c.id === change) as unknown as { title: Record<string, string>; explanation: Record<string, string> };
+    for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
+      expect(entry.title[locale]?.trim(), `title.${locale}`).toBeTruthy();
+      expect(entry.explanation[locale]?.trim(), `explanation.${locale}`).toBeTruthy();
+    }
+  });
+
+  it('tells models with generated loads about SA-2026-033, and no other model', () => {
+    const frame = model({ elements: [member(1, 1, 'frame')] });
+    const generated = model({ elements: [member(1, 1, 'frame')], loads: [{ type: 'distributed3d', data: { caseId: 1, generatedBy: 'cirsoc-101' } }] });
+    const v19 = { resultsVersion: 19, analyses: ['linear'] } as SolveStamp;
+    expect(ids(generated, v19)).toContain('generated-area-loads-headroom');
+    expect(ids(frame, v19)).not.toContain('generated-area-loads-headroom');
+    const v20 = { resultsVersion: 20, analyses: ['linear'] } as SolveStamp;
+    const basis = (resultsVersion?: number) => ({ designData: { loadBasis: resultsVersion === undefined ? {} : { resultsVersion } } });
+    expect(ids({ ...generated, ...basis(19) }, v20)).toContain('generated-area-loads-headroom');
+    expect(ids({ ...generated, ...basis() }, v20)).toContain('generated-area-loads-headroom');
+    expect(ids({ ...generated, ...basis(20) }, v20)).not.toContain('generated-area-loads-headroom');
+    expect(ids({ ...frame, ...basis(19) }, v20)).toContain('generated-area-loads-headroom');
+    expect(ids({ ...frame, ...basis(20) }, v20)).not.toContain('generated-area-loads-headroom');
+    expect(ids(generated, v20)).toContain('generated-area-loads-headroom');
+    const stair = model({ elements: [member(1, 1, 'frame')], loads: [{ type: 'distributed3d', data: { caseId: 1, generatedBy: 'stair:1' } }] });
+    expect(ids(stair, v19)).not.toContain('generated-area-loads-headroom');
+    expect(ids(stair, v20)).not.toContain('generated-area-loads-headroom');
+    const plane = { ...generated, analysisMode: '2d', ...basis() };
+    expect(ids(plane, { resultsVersion: 14, analyses: ['linear'] } as SolveStamp)).toContain('basic-influence-line-moment-sign-withdrawn');
+    expect(ids(plane, v20)).toContain('generated-area-loads-headroom');
+    expect(ids(plane, v20)).not.toContain('basic-influence-line-moment-sign-withdrawn');
+    const entry = RESULT_CHANGES.changes.find((c) => c.id === 'generated-area-loads-headroom') as unknown as { title: Record<string, string>; explanation: Record<string, string> };
+    for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
+      expect(entry.title[locale]?.trim(), `title.${locale}`).toBeTruthy();
+      expect(entry.explanation[locale]?.trim(), `explanation.${locale}`).toBeTruthy();
+    }
+  });
+
+  it('tells shell models solved before #1255 that their shell figures now paint the screen\'s field', () => {
+    const fig = 'shell-figures-paint-the-screen-field';
+    const shell = model({ quads: [[1, { id: 1, nodes: [1, 2, 3, 4], materialId: 2, thickness: 0.2 }]] as never });
+    expect(ids(shell, { resultsVersion: 20, analyses: ['linear'] } as SolveStamp)).toContain(fig);
+    expect(ids(shell, { resultsVersion: 21, analyses: ['linear'] } as SolveStamp)).not.toContain(fig);
+    expect(ids(model({ elements: [member(1, 1, 'frame')] }), { resultsVersion: 20, analyses: ['linear'] } as SolveStamp)).not.toContain(fig);
+    const entry = RESULT_CHANGES.changes.find((c) => c.id === fig) as unknown as { title: Record<string, string>; explanation: Record<string, string> };
+    for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
+      expect(entry.title[locale]?.trim(), `title.${locale}`).toBeTruthy();
+      expect(entry.explanation[locale]?.trim(), `explanation.${locale}`).toBeTruthy();
+    }
+  });
+
+  it('tells prior buckling runs about certificate refusals in both dimensions and on shells', () => {
+    const change = 'buckling-certificate-rejects-outside-factor';
+    for (const analysisMode of ['2d', '3d', 'pro']) {
+      const frame = model({ analysisMode, elements: [member(1, 1, 'frame')] });
+      expect(ids(frame, { resultsVersion: 5, analyses: ['buckling'] } as SolveStamp)).toContain(change);
+      expect(ids(frame, { resultsVersion: 5, analyses: ['linear'] } as SolveStamp)).not.toContain(change);
+      expect(ids(frame, { resultsVersion: 6, analyses: ['buckling'] } as SolveStamp)).not.toContain(change);
+      expect(ids(frame)).toContain(change);
+    }
+    expect(ids(model({ quads: [[1, {}]] as never }))).toContain(change);
+  });
+
+  it('tells only 3D frames about the 3D co-rotational fix, never a plane model (#426)', () => {
+    const change = 'corotational-3d-rotations';
+    for (const analysisMode of ['3d', 'pro']) {
+      const frame = model({ analysisMode, elements: [member(1, 1, 'frame')] });
+      expect(modelFeatures(frame).has('space3D')).toBe(true);
+      expect(ids(frame)).toContain(change);
+    }
+    const plane = model({ analysisMode: '2d', elements: [member(1, 1, 'frame')] });
+    expect(modelFeatures(plane).has('space3D')).toBe(false);
+    expect(ids(plane)).not.toContain(change);
+    expect(ids(model({ analysisMode: '3d', elements: [member(1, 1, 'truss')] }))).not.toContain(change);
+  });
+
+  it('tells CIRSOC 301 steel models solved before the Q ≤ 0 refusal about it', () => {
+    const change = 'cirsoc301-q-nonpositive-refused';
+    const steel = model({ elements: [member(1, 1, 'frame')] });
+    expect(ids(steel, { resultsVersion: 11, analyses: ['linear'] } as SolveStamp)).toContain(change);
+    expect(ids(steel, { resultsVersion: 12, analyses: ['linear'] } as SolveStamp)).not.toContain(change);
+    expect(ids(model({ elements: [member(1, 2, 'frame')] }))).not.toContain(change);
+    const ec3 = model({ elements: [member(1, 1, 'frame')], regulations: { roles: { steel: { adapterId: 'eurocode3' } } } });
+    expect(ids(ec3)).not.toContain(change);
+    const entry = RESULT_CHANGES.changes.find((c) => c.id === change) as unknown as { title: Record<string, string>; explanation: Record<string, string> };
+    for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
+      expect(entry.title[locale]?.trim(), `title.${locale}`).toBeTruthy();
+      expect(entry.explanation[locale]?.trim(), `explanation.${locale}`).toBeTruthy();
+    }
+  });
+
+  it('tells models with a time history or modal analysis about the dynamics fixes of SA-2026-031 and SA-2026-032', () => {
+    const frame = model({ elements: [member(1, 1, 'frame')] });
+    const linearOnly = { resultsVersion: 12, analyses: ['linear'] } as SolveStamp;
+    expect(ids(frame, linearOnly)).not.toContain('time-history-massless-start');
+    const forced = model({ elements: [member(1, 1, 'frame')], dynamics: { timeHistory: { forces: [{ nodeId: 2, dir: 'x', kind: 'step', amplitude: 1 }] } } });
+    expect(ids(forced, linearOnly)).toContain('time-history-massless-start');
+    expect(ids(model({ elements: [member(1, 1, 'frame')], dynamics: { timeHistory: { forces: [] } } }), linearOnly)).toContain('time-history-massless-start');
+    expect(ids(forced, { resultsVersion: 13, analyses: ['linear'] } as SolveStamp)).not.toContain('time-history-massless-start');
+    expect(ids(frame, linearOnly)).not.toContain('modal-mechanism-refused');
+    expect(ids(frame, { resultsVersion: 12, analyses: ['modal'] } as SolveStamp)).toContain('modal-mechanism-refused');
+    expect(ids(frame, { resultsVersion: 13, analyses: ['modal'] } as SolveStamp)).not.toContain('modal-mechanism-refused');
+    for (const change of ['time-history-massless-start', 'modal-mechanism-refused']) {
+      const entry = RESULT_CHANGES.changes.find((c) => c.id === change) as unknown as { title: Record<string, string>; explanation: Record<string, string> };
+      for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
+        expect(entry.title[locale]?.trim(), `${change} title.${locale}`).toBeTruthy();
+        expect(entry.explanation[locale]?.trim(), `${change} explanation.${locale}`).toBeTruthy();
+      }
+    }
+  });
+
   it('an empty model is concerned by nothing', () => {
     expect(ids(model({ supports: [], loadCases: [] }))).toEqual([]);
+  });
+
+  it('tells plane frames with combinations and member loads about the true-peak governing value and envelope', () => {
+    const change = 'governing-envelope-true-peak';
+    const combos = { combinations: [{ id: 1, name: '1.2D', factors: [{ caseId: 1, factor: 1.2 }] }] } as Partial<FeatureSnapshot>;
+    const loaded = model({ analysisMode: '2d', elements: [member(1, 1, 'frame')], loads: [{ type: 'distributed', data: { caseId: 1, elementId: 1 } }] as never, ...combos });
+    const v25 = { resultsVersion: 25, analyses: ['linear'] } as SolveStamp;
+    expect(ids(loaded, v25)).toContain(change);
+    expect(ids(loaded, { resultsVersion: 26, analyses: ['linear'] } as SolveStamp)).not.toContain(change);
+    expect(ids(model({ analysisMode: '2d', elements: [member(1, 1, 'frame')], ...combos }), v25)).not.toContain(change);
+    expect(ids(model({ analysisMode: '3d', elements: [member(1, 1, 'frame')], loads: [{ type: 'distributed', data: { caseId: 1, elementId: 1 } }] as never, ...combos }), v25)).not.toContain(change);
   });
 });
 

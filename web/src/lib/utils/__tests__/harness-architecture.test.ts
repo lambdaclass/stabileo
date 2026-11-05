@@ -26,6 +26,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { resolve, dirname, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { CORPUS } from '../../results-snapshot/corpus';
 
 const WEB_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..');
 const CONFIG = readFileSync(resolve(WEB_ROOT, 'vite.config.ts'), 'utf8');
@@ -128,8 +129,22 @@ describe('Vitest harness architecture', () => {
     const build = CONFIG.match(/name: 'build',([\s\S]*?)\n\s{8}\}/);
     expect(build).not.toBeNull();
     expect(build![1]).toMatch(/include: PRODUCTION_BUILD_TESTS/);
-    expect(build![1]).toMatch(/fileParallelism: false/);
-    expect(build![1]).toMatch(/maxWorkers: 1/);
+    expect(build![1]).toMatch(/poolOptions: \{ forks: \{ singleFork: true \} \}/);
+  });
+
+  it('no project sets an option Vitest only honours at the root', () => {
+    const projects = CONFIG.slice(CONFIG.indexOf('projects: ['));
+    const code = projects.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    for (const rootOnly of ['fileParallelism', 'maxWorkers', 'minWorkers']) {
+      expect(code, `${rootOnly} inside a project is silently ignored`).not.toMatch(new RegExp(`\\b${rootOnly}:`));
+    }
+  });
+
+  it('the build pass gives a spawned process more than the default 5 s', () => {
+    const build = CONFIG.match(/name: 'build',([\s\S]*?)\n\s{8}\}/);
+    const timeout = build![1].match(/testTimeout: ([\d_]+)/);
+    expect(timeout, 'the build project needs a testTimeout').not.toBeNull();
+    expect(Number(timeout![1].replace(/_/g, ''))).toBeGreaterThanOrEqual(60_000);
   });
 
   it('the results pass runs the results snapshot tests, and only them', () => {
@@ -137,18 +152,24 @@ describe('Vitest harness architecture', () => {
     expect(results).not.toBeNull();
     expect(results![1]).toMatch(/include: RESULTS_SNAPSHOT_TESTS/);
     expect(RESULTS_SNAPSHOT_TESTS).toEqual(['src/lib/results-snapshot/__tests__/**']);
-    expect(files.filter(inResultsPass).length).toBeGreaterThan(0);
+    // Exactly one entry point per corpus group, beside the coverage, governing-envelope, negative and self-check tests: a group
+    // whose file went missing would leave its cases unrun (`results-snapshot/coverage.ts`).
+    const groups = [...new Set(CORPUS.map((c) => c.group))].sort();
+    expect(files.filter(inResultsPass).map((f) => f.split('/').pop()).sort()).toEqual([
+      'coverage.test.ts', 'governing-envelope.test.ts', 'negative.test.ts', 'self-checks-preserve-snapshots.test.ts',
+      ...groups.map((g) => `snapshot-${g}.test.ts`),
+    ].sort());
   });
 
   it('the project-scale timing budgets run outside the parallel unit pool', () => {
     expect(PRODUCTION_BUILD_TESTS).toContain('src/lib/engine/__tests__/scale-budget.test.ts');
   });
 
-  it('`npm test` runs BOTH passes and propagates either failure', () => {
+  it('`npm test` runs ALL THREE passes and propagates any failure', () => {
     expect(PKG.scripts.test).toBe('node scripts/test-all.mjs');
     const projects = [...RUNNER.matchAll(/project: '(\w+)'/g)].map((m) => m[1]);
     expect(projects).toEqual(['unit', 'build', 'results']);
-    // Both passes run before the verdict, so one broken pass cannot hide the other.
+    // Every pass runs before the verdict, so one broken pass cannot hide another.
     expect(RUNNER).toMatch(/process\.exit\(1\)/);
     expect(RUNNER).toMatch(/results\.filter\(\(r\) => r\.code !== 0\)/);
   });

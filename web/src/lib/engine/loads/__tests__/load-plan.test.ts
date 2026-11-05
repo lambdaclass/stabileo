@@ -2,7 +2,7 @@ import { expandCombinations } from '../combination-cases';
 import { describe, it, expect } from 'vitest';
 import { teAllAt, teAt } from '../../../i18n/engine-text';
 import {
-  buildLoadPlan, combinationSymbols, describePlanDelta, levelsWithPlanArea,
+  buildLoadPlan, combinationSymbols, describePlanDelta, levelsWithPlanArea, selfWeightByLevel,
   type LoadModelData, type LoadPlanInput,
 } from '../load-plan';
 import {
@@ -145,6 +145,67 @@ describe('level plan areas come from real geometry', () => {
     expect(lv.selfWeightKN).toBeGreaterThan(50);
     expect(lv.superimposedKN).toBeCloseTo(1.8 * 36, 6);
     expect(teAllAt(p.derivation, 'es').join(' ')).toMatch(/de la extensión real de los nodos/);
+  });
+
+  it('weighs the slabs and walls drawn as shells, not only the members', () => {
+    const bare = buildLoadPlan(input()).levels;
+    const m = frame();
+    // A 12 cm slab over the 6 × 6 bay at +3 (nodes 5–8) and a 15 cm wall along x = 0 from +0 to +3.
+    m.quads = new Map([
+      [1, { id: 1, nodes: [5, 6, 7, 8], thickness: 0.12, materialId: 1 }],
+      [2, { id: 2, nodes: [1, 2, 6, 5], thickness: 0.15, materialId: 1 }],
+    ]);
+    const withShells = buildLoadPlan(input({ model: m })).levels;
+    const at = (lv: typeof bare, z: number) => lv.find((l) => l.elevation === z)!.selfWeightKN;
+    const slab = 0.12 * 25 * 36, wall = 0.15 * 25 * 6 * 3;
+    expect(at(withShells, 3) - at(bare, 3)).toBeCloseTo(slab + wall / 2, 6);
+    expect(at(withShells, 0) - at(bare, 0)).toBeCloseTo(wall / 2, 6);
+    expect(at(withShells, 6)).toBeCloseTo(at(bare, 6), 6);
+  });
+
+  it('puts a member or shell with a node on no level on the levels its other nodes are on, and skips one with none', () => {
+    const m = frame(1);
+    m.quads = new Map([[1, { id: 1, nodes: [5, 6, 7, 8], thickness: 0.1, materialId: 1 }]]);
+    const all = new Map([...m.nodes.keys()].map((id) => [id, m.nodes.get(id)!.z === 0 ? 0 : 1]));
+    const whole = selfWeightByLevel(m, all, 2);
+    const partial = new Map(all);
+    partial.delete(5);
+    const some = selfWeightByLevel(m, partial, 2);
+    expect(some.weights[0]! + some.weights[1]!).toBeCloseTo(whole.weights[0]! + whole.weights[1]!, 9);
+    expect(some.weights[0]!).toBeGreaterThan(whole.weights[0]!);
+    expect(some.skipped).toBe(0);
+    expect(some.skippedShells).toBe(0);
+    const none = selfWeightByLevel(m, new Map(), 2);
+    expect(none.weights).toEqual([0, 0]);
+    expect(none.skipped).toBe(m.elements.size);
+    expect(none.skippedShells).toBe(1);
+  });
+
+  it('puts the whole self-weight of members and shells on the levels, a sloped roof included', () => {
+    const m = frame();
+    m.nodes.set(20, { id: 20, x: 3, y: 0, z: 7.5 });
+    m.nodes.set(21, { id: 21, x: 3, y: 6, z: 7.5 });
+    m.quads = new Map([
+      [1, { id: 1, nodes: [9, 20, 21, 12], thickness: 0.1, materialId: 1 }],
+      [2, { id: 2, nodes: [20, 10, 11, 21], thickness: 0.1, materialId: 1 }],
+      [3, { id: 3, nodes: [1, 2, 6, 5], thickness: 0.15, materialId: 1 }],
+    ]);
+    const p = buildLoadPlan(input({ model: m }));
+    const members = [...m.elements.values()].reduce((s, e) => {
+      const a = m.nodes.get(e.nodeI)!, b = m.nodes.get(e.nodeJ)!;
+      return s + 0.09 * 25 * Math.hypot(b.x - a.x, b.y - a.y, (b.z ?? 0) - (a.z ?? 0));
+    }, 0);
+    const slope = Math.hypot(3, 1.5) * 6;
+    const shells = 2 * 0.1 * 25 * slope + 0.15 * 25 * 6 * 3;
+    expect(p.levels.reduce((s, l) => s + l.selfWeightKN, 0)).toBeCloseTo(members + shells, 6);
+    expect(p.assumptions.some((a) => a.key === 'loadPlan.assumption.shellWeightSkipped')).toBe(false);
+  });
+
+  it('says which shells it could not weigh', () => {
+    const m = frame();
+    m.quads = new Map([[1, { id: 1, nodes: [5, 6, 7, 8] }]]);
+    const p = buildLoadPlan(input({ model: m }));
+    expect(p.assumptions.some((a) => a.key === 'loadPlan.assumption.shellWeightSkipped')).toBe(true);
   });
 
   it('gives different levels different weights', () => {

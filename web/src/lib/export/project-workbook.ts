@@ -10,8 +10,8 @@ import type { SolverInput3D } from '../engine/types-3d';
 import type { ProjectInfo } from '../model/project-info';
 import { currentRevision } from '../model/project-info';
 import { modelSheets, type WorkbookModel } from './workbook-model';
-import { resultSheets, type ResultSheetsInput } from './workbook-results';
-import { safeText, type WorkbookSheet } from './workbook-cells';
+import { resultSheetParts, type ResultSheetsInput } from './workbook-results';
+import { materialize, safeText, type WorkbookPart, type WorkbookSheet } from './workbook-cells';
 
 export interface ProjectWorkbookInput {
   model: WorkbookModel;
@@ -58,6 +58,8 @@ function coverSheet(input: ProjectWorkbookInput): WorkbookSheet {
   add('cases', input.model.loadCases.length);
   add('combinations', combos);
   for (const c of input.model.loadCases) rows.push([`${tr('wb.cover.case')} ${c.id}`, safeText(`${c.name} (${c.type})`)]);
+  const refs = (input.model.massSource?.weights ?? []).filter((w) => w.region.kind === 'zone' || w.region.kind === 'group').length;
+  if (refs > 0) add('massRefs', tr('wb.cover.massRefsValue').replace('{n}', String(refs)));
   // Which build produced the results from which model and settings (`provenance/result-provenance.ts`).
   for (const [k, v] of input.meta.provenance ?? []) rows.push([safeText(k), safeText(v)]);
   return { name: 'Cover', rows };
@@ -73,14 +75,19 @@ function conventionsSheet(tr: (key: string) => string): WorkbookSheet {
   return { name: 'Conventions', rows: [['topic', 'convention'], ...CONVENTIONS.map((k) => [k, safeText(tr(`wb.conv.${k}`))])] };
 }
 
-/** Every sheet of the workbook, in order. */
-export function projectWorkbookSheets(input: ProjectWorkbookInput): WorkbookSheet[] {
+/** Every sheet of the workbook, in order, the large result sheets streamed (`StreamedSheet`). */
+export function projectWorkbookParts(input: ProjectWorkbookInput): WorkbookPart[] {
   const only = input.include?.sheets;
   const want = (name: string) => !only || only.has(name);
   return [
     coverSheet(input), conventionsSheet(input.tr),
     ...(input.include?.model === false ? [] : modelSheets(input.model, input.solved, want)),
-    ...(input.include?.results === false ? [] : resultSheets(input.results, want)),
+    ...(input.include?.results === false ? [] : resultSheetParts(input.results, want)),
     ...(input.extra ?? []).filter((s) => want(s.name)),
   ];
+}
+
+/** Every sheet of the workbook, in order, with all its rows. */
+export function projectWorkbookSheets(input: ProjectWorkbookInput): WorkbookSheet[] {
+  return projectWorkbookParts(input).map(materialize);
 }
