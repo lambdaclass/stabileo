@@ -1513,7 +1513,7 @@ fn solve_constrained_2d_inner(input: &ConstrainedInput) -> Result<AnalysisResult
             return Ok(result);
         }
     }
-    solve_constrained_2d_dense(input, &dof_num)
+    solve_constrained_2d_dense_validated(input, &dof_num)
 }
 
 /// The legacy dense constrained solve: full n×n assembly, dense reduction,
@@ -1521,6 +1521,14 @@ fn solve_constrained_2d_inner(input: &ConstrainedInput) -> Result<AnalysisResult
 /// sparse path defers to when its factorization fails.
 #[doc(hidden)]
 pub fn solve_constrained_2d_dense(
+    input: &ConstrainedInput,
+    dof_num: &DofNumbering,
+) -> Result<AnalysisResults, String> {
+    linear::validate_input_2d(&input.solver)?;
+    solve_constrained_2d_dense_validated(input, dof_num)
+}
+
+fn solve_constrained_2d_dense_validated(
     input: &ConstrainedInput,
     dof_num: &DofNumbering,
 ) -> Result<AnalysisResults, String> {
