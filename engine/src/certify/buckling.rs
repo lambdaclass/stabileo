@@ -101,8 +101,33 @@ pub struct CertifiedBuckling3D {
     pub certificate: BucklingCertificate,
 }
 
-/// Solve 2D linear buckling and certify the first critical load factor.
+/// Solve 2D linear buckling and certify the first critical load factor. A factor above its
+/// certified upper bound is refused (BU-BOUND), not returned beside an uncertified certificate.
 pub fn certify_buckling_2d(input: &SolverInput, num_modes: usize) -> Result<CertifiedBuckling2D, String> {
+    let out = certified_buckling_2d(input, num_modes)?;
+    contain(&out.certificate)?;
+    Ok(out)
+}
+
+/// The certificate `certify_buckling_2d` judges, without its refusal; the factor stays withheld.
+#[doc(hidden)]
+pub fn buckling_certificate_2d(input: &SolverInput, num_modes: usize) -> Result<BucklingCertificate, String> {
+    certified_buckling_2d(input, num_modes).map(|out| out.certificate)
+}
+
+fn contain(certificate: &BucklingCertificate) -> Result<(), String> {
+    match certificate {
+        BucklingCertificate::Certified { lambda_lower, lambda_upper, lambda_computed } => {
+            crate::known_issues::buckling_bound(*lambda_computed, *lambda_lower, *lambda_upper)
+        }
+        BucklingCertificate::Uncertified { refusal: Some(BucklingRefusal::ComputedAboveUpperBound { .. }), .. } => {
+            crate::known_issues::refuse(&[crate::known_issues::diagnostic("BU-BOUND")])
+        }
+        BucklingCertificate::Uncertified { .. } => Ok(()),
+    }
+}
+
+fn certified_buckling_2d(input: &SolverInput, num_modes: usize) -> Result<CertifiedBuckling2D, String> {
     super::finite::check_input(input)?;
     let results = solve_buckling_2d(input, num_modes.max(1))?;
     super::finite::check_results(&results)?;
@@ -133,8 +158,21 @@ pub fn certify_buckling_2d(input: &SolverInput, num_modes: usize) -> Result<Cert
     Ok(CertifiedBuckling2D { results, certificate })
 }
 
-/// Solve 3D linear buckling and certify the first critical load factor.
+/// Solve 3D linear buckling and certify the first critical load factor. A factor above its
+/// certified upper bound is refused (BU-BOUND), not returned beside an uncertified certificate.
 pub fn certify_buckling_3d(input: &SolverInput3D, num_modes: usize) -> Result<CertifiedBuckling3D, String> {
+    let out = certified_buckling_3d(input, num_modes)?;
+    contain(&out.certificate)?;
+    Ok(out)
+}
+
+/// The certificate `certify_buckling_3d` judges, without its refusal; the factor stays withheld.
+#[doc(hidden)]
+pub fn buckling_certificate_3d(input: &SolverInput3D, num_modes: usize) -> Result<BucklingCertificate, String> {
+    certified_buckling_3d(input, num_modes).map(|out| out.certificate)
+}
+
+fn certified_buckling_3d(input: &SolverInput3D, num_modes: usize) -> Result<CertifiedBuckling3D, String> {
     super::finite::check_input(input)?;
     let results = solve_buckling_3d(input, num_modes.max(1))?;
     super::finite::check_results(&results)?;

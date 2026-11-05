@@ -4,7 +4,8 @@ use crate::linalg::*;
 use super::dof::DofNumbering;
 use super::assembly::*;
 use super::geometric_stiffness::{
-    emit_geometric_stiffness_2d, emit_geometric_stiffness_3d, span_axial_geometric_stiffness_2d, KgTriplets,
+    emit_geometric_stiffness_2d, emit_geometric_stiffness_3d, geometric_stiffness_terms_2d, span_axial_geometric_stiffness_2d,
+    KgTriplets,
 };
 use super::constraints::FreeConstraintSystem;
 
@@ -12,6 +13,8 @@ use super::constraints::FreeConstraintSystem;
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BucklingResult {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub structured_diagnostics: Vec<StructuredDiagnostic>,
     pub modes: Vec<BucklingMode>,
     pub n_dof: usize,
     pub element_data: Vec<ElementBucklingData>,
@@ -57,8 +60,9 @@ pub struct BucklingSystem2D {
     pub k_ff: CscMatrix,
     pub neg_kg_csc: CscMatrix,
     pub inclined_transforms_2d: Vec<InclinedTransformData2D>,
-    /// Each element's mean axial force at the linear solution (what Kg is built from).
+    /// Each element's mean axial force at the linear solution; Kg is built from it and `span_axial`.
     pub mean_n: HashMap<usize, f64>,
+    pub span_axial: Vec<(usize, Vec<usize>, Vec<f64>)>,
 }
 
 #[doc(hidden)]
@@ -92,6 +96,14 @@ pub fn buckling_system_2d(input: &SolverInput) -> Result<BucklingSystem2D, Strin
     if !mean_n.values().any(|&n| n < -1e-6) {
         return Err("No compressed elements — buckling not applicable".into());
     }
+    let axial_noise = axial_force_round_off_2d(input, &linear);
+    if !mean_n.iter().any(|(id, &n)| n < -axial_noise.get(id).copied().unwrap_or(0.0).max(1e-6)) {
+        let (id, n) = mean_n.iter().min_by(|a, b| a.1.total_cmp(b.1).then(a.0.cmp(b.0))).map(|(id, n)| (*id, *n)).unwrap_or((0, 0.0));
+        return Err(format!(
+            "Buckling not determinable: every axial compression is within round-off of the member elongations (largest {:.3e} kN in element {id}, resolvable beyond {:.3e} kN)",
+            -n, axial_noise.get(&id).copied().unwrap_or(0.0)
+        ));
+    }
 
     // 3. Sparse stiffness of the free block (the linear path's K: rotated
     //    springs, orphan-rotation guard, inclined-roller frames)
@@ -103,10 +115,11 @@ pub fn buckling_system_2d(input: &SolverInput) -> Result<BucklingSystem2D, Strin
     //    inclined rollers, then rotated and cut to the free block. Negate it in
     //    place — we solve K·φ = λ·(-Kg)·φ for positive eigenvalues, and nothing
     //    reads the un-negated Kg.
+    let span_axial = span_axial_geometric_stiffness_2d(input, &dof_num);
     let neg_kg_csc = {
         let mut kg = KgTriplets::new(if inclined_transforms_2d.is_empty() { nf } else { dof_num.n_total });
         emit_geometric_stiffness_2d(input, &dof_num, &u, &mut |i, j, v| if i >= j { kg.add(i, j, v) });
-        for (_, dofs, g) in span_axial_geometric_stiffness_2d(input, &dof_num) {
+        for (_, dofs, g) in &span_axial {
             for (a, &i) in dofs.iter().enumerate() {
                 for (b, &j) in dofs.iter().enumerate() {
                     if i >= j { kg.add(i, j, g[a * dofs.len() + b]) }
@@ -122,7 +135,67 @@ pub fn buckling_system_2d(input: &SolverInput) -> Result<BucklingSystem2D, Strin
         }
         kg_csc
     };
-    Ok(BucklingSystem2D { linear, dof_num, k_ff, neg_kg_csc, inclined_transforms_2d, mean_n })
+    Ok(BucklingSystem2D { linear, dof_num, k_ff, neg_kg_csc, inclined_transforms_2d, mean_n, span_axial })
+}
+
+/// Per member, the axial force that is round-off of its elongation: N = EA·δ/L
+/// with δ = Σ (u_j − u_i)·e summed in global components, whose round-off is
+/// ε times the sum of the terms' magnitudes; 100 of those.
+fn axial_force_round_off_2d(input: &SolverInput, linear: &AnalysisResults) -> HashMap<usize, f64> {
+    let u: HashMap<usize, (f64, f64)> = linear.displacements.iter().map(|d| (d.node_id, (d.ux, d.uz))).collect();
+    let nodes: HashMap<usize, &SolverNode> = crate::ordered::values(&input.nodes).map(|n| (n.id, n)).collect();
+    let mats: HashMap<usize, &SolverMaterial> = crate::ordered::values(&input.materials).map(|m| (m.id, m)).collect();
+    let secs: HashMap<usize, &SolverSection> = crate::ordered::values(&input.sections).map(|s| (s.id, s)).collect();
+    let mut out = HashMap::new();
+    for e in crate::ordered::values(&input.elements) {
+        let (Some(a), Some(b)) = (nodes.get(&e.node_i), nodes.get(&e.node_j)) else { continue };
+        let (Some(m), Some(s)) = (mats.get(&e.material_id), secs.get(&e.section_id)) else { continue };
+        let l = (b.x - a.x).hypot(b.z - a.z);
+        if l > 0.0 {
+            let (cx, cz) = ((b.x - a.x) / l, (b.z - a.z) / l);
+            let terms = |n: usize| u.get(&n).map_or(0.0, |&(ux, uz)| (ux * cx).abs() + (uz * cz).abs());
+            out.insert(e.id, 100.0 * f64::EPSILON * m.e * 1000.0 * s.a * (terms(e.node_i) + terms(e.node_j)) / l);
+        }
+    }
+    out
+}
+
+/// A mode is resolved when the round-off of the axial forces can move its geometric work by at most this fraction.
+const MODE_RESOLUTION: f64 = 1e-2;
+
+fn geometric_work_uncertainty_2d(
+    terms: &[super::geometric_stiffness::KgAffineTerm],
+    span_axial: &[(usize, Vec<usize>, Vec<f64>)],
+    mean_n: &HashMap<usize, f64>,
+    noise: &HashMap<usize, f64>,
+    phi: &[f64],
+) -> (f64, f64, Vec<usize>) {
+    let (mut work, mut uncertainty, mut drivers) = (0.0, 0.0, Vec::new());
+    for (_, dofs, g) in span_axial {
+        let m = dofs.len();
+        for i in 0..m {
+            for j in 0..m {
+                work += phi[dofs[i]] * g[i * m + j] * phi[dofs[j]];
+            }
+        }
+    }
+    for t in terms {
+        let m = t.dofs.len();
+        let mut g = 0.0;
+        for i in 0..m {
+            for j in 0..m {
+                g += phi[t.dofs[i]] * t.g[i * m + j] * phi[t.dofs[j]];
+            }
+        }
+        let n = mean_n.get(&t.element_id).copied().unwrap_or(0.0);
+        let e = noise.get(&t.element_id).copied().unwrap_or(0.0);
+        work += n * g;
+        uncertainty += e * g.abs();
+        if g != 0.0 && n.abs() <= e {
+            drivers.push(t.element_id);
+        }
+    }
+    (work, uncertainty, drivers)
 }
 
 /// Solve 2D buckling analysis.
@@ -139,7 +212,7 @@ pub fn solve_buckling_2d(
     let sec_by_id: HashMap<usize, &SolverSection> =
         crate::ordered::values(&input.sections).map(|s| (s.id, s)).collect();
 
-    let BucklingSystem2D { linear, dof_num, k_ff, neg_kg_csc, inclined_transforms_2d, mean_n } = buckling_system_2d(input)?;
+    let BucklingSystem2D { linear, dof_num, k_ff, neg_kg_csc, inclined_transforms_2d, mean_n, span_axial } = buckling_system_2d(input)?;
     let nf = dof_num.n_free;
     let n = dof_num.n_total;
 
@@ -158,8 +231,13 @@ pub fn solve_buckling_2d(
     } else {
         (&k_ff, &neg_kg_csc, nf)
     };
-    let result = lanczos_buckling_eigen_sparse(k_solve, kg_solve, num_modes)
-        .ok_or_else(|| crate::linalg::lanczos::eigen_failure_message(k_solve.n))?;
+    let mut structured_diagnostics = linear.structured_diagnostics.clone();
+    crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::for_2d(input, crate::known_issues::Analysis::Buckling));
+    let (result, conditioning) = crate::known_issues::with_sparse_factor_conditioning(k_solve, |observe| {
+        crate::linalg::lanczos::lanczos_buckling_eigen_sparse_observed(k_solve, kg_solve, num_modes, observe)
+    });
+    crate::known_issues::attach(&mut structured_diagnostics, conditioning.into_iter().collect());
+    let result = result.ok_or_else(|| crate::linalg::lanczos::eigen_failure_message(k_solve.n))?;
 
     let num_modes = num_modes.min(ns);
     let n_converged = result.values.len();
@@ -172,6 +250,10 @@ pub fn solve_buckling_2d(
     }
     mode_pairs.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
 
+    let axial_noise = axial_force_round_off_2d(input, &linear);
+    let kg_terms = geometric_stiffness_terms_2d(input, &dof_num);
+    let mut unresolved: Vec<(usize, f64)> = Vec::new();
+    let mut unresolved_members: Vec<usize> = Vec::new();
     let mut modes = Vec::new();
     for &(lambda, idx) in mode_pairs.iter().take(num_modes) {
         let phi_s: Vec<f64> = (0..ns).map(|i| result.vectors[i * n_converged + idx]).collect();
@@ -195,6 +277,12 @@ pub fn solve_buckling_2d(
             }
         }
 
+        let (work, uncertainty, drivers) = geometric_work_uncertainty_2d(&kg_terms, &span_axial, &mean_n, &axial_noise, &u_mode);
+        if !(uncertainty <= MODE_RESOLUTION * work.abs()) {
+            unresolved.push((modes.len() + 1, lambda));
+            unresolved_members.extend(drivers);
+        }
+
         let displacements = super::linear::build_displacements_2d(&dof_num, &u_mode);
         modes.push(BucklingMode {
             load_factor: lambda,
@@ -204,6 +292,15 @@ pub fn solve_buckling_2d(
 
     if modes.is_empty() {
         return Err("No positive buckling load factors found".into());
+    }
+
+    if !unresolved.is_empty() {
+        unresolved_members.sort_unstable();
+        unresolved_members.dedup();
+        let listed: Vec<String> = unresolved.iter().map(|(k, l)| format!("mode {k} (λ = {l:.3e})")).collect();
+        let mut d = crate::known_issues::diagnostic("BU-UNRESOLVED-MODE").with_elements(unresolved_members);
+        d.message = format!("{}: {}", d.message, listed.join(", "));
+        crate::known_issues::attach(&mut structured_diagnostics, vec![d]);
     }
 
     // 6. Per-element buckling data
@@ -241,6 +338,7 @@ pub fn solve_buckling_2d(
     }
 
     Ok(BucklingResult {
+        structured_diagnostics,
         modes,
         n_dof: nf,
         element_data,
@@ -267,7 +365,7 @@ pub fn buckling_system_3d(input: &SolverInput3D) -> Result<BucklingSystem3D, Str
     // the unexpanded model has no elements for (an index panic).
     let expanded = (!input.curved_beams.is_empty()).then(|| super::linear::expand_curved_beams_3d(input));
     let input = expanded.as_ref().unwrap_or(input);
-    let linear = super::linear::solve_3d(input)?;
+    let linear = super::linear::buckling_preload_3d(input)?;
     let dof_num = DofNumbering::build_3d(input);
     let nf = dof_num.n_free;
     let n = dof_num.n_total;
@@ -347,6 +445,8 @@ pub fn buckling_system_3d(input: &SolverInput3D) -> Result<BucklingSystem3D, Str
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BucklingResult3D {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub structured_diagnostics: Vec<StructuredDiagnostic>,
     pub modes: Vec<BucklingMode3D>,
     pub n_dof: usize,
     pub element_data: Vec<ElementBucklingData3D>,
@@ -408,8 +508,13 @@ pub fn solve_buckling_3d(
     } else {
         (&k_ff, &neg_kg_csc, nf)
     };
-    let result = lanczos_buckling_eigen_sparse(k_solve, kg_solve, num_modes)
-        .ok_or_else(|| crate::linalg::lanczos::eigen_failure_message(k_solve.n))?;
+    let mut structured_diagnostics = linear.structured_diagnostics.clone();
+    crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::for_3d(input, crate::known_issues::Analysis::Buckling));
+    let (result, conditioning) = crate::known_issues::with_sparse_factor_conditioning(k_solve, |observe| {
+        crate::linalg::lanczos::lanczos_buckling_eigen_sparse_observed(k_solve, kg_solve, num_modes, observe)
+    });
+    crate::known_issues::attach(&mut structured_diagnostics, conditioning.into_iter().collect());
+    let result = result.ok_or_else(|| crate::linalg::lanczos::eigen_failure_message(k_solve.n))?;
 
     let num_modes = num_modes.min(ns);
     let n_converged = result.values.len();
@@ -478,5 +583,24 @@ pub fn solve_buckling_3d(
         });
     }
 
-    Ok(BucklingResult3D { modes, n_dof: nf, element_data })
+    Ok(BucklingResult3D { structured_diagnostics, modes, n_dof: nf, element_data })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_mode_whose_geometric_work_comes_from_a_span_load_is_resolved() {
+        let term = super::super::geometric_stiffness::KgAffineTerm {
+            element_id: 1, dofs: vec![0, 1], g: vec![1.0, -1.0, -1.0, 1.0], elongation: vec![], e: 0.0, a: 0.0, l: 1.0, alpha: 0.0, dt: 0.0,
+        };
+        let span = vec![(1, vec![0, 1], vec![-2.0, 2.0, 2.0, -2.0])];
+        let mean_n = HashMap::from([(1, 0.0)]);
+        let noise = HashMap::from([(1, 1e-9)]);
+        let phi = [1.0, -1.0];
+        let (work, uncertainty, _) = geometric_work_uncertainty_2d(&[term], &span, &mean_n, &noise, &phi);
+        assert_eq!(work, -8.0);
+        assert!(uncertainty <= MODE_RESOLUTION * work.abs(), "work {work}, uncertainty {uncertainty}");
+    }
 }

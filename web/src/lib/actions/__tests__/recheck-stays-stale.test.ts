@@ -49,9 +49,18 @@ describe('a solve that left the combinations out', () => {
     expect(recheckStore.stale).toBe(true);
     expect((await rerunAnalysisAndDesign()).ok).toBe(false);
     expect(recheckStore.stale).toBe(true);
+    const toast = vi.spyOn(uiStore, 'toast');
     const outcome = await runGlobalSolve();
-    expect(outcome.ok && outcome.combinationsLeftOut).toBeTruthy();
+    expect(outcome).toEqual({ ok: false, error: 'worker crashed' });
     expect(recheckStore.stale).toBe(true);
+    expect(toast.mock.calls.filter((c) => c[1] === 'error').map((c) => c[0])).toEqual(['worker crashed']);
+    expect(toast.mock.calls.some((c) => c[1] === 'success')).toBe(false);
+    expect(resultsStore.perCombo3D.size).toBe(0);
+    expect(resultsStore.perCase3D.size).toBe(0);
+    expect(resultsStore.fullEnvelope3D).toBeNull();
+    const single = resultsStore.results3D;
+    expect(single?.reactions.reduce((s, r) => s + r.fx, 0)).toBeCloseTo(-15, 6);
+    expect(single?.reactions.reduce((s, r) => s + r.fz, 0)).toBeCloseTo(120, 6);
   });
 
   it('ends the stale state once the combinations are solved', async () => {

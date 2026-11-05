@@ -114,6 +114,10 @@ path = "tests/mechanism_fuzz/main.rs"
 name = "robustness"
 path = "tests/robustness/main.rs"
 
+[[test]]
+name = "differential"
+path = "tests/differential/main.rs"
+
 [[bench]]
 name = "solver_bench"
 harness = false

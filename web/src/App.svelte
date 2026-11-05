@@ -14,6 +14,7 @@
   import { authStore } from './lib/store/auth.svelte';
   import { accounts } from './lib/features';
   import { hasLoadCarrying3D } from './lib/engine/solver-service';
+  import ContainmentBanner from './components/ContainmentBanner.svelte';
   import Viewport from './components/Viewport.svelte';
   import Viewport3D from './components/Viewport3D.svelte';
   import PlacementHud from './components/pro/PlacementHud.svelte';
@@ -388,12 +389,14 @@
   import { whatIf } from './lib/store/whatif.svelte';
   import { solveSharedView } from './lib/utils/solve-shared-view';
   import { runLiveCalc, runGlobalSolve, registerLiveCalcCanceller } from './lib/engine/live-calc';
+  import SiteHeader from './components/site/SiteHeader.svelte';
+  import PublicPending from './components/site/PublicPending.svelte';
+  import { loadPublicPage, idlePrefetchPublicPages, resetPublicScroll, manualPublicScrollRestoration } from './lib/public-navigation';
   import LandingPage from './components/LandingPage.svelte';
   import { parsePublicPath, publicHref } from './lib/i18n/public-routes';
   import { routeKind, isAppPath, isDemoPath } from './lib/public-route';
-  import { resetPublicScroll } from './lib/public-scroll';
   import { modeToPath, pathToMode, slugifyTabName, type AppMode } from './lib/app-mode';
-  import { publicI18n } from './lib/i18n/store.svelte';
+  import { publicI18n, ensurePublicLocale } from './lib/i18n/store.svelte';
   import AiDrawer from './components/AiDrawer.svelte';
   import { splitAllAtNodes } from './lib/model/edit/cut-members';
 
@@ -409,23 +412,6 @@
   const isDemoRoute = isDemoPath;
 
   /**
-   * The public routes, read through their language prefix.
-   *
-   * `/es/blog/x` and `/blog/x` are the same route; the first names its
-   * language and the second is an old link that still has to work. Everything
-   * below asks these rather than matching `location.pathname` directly,
-   * because a prefix would otherwise turn every public page into an app route.
-   */
-  function publicRoute(pathname: string) {
-    return parsePublicPath(pathname);
-  }
-
-  /** `/blog`, `/blog/<slug>` and the standing pages (/cirsoc, /reliability, …), under any prefix. */
-  function isBlogRoute(pathname: string) {
-    return routeKind({ pathname, search: '', hash: '' }).kind === 'blog';
-  }
-
-  /**
    * The URL says which language the page is in, so on arrival the URL wins.
    *
    * Without this, opening a shared `/pt/blog/x` in a browser whose stored
@@ -434,7 +420,7 @@
    */
   function adoptLocaleFromPath() {
     if (typeof window === 'undefined') return;
-    const { locale } = publicRoute(location.pathname);
+    const { locale } = parsePublicPath(location.pathname);
     if (locale && locale !== publicI18n.locale) setLocale(locale);
   }
   adoptLocaleFromPath();
@@ -580,40 +566,25 @@
     return tabManager.tabs.find(tab => slugifyTabName(tab.name) === tabSlug) ?? null;
   }
 
-  /**
-   * The landing, unless the address is the application's or the blog's. The fragment is not read:
-   * a shared model at the root (`/#data=…`) shows the landing while it is restored behind it.
-   */
-  function shouldShowLanding() {
-    return routeKind({ pathname: location.pathname, search: location.search, hash: '' }).kind === 'landing';
+  /** A shared model at the root (`/#data=…`) keeps the landing up while it is restored behind it. */
+  function publicShell() {
+    return routeKind({ pathname: location.pathname, search: location.search, hash: '' });
   }
 
-  let showLanding = $state(shouldShowLanding());
-  let showExperiment = $state(['research', 'tools'].includes(routeKind().kind));
-  let experiment = $state<typeof import('./components/research/ExperimentPage.svelte').default | null>(null);
+  const initialPublicRoute = routeKind();
+  const initialShell = publicShell();
+  let showLanding = $state(initialShell.kind === 'landing');
+  let showExperiment = $state(['research', 'tools'].includes(initialPublicRoute.kind));
+  let showPaper = $state(initialPublicRoute.kind === 'paper');
+  let publicPage = $state<import('svelte').Component<{ path: string }> | null>(null);
+  let publicRevision = 0;
   $effect(() => {
-    if (showExperiment && !experiment) {
-      void import('./components/research/load-experiment')
-        .then((m) => m.loadExperimentPage())
-        .then((page) => (experiment = page));
-    }
+    if (showBlog || showExperiment || showPaper) return idlePrefetchPublicPages();
   });
-  let showPaper = $state(routeKind().kind === 'paper');
-  let paper = $state<typeof import('./components/paper/PaperPage.svelte').default | null>(null);
-  $effect(() => {
-    if (showPaper && !paper) {
-      void import('./components/paper/PaperPage.svelte').then((m) => (paper = m.default));
-    }
-  });
-  let showBlog = $state(typeof window !== 'undefined' && isBlogRoute(location.pathname));
-  let blogPage = $state<typeof import('./components/blog/BlogPage.svelte').default | null>(null);
-  $effect(() => {
-    if (showBlog && !blogPage) {
-      void import('./components/blog/BlogPage.svelte').then((m) => (blogPage = m.default));
-    }
-  });
+  $effect(() => { if (publicShell().kind !== 'app') void syncRouteState(); });
+  let showBlog = $state(initialShell.kind === 'blog');
   /** The address the blog reads its slug from; kept in state so it is reactive. */
-  let blogPath = $state(typeof window !== 'undefined' ? parsePublicPath(location.pathname).path : '/blog');
+  let blogPath = $state(initialShell.path);
 
   /**
    * Move between the public pages without reloading the document.
@@ -627,10 +598,10 @@
     // ('/pt/blog'), so a language never falls off mid-visit.
     history.pushState(null, '', publicHref(path, publicI18n.locale));
     syncRouteState();
-    void resetPublicScroll();
   }
 
   function enterApp() {
+    publicRevision++;
     if (!isAppRoute(location.pathname)) {
       history.pushState(null, '', modeToPath(currentAppMode));
     }
@@ -640,14 +611,27 @@
     showPaper = false;
   }
 
-  function syncRouteState() {
-    showExperiment = ['research', 'tools'].includes(routeKind().kind);
-    showPaper = routeKind().kind === 'paper';
+  async function syncRouteState() {
+    const token = ++publicRevision;
+    const next = routeKind();
+    const shell = publicShell();
+    const hash = next.kind === 'app' ? '' : location.hash;
+    try {
+      const [page] = await Promise.all([loadPublicPage(location.pathname + location.search), ensurePublicLocale(parsePublicPath(location.pathname).locale ?? publicI18n.locale)]);
+      if (token !== publicRevision) return;
+      publicPage = page;
+    } catch (error) {
+      console.error('Public navigation failed', error);
+      if (token === publicRevision) location.reload();
+      return;
+    }
+    showExperiment = next.kind === 'research' || next.kind === 'tools';
+    showPaper = next.kind === 'paper';
     adoptLocaleFromPath();
-    showBlog = isBlogRoute(location.pathname);
-    blogPath = publicRoute(location.pathname).path;
-    showLanding = shouldShowLanding();
-    if (!showLanding && !showBlog && !showExperiment && !showPaper) {
+    showBlog = shell.kind === 'blog';
+    blogPath = shell.path;
+    showLanding = shell.kind === 'landing';
+    if (!publicActive) {
       const nextMode = pathToMode(location.pathname);
       currentAppMode = nextMode;
       if (nextMode === 'educativo') {
@@ -658,6 +642,8 @@
         uiStore.analysisMode = '2d';
       }
     }
+    await tick();
+    if (token === publicRevision && shell.kind !== 'app') resetPublicScroll(hash);
   }
 
   // Listen for enter-app event from LandingPage "Try Demo" buttons
@@ -754,11 +740,6 @@
     return true;
   });
 
-  // Keep <html lang> in sync with selected locale
-  $effect(() => {
-    document.documentElement.lang = t('file.htmlLang');
-  });
-
   function restoreAutosave() {
     if (autosaveData) {
       // As a .ded open adopts it (`adoptStoredProject`): its hand edits and exports with it.
@@ -813,8 +794,10 @@
   }
 
   // In the viewer nothing is edited from the keyboard, and the command search is the editor's.
+  const publicActive = $derived(showLanding || showBlog || showExperiment || showPaper);
   const editorActive = $derived(!showLanding && !showBlog && !showExperiment && !showPaper && !uiStore.viewerMode);
   provideEditorActivity(() => editorActive);
+  $effect(() => { if (publicActive) return manualPublicScrollRestoration(); document.documentElement.lang = t('file.htmlLang'); });
 
   let pendingPaste = $state<{ inPlace: boolean; started: boolean } | null>(null);
   function handleProPaste(e: ClipboardEvent) {
@@ -963,10 +946,7 @@
     tabManager.init();
 
     // Check for /demo path → launch guided tour
-    const onPopState = () => {
-      syncRouteState();
-      if (routeKind().kind !== 'app') void resetPublicScroll();
-    };
+    const onPopState = () => syncRouteState();
     window.addEventListener('popstate', onPopState);
 
     if (isDemoRoute(location.pathname)) {
@@ -1434,23 +1414,14 @@
 
 <svelte:window onkeydown={handleProKeydown} onclick={handleProBarClickOutside} onpaste={handleProPaste} />
 
-{#if showExperiment}
-  {#if experiment}
-    {@const Experiment = experiment}
-    <Experiment path={blogPath} />
-  {/if}
-{:else if showPaper}
-  {#if paper}
-    {@const Paper = paper}
-    <Paper />
-  {/if}
-{:else if showBlog}
-  {#if blogPage}
-    {@const Blog = blogPage}
-    <Blog path={blogPath} />
-  {/if}
-{:else if showLanding}
-  <LandingPage />
+{#if publicActive}
+  <SiteHeader path={blogPath} />
+  {#if showLanding}
+    <LandingPage />
+  {:else if publicPage}
+    {@const Page = publicPage}
+    <Page path={blogPath} />
+  {:else}<PublicPending kind={routeKind().kind} />{/if}
 {/if}
 
 {#snippet autosavePrompt()}
@@ -1471,8 +1442,14 @@
       </div>
 {/snippet}
 
+<!--
+  Public pages own document metadata and restore it on teardown. Scope the
+  editor's language to its UI, including dialogs outside .app-container, so a
+  lazy editor mount cannot overwrite the restored <html lang>.
+-->
+<div class="app-language" lang={t('file.htmlLang')} style="display: contents">
 {#if uiStore.viewerMode}<ProViewer />{/if}
-<div class="app-container" class:embed-mode={uiStore.embedMode || uiStore.viewerMode} class:viewer-mode={uiStore.viewerMode} class:hidden-behind-landing={showLanding || showBlog || showExperiment || showPaper}>
+<div class="app-container" class:embed-mode={uiStore.embedMode || uiStore.viewerMode} class:viewer-mode={uiStore.viewerMode} class:hidden-behind-landing={publicActive}>
   <header class="app-header" class:has-autosave={showAutosaveBanner}>
     <div class="logo">
       <button class="logo-home" onclick={() => { history.pushState(null, '', '/'); syncRouteState(); }} title={t('app.backHome')}>
@@ -1967,11 +1944,13 @@
 
     <div class="main-area" bind:this={mainAreaEl}>
       <main class="viewport-container">
+        <ContainmentBanner preserveModel disposition={uiStore.is3DWorkspace ? resultsStore.knownIssues3D : resultsStore.knownIssues}>
         {#if !uiStore.is3DWorkspace}
           <Viewport />
         {:else}
           <Viewport3D />
         {/if}
+        </ContainmentBanner>
         {#if uiStore.appMode === 'pro' || uiStore.appMode === 'basico'}<PlacementHud />{/if}
         {#if uiStore.appMode === 'pro'}{#if !uiStore.viewerMode}<StoreyScopeBar />{/if}<ProLinkedLayer />{/if}
         <!-- Instruction for the armed-but-unanswered stress mode. Inside the
@@ -2189,7 +2168,7 @@
     </footer>
   {/if}
 
-  {#if !uiStore.embedMode && !showLanding && !showBlog && !showExperiment && !showPaper}
+  {#if !uiStore.embedMode && !publicActive}
     <WhatsNewNotice />
   {/if}
 
@@ -2457,6 +2436,7 @@
 -->
 
 <TourOverlay />
+</div>
 
 <style>
   .import-textarea {

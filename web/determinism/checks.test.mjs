@@ -71,7 +71,7 @@ test('time history: stability and residual separately', () => {
 });
 
 test('plastic samples', () => {
-  for (const name of ['plastic-2d-portal/certify_plastic_2d', 'plastic-3d-cantilever/certify_plastic_3d']) {
+  for (const name of ['plastic-3d-cantilever/certify_plastic_3d']) {
     mustFail(name, (v) => { v.certificate.certified = false; }, name);
   }
 });
@@ -142,4 +142,14 @@ test('canonical text tells apart what the bits tell apart', () => {
   assert.notEqual(canonical(new Map([['a', 1]])), canonical({ a: 1 }));
   assert.notEqual(canonical([1, 2]), canonical([2, 1]));
   assert.notEqual(canonical({ a: 1, b: 2 }), canonical({ a: 1, b: 3 }));
+});
+
+test('2D plastic requires the specific refusal, never arbitrary errors or success', () => {
+  const refused = reference.filter(r => /^plastic-2d-.*\/((solve|certify)_plastic_2d|export_plastic_bundle_2d)$/.test(r.name));
+  assert.equal(refused.length, 6);
+  for (const r of refused) {
+    for (const text of ['ERR: unrelated', '{}', r.text.replaceAll('758', '759'), r.text.replaceAll('PL-2D-INVARIANCE', 'OTHER')]) {
+      mustFail(r.name, (_v, r) => { r.text = text; }, text);
+    }
+  }
 });

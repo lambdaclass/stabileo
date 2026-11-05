@@ -103,7 +103,8 @@ fn validation_plastic_ext_ss_midspan_point() {
         vec![SolverLoad::PointOnElement(SolverPointLoadOnElement {
             element_id: 1, a: l / 2.0, p: -1.0, px: None, my: None,
         })]);
-    let result = plastic::solve_plastic_2d(&input).unwrap();
+    crate::common::assert_containment(plastic::solve_plastic_2d(&input), "PL-2D-INVARIANCE");
+    let result = plastic::solve_plastic_2d_unrefused(&input).unwrap();
 
     let expected_lambda: f64 = 4.0 * MP / l;
     let rel_err: f64 = (result.collapse_factor - expected_lambda).abs() / expected_lambda;
@@ -137,7 +138,8 @@ fn validation_plastic_ext_ff_udl() {
         }));
     }
     let input = make_plastic_beam_multi(n, l, "fixed", Some("fixed"), loads);
-    let result = plastic::solve_plastic_2d(&input).unwrap();
+    crate::common::assert_containment(plastic::solve_plastic_2d(&input), "PL-2D-INVARIANCE");
+    let result = plastic::solve_plastic_2d_unrefused(&input).unwrap();
 
     let expected_lambda: f64 = 16.0 * MP / (l * l);
     let rel_err: f64 = (result.collapse_factor - expected_lambda).abs() / expected_lambda;
@@ -168,7 +170,8 @@ fn validation_plastic_ext_ff_midspan_point() {
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: 2, fx: 0.0, fz: -1.0, my: 0.0,
         })]);
-    let result = plastic::solve_plastic_2d(&input).unwrap();
+    crate::common::assert_containment(plastic::solve_plastic_2d(&input), "PL-2D-INVARIANCE");
+    let result = plastic::solve_plastic_2d_unrefused(&input).unwrap();
 
     let expected_lambda: f64 = 8.0 * MP / l;
     let rel_err: f64 = (result.collapse_factor - expected_lambda).abs() / expected_lambda;
@@ -199,7 +202,8 @@ fn validation_plastic_ext_propped_cantilever_midspan() {
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: 2, fx: 0.0, fz: -1.0, my: 0.0,
         })]);
-    let result = plastic::solve_plastic_2d(&input).unwrap();
+    crate::common::assert_containment(plastic::solve_plastic_2d(&input), "PL-2D-INVARIANCE");
+    let result = plastic::solve_plastic_2d_unrefused(&input).unwrap();
 
     let expected_lambda: f64 = 6.0 * MP / l;
     let rel_err: f64 = (result.collapse_factor - expected_lambda).abs() / expected_lambda;
@@ -230,7 +234,8 @@ fn validation_plastic_ext_portal_lateral() {
     let h: f64 = 4.0;
     let w: f64 = 6.0;
     let input = make_plastic_portal(h, w, 1.0, 0.0);
-    let result = plastic::solve_plastic_2d(&input).unwrap();
+    crate::common::assert_containment(plastic::solve_plastic_2d(&input), "PL-2D-INVARIANCE");
+    let result = plastic::solve_plastic_2d_unrefused(&input).unwrap();
 
     let expected_lambda: f64 = 4.0 * MP / h;
     let rel_err: f64 = (result.collapse_factor - expected_lambda).abs() / expected_lambda;
@@ -273,7 +278,8 @@ fn validation_plastic_ext_two_span_udl() {
         }));
     }
     let input = make_plastic_continuous(&[l, l], n_per_span, loads);
-    let result = plastic::solve_plastic_2d(&input).unwrap();
+    crate::common::assert_containment(plastic::solve_plastic_2d(&input), "PL-2D-INVARIANCE");
+    let result = plastic::solve_plastic_2d_unrefused(&input).unwrap();
 
     // Two-span continuous with UDL: each span collapses like a propped
     // cantilever. The governing mechanism gives lambda ~ 11.66*Mp/(q*L^2).
@@ -319,7 +325,8 @@ fn validation_plastic_ext_ff_third_point() {
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: 2, fx: 0.0, fz: -1.0, my: 0.0, // node at L/3
         })]);
-    let result = plastic::solve_plastic_2d(&input).unwrap();
+    crate::common::assert_containment(plastic::solve_plastic_2d(&input), "PL-2D-INVARIANCE");
+    let result = plastic::solve_plastic_2d_unrefused(&input).unwrap();
 
     let expected_lambda: f64 = 9.0 * MP / l;
     let rel_err: f64 = (result.collapse_factor - expected_lambda).abs() / expected_lambda;
@@ -354,7 +361,8 @@ fn validation_plastic_ext_propped_cantilever_udl() {
         }));
     }
     let input = make_plastic_beam_multi(n, l, "fixed", Some("rollerX"), loads);
-    let result = plastic::solve_plastic_2d(&input).unwrap();
+    crate::common::assert_containment(plastic::solve_plastic_2d(&input), "PL-2D-INVARIANCE");
+    let result = plastic::solve_plastic_2d_unrefused(&input).unwrap();
 
     let expected_lambda: f64 = 11.66 * MP / (l * l);
     let rel_err: f64 = (result.collapse_factor - expected_lambda).abs() / expected_lambda;

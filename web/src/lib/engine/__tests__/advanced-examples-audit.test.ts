@@ -23,7 +23,7 @@ import { historyStore, modelStore, uiStore } from '../../store';
 import { solvePDelta, solveBuckling, solveModal, solvePDelta3D, solveBuckling3D, solveModal3D, solve3D } from '../wasm-solver';
 import { solveMovingLoads, getPredefinedTrains } from '../moving-loads';
 import { computeInfluenceLine } from '../influence-service';
-import { runPlasticCollapse } from '../../actions/plastic';
+import { runLegacyPlasticCollapse } from './legacy-plastic-helper';
 
 const EX2 = ['simply-supported', 'cantilever', 'cantilever-point', 'point-loads', 'gerber-beam', 'continuous-beam',
   'spring-support', 'settlement', 'thermal', 'truss', 'warren-truss', 'howe-truss', 'three-hinge-arch',
@@ -71,7 +71,7 @@ describe('advanced analyses on the Basic 2D examples', () => {
     expect(modal.modes.length).toBeGreaterThanOrEqual(3);
     expect(modal.modes[0].frequency).toBeGreaterThan(0.5);
 
-    const plastic = runPlasticCollapse()!.result;
+    const plastic = runLegacyPlasticCollapse()!.result;
     expect(Number.isFinite(plastic.collapseFactor)).toBe(true);
     expect(plastic.collapseFactor).toBeGreaterThan(0);
     expect(plastic.isMechanism).toBe(!NO_COLLAPSE.has(name));

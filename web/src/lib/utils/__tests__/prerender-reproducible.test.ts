@@ -17,6 +17,15 @@ function files(root: string): string[] {
     .sort();
 }
 
+function difference(path: string): string {
+  const a = readFileSync(join(FIRST, path));
+  const b = readFileSync(join(SECOND, path));
+  let offset = 0;
+  while (offset < a.length && offset < b.length && a[offset] === b[offset]) offset++;
+  const context = (buffer: Buffer) => JSON.stringify(buffer.subarray(Math.max(0, offset - 100), offset + 100).toString('utf8'));
+  return `${path}: first difference at byte ${offset} (sizes ${a.length} and ${b.length})\n  concurrency 1: ${context(a)}\n  concurrency 4: ${context(b)}`;
+}
+
 async function prerender(out: string, concurrency: string) {
   await execFileAsync('npx', ['tsx', 'scripts/prerender.ts'], {
     cwd: WEB_ROOT,
@@ -50,7 +59,7 @@ describe('two prerenders of one build are byte-identical (#875)', () => {
 
   it('every file is byte-identical', () => {
     const differing = files(FIRST).filter((path) => !readFileSync(join(FIRST, path)).equals(readFileSync(join(SECOND, path))));
-    expect(differing).toEqual([]);
+    expect(differing, differing.map(difference).join('\n')).toEqual([]);
   });
 
   it('the pinned star count reached the header instead of a per-page fetch', () => {

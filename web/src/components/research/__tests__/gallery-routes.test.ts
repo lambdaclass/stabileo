@@ -7,8 +7,8 @@ import { publicPaths } from '../../../../scripts/public-paths';
 import catalog from '../../../../../research/papers.json';
 
 describe('runnable research gallery coverage', () => {
-  const page = readFileSync(resolve('src/components/research/ResearchPage.svelte'), 'utf8');
-  const routes = [...page.matchAll(/route === '(\/research\/[^']+)'/g)].map((m) => m[1]);
+  const page = readFileSync(resolve('src/components/research/load-detail.ts'), 'utf8');
+  const routes = [...page.matchAll(/'(\/research\/[^']+)':/g)].map((m) => m[1]);
   it('gives every live research route exactly one runnable card and prerender entry', async () => {
     expect(routes.length).toBeGreaterThan(0);
     const paths = EXPERIMENTS.map((e) => e.path);

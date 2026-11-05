@@ -819,7 +819,8 @@ fn benchmark_constraint_force_parity_across_solvers() {
         max_hinges: Some(5),
         mp_overrides: None,
     };
-    let plastic_result = plastic::solve_plastic_2d(&plastic_input).expect("Plastic solve failed");
+    crate::common::assert_containment(plastic::solve_plastic_2d(&plastic_input), "PL-2D-INVARIANCE");
+    let plastic_result = plastic::solve_plastic_2d_unrefused(&plastic_input).expect("Plastic solve failed");
     // Each step's results are its increment (`PlasticStep::results`): the
     // constraint forces at the last load factor are their sum over the steps.
     let mut plastic_cf: Vec<ConstraintForce> = Vec::new();
