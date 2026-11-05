@@ -79,6 +79,7 @@ const RELEASED: Record<number, string[]> = {
   28: ['basic-second-order-split-members-returns'],
   29: ['basic-plastic-closes-unloading-hinges-returns'],
   30: ['connector-mechanism-2d-refused'],
+  33: ['fail-closed-ratios'],
 };
 
 describe('results versions', () => {

@@ -1794,6 +1794,18 @@ mod tests {
     }
 
     #[test]
+    fn an_unknown_ec3_reduction_factor_crosses_the_boundary_as_null_with_its_check_unevaluated() {
+        let mut m = heb300(1);
+        m.geometry = None;
+        m.lb = 4.0;
+        let (r, _) = ec3_shear_only(&m, 1e5);
+        assert!(r.chi_lt.is_nan(), "{}", r.chi_lt);
+        let json: serde_json::Value = serde_json::from_str(&crate::boundary::to_json(&r).expect("an unknown chi_LT is reported, not refused")).unwrap();
+        assert!(json["chiLt"].is_null(), "{json}");
+        assert!(json["unevaluated"].as_array().unwrap().iter().any(|n| n == "LTB chi_LT"), "{json}");
+    }
+
+    #[test]
     fn ec3_degenerate_i_geometry_without_av_is_unevaluated() {
         let mut m = heb300(1);
         m.geometry = Some(crate::postprocess::ec3_check::Ec3Geometry::I { h: 0.030, b: 0.300, tw: 0.011, tf: 0.019, r: 0.027 });

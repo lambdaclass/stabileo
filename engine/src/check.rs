@@ -124,6 +124,21 @@ pub fn de_ratio<'de, D: serde::Deserializer<'de>>(d: D) -> Result<f64, D::Error>
     Ok(v.unwrap_or(f64::INFINITY))
 }
 
+/// For a reported intermediate that is not a verdict (a reduction factor, an effective property):
+/// a value that could not be computed goes out as null, and the check that needs it is in the ledger.
+pub fn ser_known<S: serde::Serializer>(v: &f64, s: S) -> Result<S::Ok, S::Error> {
+    if v.is_finite() {
+        s.serialize_f64(*v)
+    } else {
+        s.serialize_none()
+    }
+}
+
+pub fn de_known<'de, D: serde::Deserializer<'de>>(d: D) -> Result<f64, D::Error> {
+    let v: Option<f64> = Option::deserialize(d)?;
+    Ok(v.unwrap_or(f64::NAN))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

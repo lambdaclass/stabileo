@@ -370,14 +370,19 @@ pub struct Ec3CheckResult {
     #[serde(default)]
     pub k_zz: f64,
     /// Column buckling reduction chi_y
+    #[serde(serialize_with = "crate::check::ser_known", deserialize_with = "crate::check::de_known")]
     pub chi_y: f64,
     /// Column buckling reduction chi_z
+    #[serde(serialize_with = "crate::check::ser_known", deserialize_with = "crate::check::de_known")]
     pub chi_z: f64,
     /// LTB reduction chi_LT
+    #[serde(serialize_with = "crate::check::ser_known", deserialize_with = "crate::check::de_known")]
     pub chi_lt: f64,
     /// Compression buckling resistance Nb,Rd (N)
+    #[serde(serialize_with = "crate::check::ser_known", deserialize_with = "crate::check::de_known")]
     pub nb_rd: f64,
     /// LTB moment resistance Mb,Rd (N-m)
+    #[serde(serialize_with = "crate::check::ser_known", deserialize_with = "crate::check::de_known")]
     pub mb_rd: f64,
     /// Elastic critical moment Mcr (N-m) with the load height; absent for
     /// Lb = 0 (no LTB) and when it could not be evaluated.
