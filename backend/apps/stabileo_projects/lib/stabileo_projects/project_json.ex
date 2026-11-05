@@ -12,6 +12,7 @@ defmodule StabileoProjects.ProjectJSON do
       node_count: project.node_count,
       element_count: project.element_count,
       app_version: project.app_version,
+      revision: project.revision,
       inserted_at: project.inserted_at,
       updated_at: project.updated_at
     }

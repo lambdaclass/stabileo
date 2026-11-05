@@ -1,9 +1,5 @@
 defmodule StabileoProjects.Projects do
-  @moduledoc """
-  An account's cloud projects. Only its owner reads, writes or deletes one;
-  everything answers `:cloud_projects_disabled` while the
-  `cloud_projects_enabled` flag is off.
-  """
+  @moduledoc false
 
   import Ecto.Query
 
@@ -25,6 +21,7 @@ defmodule StabileoProjects.Projects do
     :element_count,
     :app_version,
     :is_active,
+    :revision,
     :inserted_at,
     :updated_at
   ]
@@ -46,7 +43,8 @@ defmodule StabileoProjects.Projects do
         )
         |> search(params["search"])
 
-      {:ok, Listing.paginate(query, params, @sortable, :updated_at, default_dir: :desc)}
+      {rows, meta} = Listing.paginate(query, params, @sortable, :updated_at, default_dir: :desc)
+      {:ok, {rows, Map.put(meta, :used, active_count(account_id))}}
     end
   end
 
@@ -56,11 +54,7 @@ defmodule StabileoProjects.Projects do
     end
   end
 
-  @doc """
-  Creates a project from `name`, `app_mode`, `content` (the gzipped,
-  base64-encoded document) and the optional counts. Holds an advisory lock on
-  the account while it counts, so two saves at once cannot pass the limit.
-  """
+  @doc "Counts under an advisory lock on the account, so two saves at once cannot pass the limit."
   def create(%Account{id: account_id}, params) do
     with :ok <- enabled(),
          {:ok, attrs} <- attrs(params, :create) do
@@ -82,24 +76,40 @@ defmodule StabileoProjects.Projects do
     end
   end
 
+  @doc "`revision` is the one the client last read; another save since then answers `:project_conflict`."
   def update(%Account{} = account, id, params) do
     with :ok <- enabled(),
          {:ok, project} <- fetch(account, id),
+         {:ok, revision} <- revision(params["revision"]),
          {:ok, attrs} <- attrs(params, :update) do
-      project |> Project.update_changeset(attrs) |> Repo.update()
+      %{project | revision: revision}
+      |> Project.update_changeset(attrs)
+      |> Repo.update(stale_error_field: :revision)
+      |> conflict()
     end
   end
+
+  defp revision(revision) when is_integer(revision) and revision > 0, do: {:ok, revision}
+  defp revision(nil), do: {:error, {:validation, %{revision: ["can't be blank"]}}}
+  defp revision(_revision), do: {:error, {:validation, %{revision: ["is invalid"]}}}
+
+  defp conflict({:error, %Ecto.Changeset{errors: errors} = changeset}) do
+    if Keyword.has_key?(errors, :revision),
+      do: {:error, :project_conflict},
+      else: {:error, changeset}
+  end
+
+  defp conflict(result), do: result
 
   def delete(%Account{} = account, id) do
     with :ok <- enabled(),
          {:ok, project} <- fetch(account, id) do
-      project |> Ecto.Changeset.change(is_active: false) |> Repo.update()
+      project |> Project.purge_changeset() |> Repo.update()
     end
   end
 
   def decoded_content(%Project{content: gzip}), do: Content.encode(gzip)
 
-  @doc "Every account's active projects, metadata only, with the owner and whether it consented to research use."
   def admin_list(params) do
     query =
       from(p in Project,
@@ -169,13 +179,13 @@ defmodule StabileoProjects.Projects do
   end
 
   defp below_limit(account_id) do
-    count =
-      Repo.aggregate(
-        from(p in Project, where: p.account_id == ^account_id and p.is_active),
-        :count
-      )
+    if active_count(account_id) < Features.cloud_projects_limit(),
+      do: :ok,
+      else: {:error, :project_limit_reached}
+  end
 
-    if count < Features.cloud_projects_limit(), do: :ok, else: {:error, :project_limit_reached}
+  defp active_count(account_id) do
+    Repo.aggregate(from(p in Project, where: p.account_id == ^account_id and p.is_active), :count)
   end
 
   defp search(query, term) when is_binary(term) and term != "" do

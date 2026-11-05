@@ -1,10 +1,5 @@
 defmodule StabileoRepo.Schemas.Project do
-  @moduledoc """
-  A project an account saved to the cloud: the same `.ded` document the app
-  writes to disk, stored gzipped in `content`, plus the metadata the project
-  list and the admin site show without opening it (`content_bytes` is the
-  size of the uncompressed document). Deleting sets `is_active` to false.
-  """
+  @moduledoc "Deleting sets `is_active` to false and clears `content`."
 
   use StabileoRepo.Schema
   import Ecto.Changeset
@@ -24,6 +19,7 @@ defmodule StabileoRepo.Schemas.Project do
     field(:element_count, :integer)
     field(:app_version, :string)
     field(:is_active, :boolean, default: true)
+    field(:revision, :integer, default: 1)
 
     belongs_to(:account, Account)
 
@@ -32,7 +28,6 @@ defmodule StabileoRepo.Schemas.Project do
 
   def modes, do: @modes
 
-  @doc "A new project. `account_id` is set by the caller, not cast from input."
   def create_changeset(project, attrs) do
     project
     |> cast(attrs, [
@@ -50,7 +45,7 @@ defmodule StabileoRepo.Schemas.Project do
     |> assoc_constraint(:account)
   end
 
-  @doc "Rename and/or replace the content. Never moves a project to another account."
+  @doc "Fails with `revision: \"is stale\"` on `Repo.update(stale_error_field: :revision)` when another save came first."
   def update_changeset(project, attrs) do
     project
     |> cast(attrs, [
@@ -64,6 +59,11 @@ defmodule StabileoRepo.Schemas.Project do
     ])
     |> validate_required([:name, :app_mode, :content, :content_bytes])
     |> validate_common()
+    |> optimistic_lock(:revision)
+  end
+
+  def purge_changeset(project) do
+    change(project, is_active: false, content: nil, content_bytes: 0)
   end
 
   defp validate_common(changeset) do

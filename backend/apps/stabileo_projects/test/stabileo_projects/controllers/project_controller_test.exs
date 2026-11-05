@@ -4,7 +4,7 @@ defmodule StabileoProjects.Controllers.ProjectControllerTest do
   alias StabileoRepo.Features
   alias StabileoRepo.Schemas.Project
 
-  @keys ~w(app_mode app_version content_bytes element_count id inserted_at name node_count updated_at)
+  @keys ~w(app_mode app_version content_bytes element_count id inserted_at name node_count revision updated_at)
 
   setup do
     {:ok, _} = Features.set_cloud_projects_enabled(true)
@@ -44,14 +44,18 @@ defmodule StabileoProjects.Controllers.ProjectControllerTest do
     assert [row] = body["data"]
     refute Map.has_key?(row, "content")
     assert body["meta"]["total"] == 1
+    assert body["meta"]["used"] == 1
     assert body["meta"]["max_projects"] == StabileoProjects.Projects.limits().max_projects
   end
 
   test "PUT and DELETE change only the caller's project", %{token: token} do
     id = (create(token) |> json_body(201))["data"]["id"]
 
-    assert (request(:put, "/#{id}", %{"name" => "Renamed"}, token)
-            |> json_body(200))["data"]["name"] == "Renamed"
+    data =
+      request(:put, "/#{id}", %{"name" => "Renamed", "revision" => 1}, token) |> json_body(200)
+
+    assert data["data"]["name"] == "Renamed"
+    assert data["data"]["revision"] == 2
 
     request(:delete, "/#{id}", %{}, token) |> json_body(200)
 
@@ -59,6 +63,23 @@ defmodule StabileoProjects.Controllers.ProjectControllerTest do
              "not_found"
 
     refute Repo.get!(Project, id).is_active
+  end
+
+  test "409 project_conflict when another save came first", %{token: token} do
+    id = (create(token) |> json_body(201))["data"]["id"]
+    request(:put, "/#{id}", %{"name" => "Laptop", "revision" => 1}, token) |> json_body(200)
+
+    body =
+      request(:put, "/#{id}", %{"name" => "Old tab", "revision" => 1}, token) |> json_body(409)
+
+    assert body["error"] == "project_conflict"
+    assert Repo.get!(Project, id).name == "Laptop"
+  end
+
+  test "422 when PUT has no revision", %{token: token} do
+    id = (create(token) |> json_body(201))["data"]["id"]
+    body = request(:put, "/#{id}", %{"name" => "x"}, token) |> json_body(422)
+    assert body["details"]["revision"] == ["can't be blank"]
   end
 
   test "422 with the failing field", %{token: token} do
@@ -77,8 +98,9 @@ defmodule StabileoProjects.Controllers.ProjectControllerTest do
     assert request(:get, "/#{id}", %{}, token) |> json_body(404) |> Map.get("error") ==
              "not_found"
 
-    assert request(:put, "/#{id}", %{"name" => "x"}, token) |> json_body(404) |> Map.get("error") ==
-             "not_found"
+    assert request(:put, "/#{id}", %{"name" => "x", "revision" => 1}, token)
+           |> json_body(404)
+           |> Map.get("error") == "not_found"
   end
 
   test "403 cloud_projects_disabled while the flag is off", %{token: token} do
