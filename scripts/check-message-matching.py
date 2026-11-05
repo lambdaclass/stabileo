@@ -114,7 +114,8 @@ RUST_CALL = re.compile(r'\.(contains|starts_with|ends_with|find|rfind|strip_pref
                        r'matches|match_indices|trim_start_matches|trim_end_matches)\(')
 RUST_LITERAL = re.compile(r'\s*&?\s*(?:"|r#*"|format!)')
 RUST_EQ = re.compile(r'(==|!=)')
-RUST_MATCH = re.compile(r'\bmatch\s+([^{};]*?(?:\.as_str\(\)|\.as_ref\(\)|&\*)[^{};]*)\{')
+RUST_MATCH = re.compile(r'\bmatch\s+([^{};]*)\{')
+RUST_STRING_ARM = re.compile(r'\s*(?:Some\(\s*|Ok\(\s*|Err\(\s*)?(?:"|r#*")')
 
 
 def rust_hits(text):
@@ -131,13 +132,17 @@ def rust_hits(text):
         if RUST_LITERAL.match(text, m.end()) or (message_like(recv) and not closure):
             found.append((line + 1, f'.{m[1]}('))
     for m in RUST_MATCH.finditer(code):
-        if message_like(m[1]):
+        if message_like(m[1]) and RUST_STRING_ARM.match(text, m.end()):
             found.append((code.count('\n', 0, m.start()) + 1, 'match'))
     for m in RUST_EQ.finditer(code):
-        if not text[m.end():m.end() + 40].lstrip().startswith('"'):
-            continue
         line = code.count('\n', 0, m.start())
-        if message_like(receiver(code[starts[line]:m.start()].rstrip())):
+        if text[m.end():m.end() + 40].lstrip().startswith('"'):
+            value = receiver(code[starts[line]:m.start()].rstrip())
+        elif text[max(0, m.start() - 40):m.start()].rstrip().endswith('"'):
+            value = re.match(r'\s*([\w.&*()]*)', code[m.end():m.end() + 200])[1]
+        else:
+            continue
+        if message_like(value):
             found.append((line + 1, m[1]))
     for m in re.finditer(r'\bRegex::new\(', code):
         found.append((code.count('\n', 0, m.start()) + 1, 'Regex::new'))

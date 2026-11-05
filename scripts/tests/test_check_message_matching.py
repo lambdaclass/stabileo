@@ -49,6 +49,9 @@ class Caught(unittest.TestCase):
             'msg.strip_prefix(crate::check::NON_FINITE).is_some()',
             'err == "out of scope"',
             'match err.as_str() { "x" => true, _ => false }',
+            'match msg { "unsupported" => true, _ => false }',
+            '"out of scope" == err',
+            '"x" != d.message',
             'regex::Regex::new("no free DOFs").is_ok()',
         ):
             with self.subTest(body=body):
@@ -116,6 +119,7 @@ class NotCaught(unittest.TestCase):
             rust('d.code == DiagnosticCode::KnownIssue && ids.contains(&d.id)'),
             rust('d.diagnostics.iter().find(|x| x.severity == Severity::Error).is_some()'),
             rust('DIAGRAM_KINDS.contains(&kind)'),
+            rust('match err.kind { Kind::A => true, _ => false }'),
             ts("return limits.includes('anchorage') || reason === 'noGeometry';"),
             ts("return typeof message === 'string' && msg.type === 'ready';"),
             ts("return resultsStore.diagramType === 'none' && items.includes(x as never);"),
