@@ -13642,6 +13642,7 @@ const pt: Translations = {
   "recheck.downloadBackup": "Baixar todos os projetos abertos",
   "recheck.backupHelp": "Guarde o arquivo de sessão baixado, depois recarregue e abra o arquivo para restaurar todos os projetos. O aviso ainda exigirá confirmação.",
   "recheck.loading": "Carregando alterações nos resultados…",
+  "recheck.checkingTitle": "Verificando este projeto contra as alterações nos resultados desta versão",
   "recheck.detailsUnavailable": "Os detalhes da alteração estão indisponíveis. Tente carregar o aviso novamente.",
   "recheck.loadFailed": "Não foi possível carregar as alterações nos resultados. Tente novamente antes de confirmá-las.",
   "recheck.retry": "Tentar novamente",
