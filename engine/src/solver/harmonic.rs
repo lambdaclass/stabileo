@@ -657,23 +657,7 @@ fn harmonic_modal_from_eigen(
         let (kr, ki, mr, mi) = (k_times(&u_re), k_times(&u_im), m_times(&u_re), m_times(&u_im));
         let res_re: Vec<f64> = (0..n).map(|k| kr[k] - a1 * omega * ki[k] - omega2 * mr[k] - a0 * omega * mi[k] - f[k]).collect();
         let res_im: Vec<f64> = (0..n).map(|k| ki[k] + a1 * omega * kr[k] - omega2 * mi[k] + a0 * omega * mr[k]).collect();
-        let r_scale = max_abs(&res_re).max(max_abs(&res_im));
-        residuals.push(if r_scale == 0.0 {
-            0.0
-        } else if !r_scale.is_finite() || res_re.iter().chain(&res_im).any(|x| x.is_nan()) {
-            f64::NAN
-        } else {
-            let (res_re, res_im): (Vec<f64>, Vec<f64>) = (res_re.iter().map(|x| x / r_scale).collect(), res_im.iter().map(|x| x / r_scale).collect());
-            let ratio = if f_scale > 0.0 { r_scale / f_scale } else { f64::INFINITY };
-            let energy = match (k_solve(&res_re), k_solve(&res_im), f_energy) {
-                (Some(xr), Some(xi), Some(fe)) => {
-                    let q = dot(&xr, &res_re) + dot(&xi, &res_im);
-                    Some(if q.is_finite() { q.max(0.0).sqrt() / fe * ratio } else { f64::NAN })
-                }
-                _ => None,
-            };
-            energy.unwrap_or_else(|| (dot(&res_re, &res_re) + dot(&res_im, &res_im)).sqrt() / f_norm * ratio)
-        });
+        residuals.push(relative_residual(&res_re, &res_im, f_scale, f_norm, f_energy, k_solve));
 
         let re_sum = apply_target(target, &u_re);
         let im_sum = apply_target(target, &u_im);
@@ -932,6 +916,27 @@ fn max_residual(residuals: &[f64]) -> Option<f64> {
     residuals.iter().map(|&r| if r.is_finite() { r } else { f64::MAX }).reduce(f64::max)
 }
 
+fn relative_residual(res_re: &[f64], res_im: &[f64], f_scale: f64, f_norm: f64, f_energy: Option<f64>, k_solve: &dyn Fn(&[f64]) -> Option<Vec<f64>>) -> f64 {
+    if res_re.iter().chain(res_im).any(|x| !x.is_finite()) {
+        return f64::NAN;
+    }
+    let r_scale = max_abs(res_re).max(max_abs(res_im));
+    if r_scale == 0.0 {
+        return 0.0;
+    }
+    let res_re: Vec<f64> = res_re.iter().map(|x| x / r_scale).collect();
+    let res_im: Vec<f64> = res_im.iter().map(|x| x / r_scale).collect();
+    let ratio = if f_scale > 0.0 { r_scale / f_scale } else { f64::INFINITY };
+    let energy = match (k_solve(&res_re), k_solve(&res_im), f_energy) {
+        (Some(xr), Some(xi), Some(fe)) => {
+            let q = dot(&xr, &res_re) + dot(&xi, &res_im);
+            Some(if q.is_finite() { q.max(0.0).sqrt() / fe * ratio } else { f64::NAN })
+        }
+        _ => None,
+    };
+    energy.unwrap_or_else(|| (dot(&res_re, &res_re) + dot(&res_im, &res_im)).sqrt() / f_norm * ratio)
+}
+
 fn max_abs(v: &[f64]) -> f64 {
     v.iter().fold(0.0f64, |m, x| m.max(x.abs()))
 }
@@ -1059,6 +1064,23 @@ mod tests {
                 assert!((a - b).abs() <= 1e-9 * b + 1e-12, "load scale {scale:e}: {scaled:?} vs {unit:?}");
             }
         }
+    }
+
+    #[test]
+    fn a_non_finite_residual_is_never_zero() {
+        let identity = |b: &[f64]| Some(b.to_vec());
+        for (re, im) in [
+            (vec![f64::NAN, f64::NAN], vec![f64::NAN, f64::NAN]),
+            (vec![f64::NAN, 0.0], vec![0.0, 0.0]),
+            (vec![0.0, 0.0], vec![0.0, f64::NAN]),
+            (vec![f64::INFINITY, 0.0], vec![0.0, 0.0]),
+            (vec![1e-3, f64::NAN], vec![0.0, 0.0]),
+        ] {
+            let r = relative_residual(&re, &im, 1.0, 1.0, Some(1.0), &identity);
+            assert!(r.is_nan(), "{re:?} {im:?}: {r}");
+            assert!(max_residual(&[r]).unwrap() > MODAL_RESIDUAL_TOL);
+        }
+        assert_eq!(relative_residual(&[0.0, 0.0], &[0.0, 0.0], 1.0, 1.0, Some(1.0), &identity), 0.0);
     }
 
     #[test]
