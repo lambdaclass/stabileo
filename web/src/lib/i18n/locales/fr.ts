@@ -7604,7 +7604,7 @@ const fr: Translations = {
   'loadPlan.derivation.seismicSnow': 'Neige dans le poids sismique et la combinaison (INPRES-CIRSOC 103 [3.15], [3.16]) : f2 = {f2}, neige équilibrée sur la toiture {snow} kN, {added} kN ajoutés aux niveaux.',
   'loadPlan.derivation.combinationCount': '{count} combinaison(s) générée(s).',
   'loadPlan.assumption.selfWeightSkipped': '{count} barre(s) sans section ou masse volumique valide ont été exclues du poids propre.',
-  'loadPlan.assumption.oneSidedTorsion': "La torsion due à une charge de dalle d'un seul côté n'est pas incluse : la charge de dalle de {n} barre(s) vient d'un seul côté de la barre et est appliquée sur son axe, sans le moment de torsion de son excentricité. Vérifiez ces poutres de rive en torsion : {ids}.",
+  'loadPlan.assumption.oneSidedTorsion': "La torsion due à une charge de dalle d'un seul côté n'est pas incluse : la charge de dalle de {n} barre(s) vient d'un seul côté sur une partie ou toute la longueur de la barre et est appliquée sur son axe, sans le moment de torsion de son excentricité. Vérifiez ces poutres de rive en torsion : {ids}.",
   'loadPlan.assumption.shellWeightSkipped': "{count} coque(s) sans épaisseur ou masse volumique valide ont été exclues du poids propre.",
   'loadPlan.assumption.liveParticipation': 'La fraction de la charge d\'exploitation incluse dans le poids sismique a été prise égale à {fraction}. Elle dépend de l\'usage du bâtiment, et le projet ne l\'indique pas.',
   'loadPlan.disposition.created': 'Le cas {caseType} sera créé par le plan.',

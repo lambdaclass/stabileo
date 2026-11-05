@@ -3915,7 +3915,7 @@ const pt: Translations = {
   'loadPlan.warning.caseCleared': 'O caso de carga {caseType} e todas as suas cargas serão EXCLUÍDOS: o plano não o produz e "substituir cargas geradas" está ativado.',
   'loadPlan.warning.caseRetainedNotCombined': 'O caso de carga {caseType} é mantido, mas o plano não o produz, por isso as combinações regeneradas NÃO o incluirão. Ative a ação correspondente ou combine-o manualmente.',
   'loadPlan.assumption.selfWeightSkipped': '{count} elemento(s) sem seção ou densidade válida ficaram fora do peso próprio.',
-  'loadPlan.assumption.oneSidedTorsion': 'A torção por carga de laje de um só lado não está incluída: a carga de laje de {n} elemento(s) chega de um só lado do elemento e é aplicada no seu eixo, sem o momento torçor da sua excentricidade. Verifique à torção estas vigas de borda: {ids}.',
+  'loadPlan.assumption.oneSidedTorsion': 'A torção por carga de laje de um só lado não está incluída: a carga de laje de {n} elemento(s) chega de um só lado em parte ou em todo o comprimento do elemento e é aplicada no seu eixo, sem o momento torçor da sua excentricidade. Verifique à torção estas vigas de borda: {ids}.',
   'loadPlan.assumption.shellWeightSkipped': "{count} placa(s) sem espessura ou densidade válida ficaram fora do peso próprio.",
   'loadPlan.blocked.occupancyCrossReference': 'Este uso remete ao artigo {article} em vez de dar um valor. Informe a carga manualmente.',
   'loadPlan.unsupported.verbatim': '{text}',

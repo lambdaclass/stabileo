@@ -747,7 +747,7 @@ function oneSidedSomewhere(list: SideStretch[]): boolean {
   const uncovered = (a: Array<[number, number]>, b: Array<[number, number]>) => a.some(([t0, t1]) => {
     let open = t1 - t0;
     for (const [u0, u1] of b) open -= Math.max(0, Math.min(t1, u1) - Math.max(t0, u0));
-    return open > 0.002;
+    return open > 1e-6;
   });
   return uncovered(left, right) || uncovered(right, left);
 }

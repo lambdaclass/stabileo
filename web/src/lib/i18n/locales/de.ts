@@ -7604,7 +7604,7 @@ const de: Translations = {
   'loadPlan.derivation.seismicSnow': 'Schnee im Erdbebengewicht und in der Kombination (INPRES-CIRSOC 103 [3.15], [3.16]): f2 = {f2}, gleichmäßige Schneelast auf dem Dach {snow} kN, {added} kN den Geschossen hinzugefügt.',
   'loadPlan.derivation.combinationCount': '{count} Kombination(en) erzeugt.',
   'loadPlan.assumption.selfWeightSkipped': '{count} Stab/Stäbe ohne gültigen Querschnitt oder ohne Dichte wurden beim Eigengewicht ausgelassen.',
-  'loadPlan.assumption.oneSidedTorsion': 'Torsion aus einseitiger Deckenlast ist nicht enthalten: Die Deckenlast von {n} Stab/Stäben kommt nur von einer Seite des Stabs und wird auf seiner Achse angesetzt, ohne das Torsionsmoment ihrer Exzentrizität. Weisen Sie diese Randträger auf Torsion nach: {ids}.',
+  'loadPlan.assumption.oneSidedTorsion': 'Torsion aus einseitiger Deckenlast ist nicht enthalten: Die Deckenlast von {n} Stab/Stäben kommt auf einem Teil oder der ganzen Länge des Stabs nur von einer Seite und wird auf seiner Achse angesetzt, ohne das Torsionsmoment ihrer Exzentrizität. Weisen Sie diese Randträger auf Torsion nach: {ids}.',
   'loadPlan.assumption.shellWeightSkipped': "{count} Schale(n) ohne gültige Dicke oder Dichte wurden beim Eigengewicht ausgelassen.",
   'loadPlan.assumption.liveParticipation': 'Der im Erdbebengewicht berücksichtigte Anteil der Nutzlast wurde zu {fraction} angenommen. Er hängt von der Nutzung des Gebäudes ab, die das Projekt nicht angibt.',
   'loadPlan.disposition.created': 'Der Lastfall {caseType} wird vom Plan erstellt.',
