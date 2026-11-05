@@ -692,12 +692,13 @@ export function plasticCollapse2D(original: SolverInput, opts: PlasticCollapseOp
         collapseFactor = lp.lambda;
         isMechanism = true;
         unresolved = historyUnverified;
-        if (Math.abs(lambda - lp.lambda) > HISTORY_TOL * lp.lambda) limit = { lambda: lp.lambda, historyLambda: lambda };
+        limit = !historyUnverified && Math.abs(lambda - lp.lambda) > HISTORY_TOL * lp.lambda ? { lambda: lp.lambda, historyLambda: lambda } : undefined;
       } else if (c.kind !== 'contradicted' && settled && Math.abs(lambda - lp.lambda) <= HISTORY_TOL * lp.lambda) {
-        collapseFactor = Math.min(collapseFactor, lambda);
+        collapseFactor = Math.min(lp.lambda, lambda);
       } else {
         unresolved = true;
-        collapseFactor = c.kind === 'contradicted' || c.kind === 'bracketed' ? c.lower : Math.min(collapseFactor, lambda);
+        limit = { lambda: lp.lambda, historyLambda: lambda };
+        collapseFactor = c.kind === 'contradicted' || c.kind === 'bracketed' ? c.lower : Math.min(lp.lambda, lambda);
       }
     }
   }

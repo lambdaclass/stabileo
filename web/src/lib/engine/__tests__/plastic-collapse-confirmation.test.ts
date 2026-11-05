@@ -89,4 +89,13 @@ describe('the limit analysis factor is a collapse load only once something indep
     expect(r.unresolved).toBe(true);
     expect(r.collapseFactor).toBeCloseTo((4 * MP) / 60, 6);
   });
+
+  it('an unconfirmed result never reports more than the limit analysis value', () => {
+    verdict.override = { kind: 'outOfScope', reason: 'inclined supports are not supported' };
+    verdict.lambda = 0.5 * (4 * MP) / 60;
+    const r = run(beam('rollerX'));
+    expect(r.unresolved).toBe(true);
+    expect(r.collapseFactor).toBeCloseTo(0.5 * (4 * MP) / 60, 9);
+    expect(r.limit?.lambda).toBeCloseTo(0.5 * (4 * MP) / 60, 9);
+  });
 });
