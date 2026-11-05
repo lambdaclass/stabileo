@@ -149,6 +149,8 @@ jobs:
             engine:
               - *tooling
               - 'engine/**'
+              - 'scripts/check-fail-closed.py'
+              - 'scripts/fail-closed-allow.txt'
               - 'scripts/invariance-gate.py'
               - 'docs/verification/METAMORPHIC.md'
               - 'Cargo.toml'
@@ -204,6 +206,7 @@ jobs:
               - 'scripts/tests/**'
               - 'scripts/ci/**'
               - 'scripts/verification-metrics.py'
+              - 'scripts/check-fail-closed.py'
               - 'docs/roadmap/PRODUCT_ROADMAP.md'
               - 'Makefile'
               - 'Dockerfile'

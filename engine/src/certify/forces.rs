@@ -51,6 +51,7 @@ pub struct ForceBound3D {
     pub mz: f64,
     /// Bimoment (warping frames only; 0 otherwise).
     #[serde(default)]
+    #[serde(serialize_with = "crate::check::ser_ratio", deserialize_with = "crate::check::de_ratio")]
     pub bimoment: f64,
 }
 

@@ -254,6 +254,11 @@ pub enum DiagnosticCode {
     /// unstressed length (#527): `value` the largest share, `threshold` the quarter.
     CableSelfWeightTension,
     PlasticCapacityMissing,
+
+    // ---- Result boundary ----
+    /// A result held a NaN or ±∞ and was withheld instead of being sent (`boundary`): the path
+    /// of the first one in `phase`.
+    NonFiniteResult,
 }
 
 /// A structured diagnostic with enum code, severity, optional element/node
@@ -382,6 +387,7 @@ impl From<&StructuredDiagnostic> for SolverDiagnostic {
             DiagnosticCode::ThermalDefaultAssumed => "assumption",
             DiagnosticCode::CableSelfWeightTension => "assumption",
             DiagnosticCode::PlasticCapacityMissing => "model_quality",
+            DiagnosticCode::NonFiniteResult => "non_finite_result",
         };
         let severity = match sd.severity {
             Severity::Info => "info",

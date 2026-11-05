@@ -1494,6 +1494,7 @@ const steelFr: Translations = {
   'c301.refuse.e6Connector': '§E.6.2.1 : le type de liaison intermédiaire manque (boulons non précontraints ou soudures)',
   'c301.refuse.e6SpacingTooLarge': '§E.6.2.2 : a/ri = {ari} > 3/4 de l\'élancement déterminant = {lim}',
   'c301.refuse.engineUnavailable': 'le moteur de calcul n\'est pas chargé : la barre n\'est pas vérifiée',
+  'c301.refuse.capacityUnusable': 'le rapport ne peut pas être formé avec φRn = {phiRn} et la sollicitation {demand} : la résistance de calcul n\'est pas positive et finie, ou la sollicitation n\'est pas finie',
   'steel.angle.title': 'Cornières comprimées (§E.5, §E.6)',
   'steel.angle.hint': 'Ce que la section ne peut pas dire à la vérification : comment une cornière simple est chargée à ses extrémités, et comment les deux cornières d\'une double cornière sont liées. Sans cela, la vérification en compression n\'est pas évaluée.',
   'steel.angle.singles': '{n} cornière(s) simple(s) : condition d\'extrémité',

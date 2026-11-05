@@ -19,31 +19,32 @@ pub struct LoadSession2D {
 impl LoadSession2D {
     #[wasm_bindgen(constructor)]
     pub fn new(input: JsValue) -> Result<LoadSession2D, JsValue> {
-        let mut input: SolverInput = crate::from_js_value(input)?;
+        LoadSession2D::from_input(crate::from_js_value(input)?).map_err(|e| JsValue::from_str(&e))
+    }
+    pub fn solve(&self, loads: JsValue) -> Result<JsValue, JsValue> {
+        let result = self.solve_loads(&crate::from_js_value::<Vec<SolverLoad>>(loads)?).map_err(|e| JsValue::from_str(&e))?;
+        crate::to_js_value(&result)
+    }
+}
+impl LoadSession2D {
+    pub fn from_input(mut input: SolverInput) -> Result<LoadSession2D, String> {
         input.loads.clear();
         let state = if input.constraints.is_empty() {
-            State2D::Prepared(Box::new(
-                prepare_static_2d(&input)
-                    .map_err(|e| JsValue::from_str(&e))?
-                    .into_owned(),
-            ))
+            State2D::Prepared(Box::new(prepare_static_2d(&input)?.into_owned()))
         } else {
             State2D::Constrained(Box::new(input))
         };
         Ok(Self { state })
     }
-    pub fn solve(&self, loads: JsValue) -> Result<JsValue, JsValue> {
-        let loads: Vec<SolverLoad> = crate::from_js_value(loads)?;
-        let result = match &self.state {
-            State2D::Prepared(p) => p.solve_loads(&loads),
+    pub fn solve_loads(&self, loads: &[SolverLoad]) -> Result<AnalysisResults, String> {
+        match &self.state {
+            State2D::Prepared(p) => p.solve_loads(loads),
             State2D::Constrained(input) => {
                 let mut input = input.clone();
-                input.loads = loads;
+                input.loads = loads.to_vec();
                 solve_2d(&input)
             }
         }
-        .map_err(|e| JsValue::from_str(&e))?;
-        crate::to_js_value(&result)
     }
 }
 enum State3D {
@@ -58,28 +59,31 @@ pub struct LoadSession3D {
 impl LoadSession3D {
     #[wasm_bindgen(constructor)]
     pub fn new(input: JsValue) -> Result<LoadSession3D, JsValue> {
-        let mut input: SolverInput3D = crate::from_js_value(input)?;
+        LoadSession3D::from_input(crate::from_js_value(input)?).map_err(|e| JsValue::from_str(&e))
+    }
+    pub fn solve(&self, loads: JsValue) -> Result<JsValue, JsValue> {
+        let result = self.solve_loads(&crate::from_js_value::<Vec<SolverLoad3D>>(loads)?).map_err(|e| JsValue::from_str(&e))?;
+        crate::to_js_value(&result)
+    }
+}
+impl LoadSession3D {
+    pub fn from_input(mut input: SolverInput3D) -> Result<LoadSession3D, String> {
         input.loads.clear();
         let state = if input.constraints.is_empty() {
-            State3D::Prepared(Box::new(
-                prepare_static_3d(&input).map_err(|e| JsValue::from_str(&e))?,
-            ))
+            State3D::Prepared(Box::new(prepare_static_3d(&input)?))
         } else {
             State3D::Constrained(Box::new(input))
         };
         Ok(Self { state })
     }
-    pub fn solve(&self, loads: JsValue) -> Result<JsValue, JsValue> {
-        let loads: Vec<SolverLoad3D> = crate::from_js_value(loads)?;
-        let result = match &self.state {
-            State3D::Prepared(p) => p.solve_loads(&loads),
+    pub fn solve_loads(&self, loads: &[SolverLoad3D]) -> Result<AnalysisResults3D, String> {
+        match &self.state {
+            State3D::Prepared(p) => p.solve_loads(loads),
             State3D::Constrained(input) => {
                 let mut input = input.clone();
-                input.loads = loads;
+                input.loads = loads.to_vec();
                 solve_3d(&input)
             }
         }
-        .map_err(|e| JsValue::from_str(&e))?;
-        crate::to_js_value(&result)
     }
 }

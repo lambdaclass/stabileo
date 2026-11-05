@@ -83,6 +83,7 @@ const RELEASED: Record<number, string[]> = {
   33: ['soft-rotation-not-orphan'],
   39: ['plastic-3d-member-without-capacity-refused'],
   31: ['safety-containment-diagnostics'],
+  34: ['fail-closed-ratios'],
 };
 
 describe('results versions', () => {

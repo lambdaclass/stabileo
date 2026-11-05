@@ -580,6 +580,8 @@ fn reflection_3d(a: &ana3::Ana3, c: &Case3) -> crate::tally::Verdict {
 
 const MATRIX_2D: &[(&str, &str)] = &[
     ("linear", "PPPPPPPP---"),
+    ("linear (WASM typed path)", "PPPPPPPP-P-"),
+    ("linear (load session)", "PPPPPPPP-P-"),
     ("linear (dense reference)", "PPPPPPPP-P-"),
     ("linear (sparse path)", "PPPPPPPP-P-"),
     ("linear (PCG)", "PPPPPPPP-P-"),
@@ -613,6 +615,7 @@ const MATRIX_2D: &[(&str, &str)] = &[
 
 const MATRIX_3D: &[(&str, &str)] = &[
     ("linear", "PPPPPPP---P"),
+    ("linear (load session)", "PPPPPPP-P-P"),
     ("linear (sparse path)", "PPPPPPP-P-P"),
     ("linear (PCG)", "PPPPPPP-P-P"),
     ("constrained", "PPPPPPP-P-P"),

@@ -46,6 +46,44 @@
       }
     },
     {
+      "id": "fail-closed-ratios",
+      "resultsVersion": 34,
+      "date": "2026-11-05",
+      "prs": [
+        1486
+      ],
+      "area": "design",
+      "when": {
+        "any": [
+          "steelMembers",
+          "timberOrAluminiumMembers",
+          "concreteMembers",
+          "footings",
+          "jointDesigns"
+        ]
+      },
+      "title": {
+        "en": "A design check that cannot be evaluated is refused instead of passing",
+        "es": "Una verificación de diseño que no se puede evaluar se rechaza en lugar de aprobarse",
+        "pt": "Uma verificação de projeto que não pode ser avaliada é recusada em vez de aprovada",
+        "de": "Ein Bemessungsnachweis, der sich nicht auswerten lässt, wird abgewiesen statt bestanden",
+        "fr": "Une vérification de dimensionnement impossible à évaluer est refusée au lieu d’être validée",
+        "tr": "Değerlendirilemeyen bir tasarım kontrolü geçmiş sayılmıyor, reddediliyor"
+      },
+      "explanation": {
+        "en": "A demand over a capacity that was zero, negative, NaN or infinite could come out as a ratio of 0, which reads as a pass: a CIRSOC 301 limit state whose slenderness or demand was NaN, a loaded bolt group without bolts or a weld without throat, a footing shear or punching check without a usable resistance, a non-positive allowable bearing pressure, or a CIRSOC 201 ductility ratio. The same holds for every steel, timber, masonry and concrete check that forms a ratio. Each such check is now listed as not evaluated (the member or footing is not marked OK), and any result holding NaN or infinity is withheld with a message naming the value, except an intermediate value (such as a reduction factor) whose check is already listed as not evaluated, which is shown as unknown. Models whose checks all had usable capacities give the same numbers.",
+        "es": "Una demanda sobre una capacidad nula, negativa, NaN o infinita podía dar una relación 0, que se lee como verificación aprobada: un estado límite CIRSOC 301 con esbeltez o demanda NaN, un grupo de bulones cargado sin bulones o una soldadura sin garganta, una verificación de corte o punzonado de una zapata sin resistencia utilizable, una tensión admisible del suelo no positiva o una relación de ductilidad CIRSOC 201. Lo mismo vale para toda verificación de acero, madera, mampostería u hormigón que forma una relación. Cada una de esas verificaciones figura ahora como no evaluada (la barra o la zapata no se marca como verificada), y un resultado que contiene NaN o infinito se retiene con un mensaje que nombra el valor, salvo un valor intermedio (como un factor de reducción) cuya verificación ya figura como no evaluada, que se muestra como desconocido. Los modelos cuyas verificaciones tenían todas capacidades utilizables dan los mismos números.",
+        "pt": "Uma demanda sobre uma capacidade nula, negativa, NaN ou infinita podia resultar numa razão 0, que se lê como verificação aprovada: um estado-limite CIRSOC 301 com esbeltez ou demanda NaN, um grupo de parafusos carregado sem parafusos ou uma solda sem garganta, uma verificação de cortante ou punção de uma sapata sem resistência utilizável, uma tensão admissível do solo não positiva ou uma razão de ductilidade CIRSOC 201. O mesmo vale para toda verificação de aço, madeira, alvenaria ou concreto que forma uma razão. Cada uma dessas verificações aparece agora como não avaliada (a barra ou a sapata não é marcada como verificada), e um resultado que contém NaN ou infinito é retido com uma mensagem que nomeia o valor, exceto um valor intermediário (como um fator de redução) cuja verificação já aparece como não avaliada, que é mostrado como desconhecido. Modelos cujas verificações tinham todas capacidades utilizáveis dão os mesmos números.",
+        "de": "Eine Beanspruchung über einer Tragfähigkeit von null, negativ, NaN oder unendlich konnte ein Verhältnis von 0 ergeben, das als bestanden gelesen wird: ein Grenzzustand nach CIRSOC 301 mit NaN-Schlankheit oder -Beanspruchung, eine belastete Schraubengruppe ohne Schrauben oder eine Schweißnaht ohne Kehlnahtdicke, ein Querkraft- oder Durchstanznachweis eines Fundaments ohne verwendbaren Widerstand, eine nicht positive zulässige Bodenpressung oder ein Duktilitätsverhältnis nach CIRSOC 201. Dasselbe gilt für jeden Stahl-, Holz-, Mauerwerks- und Betonnachweis, der ein Verhältnis bildet. Jeder solche Nachweis wird jetzt als nicht ausgewertet aufgeführt (der Stab oder das Fundament wird nicht als nachgewiesen markiert), und ein Ergebnis mit NaN oder unendlich wird mit einer Meldung, die den Wert nennt, zurückgehalten, außer einem Zwischenwert (etwa einem Abminderungsbeiwert), dessen Nachweis bereits als nicht ausgewertet aufgeführt ist; er wird als unbekannt angezeigt. Modelle, deren Nachweise alle verwendbare Tragfähigkeiten hatten, liefern dieselben Zahlen.",
+        "fr": "Une sollicitation rapportée à une résistance nulle, négative, NaN ou infinie pouvait donner un taux de 0, lu comme une vérification satisfaite : un état limite CIRSOC 301 dont l’élancement ou la sollicitation était NaN, un groupe de boulons chargé sans boulons ou une soudure sans gorge, une vérification à l’effort tranchant ou au poinçonnement d’une semelle sans résistance utilisable, une contrainte admissible du sol non positive, ou un rapport de ductilité CIRSOC 201. Il en va de même pour toute vérification acier, bois, maçonnerie ou béton qui forme un taux. Chacune de ces vérifications figure désormais comme non évaluée (la barre ou la semelle n’est pas marquée comme vérifiée), et un résultat contenant NaN ou l’infini est retenu avec un message qui nomme la valeur, sauf une valeur intermédiaire (comme un coefficient de réduction) dont la vérification figure déjà comme non évaluée, qui est affichée comme inconnue. Les modèles dont toutes les vérifications avaient des résistances utilisables donnent les mêmes valeurs.",
+        "tr": "Sıfır, negatif, NaN veya sonsuz bir kapasiteye bölünen bir talep 0 oranı verebiliyor ve bu, kontrolün geçtiği şeklinde okunuyordu: narinliği veya talebi NaN olan bir CIRSOC 301 sınır durumu, bulonu olmayan yüklü bir bulon grubu veya boğazı olmayan bir kaynak, kullanılabilir dayanımı olmayan bir temel kesme veya zımbalama kontrolü, pozitif olmayan bir zemin emniyet gerilmesi ya da bir CIRSOC 201 süneklik oranı. Aynısı oran oluşturan her çelik, ahşap, yığma ve betonarme kontrolü için de geçerli. Bu kontrollerin her biri artık değerlendirilmedi olarak listeleniyor (çubuk veya temel uygun olarak işaretlenmiyor) ve NaN veya sonsuz içeren bir sonuç, değeri adlandıran bir mesajla tutuluyor; kontrolü zaten değerlendirilmedi olarak listelenen bir ara değer (örneğin bir azaltma katsayısı) ise bilinmiyor olarak gösteriliyor. Tüm kontrollerinde kullanılabilir kapasite bulunan modeller aynı sayıları veriyor."
+      },
+      "changelog": {
+        "file": "changelog.d/1486-fail-closed-ratios.md",
+        "heading": "A design check that cannot be evaluated is refused, not passed with a ratio of 0 (2026-11-05)"
+      }
+    },
+    {
       "id": "soft-rotation-not-orphan",
       "resultsVersion": 33,
       "date": "2026-11-05",
