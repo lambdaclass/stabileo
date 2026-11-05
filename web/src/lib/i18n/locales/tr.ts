@@ -7647,6 +7647,7 @@ const tr: Translations = {
   'loadPlan.derivation.seismicSnow': 'Deprem ağırlığında ve kombinasyonunda kar (INPRES-CIRSOC 103 [3.15], [3.16]): f2 = {f2}, dengeli çatı karı {snow} kN, katlara {added} kN eklendi.',
   'loadPlan.derivation.combinationCount': '{count} kombinasyon oluşturuldu.',
   'loadPlan.assumption.selfWeightSkipped': 'Geçerli kesiti veya yoğunluğu olmayan {count} çubuk öz ağırlığa dahil edilmedi.',
+  'loadPlan.assumption.oneSidedTorsion': 'Tek taraflı döşeme yükünden gelen burulma dahil değildir: {n} çubuğun döşeme yükü çubuğun bir kısmında veya tamamında yalnızca bir tarafından gelir ve eksantrisitesinin burulma momenti olmadan eksenine uygulanır. Bu kenar kirişlerini burulmaya göre kontrol edin: {ids}.',
   'loadPlan.assumption.shellWeightSkipped': "Geçerli kalınlığı veya yoğunluğu olmayan {count} kabuk öz ağırlığa dahil edilmedi.",
   'loadPlan.assumption.liveParticipation': 'Deprem ağırlığına dahil edilen hareketli yük oranı {fraction} alındı. Binanın kullanımına bağlıdır ve proje bunu belirtmiyor.',
   'loadPlan.disposition.created': '{caseType} durumu plan tarafından oluşturulacak.',
