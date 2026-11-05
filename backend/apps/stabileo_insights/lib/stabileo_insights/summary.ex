@@ -1,13 +1,7 @@
 defmodule StabileoInsights.Summary do
   @moduledoc """
-  The admin site's metrics over the last `days` days.
-
-  Usage is counted in visits: one visit is one browser session, named by
-  `session_id`, or by `install_id` when the event carries no session. A
-  browser sends a per-visit id prefixed `v-` until its user acknowledges
-  sharing and a stable one after, so `browsers` counts only stable ids.
-  Calculations are the one count of events: `solves` and `solve_outcomes`
-  count analyses, not visits.
+  A browser sends a per-visit id prefixed `v-` until its user answers the usage notice,
+  so `browsers` counts only the stable ids.
   """
 
   import Ecto.Query

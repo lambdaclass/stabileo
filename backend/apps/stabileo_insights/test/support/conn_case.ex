@@ -53,7 +53,7 @@ defmodule StabileoInsights.ConnCase do
   end
 
   def log_in(account),
-    do: elem(StabileoAuth.login(account.email, StabileoRepo.Factory.password()), 1).access_token
+    do: elem(StabileoAuth.sign_in(account, %{}, "app"), 1).access_token
 
   def admin_log_in(account),
     do:
