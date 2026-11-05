@@ -107,9 +107,12 @@ export interface FloorPanel {
    * takes panels one by one (`plan-gravity.ts`). An opening's ring is a panel of its own, so the
    * ring's area is in its own part, never in the part of the panel around it.
    */
-  own?: { loads: FloorMemberLoad[]; nodal: FloorLoadResult['nodal']; perBeam: Map<number, number>; area: number; sides: Map<number, Set<1 | -1>> };
+  own?: { loads: FloorMemberLoad[]; nodal: FloorLoadResult['nodal']; perBeam: Map<number, number>; area: number; sides: Map<number, SideStretch[]> };
   reason?: 'crossing' | 'zoneAcrossSpan' | 'unresolved';
 }
+
+/** A stretch of a member, as fractions of its length from node I, loaded from its left (1) or right (−1) of I → J. */
+export interface SideStretch { t0: number; t1: number; side: 1 | -1 }
 
 export interface FloorLoadResult {
   z: number | null;
@@ -417,7 +420,7 @@ export function floorLoad(input: FloorLoadInput): FloorLoadResult {
       const { loads, total } = asLoads(elementId, mine);
       panel.own.loads.push(...loads);
       panel.own.perBeam.set(elementId, total);
-      panel.own.sides.set(elementId, new Set(mine.map((p) => p.side)));
+      panel.own.sides.set(elementId, mine.map((p) => ({ t0: p.a / p.len, t1: p.b / p.len, side: p.side })));
     }
   });
   return res;

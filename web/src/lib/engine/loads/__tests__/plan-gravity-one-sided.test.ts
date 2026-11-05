@@ -53,6 +53,18 @@ function underRafters(): GravityModel & LoadModelData {
   return { ...model(nodes, elements), quads: new Map([[1, { id: 1, nodes: [11, 15, 16, 12] }]]) };
 }
 
+function partlyUnderRafters(): GravityModel & LoadModelData {
+  const nodes: Nodes = new Map([[1, { id: 1, x: 0, y: 0, z: 3 }], [2, { id: 2, x: 6, y: 0, z: 3 }]]);
+  const elements: Elements = new Map([[1, { id: 1, nodeI: 1, nodeJ: 2, sectionId: 1, materialId: 1 }]]);
+  for (const [k, x] of [0, 3].entries()) {
+    nodes.set(11 + 2 * k, { id: 11 + 2 * k, x, y: 0, z: 4 });
+    nodes.set(12 + 2 * k, { id: 12 + 2 * k, x, y: 5, z: 4 });
+    elements.set(11 + k, { id: 11 + k, nodeI: 11 + 2 * k, nodeJ: 12 + 2 * k, sectionId: 1, materialId: 1 });
+  }
+  for (const [id, x, y, z] of [[21, 0, -2, 3.8], [22, 6, -2, 3.8], [23, 6, 5, 4.5], [24, 0, 5, 4.5]] as const) nodes.set(id, { id, x, y, z });
+  return { ...model(nodes, elements), quads: new Map([[1, { id: 1, nodes: [21, 22, 23, 24] }]]) };
+}
+
 function applied(reg: ProjectRegulations): ProjectRegulations {
   const out = { ...reg };
   for (const k of Object.keys(out) as Array<keyof ProjectRegulations>) {
@@ -103,6 +115,18 @@ describe('one-sided slab load on an edge beam is named for a torsion check (#140
       expect(fringe!.spans!.reduce((s, w) => s + w.width * (w.t1 - w.t0), 0) * 6, mode).toBeCloseTo(9, 3);
       expect(g.oneSided, mode).toContain(1);
     }
+  });
+
+  it('plan fringe: a member one-sided over part of its length and two-sided over the rest is named', () => {
+    const m = partlyUnderRafters();
+    const g = gravityLayout(m, { mode: 'width', tributaryWidth: 3 });
+    const spans = g.widthMembers.find((w) => w.elementId === 1)?.spans?.map((w) => [w.t0, w.t1, w.width]);
+    expect(spans).toHaveLength(2);
+    expect(spans![0]![1]).toBeCloseTo(0.75, 6);
+    expect(spans![0]![2]).toBeCloseTo(1.5, 6);
+    expect(spans![1]![2]).toBeCloseTo(3, 6);
+    expect(String(advisory(m, 'width').assumption).split(', ')).toContain('1');
+    expect(g.oneSided).toContain(1);
   });
 
   it('plan fringe: a member whose uncovered strip lies on both sides of it is not', () => {
