@@ -901,7 +901,6 @@ fn gauss_complex(k: &[f64], m: &[f64], c: &[f64], f: &[f64], n: usize, w: f64) -
 /// 2.3 Hz. Every reported value must match two independent direct complex
 /// solves, and the on-axis components symmetry forces to zero must be zero.
 #[test]
-#[ignore = "known wrong result: #1371"]
 fn harmonic_c2_symmetric_frame_matches_direct_solve() {
     use dedaliano_engine::solver::{assembly, dof::DofNumbering, harmonic, mass_matrix};
     let text = std::fs::read_to_string(format!("{}/tests/metamorphic_corpus/nightly/issue-1371.json", env!("CARGO_MANIFEST_DIR"))).unwrap();
