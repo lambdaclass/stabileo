@@ -93,6 +93,61 @@ own warning or refusal. The per-defect fixes come from the solver bug-fix workst
 - **Results versions follow the landing order:** main is at v30 (the safety batch v16 to v26, the Basic course v27 to v29, [#1415](https://github.com/lambdaclass/stabileo/pull/1415) v30). Next: [#807](https://github.com/lambdaclass/stabileo/pull/807) (v31).
   [#1310](https://github.com/lambdaclass/stabileo/pull/1310) is an import-only fix with advisory SA-2026-039 and no results version. Each PR renumbers if anything lands ahead of it.
 
+### 1b. Structural bug fixes: remove whole classes of wrong results (2026-11-05)
+
+An analysis of the month to 2026-11-05 (461 labelled issues, 129 fix PRs, advisories SA-2026-005 to
+042, the [#807](https://github.com/lambdaclass/stabileo/pull/807) containment ledger, 190 review blockers) found eight recurring causes. Each
+item below removes a cause instead of one more instance of it. Phase 1 starts when
+[#807](https://github.com/lambdaclass/stabileo/pull/807) lands; items 4 and 5 will surface new findings, each fixed or contained like any other
+wrong-result bug.
+
+| Cause | Bugs (approx.) | Examples |
+|---|---|---|
+| A. A failure becomes 0, a pass or a default; an input is silently ignored | 22 | SA-2026-025, 026, 030, 011, [#443](https://github.com/lambdaclass/stabileo/issues/443), [#1326](https://github.com/lambdaclass/stabileo/pull/1326) |
+| B. The test is wrong: references, loose tolerances, weakened asserts | 15 | [#845](https://github.com/lambdaclass/stabileo/issues/845), [#846](https://github.com/lambdaclass/stabileo/issues/846), [#810](https://github.com/lambdaclass/stabileo/issues/810), SA-2026-009 |
+| C. An absolute threshold where a scale-relative one was needed | 10 | [#762](https://github.com/lambdaclass/stabileo/issues/762), [#1453](https://github.com/lambdaclass/stabileo/issues/1453), SA-2026-032, the [#807](https://github.com/lambdaclass/stabileo/pull/807) shell guard |
+| D. Global-axis or X–Z plane assumptions | 11 | SA-2026-006, 036, 035, 029 |
+| E. Duplicate 2D/3D, prepared/regular or Rust/TS paths that diverge | 14 | SA-2026-020, [#456](https://github.com/lambdaclass/stabileo/issues/456), SA-2026-027 |
+| F. Envelopes or station sampling lose the governing value | 11 | SA-2026-027, 041, 023, [#1389](https://github.com/lambdaclass/stabileo/issues/1389), [#1396](https://github.com/lambdaclass/stabileo/pull/1396) |
+| G. Containment misses a result field or matches message text | 7 | the [#807](https://github.com/lambdaclass/stabileo/pull/807) review: fullEnvelope, combinations over a refused case, NL-13 |
+| H. A missing term or a formula that departs from its reference | 13 | SA-2026-007, 008, 012, 037 |
+
+**Phase 1 (after [#807](https://github.com/lambdaclass/stabileo/pull/807), about one week):**
+1. Fail-closed numerics (A; S): a checked demand/capacity ratio that cannot turn a non-positive
+   capacity or a NaN into 0 or a pass, and no non-finite value crossing the WASM boundary. Gate: a
+   lint against `else { 0.0 }` and `unwrap_or(0` in `engine/src/{design,certify,postprocess}`.
+2. One result walker generated from the result types (G; S–M): Rust and TS walkers from one schema,
+   containment applied at the WASM boundary, the store only displays. Gate: a test that injects a
+   refusal at every field of every result type.
+3. Benchmark gate (B, H; S): no benchmark without a spec file, two independent references and a
+   stated tolerance.
+4. Process: every script test required; supply-chain advisories required only when a lockfile
+   changes, otherwise a daily job opens the fix PR; issues close only through an explicit
+   `Closes:` line (a check rejects other closing keywords); a label required for any diff that loosens
+   a tolerance, adds an allow-list entry or weakens an assert; results versions assigned at merge;
+   unit tests isolated and shuffled ([#1471](https://github.com/lambdaclass/stabileo/issues/1471)).
+
+**Phase 2 (about one week):**
+5. Typed refusals and diagnostics (G, C; M): solver errors carry a `DiagnosticCode`, not text (388
+   `Result<_, String>` lines on main); the nightly classifier keys on codes; a lint forbids matching
+   on message text.
+6. A required invariance and parity harness for every WASM solve entry point (C, D, E; M): scale and
+   units, renumbering, member reversal, rotation and mirror, a 2D model in each of the three planes and
+   embedded in 3D, prepared against regular; a fast tier per PR, the long tier nightly. A
+   scale-relative tolerance type and a ratchet on bare `1e-N` comparisons.
+7. Web typecheck baseline from 247 errors to zero, so types can enforce the rest.
+
+**Phase 3 (about one week, plus the fixes it finds):**
+8. No ignored inputs (A; M): every solver adapter destructures its input exhaustively, and a
+   sensitivity test perturbs each field and expects a change or a structured refusal.
+9. An envelope type (F; M): the extreme and its governing combination per component, interaction
+   checks per combination, station extremes from exact roots. Gate: every envelope bounds every
+   combination. Can change design results, so it takes a results version.
+
+**Alongside (2 to 4 weeks):**
+10. One implementation per analysis (E; L): the TS course solvers call WASM ([#392](https://github.com/lambdaclass/stabileo/issues/392)) and the remaining
+    2D/3D twins share one kernel, the parity rows of item 6 guarding the move.
+
 ### 2. Other bugs
 
 - **Found in the review of [#1253](https://github.com/lambdaclass/stabileo/pull/1253) and [#1255](https://github.com/lambdaclass/stabileo/pull/1255) (2026-11-04):**
