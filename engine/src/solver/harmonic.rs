@@ -928,7 +928,7 @@ fn relative_residual(res_re: &[f64], res_im: &[f64], f_scale: f64, f_norm: f64, 
     let res_im: Vec<f64> = res_im.iter().map(|x| x / r_scale).collect();
     let ratio = if f_scale > 0.0 { r_scale / f_scale } else { f64::INFINITY };
     let energy = match (k_solve(&res_re), k_solve(&res_im), f_energy) {
-        (Some(xr), Some(xi), Some(fe)) => {
+        (Some(xr), Some(xi), Some(fe)) if fe.is_finite() && fe > 0.0 => {
             let q = dot(&xr, &res_re) + dot(&xi, &res_im);
             Some(if q.is_finite() { q.max(0.0).sqrt() / fe * ratio } else { f64::NAN })
         }
@@ -1081,6 +1081,22 @@ mod tests {
             assert!(max_residual(&[r]).unwrap() > MODAL_RESIDUAL_TOL);
         }
         assert_eq!(relative_residual(&[0.0, 0.0], &[0.0, 0.0], 1.0, 1.0, Some(1.0), &identity), 0.0);
+    }
+
+    #[test]
+    fn an_unusable_energy_denominator_falls_back_to_the_euclidean_norm() {
+        let k = [1e-308, 1e-308, 1.0];
+        let k_solve = |b: &[f64]| Some(b.iter().zip(&k).map(|(x, d)| x / d).collect::<Vec<f64>>());
+        let f_unit = [1.0; 3];
+        let f_energy = k_solve(&f_unit).map(|x| dot(&x, &f_unit).sqrt());
+        assert_eq!(f_energy, Some(f64::INFINITY));
+        let (re, im) = ([0.0, 0.0, 1e-100], [0.0; 3]);
+        let euclid = 1e-100 / 1e-300 / 3f64.sqrt();
+        for fe in [f_energy, Some(0.0), Some(-1.0), Some(f64::NAN)] {
+            let r = relative_residual(&re, &im, 1e-300, 3f64.sqrt(), fe, &k_solve);
+            assert!((r - euclid).abs() <= 1e-12 * euclid, "f_energy {fe:?}: {r}");
+            assert!(r > MODAL_RESIDUAL_TOL);
+        }
     }
 
     #[test]
