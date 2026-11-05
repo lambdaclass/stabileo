@@ -3,7 +3,7 @@
 use crate::case::{pad_2d, Case2};
 use crate::response::{disp_2d, static_2d, Dim, Kind, Resp};
 use dedaliano_engine::element::fiber_beam::{Fiber, FiberMaterial, FiberSectionDef};
-use dedaliano_engine::load_session::LoadSession2D;
+use dedaliano_engine::load_session::{LoadSession2D, LoadSession3D};
 use dedaliano_engine::postprocess::influence;
 use dedaliano_engine::solver::{
     buckling, cable, constraints, contact, corotational, creep_shrinkage, fiber_nonlinear, harmonic, kinematic, linear, load_cases,
@@ -36,6 +36,8 @@ pub struct Ana2 {
     /// Whether the static response carries the full results (energy check).
     pub full_static: bool,
     pub run: fn(&Case2) -> Result<Resp, String>,
+    /// The 3D analysis the same plane frame, placed in each coordinate plane, must agree with.
+    pub planar: Option<fn(&SolverInput3D) -> Result<AnalysisResults3D, String>>,
 }
 
 pub fn conv<T>(r: Result<(bool, T), String>) -> Result<T, String> {
@@ -124,13 +126,14 @@ pub fn modal_resp(r: &modal::ModalResult) -> Resp {
 
 pub fn rows() -> Vec<Ana2> {
     vec![
-        Ana2 { name: "linear", law: Law::Linear, axis_bound: false, iter_tol: 0.0, full_static: true, run: |c| Ok(static_2d(&linear::solve_2d(&c.s)?)) },
+        Ana2 { name: "linear", law: Law::Linear, axis_bound: false, iter_tol: 0.0, full_static: true, run: |c| Ok(static_2d(&linear::solve_2d(&c.s)?)), planar: Some(|s| linear::solve_3d(s)) },
         Ana2 {
             name: "linear (WASM typed path)",
             law: Law::Linear,
             axis_bound: false,
             iter_tol: 0.0,
             full_static: true,
+            planar: Some(|s| linear::solve_3d(s)),
             run: |c| {
                 let typed: dedaliano_engine::types::units::ElasticInput2D = serde_json::to_value(&c.s).and_then(serde_json::from_value).map_err(|e| e.to_string())?;
                 Ok(static_2d(&linear::solve_2d_typed(&typed)?))
@@ -142,6 +145,7 @@ pub fn rows() -> Vec<Ana2> {
             axis_bound: false,
             iter_tol: 0.0,
             full_static: true,
+            planar: Some(|s| LoadSession3D::from_input(s.clone())?.solve_loads(&s.loads)),
             run: |c| Ok(static_2d(&LoadSession2D::from_input(c.s.clone())?.solve_loads(&c.s.loads)?)),
         },
         Ana2 {
@@ -150,6 +154,7 @@ pub fn rows() -> Vec<Ana2> {
             axis_bound: false,
             iter_tol: 0.0,
             full_static: true,
+            planar: None,
             run: |c| Ok(static_2d(&linear::prepare_static_2d_dense_reference(&c.s)?.solve_loads(&c.s.loads)?)),
         },
         Ana2 {
@@ -158,6 +163,7 @@ pub fn rows() -> Vec<Ana2> {
             axis_bound: false,
             iter_tol: 0.0,
             full_static: true,
+            planar: None,
             run: |c| {
                 let (p, n, e) = pad_2d(&c.s);
                 let mut r = static_2d(&linear::solve_2d(&p)?);
@@ -171,6 +177,7 @@ pub fn rows() -> Vec<Ana2> {
             axis_bound: false,
             iter_tol: 1e-10,
             full_static: true,
+            planar: None,
             run: |c| {
                 let (mut p, n, e) = pad_2d(&c.s);
                 p.solver_options = Some(SolverOptions { method: Some("pcg".into()), preconditioner: None, tolerance: Some(1e-12), max_iterations: Some(100_000) });
@@ -185,6 +192,7 @@ pub fn rows() -> Vec<Ana2> {
             axis_bound: false,
             iter_tol: 0.0,
             full_static: true,
+            planar: None,
             run: |c| Ok(static_2d(&constraints::solve_constrained_2d(&constraints::ConstrainedInput { solver: c.s.clone(), constraints: c.s.constraints.clone() })?)),
         },
         Ana2 {
@@ -193,6 +201,7 @@ pub fn rows() -> Vec<Ana2> {
             axis_bound: false,
             iter_tol: 0.0,
             full_static: true,
+            planar: Some(|s| Ok(dedaliano_engine::certify::certify_linear_3d_full(s)?.results)),
             run: |c| Ok(static_2d(&dedaliano_engine::certify::certify_linear_2d_full(&c.s)?.results)),
         },
         Ana2 {
@@ -201,6 +210,7 @@ pub fn rows() -> Vec<Ana2> {
             axis_bound: false,
             iter_tol: 0.0,
             full_static: true,
+            planar: None,
             run: |c| {
                 // Two cases (even / odd loads) combined 1.0·A + 1.0·B.
                 let mut s = c.s.clone();
@@ -223,6 +233,7 @@ pub fn rows() -> Vec<Ana2> {
             axis_bound: false,
             iter_tol: 0.0,
             full_static: true,
+            planar: None,
             run: |c| {
                 let st = stage("all", &c.s, (0..c.s.loads.len()).collect(), true);
                 Ok(static_2d(&staged::solve_staged_2d(&staged_input(&c.s, vec![st])?)?.final_results))
@@ -234,6 +245,7 @@ pub fn rows() -> Vec<Ana2> {
             axis_bound: false,
             iter_tol: 0.0,
             full_static: false,
+            planar: None,
             run: |c| {
                 let n = c.s.loads.len();
                 let s1 = stage("1", &c.s, (0..n).filter(|k| k % 2 == 0).collect(), true);
@@ -247,6 +259,7 @@ pub fn rows() -> Vec<Ana2> {
             axis_bound: false,
             iter_tol: 0.0,
             full_static: true,
+            planar: None,
             run: |c| Ok(static_2d(&winkler::solve_winkler_2d(&winkler::WinklerInput { solver: c.s.clone(), foundation_springs: vec![] })?)),
         },
         Ana2 {
@@ -255,6 +268,7 @@ pub fn rows() -> Vec<Ana2> {
             axis_bound: false,
             iter_tol: 1e-8,
             full_static: false,
+            planar: None,
             run: |c| {
                 let inp: contact::ContactInput = serde_json::from_value(serde_json::json!({ "solver": c.s })).map_err(|e| e.to_string())?;
                 Ok(static_2d(&conv(contact::solve_contact_2d(&inp).map(|r| (r.converged, r.results)))?))
@@ -266,6 +280,7 @@ pub fn rows() -> Vec<Ana2> {
             axis_bound: false,
             iter_tol: 1e-8,
             full_static: false,
+            planar: None,
             run: |c| Ok(static_2d(&conv(ssi::solve_ssi_2d(&ssi::SSIInput { solver: c.s.clone(), soil_springs: vec![], max_iter: 50, tolerance: 1e-10 }).map(|r| (r.converged, r.results)))?)),
         },
         Ana2 {
@@ -274,6 +289,7 @@ pub fn rows() -> Vec<Ana2> {
             axis_bound: false,
             iter_tol: 0.0,
             full_static: false,
+            planar: None,
             run: |c| {
                 let inp = creep_shrinkage::CreepShrinkageInput {
                     solver: c.s.clone(), creep_params: HashMap::new(),
@@ -294,6 +310,7 @@ pub fn rows() -> Vec<Ana2> {
             axis_bound: false,
             iter_tol: 1e-10,
             full_static: false,
+            planar: None,
             run: |c| Ok(static_2d(&converged_finite(pdelta::solve_pdelta_2d(&c.s, 100, 1e-12).map(|r| (r.converged, r.results)), finite_2d)?)),
         },
         Ana2 {
@@ -302,6 +319,7 @@ pub fn rows() -> Vec<Ana2> {
             axis_bound: false,
             iter_tol: 1e-9,
             full_static: false,
+            planar: None,
             run: |c| Ok(static_2d(&conv(corotational::solve_corotational_2d(&c.s, 100, 1e-10, 4, false).map(|r| (r.converged, r.results)))?)),
         },
         Ana2 {
@@ -310,6 +328,7 @@ pub fn rows() -> Vec<Ana2> {
             axis_bound: false,
             iter_tol: 1e-9,
             full_static: false,
+            planar: None,
             run: |c| {
                 let fy = c.p.fy * 1000.0; // MPa → kN/m²
                 let inp = NonlinearMaterialInput {
@@ -341,6 +360,7 @@ pub fn rows() -> Vec<Ana2> {
             axis_bound: false,
             iter_tol: 1e-9,
             full_static: false,
+            planar: None,
             run: |c| {
                 let sections = c
                     .s
@@ -363,6 +383,7 @@ pub fn rows() -> Vec<Ana2> {
             axis_bound: true,
             iter_tol: 1e-9,
             full_static: false,
+            planar: None,
             run: |c| Ok(static_2d(&conv(cable::solve_cable_2d(&c.s, &c.dens, 100, 1e-10).map(|r| (r.converged, r.results)))?)),
         },
         Ana2 {
@@ -371,6 +392,7 @@ pub fn rows() -> Vec<Ana2> {
             axis_bound: false,
             iter_tol: 1e-10,
             full_static: false,
+            planar: None,
             run: |c| Ok(modal_resp(&modal::solve_modal_2d(&c.s, &c.dens, 6)?)),
         },
         Ana2 {
@@ -379,6 +401,7 @@ pub fn rows() -> Vec<Ana2> {
             axis_bound: false,
             iter_tol: 1e-10,
             full_static: false,
+            planar: None,
             run: |c| Ok(modal_resp(&dedaliano_engine::certify::modal::certify_modal_2d(&c.s, &c.dens, 6)?.results)),
         },
         Ana2 {
@@ -387,6 +410,7 @@ pub fn rows() -> Vec<Ana2> {
             axis_bound: false,
             iter_tol: 1e-10,
             full_static: false,
+            planar: None,
             run: |c| {
                 let r = buckling::solve_buckling_2d(&c.s, 3)?;
                 let mut o = Resp::default();
@@ -402,6 +426,7 @@ pub fn rows() -> Vec<Ana2> {
             axis_bound: false,
             iter_tol: 1e-10,
             full_static: false,
+            planar: None,
             run: |c| {
                 let loads = nodal_loads_2d(&c.s);
                 let n_steps = 60;
@@ -427,6 +452,7 @@ pub fn rows() -> Vec<Ana2> {
             axis_bound: true,
             iter_tol: 1e-10,
             full_static: false,
+            planar: None,
             run: |c| {
                 // Never cut a repeated pair: a symmetric model's response would not be symmetric (#1030).
                 let (md, n) = cluster_complete(|k| modal::solve_modal_2d(&c.s, &c.dens, k), |m| m.modes.iter().map(|x| x.omega).collect(), 4, 8)?;
@@ -474,6 +500,7 @@ pub fn rows() -> Vec<Ana2> {
             axis_bound: false,
             iter_tol: 1e-10,
             full_static: false,
+            planar: None,
             run: |c| {
                 let node = *c.probes.first().ok_or("no probe node")?;
                 let mut comps = Vec::new();
@@ -504,6 +531,7 @@ pub fn rows() -> Vec<Ana2> {
             axis_bound: false,
             iter_tol: 5e-8 /* event resolution TIE = 1e-6 (solver/plastic.rs) / 20 */,
             full_static: false,
+            planar: None,
             run: |c| {
                 let sections = c
                     .s
@@ -531,6 +559,7 @@ pub fn rows() -> Vec<Ana2> {
             axis_bound: false,
             iter_tol: 0.0,
             full_static: false,
+            planar: None,
             run: |c| {
                 let r = kinematic::analyze_kinematics_2d(&c.s);
                 if let Some(e) = r.invalid_input {
@@ -549,6 +578,7 @@ pub fn rows() -> Vec<Ana2> {
             axis_bound: true,
             iter_tol: 0.0,
             full_static: false,
+            planar: None,
             run: |c| {
                 let path = c.path.clone().ok_or("no deck path")?;
                 let inp = MovingLoadInput {
@@ -579,6 +609,7 @@ pub fn rows() -> Vec<Ana2> {
             axis_bound: true,
             iter_tol: 0.0,
             full_static: false,
+            planar: None,
             run: |c| {
                 let path = c.path.as_ref().ok_or("no deck path")?;
                 let inp = influence::InfluenceLineInput {

@@ -27,6 +27,7 @@
 
 pub mod compare;
 pub mod conditioning;
+pub mod planes;
 pub mod relabel;
 pub mod reversal;
 pub mod transform;

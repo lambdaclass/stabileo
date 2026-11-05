@@ -34,7 +34,7 @@
       "reversal": {"metamorphic": "pr_2d", "analysis": "linear (load session)"},
       "rotation": {"metamorphic": "pr_2d", "analysis": "linear (load session)"},
       "mirror": {"metamorphic": "pr_2d", "analysis": "linear (load session)"},
-      "planes": {"tracked": 1497},
+      "planes": {"metamorphic": "pr_2d", "analysis": "linear (load session)"},
       "prepared": {"metamorphic": "pr_2d", "analysis": "linear (load session)"}
     }},
     "LoadSession3D::new": {"scope": "session"},
@@ -44,7 +44,7 @@
       "reversal": {"metamorphic": "pr_3d", "analysis": "linear (load session)"},
       "rotation": {"metamorphic": "pr_3d", "analysis": "linear (load session)"},
       "mirror": {"tracked": 1497},
-      "planes": {"tracked": 1497},
+      "planes": {"metamorphic": "pr_2d", "analysis": "linear (load session)"},
       "prepared": {"metamorphic": "pr_3d", "analysis": "linear (load session)"}
     }},
     "analyze_kinematics_2d": {"scope": "solve", "calls": "kinematic::analyze_kinematics_2d", "invariances": {
@@ -121,7 +121,7 @@
       "reversal": {"metamorphic": "pr_2d", "analysis": "certified linear"},
       "rotation": {"metamorphic": "pr_2d", "analysis": "certified linear"},
       "mirror": {"metamorphic": "pr_2d", "analysis": "certified linear"},
-      "planes": {"tracked": 1497},
+      "planes": {"metamorphic": "pr_2d", "analysis": "certified linear"},
       "prepared": {"metamorphic": "pr_2d", "analysis": "certified linear"}
     }},
     "certify_linear_3d": {"scope": "solve", "calls": "certify::certify_linear_3d_full", "invariances": {
@@ -130,7 +130,7 @@
       "reversal": {"metamorphic": "pr_3d", "analysis": "certified linear"},
       "rotation": {"metamorphic": "pr_3d", "analysis": "certified linear"},
       "mirror": {"tracked": 1497},
-      "planes": {"tracked": 1497},
+      "planes": {"metamorphic": "pr_2d", "analysis": "certified linear"},
       "prepared": {"metamorphic": "pr_3d", "analysis": "certified linear"}
     }},
     "certify_modal_2d": {"scope": "solve", "calls": "modal::certify_modal_2d", "invariances": {
@@ -420,7 +420,7 @@
       "reversal": {"metamorphic": "pr_2d", "analysis": "linear (WASM typed path)"},
       "rotation": {"metamorphic": "pr_2d", "analysis": "linear (WASM typed path)"},
       "mirror": {"metamorphic": "pr_2d", "analysis": "linear (WASM typed path)"},
-      "planes": {"tracked": 1497},
+      "planes": {"metamorphic": "pr_2d", "analysis": "linear (WASM typed path)"},
       "prepared": {"metamorphic": "pr_2d", "analysis": "linear (WASM typed path)"}
     }},
     "solve_3d": {"scope": "solve", "calls": "linear::solve_3d", "invariances": {
@@ -429,7 +429,7 @@
       "reversal": {"metamorphic": "pr_3d", "analysis": "linear"},
       "rotation": {"metamorphic": "pr_3d", "analysis": "linear"},
       "mirror": {"tracked": 1497},
-      "planes": {"tracked": 1497},
+      "planes": {"metamorphic": "pr_2d", "analysis": "linear"},
       "prepared": {"exempt": "the regular path itself: prepared and duplicate linear paths are compared against it"}
     }},
     "solve_arc_length": {"scope": "solve", "calls": "arc_length::solve_arc_length", "invariances": {

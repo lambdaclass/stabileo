@@ -186,38 +186,38 @@ image is ✗); no collapse factor is verified.
 ### 2D
 
 <!-- BEGIN pr_2d -->
-| Analysis | rotation | mirror | relabel | reversal | units | superposition | reciprocity | energy | symmetry | linear agreement | modal orthogonality |
-|---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
-| linear | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | · |
-| linear (WASM typed path) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · |
-| linear (load session) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · |
-| linear (dense reference) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · |
-| linear (sparse path) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · |
-| linear (PCG) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · |
-| constrained | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · |
-| certified linear | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · |
-| load combinations | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · |
-| staged (one stage) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · |
-| staged (loads in two stages) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | ✓ | ✓ | · |
-| Winkler (no foundation) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · |
-| contact (no gaps) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | ✓ | ✓ | · |
-| SSI (no soil springs) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | ✓ | ✓ | · |
-| creep & shrinkage (t = t0) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | ✓ | ✓ | · |
-| P-Delta | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | · | ✓ | · | · |
-| corotational | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | · | ✓ | · | · |
-| material nonlinear | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | · | ✓ | · | · |
-| fiber nonlinear | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | · | ✓ | · | · |
-| cable solver | · | ✓ | ✓ | ✓ | ✓ | · | · | · | ✓ | · | · |
-| modal | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | · | ✓ | · | ✓ |
-| certified modal | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | · | ✓ | · | · |
-| buckling | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | ✓ | · | · |
-| time history | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | ✓ | · | · |
-| spectral | · | ✓ | ✓ | ✓ | ✓ | · | · | · | ✓ | · | · |
-| harmonic | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | ✓ | · | · |
-| plastic collapse | R | R | R | R | R | R | · | · | R | · | · |
-| kinematic check | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | · | ✓ | · | · |
-| moving loads | · | ✓ | ✓ | ✓ | ✓ | · | · | · | R | · | · |
-| influence line | · | ✓ | ✓ | ✓ | ✓ | · | · | · | R | · | · |
+| Analysis | rotation | mirror | relabel | reversal | units | superposition | reciprocity | energy | symmetry | linear agreement | modal orthogonality | planes |
+|---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
+| linear | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | ✓ |
+| linear (WASM typed path) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | ✓ |
+| linear (load session) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | ✓ |
+| linear (dense reference) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | · |
+| linear (sparse path) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | · |
+| linear (PCG) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | · |
+| constrained | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | · |
+| certified linear | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | ✓ |
+| load combinations | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | · |
+| staged (one stage) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | · |
+| staged (loads in two stages) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | ✓ | ✓ | · | · |
+| Winkler (no foundation) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | · |
+| contact (no gaps) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | ✓ | ✓ | · | · |
+| SSI (no soil springs) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | ✓ | ✓ | · | · |
+| creep & shrinkage (t = t0) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | ✓ | ✓ | · | · |
+| P-Delta | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | · | ✓ | · | · | · |
+| corotational | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | · | ✓ | · | · | · |
+| material nonlinear | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | · | ✓ | · | · | · |
+| fiber nonlinear | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | · | ✓ | · | · | · |
+| cable solver | · | ✓ | ✓ | ✓ | ✓ | · | · | · | ✓ | · | · | · |
+| modal | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | · | ✓ | · | ✓ | · |
+| certified modal | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | · | ✓ | · | · | · |
+| buckling | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | ✓ | · | · | · |
+| time history | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | ✓ | · | · | · |
+| spectral | · | ✓ | ✓ | ✓ | ✓ | · | · | · | ✓ | · | · | · |
+| harmonic | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | ✓ | · | · | · |
+| plastic collapse | R | R | R | R | R | R | · | · | R | · | · | · |
+| kinematic check | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | · | ✓ | · | · | · |
+| moving loads | · | ✓ | ✓ | ✓ | ✓ | · | · | · | R | · | · | · |
+| influence line | · | ✓ | ✓ | ✓ | ✓ | · | · | · | R | · | · | · |
 <!-- END pr_2d -->
 
 ### 3D

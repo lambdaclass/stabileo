@@ -15,7 +15,7 @@ INVARIANCES = {
     'reversal': 'reversal',
     'rotation': 'rotation',
     'mirror': 'mirror',
-    'planes': None,
+    'planes': 'planes',
     'prepared': 'linear agreement',
 }
 
@@ -213,8 +213,6 @@ def status(value, key, target, doc, tables, rows, helpers, read):
     if set(value) == {'metamorphic', 'analysis'}:
         section, analysis = value['metamorphic'], value['analysis']
         column = INVARIANCES[key]
-        if column is None:
-            return [f'the metamorphic tier has no {key!r} check; cover it with a test, exempt it or track it']
         if section not in ANALYSES:
             return [f'unknown metamorphic tier {section!r}; one of {sorted(ANALYSES)}']
         if section not in tables:

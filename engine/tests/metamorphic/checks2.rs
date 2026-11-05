@@ -2,7 +2,7 @@
 
 use crate::ana2::{Ana2, Law};
 use crate::case::Case2;
-use crate::response::{Kind, Resp};
+use crate::response::{Dim, Kind, Resp};
 use crate::tally::{Tally, Verdict};
 use dedaliano_engine::metamorphic::compare::{compare_compliant, compare_with_compliance, Flat};
 use dedaliano_engine::metamorphic::conditioning::{self, Conditioning, INCONCLUSIVE};
@@ -191,6 +191,7 @@ pub fn applicable(a: &Ana2, inv: &str) -> bool {
         "reciprocity" => a.law == Law::Linear,
         "energy" => a.law == Law::Linear && a.full_static,
         "linear agreement" => REDUCES_TO_LINEAR.contains(&a.name),
+        "planes" => a.planar.is_some(),
         "modal orthogonality" => a.name == "modal",
         _ => true,
     }
@@ -328,6 +329,10 @@ pub fn check_case(ctx: &Ctx, c: &Case2, anas: &[Ana2], invariants: &[&str]) {
                         }
                     }
                 }
+                "planes" => match a.planar {
+                    Some(solve) => planes(a, c, &base, solve, &cond),
+                    None => Verdict::NotApplicable,
+                },
                 "reciprocity" => reciprocity(a, c, &cond, &mut rng),
                 "energy" => energy(a, c, &cond, &mut rng),
                 _ => Verdict::NotApplicable,
@@ -335,6 +340,54 @@ pub fn check_case(ctx: &Ctx, c: &Case2, anas: &[Ana2], invariants: &[&str]) {
             ctx.tally.record(a.name, inv, &c.name, v);
         }
     }
+}
+
+/// The plane frame in each coordinate plane of a 3D model, solved by `solve` and read back in
+/// the frame's axes, must give `base`, with no force out of the plane or at a node the frame leaves free. A known-issue refusal on
+/// one side only is not a pass: the two dimensions contain the same model differently.
+fn planes(a: &Ana2, c: &Case2, base: &Resp, solve: fn(&SolverInput3D) -> Result<AnalysisResults3D, String>, cond: &Conditioning) -> Verdict {
+    use dedaliano_engine::metamorphic::planes::{embed_2d, pull_static, Plane};
+    let rel = rel_for(a.name, a.iter_tol, cond) * 2.0;
+    let mut verdict = Verdict::NotApplicable;
+    for plane in Plane::ALL {
+        let s3 = match embed_2d(&c.s, plane) {
+            Ok(s3) => s3,
+            Err(e) => return Verdict::Unrepresentable(e.to_string()),
+        };
+        let got = crate::response::outcome(guarded(|| {
+            let p = pull_static(&c.s, plane, &solve(&s3)?).map_err(|e| e.to_string())?;
+            let mut r = crate::response::planar_static(&p);
+            r.scalar("stray force", Dim::FORCE, p.stray_force);
+            r.scalar("stray moment", Dim::MOMENT, p.stray_moment);
+            Ok(r)
+        }));
+        let got = match got {
+            Ok(g) => g,
+            Err(e) if base.1.is_empty() => return Verdict::Refused(format!("{plane:?}: 2D solved, 3D failed: {e}")),
+            Err(e) => return Verdict::Refused(format!("{plane:?}: 2D refused {:?}, 3D failed: {e}", base.1)),
+        };
+        if !base.1.is_empty() || !got.1.is_empty() {
+            let which = if base.1.is_empty() { "3D only" } else if got.1.is_empty() { "2D only" } else { "both" };
+            return Verdict::Refused(format!("{plane:?}: containment differs ({which}): 2D {:?}, 3D {:?}", base.1, got.1));
+        }
+        let mut exp = base.clone();
+        exp.scalar("stray force", Dim::FORCE, 0.0);
+        exp.scalar("stray moment", Dim::MOMENT, 0.0);
+        let keys = |r: &Resp| r.0.iter().map(|i| (i.node, i.elem, i.tag.clone())).collect::<std::collections::BTreeSet<_>>();
+        if keys(&got) != keys(&exp) {
+            let (g, e) = (keys(&got), keys(&exp));
+            return Verdict::Fail(format!("{plane:?}: results differ in shape: only in 3D {:?}, only in 2D {:?}", g.difference(&e).take(4).collect::<Vec<_>>(), e.difference(&g).take(4).collect::<Vec<_>>()));
+        }
+        verdict = match judge(compare_with_compliance(&got.flat(), &exp.flat(), cond.lchar, rel, load_floor_2d(&c.s, cond.lchar), compliance(a.name, cond)), rel) {
+            Verdict::Fail(e) => return Verdict::Fail(format!("{plane:?}: {e}")),
+            Verdict::Pass(w) => match verdict {
+                Verdict::Pass(v) => Verdict::Pass(v.max(w)),
+                _ => Verdict::Pass(w),
+            },
+            other => return other,
+        };
+    }
+    verdict
 }
 
 /// Magnitude of the applied actions (force units): Σ|F| + Σ|M|/L + Σ|q|·L_e,
