@@ -7,7 +7,7 @@ const WEB = fileURLToPath(new URL('../../', import.meta.url));
 export default defineConfig({
   ...base,
   testDir: '.',
-  testMatch: 'capture.shots.ts',
+  testMatch: '*.shots.ts',
   outputDir: `${WEB}e2e/.artifacts/blog-screenshots`,
   reporter: [['list']],
   retries: 0,

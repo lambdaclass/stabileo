@@ -70,6 +70,36 @@ const body: PostBody = {
     },
     {
       "k": "h",
+      "t": "İkinci tur: her sayfa yeniden incelendi"
+    },
+    {
+      "k": "p",
+      "t": "Ardından yayındaki her araştırma sayfası, sırayla üç yapay zekâ modelinin (önce Kimi, sonra Codex, sonra Claude) yaptığı ikinci bir incelemeden geçti ve doğrulayabildiğimiz her bulgu düzeltildi. On beş sayfa birlikte revize edilip 4 Kasım’da yayımlandı (#1068): altı makale (Shauer, Pastrana, Ferrari, Zmyślony, Grossman ve Fairclough) ve dokuz motor karşılaştırma problemi (Newmark, Riks/Crisfield, Navier, Lee, MacNeal–Harder, DaDeppo–Schmidt, Horne’a dayanan plastik göçme örneği, SRSS/CQC ve üçüncü bir turdan geçen Mattiasson). Hiçbir tolerans gevşetilmedi ve hiçbir test kaldırılmadı. Meslekte çalışan mühendislerin incelemesi ise hâlâ bekleniyor."
+    },
+    {
+      "k": "ul",
+      "items": [
+        "MacNeal–Harder mutlak değerleri karşılaştırıyordu; bu yüzden işareti yanlış bir sonuç da geçerdi. Referanslar artık işaretlerini taşıyor ve bir test her vaka için ters çevrilmiş bir yanıtı reddediyor.",
+        "Riks/Crisfield, yükte bir düşüş olmadan bir limit noktası bildirebiliyordu. Bir limit noktası artık yakınsamış adımlar arasında bir yük düşüşü gerektiriyor; sayfa “traces the snap-through” yerine çözümün üst limit noktasını geçtiğini söylüyor ve toleransları %5’ten 5e-3 ile 1e-5 arasındaki değerlere indi.",
+        "Navier, MITC4 hatasını ölçmek yerine açıklıyordu. Artık bağımsız bir Reissner–Mindlin serisiyle karşılaştırılıyor ve sert basit mesnetli durumda MITC4 hatası 4×4’te −%1,951’den 32×32’de −%0,036’ya, ikinci mertebeden yakınsamayla düşüyor.",
+        "Sayfalar neyle karşılaştırıldıklarını söylüyor. Newmark “the author’s code” ile değil, kesin kapalı form çözümlerle kontrol ediliyor; SRSS/CQC yöntemin bir gösterimi, makaledeki binanın yeniden üretimi değil; plastik göçme sınırları bir alıntı değil, elle yaptığımız kendi türetmelerimiz; Lee çerçevesinin 1,83 kN’luk referansı yayımlanmış bir şekilden okunmuş bir değer, bu yüzden yalnızca tam yüzde düzeyindeki farkları iddia ediyoruz."
+      ]
+    },
+    {
+      "k": "h",
+      "t": "Telefonlarda ve tabletlerde"
+    },
+    {
+      "k": "p",
+      "t": "Canlı sitede yaptığımız ölçümlerde araştırma sayfaları telefonda taşmıyordu, ancak deney tüm makalenin altında kalıyordu, görüntüleyici sıkışıktı (kare bir plak için 356×189 px) ve her sayfada 32 px’ten küçük 25 ila 40 kontrol ile 12 px’ten küçük 14 ila 20 metin parçası vardı. Artık deney başlığın hemen ardından geliyor, görüntüleyici modele göre boyutlanıyor, kontroller en az 44 px, metin de en az 12 px (#831)."
+    },
+    {"k": "img", "base": "blog/research-phone", "w": 1600, "h": 1000, "alt": "Stabileo Research’in telefondaki iki ekran görüntüsü yan yana, 390 px genişliğinde. Solda Pastrana ve ark. (2026) kablo ağı sayfası, “Four cables, one equilibrium”, görüntüleyici başlığın hemen altında; sağda Navier plakası karşılaştırma testi, görüntüleyicisi ekranın tüm genişliğini kaplıyor ve plakanın aşağı yöndeki yer değiştirmesini gösteriyor.", "caption": "Telefonda araştırma: başlıktan sonra deney ve ekran genişliğinde bir görüntüleyici."},
+    {
+      "k": "p",
+      "t": "Kalıcı bir kontrol, galeriyi ve çalıştırılabilir her sayfayı 360, 390, 844×390 ve 810 px’te İspanyolca, İngilizce ve Portekizce olarak işliyor; yatay taşma, küçük kontroller, küçük metin ya da eksik, fazla küçük veya fazla aşağıda kalan bir görüntüleyici olduğunda başarısız oluyor. İlk çalıştırmaları gerçek hatalar buldu ve kontrol değil, yerleşimler düzeltildi: Mattiasson görüntüleyicisi telefon yatay konumdayken 187 px yüksekliğindeydi, artık 280 px; bir yakınsama grafiği de etiketlerini 9 px ile yazıyordu. Bir yeniden akış testi, Shauer’in sekmelerinin Portekizce ve Türkçede 360 px’te taştığını buldu."
+    },
+    {
+      "k": "h",
       "t": "Editöre açılan sekiz hesaplayıcı"
     },
     {
