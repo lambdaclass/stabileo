@@ -2,7 +2,7 @@ import type { PostBody } from '../../types';
 
 const body: PostBody = {
   "title": "Quand un résultat change : versions de résultats, revérifications et avis de sécurité",
-  "excerpt": "Une correction change des chiffres que des ingénieurs ont peut-être déjà utilisés. Comment Stabileo vous dit lesquels de vos projets une correction concerne, comment il retient un résultat qu’il sait pouvoir être faux jusqu’à ce que la correction existe, et comment la correction est publiée, avec les quatorze versions de résultats fusionnées les 4 et 5 novembre.",
+  "excerpt": "Comment Stabileo vous dit lesquels de vos projets une correction concerne, comment il retient un résultat qu’il sait pouvoir être faux jusqu’à ce que la correction existe, et comment la correction est publiée, avec les quatorze versions de résultats fusionnées les 4 et 5 novembre.",
   "blocks": [
     {
       "k": "p",
@@ -190,13 +190,13 @@ const body: PostBody = {
       ],
       "rows": [
         [
-          "Console, compression croissant de 0 jusqu’à P à l’extrémité",
+          "Console, compression croissant de 0 à l’appui jusqu’à P à l’extrémité",
           "3,477",
           "4,972 (+43 %)",
           "3,542 (+1,9 %)"
         ],
         [
-          "Console, charge axiale ponctuelle à mi-portée",
+          "Console, charge axiale ponctuelle à mi-portée : aucun effort normal de l’appui jusqu’au milieu, compression P de là jusqu’à l’extrémité",
           "2,961",
           "4,972 (+68 %)",
           "3,056 (+3,2 %)"
@@ -219,7 +219,7 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "Un mécanisme caché en 2D (#1298, version 22). Une liaison rigide ou un diaphragme allant d’un nœud dont toutes les barres sont articulées jusqu’à l’extrémité d’une barre de treillis est un mécanisme, mais le solveur le retenait avec un minuscule ressort artificiel et renvoyait des déplacements de centaines de kilomètres, que le certificat certifiait ensuite. Un tel modèle est maintenant refusé. Il n’y a pas d’avis de sécurité pour celui-ci : personne n’aurait pu utiliser ces chiffres sans s’en apercevoir, et l’application avertissait déjà d’un mécanisme probable. Ce qui était faux, c’était l’affirmation du certificat, et l’entrée de version en informe les projets qu’il concerne. Un cas similaire passant par un connecteur au lieu d’une liaison rigide a été trouvé ensuite (#1414) ; sa correction (#1415) est en revue et sera intégrée avec la 0.5.0."
+      "t": "Un mécanisme caché en 2D (#1298, version 22). Une liaison rigide ou un diaphragme allant d’un nœud dont toutes les barres sont articulées jusqu’à l’extrémité d’une barre de treillis est un mécanisme, mais le solveur le retenait avec un minuscule ressort artificiel et renvoyait des déplacements de centaines de kilomètres, que le certificat certifiait ensuite. Un tel modèle est maintenant refusé. La correction n’a proposé aucun avis de sécurité pour celui-ci : dans les cas trouvés, les déplacements étaient absurdes, de l’ordre de 10⁵ m, et s’accompagnaient de l’avertissement de l’application d’un mécanisme probable. C’est un jugement sur ces cas, pas une preuve qu’aucun résultat concerné n’avait l’air plausible. Ce qui était faux, c’était l’affirmation du certificat, et l’entrée de version en informe les projets qu’il concerne. Un cas similaire passant par un connecteur au lieu d’une liaison rigide a été trouvé ensuite (#1414) ; sa correction (#1415) est en revue et sera intégrée avec la 0.5.0."
     },
     {
       "k": "p",

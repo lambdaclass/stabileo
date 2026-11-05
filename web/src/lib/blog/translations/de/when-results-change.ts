@@ -2,7 +2,7 @@ import type { PostBody } from '../../types';
 
 const body: PostBody = {
   "title": "Wenn sich ein Ergebnis ändert: Ergebnisversionen, erneute Prüfungen und Sicherheitshinweise",
-  "excerpt": "Eine Korrektur ändert Zahlen, die Ingenieure womöglich schon verwendet haben. Wie Stabileo Ihnen sagt, welche Ihrer Projekte eine Korrektur betrifft, wie es ein Ergebnis, von dem es weiß, dass es falsch sein kann, zurückhält, bis die Korrektur existiert, und wie die Korrektur veröffentlicht wird, mit den vierzehn Ergebnisversionen, die am 4. und 5. November zusammengeführt wurden.",
+  "excerpt": "Wie Stabileo Ihnen sagt, welche Ihrer Projekte eine Korrektur betrifft, wie es ein möglicherweise falsches Ergebnis bis zur Korrektur zurückhält, und wie die Korrektur veröffentlicht wird, mit den vierzehn Ergebnisversionen, die am 4. und 5. November zusammengeführt wurden.",
   "blocks": [
     {
       "k": "p",
@@ -190,13 +190,13 @@ const body: PostBody = {
       ],
       "rows": [
         [
-          "Kragarm, Druck von 0 bis P an der Spitze ansteigend",
+          "Kragarm, Druck von 0 am Lager bis P an der Spitze ansteigend",
           "3,477",
           "4,972 (+43 %)",
           "3,542 (+1,9 %)"
         ],
         [
-          "Kragarm, axiale Einzellast in Feldmitte",
+          "Kragarm, axiale Einzellast in Feldmitte: keine Normalkraft vom Lager bis zur Mitte, Druck P von dort bis zum freien Ende",
           "2,961",
           "4,972 (+68 %)",
           "3,056 (+3,2 %)"
@@ -219,7 +219,7 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "Ein verborgener Mechanismus in 2D (#1298, Version 22). Eine starre Kopplung oder eine Scheibe von einem Knoten, dessen Stäbe alle gelenkig angeschlossen sind, zum Ende eines Fachwerkstabs ist ein Mechanismus, aber der Rechenkern hielt ihn mit einer winzigen künstlichen Feder und gab Verschiebungen von Hunderten von Kilometern aus, die das Zertifikat dann zertifizierte. Ein solches Modell wird jetzt abgelehnt. Dafür gibt es keinen Sicherheitshinweis: Niemand hätte diese Zahlen verwenden können, ohne es zu bemerken, und die App warnte bereits vor einem wahrscheinlichen Mechanismus. Falsch war die Aussage des Zertifikats, und der Versionseintrag informiert die Projekte, die er betrifft. Ein ähnlicher Fall über ein Verbindungselement statt einer starren Kopplung wurde danach gefunden (#1414); seine Korrektur (#1415) ist im Review und kommt mit 0.5.0."
+      "t": "Ein verborgener Mechanismus in 2D (#1298, Version 22). Eine starre Kopplung oder eine Scheibe von einem Knoten, dessen Stäbe alle gelenkig angeschlossen sind, zum Ende eines Fachwerkstabs ist ein Mechanismus, aber der Rechenkern hielt ihn mit einer winzigen künstlichen Feder und gab Verschiebungen von Hunderten von Kilometern aus, die das Zertifikat dann zertifizierte. Ein solches Modell wird jetzt abgelehnt. Dafür gibt es keinen Sicherheitshinweis, weil die Korrektur keinen vorschlug: In den gefundenen Fällen waren die Verschiebungen absurd, etwa 10⁵ m, und kamen mit der Warnung der App vor einem wahrscheinlichen Mechanismus. Das ist ein Urteil über diese Fälle, kein Beweis, dass kein betroffenes Ergebnis plausibel aussah. Falsch war die Aussage des Zertifikats, und der Versionseintrag informiert die Projekte, die er betrifft. Ein ähnlicher Fall über ein Verbindungselement statt einer starren Kopplung wurde danach gefunden (#1414); seine Korrektur (#1415) ist im Review und kommt mit 0.5.0."
     },
     {
       "k": "p",
