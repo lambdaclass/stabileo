@@ -219,8 +219,8 @@ def status(value, key, target, doc, tables, rows, helpers, read):
         missing = [t for t in target if not calls(body, t, code)]
         if missing:
             return [f'{value["test"]}: the test does not call {", ".join(missing)}, so it does not cover this entry point']
-        if not compares_result(body, target, code):
-            return [f'{value["test"]}: no assertion uses what {", ".join(target)} returned, so the test checks no invariance']
+        if not compares_result(body, target[-1:], code):
+            return [f'{value["test"]}: no assertion uses what {target[-1]} returned, so the test checks no invariance']
         return []
     if set(value) == {'metamorphic', 'analysis'}:
         section, analysis = value['metamorphic'], value['analysis']
@@ -294,7 +294,7 @@ def compiled_tests(read):
         if disabled(inner_attributes(code, 0)):
             continue
         folder = pathlib.PurePosixPath(file).parent
-        if pathlib.PurePosixPath(file).name not in ('main.rs', 'mod.rs', 'lib.rs'):
+        if file not in roots and pathlib.PurePosixPath(file).name not in ('main.rs', 'mod.rs', 'lib.rs'):
             folder = folder / pathlib.PurePosixPath(file).stem
         for m in re.finditer(r'\b(?:pub(?:\([^)]*\))?\s+)?mod\s+(\w+)\s*;', code):
             attributes = outer_attributes(code, m.start())
@@ -385,7 +385,8 @@ def asserts_on(body, seed, targets, context, depth=0):
         elif kind == 'update' and derived(text, tainted):
             tainted |= what
         elif kind == 'call' and what.endswith('!'):
-            if derived(text, tainted):
+            operands = arguments(text)[:1 if what in ('assert!', 'debug_assert!') else 2]
+            if any(derived(o, tainted) for o in operands):
                 return True
         elif kind == 'call' and what in helpers and depth < 2:
             names = parameters(context, what)
