@@ -433,11 +433,14 @@ struct ModalSweep {
     result: HarmonicResult,
     damping: (f64, f64),
     residuals: Vec<f64>,
+    uncorrected: Vec<f64>,
 }
 
 /// Above this relative residual a frequency's modal response is replaced by
 /// the direct complex solve (see `resolve_large_residuals`).
 pub const MODAL_RESIDUAL_TOL: f64 = 1e-2;
+
+const UNCORRECTED_WARNING: &str = "static correction not applied at";
 
 /// Shared post-eigensolve logic: given eigen-decomposition, compute modal
 /// frequency response via superposition, plus the static correction of the
@@ -650,7 +653,7 @@ fn harmonic_modal_from_eigen(
             "modal superposition of {p} of {n} modes without static correction (K singular or not positive definite): the omitted modes are not represented"
         )),
         Some(_) if !uncorrected.is_empty() => warnings.push(format!(
-            "static correction not applied at {} frequenc{} (up to {:.4} Hz) near or above the omitted modes (lowest omitted ω² ≥ {:.4e}): modal truncation error there is not bounded",
+            "{UNCORRECTED_WARNING} {} frequenc{} (up to {:.4} Hz) near or above the omitted modes (lowest omitted ω² ≥ {:.4e}): modal truncation error there is not bounded",
             uncorrected.len(),
             if uncorrected.len() == 1 { "y" } else { "ies" },
             uncorrected.iter().cloned().fold(0.0f64, f64::max),
@@ -671,7 +674,7 @@ fn harmonic_modal_from_eigen(
         direct_frequencies: Vec::new(),
         warnings,
     };
-    Some(ModalSweep { result, damping: (a0, a1), residuals })
+    Some(ModalSweep { result, damping: (a0, a1), residuals, uncorrected })
 }
 
 /// Re-solve directly every frequency whose modal residual exceeds
@@ -685,7 +688,7 @@ fn resolve_large_residuals(
     n: usize,
     target: &[(usize, f64)],
 ) -> Result<(HarmonicResult, (f64, f64)), String> {
-    let ModalSweep { mut result, damping: (a0, a1), residuals } = sweep;
+    let ModalSweep { mut result, damping: (a0, a1), residuals, uncorrected } = sweep;
     let bad: Vec<usize> = (0..residuals.len()).filter(|&i| !(residuals[i] <= MODAL_RESIDUAL_TOL)).collect();
     if bad.is_empty() {
         return Ok((result, (a0, a1)));
@@ -719,6 +722,9 @@ fn resolve_large_residuals(
     }
     result.peak_frequency = peak_freq;
     result.peak_amplitude = peak_amp;
+    if uncorrected.iter().all(|f| result.direct_frequencies.contains(f)) {
+        result.warnings.retain(|w| !w.starts_with(UNCORRECTED_WARNING));
+    }
     result.warnings.push(format!(
         "modal superposition left a relative residual up to {worst:.3e} (over {MODAL_RESIDUAL_TOL:.0e}) at {} frequenc{}: {} solved directly instead",
         bad.len(),
