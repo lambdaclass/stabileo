@@ -149,6 +149,8 @@ jobs:
             engine:
               - *tooling
               - 'engine/**'
+              - 'scripts/invariance-gate.py'
+              - 'docs/verification/METAMORPHIC.md'
               - 'Cargo.toml'
               - 'Cargo.lock'
               - '.config/**'
@@ -192,6 +194,7 @@ jobs:
               - 'Cargo.lock'
             ci_scripts:
               - 'scripts/check-containment.py'
+              - 'scripts/invariance-gate.py'
               - '.github/workflows/research.yml'
               - 'scripts/nightly-*.py'
               - '.github/workflows/nightly.yml'

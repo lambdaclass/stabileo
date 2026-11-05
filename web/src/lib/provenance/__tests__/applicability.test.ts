@@ -248,6 +248,14 @@ describe('which registered changes concern a model', () => {
     expect(ids(model({ loads }), previous)).toEqual([]);
   });
 
+  it('tells a truss-only model with a support spring about the orphan-rotation fix, and not one without', () => {
+    const v32 = { resultsVersion: 32, analyses: ['linear'] } as SolveStamp;
+    const springs = [[1, { nodeId: 1, type: 'fixed3d' }], [2, { nodeId: 2, type: 'spring3d', krz: 1e-13 }]] as never;
+    expect(ids(model({ elements: [member(1, 1, 'truss')], supports: springs }), v32)).toContain('soft-rotation-not-orphan');
+    expect(ids(model({ elements: [member(1, 1, 'truss')] }), v32)).not.toContain('soft-rotation-not-orphan');
+    expect(ids(model({ elements: [member(1, 1, 'frame')] }), v32)).toContain('soft-rotation-not-orphan');
+  });
+
   it('tells every model that can rotate past 0.1 rad about the small-displacement warning (#1446), and not one with supports and loads only', () => {
     const change = 'linear-small-displacement-warning';
     const v35 = { resultsVersion: 35, analyses: ['linear'] } as SolveStamp;
