@@ -1,5 +1,6 @@
 import { shellCardTitle } from './shell1985/card';
 import { archStrings } from './biggins2026/strings';
+import { riserStrings } from './gayNeto2014/strings';
 import { topoptStrings } from './andreassen2011/i18n';
 import { fs } from './fairclough2026/i18n';
 import { strings as newmarkStrings } from './newmark1959/i18n';
@@ -30,6 +31,7 @@ export function cardTitle(e: Experiment): string {
     case 'newmark-1959': return newmarkStrings().title;
     case 'fairclough-2026': return fs().title;
     case 'zmyslony-2026': return archStrings().title;
+    case 'gay-neto-2014': return riserStrings().title;
     case 'andreassen-2011': return topoptStrings(locale).title;
     case 'pastrana-2026': return s.formTitle;
     case 'grossman-2026': return s.springsTitle;

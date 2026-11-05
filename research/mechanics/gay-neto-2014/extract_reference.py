@@ -57,7 +57,7 @@ def tutorial01(pdf):
 
 
 def manifest():
-    files = sorted(f for f in os.listdir(OUT) if f.endswith(".csv"))
+    files = sorted(f for f in os.listdir(OUT) if f != "MANIFEST.json")
     m = json.load(open(os.path.join(OUT, "MANIFEST.json")))
     m["files_sha256"] = {f: hashlib.sha256(open(os.path.join(OUT, f), "rb").read()).hexdigest() for f in files}
     json.dump(m, open(os.path.join(OUT, "MANIFEST.json"), "w"), indent=2)

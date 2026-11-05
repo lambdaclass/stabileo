@@ -8,6 +8,7 @@ const PUBLISHED: Record<string, readonly string[]> = {
   '/research': BASE,
   '/research/optimization/andreassen-2011': ALL,
   '/research/mechanics/biggins-2026': ALL,
+  '/research/mechanics/gay-neto-2014': ALL,
   '/research/benchmarks/cqc-1981': ALL,
   '/research/benchmarks/dadeppo-arch-1975': ALL,
   '/research/optimisation/fairclough-2026': ALL,
