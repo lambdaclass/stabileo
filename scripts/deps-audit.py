@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-HELD = re.compile(r"Unchanged (\S+) v(\S+) \(available: v(\S+)\)")
+HELD = re.compile(r"Unchanged (\S+) v(\S+) \(available: v([^,)\s]+)[^)]*\)")
 
 
 def compatible_key(version):
