@@ -59,8 +59,7 @@ pub const ENTRIES: &[Entry] = &[
     Entry { id: "FR-5", issue: 408, mode: Mode::Warn, message: "Warping members share one warping degree of freedom at a joint. Full warping transmission may over-restrain the real connection; verify its detailing and warping restraint independently" },
     Entry { id: "SP-14", issue: 417, mode: Mode::Warn, message: "Outside the cable analysis, cable elements can carry compression as truss bars. Verify cable tensions and use a tension-only cable analysis for slackening" },
     Entry { id: "NL-13", issue: 432, mode: Mode::Warn, message: "Contact analysis can freeze a chattering gap while reporting convergence. Verify the contact state and equilibrium independently" },
-    Entry { id: "NL-17", issue: 433, mode: Mode::Warn, message: "Fiber analysis can return an unconverged iterate without its load factor. Do not use a non-converged result for design" },
-    Entry { id: "MD-ORTHOGONALITY", issue: 759, mode: Mode::Warn, message: "3D modal analysis can return non-orthogonal or duplicate modes. Effective masses and response-spectrum combinations may be wrong; independently verify the modal basis" },
+    Entry { id: "MD-ORTHOGONALITY", issue: 759, mode: Mode::Warn, message: "3D modal analysis can return non-orthogonal or duplicate modes. Effective masses, response-spectrum combinations and harmonic responses by modal superposition may be wrong, by large factors; independently verify the modal basis" },
     Entry { id: "TH-RECIPROCITY", issue: 760, mode: Mode::Warn, message: "Linear time history has failed reciprocity checks by up to a factor of 33. The affected input class is not yet isolated; independently verify this response before design" },
     Entry { id: "RC-NM-PAIRING", issue: 1316, mode: Mode::Warn, message: "This CIRSOC 201 column check pairs the axial force of one combination with the moment of another, which can be unconservative below the balance point. Check the column under each named combination" },
 ];
@@ -177,7 +176,6 @@ pub fn for_analysis(analysis: Analysis) -> Vec<StructuredDiagnostic> {
         Analysis::MaterialNonlinear => vec![diagnostic("NL-5")],
         Analysis::TimeHistory => vec![diagnostic("TH-RECIPROCITY")],
         Analysis::Contact => vec![diagnostic("NL-13")],
-        Analysis::Fiber => vec![diagnostic("NL-17")],
         _ => vec![],
     }
 }
@@ -582,7 +580,6 @@ mod tests {
             ("NL-DYNAMIC-GAPS", Analysis::MaterialNonlinear, false),
             ("PL-2D-INVARIANCE", Analysis::Plastic, false),
             ("NL-13", Analysis::Contact, false),
-            ("NL-17", Analysis::Fiber, false),
             ("TH-RECIPROCITY", Analysis::TimeHistory, false),
             ("MD-ORTHOGONALITY", Analysis::Modal, true),
             ("BU-ACCURACY", Analysis::Buckling, true),

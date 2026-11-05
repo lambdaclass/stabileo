@@ -343,23 +343,6 @@ fn mitc4_macneal_harder_contains_membrane_bending_only() {
 }
 
 #[test]
-fn fiber_warning_is_only_on_unconverged_results() {
-    use dedaliano_engine::solver::fiber_nonlinear::{solve_fiber_nonlinear_2d, FiberNonlinearInput};
-    for max_iter in [0, 30] {
-        let input = FiberNonlinearInput {
-            solver: make_beam(4, 4.0, E, 0.045, 3.375e-4, "fixed", None, tip(-10.0)),
-            fiber_sections: HashMap::new(), n_integration_points: 5,
-            max_iter, tolerance: 1e-10, n_increments: 1, modified_nr: false,
-        };
-        let r = solve_fiber_nonlinear_2d(&input).unwrap();
-        assert_eq!(r.converged, max_iter != 0);
-        let warning = r.results.structured_diagnostics.iter().find(|d| d.phase.as_deref() == Some("NL-17"));
-        if r.converged { assert!(warning.is_none()); }
-        else { assert_eq!(serde_json::to_value(warning.unwrap()).unwrap(), serde_json::to_value(dedaliano_engine::known_issues::diagnostic("NL-17")).unwrap()); }
-    }
-}
-
-#[test]
 fn combinations_and_envelopes_keep_known_issue_warnings() {
     use dedaliano_engine::postprocess::combinations::*;
     let mut r = dedaliano_engine::solver::linear::solve_3d(&beam3d()).unwrap();

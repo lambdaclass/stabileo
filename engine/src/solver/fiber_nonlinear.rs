@@ -100,7 +100,7 @@ pub struct FiberElementStatus {
 /// Solve a 2D fiber nonlinear problem.
 pub fn solve_fiber_nonlinear_2d(input: &FiberNonlinearInput) -> Result<FiberNonlinearResult, String> {
     let mut r = solve_fiber_nonlinear_2d_contained(input)?;
-    crate::known_issues::attach(&mut r.results.structured_diagnostics, crate::known_issues::for_2d(&input.solver, crate::known_issues::Analysis::Fiber).into_iter().filter(|d| !r.converged || d.phase.as_deref() != Some("NL-17")).collect());
+    crate::known_issues::attach(&mut r.results.structured_diagnostics, crate::known_issues::for_2d(&input.solver, crate::known_issues::Analysis::Fiber));
     Ok(r)
 }
 
@@ -943,7 +943,7 @@ pub struct FiberNonlinearResult3D {
 /// Solve a 3D fiber nonlinear problem.
 pub fn solve_fiber_nonlinear_3d(input: &FiberNonlinearInput3D) -> Result<FiberNonlinearResult3D, String> {
     let mut r = solve_fiber_nonlinear_3d_contained(input)?;
-    crate::known_issues::attach(&mut r.results.structured_diagnostics, crate::known_issues::for_3d(&input.solver, crate::known_issues::Analysis::Fiber).into_iter().filter(|d| !r.converged || d.phase.as_deref() != Some("NL-17")).collect());
+    crate::known_issues::attach(&mut r.results.structured_diagnostics, crate::known_issues::for_3d(&input.solver, crate::known_issues::Analysis::Fiber));
     crate::known_issues::refuse(&r.results.structured_diagnostics)?;
     Ok(r)
 }
