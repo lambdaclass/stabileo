@@ -569,6 +569,8 @@ function firstYield(input: SolverInput, res: AnalysisResults, mpOf: Map<number, 
   return { lambda, where };
 }
 
+const unconfirmedPlastic: string[] = [];
+
 function checkPlastic(label: string, meta: GenMeta, input: SolverInput, res: AnalysisResults, degree: number | null) {
   ran('plastic');
   let run;
@@ -577,6 +579,14 @@ function checkPlastic(label: string, meta: GenMeta, input: SolverInput, res: Ana
   const r = run.result;
   if (!Number.isFinite(r.collapseFactor) || !(r.collapseFactor > 0)) { fail('plastic', `${label}: λc=${r.collapseFactor} mechanism=${r.isMechanism}`); return; }
   const fy = firstYield(input, res, new Map(run.mps.map((m) => [m.sectionId, m.mp])));
+  if (!r.isMechanism && r.unconfirmed) {
+    if (!r.limit || !(r.collapseFactor <= r.limit.lambda)) {
+      fail('plastic', `${label}: unconfirmed λ=${r.collapseFactor} above the limit analysis ${r.limit?.lambda}`);
+    } else {
+      unconfirmedPlastic.push(label);
+    }
+    return;
+  }
   if (!r.isMechanism) {
     // A structure under forces collapses at some factor; only self-equilibrated actions cannot.
     fail('plastic', `${label}: no mechanism (λ=${r.collapseFactor}, ${r.hinges.length} hinges, first yield at ${fy.lambda.toFixed(3)} in ${fy.where})${r.unresolved ? ' unresolved' : ''}${meta.thermal || meta.settlement ? ' [has thermal/settlement]' : ''}`);
@@ -913,6 +923,26 @@ const KNOWN: Array<{ check: string; defect: string; match: (m: string) => boolea
   { check: 'buckling', defect: 'ENGINE D12 (buckling.rs:91-93): one mean N per member misses partial or small compression (Basic cuts the member: see buckling-basic)', match: (m) => /no compressed elements" but|No positive buckling/.test(m) },
 ];
 
+const UNCONFIRMED_PLASTIC = [
+  'beam#9',
+  'beam#15',
+  'frame#3',
+  'frame#8',
+  'frame#13',
+  'frame#29',
+  'frame#34',
+  'gable#2',
+  'gable#42',
+  'gable#43',
+  'arch#10',
+  'arch#28',
+  'arch#41',
+  'truss#4',
+  'mixed#33',
+  'mixed#43',
+  'mixed#46',
+];
+
 // ── Suite ────────────────────────────────────────────────────────────
 
 const quiet: Array<ReturnType<typeof vi.spyOn>> = [];
@@ -994,6 +1024,10 @@ describe('advanced 2D functions on generated models', () => {
     ['whatif-loads', 'what-if: loads × k → response × k'],
     ['whatif-stiffness', 'what-if: E × k and (A, I) × k → displacements / k'],
   ];
+  it('plastic: the settled histories left unconfirmed are exactly the known ones', () => {
+    expect(unconfirmedPlastic).toEqual(UNCONFIRMED_PLASTIC);
+  });
+
   for (const [check, title] of CHECKS) {
     const known = KNOWN.filter((k) => k.check === check);
     it(title, () => {

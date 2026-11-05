@@ -112,6 +112,12 @@ export interface PlasticCollapseResult extends PlasticResult {
    * then the limit analysis's (`lambda`), and `historyLambda` is where the history ended.
    */
   limit?: { lambda: number; historyLambda: number };
+  /**
+   * The history settled at a mechanism, but nothing independent of the limit analysis confirms
+   * its factor (the exact certificate, or a history ending at the same load): `collapseFactor`
+   * is then the certified lower bound, or the lower of the two factors.
+   */
+  unconfirmed?: boolean;
 }
 
 interface Piece { id: number; t0: number; t1: number }
@@ -659,6 +665,7 @@ export function plasticCollapse2D(original: SolverInput, opts: PlasticCollapseOp
   if (event === maxEvents && !isMechanism) unresolved = true;
   let collapseFactor = lambda;
   let limit: PlasticCollapseResult['limit'];
+  let unconfirmed = false;
   if (!unloaded) {
     const ids = [...original.elements.values()];
     const mpOf = new Map(ids.map((e) => [e.id, e.type === 'truss' ? Infinity : opts.mp(e.id)]));
@@ -695,7 +702,11 @@ export function plasticCollapse2D(original: SolverInput, opts: PlasticCollapseOp
         limit = !historyUnverified && Math.abs(lambda - lp.lambda) > HISTORY_TOL * lp.lambda ? { lambda: lp.lambda, historyLambda: lambda } : undefined;
       } else if (c.kind !== 'contradicted' && settled && Math.abs(lambda - lp.lambda) <= HISTORY_TOL * lp.lambda) {
         collapseFactor = Math.min(lp.lambda, lambda);
+        isMechanism = true;
+        unresolved = false;
+        limit = undefined;
       } else {
+        unconfirmed = !historyUnverified;
         unresolved = true;
         limit = { lambda: lp.lambda, historyLambda: lambda };
         collapseFactor = c.kind === 'contradicted' || c.kind === 'bracketed' ? c.lower : Math.min(lp.lambda, lambda);
@@ -712,5 +723,6 @@ export function plasticCollapse2D(original: SolverInput, opts: PlasticCollapseOp
     unloaded,
     ...(unresolved ? { unresolved: true } : {}),
     ...(limit ? { limit } : {}),
+    ...(unconfirmed ? { unconfirmed: true } : {}),
   };
 }
