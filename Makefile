@@ -1,5 +1,5 @@
 .PHONY: research.wasm paper.pdf help install-nix shell setup setup.run git.setup deps backend.run console routes \
-       lint.engine test.engine.units-types check.engine.acceptance-models test.engine.gates test.engine.metamorphic test.engine.suite bench.engine \
+       lint.engine test.engine.units-types check.engine.acceptance-models test.engine.gates test.engine.metamorphic test.engine.mechanism-fuzz.quick test.engine.mechanism-fuzz.long test.engine.mechanism-fuzz.replay test.engine.suite bench.engine \
        web.deps typecheck.web test.web.unit test.web.build web.build.tested test.web.build.shared test.web.timing test.web.results snapshots-update check.results-snapshot-gate test.web.determinism e2e.web.setup e2e.web.build e2e.web.smoke e2e.web.slow e2e.web.timing e2e.web.visual e2e.web.flaky \
        perf.lighthouse.deps perf.lighthouse \
        test.ci-scripts test.nightly-scripts test.infra.caddy test.infra.caddy.redirects check.web.translations check.web.route-size \
@@ -81,6 +81,9 @@ help:
 	@echo "  make lint.engine          - Clippy over the engine"
 	@echo "  make test.engine.gates    - The named engine correctness gates"
 	@echo "  make test.engine.metamorphic - Metamorphic tests, in release"
+	@echo "  make test.engine.mechanism-fuzz.quick - Mechanism fuzzing of the certificate: the checked-in seeds"
+	@echo "  make test.engine.mechanism-fuzz.long DURATION=30m - Mechanism fuzzing from SEED until DURATION (REPORT_DIR keeps reproducers)"
+	@echo "  make test.engine.mechanism-fuzz.replay SEEDS=12,44 FILES=a.json - Fuzz seeds or saved cases: model, outcome, minimised reproducer"
 	@echo "  make test.engine.suite [SHARD=1/4] - Every engine test outside the gates"
 	@echo "  make bench.engine         - Criterion benchmarks (informational)"
 	@echo "  make typecheck.web        - tsc against its baseline + svelte-check gate"
@@ -252,6 +255,16 @@ test.engine.gates: check.engine.acceptance-models test.engine.units-types
 
 test.engine.metamorphic:
 	$(NEXTEST) --cargo-profile release $(foreach b,$(GATE_RELEASE_BINARIES),--test $(b))
+
+MECHANISM_FUZZ = $(NEXTEST) --cargo-profile release --test mechanism_fuzz --run-ignored only --no-capture
+test.engine.mechanism-fuzz.quick:
+	$(MECHANISM_FUZZ) -E 'test(=mechanism_fuzz_quick)'
+
+test.engine.mechanism-fuzz.long:
+	export MECHANISM_FUZZ_DURATION=$(or $(DURATION),30m) $(if $(SEED),MECHANISM_FUZZ_SEED=$(SEED)) $(if $(REPORT_DIR),MECHANISM_FUZZ_REPORT_DIR=$(abspath $(REPORT_DIR))) && $(MECHANISM_FUZZ) -E 'test(=mechanism_fuzz_long)'
+
+test.engine.mechanism-fuzz.replay:
+	export MECHANISM_FUZZ_SEEDS=$(SEEDS) MECHANISM_FUZZ_FILES=$(FILES) && $(MECHANISM_FUZZ) -E 'test(=mechanism_fuzz_replay)'
 
 test.engine.suite:
 	$(NEXTEST) -E '$(SUITE_FILTER)' $(if $(SHARD),--partition count:$(SHARD))
