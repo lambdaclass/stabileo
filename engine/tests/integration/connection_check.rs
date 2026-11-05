@@ -363,6 +363,7 @@ fn a_non_finite_force_on_a_bolt_group_is_unevaluated() {
     assert_eq!(r.unity_ratio, f64::INFINITY);
     assert_eq!(r.unevaluated.len(), 1);
     assert!(r.unevaluated[0].starts_with(FORCES_NOT_FINITE), "{:?}", r.unevaluated);
+    assert!(dedaliano_engine::boundary::to_json(&r).is_ok());
 }
 
 #[test]
@@ -379,4 +380,26 @@ fn a_loaded_weld_group_without_throat_is_unevaluated_not_zero() {
     .remove(0);
     assert_eq!(r.unity_ratio, f64::INFINITY);
     assert_eq!(r.unevaluated, vec![NO_THROAT.to_string()]);
+}
+
+#[test]
+fn a_nan_bolt_strength_is_unevaluated_whichever_of_shear_or_bearing_it_is() {
+    for (rn_shear, rn_bearing) in [(f64::NAN, Some(80_000.0)), (100_000.0, Some(f64::NAN))] {
+        let r = check_bolt_groups(&BoltGroupInput {
+            groups: vec![BoltGroupData {
+                connection_id: 1,
+                bolts: vec![BoltPosition { x: 0.0, y: 0.0 }, BoltPosition { x: 0.1, y: 0.0 }],
+                rn_shear,
+                rn_bearing,
+                phi: Some(0.75),
+            }],
+            forces: vec![BoltGroupForces { connection_id: 1, vx: 10_000.0, vy: 0.0, m: None }],
+        })
+        .remove(0);
+        assert_eq!(r.unity_ratio, f64::INFINITY, "{rn_shear} {rn_bearing:?}");
+        assert_eq!(r.unevaluated.len(), 1, "{:?}", r.unevaluated);
+        assert!(r.unevaluated[0].starts_with(BOLT_CAPACITY), "{:?}", r.unevaluated);
+        let json: serde_json::Value = serde_json::from_str(&dedaliano_engine::boundary::to_json(&r).unwrap()).unwrap();
+        assert!(json["phiRn"].is_null() && json["unityRatio"].is_null(), "{json}");
+    }
 }

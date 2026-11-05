@@ -67,12 +67,16 @@ pub struct BoltGroupResult {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub unevaluated: Vec<String>,
     /// Maximum bolt force (N)
+    #[serde(serialize_with = "crate::check::ser_known", deserialize_with = "crate::check::de_known")]
     pub max_bolt_force: f64,
     /// Available strength per bolt phi*Rn (N)
+    #[serde(serialize_with = "crate::check::ser_known", deserialize_with = "crate::check::de_known")]
     pub phi_rn: f64,
     /// Centroid X of bolt group (m)
+    #[serde(serialize_with = "crate::check::ser_known", deserialize_with = "crate::check::de_known")]
     pub centroid_x: f64,
     /// Centroid Y of bolt group (m)
+    #[serde(serialize_with = "crate::check::ser_known", deserialize_with = "crate::check::de_known")]
     pub centroid_y: f64,
     /// Polar moment of inertia of bolt group (m²)
     #[serde(serialize_with = "crate::check::ser_known", deserialize_with = "crate::check::de_known")]
@@ -175,8 +179,10 @@ pub struct WeldGroupResult {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub unevaluated: Vec<String>,
     /// Maximum weld stress (Pa)
+    #[serde(serialize_with = "crate::check::ser_known", deserialize_with = "crate::check::de_known")]
     pub max_weld_stress: f64,
     /// Available weld strength phi*Fnw (Pa)
+    #[serde(serialize_with = "crate::check::ser_known", deserialize_with = "crate::check::de_known")]
     pub phi_fnw: f64,
     /// Total weld length (m)
     pub total_length: f64,
@@ -250,7 +256,7 @@ fn check_single_bolt_group(group: &BoltGroupData, forces: &BoltGroupForces) -> B
         })
         .sum();
 
-    let phi_rn = phi * group.rn_shear.min(group.rn_bearing.unwrap_or(f64::INFINITY));
+    let phi_rn = phi * nan_min(group.rn_shear, group.rn_bearing.unwrap_or(f64::INFINITY));
 
     // Find most loaded bolt
     let mut max_force = 0.0_f64;
@@ -306,6 +312,10 @@ pub const WELD_CAPACITY: &str = "weld strength phi*Fnw";
 pub const MOMENT_WITHOUT_IP: &str = "moment on a group with no finite positive polar moment of inertia";
 
 pub const FORCES_NOT_FINITE: &str = "applied forces";
+
+fn nan_min(a: f64, b: f64) -> f64 {
+    if a.is_nan() || b.is_nan() { f64::NAN } else { a.min(b) }
+}
 
 fn group_ratio(demand: f64, capacity: f64, [vx, vy, m]: [f64; 3], ip: f64, capacity_name: &str) -> (f64, Vec<String>) {
     if !(vx.is_finite() && vy.is_finite() && m.is_finite()) {
