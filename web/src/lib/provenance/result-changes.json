@@ -7,7 +7,9 @@
       "id": "example-cantilever-small-rotations",
       "resultsVersion": 38,
       "date": "2026-11-05",
-      "prs": [],
+      "prs": [
+        1515
+      ],
       "area": "analysis",
       "scope": "examples",
       "examples": [
