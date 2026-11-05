@@ -3,7 +3,7 @@ import type { PostBody } from '../../types';
 const body: PostBody = {
   title: 'Baustatik Schritt für Schritt lernen in Stabileo Basic',
   excerpt:
-    'Basic hat jetzt einen Kurs eingebaut: Sie wählen ein Verfahren, und die App rechnet Ihr Tragwerk, oder ein vorbereitetes Beispiel, Schritt für Schritt durch, so wie auf dem Papier. Statik, Kraft- und Weggrößenverfahren, Einflusslinien, Theorie II. Ordnung und Knicken, Traglastverfahren und Dynamik. Kostenlos, im Browser.',
+    'Basic hat jetzt einen Kurs: Sie wählen ein Verfahren, und die App rechnet Ihr Tragwerk oder ein Beispiel Schritt für Schritt wie auf dem Papier. Statik, Einflusslinien, Theorie II. Ordnung, Traglastverfahren und Dynamik. Kostenlos.',
   blocks: [
     { k: 'p', t: 'Ein Statikprogramm liefert die Ergebnisse auf einen Schlag. Zum Lernen braucht man das Gegenteil: sehen, woher jede Zahl kommt, in der Reihenfolge, in der man sie an der Tafel herleitet. Genau das ist „Schritt für Schritt erklärt“, der Kurs, der jetzt in Stabileo Basic steckt. Sie wählen ein Verfahren, die App wendet es auf Ihr Tragwerk an und entwickelt es Schritt für Schritt, mit den Gleichungen, den Abbildungen und den Zahlen dieses Modells, und vergleicht das Ergebnis am Ende mit dem Matrizenverfahren.' },
     { k: 'p', t: 'Den Kurs hat Bautista Chesta geschrieben, Bauingenieur (FIUBA), und er kommt in sechs Einheiten: die gemeinsame Grundlage, Statik und klassische Verfahren, Einflusslinien, Theorie II. Ordnung und Knicken, Traglastverfahren und Dynamik. Er ist kostenlos wie ganz Basic: Er öffnet sich im Browser, ohne Installation und ohne Konto, und die Texte gibt es auf Spanisch, Englisch, Portugiesisch, Deutsch, Französisch und Türkisch.' },

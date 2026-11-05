@@ -3,7 +3,7 @@ import type { PostBody } from '../../types';
 const body: PostBody = {
   title: 'Stabileo Basic’te yapı statiğini adım adım öğrenin',
   excerpt:
-    'Basic’in içinde artık bir ders var: bir yöntem seçiyorsunuz, uygulama yapınızı ya da hazır bir örneği kâğıt üzerinde yapıldığı gibi adım adım çözüyor. Statik, kuvvet ve deplasman yöntemleri, tesir çizgileri, ikinci mertebe ve burkulma, plastik hesap ve dinamik. Ücretsiz, tarayıcıda.',
+    'Basic’te artık bir ders var: bir yöntem seçin, uygulama yapınızı ya da bir örneği kâğıttaki gibi adım adım çözsün. Statik, tesir çizgileri, ikinci mertebe, plastik hesap ve dinamik. Ücretsiz.',
   blocks: [
     { k: 'p', t: 'Bir hesap programı sonuçları bir anda verir. Öğrenmek için tersi gerekir: her sayının nereden geldiğini, tahtada yapıldığı sırayla görmek. Stabileo Basic’in içinde artık yaşayan ders, “Açıklamalı adım adım”, tam olarak budur. Bir yöntem seçiyorsunuz, uygulama onu yapınıza uyguluyor ve o modelin denklemleri, şekilleri ve sayılarıyla adım adım geliştiriyor, sonunda da sonucu matris yöntemiyle karşılaştırıyor.' },
     { k: 'p', t: 'Dersi inşaat mühendisi Bautista Chesta (FIUBA) yazdı ve altı ünite halinde geliyor: ortak temel, statik ve klasik yöntemler, tesir çizgileri, ikinci mertebe ve burkulma, plastik hesap ve dinamik. Basic’in tamamı gibi ücretsizdir: tarayıcıda açılır, hiçbir şey kurmak ya da hesap açmak gerekmez, metinler İspanyolca, İngilizce, Portekizce, Almanca, Fransızca ve Türkçe olarak mevcuttur.' },

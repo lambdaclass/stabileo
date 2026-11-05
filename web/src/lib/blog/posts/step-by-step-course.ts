@@ -10,7 +10,7 @@ export const stepByStepCourse: Post = {
     es: {
       title: 'Aprender análisis estructural paso a paso en Stabileo Básico',
       excerpt:
-        'Básico tiene ahora un curso adentro: elegís un método y la aplicación resuelve tu estructura, o un ejemplo preparado, paso a paso y como se hace en papel. Estática, método de las fuerzas y de los desplazamientos, líneas de influencia, segundo orden y pandeo, cálculo plástico y dinámica. Gratis, en el navegador.',
+        'Básico tiene ahora un curso: elegís un método y la aplicación resuelve tu estructura, o un ejemplo, paso a paso como en papel. Estática, líneas de influencia, segundo orden, cálculo plástico y dinámica. Gratis.',
       blocks: [
         { k: 'p', t: 'Un programa de cálculo da los resultados de golpe. Para aprender hace falta lo contrario: ver de dónde sale cada número, en el orden en que se hace en el pizarrón. Eso es «Paso a paso explicado», el curso que ahora vive dentro de Stabileo Básico. Elegís un método, la aplicación lo aplica a tu estructura y lo desarrolla paso a paso, con las ecuaciones, las figuras y los números de ese modelo, y termina comparando el resultado con el método matricial.' },
         { k: 'p', t: 'El curso lo escribió Bautista Chesta, ingeniero civil (FIUBA), y llega en seis unidades: la base común, estática y métodos clásicos, líneas de influencia, segundo orden y pandeo, cálculo plástico y dinámica. Es gratis, como todo Básico: se abre en el navegador, sin instalar nada ni crear una cuenta, y los textos están en español, inglés, portugués, alemán, francés y turco.' },
@@ -84,7 +84,7 @@ export const stepByStepCourse: Post = {
     en: {
       title: 'Learn structural analysis step by step in Stabileo Basic',
       excerpt:
-        'Basic now has a course inside it: pick a method and the app solves your structure, or a prepared example, step by step, the way it is done on paper. Statics, the force and displacement methods, influence lines, second order and buckling, plastic analysis and dynamics. Free, in the browser.',
+        'Basic now has a course: pick a method and the app solves your structure, or an example, step by step as on paper. Statics, influence lines, second order, plastic analysis and dynamics. Free.',
       blocks: [
         { k: 'p', t: 'Analysis software gives you the results all at once. Learning needs the opposite: seeing where every number comes from, in the order it is done on the blackboard. That is “Explained step by step”, the course that now lives inside Stabileo Basic. You pick a method, the app applies it to your structure and works through it step by step, with the equations, the figures and the numbers of that model, and it ends by comparing the result with the matrix method.' },
         { k: 'p', t: 'The course was written by Bautista Chesta, civil engineer (FIUBA), and it arrives in six units: the shared base, statics and classical methods, influence lines, second order and buckling, plastic analysis and dynamics. It is free, like all of Basic: it opens in the browser, with nothing to install and no account, and the texts are in Spanish, English, Portuguese, German, French and Turkish.' },
@@ -158,7 +158,7 @@ export const stepByStepCourse: Post = {
     pt: {
       title: 'Aprender análise estrutural passo a passo no Stabileo Básico',
       excerpt:
-        'O Básico agora tem um curso dentro: você escolhe um método e o aplicativo resolve sua estrutura, ou um exemplo preparado, passo a passo e como se faz no papel. Estática, método das forças e dos deslocamentos, linhas de influência, segunda ordem e flambagem, análise plástica e dinâmica. Grátis, no navegador.',
+        'O Básico agora tem um curso: você escolhe um método e o aplicativo resolve sua estrutura, ou um exemplo, passo a passo como no papel. Estática, linhas de influência, segunda ordem, análise plástica e dinâmica. Grátis.',
       blocks: [
         { k: 'p', t: 'Um programa de cálculo entrega os resultados de uma vez. Para aprender é preciso o contrário: ver de onde sai cada número, na ordem em que se faz no quadro. É isso o «Passo a passo explicado», o curso que agora vive dentro do Stabileo Básico. Você escolhe um método, o aplicativo o aplica à sua estrutura e o desenvolve passo a passo, com as equações, as figuras e os números daquele modelo, e termina comparando o resultado com o método matricial.' },
         { k: 'p', t: 'O curso foi escrito por Bautista Chesta, engenheiro civil (FIUBA), e chega em seis unidades: a base comum, estática e métodos clássicos, linhas de influência, segunda ordem e flambagem, análise plástica e dinâmica. É grátis, como todo o Básico: abre no navegador, sem instalar nada nem criar conta, e os textos estão em espanhol, inglês, português, alemão, francês e turco.' },

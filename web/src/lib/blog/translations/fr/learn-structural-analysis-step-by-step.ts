@@ -3,7 +3,7 @@ import type { PostBody } from '../../types';
 const body: PostBody = {
   title: 'Apprendre le calcul des structures pas à pas dans Stabileo Basic',
   excerpt:
-    'Basic contient désormais un cours : vous choisissez une méthode et l’application résout votre structure, ou un exemple préparé, pas à pas, comme sur le papier. Statique, méthode des forces et des déplacements, lignes d’influence, second ordre et flambement, calcul plastique et dynamique. Gratuit, dans le navigateur.',
+    'Basic contient désormais un cours : vous choisissez une méthode et l’application résout votre structure, ou un exemple, pas à pas comme sur le papier. Statique, lignes d’influence, second ordre, calcul plastique et dynamique. Gratuit.',
   blocks: [
     { k: 'p', t: 'Un logiciel de calcul donne les résultats d’un coup. Pour apprendre, il faut l’inverse : voir d’où vient chaque nombre, dans l’ordre où on le fait au tableau. C’est « Pas à pas expliqué », le cours qui vit maintenant dans Stabileo Basic. Vous choisissez une méthode, l’application l’applique à votre structure et la déroule pas à pas, avec les équations, les figures et les nombres de ce modèle, puis compare le résultat à la méthode matricielle.' },
     { k: 'p', t: 'Le cours a été écrit par Bautista Chesta, ingénieur civil (FIUBA), et arrive en six unités : la base commune, la statique et les méthodes classiques, les lignes d’influence, le second ordre et le flambement, le calcul plastique et la dynamique. Il est gratuit, comme tout Basic : il s’ouvre dans le navigateur, sans rien installer ni créer de compte, et les textes existent en espagnol, anglais, portugais, allemand, français et turc.' },
