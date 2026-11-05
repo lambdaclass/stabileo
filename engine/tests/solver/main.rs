@@ -44,6 +44,8 @@ mod pcg_solver_tests;
 mod pdelta_model_diagnostics;
 #[path = "../silent_errors_settlement_winkler_imperfections.rs"]
 mod silent_errors_settlement_winkler_imperfections;
+#[path = "../soft_rotational_spring_orphan.rs"]
+mod soft_rotational_spring_orphan;
 #[path = "../sparse_solver_paths.rs"]
 mod sparse_solver_paths;
 #[path = "../stiffness_definiteness_warning.rs"]
