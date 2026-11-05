@@ -46,7 +46,7 @@ it('covers every key and every tool SEO title and description in six locales',()
   expect(Object.keys(batchTranslations[locale]).sort()).toEqual(keys);
   for(const id of BATCH_IDS) for(const suffix of ['', '.subtitle']) expect(batchTranslations[locale][`tools.${id}${suffix}`].length).toBeGreaterThan(5);
  }
- const script=readFileSync(new URL('../../../../scripts/prerender.ts',import.meta.url),'utf8');for(const id of BATCH_IDS) expect(script).toContain(`/tools/${id}`);
+ const script=readFileSync(new URL('../../../../scripts/public-paths.ts',import.meta.url),'utf8');for(const id of BATCH_IDS) expect(script).toContain(`/tools/${id}`);
 });
 
 it('distinguishes mechanisms from statically indeterminate stable trusses', async () => {

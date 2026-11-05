@@ -394,6 +394,97 @@ pub(crate) fn mean_axial_forces_2d(
     out
 }
 
+/// Each 2D frame member's geometric stiffness from the part of its axial force that its axial
+/// span loads make vary along it, ∫(N(x) − N̄)·φ'ᵢ·φ'ⱼ dx with N̄ its mean, condensed for its
+/// hinges, in global axes over its element DOFs. With the mean-force Kg of
+/// `emit_geometric_stiffness_2d` it is the consistent Kg of the member's whole N(x). A truss's
+/// linear interpolation sees only N̄, so trusses and cables have none.
+pub(crate) fn span_axial_geometric_stiffness_2d(input: &SolverInput, dof_num: &DofNumbering) -> Vec<(usize, Vec<usize>, Vec<f64>)> {
+    let mut points: std::collections::HashMap<usize, Vec<(f64, f64)>> = std::collections::HashMap::new();
+    let mut spans: std::collections::HashMap<usize, Vec<&SolverAxialDistributedLoad>> = std::collections::HashMap::new();
+    for load in &input.loads {
+        match load {
+            SolverLoad::PointOnElement(pl) if pl.px.is_some_and(|px| px != 0.0) => {
+                points.entry(pl.element_id).or_default().push((pl.a, pl.px.unwrap_or(0.0)));
+            }
+            SolverLoad::AxialDistributed(al) if al.q_i != 0.0 || al.q_j != 0.0 => {
+                spans.entry(al.element_id).or_default().push(al);
+            }
+            _ => {}
+        }
+    }
+    let node_by_id: std::collections::HashMap<usize, &SolverNode> = crate::ordered::values(&input.nodes).map(|n| (n.id, n)).collect();
+    let mut out = Vec::new();
+    for elem in crate::ordered::values(&input.elements) {
+        if elem.elem_type == "truss" || elem.elem_type == "cable" {
+            continue;
+        }
+        let pts = points.get(&elem.id).map(Vec::as_slice).unwrap_or(&[]);
+        let raw_spans = spans.get(&elem.id).map(Vec::as_slice).unwrap_or(&[]);
+        if pts.is_empty() && raw_spans.is_empty() {
+            continue;
+        }
+        let (Some(ni), Some(nj)) = (node_by_id.get(&elem.node_i), node_by_id.get(&elem.node_j)) else { continue };
+        let (dx, dz) = (nj.x - ni.x, nj.z - ni.z);
+        let l = (dx * dx + dz * dz).sqrt();
+        if l < 1e-15 {
+            continue;
+        }
+        let sps: Vec<[f64; 4]> = raw_spans.iter().map(|al| [al.q_i, al.q_j, al.a.unwrap_or(0.0), al.b.unwrap_or(l)]).filter(|s| s[3] > s[2]).collect();
+        let n_of = |x: f64| -> f64 {
+            let from_points: f64 = pts.iter().filter(|p| p.0 < x).map(|p| p.1).sum();
+            let from_spans: f64 = sps.iter().map(|&[qi, qj, a, b]| {
+                let t = x.clamp(a, b) - a;
+                qi * t + (qj - qi) * t * t / (2.0 * (b - a))
+            }).sum();
+            -(from_points + from_spans)
+        };
+        let mut breaks: Vec<f64> = vec![0.0, l];
+        breaks.extend(pts.iter().map(|p| p.0).chain(sps.iter().flat_map(|s| [s[2], s[3]])).filter(|&x| x > 0.0 && x < l));
+        breaks.sort_by(f64::total_cmp);
+        breaks.dedup();
+        let mut weighted = [[0.0; 4]; 4];
+        let mut plain = [[0.0; 4]; 4];
+        let mut integral = 0.0;
+        for w in breaks.windows(2) {
+            let (x0, x1) = (w[0], w[1]);
+            for (g, wt) in GAUSS_4 {
+                let x = 0.5 * (x0 + x1) + 0.5 * (x1 - x0) * g;
+                let dw = 0.5 * (x1 - x0) * wt;
+                let s = x / l;
+                let d = [(6.0 * s * s - 6.0 * s) / l, 1.0 - 4.0 * s + 3.0 * s * s, (6.0 * s - 6.0 * s * s) / l, 3.0 * s * s - 2.0 * s];
+                let n = n_of(x);
+                integral += dw * n;
+                for i in 0..4 {
+                    for j in 0..4 {
+                        weighted[i][j] += dw * n * d[i] * d[j];
+                        plain[i][j] += dw * d[i] * d[j];
+                    }
+                }
+            }
+        }
+        let mean = integral / l;
+        let plane = [1, 2, 4, 5];
+        let mut k = vec![0.0; 36];
+        for i in 0..4 {
+            for j in 0..4 {
+                k[plane[i] * 6 + plane[j]] = weighted[i][j] - mean * plain[i][j];
+            }
+        }
+        condense_kg_plane(&mut k, 6, plane, 1.0, l, elem.hinge_start, elem.hinge_end);
+        let t = crate::element::frame_transform_2d(dx / l, dz / l);
+        out.push((elem.id, dof_num.element_dofs(elem.node_i, elem.node_j), transform_stiffness(&k, &t, 6)));
+    }
+    out
+}
+
+const GAUSS_4: [(f64, f64); 4] = [
+    (-0.861_136_311_594_052_6, 0.347_854_845_137_453_9),
+    (-0.339_981_043_584_856_3, 0.652_145_154_862_546_1),
+    (0.339_981_043_584_856_3, 0.652_145_154_862_546_1),
+    (0.861_136_311_594_052_6, 0.347_854_845_137_453_9),
+];
+
 /// The 2D geometric stiffness of every element, emitted entry by entry: the
 /// sparse P-Delta tangent collects it as triplets instead of a dense matrix.
 /// Mirrors `emit_geometric_stiffness_3d`.

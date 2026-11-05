@@ -26,7 +26,8 @@
   }
   button {
     font: 500 0.8125rem/1 var(--st-sans);
-    min-height: 1.75rem;
+    min-height: 2.75rem;
+    min-width: 2.75rem;
     padding: 0 0.6rem 0 0.4rem;
     border-radius: var(--st-radius, 3px);
     border: 1px solid var(--rs-control-border);
@@ -47,7 +48,7 @@
     height: 0.9rem;
     border: 1px solid var(--rs-control-border);
     border-radius: 2px;
-    font-size: 0.7rem;
+    font-size: 0.75rem;
     line-height: 0.9rem;
     text-align: center;
     color: var(--st-ok);

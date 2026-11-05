@@ -7,6 +7,9 @@ import { defaultRegulations, type ProjectRegulations } from '../../codes/roles';
 import { defaultCombinations, defaultLoadCases, DEFAULT_CASE_NAME_KEYS } from '../../model/default-loads';
 import { t } from '../../i18n';
 import es from '../../i18n/locales/es';
+import { loadsGeneratedWith } from '../../provenance/model-features';
+import { RESULTS_VERSION } from '../../provenance/registry';
+import { designData, patchDesignData } from '../design-data';
 
 const nameOf = (key: string, params?: Record<string, string | number>) =>
   (es[key] ?? key).replace(/\{(\w+)\}/g, (_, k: string) => String(params?.[k] ?? ''));
@@ -57,6 +60,21 @@ describe('the example cases and combinations of a new project, when the generato
     modelStore.updateLoadCase(3, 'Wind');
     applyLoadPlan(buildLoadPlan(planInput()), { clearExisting: true, bothSenses: true, nameOf });
     expect(modelStore.model.loadCases.some((c) => c.id === 3)).toBe(false);
+  });
+
+  it('records the results version the loads were generated with', () => {
+    expect(loadsGeneratedWith(modelStore.snapshot() as never)).toBe(Infinity);
+    applyLoadPlan(buildLoadPlan(planInput()), { clearExisting: true, bothSenses: true, nameOf });
+    expect(loadsGeneratedWith(modelStore.snapshot() as never)).toBe(RESULTS_VERSION);
+  });
+
+  it('keeps the older version while loads generated before stay beside the new ones', () => {
+    applyLoadPlan(buildLoadPlan(planInput()), { clearExisting: true, bothSenses: true, nameOf });
+    patchDesignData({ loadBasis: { ...designData().loadBasis!, resultsVersion: RESULTS_VERSION - 1 } });
+    applyLoadPlan(buildLoadPlan(planInput()), { clearExisting: false, bothSenses: true, nameOf });
+    expect(loadsGeneratedWith(modelStore.snapshot() as never)).toBe(RESULTS_VERSION - 1);
+    applyLoadPlan(buildLoadPlan(planInput()), { clearExisting: true, bothSenses: true, nameOf });
+    expect(loadsGeneratedWith(modelStore.snapshot() as never)).toBe(RESULTS_VERSION);
   });
 
   it('the dead-load case the plan writes into stays, with the generated loads in it', () => {

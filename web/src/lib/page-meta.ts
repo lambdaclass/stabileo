@@ -112,13 +112,14 @@ export const PUBLISHER = { '@id': ERGODIC_GROUP['@id'] };
 export const DEVELOPER = { '@id': LAMBDA_CLASS['@id'] };
 export const SOFTWARE_ID = 'https://stabileo.com/#software';
 export const WEBSITE_ID = 'https://stabileo.com/#website';
+export const ORGANIZATION_ID = 'https://stabileo.com/#organization';
 
 /*
  * `sameAs` and the description keep a search engine from confusing it with STABILO, the pen brand.
  */
 const ORG = {
 	'@type': 'Organization',
-	'@id': 'https://stabileo.com/#organization',
+	'@id': ORGANIZATION_ID,
 	name: 'Stabileo',
 	url: 'https://stabileo.com',
 	logo: 'https://stabileo.com/og/stabileo-social.png',

@@ -24,9 +24,12 @@ export interface ShellOverlayInput {
   corners: (key: string) => P3[] | null;
   /** A value as the legend writes it, with its unit. */
   format: (v: number) => string;
+  /** Whether a shell is drawn; a hidden one gets no mark and governs no extreme. */
+  shown?: (key: string) => boolean;
 }
 
 export function buildShellOverlay(o: ShellOverlayInput): THREE.Group | null {
+  const shown = o.shown ?? (() => true);
   const group = new THREE.Group();
   group.name = 'shellOverlay';
   if (o.directions) {
@@ -35,6 +38,7 @@ export function buildShellOverlay(o: ShellOverlayInput): THREE.Group | null {
     for (const [prefix, list] of [['p', o.stresses.plates], ['q', o.stresses.quads]] as const) {
       for (const s of list) {
         const key = `${prefix}${s.elementId}`;
+        if (!shown(key)) continue;
         const pts = o.corners(key);
         const angle = shellComponentAngle(s, o.component, o.face);
         if (!pts || angle === null) continue;
@@ -62,7 +66,7 @@ export function buildShellOverlay(o: ShellOverlayInput): THREE.Group | null {
   if (o.values) {
     type At = { key: string; i: number; v: number };
     const ext: { hi: At | null; lo: At | null } = { hi: null, lo: null };
-    for (const [key, vs] of o.field.corners) vs.forEach((v, i) => {
+    for (const [key, vs] of o.field.corners) if (shown(key)) vs.forEach((v, i) => {
       if (!ext.hi || v > ext.hi.v) ext.hi = { key, i, v };
       if (!ext.lo || v < ext.lo.v) ext.lo = { key, i, v };
     });
