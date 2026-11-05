@@ -103,14 +103,14 @@ def queued_pull_requests(log):
     return sorted({int(n) for n in QUEUED_PR.findall(log)})
 
 
-PR_QUERY = 'query($n:Int!){repository(owner:"lambdaclass",name:"stabileo"){pullRequest(number:$n){title body closingIssuesReferences(first:100){nodes{number}}}}}'
+PR_QUERY = 'query($n:Int!){repository(owner:"lambdaclass",name:"stabileo"){pullRequest(number:$n){title body closingIssuesReferences(first:100){nodes{number}} linked:closingIssuesReferences(first:100,userLinkedOnly:true){nodes{number}}}}}'
 QUEUE_HEAD = re.compile(r'^refs/heads/gh-readonly-queue/[^/]+/pr-(\d+)-[0-9a-f]+$')
 
 
 def pull_request_closes(number):
     out = subprocess.run(['gh', 'api', 'graphql', '-f', f'query={PR_QUERY}', '-F', f'n={number}'], check=True, capture_output=True, text=True).stdout
     pr = json.loads(out)['data']['repository']['pullRequest']
-    return sorted(set(closed_by([pr['title'], pr['body']])) | {i['number'] for i in pr['closingIssuesReferences']['nodes']})
+    return sorted(set(closed_by([pr['title'], pr['body']])) | {i['number'] for key in ('closingIssuesReferences', 'linked') for i in pr[key]['nodes']})
 
 
 def pull_requests_of(event, log):
