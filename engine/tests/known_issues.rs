@@ -1701,4 +1701,15 @@ fn a_soft_rotation_held_by_the_orphan_spring_is_warned_in_2d_1367() {
     for e in hinged.elements.values_mut().filter(|e| e.id == 1) { e.hinge_end = true; }
     let hinged = solve_2d(&hinged).unwrap();
     assert!(!ids(&hinged.structured_diagnostics).contains(&"ORPHAN-SOFT-ROTATION".to_string()), "{:?}", ids(&hinged.structured_diagnostics));
+    let masked = common::make_input(
+        vec![(1, 0.0, 0.0), (2, 1.0, 0.0), (3, 0.0, 5.0), (4, 1.0, 5.0), (5, 0.0, 10.0), (6, 1.0, 10.0)],
+        vec![(1, E, 0.3)],
+        vec![(1, 0.01, 1e-10), (2, 1.0, 1e3), (3, 1.0, 1e-6)],
+        vec![(1, "frame", 1, 2, 1, 1, false, false), (2, "frame", 3, 4, 1, 2, false, false), (3, "frame", 5, 6, 1, 3, false, false)],
+        vec![(1, 1, "fixed"), (2, 3, "fixed"), (3, 5, "pinned"), (4, 6, "rollerX")],
+        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: -1e-3, my: 0.0 }), SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fz: 0.0, my: 1e10 })],
+    );
+    let masked = solve_2d(&masked).unwrap();
+    assert!(masked.displacements.iter().find(|d| d.node_id == 6).unwrap().ry.abs() > 1e12 * masked.displacements.iter().find(|d| d.node_id == 2).unwrap().ry.abs());
+    assert!(ids(&masked.structured_diagnostics).contains(&"ORPHAN-SOFT-ROTATION".to_string()), "a large rotation elsewhere must not mask it: {:?}", ids(&masked.structured_diagnostics));
 }

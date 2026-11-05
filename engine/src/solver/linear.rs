@@ -1034,15 +1034,7 @@ impl PreparedStatic2D<'_> {
 
     fn an_artificial_spring_carries_load(&self, r: &AnalysisResults) -> bool {
         if self.artificial_dofs.is_empty() { return false; }
-        let mut largest = 0.0f64;
-        let mut orphan = 0.0f64;
-        for d in &r.displacements {
-            largest = largest.max(d.ry.abs());
-            if self.dof_num.map.get(&(d.node_id, 2)).is_some_and(|i| self.artificial_dofs.contains(i)) {
-                orphan = orphan.max(d.ry.abs());
-            }
-        }
-        orphan > 0.0 && orphan > 1e-12 * largest
+        r.displacements.iter().any(|d| d.ry != 0.0 && self.dof_num.map.get(&(d.node_id, 2)).is_some_and(|i| self.artificial_dofs.contains(i)))
     }
 
     pub(super) fn check_returned_displacements(&self, loads: &[SolverLoad], r: &AnalysisResults) -> Result<StructuredDiagnostic, String> {
@@ -2733,17 +2725,11 @@ impl PreparedStatic3D {
     /// moves had real stiffness tying it to the structure, and the artificial spring held it.
     fn an_artificial_spring_carries_load(&self, r: &AnalysisResults3D) -> bool {
         if self.orphan_dofs.is_empty() { return false; }
-        let mut largest = 0.0f64;
-        let mut orphan = 0.0f64;
-        for d in &r.displacements {
-            for (local, value) in [d.rx, d.ry, d.rz, d.warping.unwrap_or(0.0)].into_iter().enumerate() {
-                largest = largest.max(value.abs());
-                if self.dof_num.map.get(&(d.node_id, local + 3)).is_some_and(|i| self.orphan_dofs.contains(i)) {
-                    orphan = orphan.max(value.abs());
-                }
-            }
-        }
-        orphan > 0.0 && orphan > 1e-12 * largest
+        r.displacements.iter().any(|d| {
+            [d.rx, d.ry, d.rz, d.warping.unwrap_or(0.0)].into_iter().enumerate().any(|(local, value)| {
+                value != 0.0 && self.dof_num.map.get(&(d.node_id, local + 3)).is_some_and(|i| self.orphan_dofs.contains(i))
+            })
+        })
     }
 
     fn solve_loads_fully_restrained(
