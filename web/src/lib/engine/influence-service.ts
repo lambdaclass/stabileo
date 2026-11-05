@@ -10,9 +10,9 @@ import { advancedRefusal2D, buildSolverInput2D, variableRefusal2D, type ModelDat
 import { withoutSettlement } from './settlement-case';
 import { modelHasSlidingJoints } from './sliding-joints';
 import { errorText } from './moving-loads';
-import type { SolverInput } from './types';
+import type { AnalysisResults, SolverInput, StructuredDiagnostic } from './types';
 import { canonicalQuantity, familyOf, type IlTarget } from './influence/quantities';
-import { fromEngineSweep, readForce, sweepForceLine, unitSolver, type Dir } from './influence/unit-sweep';
+import { fromEngineSweep, readForce, sweepForceLine, unitSolver, type Dir, type Solve } from './influence/unit-sweep';
 import { maxwellLine, MaxwellRefusal } from './influence/maxwell';
 import type { InfluenceQuantity, InfluenceLineResult, InfluenceDirection } from '../store/model.svelte';
 import { t } from '../i18n';
@@ -88,16 +88,22 @@ export function computeInfluenceLine(
   if (target.kind === 'section' && !unit.elements.has(target.elementId)) return t('course.influence.err.noTarget');
   if (target.kind === 'node' && !unit.nodes.has(target.nodeId)) return t('course.influence.err.noTarget');
 
+  const diagnostics = new Map<string, StructuredDiagnostic>();
+  const collect = (result: Pick<AnalysisResults, 'structuredDiagnostics'>) => {
+    for (const d of result.structuredDiagnostics ?? []) diagnostics.set(JSON.stringify(d), d);
+  };
+
   const dir = UNIT_LOAD_DIR[direction];
   let points: InfluenceLineResult['points'];
   try {
-    points = computePoints(unit, quantity, target, nPointsPerElement, dir, direction);
+    points = computePoints(unit, quantity, target, nPointsPerElement, dir, direction, collect);
   } catch (err) {
     if (err instanceof MaxwellRefusal) return t(err.key);
     return t('influence.calcError').replace('{n}', errorText(err));
   }
 
   return {
+    structuredDiagnostics: [...diagnostics.values()],
     quantity, points, targetPosition,
     ...(target.kind === 'node' ? { targetNodeId: target.nodeId } : { targetElementId: target.elementId }),
     ...(direction !== 'vertical' ? { direction } : {}),
@@ -106,31 +112,52 @@ export function computeInfluenceLine(
 
 export function computePoints(
   unit: SolverInput, quantity: InfluenceQuantity, target: IlTarget, n: number, dir: Dir, direction: InfluenceDirection,
+  collect: (result: Pick<AnalysisResults, 'structuredDiagnostics'>) => void = () => {},
 ): InfluenceLineResult['points'] {
-  if (familyOf(quantity) === 'displacement') return maxwellLine(unit, quantity, target, n, dir);
+  const refused: StructuredDiagnostic[] = [];
+  const seen = (result: Pick<AnalysisResults, 'structuredDiagnostics'>) => {
+    collect(result);
+    refused.push(...(result.structuredDiagnostics ?? []).filter((d) => d.code === 'known_issue' && d.severity === 'error'));
+  };
+  const run: Solve = (input) => {
+    const result = solve(input);
+    seen(result);
+    return result;
+  };
+  const points = sweepOf(unit, quantity, target, n, dir, direction, run, seen);
+  if (refused.length > 0) throw new Error(JSON.stringify({ structuredDiagnostics: refused }));
+  return points;
+}
+
+function sweepOf(
+  unit: SolverInput, quantity: InfluenceQuantity, target: IlTarget, n: number, dir: Dir, direction: InfluenceDirection,
+  run: Solve, seen: (result: Pick<AnalysisResults, 'structuredDiagnostics'>) => void,
+): InfluenceLineResult['points'] {
+  if (familyOf(quantity) === 'displacement') return maxwellLine(unit, quantity, target, n, dir, run);
   // The engine's sweep reads V, M and the reactions under a downward load, with no constraints or connectors.
   const coupled = (unit.constraints?.length ?? 0) > 0 || (unit.connectors?.size ?? 0) > 0;
   const q = canonicalQuantity(quantity);
-  if (coupled || direction !== 'vertical' || q === 'N') return sweepForceLine(unit, quantity, target, n, dir);
-  const raw = (computeInfluenceLineWasm({
+  if (coupled || direction !== 'vertical' || q === 'N') return sweepForceLine(unit, quantity, target, n, dir, run);
+  const sweep = computeInfluenceLineWasm({
     solver: unit, quantity: q,
     targetNodeId: target.kind === 'node' ? target.nodeId : undefined,
     targetElementId: target.kind === 'section' ? target.elementId : undefined,
     targetPosition: target.kind === 'section' ? target.t : 0.5,
     nPointsPerElement: n,
-  }) as InfluenceLineResult).points;
-  return withTrussOrdinates(unit, fromEngineSweep(unit, quantity, target, raw, dir), quantity, target, dir);
+  }) as InfluenceLineResult;
+  seen(sweep);
+  return withTrussOrdinates(unit, fromEngineSweep(unit, quantity, target, sweep.points, dir, run), quantity, target, dir, run);
 }
 
 /** Replace the ordinates on truss bars by the lever rule between their end nodes. */
 function withTrussOrdinates(
-  solver: SolverInput, points: InfluenceLineResult['points'], quantity: InfluenceQuantity, target: IlTarget, dir: Dir,
+  solver: SolverInput, points: InfluenceLineResult['points'], quantity: InfluenceQuantity, target: IlTarget, dir: Dir, run: Solve,
 ): InfluenceLineResult['points'] {
   const eta = new Map<number, number>();
   const at = (nodeId: number): number => {
     let v = eta.get(nodeId);
     if (v === undefined) {
-      v = readForce(quantity, solve({ ...solver, loads: [{ type: 'nodal', data: { nodeId, fx: dir.x, fz: dir.z, my: 0 } }] }), solver, target);
+      v = readForce(quantity, run({ ...solver, loads: [{ type: 'nodal', data: { nodeId, fx: dir.x, fz: dir.z, my: 0 } }] }), solver, target);
       eta.set(nodeId, v);
     }
     return v;

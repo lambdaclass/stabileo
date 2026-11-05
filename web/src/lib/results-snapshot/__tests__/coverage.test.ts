@@ -13,7 +13,7 @@ const TESTS = new URL('./', import.meta.url);
 /** The group each `snapshot-<group>.test.ts` runs, read from its `runGroup('<group>')`. */
 function entryGroups(): string[] {
   return readdirSync(TESTS).filter((f) => /^snapshot-.*\.test\.ts$/.test(f)).map((f) => {
-    const m = /runGroup\('([^']+)'\)/.exec(readFileSync(new URL(f, TESTS), 'utf8'));
+    const m = /runGroup\('([^']+)'[,)]/.exec(readFileSync(new URL(f, TESTS), 'utf8'));
     const named = /^snapshot-(.*)\.test\.ts$/.exec(f)![1];
     expect(m?.[1], `${f} runs the group it is named after`).toBe(named);
     return named;

@@ -230,7 +230,7 @@ GATE_CONSTRAINT_BENCH = test(/benchmark_.*constraint/)
 GATE_MODULES = sparse_shell_gates solver_invariants solver_ci_coverage conditioning_adversarial kfull_overbuild_gates acceptance
 # Wall-clock gates run single-threaded, so elapsed time is CPU work, not contention.
 GATE_TIMED_MODULES = perf_regression_gates perf_regression_advanced
-GATE_TIMED_IGNORED = test(=element::solid_shell::tests::test_centroid_stress_timing_budget) + test(=section::poisson::tests::sparse_path_scales_better_than_cubically) + test(=solver::constraints::tests::validate_constraints_reads_the_nodes_once_not_once_per_constraint) + test(=solver::dynamic_validation::tests::area_mass_validation_is_linear_in_the_number_of_shells) + test(=postprocess_scaling::rc_check_scales_linearly_in_member_count)
+GATE_TIMED_IGNORED = test(=element::solid_shell::tests::test_centroid_stress_timing_budget) + test(=section::poisson::tests::sparse_path_scales_better_than_cubically) + test(=solver::constraints::tests::validate_constraints_reads_the_nodes_once_not_once_per_constraint) + test(=solver::dynamic_validation::tests::area_mass_validation_is_linear_in_the_number_of_shells) + test(=postprocess_scaling::rc_check_scales_linearly_in_member_count) + test(=fuzz_regressions::a_blocking_child_is_killed_at_its_timeout) + test(=known_issues::distorted_mesh_guard_indexes_the_mesh_once_per_solve)
 GATE_CERTIFICATES = test(/^certify::/) + test(/^properties_2d::/) + test(/^properties_3d::/)
 # Metamorphic tests run apart, in release: unoptimised they outlast a suite shard.
 GATE_RELEASE_BINARIES = metamorphic
@@ -352,7 +352,7 @@ check.results-snapshot-gate:
 # The WASM must give bit-identical results in Node, Chromium, Firefox and WebKit
 # (docs/verification/TRUSTED_BASE.md). Needs make wasm and make web.deps first.
 test.web.determinism:
-	$(NIX_RUN) bash -c "cd web && $(PLAYWRIGHT_INSTALL) chromium firefox webkit && node --test determinism/serve.test.mjs determinism/checks.test.mjs && node determinism/node-run.mjs && npx playwright test -c determinism/playwright.config.ts"
+	$(NIX_RUN) bash -c "cd web && $(PLAYWRIGHT_INSTALL) chromium firefox webkit && node --test determinism/serve.test.mjs determinism/checks.test.mjs determinism/containment.test.mjs && node determinism/node-run.mjs && npx playwright test -c determinism/playwright.config.ts"
 
 e2e.web.setup:
 	$(NIX_RUN) bash -c "cd web && npx playwright install chromium"
@@ -457,6 +457,7 @@ test.nightly-scripts:
 test.ci-scripts: test.nightly-scripts check.cadence
 	python3 -B -I scripts/tests/test_cadence.py
 	python3 -B -I scripts/tests/test_deps_audit.py
+	python3 -B -I scripts/tests/test_check_containment.py
 	python3 -B -I scripts/tests/test_mutants_safety.py
 	python3 -B -I scripts/tests/test_retry_infra.py
 	python3 -B -I scripts/tests/test_build_research_wasm.py

@@ -59,13 +59,13 @@
 </script>
 
 <script lang="ts">
+  import { errorText } from '../../lib/utils/error-text';
   import { whatIf } from '../../lib/store/whatif.svelte';
   import { explainedSteps } from '../../lib/store/explained-steps.svelte';
   import { openExplainedCatalog } from '../../lib/actions/step-wizards';
   import { loadCourse } from '../../lib/course/load-course';
   import CirsocFlexPanel from '../CirsocFlexPanel.svelte';
   import { t } from '../../lib/i18n';
-  import { errorText } from '../../lib/utils/error-text';
   import { localizeEngineText } from '../../lib/i18n/engine-text';
   import { DOF_LABEL_KEY } from '../../lib/engine/kinematic-2d';
   import { withBasicMass } from '../../lib/engine/dynamics/basic-mass';
@@ -86,7 +86,7 @@
   import { amplification } from '../../lib/engine/pdelta-amplification';
   import { getPredefinedTrains, solveMovingLoadsAsync } from '../../lib/engine/moving-loads';
   import type { SectionMp } from '../../lib/engine/plastic-moments';
-  import { runPlasticCollapse } from '../../lib/actions/plastic';
+  import { runPlasticCollapse, PlasticWithheld } from '../../lib/actions/plastic';
   import PlasticResultPanel from '../advanced/PlasticResultPanel.svelte';
   import { collapseVerdict } from '../advanced/plastic/user-compare';
   import InfluencePanel from '../advanced/InfluencePanel.svelte';
@@ -483,9 +483,11 @@
 
   /** The Mp each section went in with, shown under the result. */
   let plasticMps = $state<SectionMp[]>([]);
+  let plasticWithheld = $state<PlasticWithheld | null>(null);
 
   function handlePlastic() {
     if (blockedBySlidingJoints()) return;
+    plasticWithheld = null;
     try {
       const t0 = performance.now();
       /* The step-by-step collapse analysis (lib/engine/plastic-collapse.ts). */
@@ -501,6 +503,7 @@
         ? t('toast.plasticCollapse').replace('{lambda}', r.collapseFactor.toFixed(3)).replace('{hinges}', String(r.hinges.length)).replace('{ms}', dt.toFixed(0))
         : t('plastic.noCollapse'), verdict === 'collapse' ? 'info' : 'success');
     } catch (e: any) {
+      if (e instanceof PlasticWithheld) plasticWithheld = e;
       uiStore.toast(errText(e, 'toast.plasticError'), 'error');
     }
   }
@@ -994,6 +997,7 @@
     {/if}
   </div>
   {/if}
+  {#each (is3D ? resultsStore.knownIssues3D : resultsStore.knownIssues).messages as message}<p role="alert">{message}</p>{/each}
   {@const pdR = is3D ? resultsStore.pdeltaResult3D : resultsStore.pdeltaResult}
   {@const moR = is3D ? resultsStore.modalResult3D : resultsStore.modalResult}
   {@const buR = is3D ? resultsStore.bucklingResult3D : resultsStore.bucklingResult}
@@ -1043,6 +1047,12 @@
     </div>
     <BucklingCertificate certificate={buR.certificate} />
     <BucklingDetails result={buR} />
+  {/if}
+  {#if plasticWithheld && !is3D}
+    <div class="adv-withheld" role="alert" data-testid="plastic-withheld">
+      <p>{plasticWithheld.message}</p>
+      <a href="https://github.com/lambdaclass/stabileo/issues/{plasticWithheld.issue}" target="_blank" rel="noopener noreferrer">{t('plastic.withheldIssue').replace('{issue}', String(plasticWithheld.issue))}</a>
+    </div>
   {/if}
   <PlasticResultPanel mps={plasticMps} />
   {#if resultsStore.movingLoadEnvelope}
@@ -1126,6 +1136,17 @@
      inert without touching sixty of them, and every child stretches to the
      panel width on its own. Thirteen analyses read better as a list anyway.
   */
+  .adv-withheld {
+    margin: 6px 0;
+    padding: 8px 10px;
+    border: 1px solid var(--st-danger);
+    border-radius: 6px;
+    font-size: 0.8rem;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+  }
+  .adv-withheld p { margin: 0 0 6px; }
+  .adv-withheld a { display: inline-block; min-height: 24px; color: var(--st-accent); }
   .adv-running {
     display: flex;
     align-items: center;

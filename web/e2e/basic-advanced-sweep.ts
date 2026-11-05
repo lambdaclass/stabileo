@@ -475,7 +475,7 @@ const FUNCTIONS: Fn[] = [
   { key: 'pdelta', find: entry(/^P-Δ/), shows: (p) => p.getByTestId('pdelta-result') },
   { key: 'buckling', find: entry(/^Pcr/), draws: true, shows: (p) => p.locator('.adv-result-info').filter({ hasText: /λ_cr = \d/ }) },
   { key: 'modal', find: entry(/^Dynamic$/), draws: true, shows: (p) => p.locator('.adv-result-info').filter({ hasText: /f = [\d.]+ Hz/ }) },
-  { key: 'plastic', find: entry(/^Plastic collapse/), only2d: true, draws: true, drawsUnless: /No collapse/, shows: (p) => p.getByTestId('plastic-verdict') },
+  { key: 'plastic', find: entry(/^Plastic collapse/), only2d: true },
   {
     key: 'influenceLine', find: entry(/^Influence line/), only2d: true,
     follow: async (ctx) => {
@@ -1026,14 +1026,17 @@ export function pinnedDefects(): void {
       expect((await page.evaluate(() => window.__stabileo.viewportPick())).hasResults).toBe(false);
     });
 
-    test('D4 plastic collapse: after "← Back" the solved view shows the collapse state', async ({ page }) => {
+    test('D4 plastic collapse: withheld (#758), it says why and leaves the solved view as it was', async ({ page }) => {
       const ctx = await boot(page);
       await loadNamed(ctx, 'portal-frame');
       await solveFromRibbon(ctx);
       await openList(ctx);
       const before = await shot(page);
       await runFn(ctx, 'plastic');
-      await pressBack(page);
+      await expect(page.getByTestId('plastic-withheld')).toContainText(/4[.,]6/);
+      await expect(page.getByTestId('plastic-withheld').locator('a')).toHaveAttribute('href', 'https://github.com/lambdaclass/stabileo/issues/758');
+      await expect(page.getByTestId('plastic-verdict')).toHaveCount(0);
+      await expect(page.getByTestId('adv-running')).toHaveCount(0);
       const d = await diff(page, before, await shot(page));
       expect(d.changed).toBeLessThan(Math.max(400, d.total * 0.002));
     });

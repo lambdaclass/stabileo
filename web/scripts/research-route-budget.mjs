@@ -12,12 +12,16 @@ export function routeGrowth(baseline, measured) {
 
 export function routeAllowances(text, exists) {
   const { routes } = JSON.parse(text);
-  for (const [route, a] of Object.entries(routes)) {
-    if (!Number.isInteger(a?.bytes) || a.bytes <= 0 || typeof a.reason !== 'string' || !a.reason.trim() || typeof a.module !== 'string' || !exists(a.module)) {
-      throw new Error(`invalid route allowance for ${route}: bytes, reason and an existing module are required`);
+  return Object.fromEntries(Object.entries(routes).map(([route, entry]) => {
+    const list = Array.isArray(entry) ? entry : [entry];
+    for (const a of list) {
+      if (!Number.isInteger(a?.bytes) || a.bytes <= 0 || typeof a.reason !== 'string' || !a.reason.trim() || typeof a.module !== 'string' || !exists(a.module)) {
+        throw new Error(`invalid route allowance for ${route}: bytes, reason and an existing module are required`);
+      }
     }
-  }
-  return routes;
+    if (!list.length) throw new Error(`invalid route allowance for ${route}: bytes, reason and an existing module are required`);
+    return [route, { bytes: list.reduce((n, a) => n + a.bytes, 0), reason: list.map((a) => a.reason).join(' + '), modules: list.map((a) => a.module) }];
+  }));
 }
 
 function shippedAllowances() {

@@ -79,7 +79,8 @@ const RELEASED: Record<number, string[]> = {
   28: ['basic-second-order-split-members-returns'],
   29: ['basic-plastic-closes-unloading-hinges-returns'],
   30: ['connector-mechanism-2d-refused'],
-  33: ['fail-closed-ratios'],
+  31: ['safety-containment-diagnostics'],
+  34: ['fail-closed-ratios'],
 };
 
 describe('results versions', () => {
@@ -91,7 +92,7 @@ describe('results versions', () => {
     expect(RESULT_CHANGES.currentResultsVersion).toBe(Math.max(...Object.keys(RELEASED).map(Number)));
   });
 
-  it('tells a modal frame about modal completeness up to version 8, self-checks up to 9 and the mechanism refusal up to 12, until it is re-solved', () => {
+  it('tells a modal frame about modal completeness up to version 8, self-checks up to 9, the mechanism refusal up to 12, the 3D co-rotational rotations up to 23 and the containment diagnostics up to 29, until it is re-solved', () => {
     const frame: FeatureSnapshot = {
       analysisMode: 'pro',
       elements: [[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1 }]],
@@ -99,11 +100,12 @@ describe('results versions', () => {
     const stamp = { resultsVersion: 4, analyses: ['modal'] } as unknown as SolveStamp;
     const ids = (resultsVersion: number) => assessProject(frame, { ...stamp, resultsVersion }, 'pro').changes.map((c) => c.id).sort();
     for (const version of [4, 5, 6, 7, 8]) {
-      expect(ids(version)).toEqual(['corotational-3d-rotations', 'modal-mechanism-refused', 'modal-repeated-eigenspace-completeness', 'static-modal-runtime-self-checks']);
+      expect(ids(version)).toEqual(['corotational-3d-rotations', 'modal-mechanism-refused', 'modal-repeated-eigenspace-completeness', 'safety-containment-diagnostics', 'static-modal-runtime-self-checks']);
     }
-    expect(ids(9)).toEqual(['corotational-3d-rotations', 'modal-mechanism-refused', 'static-modal-runtime-self-checks']);
-    for (const version of [10, 11, 12]) expect(ids(version)).toEqual(['corotational-3d-rotations', 'modal-mechanism-refused']);
-    expect(ids(13)).toEqual(['corotational-3d-rotations']);
+    expect(ids(9)).toEqual(['corotational-3d-rotations', 'modal-mechanism-refused', 'safety-containment-diagnostics', 'static-modal-runtime-self-checks']);
+    for (const version of [10, 11, 12]) expect(ids(version)).toEqual(['corotational-3d-rotations', 'modal-mechanism-refused', 'safety-containment-diagnostics']);
+    expect(ids(13)).toEqual(['corotational-3d-rotations', 'safety-containment-diagnostics']);
+    expect(ids(26)).toEqual(['safety-containment-diagnostics']);
     expect(ids(RESULT_CHANGES.currentResultsVersion)).toEqual([]);
   });
 

@@ -1,0 +1,25 @@
+# Safety containment diagnostics
+
+PR #807, issue #447. Known-issue warnings added; affected unsafe results are withdrawn. Numerical values of retained results are unchanged, except the 2D support reactions corrected for #1113 (below).
+
+The snapshot diagnostic strings now name known issues. Numerical baselines of retained results are unchanged. Three paths now withhold results they used to return: 2D buckling refuses as not determinable when every member's compression is within the round-off of its elongation, 100·ε·EA·Σ‖u_k·e_k‖/L (#959; it had returned load factors of 2.4e7 to 9.4e7 for an uncompressed cantilever); combinations and envelopes return no numbers when a contributing case is refused; and an influence line whose unit-load solve fails is an error instead of zero ordinates. Structured refusals withhold affected unsafe results, including 2D plastic (#758) and distorted MITC4 membrane bending (#798). The non-XY solid-shell refusal (#757) was retired when this branch merged the #814 fix, so solid-shell results are not withheld. See [the containment ledger](../verification/CONTAINMENT.md) for all predicates and controls.
+
+The determinism corpus requires six 2D plastic refusals: two fixtures × solve, certification and bundle export. Bundle exports propagate the structured solver refusal rather than discarding it before computing independent bounds. All four 3D plastic certification/export cases still succeed, and both 3D certificates must certify. Cross-runtime output comparisons remain exact, including refusal diagnostics.
+
+Review follow-up adds SH-MITC4-CONVERGENCE warnings (#810) to MITC4 analyses, without numerical changes or new input refusals. The buckling matrix helper omitted affected solid-shell stresses until #757 was fixed by #814; spectral and kinematic operations use non-static validation policies. Failed advanced reruns retire their panel, store and report state; exports enforce the same disposition as the displayed results.
+
+After merging main, three further PRO snapshots receive only the #810
+`SH-MITC4-CONVERGENCE` warning. In each listed path, `diagnosticCodes` changes
+from `""` to `"warning:known_issue"`:
+
+| Snapshot | Exact changed paths |
+| --- | --- |
+| `pro-deep-beam-shell` | `base.diagnosticCodes`, `case[1].diagnosticCodes`, `case[2].diagnosticCodes`, `case[3].diagnosticCodes`, `case[4].diagnosticCodes`, `combo[1].diagnosticCodes`, `combo[2].diagnosticCodes`, `combo[3].diagnosticCodes`, `combo[4].diagnosticCodes` |
+| `pro-rc-qa-diagnostic-shells` | `base.diagnosticCodes`, `case[1].diagnosticCodes`, `case[2].diagnosticCodes`, `combo[1].diagnosticCodes`, `combo[2].diagnosticCodes`, `combo[3].diagnosticCodes` |
+| `pro-mat-foundation` | `base.diagnosticCodes`, `case[1].diagnosticCodes`, `case[2].diagnosticCodes`, `case[3].diagnosticCodes`, `case[4].diagnosticCodes`, `combo[1].diagnosticCodes`, `combo[2].diagnosticCodes`, `combo[3].diagnosticCodes`, `combo[4].diagnosticCodes` |
+
+All 24 changes are mandatory shell convergence warnings; no numerical value,
+added/removed quantity, or tolerance changes. The tests also assert the exact
+`warning:SH-MITC4-CONVERGENCE` finding, independently of the snapshot strings.
+
+One reported number changes (#1113): a 2D rigid support that also carries a spring on a restrained DOF with a prescribed displacement (a settled rollerX, pinned or angle-less inclinedRoller with ky, for example) now includes that spring's force −k·u in its reaction, as springs on free DOFs and on angled inclined rollers already did. The old reaction was off by k·d and the reactions did not balance the loads. Displacements and member forces are unchanged, and a support without such a spring is unaffected. The fiber solves gain NUM-INVARIANCE on near-singular tangents (#1093), without numerical changes.

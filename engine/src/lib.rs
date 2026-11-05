@@ -21,6 +21,16 @@ pub mod ordered;
 #[cfg(kani)]
 mod kani_proofs;
 
+#[cfg(test)]
+extern crate self as dedaliano_engine;
+#[cfg(test)]
+#[allow(dead_code)]
+#[path = "../tests/common/mod.rs"]
+mod common;
+#[cfg(test)]
+#[path = "../tests/unrefused/mod.rs"]
+mod unrefused_oracles;
+
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen(start)]
@@ -669,7 +679,7 @@ pub fn compute_deformed_shape(json: &str) -> Result<String, JsValue> {
 #[wasm_bindgen]
 pub fn combine_results_2d(input: JsValue) -> Result<JsValue, JsValue> {
     let input: postprocess::combinations::CombinationInput = from_js_value(input)?;
-    match postprocess::combinations::combine_results(&input) {
+    match postprocess::combinations::combine_results_checked(&input).map_err(|e| JsValue::from_str(&e))? {
         Some(result) => to_js_value(&result),
         None => Ok(JsValue::NULL),
     }
@@ -679,7 +689,7 @@ pub fn combine_results_2d(input: JsValue) -> Result<JsValue, JsValue> {
 #[wasm_bindgen]
 pub fn combine_results_3d(input: JsValue) -> Result<JsValue, JsValue> {
     let input: postprocess::combinations::CombinationInput3D = from_js_value(input)?;
-    match postprocess::combinations::combine_results_3d(&input) {
+    match postprocess::combinations::combine_results_3d(&input).map_err(|e| JsValue::from_str(&e))? {
         Some(result) => to_js_value(&result),
         None => Ok(JsValue::NULL),
     }

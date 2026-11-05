@@ -50,12 +50,15 @@ pub fn rect(a: f64, i: f64) -> (f64, f64) {
     (a / h, h)
 }
 
-/// Young's modulus of the fibers of section `sec`. A section shared by
-/// members of different materials gets the smallest of their moduli: taking
-/// the first member found would depend on the map order, which a
-/// renumbering changes (and the fiber section then with it).
+pub(crate) fn section_material(
+    materials: &std::collections::HashMap<String, SolverMaterial>,
+    ids: impl Iterator<Item = usize>,
+) -> Option<&SolverMaterial> {
+    ids.map(|id| &materials[&id.to_string()]).max_by(|a, b| a.e.total_cmp(&b.e).then(a.nu.total_cmp(&b.nu)))
+}
+
 fn mat_e(s: &SolverInput, sec: usize) -> f64 {
-    s.elements.values().filter(|e| e.section_id == sec).map(|e| s.materials[&e.material_id.to_string()].e).reduce(f64::min).unwrap_or(200_000.0)
+    section_material(&s.materials, s.elements.values().filter(|e| e.section_id == sec).map(|e| e.material_id)).map_or(200_000.0, |m| m.e)
 }
 
 fn rect_fibers(b: f64, h: f64, ny: usize, nz: usize, e: f64) -> FiberSectionDef {
@@ -271,7 +274,7 @@ pub fn rows() -> Vec<Ana2> {
             axis_bound: false,
             iter_tol: 1e-10,
             full_static: false,
-            run: |c| Ok(static_2d(&conv(pdelta::solve_pdelta_2d(&c.s, 100, 1e-12).map(|r| (r.converged, r.results)))?)),
+            run: |c| Ok(static_2d(&converged_finite(pdelta::solve_pdelta_2d(&c.s, 100, 1e-12).map(|r| (r.converged, r.results)), finite_2d)?)),
         },
         Ana2 {
             name: "corotational",
@@ -405,9 +408,9 @@ pub fn rows() -> Vec<Ana2> {
             iter_tol: 1e-10,
             full_static: false,
             run: |c| {
-                let md = modal::solve_modal_2d(&c.s, &c.dens, 4)?;
-                let modes = md
-                    .modes
+                // Never cut a repeated pair: a symmetric model's response would not be symmetric (#1030).
+                let (md, n) = cluster_complete(|k| modal::solve_modal_2d(&c.s, &c.dens, k), |m| m.modes.iter().map(|x| x.omega).collect(), 4, 8)?;
+                let modes = md.modes[..n]
                     .iter()
                     .map(|x| SpectralModeInput {
                         frequency: x.frequency, period: x.period, omega: x.omega,
@@ -462,8 +465,9 @@ pub fn rows() -> Vec<Ana2> {
                     comps.push(harmonic::solve_harmonic_2d(&inp)?);
                 }
                 let mut o = Resp::default();
-                // Natural size: the largest static displacement (the ω = 0 response).
-                let us = linear::solve_2d(&c.s).map(|r| r.displacements.iter().fold(0.0f64, |m, d| m.max(d.ux.abs()).max(d.uz.abs()))).unwrap_or(0.0);
+                // Natural size: the largest static displacement (the ω = 0 response), a rotation as rotation × model size.
+                let l = crate::case::extent(c.s.nodes.values().map(|n| [n.x, n.z, 0.0]));
+                let us = linear::solve_2d(&c.s).map(|r| r.displacements.iter().fold(0.0f64, |m, d| m.max(d.ux.abs()).max(d.uz.abs()).max(d.ry.abs() * l))).unwrap_or(0.0);
                 for k in 0..c.p.freqs.len() {
                     let (a, b) = (&comps[0].response_points[k], &comps[1].response_points[k]);
                     o.push(Some(node), None, &format!("H_re{k}"), Kind::V2(Dim::LEN), vec![a.real, b.real]);
@@ -487,7 +491,7 @@ pub fn rows() -> Vec<Ana2> {
                     .values()
                     .map(|x| {
                         let (b, h) = rect(x.a, x.iz);
-                        let mat = c.s.elements.values().find(|e| e.section_id == x.id).map_or(1, |e| e.material_id);
+                        let mat = section_material(&c.s.materials, c.s.elements.values().filter(|e| e.section_id == x.id).map(|e| e.material_id)).map_or(1, |m| m.id);
                         (x.id.to_string(), PlasticSectionData { a: x.a, iz: x.iz, material_id: mat, b: Some(b), h: Some(h) })
                     })
                     .collect();
@@ -571,4 +575,84 @@ pub fn rows() -> Vec<Ana2> {
             },
         },
     ]
+}
+
+/// The first `first` modes, extended to the end of a nearly repeated cluster, asking the solver for
+/// more modes until the cluster's end is seen; an unresolved cluster is an error, never a cut.
+pub(crate) fn cluster_complete<M>(solve: impl Fn(usize) -> Result<M, String>, omegas: impl Fn(&M) -> Vec<f64>, first: usize, mut requested: usize) -> Result<(M, usize), String> {
+    loop {
+        let md = solve(requested)?;
+        let w = omegas(&md);
+        let mut n = w.len().min(first);
+        while n > 0 && n < w.len() && w[n] - w[n - 1] <= 1e-3 * w[n] {
+            n += 1;
+        }
+        if n < w.len() || w.len() < requested {
+            return Ok((md, n));
+        }
+        if requested >= 64 {
+            return Err(format!("repeated-mode cluster not resolved within {requested} modes"));
+        }
+        requested *= 2;
+    }
+}
+
+#[test]
+fn a_cluster_crossing_the_requested_modes_is_fetched_whole() {
+    let spectrum: Vec<f64> = [1.0, 2.0, 3.0].into_iter().chain([4.0; 9]).chain((0..10).map(|k| 10.0 + k as f64)).collect();
+    let asked = std::cell::RefCell::new(Vec::new());
+    let solve = |k: usize| -> Result<Vec<f64>, String> { asked.borrow_mut().push(k); Ok(spectrum[..k.min(spectrum.len())].to_vec()) };
+    let (modes, n) = cluster_complete(solve, |m: &Vec<f64>| m.clone(), 4, 8).unwrap();
+    assert_eq!(n, 12);
+    assert_eq!(modes.len(), 16);
+    assert_eq!(*asked.borrow(), vec![8, 16]);
+    let flat = |k: usize| -> Result<Vec<f64>, String> { Ok(vec![1.0; k]) };
+    assert!(cluster_complete(flat, |m: &Vec<f64>| m.clone(), 4, 8).unwrap_err().contains("not resolved"));
+}
+
+/// A P-Delta result converged to 1e-12 within 100 steps, and finite in every reported number.
+pub(crate) fn converged_finite<T>(r: Result<(bool, T), String>, finite: impl Fn(&T) -> bool) -> Result<T, String> {
+    let r = conv(r)?;
+    if finite(&r) { Ok(r) } else { Err("converged to a non-finite result".into()) }
+}
+
+pub(crate) fn finite_2d(r: &AnalysisResults) -> bool {
+    r.displacements.iter().all(|d| [d.ux, d.uz, d.ry].iter().all(|v| v.is_finite()))
+        && r.reactions.iter().all(|x| [x.rx, x.rz, x.my].iter().all(|v| v.is_finite()))
+        && r.element_forces.iter().all(|f| [f.n_start, f.n_end, f.v_start, f.v_end, f.m_start, f.m_end].iter().all(|v| v.is_finite()))
+}
+
+pub(crate) fn finite_3d(r: &AnalysisResults3D) -> bool {
+    r.displacements.iter().all(|d| [d.ux, d.uy, d.uz, d.rx, d.ry, d.rz].iter().all(|v| v.is_finite()) && d.warping.is_none_or(f64::is_finite))
+        && r.reactions.iter().all(|x| [x.fx, x.fy, x.fz, x.mx, x.my, x.mz].iter().all(|v| v.is_finite()))
+        && r.element_forces.iter().all(|f| {
+            [f.n_start, f.n_end, f.vy_start, f.vy_end, f.vz_start, f.vz_end, f.mx_start, f.mx_end, f.my_start, f.my_end, f.mz_start, f.mz_end]
+                .iter()
+                .all(|v| v.is_finite())
+        })
+}
+
+#[test]
+fn p_delta_rows_need_convergence_and_finite_numbers() {
+    assert_eq!(converged_finite(Ok((true, 1.0)), |v: &f64| v.is_finite()), Ok(1.0));
+    assert!(converged_finite(Ok((false, 1.0)), |v: &f64| v.is_finite()).is_err(), "an unconverged iterate is never used");
+    assert!(converged_finite(Ok((true, f64::NAN)), |v: &f64| v.is_finite()).is_err());
+    assert!(converged_finite::<f64>(Err("refused".into()), |v| v.is_finite()).is_err());
+}
+
+#[test]
+fn a_non_finite_member_force_is_not_finite() {
+    let s = crate::common::make_beam(2, 4.0, 200_000.0, 0.01, 1e-4, "fixed", None, vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: -1.0, my: 0.0 })]);
+    let mut r = dedaliano_engine::solver::linear::solve_2d(&s).unwrap();
+    assert!(finite_2d(&r));
+    r.element_forces[0].m_end = f64::NAN;
+    assert!(!finite_2d(&r));
+    let s3 = crate::common::make_3d_beam(2, 4.0, 200_000.0, 0.3, 0.01, 1e-4, 1e-4, 1e-5, vec![true; 6], None, vec![]);
+    let mut r3 = dedaliano_engine::solver::linear::solve_3d(&s3).unwrap();
+    assert!(finite_3d(&r3));
+    r3.element_forces[0].mz_end = f64::INFINITY;
+    assert!(!finite_3d(&r3));
+    let mut warped = dedaliano_engine::solver::linear::solve_3d(&s3).unwrap();
+    warped.displacements[0].warping = Some(f64::NAN);
+    assert!(!finite_3d(&warped));
 }

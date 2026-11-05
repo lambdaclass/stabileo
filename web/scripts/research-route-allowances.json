@@ -1,8 +1,8 @@
 {
   "routes": {
     "/en/research/": { "bytes": 700, "reason": "#1483 related links styled as theme chips", "module": "src/components/research/RelatedLinks.svelte" },
-    "/en/tools/": { "bytes": 700, "reason": "#1483 related links styled as theme chips", "module": "src/components/research/RelatedLinks.svelte" },
-    "/en/tools/simply-supported-beam/": { "bytes": 700, "reason": "#1483 related links styled as theme chips", "module": "src/components/research/RelatedLinks.svelte" },
-    "/en/tools/continuous-beam/": { "bytes": 700, "reason": "#1483 related links styled as theme chips", "module": "src/components/research/RelatedLinks.svelte" }
+    "/en/tools/": [{ "bytes": 700, "reason": "#1483 related links styled as theme chips", "module": "src/components/research/RelatedLinks.svelte" }, { "bytes": 600, "reason": "#447 containment messages", "module": "src/lib/engine/known-issue-message.ts" }],
+    "/en/tools/simply-supported-beam/": [{ "bytes": 700, "reason": "#1483 related links styled as theme chips", "module": "src/components/research/RelatedLinks.svelte" }, { "bytes": 600, "reason": "#447 containment messages", "module": "src/lib/engine/known-issue-message.ts" }],
+    "/en/tools/continuous-beam/": [{ "bytes": 700, "reason": "#1483 related links styled as theme chips", "module": "src/components/research/RelatedLinks.svelte" }, { "bytes": 600, "reason": "#447 containment messages", "module": "src/lib/engine/known-issue-message.ts" }]
   }
 }

@@ -11,7 +11,7 @@ use crate::common;
 use common::*;
 use dedaliano_engine::certify::exact::{q, qi, Q};
 use dedaliano_engine::certify::plastic::*;
-use dedaliano_engine::solver::plastic::solve_plastic_2d;
+use dedaliano_engine::solver::plastic::{solve_plastic_2d, solve_plastic_2d_unrefused};
 use dedaliano_engine::types::*;
 use std::collections::HashMap;
 
@@ -65,7 +65,8 @@ fn assert_encloses(label: &str, c: &PlasticCertificate, exact: f64, rel: f64) {
 }
 
 fn certify(input: &PlasticInput) -> PlasticCertificate {
-    let res = solve_plastic_2d(input).ok();
+    assert_containment(solve_plastic_2d(input), "PL-2D-INVARIANCE");
+    let res = solve_plastic_2d_unrefused(input).ok();
     certify_collapse_2d(input, res.as_ref())
 }
 
@@ -91,7 +92,9 @@ fn fixed_beam_udl_solver_hinge_at_midspan_for_any_element_count() {
     let exact = 16.0 * MP / (qv * l * l);
     for n in [1, 2, 3, 5, 7] {
         let loads = (1..=n).map(|e| udl(e, -qv)).collect();
-        let res = solve_plastic_2d(&plastic(make_beam(n, l, E, A_SEC, IZ_SEC, "fixed", Some("fixed"), loads))).unwrap();
+        let inp = plastic(make_beam(n, l, E, A_SEC, IZ_SEC, "fixed", Some("fixed"), loads));
+        assert_containment(solve_plastic_2d(&inp), "PL-2D-INVARIANCE");
+        let res = solve_plastic_2d_unrefused(&inp).unwrap();
         assert!(res.is_mechanism && res.warnings.is_empty(), "n={n}: {:?}", res.warnings);
         assert!((res.collapse_factor - exact).abs() < 1e-6 * exact, "n={n}: {} vs {exact}", res.collapse_factor);
         // the last hinge is at midspan: x = L/2 on the member that holds it
@@ -111,7 +114,8 @@ fn solver_warns_when_it_stops_before_a_mechanism() {
     let loads = vec![udl(1, -10.0)];
     let mut inp = plastic(make_beam(1, 6.0, E, A_SEC, IZ_SEC, "fixed", Some("fixed"), loads));
     inp.max_hinges = Some(1);
-    let res = solve_plastic_2d(&inp).unwrap();
+    assert_containment(solve_plastic_2d(&inp), "PL-2D-INVARIANCE");
+    let res = solve_plastic_2d_unrefused(&inp).unwrap();
     assert!(!res.is_mechanism);
     assert!(res.warnings.iter().any(|w| w.contains("lower bound")), "{:?}", res.warnings);
     assert!(res.collapse_factor <= 37.5);
@@ -179,6 +183,7 @@ fn portal_frame_mechanisms() {
         assert_encloses(&format!("portal H={hl} V={v}"), &c, exact, 1e-12);
         // the incremental solver agrees up to its own f64 round-off
         assert!(c.solver_deviation.unwrap() < 1e-10, "solver value outside: {c:?}");
+        assert_containment(certify_plastic_2d(&inp), "PL-2D-INVARIANCE");
     }
 }
 
@@ -357,7 +362,8 @@ fn unsupported_models_are_refused() {
 #[test]
 fn certify_plastic_2d_reports_solver_value() {
     let inp = plastic(portal(4.0, 6.0, 1.0, 1.0));
-    let out = certify_plastic_2d(&inp).unwrap();
+    assert_containment(certify_plastic_2d(&inp), "PL-2D-INVARIANCE");
+    let out = certify_plastic_2d_unrefused(&inp).unwrap();
     assert!(out.certificate.certified);
     assert_eq!(out.certificate.solver_collapse_factor, Some(out.results.collapse_factor));
     assert!(!out.certificate.mechanism.is_empty());
@@ -424,7 +430,8 @@ fn random_frames_agree_with_incremental_solver() {
         let mp_beam = 500.0 + (g.next() * 1000.0).round();
         inp.sections.insert("2".to_string(), PlasticSectionData { a: A_SEC, iz: IZ_SEC, material_id: 1, b: Some(B), h: Some(H) });
         inp.mp_overrides.as_mut().unwrap().insert("2".to_string(), mp_beam);
-        let res = solve_plastic_2d(&inp).unwrap();
+        assert_containment(solve_plastic_2d(&inp), "PL-2D-INVARIANCE");
+        let res = solve_plastic_2d_unrefused(&inp).unwrap();
         let c = certify_collapse_2d(&inp, Some(&res));
         assert!(c.certified, "case {case}: {c:?}");
         let (lo, up) = (c.lambda_lower.unwrap(), c.lambda_upper.unwrap());
@@ -462,6 +469,7 @@ fn moment_sign_conventions_match_solver() {
     let c = certify(&inp);
     assert_encloses("tip force + nodal couple", &c, MP / 5.0, 1e-12);
     assert!(c.solver_deviation.unwrap() < 1e-12, "{c:?}");
+    assert_containment(certify_plastic_2d(&inp), "PL-2D-INVARIANCE");
 
     let loads = vec![
         nodal(2, 0.0, 1.0),
@@ -471,6 +479,7 @@ fn moment_sign_conventions_match_solver() {
     let c = certify(&inp);
     assert_encloses("tip force + member couple", &c, MP / 5.0, 1e-12);
     assert!(c.solver_deviation.unwrap() < 1e-12, "{c:?}");
+    assert_containment(certify_plastic_2d(&inp), "PL-2D-INVARIANCE");
 
     // transverse member load q > 0 acts along local y = (−sin, cos): on a beam
     // along +x it pushes up, like a tip force fz > 0, so they add: M_base = qL²/2 + F L

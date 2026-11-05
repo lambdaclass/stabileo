@@ -551,7 +551,7 @@
     "pdelta.converged": true,
     "pdelta.iterations": 2,
     "pdelta.results.allZero": false,
-    "pdelta.results.diagnosticCodes": "",
+    "pdelta.results.diagnosticCodes": "warning:known_issue",
     "pdelta.results.displacements[n10]": {"rx":-0.00003218238262,"ry":0.0001876519356,"rz":0.00008128749933,"ux":0.001814327344,"uy":0.000279498466,"uz":-0.0001712328149},
     "pdelta.results.displacements[n11]": {"rx":-0.00001522909794,"ry":0.000228911615,"rz":0.00008159850922,"ux":0.00185520665,"uy":0.0002799194211,"uz":-0.000217512208},
     "pdelta.results.displacements[n12]": {"rx":0.00003345879354,"ry":0.0002327444403,"rz":0.00008182635011,"ux":0.001864939202,"uy":-0.00008758522914,"uz":0.00008194519471},

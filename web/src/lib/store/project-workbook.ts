@@ -8,6 +8,7 @@
  * otherwise a zip with one CSV per sheet. A large model read at stations passes both, and
  * dropping rows to fit would publish a workbook that looks complete.
  */
+import { ContainmentExportError } from '../export/containment';
 import { Zip, ZipDeflate, zipSync, strToU8 } from 'fflate';
 import { modelStore } from './model.svelte';
 import { resultsStore } from './results.svelte';
@@ -99,6 +100,10 @@ export function currentWorkbookSheets(stations: StationSpec, opts: WorkbookOptio
 }
 
 export function currentWorkbookParts(stations: StationSpec, opts: WorkbookOptions = {}, record?: ResultProvenance): WorkbookPart[] {
+  if (opts.results !== false || opts.design !== false) {
+    const disposition = uiStore.is3DWorkspace ? resultsStore.knownIssues3D : resultsStore.knownIssues;
+    if (disposition.refused) throw new ContainmentExportError(disposition.messages.join('\n'));
+  }
   const model = workbookModel();
   const exported = new Date().toISOString();
   const input: ProjectWorkbookInput = {
@@ -134,12 +139,27 @@ export function currentWorkbookParts(stations: StationSpec, opts: WorkbookOption
       ...(opts.extra ?? []),
     ],
   };
-  return projectWorkbookParts(input);
+  const parts = projectWorkbookParts(input);
+  if (opts.results !== false || opts.design !== false) {
+    const disposition = uiStore.is3DWorkspace ? resultsStore.knownIssues3D : resultsStore.knownIssues;
+    const index = parts.findIndex(p => p.name === 'Warnings');
+    const warnings = index < 0 ? undefined : materialize(parts[index]!);
+    const messages = [...new Set([...(warnings?.rows.flat().map(String) ?? []), ...disposition.messages])];
+    const sheet = { name: 'Warnings', rows: messages.map(message => [safeText(message)]) };
+    if (index >= 0) parts[index] = sheet;
+    else if (messages.length) parts.splice(2, 0, sheet);
+  }
+  return parts;
 }
 
 /** How large the workbook would be and whether it fits in an xlsx file, without producing its rows. */
-export function workbookEstimate(stations: StationSpec, opts: WorkbookOptions = {}): { cells: number; xlsx: boolean } {
-  const parts = currentWorkbookParts(stations, opts);
+export function workbookEstimate(stations: StationSpec, opts: WorkbookOptions = {}): { cells: number; xlsx: boolean } | null {
+  let parts: WorkbookPart[];
+  try { parts = currentWorkbookParts(stations, opts); }
+  catch (error) {
+    if (error instanceof ContainmentExportError) return null;
+    throw error;
+  }
   return { cells: parts.reduce((n, p) => n + partSize(p).cells, 0), xlsx: partsFitInXlsx(parts) };
 }
 
@@ -198,7 +218,12 @@ export async function downloadProjectCsv(stations: StationSpec, opts: WorkbookOp
   const record = await workbookRecord(token);
   if (!record) return;
   const safeName = modelStore.model.name.replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ _-]/g, '').trim() || t('file.defaultAnalysis');
-  const parts = currentWorkbookParts(stations, opts, record);
+  let parts: WorkbookPart[];
+  try { parts = currentWorkbookParts(stations, opts, record); }
+  catch (error) {
+    if (error instanceof ContainmentExportError) { uiStore.toast(error.message, 'error'); return; }
+    throw error;
+  }
   const data = parts.filter((s) => s.name !== 'Cover' && s.name !== 'Conventions');
   const name = data.length === 1 ? `${safeName}_${data[0]!.name}_csv.zip` : `${safeName}_csv.zip`;
   const zip = await zipUnlessChanged(parts, token);
@@ -235,10 +260,15 @@ export async function downloadProjectWorkbook(stations: StationSpec, opts: Workb
   const record = await workbookRecord(token);
   if (!record) return;
   const safeName = modelStore.model.name.replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ _-]/g, '').trim() || t('file.defaultAnalysis');
-  const parts = currentWorkbookParts(stations, opts, record);
+  let parts: WorkbookPart[];
+  try { parts = currentWorkbookParts(stations, opts, record); }
+  catch (error) {
+    if (error instanceof ContainmentExportError) { uiStore.toast(error.message, 'error'); return; }
+    throw error;
+  }
   if (partsFitInXlsx(parts)) {
     // The cover already carries the provenance, prepared above.
-    await exportToExcel({ filename: `${safeName}.xlsx`, onlyExtras: true, extraSheets: parts.map(materialize), provenance: false });
+    await exportToExcel({ filename: `${safeName}.xlsx`, onlyExtras: true, extraSheets: parts.map(materialize), provenance: false, modelOnly: opts.results === false && opts.design === false });
     return;
   }
   const zip = await zipUnlessChanged(parts, token);

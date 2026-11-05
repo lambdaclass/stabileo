@@ -109,6 +109,9 @@ engine/src/certify/reactions.rs: && (sup.kx.unwrap_or(0.0) > 0.0 || sup.ky.unwra
 engine/src/certify/reactions.rs: && (sup.kx.unwrap_or(0.0) > 0.0 || sup.ky.unwrap_or(0.0) > 0.0);
 engine/src/certify/reactions.rs: spring: springs[i].unwrap_or(0.0),
 engine/src/certify/reactions.rs: spring: springs[i].unwrap_or(0.0),
+
+## A negative spring on a restrained DOF adds nothing to its reaction (the solver's convention); the spring is finite (certify::finite::check_input runs first).
+engine/src/certify/reactions.rs: (up(r * abs_bound), value - Interval::point(c.spring.max(0.0)) * Interval::point(u[d]))
 engine/src/certify/solver.rs: let u_normal = sup.dx.unwrap_or(0.0) * s + sup.dz.unwrap_or(0.0) * c;
 engine/src/certify/solver.rs: let u_normal = sup.dx.unwrap_or(0.0) * s + sup.dz.unwrap_or(0.0) * c;
 engine/src/certify/solver.rs: if u_normal.abs() > 1e-15 { u_normal } else { 0.0 }
