@@ -16,6 +16,22 @@
 //! models fast. Same pivots in the same order, same refusal rule, same
 //! inertia.
 //!
+//! **Pivoted** ([`ldlt_numeric_pivoted`]): the supernodal factorization with
+//! symmetric pivoting inside each panel's diagonal block, 1×1 and 2×2 pivots
+//! chosen by the threshold test of Duff and Reid (MA57; Duff, ACM TOMS
+//! 30(2), 2004) with u = 0.01: a 1×1 pivot a_jj when |a_jj| ≥ u·max_i |a_ij|,
+//! else a 2×2 pivot on (j, r), r the largest entry of column j in the panel,
+//! when the entries of L it makes are at most 1/u. Pivots never leave their
+//! panel, so the symbolic structure is the unpivoted one: each panel keeps a
+//! local permutation, which the solves apply. When no pivot of a panel passes
+//! the test the most stable one above the refusal threshold is taken (static
+//! pivoting, PARDISO's choice; the solves' iterative refinement makes up for
+//! it), and only a panel with none at all is refused. A 2×2 pivot of negative
+//! determinant is one negative and one positive eigenvalue, so the inertia
+//! (Sylvester) is still exact. The fallback for the tangents the plain
+//! factorization refuses: an indefinite tangent whose diagonal entry, in this
+//! ordering, happens to be near zero although the matrix is not.
+//!
 //! Both read only the entries with a permuted row index ≤ k in column k:
 //! the upper triangle of P·A·Pᵀ.
 
@@ -394,12 +410,26 @@ enum Storage {
     Supernodal { lx: Vec<f64> },
 }
 
-/// A factorization P·A·Pᵀ = L·D·Lᵀ.
+/// A factorization P·A·Pᵀ = L·D·Lᵀ (with the panels' local permutations
+/// when pivoted: Q·P·A·Pᵀ·Qᵀ = L·D·Lᵀ, D block diagonal with 1×1 and 2×2
+/// blocks).
 #[derive(Debug, Clone)]
 pub struct LdltFactor {
     sym: Rc<LdltSymbolic>,
     storage: Storage,
+    /// The diagonal of D.
     d: Vec<f64>,
+    /// D's entry (k + 1, k) where a 2×2 pivot starts at k; 0 elsewhere.
+    sub: Vec<f64>,
+    /// Where a 2×2 pivot starts.
+    pair: Vec<bool>,
+    /// The panels' local permutations: `local[k]` is the permuted index whose
+    /// variable sits at k after the panel's swaps (within the panel).
+    /// `None` when nothing was swapped.
+    local: Option<Vec<usize>>,
+    /// Pivots taken although no candidate of their panel passed the
+    /// threshold test (static pivoting).
+    unstable: usize,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -510,13 +540,27 @@ pub fn ldlt_numeric_simplicial(sym: &Rc<LdltSymbolic>, a: &SparseMatrix, pivot_t
             return Err(LdltError::TinyPivot { column: sym.perm[k], value: d[k] });
         }
     }
-    Ok(LdltFactor { sym: Rc::clone(sym), storage: Storage::Simplicial { li, lx }, d })
+    Ok(LdltFactor { sym: Rc::clone(sym), storage: Storage::Simplicial { li, lx }, d, sub: vec![0.0; n], pair: vec![false; n], local: None, unstable: 0 })
 }
 
 /// The supernodal factorization, whatever the size (for tests and
 /// comparisons; [`ldlt_numeric`] picks).
 #[doc(hidden)]
 pub fn ldlt_numeric_supernodal(sym: &Rc<LdltSymbolic>, a: &SparseMatrix, pivot_tol: f64) -> Result<LdltFactor, LdltError> {
+    supernodal(sym, a, pivot_tol, false)
+}
+
+/// The supernodal factorization with pivoting inside each panel (see the
+/// module documentation), whatever the size. Refuses only a panel where no
+/// 1×1 or 2×2 pivot is above `pivot_tol`·max|a_ii|.
+pub fn ldlt_numeric_pivoted(sym: &Rc<LdltSymbolic>, a: &SparseMatrix, pivot_tol: f64) -> Result<LdltFactor, LdltError> {
+    supernodal(sym, a, pivot_tol, true)
+}
+
+/// MA57's default threshold: a pivot's entries of L are at most 1/u.
+const PIVOT_U: f64 = 0.01;
+
+fn supernodal(sym: &Rc<LdltSymbolic>, a: &SparseMatrix, pivot_tol: f64, pivoting: bool) -> Result<LdltFactor, LdltError> {
     check_matrix(sym, a);
     let n = sym.n;
     let sn = &sym.supernodes;
@@ -525,6 +569,11 @@ pub fn ldlt_numeric_supernodal(sym: &Rc<LdltSymbolic>, a: &SparseMatrix, pivot_t
 
     let mut lx = vec![0.0; sn.val_ptr[ns]];
     let mut d = vec![0.0; n];
+    let mut sub = vec![0.0; n];
+    let mut pair = vec![false; n];
+    let mut local: Vec<usize> = (0..n).collect();
+    let mut swapped = false;
+    let mut unstable = 0;
     // map[row] = position of `row` in the current panel's structure.
     let mut map = vec![NONE; n];
     let mut rel = Vec::new();
@@ -580,12 +629,22 @@ pub fn ldlt_numeric_supernodal(sym: &Rc<LdltSymbolic>, a: &SparseMatrix, pivot_t
                     for c in 0..wt {
                         let col = &pt[c * nrt + a0 + i..c * nrt + nrt];
                         let dc = d[ft + c];
-                        let wv = [
+                        let mut wv = [
                             col[0] * dc,
                             if bs > 1 { col[1] * dc } else { 0.0 },
                             if bs > 2 { col[2] * dc } else { 0.0 },
                             if bs > 3 { col[3] * dc } else { 0.0 },
                         ];
+                        // A 2×2 pivot couples a column with its neighbour:
+                        // (L·D)_c = L_c·d_c + L_c±1·D(c±1, c).
+                        for (nb, e) in [(c + 1, if pair[ft + c] { sub[ft + c] } else { 0.0 }), (c.wrapping_sub(1), if c > 0 && pair[ft + c - 1] { sub[ft + c - 1] } else { 0.0 })] {
+                            if e != 0.0 {
+                                let other = &pt[nb * nrt + a0 + i..nb * nrt + nrt];
+                                for (q, w) in wv.iter_mut().enumerate().take(bs) {
+                                    *w += other[q] * e;
+                                }
+                            }
+                        }
                         if wv == [0.0; 4] {
                             continue;
                         }
@@ -607,6 +666,16 @@ pub fn ldlt_numeric_supernodal(sym: &Rc<LdltSymbolic>, a: &SparseMatrix, pivot_t
                 }
                 i += bs;
             }
+        }
+
+        if pivoting {
+            if let Err(c) = factor_panel_pivoted(panel, nr, w, threshold, &mut d[f..l], &mut sub[f..l], &mut pair[f..l], &mut local[f..l], &mut swapped, &mut unstable) {
+                return Err(LdltError::TinyPivot { column: sym.perm[local[f + c]], value: panel[c * nr + c] });
+            }
+            for &row in rows {
+                map[row] = NONE;
+            }
+            continue;
         }
 
         // Dense LDLᵀ of the panel, right-looking, no pivoting.
@@ -637,10 +706,235 @@ pub fn ldlt_numeric_supernodal(sym: &Rc<LdltSymbolic>, a: &SparseMatrix, pivot_t
             map[row] = NONE;
         }
     }
-    Ok(LdltFactor { sym: Rc::clone(sym), storage: Storage::Supernodal { lx }, d })
+    Ok(LdltFactor { sym: Rc::clone(sym), storage: Storage::Supernodal { lx }, d, sub, pair, local: swapped.then_some(local), unstable })
+}
+
+/// Entry (i, j) of the panel's symmetric block, i, j < w, or (i, j) with
+/// i ≥ w below it: only the lower triangle is stored.
+#[inline]
+fn at(panel: &[f64], nr: usize, i: usize, j: usize) -> f64 {
+    if i >= j { panel[j * nr + i] } else { panel[i * nr + j] }
+}
+
+/// Symmetric swap of the panel's columns (and rows) k < p, both not yet
+/// factored, in lower storage (LAPACK's `dsytf2`): the rows of every column
+/// left of k, the diagonal, the segment between, and the rows below p.
+fn swap_sym(panel: &mut [f64], nr: usize, k: usize, p: usize) {
+    for j in 0..k {
+        panel.swap(j * nr + k, j * nr + p);
+    }
+    panel.swap(k * nr + k, p * nr + p);
+    for j in k + 1..p {
+        panel.swap(k * nr + j, j * nr + p);
+    }
+    for i in p + 1..nr {
+        panel.swap(k * nr + i, p * nr + i);
+    }
+}
+
+/// max |a_ij| over the rows i ≥ c of column j, i ∉ `skip`: over the whole
+/// column (in the panel and below it), and the in-panel row where it is
+/// largest.
+fn column_max(panel: &[f64], nr: usize, w: usize, c: usize, j: usize, skip: [usize; 2]) -> (f64, Option<usize>) {
+    let mut all = 0.0f64;
+    let mut best: Option<(usize, f64)> = None;
+    for i in c..nr {
+        if i == skip[0] || i == skip[1] {
+            continue;
+        }
+        let v = at(panel, nr, i, j).abs();
+        all = all.max(v);
+        if i < w && best.is_none_or(|(_, b)| v > b) {
+            best = Some((i, v));
+        }
+    }
+    (all, best.map(|(i, _)| i))
+}
+
+/// The smallest |eigenvalue| of the symmetric 2×2 [[a, b], [b, e]].
+fn min_eigen_2x2(a: f64, b: f64, e: f64) -> f64 {
+    let m = 0.5 * (a + e);
+    let r = (0.25 * (a - e) * (a - e) + b * b).sqrt();
+    (m + r).abs().min((m - r).abs())
+}
+
+enum Pivot {
+    One(usize),
+    Two(usize, usize),
+    /// A 1×1 pivot that failed the threshold test, the best there was.
+    Unstable(usize),
+}
+
+/// The pivot at column c: the first column j ≥ c whose 1×1 pivot passes the
+/// threshold test, else whose 2×2 pivot with its largest in-panel entry
+/// does; failing both, the 1×1 pivot above the refusal threshold that is
+/// largest relative to its column. `None` when there is none.
+fn choose_pivot(panel: &[f64], nr: usize, w: usize, c: usize, threshold: f64) -> Option<Pivot> {
+    let mut fallback: Option<(usize, f64)> = None;
+    for j in c..w {
+        let ajj = at(panel, nr, j, j);
+        let (cm, r) = column_max(panel, nr, w, c, j, [j, j]);
+        if ajj.is_finite() && ajj.abs() > threshold {
+            if ajj.abs() >= PIVOT_U * cm {
+                return Some(Pivot::One(j));
+            }
+            let ratio = ajj.abs() / cm;
+            if fallback.is_none_or(|(_, b)| ratio > b) {
+                fallback = Some((j, ratio));
+            }
+        }
+        if let Some(r) = r {
+            let (arr, arj) = (at(panel, nr, r, r), at(panel, nr, r, j));
+            let det = ajj * arr - arj * arj;
+            if det.is_finite() && min_eigen_2x2(ajj, arj, arr) > threshold {
+                let (cj, _) = column_max(panel, nr, w, c, j, [j, r]);
+                let (cr, _) = column_max(panel, nr, w, c, r, [j, r]);
+                let ad = det.abs();
+                if (arr.abs() * cj + arj.abs() * cr) <= ad / PIVOT_U && (arj.abs() * cj + ajj.abs() * cr) <= ad / PIVOT_U {
+                    return Some(Pivot::Two(j, r));
+                }
+            }
+        }
+    }
+    fallback.map(|(j, _)| Pivot::Unstable(j))
+}
+
+/// Dense LDLᵀ of a panel with pivoting inside its diagonal block,
+/// right-looking. `Err(c)`: no pivot at local column c.
+#[allow(clippy::too_many_arguments)]
+fn factor_panel_pivoted(
+    panel: &mut [f64],
+    nr: usize,
+    w: usize,
+    threshold: f64,
+    d: &mut [f64],
+    sub: &mut [f64],
+    pair: &mut [bool],
+    local: &mut [usize],
+    swapped: &mut bool,
+    unstable: &mut usize,
+) -> Result<(), usize> {
+    let mut c = 0;
+    let mut l0 = vec![0.0; nr];
+    let mut l1 = vec![0.0; nr];
+    while c < w {
+        let pivot = choose_pivot(panel, nr, w, c, threshold).ok_or(c)?;
+        if let Pivot::Unstable(_) = pivot {
+            *unstable += 1;
+        }
+        match pivot {
+            Pivot::One(j) | Pivot::Unstable(j) => {
+                if j != c {
+                    swap_sym(panel, nr, c, j);
+                    local.swap(c, j);
+                    *swapped = true;
+                }
+                let dk = panel[c * nr + c];
+                d[c] = dk;
+                let (left, right) = panel.split_at_mut((c + 1) * nr);
+                let lc = &mut left[c * nr..];
+                for x in &mut lc[c + 1..nr] {
+                    *x /= dk;
+                }
+                for c2 in (c + 1)..w {
+                    let lv = lc[c2] * dk;
+                    if lv == 0.0 {
+                        continue;
+                    }
+                    let dst = &mut right[(c2 - c - 1) * nr..(c2 - c) * nr];
+                    for (x, &lr) in dst[c2..nr].iter_mut().zip(&lc[c2..nr]) {
+                        *x -= lr * lv;
+                    }
+                }
+                c += 1;
+            }
+            Pivot::Two(j, r) => {
+                // j to c, then r (wherever the first swap left it) to c + 1.
+                let mut r = r;
+                if j != c {
+                    swap_sym(panel, nr, c, j);
+                    local.swap(c, j);
+                    if r == c {
+                        r = j;
+                    }
+                }
+                if r != c + 1 {
+                    swap_sym(panel, nr, c + 1, r);
+                    local.swap(c + 1, r);
+                }
+                if j != c || r != c + 1 {
+                    *swapped = true;
+                }
+                let (a, b, e) = (panel[c * nr + c], panel[c * nr + c + 1], panel[(c + 1) * nr + c + 1]);
+                let det = a * e - b * b;
+                d[c] = a;
+                d[c + 1] = e;
+                sub[c] = b;
+                pair[c] = true;
+                // L's two columns: [x y]·D⁻¹ for the rows below the pivot.
+                for i in c + 2..nr {
+                    let (x, y) = (panel[c * nr + i], panel[(c + 1) * nr + i]);
+                    l0[i] = (x * e - y * b) / det;
+                    l1[i] = (y * a - x * b) / det;
+                }
+                for jj in c + 2..w {
+                    let (xj, yj) = (panel[c * nr + jj], panel[(c + 1) * nr + jj]);
+                    if xj == 0.0 && yj == 0.0 {
+                        continue;
+                    }
+                    let dst = &mut panel[jj * nr..(jj + 1) * nr];
+                    for i in jj..nr {
+                        dst[i] -= l0[i] * xj + l1[i] * yj;
+                    }
+                }
+                for i in c + 2..nr {
+                    panel[c * nr + i] = l0[i];
+                    panel[(c + 1) * nr + i] = l1[i];
+                }
+                // The pivot's off-diagonal is D's, not L's.
+                panel[c * nr + c + 1] = 0.0;
+                c += 2;
+            }
+        }
+    }
+    Ok(())
 }
 
 impl LdltFactor {
+    /// Number of 2×2 pivots.
+    pub fn two_by_two_pivots(&self) -> usize {
+        self.pair.iter().filter(|&&p| p).count()
+    }
+
+    /// Pivots taken although they failed the threshold test: the matrix is
+    /// near singular, or needs pivots across panels.
+    pub fn unstable_pivots(&self) -> usize {
+        self.unstable
+    }
+
+    /// Whether any variable was moved by pivoting.
+    pub fn pivoted(&self) -> bool {
+        self.local.is_some() || self.pair.iter().any(|&p| p)
+    }
+
+    /// x ← D⁻¹·x, 2×2 blocks included.
+    fn solve_d(&self, x: &mut [f64]) {
+        let mut k = 0;
+        while k < x.len() {
+            if self.pair[k] {
+                let (a, b, e) = (self.d[k], self.sub[k], self.d[k + 1]);
+                let det = a * e - b * b;
+                let (u, v) = (x[k], x[k + 1]);
+                x[k] = (e * u - b * v) / det;
+                x[k + 1] = (a * v - b * u) / det;
+                k += 2;
+            } else {
+                x[k] /= self.d[k];
+                k += 1;
+            }
+        }
+    }
+
     /// x = A⁻¹·b.
     pub fn solve(&self, b: &[f64]) -> Vec<f64> {
         let s = &*self.sym;
@@ -654,9 +948,7 @@ impl LdltFactor {
                         x[li[q]] -= lx[q] * xj;
                     }
                 }
-                for (xj, dj) in x.iter_mut().zip(&self.d) {
-                    *xj /= dj;
-                }
+                self.solve_d(&mut x);
                 for j in (0..n).rev() {
                     let mut xj = x[j];
                     for q in s.lp[j]..s.lp[j + 1] {
@@ -668,11 +960,19 @@ impl LdltFactor {
             Storage::Supernodal { lx } => {
                 let sn = &s.supernodes;
                 let ns = sn.start.len() - 1;
+                let mut buf = Vec::new();
                 for t in 0..ns {
                     let (f, l) = (sn.start[t], sn.start[t + 1]);
                     let rows = &sn.rows[sn.rows_ptr[t]..sn.rows_ptr[t + 1]];
                     let nr = rows.len();
                     let p = &lx[sn.val_ptr[t]..];
+                    // Earlier panels wrote this one's entries in its order
+                    // before its swaps.
+                    if let Some(local) = &self.local {
+                        buf.clear();
+                        buf.extend(local[f..l].iter().map(|&k| x[k]));
+                        x[f..l].copy_from_slice(&buf);
+                    }
                     for c in 0..(l - f) {
                         let xj = x[f + c];
                         if xj != 0.0 {
@@ -682,9 +982,7 @@ impl LdltFactor {
                         }
                     }
                 }
-                for (xj, dj) in x.iter_mut().zip(&self.d) {
-                    *xj /= dj;
-                }
+                self.solve_d(&mut x);
                 for t in (0..ns).rev() {
                     let (f, l) = (sn.start[t], sn.start[t + 1]);
                     let rows = &sn.rows[sn.rows_ptr[t]..sn.rows_ptr[t + 1]];
@@ -696,6 +994,14 @@ impl LdltFactor {
                             xj -= v * x[row];
                         }
                         x[f + c] = xj;
+                    }
+                    // Back to the order earlier panels read it in.
+                    if let Some(local) = &self.local {
+                        buf.clear();
+                        buf.extend_from_slice(&x[f..l]);
+                        for (k, &v) in buf.iter().enumerate() {
+                            x[local[f + k]] = v;
+                        }
                     }
                 }
             }
@@ -710,7 +1016,28 @@ impl LdltFactor {
     /// (negative, zero, positive) pivots: the inertia of A.
     pub fn inertia(&self) -> (usize, usize, usize) {
         let mut c = (0, 0, 0);
-        for &v in &self.d {
+        let mut k = 0;
+        while k < self.d.len() {
+            if self.pair[k] {
+                // Eigenvalues of opposite signs when det < 0, else both of
+                // the trace's sign.
+                let (a, b, e) = (self.d[k], self.sub[k], self.d[k + 1]);
+                let det = a * e - b * b;
+                if det < 0.0 {
+                    c.0 += 1;
+                    c.2 += 1;
+                } else if det == 0.0 {
+                    c.1 += 1;
+                    if a + e < 0.0 { c.0 += 1 } else { c.2 += 1 }
+                } else if a + e < 0.0 {
+                    c.0 += 2;
+                } else {
+                    c.2 += 2;
+                }
+                k += 2;
+                continue;
+            }
+            let v = self.d[k];
             if v < 0.0 {
                 c.0 += 1;
             } else if v == 0.0 {
@@ -718,11 +1045,13 @@ impl LdltFactor {
             } else {
                 c.2 += 1;
             }
+            k += 1;
         }
         c
     }
 
-    /// The pivots D, in the permuted order.
+    /// The diagonal of D, in the permuted order (with 2×2 pivots, their
+    /// diagonal entries: see [`LdltFactor::inertia`] for the signs).
     pub fn pivots(&self) -> &[f64] {
         &self.d
     }

@@ -30,6 +30,8 @@ mod inclined_support_analyses;
 mod kinematics_invalid_input;
 #[path = "../modal_constrained_participation.rs"]
 mod modal_constrained_participation;
+#[path = "../nonlinear_buckling.rs"]
+mod nonlinear_buckling;
 #[path = "../nonlinear_checks.rs"]
 mod nonlinear_checks;
 #[path = "../nonlinear_framework.rs"]
@@ -38,6 +40,8 @@ mod nonlinear_framework;
 mod nonlinear_framework_3d;
 #[path = "../nonlinear_sparse.rs"]
 mod nonlinear_sparse;
+#[path = "../nonlinear_shell.rs"]
+mod nonlinear_shell;
 #[path = "../nonlinear_solver_findings.rs"]
 mod nonlinear_solver_findings;
 #[path = "../pcg_solver_tests.rs"]

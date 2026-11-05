@@ -27,6 +27,10 @@ pub trait NonlinearModel {
     /// state: adds its internal force into `f_int` and hands its tangent
     /// (row-major, dofs × dofs) to `add_tangent(element, dofs, k_e)`.
     fn assemble(&mut self, f_int: &mut [f64], add_tangent: &mut TangentSink<'_>) -> Result<(), String>;
+    /// Evaluates every element at the trial configuration and hands its
+    /// initial-stress stiffness (`Element::initial_stress`) to `add`, as
+    /// `assemble` hands the tangent: K_σ of a linear buckling analysis.
+    fn assemble_initial_stress(&mut self, add: &mut TangentSink<'_>) -> Result<(), String>;
     /// Moves the trial configuration by `du` (zero at restrained DOFs).
     /// Translations add; in 3D a rotation increment δθ is spatial:
     /// R ← exp(δθ)·R. `increment(−du)` undoes `increment(du)`.
@@ -70,6 +74,13 @@ impl Model2D {
         self.u.extend([0.0; 3]);
         self.u_committed.extend([0.0; 3]);
         self.nodes.len() - 1
+    }
+
+    /// The nodal translations of a vector over the model's DOFs (a mode, a
+    /// displacement), node by node: added to the coordinates times an
+    /// amplitude, a buckling mode is a geometric imperfection.
+    pub fn translations(&self, v: &[f64]) -> Vec<[f64; 2]> {
+        (0..self.n_dofs() / 3).map(|n| std::array::from_fn(|k| v[self.dof(n, k)])).collect()
     }
 
     pub fn coords(&self, node: usize) -> [f64; 2] {
@@ -140,6 +151,16 @@ impl NonlinearModel for Model2D {
                 f_int[d] += f;
             }
             add_tangent(ei, e.dofs(), e.tangent());
+        }
+        Ok(())
+    }
+    fn assemble_initial_stress(&mut self, add: &mut TangentSink<'_>) -> Result<(), String> {
+        let mut ue = Vec::new();
+        for (ei, e) in self.elements.iter_mut().enumerate() {
+            ue.clear();
+            ue.extend(e.dofs().iter().map(|&d| self.u[d]));
+            e.update(&ue).map_err(|m| format!("element {ei}: {m}"))?;
+            add(ei, e.dofs(), &e.initial_stress().map_err(|m| format!("element {ei}: {m}"))?);
         }
         Ok(())
     }
