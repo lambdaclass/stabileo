@@ -60,6 +60,7 @@ test('write creates one issue per root cause and required labels', () => fixture
   assert.deepEqual(calls.filter(c => c.name === 'createLabel').map(c => c.args.name), ['safety', 'nightly-finding', 'wrong-result-candidate']);
   const created = calls.filter(c => c.name === 'create');
   assert.equal(created.length, 2);
+  for (const c of created) assert.deepEqual(c.args.assignees, ['unbalancedparentheses', 'Batuis']);
   assert.match(created[0].args.body, /Seed: `42`/);
   assert.match(created[0].args.body, /actions\/runs\/123/);
   assert.deepEqual(JSON.parse(created[0].args.body.split('```json\n')[1].split('\n```')[0]), finding.model);

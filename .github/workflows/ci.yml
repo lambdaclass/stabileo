@@ -198,6 +198,8 @@ jobs:
               - '.github/workflows/post-merge.yml'
               - 'scripts/tests/**'
               - 'scripts/ci/**'
+              - 'scripts/verification-metrics.py'
+              - 'docs/roadmap/PRODUCT_ROADMAP.md'
               - 'Makefile'
               - 'Dockerfile'
               - '.github/scripts/**'
@@ -544,6 +546,50 @@ jobs:
       - name: Invariance of the analyses this change touches (quick tier, release)
         run: make test.engine.invariance.quick BASE=HEAD^1
         timeout-minutes: 5
+
+  test-engine-quick:
+    name: Engine Quick Checks
+    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' || (github.ref == 'refs/heads/main' && github.event_name != 'schedule')) && (vars.STABILEO_ENGINE_POOL == 'true' && fromJSON('["self-hosted","stabileo-engine"]') || fromJSON('["self-hosted","stabileo"]')) || 'ubuntu-24.04' }}
+    timeout-minutes: 60
+    needs: [changes]
+    if: needs.changes.outputs.engine == 'true'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          clean: true
+          persist-credentials: false
+      - name: Checks on this branch
+        id: plan
+        run: |
+          checks=$(python3 -I scripts/cadence.py list pr --runner ci-engine-quick)
+          echo "$checks"
+          if [ "$checks" = '[]' ]; then echo any=false; else echo any=true; fi >> "$GITHUB_OUTPUT"
+          python3 -I -c 'import json, sys; print("minutes=%d" % (sum(c["budget"] + 1 for c in json.loads(sys.argv[1])) + 2))' "$checks" >> "$GITHUB_OUTPUT"
+      - if: steps.plan.outputs.any == 'true' && runner.environment == 'github-hosted'
+        uses: ./.github/actions/free-disk
+      - if: steps.plan.outputs.any == 'true' && runner.environment == 'github-hosted'
+        uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
+        continue-on-error: true
+      - if: steps.plan.outputs.any == 'true' && runner.environment == 'github-hosted' && github.event_name != 'pull_request'
+        uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+        continue-on-error: true
+        with:
+          use-flakehub: false
+      - name: Prepare Nix shell (infrastructure retries)
+        if: steps.plan.outputs.any == 'true'
+        run: .github/scripts/retry-infra.sh nix develop --command true
+      - if: steps.plan.outputs.any == 'true' && runner.environment == 'github-hosted'
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        continue-on-error: true
+        with:
+          shared-key: engine-quick
+      - name: Fetch Rust dependencies
+        if: steps.plan.outputs.any == 'true'
+        run: .github/scripts/retry-infra.sh nix develop --command cargo fetch --locked
+      - name: Quick checks
+        if: steps.plan.outputs.any == 'true'
+        run: make test.cadence TIER=pr RUNNER=ci-engine-quick
+        timeout-minutes: ${{ fromJSON(steps.plan.outputs.minutes) }}
 
   test-ai-backend:
     name: Test AI Backend
@@ -1762,6 +1808,7 @@ jobs:
       - test-engine-gates
       - test-engine-suite
       - test-engine-metamorphic
+      - test-engine-quick
       - test-ai-backend
       - lint-backend
       - test-backend
@@ -1812,6 +1859,7 @@ jobs:
       - test-engine-gates
       - test-engine-suite
       - test-engine-metamorphic
+      - test-engine-quick
       - test-ai-backend
       - lint-backend
       - test-backend

@@ -1,0 +1,69 @@
+{
+  "tiers": {
+    "pr": {
+      "trigger": "every pull request and merge-queue entry, scoped to the changed paths",
+      "budget_min": 22,
+      "on_failure": "blocks the pull request",
+      "owner": "the pull request's author"
+    },
+    "daily": {
+      "trigger": "nightly.yml at 00:00 UTC, in the 00:00-07:00 UTC window; the other daily workflows in the same window",
+      "budget_min": 420,
+      "on_failure": "opens or updates the workflow's ci-failure issue; each finding gets its own issue",
+      "owner": "the decision owners (docs/TESTING_CADENCE.md, Owners)"
+    },
+    "weekly": {
+      "trigger": "Sunday's nightly.yml run (UTC); route size and research replays on Monday",
+      "budget_min": 420,
+      "on_failure": "opens or updates an issue (ci-failure, mutants ratchet, route-size, flaky report)",
+      "owner": "the decision owners"
+    },
+    "monthly": {
+      "trigger": "the nightly.yml run on the 1st of the month (UTC)",
+      "budget_min": 420,
+      "on_failure": "opens or updates an issue (ci-failure, dependency audit)",
+      "owner": "the decision owners"
+    }
+  },
+  "checks": [
+    {"id": "lint", "tier": "pr", "existing": "ci.yml#lint-engine", "what": "clippy, repository and backend lint"},
+    {"id": "typecheck", "tier": "pr", "existing": "ci.yml#web-build", "what": "tsc and svelte-check gates"},
+    {"id": "unit", "tier": "pr", "existing": "ci.yml#web-unit", "what": "Vitest unit pass, 4 shards"},
+    {"id": "engine-gates", "tier": "pr", "existing": "ci.yml#test-engine-gates", "what": "named engine correctness gates"},
+    {"id": "engine-suite", "tier": "pr", "existing": "ci.yml#test-engine-suite", "what": "every other engine test, 4 shards"},
+    {"id": "engine-metamorphic", "tier": "pr", "existing": "ci.yml#test-engine-metamorphic", "what": "metamorphic tests, sampled tier"},
+    {"id": "e2e-smoke", "tier": "pr", "existing": "ci.yml#e2e", "what": "Playwright smoke suite"},
+    {"id": "determinism", "tier": "pr", "existing": "ci.yml#determinism", "what": "WASM bit-identical in Node and three browsers"},
+    {"id": "issue-reproducer-flip", "tier": "pr", "existing": "issue-reproducers.yml#flip", "what": "a Fixes #N pull request flips #N's expected-failure reproducers"},
+    {"id": "differential-quick", "tier": "pr", "runner": "ci-engine-quick", "target": "test.engine.differential.quick", "budget_min": 8, "what": "cross-method differential tests, quick tier"},
+    {"id": "invariance-quick", "tier": "pr", "existing": "ci.yml#test-engine-metamorphic", "what": "invariance of the analyses the change touches, quick tier (make test.engine.invariance.quick BASE=HEAD^1)"},
+    {"id": "mechanism-fuzz-quick", "tier": "pr", "runner": "ci-engine-quick", "target": "test.engine.mechanism-fuzz.quick", "optional": true, "budget_min": 10, "what": "mechanism fuzzing, quick tier"},
+    {"id": "issue-reproducers", "tier": "pr", "runner": "ci-engine-quick", "target": "test.engine.reproducers", "budget_min": 10, "what": "every expected-failure reproducer still fails (one that passes must be flipped)"},
+
+    {"id": "metamorphic-full", "tier": "daily", "existing": "nightly.yml#metamorphic-nightly", "what": "metamorphic and invariance, exhaustive tier"},
+    {"id": "invariance-full", "tier": "daily", "runner": "nightly", "target": "test.engine.invariance.full", "optional": true, "budget_min": 90, "what": "invariance tests, full tier"},
+    {"id": "differential-full", "tier": "daily", "runner": "nightly", "target": "test.engine.differential.full", "budget_min": 90, "what": "cross-method differential tests, full tier"},
+    {"id": "mechanism-fuzz", "tier": "daily", "runner": "nightly", "target": "test.engine.mechanism-fuzz.long", "vars": {"DURATION": "45m", "SEED": "{day}000000000"}, "optional": true, "budget_min": 60, "what": "mechanism fuzzing, 45 minutes"},
+    {"id": "containment-audit", "tier": "daily", "runner": "nightly", "target": "check.containment", "requires": ["scripts/check-containment.py"], "optional": true, "budget_min": 15, "what": "every open wrong-result issue is contained"},
+    {"id": "lighthouse", "tier": "daily", "existing": "performance.yml#lighthouse", "what": "Lighthouse against the deployed site"},
+    {"id": "external-references-sampled", "tier": "daily", "existing": "nightly.yml#opensees-diff", "what": "OpenSees and Code_Aster comparisons, sampled counts"},
+    {"id": "other-differential", "tier": "daily", "existing": "differential.yml#differential", "what": "Frame3DD, PyNite, Mystran, Kratos, CalculiX"},
+    {"id": "fuzz", "tier": "daily", "existing": "nightly.yml#fuzz", "what": "coverage-guided fuzzing of the JSON entry points"},
+    {"id": "mutants-rotation", "tier": "daily", "existing": "nightly.yml#mutants", "what": "32 of 512 mutants shards of certify, solver core and element kernels"},
+    {"id": "proofs", "tier": "daily", "existing": "verify.yml#lean", "what": "Lean, Kani and symbolic proofs"},
+    {"id": "triage", "tier": "daily", "existing": "nightly.yml#triage", "what": "daily triage report; every new wrong-result candidate gets its decision owners"},
+
+    {"id": "mutants-safety", "tier": "weekly", "existing": "nightly.yml#mutants", "what": "mutation testing of the safety-critical modules, kill-rate ratchet"},
+    {"id": "fuzz-long", "tier": "weekly", "existing": "nightly.yml#fuzz", "what": "the fuzz targets for 5 hours each"},
+    {"id": "mechanism-fuzz-long", "tier": "weekly", "runner": "nightly", "target": "test.engine.mechanism-fuzz.long", "vars": {"DURATION": "4h", "SEED": "{day}500000000"}, "optional": true, "budget_min": 260, "what": "mechanism fuzzing, 4 hours"},
+    {"id": "route-size", "tier": "weekly", "existing": "route-size.yml#ceiling", "what": "landing and /app footprints against their ceilings"},
+    {"id": "research-replays", "tier": "weekly", "existing": "research.yml#phasefield", "what": "every research paper's validation replays (Monday schedule)"},
+    {"id": "flaky-report", "tier": "weekly", "existing": "nightly.yml#flaky-report", "what": "jobs that failed and passed on the same commit in the past week"},
+
+    {"id": "mutants-full", "tier": "monthly", "existing": "nightly.yml#mutants", "what": "full-engine mutation pass (the rotation, every 16 nights) and its kill-rate report"},
+    {"id": "external-references-full", "tier": "monthly", "existing": "nightly.yml#codeaster-diff", "what": "OpenSees and Code_Aster comparisons at three times the daily counts"},
+    {"id": "deps-audit", "tier": "monthly", "existing": "nightly.yml#deps-audit", "what": "dependency and major-upgrade audit"},
+    {"id": "results-snapshots", "tier": "monthly", "runner": "nightly", "target": "test.web.results", "needs": ["wasm", "web.deps"], "budget_min": 30, "what": "the reference corpus against the committed results snapshots"},
+    {"id": "results-change-reproducers", "tier": "monthly", "runner": "nightly", "target": "test.reproducers.published", "budget_min": 60, "what": "every published results change's reproducers against main"}
+  ]
+}
