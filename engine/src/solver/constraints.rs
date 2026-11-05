@@ -3220,6 +3220,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "wall clock: runs alone in Engine Gates (make test.engine.gates)"]
     fn validate_constraints_reads_the_nodes_once_not_once_per_constraint() {
         // A building's imported model: 20 000 nodes and 3 000 eccentric ends, each a rigid link.
         // The node table was rebuilt for every constraint (60 M inserts here), which took a

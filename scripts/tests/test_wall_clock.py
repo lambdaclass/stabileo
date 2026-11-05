@@ -48,7 +48,7 @@ class WallClockOutsideTheQueue(unittest.TestCase):
     def test_every_self_hosted_step_sets_the_switch(self):
         workflow = (ROOT / '.github/workflows/ci.yml').read_text()
         for name, target in [('Build and production-build tests', 'make test.web.build'),
-                             ('E2E slow suite (shard ${{ matrix.shard }}/10)', 'make e2e.web.slow')]:
+                             ('E2E slow suite (shard ${{ matrix.shard }}/${{ needs.changes.outputs.e2e_total }})', 'make e2e.web.slow')]:
             body = step(workflow, name)
             self.assertIn("NO_WALL_CLOCK: ${{ runner.environment == 'self-hosted' && '1' || '' }}", body)
             self.assertEqual(body.count(target), 2)
@@ -60,7 +60,7 @@ class WallClockOutsideTheQueue(unittest.TestCase):
         job = workflow.split('\n  timing-budgets:\n', 1)[1].split('\n\n  ', 1)[0]
         self.assertIn('    runs-on: ubuntu-24.04\n', job)
         self.assertNotIn('self-hosted', job)
-        self.assertIn("    if: needs.changes.outputs.web == 'true' && (github.event_name != 'pull_request' || vars.STABILEO_PR_POOL == 'true')\n", job)
+        self.assertIn("    if: needs.changes.outputs.web == 'true' && needs.changes.outputs.retest == 'true' && (github.event_name != 'pull_request' || vars.STABILEO_PR_POOL == 'true')\n", job)
         self.assertNotIn('NO_WALL_CLOCK', job)
         self.assertIn('run: make test.web.timing\n', job + '\n')
         self.assertIn('run: make e2e.web.timing\n', job + '\n')

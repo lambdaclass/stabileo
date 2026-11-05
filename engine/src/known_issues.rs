@@ -46,10 +46,8 @@ pub const ENTRIES: &[Entry] = &[
     Entry { id: "NUM-INVARIANCE", issue: 762, mode: Mode::Warn, message: "Near-singular models can change accuracy or mechanism classification with units and orientation. Existing conditioning or stability diagnostics indicate a near-singular solve; independently verify stability before design" },
     Entry { id: "CERT-MECHANISM", issue: 458, mode: Mode::Warn, message: "An assembled-level certificate can certify an artificial or unstiffened rotation. Verify mechanisms independently; a small algebraic error bound does not establish structural stability" },
     Entry { id: "BU-SPAN-COMPRESSION", issue: 456, mode: Mode::Warn, message: "3D buckling can miss compression between member ends under span loads. Independently check the axial-force distribution and buckling factor" },
-    Entry { id: "BU-SPAN-AXIAL-2D", issue: 1323, mode: Mode::Warn, message: "2D buckling builds each member's geometric stiffness from its mean axial force, so compression that varies along a member under axial span loads can overstate the buckling factor. Subdivide the loaded members and check that the factor converges" },
     Entry { id: "PD-SPAN-AXIAL", issue: 1329, mode: Mode::Warn, message: "P-Delta builds each member's geometric stiffness from its mean axial force, so compression that varies along a member under axial span loads can understate the second-order amplification. Subdivide the loaded members and check that the results converge" },
-    Entry { id: "AC-PLANE-MAPPING", issue: 466, mode: Mode::Warn, message: "2D constraints assume the original model lies in the X-Z plane. Constraints converted from another plane may be wrong; use the 3D solve or independently verify the mapping" },
-
+    Entry { id: "NL-3", issue: 426, mode: Mode::Warn, message: "A member's end turns more than 0.02 rad against its chord in this 3D co-rotational analysis. Its end forces omit a finite-rotation term whose error grows about as half that rotation times the end moments; split the most deformed members into shorter ones until this warning clears" },
     Entry { id: "NL-5", issue: 428, mode: Mode::Warn, message: NL_MATERIAL },
     Entry { id: "SH-MITC4-DISTORTION", issue: 798, mode: Mode::Refuse, message: "Results withheld: distorted MITC4 quadrilaterals can be about ten times too stiff in membrane bending. Remesh with rectangular elements and check mesh convergence" },
     Entry { id: "SH-WARPED-MITC4", issue: 1057, mode: Mode::Refuse, message: WARPED_MITC4 },
@@ -61,12 +59,10 @@ pub const ENTRIES: &[Entry] = &[
     Entry { id: "SP-17", issue: 419, mode: Mode::Warn, message: "Anisotropic connector transverse axes are not user-orientable and can change abruptly with direction. Independently verify the spring directions before using these results" },
     Entry { id: "FR-5", issue: 408, mode: Mode::Warn, message: "Warping members share one warping degree of freedom at a joint. Full warping transmission may over-restrain the real connection; verify its detailing and warping restraint independently" },
     Entry { id: "SP-14", issue: 417, mode: Mode::Warn, message: "Outside the cable analysis, cable elements can carry compression as truss bars. Verify cable tensions and use a tension-only cable analysis for slackening" },
-    Entry { id: "NL-3", issue: 426, mode: Mode::Warn, message: "Large non-coaxial rotations in 3D co-rotational analysis use additive rotation vectors and may converge to the wrong equilibrium. Independently verify large-rotation results" },
     Entry { id: "NL-13", issue: 432, mode: Mode::Warn, message: "Contact analysis can freeze a chattering gap while reporting convergence. Verify the contact state and equilibrium independently" },
     Entry { id: "NL-17", issue: 433, mode: Mode::Warn, message: "Fiber analysis can return an unconverged iterate without its load factor. Do not use a non-converged result for design" },
     Entry { id: "MD-ORTHOGONALITY", issue: 759, mode: Mode::Warn, message: "3D modal analysis can return non-orthogonal or duplicate modes. Effective masses and response-spectrum combinations may be wrong; independently verify the modal basis" },
     Entry { id: "TH-RECIPROCITY", issue: 760, mode: Mode::Warn, message: "Linear time history has failed reciprocity checks by up to a factor of 33. The affected input class is not yet isolated; independently verify this response before design" },
-    Entry { id: "CUT-SECTION-AXIS", issue: 1238, mode: Mode::Refuse, message: "Results withheld: a 2D cut of this 3D model would bend some members with another section inertia than the 3D model does, or could not represent their coupled in-plane and out-of-plane bending. Solve in 3D, or cut a plane where every member\'s section axes line up with the plane" },
     Entry { id: "RC-NM-PAIRING", issue: 1316, mode: Mode::Warn, message: "This CIRSOC 201 column check pairs the axial force of one combination with the moment of another, which can be unconservative below the balance point. Check the column under each named combination" },
 ];
 
@@ -487,10 +483,6 @@ pub fn for_2d(input: &SolverInput, analysis: Analysis) -> Vec<StructuredDiagnost
 pub fn for_2d_loads(input: &SolverInput, loads: &[SolverLoad], analysis: Analysis) -> Vec<StructuredDiagnostic> {
     let mut out = for_analysis(analysis);
 
-    if !input.constraints.is_empty() { out.push(diagnostic("AC-PLANE-MAPPING")); }
-    if analysis == Analysis::Buckling && axial_span_loads_2d(loads) {
-        out.push(diagnostic("BU-SPAN-AXIAL-2D"));
-    }
     if all_hinged_demand_2d(input, loads) {
         out.push(diagnostic("CERT-MECHANISM"));
     }
@@ -519,13 +511,20 @@ pub fn for_3d(input: &SolverInput3D, analysis: Analysis) -> Vec<StructuredDiagno
     }
     if analysis == Analysis::Plastic && !input.curved_beams.is_empty() { out.push(diagnostic("PL-3D-INVARIANCE")); }
     if analysis == Analysis::Modal { out.push(diagnostic("MD-ORTHOGONALITY")); }
-    if analysis == Analysis::Corotational { out.push(diagnostic("NL-3")); }
     if analysis != Analysis::Cable && input.elements.values().any(|e| e.elem_type == "cable") {
         out.push(diagnostic("SP-14"));
     }
     out.extend(model_3d(input));
     out.extend(loads_3d(&input.loads));
     out
+}
+
+/// 3D co-rotational end moments skip the differential of the rotation logarithm, a relative error of about half a member's natural rotation.
+pub const NL3_NATURAL_ROTATION: f64 = 0.02;
+
+/// A 3D co-rotational member whose ends turn more than [`NL3_NATURAL_ROTATION`] against its chord.
+pub fn corotational_natural_rotation() -> StructuredDiagnostic {
+    diagnostic("NL-3")
 }
 
 /// Add warnings to a result's diagnostics, once each: a path that already attached a finding
@@ -590,7 +589,6 @@ mod tests {
             ("NL-17", Analysis::Fiber, false),
             ("TH-RECIPROCITY", Analysis::TimeHistory, false),
             ("MD-ORTHOGONALITY", Analysis::Modal, true),
-            ("NL-3", Analysis::Corotational, true),
             ("BU-ACCURACY", Analysis::Buckling, true),
         ] {
             let diagnostics = |a| if space { for_3d(&input3(), a) } else { for_2d(&input2(), a) };
@@ -659,9 +657,6 @@ mod tests {
         assert!(has(&for_2d(&unloaded, Analysis::Linear), "CERT-MECHANISM"), "an all-hinged node with a rigid arm is covered without nodal moment");
         unloaded.supports.get_mut("1").unwrap().kz = Some(1.0);
         assert!(!has(&for_2d(&unloaded, Analysis::Linear), "CERT-MECHANISM"), "a real rotational spring supplies stiffness");
-        assert!(!has(&for_2d(&plane, Analysis::Linear), "AC-PLANE-MAPPING"));
-        plane.constraints.push(Constraint::EqualDOF(EqualDOFConstraint { master_node: 1, slave_node: 2, dofs: vec![0] }));
-        assert!(has(&for_2d(&plane, Analysis::Linear), "AC-PLANE-MAPPING"));
         assert!(!has(&for_2d(&plane, Analysis::Linear), "SP-14"));
         plane.elements.get_mut("1").unwrap().elem_type = "cable".into();
         assert!(has(&for_2d(&plane, Analysis::Linear), "SP-14"));
@@ -687,17 +682,6 @@ mod tests {
         space.loads.push(serde_json::from_value(serde_json::json!({"type":"distributed","data":{"elementId":1,"qYI":0,"qYJ":0,"qZI":-1,"qZJ":-1}})).unwrap());
         assert!(has(&for_3d(&space, Analysis::Buckling), "BU-SPAN-COMPRESSION"));
         assert!(!has(&for_3d(&space, Analysis::Linear), "BU-SPAN-COMPRESSION"));
-        let mut column = input2();
-        assert!(!has(&for_2d(&column, Analysis::Buckling), "BU-SPAN-AXIAL-2D"));
-        column.loads.push(SolverLoad::AxialDistributed(SolverAxialDistributedLoad { element_id: 1, q_i: 0.0, q_j: 0.0, a: None, b: None }));
-        column.loads.push(SolverLoad::PointOnElement(SolverPointLoadOnElement { element_id: 1, a: 1.0, p: -1.0, px: Some(0.0), my: None }));
-        assert!(!has(&for_2d(&column, Analysis::Buckling), "BU-SPAN-AXIAL-2D"), "zero axial span loads");
-        column.loads.push(SolverLoad::AxialDistributed(SolverAxialDistributedLoad { element_id: 1, q_i: -25.0, q_j: -25.0, a: None, b: None }));
-        assert!(has(&for_2d(&column, Analysis::Buckling), "BU-SPAN-AXIAL-2D"));
-        assert!(!has(&for_2d(&column, Analysis::Linear), "BU-SPAN-AXIAL-2D"));
-        column.loads.retain(|l| !matches!(l, SolverLoad::AxialDistributed(_)));
-        column.loads.push(SolverLoad::PointOnElement(SolverPointLoadOnElement { element_id: 1, a: 1.0, p: 0.0, px: Some(-50.0), my: None }));
-        assert!(has(&for_2d(&column, Analysis::Buckling), "BU-SPAN-AXIAL-2D"));
     }
 
     #[test]

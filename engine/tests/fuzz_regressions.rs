@@ -202,13 +202,21 @@ fn plastic_3d_certificate_of_one_nightly_input() {
 }
 
 #[test]
+#[ignore = "wall-clock budget: run by make test.engine.gates"]
+fn a_blocking_child_is_killed_at_its_timeout() {
+    let mut sleeper = std::process::Command::new("sh");
+    sleeper.args(["-c", "exec sleep 30"]);
+    let start = std::time::Instant::now();
+    assert_eq!(run_limited(sleeper, std::time::Duration::from_secs(1)), None);
+    assert!(start.elapsed() < std::time::Duration::from_secs(10));
+}
+
+#[test]
 fn a_fixture_past_its_limits_fails() {
     let shell = |script: &str| { let mut c = std::process::Command::new("sh"); c.args(["-c", script]); c };
     let second = std::time::Duration::from_secs(1);
     assert_eq!(run_limited(shell("echo done"), second).as_deref(), Some("done\n"));
-    let start = std::time::Instant::now();
     assert_eq!(run_limited(shell("exec sleep 30"), second), None, "a blocking child is killed at its timeout");
-    assert!(start.elapsed() < std::time::Duration::from_secs(10));
     assert_eq!(run_limited(shell("exec sleep 0.2"), std::time::Duration::from_millis(100)), None, "finishing after the timeout fails");
     assert_eq!(run_limited(shell("exit 3"), second), None);
     let f = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/fuzz-json-plastic")).read_dir().unwrap().next().unwrap().unwrap().path();
@@ -427,4 +435,32 @@ fn generated_buckling_certificate_invariant() {
 #[ignore]
 fn generated_buckling_certificate_invariant_nightly() {
     generated_buckling_enclosures(4096);
+}
+
+/// json_static (issue #1350): selector byte 17 is `compute_envelope_3d`. The
+/// first result's element 3 has `vzStart` ≈ −5.29e307, finite, but My at
+/// x = 0.5 L of its 7.26 m span is beyond f64.
+#[test]
+fn envelope_3d_overflow_is_refused() {
+    use dedaliano_engine::postprocess::combinations::compute_envelope_3d;
+    use dedaliano_engine::types::AnalysisResults3D;
+    let path = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/fuzz/regressions/json_static/crash-03289a314e8188c2f582ec02666b9b972abcbdc0"
+    );
+    let bytes = std::fs::read(path).unwrap();
+    assert_eq!(bytes[0] % 18, 17, "selector: compute_envelope_3d");
+    let mut results: Vec<AnalysisResults3D> = serde_json::from_slice(&bytes[2..]).unwrap();
+    assert!(results[0].element_forces[2].vz_start < -1e307);
+
+    let e = compute_envelope_3d(&results).unwrap_err();
+    assert!(e.contains("momentY") && e.contains("element 3") && e.contains("result 0"), "{e}");
+
+    results[0].element_forces[2].vz_start = results[1].element_forces[2].vz_start;
+    let env = compute_envelope_3d(&results).unwrap();
+    assert!(dedaliano_engine::certify::finite::non_finite_paths(&env).is_empty());
+    let my = &env.moment_y.elements[2];
+    let ef = &results[1].element_forces[2];
+    assert_eq!(my.neg_values[0], ef.my_start.min(0.0));
+    assert!(my.neg_values.iter().all(|v| v.is_finite() && *v <= 0.0));
 }

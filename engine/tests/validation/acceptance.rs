@@ -2262,30 +2262,9 @@ fn acceptance_5g_fiber_nonlinear_2d_diaphragm() {
         modified_nr: false,
     };
 
-    let result = fiber_nonlinear::solve_fiber_nonlinear_2d(&input)
-        .expect("Fiber NL 2D + diaphragm failed");
-
-    // 1. Converged
-    assert!(result.converged, "Fiber NL 2D + diaphragm did not converge");
-
-    // 2. Finite displacements
-    for d in &result.results.displacements {
-        assert!(d.ux.is_finite() && d.uz.is_finite(),
-            "NaN/Inf at node {}", d.node_id);
-    }
-
-    // 3. Diaphragm: floor nodes share ux
-    let d3 = result.results.displacements.iter().find(|d| d.node_id == 3).unwrap();
-    let d4 = result.results.displacements.iter().find(|d| d.node_id == 4).unwrap();
-    assert!((d3.ux - d4.ux).abs() < 1e-6,
-        "Floor 1 diaphragm: ux_3={:.8}, ux_4={:.8}", d3.ux, d4.ux);
-    let d5 = result.results.displacements.iter().find(|d| d.node_id == 5).unwrap();
-    let d6 = result.results.displacements.iter().find(|d| d.node_id == 6).unwrap();
-    assert!((d5.ux - d6.ux).abs() < 1e-6,
-        "Floor 2 diaphragm: ux_5={:.8}, ux_6={:.8}", d5.ux, d6.ux);
-
-    // 4. Non-trivial lateral drift
-    assert!(d5.ux.abs() > 1e-6, "Expected lateral drift at roof");
+    let err = fiber_nonlinear::solve_fiber_nonlinear_2d(&input)
+        .err().expect("Fiber NL 2D + diaphragm must be refused: its global balance cannot be checked");
+    assert!(err.contains("constraints are not supported"), "{err}");
 }
 
 // ── 5H: Fiber Nonlinear 3D + Rigid Link (elastic parity) ───────────
@@ -2372,21 +2351,9 @@ fn acceptance_5h_fiber_nonlinear_3d_rigid_link() {
         modified_nr: false,
     };
 
-    let fiber_result = fiber_nonlinear::solve_fiber_nonlinear_3d(&fiber_input)
-        .expect("Fiber NL 3D + rigid link failed");
-
-    // 1. Converged
-    assert!(fiber_result.converged, "Fiber NL 3D did not converge");
-
-    // 2. Tip has finite displacement
-    let fib_tip = fiber_result.results.displacements.iter().find(|d| d.node_id == n_col + 1).unwrap();
-    assert!(fib_tip.ux.is_finite() && fib_tip.ux.abs() > 1e-12,
-        "Tip should have nonzero ux, got {}", fib_tip.ux);
-
-    // 3. Eccentric node follows master via rigid link (finite displacement, tracks master)
-    let fib_ecc = fiber_result.results.displacements.iter().find(|d| d.node_id == n_col + 2).unwrap();
-    assert!(fib_ecc.ux.is_finite() && fib_ecc.uz.is_finite(),
-        "Eccentric node should have finite displacements");
+    let err = fiber_nonlinear::solve_fiber_nonlinear_3d(&fiber_input)
+        .err().expect("Fiber NL 3D + rigid link must be refused: its global balance cannot be checked");
+    assert!(err.contains("constraints are not supported"), "{err}");
 }
 
 // ── 5I: Contact 2D + Rigid Link (gap + constraint) ──────────────────

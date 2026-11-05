@@ -56,7 +56,7 @@ describe('isolated-node gate vs member-offset helper topology', () => {
     expect(warnings).toEqual([expect.objectContaining({ code: 'known_issue', severity: 'warning', details: { value: 762 }, message: "Near-singular models can change accuracy or mechanism classification with units and orientation. Existing conditioning or stability diagnostics indicate a near-singular solve; independently verify stability before design (#762)" })]);
   });
 
-  it('a valid 2D frame with a sliding joint reports only the applicable containment warning', () => {
+  it('a valid 2D frame with a sliding joint carries no plane-mapping warning, since #466 is fixed', () => {
     modelStore.clear();
     const n1 = modelStore.addNode(0, 0);
     const n2 = modelStore.addNode(2, 0);
@@ -71,7 +71,7 @@ describe('isolated-node gate vs member-offset helper topology', () => {
     expect(typeof r).not.toBe('string');
     resultsStore.setResults(r as any);
     const warnings = resultsStore.structuredDiagnostics.filter((d) => d.severity !== 'info');
-    expect(warnings).toEqual([expect.objectContaining({ code: 'known_issue', severity: 'warning', details: { value: 466 }, message: "2D constraints assume the original model lies in the X-Z plane. Constraints converted from another plane may be wrong; use the 3D solve or independently verify the mapping (#466)" })]);
+    expect(warnings).toEqual([]);
   });
 });
 

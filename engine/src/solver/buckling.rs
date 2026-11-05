@@ -4,7 +4,8 @@ use crate::linalg::*;
 use super::dof::DofNumbering;
 use super::assembly::*;
 use super::geometric_stiffness::{
-    emit_geometric_stiffness_2d, emit_geometric_stiffness_3d, geometric_stiffness_terms_2d, KgTriplets,
+    emit_geometric_stiffness_2d, emit_geometric_stiffness_3d, geometric_stiffness_terms_2d, span_axial_geometric_stiffness_2d,
+    KgTriplets,
 };
 use super::constraints::FreeConstraintSystem;
 
@@ -61,6 +62,7 @@ pub struct BucklingSystem2D {
     pub inclined_transforms_2d: Vec<InclinedTransformData2D>,
     /// Each element's mean axial force at the linear solution (what Kg is built from).
     pub mean_n: HashMap<usize, f64>,
+    pub span_axial: Vec<(usize, Vec<usize>, Vec<f64>)>,
 }
 
 #[doc(hidden)]
@@ -113,9 +115,17 @@ pub fn buckling_system_2d(input: &SolverInput) -> Result<BucklingSystem2D, Strin
     //    inclined rollers, then rotated and cut to the free block. Negate it in
     //    place — we solve K·φ = λ·(-Kg)·φ for positive eigenvalues, and nothing
     //    reads the un-negated Kg.
+    let span_axial = span_axial_geometric_stiffness_2d(input, &dof_num);
     let neg_kg_csc = {
         let mut kg = KgTriplets::new(if inclined_transforms_2d.is_empty() { nf } else { dof_num.n_total });
         emit_geometric_stiffness_2d(input, &dof_num, &u, &mut |i, j, v| if i >= j { kg.add(i, j, v) });
+        for (_, dofs, g) in &span_axial {
+            for (a, &i) in dofs.iter().enumerate() {
+                for (b, &j) in dofs.iter().enumerate() {
+                    if i >= j { kg.add(i, j, g[a * dofs.len() + b]) }
+                }
+            }
+        }
         if !inclined_transforms_2d.is_empty() {
             kg = kg.rotate_inclined(&inclined_transforms_2d, nf);
         }
@@ -125,7 +135,7 @@ pub fn buckling_system_2d(input: &SolverInput) -> Result<BucklingSystem2D, Strin
         }
         kg_csc
     };
-    Ok(BucklingSystem2D { linear, dof_num, k_ff, neg_kg_csc, inclined_transforms_2d, mean_n })
+    Ok(BucklingSystem2D { linear, dof_num, k_ff, neg_kg_csc, inclined_transforms_2d, mean_n, span_axial })
 }
 
 /// Per member, the axial force that is round-off of its elongation: N = EA·δ/L
@@ -155,11 +165,20 @@ const MODE_RESOLUTION: f64 = 1e-2;
 
 fn geometric_work_uncertainty_2d(
     terms: &[super::geometric_stiffness::KgAffineTerm],
+    span_axial: &[(usize, Vec<usize>, Vec<f64>)],
     mean_n: &HashMap<usize, f64>,
     noise: &HashMap<usize, f64>,
     phi: &[f64],
 ) -> (f64, f64, Vec<usize>) {
     let (mut work, mut uncertainty, mut drivers) = (0.0, 0.0, Vec::new());
+    for (_, dofs, g) in span_axial {
+        let m = dofs.len();
+        for i in 0..m {
+            for j in 0..m {
+                work += phi[dofs[i]] * g[i * m + j] * phi[dofs[j]];
+            }
+        }
+    }
     for t in terms {
         let m = t.dofs.len();
         let mut g = 0.0;
@@ -193,7 +212,7 @@ pub fn solve_buckling_2d(
     let sec_by_id: HashMap<usize, &SolverSection> =
         crate::ordered::values(&input.sections).map(|s| (s.id, s)).collect();
 
-    let BucklingSystem2D { linear, dof_num, k_ff, neg_kg_csc, inclined_transforms_2d, mean_n } = buckling_system_2d(input)?;
+    let BucklingSystem2D { linear, dof_num, k_ff, neg_kg_csc, inclined_transforms_2d, mean_n, span_axial } = buckling_system_2d(input)?;
     let nf = dof_num.n_free;
     let n = dof_num.n_total;
 
@@ -258,7 +277,7 @@ pub fn solve_buckling_2d(
             }
         }
 
-        let (work, uncertainty, drivers) = geometric_work_uncertainty_2d(&kg_terms, &mean_n, &axial_noise, &u_mode);
+        let (work, uncertainty, drivers) = geometric_work_uncertainty_2d(&kg_terms, &span_axial, &mean_n, &axial_noise, &u_mode);
         if !(uncertainty <= MODE_RESOLUTION * work.abs()) {
             unresolved.push((modes.len() + 1, lambda));
             unresolved_members.extend(drivers);
@@ -565,4 +584,23 @@ pub fn solve_buckling_3d(
     }
 
     Ok(BucklingResult3D { structured_diagnostics, modes, n_dof: nf, element_data })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_mode_whose_geometric_work_comes_from_a_span_load_is_resolved() {
+        let term = super::super::geometric_stiffness::KgAffineTerm {
+            element_id: 1, dofs: vec![0, 1], g: vec![1.0, -1.0, -1.0, 1.0], elongation: vec![], e: 0.0, a: 0.0, l: 1.0, alpha: 0.0, dt: 0.0,
+        };
+        let span = vec![(1, vec![0, 1], vec![-2.0, 2.0, 2.0, -2.0])];
+        let mean_n = HashMap::from([(1, 0.0)]);
+        let noise = HashMap::from([(1, 1e-9)]);
+        let phi = [1.0, -1.0];
+        let (work, uncertainty, _) = geometric_work_uncertainty_2d(&[term], &span, &mean_n, &noise, &phi);
+        assert_eq!(work, -8.0);
+        assert!(uncertainty <= MODE_RESOLUTION * work.abs(), "work {work}, uncertainty {uncertainty}");
+    }
 }

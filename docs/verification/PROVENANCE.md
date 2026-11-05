@@ -15,7 +15,7 @@ give different numbers. Each entry has:
 | `area` | `analysis`, `design` or `loads` |
 | `when` | which models it concerns, in feature ids (`any`: one of; `all`: each of; `allOf`: groups that must all hold) |
 | `quantities` | optional: the solve results it can move, `*` (every result value), `solve.ok`, `errorCodes`, `unstableCombinations`, a collection (`reactions`) or one field (`quadStresses.sigmaXx`). `*` does not cover a refusal (`solve.ok`), a new error (`errorCodes`) or a newly unstable combination (`unstableCombinations`): each must be named. The legacy-projects test (#718) accepts a difference in an old project file (a value changed, no longer produced, or newly produced) only in values an applicable entry declares; without it, the entry explains none. That test alone also takes two values of a reaction force component as the same zero when both are within 1e-12 of that node's reaction force, because round-off in a component statics makes zero moves between releases (v0.2.0's truss reactions); every other quantity is compared by the gate's rule (`web/src/lib/legacy-projects/vector-floor.ts`); the snapshot gate does not |
-| `title`, `explanation` | what to tell the engineer, in `en`, `es` and `pt` |
+| `title`, `explanation` | what to tell the engineer, in each of the app's six languages: `en`, `es`, `pt`, `de`, `fr` and `tr` |
 | `changelog` | a file and one of its headings (checked by `registry.test.ts`) |
 
 Feature ids are defined in `web/src/lib/provenance/model-features.ts`, read from the saved
@@ -72,6 +72,21 @@ used to divide by the diagonal of M). Those refusals can hit any time history, g
 included, and so can #1239's Rayleigh fix, which turns runs that were not finite into numbers; the
 registry entry therefore flags every saved model with a time history (`timeHistorySpec`).
 
+## Generated area loads under low roof structure (PR #1253, after #1076)
+
+Results version 20 (the next free version when this was marked ready: 15 is #1372's, 16–19 are
+held by #1326, #1328, #1319 and #1321) registers
+`generated-area-loads-headroom`: the load generator no longer leaves out a panel's area loads when
+low roof structure stands over only part of it, and counts trusses as roof structure
+(SA-2026-033). It concerns models whose loads came from the generator (`generatedLoads`); saved
+loads change only when generated again.
+## Shell figures paint the screen's field (PR #1255, review of #1077)
+
+Results version 21 (the next free version when this was marked ready) registers `shell-figures-paint-the-screen-field`: exported shell result figures paint
+the contour field the screen shows (nodal averages within the chosen domain, face, typed range and
+bands) instead of one centre value per element over its own range, so their colours, scale and
+peak label change. Solver results are unchanged.
+
 ## Solid-shell local stress axes (PR #814, issue #757)
 
 Results version 5 registers `solid-shell-local-stress-axes`. The frame definition,
@@ -101,6 +116,15 @@ checks pass against their existing baselines. The changelog check passes.
 Results version 7 registers `cirsoc201-column-design-axes` (SA-2026-029): the CIRSOC 201 column
 check bends each moment over its own depth. Version 6 is #817's buckling certificate, which lands
 first.
+
+## Governing value and 2D envelope at the true peak (issue #1389)
+
+`governing-envelope-true-peak` (results version 26, the next free version when this was marked
+ready): `governingMagnitude2D` reads each diagram's true peak (`peakAlong`), and the engine's
+2D envelope adds each combination's peak stations to its grid
+(`diagram_peak_stations_2d`), so `governing-envelope.test.ts` still finds the governing value of
+every member equal to its envelope peak. What moves is in
+[the results change note](../results-changes/2026-11-governing-true-peak.md).
 
 ## Results snapshot gate
 
@@ -211,6 +235,14 @@ If there are any:
 
 Acknowledgement is per stamp and per session: reopening the file in a new session asks again.
 A project solved with a newer version than the build opening it is flagged as `newer`.
+
+A change whose condition names `generatedLoads` concerns a project until its loads are generated
+again, not until it is solved again: solving does not change saved loads. Applying a load plan
+records the results version in `designData.loadBasis.resultsVersion`. A project whose load basis
+lacks it counts as generated with version 0, and a load basis alone makes a model `generatedLoads`,
+so a plan that wrote no loads is still covered. Loads tagged by the load plan with no load basis also
+count as generated with version 0. Loads from the stair and architecture generators (`stair:`, `arch:`)
+are not `generatedLoads`.
 
 ## Provenance of results and reports
 

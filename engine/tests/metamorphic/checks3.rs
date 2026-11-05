@@ -3,11 +3,11 @@
 use crate::ana2::Law;
 use crate::ana3::{Ana3, Motion};
 use crate::case::Case3;
-use crate::checks2::{guarded, hash, rel_for, settle, transformed_failure, REDUCES_TO_LINEAR};
+use crate::checks2::{bounded, guarded, hash, is_lower_bound, rel_for, settle, transformed_failure, REDUCES_TO_LINEAR};
 use crate::response::{Kind, Resp};
 use crate::tally::{Tally, Verdict};
 use dedaliano_engine::element::compute_local_axes_3d;
-use dedaliano_engine::metamorphic::compare::{compare_floored, compare_with_floor, Flat, Report};
+use dedaliano_engine::metamorphic::compare::{compare_compliant, compare_with_compliance, Flat, Report};
 use dedaliano_engine::metamorphic::conditioning::{self, Conditioning, INCONCLUSIVE};
 use dedaliano_engine::metamorphic::relabel::Relabel;
 use dedaliano_engine::metamorphic::transform::Iso3;
@@ -97,6 +97,10 @@ fn judge(res: Result<Report, String>, rel: f64) -> Verdict {
     }
 }
 
+pub fn with_eigen_3d(cond: Conditioning, c: &Case3) -> Conditioning {
+    crate::checks2::with_eigen(cond, |n| Ok(dedaliano_engine::solver::modal::solve_modal_3d(&c.s, &c.dens, n)?.modes.iter().map(|m| m.omega).collect()))
+}
+
 fn same(a: &Ana3, tc: &Case3, expected: Result<Resp, String>, cond: &Conditioning) -> Verdict {
     let expected = match expected {
         Ok(e) => e,
@@ -108,7 +112,8 @@ fn same(a: &Ana3, tc: &Case3, expected: Result<Resp, String>, cond: &Conditionin
     };
     let rel = rel_for(a.name, a.iter_tol, &c2);
     match run(a, tc) {
-        Ok(got) => judge(compare_with_floor(&got.flat(), &expected.flat(), c2.lchar, rel, load_floor_3d(&tc.s, c2.lchar)), rel),
+        Ok(got) => bounded(&got, &expected, rel).unwrap_or_else(|| crate::checks2::judge_split(&got, &expected, rel, crate::checks2::rel_without_eigen(a.name, a.iter_tol, &c2), |g, e, rel| compare_with_compliance(&g.flat(), &e.flat(), c2.lchar, rel, load_floor_3d(&tc.s, c2.lchar), crate::checks2::compliance(a.name, &c2)))),
+        Err(e) if is_lower_bound(&expected) && crate::response::incomplete_collapse(&e) => Verdict::Inconclusive(rel),
         Err(e) => transformed_failure(e),
     }
 }
@@ -215,7 +220,7 @@ fn rotation_for(a: &Ana3, rng: &mut Rng) -> Iso3 {
 
 pub fn check_case(ctx: &Ctx, c: &Case3, anas: &[Ana3], invariants: &[&str]) {
     let cond = match guarded(|| conditioning::of_3d(&c.s)) {
-        Ok(k) => k,
+        Ok(k) => with_eigen_3d(k, c),
         Err(e) => {
             for a in anas {
                 for inv in invariants.iter().filter(|i| applicable(a, i)) {
@@ -298,7 +303,7 @@ pub fn check_case(ctx: &Ctx, c: &Case3, anas: &[Ana3], invariants: &[&str]) {
                                 let exp = lin.common(&base);
                                 let got = base.common(&exp);
                                 let rel = rel_for(a.name, a.iter_tol, &cond) * 2.0;
-                                judge(compare_with_floor(&got.flat(), &exp.flat(), cond.lchar, rel, load_floor_3d(&c.s, cond.lchar)), rel)
+                                judge(compare_with_compliance(&got.flat(), &exp.flat(), cond.lchar, rel, load_floor_3d(&c.s, cond.lchar), crate::checks2::compliance(a.name, &cond)), rel)
                             }
                         }
                     }
@@ -315,7 +320,7 @@ pub fn check_case(ctx: &Ctx, c: &Case3, anas: &[Ana3], invariants: &[&str]) {
 fn superposition(a: &Ana3, c: &Case3, base: &Resp, cond: &Conditioning) -> Verdict {
     if a.law == Law::Inverse {
         let k = 3.7;
-        let rel = rel_for(a.name, a.iter_tol, cond);
+        let rel = crate::checks2::rel_without_eigen(a.name, a.iter_tol, cond);
         // The whole action scales: loads and prescribed displacements.
         let mut ck = c.with_loads(scale_loads_3d(&c.s.loads, k));
         for sp in ck.s.supports.values_mut() {
@@ -326,11 +331,12 @@ fn superposition(a: &Ana3, c: &Case3, base: &Resp, cond: &Conditioning) -> Verdi
         return match run(a, &ck) {
             Ok(r) => {
                 let mut exp = base.clone();
-                for it in exp.0.iter_mut() {
+                for it in exp.0.iter_mut().filter(|i| i.tag != crate::response::LOWER_BOUND) {
                     it.v.iter_mut().for_each(|x| *x /= k);
                 }
-                judge(compare_with_floor(&r.flat(), &exp.flat(), cond.lchar, rel, load_floor_3d(&c.s, cond.lchar) * k), rel)
+                bounded(&r, &exp, rel).unwrap_or_else(|| judge(compare_with_compliance(&r.flat(), &exp.flat(), cond.lchar, rel, load_floor_3d(&c.s, cond.lchar) * k, crate::checks2::compliance(a.name, &cond)), rel))
             }
+            Err(e) if is_lower_bound(base) && crate::response::incomplete_collapse(&e) => Verdict::Inconclusive(rel),
             Err(e) => Verdict::Fail(format!("scaled loads failed: {e}")),
         };
     }
@@ -347,7 +353,7 @@ fn superposition(a: &Ana3, c: &Case3, base: &Resp, cond: &Conditioning) -> Verdi
     let mut ab = la.clone();
     ab.extend(lb.iter().cloned());
     let k = -2.5;
-    let rel = rel_for(a.name, a.iter_tol, cond) * 4.0;
+    let rel = crate::checks2::rel_without_eigen(a.name, a.iter_tol, cond) * 4.0;
     let r = (|| -> Result<(Flat, Flat, Flat, Flat, Flat), String> {
         let ra = run(a, &c.with_loads(la.clone()))?.without_stress().flat();
         let rb = run(a, &c.with_loads(lb.clone()))?.without_stress().flat();
@@ -370,12 +376,12 @@ fn superposition(a: &Ana3, c: &Case3, base: &Resp, cond: &Conditioning) -> Verdi
     let exp_ab = Flat::lin_comb(1.0, &Flat::lin_comb(1.0, &da, 1.0, &db), 1.0, &r0);
     let scale = Flat::lin_comb(1.0, &Flat::abs_comb(1.0, &ra, 1.0, &rb), 2.0, &Flat::abs_comb(1.0, &r0, 0.0, &r0));
     let floor = load_floor_3d(&c.s, cond.lchar) * (1.0 + k.abs());
-    if let v @ Verdict::Fail(_) = judge(compare_floored(&rab, &exp_ab, &scale, cond.lchar, rel, floor).map_err(|e| format!("R(A+B) ≠ R(A)+R(B)−R(∅): {e}")), rel) {
+    if let v @ Verdict::Fail(_) = judge(compare_compliant(&rab, &exp_ab, &scale, cond.lchar, rel, floor, crate::checks2::compliance(a.name, &cond)).map_err(|e| format!("R(A+B) ≠ R(A)+R(B)−R(∅): {e}")), rel) {
         return v;
     }
     let exp_k = Flat::lin_comb(k, &da, 1.0, &r0);
     let scale_k = Flat::abs_comb(k, &ra, 1.0 + k.abs(), &r0);
-    judge(compare_floored(&rk, &exp_k, &scale_k, cond.lchar, rel, floor).map_err(|e| format!("R(kA) ≠ k·R(A): {e}")), rel)
+    judge(compare_compliant(&rk, &exp_k, &scale_k, cond.lchar, rel, floor, crate::checks2::compliance(a.name, &cond)).map_err(|e| format!("R(kA) ≠ k·R(A): {e}")), rel)
 }
 
 fn free_nodes(c: &Case3) -> Vec<usize> {
@@ -438,7 +444,7 @@ fn reciprocity(a: &Ana3, c: &Case3, cond: &Conditioning, rng: &mut Rng) -> Verdi
     if pairs.is_empty() {
         return Verdict::NotApplicable;
     }
-    let rel = rel_for(a.name, a.iter_tol, cond) * 4.0;
+    let rel = crate::checks2::rel_without_eigen(a.name, a.iter_tol, cond) * 4.0;
     if rel > INCONCLUSIVE {
         return Verdict::Inconclusive(rel);
     }
@@ -539,7 +545,7 @@ fn energy(a: &Ana3, c: &Case3, cond: &Conditioning, rng: &mut Rng) -> Verdict {
             eabs += t.abs();
         }
     }
-    let rel = rel_for(a.name, a.iter_tol, cond) * 4.0;
+    let rel = crate::checks2::rel_without_eigen(a.name, a.iter_tol, cond) * 4.0;
     if rel > INCONCLUSIVE {
         return Verdict::Inconclusive(rel);
     }

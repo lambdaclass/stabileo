@@ -4,7 +4,7 @@ use crate::ana2::{Ana2, Law};
 use crate::case::Case2;
 use crate::response::{Kind, Resp};
 use crate::tally::{Tally, Verdict};
-use dedaliano_engine::metamorphic::compare::{compare_floored, compare_with_floor, Flat};
+use dedaliano_engine::metamorphic::compare::{compare_compliant, compare_with_compliance, Flat};
 use dedaliano_engine::metamorphic::conditioning::{self, Conditioning, INCONCLUSIVE};
 use dedaliano_engine::metamorphic::relabel::Relabel;
 use dedaliano_engine::metamorphic::transform::Iso2;
@@ -31,7 +31,43 @@ pub fn rel_for(ana_name: &str, iter_tol: f64, c: &Conditioning) -> f64 {
         return 2.5e-10;
     }
     let steps = if ana_name.contains("time history") { 60.0 } else { 1.0 };
-    (c.rel() * steps + 20.0 * iter_tol).max(64.0 * f64::EPSILON)
+    let eig = if EIGEN_BASED.contains(&ana_name) { 2.0 * c.eig } else { 0.0 };
+    (c.rel() * steps + 20.0 * iter_tol + eig).max(64.0 * f64::EPSILON)
+}
+
+pub fn rel_without_eigen(ana_name: &str, iter_tol: f64, c: &Conditioning) -> f64 {
+    rel_for(ana_name, iter_tol, &Conditioning { eig: 0.0, ..*c })
+}
+
+const EIGEN_FREE: [&str; 1] = ["total_mass"];
+
+/// The compliance floors of `cond` for `ana_name`. The rotational one bounds a
+/// static rotation only: a time history ends long before a soft rotational
+/// DOF reaches it.
+pub fn compliance(ana_name: &str, cond: &Conditioning) -> [f64; 2] {
+    let [t, r] = cond.compliance();
+    if EIGEN_BASED.contains(&ana_name) || ana_name == "harmonic" { [t, 0.0] } else { [t, r] }
+}
+
+/// Analyses whose numbers go through a generalized eigensolve: the modes
+/// themselves, or the two lowest frequencies the Rayleigh damping is anchored on.
+pub const EIGEN_BASED: &[&str] = &["modal", "certified modal", "spectral", "time history", "time history (ground motion)"];
+
+/// `cond` with the eigensolve accuracy of the case's pencil (see `Conditioning::with_spectrum`).
+pub fn with_eigen(cond: Conditioning, omegas: impl Fn(usize) -> Result<Vec<f64>, String>) -> Conditioning {
+    if cond.n == 0 || cond.n > conditioning::DENSE_EIGEN_MAX {
+        return cond;
+    }
+    let Ok(w) = guarded(|| omegas(cond.n)) else { return cond };
+    let l: Vec<f64> = w.iter().map(|w| w * w).filter(|l| *l > 0.0 && l.is_finite()).collect();
+    match (l.iter().copied().reduce(f64::min), l.iter().copied().reduce(f64::max)) {
+        (Some(lo), Some(hi)) => cond.with_spectrum(lo, hi),
+        _ => cond,
+    }
+}
+
+pub fn with_eigen_2d(cond: Conditioning, c: &Case2) -> Conditioning {
+    with_eigen(cond, |n| Ok(dedaliano_engine::solver::modal::solve_modal_2d(&c.s, &c.dens, n)?.modes.iter().map(|m| m.omega).collect()))
 }
 
 fn run(a: &Ana2, c: &Case2) -> Result<Resp, String> {
@@ -44,7 +80,7 @@ fn run(a: &Ana2, c: &Case2) -> Result<Resp, String> {
     })
 }
 
-fn judge(res: Result<dedaliano_engine::metamorphic::compare::Report, String>, rel: f64) -> Verdict {
+pub fn judge(res: Result<dedaliano_engine::metamorphic::compare::Report, String>, rel: f64) -> Verdict {
     if rel > INCONCLUSIVE {
         return Verdict::Inconclusive(rel);
     }
@@ -52,6 +88,26 @@ fn judge(res: Result<dedaliano_engine::metamorphic::compare::Report, String>, re
         Ok(r) if r.values == 0 && r.refusals > 0 => Verdict::SameRefusal,
         Ok(r) => Verdict::Pass(r.worst),
         Err(e) => Verdict::Fail(e),
+    }
+}
+
+pub fn judge_split(got: &Resp, expected: &Resp, rel: f64, base: f64, cmp: impl Fn(&Resp, &Resp, f64) -> Result<dedaliano_engine::metamorphic::compare::Report, String>) -> Verdict {
+    let free: std::collections::HashSet<String> = expected.0.iter().filter(|i| EIGEN_FREE.contains(&i.tag.as_str())).map(|i| i.tag.clone()).collect();
+    if !free.is_empty() && base <= INCONCLUSIVE {
+        let only = |r: &Resp| Resp(r.0.iter().filter(|i| free.contains(&i.tag)).cloned().collect(), r.1.clone());
+        if let Err(e) = cmp(&only(got), &only(expected), base) {
+            return Verdict::Fail(e);
+        }
+    }
+    if rel > INCONCLUSIVE {
+        return Verdict::Inconclusive(rel);
+    }
+    let widened = crate::response::widened_past(expected, rel, INCONCLUSIVE);
+    match cmp(&got.without_tags(&widened), &expected.without_tags(&widened), rel) {
+        Err(e) => Verdict::Fail(e),
+        Ok(r) if r.values == 0 && r.refusals > 0 => Verdict::SameRefusal,
+        Ok(_) if !widened.is_empty() => Verdict::Inconclusive(rel),
+        Ok(r) => Verdict::Pass(r.worst),
     }
 }
 
@@ -67,9 +123,32 @@ fn same(a: &Ana2, tc: &Case2, expected: Result<Resp, String>, cond: &Conditionin
     };
     let rel = rel_for(a.name, a.iter_tol, &c2);
     match run(a, tc) {
-        Ok(got) => judge(compare_with_floor(&got.flat(), &expected.flat(), c2.lchar, rel, load_floor_2d(&tc.s, c2.lchar)), rel),
+        Ok(got) => bounded(&got, &expected, rel).unwrap_or_else(|| crate::checks2::judge_split(&got, &expected, rel, crate::checks2::rel_without_eigen(a.name, a.iter_tol, &c2), |g, e, rel| compare_with_compliance(&g.flat(), &e.flat(), c2.lchar, rel, load_floor_2d(&tc.s, c2.lchar), crate::checks2::compliance(a.name, &c2)))),
+        Err(e) if is_lower_bound(&expected) && crate::response::incomplete_collapse(&e) => Verdict::Inconclusive(rel),
         Err(e) => transformed_failure(e),
     }
+}
+
+pub fn is_lower_bound(r: &Resp) -> bool {
+    r.0.iter().any(|i| i.tag == crate::response::LOWER_BOUND)
+}
+
+/// Load factors where a copy is only a lower bound: the copies need not agree,
+/// but a bound above the other copy's collapse factor is unconservative.
+pub fn bounded(got: &Resp, expected: &Resp, rel: f64) -> Option<Verdict> {
+    let factor = |r: &Resp| r.0.iter().find(|i| i.tag == "collapse_factor").map(|i| i.v[0]);
+    let (bound, exact) = match (is_lower_bound(got), is_lower_bound(expected)) {
+        (false, false) => return None,
+        (true, true) => return Some(Verdict::Inconclusive(rel)),
+        _ if rel > INCONCLUSIVE => return Some(Verdict::Inconclusive(rel)),
+        (true, false) => (factor(got)?, factor(expected)?),
+        (false, true) => (factor(expected)?, factor(got)?),
+    };
+    Some(if bound <= exact + rel * exact.abs() {
+        Verdict::Inconclusive(rel)
+    } else {
+        Verdict::Fail(format!("lower bound {bound:.10e} exceeds the collapse factor {exact:.10e} of the other copy"))
+    })
 }
 
 /// The original solved and its transformed copy did not. A refusal that
@@ -140,7 +219,7 @@ fn scale_loads_2d(loads: &[SolverLoad], k: f64) -> Vec<SolverLoad> {
 
 pub fn check_case(ctx: &Ctx, c: &Case2, anas: &[Ana2], invariants: &[&str]) {
     let cond = match guarded(|| conditioning::of_2d(&c.s)) {
-        Ok(k) => k,
+        Ok(k) => with_eigen_2d(k, c),
         Err(e) => {
             for a in anas {
                 for inv in invariants.iter().filter(|i| applicable(a, i)) {
@@ -239,7 +318,7 @@ pub fn check_case(ctx: &Ctx, c: &Case2, anas: &[Ana2], invariants: &[&str]) {
                                 let exp = lin.common(&base);
                                 let got = base.common(&exp);
                                 let rel = rel_for(a.name, a.iter_tol, &cond) * 2.0;
-                                judge(compare_with_floor(&got.flat(), &exp.flat(), cond.lchar, rel, crate::checks2::load_floor_2d(&c.s, cond.lchar)), rel)
+                                judge(compare_with_compliance(&got.flat(), &exp.flat(), cond.lchar, rel, crate::checks2::load_floor_2d(&c.s, cond.lchar), crate::checks2::compliance(a.name, &cond)), rel)
                             }
                         }
                     }
@@ -333,7 +412,7 @@ fn superposition(a: &Ana2, c: &Case2, base: &Resp, cond: &Conditioning) -> Verdi
     let mut ab = la.clone();
     ab.extend(lb.iter().cloned());
     let k = -2.5;
-    let rel = rel_for(a.name, a.iter_tol, cond) * 4.0;
+    let rel = rel_without_eigen(a.name, a.iter_tol, cond) * 4.0;
     let r = (|| -> Result<(Flat, Flat, Flat, Flat, Flat), String> {
         let ra = run(a, &c.with_loads(la.clone()))?.without_stress().flat();
         let rb = run(a, &c.with_loads(lb.clone()))?.without_stress().flat();
@@ -357,18 +436,18 @@ fn superposition(a: &Ana2, c: &Case2, base: &Resp, cond: &Conditioning) -> Verdi
     let exp_ab = Flat::lin_comb(1.0, &sum, 1.0, &r0);
     let scale = Flat::lin_comb(1.0, &Flat::abs_comb(1.0, &ra, 1.0, &rb), 2.0, &Flat::abs_comb(1.0, &r0, 0.0, &r0));
     let floor = load_floor_2d(&c.s, cond.lchar) * (1.0 + k.abs());
-    if let v @ Verdict::Fail(_) = judge(compare_floored(&rab, &exp_ab, &scale, cond.lchar, rel, floor).map_err(|e| format!("R(A+B) ≠ R(A)+R(B)−R(∅): {e}")), rel) {
+    if let v @ Verdict::Fail(_) = judge(compare_compliant(&rab, &exp_ab, &scale, cond.lchar, rel, floor, crate::checks2::compliance(a.name, &cond)).map_err(|e| format!("R(A+B) ≠ R(A)+R(B)−R(∅): {e}")), rel) {
         return v;
     }
     let exp_k = Flat::lin_comb(k, &da, 1.0, &r0);
     let scale_k = Flat::abs_comb(k, &ra, 1.0 + k.abs(), &r0);
-    judge(compare_floored(&rk, &exp_k, &scale_k, cond.lchar, rel, floor).map_err(|e| format!("R(kA) ≠ k·R(A): {e}")), rel)
+    judge(compare_compliant(&rk, &exp_k, &scale_k, cond.lchar, rel, floor, crate::checks2::compliance(a.name, &cond)).map_err(|e| format!("R(kA) ≠ k·R(A): {e}")), rel)
 }
 
 /// Load factors: loads × k ⇒ factor / k (k > 0).
 fn inverse_law(a: &Ana2, c: &Case2, base: &Resp, cond: &Conditioning) -> Verdict {
     let k = 3.7;
-    let rel = rel_for(a.name, a.iter_tol, cond);
+    let rel = rel_without_eigen(a.name, a.iter_tol, cond);
     // The whole action scales: loads and prescribed displacements.
     let mut ck = c.with_loads(scale_loads_2d(&c.s.loads, k));
     for sp in ck.s.supports.values_mut() {
@@ -377,11 +456,12 @@ fn inverse_law(a: &Ana2, c: &Case2, base: &Resp, cond: &Conditioning) -> Verdict
     match run(a, &ck) {
         Ok(r) => {
             let mut exp = base.clone();
-            for it in exp.0.iter_mut() {
+            for it in exp.0.iter_mut().filter(|i| i.tag != crate::response::LOWER_BOUND) {
                 it.v.iter_mut().for_each(|x| *x /= k);
             }
-            judge(compare_with_floor(&r.flat(), &exp.flat(), cond.lchar, rel, load_floor_2d(&c.s, cond.lchar) * k), rel)
+            bounded(&r, &exp, rel).unwrap_or_else(|| judge(compare_with_compliance(&r.flat(), &exp.flat(), cond.lchar, rel, load_floor_2d(&c.s, cond.lchar) * k, crate::checks2::compliance(a.name, &cond)), rel))
         }
+        Err(e) if is_lower_bound(base) && crate::response::incomplete_collapse(&e) => Verdict::Inconclusive(rel),
         Err(e) => Verdict::Fail(format!("scaled loads failed: {e}")),
     }
 }
@@ -451,7 +531,7 @@ fn reciprocity(a: &Ana2, c: &Case2, cond: &Conditioning, rng: &mut Rng) -> Verdi
     if pairs.is_empty() {
         return Verdict::NotApplicable;
     }
-    let rel = rel_for(a.name, a.iter_tol, cond) * 4.0;
+    let rel = rel_without_eigen(a.name, a.iter_tol, cond) * 4.0;
     if rel > INCONCLUSIVE {
         return Verdict::Inconclusive(rel);
     }
@@ -559,7 +639,7 @@ fn energy(a: &Ana2, c: &Case2, cond: &Conditioning, rng: &mut Rng) -> Verdict {
         e2 += t;
         eabs += t.abs();
     }
-    let rel = rel_for(a.name, a.iter_tol, cond) * 4.0;
+    let rel = rel_without_eigen(a.name, a.iter_tol, cond) * 4.0;
     if rel > INCONCLUSIVE {
         return Verdict::Inconclusive(rel);
     }

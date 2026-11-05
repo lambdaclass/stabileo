@@ -1,5 +1,5 @@
 use crate::types::*;
-use crate::postprocess::diagrams::{compute_diagram_value_at_sorted, sorted_point_loads};
+use crate::postprocess::diagrams::{compute_diagram_value_at_sorted, diagram_peak_stations_2d, sorted_point_loads};
 use crate::postprocess::diagrams_3d::evaluate_diagram_3d_at;
 use serde::{Deserialize, Serialize};
 
@@ -94,6 +94,35 @@ pub struct EnvelopeInput3D {
 }
 
 const N_POINTS: usize = 21;
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct EnvelopedFields<'a, D, R, E> {
+    displacements: &'a [D],
+    reactions: &'a [R],
+    element_forces: &'a [E],
+}
+
+fn check_enveloped_inputs<'a, D: Serialize + 'a, R: Serialize + 'a, E: Serialize + 'a>(
+    cases: impl Iterator<Item = (usize, EnvelopedFields<'a, D, R, E>)>,
+) -> Result<(), String> {
+    for (i, fields) in cases {
+        let bad = crate::certify::finite::non_finite_paths(&fields);
+        if let Some(first) = bad.first() {
+            return Err(format!(
+                "Cannot compute the envelope: result {i} has a non-finite number at {}",
+                first.strip_prefix("$.").unwrap_or(first)
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn envelope_station_overflow(kind: &str, element_id: usize, t: f64, r_idx: usize, val: f64) -> String {
+    format!(
+        "Cannot compute the envelope: {kind} of element {element_id} at t = {t} in result {r_idx} evaluates to {val}, beyond the range of f64"
+    )
+}
 
 /// Map each id to its slot index. Later duplicates keep the first slot, which
 /// matches the previous positional behavior for well-formed inputs.
@@ -221,21 +250,15 @@ pub fn combine_results_checked(input: &CombinationInput) -> Result<Option<Analys
 
 // ==================== 2D Envelope ====================
 
-/// `compute_envelope` for results received from outside the engine; see `combine_results_checked`.
-pub fn compute_envelope_checked(results: &[AnalysisResults]) -> Result<Option<FullEnvelope>, String> {
+/// Compute pointwise envelope from multiple results. A result that carries a refusal is refused.
+pub fn compute_envelope(results: &[AnalysisResults]) -> Result<FullEnvelope, String> {
     for result in results {
         crate::known_issues::refuse(&result.structured_diagnostics)?;
     }
-    Ok(compute_envelope(results))
-}
-
-/// Compute pointwise envelope from multiple results.
-/// `None` when any result carries a refusal; `compute_envelope_checked` says which.
-pub fn compute_envelope(results: &[AnalysisResults]) -> Option<FullEnvelope> {
-    if results.iter().any(|r| crate::known_issues::refuse(&r.structured_diagnostics).is_err()) {
-        return None;
-    }
-    let first = results.first()?;
+    let first = results.first().ok_or_else(|| "Cannot compute the envelope of no results".to_string())?;
+    check_enveloped_inputs(results.iter().enumerate().map(|(i, r)| {
+        (i, EnvelopedFields { displacements: &r.displacements, reactions: &r.reactions, element_forces: &r.element_forces })
+    }))?;
 
     // maxAbsResults
     let mut displacements = first.displacements.clone();
@@ -275,7 +298,7 @@ pub fn compute_envelope(results: &[AnalysisResults]) -> Option<FullEnvelope> {
     }
     let max_abs_results = AnalysisResults { displacements, reactions, element_forces, constraint_forces: vec![], diagnostics: vec![], solver_diagnostics: vec![], structured_diagnostics, equilibrium: None, result_summary: None, solver_run_meta: None };
 
-    fn compute_env_diagram(kind: &str, results: &[AnalysisResults]) -> EnvelopeDiagramData {
+    fn compute_env_diagram(kind: &str, results: &[AnalysisResults]) -> Result<EnvelopeDiagramData, String> {
         let first = &results[0];
         let mut elements = Vec::new();
         let mut global_max = 0.0f64;
@@ -299,8 +322,16 @@ pub fn compute_envelope(results: &[AnalysisResults]) -> Option<FullEnvelope> {
                 })
                 .collect();
 
-            for j in 0..N_POINTS {
-                let t = j as f64 / (N_POINTS - 1) as f64;
+            let mut stations: Vec<f64> = (0..N_POINTS).map(|j| j as f64 / (N_POINTS - 1) as f64).collect();
+            for (r_idx, res) in results.iter().enumerate() {
+                if let Some(ref spl) = sorted_pls[r_idx] {
+                    stations.extend(diagram_peak_stations_2d(&res.element_forces[e_idx], kind, spl));
+                }
+            }
+            stations.sort_by(|a, b| a.total_cmp(b));
+            stations.dedup_by(|b, a| (*b - *a).abs() <= 1e-12);
+
+            for t in stations {
                 t_positions.push(t);
                 let mut max_pos = 0.0f64;
                 let mut max_neg = 0.0f64;
@@ -308,6 +339,9 @@ pub fn compute_envelope(results: &[AnalysisResults]) -> Option<FullEnvelope> {
                 for (r_idx, res) in results.iter().enumerate() {
                     let Some(ref spl) = sorted_pls[r_idx] else { continue; };
                     let val = compute_diagram_value_at_sorted(kind, t, &res.element_forces[e_idx], spl);
+                    if !val.is_finite() {
+                        return Err(envelope_station_overflow(kind, elem_id, t, r_idx, val));
+                    }
                     if val > max_pos { max_pos = val; }
                     if val < max_neg { max_neg = val; }
                 }
@@ -320,13 +354,13 @@ pub fn compute_envelope(results: &[AnalysisResults]) -> Option<FullEnvelope> {
             elements.push(ElementEnvelopeDiagram { element_id: elem_id, t_positions, pos_values, neg_values });
         }
 
-        EnvelopeDiagramData { kind: kind.to_string(), elements, global_max }
+        Ok(EnvelopeDiagramData { kind: kind.to_string(), elements, global_max })
     }
 
-    Some(FullEnvelope {
-        moment: compute_env_diagram("moment", results),
-        shear: compute_env_diagram("shear", results),
-        axial: compute_env_diagram("axial", results),
+    Ok(FullEnvelope {
+        moment: compute_env_diagram("moment", results)?,
+        shear: compute_env_diagram("shear", results)?,
+        axial: compute_env_diagram("axial", results)?,
         max_abs_results,
     })
 }
@@ -458,18 +492,21 @@ pub(crate) fn combine_results_3d_refs_unchecked(factors: &[CombinationFactor], c
 
 /// Compute pointwise 3D envelope. A single distorted-shell result is returned as it is; several
 /// are refused, since the envelope cannot check their combined membrane stresses.
-pub fn compute_envelope_3d(results: &[AnalysisResults3D]) -> Result<Option<FullEnvelope3D>, String> {
+pub fn compute_envelope_3d(results: &[AnalysisResults3D]) -> Result<FullEnvelope3D, String> {
     for result in results {
         crate::known_issues::refuse(&result.structured_diagnostics)?;
         if results.len() > 1 && result.structured_diagnostics.iter().any(|d| d.phase.as_deref() == Some("SH-MITC4-DISTORTION")) {
             crate::known_issues::refuse(&[crate::known_issues::diagnostic("SH-MITC4-DISTORTION")])?;
         }
     }
-    Ok(compute_envelope_3d_checked(results))
+    compute_envelope_3d_checked(results)
 }
 
-pub(crate) fn compute_envelope_3d_checked(results: &[AnalysisResults3D]) -> Option<FullEnvelope3D> {
-    let first = results.first()?;
+pub(crate) fn compute_envelope_3d_checked(results: &[AnalysisResults3D]) -> Result<FullEnvelope3D, String> {
+    let first = results.first().ok_or_else(|| "Cannot compute the envelope of no results".to_string())?;
+    check_enveloped_inputs(results.iter().enumerate().map(|(i, r)| {
+        (i, EnvelopedFields { displacements: &r.displacements, reactions: &r.reactions, element_forces: &r.element_forces })
+    }))?;
 
     // maxAbsResults3D
     let mut displacements = first.displacements.clone();
@@ -522,7 +559,7 @@ pub(crate) fn compute_envelope_3d_checked(results: &[AnalysisResults3D]) -> Opti
     }
     let max_abs_results_3d = AnalysisResults3D { displacements, reactions, element_forces, plate_stresses: vec![], quad_stresses: vec![], quad_nodal_stresses: vec![], constraint_forces: vec![], diagnostics: vec![], solver_diagnostics: vec![], structured_diagnostics, equilibrium: None, timings: None, result_summary: None, solver_run_meta: None };
 
-    fn compute_env_3d(kind: &str, results: &[AnalysisResults3D]) -> EnvelopeDiagramData {
+    fn compute_env_3d(kind: &str, results: &[AnalysisResults3D]) -> Result<EnvelopeDiagramData, String> {
         let first = &results[0];
         let mut elements = Vec::new();
         let mut global_max = 0.0f64;
@@ -536,9 +573,10 @@ pub(crate) fn compute_envelope_3d_checked(results: &[AnalysisResults3D]) -> Opti
             // Collect the force records for this element once instead of
             // re-indexing and bounds-checking every result at every station —
             // the 2D path already hoists its per-element work this way.
-            let element_cases: Vec<&ElementForces3D> = results
+            let element_cases: Vec<(usize, &ElementForces3D)> = results
                 .iter()
-                .filter_map(|res| res.element_forces.get(e_idx))
+                .enumerate()
+                .filter_map(|(r_idx, res)| res.element_forces.get(e_idx).map(|ef| (r_idx, ef)))
                 .collect();
 
             for j in 0..N_POINTS {
@@ -547,8 +585,11 @@ pub(crate) fn compute_envelope_3d_checked(results: &[AnalysisResults3D]) -> Opti
                 let mut max_pos = 0.0f64;
                 let mut max_neg = 0.0f64;
 
-                for ef in &element_cases {
+                for &(r_idx, ef) in &element_cases {
                     let val = evaluate_diagram_3d_at(ef, kind, t);
+                    if !val.is_finite() {
+                        return Err(envelope_station_overflow(kind, elem_id, t, r_idx, val));
+                    }
                     if val > max_pos { max_pos = val; }
                     if val < max_neg { max_neg = val; }
                 }
@@ -561,16 +602,16 @@ pub(crate) fn compute_envelope_3d_checked(results: &[AnalysisResults3D]) -> Opti
             elements.push(ElementEnvelopeDiagram { element_id: elem_id, t_positions, pos_values, neg_values });
         }
 
-        EnvelopeDiagramData { kind: kind.to_string(), elements, global_max }
+        Ok(EnvelopeDiagramData { kind: kind.to_string(), elements, global_max })
     }
 
-    Some(FullEnvelope3D {
-        moment_y: compute_env_3d("momentY", results),
-        moment_z: compute_env_3d("momentZ", results),
-        shear_y: compute_env_3d("shearY", results),
-        shear_z: compute_env_3d("shearZ", results),
-        axial: compute_env_3d("axial", results),
-        torsion: compute_env_3d("torsion", results),
+    Ok(FullEnvelope3D {
+        moment_y: compute_env_3d("momentY", results)?,
+        moment_z: compute_env_3d("momentZ", results)?,
+        shear_y: compute_env_3d("shearY", results)?,
+        shear_z: compute_env_3d("shearZ", results)?,
+        axial: compute_env_3d("axial", results)?,
+        torsion: compute_env_3d("torsion", results)?,
         max_abs_results_3d,
     })
 }

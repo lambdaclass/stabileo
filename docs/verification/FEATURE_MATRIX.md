@@ -37,7 +37,7 @@ analytical value, or the linear solver in the linear limit).
 | corotational (sparse path) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | R | R | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | material nonlinear | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | material nonlinear (sparse path) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| fiber nonlinear | ✓ | ✓ | R | R | ✓ | ✓ | ✓ | ✓ | R | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| fiber nonlinear | ✓ | ✓ | R | R | ✓ | ✓ | ✓ | ✓ | R | ✓ | ✓ | ✓ | ✓ | ✓ | R | R | ✓ |
 | arc length | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | R | R | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | displacement control | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | R | R | R | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | staged (one stage) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | R | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | R |
@@ -79,7 +79,7 @@ Features:
 - **F16** constraint (rigid link)
 - **F17** connector
 
-Totals: · 91, ✓ 415, R 30, ~ 8
+Totals: · 91, ✓ 413, R 32, ~ 8
 
 Notes on every cell that is not ✓ or ·:
 
@@ -117,7 +117,9 @@ Notes on every cell that is not ✓ or ·:
 - plastic collapse × trapezoidal distributed load: cantilever: R Results withheld: the 2D plastic collapse factor can change by up to 4.6 times with numbering, member direction or units. Use an independently verified collapse analysis (known issue #758, PL-2D-INVARIANCE)
 - plastic collapse × point load on member: cantilever: R Results withheld: the 2D plastic collapse factor can change by up to 4.6 times with numbering, member direction or units. Use an independently verified collapse analysis (known issue #758, PL-2D-INVARIANCE)
 - plastic collapse × couple on member: cantilever: R Results withheld: the 2D plastic collapse factor can change by up to 4.6 times with numbering, member direction or units. Use an independently verified collapse analysis (known issue #758, PL-2D-INVARIANCE)
+- fiber nonlinear × constraint (EqualDOF): tied coincident nodes: R Fiber-nonlinear analysis: constraints are not supported, because the global force and moment balance of a cons…
 - plastic collapse × constraint (EqualDOF): tied coincident nodes: R Results withheld: the 2D plastic collapse factor can change by up to 4.6 times with numbering, member direction or units. Use an independently verified collapse analysis (known issue #758, PL-2D-INVARIANCE)
+- fiber nonlinear × constraint (rigid link): offset beam: R Fiber-nonlinear analysis: constraints are not supported, because the global force and moment balance of a cons…
 - plastic collapse × constraint (rigid link): offset beam: R Results withheld: the 2D plastic collapse factor can change by up to 4.6 times with numbering, member direction or units. Use an independently verified collapse analysis (known issue #758, PL-2D-INVARIANCE)
 - staged (one stage) × connector: axial connector: R Staged construction analysis does not support connector elements; it would solve the model without them. Remov…
 - plastic collapse × connector: axial connector: R Results withheld: the 2D plastic collapse factor can change by up to 4.6 times with numbering, member direction or units. Use an independently verified collapse analysis (known issue #758, PL-2D-INVARIANCE)
@@ -137,7 +139,7 @@ Notes on every cell that is not ✓ or ·:
 | corotational (sparse path) | ✓ | ✓ | ✓ | R | ✓ | ✓ | ✓ | ✓ | ✓ | R | R | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | R | R | R | R | R | R | R | R | R |
 | material nonlinear | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | R | R | R | R | R | R | R | R | R |
 | material nonlinear (sparse path) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | R | R | R | R | R | R | R | R | R |
-| fiber nonlinear | ✓ | ✓ | R | R | R | ✓ | ✓ | ✓ | ✓ | R | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | R | R | R | R | R | R | R | R | R |
+| fiber nonlinear | ✓ | ✓ | R | R | R | ✓ | ✓ | ✓ | ✓ | R | ✓ | ✓ | ✓ | ✓ | R | R | R | ✓ | ✓ | R | R | R | R | R | R | R | R | R |
 | staged (one stage) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | R | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | R | R | ✓ | ✓ | R | R | R | ✓ | ✓ | ✓ | ✓ |
 | Winkler (no foundation) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | contact (no gaps) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
@@ -188,7 +190,7 @@ Features:
 - **F27** shell edge load
 - **F28** shell thermal load
 
-Totals: · 174, ✓ 585, R 69, ~ 12
+Totals: · 174, ✓ 582, R 72, ~ 12
 
 Notes on every cell that is not ✓ or ·:
 
@@ -219,8 +221,11 @@ Notes on every cell that is not ✓ or ·:
 - harmonic × prescribed displacement: support settlement: R Harmonic analysis does not support prescribed support displacements (support at node 7); it would solve the mo…
 - corotational × thermal load: free cantilever: R Corotational analysis does not support thermal loads (member 1, member 2, member 3, … (4 in all)); it would so…
 - corotational (sparse path) × thermal load: free cantilever: R Corotational analysis does not support thermal loads (member 1, member 2, member 3, … (4 in all)); it would so…
+- fiber nonlinear × constraint (EqualDOF): tied coincident nodes: R Fiber-nonlinear analysis: constraints are not supported, because the global force and moment balance of a cons…
 - plastic collapse × constraint (EqualDOF): tied coincident nodes: R Plastic (pushover) analysis does not support constraints (rigid links, diaphragms, EqualDOF, MPCs) (constraint…
+- fiber nonlinear × constraint (rigid link): offset beam: R Fiber-nonlinear analysis: constraints are not supported, because the global force and moment balance of a cons…
 - plastic collapse × constraint (rigid link): offset beam: R Plastic (pushover) analysis does not support constraints (rigid links, diaphragms, EqualDOF, MPCs) (constraint…
+- fiber nonlinear × constraint (diaphragm): two columns: R Fiber-nonlinear analysis: constraints are not supported, because the global force and moment balance of a cons…
 - plastic collapse × constraint (diaphragm): two columns: R Plastic (pushover) analysis does not support constraints (rigid links, diaphragms, EqualDOF, MPCs) (constraint…
 - staged (one stage) × connector: axial connector: R Staged construction analysis does not support connector elements; it would solve the model without them. Remov…
 - plastic collapse × connector: axial connector: R Plastic (pushover) analysis does not support connector elements (connector 1); it would solve the model withou…

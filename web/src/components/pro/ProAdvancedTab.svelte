@@ -578,7 +578,16 @@
       // The fibre analysis was offered here and never ran: the engine needs fibre sections and
       // material laws this panel does not build, so it is out of the list until it does.
     } catch (e: any) {
-      solveError = tp('adv.failed', { analysis: t('adv.name.nonlinear'), error: errorText(e, t('pro.unknownError')) });
+      const turned = /member (\d+) turn ([\d.]+) rad/.exec(errorText(e, ''));
+      const bent = /chord of member (\d+) and its ends may be up to ([\d.]+) rad/.exec(errorText(e, ''));
+      const stepped = /end of member (\d+) turned more than .* within one load increment/.exec(errorText(e, ''));
+      solveError = turned
+        ? tp('pro.corotMemberTurns', { id: turned[1], turn: turned[2] })
+        : bent
+        ? tp('pro.corotChordTurns', { id: bent[1], turn: bent[2] })
+        : stepped
+        ? tp('pro.corotIncrementTurns', { id: stepped[1] })
+        : tp('adv.failed', { analysis: t('adv.name.nonlinear'), error: errorText(e, t('pro.unknownError')) });
     }
     solving = false;
   }
@@ -1046,9 +1055,6 @@
     {/if}
   </div>
 
-  <div class="adv-wip-banner">
-    {t('pro.advancedWip')}
-  </div>
   <!-- What every analysis here loads: the unfactored sum of the cases, which none of them said. -->
   <p class="adv-hint" data-testid="adv-loads-note">{t('adv.loadsNote')}</p>
 
@@ -1871,25 +1877,6 @@
     flex: 1;
     overflow-y: auto;
     min-height: 0;
-  }
-
-  /*
-     A caveat, at the size of a caveat.
-     ─────────────────────────────────
-     It was a full-width amber strip that reappeared on every visit to the
-     panel, permanently, above whatever you came to do — an announcement for
-     something that is a footnote. It says the same thing in one quiet line.
-  */
-  .adv-wip-banner {
-    display: block;
-    margin: 0 0 0.5rem;
-    padding: 0.1rem 0 0.3rem;
-    border-bottom: 1px solid var(--st-hair);
-    background: none;
-    color: var(--st-text-3);
-    font-size: 0.75rem;
-    font-style: italic;
-    text-align: left;
   }
 
   .adv-error {

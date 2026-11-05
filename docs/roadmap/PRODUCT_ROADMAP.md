@@ -1,5 +1,284 @@
 # Stabileo Product Roadmap
 
+## Priority now: bugs first (2026-11-04)
+
+The order of all work, set by the user: wrong-result bugs (P0, then P1) first, then other bugs, then
+features. Nothing in a lower group takes capacity from a higher one. The table "Active workstreams"
+below has every pull request in flight; "Later: deferred follow-ups" has everything decided for
+later, so nothing is forgotten.
+
+### 0. New since 2026-11-03: first in line
+
+| Item | What | Next step |
+|---|---|---|
+| [#1350](https://github.com/lambdaclass/stabileo/issues/1350) (nightly fuzz, `json_static`) | 2D and 3D envelopes can return non-finite values: end forces near the float limit overflow along the member, and a NaN after the first result is dropped by the comparison | fix in [#1379](https://github.com/lambdaclass/stabileo/pull/1379) (ready, Codex high clean; envelopes refuse non-finite inputs and stations; no results version) |
+| Metamorphic nightly findings [#1351](https://github.com/lambdaclass/stabileo/issues/1351)–[#1371](https://github.com/lambdaclass/stabileo/issues/1371) | wrong-result candidates (labelled `wrong-result-candidate`: superposition, symmetry and antisymmetry, quad9 von Mises, member forces, influence lines) and refusals that change under an invariant transform (`invariance-refusal`: eigen-solve convergence, massless mechanisms, self-check residuals, unsupported nodal moments, non-finite time history) | triage each against a hand-checked model before calling it an engine bug: a harness or tolerance cause goes to [#1299](https://github.com/lambdaclass/stabileo/pull/1299), an engine cause gets a fix PR and, if it is live, an advisory. [#1204](https://github.com/lambdaclass/stabileo/issues/1204) duplicates [#1203](https://github.com/lambdaclass/stabileo/issues/1203): close it |
+| [#1349](https://github.com/lambdaclass/stabileo/issues/1349) (nightly fuzz, `json_plastic`) | a plastic-collapse input that runs past the fuzz time limit | reproduce, then bound the iteration or refuse the input |
+| [#983](https://github.com/lambdaclass/stabileo/issues/983) | the nightly `random-models` job keeps failing | find whether it is infrastructure or a finding; one issue per root cause |
+| [#1378](https://github.com/lambdaclass/stabileo/issues/1378) | missed mutants in the static solver core (`linear.rs`, `assembly.rs`): code paths no test checks | tests that kill them, the static solver first |
+| [#871](https://github.com/lambdaclass/stabileo/pull/871) incident | the Basic course (units 1 to 7, Batuis) was enqueued directly and merged on 2026-11-04 without review and without the review fixes made on [#1070](https://github.com/lambdaclass/stabileo/pull/1070) and the course stack; it took results version 14 | reverted by [#1372](https://github.com/lambdaclass/stabileo/pull/1372) the same day (results version 15 withdraws v14's three course entries). The course lands again from the reviewed stack [#1302](https://github.com/lambdaclass/stabileo/pull/1302)–[#1307](https://github.com/lambdaclass/stabileo/pull/1307) (drafts), each part with its review fixes. Prevention: Release safety item 11 |
+
+### 1. Wrong-result bugs
+
+**Open safety issues and their state on main.** "Uncontained" means main can give the wrong result
+with no warning today. "Contained by [#807](https://github.com/lambdaclass/stabileo/pull/807)" means the containment PR ([#807](https://github.com/lambdaclass/stabileo/pull/807), under [#447](https://github.com/lambdaclass/stabileo/issues/447)) warns or
+refuses; it is not on main yet and lands before the per-defect fixes, each of which then removes its
+own warning or refusal. The per-defect fixes come from the solver bug-fix workstream, in this order:
+[#1238](https://github.com/lambdaclass/stabileo/issues/1238), [#466](https://github.com/lambdaclass/stabileo/issues/466), [#458](https://github.com/lambdaclass/stabileo/issues/458), [#426](https://github.com/lambdaclass/stabileo/issues/426), [#532](https://github.com/lambdaclass/stabileo/issues/532) (already in wave B), [#456](https://github.com/lambdaclass/stabileo/issues/456), [#417](https://github.com/lambdaclass/stabileo/issues/417), [#432](https://github.com/lambdaclass/stabileo/issues/432).
+
+| Issue | Defect | On main today | Containment | Fix |
+|---|---|---|---|---|
+| [#532](https://github.com/lambdaclass/stabileo/issues/532) (P0) | 3D design demands on the lateral axis (Vy/Mz instead of Vz/My); the live CIRSOC 201 column design checked Mz over the depth, up to 36% short of steel | fixed on main by wave B (715279c26, 2026-11-03) | — | fixed in [#1233](https://github.com/lambdaclass/stabileo/pull/1233) via [#1285](https://github.com/lambdaclass/stabileo/pull/1285) (results version 7, SA-2026-029); issue to close |
+| [#534](https://github.com/lambdaclass/stabileo/issues/534) (P0) | EC2 flexure assumes the tension steel yields: M_Rd up to 21% high on singly reinforced beams and 22% with top bars, certified | fixed on main by wave B (715279c26, 2026-11-03) | — | fixed in [#1236](https://github.com/lambdaclass/stabileo/pull/1236) via [#1285](https://github.com/lambdaclass/stabileo/pull/1285) (results version 8, SA-2026-028); issue to close |
+| [#532](https://github.com/lambdaclass/stabileo/issues/532) leftover | Excel and IFC imports swap Iy and Iz of rectangles and tubes | uncontained | — | fix in [#1310](https://github.com/lambdaclass/stabileo/pull/1310) (draft; SA-2026-039, High; no results version; its push and base change wait on the user) |
+| [#1314](https://github.com/lambdaclass/stabileo/issues/1314) | RC design (ACI 318, EN 1992) ignores member torsion, with no warning | uncontained | contained by [#1319](https://github.com/lambdaclass/stabileo/pull/1319) (draft): torsion above the ACI 22.7.1.1 threshold is marked not checked (SA-2026-040) | torsion design not started |
+| [#1315](https://github.com/lambdaclass/stabileo/issues/1315) | modal mechanism detection can miss a mechanism at an inclined support (high-effort review of wave B) | uncontained | — | fix in [#1325](https://github.com/lambdaclass/stabileo/pull/1325) (draft): inclined-support DOFs weighed by their mass |
+| [#1323](https://github.com/lambdaclass/stabileo/issues/1323) | 2D buckling overstates the factor when compression grows along a member under axial span loads (mean-N Kg, +43–68 %, no warning) | fixed on main by [#1324](https://github.com/lambdaclass/stabileo/pull/1324) via [#1409](https://github.com/lambdaclass/stabileo/pull/1409) (2026-11-05) | — | fixed |
+| [#1316](https://github.com/lambdaclass/stabileo/issues/1316) | RC "Axial + Moment" rows envelope N and M under one combination name | uncontained | — | fix in [#1321](https://github.com/lambdaclass/stabileo/pull/1321) (draft): RC columns also checked under their least compression |
+| [#1317](https://github.com/lambdaclass/stabileo/issues/1317) | non-finite demand components that don't govern go unnoticed (high-effort review of wave B) | uncontained | — | not started |
+| [#1318](https://github.com/lambdaclass/stabileo/issues/1318) | the legacy-project migration fingerprint omits material strength (fy, f'c) | uncontained | — | not started |
+| [#426](https://github.com/lambdaclass/stabileo/issues/426) | 3D co-rotational adds rotation vectors (reachable from PRO) | fixed on main by [#1301](https://github.com/lambdaclass/stabileo/pull/1301) via [#1409](https://github.com/lambdaclass/stabileo/pull/1409) (2026-11-05): natural rotations from rotation matrices; a member end turning past 0.02 rad warns (NL-3), larger turns per increment are refused | main's scoped NL-3 warning; #807 drops its blanket one | fixed |
+| [#458](https://github.com/lambdaclass/stabileo/issues/458) | the assembled certificate certifies singular models | 2D partly fixed on main by [#1298](https://github.com/lambdaclass/stabileo/pull/1298) via [#1409](https://github.com/lambdaclass/stabileo/pull/1409) (2026-11-05); the connector-only case and the 3D skew case are open | [#807](https://github.com/lambdaclass/stabileo/pull/807) keeps CERT-MECHANISM (warn) for the 2D cases main still solves, such as a node held only through connectors without moment stiffness to a support; 3D: NUM-INVARIANCE warning, never certified | 3D skew case: its real fix (detect the rank-deficient rotation block and refuse) is still open; near-mechanisms stay warn, not refuse (user, 2026-11-02) |
+| [#798](https://github.com/lambdaclass/stabileo/issues/798) | MITC4 too stiff on distorted meshes under in-plane bending | uncontained | contained by [#807](https://github.com/lambdaclass/stabileo/pull/807) (SH-MITC4-DISTORTION: warn, refuse on significant membrane bending) | membrane fix not started; narrowing the refusal is deferred (see "Later") |
+| [#1057](https://github.com/lambdaclass/stabileo/issues/1057) | MITC4 and MITC9 too flexible on warped geometry | uncontained | contained by [#807](https://github.com/lambdaclass/stabileo/pull/807) (SH-WARPED-MITC4/MITC9, refuse; [#1074](https://github.com/lambdaclass/stabileo/pull/1074) folded in) | formulation fix not started |
+| [#466](https://github.com/lambdaclass/stabileo/issues/466) | 2D constraints assume the X–Z plane; Y–Z cuts are mapped wrongly | fixed on main by [#1297](https://github.com/lambdaclass/stabileo/pull/1297) via [#1409](https://github.com/lambdaclass/stabileo/pull/1409) (2026-11-05) | #807 drops AC-PLANE-MAPPING | fixed |
+| [#1238](https://github.com/lambdaclass/stabileo/issues/1238) | 3D→2D cut bends members about the wrong axis (up to 13× too stiff) | fixed on main by [#1295](https://github.com/lambdaclass/stabileo/pull/1295) (2026-11-04) | #807 drops CUT-SECTION-AXIS | fixed |
+| [#741](https://github.com/lambdaclass/stabileo/issues/741) | certified 3D buckling factor above its own upper bound | fixed by [#817](https://github.com/lambdaclass/stabileo/pull/817) (merged in wave A, results version 6) | [#807](https://github.com/lambdaclass/stabileo/pull/807) also refuses it (BU-BOUND) | landed; close the issue with evidence |
+| [#818](https://github.com/lambdaclass/stabileo/issues/818) | the dense reciprocal eigen-solve can report a buckling factor slightly high (0.05%) | uncontained | contained by [#807](https://github.com/lambdaclass/stabileo/pull/807) (BU-ACCURACY, warn on all 3D buckling) | not started |
+| [#456](https://github.com/lambdaclass/stabileo/issues/456) | 3D buckling compression gate misses members compressed only between their ends | uncontained | contained by [#807](https://github.com/lambdaclass/stabileo/pull/807) (BU-SPAN-COMPRESSION, warn) | fix in [#1309](https://github.com/lambdaclass/stabileo/pull/1309) (draft, stacked on #807) |
+| [#419](https://github.com/lambdaclass/stabileo/issues/419) | 3D connector axes are discontinuous and not user-orientable | uncontained | contained by [#807](https://github.com/lambdaclass/stabileo/pull/807) (SP-17, warn) | not started |
+| [#408](https://github.com/lambdaclass/stabileo/issues/408) | the warping DOF is shared by every member at a node | uncontained | contained by [#807](https://github.com/lambdaclass/stabileo/pull/807) (FR-5, warn) | not started |
+| [#417](https://github.com/lambdaclass/stabileo/issues/417) | a cable carries compression in the linear solver with no diagnostic | uncontained | contained by [#807](https://github.com/lambdaclass/stabileo/pull/807) (SP-14, warn) | queued with the solver bug-fix workstream |
+| [#432](https://github.com/lambdaclass/stabileo/issues/432) | contact reports converged after freezing a chattering gap | uncontained | contained by [#807](https://github.com/lambdaclass/stabileo/pull/807) (NL-13, warn) | queued with the solver bug-fix workstream |
+| [#433](https://github.com/lambdaclass/stabileo/issues/433) | fiber solver returns an unconverged iterate | uncontained | contained by [#807](https://github.com/lambdaclass/stabileo/pull/807) (NL-17, warn) | fix in [#1296](https://github.com/lambdaclass/stabileo/pull/1296) (draft): stop at the last converged increment, reactions and an equilibrium gate |
+| [#370](https://github.com/lambdaclass/stabileo/issues/370) | known solver gaps (unconverged nonlinear increments and others) | uncontained | contained by [#807](https://github.com/lambdaclass/stabileo/pull/807) (NL-DYNAMIC-GAPS, warn) | not started |
+| [#381](https://github.com/lambdaclass/stabileo/issues/381) | nonlinear and dynamic robustness programme | not a single wrong-result defect | [#807](https://github.com/lambdaclass/stabileo/pull/807) records it as scope; concrete defects are tracked separately | — |
+| [#428](https://github.com/lambdaclass/stabileo/issues/428) | material nonlinear is a whole-member secant, not plasticity | contained on main (`known_issues.rs`, NL-5 warn) | on main | not started |
+
+**Other wrong-result fixes** (all with a regression test that fails before the fix):
+
+- **Landed: wave B, [#1285](https://github.com/lambdaclass/stabileo/pull/1285)** (715279c26, 2026-11-03; results version 13; main is now at 15, see below):
+  [#1233](https://github.com/lambdaclass/stabileo/pull/1233) ([#532](https://github.com/lambdaclass/stabileo/issues/532)), [#1236](https://github.com/lambdaclass/stabileo/pull/1236) ([#534](https://github.com/lambdaclass/stabileo/issues/534)), [#1225](https://github.com/lambdaclass/stabileo/pull/1225) ([#827](https://github.com/lambdaclass/stabileo/pull/827) repeated modes [#759](https://github.com/lambdaclass/stabileo/issues/759), [#865](https://github.com/lambdaclass/stabileo/pull/865) self-checking results, [#770](https://github.com/lambdaclass/stabileo/pull/770) old
+  project files, [#786](https://github.com/lambdaclass/stabileo/pull/786) snapshot gate), [#1237](https://github.com/lambdaclass/stabileo/pull/1237) (shell envelope per component, SA-2026-027), [#1246](https://github.com/lambdaclass/stabileo/pull/1246)
+  ([#467](https://github.com/lambdaclass/stabileo/issues/467) CIRSOC 301 Q ≤ 0 refused, [#766](https://github.com/lambdaclass/stabileo/issues/766) PRO design says why no member is checked, SA-2026-030),
+  [#1234](https://github.com/lambdaclass/stabileo/pull/1234) (AISC G2 and EC3 6.2.6 shear with no web or shear area unevaluated, SA-2026-025 and
+  SA-2026-026), [#1239](https://github.com/lambdaclass/stabileo/pull/1239) (time history refuses non-finite results), [#1247](https://github.com/lambdaclass/stabileo/pull/1247) ([#760](https://github.com/lambdaclass/stabileo/issues/760) time-history
+  reciprocity on massless DOFs, [#338](https://github.com/lambdaclass/stabileo/issues/338) modal refuses mechanism modes, SA-2026-031 and SA-2026-032).
+  [#1286](https://github.com/lambdaclass/stabileo/pull/1286) and [#1287](https://github.com/lambdaclass/stabileo/pull/1287) came in through its branch. Every part is merged or closed "merged via [#1285](https://github.com/lambdaclass/stabileo/pull/1285)". Issues
+  [#532](https://github.com/lambdaclass/stabileo/issues/532), [#534](https://github.com/lambdaclass/stabileo/issues/534), [#467](https://github.com/lambdaclass/stabileo/issues/467), [#766](https://github.com/lambdaclass/stabileo/issues/766), [#760](https://github.com/lambdaclass/stabileo/issues/760), [#338](https://github.com/lambdaclass/stabileo/issues/338) and [#759](https://github.com/lambdaclass/stabileo/issues/759) are still open on GitHub: close each with its evidence.
+- **Live wrong results in the PRO load generator (from [#1076](https://github.com/lambdaclass/stabileo/pull/1076)):** [#1311](https://github.com/lambdaclass/stabileo/issues/1311) a narrow deck not
+  aligned with X/Y gets no floor load (being fixed on #1253's branch); [#1312](https://github.com/lambdaclass/stabileo/issues/1312) in width mode,
+  floor beams under low eaves lose their floor load (fixed in #1253); [#1313](https://github.com/lambdaclass/stabileo/issues/1313) "Reproduce" verifies
+  a report whose printed values were edited (fixed in #1253). All three come from the high-effort
+  re-review of the PRs merged since 2026-11-01: Codex had run at reasoning effort "none" in that
+  window, and `run-engine.sh` now forces high.
+- **[#1253](https://github.com/lambdaclass/stabileo/pull/1253):** the generated area loads drop a floor's load under a low member (post-merge findings
+  on [#1076](https://github.com/lambdaclass/stabileo/pull/1076); SA-2026-033, results version 17 in landing order). Known on main; fix in review.
+- **[#1255](https://github.com/lambdaclass/stabileo/pull/1255):** the equilibrium check says "balanced" over loads it left out, similar-storey matching
+  and replication (post-merge findings on [#1077](https://github.com/lambdaclass/stabileo/pull/1077); SA-2026-034, results version 18 in landing order).
+  Known on main; fix in review.
+- **[#807](https://github.com/lambdaclass/stabileo/pull/807)** containment (above), then the per-defect fixes of the solver bug-fix workstream.
+- **[#755](https://github.com/lambdaclass/stabileo/issues/755) (SA-2026-023):** the RC column check read one sign of the moment; close the issue once its
+  fix is confirmed on main.
+- **Nightly triage:** the nightly safety issues from [#1081](https://github.com/lambdaclass/stabileo/issues/1081) on still need decisions (most have
+  ledger rows in [#807](https://github.com/lambdaclass/stabileo/pull/807); group A after [#1239](https://github.com/lambdaclass/stabileo/pull/1239), now on main; the replays). In progress on branch
+  `safety/nightly-triage-1103`; earlier work on `safety/nightly-triage-engine` (ledger decisions for
+  [#954](https://github.com/lambdaclass/stabileo/issues/954)–[#1041](https://github.com/lambdaclass/stabileo/issues/1041), to fold into #807 or its own PR) and `wip/nightly-triage-noise-checks`.
+  The new findings from 2026-11-04 are in section 0 above.
+- **Results versions follow the landing order:** main is at v15 ([#1372](https://github.com/lambdaclass/stabileo/pull/1372) withdrew [#871](https://github.com/lambdaclass/stabileo/pull/871)'s v14). Next, in order:
+  [#1325](https://github.com/lambdaclass/stabileo/pull/1325) (v16), [#1253](https://github.com/lambdaclass/stabileo/pull/1253) (v17) and [#1255](https://github.com/lambdaclass/stabileo/pull/1255) (v18), then [#807](https://github.com/lambdaclass/stabileo/pull/807) and the solver fixes, numbered at landing.
+  [#1310](https://github.com/lambdaclass/stabileo/pull/1310) is an import-only fix with advisory SA-2026-039 and no results version. Each PR renumbers if anything lands ahead of it.
+
+### 2. Other bugs
+
+- **Found in the review of [#1253](https://github.com/lambdaclass/stabileo/pull/1253) and [#1255](https://github.com/lambdaclass/stabileo/pull/1255) (2026-11-04):**
+  - [#1404](https://github.com/lambdaclass/stabileo/issues/1404): the re-check notice shows every registered change's title and explanation in English to German, French and Turkish users. This affects all 72 entries on main, and a safety notice the reader can't read is close to a missed notice.
+  - [#1401](https://github.com/lambdaclass/stabileo/issues/1401): edge beams under one-sided slab load get no torque and no advisory, in the panels, width and plan modes.
+  - [#1402](https://github.com/lambdaclass/stabileo/issues/1402): verification integrity. A hand-edited report can drop sections and still pass the report check.
+  - [#1403](https://github.com/lambdaclass/stabileo/issues/1403): the storey scope should track explicit picks separately from expansion copies.
+- **Route byte budgets:** all six routes are back to 128 B ([#1322](https://github.com/lambdaclass/stabileo/pull/1322), then [#1372](https://github.com/lambdaclass/stabileo/pull/1372) for the app routes), and the blog is its own
+  lazy route ([#1289](https://github.com/lambdaclass/stabileo/pull/1289), [#1290](https://github.com/lambdaclass/stabileo/pull/1290)), all landed. The course stack is a lazy route boundary ([#1302](https://github.com/lambdaclass/stabileo/pull/1302)), so each module stays
+  within 128 B; the blog posts of [#1338](https://github.com/lambdaclass/stabileo/pull/1338) still need a decision on their growth.
+- **Live-site fixes** (section "Live-site fixes"): [#1227](https://github.com/lambdaclass/stabileo/pull/1227) ([#1059](https://github.com/lambdaclass/stabileo/pull/1059), [#1222](https://github.com/lambdaclass/stabileo/pull/1222), [#1223](https://github.com/lambdaclass/stabileo/pull/1223), [#1224](https://github.com/lambdaclass/stabileo/pull/1224)).
+- **CI** (section "CI and feedback loop"): the speed work in flight, then what waits on the user.
+- The P2 bugs from the triage: [#761](https://github.com/lambdaclass/stabileo/issues/761) P-Delta, fiber and co-rotational refuse rotated or re-unit
+  copies; [#471](https://github.com/lambdaclass/stabileo/issues/471) the 3D results panel shows no certificate line (PR [#473](https://github.com/lambdaclass/stabileo/pull/473)); [#743](https://github.com/lambdaclass/stabileo/issues/743) the 3D plastic
+  certificate takes 8 s and 680 MB on 8 members; [#420](https://github.com/lambdaclass/stabileo/issues/420) fiber solvers return no reactions; [#607](https://github.com/lambdaclass/stabileo/issues/607) an E2E
+  flake; [#608](https://github.com/lambdaclass/stabileo/issues/608) a 40 s rebar filter; [#875](https://github.com/lambdaclass/stabileo/issues/875) non-reproducible prerender (ours; the outside PR is not
+  used); [#454](https://github.com/lambdaclass/stabileo/issues/454) slow dense-LU fallback; [#453](https://github.com/lambdaclass/stabileo/issues/453) first-order convergence of solid-shell buckling; [#1080](https://github.com/lambdaclass/stabileo/issues/1080)
+  localized AI errors.
+
+### 3. Features
+
+The `/examples` gallery ([#1229](https://github.com/lambdaclass/stabileo/pull/1229), then examples 4 to 7 and the engine work behind them), the landing
+positioning copy ([#1230](https://github.com/lambdaclass/stabileo/pull/1230)), Research and Tools speed ([#1065](https://github.com/lambdaclass/stabileo/pull/1065)), the Basic course from its reviewed stack ([#1302](https://github.com/lambdaclass/stabileo/pull/1302)–[#1307](https://github.com/lambdaclass/stabileo/pull/1307)), then the rest
+of the table below.
+
+## Active workstreams (2026-11-04, 13:00 UTC)
+
+Everything in flight, so that work survives a crashed session. Source: the workstreams ledger
+(`WORKSTREAMS.md` in the workstreams folder) and the open pull requests. **Decision** marks an item
+that waits on the user, not on code or CI. Safety, engine and app changes need two reviews before
+main (Codex alone until 2026-11-08); every changed result is registered with its own results
+version.
+
+**Landed since 2026-11-02:** wave A [#1254](https://github.com/lambdaclass/stabileo/pull/1254) ([#817](https://github.com/lambdaclass/stabileo/pull/817) buckling certificate bounds, results version 6;
+[#864](https://github.com/lambdaclass/stabileo/pull/864) units in types slice 1; [#1060](https://github.com/lambdaclass/stabileo/pull/1060) metamorphic slice 1; [#1056](https://github.com/lambdaclass/stabileo/pull/1056) benchmark test correctness; [#1066](https://github.com/lambdaclass/stabileo/pull/1066)
+site-wide SEO; [#878](https://github.com/lambdaclass/stabileo/pull/878); [#739](https://github.com/lambdaclass/stabileo/pull/739) nightly alerting; [#1245](https://github.com/lambdaclass/stabileo/pull/1245) AI reviews; [#1242](https://github.com/lambdaclass/stabileo/pull/1242); [#1075](https://github.com/lambdaclass/stabileo/pull/1075) per-runner sccache;
+[#985](https://github.com/lambdaclass/stabileo/pull/985); [#1079](https://github.com/lambdaclass/stabileo/pull/1079) hosted runners on Ubuntu 24.04), [#1058](https://github.com/lambdaclass/stabileo/pull/1058) share links refuse malformed and dangling
+models, [#1076](https://github.com/lambdaclass/stabileo/pull/1076), [#1077](https://github.com/lambdaclass/stabileo/pull/1077) and [#1078](https://github.com/lambdaclass/stabileo/pull/1078) (PRO analysis 1/3 to 3/3; [#1076](https://github.com/lambdaclass/stabileo/pull/1076) and [#1077](https://github.com/lambdaclass/stabileo/pull/1077) landed before their
+review, fixed forward by [#1253](https://github.com/lambdaclass/stabileo/pull/1253) and [#1255](https://github.com/lambdaclass/stabileo/pull/1255)), the CI wave [#1252](https://github.com/lambdaclass/stabileo/pull/1252) ([#863](https://github.com/lambdaclass/stabileo/pull/863), [#866](https://github.com/lambdaclass/stabileo/pull/866), [#1221](https://github.com/lambdaclass/stabileo/pull/1221), [#1226](https://github.com/lambdaclass/stabileo/pull/1226), [#1235](https://github.com/lambdaclass/stabileo/pull/1235),
+[#1240](https://github.com/lambdaclass/stabileo/pull/1240)), [#1241](https://github.com/lambdaclass/stabileo/pull/1241), [#1069](https://github.com/lambdaclass/stabileo/pull/1069), [#1062](https://github.com/lambdaclass/stabileo/pull/1062) and [#900](https://github.com/lambdaclass/stabileo/pull/900).
+
+**Landed since 2026-11-03 evening:** wave B [#1285](https://github.com/lambdaclass/stabileo/pull/1285) (with [#1286](https://github.com/lambdaclass/stabileo/pull/1286) and [#1287](https://github.com/lambdaclass/stabileo/pull/1287)), the route budget restore [#1322](https://github.com/lambdaclass/stabileo/pull/1322), the lazy blog
+[#1289](https://github.com/lambdaclass/stabileo/pull/1289) and [#1290](https://github.com/lambdaclass/stabileo/pull/1290), [#1341](https://github.com/lambdaclass/stabileo/pull/1341) (load combinations summed in a fixed order), the CI speed PRs [#1327](https://github.com/lambdaclass/stabileo/pull/1327), [#1330](https://github.com/lambdaclass/stabileo/pull/1330)–[#1334](https://github.com/lambdaclass/stabileo/pull/1334),
+[#1336](https://github.com/lambdaclass/stabileo/pull/1336), [#1337](https://github.com/lambdaclass/stabileo/pull/1337), [#1339](https://github.com/lambdaclass/stabileo/pull/1339), [#1340](https://github.com/lambdaclass/stabileo/pull/1340), [#1347](https://github.com/lambdaclass/stabileo/pull/1347), [#1335](https://github.com/lambdaclass/stabileo/pull/1335), [#1346](https://github.com/lambdaclass/stabileo/pull/1346), [#1348](https://github.com/lambdaclass/stabileo/pull/1348), [#1374](https://github.com/lambdaclass/stabileo/pull/1374) and [#1376](https://github.com/lambdaclass/stabileo/pull/1376), [#1344](https://github.com/lambdaclass/stabileo/pull/1344), [#1250](https://github.com/lambdaclass/stabileo/pull/1250) (PRO presented as available), and
+[#871](https://github.com/lambdaclass/stabileo/pull/871) (the Basic course, without review) with its revert [#1372](https://github.com/lambdaclass/stabileo/pull/1372) (section 0). The website changelog describes them in its 2026-11-06 entry.
+
+**Wrong-result bugs and safety**
+
+| Workstream | PR / branch | State |
+|---|---|---|
+| Wave B: the safety fixes, results versions v7 to v13 ([#1233](https://github.com/lambdaclass/stabileo/pull/1233), [#1236](https://github.com/lambdaclass/stabileo/pull/1236), [#1225](https://github.com/lambdaclass/stabileo/pull/1225), [#1237](https://github.com/lambdaclass/stabileo/pull/1237), [#1246](https://github.com/lambdaclass/stabileo/pull/1246), [#1234](https://github.com/lambdaclass/stabileo/pull/1234), [#1239](https://github.com/lambdaclass/stabileo/pull/1239), [#1247](https://github.com/lambdaclass/stabileo/pull/1247)) | [#1285](https://github.com/lambdaclass/stabileo/pull/1285) | landed 2026-11-03 (715279c26); every part merged or closed |
+| Containment of every open wrong-result issue ([#447](https://github.com/lambdaclass/stabileo/issues/447)) | [#807](https://github.com/lambdaclass/stabileo/pull/807) | open (draft); [#1232](https://github.com/lambdaclass/stabileo/pull/1232) (P0 containment gaps) and [#1074](https://github.com/lambdaclass/stabileo/pull/1074) (warped MITC4/MITC9) are merged into its branch, not into main; lands before the per-defect fixes, results version at landing |
+| Per-defect fixes, in order [#1238](https://github.com/lambdaclass/stabileo/issues/1238), [#466](https://github.com/lambdaclass/stabileo/issues/466), [#458](https://github.com/lambdaclass/stabileo/issues/458), [#426](https://github.com/lambdaclass/stabileo/issues/426), [#456](https://github.com/lambdaclass/stabileo/issues/456), [#417](https://github.com/lambdaclass/stabileo/issues/417), [#432](https://github.com/lambdaclass/stabileo/issues/432) | [#1295](https://github.com/lambdaclass/stabileo/pull/1295), [#1297](https://github.com/lambdaclass/stabileo/pull/1297), [#1298](https://github.com/lambdaclass/stabileo/pull/1298), [#1301](https://github.com/lambdaclass/stabileo/pull/1301), [#1309](https://github.com/lambdaclass/stabileo/pull/1309); [#1296](https://github.com/lambdaclass/stabileo/pull/1296) (#433) | drafts stacked on #807 (#1297 on #1295); #417, #432 and the #798/#1057 plan not opened yet |
+| [#1076](https://github.com/lambdaclass/stabileo/pull/1076) follow-up: generated area loads (SA-2026-033), with [#1311](https://github.com/lambdaclass/stabileo/issues/1311), [#1312](https://github.com/lambdaclass/stabileo/issues/1312), [#1313](https://github.com/lambdaclass/stabileo/issues/1313) | [#1253](https://github.com/lambdaclass/stabileo/pull/1253) | draft; Codex clean and Grok clean on its last rounds; results version 17 in landing order |
+| [#1077](https://github.com/lambdaclass/stabileo/pull/1077) follow-up: equilibrium verdict, similar storeys (SA-2026-034) | [#1255](https://github.com/lambdaclass/stabileo/pull/1255) | ready; Codex clean; results version 18 in landing order |
+| Envelopes never return non-finite values ([#1350](https://github.com/lambdaclass/stabileo/issues/1350)) | [#1379](https://github.com/lambdaclass/stabileo/pull/1379) | ready; Codex high clean; no results version |
+| Nightly triage of the safety issues from [#1081](https://github.com/lambdaclass/stabileo/issues/1081) on | `safety/nightly-triage-1103`; [#1299](https://github.com/lambdaclass/stabileo/pull/1299) (metamorphic harness: scale-aware floors for nightly false positives) | in progress; #1299 draft |
+| Contain warped MITC4/MITC9 (outside PR, code not used) | [#1067](https://github.com/lambdaclass/stabileo/pull/1067) | superseded by [#1074](https://github.com/lambdaclass/stabileo/pull/1074), folded into [#807](https://github.com/lambdaclass/stabileo/pull/807). **Decision:** close it with the standard note |
+
+**Other bugs: budgets, live site and CI**
+
+| Workstream | PR | State |
+|---|---|---|
+| Live-site integration: soft 404 [#1059](https://github.com/lambdaclass/stabileo/pull/1059), unprefixed redirects [#1224](https://github.com/lambdaclass/stabileo/pull/1224), landing visible without scrolling [#1223](https://github.com/lambdaclass/stabileo/pull/1223) | [#1227](https://github.com/lambdaclass/stabileo/pull/1227) | draft; the changelog counts fix [#1222](https://github.com/lambdaclass/stabileo/pull/1222) moved into [#1384](https://github.com/lambdaclass/stabileo/pull/1384) |
+| GitHub Actions bumps | [#1284](https://github.com/lambdaclass/stabileo/pull/1284) | open (Dependabot) |
+| CI speed: push to green on a full-scope PR went from 397–498 min to 51–72 min (section "CI and feedback loop"). In flight: research WASM saved bundle by bundle with a retried restore | [#1373](https://github.com/lambdaclass/stabileo/pull/1373) | open, ready; next: automatic retry of infrastructure reds, docs-only path scoping, the queue's critical path |
+| Runner pools, E2E cap per host, required proof checks, revert-bot secrets | dotfiles `servers/`, rulesets | **Decision:** see "CI and feedback loop" |
+
+**Features, research and the site**
+
+| Workstream | PR | State |
+|---|---|---|
+| `/examples` gallery, three examples | [#1229](https://github.com/lambdaclass/stabileo/pull/1229) | draft; ready on its last head, waits on `gh pr ready` |
+| `/examples` 4 to 7 and the engine work they need (see "Live examples gallery") | [#1300](https://github.com/lambdaclass/stabileo/pull/1300) (RC column, outrigger sweep, steel tower), [#1308](https://github.com/lambdaclass/stabileo/pull/1308) (RC column pushover with fibre sections) | drafts, stacked on #1229 |
+| Landing positioning: open-source structural engineering software, AI marked in development (no provider-key claim until [#1064](https://github.com/lambdaclass/stabileo/pull/1064)); where it fits; Basic and PRO Design copy | [#1230](https://github.com/lambdaclass/stabileo/pull/1230) | ready, Codex clean on 6affce7167; landing −3362 B; reconcile with [#1061](https://github.com/lambdaclass/stabileo/pull/1061) if that lands second |
+| Research and Tools faster on phones ([#880](https://github.com/lambdaclass/stabileo/pull/880) folded in) | [#1065](https://github.com/lambdaclass/stabileo/pull/1065) | with the merge captain: ready 4–6× sooner on a phone (paper 10.8 → 5.5 s, tool 20.3 → 3.7 s), paper shift 0.38 → 0.13; needs the user's OK on four new route budgets, the per-language chunk rule and ~14 MB of .br per release |
+| Basic course, units 1 to 7: six stacked module PRs with the review fixes, replacing [#1070](https://github.com/lambdaclass/stabileo/pull/1070) and the unreviewed [#871](https://github.com/lambdaclass/stabileo/pull/871) (section 0) | [#1302](https://github.com/lambdaclass/stabileo/pull/1302) shell and shared modules, [#1303](https://github.com/lambdaclass/stabileo/pull/1303) statics and force method, [#1304](https://github.com/lambdaclass/stabileo/pull/1304) influence lines, [#1305](https://github.com/lambdaclass/stabileo/pull/1305) second order and buckling, [#1306](https://github.com/lambdaclass/stabileo/pull/1306) plastic, [#1307](https://github.com/lambdaclass/stabileo/pull/1307) dynamics (SDOF/MDOF) | drafts; to rebase on main now that [#1372](https://github.com/lambdaclass/stabileo/pull/1372) has landed; [#1302](https://github.com/lambdaclass/stabileo/pull/1302) makes the course a lazy route boundary (as [#1289](https://github.com/lambdaclass/stabileo/pull/1289) does for the blog), so each module stays within 128 B. #1070 to close as superseded (user) |
+| Roadmap, CHANGELOG fragments and the website changelog (week to 2026-11-06), with the changelog counts fix [#1222](https://github.com/lambdaclass/stabileo/pull/1222) | [#1384](https://github.com/lambdaclass/stabileo/pull/1384) | supersedes [#1228](https://github.com/lambdaclass/stabileo/pull/1228), [#1231](https://github.com/lambdaclass/stabileo/pull/1231), [#1244](https://github.com/lambdaclass/stabileo/pull/1244), [#1292](https://github.com/lambdaclass/stabileo/pull/1292) and [#1294](https://github.com/lambdaclass/stabileo/pull/1294) |
+| Blog: Research, Tools and checking our tests; blog images | [#1293](https://github.com/lambdaclass/stabileo/pull/1293) (carries #882) | open; it waited for the lazy blog ([#1290](https://github.com/lambdaclass/stabileo/pull/1290)), which has landed |
+| Blog: posts on the JAIE 2026 and Experiencia TIIC 2026 talks, with photos | [#1338](https://github.com/lambdaclass/stabileo/pull/1338) | draft |
+| Accounts: terms, usage data, cloud projects, admin site; advertising measurement on top | [#1071](https://github.com/lambdaclass/stabileo/pull/1071), [#1251](https://github.com/lambdaclass/stabileo/pull/1251) | Codex clean. **Decision:** owner OK on the legal text, company line, usage sharing on by default |
+| Research round 2: the review fixes of the live papers, one integration | [#1068](https://github.com/lambdaclass/stabileo/pull/1068) (17 PRs: [#884](https://github.com/lambdaclass/stabileo/pull/884), [#885](https://github.com/lambdaclass/stabileo/pull/885), [#889](https://github.com/lambdaclass/stabileo/pull/889), [#891](https://github.com/lambdaclass/stabileo/pull/891), [#893](https://github.com/lambdaclass/stabileo/pull/893)–[#899](https://github.com/lambdaclass/stabileo/pull/899), [#901](https://github.com/lambdaclass/stabileo/pull/901), [#902](https://github.com/lambdaclass/stabileo/pull/902), [#986](https://github.com/lambdaclass/stabileo/pull/986), [#987](https://github.com/lambdaclass/stabileo/pull/987), [#988](https://github.com/lambdaclass/stabileo/pull/988), [#882](https://github.com/lambdaclass/stabileo/pull/882)) | draft; none of the 17 is on main yet |
+| Research papers indexable; research and tools SEO | [#988](https://github.com/lambdaclass/stabileo/pull/988), [#881](https://github.com/lambdaclass/stabileo/pull/881) | open |
+| Research frozen versions | [#777](https://github.com/lambdaclass/stabileo/pull/777) | **Decision:** host approval and DNS for `snapshots.stabileo.com` |
+| Research on phones and tablets | [#831](https://github.com/lambdaclass/stabileo/pull/831) | lands after [#1068](https://github.com/lambdaclass/stabileo/pull/1068) |
+| One file per paper | [#844](https://github.com/lambdaclass/stabileo/pull/844) | merges last |
+| SEO positioning; pricing copy | [#851](https://github.com/lambdaclass/stabileo/pull/851), [#850](https://github.com/lambdaclass/stabileo/pull/850) | **Decision:** owner OK on the pricing claims; [#851](https://github.com/lambdaclass/stabileo/pull/851) reduced after [#850](https://github.com/lambdaclass/stabileo/pull/850) |
+| Landing: more about Stabileo AI | [#1061](https://github.com/lambdaclass/stabileo/pull/1061) | **Decision:** owner OK on the text |
+| AI assistant with your own key (interim) | [#1064](https://github.com/lambdaclass/stabileo/pull/1064) | draft |
+| Review scripts; perf ratchet | [#842](https://github.com/lambdaclass/stabileo/pull/842), [#768](https://github.com/lambdaclass/stabileo/pull/768) | **Decision:** reviewer sandbox; [#768](https://github.com/lambdaclass/stabileo/pull/768)'s 64-byte margin |
+| Desktop app | [#785](https://github.com/lambdaclass/stabileo/pull/785), [#663](https://github.com/lambdaclass/stabileo/pull/663) | **Decision:** close or keep [#785](https://github.com/lambdaclass/stabileo/pull/785) as tracking |
+| Roadmap | this file | kept current by small docs PRs |
+
+## Later: deferred follow-ups (2026-11-03)
+
+Decided for later, so that nothing is forgotten. Each one moves to the tables above when it starts.
+
+**Safety (wrong results first)**
+
+- **[#1341](https://github.com/lambdaclass/stabileo/pull/1341) without a results version:** summing combination cases in a fixed order can move a
+  combined force in its last digit and flip a marginal detailing decision, but no snapshot changed, so
+  nothing was registered. Decide whether it needs a results version and a re-check notice.
+- **#1255 statics verdict** (high-effort Codex): `statics-check.ts:65` reports "unbalanced" from a
+  residual over incomplete load sums, so a balanced case with an omitted surface load can be flagged
+  (a false alarm, never a false pass); return partial whenever loads are left out.
+- **Fiber nonlinear with constraints** (#1296): compute the constraint multipliers so the
+  equilibrium gate can check constrained models, then lift the refusal.
+- **Static self-check floor** ([#865](https://github.com/lambdaclass/stabileo/pull/865), found on [#1285](https://github.com/lambdaclass/stabileo/pull/1285)): `engine/src/solver/self_checks.rs` floors the
+  balance force scale at 1 kN, so the imbalance is compared with 1e-3 × 1 kN: a load below
+  1e-3 kN left fully unbalanced passes (applied 1e-4 kN, reactions 0, imbalance 1e-4 < 1e-3).
+  Scale by max(|F|, |M|/L) with reaction moments and model extent; keep the pure-moment model
+  (`prop_maxwell_betti`) as a regression and add that 1e-4 kN case as the one that must start
+  failing.
+- **Wave B leftovers** ([#1285](https://github.com/lambdaclass/stabileo/pull/1285); visible refusals, not wrong results): `lanczos.rs` refuses a valid
+  PSD pencil because `exactly_massless` tests a rounded vector exactly; `sturm_count_above` retries
+  at only three fixed cutoffs, so clustered eigenvalues refuse; every-step finiteness of the
+  internal u, v, a vectors in `time_integration.rs` ([#1239](https://github.com/lambdaclass/stabileo/pull/1239)'s owner).
+- **[#798](https://github.com/lambdaclass/stabileo/issues/798):** narrow `SH-MITC4-DISTORTION`; it withholds hemisphere, hypar and spherical-cap meshes
+  within 2% of their references (user, 2026-11-02: ship [#807](https://github.com/lambdaclass/stabileo/pull/807) as is).
+- **[#458](https://github.com/lambdaclass/stabileo/issues/458) and [#762](https://github.com/lambdaclass/stabileo/issues/762):** near-mechanisms warn today; refuse versus warn is its own solver change.
+- **[#1238](https://github.com/lambdaclass/stabileo/issues/1238) real fix:** carry each member's in-plane axis through the 3D→2D cut so default-oriented I
+  columns in Y–Z cuts solve instead of being refused.
+- **CIRSOC 201 `flexure_at`** deducts displaced concrete for top bars below the stress block (about
+  0.03% unconservative; found by the [#534](https://github.com/lambdaclass/stabileo/issues/534) work). Issue to file, then fix.
+- **MITC9 too stiff on twisted coarse meshes** (noted on [#1074](https://github.com/lambdaclass/stabileo/pull/1074)): no warning yet; add containment.
+- **[#532](https://github.com/lambdaclass/stabileo/issues/532) leftovers** (outside [#1233](https://github.com/lambdaclass/stabileo/pull/1233)): the Excel import and the IFC mapper treat iz as the strong
+  axis (fix in [#1310](https://github.com/lambdaclass/stabileo/pull/1310), draft, stacked on #1233; live on main, SA-2026-039, also in the safety table); aluminium weak-axis shear unchecked (fix in [#1326](https://github.com/lambdaclass/stabileo/pull/1326), draft); the joint-typology check drops Mz (fix in [#1328](https://github.com/lambdaclass/stabileo/pull/1328), draft: weak-axis moments refused); Muy not amplified
+  for column slenderness. Grok's nits: the secondary-shear row lacks its combination name,
+  `v_strong` serializes as "vy", "Shear G6" used for RHS (AISC G4), the registry's `when` also
+  flags beam-only CIRSOC 201 models.
+- **[#1246](https://github.com/lambdaclass/stabileo/pull/1246) leftovers:** a material with only `fc` reads as unknown (unreachable from the UI today);
+  a material with no modulus is read as concrete; the oracle prints the uncapped CHS Q; Qa printed
+  to 3 decimals.
+- **[#1247](https://github.com/lambdaclass/stabileo/pull/1247) leftovers:** the static solve of the [#338](https://github.com/lambdaclass/stabileo/issues/338) model only warns (should refuse like modal);
+  the dense eigensolver loses the zero mode of a 1 mm seesaw beside geometry 1e4 m away (issue to
+  file); Newmark trapezoidal overshoot on massless DOFs when dt ≥ 2·a1 (documented in SA-2026-031,
+  not fixed); Rayleigh damping (`damping.rs`) ignores modes with 0 < ω² ≤ 1e-10 (use modal.rs's
+  scale-relative zero test); the app calls a free spin a mechanism; the Turkish term; [#1225](https://github.com/lambdaclass/stabileo/pull/1225)'s
+  completeness message.
+- **Share links** ([#1058](https://github.com/lambdaclass/stabileo/pull/1058)): allow-list support types and spring values; refuse coincident or
+  collinear shell corners; require positive e, a and thickness; `referencesResolve` in
+  `share-snapshot.ts` must check that `factors` is an array; the stadium canopy keeps an unused
+  earthquake case.
+- **Issues to file for the record:** the shell envelope bug ([#1237](https://github.com/lambdaclass/stabileo/pull/1237)), the time-history NaN ([#1239](https://github.com/lambdaclass/stabileo/pull/1239)),
+  the Frame3DD modal mismatch `modal3d-758065`.
+- **Outside-review items not started:** unknown wire fields typed one by one; a nonlinear
+  equilibrium gate (P-Δ, contact [#432](https://github.com/lambdaclass/stabileo/issues/432), fiber [#433](https://github.com/lambdaclass/stabileo/issues/433), cable export dropping `converged`); solver worker
+  hang and respawn; research crate lists from `research/papers.yaml`; the TypeScript pre-solve
+  rewritten in Rust; the [#458](https://github.com/lambdaclass/stabileo/issues/458) Lean gap; touch input (.mrp, tablets); faster tests.
+- **`docs/verification/MATURITY.md`** is stale: regenerate; retriage [#810](https://github.com/lambdaclass/stabileo/issues/810) and [#742](https://github.com/lambdaclass/stabileo/issues/742); close [#755](https://github.com/lambdaclass/stabileo/issues/755).
+
+**Product**
+
+- **Time-history input near 1.7e308 g** (#1285): the app shows the raw "Parse error: invalid type:
+  null" instead of a translated refusal (a visible refusal, not a wrong result).
+- **Blog:** a release post for Stabileo 0.4.0 (released 2026-10-28), like 0.3.0's.
+- **Basic course:** each module PR's deferred should-fixes are in its body; #1070's last
+  uncommitted round carries over only its wrong-result fixes.
+- **[#1255](https://github.com/lambdaclass/stabileo/pull/1255) leftovers:** the report prints `0.00 %` for an unbalanced residual between about 1e-6 and
+  5e-5; a plan-view member crossing the cut with both ends outside is drawn but not pickable;
+  `StoreyScopeBar` lacks the bottom safe-area inset; similar storeys skip a zero-length copy
+  silently; the English registry text says "blended".
+- **[#1253](https://github.com/lambdaclass/stabileo/pull/1253) nits:** the "narrow band" note is 1/20 of the panel; strengthen the shallow-truss test;
+  tie the self-weight split test to the production level map.
+- **Wave A nits:** the Spanish paper title; the paper JSON-LD is not updated on in-app navigation.
+- **Examples 4 to 7** (after [#1229](https://github.com/lambdaclass/stabileo/pull/1229)) and the engine work the other examples need.
+- **Merge order:** [#831](https://github.com/lambdaclass/stabileo/pull/831) after [#1068](https://github.com/lambdaclass/stabileo/pull/1068); [#851](https://github.com/lambdaclass/stabileo/pull/851) after [#1066](https://github.com/lambdaclass/stabileo/pull/1066) and [#850](https://github.com/lambdaclass/stabileo/pull/850); [#844](https://github.com/lambdaclass/stabileo/pull/844) last.
+
+**CI and infrastructure**
+
+- **Per-route product budgets** (open user question): 128 B per route nearly freezes product work.
+- **Restore after wave B:** route budgets back to 128 B and the exact-value assertion in
+  `research-route-budget.test.mjs` restored.
+- **Nightly harness noise** (zero-displacement floor, time-history Lanczos tolerance, eigen-gap,
+  warned plastic bounds inconclusive): in progress; #1299's same-model time-history budgets
+  (2e-9 to 8e-9) can be dropped where both runs share the pencil. Issue closures wait for the user.
+- **Vite build parse error:** es-module-lexer reads a minified `of` followed by `/` as a regex and
+  fails the E2E build (hit on [#1070](https://github.com/lambdaclass/stabileo/pull/1070), worked around). Bump es-module-lexer or Vite, or add a guard.
+- **Hosted-runner Nix flakiness:** Magic Nix Cache HTTP 418 and dropped cache.nixos.org downloads;
+  move those jobs to self-hosted runners or add a substituter retry.
+- **Runners:** wall-clock budgets on `stabileo-timing` for main and nightly; remove the borrowed
+  `stabileo` label from sgha9–14; full `apply.sh` (sgha1–6 into pools) and the system upgrade;
+  `stabileo-pr` on sgha1–5; the watchdog token; `STABILEO_E2E_POOL` (refused to agents).
+- **Secrets:** `REVERT_BOT_TOKEN` and `NTFY_TOPIC` for [#1226](https://github.com/lambdaclass/stabileo/pull/1226); Lean, symbolic and Kani as required
+  checks in both rulesets ([#1235](https://github.com/lambdaclass/stabileo/pull/1235) landed).
+- **Mutants rotation:** the weekly check fails until 16 nights of markers exist ([#1240](https://github.com/lambdaclass/stabileo/pull/1240)).
+- **[#768](https://github.com/lambdaclass/stabileo/pull/768):** strict 64-byte margin or wider.
+- **Agent hygiene:** a unique scratchpad log name per agent.
+- **Changelog fragments still missing** (list under "Verified review: later and housekeeping").
+
 ## Purpose
 
 This is the product roadmap: app features, market sequencing, design/reporting layers, and distribution strategy. It is not the solver mechanics roadmap — for that, see `SOLVER_ROADMAP.md`. Historical progress belongs in `CHANGELOG.md`. This document should stay forward-looking.
@@ -142,32 +421,34 @@ them.
 | 8 | **Exported documents:** visual regression for PDF reports, DXF drawings and exports | [#722](https://github.com/lambdaclass/stabileo/issues/722) | Trust and verification |
 | 9 | **Desktop app:** install scripts, update from one version to the next, launch on each OS (macOS by hand: no WebDriver for its webview) | PR [#663](https://github.com/lambdaclass/stabileo/pull/663) | Release safety |
 | 10 | **Staging before production:** each main commit deploys to staging, passes the health check, then the same build is promoted | [#724](https://github.com/lambdaclass/stabileo/issues/724) | Release safety |
-| 11 | **Review before merge, enforced:** CODEOWNERS, a second reviewer for result and verdict changes, and a check that every required check still exists | [#725](https://github.com/lambdaclass/stabileo/issues/725), [#470](https://github.com/lambdaclass/stabileo/issues/470), [#355](https://github.com/lambdaclass/stabileo/issues/355) | Release safety |
+| 11 | **Review before merge, enforced:** CODEOWNERS, a second reviewer for result and verdict changes, a check that every required check still exists, and a merge queue that only maintainers can enqueue into (with a required approving review): [#871](https://github.com/lambdaclass/stabileo/pull/871) and [#1250](https://github.com/lambdaclass/stabileo/pull/1250) were enqueued directly on 2026-11-04 and merged without review | [#725](https://github.com/lambdaclass/stabileo/issues/725), [#470](https://github.com/lambdaclass/stabileo/issues/470), [#355](https://github.com/lambdaclass/stabileo/issues/355) | Release safety |
 | 12 | **Policy for outside contributions:** bounty-style and AI-generated PRs, duplicates, credit, re-implementing low-trust fixes | [#726](https://github.com/lambdaclass/stabileo/issues/726) | Release safety |
 | 13 | **Safety advisories emailed** to affected users once accounts exist | [#727](https://github.com/lambdaclass/stabileo/issues/727) | Release safety |
 | 14 | **MITC4 shells under in-plane bending on distorted meshes** are about 10× too stiff (MacNeal–Harder: −92% trapezoidal, −90% parallelogram; regular meshes within 2%). First register it and warn users when such elements are distorted, then fix the membrane (enhanced/incompatible modes or a drilling membrane) with result-change registration. Found by the research benchmark page (#797) | [#798](https://github.com/lambdaclass/stabileo/issues/798) | Trust and verification |
 | 15 | **MITC4 and MITC9 shells too flexible on warped (twisted) geometry,** silently (MITC4 1.32×, MITC9 up to 2.4× on the 90° twisted beam). First contain it (a known-issue warning or refusal for warped elements beyond a measured threshold, with tests), then fix the warped-element formulation with result-change registration. Found by the benchmark test fixes (PR #1056) | [#1057](https://github.com/lambdaclass/stabileo/issues/1057) | Trust and verification |
-| 16 | **Narrow the MITC4 distortion refusal (#798):** it also withholds hemisphere, hypar and spherical-cap meshes whose results are within 2% of their references, combinations with Σ\|factor\| > 1, envelopes of more than one distorted result and 3D harmonic analysis of distorted models (accepted for #807 on 2026-11-02). Check the actual combined and dynamic fields and restrict the predicate to the membrane-bending mode that is actually wrong, with those benchmarks and a scaled uniform-membrane combination as negative controls | [#798](https://github.com/lambdaclass/stabileo/issues/798) | Trust and verification |
+| 16 | **P0, confirmed by the verified review of 2026-11-02: 3D design-demand axis mapping.** Certified design checks and 3D demand extraction (`certify/design.rs`, `postprocess/design_demands.rs`) read the lateral `shearY`/`momentZ` instead of strong-axis `shearZ`/`momentY`, and the live CIRSOC 201 column design checked Mz over the depth (up to 36% short of steel). Confirmed with hand-checked cases and fixed in our own PR [#1233](https://github.com/lambdaclass/stabileo/pull/1233) with result-change registration (results version 7, advisory SA-2026-029); see "Priority now". PR #533 is from an outside contributor whose code we don't merge: a lead only | [#532](https://github.com/lambdaclass/stabileo/issues/532) | Trust and verification |
+| 17 | **Narrow the MITC4 distortion refusal (#798):** it also withholds hemisphere, hypar and spherical-cap meshes whose results are within 2% of their references, combinations with Σ\|factor\| > 1, envelopes of more than one distorted result and 3D harmonic analysis of distorted models (accepted for #807 on 2026-11-02). Check the actual combined and dynamic fields and restrict the predicate to the membrane-bending mode that is actually wrong, with those benchmarks and a scaled uniform-membrane combination as negative controls | [#798](https://github.com/lambdaclass/stabileo/issues/798) | Trust and verification |
 
-**Status of the safety work (2026-11-01):**
+**Status of the safety work (2026-11-04):**
 
 | Item | Issue / PR | State |
 |---|---|---|
-| Contain every open wrong-result issue (warn or refuse; no number changes) | [#447](https://github.com/lambdaclass/stabileo/issues/447) / PR [#807](https://github.com/lambdaclass/stabileo/pull/807) | open; refuses #758, #741 and #798 (#757 retired once #814 fixed it), warns on 14 more; the only number change is the #1113 reaction correction; Codex + Kimi review before main |
-| Metamorphic invariance suite (units, renumbering, member direction, rigid motion, reciprocity) | PR [#813](https://github.com/lambdaclass/stabileo/pull/813) | merged 2026-10-30 |
-| Invariance tests everywhere, slice 1: E/stiffness scaling for six analyses; fast tier 17 models / 680 comparisons, nightly 65 models / 2,696 comparisons; coverage matrix in docs/safety/metamorphic-coverage.md | PR [#860](https://github.com/lambdaclass/stabileo/pull/860) | **not on main yet:** merged 2026-10-31 into its stacked base `safety/metamorphic-invariance` after #813 had already merged, so its 10 files (the coverage matrix, `stiffness.rs`, the generated tiers) still need a PR from that branch to main, with a changelog fragment. Next slices: constrained plastic collapse (#758), dynamic reciprocity (#760), mechanism classification (#762), modal/buckling breadth |
-| Old project files open, migrate and give the same results | [#718](https://github.com/lambdaclass/stabileo/issues/718) / PR [#770](https://github.com/lambdaclass/stabileo/pull/770) | open, paused since 2026-10-28 for Research; corpus of v0.2.0–v0.4.0 files and a newer-version refusal done; six v0.2.0 differences still to inspect, edge files, negative tests and a changelog fragment |
-| Solid-shell stresses in global axes (a vertical plate read 0) | [#757](https://github.com/lambdaclass/stabileo/issues/757) / PR [#814](https://github.com/lambdaclass/stabileo/pull/814) | merged 2026-10-30 |
-| Buckling factor outside its certified bounds still certified | [#741](https://github.com/lambdaclass/stabileo/issues/741) / PR [#817](https://github.com/lambdaclass/stabileo/pull/817) | open: fixed (bounds proven sound by exact arithmetic; certification refused, number unchanged); results-version number settled at merge against #807/#827; removes #807's BU-BOUND refusal when both land; follow-up [#818](https://github.com/lambdaclass/stabileo/issues/818) |
-| Modal analysis skipped repeated modes of symmetric structures | [#759](https://github.com/lambdaclass/stabileo/issues/759) / PR [#827](https://github.com/lambdaclass/stabileo/pull/827) | open: real solver bug (single-start Lanczos accepted a subspace missing a repeated mode: 983 Hz reported, true second mode 837 Hz); eigensolver falls back to the dense solve on early breakdown and modal certificates reject duplicated and missing modes; removes #807's MD-ORTHOGONALITY when both land |
-| 2D plastic collapse factor not invariant (up to 4.6×) | [#758](https://github.com/lambdaclass/stabileo/issues/758) | two approaches failed; needs a redesign of mechanism detection; refused until then |
-| MITC4 in-plane bending on distorted meshes (−92%) | [#798](https://github.com/lambdaclass/stabileo/issues/798) | found by the MacNeal–Harder page; refused by PR [#807](https://github.com/lambdaclass/stabileo/pull/807) once it lands; that refusal also withholds hemisphere, hypar and spherical-cap meshes within 2% of their references (accepted 2026-11-02; narrowing is item 16) |
-| Benchmark test correctness: twisted-beam units (E = 29e6 in a MPa field made every shell 1000× too stiff), fixed–fixed buckling, Timoshenko P-Δ, Roark labels, portal sway; strict relative `assert_close` exposed **48 wrong references or models**, all fixed | PR [#1056](https://github.com/lambdaclass/stabileo/pull/1056) | open; no engine/src change, no tolerance loosened; 7,898 engine tests pass; follow-up: the Raasch hook tests likely have the same ×1000 E bug |
-| **MITC4 and MITC9 too flexible on warped (twisted) geometry, with no warning** (MacNeal–Harder twisted beam at 90°: MITC4 1.32×, MITC9 up to 2.4×; correct at zero twist; curved shell and SHB8 converge on the same model) | [#1057](https://github.com/lambdaclass/stabileo/issues/1057) | new, found by #1056; real engine bug, silently non-conservative. Needs **containment first** (a known-issue warning or refusal for warped MITC4/MITC9 elements beyond a measured threshold, with tests), then a **root-cause fix** of the warped-element formulation in `quad.rs`/`quad9.rs` against both references, registered as a result change |
-| MITC4 Scordelis–Lo roof plateau (−15%), pinched cylinder diverging | [#810](https://github.com/lambdaclass/stabileo/issues/810) / PR [#859](https://github.com/lambdaclass/stabileo/pull/859) | **test-model error, not the engine:** an extra crown support and missing corner symmetry; corrected, the roof matches to 0.0084% and the cylinder converges to −1% at 32×32. PR [#859](https://github.com/lambdaclass/stabileo/pull/859) corrects the live shell obstacle course page; pending merge, auto-merge enabled |
-| Mattiasson elastica: end shortening 2.5–8.8% off at loads 2 and 5, no convergence at load 10 | [#845](https://github.com/lambdaclass/stabileo/issues/845) / PR [#849](https://github.com/lambdaclass/stabileo/pull/849) | **test error, not the engine:** the provisional reference table was wrong; against the exact elliptic-integral solution the engine is within 0.03–0.1% at all four loads (merged) |
-| Shallow toggle: arc-length peak 48.75 vs 95.99, limit point not reached | [#846](https://github.com/lambdaclass/stabileo/issues/846) / PR [#852](https://github.com/lambdaclass/stabileo/pull/852) | **test error, not the engine:** a rigid-jointed frame compared with the pin-jointed truss formula and a 100-step budget; a true truss passes both limit points (path error 8e-11); PR [#852](https://github.com/lambdaclass/stabileo/pull/852) merged |
-| Already fixed on main, closed with evidence | [#442](https://github.com/lambdaclass/stabileo/issues/442), [#443](https://github.com/lambdaclass/stabileo/issues/443), [#444](https://github.com/lambdaclass/stabileo/issues/444), [#445](https://github.com/lambdaclass/stabileo/issues/445) | closed |
+| Contain every open wrong-result issue (warn or refuse; no number changes) | [#447](https://github.com/lambdaclass/stabileo/issues/447) / PR [#807](https://github.com/lambdaclass/stabileo/pull/807) | **open** (draft); [#1232](https://github.com/lambdaclass/stabileo/pull/1232) (P0 containment gaps: [#426](https://github.com/lambdaclass/stabileo/issues/426), [#458](https://github.com/lambdaclass/stabileo/issues/458), [#466](https://github.com/lambdaclass/stabileo/issues/466), [#798](https://github.com/lambdaclass/stabileo/issues/798), [#1057](https://github.com/lambdaclass/stabileo/issues/1057)) and [#1074](https://github.com/lambdaclass/stabileo/pull/1074) (warped MITC4/MITC9) are merged into its branch and reach main with it; then the per-defect fixes in "Priority now" remove its warnings one by one |
+| Metamorphic invariance suite | PR [#813](https://github.com/lambdaclass/stabileo/pull/813) | landed |
+| Invariance tests everywhere, slice 1 (stiffness scaling for six analyses; fast and nightly tiers) | PR [#860](https://github.com/lambdaclass/stabileo/pull/860) via [#1060](https://github.com/lambdaclass/stabileo/pull/1060) | landed (wave A); next slices: constrained plastic collapse ([#758](https://github.com/lambdaclass/stabileo/issues/758)), dynamic reciprocity, mechanism classification ([#762](https://github.com/lambdaclass/stabileo/issues/762)), modal and buckling breadth |
+| Old project files open, migrate and give the same results | [#718](https://github.com/lambdaclass/stabileo/issues/718) / PR [#770](https://github.com/lambdaclass/stabileo/pull/770) | landed (wave B, with the newer-version refusal); next: edge files, real users' files, the migration fingerprint with material strengths ([#1318](https://github.com/lambdaclass/stabileo/issues/1318)) |
+| Results snapshot gate, review fixes | PR [#786](https://github.com/lambdaclass/stabileo/pull/786) | landed (wave B) |
+| Buckling factor outside its certified bounds no longer certified | [#741](https://github.com/lambdaclass/stabileo/issues/741) / PR [#817](https://github.com/lambdaclass/stabileo/pull/817) | landed (wave A, results version 6); close [#741](https://github.com/lambdaclass/stabileo/issues/741); follow-up [#818](https://github.com/lambdaclass/stabileo/issues/818) |
+| Modal analysis skipped repeated modes of symmetric structures | [#759](https://github.com/lambdaclass/stabileo/issues/759) / PR [#827](https://github.com/lambdaclass/stabileo/pull/827) | landed (wave B, results version 9); close [#759](https://github.com/lambdaclass/stabileo/issues/759) |
+| Self-checking results, slice 1 (static and modal) | PR [#865](https://github.com/lambdaclass/stabileo/pull/865) | landed (wave B, results version 10); next: buckling, time history and design checks |
+| Shell envelope per component, not the von Mises record | PR [#1237](https://github.com/lambdaclass/stabileo/pull/1237) | landed (wave B, results version 11, SA-2026-027) |
+| Time history refuses non-finite results | PR [#1239](https://github.com/lambdaclass/stabileo/pull/1239) | landed (wave B) |
+| Units in the type system, slice 1 (2D frame material and section path) | PR [#864](https://github.com/lambdaclass/stabileo/pull/864) | landed (wave A); next slices: 3D, loads, design |
+| Benchmark test correctness (wrong references and models fixed, strict `assert_close`) | PR [#1056](https://github.com/lambdaclass/stabileo/pull/1056) | landed (wave A); follow-up: the Raasch hook tests may have the same E unit error |
+| Envelopes never return non-finite values | [#1350](https://github.com/lambdaclass/stabileo/issues/1350) / PR [#1379](https://github.com/lambdaclass/stabileo/pull/1379) | open, ready |
+| 2D plastic collapse factor not invariant | [#758](https://github.com/lambdaclass/stabileo/issues/758) | needs a redesign of mechanism detection; refused until then |
+| MITC4 in-plane bending on distorted meshes | [#798](https://github.com/lambdaclass/stabileo/issues/798) | refused by [#807](https://github.com/lambdaclass/stabileo/pull/807) once it lands; that refusal also withholds hemisphere, hypar and spherical-cap meshes within 2% of their references (accepted 2026-11-02; narrowing is item 17); membrane fix not started |
+| MITC4 and MITC9 too flexible on warped geometry | [#1057](https://github.com/lambdaclass/stabileo/issues/1057) | refused by [#807](https://github.com/lambdaclass/stabileo/pull/807) (with [#1074](https://github.com/lambdaclass/stabileo/pull/1074)) once it lands; formulation fix not started |
 
 The nightly dry run (PR [#861](https://github.com/lambdaclass/stabileo/pull/861)) found two root causes. Rotated or mirrored models are
 refused although the original is accepted: input consistency. Singular/eigen failures appear only
@@ -313,6 +594,15 @@ What remains after the October 2026 safety wave (certified solver, differential 
 
 Beyond software: an independent licensed structural engineer reviews worked examples, clause readings and sample reports; real anonymised projects from engineering firms (with their SAP2000/ETABS/RFEM models and results, and the architect's IFC/DWG where available) join the acceptance suite and the BIM-import corpus; the design-code manuals with worked examples (AISC Design Examples, INTI/CIRSOC example books, AWC NDS, TMS 402, AISI Cold-Formed Steel Design Manual) are obtained so checks are tested against published numbers rather than hand-worked ones.
 
+**From the verified review (2026-11-02), P1:**
+
+- **Mutation rotation that keeps its promise:** done by [#1240](https://github.com/lambdaclass/stabileo/pull/1240) (32 shards a night, every shard every 16 days);
+  the weekly staleness check stays red until 16 nights of markers exist.
+- **The TypeScript model rewrite before the solve is outside verification** (offsets, semi-rigid
+  joints, variable members, 2D-in-3D): the differential, fuzz and metamorphic harnesses call Rust
+  directly and never exercise it. Move it to Rust (not covered by #731 or #392, which are after the
+  solve).
+
 **Exit criteria (Trust and verification).**
 - Every verification job (nightly fuzzing per target, Rust mutation testing, the seven differential harnesses, Lean, Kani, symbolic) runs on `main` at least weekly, publishes its numbers as a CI artifact read by the [dashboard](../verification/DASHBOARD.md), and a failure opens an issue; no Trust metric reads "not yet measured".
 - 0 untriaged differential mismatches: every mismatch in the latest run per harness is a fixed bug, a known open issue, or a documented modelling difference.
@@ -374,6 +664,16 @@ Closing the gap between "proven" and "right".
 9. **Engine code hygiene:** [#383](https://github.com/lambdaclass/stabileo/issues/383) line and branch coverage per module (llvm-cov), Miri for any `unsafe`, strict clippy, overflow checks on index arithmetic, `cargo audit` in CI.
 10. **Documented, peer-reviewed element derivations** [#384](https://github.com/lambdaclass/stabileo/issues/384) (PR [#330](https://github.com/lambdaclass/stabileo/pull/330)) in `docs/SOLVER_REFERENCE.md`: each formulation's derivation and assumptions, reviewable by an independent engineer. The review's findings are issues [#406](https://github.com/lambdaclass/stabileo/issues/406)–[#433](https://github.com/lambdaclass/stabileo/issues/433) (label `derivations`); several are `safety`.
 
+**From the verified review (2026-11-02), P1:**
+
+- **Every nonlinear exit passes an equilibrium gate:** only `linear.rs` fills `equilibrium`; P-Δ
+  leaves it empty; [#432](https://github.com/lambdaclass/stabileo/issues/432) contact freezes a chattering gap and reports converged; [#433](https://github.com/lambdaclass/stabileo/issues/433)
+  fiber returns the last iterate; the `solve_cable_2d` export drops `converged`. Contact and fiber
+  are not called by the web app, so this is P0 for direct engine callers (partly [#381](https://github.com/lambdaclass/stabileo/issues/381), [#370](https://github.com/lambdaclass/stabileo/issues/370)).
+- **[#458](https://github.com/lambdaclass/stabileo/issues/458) proof gap:** `EndToEnd.lean` leaves element formulas and the removal of unstiffened
+  DOFs unformalised (partly [#375](https://github.com/lambdaclass/stabileo/issues/375), [#376](https://github.com/lambdaclass/stabileo/issues/376), [#500](https://github.com/lambdaclass/stabileo/issues/500)).
+- **Cb moves from TypeScript (`steel/moment-gradient.ts`) to Rust** ([#391](https://github.com/lambdaclass/stabileo/issues/391)).
+
 **Exit criteria (Solver and proof depth).**
 - Every Certified analysis is certified end to end for frames (model → K, f → result), then for shells (item 1); the trusted computing base is a reviewed document enforced in CI, with 0 `sorry` and no extra axioms in Lean (item 2).
 - Every element family in MATURITY.md is Certified (symbolic derivation) or Benchmarked, and every shell, plate and solid passes a convergence-order test (item 6); 0 open `derivations` issues labelled `safety`.
@@ -433,7 +733,7 @@ queue is live. In review: fast PR checks that run what a change touches (PR [#86
 WASM once and retry only infrastructure errors (PR [#866](https://github.com/lambdaclass/stabileo/pull/866)), and e2e guards including a 45 s
 smoke budget (PR [#869](https://github.com/lambdaclass/stabileo/pull/869)). Browser checks run on the OVH server.
 
-**Route byte budgets (2026-11-03):** the wave B safety fixes ([#1285](https://github.com/lambdaclass/stabileo/pull/1285)) grew the landing routes by 10,442 B and the app routes by 66,037 B, accepted once by the user through [#1291](https://github.com/lambdaclass/stabileo/pull/1291). All six routes are back to 128 B, and the gate's own test pins that value.
+**Route byte budgets (2026-11-04):** the three landing routes are at 128 B; the app routes carry the one-time safety batch acceptance below until the follow-up restores 128 B, and the gate's own test pins both values. The one-time acceptances for wave B ([#1291](https://github.com/lambdaclass/stabileo/pull/1291)) and for the Basic course ([#871](https://github.com/lambdaclass/stabileo/pull/871)) are gone: [#1322](https://github.com/lambdaclass/stabileo/pull/1322) and the revert [#1372](https://github.com/lambdaclass/stabileo/pull/1372) restored them. The gate counts what the app loads lazily too, except behind a declared route boundary (the blog, [#1289](https://github.com/lambdaclass/stabileo/pull/1289); the course, [#1302](https://github.com/lambdaclass/stabileo/pull/1302)). The JAIE and TIIC blog posts ([#1338](https://github.com/lambdaclass/stabileo/pull/1338)) need their growth measured again against that boundary. **Safety batch (2026-11-04):** each PR of the safety batch records its result change in the results-version registry and its text in every locale, which the gate counts as app growth: [#1326](https://github.com/lambdaclass/stabileo/pull/1326) +1,739 B, [#1328](https://github.com/lambdaclass/stabileo/pull/1328) +3,295 B, [#1319](https://github.com/lambdaclass/stabileo/pull/1319) +3,289 B, [#1321](https://github.com/lambdaclass/stabileo/pull/1321) +2,002 B, [#1298](https://github.com/lambdaclass/stabileo/pull/1298) +1,896 B, [#1324](https://github.com/lambdaclass/stabileo/pull/1324) +2,780 B, [#1301](https://github.com/lambdaclass/stabileo/pull/1301) +8,424 B, [#1295](https://github.com/lambdaclass/stabileo/pull/1295) +9,521 B, [#1297](https://github.com/lambdaclass/stabileo/pull/1297) +18,460 B with #1295 under it, [#1255](https://github.com/lambdaclass/stabileo/pull/1255) +15,998 B. The user accepted the batch once, so the app budget is 20,480 B per PR until the gate counts the registry on its own budget; then it is restored to 128 B. [#1253](https://github.com/lambdaclass/stabileo/pull/1253) (+29,839 B, with its review fixes: the generated-load re-check notice and its texts in six locales) carries its own one-time acceptance. [#1406](https://github.com/lambdaclass/stabileo/pull/1406) (+46,943 B, of which 46,920 B is the packed registry) adds German, French and Turkish to every registry entry so the re-check notice ([#1404](https://github.com/lambdaclass/stabileo/issues/1404)) is readable in all six languages; the text loads only with the notice, outside the static app closure, and the PR carries its own one-time acceptance of 47,104 B. The versioned PRs land together as one integration (results versions 17 to 26: #1328, #1319, #1321, #1253, #1255, #1298, #1324, #1301, #1297, [#1396](https://github.com/lambdaclass/stabileo/pull/1396)), whose app growth is +81,550 B in one diff, so the app budget is 83,968 B for that integration (larger than #1406's 47,104 B); [#1390](https://github.com/lambdaclass/stabileo/pull/1390) then restores 128 B.
 
 1. **Staging before production:** [#385](https://github.com/lambdaclass/stabileo/issues/385) deploy main to a staging URL first; promote to production on a tagged release after the full suite, the acceptance suite and a smoke check pass.
 2. **Versioned releases with notes:** [#386](https://github.com/lambdaclass/stabileo/issues/386) every release has a version, release notes in English and Spanish, and a prominent "results may change" section listing result-affecting changes and who is affected.
@@ -443,6 +743,17 @@ smoke budget (PR [#869](https://github.com/lambdaclass/stabileo/pull/869)). Brow
 6. **Safety advisories.** [#441](https://github.com/lambdaclass/stabileo/issues/441) When a released version produced a wrong or unconservative result, users are told through an advisory with the affected versions and features, how to tell if a model is affected, the fixed version and a workaround: [SAFETY_ADVISORIES.md](../SAFETY_ADVISORIES.md), drafts in [`docs/advisories/`](../advisories/), scoped in-app notices through the re-check registry (PR [#328](https://github.com/lambdaclass/stabileo/pull/328)).
 7. **Contain first, fix second.** [#447](https://github.com/lambdaclass/stabileo/issues/447) Per-feature runtime switches (warn or refuse) that the app, the engine API and the MCP server check at solve and check time, so a known dangerous result is contained within hours of confirmation, before the fix is written or released. Every `safety` issue gets a containment step (switch set, or a recorded reason none is needed) before its fix; a switch can only make results more cautious than the bundled default.
 8. **Postmortem per safety bug.** [#449](https://github.com/lambdaclass/stabileo/issues/449) Every `safety` defect that reached `main` gets a blameless postmortem in `docs/postmortems/`: timeline, root cause, why the tests, certificates, differential runs and reviews missed it, the new kind of test or check that now catches it, the variant analysis (Trust item 14), and its advisory, which is written from it.
+
+**From the verified review (2026-11-02), P1:**
+
+- **Contain the lower-severity open defects too** (item 7, [#447](https://github.com/lambdaclass/stabileo/issues/447)): [#818](https://github.com/lambdaclass/stabileo/issues/818)
+  the dense reciprocal eigen-solve can report a buckling factor slightly above the true one (0.05%
+  in #741's case; #741 itself, a certified factor above its own bound, is fixed on main by #817); [#456](https://github.com/lambdaclass/stabileo/issues/456) 3D buckling averages end
+  forces (mostly false refusals); [#419](https://github.com/lambdaclass/stabileo/issues/419) 3D connector axes; [#408](https://github.com/lambdaclass/stabileo/issues/408) warping shared at a node
+  with the UI silent; [#417](https://github.com/lambdaclass/stabileo/issues/417) cable in compression caught only in TypeScript.
+- **Research crate lists drawn from `research/papers.yaml`:** `supply-chain.yml` skips
+  pastrana-2026 and ferrari-sigmund-2025 (pastrana's WASM ships), and `vite.config.ts` checks only
+  shauer.
 
 **Exit criteria (Release safety).**
 - Every release is tagged, has release notes in English, Spanish and Portuguese with a "results may change" section, and records a row on the [dashboard](../verification/DASHBOARD.md).
@@ -471,15 +782,75 @@ without a second implementation of anything that computes a result.
 5. **Ownership map, then consolidation:** which implementation owns each code check and limit
    state; numerical rules move to Rust where they exist only in TypeScript or disagree. [#732](https://github.com/lambdaclass/stabileo/issues/732)
 
+**From the verified review (2026-11-02), P1:**
+
+- **Wire inputs refuse unknown fields, type by type** (audit plan K5): only `SolverElement3D` and
+  the mass structs deny them today. Not a blanket change: the web sends `name` on `SolverSection`.
+- **Solver worker hangs:** after init, a killed or out-of-memory worker leaves its jobs pending
+  forever (no timeout, no respawn), and a worker is reused after a WASM trap. A hang, not a wrong
+  result.
+- **Touch:** cover the mobile results panel (`.mrp-*`, 22 px steppers) and tablets in the
+  touch-density checks; compact stays the default (a documented decision).
+- **Sitemap and research metadata:** research pages missing from the de/fr/tr sitemap, research
+  JSON-LD and share cards: in PRs [#881](https://github.com/lambdaclass/stabileo/pull/881) and [#1066](https://github.com/lambdaclass/stabileo/pull/1066).
+
 **Exit criteria.** The desktop app ships signed on three OSes with auto-update and results
 identical to the web on the snapshot corpus (#716); every code check and limit state has one
 authoritative implementation in the ownership map; `.ded` files from every release open (#718).
 
-### Stabileo Research (2026-11-01)
+### CI and feedback loop (2026-11-04)
+
+Every fix waits on CI; on 2026-11-01 about 40 PRs were in CI at once, and the merge queue stalled for
+hours on hung self-hosted runners, a shared sccache server and GitHub cache rate limits. A fast,
+reliable queue is a safety item: a fix that cannot land leaves the wrong result live. Owner: the CI
+workstream (W2-ci).
+
+**Speed:** push to green on a full-scope pull request went from 397–498 min to 51–72 min after the
+CI speed PRs of 2026-11-03 and 2026-11-04 (four threads per job [#1330](https://github.com/lambdaclass/stabileo/pull/1330), artifact 5xx retry [#1331](https://github.com/lambdaclass/stabileo/pull/1331), E2E shards
+on GitHub's runners [#1332](https://github.com/lambdaclass/stabileo/pull/1332), hybrid PR routing [#1333](https://github.com/lambdaclass/stabileo/pull/1333), per-crate research WASM cache [#1334](https://github.com/lambdaclass/stabileo/pull/1334), no rerun on
+a label [#1336](https://github.com/lambdaclass/stabileo/pull/1336), queue route budgets against the group's base [#1337](https://github.com/lambdaclass/stabileo/pull/1337), no second test of a merge to main
+[#1339](https://github.com/lambdaclass/stabileo/pull/1339), no wall-clock assertions in the shared suite [#1340](https://github.com/lambdaclass/stabileo/pull/1340), runner pool drift alert [#1327](https://github.com/lambdaclass/stabileo/pull/1327)), then the shorter builds and runner isolation of items 19 and 20 (landed 2026-11-04).
+In flight: [#1373](https://github.com/lambdaclass/stabileo/pull/1373), and item 21.
+
+| # | Item | Why | PR | State |
+|---|---|---|---|---|
+| 1 | **14 runners in pools on stabileo-ci-1, with a watchdog:** label pools (queue/main, same-repo PRs, timing-sensitive jobs pinned, nightly), and a watchdog that restarts a runner GitHub shows busy with no live job | Six runners hung "busy" with no job blocked the queue for hours twice on 2026-11-02 | (dotfiles `servers/`, with #1221) | sgha7-14 not registered yet: **waits on the user** (remote registration command in the ledger) |
+| 2 | **One sccache server per runner user:** private Unix socket per runner; build without sccache when it cannot start | Runners sharing one sccache port failed merge-group WASM builds with "Permission denied" | [#1075](https://github.com/lambdaclass/stabileo/pull/1075) | landed in wave A ([#1254](https://github.com/lambdaclass/stabileo/pull/1254)) |
+| 3 | **Build WASM once and retry only infrastructure errors,** with a stall timeout (a hung `cargo fetch` is killed and retried) | Each WASM rebuild costs minutes per job; infra reds were rerun by hand | [#866](https://github.com/lambdaclass/stabileo/pull/866) | landed in the CI wave ([#1252](https://github.com/lambdaclass/stabileo/pull/1252)) |
+| 4 | **Path-filtered PR checks:** a PR runs what its change touches; the merge queue still runs everything | Docs and web-only PRs waited on the whole engine suite | [#863](https://github.com/lambdaclass/stabileo/pull/863) | landed in the CI wave ([#1252](https://github.com/lambdaclass/stabileo/pull/1252)) |
+| 5 | **Every job on stabileo-ci-1,** pools by label, superseded merge-group runs cancelled, timeouts on every job | Hosted runners moved to Ubuntu 26.04 and broke Playwright on every PR; stale merge-group runs took runner slots ahead of live ones | [#1221](https://github.com/lambdaclass/stabileo/pull/1221) | landed in the CI wave ([#1252](https://github.com/lambdaclass/stabileo/pull/1252)) |
+| 6 | **Lighter merge-queue checks,** with the full suite on main after merge, a rerun on failure, then an automatic signed revert PR and an urgent alert | The queue should only block on what catches most breakage; the rest still runs on every main commit and reverts fast | [#1226](https://github.com/lambdaclass/stabileo/pull/1226) | landed in the CI wave; **waits on the user:** repo secrets `REVERT_BOT_TOKEN` and `NTFY_TOPIC`; each revert PR needs a human approval |
+| 7 | **Move sgha1-6 into the runner pools,** plus the pending system upgrade on stabileo-ci-1 | The first six runners still run outside the pool slice and its limits | (dotfiles `servers/`) | **waits on the user**, once the queue is empty (restarts each runner) |
+| 8 | **Runner labels and watchdog token:** `stabileo-pr` on sgha1-5; drop the borrowed `stabileo` label from sgha9-14 once #1221 lands; a fine-grained PAT for the watchdog | The pools only isolate jobs if the labels match them; the watchdog cannot restart a runner without a token | (dotfiles `servers/`, after #1221) | **waits on the user** |
+| 9 | **Wall-clock budgets on the timing pool** (`stabileo-timing`), for main and nightly only | Timing checks on shared runners flake under load and block the queue | [#1241](https://github.com/lambdaclass/stabileo/pull/1241) | landed (2026-11-03); the timing pool for main and nightly is still to do |
+| 10 | **Proof checks required:** Lean, symbolic and Kani as required checks in both rulesets (branch protection and merge queue) | #1235 runs them in the merge queue; until they are required, a red one does not block | [#1235](https://github.com/lambdaclass/stabileo/pull/1235) | #1235 landed in the CI wave; **waits on the user** |
+| 11 | **Mutants rotation:** 32 shards a night, so every shard runs every 16 days instead of every 128, with a staleness check | The weekly staleness check fails until 16 nights of markers exist; expected, not a regression | [#1240](https://github.com/lambdaclass/stabileo/pull/1240) | landed in the CI wave |
+| 12 | **Perf ratchet margin:** keep the strict 64-byte margin or widen it | Strict means nearly every PR that changes shipped web code also runs `make perf.budget.accept`, and two such PRs conflict on `web/perf-budget.json` | [#768](https://github.com/lambdaclass/stabileo/pull/768) | **waits on the user** |
+| 13 | **Agent hygiene:** a unique scratchpad log name per agent | Two agents overwrote each other's engine logs on 2026-11-02 | (agent instructions; issue to file) | open |
+| 14 | **Cancel superseded merge-group runs** automatically | A rebuilt queue left the old run for the same PR holding a runner | [#1242](https://github.com/lambdaclass/stabileo/pull/1242) | landed in wave A |
+| 15 | **Cap concurrent E2E per host,** or lower the queue's maximum entries to build | At 14 headless Chrome jobs stabileo-ci-1 saturates and @slow E2E fails with "Target page closed"; each failed batch costs about 2 h | (dotfiles `servers/` or the ruleset) | the ruleset builds at most 5 entries since 2026-11-03; **waits on the user:** `stabileo-e2e` labels and `STABILEO_E2E_POOL=true` (refused to agents) |
+| 16 | **Steps agents cannot run:** `gh pr ready` on drafts (today #1229 and the course stack #1302–#1307) and `gh run cancel` on stale merge-group runs are refused by the permission classifier | Ready PRs wait as drafts and stale runs hold runner slots until a person acts | (process; issue to file) | **waits on the user:** run them, or allow them |
+| 17 | **Second reviewer and reviewer sandbox:** Kimi and Grok out of quota (Codex alone until 2026-11-08); the Kimi/Grok sandbox keeps the host network namespace, and nix bwrap cannot run on fede-256gb | Two reviews before main need a second model; a prompt-injected reviewer could reach local services | [#842](https://github.com/lambdaclass/stabileo/pull/842) | **waits on the user:** top up, and accept the sandbox as is or build the outbound proxy |
+| 18 | **AI reviews from six models on every PR** | Outside contribution (klaus993); posts a review comment per model and needs six API secrets | [#1245](https://github.com/lambdaclass/stabileo/pull/1245) | landed in wave A |
+| 19 | **Shorter builds:** research WASM bundles built in parallel and saved bundle by bundle, with a retried restore; the Docker image built from source on a PR only when its recipe changes; PRs off magic-nix-cache, so they stop churning the Actions cache | The research WASM and the Docker source build were the long poles of a PR run | [#1335](https://github.com/lambdaclass/stabileo/pull/1335), [#1373](https://github.com/lambdaclass/stabileo/pull/1373), [#1346](https://github.com/lambdaclass/stabileo/pull/1346), [#1374](https://github.com/lambdaclass/stabileo/pull/1374) | landed 2026-11-04 except [#1373](https://github.com/lambdaclass/stabileo/pull/1373) (open, ready) |
+| 20 | **Runner isolation:** scheduled runs never take the merge queue's runners; Code_Aster's micromamba installs into the job's temp directory | Nightly jobs held the queue's runners while a queued fix waited; a micromamba binary left on a self-hosted runner failed the next Code_Aster comparison | [#1348](https://github.com/lambdaclass/stabileo/pull/1348), [#1376](https://github.com/lambdaclass/stabileo/pull/1376) | landed 2026-11-04 |
+| 21 | **Next:** automatic retry of infrastructure reds (cache 429, nix substituter, HTTP/2 framing); docs-only PRs scoped to the docs checks; the merge queue's critical path (E2E waits and research WASM) | Infra reds are still rerun by hand; a docs PR still waits on web jobs | (to open) | planned |
+
+**Exit criteria.** A docs PR gets its checks in under 10 minutes; the merge queue has no hung runner
+for a week; every infra red is retried automatically, and a broken main is reverted within an hour.
+
+### Stabileo Research (2026-11-04)
 
 Published computational-mechanics papers turned into experiments anyone can run, change and check,
 at stabileo.com/research, always in Stabileo's own viewer. Plan, rules and the ordered paper queue:
 [research/DESIGN.md](../../research/DESIGN.md) and [research/CLAUDE.md](../../research/CLAUDE.md).
+
+**Live and pending (2026-11-04).** Live: every paper and benchmark in the table below as a first
+version, the eight Tools with their review fixes ([#900](https://github.com/lambdaclass/stabileo/pull/900)), the round-2 fixes of Andreassen ([#886](https://github.com/lambdaclass/stabileo/pull/886)) and
+Mattiasson ([#890](https://github.com/lambdaclass/stabileo/pull/890)), and no review-round note on any page ([#1320](https://github.com/lambdaclass/stabileo/pull/1320)). Pending, none of it on main: the
+round-2 fixes of the other papers and research SEO, 17 PRs in one integration, [#1068](https://github.com/lambdaclass/stabileo/pull/1068) (draft); then
+Research and Tools faster on phones ([#1065](https://github.com/lambdaclass/stabileo/pull/1065)), research on phones and tablets ([#831](https://github.com/lambdaclass/stabileo/pull/831)), frozen versions
+([#777](https://github.com/lambdaclass/stabileo/pull/777), waits on DNS) and one file per paper ([#844](https://github.com/lambdaclass/stabileo/pull/844), last).
 
 1. **Live in production:** Shauer 2025 fracture (PR [#769](https://github.com/lambdaclass/stabileo/pull/769)), Grossman & Boudaoud 2026
    (PR [#776](https://github.com/lambdaclass/stabileo/pull/776)), the catalogue (PR [#788](https://github.com/lambdaclass/stabileo/pull/788)), and Ferrari & Sigmund 2025
@@ -652,6 +1023,19 @@ all of it.
   fallback for the app only, and a `Caddy Routing` CI job tests it.
 - **Speed:** PR [#880](https://github.com/lambdaclass/stabileo/pull/880) (section "Speed: measured 2026-10-30").
 
+### Live-site fixes (2026-11-02)
+
+Bugs a visitor sees on stabileo.com today. Each has a test that fails before the fix; all are Codex
+clean. The Ubuntu 24.04 pin (#1079) has landed; they ship together through the live-site integration
+PR [#1227](https://github.com/lambdaclass/stabileo/pull/1227), with #1224 stacked on #988; the changelog counts fix ships in [#1384](https://github.com/lambdaclass/stabileo/pull/1384) instead.
+
+| Bug | PR | State |
+|---|---|---|
+| **Soft 404:** unknown URLs return the landing page with HTTP 200, so search engines index junk | [#1059](https://github.com/lambdaclass/stabileo/pull/1059) | prerendered 404 per locale with status 404; conflicts with #988 resolved on the integration branch |
+| **Pages without a language prefix** (`/research`, `/tools`, `/changelog`) serve the landing's HTML and canonical until the client redirects | [#1224](https://github.com/lambdaclass/stabileo/pull/1224) | 301 to the English page, query kept; stacked on #988 |
+| **Landing blank below the hero until scrolled** (sections stayed transparent until an IntersectionObserver fired) | [#1223](https://github.com/lambdaclass/stabileo/pull/1223) | every section visible without scrolling or JavaScript |
+| **Changelog counts:** the header says 98 changes, the area filters add up to 56 (they counted weekly entries, not items) | [#1222](https://github.com/lambdaclass/stabileo/pull/1222) | filters count items and add up to the total; in [#1384](https://github.com/lambdaclass/stabileo/pull/1384) |
+
 ### Growth: shared models, tools and research (2026-10-29)
 
 Several tracks exist to grow Stabileo faster, and they share infrastructure: **Stabileo Research**
@@ -814,6 +1198,62 @@ as such, never as a full code check.
 formula agreement; Lighthouse performance ≥ 90 on tool pages; Search Console impressions and editor
 opens measured per tool.
 
+### Live examples gallery (2026-11-02)
+
+A gallery of parametric examples at `/examples`: each a live model on the production engine with
+sliders, the results redrawn as the parameters move, and **Open in Stabileo**. Tools answer one
+calculation; examples show what a whole structure does. A feasibility study compared Stabileo with
+the examples a parametric structural gallery needs; this section is what it found and what is left.
+
+**Week 1 (in progress, separate branch):** `/examples` with 7 examples: frame playground, slab on
+columns, earthquake time history, RC pushover, RC column drawings, outrigger sweep, tower modes and
+buckling. PR [#1229](https://github.com/lambdaclass/stabileo/pull/1229) ships the first three (frame playground, slab on columns, earthquake
+time history) and the `defineExample` contract; examples 4–7 (RC pushover, RC column drawings,
+outrigger sweep, tower modes and buckling) follow on the same contract in PR [#1300](https://github.com/lambdaclass/stabileo/pull/1300) (RC column,
+outrigger sweep, steel tower) and PR [#1308](https://github.com/lambdaclass/stabileo/pull/1308) (RC pushover with fibre sections), both stacked on #1229. The earthquake time-history example lands after PR [#1239](https://github.com/lambdaclass/stabileo/pull/1239), so a non-finite result is
+refused there too.
+
+**The 13 example types and where Stabileo stands:**
+
+| # | Example type | State | What is missing |
+|---|---|---|---|
+| 1 | Frame playground (2D/3D frames, loads, diagrams) | have it | week 1 |
+| 2 | Slab on columns (plates, deflection) | have it | week 1 |
+| 3 | Earthquake time history | have it | week 1 |
+| 4 | RC pushover | have it | week 1 |
+| 5 | RC column drawings (section, reinforcement, detailing) | have it | week 1 |
+| 6 | Parametric tower: outrigger sweep, modes and buckling | small gap | week 1 builds it by hand; structural generators (gap 9) |
+| 7 | Timber member design | small gap | NDS only; Eurocode 5 (gap 4) |
+| 8 | AI agent: IFC import → code check → report | small gap | IFC import and the BYO-key assistant exist; the example wiring (gap 5) |
+| 9 | Floor vibration under walking (footfall) | missing | walking-load generator, plate time history (gap 2) |
+| 10 | Membrane form-finding | missing | force density for surfaces (gap 3) |
+| 11 | Slab yield-line analysis | missing | a new solver (gap 6) |
+| 12 | Nonlinear shell buckling (imperfection-sensitive shells) | missing | corotational shells plus arc length (gap 7) |
+| 13 | Mesh (OBJ) to member skeleton | missing | an import pipeline (gap 8) |
+
+**Gaps, in order** (effort S = days, M = one to two weeks, L = a month or more):
+
+| # | Item | Why | Effort | Depends on |
+|---|---|---|---|---|
+| 1 | **General parametric example API:** a `defineExample` contract (parameters with units and ranges, a model generator, the results to show, refusals), with the generators unified with the Tools `buildModel` (`web/src/components/tools/calculators.ts`) | One way to write an example, a tool or a worked problem; every later gap plugs into it instead of growing one-off pages | M | week 1 (extract the contract from its 7 examples) |
+| 2 | **Footfall / walking-load generator** for floor vibration (pace frequency, harmonics, walker path), and plate time history with response factors | Floor vibration is a routine check for long-span and timber floors, and today has no load to drive it | M | 1; time history on plates verified against two references (modal superposition and direct integration) |
+| 3 | **Membrane form-finding:** force density for surfaces (cable nets and membranes), building on the cable form-finding in `research/form-finding/pastrana-2026` | Tension structures are a showcase example and only cables exist today | M | 1; the Pastrana research crate promoted to the engine through the experimental path |
+| 4 | **Eurocode 5 timber checks** next to the NDS checks in `engine/src/postprocess/timber_check.rs` (bending, compression with buckling, tension, shear, combined; kmod and service classes) | Timber outside the US is designed to EN 1995; NDS alone limits the timber example to one market | M | published worked examples for each check, signed off (#450) |
+| 5 | **AI agent example:** IFC import → code check → report, driven by the bring-your-own-key assistant (PR [#1064](https://github.com/lambdaclass/stabileo/pull/1064)) | Shows the AI stage on real engine results: the assistant drives, the engine decides, the report cites clauses | S/M | #1064 and its error translation ([#1080](https://github.com/lambdaclass/stabileo/issues/1080)); IFC import (`web/src/lib/ifc/`) |
+| 6 | **Slab yield-line analysis:** a new solver (mechanism search over candidate patterns, upper-bound check) | The standard way to check slab collapse; nothing in the engine does it | L | **safety-critical:** two reviews before main, published benchmarks (Johansen's patterns, textbook cases), experimental label until verified |
+| 7 | **Nonlinear shell buckling:** corotational shells plus arc length. Today `engine/src/solver/corotational.rs` rejects every shell element and only linear (eigenvalue) shell buckling exists | Imperfection-sensitive shells (cylinders, domes) buckle far below the linear load, so a linear factor alone is unconservative there | L | **safety-critical:** two reviews before main, published benchmarks (hinged cylindrical panel, pinched hemisphere); #1057 and #798 fixed first |
+| 8 | **OBJ / mesh to member skeleton import** (centrelines from a surface mesh, joints merged, sections assigned by the user) | Turns architects' massing models into analysis models. Low priority | L | 1; the refusals and checks of the other importers |
+| 9 | **Outrigger and other structural generators** for parametric towers (core, outrigger and belt levels, bracing patterns, diagrids) | Week 1's tower is hand-built; generators make the sweep a real parameter study | S | 1 |
+
+**Verification first, for every engine gap (2, 3, 4, 6, 7):** benchmarks with two independent
+references that agree before they are admitted, a convergence study, the self-checks and invariance
+tests of "Prevention", and refusal paths for whatever is out of scope. Each ships labelled
+experimental until it has all of them; an example never shows a number the engine could not check.
+Never silently wrong.
+
+**Sequence:** week 1, then gap 1 (the contract), then 9 and 5 (small, on existing engine features),
+then 4, 2 and 3; 6 and 7 as safety-critical engine work after the "Priority now" items; 8 on demand.
+
 ### Growth and housekeeping (2026-10-28)
 
 1. **Real users and independent validation:** a beta-tester program, the outreach to engineers and
@@ -840,6 +1280,49 @@ opens measured per tool.
      old names stay forever, and `.ded` keeps opening (the extension may remain as the project format).
    - **Phase 4, keep it done:** a CI check forbids new `dedaliano` outside the compatibility allowlist.
    Each phase is its own PR, reviewed twice, merged only when the guard tests from phase 0 are green.
+
+### Verified review: later and housekeeping (2026-11-02)
+
+From the same verified review. **Later (P2):**
+
+- Split `App.svelte` (4,326 lines) into mode shells; move the 136 `#[wasm_bindgen]` wrappers out of
+  `lib.rs`.
+- PCG factors K fully first (performance only, opt-in path).
+- String discriminants to serde enums; TypeScript types generated from Rust.
+- Sheet detents and double-tap, a touch loupe for snapping, tool permalinks and embeds.
+- Faster build tests (5 production builds, not 3; the 800 ms prerender wait).
+- AI backend: run `sanity::review_json` and a mechanism check when it builds a model.
+- An animated mechanism mode for "why did this fail" (mechanism nodes are already reported).
+- Serviceability certificates ([#367](https://github.com/lambdaclass/stabileo/issues/367)); Rust ports of direct analysis and Wood–Armer ([#392](https://github.com/lambdaclass/stabileo/issues/392)).
+- Already planned, unchanged: BundleCheck in the browser ([#499](https://github.com/lambdaclass/stabileo/issues/499)), parametric models
+  ([#347](https://github.com/lambdaclass/stabileo/issues/347), [#357](https://github.com/lambdaclass/stabileo/issues/357)), CLI and MCP ([#351](https://github.com/lambdaclass/stabileo/issues/351), [#731](https://github.com/lambdaclass/stabileo/issues/731)), steel and RC tools (Tools item 4).
+
+**Housekeeping:**
+
+- **Regenerate `docs/verification/MATURITY.md`:** it is stale and still lists closed issues (#427,
+  #416, #459) as open; the review trusted it.
+- **Retriage [#810](https://github.com/lambdaclass/stabileo/issues/810):** probably a test-model error (per the research page); close or retriage.
+- **Triage the 227 open `nightly-finding` issues,** many marked wrong-result candidates.
+- **Close or settle the leftovers of this push:** outside PRs #1067, #887 and #888 with the
+  standard note (the classifier refused `gh pr close`); the untrusted leads #533 and #535 once
+  #1233 and #1236 land; #1063 and #1074 "merged via #807", #1243 is already
+  closed (folded into #1079); #765 and #871 once their integrations [#1071](https://github.com/lambdaclass/stabileo/pull/1071) and [#1070](https://github.com/lambdaclass/stabileo/pull/1070) land; the
+  old per-job `verification-failure` trackers now that #739 has landed.
+- **Dependencies:** num-bigint 0.5 ([#819](https://github.com/lambdaclass/stabileo/pull/819), [#820](https://github.com/lambdaclass/stabileo/pull/820), [#828](https://github.com/lambdaclass/stabileo/pull/828), [#829](https://github.com/lambdaclass/stabileo/pull/829)) breaks the engine's
+  num-rational 0.4 and stays open; [#985](https://github.com/lambdaclass/stabileo/pull/985) (npm minor) landed in wave A; older Dependabot PRs [#654](https://github.com/lambdaclass/stabileo/pull/654),
+  [#655](https://github.com/lambdaclass/stabileo/pull/655), [#317](https://github.com/lambdaclass/stabileo/pull/317), [#318](https://github.com/lambdaclass/stabileo/pull/318), [#319](https://github.com/lambdaclass/stabileo/pull/319) and the held-back majors [#457](https://github.com/lambdaclass/stabileo/pull/457) need a decision.
+- **Performance follow-ups of #768:** gate the WASM size [#1072](https://github.com/lambdaclass/stabileo/issues/1072); the audit's remaining work
+  [#1073](https://github.com/lambdaclass/stabileo/issues/1073). The blog post [#882](https://github.com/lambdaclass/stabileo/pull/882) was left out of #1068 because it grows the landing entry by
+  32 KB: it needs lazy blog bodies or a budget decision.
+- **Old drafts to keep or close:** [#609](https://github.com/lambdaclass/stabileo/pull/609) and [#651](https://github.com/lambdaclass/stabileo/pull/651) (nonlinear framework), [#536](https://github.com/lambdaclass/stabileo/pull/536) (design
+  iteration), [#470](https://github.com/lambdaclass/stabileo/pull/470) (CODEOWNERS, pending a reviewer decision), [#331](https://github.com/lambdaclass/stabileo/pull/331) (mechanism detection),
+  [#473](https://github.com/lambdaclass/stabileo/pull/473) (3D certificate line); and [#794](https://github.com/lambdaclass/stabileo/issues/794), ShauerPage under the 600-line ceiling (ours; the
+  outside PR #888 is closed).
+- **Retriage [#742](https://github.com/lambdaclass/stabileo/issues/742)** (fuzz `model_certify`: likely the equilibrium oracle's scale, not the
+  engine) and **close [#755](https://github.com/lambdaclass/stabileo/issues/755)** once its fix is confirmed on main.
+- **Changelog fragments:** every PR merged to main since 0.4.0 that changes behaviour has one (checked
+  2026-11-04; #770, #739, #878, #1287 and #1341 added then). Open PRs that still need theirs before they
+  land: [#1061](https://github.com/lambdaclass/stabileo/pull/1061), [#1065](https://github.com/lambdaclass/stabileo/pull/1065), [#1071](https://github.com/lambdaclass/stabileo/pull/1071), [#785](https://github.com/lambdaclass/stabileo/pull/785); [#807](https://github.com/lambdaclass/stabileo/pull/807) must carry the folded #1074 and #1232 in its own.
 
 ## Daily, Weekly, Monthly Priority Lens
 

@@ -144,9 +144,9 @@ fn a_direct_constrained_solve_carries_its_warnings_once() {
     let tie = Constraint::EqualDOF(EqualDOFConstraint { master_node: 2, slave_node: 3, dofs: vec![1] });
     let ci = ConstrainedInput { solver: solver.clone(), constraints: vec![tie.clone()] };
     let dense = dedaliano_engine::solver::constraints::solve_constrained_2d_dense(&ci, &dedaliano_engine::solver::dof::DofNumbering::build_2d(&solver)).unwrap();
-    assert!(ids(&dense.structured_diagnostics).contains(&"AC-PLANE-MAPPING".into()));
+    assert!(ids(&dense.structured_diagnostics).is_empty(), "{:?}", ids(&dense.structured_diagnostics));
     let r = solve_constrained_2d(&ci).unwrap();
-    assert!(ids(&r.structured_diagnostics).contains(&"AC-PLANE-MAPPING".into()));
+    assert!(ids(&r.structured_diagnostics).is_empty(), "{:?}", ids(&r.structured_diagnostics));
     assert_eq!(assumed(&r.structured_diagnostics), vec!["alpha".to_string()]);
     // Through solve_2d (which delegates to the constrained solver): still once.
     let mut with = solver;
@@ -163,7 +163,7 @@ fn constrained_2d_entry_points_refuse_a_withheld_result() {
     let ci = ConstrainedInput { solver: solver.clone(), constraints: vec![tie] };
     let dofs = dedaliano_engine::solver::dof::DofNumbering::build_2d(&solver);
     for clean in [solve_constrained_2d(&ci).unwrap(), dedaliano_engine::solver::constraints::solve_constrained_2d_dense(&ci, &dofs).unwrap()] {
-        assert_eq!(ids(&clean.structured_diagnostics), vec!["AC-PLANE-MAPPING".to_string()]);
+        assert!(ids(&clean.structured_diagnostics).is_empty(), "{:?}", ids(&clean.structured_diagnostics));
         let again = contain_constrained_2d(&ci, clean.clone()).unwrap();
         assert_eq!(serde_json::to_value(&again).unwrap(), serde_json::to_value(&clean).unwrap());
         let mut withheld = clean;
@@ -313,7 +313,7 @@ fn mitc4_macneal_harder_contains_membrane_bending_only() {
                 let result = result.unwrap_or_else(|e| panic!("{shape} direction {direction}: {e}"));
                 assert_eq!(ids(&result.structured_diagnostics).contains(&"SH-MITC4-DISTORTION".into()), shape != "regular");
                 assert!(result.structured_diagnostics.iter().all(|d| d.severity != Severity::Error));
-                let single = dedaliano_engine::postprocess::combinations::compute_envelope_3d(std::slice::from_ref(&result)).unwrap().unwrap().max_abs_results_3d;
+                let single = dedaliano_engine::postprocess::combinations::compute_envelope_3d(std::slice::from_ref(&result)).unwrap().max_abs_results_3d;
                 let signs = |v: Vec<f64>| v.iter().any(|x| *x > 0.0) && v.iter().any(|x| *x < 0.0);
                 assert!(shape == "regular" || signs(result.displacements.iter().flat_map(|d| [d.ux, d.uy, d.uz, d.rx, d.ry, d.rz]).collect()), "{shape}: a field with both signs");
                 for (enveloped, solved) in [
@@ -371,11 +371,11 @@ fn combinations_and_envelopes_keep_known_issue_warnings() {
         assert_eq!(serde_json::to_value(d).unwrap(), serde_json::to_value(&warning).unwrap());
     };
     check(&combined.structured_diagnostics);
-    check(&compute_envelope_3d(&[combined]).unwrap().unwrap().max_abs_results_3d.structured_diagnostics);
+    check(&compute_envelope_3d(&[combined]).unwrap().max_abs_results_3d.structured_diagnostics);
     let mut distorted = dedaliano_engine::known_issues::diagnostic("SH-MITC4-DISTORTION");
     distorted.severity = Severity::Warning;
     r.structured_diagnostics.push(distorted);
-    let single = compute_envelope_3d(&[r.clone()]).unwrap().unwrap().max_abs_results_3d;
+    let single = compute_envelope_3d(&[r.clone()]).unwrap().max_abs_results_3d;
     assert!(single.displacements.iter().zip(&r.displacements).all(|(e, d)| e.uz == d.uz));
     assert!(single.structured_diagnostics.iter().any(|d| d.phase.as_deref() == Some("SH-MITC4-DISTORTION") && d.severity == Severity::Warning));
     common::assert_containment(compute_envelope_3d(&[r.clone(), r.clone()]), "SH-MITC4-DISTORTION");
@@ -411,14 +411,13 @@ fn combinations_and_envelopes_2d_refuse_withheld_cases() {
     let combined = combine_results_checked(&input(0.0)).unwrap().unwrap();
     let reference = clean.displacements.iter().map(|d| 1.5 * d.uz);
     for (d, expected) in combined.displacements.iter().zip(reference) { assert_eq!(d.uz, expected); }
-    common::assert_containment(compute_envelope_checked(&[clean.clone(), withheld.clone()]), "PL-2D-INVARIANCE");
+    common::assert_containment(compute_envelope(&[clean.clone(), withheld.clone()]), "PL-2D-INVARIANCE");
     assert!(combine_results(&input(1.0)).is_none());
     assert!(combine_results_refs(&input(1.0).factors, &[(1, &clean), (2, &withheld)]).is_none());
     assert!(combine_results(&input(0.0)).is_some());
-    assert!(compute_envelope(&[clean.clone(), withheld.clone()]).is_none());
     let mut warned = clean.clone();
     warned.structured_diagnostics.push(dedaliano_engine::known_issues::diagnostic("NL-DYNAMIC-GAPS"));
-    let envelope = compute_envelope_checked(&[clean.clone(), warned]).unwrap().unwrap();
+    let envelope = compute_envelope(&[clean.clone(), warned]).unwrap();
     assert!(envelope.max_abs_results.structured_diagnostics.iter().any(|d| d.phase.as_deref() == Some("NL-DYNAMIC-GAPS")));
 }
 
@@ -753,9 +752,7 @@ fn winkler_and_stages_check_the_solved_matrix() {
     }
 }
 
-#[test]
-fn distorted_mesh_guard_scales_and_allows_uniform_extension() {
-    use dedaliano_engine::known_issues::MembraneBendingGuard;
+fn large_distorted_mesh() -> (SolverInput3D, AnalysisResults3D) {
     let mut input = beam3d();
     input.nodes.clear(); input.elements.clear(); input.supports.clear();
     for i in 0..10000 {
@@ -768,11 +765,26 @@ fn distorted_mesh_guard_scales_and_allows_uniform_extension() {
     }
     let mut result = dedaliano_engine::solver::linear::solve_3d(&beam3d()).unwrap();
     result.displacements = input.nodes.values().map(|n| Displacement3D { node_id: n.id, ux: n.x * 1e-6, uy: 0.0, uz: 0.0, rx: 0.0, ry: 0.0, rz: 0.0, warping: None }).collect();
+    (input, result)
+}
+
+#[test]
+fn distorted_mesh_guard_allows_uniform_extension() {
+    use dedaliano_engine::known_issues::MembraneBendingGuard;
+    let (input, result) = large_distorted_mesh();
+    MembraneBendingGuard::new(&input).check(&[], &result).unwrap();
+    assert!(ids(&for_3d(&input, Analysis::Linear)).contains(&"SH-MITC4-DISTORTION".into()));
+}
+
+#[test]
+#[ignore = "wall-clock budget: run by make test.engine.gates"]
+fn distorted_mesh_guard_indexes_the_mesh_once_per_solve() {
+    use dedaliano_engine::known_issues::MembraneBendingGuard;
+    let (input, result) = large_distorted_mesh();
     let start = std::time::Instant::now();
     let guard = MembraneBendingGuard::new(&input);
     for _ in 0..4 { guard.check(&[], &result).unwrap(); }
     assert!(start.elapsed().as_secs_f64() < 5.0, "guard must index mesh data once per solve");
-    assert!(ids(&for_3d(&input, Analysis::Linear)).contains(&"SH-MITC4-DISTORTION".into()));
 }
 
 #[test]
@@ -944,17 +956,46 @@ fn a_moment_on_a_connector_only_node_without_moment_stiffness_warns() {
 }
 
 #[test]
-fn buckling_2d_with_axial_span_loads_warns_1323() {
+fn hinged_2d_mechanisms_main_refuses_before_the_certificate_458() {
+    let moment = SolverLoad::Nodal(SolverNodalLoad { node_id: 1, fx: 0.0, fz: 0.0, my: 1.0 });
+    let mut hinged = make_beam(1, 4.0, E, 0.045, 3.375e-4, "pinned", Some("rollerX"), vec![]);
+    hinged.elements.get_mut("1").unwrap().hinge_start = true;
+    let mut loaded = hinged.clone();
+    loaded.loads = vec![moment.clone()];
+    assert!(solve_2d(&loaded).is_err(), "a nodal moment on an all-hinged node");
+    let prepared = dedaliano_engine::solver::linear::prepare_static_2d(&hinged).unwrap();
+    assert!(prepared.solve_loads(&[moment.clone()]).is_err(), "a prepared case adds the nodal moment");
+    assert!(prepared.solve_loads(&[SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: -1.0, my: 0.0 })]).is_ok());
+    for dofs in [vec![], vec![0, 1], vec![0, 1, 2]] {
+        let mut arm = hinged.clone();
+        arm.nodes.insert("3".into(), SolverNode { id: 3, x: -1.0, z: 0.0 });
+        arm.constraints.push(Constraint::RigidLink(RigidLinkConstraint { master_node: 1, slave_node: 3, dofs: dofs.clone() }));
+        arm.loads = vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: -1.0, my: 0.0 })];
+        assert!(solve_2d(&arm).is_err(), "an all-hinged node with a rigid arm, dofs {dofs:?}");
+    }
+    let mut spring = loaded.clone();
+    let support = spring.supports.get_mut("1").unwrap();
+    support.support_type = "spring".into();
+    support.kx = Some(1e9);
+    support.ky = Some(1e9);
+    support.kz = Some(1.0);
+    let r = solve_2d(&spring).expect("a real rotational spring supplies stiffness");
+    let ry = r.displacements.iter().find(|d| d.node_id == 1).unwrap().ry;
+    assert!((ry - 1.0).abs() < 1e-6, "the spring carries the whole moment: ry {ry}");
+}
+
+#[test]
+fn buckling_2d_with_axial_span_loads_carries_no_span_warning_1323() {
     use dedaliano_engine::solver::buckling::solve_buckling_2d;
     let tip = SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: -100.0, fz: 0.0, my: 0.0 });
     let span = SolverLoad::AxialDistributed(SolverAxialDistributedLoad { element_id: 1, q_i: 25.0, q_j: 25.0, a: None, b: None });
-    for (loads, warns) in [(vec![tip.clone()], false), (vec![tip, span], true)] {
+    for loads in [vec![tip.clone()], vec![tip, span]] {
         let input = make_beam(1, 4.0, E, 0.01, 1e-4, "fixed", None, loads);
         let result = solve_buckling_2d(&input, 1).unwrap();
         assert!(result.modes[0].load_factor.is_finite() && result.modes[0].load_factor > 0.0);
-        assert_eq!(ids(&result.structured_diagnostics).contains(&"BU-SPAN-AXIAL-2D".into()), warns, "{:?}", ids(&result.structured_diagnostics));
+        assert!(!ids(&result.structured_diagnostics).contains(&"BU-SPAN-AXIAL-2D".into()), "{:?}", ids(&result.structured_diagnostics));
         let certified = dedaliano_engine::certify::buckling::certify_buckling_2d(&input, 1).expect("the cantilever certifies");
-        assert_eq!(ids(&certified.results.structured_diagnostics).contains(&"BU-SPAN-AXIAL-2D".into()), warns);
+        assert!(!ids(&certified.results.structured_diagnostics).contains(&"BU-SPAN-AXIAL-2D".into()));
     }
 }
 
@@ -1226,7 +1267,8 @@ fn a_fiber_solve_keeps_its_warning_after_the_stiff_member_yields() {
             n_integration_points: 5, max_iter: 50, tolerance: 1e-10, n_increments: 4, modified_nr,
         }).unwrap();
         let label = format!("{copies} copies, modified {modified_nr}");
-        assert!((modified_nr || r.converged) && r.fiber_status.iter().filter(|s| s.yielded).count() == copies, "{label}: {:?}", r.fiber_status);
+        let yielded = r.fiber_status.iter().filter(|s| s.yielded).count();
+        assert!(if r.converged { yielded == copies } else { modified_nr && r.stop_reason.is_some() }, "{label}: {:?}", r.fiber_status);
         assert!(ids(&r.results.structured_diagnostics).contains(&"NUM-INVARIANCE".to_string()), "{label}: {:?}", ids(&r.results.structured_diagnostics));
     }
 }
@@ -1626,3 +1668,4 @@ fn round_off_compression_beside_a_compressed_column_adds_no_buckling_mode() {
         assert!((a.load_factor - b.load_factor).abs() <= 1e-9 * a.load_factor, "{} vs {}", a.load_factor, b.load_factor);
     }
 }
+

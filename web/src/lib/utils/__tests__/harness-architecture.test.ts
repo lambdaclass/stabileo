@@ -129,8 +129,22 @@ describe('Vitest harness architecture', () => {
     const build = CONFIG.match(/name: 'build',([\s\S]*?)\n\s{8}\}/);
     expect(build).not.toBeNull();
     expect(build![1]).toMatch(/include: PRODUCTION_BUILD_TESTS/);
-    expect(build![1]).toMatch(/fileParallelism: false/);
-    expect(build![1]).toMatch(/maxWorkers: 1/);
+    expect(build![1]).toMatch(/poolOptions: \{ forks: \{ singleFork: true \} \}/);
+  });
+
+  it('no project sets an option Vitest only honours at the root', () => {
+    const projects = CONFIG.slice(CONFIG.indexOf('projects: ['));
+    const code = projects.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    for (const rootOnly of ['fileParallelism', 'maxWorkers', 'minWorkers']) {
+      expect(code, `${rootOnly} inside a project is silently ignored`).not.toMatch(new RegExp(`\\b${rootOnly}:`));
+    }
+  });
+
+  it('the build pass gives a spawned process more than the default 5 s', () => {
+    const build = CONFIG.match(/name: 'build',([\s\S]*?)\n\s{8}\}/);
+    const timeout = build![1].match(/testTimeout: ([\d_]+)/);
+    expect(timeout, 'the build project needs a testTimeout').not.toBeNull();
+    expect(Number(timeout![1].replace(/_/g, ''))).toBeGreaterThanOrEqual(60_000);
   });
 
   it('the results pass runs the results snapshot tests, and only them', () => {

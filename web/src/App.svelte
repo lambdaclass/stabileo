@@ -390,7 +390,6 @@
   import { solveSharedView } from './lib/utils/solve-shared-view';
   import { runLiveCalc, runGlobalSolve, registerLiveCalcCanceller } from './lib/engine/live-calc';
   import LandingPage from './components/LandingPage.svelte';
-  import BlogPage from './components/blog/BlogPage.svelte';
   import { parsePublicPath, publicHref } from './lib/i18n/public-routes';
   import { routeKind, isAppPath, isDemoPath } from './lib/public-route';
   import { modeToPath, pathToMode, slugifyTabName, type AppMode } from './lib/app-mode';
@@ -607,6 +606,12 @@
     }
   });
   let showBlog = $state(typeof window !== 'undefined' && isBlogRoute(location.pathname));
+  let blogPage = $state<typeof import('./components/blog/BlogPage.svelte').default | null>(null);
+  $effect(() => {
+    if (showBlog && !blogPage) {
+      void import('./components/blog/BlogPage.svelte').then((m) => (blogPage = m.default));
+    }
+  });
   /** The address the blog reads its slug from; kept in state so it is reactive. */
   let blogPath = $state(typeof window !== 'undefined' ? parsePublicPath(location.pathname).path : '/blog');
 
@@ -1436,7 +1441,10 @@
     <Paper />
   {/if}
 {:else if showBlog}
-  <BlogPage path={blogPath} />
+  {#if blogPage}
+    {@const Blog = blogPage}
+    <Blog path={blogPath} />
+  {/if}
 {:else if showLanding}
   <LandingPage />
 {/if}
@@ -1481,7 +1489,7 @@
       {:else if uiStore.isMobile}
         <select class="mode-select-mobile" value={uiStore.appMode} onchange={(e) => switchAppMode(e.currentTarget.value as AppMode)}>
           <option value="basico">{t('app.modeBasic')}</option>
-          <option value="pro">{t('app.modePro')} ({t('app.betaBadge')})</option>
+          <option value="pro">{t('app.modePro')}</option>
           <!--
             Educational is not offered here any more; see the toggle below.
             The option is still RENDERED when that is where you already are,
@@ -1511,7 +1519,7 @@
           <button class:active={uiStore.appMode === 'basico'} onclick={() => switchAppMode('basico')}>
             {t('app.modeBasic')}
           </button>
-          <button class:active={uiStore.appMode === 'pro'} class="pro-mode-btn" onclick={() => switchAppMode('pro')}>{t('app.modePro')}<span class="demo-badge">{t('app.betaBadge')}</span></button>
+          <button class:active={uiStore.appMode === 'pro'} class="pro-mode-btn" onclick={() => switchAppMode('pro')}>{t('app.modePro')}</button>
         </div>
       {/if}
     </div>
@@ -2592,23 +2600,6 @@
     color: white;
   }
 
-  .demo-badge {
-    font-size: 0.45rem;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    background: rgba(255,255,255,0.15);
-    color: rgba(255,255,255,0.7);
-    padding: 0.05rem 0.3rem;
-    border-radius: 3px;
-    margin-left: 0.3rem;
-    vertical-align: middle;
-  }
-
-  .mode-toggle button.active .demo-badge {
-    background: rgba(255,255,255,0.2);
-    color: rgba(255,255,255,0.85);
-  }
-
   .pro-panel-close {
     position: absolute;
     top: 4px;
@@ -3502,8 +3493,9 @@
     height: 100vh;
   }
   .viewer-mode .app-body {
-    height: calc(100vh - 52px);
-    margin-top: 52px;
+    height: calc(100vh - var(--viewer-bar, 52px));
+    height: calc(100dvh - var(--viewer-bar, 52px));
+    margin-top: var(--viewer-bar, 52px);
   }
 
   :global(.edu-tooltip) {
@@ -4310,20 +4302,6 @@
     color: var(--st-text);
     background: none;
     border-bottom-color: var(--st-accent);
-  }
-
-  .demo-badge {
-    font-family: var(--st-mono);
-    font-size: 0.55rem;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--st-text-3);
-    background: none;
-    border: 1px solid var(--st-hair);
-    border-radius: var(--st-radius);
-    padding: 0.05rem 0.25rem;
-    margin-left: 0.3rem;
-    vertical-align: middle;
   }
 
   .separator { color: var(--st-hair); font-size: 1rem; }

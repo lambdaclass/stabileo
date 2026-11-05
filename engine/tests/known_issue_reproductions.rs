@@ -117,7 +117,7 @@ fn helix(n: usize, alpha: f64, kl: f64) -> (SolverInput3D, [f64; 3]) {
 }
 
 #[test]
-fn a_helix_from_a_non_coaxial_tip_moment_matches_the_exact_solution_and_carries_nl3() {
+fn a_helix_from_a_non_coaxial_tip_moment_matches_the_exact_solution_without_nl3() {
     let (input, exact) = helix(40, std::f64::consts::FRAC_PI_4, std::f64::consts::FRAC_PI_2);
     let r = solve_corotational_3d(&input, 100, 1e-9, 40, false).unwrap();
     assert!(r.converged);
@@ -125,7 +125,7 @@ fn a_helix_from_a_non_coaxial_tip_moment_matches_the_exact_solution_and_carries_
     let got = [10.0 + tip.ux, tip.uy, tip.uz];
     let error = (0..3).map(|i| (got[i] - exact[i]).powi(2)).sum::<f64>().sqrt();
     assert!(error / 10.0 < 1e-4, "tip {got:?} vs exact {exact:?}, error {}", error / 10.0);
-    assert!(known(&r.results.structured_diagnostics).contains(&"NL-3".to_string()));
+    assert!(!known(&r.results.structured_diagnostics).contains(&"NL-3".to_string()), "each of the 40 members turns about 0.039 rad, about 0.0196 rad at each end against its chord");
 }
 
 #[test]

@@ -1,69 +1,65 @@
-# MacNeal–Harder production-engine evidence
+# MacNeal–Harder (1985): engine benchmarks
 
-The native test and browser/WASM runner read
-`engine/tests/benchmarks/macneal_harder.json`. All 12 cases remain:
-eight accuracy passes (strict relative error below 2%), two numeric failures
-(distorted out-of-plane meshes), and two expected containment refusals
-(distorted in-plane meshes). Refusals are **not** accuracy passes.
+Live page: `/research/benchmarks/macneal-harder-1985`. The production engine runs twelve cases
+from one case file, `engine/tests/benchmarks/macneal_harder.json`, which the native tests read too.
 
-The two `expectedRefusal` entries require known issue **#798** and diagnostic
-**SH-MITC4-DISTORTION**. Native checks validate the structured containment error.
-The WASM parity check requires the refusal message, issue number, diagnostic ID,
-null value/error and false accuracy pass in both native and browser results.
-Unexpected exceptions or a successful solve in a refusal case fail verification.
-Other cases retain their measurements, tolerances, native bounds and numeric
-native/WASM parity checks unchanged.
+- **Shell cases (paper reference), 2/6 within 2%; two fail and two are withheld by the engine.**
+  The straight cantilever (Fig. 4, p. 7) with regular, trapezoidal and parallelogram 6×1 MITC4
+  meshes, loaded out of plane and in plane. The two distorted in-plane cases are withheld by the
+  engine (known issue #798, SH-MITC4-DISTORTION): they have no computed value or error, stay in
+  the denominator and are not accuracy passes.
+  References 0.4321 and 0.1081 are the theoretical tip displacements in the load direction of
+  Table 3, p. 10, according to a public transcription of the paper. Timoshenko beam theory with
+  shear factor 5/6 gives 0.4320936 and 0.1080936 from the case inputs, the printed values to
+  four digits (`macneal_harder::shell_references_match_timoshenko_beam_theory`).
+- **Frame adaptations (analytical reference), 6/6 within 2%.** Euler–Bernoulli cantilevers,
+  PL³/(3EI), ML²/(2EI), ML/(EI); not problems from the paper.
 
-The live page displays “withheld by the engine (known issue #798)” with no
-computed displacement or error for these two cases. Its accuracy denominator
-stays 12. Reference values remain visible as references, not engine results.
-The current committed measurements are in
-`engine/tests/benchmarks/KNOWN_ISSUES.md#mh-mitc4-distortion`; the old in-plane
-numbers are replaced with withheld outcomes. There is no committed JSON result
-snapshot for this benchmark.
+## Evidence
+
+| Case | Reference | Computed (native = WASM) | Error | Verdict |
+|---|---:|---:|---:|---|
+| MITC4 · regular · out-of-plane | 0.4321 | 0.4234856 | 1.99% | pass, marginal |
+| MITC4 · regular · in-plane | 0.1081 | 0.1070722 | 0.95% | pass |
+| MITC4 · trapezoidal · out-of-plane | 0.4321 | 0.4162054 | 3.68% | documented failure (#798) |
+| MITC4 · trapezoidal · in-plane | 0.1081 | — | — | withheld by the engine (known issue #798, SH-MITC4-DISTORTION) |
+| MITC4 · parallelogram · out-of-plane | 0.4321 | 0.4225724 | 2.20% | documented failure (#798) |
+| MITC4 · parallelogram · in-plane | 0.1081 | — | — | withheld by the engine (known issue #798, SH-MITC4-DISTORTION) |
+| Frame · tip force · 1, 2, 4, 8 elements · uz | −0.0036 m | −0.0036 m | < 1e-10 | pass |
+| Frame · tip moment · 4 elements · uz | 0.009 m | 0.009 m | < 1e-10 | pass |
+| Frame · tip moment · 4 elements · ry | 0.003 rad | 0.003 rad | < 1e-10 | pass |
+
+- References and results are signed, in global axes; a reversed response fails.
+- The 2% limit is a project choice, not the paper's. A shell reference printed to four digits is
+  uncertain by ±5e-5; a verdict that would change within that interval is reported as marginal.
+- A refusal is not an accuracy pass. The two withheld cases keep their inputs and references in
+  the case file and carry `expectedRefusal` (#798, SH-MITC4-DISTORTION) instead of a pinned value.
+- `shells macneal_harder::browser_cases` pins every computed case's outcome (`expectedPass`),
+  bounds the regular cases at 2%, pins the two distorted out-of-plane values to 1e-8 and requires
+  the two distorted in-plane cases to refuse with #798 and SH-MITC4-DISTORTION; `wasm/check.mjs`
+  requires WASM to match native values, signs and verdicts, and requires native and WASM both to
+  refuse those two cases with the same issue and diagnostic, no value and no pass. An unexpected
+  error, or a solve that returns a value for a withheld case, fails verification. The Research
+  workflow runs both on engine changes.
+- Web unit tests: `web/src/components/research/macneal1985/__tests__/cases.test.ts`. Browser:
+  `web/e2e/research-benchmarks.spec.ts`, including phone and tablet sizes.
 
 ## Reproduce
 
-`.github/workflows/ci.yml` invokes the reusable `research.yml` workflow, whose
-`engine-benchmarks` job is named “Production engine benchmarks (native and WASM)”.
-After dependency installation and `make wasm`, its MacNeal–Harder commands are:
-
 ```sh
-MACNEAL_HARDER_RESULTS=/tmp/macneal-native.json nix develop -c cargo test --locked --manifest-path engine/Cargo.toml --test shells macneal_harder::browser_cases
+MACNEAL_HARDER_RESULTS=/tmp/macneal-native.json nix develop -c cargo test --locked --manifest-path engine/Cargo.toml --test shells macneal_harder
 nix develop -c node research/benchmarks/macneal-harder-1985/wasm/check.mjs /tmp/macneal-native.json
-nix develop -c sh -c 'cd web && npx vitest run src/components/research/macneal1985/__tests__/cases.test.ts'
 ```
 
-The same job also runs Mattiasson and Shell Obstacle Course native/WASM checks
-and their related Vitest files.
+## Reviews
 
-## Local verification (2026-10-30)
+Round 1 (Codex, Kimi) and round 2 (Kimi, Codex, Claude), 2026-10-30. Round 2 fixed: signed
+comparison, pinned outcomes, the neutral per-category headline, three failure states, units and
+quantities, the stated acceptance policy and marginal verdicts, six languages, viewer strings and
+keyboard navigation, the reference provenance, and phone/tablet layout.
 
-Used the supplied engine/research WASM builds and installed dependencies.
-Nix startup was denied by the filesystem sandbox (cache lock, then daemon
-socket); the underlying commands ran directly with the exports above.
-Research source edits changed the asset identity, so the existing asset
-publisher refreshed the generated research manifest/replay identity.
+## Open questions
 
-- MacNeal–Harder native case test: passed.
-- Production WASM/native parity: passed for all 12 outcomes.
-- MacNeal–Harder Vitest: 7 passed.
-- Mattiasson Vitest: 4 passed.
-- Shell Obstacle Course Vitest: passed after the #798 hemisphere refusal was
-  merged into its expectations (see the Shell Obstacle Course README).
-- Mattiasson native corotational regression: 13 passed; fresh native result
-  generator and production WASM parity also passed.
-- Full Svelte check: 342 errors and 262 warnings elsewhere in the repository;
-  no errors in the MacNeal–Harder, Mattiasson or Shell Obstacle Course directories.
-- Compared the shared JSON against HEAD after removing only the two new
-  expectation fields: all inputs, references, bounds, tolerances and cases match.
-- Shell native filters: roof 2 passed, cylinder 2 passed, hemisphere 1 passed.
-  The first attempt hit a shared-target Cargo artifact mismatch after building
-  the separate Mattiasson workspace; cleaning only this run's engine release
-  artifacts and rerunning sequentially resolved it.
-- Shell WASM parity: passed. The hemisphere rows (`results/hemisphere-{4,8,16}.json`)
-  record the #798 refusal and `wasm/check.mjs` requires it from both runtimes
-  (11/11 browser cases, headline 1/3); this supersedes the earlier blocker.
-
-No Git write commands were used. No numerical tolerances were loosened and no
-cases were removed.
+- Confirm the Table 3 (p. 10) transcription of 0.4321 and 0.1081 against the publisher's scan.
+- The remaining problems of the set (curved and twisted beams, plates, shells, thick-walled
+  cylinder) and the MITC4 distortion failures and in-plane refusals (#798).

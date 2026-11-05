@@ -1993,10 +1993,7 @@ impl PreparedStatic2D<'_> {
 /// The 2D paths have checked this since `ffbea0686`; this is the same rule for 3D.
 ///
 /// It has to be caught here rather than downstream: the JS wrapper guards solver INPUT,
-/// not output, and `postprocess::combinations` performs no finiteness checks at all —
-/// `compute_envelope` seeds its running max from `results.first()` and advances it with
-/// `>`, and every IEEE-754 comparison against NaN is false, so a NaN would never be
-/// replaced and would silently poison that field of the envelope.
+/// not output.
 pub(crate) fn assert_finite_3d(u: &[f64]) -> Result<(), String> {
     if u.iter().any(|v| v.is_nan() || v.is_infinite()) {
         return Err("Singular stiffness matrix — structure is a mechanism".to_string());

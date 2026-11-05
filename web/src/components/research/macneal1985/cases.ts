@@ -7,7 +7,11 @@ export type Case = typeof data.cases[number];
 export const cases = data.cases;
 export const nativeOnly = data.nativeOnly;
 export const tolerance = data.accuracyTolerance;
-export type Result = { id: string; value: number | null; error: number | null; pass: boolean; refused?: boolean; knownIssue?: string; issue?: number; failure?: string; displacement?: Record<string, number>[] };
+export type Verdict = 'pass' | 'marginal' | 'marginalFail' | 'documented' | 'withheld' | 'mismatch' | 'error';
+export type Result = { id: string; value: number | null; error: number | null; pass: boolean; marginal?: boolean; refused?: boolean; knownIssue?: string; issue?: number; failure?: string; displacement?: Record<string, number>[] };
+
+export const category = (c: Case): 'shell' | 'frame' => (c.element === 'frame' ? 'frame' : 'shell');
+export const unitOf = (c: Case) => (c.measurement.component.startsWith('r') ? 'rad' : 'm');
 
 export function inputFor(c: Case): SolverInput | SolverInput3D {
   const input: Record<string, unknown> = { ...c.input };
@@ -17,12 +21,36 @@ export function inputFor(c: Case): SolverInput | SolverInput3D {
   return input as unknown as SolverInput | SolverInput3D;
 }
 
+const relativeError = (value: number, reference: number) => Math.abs(value / reference - 1);
+
 export function compare(c: Case, displacements: Record<string, number>[]): Result {
   const selected = c.measurement.nodes.map(id => displacements.find(d => d.nodeId === id)?.[c.measurement.component]);
   if (selected.some(v => typeof v !== 'number' || !Number.isFinite(v))) throw new Error(`Missing or non-finite displacement: ${c.id}`);
-  const value = Math.abs((selected as number[]).reduce((a, b) => a + b, 0) / selected.length);
-  const error = Math.abs(value / c.reference - 1);
-  return { id: c.id, value, error, pass: error < c.tolerance, displacement: displacements };
+  const value = (selected as number[]).reduce((a, b) => a + b, 0) / selected.length;
+  const error = relativeError(value, c.reference);
+  const h = c.referenceRounding;
+  const ends = [relativeError(value, c.reference - h), relativeError(value, c.reference + h)];
+  const best = Math.abs(value - c.reference) <= h ? 0 : Math.min(...ends);
+  const marginal = h > 0 && (best < tolerance) !== (Math.max(...ends) < tolerance);
+  return { id: c.id, value, error, pass: error < tolerance, marginal, displacement: displacements };
+}
+
+export function verdict(c: Case, r: Result): Verdict {
+  if (r.refused) return 'withheld';
+  if (r.failure) return 'error';
+  if (r.marginal) return r.pass ? 'marginal' : 'marginalFail';
+  if (r.pass) return 'pass';
+  const { pinnedValue, relativeTolerance } = (c.nativeBounds ?? {}) as { pinnedValue?: number; relativeTolerance?: number };
+  const locked = r.value !== null && pinnedValue !== undefined && relativeTolerance !== undefined && Math.abs(r.value / pinnedValue - 1) <= relativeTolerance;
+  return !c.expectedPass && 'knownIssue' in c && c.knownIssue && locked ? 'documented' : 'mismatch';
+}
+
+export function counts(rows: Result[]) {
+  const of = (k: 'shell' | 'frame') => {
+    const ids = new Set(cases.filter(c => category(c) === k).map(c => c.id));
+    return { passed: rows.filter(r => ids.has(r.id) && r.pass).length, withheld: rows.filter(r => ids.has(r.id) && r.refused).length, total: ids.size };
+  };
+  return { shell: of('shell'), frame: of('frame') };
 }
 
 export function refusalFor(c: Case, e: unknown): Result {
@@ -65,6 +93,10 @@ export function viewerData(c: Case, result?: Result) {
     const d = result.displacement!.find(d => d.nodeId === n.id)!;
     return [d.ux, c.dimension === 2 || c.measurement.component === 'uz' ? d.uz : d.uy];
   }) : null;
-  const values = displacement ? nodes.map((_, i) => Math.hypot(displacement[2 * i], displacement[2 * i + 1])) : null;
-  return { xy, cells, displacement, values, range: { min: 0, max: Math.max(...(values ?? [1]), 1e-12) } };
+  const values = result?.displacement ? nodes.map(n => {
+    const d = result.displacement!.find(d => d.nodeId === n.id)!;
+    return Math.hypot(d.ux ?? 0, d.uy ?? 0, d.uz ?? 0);
+  }) : null;
+  const displayMode: 'field' | 'geometry' = values ? 'field' : 'geometry';
+  return { xy, cells, displacement, values, displayMode, range: { min: 0, max: Math.max(...(values ?? [1]), 1e-12) } };
 }

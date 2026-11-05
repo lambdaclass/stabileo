@@ -206,9 +206,7 @@ pub fn solve_multi_case_2d(input: &MultiCaseInput) -> Result<MultiCaseResult, St
         }
     }
 
-    // Compute envelope from all combination results
-    let envelope = compute_envelope(&all_combined_results)
-        .ok_or_else(|| "Failed to compute envelope".to_string())?;
+    let envelope = compute_envelope(&all_combined_results)?;
 
     let combination_results = combo_names
         .into_iter()
@@ -307,8 +305,7 @@ pub fn solve_multi_case_3d(input: &MultiCaseInput3D) -> Result<MultiCaseResult3D
         }
     }
 
-    let envelope = compute_envelope_3d_checked(&all_combined_results)
-        .ok_or_else(|| "Failed to compute envelope".to_string())?;
+    let envelope = compute_envelope_3d_checked(&all_combined_results)?;
 
     let combination_results = combo_names
         .into_iter()
@@ -406,8 +403,7 @@ fn solve_multi_case_3d_per_case(input: &MultiCaseInput3D) -> Result<MultiCaseRes
         }
     }
 
-    let envelope = compute_envelope_3d_checked(&all_combined_results)
-        .ok_or_else(|| "Failed to compute envelope".to_string())?;
+    let envelope = compute_envelope_3d_checked(&all_combined_results)?;
 
     let combination_results = combo_names
         .into_iter()
@@ -497,8 +493,7 @@ fn solve_multi_case_2d_per_case(input: &MultiCaseInput) -> Result<MultiCaseResul
         }
     }
 
-    let envelope = compute_envelope(&all_combined_results)
-        .ok_or_else(|| "Failed to compute envelope".to_string())?;
+    let envelope = compute_envelope(&all_combined_results)?;
 
     let combination_results = combo_names
         .into_iter()

@@ -962,7 +962,7 @@ This is the approximate implementation difficulty ordering for the remaining sol
 - `validation_material_nonlinear.rs` (3) + `validation_material_nonlinear_benchmarks.rs` (8)
 - `validation_pushover.rs` (6) — FEMA 356, ATC-40
 - `validation_corotational.rs` (4) + `validation_corotational_benchmarks.rs` (5) + `validation_advanced_corotational.rs` (4)
-- `validation_corotational_extended.rs` (8) — Williams toggle, large rotation cantilever, Lee frame, arch snap-through, shallow arch, elastica, post-buckling, 2-bar truss
+- `validation_corotational_extended.rs` (8) — Williams toggle, large rotation cantilever, L-frame cantilever (not Lee's pinned frame), arch snap-through, shallow arch, elastica, post-buckling, 2-bar truss
 - `validation_plastic_analysis.rs` (8) — Plastic moment, upper/lower bound theorems, shape factors
 - `validation_plastic_analysis_theorems.rs` (8) — SS Mp, fixed collapse, portal sway, combined mechanism
 - `validation_neal_plastic_extended.rs` (8) — SS beam Pc=4Mp/L, fixed 16Mp/L², propped cantilever, portal combined, 2-span UDL, sway mechanism, upper/lower bound

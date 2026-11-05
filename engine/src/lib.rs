@@ -731,20 +731,22 @@ pub fn combine_results_3d(input: JsValue) -> Result<JsValue, JsValue> {
 #[wasm_bindgen]
 pub fn compute_envelope_2d(input: JsValue) -> Result<JsValue, JsValue> {
     let results: Vec<types::AnalysisResults> = from_js_value(input)?;
-    match postprocess::combinations::compute_envelope_checked(&results).map_err(|e| JsValue::from_str(&e))? {
-        Some(env) => to_js_value(&env),
-        None => Ok(JsValue::NULL),
+    if results.is_empty() {
+        return Ok(JsValue::NULL);
     }
+    let env = postprocess::combinations::compute_envelope(&results).map_err(|e| JsValue::from_str(&e))?;
+    to_js_value(&env)
 }
 
 /// Compute 3D envelope. JsValue in → JsValue out (hot path).
 #[wasm_bindgen]
 pub fn compute_envelope_3d(input: JsValue) -> Result<JsValue, JsValue> {
     let results: Vec<types::AnalysisResults3D> = from_js_value(input)?;
-    match postprocess::combinations::compute_envelope_3d(&results).map_err(|e| JsValue::from_str(&e))? {
-        Some(env) => to_js_value(&env),
-        None => Ok(JsValue::NULL),
+    if results.is_empty() {
+        return Ok(JsValue::NULL);
     }
+    let env = postprocess::combinations::compute_envelope_3d(&results).map_err(|e| JsValue::from_str(&e))?;
+    to_js_value(&env)
 }
 
 // ==================== Influence Lines ====================

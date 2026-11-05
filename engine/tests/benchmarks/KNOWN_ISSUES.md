@@ -4,6 +4,8 @@ This test-owned ledger records accuracy failures and production containment outc
 The production registry is [`engine/src/known_issues.rs`](../../src/known_issues.rs).
 Distorted MITC4 membrane bending is contained by SH-MITC4-DISTORTION, known issue #798.
 MITC4 and MITC9 on twisted surfaces are contained by SH-WARPED-MITC4 and SH-WARPED-MITC9, known issue #1057.
+Other entries here are not runtime registry entries; a GitHub issue link tracks the finding, not
+a runtime diagnostic.
 
 ## MH-MITC4-DISTORTION
 
@@ -18,12 +20,16 @@ distorted in-plane cases are now withheld by the engine (known issue #798):
 | Parallelogram | Out of plane | 0.4321 | 0.42257240188170075 | 2.204952% |
 | Parallelogram | In plane | 0.1081 | Withheld (#798) | — |
 
-The 12 live cases comprise eight accuracy passes, two numeric failures, and two
-expected containment refusals. Refusals are not accuracy passes and retain their
-cases, inputs, references and tolerances. Native and production WASM must both
-refuse with #798 and SH-MITC4-DISTORTION. Reproduce with `shells macneal_harder::browser_cases`
-and `research/benchmarks/macneal-harder-1985/wasm/check.mjs`. Inputs, references and the
-accuracy threshold are in `macneal_harder.json`. These measurements are evidence of the
+Tracked as [#798](https://github.com/lambdaclass/stabileo/issues/798). The 12 live cases
+comprise eight accuracy passes, two numeric failures, and two expected containment refusals.
+Refusals are not accuracy passes and retain their cases, inputs, signed references and the
+accuracy threshold. `shells macneal_harder::browser_cases` pins each computed out-of-plane value
+above (`nativeBounds`, relative drift below 1e-8) and every computed case's pass/fail outcome
+(`expectedPass`), and requires the two in-plane cases to refuse with #798 and
+SH-MITC4-DISTORTION (`expectedRefusal`; their `nativeBounds` are null), so a change in these
+outcomes fails CI. `research/benchmarks/macneal-harder-1985/wasm/check.mjs` requires production
+WASM to match the native values and to refuse the same two cases. Inputs, signed references and
+the accuracy threshold are in `macneal_harder.json`. These measurements are evidence of the
 specified mesh's accuracy, not proof of a new implementation defect. Existing solid-shell
 regression floors document related distortion sensitivity and remain unchanged.
 
@@ -71,10 +77,12 @@ refusal on the 90° meshes (MITC4 6×2 to 24×8, MITC9 3×1 to 12×4).
 ## MH-REFERENCE-PROVENANCE
 
 Geometry of the straight cantilever is Fig. 4, p. 7; patch geometry is Fig. 2, p. 5, and
-patch boundary fields are Table 2, p. 10. A preview of the paper supports these locators.
-The numerical tables were not accessible. Values 0.4321 and 0.1081 retain provenance from
-`solid_shell_locking.rs`; verify the numerical table/page against the full paper before
-claiming a verified transcription. Frame cases are explicitly analytical adaptations.
+patch boundary fields are Table 2, p. 10. A public transcription of the paper places 0.4321
+(out-of-plane) and 0.1081 (in-plane) in Table 3, p. 10, as theoretical tip displacements in
+the load direction; the publisher's scan was not inspected. `macneal_harder::shell_references_match_timoshenko_beam_theory`
+recomputes both from the case inputs (Timoshenko beam, shear factor 5/6: 0.4320936 and
+0.1080936) and requires them to round to the printed values. Frame cases are analytical
+Euler–Bernoulli adaptations with signed references (`every_reference_lies_along_its_load`).
 
 ## MATTIASSON-REFERENCE-AND-ACCURACY
 

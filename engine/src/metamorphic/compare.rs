@@ -199,6 +199,11 @@ pub fn compare_with_floor(actual: &Flat, expected: &Flat, lchar: f64, rel: f64, 
     compare_floored(actual, expected, expected, lchar, rel, force_floor)
 }
 
+/// As [`compare_with_floor`] with a translation floor (see [`compare_compliant`]).
+pub fn compare_with_compliance(actual: &Flat, expected: &Flat, lchar: f64, rel: f64, force_floor: f64, compliance: [f64; 2]) -> Result<Report, String> {
+    compare_compliant(actual, expected, expected, lchar, rel, force_floor, compliance)
+}
+
 fn check_shape(a: &Flat, e: &Flat) -> Result<(), String> {
     for (name, x, y) in [("translation", &a.t, &e.t), ("rotation", &a.r, &e.r), ("force", &a.f, &e.f), ("moment", &a.m, &e.m), ("stress", &a.s, &e.s), ("scalar", &a.x, &e.x)] {
         if x.vals.len() != y.vals.len() {
@@ -276,6 +281,18 @@ pub fn compare_scaled(actual: &Flat, expected: &Flat, scale_src: &Flat, lchar: f
 /// zero in exact arithmetic comes out as round-off of the loads that pass
 /// through the structure, not of the (zero) force family itself.
 pub fn compare_floored(actual: &Flat, expected: &Flat, scale_src: &Flat, lchar: f64, rel: f64, force_floor: f64) -> Result<Report, String> {
+    compare_compliant(actual, expected, scale_src, lchar, rel, force_floor, [0.0, 0.0])
+}
+
+/// As [`compare_floored`], with the translation scale floored by
+/// `force_floor · compliance[0]` and the rotation scale by
+/// `force_floor · lchar · compliance[1]` (see `Conditioning::compliance`):
+/// when every displacement is zero in exact arithmetic (loads straight into
+/// supports), a transformed copy still carries round-off of the displacement
+/// those loads would cause on the stiffest DOF. The rotational floor stays in
+/// its family: a soft rotational DOF must not lift the translation scale
+/// through `|r|·L` in a response that reports no rotations.
+pub fn compare_compliant(actual: &Flat, expected: &Flat, scale_src: &Flat, lchar: f64, rel: f64, force_floor: f64, compliance: [f64; 2]) -> Result<Report, String> {
     check_shape(actual, expected)?;
     check_shape(scale_src, expected)?;
     let diff = Flat::lin_comb(1.0, actual, -1.0, expected);
@@ -284,8 +301,8 @@ pub fn compare_floored(actual: &Flat, expected: &Flat, scale_src: &Flat, lchar: 
     let m = scale_src.m.maxabs().max(force_floor * lchar);
     let l = lchar.max(f64::MIN_POSITIVE);
     let fams: [(&str, &Family, &Family, f64); 6] = [
-        ("translation", &diff.t, &scale_src.t, t.max(r * l)),
-        ("rotation", &diff.r, &scale_src.r, r.max(t / l)),
+        ("translation", &diff.t, &scale_src.t, t.max(r * l).max(force_floor * compliance[0])),
+        ("rotation", &diff.r, &scale_src.r, r.max(t.max(force_floor * compliance[0]) / l).max(force_floor * lchar * compliance[1])),
         ("force", &diff.f, &scale_src.f, f.max(m / l)),
         ("moment", &diff.m, &scale_src.m, m.max(f * l)),
         ("stress", &diff.s, &scale_src.s, scale_src.s.maxabs()),

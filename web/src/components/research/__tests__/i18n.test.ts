@@ -54,3 +54,15 @@ it('preserves topology article numbers and translates every research string', ()
   }
   expect(topoptStrings('de')).not.toBe(english);
 });
+
+it('formats numbers in all six public locales', async () => {
+  const { researchLocale } = await import('../i18n');
+  const original = publicI18n.locale;
+  try {
+    for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
+      setLocale(locale);
+      expect(researchLocale()).toBe(locale);
+      expect(new Intl.NumberFormat(researchLocale()).format(2.4313)).toBe(new Intl.NumberFormat(locale).format(2.4313));
+    }
+  } finally { setLocale(original); }
+});
