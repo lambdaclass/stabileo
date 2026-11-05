@@ -98,9 +98,10 @@ own warning or refusal. The per-defect fixes come from the solver bug-fix workst
   - [#1401](https://github.com/lambdaclass/stabileo/issues/1401): edge beams under one-sided slab load get no torque and no advisory, in the panels, width and plan modes. [#1417](https://github.com/lambdaclass/stabileo/pull/1417) (in progress) names those beams for a torsion check; carrying the torque itself is deferred.
   - [#1402](https://github.com/lambdaclass/stabileo/issues/1402): verification integrity. A hand-edited report can drop sections and still pass the report check. Fix in [#1416](https://github.com/lambdaclass/stabileo/pull/1416) (in the merge queue): the printed tables and section choices are bound to the fingerprint.
   - [#1403](https://github.com/lambdaclass/stabileo/issues/1403): the storey scope should track explicit picks separately from expansion copies.
-- **Route sizes ([#1390](https://github.com/lambdaclass/stabileo/pull/1390)):** no per-PR byte budget any more and no one-time acceptances: each PR reports its growth, and a weekly check opens a `route-size` issue when the landing or the app passes its ceiling (`web/scripts/route-size-ceilings.json`, about 8 % over today's size). Research isolation still blocks. Earlier: all six routes were back to 128 B ([#1322](https://github.com/lambdaclass/stabileo/pull/1322), then [#1372](https://github.com/lambdaclass/stabileo/pull/1372) for the app routes), and the blog is its own
-  lazy route ([#1289](https://github.com/lambdaclass/stabileo/pull/1289), [#1290](https://github.com/lambdaclass/stabileo/pull/1290)), all landed. The course stack is a lazy route boundary ([#1302](https://github.com/lambdaclass/stabileo/pull/1302)), so each module stays
-  within 128 B; the blog posts of [#1338](https://github.com/lambdaclass/stabileo/pull/1338) still need a decision on their growth.
+- **Found on 2026-11-05:**
+  - [#1418](https://github.com/lambdaclass/stabileo/issues/1418): the re-check notice flashes and closes before it can be read in the editor. Being fixed by the course workstream.
+  - Public pages open scrolled to the middle when navigating to Research or Tools. The fix comes from the site workstream, split out of [#1065](https://github.com/lambdaclass/stabileo/pull/1065) (issue or PR to link once it exists).
+- **Page size no longer blocks a PR ([#1390](https://github.com/lambdaclass/stabileo/pull/1390)):** each PR reports its landing and app growth, and a weekly check opens a `route-size` issue when main passes its ceiling (`web/scripts/route-size-ceilings.json`). There are no per-PR budgets and no one-time acceptances. Research isolation still blocks.
 - **Live-site fixes** (section "Live-site fixes"): [#1059](https://github.com/lambdaclass/stabileo/pull/1059) (real 404), [#1222](https://github.com/lambdaclass/stabileo/pull/1222) and [#1223](https://github.com/lambdaclass/stabileo/pull/1223) (landing visible without scrolling or JavaScript) landed; [#1224](https://github.com/lambdaclass/stabileo/pull/1224) (unprefixed redirects) is still open.
 - **CI** (section "CI and feedback loop"): the speed work in flight, then what waits on the user.
 - The P2 bugs from the triage: [#761](https://github.com/lambdaclass/stabileo/issues/761) P-Delta, fiber and co-rotational refuse rotated or re-unit
@@ -151,7 +152,7 @@ review, fixed forward by [#1253](https://github.com/lambdaclass/stabileo/pull/12
 | Nightly triage of the safety issues from [#1081](https://github.com/lambdaclass/stabileo/issues/1081) on | `safety/nightly-triage-1103`; [#1299](https://github.com/lambdaclass/stabileo/pull/1299) (metamorphic harness: scale-aware floors for nightly false positives) | in progress; #1299 landed 2026-11-04 |
 | Contain warped MITC4/MITC9 (outside PR, code not used) | [#1067](https://github.com/lambdaclass/stabileo/pull/1067) | superseded by [#1074](https://github.com/lambdaclass/stabileo/pull/1074), folded into [#807](https://github.com/lambdaclass/stabileo/pull/807). **Decision:** close it with the standard note |
 
-**Other bugs: budgets, live site and CI**
+**Other bugs: live site and CI**
 
 | Workstream | PR | State |
 |---|---|---|
@@ -167,10 +168,12 @@ review, fixed forward by [#1253](https://github.com/lambdaclass/stabileo/pull/12
 | `/examples` gallery, three examples | [#1229](https://github.com/lambdaclass/stabileo/pull/1229) | draft; ready on its last head, waits on `gh pr ready` |
 | `/examples` 4 to 7 and the engine work they need (see "Live examples gallery") | [#1300](https://github.com/lambdaclass/stabileo/pull/1300) (RC column, outrigger sweep, steel tower), [#1308](https://github.com/lambdaclass/stabileo/pull/1308) (RC column pushover with fibre sections) | drafts, stacked on #1229 |
 | Landing positioning: open-source structural engineering software, AI marked in development (no provider-key claim until [#1064](https://github.com/lambdaclass/stabileo/pull/1064)); where it fits; Basic and PRO Design copy | [#1230](https://github.com/lambdaclass/stabileo/pull/1230) | ready, Codex clean on 6affce7167; landing −3362 B; reconcile with [#1061](https://github.com/lambdaclass/stabileo/pull/1061) if that lands second |
-| Research and Tools faster on phones ([#880](https://github.com/lambdaclass/stabileo/pull/880) folded in) | [#1065](https://github.com/lambdaclass/stabileo/pull/1065) | with the merge captain: ready 4–6× sooner on a phone (paper 10.8 → 5.5 s, tool 20.3 → 3.7 s), paper shift 0.38 → 0.13; needs the user's OK on four new route budgets, the per-language chunk rule and ~14 MB of .br per release |
+| Research and Tools faster on phones ([#880](https://github.com/lambdaclass/stabileo/pull/880) folded in) | [#1065](https://github.com/lambdaclass/stabileo/pull/1065) | with the merge captain: ready 4–6× sooner on a phone (paper 10.8 → 5.5 s, tool 20.3 → 3.7 s), paper shift 0.38 → 0.13; needs the user's OK on the per-language chunk rule and ~14 MB of .br per release; the scroll fix for Research and Tools is being split out of it |
 | Basic course, units 1 to 7: six stacked module PRs with the review fixes, replacing [#1070](https://github.com/lambdaclass/stabileo/pull/1070) and the unreviewed [#871](https://github.com/lambdaclass/stabileo/pull/871) (section 0) | [#1302](https://github.com/lambdaclass/stabileo/pull/1302) shell and shared modules, [#1303](https://github.com/lambdaclass/stabileo/pull/1303) statics and force method, [#1304](https://github.com/lambdaclass/stabileo/pull/1304) influence lines, [#1305](https://github.com/lambdaclass/stabileo/pull/1305) second order and buckling, [#1306](https://github.com/lambdaclass/stabileo/pull/1306) plastic, [#1307](https://github.com/lambdaclass/stabileo/pull/1307) dynamics (SDOF/MDOF) | landed 2026-11-05 (results versions 27 to 29); #1070 to close as superseded (user) |
 | Roadmap, CHANGELOG fragments and the website changelog (week to 2026-11-06), with the changelog counts fix [#1222](https://github.com/lambdaclass/stabileo/pull/1222) | [#1384](https://github.com/lambdaclass/stabileo/pull/1384) | supersedes [#1228](https://github.com/lambdaclass/stabileo/pull/1228), [#1231](https://github.com/lambdaclass/stabileo/pull/1231), [#1244](https://github.com/lambdaclass/stabileo/pull/1244), [#1292](https://github.com/lambdaclass/stabileo/pull/1292) and [#1294](https://github.com/lambdaclass/stabileo/pull/1294) |
 | Blog: Research, Tools and checking our tests; blog images | [#1293](https://github.com/lambdaclass/stabileo/pull/1293) (carries #882) | open; it waited for the lazy blog ([#1290](https://github.com/lambdaclass/stabileo/pull/1290)), which has landed |
+| Blog posts: step by step, results that change, release 0.5.0, research round 2 (an extension of [#1293](https://github.com/lambdaclass/stabileo/pull/1293)) and CI (an extension of [#882](https://github.com/lambdaclass/stabileo/pull/882)) | drafts | **Decision:** waiting on the owner's wording |
+| Release 0.5.0: fragments into CHANGELOG.md, VERSION, release notes in three languages, the safety advisories of results versions 16 to 31 | draft release PR | lands after [#807](https://github.com/lambdaclass/stabileo/pull/807) |
 | Blog: posts on the JAIE 2026 and Experiencia TIIC 2026 talks, with photos | [#1338](https://github.com/lambdaclass/stabileo/pull/1338) | draft |
 | Accounts: terms, usage data, cloud projects, admin site; advertising measurement on top | [#1071](https://github.com/lambdaclass/stabileo/pull/1071), [#1251](https://github.com/lambdaclass/stabileo/pull/1251) | Codex clean. **Decision:** owner OK on the legal text, company line, usage sharing on by default |
 | Research round 2: the review fixes of the live papers, one integration | [#1068](https://github.com/lambdaclass/stabileo/pull/1068) (17 PRs: [#884](https://github.com/lambdaclass/stabileo/pull/884), [#885](https://github.com/lambdaclass/stabileo/pull/885), [#889](https://github.com/lambdaclass/stabileo/pull/889), [#891](https://github.com/lambdaclass/stabileo/pull/891), [#893](https://github.com/lambdaclass/stabileo/pull/893)–[#899](https://github.com/lambdaclass/stabileo/pull/899), [#901](https://github.com/lambdaclass/stabileo/pull/901), [#902](https://github.com/lambdaclass/stabileo/pull/902), [#986](https://github.com/lambdaclass/stabileo/pull/986), [#987](https://github.com/lambdaclass/stabileo/pull/987), [#988](https://github.com/lambdaclass/stabileo/pull/988), [#882](https://github.com/lambdaclass/stabileo/pull/882)) | landed 2026-11-04 |
@@ -185,11 +188,16 @@ review, fixed forward by [#1253](https://github.com/lambdaclass/stabileo/pull/12
 | Desktop app | [#785](https://github.com/lambdaclass/stabileo/pull/785), [#663](https://github.com/lambdaclass/stabileo/pull/663) | **Decision:** close or keep [#785](https://github.com/lambdaclass/stabileo/pull/785) as tracking |
 | Roadmap | this file | kept current by small docs PRs |
 
-## Later: deferred follow-ups (2026-11-03)
+## Later: deferred follow-ups (2026-11-05)
 
 Decided for later, so that nothing is forgotten. Each one moves to the tables above when it starts.
 
 **Safety (wrong results first)**
+
+- **Report check integrity** (deferred blocker of [#1416](https://github.com/lambdaclass/stabileo/pull/1416)): a report rewritten in full and re-hashed still passes the check. It needs report signing or a server-side record of each report.
+- **Edge beams under one-sided slab load** (deferred limit of [#1417](https://github.com/lambdaclass/stabileo/pull/1417)): one-sided stretches shorter than 1/200 of the member are not detected.
+- **ORPHAN-SOFT-ROTATION** ([#807](https://github.com/lambdaclass/stabileo/pull/807)): the warning covers only the prepared static paths; the other analyses need it too, until [#1367](https://github.com/lambdaclass/stabileo/issues/1367) is fixed.
+- **Re-check notices in German, French and Turkish** ([#1406](https://github.com/lambdaclass/stabileo/pull/1406), [#1409](https://github.com/lambdaclass/stabileo/pull/1409)): a native-speaker review of the texts.
 
 - **[#1341](https://github.com/lambdaclass/stabileo/pull/1341) without a results version:** summing combination cases in a fixed order can move a
   combined force in its last digit and flip a marginal detailing decision, but no snapshot changed, so
@@ -262,9 +270,6 @@ Decided for later, so that nothing is forgotten. Each one moves to the tables ab
 
 **CI and infrastructure**
 
-- **Per-route product budgets** (open user question): 128 B per route nearly freezes product work.
-- **Restore after wave B:** route budgets back to 128 B and the exact-value assertion in
-  `research-route-budget.test.mjs` restored.
 - **Nightly harness noise** (zero-displacement floor, time-history Lanczos tolerance, eigen-gap,
   warned plastic bounds inconclusive): in progress; #1299's same-model time-history budgets
   (2e-9 to 8e-9) can be dropped where both runs share the pencil. Issue closures wait for the user.
@@ -348,7 +353,6 @@ ROI order for users:
 Status as of 2026-11-01. Open decisions:
 
 - Put a CDN in front of the site (Cloudflare proxy and HTML edge caching, with purge on deploy).
-- Set the page-size budget for product (non-research) changes; the gate exists at 128 B per route.
 
 1. **Safety first.** Close the ways a wrong result can reach users: containment of every open
    wrong-result issue (#447), the fixes in "Priority now" below, the metamorphic invariance suite,
@@ -1314,8 +1318,7 @@ From the same verified review. **Later (P2):**
   num-rational 0.4 and stays open; [#985](https://github.com/lambdaclass/stabileo/pull/985) (npm minor) landed in wave A; older Dependabot PRs [#654](https://github.com/lambdaclass/stabileo/pull/654),
   [#655](https://github.com/lambdaclass/stabileo/pull/655), [#317](https://github.com/lambdaclass/stabileo/pull/317), [#318](https://github.com/lambdaclass/stabileo/pull/318), [#319](https://github.com/lambdaclass/stabileo/pull/319) and the held-back majors [#457](https://github.com/lambdaclass/stabileo/pull/457) need a decision.
 - **Performance follow-ups of #768:** gate the WASM size [#1072](https://github.com/lambdaclass/stabileo/issues/1072); the audit's remaining work
-  [#1073](https://github.com/lambdaclass/stabileo/issues/1073). The blog post [#882](https://github.com/lambdaclass/stabileo/pull/882) was left out of #1068 because it grows the landing entry by
-  32 KB: it needs lazy blog bodies or a budget decision.
+  [#1073](https://github.com/lambdaclass/stabileo/issues/1073). The blog post [#882](https://github.com/lambdaclass/stabileo/pull/882) was left out of #1068; the blog is a lazy route now ([#1290](https://github.com/lambdaclass/stabileo/pull/1290)), and its CI extension is in the blog drafts.
 - **Old drafts to keep or close:** [#609](https://github.com/lambdaclass/stabileo/pull/609) and [#651](https://github.com/lambdaclass/stabileo/pull/651) (nonlinear framework), [#536](https://github.com/lambdaclass/stabileo/pull/536) (design
   iteration), [#470](https://github.com/lambdaclass/stabileo/pull/470) (CODEOWNERS, pending a reviewer decision), [#331](https://github.com/lambdaclass/stabileo/pull/331) (mechanism detection),
   [#473](https://github.com/lambdaclass/stabileo/pull/473) (3D certificate line); and [#794](https://github.com/lambdaclass/stabileo/issues/794), ShauerPage under the 600-line ceiling (ours; the
