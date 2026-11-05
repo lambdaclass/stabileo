@@ -2093,7 +2093,7 @@ const pt: Translations = {
   "knownIssue.FR-5": "As barras com empenamento compartilham um único grau de liberdade de empenamento em cada ligação. A transmissão total do empenamento pode restringir em excesso a ligação real; verifique seu detalhamento e a restrição ao empenamento de forma independente.",
   "knownIssue.SP-14": "Fora da análise de cabos, os cabos podem resistir à compressão como barras. Verifique as trações e use a análise de cabos para o afrouxamento.",
   "knownIssue.NL-13": "A análise de contato pode congelar um contato oscilante e declarar convergência. Verifique o estado de contato e o equilíbrio.",
-  "knownIssue.MD-ORTHOGONALITY": "A análise modal 3D pode duplicar modos ou retornar modos não ortogonais. Verifique a base modal, massas efetivas e combinação espectral.",
+  "knownIssue.MD-ORTHOGONALITY": "A análise modal 3D pode duplicar modos ou retornar modos não ortogonais. Massas efetivas, combinação espectral e resposta harmônica por superposição modal podem estar erradas, inclusive por fatores grandes. Verifique a base modal.",
   "knownIssue.TH-RECIPROCITY": "O histórico temporal linear falhou em verificações de reciprocidade por um fator de até 33. Ainda não se isolou quais entradas são afetadas; verifique independentemente esta resposta antes do projeto.",
   "knownIssue.RC-NM-PAIRING": "Esta verificação de pilar combina o esforço axial de uma combinação com o momento de outra, o que pode não ser conservador abaixo do ponto de balanço. Verifique o pilar com cada combinação indicada.",
   "knownIssue.NL-DYNAMIC-GAPS": "A análise não linear de material pode continuar sem convergir; a dinâmica de barras omite a inércia rotativa de flexão. Verifique a convergência e a resposta de barras profundas.",
