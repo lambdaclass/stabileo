@@ -3,6 +3,7 @@ import argparse
 import json
 import os
 import re
+import signal
 import subprocess
 import sys
 from pathlib import Path
@@ -51,7 +52,25 @@ def command(check):
     return ["make", *check.get("needs", []), check["target"], *(f"{k}={v}" for k, v in sorted(check.get("vars", {}).items()))]
 
 
-def run(manifest, tiers, runner, ident, root=ROOT, execute=subprocess.run):
+def execute_group(cmd, cwd, timeout):
+    proc = subprocess.Popen(cmd, cwd=cwd, start_new_session=True)
+    try:
+        return proc.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        for sig, grace in ((signal.SIGTERM, 30), (signal.SIGKILL, None)):
+            try:
+                os.killpg(proc.pid, sig)
+            except ProcessLookupError:
+                break
+            try:
+                proc.wait(timeout=grace)
+                break
+            except subprocess.TimeoutExpired:
+                continue
+        raise
+
+
+def run(manifest, tiers, runner, ident, root=ROOT, execute=execute_group):
     targets = make_targets(root)
     chosen = select(manifest, tiers, runner, ident)
     if ident and not chosen:
@@ -70,7 +89,7 @@ def run(manifest, tiers, runner, ident, root=ROOT, execute=subprocess.run):
         print(f"cadence: {c['id']}: {' '.join(cmd)} (budget {c.get('budget_min', '?')} min)", flush=True)
         timeout = 60 * c["budget_min"] if "budget_min" in c else None
         try:
-            if execute(cmd, cwd=root, timeout=timeout).returncode != 0:
+            if execute(cmd, cwd=root, timeout=timeout) != 0:
                 failed.append(c["id"])
         except subprocess.TimeoutExpired:
             print(f"cadence: {c['id']} did not finish within {c['budget_min']} min", file=sys.stderr)
@@ -86,7 +105,7 @@ def listing(manifest, tiers, runner, root=ROOT):
     return [
         {"id": c["id"], "tier": c["tier"], "timeout": c.get("budget_min", 60) + 20}
         for c in select(manifest, tiers, runner)
-        if runnable(c, targets, root)
+        if runnable(c, targets, root) or not c.get("optional")
     ]
 
 

@@ -2,6 +2,7 @@ import importlib.util
 import json
 import subprocess
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -9,11 +10,6 @@ ROOT = Path(__file__).resolve().parents[2]
 spec = importlib.util.spec_from_file_location("cadence", ROOT / "scripts" / "cadence.py")
 cadence = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(cadence)
-
-
-class Result:
-    def __init__(self, code):
-        self.returncode = code
 
 
 def tree(makefile, manifest, files=(), doc="", workflows=None):
@@ -44,14 +40,14 @@ class CadenceTest(unittest.TestCase):
         ]}
         d = tree(MAKE, m)
         ran = []
-        code = cadence.run(m, ["pr"], "ci-engine-quick", None, root=d, execute=lambda cmd, **kw: (ran.append((cmd, kw["timeout"])), Result(0))[1])
+        code = cadence.run(m, ["pr"], "ci-engine-quick", None, root=d, execute=lambda cmd, **kw: (ran.append((cmd, kw["timeout"])), 0)[1])
         self.assertEqual(code, 0)
         self.assertEqual(ran, [(["make", "a.quick"], 120)])
 
     def test_a_required_target_that_is_missing_fails(self):
         m = {"tiers": TIERS, "checks": [{"id": "gone", "tier": "pr", "runner": "ci-engine-quick", "target": "gone"}]}
         d = tree(MAKE, m)
-        self.assertEqual(cadence.run(m, ["pr"], None, None, root=d, execute=lambda *a, **k: Result(0)), 1)
+        self.assertEqual(cadence.run(m, ["pr"], None, None, root=d, execute=lambda *a, **k: 0), 1)
 
     def test_a_failing_check_fails_the_run_after_the_others_ran(self):
         m = {"tiers": TIERS, "checks": [
@@ -60,7 +56,7 @@ class CadenceTest(unittest.TestCase):
         ]}
         d = tree(MAKE, m)
         ran = []
-        code = cadence.run(m, ["daily"], "nightly", None, root=d, execute=lambda cmd, **kw: (ran.append(cmd), Result(2 if cmd[1] == "a.quick" else 0))[1])
+        code = cadence.run(m, ["daily"], "nightly", None, root=d, execute=lambda cmd, **kw: (ran.append(cmd), 2 if cmd[1] == "a.quick" else 0)[1])
         self.assertEqual(code, 1)
         self.assertEqual(ran, [["make", "a.quick"], ["make", "b.full", "MINUTES=45"]])
 
@@ -77,6 +73,22 @@ class CadenceTest(unittest.TestCase):
         (d / "scripts").mkdir()
         (d / "scripts" / "missing.py").write_text("")
         self.assertEqual([c["id"] for c in cadence.listing(m, ["weekly"], "nightly", root=d)], ["a", "req"])
+
+    def test_a_required_check_that_cannot_run_stays_in_the_list_so_the_matrix_fails_on_it(self):
+        m = {"tiers": TIERS, "checks": [
+            {"id": "req", "tier": "daily", "runner": "nightly", "target": "gone"},
+            {"id": "opt", "tier": "daily", "runner": "nightly", "target": "gone", "optional": True},
+        ]}
+        self.assertEqual([c["id"] for c in cadence.listing(m, ["daily"], "nightly", root=tree(MAKE, m))], ["req"])
+
+    def test_a_check_over_its_budget_is_stopped_with_its_children(self):
+        d = Path(tempfile.mkdtemp())
+        marker = d / "child-alive"
+        script = f"(sleep 2; touch {marker}) & sleep 30"
+        with self.assertRaises(subprocess.TimeoutExpired):
+            cadence.execute_group(["bash", "-c", script], cwd=d, timeout=0.5)
+        time.sleep(3)
+        self.assertFalse(marker.exists())
 
     def test_check_catches_a_stale_reference_an_undocumented_check_and_a_bad_entry(self):
         m = {"tiers": TIERS, "checks": [

@@ -42,12 +42,22 @@ def table(header, rows):
 
 def main(out):
     cargo = subprocess.run(["cargo", "update", "--workspace", "--dry-run", "--verbose"], cwd=ROOT, capture_output=True, text=True)
+    if cargo.returncode != 0:
+        raise SystemExit(f"deps-audit: cargo update --dry-run failed:\n{cargo.stderr}")
     npm = subprocess.run(["npm", "outdated", "--json"], cwd=ROOT / "web", capture_output=True, text=True)
+    if npm.returncode not in (0, 1):
+        raise SystemExit(f"deps-audit: npm outdated failed:\n{npm.stderr}")
+    try:
+        outdated = json.loads(npm.stdout or "{}")
+    except ValueError as e:
+        raise SystemExit(f"deps-audit: npm outdated gave no JSON ({e})")
+    if not isinstance(outdated, dict) or "error" in outdated:
+        raise SystemExit(f"deps-audit: npm outdated failed: {outdated}")
     report = "\n\n".join([
         "## Rust: releases the lockfile cannot take without a semver-incompatible bump",
         table(["crate", "locked", "latest"], rust_rows(cargo.stderr + cargo.stdout)),
         "## Web: packages behind a semver-incompatible release",
-        table(["package", "current", "wanted", "latest"], npm_rows(json.loads(npm.stdout or "{}"))),
+        table(["package", "current", "wanted", "latest"], npm_rows(outdated)),
     ]) + "\n"
     Path(out).write_text(report)
     print(report)
