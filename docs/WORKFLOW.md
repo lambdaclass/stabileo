@@ -100,13 +100,18 @@ The **Issue reproducers** check (`.github/workflows/issue-reproducers.yml`,
 `scripts/issue-reproducers.py`) holds every pull request whose body says `Fixes #N` (or
 closes/resolves) for a wrong-result issue #N to that rule:
 
-- at least one of #N's expected-failure reproducers is flipped (it still exists, untagged);
-- none of #N's reproducers is still tagged, unless the body says **partly fixes**, in which case
-  the issue stays open with the remaining ones;
-- a wrong-result issue with no reproducer at the base fails the check: add the reproducer (as
-  an expected failure) first, or in the same pull request before the fix commit.
+- at least one of #N's expected-failure reproducers is flipped: it still exists, is a `#[test]`
+  with no `ignore` at all (or a plain `it`), and passes;
+- none of #N's reproducers is still tagged. A fix of part of an issue says **Partly addresses
+  #N** instead (GitHub does not close the issue on that phrase; "partly fixes #N" is read the
+  same way by the check, but GitHub closes the issue on it): one flip is then enough, and the
+  issue stays open with the remaining reproducers;
+- a wrong-result issue with no reproducer fails the check: add it as an expected failure, either
+  on `main` or in an earlier commit of the same pull request than the fix.
 
-Deleting a reproducer does not count as flipping it. `make check.issue-reproducers BASE=<rev>
+Deleting a reproducer, retagging it or dropping its `#[test]` does not count as flipping it. An
+issue whose labels cannot be read fails the check, and `make test.engine.reproducers` fails on a
+reproducer that does not build or selects no test, as well as on one that passes. `make check.issue-reproducers BASE=<rev>
 HEAD=<rev> BODY=<file>` runs the check locally, and `make test.reproducers.published` runs every
 test named after an issue (the monthly re-run against main, docs/TESTING_CADENCE.md).
 

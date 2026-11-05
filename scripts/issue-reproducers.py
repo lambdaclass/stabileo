@@ -13,24 +13,31 @@ RUST_FN = re.compile(r"^\s*(?:pub\s+)?(?:async\s+)?fn\s+([A-Za-z0-9_]+)")
 TS_TEST = re.compile(r"""\b(it|test)(\.fails)?\(\s*(['"`])(.*?)\3""")
 ISSUE = re.compile(r"#(\d+)\b")
 CLOSES = re.compile(r"\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s*:?\s+#(\d+)\b", re.I)
-PARTLY = re.compile(r"\bpartly\s+fix(?:es|ed)?\b", re.I)
+PARTLY = re.compile(r"\bpartly\s+(?:fix(?:es|ed)?|address(?:es|ed)?)\s*:?\s+#(\d+)\b", re.I)
+PARTLY_BEFORE = re.compile(r"\bpartly\s+$", re.I)
+TEST_ATTR = re.compile(r"#\[(?:[\w:]+::)?test\]")
+NEXTEST_TEST_FAILED = 100
 
 
 def rust_tests(text):
     tagged, plain = [], set()
-    pending = None
+    tag, is_test, ignored = None, False, False
     for line in text.splitlines():
         m = RUST_TAG.search(line)
         if m:
-            pending = int(m.group(1))
+            tag, ignored = int(m.group(1)), True
             continue
+        if TEST_ATTR.search(line):
+            is_test = True
+        if "#[ignore" in line:
+            ignored = True
         f = RUST_FN.match(line)
         if f:
-            if pending is not None:
-                tagged.append((pending, f.group(1)))
-            else:
+            if tag is not None:
+                tagged.append((tag, f.group(1)))
+            elif is_test and not ignored:
                 plain.add(f.group(1))
-            pending = None
+            tag, is_test, ignored = None, False, False
     return tagged, plain
 
 
@@ -77,14 +84,21 @@ def files_named(rev, paths):
     return [(p, git("show", f"{rev}:{p}")) for p in sorted(set(paths))]
 
 
+def references(body):
+    body = body or ""
+    full = {int(m.group(1)) for m in CLOSES.finditer(body) if not PARTLY_BEFORE.search(body[:m.start()])}
+    partly = {int(n) for n in PARTLY.findall(body)} - full
+    return full, partly
+
+
 def closing_issues(body):
-    return sorted({int(n) for n in CLOSES.findall(body or "")})
+    full, partly = references(body)
+    return sorted(full | partly)
 
 
-def flip_check(body, base_files, head_files, labels):
-    """Errors (empty when the pull request satisfies the rule) and notes."""
-    partly = bool(PARTLY.search(body or ""))
-    base_tagged, _ = scan_files(base_files)
+def flip_check(body, base_files, head_files, labels, pr_commits=()):
+    _, partly_refs = references(body)
+    base_tagged = sorted(set(scan_files(base_files)[0]).union(*(scan_files(c)[0] for c in pr_commits)))
     head_tagged, head_plain = scan_files(head_files)
     errors, notes = [], []
     for n in closing_issues(body):
@@ -99,6 +113,7 @@ def flip_check(body, base_files, head_files, labels):
             continue
         if not flipped:
             errors.append(f"#{n}: no reproducer flipped; flip one of: " + ", ".join(f"{p}::{name}" for p, name in before))
+        partly = n in partly_refs
         if still and not partly:
             errors.append(f"#{n}: still expected to fail: " + ", ".join(f"{p}::{name}" for p, name in still)
                           + ' (flip them, or say "partly fixes" in the body and keep the issue open)')
@@ -112,9 +127,7 @@ def gh_labels(issues):
     for n in issues:
         r = subprocess.run(["gh", "issue", "view", str(n), "--json", "labels"], capture_output=True, text=True)
         if r.returncode != 0:
-            print(f"issue-reproducers: cannot read #{n}: {r.stderr.strip()}", file=sys.stderr)
-            out[n] = []
-            continue
+            raise SystemExit(f"issue-reproducers: cannot read the labels of #{n}: {r.stderr.strip()}")
         out[n] = [lab["name"] for lab in json.loads(r.stdout)["labels"]]
     return out
 
@@ -137,7 +150,7 @@ def xfail(list_only, runner=subprocess.run):
         for n, p, name in tagged:
             print(f"#{n}\t{p}\t{name}")
         return 0
-    passed = []
+    passed, broken = [], []
     for n, p, name in tagged:
         b = binary_of(p)
         target = ["--lib"] if b == "--lib" else ["--test", b]
@@ -147,9 +160,15 @@ def xfail(list_only, runner=subprocess.run):
         r = runner(cmd, cwd=ROOT / "engine")
         if r.returncode == 0:
             passed.append(f"#{n} {p}::{name}")
+        elif r.returncode != NEXTEST_TEST_FAILED:
+            broken.append(f"#{n} {p}::{name} (nextest exit {r.returncode})")
+    if broken:
+        print("issue-reproducers: these expected-failure reproducers did not run to a test failure "
+              "(build error, or no test selected):\n  " + "\n  ".join(broken), file=sys.stderr)
     if passed:
         print("issue-reproducers: these expected-failure reproducers PASS; flip each in the fix of its issue "
               "(remove the ignore), or fix the reproducer:\n  " + "\n  ".join(passed), file=sys.stderr)
+    if passed or broken:
         return 1
     print(f"issue-reproducers: all {len(tagged)} expected-failure reproducers still fail")
     return 0
@@ -185,7 +204,8 @@ def main(argv):
     head_files = files_at(a.head)
     changed = {p for p, _ in base_files} - {p for p, _ in head_files}
     head_files += files_named(a.head, changed)
-    errors, notes = flip_check(body, base_files, head_files, labels)
+    commits = git("rev-list", "--max-count=100", f"{a.base}..{a.head}").split()[1:]
+    errors, notes = flip_check(body, base_files, head_files, labels, [files_at(c) for c in commits])
     for line in notes:
         print("issue-reproducers: " + line)
     for e in errors:
