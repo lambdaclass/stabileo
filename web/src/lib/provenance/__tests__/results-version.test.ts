@@ -77,6 +77,7 @@ const RELEASED: Record<number, string[]> = {
   26: ['governing-envelope-true-peak'],
   27: ['basic-influence-line-moment-sign-returns'],
   28: ['basic-second-order-split-members-returns'],
+  33: ['harmonic-modal-residual-checked'],
 };
 
 describe('results versions', () => {
@@ -96,11 +97,11 @@ describe('results versions', () => {
     const stamp = { resultsVersion: 4, analyses: ['modal'] } as unknown as SolveStamp;
     const ids = (resultsVersion: number) => assessProject(frame, { ...stamp, resultsVersion }, 'pro').changes.map((c) => c.id).sort();
     for (const version of [4, 5, 6, 7, 8]) {
-      expect(ids(version)).toEqual(['corotational-3d-rotations', 'modal-mechanism-refused', 'modal-repeated-eigenspace-completeness', 'static-modal-runtime-self-checks']);
+      expect(ids(version)).toEqual(['corotational-3d-rotations', 'harmonic-modal-residual-checked', 'modal-mechanism-refused', 'modal-repeated-eigenspace-completeness', 'static-modal-runtime-self-checks']);
     }
-    expect(ids(9)).toEqual(['corotational-3d-rotations', 'modal-mechanism-refused', 'static-modal-runtime-self-checks']);
-    for (const version of [10, 11, 12]) expect(ids(version)).toEqual(['corotational-3d-rotations', 'modal-mechanism-refused']);
-    expect(ids(13)).toEqual(['corotational-3d-rotations']);
+    expect(ids(9)).toEqual(['corotational-3d-rotations', 'harmonic-modal-residual-checked', 'modal-mechanism-refused', 'static-modal-runtime-self-checks']);
+    for (const version of [10, 11, 12]) expect(ids(version)).toEqual(['corotational-3d-rotations', 'harmonic-modal-residual-checked', 'modal-mechanism-refused']);
+    expect(ids(13)).toEqual(['corotational-3d-rotations', 'harmonic-modal-residual-checked']);
     expect(ids(RESULT_CHANGES.currentResultsVersion)).toEqual([]);
   });
 

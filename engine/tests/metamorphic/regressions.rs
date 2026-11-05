@@ -616,3 +616,90 @@ fn harmonic_shell_rotation_preserves_damping_across_fallback() {
     crate::checks3::check_case(&ctx, &c, &analyses, &["rotation"]);
     assert_eq!(tally.status("harmonic", "rotation"), "holds", "{}", tally.report());
 }
+
+fn gauss_complex(k: &[f64], m: &[f64], c: &[f64], f: &[f64], n: usize, w: f64) -> (Vec<f64>, Vec<f64>) {
+    let n2 = 2 * n;
+    let w1 = n2 + 1;
+    let mut a = vec![0.0; n2 * w1];
+    for i in 0..n {
+        for j in 0..n {
+            let d = k[i * n + j] - w * w * m[i * n + j];
+            let wc = w * c[i * n + j];
+            a[i * w1 + j] = d;
+            a[i * w1 + n + j] = -wc;
+            a[(n + i) * w1 + j] = wc;
+            a[(n + i) * w1 + n + j] = d;
+        }
+        a[i * w1 + n2] = f[i];
+    }
+    for col in 0..n2 {
+        let p = (col..n2).max_by(|&x, &y| a[x * w1 + col].abs().total_cmp(&a[y * w1 + col].abs())).unwrap();
+        for j in 0..w1 {
+            a.swap(col * w1 + j, p * w1 + j);
+        }
+        let piv = a[col * w1 + col];
+        for r in (0..n2).filter(|&r| r != col) {
+            let fct = a[r * w1 + col] / piv;
+            for j in col..w1 {
+                a[r * w1 + j] -= fct * a[col * w1 + j];
+            }
+        }
+    }
+    let x: Vec<f64> = (0..n2).map(|i| a[i * w1 + n2] / a[i * w1 + i]).collect();
+    (x[..n].to_vec(), x[n..].to_vec())
+}
+
+/// #1371: on the C2-symmetric copies of a frame with one very soft mode,
+/// modal superposition with the static correction was off by up to 79× at
+/// 2.3 Hz. Every reported value must match two independent direct complex
+/// solves, and the on-axis components symmetry forces to zero must be zero.
+#[test]
+fn harmonic_c2_symmetric_frame_matches_direct_solve() {
+    use dedaliano_engine::solver::{assembly, dof::DofNumbering, harmonic, mass_matrix};
+    let text = std::fs::read_to_string(format!("{}/tests/metamorphic_corpus/nightly/issue-1371.json", env!("CARGO_MANIFEST_DIR"))).unwrap();
+    let c = crate::case::Case3::new("issue-1371", serde_json::from_str(&text).unwrap());
+    for anti in [false, true] {
+        let sym = crate::symmetry::symmetrize_3d(&c.name, &c.s, anti).unwrap();
+        let sc = &sym.case;
+        let node = sc.probes[0];
+        let dn = DofNumbering::build_3d(&sc.s);
+        let (nf, n) = (dn.n_free, dn.n_total);
+        let asm = assembly::assemble_3d(&sc.s, &dn);
+        let m = mass_matrix::assemble_mass_matrix_3d(&sc.s, &dn, &sc.dens);
+        let kff: Vec<f64> = (0..nf * nf).map(|i| asm.k[(i / nf) * n + i % nf]).collect();
+        let mff: Vec<f64> = (0..nf * nf).map(|i| m[(i / nf) * n + i % nf]).collect();
+        let ff = &asm.f[..nf];
+        let mut rows = Vec::new();
+        for (di, dof) in ["x", "y", "z"].into_iter().enumerate() {
+            let inp = harmonic::HarmonicInput3D {
+                solver: sc.s.clone(), densities: sc.dens.clone(), frequencies: sc.p.freqs.clone(),
+                damping_ratio: 0.05, response_node_id: node, response_dof: dof.into(),
+            };
+            let (r, (a0, a1)) = harmonic::solve_harmonic_3d_with_damping(&inp).unwrap();
+            let cff: Vec<f64> = (0..nf * nf).map(|i| a0 * mff[i] + a1 * kff[i]).collect();
+            let g = dn.global_dof(node, di).unwrap();
+            for pt in &r.response_points {
+                let (lu_re, lu_im) = harmonic::solve_complex_system(&kff, &mff, &cff, ff, nf, pt.omega).unwrap();
+                let (ge_re, ge_im) = gauss_complex(&kff, &mff, &cff, ff, nf, pt.omega);
+                rows.push((di, pt.frequency, (pt.real, pt.imag), (lu_re[g], lu_im[g]), (ge_re[g], ge_im[g])));
+            }
+        }
+        let scale = rows.iter().map(|r| r.3 .0.hypot(r.3 .1)).fold(0.0f64, f64::max);
+        assert!(scale > 0.0);
+        let copy = if anti { "anti" } else { "sym" };
+        for (di, f, got, lu, ge) in rows {
+            let diff = |a: (f64, f64), b: (f64, f64)| (a.0 - b.0).hypot(a.1 - b.1) / scale;
+            assert!(diff(lu, ge) < 1e-9, "{copy} u{di} at {f} Hz: the two direct solves disagree: {lu:?} vs {ge:?}");
+            assert!(diff(got, lu) < 1e-6, "{copy} u{di} at {f} Hz: reported {got:?}, direct {lu:?} (scale {scale:.3e})");
+            if (anti && di == 2) || (!anti && di < 2) {
+                assert!(got.0.hypot(got.1) / scale < 1e-6, "{copy} u{di} at {f} Hz is zero by symmetry, got {got:?} (scale {scale:.3e})");
+            }
+        }
+    }
+    let tally = crate::tally::Tally::default();
+    let analyses: Vec<_> = crate::ana3::rows().into_iter().filter(|a| a.name == "harmonic").collect();
+    for anti in [false, true] {
+        crate::symmetry::check_3d(&tally, &crate::symmetry::symmetrize_3d(&c.name, &c.s, anti).unwrap(), anti, &analyses);
+    }
+    assert_eq!(tally.status("harmonic", "symmetry"), "holds", "{}", tally.report());
+}

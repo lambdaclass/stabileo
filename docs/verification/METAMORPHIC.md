@@ -237,6 +237,7 @@ Each has a minimal reproduction in `engine/tests/metamorphic/regressions.rs` (or
 | units (via the feature matrix) | The 2D assemblers put an artificial rotational spring (10⁻¹⁰ × the largest, translational, diagonal) on every all-hinged node, including nodes whose rotation a constraint ties to the structure, where it becomes a real spring. | A rigid-link mechanism was held by it; whether the model counted as a mechanism depended on the units. | Constraint-tied rotations get no artificial spring (as in 3D). |
 | full-suite review | An unknown 2D support type ("pin", "roller") restrained nothing. | A misspelt support silently disappeared (three engine tests relied on it). | Unknown types are refused by name. |
 | harness review | `StagedInput3D` had no `leftHand` field; the app sends it and serde dropped it. | Left-handed models staged with right-handed member axes. | Field added and passed to every stage. |
+| symmetry (nightly #1371) | Modal harmonic analysis computed the omitted modes' static correction as the static response minus the kept modes' share, which leaves only round-off when a kept mode is much softer than the rest. | On a C2-symmetric frame the response at 2.3 Hz was 79× the direct solve, and an on-axis displacement zero by symmetry was 7·10⁻³ (SA-2026-043). | The correction is projected onto the omitted modes; every frequency's energy-norm residual is checked and re-solved directly above 10⁻². |
 
 ## Documented exceptions
 
