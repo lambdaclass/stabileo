@@ -1,0 +1,8 @@
+{
+  "name": "stabileo-lighthouse",
+  "private": true,
+  "description": "Lighthouse for scripts/perf-lighthouse.mjs, kept out of the web app's dependencies",
+  "devDependencies": {
+    "lighthouse": "13.5.0"
+  }
+}

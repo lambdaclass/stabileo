@@ -1,27 +1,45 @@
-import { readFileSync } from 'node:fs';
+export const RESEARCH_ISOLATION_BYTES = 128;
 
-const productBudgets = JSON.parse(readFileSync(new URL('./product-route-growth-budgets.json', import.meta.url), 'utf8'));
-
-export function compareRouteSizes(baseline, measured, researchIsolation = process.env.RESEARCH_ISOLATION !== 'false', budgets = productBudgets) {
+export function routeGrowth(baseline, measured) {
   if (JSON.stringify(Object.keys(baseline).sort()) !== JSON.stringify(Object.keys(measured).sort())) throw new Error('route baseline coverage differs');
-  for (const [route, bytes] of Object.entries(measured)) {
-    const productBudget = budgets[route];
-    if (!Number.isFinite(productBudget) || productBudget < 0) throw new Error(`missing or invalid product budget for ${route}`);
-    const tolerance = researchIsolation ? Math.min(128, productBudget) : productBudget;
-    if (!Number.isFinite(baseline[route]) || !Number.isFinite(bytes) || bytes > baseline[route] + tolerance) {
-      const mode = researchIsolation
-        ? 'research isolation: the change touches research code shipped to the browser'
-        : 'product budget from web/scripts/product-route-growth-budgets.json';
-      throw new Error(`${route} grew: ${baseline[route]} -> ${bytes} bytes (${tolerance} byte tolerance, ${mode})`);
-    }
+  return Object.entries(measured).map(([route, bytes]) => {
+    if (!Number.isFinite(baseline[route]) || !Number.isFinite(bytes)) throw new Error(`${route} has no finite measurement`);
+    return { route, before: baseline[route], after: bytes, growth: bytes - baseline[route] };
+  });
+}
+
+export function checkResearchIsolation(rows) {
+  const grown = rows.filter((r) => r.growth > RESEARCH_ISOLATION_BYTES);
+  if (grown.length) {
+    throw new Error(grown.map((r) => `${r.route} grew: ${r.before} -> ${r.after} bytes (${RESEARCH_ISOLATION_BYTES} byte tolerance, research isolation: the change touches research code shipped to the browser)`).join('\n'));
   }
 }
 
+export function reviewRouteGrowth(baseline, measured, isolation = process.env.RESEARCH_ISOLATION) {
+  const rows = routeGrowth(baseline, measured);
+  if (isolation !== 'false') checkResearchIsolation(rows);
+  return rows;
+}
+
+export function overCeilings(measured, ceilings) {
+  return Object.entries(measured).map(([route, bytes]) => {
+    const ceiling = ceilings[route];
+    if (!Number.isFinite(ceiling) || ceiling <= 0) throw new Error(`missing or invalid ceiling for ${route}`);
+    return { route, bytes, ceiling };
+  }).filter((r) => r.bytes > r.ceiling);
+}
+
+export function growthTable(rows) {
+  const lines = ['| Route | main | this change | growth |', '|---|---:|---:|---:|'];
+  for (const r of rows) lines.push(`| ${r.route} | ${r.before} | ${r.after} | ${r.growth > 0 ? '+' : ''}${r.growth} |`);
+  return lines.join('\n');
+}
 
 export const BLOG_ROUTE_BOUNDARY = 'src/components/blog/BlogPage.svelte';
+export const COURSE_ROUTE_BOUNDARY = 'src/lib/course/course-route.ts';
 
 export function isLazyRouteBoundary(key) {
-  return /components\/research\//.test(key) || /components\/tools\//.test(key) || key === BLOG_ROUTE_BOUNDARY;
+  return /components\/research\//.test(key) || /components\/tools\//.test(key) || key === BLOG_ROUTE_BOUNDARY || key === COURSE_ROUTE_BOUNDARY;
 }
 
 export function isBlogPostsChunk(moduleIds) {

@@ -1,3 +1,4 @@
+import importlib.util
 import os
 import re
 from pathlib import Path
@@ -177,8 +178,93 @@ if n == 0:
                 self.assertEqual((result.returncode, count.read_text().count('x')), (status, 1))
                 self.assertNotIn('Download stalled', result.stderr)
 
+    def stalled_then(self, first, second, extra_env=None):
+        with tempfile.TemporaryDirectory() as directory:
+            count = Path(directory) / 'count'
+            lock = Path(directory) / 'lock'
+            command = Path(directory) / 'command.sh'
+            command.write_text(f"""n=$(cat {count} 2>/dev/null || echo 0); echo $((n + 1)) > {count}
+if [ "$n" = 0 ]; then {first}; else {second}; fi
+""".replace('LOCK', str(lock)))
+            started = time.monotonic()
+            result = subprocess.run([str(WRAPPER), 'bash', str(command)],
+                                    env={**os.environ, 'RETRY_INFRA_DELAY_SECONDS': '0', 'RETRY_INFRA_TIMEOUT_SECONDS': '2',
+                                         'RETRY_INFRA_LOCKS': str(lock), **(extra_env or {})},
+                                    capture_output=True, text=True, timeout=120)
+            return result, int(count.read_text()), time.monotonic() - started
+
+    def test_a_stalled_attempt_leaves_no_child_holding_a_lock_for_the_retry(self):
+        result, count, _ = self.stalled_then('flock LOCK sleep 300 & echo started; sleep 300',
+                                             'flock -n LOCK echo retried')
+        self.assertEqual((result.returncode, count), (0, 2), result.stderr)
+        self.assertIn('retried', result.stdout)
+
+    def test_the_retry_waits_for_a_lock_held_outside_the_attempt_session(self):
+        result, count, elapsed = self.stalled_then('setsid flock LOCK sleep 6 & echo started; sleep 300',
+                                                   'flock -n LOCK echo retried')
+        self.assertEqual((result.returncode, count), (0, 2), result.stderr)
+        self.assertIn('Waiting for the previous attempt to release its lock', result.stderr)
+        self.assertGreater(elapsed, 5)
+
+    def test_a_slow_command_that_keeps_printing_is_not_killed(self):
+        result, count, _ = self.stalled_then('for i in 1 2 3 4 5 6; do echo "Get:$i"; sleep 1; done', 'exit 9')
+        self.assertEqual((result.returncode, count), (0, 1), result.stderr)
+        self.assertNotIn('stalled', result.stderr)
+
+    def test_a_lock_that_outlives_the_wait_stops_the_retries(self):
+        result, count, _ = self.stalled_then('setsid flock LOCK sleep 30 & echo started; sleep 300', 'echo retried',
+                                             {'RETRY_INFRA_LOCK_SECONDS': '2'})
+        self.assertEqual((result.returncode, count), (124, 1), result.stderr)
+        self.assertIn('lock is still held; not retrying', result.stderr)
+
+    def test_an_attempt_printing_forever_is_stopped_by_the_wall_limit(self):
+        result, count, elapsed = self.stalled_then('while :; do echo "Connection reset by peer"; sleep 1; done', 'echo retried',
+                                                   {'RETRY_INFRA_WALL_SECONDS': '3'})
+        self.assertEqual((result.returncode, count), (0, 2), result.stderr)
+        self.assertIn('Attempt still running after 3s', result.stderr)
+        self.assertLess(elapsed, 60)
+
+    def test_an_attempt_that_cannot_be_signalled_stops_the_retries_in_bounded_time(self):
+        with tempfile.TemporaryDirectory() as directory:
+            Path(directory, 'pkill').write_text('#!/bin/sh\nexit 0\n')
+            Path(directory, 'pkill').chmod(0o755)
+            pause = f'sleep 299.{os.getpid()}'
+            try:
+                result, count, elapsed = self.stalled_then(pause, 'echo retried',
+                                                           {'PATH': f"{directory}:{os.environ['PATH']}"})
+            finally:
+                subprocess.run(['pkill', '-x', '-f', pause])
+            self.assertEqual((result.returncode, count), (124, 1), result.stderr)
+            self.assertIn('could not be stopped; not retrying', result.stderr)
+            self.assertLess(elapsed, 90)
+
     def test_previous_infra_output_does_not_trigger_retry(self):
         self.assertEqual(self.run_attempts(['HTTP error 418', 'AssertionError'])[:2], (7, 2))
+
+
+class BrowserDeps(unittest.TestCase):
+    def test_every_browser_package_install_goes_through_the_cached_action(self):
+        text = (ROOT / '.github/workflows/ci.yml').read_text()
+        self.assertNotIn('install-deps', text)
+        self.assertGreaterEqual(text.count('uses: ./.github/actions/browser-deps'), 6)
+        for browsers in re.findall(r'uses: \./\.github/actions/browser-deps\n\s+with:\n\s+browsers: (.+)', text):
+            self.assertRegex(browsers, r'^[a-z]+( [a-z]+)*$')
+
+    def test_apt_keeps_its_downloads_in_the_cache_and_waits_for_the_lock(self):
+        text = (ROOT / '.github/actions/browser-deps/action.yml').read_text()
+        steps = dict(part.split('\n', 1) for part in text.split('\n    - name: ')[1:])
+        for setting in ('Dir::Cache::Archives', 'APT::Keep-Downloaded-Packages \\"true\\"', 'DPkg::Lock::Timeout'):
+            self.assertIn(setting.replace('\\', ''), steps['Point apt at the package cache'].replace('\\', ''))
+        keys = [re.search(r'key: (.+)', steps[name]).group(1) for name in ('Restore downloaded packages', 'Save downloaded packages')]
+        self.assertEqual(keys[0], keys[1])
+        self.assertIn("if: steps.restore.outputs.cache-hit != 'true'", steps['Save downloaded packages'])
+        install = re.search(r'run: (.+)', steps['Install browser system dependencies']).group(1)
+        install = install.replace('${{ inputs.browsers }}', 'chromium firefox webkit')
+        self.assertTrue(install.startswith('.github/scripts/retry-infra.sh '))
+        spec = importlib.util.spec_from_file_location('infra_retry', ROOT / '.github/scripts/infra-retry.py')
+        infra = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(infra)
+        self.assertTrue(infra.acquisition({'title': install, 'script': [install]}))
 
 
 if __name__ == '__main__':

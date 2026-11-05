@@ -1,15 +1,19 @@
-/** Build and compare each route's dependency footprint. Run from web/ with --baseline <file> and optional --update.
- * Landing: entry's static closure. /app/*: that closure plus App's static and lazy product
- * dependencies. Modes share an entry, so receive the same conservative byte budget.
+/** Build and measure each route's dependency footprint. Run from web/ with one of:
+ * --baseline <file> --update   write the measurement as a baseline;
+ * --baseline <file>            report growth against it (blocks only research isolation, RESEARCH_ISOLATION);
+ * --ceiling <file> [--report <file>]  fail when a route is over its absolute ceiling.
+ * Landing: entry's static closure. /app/*: that closure plus App's static and lazy product dependencies.
  */
 import { build } from 'vite';
-import { readFileSync, writeFileSync, mkdtempSync, rmSync, statSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, appendFileSync, mkdtempSync, rmSync, statSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { compareRouteSizes, routeChunkFiles, isLazyRouteBoundary, isBlogPostsChunk } from './research-route-budget.mjs';
+import { growthTable, isBlogPostsChunk, isLazyRouteBoundary, overCeilings, reviewRouteGrowth, routeChunkFiles, routeGrowth } from './research-route-budget.mjs';
 
-const baselinePath = process.argv[process.argv.indexOf('--baseline') + 1];
-if (!process.argv.includes('--baseline') || !baselinePath) throw new Error('--baseline <file> is required');
+const arg = (name) => (process.argv.includes(name) ? process.argv[process.argv.indexOf(name) + 1] : undefined);
+const baselinePath = arg('--baseline');
+const ceilingPath = arg('--ceiling');
+if (!baselinePath === !ceilingPath) throw new Error('give exactly one of --baseline <file> or --ceiling <file>');
 const outDir = mkdtempSync(join(tmpdir(), 'research-route-size-'));
 process.env.GITHUB_SHA = '000000000000';
 delete process.env.VITE_E2E;
@@ -67,12 +71,26 @@ try {
   const measured = { '/en/': landing, '/es/': landing, '/pt/': landing,
     '/app/basic': app, '/app/education': app, '/app/pro': app };
   for (const [route, bytes] of Object.entries(measured)) console.log(`${route}: ${bytes} bytes`);
-  if (process.argv.includes('--update')) {
-    writeFileSync(baselinePath, JSON.stringify({ tolerance_bytes: 128, routes: measured }, null, 2) + '\n');
-    console.log(`Updated ${baselinePath}; review every increase before accepting it.`);
+  if (ceilingPath) {
+    const over = overCeilings(measured, JSON.parse(readFileSync(ceilingPath, 'utf8')).routes);
+    const report = arg('--report');
+    if (report) {
+      writeFileSync(report, over.length
+        ? ['| Route | bytes | ceiling |', '|---|---:|---:|', ...over.map((r) => `| ${r.route} | ${r.bytes} | ${r.ceiling} |`)].join('\n') + '\n'
+        : '');
+    }
+    for (const r of over) console.log(`${r.route} is over its ceiling: ${r.bytes} > ${r.ceiling} bytes`);
+    if (over.length) process.exitCode = 1;
+  } else if (process.argv.includes('--update')) {
+    writeFileSync(baselinePath, JSON.stringify({ routes: measured }, null, 2) + '\n');
+    console.log(`Updated ${baselinePath}.`);
   } else {
-    const baseline = JSON.parse(readFileSync(baselinePath, 'utf8'));
-    compareRouteSizes(baseline.routes, measured);
+    const baseline = JSON.parse(readFileSync(baselinePath, 'utf8')).routes;
+    const table = growthTable(routeGrowth(baseline, measured));
+    console.log(table);
+    if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, `### Route size against main\n\n${table}\n`);
+    for (const r of routeGrowth(baseline, measured)) if (r.growth > 0) console.log(`::notice title=Route size::${r.route} grew by ${r.growth} bytes against main`);
+    reviewRouteGrowth(baseline, measured);
   }
 } finally {
   rmSync(outDir, { recursive: true, force: true });

@@ -94,7 +94,7 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "Die Formel für den Grad der statischen Unbestimmtheit ergibt g = 3·m + r − 3·n = 3×2 + 3 − 3×3 = 0. Null bedeutet statisch bestimmt, und jedes Programm, das bei der Formel stehen bleibt, wird genau das melden. Aber nichts hält den Balken in horizontaler Richtung: Er ist ein Mechanismus und kann nicht berechnet werden."
+      "t": "Die Formel für den Grad der statischen Unbestimmtheit ergibt GH = 3·m + r − 3·n − c = 3×2 + 3 − 3×3 − 0 = 0. Null bedeutet statisch bestimmt, und jedes Programm, das bei der Formel stehen bleibt, wird genau das melden. Aber nichts hält den Balken in horizontaler Richtung: Er ist ein Mechanismus und kann nicht berechnet werden."
     },
     {
       "k": "table",
@@ -107,7 +107,7 @@ const body: PostBody = {
       "rows": [
         [
           "2 · Statische Unbestimmtheit",
-          "g = 3·m + r − 3·n",
+          "GH = 3·m + r − 3·n − c",
           "0"
         ],
         [
@@ -129,13 +129,13 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "Die Anwendung meldet nicht einfach die Null und wäscht ihre Hände in Unschuld. Sie widerspricht ihr im selben Schritt 2, der sie geliefert hat: „Die Formel ergibt g = 0 (notwendige Bedingung für ein statisch bestimmtes Tragwerk), aber NICHT hinreichend“. Schritt 3 stellt die globale Steifigkeitsmatrix auf, hier 6×6, und meldet „1 Mechanismus-Mode erkannt“ trotz g = 0 ≥ 0. Er nennt Knoten 3 und seine horizontale Verschiebung, weist darauf hin, dass die Gleichung aus Schritt 2 die Bindungen zählt, ohne zu prüfen, wo sie liegen, und schließt mit „✗ Mechanismus — kann nicht berechnet werden“."
+      "t": "Die Anwendung meldet nicht einfach die Null und wäscht ihre Hände in Unschuld. Sie widerspricht ihr im selben Schritt 2, der sie geliefert hat: „Die Formel ergibt GH = 0 (notwendige Bedingung für ein statisch bestimmtes Tragwerk), aber NICHT hinreichend“. Schritt 3 stellt die globale Steifigkeitsmatrix auf, hier 6×6, und meldet „1 Mechanismus-Mode erkannt“ trotz GH = 0 ≥ 0. Er nennt Knoten 3 und seine horizontale Verschiebung, weist darauf hin, dass die Gleichung aus Schritt 2 die Bindungen zählt, ohne zu prüfen, wo sie liegen, und schließt mit „✗ Mechanismus — kann nicht berechnet werden“."
     },
-    {"k": "img", "base": "blog/hidden-mechanism", "w": 1600, "h": 1000, "alt": "Stabileo Basic mit einem Zweifeldträger auf drei horizontal verschieblichen Lagern unter 10 kN/m. Das Panel der kinematischen Analyse zeigt g = 3·2 + 3 − 3·3 = 0, und eine Meldung weist das Tragwerk als instabil (Mechanismus) aus, weil kein Lager horizontal hält.", "caption": "Derselbe Träger in der App: Die Formel ergibt null, und der Solver lehnt ihn trotzdem als Mechanismus ab."},
+    {"k": "img", "base": "blog/hidden-mechanism", "w": 1600, "h": 1000, "alt": "Stabileo Basic mit einem Zweifeldträger auf drei horizontal verschieblichen Lagern unter 10 kN/m. Das Panel der kinematischen Analyse zeigt GH = 3·2 + 3 − 3·3 = 0, und eine Meldung weist das Tragwerk als instabil (Mechanismus) aus, weil kein Lager horizontal hält.", "caption": "Derselbe Träger in der App: Die Formel ergibt null, und der Solver lehnt ihn trotzdem als Mechanismus ab."},
     {
       "k": "embed",
       "query": "example=hidden-mechanism&kin=1",
-      "label": "Der Balken auf drei vertikalen Auflagern, mit geöffnetem Bereich der kinematischen Analyse. Gehen Sie die vier Schritte durch: Der zweite ergibt g = 0, und der dritte findet den Mechanismus, den diese Null verbirgt. Ersetzen Sie ein Auflager durch ein festes Gelenklager und rechnen Sie erneut: Der Grad wird 1, und der Mechanismus verschwindet."
+      "label": "Der Balken auf drei vertikalen Auflagern, mit geöffnetem Bereich der kinematischen Analyse. Gehen Sie die vier Schritte durch: Der zweite ergibt GH = 0, und der dritte findet den Mechanismus, den diese Null verbirgt. Ersetzen Sie ein Auflager durch ein festes Gelenklager und rechnen Sie erneut: Der Grad wird 1, und der Mechanismus verschwindet."
     },
     {
       "k": "h",

@@ -1,0 +1,167 @@
+/**
+ * The figures of the influence-line document: the structure with the effect released (or the
+ * unit action applied), and the line drawn as the deformed shape it is, positive against the
+ * unit load.
+ */
+import type { Sketch, SketchSupport } from './sketch';
+import { sketchOf } from './sketch';
+import type { PlaneModel } from './plane-model';
+import type { IlPoint, Dir } from '../influence/unit-sweep';
+import { canonicalQuantity, familyOf, type IlTarget } from '../influence/quantities';
+import type { InfluenceQuantity } from '../../store/model.svelte';
+import { numText } from './format';
+import type { SolverInput } from '../types';
+import { solve } from '../wasm-solver';
+import { withSectionNode, displacementAlong } from '../influence/maxwell';
+
+/**
+ * The line as deformed polylines over the members, its largest ordinate 12 % of the structure's size:
+ * positive against the unit load, or along it with `along` (Maxwell's deflection under the unit action).
+ */
+export function lineShape(pm: PlaneModel, points: IlPoint[], dir: Dir, along = false): NonNullable<Sketch['deformed']> {
+  const xs = [...pm.nodes.values()].map((n) => n.x), zs = [...pm.nodes.values()].map((n) => n.z);
+  const size = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...zs) - Math.min(...zs), 1e-6);
+  const peak = Math.max(...points.map((p) => Math.abs(p.value)), 1e-30);
+  const k = ((along ? -0.12 : 0.12) * size) / peak;
+  const out: NonNullable<Sketch['deformed']> = [];
+  let cur: { id: number; pts: Array<{ x: number; z: number }> } | null = null;
+  for (const p of points) {
+    if (!cur || cur.id !== p.elementId) {
+      cur = { id: p.elementId, pts: [] };
+      out.push({ points: cur.pts, color: 'deformed' });
+    }
+    cur.pts.push({ x: p.x - dir.x * p.value * k, z: p.y - dir.z * p.value * k });
+  }
+  return out;
+}
+
+/** Where the target is, in model coordinates. */
+export function targetPoint(pm: PlaneModel, target: IlTarget): { x: number; z: number } {
+  if (target.kind === 'node') {
+    const n = pm.nodes.get(target.nodeId)!;
+    return { x: n.x, z: n.z };
+  }
+  const m = pm.members.get(target.elementId)!;
+  const a = pm.nodes.get(m.i)!, b = pm.nodes.get(m.j)!;
+  return { x: a.x + target.t * (b.x - a.x), z: a.z + target.t * (b.z - a.z) };
+}
+
+/** A short cut across the member at the section. */
+function cutAt(pm: PlaneModel, target: IlTarget & { kind: 'section' }, label: string): Sketch['cut'] {
+  const m = pm.members.get(target.elementId)!;
+  const p = targetPoint(pm, target);
+  const xs = [...pm.nodes.values()].map((n) => n.x);
+  const h = 0.06 * Math.max(Math.max(...xs) - Math.min(...xs), m.L);
+  return { a: { x: p.x + m.s * h, z: p.z - m.c * h }, b: { x: p.x - m.s * h, z: p.z + m.c * h }, label };
+}
+
+/** The structure with the target marked: the section cut, or the node labelled. */
+export function targetSketch(pm: PlaneModel, target: IlTarget, label: string): Sketch {
+  const sk = sketchOf(pm);
+  if (target.kind === 'section') return { ...sk, cut: cutAt(pm, target, label), dims: 'auto' };
+  const p = targetPoint(pm, target);
+  return { ...sk, labels: [{ x: p.x, z: p.z, text: label, color: 'accent', anchor: 'n' }], dims: 'auto' };
+}
+
+/**
+ * Müller-Breslau's released structure with the line as its deformed shape: a hinge at the section
+ * for M, the cut for V and N, the support taken away (its reaction drawn) for a reaction.
+ */
+export function releasedSketch(pm: PlaneModel, q: InfluenceQuantity, target: IlTarget, points: IlPoint[], dir: Dir): Sketch {
+  const c = canonicalQuantity(q);
+  const sk = sketchOf(pm);
+  const deformed = lineShape(pm, points, dir);
+  if (target.kind === 'section') {
+    if (c === 'M') {
+      const p = targetPoint(pm, target);
+      const id = Math.max(...pm.nodes.keys()) + 1;
+      const m = pm.members.get(target.elementId)!;
+      const members = sk.members.filter((x) => x.id !== m.id);
+      const inner = target.t > 1e-9 && target.t < 1 - 1e-9;
+      const nodes = inner ? [...sk.nodes, { id, x: p.x, z: p.z }] : sk.nodes;
+      const pieces = inner ? [{ id: m.id, i: m.i, j: id }, { id: -m.id, i: id, j: m.j }] : [{ id: m.id, i: m.i, j: m.j }];
+      const at = inner ? id : target.t < 0.5 ? m.i : m.j;
+      return { ...sk, nodes, members: [...members, ...pieces], hinges: [...(sk.hinges ?? []), { node: at, member: inner ? undefined : m.id }], deformed };
+    }
+    return { ...sk, cut: cutAt(pm, target, c), deformed };
+  }
+  const p = targetPoint(pm, target);
+  const supports = (sk.supports ?? []).flatMap((s) => {
+    if (s.node !== target.nodeId) return [s];
+    const left = releasedSupport(s.type, c);
+    return left ? [{ ...s, type: left }] : [];
+  });
+  const r = c === 'Rz' ? { forces: [{ x: p.x, z: p.z, fx: 0, fz: 1, label: 'R_z', color: 'reaction' as const, dashed: true }] }
+    : c === 'Rx' ? { forces: [{ x: p.x, z: p.z, fx: 1, fz: 0, label: 'R_x', color: 'reaction' as const, dashed: true }] }
+      : { couples: [{ x: p.x, z: p.z, m: 1, label: 'M_y', color: 'reaction' as const, dashed: true }] };
+  return { ...sk, supports: familyOf(q) === 'reaction' ? supports : sk.supports, ...r, deformed };
+}
+
+export type Field = Array<{ ux: number; uz: number }>;
+
+/** Both displacement components at each point of the line, from the solve under the unit action at the target. */
+export function maxwellField(solver: SolverInput, q: InfluenceQuantity, target: IlTarget, points: IlPoint[]): Field {
+  if (target.kind === 'section' && solver.elements.get(target.elementId)?.type === 'truss') {
+    const e = solver.elements.get(target.elementId)!;
+    const fi = maxwellField(solver, q, { kind: 'node', nodeId: e.nodeI }, points);
+    const fj = maxwellField(solver, q, { kind: 'node', nodeId: e.nodeJ }, points);
+    return fi.map((u, k) => ({ ux: (1 - target.t) * u.ux + target.t * fj[k].ux, uz: (1 - target.t) * u.uz + target.t * fj[k].uz }));
+  }
+  const c = canonicalQuantity(q);
+  const split = withSectionNode(solver, target);
+  const res = solve({ ...split.solver, loads: [{ type: 'nodal', data: { nodeId: split.node, fx: c === 'ux' ? 1 : 0, fz: c === 'uz' ? 1 : 0, my: c === 'ry' ? 1 : 0 } }] });
+  const pc = split.pieces;
+  return points.map((p) => {
+    if (!pc || p.elementId !== pc.original) return displacementAlong(split.solver, res, p.elementId, p.t);
+    return p.t <= pc.t
+      ? displacementAlong(split.solver, res, pc.first, p.t / pc.t)
+      : displacementAlong(split.solver, res, pc.second, (p.t - pc.t) / (1 - pc.t));
+  });
+}
+
+function fieldShape(pm: PlaneModel, points: IlPoint[], field: Field): Array<{ x: number; z: number }> {
+  const xs = [...pm.nodes.values()].map((n) => n.x), zs = [...pm.nodes.values()].map((n) => n.z);
+  const size = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...zs) - Math.min(...zs), 1e-6);
+  const peak = Math.max(...field.map((u) => Math.hypot(u.ux, u.uz)), 1e-30);
+  const k = (0.12 * size) / peak;
+  return points.map((p, i) => ({ x: p.x + field[i].ux * k, z: p.y + field[i].uz * k }));
+}
+
+/** Maxwell: the unit force (or couple) at the target, and the deflected shape it gives, both components; its component along the load is the line. */
+export function maxwellSketch(pm: PlaneModel, q: InfluenceQuantity, target: IlTarget, points: IlPoint[], field: Field): Sketch {
+  const c = canonicalQuantity(q);
+  const p = targetPoint(pm, target);
+  const sk = sketchOf(pm);
+  const shape = fieldShape(pm, points, field);
+  const deformed: NonNullable<Sketch['deformed']> = [];
+  points.forEach((pt, i) => {
+    if (i === 0 || points[i - 1].elementId !== pt.elementId) deformed.push({ points: [], color: 'deformed' });
+    deformed[deformed.length - 1].points.push(shape[i]);
+  });
+  if (c === 'ry') return { ...sk, couples: [{ x: p.x, z: p.z, m: 1, label: '1', color: 'load' }], deformed };
+  return { ...sk, forces: [{ x: p.x, z: p.z, fx: c === 'ux' ? 1 : 0, fz: c === 'uz' ? 1 : 0, label: '1', color: 'load' }], deformed };
+}
+
+/** Labels of the largest and smallest ordinates, on the line (on the deflected shape when `field` is given). */
+export function peakLabels(pm: PlaneModel, points: IlPoint[], dir: Dir, along = false, field?: Field): NonNullable<Sketch['labels']> {
+  const shape = field ? fieldShape(pm, points, field) : lineShape(pm, points, dir, along).flatMap((d) => d.points);
+  const up = along ? 's' : 'n', down = along ? 'n' : 's';
+  let iMax = 0, iMin = 0;
+  points.forEach((p, k) => { if (p.value > points[iMax].value) iMax = k; if (p.value < points[iMin].value) iMin = k; });
+  const out: NonNullable<Sketch['labels']> = [];
+  if (points[iMax].value > 1e-12) out.push({ ...shape[iMax], text: numText(points[iMax].value, 3), color: 'deformed', anchor: up });
+  if (points[iMin].value < -1e-12) out.push({ ...shape[iMin], text: numText(points[iMin].value, 3), color: 'deformed', anchor: down });
+  return out;
+}
+
+/** What a support still holds once Müller–Breslau releases one of its reactions. */
+export function releasedSupport(type: SketchSupport, c: string): SketchSupport | null {
+  if (type === 'fixed') return c === 'Rz' ? 'guided' : c === 'Rx' ? 'guidedV' : 'pinned';
+  if (type === 'pinned') return c === 'Rz' ? 'rollerV' : c === 'Rx' ? 'roller' : 'pinned';
+  if (type === 'guided') return c === 'Rx' ? 'rotationOnly' : c === 'My' ? 'rollerV' : type;
+  if (type === 'guidedV') return c === 'Rz' ? 'rotationOnly' : c === 'My' ? 'roller' : type;
+  if (type === 'rotationOnly') return c === 'My' ? null : type;
+  if (type === 'roller') return c === 'Rz' ? null : type;
+  if (type === 'rollerV') return c === 'Rx' ? null : type;
+  return null;
+}

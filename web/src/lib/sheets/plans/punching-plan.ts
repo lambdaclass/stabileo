@@ -30,7 +30,7 @@ export function punchingPlan(title: string, slab: { outline: Array<{ x: number; 
     const r = j.reinforcement;
     if (r && r.lines > 0 && r.spacing > 0) {
       // Rails at right angles to the faces, spread evenly over the four faces.
-      const per = Math.max(1, Math.round(r.lines / 4)), d = (j.d ?? 0.2) * k / 2;
+      const per = Math.max(1, Math.round(r.lines / 4)), d = 0.5 * k * (j.d ?? 0.2);
       const faceX = hx - d, faceY = hy - d;
       for (const [nx, ny] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
         for (let i = 0; i < per; i++) {
@@ -38,7 +38,7 @@ export function punchingPlan(title: string, slab: { outline: Array<{ x: number; 
           const o = { x: c.x + nx * faceX + (ny ? t : 0), y: c.y + ny * faceY + (nx ? t : 0) };
           const L = r.extent * k;
           out.push({ kind: 'line', layer: 'RC-PUNCHING', a: o, b: { x: o.x + nx * L, y: o.y + ny * L } });
-          for (let q = r.spacing * k / 2; q <= L + 1; q += r.spacing * k) out.push({ kind: 'circle', layer: 'RC-BAR', c: { x: o.x + nx * q, y: o.y + ny * q }, r: Math.max(r.legDiameter / 2, 0.4 * s), fill: true });
+          for (let q = 0.5 * k * r.spacing; q <= L + 1; q += r.spacing * k) out.push({ kind: 'circle', layer: 'RC-BAR', c: { x: o.x + nx * q, y: o.y + ny * q }, r: Math.max(r.legDiameter / 2, 0.4 * s), fill: true });
         }
       }
       out.push({ kind: 'text', layer: 'RC-TEXT', at: { x: c.x + hx + 1 * s, y: c.y + hy - 3 * s }, text: tr('plan.punch.rails', { n: r.lines, d: r.legDiameter, s: Math.round(r.spacing * 100) }), height: 2.2 });

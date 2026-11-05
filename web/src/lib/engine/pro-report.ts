@@ -4,8 +4,8 @@ import { finiteSpectrumWarning } from './finite-spectrum-warning';
 // (`lib/report/memoria`).
 // Uses window.print() for PDF output (browser native)
 
-import { provenanceBlockHtml, type ResultProvenance as ProvenanceRecord, type ProvenanceLabels } from '../provenance/result-provenance';
-import { reportConfigScript } from './report/printed-values';
+import { provenanceBlockHtml, withPrintedManifest, type ResultProvenance as ProvenanceRecord, type ProvenanceLabels } from '../provenance/result-provenance';
+import { reportConfigScript, printedManifest, printedTables } from './report/printed-values';
 import { memberSectionLabel } from '../section/variable';
 import { plainNumber } from '../utils/units';
 import katex from 'katex';
@@ -782,7 +782,10 @@ export function generateReportHtml(data: ReportData): string {
     }
   }
 
-  if (data.resultProvenance) html.push(provenanceBlockHtml(data.resultProvenance.record, data.resultProvenance.labels));
+  if (data.resultProvenance) {
+    const record = data.config ? withPrintedManifest(data.resultProvenance.record, printedManifest(data.config, data.locale ?? null, printedTables(html.join('\n')))) : data.resultProvenance.record;
+    html.push(provenanceBlockHtml(record, data.resultProvenance.labels));
+  }
   html.push(reportConfigScript(data.config, data.locale));
   html.push(`</body></html>`);
   return html.join('\n');

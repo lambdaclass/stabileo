@@ -1,0 +1,169 @@
+/**
+ * Small dense matrices as arrays of rows, for the classroom dynamics: a few
+ * dozen degrees of freedom at most, where clarity beats speed.
+ */
+
+export type Mat = number[][];
+
+export const zeros = (n: number, m = n): Mat => Array.from({ length: n }, () => new Array<number>(m).fill(0));
+export const identity = (n: number): Mat => zeros(n).map((r, i) => { r[i] = 1; return r; });
+export const transpose = (a: Mat): Mat => (a.length ? a[0].map((_, j) => a.map((r) => r[j])) : []);
+export const dot = (a: readonly number[], b: readonly number[]): number => a.reduce((s, v, i) => s + v * b[i], 0);
+export const matVec = (a: Mat, x: readonly number[]): number[] => a.map((r) => dot(r, x));
+
+export function matMul(a: Mat, b: Mat): Mat {
+  const n = a.length, m = b[0]?.length ?? 0, p = b.length;
+  const out = zeros(n, m);
+  for (let i = 0; i < n; i++) {
+    for (let k = 0; k < p; k++) {
+      const v = a[i][k];
+      if (v === 0) continue;
+      for (let j = 0; j < m; j++) out[i][j] += v * b[k][j];
+    }
+  }
+  return out;
+}
+
+/** Aᵀ·B·A. */
+export const congruence = (a: Mat, b: Mat): Mat => matMul(transpose(a), matMul(b, a));
+
+export const pick = (a: Mat, rows: readonly number[], cols: readonly number[]): Mat => rows.map((i) => cols.map((j) => a[i][j]));
+
+/** A·X = B by Gaussian elimination with partial pivoting; B has one column per right-hand side. */
+export function solveMany(a: Mat, b: Mat): Mat {
+  const n = a.length;
+  const m = b[0]?.length ?? 0;
+  const w = a.map((r, i) => [...r, ...b[i]]);
+  for (let k = 0; k < n; k++) {
+    let p = k;
+    for (let i = k + 1; i < n; i++) if (Math.abs(w[i][k]) > Math.abs(w[p][k])) p = i;
+    const scale = Math.max(...w.map((r) => Math.abs(r[k])), 1e-300);
+    if (Math.abs(w[p][k]) < 1e-13 * scale) throw new Error('singular');
+    [w[k], w[p]] = [w[p], w[k]];
+    for (let i = k + 1; i < n; i++) {
+      const f = w[i][k] / w[k][k];
+      if (f === 0) continue;
+      for (let j = k; j < n + m; j++) w[i][j] -= f * w[k][j];
+    }
+  }
+  const x = zeros(n, m);
+  for (let c = 0; c < m; c++) {
+    for (let i = n - 1; i >= 0; i--) {
+      let s = w[i][n + c];
+      for (let j = i + 1; j < n; j++) s -= w[i][j] * x[j][c];
+      x[i][c] = s / w[i][i];
+    }
+  }
+  return x;
+}
+
+export const solve = (a: Mat, b: readonly number[]): number[] => solveMany(a, b.map((v) => [v])).map((r) => r[0]);
+export const inverse = (a: Mat): Mat => solveMany(a, identity(a.length));
+
+/** Lower-triangular L with L·Lᵀ = A, for a symmetric positive definite A. */
+export function cholesky(a: Mat): Mat {
+  const n = a.length;
+  const l = zeros(n);
+  for (let i = 0; i < n; i++) {
+    for (let j = 0; j <= i; j++) {
+      let s = a[i][j];
+      for (let k = 0; k < j; k++) s -= l[i][k] * l[j][k];
+      if (i === j) {
+        if (!(s > 0)) throw new Error('not positive definite');
+        l[i][i] = Math.sqrt(s);
+      } else l[i][j] = s / l[j][j];
+    }
+  }
+  return l;
+}
+
+/** Eigenvalues and eigenvectors (columns) of a symmetric matrix, by cyclic Jacobi rotations. */
+export function symmetricEigen(a0: Mat, maxSweeps = 100): { values: number[]; vectors: Mat; residuals: number[] } {
+  const n = a0.length;
+  const big = a0.reduce((acc, r) => r.reduce((m, x) => Math.max(m, Math.abs(x)), acc), 0);
+  const f = big > 0 && Number.isFinite(big) ? 2 ** Math.max(-1000, Math.min(1000, -Math.round(Math.log2(big)))) : 1;
+  const a = a0.map((r) => r.map((x) => x * f));
+  const scaled = a.map((r) => [...r]);
+  const v = identity(n);
+  for (let sweep = 0; sweep < maxSweeps; sweep++) {
+    const small = (p: number, q: number) => Math.abs(a[p][q]) <= 1e-15 * Math.sqrt(Math.abs(a[p][p])) * Math.sqrt(Math.abs(a[q][q]));
+    let done = true;
+    for (let p = 0; p < n - 1 && done; p++) for (let q = p + 1; q < n; q++) if (!small(p, q)) { done = false; break; }
+    if (done) break;
+    for (let p = 0; p < n - 1; p++) {
+      for (let q = p + 1; q < n; q++) {
+        if (small(p, q)) continue;
+        const theta = (a[q][q] - a[p][p]) / (2 * a[p][q]);
+        const at = Math.abs(theta);
+        const t = Math.sign(theta || 1) / (at > 1e150 ? 2 * at : at + Math.sqrt(theta * theta + 1));
+        const c = 1 / Math.sqrt(t * t + 1), s = t * c;
+        for (let k = 0; k < n; k++) {
+          const akp = a[k][p], akq = a[k][q];
+          a[k][p] = c * akp - s * akq;
+          a[k][q] = s * akp + c * akq;
+        }
+        for (let k = 0; k < n; k++) {
+          const apk = a[p][k], aqk = a[q][k];
+          a[p][k] = c * apk - s * aqk;
+          a[q][k] = s * apk + c * aqk;
+        }
+        for (let k = 0; k < n; k++) {
+          const vkp = v[k][p], vkq = v[k][q];
+          v[k][p] = c * vkp - s * vkq;
+          v[k][q] = s * vkp + c * vkq;
+        }
+      }
+    }
+  }
+  const norm2 = (x: number[]) => {
+    const m = x.reduce((acc, t) => Math.max(acc, Math.abs(t)), 0);
+    return m === 0 ? 0 : m * Math.sqrt(x.reduce((acc, t) => acc + (t / m) * (t / m), 0));
+  };
+  const residuals: number[] = [];
+  for (let j = 0; j < n; j++) {
+    const lam = a[j][j];
+    const res: number[] = [], size: number[] = [];
+    for (let i = 0; i < n; i++) {
+      let s = -lam * v[i][j], z = Math.abs(lam * v[i][j]);
+      for (let k = 0; k < n; k++) { const t = scaled[i][k] * v[k][j]; s += t; z += Math.abs(t); }
+      res.push(s); size.push(z);
+    }
+    if (!(norm2(res) <= 1e-10 * norm2(size))) throw new Error('eigen did not converge');
+    residuals.push(norm2(res) / f);
+  }
+  return { values: a.map((r, i) => r[i] / f), vectors: v, residuals };
+}
+
+/**
+ * K·φ = λ·M·φ for K symmetric and M symmetric positive definite: λ ascending,
+ * φ as columns, each scaled so φᵀ·M·φ = 1. `error[i]` bounds |λᵢ − exact| from that
+ * pair's own residual and the round-off of forming L⁻¹·K·L⁻ᵀ along its own vector.
+ */
+export function generalizedEigen(k: Mat, m: Mat): { lambda: number[]; phi: Mat; error: number[] } {
+  const n = k.length;
+  const l = cholesky(m);
+  const linv = inverse(l);
+  const a = matMul(matMul(linv, k), transpose(linv));
+  for (let i = 0; i < n; i++) for (let j = 0; j < i; j++) a[i][j] = a[j][i] = (a[i][j] + a[j][i]) / 2;
+  const { values, vectors, residuals } = symmetricEigen(a);
+  const abs = (x: Mat) => x.map((r) => r.map(Math.abs));
+  const absA = matMul(matMul(abs(linv), abs(k)), transpose(abs(linv)));
+  const formed = values.map((_, j) => {
+    let q = 0;
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) q += Math.abs(vectors[r][j]) * absA[r][c] * Math.abs(vectors[c][j]);
+    return q;
+  });
+  const order = values.map((_, i) => i).sort((x, y) => values[x] - values[y]);
+  const y = order.map((i) => vectors.map((r) => r[i]));
+  const lt = transpose(linv);
+  const cols = y.map((yc) => {
+    const phi = matVec(lt, yc);
+    let big = 0;
+    for (const v of phi) if (Math.abs(v) > Math.abs(big)) big = v;
+    return big < 0 ? phi.map((v) => -v) : phi;
+  });
+  return { lambda: order.map((i) => values[i]), phi: transpose(cols), error: order.map((i) => residuals[i] + 4 * n * Number.EPSILON * formed[i]) };
+}
+
+export const column = (a: Mat, j: number): number[] => a.map((r) => r[j]);
+export const maxAbs = (v: readonly number[]): number => v.reduce((s, x) => Math.max(s, Math.abs(x)), 0);
