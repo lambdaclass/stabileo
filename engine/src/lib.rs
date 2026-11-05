@@ -17,6 +17,7 @@ pub mod sanity;
 pub mod metamorphic;
 pub mod known_issues;
 pub mod reproduce;
+pub mod result_sites;
 pub mod ordered;
 #[cfg(kani)]
 mod kani_proofs;
@@ -44,15 +45,31 @@ pub fn init() {
 /// Used by the hot-path exports to skip the JSON text round trip.
 fn to_js_value<T: serde::Serialize>(value: &T) -> Result<JsValue, JsValue> {
     boundary::require_finite(value).map_err(|e| JsValue::from_str(&e))?;
-    serde::Serialize::serialize(
-        value,
-        &serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true),
-    )
-    .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    let serializer = serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true);
+    let serialized = match result_sites::contain(value) {
+        result_sites::Outgoing::Unchanged => serde::Serialize::serialize(value, &serializer),
+        result_sites::Outgoing::Lifted(lifted) => serde::Serialize::serialize(&lifted, &serializer),
+        result_sites::Outgoing::Refused(refusal) => return Err(JsValue::from_str(&refusal)),
+    };
+    serialized.map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
 }
 
 fn to_json<T: serde::Serialize>(value: &T) -> Result<String, JsValue> {
-    boundary::to_json(value).map_err(|e| JsValue::from_str(&e))
+    boundary::require_finite(value).map_err(|e| JsValue::from_str(&e))?;
+    let serialized = match result_sites::contain(value) {
+        result_sites::Outgoing::Unchanged => serde_json::to_string(value),
+        result_sites::Outgoing::Lifted(lifted) => serde_json::to_string(&lifted),
+        result_sites::Outgoing::Refused(refusal) => return Err(JsValue::from_str(&refusal)),
+    };
+    serialized.map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+}
+
+fn contained_text(text: String) -> Result<String, JsValue> {
+    let value: serde_json::Value = serde_json::from_str(&text).map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))?;
+    match result_sites::contain(&value) {
+        result_sites::Outgoing::Unchanged => Ok(text),
+        _ => to_json(&value),
+    }
 }
 
 /// Deserialize a hot-path input passed straight from JS (plain objects, no
@@ -69,7 +86,7 @@ fn from_js_value<T: serde::de::DeserializeOwned>(value: JsValue) -> Result<T, Js
 /// displacements. JSON `SanityInput` in → JSON `SanityReport` out.
 #[wasm_bindgen]
 pub fn review_model_sanity(json: &str) -> Result<String, JsValue> {
-    sanity::review_json(json).map_err(|e| JsValue::from_str(&e))
+    sanity::review_json(json).map_err(|e| JsValue::from_str(&e)).and_then(contained_text)
 }
 
 /// Which engine this is: `{"engineVersion": CARGO_PKG_VERSION, "engineCommit": <git commit>}`.

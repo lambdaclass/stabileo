@@ -43,7 +43,7 @@ pub const ENTRIES: &[Entry] = &[
     Entry { id: "SH-MITC4-CONVERGENCE", issue: 810, mode: Mode::Warn, message: "MITC4 shell benchmarks show excessive stiffness and error increasing with mesh refinement. The affected subset is unresolved; independently verify shell response before design" },
     Entry { id: "NL-DYNAMIC-GAPS", issue: 370, mode: Mode::Warn, message: "Material nonlinear analysis may continue after an unconverged increment. Beam dynamic models omit bending rotary inertia. Independently verify convergence and deep-member dynamic response" },
     Entry { id: "PL-3D-INVARIANCE", issue: 758, mode: Mode::Warn, message: "3D plastic collapse of curved beams has shown numbering-dependent factors. Independently verify the collapse factor" },
-    Entry { id: "ORPHAN-SOFT-ROTATION", issue: 1367, mode: Mode::Warn, message: "A node rotation with real but very small stiffness, compared with the model's stiffest rotation, was held by an artificial spring, so that rotation and the forces it carries can be far too small. Do not use this result for design until this warning clears" },
+    Entry { id: "ORPHAN-SOFT-ROTATION", issue: 1496, mode: Mode::Warn, message: "A node rotation with real but very small stiffness, compared with another rotation at the same node, was held by an artificial spring, so that rotation and the forces it carries can be far too small. Do not use this result for design until this warning clears" },
     Entry { id: "NUM-INVARIANCE", issue: 762, mode: Mode::Warn, message: "Near-singular models can change accuracy or mechanism classification with units and orientation. Existing conditioning or stability diagnostics indicate a near-singular solve; independently verify stability before design" },
     Entry { id: "CERT-MECHANISM", issue: 458, mode: Mode::Warn, message: "An assembled-level certificate can certify an artificial or unstiffened rotation. Verify mechanisms independently; a small algebraic error bound does not establish structural stability" },
     Entry { id: "BU-SPAN-COMPRESSION", issue: 456, mode: Mode::Warn, message: "3D buckling can miss compression between member ends under span loads. Independently check the axial-force distribution and buckling factor" },
@@ -82,6 +82,11 @@ pub fn refuse(diagnostics: &[StructuredDiagnostic]) -> Result<(), String> {
         Some(d) => Err(serde_json::json!({"message": d.message, "structuredDiagnostics": diagnostics}).to_string()),
         None => Ok(()),
     }
+}
+
+pub fn refuse_contained<T: serde::Serialize + ?Sized>(own: &[StructuredDiagnostic], result: &T) -> Result<(), String> {
+    refuse(own)?;
+    refuse(&crate::result_sites::known_issues(result))
 }
 
 /// Whether `error` is a known-issue refusal from `refuse`, rather than invalid input.

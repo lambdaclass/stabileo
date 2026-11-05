@@ -1,6 +1,6 @@
 <script lang="ts">
   import KnownIssueResult from "../KnownIssueResult.svelte";
-  import { knownIssueDisposition, knownIssueResultDisposition } from '../../lib/engine/known-issues';
+  import { knownIssueResultDisposition } from '../../lib/engine/known-issues';
   import Hint from './Hint.svelte';
   import { centerlineInput, dynamicInput } from '../../lib/store/dynamic-input';
   import { previewCodeSpectrum } from '../../lib/store/spectrum-preview';
@@ -64,7 +64,7 @@
   // refusal and discarded the sentence the solver wrote.
   import { errorText } from '../../lib/utils/error-text';
   import { eigenRefusalText } from '../../lib/engine/finite-spectrum-warning';
-  import type { DesignSpectrum } from '../../lib/engine/result-types';
+  import type { DesignSpectrum, SpectralResultsByDirection } from '../../lib/engine/result-types';
   import {
     isBlocked, spectrumPoints, spectralOrdinate, RISK_FACTOR,
     type SeismicZone, type SiteClass, type DestinationGroup,
@@ -374,7 +374,7 @@
       const reductionFactor = user ? 1 : spectralR > 0 ? spectralR : 1;
       const modes = spectralModesFrom(modalResult);
       // One run per horizontal direction: the engine combines a single direction at a time.
-      const byDir: Record<string, any> = {};
+      const byDir: SpectralResultsByDirection = {};
       for (const direction of HORIZONTAL_DIRECTIONS) {
         const res = wasmSpectral3D({ solver: input, modes, densities, spectrum, direction, rule: spectralCombination, importanceFactor, reductionFactor, xi: spectralXi });
         if (typeof res === 'string') { solveError = `${t('pro.spectralTitle')}: ${errorText(res, t('pro.unknownError'))}`; solving = false; return; }
@@ -383,7 +383,7 @@
       const containment = knownIssueResultDisposition(byDir);
       if (containment.refused) { solveError = `${t('pro.spectralTitle')}: ${containment.messages.join('\n')}`; solving = false; return; }
       spectralResult = byDir;
-      advancedResults = { ...advancedResults, spectral: { disposition: containment, baseShearX: byDir.X.baseShear, baseShearY: byDir.Y.baseShear } };
+      advancedResults = { ...advancedResults, spectral: { disposition: containment, baseShearX: byDir.X!.baseShear, baseShearY: byDir.Y!.baseShear } };
     } catch (e: any) {
       solveError = `${t('pro.spectralTitle')}: ${errorText(e, t('pro.unknownError'))}`;
     }
@@ -1324,8 +1324,8 @@
         <button class="adv-run-btn" onclick={handleHarmonic} disabled={!hasModel || solving || !wasmAvailable}>{solving ? t('pro.solving') : t('pro.runHarmonic')}</button>
       </div>
       <Hint text={t('adv.help.harmonic')} />
-      {#each knownIssueDisposition(harmResult?.structuredDiagnostics).messages as message}<div role="alert">{message}</div>{/each}
-      {#if harmResult && !knownIssueDisposition(harmResult.structuredDiagnostics).refused}
+      {#each knownIssueResultDisposition(harmResult).messages as message}<div role="alert">{message}</div>{/each}
+      {#if harmResult && !knownIssueResultDisposition(harmResult).refused}
         <div class="adv-inline">
           {#if harmResult.peakAmplitude != null}{t('pro.peakAmplitude')}: {fmtNum(harmResult.peakAmplitude)} m{/if}
           {#if harmResult.peakFrequency != null} — f_res={fmtNum(harmResult.peakFrequency)} Hz{/if}

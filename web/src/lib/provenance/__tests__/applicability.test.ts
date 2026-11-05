@@ -241,13 +241,20 @@ describe('which registered changes concern a model', () => {
     expect(ids(model({ supports: [], loadCases: [] }))).toEqual([]);
   });
 
-  it('concerns a 3D steel truss solved before the containment diagnostics, and not the same supports and nodal load without members (the re-check e2e relies on it)', () => {
-    const previous = { resultsVersion: 30, analyses: ['linear'] } as SolveStamp;
+  it('concerns a 3D steel truss solved before the containment diagnostics, and not the same supports and nodal load without members one version old (the re-check e2e relies on it)', () => {
+    const previous = { resultsVersion: RESULTS_VERSION - 1, analyses: ['linear'] } as SolveStamp;
     const loads = [{ type: 'nodal3d', data: { caseId: 1, nodeId: 3, fz: -20 } }];
-    expect(ids(model({ loads, elements: [member(1, 1, 'truss')] }), previous)).toContain('safety-containment-diagnostics');
-    expect(ids(model({ loads, elements: [member(1, 1, 'truss')] }), previous)).toContain('fail-closed-ratios');
+    expect(ids(model({ loads, elements: [member(1, 1, 'truss')] }), { resultsVersion: 30, analyses: ['linear'] } as SolveStamp)).toContain('safety-containment-diagnostics');
+    expect(ids(model({ loads, elements: [member(1, 1, 'truss')] }), { resultsVersion: 30, analyses: ['linear'] } as SolveStamp)).toContain('fail-closed-ratios');
     expect(ids(model({ loads }), previous)).toEqual([]);
-    expect(ids(model({ loads }), { resultsVersion: RESULTS_VERSION - 1, analyses: ['linear'] } as SolveStamp)).toEqual([]);
+  });
+
+  it('tells a truss-only model with a support spring about the orphan-rotation fix, and not one without', () => {
+    const v32 = { resultsVersion: 32, analyses: ['linear'] } as SolveStamp;
+    const springs = [[1, { nodeId: 1, type: 'fixed3d' }], [2, { nodeId: 2, type: 'spring3d', krz: 1e-13 }]] as never;
+    expect(ids(model({ elements: [member(1, 1, 'truss')], supports: springs }), v32)).toContain('soft-rotation-not-orphan');
+    expect(ids(model({ elements: [member(1, 1, 'truss')] }), v32)).not.toContain('soft-rotation-not-orphan');
+    expect(ids(model({ elements: [member(1, 1, 'frame')] }), v32)).toContain('soft-rotation-not-orphan');
   });
 
   it('tells plane frames with combinations and member loads about the true-peak governing value and envelope', () => {

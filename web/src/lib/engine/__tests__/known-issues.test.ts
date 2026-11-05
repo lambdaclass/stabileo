@@ -183,7 +183,7 @@ describe('the result walker finds a refusal wherever a bundle keeps it', () => {
     ['a vertical spectral direction', { X: {}, Y: {}, Z: refused }],
     ['a per-case Map', new Map([[1, refused]])],
     ['a bundle with a per-combination Map', { perCase: new Map([[1, {}]]), perCombo: new Map([[2, refused]]) }],
-    ['a mode of a modal-force result', { perMode: [refused] }],
+    ['a moving-load position', { positions: [{ refPosition: 0, results: refused }] }],
   ])('%s', (_label, source) => {
     const d = knownIssueResultDisposition(source);
     expect(d.refused).toBe(true);
