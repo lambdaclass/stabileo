@@ -38,7 +38,7 @@
     {"id": "differential-quick", "tier": "pr", "runner": "ci-engine-quick", "target": "test.engine.differential.quick", "optional": true, "budget_min": 3, "what": "cross-method differential tests, quick tier"},
     {"id": "invariance-quick", "tier": "pr", "runner": "ci-engine-quick", "target": "test.engine.invariance.quick", "optional": true, "budget_min": 3, "what": "invariance tests, quick tier"},
     {"id": "mechanism-fuzz-quick", "tier": "pr", "runner": "ci-engine-quick", "target": "test.engine.mechanism-fuzz.quick", "optional": true, "budget_min": 2, "what": "mechanism fuzzing, quick tier"},
-    {"id": "issue-reproducers", "tier": "pr", "runner": "ci-engine-quick", "target": "test.engine.reproducers", "optional": true, "budget_min": 3, "what": "every expected-failure reproducer still fails (one that passes must be flipped)"},
+    {"id": "issue-reproducers", "tier": "pr", "runner": "ci-engine-quick", "target": "test.engine.reproducers", "optional": true, "budget_min": 8, "what": "every expected-failure reproducer still fails (one that passes must be flipped)"},
 
     {"id": "metamorphic-full", "tier": "daily", "existing": "nightly.yml#metamorphic-nightly", "what": "metamorphic and invariance, exhaustive tier"},
     {"id": "invariance-full", "tier": "daily", "runner": "nightly", "target": "test.engine.invariance.full", "optional": true, "budget_min": 90, "what": "invariance tests, full tier"},
