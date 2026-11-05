@@ -6,5 +6,4 @@ import { runGroup } from '../run-group';
 beforeAll(async () => { await initSolver(); });
 runGroup('basic', {
   '3d-torsion-beam': [],
-  '3d-cantilever-load': [],
 });

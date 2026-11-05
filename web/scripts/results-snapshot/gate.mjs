@@ -107,6 +107,15 @@ export function decide({ snapshots, baseRegistry, headRegistry, fragments, forma
   const exampleEntries = entries.filter((e) => e.scope === 'examples');
   const listed = new Set(exampleEntries.flatMap((e) => e.examples ?? []));
   const unchangedInputs = [...listed].filter((id) => !changedFixtures.includes(id));
+  const equivalence = Object.entries(caseExample).filter(([, example]) => listed.has(example)).map(([file, example]) => ({ file, example }));
+  const unsnapshotted = [...listed].filter((id) => !equivalence.some((e) => e.example === id));
+  if (unsnapshotted.length) {
+    return {
+      ok: false, changed,
+      report: `FAIL: an examples-scoped entry lists examples no corpus case opens: ${unsnapshotted.join(', ')}. `
+        + 'Without a snapshot nothing proves the engine still gives them their old numbers.',
+    };
+  }
   if (unchangedInputs.length) {
     return {
       ok: false, changed,
@@ -115,7 +124,7 @@ export function decide({ snapshots, baseRegistry, headRegistry, fragments, forma
     };
   }
   if (changed.length === 0) {
-    return { ok: true, changed, report: `Results snapshot gate: no committed result changed (${snapshots.length} snapshot file(s) touched).` };
+    return { ok: true, changed, equivalence, report: `Results snapshot gate: no committed result changed (${snapshots.length} snapshot file(s) touched).` };
   }
   const breaking = fragments.filter((f) => isBreakingResultsFragment(f.text));
   const missing = [];
@@ -125,7 +134,7 @@ export function decide({ snapshots, baseRegistry, headRegistry, fragments, forma
     const unexplained = changed.filter((c) => !listed.has(caseExample[c.file]));
     if (unexplained.length) missing.push(`an examples-only entry cannot explain ${unexplained.map((c) => c.file).join(', ')}: not a snapshot of a listed example`);
   }
-  const equivalence = examplesOnly ? changed.filter((c) => snapshots.find((s) => s.file === c.file)?.base).map((c) => ({ file: c.file, example: caseExample[c.file] })) : [];
+
   if (breaking.length === 0) missing.push(`no ${FRAGMENT_DIR}/ fragment under "${BREAKING_RESULTS}"`);
   const head = [
     `Results snapshot gate: this pull request changes the committed results of ${changed.length} case(s):`,
@@ -189,6 +198,12 @@ async function proveEquivalence(cases, base, at, root) {
   const { tmpdir } = await import('node:os');
   const { join } = await import('node:path');
   const { spawnSync } = await import('node:child_process');
+  const missing = cases.filter(({ file, example }) => at(base, file) === null || at(base, `${FIXTURE_DIR}/${example}.json`) === null);
+  if (missing.length) {
+    console.error(`FAIL: an examples-scoped entry lists examples with no snapshot or fixture at ${base}: ${missing.map((c) => c.file).join(', ')}. `
+      + 'Nothing then proves the engine still gives them their old numbers: add the corpus case in its own pull request first.');
+    return 1;
+  }
   const dir = mkdtempSync(join(tmpdir(), 'examples-equivalence-'));
   const list = cases.map(({ file, example }) => {
     const name = file.slice(SNAPSHOT_DIR.length + 1, -'.json'.length);

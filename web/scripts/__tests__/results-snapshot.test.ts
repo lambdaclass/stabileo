@@ -192,10 +192,18 @@ describe('the gate', () => {
       const withEngineEntry = { ...examplesOnly, currentResultsVersion: 5, changes: [{ id: 'engine', resultsVersion: 5 }, ...examplesOnly.changes] };
       expect(run(other, ['torsion'], withEngineEntry).ok).toBe(true);
     });
-    it('asks the CLI to prove each explained snapshot equivalent, and only when no entry with when explains it', () => {
-      expect(run(moved, ['torsion']).equivalence).toEqual([{ file: 'web/results-snapshots/c.json', example: 'torsion' }]);
+    it('NEGATIVE: asks the CLI to prove every snapshot of a listed example, moved or not, even beside an unrelated engine entry', () => {
+      const proof = [{ file: 'web/results-snapshots/c.json', example: 'torsion' }];
+      expect(run(moved, ['torsion']).equivalence).toEqual(proof);
+      expect(run([], ['torsion']).equivalence).toEqual(proof);
       const withEngineEntry = { ...examplesOnly, changes: [{ id: 'engine', resultsVersion: 5 }, ...examplesOnly.changes] };
-      expect(run(moved, ['torsion'], withEngineEntry).equivalence).toEqual([]);
+      expect(run(moved, ['torsion'], withEngineEntry).equivalence).toEqual(proof);
+    });
+    it('NEGATIVE: fails for a listed example no corpus case opens: nothing could prove its numbers', () => {
+      const unknown = { ...examplesOnly, changes: [{ ...examplesOnly.changes[0], examples: ['torsion', 'nowhere'] }, ...registry.changes] };
+      const r = run(moved, ['torsion', 'nowhere'], unknown);
+      expect(r.ok).toBe(false);
+      expect(r.report).toContain('no corpus case opens: nowhere');
     });
     it('NEGATIVE: a fixture edited only in whitespace, key order or names has the same model inputs, so it is not a changed example', () => {
       const fixture = { name: 'Torsion Beam', sections: [{ id: 1, name: 'IPN 300', j: 1e-7 }], loads: [{ type: 'nodal3d', data: { mx: 8 } }] };

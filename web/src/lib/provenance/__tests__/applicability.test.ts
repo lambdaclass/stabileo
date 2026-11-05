@@ -262,7 +262,7 @@ describe('which registered changes concern a model', () => {
   });
 
   it('never tells a saved model about a change of bundled examples only, whatever it was solved with', () => {
-    const change = 'examples-torsion-and-cantilever-small-rotations';
+    const change = 'example-torsion-beam-closed-section';
     expect(RESULT_CHANGES.changes.find((c) => c.id === change)?.scope).toBe('examples');
     const loads = [{ type: 'nodal3d', data: { caseId: 1, nodeId: 2, fz: -20, mx: 8 } }];
     const torsionBeam = model({ analysisMode: '3d', loads, elements: [member(1, 1, 'frame')] });

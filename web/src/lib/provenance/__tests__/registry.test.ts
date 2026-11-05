@@ -71,7 +71,7 @@ describe('result-change registry', () => {
 
   it('takes an examples-scoped entry only with the example ids it changed, and no when or quantities', () => {
     const entry = RESULT_CHANGES.changes.find((c) => c.scope === 'examples')!;
-    expect(entry.examples).toEqual(['3d-torsion-beam', '3d-cantilever-load']);
+    expect(entry.examples).toEqual(['3d-torsion-beam']);
     const check = (over: Record<string, unknown>) => validateRegistry({ ...RESULT_CHANGES, changes: [{ ...entry, ...over } as typeof entry] }, new Set(FEATURE_IDS));
     expect(check({})).toEqual([]);
     for (const examples of [undefined, [], [''], [7]]) {

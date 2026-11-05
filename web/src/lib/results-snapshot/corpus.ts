@@ -59,7 +59,6 @@ export const CORPUS: SnapshotCase[] = [
   { name: '3d-portal-frame', source: ex('3d-portal-frame'), workspace: '3d', group: 'basic', covers: '3D frame' },
   { name: '3d-space-truss', source: ex('3d-space-truss'), workspace: '3d', group: 'basic', covers: '3D truss' },
   { name: '3d-torsion-beam', source: ex('3d-torsion-beam'), workspace: '3d', group: 'basic', covers: '3D torsion' },
-  { name: '3d-cantilever-load', source: ex('3d-cantilever-load'), workspace: '3d', group: 'basic', covers: '3D biaxial cantilever with tip torsion' },
   { name: '3d-grid-slab', source: ex('3d-grid-slab'), workspace: '3d', group: 'basic', covers: '3D grillage' },
   { name: '3d-tower', source: ex('3d-tower'), workspace: '3d', group: 'basic', covers: '3D braced tower' },
   { name: '3d-hinged-arch', source: ex('hinged-arch-3d'), workspace: '3d', group: 'basic', covers: '3D hinged arch' },
