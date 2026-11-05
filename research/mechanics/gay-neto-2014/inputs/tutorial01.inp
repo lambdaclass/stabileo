@@ -1,0 +1,97 @@
+/////////////////////////////////
+///Tutorial 01 - GIRAFFE 2.0/////
+/////////////////////////////////
+
+//Creation of nodes
+Nodes	11
+//Number	X	Y	Z
+Node	1	0	0	0.0
+Node	2	0	0	0.1	
+Node	3	0	0	0.2	
+Node	4	0	0	0.3	
+Node	5	0	0	0.4	
+Node	6	0	0	0.5	
+Node	7	0	0	0.6	
+Node	8	0	0	0.7	
+Node	9	0	0	0.8	
+Node	10	0	0	0.9	
+Node	11	0	0	1.0
+
+//Creation of node sets
+NodeSets	2
+//Point A
+NodeSet	1	Nodes	1	List	1
+//Point B
+NodeSet	2	Nodes	1	List	11
+
+//Creation of elements
+Elements	5									
+Beam_1	1	Mat	1	Sec	1	CS	1	Nodes	1	2	3
+Beam_1	2	Mat	1	Sec	1	CS	1	Nodes	3	4	5
+Beam_1	3	Mat	1	Sec	1	CS	1	Nodes	5	6	7
+Beam_1	4	Mat	1	Sec	1	CS	1	Nodes	7	8	9
+Beam_1	5	Mat	1	Sec	1	CS	1	Nodes	9	10	11
+
+//Creation of materials
+Materials	1
+Hooke	1	E	1e7	Nu	0.3	Rho	2000
+
+//Creation of sections
+Sections	1
+Rectangle	1	B	0.1	H	0.1
+
+//Creation of coordinate systems
+CoordinateSystems	1
+CS	1	E1	1	0	0	E3	0	0	1
+
+//Creation of the solution steps
+SolutionSteps	1
+Static	1
+EndTime	1
+TimeStep	0.1
+MaxTimeStep	0.1
+MinTimeStep	0.01
+MaxIt	20
+MinIt	3
+ConvIncrease	4
+IncFactor	1.0
+Sample	2
+
+//Creation of loads
+Loads	1
+NodalLoad	1	NodeSet	2	CS	1	NTimes	2
+//Time FX 	FY 	FZ 	MX 	MY 	MZ
+0	   0	0	0	0	0	0
+1	1000	0	0	0	0	0
+
+//Creation of constraints
+Constraints	1
+NodalConstraint	1	NodeSet	1
+	UX		BoolTable	1 
+	UY		BoolTable	1 
+	UZ		BoolTable	1 
+	ROTX	BoolTable	1
+	ROTY	BoolTable	1
+	ROTZ	BoolTable	1
+
+//Creation of solver options
+SolverOptions
+Processors	1	LinSys	Direct
+
+//Creation of monitors
+Monitor	Sample	1
+MonitorNodes	1	11		
+
+//Creation of post files
+PostFiles	
+MagFactor	1
+WriteMesh	1
+WriteRenderMesh	1
+WriteRigidContactSurfaces	0
+WriteFlexibleContactSurfaces	0
+WriteForces	1
+WriteConstraints	0
+WriteSpecialConstraints	0
+WriteContactForces	0
+WriteRenderRigidBodies	0
+WriteRenderParticles	0

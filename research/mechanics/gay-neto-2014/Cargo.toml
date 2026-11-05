@@ -1,0 +1,17 @@
+[package]
+name = "risers-gay-neto-2014"
+version = "0.1.0"
+edition = "2021"
+license = "AGPL-3.0-only"
+publish = false
+
+[workspace]
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+serde_json = "1.0"
+
+[profile.test]
+opt-level = 3
