@@ -176,9 +176,12 @@ def status(value, key, target, doc, tables, rows, helpers, read):
         if text is None:
             return [f'{value["test"]}: no such test file under engine/tests/']
         code = strip_rust(text)
-        match = re.search(rf'#\[test\][^{{]*?\bfn\s+{re.escape(test)}\s*\(', code) if test else None
-        if not match:
+        match = re.search(rf'\bfn\s+{re.escape(test)}\s*\(', code) if test else None
+        attributes = re.search(r'(?:#\[[^\]]*\]\s*)*$', code[:match.start()]).group(0) if match else ''
+        if not re.search(r'#\[test\]', attributes):
             return [f'{value["test"]}: no #[test] fn {test!r} in {file}']
+        if re.search(r'#\[\s*(?:ignore|cfg)\b', attributes):
+            return [f'{value["test"]}: an ignored or conditionally compiled test does not run in the PR tier']
         if not calls(code[slice(*block(code, match.end()))], target):
             return [f'{value["test"]}: the test does not call {target}, so it does not cover this entry point']
         return []

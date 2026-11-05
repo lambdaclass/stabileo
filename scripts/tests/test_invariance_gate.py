@@ -70,6 +70,18 @@ fn beam_through_legacy() {
     let r = solve_beam_2d(&scaled());
 }
 
+#[test]
+#[ignore]
+fn beam_ignored() {
+    let r = solve_beam_2d_typed(&scaled());
+}
+
+#[cfg(feature = "slow")]
+#[test]
+fn beam_gated() {
+    let r = solve_beam_2d_typed(&scaled());
+}
+
 fn not_a_test() { solve_beam_2d_typed(&x); }
 '''
 
@@ -224,6 +236,8 @@ class Coverage(unittest.TestCase):
         self.assertIn('no #[test] fn', self.status('units', {'test': 'engine/tests/beam_invariance.rs::not_a_test'})[0])
         self.assertIn('does not call solve_beam_2d_typed', self.status('units', {'test': 'engine/tests/beam_invariance.rs::beam_through_legacy'})[0])
         self.assertIn('no such test file', self.status('units', {'test': 'engine/tests/nope.rs::x'})[0])
+        self.assertIn('ignored or conditionally compiled', self.status('units', {'test': 'engine/tests/beam_invariance.rs::beam_ignored'})[0])
+        self.assertIn('ignored or conditionally compiled', self.status('units', {'test': 'engine/tests/beam_invariance.rs::beam_gated'})[0])
         self.assertIn('no such test file', self.status('units', {'test': 'engine/src/lib.rs::solve_beam_2d'})[0])
 
 
