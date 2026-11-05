@@ -19,13 +19,15 @@
 
 ## What was wrong
 
-A frame member whose plastic moment about either local axis was missing, infinite, zero or
-negative was solved as a member that never forms a hinge:
+A frame member whose plastic moment about either local axis was missing, infinite or zero was
+solved as a member that never forms a hinge, and a negative one was used as its absolute value:
 
 - a member whose section had no entry in `sections` (and so none in `mpOverrides`) got Mp = ∞;
 - a section without `b`/`h` and with `iy` or `iz` at or below 10⁻²⁰ got Mp = ∞ about that axis;
-- an `mpOverrides` pair with a zero entry left the member out of the yield search, and a negative
-  one was used as its absolute value.
+- an `mpOverrides` pair with a zero entry left the member out of the yield search.
+
+A negative override was used as its absolute value (the same collapse factor as the positive one,
+not certified); it is refused now as well.
 
 The collapse factor came out too high, with `is_mechanism` true and no warning, and the plastic
 certificate certified it, because it treated the same member as rigid.
