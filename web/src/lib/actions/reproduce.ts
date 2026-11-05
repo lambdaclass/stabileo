@@ -9,8 +9,8 @@
 import { resultsStore } from '../store';
 import { certificateStore } from '../store/certificate.svelte';
 import { runGlobalSolve } from '../engine/live-calc';
-import { currentResultProvenance, provenanceForScope, ensureEngineHashes } from '../store/result-provenance';
-import { compareProvenance, type ResultProvenance, type ReproduceVerdict } from '../provenance/result-provenance';
+import { currentResultProvenance, currentScopeRef, provenanceForScope, ensureEngineHashes, scopeOfResultSet } from '../store/result-provenance';
+import { compareProvenance, sameScope, type ResultProvenance, type ReproduceVerdict, type ScopeRef } from '../provenance/result-provenance';
 import { errorText } from '../utils/error-text';
 import { i18n, t } from '../i18n';
 import { buildProReportData } from '../engine/pro-report-inputs';
@@ -37,15 +37,27 @@ export async function reproduceFrom(claimed: ResultProvenance, report?: string):
   if ((claimed.certificates ?? []).length > 0) await settledCertificate();
   await ensureEngineHashes();
   const outcome = compareWithResultsOnHand(claimed);
-  if (outcome.ok && report) { outcome.printed = comparePrintedReport(report); outcome.reportLocale = embeddedReportLocale(report); }
+  if (outcome.ok && report) { outcome.printed = comparePrintedReport(report, claimedScope(claimed) ?? undefined); outcome.reportLocale = embeddedReportLocale(report); }
   return outcome;
 }
 
-/** The report's printed tables against the same tables printed from the results on hand; null for a report that embeds no choices. */
-export function comparePrintedReport(report: string): PrintedComparison | null {
+export const OTHER_RESULT_SET = 'result-set';
+
+/**
+ * The report's printed tables against the same tables printed from the results on hand, for the
+ * result `scope` names (the fingerprint's, which the provenance hash covers; the embedded key is
+ * editable and only has to agree with it). Null when the tables cannot be printed again: no
+ * embedded choices, no scope, or that result not on hand.
+ */
+export function comparePrintedReport(report: string, scope: ScopeRef | undefined): PrintedComparison | null {
   const config = embeddedReportConfig(report);
   const claimedTables = printedTables(report);
-  if (!config) return null;
+  if (!config || !scope) return null;
+  const key = config.resultSetKey;
+  const screen = !key || key === 'screen';
+  const printedScope: ScopeRef | null = screen ? scope : scopeOfResultSet(key);
+  if (!printedScope || !sameScope(printedScope, scope)) return { compared: 0, differences: [], structural: [OTHER_RESULT_SET], labels: true };
+  if (screen && !sameScope(currentScopeRef(), scope)) return null;
   const data = buildProReportData({ config, t });
   if (!data) return null;
   const locale = embeddedReportLocale(report);
@@ -59,10 +71,26 @@ export function comparePrintedReport(report: string): PrintedComparison | null {
  * written before scopes were recorded) leaves the comparison incomplete, never reproduced.
  */
 export function compareWithResultsOnHand(claimed: ResultProvenance): ReproduceOutcome {
-  const ref = claimed.scopeRef ?? (claimed.scope === 'single' ? { kind: 'single' as const } : null);
+  const ref = claimedScope(claimed);
   const fresh = ref ? provenanceForScope(ref) : { ...currentResultProvenance(), scopeRef: undefined };
   if (!fresh.baseResultsHash && !fresh.resultsHash) return { ok: false, error: 'no results' };
   return { ok: true, verdict: compareProvenance(claimed, fresh), fresh };
+}
+
+function claimedScope(claimed: ResultProvenance): ScopeRef | null {
+  return claimed.scopeRef ?? (claimed.scope === 'single' ? { kind: 'single' } : null);
+}
+
+export type CheckStatus = ReproduceVerdict['status'] | 'printed-differs';
+
+/** A report whose tables could not be printed again (`printed` null) or compared none is never reproduced: its numbers were not checked. */
+export function reproduceStatus(outcome: Extract<ReproduceOutcome, { ok: true }>): { status: CheckStatus; reproduced: boolean } {
+  const v = outcome.verdict, p = outcome.printed;
+  if (p === null || (p && p.compared === 0 && p.differences.length === 0 && p.structural.length === 0)) return { status: v.status === 'reproduced' ? 'incomplete' : v.status, reproduced: false };
+  const printedOk = !p || (p.differences.length === 0 && p.structural.length === 0);
+  const labelsOk = !p || p.labels;
+  const status = !printedOk ? 'printed-differs' : !labelsOk && v.status === 'reproduced' ? 'incomplete' : v.status;
+  return { status, reproduced: v.reproduced && printedOk && labelsOk };
 }
 
 async function settledCertificate(timeoutMs = 120_000): Promise<void> {

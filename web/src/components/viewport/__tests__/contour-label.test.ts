@@ -1,5 +1,6 @@
 import { expect, it } from 'vitest';
 import { formatContourLabel } from '../contour-label';
+import { formatLocalizedContourLabel } from '../scalar-field-labels';
 
 it('distinguishes and orders small nonzero ticks', () => {
   for (const bands of [0, 4, 8]) {
@@ -16,4 +17,17 @@ it('preserves ordinary contour formatting', () => {
   expect([0, 50, 100].map(v => formatContourLabel(v, 0, 100))).toEqual(['0', '50.0', '100']);
   expect(formatContourLabel(10000, 0, 10000)).toBe('1.0e+4');
   expect(formatContourLabel(-50, -100, 100)).toBe('-50.0');
+});
+
+it('formats decimal and scientific ticks using every public locale', async () => {
+  const { PUBLIC_LOCALES, publicI18n, setLocale } = await import('../../../lib/i18n/store.svelte');
+  const original = publicI18n.locale;
+  try {
+    for (const locale of PUBLIC_LOCALES) {
+      setLocale(locale);
+      const decimal = new Intl.NumberFormat(locale,{minimumFractionDigits:2,maximumFractionDigits:2}).format(0.25);
+      expect(formatLocalizedContourLabel(0.25,0,0.5,8)).toBe(decimal);
+      expect(formatLocalizedContourLabel(0.0025,0,0.005,8)).toContain(decimal.slice(1,2));
+    }
+  } finally { setLocale(original); }
 });

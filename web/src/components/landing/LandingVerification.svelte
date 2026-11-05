@@ -13,7 +13,7 @@
    */
 </script>
 
-<section class="sec sec--ink verification reveal" data-section="verification" id="verification" aria-labelledby="verification-title">
+<section class="sec sec--ink verification" data-section="verification" id="verification" aria-labelledby="verification-title">
   <div class="wrap">
     <Eyebrow n="05" label={t('landing.ebVerif')} />
     <h2 id="verification-title" class="display">{t('landing.verifH')}</h2>

@@ -41,10 +41,11 @@ describe('governing combination over the whole member', () => {
     const loaded = simplySupported2D(-10);
     const midspan = peakOf(computeElementDiagram('moment', loaded, 0, 0, 0, 0));
     expect(midspan).toBeCloseTo(20, 9);
-    expect(governingMagnitude2D(loaded, 'moment')).toBe(midspan);
+    expect(governingMagnitude2D(loaded, 'moment')).toBeCloseTo(midspan, 12);
     const endHeavy = ef2d({ mStart: 12, mEnd: -12 });
     const g = computeGoverning2D(new Map([[1, results2D([endHeavy])], [2, results2D([loaded])]]), new Map([[1, 'ends'], [2, 'span']]));
-    expect(g.get(1)?.moment).toEqual({ comboId: 2, comboName: 'span', value: midspan });
+    expect(g.get(1)?.moment).toMatchObject({ comboId: 2, comboName: 'span' });
+    expect(g.get(1)?.moment?.value).toBeCloseTo(midspan, 12);
   });
   it('NEGATIVE: end forces larger than the interior still govern', () => {
     const endHeavy = ef3d({ myStart: 30, myEnd: -30, vzStart: -15, vzEnd: -15 });

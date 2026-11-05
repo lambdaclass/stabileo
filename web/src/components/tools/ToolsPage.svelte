@@ -2,6 +2,7 @@
   import './register-i18n';
   import SiteHeader from '../site/SiteHeader.svelte';
   import LandingFooter from '../landing/LandingFooter.svelte';
+  import RelatedLinks from '../research/RelatedLinks.svelte';
   import PublicLink from '../landing/PublicLink.svelte';
   import { publicI18n } from '../../lib/i18n/store.svelte';
   import { applyPageMeta, restorePageMeta, stabileoSoftware, stabileoCalculator, breadcrumbs, WEBSITE_ID } from '../../lib/page-meta';
@@ -151,7 +152,7 @@
           <h2>{t('tools.assumptionsTitle')}</h2>
           <p>{t('tools.assumptions')}</p>
           {#if id === 'column-buckling'}<p>{t('tools.bucklingNote')}</p><p>{t('tools.modeNote')}</p><p>{t('tools.columnNote')}</p>{:else}<p>{t('tools.signConvention')}</p>{/if}
-      <h2>{t('tools.formula')}</h2><p class="formula">{FORMULAS[id]}</p>
+      <h2>{t('tools.formula')}</h2><p class="formula" translate="no">{FORMULAS[id]}</p>
       <h2>{t('tools.example')}</h2>
       <p>L = {number(EXAMPLE.length)} m; E = {number(EXAMPLE.e, 10)} MPa; I = {number(EXAMPLE.i)} m⁴; EI = {number(EXAMPLE.e * 1000 * EXAMPLE.i, 10)} kN·m²</p>
       {#each workedExamples(id) as example}
@@ -189,6 +190,7 @@
     {/if}
     </div>
   </main>
+  <RelatedLinks {path} />
   <LandingFooter />
 </div>
 
