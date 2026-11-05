@@ -70,6 +70,36 @@ const body: PostBody = {
     },
     {
       "k": "h",
+      "t": "Zweite Runde: jede Seite erneut geprüft"
+    },
+    {
+      "k": "p",
+      "t": "Danach durchlief jede veröffentlichte Forschungsseite eine zweite Prüfung durch drei KI-Modelle nacheinander (Kimi, dann Codex, dann Claude), und jeder Befund, den wir bestätigen konnten, wurde behoben. Fünfzehn Seiten wurden gemeinsam überarbeitet und am 4. November veröffentlicht (#1068): sechs Artikel (Shauer, Pastrana, Ferrari, Zmyślony, Grossman und Fairclough) und neun Benchmarks des Rechenkerns (Newmark, Riks/Crisfield, Navier, Lee, MacNeal–Harder, DaDeppo–Schmidt, das Beispiel zum plastischen Kollaps nach Horne, SRSS/CQC und Mattiasson, das eine dritte Runde durchlief). Keine Toleranz wurde gelockert und kein Test entfernt. Die Prüfung durch praktizierende Ingenieure steht noch aus."
+    },
+    {
+      "k": "ul",
+      "items": [
+        "MacNeal–Harder verglich Beträge, sodass ein Ergebnis mit falschem Vorzeichen bestanden hätte. Die Referenzen tragen jetzt ihr Vorzeichen, und ein Test weist für jeden Fall eine umgekehrte Antwort zurück.",
+        "Riks/Crisfield konnte einen Grenzpunkt ohne Lastabfall melden. Ein Grenzpunkt erfordert jetzt einen Lastabfall zwischen konvergierten Schritten; die Seite sagt, dass die Berechnung den oberen Grenzpunkt überschreitet, statt „traces the snap-through“, und ihre Toleranzen gingen von 5 % auf Werte zwischen 5e-3 und 1e-5.",
+        "Navier erklärte den MITC4-Fehler, statt ihn zu messen. Jetzt wird er mit einer unabhängigen Reissner–Mindlin-Reihe verglichen, und der MITC4-Fehler bei harter Lagerung sinkt von −1,951 % bei 4×4 auf −0,036 % bei 32×32, mit Konvergenz zweiter Ordnung.",
+        "Die Seiten sagen, womit sie verglichen werden. Newmark wird gegen exakte geschlossene Lösungen geprüft, nicht gegen „the author’s code“; SRSS/CQC ist eine Illustration der Methode, keine Reproduktion des Gebäudes aus dem Artikel; die Schranken des plastischen Kollapses sind unsere eigenen Herleitungen von Hand, kein Zitat; die Referenz von 1,83 kN für den Lee-Rahmen ist aus einer veröffentlichten Abbildung abgelesen, daher behaupten wir nur Abweichungen in ganzen Prozent."
+      ]
+    },
+    {
+      "k": "h",
+      "t": "Auf Smartphones und Tablets"
+    },
+    {
+      "k": "p",
+      "t": "Auf der Live-Website gemessen liefen die Forschungsseiten auf einem Smartphone nicht über, aber das Experiment stand unter dem ganzen Artikel, der Viewer war beengt (356×189 px für eine quadratische Platte), und jede Seite hatte 25 bis 40 Bedienelemente unter 32 px und 14 bis 20 Textstellen unter 12 px. Jetzt folgt das Experiment direkt auf den Titel, der Viewer ist auf das Modell zugeschnitten, Bedienelemente messen mindestens 44 px und Text mindestens 12 px (#831)."
+    },
+    {"k": "img", "base": "blog/research-phone", "w": 1600, "h": 1000, "alt": "Zwei Smartphone-Screenshots von Stabileo Research nebeneinander, 390 px breit. Links die Seite zum Seilnetz nach Pastrana et al. (2026), „Four cables, one equilibrium“, mit dem Viewer direkt unter dem Titel; rechts der Benchmark der Navier-Platte, dessen Viewer die ganze Bildschirmbreite füllt und die Durchbiegung der Platte nach unten zeigt.", "caption": "Forschung auf dem Smartphone: das Experiment nach dem Titel und ein Viewer so breit wie der Bildschirm."},
+    {
+      "k": "p",
+      "t": "Eine dauerhafte Prüfung rendert die Galerie und jede ausführbare Seite bei 360, 390, 844×390 und 810 px, auf Spanisch, Englisch und Portugiesisch, und schlägt fehl bei horizontalem Überlauf, kleinen Bedienelementen, kleinem Text oder einem Viewer, der fehlt, zu klein ist oder zu weit unten steht. Ihre ersten Läufe fanden echte Fehler, und korrigiert wurden die Layouts, nicht die Prüfung: Der Mattiasson-Viewer war auf dem Smartphone im Querformat 187 px hoch und ist jetzt 280 px hoch, und ein Konvergenzdiagramm zeigte seine Beschriftungen mit 9 px. Ein Reflow-Test ergab, dass Shauers Reiter auf Portugiesisch und Türkisch bei 360 px überliefen."
+    },
+    {
+      "k": "h",
       "t": "Acht Rechner mit Zugang zum Editor"
     },
     {

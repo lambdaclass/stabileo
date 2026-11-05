@@ -70,6 +70,36 @@ const body: PostBody = {
     },
     {
       "k": "h",
+      "t": "Deuxième tour : chaque page revue à nouveau"
+    },
+    {
+      "k": "p",
+      "t": "Chaque page de recherche en ligne a ensuite fait l’objet d’une deuxième revue, par trois modèles d’IA successifs (Kimi, puis Codex, puis Claude), et chaque remarque que nous avons pu vérifier a été corrigée. Quinze pages ont été révisées ensemble et publiées le 4 novembre (#1068) : six articles (Shauer, Pastrana, Ferrari, Zmyślony, Grossman et Fairclough) et neuf benchmarks du moteur (Newmark, Riks/Crisfield, Navier, Lee, MacNeal–Harder, DaDeppo–Schmidt, l’exemple de ruine plastique d’après Horne, SRSS/CQC et Mattiasson, qui a eu un troisième tour). Aucune tolérance n’a été relâchée et aucun test n’a été supprimé. La revue par des ingénieurs en exercice reste à venir."
+    },
+    {
+      "k": "ul",
+      "items": [
+        "MacNeal–Harder comparait des valeurs absolues : un résultat de signe erroné aurait donc été accepté. Les références portent maintenant leur signe, et un test rejette une réponse inversée pour chaque cas.",
+        "Riks/Crisfield pouvait signaler un point limite sans chute de charge. Un point limite exige désormais une chute de charge entre des pas convergés ; la page dit que le calcul franchit le point limite supérieur au lieu de « traces the snap-through », et ses tolérances sont passées de 5 % à des valeurs entre 5e-3 et 1e-5.",
+        "Navier expliquait l’erreur de MITC4 au lieu de la mesurer. Elle est maintenant comparée à une série de Reissner–Mindlin indépendante, et l’erreur de MITC4 en appui simple dur passe de −1,951 % en 4×4 à −0,036 % en 32×32, avec une convergence d’ordre deux.",
+        "Les pages disent à quoi elles sont comparées. Newmark est vérifié par rapport à des solutions exactes en forme fermée, pas à « the author’s code » ; SRSS/CQC est une illustration de la méthode, pas une reproduction du bâtiment de l’article ; les bornes de ruine plastique sont nos propres dérivations à la main, pas une citation ; la référence de 1,83 kN du portique de Lee est lue sur une figure publiée, donc nous n’annonçons que des écarts en pourcentages entiers."
+      ]
+    },
+    {
+      "k": "h",
+      "t": "Sur téléphones et tablettes"
+    },
+    {
+      "k": "p",
+      "t": "D’après nos mesures sur le site en ligne, les pages de recherche ne débordaient pas sur un téléphone, mais l’expérience se trouvait sous tout l’article, le visualiseur était à l’étroit (356×189 px pour une plaque carrée) et chaque page comptait 25 à 40 commandes de moins de 32 px et 14 à 20 éléments de texte de moins de 12 px. L’expérience vient maintenant juste après le titre, le visualiseur est dimensionné selon le modèle, les commandes font au moins 44 px et le texte au moins 12 px (#831)."
+    },
+    {"k": "img", "base": "blog/research-phone", "w": 1600, "h": 1000, "alt": "Deux captures d’écran de Stabileo Research sur téléphone, côte à côte, de 390 px de large. À gauche, la page du réseau de câbles d’après Pastrana et al. (2026), « Four cables, one equilibrium », avec la visionneuse juste sous le titre ; à droite, le benchmark de la plaque de Navier, dont la visionneuse occupe toute la largeur de l’écran et montre le déplacement vertical de la plaque vers le bas.", "caption": "La recherche sur téléphone : l’expérience après le titre et un visualiseur aussi large que l’écran."},
+    {
+      "k": "p",
+      "t": "Un contrôle permanent affiche la galerie et chaque page exécutable à 360, 390, 844×390 et 810 px, en espagnol, en anglais et en portugais, et échoue en cas de débordement horizontal, de commandes trop petites, de texte trop petit ou de visualiseur absent, trop petit ou trop bas. Ses premières exécutions ont trouvé de vrais bugs, et ce sont les mises en page qui ont été corrigées, pas le contrôle : le visualiseur de Mattiasson faisait 187 px de haut sur téléphone en paysage et en fait maintenant 280, et un graphique de convergence affichait ses étiquettes à 9 px. Un test de reflow a montré que les onglets de Shauer débordaient en portugais et en turc à 360 px."
+    },
+    {
+      "k": "h",
       "t": "Huit calculateurs, avec accès à l’éditeur"
     },
     {
