@@ -44,24 +44,16 @@ pub fn init() {
 /// shape `JSON.parse(serde_json::to_string(...))` produced on the JS side.
 /// Used by the hot-path exports to skip the JSON text round trip.
 fn to_js_value<T: serde::Serialize>(value: &T) -> Result<JsValue, JsValue> {
-    boundary::require_finite(value).map_err(|e| JsValue::from_str(&e))?;
     let serializer = serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true);
-    let serialized = match result_sites::contain(value) {
-        result_sites::Outgoing::Unchanged => serde::Serialize::serialize(value, &serializer),
-        result_sites::Outgoing::Lifted(lifted) => serde::Serialize::serialize(&lifted, &serializer),
-        result_sites::Outgoing::Refused(refusal) => return Err(JsValue::from_str(&refusal)),
+    let serialized = match boundary::outgoing(value).map_err(|e| JsValue::from_str(&e))? {
+        None => serde::Serialize::serialize(value, &serializer),
+        Some(lifted) => serde::Serialize::serialize(&lifted, &serializer),
     };
     serialized.map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
 }
 
 fn to_json<T: serde::Serialize>(value: &T) -> Result<String, JsValue> {
-    boundary::require_finite(value).map_err(|e| JsValue::from_str(&e))?;
-    let serialized = match result_sites::contain(value) {
-        result_sites::Outgoing::Unchanged => serde_json::to_string(value),
-        result_sites::Outgoing::Lifted(lifted) => serde_json::to_string(&lifted),
-        result_sites::Outgoing::Refused(refusal) => return Err(JsValue::from_str(&refusal)),
-    };
-    serialized.map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    boundary::to_json(value).map_err(|e| JsValue::from_str(&e))
 }
 
 fn contained_text(text: String) -> Result<String, JsValue> {

@@ -48,9 +48,23 @@ pub fn require_finite<T: Serialize + ?Sized>(value: &T) -> Result<(), String> {
     }
 }
 
-pub fn to_json<T: Serialize + ?Sized>(value: &T) -> Result<String, String> {
+/// The finite check must run before `result_sites::contain`, whose lifted copy goes through
+/// `serde_json::to_value`, where a NaN is already null.
+pub fn outgoing<T: Serialize + ?Sized>(value: &T) -> Result<Option<serde_json::Value>, String> {
     require_finite(value)?;
-    serde_json::to_string(value).map_err(|e| format!("Serialize error: {e}"))
+    match crate::result_sites::contain(value) {
+        crate::result_sites::Outgoing::Unchanged => Ok(None),
+        crate::result_sites::Outgoing::Lifted(lifted) => Ok(Some(lifted)),
+        crate::result_sites::Outgoing::Refused(refusal) => Err(refusal),
+    }
+}
+
+pub fn to_json<T: Serialize + ?Sized>(value: &T) -> Result<String, String> {
+    let text = match outgoing(value)? {
+        None => serde_json::to_string(value),
+        Some(lifted) => serde_json::to_string(&lifted),
+    };
+    text.map_err(|e| format!("Serialize error: {e}"))
 }
 
 pub fn finite_scalar(value: f64, what: &str) -> Result<f64, String> {
@@ -410,6 +424,27 @@ mod tests {
             assert_eq!(v["structuredDiagnostics"][0]["code"], "non_finite_result");
             assert_eq!(v["structuredDiagnostics"][0]["phase"], "unbounded");
         }
+    }
+
+    #[test]
+    fn a_nan_beside_a_nested_refusal_is_refused_not_lifted_as_null() {
+        #[derive(Serialize)]
+        struct Lifted {
+            #[serde(rename = "structuredDiagnostics")]
+            diagnostics: Vec<serde_json::Value>,
+            results: serde_json::Value,
+            ux: f64,
+        }
+        let issue = serde_json::json!({ "code": "known_issue", "severity": "error", "message": "held", "phase": "solve" });
+        let mut r = Lifted { diagnostics: vec![], results: serde_json::json!({ "structuredDiagnostics": [issue] }), ux: 1.0 };
+        assert!(matches!(crate::result_sites::contain(&r), crate::result_sites::Outgoing::Lifted(_)));
+        let finite: serde_json::Value = serde_json::from_str(&to_json(&r).unwrap()).unwrap();
+        assert_eq!(finite["structuredDiagnostics"][0]["message"], "held");
+        r.ux = f64::NAN;
+        let refusal: serde_json::Value = serde_json::from_str(&to_json(&r).unwrap_err()).unwrap();
+        assert_eq!(refusal["structuredDiagnostics"][0]["code"], "non_finite_result");
+        assert_eq!(refusal["structuredDiagnostics"][0]["phase"], "ux");
+        assert!(outgoing(&r).is_err());
     }
 
     #[test]
