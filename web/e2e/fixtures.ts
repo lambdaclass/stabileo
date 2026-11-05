@@ -10,9 +10,14 @@ import { readRegistry } from '../scripts/result-changes/registry.mjs';
  * it raises no re-check notice (`src/lib/store/recheck.svelte.ts`). A spec about that notice
  * (`recheck-provenance.spec.ts`) leaves the stamp out on purpose.
  */
+let resultsVersion: number | undefined;
+
 export const CURRENT_STAMP = {
   id: 'e2e-current',
-  resultsVersion: readRegistry().currentResultsVersion,
+  get resultsVersion(): number {
+    resultsVersion ??= readRegistry().currentResultsVersion;
+    return resultsVersion;
+  },
   analyses: [] as string[],
 };
 
