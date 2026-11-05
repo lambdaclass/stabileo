@@ -49,6 +49,7 @@ const en: Record<string, string> = {
   'account.google.err.expired': 'Too much time went by. Sign in with Google again.',
   'account.gateTitle': 'Continue with a free account',
   'account.gateLede': 'Saving, opening, importing, exporting or sharing models needs a free account. Your work stays open while you sign in, and then what you asked for goes ahead.',
+  'account.gateUnavailable': 'Sign-in didn\'t go through, so we went ahead with what you asked for without an account.',
   'account.name': 'Name',
   'account.cancel': 'Cancel',
   'account.close': 'Close',

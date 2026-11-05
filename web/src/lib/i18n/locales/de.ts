@@ -14321,6 +14321,7 @@ const de: Translations = {
   "resultChecks.discretizationHigh": "hoher Diskretisierungsfehler",
   "account.gateTitle": "Weiter mit einem kostenlosen Konto",
   "account.gateLede": "Zum Speichern, Öffnen, Importieren, Exportieren oder Teilen von Modellen brauchen Sie ein kostenloses Konto. Ihre Arbeit bleibt während der Anmeldung geöffnet, und danach wird ausgeführt, was Sie angefordert haben.",
+  "account.gateUnavailable": "Die Anmeldung hat nicht geklappt, deshalb haben wir Ihre Aktion ohne Konto ausgeführt.",
   "account.err.cloud_projects_disabled": "Das Speichern von Projekten in der Cloud ist derzeit nicht verfügbar.",
   "account.err.project_limit_reached": "Sie haben die maximale Anzahl an Cloud-Projekten erreicht. Löschen Sie eines, um ein weiteres zu speichern.",
   "account.field.mustAccept": "Sie müssen den Bedingungen zustimmen, um ein Konto zu erstellen.",

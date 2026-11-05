@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { accountGate } from '../lib/store/account-gate.svelte';
   import { viewportCanvas } from '../lib/utils/viewport-canvas';
   import { connectionPrompt } from '../lib/store/connection-prompt.svelte';
   import { viewState } from '../lib/store/view-state.svelte';
@@ -320,5 +319,5 @@
   type="file"
   accept=".ded,.json"
   style="display:none"
-  onchange={accountGate.files('open', handleLoadFile)}
+  onchange={handleLoadFile}
 />

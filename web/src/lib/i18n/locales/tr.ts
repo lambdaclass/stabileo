@@ -14321,6 +14321,7 @@ const tr: Translations = {
   'resultChecks.discretizationHigh': 'yüksek ayrıklaştırma hatası',
   "account.gateTitle": "Ücretsiz bir hesapla devam edin",
   "account.gateLede": "Modelleri kaydetmek, açmak, içe aktarmak, dışa aktarmak veya paylaşmak için ücretsiz bir hesap gerekir. Giriş yaparken çalışmanız açık kalır, ardından istediğiniz işlem devam eder.",
+  "account.gateUnavailable": "Giriş tamamlanamadı, bu yüzden istediğiniz işlemi hesap olmadan sürdürdük.",
   "account.err.cloud_projects_disabled": "Projeleri buluta kaydetme şu anda kullanılamıyor.",
   "account.err.project_limit_reached": "Buluttaki en fazla proje sayısına ulaştınız. Başka bir proje kaydetmek için birini silin.",
   "account.field.mustAccept": "Hesap oluşturmak için koşulları kabul etmeniz gerekir.",

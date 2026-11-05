@@ -80,9 +80,9 @@
     <button class="cp-primary" onclick={apply} disabled={!dirty} data-testid="cp-apply">{t('code.apply')}</button>
     <button onclick={regenerate} data-testid="cp-regenerate">{t('code.fromModel')}</button>
     <button onclick={() => accountGate.guard('code', copy)}>{t('code.copy')}</button>
-    <button onclick={() => accountGate.guard('code', download)}>{t('code.download')}</button>
+    <button onclick={download}>{t('code.download')}</button>
     <button onclick={() => fileInput?.click()}>{t('code.open')}</button>
-    <input type="file" accept=".txt,.stabileo" bind:this={fileInput} onchange={accountGate.files('import', openFile)} hidden />
+    <input type="file" accept=".txt,.stabileo" bind:this={fileInput} onchange={openFile} hidden />
   </div>
   <p class="cp-status">
     {tp('code.size', { lines: lineCount, chars: text.length })}

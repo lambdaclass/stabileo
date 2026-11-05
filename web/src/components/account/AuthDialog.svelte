@@ -11,7 +11,13 @@
   let {
     open = $bindable(false),
     reason = null,
-  }: { open?: boolean; reason?: { title: string; lede: string } | null } = $props();
+    onunavailable,
+  }: {
+    open?: boolean;
+    reason?: { title: string; lede: string } | null;
+    /** Sign-in failed for a reason other than the person cancelling; true when the caller took over and the dialog should just go. */
+    onunavailable?: () => boolean;
+  } = $props();
 
   let acceptTerms = $state(false);
   let allowResearch = $state(false);
@@ -59,7 +65,9 @@
       else step = { kind: 'terms', token: outcome.token, email: outcome.email };
     } catch (err) {
       step = { kind: 'start' };
-      if (!(err instanceof GoogleSignInError && err.code === 'cancelled')) error = googleErrorText(err);
+      if (err instanceof GoogleSignInError && err.code === 'cancelled') return;
+      if (onunavailable?.()) return;
+      error = googleErrorText(err);
     }
   }
 
@@ -81,8 +89,10 @@
       close();
     } catch (err) {
       fields = fieldErrors(err);
+      const expired = err instanceof ApiError && err.code === 'invalid_or_expired_code';
+      if (!expired && !Object.keys(fields).length && onunavailable?.()) return;
       error = Object.keys(fields).length ? t('account.err.validation_error') : errorText(err);
-      if (err instanceof ApiError && err.code === 'invalid_or_expired_code') {
+      if (expired) {
         step = { kind: 'start' };
         error = t('account.google.err.expired');
       }

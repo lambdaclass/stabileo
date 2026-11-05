@@ -14321,6 +14321,7 @@ const fr: Translations = {
   'resultChecks.discretizationHigh': 'erreur de discrétisation élevée',
   "account.gateTitle": "Continuez avec un compte gratuit",
   "account.gateLede": "Enregistrer, ouvrir, importer, exporter ou partager des modèles nécessite un compte gratuit. Votre travail reste ouvert pendant la connexion, puis l'action demandée est exécutée.",
+  "account.gateUnavailable": "La connexion n'a pas abouti, nous avons donc poursuivi votre action sans compte.",
   "account.err.cloud_projects_disabled": "L'enregistrement de projets dans le cloud n'est pas disponible pour le moment.",
   "account.err.project_limit_reached": "Vous avez atteint le nombre maximal de projets dans le cloud. Supprimez-en un pour en enregistrer un autre.",
   "account.field.mustAccept": "Vous devez accepter les conditions pour créer un compte.",

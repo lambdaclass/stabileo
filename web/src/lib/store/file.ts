@@ -152,11 +152,22 @@ export function canChooseSaveLocation(): boolean {
  * and quietly downloading anyway would ignore it. `AbortError` is therefore
  * the one failure that does nothing at all.
  */
-export async function saveTextTo(
+export function saveTextTo(
   content: string,
   filename: string,
   mime: string,
   opts: { chooseLocation?: boolean } = {},
+): Promise<'saved' | 'downloaded' | 'cancelled'> {
+  return new Promise((resolve) => {
+    accountGate.guard('save', () => writeTextTo(content, filename, mime, opts).then(resolve), () => resolve('cancelled'));
+  });
+}
+
+async function writeTextTo(
+  content: string,
+  filename: string,
+  mime: string,
+  opts: { chooseLocation?: boolean },
 ): Promise<'saved' | 'downloaded' | 'cancelled'> {
   if (opts.chooseLocation && canChooseSaveLocation()) {
     try {
@@ -624,10 +635,8 @@ function validateAxisSafety(data: DedalFile): void {
 // ─── Save / Load ────────────────────────────────────────────────
 
 export function saveProject(): void {
-  accountGate.guard('save', () => {
-    const { content, filename } = projectPayload();
-    downloadText(content, filename, 'application/json');
-  });
+  const { content, filename } = projectPayload();
+  saveFile(filename, new Blob([content], { type: 'application/json' }), 'save');
 }
 
 export async function loadProject(file: File): Promise<void> {
@@ -645,10 +654,8 @@ export async function loadProject(file: File): Promise<void> {
 // ─── Session Save / Load (all tabs) ─────────────────────────────
 
 export function saveSession(): void {
-  accountGate.guard('save', () => {
-    const { content, filename } = sessionPayload();
-    downloadText(content, filename, 'application/json');
-  });
+  const { content, filename } = sessionPayload();
+  saveFile(filename, new Blob([content], { type: 'application/json' }), 'save');
 }
 
 function isSessionFile(data: unknown): data is DedalSessionFile {

@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { accountGate } from '../../../lib/store/account-gate.svelte';
   /**
    * Draw a section from parts: plates, tubes, circles, polygons, bent plates and catalogue
    * profiles, each with its material, and read its properties as it is drawn.
@@ -272,7 +271,7 @@
   <div class="bar">
     <label class="file">
       {t('drawn.importDxf')}
-      <input type="file" accept=".dxf" data-testid="drawn-dxf" onchange={accountGate.files('import', importDxf)} />
+      <input type="file" accept=".dxf" data-testid="drawn-dxf" onchange={importDxf} />
     </label>
     <select bind:value={dxfUnit} aria-label={t('drawn.dxfUnit')}>
       <option value="mm">mm</option><option value="cm">cm</option><option value="m">m</option>

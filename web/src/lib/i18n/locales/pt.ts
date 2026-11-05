@@ -49,6 +49,7 @@ const pt: Translations = {
   'account.google.err.expired': 'Passou tempo demais. Entre com o Google de novo.',
   'account.gateTitle': 'Continue com uma conta gratuita',
   'account.gateLede': 'Para salvar, abrir, importar, exportar ou compartilhar modelos, você precisa de uma conta gratuita. Seu trabalho continua aberto enquanto você entra e, depois, seguimos com o que você pediu.',
+  'account.gateUnavailable': 'Não foi possível concluir a entrada, então seguimos com o que você pediu sem uma conta.',
   'account.name': 'Nome',
   'account.cancel': 'Cancelar',
   'account.close': 'Fechar',

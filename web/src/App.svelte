@@ -2394,14 +2394,14 @@
   type="file"
   accept=".dxf"
   style="display:none"
-  onchange={accountGate.files('import', (e) => {
+  onchange={(e) => {
     const f = (e.currentTarget as HTMLInputElement).files?.[0];
     if (f) {
       if (dxfGoesToCadWizard()) { cadWizardFile = f; showCadWizard = true; }
       else { dxfImportFile = f; showDxfImport = true; }
     }
     (e.currentTarget as HTMLInputElement).value = '';
-  })}
+  }}
 />
 <CadImportWizard
   open={showCadWizard}
@@ -2418,11 +2418,11 @@
   type="file"
   accept=".ifc"
   style="display:none"
-  onchange={accountGate.files('import', (e) => {
+  onchange={(e) => {
     const f = (e.currentTarget as HTMLInputElement).files?.[0];
     if (f) { ifcImportFile = f; showIfcImport = true; }
     (e.currentTarget as HTMLInputElement).value = '';
-  })}
+  }}
 />
 
 {#if showImportDialog}

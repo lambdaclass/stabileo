@@ -49,6 +49,7 @@ const es: Record<string, string> = {
   'account.google.err.expired': 'Pasó demasiado tiempo. Volvé a entrar con Google.',
   'account.gateTitle': 'Seguí con una cuenta gratuita',
   'account.gateLede': 'Para guardar, abrir, importar, exportar o compartir modelos necesitás una cuenta gratuita. Tu trabajo sigue abierto mientras entrás, y después seguimos con lo que pediste.',
+  'account.gateUnavailable': 'No pudimos completar el ingreso, así que seguimos sin cuenta con lo que pediste.',
   'account.name': 'Nombre',
   'account.cancel': 'Cancelar',
   'account.close': 'Cerrar',

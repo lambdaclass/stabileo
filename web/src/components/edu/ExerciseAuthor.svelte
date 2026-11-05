@@ -383,7 +383,7 @@
         <button class="btn-ghost" onclick={() => modelFileInput?.click()}>{t('edu.author.chooseModelFile')}</button>
         <FieldHelp what={t('edu.author.helpModelFileWhat')} example={t('edu.author.helpModelFileEx')} />
       </div>
-      <input bind:this={modelFileInput} type="file" accept=".ded,.json" style="display:none" onchange={accountGate.files('import', useFile)} />
+      <input bind:this={modelFileInput} type="file" accept=".ded,.json" style="display:none" onchange={useFile} />
     {:else}
       <p class="hint">{t('edu.author.linkHint')}</p>
       <div class="row">
@@ -738,7 +738,7 @@
           disabled={problems.length > 0 || !hasQuestions}
           data-testid="edu-preview-student"
         >{t('edu.author.previewAsStudent')}</button>
-        <button class="btn-ghost" onclick={() => accountGate.guard('exercise', download)} disabled={problems.length > 0}>{t('edu.author.download')}</button>
+        <button class="btn-ghost" onclick={download} disabled={problems.length > 0}>{t('edu.author.download')}</button>
         <button class="btn-ghost" onclick={() => accountGate.guard('exercise', share)} disabled={problems.length > 0}>{t('edu.author.share')}</button>
       </div>
       {#if saveMsg}<p class="ok">{saveMsg}</p>{/if}
@@ -758,7 +758,7 @@
       <button class="btn-ghost" onclick={() => exerciseFileInput?.click()}>{t('edu.author.chooseExerciseFile')}</button>
       <FieldHelp what={t('edu.author.helpExerciseFileWhat')} example={t('edu.author.helpExerciseFileEx')} />
     </div>
-    <input bind:this={exerciseFileInput} type="file" accept=".json" style="display:none" onchange={accountGate.files('import', openFile)} />
+    <input bind:this={exerciseFileInput} type="file" accept=".json" style="display:none" onchange={openFile} />
     {#if importError}<p class="warn">⚠ {importError}</p>{/if}
   </section>
 </div>

@@ -5,7 +5,6 @@
   without an amount and counted as missing.
 -->
 <script lang="ts">
-  import { accountGate } from '../../../../lib/store/account-gate.svelte';
   import { t, tp, i18n } from '../../../../lib/i18n';
   import {
     activeBase, budgetSettings, currentBudget, describeItem, downloadBudgetBc3, downloadBudgetCsv, downloadBudgetXlsx,
@@ -67,7 +66,7 @@
     {#if base}
       <div class="sf-form">
         <label class="wide">{t('bud.ui.csv')} <textarea rows="3" bind:value={csv} data-testid="budget-csv"></textarea></label>
-        <input type="file" accept=".csv,.txt" onchange={accountGate.files('import', readFile)} />
+        <input type="file" accept=".csv,.txt" onchange={readFile} />
         <button onclick={doImport} data-testid="budget-import">{t('bud.ui.import')}</button>
       </div>
     {/if}

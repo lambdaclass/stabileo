@@ -5,7 +5,6 @@
    * Each content goes on its own layer, so what is turned on here can still be hidden in CAD.
    */
   import { t } from '../../../lib/i18n';
-  import { accountGate } from '../../../lib/store/account-gate.svelte';
   import DrawingFormatRow, { type DrawingFormat } from './DrawingFormatRow.svelte';
   import ExportDialog from '../../export/ExportDialog.svelte';
   import ExportSection from '../../export/ExportSection.svelte';
@@ -163,7 +162,7 @@
 
   {#snippet actions()}
     <button type="button" onclick={() => (open = false)}>{t('calcReport.cancel')}</button>
-    <button type="button" class="primary" onclick={() => accountGate.guard('export', run)} disabled={busy || !anything} data-testid="pro-dxf-export-download">{t('viewExport.download')}</button>
+    <button type="button" class="primary" onclick={run} disabled={busy || !anything} data-testid="pro-dxf-export-download">{t('viewExport.download')}</button>
   {/snippet}
 </ExportDialog>
 

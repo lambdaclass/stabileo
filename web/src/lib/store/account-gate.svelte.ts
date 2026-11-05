@@ -4,20 +4,32 @@ import { trackUsage } from '../telemetry/usage';
 
 export type GatedAction = 'save' | 'open' | 'import' | 'share' | 'code' | 'export' | 'exercise' | 'feedback';
 
-let pending = $state<{ action: GatedAction; run: () => unknown; cancel?: () => void } | null>(null);
+interface Request {
+  action: GatedAction;
+  runs: (() => unknown)[];
+  cancels: (() => void)[];
+  failOpen: boolean;
+}
+
+let pending = $state.raw<Request | null>(null);
 let open = $state(false);
+let signInUnavailable = false;
+const released = new WeakSet<Event>();
 
 function required(): boolean {
-  return accounts() && authStore.saveRequiresAccount && !authStore.isAuthenticated;
+  return accounts() && authStore.saveRequiresAccount && !authStore.isAuthenticated && !signInUnavailable;
 }
 
 function signInRequired(): boolean {
   return accounts() && authStore.userLoginEnabled && !authStore.isAuthenticated;
 }
 
-function ask(action: GatedAction, run: () => unknown, cancel?: () => void): void {
-  pending?.cancel?.();
-  pending = { action, run, cancel };
+function ask(action: GatedAction, run: () => unknown, cancel?: () => void, failOpen = true): void {
+  if (pending && open) {
+    pending = { ...pending, runs: [...pending.runs, run], cancels: cancel ? [...pending.cancels, cancel] : pending.cancels };
+    return;
+  }
+  pending = { action, runs: [run], cancels: cancel ? [cancel] : [], failOpen };
   open = true;
   trackUsage('gate.shown', { action });
 }
@@ -27,17 +39,17 @@ function settle(): void {
   pending = null;
   if (!next) return;
   if (!authStore.isAuthenticated) {
-    next.cancel?.();
+    for (const cancel of next.cancels) cancel();
     return;
   }
   trackUsage('gate.passed', { action: next.action });
-  void next.run();
+  for (const run of next.runs) void run();
 }
 
-/**
- * Files in and out behind an account: saving, opening, importing and exporting. `guard` runs the action at once unless the
- * account is required and missing; then it asks for one and runs the action after sign-in.
- */
+function fileAction(input: HTMLInputElement): GatedAction {
+  return input.accept.includes('.ded') ? 'open' : 'import';
+}
+
 export const accountGate = {
   get required() { return required(); },
   get action() { return pending?.action ?? null; },
@@ -47,50 +59,58 @@ export const accountGate = {
     if (!v) settle();
   },
 
-  guard(action: GatedAction, run: () => unknown): void {
-    if (required()) ask(action, run);
+  guard(action: GatedAction, run: () => unknown, cancel?: () => void): void {
+    if (required()) ask(action, run, cancel);
     else void run();
   },
 
-  /**
-   * For what opens a window in the click and writes into it later (a printed report): true when the
-   * account is missing, and `run` is then asked for and called again after sign-in, so nothing is
-   * written before.
-   */
+  /** For what opens its own window in the click: true when the account is missing, and `run` is then called again once the action may go on. */
   defer(action: GatedAction, run: () => unknown): boolean {
     if (!required()) return false;
     ask(action, run);
     return true;
   },
 
-  /** Resolves true once the action may go on: at once, or after sign-in; false if the request is closed. */
-  allow(action: GatedAction): Promise<boolean> {
-    if (!required()) return Promise.resolve(true);
-    return new Promise((resolve) => ask(action, () => resolve(true), () => resolve(false)));
+  requireSignIn(action: GatedAction, run: () => unknown): void {
+    if (signInRequired()) ask(action, run, undefined, false);
+    else void run();
   },
 
   /**
-   * Wraps a file input's change handler: the chosen file is read only once the action may go on.
-   * The gate comes after the choice because a browser opens a file picker only from a fresh click,
-   * which a sign-in in another window outlasts.
+   * Called when sign-in could not happen (the window was blocked, Google or the exchange failed):
+   * a save or export goes ahead without an account, and so does every later one in this visit.
+   * False when the waiting action needs the account itself.
    */
-  files<E extends Event>(action: GatedAction, handler: (e: E) => unknown): (e: E) => void {
-    return (e: E) => {
-      const input = (e.currentTarget ?? e.target) as HTMLInputElement | null;
-      if (!required()) {
-        void handler(e);
-        return;
-      }
-      const later = { target: input, currentTarget: input } as unknown as E;
-      ask(action, () => handler(later), () => {
-        if (input) input.value = '';
-      });
-    };
-  },
-
-  /** Like `guard`, for what always needs an account while sign-in is open, whatever the save switch says. */
-  requireSignIn(action: GatedAction, run: () => unknown): void {
-    if (signInRequired()) ask(action, run);
-    else void run();
+  proceedWithoutAccount(): boolean {
+    const next = pending;
+    if (!next?.failOpen) return false;
+    signInUnavailable = true;
+    pending = null;
+    open = false;
+    trackUsage('gate.unavailable', { action: next.action });
+    for (const run of next.runs) void run();
+    return true;
   },
 };
+
+/**
+ * Holds every file input's chosen file until the account gate lets it through, then hands the
+ * same change event on again. An input marked `data-account-free` is never held.
+ */
+export function gateFileInputs(target: Window = window): () => void {
+  const onChange = (e: Event) => {
+    const input = e.target as HTMLInputElement | null;
+    if (released.has(e) || input?.tagName !== 'INPUT' || input.type !== 'file') return;
+    if (!input.files?.length || input.dataset.accountFree !== undefined || !required()) return;
+    e.stopImmediatePropagation();
+    ask(fileAction(input), () => {
+      const again = new Event('change', { bubbles: true });
+      released.add(again);
+      input.dispatchEvent(again);
+    }, () => {
+      input.value = '';
+    });
+  };
+  target.addEventListener('change', onChange, true);
+  return () => target.removeEventListener('change', onChange, true);
+}

@@ -472,16 +472,19 @@ describe('consents and server switches', () => {
     expect(authStore.termsVersion).toBeNull();
   });
 
-  it('asks for an account to save only while sign-in is open', async () => {
-    const { authStore } = await load();
-    on('GET /config', () => json(200, { user_login_enabled: false, save_requires_account: true }));
-    await authStore.init();
-    expect(authStore.saveRequiresAccount).toBe(false);
-
-    const again = await load();
-    on('GET /config', () => json(200, { user_login_enabled: true, save_requires_account: true }));
-    await again.authStore.init();
-    expect(again.authStore.saveRequiresAccount).toBe(true);
+  it('asks for an account to save only while sign-in is open and Google can be used for it', async () => {
+    const answers = [
+      [{ user_login_enabled: false, google_login: true, save_requires_account: true }, false],
+      [{ user_login_enabled: true, google_login: false, save_requires_account: true }, false],
+      [{ user_login_enabled: true, save_requires_account: true }, false],
+      [{ user_login_enabled: true, google_login: true, save_requires_account: true }, true],
+    ] as const;
+    for (const [config, asks] of answers) {
+      const { authStore } = await load();
+      on('GET /config', () => json(200, config));
+      await authStore.init();
+      expect(authStore.saveRequiresAccount).toBe(asks);
+    }
   });
 
   it('asks for the terms only when the signed-in account accepted older ones', async () => {
