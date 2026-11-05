@@ -84,6 +84,11 @@ pub fn refuse(diagnostics: &[StructuredDiagnostic]) -> Result<(), String> {
     }
 }
 
+pub fn refuse_contained<T: serde::Serialize + ?Sized>(own: &[StructuredDiagnostic], result: &T) -> Result<(), String> {
+    refuse(own)?;
+    refuse(&crate::result_sites::known_issues(result))
+}
+
 /// Whether `error` is a known-issue refusal from `refuse`, rather than invalid input.
 pub fn is_refusal(error: &str) -> bool {
     serde_json::from_str::<serde_json::Value>(error).ok()
