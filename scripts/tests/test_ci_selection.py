@@ -430,7 +430,7 @@ exit 0
         self.assertNotIn('\n  rust:', text)
         self.assertNotIn('\n  npm:', text)
         aggregate = text.split('  ci-ok:', 1)[1]
-        script = aggregate.split('        run: |\n', 1)[1]
+        script = aggregate.split('        run: |\n', 1)[1].split('\n      - ', 1)[0]
         script = '\n'.join(line[10:] for line in script.splitlines())
         for result, code in [('success skipped', 0), ('failure skipped', 1), ('cancelled success', 1)]:
             self.assertEqual(subprocess.run(['sh', '-c', script], env={'RESULTS': result}, capture_output=True).returncode, code)
