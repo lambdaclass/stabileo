@@ -99,6 +99,40 @@ never silently wrong and verification never silently stops working.
 - `verification-failure`: a finding of a scheduled verification job (the per-job issues the alert
   opened before October 2026).
 
+## Wrong-result reproducers
+
+Every wrong-result issue (labelled `safety`, `wrong-result` or `wrong-result-candidate`) has its
+reproducers in the test suite, named after the issue, as expected failures:
+
+- **Rust**: `fn issue_<N>_<what>()` with `#[ignore = "known wrong result: #<N>"]` (more text may
+  follow the number).
+- **TypeScript**: `it.fails('#<N> <what>', …)` (or `test.fails`).
+
+They run while the issue is open: `make test.engine.reproducers` (Engine Quick Checks on every
+pull request) runs each Rust one and fails if one passes, and Vitest fails an `it.fails` that
+passes. A reproducer that starts passing means the bug is fixed, or the test stopped reproducing
+it; either way it is dealt with in that pull request.
+
+**A fix flips them.** It removes the tag (the `ignore`, or `.fails`), and the test then passes.
+The **Issue reproducers** check (`.github/workflows/issue-reproducers.yml`,
+`scripts/issue-reproducers.py`) holds every pull request whose body says `Fixes #N` (or
+closes/resolves) for a wrong-result issue #N to that rule:
+
+- at least one of #N's expected-failure reproducers is flipped: it still exists, is a `#[test]`
+  with no `ignore` at all (or a plain `it`), and passes;
+- none of #N's reproducers is still tagged. A fix of part of an issue says **Partly addresses
+  #N** instead of a closing keyword (GitHub reads "partly fixes #N" as closing #N, so the check
+  holds it to the full rule): one flip is then enough, and the issue stays open with the
+  remaining reproducers;
+- a wrong-result issue with no reproducer fails the check: add it as an expected failure, either
+  on `main` or in an earlier commit of the same pull request than the fix.
+
+Deleting a reproducer, retagging it or dropping its `#[test]` does not count as flipping it. An
+issue whose labels cannot be read fails the check, and `make test.engine.reproducers` fails on a
+reproducer that does not build or selects no test, as well as on one that passes. `make check.issue-reproducers BASE=<rev>
+HEAD=<rev> BODY=<file>` runs the check locally, and `make test.reproducers.published` runs every
+test named after an issue (the monthly re-run against main, docs/TESTING_CADENCE.md).
+
 ## Releases
 
 A merge to `main` deploys to users, so a merge is a release. Result-affecting changes need a

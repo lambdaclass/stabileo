@@ -1008,6 +1008,10 @@ jobs:
         run: nix develop --command node research/metamaterials/grossman-2026/wasm/check.mjs web/public/research-wasm/grossman-2026
       - name: Four-cable browser solver
         run: nix develop --command node research/form-finding/pastrana-2026/wasm/check.mjs web/public/research-wasm/pastrana-2026
+      - name: Research bundles return the recorded bits (research/tools/wasm-output-hashes.json)
+        run: |
+          nix develop --command node --test research/tools/test-check-wasm-outputs.mjs
+          nix develop --command node research/tools/check-wasm-outputs.mjs web/public/research-wasm
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: research-wasm
