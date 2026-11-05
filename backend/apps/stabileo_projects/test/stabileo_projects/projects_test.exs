@@ -79,29 +79,80 @@ defmodule StabileoProjects.ProjectsTest do
     {:ok, theirs} = Projects.create(other, attrs())
 
     assert {:error, :not_found} = Projects.get(account, theirs.id)
-    assert {:error, :not_found} = Projects.update(account, theirs.id, %{"name" => "Mine now"})
+
+    assert {:error, :not_found} =
+             Projects.update(account, theirs.id, %{"name" => "Mine now", "revision" => 1})
+
     assert {:error, :not_found} = Projects.delete(account, theirs.id)
     assert {:error, :not_found} = Projects.get(account, "not-a-uuid")
     assert Repo.get!(Project, theirs.id).name == "Pórtico"
   end
 
-  test "update renames and replaces the content", %{account: account} do
+  test "update renames and replaces the content, one revision each", %{account: account} do
     {:ok, project} = Projects.create(account, attrs())
-    {:ok, _} = Projects.update(account, project.id, %{"name" => "Renamed"})
+    assert project.revision == 1
+    {:ok, renamed} = Projects.update(account, project.id, %{"name" => "Renamed", "revision" => 1})
+    assert renamed.revision == 2
 
-    {:ok, _} =
-      Projects.update(account, project.id, %{"content" => content(%{"version" => "2.1"})})
+    {:ok, replaced} =
+      Projects.update(account, project.id, %{
+        "content" => content(%{"version" => "2.1"}),
+        "revision" => 2
+      })
 
+    assert replaced.revision == 3
     saved = Repo.get!(Project, project.id)
     assert saved.name == "Renamed"
+    assert saved.revision == 3
     assert Jason.decode!(:zlib.gunzip(saved.content)) == %{"version" => "2.1"}
   end
 
-  test "delete keeps the row, inactive", %{account: account} do
+  test "a save from a stale revision is refused and changes nothing", %{account: account} do
+    {:ok, project} = Projects.create(account, attrs())
+    {:ok, _} = Projects.update(account, project.id, %{"name" => "Other tab", "revision" => 1})
+
+    assert {:error, :project_conflict} =
+             Projects.update(account, project.id, %{
+               "content" => content(%{"version" => "old"}),
+               "revision" => 1
+             })
+
+    saved = Repo.get!(Project, project.id)
+    assert saved.name == "Other tab"
+    assert saved.revision == 2
+    assert Jason.decode!(:zlib.gunzip(saved.content))["version"] == "2.0"
+  end
+
+  test "update needs the revision it was read at", %{account: account} do
+    {:ok, project} = Projects.create(account, attrs())
+
+    assert {:error, {:validation, %{revision: ["can't be blank"]}}} =
+             Projects.update(account, project.id, %{"name" => "x"})
+
+    assert {:error, {:validation, %{revision: ["is invalid"]}}} =
+             Projects.update(account, project.id, %{"name" => "x", "revision" => "1"})
+
+    assert Repo.get!(Project, project.id).name == "Pórtico"
+  end
+
+  test "delete keeps the row, inactive, and drops the content", %{account: account} do
     {:ok, project} = Projects.create(account, attrs())
     {:ok, _} = Projects.delete(account, project.id)
-    assert Repo.get!(Project, project.id).is_active == false
+    saved = Repo.get!(Project, project.id)
+    assert saved.is_active == false
+    assert saved.content == nil
+    assert saved.content_bytes == 0
     assert {:error, :not_found} = Projects.get(account, project.id)
+  end
+
+  test "list meta counts every active project, whatever the search", %{account: account} do
+    {:ok, _} = Features.set_cloud_projects_limit(5)
+    {:ok, _} = Projects.create(account, attrs(%{"name" => "Truss"}))
+    {:ok, _} = Projects.create(account, attrs(%{"name" => "Frame"}))
+
+    assert {:ok, {[_], meta}} = Projects.list(account, %{"search" => "Truss"})
+    assert meta.total == 1
+    assert meta.used == 2
   end
 
   test "create refuses past the per-account limit, counting only active projects", %{

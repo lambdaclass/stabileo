@@ -111,10 +111,7 @@ defmodule StabileoAuth.Sessions do
     |> Map.new()
   end
 
-  @doc """
-  When each account last used Stabileo: its newest session. An open app
-  refreshes its session every few minutes, and each refresh starts a new one.
-  """
+  @doc "An open app refreshes every few minutes, and each refresh starts a new session."
   def last_active([]), do: %{}
 
   def last_active(account_ids) when is_list(account_ids) do

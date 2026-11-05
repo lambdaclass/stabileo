@@ -29,34 +29,31 @@ defmodule StabileoAuth.Controllers.Admin.SettingsControllerTest do
   end
 
   test "turning user sign-in on and off is live for the product API", %{token: token} do
-    signup = %{
-      "email" => "late@example.org",
-      "password" => "long-enough",
-      "name" => "Late",
-      "accept_terms" => true
-    }
-
-    assert request(:post, "/register", signup) |> json_body(403) |> Map.get("error") ==
-             "user_login_disabled"
+    assert {:error, :user_login_disabled} = google_sign_in("late@gmail.com", "g-late")
 
     assert admin_request(:put, "/settings", %{"user_login_enabled" => true}, token)
            |> json_body(200) ==
              %{"data" => settings(%{"user_login_enabled" => true})}
 
     assert request(:get, "/config") |> json_body(200) |> Map.get("user_login_enabled") == true
-    session = request(:post, "/register", signup) |> json_body(201)
+    assert {:ok, _code} = google_sign_in("late@gmail.com", "g-late")
+    session = log_in(Factory.insert(:account))
 
     assert admin_request(:put, "/settings", %{"user_login_enabled" => false}, token)
            |> json_body(200)
 
-    assert request(:post, "/login", %{"email" => "late@example.org", "password" => "long-enough"})
-           |> json_body(403)
-           |> Map.get("error") == "user_login_disabled"
+    assert {:error, :user_login_disabled} = google_sign_in("late@gmail.com", "g-late")
+    assert request(:get, "/me", %{}, session.access_token) |> json_body(200)
 
-    assert request(:get, "/me", %{}, session["access_token"]) |> json_body(200)
-
-    assert request(:post, "/refresh", %{"refresh_token" => session["refresh_token"]})
+    assert request(:post, "/refresh", %{"refresh_token" => session.refresh_token})
            |> json_body(200)
+  end
+
+  defp google_sign_in(email, subject) do
+    StabileoAuth.UserOAuth.sign_in(
+      %{"email" => email, "email_verified" => true, "sub" => subject, "name" => "G"},
+      StabileoAuth.UserOAuth.challenge("a-browser-attempt-secret-0123456789abcdef")
+    )
   end
 
   test "422 for a value that is not a boolean", %{token: token} do

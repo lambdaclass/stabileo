@@ -1,10 +1,5 @@
 defmodule StabileoInsights.Usage do
-  @moduledoc """
-  Anonymous usage events, sent in batches by browsers whose user chose to
-  share usage. A batch is checked event by event: a malformed event is
-  dropped and counted, never stored, and never fails the rest of the batch.
-  While `usage_telemetry_enabled` is off nothing is stored.
-  """
+  @moduledoc false
 
   import Ecto.Query
 
@@ -105,7 +100,6 @@ defmodule StabileoInsights.Usage do
 
   defp occurred_at(_value, _now), do: :error
 
-  @doc "Deletes events older than `days` days. Returns how many."
   def prune(days \\ 395) do
     cutoff = DateTime.utc_now() |> DateTime.add(-days * 86_400)
     {count, _} = Repo.delete_all(from(e in UsageEvent, where: e.occurred_at < ^cutoff))

@@ -1,15 +1,11 @@
 defmodule StabileoProjects.Content do
-  @moduledoc """
-  A project's document travels gzipped and base64-encoded, and is stored as
-  the gzip. Decoding inflates at most `max_bytes`, so a small upload cannot
-  expand into a huge one, and requires a JSON object.
-  """
+  @moduledoc "Inflates at most `max_bytes`, so a small upload cannot expand into a huge one."
 
   def decode(encoded, max_compressed, max_bytes) when is_binary(encoded) do
     with {:ok, gzip} <- base64(encoded),
          :ok <- within(byte_size(gzip), max_compressed),
          {:ok, json} <- inflate(gzip, max_bytes),
-         {:ok, %{}} <- json_object(json) do
+         :ok <- json_object(json) do
       {:ok, gzip, byte_size(json)}
     end
   end
@@ -52,9 +48,10 @@ defmodule StabileoProjects.Content do
   end
 
   defp json_object(json) do
-    case Jason.decode(json) do
-      {:ok, %{} = map} -> {:ok, map}
-      _ -> {:error, :invalid}
-    end
+    trimmed = String.trim(json)
+
+    if String.starts_with?(trimmed, "{") and String.ends_with?(trimmed, "}"),
+      do: :ok,
+      else: {:error, :invalid}
   end
 end

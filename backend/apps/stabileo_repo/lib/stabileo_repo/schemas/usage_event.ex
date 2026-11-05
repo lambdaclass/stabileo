@@ -1,10 +1,5 @@
 defmodule StabileoRepo.Schemas.UsageEvent do
-  @moduledoc """
-  One anonymous usage event from a browser whose user agreed to share usage:
-  what was used (`name` and a few scalar `props`), the app version and mode,
-  and a random `install_id` the browser made up. Never tied to an account and
-  never carries model contents, file names or values.
-  """
+  @moduledoc "Never tied to an account; `props` must never carry model contents, file names or values."
 
   use StabileoRepo.Schema
   import Ecto.Changeset

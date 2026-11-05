@@ -1,24 +1,17 @@
 defmodule StabileoWeb.EndpointTest do
   use StabileoWeb.ConnCase, async: true
 
-  test "a JSON sign-up goes through the endpoint into the auth router", %{conn: conn} do
-    {:ok, _} = StabileoRepo.Features.set_user_login_enabled(true)
+  test "a JSON request goes through the endpoint into the auth router", %{conn: conn} do
+    account = StabileoRepo.Factory.insert(:account)
+    {:ok, session} = StabileoAuth.sign_in(account, %{}, "app")
 
     body =
       conn
       |> put_req_header("content-type", "application/json")
-      |> post(
-        "/api/v1/auth/register",
-        Jason.encode!(%{
-          email: "endpoint@example.com",
-          password: "long-enough",
-          name: "E",
-          accept_terms: true
-        })
-      )
-      |> json_response(201)
+      |> post("/api/v1/auth/refresh", Jason.encode!(%{refresh_token: session.refresh_token}))
+      |> json_response(200)
 
-    assert body["account"]["email"] == "endpoint@example.com"
+    assert body["account"]["id"] == account.id
 
     me =
       build_conn()
@@ -26,7 +19,7 @@ defmodule StabileoWeb.EndpointTest do
       |> get("/api/v1/auth/me")
       |> json_response(200)
 
-    assert me["data"]["id"] == body["account"]["id"]
+    assert me["data"]["id"] == account.id
   end
 
   test "CORS preflight from the dev web app is allowed", %{conn: conn} do

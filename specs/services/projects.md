@@ -7,7 +7,8 @@ Cloud copies of the projects users already save to disk: the same `.ded` documen
 ## Features
 
 - Save the open project, update it, or save it as a new one
-- List, open, rename and delete (soft) the account's own projects
+- List, open, rename and delete the account's own projects; deleting keeps the row inactive and drops its content
+- Every save names the `revision` it was read at; a save from an older revision is refused (409 `project_conflict`), so a stale tab never overwrites a newer save
 - A per-account limit of active projects, `cloud_projects_limit` in `system_settings` (1 to 100, 1 when unset), set from the admin site's Settings; lowering it deletes nothing. The app offers to replace a saved project with the open one at the limit; a compressed upload of at most 5 MB that inflates to at most 50 MB
 - Admin listing of every account's projects, metadata only, with whether the owner allows research use
 - Everything behind the runtime flag `cloud_projects_enabled`, off by default
@@ -16,7 +17,7 @@ Cloud copies of the projects users already save to disk: the same `.ded` documen
 
 | Table | Columns that matter | Ownership |
 |-------|---------------------|-----------|
-| `projects` | `name` (1–200), `app_mode` (`basic`, `pro`), `content` (gzip), `content_bytes` (uncompressed size), `node_count`, `element_count`, `app_version`, `is_active` (soft delete) | `account_id`, set from the session, never from input; an account reads and writes only its own rows |
+| `projects` | `name` (1–200), `app_mode` (`basic`, `pro`), `content` (gzip), `content_bytes` (uncompressed size), `node_count`, `element_count`, `app_version`, `is_active` (soft delete; `content` is cleared), `revision` (starts at 1, +1 per save) | `account_id`, set from the session, never from input; an account reads and writes only its own rows |
 
 ## Endpoints
 
@@ -24,11 +25,11 @@ Product: `/api/v1/projects`, behind `StabileoAuth.Plugs.Authenticate` (product t
 
 | Method | Path | Permission | Success | Errors |
 |--------|------|------------|---------|--------|
-| `GET` | `/` | owner | `200 {data, meta}`; `meta` adds `max_projects`, `max_compressed_bytes`, `max_bytes` | 401, 403 `cloud_projects_disabled` |
+| `GET` | `/` | owner | `200 {data, meta}`; `meta` adds `used` (active projects, whatever the search), `max_projects`, `max_compressed_bytes`, `max_bytes` | 401, 403 `cloud_projects_disabled` |
 | `POST` | `/` | owner | `201 {data}` (metadata) | 401, 403, 409 `project_limit_reached`, 422 |
 | `GET` | `/:id` | owner | `200 {data}` with `content` (gzip, base64) | 401, 403, 404 |
-| `PUT` | `/:id` | owner | `200 {data}`; `name`, `content` or both | 401, 403, 404, 422 |
-| `DELETE` | `/:id` | owner | `200 {data}`; sets `is_active` false | 401, 403, 404 |
+| `PUT` | `/:id` | owner | `200 {data}` with the new `revision`; `revision` plus `name`, `content` or both | 401, 403, 404, 409 `project_conflict`, 422 (`revision` missing or not an integer, …) |
+| `DELETE` | `/:id` | owner | `200 {data}`; sets `is_active` false and clears `content` | 401, 403, 404 |
 
 Admin: `/api/v1/admin/projects`, behind `StabileoAuth.Plugs.Authenticate, app: "admin"`.
 
@@ -38,7 +39,7 @@ Admin: `/api/v1/admin/projects`, behind `StabileoAuth.Plugs.Authenticate, app: "
 
 - List params: `limit`/`offset`, `sort_by` (`updated_at` default desc, `inserted_at`, `name`, `content_bytes`), `search` (name; for admins also owner email), admin filters `account_id` and `app_mode`
 - Another account's project is a 404, never a 403, so ids do not leak
-- 422 on `content`: not base64, not gzip, not a JSON object, or over a size limit
+- 422 on `content`: not base64, not gzip, not shaped as a JSON object (checked by its first and last characters, never parsed), or over a size limit
 
 ## Permissions
 
@@ -46,7 +47,7 @@ None beyond ownership: a project belongs to the account that saved it. Admins li
 
 ## Concurrency Invariants and Idempotency
 
-`projects`: the per-account limit spans rows, so `create` takes a transaction-scoped advisory lock on `projects:<account_id>` before counting. Two saves at once cannot both pass the limit. The two-connection race is not reachable under the Ecto sandbox; the limit is pinned sequentially by `projects_test.exs` ("create refuses past the per-account limit").
+`projects`: the per-account limit spans rows, so `create` takes a transaction-scoped advisory lock on `projects:<account_id>` before counting. Two saves at once cannot both pass the limit; `projects_concurrency_test.exs` races eight creates on real connections and expects exactly one. A save is an optimistic lock on `revision`.
 
 No idempotency keys: saving twice creates two projects, as pressing Save twice on disk writes two files.
 
@@ -77,4 +78,6 @@ None: seeds create accounts only.
 | Active project past `cloud_projects_limit` | 409 `project_limit_reached`; deleting one frees a slot, and updating one (the app's "replace") needs none |
 | Flag off | 403 `cloud_projects_disabled` everywhere |
 | Malformed or oversized content | 422 on `content`, nothing written |
+| Save from a stale revision | 409 `project_conflict`, row unchanged |
+| Delete | Row inactive, `content` cleared |
 | Admin listing | Metadata and owner, no `content`; product token is a 401 |

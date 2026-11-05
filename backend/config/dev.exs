@@ -43,7 +43,6 @@ config :stabileo_auth,
   admin_domains: ["lambdaclass.com", "ergodicgroup.com", "stabileo.com"],
   admin_password_login: true,
   admin_frontend_url: "http://localhost:#{admin_port}",
-  user_password_login: System.get_env("USER_PASSWORD_LOGIN") == "1",
   app_frontend_url: app_url
 
 app_google_client_id = System.get_env("GOOGLE_APP_CLIENT_ID", "")

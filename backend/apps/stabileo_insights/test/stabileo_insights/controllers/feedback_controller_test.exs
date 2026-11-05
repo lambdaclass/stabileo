@@ -40,6 +40,43 @@ defmodule StabileoInsights.Controllers.FeedbackControllerTest do
     assert Repo.aggregate(Feedback, :count) == 0
   end
 
+  test "keeps a link to a model on Stabileo", %{token: token} do
+    link = "http://localhost:4000/#data=abc"
+
+    body =
+      request(
+        :post,
+        "/feedback",
+        %{"kind" => "bug", "message" => "x", "model_link" => link},
+        token
+      )
+      |> json_body(201)
+
+    assert Repo.get!(Feedback, body["data"]["id"]).model_link == link
+  end
+
+  test "422 for a model link that is not on Stabileo", %{token: token} do
+    for link <- [
+          "javascript:alert(document.domain)",
+          "https://evil.example/#data=abc",
+          "http://localhost:4000.evil.example/",
+          "http://localhost:4000"
+        ] do
+      body =
+        request(
+          :post,
+          "/feedback",
+          %{"kind" => "bug", "message" => "x", "model_link" => link},
+          token
+        )
+        |> json_body(422)
+
+      assert body["details"]["model_link"] == ["must be a link to a model on Stabileo"]
+    end
+
+    assert Repo.aggregate(Feedback, :count) == 0
+  end
+
   test "401 without a token, and with a bad one" do
     assert request(:post, "/feedback", %{"kind" => "idea", "message" => "IFC"})
            |> json_body(401)

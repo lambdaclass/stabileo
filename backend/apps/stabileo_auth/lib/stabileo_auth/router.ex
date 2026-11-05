@@ -24,8 +24,6 @@ defmodule StabileoAuth.Router do
     pipe_through(:api)
 
     get("/config", AuthController, :config)
-    post("/register", AuthController, :register)
-    post("/login", AuthController, :login)
     post("/refresh", AuthController, :refresh)
     delete("/logout", AuthController, :logout)
     post("/google/exchange", GoogleController, :exchange)
@@ -45,7 +43,6 @@ defmodule StabileoAuth.Router do
 
     get("/me", ProfileController, :show)
     put("/me", ProfileController, :update)
-    put("/password", PasswordController, :update)
     post("/consents", ConsentController, :create)
   end
 end

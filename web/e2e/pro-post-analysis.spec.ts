@@ -21,4 +21,11 @@ test('@smoke after a solve, the report lists the equilibrium check and exports',
   expect(d.suggestedFilename()).toMatch(/^post-analysis-.*\.csv$/);
   const text = await (await d.createReadStream()).toArray().then((c) => Buffer.concat(c).toString('utf8'));
   expect(text.split('\n').length).toBeGreaterThan(1);
+
+  const part = (await post.getByTestId('post-part-analysis').textContent())!.trim();
+  const rows = text.split('\n').slice(1).filter((l) => l.trim()).map((l) => l.replace(/^\uFEFF/, '').split(/[,;]/)[0]!.replace(/^"|"$/g, ''));
+  const shown = await post.getByTestId('post-analysis').locator('li').count();
+  expect(shown).toBeGreaterThan(0);
+  expect(rows.filter((p) => p.toLowerCase() === part.toLowerCase())).toHaveLength(shown);
+  await expect(page.getByTestId('post-model-heading')).toBeVisible();
 });

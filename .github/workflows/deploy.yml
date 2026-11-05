@@ -99,6 +99,9 @@ jobs:
           done
           test -f dist/sitemap.xml || { echo 'sitemap.xml missing'; exit 1; }
           test -f dist/robots.txt || { echo 'robots.txt missing'; exit 1; }
+          for f in 404.html en/404.html es/404.html; do
+            grep -q '<meta name="robots" content="noindex">' "dist/$f" || { echo "404 page missing or indexable: dist/$f"; exit 1; }
+          done
           grep -q '<html lang="en">' dist/en/index.html
           grep -q '<html lang="es">' dist/es/index.html
           grep -q '<html lang="pt">' dist/pt/index.html
@@ -208,8 +211,6 @@ jobs:
           GOOGLE_APP_CLIENT_ID: ${{ vars.GOOGLE_APP_CLIENT_ID }}
           GOOGLE_APP_CLIENT_SECRET: ${{ secrets.GOOGLE_APP_CLIENT_SECRET }}
           APP_URL: ${{ vars.APP_URL }}
-          USER_PASSWORD_LOGIN: ${{ vars.USER_PASSWORD_LOGIN }}
-          CLOAK_KEY: ${{ secrets.CLOAK_KEY }}
           PORT: ${{ vars.PORT }}
           BIND_ADDRESS: ${{ vars.BIND_ADDRESS }}
           POOL_SIZE: ${{ vars.POOL_SIZE }}

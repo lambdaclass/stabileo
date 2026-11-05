@@ -13,10 +13,7 @@ defmodule StabileoRepo.Features do
   @cloud_projects_limit "cloud_projects_limit"
   @cloud_projects_limit_range 1..100
 
-  @doc """
-  Whether product users may sign up and sign in. Off when the row is unset or
-  unreadable: the product starts with sign-in closed.
-  """
+  @doc "Off when the row is unset or unreadable."
   def user_login_enabled? do
     SystemSettings.get_flag(@user_login, false) == true
   rescue
@@ -31,10 +28,6 @@ defmodule StabileoRepo.Features do
     )
   end
 
-  @doc """
-  Whether anonymous usage events are stored. Users still choose whether their
-  browser sends them; this is the server-side switch, off when unset.
-  """
   def usage_telemetry_enabled? do
     SystemSettings.get_flag(@usage_telemetry, false) == true
   rescue
@@ -49,7 +42,6 @@ defmodule StabileoRepo.Features do
     )
   end
 
-  @doc "Whether signed-in users may save projects to the cloud. Off when unset."
   def cloud_projects_enabled? do
     SystemSettings.get_flag(@cloud_projects, false) == true
   rescue
@@ -64,10 +56,6 @@ defmodule StabileoRepo.Features do
     )
   end
 
-  @doc """
-  Whether saving or exporting a model needs a signed-in account. Off when
-  unset. The browser applies it only while sign-in is open.
-  """
   def save_requires_account? do
     SystemSettings.get_flag(@save_requires_account, false) == true
   rescue
@@ -82,9 +70,7 @@ defmodule StabileoRepo.Features do
     )
   end
 
-  @doc """
-  How many cloud projects one account may keep. 1 when unset or unreadable.
-  """
+  @doc "1 when unset or unreadable."
   def cloud_projects_limit do
     case SystemSettings.get(@cloud_projects_limit) do
       %{"value" => n} when is_integer(n) and n in @cloud_projects_limit_range -> n

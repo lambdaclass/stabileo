@@ -13,7 +13,7 @@ defmodule StabileoProjects.ContentTest do
     assert Content.encode(gzip) == pack(json) |> Base.decode64!() |> Base.encode64()
   end
 
-  test "rejects what is not base64, not gzip, or not a JSON object" do
+  test "rejects what is not base64, not gzip, or not shaped as a JSON object" do
     assert {:error, :invalid} = Content.decode("%%%", 1_000, 1_000)
     assert {:error, :invalid} = Content.decode(Base.encode64("plain text"), 1_000, 1_000)
     assert {:error, :invalid} = Content.decode(pack("[1,2]"), 1_000, 1_000)

@@ -24,20 +24,12 @@ defmodule StabileoUtils.FallbackController do
     error(conn, :unauthorized, "invalid_credentials", "Invalid email or password")
   end
 
-  def call(conn, {:error, :invalid_current_password}) do
-    error(conn, :unauthorized, "invalid_current_password", "Current password is incorrect")
-  end
-
   def call(conn, {:error, :account_disabled}) do
     error(conn, :forbidden, "account_disabled", "Account is disabled")
   end
 
   def call(conn, {:error, :user_login_disabled}) do
     error(conn, :forbidden, "user_login_disabled", "Sign-in is currently disabled")
-  end
-
-  def call(conn, {:error, :password_login_disabled}) do
-    error(conn, :forbidden, "password_login_disabled", "Sign in with Google")
   end
 
   def call(conn, {:error, :cloud_projects_disabled}) do
@@ -50,6 +42,15 @@ defmodule StabileoUtils.FallbackController do
       :conflict,
       "project_limit_reached",
       "You have reached the maximum number of cloud projects"
+    )
+  end
+
+  def call(conn, {:error, :project_conflict}) do
+    error(
+      conn,
+      :conflict,
+      "project_conflict",
+      "The project was saved from somewhere else since it was opened"
     )
   end
 

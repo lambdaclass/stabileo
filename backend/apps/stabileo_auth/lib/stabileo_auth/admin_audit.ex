@@ -1,21 +1,27 @@
 defmodule StabileoAuth.AdminAudit do
-  @moduledoc """
-  The record of what admins did on the admin site. Every admin action that
-  changes something writes one row; the admin site lists them.
-  """
+  @moduledoc false
 
   import Ecto.Query
-
-  require Logger
 
   alias StabileoRepo.{Listing, Repo}
   alias StabileoRepo.Schemas.{Account, AdminAction}
 
   @doc """
-  Records an action. Never fails the action it records: a write error is
-  logged and swallowed, so an audit hiccup cannot block disabling an account.
+  Runs `fun` and records it in one transaction, so an action is never left without its row.
+  `fun` answers `{:ok, result, target, details}` or `{:error, reason}`.
   """
-  def record(%Account{id: admin_id}, action, target \\ nil, details \\ %{}) do
+  def run(%Account{} = admin, action, fun) do
+    Repo.transaction(fn ->
+      with {:ok, result, target, details} <- fun.(),
+           {:ok, _row} <- record(admin, action, target, details) do
+        result
+      else
+        {:error, reason} -> Repo.rollback(reason)
+      end
+    end)
+  end
+
+  defp record(%Account{id: admin_id}, action, target, details) do
     {target_type, target_id} = target_of(target)
 
     %AdminAction{}
@@ -27,14 +33,6 @@ defmodule StabileoAuth.AdminAudit do
       details: details
     })
     |> Repo.insert()
-    |> case do
-      {:ok, row} ->
-        {:ok, row}
-
-      {:error, changeset} ->
-        Logger.error("admin audit write failed: #{inspect(changeset.errors)}")
-        {:error, changeset}
-    end
   end
 
   defp target_of(nil), do: {nil, nil}

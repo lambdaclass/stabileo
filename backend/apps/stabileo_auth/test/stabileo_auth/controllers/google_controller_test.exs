@@ -244,50 +244,15 @@ defmodule StabileoAuth.Controllers.GoogleControllerTest do
     assert json_body(conn, 404)["error"] == "not_found"
   end
 
-  describe "password sign-in turned off" do
-    setup do
-      put_env(:user_password_login, false)
-      :ok
-    end
+  test "GET /config reports Google as the only sign-in, and the password routes are gone" do
+    body = request(:get, "/config") |> json_body(200)
+    assert body["google_login"] == true
+    refute Map.has_key?(body, "password_login")
 
-    test "GET /config reports Google only" do
-      body = request(:get, "/config") |> json_body(200)
-      assert body["google_login"] == true
-      assert body["password_login"] == false
-    end
-
-    test "register, login and password change answer 403 password_login_disabled" do
-      account = Factory.insert(:account)
-      before = Repo.aggregate(Account, :count)
-
-      for {path, params} <- [
-            {"/register",
-             %{
-               "email" => "pw@example.org",
-               "password" => "long-enough",
-               "name" => "P",
-               "accept_terms" => true
-             }},
-            {"/login", %{"email" => account.email, "password" => Factory.password()}}
-          ] do
-        assert request(:post, path, params) |> json_body(403) |> Map.get("error") ==
-                 "password_login_disabled"
+    for path <- ["/register", "/login"] do
+      assert_raise Phoenix.Router.NoRouteError, fn ->
+        request(:post, path, %{"email" => "pw@example.org", "password" => "long-enough"})
       end
-
-      assert Repo.aggregate(Account, :count) == before
-
-      put_env(:user_password_login, true)
-      %{access_token: token} = log_in(account)
-      put_env(:user_password_login, false)
-
-      assert request(
-               :put,
-               "/password",
-               %{"current_password" => Factory.password(), "password" => "another-long-one"},
-               token
-             )
-             |> json_body(403)
-             |> Map.get("error") == "password_login_disabled"
     end
   end
 end

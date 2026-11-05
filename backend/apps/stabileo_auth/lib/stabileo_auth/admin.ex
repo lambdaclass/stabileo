@@ -106,7 +106,6 @@ defmodule StabileoAuth.Admin do
 
   defp search(query, _term), do: query
 
-  @doc "Active cloud projects per account, for the accounts given; accounts with none are absent."
   def project_counts([]), do: %{}
 
   def project_counts(account_ids) do

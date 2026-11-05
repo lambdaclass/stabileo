@@ -1,13 +1,5 @@
 defmodule StabileoRepo.Schemas.Consent do
-  @moduledoc """
-  One decision an account made about a consent, at a moment: accepting the
-  terms of use and privacy policy (`terms`, with the version accepted),
-  sharing anonymous usage (`usage_analytics`), or letting its saved projects
-  be used, anonymised, to improve Stabileo (`model_research`).
-
-  Append-only: a change is a new row, so the table is the record of who agreed
-  to what and when. The current state of a kind is its latest row.
-  """
+  @moduledoc "Append-only: a change is a new row."
 
   use StabileoRepo.Schema
   import Ecto.Changeset

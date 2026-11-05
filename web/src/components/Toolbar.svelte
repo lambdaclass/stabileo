@@ -39,7 +39,7 @@
 
   function selectPlane(plane: DrawPlane) {
     const outcome = projectOnto(plane);
-    if (!outcome.ok) { uiStore.toast(outcome.error, 'error'); return; }
+    if (!outcome.ok) { uiStore.toast(outcome.error.startsWith('slice.') ? t(`switch2d.${outcome.error.slice('slice.'.length)}`) : outcome.error, 'error'); return; }
     show2DPlaneModal = false;
   }
 

@@ -60,6 +60,10 @@ export interface JSONModel {
   /** Optional model provenance (CAD-derived draft examples carry their source
    *  DXF, assumptions, and review status). Passed through to the model. */
   provenance?: Record<string, unknown>;
+  /** Point masses at nodes (t), for the dynamic analyses (`MassSource.points`). */
+  pointMasses?: Array<{ nodeId: number; m: number; horizontalOnly?: boolean; izz?: number }>;
+  /** How the mass comes from the load cases, and the weights that are mass; the points come from `pointMasses`. */
+  massSource?: import('../engine/dynamics/mass-source').MassSource;
   /** The project's analysis rules (self-weight as case loads, combination method). */
   analysis?: import('../engine/analysis-settings').AnalysisSettings;
 }
@@ -309,6 +313,13 @@ export function loadFixture(json: JSONModel, api: FixtureLoader, opts: { keepCom
       if (sw.elements) sw.elements = sw.elements.map((id) => elemMap.get(id) ?? id);
     }
     (api.model as { analysis?: unknown }).analysis = analysis;
+  }
+
+  // The mass source, with its point masses on the nodes this load created.
+  if (json.pointMasses?.length || json.massSource) {
+    const points = (json.pointMasses ?? []).map((pm) => ({ ...pm, nodeId: nodeMap.get(pm.nodeId) ?? pm.nodeId }));
+    const { points: _points, ...stated } = json.massSource ? JSON.parse(JSON.stringify(json.massSource)) : { kind: 'custom', factors: [] };
+    (api.model as { massSource?: unknown }).massSource = { ...stated, ...(points.length ? { points } : {}) };
   }
 
   // Provenance passthrough (CAD-derived draft examples).

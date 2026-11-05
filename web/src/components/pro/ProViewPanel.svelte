@@ -240,8 +240,10 @@
 
   <section class="pk-card">
     <h4 class="pk-heading">{t('view.draw')}</h4>
-    <label class="pk-check"><input type="checkbox" bind:checked={viewState.split} data-testid="view-split" /> {t('viewport.split')}</label>
-    <Hint text={t('viewport.splitHint')} />
+    {#if !uiStore.isMobile}
+      <label class="pk-check"><input type="checkbox" bind:checked={viewState.split} data-testid="view-split" /> {t('viewport.split')}</label>
+      <Hint text={t('viewport.splitHint')} />
+    {/if}
     <label class="pk-check"><input type="checkbox" bind:checked={viewState.showConstraints} data-testid="view-draw-constraints" /> {t('view.drawConstraints')}</label>
     <label class="pk-check"><input type="checkbox" bind:checked={viewState.showMemberEnds} data-testid="view-draw-ends" /> {t('view.drawEnds')}</label>
     <label class="pk-check">{t('view.shellMesh')}

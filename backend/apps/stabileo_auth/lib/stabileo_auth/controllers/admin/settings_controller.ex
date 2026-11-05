@@ -17,24 +17,20 @@ defmodule StabileoAuth.Controllers.Admin.SettingsController do
 
   def show(conn, _params), do: json(conn, %{data: settings()})
 
-  @doc """
-  Sets any of the flags in `@flags` (booleans) and `@numbers`. At least one
-  must be given; nothing is written unless all of them are valid.
-  """
   def update(conn, params) do
     changes = Map.take(params, Map.keys(@settings))
 
     with :ok <- validate(changes),
-         :ok <- write(changes) do
-      AdminAudit.record(
-        conn.assigns.current_account,
-        "settings.update",
-        {"settings", "flags"},
-        changes
-      )
-
+         {:ok, _} <-
+           AdminAudit.run(conn.assigns.current_account, "settings.update", fn ->
+             audited_write(changes)
+           end) do
       json(conn, %{data: settings()})
     end
+  end
+
+  defp audited_write(changes) do
+    with :ok <- write(changes), do: {:ok, nil, {"settings", "flags"}, changes}
   end
 
   defp validate(changes) when map_size(changes) == 0 do

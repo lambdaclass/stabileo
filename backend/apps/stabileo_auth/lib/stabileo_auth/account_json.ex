@@ -19,7 +19,6 @@ defmodule StabileoAuth.AccountJSON do
     }
   end
 
-  @doc "The account plus its current consents: what the product app gets for the signed-in user."
   def render_with_consents(%Account{} = account) do
     account
     |> render()

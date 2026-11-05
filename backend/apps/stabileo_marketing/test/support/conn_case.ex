@@ -51,7 +51,7 @@ defmodule StabileoMarketing.ConnCase do
     Jason.decode!(conn.resp_body)
   end
 
-  def log_in(account), do: elem(StabileoAuth.login(account.email, StabileoRepo.Factory.password()), 1).access_token
+  def log_in(account), do: elem(StabileoAuth.sign_in(account, %{}, "app"), 1).access_token
 
   def admin_log_in(account),
     do: elem(StabileoAuth.Admin.login(account.email, StabileoRepo.Factory.password()), 1).access_token

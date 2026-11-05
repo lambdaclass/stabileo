@@ -40,17 +40,17 @@ export function typologyContext(nodeId: number, elementIds: readonly number[]): 
     const d = { x: o.x - n.x, y: o.y - n.y, z: (o.z ?? 0) - (n.z ?? 0) }, L = Math.hypot(d.x, d.y, d.z) || 1;
     const dir = { x: d.x / L, y: d.y / L, z: d.z / L }, inclination = (Math.asin(Math.max(-1, Math.min(1, dir.z))) * 180) / Math.PI;
     const kind: JointMember['kind'] = Math.abs(inclination) > 70 ? 'column' : (e.type === 'truss' || (Math.abs(inclination) > 20)) ? 'brace' : 'beam';
-    let N = 0, V = 0, M = 0;
+    let N = 0, V = 0, M = 0, Mw = 0;
     for (const r of forces) {
       const f = r.elementForces?.find((x) => x.elementId === id);
       if (!f) continue;
       const n0 = atI ? f.nStart : f.nEnd, v0 = atI ? Math.hypot(f.vyStart, f.vzStart) : Math.hypot(f.vyEnd, f.vzEnd), m0 = Math.abs(atI ? f.myStart : f.myEnd);
       if (Math.abs(n0) > Math.abs(N)) N = n0;
-      V = Math.max(V, v0); M = Math.max(M, m0);
+      V = Math.max(V, v0); M = Math.max(M, m0); Mw = Math.max(Mw, Math.abs(atI ? f.mzStart : f.mzEnd));
     }
     const el = e as { releaseMyStart?: boolean; releaseMyEnd?: boolean; hingeStart?: boolean; hingeEnd?: boolean };
     const released = atI ? !!(el.releaseMyStart || el.hingeStart) : !!(el.releaseMyEnd || el.hingeEnd);
-    members.push({ id, kind, dir, inclination, section: sectionOf(id), N, V, M, released });
+    members.push({ id, kind, dir, inclination, section: sectionOf(id), N, V, M, Mw, released });
   }
   const sup = [...modelStore.supports.values()].find((s) => s.nodeId === nodeId) as { type?: string } | undefined;
   const support = sup ? (/fixed/i.test(sup.type ?? '') ? 'fixed' : 'pinned') : null;

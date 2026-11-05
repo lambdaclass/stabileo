@@ -1,12 +1,5 @@
 defmodule StabileoAuth.Controllers.GoogleController do
-  @moduledoc """
-  Product sign-in with Google. The app opens `request/2` in a popup; Google
-  comes back to `callback/2`, which sends the popup to the app's
-  `/oauth-callback.html` with a one-time code or an error, tagged with the
-  attempt the app opened it with. The page hands the code to the app, which
-  trades it with `exchange/2` and the attempt's verifier and, for someone new,
-  opens the account with `register/2` once the terms are accepted.
-  """
+  @moduledoc false
 
   use StabileoUtils.Controller
 

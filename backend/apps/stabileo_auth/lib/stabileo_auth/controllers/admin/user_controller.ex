@@ -20,42 +20,47 @@ defmodule StabileoAuth.Controllers.Admin.UserController do
     admin = conn.assigns.current_account
 
     with {:ok, account} <- fetch(id),
-         {:ok, row} <- Admin.disable(admin, account) do
-      AdminAudit.record(admin, "account.disable", {"account", account.id}, %{email: account.email})
-
+         {:ok, row} <-
+           AdminAudit.run(admin, "account.disable", fn -> do_disable(admin, account) end) do
       json(conn, %{data: one_json(row)})
     end
   end
 
   def enable(conn, %{"id" => id}) do
     with {:ok, account} <- fetch(id),
-         {:ok, row} <- Admin.enable(account) do
-      AdminAudit.record(
-        conn.assigns.current_account,
-        "account.enable",
-        {"account", account.id},
-        %{email: account.email}
-      )
-
+         {:ok, row} <-
+           AdminAudit.run(conn.assigns.current_account, "account.enable", fn ->
+             do_enable(account)
+           end) do
       json(conn, %{data: one_json(row)})
     end
   end
 
   def force_logout(conn, %{"id" => id}) do
     with {:ok, account} <- fetch(id),
-         {:ok, row, revoked} <- Admin.force_logout(account) do
-      AdminAudit.record(
-        conn.assigns.current_account,
-        "account.force_logout",
-        {"account", account.id},
-        %{
-          email: account.email,
-          revoked: revoked
-        }
-      )
-
+         {:ok, {row, revoked}} <-
+           AdminAudit.run(conn.assigns.current_account, "account.force_logout", fn ->
+             do_force_logout(account)
+           end) do
       json(conn, %{data: one_json(row), revoked: revoked})
     end
+  end
+
+  defp do_disable(admin, account) do
+    with {:ok, row} <- Admin.disable(admin, account),
+         do: {:ok, row, {"account", account.id}, %{email: account.email}}
+  end
+
+  defp do_enable(account) do
+    with {:ok, row} <- Admin.enable(account),
+         do: {:ok, row, {"account", account.id}, %{email: account.email}}
+  end
+
+  defp do_force_logout(account) do
+    with {:ok, row, revoked} <- Admin.force_logout(account),
+         do:
+           {:ok, {row, revoked}, {"account", account.id},
+            %{email: account.email, revoked: revoked}}
   end
 
   defp fetch(id) do

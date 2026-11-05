@@ -1,9 +1,5 @@
 defmodule StabileoRepo.Schemas.Feedback do
-  @moduledoc """
-  A message sent from the app's feedback form: a bug, an idea or a question.
-  `account_id` is set when the sender was signed in; `model_link` only when
-  the sender chose to attach the model. Admins move it through `status`.
-  """
+  @moduledoc "`model_link` is rendered as a link on the admin site: only links to Stabileo get in."
 
   use StabileoRepo.Schema
   import Ecto.Changeset

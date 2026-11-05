@@ -114,4 +114,22 @@ defmodule StabileoInsights.UsageTest do
     assert Usage.prune(395) == 1
     assert [%{name: "new"}] = Repo.all(UsageEvent)
   end
+
+  test "the daily retention deletes events past thirteen months" do
+    now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+    Repo.insert_all(UsageEvent, [
+      %{
+        id: Ecto.UUID.generate(),
+        install_id: @install,
+        name: "old",
+        props: %{},
+        occurred_at: DateTime.add(now, -396 * 86_400),
+        inserted_at: now
+      }
+    ])
+
+    assert StabileoInsights.Retention.run() == 1
+    assert Repo.aggregate(UsageEvent, :count) == 0
+  end
 end

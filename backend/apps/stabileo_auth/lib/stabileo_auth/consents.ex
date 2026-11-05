@@ -1,10 +1,5 @@
 defmodule StabileoAuth.Consents do
-  @moduledoc """
-  What an account agreed to: the terms of use and privacy policy (by version),
-  sharing anonymous usage and letting its saved projects be used, anonymised,
-  to improve Stabileo. Each decision is a new `consents` row; the current
-  state of a kind is its latest row.
-  """
+  @moduledoc "Append-only: the current state of a kind is its latest row."
 
   import Ecto.Query
 
@@ -14,14 +9,9 @@ defmodule StabileoAuth.Consents do
   @terms_version "2026-10-27"
   @optional ~w(usage_analytics model_research)
 
-  @doc """
-  The version of the terms of use and privacy policy in force. The app
-  publishes the same date on both documents; when they change, both move and
-  every account is asked to accept again.
-  """
+  @doc "`web/src/lib/legal/legal.ts` publishes the same date; a test keeps them equal."
   def terms_version, do: @terms_version
 
-  @doc "Records one decision. `terms` always records the version in force."
   def record(%Account{id: account_id}, kind, granted, metadata \\ %{}) do
     attrs = %{
       account_id: account_id,
@@ -35,11 +25,7 @@ defmodule StabileoAuth.Consents do
     %Consent{} |> Consent.changeset(attrs) |> Repo.insert()
   end
 
-  @doc """
-  Accepts the terms and records the optional consents, as one step: a failure
-  leaves none of them recorded. Both optional consents start granted; the
-  sign-up may send `false` for either, and the account turns them off later.
-  """
+  @doc "An optional consent is granted only by the boolean `true`; anything else records it refused."
   def record_sign_up(%Account{} = account, optional, metadata) do
     Repo.transaction(fn ->
       with {:ok, _} <- record(account, "terms", true, metadata),
@@ -53,7 +39,7 @@ defmodule StabileoAuth.Consents do
 
   defp record_optional(account, optional, metadata) do
     Enum.reduce_while(@optional, :ok, fn kind, :ok ->
-      record_step(account, kind, Map.get(optional, kind) != false, metadata)
+      record_step(account, kind, Map.get(optional, kind) == true, metadata)
     end)
   end
 
@@ -64,10 +50,8 @@ defmodule StabileoAuth.Consents do
     end
   end
 
-  @doc "The current consents of one account."
   def current(%Account{id: id}), do: Map.get(current_for([id]), id, empty())
 
-  @doc "The current consents of many accounts at once, keyed by account id."
   def current_for([]), do: %{}
 
   def current_for(account_ids) do
@@ -95,11 +79,9 @@ defmodule StabileoAuth.Consents do
   defp put_kind(state, %Consent{kind: "model_research", granted: g}),
     do: %{state | model_research: g}
 
-  @doc "Whether the account accepted the terms in force."
   def terms_current?(%{terms: %{version: @terms_version}}), do: true
   def terms_current?(_consents), do: false
 
-  @doc "Account ids, among `account_ids`, whose current `model_research` consent is granted."
   def research_granted(account_ids) do
     account_ids
     |> current_for()
