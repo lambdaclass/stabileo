@@ -24,10 +24,10 @@ class DepsAuditTest(unittest.TestCase):
         data = {
             "vite": {"current": "6.4.4", "wanted": "6.4.5", "latest": "8.3.4"},
             "svelte": {"current": "5.1.0", "wanted": "5.2.0", "latest": "5.2.0"},
-            "typescript": [{"current": "5.9.3", "wanted": "5.9.3", "latest": "7.0.2"}],
+            "typescript": [{"current": "7.0.2", "wanted": "7.0.2", "latest": "7.0.2", "dependent": "lighthouse"}, {"current": "5.9.3", "wanted": "5.9.3", "latest": "7.0.2", "dependent": "web"}],
             "missing": {"wanted": "1.0.0", "latest": "2.0.0"},
         }
-        self.assertEqual(audit.npm_rows(data), [("typescript", "5.9.3", "5.9.3", "7.0.2"), ("vite", "6.4.4", "6.4.5", "8.3.4")])
+        self.assertEqual(audit.npm_rows(data), [("typescript", "web", "5.9.3", "5.9.3", "7.0.2"), ("vite", "", "6.4.4", "6.4.5", "8.3.4")])
 
     def test_empty_table_says_none(self):
         self.assertIn("| (none) | | |", audit.table(["a", "b", "c"], []))

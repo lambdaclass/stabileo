@@ -84,9 +84,9 @@ class CadenceTest(unittest.TestCase):
     def test_a_check_over_its_budget_is_stopped_with_its_children(self):
         d = Path(tempfile.mkdtemp())
         marker = d / "child-alive"
-        script = f"(sleep 2; touch {marker}) & sleep 30"
+        script = f"(trap '' TERM; sleep 2; touch {marker}) & sleep 30"
         with self.assertRaises(subprocess.TimeoutExpired):
-            cadence.execute_group(["bash", "-c", script], cwd=d, timeout=0.5)
+            cadence.execute_group(["bash", "-c", script], cwd=d, timeout=0.5, grace=0.5)
         time.sleep(3)
         self.assertFalse(marker.exists())
 
