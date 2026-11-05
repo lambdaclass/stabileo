@@ -185,6 +185,16 @@ class TestTolerance(unittest.TestCase):
         self.assertEqual(self.errors(dict(file='x.rs', pattern='error-threshold'), 0.01),
                          ['case / tip deflection: x.rs uses tolerance 0.015, looser than the spec 0.01'])
 
+    def test_a_pattern_followed_by_arithmetic_fails(self):
+        files = dict(FILES, **{'x.rs': 'fn a() { assert!(err < 0.015 * 2.0); }'})
+        [error] = self.errors(dict(file='x.rs', pattern='error-threshold'), 0.02, files)
+        self.assertIn("matched '0.015' followed by '* 2.0); }', not a complete literal threshold", error)
+
+    def test_a_numeric_unaudited_ceiling_needs_a_locator(self):
+        exemption = dict(kind='unaudited', reason='legacy', issue=1482, reviewed='r')
+        q = quantity(references=[], exemption=exemption, test_tolerances=[], tolerance=dict(relative=0.05, justification='ceiling'))
+        self.assertEqual(gate.check(registry(q), reader(FILES), list(FILES)), ['case / tip deflection: no test tolerance locator'])
+
     def test_a_pattern_that_matches_nothing_fails(self):
         [error] = self.errors(dict(file='x.rs', pattern=r'nothing < (\d+)'), 0.02)
         self.assertIn('matched no numeric tolerance', error)
@@ -233,17 +243,51 @@ class Loosening(unittest.TestCase):
     def test_removing_a_spec_or_its_number_counts_as_loosening(self):
         empty = dict(scope=[], excluded={}, benchmarks=[])
         errors, _ = self.run_check(None, head=empty)
-        self.assertEqual(errors, ['case / tip deflection: spec removed (needs the tolerance-change label)'])
+        self.assertEqual(errors[0], 'case / tip deflection: spec removed (needs the tolerance-change label)')
         errors, _ = self.run_check(None)
-        self.assertEqual(errors, ['case / tip deflection: relative tolerance 0.02 removed (needs the tolerance-change label)'])
+        self.assertEqual(errors[0], 'case / tip deflection: relative tolerance 0.02 removed (needs the tolerance-change label)')
 
     def test_loosening_a_test_tolerance_inside_the_spec_needs_the_label(self):
         base_files = dict(FILES, **{'case.json': json.dumps(dict(tolerance=0.02, cases=[dict(t=0.01), dict(t=0.02)]))})
         head_files = dict(FILES, **{'case.json': json.dumps(dict(tolerance=0.02, cases=[dict(t=0.015), dict(t=0.02)]))})
         reg = registry(quantity(test_tolerances=[dict(file='case.json', pointer='/cases/*/t')]))
         errors, _ = gate.label_check(reg, reader(base_files), reg, reader(head_files), set())
-        self.assertEqual(errors, ['case / tip deflection: a test tolerance in case.json loosened (needs the tolerance-change label)'])
+        self.assertEqual(errors, ['case / tip deflection: test tolerance case.json /cases/0/t loosened from 0.01 to 0.015 (needs the tolerance-change label)'])
         self.assertEqual(gate.label_check(reg, reader(head_files), reg, reader(base_files), set()), ([], []))
+
+    def rust_change(self, before, after):
+        reg = registry(quantity(test_tolerances=[dict(file='x.rs', calls=['assert_close'], argument=3)]))
+        return gate.label_check(reg, reader(dict(FILES, **{'x.rs': before})), reg, reader(dict(FILES, **{'x.rs': after})), set())[0]
+
+    def test_swapping_two_assertion_tolerances_is_loosening(self):
+        before = 'fn a() { assert_close(x, 1.0, 0.01, ""); assert_close(y, 2.0, 0.02, ""); }'
+        after = 'fn a() { assert_close(x, 1.0, 0.02, ""); assert_close(y, 2.0, 0.01, ""); }'
+        self.assertEqual(self.rust_change(before, after),
+                         ['case / tip deflection: test tolerance x.rs a#1 loosened from 0.01 to 0.02 (needs the tolerance-change label)'])
+
+    def test_loosening_one_assertion_while_adding_another_is_loosening(self):
+        before = 'fn a() { assert_close(x, 1.0, 0.01, ""); assert_close(y, 2.0, 0.02, ""); }'
+        after = 'fn a() { assert_close(x, 1.0, 0.015, ""); assert_close(y, 2.0, 0.02, ""); assert_close(z, 3.0, 0.005, ""); }'
+        self.assertEqual(self.rust_change(before, after),
+                         ['case / tip deflection: test tolerance x.rs a#1 loosened from 0.01 to 0.015 (needs the tolerance-change label)'])
+
+    def test_a_new_test_function_changes_nothing(self):
+        before = 'fn a() { assert_close(x, 1.0, 0.01, ""); }'
+        self.assertEqual(self.rust_change(before, 'fn n() { assert_close(w, 1.0, 0.001, ""); }\n' + before), [])
+
+    def test_removing_an_assertion_needs_the_label(self):
+        before = 'fn a() { assert_close(x, 1.0, 0.01, ""); assert_close(y, 2.0, 0.02, ""); }'
+        after = 'fn a() { assert_close(x, 1.0, 0.01, ""); }'
+        self.assertEqual(self.rust_change(before, after),
+                         ['case / tip deflection: test tolerance x.rs a#2 (0.02) removed or moved (needs the tolerance-change label)'])
+
+    def test_dropping_a_locator_needs_the_label(self):
+        base = registry()
+        exemption = dict(kind='unaudited', reason='legacy', issue=1482, reviewed='r')
+        head = registry(quantity(references=[], exemption=exemption, test_tolerances=[],
+                                 tolerance=dict(relative=None, justification='qualitative only')))
+        errors, _ = gate.label_check(base, reader(FILES), head, reader(FILES), set())
+        self.assertIn('case / tip deflection: test tolerance case.json /tolerance (0.02) removed or moved (needs the tolerance-change label)', errors)
 
     def test_switching_kind_counts_as_loosening(self):
         head = registry(quantity(tolerance=dict(absolute=0.001, justification='j')))

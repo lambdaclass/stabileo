@@ -29,16 +29,18 @@ def number(text):
 
 
 def pointer(document, path):
-    nodes = [document]
+    nodes = [('', document)]
     for part in [p for p in path.split('/') if p]:
         found = []
-        for node in nodes:
-            if part == '*':
-                found.extend(node.values() if isinstance(node, dict) else node if isinstance(node, list) else [])
+        for where, node in nodes:
+            if part == '*' and isinstance(node, dict):
+                found.extend((f'{where}/{k}', v) for k, v in node.items())
+            elif part == '*' and isinstance(node, list):
+                found.extend((f'{where}/{i}', v) for i, v in enumerate(node))
             elif isinstance(node, dict) and part in node:
-                found.append(node[part])
+                found.append((f'{where}/{part}', node[part]))
             elif isinstance(node, list) and part.isdigit() and int(part) < len(node):
-                found.append(node[int(part)])
+                found.append((f'{where}/{part}', node[int(part)]))
         nodes = found
     return nodes
 
@@ -83,7 +85,7 @@ def call_arguments(text, name):
                 args.append(text[start:i].strip())
                 start = i + 1
             i += 1
-        calls.append([a for a in args if a])
+        calls.append((match.start(), [a for a in args if a]))
     return calls
 
 
@@ -98,29 +100,49 @@ def resolve(text, expression):
     return values if values and None not in values else None
 
 
-def extract(locator, read):
+def enclosing(code, position):
+    names = re.findall(r'\bfn\s+(\w+)', code[:position])
+    return names[-1] if names else ''
+
+
+def numbered(code, found):
+    counts, out = {}, []
+    for position, value in found:
+        fn = enclosing(code, position)
+        counts[fn] = counts.get(fn, 0) + 1
+        out.append((f'{fn}#{counts[fn]}', value))
+    return out
+
+
+def items(locator, read):
     text = read(locator['file'])
     if text is None:
         raise Gate(f"{locator['file']}: test tolerance file does not exist")
     if 'pointer' in locator:
         found = pointer(json.loads(text), locator['pointer'])
         if locator.get('transform') == 'ratio-bounds':
-            found = [max(1 - b[0], b[1] - 1) for b in found]
+            found = [(w, max(1 - b[0], b[1] - 1)) for w, b in found]
         elif locator.get('transform') == 'ratio-floor':
-            found = [1 - v for v in found]
-        if not found or not all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in found):
+            found = [(w, 1 - v) for w, v in found]
+        if not found or not all(isinstance(v, (int, float)) and not isinstance(v, bool) for _, v in found):
             raise Gate(f"{locator['file']}{locator['pointer']}: no numeric test tolerance")
-        return [float(v) for v in found]
+        return [(w, float(v)) for w, v in found]
     code = strip_rust(text)
     if 'pattern' in locator:
-        values = [number(m) for m in re.findall(PATTERNS.get(locator['pattern'], locator['pattern']), code)]
-        if not values or None in values:
+        found = []
+        for m in re.finditer(PATTERNS.get(locator['pattern'], locator['pattern']), code):
+            rest = code[m.end(1):].lstrip()
+            if number(m.group(1)) is None or (rest and rest[0] not in ',;)}{&|\n'):
+                raise Gate(f"{locator['file']}: pattern {locator['pattern']!r} matched {m.group(1)!r} "
+                           f"followed by {rest[:12]!r}, not a complete literal threshold")
+            found.append((m.start(1), number(m.group(1))))
+        if not found:
             raise Gate(f"{locator['file']}: pattern {locator['pattern']!r} matched no numeric tolerance")
-        return values
-    values, unresolved = [], []
+        return numbered(code, found)
+    found, unresolved = [], []
     aliases = locator.get('aliases', {})
     for name in locator['calls']:
-        for args in call_arguments(code, name):
+        for position, args in call_arguments(code, name):
             if len(args) < locator['argument']:
                 continue
             argument = args[locator['argument'] - 1]
@@ -130,13 +152,17 @@ def extract(locator, read):
             if resolved is None:
                 unresolved.append(f'{name}(…{argument}…)')
             else:
-                values.extend(resolved)
+                found.extend((position, v) for v in resolved)
     if unresolved:
         raise Gate(f"{locator['file']}: tolerance arguments that are neither literals, constants nor aliases "
                    f"of a case-file tolerance: {', '.join(unresolved[:3])}")
-    if not values:
+    if not found:
         raise Gate(f"{locator['file']}: no {'/'.join(locator['calls'])} tolerance found")
-    return values
+    return numbered(code, sorted(found, key=lambda f: f[0]))
+
+
+def extract(locator, read):
+    return [v for _, v in items(locator, read)]
 
 
 def protocol_quantity(entry, read):
@@ -220,7 +246,7 @@ def check_quantity(where, q, read, errors):
     if evidence and not evidence.startswith('https://') and read(evidence.split('#')[0]) is None:
         errors.append(f'{where}: tolerance evidence {evidence} does not exist')
     locators = q.get('test_tolerances') or []
-    if not locators and not unaudited:
+    if not locators and not (unaudited and limit is None):
         errors.append(f'{where}: no test tolerance locator')
     for locator in locators:
         try:
@@ -286,9 +312,12 @@ def test_tolerances(registry, read):
         for q in quantities(entry, read):
             for locator in q.get('test_tolerances') or []:
                 try:
-                    out[(entry.get('id'), q.get('quantity'), json.dumps(locator, sort_keys=True))] = sorted(extract(locator, read))
+                    found = items(locator, read)
                 except Gate:
-                    pass
+                    continue
+                for where, value in found:
+                    key = (entry.get('id'), q.get('quantity'), locator['file'], json.dumps(locator, sort_keys=True), where)
+                    out[key] = max(value, out.get(key, value))
     return out
 
 
@@ -296,11 +325,11 @@ def tests_loosened(base, head):
     found = []
     for key, old in base.items():
         new = head.get(key)
+        where = f'{key[0]} / {key[1]}: test tolerance {key[2]} {key[4]}'
         if new is None:
-            continue
-        pairs = zip(old, new) if len(old) == len(new) else [(max(old), max(new))]
-        if any(b > a for a, b in pairs):
-            found.append(f'{key[0]} / {key[1]}: a test tolerance in {json.loads(key[2])["file"]} loosened')
+            found.append(f'{where} ({old:g}) removed or moved')
+        elif new > old:
+            found.append(f'{where} loosened from {old:g} to {new:g}')
     return found
 
 
