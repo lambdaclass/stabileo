@@ -1,5 +1,6 @@
 //! Issue #1367: a rotation is an orphan (held by the artificial spring) only
-//! when nothing at its own node stiffens it.
+//! when its stiffness is round-off of its own node's rotational stiffness,
+//! never of the whole model's.
 
 use crate::common;
 
@@ -226,7 +227,9 @@ fn truss_only_rotation_is_still_an_orphan_2d() {
     for (path, art) in artificial_2d(&input).iter().enumerate() {
         assert_eq!(art, &vec![r5], "2D assembler {path}");
     }
-    solve_2d(&input).unwrap();
+    let uz5 = solve_2d(&input).unwrap().displacements.iter().find(|d| d.node_id == 5).unwrap().uz;
+    let expected = -1e-3 * 3.0 / (E_SOFT * 1000.0 * 0.01);
+    assert!(rel(uz5, expected) < 1e-9, "uz5 {uz5}, closed form -F·L/(EA) = {expected}");
     input.loads = vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 0.0, fz: 0.0, my: 1e-4 })];
     let err = solve_2d(&input).unwrap_err();
     assert!(err.contains("not supported") || err.contains("Nodal moment"), "{err}");
