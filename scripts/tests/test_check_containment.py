@@ -57,6 +57,10 @@ class ContainmentTests(unittest.TestCase):
         self.assertEqual(ids, {5: {'A', 'B'}})
         dropped = '| #5 | `A` | REFUSE | r | e |'
         self.assertEqual(m.change_problems(base, m.decisions(dropped), [], ids, m.contained_ids(dropped)), ['#5: B dropped while the row stays active without CORRECTED'])
+        demoted = '| #5 | — | SCOPE | r | e |'
+        self.assertEqual(m.change_problems(base, m.decisions(demoted), [5], ids, m.contained_ids(demoted)), ['#5: an active row became SCOPE without CORRECTED'])
+        partial = '| #5 | `A` / `B` | PARTIAL | r | e |'
+        self.assertEqual(m.change_problems(base, m.decisions(partial), [], ids, m.contained_ids(partial)), ['#5: an active row became PARTIAL without CORRECTED'])
         for ok in ['| #5 | — | CORRECTED | r | e |', '| #5 | `A` | CORRECTED / REFUSE | r | e |', '| #5 | `A` / `B` / `C` | REFUSE / WARN | r | e |']:
             self.assertEqual(m.change_problems(base, m.decisions(ok), [], ids, m.contained_ids(ok)), [], ok)
 

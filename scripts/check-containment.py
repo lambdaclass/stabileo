@@ -81,8 +81,12 @@ def change_problems(base, head, closes, base_ids=None, head_ids=None):
     base_ids, head_ids = base_ids or {}, head_ids or {}
     problems = [f'#{n}: its containment row was removed' for n in sorted(set(base) - set(head))]
     for n in sorted(set(base) & set(head)):
+        if not base[n] & {'WARN', 'REFUSE'} or 'CORRECTED' in head[n]:
+            continue
         dropped = base_ids.get(n, set()) - head_ids.get(n, set())
-        if base[n] & {'WARN', 'REFUSE'} and dropped and head[n] & {'WARN', 'REFUSE'} and 'CORRECTED' not in head[n]:
+        if not head[n] & {'WARN', 'REFUSE'}:
+            problems.append(f'#{n}: an active row became {" / ".join(sorted(head[n]))} without CORRECTED')
+        elif dropped:
             problems.append(f'#{n}: {", ".join(sorted(dropped))} dropped while the row stays active without CORRECTED')
     for n in closes:
         if n in head and head[n] & {'WARN', 'REFUSE', 'TRIAGE'}:
