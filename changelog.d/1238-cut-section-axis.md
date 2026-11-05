@@ -1,5 +1,0 @@
-### BREAKING (results)
-
-#### Cutting a 3D model to 2D bends each member about the axis it bends about in 3D (2026-11-03)
-
-A 3D-to-2D cut used the section's strong-axis inertia for every member, so columns in a Y–Z cut, beams in an X–Y cut and members rolled 90° bent about the wrong axis: an IPN 300 portal standing in Y–Z swayed 0.96 mm in 2D against 13.0 mm in 3D (#1238, SA-2026-035). Such cuts now give each such member its section turned a quarter turn in the 2D model, and agree with 3D. Cuts of members whose section axes are skew to the plane (even with equal inertias, such as a square rolled 45°, whose corner lies farther out; a round tube excepted), or that would need a section that is not doubly symmetric turned or flipped (a T rolled half a turn, or on a member drawn the other way, would hang its flange on the other side of the 2D member), are refused, because a 2D model cannot represent them. A cut whose constraints the 2D solver would read with another meaning on that plane (#466) is refused too. Re-cut, or solve in 3D, any 2D model taken from such a cut.
