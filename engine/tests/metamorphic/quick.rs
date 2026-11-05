@@ -235,6 +235,8 @@ fn collect(out: &mut Outcome, case: &str, t: &Tally) {
             "pass"
         } else if c.inconclusive > 0 {
             "inconclusive"
+        } else if c.same_refusal > 0 && c.refused == 0 {
+            "same refusal"
         } else if c.refused > 0 {
             "refused"
         } else if c.unrep > 0 {
@@ -282,7 +284,7 @@ pub fn judge(sel: &Selection, out: &Outcome, expected: &[Expected]) -> Vec<Strin
     for e in expected.iter().filter(|e| sel.has(e.analysis) && e.refused) {
         let key = e.key();
         let state = out.cells.iter().find(|(c, a, i, _)| *c == key && a == e.analysis && i == e.invariant).map_or("not run", |x| x.3);
-        if !matches!(state, "refused" | "n/a") {
+        if state != "same refusal" || registered_refusal(e.issue).is_empty() || admitted_refusals(e.analysis) != registered_refusal(e.issue) {
             problems.push(format!("EXPECTED REFUSAL NOW {} [{} × {}] {key} (#{}): the refusal no longer holds; make it an xfail again, or remove it once #{} is fixed", state.to_uppercase(), e.analysis, e.invariant, e.issue, e.issue));
         }
     }
@@ -301,15 +303,28 @@ pub fn judge(sel: &Selection, out: &Outcome, expected: &[Expected]) -> Vec<Strin
     problems
 }
 
+fn registered_refusal(issue: u32) -> Vec<(String, u64)> {
+    use dedaliano_engine::known_issues::{Mode, ENTRIES};
+    ENTRIES.iter().filter(|e| e.issue == issue && e.mode == Mode::Refuse).map(|e| (e.id.to_string(), u64::from(e.issue))).collect()
+}
+
+fn admitted_refusals(analysis: &str) -> Vec<(String, u64)> {
+    use dedaliano_engine::known_issues::{Mode, ENTRIES};
+    ENTRIES.iter().filter(|e| e.mode == Mode::Refuse)
+        .map(|e| (e.id.to_string(), u64::from(e.issue)))
+        .filter(|r| crate::response::scoped(analysis, true, false, crate::response::Resp(Vec::new(), vec![r.clone()])).is_ok())
+        .collect()
+}
+
 fn summary(out: &Outcome) -> String {
-    let mut by: std::collections::BTreeMap<(String, String), [usize; 6]> = Default::default();
+    let mut by: std::collections::BTreeMap<(String, String), [usize; 7]> = Default::default();
     for (_, a, i, s) in &out.cells {
-        let k = ["pass", "fail", "refused", "inconclusive", "unrepresentable", "n/a"].iter().position(|x| x == s).unwrap();
+        let k = ["pass", "fail", "same refusal", "refused", "inconclusive", "unrepresentable", "n/a"].iter().position(|x| x == s).unwrap();
         by.entry((a.clone(), i.clone())).or_default()[k] += 1;
     }
-    let mut s = String::from("analysis                           invariant     pass fail refused inconcl unrep n/a\n");
+    let mut s = String::from("analysis                           invariant     pass fail same-ref refused inconcl unrep n/a\n");
     for ((a, i), n) in by {
-        s += &format!("{a:<34} {i:<12} {:>5} {:>4} {:>7} {:>7} {:>5} {:>3}\n", n[0], n[1], n[2], n[3], n[4], n[5]);
+        s += &format!("{a:<34} {i:<12} {:>5} {:>4} {:>8} {:>7} {:>7} {:>5} {:>3}\n", n[0], n[1], n[2], n[3], n[4], n[5], n[6]);
     }
     s
 }
@@ -400,14 +415,19 @@ fn judge_flags_new_failures_and_expected_ones_that_pass() {
 
 #[test]
 fn judge_holds_expected_refusals_to_their_refusal() {
-    let exp = [xrefused(7, "m", "plastic collapse", "relabel", 1)];
+    let exp = [xrefused(7, "m", "plastic collapse", "relabel", 758)];
     let sel = Selection::Some(["plastic collapse"].into());
     let cell = |s: &'static str| ("7:m".to_string(), "plastic collapse".to_string(), "relabel".to_string(), s);
     let covered = ("8:n".to_string(), "plastic collapse".to_string(), "units".to_string());
-    for state in ["refused", "n/a"] {
+    let out = Outcome { passed: [covered.clone()].into(), cells: vec![cell("same refusal")], ..Default::default() };
+    assert!(judge(&sel, &out, &exp).is_empty(), "{:?}", judge(&sel, &out, &exp));
+    for state in ["refused", "n/a", "unrepresentable"] {
         let out = Outcome { passed: [covered.clone()].into(), cells: vec![cell(state)], ..Default::default() };
-        assert!(judge(&sel, &out, &exp).is_empty(), "{state}: {:?}", judge(&sel, &out, &exp));
+        assert!(judge(&sel, &out, &exp)[0].starts_with(&format!("EXPECTED REFUSAL NOW {}", state.to_uppercase())), "{state}: {:?}", judge(&sel, &out, &exp));
     }
+    let unregistered = [xrefused(7, "m", "plastic collapse", "relabel", 1)];
+    let out = Outcome { passed: [covered.clone()].into(), cells: vec![cell("same refusal")], ..Default::default() };
+    assert!(judge(&sel, &out, &unregistered)[0].starts_with("EXPECTED REFUSAL NOW SAME REFUSAL"), "{:?}", judge(&sel, &out, &unregistered));
     let out = Outcome { passed: [covered.clone(), ("7:m".into(), "plastic collapse".into(), "relabel".into())].into(), cells: vec![cell("pass")], ..Default::default() };
     assert!(judge(&sel, &out, &exp)[0].starts_with("EXPECTED REFUSAL NOW PASS"));
     let out = Outcome { fails: vec![("7:m".into(), "plastic collapse".into(), "relabel".into(), "x".into())], cells: vec![cell("fail")], ..Default::default() };

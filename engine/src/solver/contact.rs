@@ -195,6 +195,8 @@ pub struct ContactResult {
     /// Number of augmented Lagrangian outer iterations performed.
     #[serde(default)]
     pub al_iterations: usize,
+    #[serde(skip)]
+    pub(crate) frozen: bool,
 }
 
 /// Contact analysis result (3D).
@@ -212,6 +214,8 @@ pub struct ContactResult3D {
     /// Number of augmented Lagrangian outer iterations performed.
     #[serde(default)]
     pub al_iterations: usize,
+    #[serde(skip)]
+    pub(crate) frozen: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -714,6 +718,7 @@ fn solve_uplift_2d(input: &ContactInput) -> Result<ContactResult, String> {
             }
             r.results.reactions.sort_by_key(|x| x.node_id);
             r.converged &= !changed;
+            r.frozen |= changed;
             if changed {
                 r.diagnostics.push("Uplift supports oscillated; status frozen.".into());
             }
@@ -735,7 +740,7 @@ fn solve_uplift_2d(input: &ContactInput) -> Result<ContactResult, String> {
 /// carries only its own fixed-end forces.
 pub fn solve_contact_2d(input: &ContactInput) -> Result<ContactResult, String> {
     let mut r = solve_contact_2d_contained(input)?;
-    crate::known_issues::attach(&mut r.results.structured_diagnostics, crate::known_issues::for_2d(&input.solver, crate::known_issues::Analysis::Contact).into_iter().filter(|d| d.phase.as_deref() != Some("NL-13") || r.diagnostics.iter().any(|s| s.contains("frozen"))).collect());
+    crate::known_issues::attach(&mut r.results.structured_diagnostics, crate::known_issues::for_2d(&input.solver, crate::known_issues::Analysis::Contact).into_iter().filter(|d| d.phase.as_deref() != Some("NL-13") || r.frozen).collect());
     Ok(r)
 }
 
@@ -844,9 +849,11 @@ fn solve_contact_2d_contained(input: &ContactInput) -> Result<ContactResult, Str
     let al = al_factor > 0.0;
     let al_outer_iters = if al { al_max_iter } else { 1 };
     let mut al_iter_count = 0;
+    let mut frozen = false;
 
     for al_iter in 0..al_outer_iters {
         al_iter_count = al_iter + 1;
+        frozen |= st.gap_flips.iter().chain(&n2s_flips).any(|&f| f > max_flips);
         st.gap_flips.iter_mut().for_each(|f| *f = 0);
         n2s_flips.iter_mut().for_each(|f| *f = 0);
         elem_flips.values_mut().for_each(|f| *f = 0);
@@ -1130,6 +1137,7 @@ fn solve_contact_2d_contained(input: &ContactInput) -> Result<ContactResult, Str
         diagnostics,
         node_to_surface_status: n2s_info,
         al_iterations: al_iter_count,
+        frozen: frozen || st.gap_flips.iter().chain(&n2s_flips).any(|&f| f > max_flips),
     })
 }
 
@@ -1207,7 +1215,7 @@ fn next_slip(slip: f64, stick_force: f64, limit: f64) -> f64 {
 pub fn solve_contact_3d(input: &ContactInput3D) -> Result<ContactResult3D, String> {
     let mut r = solve_contact_3d_contained(input)?;
     crate::known_issues::membrane_bending_3d(&input.solver, &input.solver.loads, &r.results)?;
-    crate::known_issues::attach(&mut r.results.structured_diagnostics, crate::known_issues::for_3d(&input.solver, crate::known_issues::Analysis::Contact).into_iter().filter(|d| d.phase.as_deref() != Some("NL-13") || r.diagnostics.iter().any(|s| s.contains("frozen"))).collect());
+    crate::known_issues::attach(&mut r.results.structured_diagnostics, crate::known_issues::for_3d(&input.solver, crate::known_issues::Analysis::Contact).into_iter().filter(|d| d.phase.as_deref() != Some("NL-13") || r.frozen).collect());
     Ok(r)
 }
 
@@ -1360,9 +1368,11 @@ fn solve_contact_3d_contained(input: &ContactInput3D) -> Result<ContactResult3D,
     let mut total_iters = 0;
     let al_outer_iters = if al { al_max_iter } else { 1 };
     let mut al_iter_count = 0;
+    let mut frozen = false;
 
     for al_iter in 0..al_outer_iters {
         al_iter_count = al_iter + 1;
+        frozen |= gap_flips.iter().any(|&f| f > max_flips);
         gap_flips.iter_mut().for_each(|f| *f = 0);
         elem_flips.values_mut().for_each(|f| *f = 0);
         let mut inner_converged = false;
@@ -1563,6 +1573,7 @@ fn solve_contact_3d_contained(input: &ContactInput3D) -> Result<ContactResult3D,
         gap_status: gap_info,
         diagnostics,
         al_iterations: al_iter_count,
+        frozen: frozen || gap_flips.iter().any(|&f| f > max_flips),
     })
 }
 

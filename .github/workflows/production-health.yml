@@ -64,6 +64,7 @@ jobs:
           sparse-checkout: |
             scripts/production-health.mjs
             .github/scripts/production-health-alert.cjs
+            .github/scripts/issue-assignees.cjs
             web/package.json
             .nvmrc
           sparse-checkout-cone-mode: false

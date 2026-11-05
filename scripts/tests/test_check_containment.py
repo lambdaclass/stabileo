@@ -115,3 +115,7 @@ class ContainmentTests(unittest.TestCase):
         included = (root / 'engine/tests/unrefused/mod.rs').read_text()
         for caller in callers:
             self.assertTrue(Path(caller).name in included or Path(caller).stem in included, caller)
+
+
+if __name__ == '__main__':
+    unittest.main()

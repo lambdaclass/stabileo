@@ -133,6 +133,40 @@ CI coverage lint for legacy benchmark registration, shared research-page
 references, mutation tests of engine implementations, double-entry specs and
 independent engineer sign-off. None of those is claimed complete by this slice.
 
+## Benchmark gate
+
+`engine/tests/benchmarks/registry.json` holds one spec per benchmark, and
+`scripts/benchmark-gate.py` (run by `make lint.engine`, tested by
+`make test.ci-scripts`) fails when:
+
+- a file in the registry's `scope` (the research benchmark cases and their Rust tests, the protocol
+  specs above, `engine/tests/validation/benchmarks/*.rs`,
+  `engine/tests/validation/three_d/*_benchmarks.rs`,
+  `engine/tests/research_benchmarks.rs`) has no spec and no reasoned exclusion;
+- a quantity has fewer than two references (citation, page, table or equation,
+  value, unit) and no reviewed exemption with a reason and a tracking issue;
+- a tolerance has no justification, or names evidence that does not exist;
+- a test asserts a looser tolerance than its spec. Each quantity names where the
+  test reads its tolerance: a JSON pointer into the case file, the tolerance
+  argument of `assert_close`-family calls, or a pattern in the test source;
+- a pull request loosens or removes a spec tolerance without the
+  `tolerance-change` label. CI reads the labels from the pull request as it is
+  when the job runs; locally the base is the merge base with `origin/main`, and
+  `--label tolerance-change` (or `--base <rev>`) stands in for the label.
+
+Protocol specs keep their own references and tolerance; their registry entry adds
+units and the independence flag. Every quantity says whether its references are
+independent of the implementation's derivation: the shallow-toggle references are
+not (both derive the same two-element model).
+
+Two exemption kinds exist. `single-reference` (tracked in #1481) records a
+quantity with one confirmed reference; a second one is never invented.
+`unaudited` (tracked in #1482) covers each legacy validation file as a whole:
+its header sources are quoted, unchecked, in the reason, and its tolerance is a
+ceiling at the loosest threshold the file asserts today, so it can tighten but
+not silently widen. Files whose assertions are only qualitative have no numeric
+ceiling and say so.
+
 ## Review-fix verification (2026-10-30)
 
 Working-tree changes based on `b03e89268c3cef28f2849d82c6a1fbc5641a4ae4`:

@@ -1048,6 +1048,79 @@ fn macneal_strip(distorted: bool, direction: usize) -> SolverInput3D {
 }
 
 #[test]
+fn the_membrane_bending_refusal_holds_at_any_load_scale() {
+    for scale in [1.0, 1e-6, 1e-12, 1e-18, 1e6] {
+        let mut input = macneal_strip(true, 1);
+        for load in &mut input.loads {
+            if let SolverLoad3D::Nodal(n) = load { n.fy *= scale; }
+        }
+        common::assert_containment(dedaliano_engine::solver::linear::solve_3d(&input), "SH-MITC4-DISTORTION");
+        let (input, result) = two_distorted_quads(0.0, scale, scale);
+        dedaliano_engine::known_issues::MembraneBendingGuard::new(&input).check(&[], &result).unwrap_or_else(|e| panic!("uniform extension at scale {scale}: {e}"));
+    }
+}
+
+fn two_distorted_quads(bend: f64, stretch: f64, stretch_far: f64) -> (SolverInput3D, AnalysisResults3D) {
+    let mut input = beam3d();
+    input.nodes.clear(); input.elements.clear(); input.supports.clear(); input.loads.clear();
+    for (q, x0) in [(1, 0.0), (2, 100.0)] {
+        for (j, (x, y)) in [(0.0, 0.0), (1.0, 0.0), (1.2, 1.0), (0.0, 1.0)].into_iter().enumerate() {
+            let id = (q - 1) * 4 + j + 1;
+            input.nodes.insert(id.to_string(), SolverNode3D { id, x: x0 + x, y, z: 0.0 });
+        }
+        let first = (q - 1) * 4 + 1;
+        input.quads.insert(q.to_string(), SolverQuadElement { id: q, nodes: [first, first + 1, first + 2, first + 3], material_id: 1, thickness: 0.1 });
+    }
+    let mut result = dedaliano_engine::solver::linear::solve_3d(&beam3d()).unwrap();
+    result.displacements = input.nodes.values().map(|n| {
+        let ux = if n.x < 50.0 { bend * n.x * n.y + stretch * n.x } else { stretch_far * (n.x - 100.0) };
+        Displacement3D { node_id: n.id, ux, uy: 0.0, uz: 0.0, rx: 0.0, ry: 0.0, rz: 0.0, warping: None }
+    }).collect();
+    (input, result)
+}
+
+#[test]
+fn a_highly_stressed_quad_does_not_mask_membrane_bending_in_another() {
+    use dedaliano_engine::known_issues::MembraneBendingGuard;
+    let (input, alone) = two_distorted_quads(1e-6, 0.0, 0.0);
+    let refused = MembraneBendingGuard::new(&input).check(&[], &alone).unwrap_err();
+    assert!(refused.contains("SH-MITC4-DISTORTION"), "{refused}");
+    for (bend, far) in [(1e-6, 1e3), (1e-18, 1e-3), (1e-18, 1e3), (1e-30, 1e3)] {
+        let (input, beside) = two_distorted_quads(bend, 0.0, far);
+        let refused = MembraneBendingGuard::new(&input).check(&[], &beside).unwrap_err();
+        assert!(refused.contains("\"elementIds\":[1]"), "bend {bend}, far {far}: {refused}");
+    }
+    let (input, stretched) = two_distorted_quads(0.0, 1e-6, 1e3);
+    MembraneBendingGuard::new(&input).check(&[], &stretched).unwrap();
+}
+
+fn guard_on_one_distorted_quad(loads: &[SolverLoad3D], field: impl Fn(f64, f64) -> (f64, f64)) -> Result<(), String> {
+    let (input, mut result) = two_distorted_quads(0.0, 0.0, 0.0);
+    result.displacements = input.nodes.values().map(|n| {
+        let (ux, uy) = if n.x < 50.0 { field(n.x, n.y) } else { (0.0, 0.0) };
+        Displacement3D { node_id: n.id, ux, uy, uz: 0.0, rx: 0.0, ry: 0.0, rz: 0.0, warping: None }
+    }).collect();
+    dedaliano_engine::known_issues::MembraneBendingGuard::new(&input).check(loads, &result)
+}
+
+#[test]
+fn uniform_stress_rigid_rotation_or_free_expansion_do_not_mask_membrane_bending() {
+    let bend = |x: f64, y: f64| (1e-10 * x * y, 0.0);
+    assert!(guard_on_one_distorted_quad(&[], bend).is_err());
+    for stretch in [1e-3, 1e-2] {
+        assert!(guard_on_one_distorted_quad(&[], |x, y| (1e-10 * x * y + stretch * x, 0.0)).is_err(), "stretch {stretch}");
+        guard_on_one_distorted_quad(&[], |x, _| (stretch * x, 0.0)).unwrap();
+    }
+    for theta in [1e-3, 1.0] {
+        assert!(guard_on_one_distorted_quad(&[], |x, y| (1e-10 * x * y - theta * y, theta * x)).is_err(), "rotation {theta}");
+        guard_on_one_distorted_quad(&[], |x, y| (-theta * y, theta * x)).unwrap();
+    }
+    let heat = [SolverLoad3D::QuadThermal(SolverPlateThermalLoad { element_id: 1, dt_uniform: 20.0, dt_gradient: 0.0, alpha: Some(1e-5) })];
+    guard_on_one_distorted_quad(&heat, |x, y| (2e-4 * x, 2e-4 * y)).unwrap();
+    assert!(guard_on_one_distorted_quad(&heat, |x, y| (2e-4 * x + 1e-10 * x * y, 2e-4 * y)).is_err());
+}
+
+#[test]
 fn a_staged_analysis_is_judged_by_the_shells_its_stages_activate() {
     use dedaliano_engine::solver::staged::solve_staged_3d;
     let mut model = beam3d();
@@ -1674,6 +1747,19 @@ fn a_soft_rotation_held_by_the_orphan_spring_is_warned_1367() {
     let theta = held.displacements.iter().find(|d| d.node_id == 2).unwrap().ry.abs();
     assert!((theta - 1e-3 / (2.0 * E * 1000.0 * 1e-4)).abs() < 1e-9 * theta.max(1e-12) + 1e-15, "{theta}");
     assert!(!ids(&held.structured_diagnostics).contains(&"ORPHAN-SOFT-ROTATION".to_string()), "{:?}", ids(&held.structured_diagnostics));
+}
+
+#[test]
+fn the_prepared_3d_path_warns_a_soft_rotation_like_the_regular_one_1367() {
+    let input = soft_rotation_beside_a_stiff_member(1e-10);
+    let regular = dedaliano_engine::solver::linear::solve_3d(&input).unwrap();
+    let prepared = dedaliano_engine::solver::linear::prepare_static_3d(&input).unwrap().solve_loads(&input.loads).unwrap();
+    for r in [&regular, &prepared] {
+        let warning = r.structured_diagnostics.iter().find(|d| d.phase.as_deref() == Some("ORPHAN-SOFT-ROTATION")).unwrap_or_else(|| panic!("{:?}", ids(&r.structured_diagnostics)));
+        assert_eq!(warning.severity, dedaliano_engine::types::Severity::Warning);
+    }
+    let ry = |r: &dedaliano_engine::types::AnalysisResults3D| r.displacements.iter().find(|d| d.node_id == 2).unwrap().ry;
+    assert_eq!(ry(&regular), ry(&prepared));
 }
 
 fn soft_rotation_beside_a_stiff_member_2d(soft_inertia: f64) -> SolverInput {

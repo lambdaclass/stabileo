@@ -8,6 +8,7 @@ declare module 'virtual:public-i18n' {
   export const de: Record<string, string>;
   export const fr: Record<string, string>;
   export const tr: Record<string, string>;
+  export const loaders: Partial<Record<'es' | 'pt' | 'de' | 'fr' | 'tr', () => Promise<{ default: Record<string, string> }>>>;
 }
 
 declare module 'virtual:app-i18n' {

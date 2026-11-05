@@ -141,7 +141,7 @@ class CiRunners(unittest.TestCase):
     def test_routing(self):
         ci = jobs('ci.yml')
         hosted = {name for name, job in ci.items() if job.get('runs-on') == 'ubuntu-24.04'}
-        self.assertEqual(hosted, {'changes', 'caddy-routing', 'docker-smoke', 'determinism', 'timing-budgets', 'e2e', 'e2e-flaky', 'ci-ok', 'superseded', 'web-typecheck',
+        self.assertEqual(hosted, {'changes', 'caddy-routing', 'docker-smoke', 'determinism', 'timing-budgets', 'e2e', 'e2e-flaky', 'e2e-timings', 'ci-ok', 'superseded', 'web-typecheck',
                                   'test-ci-scripts', 'lint-backend', 'check-migrations-immutable', 'check-migrations', 'results-snapshot'})
         self.assertEqual({name for name, job in jobs('research.yml').items() if job.get('runs-on') == 'ubuntu-24.04'}, {'isolation', 'catalog'})
         for name in ['test-engine-gates', 'web-unit']:
@@ -220,7 +220,7 @@ class CiRunners(unittest.TestCase):
     def test_the_engine_suite_leaves_the_queue_critical_path_runners_free(self):
         ci = jobs('ci.yml')
         engine = {name for name, job in ci.items() if 'stabileo-engine' in labels(job.get('runs-on', ''))}
-        self.assertEqual(engine, {'test-engine-suite', 'test-engine-metamorphic'})
+        self.assertEqual(engine, {'test-engine-suite', 'test-engine-metamorphic', 'test-engine-quick'})
         for name in engine:
             runs_on = ci[name]['runs-on']
             self.assertEqual(labels(runs_on), {'stabileo-engine', 'stabileo'})

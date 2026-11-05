@@ -23,7 +23,7 @@ export function benchmarkPlugins() {
       if (resolved[0] !== '\0' || !ids.includes(id)) return null;
       if (id === PUBLIC) {
         return ['en', 'es', 'pt', 'de', 'fr', 'tr']
-          .map(locale => localeExport(locale, LAZY_LOCALES.includes(locale) ? `full/${locale}` : locale)).join('\n');
+          .map(locale => localeExport(locale, LAZY_LOCALES.includes(locale) ? `full/${locale}` : locale)).join('\n') + '\nexport const loaders = {};';
       }
       if (id === APP) return ['en', 'es', 'pt'].map(locale => localeExport(locale, locale)).join('\n');
       const locale = id.slice(APP.length + 1);

@@ -2,7 +2,7 @@
   import { resultCaseName } from '../../lib/engine/settlement-case';
   import { modelStore, uiStore, resultsStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
-  import { knownIssueMessage } from '../../lib/engine/known-issues';
+  import { knownIssueMessage } from '../../lib/engine/known-issue-message';
   import { shellRef } from '../../lib/engine/model-findings';
   import { toDisplay, unitLabel } from '../../lib/utils/units';
   import {
