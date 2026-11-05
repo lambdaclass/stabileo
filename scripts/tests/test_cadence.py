@@ -115,6 +115,11 @@ class CadenceTest(unittest.TestCase):
     def test_the_repository_manifest_is_consistent(self):
         self.assertEqual(cadence.check(cadence.load()), [])
 
+    def test_a_day_placeholder_gives_each_night_its_own_seed(self):
+        check = {"target": "fuzz.long", "vars": {"SEED": "{day}000", "DURATION": "45m"}}
+        self.assertEqual(cadence.command(check, now=86400 * 20397 + 3600), ["make", "fuzz.long", "DURATION=45m", "SEED=20397000"])
+        self.assertEqual(cadence.command(check, now=86400 * 20398)[-1], "SEED=20398000")
+
     def test_make_targets_ignores_variable_assignments(self):
         d = tree("A:=1\nb: c\nd.e-f:\n", {"tiers": TIERS, "checks": []})
         self.assertEqual(cadence.make_targets(d), {"b", "d.e-f"})

@@ -64,7 +64,7 @@ Until one of its targets lands, the job only reads the manifest and builds nothi
 | `metamorphic-full` | nightly.yml metamorphic-nightly | metamorphic and invariance, exhaustive tier |
 | `invariance-full` | nightly.yml cadence | `make test.engine.invariance.full` |
 | `differential-full` | nightly.yml cadence | `make test.engine.differential.full` |
-| `mechanism-fuzz` | nightly.yml cadence | `make test.engine.mechanism-fuzz.nightly MINUTES=45` |
+| `mechanism-fuzz` | nightly.yml cadence | `make test.engine.mechanism-fuzz.long DURATION=45m`, from a new seed each day |
 | `containment-audit` | nightly.yml cadence | `make check.containment`: every open wrong-result issue is contained |
 | `lighthouse` | performance.yml | Lighthouse against the deployed site |
 | `external-references-sampled` | nightly.yml opensees-diff, codeaster-diff | OpenSees and Code_Aster at the daily counts |
@@ -87,7 +87,7 @@ issue) or close it as a harness artefact with the evidence.
 |---|---|---|
 | `mutants-safety` | nightly.yml mutants (Sunday) | mutation testing of the safety-critical modules, with a kill-rate ratchet |
 | `fuzz-long` | nightly.yml fuzz (Sunday) | each fuzz target for 5 hours instead of 2 |
-| `mechanism-fuzz-long` | nightly.yml cadence | `make test.engine.mechanism-fuzz.nightly MINUTES=240` |
+| `mechanism-fuzz-long` | nightly.yml cadence | `make test.engine.mechanism-fuzz.long DURATION=4h`, from a new seed each week |
 | `route-size` | route-size.yml (Monday) | landing and /app footprints against their ceilings |
 | `research-replays` | research.yml (Monday schedule) | every research paper's validation replays |
 | `flaky-report` | nightly.yml flaky-report (Sunday) | the **Weekly flaky-test report** issue |
