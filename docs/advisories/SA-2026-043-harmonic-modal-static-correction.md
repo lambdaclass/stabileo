@@ -5,7 +5,7 @@
 | Severity | High |
 | Status | Draft |
 | Issue | [#1371](https://github.com/lambdaclass/stabileo/issues/1371) |
-| Fix | this PR |
+| Fix | #1423 |
 | Affected versions | every release with the modal-superposition harmonic solver and its static correction; not bisected |
 | Re-check registry | results version entry `harmonic-modal-residual-checked` |
 
