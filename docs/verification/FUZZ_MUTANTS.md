@@ -170,6 +170,42 @@ hard to write; a hard-to-test mutant in the certificate code is exactly the one 
 matters. Resource caps, search heuristics and the choice between two sound paths can be
 excluded, with the reason next to the pattern.
 
+### Safety-critical scope (weekly)
+
+`MUTANTS_SCOPE=safety scripts/mutants.sh` (`make mutants.engine SCOPE=safety`) mutates the code
+whose bug would show an engineer a wrong verdict rather than a wrong number, grouped in modules
+by [`scripts/mutants-safety.json`](../../scripts/mutants-safety.json):
+
+| Module | Code |
+|---|---|
+| certificate | `certify/{linear,sparse,finite,solver}.rs`: the linear-static certificate and its finiteness guards |
+| provenance | `certify/{provenance,bundle}.rs`, `reproduce.rs`: hashes, the certificate bundle, reproduction |
+| design-verdict | `postprocess/check_ledger.rs` and the functions of `certify/design.rs` that decide a certified design verdict |
+| containment | `known_issues.rs`: the warnings that contain the open wrong-result issues |
+
+Sunday's `nightly.yml` runs it in the `mutants-safety` job (GitHub-hosted, sharded), next to
+the daily rotation, which it does not replace. `mutants-ratchet` then reports the kill rate,
+(caught + timed out) / (caught + timed out + missed), per module (`make mutants.safety.report
+OUT=<dirs>`), and compares it with [`mutants-baseline.json`](mutants-baseline.json). A module
+below its baseline, or with no mutant tested, opens or updates the **Mutation kill rate below
+baseline** issue. When a run kills more, raise the baseline with `make mutants.safety.record`
+in the pull request that adds the tests.
+
+Baseline (2026-11-05, 818 mutants, with the certificate guard tests added in the same pull request):
+
+| Module | Tested | Caught | Timeout | Missed | Unviable | Kill rate |
+|---|---:|---:|---:|---:|---:|---:|
+| certificate | 427 | 420 | 4 | 3 | 131 | 99.3 % |
+| provenance | 125 | 107 | 5 | 13 | 7 | 89.6 % |
+| design-verdict | 72 | 58 | 0 | 14 | 8 | 80.6 % |
+| containment | 38 | 20 | 0 | 18 | 10 | 52.6 % |
+
+Before the guard tests, the certificate stood at 96.0 % (17 missed): replacing any finiteness
+guard (`guard`, `guard_all`, `guard_end_to_end`, `guard_cases`, the 2D and 3D result guards,
+`check_input`) with a no-op went unnoticed, because no test fed a certificate a non-finite
+number. The largest gap left is containment: the 3D warnings (`for_3d`, `loads_3d` returning
+nothing) are untested.
+
 ### Last local run
 
 RESULTS_PLACEHOLDER

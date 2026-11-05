@@ -1,5 +1,5 @@
 {
-  "$comment": "The safety-critical scope of the weekly mutation run (MUTANTS_SCOPE=safety scripts/mutants.sh) and the modules its kill rate is reported and ratcheted by (scripts/mutants-killrate.py, docs/verification/FUZZ_MUTANTS.md). A file listed without functions is mutated whole; with functions, only those functions.",
+  "$comment": "The safety-critical scope of the weekly mutation run (MUTANTS_SCOPE=safety scripts/mutants.sh) and the modules its kill rate is reported and ratcheted by (scripts/mutants-safety.py, docs/verification/FUZZ_MUTANTS.md). A file listed without functions is mutated whole; with functions, only those functions.",
   "modules": {
     "certificate": {
       "description": "The linear-static result certificate: the interval bound, the λ_min certificate, the sparse path and the solver-level entry points whose verdict a report shows",
