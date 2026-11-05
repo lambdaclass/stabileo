@@ -1,0 +1,5 @@
+### BREAKING (results)
+
+#### 2D plastic collapse factor from a limit analysis, the same under any numbering, member direction and units (2026-11-05)
+
+- Fix #758: the 2D plastic collapse factor came from where the step-by-step hinge history ended, and that history depends on the order in which ties between hinges are broken, so renumbering the nodes, reversing a member or changing the units moved it by up to 4.6× (engine `solve_plastic_2d`: a rigid-link beam 46.67 or 118.46, a fuzz frame 85.73 or 127.22). The factor is now the limit analysis's (static and kinematic theorems, by linear programming over the self-stress fields of the frame), which the engine and the app's 2D plastic collapse both report; the hinge history stays as the illustration of the mechanism, and when it ends away from the collapse load the result says so. A model that is a mechanism before any hinge forms is refused. The Basic course portal keeps λc = 71.296 (8(Mp,col + Mp,beam)/qL² = 1925/27); the engine's history had reported 71.529 for it.

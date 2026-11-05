@@ -40,19 +40,20 @@ describe('plastic collapse under loads along members', () => {
   for (const type of ['truss', 'frame'] as const) {
     it(`${type}: an axial point load stays on the structure after its member yields`, () => {
       // Two equal bars side by side, pinned at 1, on a roller at 2 that is free along them.
-      // px = 20 at mid-length of bar 1: lever rule 10 to each node; the 10 at node 2 is shared,
-      // so bar 1 carries 15 before the load and bar 2 carries 5. Bar 1 (Np 10) yields at
-      // λ = 2/3; its load stays at the nodes, so bar 2 then carries all 10 at node 2 and yields
-      // (Np 100) at λ = 2/3 + (100 − 10/3)/10 = 31/3. Before the fix the load went with bar 1:
-      // λc = 2/3 (and for a frame, "collapse" at the first yield).
+      // px = 20 at mid-length of bar 1: bar 1 carries 15λ before the load and −5λ after it, bar 2
+      // carries 5λ. Bar 1 (Np 10) first yields before the load at λ = 2/3. The load acts on bar 1
+      // alone, so with N = 10 before it, N = 10 − 20λ after it, and |N| ≤ 10 on both sides,
+      // λc = 1 (both halves of bar 1 yield; bar 2 is not needed). The history, which takes bar 1
+      // out and leaves its load on the nodes, goes on to 31/3: it is reported as such, not as λc.
       const m = model(6, [1, 2], type, [[1, 'pinned'], [2, 'rollerX']], [
         { type: 'pointOnElement', data: { elementId: 1, a: 3, p: 0, px: 20 } },
       ]);
       const r = plasticCollapse2D(m, { mp: () => Infinity, np: (id) => (id === 1 ? 10 : 100) });
       expect(r.hinges.map((h) => [h.elementId, h.kind])).toEqual([[1, 'axial'], [2, 'axial']]);
       expect(r.hinges[0].loadFactor).toBeCloseTo(2 / 3, 6);
-      expect(r.collapseFactor).toBeCloseTo(31 / 3, 6);
-      expect(r.isMechanism).toBe(true);
+      expect(r.collapseFactor).toBeCloseTo(1, 9);
+      expect(r.limit?.historyLambda).toBeCloseTo(31 / 3, 6);
+      expect(r.unresolved).toBe(true);
     });
   }
 });

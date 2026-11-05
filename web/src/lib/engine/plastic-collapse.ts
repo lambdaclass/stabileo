@@ -47,7 +47,7 @@
  */
 import type { SolverInput, SolverLoad, SolverElement, AnalysisResults, ElementForces } from './types';
 import type { PlasticHinge, PlasticResult, PlasticStep } from './result-types';
-import { solve, plasticLimit2D } from './wasm-solver';
+import { solve, plasticLimit2D, type PlasticLimitResult } from './wasm-solver';
 // The normalized reading: the diagnosis in the active language and the app's axis names.
 import { analyzeKinematics } from './kinematic-2d';
 import { computeDiagramValueAt } from './diagrams';
@@ -116,6 +116,7 @@ export interface PlasticCollapseResult extends PlasticResult {
 interface Piece { id: number; t0: number; t1: number }
 
 const EPS_EVENT = 1e-6;
+const HISTORY_TOL = 1e-3;
 
 function cloneInput(input: SolverInput): SolverInput {
   const copy = <T>(m: Map<number, T>) => new Map([...m].map(([k, v]) => [k, { ...(v as object) } as T]));
@@ -661,17 +662,27 @@ export function plasticCollapse2D(original: SolverInput, opts: PlasticCollapseOp
     const ids = [...original.elements.values()];
     const mpOf = new Map(ids.map((e) => [e.id, e.type === 'truss' ? Infinity : opts.mp(e.id)]));
     const npOf = new Map(ids.map((e) => [e.id, opts.np(e.id)]));
-    let lp: number | null = null;
-    try { lp = plasticLimit2D(original, mpOf, npOf).lambda; } catch { lp = null; }
-    if (lp !== null && Number.isFinite(lp) && lp > 0) {
-      collapseFactor = lp;
-      if (!(isMechanism && !unresolved && Math.abs(lambda - lp) <= EPS_EVENT * lp)) {
-        limit = { lambda: lp, historyLambda: lambda };
+    let lp: PlasticLimitResult | null = null;
+    try { lp = plasticLimit2D(original, mpOf, npOf); } catch { lp = null; }
+    const settled = isMechanism && !unresolved;
+    if (!lp || !(Number.isFinite(lp.lambda) && lp.lambda > 0)) {
+      if (settled) unresolved = true;
+    } else if (hinges.some((h) => h.kind === 'axial')) {
+      if (lambda > lp.lambdaUpper * (1 + EPS_EVENT)) {
+        collapseFactor = lp.lambda;
+        limit = { lambda: lp.lambda, historyLambda: lambda };
         isMechanism = true;
         unresolved = true;
       }
-    } else if (isMechanism && !unresolved) {
+    } else if (lp.hinges.some((h) => h.kind === 'axial')) {
       unresolved = true;
+    } else {
+      collapseFactor = lp.lambda;
+      if (!(settled && Math.abs(lambda - lp.lambda) <= HISTORY_TOL * lp.lambda)) {
+        limit = { lambda: lp.lambda, historyLambda: lambda };
+        isMechanism = true;
+        unresolved = true;
+      }
     }
   }
   return {
