@@ -79,6 +79,28 @@ it.each([false, true])('a refused load case is unavailable through perCase and p
   }
 });
 
+it.each([false, true])('an untagged combination over a refused load case is withheld everywhere (refused: %s)', bad => {
+  const combo = { ...clean, displacements: [{ nodeId: 1, ux: 777777, uy: 0, uz: 0, rx: 0, ry: 0, rz: 0 }] };
+  resultsStore.setResults(clean as never);
+  resultsStore.setCombinationResults(new Map([[1, bad ? refused : clean]]) as never, new Map([[2, combo]]) as never, { maxAbsResults: clean } as never);
+  resultsStore.setResults3D(clean as never);
+  resultsStore.setCombinationResults3D(new Map([[1, bad ? refused : clean]]) as never, new Map([[2, combo]]) as never, { maxAbsResults3D: clean } as never);
+  resultsStore.activeView = 'combo';
+  resultsStore.activeComboId = 2;
+  const shown = JSON.stringify([[...resultsStore.perCombo.values()], [...resultsStore.perCombo3D.values()], resultsStore.results, resultsStore.results3D]);
+  if (bad) {
+    expect(resultsStore.perCombo.size + resultsStore.perCombo3D.size).toBe(0);
+    expect(resultsStore.hasCombinations).toBe(false);
+    expect(resultsStore.hasCombinations3D).toBe(false);
+    expect(shown).not.toContain('777777');
+  } else {
+    expect(resultsStore.perCombo.get(2)?.displacements[0]!.ux).toBe(777777);
+    expect(resultsStore.perCombo3D.get(2)?.displacements[0]!.ux).toBe(777777);
+    expect(resultsStore.results?.displacements[0]!.ux).toBe(777777);
+    expect(resultsStore.results3D?.displacements[0]!.ux).toBe(777777);
+  }
+});
+
 it.each([false, true])('a refused single solve reaches no viewport getter (3D: %s)', is3D => {
   const v = 444444;
   const solved = is3D
