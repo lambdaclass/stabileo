@@ -13840,6 +13840,7 @@ const de: Translations = {
   "recheck.downloadBackup": "Alle offenen Projekte herunterladen",
   "recheck.backupHelp": "Bewahren Sie die heruntergeladene Sitzungsdatei auf. Laden Sie dann die Seite neu und öffnen Sie die Datei, um alle Projekte wiederherzustellen. Der Hinweis muss weiterhin bestätigt werden.",
   "recheck.loading": "Ergebnisänderungen werden geladen…",
+  "recheck.checkingTitle": "Dieses Projekt wird mit den Ergebnisänderungen dieser Version abgeglichen",
   "recheck.detailsUnavailable": "Die Änderungsdetails sind nicht verfügbar. Laden Sie den Hinweis erneut.",
   "recheck.loadFailed": "Die Ergebnisänderungen konnten nicht geladen werden. Versuchen Sie es vor der Bestätigung erneut.",
   "recheck.retry": "Erneut versuchen",
