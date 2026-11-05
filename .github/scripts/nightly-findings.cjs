@@ -1,5 +1,6 @@
 // Artifact data is never executed. This is the only nightly job with issue access.
 const fs = require('node:fs');
+const ASSIGNEES = require('./issue-assignees.cjs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const hash = x => crypto.createHash('sha256').update(x).digest('hex');
@@ -101,7 +102,7 @@ module.exports = async ({github, context, core}) => {
       }
       if (existing.state === 'closed') await github.rest.issues.update({owner, repo, issue_number: existing.number, state: 'open'});
     } else {
-      const result = await github.rest.issues.create({owner, repo, title: `Nightly finding: ${cause.check}/${cause.kind}: ${cause.message} [${key.slice(0, 12)}]`.slice(0, 250), body, labels});
+      const result = await github.rest.issues.create({owner, repo, title: `Nightly finding: ${cause.check}/${cause.kind}: ${cause.message} [${key.slice(0, 12)}]`.slice(0, 250), body, labels, assignees: [...ASSIGNEES]});
       issues.push(result.data);
     }
   }

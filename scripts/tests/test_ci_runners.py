@@ -198,7 +198,7 @@ class CiRunners(unittest.TestCase):
     def test_the_engine_suite_leaves_the_queue_critical_path_runners_free(self):
         ci = jobs('ci.yml')
         engine = {name for name, job in ci.items() if 'stabileo-engine' in labels(job.get('runs-on', ''))}
-        self.assertEqual(engine, {'test-engine-suite', 'test-engine-metamorphic'})
+        self.assertEqual(engine, {'test-engine-suite', 'test-engine-metamorphic', 'test-engine-quick'})
         for name in engine:
             runs_on = ci[name]['runs-on']
             self.assertEqual(labels(runs_on), {'stabileo-engine', 'stabileo'})
