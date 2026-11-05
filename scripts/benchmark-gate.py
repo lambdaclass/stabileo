@@ -52,8 +52,14 @@ def strip_rust(text, strings=False):
             j = text.find('\n', i)
             i = n if j < 0 else j
         elif text.startswith('/*', i):
-            j = text.find('*/', i + 2)
-            i = n if j < 0 else j + 2
+            depth, i = 1, i + 2
+            while i < n and depth:
+                if text.startswith('/*', i):
+                    depth, i = depth + 1, i + 2
+                elif text.startswith('*/', i):
+                    depth, i = depth - 1, i + 2
+                else:
+                    i += 1
         elif text[i] == '"':
             j = i + 1
             while j < n and text[j] != '"':
@@ -91,6 +97,12 @@ def call_arguments(text, name):
             i += 1
         calls.append((match.start(), [a for a in args if a]))
     return calls
+
+
+def rebound(text, expression):
+    name = re.escape(expression)
+    return bool(re.search(rf'\b(?:const|let)\s+(?:mut\s+)?{name}\b', text)
+                or re.search(rf'(?<![\w.])(?<!let )(?<!mut ){name}\s*[-+*/]?=(?!=)', text))
 
 
 def resolve(text, expression):
@@ -148,7 +160,7 @@ def items(locator, read):
         if not found:
             raise Gate(f"{locator['file']}: pattern {locator['pattern']!r} matched no numeric tolerance")
         return keyed(code, found)
-    code = strip_rust(text, strings=True)
+    blank, code = code, strip_rust(text, strings=True)
     found, unresolved = [], []
     aliases = locator.get('aliases', {})
     for name in locator['calls']:
@@ -156,8 +168,8 @@ def items(locator, read):
             if len(args) < locator['argument']:
                 continue
             argument = args[locator['argument'] - 1]
-            resolved = resolve(code, argument)
-            if resolved is None and argument in aliases:
+            resolved = resolve(blank, argument)
+            if resolved is None and argument in aliases and not rebound(blank, argument):
                 resolved = extract(aliases[argument], read)
             if resolved is None:
                 unresolved.append(f'{name}(…{argument}…)')

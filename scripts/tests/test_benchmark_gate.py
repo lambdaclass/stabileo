@@ -196,6 +196,22 @@ class TestTolerance(unittest.TestCase):
         [error] = self.errors(dict(file='x.rs', calls=['assert_close'], argument=3), 0.02, files)
         self.assertIn('assert_close(…tol…)', error)
 
+    def test_a_rebound_alias_is_not_trusted(self):
+        alias = dict(file='x.rs', calls=['assert_close'], argument=3,
+                     aliases={'tolerance': dict(file='case.json', pointer='/cases/*/t')})
+        good = dict(FILES, **{'x.rs': 'fn a() { for (n, tolerance) in c { assert_close(x, 1.0, tolerance, ""); } }'})
+        self.assertEqual(self.errors(alias, 0.02, good), [])
+        for body in ('let tolerance = 2.0 * tolerance; ', 'tolerance *= 2.0; '):
+            bad = dict(FILES, **{'x.rs': 'fn a() { for (n, tolerance) in c { ' + body + 'assert_close(x, 1.0, tolerance, ""); } }'})
+            self.assertIn('assert_close(…tolerance…)', self.errors(alias, 0.02, bad)[0])
+
+    def test_an_assertion_inside_nested_block_comments_is_gone(self):
+        reg = registry(quantity(test_tolerances=[dict(file='x.rs', calls=['assert_close'], argument=3)]))
+        before = 'fn a() { assert_close(x, 1.0, 0.01, ""); assert_close(y, 2.0, 0.02, ""); }'
+        after = 'fn a() { assert_close(x, 1.0, 0.01, ""); /* outer /* inner */ assert_close(y, 2.0, 0.02, ""); */ }'
+        errors = gate.label_check(reg, reader(dict(FILES, **{'x.rs': before})), reg, reader(dict(FILES, **{'x.rs': after})), set())[0]
+        self.assertEqual(errors, ['case / tip deflection: test tolerance x.rs a:assert_close(y)#1 (0.02) removed or moved (needs the tolerance-change label)'])
+
     def test_a_binding_with_two_values_is_ambiguous(self):
         files = dict(FILES, **{'x.rs': 'fn a() { { let tol = 0.01; } let tol = 0.02; assert_close(x, 1.0, tol, ""); }'})
         [error] = self.errors(dict(file='x.rs', calls=['assert_close'], argument=3), 0.05, files)
