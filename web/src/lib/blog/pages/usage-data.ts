@@ -8,7 +8,7 @@ export const usageDataPage: StandingPage = {
       title: 'Qué datos de uso anónimos envía Stabileo',
       description: 'La lista completa de los datos de uso anónimos que envía Stabileo, de lo que no envía nunca y de cómo desactivarlo.',
       eyebrow: 'Privacidad',
-      lead: 'Stabileo comparte datos de uso anónimos de forma predeterminada, y lo podés desactivar cuando quieras en Configuración o en tu perfil. Sirven para saber qué herramientas se usan y cuáles fallan, y así decidir qué mejorar primero. Esta es la lista completa de lo que se envía.',
+      lead: 'Stabileo comparte datos de uso anónimos solo si elegís compartirlos, y lo podés cambiar cuando quieras en Configuración o en tu perfil. Sirven para saber qué herramientas se usan y cuáles fallan, y así decidir qué mejorar primero. Esta es la lista completa de lo que se envía.',
       blocks: [
         { k: 'h', t: 'Lo que se envía' },
         {
@@ -43,7 +43,7 @@ export const usageDataPage: StandingPage = {
       title: 'What anonymous usage data Stabileo sends',
       description: 'The complete list of the anonymous usage data Stabileo sends, what it never sends, and how to turn it off.',
       eyebrow: 'Privacy',
-      lead: 'Stabileo shares anonymous usage data by default, and you can turn it off at any time in Settings or in your profile. It tells us which tools are used and which ones fail, so we can decide what to improve first. This is the complete list of what is sent.',
+      lead: 'Stabileo shares anonymous usage data only if you choose to, and you can change that at any time in Settings or in your profile. It tells us which tools are used and which ones fail, so we can decide what to improve first. This is the complete list of what is sent.',
       blocks: [
         { k: 'h', t: 'What is sent' },
         {
@@ -78,7 +78,7 @@ export const usageDataPage: StandingPage = {
       title: 'Quais dados de uso anônimos o Stabileo envia',
       description: 'A lista completa dos dados de uso anônimos que o Stabileo envia, do que ele nunca envia e de como desativar.',
       eyebrow: 'Privacidade',
-      lead: 'O Stabileo compartilha dados de uso anônimos por padrão, e você pode desativar quando quiser em Configurações ou no seu perfil. Servem para saber quais ferramentas são usadas e quais falham, e assim decidir o que melhorar primeiro. Esta é a lista completa do que é enviado.',
+      lead: 'O Stabileo compartilha dados de uso anônimos só se você escolher, e você pode mudar isso quando quiser em Configurações ou no seu perfil. Servem para saber quais ferramentas são usadas e quais falham, e assim decidir o que melhorar primeiro. Esta é a lista completa do que é enviado.',
       blocks: [
         { k: 'h', t: 'O que é enviado' },
         {

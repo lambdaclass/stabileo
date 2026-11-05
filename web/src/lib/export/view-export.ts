@@ -13,6 +13,7 @@ import { modelStore, uiStore } from '../store';
 import { t, tp } from '../i18n';
 import { ensureResults } from '../actions/solve';
 import { downloadBlob } from '../store/file';
+import { accountGate } from '../store/account-gate.svelte';
 import { modelIsEmpty, tellIfEmpty } from './empty-model';
 import {
   NEEDS_RESULTS, canvasToBlob, plan2D, sheetOf, toCanvas, toSvg,
@@ -123,7 +124,11 @@ export async function exportView(req: ViewExportRequest): Promise<boolean> {
  * Put the figures on the clipboard as one picture (several go on one sheet), to paste into a
  * document. A PNG: the format every editor accepts from the clipboard.
  */
-export async function copyView(req: ViewExportRequest): Promise<boolean> {
+export function copyView(req: ViewExportRequest): Promise<boolean> {
+  return new Promise((resolve) => accountGate.guard('export', () => copyNow(req).then(resolve), () => resolve(false)));
+}
+
+async function copyNow(req: ViewExportRequest): Promise<boolean> {
   if (typeof ClipboardItem === 'undefined' || !navigator.clipboard?.write) {
     uiStore.toast(t('viewExport.noClipboard'), 'error');
     return false;

@@ -2,12 +2,11 @@
 <script lang="ts">
   import { t } from '../../../lib/i18n';
   import MemoriaDialog from './MemoriaDialog.svelte';
-  import { accountGate } from '../../../lib/store/account-gate.svelte';
 
   let open = $state(false);
 </script>
 
-<button class="memo-open" data-testid="memoria-open" onclick={() => accountGate.guard('export', () => (open = true))}>{t('memo.ui.open')}</button>
+<button class="memo-open" data-testid="memoria-open" onclick={() => (open = true)}>{t('memo.ui.open')}</button>
 {#if open}<MemoriaDialog onclose={() => (open = false)} />{/if}
 
 <style>

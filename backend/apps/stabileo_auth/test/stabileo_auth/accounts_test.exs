@@ -3,7 +3,7 @@ defmodule StabileoAuth.AccountsTest do
 
   alias StabileoAuth.Accounts
   alias StabileoRepo.Factory
-  alias StabileoRepo.Schemas.{Account, Session}
+  alias StabileoRepo.Schemas.Account
 
   describe "register/1" do
     test "creates an account" do

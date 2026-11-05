@@ -264,7 +264,6 @@ export const SAME_AS_ENGLISH: readonly string[] = [
   'fed.ui.discipline',
   'fed.ui.note',
   'fed.ui.versionLabel',
-  'feedback.suggestion',
   'feedbackForm.kind',
   'feedbackForm.kind.question',
   'feedbackForm.message',

@@ -1,5 +1,8 @@
 export const registerTranslations: Record<string, Record<string, string>> = {
   en: {
+    'register.shareUsage': "Share anonymous usage data to help improve Stabileo",
+    'register.allowResearch': "Allow my saved projects to be used, anonymized, to improve Stabileo",
+    'register.consentNote': "Both are optional, and you can change them at any time from your profile.",
     "register.err.emailInUse": "A Stabileo account already uses this email, and Google does not confirm it is still yours. Write to us through the contact links and we will move it to your Google account.",
     "register.metaTitle": "Create your free account · Stabileo",
     "register.metaDescription": "Analyze frames, beams and trusses in your browser. Create your free account with Google to save your projects and export reports.",
@@ -47,6 +50,9 @@ export const registerTranslations: Record<string, Record<string, string>> = {
     "register.err.closed": "Creating accounts is not open yet. You can use the editor without one.",
   },
   es: {
+    'register.shareUsage': "Compartir datos de uso anónimos para mejorar Stabileo",
+    'register.allowResearch': "Permitir usar mis proyectos guardados, anonimizados, para mejorar Stabileo",
+    'register.consentNote': "Las dos son opcionales y las podés cambiar cuando quieras desde tu perfil.",
     "register.err.emailInUse": "Ya hay una cuenta de Stabileo con este email, y Google no confirma que siga siendo tuyo. Escribinos por los canales de contacto y la pasamos a tu cuenta de Google.",
     "register.metaTitle": "Creá tu cuenta gratis · Stabileo",
     "register.metaDescription": "Calculá pórticos, vigas y reticulados en el navegador. Creá tu cuenta gratis con Google para guardar tus proyectos y exportar informes.",
@@ -94,6 +100,9 @@ export const registerTranslations: Record<string, Record<string, string>> = {
     "register.err.closed": "Crear cuentas no está abierto todavía. Podés usar el editor sin cuenta.",
   },
   pt: {
+    'register.shareUsage': "Compartilhar dados de uso anônimos para melhorar o Stabileo",
+    'register.allowResearch': "Permitir que meus projetos salvos sejam usados, anonimizados, para melhorar o Stabileo",
+    'register.consentNote': "As duas são opcionais e você pode mudá-las quando quiser no seu perfil.",
     "register.err.emailInUse": "Já existe uma conta do Stabileo com este e-mail, e o Google não confirma que ele ainda é seu. Fale com a gente pelos canais de contato e nós a passamos para a sua conta do Google.",
     "register.metaTitle": "Crie sua conta grátis · Stabileo",
     "register.metaDescription": "Calcule pórticos, vigas e treliças no navegador. Crie sua conta grátis com o Google para salvar seus projetos e exportar relatórios.",
@@ -141,6 +150,9 @@ export const registerTranslations: Record<string, Record<string, string>> = {
     "register.err.closed": "A criação de contas ainda não está aberta. Você pode usar o editor sem conta.",
   },
   de: {
+    'register.shareUsage': "Anonyme Nutzungsdaten teilen, um Stabileo zu verbessern",
+    'register.allowResearch': "Erlauben, dass meine gespeicherten Projekte anonymisiert zur Verbesserung von Stabileo verwendet werden",
+    'register.consentNote': "Beides ist freiwillig und lässt sich jederzeit in Ihrem Profil ändern.",
     "register.err.emailInUse": "Für diese E-Mail-Adresse gibt es bereits ein Stabileo-Konto, und Google bestätigt nicht, dass sie noch Ihnen gehört. Schreiben Sie uns über die Kontaktkanäle, dann übertragen wir es auf Ihr Google-Konto.",
     "register.metaTitle": "Kostenloses Konto erstellen · Stabileo",
     "register.metaDescription": "Berechnen Sie Rahmen, Träger und Fachwerke im Browser. Erstellen Sie Ihr kostenloses Konto mit Google, um Projekte zu speichern und Berichte zu exportieren.",
@@ -188,6 +200,9 @@ export const registerTranslations: Record<string, Record<string, string>> = {
     "register.err.closed": "Die Kontoerstellung ist noch nicht geöffnet. Sie können den Editor ohne Konto nutzen.",
   },
   fr: {
+    'register.shareUsage': "Partager des données d'usage anonymes pour aider à améliorer Stabileo",
+    'register.allowResearch': "Autoriser l'utilisation de mes projets enregistrés, de façon anonymisée, pour améliorer Stabileo",
+    'register.consentNote': "Les deux sont facultatifs et vous pouvez les modifier à tout moment depuis votre profil.",
     "register.err.emailInUse": "Un compte Stabileo utilise déjà cette adresse e-mail, et Google ne confirme pas qu’elle vous appartient toujours. Écrivez-nous via les canaux de contact et nous le transférerons vers votre compte Google.",
     "register.metaTitle": "Créez votre compte gratuit · Stabileo",
     "register.metaDescription": "Calculez portiques, poutres et treillis dans le navigateur. Créez votre compte gratuit avec Google pour enregistrer vos projets et exporter des rapports.",
@@ -235,6 +250,9 @@ export const registerTranslations: Record<string, Record<string, string>> = {
     "register.err.closed": "La création de comptes n’est pas encore ouverte. Vous pouvez utiliser l’éditeur sans compte.",
   },
   tr: {
+    'register.shareUsage': "Stabileo'yu geliştirmek için anonim kullanım verisini paylaş",
+    'register.allowResearch': "Kayıtlı projelerimin, anonimleştirilerek Stabileo'yu geliştirmek için kullanılmasına izin ver",
+    'register.consentNote': "İkisi de isteğe bağlıdır ve profilinizden istediğiniz zaman değiştirebilirsiniz.",
     "register.err.emailInUse": "Bu e-posta adresiyle zaten bir Stabileo hesabı var ve Google adresin hâlâ size ait olduğunu doğrulamıyor. İletişim kanallarından bize yazın, hesabı Google hesabınıza taşıyalım.",
     "register.metaTitle": "Ücretsiz hesabınızı oluşturun · Stabileo",
     "register.metaDescription": "Çerçeveleri, kirişleri ve kafes sistemleri tarayıcıda hesaplayın. Projelerinizi kaydetmek ve rapor dışa aktarmak için Google ile ücretsiz hesabınızı oluşturun.",

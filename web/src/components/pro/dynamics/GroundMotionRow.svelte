@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { accountGate } from '../../../lib/store/account-gate.svelte';
   import Hint from '../Hint.svelte';
   import { plainNumber } from '../../../lib/utils/units';
   /**
@@ -83,7 +82,7 @@
     </div>
   {:else if g.source === 'record'}
     <div class="gm-row">
-      <input type="file" accept=".at2,.AT2,.txt,.csv,.dat,.tsv" onchange={accountGate.files('import', onFile)} data-testid="th-file-{dir}" />
+      <input type="file" accept=".at2,.AT2,.txt,.csv,.dat,.tsv" onchange={onFile} data-testid="th-file-{dir}" />
       <label>{t('pro.th.unit')} <select value={unit} onchange={(e) => { unit = e.currentTarget.value as AccelUnit; reread(); }} data-testid="th-unit-{dir}"><option value="g">g</option><option value="m/s2">m/s²</option><option value="cm/s2">cm/s²</option></select></label>
       <label>{t('pro.th.columnDt')} <input type="number" min="0.0001" step="0.001" value={columnDt} onchange={(e) => { columnDt = Number(e.currentTarget.value); reread(); }} /></label>
     </div>

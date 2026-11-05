@@ -5,7 +5,6 @@
   numbered packages and compared with the model now.
 -->
 <script lang="ts">
-  import { accountGate } from '../../../../lib/store/account-gate.svelte';
   import { t, tp, i18n } from '../../../../lib/i18n';
   import { uiStore } from '../../../../lib/store';
   import {
@@ -70,7 +69,7 @@
             <tr><td colspan="7">
               <div class="sf-form">
                 <label>{t('fed.ui.versionLabel')} <input bind:value={updVersion} /></label>
-                <input type="file" accept=".ifc" onchange={accountGate.files('import', (e) => update(l.id, (e.currentTarget as HTMLInputElement).files?.[0]))} data-testid="fed-update-file" />
+                <input type="file" accept=".ifc" onchange={(e) => update(l.id, (e.currentTarget as HTMLInputElement).files?.[0])} data-testid="fed-update-file" />
               </div>
             </td></tr>
           {/if}
@@ -78,7 +77,7 @@
       </tbody>
     </table>
     <div class="sf-form">
-      <input type="file" accept=".ifc" onchange={accountGate.files('import', (e) => (file = (e.currentTarget as HTMLInputElement).files?.[0] ?? null))} data-testid="fed-link-file" />
+      <input type="file" accept=".ifc" onchange={(e) => (file = (e.currentTarget as HTMLInputElement).files?.[0] ?? null)} data-testid="fed-link-file" />
       <label>{t('fed.ui.name')} <input bind:value={form.name} data-testid="fed-link-name" /></label>
       <label>{t('fed.ui.discipline')} <select bind:value={form.discipline}>{#each DISCIPLINES as d (d)}<option value={d}>{t(`fed.disc.${d}`)}</option>{/each}</select></label>
       <label>{t('fed.ui.versionLabel')} <input bind:value={form.version} /></label>

@@ -33,6 +33,8 @@
   type Step = { kind: 'idle' } | { kind: 'waiting'; cancel: () => void } | { kind: 'terms'; token: string; email: string; placement: string };
   let step = $state<Step>({ kind: 'idle' });
   let accept = $state(false);
+  let allowResearch = $state(false);
+  let shareUsage = $state(false);
   let busy = $state(false);
   let error = $state<string | null>(null);
   let live = $state(false);
@@ -80,6 +82,8 @@
         toEditor();
       } else {
         accept = false;
+        allowResearch = false;
+        shareUsage = false;
         tracking.signUpClick(placement);
         step = { kind: 'terms', token: outcome.token, email: outcome.email, placement };
         tracking.registrationStep('terms');
@@ -95,17 +99,20 @@
     if (busy || step.kind !== 'terms' || !accept) return;
     busy = true;
     error = null;
+    const askedUsage = !usageConsent.decided;
+    const usage = askedUsage ? shareUsage : usageConsent.granted;
     try {
       const account = await authStore.completeGoogleSignup({
         signup_token: step.token,
         accept_terms: true,
-        usage_analytics: usageConsent.sharing,
+        usage_analytics: usage,
+        model_research: allowResearch,
         locale: publicI18n.locale,
         source: signupSource(`register.${step.placement}`, adConsent.granted),
         attribution: adAttribution(),
       });
       tracking.completeRegistration(account.id);
-      if (usageConsent.sharing) usageConsent.set('granted');
+      if (askedUsage) usageConsent.set(usage ? 'granted' : 'denied');
       step = { kind: 'idle' };
       toEditor();
     } catch (err) {
@@ -240,7 +247,17 @@
           <a href={legalHref(PRIVACY_PATH, publicI18n.locale)} target="_blank" rel="noopener noreferrer">{t('legal.privacyLink')}</a>
         </span>
       </label>
-      <p class="rg-dialog-note">{t('legal.usageIncluded')}</p>
+      {#if !usageConsent.decided}
+        <label class="rg-check">
+          <input type="checkbox" bind:checked={shareUsage} data-testid="register-share-usage" />
+          <span>{t('register.shareUsage')}</span>
+        </label>
+      {/if}
+      <label class="rg-check">
+        <input type="checkbox" bind:checked={allowResearch} data-testid="register-allow-research" />
+        <span>{t('register.allowResearch')}</span>
+      </label>
+      <p class="rg-dialog-note">{t('register.consentNote')}</p>
       {#if error}<p class="rg-error" role="alert">{error}</p>{/if}
       <div class="rg-dialog-actions">
         <button type="button" class="rg-ghost" onclick={cancel}>{t('register.termsCancel')}</button>

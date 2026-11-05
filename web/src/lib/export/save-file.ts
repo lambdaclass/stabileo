@@ -1,12 +1,9 @@
-import { accountGate } from '../store/account-gate.svelte';
+import { accountGate, type GatedAction } from '../store/account-gate.svelte';
 import { milestone } from '../tracking/activity.svelte';
 
-/**
- * Hands a file to the browser under a name, once an account allows it (`account-gate.svelte.ts`).
- * The link is made inside the allowed action, so a sign-in that takes a while never finds it revoked.
- */
-export function saveFile(name: string, data: Blob): void {
-  accountGate.guard('export', () => {
+/** Hands a file to the browser once the account gate lets it through; the link is made only then, so a long sign-in never finds it revoked. */
+export function saveFile(name: string, data: Blob, action: GatedAction = 'export'): void {
+  accountGate.guard(action, () => {
     const url = URL.createObjectURL(data);
     const a = document.createElement('a');
     a.href = url;
@@ -15,6 +12,6 @@ export function saveFile(name: string, data: Blob): void {
     a.click();
     document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(url), 10_000);
-    if (!/\.ded$/i.test(name)) milestone('first_export');
+    milestone(action === 'save' || /\.ded$/i.test(name) ? 'first_save' : 'first_export');
   });
 }

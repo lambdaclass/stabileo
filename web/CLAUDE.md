@@ -349,8 +349,7 @@ asks for one first. Each comment carries the sender, the page, the app version a
 user ticks it, the model's share link.
 
 The team reads and answers them on the admin site, under Comentarios (`src/admin/FeedbackPage.svelte`):
-mark them read or done, filter by sender, reply by email. The old floating widget that opened
-GitHub issues (`FeedbackWidget.svelte`, `functions/api/feedback.ts`) is no longer mounted.
+mark them read or done, filter by sender, reply by email.
 
 ## Known Limitations (3D)
 

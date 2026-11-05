@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { accountGate } from '../../lib/store/account-gate.svelte';
   import Hint from './Hint.svelte';
   import { downloadResultText } from '../../lib/export/provenance-attach';
   import { captureAnalysisProvenance } from '../../lib/store/result-provenance';
@@ -239,7 +238,7 @@
   </div>
   <div class="ml-row">
     <button class="pk-btn" onclick={saveFile} data-testid="moving-save">{t('moving.saveVehicle')}</button>
-    <label class="pk-btn">{t('moving.openVehicle')} <input type="file" accept="application/json,.json" onchange={accountGate.files('import', openFile)} hidden data-testid="moving-open" /></label>
+    <label class="pk-btn">{t('moving.openVehicle')} <input type="file" accept="application/json,.json" onchange={openFile} hidden data-testid="moving-open" /></label>
   </div>
   <Hint text={t('moving.vehicleHint')} />
   <div class="ml-row">

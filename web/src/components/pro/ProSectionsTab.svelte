@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { accountGate } from '../../lib/store/account-gate.svelte';
   import { plainNumber } from '../../lib/utils/units';
   import { modelStore, uiStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
@@ -222,7 +221,7 @@
     >{t('pro.addSectionPanel')}</button>
     <label class="csv-import" title={t('csvSections.help')}>
       {t('csvSections.import')}
-      <input type="file" accept=".csv,text/csv" data-testid="pro-sections-csv" onchange={accountGate.files('import', importCsv)} />
+      <input type="file" accept=".csv,text/csv" data-testid="pro-sections-csv" onchange={importCsv} />
     </label>
   </div>
   {#if csvReport}

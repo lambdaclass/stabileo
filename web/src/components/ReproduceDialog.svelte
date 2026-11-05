@@ -12,7 +12,6 @@
   import { i18n, t, tp } from '../lib/i18n';
   import { baseSolverInputJson } from '../lib/store/result-provenance';
   import { downloadText } from '../lib/store/file';
-  import { accountGate } from '../lib/store/account-gate.svelte';
 
   const languageName = (code: string) => {
     try { return new Intl.DisplayNames([i18n.locale], { type: 'language' }).of(code) ?? code; } catch { return code; }
@@ -81,7 +80,7 @@
       <h3 class="rp-title" id="rp-title">{t('provenance.reproduce.title')}</h3>
       <p class="rp-intro">{t('provenance.reproduce.intro')}</p>
       <textarea class="rp-text" bind:value={text} rows="6" spellcheck="false" data-testid="reproduce-input"></textarea>
-      <input bind:this={fileInput} type="file" accept=".html,.htm,.json,.txt" style="display:none" onchange={accountGate.files('open', loadFile)} />
+      <input bind:this={fileInput} type="file" accept=".html,.htm,.json,.txt" style="display:none" onchange={loadFile} />
       {#if error}<p class="rp-error" data-testid="reproduce-error">{error}</p>{/if}
       {#if outcome}
         {#if outcome.ok}
@@ -125,7 +124,7 @@
       {/if}
       <div class="rp-actions">
         <button class="rp-btn" onclick={() => fileInput?.click()}>{t('provenance.reproduce.load')}</button>
-        <button class="rp-btn" onclick={() => accountGate.guard('export', downloadInput)} disabled={!outcome?.ok} data-testid="reproduce-download-input">{t('provenance.reproduce.download')}</button>
+        <button class="rp-btn" onclick={downloadInput} disabled={!outcome?.ok} data-testid="reproduce-download-input">{t('provenance.reproduce.download')}</button>
         <button class="rp-btn" onclick={close} data-testid="reproduce-close">{t('provenance.reproduce.close')}</button>
         <button class="rp-btn rp-primary" disabled={busy || !text.trim()} onclick={run} data-testid="reproduce-run">{t('provenance.reproduce.run')}</button>
       </div>

@@ -3,7 +3,6 @@
   import ExportDialog from './ExportDialog.svelte';
   import ExportSection from './ExportSection.svelte';
   import { exportWorkbook, exportResultsCsv } from '../../lib/export/results-export';
-  import { accountGate } from '../../lib/store/account-gate.svelte';
 
   let { open = $bindable(false) }: { open: boolean } = $props();
   let format = $state<'xlsx' | 'csv'>('xlsx');
@@ -31,7 +30,7 @@
 
   {#snippet actions()}
     <button type="button" onclick={() => (open = false)}>{t('calcReport.cancel')}</button>
-    <button type="button" class="primary" onclick={() => accountGate.guard('export', run)} disabled={busy} data-testid="results-export-download">{t('viewExport.download')}</button>
+    <button type="button" class="primary" onclick={run} disabled={busy} data-testid="results-export-download">{t('viewExport.download')}</button>
   {/snippet}
 </ExportDialog>
 

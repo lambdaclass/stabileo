@@ -20,12 +20,6 @@
   let profileMsg = $state<{ kind: 'ok' | 'bad'; text: string } | null>(null);
   let profileFields = $state<Record<string, string>>({});
 
-  let currentPassword = $state('');
-  let newPassword = $state('');
-  let changing = $state(false);
-  let passwordMsg = $state<{ kind: 'ok' | 'bad'; text: string } | null>(null);
-  let passwordFields = $state<Record<string, string>>({});
-
   $effect(() => {
     if (!open) return;
     untrack(() => {
@@ -37,10 +31,6 @@
       locale = a && isOfferedLocale(a.locale) ? a.locale : 'es';
       profileMsg = null;
       profileFields = {};
-      passwordMsg = null;
-      passwordFields = {};
-      currentPassword = '';
-      newPassword = '';
     });
   });
 
@@ -91,29 +81,6 @@
       if (!authStore.isAuthenticated) close();
     } finally {
       saving = false;
-    }
-  }
-
-  async function changePassword(e: SubmitEvent) {
-    e.preventDefault();
-    if (changing) return;
-    changing = true;
-    passwordMsg = null;
-    passwordFields = {};
-    try {
-      await authStore.changePassword(currentPassword, newPassword);
-      currentPassword = '';
-      newPassword = '';
-      passwordMsg = { kind: 'ok', text: t('account.passwordChanged') };
-    } catch (err) {
-      passwordFields = fieldErrors(err);
-      passwordMsg = {
-        kind: 'bad',
-        text: Object.keys(passwordFields).length ? t('account.err.validation_error') : errorText(err),
-      };
-      if (!authStore.isAuthenticated) close();
-    } finally {
-      changing = false;
     }
   }
 
@@ -227,50 +194,10 @@
         </div>
       </form>
 
-      {#if authStore.passwordLogin && authStore.account?.sign_in_method !== 'google'}
-      <form class="acc-section" onsubmit={changePassword} novalidate>
-        <h4 class="acc-section-head">{t('account.passwordSection')}</h4>
-        <div class="acc-row">
-          <label class="acc-field">
-            <span class="acc-label">{t('account.currentPassword')}</span>
-            <input
-              type="password" bind:value={currentPassword} autocomplete="current-password"
-              class:bad={passwordFields.current_password} data-testid="password-current"
-            />
-            {#if passwordFields.current_password}<span class="acc-field-err">{passwordFields.current_password}</span>{/if}
-          </label>
-          <label class="acc-field">
-            <span class="acc-label">{t('account.newPassword')}</span>
-            <input
-              type="password" bind:value={newPassword} autocomplete="new-password"
-              class:bad={passwordFields.password} data-testid="password-new"
-            />
-            {#if passwordFields.password}
-              <span class="acc-field-err">{passwordFields.password}</span>
-            {:else}
-              <span class="acc-hint">{t('account.passwordHint')}</span>
-            {/if}
-          </label>
-        </div>
-
-        {#if passwordMsg}
-          <p class="acc-msg" class:bad={passwordMsg.kind === 'bad'} role="status" data-testid="password-msg">{passwordMsg.text}</p>
-        {/if}
-
-        <div class="acc-actions">
-          <button
-            type="submit" class="acc-btn"
-            disabled={changing || !currentPassword || !newPassword}
-            data-testid="password-submit"
-          >{changing ? t('account.working') : t('account.changePassword')}</button>
-        </div>
-      </form>
-      {:else}
-        <section class="acc-section">
-          <h4 class="acc-section-head">{t('account.google.section')}</h4>
-          <p class="acc-hint" data-testid="profile-google">{tp('account.google.signedInAs', { email: authStore.account?.email ?? '' })}</p>
-        </section>
-      {/if}
+      <section class="acc-section">
+        <h4 class="acc-section-head">{t('account.google.section')}</h4>
+        <p class="acc-hint" data-testid="profile-google">{tp('account.google.signedInAs', { email: authStore.account?.email ?? '' })}</p>
+      </section>
 
       <section class="acc-section" data-testid="profile-privacy">
         <h4 class="acc-section-head">{t('account.privacySection')}</h4>
@@ -281,7 +208,7 @@
           <a href={legalHref(USAGE_DATA_PATH, i18n.locale)} target="_blank" rel="noopener noreferrer">{t('usage.whatIsSent')}</a>
         </p>
         <label class="acc-check">
-          <input type="checkbox" checked={usageConsent.sharing} onchange={(e) => setUsage(e.currentTarget.checked)} data-testid="profile-usage" />
+          <input type="checkbox" checked={usageConsent.granted} onchange={(e) => setUsage(e.currentTarget.checked)} data-testid="profile-usage" />
           <span>{t('usage.registerOptIn')}</span>
         </label>
         <label class="acc-check">
