@@ -41,9 +41,12 @@ never silently wrong and verification never silently stops working.
   can produce a wrong result and defer the rest with the evidence in the PR body; a finding deferred
   that way counts as resolved for the merge rule above.
 - **Bugs first.** Bug and safety fixes merge before features.
-- **Results versions.** A PR that changes results takes the next results version
-  ([verification/PROVENANCE.md](verification/PROVENANCE.md)), assigned in the order PRs become
-  ready to merge. If another results-changing PR lands first, renumber.
+- **Results versions.** A PR that changes results adds one file,
+  `web/src/lib/provenance/result-changes/<id>.json`, **without a version number**. Main's merge
+  order numbers it ([the registry's README](../web/src/lib/provenance/result-changes/README.md),
+  [verification/PROVENANCE.md](verification/PROVENANCE.md)). Don't pick a number, bump
+  `currentResultsVersion`, pin `RELEASED` or restamp a fixture. Results-changing PRs don't
+  conflict with each other and can be queued together.
 - **Merge status.** The pinned issue [Merge status (#1391)](https://github.com/lambdaclass/stabileo/issues/1391)
   and the `status:*` labels (`status:in-queue`, `status:ready`, `status:in-progress`,
   `status:blocked`, `status:needs-owner-ok`) show every open PR's state and expected merge time.

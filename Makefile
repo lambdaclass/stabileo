@@ -12,7 +12,7 @@
        release.secrets backend.release.build backend.release.run backend.release.migrate \
        services services.stop postgres.start postgres.stop \
        inst inst.check inst.claim inst.release inst.list ports \
-       docker.build docker.up docker.down cloud-init.render \
+       result-changes.order docker.build docker.up docker.down cloud-init.render \
        check-pins check.changelog check.test-targets worktree worktree-prune hooks \
        fmt check clean
 
@@ -306,7 +306,7 @@ test.web.results:
 	$(NIX_RUN) bash -c "cd web && npx vitest run --project results"
 
 ## Regenerate web/results-snapshots/ after a DELIBERATE result change, then register it:
-## an entry in web/src/lib/provenance/result-changes.json and a "BREAKING (results)" fragment.
+## an entry in web/src/lib/provenance/result-changes/ and a "BREAKING (results)" fragment.
 snapshots-update:
 	$(NIX_RUN) bash -c "cd web && RESULTS_SNAPSHOT_UPDATE=1 npx vitest run --project results"
 
@@ -642,7 +642,11 @@ postgres.stop:
 cloud-init.render:
 	$(NIX_RUN) python3 -I infra/cloud-init/render.py
 
-docker.build:
+# The order results changes reached main, for a build without the git history (Docker).
+result-changes.order:
+	node web/scripts/result-changes/registry.mjs --write-order
+
+docker.build: result-changes.order
 	docker compose build
 
 docker.up:

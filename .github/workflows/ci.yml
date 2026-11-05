@@ -240,6 +240,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          fetch-depth: 0
+          filter: blob:none
       - name: Download tested production site
         env:
           GH_TOKEN: ${{ github.token }}
@@ -249,6 +251,8 @@ jobs:
           .github/scripts/retry-infra.sh gh run download "$RUN_ID" --name site-production --dir ci-site
           test -s ci-site/index.html
       # Also exercise Compose's default frontend/WASM compiler stages.
+      - if: needs.changes.outputs.docker_source == 'true'
+        run: make result-changes.order
       - if: needs.changes.outputs.docker_source == 'true'
         run: docker build --tag stabileo-source-smoke .
       - run: docker build --build-arg FRONTEND_STAGE=web-prebuilt --tag stabileo-smoke .
@@ -757,6 +761,8 @@ jobs:
         with:
           clean: true
           persist-credentials: false
+          fetch-depth: 0
+          filter: blob:none
       - if: runner.environment == 'github-hosted'
         uses: ./.github/actions/free-disk
       - if: runner.environment == 'github-hosted'
@@ -979,6 +985,8 @@ jobs:
         with:
           clean: true
           persist-credentials: false
+          fetch-depth: 0
+          filter: blob:none
       - if: runner.environment == 'github-hosted'
         uses: ./.github/actions/free-disk
       - if: runner.environment == 'github-hosted'
@@ -1067,6 +1075,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          fetch-depth: 0
+          filter: blob:none
       - if: runner.environment == 'github-hosted'
         uses: ./.github/actions/free-disk
       - if: runner.environment == 'github-hosted'
@@ -1110,6 +1120,8 @@ jobs:
         with:
           clean: true
           persist-credentials: false
+          fetch-depth: 0
+          filter: blob:none
       - if: runner.environment == 'github-hosted'
         uses: ./.github/actions/free-disk
       - if: runner.environment == 'github-hosted'
@@ -1209,7 +1221,7 @@ jobs:
   # The results snapshot gate (#716, docs/verification/PROVENANCE.md): the reference corpus
   # solved through the app's path must give the committed snapshots (web/results-snapshots/),
   # and a pull request that changes them must register the change (an entry in
-  # result-changes.json and a "BREAKING (results)" changelog fragment).
+  # web/src/lib/provenance/result-changes/ and a "BREAKING (results)" changelog fragment).
   results-snapshot:
     name: Results Snapshot
     runs-on: ubuntu-24.04
@@ -1221,8 +1233,8 @@ jobs:
         with:
           clean: true
           persist-credentials: false
-          # The merge commit and its first parent, the base the pull request is compared with.
-          fetch-depth: 2
+          fetch-depth: 0
+          filter: blob:none
       - if: runner.environment == 'github-hosted'
         uses: ./.github/actions/free-disk
       - if: runner.environment == 'github-hosted'
@@ -1283,6 +1295,8 @@ jobs:
         with:
           clean: true
           persist-credentials: false
+          fetch-depth: 0
+          filter: blob:none
       - uses: ./.github/actions/free-disk
       - if: runner.environment == 'github-hosted'
         uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
@@ -1355,6 +1369,8 @@ jobs:
         with:
           clean: true
           persist-credentials: false
+          fetch-depth: 0
+          filter: blob:none
       - if: runner.environment == 'github-hosted'
         uses: ./.github/actions/free-disk
       - if: runner.environment == 'github-hosted'
@@ -1494,6 +1510,8 @@ jobs:
         with:
           clean: true
           persist-credentials: false
+          fetch-depth: 0
+          filter: blob:none
       - if: runner.environment == 'github-hosted'
         uses: ./.github/actions/free-disk
       - if: runner.environment == 'github-hosted'
@@ -1593,6 +1611,8 @@ jobs:
         with:
           clean: true
           persist-credentials: false
+          fetch-depth: 0
+          filter: blob:none
       - uses: ./.github/actions/free-disk
       - uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
       - if: github.event_name != 'pull_request'
