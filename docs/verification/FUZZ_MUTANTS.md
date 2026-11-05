@@ -191,8 +191,8 @@ OUT=<dirs>`), and compares it with [`mutants-baseline.json`](mutants-baseline.js
 below its baseline or with no mutant tested, or a shard that did not report every mutant it
 holds, opens or updates the **Mutation kill rate below baseline** issue. When a run kills more,
 raise the baseline with `make mutants.safety.record` in the pull request that adds the tests.
-`record` refuses a lower rate unless it is given `ARGS=--allow-lower`, and it refuses a module
-with no mutant tested in any case.
+`record` refuses a lower rate unless it is given `ARGS=--allow-lower`, and it always refuses a module
+with no mutant tested, or a report in which a shard did not test every mutant it holds.
 
 Baseline (2026-11-05, 818 mutants, with the certificate guard tests added in the same pull request):
 

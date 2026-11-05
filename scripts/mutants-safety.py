@@ -174,6 +174,7 @@ def main(argv):
     w.add_argument("report")
     w.add_argument("--baseline", default=str(BASELINE))
     w.add_argument("--allow-lower", action="store_true")
+    w.add_argument("--expect-shards", type=int)
     a = p.parse_args(argv)
     cfg = scope()
     if a.cmd == "files":
@@ -215,9 +216,14 @@ def main(argv):
         if a.markdown:
             Path(a.markdown).write_text(text)
     elif a.cmd == "record":
-        mods = json.loads(Path(a.report).read_text())["modules"]
+        rep = json.loads(Path(a.report).read_text())
+        mods = rep["modules"]
         old = json.loads(Path(a.baseline).read_text()) if Path(a.baseline).exists() else {}
-        refused = [f"{m}: no mutant was tested" for m, v in mods.items() if v.get("kill_rate") is None]
+        cov = rep.get("coverage")
+        refused = []
+        if not cov or cov["complete"] < cov["shards"] or (a.expect_shards is not None and cov["complete"] < a.expect_shards):
+            refused.append(f"the report does not cover every mutant: {coverage_line(cov or {'shards': 0, 'complete': 0}, a.expect_shards or (cov or {}).get('shards', 0)).strip()}")
+        refused += [f"{m}: no mutant was tested" for m, v in mods.items() if v.get("kill_rate") is None]
         refused += [f"{m}: not in the report" for m in old.get("modules", {}) if m not in mods]
         if not a.allow_lower:
             refused += [

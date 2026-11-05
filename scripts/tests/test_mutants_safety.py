@@ -116,7 +116,7 @@ class RatchetTest(unittest.TestCase):
 
     def test_the_cli_ratchet_and_record_round_trip(self):
         d = Path(tempfile.mkdtemp())
-        rep = {"modules": {"certificate": {"tested": 4, "caught": 3, "timeout": 0, "missed": 1, "unviable": 2, "kill_rate": 0.75, "missed_names": ["x"]}}}
+        rep = {"coverage": {"shards": 1, "complete": 1}, "modules": {"certificate": {"tested": 4, "caught": 3, "timeout": 0, "missed": 1, "unviable": 2, "kill_rate": 0.75, "missed_names": ["x"]}}}
         (d / "r.json").write_text(json.dumps(rep))
         (d / "base.json").write_text(json.dumps({"note": "kept", "modules": {"certificate": {"kill_rate": 0.8}}}))
         self.assertEqual(ms.main(["ratchet", str(d / "r.json"), "--baseline", str(d / "base.json")]), 1)
@@ -132,9 +132,20 @@ class RatchetTest(unittest.TestCase):
     def test_record_refuses_an_untested_or_dropped_module(self):
         d = Path(tempfile.mkdtemp())
         (d / "base.json").write_text(json.dumps({"modules": {"certificate": {"kill_rate": 0.5}, "containment": {"kill_rate": 0.5}}}))
-        (d / "r.json").write_text(json.dumps({"modules": {"certificate": {"tested": 0, "caught": 0, "timeout": 0, "missed": 0, "unviable": 3, "kill_rate": None}}}))
+        (d / "r.json").write_text(json.dumps({"coverage": {"shards": 1, "complete": 1}, "modules": {"certificate": {"tested": 0, "caught": 0, "timeout": 0, "missed": 0, "unviable": 3, "kill_rate": None}}}))
         self.assertEqual(ms.main(["record", str(d / "r.json"), "--baseline", str(d / "base.json"), "--allow-lower"]), 1)
         self.assertEqual(json.loads((d / "base.json").read_text())["modules"]["certificate"], {"kill_rate": 0.5})
+
+    def test_record_refuses_a_report_with_a_shard_cut_short_or_missing(self):
+        d = Path(tempfile.mkdtemp())
+        (d / "base.json").write_text(json.dumps({"modules": {"certificate": {"kill_rate": 0.5}}}))
+        mods = {"certificate": {"tested": 2, "caught": 2, "timeout": 0, "missed": 0, "unviable": 0, "kill_rate": 1.0}}
+        for cov, extra in (({"shards": 2, "complete": 1}, []), (None, []), ({"shards": 2, "complete": 2}, ["--expect-shards", "24"])):
+            (d / "r.json").write_text(json.dumps({"modules": mods, **({"coverage": cov} if cov else {})}))
+            self.assertEqual(ms.main(["record", str(d / "r.json"), "--baseline", str(d / "base.json"), *extra]), 1)
+            self.assertEqual(json.loads((d / "base.json").read_text())["modules"]["certificate"], {"kill_rate": 0.5})
+        (d / "r.json").write_text(json.dumps({"modules": mods, "coverage": {"shards": 24, "complete": 24}}))
+        self.assertEqual(ms.main(["record", str(d / "r.json"), "--baseline", str(d / "base.json"), "--expect-shards", "24"]), 0)
 
 
 class CoverageTest(unittest.TestCase):
