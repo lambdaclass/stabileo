@@ -170,6 +170,12 @@ it('refuses an envelope whose maxAbsResults3D carries a refusal', () => {
   expect(knownIssueResultDisposition({ envelope3D: { maxAbsResults3D: { structuredDiagnostics: [refusal] } } }).refused).toBe(true);
   expect(knownIssueResultDisposition({ unrelated: { structuredDiagnostics: [refusal] } }).refused).toBe(false);
 });
+it('refuses a moving-load result whose positions are clean but whose full envelope carries a refusal', () => {
+  const refusal = { code: 'known_issue', severity: 'error', phase: 'SH-MITC4-DISTORTION', value: 798, message: 'ENGINE' };
+  const positions = [{ results: { structuredDiagnostics: [] } }];
+  expect(knownIssueResultDisposition({ structuredDiagnostics: [], positions, fullEnvelope: { maxAbsResults: { structuredDiagnostics: [] } } }).refused).toBe(false);
+  expect(knownIssueResultDisposition({ structuredDiagnostics: [], positions, fullEnvelope: { maxAbsResults: { structuredDiagnostics: [refusal] } } }).refused).toBe(true);
+});
 
 describe('the result walker finds a refusal wherever a bundle keeps it', () => {
   const refused = { structuredDiagnostics: [{ code: 'known_issue', severity: 'error', phase: 'BU-BOUND', value: 741, message: 'ENGINE' }] };

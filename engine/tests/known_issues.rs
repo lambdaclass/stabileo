@@ -1048,6 +1048,23 @@ fn macneal_strip(distorted: bool, direction: usize) -> SolverInput3D {
 }
 
 #[test]
+fn the_membrane_bending_refusal_holds_at_any_load_scale() {
+    for scale in [1.0, 1e-6, 1e-12, 1e-18, 1e6] {
+        let mut input = macneal_strip(true, 1);
+        for load in &mut input.loads {
+            if let SolverLoad3D::Nodal(n) = load { n.fy *= scale; }
+        }
+        common::assert_containment(dedaliano_engine::solver::linear::solve_3d(&input), "SH-MITC4-DISTORTION");
+        let mut uniform = macneal_strip(true, 0);
+        for load in &mut uniform.loads {
+            if let SolverLoad3D::Nodal(n) = load { n.fx *= scale; }
+        }
+        let regular = dedaliano_engine::solver::linear::solve_3d(&{ let mut r = macneal_strip(false, 0); r.loads = uniform.loads.clone(); r }).unwrap();
+        assert!(!ids(&regular.structured_diagnostics).contains(&"SH-MITC4-DISTORTION".to_string()), "scale {scale}: {:?}", ids(&regular.structured_diagnostics));
+    }
+}
+
+#[test]
 fn a_staged_analysis_is_judged_by_the_shells_its_stages_activate() {
     use dedaliano_engine::solver::staged::solve_staged_3d;
     let mut model = beam3d();

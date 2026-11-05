@@ -8,5 +8,4 @@
 - Correct 2D reactions of a settled rigid support that also carries a spring on the settled DOF (#1113): the spring force −k·u is now included, so the reactions balance the loads. Fiber analyses now warn on near-singular tangents like the other nonlinear solvers (#1093).
 - Warn on CIRSOC 201 column and biaxial checks whose axial force and moment come from different combinations (#1316): the check names both combinations and a passing member becomes a warning. Ratios are unchanged.
 - Refuse 3D buckling, Guyan and Craig–Bampton reductions of models with distorted MITC4 elements, as 3D harmonic analysis already does (#798): their mode shapes and reduced matrices carry the locked membrane stiffness that the static field check cannot see.
-- Warn on 2D buckling when members carry axial span loads (#1323): the geometric stiffness uses each member's mean axial force, which can overstate the factor when compression varies along the member. Values are unchanged.
 - Warn on 2D and 3D P-Delta when members carry axial span loads (#1329): the geometric stiffness uses each member's mean axial force, which can understate the second-order amplification. Values are unchanged.

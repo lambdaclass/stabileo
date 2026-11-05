@@ -132,6 +132,12 @@ describe.each(ids)('%s', (id) => {
 });
 
 
+it('validation-04 solves all 22 cases on one shared factorization and balances each', async () => {
+  const rows = await statics('validation-04');
+  expect(rows).toHaveLength(22);
+  for (const row of rows) expect(row.worstRelative, `${row.caseName} balances`).toBeLessThan(1e-9);
+}, 60_000);
+
 describe('the validation models, as regression fixtures', () => {
   it('are not PRO examples: the gallery shows examples of its own', () => {
     // They reproduce another program's structures one to one, which is what a regression
