@@ -1,0 +1,76 @@
+"""Tonight's mutants shards: the ones that went longest without running to their verdict.
+
+Prints a JSON list of SLOTS shard indices out of TOTAL. A shard's age comes from the newest
+mutants-done-<k>-of-<TOTAL> marker of a nightly.yml run on main; shards with no marker go first.
+Ties go by shard index, so shards a night did not finish stay ahead of every shard not yet run.
+A shard that has failed to finish twice since its last marker (two started `mutants (k of TOTAL)`
+jobs, reruns included, with no marker after them) is dated by its last attempt
+instead, so shards that never finish cannot hold every slot. If GitHub cannot be read, it falls
+back to the day-based rotation and says so.
+"""
+import json
+import os
+import re
+import subprocess
+import sys
+import time
+
+MARKER = re.compile(r"mutants-done-(\d+)-of-(\d+)")
+JOB = re.compile(r"mutants \((\d+) of (\d+)\)")
+
+
+def rotation(total, slots, day):
+    return [(day * slots + i) % total for i in range(slots)]
+
+
+def pick(total, slots, last_done, attempts=None):
+    def age(k):
+        done = last_done.get(k, "")
+        failed = sorted(t for t in (attempts or {}).get(k, []) if t > done)
+        return (failed[-1] if len(failed) >= 2 else done, k)
+    order = sorted(range(total), key=age)
+    return order[:slots]
+
+
+def gh(path):
+    out = subprocess.run(["gh", "api", "--paginate", "--slurp", path], capture_output=True, text=True, timeout=120, check=True)
+    return json.loads(out.stdout)
+
+
+def markers(repo, total, days):
+    since = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() - days * 86400))
+    runs = [r for page in gh(f"repos/{repo}/actions/workflows/nightly.yml/runs?branch=main&created=>{since}&per_page=100")
+            for r in page["workflow_runs"]]
+    last, attempts = {}, {}
+    for run in runs:
+        for page in gh(f"repos/{repo}/actions/runs/{run['id']}/jobs?filter=all&per_page=100"):
+            for job in page["jobs"]:
+                m = JOB.fullmatch(job["name"])
+                if m and int(m.group(2)) == total and job["status"] == "completed" and job["started_at"]:
+                    attempts.setdefault(int(m.group(1)), []).append(job["started_at"])
+        for page in gh(f"repos/{repo}/actions/runs/{run['id']}/artifacts?per_page=100"):
+            for artifact in page["artifacts"]:
+                m = MARKER.fullmatch(artifact["name"])
+                if m and int(m.group(2)) == total and not artifact["expired"]:
+                    k = int(m.group(1))
+                    last[k] = max(last.get(k, ""), artifact["created_at"])
+    return last, attempts
+
+
+def main():
+    total, slots, day = int(sys.argv[1]), int(sys.argv[2]), int(sys.argv[3])
+    try:
+        last, attempts = markers(os.environ["GH_REPO"], total, int(os.environ.get("MUTANTS_LOOKBACK_DAYS", "45")))
+    except Exception as ex:
+        print(f"::warning title=Mutants rotation::markers unreadable ({ex}); tonight runs the day-based rotation", file=sys.stderr)
+        print(json.dumps(rotation(total, slots, day)))
+        return
+    shards = pick(total, slots, last, attempts)
+    never = sum(1 for k in range(total) if k not in last)
+    oldest = min((last[k] for k in shards if k in last), default="none")
+    print(f"mutants: {total - never} of {total} shards have a marker; tonight {slots}, {sum(1 for k in shards if k not in last)} without one, oldest marker among them {oldest}", file=sys.stderr)
+    print(json.dumps(shards))
+
+
+if __name__ == "__main__":
+    main()
