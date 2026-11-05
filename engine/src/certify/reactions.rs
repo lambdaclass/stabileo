@@ -3,7 +3,7 @@
 //!
 //! The solvers report, per support component with global DOF d,
 //!
-//!   restrained d:          R = (K u − f)_d = Σ_j K_dj u_j − f_d
+//!   restrained d:          R = (K u − f)_d − k·u_d = Σ_j K_dj u_j − f_d − k·u_d
 //!   free d with spring k:  R = −k·u_d
 //!
 //! (`build_reactions_2d/3d`), with K and f the assembly the certificate checks.
@@ -123,7 +123,7 @@ fn component_bound(c: &Component, k: &RestrainedRows, u: &[f64], f: &[f64], abs_
         }
         Some(d) => {
             let (r, value) = k.row(d, u, f);
-            (up(r * abs_bound), value)
+            (up(r * abs_bound), value - Interval::point(c.spring.max(0.0)) * Interval::point(u[d]))
         }
     };
     let dev = (value - Interval::point(c.reported)).mag();

@@ -11,7 +11,8 @@
 # Usage (from anywhere in the repo):
 #   scripts/mutants.sh                          # certify + solver + element
 #   scripts/mutants.sh --shard 3/64 --jobs 2    # extra arguments go to cargo-mutants
-# Env: MUTANTS_SCOPE = certify | solver | element | all (default all).
+#   MUTANTS_SCOPE=safety scripts/mutants.sh     # the weekly safety-critical scope (scripts/mutants-safety.json)
+# Env: MUTANTS_SCOPE = certify | solver | element | all | safety (default all).
 # Exit status: 0 when every mutant is caught (or unviable / timed out), 2 when one is missed.
 set -uo pipefail
 
@@ -21,7 +22,16 @@ cd "$root"
 scope=${MUTANTS_SCOPE:-all}
 files=()
 tests=()  # integration test targets, besides the library unit tests
+select=()
 case $scope in
+  safety)
+    while IFS= read -r f; do files+=(-f "$f"); done < <(python3 -I scripts/mutants-safety.py files)
+    while IFS= read -r t; do tests+=("$t"); done < <(python3 -I scripts/mutants-safety.py tests)
+    select=(--re "$(python3 -I scripts/mutants-safety.py regex)")
+    ;;
+esac
+case $scope in
+  safety) ;;
   certify | all)
     files+=(-f 'engine/src/certify/**')
     for t in engine/tests/certify*.rs; do tests+=("$(basename "$t" .rs)"); done
@@ -45,8 +55,8 @@ case $scope in
       local_axis_convention determinate_exact opensees_differential_regressions
       certify_end_to_end certify_end_to_end_mutations)
     ;;
-  certify | solver) ;;
-  *) echo "MUTANTS_SCOPE must be certify, solver, element or all" >&2; exit 64 ;;
+  certify | solver | safety) ;;
+  *) echo "MUTANTS_SCOPE must be certify, solver, element, all or safety" >&2; exit 64 ;;
 esac
 
 # The test binary a test file belongs to: the top-level engine/tests/*.rs files are modules of a
@@ -84,9 +94,9 @@ esac
 # mutant out only when the mutated index has exactly the same value.
 excl=()
 while IFS= read -r re; do excl+=(--exclude-re "$re"); done < <(
-  cargo mutants --list --json --package dedaliano-engine "${files[@]}" | python3 scripts/mutants-equivalent.py --regex)
+  cargo mutants --list --json --package dedaliano-engine "${files[@]}" "${select[@]}" | python3 scripts/mutants-equivalent.py --regex)
 echo "excluded $(( ${#excl[@]} / 2 )) equivalent index-arithmetic mutants (scripts/mutants-equivalent.py)"
-cargo mutants --package dedaliano-engine "${files[@]}" "${excl[@]}" --timeout-multiplier 3 "${cargo_args[@]}" "$@" "${test_args[@]}"
+cargo mutants --package dedaliano-engine "${files[@]}" "${select[@]}" "${excl[@]}" --timeout-multiplier 3 "${cargo_args[@]}" "$@" "${test_args[@]}"
 status=$?
 if [[ -s mutants.out/missed.txt ]]; then
   echo "Missed mutants (add a test, or exclude in .cargo/mutants.toml with a justification if equivalent):"

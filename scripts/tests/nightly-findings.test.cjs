@@ -60,6 +60,7 @@ test('write creates one issue per root cause and required labels', () => fixture
   assert.deepEqual(calls.filter(c => c.name === 'createLabel').map(c => c.args.name), ['safety', 'nightly-finding', 'wrong-result-candidate']);
   const created = calls.filter(c => c.name === 'create');
   assert.equal(created.length, 2);
+  for (const c of created) assert.deepEqual(c.args.assignees, ['unbalancedparentheses', 'Batuis']);
   assert.match(created[0].args.body, /Seed: `42`/);
   assert.match(created[0].args.body, /actions\/runs\/123/);
   assert.deepEqual(JSON.parse(created[0].args.body.split('```json\n')[1].split('\n```')[0]), finding.model);
@@ -185,6 +186,17 @@ for (const adapter of ['opensees', 'codeaster']) test(`${adapter}: adapter quant
   const created = calls.filter(c => c.name === 'create');
   assert.equal(created.length, adapter === 'codeaster' ? 3 : 5);
   assert.equal(created.filter(c => c.args.body.includes('**2 findings**')).length, 1);
+}));
+
+test('whole codeaster refusals that differ only in numbers are one root cause', () => fixture(async ({args, calls, save}) => {
+  const refusal = v => ({...finding, test: 'codeaster/false_reject', details: {status: 'false_reject', why: [
+    `stabileo: Support 3 (node 2): the prescribed dy = ${v} would not be applied, because that direction is not restrained (its flag is not set). Restrain that direction to impose it, or remove the prescribed value.`]}});
+  save('a', refusal(-0.00010986903031340312));
+  save('b', {...refusal(0.0025), model: {loads: [2], elements: {b: {}}}});
+  await report(args);
+  const created = calls.filter(c => c.name === 'create');
+  assert.equal(created.length, 1);
+  assert.match(created[0].args.title, /remove the prescribed value\./);
 }));
 
 const relabeled = [

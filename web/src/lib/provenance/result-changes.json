@@ -1,11 +1,11 @@
 {
   "$comment": "Registry of result-affecting changes. Read by web/scripts/result-change-metadata.mjs for build metadata and decoded by web/src/lib/provenance/full-registry.ts; schema and rules in docs/verification/PROVENANCE.md. Add an entry whenever a change makes the same saved model give different numbers, at currentResultsVersion + 1, and bump currentResultsVersion: a version on main is deployed, and an entry added to it later is never shown to the projects it stamped (results-version.test.ts). Feature ids are defined in web/src/lib/provenance/model-features.ts.",
   "schema": 1,
-  "currentResultsVersion": 33,
+  "currentResultsVersion": 32,
   "changes": [
     {
       "id": "harmonic-modal-residual-checked",
-      "resultsVersion": 33,
+      "resultsVersion": 32,
       "date": "2026-11-05",
       "prs": [
         1423
@@ -44,6 +44,36 @@
       "changelog": {
         "file": "docs/advisories/SA-2026-043-harmonic-modal-static-correction.md",
         "heading": "SA-2026-043: Harmonic analysis lost the omitted modes' correction when one mode was much softer than the rest"
+      }
+    },
+    {
+      "id": "safety-containment-diagnostics",
+      "resultsVersion": 31,
+      "date": "2026-11-05",
+      "prs": [
+        807
+      ],
+      "area": "analysis",
+      "when": { "any": ["members", "shells", "connectors"] },
+      "title": {
+        "en": "Known-issue warnings and refusals",
+        "es": "Advertencias y rechazos por problemas conocidos",
+        "pt": "Avisos e recusas por problemas conhecidos",
+        "de": "Warnungen und Ablehnungen wegen bekannter Probleme",
+        "fr": "Avertissements et refus pour problèmes connus",
+        "tr": "Bilinen sorunlar için uyarılar ve retler"
+      },
+      "explanation": {
+        "en": "Known-issue warnings added; numerical values of retained results are unchanged. Affected unsafe results are withheld by structured refusals; see the containment ledger for predicates. CIRSOC 201 column checks whose axial force and moment come from different combinations are now warnings that name both combinations. 2D plastic collapse, including the Basic course's plastic collapse unit of version 29 and the step-by-step kinematic and static plastic methods, is withheld until #758 is fixed: its collapse factor can change up to 4.6× with node numbering, member direction or units.",
+        "es": "Se agregan advertencias de problemas conocidos; los valores de resultados retenidos no cambian. Se retienen resultados inseguros mediante rechazos estructurados; los criterios figuran en el registro de contención. Las verificaciones de columnas CIRSOC 201 cuyo esfuerzo axial y momento provienen de combinaciones distintas ahora son advertencias que nombran ambas combinaciones. El colapso plástico 2D, incluidos la unidad de colapso plástico del curso Basic de la versión 29 y los métodos plásticos cinemático y estático paso a paso, queda retenido hasta que se corrija #758: su factor de colapso puede cambiar hasta 4,6× con la numeración de nudos, el sentido de las barras o las unidades.",
+        "pt": "Avisos de problemas conhecidos adicionados; os valores dos resultados mantidos não mudam. Resultados inseguros são retidos por recusas estruturadas; os critérios estão no registro de contenção. As verificações de pilares CIRSOC 201 cujo esforço axial e momento vêm de combinações diferentes agora são avisos que nomeiam ambas as combinações. O colapso plástico 2D, incluindo a unidade de colapso plástico do curso Basic da versão 29 e os métodos plásticos cinemático e estático passo a passo, fica retido até que #758 seja corrigido: seu fator de colapso pode mudar até 4,6× com a numeração dos nós, o sentido das barras ou as unidades.",
+        "de": "Warnungen zu bekannten Problemen hinzugefügt; die Zahlenwerte beibehaltener Ergebnisse bleiben unverändert. Betroffene unsichere Ergebnisse werden durch strukturierte Ablehnungen zurückgehalten; die Kriterien stehen im Eindämmungsregister. CIRSOC-201-Stützennachweise, deren Normalkraft und Moment aus verschiedenen Kombinationen stammen, sind jetzt Warnungen, die beide Kombinationen nennen. Der plastische Kollaps in 2D, einschließlich der Kurseinheit zum plastischen Kollaps in Basic aus Version 29 und der schrittweisen kinematischen und statischen Plastizitätsmethoden, wird zurückgehalten, bis #758 behoben ist: sein Kollapsfaktor kann sich mit Knotennummerierung, Stabrichtung oder Einheiten um bis zum 4,6-Fachen ändern.",
+        "fr": "Avertissements de problèmes connus ajoutés ; les valeurs des résultats conservés ne changent pas. Les résultats non sûrs concernés sont retenus par des refus structurés ; les critères figurent dans le registre de confinement. Les vérifications de poteaux CIRSOC 201 dont l'effort normal et le moment proviennent de combinaisons différentes sont désormais des avertissements qui nomment les deux combinaisons. L'effondrement plastique 2D, y compris l'unité d'effondrement plastique du cours Basic de la version 29 et les méthodes plastiques cinématique et statique pas à pas, est retenu jusqu'à la correction de #758 : son facteur d'effondrement peut varier jusqu'à 4,6× selon la numérotation des nœuds, le sens des barres ou les unités.",
+        "tr": "Bilinen sorun uyarıları eklendi; korunan sonuçların sayısal değerleri değişmez. Etkilenen güvensiz sonuçlar yapılandırılmış retlerle bekletilir; ölçütler sınırlama kaydındadır. Eksenel kuvveti ve momenti farklı kombinasyonlardan gelen CIRSOC 201 kolon kontrolleri artık her iki kombinasyonu da belirten uyarılardır. 2B plastik göçme, 29. sürümdeki Basic kursunun plastik göçme ünitesi ve adım adım kinematik ve statik plastik yöntemler dahil, #758 düzeltilene kadar bekletilir: göçme katsayısı düğüm numaralandırması, çubuk yönü veya birimlerle 4,6 katına kadar değişebilir."
+      },
+      "changelog": {
+        "file": "docs/results-changes/2026-10-containment.md",
+        "heading": "Safety containment diagnostics"
       }
     },
     {

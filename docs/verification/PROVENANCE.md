@@ -38,7 +38,7 @@ even when no snapshot changes. New entries cannot reuse a released version, and
 released entries cannot be removed or renumbered. PRs #807 and #814 both proposed
 version 5 while main was at 4: whichever merges second must preserve the first
 PR's entries and use version 6, updating the pinned version sets, fixture stamp
-and hashes, and documentation. #814 released version 5; #817 (buckling certificate) took 6; #1233 (column design axes) took 7; #1236 (EC2 strain compatibility) took 8; #827 (modal completeness, issue #759) took 9; #865 (self-checks) took 10; #1237 (shell envelope per component) took 11; #1246 (CIRSOC 301 Q ≤ 0 refused) took 12.
+and hashes, and documentation. #814 released version 5; #817 (buckling certificate) took 6; #1233 (column design axes) took 7; #1236 (EC2 strain compatibility) took 8; #827 (modal completeness, issue #759) took 9; #865 (self-checks) took 10; #1237 (shell envelope per component) took 11; #1246 (CIRSOC 301 Q ≤ 0 refused) took 12; #1239/#1247 (time history massless start, modal mechanism refused) took 13; #807 (safety containment diagnostics) took 14.
 
 The registry is seeded with every behaviour change of the October 2026 safety wave
 (`docs/MERGE_PLAN_SAFETY_WAVE.md` section 3) and the earlier BREAKING entries of `CHANGELOG.md`,

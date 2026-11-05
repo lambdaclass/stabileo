@@ -156,6 +156,7 @@ describe('which registered changes concern a model', () => {
     expect(ids(plane, { resultsVersion: 14, analyses: ['linear'] } as SolveStamp)).toContain('basic-influence-line-moment-sign-withdrawn');
     expect(ids(plane, v20)).toContain('generated-area-loads-headroom');
     expect(ids(plane, v20)).not.toContain('basic-influence-line-moment-sign-withdrawn');
+    expect(ids(plane, v20)).toContain('safety-containment-diagnostics');
     const entry = RESULT_CHANGES.changes.find((c) => c.id === 'generated-area-loads-headroom') as unknown as { title: Record<string, string>; explanation: Record<string, string> };
     for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
       expect(entry.title[locale]?.trim(), `title.${locale}`).toBeTruthy();
@@ -238,6 +239,13 @@ describe('which registered changes concern a model', () => {
 
   it('an empty model is concerned by nothing', () => {
     expect(ids(model({ supports: [], loadCases: [] }))).toEqual([]);
+  });
+
+  it('concerns a 3D steel truss one version old, and not the same supports and nodal load without members (the re-check e2e relies on it)', () => {
+    const previous = { resultsVersion: RESULTS_VERSION - 1, analyses: ['linear'] } as SolveStamp;
+    const loads = [{ type: 'nodal3d', data: { caseId: 1, nodeId: 3, fz: -20 } }];
+    expect(ids(model({ loads, elements: [member(1, 1, 'truss')] }), previous)).toContain('safety-containment-diagnostics');
+    expect(ids(model({ loads }), previous)).toEqual([]);
   });
 
   it('tells plane frames with combinations and member loads about the true-peak governing value and envelope', () => {
