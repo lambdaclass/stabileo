@@ -145,11 +145,52 @@ SIMD gives. A 1,296-DOF space frame solves in the test suite in under a second i
   Haugen):
   - A frame from the current nodes removes the rigid motion, and the local element sees the
     deformational displacements and rotations log(Rᵀ·R_i·R₀).
-  - B = ∂d_l/∂d is taken by central differences, and the geometric stiffness ∂(Bᵀ·f_l)/∂d by
-    differences of B, as the 3D frame does. Its tangent agrees with central differences of the
-    internal force to 10⁻⁵, elastic and yielded.
+  - B = ∂d_l/∂d is analytic: differentiate the normalized frame axes, remove the frame's spin
+    from each node, and map local spins through the inverse SO(3) Jacobian. The geometric
+    stiffness ∂(Bᵀ·f_l)/∂d still uses central differences of B, as the 3D frame does. Its tangent
+    agrees with central differences of the internal force to 10⁻⁵, elastic and yielded.
   - It is objective to round-off.
   - The geometric part also gives the shell's initial-stress stiffness for `linear_buckling`.
+
+### Plate compression through buckling and yielding
+
+`nonlinear_shell::imperfect_plate_strength_mesh_convergence_and_imperfection_sensitivity`
+joins LBA, mode imperfections, layered J2 plasticity and displacement control:
+
+- A simply supported square of side 1, E = 2.1·10⁸, ν = 0.3, f_y = 2.5·10⁵,
+  elastic-perfectly-plastic, seven layers. Thickness sets λ̄_p = √(f_y/σ_cr), with
+  σ_cr = 4π²E(t/b)²/[12(1 − ν²)]. No residual stress.
+- A quarter mesh, symmetric on both centre planes. The loaded edge has uniform dead traction
+  and can shorten nonuniformly; the unloaded edge is free in-plane. The first LBA mode's
+  transverse translations become the stress-free initial geometry, with centre amplitude b/420.
+- Centre-deflection control to an additional 2.5t, in 50 nominal steps, follows both sides of
+  the load peak. The default force, displacement and energy criteria remain enabled.
+- The reference load is f_y·t per unit edge length, so the load factor is mean stress / f_y.
+
+The [JRC–ECCS commentary to EN 1993-1-5 (2007), §12.4.1, printed p.145](https://eurocodes.jrc.ec.europa.eu/sites/default/files/2021-12/EUR22898EN.pdf)
+reports b/420 without residual stress as one calibration against Winter's curve. We compare
+with ρ = (λ̄_p − 0.22)/λ̄_p² as an engineering reference, with a 15% test envelope; it is not an
+exact solution or a matched independent FE benchmark.
+
+| λ̄_p | Quarter mesh | Sampled peak factor | Winter ρ |
+|---|---|---|---|
+| 1.0 | 8×8 | 0.79377 | 0.78000 |
+| 1.5 | 6×6 | 0.53240 | 0.56889 |
+| 1.5 | 8×8 | 0.52473 | 0.56889 |
+| 1.5 | 12×12 | 0.51955 | 0.56889 |
+| 2.0 | 8×8 | 0.39325 | 0.44500 |
+
+At λ̄_p = 1.5 the last two meshes differ by 1.0% (test limit 2%). Increasing the imperfection
+to b/200 lowers the 8×8 peak to 0.50592. Reflecting the imperfection and control displacement
+preserves strength to 10⁻⁷. The tests also require a resolved descending branch, postbuckling
+reserve for the slender plates, stress-free initial geometry and reaction equilibrium to 10⁻⁸.
+Quarter symmetry excludes asymmetric modes; the warped-quad approximation below still applies.
+The difference from Winter remains an open validation question, especially at λ̄_p = 2.
+
+This case exposed noise from the old finite-difference B: the 6×6 b/420 plate stopped before
+yield, at load factor 0.26554. Analytic B removes that failure without relaxing convergence.
+Its independent derivative test covers flat and warped quads, finite rotations and lengths
+from 10⁻³ to 10³, to 2·10⁻⁸ in nondimensional entries.
 
 ## Linear buckling and imperfections
 
@@ -376,6 +417,8 @@ error in the first kinematic-hardening tangent.
 | The same plate, perfectly plastic (von Mises) | collapse between 24·m_p/a² (yield line) and 24·(2/√3)·m_p/a²: 24.45 (4×4) and 24.04 (8×8) |
 | Cantilever strip, end moment π·EI/L, co-rotational | a half circle: the tip over the root at 2L/π, to 0.5 % |
 | Simply supported square plate in uniaxial compression, LBA | 4π²D/b², converging as h²: 3.4 % (8×8), 1.4 % (12×12), Richardson 0.25 % |
+| Mode-imperfect plate GMNIA, λ̄_p = 1, 1.5, 2 | Winter comparison within 15%; λ̄_p = 1.5 peak mesh change below 2%; descending branch, imperfection sensitivity, reflection and equilibrium (details above) |
+| Analytic shell projector, flat and warped quads over six orders of length | central differences of local deformations to 2·10⁻⁸ in nondimensional entries |
 | LBA of a pinned column | the engine's LBA and Euler to 0.5 %; higher modes near 4× and 9×; a half sine; the driver's bifurcation of the perfect column to 0.3 % |
 | LBA of a portal frame | the engine's LBA to 0.3 %; a sway mode |
 | LBA in tension, and of a transverse-loaded cantilever | no factor |
@@ -395,9 +438,8 @@ error in the first kinematic-hardening tangent.
 - **The shell's transverse shear is elastic,** outside the layers' plasticity.
 - **Warped quads** are taken flat on their mean plane, with no rigid-link correction (the
   engine's MITC4 has one).
-- **The co-rotational shell's differences** cost about 2,300 evaluations of its kinematics per
-  update. Fine for plates of hundreds of elements; an analytic projector is the plan for
-  thousands.
+- **The co-rotational shell's geometric tangent** still uses differences: 48 extra evaluations
+  of the analytic projector per update. The force transformation itself uses no differences.
 - **Pressure** is nodal loads (tributary areas): no follower pressure.
 - **Linear buckling of 2D frames** has the string's initial-stress stiffness, N/L, not the cubic
   beam's 6N/5L. It converges as the mesh does, from above: 0.3 % over Euler at 16 elements per
@@ -421,13 +463,12 @@ error in the first kinematic-hardening tangent.
 
 ## Next
 
-1. **Plate GMNIA** (EN 1993-1-5 Annex C, EN 1993-1-14). The pieces are here: the layered J2
-   shell, its LBA, and the modes as imperfections. Next is a validation against a stiffened or
-   unstiffened plate of the literature (ultimate strength of a plate in compression against
-   Winter's or the EN 1993-1-5 reduction factor).
+1. **Extend plate GMNIA validation.** The unstiffened plate now has mesh, path, equilibrium and
+   imperfection checks plus a Winter comparison. Next is an independent FE or experimental
+   benchmark with matched edge restraints and imperfections, then a full plate and stiffeners.
 2. **Cracked-slab deflection** as a concrete-with-rebar layer law (secant, tension stiffening) on
    the same shell.
-3. **The shell's membrane with EAS,** and an analytic co-rotational projector.
+3. **The shell's membrane with EAS,** and warped-quad corrections.
 4. **The rungs still planned above,** starting with softening regularization once a softening
    plane-stress law exists.
 5. **A WASM entry point and the failure contract in the app,** behind `feature_gates`.

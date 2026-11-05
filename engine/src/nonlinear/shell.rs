@@ -29,15 +29,16 @@
 //!   current positions in it minus the initial ones, the local rotations
 //!   log(Rᵀ·R_i·R₀). The local element sees small deformations whatever the
 //!   rotations. Its derivative B = ∂d_l/∂d (spatial rotation increments) is
-//!   taken by central differences, and the geometric part of the tangent,
-//!   ∂(Bᵀ·f_l)/∂d at frozen f_l, by differences of B, as the 3D frame does.
-//!   Exact to the differences' accuracy (about 10⁻⁷ of the geometric part),
-//!   and the cost of a first version: an analytic projector would be faster.
+//!   analytic: differentiate the frame and remove its spin, mapping local
+//!   spins through the inverse SO(3) Jacobian. The geometric part of the
+//!   tangent, ∂(Bᵀ·f_l)/∂d at frozen f_l, uses central differences of B, as
+//!   the 3D frame does. Material evaluation and internal force use no
+//!   differences; each tangent needs 48 additional projector evaluations.
 
 use super::element::Kinematics;
 use super::model3d::{Element3D, NodeState3D};
 use super::plane_stress::PlaneStressMaterial;
-use super::rotation::{cross, dot3, exp, log, mat_mul, mat_t_vec, norm3, transpose, Mat3, IDENTITY};
+use super::rotation::{cross, dot3, exp, log, mat_mul, mat_t_vec, mat_vec, norm3, transpose, ts_inv, Mat3, IDENTITY};
 
 // ==================== Section ====================
 
@@ -393,8 +394,10 @@ impl Shell4 {
         Ok(d)
     }
 
-    /// B = ∂d_l/∂d (24×24, row-major) at the states `s`, by central
-    /// differences; rotations perturbed by spatial increments.
+    /// B = ∂d_l/∂d (24×24, row-major), with spatial rotation increments.
+    /// Differentiate the frame's normalized axes, then remove its spin from
+    /// each node's translation and rotation. The inverse SO(3) Jacobian
+    /// maps the remaining spin to the variation of log(Rᵀ R_i R₀).
     fn b_matrix(&self, s: &[NodeState3D]) -> Result<Vec<f64>, String> {
         let mut b = vec![0.0; 576];
         if self.kinematics == Kinematics::Linear {
@@ -409,24 +412,51 @@ impl Shell4 {
             }
             return Ok(b);
         }
-        let l = self.size();
-        for j in 0..24 {
-            let (node, local) = (j / 6, j % 6);
-            let h = if local < 3 { 1e-6 * l } else { 1e-6 };
-            let mut col = [[0.0; 24]; 2];
-            for (c, sign) in [(0, 1.0), (1, -1.0)] {
-                let mut st = [s[0], s[1], s[2], s[3]];
-                if local < 3 {
-                    st[node].u[local] += sign * h;
-                } else {
-                    let mut dth = [0.0; 3];
-                    dth[local - 3] = sign * h;
-                    st[node].r = mat_mul(&exp(dth), &st[node].r);
+        let x = std::array::from_fn(|i| s[i].position());
+        let (r, c) = frame(&x)?;
+        let axes: [[f64; 3]; 3] = transpose(&r);
+        let (e1, e2, e3) = (axes[0], axes[1], axes[2]);
+        let (a, d, edge) = (sub(x[2], x[0]), sub(x[3], x[1]), sub(x[1], x[0]));
+        let normal_length = norm3(cross(a, d));
+        let edge_normal = dot3(edge, e3);
+        let projected_length = norm3(std::array::from_fn(|k| edge[k] - edge_normal * e3[k]));
+        let p: [[f64; 3]; 4] = std::array::from_fn(|i| mat_t_vec(&r, sub(x[i], c)));
+        let inv: [Mat3; 4] = std::array::from_fn(|i| ts_inv(log(&mat_mul(&mat_mul(&axes, &s[i].r), &self.r0))));
+        let normalized_derivative = |v: [f64; 3], dv: [f64; 3], length: f64| {
+            let along = dot3(v, dv);
+            std::array::from_fn(|k| (dv[k] - v[k] * along) / length)
+        };
+        for node in 0..4 {
+            for k in 0..3 {
+                let mut dx = [[0.0; 3]; 4];
+                dx[node][k] = 1.0;
+                let da = sub(dx[2], dx[0]);
+                let dd = sub(dx[3], dx[1]);
+                let (dn1, dn2) = (cross(da, d), cross(a, dd));
+                let de3 = normalized_derivative(e3, std::array::from_fn(|q| dn1[q] + dn2[q]), normal_length);
+                let dedge = sub(dx[1], dx[0]);
+                let dprojection = dot3(dedge, e3) + dot3(edge, de3);
+                let de1 = normalized_derivative(e1, std::array::from_fn(|q| dedge[q] - dprojection * e3[q] - edge_normal * de3[q]), projected_length);
+                let (de2a, de2b) = (cross(de3, e1), cross(e3, de1));
+                let de2 = std::array::from_fn(|q| de2a[q] + de2b[q]);
+                // Axial vector of Rᵀ δR, in the element frame.
+                let spin = [dot3(e3, de2), dot3(e1, de3), dot3(e2, de1)];
+                for i in 0..4 {
+                    let dc = std::array::from_fn(|q| dx[i][q] - if q == k { 0.25 } else { 0.0 });
+                    let dp = sub(mat_t_vec(&r, dc), cross(spin, p[i]));
+                    let dt = mat_vec(&inv[i], spin.map(|v| -v));
+                    for q in 0..3 {
+                        b[24 * (6 * i + q) + 6 * node + k] = dp[q];
+                        b[24 * (6 * i + 3 + q) + 6 * node + k] = dt[q];
+                    }
                 }
-                col[c] = self.local_dofs(&st)?;
             }
-            for i in 0..24 {
-                b[24 * i + j] = (col[0][i] - col[1][i]) / (2.0 * h);
+            // A nodal spin does not change the frame, which uses positions.
+            let rotation = mat_mul(&inv[node], &axes);
+            for a in 0..3 {
+                for k in 0..3 {
+                    b[24 * (6 * node + 3 + a) + 6 * node + 3 + k] = rotation[a][k];
+                }
             }
         }
         Ok(b)
@@ -521,5 +551,58 @@ impl Element3D for Shell4 {
 
     fn revert(&mut self) {
         self.sections.iter_mut().for_each(|s| s.revert());
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::nonlinear::plane_stress::PlaneStressElastic;
+
+    /// Central differences of the deformation map, independent of B:
+    /// include warped geometry, finite rotations and length scaling.
+    #[test]
+    fn analytic_projector_differentiates_local_deformations() {
+        let section = LayeredSection::uniform(0.02, 3, &PlaneStressElastic::new(2.1e8, 0.3), 8e7).unwrap();
+        for length in [0.001, 1.0, 1000.0] {
+            for warp in [0.0, 0.08] {
+                let q = exp([0.4, -0.7, 0.9]);
+                let x = [[0.0, 0.0, 0.0], [1.2, 0.1, 0.0], [1.0, 0.9, 0.0], [-0.1, 1.1, warp]]
+                    .map(|v| mat_vec(&q, v.map(|a| a * length)));
+                let shell = Shell4::new([0, 1, 2, 3], x, Kinematics::Corotational, &section).unwrap();
+                for scale in [0.0, 1.0, 4.0] {
+                    let s: [NodeState3D; 4] = std::array::from_fn(|i| NodeState3D {
+                        x0: x[i],
+                        u: [0.01 * (i as f64).sin(), -0.02 * (i as f64).cos(), 0.03 * i as f64].map(|v| v * scale * length),
+                        r: exp([0.05 * i as f64, -0.03, 0.02].map(|v| v * scale)),
+                    });
+                    let b = shell.b_matrix(&s).unwrap();
+                    for j in 0..24 {
+                        let (node, local) = (j / 6, j % 6);
+                        let h = 1e-6 * if local < 3 { length } else { 1.0 };
+                        let mut columns = [[0.0; 24]; 2];
+                        for (side, sign) in [(0, 1.0), (1, -1.0)] {
+                            let mut st = s;
+                            if local < 3 {
+                                st[node].u[local] += sign * h;
+                            } else {
+                                let mut spin = [0.0; 3];
+                                spin[local - 3] = sign * h;
+                                st[node].r = mat_mul(&exp(spin), &st[node].r);
+                            }
+                            columns[side] = shell.local_dofs(&st).unwrap();
+                        }
+                        for i in 0..24 {
+                            let fd = (columns[0][i] - columns[1][i]) / (2.0 * h);
+                            // Compare nondimensional entries, including zeros.
+                            let units = (if i % 6 < 3 { length } else { 1.0 })
+                                / if local < 3 { length } else { 1.0 };
+                            assert!((b[24 * i + j] - fd).abs() < 2e-8 * units,
+                                "length={length}, warp={warp}, scale={scale}, ({i},{j}): analytic={} fd={fd}", b[24 * i + j]);
+                        }
+                    }
+                }
+            }
+        }
     }
 }

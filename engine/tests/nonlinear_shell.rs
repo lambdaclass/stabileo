@@ -266,3 +266,104 @@ fn a_square_plate_in_compression_buckles_at_four_pi_squared_d() {
     let extrapolated = (r * f[1] - f[0]) / (r - 1.0);
     assert!((extrapolated / ncr - 1.0).abs() < 5e-3, "{extrapolated} vs {ncr}");
 }
+
+/// Quarter of a simply supported square plate in uniform compression.
+/// Symmetry planes are x = a/2 and y = a/2. The loaded edge x = 0 is
+/// free to shorten nonuniformly; the unloaded edge y = 0 is free in-plane.
+/// Reference edge traction is fy*t, so lambda is the mean stress / fy.
+fn compressed_quarter(n: usize, t: f64, fy: f64, offsets: Option<&[[f64; 3]]>, section: &LayeredSection) -> (Model3D, usize) {
+    let mut m = Model3D::new();
+    let h = 0.5 / n as f64;
+    let ids: Vec<Vec<usize>> = (0..=n).map(|i| (0..=n).map(|j| {
+        let z = offsets.map_or(0.0, |v| v[i * (n + 1) + j][2]);
+        m.add_node([i as f64 * h, j as f64 * h, z])
+    }).collect()).collect();
+    for i in 0..n {
+        for j in 0..n {
+            let nodes = [ids[i][j], ids[i + 1][j], ids[i + 1][j + 1], ids[i][j + 1]];
+            m.add_element(Box::new(Shell4::new(nodes, nodes.map(|k| m.coords(k)), Kinematics::Corotational, section).unwrap()));
+        }
+    }
+    for i in 0..=n {
+        for j in 0..=n {
+            m.fix(ids[i][j], [i == n, j == n, i == 0 || j == 0, j == n, i == n, i == n || j == n]);
+            if i == 0 {
+                let w = if j == 0 || j == n { 0.5 } else { 1.0 };
+                m.add_load(ids[i][j], [w * h * fy * t, 0.0, 0.0, 0.0, 0.0, 0.0]);
+            }
+        }
+    }
+    (m, ids[n][n])
+}
+
+/// A mode-imperfect plate, followed by centre-deflection control beyond
+/// its load peak. Default convergence criteria stay enabled: the b/420,
+/// n=6 case stalled before yield when the projector used finite differences.
+fn plate_gmnia(n: usize, slenderness: f64, amplitude: f64) -> Outcome {
+    use std::f64::consts::PI;
+    let fy = 2.5e5;
+    let t = (12.0 * (1.0 - NU * NU) * fy / E).sqrt() / (2.0 * PI * slenderness);
+    let (mut perfect, center) = compressed_quarter(n, t, fy, None, &elastic(t));
+    let b = linear_buckling(&mut perfect, &BucklingOptions { modes: 1, ..Default::default() }).unwrap();
+    assert_eq!(b.factors.len(), 1);
+    assert!((b.factors[0] * slenderness.powi(2) - 1.0).abs() < 0.02, "LBA {:?}", b.factors);
+    let mode = perfect.translations(&b.modes[0]);
+    assert!((mode[center][2] - 1.0).abs() < 1e-8, "first mode must have positive unit centre deflection");
+    let offsets: Vec<[f64; 3]> = mode.iter().map(|v| [0.0, 0.0, amplitude * v[2]]).collect();
+    let (mut m, center) = compressed_quarter(n, t, fy, Some(&offsets), &plastic(t, fy));
+    let mut initial = vec![0.0; m.n_dofs()];
+    m.assemble(&mut initial, &mut |_, _, _| {}).unwrap();
+    assert!(initial.iter().all(|f| f.abs() < 1e-10 * fy * t), "the imperfect reference geometry must be stress-free");
+    let target = amplitude.signum() * 2.5 * t;
+    let out = solve(&mut m, &Strategy::DisplacementControl { dof: 6 * center + 2, target, increments: 50 },
+        &NewtonOptions { max_total_iterations: Some(1500), ..Default::default() }).unwrap();
+    assert!(out.completed(), "n={n}, slenderness={slenderness}, amplitude={amplitude}: {:?}", out.termination);
+    assert!((out.u[6 * center + 2] / target - 1.0).abs() < 1e-10);
+    let (index, peak) = out.steps.iter().enumerate().max_by(|(_, a), (_, b)| a.lambda.total_cmp(&b.lambda)).unwrap();
+    assert!(index > 0 && index + 2 < out.steps.len(), "must resolve both sides of the peak");
+    assert!(out.lambda < 0.99 * peak.lambda, "must follow the descending branch");
+    assert!(out.steps.iter().all(|s| s.lambda.is_finite() && s.lambda > 0.0 && s.u.iter().all(|u| u.is_finite())));
+    if slenderness >= 1.5 {
+        assert!(peak.lambda > 1.1 * b.factors[0], "slender plate must carry load beyond elastic buckling");
+    }
+    let reaction: f64 = out.reactions.iter().step_by(6).sum();
+    let load = 0.5 * fy * t * out.lambda;
+    assert!((reaction + load).abs() < 1e-8 * load, "reaction {reaction}, applied load {load}");
+    println!("quarter {n}, slenderness {slenderness}, e0={amplitude}: peak={:.6}, final={:.6}, Newton iterations={}", peak.lambda, out.lambda, out.newton_iterations);
+    out
+}
+
+fn peak(out: &Outcome) -> f64 {
+    out.steps.iter().map(|s| s.lambda).fold(0.0, f64::max)
+}
+
+/// Winter is an engineering comparison, not an exact FE oracle. JRC's
+/// 2007 commentary to EN 1993-1-5, section 12.4.1 (printed p.145), reports
+/// b/420 without residual stresses as one calibration against that curve:
+/// https://eurocodes.jrc.ec.europa.eu/sites/default/files/2021-12/EUR22898EN.pdf
+/// Here loaded edges can shorten nonuniformly, unloaded edges are free
+/// in-plane, and quarter symmetry excludes asymmetric modes. Keep the
+/// 15% strength comparison separate from the tighter mesh/path checks.
+#[test]
+fn imperfect_plate_strength_mesh_convergence_and_imperfection_sensitivity() {
+    let amplitude = 1.0 / 420.0;
+    let mut mesh_peaks = Vec::new();
+    for n in [6usize, 8, 12] {
+        mesh_peaks.push(peak(&plate_gmnia(n, 1.5, amplitude)));
+    }
+    let winter = |slenderness: f64| (slenderness - 0.22) / slenderness.powi(2);
+    let mut strengths = vec![(1.5, mesh_peaks[2])];
+    for slenderness in [1.0, 2.0] {
+        strengths.push((slenderness, peak(&plate_gmnia(8, slenderness, amplitude))));
+    }
+    for (slenderness, p) in strengths {
+        assert!((p / winter(slenderness) - 1.0).abs() < 0.15, "slenderness {slenderness}: {p} vs Winter {}", winter(slenderness));
+    }
+    assert!(mesh_peaks[0] > mesh_peaks[1] && mesh_peaks[1] > mesh_peaks[2], "{mesh_peaks:?}");
+    assert!((mesh_peaks[1] / mesh_peaks[2] - 1.0).abs() < 0.02, "{mesh_peaks:?}");
+    assert!(mesh_peaks[1] - mesh_peaks[2] < mesh_peaks[0] - mesh_peaks[1], "mesh differences must shrink");
+    let larger_imperfection = peak(&plate_gmnia(8, 1.5, 1.0 / 200.0));
+    assert!(larger_imperfection < 0.98 * mesh_peaks[1], "larger imperfection must reduce strength");
+    let reflected = peak(&plate_gmnia(8, 1.5, -amplitude));
+    assert!((reflected / mesh_peaks[1] - 1.0).abs() < 1e-7, "reflection must preserve strength: {reflected} vs {}", mesh_peaks[1]);
+}
