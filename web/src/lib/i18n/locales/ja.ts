@@ -292,7 +292,6 @@ const ja: Translations = {
   'advanced.mechanism': '機構',
   'advanced.noCollapse': '崩壊なし',
   'advanced.calculateFirst': '先に計算してください',
-  'advanced.calculateFirstF5': '先に計算してください（Enter）',
   'advanced.emptyModel': '空のモデル',
   'advanced.runDynamicFirst': '先に動的解析（モーダル）を実行してください',
   'advanced.defineCombosFirst': '先に組合せタブで荷重組合せを定義してください',
@@ -905,7 +904,7 @@ const ja: Translations = {
   'kinematic.step3Title': 'ステップ3 — 剛性マトリックスによる検証',
   'kinematic.matrixExplanation': 'Stabileo は<strong style="color:#ddd">全体剛性マトリックス</strong>を組み立てて構造を解きます。ここでは、そのマトリックス（{n}×{n}）を解析して、ステップ2の式では検出できない機構を検出します — 例えば、支点が不適切に配置されている場合やヒンジが局所的な不安定性を生む場合。',
   'kinematic.noMechanisms': '✓ 機構は検出されませんでした。構造は安定です。',
-  'kinematic.hiddenMechanism': '✗ g = {degree} ≥ 0 にもかかわらず、{n}個の機構モード{s}が検出されました。',
+  'kinematic.hiddenMechanism': '✗ GH = {degree} ≥ 0 にもかかわらず、{n}個の機構モード{s}が検出されました。',
   'kinematic.hiddenMechanismExplanation': 'ステップ2の式は拘束を全体的に数えますが、その配置位置は検証しません。この場合、構造の一部の領域には余剰の拘束があり、別の領域には不足しています。',
   'kinematic.mechanismDetected': '✗ {n}個の機構モード{s}が検出されました。',
   'kinematic.freeMovements': '検出された自由運動：',
@@ -1892,8 +1891,8 @@ const ja: Translations = {
 
   // Classification text
   'kin.classHypostatic': '不安定 — {n}個の拘束{s}が不足しています。構造は機構です。',
-  'kin.classHiddenMechZero': '式はg = 0（静定の必要条件）ですが、十分条件ではありません。数値検証（ステップ3）で{modes}個の機構モード{s}を検出しました。拘束が不適切に分布しているとき発生します：一部の領域に余剰の拘束があり、別の領域に不足があります。',
-  'kin.classHiddenMechPos': '式はg = {degree} > 0（不静定に見える）ですが、数値検証（ステップ3）で{modes}個の機構モード{s}を検出しました。拘束が不適切に分布しているとき発生します：一部の領域は不静定（余剰の拘束）で、別の領域は不安定（拘束不足）です。一方の余剰が他方の不足を補えません。',
+  'kin.classHiddenMechZero': '式はGH = 0（静定の必要条件）ですが、十分条件ではありません。数値検証（ステップ3）で{modes}個の機構モード{s}を検出しました。拘束が不適切に分布しているとき発生します：一部の領域に余剰の拘束があり、別の領域に不足があります。',
+  'kin.classHiddenMechPos': '式はGH = {degree} > 0（不静定に見える）ですが、数値検証（ステップ3）で{modes}個の機構モード{s}を検出しました。拘束が不適切に分布しているとき発生します：一部の領域は不静定（余剰の拘束）で、別の領域は不安定（拘束不足）です。一方の余剰が他方の不足を補えません。',
   'kin.classIsostatic': '静定 — 拘束の数が正確に必要数と一致します。冗長性はありません。',
   'kin.classHyperstatic': '{degree}次不静定 — 安定を保証するために必要な数より{degree}個多い釣合い方程式{s}があります。',
   'kin.plural_s': '',
@@ -2215,9 +2214,6 @@ const ja: Translations = {
   'dsm.expectedValue': '期待値',
   // ─── Influence line labels ───
   'influence.unitLoad': 'P=1',
-  'influence.label': '影響線',
-  'influence.node': '節点',
-  'influence.elem': '要素',
   'lang.es': 'Español',
   'lang.en': 'English',
   'lang.pt': 'Português',

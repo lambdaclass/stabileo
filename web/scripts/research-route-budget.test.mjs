@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
-import { checkResearchIsolation, growthTable, overCeilings, reviewRouteGrowth, routeChunkFiles, routeGrowth, BLOG_ROUTE_BOUNDARY } from './research-route-budget.mjs';
+import { checkResearchIsolation, growthTable, overCeilings, reviewRouteGrowth, routeChunkFiles, routeGrowth, BLOG_ROUTE_BOUNDARY, COURSE_ROUTE_BOUNDARY } from './research-route-budget.mjs';
 
 const baseline = { '/en/': 1000, '/app/basic': 2000 };
 
@@ -74,4 +74,15 @@ test('only the named blog entry is a boundary, not every blog module', () => {
 });
 test('the landing footprint takes no lazy chunk', () => {
   assert.deepEqual([...routeChunkFiles(manifest, [['index.html', false]])], ['index.html']);
+});
+
+test('the course route boundary and what only it reaches leave the app footprint; what App shares with it stays', () => {
+  const withCourse = { ...manifest,
+    'src/App.svelte': { ...manifest['src/App.svelte'], dynamicImports: [...manifest['src/App.svelte'].dynamicImports, COURSE_ROUTE_BOUNDARY] },
+    [COURSE_ROUTE_BOUNDARY]: { file: 'course-route.js', imports: ['_shared.js', '_course-only.js'], dynamicImports: ['src/lib/course/locale-de.ts'] },
+    '_course-only.js': { file: 'course-only.js' },
+    'src/lib/course/locale-de.ts': { file: 'course-de.js' } };
+  const files = routeChunkFiles(withCourse, appRoots);
+  for (const file of ['course-route.js', 'course-only.js', 'course-de.js']) assert.ok(!files.has(file), file);
+  assert.ok(files.has('shared.js'));
 });

@@ -154,7 +154,8 @@ describe('which registered changes concern a model', () => {
     expect(ids(stair, v20)).not.toContain('generated-area-loads-headroom');
     const plane = { ...generated, analysisMode: '2d', ...basis() };
     expect(ids(plane, { resultsVersion: 14, analyses: ['linear'] } as SolveStamp)).toContain('basic-influence-line-moment-sign-withdrawn');
-    expect(ids(plane, v20)).toEqual(['generated-area-loads-headroom']);
+    expect(ids(plane, v20)).toContain('generated-area-loads-headroom');
+    expect(ids(plane, v20)).not.toContain('basic-influence-line-moment-sign-withdrawn');
     const entry = RESULT_CHANGES.changes.find((c) => c.id === 'generated-area-loads-headroom') as unknown as { title: Record<string, string>; explanation: Record<string, string> };
     for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
       expect(entry.title[locale]?.trim(), `title.${locale}`).toBeTruthy();

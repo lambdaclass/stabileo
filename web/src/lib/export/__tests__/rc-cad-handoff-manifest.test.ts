@@ -697,9 +697,9 @@ describe('fixture-to-manifest reconciliation', () => {
     // re-check notice. The model is unchanged.
     //
     // And again (was 884c9941…, then 04cf5998…, then 94fa28fe…, then b25eb09b…, then 930646fc…, then 28b5e539…, then bbdbe9b1…, then a64cfe6c…, then 28d9021b…, then 082ab7c3…, then 8fc7c978…, then 74bb6d46…, then 7ff1ebd3…, then 60bd41ff…, then 951d93b5…, then 5cb39281…, then 169fdcac…, then a9cb6610…, then 8fbd906f…, then b52cdff8…, then 5daa74ec…, then cd1263b3…, then c5d8584e…, then ffe0664a…):
-    // the stamp moved to results versions 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25 and 26 with the registry.
+    // the stamp moved to results versions 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27 and 28 with the registry.
     expect(sha256(fixtureText()))
-      .toBe('a689b9b2d56ca3438f8eb896ac331f6f6687c400f0a382e9afa229879e3a98c8');
+      .toBe('e52430230446588f08430f862373f8cefe68c466779592770b521d9be289bee4');
   });
 
   it('every geometric input traces back to a value in the restored project', () => {
