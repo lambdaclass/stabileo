@@ -90,7 +90,7 @@ issue) or close it as a harness artefact with the evidence.
 
 | Check | Where | What |
 |---|---|---|
-| `mutants-safety` | nightly.yml mutants (Sunday) | mutation testing of the safety-critical modules, with a kill-rate ratchet |
+| `mutants-safety` | nightly.yml mutants-safety, mutants-ratchet (Sunday, GitHub-hosted) | mutation testing of the safety-critical modules ([FUZZ_MUTANTS.md](verification/FUZZ_MUTANTS.md#safety-critical-scope-weekly)); a kill rate below the baseline opens or updates the **Mutation kill rate below baseline** issue |
 | `fuzz-long` | nightly.yml fuzz (Sunday) | each fuzz target for 5 hours instead of 2 |
 | `mechanism-fuzz-long` | nightly.yml cadence | `make test.engine.mechanism-fuzz.long DURATION=4h`, from a new seed each week |
 | `route-size` | route-size.yml (Monday) | landing and /app footprints against their ceilings |
@@ -105,7 +105,7 @@ quarantined (`@flaky`) tests. The issue is rewritten each week.
 
 | Check | Where | What |
 |---|---|---|
-| `mutants-full` | nightly.yml mutants | the full-engine pass: the daily rotation tests every mutant once every 16 nights; the monthly run reports its kill rate |
+| `mutants-full` | nightly.yml mutants-monthly (the 1st) | the full-engine pass: the daily rotation tests every mutant once every 16 nights; the **Monthly mutation report** issue gives the kill rate per area from the last 16 nights' shards |
 | `external-references-full` | nightly.yml opensees-diff, codeaster-diff (the 1st) | three times the daily counts of random models |
 | `deps-audit` | nightly.yml deps-audit (the 1st) | the **Monthly dependency audit** issue: semver-incompatible Rust releases, npm packages behind a major, Dependabot pull requests open for more than 30 days |
 | `results-snapshots` | nightly.yml cadence | `make test.web.results` against main |

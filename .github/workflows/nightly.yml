@@ -22,7 +22,7 @@ on:
   workflow_dispatch:
     inputs:
       only:
-        description: "Jobs to run, space separated (default all): certify-large metamorphic-nightly opensees-diff codeaster-diff fuzz random-models properties mutants bench cadence triage flaky-report deps-audit"
+        description: "Jobs to run, space separated (default all): certify-large metamorphic-nightly opensees-diff codeaster-diff fuzz random-models properties mutants bench cadence triage flaky-report deps-audit mutants-safety mutants-monthly"
         required: false
         default: ""
       tiers:
@@ -83,6 +83,8 @@ jobs:
       jobs: ${{ steps.plan.outputs.jobs }}
       mutants_shards: ${{ steps.plan.outputs.mutants_shards }}
       mutants_total: ${{ steps.plan.outputs.mutants_total }}
+      safety_shards: ${{ steps.plan.outputs.safety_shards }}
+      safety_total: ${{ steps.plan.outputs.safety_total }}
       night: ${{ steps.plan.outputs.night }}
       weekly: ${{ steps.plan.outputs.weekly }}
       monthly: ${{ steps.plan.outputs.monthly }}
@@ -110,6 +112,7 @@ jobs:
           TOTAL: ${{ inputs.mutants_total }}
           MUTANTS_TOTAL: 512
           MUTANTS_SLOTS: 32
+          SAFETY_TOTAL: 24
           FORCE_FAILURE: ${{ inputs.force_failure }}
           EVENT: ${{ github.event_name }}
           NIGHT_END_HOUR: 7
@@ -118,7 +121,7 @@ jobs:
             echo "::error::forced failure (dispatch input force_failure): verification-alert.yml must open 'CI failure: Nightly verification [forced failure]'"
             exit 1
           fi
-          all="certify-large metamorphic-nightly opensees-diff codeaster-diff fuzz random-models properties mutants bench cadence triage flaky-report deps-audit"
+          all="certify-large metamorphic-nightly opensees-diff codeaster-diff fuzz random-models properties mutants bench cadence triage flaky-report deps-audit mutants-safety mutants-monthly"
           only="${ONLY:-$all}"
           for j in $only; do
             case " $all " in *" $j "*) ;; *) echo "::error::unknown job '$j' (known: $all)"; exit 1 ;; esac
@@ -132,7 +135,7 @@ jobs:
             [ "$(date -u +%u)" = 7 ] && weekly=true
             [ "$(date -u +%d)" = 01 ] && monthly=true
           fi
-          [ -n "$ONLY" ] || { [ "$weekly" = true ] || only="${only/ flaky-report/}"; [ "$monthly" = true ] || only="${only/ deps-audit/}"; }
+          [ -n "$ONLY" ] || { [ "$weekly" = true ] || only="${only/ flaky-report/}"; [ "$monthly" = true ] || only="${only/ deps-audit/}"; [ "$weekly" = true ] || only="${only/ mutants-safety/}"; [ "$monthly" = true ] || only="${only/ mutants-monthly/}"; }
           tiers="daily"
           [ "$weekly" = true ] && tiers="$tiers weekly"
           [ "$monthly" = true ] && tiers="$tiers monthly"
@@ -157,6 +160,8 @@ jobs:
             echo "jobs= $only "
             echo "mutants_shards=$shards"
             echo "mutants_total=$total"
+            echo "safety_total=$SAFETY_TOTAL"
+            echo "safety_shards=$(python3 -c "import json,sys; print(json.dumps(list(range(int(sys.argv[1])))))" "$SAFETY_TOTAL")"
             echo "night=$night"
             echo "weekly=$weekly"
             echo "monthly=$monthly"
@@ -595,6 +600,163 @@ jobs:
           name: mutants-done-${{ matrix.shard }}-of-${{ needs.plan.outputs.mutants_total }}
           path: ${{ runner.temp }}/mutants-done/
           retention-days: 45
+
+  mutants-safety:
+    needs: plan
+    if: contains(needs.plan.outputs.jobs, ' mutants-safety ')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 345
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(needs.plan.outputs.safety_shards) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+        with:
+          toolchain: 1.99.1
+      - name: Install mold linker
+        uses: rui314/setup-mold@da13e0b42e392e3a45d1215033a2270b849d7d36 # main, 2026-10-08
+        with:
+          mold-version: 2.40.4
+          make-default: false
+        timeout-minutes: 5
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
+        with:
+          tool: cargo-mutants,nextest
+      - name: Mutants, safety scope (shard ${{ matrix.shard }}/${{ needs.plan.outputs.safety_total }})
+        id: mutants
+        env:
+          SHARD: ${{ matrix.shard }}/${{ needs.plan.outputs.safety_total }}
+          MUTANTS_SCOPE: safety
+          BUDGET_MIN: 300
+        run: |
+          export CARGO_INCREMENTAL=1 CARGO_PROFILE_DEV_DEBUG=0 CARGO_PROFILE_TEST_DEBUG=0
+          export CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER=clang
+          export CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS="-C link-arg=-fuse-ld=mold"
+          status=0
+          timeout --signal=INT --kill-after=5m "${BUDGET_MIN}m" \
+            ./scripts/mutants.sh --shard "$SHARD" --jobs 2 --test-tool nextest || status=$?
+          python3 scripts/mutants-summary.py mutants.out "$SHARD" | tee -a "$GITHUB_STEP_SUMMARY" || true
+          if [ -s mutants.out/missed.txt ]; then
+            { echo '### Missed mutants'; echo '```'; head -c 60000 mutants.out/missed.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          fi
+          case "$status" in 0|2) echo "finished=true" >> "$GITHUB_OUTPUT" ;; esac
+          [ "$status" -eq 2 ] && status=0
+          if [ "$status" -eq 124 ]; then
+            echo "::error::mutants shard $SHARD did not finish within ${BUDGET_MIN} min (see the summary above for how far it got); raise SAFETY_TOTAL in nightly.yml"
+            exit 1
+          fi
+          exit "$status"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: mutants-safety-report-${{ matrix.shard }}
+          path: mutants.out/
+          if-no-files-found: ignore
+
+  mutants-ratchet:
+    needs: [plan, mutants-safety]
+    if: always() && contains(needs.plan.outputs.jobs, ' mutants-safety ')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            .github/scripts
+            scripts/mutants-safety.py
+            scripts/mutants-safety.json
+            docs/verification/mutants-baseline.json
+          sparse-checkout-cone-mode: false
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          pattern: mutants-safety-report-*
+          path: mutants-reports
+      - name: Kill rate per module against the baseline
+        id: ratchet
+        env:
+          SAFETY_TOTAL: ${{ needs.plan.outputs.safety_total }}
+        run: |
+          shopt -s nullglob
+          reports=(mutants-reports/*)
+          if [ ${#reports[@]} -eq 0 ]; then
+            printf '{"modules": {}, "coverage": {"shards": 0, "complete": 0}}\n' > mutants-safety-report.json
+          else
+            python3 -I scripts/mutants-safety.py report "${reports[@]}" --json mutants-safety-report.json
+          fi
+          status=0
+          python3 -I scripts/mutants-safety.py ratchet mutants-safety-report.json --expect-shards "$SAFETY_TOTAL" --markdown "$RUNNER_TEMP/ratchet.md" || status=$?
+          cat "$RUNNER_TEMP/ratchet.md" >> "$GITHUB_STEP_SUMMARY"
+          echo "below=$([ "$status" -eq 1 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+          [ "$status" -le 1 ]
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: mutants-safety-killrate
+          path: mutants-safety-report.json
+          retention-days: 400
+          if-no-files-found: ignore
+      - if: steps.ratchet.outputs.below == 'true'
+        uses: actions/github-script@d746ffe35508b1917358783b479e04febd2b8f71 # v9.0.0
+        env:
+          REPORT: ${{ runner.temp }}/ratchet.md
+          DRY: ${{ github.ref != 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && inputs.findings_dry_run) }}
+        with:
+          script: |
+            const fs = require('fs');
+            const run = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body = `The weekly mutation run of the safety-critical modules (${run}) killed fewer mutants than the baseline in \`docs/verification/mutants-baseline.json\`:\n\n${fs.readFileSync(process.env.REPORT, 'utf8')}\nAdd tests that kill the new survivors (the run's \`mutants-safety-killrate\` artifact lists them), or exclude an equivalent mutant in \`.cargo/mutants.toml\` with its justification. When the rate goes up, raise the baseline with \`make mutants.safety.record\`.`;
+            await require('./.github/scripts/cadence-reports.cjs').upsertIssue({ github, context, core, title: 'Mutation kill rate below baseline', label: 'mutants-ratchet', body, dry: process.env.DRY === 'true' });
+
+  mutants-monthly:
+    needs: plan
+    if: contains(needs.plan.outputs.jobs, ' mutants-monthly ')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      actions: read
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            .github/scripts
+            scripts/mutants-safety.py
+            scripts/mutants-safety.json
+          sparse-checkout-cone-mode: false
+      - name: The shard reports of the last full rotation
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          mkdir -p rotation
+          for id in $(gh run list --workflow nightly.yml --event schedule --branch main --limit 17 --json databaseId --jq '.[].databaseId'); do
+            gh run download "$id" -p 'mutants-report-*' -D "rotation/$id" || true
+          done
+      - name: Kill rate per area
+        env:
+          MUTANTS_TOTAL: ${{ needs.plan.outputs.mutants_total }}
+        run: python3 -I scripts/mutants-safety.py areas rotation --expect-shards "$MUTANTS_TOTAL" --markdown "$RUNNER_TEMP/monthly.md" | tee -a "$GITHUB_STEP_SUMMARY"
+      - uses: actions/github-script@d746ffe35508b1917358783b479e04febd2b8f71 # v9.0.0
+        env:
+          REPORT: ${{ runner.temp }}/monthly.md
+          DRY: ${{ github.ref != 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && inputs.findings_dry_run) }}
+        with:
+          script: |
+            const fs = require('fs');
+            const body = `Full-engine mutation pass: the shard reports of the daily rotation over the last 16 nights (certificates, solver core, element kernels). The first line says how many of the shards reported every mutant they hold.\n\n${fs.readFileSync(process.env.REPORT, 'utf8')}`;
+            await require('./.github/scripts/cadence-reports.cjs').upsertIssue({ github, context, core, title: 'Monthly mutation report', label: 'mutants-report', body, mode: 'replace', dry: process.env.DRY === 'true' });
 
   # Criterion reports, informational: benchmark wall time on shared runners is
   # too noisy to gate on (the perf regression gates in ci.yml run
