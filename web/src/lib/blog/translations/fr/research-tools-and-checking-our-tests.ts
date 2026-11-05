@@ -106,6 +106,71 @@ const body: PostBody = {
     },
     {
       "k": "h",
+      "t": "Des contrôles qui répondent en vingt minutes"
+    },
+    {
+      "k": "p",
+      "t": "Chaque modification de Stabileo passe les mêmes contrôles avant d’atteindre main : tests du moteur, tests unitaires web, builds de production, tests de bout en bout dans un navigateur, les instantanés de résultats et le contrôle de déterminisme. Une correction d’un résultat erroné n’arrive pas plus vite que ces contrôles ; le 4 novembre, nous avons donc travaillé sur leur vitesse. Nous avons d’abord mesuré. Dans une exécution propre de la file de fusion de 44 à 47 minutes, les tests du moteur et les tests unitaires se terminaient 8 à 15 minutes avant la fin : en lancer davantage en parallèle n’aurait rien fait gagner. Le temps partait dans la construction des bundles de recherche l’un après l’autre et dans le shard de bout en bout le plus lent. Une fois ces étapes raccourcies, le shard le plus lent l’était à cause de la préparation : dans une exécution, il a consacré 7,2 de ses 16 minutes aux tests et six et demie au téléchargement de paquets de navigateurs depuis un miroir lent."
+    },
+    {
+      "k": "ul",
+      "items": [
+        "Construire une fois, tester ce qui a été construit. Les tests des builds de production faisaient cinq builds supplémentaires de leur côté, dont quatre du même arbre que la CI venait de construire ; ces quatre lisent maintenant ce build (#1411). Chaque build porte un tampon de tout ce à partir de quoi il a été construit, et un test échoue, sans jamais être ignoré, si le tampon ne correspond pas à l’arbre sur lequel il s’exécute.",
+        "Mettre en cache par entrées. Chaque bundle de recherche est mis en cache sous une clé calculée sur ses propres entrées, y compris le moteur que chaque bundle lie, si bien qu’une modification d’un article ne reconstruit que cet article et qu’une modification du moteur les reconstruit tous. Une pull request réutilise les bundles que la file de fusion a déjà construits à partir des mêmes entrées, après avoir vérifié chaque fichier par rapport à sa somme de contrôle, et elle peut lire ce cache mais jamais y écrire (#1395). Les paquets de navigateurs viennent aussi d’un cache, au lieu du miroir (#1413).",
+        "N’exécuter que ce qu’une modification peut affecter. Une modification de la documentation ne construit rien et se termine en une ou deux minutes au lieu d’une exécution complète. Une modification du seul site saute les jobs du moteur mais garde tous les shards de bout en bout, car 59 des 281 specs lisent du texte à l’écran (#1381). Dans la file, chaque entrée est délimitée par son propre diff par rapport à l’entrée qui la précède, ce qui est correct car une entrée n’est fusionnée que si toutes les entrées qui la précèdent ont réussi ; quand le diff manque ou n’est pas clair, tout s’exécute (#1400).",
+        "Équilibrer le chemin le plus lent. Les tests de bout en bout tournent sur 14 shards au lieu de 10, équilibrés sur des durées mesurées (#1382). L’ancienne table de durées prévoyait 41,5 minutes de tests là où une exécution en a pris 69,8."
+      ]
+    },
+    {
+      "k": "table",
+      "caption": "Durée réelle des exécutions de CI réussies ayant lancé tous les jobs, de leur création au dernier job, mesurée via l’API GitHub Actions. Avant : 4 novembre, de 08:00 UTC (pull requests) ou 13:48 UTC (file de fusion) à 21:10 UTC ; après : de 21:15 UTC à 03:00 UTC le 5 novembre.",
+      "head": [
+        "Exécutions",
+        "Nombre",
+        "Médiane",
+        "Plage"
+      ],
+      "rows": [
+        [
+          "File de fusion, avant",
+          "20",
+          "42 min",
+          "25 à 56 min"
+        ],
+        [
+          "File de fusion, après",
+          "10",
+          "20 min",
+          "15 à 26 min"
+        ],
+        [
+          "Pull requests (première tentative), avant",
+          "69",
+          "59 min",
+          "35 à 127 min"
+        ],
+        [
+          "Pull requests (première tentative), après",
+          "19",
+          "27 min",
+          "16 à 45 min"
+        ]
+      ]
+    },
+    {
+      "k": "h",
+      "t": "Un contrôle rouge dont la modification n’est pas responsable"
+    },
+    {
+      "k": "p",
+      "t": "Un échec dû au réseau ou à une machine perdue est du bruit, mais c’est aussi un contrôle rouge que quelqu’un doit examiner, et l’habitude de relancer les contrôles rouges est la manière dont un vrai échec finit par passer. Les jobs en échec d’une pull request sont donc relancés une fois, automatiquement, uniquement lorsque chaque job en échec porte une preuve positive d’une panne d’infrastructure : un délai dépassé dans une étape de téléchargement, un runner perdu, une erreur réseau qui met fin à la dernière tentative d’un téléchargement (#1380). Tout ce qui ressemble à un échec de test n’importe où dans le journal bloque la relance, de même que tout ce que le classificateur ne reconnaît pas. C’est ce qui la rend sûre : elle ne relance jamais une étape de test, un vrai échec échoue de nouveau à la relance, et le pire qu’un journal mal interprété puisse provoquer est une exécution supplémentaire des mêmes jobs."
+    },
+    {
+      "k": "p",
+      "t": "Deux autres corrections ont supprimé de fausses alertes. Une exécution de pull request annulée parce qu’une exécution plus récente sur le même commit l’avait remplacée affichait un contrôle obligatoire rouge ; elle saute maintenant ce contrôle, mais seulement après avoir confirmé que l’exécution plus récente existe et n’a pas échoué, car un contrôle obligatoire sauté compte comme réussi (#1397). Et un téléchargement bloqué pouvait laisser un processus détenir le verrou du gestionnaire de paquets, si bien que la nouvelle tentative échouait sur le verrou plutôt que sur le téléchargement ; une tentative n’est désormais considérée comme bloquée qu’après plusieurs minutes sans sortie, elle est arrêtée avec tout ce qu’elle a lancé, et la nouvelle tentative attend le verrou (#1408)."
+    },
+    {
+      "k": "h",
       "t": "La suite"
     },
     {
