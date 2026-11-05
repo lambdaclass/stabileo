@@ -1,0 +1,217 @@
+{
+  "connectors": {},
+  "constraints": [],
+  "curvedBeams": [],
+  "curvedShells": {},
+  "elements": {
+    "1": {
+      "id": 1,
+      "localYx": null,
+      "localYy": null,
+      "localYz": null,
+      "materialId": 2,
+      "nodeI": 2,
+      "nodeJ": 1,
+      "releaseMyEnd": false,
+      "releaseMyStart": false,
+      "releaseMzEnd": true,
+      "releaseMzStart": false,
+      "releaseTEnd": false,
+      "releaseTStart": false,
+      "rollAngle": null,
+      "sectionId": 3,
+      "type": "frame"
+    },
+    "2": {
+      "id": 2,
+      "localYx": null,
+      "localYy": null,
+      "localYz": null,
+      "materialId": 3,
+      "nodeI": 1,
+      "nodeJ": 3,
+      "releaseMyEnd": false,
+      "releaseMyStart": false,
+      "releaseMzEnd": false,
+      "releaseMzStart": false,
+      "releaseTEnd": false,
+      "releaseTStart": false,
+      "rollAngle": null,
+      "sectionId": 2,
+      "type": "frame"
+    },
+    "3": {
+      "id": 3,
+      "localYx": null,
+      "localYy": null,
+      "localYz": null,
+      "materialId": 3,
+      "nodeI": 3,
+      "nodeJ": 2,
+      "releaseMyEnd": false,
+      "releaseMyStart": false,
+      "releaseMzEnd": false,
+      "releaseMzStart": false,
+      "releaseTEnd": false,
+      "releaseTStart": false,
+      "rollAngle": null,
+      "sectionId": 2,
+      "type": "frame"
+    }
+  },
+  "leftHand": null,
+  "loads": [
+    {
+      "data": {
+        "bw": null,
+        "fx": 232.9675428012696,
+        "fy": -400.5461965776054,
+        "fz": 298.6169377547751,
+        "mx": -50.04507662865052,
+        "my": 167.17574072004345,
+        "mz": 127.94664676885327,
+        "nodeId": 3
+      },
+      "type": "nodal"
+    }
+  ],
+  "materials": {
+    "1": {
+      "e": 42768262.69312448,
+      "id": 1,
+      "nu": 0.24132058479783805
+    },
+    "2": {
+      "e": 2370230.668889925,
+      "id": 2,
+      "nu": 0.20662618593916268
+    },
+    "3": {
+      "e": 702386.248187597,
+      "id": 3,
+      "nu": 0.3112889603349759
+    }
+  },
+  "nodes": {
+    "1": {
+      "id": 1,
+      "x": -28.22360031663427,
+      "y": -32.336858474445386,
+      "z": -0.7109670371727503
+    },
+    "2": {
+      "id": 2,
+      "x": 9.055383303260122,
+      "y": -12.325554998281916,
+      "z": 48.048342968445795
+    },
+    "3": {
+      "id": 3,
+      "x": 33.47337671734847,
+      "y": 35.911066289156125,
+      "z": 24.89474764523112
+    }
+  },
+  "plates": {},
+  "quad9s": {},
+  "quads": {},
+  "sections": {
+    "1": {
+      "a": 0.06876889079949025,
+      "asY": null,
+      "asZ": null,
+      "cw": null,
+      "id": 1,
+      "iy": 0.004562225491191403,
+      "iz": 0.008987897446220663,
+      "j": 1.135335023349571e-08,
+      "name": null,
+      "shearCenterY": null,
+      "shearCenterZ": null
+    },
+    "2": {
+      "a": 0.006051090008702866,
+      "asY": null,
+      "asZ": null,
+      "cw": null,
+      "id": 2,
+      "iy": 0.0005993238783240347,
+      "iz": 0.0024907976301459683,
+      "j": 0.0007952230395244815,
+      "name": null,
+      "shearCenterY": null,
+      "shearCenterZ": null
+    },
+    "3": {
+      "a": 0.010374027037813236,
+      "asY": null,
+      "asZ": null,
+      "cw": null,
+      "id": 3,
+      "iy": 0.00027675937113300476,
+      "iz": 2.0729223499978692e-07,
+      "j": 3.3892571028035953e-06,
+      "name": null,
+      "shearCenterY": null,
+      "shearCenterZ": null
+    }
+  },
+  "solidShells": {},
+  "solverOptions": null,
+  "supports": {
+    "1": {
+      "drx": null,
+      "dry": null,
+      "drz": null,
+      "dx": null,
+      "dy": null,
+      "dz": null,
+      "isInclined": null,
+      "krx": null,
+      "kry": null,
+      "krz": null,
+      "kw": null,
+      "kx": null,
+      "ky": null,
+      "kz": null,
+      "nodeId": 1,
+      "normalX": null,
+      "normalY": null,
+      "normalZ": null,
+      "rrx": true,
+      "rry": true,
+      "rrz": true,
+      "rw": null,
+      "rx": true,
+      "ry": true,
+      "rz": true
+    },
+    "2": {
+      "drx": null,
+      "dry": null,
+      "drz": null,
+      "dx": null,
+      "dy": null,
+      "dz": null,
+      "isInclined": null,
+      "krx": null,
+      "kry": null,
+      "krz": null,
+      "kw": null,
+      "kx": null,
+      "ky": null,
+      "kz": null,
+      "nodeId": 3,
+      "normalX": null,
+      "normalY": null,
+      "normalZ": null,
+      "rrx": false,
+      "rry": false,
+      "rrz": false,
+      "rw": null,
+      "rx": false,
+      "ry": true,
+      "rz": true
+    }
+  }
+}

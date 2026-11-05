@@ -1,0 +1,11 @@
+{
+  "measured": "2026-11-04 on the safety integration #1409: landing 1,471,433 B, app 32,354,085 B (#1406 adds about 47 KB to the app); the ceilings leave about 8 % headroom",
+  "routes": {
+    "/en/": 1600000,
+    "/es/": 1600000,
+    "/pt/": 1600000,
+    "/app/basic": 35000000,
+    "/app/education": 35000000,
+    "/app/pro": 35000000
+  }
+}

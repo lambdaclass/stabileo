@@ -14,7 +14,7 @@
    */
 </script>
 
-<section class="sec sec--ink pro-design reveal" data-section="pro-design" id="pro-design" aria-labelledby="pro-design-title">
+<section class="sec sec--ink pro-design" data-section="pro-design" id="pro-design" aria-labelledby="pro-design-title">
   <div class="wrap">
     <Eyebrow n="03" label={t('landing.ebProDesign')} />
 

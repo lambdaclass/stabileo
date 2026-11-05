@@ -26,7 +26,7 @@
 import type { RecheckAssessment } from '../provenance/applicability';
 import { freshStamp, readStamp, stampSolve, unknownStamp, type SolveStamp } from '../provenance/solve-stamp';
 import { RESULTS_VERSION } from '../provenance/registry';
-import { modelFeatures, type AnalysisKind, type FeatureSnapshot } from '../provenance/model-features';
+import { loadsGeneratedWith, modelFeatures, type AnalysisKind, type FeatureSnapshot } from '../provenance/model-features';
 
 /** Independent of the latest solve: retained until the original notice is read. */
 export interface PendingRecheckNotice {
@@ -85,7 +85,8 @@ export function createRecheckStore(load = () => import('../provenance/applicabil
       const original = readStamp(savedNotice?.stamp) ?? stored;
       assessedStampId = original.id;
       currentAssessmentStampId = stored.resultsVersion < RESULTS_VERSION ? stored.id : null;
-      pending = original.resultsVersion < RESULTS_VERSION || stored.resultsVersion < RESULTS_VERSION;
+      const loadsVersion = loadsGeneratedWith(snapshot);
+      pending = original.resultsVersion < RESULTS_VERSION || stored.resultsVersion < RESULTS_VERSION || loadsVersion < RESULTS_VERSION;
       const currentFeatures = modelFeatures(snapshot, { analysisMode, analysesRun: stored.resultsVersion > 0 ? stored.analyses : null });
       // Capture before attempting the lazy import. Solves and edits must not replace
       // the version or applicability of the notice the engineer has yet to read.
@@ -112,8 +113,8 @@ export function createRecheckStore(load = () => import('../provenance/applicabil
         try {
           const { assessProject } = await load();
           if (request !== generation) return;
-          const preserved = assessProject({}, original, analysisMode, undefined, features);
-          const current = assessProject({}, stored, analysisMode, undefined, currentFeatures);
+          const preserved = assessProject({}, original, analysisMode, undefined, features, loadsVersion);
+          const current = assessProject({}, stored, analysisMode, undefined, currentFeatures, loadsVersion);
           currentAssessmentStampId = current.changes.length ? stored.id : null;
           assessment = {
             ...preserved,

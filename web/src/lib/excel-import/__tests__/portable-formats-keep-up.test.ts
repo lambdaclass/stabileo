@@ -60,13 +60,15 @@ function jsonModelCollections(): string[] {
  */
 const NO_SHEET_NEEDED: Record<string, string> = {};
 
+const SNAPSHOT_FIELD: Record<string, string> = { pointMasses: 'massSource' };
+
 describe('the Excel importer keeps up with the model', () => {
   it('every collection the loader accepts has a sheet, or a stated reason', () => {
     const sheetFor: Record<string, string> = {
       nodes: 'Nodes', elements: 'Members', materials: 'Materials',
       sections: 'Sections', supports: 'Supports', loads: 'Loads',
       loadCases: 'LoadCases', combinations: 'Combinations',
-      plates: 'Plates', quads: 'Quads', constraints: 'Constraints',
+      plates: 'Plates', quads: 'Quads', constraints: 'Constraints', pointMasses: 'PointMasses',
     };
     const have = new Set(SHEETS.map((s) => s.name));
 
@@ -100,6 +102,21 @@ describe('the Excel importer keeps up with the model', () => {
   });
 });
 
+describe('the workbook carries the whole mass source', () => {
+  it('every field of MassSource is written by the MassSource sheet, or by PointMasses for the points', () => {
+    const src = read('engine/dynamics/mass-source.ts');
+    const start = src.indexOf('export type MassSource =');
+    const body = src.slice(start, src.indexOf(';\n', start));
+    const fields = [...new Set([...body.matchAll(/([a-zA-Z]+)\??:/g)].map((m) => m[1]))];
+    expect(fields).toEqual(expect.arrayContaining(['kind', 'presetId', 'params', 'factors', 'weights', 'points']));
+    const writer = read('export/workbook-model.ts');
+    const sheet = writer.slice(writer.indexOf('function massSourceSheet'), writer.indexOf('\n}\n', writer.indexOf('function massSourceSheet')));
+    const unwritten = fields.filter((f) => (f === 'points' ? !writer.includes('m.pointMasses') : !sheet.includes(`ms.${f}`)));
+    expect(unwritten, `the workbook drops these mass source fields: ${unwritten.join(', ')}`).toEqual([]);
+    expect(SHEETS.some((s) => s.name === 'MassSource')).toBe(true);
+  });
+});
+
 describe('the share link keeps up with the model', () => {
   /**
    * `url-sharing.ts` packs a snapshot into a compact array-of-arrays. Every
@@ -118,7 +135,7 @@ describe('the share link keeps up with the model', () => {
     const missing = jsonModelCollections().filter((c) => {
       if (c in NO_SHEET_NEEDED) return false;
       /* `snapshot.plates`, `snapshot.loadCases?.length` — any mention counts. */
-      return !packed.includes(`snapshot.${c}`);
+      return !packed.includes(`snapshot.${SNAPSHOT_FIELD[c] ?? c}`);
     });
 
     expect(

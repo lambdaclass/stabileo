@@ -119,7 +119,7 @@ jobs:
         env:
           RESEARCH_ISOLATION: ${{ steps.scope.outputs.research }}
         run: |
-          cp web/scripts/check-research-route-size.mjs web/scripts/research-route-budget.mjs web/scripts/product-route-growth-budgets.json route-main/web/scripts/
+          cp web/scripts/check-research-route-size.mjs web/scripts/research-route-budget.mjs route-main/web/scripts/
           .github/scripts/retry-infra.sh nix develop . -c sh -c 'cd route-main/web && npm ci'
           .github/scripts/retry-infra.sh nix develop . -c sh -c 'cd web && npm ci'
           nix develop . -c sh -c "cd route-main/web && node scripts/check-research-route-size.mjs --baseline '$RUNNER_TEMP/route-main.json' --update"
@@ -148,6 +148,8 @@ jobs:
           "$RUNNER_TEMP/catalog-venv/bin/python" -I research/tools/test_pastrana_catalog.py
       - run: |
           "$RUNNER_TEMP/catalog-venv/bin/python" -I research/tools/test_fairclough_catalog.py
+      - run: |
+          "$RUNNER_TEMP/catalog-venv/bin/python" -I research/tools/test_dadeppo_catalog.py
       - name: Checker rejects bad entries
         run: |
           "$RUNNER_TEMP/catalog-venv/bin/python" -I research/tools/test_catalog.py
@@ -254,6 +256,8 @@ jobs:
           .github/scripts/retry-infra.sh nix develop --command true
       - run: .github/scripts/retry-infra.sh nix develop -c sh -c 'cd web && npm ci'
       - run: make wasm
+      - name: CQC 1981 shared constants match the independent closed form
+        run: python3 research/benchmarks/cqc-1981/reference.py
       - name: Compute native results from the engine-owned cases
         run: |
           MACNEAL_HARDER_RESULTS="$RUNNER_TEMP/macneal-native.json" nix develop -c cargo test --locked --manifest-path engine/Cargo.toml --test shells macneal_harder::browser_cases

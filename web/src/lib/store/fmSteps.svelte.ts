@@ -45,6 +45,14 @@ function createFMStepsStore() {
       diagramComponent = 'm';
       showMatrix = false;
     },
+    /** The same wizard solved again (another fundamental, the axial term): the reader stays on their step. */
+    replaceResult(r: ForceMethodResult) {
+      result = forceMethodToDrawnAxes(r);
+      const n = r.redundants.length;
+      selectedState = n > 0 ? Math.min(Math.max(selectedState, 1), n) : 0;
+      selectedI = Math.min(selectedI, Math.max(n - 1, 0));
+      selectedJ = Math.min(selectedJ, Math.max(n - 1, 0));
+    },
     open() { isOpen = true; },
     close() { isOpen = false; },
     nextStep() { if (currentStep < FM_STEPS) currentStep++; },

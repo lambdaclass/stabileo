@@ -13,10 +13,10 @@
   import { sortedLevels } from '../../lib/model/grid';
   import { setCameraUp } from '../../lib/geometry/coordinate-system';
   import { findElementHit, findNodeHit } from '../../lib/viewport3d/picking';
+  import { planClipPlanes, insideClip } from '../../lib/viewport3d/plan-clip';
 
   let { scene, parents }: { scene: THREE.Scene; parents: () => { elements: THREE.Group; nodes: THREE.Group } } = $props();
 
-  const PLAN_CUT_M = 0.15;
   let host: HTMLDivElement | undefined = $state();
   let canvas: HTMLCanvasElement | undefined = $state();
   let renderer: THREE.WebGLRenderer | null = null;
@@ -40,8 +40,7 @@
     return under.length ? under[under.length - 1]!.z : -Infinity;
   });
 
-  const upper = new THREE.Plane(new THREE.Vector3(0, 0, -1), 0);
-  const lower = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
+  const clip = (): THREE.Plane[] => (mode === 'plan' && level ? planClipPlanes(level.z, below) : []);
 
   function bounds(): THREE.Box3 {
     const b = new THREE.Box3();
@@ -88,11 +87,7 @@
     if (!renderer || !host) return;
     const w = host.clientWidth, h = host.clientHeight;
     if (w === 0 || h === 0) return;
-    if (mode === 'plan' && level) {
-      upper.constant = level.z + PLAN_CUT_M;
-      lower.constant = Number.isFinite(below) ? -(below + PLAN_CUT_M) : 1e9;
-      renderer.clippingPlanes = [upper, lower];
-    } else renderer.clippingPlanes = [];
+    renderer.clippingPlanes = clip();
     renderer.render(scene, cam());
   }
 
@@ -120,9 +115,10 @@
     const ray = new THREE.Raycaster();
     const p = parents();
     const add = e.shiftKey || e.ctrlKey || e.metaKey;
-    const node = findNodeHit(ray, ndc, cam(), p.nodes);
+    const drawn = insideClip(clip());
+    const node = findNodeHit(ray, ndc, cam(), p.nodes, drawn);
     if (node !== null) { uiStore.selectNode(node, add); return; }
-    const el = findElementHit(ray, ndc, cam(), p.elements);
+    const el = findElementHit(ray, ndc, cam(), p.elements, drawn);
     if (el !== null) uiStore.selectElement(el, add);
     else if (!add) uiStore.clearSelection();
   }

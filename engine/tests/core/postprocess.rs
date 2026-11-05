@@ -225,6 +225,61 @@ fn test_envelope_min_max() {
     assert!(env.moment.global_max > 0.0, "Moment global max should be positive");
 }
 
+#[test]
+fn test_envelope_reads_the_true_peak_between_grid_stations() {
+    let beam = |l: f64, load: SolverDistributedLoad| {
+        solve_2d(&make_input(
+            vec![(1, 0.0, 0.0), (2, l, 0.0)],
+            vec![(1, 200000.0, 0.3)],
+            vec![(1, 0.15, 0.003125)],
+            vec![(1, "frame", 1, 2, 1, 1, false, false)],
+            vec![(1, 1, "pinned"), (2, 2, "rollerX")],
+            vec![SolverLoad::Distributed(load)],
+        ))
+        .unwrap()
+    };
+    let peak = |r: AnalysisResults| {
+        let env = compute_envelope(&[r]).unwrap();
+        let e = &env.moment.elements[0];
+        e.pos_values.iter().chain(e.neg_values.iter()).fold(0.0f64, |m, v| m.max(v.abs()))
+    };
+    let triangular = beam(6.0, SolverDistributedLoad { element_id: 1, q_i: 0.0, q_j: -10.0, a: None, b: None });
+    let exact = 10.0 * 36.0 / (9.0 * 3f64.sqrt());
+    assert!((peak(triangular) - exact).abs() <= 1e-9 * exact, "triangular load peak at L/sqrt(3)");
+    let narrow = beam(8.0, SolverDistributedLoad { element_id: 1, q_i: -50.0, q_j: -50.0, a: Some(3.02), b: Some(3.18) });
+    let w: f64 = 50.0 * 0.16;
+    let ra = w * (8.0 - 3.1) / 8.0;
+    let x: f64 = 3.02 + ra / 50.0;
+    let exact = ra * x - 50.0 * (x - 3.02).powi(2) / 2.0;
+    assert!((peak(narrow) - exact).abs() <= 1e-9 * exact, "narrow partial load peak inside the loaded stretch");
+}
+
+#[test]
+fn test_envelope_reads_a_shear_peak_at_an_off_grid_load_boundary() {
+    let r = solve_2d(&make_input(
+        vec![(1, 0.0, 0.0), (2, 10.0, 0.0)],
+        vec![(1, 200000.0, 0.3)],
+        vec![(1, 0.15, 0.003125)],
+        vec![(1, "frame", 1, 2, 1, 1, false, false)],
+        vec![(1, 1, "pinned"), (2, 2, "rollerX")],
+        vec![
+            SolverLoad::Distributed(SolverDistributedLoad { element_id: 1, q_i: 10.0, q_j: 10.0, a: Some(0.0), b: Some(3.13) }),
+            SolverLoad::Distributed(SolverDistributedLoad { element_id: 1, q_i: -10.0, q_j: -10.0, a: Some(3.13), b: Some(6.26) }),
+        ],
+    ))
+    .unwrap();
+    let ef = r.element_forces[0].clone();
+    let at_boundary = compute_diagram_value_at("shear", 0.313, &ef).abs();
+    let dense = (0..=100_000).map(|k| compute_diagram_value_at("shear", k as f64 / 100_000.0, &ef).abs()).fold(0.0f64, f64::max);
+    assert!(at_boundary >= dense * (1.0 - 1e-9), "the shear peaks at the load boundary");
+    let grid = (0..=20).map(|k| compute_diagram_value_at("shear", k as f64 / 20.0, &ef).abs()).fold(0.0f64, f64::max);
+    assert!(grid < at_boundary * (1.0 - 1e-3), "no grid station reaches it");
+    let env = compute_envelope(&[r]).unwrap();
+    let e = &env.shear.elements[0];
+    let peak = e.pos_values.iter().chain(e.neg_values.iter()).fold(0.0f64, |m, v| m.max(v.abs()));
+    assert!((peak - at_boundary).abs() <= 1e-9 * at_boundary, "envelope {peak} vs boundary {at_boundary}");
+}
+
 // ==================== Influence Line Tests ====================
 
 #[test]

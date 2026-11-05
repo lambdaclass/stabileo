@@ -10,7 +10,7 @@
   import Icon from './ribbon/Icon.svelte';
   import { TOOL_KEYS, type ToolKeyId } from '../lib/tool-keys';
   import { IL_QUANTITY_GROUPS, IL_DIRECTIONS } from '../lib/influence-line-quantities';
-  import { setInfluenceDirection } from '../lib/actions/influence-line';
+  import { setInfluenceDirection, setInfluenceQuantity } from '../lib/actions/influence-line';
 
   // If the active load case is deleted, reset to the first available case
   $effect(() => {
@@ -109,7 +109,7 @@
             <span class="ft-il-group">
               <span class="ft-il-label">{t(group.labelKey)}</span>
               {#each group.quantities as q}
-                <button class="ft-opt-btn" class:active={uiStore.ilQuantity === q.id} onclick={() => uiStore.ilQuantity = q.id}>{t(q.labelKey)}</button>
+                <button class="ft-opt-btn" class:active={uiStore.ilQuantity === q.id} onclick={() => setInfluenceQuantity(q.id)}>{t(q.labelKey)}</button>
               {/each}
             </span>
           {/each}

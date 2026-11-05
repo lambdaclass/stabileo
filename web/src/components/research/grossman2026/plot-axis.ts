@@ -13,3 +13,9 @@ export function axis(lo: number, hi: number, fixed: boolean) {
   if (Math.abs(s * 10 ** decimals - Math.round(s * 10 ** decimals)) > 1e-9) decimals += 1;
   return { domain: [a, b] as [number, number], ticks, decimals };
 }
+
+export function tableValue(v: number, locale: string): string {
+  if (v === 0) return '0';
+  const scientific = Math.abs(v) < 1e-3 || Math.abs(v) >= 1e6;
+  return new Intl.NumberFormat(locale, { maximumSignificantDigits: 5, notation: scientific ? 'scientific' : 'standard' }).format(v).replace(/^-/, '−');
+}

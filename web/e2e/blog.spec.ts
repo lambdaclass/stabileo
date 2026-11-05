@@ -69,6 +69,8 @@ test.describe('blog', () => {
     await expect(page.getByRole('heading', { level: 2, name: 'Octubre de 2026' })).toBeVisible();
     const total = CHANGELOG.reduce((n, e) => n + e.areas.length, 0);
     await expect(page.getByTestId('changelog-stats')).toContainText(`${total} cambios · desde febrero de 2026`);
+    const chipCounts = await page.locator('.cl-filter .cl-chip-n').allInnerTexts();
+    expect(chipCounts.reduce((n, c) => n + Number(c), 0), 'the area counts add up to the total').toBe(total);
     const first = weeks.last();
     await expect(first).toHaveAttribute('data-date', '2026-02-01');
     await expect(first.locator('time')).toHaveText(/feb\s*mes/);
@@ -83,7 +85,9 @@ test.describe('blog', () => {
     await page.getByRole('button', { name: /^Educativo/ }).click();
     await expect(weeks).toHaveCount(edu.length);
     await expect(weeks.first().getByRole('heading', { level: 4 })).toHaveText(['Educativo']);
-    await expect(page.getByTestId('changelog-stats')).toContainText(`${edu.reduce((n, e) => n + e.areas.filter((a) => a === 'edu').length, 0)} cambios`);
+    const eduChanges = edu.reduce((n, e) => n + e.areas.filter((a) => a === 'edu').length, 0);
+    await expect(page.getByRole('button', { name: /^Educativo/ }).locator('.cl-chip-n')).toHaveText(String(eduChanges));
+    await expect(page.getByTestId('changelog-stats')).toContainText(`${eduChanges} cambios`);
     await page.getByRole('button', { name: 'Todo' }).click();
     await expect(weeks).toHaveCount(CHANGELOG.length);
   });
@@ -432,7 +436,7 @@ test.describe('blog', () => {
     await expect(app.getByTestId('bp-title')).toHaveText('Avanzado', { timeout: 60_000 });
 
     const body = app.locator('body');
-    await expect(body).toContainText('g = 3×2 + 3 − 3×3 = 0');
+    await expect(body).toContainText('GH = 3×2 + 3 − 3×3 − 0 = 0');
     /*
      * Generous timeouts on the rank check, and the reason is worth keeping.
      *
@@ -488,6 +492,25 @@ test.describe('blog', () => {
     // Open Graph calls it an article, with its date.
     await expect(page.locator('meta[property="og:type"]')).toHaveAttribute('content', 'article');
     await expect(page.locator('meta[property="article:published_time"]')).toHaveAttribute('content', data.datePublished);
+  });
+
+  test('@smoke a post served by the fallback never states the landing structured data while its code loads', async ({ page }) => {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    const chunk = /\/assets\/BlogPage-[^/]+\.js$/;
+    await page.route(chunk, async (route) => {
+      await gate;
+      await route.continue();
+    });
+    const held = page.waitForRequest(chunk);
+    await boot(page, `/es/blog/${SLUG}`, 'es');
+    await held;
+    const graphs = () => page.locator('script[type="application/ld+json"]').evaluateAll((els) =>
+      els.map((e) => (JSON.parse(e.textContent ?? '{}')['@graph'] ?? []).map((n: { '@type': string }) => n['@type'])));
+    expect((await graphs()).flat()).not.toContain('SoftwareApplication');
+    release();
+    await expect.poll(async () => (await graphs()).flat()).toContain('BlogPosting');
+    expect((await graphs()).flat()).not.toContain('SoftwareApplication');
   });
 
   test('@smoke the index is not an article, and the post is not the homepage', async ({ page }) => {
