@@ -53,7 +53,8 @@ gates and suite shards, the end-to-end smoke shards and determinism, all in para
 
 Engine Quick Checks starts with the other engine jobs, which finish 10 to 15 minutes before
 the web jobs that set the critical path. Each of its checks has a budget of
-8 to 10 minutes (`budget_min` in the manifest; the runner stops a check that overruns it). The
+8 to 10 minutes (`budget_min` in the manifest; the runner stops a check that overruns it), and the job's
+time limit is the sum of the budgets of the checks it runs. The
 budget covers building the check's test binary, which is most of its time; the dependencies come
 from the job's Rust cache. A check that needs the release build the Engine Metamorphic job
 already makes runs there instead (`invariance-quick`). If the job's checks together start to

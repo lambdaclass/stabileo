@@ -69,7 +69,7 @@ class CadenceTest(unittest.TestCase):
         ]}
         d = tree(MAKE, m)
         self.assertEqual(cadence.listing(m, ["weekly", "monthly"], "nightly", root=d),
-                         [{"id": "a", "tier": "weekly", "timeout": 30}, {"id": "m", "tier": "monthly", "timeout": 80}])
+                         [{"id": "a", "tier": "weekly", "budget": 10, "timeout": 30}, {"id": "m", "tier": "monthly", "budget": 60, "timeout": 80}])
         (d / "scripts").mkdir()
         (d / "scripts" / "missing.py").write_text("")
         self.assertEqual([c["id"] for c in cadence.listing(m, ["weekly"], "nightly", root=d)], ["a", "req"])

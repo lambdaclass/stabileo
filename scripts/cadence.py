@@ -105,7 +105,7 @@ def run(manifest, tiers, runner, ident, root=ROOT, execute=execute_group):
 def listing(manifest, tiers, runner, root=ROOT):
     targets = make_targets(root)
     return [
-        {"id": c["id"], "tier": c["tier"], "timeout": c.get("budget_min", 60) + 20}
+        {"id": c["id"], "tier": c["tier"], "budget": c.get("budget_min", 60), "timeout": c.get("budget_min", 60) + 20}
         for c in select(manifest, tiers, runner)
         if runnable(c, targets, root) or not c.get("optional")
     ]
