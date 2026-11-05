@@ -1741,12 +1741,16 @@ fn tip_rotation(inertia: f64) -> f64 {
     1e-3 / (2.0 * E * 1000.0 * inertia)
 }
 
+fn tip_tolerance(inertia: f64) -> f64 {
+    if inertia < 1e-6 { 1e-6 } else { 1e-9 }
+}
+
 #[test]
 fn a_soft_rotation_beside_a_stiff_member_is_not_held_1367() {
     for inertia in [1e-10, 1e-4] {
         let r = dedaliano_engine::solver::linear::solve_3d(&soft_rotation_beside_a_stiff_member(inertia)).unwrap();
         let theta = r.displacements.iter().find(|d| d.node_id == 2).unwrap().ry.abs();
-        assert!((theta - tip_rotation(inertia)).abs() < 1e-6 * tip_rotation(inertia), "I = {inertia:e}: θ {theta}, PL²/2EI {}", tip_rotation(inertia));
+        assert!((theta - tip_rotation(inertia)).abs() < tip_tolerance(inertia) * tip_rotation(inertia), "I = {inertia:e}: θ {theta}, PL²/2EI {}", tip_rotation(inertia));
         assert!(!ids(&r.structured_diagnostics).contains(&"ORPHAN-SOFT-ROTATION".to_string()), "{:?}", ids(&r.structured_diagnostics));
     }
 }
@@ -1769,6 +1773,7 @@ fn a_rotation_far_softer_than_another_at_its_node_is_warned_1496() {
     let prepared = dedaliano_engine::solver::linear::prepare_static_3d(&input).unwrap().solve_loads(&input.loads).unwrap();
     for r in [&regular, &prepared] {
         let theta = r.displacements.iter().find(|d| d.node_id == 2).unwrap().ry.abs();
+        assert!(theta.is_finite(), "θ {theta}: {:?}", ids(&r.structured_diagnostics));
         if (theta - tip_rotation(1e-10)).abs() > 1e-6 * tip_rotation(1e-10) {
             let warning = r.structured_diagnostics.iter().find(|d| d.phase.as_deref() == Some("ORPHAN-SOFT-ROTATION")).unwrap_or_else(|| panic!("θ {theta}: {:?}", ids(&r.structured_diagnostics)));
             assert_eq!(warning.severity, dedaliano_engine::types::Severity::Warning);
@@ -1776,7 +1781,7 @@ fn a_rotation_far_softer_than_another_at_its_node_is_warned_1496() {
     }
     let held = dedaliano_engine::solver::linear::solve_3d(&cantilever_soft_about_y(1e-4)).unwrap();
     let theta = held.displacements.iter().find(|d| d.node_id == 2).unwrap().ry.abs();
-    assert!((theta - tip_rotation(1e-4)).abs() < 1e-6 * tip_rotation(1e-4), "{theta}");
+    assert!((theta - tip_rotation(1e-4)).abs() < 1e-9 * tip_rotation(1e-4), "{theta}");
     assert!(!ids(&held.structured_diagnostics).contains(&"ORPHAN-SOFT-ROTATION".to_string()), "{:?}", ids(&held.structured_diagnostics));
 }
 
@@ -1806,7 +1811,7 @@ fn a_soft_rotation_beside_a_stiff_member_is_not_held_in_2d_1367() {
     for inertia in [1e-10, 1e-4] {
         let r = solve_2d(&soft_rotation_beside_a_stiff_member_2d(inertia)).unwrap();
         let theta = r.displacements.iter().find(|d| d.node_id == 2).unwrap().ry.abs();
-        assert!((theta - tip_rotation(inertia)).abs() < 1e-6 * tip_rotation(inertia), "I = {inertia:e}: θ {theta}, PL²/2EI {}", tip_rotation(inertia));
+        assert!((theta - tip_rotation(inertia)).abs() < tip_tolerance(inertia) * tip_rotation(inertia), "I = {inertia:e}: θ {theta}, PL²/2EI {}", tip_rotation(inertia));
         assert!(!ids(&r.structured_diagnostics).contains(&"ORPHAN-SOFT-ROTATION".to_string()), "{:?}", ids(&r.structured_diagnostics));
     }
     let mut hinged = soft_rotation_beside_a_stiff_member_2d(1e-4);

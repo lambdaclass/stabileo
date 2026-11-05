@@ -16,7 +16,8 @@
           [
             "frameMembers",
             "shells",
-            "curvedShells"
+            "curvedShells",
+            "springs"
           ]
         ]
       },
