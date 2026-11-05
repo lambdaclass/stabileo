@@ -16,7 +16,7 @@ export const release050: Post = {
         'What changed since 0.4.0: sixteen defects that could give a wrong or unconservative result, fixed and written up as advisories; a warning or a refusal for every defect still open; the step-by-step course in Basic; and the app in six languages.',
       blocks: [
         { k: 'p', t: 'Since 0.4.0 we kept checking Stabileo from several sides at once: the solver against published solutions and other programs, the design checks against worked examples, the same structure renumbered, rescaled and moved, and the files that earlier releases saved. That found sixteen more defects that could give a wrong or unconservative result. They are fixed, and each one has an advisory saying what was wrong, who is affected and what to re-check.' },
-        { k: 'note', t: 'stabileo.com publishes every change as soon as it is merged, so most of these fixes are already live, each from the day it was merged. Projects saved before a change that concerns them ask for a re-check when they are opened, in the reader’s language.' },
+        { k: 'note', t: 'stabileo.com publishes every change as soon as it is merged, so most of these fixes are already live, each from the day it was merged. Projects saved before a change that concerns them ask for a re-check when they are opened, in the reader’s language. One fix cannot do that: a 2D model cut from 3D before #1295 opens without a notice, because the model is what was wrong (SA-2026-035). Re-cut it from 3D, or solve it in 3D.' },
 
         { k: 'h', t: 'Re-run your projects' },
         { k: 'p', t: 'These are the cases that move a design result the most. Each advisory has the worked case and what to do with results you already delivered.' },
@@ -75,18 +75,18 @@ export const release050: Post = {
           ],
         },
 
-        { k: 'link', slug: 'safety-advisories', t: 'The full list of advisories, with what to re-check for each:' },
+        { k: 'link', slug: 'safety-advisories', t: 'How advisories work, and the first twenty-four:' },
         { k: 'ext', href: `${REPO}/docs/advisories/README.md`, label: 'Safety advisories index', t: 'Every advisory, with its severity, issue and fix:' },
         { k: 'ext', href: `${REPO}/CHANGELOG.md`, label: 'Changelog', t: 'The full technical record:' },
       ],
     },
     es: {
-      title: 'Stabileo 0.5.0: dieciséis avisos más, y una advertencia o un rechazo para cada error abierto que puede dar un resultado equivocado',
+      title: 'Stabileo 0.5.0: dieciséis avisos más, y advertencia o rechazo para cada error abierto',
       excerpt:
         'Qué cambió desde la 0.4.0: dieciséis errores que podían dar un resultado equivocado o del lado inseguro, corregidos y documentados como avisos; una advertencia o un rechazo para cada error todavía abierto; el curso paso a paso en Básico; y la aplicación en seis idiomas.',
       blocks: [
         { k: 'p', t: 'Desde la 0.4.0 seguimos verificando Stabileo desde varios lados a la vez: el solver contra soluciones publicadas y otros programas, las verificaciones de dimensionado contra ejemplos resueltos, la misma estructura renumerada, reescalada y desplazada, y los archivos que guardaron las versiones anteriores. Así encontramos dieciséis errores más que podían dar un resultado equivocado o del lado inseguro. Están corregidos, y cada uno tiene un aviso que dice qué estaba mal, a quién afecta y qué revisar.' },
-        { k: 'note', t: 'stabileo.com publica cada cambio en cuanto se integra, así que la mayoría de estas correcciones ya están en línea, cada una desde el día en que se integró. Los proyectos guardados antes de un cambio que los afecta piden revisión al abrirlos, en el idioma de quien los abre.' },
+        { k: 'note', t: 'stabileo.com publica cada cambio en cuanto se integra, así que la mayoría de estas correcciones ya están en línea, cada una desde el día en que se integró. Los proyectos guardados antes de un cambio que los afecta piden revisión al abrirlos, en el idioma de quien los abre. Una corrección no puede hacerlo: un modelo 2D cortado de uno 3D antes de #1295 se abre sin aviso, porque lo que estaba mal es el modelo (SA-2026-035). Volvé a cortarlo desde el 3D, o resolvelo en 3D.' },
 
         { k: 'h', t: 'Volvé a resolver tus proyectos' },
         { k: 'p', t: 'Estos son los casos que más mueven un resultado de diseño. Cada aviso tiene el caso resuelto y qué hacer con los resultados que ya entregaste.' },
@@ -145,18 +145,18 @@ export const release050: Post = {
           ],
         },
 
-        { k: 'link', slug: 'safety-advisories', t: 'La lista completa de avisos, con qué revisar en cada caso:' },
+        { k: 'link', slug: 'safety-advisories', t: 'Cómo funcionan los avisos, y los primeros veinticuatro:' },
         { k: 'ext', href: `${REPO}/docs/advisories/README.md`, label: 'Índice de avisos de seguridad', t: 'Cada aviso, con su severidad, su issue y su corrección:' },
         { k: 'ext', href: `${REPO}/CHANGELOG.md`, label: 'Registro de cambios', t: 'El registro técnico completo:' },
       ],
     },
     pt: {
-      title: 'Stabileo 0.5.0: mais dezesseis avisos, e uma advertência ou uma recusa para cada erro aberto que pode dar um resultado errado',
+      title: 'Stabileo 0.5.0: mais dezesseis avisos, e advertência ou recusa para cada erro aberto',
       excerpt:
         'O que mudou desde a 0.4.0: dezesseis erros que podiam dar um resultado errado ou contra a segurança, corrigidos e documentados como avisos; uma advertência ou uma recusa para cada erro ainda aberto; o curso passo a passo no Básico; e o aplicativo em seis idiomas.',
       blocks: [
         { k: 'p', t: 'Desde a 0.4.0 continuamos verificando o Stabileo por vários lados ao mesmo tempo: o solver contra soluções publicadas e outros programas, as verificações de dimensionamento contra exemplos resolvidos, a mesma estrutura renumerada, reescalada e deslocada, e os arquivos que as versões anteriores salvaram. Assim encontramos mais dezesseis erros que podiam dar um resultado errado ou contra a segurança. Estão corrigidos, e cada um tem um aviso que diz o que estava errado, a quem afeta e o que revisar.' },
-        { k: 'note', t: 'stabileo.com publica cada mudança assim que é integrada, então a maioria destas correções já está no ar, cada uma desde o dia em que foi integrada. Os projetos salvos antes de uma mudança que os afeta pedem revisão ao serem abertos, no idioma de quem os abre.' },
+        { k: 'note', t: 'stabileo.com publica cada mudança assim que é integrada, então a maioria destas correções já está no ar, cada uma desde o dia em que foi integrada. Os projetos salvos antes de uma mudança que os afeta pedem revisão ao serem abertos, no idioma de quem os abre. Uma correção não consegue fazer isso: um modelo 2D cortado de um 3D antes de #1295 abre sem aviso, porque o que estava errado é o modelo (SA-2026-035). Corte-o de novo a partir do 3D, ou resolva-o em 3D.' },
 
         { k: 'h', t: 'Resolva seus projetos de novo' },
         { k: 'p', t: 'Estes são os casos que mais movem um resultado de projeto. Cada aviso tem o caso resolvido e o que fazer com os resultados que você já entregou.' },
@@ -215,7 +215,7 @@ export const release050: Post = {
           ],
         },
 
-        { k: 'link', slug: 'safety-advisories', t: 'A lista completa de avisos, com o que revisar em cada caso:' },
+        { k: 'link', slug: 'safety-advisories', t: 'Como funcionam os avisos, e os primeiros vinte e quatro:' },
         { k: 'ext', href: `${REPO}/docs/advisories/README.md`, label: 'Índice de avisos de segurança', t: 'Cada aviso, com sua severidade, sua issue e sua correção:' },
         { k: 'ext', href: `${REPO}/CHANGELOG.md`, label: 'Registro de mudanças', t: 'O registro técnico completo:' },
       ],

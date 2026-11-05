@@ -1,7 +1,7 @@
 import type { PostBody } from '../../types';
 
 const body: PostBody = {
-  "title": "Stabileo 0.5.0 : seize avis de plus, et un avertissement ou un refus pour chaque défaut ouvert pouvant donner un résultat erroné",
+  "title": "Stabileo 0.5.0 : seize avis de plus, et chaque erreur ouverte signalée ou refusée",
   "excerpt": "Ce qui a changé depuis la 0.4.0 : seize défauts pouvant donner un résultat erroné ou non conservatif, corrigés et documentés sous forme d’avis ; un avertissement ou un refus pour chaque défaut encore ouvert ; le cours pas à pas dans Basic ; et l’application en six langues.",
   "blocks": [
     {
@@ -10,7 +10,7 @@ const body: PostBody = {
     },
     {
       "k": "note",
-      "t": "stabileo.com publie chaque modification dès qu’elle est intégrée : la plupart de ces corrections sont donc déjà en ligne, chacune depuis le jour de son intégration. Les projets enregistrés avant une modification qui les concerne demandent une revérification à l’ouverture, dans la langue du lecteur."
+      "t": "stabileo.com publie chaque modification dès qu’elle est intégrée : la plupart de ces corrections sont donc déjà en ligne, chacune depuis le jour de son intégration. Les projets enregistrés avant une modification qui les concerne demandent une revérification à l’ouverture, dans la langue du lecteur. Une correction ne le peut pas : un modèle 2D découpé d’un modèle 3D avant #1295 s’ouvre sans avertissement, car c’est le modèle qui était faux (SA-2026-035). Redécoupez-le depuis le 3D, ou calculez-le en 3D."
     },
     {
       "k": "h",
@@ -23,7 +23,7 @@ const body: PostBody = {
     {"k": "img", "base": "blog/release-050-recheck-de", "w": 1600, "h": 1000, "alt": "Stabileo Basic en allemand, à l’ouverture d’un portique plan des exemples calculé pour la dernière fois avec la version de résultats 15. La demande de revérification liste les changements qui le concernent, chacun avec son titre et son explication en allemand, et demande de cocher leur lecture avant de continuer ou de relancer l’analyse.", "caption": "La demande de revérification explique désormais chaque changement dans les six langues : ici, en allemand."},
     {
       "k": "table",
-      "caption": "Quelques corrections de la 0.5.0, telles que chaque avis les documente, avec la version de résultats qui a introduit chacune ; SA-2026-035 n’en a pas, son avis est donc la seule notification.",
+      "caption": "Quelques corrections de la 0.5.0, telles que chaque avis les documente, avec la version de résultats qui a introduit chacune ; SA-2026-035 n’en a pas, son avis est donc la seule notification.",
       "head": [
         "Avis",
         "Version de résultats",
@@ -140,7 +140,7 @@ const body: PostBody = {
     {
       "k": "link",
       "slug": "safety-advisories",
-      "t": "La liste complète des avis, avec ce qu’il faut revérifier pour chacun :"
+      "t": "Comment fonctionnent les avis, et les vingt-quatre premiers :"
     },
     {
       "k": "ext",

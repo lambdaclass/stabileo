@@ -1,8 +1,8 @@
 import type { PostBody } from '../../types';
 
 const body: PostBody = {
-  "title": "Stabileo 0.5.0: sechzehn weitere Sicherheitshinweise und für jeden offenen Fehler, der ein falsches Ergebnis liefern kann, eine Warnung oder eine Ablehnung",
-  "excerpt": "Was sich seit 0.4.0 geändert hat: sechzehn Fehler, die ein falsches Ergebnis oder ein Ergebnis auf der unsicheren Seite liefern konnten, behoben und als Sicherheitshinweise dokumentiert; eine Warnung oder eine Ablehnung für jeden noch offenen Fehler; der Schritt-für-Schritt-Kurs in Basic; und die App in sechs Sprachen.",
+  "title": "Stabileo 0.5.0: sechzehn weitere Sicherheitshinweise, und jeder offene Fehler gewarnt oder abgelehnt",
+  "excerpt": "Was sich seit 0.4.0 geändert hat: sechzehn Fehler, die ein falsches oder unsicheres Ergebnis liefern konnten, behoben und als Sicherheitshinweise dokumentiert; eine Warnung oder eine Ablehnung für jeden noch offenen Fehler; der Schritt-für-Schritt-Kurs in Basic; und die App in sechs Sprachen.",
   "blocks": [
     {
       "k": "p",
@@ -10,7 +10,7 @@ const body: PostBody = {
     },
     {
       "k": "note",
-      "t": "stabileo.com veröffentlicht jede Änderung, sobald sie gemergt ist; die meisten dieser Korrekturen sind daher bereits online, jede seit dem Tag, an dem sie gemergt wurde. Projekte, die vor einer sie betreffenden Änderung gespeichert wurden, fordern beim Öffnen eine erneute Prüfung an, in der Sprache des Lesers."
+      "t": "stabileo.com veröffentlicht jede Änderung, sobald sie gemergt ist; die meisten dieser Korrekturen sind daher bereits online, jede seit dem Tag, an dem sie gemergt wurde. Projekte, die vor einer sie betreffenden Änderung gespeichert wurden, fordern beim Öffnen eine erneute Prüfung an, in der Sprache des Lesers. Eine Korrektur kann das nicht: Ein vor #1295 aus 3D geschnittenes 2D-Modell öffnet sich ohne Hinweis, weil das Modell selbst falsch war (SA-2026-035). Schneiden Sie es neu aus dem 3D-Modell, oder rechnen Sie es in 3D."
     },
     {
       "k": "h",
@@ -140,7 +140,7 @@ const body: PostBody = {
     {
       "k": "link",
       "slug": "safety-advisories",
-      "t": "Die vollständige Liste der Sicherheitshinweise, jeweils mit dem, was erneut zu prüfen ist:"
+      "t": "Wie Sicherheitshinweise funktionieren, und die ersten vierundzwanzig:"
     },
     {
       "k": "ext",

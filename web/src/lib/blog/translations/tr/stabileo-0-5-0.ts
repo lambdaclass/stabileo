@@ -1,7 +1,7 @@
 import type { PostBody } from '../../types';
 
 const body: PostBody = {
-  "title": "Stabileo 0.5.0: on altı güvenlik bildirimi daha ve yanlış sonuç verebilecek her açık kusur için bir uyarı ya da ret",
+  "title": "Stabileo 0.5.0: on altı güvenlik bildirimi daha ve açık her hata için uyarı ya da ret",
   "excerpt": "0.4.0’dan bu yana neler değişti: yanlış ya da güvensiz tarafta sonuç verebilecek on altı kusur düzeltildi ve güvenlik bildirimi olarak belgelendi; hâlâ açık olan her kusur için bir uyarı ya da ret geldi; Basic’te adım adım ders eklendi; uygulama artık altı dilde.",
   "blocks": [
     {
@@ -10,7 +10,7 @@ const body: PostBody = {
     },
     {
       "k": "note",
-      "t": "stabileo.com her değişikliği birleştirildiği anda yayına alır; bu yüzden bu düzeltmelerin çoğu zaten canlıdır, her biri birleştirildiği günden beri. Kendilerini ilgilendiren bir değişiklikten önce kaydedilmiş projeler, açıldıklarında okuyucunun dilinde yeniden kontrol edilmeyi ister."
+      "t": "stabileo.com her değişikliği birleştirildiği anda yayına alır; bu yüzden bu düzeltmelerin çoğu zaten canlıdır, her biri birleştirildiği günden beri. Kendilerini ilgilendiren bir değişiklikten önce kaydedilmiş projeler, açıldıklarında okuyucunun dilinde yeniden kontrol edilmeyi ister. Bir düzeltme bunu yapamaz: #1295’ten önce 3B’den kesilmiş bir 2B model uyarısız açılır, çünkü yanlış olan modelin kendisiydi (SA-2026-035). Modeli 3B’den yeniden kesin ya da 3B’de çözün."
     },
     {
       "k": "h",
@@ -140,7 +140,7 @@ const body: PostBody = {
     {
       "k": "link",
       "slug": "safety-advisories",
-      "t": "Bildirimlerin tam listesi ve her biri için neyin yeniden kontrol edilmesi gerektiği:"
+      "t": "Bildirimler nasıl işler ve ilk yirmi dördü:"
     },
     {
       "k": "ext",
