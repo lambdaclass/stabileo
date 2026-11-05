@@ -294,6 +294,11 @@ pub fn check_case(ctx: &Ctx, c: &Case2, anas: &[Ana2], invariants: &[&str]) {
                     let u = Units::froude(l, f);
                     same(a, &c.units(&u), Ok(base.units(&u)), &cond)
                 }
+                "load order" => {
+                    let mut loads = c.s.loads.clone();
+                    loads.reverse();
+                    if loads.len() < 2 { Verdict::NotApplicable } else { same(a, &c.with_loads(loads), Ok(base.clone()), &cond) }
+                }
                 "superposition" => superposition(a, c, &base, &cond),
                 "modal orthogonality" => {
                     if a.name == "modal" {
