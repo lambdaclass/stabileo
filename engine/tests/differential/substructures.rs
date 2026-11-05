@@ -215,6 +215,20 @@ fn guyan_condensation_recovers_the_full_static_solution() {
     boundary.sort_unstable();
     let g = guyan_reduce_2d(&GuyanInput { solver: s.clone(), boundary_nodes: boundary }).unwrap();
     let mut r = Report::new();
+    let ids = |v: Vec<usize>| -> Vec<usize> {
+        let mut v = v;
+        v.sort_unstable();
+        v
+    };
+    for (what, got, want) in [
+        ("nodes", ids(g.displacements.iter().map(|d| d.node_id).collect()), ids(full.displacements.iter().map(|d| d.node_id).collect())),
+        ("reactions", ids(g.reactions.iter().map(|x| x.node_id).collect()), ids(full.reactions.iter().map(|x| x.node_id).collect())),
+        ("elements", ids(g.element_forces.iter().map(|x| x.element_id).collect()), ids(full.element_forces.iter().map(|x| x.element_id).collect())),
+    ] {
+        if got != want {
+            r.fail(format!("Guyan recovers {what} {got:?}, the full solve {want:?}"));
+        }
+    }
     same_part_2d("Guyan", &AnalysisResults { displacements: g.displacements.clone(), ..full.clone() }, &full, &mut r);
     let fr: HashMap<usize, &Reaction> = full.reactions.iter().map(|x| (x.node_id, x)).collect();
     let mut q = Vec::new();

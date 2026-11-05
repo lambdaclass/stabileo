@@ -199,6 +199,9 @@ pub fn buckling_pair(s: &SolverInput) -> Result<Report, String> {
     let b2 = solve_buckling_2d(s, 3)?;
     let b3 = solve_buckling_3d(&embed(s), 3)?;
     let mut r = Report::new();
+    if b2.modes.len() != b3.modes.len() {
+        r.fail(format!("{} buckling modes in 2D, {} in 3D", b2.modes.len(), b3.modes.len()));
+    }
     for (i, (a, b)) in b3.modes.iter().zip(&b2.modes).enumerate() {
         let f = LoadFactor::from_factor(b.load_factor);
         r.close(&format!("buckling mode {} factor", i + 1), LoadFactor::from_factor(a.load_factor), f, f * 1e-8);

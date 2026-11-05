@@ -66,7 +66,8 @@ fn linearise(s: &SolverInput) -> Linearised {
 
 fn energy(k: &[f64], e: &[f64]) -> f64 {
     let n = e.len();
-    (0..n).map(|i| e[i] * (0..n).map(|j| k[i * n + j] * e[j]).sum::<f64>()).sum::<f64>().max(0.0).sqrt()
+    let w: f64 = (0..n).map(|i| e[i] * (0..n).map(|j| k[i * n + j] * e[j]).sum::<f64>()).sum();
+    if w.is_finite() { w.max(0.0).sqrt() } else { f64::NAN }
 }
 
 /// `‖v − u₀‖_K / ‖u₀‖_K` for `v` the nonlinear response to load `scale·f`, divided by `scale`.
