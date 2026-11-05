@@ -2253,7 +2253,7 @@ fn small_displacement_oracle_2d(r: &AnalysisResults, i: &SolverInput) -> (Vec<us
 }
 
 fn small_displacement_oracle_3d(r: &AnalysisResults3D, i: &SolverInput3D) -> (Vec<usize>, Vec<usize>) {
-    let mut nodes: Vec<usize> = r.displacements.iter().filter(|d| [d.rx, d.ry, d.rz].into_iter().any(beyond_small)).map(|d| d.node_id).collect();
+    let mut nodes: Vec<usize> = r.displacements.iter().filter(|d| beyond_small((d.rx * d.rx + d.ry * d.ry + d.rz * d.rz).sqrt())).map(|d| d.node_id).collect();
     let at: std::collections::HashMap<usize, [f64; 3]> = i.nodes.values().map(|n| (n.id, [n.x, n.y, n.z])).collect();
     let u = |id: usize| r.displacements.iter().find(|d| d.node_id == id).map_or([0.0; 3], |d| [d.ux, d.uy, d.uz]);
     let norm = |v: [f64; 3]| (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt();
