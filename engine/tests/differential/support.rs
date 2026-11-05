@@ -84,6 +84,7 @@ fn abs<Q: Unit>(q: Q) -> Q {
 #[derive(Debug, Default)]
 pub struct Report {
     failures: Vec<String>,
+    nonfinite: Vec<String>,
     checked: usize,
 }
 
@@ -95,6 +96,9 @@ impl Report {
     /// `|a − b| ≤ tol`, the tolerance in the quantity's own unit.
     pub fn close<Q: Unit>(&mut self, what: &str, a: Q, b: Q, tol: Q) {
         self.checked += 1;
+        if !(a.raw().is_finite() && b.raw().is_finite() && tol.raw().is_finite()) {
+            self.nonfinite.push(format!("{what}: {:e} vs {:e} {} (tol {:e})", a.raw(), b.raw(), Q::UNIT, tol.raw()));
+        }
         let d = abs(a - b);
         if !(d <= tol) {
             self.failures.push(format!(
@@ -120,6 +124,7 @@ impl Report {
     pub fn merge(&mut self, prefix: &str, other: Report) {
         self.checked += other.checked;
         self.failures.extend(other.failures.into_iter().map(|f| format!("{prefix}: {f}")));
+        self.nonfinite.extend(other.nonfinite.into_iter().map(|f| format!("{prefix}: {f}")));
     }
 
     pub fn fail(&mut self, msg: String) {
@@ -144,11 +149,16 @@ pub fn agree(pair: &str, outcome: Result<Report, String>) {
     }
 }
 
-/// The two paths are known to disagree because of an open issue. Once the fix lands
-/// the pair agrees and this fails, so the marker is removed and the test guards the fix.
-/// A path that refuses or errors is not the known disagreement and fails too.
-pub fn known_issue(issue: u32, pair: &str, outcome: Result<Report, String>) {
+/// The two paths are known to disagree because of an open issue, at the checks whose
+/// labels contain one of `expected`. Once the fix lands the pair agrees and this
+/// fails, so the marker is removed and the test guards the fix. A path that refuses
+/// or errors, a non-finite value, or a disagreement anywhere else is not the known
+/// one and fails too.
+pub fn known_issue(issue: u32, pair: &str, expected: &[&str], outcome: Result<Report, String>) {
     let report = outcome.unwrap_or_else(|e| panic!("{pair}: a path refused or failed ({e}), which is not the disagreement #{issue} describes"));
+    assert!(report.nonfinite.is_empty(), "{pair}: non-finite values, which is not the disagreement #{issue} describes:\n  {}", report.nonfinite.join("\n  "));
+    let elsewhere: Vec<&String> = report.failures.iter().filter(|f| !expected.iter().any(|e| f.contains(e))).collect();
+    assert!(elsewhere.is_empty(), "{pair}: disagreements beyond those #{issue} describes ({expected:?}):\n  {}", elsewhere.iter().map(|f| f.as_str()).collect::<Vec<_>>().join("\n  "));
     match report.into_result() {
         Ok(n) => panic!(
             "{pair}: expected to fail until #{issue} is fixed, but all {n} checks agree. \

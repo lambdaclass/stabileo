@@ -183,14 +183,16 @@ fn soft_cantilever_alone_matches_the_textbook_tip_rotation() {
     agree("soft cantilever vs PL²/2EI", Ok(r));
 }
 
+const TIP_OF_THE_SOFT_CANTILEVER: &[&str] = &["part A translation node 2 uz:", "part A rotation node 2:", "part A rotation node 2 ry:"];
+
 #[test]
 fn soft_rotation_is_not_locked_by_an_unconnected_stiff_member_2d() {
-    known_issue(1367, "2D soft cantilever with vs without an unconnected stiff member", parts_2d(&soft_cantilever_2d(1e-10), &stiff_member_2d()));
+    known_issue(1367, "2D soft cantilever with vs without an unconnected stiff member", TIP_OF_THE_SOFT_CANTILEVER, parts_2d(&soft_cantilever_2d(1e-10), &stiff_member_2d()));
 }
 
 #[test]
 fn soft_rotation_is_not_locked_by_an_unconnected_stiff_member_3d() {
-    known_issue(1367, "3D soft cantilever with vs without an unconnected stiff member", parts_3d(&soft_cantilever_3d(1e-10), &stiff_member_3d()));
+    known_issue(1367, "3D soft cantilever with vs without an unconnected stiff member", TIP_OF_THE_SOFT_CANTILEVER, parts_3d(&soft_cantilever_3d(1e-10), &stiff_member_3d()));
 }
 
 /// Where the soft member is not under the threshold the parts already agree:

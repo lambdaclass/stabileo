@@ -142,7 +142,8 @@ fn compare(d: &Dense, res: &HarmonicResult, damping: (f64, f64)) -> Result<Repor
         let (re, im, umax) = direct(d, damping, pt.omega)?;
         let (floor, truncation, q) = allowances(&sp, res.modes_used, pt.omega, damping, corrected, umax);
         let tol = floor + truncation;
-        let at = format!("{:.4} Hz ({}, {} of {} modes, q = {q:.2})", pt.frequency, res.method, res.modes_used, d.n);
+        let uncorrected = if corrected && q < 0.5 { "" } else { ", uncorrected" };
+        let at = format!("{:.4} Hz ({}, {} of {} modes, q = {q:.2}{uncorrected})", pt.frequency, res.method, res.modes_used, d.n);
         r.close(&format!("Re u at {at}"), Length::from_m(pt.real), re, tol);
         r.close(&format!("Im u at {at}"), Length::from_m(pt.imag), im, tol);
     }
@@ -252,7 +253,7 @@ fn harmonic_3d_issue_1371_frame_modal_matches_direct() {
         r.merge(&format!("node 4 {dof}"), harmonic_3d(s.clone(), d.clone(), 4, dof, vec![0.0, 0.7, 2.3])?);
         Ok(r)
     });
-    known_issue(1371, "3D harmonic modal vs direct, #1371 frame", outcome);
+    known_issue(1371, "3D harmonic modal vs direct, #1371 frame", &["node 4 x:", "node 4 y:"], outcome);
 }
 
 /// Forcing frequencies around the first mode the engine omits: below the first,
@@ -289,12 +290,12 @@ fn above_the_kept_modes_3d() -> Result<Report, String> {
 
 #[test]
 fn harmonic_2d_above_the_kept_modes_matches_direct() {
-    known_issue(1434, "2D harmonic above the kept modes vs direct", above_the_kept_modes_2d());
+    known_issue(1434, "2D harmonic above the kept modes vs direct", &[", uncorrected)"], above_the_kept_modes_2d());
 }
 
 #[test]
 fn harmonic_3d_above_the_kept_modes_matches_direct() {
-    known_issue(1434, "3D harmonic above the kept modes vs direct", above_the_kept_modes_3d());
+    known_issue(1434, "3D harmonic above the kept modes vs direct", &[", uncorrected)"], above_the_kept_modes_3d());
 }
 
 /// At ω = 0 the kept modes plus the static correction are `K⁻¹f` algebraically, so
