@@ -7,8 +7,8 @@ blocking a pull request.
 
 The source of truth is [`.github/test-cadence.json`](../.github/test-cadence.json). Every check
 in it has an id (the backticked names below), and `make check.cadence` (part of
-`make test.ci-scripts`, so CI runs it) fails when the manifest, the Makefile, the workflows and
-this page disagree. A check is either:
+`make test.ci-scripts`, so CI runs it) fails when a check's make target or workflow job does not
+exist, or when this page lists a check under another tier than the manifest, or not at all. A check is either:
 
 - **run by the cadence runner**: it names a make target, and `make test.cadence TIER=<tier>`
   runs it in the Engine Quick Checks job of `ci.yml` (pull requests) or the `cadence` job of
@@ -76,7 +76,7 @@ Until one of its targets lands, the job only reads the manifest and builds nothi
 
 **Daily triage.** The nightly `findings` job opens one issue per root cause, labelled
 `wrong-result-candidate` when a result may be wrong. The `triage` job then assigns the decision
-owners to every open candidate and lists the day's new ones on the **Daily triage report** issue
+owners to every open candidate and lists the day's new ones, and the ones that recurred overnight, on the **Daily triage report** issue
 (nothing is posted on a quiet day). For each candidate the owners decide within the day: confirm
 it (label `safety`, contain it, add its reproducer as an expected-failure test named after the
 issue) or close it as a harness artefact with the evidence.
