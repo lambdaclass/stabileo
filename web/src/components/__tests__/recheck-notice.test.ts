@@ -10,9 +10,9 @@ vi.mock('../../lib/actions/recheck', () => ({
   recheckKey: (key: string) => key,
 }));
 
-afterEach(() => { recheckStore.reset(); setLocale('en'); });
+afterEach(() => { vi.restoreAllMocks(); recheckStore.reset(); setLocale('en'); });
 
-it('keeps acknowledgement disabled until lazy changes arrive, without changing the project stamp', async () => {
+it('shows nothing during the first moments of the check, then the changes, without changing the project stamp', async () => {
   const project = {
     analysisMode: 'pro',
     materials: [[1, { id: 1, e: 200000, fy: 250 }]],
@@ -23,17 +23,17 @@ it('keeps acknowledgement disabled until lazy changes arrive, without changing t
   const stamp = recheckStore.capture();
   const html = render(RecheckNotice).body;
   expect(recheckStore.pending).toBe(true);
-  // Native dialog is required: aria-modal on a div cannot outrank the mobile desk.
-  expect(html).toMatch(/<dialog[^>]*role="alertdialog"[^>]*data-testid="recheck-overlay"/);
-  expect(html).toContain(t('recheck.loading'));
-  expect(html).toContain(t('recheck.staleWarning'));
-  for (const id of ['recheck-ack', 'recheck-later', 'recheck-rerun']) {
-    expect(html).toMatch(new RegExp(`<[^>]*disabled[^>]*data-testid="${id}"`));
-  }
+  expect(recheckStore.noticeOpen).toBe(true);
+  expect(html).not.toContain('data-testid="recheck-overlay"');
+  expect(html).not.toContain('data-testid="recheck-stale-banner"');
   await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
   const changes = recheckStore.assessment!.changes;
   expect(changes.map(c => c.id)).toContain('cirsoc301-tension-needs-connection');
   const loaded = render(RecheckNotice).body;
+  // Native dialog is required: aria-modal on a div cannot outrank the mobile desk.
+  expect(loaded).toMatch(/<dialog[^>]*role="alertdialog"[^>]*data-testid="recheck-overlay"/);
+  expect(loaded).toContain(t('recheck.title'));
+  expect(loaded).not.toContain(t('recheck.checkingTitle'));
   for (const change of changes) {
     expect(loaded).toContain(`data-change-id="${change.id}"`);
   }
@@ -98,4 +98,17 @@ it.each(['de', 'fr', 'tr'] as const)('shows each change in the reader\'s languag
     expect(html).toContain(text(change.explanation[locale]));
     expect(html).not.toContain(text(change.explanation.en));
   }
+});
+
+it('does not claim results changed when the change list could not be loaded', () => {
+  vi.spyOn(recheckStore, 'loadFailed', 'get').mockReturnValue(true);
+  vi.spyOn(recheckStore, 'pending', 'get').mockReturnValue(true);
+  vi.spyOn(recheckStore, 'noticeOpen', 'get').mockReturnValue(true);
+  vi.spyOn(recheckStore, 'assessment', 'get').mockReturnValue({ solvedVersion: 1, currentVersion: 2, older: true, newer: false, changes: [] });
+  const html = render(RecheckNotice).body;
+  expect(html).toContain('data-testid="recheck-overlay"');
+  expect(html).toContain(t('recheck.checkingTitle'));
+  expect(html).toContain(t('recheck.loadFailed'));
+  expect(html).not.toContain(t('recheck.title'));
+  expect(html).toMatch(/<input[^>]*disabled[^>]*data-testid="recheck-ack"/);
 });

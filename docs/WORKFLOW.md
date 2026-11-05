@@ -23,6 +23,13 @@ never silently wrong and verification never silently stops working.
 
 - **One branch and one pull request per workstream**, based on `main`. Open the PR as a draft
   after the first coherent commit; push after every working step (a branch push is the backup).
+- **Before each push, `make check.quick`.** It runs what CI checks first, for what the branch
+  changed against `origin/main` (uncommitted work included): the changelog, pin and test-target
+  checks always; the engine's clippy, the backend's format and credo, the CI-script tests and the
+  web typecheck when those areas changed; then the unit tests related to the changed web files
+  and the engine tests of the touched sources (`scripts/test-changed.sh`). It prints its plan
+  first (`scripts/check-quick.sh --dry-run`). It is a quick guess, not the whole suite: CI still
+  runs everything, and `make test.backend` and the E2E suites are not part of it.
 - **Waves.** When several workstreams land together (e.g. the October 2026 safety wave), an
   **integration branch per wave** (`integration/<wave>`) merges every PR of the wave onto `main`
   in a planned order, resolves conflicts once, and runs the full suite. It is never merged
@@ -47,6 +54,13 @@ never silently wrong and verification never silently stops working.
 - **Merge status.** The pinned issue [Merge status (#1391)](https://github.com/lambdaclass/stabileo/issues/1391)
   and the `status:*` labels (`status:in-queue`, `status:ready`, `status:in-progress`,
   `status:blocked`, `status:needs-owner-ok`) show every open PR's state and expected merge time.
+- **No stacked PRs in the merge queue.** The queue marks an ancestor unmergeable and rejects its
+  descendants (`invalid_merge_commit`). Retarget every PR of a stack to `main`, or land the stack
+  as one integration PR.
+- **Re-arm auto-merge after a dequeue.** Taking a PR out of the queue, or the queue dropping it,
+  clears its auto-merge. Set it again once the fix is pushed.
+- **Before pushing,** run `make check.quick` (upcoming; until it is on `main`, the `make` targets of
+  the areas you changed).
 - **Never use `git stash`.** Every worktree of a clone shares one stash list, so a stash in one
   worktree can be popped or dropped from another. Commit to your branch or copy the files instead.
 - **Required checks** must be green (engine, web, e2e, Kani, Lean, symbolic; see
@@ -62,6 +76,10 @@ never silently wrong and verification never silently stops working.
   Merge-queue runs are not retried: a red required check has already dequeued the PR, so a rerun
   reports to a group that no longer exists; re-enqueue instead. Pushes to `main` are handled by
   `post-merge.yml`.
+- **Closing an issue.** A fix closes its issue only after running every reproducer listed in the
+  issue. A partial fix says "partly fixed" and leaves a follow-up issue for the rest.
+- **Nightly wrong-result candidates** are triaged daily, and each gets a recorded decision:
+  contained, fixed (with the PR), or out of scope (with the numbers that show it).
 - **Never force-push** a shared branch without explicit authorization. Before deleting a branch,
   prove its work exists elsewhere.
 - QA and evidence branches are pushed but get no PR.
