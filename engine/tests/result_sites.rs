@@ -511,13 +511,17 @@ impl Schema {
     }
 
     fn build(root: &Path) -> Schema {
-        let src = read_source(root);
+        Schema::from_source(read_source(root))
+    }
+
+    fn from_source(src: Source) -> Schema {
         let mut schema = Schema { src, known: BTreeMap::new(), instances: BTreeMap::new(), unknown: BTreeSet::new() };
         let roots: Vec<String> = schema.src.defs.iter().filter(|(_, defs)| defs.iter().all(|d| d.generics.iter().all(|g| g.1.is_some()) || d.generics.is_empty())).map(|(n, _)| n.clone()).collect();
         for name in roots {
             schema.has(&Shape::Named(name, vec![]));
         }
         loop {
+            let before = schema.instances.len();
             let mut changed = false;
             let instances: Vec<(String, (String, Vec<Shape>))> = schema.instances.iter().map(|(k, v)| (k.clone(), v.clone())).collect();
             for (key, (name, args)) in instances {
@@ -527,7 +531,7 @@ impl Schema {
                     changed = true;
                 }
             }
-            if !changed && schema.instances.len() == schema.known.len() {
+            if !changed && schema.instances.len() == before {
                 break;
             }
         }
@@ -769,6 +773,21 @@ fn generated() -> (BTreeMap<String, Value>, KeySets, Vec<(&'static str, String)>
 }
 
 const EXTERNAL_LEAVES: &[&str] = &[];
+
+#[test]
+fn a_generic_instance_found_only_inside_another_is_still_settled() {
+    let text = r#"
+        #[derive(Serialize)] pub struct Root { pub outer: Outer<u8> }
+        #[derive(Serialize)] pub struct Outer<T> { pub inner: Inner<T, StructuredDiagnostic> }
+        #[derive(Serialize)] pub struct Inner<T, U> { pub value: T, pub issue: U }
+    "#;
+    let mut src = Source::default();
+    collect_items(&syn::parse_file(text).unwrap().items, "fixture.rs", &mut src);
+    let mut schema = Schema::from_source(src);
+    assert!(schema.has(&Shape::Named("Root".into(), vec![])), "Root holds a diagnostic two generic instances down");
+    let sets = key_sets(&schema.types());
+    assert!(sets.diagnostic.contains("issue") && sets.record.contains("outer") && sets.record.contains("inner"));
+}
 
 #[test]
 fn generated_result_sites_are_current() {

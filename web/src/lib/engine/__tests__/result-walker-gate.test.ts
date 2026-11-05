@@ -182,3 +182,23 @@ describe('the store withholds a result with a refusal at any field path of its t
     expect(r.get()).toBeNull();
   });
 });
+
+describe('the web generator settles recursive result types', () => {
+  it('a type that holds itself before its diagnostics is walked, and a recursive type without any is not', async () => {
+    const { mkdtempSync, writeFileSync } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const { join } = await import('node:path');
+    const { resultSites } = await import('../../../../scripts/gen-result-sites.mjs');
+    const dir = mkdtempSync(join(tmpdir(), 'result-sites-'));
+    const file = join(dir, 'fixture.ts');
+    writeFileSync(file, `
+      interface Issue { code: string; severity: string; message: string }
+      export interface Tree { children: Tree[]; byName: Record<string, Tree>; notes: Issue[] }
+      export interface Chain { next?: Chain; value: number }
+    `);
+    const sets = resultSites([file], { strict: true, noEmit: true });
+    expect([...sets.diagnostic]).toEqual(['notes']);
+    expect([...sets.record].sort()).toEqual(['children']);
+    expect([...sets.map]).toEqual(['byName']);
+  });
+});
