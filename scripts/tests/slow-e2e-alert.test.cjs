@@ -198,6 +198,18 @@ test('a red is not reported when a newer main push already passed the slow suite
   assert.equal(calls.filter(c => ['create', 'createComment'].includes(c.name)).length, 0);
 });
 
+test('a run missing a shard is never the baseline nor a newer green', async () => {
+  const {github, calls} = fakeGithub({
+    runs: [{id: 301, html_url: 'r301', head_sha: 'eeeeeeeeee'}, {id: 298, html_url: 'r298', head_sha: 'dddddddddd'}, {id: 297, html_url: 'r297', head_sha: 'aaaaaaaaaa'}],
+    jobs: {301: [{name: 'E2E (1/2)', conclusion: 'success', steps: slowStep('success')}],
+      298: [{name: 'E2E (2/2)', conclusion: 'success', steps: slowStep('success')}],
+      297: [{name: 'E2E (1/2)', conclusion: 'success', steps: slowStep('success')}, {name: 'E2E (2/2)', conclusion: 'success', steps: slowStep('success')}]},
+    commits: ['Merge pull request #807 from x'],
+  });
+  await run(github, [red], 1);
+  assert.match(calls.find(c => c.name === 'create').args.body, /Last green `@slow` run: r297/);
+});
+
 test('a newer push that skipped the slow suite does not hide a red', async () => {
   const {github, calls} = fakeGithub({
     runs: [{id: 301, html_url: 'r301', head_sha: 'eeeeeeeeee'}, {id: 298, html_url: 'r298', head_sha: 'aaaaaaaaaa'}],

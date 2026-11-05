@@ -100,7 +100,9 @@ async function slowGreenRuns(github, owner, repo) {
     });
     const e2e = jobs.filter((j) => /^E2E \(\d+\/\d+\)$/.test(j.name));
     const slowPassed = (j) => (j.steps ?? []).some((step) => step.name.startsWith('E2E slow suite') && step.conclusion === 'success');
-    if (e2e.length && e2e.every(slowPassed)) green.push({ id: run.id, runUrl: run.html_url, sha: run.head_sha });
+    const shards = new Set(e2e.map((j) => j.name));
+    const total = Number(e2e[0]?.name.match(/\/(\d+)\)$/)[1]);
+    if (e2e.length && shards.size === total && e2e.every(slowPassed)) green.push({ id: run.id, runUrl: run.html_url, sha: run.head_sha });
   }
   return green;
 }
