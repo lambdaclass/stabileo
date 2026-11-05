@@ -60,7 +60,7 @@ pub struct BucklingSystem2D {
     pub k_ff: CscMatrix,
     pub neg_kg_csc: CscMatrix,
     pub inclined_transforms_2d: Vec<InclinedTransformData2D>,
-    /// Each element's mean axial force at the linear solution (what Kg is built from).
+    /// Each element's mean axial force at the linear solution; Kg is built from it and `span_axial`.
     pub mean_n: HashMap<usize, f64>,
     pub span_axial: Vec<(usize, Vec<usize>, Vec<f64>)>,
 }

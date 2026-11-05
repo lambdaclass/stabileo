@@ -1246,8 +1246,8 @@ fn fiber_solves_of_a_mechanism_are_flagged() {
 fn a_fiber_solve_keeps_its_warning_after_the_stiff_member_yields() {
     use dedaliano_engine::element::fiber_beam::{Fiber, FiberMaterial, FiberSectionDef};
     use dedaliano_engine::solver::fiber_nonlinear::{solve_fiber_nonlinear_2d, FiberNonlinearInput};
-    let fibers = (0..20).map(|k| Fiber { y: -0.05 + (k as f64 + 0.5) * 0.005, z: 0.0, area: 0.0005, material_idx: 0 }).collect();
-    let steel = FiberSectionDef { fibers, materials: vec![FiberMaterial::SteelBilinear { e: E, fy: 250.0, hardening_ratio: 1e-6 }] };
+    let fibers: Vec<Fiber> = (0..20).map(|k| Fiber { y: -0.05 + (k as f64 + 0.5) * 0.005, z: 0.0, area: 0.0005, material_idx: 0 }).collect();
+    let steel = |hardening_ratio: f64| FiberSectionDef { fibers: fibers.clone(), materials: vec![FiberMaterial::SteelBilinear { e: E, fy: 250.0, hardening_ratio }] };
     for (copies, modified_nr) in [(1usize, false), (1, true), (12, false), (12, true)] {
         let mut nodes = Vec::new();
         let mut elems = Vec::new();
@@ -1263,12 +1263,12 @@ fn a_fiber_solve_keeps_its_warning_after_the_stiff_member_yields() {
         }
         let solver = common::make_input(nodes, vec![(1, E, 0.3)], vec![(1, 0.01, 8.33e-6), (2, 1e-6, 1e-14)], elems, sups, loads);
         let r = solve_fiber_nonlinear_2d(&FiberNonlinearInput {
-            solver, fiber_sections: HashMap::from([("1".to_string(), steel.clone())]),
-            n_integration_points: 5, max_iter: 50, tolerance: 1e-10, n_increments: 4, modified_nr,
+            solver, fiber_sections: HashMap::from([("1".to_string(), steel(if modified_nr { 0.1 } else { 1e-6 }))]),
+            n_integration_points: 5, max_iter: if modified_nr { 1000 } else { 50 }, tolerance: 1e-10, n_increments: 4, modified_nr,
         }).unwrap();
         let label = format!("{copies} copies, modified {modified_nr}");
         let yielded = r.fiber_status.iter().filter(|s| s.yielded).count();
-        assert!(if r.converged { yielded == copies } else { modified_nr && r.stop_reason.is_some() }, "{label}: {:?}", r.fiber_status);
+        assert!(r.converged && yielded == copies, "{label}: converged {} stop {:?} yielded {yielded}", r.converged, r.stop_reason);
         assert!(ids(&r.results.structured_diagnostics).contains(&"NUM-INVARIANCE".to_string()), "{label}: {:?}", ids(&r.results.structured_diagnostics));
     }
 }
