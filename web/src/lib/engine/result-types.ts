@@ -288,6 +288,8 @@ export interface SpectralConfig3D {
   reductionFactor?: number;
 }
 
+export type SpectralResultsByDirection = Partial<Record<'X' | 'Y' | 'Z', SpectralResult3D>>;
+
 export interface SpectralResult3D {
   structuredDiagnostics?: import('./types').StructuredDiagnostic[];
   baseShear: number;

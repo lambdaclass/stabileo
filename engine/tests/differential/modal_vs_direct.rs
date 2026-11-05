@@ -253,7 +253,7 @@ fn harmonic_3d_issue_1371_frame_modal_matches_direct() {
         r.merge(&format!("node 4 {dof}"), harmonic_3d(s.clone(), d.clone(), 4, dof, vec![0.0, 0.7, 2.3])?);
         Ok(r)
     });
-    known_issue(1371, "3D harmonic modal vs direct, #1371 frame", &["node 4 x:", "node 4 y:"], outcome);
+    agree("3D harmonic modal vs direct, #1371 frame", outcome);
 }
 
 /// Forcing frequencies around the first mode the engine omits: below the first,
@@ -290,12 +290,12 @@ fn above_the_kept_modes_3d() -> Result<Report, String> {
 
 #[test]
 fn harmonic_2d_above_the_kept_modes_matches_direct() {
-    known_issue(1434, "2D harmonic above the kept modes vs direct", &[", uncorrected)"], above_the_kept_modes_2d());
+    agree("2D harmonic above the kept modes vs direct", above_the_kept_modes_2d());
 }
 
 #[test]
 fn harmonic_3d_above_the_kept_modes_matches_direct() {
-    known_issue(1434, "3D harmonic above the kept modes vs direct", &[", uncorrected)"], above_the_kept_modes_3d());
+    agree("3D harmonic above the kept modes vs direct", above_the_kept_modes_3d());
 }
 
 /// At ω = 0 the kept modes plus the static correction are `K⁻¹f` algebraically, so
@@ -422,4 +422,16 @@ fn time_history_slow_ramp_settles_on_the_static_solution() {
         }
     }
     agree("time history slow ramp vs static", Ok(r));
+}
+
+/// A pinned 8-element beam driven well above its kept modes: the modal residual stays
+/// under the direct-solve threshold while the imaginary part is off by up to 60 %.
+#[test]
+fn harmonic_2d_beam_above_the_kept_modes_matches_direct() {
+    let n = 8;
+    let nodes = (0..=n).map(|i| (i + 1, i as f64 * 1.25, 0.0)).collect();
+    let elems = (0..n).map(|i| (i + 1, "frame", i + 1, i + 2, 1, 1, false, false)).collect();
+    let solver = crate::common::make_input(nodes, vec![(1, 200_000.0, 0.3)], vec![(1, 0.05, 1e-4)], elems, vec![(1, 1, "pinned"), (2, n + 1, "rollerX")],
+        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fz: -10.0, my: 0.0 })]);
+    known_issue(1434, "2D beam harmonic above the kept modes vs direct", &[", uncorrected)"], harmonic_2d(solver, 4, "y", (1..=40).map(|i| i as f64 * 250.0).collect()));
 }
