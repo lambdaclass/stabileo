@@ -666,6 +666,7 @@ export function plasticCollapse2D(original: SolverInput, opts: PlasticCollapseOp
     let lp: PlasticLimitResult | null = null;
     try { lp = plasticLimit2D(original, mpOf, npOf); } catch { lp = null; }
     const settled = isMechanism && !unresolved;
+    const historyUnverified = unresolved;
     if (!lp || !(Number.isFinite(lp.lambda) && lp.lambda > 0)) {
       if (settled) unresolved = true;
     } else if (hinges.some((h) => h.kind === 'axial')) {
@@ -686,12 +687,17 @@ export function plasticCollapse2D(original: SolverInput, opts: PlasticCollapseOp
       }
     }
     if (lp) {
-      const near = (x: number) => Math.abs(x - lp.lambda) <= HISTORY_TOL * lp.lambda;
-      const exact = lp.confirmation.kind === 'exact' && near(collapseFactor);
-      const byHistory = lp.confirmation.kind === 'outOfScope' && settled && near(lambda);
-      if (!exact && !byHistory) {
+      const c = lp.confirmation;
+      if (c.kind === 'exact') {
+        collapseFactor = lp.lambda;
+        isMechanism = true;
+        unresolved = historyUnverified;
+        if (Math.abs(lambda - lp.lambda) > HISTORY_TOL * lp.lambda) limit = { lambda: lp.lambda, historyLambda: lambda };
+      } else if (c.kind !== 'contradicted' && settled && Math.abs(lambda - lp.lambda) <= HISTORY_TOL * lp.lambda) {
+        collapseFactor = Math.min(collapseFactor, lambda);
+      } else {
         unresolved = true;
-        collapseFactor = lp.confirmation.kind === 'contradicted' ? lp.confirmation.lower : Math.min(collapseFactor, lambda);
+        collapseFactor = c.kind === 'contradicted' || c.kind === 'bracketed' ? c.lower : Math.min(collapseFactor, lambda);
       }
     }
   }

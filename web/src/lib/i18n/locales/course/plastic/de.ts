@@ -181,6 +181,7 @@ const words: Translations = {
   'course.plastic.closed': 'geschlossen',
   'course.plastic.closedTitle': 'Das Gelenk wurde bei λ = {lambda} entlastet und ist wieder starr.',
   'course.plastic.limitOnly': 'Die schrittweise Berechnung erreicht die Traglast nicht (sie endet bei λ = {history}). Die Traglast aus der Traglastanalyse (statischer und kinematischer Satz) ist λc = {lambda}; die Gelenke der schrittweisen Berechnung sind Näherungen.',
+  'course.plastic.limitUnconfirmed': 'Die Traglastanalyse ergibt λ = {lambda}, und die Schritt-für-Schritt-Analyse endet bei λ = {history}, aber nichts von der Traglastanalyse Unabhängiges bestätigt das (das exakte plastische Zertifikat oder ein Verlauf, der bei derselben Last endet). λ = {shown} ist eine untere Schranke oder der kleinere der beiden Werte, keine verifizierte Kollapslast.',
   'course.plastic.unresolved': 'Die Berechnung hielt bei einem Mechanismus an, den sie nicht von einem falschen unterscheiden konnte (Gelenke, die sich entlasten würden): Dieses λ ist der Haltepunkt, keine nachgewiesene Traglast.',
 };
 

@@ -50,7 +50,7 @@ something that shares nothing with its linear program confirms it: the exact pla
 brackets it, or, for models outside the certificate (constraints, inclined supports, axial span
 loads, loads on members of irrational length, collapse by axial yield alone), the hinge history ends
 at the same load. Otherwise it is reported as not confirmed: at the certificate's lower bound
-where the certificate contradicts it, else at the lower of the two factors. The certificate runs on
+where the certificate contradicts it or its bounds do not meet, else at the lower of the two factors. The certificate runs on
 models of up to 100 members. Tests: `engine/tests/metamorphic/regressions.rs` (`issue_758_*`),
 `engine/tests/certify_plastic.rs` (`issue_758_*`),
 `web/src/lib/engine/__tests__/plastic-collapse-invariance-758.test.ts`.

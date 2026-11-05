@@ -54,6 +54,33 @@ describe('the limit analysis factor is a collapse load only once something indep
     expect(r.collapseFactor).toBeCloseTo((4 * MP) / 60, 6);
   });
 
+  it('the exact certificate confirms it even where the history stops elsewhere, which the result notes', () => {
+    verdict.override = { kind: 'exact' };
+    verdict.lambda = 1.2 * (4 * MP) / 60;
+    const r = run(beam('rollerX'));
+    expect(r.isMechanism).toBe(true);
+    expect(r.unresolved).toBeFalsy();
+    expect(r.collapseFactor).toBeCloseTo(1.2 * (4 * MP) / 60, 9);
+    expect(r.limit?.historyLambda).toBeCloseTo((4 * MP) / 60, 6);
+  });
+
+  it('a history that confirms it within the station spacing reports the lower of the two', () => {
+    verdict.override = { kind: 'outOfScope', reason: 'inclined supports are not supported' };
+    verdict.lambda = 1.0005 * (4 * MP) / 60;
+    const r = run(beam('rollerX'));
+    expect(r.isMechanism).toBe(true);
+    expect(r.collapseFactor).toBeCloseTo((4 * MP) / 60, 6);
+  });
+
+  it('bounds that do not meet leave it unresolved, at the certified lower bound', () => {
+    verdict.override = { kind: 'bracketed', reason: 'axial capacities govern', lower: 2, upper: 9 };
+    verdict.lambda = 3;
+    const r = run(beam('rollerX'));
+    expect(r.unresolved).toBe(true);
+    expect(r.isMechanism).toBe(false);
+    expect(r.collapseFactor).toBe(2);
+  });
+
   it('outside the certificate, a history that ends elsewhere leaves it unresolved, at the lower of the two', () => {
     verdict.override = { kind: 'outOfScope', reason: 'inclined supports are not supported' };
     verdict.lambda = 2 * (4 * MP) / 60;

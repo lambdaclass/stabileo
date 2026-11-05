@@ -181,6 +181,7 @@ const words: Translations = {
   'course.plastic.closed': 'kapandı',
   'course.plastic.closedTitle': 'Mafsal λ = {lambda} değerinde yükünü bıraktı ve yeniden rijit oldu.',
   'course.plastic.limitOnly': 'Adım adım analiz göçme yüküne ulaşmıyor (λ = {history} değerinde bitiyor). Limit analizinden (statik ve kinematik teoremler) göçme yükü λc = {lambda}; adım adım analizin mafsalları yaklaşıktır.',
+  'course.plastic.limitUnconfirmed': 'Limit analizi λ = {lambda} veriyor ve adım adım analiz λ = {history} değerinde bitiyor, ancak limit analizinden bağımsız hiçbir şey bunu doğrulamıyor (kesin plastik sertifika ya da aynı yükte biten bir adım adım analiz). λ = {shown} bir alt sınır ya da ikisinden küçük olanıdır, doğrulanmış bir göçme yükü değildir.',
   'course.plastic.unresolved': 'Analiz, sahte bir mekanizmadan ayıramadığı bir mekanizmada durdu (yükünü bırakacak mafsallar): bu λ durduğu yerdir, doğrulanmış bir göçme yükü değildir.',
 };
 

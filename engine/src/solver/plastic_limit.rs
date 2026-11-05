@@ -39,24 +39,39 @@ pub struct LimitResult {
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum Confirmation {
+    /// The certificate's bounds meet at the factor.
     Exact,
-    /// `lower` is a certified lower bound of the collapse factor, axial capacities included.
+    /// The factor lies outside the certificate's bounds; `lower` is its certified lower bound,
+    /// axial capacities included.
     Contradicted { reason: String, lower: f64 },
+    /// The factor lies inside the certificate's bounds, which do not meet (axial capacities
+    /// govern, or the certificate did not converge): only an independent history can confirm it.
+    Bracketed { reason: String, lower: f64, upper: f64 },
     OutOfScope { reason: String },
 }
 
 impl Confirmation {
-    /// `Ok` when the certificate encloses `lambda`, or, outside its scope, when an independent
-    /// step-by-step history ends at a mechanism within `tol` of it.
+    /// `Ok` when the certificate's bounds meet at `lambda`, or, when they do not reach it, when an
+    /// independent step-by-step history ends at a mechanism within `tol` of it.
     pub fn accept(&self, lambda: f64, history: Option<f64>, tol: f64) -> Result<(), String> {
+        let reason = match self {
+            Confirmation::Exact => return Ok(()),
+            Confirmation::Contradicted { reason, .. } => return Err(reason.clone()),
+            Confirmation::Bracketed { reason, .. } | Confirmation::OutOfScope { reason } => reason,
+        };
+        match history {
+            Some(h) if (h - lambda).abs() <= tol * lambda => Ok(()),
+            Some(h) => Err(format!("{reason}, and the step-by-step history ends at {h}, not at {lambda}")),
+            None => Err(format!("{reason}, and the step-by-step history ends at no mechanism")),
+        }
+    }
+
+    /// The factor to report when `accept` fails: the certified lower bound where there is one,
+    /// else the lower of the two uncertified factors.
+    pub fn unconfirmed_factor(&self, lambda: f64, history: f64) -> f64 {
         match self {
-            Confirmation::Exact => Ok(()),
-            Confirmation::Contradicted { reason, .. } => Err(reason.clone()),
-            Confirmation::OutOfScope { reason } => match history {
-                Some(h) if (h - lambda).abs() <= tol * lambda => Ok(()),
-                Some(h) => Err(format!("{reason}, and the step-by-step history ends at {h}, not at {lambda}")),
-                None => Err(format!("{reason}, and the step-by-step history ends at no mechanism")),
-            },
+            Confirmation::Contradicted { lower, .. } | Confirmation::Bracketed { lower, .. } => *lower,
+            _ => lambda.min(history),
         }
     }
 }
@@ -137,19 +152,15 @@ fn unique_key<V>(map: &HashMap<String, V>, id: usize) -> String {
     k
 }
 
-/// Whether the exact plastic certificate (`certify::plastic`, rational arithmetic, its own
-/// equilibrium and mechanism) encloses `lambda` as the collapse factor of the model. Its static
-/// field is checked against the axial capacities too, so a finite `np` only lowers the bound it
-/// accepts; its mechanism is bending-only, which bounds the factor with axial yield from above.
+/// What the exact plastic certificate (`certify::plastic`, rational arithmetic, its own
+/// equilibrium and mechanism) says of `lambda` as the collapse factor of the model. Its static
+/// field is held to the axial capacities too; its mechanism is bending-only, which bounds the
+/// factor with axial yield from above but leaves the bounds apart when axial yield governs.
 pub fn confirm_2d(input: &SolverInput, mp: &HashMap<usize, f64>, np: &HashMap<usize, f64>, lambda: f64) -> Confirmation {
-    match certificate_encloses(input, mp, np, lambda) {
-        Ok(Ok(())) => Confirmation::Exact,
-        Ok(Err((reason, lower))) => Confirmation::Contradicted { reason, lower },
-        Err(reason) => Confirmation::OutOfScope { reason },
-    }
+    certificate_encloses(input, mp, np, lambda).unwrap_or_else(|reason| Confirmation::OutOfScope { reason })
 }
 
-fn certificate_encloses(input: &SolverInput, mp: &HashMap<usize, f64>, np: &HashMap<usize, f64>, lambda: f64) -> Result<Result<(), (String, f64)>, String> {
+fn certificate_encloses(input: &SolverInput, mp: &HashMap<usize, f64>, np: &HashMap<usize, f64>, lambda: f64) -> Result<Confirmation, String> {
     use crate::certify::exact::{q, to_f64_up, Q};
     if input.elements.len() > MAX_CERTIFIED_ELEMENTS {
         return Err(format!("more than {MAX_CERTIFIED_ELEMENTS} members: too large for the exact certificate"));
@@ -236,12 +247,15 @@ fn certificate_encloses(input: &SolverInput, mp: &HashMap<usize, f64>, np: &Hash
             }
         }
     }
-    let lo = crate::certify::exact::to_f64(&(&scale * &field.lambda));
-    let lower = crate::certify::exact::to_f64(&field.lambda) * crate::certify::exact::to_f64(&scale).min(axial_scale) * (1.0 - 1e-9);
-    if lambda > up * (1.0 + 1e-7) || !admissible {
-        return Ok(Err((format!("the exact certificate brackets the collapse factor in [{lo}, {up}] or lower where axial capacities govern, not at {lambda}"), lower.min(up))));
-    }
-    Ok(Ok(()))
+    let lower = (crate::certify::exact::to_f64(&field.lambda) * crate::certify::exact::to_f64(&scale).min(axial_scale) * (1.0 - 1e-9)).min(up);
+    let bounds = format!("the exact certificate bounds the collapse factor by [{lower}, {up}]");
+    Ok(if lambda > up * (1.0 + 1e-7) || lambda < lower * (1.0 - 1e-6) {
+        Confirmation::Contradicted { reason: format!("{bounds}, not {lambda}"), lower }
+    } else if admissible && lambda >= up * (1.0 - 1e-6) {
+        Confirmation::Exact
+    } else {
+        Confirmation::Bracketed { reason: format!("{bounds}, too far apart to confirm {lambda}"), lower, upper: up }
+    })
 }
 
 fn uniform_stiffness(input: &SolverInput) -> SolverInput {
@@ -265,6 +279,13 @@ fn uniform_stiffness(input: &SolverInput) -> SolverInput {
         uniform(&mut sp.kx, ea / lref);
         uniform(&mut sp.ky, ea / lref);
         uniform(&mut sp.kz, ei / lref);
+    }
+    for c in s.connectors.values_mut() {
+        for (k, v) in [(&mut c.k_axial, ea / lref), (&mut c.k_shear, ea / lref), (&mut c.k_moment, ei / lref)] {
+            if *k > 0.0 && k.is_finite() {
+                *k = v;
+            }
+        }
     }
     s
 }

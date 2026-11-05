@@ -569,7 +569,7 @@ fn issue_758_exact_certificate_rejects_the_unresolved_load_factors() {
     let mp = HashMap::from([(1, 1.0)]);
     let exact = 1.0 / (1.0 + 5e8 * 5e-10);
     assert_eq!(confirm_2d(&cantilever, &mp, &HashMap::new(), exact), Confirmation::Exact);
-    assert!(matches!(confirm_2d(&cantilever, &mp, &HashMap::new(), 1.0), Confirmation::Contradicted { reason, lower } if reason.contains("brackets") && lower <= exact && lower >= exact * (1.0 - 1e-6)));
+    assert!(matches!(confirm_2d(&cantilever, &mp, &HashMap::new(), 1.0), Confirmation::Contradicted { reason, lower } if reason.contains("bounds the collapse factor") && lower <= exact && lower >= exact * (1.0 - 1e-6)));
 
     let bar = make_input(
         vec![(1, 0.0, 0.0), (2, 1.0, 0.0)], vec![(1, E, 0.3)], vec![(1, A_SEC, IZ_SEC)], vec![(1, "frame", 1, 2, 1, 1, false, false)], vec![(1, 1, "fixed")],
@@ -580,6 +580,11 @@ fn issue_758_exact_certificate_rejects_the_unresolved_load_factors() {
 
 #[test]
 fn issue_758_exact_confirmation_holds_the_static_field_to_the_axial_capacity() {
+    use dedaliano_engine::solver::plastic_limit::Confirmation as C;
+    let verdict_lower = |c: &C| match c {
+        C::Contradicted { lower, .. } | C::Bracketed { lower, .. } => *lower,
+        _ => f64::NAN,
+    };
     use dedaliano_engine::solver::plastic_limit::{confirm_2d, Confirmation};
     let column = make_input(
         vec![(1, 0.0, 0.0), (2, 1.0, 0.0)], vec![(1, E, 0.3)], vec![(1, A_SEC, IZ_SEC)], vec![(1, "frame", 1, 2, 1, 1, false, false)], vec![(1, 1, "fixed")],
@@ -588,9 +593,16 @@ fn issue_758_exact_confirmation_holds_the_static_field_to_the_axial_capacity() {
     let mp = HashMap::from([(1, 1.0)]);
     assert_eq!(confirm_2d(&column, &mp, &HashMap::new(), 1.0), Confirmation::Exact);
     let np = HashMap::from([(1, 5.0)]);
-    assert_eq!(confirm_2d(&column, &mp, &np, 0.5), Confirmation::Exact);
-    assert!(matches!(confirm_2d(&column, &mp, &np, 1.0), Confirmation::Contradicted { reason, lower } if reason.contains("axial capacities govern") && lower <= 0.5 && lower >= 0.5 * (1.0 - 1e-6)));
-    assert!(matches!(confirm_2d(&column, &mp, &HashMap::new(), 1.01), Confirmation::Contradicted { reason, lower } if reason.contains("brackets") && lower <= 1.0 && lower >= 1.0 - 1e-6));
+    for lambda in [0.5, 1.0] {
+        let verdict = confirm_2d(&column, &mp, &np, lambda);
+        assert!(matches!(verdict, Confirmation::Bracketed { lower, upper, .. } if lower <= 0.5 && lower >= 0.5 * (1.0 - 1e-6) && (upper - 1.0).abs() <= 1e-9), "{lambda}: {verdict:?}");
+        assert!(verdict.accept(lambda, None, 1e-6).is_err());
+        assert_eq!(verdict.unconfirmed_factor(lambda, 2.0), verdict_lower(&verdict));
+    }
+    assert!(matches!(confirm_2d(&column, &mp, &np, 1.1), Confirmation::Contradicted { lower, .. } if lower <= 0.5));
+    assert!(matches!(confirm_2d(&column, &mp, &np, 0.4), Confirmation::Contradicted { lower, .. } if lower >= 0.5 * (1.0 - 1e-6)));
+    assert!(matches!(confirm_2d(&column, &mp, &HashMap::new(), 0.5), Confirmation::Contradicted { lower, .. } if (lower - 1.0).abs() <= 1e-6));
+    assert!(matches!(confirm_2d(&column, &mp, &HashMap::new(), 1.01), Confirmation::Contradicted { reason, lower } if reason.contains("bounds the collapse factor") && lower <= 1.0 && lower >= 1.0 - 1e-6));
 }
 
 #[test]

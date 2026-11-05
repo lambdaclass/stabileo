@@ -181,6 +181,7 @@ const words: Translations = {
   'course.plastic.closed': 'refermée',
   'course.plastic.closedTitle': 'La rotule s’est déchargée à λ = {lambda} et est redevenue rigide.',
   'course.plastic.limitOnly': 'Le calcul pas à pas n’atteint pas la charge de ruine (il s’arrête à λ = {history}). La charge de ruine de l’analyse limite (théorèmes statique et cinématique) est λc = {lambda} ; les rotules du pas à pas sont approchées.',
+  'course.plastic.limitUnconfirmed': 'L\'analyse limite donne λ = {lambda} et le pas à pas s\'arrête à λ = {history}, mais rien d\'indépendant de l\'analyse limite ne le confirme (le certificat plastique exact, ou un pas à pas qui s\'arrête à la même charge). λ = {shown} est une borne inférieure ou la plus petite des deux valeurs, pas une charge d\'effondrement vérifiée.',
   'course.plastic.unresolved': 'Le calcul s’est arrêté sur un mécanisme qu’il n’a pas pu distinguer d’un faux (rotules qui se déchargeraient) : ce λ est l’endroit où il s’est arrêté, pas une charge de ruine vérifiée.',
 };
 

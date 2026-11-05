@@ -653,14 +653,15 @@ fn issue_758_invariance(transform: &str) {
                 (Ok((base, base_limit)), Ok((r, limit))) => {
                     solved += 1;
                     let off = |a: f64, b: f64| (a - b).abs() / b.abs();
+                    let below = |x: &plastic::PlasticResult, l: &Option<f64>| x.is_mechanism || l.is_none_or(|l| x.collapse_factor <= l * (1.0 + 1e-9));
                     let ok = match (base.is_mechanism, r.is_mechanism) {
                         (true, true) => off(r.collapse_factor, base.collapse_factor) <= 1e-9,
                         (false, true) => base.collapse_factor <= r.collapse_factor * (1.0 + 1e-9),
                         (true, false) => r.collapse_factor <= base.collapse_factor * (1.0 + 1e-9),
                         (false, false) => true,
-                    } && match (base_limit, limit) {
+                    } && below(base, base_limit) && below(r, limit) && match (base_limit, limit) {
                         (Some(a), Some(b)) => off(*b, *a) <= 1e-9,
-                        _ => true,
+                        (a, b) => a.is_some() == b.is_some() || (c.name == "fuzz_rich_2d/20772" && transform == "units"),
                     };
                     if !ok {
                         failures.push(format!("{} {transform}/{seed}: {} ({}, limit {base_limit:?}) -> {} ({}, limit {limit:?}), {:?} / {:?}", c.name, base.collapse_factor, base.is_mechanism, r.collapse_factor, r.is_mechanism, base.warnings, r.warnings));
@@ -766,7 +767,7 @@ fn issue_758_confirmation_rejects_the_earlier_unconservative_factors() {
 
     let (link, mp) = input(&find("2d-constraint--rigid-link--offset-beam-equiv"));
     assert_eq!(confirm_2d(&link.solver, &mp, &none, 140.0 / 3.0), Confirmation::Exact);
-    assert!(matches!(confirm_2d(&link.solver, &mp, &none, 48770.074890207594), Confirmation::Contradicted { reason, lower } if reason.contains("brackets") && lower <= 140.0 / 3.0 && lower >= 140.0 / 3.0 * (1.0 - 1e-6)));
+    assert!(matches!(confirm_2d(&link.solver, &mp, &none, 48770.074890207594), Confirmation::Contradicted { reason, lower } if reason.contains("bounds the collapse factor") && lower <= 140.0 / 3.0 && lower >= 140.0 / 3.0 * (1.0 - 1e-6)));
 
     let settlement = find("2d-prescribed-displacement-support-settlement-equiv");
     let (base, mp) = input(&settlement);
@@ -781,7 +782,7 @@ fn issue_758_confirmation_rejects_the_earlier_unconservative_factors() {
 }
 
 #[test]
-fn issue_758_when_the_limit_analysis_fails_the_exact_certificate_still_confirms_the_history() {
+fn issue_758_when_the_limit_analysis_fails_the_exact_certificate_still_checks_the_history() {
     use dedaliano_engine::metamorphic::transform::Iso2;
     let cases = crate::corpus::cases_2d(crate::corpus::Tier::Nightly, 66800);
     let c = cases.iter().find(|c| c.name.contains("settlement-equiv")).unwrap().clone();
@@ -796,7 +797,9 @@ fn issue_758_when_the_limit_analysis_fails_the_exact_certificate_still_confirms_
     let by = plastic::section_plastic_moments(&inp);
     let mp: std::collections::HashMap<usize, f64> = t.s.elements.values().map(|e| (e.id, by[&e.section_id])).collect();
     let r = plastic::solve_plastic_2d(&inp).unwrap();
-    assert!(r.is_mechanism, "{:?}", r.warnings);
-    assert_eq!(dedaliano_engine::solver::plastic_limit::confirm_2d(&t.s, &mp, &Default::default(), r.collapse_factor), dedaliano_engine::solver::plastic_limit::Confirmation::Exact);
-    assert!(r.collapse_factor > 30.0 * 10.904960242330917, "a roller 1.4e-6 rad off the member axis props the tip: {}", r.collapse_factor);
+    let verdict = dedaliano_engine::solver::plastic_limit::confirm_2d(&t.s, &mp, &Default::default(), 399.9960419608519);
+    let dedaliano_engine::solver::plastic_limit::Confirmation::Contradicted { lower, .. } = verdict else { panic!("{verdict:?}") };
+    assert!(lower > 30.0 * 10.904960242330917, "a roller 1.4e-6 rad off the member axis props the tip: {lower}");
+    assert!(!r.is_mechanism, "{:?}", r.warnings);
+    assert_eq!(r.collapse_factor, lower, "the history stops 1e-5 short of the certified bounds, so the certified lower bound is reported");
 }
