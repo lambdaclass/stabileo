@@ -349,6 +349,7 @@ fn planes(a: &Ana2, c: &Case2, base: &Resp, solve: fn(&SolverInput3D) -> Result<
     use dedaliano_engine::metamorphic::planes::{embed_2d, pull_static, Plane};
     let rel = rel_for(a.name, a.iter_tol, cond) * 2.0;
     let mut verdict = Verdict::NotApplicable;
+    let mut refused = None;
     for plane in Plane::ALL {
         let s3 = match embed_2d(&c.s, plane) {
             Ok(s3) => s3,
@@ -366,11 +367,17 @@ fn planes(a: &Ana2, c: &Case2, base: &Resp, solve: fn(&SolverInput3D) -> Result<
         let got = match got {
             Ok(g) => g,
             Err(e) if base.1.is_empty() => return Verdict::Fail(format!("{plane:?}: 2D solved, 3D failed: {e}")),
-            Err(e) => return Verdict::Refused(format!("{plane:?}: 2D refused {:?}, 3D failed: {e}", base.1)),
+            Err(e) => {
+                refused.get_or_insert(format!("{plane:?}: 2D refused {:?}, 3D failed: {e}", base.1));
+                continue;
+            }
         };
         match (base.1.is_empty(), got.1.is_empty()) {
             (true, true) => {}
-            (false, false) => return Verdict::Refused(format!("{plane:?}: both refuse: 2D {:?}, 3D {:?}", base.1, got.1)),
+            (false, false) => {
+                refused.get_or_insert(format!("{plane:?}: both refuse: 2D {:?}, 3D {:?}", base.1, got.1));
+                continue;
+            }
             (b, _) => return Verdict::Fail(format!("{plane:?}: containment differs ({} only): 2D {:?}, 3D {:?}", if b { "3D" } else { "2D" }, base.1, got.1)),
         }
         let mut exp = base.clone();
@@ -392,7 +399,10 @@ fn planes(a: &Ana2, c: &Case2, base: &Resp, solve: fn(&SolverInput3D) -> Result<
             other => return other,
         };
     }
-    verdict
+    match refused {
+        Some(r) => Verdict::Refused(r),
+        None => verdict,
+    }
 }
 
 /// Magnitude of the applied actions (force units): Σ|F| + Σ|M|/L + Σ|q|·L_e,
@@ -748,6 +758,16 @@ fn a_one_sided_failure_or_refusal_or_a_nonfinite_3d_result_fails_the_planes_chec
         Ok(r)
     }));
     assert!(fails(|_| Err("singular".into())));
+    let id = ENTRIES.iter().find(|e| e.mode == Mode::Refuse).unwrap();
+    let refused_2d = Resp(Vec::new(), vec![(id.id.to_string(), id.issue as u64)]);
+    let refuse_in_xz = |s: &SolverInput3D| {
+        if normal_axis(s) == 1 {
+            let id = ENTRIES.iter().find(|e| e.mode == Mode::Refuse).unwrap().id;
+            return refuse(&[diagnostic(id)]).map(|_| unreachable!());
+        }
+        linear::solve_3d(s)
+    };
+    assert!(matches!(planes(&a, &c, &refused_2d, refuse_in_xz, &cond), Verdict::Fail(_)));
     assert!(fails(|_| {
         let id = ENTRIES.iter().find(|e| e.mode == Mode::Refuse).unwrap().id;
         refuse(&[diagnostic(id)]).map(|_| unreachable!())
