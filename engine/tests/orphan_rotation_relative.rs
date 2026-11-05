@@ -120,7 +120,6 @@ fn moment_on_a_soft_rotation_beside_a_stiff_pad_solves_3d() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1367"]
 fn issue_1367_model_with_a_force_load_matches_the_unpadded_model() {
     let fixed = vec![true; 6];
     let node2 = vec![true, true, true, false, false, true];
