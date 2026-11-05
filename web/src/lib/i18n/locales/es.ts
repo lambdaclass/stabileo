@@ -243,6 +243,8 @@ const es: Record<string, string> = {
   'landing.navPricing': 'Precios',
   'landing.navBlog': 'Blog',
   'landing.navPaper': 'Paper',
+  'landing.loadFailed': "No se pudo cargar esta página. Revisá tu conexión y volvé a intentarlo.",
+  'landing.reload': "Reintentar",
   'landing.navResearch': 'Investigación',
   'landing.navChangelog': 'Changelog',
   'landing.ebHero': 'LIBRE Y ABIERTO · CÁLCULO ESTRUCTURAL',

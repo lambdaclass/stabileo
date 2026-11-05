@@ -60,5 +60,5 @@ jobs:
             if (open.data.length) {
               await github.rest.issues.createComment({ ...context.repo, issue_number: open.data[0].number, body });
             } else {
-              await github.rest.issues.create({ ...context.repo, title: 'Page size over its ceiling', labels: [label], body });
+              await github.rest.issues.create({ ...context.repo, title: 'Page size over its ceiling', labels: [label], assignees: [...require('./.github/scripts/issue-assignees.cjs')], body });
             }

@@ -92,7 +92,6 @@ fn plastic_coverage_rejects_missing_or_unsuccessful_comparisons() {
 }
 
 #[test]
-#[ignore = "known wrong result: #759"]
 fn modal_warping_orthogonality() {
     let c = corpus::cases_3d(Tier::Nightly, 20754)
         .into_iter()

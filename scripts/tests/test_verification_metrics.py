@@ -597,11 +597,24 @@ class MutantsRotation(unittest.TestCase):
         roadmap = vm.read("docs/roadmap/PRODUCT_ROADMAP.md")
         self.assertIn(f"covers all shards at least every {vm.MUTANTS_PROMISE_DAYS} days", roadmap)
         workflow = vm.read(".github/workflows/nightly.yml")
-        formula = re.search(r'print\(json\.dumps\((\[.*?\])\)\)', workflow).group(1)
+        self.assertIn('python3 -I .github/scripts/mutants-plan.py "$total" "$MUTANTS_SLOTS" "$day"', workflow)
+        plan_spec = importlib.util.spec_from_file_location("mutants_plan", os.path.join(HERE, "..", "..", ".github", "scripts", "mutants-plan.py"))
+        plan = importlib.util.module_from_spec(plan_spec)
+        plan_spec.loader.exec_module(plan)
         covered = set()
         for d in range(20000, 20000 + vm.MUTANTS_PROMISE_DAYS):
-            covered |= set(eval(formula, {}, {"t": total, "s": slots, "d": d}))
+            covered |= set(plan.rotation(total, slots, d))
         self.assertEqual(covered, set(range(total)))
+        last, ran = {}, {k: [] for k in range(total)}
+        for night in range(3 * vm.MUTANTS_PROMISE_DAYS):
+            tonight = plan.pick(total, slots, last, {})
+            self.assertEqual(len(set(tonight)), slots)
+            for k in tonight:
+                last[k] = f"night-{night:04d}"
+                ran[k].append(night)
+        for k, nights in ran.items():
+            self.assertLess(nights[0], vm.MUTANTS_PROMISE_DAYS)
+            self.assertLessEqual(max(b - a for a, b in zip(nights, nights[1:])), vm.MUTANTS_PROMISE_DAYS)
 
 
 if __name__ == "__main__":

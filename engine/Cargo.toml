@@ -110,6 +110,10 @@ path = "tests/elements/main.rs"
 name = "robustness"
 path = "tests/robustness/main.rs"
 
+[[test]]
+name = "differential"
+path = "tests/differential/main.rs"
+
 [[bench]]
 name = "solver_bench"
 harness = false

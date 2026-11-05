@@ -31,7 +31,7 @@ export default defineConfig({
           const known = new Set(entries.map(key));
           const viewerOnly = toolLines.slice(start + 1, end).filter((line) => key(line) && !known.has(key(line)));
           return `export const ${locale} = {\n${[...entries, ...viewerOnly].join('\n')}\n};`;
-        }).join('\n');
+        }).join('\n') + '\nexport const loaders = {};';
       },
     },
   ],
