@@ -1,8 +1,47 @@
 {
   "$comment": "Registry of result-affecting changes. Read by web/scripts/result-change-metadata.mjs for build metadata and decoded by web/src/lib/provenance/full-registry.ts; schema and rules in docs/verification/PROVENANCE.md. Add an entry whenever a change makes the same saved model give different numbers, at currentResultsVersion + 1, and bump currentResultsVersion: a version on main is deployed, and an entry added to it later is never shown to the projects it stamped (results-version.test.ts). Feature ids are defined in web/src/lib/provenance/model-features.ts.",
   "schema": 1,
-  "currentResultsVersion": 32,
+  "currentResultsVersion": 33,
   "changes": [
+    {
+      "id": "soft-rotation-not-orphan",
+      "resultsVersion": 33,
+      "date": "2026-11-05",
+      "prs": [
+        1428
+      ],
+      "area": "analysis",
+      "when": {
+        "allOf": [
+          [
+            "frameMembers",
+            "shells",
+            "curvedShells",
+            "springs"
+          ]
+        ]
+      },
+      "title": {
+        "en": "A soft but real node rotation is no longer locked when the model has a much stiffer part",
+        "es": "Un giro de nudo real pero blando ya no se bloquea cuando el modelo tiene una parte mucho más rígida",
+        "pt": "Um giro de nó real mas flexível não é mais travado quando o modelo tem uma parte muito mais rígida",
+        "de": "Eine weiche, aber echte Knotenverdrehung wird nicht mehr gesperrt, wenn das Modell einen viel steiferen Teil hat",
+        "fr": "Une rotation de nœud réelle mais souple n'est plus bloquée quand le modèle a une partie beaucoup plus rigide",
+        "tr": "Modelde çok daha rijit bir kısım olduğunda gerçek ama yumuşak bir düğüm dönmesi artık kilitlenmiyor"
+      },
+      "explanation": {
+        "en": "A node rotation nothing stiffens gets a small artificial spring. It was judged unstiffened when its stiffness was below 1e-12 of the largest rotational stiffness in the whole model, so in a model with a stiffness contrast above about 10¹² a real but soft rotation was locked by that spring: under a force load it came out thousands of times too small with no error, and a nodal moment on it was refused (#1367). The test now compares each rotation with the rotational stiffness of its own node. Models without such a contrast do not change; re-run models that mix very soft and very stiff members.",
+        "es": "Un giro de nudo que nada rigidiza recibe un pequeño resorte artificial. Se lo juzgaba sin rigidez cuando la suya era menor que 1e-12 de la mayor rigidez al giro de todo el modelo, así que en un modelo con un contraste de rigidez mayor que unos 10¹² un giro real pero blando quedaba bloqueado por ese resorte: con una carga de fuerza salía miles de veces menor sin ningún error, y un momento nodal sobre él se rechazaba (#1367). Ahora cada giro se compara con la rigidez al giro de su propio nudo. Los modelos sin ese contraste no cambian; vuelva a calcular los modelos que mezclan barras muy blandas y muy rígidas.",
+        "pt": "Um giro de nó que nada enrijece recebe uma pequena mola artificial. Ele era julgado sem rigidez quando a sua era menor que 1e-12 da maior rigidez à rotação de todo o modelo, então num modelo com contraste de rigidez acima de cerca de 10¹² um giro real mas flexível ficava travado por essa mola: com uma carga de força saía milhares de vezes menor sem nenhum erro, e um momento nodal sobre ele era recusado (#1367). Agora cada giro é comparado com a rigidez à rotação do seu próprio nó. Modelos sem esse contraste não mudam; recalcule os modelos que misturam barras muito flexíveis e muito rígidas.",
+        "de": "Eine Knotenverdrehung, die nichts aussteift, erhält eine kleine künstliche Feder. Sie galt als nicht ausgesteift, wenn ihre Steifigkeit unter 1e-12 der größten Drehsteifigkeit des ganzen Modells lag, daher wurde in einem Modell mit einem Steifigkeitskontrast über etwa 10¹² eine echte, aber weiche Verdrehung von dieser Feder gesperrt: unter einer Kraftlast kam sie tausendfach zu klein heraus, ohne Fehlermeldung, und ein Knotenmoment darauf wurde abgelehnt (#1367). Jetzt wird jede Verdrehung mit der Drehsteifigkeit ihres eigenen Knotens verglichen. Modelle ohne solchen Kontrast ändern sich nicht; rechnen Sie Modelle neu, die sehr weiche und sehr steife Stäbe mischen.",
+        "fr": "Une rotation de nœud que rien ne raidit reçoit un petit ressort artificiel. Elle était jugée sans raideur quand la sienne était inférieure à 1e-12 de la plus grande raideur en rotation de tout le modèle, si bien que dans un modèle avec un contraste de raideur au-delà d'environ 10¹² une rotation réelle mais souple était bloquée par ce ressort : sous une charge de force elle sortait des milliers de fois trop petite sans aucune erreur, et un moment nodal sur elle était refusé (#1367). Chaque rotation est maintenant comparée à la raideur en rotation de son propre nœud. Les modèles sans un tel contraste ne changent pas ; relancez les modèles qui mêlent des barres très souples et très rigides.",
+        "tr": "Hiçbir şeyin rijitleştirmediği bir düğüm dönmesine küçük yapay bir yay verilir. Rijitliği tüm modeldeki en büyük dönme rijitliğinin 1e-12'sinden küçük olduğunda rijitliksiz sayılıyordu; bu yüzden rijitlik farkı yaklaşık 10¹²'yi aşan bir modelde gerçek ama yumuşak bir dönme bu yayla kilitleniyordu: kuvvet yükü altında hiçbir hata vermeden binlerce kat küçük çıkıyor, üzerine gelen düğüm momenti ise reddediliyordu (#1367). Artık her dönme kendi düğümünün dönme rijitliğiyle karşılaştırılıyor. Böyle bir farkı olmayan modeller değişmez; çok yumuşak ve çok rijit elemanları karıştıran modelleri yeniden çözün."
+      },
+      "changelog": {
+        "file": "changelog.d/1367-soft-rotation-not-orphan.md",
+        "heading": "A soft but real node rotation is no longer locked by the orphan-rotation spring (2026-11-05)"
+      }
+    },
     {
       "id": "harmonic-modal-residual-checked",
       "resultsVersion": 32,

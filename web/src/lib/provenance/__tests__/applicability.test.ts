@@ -248,6 +248,14 @@ describe('which registered changes concern a model', () => {
     expect(ids(model({ loads }), previous)).toEqual([]);
   });
 
+  it('tells a truss-only model with a support spring about the orphan-rotation fix, and not one without', () => {
+    const v32 = { resultsVersion: 32, analyses: ['linear'] } as SolveStamp;
+    const springs = [[1, { nodeId: 1, type: 'fixed3d' }], [2, { nodeId: 2, type: 'spring3d', krz: 1e-13 }]] as never;
+    expect(ids(model({ elements: [member(1, 1, 'truss')], supports: springs }), v32)).toContain('soft-rotation-not-orphan');
+    expect(ids(model({ elements: [member(1, 1, 'truss')] }), v32)).not.toContain('soft-rotation-not-orphan');
+    expect(ids(model({ elements: [member(1, 1, 'frame')] }), v32)).toContain('soft-rotation-not-orphan');
+  });
+
   it('tells plane frames with combinations and member loads about the true-peak governing value and envelope', () => {
     const change = 'governing-envelope-true-peak';
     const combos = { combinations: [{ id: 1, name: '1.2D', factors: [{ caseId: 1, factor: 1.2 }] }] } as Partial<FeatureSnapshot>;
