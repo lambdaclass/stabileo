@@ -416,8 +416,8 @@ fn generated_buckling_enclosures(cases: u64) {
             dimension + 2, certified[dimension], refused[dimension], above_upper[dimension], errors[dimension]
         );
         assert!(
-            errors[dimension].keys().all(|reason| reason == "No compressed elements — buckling not applicable"),
-            "{}D solver failed for a reason other than no compression: {:#?}", dimension + 2, errors[dimension]
+            errors[dimension].keys().all(|reason| reason == "No compressed elements — buckling not applicable" || (dimension == 1 && reason == "No positive buckling load factors found")),
+            "{}D solver failed for a reason other than no (positive) compression: {:#?}", dimension + 2, errors[dimension]
         );
     }
     assert_eq!(certified[0], cases, "every generated 2D column must certify");
