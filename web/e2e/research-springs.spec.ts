@@ -13,6 +13,7 @@ test.describe('@smoke research springs', () => {
     const requests: string[] = [];
     page.on('request', (r) => requests.push(r.url()));
     await page.goto('/en/research/metamaterials/grossman-2026/');
+    await expect(page.locator('#prerender')).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'Auxetic spring networks' })).toBeVisible();
     await expect(page.getByText('Research, not a design tool')).toBeVisible();
     await expect.poll(async () => Number(await page.locator('.sp-viewer').getAttribute('data-nodes')), { timeout: 30_000 }).toBeGreaterThan(500);
@@ -23,6 +24,7 @@ test.describe('@smoke research springs', () => {
 
   test('the embedded editor solves the same strip with the production engine', async ({ page }) => {
     await page.goto('/en/research/metamaterials/grossman-2026/?e2e=1');
+    await expect(page.locator('#prerender')).toHaveCount(0);
     await expect.poll(async () => Number(await page.locator('.sp-viewer').getAttribute('data-nodes')), { timeout: 30_000 }).toBeGreaterThan(500);
     await page.getByRole('button', { name: 'Pause sweep' }).click(); // the strip stays put
     await page.getByRole('tab', { name: 'Edit in Stabileo' }).click();
@@ -49,6 +51,7 @@ test.describe('@smoke research springs review regressions', () => {
     test(`viewer ${interaction} stops the live sweep`, async ({ page }) => {
       await page.emulateMedia({ reducedMotion: 'no-preference' });
       await page.goto('/en/research/metamaterials/grossman-2026/');
+      await expect(page.locator('#prerender')).toHaveCount(0);
       const viewer = page.locator('.sp-viewer');
       await expect(viewer.locator('canvas').first()).toBeVisible();
       await expect(page.getByRole('button', { name: 'Pause sweep' })).toBeVisible();
@@ -82,6 +85,7 @@ test.describe('@smoke research springs review regressions', () => {
         await route.continue();
       });
       await page.goto('/en/research/metamaterials/grossman-2026/', { waitUntil: 'domcontentloaded' });
+      await expect(page.locator('#prerender')).toHaveCount(0);
       await page.getByRole('tab', { name: tab, exact: true }).click();
       release();
       if (tab === 'Edit in Stabileo') {
@@ -102,6 +106,7 @@ test.describe('@smoke research springs review regressions', () => {
     await page.emulateMedia({ reducedMotion: 'no-preference' });
     await page.clock.install();
     await page.goto('/en/research/metamaterials/grossman-2026/');
+    await expect(page.locator('#prerender')).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Pause sweep' })).toBeVisible();
     await page.getByRole('button', { name: 'Pause sweep' }).scrollIntoViewIfNeeded();
     await page.clock.runFor(6000);
@@ -114,6 +119,7 @@ test.describe('@smoke research springs review regressions', () => {
 
   test('prestressed networks cannot be exported to either editor', async ({ page }) => {
     await page.goto('/en/research/metamaterials/grossman-2026/?eta=0.3');
+    await expect(page.locator('#prerender')).toHaveCount(0);
     await expect(page.locator('.sp-viewer canvas').first()).toBeVisible();
     await page.getByRole('tab', { name: 'Parameters', exact: true }).click();
     const prestress = page.getByRole('slider', { name: 'Prestress: rest lengths shortened by' });
@@ -138,6 +144,7 @@ test.describe('@smoke research springs review regressions', () => {
       } });
     });
     await page.goto('/en/research/metamaterials/grossman-2026/?eta=0.3');
+    await expect(page.locator('#prerender')).toHaveCount(0);
     await expect(page.locator('.sp-viewer canvas').first()).toBeVisible();
     await page.getByRole('tab', { name: 'Edit in Stabileo' }).click();
     await expect(page.getByRole('alert')).toContainText('raw-deflate unavailable');
@@ -163,6 +170,7 @@ for (const viewport of [{width:360,height:780},{width:390,height:844},{width:844
     await page.setViewportSize(viewport);
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto('/en/research/metamaterials/grossman-2026/');
+    await expect(page.locator('#prerender')).toHaveCount(0);
     await expect(page.locator('.sp-viewer canvas').first()).toBeVisible();
     const viewer = await page.locator('.sp-viewer').boundingBox();
     expect(viewer!.y).toBeLessThan(viewport.height);
@@ -198,6 +206,7 @@ test('@smoke spring replay performs no worker solves; keyboard camera and restar
   });
   await page.emulateMedia({reducedMotion:'no-preference'});
   await page.goto('/en/research/metamaterials/grossman-2026/');
+  await expect(page.locator('#prerender')).toHaveCount(0);
   await expect(page.locator('.sp-source[aria-live="polite"]')).toContainText('Precomputed replay (same solver)');
   await expect(page.getByRole('button', { name: 'Pause sweep' })).toBeVisible();
   await page.waitForTimeout(700);
@@ -216,6 +225,7 @@ test('@smoke spring replay performs no worker solves; keyboard camera and restar
 
 test('@smoke spring worker leaves UI responsive during prestress and Stop', async ({page}) => {
   await page.goto('/en/research/metamaterials/grossman-2026/?eta=0.3');
+  await expect(page.locator('#prerender')).toHaveCount(0);
   await expect(page.locator('.sp-viewer canvas').first()).toBeVisible();
   await page.getByRole('tab',{name:'Parameters',exact:true}).click();
   await page.evaluate(() => {

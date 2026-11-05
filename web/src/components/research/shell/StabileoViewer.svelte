@@ -23,6 +23,11 @@
       link.href = `${BASE}viewer.css`;
       link.dataset.researchViewer = '';
       document.head.appendChild(link);
+      const script = document.createElement('link');
+      script.rel = 'modulepreload';
+      script.href = `${BASE}viewer.js`;
+      script.dataset.researchViewer = '';
+      document.head.appendChild(script);
     }
     let cancelled = false;
     import(/* @vite-ignore */ `${BASE}viewer.js`)
