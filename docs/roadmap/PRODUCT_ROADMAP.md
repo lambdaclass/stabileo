@@ -1,7 +1,8 @@
 # Stabileo Product Roadmap
 
 Stabileo's goal is software engineers can design buildings with. It is not used for that yet, and it
-is safety-critical: verification comes first, and a result is never silently wrong. Ergodic Group
+is safety-critical: verification comes first, and a result must never be silently wrong. Some still
+can be: section 4 lists the wrong results not yet contained. Ergodic Group
 backs and publishes Stabileo.
 
 ## 1. Rules

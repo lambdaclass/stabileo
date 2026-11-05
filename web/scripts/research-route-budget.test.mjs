@@ -45,11 +45,17 @@ test('allowances need bytes, a reason and an existing module', () => {
   assert.equal(parse(entry)['/en/tools/'].bytes, 600);
   for (const bad of [{ ...entry, bytes: 0 }, { ...entry, bytes: 1.5 }, { ...entry, reason: ' ' }, { ...entry, module: undefined }]) assert.throws(() => parse(bad), /invalid route allowance/);
   assert.throws(() => parse(entry, () => false), /invalid route allowance/);
+  assert.equal(parse([entry, { ...entry, bytes: 100 }])['/en/tools/'].bytes, 700);
+  assert.throws(() => parse([]), /invalid route allowance/);
+  assert.throws(() => parse([entry, { ...entry, reason: '' }]), /invalid route allowance/);
 });
-test('the shipped allowances are only the tools routes, for the #447 containment messages', () => {
-  const { routes } = JSON.parse(readFileSync(new URL('./research-route-allowances.json', import.meta.url), 'utf8'));
-  assert.deepEqual(Object.keys(routes).sort(), ['/en/tools/', '/en/tools/continuous-beam/', '/en/tools/simply-supported-beam/']);
-  for (const a of Object.values(routes)) assert.deepEqual(a, { bytes: 600, reason: '#447 containment messages', module: 'src/lib/engine/known-issue-message.ts' });
+test('the shipped allowances are the #1483 related links on research and tools, and the #447 containment messages on tools', () => {
+  const routes = routeAllowances(readFileSync(new URL('./research-route-allowances.json', import.meta.url), 'utf8'), () => true);
+  assert.deepEqual(Object.keys(routes).sort(), ['/en/research/', '/en/tools/', '/en/tools/continuous-beam/', '/en/tools/simply-supported-beam/']);
+  assert.deepEqual(routes['/en/research/'], { bytes: 700, reason: '#1483 related links styled as theme chips', modules: ['src/components/research/RelatedLinks.svelte'] });
+  for (const route of ['/en/tools/', '/en/tools/continuous-beam/', '/en/tools/simply-supported-beam/']) {
+    assert.deepEqual(routes[route], { bytes: 1300, reason: '#1483 related links styled as theme chips + #447 containment messages', modules: ['src/components/research/RelatedLinks.svelte', 'src/lib/engine/known-issue-message.ts'] });
+  }
 });
 test('missing and non-finite measurements fail', () => {
   assert.throws(() => routeGrowth({ '/en/': 1000 }, {}), /coverage/);
