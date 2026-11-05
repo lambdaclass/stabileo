@@ -14,7 +14,8 @@ exist, or when this page lists a check under another tier than the manifest, or 
   runs it in the Engine Quick Checks job of `ci.yml` (pull requests) or the `cadence` job of
   `nightly.yml` (daily, weekly, monthly). A check marked `optional` whose target is not on the
   branch yet is skipped with a notice, so a target is listed here before the pull request that
-  adds it lands, and runs from the first night after it does.
+  adds it lands, and runs from the first night after it does. Once the target is on `main`, drop
+  `optional`, so a check that stops running fails instead of being skipped.
 - **run by an existing workflow job**: it names that job, and the manifest only records its tier.
 
 ## Tiers
