@@ -1,8 +1,39 @@
 {
   "$comment": "Registry of result-affecting changes. Read by web/scripts/result-change-metadata.mjs for build metadata and decoded by web/src/lib/provenance/full-registry.ts; schema and rules in docs/verification/PROVENANCE.md. Add an entry whenever a change makes the same saved model give different numbers, at currentResultsVersion + 1, and bump currentResultsVersion: a version on main is deployed, and an entry added to it later is never shown to the projects it stamped (results-version.test.ts). Feature ids are defined in web/src/lib/provenance/model-features.ts.",
   "schema": 1,
-  "currentResultsVersion": 37,
+  "currentResultsVersion": 38,
   "changes": [
+    {
+      "id": "example-cantilever-small-rotations",
+      "resultsVersion": 38,
+      "date": "2026-11-05",
+      "prs": [],
+      "area": "analysis",
+      "scope": "examples",
+      "examples": [
+        "3d-cantilever-load"
+      ],
+      "title": {
+        "en": "The 3D biaxial cantilever example stays within small rotations",
+        "es": "El ejemplo 3D de voladizo biaxial queda dentro de los giros pequeños",
+        "pt": "O exemplo 3D de balanço biaxial fica dentro das rotações pequenas",
+        "de": "Das 3D-Beispiel zweiachsiger Kragarm bleibt im Bereich kleiner Verdrehungen",
+        "fr": "L’exemple 3D de console biaxiale reste dans les petites rotations",
+        "tr": "3B iki eksenli konsol örneği küçük dönmeler içinde kalıyor"
+      },
+      "explanation": {
+        "en": "Only the bundled example changed; a saved model gives the same numbers as before. The biaxial cantilever twisted 0.42 rad and its 3 m tip moved 103 mm in all (span/29), outside linear analysis (#1446): its torque is now 0.5 kN·m (10 kN at 50 mm eccentricity) and its tip loads Fy 1 kN and Fz 10 kN, so it twists 0.042 rad and its tip moves 11 mm in all (span/272).",
+        "es": "Sólo cambió el ejemplo incluido; un modelo guardado da los mismos números que antes. El voladizo biaxial giraba 0,42 rad y su extremo de 3 m se desplazaba 103 mm en total (luz/29), fuera del análisis lineal (#1446): su torsor ahora es 0,5 kN·m (10 kN con 50 mm de excentricidad) y sus cargas de extremo Fy 1 kN y Fz 10 kN, de modo que gira 0,042 rad y su extremo se desplaza 11 mm en total (luz/272).",
+        "pt": "Só o exemplo incluído mudou; um modelo salvo dá os mesmos números de antes. O balanço biaxial girava 0,42 rad e sua ponta de 3 m se deslocava 103 mm no total (vão/29), fora da análise linear (#1446): seu torçor agora é 0,5 kN·m (10 kN com 50 mm de excentricidade) e suas cargas de ponta Fy 1 kN e Fz 10 kN, de modo que gira 0,042 rad e sua ponta se desloca 11 mm no total (vão/272).",
+        "de": "Nur das mitgelieferte Beispiel hat sich geändert; ein gespeichertes Modell liefert dieselben Zahlen wie zuvor. Der zweiachsige Kragarm verdrehte sich um 0,42 rad und sein 3 m langes Ende verschob sich insgesamt um 103 mm (Spannweite/29), außerhalb der linearen Analyse (#1446): sein Torsionsmoment beträgt jetzt 0,5 kN·m (10 kN mit 50 mm Exzentrizität) und seine Endlasten Fy 1 kN und Fz 10 kN, sodass er sich um 0,042 rad verdreht und sein Ende sich insgesamt um 11 mm verschiebt (Spannweite/272).",
+        "fr": "Seul l’exemple fourni a changé ; un modèle enregistré donne les mêmes chiffres qu’avant. La console biaxiale tournait de 0,42 rad et son extrémité de 3 m se déplaçait de 103 mm au total (portée/29), hors de l’analyse linéaire (#1446) : son couple est désormais de 0,5 kN·m (10 kN avec 50 mm d’excentricité) et ses charges d’extrémité Fy 1 kN et Fz 10 kN, de sorte qu’elle tourne de 0,042 rad et que son extrémité se déplace de 11 mm au total (portée/272).",
+        "tr": "Yalnızca uygulamayla gelen örnek değişti; kaydedilmiş bir model öncekiyle aynı sayıları verir. İki eksenli konsol 0,42 rad dönüyor ve 3 m'lik ucu toplamda 103 mm (açıklık/29) yer değiştiriyordu, doğrusal analizin dışında (#1446): burulma momenti artık 0,5 kN·m (50 mm eksantrisiteyle 10 kN), uç yükleri Fy 1 kN ve Fz 10 kN, böylece 0,042 rad dönüyor ve ucu toplamda 11 mm (açıklık/272) yer değiştiriyor."
+      },
+      "changelog": {
+        "file": "changelog.d/1446-example-cantilever.md",
+        "heading": "The 3D biaxial cantilever example stays within small rotations (2026-11-05)"
+      }
+    },
     {
       "id": "example-torsion-beam-closed-section",
       "resultsVersion": 37,
