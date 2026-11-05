@@ -73,7 +73,7 @@
 {/snippet}
 
 <figure class="plot" bind:clientWidth={width}>
-  <svg {width} {height} role="img" aria-label={ariaLabel}>
+  <svg {width} {height} viewBox="0 0 {width} {height}" role="img" aria-label={ariaLabel}>
     <text x={M.l - 6} y="12" class="axis" text-anchor="start">{yLabel}</text>
     {#each Y.ticks as t (t)}
       <line x1={M.l} x2={width - M.r} y1={sy(t)} y2={sy(t)} class="grid" />
@@ -137,6 +137,8 @@
   svg {
     display: block;
     overflow: visible;
+    max-width: 100%;
+    height: auto;
   }
   .grid {
     stroke: var(--st-canvas-grid, rgba(255, 255, 255, 0.13));

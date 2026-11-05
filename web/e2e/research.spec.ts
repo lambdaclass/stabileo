@@ -70,6 +70,27 @@ test.describe('@smoke research', () => {
     }
   });
 
+  test('the phase-field page replaces its prerendered copy only once the replay has arrived, so the viewer does not jump', async ({ page }) => {
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => { release = resolve; });
+    await page.route(/shauer-2025\/replay\.srpl$/, async (route) => { await held; await route.continue(); });
+    await page.addInitScript(() => {
+      new MutationObserver((_, observer) => {
+        if (document.getElementById('prerender') || !document.querySelector('#app .rs-app')) return;
+        (window as unknown as { __steps: string | null }).__steps = document.querySelector('#app .rs-app')!.getAttribute('data-steps');
+        observer.disconnect();
+      }).observe(document, { childList: true, subtree: true });
+    });
+    await page.goto('/en/research/fracture/shauer-2025/');
+    await expect(page.locator('#prerender .rs-app')).toBeVisible();
+    await page.waitForTimeout(1500);
+    await expect(page.locator('#prerender')).toHaveCount(1);
+    release();
+    await expect(page.locator('#prerender')).toHaveCount(0);
+    await expect(page.locator('#app .rs-compare-line')).toBeVisible();
+    expect(Number(await page.evaluate(() => (window as unknown as { __steps: string | null }).__steps))).toBeGreaterThan(0);
+  });
+
   test('the phase-field experiment replays, then runs load steps live and plots the force', async ({ page }) => {
     const wasm: string[] = [];
     page.on('request', (r) => {
@@ -236,17 +257,19 @@ test.describe('@smoke research review regressions', () => {
   });
 });
 
-test('@smoke destroying the research page aborts its replay fetch and ignores a late resolution', async ({ page }) => {
+test('@smoke destroying the research page aborts the replay fetch it retries itself and ignores a late resolution', async ({ page }) => {
   await page.addInitScript(() => {
     const original = window.fetch;
-    const state = window as unknown as { replaySignal: AbortSignal; releaseReplay: () => void; replayTicks: number };
+    const state = window as unknown as { replaySignal: AbortSignal; releaseReplay: () => void; replayTicks: number; replayCalls: number };
     state.replayTicks = 0;
+    state.replayCalls = 0;
     const timeout = window.setTimeout;
     window.setTimeout = ((handler: TimerHandler, delay?: number, ...args: unknown[]) => {
       if (delay === 110) state.replayTicks++;
       return timeout(handler, delay, ...args);
     }) as typeof window.setTimeout;
     window.fetch = async (url, init) => {
+      if (String(url).includes('replay.srpl') && state.replayCalls++ === 0) throw new TypeError('offline');
       const response = await original(url, init);
       if (String(url).includes('replay.srpl')) {
         state.replaySignal = init!.signal!;
@@ -260,6 +283,8 @@ test('@smoke destroying the research page aborts its replay fetch and ignores a 
   });
   await page.goto('/en/research/fracture/shauer-2025/');
   await page.waitForFunction(() => !!(window as unknown as { releaseReplay: unknown }).releaseReplay);
+  await expect(page.locator('#prerender')).toHaveCount(0);
+  await expect(page.locator('#app .rs-app')).toBeVisible();
   await page.evaluate(() => window.dispatchEvent(new CustomEvent('stabileo-navigate', { detail: '/' })));
   await expect(page.locator('.rs-app')).toHaveCount(0);
   expect(await page.evaluate(() => (window as unknown as { replaySignal: AbortSignal }).replaySignal.aborted)).toBe(true);
