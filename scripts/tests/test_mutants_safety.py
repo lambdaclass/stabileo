@@ -25,7 +25,8 @@ def shard(outcomes, total=None, name=None, end=None):
     if name:
         d = d / name
         d.mkdir()
-    (d / "outcomes.json").write_text(json.dumps({"total_mutants": len(outcomes) if total is None else total, "end_time": end, "outcomes": [{"scenario": "Baseline", "summary": "Success"}, *outcomes]}))
+    (d / "outcomes.json").write_text(json.dumps({"total_mutants": len(outcomes), "end_time": end, "outcomes": [{"scenario": "Baseline", "summary": "Success"}, *outcomes]}))
+    (d / "mutants.json").write_text(json.dumps([{}] * (len(outcomes) if total is None else total)))
     return d
 
 
@@ -137,6 +138,24 @@ class CoverageTest(unittest.TestCase):
         cut = shard([outcome(f"{L}:2:1: a", L, "finish", "MissedMutant")], total=9, name="mutants-report-7", end="2026-10-18T00:00:00Z")
         other = shard([outcome(f"{L}:3:1: b", L, "finish", "CaughtMutant")], name="mutants-report-8", end="2026-10-02T00:00:00Z")
         self.assertEqual(sorted(ms.latest_per_shard([str(p) for p in (cut, old, other, new)])), sorted([str(new), str(other)]))
+
+    def test_a_shard_cut_short_is_incomplete_even_though_its_outcomes_count_matches(self):
+        out = shard([outcome(f"{L}:1:1: a", L, "finish", "CaughtMutant")], total=4, name="mutants-safety-report-0")
+        self.assertEqual(json.loads((out / "outcomes.json").read_text())["total_mutants"], 1)
+        self.assertEqual(ms.coverage([out]), {"shards": 1, "complete": 0})
+        (out / "mutants.json").unlink()
+        self.assertEqual(ms.coverage([out]), {"shards": 1, "complete": 0})
+
+    def test_without_end_times_the_later_run_wins(self):
+        root = Path(tempfile.mkdtemp())
+        dirs = []
+        for run, kind in (("41000", "MissedMutant"), ("42000", "CaughtMutant")):
+            d = root / run / "mutants-report-3"
+            d.mkdir(parents=True)
+            (d / "outcomes.json").write_text(json.dumps({"outcomes": [outcome(f"{L}:1:1: a", L, "finish", kind)]}))
+            (d / "mutants.json").write_text("[{}]")
+            dirs.append(str(d))
+        self.assertEqual(ms.latest_per_shard(dirs), [dirs[1]])
 
     def test_the_cli_ratchet_reads_coverage_from_the_report(self):
         d = Path(tempfile.mkdtemp())

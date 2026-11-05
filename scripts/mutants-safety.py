@@ -101,9 +101,12 @@ def shard_key(out):
 
 
 def shard_state(out):
-    data = json.loads((Path(out) / "outcomes.json").read_text())
+    out = Path(out)
+    data = json.loads((out / "outcomes.json").read_text())
     tested = sum(1 for o in data.get("outcomes", []) if mutant_of(o))
-    return data.get("total_mutants") is not None and tested == data["total_mutants"], str(data.get("end_time") or "")
+    planned = len(json.loads((out / "mutants.json").read_text())) if (out / "mutants.json").exists() else None
+    run = out.parent.name
+    return planned is not None and tested == planned, str(data.get("end_time") or ""), int(run) if run.isdigit() else 0
 
 
 def latest_per_shard(outs):
