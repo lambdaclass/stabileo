@@ -13840,6 +13840,7 @@ const fr: Translations = {
   "recheck.downloadBackup": "Télécharger tous les projets ouverts",
   "recheck.backupHelp": "Conservez le fichier de session téléchargé, puis rechargez et ouvrez-le pour restaurer tous les projets. L’avis devra toujours être confirmé.",
   "recheck.loading": "Chargement des modifications des résultats…",
+  "recheck.checkingTitle": "Vérification de ce projet par rapport aux modifications des résultats de cette version",
   "recheck.detailsUnavailable": "Les détails de la modification sont indisponibles. Réessayez de charger cet avis.",
   "recheck.loadFailed": "Impossible de charger les modifications des résultats. Réessayez avant de les confirmer.",
   "recheck.retry": "Réessayer",

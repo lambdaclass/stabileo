@@ -301,6 +301,9 @@ jobs:
   # workflows), and changelog.d/ fragments well formed. On every run: neither has a path filter.
   lint-repo:
     name: Lint Repo
+    permissions:
+      contents: read
+      actions: write
     runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' || (github.ref == 'refs/heads/main' && github.event_name != 'schedule')) && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-24.04' }}
     timeout-minutes: 20
     steps:
@@ -329,9 +332,20 @@ jobs:
       # in no binary would never run, one in two would run twice.
       - name: Every engine test file is in exactly one test binary
         run: nix develop --command make check.test-targets NIX_RUN=
+      - name: Stop the rest of this run
+        if: failure() && github.event_name == 'pull_request'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+        run: gh workflow run stop-failed-run.yml --ref main -f run_id="$RUN_ID"
 
   test-ci-scripts:
     name: Test CI Scripts
+    permissions:
+      contents: read
+      actions: write
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     needs: [changes]
@@ -359,9 +373,20 @@ jobs:
         run: .github/scripts/retry-infra.sh nix develop .#e2e --command true
       - name: Browser shell (.#e2e) launches Chromium and Firefox
         run: nix develop .#e2e -c ./scripts/ci/check-playwright-nix.sh
+      - name: Stop the rest of this run
+        if: failure() && github.event_name == 'pull_request'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+        run: gh workflow run stop-failed-run.yml --ref main -f run_id="$RUN_ID"
 
   lint-engine:
     name: Lint Engine
+    permissions:
+      contents: read
+      actions: write
     runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' || (github.ref == 'refs/heads/main' && github.event_name != 'schedule')) && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-24.04' }}
     timeout-minutes: 20
     needs: [changes]
@@ -393,6 +418,15 @@ jobs:
         run: .github/scripts/retry-infra.sh nix develop --command cargo fetch --locked
       - name: Clippy
         run: make lint.engine
+
+      - name: Stop the rest of this run
+        if: failure() && github.event_name == 'pull_request'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+        run: gh workflow run stop-failed-run.yml --ref main -f run_id="$RUN_ID"
 
   # Named correctness gates. Every gate's tests are EXCLUDED from the suite
   # job below — each test must run exactly once per CI run. The make targets
@@ -482,6 +516,7 @@ jobs:
         with:
           clean: true
           persist-credentials: false
+          fetch-depth: 2
       - if: runner.environment == 'github-hosted'
         uses: ./.github/actions/free-disk
       - if: runner.environment == 'github-hosted'
@@ -505,6 +540,9 @@ jobs:
       - name: Metamorphic tests (sampled tier, release)
         run: make test.engine.metamorphic
         timeout-minutes: 30
+      - name: Invariance of the analyses this change touches (quick tier, release)
+        run: make test.engine.invariance.quick BASE=HEAD^1
+        timeout-minutes: 5
 
   test-ai-backend:
     name: Test AI Backend
@@ -541,6 +579,9 @@ jobs:
 
   lint-backend:
     name: Lint Backend
+    permissions:
+      contents: read
+      actions: write
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     needs: [changes]
@@ -576,6 +617,14 @@ jobs:
         run: make deps
       - name: Lint
         run: make lint.backend
+      - name: Stop the rest of this run
+        if: failure() && github.event_name == 'pull_request'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+        run: gh workflow run stop-failed-run.yml --ref main -f run_id="$RUN_ID"
 
   test-backend:
     name: Test Backend
@@ -1050,11 +1099,14 @@ jobs:
           retention-days: 3
           if-no-files-found: error
 
-  # The unit pass needs the WASM engine and nothing else, so it shards four ways;
+  # The unit pass needs the WASM engine and nothing else, so it shards eight ways;
   # the production-build tests need Chromium and the built app, so they stay
   # with the build.
   web-unit:
-    name: Web Unit (${{ matrix.shard }}/4)
+    name: Web Unit (${{ matrix.shard }}/8)
+    permissions:
+      contents: read
+      actions: write
     runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && vars.STABILEO_TIMING_POOL == 'true' && (github.event_name == 'merge_group' || (github.ref == 'refs/heads/main' && github.event_name != 'schedule'))) && fromJSON('["self-hosted","stabileo-timing"]') || 'ubuntu-24.04' }}
     timeout-minutes: 30
     needs: [changes, wasm]
@@ -1062,7 +1114,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -1097,7 +1149,64 @@ jobs:
       - name: Unit + integration tests
         env:
           UNIT_AREA: ${{ needs.changes.outputs.unit_area }}
-        run: make test.web.unit SHARD=${{ matrix.shard }}/4
+        run: make test.web.unit SHARD=${{ matrix.shard }}/8 BAIL=${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && '1' || '' }}
+      - name: Stop the rest of this run
+        if: failure() && github.event_name == 'pull_request'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+        run: gh workflow run stop-failed-run.yml --ref main -f run_id="$RUN_ID"
+
+  web-typecheck:
+    name: Web Typecheck
+    permissions:
+      contents: read
+      actions: write
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    needs: [changes, wasm]
+    if: needs.changes.outputs.web_build == 'true'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - if: runner.environment == 'github-hosted'
+        uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
+        continue-on-error: true
+      - if: runner.environment == 'github-hosted' && github.event_name != 'pull_request'
+        uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+        continue-on-error: true
+        with:
+          use-flakehub: false
+      - name: Prepare Nix shell (infrastructure retries)
+        run: |
+          .github/scripts/retry-infra.sh nix develop --command true
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        continue-on-error: true
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-npm-${{ hashFiles('web/package-lock.json') }}
+      # Built once per run by the `wasm` job, the same build as the shipped app.
+      - name: WASM engine (from the wasm job)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+        run: .github/scripts/retry-infra.sh nix develop --command gh run download "$RUN_ID" --name wasm --dir web/src/lib/wasm
+      - name: Install dependencies
+        run: .github/scripts/retry-infra.sh make web.deps
+      - name: Typecheck against its baseline and svelte-check gate
+        run: make typecheck.web
+      - name: Stop the rest of this run
+        if: failure() && github.event_name == 'pull_request'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+        run: gh workflow run stop-failed-run.yml --ref main -f run_id="$RUN_ID"
 
   web-build:
     name: Web Build
@@ -1172,8 +1281,6 @@ jobs:
       - name: Install build-test browser
         if: runner.environment == 'github-hosted'
         run: .github/scripts/retry-infra.sh make e2e.web.setup
-      - name: Typecheck against its baseline and svelte-check gate
-        run: make typecheck.web
       - name: Build and production-build tests
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
@@ -1661,6 +1768,7 @@ jobs:
       - site-e2e
       - web-unit
       - web-build
+      - web-typecheck
       - results-snapshot
       - determinism
       - e2e
@@ -1710,6 +1818,7 @@ jobs:
       - site-e2e
       - web-unit
       - web-build
+      - web-typecheck
       - results-snapshot
       - determinism
       - e2e

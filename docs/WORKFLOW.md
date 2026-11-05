@@ -47,6 +47,13 @@ never silently wrong and verification never silently stops working.
 - **Merge status.** The pinned issue [Merge status (#1391)](https://github.com/lambdaclass/stabileo/issues/1391)
   and the `status:*` labels (`status:in-queue`, `status:ready`, `status:in-progress`,
   `status:blocked`, `status:needs-owner-ok`) show every open PR's state and expected merge time.
+- **No stacked PRs in the merge queue.** The queue marks an ancestor unmergeable and rejects its
+  descendants (`invalid_merge_commit`). Retarget every PR of a stack to `main`, or land the stack
+  as one integration PR.
+- **Re-arm auto-merge after a dequeue.** Taking a PR out of the queue, or the queue dropping it,
+  clears its auto-merge. Set it again once the fix is pushed.
+- **Before pushing,** run `make check.quick` (upcoming; until it is on `main`, the `make` targets of
+  the areas you changed).
 - **Never use `git stash`.** Every worktree of a clone shares one stash list, so a stash in one
   worktree can be popped or dropped from another. Commit to your branch or copy the files instead.
 - **Required checks** must be green (engine, web, e2e, Kani, Lean, symbolic; see
@@ -62,6 +69,10 @@ never silently wrong and verification never silently stops working.
   Merge-queue runs are not retried: a red required check has already dequeued the PR, so a rerun
   reports to a group that no longer exists; re-enqueue instead. Pushes to `main` are handled by
   `post-merge.yml`.
+- **Closing an issue.** A fix closes its issue only after running every reproducer listed in the
+  issue. A partial fix says "partly fixed" and leaves a follow-up issue for the rest.
+- **Nightly wrong-result candidates** are triaged daily, and each gets a recorded decision:
+  contained, fixed (with the PR), or out of scope (with the numbers that show it).
 - **Never force-push** a shared branch without explicit authorization. Before deleting a branch,
   prove its work exists elsewhere.
 - QA and evidence branches are pushed but get no PR.

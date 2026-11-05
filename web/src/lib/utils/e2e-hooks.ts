@@ -446,7 +446,7 @@ export interface StabileoTestHooks {
   /** The record as an export writes it: engine hashes awaited, bound to the state (`provenanceForExport`). */
   exportProvenance(): Promise<unknown>;
   /** The re-check state: notice up, results stale, the registered changes listed. */
-  recheck(): { noticeOpen: boolean; stale: boolean; changes: string[]; solvedVersion: number | null; stampVersion: number | null };
+  recheck(): { noticeOpen: boolean; pending: boolean; stale: boolean; changes: string[]; solvedVersion: number | null; stampVersion: number | null };
 }
 
 /**
@@ -883,6 +883,7 @@ export function installE2EHooks(): void {
     exportProvenance: async () => JSON.parse(JSON.stringify(await provenanceForExport(captureProvenanceToken()))),
     recheck: () => ({
       noticeOpen: recheckStore.noticeOpen,
+      pending: recheckStore.pending,
       stale: recheckStore.stale,
       changes: recheckStore.assessment?.changes.map((c) => c.id) ?? [],
       solvedVersion: recheckStore.assessment?.solvedVersion ?? null,

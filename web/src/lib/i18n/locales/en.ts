@@ -14001,6 +14001,7 @@ const en: Record<string, string> = {
   "recheck.downloadBackup": "Download all open projects",
   "recheck.backupHelp": "Keep the downloaded session file, then reload and open it to restore every project. The notice will still require acknowledgement.",
   "recheck.loading": "Loading result changes…",
+  "recheck.checkingTitle": "Checking this project against the result changes in this version",
   "recheck.detailsUnavailable": "Change details are unavailable. Retry loading the notice.",
   "recheck.loadFailed": "Result changes could not be loaded. Retry before acknowledging them.",
   "recheck.retry": "Retry",
