@@ -92,7 +92,8 @@ wrong-result bug.
    ([#1431](https://github.com/lambdaclass/stabileo/pull/1431)); unit tests isolated and shuffled ([#1471](https://github.com/lambdaclass/stabileo/issues/1471)); one fix or one containment per
    pull request, never a batch like [#807](https://github.com/lambdaclass/stabileo/pull/807), whose every finding blocked all fifteen fixes and
    which main conflicted with three times; after about three review rounds only a finding that
-   allows a wrong result blocks, the rest go to a follow-up issue.
+   allows a wrong result, a security defect or a weakened safety test blocks; the rest go to a
+   follow-up issue.
 5. Cause tracking: every wrong-result issue gets a cause label (A to H) when it is triaged, and a
    monthly count shows whether new bugs still come from causes whose fix has landed. If they do,
    that fix is not working and is revisited.
