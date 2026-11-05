@@ -133,7 +133,7 @@ at results version 30; [#807](https://github.com/lambdaclass/stabileo/pull/807) 
 | [#1318](https://github.com/lambdaclass/stabileo/issues/1318) | the legacy-project migration fingerprint omits material strength (fy, f'c) | uncontained | — | not started |
 | [#1389](https://github.com/lambdaclass/stabileo/issues/1389) | governing member value read from sampled diagrams, up to 1.05 % unconservative | check whether [#1396](https://github.com/lambdaclass/stabileo/pull/1396) fixed it | — | envelope type (section 3) |
 | [#1314](https://github.com/lambdaclass/stabileo/issues/1314) | RC design (ACI 318, EN 1992) ignores member torsion | contained on main ([#1319](https://github.com/lambdaclass/stabileo/pull/1319), SA-2026-040) | torsion above the ACI 22.7.1.1 threshold is marked not checked | torsion design not started |
-| [#458](https://github.com/lambdaclass/stabileo/issues/458) | 3D skew case: a rotation held by nothing about a skew axis still solves after rounding | contained ([#807](https://github.com/lambdaclass/stabileo/pull/807), NUM-INVARIANCE, never certified) | warn | detect the rank-deficient rotation block and refuse; the 2D case is fixed ([#1298](https://github.com/lambdaclass/stabileo/pull/1298)) |
+| [#458](https://github.com/lambdaclass/stabileo/issues/458) | 3D skew case: a rotation held by nothing about a skew axis still solves after rounding | uncontained | [#807](https://github.com/lambdaclass/stabileo/pull/807) (NUM-INVARIANCE, warn, never certified) | detect the rank-deficient rotation block and refuse; the 2D case is fixed ([#1298](https://github.com/lambdaclass/stabileo/pull/1298)) |
 | [#758](https://github.com/lambdaclass/stabileo/issues/758) | 2D plastic collapse factor changes with numbering, direction and units | refused | on main | [#1447](https://github.com/lambdaclass/stabileo/pull/1447) (draft) |
 | [#1453](https://github.com/lambdaclass/stabileo/issues/1453) | 2D limit analysis loses redistribution when capacities differ by about 1e9 (conservative) | — | — | not started |
 | [#798](https://github.com/lambdaclass/stabileo/issues/798) | MITC4 too stiff on distorted meshes under in-plane bending | uncontained | [#807](https://github.com/lambdaclass/stabileo/pull/807) (SH-MITC4-DISTORTION) | membrane fix not started |
@@ -184,7 +184,7 @@ plastic refusals that change under relabel or scale), [#1394](https://github.com
 Each moves to section 2 or 3 when it starts.
 
 **After the structural fixes, in this order:** the shell formulation fixes ([#798](https://github.com/lambdaclass/stabileo/issues/798), [#1057](https://github.com/lambdaclass/stabileo/issues/1057); slabs
-and walls of real buildings use them, and both are contained), a Python package and API on the
+and walls of real buildings use them, and both are contained once [#807](https://github.com/lambdaclass/stabileo/pull/807) lands), a Python package and API on the
 versioned engine interface ([#731](https://github.com/lambdaclass/stabileo/issues/731)), a public verification manual generated from the benchmarks, the
 metamorphic suite and the certificates, import from SAP2000, ETABS, IFC and DXF with reports engineers
 can hand in, then Latin American codes (NBR, NSR-10, NTE E.030/E.060, NCh next to CIRSOC), each with
