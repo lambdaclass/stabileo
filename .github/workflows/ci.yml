@@ -197,6 +197,8 @@ jobs:
               - '.github/workflows/post-merge.yml'
               - 'scripts/tests/**'
               - 'scripts/ci/**'
+              - 'scripts/verification-metrics.py'
+              - 'docs/roadmap/PRODUCT_ROADMAP.md'
               - 'Makefile'
               - 'Dockerfile'
               - '.github/scripts/**'
