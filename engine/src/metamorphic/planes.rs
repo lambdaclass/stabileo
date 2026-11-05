@@ -245,6 +245,14 @@ pub struct PlanarStatic {
 
 pub fn pull_static(s: &SolverInput, plane: Plane, r: &AnalysisResults3D) -> TResult<PlanarStatic> {
     let (e1, e2, n) = (plane.e1(), plane.e2(), plane.normal());
+    let finite = r.displacements.iter().all(|d| [d.ux, d.uy, d.uz, d.rx, d.ry, d.rz].iter().all(|v| v.is_finite()))
+        && r.reactions.iter().all(|x| [x.fx, x.fy, x.fz, x.mx, x.my, x.mz].iter().all(|v| v.is_finite()))
+        && r.element_forces.iter().all(|f| {
+            [f.n_start, f.vy_start, f.vz_start, f.mx_start, f.my_start, f.mz_start, f.n_end, f.vy_end, f.vz_end, f.mx_end, f.my_end, f.mz_end].iter().all(|v| v.is_finite())
+        });
+    if !finite {
+        return unrep("the 3D results are not finite");
+    }
     let mut out = PlanarStatic::default();
     for d in &r.displacements {
         let (u, th) = ([d.ux, d.uy, d.uz], [d.rx, d.ry, d.rz]);

@@ -363,12 +363,13 @@ fn planes(a: &Ana2, c: &Case2, base: &Resp, solve: fn(&SolverInput3D) -> Result<
         }));
         let got = match got {
             Ok(g) => g,
-            Err(e) if base.1.is_empty() => return Verdict::Refused(format!("{plane:?}: 2D solved, 3D failed: {e}")),
+            Err(e) if base.1.is_empty() => return Verdict::Fail(format!("{plane:?}: 2D solved, 3D failed: {e}")),
             Err(e) => return Verdict::Refused(format!("{plane:?}: 2D refused {:?}, 3D failed: {e}", base.1)),
         };
-        if !base.1.is_empty() || !got.1.is_empty() {
-            let which = if base.1.is_empty() { "3D only" } else if got.1.is_empty() { "2D only" } else { "both" };
-            return Verdict::Refused(format!("{plane:?}: containment differs ({which}): 2D {:?}, 3D {:?}", base.1, got.1));
+        match (base.1.is_empty(), got.1.is_empty()) {
+            (true, true) => {}
+            (false, false) => return Verdict::Refused(format!("{plane:?}: both refuse: 2D {:?}, 3D {:?}", base.1, got.1)),
+            (b, _) => return Verdict::Fail(format!("{plane:?}: containment differs ({} only): 2D {:?}, 3D {:?}", if b { "3D" } else { "2D" }, base.1, got.1)),
         }
         let mut exp = base.clone();
         exp.scalar("stray force", Dim::FORCE, 0.0);
@@ -707,4 +708,26 @@ fn energy(a: &Ana2, c: &Case2, cond: &Conditioning, rng: &mut Rng) -> Verdict {
     } else {
         Verdict::Fail(format!("ΣP·u = {w:.10e} but Σ f_e·u_e + springs = {e2:.10e}, |diff| {:.3e} > tol {tol:.3e}", (w - e2).abs()))
     }
+}
+
+#[test]
+fn a_one_sided_failure_or_refusal_or_a_nonfinite_3d_result_fails_the_planes_check() {
+    use dedaliano_engine::known_issues::{diagnostic, refuse, Mode, ENTRIES};
+    use dedaliano_engine::solver::linear;
+    let c = crate::corpus::cases_2d(crate::corpus::Tier::Pr, crate::seed()).into_iter().find(|c| c.name.contains("ex-cantilever-input")).unwrap();
+    let a = crate::ana2::rows().into_iter().find(|a| a.name == "linear").unwrap();
+    let cond = with_eigen_2d(conditioning::of_2d(&c.s).unwrap(), &c);
+    let base = run(&a, &c).unwrap();
+    let fails = |solve: fn(&SolverInput3D) -> Result<AnalysisResults3D, String>| matches!(planes(&a, &c, &base, solve, &cond), Verdict::Fail(_));
+    assert!(matches!(planes(&a, &c, &base, |s| linear::solve_3d(s), &cond), Verdict::Pass(_)));
+    assert!(fails(|s| {
+        let mut r = linear::solve_3d(s)?;
+        r.element_forces[0].mx_start = f64::NAN;
+        Ok(r)
+    }));
+    assert!(fails(|_| Err("singular".into())));
+    assert!(fails(|_| {
+        let id = ENTRIES.iter().find(|e| e.mode == Mode::Refuse).unwrap().id;
+        refuse(&[diagnostic(id)]).map(|_| unreachable!())
+    }));
 }
