@@ -13,7 +13,7 @@
        services services.stop postgres.start postgres.stop \
        inst inst.check inst.claim inst.release inst.list ports \
        docker.build docker.up docker.down cloud-init.render \
-       check-pins check.changelog check.test-targets worktree worktree-prune hooks \
+       check-pins check.changelog check.test-targets test.cadence check.cadence check.containment deps.audit worktree worktree-prune hooks \
        fmt check clean
 
 NIX_RUN = nix develop --command
@@ -386,6 +386,18 @@ test.inventory:
 			printf "total registered: %d\n", eng + ref; \
 		}'
 
+test.cadence:
+	python3 -I scripts/cadence.py run $(TIER) $(if $(RUNNER),--runner $(RUNNER)) $(if $(ID),--id $(ID))
+
+check.cadence:
+	python3 -I scripts/cadence.py check
+
+check.containment:
+	$(NIX_RUN) python3 -I scripts/check-containment.py
+
+deps.audit:
+	$(NIX_RUN) python3 -I scripts/deps-audit.py $(or $(OUT),deps-audit.md)
+
 ## One version of each tool everywhere (rust-toolchain.toml, .nvmrc, flake.nix, CI)
 check-pins:
 	scripts/check-pins.sh
@@ -405,8 +417,11 @@ test.nightly-scripts:
 	$(NIX_RUN) node --test scripts/tests/nightly-findings.test.cjs
 	$(NIX_RUN) node --test scripts/tests/verification-alert.test.cjs
 	$(NIX_RUN) node --test scripts/tests/runner-pools.test.cjs
+	$(NIX_RUN) node --test scripts/tests/cadence-reports.test.cjs
 
-test.ci-scripts: test.nightly-scripts
+test.ci-scripts: test.nightly-scripts check.cadence
+	python3 -B -I scripts/tests/test_cadence.py
+	python3 -B -I scripts/tests/test_deps_audit.py
 	python3 -B -I scripts/tests/test_retry_infra.py
 	python3 -B -I scripts/tests/test_build_research_wasm.py
 	python3 -B -I scripts/tests/test_research_host_cache.py
@@ -422,7 +437,7 @@ test.ci-scripts: test.nightly-scripts
 	python3 -B -I scripts/tests/test_wall_clock.py
 	python3 -B -I scripts/tests/test_infra_retry.py
 	$(NIX_RUN) bash -c 'shellcheck -S warning .github/scripts/*.sh'
-	$(NIX_RUN) actionlint .github/workflows/ci.yml .github/workflows/research.yml .github/workflows/merge-queue-supersede.yml .github/workflows/post-merge.yml .github/workflows/infra-retry.yml
+	$(NIX_RUN) actionlint .github/workflows/ci.yml .github/workflows/research.yml .github/workflows/merge-queue-supersede.yml .github/workflows/post-merge.yml .github/workflows/infra-retry.yml .github/workflows/nightly.yml .github/workflows/route-size.yml
 
 # DIST=web/dist checks a real build instead of the fixture site.
 test.infra.caddy:
