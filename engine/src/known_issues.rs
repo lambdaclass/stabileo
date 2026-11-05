@@ -546,13 +546,14 @@ fn beyond_small_displacement(v: f64) -> bool {
     !(v.abs() <= SMALL_DISPLACEMENT_LIMIT)
 }
 
-fn small_displacement(mut nodes: Vec<usize>, mut elements: Vec<usize>) -> Option<StructuredDiagnostic> {
+pub(crate) fn small_displacement(mut nodes: Vec<usize>, mut elements: Vec<usize>) -> Option<StructuredDiagnostic> {
     if nodes.is_empty() && elements.is_empty() {
         return None;
     }
     nodes.sort_unstable();
     nodes.dedup();
     elements.sort_unstable();
+    elements.dedup();
     let mut d = diagnostic("LIN-SMALL-DISPLACEMENT");
     d.threshold = Some(SMALL_DISPLACEMENT_LIMIT);
     if !elements.is_empty() {
@@ -584,9 +585,16 @@ pub fn small_displacement_2d(input: Option<&SolverInput>, r: &AnalysisResults) -
     small_displacement(nodes, elements)
 }
 
-/// [`small_displacement_2d`] in 3D: rotations about all three axes, and the chord of every two-node member.
+/// A combination's warning: its own node rotations, recomputed, and the members whose chord a
+/// contributing case warned, carried without geometry to recompute them.
+pub(crate) fn combined_small_displacement<'a>(nodes: Option<StructuredDiagnostic>, cases: impl Iterator<Item = &'a StructuredDiagnostic>) -> Option<StructuredDiagnostic> {
+    let elements = cases.filter(|d| d.phase.as_deref() == Some("LIN-SMALL-DISPLACEMENT")).flat_map(|d| d.element_ids.iter().copied()).collect();
+    small_displacement(nodes.map_or_else(Vec::new, |d| d.node_ids), elements)
+}
+
+/// [`small_displacement_2d`] in 3D: the norm of each node's rotation vector, and the chord of every two-node member.
 pub fn small_displacement_3d(input: Option<&SolverInput3D>, r: &AnalysisResults3D) -> Option<StructuredDiagnostic> {
-    let nodes = r.displacements.iter().filter(|d| [d.rx, d.ry, d.rz].into_iter().any(beyond_small_displacement)).map(|d| d.node_id).collect();
+    let nodes = r.displacements.iter().filter(|d| beyond_small_displacement((d.rx * d.rx + d.ry * d.ry + d.rz * d.rz).sqrt())).map(|d| d.node_id).collect();
     let mut elements = Vec::new();
     if let Some(input) = input {
         let u: std::collections::HashMap<usize, [f64; 3]> = r.displacements.iter().map(|d| (d.node_id, [d.ux, d.uy, d.uz])).collect();

@@ -234,10 +234,11 @@ pub fn combine_results_refs(factors: &[CombinationFactor], cases: &[(usize, &Ana
 
     let mut structured_diagnostics = Vec::new();
     for (_, result) in cases.iter().filter(|(id, _)| factors.iter().any(|f| f.case_id == *id && f.factor != 0.0)) {
-        crate::known_issues::attach(&mut structured_diagnostics, crate::result_sites::known_issues(result));
+        crate::known_issues::attach(&mut structured_diagnostics, crate::result_sites::known_issues(result).into_iter().filter(|d| d.phase.as_deref() != Some("LIN-SMALL-DISPLACEMENT")).collect());
     }
     let mut combined = AnalysisResults { displacements, reactions, element_forces, constraint_forces: vec![], diagnostics: vec![], solver_diagnostics: vec![], structured_diagnostics, equilibrium: None, result_summary: None, solver_run_meta: None };
-    let beyond = crate::known_issues::small_displacement_2d(None, &combined);
+    let carried: Vec<StructuredDiagnostic> = cases.iter().filter(|(id, _)| factors.iter().any(|f| f.case_id == *id && f.factor != 0.0)).flat_map(|(_, r)| crate::result_sites::known_issues(*r)).collect();
+    let beyond = crate::known_issues::combined_small_displacement(crate::known_issues::small_displacement_2d(None, &combined), carried.iter());
     crate::known_issues::attach(&mut combined.structured_diagnostics, beyond.into_iter().collect());
     Some(combined)
 }
@@ -486,10 +487,11 @@ pub(crate) fn combine_results_3d_refs_unchecked(factors: &[CombinationFactor], c
 
     let mut structured_diagnostics = Vec::new();
     for (_, result) in cases.iter().filter(|(id, _)| factors.iter().any(|f| f.case_id == *id && f.factor != 0.0)) {
-        crate::known_issues::attach(&mut structured_diagnostics, crate::result_sites::known_issues(result));
+        crate::known_issues::attach(&mut structured_diagnostics, crate::result_sites::known_issues(result).into_iter().filter(|d| d.phase.as_deref() != Some("LIN-SMALL-DISPLACEMENT")).collect());
     }
     let mut combined = AnalysisResults3D { displacements, reactions, element_forces, plate_stresses: vec![], quad_stresses: vec![], quad_nodal_stresses: vec![], constraint_forces: vec![], diagnostics: vec![], solver_diagnostics: vec![], structured_diagnostics, equilibrium: None, timings: None, result_summary: None, solver_run_meta: None };
-    let beyond = crate::known_issues::small_displacement_3d(None, &combined);
+    let carried: Vec<StructuredDiagnostic> = cases.iter().filter(|(id, _)| factors.iter().any(|f| f.case_id == *id && f.factor != 0.0)).flat_map(|(_, r)| crate::result_sites::known_issues(*r)).collect();
+    let beyond = crate::known_issues::combined_small_displacement(crate::known_issues::small_displacement_3d(None, &combined), carried.iter());
     crate::known_issues::attach(&mut combined.structured_diagnostics, beyond.into_iter().collect());
     Some(combined)
 }
