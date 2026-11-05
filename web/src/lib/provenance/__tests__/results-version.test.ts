@@ -80,7 +80,7 @@ const RELEASED: Record<number, string[]> = {
   29: ['basic-plastic-closes-unloading-hinges-returns'],
   30: ['connector-mechanism-2d-refused'],
   31: ['safety-containment-diagnostics'],
-  32: ['buckling-3d-varying-axial-force'],
+  35: ['buckling-3d-varying-axial-force'],
 };
 
 describe('results versions', () => {
