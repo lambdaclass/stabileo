@@ -238,8 +238,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
-          run=$(gh api "repos/$GH_REPO/actions/artifacts?name=e2e-timings&per_page=20" \
-            --jq '[.artifacts[] | select(.expired | not) | select(.workflow_run.head_branch == "main" or (.workflow_run.head_branch | startswith("gh-readonly-queue/main/")))][0].workflow_run.id // empty')
+          run=
+          for id in $(gh api "repos/$GH_REPO/actions/artifacts?name=e2e-timings&per_page=20" \
+            --jq '.artifacts[] | select(.expired | not) | select(.workflow_run.head_branch == "main" or (.workflow_run.head_branch | startswith("gh-readonly-queue/main/"))) | .workflow_run.id'); do
+            trusted=$(gh api "repos/$GH_REPO/actions/runs/$id" \
+              --jq 'select((.event == "push" or .event == "merge_group") and .path == ".github/workflows/ci.yml" and .head_repository.full_name == env.GH_REPO and .repository.full_name == env.GH_REPO) | .id')
+            if [ "$trusted" = "$id" ]; then run=$id; break; fi
+          done
           echo "run=$run" >> "$GITHUB_OUTPUT"
           echo "E2E timings from run: ${run:-none (the committed table)}"
 

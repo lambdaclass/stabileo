@@ -58,6 +58,8 @@ class LiveTimings(unittest.TestCase):
         changes, e2e, timings = workflow['changes'], workflow['e2e'], workflow['e2e-timings']
         self.assertIn('e2e_timings_run: ${{ steps.timings.outputs.run }}', changes)
         self.assertIn('select(.workflow_run.head_branch == "main" or (.workflow_run.head_branch | startswith("gh-readonly-queue/main/")))', changes)
+        self.assertIn('select((.event == "push" or .event == "merge_group") and .path == ".github/workflows/ci.yml" '
+                      'and .head_repository.full_name == env.GH_REPO and .repository.full_name == env.GH_REPO) | .id', changes)
         self.assertIn('TIMINGS_RUN: ${{ needs.changes.outputs.e2e_timings_run }}', e2e)
         self.assertIn('test -s web/e2e/.timings/shard-timings.json', e2e)
         self.assertNotIn('continue-on-error', e2e.split('Measured E2E timings', 1)[1].split('- name:', 1)[0])
@@ -67,6 +69,27 @@ class LiveTimings(unittest.TestCase):
         self.assertIn("if: success() && %s && (github.event_name == 'merge_group' || github.event_name == 'push')" % FULL, upload)
         self.assertIn('[ "${#reports[@]}" = "$TOTAL" ]', timings)
         self.assertIn('name: e2e-timings', timings)
+
+    def test_only_an_artifact_from_this_repository_s_push_or_queue_run_is_used(self):
+        changes = jobs((ROOT / '.github/workflows/ci.yml').read_text())['changes']
+        step = changes.split('Latest measured E2E timings', 1)[1].split('        run: |\n', 1)[1]
+        script = '\n'.join(line[10:] for line in step.splitlines() if line.startswith('          '))
+        with tempfile.TemporaryDirectory() as directory:
+            fake = Path(directory) / 'gh'
+            fake.write_text('#!/bin/sh\n'
+                            'case "$2" in\n'
+                            '  *artifacts*) printf "11\\n22\\n" ;;\n'
+                            '  */runs/11) [ "$FORK_TRUSTED" = 1 ] && echo 11 ;;\n'
+                            '  */runs/22) echo 22 ;;\n'
+                            'esac\n')
+            fake.chmod(0o755)
+            out = Path(directory) / 'out'
+            for trusted, expected in [('0', 'run=22'), ('1', 'run=11')]:
+                out.write_text('')
+                subprocess.run(['bash', '-c', script], check=True, capture_output=True,
+                               env={**os.environ, 'PATH': f'{directory}:{os.environ["PATH"]}', 'GH_REPO': 'o/r',
+                                    'GITHUB_OUTPUT': str(out), 'FORK_TRUSTED': trusted})
+                self.assertEqual(out.read_text().strip(), expected)
 
 
 if __name__ == '__main__':
