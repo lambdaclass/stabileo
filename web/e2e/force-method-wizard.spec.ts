@@ -30,6 +30,7 @@ test.describe('@slow the flexibility-method walkthrough', () => {
 
     await page.getByTestId('rb-cmd-advanced').click();
     await page.getByTestId('adv-steps').click();
+    await expect(page.getByTestId('steps-catalog')).toBeVisible();
     /* Listed right after the stiffness method, as its own group. */
     const groups = await page.locator('[data-testid^=steps-group-]').evaluateAll((els) => els.map((e) => e.getAttribute('data-testid')));
     expect(groups.slice(0, 2)).toEqual(['steps-group-stiffness', 'steps-group-flexibility']);

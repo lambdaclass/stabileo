@@ -1,11 +1,11 @@
 {
   "$comment": "Registry of result-affecting changes. Read by web/scripts/result-change-metadata.mjs for build metadata and decoded by web/src/lib/provenance/full-registry.ts; schema and rules in docs/verification/PROVENANCE.md. Add an entry whenever a change makes the same saved model give different numbers, at currentResultsVersion + 1, and bump currentResultsVersion: a version on main is deployed, and an entry added to it later is never shown to the projects it stamped (results-version.test.ts). Feature ids are defined in web/src/lib/provenance/model-features.ts.",
   "schema": 1,
-  "currentResultsVersion": 31,
+  "currentResultsVersion": 30,
   "changes": [
     {
       "id": "connector-mechanism-2d-refused",
-      "resultsVersion": 31,
+      "resultsVersion": 30,
       "date": "2026-11-05",
       "prs": [],
       "area": "analysis",
@@ -38,6 +38,85 @@
       "changelog": {
         "file": "changelog.d/1414-connector-mechanism-2d.md",
         "heading": "2D: a mechanism hidden behind a connector is refused, not solved (2026-11-05)"
+      }
+    },
+    {
+      "id": "basic-second-order-split-members-returns",
+      "resultsVersion": 28,
+      "date": "2026-11-04",
+      "prs": [
+        1305
+      ],
+      "area": "analysis",
+      "when": {
+        "allOf": [
+          [
+            "plane2D"
+          ],
+          [
+            "analysis:pdelta",
+            "analysis:buckling"
+          ]
+        ]
+      },
+      "title": {
+        "en": "Basic P-Δ and critical load split each member into elements at the solve again",
+        "es": "El P-Δ y la carga crítica del Básico vuelven a dividir cada barra en elementos al calcular",
+        "pt": "O P-Δ e a carga crítica do Básico voltam a dividir cada barra em elementos no cálculo",
+        "de": "P-Δ und kritische Last in Basic teilen jeden Stab beim Rechnen wieder in Elemente",
+        "fr": "Le P-Δ et la charge critique de Basic divisent de nouveau chaque barre en éléments au calcul",
+        "tr": "Basic'te P-Δ ve kritik yük, çözümde her elemanı yeniden alt elemanlara bölüyor"
+      },
+      "explanation": {
+        "en": "Version 15 withdrew this change of version 14 (#871) until its review fixes reached main; it returns with them (#1305). Basic's P-Δ and critical-load analyses solve each member as 4 elements by default (1, 2, 4 or 8 can be chosen), and B₂ is 1/(1 − 1/λ₁) from the first buckling factor. Displacements, forces, B₂ and λcr move toward the converged values, most for slender members and members loaded along their length. Re-run second-order and buckling analyses of plane models.",
+        "es": "La versión 15 retiró este cambio de la versión 14 (#871) hasta que llegaran a main sus correcciones de revisión; vuelve con ellas (#1305). El P-Δ y la carga crítica del Básico resuelven cada barra como 4 elementos por defecto (se puede elegir 1, 2, 4 u 8), y B₂ es 1/(1 − 1/λ₁) a partir del primer factor de pandeo. Desplazamientos, esfuerzos, B₂ y λcr se acercan a los valores convergidos, más en barras esbeltas y en barras cargadas a lo largo. Vuelva a calcular los análisis de segundo orden y de pandeo de modelos planos.",
+        "pt": "A versão 15 retirou esta mudança da versão 14 (#871) até que suas correções de revisão chegassem à main; ela volta com elas (#1305). O P-Δ e a carga crítica do Básico resolvem cada barra como 4 elementos por padrão (pode-se escolher 1, 2, 4 ou 8), e B₂ é 1/(1 − 1/λ₁) a partir do primeiro fator de flambagem. Deslocamentos, esforços, B₂ e λcr se aproximam dos valores convergidos, mais em barras esbeltas e em barras carregadas ao longo do comprimento. Recalcule as análises de segunda ordem e de flambagem de modelos planos.",
+        "de": "Version 15 nahm diese Änderung aus Version 14 (#871) zurück, bis ihre Korrekturen aus der Prüfung auf main waren; sie kommt mit ihnen zurück (#1305). P-Δ und kritische Last in Basic rechnen jeden Stab standardmäßig als 4 Elemente (1, 2, 4 oder 8 wählbar), und B₂ ist 1/(1 − 1/λ₁) aus dem ersten Knickfaktor. Verschiebungen, Schnittgrößen, B₂ und λcr nähern sich den konvergierten Werten, am meisten bei schlanken und entlang ihrer Länge belasteten Stäben. Berechnen Sie Theorie-II.-Ordnung- und Knickanalysen ebener Modelle neu.",
+        "fr": "La version 15 avait retiré ce changement de la version 14 (#871) en attendant que ses corrections de revue arrivent sur main ; il revient avec elles (#1305). Le P-Δ et la charge critique de Basic calculent chaque barre comme 4 éléments par défaut (1, 2, 4 ou 8 au choix), et B₂ vaut 1/(1 − 1/λ₁) à partir du premier facteur de flambement. Déplacements, efforts, B₂ et λcr se rapprochent des valeurs convergées, surtout pour les barres élancées et celles chargées sur leur longueur. Relancez les analyses du second ordre et de flambement des modèles plans.",
+        "tr": "Sürüm 15, sürüm 14'teki bu değişikliği (#871) inceleme düzeltmeleri main'e ulaşana kadar geri almıştı; değişiklik onlarla birlikte geri dönüyor (#1305). Basic'in P-Δ ve kritik yük analizleri her elemanı varsayılan olarak 4 alt eleman olarak çözer (1, 2, 4 veya 8 seçilebilir) ve B₂ ilk burkulma katsayısından 1/(1 − 1/λ₁) olur. Yerdeğiştirmeler, iç kuvvetler, B₂ ve λcr yakınsamış değerlere yaklaşır; en çok narin elemanlarda ve boyunca yüklü elemanlarda. Düzlem modellerin ikinci mertebe ve burkulma analizlerini yeniden çalıştırın."
+      },
+      "changelog": {
+        "file": "docs/results-changes/2026-11-basic-course-returns.md",
+        "heading": "P-Δ and critical load split members at the solve"
+      }
+    },
+    {
+      "id": "basic-influence-line-moment-sign-returns",
+      "resultsVersion": 27,
+      "date": "2026-11-04",
+      "prs": [
+        1304
+      ],
+      "area": "analysis",
+      "when": {
+        "allOf": [
+          [
+            "plane2D"
+          ],
+          [
+            "frameMembers"
+          ]
+        ]
+      },
+      "title": {
+        "en": "Influence lines of the bending moment take sagging as positive again",
+        "es": "Las líneas de influencia del momento vuelven a tomar positivo el que tracciona la fibra inferior",
+        "pt": "As linhas de influência do momento voltam a tomar positivo o que traciona a fibra inferior",
+        "de": "Einflusslinien des Biegemoments zählen wieder Zug in der unteren Faser als positiv",
+        "fr": "Les lignes d'influence du moment fléchissant comptent de nouveau positif le moment qui tend la fibre inférieure",
+        "tr": "Eğilme momenti etki çizgileri yeniden alt lifi çeken momenti pozitif alıyor"
+      },
+      "explanation": {
+        "en": "Version 15 withdrew this change of version 14 (#871) until its review fixes reached main; it returns with them (#1304). The influence line of M at a section takes M positive when it puts the bottom fibre in tension, as every other moment in Basic. Ordinates of moment influence lines change sign; their magnitudes do not.",
+        "es": "La versión 15 retiró este cambio de la versión 14 (#871) hasta que llegaran a main sus correcciones de revisión; vuelve con ellas (#1304). La línea de influencia de M en una sección toma M positivo cuando tracciona la fibra inferior, como todo otro momento en Básico. Las ordenadas de las líneas de influencia de momento cambian de signo; sus valores absolutos no.",
+        "pt": "A versão 15 retirou esta mudança da versão 14 (#871) até que suas correções de revisão chegassem à main; ela volta com elas (#1304). A linha de influência de M numa seção toma M positivo quando traciona a fibra inferior, como todo outro momento no Básico. As ordenadas das linhas de influência de momento mudam de sinal; seus valores absolutos não.",
+        "de": "Version 15 nahm diese Änderung aus Version 14 (#871) zurück, bis ihre Korrekturen aus der Prüfung auf main waren; sie kommt mit ihnen zurück (#1304). Die Einflusslinie von M an einem Schnitt zählt M positiv, wenn es die untere Faser auf Zug beansprucht, wie jedes andere Moment in Basic. Die Ordinaten von Momenten-Einflusslinien wechseln das Vorzeichen; ihre Beträge nicht.",
+        "fr": "La version 15 avait retiré ce changement de la version 14 (#871) en attendant que ses corrections de revue arrivent sur main ; il revient avec elles (#1304). La ligne d'influence de M dans une section compte M positif quand il tend la fibre inférieure, comme tout autre moment dans Basic. Les ordonnées des lignes d'influence de moment changent de signe ; leurs valeurs absolues non.",
+        "tr": "Sürüm 15, sürüm 14'teki bu değişikliği (#871) inceleme düzeltmeleri main'e ulaşana kadar geri almıştı; değişiklik onlarla birlikte geri dönüyor (#1304). Bir kesitteki M etki çizgisi, Basic'teki diğer bütün momentler gibi, alt lifi çektiğinde M'yi pozitif alır. Moment etki çizgilerinin ordinatlarının işareti değişir; mutlak değerleri değişmez."
+      },
+      "changelog": {
+        "file": "docs/results-changes/2026-11-basic-course-returns.md",
+        "heading": "Influence line of the bending moment: sign"
       }
     },
     {

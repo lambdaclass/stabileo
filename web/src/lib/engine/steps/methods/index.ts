@@ -6,11 +6,14 @@ import { registerMethods } from '../registry';
 import { methods as core } from './core';
 import { methods as continuous } from './continuous';
 import { methods as frames } from './frames';
+import { methods as displacement } from './displacement';
 import { methods as trusses } from './trusses';
 import { methods as deformation } from './deformation';
 import { methods as cuts } from './cuts';
+import { methods as influence } from './influence';
+import { methods as secondOrder } from './second-order';
 
-registerMethods([...core, ...continuous, ...frames, ...trusses, ...deformation, ...cuts]);
+registerMethods([...core, ...continuous, ...displacement, ...frames, ...trusses, ...deformation, ...cuts, ...influence, ...secondOrder]);
 
 export { allMethods, methodsIn, methodById, GROUP_ORDER } from '../registry';
 export type { ExplainedMethod, MethodContext, MethodGroup } from '../registry';
