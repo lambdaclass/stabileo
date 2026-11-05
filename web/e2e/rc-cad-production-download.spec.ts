@@ -48,7 +48,6 @@ const ADAPTER = new URL('../src/lib/engine/design/adapters/cirsoc201-adapter.ts'
 const CIRSOC_VERIFIER_ID = /export const CIRSOC_VERIFIER_ID = '([^']+)'/.exec(readFileSync(ADAPTER, 'utf8'))?.[1]
   ?? (() => { throw new Error('CIRSOC_VERIFIER_ID not found in the adapter source'); })();
 
-const FIXTURE = rcFootingProject();
 
 /** The identity the bound regulation must produce. Derived, never a pasted literal. */
 const EXPECTED_VERIFIER = `${CIRSOC_VERIFIER_ID}.2025`;
@@ -70,7 +69,7 @@ async function openProject(page: Page) {
   await openBasicProjectPanel(page);
   const input = page.getByTestId('project-open-file');
   await expect(input).toBeAttached();
-  await input.setInputFiles(FIXTURE);
+  await input.setInputFiles(rcFootingProject());
   await expect
     .poll(() => page.evaluate(() => window.__stabileo.elementIds().length), { timeout: 60_000 })
     .toBe(8);

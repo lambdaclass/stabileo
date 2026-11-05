@@ -40,7 +40,6 @@ import {
 } from './prepared-building';
 import type { Page } from '@playwright/test';
 
-const SMALL_FIXTURE = rcFootingProject();
 
 /** The ribbon's Project view, where PRO keeps Open and Save. */
 async function openProjectView(page: Page) {
@@ -111,7 +110,7 @@ function fileCensus(path: string) {
 
 test.describe('@smoke a small project survives the file', () => {
   test('save, reopen, and the fingerprint is the same one', async ({ pro: page }, testInfo) => {
-    await openDed(page, SMALL_FIXTURE);
+    await openDed(page, rcFootingProject());
     await expect
       .poll(() => page.evaluate(() => window.__stabileo.elementIds().length), { timeout: 45_000 })
       .toBe(8);
@@ -288,14 +287,14 @@ test.describe('@smoke a file that is not a project is refused, out loud', () => 
   test('a truncated .ded says so and leaves the open project alone', async (
     { pro: page }, testInfo,
   ) => {
-    await openDed(page, SMALL_FIXTURE);
+    await openDed(page, rcFootingProject());
     await expect
       .poll(() => page.evaluate(() => window.__stabileo.elementIds().length), { timeout: 45_000 })
       .toBe(8);
 
     // Half a file, as an interrupted download or a full disk would leave it.
     const truncated = testInfo.outputPath('truncated.ded.json');
-    const whole = readFileSync(SMALL_FIXTURE, 'utf8');
+    const whole = readFileSync(rcFootingProject(), 'utf8');
     writeFileSync(truncated, whole.slice(0, Math.floor(whole.length / 2)), 'utf8');
 
     await page.getByTestId('pp-open-file').setInputFiles(truncated);
@@ -315,7 +314,7 @@ test.describe('@smoke a file that is not a project is refused, out loud', () => 
   test('valid JSON that is not a project is refused the same way', async (
     { pro: page }, testInfo,
   ) => {
-    await openDed(page, SMALL_FIXTURE);
+    await openDed(page, rcFootingProject());
     await expect
       .poll(() => page.evaluate(() => window.__stabileo.elementIds().length), { timeout: 45_000 })
       .toBe(8);
@@ -337,7 +336,7 @@ test.describe('@smoke a file that is not a project is refused, out loud', () => 
 
 test.describe('@smoke the autosave reports the save it actually made', () => {
   test('the outcome, the stored revision and the fingerprint agree', async ({ pro: page }) => {
-    await openDed(page, SMALL_FIXTURE);
+    await openDed(page, rcFootingProject());
     await expect
       .poll(() => page.evaluate(() => window.__stabileo.elementIds().length), { timeout: 45_000 })
       .toBe(8);

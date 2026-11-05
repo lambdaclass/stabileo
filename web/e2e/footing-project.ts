@@ -5,7 +5,6 @@
 import { expect, openBasicProjectPanel, rcFootingProject } from './fixtures';
 import type { Page } from '@playwright/test';
 
-const FIXTURE = rcFootingProject();
 
 /**
  * Open the committed project through the production file input.
@@ -39,7 +38,7 @@ export async function openCommittedProject(page: Page) {
   await openBasicProjectPanel(page);
   const input = page.getByTestId('project-open-file');
   await expect(input).toBeAttached();
-  await input.setInputFiles(FIXTURE);
+  await input.setInputFiles(rcFootingProject());
 
   // Wait on real state: the restored project carries eight elements and has returned the app to
   // PRO on its own, because that is the mode it was saved in.
