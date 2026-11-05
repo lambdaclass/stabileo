@@ -1133,7 +1133,7 @@ From the same verified review. **Later (P2):**
   [#1284](https://github.com/lambdaclass/stabileo/pull/1284) go through the normal gates.
 - **Performance follow-ups of [#768](https://github.com/lambdaclass/stabileo/pull/768):** gate the WASM size [#1072](https://github.com/lambdaclass/stabileo/issues/1072); the audit's remaining work [#1073](https://github.com/lambdaclass/stabileo/issues/1073).
 - **Old drafts to keep or close:** [#609](https://github.com/lambdaclass/stabileo/pull/609) and [#651](https://github.com/lambdaclass/stabileo/pull/651) (nonlinear framework), [#536](https://github.com/lambdaclass/stabileo/pull/536) (generated
-  designs), [#276](https://github.com/lambdaclass/stabileo/pull/276) (build timelapse PoC), [#470](https://github.com/lambdaclass/stabileo/pull/470) (CODEOWNERS, now section 2 item 10).
+  designs), [#276](https://github.com/lambdaclass/stabileo/pull/276) (build timelapse PoC), [#470](https://github.com/lambdaclass/stabileo/pull/470) (CODEOWNERS, now section 2 item 9).
 - **Duplicate tracking issues:** [#385](https://github.com/lambdaclass/stabileo/issues/385) and [#724](https://github.com/lambdaclass/stabileo/issues/724) (staging), [#354](https://github.com/lambdaclass/stabileo/issues/354) and [#717](https://github.com/lambdaclass/stabileo/issues/717) (nightly that runs
   and alerts), [#355](https://github.com/lambdaclass/stabileo/issues/355) and [#725](https://github.com/lambdaclass/stabileo/issues/725) (protected main, review enforced), [#718](https://github.com/lambdaclass/stabileo/issues/718) and [#730](https://github.com/lambdaclass/stabileo/issues/730) (old files and
   the long-term format): merge each pair into one.
