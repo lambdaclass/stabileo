@@ -123,8 +123,8 @@ fn two_unconnected_frames_solve_as_each_alone() {
 }
 
 /// #1367's model: a cantilever whose own bending stiffness is real but small next to
-/// an unconnected stiff member. Alone, its tip turns θ = PL²/(2EI); beside the
-/// stiff member the model-wide orphan-rotation threshold locks it.
+/// an unconnected stiff member. Alone, its tip turns θ = PL²/(2EI), and beside the
+/// stiff member it must turn the same.
 fn soft_cantilever_2d(i_soft: f64) -> SolverInput {
     crate::common::make_input(
         vec![(1, 0.0, 0.0), (2, 1.0, 0.0)],
@@ -183,20 +183,16 @@ fn soft_cantilever_alone_matches_the_textbook_tip_rotation() {
     agree("soft cantilever vs PL²/2EI", Ok(r));
 }
 
-const TIP_OF_THE_SOFT_CANTILEVER: &[&str] = &["part A translation node 2 uz:", "part A rotation node 2:", "part A rotation node 2 ry:"];
-
 #[test]
 fn soft_rotation_is_not_locked_by_an_unconnected_stiff_member_2d() {
-    known_issue(1367, "2D soft cantilever with vs without an unconnected stiff member", TIP_OF_THE_SOFT_CANTILEVER, parts_2d(&soft_cantilever_2d(1e-10), &stiff_member_2d()));
+    agree("2D soft cantilever with vs without an unconnected stiff member", parts_2d(&soft_cantilever_2d(1e-10), &stiff_member_2d()));
 }
 
 #[test]
 fn soft_rotation_is_not_locked_by_an_unconnected_stiff_member_3d() {
-    known_issue(1367, "3D soft cantilever with vs without an unconnected stiff member", TIP_OF_THE_SOFT_CANTILEVER, parts_3d(&soft_cantilever_3d(1e-10), &stiff_member_3d()));
+    agree("3D soft cantilever with vs without an unconnected stiff member", parts_3d(&soft_cantilever_3d(1e-10), &stiff_member_3d()));
 }
 
-/// Where the soft member is not under the threshold the parts already agree:
-/// the pair above fails for #1367 alone.
 #[test]
 fn moderately_soft_rotation_beside_a_stiff_member_is_unaffected() {
     agree("2D, I = 1e-4", parts_2d(&soft_cantilever_2d(1e-4), &stiff_member_2d()));

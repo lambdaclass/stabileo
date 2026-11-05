@@ -56,9 +56,94 @@ def audit(recorded, issues):
     return problems
 
 
-def main():
-    ledger = Path(__file__).resolve().parents[1] / 'docs/verification/CONTAINMENT.md'
-    recorded = decisions(ledger.read_text())
+CLOSING = re.compile(r'\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\b:?\s+(?:(?:lambdaclass/stabileo)?#|https?://github\.com/lambdaclass/stabileo/issues/)(\d+)\b', re.IGNORECASE)
+QUEUED_PR = re.compile(r'^Merge pull request #(\d+) from ', re.MULTILINE)
+REPORT_TITLE = 'Safety containment audit: open safety issues without a decision'
+LEDGER = 'docs/verification/CONTAINMENT.md'
+ASSIGNEES = 'unbalancedparentheses,Batuis'
+
+
+def closed_by(texts):
+    return sorted({int(n) for text in texts for n in CLOSING.findall(text or '')})
+
+
+def contained_ids(text):
+    ids = {}
+    for line in text.splitlines():
+        if line.startswith('| #'):
+            cells = [cell.strip() for cell in line.split('|')[1:-1]]
+            for n in cells[0].split(','):
+                ids[int(n.strip()[1:])] = set(re.findall(r'`([^`]+)`', cells[1]))
+    return ids
+
+
+def change_problems(base, head, closes, base_ids=None, head_ids=None):
+    base_ids, head_ids = base_ids or {}, head_ids or {}
+    problems = [f'#{n}: its containment row was removed' for n in sorted(set(base) - set(head))]
+    for n in sorted(set(base) & set(head)):
+        if not base[n] & {'WARN', 'REFUSE'} or 'CORRECTED' in head[n]:
+            continue
+        dropped = base_ids.get(n, set()) - head_ids.get(n, set())
+        if not head[n] & {'WARN', 'REFUSE'}:
+            problems.append(f'#{n}: an active row became {" / ".join(sorted(head[n]))} without CORRECTED')
+        elif dropped:
+            problems.append(f'#{n}: {", ".join(sorted(dropped))} dropped while the row stays active without CORRECTED')
+    for n in closes:
+        if n in head and head[n] & {'WARN', 'REFUSE', 'TRIAGE'}:
+            problems.append(f'#{n}: closed by this change while its row is {" / ".join(sorted(head[n]))}')
+    return problems
+
+
+def report_body(problems):
+    lines = ['Open safety issues need a completed decision in docs/verification/CONTAINMENT.md, and an issue with an active (WARN/REFUSE) row must stay open.', '']
+    return '\n'.join(lines + [f'- {p}' for p in problems]) + '\n'
+
+
+def git(*args):
+    return subprocess.run(['git', *args], check=True, capture_output=True, text=True).stdout
+
+
+def queued_pull_requests(log):
+    return sorted({int(n) for n in QUEUED_PR.findall(log)})
+
+
+PR_QUERY = 'query($n:Int!){repository(owner:"lambdaclass",name:"stabileo"){pullRequest(number:$n){title body closingIssuesReferences(first:100){nodes{number}} linked:closingIssuesReferences(first:100,userLinkedOnly:true){nodes{number}}}}}'
+QUEUE_HEAD = re.compile(r'^refs/heads/gh-readonly-queue/[^/]+/pr-(\d+)-[0-9a-f]+$')
+
+
+def pull_request_closes(number):
+    out = subprocess.run(['gh', 'api', 'graphql', '-f', f'query={PR_QUERY}', '-F', f'n={number}'], check=True, capture_output=True, text=True).stdout
+    pr = json.loads(out)['data']['repository']['pullRequest']
+    return sorted(set(closed_by([pr['title'], pr['body']])) | {i['number'] for key in ('closingIssuesReferences', 'linked') for i in pr[key]['nodes']})
+
+
+def pull_requests_of(event, log):
+    if event.get('pull_request'):
+        return [event['pull_request']['number']]
+    if event.get('merge_group'):
+        last = QUEUE_HEAD.match(event['merge_group'].get('head_ref', ''))
+        if not last:
+            raise ValueError(f'Cannot tell which pull request this merge group queues: {event["merge_group"].get("head_ref")!r}')
+        return sorted(set(queued_pull_requests(log)) | {int(last.group(1))})
+    return []
+
+
+def check_change(base_ref, event_path):
+    root = Path(__file__).resolve().parents[1]
+    text = (root / LEDGER).read_text()
+    head, head_ids = decisions(text), contained_ids(text)
+    listed = git('-C', str(root), 'ls-tree', '--name-only', base_ref, '--', LEDGER)
+    base_text = git('-C', str(root), 'show', f'{base_ref}:{LEDGER}') if listed.strip() else ''
+    base, base_ids = (decisions(base_text), contained_ids(base_text)) if base_text else ({}, {})
+    log = git('-C', str(root), 'log', '--format=%B', f'{base_ref}..HEAD')
+    event = json.loads(Path(event_path).read_text()) if event_path else {}
+    closes = set(closed_by([log]))
+    for number in pull_requests_of(event, log):
+        closes |= set(pull_request_closes(number))
+    return change_problems(base, head, sorted(closes), base_ids, head_ids)
+
+
+def live_issues():
     result = subprocess.run(
         ['gh', 'api', '--paginate', '--slurp',
          'repos/lambdaclass/stabileo/issues?state=all&per_page=100'],
@@ -67,12 +152,43 @@ def main():
     pages = json.loads(result.stdout)
     if not isinstance(pages, list) or not all(isinstance(page, list) for page in pages):
         raise ValueError('Invalid paginated issue response')
-    problems = audit(recorded, [issue for page in pages for issue in page])
+    return [issue for page in pages for issue in page]
+
+
+def file_report(problems):
+    found = json.loads(subprocess.run(
+        ['gh', 'issue', 'list', '--repo', 'lambdaclass/stabileo', '--state', 'open', '--search', f'in:title "{REPORT_TITLE}"', '--json', 'number,title'],
+        check=True, capture_output=True, text=True).stdout)
+    reports = sorted(i['number'] for i in found if i['title'] == REPORT_TITLE)
+    if problems and reports:
+        subprocess.run(['gh', 'issue', 'edit', str(reports[0]), '--repo', 'lambdaclass/stabileo', '--body', report_body(problems), '--add-assignee', ASSIGNEES], check=True)
+    elif problems:
+        subprocess.run(['gh', 'issue', 'create', '--repo', 'lambdaclass/stabileo', '--title', REPORT_TITLE, '--body', report_body(problems), '--assignee', ASSIGNEES], check=True)
+    for number in reports[1:] if problems else reports:
+        comment = 'Superseded by an older report issue.' if problems else 'Every open safety issue has a decision again.'
+        subprocess.run(['gh', 'issue', 'close', str(number), '--repo', 'lambdaclass/stabileo', '--comment', comment], check=True)
+
+
+def main():
+    import argparse
+    parser = argparse.ArgumentParser(description='Without --live: checks the ledger and what this change does to it, never the issue list. With --live: audits the ledger against the issue list.')
+    parser.add_argument('--base', default='origin/main', help='commit the change is measured against')
+    parser.add_argument('--event', help='GitHub event JSON; a pull request title and body are scanned for closing keywords')
+    parser.add_argument('--live', action='store_true')
+    parser.add_argument('--file-issue', action='store_true', help='with --live: open, update or close the report issue')
+    args = parser.parse_args()
+    if args.live:
+        recorded = decisions((Path(__file__).resolve().parents[1] / LEDGER).read_text())
+        problems = audit(recorded, live_issues())
+        if args.file_issue:
+            file_report(problems)
+    else:
+        problems = check_change(args.base, args.event)
     for problem in problems:
         print(problem)
     if not problems:
-        print('All open safety issues have decisions; all active containments name open issues.')
-    return bool(problems)
+        print('Containment ledger consistent.')
+    return bool(problems) and not args.file_issue
 
 
 if __name__ == '__main__':
