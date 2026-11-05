@@ -1,4 +1,4 @@
-// Artifact data is never executed. This is the only nightly job with issue access.
+// Artifact data is never executed.
 const fs = require('node:fs');
 const ASSIGNEES = require('./issue-assignees.cjs');
 const path = require('node:path');
