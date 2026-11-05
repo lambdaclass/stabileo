@@ -18,6 +18,7 @@
   import { publicI18n, setLocale, ensureLocale, i18n } from './lib/i18n/store.svelte';
   import { routeKind } from './lib/public-route';
   import { modeToPath } from './lib/app-mode';
+  import { resetPublicScroll } from './lib/public-scroll';
 
   function adoptLocaleFromPath() {
     const { locale } = parsePublicPath(location.pathname);
@@ -86,6 +87,7 @@
     if (typeof path !== 'string') return;
     history.pushState(null, '', publicHref(path, publicI18n.locale));
     sync();
+    void resetPublicScroll();
   }
   function onEnterApp() {
     if (app) return;
@@ -98,9 +100,13 @@
     sync();
   }
   function onPopState() {
-    if (!app) sync();
+    if (app) return;
+    sync();
+    if (current.kind !== 'app') void resetPublicScroll();
   }
   $effect(() => {
+    const restoration = history.scrollRestoration;
+    history.scrollRestoration = 'manual';
     window.addEventListener('stabileo-navigate', onNavigate);
     window.addEventListener('stabileo-enter-app', onEnterApp);
     window.addEventListener('popstate', onPopState);
@@ -108,6 +114,7 @@
       window.removeEventListener('stabileo-navigate', onNavigate);
       window.removeEventListener('stabileo-enter-app', onEnterApp);
       window.removeEventListener('popstate', onPopState);
+      history.scrollRestoration = restoration;
     };
   });
 </script>
