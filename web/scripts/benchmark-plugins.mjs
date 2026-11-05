@@ -15,7 +15,7 @@ export function benchmarkPlugins() {
         const directory = ['en', 'es', 'pt'].includes(locale) ? '' : 'full/';
         const file = fileURLToPath(new URL(`../src/lib/i18n/locales/${directory}${locale}.ts`, import.meta.url));
         return `export { default as ${locale} } from ${JSON.stringify(file)};`;
-      }).join('\n');
+      }).join('\n') + '\nexport const loaders = {};';
     },
   }, svelte()];
 }

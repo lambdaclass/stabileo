@@ -126,6 +126,7 @@ for (const locale of ['en', 'es', 'pt']) {
           await page.setViewportSize(viewport);
           if (new URL(page.url(), 'http://localhost').pathname !== pathname) {
             await page.goto(pathname);
+            await expect(page.locator('#prerender')).toHaveCount(0);
           }
           await expect(page.locator('.research h1')).toBeVisible();
           await page.evaluate(() => document.fonts.ready);
