@@ -108,23 +108,8 @@ fn unique_key<V>(map: &HashMap<String, V>, id: usize) -> String {
     k
 }
 
-fn mechanical(input: &SolverInput) -> SolverInput {
-    let mut s = input.clone();
-    s.loads.retain(|l| !matches!(l, SolverLoad::Thermal(_)));
-    for sup in s.supports.values_mut() {
-        sup.dx = None;
-        sup.dz = None;
-        sup.dry = None;
-    }
-    s
-}
-
-/// Self-stress fields of the model: the elastic response to a unit dislocation in every
-/// member (axial, and bending on each half), which together span every state of
-/// self-equilibrium the model's supports, springs, constraints and connectors allow.
-fn self_stresses(input: &SolverInput, members: &[usize]) -> Result<Vec<(HashMap<usize, [f64; 3]>, f64)>, String> {
+fn uniform_stiffness(input: &SolverInput) -> SolverInput {
     let mut s = mechanical(input);
-    s.loads.clear();
     let lref = extent(input);
     let (ea, ei) = (1000.0, 1000.0 * lref * lref / 12.0);
     for m in s.materials.values_mut() {
@@ -145,6 +130,27 @@ fn self_stresses(input: &SolverInput, members: &[usize]) -> Result<Vec<(HashMap<
         uniform(&mut sp.ky, ea / lref);
         uniform(&mut sp.kz, ei / lref);
     }
+    s
+}
+
+fn mechanical(input: &SolverInput) -> SolverInput {
+    let mut s = input.clone();
+    s.loads.retain(|l| !matches!(l, SolverLoad::Thermal(_)));
+    for sup in s.supports.values_mut() {
+        sup.dx = None;
+        sup.dz = None;
+        sup.dry = None;
+    }
+    s
+}
+
+/// Self-stress fields of the model: the elastic response to a unit dislocation in every
+/// member (axial, and bending on each half), which together span every state of
+/// self-equilibrium the model's supports, springs, constraints and connectors allow.
+fn self_stresses(input: &SolverInput, members: &[usize]) -> Result<Vec<(HashMap<usize, [f64; 3]>, f64)>, String> {
+    let mut s = uniform_stiffness(input);
+    s.loads.clear();
+    let lref = extent(input);
     let mut next_node = crate::ordered::values(&s.nodes).map(|n| n.id).max().unwrap_or(0) + 1;
     let mut next_elem = crate::ordered::values(&s.elements).map(|e| e.id).max().unwrap_or(0) + 1;
     let by_id: HashMap<usize, String> = s.elements.iter().map(|(k, e)| (e.id, k.clone())).collect();
@@ -226,7 +232,7 @@ pub fn limit_analysis_2d(input: &SolverInput, mp: &HashMap<usize, f64>, np: &Has
     if !super::kinematic::analyze_kinematics_2d(&mech).is_solvable {
         return Err(super::plastic::INITIAL_MECHANISM.into());
     }
-    let r0 = super::linear::solve_2d(&mech)?;
+    let r0 = super::linear::solve_2d(&uniform_stiffness(input))?;
     let ef0: HashMap<usize, &ElementForces> = r0.element_forces.iter().map(|f| (f.element_id, f)).collect();
     let mut elems: Vec<&SolverElement> = crate::ordered::values(&input.elements).collect();
     elems.sort_by_key(|e| e.id);

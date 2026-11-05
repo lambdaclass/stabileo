@@ -697,4 +697,11 @@ fn issue_758_stiff_link_collapses_like_the_rigid_link() {
             close(run(&other), reference, 1e-7, &format!("stiff link {what}/{seed}"));
         }
     }
+    let beam_e = equiv.s.elements.values().find(|e| e.id == 1).and_then(|e| equiv.s.materials.values().find(|m| m.id == e.material_id)).unwrap().e;
+    let link_material = equiv.s.elements.values().find(|e| e.id == 2).unwrap().material_id;
+    for ratio in [1e2, 1e4, 1e6, 1e8] {
+        let mut swept = equiv.clone();
+        swept.s.materials.values_mut().filter(|m| m.id == link_material).for_each(|m| m.e = beam_e * ratio);
+        close(run(&swept), reference, 1e-7, &format!("link {ratio:e} times as stiff"));
+    }
 }
