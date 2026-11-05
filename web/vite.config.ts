@@ -6,6 +6,7 @@ import { resolve } from 'path';
 import { PUBLIC_KEY_PREFIXES } from './src/lib/i18n/public-prefixes';
 import { isComplete } from './src/lib/i18n/offered';
 import { resultChangeMetadataPlugin } from './scripts/result-change-metadata.mjs';
+import { blogTranslations } from './scripts/blog-translations';
 
 /**
  * Stub out the WASM glue module when it hasn't been built yet.
@@ -96,6 +97,7 @@ const PRODUCTION_BUILD_TESTS = [
   // 5,000-member fixture and thresholds; run it in the serial pass, including in CI.
   'src/lib/engine/__tests__/scale-budget.test.ts',
   'src/lib/utils/__tests__/e2e-hook-gating.test.ts',
+  'src/lib/utils/__tests__/shared-build.test.ts',
   // Runs `scripts/typecheck.mjs` itself, to prove the gate cannot report a green it has not
   // earned. It spawns a Node process rather than a vite build, but it is the same reason for
   // being here: a process-spawning test does not belong in the parallel pool.
@@ -115,6 +117,7 @@ const PRODUCTION_BUILD_TESTS = [
   // its own for the same reason as the one above: reading a checked-out dist/ let it
   // skip itself into a green on any machine where nobody had built.
   'src/lib/i18n/__tests__/published-urls-resolve.test.ts',
+  'src/lib/utils/__tests__/prerender-reproducible.test.ts',
 ];
 
 
@@ -213,6 +216,7 @@ export default defineConfig({
     __STABILEO_VERSION__: JSON.stringify(appVersion()),
     __STABILEO_APP_VERSION__: JSON.stringify(appVersion()),
     __STABILEO_DEV_API_URL__: JSON.stringify(DEV_API_URL),
+    __BLOG_TRANSLATIONS__: JSON.stringify(blogTranslations(__dirname)),
   },
   base: process.env.BASE_PATH || '/',
   server: {

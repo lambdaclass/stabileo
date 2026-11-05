@@ -1,7 +1,8 @@
 .PHONY: research.wasm paper.pdf help install-nix shell setup setup.run git.setup deps backend.run console routes \
        lint.engine test.engine.units-types check.engine.acceptance-models test.engine.gates test.engine.metamorphic test.engine.suite bench.engine \
-       web.deps typecheck.web test.web.unit test.web.build test.web.timing test.web.results snapshots-update check.results-snapshot-gate test.web.determinism e2e.web.setup e2e.web.build e2e.web.smoke e2e.web.slow e2e.web.timing e2e.web.visual e2e.web.flaky \
-       test.ci-scripts test.nightly-scripts \
+       web.deps typecheck.web test.web.unit test.web.build web.build.tested test.web.build.shared test.web.timing test.web.results snapshots-update check.results-snapshot-gate test.web.determinism e2e.web.setup e2e.web.build e2e.web.smoke e2e.web.slow e2e.web.timing e2e.web.visual e2e.web.flaky \
+       perf.lighthouse.deps perf.lighthouse \
+       test.ci-scripts test.nightly-scripts test.infra.caddy test.infra.caddy.redirects check.web.translations \
        test test.engine test.engine.benchmark-protocol test.backend test.backend.file test.web test.ai-backend test.inventory test-changed \
        lint.backend format format.backend \
        wasm web.setup web.run web.build admin.run admin.build \
@@ -175,7 +176,7 @@ routes:
 
 test: test.engine test.backend test.web
 
-.PHONY: audit.810 audit.810.run test.engine.targeted
+.PHONY: audit.810 audit.810.run test.engine.targeted research.newmark.replay
 
 audit.810:
 	$(NIX_RUN) python3 docs/audits/810-reproduce.py $(MODES)
@@ -185,6 +186,11 @@ audit.810.run:
 
 test.engine.targeted:
 	$(NIX_RUN) cargo test -p dedaliano-engine --test $(TEST) $(FILTER) -- --nocapture
+
+NEWMARK_DIR = $(CURDIR)/research/benchmarks/newmark-1959
+research.newmark.replay:
+	NEWMARK_REPLAY_OUT=$(NEWMARK_DIR)/results/stabileo_results.json NEWMARK_VALIDATION_OUT=$(NEWMARK_DIR)/VALIDATION.json \
+		$(MAKE) test.engine.targeted TEST=integration FILTER=newmark_1959
 
 test.engine.benchmark-protocol:
 	$(NIX_RUN) cargo test -p dedaliano-engine --test validation $(or $(FILTER),benchmark_protocol) -- --nocapture --test-threads=2
@@ -263,12 +269,31 @@ typecheck.web:
 test.web.unit:
 	$(NIX_RUN) bash -c "cd web && npx vitest run --project unit $${UNIT_AREA:+src/components/$$UNIT_AREA} $(if $(SHARD),--shard=$(SHARD))"
 
-# The build prerenders the public pages in Chromium, so it needs the browser.
-test.web.build:
-	$(NIX_RUN) bash -c "cd web && $(PLAYWRIGHT_INSTALL) chromium && npm run build && NO_WALL_CLOCK=$(NO_WALL_CLOCK) npx vitest run --project build"
+test.web.build: web.build.tested
+	$(MAKE) test.web.build.shared
+
+# The build prerenders the public pages in Chromium, so it needs the browser. The stamp is taken
+# before building, so a tree edited mid-build fails the build tests instead of passing them.
+web.build.tested:
+	$(NIX_RUN) bash -c 'cd web && $(PLAYWRIGHT_INSTALL) chromium && stamp=$$(node scripts/build-stamp.mjs) && rm -f dist.source-stamp .dist-shared.source-stamp && npm run build && npx tsx scripts/translation-gate.ts dist && npx vite build --manifest --outDir .dist-shared --emptyOutDir --logLevel error && node scripts/build-stamp.mjs --seal dist "$$stamp" && node scripts/build-stamp.mjs --seal .dist-shared "$$stamp"'
+
+test.web.build.shared:
+	$(NIX_RUN) bash -c 'cd web && STABILEO_BUILD_ENV_STAMP=$$(node scripts/build-stamp.mjs --env) STABILEO_SHARED_BUILD=.dist-shared STABILEO_SHARED_PRERENDERED_BUILD=dist NO_WALL_CLOCK=$(NO_WALL_CLOCK) npx vitest run --project build'
 
 test.web.timing:
 	$(NIX_RUN) bash -c "cd web && npx vitest run --project build src/lib/engine/__tests__/scale-budget.test.ts"
+
+perf.lighthouse.deps:
+	$(NIX_RUN) bash -c "cd web/lighthouse && npm ci --no-audit --no-fund"
+
+## Lighthouse median of RUNS against web/perf-lighthouse.json; BASE, RUNS, PRESET and ARGS come from the environment
+perf.lighthouse:
+	$(NIX_RUN) bash -c 'cd web && node scripts/perf-lighthouse.mjs --base "$${BASE:-https://stabileo.com}" --runs "$${RUNS:-5}" --preset "$${PRESET:-mobile}" $$ARGS'
+
+# Every non-English page of a built site (DIST, default web/dist) must be translated, and the
+# sitemap, the hreflang sets and the built files must agree (web/scripts/translation-gate.ts).
+check.web.translations:
+	$(NIX_RUN) bash -c "cd web && npx tsx scripts/translation-gate.ts $(abspath $(or $(DIST),web/dist))"
 
 # The results snapshot gate (#716, docs/verification/PROVENANCE.md): the reference corpus solved
 # through the app's path and compared with web/results-snapshots/. Needs make wasm and web.deps.
@@ -369,6 +394,7 @@ test.nightly-scripts:
 test.ci-scripts: test.nightly-scripts
 	python3 -B -I scripts/tests/test_retry_infra.py
 	python3 -B -I scripts/tests/test_build_research_wasm.py
+	python3 -B -I scripts/tests/test_research_host_cache.py
 	python3 -B -I scripts/tests/test_ci_aggregate.py
 	python3 -B -I scripts/tests/test_ci_selection.py
 	python3 -B -I scripts/tests/test_check_wall_clock_tests.py
@@ -382,6 +408,13 @@ test.ci-scripts: test.nightly-scripts
 	python3 -B -I scripts/tests/test_infra_retry.py
 	$(NIX_RUN) bash -c 'shellcheck -S warning .github/scripts/*.sh'
 	$(NIX_RUN) actionlint .github/workflows/ci.yml .github/workflows/research.yml .github/workflows/merge-queue-supersede.yml .github/workflows/post-merge.yml .github/workflows/infra-retry.yml
+
+# DIST=web/dist checks a real build instead of the fixture site.
+test.infra.caddy:
+	nix shell --inputs-from . nixpkgs#caddy nixpkgs#curl nixpkgs#python3 --command bash infra/caddy/test-routing.sh $(DIST)
+
+test.infra.caddy.redirects:
+	nix shell --inputs-from . nixpkgs#caddy nixpkgs#curl nixpkgs#python3 --command bash infra/caddy/test-language-redirects.sh
 
 lint.backend:
 	$(NIX_RUN) bash -c "cd backend && mix format --check-formatted"
@@ -622,3 +655,17 @@ check:
 clean:
 	$(NIX_RUN) cargo clean
 	rm -rf web/dist web/node_modules/.vite backend/_build backend/deps .mix .hex
+
+.PHONY: test.research.biggins evidence.research.biggins wasm.research.biggins
+test.research.biggins:
+	$(NIX_RUN) cargo test --locked --manifest-path research/mechanics/biggins-2026/Cargo.toml
+	$(NIX_RUN) cargo run --locked --manifest-path research/mechanics/biggins-2026/Cargo.toml --bin validate
+	$(NIX_RUN) cargo test --locked -p dedaliano-engine --test validation research_benchmarks::arches::
+
+evidence.research.biggins:
+	$(NIX_RUN) cargo run --locked --manifest-path research/mechanics/biggins-2026/Cargo.toml --bin replay > research/mechanics/biggins-2026/reference-results/replay.json
+	$(NIX_RUN) cargo run --locked --manifest-path research/mechanics/biggins-2026/Cargo.toml --bin validate -- --write
+	$(NIX_RUN) python3 -c 'import hashlib,json,pathlib; p=pathlib.Path("research/mechanics/biggins-2026/reference-results/MANIFEST.json"); d=json.loads(p.read_text()); d["files_sha256"]={n: hashlib.sha256(p.with_name(n).read_bytes()).hexdigest() for n in d["files_sha256"]}; p.write_text(json.dumps(d,indent=2)+"\n")'
+
+wasm.research.biggins:
+	$(NIX_RUN) research/mechanics/biggins-2026/build.sh

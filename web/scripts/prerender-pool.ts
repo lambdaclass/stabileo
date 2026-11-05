@@ -10,6 +10,16 @@ export async function newPrerenderPage<P extends { setDefaultNavigationTimeout(t
   return page;
 }
 
+export const MIN_CAPTURE_CHARS = 500;
+
+/** Resolves once #app holds a page's worth of markup, or after the timeout; the caller still checks the length. */
+export async function waitForRenderedApp(page: {
+  waitForFunction(fn: (min: number) => boolean, arg: number, options: { timeout: number }): Promise<unknown>;
+}): Promise<void> {
+  await page.waitForFunction((min) => (document.querySelector('#app')?.innerHTML.length ?? 0) >= min, MIN_CAPTURE_CHARS, { timeout: PRERENDER_NAVIGATION_TIMEOUT_MS })
+    .catch(() => undefined);
+}
+
 export function prerenderConcurrency(value = process.env.PRERENDER_CONCURRENCY, cpuCount = cpus().length): number {
   const count = value === undefined ? Math.min(6, Math.max(1, cpuCount)) : Number(value);
   if (!Number.isSafeInteger(count) || count < 1) {

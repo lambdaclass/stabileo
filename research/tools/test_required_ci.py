@@ -11,7 +11,8 @@ workflow = yaml.safe_load((root / '.github/workflows/ci.yml').read_text())
 research = yaml.safe_load((root / '.github/workflows/research.yml').read_text())
 jobs = workflow['jobs']
 assert 'research' in jobs['ci-ok']['needs']
-assert jobs['ci-ok']['if'] == 'always()'
+assert jobs['ci-ok']['if'] == "${{ always() && needs.superseded.outputs.newer != 'true' }}"
+assert jobs['ci-ok']['needs'][0] == 'superseded'
 assert jobs['research']['uses'] == './.github/workflows/research.yml'
 assert jobs['research']['needs'] == 'changes'
 assert jobs['research']['if'] == "needs.changes.outputs.research == 'true'"
@@ -200,7 +201,10 @@ for name, cache in caches.items():
 build = next(step for step in steps if step.get('name') == 'Build research WASM (cache misses, in parallel)')
 assert 'if' not in build and build['id'] == 'build-research'
 assert build['timeout-minutes'] + 10 <= jobs['research-wasm']['timeout-minutes'], 'the build step must stop early enough for the saves to run'
-assert re.findall(r"steps\.research-([\w-]+)\.outputs\.cache-hit != 'true' && steps\.retry-([\w-]+)\.outputs\.cache-hit != 'true' && '([\w-]+)'", build['run']) == [(name, name, name) for name in caches], build['run']
+host = next(step for step in steps if step.get('id') == 'host-cache')
+assert build['run'] == '.github/scripts/build-research-wasm.sh ${{ steps.host-cache.outputs.build }}', build['run']
+assert steps.index(host) < steps.index(build) and host['run'] == '.github/scripts/research-host-cache.sh restore'
+assert re.findall(r"([\w-]+)=\$\{\{ \(steps\.research-([\w-]+)\.outputs\.cache-hit == 'true' \|\| steps\.retry-([\w-]+)\.outputs\.cache-hit == 'true'\) && 'hit'", host['env']['BUNDLES']) == [(name, name, name) for name in caches], host['env']['BUNDLES']
 listed = subprocess.run(['.github/scripts/build-research-wasm.sh', '--list'], capture_output=True, text=True, check=True).stdout.split('\n')
 assert sorted(line.split()[0] for line in listed if line) == sorted(caches)
 for name, cache in caches.items():
