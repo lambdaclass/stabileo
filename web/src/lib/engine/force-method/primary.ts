@@ -34,12 +34,13 @@
 import type { SolverInput, SolverSupport, SolverLoad } from '../types';
 import type { DetailedSupport } from '../solver-detailed';
 import { axialEquivalentLoads, axialSpanToNodal2D } from '../axial-span-2d';
+import { countStaticDegree2D } from '../kinematic-2d';
 
 /*
  * Cut components: 2D uses N, V, M; 3D uses N, Vy, Vz, T, My, Mz. One union,
  * so the steps that list and draw redundants serve both.
  */
-export type RedundantKind = 'reaction' | 'barForce' | 'cutN' | 'cutV' | 'cutM'
+export type RedundantKind = 'reaction' | 'spring' | 'barForce' | 'cutN' | 'cutV' | 'cutM'
   | 'cutVy' | 'cutVz' | 'cutT' | 'cutMy' | 'cutMz';
 
 export interface Redundant {
@@ -57,6 +58,8 @@ export interface Redundant {
   end?: 'I' | 'J';
   /** Prescribed displacement at a released support, the right-hand side Δᵢ. */
   prescribed?: number;
+  /** A `cutM` released alone: a hinge put at that end, the member still attached there. */
+  hinge?: boolean;
 }
 
 /** A group of releases that go together — one reaction, one bar, or one cut. */
@@ -132,7 +135,7 @@ export function countIndeterminacy(input: SolverInput): IndeterminacyCount {
   }
   return {
     reactions, springs, barUnknowns, equations,
-    gh: reactions + springs + barUnknowns - equations, bars, nodes,
+    gh: countStaticDegree2D(input).degree, bars, nodes,
   };
 }
 
@@ -192,17 +195,24 @@ export function candidates(input: SolverInput, transmits: (nodeId: number, c: nu
 export function buildPrimary(
   input: SolverInput, redundants: Redundant[], loads: SolverLoad[],
   opts: { keepPrescribed: boolean; keepThermal: boolean },
-): { input: SolverInput; cutNode: Map<number, number> } {
+): { input: SolverInput; cutNode: Map<string, number> } {
   const nodes = new Map(input.nodes);
   const elements = new Map(input.elements);
   const supports = new Map<number, SolverSupport>();
   let nextNode = Math.max(0, ...input.nodes.keys()) + 1;
-  const cutNode = new Map<number, number>();
+  const cutNode = new Map<string, number>();
 
   for (const [id, s] of input.supports) {
-    const released = redundants.filter((r) => r.kind === 'reaction' && r.nodeId === s.nodeId);
     const base: SolverSupport = opts.keepPrescribed ? { ...s } : { ...s, dx: undefined, dz: undefined, dry: undefined };
-    if (released.length === 0 || s.type === 'spring') { supports.set(id, base); continue; }
+    if (s.type === 'spring') {
+      const freed = redundants.filter((r) => r.kind === 'spring' && r.nodeId === s.nodeId).map((r) => r.component);
+      if (freed.length === 0) { supports.set(id, base); continue; }
+      const sp: SolverSupport = { ...base, kx: freed.includes(0) ? 0 : s.kx, ky: freed.includes(1) ? 0 : s.ky, kz: freed.includes(2) ? 0 : s.kz };
+      if ((sp.kx ?? 0) > 0 || (sp.ky ?? 0) > 0 || (sp.kz ?? 0) > 0) supports.set(id, sp);
+      continue;
+    }
+    const released = redundants.filter((r) => r.kind === 'reaction' && r.nodeId === s.nodeId);
+    if (released.length === 0) { supports.set(id, base); continue; }
     const r = restrainedComponents(s);
     for (const rel of released) r[rel.component!] = false;
     if (!r.some(Boolean)) continue;
@@ -219,18 +229,24 @@ export function buildPrimary(
   for (const r of redundants) {
     if (r.kind === 'barForce') elements.delete(r.elementId!);
   }
-  const cutElems = new Map<number, 'I' | 'J'>();
   for (const r of redundants) {
-    if (r.kind.startsWith('cut')) cutElems.set(r.elementId!, r.end!);
+    if (!r.hinge) continue;
+    const e = elements.get(r.elementId!)!;
+    elements.set(e.id, r.end === 'J' ? { ...e, hingeEnd: true } : { ...e, hingeStart: true });
   }
-  for (const [eid, end] of cutElems) {
-    const e = elements.get(eid)!;
+  const cutEnds = new Set<string>();
+  for (const r of redundants) {
+    if (r.kind.startsWith('cut') && !r.hinge) cutEnds.add(`${r.elementId}:${r.end}`);
+  }
+  for (const k of [...cutEnds].sort()) {
+    const [eid, end] = k.split(':');
+    const e = elements.get(+eid)!;
     const at = end === 'J' ? e.nodeJ : e.nodeI;
     const n = nodes.get(at)!;
     const id = nextNode++;
     nodes.set(id, { id, x: n.x, z: n.z });
-    cutNode.set(eid, id);
-    elements.set(eid, end === 'J' ? { ...e, nodeJ: id } : { ...e, nodeI: id });
+    cutNode.set(k, id);
+    elements.set(e.id, end === 'J' ? { ...e, nodeJ: id } : { ...e, nodeI: id });
   }
 
   /*

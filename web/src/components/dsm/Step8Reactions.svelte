@@ -4,6 +4,9 @@
   import { t } from '../../lib/i18n';
   import VectorDisplay from './VectorDisplay.svelte';
 
+  import StepBlocks from '../steps/StepBlocks.svelte';
+  import { rigidAxialBlocks } from '../../lib/engine/steps/dsm-kinematics';
+
   let { data }: { data: DSMStepData } = $props();
 
   const nr = $derived(data.dofNumbering.nTotal - data.dofNumbering.nFree);
@@ -20,6 +23,7 @@
 </script>
 
 <div class="step">
+  {#if data.rigid}<div data-testid="dsm-rigid-8"><StepBlocks blocks={rigidAxialBlocks(data, true)} narrow /></div>{/if}
   <div class="explanation">
     <p>{@html t('dsm.step8.explanation')}</p>
   </div>
