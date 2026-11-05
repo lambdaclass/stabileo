@@ -180,7 +180,7 @@ def status(value, key, target, doc, tables, rows, helpers, read):
         attributes = re.search(r'(?:#\[[^\]]*\]\s*)*$', code[:match.start()]).group(0) if match else ''
         if not re.search(r'#\[test\]', attributes):
             return [f'{value["test"]}: no #[test] fn {test!r} in {file}']
-        if re.search(r'#\[\s*(?:ignore|cfg)\b', attributes):
+        if re.search(r'#\[\s*(?:ignore|cfg|cfg_attr)\b', attributes):
             return [f'{value["test"]}: an ignored or conditionally compiled test does not run in the PR tier']
         if not calls(code[slice(*block(code, match.end()))], target):
             return [f'{value["test"]}: the test does not call {target}, so it does not cover this entry point']

@@ -82,6 +82,12 @@ fn beam_gated() {
     let r = solve_beam_2d_typed(&scaled());
 }
 
+#[test]
+#[cfg_attr(all(), ignore)]
+fn beam_ignored_conditionally() {
+    let r = solve_beam_2d_typed(&scaled());
+}
+
 fn not_a_test() { solve_beam_2d_typed(&x); }
 '''
 
@@ -242,6 +248,7 @@ class Coverage(unittest.TestCase):
         self.assertIn('no such test file', self.status('units', {'test': 'engine/tests/nope.rs::x'})[0])
         self.assertIn('ignored or conditionally compiled', self.status('units', {'test': 'engine/tests/beam_invariance.rs::beam_ignored'})[0])
         self.assertIn('ignored or conditionally compiled', self.status('units', {'test': 'engine/tests/beam_invariance.rs::beam_gated'})[0])
+        self.assertIn('ignored or conditionally compiled', self.status('units', {'test': 'engine/tests/beam_invariance.rs::beam_ignored_conditionally'})[0])
         self.assertIn('no such test file', self.status('units', {'test': 'engine/src/lib.rs::solve_beam_2d'})[0])
 
 
