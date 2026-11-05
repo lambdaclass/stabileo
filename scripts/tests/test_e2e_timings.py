@@ -74,23 +74,32 @@ class LiveTimings(unittest.TestCase):
         changes = jobs((ROOT / '.github/workflows/ci.yml').read_text())['changes']
         step = changes.split('Latest measured E2E timings', 1)[1].split('        run: |\n', 1)[1]
         script = '\n'.join(line[10:] for line in step.splitlines() if line.startswith('          '))
-        with tempfile.TemporaryDirectory() as directory:
-            fake = Path(directory) / 'gh'
-            fake.write_text('#!/bin/sh\n'
-                            'case "$2" in\n'
-                            '  *artifacts*) printf "11\\n22\\n" ;;\n'
-                            '  */runs/11) [ "$FORK_TRUSTED" = 1 ] && echo 11 ;;\n'
-                            '  */runs/22) echo 22 ;;\n'
-                            'esac\n')
-            fake.chmod(0o755)
-            out = Path(directory) / 'out'
-            for trusted, expected in [('0', 'run=22'), ('1', 'run=11')]:
+        def run(event='push', repo='o/r', head='o/r', path='.github/workflows/ci.yml'):
+            return {'event': event, 'path': path, 'repository': {'full_name': repo}, 'head_repository': {'full_name': head}}
+        artifact = lambda id, branch, expired=False: {'expired': expired, 'workflow_run': {'id': id, 'head_branch': branch}}
+        artifacts = {'artifacts': [artifact(10, 'main', expired=True), artifact(11, 'main'), artifact(12, 'feature'),
+                                   artifact(13, 'gh-readonly-queue/main/pr-1'), artifact(14, 'main'), artifact(15, 'main'), artifact(16, 'main')]}
+        untrusted = {11: run(head='fork/r'), 12: run(), 14: run(event='pull_request'), 15: run(path='.github/workflows/other.yml'), 16: run(repo='x/r', head='x/r')}
+        for queue_run, expected in [(run(head='fork/r'), 'run='), (run(event='merge_group'), 'run=13')]:
+            with tempfile.TemporaryDirectory() as directory:
+                data = Path(directory) / 'data'
+                data.mkdir()
+                (data / 'artifacts').write_text(json.dumps(artifacts))
+                for id, body in {**untrusted, 13: queue_run}.items():
+                    (data / str(id)).write_text(json.dumps({**body, 'id': id}))
+                fake = Path(directory) / 'gh'
+                fake.write_text('#!/bin/sh\n'
+                                'case "$2" in\n'
+                                f'  *artifacts*) file={data}/artifacts ;;\n'
+                                f'  */runs/*) file={data}/${{2##*/}} ;;\n'
+                                'esac\n'
+                                'jq -r "$4" "$file"\n')
+                fake.chmod(0o755)
+                out = Path(directory) / 'out'
                 out.write_text('')
                 subprocess.run(['bash', '-c', script], check=True, capture_output=True,
-                               env={**os.environ, 'PATH': f'{directory}:{os.environ["PATH"]}', 'GH_REPO': 'o/r',
-                                    'GITHUB_OUTPUT': str(out), 'FORK_TRUSTED': trusted})
+                               env={**os.environ, 'PATH': f'{directory}:{os.environ["PATH"]}', 'GH_REPO': 'o/r', 'GITHUB_OUTPUT': str(out)})
                 self.assertEqual(out.read_text().strip(), expected)
-
 
 if __name__ == '__main__':
     unittest.main()
