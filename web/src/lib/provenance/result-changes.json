@@ -7,7 +7,9 @@
       "id": "examples-torsion-and-cantilever-small-rotations",
       "resultsVersion": 37,
       "date": "2026-11-05",
-      "prs": [],
+      "prs": [
+        1507
+      ],
       "area": "analysis",
       "scope": "examples",
       "examples": [
