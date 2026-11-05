@@ -36,6 +36,8 @@ mod modal_constrained_participation;
 mod modal_mechanism_refusal;
 #[path = "../nonlinear_solver_findings.rs"]
 mod nonlinear_solver_findings;
+#[path = "../orphan_rotation_relative.rs"]
+mod orphan_rotation_relative;
 #[path = "../pcg_solver_tests.rs"]
 mod pcg_solver_tests;
 #[path = "../pdelta_model_diagnostics.rs"]

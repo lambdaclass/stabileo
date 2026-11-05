@@ -77,6 +77,7 @@ const RELEASED: Record<number, string[]> = {
   26: ['governing-envelope-true-peak'],
   27: ['basic-influence-line-moment-sign-returns'],
   28: ['basic-second-order-split-members-returns'],
+  34: ['soft-rotation-not-orphan'],
 };
 
 describe('results versions', () => {
