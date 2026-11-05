@@ -1095,7 +1095,7 @@ jobs:
           retention-days: 3
           if-no-files-found: error
 
-  # The unit pass needs the WASM engine and nothing else, so it shards four ways;
+  # The unit pass needs the WASM engine and nothing else, so it shards eight ways;
   # the production-build tests need Chromium and the built app, so they stay
   # with the build.
   web-unit:
