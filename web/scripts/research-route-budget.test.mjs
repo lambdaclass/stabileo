@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
-import { checkResearchIsolation, growthTable, overCeilings, reviewRouteGrowth, routeChunkFiles, routeGrowth, BLOG_ROUTE_BOUNDARY, COURSE_ROUTE_BOUNDARY } from './research-route-budget.mjs';
+import { checkResearchIsolation, routeAllowances, growthTable, overCeilings, reviewRouteGrowth, routeChunkFiles, routeGrowth, BLOG_ROUTE_BOUNDARY, COURSE_ROUTE_BOUNDARY } from './research-route-budget.mjs';
 
 const baseline = { '/en/': 1000, '/app/basic': 2000 };
 
@@ -32,6 +32,24 @@ test('RESEARCH_ISOLATION enforces 128 bytes unless it is exactly false', () => {
     if (status) assert.match(result.stderr, /research isolation/);
   }
   assert.equal(reviewRouteGrowth({ '/en/': 1000 }, { '/en/': 5000 }, 'false')[0].growth, 4000);
+});
+test('a recorded allowance widens only its own route, and an unlisted route still fails at 129 bytes', () => {
+  const allowances = { '/en/': { bytes: 600, reason: 'r', module: 'm' } };
+  checkResearchIsolation(routeGrowth(baseline, { ...baseline, '/en/': 1000 + 728 }), allowances);
+  assert.throws(() => checkResearchIsolation(routeGrowth(baseline, { ...baseline, '/en/': 1000 + 729 }), allowances), /728 byte tolerance, with 600 allowed for r/);
+  assert.throws(() => checkResearchIsolation(routeGrowth(baseline, { ...baseline, '/app/basic': 2000 + 129 }), allowances), /\/app\/basic grew: 2000 -> 2129 bytes \(128 byte tolerance, research/);
+});
+test('allowances need bytes, a reason and an existing module', () => {
+  const entry = { bytes: 600, reason: '#447 containment messages', module: 'src/x.ts' };
+  const parse = (e, exists = () => true) => routeAllowances(JSON.stringify({ routes: { '/en/tools/': e } }), exists);
+  assert.equal(parse(entry)['/en/tools/'].bytes, 600);
+  for (const bad of [{ ...entry, bytes: 0 }, { ...entry, bytes: 1.5 }, { ...entry, reason: ' ' }, { ...entry, module: undefined }]) assert.throws(() => parse(bad), /invalid route allowance/);
+  assert.throws(() => parse(entry, () => false), /invalid route allowance/);
+});
+test('the shipped allowances are only the research and tools routes, for the #1483 related links', () => {
+  const { routes } = JSON.parse(readFileSync(new URL('./research-route-allowances.json', import.meta.url), 'utf8'));
+  assert.deepEqual(Object.keys(routes).sort(), ['/en/research/', '/en/tools/', '/en/tools/continuous-beam/', '/en/tools/simply-supported-beam/']);
+  for (const a of Object.values(routes)) assert.deepEqual(a, { bytes: 700, reason: '#1483 related links styled as theme chips', module: 'src/components/research/RelatedLinks.svelte' });
 });
 test('missing and non-finite measurements fail', () => {
   assert.throws(() => routeGrowth({ '/en/': 1000 }, {}), /coverage/);

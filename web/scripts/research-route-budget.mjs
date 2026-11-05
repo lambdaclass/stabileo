@@ -1,3 +1,5 @@
+import { existsSync, readFileSync } from 'node:fs';
+
 export const RESEARCH_ISOLATION_BYTES = 128;
 
 export function routeGrowth(baseline, measured) {
@@ -8,16 +10,32 @@ export function routeGrowth(baseline, measured) {
   });
 }
 
-export function checkResearchIsolation(rows) {
-  const grown = rows.filter((r) => r.growth > RESEARCH_ISOLATION_BYTES);
+export function routeAllowances(text, exists) {
+  const { routes } = JSON.parse(text);
+  for (const [route, a] of Object.entries(routes)) {
+    if (!Number.isInteger(a?.bytes) || a.bytes <= 0 || typeof a.reason !== 'string' || !a.reason.trim() || typeof a.module !== 'string' || !exists(a.module)) {
+      throw new Error(`invalid route allowance for ${route}: bytes, reason and an existing module are required`);
+    }
+  }
+  return routes;
+}
+
+function shippedAllowances() {
+  const read = (path) => readFileSync(new URL(path, import.meta.url), 'utf8');
+  return routeAllowances(read('./research-route-allowances.json'), (module) => existsSync(new URL(`../${module}`, import.meta.url)));
+}
+
+export function checkResearchIsolation(rows, allowances = {}) {
+  const limit = (route) => RESEARCH_ISOLATION_BYTES + (allowances[route]?.bytes ?? 0);
+  const grown = rows.filter((r) => r.growth > limit(r.route));
   if (grown.length) {
-    throw new Error(grown.map((r) => `${r.route} grew: ${r.before} -> ${r.after} bytes (${RESEARCH_ISOLATION_BYTES} byte tolerance, research isolation: the change touches research code shipped to the browser)`).join('\n'));
+    throw new Error(grown.map((r) => `${r.route} grew: ${r.before} -> ${r.after} bytes (${limit(r.route)} byte tolerance${allowances[r.route] ? `, with ${allowances[r.route].bytes} allowed for ${allowances[r.route].reason}` : ''}, research isolation: the change touches research code shipped to the browser)`).join('\n'));
   }
 }
 
-export function reviewRouteGrowth(baseline, measured, isolation = process.env.RESEARCH_ISOLATION) {
+export function reviewRouteGrowth(baseline, measured, isolation = process.env.RESEARCH_ISOLATION, allowances = shippedAllowances()) {
   const rows = routeGrowth(baseline, measured);
-  if (isolation !== 'false') checkResearchIsolation(rows);
+  if (isolation !== 'false') checkResearchIsolation(rows, allowances);
   return rows;
 }
 
