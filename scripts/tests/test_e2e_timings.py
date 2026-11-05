@@ -59,7 +59,7 @@ class LiveTimings(unittest.TestCase):
         self.assertIn('e2e_timings_run: ${{ steps.timings.outputs.run }}', changes)
         self.assertIn('select(.workflow_run.head_branch == "main" or (.workflow_run.head_branch | startswith("gh-readonly-queue/main/")))', changes)
         self.assertIn('select((.event == "push" or .event == "merge_group") and .path == ".github/workflows/ci.yml" '
-                      'and .head_repository.full_name == env.GH_REPO and .repository.full_name == env.GH_REPO) | .id', changes)
+                      'and .head_repository.full_name == $repo and .repository.full_name == $repo) | .id', changes)
         self.assertIn('TIMINGS_RUN: ${{ needs.changes.outputs.e2e_timings_run }}', e2e)
         self.assertIn('test -s web/e2e/.timings/shard-timings.json', e2e)
         self.assertNotIn('continue-on-error', e2e.split('Measured E2E timings', 1)[1].split('- name:', 1)[0])
@@ -93,7 +93,7 @@ class LiveTimings(unittest.TestCase):
                                 f'  *artifacts*) file={data}/artifacts ;;\n'
                                 f'  */runs/*) file={data}/${{2##*/}} ;;\n'
                                 'esac\n'
-                                'jq -r "$4" "$file"\n')
+                                'if [ "$3" = --jq ]; then jq -r "$4" "$file"; else cat "$file"; fi\n')
                 fake.chmod(0o755)
                 out = Path(directory) / 'out'
                 out.write_text('')
