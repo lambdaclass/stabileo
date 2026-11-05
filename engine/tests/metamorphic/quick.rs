@@ -142,7 +142,7 @@ const fn xrefused(seed: u64, case: &'static str, analysis: &'static str, invaria
     Expected { seed, case, analysis, invariant, issue, refused: true }
 }
 
-/// Each entry must still fail: the fix of its issue removes it.
+/// Each xfail must still fail and each xrefused must still be refused: the fix of its issue removes it.
 pub const EXPECTED: &[Expected] = &[
     xrefused(20754, "fuzz_rich_2d/20843", "plastic collapse", "relabel", 758),
     xrefused(20754, "fuzz_rich_2d/20843", "plastic collapse", "reversal", 758),
