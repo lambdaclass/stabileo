@@ -241,6 +241,8 @@ pub struct PlanarStatic {
     pub element_forces: Vec<(usize, [f64; 3], [f64; 3])>,
     pub stray_force: f64,
     pub stray_moment: f64,
+    pub stray_translation: f64,
+    pub stray_rotation: f64,
 }
 
 pub fn pull_static(s: &SolverInput, plane: Plane, r: &AnalysisResults3D) -> TResult<PlanarStatic> {
@@ -256,6 +258,8 @@ pub fn pull_static(s: &SolverInput, plane: Plane, r: &AnalysisResults3D) -> TRes
     let mut out = PlanarStatic::default();
     for d in &r.displacements {
         let (u, th) = ([d.ux, d.uy, d.uz], [d.rx, d.ry, d.rz]);
+        out.stray_translation = out.stray_translation.max(dot(u, n).abs());
+        out.stray_rotation = out.stray_rotation.max(dot(th, e1).abs()).max(dot(th, e2).abs());
         out.displacements.push((d.node_id, dot(u, e1), dot(u, e2), dot(th, n)));
     }
     let mut sums: std::collections::BTreeMap<usize, ([f64; 3], [f64; 3])> = Default::default();

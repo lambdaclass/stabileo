@@ -359,6 +359,8 @@ fn planes(a: &Ana2, c: &Case2, base: &Resp, solve: fn(&SolverInput3D) -> Result<
             let mut r = crate::response::planar_static(&p);
             r.scalar("stray force", Dim::FORCE, p.stray_force);
             r.scalar("stray moment", Dim::MOMENT, p.stray_moment);
+            r.scalar("stray translation", Dim::LEN, p.stray_translation);
+            r.scalar("stray rotation", Dim::NONE, p.stray_rotation);
             Ok(r)
         }));
         let got = match got {
@@ -374,6 +376,8 @@ fn planes(a: &Ana2, c: &Case2, base: &Resp, solve: fn(&SolverInput3D) -> Result<
         let mut exp = base.clone();
         exp.scalar("stray force", Dim::FORCE, 0.0);
         exp.scalar("stray moment", Dim::MOMENT, 0.0);
+        exp.scalar("stray translation", Dim::LEN, 0.0);
+        exp.scalar("stray rotation", Dim::NONE, 0.0);
         let keys = |r: &Resp| r.0.iter().map(|i| (i.node, i.elem, i.tag.clone())).collect::<std::collections::BTreeSet<_>>();
         if keys(&got) != keys(&exp) {
             let (g, e) = (keys(&got), keys(&exp));
@@ -725,9 +729,31 @@ fn a_one_sided_failure_or_refusal_or_a_nonfinite_3d_result_fails_the_planes_chec
         r.element_forces[0].mx_start = f64::NAN;
         Ok(r)
     }));
+    assert!(fails(|s| {
+        let mut r = linear::solve_3d(s)?;
+        let k = normal_axis(s);
+        let d = &mut r.displacements[1];
+        let mut u = [d.ux, d.uy, d.uz];
+        u[k] = 1e-3 * u.iter().fold(0.0, |m: f64, v| m.max(v.abs()));
+        [d.ux, d.uy, d.uz] = u;
+        Ok(r)
+    }));
+    assert!(fails(|s| {
+        let mut r = linear::solve_3d(s)?;
+        let k = normal_axis(s);
+        let d = &mut r.displacements[1];
+        let mut t = [d.rx, d.ry, d.rz];
+        t[(k + 1) % 3] = 1e-3 * t[k].abs();
+        [d.rx, d.ry, d.rz] = t;
+        Ok(r)
+    }));
     assert!(fails(|_| Err("singular".into())));
     assert!(fails(|_| {
         let id = ENTRIES.iter().find(|e| e.mode == Mode::Refuse).unwrap().id;
         refuse(&[diagnostic(id)]).map(|_| unreachable!())
     }));
+}
+
+fn normal_axis(s: &SolverInput3D) -> usize {
+    (0..3).find(|&k| s.supports.values().all(|x| [x.rx, x.ry, x.rz][k])).unwrap()
 }
