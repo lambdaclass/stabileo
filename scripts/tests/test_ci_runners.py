@@ -12,6 +12,9 @@ WORKFLOWS = ROOT / '.github/workflows'
 SAME_REPO = 'github.event.pull_request.head.repo.full_name == github.repository'
 NOT_DEPENDABOT = "github.event.pull_request.user.login != 'dependabot[bot]'"
 TRUSTED = "(github.event_name == 'merge_group' || (github.ref == 'refs/heads/main' && github.event_name != 'schedule'))"
+POST_MERGE = ("${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' && fromJSON('[\"self-hosted\",\"stabileo\"]') "
+              "|| (github.ref == 'refs/heads/main' && github.event_name != 'schedule') && (vars.STABILEO_PR_POOL == 'true' "
+              "&& fromJSON('[\"self-hosted\",\"stabileo-pr\"]') || fromJSON('[\"self-hosted\",\"stabileo\"]'))) || 'ubuntu-24.04' }}")
 QUEUE_POOL = {'stabileo', 'stabileo-pr', 'stabileo-e2e', 'stabileo-timing'}
 TOKEN = re.compile(r"\s*(==|!=|&&|\|\||\(|\)|,|'[^']*'|[\w.-]+)")
 
@@ -123,6 +126,8 @@ class CiRunners(unittest.TestCase):
                     continue
                 self.assertTrue(runs_on == 'ubuntu-24.04' or runs_on.endswith("|| 'ubuntu-24.04' }}"), name)
                 self.assertNotIn('stabileo-nightly', labels(runs_on), name)
+                if runs_on == POST_MERGE:
+                    continue
                 if 'stabileo-pr' in labels(runs_on):
                     self.assertIn(SAME_REPO, runs_on, name)
                     self.assertIn(NOT_DEPENDABOT, runs_on, name)
@@ -158,9 +163,26 @@ class CiRunners(unittest.TestCase):
         pr = set()
         for workflow in ['ci.yml', 'research.yml']:
             for name, job in jobs(workflow).items():
-                if 'stabileo-pr' in labels(job.get('runs-on', '')):
+                if 'stabileo-pr' in labels(job.get('runs-on', '')) and job.get('runs-on') != POST_MERGE:
                     pr.add(f'{workflow}:{name}')
         self.assertEqual(pr, {'ci.yml:wasm', 'ci.yml:research-wasm', 'ci.yml:site-e2e'})
+
+    def test_the_standalone_research_workflow_runs_on_push_only_what_ci_does_not(self):
+        for name, job in jobs('research.yml').items():
+            with self.subTest(job=name):
+                if name == 'catalog-online':
+                    self.assertEqual(job['if'], "github.workflow == 'Research'")
+                else:
+                    self.assertIn("github.workflow != 'Research' || github.event_name == 'schedule'", job['if'])
+        ci = (WORKFLOWS / 'ci.yml').read_text()
+        self.assertIn('    uses: ./.github/workflows/research.yml\n', ci)
+        self.assertIn("    if: needs.changes.outputs.research == 'true'\n    uses: ./.github/workflows/research.yml", ci)
+
+    def test_post_merge_research_leaves_the_queue_only_runners_to_the_queue(self):
+        research = jobs('research.yml')
+        post_merge = {name for name, job in research.items() if job.get('runs-on') == POST_MERGE}
+        self.assertEqual(post_merge, {name for name, job in research.items() if labels(job.get('runs-on', ''))} - {'engine-benchmarks'})
+        self.assertNotIn('pull_request', POST_MERGE.split('stabileo-pr', 1)[0].split("'merge_group'", 1)[1])
 
     def test_jobs_use_a_github_runners_threads_wherever_they_run(self):
         caps = {'CARGO_BUILD_JOBS': '4', 'RUST_TEST_THREADS': '4', 'NEXTEST_TEST_THREADS': '4', 'RAYON_NUM_THREADS': '4',
