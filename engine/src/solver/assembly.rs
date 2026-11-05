@@ -90,14 +90,31 @@ pub struct InclinedTransformData {
     pub r: [[f64; 3]; 3],        // Rotation matrix (rows = local axes)
 }
 
-/// 2D nodes whose rotation a constraint ties to other DOFs. An artificial
-/// rotational spring on such a node is not inert: once the constraint is
-/// imposed it becomes a real spring on the structure (a rigid-link mechanism
-/// was held by it, so whether it counted as a mechanism depended on the
-/// units — found by the metamorphic checks). The 3D assembler already leaves
-/// constraint nodes out (`orphan_rotation_dofs_3d`).
+/// 2D nodes whose rotation a connector stiffens: through its rotational
+/// spring, or through the rigid arms of a finite-length shear spring.
+pub(crate) fn connector_rotation_nodes_2d(input: &SolverInput) -> std::collections::HashSet<usize> {
+    let node_xz: std::collections::HashMap<usize, (f64, f64)> =
+        crate::ordered::values(&input.nodes).map(|n| (n.id, (n.x, n.z))).collect();
+    let mut out = std::collections::HashSet::new();
+    for c in crate::ordered::values(&input.connectors) {
+        let l = match (node_xz.get(&c.node_i), node_xz.get(&c.node_j)) {
+            (Some(a), Some(b)) => ((b.0 - a.0).powi(2) + (b.1 - a.1).powi(2)).sqrt(),
+            _ => 0.0,
+        };
+        if c.k_moment > 0.0 || (c.k_shear > 0.0 && l > crate::element::connector::ZERO_LENGTH) {
+            out.extend([c.node_i, c.node_j]);
+        }
+    }
+    out
+}
+
+/// 2D nodes whose rotation a constraint or a connector ties to other DOFs.
+/// An artificial rotational spring on such a node is not inert: it becomes a
+/// real spring on the structure, and a mechanism it holds solves with a
+/// confident wrong answer. The 3D assembler already leaves constraint nodes
+/// out (`orphan_rotation_dofs_3d`).
 pub(crate) fn rotation_tied_nodes_2d(input: &SolverInput) -> std::collections::HashSet<usize> {
-    let mut tied = std::collections::HashSet::new();
+    let mut tied = connector_rotation_nodes_2d(input);
     for c in &input.constraints {
         match c {
             Constraint::RigidLink(r) => {

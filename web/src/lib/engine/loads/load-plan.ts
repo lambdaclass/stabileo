@@ -762,6 +762,11 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
     tributaryWidth: input.tributaryWidth,
   });
   derivation.push(...layout.notes);
+  if (layout.oneSided.length > 0) {
+    const note = msg('loadPlan.assumption.oneSidedTorsion', { n: layout.oneSided.length, ids: layout.oneSided.join(', ') });
+    assumptions.push(note);
+    derivation.push(note);
+  }
   // A flat roof may well carry the floors' screed and tiles; a pitched one with no slab, on rafters or trusses, may not.
   if (input.roof?.deadFromFloors && input.roof.slopeDeg >= PITCHED_ROOF_DEG && ![...layout.areaOf.values()].some((a) => a > 0) && layout.shellQuads.length === 0) {
     return { ...empty, blockedKeys: [msg('loadPlan.blocked.roofDeadWithoutFloors')] };

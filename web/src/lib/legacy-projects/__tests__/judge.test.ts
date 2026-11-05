@@ -173,7 +173,7 @@ describe('against real corpus files', () => {
     const opened = await openAndSolve(readCorpusText(`v0.4.0/${entry.file}`));
     expect(opened.changes.map((c) => c.id)).toEqual([
       'solid-shell-local-stress-axes', 'modal-repeated-eigenspace-completeness', 'static-modal-runtime-self-checks',
-      'shell-envelope-per-component', 'modal-mechanism-refused', 'shell-figures-paint-the-screen-field',
+      'shell-envelope-per-component', 'modal-mechanism-refused', 'shell-figures-paint-the-screen-field', 'safety-containment-diagnostics',
       'soft-rotation-not-orphan',
     ]);
     const then = readResults(`v0.4.0/${entry.results}`);

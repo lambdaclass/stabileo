@@ -366,8 +366,9 @@ mod tests {
         let densities = input.materials.keys().map(|k| (k.clone(),7850.0)).collect();
         let r = super::super::modal::solve_modal_2d(&input, &densities, 6).unwrap();
         assert!(r.n_dof >= super::super::linear::SPARSE_THRESHOLD);
-        assert_eq!(r.structured_diagnostics.len(), 12);
-        assert!(r.structured_diagnostics.iter().all(|d| d.severity == Severity::Info));
+        let checks: Vec<_> = r.structured_diagnostics.iter().filter(|d| d.phase.as_deref().unwrap_or("").starts_with("self_check:")).collect();
+        assert_eq!(checks.len(), 12);
+        assert!(checks.iter().all(|d| d.severity == Severity::Info));
     }
 
     #[test]

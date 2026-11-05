@@ -1,6 +1,6 @@
 <script lang="ts">
   import { citation } from './catalogue';
-  import { articleStrings as shellStrings } from './shell1985/article';
+  import { shellCardTitle } from './shell1985/card';
   import { archStrings } from './biggins2026/strings';
   /**
    * /research: the experiments that run here first, then what is being built, then the
@@ -28,7 +28,7 @@
   import { EXPERIMENTS, COMING_NEXT, SHOW_COMING_NEXT } from './experiments';
   import { rs, fieldName, statusName } from './i18n';
   import { strings as mattiassonStrings } from './mattiasson1981/i18n';
-  import { strings as macnealStrings } from './macneal1985/i18n';
+  import { card as macnealCard } from './macneal1985/card';
   import { publicI18n } from '../../lib/i18n/store.svelte';
   import type { Experiment } from './experiments';
 
@@ -55,10 +55,10 @@
     const translated = englishOnlyCard(e.paperId, publicI18n.locale);
     if (translated) return translated;
     if (e.paperId === 'mattiasson-elastica' || e.paperId === 'macneal-harder-1985') {
-      const dictionary = e.paperId === 'mattiasson-elastica' ? mattiassonStrings : macnealStrings;
+      const dictionary = e.paperId === 'mattiasson-elastica' ? mattiassonStrings : macnealCard;
       return dictionary[publicI18n.locale as keyof typeof dictionary] ?? dictionary.en;
     }
-    if (e.paperId === 'shell-obstacle-course') return { title: shellStrings(publicI18n.locale).shellObstacleCourseBelytschkoEtAl, hook: e.hook };
+    if (e.paperId === 'shell-obstacle-course') return { title: shellCardTitle, hook: e.hook };
     if (e.paperId === 'riks-1979') {
       const riks = riksStrings(publicI18n.locale);
       return { title: riks.arcLengthSnapThroughRiksAndCrisfield, hook: publicI18n.locale === 'en' ? e.hook : riks.lead };

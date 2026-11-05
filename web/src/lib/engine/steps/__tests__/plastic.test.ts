@@ -28,11 +28,11 @@ const blocks = (doc: StepDoc): Block[] => {
 const compare = (doc: StepDoc) => blocks(doc).flatMap((b) => (b.kind === 'compare' ? b.rows : []));
 
 describe('plastic methods in the catalog', () => {
-  it('both apply to the portal frame example and are in the plastic group', () => {
+  it('both are in the plastic group and withheld on the portal frame example until #758 is fixed', () => {
     for (const id of ['plasticKinematic', 'plasticStatic']) {
       const m = methodById(id)!;
       expect(m.group).toBe('plastic');
-      expect(m.applies(ctx).ok).toBe(true);
+      expect(m.applies(ctx)).toEqual({ ok: false, reason: { key: 'knownIssue.PL-2D-INVARIANCE' }, issue: 758 });
     }
   });
 
@@ -60,7 +60,7 @@ describe('plastic methods in the catalog', () => {
     input.elements.set(id, { ...first, id, type: 'truss', nodeI: ends[0], nodeJ: ends[2], hingeStart: false, hingeEnd: false });
     const braced: MethodContext = { input, pm: planeModel(input), ref: solveReference(input), selection: { members: [], nodes: [] }, options: {} };
     const m = methodById('plasticKinematic')!;
-    expect(m.applies(braced).ok).toBe(true);
+    expect(m.applies(braced)).toMatchObject({ ok: false, issue: 758 });
     const gh = blocks(m.build!(braced)).find((b) => b.kind === 'calc' && b.label?.key === 'course.plastic.doc.gh');
     if (!gh || gh.kind !== 'calc') throw new Error('no GH');
     expect(gh.formula).toBe('GH = 3m + m_b + r - 3n - c');

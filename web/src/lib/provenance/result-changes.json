@@ -1,11 +1,11 @@
 {
   "$comment": "Registry of result-affecting changes. Read by web/scripts/result-change-metadata.mjs for build metadata and decoded by web/src/lib/provenance/full-registry.ts; schema and rules in docs/verification/PROVENANCE.md. Add an entry whenever a change makes the same saved model give different numbers, at currentResultsVersion + 1, and bump currentResultsVersion: a version on main is deployed, and an entry added to it later is never shown to the projects it stamped (results-version.test.ts). Feature ids are defined in web/src/lib/provenance/model-features.ts.",
   "schema": 1,
-  "currentResultsVersion": 34,
+  "currentResultsVersion": 33,
   "changes": [
     {
       "id": "soft-rotation-not-orphan",
-      "resultsVersion": 34,
+      "resultsVersion": 33,
       "date": "2026-11-05",
       "prs": [
         1428
@@ -39,6 +39,75 @@
       "changelog": {
         "file": "changelog.d/1367-soft-rotation-not-orphan.md",
         "heading": "A soft but real node rotation is no longer locked by the orphan-rotation spring (2026-11-05)"
+      }
+    },
+    {
+      "id": "safety-containment-diagnostics",
+      "resultsVersion": 31,
+      "date": "2026-11-05",
+      "prs": [
+        807
+      ],
+      "area": "analysis",
+      "when": { "any": ["members", "shells", "connectors"] },
+      "title": {
+        "en": "Known-issue warnings and refusals",
+        "es": "Advertencias y rechazos por problemas conocidos",
+        "pt": "Avisos e recusas por problemas conhecidos",
+        "de": "Warnungen und Ablehnungen wegen bekannter Probleme",
+        "fr": "Avertissements et refus pour problèmes connus",
+        "tr": "Bilinen sorunlar için uyarılar ve retler"
+      },
+      "explanation": {
+        "en": "Known-issue warnings added; numerical values of retained results are unchanged. Affected unsafe results are withheld by structured refusals; see the containment ledger for predicates. CIRSOC 201 column checks whose axial force and moment come from different combinations are now warnings that name both combinations. 2D plastic collapse, including the Basic course's plastic collapse unit of version 29 and the step-by-step kinematic and static plastic methods, is withheld until #758 is fixed: its collapse factor can change up to 4.6× with node numbering, member direction or units.",
+        "es": "Se agregan advertencias de problemas conocidos; los valores de resultados retenidos no cambian. Se retienen resultados inseguros mediante rechazos estructurados; los criterios figuran en el registro de contención. Las verificaciones de columnas CIRSOC 201 cuyo esfuerzo axial y momento provienen de combinaciones distintas ahora son advertencias que nombran ambas combinaciones. El colapso plástico 2D, incluidos la unidad de colapso plástico del curso Basic de la versión 29 y los métodos plásticos cinemático y estático paso a paso, queda retenido hasta que se corrija #758: su factor de colapso puede cambiar hasta 4,6× con la numeración de nudos, el sentido de las barras o las unidades.",
+        "pt": "Avisos de problemas conhecidos adicionados; os valores dos resultados mantidos não mudam. Resultados inseguros são retidos por recusas estruturadas; os critérios estão no registro de contenção. As verificações de pilares CIRSOC 201 cujo esforço axial e momento vêm de combinações diferentes agora são avisos que nomeiam ambas as combinações. O colapso plástico 2D, incluindo a unidade de colapso plástico do curso Basic da versão 29 e os métodos plásticos cinemático e estático passo a passo, fica retido até que #758 seja corrigido: seu fator de colapso pode mudar até 4,6× com a numeração dos nós, o sentido das barras ou as unidades.",
+        "de": "Warnungen zu bekannten Problemen hinzugefügt; die Zahlenwerte beibehaltener Ergebnisse bleiben unverändert. Betroffene unsichere Ergebnisse werden durch strukturierte Ablehnungen zurückgehalten; die Kriterien stehen im Eindämmungsregister. CIRSOC-201-Stützennachweise, deren Normalkraft und Moment aus verschiedenen Kombinationen stammen, sind jetzt Warnungen, die beide Kombinationen nennen. Der plastische Kollaps in 2D, einschließlich der Kurseinheit zum plastischen Kollaps in Basic aus Version 29 und der schrittweisen kinematischen und statischen Plastizitätsmethoden, wird zurückgehalten, bis #758 behoben ist: sein Kollapsfaktor kann sich mit Knotennummerierung, Stabrichtung oder Einheiten um bis zum 4,6-Fachen ändern.",
+        "fr": "Avertissements de problèmes connus ajoutés ; les valeurs des résultats conservés ne changent pas. Les résultats non sûrs concernés sont retenus par des refus structurés ; les critères figurent dans le registre de confinement. Les vérifications de poteaux CIRSOC 201 dont l'effort normal et le moment proviennent de combinaisons différentes sont désormais des avertissements qui nomment les deux combinaisons. L'effondrement plastique 2D, y compris l'unité d'effondrement plastique du cours Basic de la version 29 et les méthodes plastiques cinématique et statique pas à pas, est retenu jusqu'à la correction de #758 : son facteur d'effondrement peut varier jusqu'à 4,6× selon la numérotation des nœuds, le sens des barres ou les unités.",
+        "tr": "Bilinen sorun uyarıları eklendi; korunan sonuçların sayısal değerleri değişmez. Etkilenen güvensiz sonuçlar yapılandırılmış retlerle bekletilir; ölçütler sınırlama kaydındadır. Eksenel kuvveti ve momenti farklı kombinasyonlardan gelen CIRSOC 201 kolon kontrolleri artık her iki kombinasyonu da belirten uyarılardır. 2B plastik göçme, 29. sürümdeki Basic kursunun plastik göçme ünitesi ve adım adım kinematik ve statik plastik yöntemler dahil, #758 düzeltilene kadar bekletilir: göçme katsayısı düğüm numaralandırması, çubuk yönü veya birimlerle 4,6 katına kadar değişebilir."
+      },
+      "changelog": {
+        "file": "docs/results-changes/2026-10-containment.md",
+        "heading": "Safety containment diagnostics"
+      }
+    },
+    {
+      "id": "connector-mechanism-2d-refused",
+      "resultsVersion": 30,
+      "date": "2026-11-05",
+      "prs": [
+        1415
+      ],
+      "area": "analysis",
+      "when": {
+        "allOf": [
+          [
+            "plane2D"
+          ],
+          [
+            "connectors"
+          ]
+        ]
+      },
+      "title": {
+        "en": "2D: a mechanism behind a connector is refused",
+        "es": "2D: un mecanismo detrás de un conector se rechaza",
+        "pt": "2D: um mecanismo atrás de um conector é recusado",
+        "de": "2D: ein Mechanismus hinter einem Verbindungselement wird abgelehnt",
+        "fr": "2D : un mécanisme derrière un connecteur est refusé",
+        "tr": "2D: bir bağlayıcı arkasındaki mekanizma reddediliyor"
+      },
+      "explanation": {
+        "en": "A plane model where a connector with a rotational spring ties a node whose members are all hinged to other nodes is a mechanism when nothing else holds the rotation, but the solver held it with an artificial spring and returned rotations of about 10 rad with no reaction moment, which the certificate accepted (#1414). Such a model is now refused as a mechanism. When a support, an unhinged member or another connector holds the rotation, it still solves, without the artificial spring's small share of the moment. Re-run plane models with connectors at hinged nodes.",
+        "es": "Un modelo plano en el que un conector con resorte de giro une un nudo con todas sus barras articuladas a otros nudos es un mecanismo si nada más impide el giro, pero el solver lo sostenía con un resorte artificial y devolvía giros de unos 10 rad sin momento de reacción, que el certificado aceptaba (#1414). Ese modelo ahora se rechaza como mecanismo. Si un apoyo, una barra no articulada u otro conector impide el giro, se sigue resolviendo, sin la pequeña parte del momento que tomaba el resorte artificial. Vuelva a calcular los modelos planos con conectores en nudos articulados.",
+        "pt": "Um modelo plano em que um conector com mola de rotação liga um nó com todas as barras articuladas a outros nós é um mecanismo quando nada mais impede o giro, mas o solver o segurava com uma mola artificial e devolvia giros de cerca de 10 rad sem momento de reação, que o certificado aceitava (#1414). Esse modelo agora é recusado como mecanismo. Quando um apoio, uma barra não articulada ou outro conector impede o giro, continua sendo resolvido, sem a pequena parcela do momento que a mola artificial tomava. Recalcule os modelos planos com conectores em nós articulados.",
+        "de": "Ein ebenes Modell, in dem ein Verbindungselement mit Drehfeder einen Knoten mit lauter gelenkig angeschlossenen Stäben an andere Knoten bindet, ist ein Mechanismus, wenn nichts sonst die Verdrehung hält; der Löser hielt es mit einer künstlichen Feder und lieferte Verdrehungen von etwa 10 rad ohne Auflagermoment, die das Zertifikat akzeptierte (#1414). Ein solches Modell wird jetzt als Mechanismus abgelehnt. Hält ein Auflager, ein nicht gelenkiger Stab oder ein weiteres Verbindungselement die Verdrehung, wird es weiter berechnet, ohne den kleinen Momentenanteil der künstlichen Feder. Rechnen Sie ebene Modelle mit Verbindungselementen an Gelenkknoten neu.",
+        "fr": "Un modèle plan où un connecteur avec ressort de rotation relie un nœud dont toutes les barres sont articulées à d'autres nœuds est un mécanisme lorsque rien d'autre ne retient la rotation, mais le solveur le retenait par un ressort artificiel et renvoyait des rotations d'environ 10 rad sans moment de réaction, que le certificat acceptait (#1414). Un tel modèle est maintenant refusé comme mécanisme. Lorsqu'un appui, une barre non articulée ou un autre connecteur retient la rotation, il est toujours résolu, sans la petite part du moment que prenait le ressort artificiel. Relancez les modèles plans avec connecteurs aux nœuds articulés.",
+        "tr": "Dönme yaylı bir bağlayıcının tüm çubukları mafsallı bir düğümü başka düğümlere bağladığı düzlem model, dönmeyi başka hiçbir şey tutmuyorsa bir mekanizmadır; çözücü onu yapay bir yayla tutup tepki momenti olmadan yaklaşık 10 rad dönmeler veriyordu ve sertifika bunları kabul ediyordu (#1414). Böyle bir model artık mekanizma olarak reddediliyor. Dönmeyi bir mesnet, mafsalsız bir çubuk veya başka bir bağlayıcı tutuyorsa çözülmeye devam ediyor; yapay yayın aldığı küçük moment payı artık yok. Mafsallı düğümlerde bağlayıcı bulunan düzlem modelleri yeniden çözün."
+      },
+      "changelog": {
+        "file": "changelog.d/1414-connector-mechanism-2d.md",
+        "heading": "2D: a mechanism hidden behind a connector is refused, not solved (2026-11-05)"
       }
     },
     {

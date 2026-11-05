@@ -12,12 +12,21 @@ export async function newPrerenderPage<P extends { setDefaultNavigationTimeout(t
 
 export const MIN_CAPTURE_CHARS = 500;
 
-/** Resolves once #app holds a page's worth of markup, or after the timeout; the caller still checks the length. */
+const pendingHolds = () => (globalThis as { __prerenderHolds?: number }).__prerenderHolds ?? 0;
+
+/** Resolves once #app holds a page's worth of markup and no `holdPrerender` work is pending; after the timeout the caller still checks the length, but work still pending throws. */
 export async function waitForRenderedApp(page: {
   waitForFunction(fn: (min: number) => boolean, arg: number, options: { timeout: number }): Promise<unknown>;
+  evaluate(fn: () => number): Promise<number>;
 }): Promise<void> {
-  await page.waitForFunction((min) => (document.querySelector('#app')?.innerHTML.length ?? 0) >= min, MIN_CAPTURE_CHARS, { timeout: PRERENDER_NAVIGATION_TIMEOUT_MS })
+  await page.waitForFunction(
+    (min) => (document.querySelector('#app')?.innerHTML.length ?? 0) >= min && !(((globalThis as { __prerenderHolds?: number }).__prerenderHolds ?? 0) > 0),
+    MIN_CAPTURE_CHARS,
+    { timeout: PRERENDER_NAVIGATION_TIMEOUT_MS },
+  )
     .catch(() => undefined);
+  const pending = await page.evaluate(pendingHolds);
+  if (pending > 0) throw new Error(`prerender: ${pending} load(s) the page renders were still pending after ${PRERENDER_NAVIGATION_TIMEOUT_MS / 1000} s`);
 }
 
 export function prerenderConcurrency(value = process.env.PRERENDER_CONCURRENCY, cpuCount = cpus().length): number {

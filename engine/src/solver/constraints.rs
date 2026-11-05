@@ -1122,10 +1122,12 @@ pub fn build_constraint_transform(
     let mut gen = 0usize;
     let mut touched: Vec<usize> = Vec::new();
 
+    let mut dep_order: Vec<(&usize, &Vec<(usize, f64)>)> = dep_equations.iter().collect();
+    dep_order.sort_unstable_by_key(|(d, _)| **d);
     for _pass in 0..10 {
         let mut max_change = 0.0f64;
 
-        for (&dep_dof, terms) in &dep_equations {
+        for &(&dep_dof, terms) in &dep_order {
             // new_row = Σ(coeff * row[master])
             gen += 1;
             touched.clear();
@@ -1481,8 +1483,15 @@ fn map_dof_forces_to_constraint_forces(
 /// Constrained 2D solve, with the known-issue warnings that apply attached (once, also when
 /// reached through `linear::solve_2d`).
 pub fn solve_constrained_2d(input: &ConstrainedInput) -> Result<AnalysisResults, String> {
-    let mut r = solve_constrained_2d_inner(input)?;
-    crate::known_issues::attach(&mut r.structured_diagnostics, crate::known_issues::for_2d(&input.solver, crate::known_issues::Analysis::Linear));
+    contain_constrained_2d(input, solve_constrained_2d_inner(input)?)
+}
+
+#[doc(hidden)]
+pub fn contain_constrained_2d(input: &ConstrainedInput, mut r: AnalysisResults) -> Result<AnalysisResults, String> {
+    let mut solver = input.solver.clone();
+    solver.constraints = input.constraints.clone();
+    crate::known_issues::attach(&mut r.structured_diagnostics, crate::known_issues::for_2d(&solver, crate::known_issues::Analysis::Linear));
+    crate::known_issues::refuse(&r.structured_diagnostics)?;
     Ok(r)
 }
 
@@ -1513,7 +1522,7 @@ fn solve_constrained_2d_inner(input: &ConstrainedInput) -> Result<AnalysisResult
             return Ok(result);
         }
     }
-    solve_constrained_2d_dense(input, &dof_num)
+    solve_constrained_2d_dense_validated(input, &dof_num)
 }
 
 /// The legacy dense constrained solve: full n×n assembly, dense reduction,
@@ -1521,6 +1530,14 @@ fn solve_constrained_2d_inner(input: &ConstrainedInput) -> Result<AnalysisResult
 /// sparse path defers to when its factorization fails.
 #[doc(hidden)]
 pub fn solve_constrained_2d_dense(
+    input: &ConstrainedInput,
+    dof_num: &DofNumbering,
+) -> Result<AnalysisResults, String> {
+    linear::validate_input_2d(&input.solver)?;
+    contain_constrained_2d(input, solve_constrained_2d_dense_validated(input, dof_num)?)
+}
+
+fn solve_constrained_2d_dense_validated(
     input: &ConstrainedInput,
     dof_num: &DofNumbering,
 ) -> Result<AnalysisResults, String> {
@@ -1663,6 +1680,7 @@ pub fn solve_constrained_2d_dense(
     // K_reduced = C_ff^T * K_ff * C_ff
     // F_reduced = C_ff^T * F_f
     let k_reduced = fcs.reduce_matrix(&k_ff);
+    let containment_conditioning = crate::known_issues::conditioning(&super::conditioning::check_conditioning(&k_ff, nf)).or_else(|| crate::known_issues::conditioning(&super::conditioning::check_conditioning(&k_reduced, n_free_indep)));
     let f_reduced = fcs.reduce_vector(&f_f);
 
     // Solve reduced system
@@ -1826,6 +1844,7 @@ pub fn solve_constrained_2d_dense(
     });
 
     constraint_diags.extend(definiteness);
+    constraint_diags.extend(containment_conditioning);
     constraint_diags.push(checked_residual?);
 
     let mut result = AnalysisResults {
@@ -1961,7 +1980,9 @@ fn solve_constrained_2d_sparse(
     }
 
     // K_reduced = C_ff^T * K_ff * C_ff as a sparse triple product.
+    let containment_conditioning = crate::known_issues::sparse_conditioning(k_ff);
     let k_reduced = fcs.reduce_matrix_sparse(k_ff);
+    let containment_conditioning = containment_conditioning.or_else(|| crate::known_issues::sparse_conditioning(&k_reduced));
     let f_reduced = fcs.reduce_vector(&f_f);
 
     // NO diagonal-shift regularization (the 2D contract): a mechanism fails
@@ -2077,6 +2098,7 @@ fn solve_constrained_2d_sparse(
     });
 
     constraint_diags.extend(definiteness);
+    constraint_diags.extend(containment_conditioning);
     constraint_diags.push(checked_residual?);
 
     let mut result = AnalysisResults {
@@ -2096,20 +2118,23 @@ fn solve_constrained_2d_sparse(
     Ok(Some(result))
 }
 
-/// Solve a 3D constrained analysis.
 /// Constrained 3D solve, with the known-issue warnings that apply attached (once).
 pub fn solve_constrained_3d(input: &ConstrainedInput3D) -> Result<AnalysisResults3D, String> {
-    let mut r = solve_constrained_3d_inner(input)?;
-    crate::known_issues::attach(&mut r.structured_diagnostics, crate::known_issues::for_3d(&input.solver, crate::known_issues::Analysis::Linear));
+    let mut solver = input.solver.clone();
+    solver.constraints = input.constraints.clone();
+    crate::known_issues::refuse(&crate::known_issues::model_3d(&solver))?;
+    let mut r = solve_constrained_3d_inner(input, crate::known_issues::Analysis::Linear)?;
+    crate::known_issues::membrane_bending_3d(&solver, &solver.loads, &r)?;
+    crate::known_issues::attach(&mut r.structured_diagnostics, crate::known_issues::for_3d(&solver, crate::known_issues::Analysis::Linear));
     Ok(r)
 }
 
-fn solve_constrained_3d_inner(input: &ConstrainedInput3D) -> Result<AnalysisResults3D, String> {
+pub(crate) fn solve_constrained_3d_inner(input: &ConstrainedInput3D, analysis: crate::known_issues::Analysis) -> Result<AnalysisResults3D, String> {
     if input.constraints.is_empty() {
         return linear::solve_3d(&input.solver);
     }
 
-    linear::validate_input_3d(&input.solver)?;
+    linear::validate_input_3d_for_analysis(&input.solver, analysis)?;
     // `prepare_static_3d` refuses a collapsed or folded element by name; this
     // path never goes through it, and the same element came back here as
     // "Singular stiffness in 3D constrained system".
@@ -2264,7 +2289,9 @@ fn solve_constrained_3d_inner(input: &ConstrainedInput3D) -> Result<AnalysisResu
 
     // K_reduced = C_ff^T * K_ff * C_ff, computed as a sparse triple product
     // over the triplets of K (near-linear in nnz(K) for MPC transforms).
+    let containment_conditioning = crate::known_issues::sparse_conditioning(k_ff);
     let k_reduced = fcs.reduce_matrix_sparse(k_ff);
+    let containment_conditioning = containment_conditioning.or_else(|| crate::known_issues::sparse_conditioning(&k_reduced));
     let f_reduced = fcs.reduce_vector(&f_f);
 
     let mut used_fallback = false;
@@ -2414,6 +2441,7 @@ fn solve_constrained_3d_inner(input: &ConstrainedInput3D) -> Result<AnalysisResu
     });
 
     constraint_diags.extend(definiteness);
+    constraint_diags.extend(containment_conditioning);
     constraint_diags.push(checked_residual?);
 
     let mut result = AnalysisResults3D {

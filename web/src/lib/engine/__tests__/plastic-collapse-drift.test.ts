@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { historyStore, modelStore, uiStore } from '../../store';
-import { runPlasticCollapse } from '../../actions/plastic';
+import { runLegacyPlasticCollapse } from './legacy-plastic-helper';
 import { solveLimit } from '../plastic/solve-limit';
 import { initSolver } from '../wasm-solver';
 import { generate, type Family } from './helpers/random-models-2d';
@@ -18,7 +18,7 @@ function verticalSpringAsRoller(input: SolverInput): SolverInput {
 }
 
 function collapseAndLimit() {
-  const run = runPlasticCollapse()!;
+  const run = runLegacyPlasticCollapse()!;
   const input = modelStore.buildSolverInput(uiStore.includeSelfWeight)!;
   const mpOf = new Map(run.mps.map((m) => [m.sectionId, m.mp]));
   const limit = solveLimit(verticalSpringAsRoller(input), (id) => mpOf.get(input.elements.get(id)!.sectionId) ?? Infinity)!;

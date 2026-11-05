@@ -354,6 +354,12 @@ pub fn transform_2d(input: &SolverInput, iso: &Iso2) -> TResult<SolverInput> {
     for (k, s) in input.supports.iter() {
         m.supports.insert(k.clone(), transform_support_2d(s, iso)?);
     }
+    for (k, s) in input.supports.iter() {
+        let shared = input.supports.values().filter(|o| o.node_id == s.node_id).count() > 1;
+        if shared && s.support_type != "inclinedRoller" && m.supports[k].support_type == "inclinedRoller" {
+            return unrep("a node with several supports, one of them turned off the axes (the solver merges only axis-aligned restraints)");
+        }
+    }
     for l in m.loads.iter_mut() {
         match l {
             SolverLoad::Nodal(nl) => {
