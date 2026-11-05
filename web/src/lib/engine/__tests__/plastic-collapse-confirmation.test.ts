@@ -113,3 +113,14 @@ describe('the limit analysis factor is a collapse load only once something indep
     expect(r.limit?.lambda).toBeCloseTo(0.5 * (4 * MP) / 60, 9);
   });
 });
+
+describe('the limit analysis refuses a capacity it cannot use', () => {
+  it('a frame with zero, negative, NaN, infinite or no plastic moment is refused, not treated as one that never yields', async () => {
+    const { plasticLimit2D } = await vi.importActual<typeof import('../wasm-solver')>('../wasm-solver');
+    const m = beam('rollerX');
+    expect(plasticLimit2D(m, new Map([[1, MP]]), new Map()).lambda).toBeCloseTo((4 * MP) / 60, 6);
+    for (const v of [0, -MP, NaN, Infinity]) expect(() => plasticLimit2D(m, new Map([[1, v]]), new Map()), String(v)).toThrow(/element 1/);
+    expect(() => plasticLimit2D(m, new Map(), new Map())).toThrow(/element 1: frame has no finite plastic moment/);
+    expect(() => plasticLimit2D(m, new Map([[1, MP]]), new Map([[1, 0]]))).toThrow(/element 1: plastic capacity 0 must be positive/);
+  });
+});

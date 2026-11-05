@@ -1226,11 +1226,18 @@ export interface PlasticLimitResult {
 
 /**
  * Collapse load factor by limit analysis (engine `plastic_limit_2d`): the largest λ with a field in
- * equilibrium and |M| ≤ Mp, |N| ≤ Np at every section. `mp`/`np` per element id; Infinity never yields.
+ * equilibrium and |M| ≤ Mp, |N| ≤ Np at every section. `mp`/`np` per element id; every frame needs a
+ * finite Mp, Infinity or an omitted Np never yields axially, and a zero, negative or NaN capacity is refused.
  */
 export function plasticLimit2D(solver: SolverInput, mp: Map<number, number>, np: Map<number, number>): PlasticLimitResult {
   if (!wasmReady || !wasmPlasticLimit2d) throw new Error('WASM solver not available.');
-  const finite = (m: Map<number, number>) => Object.fromEntries([...m].filter(([, v]) => Number.isFinite(v) && v > 0).map(([k, v]) => [String(k), v]));
+  const frame = [...solver.elements.values()].find((e) => e.type === 'frame' && !Number.isFinite(mp.get(e.id)));
+  if (frame) throw new Error(`element ${frame.id}: frame has no finite plastic moment`);
+  const finite = (m: Map<number, number>) => {
+    const bad = [...m].find(([, v]) => !(v > 0));
+    if (bad) throw new Error(`element ${bad[0]}: plastic capacity ${bad[1]} must be positive`);
+    return Object.fromEntries([...m].filter(([, v]) => v !== Infinity).map(([k, v]) => [String(k), v]));
+  };
   return JSON.parse(wasmPlasticLimit2d(JSON.stringify({ solver: input2DToWireObject(solver), mp: finite(mp), np: finite(np) })));
 }
 

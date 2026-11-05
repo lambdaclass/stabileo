@@ -385,6 +385,18 @@ pub fn limit_analysis_2d(input: &SolverInput, mp: &HashMap<usize, f64>, np: &Has
     if input.elements.len() > MAX_LIMIT_ELEMENTS {
         return Err(format!("more than {MAX_LIMIT_ELEMENTS} members: too large for the limit analysis"));
     }
+    for (what, map) in [("plastic moment", mp), ("axial yield force", np)] {
+        let mut bad: Vec<(usize, f64)> = map.iter().filter(|(_, v)| !(**v > 0.0)).map(|(k, v)| (*k, *v)).collect();
+        bad.sort_by_key(|b| b.0);
+        if let Some((id, v)) = bad.first() {
+            return Err(format!("element {id}: {what} {v} must be positive"));
+        }
+    }
+    let mut frames: Vec<usize> = crate::ordered::values(&input.elements).filter(|e| e.elem_type == "frame").map(|e| e.id).collect();
+    frames.sort();
+    if let Some(id) = frames.iter().find(|id| !mp.get(id).is_some_and(|m| m.is_finite())) {
+        return Err(format!("element {id}: frame has no finite plastic moment"));
+    }
     let mech = mechanical(input);
     if !super::kinematic::analyze_kinematics_2d(&mech).is_solvable {
         return Err(super::plastic::INITIAL_MECHANISM.into());
@@ -645,5 +657,9 @@ pub fn limit_analysis_2d_input(input: &LimitInput) -> Result<LimitResult, String
         m.iter().map(|(k, v)| k.parse::<usize>().map(|k| (k, *v)).map_err(|_| format!("element id '{k}' is not a number"))).collect()
     };
     super::linear::validate_input_2d(&input.solver)?;
-    limit_analysis_2d(&input.solver, &parse(&input.mp)?, &parse(&input.np)?)
+    let (mp, np) = (parse(&input.mp)?, parse(&input.np)?);
+    if let Some((id, v)) = mp.iter().chain(&np).find(|(_, v)| !v.is_finite()) {
+        return Err(format!("element {id}: capacity {v} must be finite; leave out a member that never yields"));
+    }
+    limit_analysis_2d(&input.solver, &mp, &np)
 }

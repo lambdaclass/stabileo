@@ -48,7 +48,7 @@ describe('plastic collapse under loads along members', () => {
       const m = model(6, [1, 2], type, [[1, 'pinned'], [2, 'rollerX']], [
         { type: 'pointOnElement', data: { elementId: 1, a: 3, p: 0, px: 20 } },
       ]);
-      const r = plasticCollapse2D(m, { mp: () => Infinity, np: (id) => (id === 1 ? 10 : 100) });
+      const r = plasticCollapse2D(m, { mp: () => 1e6, np: (id) => (id === 1 ? 10 : 100) });
       expect(r.hinges.map((h) => [h.elementId, h.kind])).toEqual([[1, 'axial'], [2, 'axial']]);
       expect(r.hinges[0].loadFactor).toBeCloseTo(2 / 3, 6);
       expect(r.collapseFactor).toBeCloseTo(1, 9);

@@ -625,6 +625,11 @@ pub(crate) fn solve_plastic_2d_body(input: &PlasticInput) -> Result<PlasticResul
     let max_hinges = input.max_hinges.unwrap_or(20);
 
     let mp_map = section_plastic_moments(input);
+    let mut frames: Vec<&SolverElement> = crate::ordered::values(&solver_input.elements).filter(|e| e.elem_type == "frame").collect();
+    frames.sort_by_key(|e| e.id);
+    if let Some(e) = frames.iter().find(|e| !mp_map.contains_key(&e.section_id)) {
+        return Err(format!("element {}: section {} has no plastic section data", e.id, e.section_id));
+    }
 
     let mut current_input = solver_input.clone();
     let node_xy: HashMap<usize, (f64, f64)> = crate::ordered::values(&current_input.nodes).map(|n| (n.id, (n.x, n.z))).collect();

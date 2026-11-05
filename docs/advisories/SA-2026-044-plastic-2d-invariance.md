@@ -27,7 +27,7 @@ stops at a different factor. A factor that is too high is unconservative.
 | Offset beam with a rigid link | relabel | 46.667 / 118.46 | 46.667 |
 | fuzz_rich_2d/20832 | member reversal, relabel, units | 85.73 / 127.22 / 151.38 / 128.07 | limit analysis 123.2927 for all; not confirmed, at the lower 85.73, where the history stops short |
 | fuzz_rich_2d/20843 with an equalDOF tie | relabel | 80.166 / 57.30 (app: 40.93) | limit analysis 80.1244 for all; not confirmed, at the lower history factor, where the history stops short |
-| fuzz_rich_2d/20772 | units | 0.729 / 3.376 | the same result under every transform checked |
+| fuzz_rich_2d/20772 | units | 0.729 / 3.376 | the same limit analysis factor under relabel and member reversal; under units it settles in some unit systems and is refused in others, an exception the tests allow until [#1524](https://github.com/lambdaclass/stabileo/issues/1524) |
 
 ## How to tell if your results are affected
 
@@ -41,9 +41,11 @@ The limit analysis below is fixed in the next release, but 2D plastic collapse s
 
 The collapse factor is now computed by limit analysis: the static theorem as a linear program
 over the elastic load field plus the frame's self-stress fields (from unit thermal dislocations
-in every member), with the moment checked at the exact cubic peaks of each load piece. It is
-independent of numbering, member direction and units by construction, and checked against the
-kinematic (mechanism) value in the tests. The hinge history is still shown, with a warning when
+in every member), with the moment checked at the exact cubic peaks of each load piece. The tests
+check that it gives the same factor, to 1e-9, under renumbering, member reversal and units, with
+one exception: on fuzz_rich_2d/20772 it settles in some unit systems and is refused in others
+([#1524](https://github.com/lambdaclass/stabileo/issues/1524), which must be resolved before the
+refusal is lifted). It is also checked against the kinematic (mechanism) value. The hinge history is still shown, with a warning when
 it ends away from the collapse load. A model that is a mechanism before any hinge forms is
 refused. The limit analysis runs on models of up to 200 members; above that, or when it cannot
 settle, the step-by-step factor is reported as not confirmed (`is_mechanism` false, with a

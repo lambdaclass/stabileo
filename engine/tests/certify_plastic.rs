@@ -666,3 +666,43 @@ fn issue_758_when_the_limit_analysis_fails_the_certified_lower_bound_is_reported
     assert!(!r.is_mechanism, "{:?}", r.warnings);
     assert_eq!(r.collapse_factor, lower, "the history stops 1e-5 short of the certified bounds, so the certified lower bound is reported");
 }
+
+fn two_member_cantilever() -> SolverInput {
+    make_input(
+        vec![(1, 0.0, 0.0), (2, 1.0, 0.0), (3, 2.0, 0.0)],
+        vec![(1, E, 0.3)],
+        vec![(1, A_SEC, IZ_SEC)],
+        vec![(1, "frame", 1, 2, 1, 1, false, false), (2, "frame", 2, 3, 1, 1, false, false)],
+        vec![(1, 1, "fixed")],
+        vec![nodal(3, 0.0, -1.0)],
+    )
+}
+
+#[test]
+fn issue_758_limit_analysis_refuses_a_capacity_that_is_not_positive_and_finite() {
+    use dedaliano_engine::solver::plastic_limit::{limit_analysis_2d, limit_analysis_2d_input, LimitInput};
+    let solver = two_member_cantilever();
+    let with = |m1: f64| LimitInput { solver: solver.clone(), mp: HashMap::from([("1".to_string(), m1), ("2".to_string(), 1.0)]), np: HashMap::new() };
+    let lambda = limit_analysis_2d_input(&with(1.0)).unwrap().lambda;
+    assert!((lambda - 0.5).abs() <= 1e-9, "Mp / (P L) = 0.5, got {lambda}");
+    for m1 in [0.0, -1.0, f64::NAN] {
+        let r = limit_analysis_2d_input(&with(m1));
+        assert!(r.as_ref().is_err_and(|e| e.contains("element 1")), "Mp = {m1}: {r:?}");
+        let r = limit_analysis_2d(&solver, &HashMap::from([(1, m1), (2, 1.0)]), &HashMap::new());
+        assert!(r.as_ref().is_err_and(|e| e.contains("element 1: plastic moment") && e.contains("must be positive")), "Mp = {m1}: {r:?}");
+    }
+    let r = limit_analysis_2d_input(&with(f64::INFINITY));
+    assert!(r.as_ref().is_err_and(|e| e.contains("must be finite")), "{r:?}");
+    let omitted = LimitInput { mp: HashMap::from([("2".to_string(), 1.0)]), ..with(1.0) };
+    assert!(limit_analysis_2d_input(&omitted).is_err_and(|e| e.contains("element 1: frame has no finite plastic moment")));
+    let np = LimitInput { np: HashMap::from([("2".to_string(), 0.0)]), ..with(1.0) };
+    assert!(limit_analysis_2d_input(&np).is_err_and(|e| e.contains("axial yield force")));
+}
+
+#[test]
+fn issue_758_a_frame_without_plastic_section_data_is_refused() {
+    let mut input = plastic(two_member_cantilever());
+    input.sections.clear();
+    let r = solve_plastic_2d_unrefused(&input);
+    assert!(r.as_ref().is_err_and(|e| e.contains("no plastic section data")), "{:?}", r.map(|r| r.collapse_factor));
+}
