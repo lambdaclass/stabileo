@@ -83,10 +83,14 @@ def exports(sources):
                 a, b = block(code, item.start(2))
                 impls.append((a, b))
                 body = code[a + 1:b - 1]
-                for method in re.finditer(r'\bpub\s+(?:async\s+)?fn\s+(\w+)', body):
+                methods = {}
+                for method in re.finditer(r'((?:#\[[^\]]*\]\s*)*)\bpub\s+(?:async\s+)?fn\s+(\w+)', body):
                     if depth_at(body, method.start()) == 0:
-                        start = a + 1 + method.start()
-                        found[f'{item.group(2)}::{method.group(1)}'] = (path, code[a:b], code)
+                        start = a + 1 + method.start(2)
+                        methods[method.group(2)] = (code[slice(*block(code, start))], 'constructor' in method.group(1))
+                constructors = ''.join(text for text, constructor in methods.values() if constructor)
+                for method, (text, constructor) in methods.items():
+                    found[f'{item.group(2)}::{method}'] = (path, text if constructor else text + constructors, code)
             else:
                 found[item.group(1)] = (path, code[slice(*block(code, item.start(1)))], code)
     return found

@@ -265,7 +265,18 @@ class Identity(unittest.TestCase):
         reg['entry_points']['solve_beam_2d']['calls'] = 'plate::solve_beam_2d_typed'
         self.assertIn('solve_beam_2d: its wrapper in engine/src/lib.rs does not call plate::solve_beam_2d_typed', run(reg))
 
-    def test_a_method_export_is_checked_against_its_whole_exported_impl(self):
+    def test_a_method_is_checked_against_its_own_body_and_the_constructor_only(self):
+        reg = registry()
+        reg['entry_points']['Session::solve']['calls'] = ['Session::from_input', 'solve_loads']
+        lib = LIB.replace('    fn private(&self) {}', '    pub fn reset(&self) -> u8 { self.rebuild_all() }\n    fn private(&self) {}')
+        reg['entry_points']['Session::reset'] = {'scope': 'session'}
+        self.assertEqual(run(reg, lib=lib), [])
+        reg['entry_points']['Session::solve']['calls'] = ['Session::from_input', 'rebuild_all']
+        self.assertEqual(run(reg, lib=lib), ['Session::solve: its wrapper in engine/src/lib.rs does not call rebuild_all'])
+        reg['entry_points']['Session::new'] = {'scope': 'solve', 'calls': 'solve_loads', 'invariances': {key: dict(TRACKED) for key in gate.INVARIANCES}}
+        self.assertIn('Session::new: its wrapper in engine/src/lib.rs does not call solve_loads', run(reg, lib=lib))
+
+    def test_a_method_export_is_checked_with_its_constructor(self):
         reg = registry()
         reg['entry_points']['Session::solve']['calls'] = ['Session::from_input', 'solve_loads']
         self.assertEqual(run(reg), [])

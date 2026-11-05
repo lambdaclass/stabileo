@@ -163,7 +163,9 @@ uses), and gives each
 invariance (units, relabel, reversal, rotation, mirror, planes: a 2D model in each
 of the three planes and embedded in 3D, prepared: agreement with the regular
 linear solve) one status: a metamorphic analysis whose row calls those same
-functions and shows ✓ below, a `#[test]` under `engine/tests` that calls them, an
+functions and shows ✓ below, a `#[test]` under `engine/tests` that calls them and
+asserts something (the gate checks that much; that the assertion is the invariance
+is for review), an
 exemption with a reason, or a tracking issue
 ([#1497](https://github.com/lambdaclass/stabileo/issues/1497)). Every other export
 names a described scope (design, section, postprocess, session, utility).
