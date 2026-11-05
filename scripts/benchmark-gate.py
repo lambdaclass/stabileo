@@ -101,6 +101,8 @@ def resolve(text, expression):
         return None
     if re.search(rf'(?<![\w.])(?<!let )(?<!mut ){expression}\s*[-+*/]?=(?!=)', text):
         return None
+    if re.search(rf'\bfn\s+\w+\s*(?:<[^>]*>)?\s*\([^)]*\b{expression}\s*:', text):
+        return None
     values = [number(m) for m in re.findall(
         rf'\b(?:const|let)\s+(?:mut\s+)?{expression}\s*(?::\s*f64\s*)?=\s*([^;]+);', text)]
     return values if values and None not in values else None
@@ -237,6 +239,9 @@ def check_quantity(where, q, read, errors):
     if not isinstance(q.get('independent_of_derivation'), bool):
         errors.append(f'{where}: independent_of_derivation must be true or false')
     check_exemption(where, q, errors)
+    cited = [(str(r.get('source')).strip(), str(r.get('location')).strip()) for r in q.get('references') or []]
+    if len(cited) != len(set(cited)):
+        errors.append(f'{where}: the same reference is listed twice')
     for i, r in enumerate(q.get('references') or []):
         for field in ('source', 'location', 'unit'):
             if not str(r.get(field) or '').strip():

@@ -139,7 +139,7 @@ independent engineer sign-off. None of those is claimed complete by this slice.
 `scripts/benchmark-gate.py` (run by `make lint.engine`, tested by
 `make test.ci-scripts`) fails when:
 
-- a file in the registry's `scope` (the research benchmark cases, the protocol
+- a file in the registry's `scope` (the research benchmark cases and their Rust tests, the protocol
   specs above, `engine/tests/validation/benchmarks/*.rs`,
   `engine/tests/validation/three_d/*_benchmarks.rs`,
   `engine/tests/research_benchmarks.rs`) has no spec and no reasoned exclusion;

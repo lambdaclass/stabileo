@@ -29,12 +29,12 @@ fn t() {
 '''
 
 
-def reference(value=1.0):
-    return dict(source='Textbook', location='Table 1, p. 2', value=value, unit='m')
+def reference(value=1.0, source='Textbook'):
+    return dict(source=source, location='Table 1, p. 2', value=value, unit='m')
 
 
 def quantity(**changes):
-    q = dict(quantity='tip deflection', unit='m', references=[reference(), reference(1.0001)],
+    q = dict(quantity='tip deflection', unit='m', references=[reference(), reference(1.0001, 'Paper')],
              tolerance=dict(relative=0.02, justification='discretisation error at 16 elements'),
              test_tolerances=[dict(file='case.json', pointer='/tolerance')],
              independent_of_derivation=True, independence_note='closed form')
@@ -118,6 +118,10 @@ class Spec(unittest.TestCase):
         self.assertEqual(errors, [f'case / tip deflection: reference 2 missing {f}' for f in ('source', 'location', 'unit')]
                          + ['case / tip deflection: reference 2 needs a finite value'])
 
+    def test_a_duplicated_reference_does_not_count_twice(self):
+        errors = self.errors(registry(quantity(references=[reference(), reference(1.0001)])))
+        self.assertEqual(errors, ['case / tip deflection: the same reference is listed twice'])
+
     def test_a_tolerance_without_justification_fails(self):
         errors = self.errors(registry(quantity(tolerance=dict(relative=0.02, justification=' '))))
         self.assertEqual(errors, ['case / tip deflection: tolerance has no justification'])
@@ -184,6 +188,11 @@ class TestTolerance(unittest.TestCase):
 
     def test_a_reassigned_tolerance_binding_is_unresolved(self):
         files = dict(FILES, **{'x.rs': 'fn a() { let mut tol = 0.01; tol = 0.5; assert_close(x, y, tol, ""); }'})
+        [error] = self.errors(dict(file='x.rs', calls=['assert_close'], argument=3), 0.02, files)
+        self.assertIn('assert_close(…tol…)', error)
+
+    def test_a_parameter_named_like_a_binding_is_unresolved(self):
+        files = dict(FILES, **{'x.rs': 'fn a() { let tol = 0.01; }\nfn h(x: f64, tol: f64) { assert_close(x, 1.0, tol, ""); }'})
         [error] = self.errors(dict(file='x.rs', calls=['assert_close'], argument=3), 0.02, files)
         self.assertIn('assert_close(…tol…)', error)
 

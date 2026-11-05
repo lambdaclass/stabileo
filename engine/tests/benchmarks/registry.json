@@ -1,6 +1,7 @@
 {
   "scope": [
     "engine/tests/benchmarks/*.json",
+    "engine/tests/benchmarks/*.rs",
     "engine/tests/benchmarks/spec/*.json",
     "engine/tests/validation/benchmarks/*.rs",
     "engine/tests/validation/three_d/*_benchmarks.rs",
