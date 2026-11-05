@@ -109,3 +109,19 @@ describe('containment audit', () => {
     containmentFindings.clear();
   });
 });
+
+describe('the examples-only equivalence proof', () => {
+  it('NEGATIVE: holds for an example the engine still solves as recorded, and fails once the engine output for it shifts', async () => {
+    const { sameAsBefore } = await import('../equivalence');
+    const c = CORPUS.find((x) => x.name === '3d-torsion-beam')!;
+    const fixture = JSON.parse(readFileSync(new URL('../../templates/fixtures/3d-torsion-beam.json', import.meta.url), 'utf8'));
+    const recorded = parseSnapshot(readFileSync(snapshotFile(c.name), 'utf8'));
+    expect((await sameAsBefore(c, fixture, recorded)).same).toBe(true);
+    const rx = recorded.values['base.displacements[n2].rx'] as number;
+    expect(rx).toBeCloseTo(0.0115, 4);
+    const shifted = { ...recorded, values: { ...recorded.values, 'base.displacements[n2].rx': rx * 1.01 } };
+    const r = await sameAsBefore(c, fixture, shifted);
+    expect(r.same).toBe(false);
+    expect(r.report).toContain('base.displacements[n2].rx');
+  }, 120_000);
+});

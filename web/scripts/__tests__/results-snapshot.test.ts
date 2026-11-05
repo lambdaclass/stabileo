@@ -6,7 +6,7 @@ import { describe, it, expect } from 'vitest';
 // @ts-expect-error plain JavaScript shared with the CI gate (no declaration file)
 import { compareValues, mergeValues, flatten, storeNumber, serialiseSnapshot, parseSnapshot, RTOL, ATOL } from '../results-snapshot/compare.mjs';
 // @ts-expect-error plain JavaScript shared with the CI gate (no declaration file)
-import { decide, isBreakingResultsFragment, newRegistryEntries, newlyRecorded, corpusExamples } from '../results-snapshot/gate.mjs';
+import { decide, isBreakingResultsFragment, newRegistryEntries, newlyRecorded, corpusExamples, modelInputs } from '../results-snapshot/gate.mjs';
 
 describe('the tolerance', () => {
   const ref = { 'r.m[e1].my': 100, 'r.m[e2].my': -40, 'r.m[e3].my': 0, 'r.d[n1].ux': 0.0123 };
@@ -191,6 +191,19 @@ describe('the gate', () => {
       expect(r.report).toContain('cannot explain web/results-snapshots/d.json');
       const withEngineEntry = { ...examplesOnly, currentResultsVersion: 5, changes: [{ id: 'engine', resultsVersion: 5 }, ...examplesOnly.changes] };
       expect(run(other, ['torsion'], withEngineEntry).ok).toBe(true);
+    });
+    it('asks the CLI to prove each explained snapshot equivalent, and only when no entry with when explains it', () => {
+      expect(run(moved, ['torsion']).equivalence).toEqual([{ file: 'web/results-snapshots/c.json', example: 'torsion' }]);
+      const withEngineEntry = { ...examplesOnly, changes: [{ id: 'engine', resultsVersion: 5 }, ...examplesOnly.changes] };
+      expect(run(moved, ['torsion'], withEngineEntry).equivalence).toEqual([]);
+    });
+    it('NEGATIVE: a fixture edited only in whitespace, key order or names has the same model inputs, so it is not a changed example', () => {
+      const fixture = { name: 'Torsion Beam', sections: [{ id: 1, name: 'IPN 300', j: 1e-7 }], loads: [{ type: 'nodal3d', data: { mx: 8 } }] };
+      const text = JSON.stringify(fixture, null, 2);
+      expect(modelInputs(JSON.stringify(fixture))).toBe(modelInputs(text));
+      expect(modelInputs(text)).toBe(modelInputs(JSON.stringify({ loads: fixture.loads, sections: [{ j: 1e-7, id: 1, name: 'SHS' }], name: 'Renamed' })));
+      expect(modelInputs(text)).not.toBe(modelInputs(JSON.stringify({ ...fixture, loads: [{ type: 'nodal3d', data: { mx: 0.8 } }] })));
+      expect(run(moved, []).ok).toBe(false);
     });
   });
   it('maps each corpus case opened from an example to its snapshot', () => {
