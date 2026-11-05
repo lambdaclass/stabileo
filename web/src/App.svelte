@@ -2451,8 +2451,6 @@
 {/if}
 
 {#if !uiStore.embedMode}
-  <!-- FeedbackWidget disabled — will be reimplemented professionally -->
-  <!-- <FeedbackWidget /> -->
 {/if}
 
 <!--

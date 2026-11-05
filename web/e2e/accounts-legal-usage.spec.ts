@@ -81,7 +81,7 @@ async function boot(
     route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(data) });
 
   await page.route('**/api/v1/auth/config', (r) =>
-    json(r, 200, { user_login_enabled: true, terms_version: TERMS_VERSION, usage_telemetry_enabled: true, cloud_projects_enabled: true, save_requires_account: opts.saveRequiresAccount === true, google_login: true, password_login: false }),
+    json(r, 200, { user_login_enabled: true, terms_version: TERMS_VERSION, usage_telemetry_enabled: true, cloud_projects_enabled: true, save_requires_account: opts.saveRequiresAccount === true, google_login: true }),
   );
   await page.context().route(/\/api\/v1\/auth\/google(\?|$)/, async (r) => {
     backend.googleOpened += 1;
@@ -154,7 +154,6 @@ const BEAM = {
 
 /** Google's window opens, comes back with a code for someone new, and the dialog asks for the terms. */
 async function continueWithGoogle(page: Page) {
-  await expect(page.getByTestId('auth-password')).toHaveCount(0);
   await page.getByTestId('auth-google').click();
   await expect(page.getByTestId('auth-google-email')).toContainText('ada@gmail.test');
 }
@@ -169,7 +168,6 @@ test.describe('accounts, legal and anonymous usage', () => {
   test('sign-up is with Google only, waits for the terms and sends them with the optional usage choice', async ({ page }) => {
     const backend = await boot(page);
     await page.getByTestId('account-button').click();
-    await expect(page.getByTestId('auth-mode-register')).toHaveCount(0);
     await continueWithGoogle(page);
     await expect(page.getByTestId('auth-submit')).toBeDisabled();
 

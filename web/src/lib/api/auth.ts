@@ -30,20 +30,6 @@ export interface Session {
   account: Account;
 }
 
-export interface RegisterInput {
-  email: string;
-  password: string;
-  name: string;
-  locale?: string;
-  accept_terms: boolean;
-  usage_analytics?: boolean;
-}
-
-export interface LoginInput {
-  email: string;
-  password: string;
-}
-
 export interface AuthConfig {
   user_login_enabled: boolean;
   terms_version?: string;
@@ -51,7 +37,6 @@ export interface AuthConfig {
   cloud_projects_enabled?: boolean;
   save_requires_account?: boolean;
   google_login?: boolean;
-  password_login?: boolean;
 }
 
 export interface GoogleSignup {
@@ -81,14 +66,6 @@ const BASE = '/api/v1/auth';
 export const authApi = {
   config(): Promise<AuthConfig> {
     return request<AuthConfig>('GET', `${BASE}/config`);
-  },
-
-  register(input: RegisterInput): Promise<Session> {
-    return request<Session>('POST', `${BASE}/register`, { body: input });
-  },
-
-  login(input: LoginInput): Promise<Session> {
-    return request<Session>('POST', `${BASE}/login`, { body: input });
   },
 
   googleStartUrl(): string {
@@ -121,12 +98,5 @@ export const authApi = {
 
   async recordConsent(kind: ConsentKind, granted: boolean): Promise<Account> {
     return (await request<{ data: Account }>('POST', `${BASE}/consents`, { body: { kind, granted }, auth: true })).data;
-  },
-
-  async changePassword(currentPassword: string, password: string): Promise<void> {
-    await request<unknown>('PUT', `${BASE}/password`, {
-      body: { current_password: currentPassword, password },
-      auth: true,
-    });
   },
 };

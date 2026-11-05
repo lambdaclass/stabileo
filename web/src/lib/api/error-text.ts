@@ -2,9 +2,7 @@ import { ApiError } from './client';
 import { t, tp } from '../i18n';
 
 const KNOWN_CODES = new Set([
-  'invalid_credentials',
   'account_disabled',
-  'invalid_current_password',
   'refresh_failed',
   'network_error',
   'validation_error',

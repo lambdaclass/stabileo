@@ -1,5 +1,10 @@
 import { API_URL, request } from './client';
-import type { Account, Consents, LoginInput, Session } from './auth';
+import type { Account, Consents, Session } from './auth';
+
+export interface LoginInput {
+  email: string;
+  password: string;
+}
 
 export interface AdminAccount extends Account {
   is_active: boolean;

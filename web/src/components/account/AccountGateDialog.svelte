@@ -10,4 +10,4 @@
   );
 </script>
 
-<AuthDialog bind:open={accountGate.open} startIn="register" {reason} />
+<AuthDialog bind:open={accountGate.open} {reason} />

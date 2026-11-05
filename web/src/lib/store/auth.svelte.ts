@@ -1,5 +1,5 @@
 import { ApiError, setAuthHooks, type RefreshOutcome } from '../api/client';
-import { authApi, type Account, type AuthConfig, type ConsentKind, type GoogleRegisterInput, type ProfileUpdate, type RegisterInput, type LoginInput, type Session } from '../api/auth';
+import { authApi, type Account, type AuthConfig, type ConsentKind, type GoogleRegisterInput, type ProfileUpdate, type Session } from '../api/auth';
 import { openGooglePopup, type PendingPopup } from '../auth/google-popup';
 import { accounts } from '../features';
 import { usageConsent } from '../telemetry/consent.svelte';
@@ -107,7 +107,7 @@ async function authenticated<T>(call: () => Promise<T>): Promise<T> {
   try {
     return await call();
   } catch (e) {
-    if (e instanceof ApiError && e.status === 401 && e.code !== 'invalid_current_password') clearSession(ownRefreshToken);
+    if (e instanceof ApiError && e.status === 401) clearSession(ownRefreshToken);
     throw e;
   }
 }
@@ -137,7 +137,6 @@ export const authStore = {
   get usageTelemetryEnabled() { return serverConfig?.usage_telemetry_enabled === true; },
   get termsVersion() { return serverConfig?.terms_version ?? null; },
   get googleLogin() { return serverConfig?.google_login === true; },
-  get passwordLogin() { return serverConfig?.password_login === true; },
   get needsTerms() { return account !== null && account.consents?.terms_current === false; },
 
   async init(): Promise<void> {
@@ -146,14 +145,6 @@ export const authStore = {
     if (restore) status = 'loading';
     const [, outcome] = await Promise.all([loadConfig(), restore ? refreshSession() : Promise.resolve('ok')]);
     if (outcome !== 'ok' && status === 'loading') status = account ? 'authenticated' : 'anonymous';
-  },
-
-  register(input: RegisterInput): Promise<Account> {
-    return startSession(() => authApi.register(input));
-  },
-
-  login(input: LoginInput): Promise<Account> {
-    return startSession(() => authApi.login(input));
   },
 
   /**
@@ -203,10 +194,6 @@ export const authStore = {
     const next = await authenticated(() => authApi.recordConsent(kind, granted));
     account = next;
     return next;
-  },
-
-  changePassword(currentPassword: string, password: string): Promise<void> {
-    return authenticated(() => authApi.changePassword(currentPassword, password));
   },
 };
 
