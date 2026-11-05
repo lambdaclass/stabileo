@@ -248,6 +248,19 @@ describe('which registered changes concern a model', () => {
     expect(ids(model({ loads }), previous)).toEqual([]);
   });
 
+  it('tells every model that can rotate past 0.1 rad about the small-displacement warning (#1446), and not one with supports and loads only', () => {
+    const change = 'linear-small-displacement-warning';
+    const v35 = { resultsVersion: 35, analyses: ['linear'] } as SolveStamp;
+    const loads = [{ type: 'nodal3d', data: { caseId: 1, nodeId: 1, my: 5 } }];
+    expect(ids(model({ loads, elements: [member(1, 1, 'frame')] }), v35)).toContain(change);
+    expect(ids(model({ loads, elements: [member(1, 1, 'truss')] }), v35)).toContain(change);
+    const spring = model({ loads, supports: [[1, { nodeId: 1, type: 'spring3d', kry: 1e-6 }]] as never });
+    expect(modelFeatures(spring).has('springs')).toBe(true);
+    expect(ids(spring, v35)).toContain(change);
+    expect(ids(model({ loads, elements: [member(1, 1, 'frame')] }), { resultsVersion: 36, analyses: ['linear'] } as SolveStamp)).not.toContain(change);
+    expect(ids(model({ loads }), v35)).not.toContain(change);
+  });
+
   it('tells plane frames with combinations and member loads about the true-peak governing value and envelope', () => {
     const change = 'governing-envelope-true-peak';
     const combos = { combinations: [{ id: 1, name: '1.2D', factors: [{ caseId: 1, factor: 1.2 }] }] } as Partial<FeatureSnapshot>;

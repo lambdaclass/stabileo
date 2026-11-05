@@ -236,7 +236,10 @@ pub fn combine_results_refs(factors: &[CombinationFactor], cases: &[(usize, &Ana
     for (_, result) in cases.iter().filter(|(id, _)| factors.iter().any(|f| f.case_id == *id && f.factor != 0.0)) {
         crate::known_issues::attach(&mut structured_diagnostics, crate::result_sites::known_issues(result));
     }
-    Some(AnalysisResults { displacements, reactions, element_forces, constraint_forces: vec![], diagnostics: vec![], solver_diagnostics: vec![], structured_diagnostics, equilibrium: None, result_summary: None, solver_run_meta: None })
+    let mut combined = AnalysisResults { displacements, reactions, element_forces, constraint_forces: vec![], diagnostics: vec![], solver_diagnostics: vec![], structured_diagnostics, equilibrium: None, result_summary: None, solver_run_meta: None };
+    let beyond = crate::known_issues::small_displacement_2d(None, &combined);
+    crate::known_issues::attach(&mut combined.structured_diagnostics, beyond.into_iter().collect());
+    Some(combined)
 }
 
 /// `combine_results` for results received from outside the engine: a contributing case that
@@ -485,7 +488,10 @@ pub(crate) fn combine_results_3d_refs_unchecked(factors: &[CombinationFactor], c
     for (_, result) in cases.iter().filter(|(id, _)| factors.iter().any(|f| f.case_id == *id && f.factor != 0.0)) {
         crate::known_issues::attach(&mut structured_diagnostics, crate::result_sites::known_issues(result));
     }
-    Some(AnalysisResults3D { displacements, reactions, element_forces, plate_stresses: vec![], quad_stresses: vec![], quad_nodal_stresses: vec![], constraint_forces: vec![], diagnostics: vec![], solver_diagnostics: vec![], structured_diagnostics, equilibrium: None, timings: None, result_summary: None, solver_run_meta: None })
+    let mut combined = AnalysisResults3D { displacements, reactions, element_forces, plate_stresses: vec![], quad_stresses: vec![], quad_nodal_stresses: vec![], constraint_forces: vec![], diagnostics: vec![], solver_diagnostics: vec![], structured_diagnostics, equilibrium: None, timings: None, result_summary: None, solver_run_meta: None };
+    let beyond = crate::known_issues::small_displacement_3d(None, &combined);
+    crate::known_issues::attach(&mut combined.structured_diagnostics, beyond.into_iter().collect());
+    Some(combined)
 }
 
 // ==================== 3D Envelope ====================

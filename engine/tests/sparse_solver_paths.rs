@@ -589,7 +589,8 @@ fn check_2d(
     let sd = solver_diagnostics_with_self_checks(&r.structured_diagnostics);
     let pre_got: Vec<C> = sd.iter().filter(|d| d.phase.as_deref() == Some("pre_solve")).map(|d| d.code).collect();
     assert_eq!(pre_got, pre, "{label}: pre-solve diagnostics");
-    let tail: Vec<&StructuredDiagnostic> = sd.iter().copied().filter(|d| d.phase.as_deref() != Some("pre_solve")).collect();
+    assert_small_displacement(label, &r.structured_diagnostics, small_displacement_oracle_2d(r, &m.input()));
+    let tail: Vec<&StructuredDiagnostic> = sd.iter().copied().filter(|d| d.phase.as_deref() != Some("pre_solve") && d.phase.as_deref() != Some(SMALL)).collect();
     let excessive = ex.max_translation > 1000.0 * ex.char_length;
     let high = ex.ratio > 1e8;
     let mut want: Vec<C> = head.to_vec();
@@ -993,7 +994,8 @@ fn overflowing_loads_on_every_2d_path() {
     for (label, m, p) in all_2d_variants(|seg| scaled(seg, E_MPA, -3e304)) {
         let r = solve_path_2d(&m, p).unwrap_or_else(|e| panic!("{label}: {e}"));
         let nf = r.solver_run_meta.as_ref().unwrap().n_free_dofs;
-        let d = r.structured_diagnostics.iter().rev().find(|d| !d.phase.as_deref().unwrap_or("").starts_with("self_check:")).unwrap();
+        assert_small_displacement(&label, &r.structured_diagnostics, small_displacement_oracle_2d(&r, &m.input()));
+        let d = r.structured_diagnostics.iter().rev().find(|d| !d.phase.as_deref().unwrap_or("").starts_with("self_check:") && d.phase.as_deref() != Some(SMALL)).unwrap();
         assert_eq!((d.code, d.severity, d.phase.as_deref()), (C::ResidualHigh, Severity::Warning, Some("solve")), "{label}");
         assert!(d.value.unwrap().is_nan(), "{label}: {:?}", d.value);
         assert_eq!(d.threshold, Some(1e-6), "{label}");
@@ -1428,7 +1430,8 @@ fn check_3d(label: &str, r: &AnalysisResults3D, m: &M3, path: &str, want: &[C], 
     // a regularized solve keeps the residual refinement left (≤ 1e-6)
     let refined = want.contains(&C::DiagonalRegularization) && !want.contains(&C::SparseFallbackDenseLu);
     assert_equilibrium_3d(r, m, if refined { 1e-3 } else { 1e-9 }, label);
-    let tail: Vec<&StructuredDiagnostic> = solver_diagnostics_with_self_checks(&r.structured_diagnostics).into_iter().filter(|d| d.phase.as_deref() != Some("pre_solve")).collect();
+    assert_small_displacement(label, &r.structured_diagnostics, small_displacement_oracle_3d(r, &input));
+    let tail: Vec<&StructuredDiagnostic> = solver_diagnostics_with_self_checks(&r.structured_diagnostics).into_iter().filter(|d| d.phase.as_deref() != Some("pre_solve") && d.phase.as_deref() != Some(SMALL)).collect();
     assert_eq!(tail.iter().map(|d| d.code).collect::<Vec<_>>(), want, "{label}: {:#?}", tail);
     let dense = path == "dense_lu";
     let pcg_ok = path.starts_with("pcg_") && path != "pcg_fallback_sparse_cholesky";
@@ -2002,7 +2005,8 @@ fn want3(run: &Run3, cond: Option<C>, excessive: bool) -> Vec<C> {
 /// 1e-3 give a ratio in (1e8, 1e12] (HighDiagonalRatio), 1e-7 above 1e12
 /// (ExtremelyHighDiagonalRatio); max diag / ratio is the spring on every
 /// path. Its moment turns it by 1e6 rad (far above 1000× the characteristic
-/// length) while no translation is large: only translations are excessive.
+/// length) while no translation is large: only translations are excessive,
+/// and the rotation is past small displacements (known issue #1446).
 #[test]
 fn diagonal_ratio_and_rotation_only_node_on_every_3d_path() {
     for (kt, cond, pcg_path) in [(1e-3, C::HighDiagonalRatio, "pcg_ics"), (1e-7, C::ExtremelyHighDiagonalRatio, "pcg_ics")] {
@@ -2074,7 +2078,8 @@ fn overflowing_loads_on_every_3d_path() {
         let nf = r.solver_run_meta.as_ref().unwrap().n_free_dofs;
         let dense = run.kind == Kind3::Dense;
         assert_eq!(path_3d(&r), if dense { "dense_lu" } else { "sparse_fallback_dense_lu" }, "{label}");
-        let d = r.structured_diagnostics.iter().rev().find(|d| !d.phase.as_deref().unwrap_or("").starts_with("self_check:")).unwrap();
+        assert_small_displacement(label, &r.structured_diagnostics, small_displacement_oracle_3d(&r, &run.m.input()));
+        let d = r.structured_diagnostics.iter().rev().find(|d| !d.phase.as_deref().unwrap_or("").starts_with("self_check:") && d.phase.as_deref() != Some(SMALL)).unwrap();
         assert_eq!((d.code, d.severity, d.phase.as_deref()), (C::ResidualHigh, Severity::Warning, Some("solve")), "{label}");
         assert!(d.value.unwrap().is_nan(), "{label}");
         assert_eq!(d.threshold, Some(1e-6), "{label}");
@@ -2220,6 +2225,56 @@ fn assert_invariance_notice(ds: &[StructuredDiagnostic]) {
         let expected = dedaliano_engine::known_issues::diagnostic("NUM-INVARIANCE");
         assert_eq!(serde_json::to_value(notices[0]).unwrap(), serde_json::to_value(expected).unwrap());
     }
+}
+
+const SMALL: &str = "LIN-SMALL-DISPLACEMENT";
+
+fn beyond_small(v: f64) -> bool {
+    !(v.abs() <= 0.1)
+}
+
+fn small_displacement_oracle_2d(r: &AnalysisResults, i: &SolverInput) -> (Vec<usize>, Vec<usize>) {
+    let mut nodes: Vec<usize> = r.displacements.iter().filter(|d| beyond_small(d.ry)).map(|d| d.node_id).collect();
+    let at: std::collections::HashMap<usize, (f64, f64)> = i.nodes.values().map(|n| (n.id, (n.x, n.z))).collect();
+    let u = |id: usize| r.displacements.iter().find(|d| d.node_id == id).map_or((0.0, 0.0), |d| (d.ux, d.uz));
+    let mut elements: Vec<usize> = i
+        .elements
+        .values()
+        .filter(|e| {
+            let (a, b) = (at[&e.node_i], at[&e.node_j]);
+            let (ua, ub) = (u(e.node_i), u(e.node_j));
+            beyond_small((ub.0 - ua.0).hypot(ub.1 - ua.1) / (b.0 - a.0).hypot(b.1 - a.1))
+        })
+        .map(|e| e.id)
+        .collect();
+    nodes.sort_unstable();
+    elements.sort_unstable();
+    (nodes, elements)
+}
+
+fn small_displacement_oracle_3d(r: &AnalysisResults3D, i: &SolverInput3D) -> (Vec<usize>, Vec<usize>) {
+    let mut nodes: Vec<usize> = r.displacements.iter().filter(|d| [d.rx, d.ry, d.rz].into_iter().any(beyond_small)).map(|d| d.node_id).collect();
+    let at: std::collections::HashMap<usize, [f64; 3]> = i.nodes.values().map(|n| (n.id, [n.x, n.y, n.z])).collect();
+    let u = |id: usize| r.displacements.iter().find(|d| d.node_id == id).map_or([0.0; 3], |d| [d.ux, d.uy, d.uz]);
+    let norm = |v: [f64; 3]| (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt();
+    let mut elements: Vec<usize> = i
+        .elements
+        .values()
+        .filter(|e| {
+            let (a, b, ua, ub) = (at[&e.node_i], at[&e.node_j], u(e.node_i), u(e.node_j));
+            beyond_small(norm([ub[0] - ua[0], ub[1] - ua[1], ub[2] - ua[2]]) / norm([b[0] - a[0], b[1] - a[1], b[2] - a[2]]))
+        })
+        .map(|e| e.id)
+        .collect();
+    nodes.sort_unstable();
+    elements.sort_unstable();
+    (nodes, elements)
+}
+
+fn assert_small_displacement(label: &str, ds: &[StructuredDiagnostic], (nodes, elements): (Vec<usize>, Vec<usize>)) {
+    let got: Vec<_> = ds.iter().filter(|d| d.phase.as_deref() == Some(SMALL)).map(|d| (d.code, d.severity, d.node_ids.clone(), d.element_ids.clone())).collect();
+    let want: Vec<_> = if nodes.is_empty() && elements.is_empty() { vec![] } else { vec![(C::KnownIssue, Severity::Warning, nodes, elements)] };
+    assert_eq!(got, want, "{label}: small-displacement warning");
 }
 
 fn solver_diagnostics_with_self_checks(ds: &[StructuredDiagnostic]) -> Vec<&StructuredDiagnostic> {

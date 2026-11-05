@@ -1,8 +1,43 @@
 {
   "$comment": "Registry of result-affecting changes. Read by web/scripts/result-change-metadata.mjs for build metadata and decoded by web/src/lib/provenance/full-registry.ts; schema and rules in docs/verification/PROVENANCE.md. Add an entry whenever a change makes the same saved model give different numbers, at currentResultsVersion + 1, and bump currentResultsVersion: a version on main is deployed, and an entry added to it later is never shown to the projects it stamped (results-version.test.ts). Feature ids are defined in web/src/lib/provenance/model-features.ts.",
   "schema": 1,
-  "currentResultsVersion": 32,
+  "currentResultsVersion": 36,
   "changes": [
+    {
+      "id": "linear-small-displacement-warning",
+      "resultsVersion": 36,
+      "date": "2026-11-05",
+      "prs": [],
+      "area": "analysis",
+      "when": {
+        "any": [
+          "members",
+          "shells",
+          "connectors",
+          "springs"
+        ]
+      },
+      "title": {
+        "en": "Linear analysis warns when a rotation passes 0.1 rad",
+        "es": "El análisis lineal advierte cuando un giro supera 0,1 rad",
+        "pt": "A análise linear avisa quando uma rotação passa de 0,1 rad",
+        "de": "Die lineare Analyse warnt, wenn eine Verdrehung 0,1 rad überschreitet",
+        "fr": "L’analyse linéaire avertit lorsqu’une rotation dépasse 0,1 rad",
+        "tr": "Doğrusal analiz, bir dönme 0,1 rad'ı aştığında uyarıyor"
+      },
+      "explanation": {
+        "en": "Linear analysis assumes small displacements, yet it returned rotations of many radians without notice, for example 75 rad at a nearly free node (#1446). A static solve or a load combination now warns (LIN-SMALL-DISPLACEMENT) when a node rotation, or a frame member's relative end displacement over its length, exceeds 0.1 rad: past it the chord shortening 1 − cos θ is above 0.5 %, larger than elastic strains. Numerical values are unchanged. The 3D torsion beam example twists 0.45 rad and now shows the warning.",
+        "es": "El análisis lineal supone desplazamientos pequeños, pero devolvía giros de muchos radianes sin aviso, por ejemplo 75 rad en un nudo casi libre (#1446). Una resolución estática o una combinación de cargas ahora advierte (LIN-SMALL-DISPLACEMENT) cuando el giro de un nudo, o el desplazamiento relativo de los extremos de una barra respecto de su longitud, supera 0,1 rad: a partir de ahí el acortamiento de la cuerda 1 − cos θ pasa del 0,5 %, más que las deformaciones elásticas. Los valores numéricos no cambian. El ejemplo de viga a torsión 3D gira 0,45 rad y ahora muestra la advertencia.",
+        "pt": "A análise linear supõe deslocamentos pequenos, mas devolvia rotações de muitos radianos sem aviso, por exemplo 75 rad num nó quase livre (#1446). Uma resolução estática ou uma combinação de cargas agora avisa (LIN-SMALL-DISPLACEMENT) quando a rotação de um nó, ou o deslocamento relativo das extremidades de uma barra em relação ao seu comprimento, passa de 0,1 rad: a partir daí o encurtamento da corda 1 − cos θ passa de 0,5 %, mais que as deformações elásticas. Os valores numéricos não mudam. O exemplo de viga à torção 3D gira 0,45 rad e agora mostra o aviso.",
+        "de": "Die lineare Analyse setzt kleine Verschiebungen voraus, gab aber Verdrehungen von vielen Radiant ohne Hinweis aus, zum Beispiel 75 rad an einem fast freien Knoten (#1446). Eine statische Berechnung oder eine Lastkombination warnt jetzt (LIN-SMALL-DISPLACEMENT), wenn eine Knotenverdrehung oder die relative Endverschiebung eines Stabs bezogen auf seine Länge 0,1 rad überschreitet: darüber liegt die Sehnenverkürzung 1 − cos θ über 0,5 %, mehr als die elastischen Dehnungen. Die Zahlenwerte bleiben unverändert. Das Beispiel des 3D-Torsionsträgers verdreht sich um 0,45 rad und zeigt jetzt die Warnung.",
+        "fr": "L’analyse linéaire suppose de petits déplacements, mais elle renvoyait des rotations de plusieurs radians sans avertir, par exemple 75 rad en un nœud presque libre (#1446). Un calcul statique ou une combinaison de charges avertit désormais (LIN-SMALL-DISPLACEMENT) lorsqu’une rotation de nœud, ou le déplacement relatif des extrémités d’une barre rapporté à sa longueur, dépasse 0,1 rad : au-delà, le raccourcissement de la corde 1 − cos θ dépasse 0,5 %, plus que les déformations élastiques. Les valeurs numériques ne changent pas. L’exemple de poutre en torsion 3D tourne de 0,45 rad et affiche désormais l’avertissement.",
+        "tr": "Doğrusal analiz küçük yer değiştirmeler varsayar, ancak birçok radyanlık dönmeleri uyarı vermeden döndürüyordu; örneğin neredeyse serbest bir düğümde 75 rad (#1446). Statik bir çözüm veya bir yük kombinasyonu artık bir düğüm dönmesi ya da bir çubuğun uçlarının göreli yer değiştirmesinin boyuna oranı 0,1 rad'ı aştığında uyarıyor (LIN-SMALL-DISPLACEMENT): bunun ötesinde kiriş kısalması 1 − cos θ %0,5'in üzerindedir, elastik şekil değiştirmelerden büyüktür. Sayısal değerler değişmez. 3B burulma kirişi örneği 0,45 rad döner ve artık uyarıyı gösteriyor."
+      },
+      "changelog": {
+        "file": "changelog.d/1446-small-displacement-warning.md",
+        "heading": "Linear analysis warns when a rotation passes 0.1 rad (2026-11-05)"
+      }
+    },
     {
       "id": "harmonic-modal-residual-checked",
       "resultsVersion": 32,
