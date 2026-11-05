@@ -124,6 +124,7 @@ pub struct Expected {
     pub analysis: &'static str,
     pub invariant: &'static str,
     pub issue: u32,
+    pub refused: bool,
 }
 
 impl Expected {
@@ -133,22 +134,27 @@ impl Expected {
 }
 
 const fn xfail(seed: u64, case: &'static str, analysis: &'static str, invariant: &'static str, issue: u32) -> Expected {
-    Expected { seed, case, analysis, invariant, issue }
+    Expected { seed, case, analysis, invariant, issue, refused: false }
+}
+
+/// A failure the engine now withholds instead of returning: when the refusal is lifted it turns back into `xfail` or, fixed, is removed.
+const fn xrefused(seed: u64, case: &'static str, analysis: &'static str, invariant: &'static str, issue: u32) -> Expected {
+    Expected { seed, case, analysis, invariant, issue, refused: true }
 }
 
 /// Each entry must still fail: the fix of its issue removes it.
 pub const EXPECTED: &[Expected] = &[
-    xfail(20754, "fuzz_rich_2d/20843", "plastic collapse", "relabel", 758),
-    xfail(20754, "fuzz_rich_2d/20843", "plastic collapse", "reversal", 758),
-    xfail(20754, "fuzz_rich_2d/20843", "plastic collapse", "rotation", 758),
-    xfail(20754, "fuzz_rich_2d/20843", "plastic collapse", "units", 758),
+    xrefused(20754, "fuzz_rich_2d/20843", "plastic collapse", "relabel", 758),
+    xrefused(20754, "fuzz_rich_2d/20843", "plastic collapse", "reversal", 758),
+    xrefused(20754, "fuzz_rich_2d/20843", "plastic collapse", "rotation", 758),
+    xrefused(20754, "fuzz_rich_2d/20843", "plastic collapse", "units", 758),
     xfail(20754, "feature_matrix/3d-curved-beam-arch-with", "plastic collapse", "rotation", 758),
     xfail(20754, "fuzz_rich_2d/20772", "P-Delta", "units", 971),
-    xfail(20261105, "fuzz_rich_2d/20832", "plastic collapse", "reversal", 758),
-    xfail(20261105, "fuzz_rich_2d/20843", "plastic collapse", "relabel", 758),
-    xfail(20261105, "fuzz_rich_2d/20843", "plastic collapse", "reversal", 758),
-    xfail(20261105, "fuzz_rich_2d/20843", "plastic collapse", "rotation", 758),
-    xfail(20261105, "fuzz_rich_2d/20843", "plastic collapse", "units", 758),
+    xrefused(20261105, "fuzz_rich_2d/20832", "plastic collapse", "reversal", 758),
+    xrefused(20261105, "fuzz_rich_2d/20843", "plastic collapse", "relabel", 758),
+    xrefused(20261105, "fuzz_rich_2d/20843", "plastic collapse", "reversal", 758),
+    xrefused(20261105, "fuzz_rich_2d/20843", "plastic collapse", "rotation", 758),
+    xrefused(20261105, "fuzz_rich_2d/20843", "plastic collapse", "units", 758),
     xfail(20261105, "feature_matrix/3d-curved-beam-arch-with", "plastic collapse", "rotation", 758),
     xfail(20261105, "fuzz_rich_2d/20772", "P-Delta", "units", 971),
     xfail(20261105, "feature_matrix/3d-local-axes--roll-angle--rolled-90--with", "corotational", "rotation", 971),
@@ -273,7 +279,14 @@ pub fn judge(sel: &Selection, out: &Outcome, expected: &[Expected]) -> Vec<Strin
             problems.push(format!("NEW FAILURE [{a} × {i}] {case}: {msg}"));
         }
     }
-    for e in expected.iter().filter(|e| sel.has(e.analysis)) {
+    for e in expected.iter().filter(|e| sel.has(e.analysis) && e.refused) {
+        let key = e.key();
+        let state = out.cells.iter().find(|(c, a, i, _)| *c == key && a == e.analysis && i == e.invariant).map_or("not run", |x| x.3);
+        if !matches!(state, "refused" | "n/a") {
+            problems.push(format!("EXPECTED REFUSAL NOW {} [{} × {}] {key} (#{}): the refusal no longer holds; make it an xfail again, or remove it once #{} is fixed", state.to_uppercase(), e.analysis, e.invariant, e.issue, e.issue));
+        }
+    }
+    for e in expected.iter().filter(|e| sel.has(e.analysis) && !e.refused) {
         let key = e.key();
         if !out.fails.iter().any(|(c, a, i, _)| *c == key && a == e.analysis && i == e.invariant) {
             let state = out.cells.iter().find(|(c, a, i, _)| *c == key && a == e.analysis && i == e.invariant).map_or("not run", |x| x.3);
@@ -383,4 +396,21 @@ fn judge_flags_new_failures_and_expected_ones_that_pass() {
     assert_eq!(p, vec!["NO COVERAGE [harmonic]: no curated model completed a comparison".to_string()]);
     let ok = Outcome { passed: [("7:m".into(), "harmonic".into(), "units".into())].into(), cells: vec![cell("7:m", "harmonic", "units", "pass")], ..Default::default() };
     assert!(judge(&Selection::Some(["harmonic"].into()), &ok, &exp).is_empty());
+}
+
+#[test]
+fn judge_holds_expected_refusals_to_their_refusal() {
+    let exp = [xrefused(7, "m", "plastic collapse", "relabel", 1)];
+    let sel = Selection::Some(["plastic collapse"].into());
+    let cell = |s: &'static str| ("7:m".to_string(), "plastic collapse".to_string(), "relabel".to_string(), s);
+    let covered = ("8:n".to_string(), "plastic collapse".to_string(), "units".to_string());
+    for state in ["refused", "n/a"] {
+        let out = Outcome { passed: [covered.clone()].into(), cells: vec![cell(state)], ..Default::default() };
+        assert!(judge(&sel, &out, &exp).is_empty(), "{state}: {:?}", judge(&sel, &out, &exp));
+    }
+    let out = Outcome { passed: [covered.clone(), ("7:m".into(), "plastic collapse".into(), "relabel".into())].into(), cells: vec![cell("pass")], ..Default::default() };
+    assert!(judge(&sel, &out, &exp)[0].starts_with("EXPECTED REFUSAL NOW PASS"));
+    let out = Outcome { fails: vec![("7:m".into(), "plastic collapse".into(), "relabel".into(), "x".into())], cells: vec![cell("fail")], ..Default::default() };
+    let p = judge(&sel, &out, &exp);
+    assert!(p[0].starts_with("EXPECTED REFUSAL NOW FAIL") && !p.iter().any(|x| x.starts_with("NEW FAILURE")), "{p:?}");
 }
