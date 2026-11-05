@@ -321,7 +321,7 @@ pub fn build_model_3d(input: &PlasticInput3D) -> Result<PlasticModel3, String> {
 
     let mut mp_by_sec: HashMap<usize, Option<[(Q, Q); 2]>> = HashMap::new();
     for (sid, sec) in &input.sections {
-        let sec_id: usize = sid.parse().unwrap_or(0);
+        let sec_id: usize = sid.parse().map_err(|_| format!("section id {sid:?} is not a number"))?;
         let over = input.mp_overrides.as_ref().and_then(|m| m.get(sid)).copied();
         let fy = input.materials.get(&sec.material_id.to_string()).and_then(|m| m.fy).unwrap_or(250.0);
         mp_by_sec.insert(sec_id, mp_3d(sec, fy, over)?);

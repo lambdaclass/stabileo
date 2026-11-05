@@ -242,6 +242,7 @@ NEXTEST = cd engine && $(NIX_RUN) cargo nextest run --profile ci
 
 lint.engine:
 	python3 -B -I .github/scripts/check-wall-clock-tests.py
+	python3 -B -I scripts/check-fail-closed.py
 	python3 -B -I scripts/benchmark-gate.py
 	python3 -B -I scripts/invariance-gate.py
 	cd engine && $(NIX_RUN) cargo clippy --lib -- -W clippy::all -A clippy::erasing_op
@@ -483,6 +484,7 @@ test.ci-scripts: test.nightly-scripts check.cadence
 	python3 -B -I scripts/tests/test_ci_aggregate.py
 	python3 -B -I scripts/tests/test_ci_selection.py
 	python3 -B -I scripts/tests/test_check_wall_clock_tests.py
+	python3 -B -I scripts/tests/test_check_fail_closed.py
 	python3 -B -I scripts/tests/test_main_tested.py
 	python3 -B -I scripts/tests/test_cancel_superseded.py
 	python3 -B -I scripts/tests/test_ci_runners.py
