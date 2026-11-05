@@ -127,6 +127,12 @@ const body: PostBody = {
           "Behoben in der nächsten Version"
         ],
         [
+          "SA-2026-043",
+          "Harmonische Analyse: Die Korrektur der weggelassenen Moden verlor ihre Stellen, wenn eine Mode viel weicher war als die übrigen (79-fach bei 2,3 Hz in einem Beispiel)",
+          "Hoch",
+          "Behoben in der nächsten Version"
+        ],
+        [
           "SA-2026-037",
           "Korotationale 3D-Analyse: Rotationsvektoren wurden subtrahiert (der Bathe–Bolourchi-Bogen 1,3 % daneben, ohne Besserung bei Netzverfeinerung)",
           "Mittel",

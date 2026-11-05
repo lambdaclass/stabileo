@@ -23,7 +23,7 @@ async function render(width: number): Promise<string> {
   try {
     const { stdout } = await promisify(execFile)(binary!, ['--headless', '--no-sandbox', '--disable-gpu', '--no-first-run', `--user-data-dir=${profile}`, `--window-size=${Math.max(width, 900)},1100`, '--force-device-scale-factor=1', '--virtual-time-budget=10000', '--dump-dom', `${url}scripts/fixtures/nm-pairing-responsive.html?width=${width}`], { timeout: 45_000, maxBuffer: 5_000_000 });
     return stdout;
-  } finally { rmSync(profile, { recursive: true, force: true }); }
+  } finally { rmSync(profile, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 }); }
 }
 it.each([390, 820])('the RC-NM-PAIRING explanation is shown, readable and inside the viewport at %ipx', async width => {
   const stdout = await render(width);

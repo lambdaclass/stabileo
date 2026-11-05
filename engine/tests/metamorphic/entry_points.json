@@ -1,0 +1,815 @@
+{
+  "scopes": {
+    "design": "Member, section, connection and footing checks or code loads from given forces and parameters; no structural model is solved, so the model transforms do not apply.",
+    "section": "Properties and stresses of one cross-section; no structural model is solved.",
+    "postprocess": "Reads results a solve already produced (diagrams, stations, combinations, envelopes, section stresses); the envelope and combination type is roadmap section 3 item 10.",
+    "session": "Builds a prepared session; its solve method carries the invariances.",
+    "utility": "Not an analysis: initialisation, build information, reproduction hashes, the model review and the editor collision geometry."
+  },
+  "entry_points": {
+    "Cirsoc201SectionKernel::at_axial": {"scope": "design"},
+    "Cirsoc201SectionKernel::axial_limit": {"scope": "design"},
+    "Cirsoc201SectionKernel::biaxial": {"scope": "design"},
+    "Cirsoc201SectionKernel::biaxial_fast": {"scope": "design"},
+    "Cirsoc201SectionKernel::characteristic_points": {"scope": "design"},
+    "Cirsoc201SectionKernel::curve": {"scope": "design"},
+    "Cirsoc201SectionKernel::depths": {"scope": "design"},
+    "Cirsoc201SectionKernel::info": {"scope": "design"},
+    "Cirsoc201SectionKernel::moment_capacity_at_axial": {"scope": "design"},
+    "Cirsoc201SectionKernel::new": {"scope": "design"},
+    "Cirsoc201SectionKernel::points": {"scope": "design"},
+    "Cirsoc201SectionKernel::ray": {"scope": "design"},
+    "CollisionGeometry::bucket_scans": {"scope": "utility"},
+    "CollisionGeometry::build_hash": {"scope": "utility"},
+    "CollisionGeometry::candidates": {"scope": "utility"},
+    "CollisionGeometry::changed_pairs": {"scope": "utility"},
+    "CollisionGeometry::measure": {"scope": "utility"},
+    "CollisionGeometry::new": {"scope": "utility"},
+    "CollisionGeometry::query_measured": {"scope": "utility"},
+    "CollisionGeometry::update_bar": {"scope": "utility"},
+    "LoadSession2D::new": {"scope": "session"},
+    "LoadSession2D::solve": {"scope": "solve", "calls": "solve_loads", "invariances": {
+      "units": {"tracked": 1497},
+      "relabel": {"tracked": 1497},
+      "reversal": {"tracked": 1497},
+      "rotation": {"tracked": 1497},
+      "mirror": {"tracked": 1497},
+      "planes": {"tracked": 1497},
+      "prepared": {"tracked": 1497}
+    }},
+    "LoadSession3D::new": {"scope": "session"},
+    "LoadSession3D::solve": {"scope": "solve", "calls": "solve_loads", "invariances": {
+      "units": {"tracked": 1497},
+      "relabel": {"tracked": 1497},
+      "reversal": {"tracked": 1497},
+      "rotation": {"tracked": 1497},
+      "mirror": {"tracked": 1497},
+      "planes": {"tracked": 1497},
+      "prepared": {"tracked": 1497}
+    }},
+    "analyze_kinematics_2d": {"scope": "solve", "calls": "analyze_kinematics_2d", "invariances": {
+      "units": {"metamorphic": "pr_2d", "analysis": "kinematic check"},
+      "relabel": {"metamorphic": "pr_2d", "analysis": "kinematic check"},
+      "reversal": {"metamorphic": "pr_2d", "analysis": "kinematic check"},
+      "rotation": {"metamorphic": "pr_2d", "analysis": "kinematic check"},
+      "mirror": {"metamorphic": "pr_2d", "analysis": "kinematic check"},
+      "planes": {"tracked": 1497},
+      "prepared": {"exempt": "no prepared or duplicate linear path: it solves its own iterative, eigenvalue or frequency-domain system"}
+    }},
+    "analyze_kinematics_3d": {"scope": "solve", "calls": "analyze_kinematics_3d", "invariances": {
+      "units": {"metamorphic": "pr_3d", "analysis": "kinematic check"},
+      "relabel": {"metamorphic": "pr_3d", "analysis": "kinematic check"},
+      "reversal": {"metamorphic": "pr_3d", "analysis": "kinematic check"},
+      "rotation": {"metamorphic": "pr_3d", "analysis": "kinematic check"},
+      "mirror": {"tracked": 1497},
+      "planes": {"tracked": 1497},
+      "prepared": {"exempt": "no prepared or duplicate linear path: it solves its own iterative, eigenvalue or frequency-domain system"}
+    }},
+    "analyze_section": {"scope": "section"},
+    "analyze_section_bending": {"scope": "section"},
+    "analyze_section_plastic": {"scope": "section"},
+    "analyze_section_shear": {"scope": "section"},
+    "analyze_section_shear_field": {"scope": "section"},
+    "analyze_section_torsion": {"scope": "section"},
+    "analyze_section_torsion_field": {"scope": "section"},
+    "build_section_geometry": {"scope": "section"},
+    "certify_buckling_2d": {"scope": "solve", "calls": "certify_buckling_2d", "invariances": {
+      "units": {"tracked": 1497},
+      "relabel": {"tracked": 1497},
+      "reversal": {"tracked": 1497},
+      "rotation": {"tracked": 1497},
+      "mirror": {"tracked": 1497},
+      "planes": {"tracked": 1497},
+      "prepared": {"tracked": 1497}
+    }},
+    "certify_buckling_3d": {"scope": "solve", "calls": "certify_buckling_3d", "invariances": {
+      "units": {"tracked": 1497},
+      "relabel": {"tracked": 1497},
+      "reversal": {"tracked": 1497},
+      "rotation": {"tracked": 1497},
+      "mirror": {"tracked": 1497},
+      "planes": {"tracked": 1497},
+      "prepared": {"tracked": 1497}
+    }},
+    "certify_cfs_members": {"scope": "design"},
+    "certify_cirsoc201_members": {"scope": "design"},
+    "certify_cirsoc301_members": {"scope": "design"},
+    "certify_ec2_members": {"scope": "design"},
+    "certify_ec3_members": {"scope": "design"},
+    "certify_harmonic_2d": {"scope": "solve", "calls": "certify_harmonic_2d", "invariances": {
+      "units": {"tracked": 1497},
+      "relabel": {"tracked": 1497},
+      "reversal": {"tracked": 1497},
+      "rotation": {"tracked": 1497},
+      "mirror": {"tracked": 1497},
+      "planes": {"tracked": 1497},
+      "prepared": {"exempt": "no prepared or duplicate linear path: it solves its own iterative, eigenvalue or frequency-domain system"}
+    }},
+    "certify_harmonic_3d": {"scope": "solve", "calls": "certify_harmonic_3d", "invariances": {
+      "units": {"tracked": 1497},
+      "relabel": {"tracked": 1497},
+      "reversal": {"tracked": 1497},
+      "rotation": {"tracked": 1497},
+      "mirror": {"tracked": 1497},
+      "planes": {"tracked": 1497},
+      "prepared": {"exempt": "no prepared or duplicate linear path: it solves its own iterative, eigenvalue or frequency-domain system"}
+    }},
+    "certify_isolated_footings": {"scope": "design"},
+    "certify_linear_2d": {"scope": "solve", "calls": "certify_linear_2d_full", "invariances": {
+      "units": {"metamorphic": "pr_2d", "analysis": "certified linear"},
+      "relabel": {"metamorphic": "pr_2d", "analysis": "certified linear"},
+      "reversal": {"metamorphic": "pr_2d", "analysis": "certified linear"},
+      "rotation": {"metamorphic": "pr_2d", "analysis": "certified linear"},
+      "mirror": {"metamorphic": "pr_2d", "analysis": "certified linear"},
+      "planes": {"tracked": 1497},
+      "prepared": {"metamorphic": "pr_2d", "analysis": "certified linear"}
+    }},
+    "certify_linear_3d": {"scope": "solve", "calls": "certify_linear_3d_full", "invariances": {
+      "units": {"metamorphic": "pr_3d", "analysis": "certified linear"},
+      "relabel": {"metamorphic": "pr_3d", "analysis": "certified linear"},
+      "reversal": {"metamorphic": "pr_3d", "analysis": "certified linear"},
+      "rotation": {"metamorphic": "pr_3d", "analysis": "certified linear"},
+      "mirror": {"tracked": 1497},
+      "planes": {"tracked": 1497},
+      "prepared": {"metamorphic": "pr_3d", "analysis": "certified linear"}
+    }},
+    "certify_modal_2d": {"scope": "solve", "calls": "certify_modal_2d", "invariances": {
+      "units": {"metamorphic": "pr_2d", "analysis": "certified modal"},
+      "relabel": {"metamorphic": "pr_2d", "analysis": "certified modal"},
+      "reversal": {"metamorphic": "pr_2d", "analysis": "certified modal"},
+      "rotation": {"metamorphic": "pr_2d", "analysis": "certified modal"},
+      "mirror": {"metamorphic": "pr_2d", "analysis": "certified modal"},
+      "planes": {"tracked": 1497},
+      "prepared": {"tracked": 1497}
+    }},
+    "certify_modal_3d": {"scope": "solve", "calls": "certify_modal_3d", "invariances": {
+      "units": {"metamorphic": "pr_3d", "analysis": "certified modal"},
+      "relabel": {"metamorphic": "pr_3d", "analysis": "certified modal"},
+      "reversal": {"metamorphic": "pr_3d", "analysis": "certified modal"},
+      "rotation": {"metamorphic": "pr_3d", "analysis": "certified modal"},
+      "mirror": {"tracked": 1497},
+      "planes": {"tracked": 1497},
+      "prepared": {"tracked": 1497}
+    }},
+    "certify_multi_case_2d": {"scope": "solve", "calls": "certify_multi_case_2d", "invariances": {
+      "units": {"tracked": 1497},
+      "relabel": {"tracked": 1497},
+      "reversal": {"tracked": 1497},
+      "rotation": {"tracked": 1497},
+      "mirror": {"tracked": 1497},
+      "planes": {"tracked": 1497},
+      "prepared": {"tracked": 1497}
+    }},
+    "certify_multi_case_3d": {"scope": "solve", "calls": "certify_multi_case_3d", "invariances": {
+      "units": {"tracked": 1497},
+      "relabel": {"tracked": 1497},
+      "reversal": {"tracked": 1497},
+      "rotation": {"tracked": 1497},
+      "mirror": {"tracked": 1497},
+      "planes": {"tracked": 1497},
+      "prepared": {"tracked": 1497}
+    }},
+    "certify_pdelta_2d": {"scope": "solve", "calls": "certify_pdelta_2d", "invariances": {
+      "units": {"tracked": 1497},
+      "relabel": {"tracked": 1497},
+      "reversal": {"tracked": 1497},
+      "rotation": {"tracked": 1497},
+      "mirror": {"tracked": 1497},
+      "planes": {"tracked": 1497},
+      "prepared": {"tracked": 1497}
+    }},
+    "certify_pdelta_3d": {"scope": "solve", "calls": "certify_pdelta_3d", "invariances": {
+      "units": {"tracked": 1497},
+      "relabel": {"tracked": 1497},
+      "reversal": {"tracked": 1497},
+      "rotation": {"tracked": 1497},
+      "mirror": {"tracked": 1497},
+      "planes": {"tracked": 1497},
+      "prepared": {"tracked": 1497}
+    }},
+    "certify_plastic_2d": {"scope": "solve", "calls": "certify_plastic_2d", "invariances": {
+      "units": {"tracked": 1497},
+      "relabel": {"tracked": 1497},
+      "reversal": {"tracked": 1497},
+      "rotation": {"tracked": 1497},
+      "mirror": {"tracked": 1497},
+      "planes": {"tracked": 1497},
+      "prepared": {"exempt": "no prepared or duplicate linear path: it solves its own iterative, eigenvalue or frequency-domain system"}
+    }},
+    "certify_plastic_3d": {"scope": "solve", "calls": "certify_plastic_3d", "invariances": {
+      "units": {"tracked": 1497},
+      "relabel": {"tracked": 1497},
+      "reversal": {"tracked": 1497},
+      "rotation": {"tracked": 1497},
+      "mirror": {"tracked": 1497},
+      "planes": {"tracked": 1497},
+      "prepared": {"exempt": "no prepared or duplicate linear path: it solves its own iterative, eigenvalue or frequency-domain system"}
+    }},
+    "certify_rc_members": {"scope": "design"},
+    "certify_spectral_2d": {"scope": "solve", "calls": "certify_spectral_2d", "invariances": {
+      "units": {"tracked": 1497},
+      "relabel": {"tracked": 1497},
+      "reversal": {"tracked": 1497},
+      "rotation": {"tracked": 1497},
+      "mirror": {"tracked": 1497},
+      "planes": {"tracked": 1497},
+      "prepared": {"tracked": 1497}
+    }},
+    "certify_spectral_3d": {"scope": "solve", "calls": "certify_spectral_3d", "invariances": {
+      "units": {"tracked": 1497},
+      "relabel": {"tracked": 1497},
+      "reversal": {"tracked": 1497},
+      "rotation": {"tracked": 1497},
+      "mirror": {"tracked": 1497},
+      "planes": {"tracked": 1497},
+      "prepared": {"tracked": 1497}
+    }},
+    "certify_steel_members": {"scope": "design"},
+    "certify_steel_multi_case_2d": {"scope": "solve", "calls": "certify_steel_multi_case_2d", "invariances": {
+      "units": {"tracked": 1497},
+      "relabel": {"tracked": 1497},
+      "reversal": {"tracked": 1497},
+      "rotation": {"tracked": 1497},
+      "mirror": {"tracked": 1497},
+      "planes": {"tracked": 1497},
+      "prepared": {"tracked": 1497}
+    }},
+    "certify_steel_multi_case_3d": {"scope": "solve", "calls": "certify_steel_multi_case_3d", "invariances": {
+      "units": {"tracked": 1497},
+      "relabel": {"tracked": 1497},
+      "reversal": {"tracked": 1497},
+      "rotation": {"tracked": 1497},
+      "mirror": {"tracked": 1497},
+      "planes": {"tracked": 1497},
+      "prepared": {"tracked": 1497}
+    }},
+    "certify_timber_members": {"scope": "design"},
+    "certify_time_history_2d": {"scope": "solve", "calls": "certify_time_history_2d", "invariances": {
+      "units": {"tracked": 1497},
+      "relabel": {"tracked": 1497},
+      "reversal": {"tracked": 1497},
+      "rotation": {"tracked": 1497},
+      "mirror": {"tracked": 1497},
+      "planes": {"tracked": 1497},
+      "prepared": {"exempt": "no prepared or duplicate linear path: it solves its own iterative, eigenvalue or frequency-domain system"}
+    }},
+    "certify_time_history_3d": {"scope": "solve", "calls": "certify_time_history_3d", "invariances": {
+      "units": {"tracked": 1497},
+      "relabel": {"tracked": 1497},
+      "reversal": {"tracked": 1497},
+      "rotation": {"tracked": 1497},
+      "mirror": {"tracked": 1497},
+      "planes": {"tracked": 1497},
+      "prepared": {"exempt": "no prepared or duplicate linear path: it solves its own iterative, eigenvalue or frequency-domain system"}
+    }},
+    "check_bolt_groups": {"scope": "design"},
+    "check_cfs_members": {"scope": "design"},
+    "check_cirsoc201_members": {"scope": "design"},
+    "check_cirsoc301_members": {"scope": "design"},
+    "check_ec2_members": {"scope": "design"},
+    "check_ec3_members": {"scope": "design"},
+    "check_isolated_footings": {"scope": "design"},
+    "check_masonry_members": {"scope": "design"},
+    "check_rc_members": {"scope": "design"},
+    "check_serviceability": {"scope": "design"},
+    "check_spread_footings": {"scope": "design"},
+    "check_steel_members": {"scope": "design"},
+    "check_timber_members": {"scope": "design"},
+    "check_weld_groups": {"scope": "design"},
+    "cirsoc201_basis": {"scope": "design"},
+    "cirsoc201_beam_batch": {"scope": "design"},
+    "cirsoc201_design_beam": {"scope": "design"},
+    "cirsoc201_phi": {"scope": "design"},
+    "cirsoc201_slab_provisions": {"scope": "design"},
+    "combine_results_2d": {"scope": "postprocess"},
+    "combine_results_3d": {"scope": "postprocess"},
+    "combine_shell_stresses": {"scope": "postprocess"},
+    "compute_deformed_shape": {"scope": "postprocess"},
+    "compute_diagram_value_at": {"scope": "postprocess"},
+    "compute_diagram_value_at_3d": {"scope": "postprocess"},
+    "compute_diagrams_2d": {"scope": "postprocess"},
+    "compute_diagrams_3d": {"scope": "postprocess"},
+    "compute_envelope_2d": {"scope": "postprocess"},
+    "compute_envelope_3d": {"scope": "postprocess"},
+    "compute_influence_line": {"scope": "solve", "calls": "compute_influence_line", "invariances": {
+      "units": {"metamorphic": "pr_2d", "analysis": "influence line"},
+      "relabel": {"metamorphic": "pr_2d", "analysis": "influence line"},
+      "reversal": {"metamorphic": "pr_2d", "analysis": "influence line"},
+      "rotation": {"tracked": 1497},
+      "mirror": {"metamorphic": "pr_2d", "analysis": "influence line"},
+      "planes": {"tracked": 1497},
+      "prepared": {"tracked": 1497}
+    }},
+    "compute_influence_line_3d": {"scope": "solve", "calls": "compute_influence_line_3d", "invariances": {
+      "units": {"metamorphic": "pr_3d", "analysis": "influence line"},
+      "relabel": {"metamorphic": "pr_3d", "analysis": "influence line"},
+      "reversal": {"metamorphic": "pr_3d", "analysis": "influence line"},
+      "rotation": {"metamorphic": "pr_3d", "analysis": "influence line"},
+      "mirror": {"tracked": 1497},
+      "planes": {"tracked": 1497},
+      "prepared": {"tracked": 1497}
+    }},
+    "compute_section_stress_2d": {"scope": "postprocess"},
+    "compute_section_stress_3d": {"scope": "postprocess"},
+    "compute_section_stress_3d_from_forces": {"scope": "postprocess"},
+    "convergence_study_3d": {"scope": "solve", "calls": "convergence_study_3d", "invariances": {
+      "units": {"tracked": 1497},
+      "relabel": {"tracked": 1497},
+      "reversal": {"tracked": 1497},
+      "rotation": {"tracked": 1497},
+      "mirror": {"tracked": 1497},
+      "planes": {"tracked": 1497},
+      "prepared": {"tracked": 1497}
+    }},
+    "craig_bampton_2d": {"scope": "solve", "calls": "craig_bampton_2d", "invariances": {
+      "units": {"tracked": 1497},
+      "relabel": {"tracked": 1497},
+      "reversal": {"tracked": 1497},
+      "rotation": {"tracked": 1497},
+      "mirror": {"tracked": 1497},
+      "planes": {"exempt": "no 3D counterpart to embed the 2D model into"},
+      "prepared": {"exempt": "no prepared or duplicate linear path: it solves its own iterative, eigenvalue or frequency-domain system"}
+    }},
+    "engine_build_info": {"scope": "utility"},
+    "engine_reproduce_hashes": {"scope": "utility"},
+    "envelope_shell_stresses": {"scope": "postprocess"},
+    "estimate_discretization_3d": {"scope": "solve", "calls": "solve_and_estimate_3d", "invariances": {
+      "units": {"tracked": 1497},
+      "relabel": {"tracked": 1497},
+      "reversal": {"tracked": 1497},
+      "rotation": {"tracked": 1497},
+      "mirror": {"tracked": 1497},
+      "planes": {"tracked": 1497},
+      "prepared": {"tracked": 1497}
+    }},
+    "export_combination_bundle_2d": {"scope": "solve", "calls": "export_combination_bundle_2d", "invariances": {
+      "units": {"tracked": 1497},
+      "relabel": {"tracked": 1497},
+      "reversal": {"tracked": 1497},
+      "rotation": {"tracked": 1497},
+      "mirror": {"tracked": 1497},
+      "planes": {"tracked": 1497},
+      "prepared": {"tracked": 1497}
+    }},
+    "export_combination_bundle_3d": {"scope": "solve", "calls": "export_combination_bundle_3d", "invariances": {
+      "units": {"tracked": 1497},
+      "relabel": {"tracked": 1497},
+      "reversal": {"tracked": 1497},
+      "rotation": {"tracked": 1497},
+      "mirror": {"tracked": 1497},
+      "planes": {"tracked": 1497},
+      "prepared": {"tracked": 1497}
+    }},
+    "export_linear_bundle_2d": {"scope": "solve", "calls": "export_linear_bundle_2d", "invariances": {
+      "units": {"tracked": 1497},
+      "relabel": {"tracked": 1497},
+      "reversal": {"tracked": 1497},
+      "rotation": {"tracked": 1497},
+      "mirror": {"tracked": 1497},
+      "planes": {"tracked": 1497},
+      "prepared": {"tracked": 1497}
+    }},
+    "export_linear_bundle_3d": {"scope": "solve", "calls": "export_linear_bundle_3d", "invariances": {
+      "units": {"tracked": 1497},
+      "relabel": {"tracked": 1497},
+      "reversal": {"tracked": 1497},
+      "rotation": {"tracked": 1497},
+      "mirror": {"tracked": 1497},
+      "planes": {"tracked": 1497},
+      "prepared": {"tracked": 1497}
+    }},
+    "export_plastic_bundle_2d": {"scope": "solve", "calls": "export_plastic_bundle_2d", "invariances": {
+      "units": {"tracked": 1497},
+      "relabel": {"tracked": 1497},
+      "reversal": {"tracked": 1497},
+      "rotation": {"tracked": 1497},
+      "mirror": {"tracked": 1497},
+      "planes": {"tracked": 1497},
+      "prepared": {"exempt": "no prepared or duplicate linear path: it solves its own iterative, eigenvalue or frequency-domain system"}
+    }},
+    "export_plastic_bundle_3d": {"scope": "solve", "calls": "export_plastic_bundle_3d", "invariances": {
+      "units": {"tracked": 1497},
+      "relabel": {"tracked": 1497},
+      "reversal": {"tracked": 1497},
+      "rotation": {"tracked": 1497},
+      "mirror": {"tracked": 1497},
+      "planes": {"tracked": 1497},
+      "prepared": {"exempt": "no prepared or duplicate linear path: it solves its own iterative, eigenvalue or frequency-domain system"}
+    }},
+    "extract_beam_station_buffer_3d": {"scope": "postprocess"},
+    "extract_beam_stations": {"scope": "postprocess"},
+    "extract_beam_stations_3d": {"scope": "postprocess"},
+    "extract_beam_stations_grouped": {"scope": "postprocess"},
+    "extract_beam_stations_grouped_3d": {"scope": "postprocess"},
+    "guyan_reduce_2d": {"scope": "solve", "calls": "guyan_reduce_2d", "invariances": {
+      "units": {"tracked": 1497},
+      "relabel": {"tracked": 1497},
+      "reversal": {"tracked": 1497},
+      "rotation": {"tracked": 1497},
+      "mirror": {"tracked": 1497},
+      "planes": {"exempt": "no 3D counterpart to embed the 2D model into"},
+      "prepared": {"exempt": "no prepared or duplicate linear path: it solves its own iterative, eigenvalue or frequency-domain system"}
+    }},
+    "init": {"scope": "utility"},
+    "loads_request": {"scope": "design"},
+    "review_model_sanity": {"scope": "utility"},
+    "section_geometry_digest": {"scope": "section"},
+    "solve_2d": {"scope": "solve", "calls": "solve_2d_typed", "invariances": {
+      "units": {"tracked": 1497},
+      "relabel": {"tracked": 1497},
+      "reversal": {"tracked": 1497},
+      "rotation": {"tracked": 1497},
+      "mirror": {"tracked": 1497},
+      "planes": {"tracked": 1497},
+      "prepared": {"tracked": 1497}
+    }},
+    "solve_3d": {"scope": "solve", "calls": "solve_3d", "invariances": {
+      "units": {"metamorphic": "pr_3d", "analysis": "linear"},
+      "relabel": {"metamorphic": "pr_3d", "analysis": "linear"},
+      "reversal": {"metamorphic": "pr_3d", "analysis": "linear"},
+      "rotation": {"metamorphic": "pr_3d", "analysis": "linear"},
+      "mirror": {"tracked": 1497},
+      "planes": {"tracked": 1497},
+      "prepared": {"exempt": "the regular path itself: prepared and duplicate linear paths are compared against it"}
+    }},
+    "solve_arc_length": {"scope": "solve", "calls": "solve_arc_length", "invariances": {
+      "units": {"tracked": 1497},
+      "relabel": {"tracked": 1497},
+      "reversal": {"tracked": 1497},
+      "rotation": {"tracked": 1497},
+      "mirror": {"tracked": 1497},
+      "planes": {"exempt": "no 3D counterpart to embed the 2D model into"},
+      "prepared": {"exempt": "no prepared or duplicate linear path: it solves its own iterative, eigenvalue or frequency-domain system"}
+    }},
+    "solve_buckling_2d": {"scope": "solve", "calls": "solve_buckling_2d", "invariances": {
+      "units": {"metamorphic": "pr_2d", "analysis": "buckling"},
+      "relabel": {"metamorphic": "pr_2d", "analysis": "buckling"},
+      "reversal": {"metamorphic": "pr_2d", "analysis": "buckling"},
+      "rotation": {"metamorphic": "pr_2d", "analysis": "buckling"},
+      "mirror": {"metamorphic": "pr_2d", "analysis": "buckling"},
+      "planes": {"tracked": 1497},
+      "prepared": {"exempt": "no prepared or duplicate linear path: it solves its own iterative, eigenvalue or frequency-domain system"}
+    }},
+    "solve_buckling_3d": {"scope": "solve", "calls": "solve_buckling_3d", "invariances": {
+      "units": {"metamorphic": "pr_3d", "analysis": "buckling"},
+      "relabel": {"metamorphic": "pr_3d", "analysis": "buckling"},
+      "reversal": {"metamorphic": "pr_3d", "analysis": "buckling"},
+      "rotation": {"metamorphic": "pr_3d", "analysis": "buckling"},
+      "mirror": {"tracked": 1497},
+      "planes": {"tracked": 1497},
+      "prepared": {"exempt": "no prepared or duplicate linear path: it solves its own iterative, eigenvalue or frequency-domain system"}
+    }},
+    "solve_cable_2d": {"scope": "solve", "calls": "solve_cable_2d_pretensioned", "invariances": {
+      "units": {"tracked": 1497},
+      "relabel": {"tracked": 1497},
+      "reversal": {"tracked": 1497},
+      "rotation": {"tracked": 1497},
+      "mirror": {"tracked": 1497},
+      "planes": {"tracked": 1497},
+      "prepared": {"exempt": "no prepared or duplicate linear path: it solves its own iterative, eigenvalue or frequency-domain system"}
+    }},
+    "solve_cable_3d": {"scope": "solve", "calls": "solve_cable_3d_pretensioned", "invariances": {
+      "units": {"tracked": 1497},
+      "relabel": {"tracked": 1497},
+      "reversal": {"tracked": 1497},
+      "rotation": {"tracked": 1497},
+      "mirror": {"tracked": 1497},
+      "planes": {"tracked": 1497},
+      "prepared": {"exempt": "no prepared or duplicate linear path: it solves its own iterative, eigenvalue or frequency-domain system"}
+    }},
+    "solve_column_capacity_batch": {"scope": "design"},
+    "solve_constrained_2d": {"scope": "solve", "calls": "solve_constrained_2d", "invariances": {
+      "units": {"metamorphic": "pr_2d", "analysis": "constrained"},
+      "relabel": {"metamorphic": "pr_2d", "analysis": "constrained"},
+      "reversal": {"metamorphic": "pr_2d", "analysis": "constrained"},
+      "rotation": {"metamorphic": "pr_2d", "analysis": "constrained"},
+      "mirror": {"metamorphic": "pr_2d", "analysis": "constrained"},
+      "planes": {"tracked": 1497},
+      "prepared": {"metamorphic": "pr_2d", "analysis": "constrained"}
+    }},
+    "solve_constrained_3d": {"scope": "solve", "calls": "solve_constrained_3d", "invariances": {
+      "units": {"metamorphic": "pr_3d", "analysis": "constrained"},
+      "relabel": {"metamorphic": "pr_3d", "analysis": "constrained"},
+      "reversal": {"metamorphic": "pr_3d", "analysis": "constrained"},
+      "rotation": {"metamorphic": "pr_3d", "analysis": "constrained"},
+      "mirror": {"tracked": 1497},
+      "planes": {"tracked": 1497},
+      "prepared": {"metamorphic": "pr_3d", "analysis": "constrained"}
+    }},
+    "solve_contact_2d": {"scope": "solve", "calls": "solve_contact_2d", "invariances": {
+      "units": {"metamorphic": "pr_2d", "analysis": "contact (no gaps)"},
+      "relabel": {"metamorphic": "pr_2d", "analysis": "contact (no gaps)"},
+      "reversal": {"metamorphic": "pr_2d", "analysis": "contact (no gaps)"},
+      "rotation": {"metamorphic": "pr_2d", "analysis": "contact (no gaps)"},
+      "mirror": {"metamorphic": "pr_2d", "analysis": "contact (no gaps)"},
+      "planes": {"tracked": 1497},
+      "prepared": {"metamorphic": "pr_2d", "analysis": "contact (no gaps)"}
+    }},
+    "solve_contact_3d": {"scope": "solve", "calls": "solve_contact_3d", "invariances": {
+      "units": {"metamorphic": "pr_3d", "analysis": "contact (no gaps)"},
+      "relabel": {"metamorphic": "pr_3d", "analysis": "contact (no gaps)"},
+      "reversal": {"metamorphic": "pr_3d", "analysis": "contact (no gaps)"},
+      "rotation": {"metamorphic": "pr_3d", "analysis": "contact (no gaps)"},
+      "mirror": {"tracked": 1497},
+      "planes": {"tracked": 1497},
+      "prepared": {"metamorphic": "pr_3d", "analysis": "contact (no gaps)"}
+    }},
+    "solve_corotational_2d": {"scope": "solve", "calls": "solve_corotational_2d", "invariances": {
+      "units": {"metamorphic": "pr_2d", "analysis": "corotational"},
+      "relabel": {"metamorphic": "pr_2d", "analysis": "corotational"},
+      "reversal": {"metamorphic": "pr_2d", "analysis": "corotational"},
+      "rotation": {"metamorphic": "pr_2d", "analysis": "corotational"},
+      "mirror": {"metamorphic": "pr_2d", "analysis": "corotational"},
+      "planes": {"tracked": 1497},
+      "prepared": {"exempt": "no prepared or duplicate linear path: it solves its own iterative, eigenvalue or frequency-domain system"}
+    }},
+    "solve_corotational_3d": {"scope": "solve", "calls": "solve_corotational_3d", "invariances": {
+      "units": {"metamorphic": "pr_3d", "analysis": "corotational"},
+      "relabel": {"metamorphic": "pr_3d", "analysis": "corotational"},
+      "reversal": {"metamorphic": "pr_3d", "analysis": "corotational"},
+      "rotation": {"metamorphic": "pr_3d", "analysis": "corotational"},
+      "mirror": {"tracked": 1497},
+      "planes": {"tracked": 1497},
+      "prepared": {"exempt": "no prepared or duplicate linear path: it solves its own iterative, eigenvalue or frequency-domain system"}
+    }},
+    "solve_creep_shrinkage_2d": {"scope": "solve", "calls": "solve_creep_shrinkage_2d", "invariances": {
+      "units": {"metamorphic": "pr_2d", "analysis": "creep & shrinkage (t = t0)"},
+      "relabel": {"metamorphic": "pr_2d", "analysis": "creep & shrinkage (t = t0)"},
+      "reversal": {"metamorphic": "pr_2d", "analysis": "creep & shrinkage (t = t0)"},
+      "rotation": {"metamorphic": "pr_2d", "analysis": "creep & shrinkage (t = t0)"},
+      "mirror": {"metamorphic": "pr_2d", "analysis": "creep & shrinkage (t = t0)"},
+      "planes": {"tracked": 1497},
+      "prepared": {"metamorphic": "pr_2d", "analysis": "creep & shrinkage (t = t0)"}
+    }},
+    "solve_creep_shrinkage_3d": {"scope": "solve", "calls": "solve_creep_shrinkage_3d", "invariances": {
+      "units": {"metamorphic": "pr_3d", "analysis": "creep & shrinkage (t = t0)"},
+      "relabel": {"metamorphic": "pr_3d", "analysis": "creep & shrinkage (t = t0)"},
+      "reversal": {"metamorphic": "pr_3d", "analysis": "creep & shrinkage (t = t0)"},
+      "rotation": {"metamorphic": "pr_3d", "analysis": "creep & shrinkage (t = t0)"},
+      "mirror": {"tracked": 1497},
+      "planes": {"tracked": 1497},
+      "prepared": {"metamorphic": "pr_3d", "analysis": "creep & shrinkage (t = t0)"}
+    }},
+    "solve_displacement_control": {"scope": "solve", "calls": "solve_displacement_control", "invariances": {
+      "units": {"tracked": 1497},
+      "relabel": {"tracked": 1497},
+      "reversal": {"tracked": 1497},
+      "rotation": {"tracked": 1497},
+      "mirror": {"tracked": 1497},
+      "planes": {"exempt": "no 3D counterpart to embed the 2D model into"},
+      "prepared": {"exempt": "no prepared or duplicate linear path: it solves its own iterative, eigenvalue or frequency-domain system"}
+    }},
+    "solve_fiber_nonlinear_2d": {"scope": "solve", "calls": "solve_fiber_nonlinear_2d", "invariances": {
+      "units": {"metamorphic": "pr_2d", "analysis": "fiber nonlinear"},
+      "relabel": {"metamorphic": "pr_2d", "analysis": "fiber nonlinear"},
+      "reversal": {"metamorphic": "pr_2d", "analysis": "fiber nonlinear"},
+      "rotation": {"metamorphic": "pr_2d", "analysis": "fiber nonlinear"},
+      "mirror": {"metamorphic": "pr_2d", "analysis": "fiber nonlinear"},
+      "planes": {"tracked": 1497},
+      "prepared": {"exempt": "no prepared or duplicate linear path: it solves its own iterative, eigenvalue or frequency-domain system"}
+    }},
+    "solve_fiber_nonlinear_3d": {"scope": "solve", "calls": "solve_fiber_nonlinear_3d", "invariances": {
+      "units": {"metamorphic": "pr_3d", "analysis": "fiber nonlinear"},
+      "relabel": {"metamorphic": "pr_3d", "analysis": "fiber nonlinear"},
+      "reversal": {"metamorphic": "pr_3d", "analysis": "fiber nonlinear"},
+      "rotation": {"metamorphic": "pr_3d", "analysis": "fiber nonlinear"},
+      "mirror": {"tracked": 1497},
+      "planes": {"tracked": 1497},
+      "prepared": {"exempt": "no prepared or duplicate linear path: it solves its own iterative, eigenvalue or frequency-domain system"}
+    }},
+    "solve_harmonic_2d": {"scope": "solve", "calls": "solve_harmonic_2d", "invariances": {
+      "units": {"metamorphic": "pr_2d", "analysis": "harmonic"},
+      "relabel": {"metamorphic": "pr_2d", "analysis": "harmonic"},
+      "reversal": {"metamorphic": "pr_2d", "analysis": "harmonic"},
+      "rotation": {"metamorphic": "pr_2d", "analysis": "harmonic"},
+      "mirror": {"metamorphic": "pr_2d", "analysis": "harmonic"},
+      "planes": {"tracked": 1497},
+      "prepared": {"exempt": "no prepared or duplicate linear path: it solves its own iterative, eigenvalue or frequency-domain system"}
+    }},
+    "solve_harmonic_3d": {"scope": "solve", "calls": "solve_harmonic_3d", "invariances": {
+      "units": {"metamorphic": "pr_3d", "analysis": "harmonic"},
+      "relabel": {"metamorphic": "pr_3d", "analysis": "harmonic"},
+      "reversal": {"metamorphic": "pr_3d", "analysis": "harmonic"},
+      "rotation": {"metamorphic": "pr_3d", "analysis": "harmonic"},
+      "mirror": {"tracked": 1497},
+      "planes": {"tracked": 1497},
+      "prepared": {"exempt": "no prepared or duplicate linear path: it solves its own iterative, eigenvalue or frequency-domain system"}
+    }},
+    "solve_modal_2d": {"scope": "solve", "calls": "solve_modal_2d", "invariances": {
+      "units": {"metamorphic": "pr_2d", "analysis": "modal"},
+      "relabel": {"metamorphic": "pr_2d", "analysis": "modal"},
+      "reversal": {"metamorphic": "pr_2d", "analysis": "modal"},
+      "rotation": {"metamorphic": "pr_2d", "analysis": "modal"},
+      "mirror": {"metamorphic": "pr_2d", "analysis": "modal"},
+      "planes": {"tracked": 1497},
+      "prepared": {"exempt": "no prepared or duplicate linear path: it solves its own iterative, eigenvalue or frequency-domain system"}
+    }},
+    "solve_modal_3d": {"scope": "solve", "calls": "solve_modal_3d", "invariances": {
+      "units": {"metamorphic": "pr_3d", "analysis": "modal"},
+      "relabel": {"metamorphic": "pr_3d", "analysis": "modal"},
+      "reversal": {"metamorphic": "pr_3d", "analysis": "modal"},
+      "rotation": {"metamorphic": "pr_3d", "analysis": "modal"},
+      "mirror": {"tracked": 1497},
+      "planes": {"tracked": 1497},
+      "prepared": {"exempt": "no prepared or duplicate linear path: it solves its own iterative, eigenvalue or frequency-domain system"}
+    }},
+    "solve_moving_loads_2d": {"scope": "solve", "calls": "solve_moving_loads_2d", "invariances": {
+      "units": {"metamorphic": "pr_2d", "analysis": "moving loads"},
+      "relabel": {"metamorphic": "pr_2d", "analysis": "moving loads"},
+      "reversal": {"metamorphic": "pr_2d", "analysis": "moving loads"},
+      "rotation": {"tracked": 1497},
+      "mirror": {"metamorphic": "pr_2d", "analysis": "moving loads"},
+      "planes": {"tracked": 1497},
+      "prepared": {"tracked": 1497}
+    }},
+    "solve_moving_loads_3d": {"scope": "solve", "calls": "solve_moving_loads_3d", "invariances": {
+      "units": {"metamorphic": "pr_3d", "analysis": "moving loads"},
+      "relabel": {"metamorphic": "pr_3d", "analysis": "moving loads"},
+      "reversal": {"metamorphic": "pr_3d", "analysis": "moving loads"},
+      "rotation": {"metamorphic": "pr_3d", "analysis": "moving loads"},
+      "mirror": {"tracked": 1497},
+      "planes": {"tracked": 1497},
+      "prepared": {"tracked": 1497}
+    }},
+    "solve_multi_case_2d": {"scope": "solve", "calls": "solve_multi_case_2d", "invariances": {
+      "units": {"metamorphic": "pr_2d", "analysis": "load combinations"},
+      "relabel": {"metamorphic": "pr_2d", "analysis": "load combinations"},
+      "reversal": {"metamorphic": "pr_2d", "analysis": "load combinations"},
+      "rotation": {"metamorphic": "pr_2d", "analysis": "load combinations"},
+      "mirror": {"metamorphic": "pr_2d", "analysis": "load combinations"},
+      "planes": {"tracked": 1497},
+      "prepared": {"metamorphic": "pr_2d", "analysis": "load combinations"}
+    }},
+    "solve_multi_case_3d": {"scope": "solve", "calls": "solve_multi_case_3d", "invariances": {
+      "units": {"metamorphic": "pr_3d", "analysis": "load combinations"},
+      "relabel": {"metamorphic": "pr_3d", "analysis": "load combinations"},
+      "reversal": {"metamorphic": "pr_3d", "analysis": "load combinations"},
+      "rotation": {"metamorphic": "pr_3d", "analysis": "load combinations"},
+      "mirror": {"tracked": 1497},
+      "planes": {"tracked": 1497},
+      "prepared": {"metamorphic": "pr_3d", "analysis": "load combinations"}
+    }},
+    "solve_nonlinear_material_2d": {"scope": "solve", "calls": "solve_nonlinear_material_2d", "invariances": {
+      "units": {"metamorphic": "pr_2d", "analysis": "material nonlinear"},
+      "relabel": {"metamorphic": "pr_2d", "analysis": "material nonlinear"},
+      "reversal": {"metamorphic": "pr_2d", "analysis": "material nonlinear"},
+      "rotation": {"metamorphic": "pr_2d", "analysis": "material nonlinear"},
+      "mirror": {"metamorphic": "pr_2d", "analysis": "material nonlinear"},
+      "planes": {"tracked": 1497},
+      "prepared": {"exempt": "no prepared or duplicate linear path: it solves its own iterative, eigenvalue or frequency-domain system"}
+    }},
+    "solve_nonlinear_material_3d": {"scope": "solve", "calls": "solve_nonlinear_material_3d", "invariances": {
+      "units": {"metamorphic": "pr_3d", "analysis": "material nonlinear"},
+      "relabel": {"metamorphic": "pr_3d", "analysis": "material nonlinear"},
+      "reversal": {"metamorphic": "pr_3d", "analysis": "material nonlinear"},
+      "rotation": {"metamorphic": "pr_3d", "analysis": "material nonlinear"},
+      "mirror": {"tracked": 1497},
+      "planes": {"tracked": 1497},
+      "prepared": {"exempt": "no prepared or duplicate linear path: it solves its own iterative, eigenvalue or frequency-domain system"}
+    }},
+    "solve_pdelta_2d": {"scope": "solve", "calls": "solve_pdelta_2d", "invariances": {
+      "units": {"metamorphic": "pr_2d", "analysis": "P-Delta"},
+      "relabel": {"metamorphic": "pr_2d", "analysis": "P-Delta"},
+      "reversal": {"metamorphic": "pr_2d", "analysis": "P-Delta"},
+      "rotation": {"metamorphic": "pr_2d", "analysis": "P-Delta"},
+      "mirror": {"metamorphic": "pr_2d", "analysis": "P-Delta"},
+      "planes": {"tracked": 1497},
+      "prepared": {"exempt": "no prepared or duplicate linear path: it solves its own iterative, eigenvalue or frequency-domain system"}
+    }},
+    "solve_pdelta_3d": {"scope": "solve", "calls": "solve_pdelta_3d", "invariances": {
+      "units": {"metamorphic": "pr_3d", "analysis": "P-Delta"},
+      "relabel": {"metamorphic": "pr_3d", "analysis": "P-Delta"},
+      "reversal": {"metamorphic": "pr_3d", "analysis": "P-Delta"},
+      "rotation": {"metamorphic": "pr_3d", "analysis": "P-Delta"},
+      "mirror": {"tracked": 1497},
+      "planes": {"tracked": 1497},
+      "prepared": {"exempt": "no prepared or duplicate linear path: it solves its own iterative, eigenvalue or frequency-domain system"}
+    }},
+    "solve_plastic_2d": {"scope": "solve", "calls": "solve_plastic_2d", "invariances": {
+      "units": {"tracked": 1497},
+      "relabel": {"tracked": 1497},
+      "reversal": {"tracked": 1497},
+      "rotation": {"tracked": 1497},
+      "mirror": {"tracked": 1497},
+      "planes": {"tracked": 1497},
+      "prepared": {"exempt": "no prepared or duplicate linear path: it solves its own iterative, eigenvalue or frequency-domain system"}
+    }},
+    "solve_plastic_3d": {"scope": "solve", "calls": "solve_plastic_3d", "invariances": {
+      "units": {"metamorphic": "pr_3d", "analysis": "plastic collapse"},
+      "relabel": {"metamorphic": "pr_3d", "analysis": "plastic collapse"},
+      "reversal": {"metamorphic": "pr_3d", "analysis": "plastic collapse"},
+      "rotation": {"metamorphic": "pr_3d", "analysis": "plastic collapse"},
+      "mirror": {"tracked": 1497},
+      "planes": {"tracked": 1497},
+      "prepared": {"exempt": "no prepared or duplicate linear path: it solves its own iterative, eigenvalue or frequency-domain system"}
+    }},
+    "solve_spectral_2d": {"scope": "solve", "calls": "solve_spectral_2d", "invariances": {
+      "units": {"metamorphic": "pr_2d", "analysis": "spectral"},
+      "relabel": {"metamorphic": "pr_2d", "analysis": "spectral"},
+      "reversal": {"metamorphic": "pr_2d", "analysis": "spectral"},
+      "rotation": {"tracked": 1497},
+      "mirror": {"metamorphic": "pr_2d", "analysis": "spectral"},
+      "planes": {"tracked": 1497},
+      "prepared": {"exempt": "no prepared or duplicate linear path: it solves its own iterative, eigenvalue or frequency-domain system"}
+    }},
+    "solve_spectral_3d": {"scope": "solve", "calls": "solve_spectral_3d", "invariances": {
+      "units": {"metamorphic": "pr_3d", "analysis": "spectral"},
+      "relabel": {"metamorphic": "pr_3d", "analysis": "spectral"},
+      "reversal": {"metamorphic": "pr_3d", "analysis": "spectral"},
+      "rotation": {"metamorphic": "pr_3d", "analysis": "spectral"},
+      "mirror": {"tracked": 1497},
+      "planes": {"tracked": 1497},
+      "prepared": {"exempt": "no prepared or duplicate linear path: it solves its own iterative, eigenvalue or frequency-domain system"}
+    }},
+    "solve_ssi_2d": {"scope": "solve", "calls": "solve_ssi_2d", "invariances": {
+      "units": {"metamorphic": "pr_2d", "analysis": "SSI (no soil springs)"},
+      "relabel": {"metamorphic": "pr_2d", "analysis": "SSI (no soil springs)"},
+      "reversal": {"metamorphic": "pr_2d", "analysis": "SSI (no soil springs)"},
+      "rotation": {"metamorphic": "pr_2d", "analysis": "SSI (no soil springs)"},
+      "mirror": {"metamorphic": "pr_2d", "analysis": "SSI (no soil springs)"},
+      "planes": {"tracked": 1497},
+      "prepared": {"metamorphic": "pr_2d", "analysis": "SSI (no soil springs)"}
+    }},
+    "solve_ssi_3d": {"scope": "solve", "calls": "solve_ssi_3d", "invariances": {
+      "units": {"metamorphic": "pr_3d", "analysis": "SSI (no soil springs)"},
+      "relabel": {"metamorphic": "pr_3d", "analysis": "SSI (no soil springs)"},
+      "reversal": {"metamorphic": "pr_3d", "analysis": "SSI (no soil springs)"},
+      "rotation": {"metamorphic": "pr_3d", "analysis": "SSI (no soil springs)"},
+      "mirror": {"tracked": 1497},
+      "planes": {"tracked": 1497},
+      "prepared": {"metamorphic": "pr_3d", "analysis": "SSI (no soil springs)"}
+    }},
+    "solve_staged_2d": {"scope": "solve", "calls": "solve_staged_2d", "invariances": {
+      "units": {"metamorphic": "pr_2d", "analysis": "staged (one stage)"},
+      "relabel": {"metamorphic": "pr_2d", "analysis": "staged (one stage)"},
+      "reversal": {"metamorphic": "pr_2d", "analysis": "staged (one stage)"},
+      "rotation": {"metamorphic": "pr_2d", "analysis": "staged (one stage)"},
+      "mirror": {"metamorphic": "pr_2d", "analysis": "staged (one stage)"},
+      "planes": {"tracked": 1497},
+      "prepared": {"metamorphic": "pr_2d", "analysis": "staged (one stage)"}
+    }},
+    "solve_staged_3d": {"scope": "solve", "calls": "solve_staged_3d", "invariances": {
+      "units": {"metamorphic": "pr_3d", "analysis": "staged (one stage)"},
+      "relabel": {"metamorphic": "pr_3d", "analysis": "staged (one stage)"},
+      "reversal": {"metamorphic": "pr_3d", "analysis": "staged (one stage)"},
+      "rotation": {"metamorphic": "pr_3d", "analysis": "staged (one stage)"},
+      "mirror": {"tracked": 1497},
+      "planes": {"tracked": 1497},
+      "prepared": {"metamorphic": "pr_3d", "analysis": "staged (one stage)"}
+    }},
+    "solve_time_history_2d": {"scope": "solve", "calls": "solve_time_history_2d", "invariances": {
+      "units": {"metamorphic": "pr_2d", "analysis": "time history"},
+      "relabel": {"metamorphic": "pr_2d", "analysis": "time history"},
+      "reversal": {"metamorphic": "pr_2d", "analysis": "time history"},
+      "rotation": {"metamorphic": "pr_2d", "analysis": "time history"},
+      "mirror": {"metamorphic": "pr_2d", "analysis": "time history"},
+      "planes": {"tracked": 1497},
+      "prepared": {"exempt": "no prepared or duplicate linear path: it solves its own iterative, eigenvalue or frequency-domain system"}
+    }},
+    "solve_time_history_3d": {"scope": "solve", "calls": "solve_time_history_3d", "invariances": {
+      "units": {"metamorphic": "pr_3d", "analysis": "time history"},
+      "relabel": {"metamorphic": "pr_3d", "analysis": "time history"},
+      "reversal": {"metamorphic": "pr_3d", "analysis": "time history"},
+      "rotation": {"metamorphic": "pr_3d", "analysis": "time history"},
+      "mirror": {"tracked": 1497},
+      "planes": {"tracked": 1497},
+      "prepared": {"exempt": "no prepared or duplicate linear path: it solves its own iterative, eigenvalue or frequency-domain system"}
+    }},
+    "solve_winkler_2d": {"scope": "solve", "calls": "solve_winkler_2d", "invariances": {
+      "units": {"metamorphic": "pr_2d", "analysis": "Winkler (no foundation)"},
+      "relabel": {"metamorphic": "pr_2d", "analysis": "Winkler (no foundation)"},
+      "reversal": {"metamorphic": "pr_2d", "analysis": "Winkler (no foundation)"},
+      "rotation": {"metamorphic": "pr_2d", "analysis": "Winkler (no foundation)"},
+      "mirror": {"metamorphic": "pr_2d", "analysis": "Winkler (no foundation)"},
+      "planes": {"tracked": 1497},
+      "prepared": {"metamorphic": "pr_2d", "analysis": "Winkler (no foundation)"}
+    }},
+    "solve_winkler_3d": {"scope": "solve", "calls": "solve_winkler_3d", "invariances": {
+      "units": {"metamorphic": "pr_3d", "analysis": "Winkler (no foundation)"},
+      "relabel": {"metamorphic": "pr_3d", "analysis": "Winkler (no foundation)"},
+      "reversal": {"metamorphic": "pr_3d", "analysis": "Winkler (no foundation)"},
+      "rotation": {"metamorphic": "pr_3d", "analysis": "Winkler (no foundation)"},
+      "mirror": {"tracked": 1497},
+      "planes": {"tracked": 1497},
+      "prepared": {"metamorphic": "pr_3d", "analysis": "Winkler (no foundation)"}
+    }},
+    "solve_with_imperfections_2d": {"scope": "solve", "calls": "solve_with_imperfections_2d", "invariances": {
+      "units": {"tracked": 1497},
+      "relabel": {"tracked": 1497},
+      "reversal": {"tracked": 1497},
+      "rotation": {"tracked": 1497},
+      "mirror": {"tracked": 1497},
+      "planes": {"tracked": 1497},
+      "prepared": {"tracked": 1497}
+    }},
+    "solve_with_imperfections_3d": {"scope": "solve", "calls": "solve_with_imperfections_3d", "invariances": {
+      "units": {"tracked": 1497},
+      "relabel": {"tracked": 1497},
+      "reversal": {"tracked": 1497},
+      "rotation": {"tracked": 1497},
+      "mirror": {"tracked": 1497},
+      "planes": {"tracked": 1497},
+      "prepared": {"tracked": 1497}
+    }}
+  }
+}
