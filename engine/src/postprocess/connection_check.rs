@@ -61,8 +61,11 @@ pub struct BoltGroupInput {
 #[serde(rename_all = "camelCase")]
 pub struct BoltGroupResult {
     pub connection_id: usize,
-    /// Unity ratio (max bolt force / phi*Rn)
+    /// Unity ratio (max bolt force / phi*Rn); ∞ (JSON null) when `unevaluated` is not empty.
+    #[serde(serialize_with = "crate::check::ser_ratio", deserialize_with = "crate::check::de_ratio")]
     pub unity_ratio: f64,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub unevaluated: Vec<String>,
     /// Maximum bolt force (N)
     pub max_bolt_force: f64,
     /// Available strength per bolt phi*Rn (N)
@@ -165,8 +168,11 @@ pub struct WeldGroupInput {
 #[serde(rename_all = "camelCase")]
 pub struct WeldGroupResult {
     pub connection_id: usize,
-    /// Unity ratio (max stress / phi*Fnw)
+    /// Unity ratio (max stress / phi*Fnw); ∞ (JSON null) when `unevaluated` is not empty.
+    #[serde(serialize_with = "crate::check::ser_ratio", deserialize_with = "crate::check::de_ratio")]
     pub unity_ratio: f64,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub unevaluated: Vec<String>,
     /// Maximum weld stress (Pa)
     pub max_weld_stress: f64,
     /// Available weld strength phi*Fnw (Pa)
@@ -210,11 +216,15 @@ pub fn check_bolt_groups(input: &BoltGroupInput) -> Vec<BoltGroupResult> {
 fn check_single_bolt_group(group: &BoltGroupData, forces: &BoltGroupForces) -> BoltGroupResult {
     let n = group.bolts.len();
     let phi = group.phi.unwrap_or(0.75);
+    let m = forces.m.unwrap_or(0.0);
+    let loaded = forces.vx != 0.0 || forces.vy != 0.0 || m != 0.0;
 
     if n == 0 {
+        let (unity_ratio, unevaluated) = if loaded { (f64::INFINITY, vec![NO_BOLTS.to_string()]) } else { (0.0, vec![]) };
         return BoltGroupResult {
             connection_id: group.connection_id,
-            unity_ratio: 0.0,
+            unity_ratio,
+            unevaluated,
             max_bolt_force: 0.0,
             phi_rn: phi * group.rn_shear,
             centroid_x: 0.0,
@@ -240,7 +250,6 @@ fn check_single_bolt_group(group: &BoltGroupData, forces: &BoltGroupForces) -> B
         .sum();
 
     let phi_rn = phi * group.rn_shear.min(group.rn_bearing.unwrap_or(f64::INFINITY));
-    let m = forces.m.unwrap_or(0.0);
 
     // Find most loaded bolt
     let mut max_force = 0.0_f64;
@@ -274,21 +283,39 @@ fn check_single_bolt_group(group: &BoltGroupData, forces: &BoltGroupForces) -> B
         }
     }
 
-    let unity_ratio = if phi_rn > 0.0 {
-        max_force / phi_rn
-    } else {
-        0.0
-    };
+    let (unity_ratio, unevaluated) = group_ratio(max_force, phi_rn, [forces.vx, forces.vy, m], ip, BOLT_CAPACITY);
 
     BoltGroupResult {
         connection_id: group.connection_id,
         unity_ratio,
+        unevaluated,
         max_bolt_force: max_force,
         phi_rn,
         centroid_x: cx,
         centroid_y: cy,
         ip,
         critical_bolt: critical,
+    }
+}
+
+pub const NO_BOLTS: &str = "loaded bolt group without bolts";
+pub const NO_THROAT: &str = "loaded weld group without a positive throat area";
+pub const BOLT_CAPACITY: &str = "bolt strength phi*Rn";
+pub const WELD_CAPACITY: &str = "weld strength phi*Fnw";
+pub const MOMENT_WITHOUT_IP: &str = "moment on a group with no polar moment of inertia";
+
+pub const FORCES_NOT_FINITE: &str = "applied forces";
+
+fn group_ratio(demand: f64, capacity: f64, [vx, vy, m]: [f64; 3], ip: f64, capacity_name: &str) -> (f64, Vec<String>) {
+    if !(vx.is_finite() && vy.is_finite() && m.is_finite()) {
+        return (f64::INFINITY, vec![format!("{FORCES_NOT_FINITE}: {}", crate::check::Reason::NonFiniteDemand.code())]);
+    }
+    if m != 0.0 && !(ip > 0.0) {
+        return (f64::INFINITY, vec![MOMENT_WITHOUT_IP.to_string()]);
+    }
+    match crate::check::ratio_if_loaded(demand, capacity) {
+        crate::check::Outcome::Ratio(r) => (r, vec![]),
+        crate::check::Outcome::Unevaluated(why) => (f64::INFINITY, vec![format!("{capacity_name}: {}", why.code())]),
     }
 }
 
@@ -377,10 +404,14 @@ fn check_single_weld_group(group: &WeldGroupData, forces: &WeldGroupForces) -> W
         .map(|(s, sp)| end_loaded_beta(sp.length, s.size, s.end_loaded.unwrap_or(true)))
         .fold(1.0_f64, f64::min);
 
-    if total_throat_area <= 0.0 {
+    let m = forces.m.unwrap_or(0.0);
+    if !(total_throat_area > 0.0) {
+        let loaded = forces.vx != 0.0 || forces.vy != 0.0 || m != 0.0;
+        let (unity_ratio, unevaluated) = if loaded { (f64::INFINITY, vec![NO_THROAT.to_string()]) } else { (0.0, vec![]) };
         return WeldGroupResult {
             connection_id: group.connection_id,
-            unity_ratio: 0.0,
+            unity_ratio,
+            unevaluated,
             max_weld_stress: 0.0,
             phi_fnw,
             total_length,
@@ -416,8 +447,6 @@ fn check_single_weld_group(group: &WeldGroupData, forces: &WeldGroupForces) -> W
         }
     }
 
-    let m = forces.m.unwrap_or(0.0);
-
     // Direct stress
     let fx_direct = forces.vx / total_throat_area;
     let fy_direct = forces.vy / total_throat_area;
@@ -443,15 +472,12 @@ fn check_single_weld_group(group: &WeldGroupData, forces: &WeldGroupForces) -> W
         }
     }
 
-    let unity_ratio = if phi_fnw > 0.0 {
-        max_stress / phi_fnw
-    } else {
-        0.0
-    };
+    let (unity_ratio, unevaluated) = group_ratio(max_stress, phi_fnw, [forces.vx, forces.vy, m], ip, WELD_CAPACITY);
 
     WeldGroupResult {
         connection_id: group.connection_id,
         unity_ratio,
+        unevaluated,
         max_weld_stress: max_stress,
         phi_fnw,
         total_length,

@@ -213,6 +213,7 @@ pub struct PDeltaResult {
     pub iterations: usize,
     pub converged: bool,
     pub is_stable: bool,
+    #[serde(serialize_with = "crate::check::ser_ratio", deserialize_with = "crate::check::de_ratio")]
     pub b2_factor: f64,
     pub linear_results: AnalysisResults,
 }
@@ -425,6 +426,7 @@ pub struct PDeltaResult3D {
     pub iterations: usize,
     pub converged: bool,
     pub is_stable: bool,
+    #[serde(serialize_with = "crate::check::ser_ratio", deserialize_with = "crate::check::de_ratio")]
     pub b2_factor: f64,
     pub linear_results: AnalysisResults3D,
 }

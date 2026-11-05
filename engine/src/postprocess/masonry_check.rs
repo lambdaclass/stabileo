@@ -203,11 +203,15 @@ fn check_single_masonry(m: &MasonryMemberData, f: &MasonryDesignForces) -> Mason
     let _em = em; // used for documentation/consistency
     let fm_mpa = m.fm / 1e6;
     let an_mm2 = an * 1e6; // m² to mm²
-    // M/(V·dv), the shear-span ratio the code indexes on. Guarded so a member
-    // with no shear demand does not divide by zero.
     let mv_dv = {
         let denom = vu * m.d;
-        if denom > 0.0 { (mu / denom).clamp(0.0, 1.0) } else { 0.0 }
+        if vu == 0.0 {
+            0.0
+        } else if denom > 0.0 {
+            (mu / denom).clamp(0.0, 1.0)
+        } else {
+            1.0
+        }
     };
 
     let vm = 0.083 * (4.0 - 1.75 * mv_dv) * fm_mpa.sqrt() * an_mm2;

@@ -986,8 +986,8 @@ fn check_single_ec3_member(m: &Ec3MemberData, f: &Ec3DesignForces) -> Ec3CheckRe
     }
 
     let compression_ratio =
-        ledger.ratio_if_loaded("Compression 6.3.1", (-n_ed).max(0.0), nb_rd);
-    let tension_ratio = ledger.ratio_if_loaded("Tension 6.2.3", n_ed.max(0.0), npl_rd);
+        ledger.ratio_if_loaded("Compression 6.3.1", crate::check::positive_part(-n_ed), nb_rd);
+    let tension_ratio = ledger.ratio_if_loaded("Tension 6.2.3", crate::check::positive_part(n_ed), npl_rd);
 
     ledger.require_finite("LTB chi_LT", chi_lt);
     let flexure_ratio_y = ledger.ratio_if_loaded("Flexure-y 6.3.2", my_ed.abs(), mb_rd);

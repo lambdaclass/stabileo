@@ -253,6 +253,11 @@ pub enum DiagnosticCode {
     /// A cable's own weight gives it over a quarter of its tension with its drawn chord as its
     /// unstressed length (#527): `value` the largest share, `threshold` the quarter.
     CableSelfWeightTension,
+
+    // ---- Result boundary ----
+    /// A result held a NaN or ±∞ and was withheld instead of being sent (`boundary`): the path
+    /// of the first one in `phase`.
+    NonFiniteResult,
 }
 
 /// A structured diagnostic with enum code, severity, optional element/node
@@ -380,6 +385,7 @@ impl From<&StructuredDiagnostic> for SolverDiagnostic {
             DiagnosticCode::KnownIssue => "known_issue",
             DiagnosticCode::ThermalDefaultAssumed => "assumption",
             DiagnosticCode::CableSelfWeightTension => "assumption",
+            DiagnosticCode::NonFiniteResult => "non_finite_result",
         };
         let severity = match sd.severity {
             Severity::Info => "info",

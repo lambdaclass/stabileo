@@ -82,14 +82,18 @@ pub struct SpreadFootingInput {
 pub struct SpreadFootingResult {
     pub footing_id: usize,
     /// Maximum bearing pressure (Pa)
+    #[serde(serialize_with = "crate::check::ser_ratio", deserialize_with = "crate::check::de_ratio")]
     pub max_bearing_pressure: f64,
     /// Bearing capacity ratio (q_max / q_allowable)
     pub bearing_ratio: f64,
     /// Overturning safety factor about length axis
+    #[serde(serialize_with = "crate::check::ser_ratio", deserialize_with = "crate::check::de_ratio")]
     pub overturning_sf_x: f64,
     /// Overturning safety factor about width axis
+    #[serde(serialize_with = "crate::check::ser_ratio", deserialize_with = "crate::check::de_ratio")]
     pub overturning_sf_y: f64,
     /// Sliding safety factor
+    #[serde(serialize_with = "crate::check::ser_ratio", deserialize_with = "crate::check::de_ratio")]
     pub sliding_sf: f64,
     /// One-way shear ratio (Vu / phi*Vc)
     pub oneway_shear_ratio: f64,
@@ -175,20 +179,16 @@ fn check_single_footing(
     // tipping about the width axis (`my`) rotates it along the length: L/2.
     let mr_x = p * b / 2.0;
     let mo_x = mx.abs() + h.abs() * ftg.depth;
-    let overturning_sf_x = if mo_x > 0.0 { mr_x / mo_x } else { f64::INFINITY };
+    let overturning_sf_x = safety_factor(&mut ledger, "Overturning X", mr_x, mo_x);
 
     let mr_y = p * l / 2.0;
     let mo_y = my.abs() + h.abs() * ftg.depth;
-    let overturning_sf_y = if mo_y > 0.0 { mr_y / mo_y } else { f64::INFINITY };
+    let overturning_sf_y = safety_factor(&mut ledger, "Overturning Y", mr_y, mo_y);
 
     // Sliding resistance
     // Fr = mu * P (friction) + passive pressure (ignored for simplicity)
     let fr = mu * p;
-    let sliding_sf = if h.abs() > 0.0 {
-        fr / h.abs()
-    } else {
-        f64::INFINITY
-    };
+    let sliding_sf = safety_factor(&mut ledger, "Sliding", fr, h.abs());
 
     // One-way shear (beam shear) — critical section at d from the column face.
     // Both directions must be checked: on a footing that cantilevers further
@@ -282,4 +282,12 @@ fn check_single_footing(
         pass,
         unevaluated: ledger.into_unevaluated(),
     }
+}
+
+fn safety_factor(ledger: &mut CheckLedger, name: &str, resisting: f64, driving: f64) -> f64 {
+    if !resisting.is_finite() || !driving.is_finite() {
+        ledger.flag(name);
+        return 0.0;
+    }
+    if driving > 0.0 { resisting / driving } else { f64::INFINITY }
 }
