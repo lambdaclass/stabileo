@@ -78,7 +78,7 @@ describe('a deliberate result change', () => {
     expect(unregistered.report).toContain(file);
 
     // A fragment alone, or a fragment in another section, is not enough.
-    const entry = { ...REGISTRY.changes[0], id: 'negative-case-entry', resultsVersion: REGISTRY.currentResultsVersion + 1 };
+    const entry = { ...REGISTRY.changes.find((c: { scope?: string }) => c.scope === undefined), id: 'negative-case-entry', resultsVersion: REGISTRY.currentResultsVersion + 1 };
     const registered = { ...REGISTRY, currentResultsVersion: entry.resultsVersion, changes: [entry, ...REGISTRY.changes] };
     const fixed = { file: 'changelog.d/x.md', text: '### Fixed\n#### Something (2026-10-28)\n' };
     const breaking = { file: 'changelog.d/y.md', text: '### BREAKING (results)\n#### The beam load (2026-10-28)\n' };
@@ -87,6 +87,12 @@ describe('a deliberate result change', () => {
     const ok = decide({ snapshots, baseRegistry: REGISTRY, headRegistry: registered, fragments: [breaking] });
     expect(ok.ok).toBe(true);
     expect(ok.report).toContain('negative-case-entry');
+
+    const examplesOnly = { ...entry, when: undefined, scope: 'examples', examples: ['simply-supported'] };
+    const asExamples = { ...REGISTRY, currentResultsVersion: entry.resultsVersion, changes: [examplesOnly, ...REGISTRY.changes] };
+    const disguised = decide({ snapshots, baseRegistry: REGISTRY, headRegistry: asExamples, fragments: [breaking], changedFixtures: [], caseExample: { [file]: CASE.source && 'example' in CASE.source ? CASE.source.example : '' } });
+    expect(disguised.ok).toBe(false);
+    expect(disguised.report).toContain('did not change');
   });
 });
 
