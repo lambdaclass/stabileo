@@ -234,3 +234,25 @@ fn truss_only_rotation_is_still_an_orphan_2d() {
     let err = solve_2d(&input).unwrap_err();
     assert!(err.contains("not supported") || err.contains("Nodal moment"), "{err}");
 }
+
+#[test]
+fn soft_rotational_spring_at_a_hinged_node_is_not_replaced_2d() {
+    let input: SolverInput = serde_json::from_str(
+        r#"{"nodes":{"1":{"id":1,"x":0,"z":0},"2":{"id":2,"x":3,"z":0}},
+ "materials":{"1":{"id":1,"e":200000,"nu":0.3}},
+ "sections":{"1":{"id":1,"a":0.01,"iz":0.0001}},
+ "elements":{"1":{"id":1,"type":"frame","nodeI":1,"nodeJ":2,"materialId":1,"sectionId":1,"hingeEnd":true}},
+ "supports":{"1":{"id":1,"nodeId":1,"type":"fixed"},"2":{"id":2,"nodeId":2,"type":"spring","kz":1e-13}},
+ "loads":[{"type":"nodal","data":{"nodeId":2,"fx":0,"fz":0,"my":0.005}}]}"#,
+    )
+    .unwrap();
+    let theta = 0.005 / 1e-13;
+    for (path, art) in artificial_2d(&input).iter().enumerate() {
+        assert!(art.is_empty(), "2D assembler {path} replaced the spring with the artificial stiffness: {art:?}");
+    }
+    let ry = solve_2d(&input).unwrap().displacements.iter().find(|d| d.node_id == 2).unwrap().ry;
+    assert!(rel(ry, theta) < 1e-9, "solve_2d ry {ry}, closed form M/k = {theta}");
+    let out = dedaliano_engine::certify::certify_linear_2d_full(&input).unwrap();
+    let ry = out.results.displacements.iter().find(|d| d.node_id == 2).unwrap().ry;
+    assert!(rel(ry, theta) < 1e-9, "certified ry {ry}, closed form M/k = {theta}");
+}
