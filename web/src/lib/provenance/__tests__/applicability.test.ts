@@ -202,6 +202,16 @@ describe('which registered changes concern a model', () => {
     expect(ids(model({ analysisMode: '3d', elements: [member(1, 1, 'truss')] }))).not.toContain(change);
   });
 
+  it('tells 3D frames solved before version 39 about the 3D plastic refusal of a member without capacity, never a plane model or a truss (#1525)', () => {
+    const change = 'plastic-3d-member-without-capacity-refused';
+    const v38 = { resultsVersion: 38, analyses: ['linear'] } as SolveStamp;
+    expect(ids(model({ analysisMode: 'pro', elements: [member(1, 1, 'frame')] }), v38)).toContain(change);
+    expect(ids(model({ analysisMode: '3d', elements: [member(1, 1, 'frame')] }), v38)).toContain(change);
+    expect(ids(model({ analysisMode: 'pro', elements: [member(1, 1, 'frame')] }), { resultsVersion: 39, analyses: ['linear'] } as SolveStamp)).not.toContain(change);
+    expect(ids(model({ analysisMode: '2d', elements: [member(1, 1, 'frame')] }), v38)).not.toContain(change);
+    expect(ids(model({ analysisMode: 'pro', elements: [member(1, 1, 'truss')] }), v38)).not.toContain(change);
+  });
+
   it('tells CIRSOC 301 steel models solved before the Q ≤ 0 refusal about it', () => {
     const change = 'cirsoc301-q-nonpositive-refused';
     const steel = model({ elements: [member(1, 1, 'frame')] });

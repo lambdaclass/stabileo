@@ -133,6 +133,12 @@ const body: PostBody = {
           "Bir sonraki sürümde düzeltildi"
         ],
         [
+          "SA-2026-045",
+          "3B plastik göçme: kullanılabilir plastik momenti olmayan bir çubuk hiç akmayan bir çubuk gibi ele alınıyordu (bir örnekte 6 kat yüksek ve sertifikalı)",
+          "Yüksek",
+          "Bir sonraki sürümde düzeltildi"
+        ],
+        [
           "SA-2026-037",
           "3B eşdönel analiz: dönme vektörleri çıkarılıyordu (Bathe–Bolourchi eğrisi %1,3 sapmalı, ağ sıklaştırmayla düzelmiyordu)",
           "Orta",

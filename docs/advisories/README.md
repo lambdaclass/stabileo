@@ -54,6 +54,7 @@ section and re-check registry entry in the same way.
 | [SA-2026-037](SA-2026-037-corotational-3d-rotations.md) | 3D co-rotational analysis differenced rotation vectors (the Bathe–Bolourchi bend 1.3 % off, not shrinking with refinement) | Medium | [#426](https://github.com/lambdaclass/stabileo/issues/426) | #1301 | next release | Draft |
 | [SA-2026-036](SA-2026-036-cut-constraints-plane.md) | 3D-to-2D cut on Y–Z or X–Y read the constraints as if the frame stood in X–Z (sway ties dropped or applied out of plane) | High | [#466](https://github.com/lambdaclass/stabileo/issues/466) | #1297 | next release | Draft |
 | [SA-2026-043](SA-2026-043-harmonic-modal-static-correction.md) | Harmonic analysis lost the omitted modes' correction when one mode was much softer than the rest (79× at 2.3 Hz in an example) | High | [#1371](https://github.com/lambdaclass/stabileo/issues/1371) | #1423 | next release | Draft |
+| [SA-2026-045](SA-2026-045-plastic-3d-member-without-capacity.md) | 3D plastic collapse treated a frame member without a usable plastic moment as one that never yields (6× high in an example, and certified) | High | [#1525](https://github.com/lambdaclass/stabileo/issues/1525) | #PR | next release | Draft |
 
 Other open `safety` issues (the derivation-review findings #406–#433, #439) get an advisory
 or a recorded "no advisory needed" when they are triaged; the list is on the

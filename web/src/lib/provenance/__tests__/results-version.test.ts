@@ -81,6 +81,7 @@ const RELEASED: Record<number, string[]> = {
   30: ['connector-mechanism-2d-refused'],
   32: ['harmonic-modal-residual-checked'],
   33: ['soft-rotation-not-orphan'],
+  39: ['plastic-3d-member-without-capacity-refused'],
   31: ['safety-containment-diagnostics'],
 };
 

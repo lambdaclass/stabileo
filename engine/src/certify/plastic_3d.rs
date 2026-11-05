@@ -319,12 +319,16 @@ pub fn build_model_3d(input: &PlasticInput3D) -> Result<PlasticModel3, String> {
         }
     }
 
-    let mut mp_by_sec: HashMap<usize, Option<[(Q, Q); 2]>> = HashMap::new();
+    let mut mp_by_sec: HashMap<usize, [(Q, Q); 2]> = HashMap::new();
     for (sid, sec) in &input.sections {
         let sec_id: usize = sid.parse().unwrap_or(0);
         let over = input.mp_overrides.as_ref().and_then(|m| m.get(sid)).copied();
         let fy = input.materials.get(&sec.material_id.to_string()).and_then(|m| m.fy).unwrap_or(250.0);
-        mp_by_sec.insert(sec_id, mp_3d(sec, fy, over)?);
+        if let Ok(Some(mp)) = mp_3d(sec, fy, over) {
+            if mp[0].0.is_positive() && mp[1].0.is_positive() {
+                mp_by_sec.insert(sec_id, mp);
+            }
+        }
     }
 
     let mut elem_list: Vec<&SolverElement3D> = crate::ordered::values(&s.elements).collect();
@@ -377,7 +381,11 @@ pub fn build_model_3d(input: &PlasticInput3D) -> Result<PlasticModel3, String> {
             nz,
             frame,
             rel,
-            mp: if frame_elem { mp_by_sec.get(&el.section_id).cloned().flatten() } else { None },
+            mp: if frame_elem {
+                Some(mp_by_sec.get(&el.section_id).cloned().ok_or_else(|| crate::solver::plastic::no_plastic_capacity_message(el.id, el.section_id))?)
+            } else {
+                None
+            },
             loads_y: Vec::new(),
             loads_z: Vec::new(),
             loads_x: Vec::new(),

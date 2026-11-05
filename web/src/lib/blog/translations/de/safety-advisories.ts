@@ -133,6 +133,12 @@ const body: PostBody = {
           "Behoben in der nächsten Version"
         ],
         [
+          "SA-2026-045",
+          "3D-Plastischer Kollaps: Ein Stab ohne verwendbares plastisches Moment wurde behandelt, als würde er nie plastifizieren (6-fach zu hoch in einem Beispiel, und zertifiziert)",
+          "Hoch",
+          "Behoben in der nächsten Version"
+        ],
+        [
           "SA-2026-037",
           "Korotationale 3D-Analyse: Rotationsvektoren wurden subtrahiert (der Bathe–Bolourchi-Bogen 1,3 % daneben, ohne Besserung bei Netzverfeinerung)",
           "Mittel",

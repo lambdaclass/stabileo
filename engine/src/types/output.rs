@@ -253,6 +253,7 @@ pub enum DiagnosticCode {
     /// A cable's own weight gives it over a quarter of its tension with its drawn chord as its
     /// unstressed length (#527): `value` the largest share, `threshold` the quarter.
     CableSelfWeightTension,
+    PlasticCapacityMissing,
 }
 
 /// A structured diagnostic with enum code, severity, optional element/node
@@ -380,6 +381,7 @@ impl From<&StructuredDiagnostic> for SolverDiagnostic {
             DiagnosticCode::KnownIssue => "known_issue",
             DiagnosticCode::ThermalDefaultAssumed => "assumption",
             DiagnosticCode::CableSelfWeightTension => "assumption",
+            DiagnosticCode::PlasticCapacityMissing => "model_quality",
         };
         let severity = match sd.severity {
             Severity::Info => "info",

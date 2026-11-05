@@ -18,8 +18,11 @@ export function knownIssueRefusal(error: unknown): string | null {
   try {
     const data = JSON.parse(error.slice(error.indexOf('{')));
     if (!Array.isArray(data?.structuredDiagnostics)) return null;
-    const disposition = knownIssueDisposition(data.structuredDiagnostics.filter((d: { severity?: string }) => d.severity === 'error'));
-    return disposition.refused ? disposition.messages.join('\n') : null;
+    const errors = data.structuredDiagnostics.filter((d: { severity?: string }) => d.severity === 'error');
+    const disposition = knownIssueDisposition(errors);
+    if (disposition.refused) return disposition.messages.join('\n');
+    const refusals = errors.filter((d: { code?: string }) => d.code === 'plastic_capacity_missing');
+    return refusals.length > 0 ? [...new Set(refusals.map(knownIssueMessage))].join('\n') : null;
   } catch { return null; }
 }
 
