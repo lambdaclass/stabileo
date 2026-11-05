@@ -360,11 +360,7 @@ fn planes(a: &Ana2, c: &Case2, base: &Resp, solve: impl Fn(&Case2, Plane, &Solve
         let got = crate::response::outcome(guarded(|| solve(c, plane, &s3)));
         let got = match got {
             Ok(g) => g,
-            Err(e) if base.1.is_empty() => return Verdict::Fail(format!("{plane:?}: 2D solved, 3D failed: {e}")),
-            Err(e) => {
-                refused.get_or_insert(format!("{plane:?}: 2D refused {:?}, 3D failed: {e}", base.1));
-                continue;
-            }
+            Err(e) => return Verdict::Fail(format!("{plane:?}: 2D {}, 3D failed: {e}", if base.1.is_empty() { "solved" } else { "refused" })),
         };
         match (base.1.is_empty(), got.1.is_empty()) {
             (true, true) => {}
@@ -766,6 +762,13 @@ fn a_one_sided_failure_or_refusal_or_a_nonfinite_3d_result_fails_the_planes_chec
         linear::solve_3d(s)
     };
     assert!(matches!(check(&refused_2d, refuse_in_xz), Verdict::Fail(_)));
+    assert!(matches!(check(&refused_2d, |_| Err("singular".into())), Verdict::Fail(_)));
+    let nan = |s: &SolverInput3D| {
+        let mut r = linear::solve_3d(s)?;
+        r.element_forces[0].mx_start = f64::NAN;
+        Ok(r)
+    };
+    assert!(matches!(check(&refused_2d, nan), Verdict::Fail(_)));
     assert!(fails(|_| {
         let id = ENTRIES.iter().find(|e| e.mode == Mode::Refuse).unwrap().id;
         refuse(&[diagnostic(id)]).map(|_| unreachable!())
