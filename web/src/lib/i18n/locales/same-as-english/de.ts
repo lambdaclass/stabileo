@@ -206,7 +206,6 @@ export const SAME_AS_ENGLISH: readonly string[] = [
   'fdnEd.pressureAt',
   'fed.ui.name',
   'fed.ui.versionLabel',
-  'feedback.fab',
   'field.density',
   'field.name',
   'field.poisson',

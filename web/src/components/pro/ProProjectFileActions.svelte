@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { accountGate } from '../../lib/store/account-gate.svelte';
   import { editorActivity } from '../../lib/utils/editor-activity';
   const editorActive = editorActivity();
   /**
@@ -109,7 +108,7 @@
   type="file"
   accept=".ded,.json"
   style="display:none"
-  onchange={accountGate.files('open', handleLoadFile)}
+  onchange={handleLoadFile}
 />
 
 <style>

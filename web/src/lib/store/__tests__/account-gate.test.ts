@@ -10,7 +10,12 @@ vi.mock('../../telemetry/usage', () => ({
   trackUsage: (name: string, props: Record<string, unknown>) => void tracked.push({ name, props }),
 }));
 
-const { accountGate } = await import('../account-gate.svelte');
+const { accountGate, gateFileInputs } = await import('../account-gate.svelte');
+
+async function freshGate() {
+  vi.resetModules();
+  return import('../account-gate.svelte');
+}
 const { saveFile } = await import('../../export/save-file');
 
 beforeEach(() => {
@@ -79,18 +84,6 @@ describe('account gate', () => {
     expect(run).not.toHaveBeenCalled();
   });
 
-  it('keeps only the last action asked for', () => {
-    auth.saveRequiresAccount = true;
-    const first = vi.fn();
-    const second = vi.fn();
-    accountGate.guard('save', first);
-    accountGate.guard('export', second);
-    auth.isAuthenticated = true;
-    accountGate.open = false;
-    expect(first).not.toHaveBeenCalled();
-    expect(second).toHaveBeenCalledOnce();
-  });
-
   it('a comment asks for an account whenever sign-in is open, whatever the save switch says', () => {
     auth.userLoginEnabled = true;
     const run = vi.fn();
@@ -110,64 +103,123 @@ describe('account gate', () => {
     expect(accountGate.open).toBe(false);
   });
 
-  describe('allow', () => {
-    it('resolves true at once while no account is required', async () => {
-      await expect(accountGate.allow('open')).resolves.toBe(true);
+  it('runs every action asked for while the request is open, once the user signs in', () => {
+    auth.saveRequiresAccount = true;
+    const first = vi.fn();
+    const second = vi.fn();
+    accountGate.guard('save', first);
+    accountGate.guard('export', second);
+    expect(accountGate.action).toBe('save');
+    auth.isAuthenticated = true;
+    accountGate.open = false;
+    expect(first).toHaveBeenCalledOnce();
+    expect(second).toHaveBeenCalledOnce();
+    expect(tracked.filter((e) => e.name === 'gate.shown')).toHaveLength(1);
+  });
+
+  it('closing the request calls what each action does on a refusal', () => {
+    auth.saveRequiresAccount = true;
+    const cancel = vi.fn();
+    accountGate.guard('save', vi.fn(), cancel);
+    accountGate.open = false;
+    expect(cancel).toHaveBeenCalledOnce();
+  });
+
+  describe('when sign-in cannot happen', () => {
+    it('the waiting save goes ahead without an account, and so does every later one in the visit', async () => {
+      const { accountGate } = await freshGate();
+      auth.saveRequiresAccount = true;
+      const run = vi.fn();
+      const cancel = vi.fn();
+      accountGate.guard('save', run, cancel);
+
+      expect(accountGate.proceedWithoutAccount()).toBe(true);
+      expect(run).toHaveBeenCalledOnce();
+      expect(cancel).not.toHaveBeenCalled();
+      expect(accountGate.open).toBe(false);
+      expect(accountGate.action).toBeNull();
+      expect(tracked.at(-1)).toEqual({ name: 'gate.unavailable', props: { action: 'save' } });
+
+      const later = vi.fn();
+      accountGate.guard('export', later);
+      expect(later).toHaveBeenCalledOnce();
       expect(accountGate.open).toBe(false);
     });
 
-    it('waits for sign-in, then resolves true', async () => {
-      auth.saveRequiresAccount = true;
-      const answer = accountGate.allow('import');
+    it('a comment, which needs the account itself, does not go ahead', async () => {
+      const { accountGate } = await freshGate();
+      auth.userLoginEnabled = true;
+      const run = vi.fn();
+      accountGate.requireSignIn('feedback', run);
+      expect(accountGate.proceedWithoutAccount()).toBe(false);
+      expect(run).not.toHaveBeenCalled();
       expect(accountGate.open).toBe(true);
-      expect(accountGate.action).toBe('import');
-
-      auth.isAuthenticated = true;
-      accountGate.open = false;
-      await expect(answer).resolves.toBe(true);
-      expect(tracked.map((e) => e.name)).toEqual(['gate.shown', 'gate.passed']);
-    });
-
-    it('resolves false when the request is closed without signing in', async () => {
-      auth.saveRequiresAccount = true;
-      const answer = accountGate.allow('export');
-      accountGate.open = false;
-      await expect(answer).resolves.toBe(false);
     });
   });
 
-  describe('files', () => {
-    const input = () => ({ value: 'C:\\fakepath\\beam.ded', files: ['beam.ded'] }) as unknown as HTMLInputElement;
-
-    it('hands the change straight to the handler while no account is required', () => {
+  describe('file inputs', () => {
+    function setup(accept = '.ded,.json', extra: Record<string, unknown> = {}, gate = gateFileInputs) {
+      let listener: ((e: Event) => void) | null = null;
+      const target = {
+        addEventListener: (_: string, l: (e: Event) => void, capture: boolean) => { expect(capture).toBe(true); listener = l; },
+        removeEventListener: () => { listener = null; },
+      } as unknown as Window;
+      const stop = gate(target);
+      const input = Object.assign(new EventTarget(), { tagName: 'INPUT', type: 'file', accept, files: ['beam.ded'], value: 'C:\\fakepath\\beam.ded', dataset: {} as Record<string, string> }, extra);
       const handler = vi.fn();
-      const e = { currentTarget: input() } as unknown as Event;
-      accountGate.files('open', handler)(e);
-      expect(handler).toHaveBeenCalledWith(e);
+      input.addEventListener('change', handler);
+      const choose = () => {
+        const e = new Event('change', { bubbles: true });
+        Object.defineProperty(e, 'target', { value: input });
+        const stopped = vi.spyOn(e, 'stopImmediatePropagation');
+        listener!(e);
+        return stopped;
+      };
+      return { input, handler, choose, stop };
+    }
+
+    it('lets the choice through while no account is required', () => {
+      const { choose } = setup();
+      expect(choose()).not.toHaveBeenCalled();
+      expect(accountGate.open).toBe(false);
     });
 
-    it('reads the chosen file only after sign-in, from the same input', () => {
+    it('holds the chosen file until sign-in, then hands the same input on', () => {
       auth.saveRequiresAccount = true;
-      const el = input();
-      const handler = vi.fn((e: Event) => (e.currentTarget as HTMLInputElement).files);
-      accountGate.files('open', handler)({ currentTarget: el } as unknown as Event);
-      expect(handler).not.toHaveBeenCalled();
+      const { choose, handler } = setup();
+      expect(choose()).toHaveBeenCalledOnce();
       expect(accountGate.action).toBe('open');
+      expect(handler).not.toHaveBeenCalled();
 
       auth.isAuthenticated = true;
       accountGate.open = false;
       expect(handler).toHaveBeenCalledOnce();
-      expect(handler.mock.results[0].value).toEqual(['beam.ded']);
     });
 
-    it('closing the request reads nothing and clears the input, so the same file can be chosen again', () => {
+    it('names anything but a project file an import, and a closed request clears the input', () => {
       auth.saveRequiresAccount = true;
-      const el = input();
-      const handler = vi.fn();
-      accountGate.files('import', handler)({ currentTarget: el } as unknown as Event);
+      const { choose, input, handler } = setup('.dxf');
+      choose();
+      expect(accountGate.action).toBe('import');
       accountGate.open = false;
       expect(handler).not.toHaveBeenCalled();
-      expect(el.value).toBe('');
+      expect(input.value).toBe('');
+    });
+
+    it('never holds an input marked as free of the account', () => {
+      auth.saveRequiresAccount = true;
+      const { choose } = setup('image/png', { dataset: { accountFree: '' } });
+      expect(choose()).not.toHaveBeenCalled();
+      expect(accountGate.open).toBe(false);
+    });
+
+    it('a failed sign-in hands the held file on too', async () => {
+      const fresh = await freshGate();
+      auth.saveRequiresAccount = true;
+      const { choose, handler } = setup('.ded', {}, fresh.gateFileInputs);
+      choose();
+      fresh.accountGate.proceedWithoutAccount();
+      expect(handler).toHaveBeenCalledOnce();
     });
   });
 

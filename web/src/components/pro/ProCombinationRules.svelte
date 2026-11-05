@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { accountGate } from '../../lib/store/account-gate.svelte';
   import Hint from './Hint.svelte';
   /**
    * The project's own combination rules: written in load symbols, saved with the project, and
@@ -129,7 +128,7 @@
     <button class="al-btn-sm" onclick={seed} data-testid="combo-rule-seed">{t('combos.rules.seed')}</button>
     <button class="al-btn-sm" disabled={rules.length === 0} onclick={exportTemplate} data-testid="combo-rule-export">{t('combos.rules.export')}</button>
     <button class="al-btn-sm" onclick={() => fileInput?.click()} data-testid="combo-rule-import">{t('combos.rules.import')}</button>
-    <input type="file" accept="application/json,.json" hidden bind:this={fileInput} onchange={accountGate.files('import', importTemplate)} data-testid="combo-rule-file" />
+    <input type="file" accept="application/json,.json" hidden bind:this={fileInput} onchange={importTemplate} data-testid="combo-rule-file" />
   </div>
   <div class="cr-lib" data-testid="combo-library">
     <span class="al-label">{t('combos.library.title')}</span>

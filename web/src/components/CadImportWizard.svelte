@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { accountGate } from '../lib/store/account-gate.svelte';
+  import { saveFile } from '../lib/export/save-file';
   import { askAboutOverlapsInModel } from '../lib/model/edit/connection-questions';
   import { viewVisibility } from '../lib/store/view-state.svelte';
   // The model store is not touched until Apply, which is one undo step.
@@ -573,15 +573,7 @@
   }
 
   function downloadTemplate(): void {
-    const blob = new Blob([buildStabileoTemplateDxf()], { type: 'application/dxf' });
-    const url = URL.createObjectURL(blob);
-    const aEl = document.createElement('a');
-    aEl.href = url;
-    aEl.download = 'stabileo-template.dxf';
-    accountGate.guard('import', () => {
-      aEl.click();
-      URL.revokeObjectURL(url);
-    });
+    saveFile('stabileo-template.dxf', new Blob([buildStabileoTemplateDxf()], { type: 'application/dxf' }));
   }
 
   /** Pre-fill floors/heights once from an STB_LEVEL_SCHEDULE, if present. */
@@ -759,7 +751,7 @@
             type="file"
             accept=".dxf"
             style="display:none"
-            onchange={accountGate.files('import', onFileChosen)}
+            onchange={onFileChosen}
             data-testid="cad-file"
           />
           <div class="open-actions">
