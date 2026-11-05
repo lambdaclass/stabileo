@@ -460,6 +460,7 @@ test.ci-scripts: test.nightly-scripts check.cadence
 	python3 -B -I scripts/tests/test_wall_clock.py
 	python3 -B -I scripts/tests/test_check_quick.py
 	python3 -B -I scripts/tests/test_infra_retry.py
+	python3 -B -I scripts/tests/test_e2e_timings.py
 	python3 -B -I scripts/tests/test_issue_reproducers.py
 	python3 -B -I scripts/tests/test_verification_metrics.py
 	python3 -B -I scripts/tests/test_ci_scripts_target.py

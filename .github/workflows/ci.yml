@@ -121,6 +121,7 @@ jobs:
       determinism: ${{ steps.select.outputs.determinism }}
       results: ${{ steps.select.outputs.results }}
       run_e2e: ${{ steps.labels.outputs.run_e2e == 'true' }}
+      e2e_timings_run: ${{ steps.timings.outputs.run }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -231,6 +232,23 @@ jobs:
           CHANGED_FILES: ${{ steps.filter.outputs.all_files }}
           FORCE_FULL: ${{ steps.labels.outputs.run_e2e == 'true' }}
         run: python3 .github/scripts/select-ci.py
+      # Every E2E shard balances from this one table, so a run that cannot read it uses the committed one everywhere.
+      - name: Latest measured E2E timings (main or merge queue)
+        id: timings
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          run=
+          for id in $(gh api "repos/$GH_REPO/actions/artifacts?name=e2e-timings&per_page=20" \
+            --jq '.artifacts[] | select(.expired | not) | select(.workflow_run.head_branch == "main" or (.workflow_run.head_branch | startswith("gh-readonly-queue/main/"))) | .workflow_run.id'); do
+            trusted=$(gh api "repos/$GH_REPO/actions/runs/$id" | jq -r --arg repo "$GH_REPO" \
+              'select((.event == "push" or .event == "merge_group") and .path == ".github/workflows/ci.yml" and .head_repository.full_name == $repo and .repository.full_name == $repo) | .id')
+            if [ "$trusted" = "$id" ]; then run=$id; break; fi
+          done
+          echo "run=$run" >> "$GITHUB_OUTPUT"
+          echo "E2E timings from run: ${run:-none (the committed table)}"
 
   docker-smoke:
     name: Docker build smoke
@@ -1572,6 +1590,16 @@ jobs:
       # `@landing` stays out: on CI every landing case after the first wedges in
       # `browser.newContext`; run `npx playwright test --grep @landing` locally.
       # `@flaky` tests are quarantined (web/e2e/README.md): left out here, run by `e2e-flaky`.
+      - name: Measured E2E timings (from a recent main or merge-queue run)
+        if: needs.changes.outputs.e2e_timings_run != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TIMINGS_RUN: ${{ needs.changes.outputs.e2e_timings_run }}
+        run: |
+          .github/scripts/retry-infra.sh gh run download "$TIMINGS_RUN" --name e2e-timings --dir web/e2e/.timings
+          test -s web/e2e/.timings/shard-timings.json
+          echo "E2E_SHARD_TIMINGS=e2e/.timings/shard-timings.json" >> "$GITHUB_ENV"
       - name: Area E2E smoke suite
         if: needs.changes.outputs.scope != 'full' && needs.changes.outputs.scope != 'site'
         env:
@@ -1621,6 +1649,15 @@ jobs:
           path: web/e2e/__screenshots__/linux
           retention-days: 30
           if-no-files-found: ignore
+      - name: Upload smoke timings
+        if: success() && (needs.changes.outputs.scope == 'full' || needs.changes.outputs.scope == 'site') && (github.event_name == 'merge_group' || github.event_name == 'push')
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: e2e-results-${{ matrix.shard }}
+          path: web/e2e/.results/smoke.json
+          include-hidden-files: true
+          retention-days: 3
+          if-no-files-found: error
       # Both paths are dot-directories, which upload-artifact skips unless told otherwise.
       - name: Upload Playwright artifacts
         if: always()
@@ -1634,6 +1671,38 @@ jobs:
           include-hidden-files: true
           retention-days: 14
           if-no-files-found: warn
+
+  # The smoke timings of this run, for the next runs' shard balance (web/scripts/e2e-shard.mjs).
+  e2e-timings:
+    name: E2E shard timings
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    needs: [changes, e2e]
+    if: needs.e2e.result == 'success' && (needs.changes.outputs.scope == 'full' || needs.changes.outputs.scope == 'site') && (github.event_name == 'merge_group' || github.event_name == 'push')
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Every shard's smoke report
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+        run: .github/scripts/retry-infra.sh gh run download "$RUN_ID" --pattern 'e2e-results-*' --dir e2e-results
+      - name: Timings table
+        env:
+          TOTAL: ${{ needs.changes.outputs.e2e_total }}
+        run: |
+          reports=(e2e-results/*/smoke.json)
+          [ "${#reports[@]}" = "$TOTAL" ] || { echo "expected $TOTAL shard reports, found ${#reports[@]}"; exit 1; }
+          mkdir -p timings
+          E2E_SHARD_TIMINGS=$PWD/timings/shard-timings.json node web/scripts/e2e-shard.mjs --update "${reports[@]/#/$PWD/}"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: e2e-timings
+          path: timings/shard-timings.json
+          retention-days: 30
+          if-no-files-found: error
 
   # The quarantined tests (`@flaky`, each with its issue: web/e2e/README.md), smoke and slow
   # alike, with two retries. NOT a required check: a red here is the issue's evidence, not a
