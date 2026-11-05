@@ -46,15 +46,18 @@ gates and suite shards, the end-to-end smoke shards and determinism, all in para
 | `e2e-smoke` | ci.yml E2E | Playwright smoke suite |
 | `determinism` | ci.yml Determinism | WASM bit-identical in Node and three browsers |
 | `differential-quick` | Engine Quick Checks | `make test.engine.differential.quick`: cross-method differential tests |
-| `invariance-quick` | Engine Quick Checks | `make test.engine.invariance.quick` |
+| `invariance-quick` | ci.yml Engine Metamorphic | `make test.engine.invariance.quick BASE=HEAD^1`: invariance of the analyses the change touches, on the release build that job already has |
 | `mechanism-fuzz-quick` | Engine Quick Checks | `make test.engine.mechanism-fuzz.quick` |
 | `issue-reproducers` | Engine Quick Checks | `make test.engine.reproducers`: every expected-failure reproducer still fails ([WORKFLOW.md](WORKFLOW.md), "Wrong-result reproducers") |
 | `issue-reproducer-flip` | issue-reproducers.yml | a pull request that says `Fixes #N` for a wrong-result issue flips #N's reproducers |
 
 Engine Quick Checks starts with the other engine jobs, which finish 10 to 15 minutes before
-the web jobs that set the critical path. Its checks have budgets of 2 to 8 minutes
-(`budget_min` in the manifest; the runner stops a check that overruns it), most of it the
-shared debug build, so the job ends before the critical path does and adds no time to it.
+the web jobs that set the critical path. Each of its checks has a budget of
+8 to 10 minutes (`budget_min` in the manifest; the runner stops a check that overruns it). The
+budget covers building the check's test binary, which is most of its time; the dependencies come
+from the job's Rust cache. A check that needs the release build the Engine Metamorphic job
+already makes runs there instead (`invariance-quick`). If the job's checks together start to
+end after the web jobs, move the slowest to its own job.
 Until one of its targets lands, the job only reads the manifest and builds nothing.
 
 ### Daily
