@@ -1018,6 +1018,9 @@ impl PreparedStatic2D<'_> {
         }
         crate::known_issues::attach(&mut r.structured_diagnostics, self.known_model.clone());
         crate::known_issues::attach(&mut r.structured_diagnostics, crate::known_issues::loads_2d(loads));
+        if self.an_artificial_spring_carries_load(&r) {
+            crate::known_issues::attach(&mut r.structured_diagnostics, vec![crate::known_issues::diagnostic("ORPHAN-SOFT-ROTATION")]);
+        }
         crate::known_issues::refuse(&r.structured_diagnostics)?;
         let residual = self.check_returned_displacements(loads, &r).map_err(|error| {
             if r.structured_diagnostics.iter().any(|d| d.code == DiagnosticCode::ExcessiveDisplacement) {
@@ -1027,6 +1030,19 @@ impl PreparedStatic2D<'_> {
         r.structured_diagnostics.push(residual);
         super::self_checks::static_2d(&mut r, &[])?;
         Ok(r)
+    }
+
+    fn an_artificial_spring_carries_load(&self, r: &AnalysisResults) -> bool {
+        if self.artificial_dofs.is_empty() { return false; }
+        let mut largest = 0.0f64;
+        let mut orphan = 0.0f64;
+        for d in &r.displacements {
+            largest = largest.max(d.ry.abs());
+            if self.dof_num.map.get(&(d.node_id, 2)).is_some_and(|i| self.artificial_dofs.contains(i)) {
+                orphan = orphan.max(d.ry.abs());
+            }
+        }
+        orphan > 0.0 && orphan > 1e-12 * largest
     }
 
     pub(super) fn check_returned_displacements(&self, loads: &[SolverLoad], r: &AnalysisResults) -> Result<StructuredDiagnostic, String> {
@@ -2635,6 +2651,9 @@ impl PreparedStatic3D {
         let mut r = self.solve_loads_by_path(loads)?;
         // Known issues of this load set (the model's are in the pre-solve diagnostics).
         crate::known_issues::attach(&mut r.structured_diagnostics, crate::known_issues::loads_3d(loads));
+        if self.an_artificial_spring_carries_load(&r) {
+            crate::known_issues::attach(&mut r.structured_diagnostics, vec![crate::known_issues::diagnostic("ORPHAN-SOFT-ROTATION")]);
+        }
         self.membrane_guard.check(loads, &r)?;
         let residual = self.check_returned_displacements(loads, &r).map_err(|error| {
             if r.structured_diagnostics.iter().any(|d| d.code == DiagnosticCode::ExcessiveDisplacement) {
@@ -2708,6 +2727,23 @@ impl PreparedStatic3D {
 
     fn refuse_loads_on_orphan_dofs(&self, loads: &[SolverLoad3D]) -> Result<(), String> {
         refuse_loads_on_orphan_dofs_3d(&self.dof_num, &self.orphan_dofs, loads)
+    }
+
+    /// A truly orphan DOF has no coupling and no load, so it stays exactly at zero; one that
+    /// moves had real stiffness tying it to the structure, and the artificial spring held it.
+    fn an_artificial_spring_carries_load(&self, r: &AnalysisResults3D) -> bool {
+        if self.orphan_dofs.is_empty() { return false; }
+        let mut largest = 0.0f64;
+        let mut orphan = 0.0f64;
+        for d in &r.displacements {
+            for (local, value) in [d.rx, d.ry, d.rz, d.warping.unwrap_or(0.0)].into_iter().enumerate() {
+                largest = largest.max(value.abs());
+                if self.dof_num.map.get(&(d.node_id, local + 3)).is_some_and(|i| self.orphan_dofs.contains(i)) {
+                    orphan = orphan.max(value.abs());
+                }
+            }
+        }
+        orphan > 0.0 && orphan > 1e-12 * largest
     }
 
     fn solve_loads_fully_restrained(
