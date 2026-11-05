@@ -111,9 +111,9 @@ async function lastGreenRun(github, owner, repo, current) {
   return green.filter((run) => run.id < current).sort((x, y) => y.id - x.id)[0] ?? null;
 }
 
-async function openIssue(github, owner, repo) {
+async function openIssues(github, owner, repo) {
   const open = await github.paginate(github.rest.issues.listForRepo, { owner, repo, labels: LABEL, state: 'open', per_page: 100 });
-  return open.filter((i) => i.title === TITLE && !i.pull_request).sort((a, b) => a.number - b.number)[0];
+  return open.filter((i) => i.title === TITLE && !i.pull_request).sort((a, b) => a.number - b.number);
 }
 
 module.exports = async function alert({ github, context, core }) {
@@ -123,7 +123,8 @@ module.exports = async function alert({ github, context, core }) {
   const state = verdict(shards);
   core.info(`@slow E2E on ${context.sha}: ${state}`);
   if (state === 'unknown') return;
-  const existing = await openIssue(github, owner, repo);
+  const issues = await openIssues(github, owner, repo);
+  const existing = issues[0];
   if (state === 'green') {
     if (!existing) return;
     const { data: main } = await github.rest.git.getRef({ owner, repo, ref: 'heads/main' });
@@ -131,8 +132,10 @@ module.exports = async function alert({ github, context, core }) {
       core.info(`main is now at ${main.object.sha}; only a green run of main's head closes #${existing.number}`);
       return;
     }
-    await github.rest.issues.createComment({ owner, repo, issue_number: existing.number, body: `Green again: the \`@slow\` E2E suite passed on main at ${context.sha.slice(0, 9)}: ${runUrl}` });
-    await github.rest.issues.update({ owner, repo, issue_number: existing.number, state: 'closed', state_reason: 'completed' });
+    for (const issue of issues) {
+      await github.rest.issues.createComment({ owner, repo, issue_number: issue.number, body: `Green again: the \`@slow\` E2E suite passed on main at ${context.sha.slice(0, 9)}: ${runUrl}` });
+      await github.rest.issues.update({ owner, repo, issue_number: issue.number, state: 'closed', state_reason: 'completed' });
+    }
     return;
   }
   const lastGreen = await lastGreenRun(github, owner, repo, context.runId);

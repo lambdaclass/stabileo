@@ -227,6 +227,12 @@ test('green closes the open issue with a comment, and does nothing when none is 
   assert.deepEqual(none.calls.map(c => c.name), ['listForRepo']);
 });
 
+test('green closes every open copy of the issue, so a duplicate from racing runs does not stay open', async () => {
+  const {github, calls} = fakeGithub({open: [{number: 12, title: 'CI failure: @slow E2E on main'}, {number: 9, title: 'CI failure: @slow E2E on main'}]});
+  await run(github, [green], 1);
+  assert.deepEqual(calls.filter(c => c.name === 'update').map(c => c.args.issue_number), [9, 12]);
+});
+
 test('a green run of a commit main has moved past does not close the issue', async () => {
   const {github, calls} = fakeGithub({open: [{number: 9, title: 'CI failure: @slow E2E on main'}], main: 'dddddddddd'});
   await run(github, [green], 1);
