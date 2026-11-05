@@ -235,25 +235,39 @@ fn guyan_condensation_recovers_the_full_static_solution() {
     agree("Guyan vs full static", Ok(r));
 }
 
+fn with_beam_udl(mut s: SolverInput, q: f64) -> SolverInput {
+    for e in beams(&s) {
+        s.loads.push(SolverLoad::Distributed(SolverDistributedLoad { element_id: e, q_i: q, q_j: q, a: None, b: None }));
+    }
+    s
+}
+
 /// Cubic Hermite frame elements are exact at the nodes for nodal and uniform span
 /// loads, so splitting every member changes no shared nodal value (round-off only).
+pub fn refinement_pair(spec: &FrameSpec, splits: usize) -> Result<Report, String> {
+    let coarse = with_beam_udl(frame_2d(&FrameSpec { subdivisions: 1, ..*spec }), -9.0);
+    let fine = with_beam_udl(frame_2d(&FrameSpec { subdivisions: splits, ..*spec }), -9.0);
+    let mut r = Report::new();
+    same_part_2d("coarse vs fine", &solve_2d(&coarse)?, &solve_2d(&fine)?, &mut r);
+    Ok(r)
+}
+
 #[test]
 fn refined_mesh_reproduces_the_coarse_nodal_solution() {
-    let coarse_spec = FrameSpec { subdivisions: 1, ..FrameSpec::two_storey() };
-    let fine_spec = FrameSpec { subdivisions: 4, ..FrameSpec::two_storey() };
-    let mut coarse = frame_2d(&coarse_spec);
-    let mut fine = frame_2d(&fine_spec);
-    for e in beams(&coarse) {
-        coarse.loads.push(SolverLoad::Distributed(SolverDistributedLoad { element_id: e, q_i: -9.0, q_j: -9.0, a: None, b: None }));
+    agree("refined vs coarse mesh", refinement_pair(&FrameSpec::two_storey(), 4));
+}
+
+#[test]
+#[ignore = "nightly: make test.engine.differential.full"]
+fn substructures_on_frame_family() {
+    for seed in 0..24 {
+        let spec = FrameSpec::variant(seed);
+        let other = FrameSpec::variant(seed + 1000);
+        let a = with_beam_udl(frame_2d(&spec), -6.0);
+        let b = renumbered_2d(&with_beam_udl(frame_2d(&other), -3.0), 10_000, 100.0);
+        agree(&format!("frames {seed} and {} together vs apart", seed + 1000), parts_2d(&a, &b));
+        agree(&format!("frame {seed} refined ×3 vs coarse {spec:?}"), refinement_pair(&spec, 3));
     }
-    for e in beams(&fine) {
-        fine.loads.push(SolverLoad::Distributed(SolverDistributedLoad { element_id: e, q_i: -9.0, q_j: -9.0, a: None, b: None }));
-    }
-    let rc = solve_2d(&coarse).unwrap();
-    let rf = solve_2d(&fine).unwrap();
-    let mut r = Report::new();
-    same_part_2d("coarse vs fine", &rc, &rf, &mut r);
-    agree("refined vs coarse mesh", Ok(r));
 }
 
 /// Euler–Bernoulli simply supported beam: ωₙ = (nπ/L)²√(EI/m̄). Hermite elements
@@ -284,7 +298,7 @@ fn modal_mesh_refinement_converges_at_fourth_order() {
         if let Some(p) = &prev {
             for k in 0..2 {
                 if err[k] > 1e-8 {
-                    r.close(&format!("{n_el} elements mode {} error ratio", k + 1), LoadFactor::from_factor(p[k] / err[k]), LoadFactor::from_factor(16.0), LoadFactor::from_factor(2.0));
+                    r.close(&format!("{n_el} elements mode {} error ratio", k + 1), Ratio::from_ratio(p[k] / err[k]), Ratio::from_ratio(16.0), Ratio::from_ratio(2.0));
                 }
             }
         }

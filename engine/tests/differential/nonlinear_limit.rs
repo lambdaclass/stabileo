@@ -97,15 +97,12 @@ fn converges_to_linear(what: &str, s: &SolverInput, solve: &dyn Fn(&SolverInput)
         let res = solve(&scaled(s, scale))?;
         let dev = deviation(&lin, &res, scale);
         let bound = first_order_bound(theta) + SOLVER_FLOOR;
-        if !(dev <= bound) {
-            r.fail(format!("{what} θ = {theta:.0e}: ‖v − u₀‖_K/‖u₀‖_K = {dev:.3e} > {bound:.3e}"));
-        }
         if let Some((t0, d0)) = prev {
             if d0 > 100.0 * SOLVER_FLOOR && !(dev <= d0 * (theta / t0) * 3.0 + SOLVER_FLOOR) {
                 r.fail(format!("{what}: not first order, deviation {d0:.3e} at θ = {t0:.0e} then {dev:.3e} at θ = {theta:.0e}"));
             }
         }
-        r.close(&format!("{what} θ = {theta:.0e} deviation"), LoadFactor::from_factor(dev), LoadFactor::from_factor(0.0), LoadFactor::from_factor(bound));
+        r.close(&format!("{what} θ = {theta:.0e}: ‖v − u₀‖_K/‖u₀‖_K"), Ratio::from_ratio(dev), Ratio::from_ratio(0.0), Ratio::from_ratio(bound));
         prev = Some((theta, dev));
     }
     Ok(r)
@@ -226,7 +223,7 @@ fn fiber_layer_refinement_converges_on_the_exact_section() {
         }
         if let Some(p) = prev {
             let ratio: f64 = p / err;
-            r.close(&format!("{n} layers: error ratio on halving the layer depth"), LoadFactor::from_factor(ratio), LoadFactor::from_factor(4.0), LoadFactor::from_factor(0.25));
+            r.close(&format!("{n} layers: error ratio on halving the layer depth"), Ratio::from_ratio(ratio), Ratio::from_ratio(4.0), Ratio::from_ratio(0.25));
         }
         prev = Some(err);
     }

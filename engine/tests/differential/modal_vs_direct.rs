@@ -248,41 +248,43 @@ fn issue_1371_model() -> (SolverInput3D, HashMap<String, f64>) {
 #[test]
 fn harmonic_3d_issue_1371_frame_modal_matches_direct() {
     let (s, d) = issue_1371_model();
-    let mut r = Report::new();
-    for dof in ["x", "y", "z"] {
-        match harmonic_3d(s.clone(), d.clone(), 4, dof, vec![0.0, 0.7, 2.3]).and_then(|sub| Ok(sub.into_result())) {
-            Ok(Ok(_)) => {}
-            Ok(Err(m)) => r.fail(format!("node 4 {dof}: {m}")),
-            Err(e) => r.fail(format!("node 4 {dof} refused: {e}")),
-        }
-    }
-    known_issue(1371, "3D harmonic modal vs direct, #1371 frame", Ok(r));
+    let outcome = ["x", "y", "z"].iter().try_fold(Report::new(), |mut r, dof| {
+        r.merge(&format!("node 4 {dof}"), harmonic_3d(s.clone(), d.clone(), 4, dof, vec![0.0, 0.7, 2.3])?);
+        Ok(r)
+    });
+    known_issue(1371, "3D harmonic modal vs direct, #1371 frame", outcome);
 }
 
-/// Forcing near and above the first omitted mode, on a well-conditioned frame: the
-/// engine sums the kept modes alone there and only warns.
+/// Forcing frequencies around the first mode the engine omits: below the first,
+/// between the last it computes and the next, just above and well above that one.
+/// A probe at a frequency above the whole spectrum reports how many it computes.
+fn around_the_first_omitted_mode(d: &Dense, kept: usize) -> Result<Vec<f64>, String> {
+    if kept == 0 || kept >= d.n {
+        return Err(format!("the engine computed {kept} of {} modes", d.n));
+    }
+    let eig = solve_generalized_eigen(&d.k, &d.m, d.n, 200).ok_or("Jacobi eigensolve failed")?;
+    let f = |j: usize| eig.values[j].sqrt() / (2.0 * PI);
+    Ok(vec![0.5 * f(0), 0.5 * (f(kept - 1) + f(kept)), f(kept) * 1.01, 1.5 * f(kept)])
+}
+
+/// Near and above the first omitted mode, on a well-conditioned frame, the engine
+/// sums the kept modes alone and only warns.
 fn above_the_kept_modes_2d() -> Result<Report, String> {
     let spec = FrameSpec::two_storey();
-    let s = frame_2d(&spec);
     let roof = plane_frame(&spec).roof[0];
-    let d = dense_2d(&HarmonicInput { solver: s.clone(), densities: steel_densities(), frequencies: vec![0.0], damping_ratio: 0.05, response_node_id: roof, response_dof: "x".into() })?;
-    let eig = solve_generalized_eigen(&d.k, &d.m, d.n, 200).ok_or("eigen")?;
-    let kept = 100.min(d.n / 2).max(2);
-    let f = |j: usize| eig.values[j].sqrt() / (2.0 * PI);
-    let freqs = vec![0.5 * f(0), 0.5 * (f(kept - 1) + f(kept)), f(kept) * 1.01, 1.5 * f(kept)];
-    harmonic_2d(s, roof, "x", freqs)
+    let h = HarmonicInput { solver: frame_2d(&spec), densities: steel_densities(), frequencies: vec![0.0], damping_ratio: 0.05, response_node_id: roof, response_dof: "x".into() };
+    let kept = solve_harmonic_2d(&HarmonicInput { frequencies: vec![1e6], ..h.clone() })?.modes_used;
+    let freqs = around_the_first_omitted_mode(&dense_2d(&h)?, kept)?;
+    harmonic_2d(h.solver, roof, "x", freqs)
 }
 
 fn above_the_kept_modes_3d() -> Result<Report, String> {
     let spec = FrameSpec { subdivisions: 1, ..FrameSpec::two_storey() };
-    let s = space_frame_3d(&spec, 5.0);
     let roof = plane_frame(&spec).roof[0];
-    let d = dense_3d(&HarmonicInput3D { solver: s.clone(), densities: steel_densities(), frequencies: vec![0.0], damping_ratio: 0.05, response_node_id: roof, response_dof: "x".into() })?;
-    let eig = solve_generalized_eigen(&d.k, &d.m, d.n, 200).ok_or("eigen")?;
-    let kept = 100.min(d.n / 2).max(2);
-    let f = |j: usize| eig.values[j].sqrt() / (2.0 * PI);
-    let freqs = vec![0.5 * f(0), 0.5 * (f(kept - 1) + f(kept)), f(kept) * 1.01, 1.5 * f(kept)];
-    harmonic_3d(s, steel_densities(), roof, "x", freqs)
+    let h = HarmonicInput3D { solver: space_frame_3d(&spec, 5.0), densities: steel_densities(), frequencies: vec![0.0], damping_ratio: 0.05, response_node_id: roof, response_dof: "x".into() };
+    let kept = solve_harmonic_3d(&HarmonicInput3D { frequencies: vec![1e6], ..h.clone() })?.modes_used;
+    let freqs = around_the_first_omitted_mode(&dense_3d(&h)?, kept)?;
+    harmonic_3d(h.solver, steel_densities(), roof, "x", freqs)
 }
 
 #[test]
@@ -295,7 +297,8 @@ fn harmonic_3d_above_the_kept_modes_matches_direct() {
     known_issue(1434, "3D harmonic above the kept modes vs direct", above_the_kept_modes_3d());
 }
 
-/// At ω = 0 the harmonic amplitude is the static displacement: a third path.
+/// At ω = 0 the kept modes plus the static correction are `K⁻¹f` algebraically, so
+/// the amplitude is the static displacement to round-off (κ(K) < 1e7 on these frames).
 #[test]
 fn harmonic_at_zero_frequency_is_the_static_solution() {
     let spec = FrameSpec::two_storey();
@@ -321,19 +324,30 @@ fn harmonic_at_zero_frequency_is_the_static_solution() {
     agree("harmonic at 0 Hz vs linear static", Ok(r));
 }
 
+/// The family's sweeps stop at 0.6 of the first mode the engine omits (q ≈ 0.36),
+/// where it claims a bounded truncation; above it is #1434.
+fn family_sweep(d: &Dense, computed: usize, f_max: f64) -> Result<Vec<f64>, String> {
+    let eig = solve_generalized_eigen(&d.k, &d.m, d.n, 200).ok_or("Jacobi eigensolve failed")?;
+    let f_omit = eig.values.get(computed).map_or(f64::INFINITY, |l| l.sqrt() / (2.0 * PI));
+    Ok(sweep(f_max.min(0.6 * f_omit), 40))
+}
+
 #[test]
 #[ignore = "nightly: make test.engine.differential.full"]
 fn harmonic_modal_matches_direct_on_frame_family() {
     for seed in 0..24 {
         let spec = FrameSpec::variant(seed);
         let roof = plane_frame(&spec).roof[0];
-        let s = frame_2d(&spec);
-        let f1 = fundamental_hz_2d(&s);
-        agree(&format!("2D harmonic, frame {seed} {spec:?}"), harmonic_2d(s, roof, "x", sweep(5.0 * f1, 60)));
+        let h = HarmonicInput { solver: frame_2d(&spec), densities: steel_densities(), frequencies: vec![1e6], damping_ratio: 0.05, response_node_id: roof, response_dof: "x".into() };
+        let computed = solve_harmonic_2d(&h).unwrap().modes_used;
+        let freqs = family_sweep(&dense_2d(&h).unwrap(), computed, 5.0 * fundamental_hz_2d(&h.solver)).unwrap();
+        agree(&format!("2D harmonic, frame {seed} {spec:?}"), harmonic_2d(h.solver, roof, "x", freqs));
         let s3 = space_frame_3d(&FrameSpec { subdivisions: 1, ..spec }, 4.0 + spec.bay_width / 2.0);
-        let f1 = fundamental_hz_3d(&s3, &steel_densities());
         for dof in ["x", "y"] {
-            agree(&format!("3D harmonic {dof}, frame {seed} {spec:?}"), harmonic_3d(s3.clone(), steel_densities(), roof, dof, sweep(5.0 * f1, 60)));
+            let h = HarmonicInput3D { solver: s3.clone(), densities: steel_densities(), frequencies: vec![1e6], damping_ratio: 0.05, response_node_id: roof, response_dof: dof.into() };
+            let computed = solve_harmonic_3d(&h).unwrap().modes_used;
+            let freqs = family_sweep(&dense_3d(&h).unwrap(), computed, 5.0 * fundamental_hz_3d(&s3, &steel_densities())).unwrap();
+            agree(&format!("3D harmonic {dof}, frame {seed} {spec:?}"), harmonic_3d(s3.clone(), steel_densities(), roof, dof, freqs));
         }
     }
 }
@@ -341,7 +355,7 @@ fn harmonic_modal_matches_direct_on_frame_family() {
 /// A load ramped over `t_r` and then held. Mode j leaves its static share by at
 /// most `2/(ωⱼ t_r)` and, once the load is held, decays as `e^{−ξⱼωⱼt}` (Chopra
 /// §4.4); Rayleigh damping anchored on the first two modes keeps every ξⱼ above
-/// half the target. Newmark's average acceleration does not damp modes with
+/// half the target while ω₂/ω₁ < 13, as on this frame. Newmark's average acceleration does not damp modes with
 /// `ωⱼΔt > 2`, but the ramp leaves them at most `Δt/t_r` of their share. Summed
 /// over the modes, the shares at DOF i are bounded by `√((K⁻¹)ᵢᵢ · fᵀK⁻¹f)`
 /// (Cauchy–Schwarz), and the held state is the exact static one.

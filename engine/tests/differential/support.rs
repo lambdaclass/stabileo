@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 use std::ops::{Mul, Neg, Sub};
 
-pub use dedaliano_engine::types::units::{Force, Length, Moment};
+pub use dedaliano_engine::types::units::{Force, Length, Moment, Ratio};
 
 macro_rules! test_quantity {
     ($name:ident, $new:ident, $get:ident, $unit:literal) => {
@@ -63,6 +63,12 @@ impl Unit for Force {
         self.in_kn()
     }
 }
+impl Unit for Ratio {
+    const UNIT: &'static str = "";
+    fn raw(self) -> f64 {
+        self.in_ratio()
+    }
+}
 impl Unit for Moment {
     const UNIT: &'static str = "kN·m";
     fn raw(self) -> f64 {
@@ -109,6 +115,11 @@ impl Report {
         for (label, a, b) in pairs {
             self.close(&format!("{what} {label}"), *a, *b, scale * rel);
         }
+    }
+
+    pub fn merge(&mut self, prefix: &str, other: Report) {
+        self.checked += other.checked;
+        self.failures.extend(other.failures.into_iter().map(|f| format!("{prefix}: {f}")));
     }
 
     pub fn fail(&mut self, msg: String) {
