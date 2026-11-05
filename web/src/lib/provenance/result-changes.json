@@ -7,7 +7,9 @@
       "id": "linear-small-displacement-warning",
       "resultsVersion": 36,
       "date": "2026-11-05",
-      "prs": [],
+      "prs": [
+        1502
+      ],
       "area": "analysis",
       "when": {
         "any": [
