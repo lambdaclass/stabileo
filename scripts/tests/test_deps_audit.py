@@ -14,11 +14,12 @@ class DepsAuditTest(unittest.TestCase):
             "    Unchanged criterion v0.5.1 (available: v0.8.2)",
             "    Unchanged aho-corasick v1.1.4 (available: v1.1.5)",
             "    Unchanged tokio v1.40.0 (available: v2.0.0)",
+            "    Unchanged wasm-bindgen v0.2.100 (available: v0.3.0, requires Rust 1.90)",
             "    Unchanged tiny v0.0.3 (available: v0.0.4)",
             "    Unchanged bytes v0.4.1 (available: v0.4.9)",
             "    Unchanged criterion v0.5.1 (available: v0.8.2)",
         ])
-        self.assertEqual(audit.rust_rows(text), [("criterion", "0.5.1", "0.8.2"), ("tiny", "0.0.3", "0.0.4"), ("tokio", "1.40.0", "2.0.0")])
+        self.assertEqual(audit.rust_rows(text), [("criterion", "0.5.1", "0.8.2"), ("tiny", "0.0.3", "0.0.4"), ("tokio", "1.40.0", "2.0.0"), ("wasm-bindgen", "0.2.100", "0.3.0")])
 
     def test_npm_majors_and_workspaces(self):
         data = {
