@@ -625,11 +625,15 @@ fn harmonic_modal_from_eigen(
         let (kr, ki, mr, mi) = (k_times(&u_re), k_times(&u_im), m_times(&u_re), m_times(&u_im));
         let res_re: Vec<f64> = (0..n).map(|k| kr[k] - a1 * omega * ki[k] - omega2 * mr[k] - a0 * omega * mi[k] - f[k]).collect();
         let res_im: Vec<f64> = (0..n).map(|k| ki[k] + a1 * omega * kr[k] - omega2 * mi[k] + a0 * omega * mr[k]).collect();
+        let res_sq = dot(&res_re, &res_re) + dot(&res_im, &res_im);
         let energy = match (k_solve(&res_re), k_solve(&res_im), f_energy) {
-            (Some(xr), Some(xi), Some(fe)) => Some((dot(&xr, &res_re) + dot(&xi, &res_im)).max(0.0).sqrt() / fe),
+            (Some(xr), Some(xi), Some(fe)) => {
+                let q = dot(&xr, &res_re) + dot(&xi, &res_im);
+                Some(if q.is_finite() { q.max(0.0).sqrt() / fe } else { f64::NAN })
+            }
             _ => None,
         };
-        residuals.push(energy.unwrap_or_else(|| (dot(&res_re, &res_re) + dot(&res_im, &res_im)).sqrt() / f_norm));
+        residuals.push(if res_sq == 0.0 { 0.0 } else { energy.unwrap_or_else(|| res_sq.sqrt() / f_norm) });
 
         let re_sum = apply_target(target, &u_re);
         let im_sum = apply_target(target, &u_im);
@@ -971,6 +975,21 @@ mod tests {
             let tol = if p.frequency == 0.4 { 1e-12 } else { 1e-3 } * exact;
             assert!((p.real - re[2]).abs() < tol && (p.imag - im[2]).abs() < tol, "{} Hz: {} {} vs {} {}", p.frequency, p.real, p.imag, re[2], im[2]);
         }
+    }
+
+    #[test]
+    fn zero_load_is_not_sent_to_the_direct_solve() {
+        let n = 6;
+        let mut k = vec![0.0; n*n];
+        let mut m = vec![0.0; n*n];
+        for (i, lam) in [1.0, 4.0, 9.0, 16.0, 25.0, 36.0].into_iter().enumerate() {
+            k[i*n+i] = lam;
+            m[i*n+i] = 1.0;
+        }
+        let sweep = solve_harmonic_modal(&k, &m, &[0.0; 6], n, &[0.0, 0.05], 0.05, &[(2, 1.0)]).unwrap();
+        assert_eq!(sweep.residuals, vec![0.0, 0.0]);
+        let (r, _) = resolve_large_residuals(sweep, || unreachable!(), &[0.0; 6], n, &[(2, 1.0)]).unwrap();
+        assert!(r.direct_frequencies.is_empty() && r.response_points.iter().all(|p| p.amplitude == 0.0));
     }
 
     #[test]
