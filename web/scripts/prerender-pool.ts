@@ -12,11 +12,15 @@ export async function newPrerenderPage<P extends { setDefaultNavigationTimeout(t
 
 export const MIN_CAPTURE_CHARS = 500;
 
-/** Resolves once #app holds a page's worth of markup, or after the timeout; the caller still checks the length. */
+/** Resolves once #app holds a page's worth of markup and no `holdPrerender` work is pending, or after the timeout; the caller still checks the length. */
 export async function waitForRenderedApp(page: {
   waitForFunction(fn: (min: number) => boolean, arg: number, options: { timeout: number }): Promise<unknown>;
 }): Promise<void> {
-  await page.waitForFunction((min) => (document.querySelector('#app')?.innerHTML.length ?? 0) >= min, MIN_CAPTURE_CHARS, { timeout: PRERENDER_NAVIGATION_TIMEOUT_MS })
+  await page.waitForFunction(
+    (min) => (document.querySelector('#app')?.innerHTML.length ?? 0) >= min && !((globalThis as { __prerenderHolds?: number }).__prerenderHolds! > 0),
+    MIN_CAPTURE_CHARS,
+    { timeout: PRERENDER_NAVIGATION_TIMEOUT_MS },
+  )
     .catch(() => undefined);
 }
 

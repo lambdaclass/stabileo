@@ -86,6 +86,23 @@ describe('prerender navigation timeout', () => {
     }
   });
 
+  it('a rendered shell is not captured while the page still holds work it will render (#1452)', async () => {
+    const calls: ((min: number) => boolean)[] = [];
+    await waitForRenderedApp({ waitForFunction: async (fn) => { calls.push(fn); } });
+    const doc = globalThis as { document?: unknown; __prerenderHolds?: number };
+    const before = doc.document;
+    doc.document = { querySelector: (s: string) => (s === '#app' ? { innerHTML: 'x'.repeat(MIN_CAPTURE_CHARS * 10) } : null) };
+    try {
+      doc.__prerenderHolds = 1;
+      expect(calls[0](MIN_CAPTURE_CHARS)).toBe(false);
+      doc.__prerenderHolds = 0;
+      expect(calls[0](MIN_CAPTURE_CHARS)).toBe(true);
+    } finally {
+      doc.document = before;
+      delete doc.__prerenderHolds;
+    }
+  });
+
   it('a page that never renders is left to the caller, which reports it as nearly empty', async () => {
     await expect(waitForRenderedApp({ waitForFunction: async () => { throw new Error('Timeout 120000ms exceeded'); } })).resolves.toBeUndefined();
     const source = readFileSync(new URL('../prerender.ts', import.meta.url), 'utf8');
