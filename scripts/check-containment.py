@@ -56,9 +56,11 @@ def audit(recorded, issues):
     return problems
 
 
-CLOSING = re.compile(r'\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\b:?\s+(?:lambdaclass/stabileo)?#(\d+)\b', re.IGNORECASE)
+CLOSING = re.compile(r'\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\b:?\s+(?:(?:lambdaclass/stabileo)?#|https?://github\.com/lambdaclass/stabileo/issues/)(\d+)\b', re.IGNORECASE)
+QUEUED_PR = re.compile(r'^Merge pull request #(\d+) from ', re.MULTILINE)
 REPORT_TITLE = 'Safety containment audit: open safety issues without a decision'
 LEDGER = 'docs/verification/CONTAINMENT.md'
+ASSIGNEES = 'unbalancedparentheses,Batuis'
 
 
 def closed_by(texts):
@@ -82,15 +84,28 @@ def git(*args):
     return subprocess.run(['git', *args], check=True, capture_output=True, text=True).stdout
 
 
+def queued_pull_requests(log):
+    return sorted({int(n) for n in QUEUED_PR.findall(log)})
+
+
+def pull_request_texts(number):
+    pr = json.loads(subprocess.run(['gh', 'api', f'repos/lambdaclass/stabileo/pulls/{number}'], check=True, capture_output=True, text=True).stdout)
+    return [pr.get('title'), pr.get('body')]
+
+
 def check_change(base_ref, event_path):
     root = Path(__file__).resolve().parents[1]
     head = decisions((root / LEDGER).read_text())
-    shown = subprocess.run(['git', 'show', f'{base_ref}:{LEDGER}'], cwd=root, capture_output=True, text=True)
-    base = decisions(shown.stdout) if shown.returncode == 0 else {}
-    texts = [git('-C', str(root), 'log', '--format=%B', f'{base_ref}..HEAD')]
-    if event_path:
-        pr = json.loads(Path(event_path).read_text()).get('pull_request') or {}
-        texts += [pr.get('title'), pr.get('body')]
+    tracked = subprocess.run(['git', 'cat-file', '-e', f'{base_ref}:{LEDGER}'], cwd=root, capture_output=True)
+    base = decisions(git('-C', str(root), 'show', f'{base_ref}:{LEDGER}')) if tracked.returncode == 0 else {}
+    log = git('-C', str(root), 'log', '--format=%B', f'{base_ref}..HEAD')
+    texts = [log]
+    event = json.loads(Path(event_path).read_text()) if event_path else {}
+    if event.get('pull_request'):
+        texts += [event['pull_request'].get('title'), event['pull_request'].get('body')]
+    if event.get('merge_group'):
+        for number in queued_pull_requests(log):
+            texts += pull_request_texts(number)
     return change_problems(base, head, closed_by(texts))
 
 
@@ -110,15 +125,14 @@ def file_report(problems):
     found = json.loads(subprocess.run(
         ['gh', 'issue', 'list', '--repo', 'lambdaclass/stabileo', '--state', 'open', '--search', f'in:title "{REPORT_TITLE}"', '--json', 'number,title'],
         check=True, capture_output=True, text=True).stdout)
-    open_reports = [i['number'] for i in found if i['title'] == REPORT_TITLE]
-    if problems:
-        body = report_body(problems)
-        if open_reports:
-            subprocess.run(['gh', 'issue', 'edit', str(open_reports[0]), '--repo', 'lambdaclass/stabileo', '--body', body], check=True)
-        else:
-            subprocess.run(['gh', 'issue', 'create', '--repo', 'lambdaclass/stabileo', '--title', REPORT_TITLE, '--body', body, '--assignee', 'unbalancedparentheses,Batuis'], check=True)
-    for number in open_reports if not problems else []:
-        subprocess.run(['gh', 'issue', 'close', str(number), '--repo', 'lambdaclass/stabileo', '--comment', 'Every open safety issue has a decision again.'], check=True)
+    reports = sorted(i['number'] for i in found if i['title'] == REPORT_TITLE)
+    if problems and reports:
+        subprocess.run(['gh', 'issue', 'edit', str(reports[0]), '--repo', 'lambdaclass/stabileo', '--body', report_body(problems), '--add-assignee', ASSIGNEES], check=True)
+    elif problems:
+        subprocess.run(['gh', 'issue', 'create', '--repo', 'lambdaclass/stabileo', '--title', REPORT_TITLE, '--body', report_body(problems), '--assignee', ASSIGNEES], check=True)
+    for number in reports[1:] if problems else reports:
+        comment = 'Superseded by an older report issue.' if problems else 'Every open safety issue has a decision again.'
+        subprocess.run(['gh', 'issue', 'close', str(number), '--repo', 'lambdaclass/stabileo', '--comment', comment], check=True)
 
 
 def main():

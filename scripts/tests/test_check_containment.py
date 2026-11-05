@@ -35,8 +35,13 @@ class ContainmentTests(unittest.TestCase):
             m.audit({}, [issue, issue])
 
     def test_closing_keywords(self):
-        texts = ['Fix #426: rotations', 'fixes lambdaclass/stabileo#12 and Closes: #7', 'Resolved #3', 'see #5, prefix #6, fixture #8', None]
-        self.assertEqual(m.closed_by(texts), [3, 7, 12, 426])
+        texts = ['Fix #426: rotations', 'fixes lambdaclass/stabileo#12 and Closes: #7', 'Resolved #3', 'see #5, prefix #6, fixture #8', None,
+                 'Fixes https://github.com/lambdaclass/stabileo/issues/762', 'see https://github.com/lambdaclass/stabileo/issues/9']
+        self.assertEqual(m.closed_by(texts), [3, 7, 12, 426, 762])
+
+    def test_queued_pull_requests_are_read_from_the_group_commits(self):
+        log = 'Merge pull request #1373 from lambdaclass/ci/x\n\nTitle\nFiber nonlinear: equilibrium gate (#433)\nMerge pull request #1400 from lambdaclass/y\n'
+        self.assertEqual(m.queued_pull_requests(log), [1373, 1400])
 
     def test_a_change_keeps_rows_and_leaves_active_issues_open(self):
         base = {1: {'WARN'}, 2: {'SCOPE'}, 3: {'TRIAGE'}}
@@ -55,7 +60,8 @@ class ContainmentTests(unittest.TestCase):
         workflow = (Path(__file__).parents[2] / '.github/workflows/containment-audit.yml').read_text()
         ledger, live = workflow.split('\n  live:\n')
         self.assertNotIn('--live', ledger)
-        self.assertNotIn('GH_TOKEN', ledger)
+        self.assertNotIn('issues:', ledger)
+        self.assertIn('edited', ledger)
         self.assertIn("github.event_name == 'pull_request' || github.event_name == 'merge_group'", ledger)
         self.assertIn("github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'", live)
         self.assertIn('--live --file-issue', live)
