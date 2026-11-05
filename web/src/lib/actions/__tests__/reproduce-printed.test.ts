@@ -186,7 +186,7 @@ describe('checking a report value by value', () => {
 
 describe('the verdict of a check', () => {
   const verdict = (reproduced: boolean) => ({ status: reproduced ? 'reproduced' : 'mismatch', reproduced, hashes: [], model: 'same', sameBuild: true, buildDifferences: [] }) as never;
-  const clean = { compared: 10, differences: [], structural: [], labels: true };
+  const clean = { compared: 10, differences: [], structural: [], labels: true, manifest: true };
 
   it('an HTML report whose embedded choices were removed is incomplete, never reproduced', () => {
     expect(reproduceStatus({ ok: true, verdict: verdict(true), fresh: {} as never, printed: null })).toEqual({ status: 'incomplete', reproduced: false });
@@ -205,6 +205,11 @@ describe('the verdict of a check', () => {
     expect(reproduceStatus({ ok: true, verdict: verdict(true), fresh: {} as never, printed: clean })).toEqual({ status: 'reproduced', reproduced: true });
     expect(reproduceStatus({ ok: true, verdict: verdict(true), fresh: {} as never, printed: { ...clean, structural: ['result-set'] } })).toEqual({ status: 'printed-differs', reproduced: false });
     expect(reproduceStatus({ ok: true, verdict: verdict(true), fresh: {} as never, printed: { ...clean, labels: false } })).toEqual({ status: 'incomplete', reproduced: false });
+  });
+
+  it('printed tables that match but were not checked against a fingerprint\'s table list are incomplete, never reproduced', () => {
+    expect(reproduceStatus({ ok: true, verdict: verdict(true), fresh: {} as never, printed: { ...clean, manifest: false } })).toEqual({ status: 'incomplete', reproduced: false });
+    expect(reproduceStatus({ ok: true, verdict: verdict(false), fresh: {} as never, printed: { ...clean, manifest: false } })).toEqual({ status: 'mismatch', reproduced: false });
   });
 });
 
