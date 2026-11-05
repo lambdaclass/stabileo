@@ -59,6 +59,8 @@ function coverSheet(input: ProjectWorkbookInput): WorkbookSheet {
   add('cases', input.model.loadCases.length);
   add('combinations', combos);
   for (const c of input.model.loadCases) rows.push([`${tr('wb.cover.case')} ${c.id}`, safeText(`${c.name} (${c.type})`)]);
+  const refs = (input.model.massSource?.weights ?? []).filter((w) => w.region.kind === 'zone' || w.region.kind === 'group').length;
+  if (refs > 0) add('massRefs', tr('wb.cover.massRefsValue').replace('{n}', String(refs)));
   // Which build produced the results from which model and settings (`provenance/result-provenance.ts`).
   for (const [k, v] of input.meta.provenance ?? []) rows.push([safeText(k), safeText(v)]);
   return { name: 'Cover', rows };

@@ -652,8 +652,9 @@ fn harmonic_modal_from_eigen(
         Some(_) => {}
     }
 
+    let unbounded = p < n && (residuals.is_none() || !uncorrected.is_empty());
     let result = HarmonicResult {
-        structured_diagnostics: vec![],
+        structured_diagnostics: if unbounded { vec![crate::known_issues::diagnostic("HARM-TRUNCATION")] } else { vec![] },
         response_points,
         peak_frequency: peak_freq,
         peak_amplitude: peak_amp,

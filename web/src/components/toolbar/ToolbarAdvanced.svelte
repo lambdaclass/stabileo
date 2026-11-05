@@ -68,7 +68,7 @@
   import { t } from '../../lib/i18n';
   import { localizeEngineText } from '../../lib/i18n/engine-text';
   import { DOF_LABEL_KEY } from '../../lib/engine/kinematic-2d';
-  import { withSectionMass } from '../../lib/engine/dynamics/section-mass';
+  import { withBasicMass } from '../../lib/engine/dynamics/basic-mass';
   import { variableRefusal2D, imposedRefusal } from '../../lib/engine/solver-service';
   import { formatPDeltaFactor } from '../../lib/engine/pdelta-result';
   import BucklingCertificate from '../advanced/BucklingCertificate.svelte';
@@ -76,6 +76,7 @@
   import FiniteSpectrumWarning from '../advanced/FiniteSpectrumWarning.svelte';
   import { finiteSpectrumWarning, eigenRefusalText } from '../../lib/engine/finite-spectrum-warning';
   import ModalCertificate from '../advanced/ModalCertificate.svelte';
+  import DynamicsCourse from '../advanced/dynamics/DynamicsCourse.svelte';
   import SecondOrderOptions from '../advanced/SecondOrderOptions.svelte';
   import PDeltaSummary from '../advanced/PDeltaSummary.svelte';
   import BucklingDetails from '../advanced/BucklingDetails.svelte';
@@ -85,8 +86,9 @@
   import { amplification } from '../../lib/engine/pdelta-amplification';
   import { getPredefinedTrains, solveMovingLoadsAsync } from '../../lib/engine/moving-loads';
   import type { SectionMp } from '../../lib/engine/plastic-moments';
-  import { runPlasticCollapse } from '../../lib/actions/plastic';
+  import { runPlasticCollapse, PlasticWithheld } from '../../lib/actions/plastic';
   import PlasticResultPanel from '../advanced/PlasticResultPanel.svelte';
+  import { collapseVerdict } from '../advanced/plastic/user-compare';
   import InfluencePanel from '../advanced/InfluencePanel.svelte';
   import LoadStatesPanel from '../advanced/LoadStatesPanel.svelte';
 
@@ -444,7 +446,7 @@
     if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
     try {
       const t0 = performance.now();
-      const physical = withSectionMass(input, modelStore.model);
+      const physical = withBasicMass(input, modelStore.model, 'iy');
       const result = solveModal(physical.input, physical.densities);
       const dt = performance.now() - t0;
       if (typeof result === 'string') { uiStore.toast(eigenRefusalText(result, t), 'error'); return; }
@@ -481,9 +483,11 @@
 
   /** The Mp each section went in with, shown under the result. */
   let plasticMps = $state<SectionMp[]>([]);
+  let plasticWithheld = $state<PlasticWithheld | null>(null);
 
   function handlePlastic() {
     if (blockedBySlidingJoints()) return;
+    plasticWithheld = null;
     try {
       const t0 = performance.now();
       /* The step-by-step collapse analysis (lib/engine/plastic-collapse.ts). */
@@ -493,10 +497,13 @@
       plasticMps = run.mps;
       resultsStore.setPlasticResult(run.result);
       const r = run.result;
-      uiStore.toast(r.isMechanism
+      const verdict = collapseVerdict(r);
+      if (verdict === 'unresolved') uiStore.toast(t('course.plastic.unresolved'), 'error');
+      else uiStore.toast(verdict === 'collapse'
         ? t('toast.plasticCollapse').replace('{lambda}', r.collapseFactor.toFixed(3)).replace('{hinges}', String(r.hinges.length)).replace('{ms}', dt.toFixed(0))
-        : t('plastic.noCollapse'), r.isMechanism ? 'info' : 'success');
+        : t('plastic.noCollapse'), verdict === 'collapse' ? 'info' : 'success');
     } catch (e: any) {
+      if (e instanceof PlasticWithheld) plasticWithheld = e;
       uiStore.toast(errText(e, 'toast.plasticError'), 'error');
     }
   }
@@ -571,7 +578,7 @@
     try {
       const t0 = performance.now();
       let result: any;
-      const physical = withSectionMass(input, modelStore.model);
+      const physical = withBasicMass(input, modelStore.model, 'izz');
       result = wasmModal3D(physical.input, physical.densities);
       const dt = performance.now() - t0;
       if (typeof result === 'string') { uiStore.toast(eigenRefusalText(result, t), 'error'); return; }
@@ -1025,6 +1032,7 @@
           Σ: X={(moR.cumulativeMassRatioX * 100).toFixed(1)}% Z={(moR.cumulativeMassRatioY * 100).toFixed(1)}%
         {/if}
       </div>
+      <DynamicsCourse result={moR} mode={resultsStore.activeModeIndex} {is3D} onRerun={() => (is3D ? handleModal3D() : handleModal())} />
     {/if}
   {/if}
   {#if buR}
@@ -1039,6 +1047,12 @@
     </div>
     <BucklingCertificate certificate={buR.certificate} />
     <BucklingDetails result={buR} />
+  {/if}
+  {#if plasticWithheld && !is3D}
+    <div class="adv-withheld" role="alert" data-testid="plastic-withheld">
+      <p>{plasticWithheld.message}</p>
+      <a href="https://github.com/lambdaclass/stabileo/issues/{plasticWithheld.issue}" target="_blank" rel="noopener noreferrer">{t('plastic.withheldIssue').replace('{issue}', String(plasticWithheld.issue))}</a>
+    </div>
   {/if}
   <PlasticResultPanel mps={plasticMps} />
   {#if resultsStore.movingLoadEnvelope}
@@ -1122,6 +1136,17 @@
      inert without touching sixty of them, and every child stretches to the
      panel width on its own. Thirteen analyses read better as a list anyway.
   */
+  .adv-withheld {
+    margin: 6px 0;
+    padding: 8px 10px;
+    border: 1px solid var(--st-danger);
+    border-radius: 6px;
+    font-size: 0.8rem;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+  }
+  .adv-withheld p { margin: 0 0 6px; }
+  .adv-withheld a { display: inline-block; min-height: 24px; color: var(--st-accent); }
   .adv-running {
     display: flex;
     align-items: center;

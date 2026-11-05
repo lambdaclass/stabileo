@@ -1726,4 +1726,57 @@ fn a_soft_rotation_held_by_the_orphan_spring_is_warned_in_2d_1367() {
     for e in hinged.elements.values_mut().filter(|e| e.id == 1) { e.hinge_end = true; }
     let hinged = solve_2d(&hinged).unwrap();
     assert!(!ids(&hinged.structured_diagnostics).contains(&"ORPHAN-SOFT-ROTATION".to_string()), "{:?}", ids(&hinged.structured_diagnostics));
+    let masked = common::make_input(
+        vec![(1, 0.0, 0.0), (2, 1.0, 0.0), (3, 0.0, 5.0), (4, 1.0, 5.0), (5, 0.0, 10.0), (6, 1.0, 10.0)],
+        vec![(1, E, 0.3)],
+        vec![(1, 0.01, 1e-10), (2, 1.0, 1e3), (3, 1.0, 1e-6)],
+        vec![(1, "frame", 1, 2, 1, 1, false, false), (2, "frame", 3, 4, 1, 2, false, false), (3, "frame", 5, 6, 1, 3, false, false)],
+        vec![(1, 1, "fixed"), (2, 3, "fixed"), (3, 5, "pinned"), (4, 6, "rollerX")],
+        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: -1e-3, my: 0.0 }), SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fz: 0.0, my: 1e10 })],
+    );
+    let masked = solve_2d(&masked).unwrap();
+    assert!(masked.displacements.iter().find(|d| d.node_id == 6).unwrap().ry.abs() > 1e12 * masked.displacements.iter().find(|d| d.node_id == 2).unwrap().ry.abs());
+    assert!(ids(&masked.structured_diagnostics).contains(&"ORPHAN-SOFT-ROTATION".to_string()), "a large rotation elsewhere must not mask it: {:?}", ids(&masked.structured_diagnostics));
+}
+
+fn harmonic_beam(frequencies: Vec<f64>) -> dedaliano_engine::solver::harmonic::HarmonicResult {
+    let n = 8;
+    let nodes = (0..=n).map(|i| (i + 1, i as f64 * 1.25, 0.0)).collect();
+    let elems = (0..n).map(|i| (i + 1, "frame", i + 1, i + 2, 1, 1, false, false)).collect();
+    let solver = common::make_input(nodes, vec![(1, E, 0.3)], vec![(1, 0.05, 1e-4)], elems, vec![(1, 1, "pinned"), (2, n + 1, "rollerX")],
+        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fz: -10.0, my: 0.0 })]);
+    let input = dedaliano_engine::solver::harmonic::HarmonicInput {
+        solver, densities: HashMap::from([("1".to_string(), 7850.0)]), frequencies, damping_ratio: 0.05, response_node_id: 4, response_dof: "y".into(),
+    };
+    dedaliano_engine::solver::harmonic::solve_harmonic_2d(&input).unwrap()
+}
+
+#[test]
+fn harmonic_above_the_kept_modes_is_warned_1434() {
+    let low = harmonic_beam(vec![0.5, 1.0, 2.0]);
+    assert!(low.modes_used < low.n_dof, "{} of {}", low.modes_used, low.n_dof);
+    assert!(low.warnings.is_empty(), "{:?}", low.warnings);
+    assert!(!ids(&low.structured_diagnostics).contains(&"HARM-TRUNCATION".to_string()), "{:?}", ids(&low.structured_diagnostics));
+    let high = harmonic_beam((1..=40).map(|i| i as f64 * 250.0).collect());
+    assert!(high.warnings.iter().any(|w| w.contains("static correction not applied")), "{:?}", high.warnings);
+    assert!(ids(&high.structured_diagnostics).contains(&"HARM-TRUNCATION".to_string()), "{:?}", ids(&high.structured_diagnostics));
+}
+
+#[test]
+fn harmonic_above_the_kept_modes_is_warned_in_3d_1434() {
+    let run = |frequencies: Vec<f64>| {
+        let solver = make_3d_beam(8, 8.0, E, 0.3, 0.01, 1e-4, 1e-4, 1e-5, vec![true; 6], None,
+            vec![SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: 5, fx: 0.0, fy: 0.0, fz: -10.0, mx: 0.0, my: 0.0, mz: 0.0, bw: None })]);
+        let input = dedaliano_engine::solver::harmonic::HarmonicInput3D {
+            solver, densities: HashMap::from([("1".to_string(), 7850.0)]), frequencies, damping_ratio: 0.05, response_node_id: 5, response_dof: "z".into(),
+        };
+        dedaliano_engine::solver::harmonic::solve_harmonic_3d(&input).unwrap()
+    };
+    let low = run(vec![0.5, 1.0, 2.0]);
+    assert!(low.modes_used < low.n_dof, "{} of {}", low.modes_used, low.n_dof);
+    assert!(!ids(&low.structured_diagnostics).contains(&"HARM-TRUNCATION".to_string()), "{:?}", ids(&low.structured_diagnostics));
+    let high = run((1..=40).map(|i| i as f64 * 500.0).collect());
+    assert!(high.warnings.iter().any(|w| w.contains("static correction not applied")), "{:?}", high.warnings);
+    let found = ids(&high.structured_diagnostics);
+    assert!(found.contains(&"HARM-TRUNCATION".to_string()) && found.contains(&"MD-ORTHOGONALITY".to_string()), "{found:?}");
 }

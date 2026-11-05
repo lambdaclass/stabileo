@@ -1034,15 +1034,7 @@ impl PreparedStatic2D<'_> {
 
     fn an_artificial_spring_carries_load(&self, r: &AnalysisResults) -> bool {
         if self.artificial_dofs.is_empty() { return false; }
-        let mut largest = 0.0f64;
-        let mut orphan = 0.0f64;
-        for d in &r.displacements {
-            largest = largest.max(d.ry.abs());
-            if self.dof_num.map.get(&(d.node_id, 2)).is_some_and(|i| self.artificial_dofs.contains(i)) {
-                orphan = orphan.max(d.ry.abs());
-            }
-        }
-        orphan > 0.0 && orphan > 1e-12 * largest
+        r.displacements.iter().any(|d| d.ry != 0.0 && self.dof_num.map.get(&(d.node_id, 2)).is_some_and(|i| self.artificial_dofs.contains(i)))
     }
 
     pub(super) fn check_returned_displacements(&self, loads: &[SolverLoad], r: &AnalysisResults) -> Result<StructuredDiagnostic, String> {
@@ -2733,17 +2725,11 @@ impl PreparedStatic3D {
     /// moves had real stiffness tying it to the structure, and the artificial spring held it.
     fn an_artificial_spring_carries_load(&self, r: &AnalysisResults3D) -> bool {
         if self.orphan_dofs.is_empty() { return false; }
-        let mut largest = 0.0f64;
-        let mut orphan = 0.0f64;
-        for d in &r.displacements {
-            for (local, value) in [d.rx, d.ry, d.rz, d.warping.unwrap_or(0.0)].into_iter().enumerate() {
-                largest = largest.max(value.abs());
-                if self.dof_num.map.get(&(d.node_id, local + 3)).is_some_and(|i| self.orphan_dofs.contains(i)) {
-                    orphan = orphan.max(value.abs());
-                }
-            }
-        }
-        orphan > 0.0 && orphan > 1e-12 * largest
+        r.displacements.iter().any(|d| {
+            [d.rx, d.ry, d.rz, d.warping.unwrap_or(0.0)].into_iter().enumerate().any(|(local, value)| {
+                value != 0.0 && self.dof_num.map.get(&(d.node_id, local + 3)).is_some_and(|i| self.orphan_dofs.contains(i))
+            })
+        })
     }
 
     fn solve_loads_fully_restrained(
@@ -4719,19 +4705,7 @@ pub(crate) fn refuse_moments_without_rotation_2d(input: &SolverInput, loads: &[S
         if !e.hinge_start { carried.insert(e.node_i); }
         if !e.hinge_end { carried.insert(e.node_j); }
     }
-    let node_xz: std::collections::HashMap<usize, (f64, f64)> =
-        crate::ordered::values(&input.nodes).map(|n| (n.id, (n.x, n.z))).collect();
-    for c in crate::ordered::values(&input.connectors) {
-        // A connector stiffens the end rotations through its rotational
-        // spring, or through the rigid arms of a finite-length shear spring.
-        let l = match (node_xz.get(&c.node_i), node_xz.get(&c.node_j)) {
-            (Some(a), Some(b)) => ((b.0 - a.0).powi(2) + (b.1 - a.1).powi(2)).sqrt(),
-            _ => 0.0,
-        };
-        if c.k_moment > 0.0 || (c.k_shear > 0.0 && l > crate::element::connector::ZERO_LENGTH) {
-            carried.extend([c.node_i, c.node_j]);
-        }
-    }
+    carried.extend(super::assembly::connector_rotation_nodes_2d(input));
     for c in &input.constraints {
         match c {
             // Only a constraint that involves the rotation (DOF 2) carries it: one
