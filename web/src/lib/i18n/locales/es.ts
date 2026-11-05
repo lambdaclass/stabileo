@@ -102,7 +102,7 @@ const es: Record<string, string> = {
   'account.privacySection': 'Privacidad y datos',
   'account.termsAccepted': 'Aceptaste los términos vigentes el {date}.',
   'account.researchToggle': 'Permitir usar mis proyectos guardados, anonimizados, para mejorar Stabileo',
-  'account.researchHint': 'Viene activado y lo podés apagar cuando quieras. Nunca incluye módulos a medida de empresas.',
+  'account.researchHint': 'Es opcional y lo podés cambiar cuando quieras. Nunca incluye módulos a medida de empresas.',
   'account.myProjects': 'Mis proyectos',
   'feedbackForm.section': 'Enviar comentarios',
   'feedbackForm.kind': 'Tipo',

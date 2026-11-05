@@ -102,7 +102,7 @@ const pt: Translations = {
   'account.privacySection': 'Privacidade e dados',
   'account.termsAccepted': 'Você aceitou os termos vigentes em {date}.',
   'account.researchToggle': 'Permitir que meus projetos salvos sejam usados, anonimizados, para melhorar o Stabileo',
-  'account.researchHint': 'Vem ativado e você pode desativar quando quiser. Nunca inclui módulos sob medida de empresas.',
+  'account.researchHint': 'É opcional e você pode mudar quando quiser. Nunca inclui módulos sob medida de empresas.',
   'account.myProjects': 'Meus projetos',
   'feedbackForm.section': 'Enviar comentários',
   'feedbackForm.kind': 'Tipo',

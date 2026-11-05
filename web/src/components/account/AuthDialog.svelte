@@ -14,6 +14,7 @@
   }: { open?: boolean; reason?: { title: string; lede: string } | null } = $props();
 
   let acceptTerms = $state(false);
+  let allowResearch = $state(false);
   let busy = $state(false);
   let error = $state<string | null>(null);
   let fields = $state<Record<string, string>>({});
@@ -25,6 +26,7 @@
     if (open) untrack(() => {
       step = { kind: 'start' };
       acceptTerms = false;
+      allowResearch = false;
       error = null;
       fields = {};
     });
@@ -72,6 +74,7 @@
         signup_token: step.token,
         accept_terms: acceptTerms,
         usage_analytics: usageConsent.sharing,
+        model_research: allowResearch,
         locale: isOfferedLocale(i18n.locale) ? i18n.locale : 'es',
       });
       if (usageConsent.sharing) usageConsent.set('granted');
@@ -117,6 +120,10 @@
             </span>
           </label>
           {#if fields.accept_terms}<span class="acc-field-err">{fields.accept_terms}</span>{/if}
+          <label class="acc-check">
+            <input type="checkbox" bind:checked={allowResearch} data-testid="auth-allow-research" />
+            <span>{t('account.researchToggle')}<span class="acc-hint acc-block">{t('account.researchHint')}</span></span>
+          </label>
           <p class="acc-hint acc-usage" data-testid="auth-usage-note">{t('legal.usageIncluded')}</p>
 
           {#if error}
@@ -233,6 +240,7 @@
   .acc-form { display: flex; flex-direction: column; gap: 10px; }
 
   .acc-hint { font-size: 0.62rem; color: var(--st-text-3); }
+  .acc-block { display: block; margin-top: 2px; }
   .acc-check { display: flex; align-items: flex-start; gap: 8px; font-size: 0.72rem; line-height: 1.4; color: var(--st-text-2); }
   .acc-check input { margin-top: 2px; }
   .acc-check.bad { color: var(--st-bad, #e06c75); }

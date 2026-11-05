@@ -165,22 +165,35 @@ async function solvePortal(page: Page) {
 }
 
 test.describe('accounts, legal and anonymous usage', () => {
-  test('sign-up is with Google only, waits for the terms and sends them with the optional usage choice', async ({ page }) => {
+  test('sign-up is with Google only, waits for the terms and sends them with the optional choices unticked', async ({ page }) => {
     const backend = await boot(page);
     await page.getByTestId('account-button').click();
     await continueWithGoogle(page);
     await expect(page.getByTestId('auth-submit')).toBeDisabled();
 
     await expect(page.getByTestId('auth-usage-note')).toBeVisible();
+    await expect(page.getByTestId('auth-allow-research')).not.toBeChecked();
     await page.getByTestId('auth-accept-terms').check();
     await page.getByTestId('auth-submit').click();
 
     await expect(page.getByTestId('auth-dialog')).toHaveCount(0);
     expect(backend.googleOpened).toBe(1);
     expect(backend.register).toEqual([
-      { signup_token: 'signup-1', accept_terms: true, usage_analytics: true, locale: 'es' },
+      { signup_token: 'signup-1', accept_terms: true, usage_analytics: true, model_research: false, locale: 'es' },
     ]);
     await expect(page.getByTestId('account-button')).toContainText('Ada Lovelace');
+  });
+
+  test('letting saved projects improve Stabileo is asked at sign-up and sent only when ticked', async ({ page }) => {
+    const backend = await boot(page);
+    await page.getByTestId('account-button').click();
+    await continueWithGoogle(page);
+    await page.getByTestId('auth-accept-terms').check();
+    await page.getByTestId('auth-allow-research').check();
+    await page.getByTestId('auth-submit').click();
+
+    await expect(page.getByTestId('auth-dialog')).toHaveCount(0);
+    expect(backend.register).toEqual([expect.objectContaining({ accept_terms: true, model_research: true })]);
   });
 
   test('usage is shared by default under a visit id, the notice gives way to the disclaimer, and "Got it" adds a stable id', async ({ page }) => {

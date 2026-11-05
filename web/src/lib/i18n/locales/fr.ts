@@ -14347,7 +14347,7 @@ const fr: Translations = {
   "account.privacySection": "Confidentialité et données",
   "account.termsAccepted": "Vous avez accepté les conditions en vigueur le {date}.",
   "account.researchToggle": "Autoriser l'utilisation de mes projets enregistrés, de façon anonymisée, pour améliorer Stabileo",
-  "account.researchHint": "Activé par défaut ; vous pouvez le désactiver à tout moment. Les modules personnalisés d'entreprise ne sont jamais inclus.",
+  "account.researchHint": "Facultatif, et vous pouvez le modifier à tout moment. Les modules personnalisés d'entreprise ne sont jamais inclus.",
   "account.myProjects": "Mes projets",
   "feedbackForm.section": "Envoyer un commentaire",
   "feedbackForm.kind": "Type",

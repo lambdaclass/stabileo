@@ -102,7 +102,7 @@ const en: Record<string, string> = {
   'account.privacySection': 'Privacy and data',
   'account.termsAccepted': 'You accepted the current terms on {date}.',
   'account.researchToggle': 'Allow my saved projects to be used, anonymized, to improve Stabileo',
-  'account.researchHint': 'On by default; you can turn it off at any time. It never includes custom company modules.',
+  'account.researchHint': 'Optional, and you can change it at any time. It never includes custom company modules.',
   'account.myProjects': 'My projects',
   'feedbackForm.section': 'Send feedback',
   'feedbackForm.kind': 'Type',

@@ -14347,7 +14347,7 @@ const tr: Translations = {
   "account.privacySection": "Gizlilik ve veriler",
   "account.termsAccepted": "Güncel koşulları {date} tarihinde kabul ettiniz.",
   "account.researchToggle": "Kayıtlı projelerimin, anonimleştirilerek Stabileo'yu geliştirmek için kullanılmasına izin ver",
-  "account.researchHint": "Varsayılan olarak açıktır; istediğiniz zaman kapatabilirsiniz. Şirkete özel modüller asla dahil edilmez.",
+  "account.researchHint": "İsteğe bağlıdır ve istediğiniz zaman değiştirebilirsiniz. Şirkete özel modüller asla dahil edilmez.",
   "account.myProjects": "Projelerim",
   "feedbackForm.section": "Geri bildirim gönder",
   "feedbackForm.kind": "Tür",

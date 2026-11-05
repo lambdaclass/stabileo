@@ -50,6 +50,7 @@ export interface GoogleRegisterInput {
   signup_token: string;
   accept_terms: boolean;
   usage_analytics?: boolean;
+  model_research?: boolean;
   locale?: string;
 }
 
