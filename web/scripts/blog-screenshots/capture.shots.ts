@@ -23,6 +23,13 @@ async function settle(page: Page, ms = 1500) {
 
 const shot = (page: Page, name: string) => page.screenshot({ path: `${OUT}/${name}.png` });
 
+const hide = (page: Page, selectors: string) => page.addStyleTag({ content: `${selectors} { display: none !important; }` });
+
+async function solveBasic(page: Page) {
+  await page.evaluate(() => window.__stabileoActions.solve());
+  await expect(page.getByText(/^solved$/i).first()).toBeVisible({ timeout: 90_000 });
+}
+
 const NO_RELEASE = { tx: false, ry: false, rz: false, my: false, mz: false, t: false };
 
 const RC_PORTAL = {
@@ -82,8 +89,9 @@ test('determinism boundary: the RC portal frame and its moment diagram', async (
   await english(page);
   await page.goto('/app/basic?e2e=1');
   await page.evaluate((m) => window.__stabileoActions.loadModelData(m), RC_PORTAL);
-  await solveModel(page);
-  await page.getByTestId('rb-cmd-moment').first().click();
+  await solveBasic(page);
+  await page.locator('[data-testid="rb-cmd-momentY"]:visible').first().click();
+  await hide(page, '.toast-container');
   await settle(page);
   await shot(page, 'blog-determinism-portal');
 });
@@ -98,21 +106,26 @@ test('certificates: a solved portal frame with its checks open', async ({ page }
   await page.getByTestId('result-checks-toggle').click();
   await expect(page.getByTestId('certificate-e2e')).toContainText('Checked end to end', { timeout: 60_000 });
   await page.getByTestId('certificate-e2e').scrollIntoViewIfNeeded();
+  await hide(page, '.toast-container');
   await settle(page);
   await shot(page, 'blog-certificate');
 });
 
-for (const [name, path] of [
-  ['blog-hidden-mechanism', '/app/basic?e2e=1&example=hidden-mechanism&kin=1'],
-  ['blog-torsion-tube', '/app/basic?e2e=1&example=torsion-tube&inspect=1&open=torsion'],
-] as const) {
-  test(`embed state: ${name}`, async ({ page }) => {
-    await english(page);
-    await page.goto(path);
-    await page.waitForTimeout(6000);
-    await shot(page, name);
-  });
-}
+test('conceptual: the hidden mechanism refused', async ({ page }) => {
+  await english(page);
+  await page.goto('/app/basic?e2e=1&example=hidden-mechanism&kin=1');
+  await page.waitForTimeout(6000);
+  await shot(page, 'blog-hidden-mechanism');
+});
+
+test('torsion: the tube with the torsion panel open', async ({ page }) => {
+  await english(page);
+  await page.goto('/app/basic?e2e=1&example=torsion-tube&inspect=1&open=torsion');
+  await page.waitForTimeout(6000);
+  await page.getByText('Circular — exact').first().evaluate((el) => el.scrollIntoView({ block: 'center' }));
+  await page.waitForTimeout(800);
+  await shot(page, 'blog-torsion-tube');
+});
 
 test('CIRSOC 201: the beam in PRO design', async ({ page }) => {
   await english(page);
@@ -122,6 +135,9 @@ test('CIRSOC 201: the beam in PRO design', async ({ page }) => {
   await solveModel(page);
   await page.evaluate(() => window.__stabileoActions.designAll());
   await page.waitForTimeout(6000);
+  await page.getByText('V1 · Viga 20×40').first().click();
+  await hide(page, '.toast-container');
+  await page.waitForTimeout(2000);
   await shot(page, 'blog-cirsoc-201-beam');
 });
 
@@ -130,8 +146,11 @@ test('bars or finite elements: the deep beam as a shell', async ({ page }) => {
   await page.goto('/app/pro?e2e=1&example=deep-beam-shell');
   await page.waitForTimeout(4000);
   await solveModel(page);
-  await page.evaluate(() => window.__stabileoActions.openProTab('analyze'));
-  await page.waitForTimeout(4000);
+  await page.getByRole('tab', { name: /^analy[sz]e/i }).first().click();
+  await page.waitForTimeout(1500);
+  await page.getByRole('button', { name: /displacements/i }).first().click({ timeout: 10_000 }).catch(() => {});
+  await hide(page, '.toast-container');
+  await page.waitForTimeout(3000);
   await shot(page, 'blog-deep-beam-shell');
 });
 
@@ -145,6 +164,7 @@ test('re-check notice on a project solved before a results change', async ({ pag
   await page.getByTestId('recheck-ack').check();
   await page.getByTestId('recheck-later').click();
   await expect(page.getByTestId('recheck-stale-banner')).toBeVisible();
+  await hide(page, '.toast-container');
   await page.waitForTimeout(1000);
   await shot(page, 'blog-recheck-stale');
 });
@@ -153,12 +173,13 @@ test('reproduce dialog', async ({ page }) => {
   await english(page);
   await page.goto('/app/basic?e2e=1');
   await page.evaluate(() => window.__stabileoActions.loadExample('portal-frame'));
-  await solveModel(page);
+  await solveBasic(page);
   await page.getByTestId('hdr-project').click();
   const link = page.getByTestId('open-reproduce');
   await link.scrollIntoViewIfNeeded();
   await link.click();
   await expect(page.getByTestId('reproduce-dialog')).toBeVisible();
+  await hide(page, '.toast-container');
   await page.waitForTimeout(1000);
   await shot(page, 'blog-reproduce');
 });
@@ -166,12 +187,110 @@ test('reproduce dialog', async ({ page }) => {
 for (const [name, path] of [
   ['blog-research', '/en/research/'],
   ['blog-tools', '/en/tools/'],
-  ['blog-research-mattiasson', '/en/research/benchmarks/mattiasson-elastica/'],
 ] as const) {
   test(`public page: ${name}`, async ({ page }) => {
     await english(page);
     await page.goto(path);
+    await hide(page, '.rs-g-first, .rs-review');
     await page.waitForTimeout(6000);
     await shot(page, name);
   });
 }
+
+test('Mattiasson benchmark results', async ({ page }) => {
+  await english(page);
+  await page.goto('/en/research/benchmarks/mattiasson-elastica/');
+  await hide(page, '.rs-g-first, .rs-review');
+  await page.waitForTimeout(4000);
+  await page.getByText('Results', { exact: true }).first().click();
+  await page.waitForTimeout(4000);
+  await page.getByText('Results', { exact: true }).first().evaluate((el) => el.scrollIntoView({ block: 'start' }));
+  await page.waitForTimeout(1000);
+  await shot(page, 'blog-research-mattiasson');
+});
+
+async function basicWith(page: Page, example: string) {
+  await english(page);
+  await page.addInitScript(() => localStorage.setItem('liveCalc', 'false'));
+  await page.goto('/app/basic?e2e=1');
+  await page.waitForFunction(() => !!window.__stabileoActions, null, { timeout: 60_000 });
+  await page.evaluate((n) => window.__stabileoActions.loadExample(n), example);
+  await page.getByTestId('rb-cmd-advanced').click();
+}
+
+test('course: the explained step-by-step catalog', async ({ page }) => {
+  await basicWith(page, 'portal-frame');
+  await page.getByTestId('adv-steps').click();
+  await expect(page.getByTestId('steps-catalog')).toBeVisible();
+  await expect(page.getByTestId('steps-open-dsm')).toBeEnabled();
+  await hide(page, '.toast-container');
+  await settle(page);
+  await shot(page, 'blog-course-catalog');
+});
+
+test('course: the force method with a primary structure chosen by hand', async ({ page }) => {
+  await basicWith(page, 'portal-frame');
+  await page.getByTestId('adv-steps').click();
+  await page.getByTestId('steps-open-fm').click();
+  await expect(page.getByTestId('fm-wizard')).toBeVisible();
+  await page.getByTestId('fm-dot-2').click();
+  await page.getByTestId('fm-fund-manual').click();
+  for (const r of ['r:4:0', 'r:4:1', 'r:4:2']) await page.getByTestId(`fm-rel-${r}`).check();
+  await page.getByTestId('fm-fund-solve').click();
+  await expect(page.getByTestId('fm-fund-ok')).toBeVisible();
+  await expect(page.getByTestId('fm-redundants').locator('li')).toHaveCount(3);
+  await hide(page, '.toast-container');
+  await settle(page);
+  await shot(page, 'blog-course-force-method');
+});
+
+test('course: a moment influence line on the continuous beam, loaded', async ({ page }) => {
+  await basicWith(page, 'continuous-beam');
+  await page.locator('button.adv-btn', { hasText: /^Influence line$/ }).click();
+  await expect(page.getByTestId('il-panel')).toBeVisible();
+  await page.getByTestId('il-q-M').click();
+  const mid = await page.evaluate(() => {
+    const h = window.__stabileo as unknown as { elementEnds(id: number): { i: number; j: number } | null; nodeScreenPos(id: number): { x: number; y: number } | null };
+    const e = h.elementEnds(1)!;
+    const a = h.nodeScreenPos(e.i)!, b = h.nodeScreenPos(e.j)!;
+    return { x: a.x + (b.x - a.x) * 0.4, y: a.y + (b.y - a.y) * 0.4 };
+  });
+  await page.mouse.click(mid.x, mid.y);
+  await page.getByTestId('il-loading').locator('summary').click();
+  await expect(page.getByTestId('il-max')).toContainText('kN·m');
+  await page.getByTestId('il-envelope').click();
+  await expect(page.getByTestId('il-envelope')).toHaveClass(/on/);
+  await hide(page, '.toast-container');
+  await settle(page);
+  await shot(page, 'blog-course-influence');
+});
+
+test('course: plastic collapse of the portal frame, curve and mechanism', async ({ page }) => {
+  await basicWith(page, 'portal-frame');
+  await page.locator('button.adv-btn', { hasText: /Plastic collapse/ }).click();
+  await expect(page.getByTestId('plastic-verdict')).toContainText('71.296');
+  await page.getByTestId('plastic-curve').locator('summary').click();
+  await expect(page.getByTestId('plastic-curve-chart')).toBeVisible();
+  await page.getByTestId('plastic-mechanism').locator('summary').click();
+  await page.getByTestId('plastic-mechanism-draw').click();
+  await expect(page.getByTestId('plastic-mechanism-vw')).toContainText('71.296');
+  await page.getByTestId('plastic-curve-chart').scrollIntoViewIfNeeded();
+  await hide(page, '.toast-container');
+  await settle(page);
+  await shot(page, 'blog-course-plastic');
+});
+
+test('course: one degree of freedom under a harmonic force', async ({ page }) => {
+  await basicWith(page, 'dynamics-column-mass');
+  await page.getByRole('button', { name: /^Dynamic$/ }).first().click();
+  await expect(page.getByTestId('dynamics-course')).toBeVisible();
+  await page.getByTestId('dyn-sdof-toggle').click();
+  await expect(page.getByTestId('dyn-sdof-props')).toContainText('rad/s');
+  await page.getByTestId('dyn-sdof-F0').fill('20');
+  await page.getByTestId('dyn-sdof-F0').press('Enter');
+  await expect(page.getByTestId('dyn-sdof-harm')).toContainText('β');
+  await page.getByTestId('dyn-sdof-harm').evaluate((el) => el.scrollIntoView({ block: 'end' }));
+  await hide(page, '.toast-container');
+  await settle(page);
+  await shot(page, 'blog-course-dynamics');
+});
