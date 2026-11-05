@@ -1,7 +1,7 @@
 use crate::models::*;
 use crate::support::*;
 use dedaliano_engine::element::fiber_beam::{rectangular_fiber_section, FiberMaterial};
-use dedaliano_engine::linalg::solve_generalized_eigen;
+use dedaliano_engine::linalg::{cholesky_solve, solve_generalized_eigen};
 use dedaliano_engine::solver::buckling::buckling_system_2d;
 use dedaliano_engine::solver::corotational::solve_corotational_2d;
 use dedaliano_engine::solver::dof::DofNumbering;
@@ -44,11 +44,13 @@ fn free_vector(dof: &DofNumbering, r: &AnalysisResults, k: f64) -> Vec<f64> {
     u
 }
 
-/// The linear system K u₀ = f and the spectral radius ρ of K⁻¹Kg per unit load.
+/// The linear system K u₀ = f, the spectral radius ρ of K⁻¹Kg per unit load, and the
+/// first-order correction u₁ = K⁻¹(−Kg)u₀ per unit load.
 struct Linearised {
     dof: DofNumbering,
     k: Vec<f64>,
     u0: Vec<f64>,
+    u1: Vec<f64>,
     rho: f64,
 }
 
@@ -61,7 +63,9 @@ fn linearise(s: &SolverInput) -> Linearised {
     let eig = solve_generalized_eigen(&neg_kg, &k, n, 200).unwrap();
     let rho = eig.values.iter().map(|m| m.abs()).fold(0.0, f64::max);
     let u0 = free_vector(&sys.dof_num, &solve_2d(s).unwrap(), 1.0);
-    Linearised { dof: sys.dof_num, k, u0, rho }
+    let kg_u0: Vec<f64> = (0..n).map(|i| (0..n).map(|j| neg_kg[i * n + j] * u0[j]).sum()).collect();
+    let u1 = cholesky_solve(&mut k.clone(), &kg_u0, n).unwrap();
+    Linearised { dof: sys.dof_num, k, u0, u1, rho }
 }
 
 fn energy(k: &[f64], e: &[f64]) -> f64 {
@@ -70,18 +74,24 @@ fn energy(k: &[f64], e: &[f64]) -> f64 {
     if w.is_finite() { w.max(0.0).sqrt() } else { f64::NAN }
 }
 
-/// `‖v − u₀‖_K / ‖u₀‖_K` for `v` the nonlinear response to load `scale·f`, divided by `scale`.
-fn deviation(lin: &Linearised, r: &AnalysisResults, scale: f64) -> f64 {
+/// `‖v − u₀ − scale·u₁‖_K / ‖u₀‖_K` for `v` the nonlinear response to load
+/// `scale·f`, divided by `scale`: what is left after the first-order correction.
+fn remainder(lin: &Linearised, r: &AnalysisResults, scale: f64) -> f64 {
     let v = free_vector(&lin.dof, r, 1.0 / scale);
-    let e: Vec<f64> = v.iter().zip(&lin.u0).map(|(a, b)| a - b).collect();
+    let e: Vec<f64> = v.iter().zip(&lin.u0).zip(&lin.u1).map(|((a, b), c)| a - b - scale * c).collect();
     energy(&lin.k, &e) / energy(&lin.k, &lin.u0)
 }
 
-/// `(K + θKg/ρ) v = f` against `K u₀ = f`: `‖v − u₀‖_K ≤ θ/(1−θ) ‖u₀‖_K` with
-/// `θ = scale·ρ` (Neumann series in the K inner product). Axial forces taken from
-/// the deformed state, and the co-rotational chord rotations, add O(θ²).
-fn first_order_bound(theta: f64) -> f64 {
-    theta / (1.0 - theta) + theta * theta
+impl Linearised {
+    fn first_order(&self) -> f64 {
+        energy(&self.k, &self.u1) / energy(&self.k, &self.u0) / self.rho
+    }
+
+    fn deviation(&self, r: &AnalysisResults, scale: f64) -> f64 {
+        let v = free_vector(&self.dof, r, 1.0 / scale);
+        let e: Vec<f64> = v.iter().zip(&self.u0).map(|(a, b)| a - b).collect();
+        energy(&self.k, &e) / energy(&self.k, &self.u0)
+    }
 }
 
 /// The solves stop at a relative residual of 1e-12; with κ(K) < 1e7 on these frames
@@ -89,23 +99,52 @@ fn first_order_bound(theta: f64) -> f64 {
 /// that relative error.
 const SOLVER_FLOOR: f64 = 1e-5;
 
-fn converges_to_linear(what: &str, s: &SolverInput, solve: &dyn Fn(&SolverInput) -> Result<AnalysisResults, String>) -> Result<Report, String> {
+/// `(K + θA) v = f` with `A = Kg/ρ` and `K u₀ = f`: `A` is K-symmetric with K-norm 1, so
+/// the Neumann series leaves `‖v − u₀ − θu₁/ρ‖_K ≤ θ² r₁/(1−θ) ‖u₀‖_K`, where
+/// `r₁ = ‖u₁‖_K/(ρ‖u₀‖_K)`. P-delta takes the axial forces from the deformed state,
+/// which moves `A` by `O(θ r₁)` and adds `θ² r₁²`.
+fn second_order_bound(theta: f64, r1: f64) -> f64 {
+    theta * theta * r1 / (1.0 - theta) + theta * theta * r1 * r1 + SOLVER_FLOOR
+}
+
+const THETAS: [f64; 4] = [1e-1, 1e-2, 1e-3, 1e-4];
+
+/// P-delta solves second-order theory, so after `u₁ = K⁻¹(−Kg)u₀` the remainder must
+/// fall as θ². A path that returned the linear solution leaves `θ r₁`, which the
+/// first check keeps above twice the bound at θ = 0.1.
+fn pdelta_converges_to_linear(s: &SolverInput) -> Result<Report, String> {
     let lin = linearise(s);
+    let r1 = lin.first_order();
     let mut r = Report::new();
-    let mut prev: Option<(f64, f64)> = None;
-    for theta in [1e-1, 1e-2, 1e-3, 1e-4] {
-        let scale = theta / lin.rho;
-        let res = solve(&scaled(s, scale))?;
-        let dev = deviation(&lin, &res, scale);
-        let bound = first_order_bound(theta) + SOLVER_FLOOR;
-        if let Some((t0, d0)) = prev {
-            if d0 > 100.0 * SOLVER_FLOOR && !(dev <= d0 * (theta / t0) * 3.0 + SOLVER_FLOOR) {
-                r.fail(format!("{what}: not first order, deviation {d0:.3e} at θ = {t0:.0e} then {dev:.3e} at θ = {theta:.0e}"));
-            }
-        }
-        r.close(&format!("{what} θ = {theta:.0e}: ‖v − u₀‖_K/‖u₀‖_K"), Ratio::from_ratio(dev), Ratio::from_ratio(0.0), Ratio::from_ratio(bound));
-        prev = Some((theta, dev));
+    if !(r1 * THETAS[0] > 2.0 * second_order_bound(THETAS[0], r1)) {
+        r.fail(format!("first-order correction {:.3e} at θ = 0.1 is under twice the bound: the frame tests nothing", r1 * THETAS[0]));
     }
+    for theta in THETAS {
+        let scale = theta / lin.rho;
+        let rem = remainder(&lin, &pdelta(&scaled(s, scale))?, scale);
+        r.close(&format!("P-delta θ = {theta:.0e}: ‖v − u₀ − θu₁/ρ‖_K/‖u₀‖_K"), Ratio::from_ratio(rem), Ratio::from_ratio(0.0), Ratio::from_ratio(second_order_bound(theta, r1)));
+    }
+    Ok(r)
+}
+
+/// Co-rotational members carry the chord-only geometric stiffness `N/L·zzᵀ`, the moment
+/// coupling `(Mᵢ+Mⱼ)/L²` and their own shortening, so their first-order term is not
+/// second-order theory's: on a one-element member the chord term alone is 1/1.2 of it.
+/// On a frame the check is that the path leaves the linear solution at first order,
+/// `‖v − u₀‖_K = c θ r₁ ‖u₀‖_K` with `c` within a factor 2 of the theory and steady to
+/// `O(θ)` between θ = 1e-2 and 1e-3; the column test pins `c` to the exact solution.
+fn corotational_departs_at_first_order(s: &SolverInput) -> Result<Report, String> {
+    let lin = linearise(s);
+    let r1 = lin.first_order();
+    let mut r = Report::new();
+    let mut c = Vec::new();
+    for theta in [1e-2, 1e-3] {
+        let scale = theta / lin.rho;
+        let ratio = lin.deviation(&corotational(&scaled(s, scale))?, scale) / (theta * r1);
+        c.push(ratio);
+        r.close(&format!("co-rotational θ = {theta:.0e}: ‖v − u₀‖_K/(θ r₁ ‖u₀‖_K)"), Ratio::from_ratio(ratio), Ratio::from_ratio(1.25), Ratio::from_ratio(0.75));
+    }
+    r.close("co-rotational first-order coefficient, θ = 1e-2 against 1e-3", Ratio::from_ratio(c[0]), Ratio::from_ratio(c[1]), Ratio::from_ratio(0.1 * c[1].abs()));
     Ok(r)
 }
 
@@ -131,12 +170,67 @@ fn sway_frame() -> SolverInput {
 
 #[test]
 fn pdelta_converges_to_linear_at_vanishing_load() {
-    agree("P-delta → linear", converges_to_linear("P-delta", &sway_frame(), &pdelta));
+    agree("P-delta → linear", pdelta_converges_to_linear(&sway_frame()));
 }
 
 #[test]
-fn corotational_converges_to_linear_at_vanishing_load() {
-    agree("co-rotational → linear", converges_to_linear("co-rotational", &sway_frame(), &corotational));
+fn corotational_departs_from_linear_at_first_order() {
+    agree("co-rotational → linear", corotational_departs_at_first_order(&sway_frame()));
+}
+
+const COLUMN: FrameSpec = FrameSpec { bays: 0, storeys: 1, gravity_kn: 300.0, lateral_kn: 0.3, ..FrameSpec::two_storey() };
+
+/// Cantilever column under P and a small tip load H, split into `n` elements, at
+/// `θ = P/P_cr`: the tip sway's first-order coefficient `(δ/δ₀ − 1)/(2α²/5)`, against
+/// the exact `δ/δ₀ = 3(tan α − α)/α³`, `α² = PL²/EI` (Timoshenko & Gere §1.11).
+fn column_coefficient(n: usize, theta: f64, solve: &dyn Fn(&SolverInput) -> Result<AnalysisResults, String>) -> Result<(f64, f64), String> {
+    let spec = FrameSpec { subdivisions: n, ..COLUMN };
+    let s = frame_2d(&spec);
+    let top = plane_frame(&spec).roof[0];
+    let ei = E_STEEL_MPA * 1e3 * spec.column.1;
+    let l = spec.storey_height;
+    let scale = theta * std::f64::consts::PI.powi(2) * ei / (4.0 * l * l) / spec.gravity_kn;
+    let tip = |r: &AnalysisResults| r.displacements.iter().find(|d| d.node_id == top).unwrap().ux;
+    let d0 = tip(&solve_2d(&s)?);
+    let a2 = spec.gravity_kn * scale * l * l / ei;
+    let a = a2.sqrt();
+    let exact = (3.0 * (a.tan() - a) / a.powi(3) - 1.0) / (0.4 * a2);
+    Ok(((tip(&solve(&scaled(&s, scale))?) / (scale * d0) - 1.0) / (0.4 * a2), exact))
+}
+
+/// H/P = 1e-3 keeps the cubic terms in H out of the coefficient. P-delta's cubic
+/// Hermite members with the consistent Kg carry the exact cantilever shape, so its
+/// coefficient matches the closed form on any mesh to the series' next term.
+#[test]
+fn pdelta_column_matches_the_exact_amplification() {
+    let mut r = Report::new();
+    for n in [1, 4, 16] {
+        for theta in [1e-2, 1e-3] {
+            let (c, exact) = column_coefficient(n, theta, &pdelta).unwrap();
+            r.close(&format!("P-delta column, {n} elements, θ = {theta:.0e}"), Ratio::from_ratio(c), Ratio::from_ratio(exact), Ratio::from_ratio(1e-4));
+        }
+    }
+    agree("P-delta column vs Timoshenko & Gere", Ok(r));
+}
+
+/// Co-rotational members bend between chords, so the coefficient converges as 1/n²
+/// (successive differences shrink by 4) to a limit below the closed form by at most
+/// the column's own shortening: `ε = P/EA` cuts the `L³` sway by `3ε`, which in the
+/// coefficient is `3ε/(2α²/5) = 7.5 r²/L²`, `r² = I/A`.
+#[test]
+fn corotational_column_converges_on_the_exact_amplification() {
+    let theta = 1e-2;
+    let c: Vec<(f64, f64)> = [4, 8, 16, 32].into_iter().map(|n| column_coefficient(n, theta, &corotational).unwrap()).collect();
+    let exact = c[0].1;
+    let mut r = Report::new();
+    for w in c.windows(3) {
+        r.close("co-rotational column: error ratio on halving the elements", Ratio::from_ratio((w[1].0 - w[0].0) / (w[2].0 - w[1].0)), Ratio::from_ratio(4.0), Ratio::from_ratio(1.0));
+    }
+    let last = c[3].0 - c[2].0;
+    let limit = c[3].0 + last / 3.0;
+    let shortening = 7.5 * COLUMN.column.1 / COLUMN.column.0 / COLUMN.storey_height.powi(2);
+    r.close("co-rotational column: extrapolated coefficient", Ratio::from_ratio(limit), Ratio::from_ratio(exact - shortening / 2.0), Ratio::from_ratio(shortening / 2.0 + last.abs()));
+    agree("co-rotational column vs Timoshenko & Gere", Ok(r));
 }
 
 const RECT_B: f64 = 0.2;
@@ -237,7 +331,7 @@ fn nonlinear_converges_to_linear_on_frame_family() {
     for seed in 0..16 {
         let spec = FrameSpec { gravity_kn: 200.0, ..FrameSpec::variant(seed) };
         let s = frame_2d(&spec);
-        agree(&format!("P-delta, frame {seed} {spec:?}"), converges_to_linear("P-delta", &s, &pdelta));
-        agree(&format!("co-rotational, frame {seed} {spec:?}"), converges_to_linear("co-rotational", &s, &corotational));
+        agree(&format!("P-delta, frame {seed} {spec:?}"), pdelta_converges_to_linear(&s));
+        agree(&format!("co-rotational, frame {seed} {spec:?}"), corotational_departs_at_first_order(&s));
     }
 }

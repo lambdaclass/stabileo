@@ -23,7 +23,7 @@ pub struct FrameSpec {
 }
 
 impl FrameSpec {
-    pub fn two_storey() -> Self {
+    pub const fn two_storey() -> Self {
         Self {
             bays: 1,
             storeys: 2,
