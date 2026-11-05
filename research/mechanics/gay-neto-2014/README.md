@@ -64,7 +64,12 @@ certification.
 
 ## Page
 
-Not built yet.
+`/research/mechanics/gay-neto-2014` (`web/src/components/research/gayNeto2014/`). The shared
+Stabileo viewer draws the line at real scale, coloured by M(e1), with the seabed; the step slider
+runs through the converged increments of steps 1 to 3 (`reference-results/replay.json`, from
+`cargo run --release --bin replay`). Pull, lift and friction can be changed and recomputed live in
+the browser (`build.sh` builds the WASM, about 9 s per run). Charts compare M(e1) and V(e2) with the
+reference data; a second tab shows the cantilever against Figure 1-6.
 
 ## How to run
 
