@@ -541,3 +541,20 @@ fn issue_758_limit_analysis_refuses_axial_point_loads_too_close_to_resolve() {
     let err = dedaliano_engine::solver::plastic_limit::limit_analysis_2d(&bar(1e-12), &mp, &np).unwrap_err();
     assert!(err.contains("closer than 1e-9"), "{err}");
 }
+
+#[test]
+fn issue_758_limit_analysis_refuses_a_transverse_load_too_close_to_a_fixed_end() {
+    let cantilever = |a: f64| {
+        let loads = vec![
+            SolverLoad::PointOnElement(SolverPointLoadOnElement { element_id: 1, a, p: -5e8, px: None, my: None }),
+            nodal(2, 0.0, -1.0),
+        ];
+        make_input(vec![(1, 0.0, 0.0), (2, 1.0, 0.0)], vec![(1, E, 0.3)], vec![(1, A_SEC, IZ_SEC)], vec![(1, "frame", 1, 2, 1, 1, false, false)], vec![(1, 1, "fixed")], loads)
+    };
+    let mp = HashMap::from([(1, 1.0)]);
+    let resolved = dedaliano_engine::solver::plastic_limit::limit_analysis_2d(&cantilever(1e-9 * 4.0), &mp, &HashMap::new()).unwrap();
+    let exact = 1.0 / (1.0 + 5e8 * 4e-9);
+    assert!((resolved.lambda - exact).abs() <= 1e-6 * exact, "{resolved:?} vs {exact}");
+    let err = dedaliano_engine::solver::plastic_limit::limit_analysis_2d(&cantilever(5e-10), &mp, &HashMap::new()).unwrap_err();
+    assert!(err.contains("closer than 1e-9"), "{err}");
+}
