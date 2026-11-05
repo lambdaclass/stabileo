@@ -45,6 +45,8 @@ function workbookModel(): WorkbookModel {
     includeSelfWeight: uiStore.includeSelfWeight,
     loadCases: m.loadCases, combinations: modelStore.combinations,
     namedGroups: [...(m.groups?.values() ?? [])].map((g) => ({ id: g.id, name: g.name, kind: g.kind, members: g.members })),
+    pointMasses: m.massSource?.points,
+    massSource: m.massSource,
   } as WorkbookModel;
 }
 
