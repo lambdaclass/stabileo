@@ -135,8 +135,23 @@ def calls(code, target, context=''):
     owner = re.escape(qualifier.rpartition('::')[2])
     if re.search(rf'(?<![\w]){owner}::{re.escape(name)}{call}', code):
         return True
-    imported = re.search(rf'\buse\s+[^;]*\b{owner}::(?:{re.escape(name)}\b|\*|\{{[^;]*\b{re.escape(name)}\b)', context)
-    return bool(imported) and re.search(rf'(?<![\w:.]){re.escape(name)}{call}', code) is not None
+    return any(re.search(rf'(?<![\w:.]){re.escape(b)}{call}', code) for b in imported_as(context, qualifier.rpartition('::')[2], name))
+
+
+def imported_as(context, owner, name):
+    names = set()
+    for use in re.findall(r'\buse\s+([^;]*);', context):
+        for m in re.finditer(rf'\b{re.escape(owner)}::', use):
+            rest = use[m.end():].lstrip()
+            items = arguments(bracketed(rest, 0)) if rest.startswith('{') else [re.match(r'[\w*]+(?:\s+as\s+\w+)?', rest).group(0)] if re.match(r'[\w*]', rest) else []
+            for item in items:
+                item = item.strip()
+                if item == '*':
+                    names.add(name)
+                parts = re.fullmatch(rf'{re.escape(name)}(?:\s+as\s+(\w+))?', item)
+                if parts and parts.group(1) != '_':
+                    names.add(parts.group(1) or name)
+    return names
 
 
 def targets_of(entry):
@@ -300,11 +315,13 @@ def compiled_tests(read):
             attributes = outer_attributes(code, m.start())
             if disabled(attributes) or enclosing_cfg(code, m.start()):
                 continue
+            inline = [n.group(1) for n in re.finditer(r'\bmod\s+(\w+)\s*\{', code) if block(code, n.start())[0] < m.start() < block(code, n.start())[1]]
+            here = folder.joinpath(*inline)
             path = re.search(r'#\[\s*path\s*=\s*"([^"]*)"', attributes)
             if path:
-                queue.append(normalize(pathlib.PurePosixPath(file).parent / path.group(1)))
+                queue.append(normalize((here if inline else pathlib.PurePosixPath(file).parent) / path.group(1)))
             else:
-                queue += [(folder / f'{m.group(1)}.rs').as_posix(), (folder / m.group(1) / 'mod.rs').as_posix()]
+                queue += [(here / f'{m.group(1)}.rs').as_posix(), (here / m.group(1) / 'mod.rs').as_posix()]
     return seen
 
 
@@ -339,6 +356,18 @@ def statement_end(body, start):
     return end
 
 
+def disabled_spans(body):
+    spans = []
+    for m in re.finditer(r'#\[[^\]]*\]', body):
+        if disabled(m.group(0)):
+            start = m.end() + len(re.match(r'(?:\s*#\[[^\]]*\])*\s*', body[m.end():]).group(0))
+            end = statement_end(body, start)
+            if end < len(body) and body[end] == '{':
+                end = block(body, end)[1]
+            spans.append((m.start(), end))
+    return spans
+
+
 def events(body):
     found = []
     for m in re.finditer(r'\b(?:let|for)\s+(.*?)(?:\s+in\s+|\s*(?::[^=;]*)?=(?!=))', body):
@@ -349,7 +378,8 @@ def events(body):
             found.append((m.start(), 'bind' if body[m.end(1):m.end()].strip() == '=' else 'update', {m.group(1)}, body[m.end():statement_end(body, m.end())]))
     for m in re.finditer(r'\b(assert\w*!|\w+)\s*(?:::<[^>]*>\s*)?([(\[{])', body):
         found.append((m.start(), 'call', m.group(1), bracketed(body, m.end(2) - 1)))
-    return sorted(found, key=lambda e: e[0])
+    spans = disabled_spans(body)
+    return sorted((e for e in found if not any(a <= e[0] < b for a, b in spans)), key=lambda e: e[0])
 
 
 def arguments(text):

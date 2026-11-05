@@ -169,6 +169,17 @@ fn session_constructor_asserted_solve_discarded() {
 }
 
 #[test]
+fn beam_assertion_compiled_out() {
+    let r = solve_beam_2d_typed(&scaled());
+    #[cfg(any())]
+    assert!(close(&r));
+    #[cfg(any())]
+    {
+        assert!(close(&r));
+    }
+}
+
+#[test]
 fn beam_result_overwritten() {
     let mut r = solve_beam_2d_typed(&scaled());
     r = zero();
@@ -261,6 +272,27 @@ path = "tests/suite/main.rs"
 [[test]]
 name = "flat"
 path = "tests/flat.rs"
+
+[[test]]
+name = "aliased"
+path = "tests/aliased.rs"
+'''
+
+ALIASED = '''
+use dedaliano_engine::solver::beam::solve_beam_2d_typed as beam_solve;
+use dedaliano_engine::solver::plate::solve_beam_2d_typed;
+
+#[test]
+fn calls_the_plate_one() {
+    let r = solve_beam_2d_typed(&scaled());
+    assert!(close(&r));
+}
+
+#[test]
+fn calls_the_beam_one_by_its_alias() {
+    let r = beam_solve(&scaled());
+    assert!(close(&r));
+}
 '''
 
 FLAT = '''
@@ -269,6 +301,9 @@ mod flat_sibling;
 
 SUITE = '''
 mod included;
+mod group {
+    mod nested;
+}
 #[cfg(any())]
 mod excluded;
 #[path = "../shared/beam_shared.rs"]
@@ -298,6 +333,9 @@ FILES = {
     'engine/tests/orphan.rs': INCLUDED,
     'engine/tests/slow.rs': INCLUDED,
     'engine/tests/suite/unregistered.rs': INCLUDED,
+    'engine/tests/suite/group/nested.rs': INCLUDED,
+    'engine/tests/suite/nested.rs': INCLUDED,
+    'engine/tests/aliased.rs': ALIASED,
     'engine/tests/flat.rs': FLAT,
     'engine/tests/flat_sibling.rs': INCLUDED,
     'engine/tests/flat/flat_sibling.rs': INCLUDED,
@@ -529,7 +567,7 @@ class Coverage(unittest.TestCase):
         test = lambda name: self.status('units', {'test': f'engine/tests/beam_invariance.rs::{name}'})
         for name in ['beam_result_discarded', 'beam_unrelated_assertion', 'beam_helper_without_assertion', 'beam_call_only',
                      'beam_helper_ignores_the_result', 'beam_helper_asserts_on_another_argument', 'beam_result_shadowed', 'beam_result_overwritten',
-                     'beam_result_only_in_the_message']:
+                     'beam_result_only_in_the_message', 'beam_assertion_compiled_out']:
             errors = test(name)
             self.assertEqual(len(errors), 1, name)
             self.assertIn('no assertion uses what beam::solve_beam_2d_typed returned', errors[0])
@@ -544,6 +582,10 @@ class Coverage(unittest.TestCase):
         self.assertEqual(run(reg), ['Session::solve units: engine/tests/beam_invariance.rs::session_constructor_asserted_solve_discarded: no assertion uses what solve_loads returned, so the test checks no invariance'])
         statuses['invariances']['units'] = {'test': 'engine/tests/beam_invariance.rs::session_through_constructor'}
         self.assertEqual(run(reg), [])
+
+    def test_an_aliased_import_is_resolved_by_its_binding(self):
+        self.assertIn('does not call beam::solve_beam_2d_typed', self.status('units', {'test': 'engine/tests/aliased.rs::calls_the_plate_one'})[0])
+        self.assertEqual(self.status('units', {'test': 'engine/tests/aliased.rs::calls_the_beam_one_by_its_alias'}), [])
 
     def test_one_test_cannot_claim_several_invariances(self):
         reg = registry()
@@ -563,7 +605,8 @@ class Coverage(unittest.TestCase):
         self.assertEqual(test('shared/beam_shared.rs'), [])
         self.assertEqual(test('default_feature.rs'), [])
         self.assertEqual(test('flat_sibling.rs'), [])
-        for file in ['suite/excluded.rs', 'suite/unregistered.rs', 'orphan.rs', 'slow.rs', 'flat/flat_sibling.rs']:
+        self.assertEqual(test('suite/group/nested.rs'), [])
+        for file in ['suite/excluded.rs', 'suite/unregistered.rs', 'suite/nested.rs', 'orphan.rs', 'slow.rs', 'flat/flat_sibling.rs']:
             self.assertIn('is not compiled into any test target', test(file)[0], file)
 
 
