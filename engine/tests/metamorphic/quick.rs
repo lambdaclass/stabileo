@@ -138,17 +138,8 @@ const fn xfail(seed: u64, case: &'static str, analysis: &'static str, invariant:
 
 /// Each entry must still fail: the fix of its issue removes it.
 pub const EXPECTED: &[Expected] = &[
-    xfail(20754, "fuzz_rich_2d/20843", "plastic collapse", "relabel", 758),
-    xfail(20754, "fuzz_rich_2d/20843", "plastic collapse", "reversal", 758),
-    xfail(20754, "fuzz_rich_2d/20843", "plastic collapse", "rotation", 758),
-    xfail(20754, "fuzz_rich_2d/20843", "plastic collapse", "units", 758),
     xfail(20754, "feature_matrix/3d-curved-beam-arch-with", "plastic collapse", "rotation", 758),
     xfail(20754, "fuzz_rich_2d/20772", "P-Delta", "units", 971),
-    xfail(20261105, "fuzz_rich_2d/20832", "plastic collapse", "reversal", 758),
-    xfail(20261105, "fuzz_rich_2d/20843", "plastic collapse", "relabel", 758),
-    xfail(20261105, "fuzz_rich_2d/20843", "plastic collapse", "reversal", 758),
-    xfail(20261105, "fuzz_rich_2d/20843", "plastic collapse", "rotation", 758),
-    xfail(20261105, "fuzz_rich_2d/20843", "plastic collapse", "units", 758),
     xfail(20261105, "feature_matrix/3d-curved-beam-arch-with", "plastic collapse", "rotation", 758),
     xfail(20261105, "fuzz_rich_2d/20772", "P-Delta", "units", 971),
     xfail(20261105, "feature_matrix/3d-local-axes--roll-angle--rolled-90--with", "corotational", "rotation", 971),
