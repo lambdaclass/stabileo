@@ -50,7 +50,7 @@
             "kind": "single-reference",
             "reason": "The only reference is this example's closed form; the paper's own building and Table I are not reproduced.",
             "issue": 1481,
-            "reviewed": "PLACEHOLDER"
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
           }
         },
         {
@@ -81,7 +81,7 @@
             "kind": "single-reference",
             "reason": "The only reference is this example's closed form; the paper's own building and Table I are not reproduced.",
             "issue": 1481,
-            "reviewed": "PLACEHOLDER"
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
           }
         },
         {
@@ -112,7 +112,7 @@
             "kind": "single-reference",
             "reason": "The only reference is this example's closed form; the paper's own building and Table I are not reproduced.",
             "issue": 1481,
-            "reviewed": "PLACEHOLDER"
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
           }
         }
       ]
@@ -152,7 +152,7 @@
             "kind": "single-reference",
             "reason": "The 1975 table is available only through its coauthor's 2000 quotation; no second independent source (another published solution or an independent solver run) is in the repository.",
             "issue": 1481,
-            "reviewed": "PLACEHOLDER"
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
           }
         },
         {
@@ -183,7 +183,7 @@
             "kind": "single-reference",
             "reason": "The 1975 table is available only through its coauthor's 2000 quotation; no second independent source (another published solution or an independent solver run) is in the repository.",
             "issue": 1481,
-            "reviewed": "PLACEHOLDER"
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
           }
         },
         {
@@ -214,7 +214,7 @@
             "kind": "single-reference",
             "reason": "The 1975 table is available only through its coauthor's 2000 quotation; no second independent source (another published solution or an independent solver run) is in the repository.",
             "issue": 1481,
-            "reviewed": "PLACEHOLDER"
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
           }
         },
         {
@@ -245,7 +245,7 @@
             "kind": "single-reference",
             "reason": "The 1975 table is available only through its coauthor's 2000 quotation; no second independent source (another published solution or an independent solver run) is in the repository.",
             "issue": 1481,
-            "reviewed": "PLACEHOLDER"
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
           }
         }
       ]
@@ -289,7 +289,7 @@
             "kind": "single-reference",
             "reason": "The only external value is a by-eye reading of a published figure; no tabulated or independently computed limit load exists in the repository.",
             "issue": 1481,
-            "reviewed": "PLACEHOLDER"
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
           }
         }
       ]
@@ -464,7 +464,7 @@
             "kind": "single-reference",
             "reason": "An exact closed form is the only reference for these frame adaptations, which are not problems from the paper.",
             "issue": 1481,
-            "reviewed": "PLACEHOLDER"
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
           }
         },
         {
@@ -495,7 +495,7 @@
             "kind": "single-reference",
             "reason": "An exact closed form is the only reference for these frame adaptations, which are not problems from the paper.",
             "issue": 1481,
-            "reviewed": "PLACEHOLDER"
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
           }
         },
         {
@@ -526,7 +526,7 @@
             "kind": "single-reference",
             "reason": "An exact closed form is the only reference for these frame adaptations, which are not problems from the paper.",
             "issue": 1481,
-            "reviewed": "PLACEHOLDER"
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
           }
         }
       ]
@@ -673,7 +673,7 @@
             "kind": "single-reference",
             "reason": "The Reissner-Mindlin series is evaluated only in this repository; no published value or independent solver run for this plate is cited.",
             "issue": 1481,
-            "reviewed": "PLACEHOLDER"
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
           }
         }
       ]
@@ -713,7 +713,7 @@
             "kind": "single-reference",
             "reason": "The only reference is the closed form derived from the Newmark recurrence itself (Chopra, ch. 5, discusses period elongation without a value for this case).",
             "issue": 1481,
-            "reviewed": "PLACEHOLDER"
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
           }
         },
         {
@@ -745,7 +745,7 @@
             "kind": "single-reference",
             "reason": "The only reference is the closed form derived from the Newmark recurrence itself (Chopra, ch. 5, discusses period elongation without a value for this case).",
             "issue": 1481,
-            "reviewed": "PLACEHOLDER"
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
           }
         }
       ]
@@ -785,7 +785,7 @@
             "kind": "single-reference",
             "reason": "The reference is our own hand calculation; no page of the cited textbook was checked and no independent solver run is recorded.",
             "issue": 1481,
-            "reviewed": "PLACEHOLDER"
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
           }
         }
       ]
@@ -923,7 +923,7 @@
             "kind": "single-reference",
             "reason": "One quoted value whose source table has not been checked; no second source in the repository.",
             "issue": 1481,
-            "reviewed": "PLACEHOLDER"
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
           }
         }
       ]
@@ -1102,7 +1102,7 @@
             "kind": "unaudited",
             "reason": "Sources listed in the file header, not checked against the source (no page, table, value or unit): ANSYS VM manual — VM1, VM2, VM4, VM10, VM12-inspired.. Per-quantity references, units and tolerances not yet audited.",
             "issue": 1482,
-            "reviewed": "PLACEHOLDER"
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
           }
         }
       ]
@@ -1141,7 +1141,7 @@
             "kind": "unaudited",
             "reason": "Sources listed in the file header, not checked against the source (no page, table, value or unit): ANSYS Mechanical APDL Verification Manual, Release 2024; VM29: Frequencies of a Simply Supported Beam; VM31: Natural Frequencies of a Free-Free Beam; VM35: Stress Stiffening of a Beam Under Axial Tension; VM36: Buckling of a Fixed-Free (Cantilever) Column; VM37: Moving Load on a Simply Supported Beam; VM38: Fixed-Fixed Beam with Two Symmetric Point Loads; VM39: Cantilever with Partial Distributed Load; VM41: 3D L-Frame Under Out-of-Plane Load. Per-quantity references, units and tolerances not yet audited.",
             "issue": 1482,
-            "reviewed": "PLACEHOLDER"
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
           }
         }
       ]
@@ -1176,7 +1176,7 @@
             "kind": "unaudited",
             "reason": "Sources listed in the file header, not checked against the source (no page, table, value or unit): ANSYS Mechanical APDL Verification Manual, Release 2024; VM42: Cantilever with Triangular (Linearly Varying) Distributed Load; VM43: Propped Cantilever with Concentrated Load at Midspan; VM44: Two-Span Continuous Beam with UDL on Both Spans; VM45: Fixed-Pinned Beam (Propped Cantilever) with UDL; VM46: Warren Truss Bridge Under Central Load; VM47: 3D Cantilever with Pure Torsional Moment; VM48: Asymmetric Portal Frame with Sway; VM49: Continuous Beam with Support Settlement. Per-quantity references, units and tolerances not yet audited.",
             "issue": 1482,
-            "reviewed": "PLACEHOLDER"
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
           }
         }
       ]
@@ -1215,7 +1215,7 @@
             "kind": "unaudited",
             "reason": "Sources listed in the file header, not checked against the source (no page, table, value or unit): ANSYS Mechanical APDL Verification Manual, Release 2024; VM22: Cantilever with Combined Axial and Bending (P-delta); VM23: Beam on Elastic (Winkler) Foundation; VM26: Two-Span Continuous Beam (Partial UDL); VM27: Simply Supported Beam with Thermal Gradient; VM30: Pin-Jointed Space Truss (3D); VM33: Statically Indeterminate Truss (3-bar, 45/90/135); VM34: Two-Bar Truss with Thermal Load; VM40: Large Deflection of a Cantilever (Corotational). Per-quantity references, units and tolerances not yet audited.",
             "issue": 1482,
-            "reviewed": "PLACEHOLDER"
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
           }
         }
       ]
@@ -1250,7 +1250,7 @@
             "kind": "unaudited",
             "reason": "Sources listed in the file header, not checked against the source (no page, table, value or unit): ANSYS Mechanical APDL Verification Manual, Release 2024; VM11: Propped Cantilever with Point Load at Midspan; VM15: Pinned-Pinned Buckling (Higher Modes); VM17: Four-Bar Planar Truss (Overdetermined); VM19: Cantilever Beam with Linearly Varying (Triangular) Load; VM24: Three-Span Continuous Beam with UDL; VM28: Fixed-Pinned Beam with UDL; VM42: 3D Cantilever with Torsion; VM44: Portal Frame with Lateral and Gravity Loads (Sway Frame). Per-quantity references, units and tolerances not yet audited.",
             "issue": 1482,
-            "reviewed": "PLACEHOLDER"
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
           }
         }
       ]
@@ -1285,7 +1285,7 @@
             "kind": "unaudited",
             "reason": "Sources listed in the file header, not checked against the source (no page, table, value or unit): ANSYS VM manual — VM3, VM5, VM6, VM7, VM8, VM9, VM13, VM14, VM21, VM156.. Per-quantity references, units and tolerances not yet audited.",
             "issue": 1482,
-            "reviewed": "PLACEHOLDER"
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
           }
         }
       ]
@@ -1311,7 +1311,7 @@
             "kind": "unaudited",
             "reason": "Sources listed in the file header, not checked against the source (no page, table, value or unit): Cook et al., \"Concepts and Applications of FEA\" (mixed models); Bathe, \"Finite Element Procedures\" (beam-shell coupling). Per-quantity references, units and tolerances not yet audited.",
             "issue": 1482,
-            "reviewed": "PLACEHOLDER"
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
           }
         }
       ]
@@ -1350,7 +1350,7 @@
             "kind": "unaudited",
             "reason": "Sources listed in the file header, not checked against the source (no page, table, value or unit): Cook et al., \"Concepts and Applications of FEA\", Ch. 9 (MPC); OpenSees documentation: equalDOF, rigidDiaphragm, rigidLink. Per-quantity references, units and tolerances not yet audited.",
             "issue": 1482,
-            "reviewed": "PLACEHOLDER"
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
           }
         }
       ]
@@ -1381,7 +1381,7 @@
             "kind": "unaudited",
             "reason": "Sources listed in the file header, not checked against the source (no page, table, value or unit): Wriggers, P., \"Computational Contact Mechanics\", 2nd ed., Springer, 2006; Laursen, T.A., \"Computational Contact and Impact Mechanics\", Springer, 2002. Per-quantity references, units and tolerances not yet audited.",
             "issue": 1482,
-            "reviewed": "PLACEHOLDER"
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
           }
         }
       ]
@@ -1407,7 +1407,7 @@
             "kind": "unaudited",
             "reason": "Sources listed in the file header, not checked against the source (no page, table, value or unit): ANSYS VM14: Eccentric compression column; Mattiasson (1981): Large deflection beam problems; Crisfield, \"Non-linear Finite Element Analysis of Solids and Structures\". Per-quantity references, units and tolerances not yet audited.",
             "issue": 1482,
-            "reviewed": "PLACEHOLDER"
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
           }
         }
       ]
@@ -1438,7 +1438,7 @@
             "kind": "unaudited",
             "reason": "Sources listed in the file header, not checked against the source (no page, table, value or unit): Mattiasson (1981): Large deflection beam problems; Crisfield, \"Non-linear Finite Element Analysis of Solids and Structures\"; Bathe & Bolourchi (1979): Large displacement analysis of 3D beam structures. Per-quantity references, units and tolerances not yet audited.",
             "issue": 1482,
-            "reviewed": "PLACEHOLDER"
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
           }
         }
       ]
@@ -1469,7 +1469,7 @@
             "kind": "unaudited",
             "reason": "Sources listed in the file header, not checked against the source (no page, table, value or unit): EN 1992-1-1 (EC2) Annex B: Creep and shrinkage; Gilbert & Ranzi (2011) \"Time-Dependent Behaviour of Concrete Structures\"; Bazant, Z.P. (1972) \"Prediction of concrete creep effects...\". Per-quantity references, units and tolerances not yet audited.",
             "issue": 1482,
-            "reviewed": "PLACEHOLDER"
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
           }
         }
       ]
@@ -1500,7 +1500,7 @@
             "kind": "unaudited",
             "reason": "Sources listed in the file header, not checked against the source (no page, table, value or unit): Spacone, E. et al., \"Fiber Beam-Column Model for Nonlinear Analysis of R/C Frames\", Earthquake Eng. & Struct. Dyn., 1996; AISC Steel Construction Manual, 15th Edition. Per-quantity references, units and tolerances not yet audited.",
             "issue": 1482,
-            "reviewed": "PLACEHOLDER"
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
           }
         }
       ]
@@ -1531,7 +1531,7 @@
             "kind": "unaudited",
             "reason": "Sources listed in the file header, not checked against the source (no page, table, value or unit): AISC 360-22, Appendix 1 (Design by Advanced Analysis); ECCS Manual on Stability of Steel Structures, 2nd Ed.; Galambos & Surovek, \"Structural Stability of Steel\", Ch. 4. Per-quantity references, units and tolerances not yet audited.",
             "issue": 1482,
-            "reviewed": "PLACEHOLDER"
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
           }
         }
       ]
@@ -1557,7 +1557,7 @@
             "kind": "unaudited",
             "reason": "Sources listed in the file header, not checked against the source (no page, table, value or unit): Chen & Sohal, \"Plastic Design and Second-Order Analysis of Steel Frames\"; Neal, \"Plastic Methods of Structural Analysis\"; EN 1993-1-1 §6.2.1: Cross-section resistance under N+M; Massonnet & Save, \"Plastic Analysis and Design of Beams and Frames\". Per-quantity references, units and tolerances not yet audited.",
             "issue": 1482,
-            "reviewed": "PLACEHOLDER"
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
           }
         }
       ]
@@ -1596,7 +1596,7 @@
             "kind": "unaudited",
             "reason": "Sources listed in the file header, not checked against the source (no page, table, value or unit): NAFEMS \"Standard Benchmark Tests\" for finite elements; NAFEMS FV2: Axially loaded bar; NAFEMS FV12: Free vibration of a cantilever; NAFEMS FV32: Simply supported beam under uniform load; NAFEMS T3: Thermal stress in a constrained bar; NAFEMS LE5: Z-section cantilever (3D coupled bending); NAFEMS FV52: Pin-jointed cross frame. Per-quantity references, units and tolerances not yet audited.",
             "issue": 1482,
-            "reviewed": "PLACEHOLDER"
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
           }
         }
       ]
@@ -1635,7 +1635,7 @@
             "kind": "unaudited",
             "reason": "Sources listed in the file header, not checked against the source (no page, table, value or unit): NAFEMS \"Standard Benchmark Tests for Finite Element Accuracy\"; NAFEMS LE1:  Elliptic membrane (approximated as frame grid for load distribution); NAFEMS FV2:  Natural frequency of a simply supported beam; NAFEMS FV4:  Cantilever beam natural frequencies (multiple modes); NAFEMS FV12: Free-free beam frequencies (indirect via boundary condition ratios); NAFEMS FV32: Free vibration of a symmetric cross-ply laminate (frame approximation); NAFEMS T1:   Plane thermal stress benchmark (1D bar analog); NAFEMS LE10: Thick plate bending (approximated as grillage of 3D beams); NAFEMS R0031: Linear elastic 3D beam bending. Per-quantity references, units and tolerances not yet audited.",
             "issue": 1482,
-            "reviewed": "PLACEHOLDER"
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
           }
         }
       ]
@@ -1674,7 +1674,7 @@
             "kind": "unaudited",
             "reason": "Sources listed in the file header, not checked against the source (no page, table, value or unit): NAFEMS \"Standard Benchmark Tests for Finite Element Accuracy\"; NAFEMS LE1: Elliptic membrane (load distribution / equilibrium); NAFEMS FV22: Free vibration of a cantilevered beam (fundamental frequency); NAFEMS FV42: Vibration of a simply supported beam (first 3 modes); NAFEMS FV72: Free-free beam vibration (first flexural mode); NAFEMS T2: Thermal expansion of a free bar (δ = α·ΔT·L); NAFEMS R0001: Simply supported beam with UDL (deflection, moment, reactions); NAFEMS R0015: Three-bar planar truss (member forces under vertical load); NAFEMS R0024: Portal frame under lateral load (column and beam moments). Per-quantity references, units and tolerances not yet audited.",
             "issue": 1482,
-            "reviewed": "PLACEHOLDER"
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
           }
         }
       ]
@@ -1713,7 +1713,7 @@
             "kind": "unaudited",
             "reason": "Sources listed in the file header, not checked against the source (no page, table, value or unit): NAFEMS \"Standard Benchmark Tests for Finite Element Accuracy\"; NAFEMS FV1: Centrally loaded SS beam (point load); NAFEMS FV13: SS beam free vibration; NAFEMS FV31: Cantilever beam with tip load; NAFEMS FV51: Vibration of a portal frame; NAFEMS LE10: 3D cantilever with combined bending/torsion; NAFEMS T1: Thermal gradient through depth (bending); NAFEMS FV41: Cantilever with lumped mass at tip; NAFEMS R0031: 3D truss benchmark. Per-quantity references, units and tolerances not yet audited.",
             "issue": 1482,
-            "reviewed": "PLACEHOLDER"
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
           }
         }
       ]
@@ -1753,7 +1753,7 @@
             "kind": "unaudited",
             "reason": "Sources listed in the file header, not checked against the source (no page, table, value or unit): MacNeal, R.H. & Harder, R.L., \"A Proposed Standard Set of Problems\", FEM, 1985; Argyris, J.H. & Kelsey, S., \"Energy Theorems and Structural Analysis\", 1960; Irons, B.M. & Razzaque, A., \"Experience with the Patch Test\", 1972; Taylor, R.L. et al., \"The Patch Test — A Condition for Assessing FEM Convergence\", 1986. Per-quantity references, units and tolerances not yet audited.",
             "issue": 1482,
-            "reviewed": "PLACEHOLDER"
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
           }
         }
       ]
@@ -1792,7 +1792,7 @@
             "kind": "unaudited",
             "reason": "Sources listed in the file header, not checked against the source (no page, table, value or unit): AISC 360-16, Appendix 8 (Approximate Second-Order Analysis); Wilson, \"Static and Dynamic Analysis of Structures\", Ch. 7; Galambos & Surovek, \"Structural Stability of Steel\", Ch. 2; Chen & Lui, \"Structural Stability\", Ch. 3. Per-quantity references, units and tolerances not yet audited.",
             "issue": 1482,
-            "reviewed": "PLACEHOLDER"
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
           }
         }
       ]
@@ -1831,7 +1831,7 @@
             "kind": "unaudited",
             "reason": "Sources listed in the file header, not checked against the source (no page, table, value or unit): AISC 360-16, Appendix 8 (Approximate Second-Order Analysis); Galambos & Surovek, \"Structural Stability of Steel\", Ch. 2-3; Chen & Lui, \"Structural Stability\", Ch. 3-4; Timoshenko & Gere, \"Theory of Elastic Stability\", Ch. 1-2. Per-quantity references, units and tolerances not yet audited.",
             "issue": 1482,
-            "reviewed": "PLACEHOLDER"
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
           }
         }
       ]
@@ -1862,7 +1862,7 @@
             "kind": "unaudited",
             "reason": "Sources listed in the file header, not checked against the source (no page, table, value or unit): Guyan, R.J. (1965). \"Reduction of stiffness and mass matrices\"; Craig, R.R. & Bampton, M.C.C. (1968). \"Coupling of substructures\"; Qu, Z.Q. (2004). \"Model Order Reduction Techniques\", Springer. Per-quantity references, units and tolerances not yet audited.",
             "issue": 1482,
-            "reviewed": "PLACEHOLDER"
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
           }
         }
       ]
@@ -1888,7 +1888,7 @@
             "kind": "unaudited",
             "reason": "Sources listed in the file header, not checked against the source (no page, table, value or unit): Scordelis, A.C. & Lo, K.S., \"Computer Analysis of Cylindrical Shells\", 1964; MacNeal, R.H. & Harder, R.L., \"A Proposed Standard Set of Problems\", 1985; Batoz, J.L., Bathe, K.J., Ho, L.W., \"A Study of DKT Plate Elements\", 1980. Per-quantity references, units and tolerances not yet audited.",
             "issue": 1482,
-            "reviewed": "PLACEHOLDER"
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
           }
         }
       ]
@@ -1919,7 +1919,7 @@
             "kind": "unaudited",
             "reason": "Sources listed in the file header, not checked against the source (no page, table, value or unit): Scordelis, A.C. & Lo, K.S., \"Computer Analysis of Cylindrical Shells\", 1964; MacNeal, R.H. & Harder, R.L., \"A Proposed Standard Set of Problems\", 1985; Timoshenko, S.P. & Woinowsky-Krieger, S., \"Theory of Plates and Shells\", 1959; Bathe, K.J. & Dvorkin, E.N., \"A formulation of general shell elements\", 1986. Per-quantity references, units and tolerances not yet audited.",
             "issue": 1482,
-            "reviewed": "PLACEHOLDER"
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
           }
         }
       ]
@@ -1958,7 +1958,7 @@
             "kind": "unaudited",
             "reason": "Sources listed in the file header, not checked against the source (no page, table, value or unit): Davis, T.A. (2006). \"Direct Methods for Sparse Linear Systems\", SIAM; Golub, G.H. & Van Loan, C.F. (2013). \"Matrix Computations\", 4th ed.; Bathe, K.J. (2014). \"Finite Element Procedures\". Per-quantity references, units and tolerances not yet audited.",
             "issue": 1482,
-            "reviewed": "PLACEHOLDER"
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
           }
         }
       ]
@@ -1989,7 +1989,7 @@
             "kind": "unaudited",
             "reason": "Sources listed in the file header, not checked against the source (no page, table, value or unit): Matlock, H., \"Correlations for Design of Laterally Loaded Piles in Soft Clay\", 1970; API RP 2A-WSD, \"Recommended Practice for Planning, Designing and Constructing Fixed Offshore Platforms\", 2000; Mosher, R.L., \"Load-Transfer Criteria for Numerical Analysis of Axially Loaded Piles in Sand\", 1984. Per-quantity references, units and tolerances not yet audited.",
             "issue": 1482,
-            "reviewed": "PLACEHOLDER"
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
           }
         }
       ]
@@ -2020,7 +2020,7 @@
             "kind": "unaudited",
             "reason": "Sources listed in the file header, not checked against the source (no page, table, value or unit): Hibbeler, \"Structural Analysis\", 10th Ed., Ch. 3-6; Kassimali, \"Structural Analysis\", 6th Ed.; ASCE Manual No. 7: Methods of Structural Analysis. Per-quantity references, units and tolerances not yet audited.",
             "issue": 1482,
-            "reviewed": "PLACEHOLDER"
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
           }
         }
       ]
@@ -2055,7 +2055,7 @@
             "kind": "unaudited",
             "reason": "Sources listed in the file header, not checked against the source (no page, table, value or unit): Timoshenko, \"Strength of Materials\", Vol. 1, Ch. 4; Weaver & Gere, \"Matrix Analysis of Framed Structures\", Ch. 12; Cook et al., \"Concepts and Applications of FEA\", 4th Ed., Ch. 2. Per-quantity references, units and tolerances not yet audited.",
             "issue": 1482,
-            "reviewed": "PLACEHOLDER"
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
           }
         }
       ]
@@ -2094,7 +2094,7 @@
             "kind": "unaudited",
             "reason": "Sources listed in the file header, not checked against the source (no page, table, value or unit): Przemieniecki, \"Theory of Matrix Structural Analysis\", Dover, Ch. 6; Weaver & Gere, \"Matrix Analysis of Framed Structures\", Ch. 8; MacLeod, \"Modern Structural Analysis\", Ch. 9 (3D frames). Per-quantity references, units and tolerances not yet audited.",
             "issue": 1482,
-            "reviewed": "PLACEHOLDER"
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
           }
         }
       ]
@@ -2125,7 +2125,7 @@
             "kind": "unaudited",
             "reason": "Sources listed in the file header, not checked against the source (no page, table, value or unit): Timoshenko & Goodier, \"Theory of Elasticity\"; Przemieniecki, \"Theory of Matrix Structural Analysis\"; Roark's Formulas for Stress and Strain, 9th Ed.; Gere & Goodno, \"Mechanics of Materials\", 9th Ed.. Per-quantity references, units and tolerances not yet audited.",
             "issue": 1482,
-            "reviewed": "PLACEHOLDER"
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
           }
         }
       ]
@@ -2166,7 +2166,7 @@
             "kind": "unaudited",
             "reason": "The file header lists no source. Per-quantity references, units and tolerances not yet audited.",
             "issue": 1482,
-            "reviewed": "PLACEHOLDER"
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
           }
         }
       ]
