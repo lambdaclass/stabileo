@@ -691,7 +691,7 @@ export function plasticCollapse2D(original: SolverInput, opts: PlasticCollapseOp
       const byHistory = lp.confirmation.kind === 'outOfScope' && settled && near(lambda);
       if (!exact && !byHistory) {
         unresolved = true;
-        collapseFactor = Math.min(collapseFactor, lambda);
+        collapseFactor = lp.confirmation.kind === 'contradicted' ? lp.confirmation.lower : Math.min(collapseFactor, lambda);
       }
     }
   }

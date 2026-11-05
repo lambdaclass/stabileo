@@ -569,7 +569,7 @@ fn issue_758_exact_certificate_rejects_the_unresolved_load_factors() {
     let mp = HashMap::from([(1, 1.0)]);
     let exact = 1.0 / (1.0 + 5e8 * 5e-10);
     assert_eq!(confirm_2d(&cantilever, &mp, &HashMap::new(), exact), Confirmation::Exact);
-    assert!(matches!(confirm_2d(&cantilever, &mp, &HashMap::new(), 1.0), Confirmation::Contradicted { reason } if reason.contains("brackets")));
+    assert!(matches!(confirm_2d(&cantilever, &mp, &HashMap::new(), 1.0), Confirmation::Contradicted { reason, lower } if reason.contains("brackets") && lower <= exact && lower >= exact * (1.0 - 1e-6)));
 
     let bar = make_input(
         vec![(1, 0.0, 0.0), (2, 1.0, 0.0)], vec![(1, E, 0.3)], vec![(1, A_SEC, IZ_SEC)], vec![(1, "frame", 1, 2, 1, 1, false, false)], vec![(1, 1, "fixed")],
@@ -589,8 +589,8 @@ fn issue_758_exact_confirmation_holds_the_static_field_to_the_axial_capacity() {
     assert_eq!(confirm_2d(&column, &mp, &HashMap::new(), 1.0), Confirmation::Exact);
     let np = HashMap::from([(1, 5.0)]);
     assert_eq!(confirm_2d(&column, &mp, &np, 0.5), Confirmation::Exact);
-    assert!(matches!(confirm_2d(&column, &mp, &np, 1.0), Confirmation::Contradicted { reason } if reason.contains("axial capacities govern")));
-    assert!(matches!(confirm_2d(&column, &mp, &HashMap::new(), 1.01), Confirmation::Contradicted { reason } if reason.contains("brackets")));
+    assert!(matches!(confirm_2d(&column, &mp, &np, 1.0), Confirmation::Contradicted { reason, lower } if reason.contains("axial capacities govern") && lower <= 0.5 && lower >= 0.5 * (1.0 - 1e-6)));
+    assert!(matches!(confirm_2d(&column, &mp, &HashMap::new(), 1.01), Confirmation::Contradicted { reason, lower } if reason.contains("brackets") && lower <= 1.0 && lower >= 1.0 - 1e-6));
 }
 
 #[test]

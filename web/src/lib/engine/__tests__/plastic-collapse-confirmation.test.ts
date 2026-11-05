@@ -39,12 +39,12 @@ describe('the limit analysis factor is a collapse load only once something indep
     expect(r.collapseFactor).toBeCloseTo((4 * MP) / 60, 6);
   });
 
-  it('the exact certificate contradicts it: unresolved, even with the history agreeing', () => {
-    verdict.override = { kind: 'contradicted', reason: 'the exact certificate brackets the collapse factor elsewhere' };
+  it('the exact certificate contradicts it: unresolved, even with the history agreeing, at the certified lower bound', () => {
+    verdict.override = { kind: 'contradicted', reason: 'the exact certificate brackets the collapse factor elsewhere', lower: 1.5 };
     const r = run(beam('rollerX'));
     expect(r.isMechanism).toBe(false);
     expect(r.unresolved).toBe(true);
-    expect(r.collapseFactor).toBeCloseTo((4 * MP) / 60, 6);
+    expect(r.collapseFactor).toBe(1.5);
   });
 
   it('outside the certificate, a history that ends at the same factor confirms it', () => {

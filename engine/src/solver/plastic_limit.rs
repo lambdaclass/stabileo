@@ -7,6 +7,7 @@ use std::collections::HashMap;
 pub const MAX_LIMIT_ELEMENTS: usize = 200;
 
 const FIT: [f64; 4] = [0.125, 0.375, 0.625, 0.875];
+const MAX_CERTIFIED_ELEMENTS: usize = 100;
 const INTERIOR: [f64; 3] = [0.25, 0.5, 0.75];
 const MAX_ROUNDS: usize = 60;
 
@@ -39,7 +40,8 @@ pub struct LimitResult {
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum Confirmation {
     Exact,
-    Contradicted { reason: String },
+    /// `lower` is a certified lower bound of the collapse factor, axial capacities included.
+    Contradicted { reason: String, lower: f64 },
     OutOfScope { reason: String },
 }
 
@@ -49,7 +51,7 @@ impl Confirmation {
     pub fn accept(&self, lambda: f64, history: Option<f64>, tol: f64) -> Result<(), String> {
         match self {
             Confirmation::Exact => Ok(()),
-            Confirmation::Contradicted { reason } => Err(reason.clone()),
+            Confirmation::Contradicted { reason, .. } => Err(reason.clone()),
             Confirmation::OutOfScope { reason } => match history {
                 Some(h) if (h - lambda).abs() <= tol * lambda => Ok(()),
                 Some(h) => Err(format!("{reason}, and the step-by-step history ends at {h}, not at {lambda}")),
@@ -142,13 +144,16 @@ fn unique_key<V>(map: &HashMap<String, V>, id: usize) -> String {
 pub fn confirm_2d(input: &SolverInput, mp: &HashMap<usize, f64>, np: &HashMap<usize, f64>, lambda: f64) -> Confirmation {
     match certificate_encloses(input, mp, np, lambda) {
         Ok(Ok(())) => Confirmation::Exact,
-        Ok(Err(reason)) => Confirmation::Contradicted { reason },
+        Ok(Err((reason, lower))) => Confirmation::Contradicted { reason, lower },
         Err(reason) => Confirmation::OutOfScope { reason },
     }
 }
 
-fn certificate_encloses(input: &SolverInput, mp: &HashMap<usize, f64>, np: &HashMap<usize, f64>, lambda: f64) -> Result<Result<(), String>, String> {
+fn certificate_encloses(input: &SolverInput, mp: &HashMap<usize, f64>, np: &HashMap<usize, f64>, lambda: f64) -> Result<Result<(), (String, f64)>, String> {
     use crate::certify::exact::{q, to_f64_up, Q};
+    if input.elements.len() > MAX_CERTIFIED_ELEMENTS {
+        return Err(format!("more than {MAX_CERTIFIED_ELEMENTS} members: too large for the exact certificate"));
+    }
     use crate::certify::plastic::{build_model, check_static, plastic_candidates, ElemLoad};
     let mut solver = mechanical(input);
     for sup in solver.supports.values_mut() {
@@ -209,6 +214,7 @@ fn certificate_encloses(input: &SolverInput, mp: &HashMap<usize, f64>, np: &Hash
     let up = to_f64_up(&mech.lambda_upper).ok_or_else(|| refused("upper bound out of range".into()))?;
     let lower = q(lambda * (1.0 - 1e-6)).ok_or("non-finite collapse factor")? / &field.lambda;
     let mut admissible = lower <= scale;
+    let mut axial_scale = f64::INFINITY;
     for e in model.elems.iter().zip(&field.elems).filter(|(e, _)| np.get(&e.id).is_some_and(|n| n.is_finite())) {
         let (e, [fx, fz, _]) = e;
         let npl = q(np[&e.id]).ok_or("non-finite axial capacity")?;
@@ -222,10 +228,18 @@ fn certificate_encloses(input: &SolverInput, mp: &HashMap<usize, f64>, np: &Hash
             values.push(n.clone());
         }
         admissible &= values.iter().all(|v| &lower * &lower * v * v <= &npl * &npl * &lsq);
+        let lsq = crate::certify::exact::to_f64(&lsq);
+        for v in &values {
+            let v = crate::certify::exact::to_f64(v).abs();
+            if v > 0.0 {
+                axial_scale = axial_scale.min(np[&e.id] * lsq.sqrt() / v);
+            }
+        }
     }
     let lo = crate::certify::exact::to_f64(&(&scale * &field.lambda));
+    let lower = crate::certify::exact::to_f64(&field.lambda) * crate::certify::exact::to_f64(&scale).min(axial_scale) * (1.0 - 1e-9);
     if lambda > up * (1.0 + 1e-7) || !admissible {
-        return Ok(Err(format!("the exact certificate brackets the collapse factor in [{lo}, {up}] or lower where axial capacities govern, and the limit analysis gave {lambda}")));
+        return Ok(Err((format!("the exact certificate brackets the collapse factor in [{lo}, {up}] or lower where axial capacities govern, not at {lambda}"), lower.min(up))));
     }
     Ok(Ok(()))
 }

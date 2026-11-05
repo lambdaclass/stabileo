@@ -1008,7 +1008,10 @@ pub fn solve_plastic_2d(input: &PlasticInput) -> Result<PlasticResult, String> {
             is_mechanism = confirmed.is_ok();
             collapse_factor = limit.lambda;
             if let Err(why) = confirmed {
-                collapse_factor = limit.lambda.min(cumulative_factor);
+                collapse_factor = match limit.confirmation {
+                    super::plastic_limit::Confirmation::Contradicted { lower, .. } => lower,
+                    _ => limit.lambda.min(cumulative_factor),
+                };
                 warnings.push(format!("the collapse factor is not confirmed: {why}"));
             }
         }
@@ -1016,8 +1019,18 @@ pub fn solve_plastic_2d(input: &PlasticInput) -> Result<PlasticResult, String> {
             if !exhausted && !is_mechanism {
                 return Err(no_bending_collapse(cumulative_factor));
             }
-            warnings.push(format!("the collapse factor is not confirmed by the limit analysis: {e}"));
-            is_mechanism = false;
+            match super::plastic_limit::confirm_2d(solver_input, &mp_of, &HashMap::new(), cumulative_factor) {
+                super::plastic_limit::Confirmation::Exact if is_mechanism && warnings.is_empty() => {}
+                super::plastic_limit::Confirmation::Contradicted { reason, lower } => {
+                    collapse_factor = cumulative_factor.min(lower);
+                    warnings.push(format!("the collapse factor is not confirmed by the limit analysis: {e}; the step-by-step factor is contradicted: {reason}"));
+                    is_mechanism = false;
+                }
+                _ => {
+                    warnings.push(format!("the collapse factor is not confirmed by the limit analysis: {e}"));
+                    is_mechanism = false;
+                }
+            }
         }
     }
 

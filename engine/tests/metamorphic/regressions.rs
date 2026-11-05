@@ -766,7 +766,7 @@ fn issue_758_confirmation_rejects_the_earlier_unconservative_factors() {
 
     let (link, mp) = input(&find("2d-constraint--rigid-link--offset-beam-equiv"));
     assert_eq!(confirm_2d(&link.solver, &mp, &none, 140.0 / 3.0), Confirmation::Exact);
-    assert!(matches!(confirm_2d(&link.solver, &mp, &none, 48770.074890207594), Confirmation::Contradicted { reason } if reason.contains("brackets")));
+    assert!(matches!(confirm_2d(&link.solver, &mp, &none, 48770.074890207594), Confirmation::Contradicted { reason, lower } if reason.contains("brackets") && lower <= 140.0 / 3.0 && lower >= 140.0 / 3.0 * (1.0 - 1e-6)));
 
     let settlement = find("2d-prescribed-displacement-support-settlement-equiv");
     let (base, mp) = input(&settlement);
@@ -778,4 +778,25 @@ fn issue_758_confirmation_rejects_the_earlier_unconservative_factors() {
     let r = plastic::solve_plastic_2d(&rotated).unwrap();
     assert!(r.is_mechanism, "{:?}", r.warnings);
     assert!((r.collapse_factor - 10.904960242330917).abs() <= 1e-6 * 10.904960242330917, "{}", r.collapse_factor);
+}
+
+#[test]
+fn issue_758_when_the_limit_analysis_fails_the_exact_certificate_still_confirms_the_history() {
+    use dedaliano_engine::metamorphic::transform::Iso2;
+    let cases = crate::corpus::cases_2d(crate::corpus::Tier::Nightly, 66800);
+    let c = cases.iter().find(|c| c.name.contains("settlement-equiv")).unwrap().clone();
+    let t = c.iso(&Iso2::rotation(4.712398194981313).translated(-14.230913986567536, -19.647139184364594)).unwrap();
+    let sections = t.s.sections.values().map(|x| {
+        let (b, h) = crate::ana2::rect(x.a, x.iz);
+        let mat = t.s.elements.values().find(|e| e.section_id == x.id).map_or(1, |e| e.material_id);
+        (x.id.to_string(), PlasticSectionData { a: x.a, iz: x.iz, material_id: mat, b: Some(b), h: Some(h) })
+    }).collect();
+    let materials = t.s.materials.values().map(|x| (x.id.to_string(), PlasticMaterialData { fy: Some(t.p.fy) })).collect();
+    let inp = PlasticInput { solver: t.s.clone(), sections, materials, max_hinges: None, mp_overrides: None };
+    let by = plastic::section_plastic_moments(&inp);
+    let mp: std::collections::HashMap<usize, f64> = t.s.elements.values().map(|e| (e.id, by[&e.section_id])).collect();
+    let r = plastic::solve_plastic_2d(&inp).unwrap();
+    assert!(r.is_mechanism, "{:?}", r.warnings);
+    assert_eq!(dedaliano_engine::solver::plastic_limit::confirm_2d(&t.s, &mp, &Default::default(), r.collapse_factor), dedaliano_engine::solver::plastic_limit::Confirmation::Exact);
+    assert!(r.collapse_factor > 30.0 * 10.904960242330917, "a roller 1.4e-6 rad off the member axis props the tip: {}", r.collapse_factor);
 }
