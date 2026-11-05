@@ -24,12 +24,12 @@ pub enum Outcome {
     Uncertified(String),
     Contained { by: String, violations: Vec<String> },
     Held,
-    Silent(Vec<String>),
+    Silent(Vec<String>, Vector),
 }
 
 impl Outcome {
     pub fn is_silent(&self) -> bool {
-        matches!(self, Outcome::Silent(_))
+        matches!(self, Outcome::Silent(..))
     }
 
     pub fn label(&self) -> &'static str {
@@ -38,7 +38,7 @@ impl Outcome {
             Outcome::Uncertified(_) => "uncertified",
             Outcome::Contained { .. } => "contained",
             Outcome::Held => "held",
-            Outcome::Silent(_) => "SILENT",
+            Outcome::Silent(..) => "SILENT",
         }
     }
 }
@@ -60,7 +60,7 @@ fn certify(case: &Case) -> Result<Result<Certified, String>, String> {
 
 pub fn judge(case: &Case) -> Outcome {
     let c = match certify(case) {
-        Err(panic) => return Outcome::Silent(vec![format!("panicked: {panic}")]),
+        Err(panic) => return Outcome::Silent(vec![format!("panicked: {panic}")], Vector::new()),
         Ok(Err(e)) => return Outcome::Refused(e),
         Ok(Ok(c)) => c,
     };
@@ -79,7 +79,7 @@ pub fn judge(case: &Case) -> Outcome {
     if let Some(d) = c.diagnostics.iter().find(|d| d.severity != Severity::Info && MECHANISM_CODES.contains(&d.code)) {
         violations.push(format!("certified despite {:?}: {}", d.code, d.message));
     }
-    Outcome::Silent(violations)
+    Outcome::Silent(violations, c.u)
 }
 
 pub fn violations(case: &Case, u: &Vector, abs_bound: f64, residual_norm: f64) -> Vec<String> {
@@ -87,6 +87,12 @@ pub fn violations(case: &Case, u: &Vector, abs_bound: f64, residual_norm: f64) -
     let pn = norm(&p);
     let un = norm(u);
     let mut out = Vec::new();
+    if let Some((k, x)) = u.iter().find(|(_, x)| !x.is_finite()) {
+        out.push(format!("certified a non-finite displacement {x} at node {} dof {}", k.0, k.1));
+    }
+    if !abs_bound.is_finite() || !residual_norm.is_finite() {
+        out.push(format!("certified with a non-finite bound {abs_bound} or residual {residual_norm}"));
+    }
     for (k, phi) in case.mode_vectors().iter().enumerate() {
         let n = norm(phi);
         if n == 0.0 {
