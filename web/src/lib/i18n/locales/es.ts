@@ -13990,6 +13990,7 @@ const es: Record<string, string> = {
   "recheck.downloadBackup": "Descargar todos los proyectos abiertos",
   "recheck.backupHelp": "Conserva el archivo de sesión descargado, luego recarga y ábrelo para restaurar todos los proyectos. El aviso seguirá requiriendo confirmación.",
   "recheck.loading": "Cargando cambios en los resultados…",
+  "recheck.checkingTitle": "Comprobando este proyecto contra los cambios en los resultados de esta versión",
   "recheck.detailsUnavailable": "Los detalles del cambio no están disponibles. Reintenta cargar el aviso.",
   "recheck.loadFailed": "No se pudieron cargar los cambios en los resultados. Reintenta antes de confirmarlos.",
   "recheck.retry": "Reintentar",

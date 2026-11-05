@@ -13,6 +13,7 @@ const tr: Translations = {
   "recheck.downloadBackup": "Tüm açık projeleri indir",
   "recheck.backupHelp": "İndirilen oturum dosyasını saklayın, ardından sayfayı yeniden yükleyip tüm projeleri geri yüklemek için dosyayı açın. Bildirim yine onay gerektirecektir.",
   "recheck.loading": "Hesap sonuçlarındaki değişiklikler yükleniyor…",
+  "recheck.checkingTitle": "Bu proje, bu sürümdeki hesap sonucu değişikliklerine göre denetleniyor",
   "recheck.detailsUnavailable": "Değişikliğin ayrıntılarına erişilemiyor. Bildirimi yüklemeyi tekrar deneyin.",
   "recheck.loadFailed": "Hesap sonuçlarındaki değişiklikler yüklenemedi. Okuduğunuzu onaylamadan önce tekrar deneyin.",
   "recheck.retry": "Tekrar dene",
