@@ -5,7 +5,6 @@ use crate::{
 };
 
 #[test]
-#[ignore = "known wrong result: #758"]
 fn plastic_rigid_link_invariance() {
     let names = [
         "feature_matrix/2d-constraint--rigid-link--offset-beam-with",

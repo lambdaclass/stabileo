@@ -961,7 +961,7 @@ fn dense_solve(mut bm: Vec<Vec<f64>>, mut r: Vec<Vec<f64>>) -> Option<Vec<Vec<f6
 /// (f64): the tableau is rebuilt from the original data every few pivots and
 /// the ratio test is Harris's two-pass test, which keeps it well-behaved on the
 /// highly degenerate limit-analysis LPs.
-pub(super) fn simplex_min_sum(a: &[Vec<f64>], b: &[f64]) -> Option<(Vec<f64>, Vec<f64>)> {
+pub(crate) fn simplex_min_sum(a: &[Vec<f64>], b: &[f64]) -> Option<(Vec<f64>, Vec<f64>)> {
     let p = a.len();
     let n = a[0].len();
     let w = n + p + 1;

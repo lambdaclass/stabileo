@@ -107,14 +107,15 @@ fn fixed_beam_udl_solver_hinge_at_midspan_for_any_element_count() {
 }
 
 #[test]
-fn solver_warns_when_it_stops_before_a_mechanism() {
+fn solver_reports_the_collapse_load_when_its_history_stops_before_a_mechanism() {
     let loads = vec![udl(1, -10.0)];
     let mut inp = plastic(make_beam(1, 6.0, E, A_SEC, IZ_SEC, "fixed", Some("fixed"), loads));
     inp.max_hinges = Some(1);
     let res = solve_plastic_2d(&inp).unwrap();
-    assert!(!res.is_mechanism);
-    assert!(res.warnings.iter().any(|w| w.contains("lower bound")), "{:?}", res.warnings);
-    assert!(res.collapse_factor <= 37.5);
+    assert!(res.is_mechanism);
+    assert!(res.steps.last().unwrap().load_factor < 37.5);
+    assert!(res.warnings.iter().any(|w| w.contains("history ends at")), "{:?}", res.warnings);
+    assert!((res.collapse_factor - 37.5).abs() <= 1e-9 * 37.5, "{}", res.collapse_factor);
 }
 
 #[test]
@@ -477,4 +478,51 @@ fn moment_sign_conventions_match_solver() {
     let loads = vec![nodal(2, 0.0, 1.0), udl(1, 1.0)];
     let inp = plastic(make_beam(1, l, E, A_SEC, IZ_SEC, "fixed", None, loads));
     assert_encloses("tip force + member UDL", &certify(&inp), MP / (8.0 + 4.0), 1e-12);
+}
+
+#[test]
+fn issue_758_textbook_absolute_references() {
+    let mut cases = vec![
+        ("propped", plastic(make_beam(1, 8.0, E, A_SEC, IZ_SEC, "fixed", Some("rollerX"), vec![udl(1, -5.0)])), (6.0 + 4.0 * 2f64.sqrt()) * MP / 320.0),
+        ("fixed-fixed", plastic(make_beam(1, 6.0, E, A_SEC, IZ_SEC, "fixed", Some("fixed"), vec![udl(1, -10.0)])), 16.0 * MP / 360.0),
+    ];
+    for (name, h, v, expected) in [("beam", 0.0, 1.0, 4.0 * MP / 3.0), ("sway", 1.0, 0.0, MP), ("combined", 1.0, 1.0, 6.0 * MP / 7.0)] {
+        cases.push((name, plastic(portal(4.0, 6.0, h, v)), expected));
+    }
+    for (name, input, expected) in cases {
+        let result = solve_plastic_2d(&input).unwrap();
+        assert!(result.is_mechanism && result.warnings.is_empty(), "{name}: {result:?}");
+        assert!((result.collapse_factor - expected).abs() <= 1e-9 * expected, "{name}: {} vs {expected}", result.collapse_factor);
+        assert_encloses(name, &certify_collapse_2d(&input, Some(&result)), expected, 1e-8);
+    }
+}
+
+#[test]
+fn issue_758_course_portal_beam_mechanism() {
+    let nodes = vec![(1, 0.0, 0.0), (2, 0.0, 4.0), (3, 6.0, 4.0), (4, 6.0, 0.0)];
+    let elems = vec![
+        (1, "frame", 1, 2, 1, 2, false, false),
+        (2, "frame", 2, 3, 1, 3, false, false),
+        (3, "frame", 4, 3, 1, 2, false, false),
+    ];
+    let solver = make_input(nodes, vec![(1, 30_000.0, 0.2)], vec![(2, 0.09, 0.000675), (3, 0.1, 0.002083)], elems, vec![(1, 1, "fixed"), (2, 4, "fixed")], vec![udl(2, -15.0), nodal(2, 10.0, 0.0)]);
+    let (mpc, mpb) = (1687.5, 3125.0);
+    let sections = HashMap::from([
+        ("2".to_string(), PlasticSectionData { a: 0.09, iz: 0.000675, material_id: 1, b: Some(0.3), h: Some(0.3) }),
+        ("3".to_string(), PlasticSectionData { a: 0.1, iz: 0.002083, material_id: 1, b: Some(0.2), h: Some(0.5) }),
+    ]);
+    let materials = HashMap::from([("1".to_string(), PlasticMaterialData { fy: Some(FY) })]);
+    let input = PlasticInput { solver, sections, materials, max_hinges: None, mp_overrides: Some(HashMap::from([("2".to_string(), mpc), ("3".to_string(), mpb)])) };
+    let beam = 8.0 * (mpc + mpb) / (15.0 * 36.0);
+    let sway = 4.0 * mpc / (10.0 * 4.0);
+    let combined = (0..=6000).map(|k| 6.0 * k as f64 / 6001.0).map(|x| (2.0 * mpc + (mpb + mpc) * 6.0 / (6.0 - x)) / (40.0 + 45.0 * x)).fold(f64::INFINITY, f64::min);
+    let exact = 1925.0 / 27.0;
+    assert!((beam - exact).abs() <= 1e-13 * exact && sway > beam && combined > beam, "{beam} {sway} {combined}");
+    let result = solve_plastic_2d(&input).unwrap();
+    assert!(result.is_mechanism, "{result:?}");
+    assert!((result.collapse_factor - exact).abs() <= 1e-9 * exact, "{} vs {exact}", result.collapse_factor);
+    let history = result.steps.last().unwrap().load_factor;
+    assert!(history > exact * (1.0 + 1e-3), "the hinge history overshoots the collapse load: {history}");
+    assert!(result.warnings.len() == 1 && result.warnings[0].contains("history ends at"), "{:?}", result.warnings);
+    assert_encloses("course portal", &certify_collapse_2d(&input, Some(&result)), exact, 1e-8);
 }

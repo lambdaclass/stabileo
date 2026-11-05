@@ -1,0 +1,455 @@
+use crate::postprocess::diagrams::compute_diagram_value_at;
+use crate::types::*;
+use std::collections::HashMap;
+
+/// Members the limit analysis takes on; its dense linear program grows with the square of
+/// the number of sections.
+pub const MAX_LIMIT_ELEMENTS: usize = 200;
+
+const FIT: [f64; 4] = [0.125, 0.375, 0.625, 0.875];
+const INTERIOR: [f64; 3] = [0.25, 0.5, 0.75];
+const MAX_ROUNDS: usize = 60;
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LimitHinge {
+    pub element_id: usize,
+    pub position: f64,
+    /// "bending" or "axial".
+    pub kind: String,
+    /// Sign of the moment (or axial force) the section carries at collapse.
+    pub sign: f64,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LimitResult {
+    /// Statically admissible load factor: the field it comes with satisfies equilibrium and
+    /// the yield condition at every section, so it is a lower bound of the collapse factor.
+    pub lambda: f64,
+    /// Optimum of the linear program on the sampled sections, an upper bound of it.
+    pub lambda_upper: f64,
+    pub hinges: Vec<LimitHinge>,
+}
+
+#[derive(Debug, Clone, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LimitInput {
+    pub solver: SolverInput,
+    /// Plastic moment per element id; a missing or non-finite entry never yields in bending.
+    #[serde(default)]
+    pub mp: HashMap<String, f64>,
+    /// Axial yield force per element id; a missing or non-finite entry never yields axially.
+    #[serde(default)]
+    pub np: HashMap<String, f64>,
+}
+
+struct Piece {
+    ta: f64,
+    tb: f64,
+    m: [f64; 4],
+    n: [f64; 4],
+}
+
+struct Member {
+    id: usize,
+    mp: f64,
+    np: f64,
+    free_start: bool,
+    free_end: bool,
+    pieces: Vec<Piece>,
+    /// Per self-stress field: moment at the start, at the end, and the axial force.
+    selfs: Vec<[f64; 3]>,
+}
+
+#[derive(Clone, Copy, PartialEq)]
+enum Kind {
+    Moment,
+    Axial,
+}
+
+#[derive(Clone, Copy)]
+struct Sample {
+    m: usize,
+    p: usize,
+    u: f64,
+    kind: Kind,
+}
+
+fn cubic_fit(f: impl Fn(f64) -> f64) -> [f64; 4] {
+    let y: Vec<f64> = FIT.iter().map(|&u| f(u)).collect();
+    let mut a: Vec<[f64; 5]> = FIT.iter().zip(&y).map(|(&u, &v)| [1.0, u, u * u, u * u * u, v]).collect();
+    for c in 0..4 {
+        let piv = (c..4).max_by(|&x, &z| a[x][c].abs().total_cmp(&a[z][c].abs())).unwrap();
+        a.swap(c, piv);
+        for r in 0..4 {
+            if r != c {
+                let f = a[r][c] / a[c][c];
+                for k in c..5 {
+                    a[r][k] -= f * a[c][k];
+                }
+            }
+        }
+    }
+    [a[0][4] / a[0][0], a[1][4] / a[1][1], a[2][4] / a[2][2], a[3][4] / a[3][3]]
+}
+
+fn poly(c: &[f64; 4], u: f64) -> f64 {
+    ((c[3] * u + c[2]) * u + c[1]) * u + c[0]
+}
+
+fn unique_key<V>(map: &HashMap<String, V>, id: usize) -> String {
+    let mut k = id.to_string();
+    let mut n = 0;
+    while map.contains_key(&k) {
+        n += 1;
+        k = format!("{id}~limit{n}");
+    }
+    k
+}
+
+fn mechanical(input: &SolverInput) -> SolverInput {
+    let mut s = input.clone();
+    s.loads.retain(|l| !matches!(l, SolverLoad::Thermal(_)));
+    for sup in s.supports.values_mut() {
+        sup.dx = None;
+        sup.dz = None;
+        sup.dry = None;
+    }
+    s
+}
+
+/// Self-stress fields of the model: the elastic response to a unit dislocation in every
+/// member (axial, and bending on each half), which together span every state of
+/// self-equilibrium the model's supports, springs, constraints and connectors allow.
+fn self_stresses(input: &SolverInput, members: &[usize]) -> Result<Vec<(HashMap<usize, [f64; 3]>, f64)>, String> {
+    let mut s = mechanical(input);
+    s.loads.clear();
+    let mut next_node = crate::ordered::values(&s.nodes).map(|n| n.id).max().unwrap_or(0) + 1;
+    let mut next_elem = crate::ordered::values(&s.elements).map(|e| e.id).max().unwrap_or(0) + 1;
+    let by_id: HashMap<usize, String> = s.elements.iter().map(|(k, e)| (e.id, k.clone())).collect();
+    let mut halves: HashMap<usize, usize> = HashMap::new();
+    for &id in members {
+        let key = &by_id[&id];
+        let e = s.elements[key].clone();
+        if e.elem_type != "frame" {
+            continue;
+        }
+        let ni = crate::ordered::values(&s.nodes).find(|n| n.id == e.node_i).ok_or("element on unknown node")?.clone();
+        let nj = crate::ordered::values(&s.nodes).find(|n| n.id == e.node_j).ok_or("element on unknown node")?.clone();
+        let nid = next_node;
+        next_node += 1;
+        let nkey = unique_key(&s.nodes, nid);
+        s.nodes.insert(nkey, SolverNode { id: nid, x: 0.5 * (ni.x + nj.x), z: 0.5 * (ni.z + nj.z) });
+        let eid = next_elem;
+        next_elem += 1;
+        let ekey = unique_key(&s.elements, eid);
+        s.elements.insert(ekey, SolverElement { id: eid, node_i: nid, hinge_start: false, ..e.clone() });
+        let first = s.elements.get_mut(key).unwrap();
+        first.node_j = nid;
+        first.hinge_end = false;
+        halves.insert(id, eid);
+    }
+    let thermal = |element_id: usize, uniform: f64, gradient: f64| {
+        SolverLoad::Thermal(SolverThermalLoad { element_id, dt_uniform: uniform, dt_gradient: gradient, alpha: Some(1e-5), depth: None })
+    };
+    let lref = extent(input);
+    let mut cases = Vec::new();
+    for &id in members {
+        let e = &s.elements[&by_id[&id]];
+        let mat = crate::ordered::values(&s.materials).find(|m| m.id == e.material_id).ok_or("element with unknown material")?;
+        let sec = crate::ordered::values(&s.sections).find(|x| x.id == e.section_id).ok_or("element with unknown section")?;
+        let (ea, ei) = (mat.e * 1000.0 * sec.a * 1e-5, mat.e * 1000.0 * sec.iz * 1e-5 / (12.0 * sec.iz / sec.a).sqrt());
+        cases.push((vec![thermal(id, 1.0, 0.0)], ea * lref));
+        if let Some(&h) = halves.get(&id) {
+            cases.push((vec![thermal(id, 0.0, 1.0)], ei));
+            cases.push((vec![thermal(h, 0.0, 1.0)], ei));
+        }
+    }
+    let mut out = Vec::with_capacity(cases.len());
+    for (loads, reference) in cases {
+        s.loads = loads;
+        let r = super::linear::solve_2d(&s)?;
+        let ef: HashMap<usize, &ElementForces> = r.element_forces.iter().map(|f| (f.element_id, f)).collect();
+        let mut field = HashMap::new();
+        for &id in members {
+            let (Some(a), Some(b)) = (ef.get(&id), ef.get(halves.get(&id).unwrap_or(&id))) else {
+                return Err(format!("no forces for element {id}"));
+            };
+            field.insert(
+                id,
+                [compute_diagram_value_at("moment", 0.0, a), compute_diagram_value_at("moment", 1.0, b), compute_diagram_value_at("axial", 0.0, a)],
+            );
+        }
+        out.push((field, reference));
+    }
+    Ok(out)
+}
+
+fn extent(input: &SolverInput) -> f64 {
+    let xs: Vec<(f64, f64)> = crate::ordered::values(&input.nodes).map(|n| (n.x, n.z)).collect();
+    let span = |f: fn(&(f64, f64)) -> f64| xs.iter().map(f).fold(f64::NEG_INFINITY, f64::max) - xs.iter().map(f).fold(f64::INFINITY, f64::min);
+    span(|p| p.0).max(span(|p| p.1)).max(f64::MIN_POSITIVE)
+}
+
+/// Collapse load factor of a 2D frame by limit analysis: the largest λ for which a field in
+/// equilibrium with λ times the mechanical loads keeps |M| ≤ Mp (and |N| ≤ Np where given) at
+/// every section. Equilibrium is the elastic solver's own (supports, springs taken as
+/// unbreakable, constraints, connectors), as a particular solution plus self-stress fields.
+/// Imposed deformations (temperatures, settlements) do not change a collapse load and are
+/// left out. The linear program runs on sampled sections and adds the exact peak of every
+/// member's moment diagram until the field is admissible everywhere.
+pub fn limit_analysis_2d(input: &SolverInput, mp: &HashMap<usize, f64>, np: &HashMap<usize, f64>) -> Result<LimitResult, String> {
+    if input.elements.len() > MAX_LIMIT_ELEMENTS {
+        return Err(format!("more than {MAX_LIMIT_ELEMENTS} members: too large for the limit analysis"));
+    }
+    let mech = mechanical(input);
+    if !super::kinematic::analyze_kinematics_2d(&mech).is_solvable {
+        return Err(super::plastic::INITIAL_MECHANISM.into());
+    }
+    let r0 = super::linear::solve_2d(&mech)?;
+    let ef0: HashMap<usize, &ElementForces> = r0.element_forces.iter().map(|f| (f.element_id, f)).collect();
+    let mut elems: Vec<&SolverElement> = crate::ordered::values(&input.elements).collect();
+    elems.sort_by_key(|e| e.id);
+    let yield_of = |map: &HashMap<usize, f64>, id: usize| map.get(&id).copied().filter(|v| v.is_finite() && *v > 0.0).unwrap_or(f64::INFINITY);
+    let mut members = Vec::new();
+    for e in &elems {
+        let (m_y, n_y) = (if e.elem_type == "frame" { yield_of(mp, e.id) } else { f64::INFINITY }, yield_of(np, e.id));
+        if e.elem_type != "frame" && e.elem_type != "truss" {
+            return Err(format!("element type '{}' is not part of the limit analysis", e.elem_type));
+        }
+        let ef = *ef0.get(&e.id).ok_or_else(|| format!("no forces for element {}", e.id))?;
+        let len = ef.length;
+        let mut cuts = vec![0.0, 1.0];
+        cuts.extend(ef.point_loads.iter().map(|p| p.a / len));
+        cuts.extend(ef.distributed_loads.iter().chain(&ef.distributed_loads_x).flat_map(|d| [d.a / len, d.b / len]));
+        cuts.retain(|t| t.is_finite() && *t >= 0.0 && *t <= 1.0);
+        cuts.sort_by(f64::total_cmp);
+        cuts.dedup_by(|a, b| (*a - *b).abs() <= 1e-9);
+        let pieces = cuts
+            .windows(2)
+            .map(|w| {
+                let (ta, tb) = (w[0], w[1]);
+                let at = |kind: &'static str| move |u: f64| compute_diagram_value_at(kind, ta + (tb - ta) * u, ef);
+                Piece { ta, tb, m: cubic_fit(at("moment")), n: cubic_fit(at("axial")) }
+            })
+            .collect();
+        members.push(Member {
+            id: e.id,
+            mp: m_y,
+            np: n_y,
+            free_start: !(e.elem_type == "frame" && e.hinge_start),
+            free_end: !(e.elem_type == "frame" && e.hinge_end),
+            pieces,
+            selfs: Vec::new(),
+        });
+    }
+    if members.iter().all(|m| !m.mp.is_finite() && !m.np.is_finite()) {
+        return Err("no member can yield: there is no collapse factor".into());
+    }
+    let ids: Vec<usize> = members.iter().map(|m| m.id).collect();
+    let fields = self_stresses(input, &ids)?;
+    let lref = extent(input);
+    let mut basis: Vec<Vec<[f64; 3]>> = Vec::new();
+    for (f, reference) in &fields {
+        let scale = members.iter().map(|m| {
+            let v = f[&m.id];
+            v[0].abs().max(v[1].abs()).max(v[2].abs() * lref)
+        }).fold(0.0f64, f64::max);
+        if scale > 1e-9 * reference && scale.is_finite() {
+            basis.push(members.iter().map(|m| f[&m.id].map(|x| x / scale)).collect());
+        }
+    }
+    let weights = |b: &[[f64; 3]]| -> Vec<f64> {
+        members
+            .iter()
+            .zip(b)
+            .flat_map(|(m, v)| {
+                let wm = if m.mp.is_finite() { 1.0 / m.mp } else { 0.0 };
+                let wn = if m.np.is_finite() { 1.0 / m.np } else { 0.0 };
+                [v[0] * wm, v[1] * wm, v[2] * wn]
+            })
+            .collect()
+    };
+    let mut vecs: Vec<(Vec<f64>, Vec<[f64; 3]>)> = basis.iter().map(|b| (weights(b), b.clone())).collect();
+    let norm = |v: &[f64]| v.iter().map(|x| x * x).sum::<f64>().sqrt();
+    let top = vecs.iter().map(|(v, _)| norm(v)).fold(0.0f64, f64::max);
+    let mut ortho: Vec<Vec<[f64; 3]>> = Vec::new();
+    let mut taken: Vec<Vec<f64>> = Vec::new();
+    while !vecs.is_empty() {
+        let (k, nk) = vecs.iter().enumerate().map(|(k, (v, _))| (k, norm(v))).max_by(|a, b| a.1.total_cmp(&b.1)).unwrap();
+        if !(nk > 1e-9 * top) {
+            break;
+        }
+        let (v, b) = vecs.swap_remove(k);
+        let v: Vec<f64> = v.iter().map(|x| x / nk).collect();
+        let b: Vec<[f64; 3]> = b.iter().map(|x| x.map(|y| y / nk)).collect();
+        for (w, c) in vecs.iter_mut() {
+            let d: f64 = w.iter().zip(&v).map(|(a, b)| a * b).sum();
+            for (wi, vi) in w.iter_mut().zip(&v) {
+                *wi -= d * vi;
+            }
+            for (ci, bi) in c.iter_mut().zip(&b) {
+                for j in 0..3 {
+                    ci[j] -= d * bi[j];
+                }
+            }
+        }
+        taken.push(v);
+        ortho.push(b);
+    }
+    for (mi, m) in members.iter_mut().enumerate() {
+        m.selfs = ortho.iter().map(|b| b[mi]).collect();
+    }
+    let r = ortho.len();
+
+    let value = |m: &Member, p: usize, u: f64, kind: Kind, lam: f64, z: &[f64]| -> f64 {
+        let pc = &m.pieces[p];
+        let t = pc.ta + (pc.tb - pc.ta) * u;
+        match kind {
+            Kind::Moment => lam * poly(&pc.m, u) + z.iter().zip(&m.selfs).map(|(zk, s)| zk * (s[0] + (s[1] - s[0]) * t)).sum::<f64>(),
+            Kind::Axial => lam * poly(&pc.n, u) + z.iter().zip(&m.selfs).map(|(zk, s)| zk * s[2]).sum::<f64>(),
+        }
+    };
+    let cap = |m: &Member, kind: Kind| if kind == Kind::Moment { m.mp } else { m.np };
+
+    let mut samples: Vec<Sample> = Vec::new();
+    for (mi, m) in members.iter().enumerate() {
+        let last = m.pieces.len() - 1;
+        for kind in [Kind::Moment, Kind::Axial] {
+            if !cap(m, kind).is_finite() {
+                continue;
+            }
+            for (p, pc) in m.pieces.iter().enumerate() {
+                let curved = [2, 3].iter().any(|&k| if kind == Kind::Moment { pc.m[k] != 0.0 } else { pc.n[k] != 0.0 });
+                if kind == Kind::Axial || p > 0 || m.free_start {
+                    samples.push(Sample { m: mi, p, u: 0.0, kind });
+                }
+                if kind == Kind::Axial || p < last || m.free_end {
+                    samples.push(Sample { m: mi, p, u: 1.0, kind });
+                }
+                if curved {
+                    samples.extend(INTERIOR.iter().map(|&u| Sample { m: mi, p, u, kind }));
+                }
+            }
+        }
+    }
+
+    let mut best: Option<(f64, Vec<f64>, Vec<f64>)> = None;
+    for _ in 0..MAX_ROUNDS {
+        let k = samples.len();
+        let mut a = vec![Vec::with_capacity(2 * k); r + 1];
+        for s in &samples {
+            let m = &members[s.m];
+            let c = cap(m, s.kind);
+            let g = value(m, s.p, s.u, s.kind, 1.0, &vec![0.0; r]) / c;
+            let h: Vec<f64> = (0..r).map(|j| {
+                let mut z = vec![0.0; r];
+                z[j] = 1.0;
+                value(m, s.p, s.u, s.kind, 0.0, &z) / c
+            }).collect();
+            for sign in [1.0, -1.0] {
+                a[0].push(sign * g);
+                for j in 0..r {
+                    a[j + 1].push(sign * h[j]);
+                }
+            }
+        }
+        let scales: Vec<f64> = a.iter().map(|row| row.iter().fold(0.0f64, |x, v| x.max(v.abs()))).collect();
+        if !(scales[0] > 0.0) {
+            return Err("the loads produce no moment or axial force at any section that can yield".into());
+        }
+        for (row, s) in a.iter_mut().zip(&scales) {
+            if *s > 0.0 {
+                row.iter_mut().for_each(|v| *v /= s);
+            }
+        }
+        let mut b = vec![0.0; r + 1];
+        b[0] = 1.0 / scales[0];
+        let (mu, y) = crate::certify::plastic::simplex_min_sum(&a, &b)
+            .ok_or("the limit analysis linear program did not solve")?;
+        let y: Vec<f64> = y.iter().zip(&scales).map(|(y, s)| if *s > 0.0 { y / s } else { 0.0 }).collect();
+        let lam = y[0];
+        let z = y[1..].to_vec();
+        if !(lam.is_finite() && lam > 0.0) {
+            return Err("the limit analysis found no positive collapse factor".into());
+        }
+        let signed: Vec<f64> = (0..k).map(|i| mu[2 * i] - mu[2 * i + 1]).collect();
+
+        let mut worst = 1.0f64;
+        let mut added = Vec::new();
+        for (mi, m) in members.iter().enumerate() {
+            for kind in [Kind::Moment, Kind::Axial] {
+                let c = cap(m, kind);
+                if !c.is_finite() {
+                    continue;
+                }
+                for p in 0..m.pieces.len() {
+                    let f = |u: f64| value(m, p, u, kind, lam, &z);
+                    let co = cubic_fit(f);
+                    let mut us = vec![0.0, 1.0];
+                    let (qa, qb, qc) = (3.0 * co[3], 2.0 * co[2], co[1]);
+                    if qa.abs() > 1e-14 * (qb.abs() + qc.abs()) {
+                        let disc = qb * qb - 4.0 * qa * qc;
+                        if disc >= 0.0 {
+                            let sd = disc.sqrt();
+                            let r1 = if qb >= 0.0 { (-qb - sd) / (2.0 * qa) } else { (-qb + sd) / (2.0 * qa) };
+                            us.push(r1);
+                            if r1 != 0.0 {
+                                us.push(qc / (qa * r1));
+                            }
+                        }
+                    } else if qb != 0.0 {
+                        us.push(-qc / qb);
+                    }
+                    for u in us {
+                        if !(0.0..=1.0).contains(&u) {
+                            continue;
+                        }
+                        let ratio = f(u).abs() / c;
+                        worst = worst.max(ratio);
+                        if u > 0.0 && u < 1.0 && ratio > 1.0 + 1e-12 && !samples.iter().chain(&added).any(|s| s.m == mi && s.p == p && s.kind == kind && (s.u - u).abs() < 1e-12) {
+                            added.push(Sample { m: mi, p, u, kind });
+                        }
+                    }
+                }
+            }
+        }
+        best = Some((lam, z, signed));
+        if worst <= 1.0 + 1e-10 || added.is_empty() {
+            let (lam, _, signed) = best.take().unwrap();
+            let big = signed.iter().fold(0.0f64, |x, v| x.max(v.abs()));
+            let mut hinges: Vec<LimitHinge> = Vec::new();
+            for (s, &mu) in samples.iter().zip(&signed) {
+                if mu.abs() <= 1e-9 * big {
+                    continue;
+                }
+                let m = &members[s.m];
+                let pc = &m.pieces[s.p];
+                let t = pc.ta + (pc.tb - pc.ta) * s.u;
+                let kind = if s.kind == Kind::Moment { "bending" } else { "axial" };
+                if hinges.iter().any(|h| h.element_id == m.id && h.kind == kind && (h.position - t).abs() < 1e-9) {
+                    continue;
+                }
+                hinges.push(LimitHinge { element_id: m.id, position: t, kind: kind.into(), sign: mu.signum() });
+            }
+            hinges.sort_by(|a, b| a.element_id.cmp(&b.element_id).then(a.position.total_cmp(&b.position)));
+            let capacity = members.iter().flat_map(|m| [m.mp, m.np * lref]).filter(|c| c.is_finite()).fold(0.0f64, f64::max);
+            if lam * super::plastic::load_moment_scale_2d(input) > 1e9 * capacity {
+                return Err("the loads produce no moment or axial force at any section that can yield".into());
+            }
+            return Ok(LimitResult { lambda: lam / worst, lambda_upper: lam, hinges });
+        }
+        samples.extend(added);
+    }
+    Err("the limit analysis did not settle the moment peaks".into())
+}
+
+/// `limit_analysis_2d` from its JSON input.
+pub fn limit_analysis_2d_input(input: &LimitInput) -> Result<LimitResult, String> {
+    let parse = |m: &HashMap<String, f64>| -> Result<HashMap<usize, f64>, String> {
+        m.iter().map(|(k, v)| k.parse::<usize>().map(|k| (k, *v)).map_err(|_| format!("element id '{k}' is not a number"))).collect()
+    };
+    super::linear::validate_input_2d(&input.solver)?;
+    limit_analysis_2d(&input.solver, &parse(&input.mp)?, &parse(&input.np)?)
+}

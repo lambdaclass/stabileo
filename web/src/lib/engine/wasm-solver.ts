@@ -48,6 +48,7 @@ let wasmSolveBuckling2d: ((json: string, numModes: number) => string) | null = n
 let wasmSolveModal2d: ((json: string, numModes: number) => string) | null = null;
 let wasmSolveSpectral2d: ((json: string) => string) | null = null;
 let wasmSolvePlastic2d: ((json: string) => string) | null = null;
+let wasmPlasticLimit2d: ((json: string) => string) | null = null;
 let wasmSolveMovingLoads2d: ((json: string) => string) | null = null;
 
 // 2D advanced analysis WASM functions
@@ -251,6 +252,7 @@ export async function initSolver(): Promise<void> {
     wasmSolveModal2d = wasm.solve_modal_2d;
     wasmSolveSpectral2d = wasm.solve_spectral_2d;
     wasmSolvePlastic2d = wasm.solve_plastic_2d;
+    wasmPlasticLimit2d = wasm.plastic_limit_2d;
     wasmSolveMovingLoads2d = wasm.solve_moving_loads_2d;
     // 2D advanced
     wasmSolveCorotational2d = wasm.solve_corotational_2d;
@@ -1210,6 +1212,22 @@ export function solvePlastic(config: {
   });
   const resultJson = wasmSolvePlastic2d(payload);
   return JSON.parse(resultJson);
+}
+
+export interface PlasticLimitResult {
+  lambda: number;
+  lambdaUpper: number;
+  hinges: Array<{ elementId: number; position: number; kind: 'bending' | 'axial'; sign: number }>;
+}
+
+/**
+ * Collapse load factor by limit analysis (engine `plastic_limit_2d`): the largest λ with a field in
+ * equilibrium and |M| ≤ Mp, |N| ≤ Np at every section. `mp`/`np` per element id; Infinity never yields.
+ */
+export function plasticLimit2D(solver: SolverInput, mp: Map<number, number>, np: Map<number, number>): PlasticLimitResult {
+  if (!wasmReady || !wasmPlasticLimit2d) throw new Error('WASM solver not available.');
+  const finite = (m: Map<number, number>) => Object.fromEntries([...m].filter(([, v]) => Number.isFinite(v) && v > 0).map(([k, v]) => [String(k), v]));
+  return JSON.parse(wasmPlasticLimit2d(JSON.stringify({ solver: input2DToWireObject(solver), mp: finite(mp), np: finite(np) })));
 }
 
 /** Solve 2D moving loads analysis via WASM. */

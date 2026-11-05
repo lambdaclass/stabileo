@@ -580,9 +580,12 @@ fn span_candidates(
 /// rotation would reverse is closed (elastic unloading, `unloaded_at`), and a
 /// closed one that would be loaded past Mp again reopens. When the structure
 /// is a mechanism, a hinge that would unload under the mechanism's motion is
-/// closed and loading continues. `warnings` lists what keeps the result from
-/// being the collapse load: an unresolved reversal, a hinge that would have
-/// to move, the event limit, a final state that is not statically admissible.
+/// closed and loading continues.
+///
+/// `collapse_factor` is the limit analysis's (`plastic_limit::limit_analysis_2d`),
+/// not where the hinge history ends: the history keeps each hinge where it first
+/// formed. When the history ends elsewhere, `warnings` says so; when the limit
+/// analysis cannot run, `warnings` says the factor is unconfirmed.
 pub fn solve_plastic_2d(input: &PlasticInput) -> Result<PlasticResult, String> {
     let solver_input = &input.solver;
 
@@ -599,6 +602,10 @@ pub fn solve_plastic_2d(input: &PlasticInput) -> Result<PlasticResult, String> {
     let m_ref = load_moment_scale_2d(solver_input);
     if !(m_ref > 0.0) {
         return Err(NO_MECHANICAL_LOAD.into());
+    }
+
+    if !super::kinematic::analyze_kinematics_2d(solver_input).is_solvable {
+        return Err(INITIAL_MECHANISM.into());
     }
 
     let max_hinges = input.max_hinges.unwrap_or(20);
@@ -965,8 +972,7 @@ pub fn solve_plastic_2d(input: &PlasticInput) -> Result<PlasticResult, String> {
         });
     }
 
-    // Check if mechanism formed
-    let is_mechanism = !super::kinematic::analyze_kinematics_2d(&current_input).is_solvable
+    let mut is_mechanism = !super::kinematic::analyze_kinematics_2d(&current_input).is_solvable
         || super::linear::solve_2d(&current_input).is_err();
 
     if reversal_unresolved {
@@ -975,9 +981,6 @@ pub fn solve_plastic_2d(input: &PlasticInput) -> Result<PlasticResult, String> {
              the collapse factor is not guaranteed"
                 .into(),
         );
-    }
-    if !exhausted && !is_mechanism {
-        return Err(no_bending_collapse(cumulative_factor));
     }
     if exhausted && !is_mechanism {
         warnings.push(format!(
@@ -1002,8 +1005,29 @@ pub fn solve_plastic_2d(input: &PlasticInput) -> Result<PlasticResult, String> {
         ));
     }
 
+    let mp_of: HashMap<usize, f64> = members.iter().map(|m| (m.id, m.mp)).collect();
+    let mut collapse_factor = cumulative_factor;
+    match super::plastic_limit::limit_analysis_2d(solver_input, &mp_of, &HashMap::new()) {
+        Ok(limit) => {
+            if !(is_mechanism && warnings.is_empty() && (cumulative_factor - limit.lambda).abs() <= TIE * limit.lambda) {
+                warnings = vec![format!(
+                    "the step-by-step hinge history ends at λ = {cumulative_factor:.6}, not at the collapse load: the collapse \
+                     factor is the limit analysis's (static and kinematic theorems) and the hinges of the history are approximate"
+                )];
+            }
+            collapse_factor = limit.lambda;
+            is_mechanism = true;
+        }
+        Err(e) => {
+            if !exhausted && !is_mechanism {
+                return Err(no_bending_collapse(cumulative_factor));
+            }
+            warnings.push(format!("the collapse factor is not confirmed by the limit analysis: {e}"));
+        }
+    }
+
     Ok(PlasticResult {
-        collapse_factor: cumulative_factor,
+        collapse_factor,
         steps,
         redundancy: all_hinges.len(),
         hinges: all_hinges,
@@ -1025,11 +1049,14 @@ pub(crate) fn no_bending_collapse(lambda: f64) -> String {
     )
 }
 
+pub(crate) const INITIAL_MECHANISM: &str = "Plastic (pushover) analysis: the structure is a mechanism before any hinge forms, \
+     so it has no collapse factor to report. Restrain it first.";
+
 pub(crate) const NO_MECHANICAL_LOAD: &str = "Plastic (pushover) analysis needs a mechanical load to scale to collapse: \
      temperatures and support settlements alone do not change a collapse load and have no collapse factor.";
 
 /// Σ|load| × model size: the moment scale the loads can produce.
-fn load_moment_scale_2d(input: &SolverInput) -> f64 {
+pub(crate) fn load_moment_scale_2d(input: &SolverInput) -> f64 {
     let xs: Vec<(f64, f64)> = crate::ordered::values(&input.nodes).map(|n| (n.x, n.z)).collect();
     let ext = |f: fn(&(f64, f64)) -> f64| xs.iter().map(f).fold(f64::NEG_INFINITY, f64::max) - xs.iter().map(f).fold(f64::INFINITY, f64::min);
     let l = ext(|p| p.0).max(ext(|p| p.1)).max(f64::MIN_POSITIVE);
