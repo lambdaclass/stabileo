@@ -45,6 +45,8 @@ class CheckQuick(unittest.TestCase):
     def test_each_area_adds_the_checks_ci_runs_first_for_it(self):
         self.assertEqual(targets(plan('engine/src/lib.rs')), REPO + ['lint.engine'])
         self.assertEqual(targets(plan('backend/apps/x.ex')), REPO + ['lint.backend'])
+        for manifest in ['Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml']:
+            self.assertEqual(targets(plan(manifest)), REPO + ['lint.engine'], manifest)
         self.assertEqual(targets(plan('.github/workflows/ci.yml')), REPO + ['test.ci-scripts'])
         self.assertEqual(targets(plan('scripts/x.sh')), REPO + ['test.ci-scripts'])
         out = plan('web/src/x.ts')

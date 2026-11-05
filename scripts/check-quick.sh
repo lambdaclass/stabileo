@@ -18,7 +18,7 @@ changed=$( { git diff --name-only "$base"; git ls-files --others --exclude-stand
 touched() { grep -Eq "$1" <<< "$changed"; }
 
 targets=(check.changelog check-pins check.test-targets)
-touched '^engine/' && targets+=(lint.engine)
+touched '^(engine/|Cargo\.(toml|lock)$|rust-toolchain\.toml$)' && targets+=(lint.engine)
 touched '^backend/' && targets+=(lint.backend)
 touched '^(\.github/|scripts/|tools/)' && targets+=(test.ci-scripts)
 wasm=0

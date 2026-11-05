@@ -84,6 +84,7 @@ e2e_specs=()
 engine_src=()
 engine_targets=()
 engine_other=()
+engine_build=()
 backend=0
 elixir=0
 other=()
@@ -109,6 +110,7 @@ while IFS= read -r f; do
       name=${rest%%/*}
       name=${name%.rs}
       if target_exists "$name"; then add_target "$name"; else engine_other+=("$f (shared by several test targets)"); fi ;;
+    Cargo.toml|Cargo.lock|rust-toolchain.toml|engine/Cargo.toml|engine/build.rs) engine_build+=("$f") ;;
     engine/*) engine_other+=("$f") ;;
     ai-backend/*) backend=1 ;;
     backend/*) elixir=1 ;;
@@ -185,7 +187,7 @@ fi
 
 # ── engine and backend ────────────────────────────────────────────────
 if [ "$web_only" = 1 ]; then
-  [ "${#engine_src[@]}" -gt 0 ] || [ "${#engine_targets[@]}" -gt 0 ] && skipped+=("engine changes: --web-only (scripts/test-changed.sh runs them)")
+  [ "${#engine_src[@]}" -gt 0 ] || [ "${#engine_build[@]}" -gt 0 ] || [ "${#engine_targets[@]}" -gt 0 ] && skipped+=("engine changes: --web-only (scripts/test-changed.sh runs them)")
   [ "$backend" = 1 ] && skipped+=("ai-backend changes: --web-only")
 else
   if cargo nextest --version >/dev/null 2>&1; then nextest=1; else nextest=0; fi
@@ -198,8 +200,8 @@ else
       run "$label" engine cargo test -p dedaliano-engine --no-fail-fast "$@"
     fi
   }
-  if [ "${#engine_src[@]}" -gt 0 ]; then
-    rust_tests "engine: library unit tests (${#engine_src[@]} source file(s) changed)" --lib
+  if [ "${#engine_src[@]}" -gt 0 ] || [ "${#engine_build[@]}" -gt 0 ]; then
+    rust_tests "engine: library unit tests (${#engine_src[@]} source and ${#engine_build[@]} build file(s) changed)" --lib
     skipped+=("engine: the web runs the WASM build in web/src/lib/wasm; \`make wasm\` before testing the web against this engine change")
   fi
   targets=("${engine_targets[@]+"${engine_targets[@]}"}" "${guessed[@]+"${guessed[@]}"}")
@@ -211,7 +213,7 @@ else
     [ "${#guessed[@]}" -gt 0 ] && label+=" named after changed sources (a guess): ${guessed[*]}"
     rust_tests "$label" "${args[@]}"
   fi
-  if [ "${#engine_src[@]}" -gt 0 ] || [ "${#engine_targets[@]}" -gt 0 ]; then
+  if [ "${#engine_src[@]}" -gt 0 ] || [ "${#engine_build[@]}" -gt 0 ] || [ "${#engine_targets[@]}" -gt 0 ]; then
     skipped+=("engine: every other integration target (make test-engine, or CI)")
   fi
   [ "$backend" = 1 ] && run "ai-backend: cargo test" . cargo test -p dedaliano-backend
