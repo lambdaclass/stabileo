@@ -318,5 +318,5 @@ fn build(name: String, family: &str, mut b: B, rng: &mut Rng) -> Case {
         "connectors": b.connectors.iter().map(|c| (c["id"].to_string(), c.clone())).collect::<serde_json::Map<_, _>>(),
     });
     let s = serde_json::from_value(input).expect("generated 2D model parses");
-    Case { name, family: family.into(), model: Model::D2(s), modes: b.modes.iter().map(|m| m.iter().filter(|e| *e.1 != 0.0).map(|(k, v)| (k.0, k.1, *v)).collect()).collect(), exact: b.exact, known_issue: None }
+    Case { name, family: family.into(), model: Model::D2(s), modes: b.modes.iter().map(|m| m.iter().filter(|e| *e.1 != 0.0).map(|(k, v)| (k.0, k.1, *v)).collect()).collect(), exact: b.exact, known_issue: None, must_hold: false }
 }

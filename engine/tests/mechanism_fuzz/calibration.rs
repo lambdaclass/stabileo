@@ -41,7 +41,7 @@ fn frame_2d(support: &str, loads: &str) -> SolverInput {
 fn rigid_rotation_2d_does_no_work() {
     let s = frame_2d(r#""type":"fixed""#, r#"{"type":"nodal","data":{"nodeId":3,"fx":3,"fz":-7,"my":2}},{"type":"nodal","data":{"nodeId":2,"fx":-1,"fz":4,"my":-5}}"#);
     let r = solve_2d(&s).unwrap();
-    let mut total = crate::case::Case { name: String::new(), family: String::new(), model: crate::case::Model::D2(s.clone()), modes: vec![], exact: vec![], known_issue: None }.loads();
+    let mut total = crate::case::Case { name: String::new(), family: String::new(), model: crate::case::Model::D2(s.clone()), modes: vec![], exact: vec![], known_issue: None, must_hold: false }.loads();
     for x in &r.reactions {
         for (d, v) in [x.rx, x.rz, x.my].into_iter().enumerate() {
             *total.entry((x.node_id, d)).or_insert(0.0) += v;
@@ -78,7 +78,7 @@ fn frame_3d(support: &str, loads: &str) -> SolverInput3D {
 fn rigid_rotation_3d_does_no_work() {
     let s = frame_3d("", r#"{"type":"nodal","data":{"nodeId":3,"fx":3,"fy":1,"fz":-7,"mx":2,"my":-1,"mz":4}}"#);
     let r = solve_3d(&s).unwrap();
-    let mut total = crate::case::Case { name: String::new(), family: String::new(), model: crate::case::Model::D3(s.clone()), modes: vec![], exact: vec![], known_issue: None }.loads();
+    let mut total = crate::case::Case { name: String::new(), family: String::new(), model: crate::case::Model::D3(s.clone()), modes: vec![], exact: vec![], known_issue: None, must_hold: false }.loads();
     for x in &r.reactions {
         for (d, v) in [x.fx, x.fy, x.fz, x.mx, x.my, x.mz].into_iter().enumerate() {
             *total.entry((x.node_id, d)).or_insert(0.0) += v;

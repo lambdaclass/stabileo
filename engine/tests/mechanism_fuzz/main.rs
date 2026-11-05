@@ -27,7 +27,9 @@ fn env<T: std::str::FromStr>(name: &str, default: T) -> T {
 }
 
 fn threads() -> usize {
-    env("MECHANISM_FUZZ_THREADS", std::thread::available_parallelism().map_or(4, |n| n.get().min(8)))
+    let n = env("MECHANISM_FUZZ_THREADS", std::thread::available_parallelism().map_or(4, |n| n.get().min(8)));
+    assert!(n > 0, "MECHANISM_FUZZ_THREADS=0 would evaluate no models");
+    n
 }
 
 pub fn parse_duration(s: &str) -> Duration {
@@ -149,6 +151,8 @@ fn mechanism_fuzz_quick() {
     let (found, tally, n) = run(q.ranges.clone().into_iter().flat_map(|(a, b)| a..b), None);
     print_tally(&tally);
     println!("{n} models in {:.1} s", started.elapsed().as_secs_f64());
+    let corpus_size: u64 = q.ranges.iter().map(|(a, b)| b - a).sum();
+    assert_eq!(n, corpus_size, "the quick tier evaluated {n} of its {corpus_size} seeds");
     let mut errors = vec![];
     for f in &found {
         match (f.issue, q.expect.get(&f.seed)) {
@@ -234,6 +238,7 @@ fn regressions() {
         let issue = known::classify(&c, &o);
         match c.known_issue {
             Some(i) => assert!(o.is_silent() && issue == Some(i), "{}: #{i} no longer reproduces ({o:?}): if it is fixed, drop knownIssue here and the expect lines in quick.txt", f.display()),
+            None if c.must_hold => assert!(matches!(o, Outcome::Held), "{}: must be certified and match its closed-form answer: {o:?}", f.display()),
             None => assert!(!o.is_silent(), "{}: {o:?}", f.display()),
         }
     }

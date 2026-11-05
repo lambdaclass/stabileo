@@ -28,6 +28,8 @@ pub struct Case {
     pub exact: Vec<(usize, usize, f64)>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub known_issue: Option<u32>,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub must_hold: bool,
 }
 
 impl Case {
