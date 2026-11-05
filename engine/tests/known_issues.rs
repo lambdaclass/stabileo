@@ -1713,3 +1713,26 @@ fn a_soft_rotation_held_by_the_orphan_spring_is_warned_in_2d_1367() {
     assert!(masked.displacements.iter().find(|d| d.node_id == 6).unwrap().ry.abs() > 1e12 * masked.displacements.iter().find(|d| d.node_id == 2).unwrap().ry.abs());
     assert!(ids(&masked.structured_diagnostics).contains(&"ORPHAN-SOFT-ROTATION".to_string()), "a large rotation elsewhere must not mask it: {:?}", ids(&masked.structured_diagnostics));
 }
+
+fn harmonic_beam(frequencies: Vec<f64>) -> dedaliano_engine::solver::harmonic::HarmonicResult {
+    let n = 8;
+    let nodes = (0..=n).map(|i| (i + 1, i as f64 * 1.25, 0.0)).collect();
+    let elems = (0..n).map(|i| (i + 1, "frame", i + 1, i + 2, 1, 1, false, false)).collect();
+    let solver = common::make_input(nodes, vec![(1, E, 0.3)], vec![(1, 0.05, 1e-4)], elems, vec![(1, 1, "pinned"), (2, n + 1, "rollerX")],
+        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fz: -10.0, my: 0.0 })]);
+    let input = dedaliano_engine::solver::harmonic::HarmonicInput {
+        solver, densities: HashMap::from([("1".to_string(), 7850.0)]), frequencies, damping_ratio: 0.05, response_node_id: 4, response_dof: "y".into(),
+    };
+    dedaliano_engine::solver::harmonic::solve_harmonic_2d(&input).unwrap()
+}
+
+#[test]
+fn harmonic_above_the_kept_modes_is_warned_1434() {
+    let low = harmonic_beam(vec![0.5, 1.0, 2.0]);
+    assert!(low.modes_used < low.n_dof, "{} of {}", low.modes_used, low.n_dof);
+    assert!(low.warnings.is_empty(), "{:?}", low.warnings);
+    assert!(!ids(&low.structured_diagnostics).contains(&"HARM-TRUNCATION".to_string()), "{:?}", ids(&low.structured_diagnostics));
+    let high = harmonic_beam((1..=40).map(|i| i as f64 * 250.0).collect());
+    assert!(high.warnings.iter().any(|w| w.contains("static correction not applied")), "{:?}", high.warnings);
+    assert!(ids(&high.structured_diagnostics).contains(&"HARM-TRUNCATION".to_string()), "{:?}", ids(&high.structured_diagnostics));
+}

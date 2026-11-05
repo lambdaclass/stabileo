@@ -1522,7 +1522,7 @@ fn solve_constrained_2d_inner(input: &ConstrainedInput) -> Result<AnalysisResult
             return Ok(result);
         }
     }
-    solve_constrained_2d_dense(input, &dof_num)
+    solve_constrained_2d_dense_validated(input, &dof_num)
 }
 
 /// The legacy dense constrained solve: full n×n assembly, dense reduction,
@@ -1533,10 +1533,14 @@ pub fn solve_constrained_2d_dense(
     input: &ConstrainedInput,
     dof_num: &DofNumbering,
 ) -> Result<AnalysisResults, String> {
-    contain_constrained_2d(input, solve_constrained_2d_dense_inner(input, dof_num)?)
+    linear::validate_input_2d(&input.solver)?;
+    contain_constrained_2d(input, solve_constrained_2d_dense_validated(input, dof_num)?)
 }
 
-fn solve_constrained_2d_dense_inner(input: &ConstrainedInput, dof_num: &DofNumbering) -> Result<AnalysisResults, String> {
+fn solve_constrained_2d_dense_validated(
+    input: &ConstrainedInput,
+    dof_num: &DofNumbering,
+) -> Result<AnalysisResults, String> {
     let n = dof_num.n_total;
     let nf = dof_num.n_free;
     let nr = n - nf;

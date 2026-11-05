@@ -60,7 +60,7 @@ describe('plastic methods in the catalog', () => {
     input.elements.set(id, { ...first, id, type: 'truss', nodeI: ends[0], nodeJ: ends[2], hingeStart: false, hingeEnd: false });
     const braced: MethodContext = { input, pm: planeModel(input), ref: solveReference(input), selection: { members: [], nodes: [] }, options: {} };
     const m = methodById('plasticKinematic')!;
-    expect(m.applies(braced).ok).toBe(true);
+    expect(m.applies(braced)).toMatchObject({ ok: false, issue: 758 });
     const gh = blocks(m.build!(braced)).find((b) => b.kind === 'calc' && b.label?.key === 'course.plastic.doc.gh');
     if (!gh || gh.kind !== 'calc') throw new Error('no GH');
     expect(gh.formula).toBe('GH = 3m + m_b + r - 3n - c');
