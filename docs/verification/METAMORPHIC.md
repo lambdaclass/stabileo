@@ -157,11 +157,13 @@ fails when a selected analysis completes no comparison on any curated model.
 
 The matrix below is per analysis function; the app calls the WASM exports in
 `engine/src`. `engine/tests/metamorphic/entry_points.json` lists every export.
-A solve entry point names the function its wrapper calls and gives each
+A solve entry point names the functions its wrapper calls, each as a path such
+as `linear::solve_2d_typed` (a re-export counts only under the path the wrapper
+uses), and gives each
 invariance (units, relabel, reversal, rotation, mirror, planes: a 2D model in each
 of the three planes and embedded in 3D, prepared: agreement with the regular
-linear solve) one status: a metamorphic analysis whose row calls that same
-function and shows ✓ below, a `#[test]` under `engine/tests` that calls it, an
+linear solve) one status: a metamorphic analysis whose row calls those same
+functions and shows ✓ below, a `#[test]` under `engine/tests` that calls them, an
 exemption with a reason, or a tracking issue
 ([#1497](https://github.com/lambdaclass/stabileo/issues/1497)). Every other export
 names a described scope (design, section, postprocess, session, utility).
@@ -185,6 +187,8 @@ image is ✗); no collapse factor is verified.
 | Analysis | rotation | mirror | relabel | reversal | units | superposition | reciprocity | energy | symmetry | linear agreement | modal orthogonality |
 |---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
 | linear | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | · |
+| linear (WASM typed path) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · |
+| linear (load session) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · |
 | linear (dense reference) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · |
 | linear (sparse path) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · |
 | linear (PCG) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · |
@@ -220,6 +224,7 @@ image is ✗); no collapse factor is verified.
 | Analysis | rotation | relabel | reversal | units | superposition | reciprocity | energy | symmetry | linear agreement | modal orthogonality |
 |---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
 | linear | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | · |
+| linear (load session) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · |
 | linear (sparse path) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · |
 | linear (PCG) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · |
 | constrained | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · |
