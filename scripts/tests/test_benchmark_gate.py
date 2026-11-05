@@ -171,14 +171,21 @@ class TestTolerance(unittest.TestCase):
                          ['case / tip deflection: x.rs uses tolerance 0.02, looser than the spec 0.015'])
 
     def test_an_unresolved_rust_tolerance_fails_unless_it_aliases_a_case_tolerance(self):
-        files = dict(FILES, **{'x.rs': RUST + 'fn u() { assert_close(a, b, case["t"].as_f64().unwrap(), "d"); }'})
+        files = dict(FILES, **{'x.rs': RUST + 'fn u() { assert_close(a, b, case["t"].as_f64().unwrap(), "d, e"); }'})
         locator = dict(file='x.rs', calls=['assert_close'], argument=3)
         [error] = self.errors(locator, 0.02, files)
-        self.assertIn('neither literals, constants nor aliases of a case-file tolerance: assert_close(…case[""].as_f64().unwrap()…)', error)
-        alias = dict(locator, aliases={'case[""].as_f64().unwrap()': dict(file='case.json', pointer='/cases/*/t')})
+        self.assertIn('neither literals, constants nor aliases of a case-file tolerance: assert_close(…case["t"].as_f64().unwrap()…)', error)
+        alias = dict(locator, aliases={'case["t"].as_f64().unwrap()': dict(file='case.json', pointer='/cases/*/t')})
+        retargeted = dict(FILES, **{'x.rs': RUST + 'fn u() { assert_close(a, b, case["loose"].as_f64().unwrap(), "d"); }'})
+        self.assertIn('assert_close(…case["loose"].as_f64().unwrap()…)', self.errors(alias, 0.02, retargeted)[0])
         self.assertEqual(self.errors(alias, 0.02, files), [])
         self.assertEqual(self.errors(alias, 0.015, files),
                          ['case / tip deflection: x.rs uses tolerance 0.02, looser than the spec 0.015'])
+
+    def test_a_reassigned_tolerance_binding_is_unresolved(self):
+        files = dict(FILES, **{'x.rs': 'fn a() { let mut tol = 0.01; tol = 0.5; assert_close(x, y, tol, ""); }'})
+        [error] = self.errors(dict(file='x.rs', calls=['assert_close'], argument=3), 0.02, files)
+        self.assertIn('assert_close(…tol…)', error)
 
     def test_a_rust_pattern_reads_error_thresholds(self):
         self.assertEqual(gate.extract(dict(file='x.rs', pattern='error-threshold'), reader(FILES)), [0.015])
@@ -263,13 +270,19 @@ class Loosening(unittest.TestCase):
         before = 'fn a() { assert_close(x, 1.0, 0.01, ""); assert_close(y, 2.0, 0.02, ""); }'
         after = 'fn a() { assert_close(x, 1.0, 0.02, ""); assert_close(y, 2.0, 0.01, ""); }'
         self.assertEqual(self.rust_change(before, after),
-                         ['case / tip deflection: test tolerance x.rs a#1 loosened from 0.01 to 0.02 (needs the tolerance-change label)'])
+                         ['case / tip deflection: test tolerance x.rs a:assert_close(x)#1 loosened from 0.01 to 0.02 (needs the tolerance-change label)'])
 
     def test_loosening_one_assertion_while_adding_another_is_loosening(self):
         before = 'fn a() { assert_close(x, 1.0, 0.01, ""); assert_close(y, 2.0, 0.02, ""); }'
         after = 'fn a() { assert_close(x, 1.0, 0.015, ""); assert_close(y, 2.0, 0.02, ""); assert_close(z, 3.0, 0.005, ""); }'
         self.assertEqual(self.rust_change(before, after),
-                         ['case / tip deflection: test tolerance x.rs a#1 loosened from 0.01 to 0.015 (needs the tolerance-change label)'])
+                         ['case / tip deflection: test tolerance x.rs a:assert_close(x)#1 loosened from 0.01 to 0.015 (needs the tolerance-change label)'])
+
+    def test_reordering_assertions_while_loosening_one_is_loosening(self):
+        before = 'fn a() { assert_close(x, 1.0, 0.01, ""); assert_close(y, 2.0, 0.02, ""); }'
+        after = 'fn a() { assert_close(y, 2.0, 0.01, ""); assert_close(x, 1.0, 0.02, ""); }'
+        self.assertIn('case / tip deflection: test tolerance x.rs a:assert_close(x)#1 loosened from 0.01 to 0.02 (needs the tolerance-change label)',
+                      self.rust_change(before, after))
 
     def test_a_new_test_function_changes_nothing(self):
         before = 'fn a() { assert_close(x, 1.0, 0.01, ""); }'
@@ -279,7 +292,7 @@ class Loosening(unittest.TestCase):
         before = 'fn a() { assert_close(x, 1.0, 0.01, ""); assert_close(y, 2.0, 0.02, ""); }'
         after = 'fn a() { assert_close(x, 1.0, 0.01, ""); }'
         self.assertEqual(self.rust_change(before, after),
-                         ['case / tip deflection: test tolerance x.rs a#2 (0.02) removed or moved (needs the tolerance-change label)'])
+                         ['case / tip deflection: test tolerance x.rs a:assert_close(y)#1 (0.02) removed or moved (needs the tolerance-change label)'])
 
     def test_dropping_a_locator_needs_the_label(self):
         base = registry()

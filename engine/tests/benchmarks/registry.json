@@ -1741,7 +1741,7 @@
               ],
               "argument": 3,
               "aliases": {
-                "c[\"\"][\"\"].as_f64().unwrap()": {
+                "c[\"nativeBounds\"][\"relativeErrorLessThan\"].as_f64().unwrap()": {
                   "file": "engine/tests/benchmarks/macneal_harder.json",
                   "pointer": "/cases/*/nativeBounds/relativeErrorLessThan"
                 }
