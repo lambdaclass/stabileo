@@ -20,12 +20,12 @@ def outcome(name, file, fn, summary):
     return {"scenario": {"Mutant": {"name": name, "file": file, "function": {"function_name": fn}}}, "summary": summary}
 
 
-def shard(outcomes, total=None, name=None):
+def shard(outcomes, total=None, name=None, end=None):
     d = Path(tempfile.mkdtemp())
     if name:
         d = d / name
         d.mkdir()
-    (d / "outcomes.json").write_text(json.dumps({"total_mutants": len(outcomes) if total is None else total, "outcomes": [{"scenario": "Baseline", "summary": "Success"}, *outcomes]}))
+    (d / "outcomes.json").write_text(json.dumps({"total_mutants": len(outcomes) if total is None else total, "end_time": end, "outcomes": [{"scenario": "Baseline", "summary": "Success"}, *outcomes]}))
     return d
 
 
@@ -130,6 +130,13 @@ class CoverageTest(unittest.TestCase):
                          ["only 1 of 2 shards reported every mutant they hold: a missing shard can hide survivors"])
         self.assertEqual(len(ms.ratchet(mods, base, None, 24)), 1)
         self.assertIn("1 of 3 shards reported every mutant they hold (2 reported, 1 of them incomplete)", ms.coverage_line({"shards": 2, "complete": 1}, 3))
+
+    def test_the_monthly_report_takes_one_report_per_shard_the_latest_complete_one(self):
+        old = shard([outcome(f"{L}:1:1: a", L, "finish", "MissedMutant")], name="mutants-report-7", end="2026-10-01T00:00:00Z")
+        new = shard([outcome(f"{L}:2:1: a", L, "finish", "CaughtMutant")], name="mutants-report-7", end="2026-10-17T00:00:00Z")
+        cut = shard([outcome(f"{L}:2:1: a", L, "finish", "MissedMutant")], total=9, name="mutants-report-7", end="2026-10-18T00:00:00Z")
+        other = shard([outcome(f"{L}:3:1: b", L, "finish", "CaughtMutant")], name="mutants-report-8", end="2026-10-02T00:00:00Z")
+        self.assertEqual(sorted(ms.latest_per_shard([str(p) for p in (cut, old, other, new)])), sorted([str(new), str(other)]))
 
     def test_the_cli_ratchet_reads_coverage_from_the_report(self):
         d = Path(tempfile.mkdtemp())

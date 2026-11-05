@@ -95,14 +95,31 @@ def markdown(mods, baseline=None):
     return "\n".join(rows) + "\n"
 
 
+def shard_key(out):
+    m = re.search(r"report-(\d+)$", Path(out).name)
+    return m.group(1) if m else str(Path(out).resolve())
+
+
+def shard_state(out):
+    data = json.loads((Path(out) / "outcomes.json").read_text())
+    tested = sum(1 for o in data.get("outcomes", []) if mutant_of(o))
+    return data.get("total_mutants") is not None and tested == data["total_mutants"], str(data.get("end_time") or "")
+
+
+def latest_per_shard(outs):
+    best = {}
+    for out in outs:
+        key, state = shard_key(out), shard_state(out)
+        if key not in best or state > best[key][0]:
+            best[key] = (state, out)
+    return [out for _, out in sorted(best.values(), key=lambda v: v[1])]
+
+
 def coverage(outs):
     shards = {}
     for out in outs:
-        data = json.loads((Path(out) / "outcomes.json").read_text())
-        tested = sum(1 for o in data.get("outcomes", []) if mutant_of(o))
-        key = re.search(r"report-(\d+)$", Path(out).name)
-        key = key.group(1) if key else str(Path(out).resolve())
-        shards[key] = shards.get(key, False) or (data.get("total_mutants") is not None and tested == data["total_mutants"])
+        key = shard_key(out)
+        shards[key] = shards.get(key, False) or shard_state(out)[0]
     return {"shards": len(shards), "complete": sum(shards.values())}
 
 
@@ -188,7 +205,7 @@ def main(argv):
             Path(a.markdown).write_text(text)
         return 1 if drops else 0
     elif a.cmd == "areas":
-        outs = sorted({str(p.parent) for p in Path(a.root).rglob("outcomes.json")}, reverse=True)
+        outs = latest_per_shard(sorted({str(p.parent) for p in Path(a.root).rglob("outcomes.json")}))
         mods = report(list(AREAS) + ["other"], outs, area_of)
         text = coverage_line(coverage(outs), a.expect_shards) + "\n" + markdown(mods)
         print(text)
