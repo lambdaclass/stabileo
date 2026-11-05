@@ -264,7 +264,7 @@ mutants.safety.report:
 	python3 -I scripts/mutants-safety.py ratchet mutants-safety-report.json
 
 mutants.safety.record:
-	python3 -I scripts/mutants-safety.py record $(or $(REPORT),mutants-safety-report.json)
+	python3 -I scripts/mutants-safety.py record $(or $(REPORT),mutants-safety-report.json) $(ARGS)
 
 bench.engine:
 	cd engine && $(NIX_RUN) cargo bench --no-run

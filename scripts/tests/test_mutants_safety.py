@@ -20,9 +20,12 @@ def outcome(name, file, fn, summary):
     return {"scenario": {"Mutant": {"name": name, "file": file, "function": {"function_name": fn}}}, "summary": summary}
 
 
-def shard(outcomes):
+def shard(outcomes, total=None, name=None):
     d = Path(tempfile.mkdtemp())
-    (d / "outcomes.json").write_text(json.dumps({"outcomes": [{"scenario": "Baseline", "summary": "Success"}, *outcomes]}))
+    if name:
+        d = d / name
+        d.mkdir()
+    (d / "outcomes.json").write_text(json.dumps({"total_mutants": len(outcomes) if total is None else total, "outcomes": [{"scenario": "Baseline", "summary": "Success"}, *outcomes]}))
     return d
 
 
@@ -96,11 +99,46 @@ class RatchetTest(unittest.TestCase):
         (d / "r.json").write_text(json.dumps(rep))
         (d / "base.json").write_text(json.dumps({"note": "kept", "modules": {"certificate": {"kill_rate": 0.8}}}))
         self.assertEqual(ms.main(["ratchet", str(d / "r.json"), "--baseline", str(d / "base.json")]), 1)
-        self.assertEqual(ms.main(["record", str(d / "r.json"), "--baseline", str(d / "base.json")]), 0)
+        self.assertEqual(ms.main(["record", str(d / "r.json"), "--baseline", str(d / "base.json")]), 1)
+        self.assertEqual(json.loads((d / "base.json").read_text())["modules"]["certificate"], {"kill_rate": 0.8})
+        self.assertEqual(ms.main(["record", str(d / "r.json"), "--baseline", str(d / "base.json"), "--allow-lower"]), 0)
         base = json.loads((d / "base.json").read_text())
         self.assertEqual(base["note"], "kept")
         self.assertEqual(base["modules"]["certificate"], {"tested": 4, "caught": 3, "timeout": 0, "missed": 1, "unviable": 2, "kill_rate": 0.75})
         self.assertEqual(ms.main(["ratchet", str(d / "r.json"), "--baseline", str(d / "base.json")]), 0)
+
+
+    def test_record_refuses_an_untested_or_dropped_module(self):
+        d = Path(tempfile.mkdtemp())
+        (d / "base.json").write_text(json.dumps({"modules": {"certificate": {"kill_rate": 0.5}, "containment": {"kill_rate": 0.5}}}))
+        (d / "r.json").write_text(json.dumps({"modules": {"certificate": {"tested": 0, "caught": 0, "timeout": 0, "missed": 0, "unviable": 3, "kill_rate": None}}}))
+        self.assertEqual(ms.main(["record", str(d / "r.json"), "--baseline", str(d / "base.json"), "--allow-lower"]), 1)
+        self.assertEqual(json.loads((d / "base.json").read_text())["modules"]["certificate"], {"kill_rate": 0.5})
+
+
+class CoverageTest(unittest.TestCase):
+    def test_a_missing_or_unfinished_shard_fails_the_ratchet(self):
+        done = [outcome(f"{L}:1:1: a", L, "finish", "CaughtMutant")]
+        full = shard(done, name="mutants-safety-report-0")
+        cut = shard(done, total=5, name="mutants-safety-report-1")
+        again = shard(done, name="mutants-safety-report-0")
+        self.assertEqual(ms.coverage([full, cut, again]), {"shards": 2, "complete": 1})
+        mods = {"certificate": {"tested": 1, "missed": 0, "kill_rate": 1.0}}
+        base = {"modules": {"certificate": {"kill_rate": 0.9}}}
+        self.assertEqual(ms.ratchet(mods, base, {"shards": 2, "complete": 2}, 2), [])
+        self.assertEqual(ms.ratchet(mods, base, {"shards": 2, "complete": 1}, 2),
+                         ["only 1 of 2 shards reported every mutant they hold: a missing shard can hide survivors"])
+        self.assertEqual(len(ms.ratchet(mods, base, None, 24)), 1)
+        self.assertIn("1 of 3 shards reported every mutant they hold (2 reported, 1 of them incomplete)", ms.coverage_line({"shards": 2, "complete": 1}, 3))
+
+    def test_the_cli_ratchet_reads_coverage_from_the_report(self):
+        d = Path(tempfile.mkdtemp())
+        out = shard([outcome(f"{L}:1:1: a", L, "finish", "CaughtMutant")], name="mutants-safety-report-0")
+        (d / "base.json").write_text(json.dumps({"modules": {"certificate": {"kill_rate": 1.0}}}))
+        self.assertEqual(ms.main(["report", str(out), "--json", str(d / "r.json"), "--baseline", str(d / "base.json")]), 0)
+        self.assertEqual(json.loads((d / "r.json").read_text())["coverage"], {"shards": 1, "complete": 1})
+        self.assertEqual(ms.main(["ratchet", str(d / "r.json"), "--baseline", str(d / "base.json"), "--expect-shards", "1"]), 0)
+        self.assertEqual(ms.main(["ratchet", str(d / "r.json"), "--baseline", str(d / "base.json"), "--expect-shards", "2"]), 1)
 
 
 if __name__ == "__main__":

@@ -95,8 +95,29 @@ def markdown(mods, baseline=None):
     return "\n".join(rows) + "\n"
 
 
-def ratchet(mods, baseline):
+def coverage(outs):
+    shards = {}
+    for out in outs:
+        data = json.loads((Path(out) / "outcomes.json").read_text())
+        tested = sum(1 for o in data.get("outcomes", []) if mutant_of(o))
+        key = re.search(r"report-(\d+)$", Path(out).name)
+        key = key.group(1) if key else str(Path(out).resolve())
+        shards[key] = shards.get(key, False) or (data.get("total_mutants") is not None and tested == data["total_mutants"])
+    return {"shards": len(shards), "complete": sum(shards.values())}
+
+
+def coverage_line(cov, expect):
+    line = f"{cov['complete']} of {expect} shards reported every mutant they hold"
+    if cov["complete"] < expect:
+        line += f" ({cov['shards']} reported, {cov['shards'] - cov['complete']} of them incomplete): the rates below cover only part of the scope"
+    return line + ".\n"
+
+
+def ratchet(mods, baseline, cov=None, expect=None):
     drops = []
+    if expect is not None and (cov is None or cov["complete"] < expect):
+        done = cov["complete"] if cov else 0
+        drops.append(f"only {done} of {expect} shards reported every mutant they hold: a missing shard can hide survivors")
     for m, b in baseline.get("modules", {}).items():
         base = b.get("kill_rate")
         if base is None:
@@ -124,12 +145,15 @@ def main(argv):
     k.add_argument("report")
     k.add_argument("--baseline", default=str(BASELINE))
     k.add_argument("--markdown")
+    k.add_argument("--expect-shards", type=int)
     ar = sub.add_parser("areas")
     ar.add_argument("root")
     ar.add_argument("--markdown")
+    ar.add_argument("--expect-shards", type=int, required=True)
     w = sub.add_parser("record")
     w.add_argument("report")
     w.add_argument("--baseline", default=str(BASELINE))
+    w.add_argument("--allow-lower", action="store_true")
     a = p.parse_args(argv)
     cfg = scope()
     if a.cmd == "files":
@@ -148,14 +172,15 @@ def main(argv):
         text = markdown(mods, base)
         print(text)
         if a.json:
-            Path(a.json).write_text(json.dumps({"modules": mods}, indent=2) + "\n")
+            Path(a.json).write_text(json.dumps({"modules": mods, "coverage": coverage(outs)}, indent=2) + "\n")
         if a.markdown:
             Path(a.markdown).write_text(text)
     elif a.cmd == "ratchet":
-        mods = json.loads(Path(a.report).read_text())["modules"]
+        rep = json.loads(Path(a.report).read_text())
+        mods = rep["modules"]
         baseline = json.loads(Path(a.baseline).read_text())
-        drops = ratchet(mods, baseline)
-        text = markdown(mods, baseline)
+        drops = ratchet(mods, baseline, rep.get("coverage"), a.expect_shards)
+        text = (coverage_line(rep["coverage"], a.expect_shards) + "\n" if a.expect_shards is not None and rep.get("coverage") else "") + markdown(mods, baseline)
         if drops:
             text += "\nBelow the baseline:\n\n" + "\n".join(f"- {d}" for d in drops) + "\n"
         print(text)
@@ -165,13 +190,24 @@ def main(argv):
     elif a.cmd == "areas":
         outs = sorted({str(p.parent) for p in Path(a.root).rglob("outcomes.json")}, reverse=True)
         mods = report(list(AREAS) + ["other"], outs, area_of)
-        text = f"{len(outs)} shard reports.\n\n" + markdown(mods)
+        text = coverage_line(coverage(outs), a.expect_shards) + "\n" + markdown(mods)
         print(text)
         if a.markdown:
             Path(a.markdown).write_text(text)
     elif a.cmd == "record":
         mods = json.loads(Path(a.report).read_text())["modules"]
         old = json.loads(Path(a.baseline).read_text()) if Path(a.baseline).exists() else {}
+        refused = [f"{m}: no mutant was tested" for m, v in mods.items() if v.get("kill_rate") is None]
+        refused += [f"{m}: not in the report" for m in old.get("modules", {}) if m not in mods]
+        if not a.allow_lower:
+            refused += [
+                f"{m}: kill rate {100 * mods[m]['kill_rate']:.1f} % is below the baseline {100 * b['kill_rate']:.1f} % (--allow-lower to record it anyway)"
+                for m, b in old.get("modules", {}).items()
+                if m in mods and mods[m].get("kill_rate") is not None and b.get("kill_rate") is not None and mods[m]["kill_rate"] < b["kill_rate"]
+            ]
+        if refused:
+            print("mutants-safety: baseline not recorded:\n" + "\n".join(f"- {r}" for r in refused), file=sys.stderr)
+            return 1
         new = {k: v for k, v in old.items() if k != "modules"}
         new["modules"] = {m: {k: v[k] for k in ("tested", "caught", "timeout", "missed", "unviable", "kill_rate")} for m, v in mods.items()}
         Path(a.baseline).write_text(json.dumps(new, indent=2, ensure_ascii=False) + "\n")

@@ -187,9 +187,11 @@ Sunday's `nightly.yml` runs it in the `mutants-safety` job (GitHub-hosted, shard
 the daily rotation, which it does not replace. `mutants-ratchet` then reports the kill rate,
 (caught + timed out) / (caught + timed out + missed), per module (`make mutants.safety.report
 OUT=<dirs>`), and compares it with [`mutants-baseline.json`](mutants-baseline.json). A module
-below its baseline, or with no mutant tested, opens or updates the **Mutation kill rate below
-baseline** issue. When a run kills more, raise the baseline with `make mutants.safety.record`
-in the pull request that adds the tests.
+below its baseline or with no mutant tested, or a shard that did not report every mutant it
+holds, opens or updates the **Mutation kill rate below baseline** issue. When a run kills more,
+raise the baseline with `make mutants.safety.record` in the pull request that adds the tests.
+`record` refuses a lower rate unless it is given `ARGS=--allow-lower`, and it refuses a module
+with no mutant tested in any case.
 
 Baseline (2026-11-05, 818 mutants, with the certificate guard tests added in the same pull request):
 

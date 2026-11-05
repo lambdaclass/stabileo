@@ -677,10 +677,18 @@ jobs:
           path: mutants-reports
       - name: Kill rate per module against the baseline
         id: ratchet
+        env:
+          SAFETY_TOTAL: ${{ needs.plan.outputs.safety_total }}
         run: |
-          python3 -I scripts/mutants-safety.py report mutants-reports/* --json mutants-safety-report.json
+          shopt -s nullglob
+          reports=(mutants-reports/*)
+          if [ ${#reports[@]} -eq 0 ]; then
+            printf '{"modules": {}, "coverage": {"shards": 0, "complete": 0}}\n' > mutants-safety-report.json
+          else
+            python3 -I scripts/mutants-safety.py report "${reports[@]}" --json mutants-safety-report.json
+          fi
           status=0
-          python3 -I scripts/mutants-safety.py ratchet mutants-safety-report.json --markdown "$RUNNER_TEMP/ratchet.md" || status=$?
+          python3 -I scripts/mutants-safety.py ratchet mutants-safety-report.json --expect-shards "$SAFETY_TOTAL" --markdown "$RUNNER_TEMP/ratchet.md" || status=$?
           cat "$RUNNER_TEMP/ratchet.md" >> "$GITHUB_STEP_SUMMARY"
           echo "below=$([ "$status" -eq 1 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
           [ "$status" -le 1 ]
@@ -731,7 +739,9 @@ jobs:
             gh run download "$id" -p 'mutants-report-*' -D "rotation/$id" || true
           done
       - name: Kill rate per area
-        run: python3 -I scripts/mutants-safety.py areas rotation --markdown "$RUNNER_TEMP/monthly.md" | tee -a "$GITHUB_STEP_SUMMARY"
+        env:
+          MUTANTS_TOTAL: ${{ needs.plan.outputs.mutants_total }}
+        run: python3 -I scripts/mutants-safety.py areas rotation --expect-shards "$MUTANTS_TOTAL" --markdown "$RUNNER_TEMP/monthly.md" | tee -a "$GITHUB_STEP_SUMMARY"
       - uses: actions/github-script@d746ffe35508b1917358783b479e04febd2b8f71 # v9.0.0
         env:
           REPORT: ${{ runner.temp }}/monthly.md
@@ -739,7 +749,7 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            const body = `Full-engine mutation pass: every shard of the daily rotation over the last 16 nights (certificates, solver core, element kernels).\n\n${fs.readFileSync(process.env.REPORT, 'utf8')}`;
+            const body = `Full-engine mutation pass: the shard reports of the daily rotation over the last 16 nights (certificates, solver core, element kernels). The first line says how many of the shards reported every mutant they hold.\n\n${fs.readFileSync(process.env.REPORT, 'utf8')}`;
             await require('./.github/scripts/cadence-reports.cjs').upsertIssue({ github, context, core, title: 'Monthly mutation report', label: 'mutants-report', body, mode: 'replace', dry: process.env.DRY === 'true' });
 
   # Criterion reports, informational: benchmark wall time on shared runners is
