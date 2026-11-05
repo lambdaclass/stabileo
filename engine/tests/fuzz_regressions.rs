@@ -338,6 +338,31 @@ fn refusal_741_holds(
     Ok(())
 }
 
+fn compression_is_round_off_3d(input: &dedaliano_engine::types::SolverInput3D) -> Result<(), String> {
+    if input.loads.iter().any(|l| matches!(l, dedaliano_engine::types::SolverLoad3D::Distributed(d) if d.q_xi != 0.0 || d.q_xj != 0.0)) {
+        return Err("an axial span load makes the end forces an incomplete account of the axial force".into());
+    }
+    let forces = dedaliano_engine::solver::linear::solve_3d(input)?.element_forces;
+    let scale = forces.iter().fold(0.0f64, |m, e| m.max(e.n_start.abs()).max(e.n_end.abs()).max(e.vy_start.abs()).max(e.vz_start.abs()));
+    let compression = forces.iter().fold(0.0f64, |m, e| m.max(-e.n_start).max(-e.n_end));
+    if compression.is_finite() && compression <= 1e-9 * scale { Ok(()) } else { Err(format!("compression {compression:e} of {scale:e}")) }
+}
+
+#[test]
+fn compression_inside_the_span_is_never_taken_for_round_off() {
+    let input: dedaliano_engine::types::SolverInput3D = serde_json::from_value(json!({
+        "nodes": { "1": { "id": 1, "x": 0, "y": 0, "z": 0 }, "2": { "id": 2, "x": 4, "y": 0, "z": 0 } },
+        "materials": { "1": { "id": 1, "e": 200000, "nu": 0.3 } },
+        "sections": { "1": { "id": 1, "a": 0.01, "iy": 1e-4, "iz": 1e-4, "j": 1e-4 } },
+        "elements": { "1": { "id": 1, "type": "frame", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1 } },
+        "supports": { "1": { "nodeId": 1, "rx": true, "ry": true, "rz": true, "rrx": true, "rry": true, "rrz": true }, "2": { "nodeId": 2, "rx": true, "ry": true, "rz": true, "rrx": true, "rry": false, "rrz": false } },
+        "loads": [{ "type": "distributed", "data": { "elementId": 1, "qXI": 10.0, "qXJ": -10.0, "qYI": 0, "qYJ": 0, "qZI": 0, "qZJ": 0 } }]
+    })).unwrap();
+    let forces = dedaliano_engine::solver::linear::solve_3d(&input).unwrap().element_forces;
+    assert!(forces.iter().all(|e| e.n_start >= -1e-9 && e.n_end >= -1e-9), "{:?}", forces.iter().map(|e| (e.n_start, e.n_end)).collect::<Vec<_>>());
+    assert!(compression_is_round_off_3d(&input).is_err());
+}
+
 fn generated_buckling_enclosures(cases: u64) {
     use dedaliano_engine::certify::buckling::{buckling_certificate_2d, buckling_certificate_3d, certify_buckling_2d, certify_buckling_3d, BucklingCertificate, BucklingRefusal};
     use dedaliano_engine::solver::buckling::{solve_buckling_2d, solve_buckling_3d};
@@ -406,10 +431,7 @@ fn generated_buckling_enclosures(cases: u64) {
                 },
                 Err(reason) => {
                     if dimension == 1 && reason == "No positive buckling load factors found" {
-                        let forces = dedaliano_engine::solver::linear::solve_3d(&input).unwrap().element_forces;
-                        let scale = forces.iter().fold(0.0f64, |m, e| m.max(e.n_start.abs()).max(e.n_end.abs()).max(e.vy_start.abs()).max(e.vz_start.abs()));
-                        let compression = forces.iter().fold(0.0f64, |m, e| m.max(-e.n_start).max(-e.n_end));
-                        assert!(compression <= 1e-9 * scale, "seed {seed}: no positive factor with compression {compression:e} of {scale:e}");
+                        if let Err(e) = compression_is_round_off_3d(&input) { panic!("seed {seed}: no positive factor, {e}"); }
                     }
                     *errors[dimension].entry(reason).or_insert(0u64) += 1
                 }
