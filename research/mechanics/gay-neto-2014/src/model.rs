@@ -52,9 +52,21 @@ impl Model {
         for (&id, &p) in &inp.nodes {
             reference[id - 1] = p;
         }
-        let cs = |id: usize| inp.cs.get(&id).copied().map(axes).ok_or(format!("missing CS {id}"));
+        let cs = |id: usize| {
+            inp.cs
+                .get(&id)
+                .copied()
+                .map(axes)
+                .ok_or(format!("missing CS {id}"))
+        };
         let set = |id: usize| -> Result<Vec<usize>, String> {
-            Ok(inp.node_sets.get(&id).ok_or(format!("missing node set {id}"))?.iter().map(|n| n - 1).collect())
+            Ok(inp
+                .node_sets
+                .get(&id)
+                .ok_or(format!("missing node set {id}"))?
+                .iter()
+                .map(|n| n - 1)
+                .collect())
         };
         let mut beams = vec![];
         let mut weights = vec![];
@@ -62,10 +74,16 @@ impl Model {
             let nodes = [e.nodes[0] - 1, e.nodes[1] - 1, e.nodes[2] - 1];
             let chord = crate::rot::sub(reference[nodes[2]], reference[nodes[0]]);
             let (stiffness, weight) = if e.kind == "Pipe_1" {
-                let p = inp.pipe_sections.get(&e.section).ok_or("missing pipe section")?;
+                let p = inp
+                    .pipe_sections
+                    .get(&e.section)
+                    .ok_or("missing pipe section")?;
                 (
                     [p.ga, p.ga, p.ea, p.ei, p.ei, p.gj],
-                    Weight { mass_per_length: p.rho, displaced_area: PI * p.de * p.de / 4.0 },
+                    Weight {
+                        mass_per_length: p.rho,
+                        displaced_area: PI * p.de * p.de / 4.0,
+                    },
                 )
             } else {
                 let &(young, nu, rho) = inp.hooke.get(&e.material).ok_or("missing material")?;
@@ -73,20 +91,44 @@ impl Model {
                 let g = young / (2.0 * (1.0 + nu));
                 let a = b * h;
                 (
-                    [g * a, g * a, young * a, young * b * h.powi(3) / 12.0, young * h * b.powi(3) / 12.0, g * saint_venant_torsion(b, h)],
-                    Weight { mass_per_length: rho * a, displaced_area: a },
+                    [
+                        g * a,
+                        g * a,
+                        young * a,
+                        young * b * h.powi(3) / 12.0,
+                        young * h * b.powi(3) / 12.0,
+                        g * saint_venant_torsion(b, h),
+                    ],
+                    Weight {
+                        mass_per_length: rho * a,
+                        displaced_area: a,
+                    },
                 )
             };
-            beams.push(Beam { nodes, length: dot(chord, chord).sqrt(), frame: cs(e.cs)?, section: Section { stiffness } });
+            beams.push(Beam {
+                nodes,
+                length: dot(chord, chord).sqrt(),
+                frame: cs(e.cs)?,
+                section: Section { stiffness },
+            });
             weights.push(weight);
         }
         let mut contacts = vec![];
         for c in &inp.contacts {
             let surfaces = inp.surface_sets[&c.surface_set]
                 .iter()
-                .map(|s| Triangle { points: inp.triangles[s].map(|p| inp.points[&p]) })
+                .map(|s| Triangle {
+                    points: inp.triangles[s].map(|p| inp.points[&p]),
+                })
                 .collect();
-            let nts = NodeToSurface { nodes: set(c.node_set)?, surfaces, mu: c.mu, epn: c.epn, ept: c.ept, radius: c.radius };
+            let nts = NodeToSurface {
+                nodes: set(c.node_set)?,
+                surfaces,
+                mu: c.mu,
+                epn: c.epn,
+                ept: c.ept,
+                radius: c.radius,
+            };
             contacts.push((nts, c.table.clone()));
         }
         let mut constraints = vec![];
@@ -100,7 +142,9 @@ impl Model {
             }
         }
         let tables = |list: &[TimeTable]| -> Result<Vec<_>, String> {
-            list.iter().map(|t| Ok((set(t.node_set)?, cs(t.cs)?, t.clone()))).collect()
+            list.iter()
+                .map(|t| Ok((set(t.node_set)?, cs(t.cs)?, t.clone())))
+                .collect()
         };
         Ok(Model {
             reference,
@@ -123,14 +167,26 @@ impl Model {
             history: self
                 .contacts
                 .iter()
-                .map(|(c, _)| c.nodes.iter().map(|&n| History { position: self.reference[n], ..Default::default() }).collect())
+                .map(|(c, _)| {
+                    c.nodes
+                        .iter()
+                        .map(|&n| History {
+                            position: self.reference[n],
+                            ..Default::default()
+                        })
+                        .collect()
+                })
                 .collect(),
             t: 0.0,
         }
     }
 
     fn step_window(&self, step: usize) -> (f64, f64) {
-        let t0 = if step == 0 { 0.0 } else { self.steps[step - 1].end_time };
+        let t0 = if step == 0 {
+            0.0
+        } else {
+            self.steps[step - 1].end_time
+        };
         (t0, self.steps[step].end_time)
     }
 
@@ -192,7 +248,10 @@ impl Model {
             .map(|(n, k, _)| (6 * n + k, 0.0))
             .collect();
         for (nodes, ax, table) in &self.displacements {
-            let (a, b) = (Self::global(ax, table.at(t_old)), Self::global(ax, table.at(t_new)));
+            let (a, b) = (
+                Self::global(ax, table.at(t_old)),
+                Self::global(ax, table.at(t_new)),
+            );
             for &n in nodes {
                 for k in 0..6 {
                     if let Some(entry) = fixed.iter_mut().find(|(d, _)| *d == 6 * n + k) {
@@ -206,7 +265,13 @@ impl Model {
 
     /// Residual (internal minus external forces) and tangent, plus the contact history
     /// this configuration would leave.
-    fn assemble(&self, state: &State, committed: &State, f_ext: &[f64], step: usize) -> (Band, Vec<f64>, Vec<Vec<History>>) {
+    fn assemble(
+        &self,
+        state: &State,
+        committed: &State,
+        f_ext: &[f64],
+        step: usize,
+    ) -> (Band, Vec<f64>, Vec<Vec<History>>) {
         let n = 6 * self.reference.len();
         let mut k = Band::new(n, 17, 17);
         let mut r: Vec<f64> = f_ext.iter().map(|v| -v).collect();
@@ -257,8 +322,15 @@ impl Model {
         for it in 0..=max_it {
             let f_ext = self.external(&state, step, t_new);
             let (mut k, r, next) = self.assemble(&state, committed, &f_ext, step);
-            let scale_f = f_ext.iter().chain(r.iter()).fold(1.0_f64, |m, v| m.max(v.abs()));
-            let r_free = r.iter().zip(&is_fixed).filter(|(_, f)| !**f).fold(0.0_f64, |m, (v, _)| m.max(v.abs()));
+            let scale_f = f_ext
+                .iter()
+                .chain(r.iter())
+                .fold(1.0_f64, |m, v| m.max(v.abs()));
+            let r_free = r
+                .iter()
+                .zip(&is_fixed)
+                .filter(|(_, f)| !**f)
+                .fold(0.0_f64, |m, (v, _)| m.max(v.abs()));
             if !r_free.is_finite() {
                 return Err("residual is not finite".into());
             }
@@ -274,7 +346,10 @@ impl Model {
                 k.fix(d, if it == 0 { inc } else { 0.0 }, &mut rhs);
             }
             k.solve(&mut rhs)?;
-            let length = self.reference.iter().fold(1.0_f64, |m, p| m.max(dot(*p, *p).sqrt()));
+            let length = self
+                .reference
+                .iter()
+                .fold(1.0_f64, |m, p| m.max(dot(*p, *p).sqrt()));
             last_move = 0.0;
             for (i, (x, q)) in state.x.iter_mut().zip(state.q.iter_mut()).enumerate() {
                 let d = &rhs[6 * i..6 * i + 6];
@@ -282,14 +357,18 @@ impl Model {
                     x[a] += d[a];
                     last_move = last_move.max(d[a].abs() / length).max(d[3 + a].abs());
                 }
-                *q = exp([d[3], d[4], d[5]]).mul(*q).normalized();
+                *q = exp([d[3], d[4], d[5]]).compose(*q).normalized();
             }
         }
         Err(format!("no convergence at t = {t_new}"))
     }
 
     /// Runs every solution step, calling `observe` after each converged increment.
-    pub fn run(&self, steps: usize, mut observe: impl FnMut(&State, usize)) -> Result<State, String> {
+    pub fn run(
+        &self,
+        steps: usize,
+        mut observe: impl FnMut(&State, usize),
+    ) -> Result<State, String> {
         let mut state = self.initial_state();
         for step in 0..steps.min(self.steps.len()) {
             let s = &self.steps[step];
@@ -321,7 +400,12 @@ impl Model {
     pub fn resultants(&self, state: &State) -> Vec<(V3<f64>, [f64; 6])> {
         self.beams
             .iter()
-            .map(|b| (self.reference[b.nodes[1]], beam::resultants(b, b.nodes.map(|i| state.x[i]), b.nodes.map(|i| state.q[i]))))
+            .map(|b| {
+                (
+                    self.reference[b.nodes[1]],
+                    beam::resultants(b, b.nodes.map(|i| state.x[i]), b.nodes.map(|i| state.q[i])),
+                )
+            })
             .collect()
     }
 

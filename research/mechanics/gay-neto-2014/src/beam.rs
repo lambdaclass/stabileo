@@ -29,16 +29,19 @@ pub fn shape(xi: f64) -> ([f64; 3], [f64; 3]) {
 pub fn strains<T: Scalar>(beam: &Beam, x: [V3<T>; 3], q: [Quat<T>; 3]) -> [[T; 6]; 2] {
     let jac = 0.5 * beam.length;
     let qr = q[1];
-    let psi1 = log(qr.conj().mul(q[0]));
-    let psi3 = log(qr.conj().mul(q[2]));
+    let psi1 = log(qr.conj().compose(q[0]));
+    let psi3 = log(qr.conj().compose(q[2]));
     let mut out = [[T::cst(0.0); 6]; 2];
     for (g, &xi) in GAUSS.iter().enumerate() {
         let (n, dn) = shape(xi);
         let psi = add(scale(psi1, T::cst(n[0])), scale(psi3, T::cst(n[2])));
-        let dpsi = add(scale(psi1, T::cst(dn[0] / jac)), scale(psi3, T::cst(dn[2] / jac)));
+        let dpsi = add(
+            scale(psi1, T::cst(dn[0] / jac)),
+            scale(psi3, T::cst(dn[2] / jac)),
+        );
         let (e, de) = exp_with_rate(psi, dpsi);
-        let rot = qr.mul(e).matrix();
-        let k_rot = scale(e.conj().mul(de).v, T::cst(2.0));
+        let rot = qr.compose(e).matrix();
+        let k_rot = scale(e.conj().compose(de).v, T::cst(2.0));
         let mut dx = [T::cst(0.0); 3];
         for (i, xi_node) in x.iter().enumerate() {
             dx = add(dx, scale(*xi_node, T::cst(dn[i] / jac)));
@@ -78,7 +81,7 @@ pub fn tangent(beam: &Beam, x: [V3<f64>; 3], q: [Quat<f64>; 3]) -> ([f64; N], [[
             xs[k][j] = Hd::var(x[k][j], 6 * k + j);
             th[j] = Hd::var(0.0, 6 * k + 3 + j);
         }
-        qs[k] = exp(th).mul(Quat::lift(q[k]));
+        qs[k] = exp(th).compose(Quat::lift(q[k]));
     }
     let w = energy(beam, xs, qs);
     let mut h = [[0.0; N]; N];

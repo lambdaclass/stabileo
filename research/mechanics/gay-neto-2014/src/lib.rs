@@ -1,3 +1,5 @@
+#![allow(clippy::needless_range_loop)]
+
 pub mod band;
 pub mod beam;
 pub mod contact;

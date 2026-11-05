@@ -8,7 +8,10 @@ pub struct Triangle {
 
 impl Triangle {
     pub fn normal(&self) -> V3<f64> {
-        let n = cross(sub(self.points[1], self.points[0]), sub(self.points[2], self.points[0]));
+        let n = cross(
+            sub(self.points[1], self.points[0]),
+            sub(self.points[2], self.points[0]),
+        );
         let len = dot(n, n).sqrt();
         scale(n, 1.0 / len)
     }
@@ -61,10 +64,16 @@ impl NodeToSurface {
         let mut none = Evaluation {
             force: [0.0; 3],
             jacobian: [[0.0; 3]; 3],
-            next: History { touching: false, tangential_gap: [0.0; 3], position: x },
+            next: History {
+                touching: false,
+                tangential_gap: [0.0; 3],
+                position: x,
+            },
             gap: f64::INFINITY,
         };
-        let Some(tri) = self.surface_for(x) else { return none };
+        let Some(tri) = self.surface_for(x) else {
+            return none;
+        };
         let n = lift::<Hd>(tri.normal());
         let xs: V3<Hd> = [Hd::var(x[0], 0), Hd::var(x[1], 1), Hd::var(x[2], 2)];
         let gap = dot(n, crate::rot::sub(xs, lift(tri.points[0]))) + (-self.radius);
@@ -80,13 +89,20 @@ impl NodeToSurface {
             let along = crate::rot::sub(moved, scale(n, dot(n, moved)));
             let gt = crate::rot::add(lift(history.tangential_gap), along);
             let norm2 = dot(gt, gt);
-            let norm = if norm2.val() > 0.0 { norm2.sqrt() } else { Hd::cst(0.0) };
+            let norm = if norm2.val() > 0.0 {
+                norm2.sqrt()
+            } else {
+                Hd::cst(0.0)
+            };
             let trial = norm * self.ept;
             let max = normal_force * self.mu;
             let (tangential, kept) = if trial.val() < max.val() {
                 (scale(gt, Hd::cst(-self.ept)), 1.0)
             } else {
-                (scale(gt, Hd::cst(0.0) - max / norm), max.val() / trial.val())
+                (
+                    scale(gt, Hd::cst(0.0) - max / norm),
+                    max.val() / trial.val(),
+                )
             };
             force = crate::rot::add(force, tangential);
             next_gap = [gt[0].val() * kept, gt[1].val() * kept, gt[2].val() * kept];
@@ -100,7 +116,11 @@ impl NodeToSurface {
         Evaluation {
             force: [force[0].val(), force[1].val(), force[2].val()],
             jacobian,
-            next: History { touching: true, tangential_gap: next_gap, position: x },
+            next: History {
+                touching: true,
+                tangential_gap: next_gap,
+                position: x,
+            },
             gap: gap.val(),
         }
     }

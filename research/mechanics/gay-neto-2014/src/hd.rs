@@ -96,7 +96,11 @@ impl Hd {
 
 impl Scalar for Hd {
     fn cst(v: f64) -> Self {
-        Hd { v, g: [0.0; N], h: [0.0; NH] }
+        Hd {
+            v,
+            g: [0.0; N],
+            h: [0.0; NH],
+        }
     }
     fn val(&self) -> f64 {
         self.v

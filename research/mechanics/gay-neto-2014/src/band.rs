@@ -10,7 +10,13 @@ pub struct Band {
 impl Band {
     pub fn new(n: usize, kl: usize, ku: usize) -> Self {
         let width = 2 * kl + ku + 1;
-        Band { n, kl, ku, width, a: vec![0.0; n * width] }
+        Band {
+            n,
+            kl,
+            ku,
+            width,
+            a: vec![0.0; n * width],
+        }
     }
 
     fn at(&self, i: usize, j: usize) -> usize {

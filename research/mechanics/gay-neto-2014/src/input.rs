@@ -120,7 +120,11 @@ struct Tokens {
 
 impl Tokens {
     fn next(&mut self) -> Result<String, String> {
-        let s = self.t.get(self.i).cloned().ok_or("unexpected end of input")?;
+        let s = self
+            .t
+            .get(self.i)
+            .cloned()
+            .ok_or("unexpected end of input")?;
         self.i += 1;
         Ok(s)
     }
@@ -129,11 +133,13 @@ impl Tokens {
     }
     fn num(&mut self) -> Result<f64, String> {
         let s = self.next()?;
-        s.parse().map_err(|_| format!("expected a number, found {s:?}"))
+        s.parse()
+            .map_err(|_| format!("expected a number, found {s:?}"))
     }
     fn int(&mut self) -> Result<usize, String> {
         let s = self.next()?;
-        s.parse().map_err(|_| format!("expected an integer, found {s:?}"))
+        s.parse()
+            .map_err(|_| format!("expected an integer, found {s:?}"))
     }
     fn expect(&mut self, word: &str) -> Result<(), String> {
         let s = self.next()?;
@@ -191,7 +197,9 @@ pub fn parse(text: &str) -> Result<Input, String> {
                     tk.expect("Nodes")?;
                     let count = tk.int()?;
                     let list = match tk.next()?.as_str() {
-                        "List" => (0..count).map(|_| tk.int()).collect::<Result<Vec<_>, _>>()?,
+                        "List" => (0..count)
+                            .map(|_| tk.int())
+                            .collect::<Result<Vec<_>, _>>()?,
                         "Sequence" => {
                             let first = tk.keyed("Initial")? as usize;
                             let step = tk.keyed("Increment")? as usize;
@@ -214,14 +222,21 @@ pub fn parse(text: &str) -> Result<Input, String> {
                     let cs = tk.keyed("CS")? as usize;
                     tk.expect("Nodes")?;
                     let nodes = [tk.int()?, tk.int()?, tk.int()?];
-                    inp.elements.push(ElementInput { kind, section, material, cs, nodes });
+                    inp.elements.push(ElementInput {
+                        kind,
+                        section,
+                        material,
+                        cs,
+                        nodes,
+                    });
                 }
             }
             "Materials" => {
                 for _ in 0..tk.int()? {
                     tk.expect("Hooke")?;
                     let id = tk.int()?;
-                    inp.hooke.insert(id, (tk.keyed("E")?, tk.keyed("Nu")?, tk.keyed("Rho")?));
+                    inp.hooke
+                        .insert(id, (tk.keyed("E")?, tk.keyed("Nu")?, tk.keyed("Rho")?));
                 }
             }
             "Sections" => {
@@ -235,13 +250,29 @@ pub fn parse(text: &str) -> Result<Input, String> {
                 for _ in 0..tk.int()? {
                     tk.expect("PS")?;
                     let id = tk.int()?;
-                    let (ea, ei, gj, ga, rho) =
-                        (tk.keyed("EA")?, tk.keyed("EI")?, tk.keyed("GJ")?, tk.keyed("GA")?, tk.keyed("Rho")?);
+                    let (ea, ei, gj, ga, rho) = (
+                        tk.keyed("EA")?,
+                        tk.keyed("EI")?,
+                        tk.keyed("GJ")?,
+                        tk.keyed("GA")?,
+                        tk.keyed("Rho")?,
+                    );
                     for k in ["CDt", "CDn", "CAt", "CAn"] {
                         tk.keyed(k)?;
                     }
                     let (de, di) = (tk.keyed("De")?, tk.keyed("Di")?);
-                    inp.pipe_sections.insert(id, PipeSectionInput { ea, ei, gj, ga, rho, de, di });
+                    inp.pipe_sections.insert(
+                        id,
+                        PipeSectionInput {
+                            ea,
+                            ei,
+                            gj,
+                            ga,
+                            rho,
+                            de,
+                            di,
+                        },
+                    );
                 }
             }
             "CoordinateSystems" => {
@@ -298,7 +329,9 @@ pub fn parse(text: &str) -> Result<Input, String> {
                     tk.expect("Surfaces")?;
                     let count = tk.int()?;
                     tk.expect("List")?;
-                    let list = (0..count).map(|_| tk.int()).collect::<Result<Vec<_>, _>>()?;
+                    let list = (0..count)
+                        .map(|_| tk.int())
+                        .collect::<Result<Vec<_>, _>>()?;
                     inp.surface_sets.insert(id, list);
                 }
             }
@@ -317,7 +350,15 @@ pub fn parse(text: &str) -> Result<Input, String> {
                     tk.keyed("MaxPointwiseInt")?;
                     tk.expect("BoolTable")?;
                     let table = tk.bools();
-                    inp.contacts.push(ContactInput { node_set, surface_set, mu, epn, ept, radius, table });
+                    inp.contacts.push(ContactInput {
+                        node_set,
+                        surface_set,
+                        mu,
+                        epn,
+                        ept,
+                        radius,
+                        table,
+                    });
                 }
             }
             "Constraints" => {
@@ -326,7 +367,10 @@ pub fn parse(text: &str) -> Result<Input, String> {
                     tk.int()?;
                     let set = tk.keyed("NodeSet")? as usize;
                     let mut dofs: [Option<BoolTable>; 6] = Default::default();
-                    while let Some(k) = tk.peek().and_then(|s| DOF_NAMES.iter().position(|d| *d == s)) {
+                    while let Some(k) = tk
+                        .peek()
+                        .and_then(|s| DOF_NAMES.iter().position(|d| *d == s))
+                    {
                         tk.i += 1;
                         tk.expect("BoolTable")?;
                         dofs[k] = Some(tk.bools());
@@ -335,7 +379,11 @@ pub fn parse(text: &str) -> Result<Input, String> {
                 }
             }
             "Displacements" | "Loads" => {
-                let item = if word == "Loads" { "NodalLoad" } else { "NodalDisplacement" };
+                let item = if word == "Loads" {
+                    "NodalLoad"
+                } else {
+                    "NodalDisplacement"
+                };
                 for _ in 0..tk.int()? {
                     tk.expect(item)?;
                     tk.int()?;
