@@ -81,7 +81,7 @@ class Selection(unittest.TestCase):
                           "        continue-on-error: true\n", body, name)
             self.assertIn('    permissions:\n      contents: read\n      actions: write\n', body, name)
             steps = [line for line in body.splitlines() if line.strip() and not line.lstrip().startswith('#')]
-            self.assertEqual(steps[-1].strip(), '|| gh workflow run stop-failed-run.yml --ref "$HEAD_REF" -f run_id="$RUN_ID"', name)
+            self.assertEqual(steps[-1].strip(), 'run: gh workflow run stop-failed-run.yml --ref main -f run_id="$RUN_ID"', name)
             self.assertNotIn('gh run cancel', body, 'a job cancelling its own run ends as cancelled, hiding its failure')
         stop = (ROOT / '.github/workflows/stop-failed-run.yml').read_text()
         self.assertIn('"pull_request .github/workflows/ci.yml "*) ;;', stop)
