@@ -20,16 +20,15 @@ describe('results version 15: the Basic course units of version 14 are withdrawn
       'basic-influence-line-moment-sign-withdrawn',
       'basic-plastic-unloading-hinges-withdrawn',
       'basic-second-order-split-members-withdrawn',
-      'safety-containment-diagnostics',
     ]);
   });
 
   it('names the plastic withdrawal only to projects that ran plastic', () => {
-    expect(ids(frame(), 14, ['linear'])).toEqual(['basic-influence-line-moment-sign-withdrawn', 'safety-containment-diagnostics']);
+    expect(ids(frame(), 14, ['linear'])).toEqual(['basic-influence-line-moment-sign-withdrawn']);
   });
 
-  it('names no withdrawal to a project solved with version 15, nor to a PRO model', () => {
-    expect(ids(frame(), 15, ['linear', 'plastic', 'pdelta']).filter((id) => id.startsWith('basic-'))).toEqual([]);
+  it('says nothing to a project solved with version 15, nor to a PRO model', () => {
+    expect(ids(frame(), 15, ['linear', 'plastic', 'pdelta'])).toEqual([]);
     const pro = assessProject({ ...frame(), analysisMode: 'pro' }, { resultsVersion: 14, analyses: ['linear', 'plastic', 'pdelta', 'buckling'] } as unknown as SolveStamp, 'pro');
     expect(pro.changes.map((c) => c.id).filter((id) => id.startsWith('basic-'))).toEqual([]);
   });

@@ -4,7 +4,6 @@ import { fr as publicEntries } from 'virtual:public-i18n';
 import type { Translations } from '../../types';
 import { fr as main } from 'virtual:app-i18n/fr';
 import steel from '../steel/fr';
-import steps from '../steps/fr';
 
-const full: Translations = { ...publicEntries, ...main, ...steel, ...steps };
+const full: Translations = { ...publicEntries, ...main, ...steel };
 export default full;
