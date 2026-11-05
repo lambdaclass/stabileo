@@ -547,7 +547,7 @@ jobs:
   test-engine-quick:
     name: Engine Quick Checks
     runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' || (github.ref == 'refs/heads/main' && github.event_name != 'schedule')) && (vars.STABILEO_ENGINE_POOL == 'true' && fromJSON('["self-hosted","stabileo-engine"]') || fromJSON('["self-hosted","stabileo"]')) || 'ubuntu-24.04' }}
-    timeout-minutes: 30
+    timeout-minutes: 60
     needs: [changes]
     if: needs.changes.outputs.engine == 'true'
     steps:
@@ -561,6 +561,7 @@ jobs:
           checks=$(python3 -I scripts/cadence.py list pr --runner ci-engine-quick)
           echo "$checks"
           if [ "$checks" = '[]' ]; then echo any=false; else echo any=true; fi >> "$GITHUB_OUTPUT"
+          python3 -I -c 'import json, sys; print("minutes=%d" % (sum(c["budget"] + 1 for c in json.loads(sys.argv[1])) + 2))' "$checks" >> "$GITHUB_OUTPUT"
       - if: steps.plan.outputs.any == 'true' && runner.environment == 'github-hosted'
         uses: ./.github/actions/free-disk
       - if: steps.plan.outputs.any == 'true' && runner.environment == 'github-hosted'
@@ -585,7 +586,7 @@ jobs:
       - name: Quick checks
         if: steps.plan.outputs.any == 'true'
         run: make test.cadence TIER=pr RUNNER=ci-engine-quick
-        timeout-minutes: 20
+        timeout-minutes: ${{ fromJSON(steps.plan.outputs.minutes) }}
 
   test-ai-backend:
     name: Test AI Backend
