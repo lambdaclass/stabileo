@@ -1,6 +1,6 @@
 <script lang="ts">
   import { t, tp, i18n } from '../../lib/i18n';
-  import { cloudProjects } from '../../lib/store/cloud-projects.svelte';
+  import { cloudProjects, isProjectConflict } from '../../lib/store/cloud-projects.svelte';
   import { errorText } from '../../lib/api/error-text';
   import { uiStore } from '../../lib/store';
   import type { CloudProject } from '../../lib/api/projects';
@@ -12,9 +12,13 @@
   let busyId = $state<string | null>(null);
   let renaming = $state<string | null>(null);
   let newName = $state('');
+  let conflict = $state<string | null>(null);
 
   $effect(() => {
-    if (open) void load();
+    if (open) {
+      conflict = null;
+      void load();
+    }
   });
 
   async function load() {
@@ -28,12 +32,23 @@
 
   async function save(asNew: boolean) {
     error = null;
+    const linked = cloudProjects.linkedId;
     try {
       await cloudProjects.saveCurrent({ asNew });
+      conflict = null;
       uiStore.toast(t('cloud.saved'), 'success');
     } catch (e) {
-      error = errorText(e);
+      if (!asNew && linked && isProjectConflict(e)) conflict = linked;
+      else error = errorText(e);
     }
+  }
+
+  function openSaved(id: string) {
+    void act(id, async () => {
+      await cloudProjects.open(id);
+      conflict = null;
+      open = false;
+    });
   }
 
   async function act(id: string, run: () => Promise<void>) {
@@ -43,6 +58,7 @@
       await run();
     } catch (e) {
       error = errorText(e);
+      if (isProjectConflict(e)) void cloudProjects.refresh(search.trim() || undefined).catch(() => {});
     } finally {
       busyId = null;
     }
@@ -58,7 +74,7 @@
   function replace(p: CloudProject) {
     if (!confirm(tp('cloud.confirmReplace', { name: p.name }))) return;
     void act(p.id, async () => {
-      await cloudProjects.replace(p.id);
+      await cloudProjects.replace(p);
       uiStore.toast(t('cloud.saved'), 'success');
     });
   }
@@ -79,7 +95,7 @@
     const name = newName.trim();
     renaming = null;
     if (!name || name === p.name) return;
-    void act(p.id, () => cloudProjects.rename(p.id, name));
+    void act(p.id, () => cloudProjects.rename(p, name));
   }
 
   const fmtDate = (iso: string) => new Date(iso).toLocaleString(i18n.locale, { dateStyle: 'medium', timeStyle: 'short' });
@@ -94,6 +110,17 @@
       <h3 id="cp-title">{t('cloud.title')}</h3>
       <p class="lede">{t('cloud.lede')}</p>
 
+      {#if conflict}
+        <div class="cp-conflict" role="alert" data-testid="cloud-conflict">
+          <p>{t('cloud.conflict')}</p>
+          <div class="cp-actions">
+            <button class="btn primary" onclick={() => save(true)} disabled={cloudProjects.saving || busyId !== null} data-testid="cloud-conflict-copy">{t('cloud.saveAsCopy')}</button>
+            <button class="btn" onclick={() => openSaved(conflict!)} disabled={cloudProjects.saving || busyId !== null} data-testid="cloud-conflict-open">{t('cloud.openSaved')}</button>
+            <button class="btn" onclick={() => (conflict = null)} data-testid="cloud-conflict-cancel">{t('account.cancel')}</button>
+          </div>
+        </div>
+      {/if}
+
       <div class="cp-save">
         {#if mustReplace}
           <p class="limit" data-testid="cloud-limit">{tp(cloudProjects.maxProjects === 1 ? 'cloud.limitOne' : 'cloud.limitMany', { max: cloudProjects.maxProjects })}</p>
@@ -105,7 +132,7 @@
             <button class="btn" onclick={() => save(true)} disabled={cloudProjects.saving} data-testid="cloud-save-new">{t('cloud.saveAsNew')}</button>
           {/if}
         {/if}
-        <span class="count">{tp('cloud.count', { n: cloudProjects.total, max: cloudProjects.maxProjects })}</span>
+        <span class="count">{tp('cloud.count', { n: cloudProjects.used, max: cloudProjects.maxProjects })}</span>
       </div>
 
       <input class="cp-search" type="search" placeholder={t('cloud.search')} bind:value={search} oninput={() => void load()} data-testid="cloud-search" />
@@ -216,6 +243,20 @@
   .cp-actions { display: flex; gap: 4px; flex: none; }
   .empty { font-size: 0.74rem; color: var(--st-text-3); }
   .err { margin: 0 0 8px; font-size: 0.7rem; color: var(--st-bad, #e06c75); }
+  .cp-conflict {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 10px;
+    padding: 8px 10px;
+    border: 1px solid var(--st-hair-strong);
+    border-left: 2px solid var(--st-warn, #e5c07b);
+    border-radius: var(--st-radius);
+    background: var(--st-surface-2);
+    font-size: 0.72rem;
+    line-height: 1.45;
+  }
+  .cp-conflict p { margin: 0; }
   .footer { display: flex; justify-content: flex-end; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--st-hair); }
   .btn {
     padding: 5px 10px;

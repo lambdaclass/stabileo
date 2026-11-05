@@ -8,13 +8,14 @@ export interface CloudProject {
   node_count: number | null;
   element_count: number | null;
   app_version: string | null;
+  revision: number;
   inserted_at: string;
   updated_at: string;
 }
 
 export interface CloudProjectList {
   data: CloudProject[];
-  meta: { total: number; limit: number; offset: number; max_projects: number; max_bytes: number };
+  meta: { total: number; used: number; limit: number; offset: number; max_projects: number; max_bytes: number };
 }
 
 export interface CloudProjectInput {
@@ -44,7 +45,7 @@ export const projectsApi = {
     return (await request<{ data: CloudProject }>('POST', BASE, { body: input, auth: true })).data;
   },
 
-  async update(id: string, patch: Partial<CloudProjectInput>): Promise<CloudProject> {
+  async update(id: string, patch: Partial<CloudProjectInput> & { revision: number }): Promise<CloudProject> {
     return (await request<{ data: CloudProject }>('PUT', `${BASE}/${id}`, { body: patch, auth: true })).data;
   },
 
