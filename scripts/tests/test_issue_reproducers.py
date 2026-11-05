@@ -1,4 +1,7 @@
 import importlib.util
+import json
+import subprocess
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -66,10 +69,11 @@ class FlipTest(unittest.TestCase):
         errors, _ = check("Fixes #1414", self.base, head)
         self.assertEqual(len(errors), 1)
         self.assertIn("#1414: still expected to fail: engine/tests/a.rs::issue_1414_connector_mechanism_3d", errors[0])
-        self.assertEqual(check("Partly fixes #1414: the 2D case", self.base, head)[0], [])
+        self.assertEqual(check("Partly addresses #1414: the 2D case", self.base, head)[0], [])
+        self.assertEqual(len(check("Partly fixes #1414: the 2D case", self.base, head)[0]), 1)
 
     def test_nothing_flipped_fails_even_when_partly(self):
-        errors, _ = check("Partly fixes #1414", self.base, self.base)
+        errors, _ = check("Partly addresses #1414", self.base, self.base)
         self.assertEqual(errors, ["#1414: no reproducer flipped; flip one of: engine/tests/a.rs::issue_1414_connector_mechanism_3d, engine/tests/a.rs::issue_1414_connector_mechanism_is_refused"])
 
     def test_deleting_a_reproducer_is_not_flipping_it(self):
@@ -109,7 +113,8 @@ class StrictnessTest(unittest.TestCase):
         head = [("engine/tests/a.rs", RS_ONE_FLIPPED), ("web/src/x.test.ts", TS_FLIPPED)]
         base = self.base + [("web/src/x.test.ts", TS_BEFORE)]
         self.assertEqual(rep.references("Partly addresses #1414. Fixes #1500"), ({1500}, {1414}))
-        self.assertEqual(rep.references("partly fixes #1414 and fixes #1414"), ({1414}, set()))
+        self.assertEqual(rep.references("partly fixes #1414"), ({1414}, set()))
+        self.assertEqual(rep.references("partly addresses #1414 and fixes #1414"), ({1414}, set()))
         self.assertEqual(check("Partly addresses #1414. Fixes #1500", base, head)[0], [])
         errors, _ = check("Partly addresses #1500. Fixes #1414", base, head)
         self.assertEqual(len(errors), 1)
@@ -122,6 +127,31 @@ class StrictnessTest(unittest.TestCase):
                                        [[("engine/tests/a.rs", RS_BEFORE)]])
         self.assertEqual(errors, [])
         self.assertEqual(len(notes), 1)
+
+
+class GitFlowTest(unittest.TestCase):
+    def test_a_reproducer_file_added_and_flipped_within_the_pull_request(self):
+        d = Path(tempfile.mkdtemp())
+        g = lambda *a: subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", *a], cwd=d, check=True, capture_output=True, text=True).stdout.strip()
+        g("init", "-q")
+        (d / "engine" / "tests").mkdir(parents=True)
+        (d / "engine" / "tests" / "other.rs").write_text("#[test]\nfn other() {}\n")
+        g("add", "-A"); g("commit", "-qm", "base")
+        base = g("rev-parse", "HEAD")
+        (d / "engine" / "tests" / "issue_1414.rs").write_text(RS_BEFORE)
+        g("add", "-A"); g("commit", "-qm", "reproducer")
+        (d / "engine" / "tests" / "issue_1414.rs").write_text(RS_ALL_FLIPPED)
+        g("add", "-A"); g("commit", "-qm", "fix")
+        head = g("rev-parse", "HEAD")
+        (d / "body.md").write_text("Fixes #1414")
+        (d / "labels.json").write_text(json.dumps({"1414": ["safety"]}))
+        orig = rep.ROOT
+        rep.ROOT = d
+        try:
+            self.assertEqual(rep.main(["flip-check", "--base", base, "--head", head, "--body-file", str(d / "body.md"), "--labels-json", str(d / "labels.json")]), 0)
+            self.assertEqual(rep.main(["flip-check", "--base", base, "--head", base, "--body-file", str(d / "body.md"), "--labels-json", str(d / "labels.json")]), 1)
+        finally:
+            rep.ROOT = orig
 
 
 class XfailTest(unittest.TestCase):

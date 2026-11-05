@@ -103,9 +103,9 @@ closes/resolves) for a wrong-result issue #N to that rule:
 - at least one of #N's expected-failure reproducers is flipped: it still exists, is a `#[test]`
   with no `ignore` at all (or a plain `it`), and passes;
 - none of #N's reproducers is still tagged. A fix of part of an issue says **Partly addresses
-  #N** instead (GitHub does not close the issue on that phrase; "partly fixes #N" is read the
-  same way by the check, but GitHub closes the issue on it): one flip is then enough, and the
-  issue stays open with the remaining reproducers;
+  #N** instead of a closing keyword (GitHub reads "partly fixes #N" as closing #N, so the check
+  holds it to the full rule): one flip is then enough, and the issue stays open with the
+  remaining reproducers;
 - a wrong-result issue with no reproducer fails the check: add it as an expected failure, either
   on `main` or in an earlier commit of the same pull request than the fix.
 

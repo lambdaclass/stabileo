@@ -13,8 +13,7 @@ RUST_FN = re.compile(r"^\s*(?:pub\s+)?(?:async\s+)?fn\s+([A-Za-z0-9_]+)")
 TS_TEST = re.compile(r"""\b(it|test)(\.fails)?\(\s*(['"`])(.*?)\3""")
 ISSUE = re.compile(r"#(\d+)\b")
 CLOSES = re.compile(r"\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s*:?\s+#(\d+)\b", re.I)
-PARTLY = re.compile(r"\bpartly\s+(?:fix(?:es|ed)?|address(?:es|ed)?)\s*:?\s+#(\d+)\b", re.I)
-PARTLY_BEFORE = re.compile(r"\bpartly\s+$", re.I)
+PARTLY = re.compile(r"\bpartly\s+address(?:es|ed)?\s*:?\s+#(\d+)\b", re.I)
 TEST_ATTR = re.compile(r"#\[(?:[\w:]+::)?test\]")
 NEXTEST_TEST_FAILED = 100
 
@@ -86,7 +85,7 @@ def files_named(rev, paths):
 
 def references(body):
     body = body or ""
-    full = {int(m.group(1)) for m in CLOSES.finditer(body) if not PARTLY_BEFORE.search(body[:m.start()])}
+    full = {int(n) for n in CLOSES.findall(body)}
     partly = {int(n) for n in PARTLY.findall(body)} - full
     return full, partly
 
@@ -116,7 +115,7 @@ def flip_check(body, base_files, head_files, labels, pr_commits=()):
         partly = n in partly_refs
         if still and not partly:
             errors.append(f"#{n}: still expected to fail: " + ", ".join(f"{p}::{name}" for p, name in still)
-                          + ' (flip them, or say "partly fixes" in the body and keep the issue open)')
+                          + f' (flip them, or write "Partly addresses #{n}" instead of a closing keyword and keep the issue open)')
         if flipped:
             notes.append(f"#{n}: flipped " + ", ".join(f"{p}::{name}" for p, name in flipped))
     return errors, notes
@@ -204,8 +203,10 @@ def main(argv):
     head_files = files_at(a.head)
     changed = {p for p, _ in base_files} - {p for p, _ in head_files}
     head_files += files_named(a.head, changed)
-    commits = git("rev-list", "--max-count=100", f"{a.base}..{a.head}").split()[1:]
-    errors, notes = flip_check(body, base_files, head_files, labels, [files_at(c) for c in commits])
+    commits = [files_at(c) for c in git("rev-list", "--max-count=100", f"{a.base}..{a.head}").split()[1:]]
+    seen = {p for p, _ in head_files}
+    head_files += files_named(a.head, {p for files in commits for p, _ in files} - seen)
+    errors, notes = flip_check(body, base_files, head_files, labels, commits)
     for line in notes:
         print("issue-reproducers: " + line)
     for e in errors:
