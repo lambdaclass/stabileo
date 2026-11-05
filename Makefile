@@ -234,7 +234,7 @@ GATE_TIMED_IGNORED = test(=element::solid_shell::tests::test_centroid_stress_tim
 GATE_CERTIFICATES = test(/^certify::/) + test(/^properties_2d::/) + test(/^properties_3d::/)
 # Metamorphic tests run apart, in release: unoptimised they outlast a suite shard.
 GATE_RELEASE_BINARIES = metamorphic
-SUITE_FILTER = all() - test(harmonic_phase_breakdown) - test(harmonic_modal_vs_direct_timing) - (binary(gates) & (test(/^perf_regression_advanced::/) + test(/^perf_regression_gates::/))) - ($(GATE_SHELL_BENCH)) - ($(GATE_SHELL_ACCEPTANCE)) - $(GATE_CONSTRAINT_BENCH) - (binary(gates) & (test(/^sparse_shell_gates::/) + test(/^solver_invariants::/) + test(/^solver_ci_coverage::/) + test(/^conditioning_adversarial::/) + test(/^kfull_overbuild_gates::/) + test(/^acceptance::/))) - (binary(certificates) & ($(GATE_CERTIFICATES))) $(foreach b,$(GATE_RELEASE_BINARIES),- binary($(b)) )
+SUITE_FILTER = all() - test(harmonic_phase_breakdown) - test(harmonic_modal_vs_direct_timing) - (binary(gates) & (test(/^perf_regression_advanced::/) + test(/^perf_regression_gates::/))) - ($(GATE_SHELL_BENCH)) - ($(GATE_SHELL_ACCEPTANCE)) - $(GATE_CONSTRAINT_BENCH) - (binary(gates) & (test(/^sparse_shell_gates::/) + test(/^solver_invariants::/) + test(/^solver_ci_coverage::/) + test(/^conditioning_adversarial::/) + test(/^kfull_overbuild_gates::/) + test(/^acceptance::/))) - (binary(certificates) & ($(GATE_CERTIFICATES))) - binary(differential) $(foreach b,$(GATE_RELEASE_BINARIES),- binary($(b)) )
 NEXTEST = cd engine && $(NIX_RUN) cargo nextest run --profile ci
 
 lint.engine:

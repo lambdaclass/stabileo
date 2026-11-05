@@ -45,7 +45,7 @@ gates and suite shards, the end-to-end smoke shards and determinism, all in para
 | `engine-metamorphic` | ci.yml Engine Metamorphic | metamorphic tests, sampled tier |
 | `e2e-smoke` | ci.yml E2E | Playwright smoke suite |
 | `determinism` | ci.yml Determinism | WASM bit-identical in Node and three browsers |
-| `differential-quick` | Engine Quick Checks | `make test.engine.differential.quick`: cross-method differential tests |
+| `differential-quick` | Engine Quick Checks | `make test.engine.differential.quick`: cross-method differential tests (left out of Engine Suite, so they run once) |
 | `invariance-quick` | ci.yml Engine Metamorphic | `make test.engine.invariance.quick BASE=HEAD^1`: invariance of the analyses the change touches, on the release build that job already has |
 | `mechanism-fuzz-quick` | Engine Quick Checks | `make test.engine.mechanism-fuzz.quick` |
 | `issue-reproducers` | Engine Quick Checks | `make test.engine.reproducers`: every expected-failure reproducer still fails ([WORKFLOW.md](WORKFLOW.md), "Wrong-result reproducers") |
