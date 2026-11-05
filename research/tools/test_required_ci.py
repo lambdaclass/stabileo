@@ -45,7 +45,7 @@ for job, tests in {
     'isolation': ['test_asset_identity.py', 'test_docker_context.py'],
     'catalog': ['test_grossman_catalog.py'],
 }.items():
-    assert research['jobs'][job]['if'] == "${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name != 'pull_request') }}"
+    assert research['jobs'][job]['if'] == "${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name == 'schedule') }}"
     commands = [step.get('run', '') for step in research['jobs'][job]['steps']]
     for test in tests:
         assert any(f'-I research/tools/{test}' in command for command in commands), (job, test)
@@ -161,7 +161,7 @@ assert set(triggers['pull_request']['paths']) == {
     'research/**', 'web/src/components/research/**', '.github/workflows/research.yml'}
 for name, job in research['jobs'].items():
     if name != 'catalog-online':
-        assert "github.workflow != 'Research' || github.event_name != 'pull_request'" in job['if'], name
+        assert "github.workflow != 'Research' || github.event_name == 'schedule'" in job['if'], name
 script = jobs['ci-ok']['steps'][0]['run']
 for result, expected in [('success', 0), ('skipped', 0), ('failure', 1), ('cancelled', 1)]:
     run = subprocess.run(['sh', '-c', script], env={'RESULTS': f'success skipped {result}'}, capture_output=True)
@@ -169,7 +169,7 @@ for result, expected in [('success', 0), ('skipped', 0), ('failure', 1), ('cance
 print('ok required research CI propagates failures and accepts skipped jobs')
 
 koiter = research["jobs"]["koiter"]
-assert koiter["runs-on"].endswith("|| 'ubuntu-24.04' }}") and koiter["if"] == "${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name != 'pull_request') }}"
+assert koiter["runs-on"].endswith("|| 'ubuntu-24.04' }}") and koiter["if"] == "${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name == 'schedule') }}"
 assert any("cargo test --release --locked" in step.get("run", "") for step in koiter["steps"])
 
 assert set(triggers['pull_request']['paths']) == {'research/**', 'web/src/components/research/**', '.github/workflows/research.yml'}
@@ -178,7 +178,8 @@ for caller, event, route_only, expected in [
     ('CI', 'pull_request', False, set(research['jobs']) - {'catalog-online'}),
     ('CI', 'merge_group', False, set(research['jobs']) - {'catalog-online'}),
     ('CI', 'pull_request', True, {'route-size'}),
-    ('Research', 'push', False, set(research['jobs'])),
+    ('Research', 'push', False, {'catalog-online'}),
+    ('CI', 'push', False, set(research['jobs']) - {'catalog-online'}),
     ('Research', 'schedule', False, set(research['jobs'])),
 ]:
     selected = set()
