@@ -127,6 +127,12 @@ const body: PostBody = {
           "Bir sonraki sürümde düzeltildi"
         ],
         [
+          "SA-2026-044",
+          "2B plastik göçme: göçme katsayısı düğüm numaralandırması, çubuk yönü ve birimlerle değişiyordu (aynı yapıda 4,6 kata kadar)",
+          "Yüksek",
+          "Bir sonraki sürümde düzeltildi"
+        ],
+        [
           "SA-2026-037",
           "3B eşdönel analiz: dönme vektörleri çıkarılıyordu (Bathe–Bolourchi eğrisi %1,3 sapmalı, ağ sıklaştırmayla düzelmiyordu)",
           "Orta",

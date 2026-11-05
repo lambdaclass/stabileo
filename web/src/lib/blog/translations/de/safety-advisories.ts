@@ -127,6 +127,12 @@ const body: PostBody = {
           "Behoben in der nächsten Version"
         ],
         [
+          "SA-2026-044",
+          "2D-Plastischer Kollaps: Der Kollapsfaktor änderte sich mit Knotennummerierung, Stabrichtung und Einheiten (bis zum 4,6-Fachen bei derselben Struktur)",
+          "Hoch",
+          "Behoben in der nächsten Version"
+        ],
+        [
           "SA-2026-037",
           "Korotationale 3D-Analyse: Rotationsvektoren wurden subtrahiert (der Bathe–Bolourchi-Bogen 1,3 % daneben, ohne Besserung bei Netzverfeinerung)",
           "Mittel",

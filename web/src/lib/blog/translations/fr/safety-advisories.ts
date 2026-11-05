@@ -127,6 +127,12 @@ const body: PostBody = {
           "Corrigé dans la prochaine version"
         ],
         [
+          "SA-2026-044",
+          "Effondrement plastique 2D : le facteur d'effondrement changeait avec la numérotation des nœuds, le sens des barres et les unités (jusqu'à 4,6 fois sur la même structure)",
+          "Élevée",
+          "Corrigé dans la prochaine version"
+        ],
+        [
           "SA-2026-037",
           "Analyse corotationnelle 3D : les vecteurs de rotation étaient soustraits (le coude de Bathe–Bolourchi à 1,3 %, sans amélioration au raffinement)",
           "Moyenne",
