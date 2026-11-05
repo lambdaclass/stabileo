@@ -3926,6 +3926,7 @@ const es: Record<string, string> = {
   'diag.elements': 'Barras',
   "knownIssue.exportHeading": "Advertencias de seguridad",
   "knownIssue.NUM-INVARIANCE": "Los modelos casi singulares pueden cambiar de precisión o clasificación al cambiar unidades u orientación. Los diagnósticos de condicionamiento o estabilidad indican una resolución casi singular; verificá independientemente la estabilidad antes de diseñar.",
+  "knownIssue.ORPHAN-SOFT-ROTATION": "Un giro de nudo con rigidez real pero muy pequeña frente al giro más rígido del modelo quedó retenido por un resorte artificial, así que ese giro y los esfuerzos que transmite pueden ser mucho menores que los reales. No uses este resultado para diseño hasta que desaparezca esta advertencia.",
   "knownIssue.CERT-MECHANISM": "Un certificado a nivel del sistema ensamblado puede certificar una rotación artificial o sin rigidez. Verificá los mecanismos de forma independiente; una cota de error algebraico pequeña no demuestra la estabilidad estructural.",
   "knownIssue.BU-SPAN-COMPRESSION": "El pandeo 3D puede omitir compresión entre extremos bajo cargas de barra. Verificá la distribución axial y el factor de pandeo.",
   "knownIssue.PD-SPAN-AXIAL": "P-Delta arma la rigidez geométrica de cada barra con su esfuerzo axial medio, así que una compresión que varía a lo largo de la barra por cargas axiales en el tramo puede subestimar la amplificación de segundo orden. Subdividí las barras cargadas y verificá que los resultados converjan.",

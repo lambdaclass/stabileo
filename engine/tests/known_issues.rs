@@ -1652,3 +1652,53 @@ fn round_off_compression_beside_a_compressed_column_adds_no_buckling_mode() {
     }
 }
 
+
+fn soft_rotation_beside_a_stiff_member(soft_inertia: f64) -> SolverInput3D {
+    common::make_3d_input(
+        vec![(1, 0.0, 0.0, 0.0), (2, 1.0, 0.0, 0.0), (3, 0.0, 5.0, 0.0), (4, 1.0, 5.0, 0.0), (5, 0.0, 5.0, 1.0)],
+        vec![(1, E, 0.3)],
+        vec![(1, 0.01, soft_inertia, soft_inertia, soft_inertia), (2, 1.0, 1e3, 1e3, 1e3)],
+        vec![(1, "frame", 1, 2, 1, 1), (2, "frame", 3, 4, 1, 2), (3, "truss", 4, 5, 1, 1)],
+        vec![(1, vec![true; 6]), (3, vec![true; 6]), (5, vec![true, true, true, false, false, false])],
+        vec![SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: 2, fx: 0.0, fy: 0.0, fz: -1e-3, mx: 0.0, my: 0.0, mz: 0.0, bw: None })],
+    )
+}
+
+#[test]
+fn a_soft_rotation_held_by_the_orphan_spring_is_warned_1367() {
+    let soft = dedaliano_engine::solver::linear::solve_3d(&soft_rotation_beside_a_stiff_member(1e-10)).unwrap();
+    let theta = soft.displacements.iter().find(|d| d.node_id == 2).unwrap().ry.abs();
+    assert!(theta < 0.025 * 1e-3, "the orphan spring locks the tip rotation: {theta}");
+    assert!(ids(&soft.structured_diagnostics).contains(&"ORPHAN-SOFT-ROTATION".to_string()), "{:?}", ids(&soft.structured_diagnostics));
+    let held = dedaliano_engine::solver::linear::solve_3d(&soft_rotation_beside_a_stiff_member(1e-4)).unwrap();
+    let theta = held.displacements.iter().find(|d| d.node_id == 2).unwrap().ry.abs();
+    assert!((theta - 1e-3 / (2.0 * E * 1000.0 * 1e-4)).abs() < 1e-9 * theta.max(1e-12) + 1e-15, "{theta}");
+    assert!(!ids(&held.structured_diagnostics).contains(&"ORPHAN-SOFT-ROTATION".to_string()), "{:?}", ids(&held.structured_diagnostics));
+}
+
+fn soft_rotation_beside_a_stiff_member_2d(soft_inertia: f64) -> SolverInput {
+    common::make_input(
+        vec![(1, 0.0, 0.0), (2, 1.0, 0.0), (3, 0.0, 5.0), (4, 1.0, 5.0)],
+        vec![(1, E, 0.3)],
+        vec![(1, 0.01, soft_inertia), (2, 1.0, 1e3)],
+        vec![(1, "frame", 1, 2, 1, 1, false, false), (2, "frame", 3, 4, 1, 2, false, false)],
+        vec![(1, 1, "fixed"), (2, 3, "fixed")],
+        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: -1e-3, my: 0.0 })],
+    )
+}
+
+#[test]
+fn a_soft_rotation_held_by_the_orphan_spring_is_warned_in_2d_1367() {
+    let soft = solve_2d(&soft_rotation_beside_a_stiff_member_2d(1e-10)).unwrap();
+    let theta = soft.displacements.iter().find(|d| d.node_id == 2).unwrap().ry.abs();
+    assert!(theta < 0.025 * 1e-3, "the orphan spring locks the tip rotation: {theta}");
+    assert!(ids(&soft.structured_diagnostics).contains(&"ORPHAN-SOFT-ROTATION".to_string()), "{:?}", ids(&soft.structured_diagnostics));
+    let held = solve_2d(&soft_rotation_beside_a_stiff_member_2d(1e-4)).unwrap();
+    let theta = held.displacements.iter().find(|d| d.node_id == 2).unwrap().ry.abs();
+    assert!((theta - 1e-3 / (2.0 * E * 1000.0 * 1e-4)).abs() < 1e-9 * theta, "{theta}");
+    assert!(!ids(&held.structured_diagnostics).contains(&"ORPHAN-SOFT-ROTATION".to_string()), "{:?}", ids(&held.structured_diagnostics));
+    let mut hinged = soft_rotation_beside_a_stiff_member_2d(1e-4);
+    for e in hinged.elements.values_mut().filter(|e| e.id == 1) { e.hinge_end = true; }
+    let hinged = solve_2d(&hinged).unwrap();
+    assert!(!ids(&hinged.structured_diagnostics).contains(&"ORPHAN-SOFT-ROTATION".to_string()), "{:?}", ids(&hinged.structured_diagnostics));
+}
