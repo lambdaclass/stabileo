@@ -1,8 +1,40 @@
 {
   "$comment": "Registry of result-affecting changes. Read by web/scripts/result-change-metadata.mjs for build metadata and decoded by web/src/lib/provenance/full-registry.ts; schema and rules in docs/verification/PROVENANCE.md. Add an entry whenever a change makes the same saved model give different numbers, at currentResultsVersion + 1, and bump currentResultsVersion: a version on main is deployed, and an entry added to it later is never shown to the projects it stamped (results-version.test.ts). Feature ids are defined in web/src/lib/provenance/model-features.ts.",
   "schema": 1,
-  "currentResultsVersion": 36,
+  "currentResultsVersion": 37,
   "changes": [
+    {
+      "id": "examples-torsion-and-cantilever-small-rotations",
+      "resultsVersion": 37,
+      "date": "2026-11-05",
+      "prs": [],
+      "area": "analysis",
+      "scope": "examples",
+      "examples": [
+        "3d-torsion-beam",
+        "3d-cantilever-load"
+      ],
+      "title": {
+        "en": "The 3D torsion beam and biaxial cantilever examples stay within small rotations",
+        "es": "Los ejemplos 3D de viga a torsión y voladizo biaxial quedan dentro de los giros pequeños",
+        "pt": "Os exemplos 3D de viga à torção e balanço biaxial ficam dentro das rotações pequenas",
+        "de": "Die 3D-Beispiele Torsionsträger und zweiachsiger Kragarm bleiben im Bereich kleiner Verdrehungen",
+        "fr": "Les exemples 3D de poutre en torsion et de console biaxiale restent dans les petites rotations",
+        "tr": "3B burulma kirişi ve iki eksenli konsol örnekleri küçük dönmeler içinde kalıyor"
+      },
+      "explanation": {
+        "en": "Only the bundled examples changed; a saved model gives the same numbers as before. The torsion beam twisted 0.45 rad under its 8 kN·m torque on an open IPN 300, outside linear analysis (#1446): it now uses a closed SHS 140×140×8 (IRAM-IAS table: J 1813.95 cm⁴), the usual answer to torsion, and twists 0.011 rad. The biaxial cantilever twisted 0.42 rad and deflected 100 mm (span/30) at its 3 m tip: its torque is now 0.5 kN·m (20 kN at 25 mm eccentricity) and its tip loads Fy 1 kN and Fz 20 kN, so it twists 0.042 rad and deflects 10 mm (span/300).",
+        "es": "Sólo cambiaron los ejemplos incluidos; un modelo guardado da los mismos números que antes. La viga a torsión giraba 0,45 rad bajo su torsor de 8 kN·m sobre un IPN 300 abierto, fuera del análisis lineal (#1446): ahora usa un tubo cerrado SHS 140×140×8 (tabla IRAM-IAS: J 1813,95 cm⁴), la respuesta habitual a la torsión, y gira 0,011 rad. El voladizo biaxial giraba 0,42 rad y se desplazaba 100 mm (luz/30) en su extremo de 3 m: su torsor ahora es 0,5 kN·m (20 kN con 25 mm de excentricidad) y sus cargas de extremo Fy 1 kN y Fz 20 kN, de modo que gira 0,042 rad y se desplaza 10 mm (luz/300).",
+        "pt": "Só os exemplos incluídos mudaram; um modelo salvo dá os mesmos números de antes. A viga à torção girava 0,45 rad sob seu momento torçor de 8 kN·m num IPN 300 aberto, fora da análise linear (#1446): agora usa um tubo fechado SHS 140×140×8 (tabela IRAM-IAS: J 1813,95 cm⁴), a resposta habitual à torção, e gira 0,011 rad. O balanço biaxial girava 0,42 rad e se deslocava 100 mm (vão/30) na ponta de 3 m: seu torçor agora é 0,5 kN·m (20 kN com 25 mm de excentricidade) e suas cargas de ponta Fy 1 kN e Fz 20 kN, de modo que gira 0,042 rad e se desloca 10 mm (vão/300).",
+        "de": "Nur die mitgelieferten Beispiele haben sich geändert; ein gespeichertes Modell liefert dieselben Zahlen wie zuvor. Der Torsionsträger verdrehte sich unter seinem Torsionsmoment von 8 kN·m an einem offenen IPN 300 um 0,45 rad, außerhalb der linearen Analyse (#1446): er verwendet jetzt ein geschlossenes SHS 140×140×8 (IRAM-IAS-Tabelle: J 1813,95 cm⁴), die übliche Antwort auf Torsion, und verdreht sich um 0,011 rad. Der zweiachsige Kragarm verdrehte sich um 0,42 rad und verschob sich an seinem 3 m langen Ende um 100 mm (Spannweite/30): sein Torsionsmoment beträgt jetzt 0,5 kN·m (20 kN mit 25 mm Exzentrizität) und seine Endlasten Fy 1 kN und Fz 20 kN, sodass er sich um 0,042 rad verdreht und um 10 mm verschiebt (Spannweite/300).",
+        "fr": "Seuls les exemples fournis ont changé ; un modèle enregistré donne les mêmes chiffres qu’avant. La poutre en torsion tournait de 0,45 rad sous son couple de 8 kN·m sur un IPN 300 ouvert, hors de l’analyse linéaire (#1446) : elle utilise désormais un tube fermé SHS 140×140×8 (tableau IRAM-IAS : J 1813,95 cm⁴), la réponse habituelle à la torsion, et tourne de 0,011 rad. La console biaxiale tournait de 0,42 rad et se déplaçait de 100 mm (portée/30) à son extrémité de 3 m : son couple est désormais de 0,5 kN·m (20 kN avec 25 mm d’excentricité) et ses charges d’extrémité Fy 1 kN et Fz 20 kN, de sorte qu’elle tourne de 0,042 rad et se déplace de 10 mm (portée/300).",
+        "tr": "Yalnızca uygulamayla gelen örnekler değişti; kaydedilmiş bir model öncekiyle aynı sayıları verir. Burulma kirişi, açık bir IPN 300 üzerindeki 8 kN·m burulma momenti altında 0,45 rad dönüyordu, doğrusal analizin dışında (#1446): artık burulmaya karşı olağan çözüm olan kapalı bir SHS 140×140×8 kesiti kullanıyor (IRAM-IAS tablosu: J 1813,95 cm⁴) ve 0,011 rad dönüyor. İki eksenli konsol 3 m'lik ucunda 0,42 rad dönüyor ve 100 mm (açıklık/30) yer değiştiriyordu: burulma momenti artık 0,5 kN·m (25 mm eksantrisiteyle 20 kN), uç yükleri Fy 1 kN ve Fz 20 kN, böylece 0,042 rad dönüyor ve 10 mm (açıklık/300) yer değiştiriyor."
+      },
+      "changelog": {
+        "file": "changelog.d/1446-examples-small-rotations.md",
+        "heading": "The 3D torsion beam and biaxial cantilever examples stay within small rotations (2026-11-05)"
+      }
+    },
     {
       "id": "linear-small-displacement-warning",
       "resultsVersion": 36,
