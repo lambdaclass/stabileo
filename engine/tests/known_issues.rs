@@ -1094,6 +1094,32 @@ fn a_highly_stressed_quad_does_not_mask_membrane_bending_in_another() {
     MembraneBendingGuard::new(&input).check(&[], &stretched).unwrap();
 }
 
+fn guard_on_one_distorted_quad(loads: &[SolverLoad3D], field: impl Fn(f64, f64) -> (f64, f64)) -> Result<(), String> {
+    let (input, mut result) = two_distorted_quads(0.0, 0.0, 0.0);
+    result.displacements = input.nodes.values().map(|n| {
+        let (ux, uy) = if n.x < 50.0 { field(n.x, n.y) } else { (0.0, 0.0) };
+        Displacement3D { node_id: n.id, ux, uy, uz: 0.0, rx: 0.0, ry: 0.0, rz: 0.0, warping: None }
+    }).collect();
+    dedaliano_engine::known_issues::MembraneBendingGuard::new(&input).check(loads, &result)
+}
+
+#[test]
+fn uniform_stress_rigid_rotation_or_free_expansion_do_not_mask_membrane_bending() {
+    let bend = |x: f64, y: f64| (1e-10 * x * y, 0.0);
+    assert!(guard_on_one_distorted_quad(&[], bend).is_err());
+    for stretch in [1e-3, 1e-2] {
+        assert!(guard_on_one_distorted_quad(&[], |x, y| (1e-10 * x * y + stretch * x, 0.0)).is_err(), "stretch {stretch}");
+        guard_on_one_distorted_quad(&[], |x, _| (stretch * x, 0.0)).unwrap();
+    }
+    for theta in [1e-3, 1.0] {
+        assert!(guard_on_one_distorted_quad(&[], |x, y| (1e-10 * x * y - theta * y, theta * x)).is_err(), "rotation {theta}");
+        guard_on_one_distorted_quad(&[], |x, y| (-theta * y, theta * x)).unwrap();
+    }
+    let heat = [SolverLoad3D::QuadThermal(SolverPlateThermalLoad { element_id: 1, dt_uniform: 20.0, dt_gradient: 0.0, alpha: Some(1e-5) })];
+    guard_on_one_distorted_quad(&heat, |x, y| (2e-4 * x, 2e-4 * y)).unwrap();
+    assert!(guard_on_one_distorted_quad(&heat, |x, y| (2e-4 * x + 1e-10 * x * y, 2e-4 * y)).is_err());
+}
+
 #[test]
 fn a_staged_analysis_is_judged_by_the_shells_its_stages_activate() {
     use dedaliano_engine::solver::staged::solve_staged_3d;
