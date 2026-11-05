@@ -114,6 +114,8 @@ export interface GravityLayout {
   widthColour: Map<number, number>;
   /** The loaded panels, by `GravityPiece.panel`: their outline in plan, their level, and whether a roof. */
   panels: Array<{ polygon: Array<[number, number]>; z: number; roof: boolean }>;
+  /** Members whose area load all comes from one side of their axis, ascending; its torque is in no load. */
+  oneSided: number[];
   notes: EngineMessage[];
 }
 
@@ -142,7 +144,13 @@ function planArea(pts: Array<{ x: number; y: number }>): number {
 export function gravityLayout(model: GravityModel, opts: GravityOptions): GravityLayout {
   const out: GravityLayout = {
     pieces: [], points: [], areaOf: new Map(), roofAreaOf: new Map(), widthMembers: [], shellQuads: [], areaByLevel: new Map(),
-    roof: new Set(), roofQuads: new Set(), zOf: new Map(), panelColour: [], widthColour: new Map(), panels: [], notes: [],
+    roof: new Set(), roofQuads: new Set(), zOf: new Map(), panelColour: [], widthColour: new Map(), panels: [], oneSided: [], notes: [],
+  };
+  const sidesOf = new Map<number, Set<number>>();
+  const addSides = (id: number, sides: Iterable<number> | undefined) => {
+    if (!sides) return;
+    const set = sidesOf.get(id) ?? sidesOf.set(id, new Set()).get(id)!;
+    for (const s of sides) set.add(s);
   };
   const width = (id: number, length: number, horizontalLength: number) => {
     out.widthMembers.push({ elementId: id, length, horizontalLength });
@@ -261,10 +269,16 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
   }
   const coverAbove = coverage(model, out.zOf, panelsAt);
   const covered = (pt: [number, number], zTop: number) => Number.isFinite(coverAbove(pt, zTop));
+  const panelSides = new Map<number, Set<number>>();
+  for (const { res } of levels.values()) for (const pn of res.panels) for (const [id, sides] of pn.own?.sides ?? []) {
+    const set = panelSides.get(id) ?? panelSides.set(id, new Set()).get(id)!;
+    for (const s of sides) set.add(s);
+  }
   if (opts.mode === 'width') levels.clear();
   const deck = opts.loadEveryPanel ? null : notADeck(model, carriers, coverAbove, opts.tributaryWidth, opts.mode === 'panels');
   const deckless = (poly: Array<[number, number]>, z: number) => (deck ? deck.why(poly, z) : null);
   const fringeRoof = new Map<number, WidthSpan[]>();
+  const fringeSides = new Map<number, Set<number>>();
   let byWidth = 0, unresolved = 0, partly = 0, lowPanels = 0, widePanels = 0, unclear = 0, unclearRoof = 0, fringes = 0;
   const segment = (id: number): Segment => {
     const e = model.elements.get(id)!;
@@ -339,6 +353,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
         });
         if (spans.length === 0) { droppedMembers.add(e.id); continue; }
         fringeRoof.set(e.id, spans);
+        fringeSides.set(e.id, loadedSides(kept, axis));
         held.kept.push({ region: kept, z });
         fringes++;
         continue;
@@ -396,6 +411,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
         const moved = regionToBeams(model, region, [...one.perBeam.keys()]);
         for (const pc of moved.pieces) {
           out.pieces.push({ ...pc, roof, panel: index });
+          addSides(pc.elementId, one.sides.get(pc.elementId));
           const a = pc.wI * (pc.b - pc.a);
           addArea(out.roofAreaOf, pc.elementId, a);
           out.roof.add(pc.elementId);
@@ -411,6 +427,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
         continue;
       }
       for (const l of one.loads) {
+        addSides(l.elementId, one.sides.get(l.elementId));
         out.pieces.push({ elementId: l.elementId, ...(l.a !== undefined ? { a: l.a, b: l.b } : {}), wI: l.qI * share, wJ: l.qJ * share, roof, panel: index });
       }
       for (const n of one.nodal) {
@@ -434,7 +451,9 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
   for (const m of out.widthMembers) {
     const spans = fringeRoof.get(m.elementId);
     if (spans) m.spans = spans;
+    addSides(m.elementId, spans ? fringeSides.get(m.elementId) : opts.mode === 'width' ? panelSides.get(m.elementId) : undefined);
   }
+  out.oneSided = [...sidesOf].filter(([, s]) => s.size === 1).map(([id]) => id).sort((a, b) => a - b);
   if (out.widthMembers.length < beforeDepth) {
     out.notes.push(msg('loadPlan.gravity.membersLowHeadroom', { n: beforeDepth - out.widthMembers.length, h: MIN_STOREY_HEADROOM }));
   }
@@ -694,6 +713,23 @@ function lowRange(d0: number, d1: number, lo: number, hi: number): [number, numb
     if (f0 > 0) t1 = Math.min(t1, t); else t0 = Math.max(t0, t);
   }
   return t1 > t0 ? [t0, t1] : null;
+}
+
+function loadedSides(r: Region, axis: Axis): Set<number> {
+  const area = { 1: 0, [-1]: 0 } as Record<number, number>;
+  const local = (q: [number, number]): [number, number] => {
+    const dx = q[0] - axis.p[0], dy = q[1] - axis.p[1];
+    return [dx * axis.u[0] + dy * axis.u[1], dy * axis.u[0] - dx * axis.u[1]];
+  };
+  for (const poly of r) poly.forEach((ring, k) => {
+    const pts = openRing(ring).map(local);
+    for (const side of [1, -1]) {
+      const part = clipToBox(pts, side > 0 ? { x0: -1e9, y0: 0, x1: 1e9, y1: 1e9 } : { x0: -1e9, y0: -1e9, x1: 1e9, y1: 0 });
+      if (part.length >= 3) area[side]! += (k === 0 ? 1 : -1) * Math.abs(signedArea(part));
+    }
+  });
+  const total = area[1]! + area[-1]!;
+  return new Set([1, -1].filter((side) => area[side]! > 0.01 * total));
 }
 
 /** A region cut on a grid of `cells` × `cells` over its bounding box: each piece's area (holes taken away) and centroid. */

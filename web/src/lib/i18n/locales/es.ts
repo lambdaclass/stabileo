@@ -7685,6 +7685,7 @@ const es: Record<string, string> = {
   'loadPlan.derivation.seismicSnow': 'Nieve en el peso sísmico y la combinación (INPRES-CIRSOC 103 [3.15], [3.16]): f2 = {f2}, nieve balanceada de cubierta {snow} kN, {added} kN sumados a los niveles.',
   'loadPlan.derivation.combinationCount': '{count} combinación(es) generadas.',
   'loadPlan.assumption.selfWeightSkipped': '{count} barra(s) sin sección o densidad válida quedaron fuera del peso propio.',
+  'loadPlan.assumption.oneSidedTorsion': 'No se incluye la torsión por carga de losa de un solo lado: la carga de losa de {n} barra(s) llega de un solo lado de la barra y se aplica sobre su eje, sin el momento torsor de su excentricidad. Verificá a torsión estas vigas de borde: {ids}.',
   'loadPlan.assumption.shellWeightSkipped': "{count} placa(s) sin espesor o densidad válida quedaron fuera del peso propio.",
   'loadPlan.assumption.liveParticipation': 'La fracción de sobrecarga incluida en el peso sísmico se adoptó como {fraction}. Depende del destino de la construcción y el proyecto no la indica.',
   'loadPlan.disposition.created': 'El plan creará el caso {caseType}.',

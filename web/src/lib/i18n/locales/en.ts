@@ -7692,6 +7692,7 @@ const en: Record<string, string> = {
   'loadPlan.derivation.seismicSnow': 'Snow in the seismic weight and combination (INPRES-CIRSOC 103 [3.15], [3.16]): f2 = {f2}, balanced roof snow {snow} kN, {added} kN added to the levels.',
   'loadPlan.derivation.combinationCount': '{count} combination(s) generated.',
   'loadPlan.assumption.selfWeightSkipped': '{count} member(s) without a valid section or density were left out of the self-weight.',
+  'loadPlan.assumption.oneSidedTorsion': 'Torsion from one-sided slab load is not included: the slab load of {n} member(s) comes from one side of the member only and is applied on its axis, without the torque of its eccentricity. Check these edge beams for torsion: {ids}.',
   'loadPlan.assumption.shellWeightSkipped': "{count} shell(s) without a valid thickness or density were left out of the self-weight.",
   'loadPlan.assumption.liveParticipation': 'The fraction of the live load included in the seismic weight was taken as {fraction}. It depends on the building\'s occupancy, and the project does not state it.',
   'loadPlan.disposition.created': 'Case {caseType} will be created by the plan.',

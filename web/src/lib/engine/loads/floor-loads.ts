@@ -107,7 +107,7 @@ export interface FloorPanel {
    * takes panels one by one (`plan-gravity.ts`). An opening's ring is a panel of its own, so the
    * ring's area is in its own part, never in the part of the panel around it.
    */
-  own?: { loads: FloorMemberLoad[]; nodal: FloorLoadResult['nodal']; perBeam: Map<number, number>; area: number };
+  own?: { loads: FloorMemberLoad[]; nodal: FloorLoadResult['nodal']; perBeam: Map<number, number>; area: number; sides: Map<number, Set<1 | -1>> };
   reason?: 'crossing' | 'zoneAcrossSpan' | 'unresolved';
 }
 
@@ -188,7 +188,7 @@ export function floorLoad(input: FloorLoadInput): FloorLoadResult {
   const spanDir = ((): P2 => { const d = plane ? [dot3(spanAxis, plane.e1), dot3(spanAxis, plane.e2)] : [spanAxis[0], spanAxis[1]]; const l = Math.hypot(d[0]!, d[1]!); return [d[0]! / l, d[1]! / l]; })();
   const beamById = new Map(beams.map((b) => [b.id, b]));
   /** Pieces of load per member, each with the panel it comes from. */
-  const raw = new Map<number, Array<{ a: number; b: number; qa: number; qb: number; len: number; panel: number }>>();
+  const raw = new Map<number, Array<{ a: number; b: number; qa: number; qb: number; len: number; panel: number; side: 1 | -1 }>>();
   /** The panel each nodal load comes from. */
   const nodalPanel: number[] = [];
 
@@ -351,7 +351,7 @@ export function floorLoad(input: FloorLoadInput): FloorLoadResult {
     });
     if (carried <= 1e-12) return;
     panel.loaded = true;
-    panel.own = { loads: [], nodal: res.nodal.filter((_, i) => nodalPanel[i] === k), perBeam: new Map(), area: carried };
+    panel.own = { loads: [], nodal: res.nodal.filter((_, i) => nodalPanel[i] === k), perBeam: new Map(), area: carried, sides: new Map() };
     res.loadedArea += carried;
   });
 
@@ -365,12 +365,12 @@ export function floorLoad(input: FloorLoadInput): FloorLoadResult {
       // Along the member, from node I.
       const [a, b, qa, qb] = seg.forward ? [s0 - seg.s0, s1 - seg.s0, q0, q1] : [seg.s1 - s1, seg.s1 - s0, q1, q0];
       if (Math.abs(qa) < 1e-12 && Math.abs(qb) < 1e-12) continue;
-      addLoad(seg.elementId, a, b, qa, qb, len, panel);
+      addLoad(seg.elementId, a, b, qa, qb, len, panel, seg.forward ? 1 : -1);
     }
   }
 
-  function addLoad(elementId: number, a: number, b: number, qa: number, qb: number, len: number, panel: number) {
-    (raw.get(elementId) ?? raw.set(elementId, []).get(elementId)!).push({ a, b, qa, qb, len, panel });
+  function addLoad(elementId: number, a: number, b: number, qa: number, qb: number, len: number, panel: number, side: 1 | -1) {
+    (raw.get(elementId) ?? raw.set(elementId, []).get(elementId)!).push({ a, b, qa, qb, len, panel, side });
   }
 
   /** A member's pieces as loads in its local axes, and the kN they add up to. */
@@ -417,6 +417,7 @@ export function floorLoad(input: FloorLoadInput): FloorLoadResult {
       const { loads, total } = asLoads(elementId, mine);
       panel.own.loads.push(...loads);
       panel.own.perBeam.set(elementId, total);
+      panel.own.sides.set(elementId, new Set(mine.map((p) => p.side)));
     }
   });
   return res;
