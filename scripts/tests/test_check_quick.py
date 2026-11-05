@@ -8,13 +8,16 @@ import unittest
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def plan(*paths):
+def plan(*paths, built=False):
     with tempfile.TemporaryDirectory() as directory:
         repo = Path(directory)
         git = lambda *args: subprocess.run(['git', '-C', directory, *args], check=True, capture_output=True)
         git('init', '-q')
         (repo / 'scripts').mkdir()
         shutil.copy(ROOT / 'scripts/check-quick.sh', repo / 'scripts/check-quick.sh')
+        if built:
+            (repo / 'web/src/lib/wasm').mkdir(parents=True)
+            (repo / 'web/src/lib/wasm/dedaliano_engine.d.ts').write_text('')
         git('add', '.')
         git('-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', 'base')
         for path in paths:
@@ -47,6 +50,12 @@ class CheckQuick(unittest.TestCase):
         out = plan('web/src/x.ts')
         self.assertEqual(targets(out), REPO + ['typecheck.web'])
         self.assertIn('make wasm first', out)
+
+    def test_the_engine_is_rebuilt_for_a_web_change_only_when_missing_or_changed(self):
+        self.assertNotIn('make wasm', plan('web/src/x.ts', built=True))
+        self.assertIn('make wasm first', plan('web/src/x.ts', 'engine/src/lib.rs', built=True))
+        self.assertIn('make wasm first', plan('web/src/x.ts', 'Cargo.lock', built=True))
+        self.assertNotIn('make wasm', plan('engine/src/lib.rs'))
 
     def test_uncommitted_and_untracked_work_counts_and_the_related_tests_follow(self):
         out = plan('engine/src/a.rs', 'web/src/b.ts', 'ai-backend/src/c.rs')

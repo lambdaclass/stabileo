@@ -22,16 +22,21 @@ touched '^engine/' && targets+=(lint.engine)
 touched '^backend/' && targets+=(lint.backend)
 touched '^(\.github/|scripts/|tools/)' && targets+=(test.ci-scripts)
 web=0
-touched '^web/' && web=1 && targets+=(typecheck.web)
+wasm=0
+if touched '^web/'; then
+  web=1
+  targets+=(typecheck.web)
+  if touched '^(engine/|Cargo\.(toml|lock)$|rust-toolchain\.toml$)' || [ ! -f web/src/lib/wasm/dedaliano_engine.d.ts ]; then wasm=1; fi
+fi
 
 echo "check.quick: $(printf '%s\n' "$changed" | grep -c . || true) changed file(s) since $(git rev-parse --short "$base")"
 echo "check.quick: make ${targets[*]}"
-[ "$web" = 1 ] && echo "check.quick: make wasm first (a copy when the engine was built before)"
+[ "$wasm" = 1 ] && echo "check.quick: make wasm first: the engine changed or web/src/lib/wasm is missing"
 echo "check.quick: then scripts/test-changed.sh --base $base"
 [ "$dry" = 1 ] && exit 0
 
 status=0
-if [ "$web" = 1 ]; then
+if [ "$wasm" = 1 ]; then
   make wasm || status=1
 fi
 make -k -j"${CHECK_QUICK_JOBS:-4}" --output-sync=target "${targets[@]}" || status=1
