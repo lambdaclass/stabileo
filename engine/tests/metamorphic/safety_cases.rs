@@ -7,6 +7,15 @@ use crate::{
 #[test]
 #[ignore = "known wrong result: #758"]
 fn plastic_rigid_link_invariance() {
+    plastic_rigid_link_cases(false);
+}
+
+#[test]
+fn plastic_rigid_link_cases_are_refused_under_every_transform_758() {
+    plastic_rigid_link_cases(true);
+}
+
+fn plastic_rigid_link_cases(refused: bool) {
     let names = [
         "feature_matrix/2d-constraint--rigid-link--offset-beam-with",
         "fuzz_rich_2d/20840",
@@ -36,27 +45,29 @@ fn plastic_rigid_link_invariance() {
             &a,
             &invariants,
         );
-        assert_plastic_coverage(&t, &c.name, &invariants);
+        assert_plastic_coverage(&t, &c.name, &invariants, refused);
         crate::finish("safety_758", &t);
     }
 }
 
-fn assert_plastic_coverage(t: &Tally, case: &str, invariants: &[&str]) {
+fn assert_plastic_coverage(t: &Tally, case: &str, invariants: &[&str], refused: bool) {
     let cells = t.cells.lock().unwrap();
     for &inv in invariants {
         let cell = cells
             .get(&("plastic collapse".to_string(), inv.to_string()))
             .cloned()
             .unwrap_or_default();
+        let (pass, same_refusal) = if refused { (0, 1) } else { (1, 0) };
         assert!(
-            cell.same_refusal == 1
-                && cell.pass == 0
+            cell.pass == pass
+                && cell.same_refusal == same_refusal
                 && cell.refused == 0
                 && cell.unrep == 0
                 && cell.inconclusive == 0
                 && cell.ignored.is_empty()
                 && cell.fails.is_empty(),
-            "{case}: plastic collapse × {inv}: expected one comparison returning the same refusal, got {cell:?}"
+            "{case}: plastic collapse × {inv}: expected one comparison {}, got {cell:?}",
+            if refused { "returning the same refusal" } else { "agreeing" }
         );
     }
 }
@@ -65,28 +76,30 @@ fn assert_plastic_coverage(t: &Tally, case: &str, invariants: &[&str]) {
 fn plastic_coverage_rejects_missing_or_unsuccessful_comparisons() {
     use crate::tally::Verdict;
 
-    for verdict in [
-        None,
-        Some(Verdict::NotApplicable),
-        Some(Verdict::Refused("baseline refused".into())),
-        Some(Verdict::Unrepresentable("transform unavailable".into())),
-        Some(Verdict::Inconclusive(1.0)),
-        Some(Verdict::Ignored("safety #758")),
-        Some(Verdict::Fail("invariance violated".into())),
-        Some(Verdict::Pass(0.0)),
-    ] {
-        let t = Tally::default();
-        if let Some(verdict) = verdict {
-            t.record("plastic collapse", "rotation", "case", verdict);
+    for (refused, accepted, rejected) in [(false, Verdict::Pass(0.0), Verdict::SameRefusal), (true, Verdict::SameRefusal, Verdict::Pass(0.0))] {
+        for verdict in [
+            None,
+            Some(Verdict::NotApplicable),
+            Some(Verdict::Refused("baseline refused".into())),
+            Some(Verdict::Unrepresentable("transform unavailable".into())),
+            Some(Verdict::Inconclusive(1.0)),
+            Some(Verdict::Ignored("safety #758")),
+            Some(Verdict::Fail("invariance violated".into())),
+            Some(rejected),
+        ] {
+            let t = Tally::default();
+            if let Some(verdict) = verdict {
+                t.record("plastic collapse", "rotation", "case", verdict);
+            }
+            assert!(std::panic::catch_unwind(|| {
+                assert_plastic_coverage(&t, "case", &["rotation"], refused);
+            })
+            .is_err());
         }
-        assert!(std::panic::catch_unwind(|| {
-            assert_plastic_coverage(&t, "case", &["rotation"]);
-        })
-        .is_err());
+        let t = Tally::default();
+        t.record("plastic collapse", "rotation", "case", accepted);
+        assert_plastic_coverage(&t, "case", &["rotation"], refused);
     }
-    let t = Tally::default();
-    t.record("plastic collapse", "rotation", "case", Verdict::SameRefusal);
-    assert_plastic_coverage(&t, "case", &["rotation"]);
 }
 
 #[test]
