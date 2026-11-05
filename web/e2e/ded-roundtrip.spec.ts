@@ -34,14 +34,13 @@
  */
 
 import { readFileSync, writeFileSync } from 'node:fs';
-import { bootPro } from './fixtures';
+import { bootPro, rcFootingProject } from './fixtures';
 import {
   test, expect, openPreparedWorkspace, openWorkspaceFromCommandRow, readTally, readPieces,
 } from './prepared-building';
 import type { Page } from '@playwright/test';
 
-const SMALL_FIXTURE = new URL(
-  '../src/lib/export/__fixtures__/rc-footing-cad-poc.ded.json', import.meta.url).pathname;
+const SMALL_FIXTURE = rcFootingProject();
 
 /** The ribbon's Project view, where PRO keeps Open and Save. */
 async function openProjectView(page: Page) {

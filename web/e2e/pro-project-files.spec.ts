@@ -32,11 +32,10 @@
  */
 
 import { readFileSync } from 'node:fs';
-import { test, expect, openBasicProjectPanel } from './fixtures';
+import { test, expect, openBasicProjectPanel, rcFootingProject } from './fixtures';
 import type { Page } from '@playwright/test';
 
-const FIXTURE = new URL(
-  '../src/lib/export/__fixtures__/rc-footing-cad-poc.ded.json', import.meta.url).pathname;
+const FIXTURE = rcFootingProject();
 
 /** PRO is active and the Básico toolbar is not on the page. */
 async function expectProAndNoBasicToolbar(page: Page) {

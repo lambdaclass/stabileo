@@ -7,11 +7,10 @@
  * only looked at the panel.
  */
 import { readFileSync, writeFileSync } from 'node:fs';
-import { test, expect, loadModel, solveModel } from './fixtures';
+import { test, expect, loadModel, solveModel, rcFootingProject } from './fixtures';
 import type { Page } from '@playwright/test';
 
-const FIXTURE = new URL(
-  '../src/lib/export/__fixtures__/rc-footing-cad-poc.ded.json', import.meta.url).pathname;
+const FIXTURE = rcFootingProject();
 
 async function openLoads(page: Page) {
   await page.getByTestId('pr-stage-model').click();

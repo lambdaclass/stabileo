@@ -1,5 +1,9 @@
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { test as base, expect, type Page } from '@playwright/test';
+import { readRegistry } from '../scripts/result-changes/registry.mjs';
 
 /**
  * A project a spec writes stands for one made in this build: stamped as solved with it, so opening
@@ -8,9 +12,25 @@ import { test as base, expect, type Page } from '@playwright/test';
  */
 export const CURRENT_STAMP = {
   id: 'e2e-current',
-  resultsVersion: (JSON.parse(readFileSync(new URL('../src/lib/provenance/result-changes.json', import.meta.url), 'utf8')) as { currentResultsVersion: number }).currentResultsVersion,
+  resultsVersion: readRegistry().currentResultsVersion,
   analyses: [] as string[],
 };
+
+let rcFooting: string | undefined;
+
+/**
+ * The committed RC footing project (`rc-footing-cad-poc.ded.json`), restamped with this build's
+ * results version: the committed file keeps the stamp it was written with.
+ */
+export function rcFootingProject(): string {
+  if (rcFooting) return rcFooting;
+  const source = fileURLToPath(new URL('../src/lib/export/__fixtures__/rc-footing-cad-poc.ded.json', import.meta.url));
+  const project = JSON.parse(readFileSync(source, 'utf8'));
+  project.snapshot.solvedWith = { ...project.snapshot.solvedWith, resultsVersion: CURRENT_STAMP.resultsVersion };
+  rcFooting = join(mkdtempSync(join(tmpdir(), 'stabileo-e2e-')), 'rc-footing-cad-poc.ded.json');
+  writeFileSync(rcFooting, `${JSON.stringify(project, null, 2)}\n`);
+  return rcFooting;
+}
 
 
 /**

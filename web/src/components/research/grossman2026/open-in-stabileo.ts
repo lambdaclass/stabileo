@@ -14,7 +14,7 @@ import { publicI18n } from '../../../lib/i18n/store.svelte';
 import type { StripResult } from './springs';
 // Only the current results version, read as a separate module (the query keeps it from becoming
 // a chunk shared with the application, which must not grow by a byte).
-import { currentResultsVersion } from '../../../lib/provenance/result-changes.json?research-page';
+import metadata from 'virtual:result-change-metadata?research-page';
 
 export function stripCompact(strip: StripResult, label: string, stamp?: unknown) {
   if (strip.prestress_force.some((force) => force !== 0)) throw new Error(rs().springsExportDisabled);
@@ -90,7 +90,7 @@ async function payload(strip: StripResult, p: StripLabel): Promise<string> {
   // A project that carries no results, stamped with this build's results version (what the app's
   // freshStamp() gives a new project), so the editor does not present it as results solved by an
   // unknown older version. The editor solves it itself on opening.
-  const stamp = { resultsVersion: currentResultsVersion, resultsSchemaVersion: 1, analyses: [] };
+  const stamp = { resultsVersion: metadata.currentResultsVersion, resultsSchemaVersion: 1, analyses: [] };
   return (await stripShareHash(strip, stripLabel(p), stamp)).slice('#data='.length);
 }
 

@@ -2,11 +2,10 @@
  * The committed footing project, opened through the production file input. Shared by the CAD
  * handoff journeys and the design desk's footing editor.
  */
-import { expect, openBasicProjectPanel } from './fixtures';
+import { expect, openBasicProjectPanel, rcFootingProject } from './fixtures';
 import type { Page } from '@playwright/test';
 
-const FIXTURE = new URL(
-  '../src/lib/export/__fixtures__/rc-footing-cad-poc.ded.json', import.meta.url).pathname;
+const FIXTURE = rcFootingProject();
 
 /**
  * Open the committed project through the production file input.

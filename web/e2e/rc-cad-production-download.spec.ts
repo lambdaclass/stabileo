@@ -34,7 +34,7 @@
  * identity, and never the prose.
  */
 
-import { test, expect, openBasicProjectPanel, designPlace } from './fixtures';
+import { test, expect, openBasicProjectPanel, designPlace, rcFootingProject } from './fixtures';
 import type { Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 
@@ -48,8 +48,7 @@ const ADAPTER = new URL('../src/lib/engine/design/adapters/cirsoc201-adapter.ts'
 const CIRSOC_VERIFIER_ID = /export const CIRSOC_VERIFIER_ID = '([^']+)'/.exec(readFileSync(ADAPTER, 'utf8'))?.[1]
   ?? (() => { throw new Error('CIRSOC_VERIFIER_ID not found in the adapter source'); })();
 
-const FIXTURE = new URL(
-  '../src/lib/export/__fixtures__/rc-footing-cad-poc.ded.json', import.meta.url).pathname;
+const FIXTURE = rcFootingProject();
 
 /** The identity the bound regulation must produce. Derived, never a pasted literal. */
 const EXPECTED_VERIFIER = `${CIRSOC_VERIFIER_ID}.2025`;

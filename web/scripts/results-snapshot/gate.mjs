@@ -8,8 +8,8 @@
  * snapshots at the base of the pull request with the ones it brings, under the same tolerance
  * (`compare.mjs`), it fails unless the pull request also
  *
- *   - adds an entry to `web/src/lib/provenance/result-changes.json` (a change id the base does
- *     not have), and
+ *   - adds an entry to `web/src/lib/provenance/result-changes/` (a change id the base does not
+ *     have), and
  *   - adds or edits a `changelog.d/` fragment filed under `### BREAKING (results)`.
  *
  * A new snapshot file (a new corpus case) is coverage, not a result change. In an existing one,
@@ -25,9 +25,10 @@
  */
 import { pathToFileURL } from 'node:url';
 import { compareValues, formatCaseReport, parseSnapshot, FORMAT, FORMAT_ADDITIONS } from './compare.mjs';
+import { compareSources, readSourcesAt, DIR } from '../result-changes/registry.mjs';
 
 export const SNAPSHOT_DIR = 'web/results-snapshots';
-export const REGISTRY = 'web/src/lib/provenance/result-changes.json';
+export const REGISTRY = DIR;
 export const FRAGMENT_DIR = 'changelog.d';
 export const BREAKING_RESULTS = '### BREAKING (results)';
 
@@ -37,18 +38,13 @@ export function isBreakingResultsFragment(text) {
   return first?.trim() === BREAKING_RESULTS;
 }
 
-/** The change ids the head registry has and the base registry does not. */
-export function newRegistryEntries(baseRegistry, headRegistry) {
-  const before = new Set((baseRegistry?.changes ?? []).map((c) => c.id));
-  return (headRegistry?.changes ?? []).filter((c) => !before.has(c.id));
-}
-
 /**
  * The decision.
  *
  * `snapshots`: every snapshot file the pull request touched, `{ file, base, head }` with each
  * side's parsed JSON or null (added: base null; deleted: head null).
  * `fragments`: the changelog fragments it added or edited, `{ file, text }`.
+ * `baseRegistry`, `headRegistry`: each side's registry entries (`readSourcesAt`).
  */
 /**
  * Whether an added path is what a snapshot format bump began recording (`compare.mjs` FORMAT and
@@ -63,18 +59,11 @@ export function newlyRecorded(path, baseFormat, headFormat, format = FORMAT, for
 
 export function decide({ snapshots, baseRegistry, headRegistry, fragments, format = FORMAT, formatAdditions = FORMAT_ADDITIONS }) {
   const changed = [];
-  const entries = newRegistryEntries(baseRegistry, headRegistry);
-  const releasedVersion = baseRegistry?.currentResultsVersion ?? 0;
-  const invalid = entries.filter((entry) => entry.resultsVersion <= releasedVersion);
-  const lost = (baseRegistry?.changes ?? []).filter((entry) =>
-    !(headRegistry?.changes ?? []).some((candidate) => candidate.id === entry.id && candidate.resultsVersion === entry.resultsVersion));
-  if (invalid.length || lost.length || (headRegistry?.currentResultsVersion ?? 0) < releasedVersion) {
+  const { problems, added: entries } = compareSources(baseRegistry, headRegistry);
+  if (problems.length) {
     return {
       ok: false, changed,
-      report: `FAIL: results versions through ${releasedVersion} are already released. `
-        + `New entries must use a later version; preserve released entries and their versions. `
-        + `Colliding entries: ${invalid.map((entry) => entry.id).join(', ') || 'none'}. `
-        + `Missing or renumbered entries: ${lost.map((entry) => entry.id).join(', ') || 'none'}.`,
+      report: ['FAIL: the registry entries on main are released and stay as they shipped:', ...problems.map((p) => `  - ${p}`)].join('\n'),
     };
   }
   for (const s of snapshots) {
@@ -104,7 +93,7 @@ export function decide({ snapshots, baseRegistry, headRegistry, fragments, forma
     return {
       ok: true, changed,
       report: [...head,
-        `Registered: ${entries.map((e) => e.id).join(', ')} (results version ${[...new Set(entries.map((e) => e.resultsVersion))].join(', ')});`,
+        `Registered: ${entries.join(', ')} (the next results version, when this reaches main);`,
         `changelog: ${breaking.map((f) => f.file).join(', ')}.`].join('\n'),
     };
   }
@@ -112,7 +101,7 @@ export function decide({ snapshots, baseRegistry, headRegistry, fragments, forma
     ok: false, changed,
     report: [...head,
       `FAIL: a result change must be registered, and this one is not: ${missing.join('; ')}.`,
-      `Add an entry to ${REGISTRY} at currentResultsVersion + 1 (docs/verification/PROVENANCE.md, "Adding a change")`,
+      `Add an entry file to ${REGISTRY}/, without a version (${REGISTRY}/README.md),`,
       `and a ${FRAGMENT_DIR}/ fragment whose first line is "${BREAKING_RESULTS}", so the engineers whose`,
       'projects these numbers belong to are told on opening them. If the change is not deliberate, it is a regression.'].join('\n'),
   };
@@ -130,7 +119,6 @@ async function main(argv) {
   const at = (rev, path) => {
     try { return git('-C', root, 'show', `${rev}:${path}`); } catch { return null; }
   };
-  const json = (text) => (text === null ? null : JSON.parse(text));
   const snapshot = (text) => (text === null ? null : parseSnapshot(text));
   const touched = git('-C', root, 'diff', '--name-status', '--no-renames', base, 'HEAD', '--', SNAPSHOT_DIR, FRAGMENT_DIR)
     .split('\n').filter(Boolean).map((l) => { const [status, file] = l.split('\t'); return { status, file }; });
@@ -138,7 +126,7 @@ async function main(argv) {
     .map((t) => ({ file: t.file, base: snapshot(at(base, t.file)), head: snapshot(at('HEAD', t.file)) }));
   const fragments = touched.filter((t) => t.file.startsWith(`${FRAGMENT_DIR}/`) && t.status !== 'D' && t.file.endsWith('.md'))
     .map((t) => ({ file: t.file, text: at('HEAD', t.file) ?? '' }));
-  const r = decide({ snapshots, baseRegistry: json(at(base, REGISTRY)), headRegistry: json(at('HEAD', REGISTRY)), fragments });
+  const r = decide({ snapshots, baseRegistry: readSourcesAt(base, root), headRegistry: readSourcesAt('HEAD', root), fragments });
   (r.ok ? console.log : console.error)(r.report);
   return r.ok ? 0 : 1;
 }

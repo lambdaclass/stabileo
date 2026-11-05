@@ -9,7 +9,7 @@
  *
  *   same         within the results snapshot gate's tolerance (`compare.mjs`, #716);
  *   explained    every value that moved is one that an applicable registry entry declares it
- *                moves (`quantities` in `result-changes.json`). Applicable: introduced after the
+ *                moves (`quantities` in `provenance/result-changes/`). Applicable: introduced after the
  *                version that solved it, and concerning this model, the app's own assessment on
  *                open (`recheckStore.assessment`, `provenance/applicability.ts`), the same list
  *                the engineer is shown;
@@ -32,7 +32,7 @@ import { tabManager } from '../store/tabs.svelte';
 import { solveNow } from '../actions/solve';
 import { setLocale } from '../i18n';
 import type { ResultChange } from '../provenance/registry';
-import registry from '../provenance/result-changes.json';
+import declaredQuantities from 'virtual:result-change-quantities';
 import { resultValues, type Values } from './capture-results';
 // @ts-expect-error plain JavaScript shared with the results snapshot gate (no declaration file)
 import { compareValues, formatCaseReport, parseSnapshot, storeNumber } from '../../../scripts/results-snapshot/compare.mjs';
@@ -219,8 +219,7 @@ export async function openSession(text: string, opts: { beforeOpen?: (session: R
 export async function assessedChanges(): Promise<ResultChange[]> {
   await recheckStore.retry();
   if (recheckStore.loadFailed || recheckStore.pending) throw new Error('the re-check assessment did not complete');
-  const declared = new Map(registry.changes.map((c) => [c.id, (c as { quantities?: string[] }).quantities]));
-  return (recheckStore.assessment?.changes ?? []).map((c) => ({ ...c, quantities: declared.get(c.id) }));
+  return (recheckStore.assessment?.changes ?? []).map((c) => ({ ...c, quantities: declaredQuantities[c.id] }));
 }
 
 /**
@@ -489,7 +488,7 @@ export function unexplainedMessage(v: Verdict, version: string): string {
     v.report,
     '',
     v.applicable.length === 0
-      ? `No registered result change explains it: result-changes.json lists none introduced after ${version} that applies to this model.`
+      ? `No registered result change explains it: the registry lists none introduced after ${version} that applies to this model.`
       : `No registered result change explains these values: of the entries introduced after ${version} that apply to this model (${v.applicable.join(', ')}), none declares in its "quantities" that it moves them.`,
     'If the change is deliberate, register it, or declare the quantities an existing entry moves (docs/verification/PROVENANCE.md). If not, it is a regression, or a migration that reads the old file wrongly: fix the code, not the corpus.',
   ].join('\n');

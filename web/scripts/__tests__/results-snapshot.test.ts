@@ -6,7 +6,7 @@ import { describe, it, expect } from 'vitest';
 // @ts-expect-error plain JavaScript shared with the CI gate (no declaration file)
 import { compareValues, mergeValues, flatten, storeNumber, serialiseSnapshot, parseSnapshot, RTOL, ATOL } from '../results-snapshot/compare.mjs';
 // @ts-expect-error plain JavaScript shared with the CI gate (no declaration file)
-import { decide, isBreakingResultsFragment, newRegistryEntries, newlyRecorded } from '../results-snapshot/gate.mjs';
+import { decide, isBreakingResultsFragment, newlyRecorded } from '../results-snapshot/gate.mjs';
 
 describe('the tolerance', () => {
   const ref = { 'r.m[e1].my': 100, 'r.m[e2].my': -40, 'r.m[e3].my': 0, 'r.d[n1].ux': 0.0123 };
@@ -85,8 +85,8 @@ describe('storing', () => {
 
 describe('the gate', () => {
   const snap = (values: Record<string, unknown>) => ({ case: 'c', covers: '', format: 1, values });
-  const registry = { currentResultsVersion: 4, changes: [{ id: 'old', resultsVersion: 4 }] };
-  const registered = { currentResultsVersion: 5, changes: [{ id: 'new', resultsVersion: 5 }, ...registry.changes] };
+  const registry = { schema: 1, numbered: [{ id: 'old', resultsVersion: 4 }], unnumbered: [] };
+  const registered = { ...registry, unnumbered: [{ id: 'new' }] };
   const breaking = { file: 'changelog.d/a.md', text: '### BREAKING (results)\n#### A (2026-10-28)\n' };
   const moved = [{ file: 'web/results-snapshots/c.json', base: snap({ v: 1 }), head: snap({ v: 1.01 }) }];
 
@@ -125,25 +125,43 @@ describe('the gate', () => {
     expect(newlyRecorded('envelope.m[e1].posValues[0]', 1, 3, 3, { 2: /^envelope\./ })).toBe(true);
     expect(newlyRecorded('combo[1].v', 1, 3, 3, { 2: /^envelope\./ })).toBe(false);
   });
-  it('rejects a second PR reusing a released version even without snapshot changes', () => {
-    const baseRegistry = { currentResultsVersion: 5, changes: [{ id: 'containment', resultsVersion: 5 }, ...registry.changes] };
-    const entry = { id: 'solid-shell-local-stress-axes', resultsVersion: 5 };
-    const headRegistry = { ...baseRegistry, changes: [entry, ...baseRegistry.changes] };
-    const result = decide({ snapshots: [], baseRegistry, headRegistry, fragments: [breaking] });
-    expect(result.ok).toBe(false);
-    expect(result.report).toContain('solid-shell-local-stress-axes');
-    expect(result.report).toContain('through 5 are already released');
-    expect(decide({ snapshots: [], baseRegistry, headRegistry: {
-      currentResultsVersion: 6, changes: [{ ...entry, resultsVersion: 6 }, ...baseRegistry.changes],
-    }, fragments: [breaking] }).ok).toBe(true);
-  });
-  it('rejects losing or renumbering entries from the first PR', () => {
-    for (const changes of [registry.changes, [{ id: 'new', resultsVersion: 6 }, ...registry.changes]]) {
-      const result = decide({ snapshots: [], baseRegistry: registered,
-        headRegistry: { currentResultsVersion: 6, changes }, fragments: [] });
+  it('rejects an entry added to the frozen numbered versions, or one that names its own version', () => {
+    for (const head of [
+      { ...registry, numbered: [{ id: 'solid-shell-local-stress-axes', resultsVersion: 5 }, ...registry.numbered] },
+      { ...registry, unnumbered: [{ id: 'solid-shell-local-stress-axes', resultsVersion: 5 }] },
+    ]) {
+      const result = decide({ snapshots: [], baseRegistry: registry, headRegistry: head, fragments: [breaking] });
       expect(result.ok).toBe(false);
-      expect(result.report).toContain('Missing or renumbered entries: new');
+      expect(result.report).toContain('solid-shell-local-stress-axes');
     }
+  });
+  it('rejects removing, renumbering or editing an entry already on main, but lets its wording be corrected', () => {
+    const numberedBase = { ...registry, numbered: [{ id: 'old', resultsVersion: 4, when: { any: ['shells'] }, title: { en: 'a' } }] };
+    for (const head of [
+      { ...numberedBase, numbered: [] },
+      { ...numberedBase, numbered: [{ ...numberedBase.numbered[0], resultsVersion: 5 }] },
+      { ...numberedBase, numbered: [{ ...numberedBase.numbered[0], when: { any: ['frames'] } }] },
+    ]) {
+      const result = decide({ snapshots: [], baseRegistry: numberedBase, headRegistry: head, fragments: [] });
+      expect(result.ok, JSON.stringify(head)).toBe(false);
+      expect(result.report).toContain('old (version 4)');
+    }
+    const shipped = { ...registry, unnumbered: [{ id: 'new', when: { any: ['shells'] }, title: { en: 'a' }, file: 'x/new.json' }] };
+    for (const head of [
+      { ...shipped, unnumbered: [] },
+      { ...shipped, unnumbered: [{ ...shipped.unnumbered[0], when: { any: ['frames'] } }] },
+      { ...shipped, unnumbered: [{ ...shipped.unnumbered[0], resultsVersion: 5 }] },
+    ]) {
+      const result = decide({ snapshots: [], baseRegistry: shipped, headRegistry: head, fragments: [] });
+      expect(result.ok, JSON.stringify(head)).toBe(false);
+      expect(result.report).toContain('new');
+    }
+    const reworded = { ...shipped, unnumbered: [{ ...shipped.unnumbered[0], title: { en: 'b' } }] };
+    expect(decide({ snapshots: [], baseRegistry: shipped, headRegistry: reworded, fragments: [] }).ok).toBe(true);
+  });
+  it('accepts the move from the single registry file: every entry kept with its version', () => {
+    const legacy = { schema: 1, numbered: [{ id: 'old', resultsVersion: 4 }], unnumbered: [] };
+    expect(decide({ snapshots: [], baseRegistry: legacy, headRegistry: { ...legacy }, fragments: [] }).ok).toBe(true);
   });
   it('passes a new case without a registry entry: coverage is not a change', () => {
     const added = [{ file: 'web/results-snapshots/new.json', base: null, head: snap({ v: 1 }) }];
@@ -167,11 +185,10 @@ describe('the gate', () => {
   it('passes a moved result with both', () => {
     const r = decide({ snapshots: moved, baseRegistry: registry, headRegistry: registered, fragments: [breaking] });
     expect(r.ok).toBe(true);
-    expect(r.report).toContain('Registered: new (results version 5)');
+    expect(r.report).toContain('Registered: new (the next results version');
   });
   it('reads the fragment section from its first line and the entries by id', () => {
     expect(isBreakingResultsFragment('\n### BREAKING (results)\n#### x')).toBe(true);
     expect(isBreakingResultsFragment('### Fixed\n### BREAKING (results)')).toBe(false);
-    expect(newRegistryEntries(registry, registered).map((e: { id: string }) => e.id)).toEqual(['new']);
   });
 });

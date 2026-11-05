@@ -1,6 +1,6 @@
 import { deflateSync } from 'fflate';
 import type { SolverInput } from '../../lib/engine/types';
-import { currentResultsVersion } from '../../lib/provenance/result-changes.json';
+import metadata from 'virtual:result-change-metadata';
 
 const next = (ids: Iterable<number>) => Math.max(0, ...ids) + 1;
 
@@ -15,7 +15,7 @@ export function editorUrl(model: SolverInput, name: string, options?: { massPerL
     l: model.loads.map((l, i) => ({ ...l, data: { ...l.data, id: i + 1, caseId: 1 } })),
     ni: [next(model.nodes.keys()), 2, 2, next(model.elements.keys()), next(model.supports.keys()), model.loads.length + 1],
     _: { autoSolve: true, diagramType: 'moment', includeSelfWeight: false },
-    sw: { resultsVersion: currentResultsVersion, resultsSchemaVersion: 1, analyses: [] },
+    sw: { resultsVersion: metadata.currentResultsVersion, resultsSchemaVersion: 1, analyses: [] },
   };
   const bytes = deflateSync(new TextEncoder().encode(JSON.stringify(compact)));
   let bin = '';
