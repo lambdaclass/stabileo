@@ -125,7 +125,7 @@ test('without a green run in reach the body says the suspects are unknown', () =
   assert.doesNotMatch(body, /Candidate PRs/);
 });
 
-function fakeGithub({open = [], runs = [], jobs = {}, commits = []}) {
+function fakeGithub({open = [], runs = [], jobs = {}, commits = [], main = 'cccccccccc'}) {
   const calls = [];
   const record = (name, result) => async (args) => { calls.push({name, args}); return {data: typeof result === 'function' ? result(args) : result}; };
   const rest = {
@@ -139,6 +139,7 @@ function fakeGithub({open = [], runs = [], jobs = {}, commits = []}) {
       listWorkflowRuns: record('listWorkflowRuns', {workflow_runs: runs}),
       listJobsForWorkflowRun: record('listJobsForWorkflowRun', (args) => jobs[args.run_id] ?? []),
     },
+    git: {getRef: record('getRef', {object: {sha: main}})},
     repos: {getCommit: record('getCommit', ({ref}) => {
       const i = ref === 'cccccccccc' ? commits.length - 1 : Number(ref.slice(1));
       return {commit: {message: commits[i]}, parents: [{sha: i ? `s${i - 1}` : 'aaaaaaaaaa'}]};
@@ -173,7 +174,7 @@ test('red with no open issue opens one, labelled and assigned, blaming PRs since
     runs: [{id: 300}, {id: 299, html_url: 'r299', head_sha: 'bbbbbbbbbb'}, {id: 297, html_url: 'r297', head_sha: 'dddddddddd'}, {id: 298, html_url: 'r298', head_sha: 'aaaaaaaaaa'}],
     jobs: {299: [{name: 'E2E (1/2)', conclusion: 'failure', steps: slowStep('failure')}, {name: 'E2E (2/2)', conclusion: 'success', steps: slowStep('success')}],
       297: [{name: 'E2E (1/2)', conclusion: 'success', steps: slowStep('skipped')}, {name: 'E2E (2/2)', conclusion: 'success', steps: slowStep('success')}],
-      298: [{name: 'E2E (1/2)', conclusion: 'success', steps: slowStep('success')}, {name: 'E2E (2/2)', conclusion: 'success', steps: slowStep('success')}, {name: 'Web Unit (1/8)', conclusion: 'failure'}]},
+      298: [{name: 'E2E (1/2)', conclusion: 'failure', steps: [...slowStep('success'), {name: 'Upload slow suite outcome', conclusion: 'failure'}]}, {name: 'E2E (2/2)', conclusion: 'success', steps: slowStep('success')}, {name: 'Web Unit (1/8)', conclusion: 'failure'}]},
     commits: ['Merge pull request #807 from x', 'Merge pull request #1509 from y'],
   });
   await run(github, [red, green], 2);
@@ -205,6 +206,12 @@ test('green closes the open issue with a comment, and does nothing when none is 
   const none = fakeGithub({});
   await run(none.github, [green], 1);
   assert.deepEqual(none.calls.map(c => c.name), ['listForRepo']);
+});
+
+test('a green run of a commit main has moved past leaves the issue to the newer run', async () => {
+  const {github, calls} = fakeGithub({open: [{number: 9, title: 'CI failure: @slow E2E on main'}], main: 'dddddddddd'});
+  await run(github, [green], 1);
+  assert.deepEqual(calls.map(c => c.name), ['listForRepo', 'getRef']);
 });
 
 test('an unknown result neither opens nor closes', async () => {

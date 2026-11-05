@@ -100,7 +100,7 @@ async function lastGreenRun(github, owner, repo, current) {
     });
     const e2e = jobs.filter((j) => /^E2E \(\d+\/\d+\)$/.test(j.name));
     const slowPassed = (j) => (j.steps ?? []).some((step) => step.name.startsWith('E2E slow suite') && step.conclusion === 'success');
-    if (e2e.length && e2e.every((j) => j.conclusion === 'success' && slowPassed(j))) return { runUrl: run.html_url, sha: run.head_sha };
+    if (e2e.length && e2e.every(slowPassed)) return { runUrl: run.html_url, sha: run.head_sha };
   }
   return null;
 }
@@ -119,6 +119,11 @@ module.exports = async function alert({ github, context, core }) {
   const existing = await openIssue(github, owner, repo);
   if (state === 'green') {
     if (!existing) return;
+    const { data: main } = await github.rest.git.getRef({ owner, repo, ref: 'heads/main' });
+    if (main.object.sha !== context.sha) {
+      core.info(`main is now at ${main.object.sha}, so the run for that commit decides whether #${existing.number} closes`);
+      return;
+    }
     await github.rest.issues.createComment({ owner, repo, issue_number: existing.number, body: `Green again: the \`@slow\` E2E suite passed on main at ${context.sha.slice(0, 9)}: ${runUrl}` });
     await github.rest.issues.update({ owner, repo, issue_number: existing.number, state: 'closed', state_reason: 'completed' });
     return;
