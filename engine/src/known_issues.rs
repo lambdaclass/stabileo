@@ -64,7 +64,7 @@ pub const ENTRIES: &[Entry] = &[
     Entry { id: "HARM-TRUNCATION", issue: 1434, mode: Mode::Warn, message: "Harmonic response by modal superposition at frequencies near or above the first omitted mode: the omitted modes are not corrected there, and amplitude and phase can be wrong by large factors. Do not use these frequencies for design; independently verify them with a direct solve" },
     Entry { id: "MD-ORTHOGONALITY", issue: 759, mode: Mode::Warn, message: "3D modal analysis can return non-orthogonal or duplicate modes. Effective masses, response-spectrum combinations and harmonic responses by modal superposition may be wrong, by large factors; independently verify the modal basis" },
     Entry { id: "TH-RECIPROCITY", issue: 760, mode: Mode::Warn, message: "Linear time history has failed reciprocity checks by up to a factor of 33. The affected input class is not yet isolated; independently verify this response before design" },
-    Entry { id: "LIN-SMALL-DISPLACEMENT", issue: 1446, mode: Mode::Warn, message: "A rotation or a member's relative displacement exceeds 0.1 rad, outside the small-displacement range of linear analysis: the terms first-order theory drops, such as the chord shortening 1 − cos θ ≈ θ²/2 = 0.5 %, are then larger than elastic strains, so this result does not describe the structure. Check for a support, spring or release that leaves part of the model nearly free, or use a nonlinear analysis" },
+    Entry { id: "LIN-SMALL-DISPLACEMENT", issue: 1446, mode: Mode::Warn, message: "A rotation or a member's relative displacement exceeds 0.1 rad, the small-displacement screening limit of linear analysis: at that angle the terms first-order theory drops, such as the chord shortening 1 − cos θ ≈ 0.5 %, may no longer be negligible. Check that the change of geometry is acceptable: a support, spring or release may leave part of the model nearly free; otherwise use a nonlinear analysis" },
     Entry { id: "RC-NM-PAIRING", issue: 1316, mode: Mode::Warn, message: "This CIRSOC 201 column check pairs the axial force of one combination with the moment of another, which can be unconservative below the balance point. Check the column under each named combination" },
 ];
 
@@ -537,9 +537,9 @@ pub fn corotational_natural_rotation() -> StructuredDiagnostic {
     diagnostic("NL-3")
 }
 
-/// The largest rotation, and member chord rotation |Δu|/L, that linear analysis represents: at 0.1 rad
-/// the chord shortening 1 − cos θ ≈ θ²/2 = 0.5 % that first-order theory drops already exceeds
-/// the elastic strain of structural steel at yield (about 0.2 %).
+/// The screening limit for a rotation, and member chord rotation |Δu|/L, in linear analysis: at
+/// 0.1 rad the chord shortening 1 − cos θ ≈ θ²/2 = 0.5 % that first-order theory drops may no longer
+/// be negligible. Past it the result calls for checking geometric validity, not for rejection.
 pub const SMALL_DISPLACEMENT_LIMIT: f64 = 0.1;
 
 fn beyond_small_displacement(v: f64) -> bool {
