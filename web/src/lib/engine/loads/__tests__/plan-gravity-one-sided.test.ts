@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { gravityLayout, type GravityModel } from '../plan-gravity';
+import { gravityLayout, loadedSides, oneSidedSomewhere, type GravityModel } from '../plan-gravity';
 import { buildLoadPlan, type LoadModelData, type LoadPlanInput } from '../load-plan';
 import { defaultRegulations, type ProjectRegulations } from '../../../codes/roles';
 
@@ -63,6 +63,18 @@ function partlyUnderRafters(): GravityModel & LoadModelData {
   }
   for (const [id, x, y, z] of [[21, 0, -2, 3.8], [22, 6, -2, 3.8], [23, 6, 5, 4.5], [24, 0, 5, 4.5]] as const) nodes.set(id, { id, x, y, z });
   return { ...model(nodes, elements), quads: new Map([[1, { id: 1, nodes: [21, 22, 23, 24] }]]) };
+}
+
+function staggeredNotches(): GravityModel & LoadModelData {
+  const nodes: Nodes = new Map([[1, { id: 1, x: 0, y: 0, z: 3 }], [2, { id: 2, x: 20, y: 0, z: 3 }]]);
+  const elements: Elements = new Map([[1, { id: 1, nodeI: 1, nodeJ: 2, sectionId: 1, materialId: 1 }]]);
+  const roofs: Array<[number, number, number, number]> = [[0, 10.01, 0, 5], [10.04, 20, 0, 5], [0, 10.06, -5, 0], [10.09, 20, -5, 0]];
+  roofs.forEach(([x0, x1, y0, y1], k) => {
+    const n = 10 + 4 * k;
+    [[x0, y0], [x1, y0], [x1, y1], [x0, y1]].forEach(([x, y], i) => nodes.set(n + i, { id: n + i, x: x!, y: y!, z: 4 }));
+    for (let i = 0; i < 4; i++) elements.set(n + i, { id: n + i, nodeI: n + i, nodeJ: n + (i + 1) % 4, sectionId: 1, materialId: 1 });
+  });
+  return model(nodes, elements);
 }
 
 function applied(reg: ProjectRegulations): ProjectRegulations {
@@ -133,6 +145,33 @@ describe('one-sided slab load on an edge beam is named for a torsion check (#140
     const g = gravityLayout(underRoof([-0.5, 0.5]), { mode: 'panels', tributaryWidth: 3 });
     expect(g.widthMembers.find((m) => m.elementId === 1)?.spans).toBeDefined();
     expect(g.oneSided).not.toContain(1);
+  });
+
+  it('plan fringe: uncovered patches on opposite sides at different stations of one bin are not both-sided (#1426)', () => {
+    const g = gravityLayout(staggeredNotches(), { mode: 'panels', tributaryWidth: 3 });
+    expect(g.widthMembers.find((w) => w.elementId === 1)?.spans).toBeDefined();
+    expect(g.oneSided).toContain(1);
+    expect(String(advisory(staggeredNotches(), 'panels').assumption).split(', ')).toContain('1');
+  });
+
+  it('a hole on one side removes only the stations where no load is left on that side (#1426)', () => {
+    const axis = { p: [0, 0] as [number, number], u: [1, 0] as [number, number], L: 6 };
+    const rect = (x0: number, x1: number, y0: number, y1: number): Array<[number, number]> => [[x0, y0], [x1, y0], [x1, y1], [x0, y1], [x0, y0]];
+    const twoSidedBesideAHole = [
+      [rect(0, 6, 0, 1.5), rect(2, 4, 0.5, 1)],
+      [rect(0, 6, -1.5, 0)],
+    ];
+    expect(oneSidedSomewhere(loadedSides(twoSidedBesideAHole, axis))).toBe(false);
+    const oneSidedWhereTheHoleIs = [
+      [rect(0, 6, 0, 1.5), rect(2, 4, 0.5, 1)],
+      [rect(0, 2, -1.5, 0)], [rect(4, 6, -1.5, 0)],
+    ];
+    expect(oneSidedSomewhere(loadedSides(oneSidedWhereTheHoleIs, axis))).toBe(true);
+    const throughTheFullDepth = [
+      [rect(0, 2, 0, 1.5)], [rect(4, 6, 0, 1.5)],
+      [rect(0, 6, -1.5, 0)],
+    ];
+    expect(oneSidedSomewhere(loadedSides(throughTheFullDepth, axis))).toBe(true);
   });
 
   it('a lone member that bounds no panel gets no advisory', () => {
