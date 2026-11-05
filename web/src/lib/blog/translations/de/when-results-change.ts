@@ -196,7 +196,7 @@ const body: PostBody = {
           "3,542 (+1,9 %)"
         ],
         [
-          "Kragarm, axiale Einzellast in Feldmitte: keine Normalkraft vom Lager bis zur Mitte, Druck P von dort bis zum freien Ende",
+          "Kragarm, Druckkraft P am freien Ende und eine entgegengesetzte axiale Last P in Feldmitte: Druck P nur von der Mitte bis zum freien Ende",
           "2,961",
           "4,972 (+68 %)",
           "3,056 (+3,2 %)"

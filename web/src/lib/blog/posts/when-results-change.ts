@@ -82,7 +82,7 @@ export const whenResultsChange: Post = {
           head: ['Case', 'Exact', 'Before', 'Now'],
           rows: [
             ['Cantilever, compression rising from 0 at the support to P at the tip', '3.477', '4.972 (+43 %)', '3.542 (+1.9 %)'],
-            ['Cantilever, axial point load at mid-span: no axial force from the support to mid-span, compression P from there to the tip', '2.961', '4.972 (+68 %)', '3.056 (+3.2 %)'],
+            ['Cantilever, thrust P at the tip and an opposing axial load P at mid-span: compression P only from mid-span to the tip', '2.961', '4.972 (+68 %)', '3.056 (+3.2 %)'],
             ['Euler’s heavy column, compression largest at the support', '7.837', '4.972 (−37 %)', '7.889 (+0.7 %)'],
           ],
         },
@@ -197,7 +197,7 @@ export const whenResultsChange: Post = {
           head: ['Caso', 'Exacto', 'Antes', 'Ahora'],
           rows: [
             ['Ménsula, compresión que crece de 0 en el apoyo hasta P en la punta', '3,477', '4,972 (+43 %)', '3,542 (+1,9 %)'],
-            ['Ménsula, carga axial puntual a mitad de la luz: sin esfuerzo axil desde el apoyo hasta la mitad, compresión P desde ahí hasta la punta', '2,961', '4,972 (+68 %)', '3,056 (+3,2 %)'],
+            ['Ménsula, empuje P en la punta y una carga axial opuesta P a mitad de la luz: compresión P sólo desde la mitad hasta la punta', '2,961', '4,972 (+68 %)', '3,056 (+3,2 %)'],
             ['Columna pesada de Euler, compresión mayor en el apoyo', '7,837', '4,972 (−37 %)', '7,889 (+0,7 %)'],
           ],
         },
@@ -312,7 +312,7 @@ export const whenResultsChange: Post = {
           head: ['Caso', 'Exato', 'Antes', 'Agora'],
           rows: [
             ['Balanço, compressão crescendo de 0 no apoio até P na ponta', '3,477', '4,972 (+43 %)', '3,542 (+1,9 %)'],
-            ['Balanço, carga axial pontual no meio do vão: sem esforço normal do apoio até o meio, compressão P daí até a ponta', '2,961', '4,972 (+68 %)', '3,056 (+3,2 %)'],
+            ['Balanço, empuxo P na ponta e uma carga axial oposta P no meio do vão: compressão P só do meio até a ponta', '2,961', '4,972 (+68 %)', '3,056 (+3,2 %)'],
             ['Coluna pesada de Euler, compressão maior no apoio', '7,837', '4,972 (−37 %)', '7,889 (+0,7 %)'],
           ],
         },

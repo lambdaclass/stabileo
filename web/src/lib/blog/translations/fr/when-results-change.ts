@@ -196,7 +196,7 @@ const body: PostBody = {
           "3,542 (+1,9 %)"
         ],
         [
-          "Console, charge axiale ponctuelle à mi-portée : aucun effort normal de l’appui jusqu’au milieu, compression P de là jusqu’à l’extrémité",
+          "Console, poussée P à l’extrémité et charge axiale opposée P à mi-portée : compression P seulement du milieu jusqu’à l’extrémité",
           "2,961",
           "4,972 (+68 %)",
           "3,056 (+3,2 %)"

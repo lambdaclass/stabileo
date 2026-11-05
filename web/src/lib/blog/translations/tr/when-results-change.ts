@@ -196,7 +196,7 @@ const body: PostBody = {
           "3,542 (+%1,9)"
         ],
         [
-          "Konsol, açıklık ortasında eksenel tekil yük: mesnetten ortaya kadar eksenel kuvvet yok, oradan uca kadar P basınç",
+          "Konsol, uçta P itme kuvveti ve açıklık ortasında ters yönde P eksenel yük: P basıncı yalnızca ortadan uca kadar",
           "2,961",
           "4,972 (+%68)",
           "3,056 (+%3,2)"
