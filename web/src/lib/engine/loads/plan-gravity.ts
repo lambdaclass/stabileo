@@ -714,7 +714,8 @@ function lowRange(d0: number, d1: number, lo: number, hi: number): [number, numb
 
 function loadedSides(r: Region, axis: Axis): SideStretch[] {
   const n = FRINGE_BINS, w = axis.L / n;
-  const bins = Array.from({ length: n }, () => ({ 1: 0, [-1]: 0 } as Record<number, number>));
+  type Piece = { area: number; x0: number; x1: number; hole: boolean };
+  const bins = Array.from({ length: n }, () => ({ 1: [] as Piece[], [-1]: [] as Piece[] } as Record<number, Piece[]>));
   const local = (q: [number, number]): [number, number] => {
     const dx = q[0] - axis.p[0], dy = q[1] - axis.p[1];
     return [dx * axis.u[0] + dy * axis.u[1], dy * axis.u[0] - dx * axis.u[1]];
@@ -723,15 +724,31 @@ function loadedSides(r: Region, axis: Axis): SideStretch[] {
     const pts = openRing(ring).map(local);
     for (let b = 0; b < n; b++) for (const side of [1, -1]) {
       const part = clipToBox(pts, side > 0 ? { x0: b * w, y0: 0, x1: (b + 1) * w, y1: 1e9 } : { x0: b * w, y0: -1e9, x1: (b + 1) * w, y1: 0 });
-      if (part.length >= 3) bins[b]![side]! += (k === 0 ? 1 : -1) * Math.abs(signedArea(part));
+      if (part.length < 3) continue;
+      const xs = part.map((q) => q[0]);
+      bins[b]![side]!.push({ area: Math.abs(signedArea(part)), x0: Math.min(...xs), x1: Math.max(...xs), hole: k > 0 });
     }
   });
-  const total = bins.reduce((s, a) => s + a[1]! + a[-1]!, 0);
-  return bins.flatMap((a, b) => {
-    const here = a[1]! + a[-1]!;
+  const net = (p: Piece[]) => p.reduce((s, q) => s + (q.hole ? -q.area : q.area), 0);
+  const total = bins.reduce((s, a) => s + net(a[1]!) + net(a[-1]!), 0);
+  return bins.flatMap((a) => {
+    const here = net(a[1]!) + net(a[-1]!);
     if (!(here > 1e-6 * total)) return [];
-    return ([1, -1] as const).filter((side) => a[side]! > 0.01 * here).map((side) => ({ t0: b / n, t1: (b + 1) / n, side }));
+    return ([1, -1] as const).flatMap((side) => {
+      if (!(net(a[side]!) > 0.01 * here)) return [];
+      const pieces = a[side]!.filter((q) => q.area > 0.01 * here);
+      const holes = pieces.filter((q) => q.hole).map((q): [number, number] => [q.x0, q.x1]);
+      return pieces.filter((q) => !q.hole)
+        .flatMap((q) => without([q.x0, q.x1], holes))
+        .map(([x0, x1]) => ({ t0: x0 / axis.L, t1: x1 / axis.L, side }));
+    });
   });
+}
+
+function without(span: [number, number], cuts: Array<[number, number]>): Array<[number, number]> {
+  let out = [span];
+  for (const [c0, c1] of cuts) out = out.flatMap(([a, b]): Array<[number, number]> => [[a, Math.min(b, c0)], [Math.max(a, c1), b]].filter(([x, y]) => y > x) as Array<[number, number]>);
+  return out;
 }
 
 function oneSidedSomewhere(list: SideStretch[]): boolean {

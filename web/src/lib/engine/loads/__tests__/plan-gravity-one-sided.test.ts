@@ -65,6 +65,18 @@ function partlyUnderRafters(): GravityModel & LoadModelData {
   return { ...model(nodes, elements), quads: new Map([[1, { id: 1, nodes: [21, 22, 23, 24] }]]) };
 }
 
+function staggeredNotches(): GravityModel & LoadModelData {
+  const nodes: Nodes = new Map([[1, { id: 1, x: 0, y: 0, z: 3 }], [2, { id: 2, x: 20, y: 0, z: 3 }]]);
+  const elements: Elements = new Map([[1, { id: 1, nodeI: 1, nodeJ: 2, sectionId: 1, materialId: 1 }]]);
+  const roofs: Array<[number, number, number, number]> = [[0, 10.01, 0, 5], [10.04, 20, 0, 5], [0, 10.06, -5, 0], [10.09, 20, -5, 0]];
+  roofs.forEach(([x0, x1, y0, y1], k) => {
+    const n = 10 + 4 * k;
+    [[x0, y0], [x1, y0], [x1, y1], [x0, y1]].forEach(([x, y], i) => nodes.set(n + i, { id: n + i, x: x!, y: y!, z: 4 }));
+    for (let i = 0; i < 4; i++) elements.set(n + i, { id: n + i, nodeI: n + i, nodeJ: n + (i + 1) % 4, sectionId: 1, materialId: 1 });
+  });
+  return model(nodes, elements);
+}
+
 function applied(reg: ProjectRegulations): ProjectRegulations {
   const out = { ...reg };
   for (const k of Object.keys(out) as Array<keyof ProjectRegulations>) {
@@ -133,6 +145,13 @@ describe('one-sided slab load on an edge beam is named for a torsion check (#140
     const g = gravityLayout(underRoof([-0.5, 0.5]), { mode: 'panels', tributaryWidth: 3 });
     expect(g.widthMembers.find((m) => m.elementId === 1)?.spans).toBeDefined();
     expect(g.oneSided).not.toContain(1);
+  });
+
+  it('plan fringe: uncovered patches on opposite sides at different stations of one bin are not both-sided (#1426)', () => {
+    const g = gravityLayout(staggeredNotches(), { mode: 'panels', tributaryWidth: 3 });
+    expect(g.widthMembers.find((w) => w.elementId === 1)?.spans).toBeDefined();
+    expect(g.oneSided).toContain(1);
+    expect(String(advisory(staggeredNotches(), 'panels').assumption).split(', ')).toContain('1');
   });
 
   it('a lone member that bounds no panel gets no advisory', () => {
