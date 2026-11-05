@@ -26,17 +26,19 @@ import steelPt from '../locales/steel/pt';
 import { stepsEn, stepsEs, stepsPt } from '../locales/steps';
 import { toolTranslations } from '../../../components/tools/translations';
 import { batchTranslations } from '../../../components/tools/batch-i18n';
+import { registerTranslations } from '../../../components/register/translations';
+import { adConsentTranslations } from '../../tracking/ad-consent-i18n';
 
 /*
  * What the app reads is each locale merged with its companion dictionaries
  * (i18n/store.svelte.ts): the metallic surface's and the explained
  * step-by-step catalog's. A key defined in a companion is defined.
  */
-// This source scan also visits public tools; their companion dictionaries load only on that route.
+// This source scan also visits public tools, the sign-up page and the advertising banner; their companion dictionaries load only with them.
 const merged = {
-  en: { ...en, ...steelEn, ...stepsEn, ...batchTranslations.en, ...toolTranslations.en },
-  es: { ...es, ...steelEs, ...stepsEs, ...batchTranslations.es, ...toolTranslations.es },
-  pt: { ...pt, ...steelPt, ...stepsPt, ...batchTranslations.pt, ...toolTranslations.pt },
+  en: { ...en, ...steelEn, ...stepsEn, ...batchTranslations.en, ...toolTranslations.en, ...registerTranslations.en, ...adConsentTranslations.en },
+  es: { ...es, ...steelEs, ...stepsEs, ...batchTranslations.es, ...toolTranslations.es, ...registerTranslations.es, ...adConsentTranslations.es },
+  pt: { ...pt, ...steelPt, ...stepsPt, ...batchTranslations.pt, ...toolTranslations.pt, ...registerTranslations.pt, ...adConsentTranslations.pt },
 };
 
 const SRC = join(import.meta.dirname, '../../..');

@@ -59,6 +59,13 @@
     }
   });
 
+  let register = $state<typeof import('./components/register/RegisterPage.svelte').default | null>(null);
+  $effect(() => {
+    if (current.kind === 'register' && !register) {
+      void import('./components/register/RegisterPage.svelte').then((m) => (register = m.default));
+    }
+  });
+
   function loadApp() {
     // A lazily loaded language must be registered before the application's modules run: some name things as they load.
     loading ??= ensureLocale(i18n.locale).then(() => import('./load-app').then(m => m.loadApplication())).then(async (m) => {
@@ -127,6 +134,11 @@
   {#if paper}
     {@const Paper = paper}
     <Paper />
+  {/if}
+{:else if current.kind === 'register'}
+  {#if register}
+    {@const Register = register}
+    <Register />
   {/if}
 {:else if current.kind === 'landing'}
   <LandingPage />

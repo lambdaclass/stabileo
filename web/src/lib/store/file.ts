@@ -13,6 +13,7 @@ import { exportToExcel } from '../export/excel';
 import { tabManager } from './tabs.svelte';
 import { accountGate } from './account-gate.svelte';
 import { saveFile } from '../export/save-file';
+import { milestone } from '../tracking/activity.svelte';
 import type { TabState } from './tabs.svelte';
 import { resetSwitchBackup } from './switch-2d';
 import { t } from '../i18n';
@@ -183,6 +184,7 @@ async function writeTextTo(
       const w = await handle.createWritable();
       await w.write(content);
       await w.close();
+      milestone('first_save');
       return 'saved';
     } catch (err) {
       if ((err as { name?: string })?.name === 'AbortError') return 'cancelled';

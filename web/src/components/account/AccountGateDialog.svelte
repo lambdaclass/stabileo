@@ -19,4 +19,4 @@
   }
 </script>
 
-<AuthDialog bind:open={accountGate.open} {reason} onunavailable={signInUnavailable} />
+<AuthDialog bind:open={accountGate.open} {reason} placement={`gate.${accountGate.action ?? "unknown"}`} onunavailable={signInUnavailable} />

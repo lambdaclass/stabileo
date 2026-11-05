@@ -61,11 +61,19 @@ const body: StandingPage['i18n']['en'] = {
     },
     {
       "k": "h",
+      "t": "Reklam ölçümü"
+    },
+    {
+      "k": "p",
+      "t": "Hangi reklamların hesap getirdiğini bilmek için her yeni hesapla birlikte ziyaretin nereden geldiğini (kanal, kampanya, reklam ve giriş sayfası) ve hesabı neyin istediğini saklarız. Kullanım verilerini paylaşıyorsanız hesabın ilk hesaplamasını, ilk kaydını, ilk dışa aktarımını ve uygulamayı kullandığı günleri de kaydederiz. Meta pikselini ve Google Etiket Yöneticisi’ni yalnızca reklam çerezlerini kabul ederseniz yükleriz. O andan itibaren bunlar ziyaret ettiğiniz her sayfayı (adresin paylaşılan bir modeli taşıyan kısmı olmadan) ve hesaba giden adımları alır: yeni birinin hesap oluştur tıklaması, başlangıç ve koşullar adımı, oluşturulan hesap, her giriş ve kaydedilen ilk proje. Google Etiket Yöneticisi bu olayları Google Analytics ve Google Ads’e gönderir. Aynı izinle, hesap oluşturulduğunda veya ilk projesini kaydettiğinde bunu sunucumuzdan Meta’nın Dönüşüm API’si aracılığıyla da bildiririz; e-posta ve hesap kimliği SHA-256 ile karma hâlinde, IP adresiniz, tarayıcınızın kullanıcı aracısı ve piksel çerezlerinin kimlikleri (_fbp ve _fbc) ile birlikte. Meta ve Google bu verileri kampanyaları ölçmek ve iyileştirmek için kendi politikalarına göre kullanır. Hiçbiri modellerinizin içeriğini almaz."
+    },
+    {
+      "k": "h",
       "t": "Verileri kimlerle paylaşıyoruz"
     },
     {
       "k": "p",
-      "t": "Verileri satmıyoruz. Veriler Stabileo SAS'ın sözleşme yaptığı sunucularda barındırılır ve yalnızca hizmetin işletilmesi için gerekli sağlayıcılarla ya da yetkili bir makam talep ettiğinde paylaşılır. Giriş için Google ile girişi kullanırız; Google verilerinizi kendi gizlilik politikası kapsamında işler."
+      "t": "Verileri satmıyoruz. Veriler Stabileo SAS'ın sözleşme yaptığı sunucularda barındırılır ve yalnızca hizmetin işletilmesi için gerekli sağlayıcılarla ya da yetkili bir makam talep ettiğinde paylaşılır. Giriş için Google ile girişi kullanırız; Google verilerinizi kendi gizlilik politikası kapsamında işler. Reklamı ölçmek için Reklam ölçümü bölümünde açıklanan etkinlikleri Meta ve Google ile paylaşırız."
     },
     {
       "k": "h",
@@ -76,7 +84,8 @@ const body: StandingPage['i18n']['en'] = {
       "items": [
         "Hesabınız ve projeleriniz, siz silene veya hesabınızı kapatana kadar.",
         "Anonim kullanım verileri, en fazla on üç ay.",
-        "Onay kayıtları, kanıt olarak hesap var olduğu sürece."
+        "Onay kayıtları, kanıt olarak hesap var olduğu sürece.",
+        "Hesabın kaynağı ve etkinliği, hesap var olduğu sürece."
       ]
     },
     {
@@ -97,7 +106,7 @@ const body: StandingPage['i18n']['en'] = {
     },
     {
       "k": "p",
-      "t": "Reklam veya izleme çerezleri kullanmıyoruz. Oturumunuz ve tercihleriniz için tarayıcının yerel depolama alanını kullanıyoruz."
+      "t": "Oturumunuz ve tercihleriniz için, reklam çerezleriyle ilgili kararınız dahil, tarayıcının yerel depolama alanını kullanırız. Yalnızca kabul ederseniz, ziyaretinizin nereden geldiğini (bağlantının parametreleri ve yönlendiren site) 30 gün boyunca saklayan stb_visit adlı birinci taraf çerezi yerleştiririz; Meta pikseli ve Google Etiket Yöneticisi de kendi çerezlerini yerleştirir. Kararınızı istediğiniz zaman sitenin sayfalarının altındaki Reklam çerezleri bağlantısından değiştirebilirsiniz."
     }
   ],
   "faqTitle": "Sık sorulan sorular",

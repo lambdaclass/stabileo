@@ -11,7 +11,7 @@ defmodule StabileoAuth.Controllers.GoogleController do
 
   @session_key :user_oauth_session_params
   @attempt_key :user_oauth_attempt
-  @register_fields ~w(locale accept_terms usage_analytics model_research)
+  @register_fields ~w(locale accept_terms usage_analytics model_research source attribution)
 
   def request(conn, params) do
     attempt = params["attempt"]

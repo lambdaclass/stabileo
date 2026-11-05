@@ -7,14 +7,20 @@
   import { usageConsent } from '../../lib/telemetry/consent.svelte';
   import { GoogleSignInError } from '../../lib/auth/google-popup';
   import { ApiError } from '../../lib/api/client';
+  import { tracking } from '../../lib/tracking/tracking';
+  import { signupSource } from '../../lib/tracking/visit';
+  import { adAttribution } from '../../lib/tracking/attribution';
+  import { adConsent } from '../../lib/tracking/ad-consent.svelte';
 
   let {
     open = $bindable(false),
     reason = null,
+    placement = 'account_button',
     onunavailable,
   }: {
     open?: boolean;
     reason?: { title: string; lede: string } | null;
+    placement?: string;
     /** Sign-in failed for a reason other than the person cancelling; true when the caller took over and the dialog should just go. */
     onunavailable?: () => boolean;
   } = $props();
@@ -60,11 +66,18 @@
     if (busy) return;
     error = null;
     const attempt = authStore.signInWithGoogle();
+    tracking.registrationStart(placement);
     step = { kind: 'waiting', cancel: attempt.cancel };
     try {
       const outcome = await attempt.result;
-      if (outcome.kind === 'signedIn') close();
-      else step = { kind: 'terms', token: outcome.token, email: outcome.email };
+      if (outcome.kind === 'signedIn') {
+        tracking.login();
+        close();
+      } else {
+        tracking.signUpClick(placement);
+        step = { kind: 'terms', token: outcome.token, email: outcome.email };
+        tracking.registrationStep('terms');
+      }
     } catch (err) {
       step = { kind: 'start' };
       if (err instanceof GoogleSignInError && err.code === 'cancelled') return;
@@ -82,13 +95,16 @@
     const askedUsage = !usageConsent.decided;
     const usage = askedUsage ? shareUsage : usageConsent.granted;
     try {
-      await authStore.completeGoogleSignup({
+      const account = await authStore.completeGoogleSignup({
         signup_token: step.token,
         accept_terms: acceptTerms,
         usage_analytics: usage,
         model_research: allowResearch,
         locale: isOfferedLocale(i18n.locale) ? i18n.locale : 'es',
+        source: signupSource(placement, adConsent.granted),
+        attribution: adAttribution(),
       });
+      tracking.completeRegistration(account.id);
       if (askedUsage) usageConsent.set(usage ? 'granted' : 'denied');
       close();
     } catch (err) {
