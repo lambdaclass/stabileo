@@ -14,12 +14,12 @@ class CiAggregate(unittest.TestCase):
         dependency_list = re.findall(r'^      - ([\w-]+)$', needs, re.M)
         dependencies = set(dependency_list)
         self.assertEqual(len(dependency_list), len(dependencies))
-        self.assertEqual(dependencies, jobs - {'ci-ok', 'e2e-flaky'})
+        self.assertEqual(dependencies, jobs - {'ci-ok', 'e2e-flaky', 'e2e-timings'})
 
     def test_ci_scripts_filter_covers_its_tests_and_inputs(self):
         workflow = (ROOT / '.github/workflows/ci.yml').read_text()
         paths = workflow.split('            ci_scripts:\n', 1)[1].split('\n\n', 1)[0]
-        for path in ['scripts/tests/**', 'Makefile', 'Dockerfile']:
+        for path in ['scripts/tests/**', 'scripts/check-containment.py', 'Makefile', 'Dockerfile', 'scripts/verification-metrics.py', 'docs/roadmap/PRODUCT_ROADMAP.md']:
             self.assertIn(f"- '{path}'", paths)
 
     def test_docker_consumes_production_artifact_before_admin_overwrites_dist(self):

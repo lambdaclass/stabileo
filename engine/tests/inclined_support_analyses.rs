@@ -189,11 +189,12 @@ fn restrained_is_zero(r: Result<HarmonicResult, String>) -> HarmonicResult {
     match r {
         Ok(r) => r,
         Err(e) if e == "Target DOF is restrained" => HarmonicResult {
+            structured_diagnostics: vec![],
             response_points: FREQS.iter().map(|&f| HarmonicResponsePoint {
                 frequency: f, omega: 0.0, amplitude: 0.0, phase: 0.0, real: 0.0, imag: 0.0,
             }).collect(),
             peak_frequency: 0.0, peak_amplitude: 0.0, method: String::new(), modes_used: 0, n_dof: 0,
-            truncation_ratio: None, warnings: vec![],
+            truncation_ratio: None, max_modal_residual: None, direct_frequencies: vec![], warnings: vec![],
         },
         Err(e) => panic!("harmonic: {e}"),
     }

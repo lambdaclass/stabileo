@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { exportMessages } from "../../lib/export/containment";
   import { downloadReport } from '../../lib/export/report-download';
   import type { DocBlock } from '../../lib/export/docx';
   import { captureProvenanceToken, provenanceForExport } from '../../lib/store/result-provenance';
@@ -103,6 +104,7 @@
   }
 
   async function generate() {
+    if (exportMessages() === null) return;
     lastError = null;
     const results = resultsStore.results3D;
     if (!results || blockers.length > 0) return;

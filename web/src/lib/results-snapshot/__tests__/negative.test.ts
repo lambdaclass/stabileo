@@ -90,3 +90,17 @@ describe('a deliberate result change', () => {
     expect(ok.report).toContain('negative-case-entry');
   });
 });
+
+describe('containment audit', () => {
+  it('finds a refusal nested in an outcome error string', async () => {
+    const { collectContainment, containmentFindings } = await import('../capture');
+    containmentFindings.clear();
+    const refusal = JSON.stringify({ message: 'withheld', structuredDiagnostics: [{ code: 'known_issue', severity: 'error', phase: 'BU-BOUND', value: 741 }] });
+    collectContainment({ outcome: { ok: false, error: refusal } });
+    expect([...containmentFindings]).toEqual(['error:BU-BOUND']);
+    containmentFindings.clear();
+    collectContainment({ outcome: { ok: false, error: new Error(refusal) } });
+    expect([...containmentFindings]).toEqual(['error:BU-BOUND']);
+    containmentFindings.clear();
+  });
+});

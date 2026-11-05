@@ -85,6 +85,8 @@ pub struct QuantityConvergence {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ConvergenceStudy {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub structured_diagnostics: Vec<StructuredDiagnostic>,
     /// Always false: an estimate, not a bound.
     pub certified: bool,
     pub geometry: GeometryMode,
@@ -370,11 +372,13 @@ pub fn convergence_study_3d(input: &SolverInput3D, opts: &ConvergenceOptions) ->
     if models.len() == 2 {
         caveats.push("singleRefinement".into());
     }
+    let mut structured_diagnostics = Vec::new();
     let mut levels = Vec::new();
     let mut per_level = Vec::new();
     for m in &models {
         let r = crate::solver::linear::solve_3d(m)?;
-        let est = estimate_3d(m, &r).ok().and_then(|e| e.relative_error);
+        crate::known_issues::attach(&mut structured_diagnostics, r.structured_diagnostics.clone());
+        let est = crate::known_issues::optional_solve(estimate_3d(m, &r))?.and_then(|e| e.relative_error);
         levels.push(MeshLevel { nodes: m.nodes.len(), shell_elements: shell_count(m), energy_estimate: est });
         per_level.push(governing(m, &r, original_max_node));
     }
@@ -406,6 +410,7 @@ pub fn convergence_study_3d(input: &SolverInput3D, opts: &ConvergenceOptions) ->
     let exceeds_threshold = max_estimated_error.is_some_and(|v| v > opts.threshold)
         || quantities.iter().any(|q| is_inconclusive(&q.status));
     Ok(ConvergenceStudy {
+        structured_diagnostics,
         certified: false,
         geometry: opts.geometry,
         levels,

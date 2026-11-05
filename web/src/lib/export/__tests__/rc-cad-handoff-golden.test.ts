@@ -57,7 +57,7 @@ const REPORTED = {
    * rebuilt from it either way.
    */
   // Never restamped for a new results version: e2e opens a restamped copy (`rcFootingProject`).
-  fixtureSha256: '69f737ac5f51134d4c340b20f02ac972cfebed4cbd1ddf3f3964c7e6e4a1522d',
+  fixtureSha256: 'da13526823440e9d95ac5734cf1137d81839aca05fda8ce7936abdc93c3b47d5',
 };
 
 const sha256 = (s: string) => createHash('sha256').update(s, 'utf8').digest('hex');

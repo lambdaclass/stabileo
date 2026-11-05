@@ -121,6 +121,8 @@ jobs:
       determinism: ${{ steps.select.outputs.determinism }}
       results: ${{ steps.select.outputs.results }}
       run_e2e: ${{ steps.labels.outputs.run_e2e == 'true' }}
+      labels: ${{ steps.labels.outputs.names }}
+      e2e_timings_run: ${{ steps.timings.outputs.run }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -147,6 +149,8 @@ jobs:
             engine:
               - *tooling
               - 'engine/**'
+              - 'scripts/invariance-gate.py'
+              - 'docs/verification/METAMORPHIC.md'
               - 'Cargo.toml'
               - 'Cargo.lock'
               - '.config/**'
@@ -189,6 +193,8 @@ jobs:
               - 'Cargo.toml'
               - 'Cargo.lock'
             ci_scripts:
+              - 'scripts/check-containment.py'
+              - 'scripts/invariance-gate.py'
               - '.github/workflows/research.yml'
               - 'scripts/nightly-*.py'
               - '.github/workflows/nightly.yml'
@@ -197,6 +203,8 @@ jobs:
               - '.github/workflows/post-merge.yml'
               - 'scripts/tests/**'
               - 'scripts/ci/**'
+              - 'scripts/verification-metrics.py'
+              - 'docs/roadmap/PRODUCT_ROADMAP.md'
               - 'Makefile'
               - 'Dockerfile'
               - '.github/scripts/**'
@@ -220,6 +228,7 @@ jobs:
         run: |
           names=$(.github/scripts/retry-infra.sh gh api "repos/$GH_REPO/pulls/$PR" --jq '.labels[].name')
           if grep -qx run-e2e <<<"$names"; then echo "run_e2e=true"; else echo "run_e2e=false"; fi >> "$GITHUB_OUTPUT"
+          echo "names=$(paste -sd, <<<"$names")" >> "$GITHUB_OUTPUT"
       - name: Select PR jobs (all jobs for trusted events)
         id: select
         env:
@@ -229,6 +238,23 @@ jobs:
           CHANGED_FILES: ${{ steps.filter.outputs.all_files }}
           FORCE_FULL: ${{ steps.labels.outputs.run_e2e == 'true' }}
         run: python3 .github/scripts/select-ci.py
+      # Every E2E shard balances from this one table, so a run that cannot read it uses the committed one everywhere.
+      - name: Latest measured E2E timings (main or merge queue)
+        id: timings
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          run=
+          for id in $(gh api "repos/$GH_REPO/actions/artifacts?name=e2e-timings&per_page=20" \
+            --jq '.artifacts[] | select(.expired | not) | select(.workflow_run.head_branch == "main" or (.workflow_run.head_branch | startswith("gh-readonly-queue/main/"))) | .workflow_run.id'); do
+            trusted=$(gh api "repos/$GH_REPO/actions/runs/$id" | jq -r --arg repo "$GH_REPO" \
+              'select((.event == "push" or .event == "merge_group") and .path == ".github/workflows/ci.yml" and .head_repository.full_name == $repo and .repository.full_name == $repo) | .id')
+            if [ "$trusted" = "$id" ]; then run=$id; break; fi
+          done
+          echo "run=$run" >> "$GITHUB_OUTPUT"
+          echo "E2E timings from run: ${run:-none (the committed table)}"
 
   docker-smoke:
     name: Docker build smoke
@@ -305,6 +331,9 @@ jobs:
   # workflows), and changelog.d/ fragments well formed. On every run: neither has a path filter.
   lint-repo:
     name: Lint Repo
+    permissions:
+      contents: read
+      actions: write
     runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' || (github.ref == 'refs/heads/main' && github.event_name != 'schedule')) && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-24.04' }}
     timeout-minutes: 20
     steps:
@@ -333,9 +362,20 @@ jobs:
       # in no binary would never run, one in two would run twice.
       - name: Every engine test file is in exactly one test binary
         run: nix develop --command make check.test-targets NIX_RUN=
+      - name: Stop the rest of this run
+        if: failure() && github.event_name == 'pull_request'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+        run: gh workflow run stop-failed-run.yml --ref main -f run_id="$RUN_ID"
 
   test-ci-scripts:
     name: Test CI Scripts
+    permissions:
+      contents: read
+      actions: write
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     needs: [changes]
@@ -363,9 +403,20 @@ jobs:
         run: .github/scripts/retry-infra.sh nix develop .#e2e --command true
       - name: Browser shell (.#e2e) launches Chromium and Firefox
         run: nix develop .#e2e -c ./scripts/ci/check-playwright-nix.sh
+      - name: Stop the rest of this run
+        if: failure() && github.event_name == 'pull_request'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+        run: gh workflow run stop-failed-run.yml --ref main -f run_id="$RUN_ID"
 
   lint-engine:
     name: Lint Engine
+    permissions:
+      contents: read
+      actions: write
     runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' || (github.ref == 'refs/heads/main' && github.event_name != 'schedule')) && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-24.04' }}
     timeout-minutes: 20
     needs: [changes]
@@ -396,7 +447,18 @@ jobs:
       - name: Fetch Rust dependencies
         run: .github/scripts/retry-infra.sh nix develop --command cargo fetch --locked
       - name: Clippy
+        env:
+          BENCHMARK_GATE_LABELS: ${{ needs.changes.outputs.labels }}
         run: make lint.engine
+
+      - name: Stop the rest of this run
+        if: failure() && github.event_name == 'pull_request'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+        run: gh workflow run stop-failed-run.yml --ref main -f run_id="$RUN_ID"
 
   # Named correctness gates. Every gate's tests are EXCLUDED from the suite
   # job below — each test must run exactly once per CI run. The make targets
@@ -486,6 +548,7 @@ jobs:
         with:
           clean: true
           persist-credentials: false
+          fetch-depth: 2
       - if: runner.environment == 'github-hosted'
         uses: ./.github/actions/free-disk
       - if: runner.environment == 'github-hosted'
@@ -509,6 +572,53 @@ jobs:
       - name: Metamorphic tests (sampled tier, release)
         run: make test.engine.metamorphic
         timeout-minutes: 30
+      - name: Invariance of the analyses this change touches (quick tier, release)
+        run: make test.engine.invariance.quick BASE=HEAD^1
+        timeout-minutes: 5
+
+  test-engine-quick:
+    name: Engine Quick Checks
+    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' || (github.ref == 'refs/heads/main' && github.event_name != 'schedule')) && (vars.STABILEO_ENGINE_POOL == 'true' && fromJSON('["self-hosted","stabileo-engine"]') || fromJSON('["self-hosted","stabileo"]')) || 'ubuntu-24.04' }}
+    timeout-minutes: 60
+    needs: [changes]
+    if: needs.changes.outputs.engine == 'true'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          clean: true
+          persist-credentials: false
+      - name: Checks on this branch
+        id: plan
+        run: |
+          checks=$(python3 -I scripts/cadence.py list pr --runner ci-engine-quick)
+          echo "$checks"
+          if [ "$checks" = '[]' ]; then echo any=false; else echo any=true; fi >> "$GITHUB_OUTPUT"
+          python3 -I -c 'import json, sys; print("minutes=%d" % (sum(c["budget"] + 1 for c in json.loads(sys.argv[1])) + 2))' "$checks" >> "$GITHUB_OUTPUT"
+      - if: steps.plan.outputs.any == 'true' && runner.environment == 'github-hosted'
+        uses: ./.github/actions/free-disk
+      - if: steps.plan.outputs.any == 'true' && runner.environment == 'github-hosted'
+        uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
+        continue-on-error: true
+      - if: steps.plan.outputs.any == 'true' && runner.environment == 'github-hosted' && github.event_name != 'pull_request'
+        uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+        continue-on-error: true
+        with:
+          use-flakehub: false
+      - name: Prepare Nix shell (infrastructure retries)
+        if: steps.plan.outputs.any == 'true'
+        run: .github/scripts/retry-infra.sh nix develop --command true
+      - if: steps.plan.outputs.any == 'true' && runner.environment == 'github-hosted'
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        continue-on-error: true
+        with:
+          shared-key: engine-quick
+      - name: Fetch Rust dependencies
+        if: steps.plan.outputs.any == 'true'
+        run: .github/scripts/retry-infra.sh nix develop --command cargo fetch --locked
+      - name: Quick checks
+        if: steps.plan.outputs.any == 'true'
+        run: make test.cadence TIER=pr RUNNER=ci-engine-quick
+        timeout-minutes: ${{ fromJSON(steps.plan.outputs.minutes) }}
 
   test-ai-backend:
     name: Test AI Backend
@@ -545,6 +655,9 @@ jobs:
 
   lint-backend:
     name: Lint Backend
+    permissions:
+      contents: read
+      actions: write
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     needs: [changes]
@@ -580,6 +693,14 @@ jobs:
         run: make deps
       - name: Lint
         run: make lint.backend
+      - name: Stop the rest of this run
+        if: failure() && github.event_name == 'pull_request'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+        run: gh workflow run stop-failed-run.yml --ref main -f run_id="$RUN_ID"
 
   test-backend:
     name: Test Backend
@@ -964,6 +1085,10 @@ jobs:
         run: nix develop --command node research/metamaterials/grossman-2026/wasm/check.mjs web/public/research-wasm/grossman-2026
       - name: Four-cable browser solver
         run: nix develop --command node research/form-finding/pastrana-2026/wasm/check.mjs web/public/research-wasm/pastrana-2026
+      - name: Research bundles return the recorded bits (research/tools/wasm-output-hashes.json)
+        run: |
+          nix develop --command node --test research/tools/test-check-wasm-outputs.mjs
+          nix develop --command node research/tools/check-wasm-outputs.mjs web/public/research-wasm
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: research-wasm
@@ -1058,11 +1183,14 @@ jobs:
           retention-days: 3
           if-no-files-found: error
 
-  # The unit pass needs the WASM engine and nothing else, so it shards four ways;
+  # The unit pass needs the WASM engine and nothing else, so it shards eight ways;
   # the production-build tests need Chromium and the built app, so they stay
   # with the build.
   web-unit:
-    name: Web Unit (${{ matrix.shard }}/4)
+    name: Web Unit (${{ matrix.shard }}/8)
+    permissions:
+      contents: read
+      actions: write
     runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && vars.STABILEO_TIMING_POOL == 'true' && (github.event_name == 'merge_group' || (github.ref == 'refs/heads/main' && github.event_name != 'schedule'))) && fromJSON('["self-hosted","stabileo-timing"]') || 'ubuntu-24.04' }}
     timeout-minutes: 30
     needs: [changes, wasm]
@@ -1070,7 +1198,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -1107,7 +1235,64 @@ jobs:
       - name: Unit + integration tests
         env:
           UNIT_AREA: ${{ needs.changes.outputs.unit_area }}
-        run: make test.web.unit SHARD=${{ matrix.shard }}/4
+        run: make test.web.unit SHARD=${{ matrix.shard }}/8 BAIL=${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && '1' || '' }}
+      - name: Stop the rest of this run
+        if: failure() && github.event_name == 'pull_request'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+        run: gh workflow run stop-failed-run.yml --ref main -f run_id="$RUN_ID"
+
+  web-typecheck:
+    name: Web Typecheck
+    permissions:
+      contents: read
+      actions: write
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    needs: [changes, wasm]
+    if: needs.changes.outputs.web_build == 'true'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - if: runner.environment == 'github-hosted'
+        uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
+        continue-on-error: true
+      - if: runner.environment == 'github-hosted' && github.event_name != 'pull_request'
+        uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+        continue-on-error: true
+        with:
+          use-flakehub: false
+      - name: Prepare Nix shell (infrastructure retries)
+        run: |
+          .github/scripts/retry-infra.sh nix develop --command true
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        continue-on-error: true
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-npm-${{ hashFiles('web/package-lock.json') }}
+      # Built once per run by the `wasm` job, the same build as the shipped app.
+      - name: WASM engine (from the wasm job)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+        run: .github/scripts/retry-infra.sh nix develop --command gh run download "$RUN_ID" --name wasm --dir web/src/lib/wasm
+      - name: Install dependencies
+        run: .github/scripts/retry-infra.sh make web.deps
+      - name: Typecheck against its baseline and svelte-check gate
+        run: make typecheck.web
+      - name: Stop the rest of this run
+        if: failure() && github.event_name == 'pull_request'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+        run: gh workflow run stop-failed-run.yml --ref main -f run_id="$RUN_ID"
 
   web-build:
     name: Web Build
@@ -1184,8 +1369,6 @@ jobs:
       - name: Install build-test browser
         if: runner.environment == 'github-hosted'
         run: .github/scripts/retry-infra.sh make e2e.web.setup
-      - name: Typecheck against its baseline and svelte-check gate
-        run: make typecheck.web
       - name: Build and production-build tests
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
@@ -1431,6 +1614,16 @@ jobs:
       # `@landing` stays out: on CI every landing case after the first wedges in
       # `browser.newContext`; run `npx playwright test --grep @landing` locally.
       # `@flaky` tests are quarantined (web/e2e/README.md): left out here, run by `e2e-flaky`.
+      - name: Measured E2E timings (from a recent main or merge-queue run)
+        if: needs.changes.outputs.e2e_timings_run != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TIMINGS_RUN: ${{ needs.changes.outputs.e2e_timings_run }}
+        run: |
+          .github/scripts/retry-infra.sh gh run download "$TIMINGS_RUN" --name e2e-timings --dir web/e2e/.timings
+          test -s web/e2e/.timings/shard-timings.json
+          echo "E2E_SHARD_TIMINGS=e2e/.timings/shard-timings.json" >> "$GITHUB_ENV"
       - name: Area E2E smoke suite
         if: needs.changes.outputs.scope != 'full' && needs.changes.outputs.scope != 'site'
         env:
@@ -1480,6 +1673,15 @@ jobs:
           path: web/e2e/__screenshots__/linux
           retention-days: 30
           if-no-files-found: ignore
+      - name: Upload smoke timings
+        if: success() && (needs.changes.outputs.scope == 'full' || needs.changes.outputs.scope == 'site') && (github.event_name == 'merge_group' || github.event_name == 'push')
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: e2e-results-${{ matrix.shard }}
+          path: web/e2e/.results/smoke.json
+          include-hidden-files: true
+          retention-days: 3
+          if-no-files-found: error
       # Both paths are dot-directories, which upload-artifact skips unless told otherwise.
       - name: Upload Playwright artifacts
         if: always()
@@ -1493,6 +1695,38 @@ jobs:
           include-hidden-files: true
           retention-days: 14
           if-no-files-found: warn
+
+  # The smoke timings of this run, for the next runs' shard balance (web/scripts/e2e-shard.mjs).
+  e2e-timings:
+    name: E2E shard timings
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    needs: [changes, e2e]
+    if: needs.e2e.result == 'success' && (needs.changes.outputs.scope == 'full' || needs.changes.outputs.scope == 'site') && (github.event_name == 'merge_group' || github.event_name == 'push')
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Every shard's smoke report
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+        run: .github/scripts/retry-infra.sh gh run download "$RUN_ID" --pattern 'e2e-results-*' --dir e2e-results
+      - name: Timings table
+        env:
+          TOTAL: ${{ needs.changes.outputs.e2e_total }}
+        run: |
+          reports=(e2e-results/*/smoke.json)
+          [ "${#reports[@]}" = "$TOTAL" ] || { echo "expected $TOTAL shard reports, found ${#reports[@]}"; exit 1; }
+          mkdir -p timings
+          E2E_SHARD_TIMINGS=$PWD/timings/shard-timings.json node web/scripts/e2e-shard.mjs --update "${reports[@]/#/$PWD/}"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: e2e-timings
+          path: timings/shard-timings.json
+          retention-days: 30
+          if-no-files-found: error
 
   # The quarantined tests (`@flaky`, each with its issue: web/e2e/README.md), smoke and slow
   # alike, with two retries. NOT a required check: a red here is the issue's evidence, not a
@@ -1670,6 +1904,7 @@ jobs:
       - test-engine-gates
       - test-engine-suite
       - test-engine-metamorphic
+      - test-engine-quick
       - test-ai-backend
       - lint-backend
       - test-backend
@@ -1681,6 +1916,7 @@ jobs:
       - site-e2e
       - web-unit
       - web-build
+      - web-typecheck
       - results-snapshot
       - determinism
       - e2e
@@ -1719,6 +1955,7 @@ jobs:
       - test-engine-gates
       - test-engine-suite
       - test-engine-metamorphic
+      - test-engine-quick
       - test-ai-backend
       - lint-backend
       - test-backend
@@ -1730,6 +1967,7 @@ jobs:
       - site-e2e
       - web-unit
       - web-build
+      - web-typecheck
       - results-snapshot
       - determinism
       - e2e

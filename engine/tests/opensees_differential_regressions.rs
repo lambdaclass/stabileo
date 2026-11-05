@@ -272,6 +272,34 @@ fn roller_with_spring_reaction_balances_load() {
     assert!((sum + 10.0).abs() < 1e-9, "ΣRx = {sum}, load 10");
 }
 
+#[test]
+fn settled_roller_with_its_own_spring_keeps_reactions_in_balance() {
+    use dedaliano_engine::certify::reactions::reaction_bounds_2d;
+    for p in [0.0, 30.0] {
+        let input = input_2d(json!({
+            "nodes": {"1": {"id": 1, "x": 0.0, "z": 0.0}, "2": {"id": 2, "x": 2.0, "z": 0.0},
+                      "3": {"id": 3, "x": 4.0, "z": 0.0}},
+            "materials": {"1": {"id": 1, "e": 200000.0, "nu": 0.3}},
+            "sections": {"1": {"id": 1, "a": 0.01, "iz": 1e-4}},
+            "elements": {"1": {"id": 1, "type": "frame", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1},
+                         "2": {"id": 2, "type": "frame", "nodeI": 2, "nodeJ": 3, "materialId": 1, "sectionId": 1}},
+            "supports": {"1": {"id": 1, "nodeId": 1, "type": "pinned"},
+                         "2": {"id": 2, "nodeId": 3, "type": "rollerX", "ky": 1000.0, "kz": 500.0, "dz": -0.01}},
+            "loads": [{"type": "nodal", "data": {"nodeId": 2, "fx": 0.0, "fz": -p, "my": 0.0}}]
+        }));
+        let res = solve_2d(&input).unwrap();
+        let tip = res.displacements.iter().find(|d| d.node_id == 3).unwrap();
+        assert!(close(tip.uz, -0.01, 1e-12), "settlement {}", tip.uz);
+        let r3 = res.reactions.iter().find(|r| r.node_id == 3).unwrap();
+        assert!(close(r3.my, -500.0 * tip.ry, 1e-12), "P = {p}: my {} vs {}", r3.my, -500.0 * tip.ry);
+        let rz: f64 = res.reactions.iter().map(|r| r.rz).sum();
+        assert!((rz - p).abs() < 1e-9, "P = {p}: ΣRz = {rz}");
+        for b in reaction_bounds_2d(&input, &input.loads, &res, 0.0).unwrap() {
+            assert!(b.rz < 1e-9 && b.my < 1e-9, "P = {p}: node {} bound {b:?}", b.node_id);
+        }
+    }
+}
+
 /// The geometric stiffness of a bar is (1/L)·∫N dx times the string matrix:
 /// its mean axial force, which is EA·δ/L. Buckling took (N_start + N_end)/2,
 /// which is the mean only while N is linear along the member, so an axial

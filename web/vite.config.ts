@@ -4,6 +4,7 @@ import { copyFileSync, cpSync, existsSync, readFileSync } from 'fs';
 import { execSync, execFileSync } from 'child_process';
 import { resolve } from 'path';
 import { PUBLIC_KEY_PREFIXES } from './src/lib/i18n/public-prefixes';
+import { loadedPreloads } from './scripts/loaded-preloads';
 import { isComplete } from './src/lib/i18n/offered';
 import { resultChangeMetadataPlugin } from './scripts/result-change-metadata.mjs';
 import { blogTranslations } from './scripts/blog-translations';
@@ -31,35 +32,52 @@ function wasmStubPlugin(): Plugin {
 
 /**
  * `virtual:public-i18n`: the dictionaries' entries the public pages read (`landing.*`, `blog.*`, `lang.*`,
- * `contact.*`), in en, es and pt. The landing and the blog load these instead of the whole
- * dictionaries (3 MB of source, most of the public bundle); the application registers the rest
- * when it loads (`lib/i18n/full-dictionaries.ts`). The entries are copied line by line, which
- * `union-merge-safe.test.ts` keeps possible: one entry per line.
+ * `contact.*`). The landing and the blog load these instead of the whole dictionaries (3 MB of
+ * source, most of the public bundle); the application registers the rest when it loads
+ * (`lib/i18n/full-dictionaries.ts`, from `virtual:app-i18n`, the entries that are not public).
+ * English is bundled; every other language is its own chunk (`loaders`, awaited by
+ * `ensurePublicLocale` before a page renders in it), except under Vitest, which gets them all
+ * bundled. The entries are copied line by line, which `union-merge-safe.test.ts` keeps possible:
+ * one entry per line.
  */
 function publicI18nPlugin(): Plugin {
   const id = 'virtual:public-i18n';
+  const app = 'virtual:app-i18n';
+  const eager = !!process.env.VITEST;
+  const entries = (loc: string, publicOnly: boolean, watch: (file: string) => void) => {
+    const file = resolve(__dirname, 'src/lib/i18n/locales', `${loc}.ts`);
+    watch(file);
+    const lines = readFileSync(file, 'utf8').split('\n').filter((l) => {
+      const m = /^\s*(['"])([^'"]+)\1: /.exec(l);
+      return !!m && PUBLIC_KEY_PREFIXES.some((p) => m[2].startsWith(p)) === publicOnly;
+    });
+    return `{\n${lines.join('\n')}\n}`;
+  };
   return {
     name: 'public-i18n',
     resolveId(s) {
-      return s === id ? '\0' + id : null;
+      return [id, app].some((v) => s === v || s.startsWith(`${v}/`)) ? '\0' + s : null;
     },
     load(resolved) {
+      const watch = (f: string) => this.addWatchFile(f);
+      if (resolved.startsWith(`\0${id}/`)) return `export default ${entries(resolved.slice(id.length + 2), true, watch)};\n`;
+      if (resolved === `\0${app}` || resolved.startsWith(`\0${app}/`)) {
+        const locale = resolved.slice(app.length + 2);
+        return (locale ? [locale] : ['en', 'es', 'pt', 'de', 'fr', 'tr'])
+          .map((loc) => `export const ${loc} = ${isComplete(loc) ? entries(loc, false, watch) : '{}'};\n`).join('');
+      }
       if (resolved !== '\0' + id) return null;
       let out = '';
+      const lazy: string[] = [];
       for (const loc of ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
-        if (!isComplete(loc)) {
+        if (!isComplete(loc) || (!eager && loc !== 'en')) {
           out += `export const ${loc} = {};\n`;
+          if (isComplete(loc)) lazy.push(`${loc}: () => import(${JSON.stringify(`${id}/${loc}`)})`);
           continue;
         }
-        const file = resolve(__dirname, 'src/lib/i18n/locales', `${loc}.ts`);
-        this.addWatchFile(file);
-        const lines = readFileSync(file, 'utf8').split('\n').filter((l) => {
-          const m = /^\s*(['"])([^'"]+)\1: /.exec(l);
-          return !!m && PUBLIC_KEY_PREFIXES.some((p) => m[2].startsWith(p));
-        });
-        out += `export const ${loc} = {\n${lines.join('\n')}\n};\n`;
+        out += `export const ${loc} = ${entries(loc, true, watch)};\n`;
       }
-      return out;
+      return out + `export const loaders = {${lazy.join(', ')}};\n`;
     },
   };
 }
@@ -209,8 +227,10 @@ if (researchBuildId !== 'unavailable') {
   if (actual !== researchBuildId) throw new Error('Research assets are stale: run make research.wasm');
 }
 
+const preloads = loadedPreloads();
+
 export default defineConfig({
-  plugins: [wasmStubPlugin(), publicI18nPlugin(), resultChangeMetadataPlugin(), svelte(), ...(ADMIN ? [adminRootPlugin(), adminPublicAssetsPlugin()] : [])],
+  plugins: [preloads.plugin, wasmStubPlugin(), publicI18nPlugin(), resultChangeMetadataPlugin(), svelte(), ...(ADMIN ? [adminRootPlugin(), adminPublicAssetsPlugin()] : [])],
   define: {
     "import.meta.env.RESEARCH_BUILD_ID": JSON.stringify(researchBuildId),
     __STABILEO_COMMIT__: JSON.stringify(buildCommit()),
@@ -237,6 +257,7 @@ export default defineConfig({
       }
     : {
         target: 'esnext',
+        modulePreload: { resolveDependencies: preloads.resolveDependencies },
       },
   optimizeDeps: {
     exclude: ['dedaliano-engine', 'web-ifc'],

@@ -56,8 +56,12 @@ describe('decodeReplay', () => {
       const orig = globalThis.fetch;
       globalThis.fetch = (async () => new Response(body)) as typeof fetch;
       try {
-        const r = await fetchReplay<{ step: number }>('x');
+        const loading = fetchReplay<{ step: number }>('x');
+        expect((globalThis as { __prerenderHolds?: number }).__prerenderHolds, 'the prerender waits for the replay (#1452)').toBe(1);
+        const r = await loading;
         expect(r.frames).toHaveLength(1);
+        await new Promise(resolve => setTimeout(resolve, 0));
+        expect((globalThis as { __prerenderHolds?: number }).__prerenderHolds).toBe(0);
       } finally {
         globalThis.fetch = orig;
       }
