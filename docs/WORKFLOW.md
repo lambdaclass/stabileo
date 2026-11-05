@@ -23,6 +23,13 @@ never silently wrong and verification never silently stops working.
 
 - **One branch and one pull request per workstream**, based on `main`. Open the PR as a draft
   after the first coherent commit; push after every working step (a branch push is the backup).
+- **Before each push, `make check.quick`.** It runs what CI checks first, for what the branch
+  changed against `origin/main` (uncommitted work included): the changelog, pin and test-target
+  checks always; the engine's clippy, the backend's format and credo, the CI-script tests and the
+  web typecheck when those areas changed; then the unit tests related to the changed web files
+  and the engine tests of the touched sources (`scripts/test-changed.sh`). It prints its plan
+  first (`scripts/check-quick.sh --dry-run`). It is a quick guess, not the whole suite: CI still
+  runs everything, and `make test.backend` and the E2E suites are not part of it.
 - **Waves.** When several workstreams land together (e.g. the October 2026 safety wave), an
   **integration branch per wave** (`integration/<wave>`) merges every PR of the wave onto `main`
   in a planned order, resolves conflicts once, and runs the full suite. It is never merged

@@ -14,7 +14,7 @@
 #               (engine/tests/<name>.rs or <name>/) whose own files changed; and the targets
 #               whose name contains the changed source file's name (src/element/shell.rs ->
 #               *shell*), at most six. The other ~100 targets are not run: `make test-engine`.
-#   backend/    `cargo test -p dedaliano-backend`.
+#   ai-backend/ `cargo test -p dedaliano-backend`. backend/ (Elixir) is not run: `make test.backend`.
 #
 # Options (the pre-push hook uses the last three):
 #   --base REV     compare against REV instead of `git merge-base origin/main HEAD`
@@ -85,6 +85,7 @@ engine_src=()
 engine_targets=()
 engine_other=()
 backend=0
+elixir=0
 other=()
 
 target_exists() { [ -f "engine/tests/$1.rs" ] || [ -f "engine/tests/$1/main.rs" ]; }
@@ -109,7 +110,8 @@ while IFS= read -r f; do
       name=${name%.rs}
       if target_exists "$name"; then add_target "$name"; else engine_other+=("$f (shared by several test targets)"); fi ;;
     engine/*) engine_other+=("$f") ;;
-    backend/*) backend=1 ;;
+    ai-backend/*) backend=1 ;;
+    backend/*) elixir=1 ;;
     *) other+=("$f") ;;
   esac
 done <<< "$changed"
@@ -184,7 +186,7 @@ fi
 # ── engine and backend ────────────────────────────────────────────────
 if [ "$web_only" = 1 ]; then
   [ "${#engine_src[@]}" -gt 0 ] || [ "${#engine_targets[@]}" -gt 0 ] && skipped+=("engine changes: --web-only (scripts/test-changed.sh runs them)")
-  [ "$backend" = 1 ] && skipped+=("backend changes: --web-only")
+  [ "$backend" = 1 ] && skipped+=("ai-backend changes: --web-only")
 else
   if cargo nextest --version >/dev/null 2>&1; then nextest=1; else nextest=0; fi
   rust_tests() {  # rust_tests <label> <cargo selection args...>
@@ -212,8 +214,9 @@ else
   if [ "${#engine_src[@]}" -gt 0 ] || [ "${#engine_targets[@]}" -gt 0 ]; then
     skipped+=("engine: every other integration target (make test-engine, or CI)")
   fi
-  [ "$backend" = 1 ] && run "backend: cargo test" . cargo test -p dedaliano-backend
+  [ "$backend" = 1 ] && run "ai-backend: cargo test" . cargo test -p dedaliano-backend
 fi
+[ "$elixir" = 1 ] && skipped+=("backend/ (Elixir) changes: make test.backend (needs PostgreSQL: make services)")
 for f in "${engine_other[@]+"${engine_other[@]}"}"; do skipped+=("engine file not mapped to a test target: $f"); done
 [ "${#other[@]}" -gt 0 ] && skipped+=("${#other[@]} file(s) outside web/, engine/, backend/ code: no tests chosen for them")
 
