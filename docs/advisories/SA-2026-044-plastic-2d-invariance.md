@@ -5,7 +5,7 @@
 | Severity | High |
 | Status | Draft |
 | Issue | [#758](https://github.com/lambdaclass/stabileo/issues/758) |
-| Fix | this PR |
+| Fix | #1447 |
 | Affected versions | every release with 2D plastic collapse; not bisected |
 | Re-check registry | results version entry `plastic-2d-limit-analysis-collapse-factor` |
 

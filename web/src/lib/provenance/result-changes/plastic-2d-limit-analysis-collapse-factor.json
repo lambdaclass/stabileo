@@ -1,7 +1,9 @@
 {
   "id": "plastic-2d-limit-analysis-collapse-factor",
   "date": "2026-11-05",
-  "prs": [],
+  "prs": [
+    1447
+  ],
   "area": "analysis",
   "when": {
     "allOf": [
