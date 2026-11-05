@@ -412,15 +412,6 @@
     }},
     "init": {"scope": "utility"},
     "loads_request": {"scope": "design"},
-    "plastic_limit_2d": {"scope": "solve", "calls": "limit_analysis_2d_input", "invariances": {
-      "units": {"test": "engine/tests/metamorphic/regressions.rs::issue_758_units"},
-      "relabel": {"test": "engine/tests/metamorphic/regressions.rs::issue_758_renumbering"},
-      "reversal": {"test": "engine/tests/metamorphic/regressions.rs::issue_758_member_reversal"},
-      "rotation": {"test": "engine/tests/metamorphic/regressions.rs::issue_758_axial_self_stress_round_off_is_not_a_bending_redundancy"},
-      "mirror": {"test": "engine/tests/metamorphic/regressions.rs::issue_758_axial_self_stress_round_off_is_not_a_bending_redundancy"},
-      "planes": {"tracked": 1497},
-      "prepared": {"exempt": "no prepared or duplicate linear path: it solves its own linear program"}
-    }},
     "review_model_sanity": {"scope": "utility"},
     "section_geometry_digest": {"scope": "section"},
     "solve_2d": {"scope": "solve", "calls": "solve_2d_typed", "invariances": {

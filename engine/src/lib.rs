@@ -410,17 +410,6 @@ pub fn solve_plastic_2d(json: &str) -> Result<String, JsValue> {
     to_json(&results)
 }
 
-/// Collapse load factor of a 2D frame by limit analysis (`solver::plastic_limit`).
-/// JSON (`LimitInput`) in → JSON `LimitResult` out.
-#[wasm_bindgen]
-pub fn plastic_limit_2d(json: &str) -> Result<String, JsValue> {
-    let input: solver::plastic_limit::LimitInput = serde_json::from_str(json)
-        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
-    let out = solver::plastic_limit::limit_analysis_2d_input(&input).map_err(|e| JsValue::from_str(&e))?;
-    serde_json::to_string(&out)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
-}
-
 /// Solve 2D plastic analysis and certify the collapse load factor λ_c:
 /// `[lambdaLower, lambdaUpper]` from the static and kinematic theorems, both
 /// checked in exact rational arithmetic (docs/verification/CERTIFY.md).

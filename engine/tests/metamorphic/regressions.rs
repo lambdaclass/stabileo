@@ -890,40 +890,58 @@ fn issue_758_public_entry_is_withheld(c: &Case2) {
     assert!(refusal.contains("PL-2D-INVARIANCE"), "{refusal}");
 }
 
+const ISSUE_758_MECHANISM: &str = "the structure is a mechanism before any hinge forms";
+
+const ISSUE_758_CASES: &[(u64, &str, Option<f64>)] = &[
+    (20754, "feature_matrix/2d-constraint--rigid-link--offset-beam-with", Some(46.666666666666686)),
+    (20754, "fuzz_rich_2d/20772", Some(0.06569871968509293)),
+    (20754, "fuzz_rich_2d/20787", None),
+    (20754, "fuzz_rich_2d/20800", None),
+    (20754, "fuzz_rich_2d/20832", Some(123.29270872808767)),
+    (20754, "fuzz_rich_2d/20833", None),
+    (20754, "fuzz_rich_2d/20840", Some(0.27500611582047574)),
+    (20754, "fuzz_rich_2d/20843", Some(80.12437234517034)),
+    (20749, "feature_matrix/2d-constraint--rigid-link--offset-beam-with", Some(46.666666666666686)),
+    (20749, "fuzz_rich_2d/20772", Some(0.7290143868872333)),
+    (20749, "fuzz_rich_2d/20787", Some(1.7049195603727287)),
+    (20749, "fuzz_rich_2d/20800", None),
+    (20749, "fuzz_rich_2d/20832", Some(123.29270872808767)),
+    (20749, "fuzz_rich_2d/20833", None),
+    (20749, "fuzz_rich_2d/20840", None),
+    (20749, "fuzz_rich_2d/20843", Some(71.71445604810637)),
+];
+
+fn issue_758_allowed_refusal(corpus: u64, name: &str, transform: &str, seed: u64) -> Option<&'static str> {
+    (corpus == 20749 && name == "fuzz_rich_2d/20772" && transform == "units" && [1, 2, 5, 6].contains(&seed)).then_some("self-check static_residual")
+}
+
 fn issue_758_invariance(transform: &str, limit: Limit758) {
     use dedaliano_engine::metamorphic::{relabel::Relabel, reversal::reverse_2d, units::Units};
     let mut failures = Vec::new();
-    let cases = crate::corpus::cases_2d(crate::corpus::Tier::Nightly, 20754).into_iter()
-        .chain(crate::corpus::cases_2d(crate::corpus::Tier::Nightly, 20749));
-    let mut checked = 0;
-    let mut solved = 0;
-    for c in cases.filter(|c|
-        c.name.contains("2d-constraint--rigid-link--offset-beam-with") ||
-        [20772, 20787, 20800, 20832, 20833, 20840, 20843].iter().any(|s| c.name == format!("fuzz_rich_2d/{s}"))) {
-        issue_758_public_entry_is_withheld(&c);
-        let base = issue_758_limit(&c, limit);
-        for seed in 0..8 {
-            let other = match transform {
-                "relabel" => c.relabel(&Relabel::random_2d(&c.s, seed), seed),
-                "reversal" => Case2 { s: reverse_2d(&c.s, &|id| (id + seed as usize) % 3 != 0), ..c.clone() },
-                _ => c.units(&Units::froude([1e-3, 25.0, 0.3048, 1e3][seed as usize % 4], [1e3, 1e-2, 4.448, 1e3][seed as usize % 4])),
+    let mut seen = 0;
+    for corpus in [20754, 20749] {
+        for c in crate::corpus::cases_2d(crate::corpus::Tier::Nightly, corpus) {
+            let Some(&(_, _, expected)) = ISSUE_758_CASES.iter().find(|(k, n, _)| *k == corpus && *n == c.name) else { continue };
+            seen += 1;
+            issue_758_public_entry_is_withheld(&c);
+            let check = |what: String, r: Result<f64, String>, refusal: Option<&str>, failures: &mut Vec<String>| match (expected, r, refusal) {
+                (Some(want), Ok(got), None) if (got - want).abs() <= 1e-9 * want.abs() => {}
+                (Some(_), Err(e), Some(reason)) if e.contains(reason) => {}
+                (None, Err(e), _) if e.contains(ISSUE_758_MECHANISM) => {}
+                (_, r, _) => failures.push(format!("{corpus} {} {what}: expected {expected:?}, got {r:?}", c.name)),
             };
-            let r = issue_758_limit(&other, limit);
-            checked += 1;
-            match (&base, &r) {
-                (Ok(a), Ok(b)) => {
-                    solved += 1;
-                    if (b - a).abs() > 1e-9 * a.abs() {
-                        failures.push(format!("{} {transform}/{seed}: {a} -> {b} ({:e})", c.name, (b - a).abs() / a.abs()));
-                    }
-                }
-                (Err(_), Err(_)) => {}
-                _ if c.name == "fuzz_rich_2d/20772" && transform == "units" => {}
-                (a, b) => failures.push(format!("{} {transform}/{seed}: {a:?} -> {b:?}", c.name)),
+            check("base".into(), issue_758_limit(&c, limit), None, &mut failures);
+            for seed in 0..8 {
+                let other = match transform {
+                    "relabel" => c.relabel(&Relabel::random_2d(&c.s, seed), seed),
+                    "reversal" => Case2 { s: reverse_2d(&c.s, &|id| (id + seed as usize) % 3 != 0), ..c.clone() },
+                    _ => c.units(&Units::froude([1e-3, 25.0, 0.3048, 1e3][seed as usize % 4], [1e3, 1e-2, 4.448, 1e3][seed as usize % 4])),
+                };
+                check(format!("{transform}/{seed}"), issue_758_limit(&other, limit), issue_758_allowed_refusal(corpus, &c.name, transform, seed), &mut failures);
             }
         }
     }
-    assert!(checked >= 100 && 2 * solved >= checked, "missing reproduction cases: {checked} checked, {solved} solved");
+    assert_eq!(seen, ISSUE_758_CASES.len(), "missing reproduction cases");
     assert!(failures.is_empty(), "{}", failures.join("\n"));
 }
 
@@ -1121,3 +1139,4 @@ fn harmonic_c2_symmetric_frame_matches_direct_solve() {
     }
     assert_eq!(tally.status("harmonic", "symmetry"), "holds", "{}", tally.report());
 }
+

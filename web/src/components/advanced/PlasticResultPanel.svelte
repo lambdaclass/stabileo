@@ -56,9 +56,7 @@
     {/if}
     · GH = {Math.max(0, r.degree)}
   </div>
-  {#if r.limit && r.unresolved}<p class="adv-result-info pl-unresolved" data-testid="plastic-limit-unconfirmed">{tp('course.plastic.limitUnconfirmed', { lambda: r.limit.lambda.toFixed(3), history: r.limit.historyLambda.toFixed(3), shown: r.collapseFactor.toFixed(3) })}</p>
-  {:else if r.limit}<p class="adv-result-info pl-unresolved" data-testid="plastic-limit">{tp('course.plastic.limitOnly', { lambda: r.limit.lambda.toFixed(3), history: r.limit.historyLambda.toFixed(3) })}</p>
-  {:else if collapseVerdict(r) === 'unresolved'}<p class="adv-result-info pl-unresolved" data-testid="plastic-unresolved">{t('course.plastic.unresolved')}</p>{/if}
+  {#if collapseVerdict(r) === 'unresolved'}<p class="adv-result-info pl-unresolved" data-testid="plastic-unresolved">{t('course.plastic.unresolved')}</p>{/if}
   <PlasticCertificate result={r} />
   <table class="pl-table" data-testid="plastic-hinges">
     <thead>

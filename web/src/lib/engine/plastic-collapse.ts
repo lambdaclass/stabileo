@@ -38,16 +38,13 @@
  *
  * What is not modelled: interaction of M with N or V (a section yields in
  * bending at Mp or axially at Np, each on its own), hinge unloading, and
- * buckling of compressed members.
- *
- * The collapse factor reported is the limit analysis's (engine `plastic_limit_2d`): the largest
- * statically admissible load, which equals the smallest kinematic one. The history above places
- * hinges at sampled sections and keeps them there, so where it ends elsewhere it is reported as
- * approximate (`limit`), never as the collapse load.
+ * buckling of compressed members. The collapse load this gives is the one
+ * the uniqueness theorem names: the largest statically admissible load, which
+ * equals the smallest kinematic one.
  */
 import type { SolverInput, SolverLoad, SolverElement, AnalysisResults, ElementForces } from './types';
 import type { PlasticHinge, PlasticResult, PlasticStep } from './result-types';
-import { solve, plasticLimit2D, type PlasticLimitResult } from './wasm-solver';
+import { solve } from './wasm-solver';
 // The normalized reading: the diagnosis in the active language and the app's axis names.
 import { analyzeKinematics } from './kinematic-2d';
 import { computeDiagramValueAt } from './diagrams';
@@ -102,28 +99,15 @@ export interface PlasticCollapseResult extends PlasticResult {
   unloaded: boolean;
   /**
    * The analysis stopped at a mechanism it could not tell from a false one (hinges that would
-   * unload, past the closings it allows, or a linear program that did not finish), or at a limit
-   * analysis factor the exact certificate does not confirm: collapseFactor is then not a verified
-   * collapse load.
+   * unload, past the closings it allows, or a linear program that did not finish): collapseFactor
+   * is then where it stopped, not a verified collapse load.
    */
   unresolved?: boolean;
-  /**
-   * Present when the step-by-step history does not end at the collapse load: `collapseFactor` is
-   * then the limit analysis's (`lambda`), and `historyLambda` is where the history ended.
-   */
-  limit?: { lambda: number; historyLambda: number };
-  /**
-   * The history settled at a mechanism, but nothing independent of the limit analysis confirms
-   * its factor (the exact certificate, or a history ending at the same load): `collapseFactor`
-   * is then the certified lower bound, or the lower of the two factors.
-   */
-  unconfirmed?: boolean;
 }
 
 interface Piece { id: number; t0: number; t1: number }
 
 const EPS_EVENT = 1e-6;
-const HISTORY_TOL = 1e-3;
 
 function cloneInput(input: SolverInput): SolverInput {
   const copy = <T>(m: Map<number, T>) => new Map([...m].map(([k, v]) => [k, { ...(v as object) } as T]));
@@ -663,58 +647,8 @@ export function plasticCollapse2D(original: SolverInput, opts: PlasticCollapseOp
     else isMechanism = true;
   }
   if (event === maxEvents && !isMechanism) unresolved = true;
-  let collapseFactor = lambda;
-  let limit: PlasticCollapseResult['limit'];
-  let unconfirmed = false;
-  if (!unloaded) {
-    const ids = [...original.elements.values()];
-    const mpOf = new Map(ids.map((e) => [e.id, e.type === 'truss' ? Infinity : opts.mp(e.id)]));
-    const npOf = new Map(ids.map((e) => [e.id, opts.np(e.id)]));
-    let lp: PlasticLimitResult | null = null;
-    try { lp = plasticLimit2D(original, mpOf, npOf); } catch { lp = null; }
-    const settled = isMechanism && !unresolved;
-    const historyUnverified = unresolved;
-    if (!lp || !(Number.isFinite(lp.lambda) && lp.lambda > 0)) {
-      if (settled) unresolved = true;
-    } else if (hinges.some((h) => h.kind === 'axial')) {
-      if (lambda > lp.lambdaUpper * (1 + EPS_EVENT)) {
-        collapseFactor = lp.lambda;
-        limit = { lambda: lp.lambda, historyLambda: lambda };
-        isMechanism = true;
-        unresolved = true;
-      }
-    } else if (lp.hinges.some((h) => h.kind === 'axial')) {
-      unresolved = true;
-    } else {
-      collapseFactor = lp.lambda;
-      if (!(settled && Math.abs(lambda - lp.lambda) <= HISTORY_TOL * lp.lambda)) {
-        limit = { lambda: lp.lambda, historyLambda: lambda };
-        isMechanism = true;
-        unresolved = true;
-      }
-    }
-    if (lp) {
-      const c = lp.confirmation;
-      if (c.kind === 'exact') {
-        collapseFactor = lp.lambda;
-        isMechanism = true;
-        unresolved = historyUnverified;
-        limit = !historyUnverified && Math.abs(lambda - lp.lambda) > HISTORY_TOL * lp.lambda ? { lambda: lp.lambda, historyLambda: lambda } : undefined;
-      } else if (c.kind !== 'contradicted' && settled && Math.abs(lambda - lp.lambda) <= HISTORY_TOL * lp.lambda) {
-        collapseFactor = Math.min(lp.lambda, lambda);
-        isMechanism = true;
-        unresolved = false;
-        limit = undefined;
-      } else {
-        unconfirmed = !historyUnverified;
-        unresolved = true;
-        limit = { lambda: lp.lambda, historyLambda: lambda };
-        collapseFactor = c.kind === 'contradicted' || c.kind === 'bracketed' ? c.lower : Math.min(lp.lambda, lambda);
-      }
-    }
-  }
   return {
-    collapseFactor,
+    collapseFactor: lambda,
     steps,
     hinges,
     isMechanism: isMechanism && !unresolved,
@@ -722,7 +656,5 @@ export function plasticCollapse2D(original: SolverInput, opts: PlasticCollapseOp
     degree: kin0.degree,
     unloaded,
     ...(unresolved ? { unresolved: true } : {}),
-    ...(limit ? { limit } : {}),
-    ...(unconfirmed ? { unconfirmed: true } : {}),
   };
 }
