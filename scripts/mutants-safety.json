@@ -1,0 +1,49 @@
+{
+  "$comment": "The safety-critical scope of the weekly mutation run (MUTANTS_SCOPE=safety scripts/mutants.sh) and the modules its kill rate is reported and ratcheted by (scripts/mutants-killrate.py, docs/verification/FUZZ_MUTANTS.md). A file listed without functions is mutated whole; with functions, only those functions.",
+  "modules": {
+    "certificate": {
+      "description": "The linear-static result certificate: the interval bound, the λ_min certificate, the sparse path and the solver-level entry points whose verdict a report shows",
+      "files": {
+        "engine/src/certify/linear.rs": [],
+        "engine/src/certify/sparse.rs": [],
+        "engine/src/certify/finite.rs": [],
+        "engine/src/certify/solver.rs": []
+      }
+    },
+    "provenance": {
+      "description": "Provenance and reproduction hashes, and the certificate bundle that carries them",
+      "files": {
+        "engine/src/certify/provenance.rs": [],
+        "engine/src/certify/bundle.rs": [],
+        "engine/src/reproduce.rs": []
+      }
+    },
+    "design-verdict": {
+      "description": "Whether a design check passed, failed or was not evaluated: the check ledger and the certified verdict of every code",
+      "files": {
+        "engine/src/postprocess/check_ledger.rs": [],
+        "engine/src/certify/design.rs": ["around", "loaded_ratio", "uncertified", "certify_members", "required_ratio", "tri_or", "present", "refused_cap", "members_uncertified"]
+      }
+    },
+    "containment": {
+      "description": "Known wrong-result issues and the warnings that contain them",
+      "files": {
+        "engine/src/known_issues.rs": []
+      }
+    }
+  },
+  "tests": [
+    "certify",
+    "certify_bundle",
+    "certify_design",
+    "certify_end_to_end",
+    "certify_end_to_end_findings",
+    "certify_end_to_end_inputs",
+    "certify_end_to_end_mutations",
+    "certify_nonfinite",
+    "certify_shown",
+    "cirsoc301_check",
+    "fuzz_regressions",
+    "known_issues"
+  ]
+}
