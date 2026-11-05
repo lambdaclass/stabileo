@@ -13,7 +13,7 @@
        services services.stop postgres.start postgres.stop \
        inst inst.check inst.claim inst.release inst.list ports \
        docker.build docker.up docker.down cloud-init.render \
-       check-pins check.changelog check.test-targets test.cadence check.cadence check.containment deps.audit worktree worktree-prune hooks \
+       check-pins check.changelog check.test-targets test.cadence check.cadence check.containment deps.audit test.engine.reproducers test.reproducers.published check.issue-reproducers worktree worktree-prune hooks \
        fmt check clean
 
 NIX_RUN = nix develop --command
@@ -423,6 +423,16 @@ check.changelog:
 check.test-targets:
 	python3 -I scripts/check-test-targets.py
 
+test.engine.reproducers:
+	$(NIX_RUN) python3 -I scripts/issue-reproducers.py xfail
+
+test.reproducers.published:
+	$(NEXTEST) -E 'test(/(^|::)issue_[0-9]+/)' --no-tests warn
+	$(NIX_RUN) bash -c 'cd web && npx vitest run --project unit -t "#[0-9]+"'
+
+check.issue-reproducers:
+	python3 -I scripts/issue-reproducers.py flip-check --base $(BASE) --head $(HEAD) --body-file $(BODY) $(if $(LABELS),--labels-json $(LABELS))
+
 test.nightly-scripts:
 	python3 -B -I scripts/tests/test_nightly.py
 	python3 -B -I tools/opensees/test_gen_models.py
@@ -449,8 +459,9 @@ test.ci-scripts: test.nightly-scripts check.cadence
 	python3 -B -I scripts/tests/test_wall_clock.py
 	python3 -B -I scripts/tests/test_check_quick.py
 	python3 -B -I scripts/tests/test_infra_retry.py
+	python3 -B -I scripts/tests/test_issue_reproducers.py
 	$(NIX_RUN) bash -c 'shellcheck -S warning .github/scripts/*.sh'
-	$(NIX_RUN) actionlint .github/workflows/ci.yml .github/workflows/research.yml .github/workflows/merge-queue-supersede.yml .github/workflows/post-merge.yml .github/workflows/infra-retry.yml .github/workflows/stop-failed-run.yml .github/workflows/nightly.yml .github/workflows/route-size.yml
+	$(NIX_RUN) actionlint .github/workflows/ci.yml .github/workflows/research.yml .github/workflows/merge-queue-supersede.yml .github/workflows/post-merge.yml .github/workflows/infra-retry.yml .github/workflows/stop-failed-run.yml .github/workflows/nightly.yml .github/workflows/route-size.yml .github/workflows/issue-reproducers.yml
 
 # DIST=web/dist checks a real build instead of the fixture site.
 test.infra.caddy:
