@@ -1,7 +1,6 @@
 {
   "name": "issue-1414",
   "family": "connector",
-  "knownIssue": 1414,
   "model": {"dim": "2d", "input": {
     "nodes": {"1": {"id": 1, "x": 0, "z": 0}, "2": {"id": 2, "x": 3, "z": 0}, "3": {"id": 3, "x": 3, "z": 0}},
     "materials": {"1": {"id": 1, "e": 200000, "nu": 0.3}},
