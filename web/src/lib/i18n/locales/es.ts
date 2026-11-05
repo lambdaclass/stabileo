@@ -11857,6 +11857,7 @@ const es: Record<string, string> = {
   'sel.kind.shells.other': '{n} placas',
   'plastic.collapse': 'colapso con {n} rótulas: λc = {lambda}',
   'plastic.noCollapse': 'Sin colapso: la estructura no llegó a formar un mecanismo',
+  'plastic.withheldIssue': 'Por qué se retiene y cuándo vuelve: issue #{issue}',
   'plastic.member': 'Barra',
   'plastic.value': 'Esfuerzo',
   'plastic.axial': 'fluencia axil',

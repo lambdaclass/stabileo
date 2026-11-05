@@ -11686,6 +11686,7 @@ const tr: Translations = {
   'sel.kind.shells.other': '{n} kabuk',
   'plastic.collapse': '{n} mafsalla göçme: λc = {lambda}',
   'plastic.noCollapse': 'Göçme yok: yapı hiçbir zaman mekanizmaya dönüşmedi',
+  'plastic.withheldIssue': 'Neden geri tutulduğu ve ne zaman döneceği: issue #{issue}',
   'plastic.member': 'Çubuk',
   'plastic.value': 'İç kuvvet',
   'plastic.axial': 'eksenel akma',

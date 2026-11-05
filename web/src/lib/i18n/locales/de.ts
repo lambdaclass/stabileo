@@ -11678,6 +11678,7 @@ const de: Translations = {
   'sel.kind.shells.other': '{n} Schalen',
   'plastic.collapse': 'Kollaps mit {n} Fließgelenken: λc = {lambda}',
   'plastic.noCollapse': 'Kein Kollaps: Das Tragwerk wurde nie zum Mechanismus',
+  'plastic.withheldIssue': 'Warum es zurückgehalten wird und wann es zurückkommt: Issue #{issue}',
   'plastic.member': 'Stab',
   'plastic.value': 'Schnittgröße',
   'plastic.axial': 'Fließen unter Normalkraft',

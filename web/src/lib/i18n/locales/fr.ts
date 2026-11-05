@@ -11678,6 +11678,7 @@ const fr: Translations = {
   'sel.kind.shells.other': '{n} coques',
   'plastic.collapse': 'ruine avec {n} rotules : λc = {lambda}',
   'plastic.noCollapse': 'Pas de ruine : la structure n\'est jamais devenue un mécanisme',
+  'plastic.withheldIssue': 'Pourquoi il est retenu et quand il reviendra : issue #{issue}',
   'plastic.member': 'Barre',
   'plastic.value': 'Effort',
   'plastic.axial': 'plastification axiale',

@@ -28,11 +28,11 @@ const blocks = (doc: StepDoc): Block[] => {
 const compare = (doc: StepDoc) => blocks(doc).flatMap((b) => (b.kind === 'compare' ? b.rows : []));
 
 describe('plastic methods in the catalog', () => {
-  it('both apply to the portal frame example and are in the plastic group', () => {
+  it('both are in the plastic group and withheld on the portal frame example until #758 is fixed', () => {
     for (const id of ['plasticKinematic', 'plasticStatic']) {
       const m = methodById(id)!;
       expect(m.group).toBe('plastic');
-      expect(m.applies(ctx).ok).toBe(true);
+      expect(m.applies(ctx)).toEqual({ ok: false, reason: { key: 'knownIssue.PL-2D-INVARIANCE' }, issue: 758 });
     }
   });
 

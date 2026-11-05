@@ -11257,6 +11257,7 @@ const pt: Translations = {
   'sel.kind.shells.other': '{n} placas',
   'plastic.collapse': 'colapso com {n} rótulas: λc = {lambda}',
   'plastic.noCollapse': 'Sem colapso: a estrutura não chegou a formar um mecanismo',
+  'plastic.withheldIssue': 'Por que está retido e quando volta: issue #{issue}',
   'plastic.member': 'Barra',
   'plastic.value': 'Esforço',
   'plastic.axial': 'escoamento axial',

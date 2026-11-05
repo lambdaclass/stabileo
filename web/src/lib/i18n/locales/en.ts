@@ -11868,6 +11868,7 @@ const en: Record<string, string> = {
   'sel.kind.shells.other': '{n} shells',
   'plastic.collapse': 'collapse with {n} hinges: λc = {lambda}',
   'plastic.noCollapse': 'No collapse: the structure never became a mechanism',
+  'plastic.withheldIssue': 'Why it is withheld, and when it returns: issue #{issue}',
   'plastic.member': 'Member',
   'plastic.value': 'Force',
   'plastic.axial': 'axial yield',
