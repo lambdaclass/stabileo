@@ -1,8 +1,51 @@
 {
   "$comment": "Registry of result-affecting changes. Read by web/scripts/result-change-metadata.mjs for build metadata and decoded by web/src/lib/provenance/full-registry.ts; schema and rules in docs/verification/PROVENANCE.md. Add an entry whenever a change makes the same saved model give different numbers, at currentResultsVersion + 1, and bump currentResultsVersion: a version on main is deployed, and an entry added to it later is never shown to the projects it stamped (results-version.test.ts). Feature ids are defined in web/src/lib/provenance/model-features.ts.",
   "schema": 1,
-  "currentResultsVersion": 31,
+  "currentResultsVersion": 32,
   "changes": [
+    {
+      "id": "harmonic-modal-residual-checked",
+      "resultsVersion": 32,
+      "date": "2026-11-05",
+      "prs": [
+        1423
+      ],
+      "area": "analysis",
+      "when": {
+        "allOf": [
+          [
+            "members",
+            "shells",
+            "curvedShells",
+            "connectors",
+            "springs"
+          ]
+        ],
+        "any": [
+          "analysis:harmonic"
+        ]
+      },
+      "title": {
+        "en": "Harmonic analysis: the omitted modes' correction no longer loses its digits, and each frequency is checked against the full system",
+        "es": "Análisis armónico: la corrección de los modos omitidos ya no pierde sus cifras, y cada frecuencia se verifica contra el sistema completo",
+        "pt": "Análise harmônica: a correção dos modos omitidos já não perde seus dígitos, e cada frequência é verificada contra o sistema completo",
+        "de": "Harmonische Analyse: die Korrektur der weggelassenen Moden verliert ihre Stellen nicht mehr, und jede Frequenz wird am vollständigen System geprüft",
+        "fr": "Analyse harmonique : la correction des modes omis ne perd plus ses chiffres, et chaque fréquence est vérifiée sur le système complet",
+        "tr": "Harmonik analiz: atlanan modların düzeltmesi artık basamaklarını kaybetmiyor ve her frekans tam sisteme karşı kontrol ediliyor"
+      },
+      "explanation": {
+        "en": "The harmonic response adds to the kept modes a correction for the omitted ones. It was computed as the static response minus the kept modes' share, and when one kept mode was much softer than the others that difference was round-off, multiplied by the square of the frequency: on a symmetric frame the response at 2.3 Hz came out 79 times too large, and a displacement that is zero by symmetry was not (SA-2026-043). The correction is now computed in the omitted modes' own subspace, and the response at every frequency is checked against the full dynamic system; where its residual exceeds 10⁻² that frequency is solved directly and a warning says so. It concerns harmonic analyses; other models move only within round-off, or where a frequency is now solved directly.",
+        "es": "La respuesta armónica suma a los modos retenidos una corrección por los omitidos. Se calculaba como la respuesta estática menos la parte de los modos retenidos, y cuando un modo retenido era mucho más flexible que los demás esa diferencia era error de redondeo, multiplicado por el cuadrado de la frecuencia: en un pórtico simétrico la respuesta a 2,3 Hz salía 79 veces mayor, y un desplazamiento nulo por simetría no lo era (SA-2026-043). Ahora la corrección se calcula en el subespacio propio de los modos omitidos, y la respuesta en cada frecuencia se verifica contra el sistema dinámico completo; donde su residuo supera 10⁻² esa frecuencia se resuelve en forma directa y una advertencia lo indica. Afecta a análisis armónicos; los demás modelos cambian sólo dentro del redondeo, o donde una frecuencia ahora se resuelve en forma directa.",
+        "pt": "A resposta harmônica soma aos modos retidos uma correção pelos omitidos. Ela era calculada como a resposta estática menos a parte dos modos retidos, e quando um modo retido era muito mais flexível que os demais essa diferença era erro de arredondamento, multiplicado pelo quadrado da frequência: num pórtico simétrico a resposta a 2,3 Hz saía 79 vezes maior, e um deslocamento nulo por simetria não o era (SA-2026-043). Agora a correção é calculada no subespaço próprio dos modos omitidos, e a resposta em cada frequência é verificada contra o sistema dinâmico completo; onde seu resíduo passa de 10⁻² essa frequência é resolvida diretamente e um aviso o indica. Afeta análises harmônicas; os demais modelos mudam só dentro do arredondamento, ou onde uma frequência agora é resolvida diretamente.",
+        "de": "Die harmonische Antwort ergänzt die beibehaltenen Moden um eine Korrektur für die weggelassenen. Sie wurde als statische Antwort minus dem Anteil der beibehaltenen Moden berechnet, und war eine beibehaltene Mode viel weicher als die übrigen, bestand diese Differenz aus Rundungsfehlern, multipliziert mit dem Quadrat der Frequenz: an einem symmetrischen Rahmen kam die Antwort bei 2,3 Hz 79-mal zu groß heraus, und eine aus Symmetrie verschwindende Verschiebung verschwand nicht (SA-2026-043). Die Korrektur wird jetzt im eigenen Unterraum der weggelassenen Moden berechnet, und die Antwort jeder Frequenz wird am vollständigen dynamischen System geprüft; übersteigt ihr Residuum 10⁻², wird diese Frequenz direkt gelöst und eine Warnung weist darauf hin. Betroffen sind harmonische Analysen; andere Modelle ändern sich nur im Rahmen der Rundung oder dort, wo eine Frequenz jetzt direkt gelöst wird.",
+        "fr": "La réponse harmonique ajoute aux modes retenus une correction pour les modes omis. Elle était calculée comme la réponse statique moins la part des modes retenus, et lorsqu’un mode retenu était beaucoup plus souple que les autres, cette différence n’était qu’erreur d’arrondi, multipliée par le carré de la fréquence : sur un portique symétrique, la réponse à 2,3 Hz sortait 79 fois trop grande, et un déplacement nul par symétrie ne l’était pas (SA-2026-043). La correction est désormais calculée dans le sous-espace propre des modes omis, et la réponse à chaque fréquence est vérifiée sur le système dynamique complet ; là où son résidu dépasse 10⁻², cette fréquence est résolue directement et un avertissement l’indique. Cela concerne les analyses harmoniques ; les autres modèles ne bougent que dans l’arrondi, ou là où une fréquence est désormais résolue directement.",
+        "tr": "Harmonik tepki, tutulan modlara atlanan modlar için bir düzeltme ekler. Bu düzeltme statik tepkiden tutulan modların payı çıkarılarak hesaplanıyordu; tutulan bir mod diğerlerinden çok daha yumuşak olduğunda bu fark yuvarlama hatasından ibaretti ve frekansın karesiyle çarpılıyordu: simetrik bir çerçevede 2,3 Hz'deki tepki 79 kat büyük çıkıyor, simetri gereği sıfır olan bir yer değiştirme sıfır olmuyordu (SA-2026-043). Düzeltme artık atlanan modların kendi alt uzayında hesaplanıyor ve her frekanstaki tepki tam dinamik sisteme karşı kontrol ediliyor; artığı 10⁻²'ü aştığında o frekans doğrudan çözülüyor ve bir uyarı bunu belirtiyor. Harmonik analizleri etkiler; diğer modeller yalnızca yuvarlama içinde ya da bir frekansın artık doğrudan çözüldüğü yerde değişir."
+      },
+      "changelog": {
+        "file": "docs/advisories/SA-2026-043-harmonic-modal-static-correction.md",
+        "heading": "SA-2026-043: Harmonic analysis lost the omitted modes' correction when one mode was much softer than the rest"
+      }
+    },
     {
       "id": "safety-containment-diagnostics",
       "resultsVersion": 31,
