@@ -120,6 +120,14 @@ exit 0
         result = subprocess.run(['bash', '-c', script], capture_output=True, text=True, env={**os.environ, 'RUN_ID': '7; rm'})
         self.assertNotEqual(result.returncode, 0)
 
+    def test_ci_runs_research_on_every_push_the_standalone_workflow_used_to(self):
+        workflow = (ROOT / '.github/workflows/research.yml').read_text()
+        paths = re.findall(r"^      - '([^']+)'$", workflow.split('\n  push:\n', 1)[1].split('\n  schedule:', 1)[0], re.M)
+        self.assertIn('engine/**', paths)
+        for pattern in paths:
+            path = pattern.replace('**', 'a/b.rs').replace('*', 'x')
+            self.assertEqual(selection.select('push', [path])['research'], 'true', path)
+
     def test_product_only_pr_and_merge_queue_do_not_select_research_isolation(self):
         workflow = (ROOT / '.github/workflows/research.yml').read_text()
         scope = workflow.split('        id: scope\n', 1)[1].split('\n      - ', 1)[0]
