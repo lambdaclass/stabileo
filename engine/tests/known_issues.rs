@@ -1055,13 +1055,41 @@ fn the_membrane_bending_refusal_holds_at_any_load_scale() {
             if let SolverLoad3D::Nodal(n) = load { n.fy *= scale; }
         }
         common::assert_containment(dedaliano_engine::solver::linear::solve_3d(&input), "SH-MITC4-DISTORTION");
-        let mut uniform = macneal_strip(true, 0);
-        for load in &mut uniform.loads {
-            if let SolverLoad3D::Nodal(n) = load { n.fx *= scale; }
-        }
-        let regular = dedaliano_engine::solver::linear::solve_3d(&{ let mut r = macneal_strip(false, 0); r.loads = uniform.loads.clone(); r }).unwrap();
-        assert!(!ids(&regular.structured_diagnostics).contains(&"SH-MITC4-DISTORTION".to_string()), "scale {scale}: {:?}", ids(&regular.structured_diagnostics));
+        let (input, result) = two_distorted_quads(0.0, scale, scale);
+        dedaliano_engine::known_issues::MembraneBendingGuard::new(&input).check(&[], &result).unwrap_or_else(|e| panic!("uniform extension at scale {scale}: {e}"));
     }
+}
+
+fn two_distorted_quads(bend: f64, stretch: f64, stretch_far: f64) -> (SolverInput3D, AnalysisResults3D) {
+    let mut input = beam3d();
+    input.nodes.clear(); input.elements.clear(); input.supports.clear(); input.loads.clear();
+    for (q, x0) in [(1, 0.0), (2, 100.0)] {
+        for (j, (x, y)) in [(0.0, 0.0), (1.0, 0.0), (1.2, 1.0), (0.0, 1.0)].into_iter().enumerate() {
+            let id = (q - 1) * 4 + j + 1;
+            input.nodes.insert(id.to_string(), SolverNode3D { id, x: x0 + x, y, z: 0.0 });
+        }
+        let first = (q - 1) * 4 + 1;
+        input.quads.insert(q.to_string(), SolverQuadElement { id: q, nodes: [first, first + 1, first + 2, first + 3], material_id: 1, thickness: 0.1 });
+    }
+    let mut result = dedaliano_engine::solver::linear::solve_3d(&beam3d()).unwrap();
+    result.displacements = input.nodes.values().map(|n| {
+        let ux = if n.x < 50.0 { bend * n.x * n.y + stretch * n.x } else { stretch_far * (n.x - 100.0) };
+        Displacement3D { node_id: n.id, ux, uy: 0.0, uz: 0.0, rx: 0.0, ry: 0.0, rz: 0.0, warping: None }
+    }).collect();
+    (input, result)
+}
+
+#[test]
+fn a_highly_stressed_quad_does_not_mask_membrane_bending_in_another() {
+    use dedaliano_engine::known_issues::MembraneBendingGuard;
+    let (input, alone) = two_distorted_quads(1e-6, 0.0, 0.0);
+    let refused = MembraneBendingGuard::new(&input).check(&[], &alone).unwrap_err();
+    assert!(refused.contains("SH-MITC4-DISTORTION"), "{refused}");
+    let (input, beside) = two_distorted_quads(1e-6, 0.0, 1e3);
+    let refused = MembraneBendingGuard::new(&input).check(&[], &beside).unwrap_err();
+    assert!(refused.contains("\"elementIds\":[1]"), "{refused}");
+    let (input, stretched) = two_distorted_quads(0.0, 1e-6, 1e3);
+    MembraneBendingGuard::new(&input).check(&[], &stretched).unwrap();
 }
 
 #[test]

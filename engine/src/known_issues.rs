@@ -406,9 +406,10 @@ impl MembraneBendingGuard {
             let local: [f64;24] = crate::linalg::transform_displacement(&u, &q.transform, 24).try_into().unwrap();
             let (thermal, gradient) = thermal.get(&q.id).copied().unwrap_or_default();
             let stresses = crate::element::quad::quad_stress_at_nodes(&q.coords, &local, q.e, q.nu, q.thickness, 1.0, thermal, gradient);
-            scale = stresses.iter().flat_map(|s| [s.sigma_xx, s.sigma_yy, s.tau_xy]).filter(|v| v.is_finite()).fold(scale, |m, v| m.max(v.abs()));
+            let mut own = stresses.iter().flat_map(|s| [s.sigma_xx, s.sigma_yy, s.tau_xy]).filter(|v| v.is_finite()).fold(0.0f64, |m, v| m.max(v.abs()));
             let restrained_thermal = q.e * (thermal.abs() + gradient.abs() * q.thickness);
-            if restrained_thermal.is_finite() { scale = scale.max(restrained_thermal); }
+            if restrained_thermal.is_finite() { own = own.max(restrained_thermal); }
+            scale = scale.max(own);
             let mut variation = 0.0f64;
             for component in [|s: &QuadNodalStress| s.sigma_xx, |s: &QuadNodalStress| s.sigma_yy] {
                 let values: Vec<f64> = stresses.iter().map(component).collect();
@@ -417,9 +418,9 @@ impl MembraneBendingGuard {
                 let hi = values.iter().copied().fold(f64::NEG_INFINITY, f64::max);
                 variation = variation.max(hi - lo);
             }
-            variations.push((q.id, variation));
+            variations.push((q.id, variation, own));
         }
-        affected.extend(variations.into_iter().filter(|&(_, v)| v > 1e-6 * scale).map(|(id, _)| id));
+        affected.extend(variations.into_iter().filter(|&(_, v, own)| v > 1e-6 * own && v > 1e-12 * scale).map(|(id, _, _)| id));
         affected.sort_unstable();
         if affected.is_empty() { return Ok(()) }
         let mut finding = diagnostic("SH-MITC4-DISTORTION").with_elements(affected);
