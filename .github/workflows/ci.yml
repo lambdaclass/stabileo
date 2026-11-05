@@ -191,6 +191,7 @@ jobs:
               - 'Cargo.toml'
               - 'Cargo.lock'
             ci_scripts:
+              - 'scripts/check-containment.py'
               - '.github/workflows/research.yml'
               - 'scripts/nightly-*.py'
               - '.github/workflows/nightly.yml'

@@ -68,6 +68,17 @@ pub struct Case3 {
     pub path: Option<Vec<usize>>,
 }
 
+pub fn extent(points: impl Iterator<Item = [f64; 3]>) -> f64 {
+    let (mut lo, mut hi) = ([f64::INFINITY; 3], [f64::NEG_INFINITY; 3]);
+    for p in points {
+        for i in 0..3 {
+            lo[i] = lo[i].min(p[i]);
+            hi[i] = hi[i].max(p[i]);
+        }
+    }
+    (0..3).map(|i| hi[i] - lo[i]).filter(|x| x.is_finite()).fold(0.0, f64::max)
+}
+
 pub fn default_densities(mats: impl Iterator<Item = usize>) -> HashMap<String, f64> {
     mats.map(|id| (id.to_string(), 7850.0)).collect()
 }
@@ -273,7 +284,7 @@ pub fn pad_3d(s: &SolverInput3D) -> (SolverInput3D, HashSet<usize>, HashSet<usiz
         m.nodes.insert((n0 + k).to_string(), SolverNode3D { id: n0 + k, x: x0, y: 0.0, z: 0.25 * k as f64 });
     }
     for k in 0..12 {
-        let mut e = s.elements.values().next().cloned().unwrap_or_else(|| serde_json::from_value(serde_json::json!({
+        let mut e = dedaliano_engine::ordered::values(&s.elements).next().cloned().unwrap_or_else(|| serde_json::from_value(serde_json::json!({
             "id": 0, "type": "frame", "nodeI": 0, "nodeJ": 0, "materialId": mat, "sectionId": sec
         })).unwrap());
         e.id = e0 + k;

@@ -115,7 +115,7 @@ def main():
             if proc.returncode not in (0, 1) or not result_path.exists():
                 raise RuntimeError(f'{check} harness failed: {proc.stdout}\n{proc.stderr}')
             rows = json.loads(result_path.read_text())
-            bad = {'mismatch', 'false_reject', 'false_warning', 'silent_singular'}
+            bad = {'mismatch', 'false_reject', 'false_warning', 'silent_singular', 'silent_unimposed'}
             if not rows:
                 raise RuntimeError(f'{check} harness returned no outcomes')
             for row in rows:
@@ -124,7 +124,7 @@ def main():
                     category = 'completed'
                 elif status in {'unsupported', 'not_applicable', 'unloaded'}:
                     category = 'skipped'
-                elif status in {'ill_conditioned', 'near_singular', 'unstable', 'stabileo_failed', 'refused'}:
+                elif status in {'ill_conditioned', 'near_singular', 'warned_singular', 'unstable', 'stabileo_failed', 'refused'}:
                     category = 'inconclusive'
                 else:
                     category = 'errors'

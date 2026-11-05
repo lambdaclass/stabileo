@@ -126,6 +126,104 @@ fn spectral_enclosure_error_of_non_finite_is_infinite() {
     assert!(e.error_of(1.5) <= 0.5 + 1e-15);
 }
 
+/// json_plastic (issues #951 #952 #953 #989 #990 #991): selector 3
+/// (`certify_plastic_3d`) on the seed corpus's 8-member 3D portal with mutated
+/// keys. They were not crashes: libFuzzer's slow-unit reports and a process
+/// RSS that grew to 2 GB over the run (84 MB live heap), charged to whichever
+/// input was running. Alone, each certifies within 25 MB.
+#[test]
+fn plastic_3d_certificate_nightly_inputs_finish() {
+    let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/fuzz-json-plastic");
+    let mut files: Vec<_> = std::fs::read_dir(dir).unwrap().map(|e| e.unwrap().path()).collect();
+    files.sort();
+    assert_eq!(files.len(), 6);
+    for f in files {
+        assert!(within_limits(&f, std::time::Duration::from_secs(300), 4 << 20), "{}", f.display());
+    }
+}
+
+/// Certifies one fixture in a fresh copy of this test binary under a virtual memory limit (KiB),
+/// killed at `timeout`, so a hang or a runaway allocation fails the test instead of stalling or
+/// killing the whole run. True only when the copy ran that one test and it passed in time.
+fn within_limits(fixture: &std::path::Path, timeout: std::time::Duration, kib: u64) -> bool {
+    let test = format!("{}::plastic_3d_certificate_of_one_nightly_input", module_path!().split_once("::").map_or("", |m| m.1));
+    let exe = std::env::current_exe().unwrap();
+    let mut command = std::process::Command::new("sh");
+    command.args(["-c", &format!("ulimit -v {kib} && exec \"$0\" \"$@\""), exe.to_str().unwrap(), "--exact", &test, "--ignored", "--test-threads=1"])
+        .env("FUZZ_PLASTIC_FIXTURE", fixture);
+    let passed = run_limited(command, timeout);
+    eprintln!("{}: {passed:?}", fixture.display());
+    passed.is_some_and(|out| out.contains("test result: ok. 1 passed"))
+}
+
+/// The standard output of `command` when it exits successfully before `timeout`; `None` when it
+/// fails, or is still running or finishes only after `timeout` (then it is killed).
+fn run_limited(mut command: std::process::Command, timeout: std::time::Duration) -> Option<String> {
+    use std::io::Read;
+    let start = std::time::Instant::now();
+    let mut child = command.stdout(std::process::Stdio::piped()).spawn().unwrap();
+    let mut stdout = child.stdout.take().unwrap();
+    let reader = std::thread::spawn(move || { let mut out = String::new(); let _ = stdout.read_to_string(&mut out); out });
+    let status = loop {
+        let status = child.try_wait().unwrap();
+        if start.elapsed() > timeout {
+            if status.is_none() {
+                child.kill().unwrap();
+                child.wait().unwrap();
+            }
+            break None;
+        }
+        if status.is_some() {
+            break status;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    };
+    status.filter(|s| s.success()).map(|_| reader.join().unwrap())
+}
+
+/// The 10.125 is the z-sway mechanism: four column-base hinges (Mp_y =
+/// 250e3·0.15·0.3²/4 = 843.75 kN·m) and four transverse-beam end hinges
+/// (Mp_z = 250e3·0.3·0.15²/4 = 421.875 kN·m) rotate δ/4 under 5 + 2·10·6 =
+/// 125 kN along z: λ = (843.75 + 421.875)/125.
+#[test]
+#[ignore = "run by plastic_3d_certificate_nightly_inputs_finish in a limited subprocess"]
+fn plastic_3d_certificate_of_one_nightly_input() {
+    use dedaliano_engine::certify::plastic_3d::certify_plastic_3d;
+    use dedaliano_engine::types::PlasticInput3D;
+    let f = std::path::PathBuf::from(std::env::var_os("FUZZ_PLASTIC_FIXTURE").expect("FUZZ_PLASTIC_FIXTURE names the fixture"));
+    let name = f.file_name().unwrap().to_string_lossy().into_owned();
+    let input: PlasticInput3D = serde_json::from_slice(&std::fs::read(&f).unwrap()).unwrap();
+    let c = certify_plastic_3d(&input).unwrap().certificate;
+    let (lo, hi) = (c.lambda_lower.unwrap(), c.lambda_upper.unwrap());
+    assert!(c.certified && lo <= hi && hi - lo < 1e-4 * hi, "{name}: {c:?}");
+    if !name.starts_with("991-") {
+        assert!(lo <= 10.125 && 10.125 <= hi && hi - lo < 1e-9, "{name}: [{lo}, {hi}]");
+    }
+}
+
+#[test]
+#[ignore = "wall-clock budget: run by make test.engine.gates"]
+fn a_blocking_child_is_killed_at_its_timeout() {
+    let mut sleeper = std::process::Command::new("sh");
+    sleeper.args(["-c", "exec sleep 30"]);
+    let start = std::time::Instant::now();
+    assert_eq!(run_limited(sleeper, std::time::Duration::from_secs(1)), None);
+    assert!(start.elapsed() < std::time::Duration::from_secs(10));
+}
+
+#[test]
+fn a_fixture_past_its_limits_fails() {
+    let shell = |script: &str| { let mut c = std::process::Command::new("sh"); c.args(["-c", script]); c };
+    let second = std::time::Duration::from_secs(1);
+    assert_eq!(run_limited(shell("echo done"), second).as_deref(), Some("done\n"));
+    assert_eq!(run_limited(shell("exec sleep 30"), second), None, "a blocking child is killed at its timeout");
+    assert_eq!(run_limited(shell("exec sleep 0.2"), std::time::Duration::from_millis(100)), None, "finishing after the timeout fails");
+    assert_eq!(run_limited(shell("exit 3"), second), None);
+    let f = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/fuzz-json-plastic")).read_dir().unwrap().next().unwrap().unwrap().path();
+    assert!(!within_limits(&f, std::time::Duration::from_secs(300), 1 << 10), "out of memory");
+    assert!(!within_limits(std::path::Path::new("/nonexistent"), std::time::Duration::from_secs(300), 4 << 20), "a missing fixture");
+}
+
 fn buckling_741_input() -> dedaliano_engine::types::SolverInput3D {
     let bytes = include_bytes!("../fuzz/regressions/json_dynamics/issue-741");
     assert_eq!(bytes[0], 0x07);
@@ -166,10 +264,12 @@ fn exact_pencil_positive(
 
 #[test]
 fn buckling_741_certificate_contains_reported_and_reference_factors() {
-    use dedaliano_engine::certify::buckling::{certify_buckling_3d, BucklingCertificate, BucklingRefusal::ComputedAboveUpperBound};
-    use dedaliano_engine::solver::buckling::buckling_system_3d;
+    use dedaliano_engine::certify::buckling::{buckling_certificate_3d, certify_buckling_3d, BucklingCertificate, BucklingRefusal::ComputedAboveUpperBound};
+    use dedaliano_engine::solver::buckling::{buckling_system_3d, solve_buckling_3d};
     let input = buckling_741_input();
-    let out = certify_buckling_3d(&input, 3).unwrap();
+    assert!(certify_buckling_3d(&input, 3).unwrap_err().contains("BU-BOUND"));
+    let certificate = buckling_certificate_3d(&input, 3).unwrap();
+    let factor = solve_buckling_3d(&input, 3).unwrap().modes[0].load_factor;
     let sys = buckling_system_3d(&input).unwrap();
     assert!(exact_pencil_positive(&sys.k_ff, &sys.neg_kg_csc, 0.0));
     let (mut lo, mut hi) = (4600.0, 4800.0);
@@ -179,13 +279,12 @@ fn buckling_741_certificate_contains_reported_and_reference_factors() {
         let mid = (lo + hi) / 2.0;
         if exact_pencil_positive(&sys.k_ff, &sys.neg_kg_csc, mid) { lo = mid; } else { hi = mid; }
     }
-    eprintln!("exact-rational dense inertia eigenvalue bracket: [{lo:.12}, {hi:.12}]; reported: {:.12}; certificate: {:?}", out.results.modes[0].load_factor, out.certificate);
+    eprintln!("exact-rational dense inertia eigenvalue bracket: [{lo:.12}, {hi:.12}]; reported: {factor:.12}; certificate: {certificate:?}");
     assert!(lo > 4688.9203 && hi < 4688.9204);
     assert!(exact_pencil_positive(&sys.k_ff, &sys.neg_kg_csc, 4644.4835783707595));
     assert!(!exact_pencil_positive(&sys.k_ff, &sys.neg_kg_csc, 4688.92209616787));
-    let factor = out.results.modes[0].load_factor;
-    refusal_741_holds(&out.certificate, factor, &sys, hi).unwrap();
-    let ComputedAboveUpperBound { lambda_upper, .. } = refusal_of(&out.certificate).unwrap();
+    refusal_741_holds(&certificate, factor, &sys, hi).unwrap();
+    let ComputedAboveUpperBound { lambda_upper, .. } = refusal_of(&certificate).unwrap();
     let doctored = |lambda_computed, lambda_upper| BucklingCertificate::Uncertified {
         reason: "computed load factor exceeds certified upper bound".into(),
         refusal: Some(ComputedAboveUpperBound { lambda_computed, lambda_upper }),
@@ -240,7 +339,8 @@ fn refusal_741_holds(
 }
 
 fn generated_buckling_enclosures(cases: u64) {
-    use dedaliano_engine::certify::buckling::{certify_buckling_2d, certify_buckling_3d, BucklingCertificate, BucklingRefusal};
+    use dedaliano_engine::certify::buckling::{buckling_certificate_2d, buckling_certificate_3d, certify_buckling_2d, certify_buckling_3d, BucklingCertificate, BucklingRefusal};
+    use dedaliano_engine::solver::buckling::{solve_buckling_2d, solve_buckling_3d};
     use rand::{Rng, SeedableRng};
     let mut rng = rand::rngs::StdRng::seed_from_u64(741);
     let mut certified = [0; 2];
@@ -268,9 +368,22 @@ fn generated_buckling_enclosures(cases: u64) {
             "loads": [{ "type": "nodal", "data": { "nodeId": 2, "fx": 0, "fz": -10f64.powf(rng.gen_range(-1.0..5.0)), "my": 0 } }]
         })).unwrap();
         let outputs = [
-            certify_buckling_2d(&column, 3).map(|o| (o.certificate, o.results.modes[0].load_factor)),
-            certify_buckling_3d(&input, 3).map(|o| (o.certificate, o.results.modes[0].load_factor)),
+            buckling_certificate_2d(&column, 3).and_then(|c| solve_buckling_2d(&column, 3).map(|r| (c, r.modes[0].load_factor))),
+            buckling_certificate_3d(&input, 3).and_then(|c| solve_buckling_3d(&input, 3).map(|r| (c, r.modes[0].load_factor))),
         ];
+        let public = [
+            certify_buckling_2d(&column, 3).map(|o| o.results.modes[0].load_factor),
+            certify_buckling_3d(&input, 3).map(|o| o.results.modes[0].load_factor),
+        ];
+        for (output, public) in outputs.iter().zip(&public) {
+            match output {
+                Ok((BucklingCertificate::Uncertified { refusal: Some(BucklingRefusal::ComputedAboveUpperBound { .. }), .. }, _)) => {
+                    assert!(public.as_ref().unwrap_err().contains("BU-BOUND"), "seed {seed}: a factor above its bound was returned");
+                }
+                Ok((_, factor)) => assert_eq!(public.as_ref().ok(), Some(factor), "seed {seed}"),
+                Err(_) => assert!(public.is_err(), "seed {seed}"),
+            }
+        }
         for (dimension, output) in outputs.into_iter().enumerate() {
             match output {
                 Ok((certificate, factor)) => match certificate {

@@ -6,13 +6,13 @@ const VERDICT: Record<string, string> = {
   'mitc4-regular-out': 'marginal',
   'mitc4-regular-in': 'pass',
   'mitc4-trapezoidal-out': 'documented',
-  'mitc4-trapezoidal-in': 'documented',
+  'mitc4-trapezoidal-in': 'withheld',
   'mitc4-parallelogram-out': 'documented',
-  'mitc4-parallelogram-in': 'documented',
+  'mitc4-parallelogram-in': 'withheld',
 };
 
 async function waitForResults(page: Page) {
-  await expect(page.getByTestId('summary-shell')).toHaveText('Shell cases (paper reference): 2/6 within 2%', { timeout: 40_000 });
+  await expect(page.getByTestId('summary-shell')).toHaveText('Shell cases (paper reference): 2/6 within 2%; 2 withheld by the engine', { timeout: 40_000 });
   await expect(page.getByTestId('summary-frame')).toHaveText('Frame adaptations (analytical reference): 6/6 within 2%');
 }
 
@@ -27,10 +27,17 @@ test('production engine benchmark results, signs, verdicts and rerun @smoke', as
   await expect(region.getByTestId('group-shell').locator('tr[data-testid]')).toHaveCount(6);
   for (const c of data.cases) {
     const row = page.getByTestId(c.id);
+    if (c.expectedRefusal) {
+      await expect(row.getByTestId('computed'), c.id).toHaveText('—');
+      await expect(row.getByTestId('error'), c.id).toHaveText('—');
+      await expect(row.getByTestId('verdict'), c.id).toHaveAttribute('data-verdict', 'withheld');
+      await expect(row.getByTestId('verdict').getByRole('link', { name: 'Withheld by the engine (known issue #798)' }), c.id).toHaveAttribute('href', /issues\/798$/);
+      continue;
+    }
     const computed = Number((await row.getByTestId('computed').innerText()).replace(/[−–]/g, '-').replace(/,/g, ''));
     expect(Math.sign(computed), c.id).toBe(Math.sign(c.reference));
-    const bounds = c.nativeBounds as { pinnedValue?: number };
-    if (bounds.pinnedValue !== undefined) expect(Math.abs(computed / bounds.pinnedValue - 1), c.id).toBeLessThan(1e-6);
+    const bounds = c.nativeBounds as { pinnedValue?: number } | null;
+    if (bounds?.pinnedValue !== undefined) expect(Math.abs(computed / bounds.pinnedValue - 1), c.id).toBeLessThan(1e-6);
     else expect(Math.abs(computed / c.reference - 1), c.id).toBeLessThan(0.02);
     await expect(row.getByTestId('verdict'), c.id).toHaveAttribute('data-verdict', VERDICT[c.id] ?? 'pass');
     await expect(row.getByTestId('quantity')).toHaveText(`${c.measurement.component} (${c.measurement.component.startsWith('r') ? 'rad' : 'm'})`);
@@ -39,12 +46,14 @@ test('production engine benchmark results, signs, verdicts and rerun @smoke', as
   await expect(page.getByTestId('frame-shear-1-uz').getByTestId('computed')).toHaveText('-0.0036');
   await expect(page.getByTestId('frame-shear-1-uz').getByTestId('reference')).toHaveText('-0.0036');
   await expect(page.getByTestId('frame-moment-4-ry').getByTestId('computed')).toHaveText('0.003');
-  await expect(page.getByTestId('mitc4-trapezoidal-in').getByRole('link', { name: 'Fail · documented limitation' })).toHaveAttribute('href', /KNOWN_ISSUES.md#mh-mitc4-distortion/);
+  await expect(page.getByTestId('mitc4-trapezoidal-out').getByRole('link', { name: 'Fail · documented limitation' })).toHaveAttribute('href', /KNOWN_ISSUES.md#mh-mitc4-distortion/);
+  await expect(page.getByTestId('mitc4-trapezoidal-in').getByTestId('verdict')).toContainText('#798');
   await expect(page.getByTestId('mitc4-regular-out').getByTestId('verdict')).toHaveText('Pass (marginal)');
   await expect(page.getByTestId('mitc4-regular-out').getByTestId('error')).toHaveText('1.9936');
-  await expect(page.getByTestId('mitc4-trapezoidal-in').getByTestId('error')).toHaveText('92.1896');
+  await expect(page.getByTestId('mitc4-trapezoidal-in').getByTestId('error')).toHaveText('—');
   await expect(page.getByTestId('frame-shear-1-uz').getByTestId('error')).toHaveText('< 0.0001');
-  await page.getByRole('tab', { name: 'Model', exact: true }).click();
+  await page.getByTestId('mitc4-trapezoidal-in').getByRole('button').click();
+  await expect(page.getByTestId('viewer-withheld')).toHaveText('Withheld by the engine (known issue #798)');
   await page.getByRole('button', { name: 'Run again', exact: true }).click();
   await waitForResults(page);
 });
@@ -86,7 +95,7 @@ test('benchmark page in German is translated, tagged and has no raw keys @smoke'
   await page.goto('/de/research/benchmarks/macneal-harder-1985/');
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('MacNeal–Harder (1985): Benchmarks der Rechenengine');
   await expect(page.getByRole('heading', { level: 1 })).toHaveAttribute('lang', 'de');
-  await expect(page.getByTestId('summary-shell')).toHaveText('Schalenfälle (Referenz aus dem Artikel): 2/6 innerhalb von 2 %', { timeout: 40_000 });
+  await expect(page.getByTestId('summary-shell')).toHaveText('Schalenfälle (Referenz aus dem Artikel): 2/6 innerhalb von 2 %; 2 von der Engine zurückgehalten', { timeout: 40_000 });
   await expect(page.locator('.mh-article')).toHaveAttribute('lang', 'de');
   expect(await page.locator('body').innerText()).not.toContain('scalarViewer.');
   expect(await page.locator('[aria-label^="scalarViewer."], [title^="scalarViewer."]').count()).toBe(0);

@@ -15,9 +15,9 @@ const dicts: Record<string, Translations> = Object.fromEntries(
 );
 
 const LAZY_LOCALES: Record<string, () => Promise<{ default: Translations }>> = {
-  de: () => import('./locales/full/de'),
-  fr: () => import('./locales/full/fr'),
-  tr: () => import('./locales/full/tr'),
+  de: () => import('./locales/browser/de'),
+  fr: () => import('./locales/browser/fr'),
+  tr: () => import('./locales/browser/tr'),
 };
 const pendingLoads = new Map<string, Promise<void>>();
 
@@ -61,7 +61,7 @@ export function registerDictionaries(full: Record<'es' | 'en' | 'pt', Translatio
   appDictionaries = true;
 }
 
-/** Resolves once `loc`'s whole dictionary is registered, or has failed to load and left English; for a bundled language, once its public entries are (`ensurePublicLocale`). */
+/** Resolves once `loc`'s whole dictionary, public entries included (`ensurePublicLocale`), is registered, or has failed to load and left English. */
 export function ensureLocale(loc: string): Promise<void> {
   const load = LAZY_LOCALES[loc];
   if (!load || !isOfferedLocale(loc)) {
@@ -71,8 +71,8 @@ export function ensureLocale(loc: string): Promise<void> {
   }
   let pending = pendingLoads.get(loc);
   if (!pending) {
-    pending = load().then(
-      (m) => {
+    pending = Promise.all([load(), ensurePublicLocale(loc)]).then(
+      ([m]) => {
         Object.assign(dicts[loc], m.default);
         _revision++;
       },

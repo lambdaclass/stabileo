@@ -400,7 +400,7 @@ jobs:
           seed=$(( $(date -u +%s) / 86400 % 1000 * 1000 ))
           echo "seed-start $seed"
           echo "DIFF_SEED=$seed" >> "$GITHUB_ENV"
-          ASTER_PYTHON="$(which python)" python run.py --fixtures \
+          ASTER_PYTHON="$(which python)" python run.py regressions/*.json --fixtures \
             --random3d $((100 * S)) --rich3d $((400 * S)) --aster3d $((400 * S)) \
             --bin "${CARGO_TARGET_DIR:-$GITHUB_WORKSPACE/target}/release/examples/solve_json" \
             --seed-start "$seed" -j 2 --report codeaster-report.json \

@@ -1,0 +1,71 @@
+import importlib.util
+from pathlib import Path
+import re
+import unittest
+
+spec = importlib.util.spec_from_file_location('containment', Path(__file__).parents[1] / 'check-containment.py')
+m = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(m)
+
+
+class ContainmentTests(unittest.TestCase):
+    def test_modes_and_input(self):
+        for row in ['', '| #1 | `X` | UNKNOWN | reason | evidence |', '| #x | `X` | WARN | reason | evidence |', '| #1 | — | WARN | reason | evidence |']:
+            with self.assertRaises(ValueError):
+                m.decisions(row)
+        row = '| #1 | `X` / `Y` | REFUSE / WARN | reason | evidence |'
+        self.assertEqual(m.decisions(row), {1: {'REFUSE', 'WARN'}})
+        with self.assertRaises(ValueError):
+            m.decisions(row + '\n' + row)
+
+    def test_closed_missing_and_open(self):
+        issue = {'number': 1, 'state': 'open', 'labels': [{'name': 'safety'}]}
+        self.assertEqual(m.audit({1: {'WARN'}}, [issue]), [])
+        self.assertTrue(m.audit({}, [issue]))
+        self.assertTrue(m.audit({1: {'TRIAGE'}}, [issue]))
+        self.assertTrue(m.audit({1: {'TRIAGE', 'SCOPE'}}, [issue]))
+        issue['state'] = 'closed'
+        self.assertIn('CLOSED', m.audit({1: {'REFUSE'}}, [issue])[0])
+        self.assertEqual(m.audit({1: {'CORRECTED'}}, [issue]), [])
+        self.assertTrue(m.audit({1: {'WARN'}}, []))
+        for invalid in [{}, {**issue, 'number': -1}, {**issue, 'state': 'unknown'}, {**issue, 'labels': ['safety']}]:
+            with self.assertRaises(ValueError):
+                m.audit({}, [invalid])
+        with self.assertRaises(ValueError):
+            m.audit({}, [issue, issue])
+
+    def test_repository_ledger(self):
+        self.assertTrue(m.decisions((Path(__file__).parents[2] / 'docs/verification/CONTAINMENT.md').read_text()))
+
+    def test_the_refusal_bypass_exists_only_in_the_engines_unit_test_build(self):
+        root = Path(__file__).parents[2]
+        skip = ('target', 'node_modules', '.git')
+        uses = []
+        for path in root.rglob('*'):
+            if any(part in skip for part in path.relative_to(root).parts) or not path.is_file():
+                continue
+            if path.suffix not in ('.toml', '.yml', '.yaml', '.sh', '.mjs', '.js', '.ts', '.rs') and path.name != 'Makefile':
+                continue
+            try:
+                text = path.read_text()
+            except (UnicodeDecodeError, OSError):
+                continue
+            uses += [str(path.relative_to(root)) for line in text.splitlines() if 'unrefused-for-tests' in line]
+        self.assertEqual(uses, [])
+        for rel in ('engine/src/solver/plastic.rs', 'engine/src/certify/plastic.rs'):
+            lines = (root / rel).read_text().splitlines()
+            defs = [i for i, line in enumerate(lines) if re.search(r'\bfn \w+_unrefused\b', line)]
+            self.assertTrue(defs, rel)
+            for i in defs:
+                self.assertEqual(lines[i - 1].strip(), '#[cfg(test)]', rel)
+                self.assertTrue(lines[i].lstrip().startswith('pub(crate) fn'), rel)
+        callers = [str(p.relative_to(root)) for p in (root / 'engine').rglob('*.rs')
+                   if 'target' not in p.parts and '_unrefused(' in p.read_text()
+                   and not str(p.relative_to(root)).startswith('engine/src/')]
+        included = (root / 'engine/tests/unrefused/mod.rs').read_text()
+        for caller in callers:
+            self.assertTrue(Path(caller).name in included or Path(caller).stem in included, caller)
+
+
+if __name__ == '__main__':
+    unittest.main()

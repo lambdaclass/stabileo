@@ -15,6 +15,7 @@ import type { InfluenceQuantity } from '../../store/model.svelte';
 import { canonicalQuantity, familyOf, type IlTarget } from './quantities';
 
 export type Dir = { x: number; z: number };
+export type Solve = (input: SolverInput) => AnalysisResults;
 /** `side`: on the section's two ordinates, which side of it the load stands on. */
 export interface IlPoint { x: number; y: number; elementId: number; t: number; value: number; side?: 'left' | 'right' }
 
@@ -76,9 +77,9 @@ export function samplesOn(n: number, sectionT?: number): number[] {
  * reaches its two nodes by the lever rule, so its ordinates are the end nodes' interpolated.
  */
 export function sweepForceLine(
-  solver: SolverInput, quantity: InfluenceQuantity, target: IlTarget, n: number, dir: Dir,
+  solver: SolverInput, quantity: InfluenceQuantity, target: IlTarget, n: number, dir: Dir, run: Solve = solve,
 ): IlPoint[] {
-  const solveWith = (loads: SolverLoad[]) => solve({ ...solver, loads });
+  const solveWith = (loads: SolverLoad[]) => run({ ...solver, loads });
   const nodeEta = new Map<number, number>();
   const atNode = (nodeId: number): number => {
     let v = nodeEta.get(nodeId);
@@ -115,7 +116,7 @@ export function sweepForceLine(
  * two ordinates put in from one more solve.
  */
 export function fromEngineSweep(
-  solver: SolverInput, quantity: InfluenceQuantity, target: IlTarget, raw: IlPoint[], dir: Dir,
+  solver: SolverInput, quantity: InfluenceQuantity, target: IlTarget, raw: IlPoint[], dir: Dir, run: Solve = solve,
 ): IlPoint[] {
   const q = canonicalQuantity(quantity);
   const sign = target.kind === 'section' ? drawnSign(solver, target.elementId) : 1;
@@ -123,7 +124,7 @@ export function fromEngineSweep(
   const points = raw.map((p) => ({ ...p, value: k * p.value }));
   if (target.kind !== 'section') return points;
   const { ni, nj, L } = memberGeom(solver, target.elementId);
-  const res = solve({ ...solver, loads: loadOnMember(solver, target.elementId, target.t * L, 1, dir) });
+  const res = run({ ...solver, loads: loadOnMember(solver, target.elementId, target.t * L, 1, dir) });
   const at = { x: ni.x + target.t * (nj.x - ni.x), y: ni.z + target.t * (nj.z - ni.z), elementId: target.elementId, t: target.t };
   const pair = [
     { ...at, value: readForce(quantity, res, solver, target, 'left'), side: 'left' as const },

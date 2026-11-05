@@ -42,7 +42,7 @@ export function plasticApplies(ctx: MethodContext): Applicability {
   const lm = limitModel(input, mp);
   if (lm.N > MAX_SECTIONS) return no('course.plastic.req.size', { n: lm.N, max: MAX_SECTIONS });
   if (lm.m > MAX_MECHANISMS) return no('course.plastic.req.mechanisms', { n: lm.m, max: MAX_MECHANISMS });
-  return { ok: true };
+  return { ok: false, reason: tx('knownIssue.PL-2D-INVARIANCE'), issue: 758 };
 }
 
 export interface PlasticCase {

@@ -61,7 +61,8 @@ fn validation_plastic_cantilever_point() {
         })]);
 
     let input = make_plastic(solver);
-    let result = plastic::solve_plastic_2d(&input).unwrap();
+    crate::common::assert_containment(plastic::solve_plastic_2d(&input), "PL-2D-INVARIANCE");
+    let result = plastic::solve_plastic_2d_unrefused(&input).unwrap();
 
     let expected = MP / l; // 140.625 kN
     let error = (result.collapse_factor - expected).abs() / expected;
@@ -92,7 +93,8 @@ fn validation_plastic_two_span_point_loads() {
 
     let solver = make_continuous_beam(&[l_span, l_span], n_per, E, A_SEC, IZ_SEC, loads);
     let input = make_plastic(solver);
-    let result = plastic::solve_plastic_2d(&input).unwrap();
+    crate::common::assert_containment(plastic::solve_plastic_2d(&input), "PL-2D-INVARIANCE");
+    let result = plastic::solve_plastic_2d_unrefused(&input).unwrap();
 
     // Two-span symmetric with central points: λ ≈ 6Mp/L (same as propped cantilever)
     // Approximate: collapse between 4Mp/L and 8Mp/L
@@ -140,7 +142,8 @@ fn validation_plastic_portal_beam_mechanism() {
     let solver = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A_SEC, IZ_SEC)],
         elems, sups, loads);
     let input = make_plastic(solver);
-    let result = plastic::solve_plastic_2d(&input).unwrap();
+    crate::common::assert_containment(plastic::solve_plastic_2d(&input), "PL-2D-INVARIANCE");
+    let result = plastic::solve_plastic_2d_unrefused(&input).unwrap();
 
     assert!(result.collapse_factor > 0.0,
         "Portal beam mechanism should find collapse, λ={:.2}", result.collapse_factor);
@@ -164,12 +167,14 @@ fn validation_plastic_portal_combined_interaction() {
     // Sway only (lateral load)
     let solver_sway = make_portal_frame(h, w, E, A_SEC, IZ_SEC, 1.0, 0.0);
     let input_sway = make_plastic(solver_sway);
-    let result_sway = plastic::solve_plastic_2d(&input_sway).unwrap();
+    crate::common::assert_containment(plastic::solve_plastic_2d(&input_sway), "PL-2D-INVARIANCE");
+    let result_sway = plastic::solve_plastic_2d_unrefused(&input_sway).unwrap();
 
     // Combined (lateral + gravity)
     let solver_combined = make_portal_frame(h, w, E, A_SEC, IZ_SEC, 1.0, -1.0);
     let input_combined = make_plastic(solver_combined);
-    let result_combined = plastic::solve_plastic_2d(&input_combined).unwrap();
+    crate::common::assert_containment(plastic::solve_plastic_2d(&input_combined), "PL-2D-INVARIANCE");
+    let result_combined = plastic::solve_plastic_2d_unrefused(&input_combined).unwrap();
 
     // Adding gravity to sway should reduce or maintain collapse factor
     // (more load types → lower collapse factor)
@@ -195,7 +200,8 @@ fn validation_plastic_hinge_count() {
             element_id: 1, a: l / 2.0, p: -1.0, px: None, my: None,
         })]);
     let input_ss = make_plastic(solver_ss);
-    let result_ss = plastic::solve_plastic_2d(&input_ss).unwrap();
+    crate::common::assert_containment(plastic::solve_plastic_2d(&input_ss), "PL-2D-INVARIANCE");
+    let result_ss = plastic::solve_plastic_2d_unrefused(&input_ss).unwrap();
 
     assert!(result_ss.hinges.len() >= 1,
         "SS beam should form at least 1 hinge, got {}", result_ss.hinges.len());
@@ -207,7 +213,8 @@ fn validation_plastic_hinge_count() {
             node_id: n / 2 + 1, fx: 0.0, fz: -1.0, my: 0.0,
         })]);
     let input_ff = make_plastic(solver_ff);
-    let result_ff = plastic::solve_plastic_2d(&input_ff).unwrap();
+    crate::common::assert_containment(plastic::solve_plastic_2d(&input_ff), "PL-2D-INVARIANCE");
+    let result_ff = plastic::solve_plastic_2d_unrefused(&input_ff).unwrap();
 
     // Fixed-fixed needs 3 hinges (2 supports + midspan)
     assert!(result_ff.hinges.len() >= 2,
@@ -230,7 +237,8 @@ fn validation_plastic_linear_scaling_with_mp() {
             element_id: 1, a: l / 2.0, p: -1.0, px: None, my: None,
         })]);
     let input_base = make_plastic(solver);
-    let result_base = plastic::solve_plastic_2d(&input_base).unwrap();
+    crate::common::assert_containment(plastic::solve_plastic_2d(&input_base), "PL-2D-INVARIANCE");
+    let result_base = plastic::solve_plastic_2d_unrefused(&input_base).unwrap();
 
     // Double Mp via override
     let mut overrides = HashMap::new();
@@ -241,7 +249,8 @@ fn validation_plastic_linear_scaling_with_mp() {
         })]);
     let mut input_double = make_plastic(solver2);
     input_double.mp_overrides = Some(overrides);
-    let result_double = plastic::solve_plastic_2d(&input_double).unwrap();
+    crate::common::assert_containment(plastic::solve_plastic_2d(&input_double), "PL-2D-INVARIANCE");
+    let result_double = plastic::solve_plastic_2d_unrefused(&input_double).unwrap();
 
     let ratio = result_double.collapse_factor / result_base.collapse_factor;
     assert!((ratio - 2.0).abs() < 0.15,
@@ -267,7 +276,8 @@ fn validation_plastic_redundancy() {
             node_id: mid, fx: 0.0, fz: -1.0, my: 0.0,
         })]);
     let input_ff = make_plastic(solver_ff);
-    let result_ff = plastic::solve_plastic_2d(&input_ff).unwrap();
+    crate::common::assert_containment(plastic::solve_plastic_2d(&input_ff), "PL-2D-INVARIANCE");
+    let result_ff = plastic::solve_plastic_2d_unrefused(&input_ff).unwrap();
 
     // SS: 3 reactions, 3 equations → redundancy = 0
     let solver_ss = make_beam(1, l, E, A_SEC, IZ_SEC, "pinned", Some("rollerX"),
@@ -275,7 +285,8 @@ fn validation_plastic_redundancy() {
             element_id: 1, a: l / 2.0, p: -1.0, px: None, my: None,
         })]);
     let input_ss = make_plastic(solver_ss);
-    let result_ss = plastic::solve_plastic_2d(&input_ss).unwrap();
+    crate::common::assert_containment(plastic::solve_plastic_2d(&input_ss), "PL-2D-INVARIANCE");
+    let result_ss = plastic::solve_plastic_2d_unrefused(&input_ss).unwrap();
 
     // Fixed-fixed should have higher redundancy than SS
     assert!(result_ff.redundancy >= result_ss.redundancy,
@@ -310,7 +321,8 @@ fn validation_plastic_portal_gravity_udl() {
     let solver = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A_SEC, IZ_SEC)],
         elems, sups, loads);
     let input = make_plastic(solver);
-    let result = plastic::solve_plastic_2d(&input).unwrap();
+    crate::common::assert_containment(plastic::solve_plastic_2d(&input), "PL-2D-INVARIANCE");
+    let result = plastic::solve_plastic_2d_unrefused(&input).unwrap();
 
     // Beam mechanism for fixed-fixed beam under UDL: λ = 16Mp/(q·L²)
     let lambda_beam = 16.0 * MP / (w * w);
