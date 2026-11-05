@@ -35,8 +35,90 @@
  */
 
 import type { Constraint3D } from './types-3d';
+import type { DrawPlane } from '../geometry/plane-projection';
+
+/**
+ * Each plane's global axes, renamed so that the plane reads as X–Z: horizontal → X, vertical → Z,
+ * normal → Y. The renaming of Y–Z (and of X–Y) is a reflection, so the in-plane rotation, θ = rx
+ * on Y–Z and rz on X–Y, lands on ry with its sign reversed (θ = −ry on X–Z).
+ */
+const AXES_IN_XZ: Record<Exclude<DrawPlane, 'xz'>, [number, number, number]> = { yz: [1, 0, 2], xy: [0, 2, 1] };
+
+/**
+ * The constraints of a model standing in `plane`, written as if it stood in X–Z, the plane
+ * `constraintsTo2D` reads them in (#466).
+ */
+export function constraintsInXZ(plane: DrawPlane, constraints: readonly Constraint3D[]): Constraint3D[] {
+  if (plane === 'xz') return [...constraints];
+  const axis = AXES_IN_XZ[plane];
+  const dof = (d: number) => (d < 3 ? axis[d] : 3 + axis[d - 3]);
+  const inPlaneRotation = plane === 'yz' ? 3 : 5;
+  const letter = (c: string) => 'XYZ'[axis['XYZ'.indexOf(c)]] ?? c;
+  return constraints.map((c): Constraint3D => {
+    switch (c.type) {
+      case 'rigidLink': return c.dofs ? { ...c, dofs: c.dofs.map(dof) } : { ...c };
+      case 'equalDOF': return { ...c, dofs: c.dofs.map(dof) };
+      case 'linearMPC': return { ...c, terms: c.terms.map((t) => ({ ...t, dof: dof(t.dof), coefficient: t.dof === inPlaneRotation ? -t.coefficient : t.coefficient })) };
+      case 'diaphragm': {
+        const name = (c.plane ?? 'XY').toUpperCase();
+        return /^[XYZ]{2}$/.test(name) ? { ...c, plane: [...name].map(letter).sort().join('') } : { ...c };
+      }
+      case 'eccentricConnection': {
+        const offsets = [c.offsetX ?? 0, c.offsetY ?? 0, c.offsetZ ?? 0];
+        const moved = [0, 0, 0];
+        offsets.forEach((v, i) => { moved[axis[i]] = v; });
+        let releases = c.releases;
+        if (releases && releases.length === 6) {
+          const out = new Array<boolean>(6).fill(false);
+          releases.forEach((r, i) => { out[dof(i)] = r; });
+          releases = out;
+        }
+        return { ...c, offsetX: moved[0], offsetY: moved[1], offsetZ: moved[2], releases };
+      }
+    }
+  });
+}
 
 const DOF_3D_TO_2D: Record<number, number> = { 0: 0, 2: 1, 4: 2 };
+
+/**
+ * The constraints, already written in X–Z, that tie a DOF in the plane to one out of it: a
+ * linear MPC with terms on both sides, or an eccentric connection whose offset leaves the plane.
+ * The plane solver has no out-of-plane DOFs, so it cannot keep that coupling (#466).
+ */
+export function constraintsCoupledAcrossPlane(constraints: readonly Constraint3D[]): Constraint3D[] {
+  return constraints.filter((c) => {
+    if (c.type === 'linearMPC') {
+      const live = c.terms.filter((t) => t.coefficient !== 0);
+      return live.some((t) => DOF_3D_TO_2D[t.dof] !== undefined) && live.some((t) => DOF_3D_TO_2D[t.dof] === undefined);
+    }
+    return c.type === 'eccentricConnection' && (c.offsetY ?? 0) !== 0;
+  });
+}
+
+const NORMAL: Record<DrawPlane, 'x' | 'y' | 'z'> = { xz: 'y', yz: 'x', xy: 'z' };
+
+/**
+ * The rigid links and diaphragms, as written in 3D, whose nodes lie at different depths along the
+ * plane's normal: their arm then carries an out-of-plane rotation into an in-plane translation
+ * (uy_s − uy_m = Δx·rz on a Y–Z plane), which the plane model cannot hold.
+ */
+export function constraintsAcrossDepth(
+  plane: DrawPlane, constraints: readonly Constraint3D[],
+  nodeAt: (id: number) => { x: number; y: number; z?: number } | undefined,
+): Constraint3D[] {
+  const depth = (id: number) => { const n = nodeAt(id); return n ? (n[NORMAL[plane]] ?? 0) : undefined; };
+  return constraints.filter((c) => {
+    let ids: number[];
+    if (c.type === 'rigidLink') {
+      if (c.dofs && c.dofs.length > 0 && c.dofs.every((d) => d >= 3)) return false;
+      ids = [c.masterNode, c.slaveNode];
+    } else if (c.type === 'diaphragm') ids = [c.masterNode, ...c.slaveNodes];
+    else return false;
+    const depths = ids.map(depth).filter((d): d is number => d !== undefined);
+    return depths.length > 1 && Math.max(...depths) - Math.min(...depths) > 1e-6;
+  });
+}
 
 function mapDofs(dofs: number[] | undefined): number[] | undefined {
   if (!dofs) return undefined;

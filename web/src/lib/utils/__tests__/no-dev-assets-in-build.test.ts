@@ -38,10 +38,12 @@ import { promisify } from 'node:util';
 import { readdirSync, readFileSync, rmSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { sharedBuild, SHARED_PLAIN_BUILD } from './shared-build';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const WEB_ROOT = resolve(__dirname, '../../../..');
-const OUT = '.dist-devassets';
+const SHARED = sharedBuild(SHARED_PLAIN_BUILD);
+const OUT = SHARED ?? '.dist-devassets';
 
 const execFileAsync = promisify(execFile);
 
@@ -68,16 +70,20 @@ function emitted(sub = ''): string[] {
 }
 
 describe('the build carries nothing that is local-only', () => {
-  afterAll(() => rmSync(resolve(WEB_ROOT, OUT), { recursive: true, force: true }));
+  afterAll(() => {
+    if (!SHARED) rmSync(resolve(WEB_ROOT, OUT), { recursive: true, force: true });
+  });
 
   it(
     'a production build leaks no local-only string and no local-only file',
     async () => {
-      await execFileAsync(
-        'npx',
-        ['vite', 'build', '--outDir', OUT, '--emptyOutDir', '--logLevel', 'error'],
-        { cwd: WEB_ROOT, timeout: 240_000, maxBuffer: 32 * 1024 * 1024 },
-      );
+      if (!SHARED) {
+        await execFileAsync(
+          'npx',
+          ['vite', 'build', '--outDir', OUT, '--emptyOutDir', '--logLevel', 'error'],
+          { cwd: WEB_ROOT, timeout: 240_000, maxBuffer: 32 * 1024 * 1024 },
+        );
+      }
 
       const files = emitted();
       expect(files.length, 'the build emitted nothing').toBeGreaterThan(0);

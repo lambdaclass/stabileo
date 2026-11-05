@@ -2,7 +2,8 @@
  * Master and similar storeys: a level can repeat another (`Level.similarTo`), and an edit made on
  * one storey can reach the same object on the storeys it applies to — this one, its similar ones,
  * or all. "The same object" on another storey is the one of the same kind at the same place in plan
- * and the same heights above its level, within a tolerance; what has no counterpart is reported.
+ * and the same heights above its level, within a tolerance; a member's counterpart is also of its type
+ * (frame or truss). What has no counterpart is reported.
  *
  * A member belongs to the storey whose level its upper end sits on (a column to the floor it holds
  * up, a beam to its floor); a node to the level it sits on or the one under it; a slab or wall to the
@@ -17,7 +18,7 @@ export type StoreyScope = 'this' | 'similar' | 'all';
 type P = { x: number; y: number; z?: number };
 export interface StoreyModel {
   nodes: ReadonlyMap<number, P>;
-  elements: ReadonlyMap<number, { nodeI: number; nodeJ: number }>;
+  elements: ReadonlyMap<number, { nodeI: number; nodeJ: number; type?: string }>;
   quads?: ReadonlyMap<number, { nodes: readonly number[] }>;
   plates?: ReadonlyMap<number, { nodes: readonly number[] }>;
 }
@@ -166,12 +167,14 @@ export class StoreyIndex {
   }
 }
 
+const memberKey = (level: string, e: { type?: string }) => `${level}#${e.type ?? 'frame'}`;
+
 export function storeyIndex(m: StoreyModel, levels: readonly Level[], tol = STOREY_TOL): StoreyIndex {
   const idx = new StoreyIndex(tol);
   for (const [id, e] of m.elements) {
     const lv = elementLevel(m, id, levels, tol);
     const a = m.nodes.get(e.nodeI), b = m.nodes.get(e.nodeJ);
-    if (lv && a && b) idx.addElement(lv.id, memberPlaces(a, b, lv, levels, tol), id);
+    if (lv && a && b) idx.addElement(memberKey(lv.id, e), memberPlaces(a, b, lv, levels, tol), id);
   }
   for (const [id, n] of m.nodes) {
     const lv = nodeLevel(m, id, levels, tol);
@@ -223,7 +226,7 @@ export function expandToStoreys(
       for (const other of scopeLevels(levels, lv.id, scope)) {
         if (other.id === lv.id) continue;
         reached.add(other.id);
-        const hit = idx.elements.get(other.id)?.find(k);
+        const hit = idx.elements.get(memberKey(other.id, e))?.find(k);
         if (hit !== undefined) elements.add(hit); else unmatched.push({ kind: 'element', id, level: other.id });
       }
     }

@@ -36,7 +36,7 @@ import type { InkStyle } from '../export/paper-ink';
 import type { ShellContourComponent } from '../engine/shell-stress';
 import { t as tr } from '../i18n';
 import { modelStore, resultsStore } from '../store';
-import { resultSet } from './export-results';
+import { resultSet, hasResultSet } from './export-results';
 
 export interface ReportExportInputs {
   config: ReportConfig;
@@ -97,6 +97,8 @@ export async function exportReportAs(input: ReportExportInputs): Promise<void> {
 }
 
 async function exportReportWithEngine(input: ReportExportInputs, token: ReturnType<typeof captureProvenanceToken>): Promise<void> {
+  const key = input.config.resultSetKey;
+  if (key && key !== 'screen' && !hasResultSet(key)) { uiStore.toast(input.t('proReport.resultSetMissing'), 'error'); return; }
   const figures = input.figureOptions ? reportResultFigures(input.config, input.figureOptions) : {};
   // The model's figure is drawn; a capture of the screen only when it cannot be.
   const capture = input.config.sections?.modelData !== false && !figures.model;
