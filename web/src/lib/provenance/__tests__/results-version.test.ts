@@ -102,12 +102,12 @@ describe('results versions', () => {
     const stamp = { resultsVersion: 4, analyses: ['modal'] } as unknown as SolveStamp;
     const ids = (resultsVersion: number) => assessProject(frame, { ...stamp, resultsVersion }, 'pro').changes.map((c) => c.id).sort();
     for (const version of [4, 5, 6, 7, 8]) {
-      expect(ids(version)).toEqual(['corotational-3d-rotations', 'harmonic-modal-residual-checked', 'modal-mechanism-refused', 'modal-repeated-eigenspace-completeness', 'safety-containment-diagnostics', 'soft-rotation-not-orphan', 'static-modal-runtime-self-checks']);
+      expect(ids(version)).toEqual(['corotational-3d-rotations', 'harmonic-modal-residual-checked', 'modal-mechanism-refused', 'modal-repeated-eigenspace-completeness', 'plastic-3d-member-without-capacity-refused', 'safety-containment-diagnostics', 'soft-rotation-not-orphan', 'static-modal-runtime-self-checks']);
     }
-    expect(ids(9)).toEqual(['corotational-3d-rotations', 'harmonic-modal-residual-checked', 'modal-mechanism-refused', 'safety-containment-diagnostics', 'soft-rotation-not-orphan', 'static-modal-runtime-self-checks']);
-    for (const version of [10, 11, 12]) expect(ids(version)).toEqual(['corotational-3d-rotations', 'harmonic-modal-residual-checked', 'modal-mechanism-refused', 'safety-containment-diagnostics', 'soft-rotation-not-orphan']);
-    expect(ids(13)).toEqual(['corotational-3d-rotations', 'harmonic-modal-residual-checked', 'safety-containment-diagnostics', 'soft-rotation-not-orphan']);
-    expect(ids(26)).toEqual(['harmonic-modal-residual-checked', 'safety-containment-diagnostics', 'soft-rotation-not-orphan']);
+    expect(ids(9)).toEqual(['corotational-3d-rotations', 'harmonic-modal-residual-checked', 'modal-mechanism-refused', 'plastic-3d-member-without-capacity-refused', 'safety-containment-diagnostics', 'soft-rotation-not-orphan', 'static-modal-runtime-self-checks']);
+    for (const version of [10, 11, 12]) expect(ids(version)).toEqual(['corotational-3d-rotations', 'harmonic-modal-residual-checked', 'modal-mechanism-refused', 'plastic-3d-member-without-capacity-refused', 'safety-containment-diagnostics', 'soft-rotation-not-orphan']);
+    expect(ids(13)).toEqual(['corotational-3d-rotations', 'harmonic-modal-residual-checked', 'plastic-3d-member-without-capacity-refused', 'safety-containment-diagnostics', 'soft-rotation-not-orphan']);
+    expect(ids(26)).toEqual(['harmonic-modal-residual-checked', 'plastic-3d-member-without-capacity-refused', 'safety-containment-diagnostics', 'soft-rotation-not-orphan']);
     expect(ids(RESULT_CHANGES.currentResultsVersion)).toEqual([]);
   });
 

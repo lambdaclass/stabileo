@@ -5,7 +5,7 @@
 | Severity | High |
 | Status | Draft |
 | Issue | [#1525](https://github.com/lambdaclass/stabileo/issues/1525) |
-| Fix | #PR |
+| Fix | #1526 |
 | Affected versions | every release with the 3D plastic solver (`solve_plastic_3d`); not bisected |
 | Re-check registry | results version entry `plastic-3d-member-without-capacity-refused` |
 
