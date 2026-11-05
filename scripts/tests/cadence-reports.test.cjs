@@ -82,16 +82,20 @@ test('a job that failed and passed on one commit is reported flaky; a real failu
       {id: 2, head_sha: 'b', run_attempt: 1, conclusion: 'failure'},
       {id: 3, head_sha: 'c', run_attempt: 1, conclusion: 'failure'},
       {id: 4, head_sha: 'c', run_attempt: 1, conclusion: 'success'},
+      {id: 5, head_sha: 'd', run_attempt: 1, conclusion: 'failure'},
+      {id: 6, head_sha: 'd', run_attempt: 1, conclusion: 'failure'},
     ],
     jobsByRun: {
       1: [{name: 'E2E (3/14)', conclusion: 'failure', html_url: 'u1'}, {name: 'E2E (3/14)', conclusion: 'success'}, {name: 'WASM', conclusion: 'success'}],
       2: [{name: 'Engine Suite (1/4)', conclusion: 'failure', html_url: 'u2'}],
       3: [{name: 'E2E (3/14)', conclusion: 'failure', html_url: 'u3'}, {name: 'Lint Engine', conclusion: 'failure', html_url: 'u4'}],
       4: [{name: 'E2E (3/14)', conclusion: 'success'}, {name: 'Lint Engine', conclusion: 'cancelled'}],
+      5: [{name: 'Web Unit (2/4)', conclusion: 'failure', html_url: 'u5'}, {name: 'Engine Gates', conclusion: 'success'}],
+      6: [{name: 'Web Unit (2/4)', conclusion: 'success'}, {name: 'Engine Gates', conclusion: 'failure', html_url: 'u6'}],
     },
   });
   const r = await flakyReport({...h, now: NOW});
-  assert.deepEqual(r.flaky, [{name: 'E2E (3/14)', commits: 2}]);
+  assert.deepEqual(r.flaky, [{name: 'E2E (3/14)', commits: 2}, {name: 'Engine Gates', commits: 1}, {name: 'Web Unit (2/4)', commits: 1}]);
   assert.ok(!h.calls.some((c) => c.name === 'listJobsForWorkflowRun' && c.args.run_id === 2));
   const create = h.calls.find((c) => c.name === 'create');
   assert.equal(create.args.title, 'Weekly flaky-test report');

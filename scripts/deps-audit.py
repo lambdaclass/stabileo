@@ -26,12 +26,12 @@ def rust_rows(text):
 
 def npm_rows(data):
     rows = []
-    for name, v in sorted(data.items()):
-        v = v[0] if isinstance(v, list) else v
-        cur, latest = v.get("current"), v.get("latest")
-        if cur and latest and compatible_key(cur) != compatible_key(latest):
-            rows.append((name, cur, v.get("wanted", ""), latest))
-    return rows
+    for name, entries in sorted(data.items()):
+        for v in entries if isinstance(entries, list) else [entries]:
+            cur, latest = v.get("current"), v.get("latest")
+            if cur and latest and compatible_key(cur) != compatible_key(latest):
+                rows.append((name, v.get("dependent") or v.get("location") or "", cur, v.get("wanted", ""), latest))
+    return sorted(set(rows))
 
 
 def table(header, rows):
@@ -57,7 +57,7 @@ def main(out):
         "## Rust: releases the lockfile cannot take without a semver-incompatible bump",
         table(["crate", "locked", "latest"], rust_rows(cargo.stderr + cargo.stdout)),
         "## Web: packages behind a semver-incompatible release",
-        table(["package", "current", "wanted", "latest"], npm_rows(outdated)),
+        table(["package", "workspace", "current", "wanted", "latest"], npm_rows(outdated)),
     ]) + "\n"
     Path(out).write_text(report)
     print(report)

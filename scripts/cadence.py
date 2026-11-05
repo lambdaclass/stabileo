@@ -52,21 +52,21 @@ def command(check):
     return ["make", *check.get("needs", []), check["target"], *(f"{k}={v}" for k, v in sorted(check.get("vars", {}).items()))]
 
 
-def execute_group(cmd, cwd, timeout):
+def execute_group(cmd, cwd, timeout, grace=30):
     proc = subprocess.Popen(cmd, cwd=cwd, start_new_session=True)
     try:
         return proc.wait(timeout=timeout)
     except subprocess.TimeoutExpired:
-        for sig, grace in ((signal.SIGTERM, 30), (signal.SIGKILL, None)):
-            try:
-                os.killpg(proc.pid, sig)
-            except ProcessLookupError:
-                break
-            try:
-                proc.wait(timeout=grace)
-                break
-            except subprocess.TimeoutExpired:
-                continue
+        try:
+            os.killpg(proc.pid, signal.SIGTERM)
+            proc.wait(timeout=grace)
+        except (ProcessLookupError, subprocess.TimeoutExpired):
+            pass
+        try:
+            os.killpg(proc.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        proc.wait()
         raise
 
 

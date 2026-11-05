@@ -70,8 +70,7 @@ async function flakyReport({github, context, core, now = Date.now(), dry = false
   for (const r of runs) bySha.set(r.head_sha, [...(bySha.get(r.head_sha) || []), r]);
   const flaky = new Map();
   for (const list of bySha.values()) {
-    const suspicious = list.some((r) => r.run_attempt > 1) ||
-      (list.some((r) => r.conclusion === 'failure') && list.some((r) => r.conclusion === 'success'));
+    const suspicious = list.length > 1 || list.some((r) => r.run_attempt > 1);
     if (!suspicious) continue;
     const outcomes = new Map();
     for (const r of list) {
