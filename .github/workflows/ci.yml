@@ -252,7 +252,7 @@ jobs:
           test -s ci-site/index.html
       # Also exercise Compose's default frontend/WASM compiler stages.
       - if: needs.changes.outputs.docker_source == 'true'
-        run: make result-changes.order
+        run: .github/scripts/retry-infra.sh make result-changes.order
       - if: needs.changes.outputs.docker_source == 'true'
         run: docker build --tag stabileo-source-smoke .
       - run: docker build --build-arg FRONTEND_STAGE=web-prebuilt --tag stabileo-smoke .
