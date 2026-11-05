@@ -348,7 +348,9 @@ def main(argv=None, env=None):
         labels |= set(context['labels']) if context else set()
         rev = rev and base_revision(rev)
         base_text = rev and git_reader(rev)(REGISTRY)
-        if not rev:
+        if not rev and context:
+            errors.append(f"cannot read the pull request base {context['base']}: the tolerance-change check cannot run")
+        elif not rev:
             note = 'no base revision: the tolerance-change check did not run'
         elif base_text is None:
             note = f'{REGISTRY} is new at {rev[:12]}: nothing to compare'

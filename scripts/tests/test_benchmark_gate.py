@@ -1,5 +1,7 @@
+import contextlib
 import copy
 import importlib.util
+import io
 import json
 import os
 import pathlib
@@ -254,6 +256,26 @@ class Event(unittest.TestCase):
 
     def test_without_a_payload_the_check_runs_locally(self):
         self.assertIsNone(gate.event_context({}))
+
+    def test_a_pull_request_whose_base_cannot_be_read_fails(self):
+        with tempfile.NamedTemporaryFile('w', suffix='.json', delete=False) as f:
+            json.dump(dict(pull_request=dict(base=dict(sha='0' * 40), labels=[])), f)
+        original = gate.base_revision
+        gate.base_revision = lambda sha: None
+        try:
+            with contextlib.redirect_stderr(io.StringIO()) as err, contextlib.redirect_stdout(io.StringIO()):
+                code = gate.main([], dict(GITHUB_EVENT_PATH=f.name, GITHUB_EVENT_NAME='pull_request'))
+        finally:
+            gate.base_revision = original
+        self.assertEqual(code, 1)
+        self.assertIn('cannot read the pull request base', err.getvalue())
+
+    def test_a_pull_request_against_its_own_head_passes(self):
+        head = gate.git('rev-parse', 'HEAD').strip()
+        with tempfile.NamedTemporaryFile('w', suffix='.json', delete=False) as f:
+            json.dump(dict(pull_request=dict(base=dict(sha=head), labels=[])), f)
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(gate.main([], dict(GITHUB_EVENT_PATH=f.name, GITHUB_EVENT_NAME='pull_request')), 0)
 
 
 class Repository(unittest.TestCase):
