@@ -2,7 +2,6 @@
   import { onMount } from 'svelte';
   import { tPublic as t, publicI18n } from '../lib/i18n/store.svelte';
   import { applyPageMeta, restorePageMeta, stabileoSoftware } from '../lib/page-meta';
-  import SiteHeader from './site/SiteHeader.svelte';
   import LandingHero from './landing/LandingHero.svelte';
   import LandingPricing from './landing/LandingPricing.svelte';
   import LandingBasic from './landing/LandingBasic.svelte';
@@ -123,7 +122,6 @@
     between Basic and the capabilities matrix — was the second, and the deck
     is renumbered so the sequence has no gap where it was.
   -->
-  <SiteHeader page="landing" />
   <LandingHero {prefersReducedMotion} />
   <LandingBasic />
   <LandingProCalc />

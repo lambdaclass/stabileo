@@ -197,7 +197,7 @@ Decided for later, so that nothing is forgotten. Each one moves to the tables ab
 **Safety (wrong results first)**
 
 - **Report check integrity** (deferred blocker of [#1416](https://github.com/lambdaclass/stabileo/pull/1416)): a report rewritten in full and re-hashed still passes the check. It needs report signing or a server-side record of each report.
-- **Edge beams under one-sided slab load** (deferred limit of [#1417](https://github.com/lambdaclass/stabileo/pull/1417)): one-sided stretches shorter than 1/200 of the member are not detected ([#1426](https://github.com/lambdaclass/stabileo/issues/1426)).
+- **Edge beams under one-sided slab load** (deferred limit of [#1417](https://github.com/lambdaclass/stabileo/pull/1417)): one-sided stretches shorter than 1/200 of the member are not detected ([#1426](https://github.com/lambdaclass/stabileo/issues/1426)). Fix: [#1457](https://github.com/lambdaclass/stabileo/pull/1457), draft. Each side keeps its own stretch along the member, so opposite-side patches within one bin are no longer read as overlapping.
 - **ORPHAN-SOFT-ROTATION** ([#807](https://github.com/lambdaclass/stabileo/pull/807)): the warning covers only the prepared static paths; the other analyses need it too, until [#1367](https://github.com/lambdaclass/stabileo/issues/1367) is fixed.
 - **Re-check notices in German, French and Turkish** ([#1406](https://github.com/lambdaclass/stabileo/pull/1406), [#1409](https://github.com/lambdaclass/stabileo/pull/1409)): a native-speaker review of the texts.
 
