@@ -131,6 +131,36 @@ fn compare_with_regular(r: &R) { assert_eq!(r, &regular()); }
 
 fn report(r: &R) { println!("{r:?}"); }
 
+fn check_ignoring(_: &R) { assert!(true); }
+
+fn check_other(r: &R, expected: &R) { assert!(close(expected, &base())); }
+
+#[test]
+fn beam_helper_ignores_the_result() {
+    let r = solve_beam_2d_typed(&scaled());
+    check_ignoring(&r);
+}
+
+#[test]
+fn beam_helper_asserts_on_another_argument() {
+    let r = solve_beam_2d_typed(&scaled());
+    check_other(&r, &base());
+}
+
+#[test]
+fn beam_result_shadowed() {
+    let r = solve_beam_2d_typed(&scaled());
+    let r = 0;
+    assert_eq!(r, 0);
+}
+
+#[test]
+fn beam_result_overwritten() {
+    let mut r = solve_beam_2d_typed(&scaled());
+    r = zero();
+    assert_eq!(r, zero());
+}
+
 #[test]
 fn beam_result_discarded() {
     let _ = solve_beam_2d_typed(&scaled());
@@ -192,6 +222,20 @@ fn beam_in_disabled_file() {
 CARGO = '''
 autotests = false
 
+[features]
+default = ["fast"]
+slow = []
+
+[[test]]
+name = "slow"
+path = "tests/slow.rs"
+required-features = ["slow"]
+
+[[test]]
+name = "default"
+path = "tests/default_feature.rs"
+required-features = ["fast"]
+
 [[test]]
 name = "beam"
 path = "tests/beam_invariance.rs"
@@ -230,6 +274,8 @@ FILES = {
     'engine/tests/suite/excluded.rs': INCLUDED,
     'engine/tests/shared/beam_shared.rs': INCLUDED,
     'engine/tests/orphan.rs': INCLUDED,
+    'engine/tests/slow.rs': INCLUDED,
+    'engine/tests/default_feature.rs': INCLUDED,
 }
 
 TRACKED = {'tracked': 1497}
@@ -455,7 +501,8 @@ class Coverage(unittest.TestCase):
 
     def test_a_test_must_assert_on_what_the_entry_point_returned(self):
         test = lambda name: self.status('units', {'test': f'engine/tests/beam_invariance.rs::{name}'})
-        for name in ['beam_result_discarded', 'beam_unrelated_assertion', 'beam_helper_without_assertion', 'beam_call_only']:
+        for name in ['beam_result_discarded', 'beam_unrelated_assertion', 'beam_helper_without_assertion', 'beam_call_only',
+                     'beam_helper_ignores_the_result', 'beam_helper_asserts_on_another_argument', 'beam_result_shadowed', 'beam_result_overwritten']:
             errors = test(name)
             self.assertEqual(len(errors), 1, name)
             self.assertIn('no assertion uses what beam::solve_beam_2d_typed returned', errors[0])
@@ -478,7 +525,8 @@ class Coverage(unittest.TestCase):
         test = lambda file: self.status('units', {'test': f'engine/tests/{file}::beam_units'})
         self.assertEqual(test('suite/included.rs'), [])
         self.assertEqual(test('shared/beam_shared.rs'), [])
-        for file in ['suite/excluded.rs', 'orphan.rs']:
+        self.assertEqual(test('default_feature.rs'), [])
+        for file in ['suite/excluded.rs', 'orphan.rs', 'slow.rs']:
             self.assertIn('is not compiled into any test target', test(file)[0], file)
 
 

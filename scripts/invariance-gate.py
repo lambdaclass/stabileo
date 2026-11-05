@@ -274,7 +274,15 @@ def enclosing_cfg(code, position):
 
 def compiled_tests(read):
     cargo = read('engine/Cargo.toml') or ''
-    roots = {f'engine/{p}' for p in re.findall(r'\[\[test\]\][^\[]*?\bpath\s*=\s*"([^"]+)"', cargo)}
+    default = re.search(r'^\[features\][^\[]*?^default\s*=\s*\[([^\]]*)\]', cargo, re.M | re.S)
+    enabled = set(re.findall(r'"([^"]+)"', default.group(1))) if default else set()
+    roots = set()
+    for target in re.split(r'^\[\[test\]\]\s*$', cargo, flags=re.M)[1:]:
+        target = re.split(r'^\[', target, flags=re.M)[0]
+        path = re.search(r'^path\s*=\s*"([^"]+)"', target, re.M)
+        required = re.search(r'^required-features\s*=\s*\[([^\]]*)\]', target, re.M)
+        if path and set(re.findall(r'"([^"]+)"', required.group(1) if required else '')) <= enabled:
+            roots.add(f'engine/{path.group(1)}')
     seen, queue = set(), sorted(roots)
     while queue:
         file = queue.pop()
@@ -323,35 +331,72 @@ def bracketed(code, start):
     return code[start + 1:]
 
 
-def bindings(body):
+def statement_end(body, start):
+    depth, end = 0, start
+    while end < len(body) and not (depth == 0 and body[end] in ';{'):
+        depth += 1 if body[end] in '([' else -1 if body[end] in ')]' else 0
+        end += 1
+    return end
+
+
+def events(body):
     found = []
     for m in re.finditer(r'\b(?:let|for)\s+(.*?)(?:\s+in\s+|\s*(?::[^=;]*)?=(?!=))', body):
-        depth, end = 0, m.end()
-        while end < len(body) and not (depth == 0 and body[end] in ';{'):
-            depth += 1 if body[end] in '([' else -1 if body[end] in ')]' else 0
-            end += 1
         names = set(re.findall(r'\b[a-z_]\w*\b', m.group(1))) - {'mut', 'ref', '_', 'in'}
-        found.append((names, body[m.end():end]))
-    return found
+        found.append((m.start(), 'bind', names, body[m.end():statement_end(body, m.end())]))
+    for m in re.finditer(r'(?<![\w.])([a-z_]\w*)\s*[-+*/]?=(?![=>])', body):
+        if not re.search(r'\b(?:let|for|mut|ref)\s*(?:\([^;=]*)?$', body[:m.start()].rsplit(';', 1)[-1].rsplit('{', 1)[-1]):
+            found.append((m.start(), 'bind' if body[m.end(1):m.end()].strip() == '=' else 'update', {m.group(1)}, body[m.end():statement_end(body, m.end())]))
+    for m in re.finditer(r'\b(assert\w*!|\w+)\s*(?:::<[^>]*>\s*)?([(\[{])', body):
+        found.append((m.start(), 'call', m.group(1), bracketed(body, m.end(2) - 1)))
+    return sorted(found, key=lambda e: e[0])
+
+
+def arguments(text):
+    parts, depth, current = [], 0, ''
+    for ch in text:
+        if ch in '([{':
+            depth += 1
+        elif ch in ')]}':
+            depth -= 1
+        if ch == ',' and depth == 0:
+            parts.append(current)
+            current = ''
+        else:
+            current += ch
+    if current.strip():
+        parts.append(current)
+    return parts
+
+
+def parameters(context, name):
+    m = re.search(rf'\bfn\s+{re.escape(name)}\s*(?:<[^>{{]*>)?\s*\(', context)
+    return [re.match(r'\s*(?:mut\s+)?([a-z_]\w*)', p).group(1) if re.match(r'\s*(?:mut\s+)?[a-z_]\w*\s*:', p) else None for p in arguments(bracketed(context, m.end() - 1))]
+
+
+def asserts_on(body, seed, targets, context, depth=0):
+    uses = lambda text, names: any(re.search(rf'(?<![\w.]){re.escape(n)}\b', text) for n in names)
+    derived = lambda text, tainted: any(calls(text, t, context) for t in targets) or uses(text, tainted)
+    helpers = functions(context)
+    tainted = set(seed)
+    for _, kind, what, text in events(body):
+        if kind == 'bind':
+            tainted = tainted | what if derived(text, tainted) else tainted - what
+        elif kind == 'update' and derived(text, tainted):
+            tainted |= what
+        elif kind == 'call' and what.endswith('!'):
+            if derived(text, tainted):
+                return True
+        elif kind == 'call' and what in helpers and depth < 2:
+            names = parameters(context, what)
+            seeded = {n for n, a in zip(names, arguments(text)) if n and derived(a, tainted)}
+            if seeded and asserts_on(helpers[what], seeded, [], context, depth + 1):
+                return True
+    return False
 
 
 def compares_result(body, targets, context):
-    uses = lambda text, names: any(re.search(rf'(?<![\w.]){re.escape(n)}\b', text) for n in names)
-    from_target = lambda text: any(calls(text, t, context) for t in targets)
-    tainted, changed = set(), True
-    while changed:
-        changed = False
-        for names, value in bindings(body):
-            if not names <= tainted and (from_target(value) or uses(value, tainted)):
-                tainted |= names
-                changed = True
-    asserting = {name for name, b in functions(context).items() if re.search(r'\bassert\w*!', b)}
-    for m in re.finditer(r'\b(assert\w*!|\w+)\s*(?:::<[^>]*>\s*)?([(\[{])', body):
-        if m.group(1).endswith('!') or m.group(1) in asserting:
-            arguments = bracketed(body, m.end(2) - 1)
-            if from_target(arguments) or uses(arguments, tainted):
-                return True
-    return False
+    return asserts_on(body, set(), targets, context)
 
 
 def strip_rust_keep(text, pattern):
