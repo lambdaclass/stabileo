@@ -6,6 +6,7 @@ import re
 import signal
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -48,8 +49,9 @@ def notice(msg):
     print(prefix + msg, flush=True)
 
 
-def command(check):
-    return ["make", *check.get("needs", []), check["target"], *(f"{k}={v}" for k, v in sorted(check.get("vars", {}).items()))]
+def command(check, now=None):
+    day = str(int((time.time() if now is None else now) // 86400))
+    return ["make", *check.get("needs", []), check["target"], *(f"{k}={v.replace('{day}', day)}" for k, v in sorted(check.get("vars", {}).items()))]
 
 
 def execute_group(cmd, cwd, timeout, grace=30):

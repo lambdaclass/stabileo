@@ -43,7 +43,7 @@
     {"id": "metamorphic-full", "tier": "daily", "existing": "nightly.yml#metamorphic-nightly", "what": "metamorphic and invariance, exhaustive tier"},
     {"id": "invariance-full", "tier": "daily", "runner": "nightly", "target": "test.engine.invariance.full", "optional": true, "budget_min": 90, "what": "invariance tests, full tier"},
     {"id": "differential-full", "tier": "daily", "runner": "nightly", "target": "test.engine.differential.full", "optional": true, "budget_min": 90, "what": "cross-method differential tests, full tier"},
-    {"id": "mechanism-fuzz", "tier": "daily", "runner": "nightly", "target": "test.engine.mechanism-fuzz.nightly", "vars": {"MINUTES": "45"}, "optional": true, "budget_min": 60, "what": "mechanism fuzzing, 45 minutes"},
+    {"id": "mechanism-fuzz", "tier": "daily", "runner": "nightly", "target": "test.engine.mechanism-fuzz.long", "vars": {"DURATION": "45m", "SEED": "{day}000000000"}, "optional": true, "budget_min": 60, "what": "mechanism fuzzing, 45 minutes"},
     {"id": "containment-audit", "tier": "daily", "runner": "nightly", "target": "check.containment", "requires": ["scripts/check-containment.py"], "optional": true, "budget_min": 15, "what": "every open wrong-result issue is contained"},
     {"id": "lighthouse", "tier": "daily", "existing": "performance.yml#lighthouse", "what": "Lighthouse against the deployed site"},
     {"id": "external-references-sampled", "tier": "daily", "existing": "nightly.yml#opensees-diff", "what": "OpenSees and Code_Aster comparisons, sampled counts"},
@@ -55,7 +55,7 @@
 
     {"id": "mutants-safety", "tier": "weekly", "existing": "nightly.yml#mutants-safety", "what": "mutation testing of the safety-critical modules, kill-rate ratchet"},
     {"id": "fuzz-long", "tier": "weekly", "existing": "nightly.yml#fuzz", "what": "the fuzz targets for 5 hours each"},
-    {"id": "mechanism-fuzz-long", "tier": "weekly", "runner": "nightly", "target": "test.engine.mechanism-fuzz.nightly", "vars": {"MINUTES": "240"}, "optional": true, "budget_min": 260, "what": "mechanism fuzzing, 4 hours"},
+    {"id": "mechanism-fuzz-long", "tier": "weekly", "runner": "nightly", "target": "test.engine.mechanism-fuzz.long", "vars": {"DURATION": "4h", "SEED": "{day}500000000"}, "optional": true, "budget_min": 260, "what": "mechanism fuzzing, 4 hours"},
     {"id": "route-size", "tier": "weekly", "existing": "route-size.yml#ceiling", "what": "landing and /app footprints against their ceilings"},
     {"id": "research-replays", "tier": "weekly", "existing": "research.yml#phasefield", "what": "every research paper's validation replays (Monday schedule)"},
     {"id": "flaky-report", "tier": "weekly", "existing": "nightly.yml#flaky-report", "what": "jobs that failed and passed on the same commit in the past week"},
