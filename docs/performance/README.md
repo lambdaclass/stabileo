@@ -5,10 +5,12 @@ that motivated them is [AUDIT-2026-10.md](AUDIT-2026-10.md).
 
 ## Route sizes (every change to the web app)
 
-CI's route byte budget (`web/scripts/check-research-route-size.mjs`) builds the pull request and
-its base and fails when the landing or an `/app/*` route grows by more than its budget in
-`web/scripts/product-route-growth-budgets.json`. It is the per-change gate; this directory does not
-add a second one.
+CI's route-size job (`web/scripts/check-research-route-size.mjs`) builds the pull request and main
+and reports how much the landing and each `/app/*` route grew; size alone never fails a PR. The
+weekly Route size workflow (`.github/workflows/route-size.yml`, also run by hand or with
+`make check.web.route-size`) measures main against the absolute ceilings in
+`web/scripts/route-size-ceilings.json` and opens or updates a `route-size` issue when a route is
+over, to be fixed then.
 
 ## Lighthouse (daily, against production)
 
