@@ -317,3 +317,66 @@ fn bolt_group_bearing_controls() {
         r.unity_ratio
     );
 }
+
+fn bolts(at: &[(f64, f64)], vx: f64, m: Option<f64>) -> BoltGroupResult {
+    check_bolt_groups(&BoltGroupInput {
+        groups: vec![BoltGroupData {
+            connection_id: 1,
+            bolts: at.iter().map(|&(x, y)| BoltPosition { x, y }).collect(),
+            rn_shear: 100_000.0,
+            rn_bearing: None,
+            phi: Some(0.75),
+        }],
+        forces: vec![BoltGroupForces { connection_id: 1, vx, vy: 0.0, m }],
+    })
+    .remove(0)
+}
+
+#[test]
+fn a_loaded_bolt_group_without_bolts_is_unevaluated_not_zero() {
+    let r = bolts(&[], 50_000.0, None);
+    assert_eq!(r.unity_ratio, f64::INFINITY);
+    assert_eq!(r.unevaluated, vec![NO_BOLTS.to_string()]);
+    let json: serde_json::Value = serde_json::from_str(&dedaliano_engine::boundary::to_json(&r).unwrap()).unwrap();
+    assert!(json["unityRatio"].is_null(), "{json}");
+    let idle = bolts(&[], 0.0, None);
+    assert_eq!((idle.unity_ratio, idle.unevaluated.len()), (0.0, 0));
+}
+
+#[test]
+fn a_moment_on_a_group_without_a_usable_polar_moment_is_unevaluated() {
+    let single = bolts(&[(0.0, 0.0)], 10_000.0, Some(5_000.0));
+    assert_eq!(single.unity_ratio, f64::INFINITY);
+    assert_eq!(single.unevaluated, vec![MOMENT_WITHOUT_IP.to_string()]);
+
+    let far = bolts(&[(-1e200, 0.0), (1e200, 0.0)], 10_000.0, Some(5_000.0));
+    assert!(far.ip.is_infinite(), "{}", far.ip);
+    assert_eq!(far.unity_ratio, f64::INFINITY);
+    assert_eq!(far.unevaluated, vec![MOMENT_WITHOUT_IP.to_string()]);
+    let json: serde_json::Value = serde_json::from_str(&dedaliano_engine::boundary::to_json(&far).unwrap()).unwrap();
+    assert!(json["ip"].is_null() && json["unityRatio"].is_null(), "{json}");
+}
+
+#[test]
+fn a_non_finite_force_on_a_bolt_group_is_unevaluated() {
+    let r = bolts(&[(0.0, 0.0), (0.1, 0.0)], f64::NAN, None);
+    assert_eq!(r.unity_ratio, f64::INFINITY);
+    assert_eq!(r.unevaluated.len(), 1);
+    assert!(r.unevaluated[0].starts_with(FORCES_NOT_FINITE), "{:?}", r.unevaluated);
+}
+
+#[test]
+fn a_loaded_weld_group_without_throat_is_unevaluated_not_zero() {
+    let r = check_weld_groups(&WeldGroupInput {
+        groups: vec![WeldGroupData {
+            connection_id: 1,
+            segments: vec![WeldSegment { x1: 0.0, y1: 0.0, x2: 0.2, y2: 0.0, size: 0.0, end_loaded: None }],
+            fexx: 482e6,
+            phi: Some(0.75),
+        }],
+        forces: vec![WeldGroupForces { connection_id: 1, vx: 50_000.0, vy: 0.0, m: None }],
+    })
+    .remove(0);
+    assert_eq!(r.unity_ratio, f64::INFINITY);
+    assert_eq!(r.unevaluated, vec![NO_THROAT.to_string()]);
+}

@@ -75,6 +75,7 @@ pub struct BoltGroupResult {
     /// Centroid Y of bolt group (m)
     pub centroid_y: f64,
     /// Polar moment of inertia of bolt group (m²)
+    #[serde(serialize_with = "crate::check::ser_known", deserialize_with = "crate::check::de_known")]
     pub ip: f64,
     /// Index of most loaded bolt (0-based)
     pub critical_bolt: usize,
@@ -277,7 +278,7 @@ fn check_single_bolt_group(group: &BoltGroupData, forces: &BoltGroupForces) -> B
         let fy_total = fy_direct + fy_moment;
         let force = (fx_total * fx_total + fy_total * fy_total).sqrt();
 
-        if force > max_force {
+        if force.is_nan() || force > max_force {
             max_force = force;
             critical = i;
         }
@@ -302,7 +303,7 @@ pub const NO_BOLTS: &str = "loaded bolt group without bolts";
 pub const NO_THROAT: &str = "loaded weld group without a positive throat area";
 pub const BOLT_CAPACITY: &str = "bolt strength phi*Rn";
 pub const WELD_CAPACITY: &str = "weld strength phi*Fnw";
-pub const MOMENT_WITHOUT_IP: &str = "moment on a group with no polar moment of inertia";
+pub const MOMENT_WITHOUT_IP: &str = "moment on a group with no finite positive polar moment of inertia";
 
 pub const FORCES_NOT_FINITE: &str = "applied forces";
 
@@ -310,7 +311,7 @@ fn group_ratio(demand: f64, capacity: f64, [vx, vy, m]: [f64; 3], ip: f64, capac
     if !(vx.is_finite() && vy.is_finite() && m.is_finite()) {
         return (f64::INFINITY, vec![format!("{FORCES_NOT_FINITE}: {}", crate::check::Reason::NonFiniteDemand.code())]);
     }
-    if m != 0.0 && !(ip > 0.0) {
+    if m != 0.0 && !(ip > 0.0 && ip.is_finite()) {
         return (f64::INFINITY, vec![MOMENT_WITHOUT_IP.to_string()]);
     }
     match crate::check::ratio_if_loaded(demand, capacity) {
@@ -468,7 +469,9 @@ fn check_single_weld_group(group: &WeldGroupData, forces: &WeldGroupForces) -> W
             let fx = fx_direct + fx_m;
             let fy = fy_direct + fy_m;
             let stress = (fx * fx + fy * fy).sqrt();
-            max_stress = max_stress.max(stress);
+            if stress.is_nan() || stress > max_stress {
+                max_stress = stress;
+            }
         }
     }
 
