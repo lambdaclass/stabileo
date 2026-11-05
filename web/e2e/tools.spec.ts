@@ -184,3 +184,21 @@ for (const id of ['simply-supported-beam', 'beam-natural-frequency']) test(`@smo
     await expect(page.locator('main')).not.toContainText('Residual');
   }
 });
+
+test('@smoke a calculator and its research benchmarks link to each other, each in its published language', async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 800 });
+  await page.goto('/es/tools/truss-2d/?e2e=1');
+  const related = page.locator('nav.rs-related');
+  await expect(related).toBeVisible();
+  await expect(related.locator('a[href="/es/research/metamaterials/grossman-2026/"]')).toHaveCount(1);
+  await expect(related.locator('a[href="/es/research/benchmarks/riks-crisfield/"]')).toHaveCount(1);
+  await expect(related.locator('a[href="/es/tools/"]')).toHaveCount(1);
+  await expect(related.locator('a[href="/es/research/"]')).toHaveCount(1);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await related.locator('a[href="/es/research/metamaterials/grossman-2026/"]').click();
+  await expect(page).toHaveURL(/\/es\/research\/metamaterials\/grossman-2026\/$/);
+  const back = page.locator('nav.rs-related a[href="/es/tools/truss-2d/"]');
+  await expect(back).toHaveCount(1);
+  await back.click();
+  await expect(page).toHaveURL(/\/es\/tools\/truss-2d\/$/);
+});

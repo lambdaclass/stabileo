@@ -430,3 +430,34 @@ pub fn frequency_index(tag: &str) -> Option<usize> {
 pub fn modal_gap(lower: f64, upper: f64) -> bool {
     upper > lower * (1.0 + 1e-3)
 }
+
+/// Davis–Kahan: an eigenvalue error of `rel·λ_k` turns the span of the modes
+/// up to `k` by `rel·λ_k / (λ_{k+1} − λ_k)`, so a quantity of that span
+/// (cumulative effective mass) is compared at `rel` times this factor.
+pub fn eigen_gap_factor(lower: f64, upper: f64) -> f64 {
+    let (a, b) = (lower * lower, upper * upper);
+    1.0 + a / (b - a)
+}
+
+pub fn gap_amplification(r: &Resp, tag: &str) -> f64 {
+    let total = r.0.iter().find(|i| i.tag == "total_mass").map_or(0.0, |i| i.v[0].abs());
+    r.0.iter().filter(|i| i.tag == tag && i.tag.starts_with("meff") && total > 0.0).map(|i| i.floor / total).fold(1.0, f64::max)
+}
+
+pub fn widened_past(r: &Resp, rel: f64, limit: f64) -> std::collections::HashSet<String> {
+    r.0.iter().filter(|i| rel * gap_amplification(r, &i.tag) > limit).map(|i| i.tag.clone()).collect()
+}
+
+impl Resp {
+    pub fn without_tags(&self, tags: &std::collections::HashSet<String>) -> Resp {
+        Resp(self.0.iter().filter(|i| !tags.contains(&i.tag)).cloned().collect())
+    }
+}
+
+pub fn incomplete_collapse(e: &str) -> bool {
+    e.contains("no section reaches its plastic moment") && e.contains("is not a mechanism")
+}
+
+/// Tag of the marker a plastic row adds when its factor is only a lower bound
+/// (no mechanism formed).
+pub const LOWER_BOUND: &str = "lower_bound";

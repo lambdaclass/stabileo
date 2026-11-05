@@ -1,63 +1,50 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
-import { compareRouteSizes, routeChunkFiles, BLOG_ROUTE_BOUNDARY } from './research-route-budget.mjs';
+import { spawnSync } from 'node:child_process';
+import { checkResearchIsolation, growthTable, overCeilings, reviewRouteGrowth, routeChunkFiles, routeGrowth, BLOG_ROUTE_BOUNDARY, COURSE_ROUTE_BOUNDARY } from './research-route-budget.mjs';
 
-test('unchanged routes and small build noise pass', () => {
-  compareRouteSizes({ '/en/': 1000, '/app/basic': 2000 }, { '/en/': 1000, '/app/basic': 2128 }, true);
+const baseline = { '/en/': 1000, '/app/basic': 2000 };
+
+test('product growth of any size is reported, never refused', () => {
+  const rows = routeGrowth(baseline, { '/en/': 1000, '/app/basic': 90000 });
+  assert.deepEqual(rows, [{ route: '/en/', before: 1000, after: 1000, growth: 0 }, { route: '/app/basic', before: 2000, after: 90000, growth: 88000 }]);
+  assert.match(growthTable(rows), /\| \/app\/basic \| 2000 \| 90000 \| \+88000 \|/);
 });
-test('real landing or app growth fails', () => {
-  for (const route of ['/en/', '/app/basic']) {
-    const baseline = { '/en/': 1000, '/app/basic': 2000 };
-    assert.throws(() => compareRouteSizes(baseline, { ...baseline, [route]: baseline[route] + 129 }, true), /grew/);
+test('a change touching research may grow a route by 128 bytes and no more', () => {
+  for (const route of Object.keys(baseline)) {
+    checkResearchIsolation(routeGrowth(baseline, { ...baseline, [route]: baseline[route] + 128 }));
+    assert.throws(() => checkResearchIsolation(routeGrowth(baseline, { ...baseline, [route]: baseline[route] + 129 })), /128 byte tolerance, research isolation/);
   }
 });
-test('missing and non-finite measurements fail', () => {
-  assert.throws(() => compareRouteSizes({ '/en/': 1000 }, {}), /coverage/);
-  assert.throws(() => compareRouteSizes({ '/en/': 1000 }, { '/en/': NaN }), /grew/);
-});
-
-const shippedBudgets = JSON.parse(readFileSync(new URL('./product-route-growth-budgets.json', import.meta.url), 'utf8'));
-test('every landing and app route has a 128 byte budget', () => {
-  assert.deepEqual(shippedBudgets, {
-    '/en/': 128, '/es/': 128, '/pt/': 128,
-    '/app/basic': 128, '/app/education': 128, '/app/pro': 128,
-  });
-});
-for (const [route, budget] of Object.entries(shippedBudgets)) {
-  test(`${route} product growth passes at the budget and fails one byte over`, () => {
-    compareRouteSizes({ [route]: 1000 }, { [route]: 1000 + budget }, false);
-    assert.throws(() => compareRouteSizes({ [route]: 1000 }, { [route]: 1001 + budget }, false),
-      new RegExp(`${budget} byte tolerance, product budget from web/scripts/product-route-growth-budgets\\.json`));
-    compareRouteSizes({ [route]: 1000 }, { [route]: 1128 }, true);
-    assert.throws(() => compareRouteSizes({ [route]: 1000 }, { [route]: 1129 }, true), /128 byte tolerance, research isolation/);
-  });
-}
-
-test('isolation caps a larger product budget at 128 bytes; product mode uses the budget', () => {
-  const budgets = { '/en/': 512 };
-  compareRouteSizes({ '/en/': 1000 }, { '/en/': 1512 }, false, budgets);
-  assert.throws(() => compareRouteSizes({ '/en/': 1000 }, { '/en/': 1513 }, false, budgets), /512 byte tolerance, product budget/);
-  compareRouteSizes({ '/en/': 1000 }, { '/en/': 1128 }, true, budgets);
-  assert.throws(() => compareRouteSizes({ '/en/': 1000 }, { '/en/': 1129 }, true, budgets), /128 byte tolerance, research isolation/);
-});
-test('environment selects product budgets only when isolation is explicitly false', () => {
+test('RESEARCH_ISOLATION enforces 128 bytes unless it is exactly false', () => {
   for (const [mode, growth, status] of [
-    ['false', 512, 0], ['false', 513, 1],
-    ['true', 128, 0], ['true', 129, 1],
-    [undefined, 129, 1], ['', 129, 1],
+    ['false', 90000, 0], ['true', 128, 0], ['true', 129, 1], [undefined, 129, 1], ['', 129, 1],
   ]) {
     const env = { ...process.env };
     delete env.RESEARCH_ISOLATION;
     if (mode !== undefined) env.RESEARCH_ISOLATION = mode;
     const result = spawnSync(process.execPath, ['--input-type=module', '-e', `
-      import { compareRouteSizes } from ${JSON.stringify(new URL('./research-route-budget.mjs', import.meta.url).href)};
-      compareRouteSizes({ '/en/': 1000 }, { '/en/': ${1000 + growth} }, undefined, { '/en/': 512 });
+      import { reviewRouteGrowth } from ${JSON.stringify(new URL('./research-route-budget.mjs', import.meta.url).href)};
+      reviewRouteGrowth({ '/en/': 1000 }, { '/en/': ${1000 + growth} });
     `], { env, encoding: 'utf8' });
-    assert.equal(result.status, status, result.stderr);
-    if (status) assert.match(result.stderr, mode === 'false' ? /product budget/ : /research isolation/);
+    assert.equal(result.status, status, `${mode} ${growth}: ${result.stderr}`);
+    if (status) assert.match(result.stderr, /research isolation/);
   }
+  assert.equal(reviewRouteGrowth({ '/en/': 1000 }, { '/en/': 5000 }, 'false')[0].growth, 4000);
+});
+test('missing and non-finite measurements fail', () => {
+  assert.throws(() => routeGrowth({ '/en/': 1000 }, {}), /coverage/);
+  assert.throws(() => routeGrowth({ '/en/': 1000 }, { '/en/': NaN }), /finite/);
+});
+test('a route over its absolute ceiling is named; at the ceiling it is not', () => {
+  assert.deepEqual(overCeilings({ '/en/': 100, '/app/pro': 200 }, { '/en/': 100, '/app/pro': 199 }), [{ route: '/app/pro', bytes: 200, ceiling: 199 }]);
+  assert.throws(() => overCeilings({ '/en/': 100 }, {}), /missing or invalid ceiling/);
+});
+test('the shipped ceilings cover every measured route', () => {
+  const { routes } = JSON.parse(readFileSync(new URL('./route-size-ceilings.json', import.meta.url), 'utf8'));
+  assert.deepEqual(Object.keys(routes).sort(), ['/app/basic', '/app/education', '/app/pro', '/en/', '/en/research/', '/en/tools/', '/en/tools/continuous-beam/', '/en/tools/simply-supported-beam/', '/es/', '/pt/']);
+  for (const bytes of Object.values(routes)) assert.ok(Number.isInteger(bytes) && bytes > 0);
 });
 
 const manifest = {
@@ -87,4 +74,15 @@ test('only the named blog entry is a boundary, not every blog module', () => {
 });
 test('the landing footprint takes no lazy chunk', () => {
   assert.deepEqual([...routeChunkFiles(manifest, [['index.html', false]])], ['index.html']);
+});
+
+test('the course route boundary and what only it reaches leave the app footprint; what App shares with it stays', () => {
+  const withCourse = { ...manifest,
+    'src/App.svelte': { ...manifest['src/App.svelte'], dynamicImports: [...manifest['src/App.svelte'].dynamicImports, COURSE_ROUTE_BOUNDARY] },
+    [COURSE_ROUTE_BOUNDARY]: { file: 'course-route.js', imports: ['_shared.js', '_course-only.js'], dynamicImports: ['src/lib/course/locale-de.ts'] },
+    '_course-only.js': { file: 'course-only.js' },
+    'src/lib/course/locale-de.ts': { file: 'course-de.js' } };
+  const files = routeChunkFiles(withCourse, appRoots);
+  for (const file of ['course-route.js', 'course-only.js', 'course-de.js']) assert.ok(!files.has(file), file);
+  assert.ok(files.has('shared.js'));
 });

@@ -28,6 +28,8 @@
   adoptLocaleFromPath();
 
   let current = $state(routeKind());
+  // A page served by the fallback carries the landing's head, whose structured data would describe the landing until this page's chunk states its own.
+  if (!document.querySelector(`link[hreflang][href*="${location.pathname}"]`)) document.querySelector('[type$=json]')?.remove();
   /** Once loaded, the application owns the page. */
   let app = $state<typeof import('./App.svelte').default | null>(null);
   let loading: Promise<void> | null = null;

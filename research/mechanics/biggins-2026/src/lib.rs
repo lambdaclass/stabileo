@@ -122,6 +122,7 @@ pub struct Frame {
     pub alpha: f64,
     pub force: f64,
     pub y: Vec<f64>,
+    pub slope: Vec<f64>,
 }
 #[derive(Serialize)]
 pub struct Run {
@@ -143,17 +144,27 @@ pub fn run(width: f64, compression: f64) -> Result<Run, String> {
     let modes = basis(64, 16)?;
     let (limit, critical) = threshold(&modes, width);
     let c = coefficients(&modes, width);
-    let frames = (0..61)
+    let frames = (0..62)
         .map(|i| {
-            let a = limit * 1.25 * i as f64 / 60.;
+            let a = if i == 48 || i == 49 {
+                limit
+            } else {
+                limit * (if i <= 48 { i } else { i - 1 }) as f64 / 48.
+            };
+            let upward = i <= 48;
             if i == 0 {
                 return Frame {
                     alpha: 0.,
                     force: modes[0].force,
                     y: modes[0].y.iter().map(|y| y * compression.sqrt()).collect(),
+                    slope: modes[0]
+                        .slope
+                        .iter()
+                        .map(|v| v * compression.sqrt())
+                        .collect(),
                 };
             }
-            let (mut lo, mut hi) = if a < limit {
+            let (mut lo, mut hi) = if upward {
                 (modes[0].force + 1e-9, critical)
             } else {
                 (-10000., modes[0].force - 1e-9)
@@ -161,23 +172,35 @@ pub fn run(width: f64, compression: f64) -> Result<Run, String> {
             for _ in 0..100 {
                 let mid = (lo + hi) / 2.;
                 let value = a * a * spectrum(&modes, &c, mid);
-                if (value > 1.) == (a < limit) {
+                if (value > 1.) == upward {
                     lo = mid;
                 } else {
                     hi = mid;
                 }
             }
-            let f = (lo + hi) / 2.;
+            let f = if i == 48 { critical } else { (lo + hi) / 2. };
             let y = (0..modes[0].y.len())
                 .map(|j| {
                     modes
                         .iter()
                         .zip(&c)
+                        .filter(|(_, c)| c.abs() > 1e-12)
                         .map(|(m, c)| -a * c / (f - m.force) * m.y[j] * compression.sqrt())
                         .sum()
                 })
                 .collect();
+            let slope = (0..modes[0].slope.len())
+                .map(|j| {
+                    modes
+                        .iter()
+                        .zip(&c)
+                        .filter(|(_, c)| c.abs() > 1e-12)
+                        .map(|(m, c)| -a * c / (f - m.force) * m.slope[j] * compression.sqrt())
+                        .sum()
+                })
+                .collect();
             Frame {
+                slope,
                 alpha: a * compression.sqrt(),
                 force: f,
                 y,
@@ -222,7 +245,7 @@ mod tests {
         );
         assert!((m[0].force / (4. * std::f64::consts::PI.powi(2)) - 1.).abs() < 1e-5);
         assert!((m[1].force / 80.7629142257 - 1.).abs() < 1e-5);
-        assert!((threshold(&m, 0.7).0 - 21.52).abs() < 0.02);
+        assert!((threshold(&m, 0.7).0 - 21.52).abs() < 0.005);
     }
     #[test]
     fn zenodo_curve_and_replay_agree() {
@@ -237,6 +260,27 @@ mod tests {
         let replay: serde_json::Value =
             serde_json::from_str(include_str!("../reference-results/replay.json")).unwrap();
         assert!((replay["threshold"].as_f64().unwrap() - result.threshold).abs() < 1e-8);
+        fn compare(a: &serde_json::Value, b: &serde_json::Value) {
+            match (a, b) {
+                (serde_json::Value::Number(a), serde_json::Value::Number(b)) => {
+                    assert!((a.as_f64().unwrap() - b.as_f64().unwrap()).abs() < 1e-8)
+                }
+                (serde_json::Value::Array(a), serde_json::Value::Array(b)) => {
+                    assert_eq!(a.len(), b.len());
+                    for (a, b) in a.iter().zip(b) {
+                        compare(a, b);
+                    }
+                }
+                (serde_json::Value::Object(a), serde_json::Value::Object(b)) => {
+                    assert_eq!(a.len(), b.len());
+                    for (key, value) in a {
+                        compare(value, &b[key]);
+                    }
+                }
+                _ => assert_eq!(a, b),
+            }
+        }
+        compare(&serde_json::to_value(&result).unwrap(), &replay);
         for (i, f) in result.frames.iter().enumerate() {
             for (j, y) in f.y.iter().enumerate() {
                 assert!((y - replay["frames"][i]["y"][j].as_f64().unwrap()).abs() < 1e-8);
@@ -255,6 +299,72 @@ mod tests {
             assert!(f.y.iter().all(|v| v.is_finite()));
             assert!(f.y[0].abs() < 1e-8);
             assert!(f.y[64].abs() < 1e-8);
+        }
+    }
+    #[test]
+    fn independent_equilibrium_invariants_at_domain_corners() {
+        for (width, compression) in [
+            (0.3, 0.002),
+            (0.3, 0.02),
+            (0.9, 0.002),
+            (0.9, 0.02),
+            (0.7, 0.012),
+        ] {
+            let r = run(width, compression).unwrap();
+            let initial = 2. * compression.sqrt() / std::f64::consts::PI;
+            assert!((r.frames[0].y[32] / initial - 1.).abs() < 1e-5);
+            let pre = &r.frames[48];
+            let post = &r.frames[49];
+            assert_eq!(pre.alpha, post.alpha);
+            assert_eq!(pre.alpha, r.threshold);
+            assert!(pre.y[32] > 0. && post.y[32] < 0.);
+            assert!((pre.force / r.modes[1].force - 1.).abs() < 1e-7);
+            assert!(post.force < r.modes[0].force);
+            let c = coefficients(&r.modes, width);
+            for (i, frame) in r.frames.iter().enumerate() {
+                assert_eq!(frame.y[0], 0.);
+                assert_eq!(frame.y[64], 0.);
+                assert_eq!(frame.slope[0], 0.);
+                assert_eq!(frame.slope[64], 0.);
+                let mut shortening = 0.;
+                for j in 0..64 {
+                    for (q, weight) in [
+                        (-0.7745966692414834, 5. / 9.),
+                        (0., 8. / 9.),
+                        (0.7745966692414834, 5. / 9.),
+                    ] {
+                        let t = (q + 1.) / 2.;
+                        let derivative = 64. * (6. * t * t - 6. * t) * frame.y[j]
+                            + (3. * t * t - 4. * t + 1.) * frame.slope[j]
+                            + 64. * (-6. * t * t + 6. * t) * frame.y[j + 1]
+                            + (3. * t * t - 2. * t) * frame.slope[j + 1];
+                        shortening += weight * derivative * derivative / 256.;
+                    }
+                }
+                assert!(
+                    (shortening / compression - 1.).abs() < 1e-7,
+                    "{width} {i}: {shortening}"
+                );
+                if i > 0 {
+                    let residual: f64 = r
+                        .modes
+                        .iter()
+                        .zip(&c)
+                        .filter(|(_, c)| c.abs() > 1e-12)
+                        .map(|(m, c)| (frame.alpha * c / (frame.force - m.force)).powi(2))
+                        .sum();
+                    assert!((residual / compression - 1.).abs() < 1e-8);
+                }
+            }
+        }
+        for (w, e) in [
+            (0.299, 0.012),
+            (0.901, 0.012),
+            (0.7, 0.0019),
+            (0.7, 0.0201),
+            (0.7, f64::NAN),
+        ] {
+            assert!(run(w, e).is_err());
         }
     }
 }

@@ -43,13 +43,13 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join, dirname, extname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { newPrerenderPage, prerenderConcurrency, routePool } from './prerender-pool';
+import { newPrerenderPage, prerenderConcurrency, routePool, waitForRenderedApp, MIN_CAPTURE_CHARS } from './prerender-pool';
 import { rootHandoffScript } from './root-handoff';
+import { notFoundPage } from './not-found-page';
+import { buildStarCount, serveStarCount } from './build-stars';
 import { paperStructuredData } from './paper-structured-data';
+import { POST_DATE, POST_LASTMOD, publicPaths, writtenIn } from './public-paths';
 import { PUBLIC_LOCALES, type Locale } from '../src/lib/i18n/offered';
-import { TOOL_IDS } from '../src/components/tools/calculators';
-import { BATCH_IDS } from '../src/components/tools/batch';
-import toolReviews from '../../research/tools/batches/VALIDATION.json';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 /**
@@ -117,29 +117,8 @@ function serveDist(port: number) {
   });
 }
 
-/**
- * A post's last change, for its sitemap entry: `updated` when the post states one, else its
- * publication date. The build day said every post changed on every deploy, which teaches a
- * crawler to ignore lastmod.
- */
-const POST_LASTMOD = new Map<string, string>();
 /** The blog index's description in each language, for its feed. */
 const BLOG_LEAD = new Map<string, string>();
-
-/** A post's publication day, for its feed entry and its card. */
-const POST_DATE = new Map<string, string>();
-
-/** The languages always written; the others count for a post or standing page only once its translation file exists. */
-const BASE_LOCALES: readonly Locale[] = ['en', 'es', 'pt'];
-
-/** The languages a public path is written in, which are the only ones the sitemap and the feeds publish it under. */
-function writtenIn(path: string): Locale[] {
-  if (path === '/' || path === '/blog' || path === '/tools' || path.startsWith('/tools/')) return [...LOCALES];
-  const id = path.startsWith('/blog/') ? path.slice('/blog/'.length) : `page-${path.slice(1)}`;
-  return LOCALES.filter(
-    (l) => BASE_LOCALES.includes(l) || existsSync(join(ROOT, `src/lib/blog/translations/${l}/${id}.ts`)),
-  );
-}
 
 /** What a captured post says about itself, read back from its own <head>: the feed and the card use it. */
 type PostHead = { path: string; locale: Locale; title: string; description: string };
@@ -221,45 +200,6 @@ async function renderPostCard(browser: Browser, base: string, post: PostHead, ou
   }
 }
 
-/** Every public route, without its language prefix. Posts are read from the bundle. */
-async function publicPaths(): Promise<string[]> {
-  const source = await readFile(join(ROOT, 'src/lib/blog/index.ts'), 'utf8');
-  const imports = [...source.matchAll(/from '\.\/posts\/([\w-]+)'/g)].map((m) => m[1]);
-  const slugs: string[] = [];
-  for (const file of imports) {
-    const post = await readFile(join(ROOT, `src/lib/blog/posts/${file}.ts`), 'utf8');
-    const slug = post.match(/slug:\s*'([^']+)'/)?.[1];
-    if (slug) {
-      slugs.push(slug);
-      const published = post.match(/\bdate:\s*'(\d{4}-\d{2}-\d{2})'/)?.[1];
-      const day = post.match(/\bupdated:\s*'(\d{4}-\d{2}-\d{2})'/)?.[1] ?? published;
-      if (day) POST_LASTMOD.set(`/blog/${slug}`, day);
-      if (published) POST_DATE.set(`/blog/${slug}`, published);
-    }
-  }
-  if (slugs.length === 0) throw new Error('prerender: found no blog posts — the scan is broken');
-  POST_LASTMOD.set('/blog', [...POST_LASTMOD.values()].sort().at(-1)!);
-  const reviewed = (batch: string) => toolReviews.batches.find((b) => b.id === batch)!.reviews.map((r) => r.date).sort().at(-1)!;
-  for (const id of TOOL_IDS) POST_LASTMOD.set(`/tools/${id}`, reviewed('tools-batch-1'));
-  for (const id of BATCH_IDS) POST_LASTMOD.set(`/tools/${id}`, reviewed('tools-batch-2'));
-  POST_LASTMOD.set('/tools', [reviewed('tools-batch-1'), reviewed('tools-batch-2')].sort().at(-1)!);
-  // Standing pages, read from their own files, with their last edit for the sitemap.
-  const pageIndex = await readFile(join(ROOT, 'src/lib/blog/pages/index.ts'), 'utf8');
-  const pageFiles = [...pageIndex.matchAll(/from '\.\/([\w-]+)'/g)].map((m) => m[1]);
-  const pages: string[] = [];
-  for (const file of pageFiles) {
-    const src = await readFile(join(ROOT, `src/lib/blog/pages/${file}.ts`), 'utf8');
-    const pagePath = src.match(/\bpath:\s*'(\/[\w-]+)'/)?.[1];
-    if (!pagePath) continue;
-    pages.push(pagePath);
-    const day = src.match(/\bupdated:\s*'(\d{4}-\d{2}-\d{2})'/)?.[1];
-    if (day) POST_LASTMOD.set(pagePath, day);
-  }
-  // Stabileo Research: the gallery and each runnable paper (web/src/components/research).
-  const research = ['/research/benchmarks/shell-obstacle-course', '/research', '/research/fracture/shauer-2025', '/research/metamaterials/grossman-2026', '/research/stability/ferrari-sigmund-2025', '/research/optimization/andreassen-2011', '/research/form-finding/pastrana-2026', '/research/mechanics/biggins-2026', '/research/optimisation/fairclough-2026', '/research/benchmarks/macneal-harder-1985', '/research/benchmarks/mattiasson-elastica', '/research/benchmarks/newmark-1959', '/research/benchmarks/cqc-1981', '/research/benchmarks/navier-plate', '/research/benchmarks/plastic-collapse', '/research/benchmarks/lee-frame-1968', '/research/benchmarks/dadeppo-arch-1975', '/research/benchmarks/riks-crisfield'];
-  return ['/', ...pages, '/blog', ...slugs.map((s) => `/blog/${s}`), '/paper', ...research, '/tools', '/tools/simply-supported-beam', '/tools/cantilever-beam', '/tools/column-buckling', '/tools/continuous-beam', '/tools/portal-frame', '/tools/truss-2d', '/tools/influence-line', '/tools/beam-natural-frequency'];
-}
-
 /**
  * The script the bare root carries, to hand a reader on to their language.
  *
@@ -268,8 +208,9 @@ async function publicPaths(): Promise<string[]> {
  */
 const ROOT_REDIRECT = rootHandoffScript(LOCALES, DEFAULT_LOCALE);
 
-async function newCapturePage(browser: Browser) {
-  const page = await newPrerenderPage(() => browser.newPage());
+async function newCapturePage(browser: Browser, stars: number | null) {
+  const page = await newPrerenderPage(() => browser.newPage({ reducedMotion: 'reduce' }));
+  await serveStarCount(page, stars);
   // Read the current route on every navigation: reused pages must not accumulate
   // locale-specific init scripts or inherit the previous route's preferences.
   await page.addInitScript(() => {
@@ -293,19 +234,8 @@ async function capture(page: Page, base: string, locale: Locale, path: string) {
   // happens on the address a reader actually lands on.
   const href = path === '/' ? `/${locale}/` : `/${locale}${path}/`;
   await page.goto(base + href, { waitUntil: 'networkidle' });
-  // The landing reveals sections on scroll; a capture of the top of the page
-  // would ship most of the copy inside elements that are still transparent.
-  await page.evaluate(() => {
-    const el = document.querySelector('.landing');
-    if (el) el.scrollTo(0, el.scrollHeight);
-  });
-  await page.waitForTimeout(600);
-  await page.evaluate(() => {
-    for (const el of document.querySelectorAll('.reveal:not(.visible)')) el.classList.add('visible');
-    const scroller = document.querySelector('.landing');
-    if (scroller) scroller.scrollTo(0, 0);
-  });
-  await page.waitForTimeout(200);
+  // Network idle is not rendered: a page whose next chunk is requested only after a long main-thread task looks idle in between.
+  await waitForRenderedApp(page);
   if (/^\/tools\/[^/]+$/.test(path)) await page.waitForSelector('head script[data-prerendered-result]', { state: 'attached', timeout: 60_000 });
   await page.evaluate(() => {
     const listed = new Set([...document.querySelectorAll<HTMLLinkElement | HTMLScriptElement>('link[rel=modulepreload], script[src]')]
@@ -378,21 +308,24 @@ async function main() {
   const { server, port } = await serveDist(0);
   const stop = () => new Promise<void>((done) => server.close(() => done()));
   const base = `http://127.0.0.1:${port}`;
-  const browser = await chromium.launch();
-  const paths = await publicPaths();
+  const browser = await chromium.launch({ args: ['--disable-dev-shm-usage'] });
+  const stars = await buildStarCount();
+  const only = process.env.PRERENDER_ONLY?.split(',');
+  const paths = (await publicPaths()).filter((path) => !only || only.includes(path));
+  if (only && paths.length !== only.length) throw new Error(`PRERENDER_ONLY names a path the site does not publish: ${only.filter((path) => !paths.includes(path)).join(', ')}`);
   const written: string[] = [];
   const posts: PostHead[] = [];
 
   try {
-    const routes = LOCALES.flatMap(locale => paths.map(path => ({
+    const routes = LOCALES.flatMap(locale => paths.filter(path => writtenIn(path).includes(locale)).map(path => ({
       locale, path, href: path === '/' ? `/${locale}/` : `/${locale}${path}/`,
     })));
     const captures = await routePool(routes, concurrency,
-      () => newCapturePage(browser), p => p.close(),
+      () => newCapturePage(browser, stars), p => p.close(),
       async (p, { locale, path }) => {
         const result = await capture(p, base, locale, path);
         const { head, body, lang, href } = result;
-        if (body.length < 500) throw new Error(`prerender: ${href} came back nearly empty (${body.length} chars)`);
+        if (body.length < MIN_CAPTURE_CHARS) throw new Error(`prerender: ${href} came back nearly empty (${body.length} chars)`);
         const out = join(DIST, href.slice(1), 'index.html');
         await mkdir(dirname(out), { recursive: true });
         await writeFile(out, page(path === '/paper' ? head + paperStructuredData(ORIGIN, locale) : head, body, lang));
@@ -419,7 +352,7 @@ async function main() {
     // handoff script that sends everyone else on.
     const [{ head, body, lang }] = await routePool(
       [{ href: '/', locale: DEFAULT_LOCALE, path: '/' }], 1,
-      () => newCapturePage(browser), p => p.close(),
+      () => newCapturePage(browser, stars), p => p.close(),
       (p) => capture(p, base, DEFAULT_LOCALE, '/'),
     );
     await writeFile(join(DIST, 'index.html'), page(head, body, lang, ROOT_REDIRECT));
@@ -474,9 +407,14 @@ async function main() {
       `User-agent: *\nAllow: /\nDisallow: /app/\n\nSitemap: ${ORIGIN}/sitemap.xml\n`,
     );
 
+    await writeFile(join(DIST, '404.html'), notFoundPage(DEFAULT_LOCALE, LOCALES));
+    for (const locale of LOCALES) {
+      await writeFile(join(DIST, locale, '404.html'), notFoundPage(locale, LOCALES));
+    }
+
     console.log(`✅ prerendered ${written.length} pages`);
     for (const href of written) console.log(`   · ${href}`);
-    console.log(`   · /sitemap.xml, /robots.txt, ${LOCALES.length} feeds, ${posts.length} post cards`);
+    console.log(`   · /sitemap.xml, /robots.txt, ${LOCALES.length} feeds, ${posts.length} post cards, ${LOCALES.length + 1} 404 pages`);
   } finally {
     await browser.close();
     await stop();

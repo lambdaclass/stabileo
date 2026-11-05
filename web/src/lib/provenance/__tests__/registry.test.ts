@@ -26,7 +26,7 @@ describe('result-change registry', () => {
     expect(RESULT_CHANGES).toEqual({ ...registry, changes: registry.changes.map(({ quantities: _, ...c }) => c) });
   });
 
-  it('is well formed: ids, versions, three languages, known features, quantities', () => {
+  it('is well formed: ids, versions, six languages, known features, quantities', () => {
     expect(validateRegistry(RESULT_CHANGES, new Set(FEATURE_IDS))).toEqual([]);
     expect(validateRegistry(source(), new Set(FEATURE_IDS))).toEqual([]);
   });
@@ -58,6 +58,15 @@ describe('result-change registry', () => {
     const problems = validateRegistry(bad, new Set(FEATURE_IDS));
     expect(problems.some((p) => p.includes('noSuchFeature'))).toBe(true);
     expect(problems.some((p) => p.includes('resultsVersion 99'))).toBe(true);
+  });
+
+  it.each(['en', 'es', 'pt', 'de', 'fr', 'tr'] as const)('refuses an entry without its %s title or explanation', (locale) => {
+    const entry = RESULT_CHANGES.changes[0];
+    const title = { ...entry.title, [locale]: ' ' };
+    const explanation: Partial<typeof entry.explanation> = { ...entry.explanation };
+    delete explanation[locale];
+    const bad = { ...RESULT_CHANGES, changes: [{ ...entry, title, explanation } as typeof entry] };
+    expect(validateRegistry(bad, new Set(FEATURE_IDS))).toEqual([`change ${entry.id}: missing title.${locale}`, `change ${entry.id}: missing explanation.${locale}`]);
   });
 
   it('refuses a malformed list of the quantities a change moves', () => {

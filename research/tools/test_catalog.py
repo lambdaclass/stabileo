@@ -77,6 +77,12 @@ def main():
         errors = []
         catalog.check_entry(entry, errors)
         assert not errors, errors
+        (implementation / "reference-results/published_comparison.json").write_text(json.dumps([{"row": "paper data, not a check list"}]))
+        catalog.check_entry(entry, errors)
+        assert not errors, errors
+        comparison = comparison.replace(implementation / "reference-results/published_comparison.json")
+        catalog.check_entry(entry, errors)
+        assert not errors, errors
         entry["reproduced_published_results"] = False
         catalog.check_entry(entry, errors)
         assert errors
@@ -140,6 +146,8 @@ def main():
         "summary from reference code": lambda p: p.update(summary="unsupported summary", summary_source="reference-code"),
         "summary from memory": lambda p: p.update(summary="unsupported summary", summary_source="title and prior knowledge"),
         "summary without source": lambda p: p.update(summary="unsupported summary", summary_source=None),
+        "non-boolean final review": lambda p: p.update(final_review="yes"),
+        "final review without a numbered round": lambda p: p.update(final_review=True, reviews=[]),
     }
     if online:
         cases["wrong year"] = lambda p: p["crossref"].update(year=1999)

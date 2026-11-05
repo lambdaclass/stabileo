@@ -57,3 +57,12 @@ describe('what the report is of', () => {
     expect(buildProReportData({ config: config(), t })!.resultSetName).toBe(t('tables.shownSum'));
   });
 });
+
+describe('a chosen result set that is not there', () => {
+  beforeEach(solvedPortal);
+
+  it('is refused, never replaced by what is on screen', () => {
+    expect(buildProReportData({ config: config('combo:9999'), t })).toBeNull();
+    expect(buildProReportData({ config: config('case:9999'), t })).toBeNull();
+  });
+});
