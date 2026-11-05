@@ -669,3 +669,32 @@ fn issue_758_member_reversal() { issue_758_invariance("reversal"); }
 #[test]
 fn issue_758_units() { issue_758_invariance("units"); }
 
+
+#[test]
+fn issue_758_stiff_link_collapses_like_the_rigid_link() {
+    use dedaliano_engine::metamorphic::{relabel::Relabel, reversal::reverse_2d, units::Units};
+    let run = |c: &Case2| {
+        let sections = c.s.sections.values().map(|x| {
+            let (b, h) = crate::ana2::rect(x.a, x.iz);
+            let mat = c.s.elements.values().find(|e| e.section_id == x.id).map_or(1, |e| e.material_id);
+            (x.id.to_string(), PlasticSectionData { a: x.a, iz: x.iz, material_id: mat, b: Some(b), h: Some(h) })
+        }).collect();
+        let materials = c.s.materials.values().map(|x| (x.id.to_string(), PlasticMaterialData { fy: Some(c.p.fy) })).collect();
+        plastic::solve_plastic_2d(&PlasticInput { solver: c.s.clone(), sections, materials, max_hinges: None, mp_overrides: None }).unwrap().collapse_factor
+    };
+    let cases: Vec<Case2> = crate::corpus::cases_2d(crate::corpus::Tier::Pr, 20261018).into_iter().chain(crate::corpus::cases_2d(crate::corpus::Tier::Nightly, 20754)).collect();
+    let case = |suffix: &str| cases.iter().find(|c| c.name.contains(&format!("2d-constraint--rigid-link--offset-beam-{suffix}"))).unwrap().clone();
+    let (with, equiv) = (case("with"), case("equiv"));
+    let reference = run(&with);
+    close(reference, 140.0 / 3.0, 1e-7, "rigid link");
+    for seed in 0..4 {
+        for (what, other) in [
+            ("as given", equiv.clone()),
+            ("relabel", equiv.relabel(&Relabel::random_2d(&equiv.s, seed), seed)),
+            ("reversal", Case2 { s: reverse_2d(&equiv.s, &|id| (id + seed as usize) % 2 == 0), ..equiv.clone() }),
+            ("units", equiv.units(&Units::froude([1e-3, 25.0, 0.3048, 1e3][seed as usize], [1e3, 1e-2, 4.448, 1e3][seed as usize]))),
+        ] {
+            close(run(&other), reference, 1e-7, &format!("stiff link {what}/{seed}"));
+        }
+    }
+}

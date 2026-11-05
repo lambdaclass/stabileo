@@ -125,6 +125,26 @@ fn mechanical(input: &SolverInput) -> SolverInput {
 fn self_stresses(input: &SolverInput, members: &[usize]) -> Result<Vec<(HashMap<usize, [f64; 3]>, f64)>, String> {
     let mut s = mechanical(input);
     s.loads.clear();
+    let lref = extent(input);
+    let (ea, ei) = (1000.0, 1000.0 * lref * lref / 12.0);
+    for m in s.materials.values_mut() {
+        m.e = 1.0;
+    }
+    for x in s.sections.values_mut() {
+        x.a = 1.0;
+        x.iz = lref * lref / 12.0;
+        x.as_y = None;
+    }
+    let uniform = |k: &mut Option<f64>, v: f64| {
+        if k.is_some_and(|k| k > 0.0 && k.is_finite()) {
+            *k = Some(v);
+        }
+    };
+    for sp in s.supports.values_mut() {
+        uniform(&mut sp.kx, ea / lref);
+        uniform(&mut sp.ky, ea / lref);
+        uniform(&mut sp.kz, ei / lref);
+    }
     let mut next_node = crate::ordered::values(&s.nodes).map(|n| n.id).max().unwrap_or(0) + 1;
     let mut next_elem = crate::ordered::values(&s.elements).map(|e| e.id).max().unwrap_or(0) + 1;
     let by_id: HashMap<usize, String> = s.elements.iter().map(|(k, e)| (e.id, k.clone())).collect();
@@ -153,7 +173,6 @@ fn self_stresses(input: &SolverInput, members: &[usize]) -> Result<Vec<(HashMap<
     let thermal = |element_id: usize, uniform: f64, gradient: f64| {
         SolverLoad::Thermal(SolverThermalLoad { element_id, dt_uniform: uniform, dt_gradient: gradient, alpha: Some(1e-5), depth: None })
     };
-    let lref = extent(input);
     let mut cases = Vec::new();
     for &id in members {
         let e = &s.elements[&by_id[&id]];
