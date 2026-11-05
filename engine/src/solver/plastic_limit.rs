@@ -288,7 +288,11 @@ pub fn limit_analysis_2d(input: &SolverInput, mp: &HashMap<usize, f64>, np: &Has
             v[0].abs().max(v[1].abs()).max(v[2].abs() * lref)
         }).fold(0.0f64, f64::max);
         if scale > 1e-9 * reference && scale.is_finite() {
-            basis.push(members.iter().map(|m| f[&m.id].map(|x| x / scale)).collect());
+            let chop = |x: f64, unit: f64| if (x * unit).abs() <= 1e-9 * scale { 0.0 } else { x / scale };
+            basis.push(members.iter().map(|m| {
+                let v = f[&m.id];
+                [chop(v[0], 1.0), chop(v[1], 1.0), chop(v[2], lref)]
+            }).collect());
         }
     }
     let weights = |b: &[[f64; 3]]| -> Vec<f64> {

@@ -705,3 +705,28 @@ fn issue_758_stiff_link_collapses_like_the_rigid_link() {
         close(run(&swept), reference, 1e-7, &format!("link {ratio:e} times as stiff"));
     }
 }
+
+#[test]
+fn issue_758_axial_self_stress_round_off_is_not_a_bending_redundancy() {
+    let cases = crate::corpus::cases_2d(crate::corpus::Tier::Nightly, 40000);
+    let c = cases.iter().find(|c| c.name.contains("2d-prescribed-displacement-support-settlement-equiv")).unwrap().clone();
+    let run = |c: &Case2| {
+        let sections = c.s.sections.values().map(|x| {
+            let (b, h) = crate::ana2::rect(x.a, x.iz);
+            let mat = c.s.elements.values().find(|e| e.section_id == x.id).map_or(1, |e| e.material_id);
+            (x.id.to_string(), PlasticSectionData { a: x.a, iz: x.iz, material_id: mat, b: Some(b), h: Some(h) })
+        }).collect();
+        let materials = c.s.materials.values().map(|x| (x.id.to_string(), PlasticMaterialData { fy: Some(c.p.fy) })).collect();
+        PlasticInput { solver: c.s.clone(), sections, materials, max_hinges: None, mp_overrides: None }
+    };
+    let base = run(&c);
+    let cert = dedaliano_engine::certify::plastic::certify_collapse_2d(&base, None);
+    let exact = cert.lambda_upper.unwrap();
+    assert!(cert.certified && (cert.lambda_lower.unwrap() - exact).abs() <= 1e-9 * exact, "{cert:?}");
+    for phi in [0.3, 1.1, 2.0, -0.7] {
+        for (what, iso) in [("rotation", Iso2::rotation(phi)), ("mirror", Iso2::mirror_line(phi))] {
+            let r = plastic::solve_plastic_2d(&run(&c.iso(&iso).unwrap())).unwrap();
+            close(r.collapse_factor, exact, 1e-9, &format!("{what} {phi}"));
+        }
+    }
+}
