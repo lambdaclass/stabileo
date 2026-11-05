@@ -43,3 +43,5 @@ export function inflateBounded(data: Uint8Array, maxBytes: number = MAX_SHARE_IN
   for (const c of chunks) { out.set(c, pos); pos += c.length; }
   return out;
 }
+
+export const seededTypeError: number = "seeded";

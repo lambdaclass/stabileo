@@ -428,5 +428,10 @@ exit 0
             self.assertEqual(subprocess.run(['sh', '-c', script], env={'RESULTS': result}, capture_output=True).returncode, code)
 
 
+class Seeded(unittest.TestCase):
+    def test_seeded_failure(self):
+        self.fail('seeded')
+
+
 if __name__ == '__main__':
     unittest.main()
