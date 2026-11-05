@@ -1767,5 +1767,6 @@ fn a_soft_spring_at_a_hinged_node_held_by_the_orphan_spring_is_warned_1437() {
     let out = dedaliano_engine::certify::solver::certify_linear_2d_full(&input).unwrap();
     let ry = out.results.displacements.iter().find(|d| d.node_id == 2).unwrap().ry;
     let found = ids(&out.results.structured_diagnostics);
+    assert!(ry.is_finite(), "ry {ry}: {found:?}");
     if (ry - 5.0e10).abs() / 5.0e10 > 1e-6 { assert!(found.contains(&"ORPHAN-SOFT-ROTATION".to_string()), "ry {ry}: {found:?}"); }
 }
