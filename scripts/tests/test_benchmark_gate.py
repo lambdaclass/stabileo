@@ -196,6 +196,16 @@ class TestTolerance(unittest.TestCase):
         [error] = self.errors(dict(file='x.rs', calls=['assert_close'], argument=3), 0.02, files)
         self.assertIn('assert_close(…tol…)', error)
 
+    def test_a_binding_with_two_values_is_ambiguous(self):
+        files = dict(FILES, **{'x.rs': 'fn a() { { let tol = 0.01; } let tol = 0.02; assert_close(x, 1.0, tol, ""); }'})
+        [error] = self.errors(dict(file='x.rs', calls=['assert_close'], argument=3), 0.05, files)
+        self.assertIn('assert_close(…tol…)', error)
+
+    def test_a_ratio_ceiling_pattern_reads_an_upper_bound(self):
+        files = dict(FILES, **{'x.rs': 'fn a() { assert!(out > f && out < 1.01); }'})
+        locator = dict(file='x.rs', pattern=r'out < ([\d.]+)', transform='ratio-ceiling')
+        self.assertEqual([round(v, 12) for v in gate.extract(locator, reader(files))], [0.01])
+
     def test_a_rust_pattern_reads_error_thresholds(self):
         self.assertEqual(gate.extract(dict(file='x.rs', pattern='error-threshold'), reader(FILES)), [0.015])
         self.assertEqual(self.errors(dict(file='x.rs', pattern='error-threshold'), 0.01),
@@ -292,6 +302,13 @@ class Loosening(unittest.TestCase):
         after = 'fn a() { assert_close(y, 2.0, 0.01, ""); assert_close(x, 1.0, 0.02, ""); }'
         self.assertIn('case / tip deflection: test tolerance x.rs a:assert_close(x)#1 loosened from 0.01 to 0.02 (needs the tolerance-change label)',
                       self.rust_change(before, after))
+
+    def test_reordering_pattern_thresholds_while_loosening_one_is_loosening(self):
+        reg = registry(quantity(test_tolerances=[dict(file='x.rs', pattern='error-threshold')]))
+        before = 'fn a() { assert!(x_error < 0.01); assert!(y_error < 0.02); }'
+        after = 'fn a() { assert!(y_error < 0.01); assert!(x_error < 0.02); }'
+        errors = gate.label_check(reg, reader(dict(FILES, **{'x.rs': before})), reg, reader(dict(FILES, **{'x.rs': after})), set())[0]
+        self.assertIn('case / tip deflection: test tolerance x.rs a:x_error<#1 loosened from 0.01 to 0.02 (needs the tolerance-change label)', errors)
 
     def test_a_new_test_function_changes_nothing(self):
         before = 'fn a() { assert_close(x, 1.0, 0.01, ""); }'

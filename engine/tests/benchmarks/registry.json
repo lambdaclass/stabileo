@@ -300,7 +300,8 @@
       "files": [
         "engine/tests/benchmarks/macneal_harder.json",
         "engine/tests/macneal_harder.rs",
-        "engine/tests/benchmarks/macneal_harder.rs"
+        "engine/tests/benchmarks/macneal_harder.rs",
+        "engine/tests/solid_shell_locking.rs"
       ],
       "quantities": [
         {
@@ -400,6 +401,11 @@
               "file": "engine/tests/benchmarks/macneal_harder.json",
               "pointer": "/solidCantilever/shapes/*/1",
               "transform": "ratio-floor"
+            },
+            {
+              "file": "engine/tests/solid_shell_locking.rs",
+              "pattern": "out > f_\\w+ && out < ([\\d.]+)",
+              "transform": "ratio-ceiling"
             }
           ],
           "independent_of_derivation": true,
@@ -432,6 +438,11 @@
               "file": "engine/tests/benchmarks/macneal_harder.json",
               "pointer": "/solidCantilever/shapes/*/2",
               "transform": "ratio-floor"
+            },
+            {
+              "file": "engine/tests/solid_shell_locking.rs",
+              "pattern": "inp > f_\\w+ && inp < ([\\d.]+)",
+              "transform": "ratio-ceiling"
             }
           ],
           "independent_of_derivation": true,

@@ -105,7 +105,7 @@ def resolve(text, expression):
         return None
     values = [number(m) for m in re.findall(
         rf'\b(?:const|let)\s+(?:mut\s+)?{expression}\s*(?::\s*f64\s*)?=\s*([^;]+);', text)]
-    return values if values and None not in values else None
+    return values if values and None not in values and len(set(values)) == 1 else None
 
 
 def enclosing(code, position):
@@ -113,12 +113,12 @@ def enclosing(code, position):
     return names[-1] if names else ''
 
 
-def numbered(code, found):
+def keyed(code, found):
     counts, out = {}, []
-    for position, value in found:
-        fn = enclosing(code, position)
-        counts[fn] = counts.get(fn, 0) + 1
-        out.append((f'{fn}#{counts[fn]}', value))
+    for position, subject, value in sorted(found, key=lambda f: f[0]):
+        key = f'{enclosing(code, position)}:{subject}'
+        counts[key] = counts.get(key, 0) + 1
+        out.append((f'{key}#{counts[key]}', value))
     return out
 
 
@@ -143,10 +143,11 @@ def items(locator, read):
             if number(m.group(1)) is None or (rest and rest[0] not in ',;)}{&|\n'):
                 raise Gate(f"{locator['file']}: pattern {locator['pattern']!r} matched {m.group(1)!r} "
                            f"followed by {rest[:12]!r}, not a complete literal threshold")
-            found.append((m.start(1), number(m.group(1))))
+            value = number(m.group(1))
+            found.append((m.start(1), re.sub(r'\s+', '', code[m.start(0):m.start(1)]), value - 1 if locator.get('transform') == 'ratio-ceiling' else value))
         if not found:
             raise Gate(f"{locator['file']}: pattern {locator['pattern']!r} matched no numeric tolerance")
-        return numbered(code, found)
+        return keyed(code, found)
     code = strip_rust(text, strings=True)
     found, unresolved = [], []
     aliases = locator.get('aliases', {})
@@ -161,18 +162,13 @@ def items(locator, read):
             if resolved is None:
                 unresolved.append(f'{name}(…{argument}…)')
             else:
-                found.extend((position, f'{name}({args[0]})', v) for v in resolved)
+                found.extend((position, re.sub(r'\s+', '', f'{name}({args[0]})'), v) for v in resolved)
     if unresolved:
         raise Gate(f"{locator['file']}: tolerance arguments that are neither literals, constants nor aliases "
                    f"of a case-file tolerance: {', '.join(unresolved[:3])}")
     if not found:
         raise Gate(f"{locator['file']}: no {'/'.join(locator['calls'])} tolerance found")
-    counts, out = {}, []
-    for position, subject, value in sorted(found, key=lambda f: f[0]):
-        key = f'{enclosing(code, position)}:{re.sub(r"\s+", "", subject)}'
-        counts[key] = counts.get(key, 0) + 1
-        out.append((f'{key}#{counts[key]}', value))
-    return out
+    return keyed(code, found)
 
 
 def extract(locator, read):
