@@ -31,7 +31,6 @@ sys.exit(1 if control or accepted else 0)
 "#;
 
 #[test]
-#[ignore = "known wrong result: #1513 the invariance gate counts a test that cannot fail as coverage"]
 fn issue_1513_the_invariance_gate_rejects_a_test_that_cannot_fail() {
     let gate = concat!(env!("CARGO_MANIFEST_DIR"), "/../scripts/invariance-gate.py");
     let out = Command::new("python3").args(["-B", "-I", "-c", PROBE]).env("GATE", gate).output().expect("python3 runs");
