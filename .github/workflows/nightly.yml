@@ -66,21 +66,30 @@ jobs:
   # Which jobs run, and which mutants shards tonight. The mutants scope
   # (scripts/mutants.sh: certificate code, linear solver core, element
   # kernels) has ~23,000 mutants at 20 s to 2 min each: one pass is far more than a
-  # night of runners, so it is split into MUTANTS_TOTAL shards and
-  # MUTANTS_SLOTS of them run each night, rotating with the day number. Every
-  # mutant is tested once every MUTANTS_TOTAL / MUTANTS_SLOTS nights.
+  # night of runners, so it is split into MUTANTS_TOTAL shards and the
+  # MUTANTS_SLOTS shards that went longest without finishing run each night
+  # (.github/scripts/mutants-plan.py), so a shard lost to a runner comes back the next night.
   plan:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
     outputs:
       jobs: ${{ steps.plan.outputs.jobs }}
       mutants_shards: ${{ steps.plan.outputs.mutants_shards }}
       mutants_total: ${{ steps.plan.outputs.mutants_total }}
       night: ${{ steps.plan.outputs.night }}
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/scripts
       - id: plan
         name: Plan
         env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
           ONLY: ${{ inputs.only }}
           SHARDS: ${{ inputs.mutants_shards }}
           TOTAL: ${{ inputs.mutants_total }}
@@ -104,8 +113,7 @@ jobs:
             shards="$SHARDS"
           else
             day=$(( $(date -u +%s) / 86400 ))
-            shards=$(python3 -c "import json,sys; t,s,d=map(int,sys.argv[1:]); print(json.dumps([(d*s+i)%t for i in range(s)]))" \
-              "$total" "$MUTANTS_SLOTS" "$day")
+            shards=$(python3 -I .github/scripts/mutants-plan.py "$total" "$MUTANTS_SLOTS" "$day")
           fi
           night=false
           if [ "$EVENT" = schedule ] || [ "$((10#$(date -u +%H)))" -lt "$NIGHT_END_HOUR" ]; then night=true; fi
