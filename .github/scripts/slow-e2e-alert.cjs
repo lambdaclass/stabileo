@@ -116,19 +116,19 @@ module.exports = async function alert({ github, context, core }) {
   const shards = readShards(process.env.SLOW_REPORTS_DIR || 'e2e-slow', Number(process.env.E2E_TOTAL || 0));
   const state = verdict(shards);
   core.info(`@slow E2E on ${context.sha}: ${state}`);
+  if (state === 'unknown') return;
+  const { data: main } = await github.rest.git.getRef({ owner, repo, ref: 'heads/main' });
+  if (main.object.sha !== context.sha) {
+    core.info(`main is now at ${main.object.sha}; the run for that commit decides the @slow issue`);
+    return;
+  }
   const existing = await openIssue(github, owner, repo);
   if (state === 'green') {
     if (!existing) return;
-    const { data: main } = await github.rest.git.getRef({ owner, repo, ref: 'heads/main' });
-    if (main.object.sha !== context.sha) {
-      core.info(`main is now at ${main.object.sha}, so the run for that commit decides whether #${existing.number} closes`);
-      return;
-    }
     await github.rest.issues.createComment({ owner, repo, issue_number: existing.number, body: `Green again: the \`@slow\` E2E suite passed on main at ${context.sha.slice(0, 9)}: ${runUrl}` });
     await github.rest.issues.update({ owner, repo, issue_number: existing.number, state: 'closed', state_reason: 'completed' });
     return;
   }
-  if (state !== 'red') return;
   const lastGreen = await lastGreenRun(github, owner, repo, context.runId);
   let prs = [];
   let complete = true;

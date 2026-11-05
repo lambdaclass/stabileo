@@ -205,17 +205,19 @@ test('green closes the open issue with a comment, and does nothing when none is 
   assert.deepEqual(open.calls.find(c => c.name === 'update').args, {owner: 'o', repo: 'r', issue_number: 9, state: 'closed', state_reason: 'completed'});
   const none = fakeGithub({});
   await run(none.github, [green], 1);
-  assert.deepEqual(none.calls.map(c => c.name), ['listForRepo']);
+  assert.deepEqual(none.calls.map(c => c.name), ['getRef', 'listForRepo']);
 });
 
-test('a green run of a commit main has moved past leaves the issue to the newer run', async () => {
-  const {github, calls} = fakeGithub({open: [{number: 9, title: 'CI failure: @slow E2E on main'}], main: 'dddddddddd'});
-  await run(github, [green], 1);
-  assert.deepEqual(calls.map(c => c.name), ['listForRepo', 'getRef']);
+test('a run of a commit main has moved past, green or red, leaves the issue to the newer run', async () => {
+  for (const result of [green, red]) {
+    const {github, calls} = fakeGithub({open: [{number: 9, title: 'CI failure: @slow E2E on main'}], main: 'dddddddddd'});
+    await run(github, [result], 1);
+    assert.deepEqual(calls.map(c => c.name), ['getRef']);
+  }
 });
 
 test('an unknown result neither opens nor closes', async () => {
   const {github, calls} = fakeGithub({open: [{number: 9, title: 'CI failure: @slow E2E on main'}]});
   await run(github, [green, null], 2);
-  assert.deepEqual(calls.map(c => c.name), ['listForRepo']);
+  assert.deepEqual(calls.map(c => c.name), []);
 });
