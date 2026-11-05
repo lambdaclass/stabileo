@@ -204,7 +204,7 @@ if [ "$n" = 0 ]; then {first}; else {second}; fi
             count, lock, release, log = (Path(directory) / name for name in ('count', 'lock', 'release', 'stderr'))
             command = Path(directory) / 'command.sh'
             command.write_text(f"""n=$(cat {count} 2>/dev/null || echo 0); echo $((n + 1)) > {count}
-if [ "$n" = 0 ]; then setsid flock {lock} sh -c 'until [ -e {release} ]; do sleep 0.1; done' & echo started; sleep 300
+if [ "$n" = 0 ]; then setsid flock {lock} timeout 120 sh -c 'until [ -e {release} ]; do sleep 0.1; done' & echo started; sleep 300
 else flock -n {lock} echo retried; fi
 """)
             with open(log, 'w') as stderr:
