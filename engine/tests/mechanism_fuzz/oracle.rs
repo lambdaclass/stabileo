@@ -110,7 +110,7 @@ pub fn violations(case: &Case, u: &Vector, abs_bound: f64, residual_norm: f64) -
     }
     for &(n, d, v) in &case.exact {
         let got = u.get(&(n, d)).copied().unwrap_or(f64::NAN);
-        if !((got - v).abs() <= abs_bound + 1e-6 * v.abs()) {
+        if !((got - v).abs() <= abs_bound + 8.0 * f64::EPSILON * v.abs()) {
             out.push(format!("node {n} dof {d}: {got:.10e}, exactly {v:.10e} (certified bound {abs_bound:.3e})"));
         }
     }
