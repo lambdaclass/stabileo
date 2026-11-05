@@ -13906,6 +13906,8 @@ const tr: Translations = {
   'provenance.reproduce.printedTampered': "Basılı sayılar yeniden hesapla eşleşmiyor",
   'provenance.reproduce.printedNone': "Bu dosya, tablolarını yeniden yazdırmak için gereken rapor seçeneklerini taşımıyor (önceki bir sürümden, kaldırılmış ya da o sonuç mevcut değil): yazdırılan değerler kontrol edilmedi, bu yüzden kontrol eksik.",
   'provenance.reproduce.printedOtherSet': "Raporun gömülü seçenekleri, parmak izinin kaydettiğinden farklı bir sonucu yazdırıyor: tabloları karşılaştırılmadı.",
+  'provenance.reproduce.printedManifest': "Raporun tabloları veya gömülü seçenekleri, parmak izinin kaydettikleri değil: bir tablo kaldırılmış, eklenmiş ya da seçenekleri düzenlenmiş.",
+  'provenance.reproduce.printedNoManifest': "Bu rapor, parmak izi yazdırılan tabloların listesini kaydetmeden önce oluşturuldu: içerdiği tablolar karşılaştırıldı, ancak kaldırılmış bir tablo tespit edilemez, bu yüzden doğrulama eksik. Tam olarak doğrulamak için raporu yeniden dışa aktarın.",
   'proReport.resultSetMissing': "Seçilen sonuç kümesi mevcut sonuçlarda yok. Yeniden çözün veya başka bir küme seçin; rapor oluşturulmadı.",
   'provenance.reproduce.table.reactions': "Mesnet tepkileri",
   'provenance.reproduce.table.forces': "İç kuvvetler",
