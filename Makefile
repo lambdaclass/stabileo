@@ -241,6 +241,7 @@ lint.engine:
 	python3 -B -I .github/scripts/check-wall-clock-tests.py
 	python3 -B -I scripts/check-fail-closed.py
 	python3 -B -I scripts/benchmark-gate.py
+	python3 -B -I scripts/invariance-gate.py
 	cd engine && $(NIX_RUN) cargo clippy --lib -- -W clippy::all -A clippy::erasing_op
 
 # The acceptance models are generated (docs/verification/ACCEPTANCE.md); a hand edit fails here.
@@ -485,6 +486,7 @@ test.ci-scripts: test.nightly-scripts check.cadence
 	python3 -B -I scripts/tests/test_verification_metrics.py
 	python3 -B -I scripts/tests/test_ci_scripts_target.py
 	python3 -B -I scripts/tests/test_benchmark_gate.py
+	python3 -B -I scripts/tests/test_invariance_gate.py
 	$(NIX_RUN) bash -c 'shellcheck -S warning .github/scripts/*.sh'
 	$(NIX_RUN) actionlint .github/workflows/ci.yml .github/workflows/research.yml .github/workflows/merge-queue-supersede.yml .github/workflows/post-merge.yml .github/workflows/infra-retry.yml .github/workflows/stop-failed-run.yml .github/workflows/nightly.yml .github/workflows/route-size.yml .github/workflows/issue-reproducers.yml
 

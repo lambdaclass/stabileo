@@ -153,6 +153,22 @@ violation, and also on an expected failure that no longer fails (it passes,
 refuses or is no longer checked): the fix then removes the entry. The run also
 fails when a selected analysis completes no comparison on any curated model.
 
+## WASM entry points
+
+The matrix below is per analysis function; the app calls the WASM exports in
+`engine/src`. `engine/tests/metamorphic/entry_points.json` lists every export.
+A solve entry point names the function its wrapper calls and gives each
+invariance (units, relabel, reversal, rotation, mirror, planes: a 2D model in each
+of the three planes and embedded in 3D, prepared: agreement with the regular
+linear solve) one status: a metamorphic analysis whose row calls that same
+function and shows ✓ below, a `#[test]` under `engine/tests` that calls it, an
+exemption with a reason, or a tracking issue
+([#1497](https://github.com/lambdaclass/stabileo/issues/1497)). Every other export
+names a described scope (design, section, postprocess, session, utility).
+`scripts/invariance-gate.py`, run by `make lint.engine`, fails on an export with
+no row, a row for a removed export, a missing status, or a claimed coverage the
+code does not back.
+
 ## Matrix (PR tier)
 
 ✓ held on every model it ran on · ✗ violated · R refused by the analysis on
