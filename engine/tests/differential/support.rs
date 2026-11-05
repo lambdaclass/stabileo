@@ -98,6 +98,7 @@ impl Report {
         self.checked += 1;
         if !(a.raw().is_finite() && b.raw().is_finite() && tol.raw().is_finite()) {
             self.nonfinite.push(format!("{what}: {:e} vs {:e} {} (tol {:e})", a.raw(), b.raw(), Q::UNIT, tol.raw()));
+            return;
         }
         let d = abs(a - b);
         if !(d <= tol) {
@@ -133,7 +134,9 @@ impl Report {
     }
 
     pub fn into_result(self) -> Result<usize, String> {
-        if self.failures.is_empty() {
+        if !self.nonfinite.is_empty() {
+            Err(format!("{} of {} checks are not finite:\n  {}", self.nonfinite.len(), self.checked, self.nonfinite.join("\n  ")))
+        } else if self.failures.is_empty() {
             Ok(self.checked)
         } else {
             Err(format!("{} of {} checks disagree:\n  {}", self.failures.len(), self.checked, self.failures.join("\n  ")))
@@ -165,5 +168,14 @@ pub fn known_issue(issue: u32, pair: &str, expected: &[&str], outcome: Result<Re
              Replace known_issue({issue}, ..) with agree(..) in engine/tests/differential/"
         ),
         Err(m) => eprintln!("{pair}: still fails, as expected while #{issue} is open: {m}"),
+    }
+}
+
+#[test]
+fn a_non_finite_value_or_tolerance_never_agrees() {
+    for (a, b, tol) in [(1.0, 2.0, f64::INFINITY), (f64::NAN, 1.0, 1.0), (1.0, 1.0, f64::NAN), (f64::INFINITY, f64::INFINITY, 1.0)] {
+        let mut r = Report::new();
+        r.close("x", Ratio::from_ratio(a), Ratio::from_ratio(b), Ratio::from_ratio(tol));
+        assert!(r.into_result().is_err(), "{a} vs {b} (tol {tol}) agreed");
     }
 }
