@@ -125,9 +125,22 @@ describe('a report checked against the tables its fingerprint lists', () => {
   it('a JSON fingerprint on its own is not taken for a report, an HTML one is', () => {
     const { html } = exported();
     const record = parseProvenance(html)!;
-    expect(reportTextOf(JSON.stringify(record), record)).toBeUndefined();
-    expect(reportTextOf(html, record)).toBe(html);
+    expect(reportTextOf(JSON.stringify(record))).toBeUndefined();
+    expect(reportTextOf(html)).toBe(html);
     const noTables = html.replace(/<html[^>]*>/gi, '').replace(/<table/gi, '<div').replace(/<\/table>/gi, '</div>');
-    expect(reportTextOf(noTables, record)).toBe(noTables);
+    expect(reportTextOf(noTables)).toBe(noTables);
+  });
+
+  it('a report stripped of its table list, every table and its opening html tag is never reproduced', () => {
+    const { html, scope } = exported();
+    const stripped = editRecord(html, (r) => { delete r.report; delete r.reportHash; })
+      .replace(/<table[^>]*data-printed="[^"]+"[\s\S]*?<\/table>/g, '')
+      .replace(/<html[^>]*>/gi, '');
+    const text = reportTextOf(stripped);
+    expect(text).toBe(stripped);
+    const v = check(text!, scope);
+    expect(v.reproduced).toBe(false);
+    const withoutChoices = stripped.replace(/<script[^>]*id="stabileo-report-config"[\s\S]*?<\/script>/, '');
+    expect(check(reportTextOf(withoutChoices)!, scope)).toMatchObject({ status: 'incomplete', reproduced: false });
   });
 });

@@ -46,10 +46,9 @@ export const OTHER_RESULT_SET = 'result-set';
 /** The report's table list or embedded choices are not the ones its fingerprint records. */
 export const OTHER_MANIFEST = 'manifest';
 
-/** The text to check as a report: an HTML file, or any document carrying a record that lists printed tables; a bare JSON record is not one. */
-export function reportTextOf(text: string, claimed: ResultProvenance): string | undefined {
-  if (/<html|<table/i.test(text)) return text;
-  return claimed.report && /<script[^>]*id=["']stabileo-provenance["']/i.test(text) ? text : undefined;
+/** The text to check as a report: any document that carries the record in its script element; a bare JSON record is not one. */
+export function reportTextOf(text: string): string | undefined {
+  return /<html|<table|<script[^>]*id=["']stabileo-provenance["']/i.test(text) ? text : undefined;
 }
 
 /**

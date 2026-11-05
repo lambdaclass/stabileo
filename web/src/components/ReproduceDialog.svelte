@@ -62,7 +62,7 @@
     const claimed = parseProvenance(text);
     if (!claimed) { error = t('provenance.reproduce.invalid'); return; }
     busy = true;
-    try { outcome = await reproduceFrom(claimed, reportTextOf(text, claimed)); } finally { busy = false; }
+    try { outcome = await reproduceFrom(claimed, reportTextOf(text)); } finally { busy = false; }
   }
 
   const field = (v: string) => t(`provenance.reproduce.field.${v}`);
