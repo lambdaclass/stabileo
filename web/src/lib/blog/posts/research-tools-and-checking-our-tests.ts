@@ -3,6 +3,7 @@ import type { Post } from '../types';
 export const researchToolsAndCheckingOurTests: Post = {
   slug: 'research-tools-and-checking-our-tests',
   date: '2026-11-03',
+  updated: '2026-11-05',
   "order": 11,
   "authors": [
     "Federico Carrone"
@@ -79,6 +80,36 @@ export const researchToolsAndCheckingOurTests: Post = {
         {
           "k": "p",
           "t": "We are also building units into the type system (#864), so kN/N or m/mm mix-ups are caught at compile time. The first slice, for the material and section path of 2D frames, landed on 3 November."
+        },
+        {
+          "k": "h",
+          "t": "Round 2: every page reviewed again"
+        },
+        {
+          "k": "p",
+          "t": "Each live research page then went through a second review, by three AI models in turn (Kimi, then Codex, then Claude), and every finding we could verify was fixed. Fifteen pages were revised together and published on 4 November (#1068): six papers (Shauer, Pastrana, Ferrari, Zmyślony, Grossman and Fairclough) and nine engine benchmarks (Newmark, Riks/Crisfield, Navier, Lee, MacNeal–Harder, DaDeppo–Schmidt, the plastic collapse example after Horne, SRSS/CQC, and Mattiasson, which had a third round). No tolerance was loosened and no test was removed. Review by practising engineers is still to come."
+        },
+        {
+          "k": "ul",
+          "items": [
+            "MacNeal–Harder compared absolute values, so a result with the wrong sign would have passed. References now carry their sign, and a test rejects a reversed response for every case.",
+            "Riks/Crisfield could report a limit point without a drop in load. A limit now needs one between converged steps; the page says the run passes the upper limit point instead of “traces the snap-through”, and its tolerances went from 5 % to between 5e-3 and 1e-5.",
+            "Navier explained the MITC4 error instead of measuring it. It is now compared with an independent Reissner–Mindlin series, and the hard-support MITC4 error falls from −1.951 % at 4×4 to −0.036 % at 32×32, at second order.",
+            "Pages say what they are compared with. Newmark is checked against exact closed-form solutions, not “the author’s code”; SRSS/CQC is a method illustration, not a reproduction of the paper’s building; the plastic collapse bounds are our own hand derivations, not a quotation; the Lee frame’s 1.83 kN reference is a reading of a published figure, so only whole-percent differences are claimed.",
+          ]
+        },
+        {
+          "k": "h",
+          "t": "On phones and tablets"
+        },
+        {
+          "k": "p",
+          "t": "Measured on the live site, the research pages did not overflow on a phone, but the experiment sat below the whole article, the viewer was cramped (356×189 px for a square plate), and each page had 25 to 40 controls under 32 px and 14 to 20 pieces of text under 12 px. Now the experiment comes right after the title, the viewer is sized to the model, controls are at least 44 px and text at least 12 px (#831)."
+        },
+        {"k": "img", "base": "blog/research-phone", "w": 1600, "h": 1000, "alt": "Two phone screenshots of Stabileo Research side by side, 390 px wide. On the left, the cable-net page after Pastrana et al. (2026), “Four cables, one equilibrium”, with the viewer right below the title; on the right, the Navier plate benchmark, whose viewer fills the width of the screen and shows the plate’s downward displacement.", "caption": "Research on a phone: the experiment after the title, and a viewer as wide as the screen."},
+        {
+          "k": "p",
+          "t": "A permanent check renders the gallery and every runnable page at 360, 390, 844×390 and 810 px, in Spanish, English and Portuguese, and fails on horizontal overflow, small controls, small text, or a viewer that is missing, too small or too far down. Its first runs found real bugs, and the layouts were fixed rather than the check: the Mattiasson viewer was 187 px tall in phone landscape and is now 280 px, and a convergence plot printed its labels at 9 px. A reflow test found that Shauer’s tabs overflowed in Portuguese and Turkish at 360 px."
         },
         {
           "k": "h",
@@ -196,6 +227,36 @@ export const researchToolsAndCheckingOurTests: Post = {
         },
         {
           "k": "h",
+          "t": "Segunda ronda: cada página revisada de nuevo"
+        },
+        {
+          "k": "p",
+          "t": "Después, cada página de investigación publicada pasó por una segunda revisión, a cargo de tres modelos de IA sucesivos (Kimi, después Codex, después Claude), y corregimos cada hallazgo que pudimos verificar. Quince páginas se revisaron juntas y se publicaron el 4 de noviembre (#1068): seis artículos (Shauer, Pastrana, Ferrari, Zmyślony, Grossman y Fairclough) y nueve benchmarks del motor (Newmark, Riks/Crisfield, Navier, Lee, MacNeal–Harder, DaDeppo–Schmidt, el ejemplo de colapso plástico según Horne, SRSS/CQC y Mattiasson, que tuvo una tercera ronda). No se aflojó ninguna tolerancia ni se eliminó ninguna prueba. La revisión por ingenieros en ejercicio todavía está pendiente."
+        },
+        {
+          "k": "ul",
+          "items": [
+            "MacNeal–Harder comparaba valores absolutos, así que un resultado con el signo equivocado habría pasado. Las referencias ahora llevan su signo, y una prueba rechaza una respuesta invertida en cada caso.",
+            "Riks/Crisfield podía informar un punto límite sin una caída de la carga. Ahora un punto límite exige una caída entre pasos convergidos; la página dice que el cálculo pasa el punto límite superior en lugar de “traces the snap-through”, y sus tolerancias pasaron del 5 % a valores de entre 5e-3 y 1e-5.",
+            "Navier explicaba el error de MITC4 en lugar de medirlo. Ahora se compara con una serie de Reissner–Mindlin independiente, y el error de MITC4 con apoyo simple duro baja de −1,951 % en 4×4 a −0,036 % en 32×32, con convergencia de segundo orden.",
+            "Las páginas dicen con qué se comparan. Newmark se verifica contra soluciones exactas en forma cerrada, no contra “the author’s code”; SRSS/CQC es una ilustración del método, no una reproducción del edificio del artículo; las cotas de colapso plástico son deducciones nuestras hechas a mano, no una cita; la referencia de 1,83 kN del pórtico de Lee es una lectura de una figura publicada, así que solo afirmamos diferencias en porcentajes enteros."
+          ]
+        },
+        {
+          "k": "h",
+          "t": "En teléfonos y tabletas"
+        },
+        {
+          "k": "p",
+          "t": "Según lo que medimos en el sitio publicado, las páginas de investigación no se desbordaban en un teléfono, pero el experimento quedaba debajo de todo el artículo, el visor quedaba apretado (356×189 px para una placa cuadrada) y cada página tenía de 25 a 40 controles de menos de 32 px y de 14 a 20 textos de menos de 12 px. Ahora el experimento aparece justo después del título, el visor se dimensiona según el modelo, los controles miden al menos 44 px y el texto al menos 12 px (#831)."
+        },
+        {"k": "img", "base": "blog/research-phone", "w": 1600, "h": 1000, "alt": "Dos capturas de Stabileo Research en un celular, lado a lado, de 390 px de ancho. A la izquierda, la página de la red de cables según Pastrana et al. (2026), “Cuatro cables, un equilibrio”, con el visor justo debajo del título; a la derecha, el benchmark de la placa de Navier, cuyo visor ocupa todo el ancho de la pantalla y muestra el desplazamiento hacia abajo de la placa.", "caption": "La investigación en un teléfono: el experimento después del título y un visor tan ancho como la pantalla."},
+        {
+          "k": "p",
+          "t": "Un control permanente renderiza la galería y cada página ejecutable a 360, 390, 844×390 y 810 px, en español, inglés y portugués, y falla si hay desbordamiento horizontal, controles pequeños, texto pequeño o un visor que falta, es demasiado pequeño o está demasiado abajo. Sus primeras ejecuciones encontraron errores reales, y se corrigieron los diseños, no el control: el visor de Mattiasson medía 187 px de alto con el teléfono en horizontal y ahora mide 280 px, y un gráfico de convergencia mostraba sus etiquetas a 9 px. Una prueba de reflujo encontró que las pestañas de Shauer se desbordaban en portugués y en turco a 360 px."
+        },
+        {
+          "k": "h",
           "t": "Ocho calculadoras, con acceso al editor"
         },
         {
@@ -307,6 +368,36 @@ export const researchToolsAndCheckingOurTests: Post = {
         {
           "k": "p",
           "t": "Também estamos incorporando unidades ao sistema de tipos (#864), para detectar confusões entre kN/N ou m/mm na compilação. A primeira parte, para o caminho de materiais e seções dos pórticos 2D, foi integrada em 3 de novembro."
+        },
+        {
+          "k": "h",
+          "t": "Segunda rodada: todas as páginas revisadas de novo"
+        },
+        {
+          "k": "p",
+          "t": "Depois, cada página de pesquisa publicada passou por uma segunda revisão, feita por três modelos de IA em sequência (Kimi, depois Codex, depois Claude), e cada achado que conseguimos verificar foi corrigido. Quinze páginas foram revisadas juntas e publicadas em 4 de novembro (#1068): seis artigos (Shauer, Pastrana, Ferrari, Zmyślony, Grossman e Fairclough) e nove benchmarks do motor (Newmark, Riks/Crisfield, Navier, Lee, MacNeal–Harder, DaDeppo–Schmidt, o exemplo de colapso plástico segundo Horne, SRSS/CQC e Mattiasson, que teve uma terceira rodada). Nenhuma tolerância foi afrouxada e nenhum teste foi removido. A revisão por engenheiros em atividade ainda está por vir."
+        },
+        {
+          "k": "ul",
+          "items": [
+            "MacNeal–Harder comparava valores absolutos, então um resultado com o sinal errado teria passado. As referências agora trazem seu sinal, e um teste rejeita uma resposta invertida em todos os casos.",
+            "Riks/Crisfield podia informar um ponto limite sem queda de carga. Agora um ponto limite exige uma queda entre passos convergidos; a página diz que o cálculo passa pelo ponto limite superior em vez de “traces the snap-through”, e suas tolerâncias foram de 5 % para valores entre 5e-3 e 1e-5.",
+            "Navier explicava o erro do MITC4 em vez de medi-lo. Agora ele é comparado com uma série de Reissner–Mindlin independente, e o erro do MITC4 com apoio simples duro cai de −1,951 % em 4×4 para −0,036 % em 32×32, com convergência de segunda ordem.",
+            "As páginas dizem com o que são comparadas. Newmark é verificado contra soluções exatas em forma fechada, não contra “the author’s code”; SRSS/CQC é uma ilustração do método, não uma reprodução do edifício do artigo; os limites de colapso plástico são deduções nossas feitas à mão, não uma citação; a referência de 1,83 kN do pórtico de Lee é uma leitura de uma figura publicada, por isso só afirmamos diferenças em porcentagens inteiras."
+          ]
+        },
+        {
+          "k": "h",
+          "t": "Em celulares e tablets"
+        },
+        {
+          "k": "p",
+          "t": "Pelo que medimos no site publicado, as páginas de pesquisa não transbordavam num celular, mas o experimento ficava abaixo do artigo inteiro, o visualizador ficava apertado (356×189 px para uma placa quadrada) e cada página tinha de 25 a 40 controles com menos de 32 px e de 14 a 20 trechos de texto com menos de 12 px. Agora o experimento vem logo depois do título, o visualizador é dimensionado conforme o modelo, os controles têm pelo menos 44 px e o texto pelo menos 12 px (#831)."
+        },
+        {"k": "img", "base": "blog/research-phone", "w": 1600, "h": 1000, "alt": "Duas capturas do Stabileo Research num celular, lado a lado, com 390 px de largura. À esquerda, a página da rede de cabos segundo Pastrana et al. (2026), “Quatro cabos, um equilíbrio”, com o visualizador logo abaixo do título; à direita, o benchmark da placa de Navier, cujo visualizador ocupa toda a largura da tela e mostra o deslocamento da placa para baixo.", "caption": "A pesquisa num celular: o experimento depois do título e um visualizador da largura da tela."},
+        {
+          "k": "p",
+          "t": "Uma verificação permanente renderiza a galeria e cada página executável em 360, 390, 844×390 e 810 px, em espanhol, inglês e português, e falha com transbordamento horizontal, controles pequenos, texto pequeno ou um visualizador ausente, pequeno demais ou baixo demais na página. Suas primeiras execuções encontraram erros reais, e os layouts foram corrigidos, não a verificação: o visualizador de Mattiasson tinha 187 px de altura com o celular na horizontal e agora tem 280 px, e um gráfico de convergência mostrava seus rótulos com 9 px. Um teste de refluxo descobriu que as abas de Shauer transbordavam em português e em turco com 360 px."
         },
         {
           "k": "h",
