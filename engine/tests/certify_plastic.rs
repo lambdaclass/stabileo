@@ -558,3 +558,62 @@ fn issue_758_limit_analysis_refuses_a_transverse_load_too_close_to_a_fixed_end()
     let err = dedaliano_engine::solver::plastic_limit::limit_analysis_2d(&cantilever(5e-10), &mp, &HashMap::new()).unwrap_err();
     assert!(err.contains("closer than 1e-9"), "{err}");
 }
+
+#[test]
+fn issue_758_exact_certificate_rejects_the_unresolved_load_factors() {
+    use dedaliano_engine::solver::plastic_limit::{confirm_2d, Confirmation};
+    let cantilever = make_input(
+        vec![(1, 0.0, 0.0), (2, 1.0, 0.0)], vec![(1, E, 0.3)], vec![(1, A_SEC, IZ_SEC)], vec![(1, "frame", 1, 2, 1, 1, false, false)], vec![(1, 1, "fixed")],
+        vec![SolverLoad::PointOnElement(SolverPointLoadOnElement { element_id: 1, a: 5e-10, p: -5e8, px: None, my: None }), nodal(2, 0.0, -1.0)],
+    );
+    let mp = HashMap::from([(1, 1.0)]);
+    let exact = 1.0 / (1.0 + 5e8 * 5e-10);
+    assert_eq!(confirm_2d(&cantilever, &mp, &HashMap::new(), exact), Confirmation::Exact);
+    assert!(matches!(confirm_2d(&cantilever, &mp, &HashMap::new(), 1.0), Confirmation::Contradicted { reason } if reason.contains("brackets")));
+
+    let bar = make_input(
+        vec![(1, 0.0, 0.0), (2, 1.0, 0.0)], vec![(1, E, 0.3)], vec![(1, A_SEC, IZ_SEC)], vec![(1, "frame", 1, 2, 1, 1, false, false)], vec![(1, 1, "fixed")],
+        [(0.5, -9.0), (0.5 + 1e-12, 10.0)].map(|(a, px)| SolverLoad::PointOnElement(SolverPointLoadOnElement { element_id: 1, a, p: 0.0, px: Some(px), my: None })).to_vec(),
+    );
+    assert!(matches!(confirm_2d(&bar, &HashMap::from([(1, 1e6)]), &HashMap::from([(1, 10.0)]), 10.0), Confirmation::OutOfScope { .. }));
+}
+
+#[test]
+fn issue_758_exact_confirmation_holds_the_static_field_to_the_axial_capacity() {
+    use dedaliano_engine::solver::plastic_limit::{confirm_2d, Confirmation};
+    let column = make_input(
+        vec![(1, 0.0, 0.0), (2, 1.0, 0.0)], vec![(1, E, 0.3)], vec![(1, A_SEC, IZ_SEC)], vec![(1, "frame", 1, 2, 1, 1, false, false)], vec![(1, 1, "fixed")],
+        vec![nodal(2, -10.0, -1.0)],
+    );
+    let mp = HashMap::from([(1, 1.0)]);
+    assert_eq!(confirm_2d(&column, &mp, &HashMap::new(), 1.0), Confirmation::Exact);
+    let np = HashMap::from([(1, 5.0)]);
+    assert_eq!(confirm_2d(&column, &mp, &np, 0.5), Confirmation::Exact);
+    assert!(matches!(confirm_2d(&column, &mp, &np, 1.0), Confirmation::Contradicted { reason } if reason.contains("axial capacities govern")));
+    assert!(matches!(confirm_2d(&column, &mp, &HashMap::new(), 1.01), Confirmation::Contradicted { reason } if reason.contains("brackets")));
+}
+
+#[test]
+fn issue_758_a_small_real_bending_redundancy_survives_every_unit_system() {
+    use dedaliano_engine::solver::plastic_limit::limit_analysis_2d;
+    let (a, p, mp) = (3.0f64, 10.0, 1.0);
+    for rise in [1e-4, 1e-7] {
+        let np = mp / rise;
+        let l2 = a * a + rise * rise;
+        let reference = (4.0 * a * mp + 2.0 * rise * np * l2.sqrt()) / (p * l2);
+        let flat = 4.0 * mp / (p * a);
+        assert!(reference > 1.4 * flat);
+        for (length, force) in [(1.0, 1.0), (1e-6, 1.0), (1e6, 1.0), (1.0, 1e-6), (1.0, 1e6), (1e-6, 1e6), (1e6, 1e-6)] {
+            let arch = make_input(
+                vec![(1, 0.0, 0.0), (2, a * length, rise * length), (3, 2.0 * a * length, 0.0)],
+                vec![(1, E * force / (length * length), 0.3)],
+                vec![(1, A_SEC * length * length, IZ_SEC * length.powi(4))],
+                vec![(1, "frame", 1, 2, 1, 1, false, false), (2, "frame", 2, 3, 1, 1, false, false)],
+                vec![(1, 1, "fixed"), (2, 3, "fixed")],
+                vec![nodal(2, 0.0, -p * force)],
+            );
+            let r = limit_analysis_2d(&arch, &HashMap::from([(1, mp * force * length), (2, mp * force * length)]), &HashMap::from([(1, np * force), (2, np * force)])).unwrap();
+            assert!((r.lambda - reference).abs() <= 1e-6 * reference, "rise {rise}, units ({length}, {force}): {} vs {reference}", r.lambda);
+        }
+    }
+}

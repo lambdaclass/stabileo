@@ -1218,6 +1218,8 @@ export interface PlasticLimitResult {
   lambda: number;
   lambdaUpper: number;
   hinges: Array<{ elementId: number; position: number; kind: 'bending' | 'axial'; sign: number }>;
+  /** The exact certificate's verdict on `lambda`; outside its scope only the history can confirm it. */
+  confirmation: { kind: 'exact' } | { kind: 'contradicted'; reason: string } | { kind: 'outOfScope'; reason: string };
 }
 
 /**

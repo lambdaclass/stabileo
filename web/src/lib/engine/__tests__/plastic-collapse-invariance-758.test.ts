@@ -156,6 +156,8 @@ function rescaled({ input, mp }: Model, s: number, f: number): Model {
 
 const run = ({ input, mp }: Model) => plasticCollapse2D(input, { mp: (id) => mp.get(id) ?? Infinity, np: () => Infinity });
 
+const factor = (r: ReturnType<typeof run>) => r.limit?.lambda ?? r.collapseFactor;
+
 const close = (a: number, b: number, what: string) =>
   expect(Math.abs(a - b) <= REL * Math.abs(b), `${what}: ${a} vs ${b}`).toBe(true);
 
@@ -169,21 +171,29 @@ describe('#758: plastic collapse factor invariant under renumbering, member dire
   for (const [name, make] of models) {
     it(name, () => {
       const base = make();
-      const ref = run(base).collapseFactor;
+      const first = run(base);
+      const ref = factor(first);
       expect(ref).toBeGreaterThan(0);
+      const same = (r: ReturnType<typeof run>, what: string) => {
+        close(factor(r), ref, what);
+        expect(r.collapseFactor, what).toBeLessThanOrEqual(factor(r) * (1 + REL));
+      };
       for (let seed = 0; seed < 3; seed++) {
-        close(run(reversed(base, (id) => (id + seed) % 3 !== 0)).collapseFactor, ref, `${name} reversal/${seed}`);
-        close(run(relabelled(base, seed)).collapseFactor, ref, `${name} relabel/${seed}`);
+        same(run(reversed(base, (id) => (id + seed) % 3 !== 0)), `${name} reversal/${seed}`);
+        same(run(relabelled(base, seed)), `${name} relabel/${seed}`);
       }
       if (name === 'course portal') {
-        for (const [s, f] of [[1000, 1000], [0.3048, 4.448], [1e-3, 1e3]]) close(run(rescaled(base, s, f)).collapseFactor, ref, `${name} units ${s}/${f}`);
+        for (const [s, f] of [[1000, 1000], [0.3048, 4.448], [1e-3, 1e3]]) same(run(rescaled(base, s, f)), `${name} units ${s}/${f}`);
       }
     });
   }
 
-  it('the equalDOF reproduction collapses at the limit analysis value, not at half of it', () => {
+  it('the equalDOF reproduction: the limit analysis value, unconfirmed, and the lower history factor reported', () => {
     const r = run(fromFixture(f20843c as Fixture));
-    close(r.collapseFactor, 80.12437234515549, 'fuzz_rich_2d/20843 constrained');
+    close(r.limit!.lambda, 80.12437234515549, 'fuzz_rich_2d/20843 constrained');
+    expect(r.unresolved).toBe(true);
+    expect(r.collapseFactor).toBeCloseTo(r.limit!.historyLambda, 9);
+    expect(r.collapseFactor).toBeLessThan(r.limit!.lambda);
   });
 
   it('the course portal collapses by its beam mechanism: λc = 8(Mp,col + Mp,beam)/(qL²) = 1925/27', () => {

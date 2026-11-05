@@ -102,8 +102,9 @@ export interface PlasticCollapseResult extends PlasticResult {
   unloaded: boolean;
   /**
    * The analysis stopped at a mechanism it could not tell from a false one (hinges that would
-   * unload, past the closings it allows, or a linear program that did not finish): collapseFactor
-   * is then where it stopped, not a verified collapse load.
+   * unload, past the closings it allows, or a linear program that did not finish), or at a limit
+   * analysis factor the exact certificate does not confirm: collapseFactor is then not a verified
+   * collapse load.
    */
   unresolved?: boolean;
   /**
@@ -682,6 +683,15 @@ export function plasticCollapse2D(original: SolverInput, opts: PlasticCollapseOp
         limit = { lambda: lp.lambda, historyLambda: lambda };
         isMechanism = true;
         unresolved = true;
+      }
+    }
+    if (lp) {
+      const near = (x: number) => Math.abs(x - lp.lambda) <= HISTORY_TOL * lp.lambda;
+      const exact = lp.confirmation.kind === 'exact' && near(collapseFactor);
+      const byHistory = lp.confirmation.kind === 'outOfScope' && settled && near(lambda);
+      if (!exact && !byHistory) {
+        unresolved = true;
+        collapseFactor = Math.min(collapseFactor, lambda);
       }
     }
   }

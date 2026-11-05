@@ -35,12 +35,12 @@ fn plastic_rigid_link_invariance() {
             &a,
             &invariants,
         );
-        assert_plastic_coverage(&t, &c.name, &invariants);
+        assert_plastic_coverage(&t, &c.name, &invariants, ["fuzz_rich_2d/20832", "fuzz_rich_2d/20843"].contains(&c.name.as_str()));
         crate::finish("safety_758", &t);
     }
 }
 
-fn assert_plastic_coverage(t: &Tally, case: &str, invariants: &[&str]) {
+fn assert_plastic_coverage(t: &Tally, case: &str, invariants: &[&str], lower_bounds_ok: bool) {
     let cells = t.cells.lock().unwrap();
     for &inv in invariants {
         let cell = cells
@@ -48,10 +48,10 @@ fn assert_plastic_coverage(t: &Tally, case: &str, invariants: &[&str]) {
             .cloned()
             .unwrap_or_default();
         assert!(
-            cell.pass == 1
+            cell.pass + if lower_bounds_ok { cell.inconclusive } else { 0 } == 1
                 && cell.refused == 0
                 && cell.unrep == 0
-                && cell.inconclusive == 0
+                && (lower_bounds_ok || cell.inconclusive == 0)
                 && cell.ignored.is_empty()
                 && cell.fails.is_empty(),
             "{case}: plastic collapse × {inv}: expected one successful comparison, got {cell:?}"
@@ -77,13 +77,18 @@ fn plastic_coverage_rejects_missing_or_unsuccessful_comparisons() {
             t.record("plastic collapse", "rotation", "case", verdict);
         }
         assert!(std::panic::catch_unwind(|| {
-            assert_plastic_coverage(&t, "case", &["rotation"]);
+            assert_plastic_coverage(&t, "case", &["rotation"], false);
         })
         .is_err());
     }
+    for (verdict, accepted) in [(Verdict::Inconclusive(1.0), true), (Verdict::Fail("lower bound above".into()), false), (Verdict::Refused("refused".into()), false)] {
+        let t = Tally::default();
+        t.record("plastic collapse", "rotation", "case", verdict);
+        assert_eq!(std::panic::catch_unwind(|| assert_plastic_coverage(&t, "case", &["rotation"], true)).is_ok(), accepted);
+    }
     let t = Tally::default();
     t.record("plastic collapse", "rotation", "case", Verdict::Pass(0.0));
-    assert_plastic_coverage(&t, "case", &["rotation"]);
+    assert_plastic_coverage(&t, "case", &["rotation"], false);
 }
 
 #[test]

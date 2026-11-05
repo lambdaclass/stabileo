@@ -30,6 +30,33 @@ pub struct LimitResult {
     /// Optimum of the linear program on the sampled sections, an upper bound of it.
     pub lambda_upper: f64,
     pub hinges: Vec<LimitHinge>,
+    /// What the exact plastic certificate, which shares nothing with this linear program, says
+    /// of `lambda`. Outside its scope the caller confirms `lambda` some other way or not at all.
+    pub confirmation: Confirmation,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum Confirmation {
+    Exact,
+    Contradicted { reason: String },
+    OutOfScope { reason: String },
+}
+
+impl Confirmation {
+    /// `Ok` when the certificate encloses `lambda`, or, outside its scope, when an independent
+    /// step-by-step history ends at a mechanism within `tol` of it.
+    pub fn accept(&self, lambda: f64, history: Option<f64>, tol: f64) -> Result<(), String> {
+        match self {
+            Confirmation::Exact => Ok(()),
+            Confirmation::Contradicted { reason } => Err(reason.clone()),
+            Confirmation::OutOfScope { reason } => match history {
+                Some(h) if (h - lambda).abs() <= tol * lambda => Ok(()),
+                Some(h) => Err(format!("{reason}, and the step-by-step history ends at {h}, not at {lambda}")),
+                None => Err(format!("{reason}, and the step-by-step history ends at no mechanism")),
+            },
+        }
+    }
 }
 
 #[derive(Debug, Clone, serde::Deserialize)]
@@ -106,6 +133,101 @@ fn unique_key<V>(map: &HashMap<String, V>, id: usize) -> String {
         k = format!("{id}~limit{n}");
     }
     k
+}
+
+/// Whether the exact plastic certificate (`certify::plastic`, rational arithmetic, its own
+/// equilibrium and mechanism) encloses `lambda` as the collapse factor of the model. Its static
+/// field is checked against the axial capacities too, so a finite `np` only lowers the bound it
+/// accepts; its mechanism is bending-only, which bounds the factor with axial yield from above.
+pub fn confirm_2d(input: &SolverInput, mp: &HashMap<usize, f64>, np: &HashMap<usize, f64>, lambda: f64) -> Confirmation {
+    match certificate_encloses(input, mp, np, lambda) {
+        Ok(Ok(())) => Confirmation::Exact,
+        Ok(Err(reason)) => Confirmation::Contradicted { reason },
+        Err(reason) => Confirmation::OutOfScope { reason },
+    }
+}
+
+fn certificate_encloses(input: &SolverInput, mp: &HashMap<usize, f64>, np: &HashMap<usize, f64>, lambda: f64) -> Result<Result<(), String>, String> {
+    use crate::certify::exact::{q, to_f64_up, Q};
+    use crate::certify::plastic::{build_model, check_static, plastic_candidates, ElemLoad};
+    let mut solver = mechanical(input);
+    for sup in solver.supports.values_mut() {
+        let base = match sup.support_type.as_str() {
+            "fixed" => [true, true, true],
+            "pinned" => [true, true, false],
+            "rollerX" => [false, true, false],
+            "rollerY" | "rollerZ" => [true, false, false],
+            "guidedX" => [false, true, true],
+            "guidedY" | "guidedZ" => [true, false, true],
+            "spring" => [false, false, false],
+            _ => continue,
+        };
+        let sprung = [sup.kx, sup.ky, sup.kz].map(|k| k.is_some_and(|k| k > 0.0));
+        sup.support_type = match [0, 1, 2].map(|i| base[i] || sprung[i]) {
+            [true, true, true] => "fixed",
+            [true, true, false] => "pinned",
+            [false, true, false] => "rollerX",
+            [true, false, false] => "rollerZ",
+            [false, true, true] => "guidedX",
+            [true, false, true] => "guidedZ",
+            [false, false, false] => "free",
+            [false, false, true] => return Err("the exact certificate does not apply: a support that restrains only the rotation".into()),
+        }
+        .into();
+        (sup.kx, sup.ky, sup.kz) = (None, None, None);
+    }
+    let mut sections = HashMap::new();
+    let mut overrides = HashMap::new();
+    let originals: HashMap<usize, SolverSection> = crate::ordered::values(&input.sections).map(|x| (x.id, x.clone())).collect();
+    for e in solver.elements.values_mut() {
+        let sec = originals.get(&e.section_id).ok_or("element with unknown section")?;
+        let h = (12.0 * sec.iz / sec.a).sqrt();
+        sections.insert(e.id.to_string(), PlasticSectionData { a: sec.a, iz: sec.iz, material_id: e.material_id, b: Some(sec.a / h), h: Some(h) });
+        if let Some(&m) = mp.get(&e.id).filter(|m| m.is_finite() && **m > 0.0) {
+            overrides.insert(e.id.to_string(), m);
+        } else if e.elem_type == "frame" {
+            return Err(format!("element {} has no finite plastic moment", e.id));
+        }
+        e.section_id = e.id;
+    }
+    solver.sections = crate::ordered::values(&input.elements)
+        .map(|e| {
+            let sec = &originals[&e.section_id];
+            (e.id.to_string(), SolverSection { id: e.id, ..sec.clone() })
+        })
+        .collect();
+    let materials = crate::ordered::values(&input.materials).map(|m| (m.id.to_string(), PlasticMaterialData { fy: Some(1.0) })).collect();
+    let pi = PlasticInput { solver, sections, materials, max_hinges: None, mp_overrides: Some(overrides) };
+    let refused = |why: String| format!("the exact certificate does not apply: {why}");
+    crate::certify::finite::check_input(&pi).map_err(refused)?;
+    let model = build_model(&pi).map_err(refused)?;
+    let c = plastic_candidates(&model, None).map_err(refused)?;
+    let (Some(field), Some(mech)) = (&c.static_field, &c.mechanism_check) else {
+        return Err(refused(c.static_reason.or(c.mechanism_reason).unwrap_or_else(|| "no bound".into())));
+    };
+    let scale = check_static(&model, field).map_err(refused)?.scale;
+    let up = to_f64_up(&mech.lambda_upper).ok_or_else(|| refused("upper bound out of range".into()))?;
+    let lower = q(lambda * (1.0 - 1e-6)).ok_or("non-finite collapse factor")? / &field.lambda;
+    let mut admissible = lower <= scale;
+    for e in model.elems.iter().zip(&field.elems).filter(|(e, _)| np.get(&e.id).is_some_and(|n| n.is_finite())) {
+        let (e, [fx, fz, _]) = e;
+        let npl = q(np[&e.id]).ok_or("non-finite axial capacity")?;
+        let lsq = &e.dx * &e.dx + &e.dz * &e.dz;
+        let mut n = fx * &e.dx + fz * &e.dz;
+        let mut points: Vec<(&Q, &Q)> = e.loads.iter().filter_map(|ld| if let ElemLoad::Point { ta, px, .. } = ld { Some((ta, px)) } else { None }).collect();
+        points.sort_by(|a, b| a.0.cmp(b.0));
+        let mut values = vec![n.clone()];
+        for (_, px) in points {
+            n += &field.lambda * px * e.l.as_ref().ok_or("point load on a member of irrational length")?;
+            values.push(n.clone());
+        }
+        admissible &= values.iter().all(|v| &lower * &lower * v * v <= &npl * &npl * &lsq);
+    }
+    let lo = crate::certify::exact::to_f64(&(&scale * &field.lambda));
+    if lambda > up * (1.0 + 1e-7) || !admissible {
+        return Ok(Err(format!("the exact certificate brackets the collapse factor in [{lo}, {up}] or lower where axial capacities govern, and the limit analysis gave {lambda}")));
+    }
+    Ok(Ok(()))
 }
 
 fn uniform_stiffness(input: &SolverInput) -> SolverInput {
@@ -473,7 +595,9 @@ pub fn limit_analysis_2d(input: &SolverInput, mp: &HashMap<usize, f64>, np: &Has
             if lam * super::plastic::load_moment_scale_2d(input) > 1e9 * capacity {
                 return Err("the loads produce no moment or axial force at any section that can yield".into());
             }
-            return Ok(LimitResult { lambda: lam / worst, lambda_upper: lam, hinges });
+            let lambda = lam / worst;
+            let confirmation = confirm_2d(input, mp, np, lambda);
+            return Ok(LimitResult { lambda, lambda_upper: lam, hinges, confirmation });
         }
         samples.extend(added);
     }

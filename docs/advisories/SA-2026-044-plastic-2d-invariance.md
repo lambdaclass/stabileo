@@ -25,8 +25,8 @@ stops at a different factor. A factor that is too high is unconservative.
 | Model (metamorphic tier) | Transform | Before | After |
 |---|---|---|---|
 | Offset beam with a rigid link | relabel | 46.667 / 118.46 | 46.667 |
-| fuzz_rich_2d/20832 | member reversal, relabel, units | 85.73 / 127.22 / 151.38 / 128.07 | 123.2927 for all |
-| fuzz_rich_2d/20843 with an equalDOF tie | relabel | 80.166 / 57.30 (app: 40.93) | 80.1244 |
+| fuzz_rich_2d/20832 | member reversal, relabel, units | 85.73 / 127.22 / 151.38 / 128.07 | limit analysis 123.2927 for all; not confirmed, at the lower 85.73, where the history stops short |
+| fuzz_rich_2d/20843 with an equalDOF tie | relabel | 80.166 / 57.30 (app: 40.93) | limit analysis 80.1244 for all; not confirmed, at the lower history factor, where the history stops short |
 | fuzz_rich_2d/20772 | units | 0.729 / 3.376 | the same result under every transform checked |
 
 ## How to tell if your results are affected
@@ -45,7 +45,11 @@ kinematic (mechanism) value in the tests. The hinge history is still shown, with
 it ends away from the collapse load. A model that is a mechanism before any hinge forms is
 refused. The limit analysis runs on models of up to 200 members; above that, or when it cannot
 settle, the step-by-step factor is reported as not confirmed (`is_mechanism` false, with a
-warning), not as the collapse factor. Tests: `engine/tests/metamorphic/regressions.rs` (`issue_758_*`),
+warning), not as the collapse factor. The limit analysis factor is the collapse factor only when
+something that shares nothing with its linear program confirms it: the exact plastic certificate
+brackets it, or, for models outside the certificate (constraints, inclined supports, axial span
+loads, loads on members of irrational length, collapse by axial yield alone), the hinge history ends
+at the same load. Otherwise it is reported as not confirmed, at the lower of the two factors. Tests: `engine/tests/metamorphic/regressions.rs` (`issue_758_*`),
 `engine/tests/certify_plastic.rs` (`issue_758_*`),
 `web/src/lib/engine/__tests__/plastic-collapse-invariance-758.test.ts`.
 

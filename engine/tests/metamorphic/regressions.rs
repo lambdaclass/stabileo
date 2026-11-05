@@ -634,7 +634,11 @@ fn issue_758_invariance(transform: &str) {
                 (x.id.to_string(), PlasticSectionData { a: x.a, iz: x.iz, material_id: mat, b: Some(b), h: Some(h) })
             }).collect();
             let materials = c.s.materials.values().map(|x| (x.id.to_string(), PlasticMaterialData { fy: Some(c.p.fy) })).collect();
-            plastic::solve_plastic_2d(&PlasticInput { solver: c.s.clone(), sections, materials, max_hinges: None, mp_overrides: None })
+            let inp = PlasticInput { solver: c.s.clone(), sections, materials, max_hinges: None, mp_overrides: None };
+            let by_section = plastic::section_plastic_moments(&inp);
+            let mp = c.s.elements.values().filter(|e| e.elem_type == "frame").map(|e| (e.id, by_section[&e.section_id])).collect();
+            let limit = dedaliano_engine::solver::plastic_limit::limit_analysis_2d(&c.s, &mp, &Default::default()).ok().map(|l| l.lambda);
+            plastic::solve_plastic_2d(&inp).map(|r| (r, limit))
         };
         let base = run(&c);
         for seed in 0..8 {
@@ -646,15 +650,24 @@ fn issue_758_invariance(transform: &str) {
             let r = run(&other);
             checked += 1;
             match (&base, &r) {
-                (Ok(base), Ok(r)) => {
+                (Ok((base, base_limit)), Ok((r, limit))) => {
                     solved += 1;
-                    let error = (base.collapse_factor - r.collapse_factor).abs() / base.collapse_factor.abs();
-                    if error > 1e-9 {
-                        failures.push(format!("{} {transform}/{seed}: {} -> {} ({error:e}), {:?} / {:?}", c.name, base.collapse_factor, r.collapse_factor, base.warnings, r.warnings));
+                    let off = |a: f64, b: f64| (a - b).abs() / b.abs();
+                    let ok = match (base.is_mechanism, r.is_mechanism) {
+                        (true, true) => off(r.collapse_factor, base.collapse_factor) <= 1e-9,
+                        (false, true) => base.collapse_factor <= r.collapse_factor * (1.0 + 1e-9),
+                        (true, false) => r.collapse_factor <= base.collapse_factor * (1.0 + 1e-9),
+                        (false, false) => true,
+                    } && match (base_limit, limit) {
+                        (Some(a), Some(b)) => off(*b, *a) <= 1e-9,
+                        _ => true,
+                    };
+                    if !ok {
+                        failures.push(format!("{} {transform}/{seed}: {} ({}, limit {base_limit:?}) -> {} ({}, limit {limit:?}), {:?} / {:?}", c.name, base.collapse_factor, base.is_mechanism, r.collapse_factor, r.is_mechanism, base.warnings, r.warnings));
                     }
                 }
                 (Err(_), Err(_)) => {}
-                (a, b) => failures.push(format!("{} {transform}/{seed}: {:?} -> {:?}", c.name, a.as_ref().map(|x| x.collapse_factor), b.as_ref().map(|x| x.collapse_factor))),
+                (a, b) => failures.push(format!("{} {transform}/{seed}: {:?} -> {:?}", c.name, a.as_ref().map(|x| x.0.collapse_factor), b.as_ref().map(|x| x.0.collapse_factor))),
             }
         }
     }
@@ -729,4 +742,40 @@ fn issue_758_axial_self_stress_round_off_is_not_a_bending_redundancy() {
             close(r.collapse_factor, exact, 1e-9, &format!("{what} {phi}"));
         }
     }
+}
+
+#[test]
+fn issue_758_confirmation_rejects_the_earlier_unconservative_factors() {
+    use dedaliano_engine::metamorphic::transform::Iso2;
+    use dedaliano_engine::solver::plastic_limit::{confirm_2d, Confirmation};
+    let input = |c: &Case2| {
+        let sections = c.s.sections.values().map(|x| {
+            let (b, h) = crate::ana2::rect(x.a, x.iz);
+            let mat = c.s.elements.values().find(|e| e.section_id == x.id).map_or(1, |e| e.material_id);
+            (x.id.to_string(), PlasticSectionData { a: x.a, iz: x.iz, material_id: mat, b: Some(b), h: Some(h) })
+        }).collect();
+        let materials = c.s.materials.values().map(|x| (x.id.to_string(), PlasticMaterialData { fy: Some(c.p.fy) })).collect();
+        let inp = PlasticInput { solver: c.s.clone(), sections, materials, max_hinges: None, mp_overrides: None };
+        let by_section = plastic::section_plastic_moments(&inp);
+        let mp: std::collections::HashMap<usize, f64> = c.s.elements.values().map(|e| (e.id, by_section[&e.section_id])).collect();
+        (inp, mp)
+    };
+    let none = std::collections::HashMap::new();
+    let cases: Vec<Case2> = crate::corpus::cases_2d(crate::corpus::Tier::Pr, 20261018).into_iter().chain(crate::corpus::cases_2d(crate::corpus::Tier::Nightly, 40000)).collect();
+    let find = |name: &str| cases.iter().find(|c| c.name.contains(name)).unwrap().clone();
+
+    let (link, mp) = input(&find("2d-constraint--rigid-link--offset-beam-equiv"));
+    assert_eq!(confirm_2d(&link.solver, &mp, &none, 140.0 / 3.0), Confirmation::Exact);
+    assert!(matches!(confirm_2d(&link.solver, &mp, &none, 48770.074890207594), Confirmation::Contradicted { reason } if reason.contains("brackets")));
+
+    let settlement = find("2d-prescribed-displacement-support-settlement-equiv");
+    let (base, mp) = input(&settlement);
+    assert_eq!(confirm_2d(&base.solver, &mp, &none, 10.904960242330917), Confirmation::Exact);
+    let (rotated, mp) = input(&settlement.iso(&Iso2::rotation(0.3)).unwrap());
+    let scope = confirm_2d(&rotated.solver, &mp, &none, 148.88932546775965);
+    assert!(matches!(scope, Confirmation::OutOfScope { ref reason } if reason.contains("inclined")), "{scope:?}");
+    assert!(scope.accept(148.88932546775965, Some(10.904960242330917), 1e-6).is_err());
+    let r = plastic::solve_plastic_2d(&rotated).unwrap();
+    assert!(r.is_mechanism, "{:?}", r.warnings);
+    assert!((r.collapse_factor - 10.904960242330917).abs() <= 1e-6 * 10.904960242330917, "{}", r.collapse_factor);
 }
