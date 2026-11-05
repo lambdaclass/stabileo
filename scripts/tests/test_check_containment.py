@@ -51,6 +51,23 @@ class ContainmentTests(unittest.TestCase):
         self.assertEqual(m.change_problems(base, base, [1, 2, 3]), ['#1: closed by this change while its row is WARN', '#3: closed by this change while its row is TRIAGE'])
         self.assertEqual(m.change_problems({}, {5: {'REFUSE', 'WARN'}}, [5]), ['#5: closed by this change while its row is REFUSE / WARN'])
 
+    def test_an_active_rows_ids_go_only_with_a_correction(self):
+        base_text = '| #5 | `A` / `B` | REFUSE / WARN | r | e |'
+        base, ids = m.decisions(base_text), m.contained_ids(base_text)
+        self.assertEqual(ids, {5: {'A', 'B'}})
+        dropped = '| #5 | `A` | REFUSE | r | e |'
+        self.assertEqual(m.change_problems(base, m.decisions(dropped), [], ids, m.contained_ids(dropped)), ['#5: B dropped while the row stays active without CORRECTED'])
+        for ok in ['| #5 | — | CORRECTED | r | e |', '| #5 | `A` | CORRECTED / REFUSE | r | e |', '| #5 | `A` / `B` / `C` | REFUSE / WARN | r | e |']:
+            self.assertEqual(m.change_problems(base, m.decisions(ok), [], ids, m.contained_ids(ok)), [], ok)
+
+    def test_which_pull_requests_a_change_carries(self):
+        self.assertEqual(m.pull_requests_of({'pull_request': {'number': 807}}, ''), [807])
+        group = {'merge_group': {'head_ref': 'refs/heads/gh-readonly-queue/main/pr-1431-0123abcd'}}
+        self.assertEqual(m.pull_requests_of(group, 'Merge pull request #1400 from lambdaclass/y\n'), [1400, 1431])
+        with self.assertRaises(ValueError):
+            m.pull_requests_of({'merge_group': {'head_ref': 'refs/heads/main'}}, '')
+        self.assertEqual(m.pull_requests_of({}, ''), [])
+
     def test_report_lists_every_problem(self):
         body = m.report_body(['#9: no completed containment decision', '#10: CLOSED issue still has active containment'])
         self.assertIn('- #9: no completed containment decision\n', body)

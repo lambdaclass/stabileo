@@ -67,8 +67,23 @@ def closed_by(texts):
     return sorted({int(n) for text in texts for n in CLOSING.findall(text or '')})
 
 
-def change_problems(base, head, closes):
+def contained_ids(text):
+    ids = {}
+    for line in text.splitlines():
+        if line.startswith('| #'):
+            cells = [cell.strip() for cell in line.split('|')[1:-1]]
+            for n in cells[0].split(','):
+                ids[int(n.strip()[1:])] = set(re.findall(r'`([^`]+)`', cells[1]))
+    return ids
+
+
+def change_problems(base, head, closes, base_ids=None, head_ids=None):
+    base_ids, head_ids = base_ids or {}, head_ids or {}
     problems = [f'#{n}: its containment row was removed' for n in sorted(set(base) - set(head))]
+    for n in sorted(set(base) & set(head)):
+        dropped = base_ids.get(n, set()) - head_ids.get(n, set())
+        if base[n] & {'WARN', 'REFUSE'} and dropped and head[n] & {'WARN', 'REFUSE'} and 'CORRECTED' not in head[n]:
+            problems.append(f'#{n}: {", ".join(sorted(dropped))} dropped while the row stays active without CORRECTED')
     for n in closes:
         if n in head and head[n] & {'WARN', 'REFUSE', 'TRIAGE'}:
             problems.append(f'#{n}: closed by this change while its row is {" / ".join(sorted(head[n]))}')
@@ -88,25 +103,40 @@ def queued_pull_requests(log):
     return sorted({int(n) for n in QUEUED_PR.findall(log)})
 
 
-def pull_request_texts(number):
-    pr = json.loads(subprocess.run(['gh', 'api', f'repos/lambdaclass/stabileo/pulls/{number}'], check=True, capture_output=True, text=True).stdout)
-    return [pr.get('title'), pr.get('body')]
+PR_QUERY = 'query($n:Int!){repository(owner:"lambdaclass",name:"stabileo"){pullRequest(number:$n){title body closingIssuesReferences(first:100){nodes{number}}}}}'
+QUEUE_HEAD = re.compile(r'^refs/heads/gh-readonly-queue/[^/]+/pr-(\d+)-[0-9a-f]+$')
+
+
+def pull_request_closes(number):
+    out = subprocess.run(['gh', 'api', 'graphql', '-f', f'query={PR_QUERY}', '-F', f'n={number}'], check=True, capture_output=True, text=True).stdout
+    pr = json.loads(out)['data']['repository']['pullRequest']
+    return sorted(set(closed_by([pr['title'], pr['body']])) | {i['number'] for i in pr['closingIssuesReferences']['nodes']})
+
+
+def pull_requests_of(event, log):
+    if event.get('pull_request'):
+        return [event['pull_request']['number']]
+    if event.get('merge_group'):
+        last = QUEUE_HEAD.match(event['merge_group'].get('head_ref', ''))
+        if not last:
+            raise ValueError(f'Cannot tell which pull request this merge group queues: {event["merge_group"].get("head_ref")!r}')
+        return sorted(set(queued_pull_requests(log)) | {int(last.group(1))})
+    return []
 
 
 def check_change(base_ref, event_path):
     root = Path(__file__).resolve().parents[1]
-    head = decisions((root / LEDGER).read_text())
-    tracked = subprocess.run(['git', 'cat-file', '-e', f'{base_ref}:{LEDGER}'], cwd=root, capture_output=True)
-    base = decisions(git('-C', str(root), 'show', f'{base_ref}:{LEDGER}')) if tracked.returncode == 0 else {}
+    text = (root / LEDGER).read_text()
+    head, head_ids = decisions(text), contained_ids(text)
+    listed = git('-C', str(root), 'ls-tree', '--name-only', base_ref, '--', LEDGER)
+    base_text = git('-C', str(root), 'show', f'{base_ref}:{LEDGER}') if listed.strip() else ''
+    base, base_ids = (decisions(base_text), contained_ids(base_text)) if base_text else ({}, {})
     log = git('-C', str(root), 'log', '--format=%B', f'{base_ref}..HEAD')
-    texts = [log]
     event = json.loads(Path(event_path).read_text()) if event_path else {}
-    if event.get('pull_request'):
-        texts += [event['pull_request'].get('title'), event['pull_request'].get('body')]
-    if event.get('merge_group'):
-        for number in queued_pull_requests(log):
-            texts += pull_request_texts(number)
-    return change_problems(base, head, closed_by(texts))
+    closes = set(closed_by([log]))
+    for number in pull_requests_of(event, log):
+        closes |= set(pull_request_closes(number))
+    return change_problems(base, head, sorted(closes), base_ids, head_ids)
 
 
 def live_issues():
@@ -137,7 +167,7 @@ def file_report(problems):
 
 def main():
     import argparse
-    parser = argparse.ArgumentParser(description='Without --live: checks the ledger and what this change does to it (no network). With --live: audits the ledger against the issue list.')
+    parser = argparse.ArgumentParser(description='Without --live: checks the ledger and what this change does to it, never the issue list. With --live: audits the ledger against the issue list.')
     parser.add_argument('--base', default='origin/main', help='commit the change is measured against')
     parser.add_argument('--event', help='GitHub event JSON; a pull request title and body are scanned for closing keywords')
     parser.add_argument('--live', action='store_true')
