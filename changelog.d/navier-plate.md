@@ -1,4 +1,0 @@
-### Added
-#### Navier plate mesh convergence
-
-A research page at `/research/benchmarks/navier-plate`. One uniformly loaded, simply supported rectangular plate, DKT and MITC4 mesh refinement through the production WASM wrapper, the shared Stabileo viewer, and centre displacement compared with the Navier series and a published worked example. DKT converges to the thin-plate series at second order; MITC4 with hard simple support converges at second order to the Reissner–Mindlin series (−0.142% at 16×16), and its soft-support results are labelled as a different problem rather than an accuracy ranking. Live, partial, cancelled and failed runs are distinguished; text in six languages; the viewer has keyboard pan, zoom and orbit. MITC9 is not exposed by the current web wrapper. This is research, not a design tool.
