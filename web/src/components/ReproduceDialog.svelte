@@ -7,7 +7,7 @@
    */
   import { onMount } from 'svelte';
   import { parseProvenance } from '../lib/provenance/result-provenance';
-  import { reproduceFrom, reproduceStatus, OTHER_RESULT_SET, type ReproduceOutcome } from '../lib/actions/reproduce';
+  import { reproduceFrom, reproduceStatus, reportTextOf, OTHER_RESULT_SET, OTHER_MANIFEST, type ReproduceOutcome } from '../lib/actions/reproduce';
   import { captureFocus, cycleTabWithin } from '../lib/utils/dialog-focus';
   import { i18n, t, tp } from '../lib/i18n';
   import { baseSolverInputJson } from '../lib/store/result-provenance';
@@ -62,7 +62,7 @@
     const claimed = parseProvenance(text);
     if (!claimed) { error = t('provenance.reproduce.invalid'); return; }
     busy = true;
-    try { outcome = await reproduceFrom(claimed, /<html|<table/i.test(text) ? text : undefined); } finally { busy = false; }
+    try { outcome = await reproduceFrom(claimed, reportTextOf(text)); } finally { busy = false; }
   }
 
   const field = (v: string) => t(`provenance.reproduce.field.${v}`);
@@ -96,6 +96,7 @@
             {#if v.model === 'differs'}<p>{t('provenance.reproduce.modelDiffers')}</p>{/if}
             {#if outcome.printed && !outcome.printed.structural.includes(OTHER_RESULT_SET)}
               {@const pv = outcome.printed}
+              {@const tables = pv.structural.filter((k) => k !== OTHER_MANIFEST)}
               <p data-testid="reproduce-printed" data-differences={pv.differences.length} data-compared={pv.compared}>
                 {pv.differences.length === 0 && pv.structural.length === 0
                   ? tp('provenance.reproduce.printedMatch', { n: pv.compared })
@@ -108,7 +109,9 @@
                   {/each}
                 </ul>
               {/if}
-              {#if pv.structural.length > 0}<p>{tp('provenance.reproduce.printedStructure', { tables: pv.structural.join(', ') })}</p>{/if}
+              {#if tables.length > 0}<p>{tp('provenance.reproduce.printedStructure', { tables: tables.join(', ') })}</p>{/if}
+              {#if pv.structural.includes(OTHER_MANIFEST)}<p data-testid="reproduce-printed-manifest">{t('provenance.reproduce.printedManifest')}</p>{/if}
+              {#if !pv.manifest}<p data-testid="reproduce-printed-no-manifest">{t('provenance.reproduce.printedNoManifest')}</p>{/if}
               {#if !pv.labels && outcome.reportLocale}<p data-testid="reproduce-printed-labels">{tp('provenance.reproduce.printedLabelsOther', { language: languageName(outcome.reportLocale) })}</p>{/if}
             {:else if outcome.printed === null}
               <p data-testid="reproduce-printed-none">{t('provenance.reproduce.printedNone')}</p>

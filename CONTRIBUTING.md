@@ -79,10 +79,13 @@ Top-level full-PR build counts, excluding builds spawned by tests (including
 
 Docker smoke tests both the default source build used by Compose and the
 `site-production` artifact from Web Build. The four site builds are production,
-E2E with test hooks, admin, and Docker source. Route budgets additionally
-build main and the candidate with a deterministic engine stub. Every change is
-held to the per-route budgets in `web/scripts/product-route-growth-budgets.json`
-(128 bytes per route), the same tolerance as research isolation.
+E2E with test hooks, admin, and Docker source. The route-size job additionally
+builds main and the candidate with a deterministic engine stub and reports each
+route's growth on the PR; size never fails a PR. A change touching research code
+shipped to the browser may grow a route by 128 bytes at most (research isolation),
+and research modules in a product chunk always fail. The weekly Route size workflow
+checks main against the ceilings in `web/scripts/route-size-ceilings.json` and opens
+a `route-size` issue when a route is over.
 All E2E consumers share `site-e2e`; other WASM consumers share `wasm` and
 `research-wasm` from the current run. Artifact reads use the read-only Actions
 token and the pinned flake's gh CLI (hosted Docker uses gh).

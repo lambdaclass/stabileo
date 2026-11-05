@@ -82,11 +82,10 @@ Changes to shipped research JSON/CSV (outside `research/tools/`),
 This includes mixed product/research changes and merge-queue candidates. A push to main, which has
 no base revision, always enforces research isolation.
 
-Every measured candidate also uses `web/scripts/product-route-growth-budgets.json`, the
-per-route growth allowed for product changes relative to `main`. It is 128 bytes for every
-route, the same as the research tolerance: raising any of these numbers is a product decision
-made in its own reviewed change, never as a side effect of another PR.
-Static research imports fail for both product and research changes.
+Product-only changes are measured too, but their growth is only reported (the job summary and a
+notice on the PR); the weekly Route size workflow watches main's absolute size against
+`web/scripts/route-size-ceilings.json`. Static research imports fail for both product and
+research changes.
 
 The script measures uncompressed dependency bytes for `/en/`, `/es/`, `/pt/` and every `/app/*`
 mode. Landing routes count the entry's static closure; app routes also count App's static and
@@ -118,8 +117,9 @@ For local comparisons, run `nix develop .. -c node scripts/check-research-route-
 without `--update` from the candidate's `web/`, using the same Nix toolchain for both.
 Local comparisons default to research isolation; set `RESEARCH_ISOLATION=false` only for
 product-only changes.
-`node --test web/scripts/research-route-budget.test.mjs` checks both budget modes, their exact
-boundaries, environment selection, unchanged routes and missing measurements.
+`node --test web/scripts/research-route-budget.test.mjs` checks the isolation boundary (128 bytes
+passes, 129 fails), that product growth is reported and not refused, the ceilings and missing
+measurements.
 
 The Mattiasson engine benchmark (`benchmarks/mattiasson-elastica`) reads the
 engine-owned `engine/tests/benchmarks/mattiasson_elastica.json` through its native
