@@ -1,5 +1,5 @@
 .PHONY: research.wasm paper.pdf help install-nix shell setup setup.run git.setup deps backend.run console routes \
-       lint.engine test.engine.units-types check.engine.acceptance-models test.engine.gates test.engine.metamorphic test.engine.invariance.quick test.engine.suite bench.engine \
+       lint.engine test.engine.units-types check.engine.acceptance-models test.engine.gates test.engine.metamorphic test.engine.invariance.quick test.engine.suite test.engine.differential.quick test.engine.differential.full bench.engine mutants.engine mutants.safety.report mutants.safety.record \
        web.deps typecheck.web test.web.unit test.web.build web.build.tested test.web.build.shared test.web.timing test.web.results snapshots-update check.results-snapshot-gate test.web.determinism e2e.web.setup e2e.web.build e2e.web.smoke e2e.web.slow e2e.web.timing e2e.web.visual e2e.web.flaky \
        perf.lighthouse.deps perf.lighthouse \
        test.ci-scripts test.nightly-scripts test.infra.caddy test.infra.caddy.redirects check.web.translations check.web.route-size \
@@ -13,7 +13,7 @@
        services services.stop postgres.start postgres.stop \
        inst inst.check inst.claim inst.release inst.list ports \
        docker.build docker.up docker.down cloud-init.render \
-       check-pins check.changelog check.test-targets worktree worktree-prune hooks \
+       check-pins check.changelog check.test-targets test.cadence check.cadence check.containment deps.audit test.engine.reproducers test.reproducers.published check.issue-reproducers worktree worktree-prune hooks \
        fmt check clean
 
 NIX_RUN = nix develop --command
@@ -83,6 +83,8 @@ help:
 	@echo "  make test.engine.metamorphic - Metamorphic tests, in release"
 	@echo "  make test.engine.invariance.quick - Invariance of the analyses the changes since BASE touch (KINDS=all for every one)"
 	@echo "  make test.engine.suite [SHARD=1/4] - Every engine test outside the gates"
+	@echo "  make test.engine.differential.quick - Cross-method pairs that must agree (per PR)"
+	@echo "  make test.engine.differential.full  - Those plus the parametrised families (nightly)"
 	@echo "  make bench.engine         - Criterion benchmarks (informational)"
 	@echo "  make typecheck.web        - tsc against its baseline + svelte-check gate"
 	@echo "  make test.web.unit [SHARD=1/4] - Vitest unit pass"
@@ -232,11 +234,12 @@ GATE_TIMED_IGNORED = test(=element::solid_shell::tests::test_centroid_stress_tim
 GATE_CERTIFICATES = test(/^certify::/) + test(/^properties_2d::/) + test(/^properties_3d::/)
 # Metamorphic tests run apart, in release: unoptimised they outlast a suite shard.
 GATE_RELEASE_BINARIES = metamorphic
-SUITE_FILTER = all() - test(harmonic_phase_breakdown) - test(harmonic_modal_vs_direct_timing) - (binary(gates) & (test(/^perf_regression_advanced::/) + test(/^perf_regression_gates::/))) - ($(GATE_SHELL_BENCH)) - ($(GATE_SHELL_ACCEPTANCE)) - $(GATE_CONSTRAINT_BENCH) - (binary(gates) & (test(/^sparse_shell_gates::/) + test(/^solver_invariants::/) + test(/^solver_ci_coverage::/) + test(/^conditioning_adversarial::/) + test(/^kfull_overbuild_gates::/) + test(/^acceptance::/))) - (binary(certificates) & ($(GATE_CERTIFICATES))) $(foreach b,$(GATE_RELEASE_BINARIES),- binary($(b)) )
+SUITE_FILTER = all() - test(harmonic_phase_breakdown) - test(harmonic_modal_vs_direct_timing) - (binary(gates) & (test(/^perf_regression_advanced::/) + test(/^perf_regression_gates::/))) - ($(GATE_SHELL_BENCH)) - ($(GATE_SHELL_ACCEPTANCE)) - $(GATE_CONSTRAINT_BENCH) - (binary(gates) & (test(/^sparse_shell_gates::/) + test(/^solver_invariants::/) + test(/^solver_ci_coverage::/) + test(/^conditioning_adversarial::/) + test(/^kfull_overbuild_gates::/) + test(/^acceptance::/))) - (binary(certificates) & ($(GATE_CERTIFICATES))) - binary(differential) $(foreach b,$(GATE_RELEASE_BINARIES),- binary($(b)) )
 NEXTEST = cd engine && $(NIX_RUN) cargo nextest run --profile ci
 
 lint.engine:
 	python3 -B -I .github/scripts/check-wall-clock-tests.py
+	python3 -B -I scripts/benchmark-gate.py
 	cd engine && $(NIX_RUN) cargo clippy --lib -- -W clippy::all -A clippy::erasing_op
 
 # The acceptance models are generated (docs/verification/ACCEPTANCE.md); a hand edit fails here.
@@ -269,6 +272,22 @@ test.engine.invariance.quick:
 
 test.engine.suite:
 	$(NEXTEST) -E '$(SUITE_FILTER)' $(if $(SHARD),--partition count:$(SHARD))
+
+test.engine.differential.quick:
+	$(NEXTEST) --test differential
+
+test.engine.differential.full:
+	$(NEXTEST) --cargo-profile release --test differential --run-ignored all
+
+mutants.engine:
+	$(NIX_RUN) env -u RUSTC_WRAPPER MUTANTS_SCOPE=$(or $(SCOPE),all) CARGO_INCREMENTAL=1 CARGO_PROFILE_DEV_DEBUG=0 CARGO_PROFILE_TEST_DEBUG=0 scripts/mutants.sh $(ARGS)
+
+mutants.safety.report:
+	python3 -I scripts/mutants-safety.py report $(or $(OUT),mutants.out) --json mutants-safety-report.json
+	python3 -I scripts/mutants-safety.py ratchet mutants-safety-report.json
+
+mutants.safety.record:
+	python3 -I scripts/mutants-safety.py record $(or $(REPORT),mutants-safety-report.json) $(ARGS)
 
 bench.engine:
 	cd engine && $(NIX_RUN) cargo bench --no-run
@@ -390,6 +409,18 @@ test.inventory:
 			printf "total registered: %d\n", eng + ref; \
 		}'
 
+test.cadence:
+	python3 -I scripts/cadence.py run $(TIER) $(if $(RUNNER),--runner $(RUNNER)) $(if $(ID),--id $(ID))
+
+check.cadence:
+	python3 -I scripts/cadence.py check
+
+check.containment:
+	$(NIX_RUN) python3 -I scripts/check-containment.py
+
+deps.audit:
+	$(NIX_RUN) python3 -I scripts/deps-audit.py $(or $(OUT),deps-audit.md)
+
 ## One version of each tool everywhere (rust-toolchain.toml, .nvmrc, flake.nix, CI)
 check-pins:
 	scripts/check-pins.sh
@@ -403,15 +434,30 @@ check.changelog:
 check.test-targets:
 	python3 -I scripts/check-test-targets.py
 
+test.engine.reproducers:
+	$(NIX_RUN) python3 -I scripts/issue-reproducers.py xfail
+
+test.reproducers.published:
+	$(NEXTEST) -E 'test(/(^|::)issue_[0-9]+/)' --no-tests warn
+	$(NIX_RUN) bash -c 'cd web && npx vitest run --project unit -t "#[0-9]+"'
+
+check.issue-reproducers:
+	python3 -I scripts/issue-reproducers.py flip-check --base $(BASE) --head $(HEAD) --body-file $(BODY) $(if $(LABELS),--labels-json $(LABELS))
+
 test.nightly-scripts:
 	python3 -B -I scripts/tests/test_nightly.py
+	python3 -B -I scripts/tests/test_mutants_plan.py
 	python3 -B -I tools/opensees/test_gen_models.py
 	$(NIX_RUN) node --test scripts/tests/nightly-findings.test.cjs
 	$(NIX_RUN) node --test scripts/tests/verification-alert.test.cjs
 	$(NIX_RUN) node --test scripts/tests/runner-pools.test.cjs
+	$(NIX_RUN) node --test scripts/tests/cadence-reports.test.cjs
 
-test.ci-scripts: test.nightly-scripts
-	python3 -B -I -m unittest discover -s scripts/tests -p test_check_containment.py -v
+test.ci-scripts: test.nightly-scripts check.cadence
+	python3 -B -I scripts/tests/test_cadence.py
+	python3 -B -I scripts/tests/test_deps_audit.py
+	python3 -B -I scripts/tests/test_check_containment.py
+	python3 -B -I scripts/tests/test_mutants_safety.py
 	python3 -B -I scripts/tests/test_retry_infra.py
 	python3 -B -I scripts/tests/test_build_research_wasm.py
 	python3 -B -I scripts/tests/test_research_host_cache.py
@@ -427,8 +473,13 @@ test.ci-scripts: test.nightly-scripts
 	python3 -B -I scripts/tests/test_wall_clock.py
 	python3 -B -I scripts/tests/test_check_quick.py
 	python3 -B -I scripts/tests/test_infra_retry.py
+	python3 -B -I scripts/tests/test_e2e_timings.py
+	python3 -B -I scripts/tests/test_issue_reproducers.py
+	python3 -B -I scripts/tests/test_verification_metrics.py
+	python3 -B -I scripts/tests/test_ci_scripts_target.py
+	python3 -B -I scripts/tests/test_benchmark_gate.py
 	$(NIX_RUN) bash -c 'shellcheck -S warning .github/scripts/*.sh'
-	$(NIX_RUN) actionlint .github/workflows/ci.yml .github/workflows/research.yml .github/workflows/merge-queue-supersede.yml .github/workflows/post-merge.yml .github/workflows/infra-retry.yml .github/workflows/stop-failed-run.yml
+	$(NIX_RUN) actionlint .github/workflows/ci.yml .github/workflows/research.yml .github/workflows/merge-queue-supersede.yml .github/workflows/post-merge.yml .github/workflows/infra-retry.yml .github/workflows/stop-failed-run.yml .github/workflows/nightly.yml .github/workflows/route-size.yml .github/workflows/issue-reproducers.yml
 
 # DIST=web/dist checks a real build instead of the fixture site.
 test.infra.caddy:

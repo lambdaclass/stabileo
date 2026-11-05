@@ -403,16 +403,20 @@ impl MembraneBendingGuard {
             let local: [f64;24] = crate::linalg::transform_displacement(&u, &q.transform, 24).try_into().unwrap();
             let (thermal, gradient) = thermal.get(&q.id).copied().unwrap_or_default();
             let stresses = crate::element::quad::quad_stress_at_nodes(&q.coords, &local, q.e, q.nu, q.thickness, 1.0, thermal, gradient);
-            let mut variation = 0.0f64;
-            for component in [|s: &QuadNodalStress| s.sigma_xx, |s: &QuadNodalStress| s.sigma_yy] {
+            let mean = |k: usize| (0..4).map(|n| u[6 * n + k]).sum::<f64>() / 4.0;
+            let spread = (0..3).map(|k| { let m = mean(k); (0..4).map(|n| (u[6 * n + k] - m).abs()).fold(0.0f64, f64::max) }).fold(0.0f64, f64::max);
+            let size = (0..4).flat_map(|a| (0..4).map(move |b| (a, b))).map(|(a, b)| (0..3).map(|k| (q.coords[a][k] - q.coords[b][k]).powi(2)).sum::<f64>().sqrt()).fold(0.0f64, f64::max);
+            let round_off = 1e-13 * q.e * spread / size;
+            let bends = [|s: &QuadNodalStress| s.sigma_xx, |s: &QuadNodalStress| s.sigma_yy].into_iter().any(|component| {
                 let values: Vec<f64> = stresses.iter().map(component).collect();
-                if values.iter().any(|v| !v.is_finite()) { variation = f64::INFINITY; break }
+                if values.iter().any(|v| !v.is_finite()) { return true }
                 let lo = values.iter().copied().fold(f64::INFINITY, f64::min);
                 let hi = values.iter().copied().fold(f64::NEG_INFINITY, f64::max);
-                variation = variation.max(hi - lo);
-            }
-            if variation > q.e * 1e-12 { affected.push(q.id); }
+                hi - lo > 1e-9 * lo.abs().max(hi.abs()) && hi - lo > round_off
+            });
+            if bends { affected.push(q.id); }
         }
+        affected.sort_unstable();
         if affected.is_empty() { return Ok(()) }
         let mut finding = diagnostic("SH-MITC4-DISTORTION").with_elements(affected);
         finding.element_kind = Some(ElementKind::Quad);

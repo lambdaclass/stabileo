@@ -12,23 +12,8 @@ import 'katex/dist/katex.min.css';
 import Root from './Root.svelte';
 import { mount } from 'svelte';
 import { routeKind, restoreRedirectedRoute } from './lib/public-route';
-import { i18n, ensureLocale } from './lib/i18n/store.svelte';
-
-/*
- * The prerendered page steps aside as the application takes over.
- *
- * `scripts/prerender.ts` writes real HTML for every public route so a crawler
- * gets content and a 200 instead of the 404 this static host used to answer.
- * That markup lives in its own element rather than inside #app, because Svelte
- * would append to #app and the reader would briefly see the page twice.
- *
- * It is NOT hydrated. The markup was captured from a running browser, so it
- * carries none of the anchors hydration needs, and pretending otherwise would
- * produce a subtly wrong DOM. Removing it costs one paint and keeps the
- * rendered result the app's own — the prerender is a photograph for machines,
- * never a second implementation of the page.
- */
-document.getElementById('prerender')?.remove();
+import { i18n, ensureLocale, ensurePublicLocale } from './lib/i18n/store.svelte';
+import { parsePublicPath } from './lib/i18n/public-routes';
 
 // Browser-test hooks — BUILD-TIME GATED.
 //
@@ -60,6 +45,7 @@ async function bootstrap() {
   restoreRedirectedRoute();
   const target = document.getElementById('app')!;
   if (routeKind().kind === 'app') {
+    document.getElementById('prerender')?.remove();
     await ensureLocale(i18n.locale);
     // Keep the loader namespace separate: Vite's dynamic-import analysis treats
     // destructuring an awaited .then() chain as destructuring the import itself.
@@ -71,6 +57,11 @@ async function bootstrap() {
   }
   // Register before mounting: a ready event must never outrun its subscriber.
   window.addEventListener('stabileo-app-ready', installTestHooks, { once: true });
+  const startLocale = parsePublicPath(location.pathname).locale ?? i18n.locale;
+  await ensurePublicLocale(startLocale).catch((err) => {
+    console.warn(`i18n: the ${startLocale} public entries did not load; showing English until they do`, err);
+    window.addEventListener('online', () => void ensurePublicLocale(startLocale).catch(() => {}), { once: true });
+  });
   return mount(Root, { target });
 }
 

@@ -58,4 +58,23 @@ describe('a lazily loaded language', () => {
     await expect(store.ensureLocale('es')).resolves.toBeUndefined();
     await expect(store.ensureLocale('xx')).resolves.toBeUndefined();
   });
+
+  it.each(['de', 'fr', 'tr'] as const)('in a build, where the public %s entries are a lazy chunk, shows both its public and its app strings', async (loc) => {
+    vi.resetModules();
+    vi.doMock('virtual:public-i18n', () => ({
+      en: {}, es: {}, pt: {}, de: {}, fr: {}, tr: {},
+      loaders: { [loc]: async () => ({ default: { 'landing.probe': `public ${loc}` } }) },
+    }));
+    vi.doMock(`../locales/browser/${loc}`, () => ({ default: { 'app.probe': `app ${loc}` } }));
+    try {
+      const store = await import('../store.svelte');
+      store.registerDictionaries({ es: {}, en: { 'landing.probe': 'public en', 'app.probe': 'app en' }, pt: {} });
+      await store.ensureLocale(loc);
+      expect(store.tAt('landing.probe', loc)).toBe(`public ${loc}`);
+      expect(store.tAt('app.probe', loc)).toBe(`app ${loc}`);
+    } finally {
+      vi.doUnmock('virtual:public-i18n');
+      vi.doUnmock(`../locales/browser/${loc}`);
+    }
+  });
 });

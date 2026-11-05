@@ -46,20 +46,25 @@ const md = () => ({
 
 const ids = Object.keys(VALIDATION_MODELS) as ValidationModelId[];
 
+const REFUSED_CASES: Partial<Record<ValidationModelId, string[]>> = {
+  'validation-01': ['DEAD LOAD', 'LIVE LOAD'],
+  'validation-03': ['DEAD LOAD'],
+};
+
 /**
  * Check every linear case using one combination per case. The hangar's own
  * second-order combinations are checked separately below.
  */
-async function statics(id: ValidationModelId) {
+async function statics(id: ValidationModelId, caseId?: number) {
   await loadValidationModel(id);
-  const cases = modelStore.model.loadCases;
+  const cases = modelStore.model.loadCases.filter((c) => caseId === undefined || c.id === caseId);
   const combinations = cases.map((c, i) => ({ id: 100000 + i, name: c.name, factors: [{ caseId: c.id, factor: 1 }] }));
   const single = vi.spyOn(wasm, 'solve3D');
   let r;
   try {
     r = solveCombinations3D({ ...md(), analysis: { ...modelStore.analysis, perCombination: undefined } } as never, cases, combinations as never, true, false);
     // Duplicate case names used to reject the shared factorization and solve all 22 separately.
-    if (id === 'validation-04') expect(single).not.toHaveBeenCalled();
+    if (id === 'validation-04' && caseId === undefined) expect(single).not.toHaveBeenCalled();
   } finally { single.mockRestore(); }
   if (!r || typeof r === 'string') throw new Error(`${id}: ${String(r)}`);
   const rows = staticsCheck({
@@ -109,18 +114,29 @@ describe.each(ids)('%s', (id) => {
   });
 
   it('balances every case in six components', async () => {
-    if (id === 'validation-01' || id === 'validation-03') {
-      await expectMembraneRefusalAsync(() => statics(id));
-      // Post-fix: every row.worstRelative < 1e-9, no uncovered loads.
-      return;
+    await loadValidationModel(id);
+    const refused = [];
+    for (const { id: caseId, name } of modelStore.model.loadCases) {
+      if (REFUSED_CASES[id]?.includes(name)) {
+        await expectMembraneRefusalAsync(() => statics(id, caseId));
+        refused.push(name);
+        continue;
+      }
+      for (const row of await statics(id, caseId)) {
+        expect(row.uncovered, `${row.caseName}: every load kind is accounted for`).toEqual([]);
+        expect(row.worstRelative, `${row.caseName} balances`).toBeLessThan(1e-9);
+      }
     }
-    for (const row of await statics(id)) {
-      expect(row.uncovered, `${row.caseName}: every load kind is accounted for`).toEqual([]);
-      expect(row.worstRelative, `${row.caseName} balances`).toBeLessThan(1e-9);
-    }
+    expect(refused).toEqual(REFUSED_CASES[id] ?? []);
   }, 60_000); // Large WASM fixtures can exceed the default timeout under concurrent CI load.
 });
 
+
+it('validation-04 solves all 22 cases on one shared factorization and balances each', async () => {
+  const rows = await statics('validation-04');
+  expect(rows).toHaveLength(22);
+  for (const row of rows) expect(row.worstRelative, `${row.caseName} balances`).toBeLessThan(1e-9);
+}, 60_000);
 
 describe('the validation models, as regression fixtures', () => {
   it('are not PRO examples: the gallery shows examples of its own', () => {

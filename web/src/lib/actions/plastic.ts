@@ -2,7 +2,7 @@ import { modelStore, uiStore } from '../store';
 import { plasticMoments, type SectionMp } from '../engine/plastic-moments';
 import type { SolverInput } from '../engine/types';
 import type { PlasticCollapseResult } from '../engine/plastic-collapse';
-import { knownIssueMessage } from '../engine/known-issues';
+import { knownIssueMessage } from '../engine/known-issue-message';
 
 export interface PlasticRun {
   result: PlasticCollapseResult;

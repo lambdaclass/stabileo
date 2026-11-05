@@ -1,5 +1,4 @@
-// Browser-only: Vite shares public strings with the initial bundle.
-// Reuse the public dictionary instead of emitting its strings again in this lazy chunk.
+// In a build this public import is empty: ensureLocale loads the public chunk alongside.
 import { de as publicEntries } from 'virtual:public-i18n';
 import type { Translations } from '../../types';
 import { de as main } from 'virtual:app-i18n/de';

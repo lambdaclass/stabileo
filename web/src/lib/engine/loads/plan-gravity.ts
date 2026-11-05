@@ -712,29 +712,56 @@ function lowRange(d0: number, d1: number, lo: number, hi: number): [number, numb
   return t1 > t0 ? [t0, t1] : null;
 }
 
-function loadedSides(r: Region, axis: Axis): SideStretch[] {
+export function loadedSides(r: Array<Array<Array<[number, number]>>>, axis: { p: [number, number]; u: [number, number]; L: number }): SideStretch[] {
   const n = FRINGE_BINS, w = axis.L / n;
   const bins = Array.from({ length: n }, () => ({ 1: 0, [-1]: 0 } as Record<number, number>));
   const local = (q: [number, number]): [number, number] => {
     const dx = q[0] - axis.p[0], dy = q[1] - axis.p[1];
     return [dx * axis.u[0] + dy * axis.u[1], dy * axis.u[0] - dx * axis.u[1]];
   };
+  const rings: Array<Array<[number, number]>> = [];
   for (const poly of r) poly.forEach((ring, k) => {
     const pts = openRing(ring).map(local);
+    rings.push(pts);
     for (let b = 0; b < n; b++) for (const side of [1, -1]) {
       const part = clipToBox(pts, side > 0 ? { x0: b * w, y0: 0, x1: (b + 1) * w, y1: 1e9 } : { x0: b * w, y0: -1e9, x1: (b + 1) * w, y1: 0 });
       if (part.length >= 3) bins[b]![side]! += (k === 0 ? 1 : -1) * Math.abs(signedArea(part));
     }
   });
-  const total = bins.reduce((s, a) => s + a[1]! + a[-1]!, 0);
-  return bins.flatMap((a, b) => {
-    const here = a[1]! + a[-1]!;
-    if (!(here > 1e-6 * total)) return [];
-    return ([1, -1] as const).filter((side) => a[side]! > 0.01 * here).map((side) => ({ t0: b / n, t1: (b + 1) / n, side }));
+  const breaks = new Set<number>(Array.from({ length: n + 1 }, (_, b) => b * w));
+  for (const pts of rings) pts.forEach((q, i) => {
+    const e = pts[(i + 1) % pts.length]!;
+    breaks.add(q[0]);
+    if ((q[1] < 0 && e[1] > 0) || (q[1] > 0 && e[1] < 0)) breaks.add(q[0] + (e[0] - q[0]) * (q[1] / (q[1] - e[1])));
   });
+  const stations = [...breaks].filter((x) => x >= 0 && x <= axis.L).sort((x, y) => x - y);
+  const chord = (x: number, side: 1 | -1) => {
+    const ys: number[] = [];
+    for (const pts of rings) pts.forEach((q, i) => {
+      const e = pts[(i + 1) % pts.length]!;
+      if ((q[0] <= x && x < e[0]) || (e[0] <= x && x < q[0])) ys.push(side * (q[1] + (e[1] - q[1]) * ((x - q[0]) / (e[0] - q[0]))));
+    });
+    ys.sort((y0, y1) => y0 - y1);
+    let len = 0;
+    for (let i = 0; i + 1 < ys.length; i += 2) len += Math.max(0, ys[i + 1]! - Math.max(0, ys[i]!));
+    return len;
+  };
+  const total = bins.reduce((s, a) => s + a[1]! + a[-1]!, 0);
+  const out: SideStretch[] = [];
+  for (let i = 0; i + 1 < stations.length; i++) {
+    const x0 = stations[i]!, x1 = stations[i + 1]!;
+    if (!(x1 - x0 > 1e-12 * axis.L)) continue;
+    const mid = (x0 + x1) / 2, a = bins[Math.min(n - 1, Math.floor(mid / w))]!;
+    const here = a[1]! + a[-1]!;
+    if (!(here > 1e-6 * total)) continue;
+    for (const side of [1, -1] as const) {
+      if (a[side]! > 0.01 * here && chord(mid, side) > 0.01 * here / w) out.push({ t0: x0 / axis.L, t1: x1 / axis.L, side });
+    }
+  }
+  return out;
 }
 
-function oneSidedSomewhere(list: SideStretch[]): boolean {
+export function oneSidedSomewhere(list: SideStretch[]): boolean {
   const merged = (side: number) => {
     const out: Array<[number, number]> = [];
     for (const s of list.filter((x) => x.side === side).sort((x, y) => x.t0 - y.t0)) {

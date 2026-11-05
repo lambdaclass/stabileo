@@ -2646,6 +2646,7 @@ impl PreparedStatic3D {
         if self.an_artificial_spring_carries_load(&r) {
             crate::known_issues::attach(&mut r.structured_diagnostics, vec![crate::known_issues::diagnostic("ORPHAN-SOFT-ROTATION")]);
         }
+        crate::known_issues::refuse(&r.structured_diagnostics)?;
         self.membrane_guard.check(loads, &r)?;
         let residual = self.check_returned_displacements(loads, &r).map_err(|error| {
             if r.structured_diagnostics.iter().any(|d| d.code == DiagnosticCode::ExcessiveDisplacement) {
