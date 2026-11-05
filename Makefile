@@ -412,7 +412,7 @@ test.ci-scripts: test.nightly-scripts
 	python3 -B -I scripts/tests/test_wall_clock.py
 	python3 -B -I scripts/tests/test_infra_retry.py
 	$(NIX_RUN) bash -c 'shellcheck -S warning .github/scripts/*.sh'
-	$(NIX_RUN) actionlint .github/workflows/ci.yml .github/workflows/research.yml .github/workflows/merge-queue-supersede.yml .github/workflows/post-merge.yml .github/workflows/infra-retry.yml
+	$(NIX_RUN) actionlint .github/workflows/ci.yml .github/workflows/research.yml .github/workflows/merge-queue-supersede.yml .github/workflows/post-merge.yml .github/workflows/infra-retry.yml .github/workflows/stop-failed-run.yml
 
 # DIST=web/dist checks a real build instead of the fixture site.
 test.infra.caddy:

@@ -5,6 +5,7 @@ Web typechecking is now its own Web Typecheck job. It needs only the engine WASM
 for the research assets and the site build's setup. Web Unit runs in eight shards instead of four. On
 pull requests from this repository's branches, Web Unit stops at its first failing test. When Lint
 Repo, Test CI Scripts, Lint Engine, Lint Backend, Web Typecheck or Web Unit fails on such a pull
-request, the job also cancels the rest of the run, stopping the long E2E and build jobs. CI OK still
-reports the failure. Pull requests from forks get a read-only token, so their runs are not cancelled;
+request, the run is cancelled once that job has ended as a failure, so the failed check stays red
+and the long E2E and build jobs stop. A small workflow, Stop a failed pull request run, does the
+cancelling. CI OK still reports the failure. Pull requests from forks get a read-only token, so their runs are not cancelled;
 they run to the end as before. The merge queue and main still run every test.

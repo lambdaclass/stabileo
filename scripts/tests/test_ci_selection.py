@@ -73,7 +73,7 @@ class Selection(unittest.TestCase):
         workflow = (ROOT / '.github/workflows/ci.yml').read_text()
         jobs = dict(re.findall(r'(?ms)^  ([a-z0-9-]+):\n(.*?)(?=^  [a-z0-9-]+:\n|\Z)', workflow.split('\njobs:\n', 1)[1]))
         fast = {'lint-repo', 'test-ci-scripts', 'lint-engine', 'lint-backend', 'web-typecheck', 'web-unit'}
-        stopping = {name for name, body in jobs.items() if 'gh run cancel' in body}
+        stopping = {name for name, body in jobs.items() if 'stop-failed-run.yml' in body}
         self.assertEqual(stopping, fast)
         for name in fast:
             body = jobs[name]
@@ -81,10 +81,44 @@ class Selection(unittest.TestCase):
                           "        continue-on-error: true\n", body, name)
             self.assertIn('    permissions:\n      contents: read\n      actions: write\n', body, name)
             steps = [line for line in body.splitlines() if line.strip() and not line.lstrip().startswith('#')]
-            self.assertEqual(steps[-1].strip(), 'run: gh run cancel "$RUN_ID"', name)
+            self.assertEqual(steps[-1].strip(), '|| gh workflow run stop-failed-run.yml --ref "$HEAD_REF" -f run_id="$RUN_ID"', name)
+            self.assertNotIn('gh run cancel', body, 'a job cancelling its own run ends as cancelled, hiding its failure')
+        stop = (ROOT / '.github/workflows/stop-failed-run.yml').read_text()
+        self.assertIn('"pull_request .github/workflows/ci.yml "*) ;;', stop)
+        self.assertIn('select(.conclusion == "failure")', stop)
+        self.assertLess(stop.index('select(.conclusion == "failure")'), stop.index('gh run cancel "$RUN_ID"'))
         self.assertIn('BAIL=${{ github.event_name == \'pull_request\' && \'1\' || \'\' }}', jobs['web-unit'])
         self.assertIn('needs: [changes, wasm]\n', jobs['web-typecheck'])
         self.assertNotIn('free-disk', jobs['web-typecheck'])
+
+    def test_the_stop_workflow_cancels_only_a_running_pull_request_run_with_a_failed_job(self):
+        stop = (ROOT / '.github/workflows/stop-failed-run.yml').read_text()
+        script = '\n'.join(line[10:] for line in stop.split('        run: |\n', 1)[1].splitlines())
+        script = script.replace('sleep 5', 'true')
+        cases = [('pull_request .github/workflows/ci.yml in_progress', 'Web Typecheck', True),
+                 ('pull_request .github/workflows/ci.yml in_progress', '', False),
+                 ('pull_request .github/workflows/ci.yml completed', 'Web Typecheck', False),
+                 ('merge_group .github/workflows/ci.yml in_progress', 'Web Typecheck', False),
+                 ('pull_request .github/workflows/research.yml in_progress', 'Web Typecheck', False)]
+        for run, failed, cancels in cases:
+            with self.subTest(run=run, failed=failed), tempfile.TemporaryDirectory() as directory:
+                log = Path(directory) / 'calls'
+                gh = Path(directory) / 'gh'
+                gh.write_text(f"""#!/bin/sh
+echo "$*" >> {log}
+case "$*" in
+  "api repos/o/r/actions/runs/7 --jq"*) echo "{run}" ;;
+  "api --paginate"*) [ -n "{failed}" ] && echo "{failed}" ;;
+esac
+exit 0
+""")
+                gh.chmod(0o755)
+                result = subprocess.run(['bash', '-c', script], capture_output=True, text=True, timeout=60,
+                                        env={**os.environ, 'PATH': f"{directory}:{os.environ['PATH']}", 'GH_REPO': 'o/r', 'RUN_ID': '7'})
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual('run cancel 7' in log.read_text(), cancels, log.read_text())
+        result = subprocess.run(['bash', '-c', script], capture_output=True, text=True, env={**os.environ, 'RUN_ID': '7; rm'})
+        self.assertNotEqual(result.returncode, 0)
 
     def test_product_only_pr_and_merge_queue_do_not_select_research_isolation(self):
         workflow = (ROOT / '.github/workflows/research.yml').read_text()

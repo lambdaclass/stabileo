@@ -339,7 +339,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           RUN_ID: ${{ github.run_id }}
-        run: gh run cancel "$RUN_ID"
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          gh workflow run stop-failed-run.yml --ref main -f run_id="$RUN_ID" \
+            || gh workflow run stop-failed-run.yml --ref "$HEAD_REF" -f run_id="$RUN_ID"
 
   test-ci-scripts:
     name: Test CI Scripts
@@ -380,7 +383,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           RUN_ID: ${{ github.run_id }}
-        run: gh run cancel "$RUN_ID"
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          gh workflow run stop-failed-run.yml --ref main -f run_id="$RUN_ID" \
+            || gh workflow run stop-failed-run.yml --ref "$HEAD_REF" -f run_id="$RUN_ID"
 
   lint-engine:
     name: Lint Engine
@@ -426,7 +432,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           RUN_ID: ${{ github.run_id }}
-        run: gh run cancel "$RUN_ID"
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          gh workflow run stop-failed-run.yml --ref main -f run_id="$RUN_ID" \
+            || gh workflow run stop-failed-run.yml --ref "$HEAD_REF" -f run_id="$RUN_ID"
 
   # Named correctness gates. Every gate's tests are EXCLUDED from the suite
   # job below — each test must run exactly once per CI run. The make targets
@@ -620,7 +629,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           RUN_ID: ${{ github.run_id }}
-        run: gh run cancel "$RUN_ID"
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          gh workflow run stop-failed-run.yml --ref main -f run_id="$RUN_ID" \
+            || gh workflow run stop-failed-run.yml --ref "$HEAD_REF" -f run_id="$RUN_ID"
 
   test-backend:
     name: Test Backend
@@ -1153,7 +1165,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           RUN_ID: ${{ github.run_id }}
-        run: gh run cancel "$RUN_ID"
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          gh workflow run stop-failed-run.yml --ref main -f run_id="$RUN_ID" \
+            || gh workflow run stop-failed-run.yml --ref "$HEAD_REF" -f run_id="$RUN_ID"
 
   web-typecheck:
     name: Web Typecheck
@@ -1202,7 +1217,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           RUN_ID: ${{ github.run_id }}
-        run: gh run cancel "$RUN_ID"
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          gh workflow run stop-failed-run.yml --ref main -f run_id="$RUN_ID" \
+            || gh workflow run stop-failed-run.yml --ref "$HEAD_REF" -f run_id="$RUN_ID"
 
   web-build:
     name: Web Build
