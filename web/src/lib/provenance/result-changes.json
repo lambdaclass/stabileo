@@ -1,7 +1,7 @@
 {
   "$comment": "Registry of result-affecting changes. Read by web/scripts/result-change-metadata.mjs for build metadata and decoded by web/src/lib/provenance/full-registry.ts; schema and rules in docs/verification/PROVENANCE.md. Add an entry whenever a change makes the same saved model give different numbers, at currentResultsVersion + 1, and bump currentResultsVersion: a version on main is deployed, and an entry added to it later is never shown to the projects it stamped (results-version.test.ts). Feature ids are defined in web/src/lib/provenance/model-features.ts.",
   "schema": 1,
-  "currentResultsVersion": 31,
+  "currentResultsVersion": 32,
   "changes": [
     {
       "id": "safety-containment-diagnostics",
@@ -235,6 +235,31 @@
         "file": "docs/advisories/SA-2026-037-corotational-3d-rotations.md",
         "heading": "SA-2026-037: 3D co-rotational analysis differenced rotation vectors (Bathe–Bolourchi bend 1.3 % off)"
       }
+    },
+    {
+      "id": "buckling-3d-varying-axial-force",
+      "resultsVersion": 32,
+      "date": "2026-11-05",
+      "prs": [1309],
+      "area": "analysis",
+      "when": { "allOf": [["analysis:buckling"], ["memberLoads"], ["space3D"]] },
+      "title": {
+        "en": "3D buckling: members whose axial force varies along them",
+        "es": "Pandeo 3D: barras cuyo esfuerzo axial varía a lo largo",
+        "pt": "Flambagem 3D: barras cujo esforço axial varia ao longo delas",
+        "de": "3D-Knicken: Stäbe mit veränderlicher Normalkraft",
+        "fr": "Flambement 3D : barres dont l’effort normal varie le long de la barre",
+        "tr": "3B burkulma: eksenel kuvveti boyunca değişen çubuklar"
+      },
+      "explanation": {
+        "en": "Each member's buckling stiffness used its mean axial force, and whether a member was compressed was judged from the average of its end forces. Under loads along a member's axis the factor could come out too high (+43 % for a one-member cantilever whose compression rises to its tip), and a member compressed only between its ends was refused as uncompressed (SA-2026-038). It concerns 3D buckling with loads along members.",
+        "es": "La rigidez de pandeo de cada barra usaba su esfuerzo axial medio, y si una barra estaba comprimida se decidía por el promedio de sus esfuerzos en los extremos. Con cargas a lo largo del eje de una barra el factor podía salir demasiado alto (+43 % en una ménsula de una barra cuya compresión crece hacia la punta), y una barra comprimida solo entre sus extremos se rechazaba como no comprimida (SA-2026-038). Afecta al pandeo 3D con cargas a lo largo de las barras.",
+        "pt": "A rigidez de flambagem de cada barra usava seu esforço axial médio, e se uma barra estava comprimida era decidido pela média dos esforços nas extremidades. Com cargas ao longo do eixo de uma barra o fator podia sair alto demais (+43 % num balanço de uma barra cuja compressão cresce até a ponta), e uma barra comprimida só entre as extremidades era recusada como não comprimida (SA-2026-038). Afeta a flambagem 3D com cargas ao longo das barras.",
+        "de": "Die Knicksteifigkeit jedes Stabs verwendete seine mittlere Normalkraft, und ob ein Stab gedrückt war, wurde nach dem Mittel seiner Endkräfte entschieden. Bei Lasten entlang der Stabachse konnte der Faktor zu hoch herauskommen (+43 % bei einem Kragarm aus einem Stab, dessen Druck zur Spitze wächst), und ein nur zwischen seinen Enden gedrückter Stab wurde als ungedrückt abgelehnt (SA-2026-038). Betrifft 3D-Knicken mit Lasten entlang der Stäbe.",
+        "fr": "La rigidité de flambement de chaque barre utilisait son effort normal moyen, et la compression d’une barre était jugée sur la moyenne de ses efforts d’extrémité. Avec des charges le long de l’axe d’une barre, le facteur pouvait être trop élevé (+43 % pour une console d’une barre dont la compression croît vers la pointe), et une barre comprimée seulement entre ses extrémités était refusée comme non comprimée (SA-2026-038). Concerne le flambement 3D avec des charges le long des barres.",
+        "tr": "Her çubuğun burkulma rijitliği ortalama eksenel kuvvetini kullanıyordu ve bir çubuğun basınç altında olup olmadığı uç kuvvetlerinin ortalamasına göre belirleniyordu. Çubuk ekseni boyunca yüklerde katsayı fazla yüksek çıkabiliyordu (basıncı uca doğru artan tek çubuklu bir konsolda +%43) ve yalnızca uçları arasında basınç altındaki bir çubuk basınçsız sayılıp reddediliyordu (SA-2026-038). Çubuklar boyunca yük içeren 3B burkulmayı etkiler."
+      },
+      "changelog": { "file": "docs/advisories/SA-2026-038-buckling-3d-varying-axial-force.md", "heading": "SA-2026-038: 3D buckling overstated the factor of members whose compression grows along them, and refused members compressed only between their ends" }
     },
     {
       "id": "buckling-2d-varying-axial-force",

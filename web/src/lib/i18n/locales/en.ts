@@ -3934,7 +3934,6 @@ const en: Record<string, string> = {
   "knownIssue.exportHeading": "Safety warnings",
   "knownIssue.NUM-INVARIANCE": "Near-singular models can change accuracy or mechanism classification with units and orientation. Existing conditioning or stability diagnostics indicate a near-singular solve; independently verify stability before design",
   "knownIssue.CERT-MECHANISM": "An assembled-level certificate can certify an artificial or unstiffened rotation. Verify mechanisms independently; a small algebraic error bound does not establish structural stability",
-  "knownIssue.BU-SPAN-COMPRESSION": "3D buckling can miss compression between member ends under span loads. Independently check the axial-force distribution and buckling factor",
   "knownIssue.PD-SPAN-AXIAL": "P-Delta builds each member's geometric stiffness from its mean axial force, so compression that varies along a member under axial span loads can understate the second-order amplification. Subdivide the loaded members and check that the results converge.",
   "knownIssue.SH-MITC4-DISTORTION.warning": "Distorted MITC4 elements can lock in membrane bending. Verify mesh convergence; significant membrane bending results are withheld.",
   "knownIssue.SH-MITC4-DISTORTION": "Results withheld: distorted MITC4 quadrilaterals can be about ten times too stiff in membrane bending. Remesh with rectangular elements and check mesh convergence",

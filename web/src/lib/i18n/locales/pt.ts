@@ -2076,7 +2076,6 @@ const pt: Translations = {
   "knownIssue.exportHeading": "Avisos de segurança",
   "knownIssue.NUM-INVARIANCE": "Modelos quase singulares podem mudar de precisão ou classificação com unidades ou orientação. Os diagnósticos de condicionamento ou estabilidade indicam uma solução quase singular; verifique independentemente a estabilidade antes do dimensionamento.",
   "knownIssue.CERT-MECHANISM": "Um certificado no nível do sistema montado pode certificar uma rotação artificial ou sem rigidez. Verifique os mecanismos de forma independente; um limite de erro algébrico pequeno não demonstra a estabilidade estrutural.",
-  "knownIssue.BU-SPAN-COMPRESSION": "A flambagem 3D pode omitir compressão entre extremidades sob cargas de barra. Verifique a distribuição axial e o fator de flambagem.",
   "knownIssue.PD-SPAN-AXIAL": "O P-Delta monta a rigidez geométrica de cada barra com seu esforço axial médio, então uma compressão que varia ao longo da barra por cargas axiais no vão pode subestimar a amplificação de segunda ordem. Subdivida as barras carregadas e verifique se os resultados convergem.",
   "knownIssue.SH-MITC4-DISTORTION.warning": "Elementos MITC4 distorcidos podem travar em flexão de membrana. Verifique a convergência da malha; resultados com flexão de membrana significativa são bloqueados.",
   "knownIssue.SH-MITC4-DISTORTION": "Resultados bloqueados: quadriláteros MITC4 distorcidos podem ser dez vezes rígidos demais em flexão de membrana. Use elementos retangulares e verifique a convergência da malha.",

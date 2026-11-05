@@ -45,7 +45,6 @@ pub const ENTRIES: &[Entry] = &[
     Entry { id: "PL-3D-INVARIANCE", issue: 758, mode: Mode::Warn, message: "3D plastic collapse of curved beams has shown numbering-dependent factors. Independently verify the collapse factor" },
     Entry { id: "NUM-INVARIANCE", issue: 762, mode: Mode::Warn, message: "Near-singular models can change accuracy or mechanism classification with units and orientation. Existing conditioning or stability diagnostics indicate a near-singular solve; independently verify stability before design" },
     Entry { id: "CERT-MECHANISM", issue: 458, mode: Mode::Warn, message: "An assembled-level certificate can certify an artificial or unstiffened rotation. Verify mechanisms independently; a small algebraic error bound does not establish structural stability" },
-    Entry { id: "BU-SPAN-COMPRESSION", issue: 456, mode: Mode::Warn, message: "3D buckling can miss compression between member ends under span loads. Independently check the axial-force distribution and buckling factor" },
     Entry { id: "PD-SPAN-AXIAL", issue: 1329, mode: Mode::Warn, message: "P-Delta builds each member's geometric stiffness from its mean axial force, so compression that varies along a member under axial span loads can understate the second-order amplification. Subdivide the loaded members and check that the results converge" },
     Entry { id: "NL-3", issue: 426, mode: Mode::Warn, message: "A member's end turns more than 0.02 rad against its chord in this 3D co-rotational analysis. Its end forces omit a finite-rotation term whose error grows about as half that rotation times the end moments; split the most deformed members into shorter ones until this warning clears" },
     Entry { id: "NL-5", issue: 428, mode: Mode::Warn, message: NL_MATERIAL },
@@ -502,9 +501,6 @@ pub fn for_3d(input: &SolverInput3D, analysis: Analysis) -> Vec<StructuredDiagno
     let mut out = for_analysis(analysis);
 
     if analysis == Analysis::Buckling { out.push(diagnostic("BU-ACCURACY")); }
-    if analysis == Analysis::Buckling && input.loads.iter().any(|l| matches!(l, SolverLoad3D::Distributed(_) | SolverLoad3D::PointOnElement(_))) {
-        out.push(diagnostic("BU-SPAN-COMPRESSION"));
-    }
 
     if analysis == Analysis::MaterialNonlinear || (matches!(analysis, Analysis::Modal | Analysis::TimeHistory | Analysis::Harmonic) && (!input.curved_beams.is_empty() || input.elements.values().any(|e| e.elem_type == "frame"))) {
         out.push(diagnostic("NL-DYNAMIC-GAPS"));
@@ -678,10 +674,6 @@ mod tests {
         member.node_j = 3;
         space.elements.insert("2".into(), member);
         assert!(has(&model_3d(&space), "FR-5"));
-        assert!(!has(&for_3d(&space, Analysis::Buckling), "BU-SPAN-COMPRESSION"));
-        space.loads.push(serde_json::from_value(serde_json::json!({"type":"distributed","data":{"elementId":1,"qYI":0,"qYJ":0,"qZI":-1,"qZJ":-1}})).unwrap());
-        assert!(has(&for_3d(&space, Analysis::Buckling), "BU-SPAN-COMPRESSION"));
-        assert!(!has(&for_3d(&space, Analysis::Linear), "BU-SPAN-COMPRESSION"));
     }
 
     #[test]

@@ -78,6 +78,7 @@ const RELEASED: Record<number, string[]> = {
   27: ['basic-influence-line-moment-sign-returns'],
   28: ['basic-second-order-split-members-returns'],
   31: ['safety-containment-diagnostics'],
+  32: ['buckling-3d-varying-axial-force'],
 };
 
 describe('results versions', () => {
