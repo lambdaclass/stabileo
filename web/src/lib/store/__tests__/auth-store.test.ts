@@ -518,7 +518,7 @@ describe('consents and server switches', () => {
       const { usageConsent } = await import('../../telemetry/consent.svelte');
       on('POST /google/exchange', () => json(200, withUsage(false)));
       await signIn(authStore);
-      expect(usageConsent.sharing).toBe(false);
+      expect(usageConsent.choice).toBe('denied');
       expect(stored()).toBe('denied');
 
       storage.set('stabileo-usage-consent', JSON.stringify({ choice: 'granted' }));
@@ -528,7 +528,7 @@ describe('consents and server switches', () => {
       on('GET /config', () => json(200, { user_login_enabled: true }));
       on('POST /refresh', () => json(200, withUsage(false)));
       await again.authStore.init();
-      expect(consent.usageConsent.sharing).toBe(false);
+      expect(consent.usageConsent.choice).toBe('denied');
     });
 
     it('a no given in this browser is recorded on an account that had it on, and stays off', async () => {
@@ -541,7 +541,7 @@ describe('consents and server switches', () => {
 
       await vi.waitFor(() => expect(authStore.account?.consents?.usage_analytics).toBe(false));
       expect(seen.find((r) => r.route === 'POST /consents')!.body).toEqual({ kind: 'usage_analytics', granted: false });
-      expect(usageConsent.sharing).toBe(false);
+      expect(usageConsent.choice).toBe('denied');
     });
 
     it('an account that said yes leaves the browser as it was, and /me with a no turns it off', async () => {
@@ -550,7 +550,7 @@ describe('consents and server switches', () => {
       on('POST /google/exchange', () => json(200, withUsage(true)));
       await signIn(authStore);
       expect(usageConsent.choice).toBe('undecided');
-      expect(usageConsent.sharing).toBe(true);
+      expect(usageConsent.granted).toBe(false);
       expect(seen.some((r) => r.route === 'POST /consents')).toBe(false);
 
       on('GET /me', () => json(200, { data: withUsage(false).account }));

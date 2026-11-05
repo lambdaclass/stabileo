@@ -21,6 +21,7 @@
 
   let acceptTerms = $state(false);
   let allowResearch = $state(false);
+  let shareUsage = $state(false);
   let busy = $state(false);
   let error = $state<string | null>(null);
   let fields = $state<Record<string, string>>({});
@@ -33,6 +34,7 @@
       step = { kind: 'start' };
       acceptTerms = false;
       allowResearch = false;
+      shareUsage = false;
       error = null;
       fields = {};
     });
@@ -77,15 +79,17 @@
     busy = true;
     error = null;
     fields = {};
+    const askedUsage = !usageConsent.decided;
+    const usage = askedUsage ? shareUsage : usageConsent.granted;
     try {
       await authStore.completeGoogleSignup({
         signup_token: step.token,
         accept_terms: acceptTerms,
-        usage_analytics: usageConsent.sharing,
+        usage_analytics: usage,
         model_research: allowResearch,
         locale: isOfferedLocale(i18n.locale) ? i18n.locale : 'es',
       });
-      if (usageConsent.sharing) usageConsent.set('granted');
+      if (askedUsage) usageConsent.set(usage ? 'granted' : 'denied');
       close();
     } catch (err) {
       fields = fieldErrors(err);
@@ -130,11 +134,16 @@
             </span>
           </label>
           {#if fields.accept_terms}<span class="acc-field-err">{fields.accept_terms}</span>{/if}
+          {#if !usageConsent.decided}
+            <label class="acc-check">
+              <input type="checkbox" bind:checked={shareUsage} data-testid="auth-share-usage" />
+              <span>{t('usage.registerOptIn')}<span class="acc-hint acc-block">{t('usage.settingsHint')}</span></span>
+            </label>
+          {/if}
           <label class="acc-check">
             <input type="checkbox" bind:checked={allowResearch} data-testid="auth-allow-research" />
             <span>{t('account.researchToggle')}<span class="acc-hint acc-block">{t('account.researchHint')}</span></span>
           </label>
-          <p class="acc-hint acc-usage" data-testid="auth-usage-note">{t('legal.usageIncluded')}</p>
 
           {#if error}
             <p class="acc-error" role="alert" data-testid="auth-error">{error}</p>
@@ -254,7 +263,6 @@
   .acc-check { display: flex; align-items: flex-start; gap: 8px; font-size: 0.72rem; line-height: 1.4; color: var(--st-text-2); }
   .acc-check input { margin-top: 2px; }
   .acc-check.bad { color: var(--st-bad, #e06c75); }
-  .acc-usage { margin: -4px 0 0 21px; line-height: 1.4; }
   .acc-legal-links { display: block; margin-top: 2px; font-size: 0.66rem; }
   .acc-legal-links a { color: var(--st-interactive, var(--st-accent)); }
   .acc-field-err { font-size: 0.64rem; color: var(--st-bad, #e06c75); }
