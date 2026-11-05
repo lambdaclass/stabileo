@@ -53,14 +53,14 @@
     {"id": "proofs", "tier": "daily", "existing": "verify.yml#lean", "what": "Lean, Kani and symbolic proofs"},
     {"id": "triage", "tier": "daily", "existing": "nightly.yml#triage", "what": "daily triage report; every new wrong-result candidate gets its decision owners"},
 
-    {"id": "mutants-safety", "tier": "weekly", "existing": "nightly.yml#mutants", "what": "mutation testing of the safety-critical modules, kill-rate ratchet"},
+    {"id": "mutants-safety", "tier": "weekly", "existing": "nightly.yml#mutants-safety", "what": "mutation testing of the safety-critical modules, kill-rate ratchet"},
     {"id": "fuzz-long", "tier": "weekly", "existing": "nightly.yml#fuzz", "what": "the fuzz targets for 5 hours each"},
     {"id": "mechanism-fuzz-long", "tier": "weekly", "runner": "nightly", "target": "test.engine.mechanism-fuzz.nightly", "vars": {"MINUTES": "240"}, "optional": true, "budget_min": 260, "what": "mechanism fuzzing, 4 hours"},
     {"id": "route-size", "tier": "weekly", "existing": "route-size.yml#ceiling", "what": "landing and /app footprints against their ceilings"},
     {"id": "research-replays", "tier": "weekly", "existing": "research.yml#phasefield", "what": "every research paper's validation replays (Monday schedule)"},
     {"id": "flaky-report", "tier": "weekly", "existing": "nightly.yml#flaky-report", "what": "jobs that failed and passed on the same commit in the past week"},
 
-    {"id": "mutants-full", "tier": "monthly", "existing": "nightly.yml#mutants", "what": "full-engine mutation pass (the rotation, every 16 nights) and its kill-rate report"},
+    {"id": "mutants-full", "tier": "monthly", "existing": "nightly.yml#mutants-monthly", "what": "full-engine mutation pass (the rotation, every 16 nights) and its kill-rate report"},
     {"id": "external-references-full", "tier": "monthly", "existing": "nightly.yml#codeaster-diff", "what": "OpenSees and Code_Aster comparisons at three times the daily counts"},
     {"id": "deps-audit", "tier": "monthly", "existing": "nightly.yml#deps-audit", "what": "dependency and major-upgrade audit"},
     {"id": "results-snapshots", "tier": "monthly", "runner": "nightly", "target": "test.web.results", "needs": ["wasm", "web.deps"], "budget_min": 30, "what": "the reference corpus against the committed results snapshots"},

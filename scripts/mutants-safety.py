@@ -1,18 +1,4 @@
 #!/usr/bin/env python3
-"""The safety-critical mutation scope (scripts/mutants-safety.json) and its kill-rate ratchet.
-
-    scripts/mutants-safety.py files | tests | regex
-    scripts/mutants-safety.py report MUTANTS_OUT... [--json OUT] [--markdown OUT]
-    scripts/mutants-safety.py ratchet REPORT_JSON [--baseline FILE] [--markdown OUT]
-    scripts/mutants-safety.py record REPORT_JSON [--baseline FILE]
-
-`files`, `tests` and `regex` feed scripts/mutants.sh (MUTANTS_SCOPE=safety). `report` reads the
-outcomes.json of one or more cargo-mutants output directories (the shards of one run) and counts,
-per module, caught, missed, timeout and unviable mutants. The kill rate is
-(caught + timeout) / (caught + timeout + missed): a timeout is a mutant the tests stopped, an
-unviable one never built. `ratchet` exits 1 when a module's kill rate is below the baseline
-(docs/verification/mutants-baseline.json), or when a module the baseline lists was not tested; `record` writes the report as the new baseline.
-"""
 import argparse
 import json
 import re
@@ -22,7 +8,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 SCOPE = ROOT / "scripts" / "mutants-safety.json"
 BASELINE = ROOT / "docs" / "verification" / "mutants-baseline.json"
-NAME = re.compile(r"^(?P<file>[^:]+):\d+:\d+: .* in (?P<fn>.+)$")
+AREAS = {"certify": "engine/src/certify/", "solver": "engine/src/solver/", "element": "engine/src/element/"}
 
 
 def scope(path=SCOPE):
@@ -39,7 +25,8 @@ def regex(cfg):
         for f, fns in m["files"].items():
             if fns:
                 alts = "|".join(re.escape(fn) for fn in fns)
-                parts.append(f"^{re.escape(f)}:.* in (?:[^:]*::)?(?:{alts})$")
+                parts.append(f"^{re.escape(f)}:.* in (?:[^ ]*::)?(?:{alts})$")
+                parts.append(f"^{re.escape(f)}:\\d+:\\d+: replace (?:[^ ]*::)?(?:{alts}) -> ")
             else:
                 whole.append(re.escape(f))
     if whole:
@@ -47,12 +34,8 @@ def regex(cfg):
     return "|".join(parts)
 
 
-def module_of(cfg, name):
-    m = NAME.match(name)
-    if not m:
-        return None
-    file, fn = m["file"], m["fn"]
-    short = fn.rsplit("::", 1)[-1]
+def module_of(cfg, file, fn):
+    short = (fn or "").rsplit("::", 1)[-1]
     for mod, spec in cfg["modules"].items():
         fns = spec["files"].get(file)
         if fns is None:
@@ -62,40 +45,38 @@ def module_of(cfg, name):
     return None
 
 
-def outcome_name(o):
+def area_of(file, fn):
+    return next((a for a, prefix in AREAS.items() if file.startswith(prefix)), "other")
+
+
+def mutant_of(o):
     s = o.get("scenario")
-    if isinstance(s, dict):
-        mutant = s.get("Mutant") or {}
-        if "name" in mutant:
-            return mutant["name"]
-        loc = mutant.get("span", {}).get("start", {})
-        fn = (mutant.get("function") or {}).get("function_name", "")
-        return f"{mutant.get('file')}:{loc.get('line')}:{loc.get('column')}: replace {mutant.get('replacement', '')} in {fn}"
-    return None
+    if not isinstance(s, dict) or "Mutant" not in s:
+        return None
+    m = s["Mutant"]
+    return m.get("name"), m.get("file", ""), (m.get("function") or {}).get("function_name", "")
 
 
 SUMMARY = {"CaughtMutant": "caught", "MissedMutant": "missed", "Timeout": "timeout", "Unviable": "unviable"}
 
 
-def report(cfg, outs):
-    mods = {m: {"caught": 0, "missed": 0, "timeout": 0, "unviable": 0, "missed_names": []} for m in cfg["modules"]}
+def report(modules, outs, classify):
+    mods = {m: {"caught": 0, "missed": 0, "timeout": 0, "unviable": 0, "missed_names": []} for m in modules}
     seen = set()
     for out in outs:
         data = json.loads((Path(out) / "outcomes.json").read_text())
         for o in data.get("outcomes", []):
-            if o.get("scenario") == "Baseline":
-                continue
-            name = outcome_name(o)
+            mutant = mutant_of(o)
             kind = SUMMARY.get(o.get("summary"))
-            if not name or not kind or name in seen:
+            if not mutant or not kind or mutant[0] in seen:
                 continue
-            seen.add(name)
-            mod = module_of(cfg, name)
-            if mod is None:
+            seen.add(mutant[0])
+            mod = classify(mutant[1], mutant[2])
+            if mod not in mods:
                 continue
             mods[mod][kind] += 1
             if kind == "missed":
-                mods[mod]["missed_names"].append(name)
+                mods[mod]["missed_names"].append(mutant[0])
     for v in mods.values():
         v["missed_names"].sort()
         tested = v["caught"] + v["timeout"] + v["missed"]
@@ -143,6 +124,9 @@ def main(argv):
     k.add_argument("report")
     k.add_argument("--baseline", default=str(BASELINE))
     k.add_argument("--markdown")
+    ar = sub.add_parser("areas")
+    ar.add_argument("root")
+    ar.add_argument("--markdown")
     w = sub.add_parser("record")
     w.add_argument("report")
     w.add_argument("--baseline", default=str(BASELINE))
@@ -159,7 +143,7 @@ def main(argv):
         if not outs:
             print("mutants-safety: no outcomes.json in " + " ".join(a.outs), file=sys.stderr)
             return 1
-        mods = report(cfg, outs)
+        mods = report(cfg["modules"], outs, lambda f, fn: module_of(cfg, f, fn))
         base = json.loads(Path(a.baseline).read_text()) if Path(a.baseline).exists() else None
         text = markdown(mods, base)
         print(text)
@@ -178,6 +162,13 @@ def main(argv):
         if a.markdown:
             Path(a.markdown).write_text(text)
         return 1 if drops else 0
+    elif a.cmd == "areas":
+        outs = sorted({str(p.parent) for p in Path(a.root).rglob("outcomes.json")}, reverse=True)
+        mods = report(list(AREAS) + ["other"], outs, area_of)
+        text = f"{len(outs)} shard reports.\n\n" + markdown(mods)
+        print(text)
+        if a.markdown:
+            Path(a.markdown).write_text(text)
     elif a.cmd == "record":
         mods = json.loads(Path(a.report).read_text())["modules"]
         old = json.loads(Path(a.baseline).read_text()) if Path(a.baseline).exists() else {}

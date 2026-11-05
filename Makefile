@@ -1,5 +1,5 @@
 .PHONY: research.wasm paper.pdf help install-nix shell setup setup.run git.setup deps backend.run console routes \
-       lint.engine test.engine.units-types check.engine.acceptance-models test.engine.gates test.engine.metamorphic test.engine.suite bench.engine mutants.engine mutants.safety.report \
+       lint.engine test.engine.units-types check.engine.acceptance-models test.engine.gates test.engine.metamorphic test.engine.suite bench.engine mutants.engine mutants.safety.report mutants.safety.record \
        web.deps typecheck.web test.web.unit test.web.build web.build.tested test.web.build.shared test.web.timing test.web.results snapshots-update check.results-snapshot-gate test.web.determinism e2e.web.setup e2e.web.build e2e.web.smoke e2e.web.slow e2e.web.timing e2e.web.visual e2e.web.flaky \
        perf.lighthouse.deps perf.lighthouse \
        test.ci-scripts test.nightly-scripts test.infra.caddy test.infra.caddy.redirects check.web.translations check.web.route-size \
@@ -256,15 +256,15 @@ test.engine.metamorphic:
 test.engine.suite:
 	$(NEXTEST) -E '$(SUITE_FILTER)' $(if $(SHARD),--partition count:$(SHARD))
 
-## Mutation testing of the engine (scripts/mutants.sh, docs/verification/FUZZ_MUTANTS.md):
-## SCOPE=certify|solver|element|all|safety (default all); ARGS go to cargo-mutants, e.g. ARGS="--jobs 8 --test-tool nextest"
 mutants.engine:
 	$(NIX_RUN) env -u RUSTC_WRAPPER MUTANTS_SCOPE=$(or $(SCOPE),all) CARGO_INCREMENTAL=1 CARGO_PROFILE_DEV_DEBUG=0 CARGO_PROFILE_TEST_DEBUG=0 scripts/mutants.sh $(ARGS)
 
-## Kill rate per safety-critical module of the mutants.out directories in OUT (default mutants.out), against the baseline
 mutants.safety.report:
 	python3 -I scripts/mutants-safety.py report $(or $(OUT),mutants.out) --json mutants-safety-report.json
 	python3 -I scripts/mutants-safety.py ratchet mutants-safety-report.json
+
+mutants.safety.record:
+	python3 -I scripts/mutants-safety.py record $(or $(REPORT),mutants-safety-report.json)
 
 bench.engine:
 	cd engine && $(NIX_RUN) cargo bench --no-run
@@ -422,6 +422,7 @@ test.nightly-scripts:
 test.ci-scripts: test.nightly-scripts check.cadence
 	python3 -B -I scripts/tests/test_cadence.py
 	python3 -B -I scripts/tests/test_deps_audit.py
+	python3 -B -I scripts/tests/test_mutants_safety.py
 	python3 -B -I scripts/tests/test_retry_infra.py
 	python3 -B -I scripts/tests/test_build_research_wasm.py
 	python3 -B -I scripts/tests/test_research_host_cache.py
