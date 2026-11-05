@@ -482,6 +482,7 @@ jobs:
         with:
           clean: true
           persist-credentials: false
+          fetch-depth: 2
       - if: runner.environment == 'github-hosted'
         uses: ./.github/actions/free-disk
       - if: runner.environment == 'github-hosted'
@@ -505,6 +506,9 @@ jobs:
       - name: Metamorphic tests (sampled tier, release)
         run: make test.engine.metamorphic
         timeout-minutes: 30
+      - name: Invariance of the analyses this change touches (quick tier, release)
+        run: make test.engine.invariance.quick BASE=HEAD^1
+        timeout-minutes: 5
 
   test-ai-backend:
     name: Test AI Backend

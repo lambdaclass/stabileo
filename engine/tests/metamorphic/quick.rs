@@ -280,8 +280,7 @@ pub fn judge(sel: &Selection, out: &Outcome, expected: &[Expected]) -> Vec<Strin
             problems.push(format!("EXPECTED FAILURE NOW {} [{} × {}] {key} (#{}): remove its entry from quick::EXPECTED and verify the fix of #{}", state.to_uppercase(), e.analysis, e.invariant, e.issue, e.issue));
         }
     }
-    let ran: BTreeSet<&str> = out.cells.iter().map(|x| x.1.as_str()).collect();
-    for a in ran {
+    for a in analysis_names().into_iter().filter(|a| sel.has(a)) {
         if !out.passed.iter().any(|(_, x, _)| x == a) && !out.fails.iter().any(|(_, x, _, _)| x == a) {
             problems.push(format!("NO COVERAGE [{a}]: no curated model completed a comparison"));
         }
@@ -367,7 +366,7 @@ fn paths_select_their_analyses() {
 #[test]
 fn judge_flags_new_failures_and_expected_ones_that_pass() {
     let exp = [xfail(7, "m", "plastic collapse", "relabel", 1)];
-    let sel = Selection::All;
+    let sel = Selection::Some(["plastic collapse"].into());
     let fail = |c: &str, a: &str, i: &str| (c.to_string(), a.to_string(), i.to_string(), "x".to_string());
     let cell = |c: &str, a: &str, i: &str, s: &'static str| (c.to_string(), a.to_string(), i.to_string(), s);
     let mut out = Outcome { fails: vec![fail("7:m", "plastic collapse", "relabel")], cells: vec![cell("7:m", "plastic collapse", "relabel", "fail")], ..Default::default() };
@@ -380,5 +379,8 @@ fn judge_flags_new_failures_and_expected_ones_that_pass() {
     let out = Outcome { cells: vec![cell("7:m", "plastic collapse", "relabel", "refused")], ..Default::default() };
     let p = judge(&sel, &out, &exp);
     assert!(p[0].starts_with("EXPECTED FAILURE NOW REFUSED") && p[1].starts_with("NO COVERAGE"), "{p:?}");
-    assert!(judge(&Selection::Some(["harmonic"].into()), &Outcome::default(), &exp).is_empty());
+    let p = judge(&Selection::Some(["harmonic"].into()), &Outcome::default(), &exp);
+    assert_eq!(p, vec!["NO COVERAGE [harmonic]: no curated model completed a comparison".to_string()]);
+    let ok = Outcome { passed: [("7:m".into(), "harmonic".into(), "units".into())].into(), cells: vec![cell("7:m", "harmonic", "units", "pass")], ..Default::default() };
+    assert!(judge(&Selection::Some(["harmonic"].into()), &ok, &exp).is_empty());
 }
