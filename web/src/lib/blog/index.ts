@@ -17,6 +17,7 @@ import { howStabileoChecksItsResults } from './posts/how-stabileo-checks-its-res
 import { release030 } from './posts/release-0-3-0';
 import { endToEndCertificates } from './posts/end-to-end-certificates';
 import { sameModelSameNumbers } from './posts/same-model-same-numbers';
+import { researchToolsAndCheckingOurTests } from './posts/research-tools-and-checking-our-tests';
 
 /**
  * By `order`, not by date.
@@ -36,6 +37,7 @@ export const POSTS: Post[] = [
   release030,
   endToEndCertificates,
   sameModelSameNumbers,
+  researchToolsAndCheckingOurTests,
 ].sort((a, b) => a.order - b.order);
 
 addTranslations(POSTS, (p) => p.slug, import.meta.glob(['./translations/*/*.ts', '!./translations/*/page-*.ts'], { eager: true, import: 'default' }));
