@@ -125,6 +125,15 @@ ready): `governingMagnitude2D` reads each diagram's true peak (`peakAlong`), and
 (`diagram_peak_stations_2d`), so `governing-envelope.test.ts` still finds the governing value of
 every member equal to its envelope peak. What moves is in
 [the results change note](../results-changes/2026-11-governing-true-peak.md).
+## Basic course units return (PRs #1304–#1306)
+
+The course stack registers again, one results version per pull request, the three changes that
+version 15 withdrew: `basic-influence-line-moment-sign-returns` (#1304),
+`basic-second-order-split-members-returns` (#1305) and
+`basic-plastic-closes-unloading-hinges-returns` (#1306). What moves is in
+[the results change note](../results-changes/2026-11-basic-course-returns.md).
+`provenance/__tests__/basic-course-returns.test.ts` checks which a Basic frame stamped before each is
+told. They are results versions 27, 28 and 29, the next free numbers when the stack was marked ready.
 
 ## Results snapshot gate
 

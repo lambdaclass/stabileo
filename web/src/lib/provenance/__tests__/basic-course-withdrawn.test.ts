@@ -12,7 +12,7 @@ const frame = (extra: Partial<FeatureSnapshot> = {}): FeatureSnapshot => ({
   ...extra,
 });
 const ids = (m: FeatureSnapshot, version: number, analyses: string[]) =>
-  assessProject(m, { resultsVersion: version, analyses } as unknown as SolveStamp, '2d').changes.map((c) => c.id).sort();
+  assessProject(m, { resultsVersion: version, analyses } as unknown as SolveStamp, '2d').changes.map((c) => c.id).filter((id) => id.endsWith('-withdrawn')).sort();
 
 describe('results version 15: the Basic course units of version 14 are withdrawn', () => {
   it('tells a Basic frame solved with version 14 that its plastic, second-order and influence-line results went back', () => {

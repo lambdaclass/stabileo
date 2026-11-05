@@ -305,7 +305,7 @@ describe('edited projects with older provenance', () => {
 
   it('a frame solved before the containment diagnostics opens with exactly that notice', async () => {
     const store = createRecheckStore();
-    store.openProject({ ...frame(), solvedWith: { ...oldStamp(), resultsVersion: 29 } }, 'pro');
+    store.openProject({ ...frame(), solvedWith: { ...oldStamp(), resultsVersion: 30 } }, 'pro');
     await vi.waitFor(() => expect(store.pending).toBe(false));
     expect(store.assessment?.changes.map(c => c.id)).toEqual(['safety-containment-diagnostics']);
     expect(store.noticeOpen).toBe(true);

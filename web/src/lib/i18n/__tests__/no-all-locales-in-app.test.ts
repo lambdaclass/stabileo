@@ -77,7 +77,7 @@ describe('the unoffered dictionaries stay out of the application', () => {
     expect(importsAll(elsewhere, `import { x } from '../codes/all';`)).toBe(false);
   });
 
-  it('the store imports the offered three, their steel companions and the step-by-step catalog, and nothing else', () => {
+  it('the store imports the offered three and their steel companions, and nothing else: the step-by-step catalog comes with the course', () => {
     /*
      * `steel/*` is named here rather than skipped by the pattern. The earlier
      * version matched `locales/(\w+)` and so could not see a nested module at
@@ -89,7 +89,9 @@ describe('the unoffered dictionaries stay out of the application', () => {
     // registered by `full-dictionaries.ts`, so that is the file whose imports are the set.
     const src = readFileSync(join(SRC, 'lib/i18n/full-dictionaries.ts'), 'utf8');
     const imported = [...src.matchAll(/from '\.\/locales\/([\w/]+)'/g)].map((m) => m[1]).sort();
-    expect(imported).toEqual(['steel/en', 'steel/es', 'steel/pt', 'steps']);
+    expect(imported).toEqual(['steel/en', 'steel/es', 'steel/pt']);
     expect(src).toContain("import { es, en, pt } from 'virtual:app-i18n'");
+    const course = readFileSync(join(SRC, 'lib/course/course-dictionaries.ts'), 'utf8');
+    expect([...course.matchAll(/from '\.\.\/i18n\/locales\/([\w/]+)'/g)].map((m) => m[1]).sort()).toEqual(['steps', 'steps/de', 'steps/fr', 'steps/tr']);
   });
 });

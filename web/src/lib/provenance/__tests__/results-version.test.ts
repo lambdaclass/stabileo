@@ -75,7 +75,9 @@ const RELEASED: Record<number, string[]> = {
   24: ['corotational-3d-rotations'],
   25: ['constraint-cut-plane'],
   26: ['governing-envelope-true-peak'],
-  30: ['safety-containment-diagnostics'],
+  27: ['basic-influence-line-moment-sign-returns'],
+  28: ['basic-second-order-split-members-returns'],
+  31: ['safety-containment-diagnostics'],
 };
 
 describe('results versions', () => {

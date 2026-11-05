@@ -9,11 +9,10 @@ import { es, en, pt } from 'virtual:app-i18n';
 import steelEs from './locales/steel/es';
 import steelEn from './locales/steel/en';
 import steelPt from './locales/steel/pt';
-import { stepsEs, stepsEn, stepsPt } from './locales/steps';
 import { registerDictionaries } from './store.svelte';
 
 registerDictionaries({
-  es: { ...es, ...steelEs, ...stepsEs },
-  en: { ...en, ...steelEn, ...stepsEn },
-  pt: { ...pt, ...steelPt, ...stepsPt },
+  es: { ...es, ...steelEs },
+  en: { ...en, ...steelEn },
+  pt: { ...pt, ...steelPt },
 });

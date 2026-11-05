@@ -12,10 +12,7 @@
   import WhatIfPanel from '../WhatIfPanel.svelte';
   import SectionStressPanel from '../SectionStressPanel.svelte';
   import DataTable from '../DataTable.svelte';
-  import StepWizard from '../dsm/StepWizard.svelte';
-  import FmWizard from '../fm/FmWizard.svelte';
-  import StepsCatalog from '../steps/StepsCatalog.svelte';
-  import StepDocView from '../steps/StepDocView.svelte';
+  import { loadCourse, type Course } from '../../lib/course/load-course';
   import { explainedSteps } from '../../lib/store/explained-steps.svelte';
   import { dsmStepsStore } from '../../lib/store/dsmSteps.svelte';
   import { fmStepsStore } from '../../lib/store/fmSteps.svelte';
@@ -162,6 +159,10 @@
    */
   /* A step-by-step solution is on screen in the Advanced panel. */
   const stepsOpen = $derived(panel === 'advanced' && (dsmStepsStore.isOpen || fmStepsStore.isOpen || explainedSteps.isOpen));
+  let course = $state<Course | null>(null);
+  $effect(() => {
+    if (stepsOpen && !course) loadCourse().then((c) => { course = c; }, () => {});
+  });
 
   let dockedOutputs = $state<HTMLElement | null>(null);
   const openOutputs = $derived(
@@ -244,13 +245,13 @@
         panel, with the same "← Back" as the rest, and the panel's ✕ is their
         only close.
       -->
-      <StepWizard />
+      {#if course}<course.StepWizard />{/if}
     {:else if panel === 'advanced' && fmStepsStore.isOpen}
-      <FmWizard />
+      {#if course}<course.FmWizard />{/if}
     {:else if panel === 'advanced' && explainedSteps.view === 'catalog'}
-      <StepsCatalog />
+      {#if course}<course.StepsCatalog />{/if}
     {:else if panel === 'advanced' && explainedSteps.view === 'doc'}
-      <StepDocView />
+      {#if course}<course.StepDocView />{/if}
     {:else if panel === 'advanced'}
       <ToolbarAdvanced flat />
       <!--
