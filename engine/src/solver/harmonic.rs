@@ -608,8 +608,10 @@ fn harmonic_modal_from_eigen(
         (t1 != 0.0).then(|| r1.abs() / t1.abs())
     });
 
-    let f_norm = dot(f, f).sqrt();
-    let f_energy = k_solve(f).map(|x| dot(&x, f).max(0.0).sqrt());
+    let f_scale = max_abs(f);
+    let f_unit: Vec<f64> = if f_scale > 0.0 { f.iter().map(|x| x / f_scale).collect() } else { f.to_vec() };
+    let f_norm = dot(&f_unit, &f_unit).sqrt();
+    let f_energy = k_solve(&f_unit).map(|x| dot(&x, &f_unit).max(0.0).sqrt());
     let mut response_points = Vec::with_capacity(frequencies.len());
     let mut residuals = Vec::with_capacity(frequencies.len());
     let mut peak_freq = 0.0f64;
@@ -655,15 +657,23 @@ fn harmonic_modal_from_eigen(
         let (kr, ki, mr, mi) = (k_times(&u_re), k_times(&u_im), m_times(&u_re), m_times(&u_im));
         let res_re: Vec<f64> = (0..n).map(|k| kr[k] - a1 * omega * ki[k] - omega2 * mr[k] - a0 * omega * mi[k] - f[k]).collect();
         let res_im: Vec<f64> = (0..n).map(|k| ki[k] + a1 * omega * kr[k] - omega2 * mi[k] + a0 * omega * mr[k]).collect();
-        let res_sq = dot(&res_re, &res_re) + dot(&res_im, &res_im);
-        let energy = match (k_solve(&res_re), k_solve(&res_im), f_energy) {
-            (Some(xr), Some(xi), Some(fe)) => {
-                let q = dot(&xr, &res_re) + dot(&xi, &res_im);
-                Some(if q.is_finite() { q.max(0.0).sqrt() / fe } else { f64::NAN })
-            }
-            _ => None,
-        };
-        residuals.push(if res_sq == 0.0 { 0.0 } else { energy.unwrap_or_else(|| res_sq.sqrt() / f_norm) });
+        let r_scale = max_abs(&res_re).max(max_abs(&res_im));
+        residuals.push(if r_scale == 0.0 {
+            0.0
+        } else if !r_scale.is_finite() || res_re.iter().chain(&res_im).any(|x| x.is_nan()) {
+            f64::NAN
+        } else {
+            let (res_re, res_im): (Vec<f64>, Vec<f64>) = (res_re.iter().map(|x| x / r_scale).collect(), res_im.iter().map(|x| x / r_scale).collect());
+            let ratio = if f_scale > 0.0 { r_scale / f_scale } else { f64::INFINITY };
+            let energy = match (k_solve(&res_re), k_solve(&res_im), f_energy) {
+                (Some(xr), Some(xi), Some(fe)) => {
+                    let q = dot(&xr, &res_re) + dot(&xi, &res_im);
+                    Some(if q.is_finite() { q.max(0.0).sqrt() / fe * ratio } else { f64::NAN })
+                }
+                _ => None,
+            };
+            energy.unwrap_or_else(|| (dot(&res_re, &res_re) + dot(&res_im, &res_im)).sqrt() / f_norm * ratio)
+        });
 
         let re_sum = apply_target(target, &u_re);
         let im_sum = apply_target(target, &u_im);
@@ -922,6 +932,10 @@ fn max_residual(residuals: &[f64]) -> Option<f64> {
     residuals.iter().map(|&r| if r.is_finite() { r } else { f64::MAX }).reduce(f64::max)
 }
 
+fn max_abs(v: &[f64]) -> f64 {
+    v.iter().fold(0.0f64, |m, x| m.max(x.abs()))
+}
+
 fn dot(a: &[f64], b: &[f64]) -> f64 {
     a.iter().zip(b).map(|(x, y)| x * y).sum()
 }
@@ -1017,6 +1031,33 @@ mod tests {
             let exact = re[2].hypot(im[2]);
             let tol = if p.frequency == 0.4 { 1e-12 } else { 1e-3 } * exact;
             assert!((p.real - re[2]).abs() < tol && (p.imag - im[2]).abs() < tol, "{} Hz: {} {} vs {} {}", p.frequency, p.real, p.imag, re[2], im[2]);
+        }
+    }
+
+    #[test]
+    fn the_fallback_decision_does_not_depend_on_the_load_scale() {
+        let n = 6;
+        let mut k = vec![0.0; n*n];
+        let mut m = vec![0.0; n*n];
+        for (i, lam) in [1.0, 4.0, 9.0, 16.0, 25.0, 36.0].into_iter().enumerate() {
+            k[i*n+i] = lam;
+            m[i*n+i] = 1.0;
+        }
+        let at = |scale: f64| {
+            let f = [scale; 6];
+            let sweep = solve_harmonic_modal(&k, &m, &f, n, &[0.0, 0.05, 0.4], 0.05, &[(2, 1.0)]).unwrap();
+            let residuals = sweep.residuals.clone();
+            let (r, _) = resolve_large_residuals(sweep, || (k.clone(), m.clone()), &f, n, &[(2, 1.0)]).unwrap();
+            (residuals, r.direct_frequencies)
+        };
+        let (unit, direct) = at(1.0);
+        assert_eq!(direct, vec![0.4]);
+        for scale in [1e-170, 1e-300, 1e150] {
+            let (scaled, scaled_direct) = at(scale);
+            assert_eq!(scaled_direct, direct, "load scale {scale:e}: {scaled:?}");
+            for (a, b) in scaled.iter().zip(&unit) {
+                assert!((a - b).abs() <= 1e-9 * b + 1e-12, "load scale {scale:e}: {scaled:?} vs {unit:?}");
+            }
         }
     }
 
