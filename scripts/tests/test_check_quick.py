@@ -8,7 +8,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def plan(*paths, built=False):
+def plan(*paths, built=False, moved=()):
     with tempfile.TemporaryDirectory() as directory:
         repo = Path(directory)
         git = lambda *args: subprocess.run(['git', '-C', directory, *args], check=True, capture_output=True)
@@ -18,8 +18,14 @@ def plan(*paths, built=False):
         if built:
             (repo / 'web/src/lib/wasm').mkdir(parents=True)
             (repo / 'web/src/lib/wasm/dedaliano_engine.d.ts').write_text('')
+        for source, _ in moved:
+            (repo / source).parent.mkdir(parents=True, exist_ok=True)
+            (repo / source).write_text('export const a = 1;\n' * 20)
         git('add', '.')
         git('-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', 'base')
+        for source, target in moved:
+            (repo / target).parent.mkdir(parents=True, exist_ok=True)
+            git('mv', source, target)
         for path in paths:
             (repo / path).parent.mkdir(parents=True, exist_ok=True)
             (repo / path).write_text('x\n')
@@ -67,6 +73,9 @@ class CheckQuick(unittest.TestCase):
     def test_an_early_match_in_a_long_change_list_still_selects_its_check(self):
         out = plan('backend/a.ex', *[f'docs/many/{i:05}.md' for i in range(20000)])
         self.assertIn('lint.backend', targets(out))
+
+    def test_a_file_moved_out_of_an_area_still_checks_that_area(self):
+        self.assertIn('typecheck.web', targets(plan(moved=[('web/src/foo.ts', 'archive/foo.ts')])))
 
     def test_make_exposes_it(self):
         makefile = (ROOT / 'Makefile').read_text()

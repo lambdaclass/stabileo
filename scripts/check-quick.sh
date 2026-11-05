@@ -14,7 +14,7 @@ else
   exit 2
 fi
 
-changed=$( { git diff --name-only "$base"; git ls-files --others --exclude-standard; } | sort -u)
+changed=$( { git diff --no-renames --name-only "$base"; git ls-files --others --exclude-standard; } | sort -u)
 touched() { grep -Eq "$1" <<< "$changed"; }
 
 targets=(check.changelog check-pins check.test-targets)

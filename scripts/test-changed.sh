@@ -68,11 +68,11 @@ fi
 # unstaged and untracked work. Deleted files have nothing left to test; what imported them
 # fails to compile, which the typecheck and the related tests of their importers catch.
 if [ -n "$head" ]; then
-  changed=$(git diff --name-only --diff-filter=d "$base" "$head")
-  deleted=$(git diff --name-only --diff-filter=D "$base" "$head")
+  changed=$(git diff --no-renames --name-only --diff-filter=d "$base" "$head")
+  deleted=$(git diff --no-renames --name-only --diff-filter=D "$base" "$head")
 else
-  changed=$( { git diff --name-only --diff-filter=d "$base"; git ls-files --others --exclude-standard; } | sort -u)
-  deleted=$(git diff --name-only --diff-filter=D "$base")
+  changed=$( { git diff --no-renames --name-only --diff-filter=d "$base"; git ls-files --others --exclude-standard; } | sort -u)
+  deleted=$(git diff --no-renames --name-only --diff-filter=D "$base")
 fi
 
 echo "test-changed: $(printf '%s\n' "$changed" | grep -c . || true) changed file(s) since $(git rev-parse --short "$base")${head:+ up to $(git rev-parse --short "$head")}"
