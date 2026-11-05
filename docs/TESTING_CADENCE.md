@@ -52,10 +52,10 @@ gates and suite shards, the end-to-end smoke shards and determinism, all in para
 | `issue-reproducer-flip` | issue-reproducers.yml | a pull request that says `Fixes #N` for a wrong-result issue flips #N's reproducers |
 
 Engine Quick Checks starts with the other engine jobs, which finish 10 to 15 minutes before
-the web jobs that set the critical path. Each of its checks has a budget of 2 to 3 minutes
-(`budget_min` in the manifest; the runner stops a check that overruns it), so the job ends
-before the critical path does and adds no time to it. Until one of its targets lands, the job
-only reads the manifest and builds nothing.
+the web jobs that set the critical path. Its checks have budgets of 2 to 8 minutes
+(`budget_min` in the manifest; the runner stops a check that overruns it), most of it the
+shared debug build, so the job ends before the critical path does and adds no time to it.
+Until one of its targets lands, the job only reads the manifest and builds nothing.
 
 ### Daily
 
