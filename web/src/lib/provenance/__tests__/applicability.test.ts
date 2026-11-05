@@ -241,10 +241,10 @@ describe('which registered changes concern a model', () => {
     expect(ids(model({ supports: [], loadCases: [] }))).toEqual([]);
   });
 
-  it('concerns a 3D steel truss one version old, and not the same supports and nodal load without members (the re-check e2e relies on it)', () => {
+  it('concerns a 3D steel truss solved before the containment diagnostics, and not the same supports and nodal load without members one version old (the re-check e2e relies on it)', () => {
     const previous = { resultsVersion: RESULTS_VERSION - 1, analyses: ['linear'] } as SolveStamp;
     const loads = [{ type: 'nodal3d', data: { caseId: 1, nodeId: 3, fz: -20 } }];
-    expect(ids(model({ loads, elements: [member(1, 1, 'truss')] }), previous)).toContain('safety-containment-diagnostics');
+    expect(ids(model({ loads, elements: [member(1, 1, 'truss')] }), { resultsVersion: 30, analyses: ['linear'] } as SolveStamp)).toContain('safety-containment-diagnostics');
     expect(ids(model({ loads }), previous)).toEqual([]);
   });
 
