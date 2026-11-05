@@ -13,7 +13,7 @@ import { computeDisplacementAt } from '../diagrams';
 import type { AnalysisResults, SolverInput, SolverLoad } from '../types';
 import type { InfluenceQuantity } from '../../store/model.svelte';
 import { canonicalQuantity, type IlTarget } from './quantities';
-import { memberGeom, samplesOn, type Dir, type IlPoint } from './unit-sweep';
+import { memberGeom, samplesOn, type Dir, type IlPoint, type Solve } from './unit-sweep';
 
 export class MaxwellRefusal extends Error {
   constructor(public readonly key: string) { super(key); }
@@ -73,18 +73,18 @@ export function displacementAlong(solver: SolverInput, res: AnalysisResults, ele
  * The line along the members of `solver` (the original input), in the load direction `dir`, from
  * the unit action at the target. Throws MaxwellRefusal where the target has no such line.
  */
-export function maxwellLine(solver: SolverInput, quantity: InfluenceQuantity, target: IlTarget, n: number, dir: Dir): IlPoint[] {
+export function maxwellLine(solver: SolverInput, quantity: InfluenceQuantity, target: IlTarget, n: number, dir: Dir, run: Solve = solve): IlPoint[] {
   const refusal = maxwellRefusal(solver, quantity, target);
   if (refusal) throw new MaxwellRefusal(refusal);
   const onTruss = target.kind === 'section' && solver.elements.get(target.elementId)?.type === 'truss';
   if (onTruss && target.kind === 'section') {
     const e = solver.elements.get(target.elementId)!;
-    const lineI = maxwellLine(solver, quantity, { kind: 'node', nodeId: e.nodeI }, n, dir);
-    const lineJ = maxwellLine(solver, quantity, { kind: 'node', nodeId: e.nodeJ }, n, dir);
+    const lineI = maxwellLine(solver, quantity, { kind: 'node', nodeId: e.nodeI }, n, dir, run);
+    const lineJ = maxwellLine(solver, quantity, { kind: 'node', nodeId: e.nodeJ }, n, dir, run);
     return lineI.map((p, k) => ({ ...p, value: (1 - target.t) * p.value + target.t * lineJ[k].value }));
   }
   const split = withSectionNode(solver, target);
-  const res = solve({ ...split.solver, loads: [unitAction(quantity, split.node)] });
+  const res = run({ ...split.solver, loads: [unitAction(quantity, split.node)] });
   const along = (id: number, t: number) => {
     const pc = split.pieces;
     if (!pc || id !== pc.original) return displacementAlong(split.solver, res, id, t);

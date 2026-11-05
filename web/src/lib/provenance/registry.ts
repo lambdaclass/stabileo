@@ -1,5 +1,6 @@
 /**
- * The registry of result-affecting changes (`result-changes.json`), typed and checked.
+ * The registry of result-affecting changes (`result-changes/`, assembled by
+ * `web/scripts/result-changes/registry.mjs`), typed and checked.
  *
  * Each entry says which RESULTS VERSION introduced the change, which model features it touches,
  * and what to tell the engineer in each offered language. A project records the results version
@@ -8,8 +9,8 @@
  *
  * The results version is an integer, not the app version: the app version (`package.json`, still
  * 0.1.0) and the commit say which build ran, but neither orders "did the numbers change". Every
- * change that makes the same saved model give different numbers gets an entry here, and the first
- * entry of a new version bumps `currentResultsVersion`.
+ * change that makes the same saved model give different numbers gets an entry here. The versions
+ * in `numbered.json` are frozen; each later merge to main that adds entries takes the next one.
  */
 import metadata from 'virtual:result-change-metadata';
 

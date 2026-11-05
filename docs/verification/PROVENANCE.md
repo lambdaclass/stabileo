@@ -4,7 +4,7 @@ Roadmap: "Trust and verification backlog", items 8 and 9 (`docs/roadmap/PRODUCT_
 
 ## Registry of result-affecting changes
 
-`web/src/lib/provenance/result-changes.json` lists every change that makes the same saved model
+`web/src/lib/provenance/result-changes/` lists every change that makes the same saved model
 give different numbers. Each entry has:
 
 | field | meaning |
@@ -24,21 +24,25 @@ a false "absent" hides a change that moved the engineer's numbers. In particular
 not bound to another code counts as CIRSOC 301, an unbound concrete code as CIRSOC 201, and
 analyses a project does not record count as run.
 
-**Adding a change**: add an entry with `resultsVersion` one above the current
-`currentResultsVersion` and bump `currentResultsVersion`; changes merged together share the new
-version. Never add an entry to a version already on main: every merge to main is deployed and
-stamps what it solves with that version, so an entry added to it later is never shown to those
-projects. `results-version.test.ts` pins each version's entries and fails on such an addition
-(add the new version's set there), and the committed `.ded` fixture's stamp must follow the
-bump. `registry.test.ts` fails on unknown features, missing translations or a heading that does
-not exist.
+**Adding a change**: add one file, `result-changes/<id>.json`, with no `resultsVersion`
+([its README](../../web/src/lib/provenance/result-changes/README.md)). The versions numbered by hand are
+frozen in `result-changes/numbered.json`. Each later merge to main that adds entry files takes
+the next version, in main's merge order: `web/scripts/result-changes/registry.mjs` reads it from
+the first-parent history of the commit being built. Changes merged together share a version.
+A version on main is deployed and stamps what it solves, so an entry can never join a version
+already on main. Under this rule it can't: a version is given when its merge lands. Two pull
+requests that each add a file don't conflict, and the merge queue can land them in one run. A
+build without the history fails rather than guess (CI checks out the whole history; Docker
+reads `web/.result-change-order.json` from `make result-changes.order`). `registry.test.ts`
+fails on unknown features, missing translations or a heading that doesn't exist.
+`results-version.test.ts` pins the frozen versions' entries.
 
-The results snapshot gate also compares registry versions against its base commit,
-even when no snapshot changes. New entries cannot reuse a released version, and
-released entries cannot be removed or renumbered. PRs #807 and #814 both proposed
-version 5 while main was at 4: whichever merges second must preserve the first
-PR's entries and use version 6, updating the pinned version sets, fixture stamp
-and hashes, and documentation. #814 released version 5; #817 (buckling certificate) took 6; #1233 (column design axes) took 7; #1236 (EC2 strain compatibility) took 8; #827 (modal completeness, issue #759) took 9; #865 (self-checks) took 10; #1237 (shell envelope per component) took 11; #1246 (CIRSOC 301 Q ≤ 0 refused) took 12.
+The results snapshot gate also compares the registry with its base commit, even when no
+snapshot changes. It fails a pull request that adds to `numbered.json`, gives a new entry a
+version, or removes, renames or changes an entry already on main. Only its wording (`title`,
+`explanation`, `changelog`) may change. Before this (until November 2026), each pull request
+picked `currentResultsVersion + 1` by hand. It renumbered whenever another one landed first,
+and every results-changing pull request conflicted with every other.
 
 The registry is seeded with every behaviour change of the October 2026 safety wave
 (`docs/MERGE_PLAN_SAFETY_WAVE.md` section 3) and the earlier BREAKING entries of `CHANGELOG.md`,
@@ -193,7 +197,7 @@ changed magnitude is.
    with each moved value, before → after, and the percentage.
 2. `make check.results-snapshot-gate BASE=<base>` (pull requests and the merge queue): if the
    pull request changes or deletes a committed snapshot (beyond the tolerance), it must also add
-   an entry to `result-changes.json` (a change id the base does not have) and a `changelog.d/`
+   an entry file to `result-changes/` (a change id the base does not have) and a `changelog.d/`
    fragment under `### BREAKING (results)`. A value that moved, disappeared, or is newly produced
    in an existing snapshot (another combination, mode, member result or limit state) is a change;
    so is a deleted snapshot. Only a new snapshot file, a new corpus case, is coverage. When the

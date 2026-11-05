@@ -9,7 +9,7 @@ use crate::common;
 use common::make_input;
 use dedaliano_engine::certify::stations::diagram_gaps_2d;
 use dedaliano_engine::postprocess::diagrams::{compute_diagram_value_at, diagram_positions_2d};
-use dedaliano_engine::solver::{linear::solve_2d, plastic::solve_plastic_2d};
+use dedaliano_engine::solver::{linear::solve_2d, plastic::{solve_plastic_2d, solve_plastic_2d_unrefused}};
 use dedaliano_engine::types::*;
 use std::collections::HashMap;
 
@@ -47,7 +47,8 @@ fn portal_with_axial_beam_load() -> PlasticInput {
 #[test]
 fn plastic_split_at_an_interior_hinge_keeps_the_whole_axial_span_load() {
     let input = portal_with_axial_beam_load();
-    let r = solve_plastic_2d(&input).unwrap();
+    crate::common::assert_containment(solve_plastic_2d(&input), "PL-2D-INVARIANCE");
+    let r = solve_plastic_2d_unrefused(&input).unwrap();
     // The beam (element 2) takes a hinge inside its span, and a step is solved after it.
     let interior = r
         .hinges

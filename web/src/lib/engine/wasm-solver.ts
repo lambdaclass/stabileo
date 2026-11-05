@@ -1,3 +1,4 @@
+import { isContainmentRefusal } from './containment-error';
 import { materialToWire, sectionToWire, type ElasticMaterialWire, type ElasticSectionWire } from './unit-types';
 import { registerColumnCapacityKernel } from './column-capacity-kernel';
 import { noteEngineBuild } from '../provenance/build-identity';
@@ -24,7 +25,7 @@ import type { SolverInput3D, SolverElement3D, SolverSection3D, AnalysisResults3D
 import { bucklingWarpingInput, hasBucklingWarping, torsionGaps3D } from './buckling-warping';
 import { finishSolve3D, finishPDelta3D } from './solve-finish';
 import { plainDeepCopy, findUncloneablePath } from '../utils/plain-deep-copy';
-import { errorText } from '../utils/error-text';
+import { errorText } from '../utils/thrown-text';
 import { EngineUnavailableError, EngineCheckError } from './engine-unavailable';
 import { tagCertifyJob } from './certify-tags';
 import { modalMechanismRefusal } from './dynamics/time-history-refusal';
@@ -1072,14 +1073,15 @@ export function certifyBuckling3D(input: SolverInput3D, numModes = 4) {
 
 /**
  * The buckling result with its certificate attached, or null to solve it plainly:
- * no certify export, or the certifier threw (the plain solve then reports its own error).
+ * no certify export, or an ordinary certification failure. Containment refusals propagate.
  */
 function bucklingWithCertificate(certify: ((json: string, numModes: number) => string) | null, json: string, numModes: number): any | null {
   if (!certify) return null;
   try {
     const out = JSON.parse(certify(json, numModes));
     return { ...out.results, certificate: out.certificate as BucklingCertificate };
-  } catch {
+  } catch (error) {
+    if (isContainmentRefusal(error)) throw error;
     return null;
   }
 }
@@ -1316,7 +1318,10 @@ export function solveBuckling3D(input: SolverInput3D, numModes = 4) {
   if (hasBucklingWarping(input)) {
     try {
       axial = new Map(solve3D(input).elementForces.map((f) => [f.elementId, (f.nStart + f.nEnd) / 2]));
-    } catch { axial = null; /* The buckling solve below says why. */ }
+    } catch (error) {
+      if (isContainmentRefusal(error)) throw error;
+      axial = null; /* The buckling solve below says why. */
+    }
   }
   let warpingMembers: number[] = [];
   let run;

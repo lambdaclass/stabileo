@@ -1,0 +1,37 @@
+{
+  "$comment": "Kill rate per safety-critical module (scripts/mutants-safety.json) that the weekly run must not fall below. Raise it with make mutants.safety.record after a run that kills more.",
+  "modules": {
+    "certificate": {
+      "tested": 427,
+      "caught": 420,
+      "timeout": 4,
+      "missed": 3,
+      "unviable": 131,
+      "kill_rate": 0.993
+    },
+    "provenance": {
+      "tested": 125,
+      "caught": 107,
+      "timeout": 5,
+      "missed": 13,
+      "unviable": 7,
+      "kill_rate": 0.896
+    },
+    "design-verdict": {
+      "tested": 72,
+      "caught": 58,
+      "timeout": 0,
+      "missed": 14,
+      "unviable": 8,
+      "kill_rate": 0.8056
+    },
+    "containment": {
+      "tested": 38,
+      "caught": 20,
+      "timeout": 0,
+      "missed": 18,
+      "unviable": 10,
+      "kill_rate": 0.5263
+    }
+  }
+}

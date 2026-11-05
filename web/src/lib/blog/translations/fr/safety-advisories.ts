@@ -129,6 +129,8 @@ const body: PostBody = {
         [
           "SA-2026-044",
           "Effondrement plastique 2D : le facteur d'effondrement changeait avec la numérotation des nœuds, le sens des barres et les unités (jusqu'à 4,6 fois sur la même structure)",
+          "SA-2026-043",
+          "Analyse harmonique : la correction des modes omis perdait ses chiffres lorsqu’un mode était beaucoup plus souple que les autres (79 fois à 2,3 Hz dans un exemple)",
           "Élevée",
           "Corrigé dans la prochaine version"
         ],

@@ -1560,6 +1560,7 @@
     },
     {
       "id": "mitc4-trapezoidal-in",
+      "expectedRefusal": { "issue": 798, "id": "SH-MITC4-DISTORTION" },
       "label": "MITC4 \u00b7 trapezoidal \u00b7 in-plane",
       "dimension": 3,
       "element": "MITC4",
@@ -1790,10 +1791,7 @@
       "reference": 0.1081,
       "source": "MacNeal\u2013Harder straight cantilever (Fig. 4, p. 7); 6\u00d71 mesh with midsurface MITC4 nodes. Reference: Table 3, p. 10, per a public transcription, checked against Timoshenko beam theory.",
       "nativeTest": "macneal_harder::browser_cases",
-      "nativeBounds": {
-        "pinnedValue": 0.008443013508022026,
-        "relativeTolerance": 1e-08
-      },
+      "nativeBounds": null,
       "knownIssue": "https://github.com/lambdaclass/stabileo/blob/main/engine/tests/benchmarks/KNOWN_ISSUES.md#mh-mitc4-distortion",
       "referenceRounding": 5e-05,
       "expectedPass": false
@@ -2040,6 +2038,7 @@
     },
     {
       "id": "mitc4-parallelogram-in",
+      "expectedRefusal": { "issue": 798, "id": "SH-MITC4-DISTORTION" },
       "label": "MITC4 \u00b7 parallelogram \u00b7 in-plane",
       "dimension": 3,
       "element": "MITC4",
@@ -2270,10 +2269,7 @@
       "reference": 0.1081,
       "source": "MacNeal\u2013Harder straight cantilever (Fig. 4, p. 7); 6\u00d71 mesh with midsurface MITC4 nodes. Reference: Table 3, p. 10, per a public transcription, checked against Timoshenko beam theory.",
       "nativeTest": "macneal_harder::browser_cases",
-      "nativeBounds": {
-        "pinnedValue": 0.010379694543545988,
-        "relativeTolerance": 1e-08
-      },
+      "nativeBounds": null,
       "knownIssue": "https://github.com/lambdaclass/stabileo/blob/main/engine/tests/benchmarks/KNOWN_ISSUES.md#mh-mitc4-distortion",
       "referenceRounding": 5e-05,
       "expectedPass": false

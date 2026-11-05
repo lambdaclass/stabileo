@@ -1,15 +1,16 @@
+import * as wasmSolver from '../wasm-solver';
 /**
  * Cases made of other cases, notional loads, reductions, and combinations by SRSS and ABS, on a
  * portal frame: a composite case gives the linear combination it stands for, and with P-Delta per
  * combination its own second-order result; a reference case is solved for what takes it in and not
  * listed; SRSS and ABS by hand, at the ends and along a member.
  */
-import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest';
 import { modelStore } from '../../store/model.svelte';
 import { historyStore } from '../../store/history.svelte';
 import '../../store';
 import { initSolver } from '../wasm-solver';
-import { solveCombinations3D, type ModelData } from '../solver-service';
+import { solveCombinations2D, solveCombinations3D, type ModelData } from '../solver-service';
 import { evaluateDiagramAt } from '../diagrams-3d';
 import { withCaseEffects, caseOrder } from '../case-effects';
 import { withNotionalVariants } from '../loads/notional-combinations';
@@ -140,4 +141,34 @@ describe('SRSS and ABS', () => {
     // The linear combination is untouched.
     expect(disp(r.perCombo.get(lin)!, n3).ux).toBeCloseTo(d.ux + w.ux, 12);
   });
+});
+
+it('preserves a multi-case containment refusal instead of publishing a fallback', () => {
+  const { D, W } = portal();
+  modelStore.addCombination('both', [{ caseId: D, factor: 1 }, { caseId: W, factor: 1 }]);
+  const refusal = JSON.stringify({ structuredDiagnostics: [{ code: 'known_issue', severity: 'error', phase: 'SH-MITC4-DISTORTION', value: 798, message: 'withheld' }] });
+  const multi = vi.spyOn(wasmSolver, 'solveMultiCase3D').mockImplementation(() => { throw refusal; });
+  const single = vi.spyOn(wasmSolver, 'solve3D');
+  try {
+    expect(solveCombinations3D(md() as never, modelStore.model.loadCases, modelStore.model.combinations, false, false)).toBe(refusal);
+    expect(multi).toHaveBeenCalled();
+    expect(single).not.toHaveBeenCalled();
+  } finally { multi.mockRestore(); single.mockRestore(); }
+});
+
+it('preserves a 2D multi-case containment refusal', () => {
+  const n1 = modelStore.addNode(0, 0), n2 = modelStore.addNode(4, 0);
+  modelStore.addElement(n1, n2);
+  modelStore.addSupport(n1, 'fixed' as never);
+  const D = modelStore.addLoadCase('D', 'D');
+  modelStore.addNodalLoad(n2, 0, -1, 0, D);
+  modelStore.addCombination('D', [{ caseId: D, factor: 1 }]);
+  const refusal = JSON.stringify({ structuredDiagnostics: [{ code: 'known_issue', severity: 'error', phase: 'BU-BOUND', value: 741, message: 'withheld' }] });
+  const multi = vi.spyOn(wasmSolver, 'solveMultiCase2D').mockImplementation(() => { throw refusal; });
+  const single = vi.spyOn(wasmSolver, 'solve');
+  try {
+    expect(solveCombinations2D(md() as never, modelStore.model.loadCases, modelStore.model.combinations, false)).toBe(refusal);
+    expect(multi).toHaveBeenCalled();
+    expect(single).not.toHaveBeenCalled();
+  } finally { multi.mockRestore(); single.mockRestore(); }
 });

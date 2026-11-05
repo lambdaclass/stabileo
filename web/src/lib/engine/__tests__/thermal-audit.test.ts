@@ -1,3 +1,4 @@
+import { expectPlasticRefusal } from './containment-helper';
 /**
  * Temperature, through every tool that reads it.
  *
@@ -354,14 +355,19 @@ describe('temperature in the advanced analyses', () => {
     materials: new Map([[1, { fy: 250 }]]),
   });
   const MP = 250e3 * 0.1 * 0.3464 ** 2 / 4;
+  const withoutGradient = [[], [th(1, 30)], [th(1, 0, 10), th(2, 0, 10)]];
 
-  it('plastic, plane: collapse at 8Mp/(PL), with a uniform ΔT or a gradient on both halves', () => {
-    for (const extra of [[], [th(1, 30)], [th(1, 0, 10), th(2, 0, 10)]]) {
+  it('plastic, plane: withheld while PL-2D-INVARIANCE (#758) is open, with or without a temperature', () => {
+    for (const extra of [...withoutGradient, [th(1, 0, 30)]]) expectPlasticRefusal(() => beam(extra));
+  });
+
+  it.skip('plastic, plane: collapse at 8Mp/(PL), with a uniform ΔT or a gradient on both halves (skipped: #758 PL-2D-INVARIANCE withholds the 2D plastic result)', () => {
+    for (const extra of withoutGradient) {
       expect(beam(extra).collapseFactor).toBeCloseTo(8 * MP / (50 * 6), 2);
     }
   });
 
-  it('plastic, plane: collapse at 8Mp/(PL), with a gradient on one half', () => {
+  it.skip('plastic, plane: collapse at 8Mp/(PL), with a gradient on one half (skipped: #758 PL-2D-INVARIANCE withholds the 2D plastic result)', () => {
     expect(beam([th(1, 0, 30)]).collapseFactor).toBeCloseTo(8 * MP / (50 * 6), 2);
   });
 });

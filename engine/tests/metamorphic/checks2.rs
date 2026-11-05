@@ -72,8 +72,8 @@ pub fn with_eigen_2d(cond: Conditioning, c: &Case2) -> Conditioning {
 
 fn run(a: &Ana2, c: &Case2) -> Result<Resp, String> {
     guarded(|| {
-        let r = (a.run)(c)?;
-        if crate::generated::strict() {
+        let r = crate::response::scoped(a.name, true, false, crate::response::outcome((a.run)(c))?)?;
+        if crate::generated::strict() && r.1.is_empty() {
             crate::generated::validate_2d(a.name, &r, c)?;
         }
         Ok(r)
@@ -85,6 +85,7 @@ pub fn judge(res: Result<dedaliano_engine::metamorphic::compare::Report, String>
         return Verdict::Inconclusive(rel);
     }
     match res {
+        Ok(r) if r.values == 0 && r.refusals > 0 => Verdict::SameRefusal,
         Ok(r) => Verdict::Pass(r.worst),
         Err(e) => Verdict::Fail(e),
     }
@@ -93,7 +94,7 @@ pub fn judge(res: Result<dedaliano_engine::metamorphic::compare::Report, String>
 pub fn judge_split(got: &Resp, expected: &Resp, rel: f64, base: f64, cmp: impl Fn(&Resp, &Resp, f64) -> Result<dedaliano_engine::metamorphic::compare::Report, String>) -> Verdict {
     let free: std::collections::HashSet<String> = expected.0.iter().filter(|i| EIGEN_FREE.contains(&i.tag.as_str())).map(|i| i.tag.clone()).collect();
     if !free.is_empty() && base <= INCONCLUSIVE {
-        let only = |r: &Resp| Resp(r.0.iter().filter(|i| free.contains(&i.tag)).cloned().collect());
+        let only = |r: &Resp| Resp(r.0.iter().filter(|i| free.contains(&i.tag)).cloned().collect(), r.1.clone());
         if let Err(e) = cmp(&only(got), &only(expected), base) {
             return Verdict::Fail(e);
         }
@@ -104,6 +105,7 @@ pub fn judge_split(got: &Resp, expected: &Resp, rel: f64, base: f64, cmp: impl F
     let widened = crate::response::widened_past(expected, rel, INCONCLUSIVE);
     match cmp(&got.without_tags(&widened), &expected.without_tags(&widened), rel) {
         Err(e) => Verdict::Fail(e),
+        Ok(r) if r.values == 0 && r.refusals > 0 => Verdict::SameRefusal,
         Ok(_) if !widened.is_empty() => Verdict::Inconclusive(rel),
         Ok(r) => Verdict::Pass(r.worst),
     }
@@ -165,7 +167,7 @@ pub fn transformed_failure(e: String) -> Verdict {
 pub fn settle(first: Verdict, retry: impl FnOnce() -> Verdict) -> Verdict {
     match first {
         Verdict::Refused(_) | Verdict::Unrepresentable(_) => match retry() {
-            v @ (Verdict::Pass(_) | Verdict::Fail(_) | Verdict::Inconclusive(_)) => v,
+            v @ (Verdict::Pass(_) | Verdict::SameRefusal | Verdict::Fail(_) | Verdict::Inconclusive(_)) => v,
             _ => first,
         },
         v => v,
@@ -335,8 +337,45 @@ pub fn check_case(ctx: &Ctx, c: &Case2, anas: &[Ana2], invariants: &[&str]) {
     }
 }
 
-/// Magnitude of the applied loads (force units): Σ|F| + Σ|M|/L + Σ|q|·L_e.
+/// Magnitude of the applied actions (force units): Σ|F| + Σ|M|/L + Σ|q|·L_e,
+/// plus the force a thermal strain or a settlement would cause if restrained
+/// (E·A·α·ΔT, E·I·α·ΔT_grad/(h·L); for a settlement, the end forces of each
+/// member at that node: EA/L·d_axial + 12EI/L³·d_transverse + 6EI/L²·θ): a
+/// statically determinate model under those has member forces that are zero
+/// up to round-off of that size, not of zero.
 pub fn load_floor_2d(s: &SolverInput, lchar: f64) -> f64 {
+    let member = |id: usize| -> Option<(f64, f64, f64, f64)> {
+        let e = s.elements.get(&id.to_string())?;
+        let (a, b) = (s.nodes.get(&e.node_i.to_string())?, s.nodes.get(&e.node_j.to_string())?);
+        let m = s.materials.get(&e.material_id.to_string())?;
+        let x = s.sections.get(&e.section_id.to_string())?;
+        Some((m.e * 1000.0, x.a, x.iz, ((b.x - a.x).powi(2) + (b.z - a.z).powi(2)).sqrt()))
+    };
+    let imposed: f64 = s.supports.values().map(|x| {
+        let (dx, dz, th) = (x.dx.unwrap_or(0.0), x.dz.unwrap_or(0.0), x.dry.unwrap_or(0.0).abs());
+        if dx == 0.0 && dz == 0.0 && th == 0.0 {
+            return 0.0;
+        }
+        s.elements.values().filter(|e| e.node_i == x.node_id || e.node_j == x.node_id).filter_map(|e| {
+            let (em, a, i, l) = member(e.id).filter(|m| m.3 > 0.0)?;
+            let (n1, n2) = (s.nodes.get(&e.node_i.to_string())?, s.nodes.get(&e.node_j.to_string())?);
+            let (cx, cz) = ((n2.x - n1.x) / l, (n2.z - n1.z) / l);
+            let (axial, transverse) = ((dx * cx + dz * cz).abs(), (dx * cz - dz * cx).abs());
+            Some(em * (a / l * axial + 12.0 * i / l.powi(3) * transverse + 6.0 * i / (l * l) * th))
+        }).sum::<f64>()
+    }).sum();
+    let thermal: f64 = s.loads.iter().map(|l| match l {
+        SolverLoad::Thermal(t) => member(t.element_id).map_or(0.0, |(em, a, i, _)| {
+            let alpha = t.alpha.unwrap_or(1.2e-5).abs();
+            let h = t.depth.unwrap_or((12.0 * i / a).sqrt());
+            em * alpha * (a * t.dt_uniform.abs() + i * t.dt_gradient.abs() / (h * lchar))
+        }),
+        _ => 0.0,
+    }).sum();
+    imposed + thermal + applied_2d(s, lchar)
+}
+
+fn applied_2d(s: &SolverInput, lchar: f64) -> f64 {
     let len = |id: usize| -> f64 {
         s.elements.get(&id.to_string()).and_then(|e| {
             let (a, b) = (s.nodes.get(&e.node_i.to_string())?, s.nodes.get(&e.node_j.to_string())?);

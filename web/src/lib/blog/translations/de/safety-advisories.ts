@@ -129,6 +129,8 @@ const body: PostBody = {
         [
           "SA-2026-044",
           "2D-Plastischer Kollaps: Der Kollapsfaktor änderte sich mit Knotennummerierung, Stabrichtung und Einheiten (bis zum 4,6-Fachen bei derselben Struktur)",
+          "SA-2026-043",
+          "Harmonische Analyse: Die Korrektur der weggelassenen Moden verlor ihre Stellen, wenn eine Mode viel weicher war als die übrigen (79-fach bei 2,3 Hz in einem Beispiel)",
           "Hoch",
           "Behoben in der nächsten Version"
         ],

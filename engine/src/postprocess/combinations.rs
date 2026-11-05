@@ -145,7 +145,11 @@ pub fn combine_results(input: &CombinationInput) -> Option<AnalysisResults> {
 
 /// `combine_results` over borrowed case results: `(case_id, &results)` pairs,
 /// avoiding per-combination clones of every case.
+/// `None` when a contributing case carries a refusal; `combine_results_checked` says which.
 pub fn combine_results_refs(factors: &[CombinationFactor], cases: &[(usize, &AnalysisResults)]) -> Option<AnalysisResults> {
+    if cases.iter().any(|(id, r)| factors.iter().any(|f| f.case_id == *id && f.factor != 0.0) && crate::known_issues::refuse_contained(&r.structured_diagnostics, *r).is_err()) {
+        return None;
+    }
     let template = cases.first()?;
     let tr = template.1;
 
@@ -228,13 +232,29 @@ pub fn combine_results_refs(factors: &[CombinationFactor], cases: &[(usize, &Ana
         }
     }
 
-    Some(AnalysisResults { displacements, reactions, element_forces, constraint_forces: vec![], diagnostics: vec![], solver_diagnostics: vec![], structured_diagnostics: vec![], equilibrium: None, result_summary: None, solver_run_meta: None })
+    let mut structured_diagnostics = Vec::new();
+    for (_, result) in cases.iter().filter(|(id, _)| factors.iter().any(|f| f.case_id == *id && f.factor != 0.0)) {
+        crate::known_issues::attach(&mut structured_diagnostics, crate::result_sites::known_issues(result));
+    }
+    Some(AnalysisResults { displacements, reactions, element_forces, constraint_forces: vec![], diagnostics: vec![], solver_diagnostics: vec![], structured_diagnostics, equilibrium: None, result_summary: None, solver_run_meta: None })
+}
+
+/// `combine_results` for results received from outside the engine: a contributing case that
+/// carries a refusal is refused instead of being combined into usable numbers.
+pub fn combine_results_checked(input: &CombinationInput) -> Result<Option<AnalysisResults>, String> {
+    for case in input.cases.iter().filter(|c| input.factors.iter().any(|f| f.case_id == c.case_id && f.factor != 0.0)) {
+        crate::known_issues::refuse_contained(&case.results.structured_diagnostics, &case.results)?;
+    }
+    Ok(combine_results(input))
 }
 
 // ==================== 2D Envelope ====================
 
-/// Compute pointwise envelope from multiple results.
+/// Compute pointwise envelope from multiple results. A result that carries a refusal is refused.
 pub fn compute_envelope(results: &[AnalysisResults]) -> Result<FullEnvelope, String> {
+    for result in results {
+        crate::known_issues::refuse_contained(&result.structured_diagnostics, result)?;
+    }
     let first = results.first().ok_or_else(|| "Cannot compute the envelope of no results".to_string())?;
     check_enveloped_inputs(results.iter().enumerate().map(|(i, r)| {
         (i, EnvelopedFields { displacements: &r.displacements, reactions: &r.reactions, element_forces: &r.element_forces })
@@ -272,7 +292,11 @@ pub fn compute_envelope(results: &[AnalysisResults]) -> Result<FullEnvelope, Str
         }
     }
 
-    let max_abs_results = AnalysisResults { displacements, reactions, element_forces, constraint_forces: vec![], diagnostics: vec![], solver_diagnostics: vec![], structured_diagnostics: vec![], equilibrium: None, result_summary: None, solver_run_meta: None };
+    let mut structured_diagnostics = Vec::new();
+    for result in results {
+        crate::known_issues::attach(&mut structured_diagnostics, crate::result_sites::known_issues(result));
+    }
+    let max_abs_results = AnalysisResults { displacements, reactions, element_forces, constraint_forces: vec![], diagnostics: vec![], solver_diagnostics: vec![], structured_diagnostics, equilibrium: None, result_summary: None, solver_run_meta: None };
 
     fn compute_env_diagram(kind: &str, results: &[AnalysisResults]) -> Result<EnvelopeDiagramData, String> {
         let first = &results[0];
@@ -344,15 +368,28 @@ pub fn compute_envelope(results: &[AnalysisResults]) -> Result<FullEnvelope, Str
 // ==================== 3D Combination ====================
 
 /// Linearly combine 3D results.
-pub fn combine_results_3d(input: &CombinationInput3D) -> Option<AnalysisResults3D> {
+pub fn combine_results_3d(input: &CombinationInput3D) -> Result<Option<AnalysisResults3D>, String> {
     let cases: Vec<(usize, &AnalysisResults3D)> =
         input.cases.iter().map(|c| (c.case_id, &c.results)).collect();
     combine_results_3d_refs(&input.factors, &cases)
 }
 
 /// `combine_results_3d` over borrowed case results: `(case_id, &results)` pairs,
-/// avoiding per-combination clones of every case.
-pub fn combine_results_3d_refs(factors: &[CombinationFactor], cases: &[(usize, &AnalysisResults3D)]) -> Option<AnalysisResults3D> {
+/// avoiding per-combination clones of every case. Distorted-shell results combine only when
+/// Σ|factor| ≤ 1, which keeps each case's checked membrane-stress variation within its bound.
+pub fn combine_results_3d_refs(factors: &[CombinationFactor], cases: &[(usize, &AnalysisResults3D)]) -> Result<Option<AnalysisResults3D>, String> {
+    let contributing: Vec<_> = cases.iter().filter(|(id, _)| factors.iter().any(|f| f.case_id == *id && f.factor != 0.0)).collect();
+    let weight: f64 = factors.iter().filter(|f| cases.iter().any(|(id, _)| *id == f.case_id)).map(|f| f.factor.abs()).sum();
+    for (_, result) in &contributing {
+        crate::known_issues::refuse_contained(&result.structured_diagnostics, result)?;
+        if !(weight <= 1.0) && crate::result_sites::known_issues(result).iter().any(|d| d.phase.as_deref() == Some("SH-MITC4-DISTORTION")) {
+            crate::known_issues::refuse(&[crate::known_issues::diagnostic("SH-MITC4-DISTORTION")])?;
+        }
+    }
+    Ok(combine_results_3d_refs_unchecked(factors, cases))
+}
+
+pub(crate) fn combine_results_3d_refs_unchecked(factors: &[CombinationFactor], cases: &[(usize, &AnalysisResults3D)]) -> Option<AnalysisResults3D> {
     let template = cases.first()?;
     let tr = template.1;
 
@@ -444,13 +481,28 @@ pub fn combine_results_3d_refs(factors: &[CombinationFactor], cases: &[(usize, &
         }
     }
 
-    Some(AnalysisResults3D { displacements, reactions, element_forces, plate_stresses: vec![], quad_stresses: vec![], quad_nodal_stresses: vec![], constraint_forces: vec![], diagnostics: vec![], solver_diagnostics: vec![], structured_diagnostics: vec![], equilibrium: None, timings: None, result_summary: None, solver_run_meta: None })
+    let mut structured_diagnostics = Vec::new();
+    for (_, result) in cases.iter().filter(|(id, _)| factors.iter().any(|f| f.case_id == *id && f.factor != 0.0)) {
+        crate::known_issues::attach(&mut structured_diagnostics, crate::result_sites::known_issues(result));
+    }
+    Some(AnalysisResults3D { displacements, reactions, element_forces, plate_stresses: vec![], quad_stresses: vec![], quad_nodal_stresses: vec![], constraint_forces: vec![], diagnostics: vec![], solver_diagnostics: vec![], structured_diagnostics, equilibrium: None, timings: None, result_summary: None, solver_run_meta: None })
 }
 
 // ==================== 3D Envelope ====================
 
-/// Compute pointwise 3D envelope.
+/// Compute pointwise 3D envelope. A single distorted-shell result is returned as it is; several
+/// are refused, since the envelope cannot check their combined membrane stresses.
 pub fn compute_envelope_3d(results: &[AnalysisResults3D]) -> Result<FullEnvelope3D, String> {
+    for result in results {
+        crate::known_issues::refuse_contained(&result.structured_diagnostics, result)?;
+        if results.len() > 1 && crate::result_sites::known_issues(result).iter().any(|d| d.phase.as_deref() == Some("SH-MITC4-DISTORTION")) {
+            crate::known_issues::refuse(&[crate::known_issues::diagnostic("SH-MITC4-DISTORTION")])?;
+        }
+    }
+    compute_envelope_3d_checked(results)
+}
+
+pub(crate) fn compute_envelope_3d_checked(results: &[AnalysisResults3D]) -> Result<FullEnvelope3D, String> {
     let first = results.first().ok_or_else(|| "Cannot compute the envelope of no results".to_string())?;
     check_enveloped_inputs(results.iter().enumerate().map(|(i, r)| {
         (i, EnvelopedFields { displacements: &r.displacements, reactions: &r.reactions, element_forces: &r.element_forces })
@@ -501,7 +553,11 @@ pub fn compute_envelope_3d(results: &[AnalysisResults3D]) -> Result<FullEnvelope
         }
     }
 
-    let max_abs_results_3d = AnalysisResults3D { displacements, reactions, element_forces, plate_stresses: vec![], quad_stresses: vec![], quad_nodal_stresses: vec![], constraint_forces: vec![], diagnostics: vec![], solver_diagnostics: vec![], structured_diagnostics: vec![], equilibrium: None, timings: None, result_summary: None, solver_run_meta: None };
+    let mut structured_diagnostics = Vec::new();
+    for result in results {
+        crate::known_issues::attach(&mut structured_diagnostics, crate::result_sites::known_issues(result));
+    }
+    let max_abs_results_3d = AnalysisResults3D { displacements, reactions, element_forces, plate_stresses: vec![], quad_stresses: vec![], quad_nodal_stresses: vec![], constraint_forces: vec![], diagnostics: vec![], solver_diagnostics: vec![], structured_diagnostics, equilibrium: None, timings: None, result_summary: None, solver_run_meta: None };
 
     fn compute_env_3d(kind: &str, results: &[AnalysisResults3D]) -> Result<EnvelopeDiagramData, String> {
         let first = &results[0];

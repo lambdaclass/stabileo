@@ -55,6 +55,8 @@ pub struct PlasticHinge {
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PlasticResult3D {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub structured_diagnostics: Vec<StructuredDiagnostic>,
     pub collapse_factor: f64,
     pub steps: Vec<PlasticStep3D>,
     pub hinges: Vec<PlasticHinge3D>,
@@ -588,6 +590,17 @@ fn span_candidates(
 /// analysis cannot run or nothing independent of it confirms its factor, `warnings` says the
 /// factor is unconfirmed and it is the lower of the two.
 pub fn solve_plastic_2d(input: &PlasticInput) -> Result<PlasticResult, String> {
+    crate::known_issues::refuse(&crate::known_issues::for_2d(&input.solver, crate::known_issues::Analysis::Plastic))?;
+    solve_plastic_2d_body(input)
+}
+
+/// `solve_plastic_2d` without the #758 refusal; it exists only in the engine's unit-test build.
+#[cfg(test)]
+pub(crate) fn solve_plastic_2d_unrefused(input: &PlasticInput) -> Result<PlasticResult, String> {
+    solve_plastic_2d_body(input)
+}
+
+pub(crate) fn solve_plastic_2d_body(input: &PlasticInput) -> Result<PlasticResult, String> {
     let solver_input = &input.solver;
 
     // Validated up front so that the `Err` from `solve_2d` inside the step

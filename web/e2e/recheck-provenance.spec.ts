@@ -193,9 +193,10 @@ async function slowNoticeChunk(page: Page, ms: number) {
   });
 }
 
-/** Older than this build, and touched by none of the changes since: a 3D steel truss. */
+/** Older than this build, and touched by none of the changes since: supports and a nodal load, no members. */
 async function olderUntouchedProject(page: Page) {
   const f = oldProject(1, 'truss');
+  f.snapshot.elements = [];
   const current = (await recheck(page)).stampVersion!;
   (f.snapshot as Record<string, unknown>).solvedWith = { id: 'e2e-1418', resultsVersion: current - 1, analyses: ['linear'] };
   return { f, solved: current - 1 };

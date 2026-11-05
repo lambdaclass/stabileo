@@ -34,30 +34,38 @@ function wasmStubPlugin(): Plugin {
  * `virtual:public-i18n`: the dictionaries' entries the public pages read (`landing.*`, `blog.*`, `lang.*`,
  * `contact.*`). The landing and the blog load these instead of the whole dictionaries (3 MB of
  * source, most of the public bundle); the application registers the rest when it loads
- * (`lib/i18n/full-dictionaries.ts`). English is bundled; every other language is its own chunk
- * (`loaders`, awaited by `ensurePublicLocale` before a page renders in it), except under Vitest,
- * which gets them all bundled. The entries are copied line by line, which
- * `union-merge-safe.test.ts` keeps possible: one entry per line.
+ * (`lib/i18n/full-dictionaries.ts`, from `virtual:app-i18n`, the entries that are not public).
+ * English is bundled; every other language is its own chunk (`loaders`, awaited by
+ * `ensurePublicLocale` before a page renders in it), except under Vitest, which gets them all
+ * bundled. The entries are copied line by line, which `union-merge-safe.test.ts` keeps possible:
+ * one entry per line.
  */
 function publicI18nPlugin(): Plugin {
   const id = 'virtual:public-i18n';
+  const app = 'virtual:app-i18n';
   const eager = !!process.env.VITEST;
-  const entries = (loc: string, watch: (file: string) => void) => {
+  const entries = (loc: string, publicOnly: boolean, watch: (file: string) => void) => {
     const file = resolve(__dirname, 'src/lib/i18n/locales', `${loc}.ts`);
     watch(file);
     const lines = readFileSync(file, 'utf8').split('\n').filter((l) => {
       const m = /^\s*(['"])([^'"]+)\1: /.exec(l);
-      return !!m && PUBLIC_KEY_PREFIXES.some((p) => m[2].startsWith(p));
+      return !!m && PUBLIC_KEY_PREFIXES.some((p) => m[2].startsWith(p)) === publicOnly;
     });
     return `{\n${lines.join('\n')}\n}`;
   };
   return {
     name: 'public-i18n',
     resolveId(s) {
-      return s === id || s.startsWith(`${id}/`) ? '\0' + s : null;
+      return [id, app].some((v) => s === v || s.startsWith(`${v}/`)) ? '\0' + s : null;
     },
     load(resolved) {
-      if (resolved.startsWith(`\0${id}/`)) return `export default ${entries(resolved.slice(id.length + 2), (f) => this.addWatchFile(f))};\n`;
+      const watch = (f: string) => this.addWatchFile(f);
+      if (resolved.startsWith(`\0${id}/`)) return `export default ${entries(resolved.slice(id.length + 2), true, watch)};\n`;
+      if (resolved === `\0${app}` || resolved.startsWith(`\0${app}/`)) {
+        const locale = resolved.slice(app.length + 2);
+        return (locale ? [locale] : ['en', 'es', 'pt', 'de', 'fr', 'tr'])
+          .map((loc) => `export const ${loc} = ${isComplete(loc) ? entries(loc, false, watch) : '{}'};\n`).join('');
+      }
       if (resolved !== '\0' + id) return null;
       let out = '';
       const lazy: string[] = [];
@@ -67,7 +75,7 @@ function publicI18nPlugin(): Plugin {
           if (isComplete(loc)) lazy.push(`${loc}: () => import(${JSON.stringify(`${id}/${loc}`)})`);
           continue;
         }
-        out += `export const ${loc} = ${entries(loc, (f) => this.addWatchFile(f))};\n`;
+        out += `export const ${loc} = ${entries(loc, true, watch)};\n`;
       }
       return out + `export const loaders = {${lazy.join(', ')}};\n`;
     },
@@ -101,6 +109,7 @@ const NOT_VITEST = ['**/node_modules/**', '**/dist/**', 'e2e/**', 'determinism/*
 const RESULTS_SNAPSHOT_TESTS = ['src/lib/results-snapshot/__tests__/**'];
 
 const PRODUCTION_BUILD_TESTS = [
+  'src/lib/provenance/__tests__/numbered-stamps.test.ts',
   'src/lib/utils/__tests__/benchmark-build.test.ts',
   'src/lib/provenance/__tests__/notice-bundle.test.ts',
   // Wall-clock budgets must not compete with the parallel unit workers. Keep the full

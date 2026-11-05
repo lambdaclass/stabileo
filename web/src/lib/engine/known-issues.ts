@@ -1,29 +1,83 @@
-/**
- * The engine's known-issue warnings (engine/src/known_issues.rs), and its warnings that a thermal
- * load was solved with a default it did not state, in the reader's language.
- *
- * The engine writes them in English for the API and the MCP server, with the finding's id in
- * `phase` and the issue number in `value`. The app shows its own sentence for the id, so a
- * Spanish or Portuguese reader is warned in their language; an id the app does not know yet
- * keeps the engine's English rather than nothing.
- */
-import { t, tp } from '../i18n';
+import { knownIssueMessage } from './known-issue-message';
+import { diagnosticKeys, mapKeys, opaqueKeys, recordKeys } from './generated/result-sites';
+import { tsDiagnosticKeys, tsMapKeys, tsRecordKeys } from './generated/result-sites-ts';
 
-export function knownIssueMessage(d: { code: string; phase?: string; value?: number; message: string }): string {
-  // A thermal load solved with a default it did not state (#407): `phase` names the default.
-  if (d.code === 'thermal_default_assumed' && d.phase) {
-    const key = `thermalDefault.${d.phase}`;
-    const text = t(key);
-    return text === key ? d.message : text;
+export { knownIssueMessage };
+
+export function knownIssueDisposition(diagnostics: ReadonlyArray<{ code: string; severity: string; phase?: string; value?: number; message: string }> = []) {
+  const issues = diagnostics.filter(d => d.code === 'known_issue');
+  return {
+    refused: issues.some(d => d.severity === 'error'),
+    messages: [...new Set(issues.map(knownIssueMessage))],
+  };
+}
+
+export function knownIssueRefusal(error: unknown): string | null {
+  if (error instanceof Error) error = error.message;
+  if (typeof error !== 'string') return null;
+  try {
+    const data = JSON.parse(error.slice(error.indexOf('{')));
+    if (!Array.isArray(data?.structuredDiagnostics)) return null;
+    const disposition = knownIssueDisposition(data.structuredDiagnostics.filter((d: { severity?: string }) => d.severity === 'error'));
+    return disposition.refused ? disposition.messages.join('\n') : null;
+  } catch { return null; }
+}
+
+export function refusedKnownIssues(error: unknown): Array<{ phase: string; value?: number }> {
+  if (error instanceof Error) error = error.message;
+  if (typeof error !== 'string') return [];
+  try {
+    const data = JSON.parse(error.slice(error.indexOf('{')));
+    if (!Array.isArray(data?.structuredDiagnostics)) return [];
+    return data.structuredDiagnostics.filter((d: { code?: string; severity?: string; phase?: unknown } | null) =>
+      d?.code === 'known_issue' && d.severity === 'error' && typeof d.phase === 'string');
+  } catch { return []; }
+}
+
+type Diagnostic = { code: string; severity: string; phase?: string; value?: number; message: string };
+
+const DIAGNOSTIC_KEYS = [...new Set<string>([...diagnosticKeys, ...tsDiagnosticKeys])];
+const RECORD_KEYS = [...new Set<string>([...recordKeys, ...tsRecordKeys])];
+const MAP_KEYS = [...new Set<string>([...mapKeys, ...tsMapKeys])];
+const OPAQUE_KEYS: readonly string[] = opaqueKeys;
+
+const isKnownIssue = (d: unknown): d is Diagnostic =>
+  !!d && typeof d === 'object' && (d as Diagnostic).code === 'known_issue' && typeof (d as Diagnostic).message === 'string';
+
+export function knownIssueDiagnosticsIn(result: unknown): Diagnostic[] {
+  const diagnostics: Diagnostic[] = [];
+  const seen = new Set<object>();
+  const scanned = new Set<object>();
+  function collect(value: unknown): void {
+    if (Array.isArray(value)) value.forEach(collect);
+    else if (isKnownIssue(value)) diagnostics.push(value);
   }
-  // A cable whose own weight gives most of its tension (#527): `value` the largest share.
-  if (d.code === 'cable_self_weight_tension') {
-    if (t('cableDiag.selfWeight') === 'cableDiag.selfWeight') return d.message;
-    return tp('cableDiag.selfWeight', { pct: Math.round(100 * Math.min(1, d.value ?? 1)) });
+  function scan(value: unknown): void {
+    if (!value || typeof value !== 'object' || scanned.has(value)) return;
+    scanned.add(value);
+    if (isKnownIssue(value)) diagnostics.push(value);
+    (value instanceof Map ? [...value.values()] : Object.values(value)).forEach(scan);
   }
-  if (d.code !== 'known_issue' || !d.phase) return d.message;
-  const key = `knownIssue.${d.phase}`;
-  const text = t(key);
-  if (text === key) return d.message;
-  return d.value !== undefined ? `${text} (#${d.value})` : text;
+  function values(value: unknown): void {
+    if (!value || typeof value !== 'object') return;
+    if (Array.isArray(value)) { value.forEach(values); return; }
+    (value instanceof Map ? [...value.values()] : Object.values(value)).forEach(visit);
+  }
+  function visit(value: unknown): void {
+    if (!value || typeof value !== 'object' || seen.has(value)) return;
+    seen.add(value);
+    if (Array.isArray(value)) { value.forEach(visit); return; }
+    if (value instanceof Map) { value.forEach(visit); return; }
+    const record = value as Record<string, unknown>;
+    for (const key of DIAGNOSTIC_KEYS) collect(record[key]);
+    for (const key of OPAQUE_KEYS) scan(record[key]);
+    for (const key of MAP_KEYS) values(record[key]);
+    for (const key of RECORD_KEYS) visit(record[key]);
+  }
+  visit(result);
+  return diagnostics;
+}
+
+export function knownIssueResultDisposition(result: unknown): ReturnType<typeof knownIssueDisposition> {
+  return knownIssueDisposition(knownIssueDiagnosticsIn(result));
 }

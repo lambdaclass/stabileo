@@ -152,6 +152,14 @@ pub fn agree(pair: &str, outcome: Result<Report, String>) {
     }
 }
 
+/// The path is refused by known issue `issue` (`id`); once the refusal is lifted this fails and becomes agree(..).
+pub fn withheld(issue: u32, id: &str, pair: &str, outcome: Result<Report, String>) {
+    match outcome {
+        Err(e) => assert!(e.contains(&format!("known issue #{issue}, {id}")), "{pair}: refused or failed for another reason than {id} (#{issue}): {e}"),
+        Ok(r) => panic!("{pair}: {id} (#{issue}) no longer withholds this pair ({} checks, {} disagreeing). Replace withheld({issue}, ..) with agree(..) in engine/tests/differential/", r.checked, r.failures.len()),
+    }
+}
+
 /// The two paths are known to disagree because of an open issue, at the checks whose
 /// labels contain one of `expected`. Once the fix lands the pair agrees and this
 /// fails, so the marker is removed and the test guards the fix. A path that refuses
