@@ -97,6 +97,7 @@ const PRODUCTION_BUILD_TESTS = [
   // 5,000-member fixture and thresholds; run it in the serial pass, including in CI.
   'src/lib/engine/__tests__/scale-budget.test.ts',
   'src/lib/utils/__tests__/e2e-hook-gating.test.ts',
+  'src/lib/utils/__tests__/shared-build.test.ts',
   // Runs `scripts/typecheck.mjs` itself, to prove the gate cannot report a green it has not
   // earned. It spawns a Node process rather than a vite build, but it is the same reason for
   // being here: a process-spawning test does not belong in the parallel pool.

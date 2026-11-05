@@ -37,8 +37,10 @@
  * broken.
  *
  * So it spawns its own build into a throwaway directory, like
- * `no-dev-assets-in-build.test.ts` and `e2e-hook-gating.test.ts` do, and is
- * declared in PRODUCTION_BUILD_TESTS for the same reason. It cannot go inert.
+ * `no-dev-assets-in-build.test.ts` and `e2e-hook-gating.test.ts` do, unless
+ * `make test.web.build` hands it a build stamped from this exact tree
+ * (`shared-build.ts` fails on any other), and is declared in
+ * PRODUCTION_BUILD_TESTS for the same reason. It cannot go inert.
  *
  * Living under `src/` is part of that: `harness-architecture.test.ts` only
  * walks `src/`, so in `scripts/__tests__/` this file was invisible to the rule
@@ -58,6 +60,7 @@ import { readFileSync, existsSync, statSync, rmSync } from 'node:fs';
 import { resolve, join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { searchMetadataSuite } from './search-metadata';
+import { sharedBuild, SHARED_PRERENDERED_BUILD } from '../../utils/__tests__/shared-build';
 import catalog from '../../../../../research/papers.json';
 import { EXPERIMENTS } from '../../../components/research/experiments';
 import { RESEARCH_GALLERY, RESEARCH_PAPER_PATHS, researchLastReview, researchLocales } from '../../../components/research/locales';
@@ -67,7 +70,8 @@ import { PUBLIC_LOCALES } from '../offered';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const WEB_ROOT = resolve(__dirname, '../../../..');
 const OUT = '.dist-publishedurls';
-const DIST = resolve(WEB_ROOT, OUT);
+const SHARED = sharedBuild(SHARED_PRERENDERED_BUILD);
+const DIST = SHARED ?? resolve(WEB_ROOT, OUT);
 const SITEMAP = join(DIST, 'sitemap.xml');
 const ORIGIN = 'https://stabileo.com';
 
@@ -131,6 +135,7 @@ function fileServedWithoutRedirect(pathname: string): string | null {
 
 describe('every published URL is served, not redirected', () => {
   beforeAll(async () => {
+    if (SHARED) return;
     await execFileAsync(
       'npx',
       ['vite', 'build', '--outDir', OUT, '--emptyOutDir', '--logLevel', 'error'],
@@ -146,7 +151,9 @@ describe('every published URL is served, not redirected', () => {
     });
   }, 660_000);
 
-  afterAll(() => rmSync(DIST, { recursive: true, force: true }));
+  afterAll(() => {
+    if (!SHARED) rmSync(DIST, { recursive: true, force: true });
+  });
 
   searchMetadataSuite(DIST);
 
