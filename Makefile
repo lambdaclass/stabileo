@@ -1,5 +1,5 @@
 .PHONY: research.wasm paper.pdf help install-nix shell setup setup.run git.setup deps backend.run console routes \
-       lint.engine test.engine.units-types check.engine.acceptance-models test.engine.gates test.engine.metamorphic test.engine.suite bench.engine \
+       lint.engine test.engine.units-types check.engine.acceptance-models test.engine.gates test.engine.metamorphic test.engine.suite test.engine.differential.quick test.engine.differential.full bench.engine \
        web.deps typecheck.web test.web.unit test.web.build web.build.tested test.web.build.shared test.web.timing test.web.results snapshots-update check.results-snapshot-gate test.web.determinism e2e.web.setup e2e.web.build e2e.web.smoke e2e.web.slow e2e.web.timing e2e.web.visual e2e.web.flaky \
        perf.lighthouse.deps perf.lighthouse \
        test.ci-scripts test.nightly-scripts test.infra.caddy test.infra.caddy.redirects check.web.translations check.web.route-size \
@@ -82,6 +82,8 @@ help:
 	@echo "  make test.engine.gates    - The named engine correctness gates"
 	@echo "  make test.engine.metamorphic - Metamorphic tests, in release"
 	@echo "  make test.engine.suite [SHARD=1/4] - Every engine test outside the gates"
+	@echo "  make test.engine.differential.quick - Cross-method pairs that must agree (per PR)"
+	@echo "  make test.engine.differential.full  - Those plus the parametrised families (nightly)"
 	@echo "  make bench.engine         - Criterion benchmarks (informational)"
 	@echo "  make typecheck.web        - tsc against its baseline + svelte-check gate"
 	@echo "  make test.web.unit [SHARD=1/4] - Vitest unit pass"
@@ -255,6 +257,12 @@ test.engine.metamorphic:
 
 test.engine.suite:
 	$(NEXTEST) -E '$(SUITE_FILTER)' $(if $(SHARD),--partition count:$(SHARD))
+
+test.engine.differential.quick:
+	$(NEXTEST) --test differential
+
+test.engine.differential.full:
+	$(NEXTEST) --cargo-profile release --test differential --run-ignored all
 
 bench.engine:
 	cd engine && $(NIX_RUN) cargo bench --no-run
