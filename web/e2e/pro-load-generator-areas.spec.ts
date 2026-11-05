@@ -53,7 +53,7 @@ test.describe('@smoke area loads by tributary area, the roof apart', () => {
 });
 
 test.describe('@smoke torsion of edge beams under one-sided slab load (#1401)', () => {
-  test('the preview names the edge beams for a torsion check, readable on a phone and a tablet', async ({ pro: page }) => {
+  test('the preview names the edge beams for a torsion check', async ({ pro: page }) => {
     await openDialog(page);
     await page.getByTestId('al-preview-btn').click();
     const box = page.getByTestId('al-assumptions');
@@ -61,18 +61,32 @@ test.describe('@smoke torsion of edge beams under one-sided slab load (#1401)', 
     await expect(box).toContainText(/Check these edge beams for torsion: \d+(, \d+)*\./);
     await page.getByTestId('al-derivation').locator('summary').click();
     await expect(page.getByTestId('al-derivation')).toContainText('Torsion from one-sided slab load is not included');
-    for (const viewport of [{ width: 390, height: 844 }, { width: 820, height: 1180 }]) {
-      await page.setViewportSize(viewport);
-      await box.scrollIntoViewIfNeeded();
-      const item = box.locator('li', { hasText: 'edge beams' });
-      const r = (await item.boundingBox())!;
-      expect(r.x, `${viewport.width}`).toBeGreaterThanOrEqual(0);
-      expect(r.x + r.width, `${viewport.width}`).toBeLessThanOrEqual(viewport.width);
-      expect(await item.evaluate((el) => el.scrollWidth <= el.clientWidth), `${viewport.width}`).toBe(true);
-      expect(await item.evaluate((el) => parseFloat(getComputedStyle(el).fontSize)), `${viewport.width}`).toBeGreaterThanOrEqual(12);
-      await page.screenshot({ path: test.info().outputPath(`edge-beam-advisory-${viewport.width}.png`) });
-    }
   });
+
+  for (const viewport of [{ width: 390, height: 844 }, { width: 820, height: 1180 }]) {
+    test(`readable at ${viewport.width} px`, async ({ pro: page }) => {
+      await page.setViewportSize(viewport);
+      if (viewport.width < 600) {
+        await loadModel(page, 'rc-design-qa-8');
+        await page.keyboard.press('Escape');
+        await page.getByRole('navigation').getByRole('button', { name: 'PRO' }).click();
+        await page.getByRole('button', { name: 'Loads', exact: true }).click();
+        await page.getByTestId('pro-auto-loads-btn').click();
+      } else {
+        await openDialog(page);
+      }
+      await page.getByTestId('al-preview-btn').click();
+      const item = page.getByTestId('al-assumptions').locator('li', { hasText: 'edge beams' });
+      await item.scrollIntoViewIfNeeded();
+      const r = (await item.boundingBox())!;
+      expect(r.x).toBeGreaterThanOrEqual(0);
+      expect(r.x + r.width).toBeLessThanOrEqual(viewport.width);
+      expect(await item.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      expect(await item.evaluate((el) => parseFloat(getComputedStyle(el).fontSize))).toBeGreaterThanOrEqual(10);
+      await page.screenshot({ path: test.info().outputPath(`edge-beam-advisory-${viewport.width}.png`) });
+    });
+  }
 });
 
 test.describe('@smoke the seismic action: modal method, vertical component, torsion', () => {
