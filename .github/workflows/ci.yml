@@ -1145,7 +1145,7 @@ jobs:
       - name: Unit + integration tests
         env:
           UNIT_AREA: ${{ needs.changes.outputs.unit_area }}
-        run: make test.web.unit SHARD=${{ matrix.shard }}/8 BAIL=${{ github.event_name == 'pull_request' && '1' || '' }}
+        run: make test.web.unit SHARD=${{ matrix.shard }}/8 BAIL=${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && '1' || '' }}
       - name: Stop the rest of this run
         if: failure() && github.event_name == 'pull_request'
         continue-on-error: true

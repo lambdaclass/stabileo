@@ -87,7 +87,7 @@ class Selection(unittest.TestCase):
         self.assertIn('"pull_request .github/workflows/ci.yml "*) ;;', stop)
         self.assertIn('select(.conclusion == "failure")', stop)
         self.assertLess(stop.index('select(.conclusion == "failure")'), stop.index('gh run cancel "$RUN_ID"'))
-        self.assertIn('BAIL=${{ github.event_name == \'pull_request\' && \'1\' || \'\' }}', jobs['web-unit'])
+        self.assertIn("BAIL=${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && '1' || '' }}", jobs['web-unit'])
         self.assertIn('needs: [changes, wasm]\n', jobs['web-typecheck'])
         self.assertNotIn('free-disk', jobs['web-typecheck'])
 
