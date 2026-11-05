@@ -1,9 +1,5 @@
 defmodule StabileoRepo.Schemas.AdminAction do
-  @moduledoc """
-  What an admin did on the admin site: who (`admin_id`), what (`action`, such
-  as `account.disable`), to what (`target_type` and `target_id`) and the
-  details worth keeping. Append-only.
-  """
+  @moduledoc false
 
   use StabileoRepo.Schema
   import Ecto.Changeset

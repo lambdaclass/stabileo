@@ -1,24 +1,7 @@
 defmodule StabileoAuth.UserOAuth do
   @moduledoc """
-  Product sign-in with Google, the only way into an account while password
-  sign-in is off (`:user_password_login`).
-
-  The callback checks the Google identity and hands the browser a one-time
-  code. For a known person the code stands for a session that is already open;
-  the app trades it for tokens. For someone new it carries only who Google
-  said they are: the trade answers a sign-up token, and the account is created
-  when the terms are accepted (`register/3`), as sign-up with a password did.
-
-  Every code belongs to the sign-in attempt that asked for it: the app sends
-  the SHA-256 of a secret it keeps (`attempt`) when it opens Google, and trades
-  the code only with that secret (`verifier`), so a code from another attempt,
-  tab or browser is refused.
-
-  A known person is found by Google's subject, else by email, and only when
-  Google answers for that address (Gmail, or a Workspace domain in `hd`): for
-  any other address `email_verified` may be a check from years ago. An account
-  found by email takes the subject; one nobody verified (opened with a password
-  before) is the Google owner's from here on, so its password and sessions end.
+  A code is traded only with the verifier of the attempt that asked for it. An existing
+  account is linked by email only where Google answers for the address (Gmail, or `hd`).
   """
 
   alias StabileoAuth.{Accounts, Consents, Sessions, Tokens}
@@ -32,13 +15,11 @@ defmodule StabileoAuth.UserOAuth do
   @signup_token "user_signup"
   @google_mail ~w(gmail.com googlemail.com)
 
-  @doc "The `attempt` the app sends for a `verifier`."
   def challenge(verifier),
     do: :crypto.hash(:sha256, verifier) |> Base.url_encode64(padding: false)
 
   def valid_attempt?(attempt), do: is_binary(attempt) and attempt =~ ~r/\A[A-Za-z0-9_-]{43}\z/
 
-  @doc "Answers `{:ok, code}` or `{:error, oauth_error}`."
   def sign_in(%{} = user, attempt, metadata \\ %{}) do
     email = user["email"]
     subject = user["sub"]
@@ -52,10 +33,6 @@ defmodule StabileoAuth.UserOAuth do
     end
   end
 
-  @doc """
-  Trades a callback code: `{:ok, session_payload}` for a known person,
-  `{:ok, %{signup_required: true, ...}}` for someone new.
-  """
   def exchange(code, verifier, metadata \\ %{}) do
     with {:ok, claims} <- verify(code),
          :ok <- same_attempt(claims, verifier) do
@@ -92,10 +69,6 @@ defmodule StabileoAuth.UserOAuth do
 
   defp same_attempt(_claims, _verifier), do: {:error, :invalid_or_expired_code}
 
-  @doc """
-  Opens the account a sign-up token stands for. Needs `"accept_terms" => true`,
-  with the optional `"usage_analytics"` and `"model_research"` choices.
-  """
   def register(token, attrs, metadata \\ %{}) do
     with :ok <- login_open(),
          {:ok, %{"type" => @signup_token} = claims} <- verify(token),
@@ -110,11 +83,10 @@ defmodule StabileoAuth.UserOAuth do
 
   defp resolve(user, attempt, metadata) do
     case find(user) do
-      {:ok, account} ->
+      {:ok, account, link} ->
         with :ok <- ensure_active(account),
-             {:ok, account} <- Accounts.record_sign_in(account),
-             {:ok, session} <-
-               Sessions.create_session(account, metadata, Tokens.refresh_token_ttl("app")) do
+             {:ok, account} <- link_if(account, link, user["sub"]),
+             {:ok, session} <- Sessions.create_session(account, metadata, @code_ttl) do
           {:ok,
            sign(
              %{"type" => @session_code, "session_id" => session.id, "attempt" => attempt},
@@ -140,7 +112,7 @@ defmodule StabileoAuth.UserOAuth do
 
   defp find(user) do
     case Repo.get_by(Account, google_subject: user["sub"]) do
-      %Account{} = account -> {:ok, account}
+      %Account{} = account -> {:ok, account, false}
       nil -> find_by_email(user, Accounts.get_account_by_email(user["email"]))
     end
   end
@@ -148,10 +120,13 @@ defmodule StabileoAuth.UserOAuth do
   defp find_by_email(_user, nil), do: :new
 
   defp find_by_email(user, %Account{google_subject: nil} = account) do
-    if google_mail?(user), do: link(account, user["sub"]), else: {:error, :email_in_use}
+    if google_mail?(user), do: {:ok, account, true}, else: {:error, :email_in_use}
   end
 
   defp find_by_email(_user, %Account{}), do: {:error, :callback_failed}
+
+  defp link_if(account, false, _subject), do: {:ok, account}
+  defp link_if(account, true, subject), do: link(account, subject)
 
   defp link(%Account{email_verified_at: nil} = account, subject) do
     Repo.transaction(fn ->
@@ -186,7 +161,8 @@ defmodule StabileoAuth.UserOAuth do
          :ok <- Sessions.validate_session(session),
          %Account{is_active: true} = account <- Accounts.get_account(session.account_id),
          {:ok, rotated} <-
-           Sessions.rotate_session(session, metadata, Tokens.refresh_token_ttl("app")) do
+           Sessions.rotate_session(session, metadata, Tokens.refresh_token_ttl("app")),
+         {:ok, account} <- Accounts.record_sign_in(account) do
       StabileoAuth.session_payload(account, rotated, "app")
     else
       _ -> {:error, :invalid_or_expired_code}

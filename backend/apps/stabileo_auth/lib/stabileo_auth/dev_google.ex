@@ -1,11 +1,5 @@
 defmodule StabileoAuth.DevGoogle do
-  @moduledoc """
-  A stand-in for Google on a laptop without an OAuth client: the sign-in opens
-  a local page that asks for an email and a name and answers them as Google
-  would, verified. Only `config/dev.exs` selects it, for the product's sign-in
-  and only while `GOOGLE_APP_CLIENT_ID` is unset; `enabled?/0` guards the page
-  as well.
-  """
+  @moduledoc "Only `config/dev.exs` selects it, and only while `GOOGLE_APP_CLIENT_ID` is unset."
 
   def enabled?, do: Application.get_env(:stabileo_auth, :dev_google, false) == true
 
@@ -48,7 +42,6 @@ defmodule StabileoAuth.DevGoogle do
 
   def callback(_config, _params), do: {:error, :missing_params}
 
-  @doc "The local page that plays Google."
   def page(state, redirect_uri) do
     js = &Jason.encode!(&1, escape: :html_safe)
 

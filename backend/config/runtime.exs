@@ -56,7 +56,6 @@ if config_env() == :prod do
     admin_frontend_url:
       StabileoUtils.fetch_env!("ADMIN_FRONTEND_URL", "The URL the admin site is served from."),
     app_frontend_url: app_url,
-    user_password_login: StabileoUtils.fetch_env("USER_PASSWORD_LOGIN") == "1",
     admin_domains:
       "ADMIN_DOMAINS"
       |> StabileoUtils.fetch_env("lambdaclass.com,ergodicgroup.com")

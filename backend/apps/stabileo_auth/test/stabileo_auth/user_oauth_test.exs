@@ -58,7 +58,7 @@ defmodule StabileoAuth.UserOAuthTest do
       assert payload.account.id == account.id
       assert payload.account.consents.terms_current == true
       assert payload.account.consents.usage_analytics == true
-      assert payload.account.consents.model_research == true
+      assert payload.account.consents.model_research == false
       assert account.google_subject == "g-person"
       assert account.password_hash == nil
       assert account.locale == "en"
@@ -68,27 +68,43 @@ defmodule StabileoAuth.UserOAuthTest do
       assert is_binary(payload.access_token) and is_binary(payload.refresh_token)
     end
 
-    test "the terms alone leave usage and project research on, recorded at sign-up" do
+    test "the terms alone leave usage and project research off, recorded at sign-up" do
       {:ok, payload} = UserOAuth.register(signup_token(), %{"accept_terms" => true})
       account = Repo.get_by!(Account, email: "person@gmail.com")
 
-      assert payload.account.consents.usage_analytics == true
-      assert payload.account.consents.model_research == true
+      assert payload.account.consents.usage_analytics == false
+      assert payload.account.consents.model_research == false
 
       kinds =
         from(c in Consent, where: c.account_id == ^account.id, select: {c.kind, c.granted})
         |> Repo.all()
         |> Enum.sort()
 
-      assert kinds == [{"model_research", true}, {"terms", true}, {"usage_analytics", true}]
+      assert kinds == [{"model_research", false}, {"terms", true}, {"usage_analytics", false}]
     end
 
-    test "a sign-up that turns usage off records it off" do
+    test "only the boolean true grants an optional consent" do
       {:ok, payload} =
-        UserOAuth.register(signup_token(), %{"accept_terms" => true, "usage_analytics" => false})
+        UserOAuth.register(signup_token(), %{
+          "accept_terms" => true,
+          "usage_analytics" => "false",
+          "model_research" => "true"
+        })
 
       assert payload.account.consents.usage_analytics == false
+      assert payload.account.consents.model_research == false
+
+      {:ok, payload} =
+        UserOAuth.register(
+          signup_token(google(%{"sub" => "g-other", "email" => "other@gmail.com"})),
+          %{
+            "accept_terms" => true,
+            "model_research" => true
+          }
+        )
+
       assert payload.account.consents.model_research == true
+      assert payload.account.consents.usage_analytics == false
     end
 
     test "without the terms nothing is created" do
@@ -203,9 +219,37 @@ defmodule StabileoAuth.UserOAuthTest do
       assert {:error, :callback_failed} = UserOAuth.sign_in(google(), @attempt)
     end
 
-    test "a disabled account is refused" do
-      Factory.insert(:account, email: "person@gmail.com", is_active: false)
+    test "a disabled account is refused before anything about it changes" do
+      account = Factory.insert(:account, email: "person@gmail.com", is_active: false)
+      {:ok, earlier} = Sessions.create_session(account)
+
       assert {:error, :account_disabled} = UserOAuth.sign_in(google(), @attempt)
+
+      kept = Repo.get!(Account, account.id)
+      assert kept.google_subject == nil
+      assert Account.valid_password?(kept, Factory.password())
+      assert Repo.get!(Session, earlier.id).revoked_at == nil
+    end
+
+    test "a code never traded leaves a session that ends with the code, and no sign-in" do
+      account = Factory.insert(:account, email: "person@gmail.com")
+      {:ok, _code} = UserOAuth.sign_in(google(), @attempt)
+
+      [session] = Repo.all(from(s in Session, where: s.account_id == ^account.id))
+      assert DateTime.diff(session.expires_at, DateTime.utc_now()) <= 60
+      assert Repo.get!(Account, account.id).last_sign_in_at == nil
+    end
+
+    test "trading the code opens the full session and records the sign-in" do
+      account = Factory.insert(:account, email: "person@gmail.com")
+      {:ok, code} = UserOAuth.sign_in(google(), @attempt)
+      {:ok, _payload} = UserOAuth.exchange(code, @verifier)
+
+      [live] =
+        Repo.all(from(s in Session, where: s.account_id == ^account.id and is_nil(s.revoked_at)))
+
+      assert DateTime.diff(live.expires_at, DateTime.utc_now()) > 86_400
+      assert %DateTime{} = Repo.get!(Account, account.id).last_sign_in_at
     end
   end
 

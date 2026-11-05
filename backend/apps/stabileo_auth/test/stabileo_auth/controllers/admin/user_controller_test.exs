@@ -97,9 +97,7 @@ defmodule StabileoAuth.Controllers.Admin.UserControllerTest do
       assert request(:post, "/refresh", %{"refresh_token" => product.refresh_token})
              |> json_body(401)
 
-      assert request(:post, "/login", %{"email" => user.email, "password" => Factory.password()})
-             |> json_body(403)
-             |> Map.get("error") == "account_disabled"
+      assert {:error, :account_disabled} = google_sign_in(user)
     end
 
     test "422 cannot_disable_self", %{admin: admin, token: token} do
@@ -114,8 +112,7 @@ defmodule StabileoAuth.Controllers.Admin.UserControllerTest do
       body = admin_request(:post, "/users/#{user.id}/enable", %{}, token) |> json_body(200)
       assert body["data"]["is_active"] == true
 
-      assert request(:post, "/login", %{"email" => user.email, "password" => Factory.password()})
-             |> json_body(200)
+      assert {:ok, _code} = google_sign_in(user)
     end
 
     test "force-logout revokes every session and reports how many", %{token: token} do
@@ -152,5 +149,15 @@ defmodule StabileoAuth.Controllers.Admin.UserControllerTest do
                |> json_body(404)
       end
     end
+  end
+
+  defp google_sign_in(user) do
+    {:ok, _} = StabileoRepo.Features.set_user_login_enabled(true)
+    user |> Ecto.Changeset.change(google_subject: "g-#{user.id}") |> Repo.update!()
+
+    StabileoAuth.UserOAuth.sign_in(
+      %{"email" => user.email, "email_verified" => true, "sub" => "g-#{user.id}", "name" => "G"},
+      StabileoAuth.UserOAuth.challenge("a-browser-attempt-secret-0123456789abcdef")
+    )
   end
 end

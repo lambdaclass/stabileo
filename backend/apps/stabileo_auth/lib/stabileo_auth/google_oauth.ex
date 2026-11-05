@@ -15,7 +15,6 @@ defmodule StabileoAuth.GoogleOAuth do
     present?(config[:client_id]) and present?(config[:client_secret])
   end
 
-  @doc "The product's client is configured, and its callback and site are known."
   def app_configured? do
     oauth = Application.get_env(:stabileo_auth, :google_oauth, [])
 

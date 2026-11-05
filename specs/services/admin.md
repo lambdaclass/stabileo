@@ -123,8 +123,9 @@ Seeds create `admin@stabileo.com` / `stabileo-demo-password` and allowlist it; d
 | Google callback: not verified / `hd` or email domain not allowed / not allowlisted / disabled account | Redirect with the matching `oauth_error`, no session |
 | Code reused, expired, or of another type | 401 `invalid_or_expired_code` |
 | Password sign-in with `admin_password_login` off | 404 |
-| Product sign-up with an allowlisted email | No admin access: password sign-in is dev-only, and Google sign-in needs the Workspace identity |
-| Toggle `user_login_enabled` | `PUT /settings` persists; product `/register` and `/login` answer 403 `user_login_disabled` while off |
+| Product account with an allowlisted email | No admin access: password sign-in is dev-only, and Google sign-in needs the Workspace identity |
+| Toggle `user_login_enabled` | `PUT /settings` persists; product Google sign-in answers `user_login_disabled` while off |
+| An audit row that cannot be written | The action is rolled back (`AdminAudit.run/3` wraps both in one transaction) |
 | Add allowlist email: outside the domains / bad format / already active | 422 with `details.email` |
 | Add a removed email again | 201, same row reactivated |
 | Remove self | 422 `cannot_remove_self` |

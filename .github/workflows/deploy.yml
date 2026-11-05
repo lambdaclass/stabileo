@@ -211,7 +211,6 @@ jobs:
           GOOGLE_APP_CLIENT_ID: ${{ vars.GOOGLE_APP_CLIENT_ID }}
           GOOGLE_APP_CLIENT_SECRET: ${{ secrets.GOOGLE_APP_CLIENT_SECRET }}
           APP_URL: ${{ vars.APP_URL }}
-          USER_PASSWORD_LOGIN: ${{ vars.USER_PASSWORD_LOGIN }}
           PORT: ${{ vars.PORT }}
           BIND_ADDRESS: ${{ vars.BIND_ADDRESS }}
           POOL_SIZE: ${{ vars.POOL_SIZE }}

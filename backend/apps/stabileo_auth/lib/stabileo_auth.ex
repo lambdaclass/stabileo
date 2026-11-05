@@ -5,55 +5,12 @@ defmodule StabileoAuth do
   and `"admin"` for the admin site; a refresh token only refreshes for the app
   it was issued to.
 
-  The product signs in with Google (`StabileoAuth.UserOAuth`); password sign-up
-  and sign-in answer only while `:user_password_login` is on.
+  The product signs in with Google only (`StabileoAuth.UserOAuth`).
   """
 
   alias StabileoAuth.{AccountJSON, Accounts, Consents, Sessions, Tokens}
-  alias StabileoRepo.{Features, Repo}
+  alias StabileoRepo.Features
   alias StabileoRepo.Schemas.{Account, Session}
-
-  @doc """
-  Closed while `user_login_enabled` is off; see `StabileoRepo.Features`.
-
-  Needs `"accept_terms" => true`: the account and the acceptance of the terms
-  in force are written together, with the optional `"usage_analytics"` and
-  `"model_research"` choices when given.
-  """
-  def register(attrs, metadata \\ %{}) do
-    with :ok <- user_login_open(),
-         :ok <- password_login_open(),
-         {:ok, account} <- create_account(attrs, metadata) do
-      sign_in(account, metadata, "app")
-    end
-  end
-
-  defp create_account(attrs, metadata) do
-    changeset = attrs |> Account.registration_changeset() |> require_terms(attrs)
-
-    Repo.transaction(fn ->
-      with {:ok, account} <- Repo.insert(changeset),
-           {:ok, :ok} <- Consents.record_sign_up(account, attrs, metadata) do
-        account
-      else
-        {:error, reason} -> Repo.rollback(reason)
-      end
-    end)
-  end
-
-  defp require_terms(changeset, %{"accept_terms" => true}), do: changeset
-
-  defp require_terms(changeset, _attrs),
-    do: Ecto.Changeset.add_error(changeset, :accept_terms, "must be accepted")
-
-  @doc "Closed while `user_login_enabled` is off. Refresh is not: existing sessions keep working."
-  def login(email, password, metadata \\ %{}) do
-    with :ok <- user_login_open(),
-         :ok <- password_login_open(),
-         {:ok, account} <- Accounts.authenticate(email, password) do
-      sign_in(account, metadata, "app")
-    end
-  end
 
   def config do
     %{
@@ -62,20 +19,8 @@ defmodule StabileoAuth do
       usage_telemetry_enabled: Features.usage_telemetry_enabled?(),
       cloud_projects_enabled: Features.cloud_projects_enabled?(),
       save_requires_account: Features.save_requires_account?(),
-      google_login: StabileoAuth.GoogleOAuth.app_configured?(),
-      password_login: password_login?()
+      google_login: StabileoAuth.GoogleOAuth.app_configured?()
     }
-  end
-
-  def password_login?,
-    do: Application.get_env(:stabileo_auth, :user_password_login, false) == true
-
-  defp password_login_open do
-    if password_login?(), do: :ok, else: {:error, :password_login_disabled}
-  end
-
-  defp user_login_open do
-    if Features.user_login_enabled?(), do: :ok, else: {:error, :user_login_disabled}
   end
 
   def refresh(refresh_token, metadata \\ %{}, app \\ "app", allowed? \\ fn _ -> true end) do

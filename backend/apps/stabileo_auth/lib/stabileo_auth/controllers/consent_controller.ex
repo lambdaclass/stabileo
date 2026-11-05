@@ -5,11 +5,6 @@ defmodule StabileoAuth.Controllers.ConsentController do
 
   alias StabileoAuth.{AccountJSON, Consents}
 
-  @doc """
-  Records one decision of the signed-in account: `{"kind": "terms"}` accepts
-  the terms in force; `usage_analytics` and `model_research` take `granted`.
-  Answers the account with its consents, as `GET /me` does.
-  """
   def create(conn, %{"kind" => kind} = params) do
     account = conn.assigns.current_account
     granted = if kind == "terms", do: true, else: params["granted"]

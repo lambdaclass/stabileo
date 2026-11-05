@@ -43,7 +43,6 @@ defmodule StabileoRepo.Schemas.Account do
     |> hash_password()
   end
 
-  @doc "Sign-up with Google: the email Google verified, the name and Google's subject; no password."
   def google_changeset(attrs) do
     %__MODULE__{}
     |> cast(attrs, [:email, :name, :locale, :google_subject])

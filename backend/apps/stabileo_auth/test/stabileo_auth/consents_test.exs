@@ -68,4 +68,9 @@ defmodule StabileoAuth.ConsentsTest do
 
     assert Repo.aggregate(Consent, :count) == 0
   end
+
+  test "the web app publishes the terms version in force" do
+    legal = File.read!(Path.expand("../../../../../web/src/lib/legal/legal.ts", __DIR__))
+    assert legal =~ ~s(LEGAL_VERSION = '#{Consents.terms_version()}')
+  end
 end
