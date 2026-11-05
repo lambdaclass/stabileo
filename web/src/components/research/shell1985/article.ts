@@ -1,6 +1,8 @@
+import { shellCardTitle } from './card';
+
 // Route-local article text. Untranslated locales use the English reference article.
 const en = {
-  "shellObstacleCourseBelytschkoEtAl": "Shell obstacle course — Belytschko et al. (1985)",
+  "shellObstacleCourseBelytschkoEtAl": shellCardTitle,
   "threeCurvedShellBenchmarksSolvedWithThe": "Three curved-shell benchmarks, solved with the production MITC4 engine. Refine each mesh and inspect its measured response; every failure stays visible.",
   "theObstacleCourse": "The obstacle course",
   "thisPageRunsExistingStabileoShellTests": "This page runs existing Stabileo shell tests in the browser. It is a benchmark companion to Belytschko, Stolarski, Liu, Carpenter and Ong (CMAME 51, 1985), not an implementation of their stress-projection element. The production element here is MITC4 with its existing membrane and shear treatment. No solver equations or tolerances were changed for this page.",

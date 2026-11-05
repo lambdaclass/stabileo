@@ -1,11 +1,12 @@
+import { card } from './card';
+
 const en = {
+  ...card.en,
   error: 'Error',
   fail: 'Fail',
   pending: 'Not computed',
   issue: 'Known limitation / registry status',
-  title: 'MacNeal–Harder (1985): engine benchmarks',
   lead: 'The production Stabileo engine, run in this browser on MacNeal–Harder straight-cantilever cases and on analytical frame cases. Every result is computed live; failures stay visible.',
-  hook: 'Run the production engine on MacNeal–Harder cantilever cases; inspect every result, including failures.',
   metaTitle: 'MacNeal–Harder (1985) — Stabileo engine benchmarks',
   metaDescription: 'Live production-engine accuracy benchmarks with signed references, a stated tolerance and visible failures.',
   referenceWhy: 'No separate reference solver: this page runs the production engine.',
@@ -91,13 +92,12 @@ const en = {
 type Strings = typeof en;
 
 const es: Strings = {
+  ...card.es,
   error: 'Error',
   fail: 'No cumple',
   pending: 'Sin calcular',
   issue: 'Limitación conocida / estado del registro',
-  title: 'MacNeal–Harder (1985): ensayos del motor',
   lead: 'El motor de producción de Stabileo, ejecutado en este navegador sobre los casos de voladizo recto de MacNeal–Harder y sobre casos analíticos de pórtico. Cada resultado se calcula en vivo; los fallos quedan a la vista.',
-  hook: 'Ejecutá el motor de producción sobre los voladizos de MacNeal–Harder; revisá cada resultado, incluidos los fallos.',
   metaTitle: 'MacNeal–Harder (1985) — ensayos del motor de Stabileo',
   metaDescription: 'Ensayos de precisión del motor de producción en vivo, con referencias con signo, una tolerancia declarada y fallos visibles.',
   referenceWhy: 'Sin un solver de referencia aparte: esta página ejecuta el motor de producción.',
@@ -181,13 +181,12 @@ const es: Strings = {
 };
 
 const pt: Strings = {
+  ...card.pt,
   error: 'Erro',
   fail: 'Falha',
   pending: 'Não calculado',
   issue: 'Limitação conhecida / estado do registro',
-  title: 'MacNeal–Harder (1985): testes do motor',
   lead: 'O motor de produção do Stabileo, executado neste navegador nos casos de balanço reto de MacNeal–Harder e em casos analíticos de pórtico. Cada resultado é calculado ao vivo; as falhas continuam visíveis.',
-  hook: 'Execute o motor de produção nos balanços de MacNeal–Harder; confira cada resultado, inclusive as falhas.',
   metaTitle: 'MacNeal–Harder (1985) — testes do motor do Stabileo',
   metaDescription: 'Testes de precisão do motor de produção ao vivo, com referências com sinal, uma tolerância declarada e falhas visíveis.',
   referenceWhy: 'Sem solver de referência separado: esta página executa o motor de produção.',
@@ -271,13 +270,12 @@ const pt: Strings = {
 };
 
 const de: Strings = {
+  ...card.de,
   error: 'Fehler',
   fail: 'Nicht bestanden',
   pending: 'Nicht berechnet',
   issue: 'Bekannte Einschränkung / Registerstatus',
-  title: 'MacNeal–Harder (1985): Benchmarks der Rechenengine',
   lead: 'Die Produktions-Engine von Stabileo, in diesem Browser auf die geraden Kragträgerfälle von MacNeal–Harder und auf analytische Rahmenfälle angewendet. Jedes Ergebnis wird live berechnet; Fehlschläge bleiben sichtbar.',
-  hook: 'Die Produktions-Engine auf die Kragträger von MacNeal–Harder anwenden und jedes Ergebnis prüfen, auch die Fehlschläge.',
   metaTitle: 'MacNeal–Harder (1985) — Benchmarks der Stabileo-Engine',
   metaDescription: 'Live-Genauigkeitsbenchmarks der Produktions-Engine mit vorzeichenbehafteten Referenzen, angegebener Toleranz und sichtbaren Fehlschlägen.',
   referenceWhy: 'Kein separater Referenzlöser: Diese Seite führt die Produktions-Engine aus.',
@@ -361,13 +359,12 @@ const de: Strings = {
 };
 
 const fr: Strings = {
+  ...card.fr,
   error: 'Erreur',
   fail: 'Échec',
   pending: 'Non calculé',
   issue: 'Limite connue / état du registre',
-  title: 'MacNeal–Harder (1985) : cas tests du moteur',
   lead: 'Le moteur de production de Stabileo, exécuté dans ce navigateur sur les cas de console droite de MacNeal–Harder et sur des cas analytiques de portique. Chaque résultat est calculé en direct ; les échecs restent visibles.',
-  hook: 'Exécuter le moteur de production sur les consoles de MacNeal–Harder et examiner chaque résultat, échecs compris.',
   metaTitle: 'MacNeal–Harder (1985) — cas tests du moteur Stabileo',
   metaDescription: 'Cas tests de précision du moteur de production en direct, avec références signées, tolérance déclarée et échecs visibles.',
   referenceWhy: 'Pas de solveur de référence distinct : cette page exécute le moteur de production.',
@@ -451,13 +448,12 @@ const fr: Strings = {
 };
 
 const tr: Strings = {
+  ...card.tr,
   error: 'Hata',
   fail: 'Başarısız',
   pending: 'Hesaplanmadı',
   issue: 'Bilinen sınırlama / kayıt durumu',
-  title: 'MacNeal–Harder (1985): motor kıyaslama testleri',
   lead: 'Stabileo’nun üretim motoru, bu tarayıcıda MacNeal–Harder düz konsol durumları ve analitik çerçeve durumları üzerinde çalıştırılır. Her sonuç canlı hesaplanır; başarısızlıklar görünür kalır.',
-  hook: 'Üretim motorunu MacNeal–Harder konsollarında çalıştırın; başarısızlıklar dahil her sonucu inceleyin.',
   metaTitle: 'MacNeal–Harder (1985) — Stabileo motor kıyaslama testleri',
   metaDescription: 'İşaretli referanslar, belirtilmiş bir tolerans ve görünür başarısızlıklarla canlı üretim motoru doğruluk testleri.',
   referenceWhy: 'Ayrı bir referans çözücü yok: bu sayfa üretim motorunu çalıştırır.',

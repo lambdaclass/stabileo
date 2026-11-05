@@ -1,0 +1,7 @@
+{
+  "routes": {
+    "/en/tools/": { "bytes": 600, "reason": "#447 containment messages", "module": "src/lib/engine/known-issue-message.ts" },
+    "/en/tools/simply-supported-beam/": { "bytes": 600, "reason": "#447 containment messages", "module": "src/lib/engine/known-issue-message.ts" },
+    "/en/tools/continuous-beam/": { "bytes": 600, "reason": "#447 containment messages", "module": "src/lib/engine/known-issue-message.ts" }
+  }
+}
