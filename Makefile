@@ -1,5 +1,5 @@
 .PHONY: research.wasm paper.pdf help install-nix shell setup setup.run git.setup deps backend.run console routes \
-       lint.engine test.engine.units-types check.engine.acceptance-models test.engine.gates test.engine.metamorphic test.engine.invariance.quick test.engine.suite test.engine.differential.quick test.engine.differential.full bench.engine mutants.engine mutants.safety.report mutants.safety.record \
+       lint.engine gen.result-sites test.engine.units-types check.engine.acceptance-models test.engine.gates test.engine.metamorphic test.engine.invariance.quick test.engine.suite test.engine.differential.quick test.engine.differential.full bench.engine mutants.engine mutants.safety.report mutants.safety.record \
        web.deps typecheck.web test.web.unit test.web.build web.build.tested test.web.build.shared test.web.timing test.web.results snapshots-update check.results-snapshot-gate test.web.determinism e2e.web.setup e2e.web.build e2e.web.smoke e2e.web.slow e2e.web.timing e2e.web.visual e2e.web.flaky \
        perf.lighthouse.deps perf.lighthouse \
        test.ci-scripts test.nightly-scripts test.infra.caddy test.infra.caddy.redirects check.web.translations check.web.route-size \
@@ -227,7 +227,7 @@ test.web:
 GATE_SHELL_BENCH = test(/benchmark_shell/) + test(/benchmark_beam_shell/) + test(/benchmark_plate/) + test(/benchmark_navier/) + test(/benchmark_scordelis/) + test(/benchmark_cantilever/) + test(/benchmark_pinched/) + test(/test_quad_thin_plate/)
 GATE_SHELL_ACCEPTANCE = test(/acceptance_.*shell/) + test(/acceptance_.*diaphragm/)
 GATE_CONSTRAINT_BENCH = test(/benchmark_.*constraint/)
-GATE_MODULES = sparse_shell_gates solver_invariants solver_ci_coverage conditioning_adversarial kfull_overbuild_gates acceptance
+GATE_MODULES = sparse_shell_gates solver_invariants solver_ci_coverage conditioning_adversarial kfull_overbuild_gates acceptance result_sites
 # Wall-clock gates run single-threaded, so elapsed time is CPU work, not contention.
 GATE_TIMED_MODULES = perf_regression_gates perf_regression_advanced
 GATE_TIMED_IGNORED = test(=element::solid_shell::tests::test_centroid_stress_timing_budget) + test(=section::poisson::tests::sparse_path_scales_better_than_cubically) + test(=solver::constraints::tests::validate_constraints_reads_the_nodes_once_not_once_per_constraint) + test(=solver::dynamic_validation::tests::area_mass_validation_is_linear_in_the_number_of_shells) + test(=postprocess_scaling::rc_check_scales_linearly_in_member_count) + test(=fuzz_regressions::a_blocking_child_is_killed_at_its_timeout) + test(=known_issues::distorted_mesh_guard_indexes_the_mesh_once_per_solve)
@@ -246,6 +246,11 @@ lint.engine:
 check.engine.acceptance-models:
 	$(NIX_RUN) bash -c 'for g in engine/tests/acceptance/generators/*.py; do python3 -I "$$g"; done'
 	git diff --exit-code -- engine/tests/acceptance/models
+
+# The result walkers' keys are generated from the engine's result types; a hand edit fails test.engine.gates.
+gen.result-sites:
+	cd engine && STABILEO_WRITE_RESULT_SITES=1 $(NIX_RUN) cargo nextest run --profile ci --test gates -E 'test(=result_sites::generated_result_sites_are_current)'
+	$(NIX_RUN) bash -c "cd web && node scripts/gen-result-sites.mjs --write"
 
 # nextest does not execute the compile-fail doctests protecting unit boundaries.
 test.engine.units-types:
@@ -297,7 +302,7 @@ web.deps:
 	$(NIX_RUN) bash -c "cd web && npm ci"
 
 typecheck.web:
-	$(NIX_RUN) bash -c "cd web && npm run typecheck && npm run test:units:types && npm run check:gate && node scripts/check-site-header.mjs"
+	$(NIX_RUN) bash -c "cd web && npm run typecheck && npm run test:units:types && npm run check:gate && node scripts/check-site-header.mjs && node scripts/gen-result-sites.mjs"
 
 test.web.unit:
 	$(NIX_RUN) bash -c "cd web && npx vitest run --project unit $${UNIT_AREA:+src/components/$$UNIT_AREA} $(if $(SHARD),--shard=$(SHARD)) $(if $(BAIL),--bail=$(BAIL))"

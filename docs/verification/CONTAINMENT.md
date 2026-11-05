@@ -163,6 +163,25 @@ The results snapshot corpus includes diagnostic codes. New warnings can change t
 - PL-3D-INVARIANCE: 3D plastic analysis containing curved beams.
 - NL-DYNAMIC-GAPS: material nonlinear analysis (increment/convergence gap), or modal/spectral/time-history/harmonic models containing frame members or curved beams expanded into frames (omitted rotary inertia). A model without frame members does not get the dynamic warning. Modal orthogonality and time-history reciprocity have no demonstrated reliable input-only cutoff, so those analysis-level warnings remain broad and explicit.
 
+## Where a refusal can sit
+
+The fields of a result that can hold a `StructuredDiagnostic`, directly or through nested results,
+are generated, never listed by hand: `engine/tests/result_sites.rs` reads every `Serialize` type in
+`engine/src`, `web/scripts/gen-result-sites.mjs` every result type in `web/src`, and
+`make gen.result-sites` writes the keys to `engine/src/result_sites/keys.rs`,
+`web/src/lib/engine/generated/result-sites.ts` and `result-sites-ts.ts`. The engine walker
+(`result_sites::walk`) and the web walker (`knownIssueResultDisposition`) read only those keys.
+
+- Every WASM export serializes its result through the contained boundary (`to_js_value`, `to_json`,
+  `contained_text` in `engine/src/lib.rs`), which lists any refusal found below the root in the
+  root's own `structuredDiagnostics`, or refuses a result that has no root record.
+- Combinations and envelopes take their load cases' known issues from the walker, not from one field.
+- `test.engine.gates` (`result_sites`) fails when the generated keys are stale, injects a refusal and
+  a warning at every field path of every result type, and checks every export goes through the
+  boundary. `typecheck.web` fails when the web keys are stale. `result-walker-gate.test.ts` repeats
+  the injection on the web walker and on every store setter, and fails if any component reads a
+  disposition from one hand-picked field.
+
 ## Additional corrected behaviour evidence
 
 These are already-fixed mechanisms referenced by the containment negative controls; they require no runtime warning. History was read with log -S and commit inspection. Existing regression tests already discriminate the old behaviour, so no redundant replacements were added.
