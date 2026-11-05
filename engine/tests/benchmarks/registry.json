@@ -1729,7 +1729,7 @@
           "unit": "mixed, per assertion (unaudited)",
           "references": [],
           "tolerance": {
-            "relative": 0.01,
+            "relative": 0.02,
             "justification": "Ceiling, not a justified accuracy tolerance: the loosest assert_close-family rel_tol and error-named `< literal` threshold the file asserts today; loosening one past it fails the gate."
           },
           "test_tolerances": [
@@ -1740,7 +1740,12 @@
                 "assert_close_abs"
               ],
               "argument": 3,
-              "unresolved": 3
+              "aliases": {
+                "c[\"\"][\"\"].as_f64().unwrap()": {
+                  "file": "engine/tests/benchmarks/macneal_harder.json",
+                  "pointer": "/cases/*/nativeBounds/relativeErrorLessThan"
+                }
+              }
             },
             {
               "file": "engine/tests/validation/benchmarks/patch_tests.rs",
@@ -2153,7 +2158,12 @@
                 "relative"
               ],
               "argument": 3,
-              "unresolved": 2
+              "aliases": {
+                "tolerance": {
+                  "file": "engine/tests/benchmarks/mattiasson_elastica.json",
+                  "pointer": "/meshErrorCeilings/*/relativeError"
+                }
+              }
             },
             {
               "file": "engine/tests/research_benchmarks.rs",

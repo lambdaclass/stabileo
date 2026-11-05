@@ -170,12 +170,15 @@ class TestTolerance(unittest.TestCase):
         self.assertEqual(self.errors(locator, 0.015),
                          ['case / tip deflection: x.rs uses tolerance 0.02, looser than the spec 0.015'])
 
-    def test_an_unresolved_rust_tolerance_must_be_declared(self):
-        files = dict(FILES, **{'x.rs': RUST + 'fn u() { assert_close(a, b, 2.0 * TOL, "d"); }'})
+    def test_an_unresolved_rust_tolerance_fails_unless_it_aliases_a_case_tolerance(self):
+        files = dict(FILES, **{'x.rs': RUST + 'fn u() { assert_close(a, b, case["t"].as_f64().unwrap(), "d"); }'})
         locator = dict(file='x.rs', calls=['assert_close'], argument=3)
         [error] = self.errors(locator, 0.02, files)
-        self.assertIn('1 tolerance arguments are not literals or constants', error)
-        self.assertEqual(self.errors(dict(locator, unresolved=1), 0.02, files), [])
+        self.assertIn('neither literals, constants nor aliases of a case-file tolerance: assert_close(…case[""].as_f64().unwrap()…)', error)
+        alias = dict(locator, aliases={'case[""].as_f64().unwrap()': dict(file='case.json', pointer='/cases/*/t')})
+        self.assertEqual(self.errors(alias, 0.02, files), [])
+        self.assertEqual(self.errors(alias, 0.015, files),
+                         ['case / tip deflection: x.rs uses tolerance 0.02, looser than the spec 0.015'])
 
     def test_a_rust_pattern_reads_error_thresholds(self):
         self.assertEqual(gate.extract(dict(file='x.rs', pattern='error-threshold'), reader(FILES)), [0.015])
@@ -234,6 +237,14 @@ class Loosening(unittest.TestCase):
         errors, _ = self.run_check(None)
         self.assertEqual(errors, ['case / tip deflection: relative tolerance 0.02 removed (needs the tolerance-change label)'])
 
+    def test_loosening_a_test_tolerance_inside_the_spec_needs_the_label(self):
+        base_files = dict(FILES, **{'case.json': json.dumps(dict(tolerance=0.02, cases=[dict(t=0.01), dict(t=0.02)]))})
+        head_files = dict(FILES, **{'case.json': json.dumps(dict(tolerance=0.02, cases=[dict(t=0.015), dict(t=0.02)]))})
+        reg = registry(quantity(test_tolerances=[dict(file='case.json', pointer='/cases/*/t')]))
+        errors, _ = gate.label_check(reg, reader(base_files), reg, reader(head_files), set())
+        self.assertEqual(errors, ['case / tip deflection: a test tolerance in case.json loosened (needs the tolerance-change label)'])
+        self.assertEqual(gate.label_check(reg, reader(head_files), reg, reader(base_files), set()), ([], []))
+
     def test_switching_kind_counts_as_loosening(self):
         head = registry(quantity(tolerance=dict(absolute=0.001, justification='j')))
         errors, _ = self.run_check(None, head=head)
@@ -256,6 +267,27 @@ class Event(unittest.TestCase):
 
     def test_without_a_payload_the_check_runs_locally(self):
         self.assertIsNone(gate.event_context({}))
+
+    def test_in_ci_the_labels_fetched_when_the_job_runs_replace_the_payload(self):
+        base = registry()
+        head = registry(quantity(tolerance=dict(relative=0.03, justification='j')))
+        with tempfile.NamedTemporaryFile('w', suffix='.json', delete=False) as f:
+            json.dump(dict(pull_request=dict(base=dict(sha='abc'), labels=[dict(name='tolerance-change')])), f)
+        seen = {}
+        original = (gate.base_revision, gate.git_reader, gate.label_check)
+        gate.base_revision = lambda sha: sha
+        gate.git_reader = lambda rev: lambda path: json.dumps(base) if path == gate.REGISTRY else None
+        gate.label_check = lambda b, br, h, hr, labels: seen.setdefault('labels', labels) and ([], None) or ([], None)
+        try:
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                gate.main([], dict(GITHUB_EVENT_PATH=f.name, GITHUB_EVENT_NAME='pull_request', BENCHMARK_GATE_LABELS=''))
+                removed = seen.pop('labels')
+                gate.main([], dict(GITHUB_EVENT_PATH=f.name, GITHUB_EVENT_NAME='pull_request'))
+                payload = seen.pop('labels')
+        finally:
+            gate.base_revision, gate.git_reader, gate.label_check = original
+        self.assertEqual((removed, payload), (set(), {'tolerance-change'}))
+        self.assertEqual(head['benchmarks'][0]['quantities'][0]['tolerance']['relative'], 0.03)
 
     def test_a_pull_request_whose_base_cannot_be_read_fails(self):
         with tempfile.NamedTemporaryFile('w', suffix='.json', delete=False) as f:

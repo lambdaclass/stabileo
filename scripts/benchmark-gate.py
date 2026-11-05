@@ -118,18 +118,22 @@ def extract(locator, read):
             raise Gate(f"{locator['file']}: pattern {locator['pattern']!r} matched no numeric tolerance")
         return values
     values, unresolved = [], []
+    aliases = locator.get('aliases', {})
     for name in locator['calls']:
         for args in call_arguments(code, name):
             if len(args) < locator['argument']:
                 continue
-            resolved = resolve(code, args[locator['argument'] - 1])
+            argument = args[locator['argument'] - 1]
+            resolved = resolve(code, argument)
+            if resolved is None and argument in aliases:
+                resolved = extract(aliases[argument], read)
             if resolved is None:
-                unresolved.append(f'{name}(…{args[locator["argument"] - 1]}…)')
+                unresolved.append(f'{name}(…{argument}…)')
             else:
                 values.extend(resolved)
-    if len(unresolved) > locator.get('unresolved', 0):
-        raise Gate(f"{locator['file']}: {len(unresolved)} tolerance arguments are not literals or constants "
-                   f"({', '.join(unresolved[:3])}); declared unresolved: {locator.get('unresolved', 0)}")
+    if unresolved:
+        raise Gate(f"{locator['file']}: tolerance arguments that are neither literals, constants nor aliases "
+                   f"of a case-file tolerance: {', '.join(unresolved[:3])}")
     if not values:
         raise Gate(f"{locator['file']}: no {'/'.join(locator['calls'])} tolerance found")
     return values
@@ -274,6 +278,32 @@ def spec_tolerances(registry, read):
     return out
 
 
+def test_tolerances(registry, read):
+    out = {}
+    for entry in registry.get('benchmarks', []):
+        if 'protocol' in entry and read(entry['protocol']) is None:
+            continue
+        for q in quantities(entry, read):
+            for locator in q.get('test_tolerances') or []:
+                try:
+                    out[(entry.get('id'), q.get('quantity'), json.dumps(locator, sort_keys=True))] = sorted(extract(locator, read))
+                except Gate:
+                    pass
+    return out
+
+
+def tests_loosened(base, head):
+    found = []
+    for key, old in base.items():
+        new = head.get(key)
+        if new is None:
+            continue
+        pairs = zip(old, new) if len(old) == len(new) else [(max(old), max(new))]
+        if any(b > a for a, b in pairs):
+            found.append(f'{key[0]} / {key[1]}: a test tolerance in {json.loads(key[2])["file"]} loosened')
+    return found
+
+
 def loosened(base, head):
     found = []
     for key, (kind, value) in base.items():
@@ -291,7 +321,8 @@ def loosened(base, head):
 
 
 def label_check(base, base_read, head, head_read, labels):
-    changes = loosened(spec_tolerances(base, base_read), spec_tolerances(head, head_read))
+    changes = (loosened(spec_tolerances(base, base_read), spec_tolerances(head, head_read))
+               + tests_loosened(test_tolerances(base, base_read), test_tolerances(head, head_read)))
     if changes and LABEL not in labels:
         return [f'{c} (needs the {LABEL} label)' for c in changes], None
     return [], changes and f'{len(changes)} loosened tolerance(s) accepted by the {LABEL} label'
@@ -345,7 +376,8 @@ def main(argv=None, env=None):
         note = context['skip']
     else:
         rev = a.base or (context and context['base']) or (git('merge-base', 'HEAD', 'origin/main') or '').strip()
-        labels |= set(context['labels']) if context else set()
+        if context and 'BENCHMARK_GATE_LABELS' not in env:
+            labels |= set(context['labels'])
         rev = rev and base_revision(rev)
         base_text = rev and git_reader(rev)(REGISTRY)
         if not rev and context:
