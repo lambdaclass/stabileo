@@ -34,6 +34,14 @@ describe('the Basic course units return with their review fixes', () => {
     expect(ids(frame(), v, ['linear', 'pdelta'])).not.toContain('basic-second-order-split-members-returns');
   });
 
+  it('tells a Basic plastic run solved before it that unloading hinges close again, and no run without plastic', () => {
+    const v = versionOf('basic-plastic-closes-unloading-hinges-returns');
+    expect(v).toBeGreaterThan(versionOf('basic-second-order-split-members-returns'));
+    expect(ids(frame(), v - 1, ['linear', 'plastic'])).toContain('basic-plastic-closes-unloading-hinges-returns');
+    expect(ids(frame(), v - 1, ['linear'])).not.toContain('basic-plastic-closes-unloading-hinges-returns');
+    expect(ids(frame(), v, ['linear', 'plastic'])).not.toContain('basic-plastic-closes-unloading-hinges-returns');
+  });
+
   it('writes each returning entry in the six languages', () => {
     for (const c of RESULT_CHANGES.changes.filter((x) => x.id.endsWith('-returns'))) {
       const e = c as unknown as { title: Record<string, string>; explanation: Record<string, string> };

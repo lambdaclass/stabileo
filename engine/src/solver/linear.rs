@@ -4644,19 +4644,7 @@ pub(crate) fn refuse_moments_without_rotation_2d(input: &SolverInput, loads: &[S
         if !e.hinge_start { carried.insert(e.node_i); }
         if !e.hinge_end { carried.insert(e.node_j); }
     }
-    let node_xz: std::collections::HashMap<usize, (f64, f64)> =
-        crate::ordered::values(&input.nodes).map(|n| (n.id, (n.x, n.z))).collect();
-    for c in crate::ordered::values(&input.connectors) {
-        // A connector stiffens the end rotations through its rotational
-        // spring, or through the rigid arms of a finite-length shear spring.
-        let l = match (node_xz.get(&c.node_i), node_xz.get(&c.node_j)) {
-            (Some(a), Some(b)) => ((b.0 - a.0).powi(2) + (b.1 - a.1).powi(2)).sqrt(),
-            _ => 0.0,
-        };
-        if c.k_moment > 0.0 || (c.k_shear > 0.0 && l > crate::element::connector::ZERO_LENGTH) {
-            carried.extend([c.node_i, c.node_j]);
-        }
-    }
+    carried.extend(super::assembly::connector_rotation_nodes_2d(input));
     for c in &input.constraints {
         match c {
             // Only a constraint that involves the rotation (DOF 2) carries it: one

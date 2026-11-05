@@ -47,6 +47,84 @@
       }
     },
     {
+      "id": "connector-mechanism-2d-refused",
+      "resultsVersion": 30,
+      "date": "2026-11-05",
+      "prs": [
+        1415
+      ],
+      "area": "analysis",
+      "when": {
+        "allOf": [
+          [
+            "plane2D"
+          ],
+          [
+            "connectors"
+          ]
+        ]
+      },
+      "title": {
+        "en": "2D: a mechanism behind a connector is refused",
+        "es": "2D: un mecanismo detrás de un conector se rechaza",
+        "pt": "2D: um mecanismo atrás de um conector é recusado",
+        "de": "2D: ein Mechanismus hinter einem Verbindungselement wird abgelehnt",
+        "fr": "2D : un mécanisme derrière un connecteur est refusé",
+        "tr": "2D: bir bağlayıcı arkasındaki mekanizma reddediliyor"
+      },
+      "explanation": {
+        "en": "A plane model where a connector with a rotational spring ties a node whose members are all hinged to other nodes is a mechanism when nothing else holds the rotation, but the solver held it with an artificial spring and returned rotations of about 10 rad with no reaction moment, which the certificate accepted (#1414). Such a model is now refused as a mechanism. When a support, an unhinged member or another connector holds the rotation, it still solves, without the artificial spring's small share of the moment. Re-run plane models with connectors at hinged nodes.",
+        "es": "Un modelo plano en el que un conector con resorte de giro une un nudo con todas sus barras articuladas a otros nudos es un mecanismo si nada más impide el giro, pero el solver lo sostenía con un resorte artificial y devolvía giros de unos 10 rad sin momento de reacción, que el certificado aceptaba (#1414). Ese modelo ahora se rechaza como mecanismo. Si un apoyo, una barra no articulada u otro conector impide el giro, se sigue resolviendo, sin la pequeña parte del momento que tomaba el resorte artificial. Vuelva a calcular los modelos planos con conectores en nudos articulados.",
+        "pt": "Um modelo plano em que um conector com mola de rotação liga um nó com todas as barras articuladas a outros nós é um mecanismo quando nada mais impede o giro, mas o solver o segurava com uma mola artificial e devolvia giros de cerca de 10 rad sem momento de reação, que o certificado aceitava (#1414). Esse modelo agora é recusado como mecanismo. Quando um apoio, uma barra não articulada ou outro conector impede o giro, continua sendo resolvido, sem a pequena parcela do momento que a mola artificial tomava. Recalcule os modelos planos com conectores em nós articulados.",
+        "de": "Ein ebenes Modell, in dem ein Verbindungselement mit Drehfeder einen Knoten mit lauter gelenkig angeschlossenen Stäben an andere Knoten bindet, ist ein Mechanismus, wenn nichts sonst die Verdrehung hält; der Löser hielt es mit einer künstlichen Feder und lieferte Verdrehungen von etwa 10 rad ohne Auflagermoment, die das Zertifikat akzeptierte (#1414). Ein solches Modell wird jetzt als Mechanismus abgelehnt. Hält ein Auflager, ein nicht gelenkiger Stab oder ein weiteres Verbindungselement die Verdrehung, wird es weiter berechnet, ohne den kleinen Momentenanteil der künstlichen Feder. Rechnen Sie ebene Modelle mit Verbindungselementen an Gelenkknoten neu.",
+        "fr": "Un modèle plan où un connecteur avec ressort de rotation relie un nœud dont toutes les barres sont articulées à d'autres nœuds est un mécanisme lorsque rien d'autre ne retient la rotation, mais le solveur le retenait par un ressort artificiel et renvoyait des rotations d'environ 10 rad sans moment de réaction, que le certificat acceptait (#1414). Un tel modèle est maintenant refusé comme mécanisme. Lorsqu'un appui, une barre non articulée ou un autre connecteur retient la rotation, il est toujours résolu, sans la petite part du moment que prenait le ressort artificiel. Relancez les modèles plans avec connecteurs aux nœuds articulés.",
+        "tr": "Dönme yaylı bir bağlayıcının tüm çubukları mafsallı bir düğümü başka düğümlere bağladığı düzlem model, dönmeyi başka hiçbir şey tutmuyorsa bir mekanizmadır; çözücü onu yapay bir yayla tutup tepki momenti olmadan yaklaşık 10 rad dönmeler veriyordu ve sertifika bunları kabul ediyordu (#1414). Böyle bir model artık mekanizma olarak reddediliyor. Dönmeyi bir mesnet, mafsalsız bir çubuk veya başka bir bağlayıcı tutuyorsa çözülmeye devam ediyor; yapay yayın aldığı küçük moment payı artık yok. Mafsallı düğümlerde bağlayıcı bulunan düzlem modelleri yeniden çözün."
+      },
+      "changelog": {
+        "file": "changelog.d/1414-connector-mechanism-2d.md",
+        "heading": "2D: a mechanism hidden behind a connector is refused, not solved (2026-11-05)"
+      }
+    },
+    {
+      "id": "basic-plastic-closes-unloading-hinges-returns",
+      "resultsVersion": 29,
+      "date": "2026-11-04",
+      "prs": [
+        1306
+      ],
+      "area": "analysis",
+      "when": {
+        "allOf": [
+          [
+            "plane2D"
+          ],
+          [
+            "analysis:plastic"
+          ]
+        ]
+      },
+      "title": {
+        "en": "Plane plastic collapse closes unloading hinges again and goes on to the true collapse",
+        "es": "El colapso plástico plano vuelve a cerrar las rótulas que se descargan y sigue hasta el colapso real",
+        "pt": "O colapso plástico plano volta a fechar as rótulas que se descarregam e segue até o colapso real",
+        "de": "Der ebene plastische Kollaps schließt entlastete Gelenke wieder und geht bis zum wirklichen Kollaps weiter",
+        "fr": "L'effondrement plastique plan referme de nouveau les rotules qui se déchargent et va jusqu'à l'effondrement réel",
+        "tr": "Düzlem plastik göçme, boşalan mafsalları yeniden kapatıyor ve gerçek göçmeye kadar devam ediyor"
+      },
+      "explanation": {
+        "en": "Version 15 withdrew this change of version 14 (#871) until its review fixes reached main; it returns with them (#1306). The step-by-step collapse stopped at the first apparent mechanism. Under distributed loads a second hinge forms beside the first and unloads; the analysis stopped there with a low collapse factor (a portal frame gave 64.06 instead of 71.30). Those hinges now close and the analysis continues; a hinge that drifts along a member counts once. A run that does not reach an admissible mechanism within its step limit is reported as not confirmed instead of as a collapse. Re-check plastic collapse factors of plane frames, above all with distributed loads.",
+        "es": "La versión 15 retiró este cambio de la versión 14 (#871) hasta que llegaran a main sus correcciones de revisión; vuelve con ellas (#1306). El colapso paso a paso se detenía en el primer mecanismo aparente. Con cargas distribuidas se forma una segunda rótula junto a la primera que se descarga; el análisis se detenía ahí con un factor de colapso bajo (un pórtico daba 64,06 en lugar de 71,30). Ahora esas rótulas se cierran y el análisis sigue; una rótula que se desplaza a lo largo de una barra cuenta una sola vez. Una corrida que no llega a un mecanismo admisible dentro de su límite de pasos se informa como no confirmada, no como colapso. Revise los factores de colapso plástico de pórticos planos, sobre todo con cargas distribuidas.",
+        "pt": "A versão 15 retirou esta mudança da versão 14 (#871) até que suas correções de revisão chegassem à main; ela volta com elas (#1306). O colapso passo a passo parava no primeiro mecanismo aparente. Com cargas distribuídas forma-se uma segunda rótula junto à primeira, que se descarrega; a análise parava ali com um fator de colapso baixo (um pórtico dava 64,06 em vez de 71,30). Agora essas rótulas se fecham e a análise continua; uma rótula que se desloca ao longo de uma barra conta uma só vez. Uma execução que não chega a um mecanismo admissível dentro do seu limite de passos é informada como não confirmada, não como colapso. Revise os fatores de colapso plástico de pórticos planos, sobretudo com cargas distribuídas.",
+        "de": "Version 15 nahm diese Änderung aus Version 14 (#871) zurück, bis ihre Korrekturen aus der Prüfung auf main waren; sie kommt mit ihnen zurück (#1306). Der schrittweise Kollaps hielt beim ersten scheinbaren Mechanismus an. Unter verteilten Lasten bildet sich neben dem ersten ein zweites Gelenk, das sich entlastet; die Analyse hielt dort mit einem zu niedrigen Kollapsfaktor an (ein Rahmen ergab 64,06 statt 71,30). Diese Gelenke schließen sich jetzt, und die Analyse läuft weiter; ein Gelenk, das entlang eines Stabs wandert, zählt einmal. Ein Lauf, der innerhalb seiner Schrittgrenze keinen zulässigen Mechanismus erreicht, wird als nicht bestätigt gemeldet, nicht als Kollaps. Prüfen Sie plastische Kollapsfaktoren ebener Rahmen erneut, vor allem unter verteilten Lasten.",
+        "fr": "La version 15 avait retiré ce changement de la version 14 (#871) en attendant que ses corrections de revue arrivent sur main ; il revient avec elles (#1306). L'effondrement pas à pas s'arrêtait au premier mécanisme apparent. Sous charges réparties, une deuxième rotule se forme à côté de la première et se décharge ; l'analyse s'arrêtait là avec un facteur d'effondrement trop bas (un portique donnait 64,06 au lieu de 71,30). Ces rotules se referment désormais et l'analyse continue ; une rotule qui se déplace le long d'une barre compte une seule fois. Un calcul qui n'atteint pas de mécanisme admissible dans sa limite de pas est signalé comme non confirmé, et non comme un effondrement. Revérifiez les facteurs d'effondrement plastique des portiques plans, surtout sous charges réparties.",
+        "tr": "Sürüm 15, sürüm 14'teki bu değişikliği (#871) inceleme düzeltmeleri main'e ulaşana kadar geri almıştı; değişiklik onlarla birlikte geri dönüyor (#1306). Adım adım göçme ilk görünen mekanizmada duruyordu. Yayılı yükler altında birincinin yanında ikinci bir mafsal oluşup boşalıyor; analiz orada düşük bir göçme katsayısıyla duruyordu (bir çerçeve 71,30 yerine 64,06 veriyordu). Bu mafsallar artık kapanıyor ve analiz devam ediyor; bir eleman boyunca kayan mafsal bir kez sayılıyor. Adım sınırı içinde kabul edilebilir bir mekanizmaya ulaşmayan bir çözüm göçme olarak değil, doğrulanmamış olarak bildiriliyor. Düzlem çerçevelerin plastik göçme katsayılarını, özellikle yayılı yükler altında, yeniden kontrol edin."
+      },
+      "changelog": {
+        "file": "docs/results-changes/2026-11-basic-course-returns.md",
+        "heading": "Plastic collapse closes unloading hinges"
+      }
+    },
+    {
       "id": "basic-second-order-split-members-returns",
       "resultsVersion": 28,
       "date": "2026-11-04",
