@@ -77,6 +77,23 @@ class Caught(unittest.TestCase):
                                      "  return lc.includes('mecanismo');\n}\n"}
         self.assert_caught(files, line=3)
 
+    def test_a_message_field_compared_to_any_string_is_caught(self):
+        for body in ("return error.message === 'singular';", "return 'singular' !== e.message;", "return r.msg == 'x';"):
+            with self.subTest(body=body):
+                self.assert_caught(ts(body))
+        self.assert_caught(py("return failure.stderr == 'killed'"))
+
+    def test_a_call_split_over_lines_is_caught_at_its_first_line(self):
+        self.assert_caught({'web/src/lib/a.ts': 'export function f(message: string) {\n  return NO_FREE_DOFS.test(\n    message\n  );\n}\n'})
+        self.assert_caught({'web/src/lib/a.ts': "export function f(message: string) {\n  return message\n    .startsWith('x');\n}\n"}, line=3)
+        self.assert_caught({'scripts/a.py': 'def f(stderr):\n    return re.search(\n        r"x", stderr)\n'})
+
+    def test_a_prose_regex_defined_apart_is_caught_where_it_is_used(self):
+        files = {'web/src/lib/a.ts': "const NO_FREE = /^No free DOFs/;\nexport const f = (t: string) => NO_FREE.test(t);\n"}
+        self.assert_caught(files)
+        files = {'web/src/lib/a.ts': "const NO_FREE = new RegExp('no compressed elements');\nexport const f = (t: string) => t.match(NO_FREE);\n"}
+        self.assert_caught(files)
+
     def test_svelte_markup_is_scanned(self):
         self.assert_caught({'web/src/components/A.svelte': "<p>x</p>\n{#if error.includes('singular')}<p>y</p>{/if}\n"})
 
@@ -103,6 +120,9 @@ class NotCaught(unittest.TestCase):
             ts("return typeof message === 'string' && msg.type === 'ready';"),
             ts("return resultsStore.diagramType === 'none' && items.includes(x as never);"),
             ts("return name.startsWith('IPE');"),
+            ts("return typeof error.message === 'string' && typeof (d as D).message === 'string';"),
+            ts("return s.replace(/\"/g, '&quot;').replace(/[;\"(]/g, 'x');"),
+            py("x = re.search(r'#\\[\\s*(?:ignore|cfg)\\b', attributes)\n    return 'an ignored test does not run'"),
             py("return name.startswith('slow-') or level == 'error'"),
         ):
             with self.subTest(files=files):

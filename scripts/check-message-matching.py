@@ -2,6 +2,7 @@
 match stops, silently. Branch on a DiagnosticCode or a known-issue id. Engine code may not match a
 string literal at all; web and script code may not match a message-named value or a literal that
 spells prose or a code. Existing lines are listed in scripts/message-match-allow.txt under a reason."""
+import bisect
 import importlib.util
 import pathlib
 import re
@@ -80,12 +81,22 @@ def receiver(prefix):
     return prefix[i:]
 
 
+REGEX_AT = re.compile(r'/(?![/*])(?:\\.|\[(?:\\.|[^\]\\\n])*\]|[^/\\\n\[])+/')
+
+
 def call_arg(text, at):
     """The first argument of the call whose `(` ends just before `at`, as source."""
     depth, j = 0, at
     while j < len(text):
         c = text[j]
-        if c in '([{':
+        if c in '\'"`':
+            k = j + 1
+            while k < len(text) and text[k] != c and (c == '`' or text[k] != '\n'):
+                k += 2 if text[k] == '\\' else 1
+            j = k
+        elif c == '/' and (text[at:j].rstrip()[-1:] or '(') in '(,=:[!&|?{};' and REGEX_AT.match(text, j):
+            j = REGEX_AT.match(text, j).end() - 1
+        elif c in '([{':
             depth += 1
         elif c in ')]}':
             if depth == 0:
@@ -93,9 +104,9 @@ def call_arg(text, at):
             depth -= 1
         elif c == ',' and depth == 0:
             break
-        elif c == '\n' and depth == 0:
-            break
         j += 1
+        if j - at > 400:
+            break
     return text[at:j]
 
 
@@ -139,32 +150,78 @@ JS_SWITCH = re.compile(r'\bswitch\s*\(([^)]*)\)')
 JS_REGEX_LITERAL = r'/(?![/*\s])(?:\\.|\[(?:\\.|[^\]\\\n])*\]|[^/\\\n\[])+/[dgimsuyv]*'
 JS_REGEX_CALL = re.compile(rf'({JS_REGEX_LITERAL}|\b[A-Za-z_$][\w$]*)\.(test|exec)\(')
 JS_REGEX = re.compile(rf'(?<![\w$)\]])\s*{JS_REGEX_LITERAL}')
-JS_EQ = re.compile(rf'([\w$.?\[\]()]+)\s*(===?|!==?)\s*({LITERAL})|({LITERAL})\s*(===?|!==?)\s*([\w$.?\[\]()]+)')
+JS_EQ = re.compile(r'(?<![<>=!])(===?|!==?)(?!=)')
+JS_LITERAL_AFTER = re.compile(rf'\s*({LITERAL})')
+JS_LITERAL_BEFORE = re.compile(rf'({LITERAL})\s*$')
+
+
+def lines_of(text, comment):
+    """A function from an offset in `text` to (line number, stripped line), or None on a comment line."""
+    lines = text.split('\n')
+    starts = [0]
+    for line in lines[:-1]:
+        starts.append(starts[-1] + len(line) + 1)
+
+    def at(offset):
+        n = bisect.bisect_right(starts, offset)
+        s = lines[n - 1].strip()
+        return None if s.startswith(comment) else (n, s)
+    return at
+
+
+def before(text, at):
+    return receiver(text[max(0, at - 400):at].rstrip())
+
+
+EXPLICIT_MESSAGE = {'message', 'msg', 'stderr'}
+
+
+def explicit_message(value):
+    """Whether `value` ends in a message field, like `error.message`: any string compared to it is message text."""
+    words = re.findall(r'[A-Za-z_$][\w$]*', value)
+    return bool(words) and words[-1].lower() in EXPLICIT_MESSAGE
+
+
+JS_TEXT_REGEX = re.compile(rf'\b([A-Za-z_$][\w$]*)\s*=\s*({JS_REGEX_LITERAL}|new RegExp\(\s*(?:{LITERAL}))')
 
 
 def js_hits(text):
-    found, aliases = [], aliases_in(text)
-    for number, line in enumerate(text.split('\n'), 1):
-        s = line.strip()
-        if s.startswith(('//', '*', '/*')):
+    found, aliases, line = [], aliases_in(text), lines_of(text, ('//', '*', '/*'))
+    text_regexes = {m[1] for m in JS_TEXT_REGEX.finditer(text) if spells_text(m[2])}
+
+    def hit(offset, name):
+        where = line(offset)
+        if where:
+            found.append((where[0], name, where[1]))
+
+    for m in JS_CALL.finditer(text):
+        arg = call_arg(text, m.end())
+        on_message = message_like(before(text, m.start()), aliases) and m[1] not in JS_TRANSFORM
+        if on_message or spells_text(arg) or arg.strip() in text_regexes:
+            hit(m.start(), f'.{m[1]}(')
+    for m in JS_SWITCH.finditer(text):
+        if message_like(m[1], aliases):
+            hit(m.start(), 'switch')
+    for m in JS_REGEX_CALL.finditer(text):
+        literal = m[1].startswith('/') and spells_text(m[1])
+        if message_like(call_arg(text, m.end()), aliases) or literal or m[1] in text_regexes:
+            hit(m.start(), f'.{m[2]}(')
+    for m in JS_REGEX.finditer(text):
+        if CODE.search(m[0]):
+            hit(m.start(), 'regex')
+    for m in JS_EQ.finditer(text):
+        after = JS_LITERAL_AFTER.match(text, m.end())
+        left = text[max(0, m.start() - 400):m.start()]
+        before_literal = None if after else JS_LITERAL_BEFORE.search(left)
+        if after:
+            value, literal = receiver(left.rstrip()), after[1]
+        elif before_literal:
+            value, literal = re.match(r'\s*([\w$.?\[\]()]*)', text[m.end():m.end() + 200])[1], before_literal[1]
+        else:
             continue
-        for m in JS_CALL.finditer(line):
-            on_message = message_like(receiver(line[:m.start()]), aliases) and m[1] not in JS_TRANSFORM
-            if on_message or spells_text(call_arg(line, m.end())):
-                found.append((number, f'.{m[1]}(', s))
-        for m in JS_SWITCH.finditer(line):
-            if message_like(m[1], aliases):
-                found.append((number, 'switch', s))
-        for m in JS_REGEX_CALL.finditer(line):
-            if message_like(call_arg(line, m.end()), aliases) or (m[1].startswith('/') and spells_text(m[1])):
-                found.append((number, f'.{m[2]}(', s))
-        for m in JS_REGEX.finditer(line) if CODE.search(line) else ():
-            if CODE.search(m[0]):
-                found.append((number, 'regex', s))
-        for m in JS_EQ.finditer(line) if '==' in line else ():
-            value, op, literal = (m[1], m[2], m[3]) if m[1] else (m[6], m[5], m[4])
-            if message_like(value, aliases) and spells_text(literal):
-                found.append((number, op, s))
+        typeof = after and re.search(r'\btypeof\s*$', left.rstrip()[:len(left.rstrip()) - len(value)])
+        if message_like(value, aliases) and (spells_text(literal) or (explicit_message(value) and not typeof)):
+            hit(m.start(), m[1])
     return sorted(set(found))
 
 
@@ -176,25 +233,27 @@ PY_EQ = re.compile(rf'([\w.\[\]()\'"]+)\s*(==|!=)\s*({PY_LITERAL})')
 
 
 def py_hits(text):
-    found, aliases = [], aliases_in(text)
-    for number, line in enumerate(text.split('\n'), 1):
-        s = line.strip()
-        if s.startswith('#'):
-            continue
-        for m in PY_CALL.finditer(line):
-            if message_like(receiver(line[:m.start()]), aliases) or spells_text(call_arg(line, m.end())):
-                found.append((number, f'.{m[1]}(', s))
-        for m in PY_RE.finditer(line):
-            first = call_arg(line, m.end())
-            target = call_arg(line, m.end() + len(first) + 1) if m[1] else first
-            if message_like(target, aliases) or (m[1] and spells_text(first)):
-                found.append((number, f'.{m[1] or m[3]}(', s))
-        for m in PY_IN.finditer(line):
-            if message_like(m[2], aliases) or spells_text(m[1]):
-                found.append((number, 'in', s))
-        for m in PY_EQ.finditer(line):
-            if message_like(m[1], aliases) and spells_text(m[3]):
-                found.append((number, m[2], s))
+    found, aliases, line = [], aliases_in(text), lines_of(text, '#')
+
+    def hit(offset, name):
+        where = line(offset)
+        if where:
+            found.append((where[0], name, where[1]))
+
+    for m in PY_CALL.finditer(text):
+        if message_like(before(text, m.start()), aliases) or spells_text(call_arg(text, m.end())):
+            hit(m.start(), f'.{m[1]}(')
+    for m in PY_RE.finditer(text):
+        first = call_arg(text, m.end())
+        target = call_arg(text, m.end() + len(first) + 1) if m[1] else first
+        if message_like(target, aliases) or (m[1] and spells_text(first)):
+            hit(m.start(), f'.{m[1] or m[3]}(')
+    for m in PY_IN.finditer(text):
+        if message_like(m[2], aliases) or spells_text(m[1]):
+            hit(m.start(), 'in')
+    for m in PY_EQ.finditer(text):
+        if message_like(m[1], aliases) and (spells_text(m[3]) or explicit_message(m[1])):
+            hit(m.start(), m[2])
     return sorted(set(found))
 
 
