@@ -93,7 +93,7 @@ own warning or refusal. The per-defect fixes come from the solver bug-fix workst
 
 - **Found in the review of [#1253](https://github.com/lambdaclass/stabileo/pull/1253) and [#1255](https://github.com/lambdaclass/stabileo/pull/1255) (2026-11-04):**
   - [#1404](https://github.com/lambdaclass/stabileo/issues/1404): the re-check notice shows every registered change's title and explanation in English to German, French and Turkish users. This affects all 72 entries on main, and a safety notice the reader can't read is close to a missed notice.
-  - [#1401](https://github.com/lambdaclass/stabileo/issues/1401): edge beams under one-sided slab load get no torque and no advisory, in the panels, width and plan modes.
+  - [#1401](https://github.com/lambdaclass/stabileo/issues/1401): edge beams under one-sided slab load get no torque and no advisory, in the panels, width and plan modes. Advisory in [#1417](https://github.com/lambdaclass/stabileo/pull/1417) (draft): the load plan names those members for a torsion check, in its assumptions and derivation (no results version). The torque itself is deferred, below.
   - [#1402](https://github.com/lambdaclass/stabileo/issues/1402): verification integrity. A hand-edited report can drop sections and still pass the report check.
   - [#1403](https://github.com/lambdaclass/stabileo/issues/1403): the storey scope should track explicit picks separately from expansion copies.
 - **Route byte budgets:** all six routes are back to 128 B ([#1322](https://github.com/lambdaclass/stabileo/pull/1322), then [#1372](https://github.com/lambdaclass/stabileo/pull/1372) for the app routes), and the blog is its own
@@ -188,6 +188,11 @@ Decided for later, so that nothing is forgotten. Each one moves to the tables ab
 
 **Safety (wrong results first)**
 
+- **Eccentric slab torque on edge beams** ([#1401](https://github.com/lambdaclass/stabileo/issues/1401), option 1): apply the
+  transverse first moment of one-sided slab area as a distributed torque. Distributed member loads carry
+  no torque today (only point loads have `mx`), so this needs a new load component through the engine,
+  and a results version. Patterned live load (checkerboards) makes interior beams one-sided too and is
+  not in the advisory of [#1417](https://github.com/lambdaclass/stabileo/pull/1417).
 - **[#1341](https://github.com/lambdaclass/stabileo/pull/1341) without a results version:** summing combination cases in a fixed order can move a
   combined force in its last digit and flip a marginal detailing decision, but no snapshot changed, so
   nothing was registered. Decide whether it needs a results version and a re-check notice.
