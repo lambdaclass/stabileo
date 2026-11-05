@@ -772,6 +772,23 @@ fn a_one_sided_failure_or_refusal_or_a_nonfinite_3d_result_fails_the_planes_chec
     }));
 }
 
+#[test]
+fn a_nonfinite_3d_modal_result_fails_the_planes_check() {
+    use crate::ana2::modal_in_plane;
+    use dedaliano_engine::solver::modal;
+    let c = crate::corpus::cases_2d(crate::corpus::Tier::Pr, crate::seed()).into_iter().find(|c| c.name.contains("ex-cantilever-input")).unwrap();
+    let a = crate::ana2::rows().into_iter().find(|a| a.name == "modal").unwrap();
+    let cond = with_eigen_2d(conditioning::of_2d(&c.s).unwrap(), &c);
+    let base = run(&a, &c).unwrap();
+    assert!(matches!(planes(&a, &c, &base, a.planar.unwrap(), &cond), Verdict::Pass(_)));
+    let last_nan = |c: &Case2, p: Plane, s: &SolverInput3D| {
+        let mut r = modal::solve_modal_3d(s, &c.dens, 6)?;
+        r.modes.last_mut().unwrap().effective_mass_x = f64::NAN;
+        modal_in_plane(p, &r)
+    };
+    assert!(matches!(planes(&a, &c, &base, last_nan, &cond), Verdict::Fail(_)));
+}
+
 fn normal_axis(s: &SolverInput3D) -> usize {
     (0..3).find(|&k| s.supports.values().all(|x| [x.rx, x.ry, x.rz][k])).unwrap()
 }

@@ -136,7 +136,14 @@ fn along(v: [f64; 3], axis: [f64; 3]) -> f64 {
     v[0] * axis[0] + v[1] * axis[1] + v[2] * axis[2]
 }
 
-fn modal_in_plane(plane: Plane, r: &modal::ModalResult3D) -> Resp {
+pub(crate) fn modal_in_plane(plane: Plane, r: &modal::ModalResult3D) -> Result<Resp, String> {
+    let finite = r.total_mass.is_finite()
+        && r.modes.iter().all(|m| {
+            [m.frequency, m.participation_x, m.participation_y, m.participation_z, m.effective_mass_x, m.effective_mass_y, m.effective_mass_z].iter().all(|v| v.is_finite())
+        });
+    if !finite {
+        return Err("the 3D modal result is not finite".into());
+    }
     let (e1, e2, n) = (plane.e1(), plane.e2(), plane.normal());
     let modes: Vec<_> = r
         .modes
@@ -149,7 +156,7 @@ fn modal_in_plane(plane: Plane, r: &modal::ModalResult3D) -> Resp {
     let mut o = planar_modal_resp(r.total_mass, &modes);
     let stray = r.modes.iter().map(|m| along([m.effective_mass_x, m.effective_mass_y, m.effective_mass_z], n).abs()).fold(0.0, f64::max);
     o.scalar("stray mass", Dim::MASS, stray);
-    o
+    Ok(o)
 }
 
 pub(crate) fn in_plane(c: &Case2, plane: Plane, r: Result<AnalysisResults3D, String>) -> Result<Resp, String> {
@@ -432,7 +439,7 @@ pub fn rows() -> Vec<Ana2> {
             axis_bound: false,
             iter_tol: 1e-10,
             full_static: false,
-            planar: Some(|c, p, s| Ok(modal_in_plane(p, &modal::solve_modal_3d(s, &c.dens, 6)?))),
+            planar: Some(|c, p, s| modal_in_plane(p, &modal::solve_modal_3d(s, &c.dens, 6)?)),
             run: |c| Ok(modal_resp(&modal::solve_modal_2d(&c.s, &c.dens, 6)?)),
         },
         Ana2 {
