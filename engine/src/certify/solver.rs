@@ -1179,4 +1179,15 @@ mod tests {
         assert!(out.certificate.is_certified());
         assert_eq!(out.force_bounds.len(), 2);
     }
+
+    #[test]
+    fn each_load_case_is_withdrawn_for_its_own_non_finite_data_or_bound() {
+        let ok = || Certificate::Certified { abs_bound: 1e-9, rel_bound: 1e-12, sigma: 1.0, residual_norm: 1e-12 };
+        let mut out = vec![ok(), ok(), ok()];
+        set_abs_bound(&mut out[2], f64::NAN);
+        guard_cases(&mut out, vec![None, Some("non-finite number in the results at $.x=NaN".into()), None]);
+        assert!(out[0].is_certified());
+        assert_eq!(uncertified_reason(&out[1]), "non-finite number in the results at $.x=NaN");
+        assert_eq!(uncertified_reason(&out[2]), "non-finite number in the certificate at $.absBound=NaN");
+    }
 }
