@@ -4,6 +4,7 @@
   import { PAGE_SIZE } from './list-store.svelte';
   import { adminErrorText } from './error-text';
   import { formatDateTime } from './format';
+  import { httpUrl } from './http-url';
   import { t, tp } from '../lib/i18n';
   import type { FeedbackStatus } from '../lib/api/admin';
 
@@ -73,6 +74,7 @@
   {:else}
     <ul class="ins-feed">
       {#each adminFeedback.rows as f (f.id)}
+        {@const modelLink = httpUrl(f.model_link)}
         <li class="ins-feed-item" class:new={f.status === 'new'} data-testid="admin-feedback-item">
           <div class="ins-feed-meta">
             <span class="ins-tag accent">{t(`feedbackForm.kind.${f.kind}`)}</span>
@@ -89,7 +91,7 @@
                 <button class="ins-btn" onclick={() => mark(f.id, s)} data-testid={`admin-feedback-mark-${s}`}>{t(`admin.feedback.mark.${s}`)}</button>
               {/if}
             {/each}
-            {#if f.model_link}<a href={f.model_link} target="_blank" rel="noopener noreferrer">{t('admin.feedback.openModel')}</a>{/if}
+            {#if modelLink}<a href={modelLink} target="_blank" rel="noopener noreferrer" data-testid="admin-feedback-model">{t('admin.feedback.openModel')}</a>{/if}
             {#if f.account}<a href={reply(f)} data-testid="admin-feedback-reply">{t('admin.feedback.reply')}</a>{/if}
           </div>
         </li>
