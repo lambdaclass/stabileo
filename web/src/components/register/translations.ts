@@ -1,4 +1,3 @@
-// Strings of the ads sign-up page, loaded only by its route.
 export const registerTranslations: Record<string, Record<string, string>> = {
   en: {
     "register.err.emailInUse": "A Stabileo account already uses this email, and Google does not confirm it is still yours. Write to us through the contact links and we will move it to your Google account.",

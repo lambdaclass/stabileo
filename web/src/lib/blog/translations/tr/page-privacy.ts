@@ -65,7 +65,7 @@ const body: StandingPage['i18n']['en'] = {
     },
     {
       "k": "p",
-      "t": "Hangi reklamların hesap getirdiğini bilmek için her yeni hesapla birlikte ziyaretin nereden geldiğini (kanal, kampanya, reklam ve giriş sayfası) ve hesabı neyin istediğini saklarız; hesabın ilk hesabını, ilk kaydını, ilk dışa aktarımını ve uygulamayı kullandığı günleri kaydederiz. Bir hesap oluşturulduğunda veya ilk projesini kaydettiğinde bunu Meta’ya pikseli ve Dönüşüm API’si aracılığıyla, e-posta ve hesap kimliği SHA-256 ile şifrelenmiş olarak bildiririz; Meta bunu kendi politikası kapsamında kampanyaları ölçmek ve iyileştirmek için kullanır. Google Etiket Yöneticisi aynı etkinlikleri Google Analytics ve Google Ads’e gönderir. Hiçbiri modellerinizin içeriğini almaz."
+      "t": "Hangi reklamların hesap getirdiğini bilmek için her yeni hesapla birlikte ziyaretin nereden geldiğini (kanal, kampanya, reklam ve giriş sayfası) ve hesabı neyin istediğini saklarız. Kullanım verilerini paylaşıyorsanız hesabın ilk hesaplamasını, ilk kaydını, ilk dışa aktarımını ve uygulamayı kullandığı günleri de kaydederiz. Meta pikselini ve Google Etiket Yöneticisi’ni yalnızca reklam çerezlerini kabul ederseniz yükleriz. O andan itibaren bunlar ziyaret ettiğiniz her sayfayı (adresin paylaşılan bir modeli taşıyan kısmı olmadan) ve hesaba giden adımları alır: yeni birinin hesap oluştur tıklaması, başlangıç ve koşullar adımı, oluşturulan hesap, her giriş ve kaydedilen ilk proje. Google Etiket Yöneticisi bu olayları Google Analytics ve Google Ads’e gönderir. Aynı izinle, hesap oluşturulduğunda veya ilk projesini kaydettiğinde bunu sunucumuzdan Meta’nın Dönüşüm API’si aracılığıyla da bildiririz; e-posta ve hesap kimliği SHA-256 ile karma hâlinde, IP adresiniz, tarayıcınızın kullanıcı aracısı ve piksel çerezlerinin kimlikleri (_fbp ve _fbc) ile birlikte. Meta ve Google bu verileri kampanyaları ölçmek ve iyileştirmek için kendi politikalarına göre kullanır. Hiçbiri modellerinizin içeriğini almaz."
     },
     {
       "k": "h",
@@ -106,7 +106,7 @@ const body: StandingPage['i18n']['en'] = {
     },
     {
       "k": "p",
-      "t": "Oturumunuz ve tercihleriniz için tarayıcının yerel depolama alanını ve her hesabı neyin getirdiğini bilmek için ziyaretinizin nereden geldiğini (bağlantının parametreleri ve yönlendiren site) 30 gün saklayan kendi çerezimiz stb_visit’i kullanıyoruz. Meta pikseli ve Google Etiket Yöneticisi, etkin olduklarında, reklamı ölçmek için kendi çerezlerini yerleştirir."
+      "t": "Oturumunuz ve tercihleriniz için, reklam çerezleriyle ilgili kararınız dahil, tarayıcının yerel depolama alanını kullanırız. Yalnızca kabul ederseniz, ziyaretinizin nereden geldiğini (bağlantının parametreleri ve yönlendiren site) 30 gün boyunca saklayan stb_visit adlı birinci taraf çerezi yerleştiririz; Meta pikseli ve Google Etiket Yöneticisi de kendi çerezlerini yerleştirir. Kararınızı istediğiniz zaman sitenin sayfalarının altındaki Reklam çerezleri bağlantısından değiştirebilirsiniz."
     }
   ],
   "faqTitle": "Sık sorulan sorular",

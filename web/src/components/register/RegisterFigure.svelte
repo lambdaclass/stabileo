@@ -1,10 +1,6 @@
 <script lang="ts">
   import { tPublic as t } from '../../lib/i18n/store.svelte';
-  /**
-   * The portal frame example (6 m by 4 m, fixed, 15 kN/m on the beam and 10 kN at the top) as the
-   * editor shows it, drawn while the editor itself is not loaded. The moment diagram is its shape
-   * only: the values depend on the sections, and the editor computes them once opened.
-   */
+  // The moment diagram is the shape only; its values depend on the sections, which the editor computes.
 </script>
 
 <svg class="rg-figure" viewBox="0 0 760 420" role="img" aria-label={t('register.figureLabel')}>

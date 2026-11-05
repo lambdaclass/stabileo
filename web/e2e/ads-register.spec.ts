@@ -23,7 +23,6 @@ interface Backend {
   trackers: string[];
 }
 
-/** /register as an ad brings someone to it: a person's browser, a pixel and GTM saved in Settings. */
 async function boot(page: Page, query: string): Promise<Backend> {
   const backend: Backend = { attempts: [], register: [], trackers: [] };
   await page.addInitScript(() => {
@@ -49,7 +48,7 @@ async function boot(page: Page, query: string): Promise<Backend> {
   await page.route('**/api/v1/marketing/tracking', (r) => json(r, 200, { data: { meta_pixel_id: '123456789', gtm_container_id: 'GTM-ABC123' } }));
   await page.route('**/api/v1/marketing/activity', (r) => json(r, 200, { data: { recorded: [] } }));
   await page.route('**/api/v1/auth/config', (r) =>
-    json(r, 200, { user_login_enabled: true, terms_version: '2026-10-27', usage_telemetry_enabled: false, cloud_projects_enabled: true, save_requires_account: true, google_login: true, password_login: false }),
+    json(r, 200, { user_login_enabled: true, terms_version: '2026-10-27', usage_telemetry_enabled: false, cloud_projects_enabled: true, save_requires_account: true, google_login: true }),
   );
   await page.context().route(/\/api\/v1\/auth\/google(\?|$)/, (r) => {
     const attempt = new URL(r.request().url()).searchParams.get('attempt') ?? '';
@@ -77,6 +76,9 @@ test.describe('the ads sign-up page', () => {
     const backend = await boot(page, '?utm_source=ig&utm_medium=paid&utm_campaign=120210&utm_term=120220&utm_content=120230&fbclid=IwAR123');
     await expect(page.getByTestId('register-page')).toBeVisible();
     await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', /noindex/);
+    expect(backend.trackers).toEqual([]);
+    await page.getByTestId('ad-consent-accept').click();
+    await expect(page.getByTestId('ad-consent')).toHaveCount(0);
 
     await page.getByTestId('register-cta-hero').click();
     await expect(page.getByTestId('register-terms-email')).toContainText('ada@gmail.test');
@@ -86,9 +88,10 @@ test.describe('the ads sign-up page', () => {
 
     await expect(page).toHaveURL(/\/app\/basic\?example=portal-frame/);
     expect(backend.register).toHaveLength(1);
-    const sent = backend.register[0] as { source: Record<string, string>; attribution: Record<string, string>; accept_terms: boolean };
+    const sent = backend.register[0] as { source: Record<string, string>; attribution: Record<string, unknown>; accept_terms: boolean };
     expect(sent.accept_terms).toBe(true);
     expect(sent.source).toMatchObject({ utm_source: 'ig', utm_medium: 'paid', utm_campaign: '120210', utm_term: '120220', utm_content: '120230', fbclid: 'IwAR123', landing: '/es/register/', trigger: 'register.hero' });
+    expect(sent.attribution.consent).toBe(true);
     expect(sent.attribution.fbc).toMatch(/^fb\.1\.\d+\.IwAR123$/);
 
     const queue = await page.evaluate(() => (window as unknown as { fbq?: { queue: unknown[] } }).fbq?.queue ?? []);
@@ -100,6 +103,25 @@ test.describe('the ads sign-up page', () => {
     const layer = await page.evaluate(() => (window as unknown as { dataLayer?: Record<string, unknown>[] }).dataLayer ?? []);
     expect(layer).toEqual(expect.arrayContaining([expect.objectContaining({ event: 'sign_up', event_id: ACCOUNT.id, utm_campaign: '120210' })]));
     expect(backend.trackers.some((u) => u.includes('fbevents.js'))).toBe(true);
+  });
+
+  test('declining advertising cookies: no tracker, no cookie, and the account still knows its campaign', async ({ page }) => {
+    const backend = await boot(page, '?utm_source=ig&utm_medium=paid&utm_campaign=120210&fbclid=IwAR123');
+    await page.getByTestId('ad-consent-decline').click();
+    await expect(page.getByTestId('ad-consent')).toHaveCount(0);
+
+    await page.getByTestId('register-cta-hero').click();
+    await page.getByTestId('register-accept-terms').check();
+    await page.getByTestId('register-terms-submit').click();
+    await expect(page).toHaveURL(/\/app\/basic\?example=portal-frame/);
+
+    const sent = backend.register[0] as { source: Record<string, string>; attribution: Record<string, unknown> };
+    expect(sent.source).toMatchObject({ utm_source: 'ig', utm_campaign: '120210', trigger: 'register.hero' });
+    expect(sent.attribution).toEqual({});
+    expect(backend.trackers).toEqual([]);
+    const cookies = await page.context().cookies();
+    expect(cookies.map((c) => c.name)).not.toContain('stb_visit');
+    expect(await page.evaluate(() => 'fbq' in window)).toBe(false);
   });
 
   test('the wheel scrolls down to the editor, which loads only when asked, on the portal frame', async ({ page }) => {

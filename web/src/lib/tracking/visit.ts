@@ -1,9 +1,3 @@
-/**
- * Where this browser's visit came from, kept in the first-party cookie `stb_visit` for 30 days:
- * the UTM tags and click ids of the address it arrived on, the site it came from and the page it
- * entered on. The last visit that brought any of them wins; a direct visit keeps the one stored.
- * It travels with the sign-up as `source` (`StabileoMarketing.SignupSources`).
- */
 const COOKIE = 'stb_visit';
 const PARAMS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'network', 'gclid', 'gbraid', 'wbraid', 'fbclid'] as const;
 const MAX_AGE = 30 * 24 * 60 * 60;
@@ -24,7 +18,6 @@ export function externalHost(referrer: string, ownHost: string): string | undefi
   }
 }
 
-/** What an arrival says about where it came from; empty for a direct one. */
 export function visitFrom(search: string, referrer: string, loc: { hostname: string; pathname: string }, now = new Date()): Visit {
   const params = new URLSearchParams(search);
   const visit: Visit = {};
@@ -56,7 +49,15 @@ export function readVisit(doc: Pick<Document, 'cookie'> = document): Visit {
   }
 }
 
-/** Keeps this arrival when it says anything; a direct one leaves the stored visit alone. */
+let arrival: Visit = {};
+
+/** Kept in memory only: without advertising consent nothing about the visit is stored on the device. */
+export function noteArrival(win: Pick<Window, 'location'> & { document: Pick<Document, 'referrer'> } = window): Visit {
+  arrival = visitFrom(win.location.search, win.document.referrer, win.location);
+  return arrival;
+}
+
+/** Only with advertising consent. A direct arrival leaves the stored visit alone. */
 export function captureVisit(win: Pick<Window, 'location'> & { document: Pick<Document, 'cookie' | 'referrer'> } = window): Visit {
   const visit = visitFrom(win.location.search, win.document.referrer, win.location);
   if (Object.keys(visit).length === 0) return readVisit(win.document);
@@ -69,7 +70,17 @@ export function captureVisit(win: Pick<Window, 'location'> & { document: Pick<Do
   return visit;
 }
 
-/** What the sign-up sends as `source`: the visit, what asked for the account, and the page. */
-export function signupSource(trigger: string, doc: Pick<Document, 'cookie'> = document, path = location.pathname): Record<string, string> {
-  return { ...readVisit(doc), trigger: trigger.slice(0, 64), page: path.slice(0, 256) };
+export function signupSource(trigger: string, consented: boolean, doc: Pick<Document, 'cookie'> = document, path = location.pathname): Record<string, string> {
+  const visit = consented ? readVisit(doc) : arrival;
+  return { ...visit, trigger: trigger.slice(0, 64), page: path.slice(0, 256) };
+}
+
+const AD_COOKIE = /^(stb_visit|_fbp|_fbc|_ga\w*|_gcl_\w+)$/;
+
+export function clearAdCookies(doc: Pick<Document, 'cookie'> = document, host = location.hostname): void {
+  const domains = ['', `; domain=${host}`, `; domain=.${host.replace(/^www\./, '')}`];
+  for (const name of doc.cookie.split('; ').map((c) => c.split('=')[0])) {
+    if (!AD_COOKIE.test(name)) continue;
+    for (const domain of domains) doc.cookie = `${name}=; path=/; max-age=0${domain}`;
+  }
 }

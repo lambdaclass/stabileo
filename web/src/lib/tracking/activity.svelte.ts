@@ -1,13 +1,7 @@
-/**
- * What a signed-in account does that shows it uses Stabileo: its first analysis, save and export,
- * and each day it opens the app (`POST /api/v1/marketing/activity`). Milestones reached before
- * signing in wait in memory and go once there is a session; the backend answers the ones it had
- * not seen, and a first save is then sent to the pixel with the backend's event id.
- */
 import { request } from '../api/client';
 import { accounts } from '../features';
 import { authStore } from '../store/auth.svelte';
-import { pixelCookies } from './attribution';
+import { adAttribution } from './attribution';
 import { tracking } from './tracking';
 
 export type Milestone = 'first_analysis' | 'first_save' | 'first_export';
@@ -46,7 +40,7 @@ async function flush(): Promise<void> {
   try {
     const answer = await request<{ data: { recorded: Milestone[] } }>('POST', '/api/v1/marketing/activity', {
       auth: true,
-      body: { milestones, attribution: pixelCookies(), page: location.pathname },
+      body: { milestones, attribution: adAttribution(), page: location.pathname },
     });
     markReported(account.id);
     if (answer.data.recorded.includes('first_save')) tracking.firstSave(account.id);
@@ -65,7 +59,6 @@ export function skipNextAnalysis(): void {
   skipAnalysis += 1;
 }
 
-/** A solve finished: the person's first analysis, unless the app started it. */
 export function analysisFinished(ok: boolean): void {
   if (skipAnalysis > 0) {
     skipAnalysis -= 1;

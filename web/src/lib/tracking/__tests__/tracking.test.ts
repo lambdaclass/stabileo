@@ -4,15 +4,16 @@ let accountsOn = true;
 vi.mock('../../features', () => ({ accounts: () => accountsOn }));
 
 const { startTracking, tracking, resetTrackingForTests } = await import('../tracking');
+const { adConsent } = await import('../ad-consent.svelte');
 
 type Win = Record<string, unknown> & { fbq?: { queue: unknown[] }; dataLayer?: Record<string, unknown>[] };
 
-function stubBrowser({ webdriver = false, framed = false } = {}) {
+function stubBrowser({ webdriver = false, framed = false, hash = '' } = {}) {
   const scripts: string[] = [];
   const win: Win = {};
   win.top = framed ? {} : win;
   win.self = win;
-  win.location = { search: '?utm_campaign=c1', pathname: '/es/register/', hostname: 'stabileo.com', protocol: 'https:' };
+  win.location = { search: '?utm_campaign=c1', pathname: '/es/register/', hostname: 'stabileo.com', protocol: 'https:', origin: 'https://stabileo.com', hash };
   const document = {
     cookie: '',
     referrer: '',
@@ -32,16 +33,60 @@ const ids = { meta_pixel_id: '123456789', gtm_container_id: 'GTM-ABC123' };
 beforeEach(() => {
   accountsOn = true;
   resetTrackingForTests();
+  adConsent.resetForTests();
 });
+
+async function startConsented(win?: Win) {
+  void win;
+  await startTracking(async () => ids);
+  adConsent.decide('granted');
+}
 
 afterEach(() => {
   vi.unstubAllGlobals();
 });
 
 describe('tracking', () => {
-  it('loads the pixel with its automatic events off, GTM, and a page view in each', async () => {
+  it('loads nothing and writes no cookie until the person accepts advertising cookies', async () => {
     const { win, scripts } = stubBrowser();
     await startTracking(async () => ids);
+
+    expect(adConsent.asking).toBe(true);
+    expect(scripts).toEqual([]);
+    expect(win.fbq).toBeUndefined();
+    expect(document.cookie).toBe('');
+    tracking.completeRegistration('acc-0');
+
+    adConsent.decide('granted');
+    expect(scripts).toHaveLength(2);
+    expect(document.cookie).toContain('stb_visit=');
+  });
+
+  it('a person who declines gets no tracker, no cookie and no events', async () => {
+    const { win, scripts } = stubBrowser();
+    await startTracking(async () => ids);
+    adConsent.decide('denied');
+    tracking.completeRegistration('acc-0');
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(adConsent.asking).toBe(false);
+    expect(scripts).toEqual([]);
+    expect(win.fbq).toBeUndefined();
+    expect(document.cookie).toBe('');
+  });
+
+  it('never sends the fragment, where a shared model lives', async () => {
+    const { win } = stubBrowser({ hash: '#data=MODEL' });
+    await startConsented();
+
+    expect(win.fbq!.queue).toEqual([['set', 'autoConfig', false, '123456789'], ['init', '123456789']]);
+    expect(win.dataLayer!.at(-1)).toMatchObject({ event: 'page_view', page_location: 'https://stabileo.com/es/register/?utm_campaign=c1' });
+    expect(JSON.stringify(win.dataLayer)).not.toContain('MODEL');
+  });
+
+  it('loads the pixel with its automatic events off, GTM, and a page view in each', async () => {
+    const { win, scripts } = stubBrowser();
+    await startConsented();
 
     expect(scripts).toEqual(['https://connect.facebook.net/en_US/fbevents.js', 'https://www.googletagmanager.com/gtm.js?id=GTM-ABC123']);
     expect(win.fbq!.queue).toEqual([['set', 'autoConfig', false, '123456789'], ['init', '123456789'], ['track', 'PageView']]);
@@ -52,7 +97,7 @@ describe('tracking', () => {
   it('names the click apart from the conversion, and sends the account id as the event id', async () => {
     const { win } = stubBrowser();
     document.cookie = 'stb_visit=' + encodeURIComponent(JSON.stringify({ utm_campaign: 'c1' }));
-    await startTracking(async () => ids);
+    await startConsented();
     win.fbq!.queue.length = 0;
 
     tracking.signUpClick('register.hero');
@@ -91,6 +136,8 @@ describe('tracking', () => {
     tracking.signUpClick('header');
     expect(scripts).toEqual([]);
     expect(win.fbq).toBeUndefined();
+    expect(adConsent.available).toBe(false);
+    expect(adConsent.asking).toBe(false);
   });
 
   it('inside the register page frame, events go to the page above', async () => {
@@ -104,7 +151,7 @@ describe('tracking', () => {
 
   it('a pixel that throws never reaches the caller', async () => {
     const { win } = stubBrowser();
-    await startTracking(async () => ids);
+    await startConsented();
     win.fbq = (() => { throw new Error('blocked'); }) as never;
     expect(() => tracking.completeRegistration('acc-3')).not.toThrow();
     await new Promise((r) => setTimeout(r, 0));

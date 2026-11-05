@@ -23,17 +23,9 @@ function on(route: string, ...responses: Route[]) {
 
 const SETTINGS = {
   meta_pixel_id: '123456789',
-  meta_capi_test_event_code: null,
   gtm_container_id: null,
-  meta_ad_account_id: 'act_1234567',
-  google_ads_customer_id: null,
-  google_ads_login_customer_id: null,
-  secrets: {
-    meta_capi_access_token: { set: true, hint: '…6789' },
-    meta_ads_access_token: { set: false, hint: null },
-    google_ads_service_account: { set: false, hint: null },
-  },
-  sync_interval_minutes: 30,
+  meta_capi_access_token: true,
+  meta_capi_test_event_code: null,
 };
 
 async function signedIn() {
@@ -70,40 +62,25 @@ afterEach(() => {
 });
 
 describe('admin marketing', () => {
-  it('loads the settings, and saves only what it is given', async () => {
+  it('loads the advertising settings, read-only, with the token only as set or not', async () => {
     const { marketingSettings } = await signedIn();
     on('GET /marketing/settings', () => json(200, { data: SETTINGS }));
     await marketingSettings.load();
-    expect(marketingSettings.settings?.secrets.meta_capi_access_token).toEqual({ set: true, hint: '…6789' });
-
-    on('PUT /marketing/settings', () => json(200, { data: { ...SETTINGS, gtm_container_id: 'GTM-ABC123' } }));
-    expect(await marketingSettings.save({ gtm_container_id: 'gtm-abc123' })).toBe(true);
-    expect(seen.at(-1)).toEqual({ route: 'PUT /marketing/settings', body: { gtm_container_id: 'gtm-abc123' } });
-    expect(marketingSettings.settings?.gtm_container_id).toBe('GTM-ABC123');
+    expect(marketingSettings.settings).toEqual(SETTINGS);
+    expect(seen.map((r) => r.route)).toEqual(['GET /marketing/settings']);
   });
 
-  it('keeps the server refusal for the form, and the stored settings as they were', async () => {
-    const { marketingSettings } = await signedIn();
-    on('GET /marketing/settings', () => json(200, { data: SETTINGS }));
-    await marketingSettings.load();
-    on('PUT /marketing/settings', () => json(422, { error: 'validation_error', message: 'Validation failed', details: { gtm_container_id: ['must look like GTM-XXXXXXX'] } }));
-    expect(await marketingSettings.save({ gtm_container_id: 'UA-1' })).toBe(false);
-    expect((marketingSettings.saveError as { status: number }).status).toBe(422);
-    expect(marketingSettings.settings?.gtm_container_id).toBeNull();
-  });
-
-  it('asks the overview with the period, channel and currency, and remembers the currency', async () => {
-    const { adsReport } = await signedIn();
-    on('GET /marketing/ads/overview?days=30&channel=all&display=USD', () => json(200, { data: { accounts: [], tree: [], display: 'USD' } }));
-    await adsReport.load();
-    on('GET /marketing/ads/overview?days=7&channel=meta&display=ARS', () => json(200, { data: { accounts: [], tree: [], display: 'ARS' } }));
-    await adsReport.load({ days: 7, channel: 'meta', display: 'ARS' });
-    expect(adsReport.overview?.display).toBe('ARS');
-    expect(storage.get('stabileo-admin-ads-display')).toBe('ARS');
-
-    on('POST /marketing/ads/sync', () => json(202, { data: { queued: 2 } }));
-    await adsReport.sync();
-    expect(adsReport.queued).toBe(2);
+  it('a slower answer for an older period never replaces the newer one', async () => {
+    const { acquisition } = await signedIn();
+    let release: (r: Response) => void = () => {};
+    on('GET /marketing/acquisition?days=30', () => new Promise<Response>((r) => (release = r)) as unknown as Response);
+    on('GET /marketing/acquisition?days=7', () => json(200, { data: { totals: { accounts: 7 } } }));
+    const older = acquisition.load(30);
+    await acquisition.load(7);
+    release(json(200, { data: { totals: { accounts: 30 } } }));
+    await older;
+    expect(acquisition.days).toBe(7);
+    expect(acquisition.data?.totals.accounts).toBe(7);
   });
 
   it('the acquisition report follows its period', async () => {

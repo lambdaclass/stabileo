@@ -1,16 +1,11 @@
 /**
- * Advertising measurement in the browser: the Meta pixel and GTM, loaded with the ids the backend
- * serves (`GET /api/v1/marketing/tracking`), and named events for each step to an account.
- *
- * A click is never named like the conversion it leads to: `SignUpClick` is the click,
- * `CompleteRegistration` the account the backend created, sent with the account's id as event id
- * so Meta counts it once against the copy the backend sends. Nothing loads for an automated
- * browser (tests, the prerender), with the accounts feature off, or with no ids saved. Inside the
- * register page's editor frame, events go to the page above, which owns the trackers.
+ * Inside the register page's editor frame, events go to the page above, which owns the trackers.
+ * `SignUpClick` is sent only once Google answered for someone new, never for a returning person.
  */
 import { API_URL } from '../api/client';
 import { accounts } from '../features';
-import { captureVisit, readVisit } from './visit';
+import { adConsent } from './ad-consent.svelte';
+import { captureVisit, noteArrival, readVisit } from './visit';
 import { loadGtm, loadPixel, safe } from './vendors';
 
 export type TrackingIds = { meta_pixel_id: string | null; gtm_container_id: string | null };
@@ -61,30 +56,44 @@ export async function fetchTrackingIds(fetcher: typeof fetch = fetch): Promise<T
   }
 }
 
-/** Starts once per page: keeps the visit, then loads whatever trackers have ids. */
+let loaded = false;
+
 export function startTracking(fetchIds: () => Promise<TrackingIds | null> = fetchTrackingIds): Promise<TrackingIds | null> {
   if (ready) return ready;
   if (automated() || !accounts() || framed()) {
     ready = Promise.resolve(null);
     return ready;
   }
-  safe(() => void captureVisit());
+  safe(() => void noteArrival());
   ready = fetchIds().then((ids) => {
-    if (!ids) return null;
-    safe(() => {
-      if (ids.meta_pixel_id) {
-        loadPixel(ids.meta_pixel_id);
-        window.fbq?.('track', 'PageView');
-      }
-      if (ids.gtm_container_id) {
-        loadGtm(ids.gtm_container_id);
-        window.dataLayer?.push({ event: 'page_view', page_path: location.pathname, ...utms() });
-      }
-    });
+    if (!ids || (!ids.meta_pixel_id && !ids.gtm_container_id)) return null;
     (window as unknown as Record<string, unknown>)[RELAY] = (e: Emission) => void send(e);
+    adConsent.offer(() => load(ids));
+    void import('./ad-consent-banner').then((m) => m.mountAdConsentBanner()).catch(() => {});
     return ids;
   });
   return ready;
+}
+
+function pageLocation(): string {
+  return `${location.origin}${location.pathname}${location.search}`;
+}
+
+function load(ids: TrackingIds): void {
+  if (loaded) return;
+  loaded = true;
+  safe(() => void captureVisit());
+  safe(() => {
+    if (ids.meta_pixel_id) {
+      loadPixel(ids.meta_pixel_id);
+      // The pixel reports location.href, and a shared model lives in its fragment.
+      if (!location.hash) window.fbq?.('track', 'PageView');
+    }
+    if (ids.gtm_container_id) {
+      loadGtm(ids.gtm_container_id);
+      window.dataLayer?.push({ event: 'page_view', page_path: location.pathname, page_location: pageLocation(), ...utms() });
+    }
+  });
 }
 
 function utms(): Record<string, string> {
@@ -94,7 +103,7 @@ function utms(): Record<string, string> {
 
 async function send(e: Emission): Promise<void> {
   const ids = await (ready ?? Promise.resolve(null));
-  if (!ids) return;
+  if (!ids || !loaded || location.hash) return;
   safe(() => {
     if (ids.meta_pixel_id) window.fbq?.(...e.pixel);
     if (ids.gtm_container_id) window.dataLayer?.push({ ...e.gtm, ...utms() });
@@ -107,7 +116,6 @@ function emit(e: Emission): void {
   else void send(e);
 }
 
-/** Where on the page a sign-up click happened: `register.hero`, `gate.save`, `account_button`. */
 export const tracking = {
   signUpClick(placement: string) {
     emit({ pixel: ['trackCustom', 'SignUpClick', { placement }], gtm: { event: 'sign_up_click', placement } });
@@ -132,4 +140,5 @@ export const tracking = {
 
 export function resetTrackingForTests(): void {
   ready = null;
+  loaded = false;
 }

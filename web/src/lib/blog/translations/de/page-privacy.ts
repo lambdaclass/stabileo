@@ -65,7 +65,7 @@ const body: StandingPage['i18n']['en'] = {
     },
     {
       "k": "p",
-      "t": "Um zu wissen, welche Anzeigen Konten bringen, speichern wir zu jedem neuen Konto, woher der Besuch kam (Kanal, Kampagne, Anzeige und Einstiegsseite) und was nach dem Konto fragte, und wir erfassen die erste Berechnung, die erste Speicherung, den ersten Export und die Tage, an denen das Konto die Anwendung nutzt. Wenn ein Konto erstellt wird oder sein erstes Projekt speichert, melden wir das Meta über das Pixel und die Conversions API, mit E-Mail-Adresse und Kontokennung als SHA-256-Hash; Meta verwendet dies nach seiner eigenen Richtlinie, um Kampagnen zu messen und zu verbessern. Google Tag Manager sendet dieselben Ereignisse an Google Analytics und Google Ads. Keiner von ihnen erhält den Inhalt Ihrer Modelle."
+      "t": "Um zu wissen, welche Anzeigen Konten bringen, speichern wir zu jedem neuen Konto, woher der Besuch kam (Kanal, Kampagne, Anzeige und Einstiegsseite) und was das Konto angestoßen hat. Wenn Sie Nutzungsdaten teilen, erfassen wir außerdem die erste Berechnung, das erste Speichern, den ersten Export und die Tage, an denen das Konto die Anwendung nutzt. Nur wenn Sie Werbe-Cookies akzeptieren, laden wir das Meta-Pixel und den Google Tag Manager. Ab dann erhalten sie jede Seite, die Sie aufrufen (ohne den Teil der Adresse, der ein geteiltes Modell enthält), und die Schritte zu einem Konto: den Klick einer neuen Person auf „Konto erstellen“, den Start und den Schritt mit den Nutzungsbedingungen, das erstellte Konto, jede Anmeldung und das erste gespeicherte Projekt. Der Google Tag Manager sendet diese Ereignisse an Google Analytics und Google Ads. Mit derselben Zustimmung melden wir die Kontoerstellung und das erste gespeicherte Projekt auch von unserem Server über die Conversions API an Meta, mit E-Mail-Adresse und Kontokennung als SHA-256-Hash, Ihrer IP-Adresse, dem User-Agent Ihres Browsers und den Kennungen der Pixel-Cookies (_fbp und _fbc). Meta und Google nutzen diese Daten nach ihren eigenen Richtlinien, um Kampagnen zu messen und zu verbessern. Keiner von ihnen erhält den Inhalt Ihrer Modelle."
     },
     {
       "k": "h",
@@ -106,7 +106,7 @@ const body: StandingPage['i18n']['en'] = {
     },
     {
       "k": "p",
-      "t": "Wir nutzen den lokalen Speicher des Browsers für Ihre Sitzung und Ihre Einstellungen sowie ein eigenes Cookie, stb_visit, das 30 Tage lang speichert, woher Ihr Besuch kam (die Parameter des Links und die verweisende Website), damit wir wissen, was jedes Konto gebracht hat. Das Meta-Pixel und Google Tag Manager setzen, wenn sie aktiviert sind, eigene Cookies zur Messung der Werbung."
+      "t": "Wir nutzen den lokalen Speicher des Browsers für Ihre Sitzung und Ihre Einstellungen, einschließlich Ihrer Entscheidung zu Werbe-Cookies. Nur wenn Sie diese akzeptieren, setzen wir ein eigenes Cookie, stb_visit, das 30 Tage lang speichert, woher Ihr Besuch kam (die Parameter des Links und die verweisende Website), und das Meta-Pixel und der Google Tag Manager setzen ihre eigenen. Sie können Ihre Entscheidung jederzeit über „Werbe-Cookies“ in der Fußzeile der Seiten ändern."
     }
   ],
   "faqTitle": "Häufig gestellte Fragen",

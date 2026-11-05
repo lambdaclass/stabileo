@@ -4,6 +4,7 @@
   import { SOCIAL_ICONS as ICONS } from '../../lib/contact/channels';
   import PublicLink from './PublicLink.svelte';
   import BrandMark from './BrandMark.svelte';
+  import { adConsent } from '../../lib/tracking/ad-consent.svelte';
 
   const year = new Date().getFullYear();
 
@@ -31,6 +32,9 @@
         <PublicLink to="/sap2000-alternative">{t('landing.footSap2000')}</PublicLink>
         <PublicLink to="/terms">{t('landing.footTerms')}</PublicLink>
         <PublicLink to="/privacy">{t('landing.footPrivacy')}</PublicLink>
+        {#if adConsent.available}
+          <button onclick={() => adConsent.reopen()} data-testid="footer-ad-cookies">{t('landing.footAdCookies')}</button>
+        {/if}
         <button onclick={() => enterApp()}>{t('landing.footLaunch')}</button>
       </nav>
 

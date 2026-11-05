@@ -1,6 +1,7 @@
-import { describe, it, expect } from 'vitest';
-import { captureVisit, externalHost, readVisit, signupSource, visitFrom } from '../visit';
-import { pixelCookies } from '../attribution';
+import { describe, it, expect, vi } from 'vitest';
+import { captureVisit, clearAdCookies, externalHost, noteArrival, readVisit, signupSource, visitFrom } from '../visit';
+import { adAttribution, pixelCookies } from '../attribution';
+import { adConsent } from '../ad-consent.svelte';
 
 const loc = (search: string, pathname = '/es/register/') => ({ search, pathname, hostname: 'stabileo.com', protocol: 'https:' });
 
@@ -49,7 +50,21 @@ describe('the visit cookie', () => {
   it('the sign-up source adds what asked for the account and the page', () => {
     const w = fakeWindow('?utm_source=fb');
     captureVisit(w);
-    expect(signupSource('gate.save', w.document, '/app/basic')).toMatchObject({ utm_source: 'fb', trigger: 'gate.save', page: '/app/basic' });
+    expect(signupSource('gate.save', true, w.document, '/app/basic')).toMatchObject({ utm_source: 'fb', trigger: 'gate.save', page: '/app/basic' });
+  });
+
+  it('without consent the source is this arrival, kept in memory, and the cookie is never read', () => {
+    const w = fakeWindow('?utm_source=ig&utm_campaign=c9', '', 'stb_visit=' + encodeURIComponent(JSON.stringify({ utm_source: 'old' })));
+    noteArrival(w);
+    expect(signupSource('register.hero', false, w.document, '/es/register/')).toEqual({ utm_source: 'ig', utm_campaign: 'c9', landing: '/es/register/', first_seen: expect.any(String), trigger: 'register.hero', page: '/es/register/' });
+    expect(w.document.cookie).toBe('stb_visit=' + encodeURIComponent(JSON.stringify({ utm_source: 'old' })));
+  });
+
+  it('declining clears the advertising cookies and keeps the rest', () => {
+    const written: string[] = [];
+    const doc = { get cookie() { return 'stb_visit=x; _fbp=fb.1; _ga_ABC=1; _gcl_au=1; theme=dark'; }, set cookie(v: string) { written.push(v.split('=')[0]); } };
+    clearAdCookies(doc as unknown as Document, 'stabileo.com');
+    expect(new Set(written)).toEqual(new Set(['stb_visit', '_fbp', '_ga_ABC', '_gcl_au']));
   });
 
   it('a broken cookie reads as nothing', () => {
@@ -58,6 +73,17 @@ describe('the visit cookie', () => {
 });
 
 describe('the pixel cookies', () => {
+  it('go to the backend only with advertising consent, marked as consented', () => {
+    adConsent.resetForTests();
+    expect(adAttribution()).toEqual({});
+    adConsent.decide('granted');
+    vi.stubGlobal('document', { cookie: '_fbp=fb.1.1.2' });
+    vi.stubGlobal('location', { search: '' });
+    expect(adAttribution()).toEqual({ consent: true, fbp: 'fb.1.1.2' });
+    vi.unstubAllGlobals();
+    adConsent.resetForTests();
+  });
+
   it('sends _fbp and _fbc, or builds _fbc from a fbclid in the address', () => {
     expect(pixelCookies({ cookie: '_fbp=fb.1.1.2; _fbc=fb.1.1.IwAR' } as Document, '')).toEqual({ fbp: 'fb.1.1.2', fbc: 'fb.1.1.IwAR' });
     expect(pixelCookies({ cookie: '' } as Document, '?fbclid=XYZ', 1700000000000)).toEqual({ fbc: 'fb.1.1700000000000.XYZ' });

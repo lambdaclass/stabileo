@@ -65,7 +65,7 @@ const body: StandingPage['i18n']['en'] = {
     },
     {
       "k": "p",
-      "t": "Pour savoir quelles annonces amènent des comptes, nous conservons avec chaque nouveau compte l’origine de la visite (le canal, la campagne, l’annonce et la page d’entrée) et ce qui a demandé le compte, et nous enregistrons son premier calcul, son premier enregistrement, son premier export et les jours où il utilise l’application. Lorsqu’un compte est créé ou enregistre son premier projet, nous l’indiquons à Meta via son pixel et son API Conversions, avec l’e-mail et l’identifiant du compte hachés en SHA-256 ; Meta l’utilise pour mesurer et améliorer les campagnes selon sa propre politique. Google Tag Manager envoie ces mêmes événements à Google Analytics et Google Ads. Aucun d’eux ne reçoit le contenu de vos modèles."
+      "t": "Pour savoir quelles annonces amènent des comptes, nous conservons avec chaque nouveau compte l’origine de la visite (le canal, la campagne, l’annonce et la page d’arrivée) et ce qui a déclenché la création du compte. Si vous partagez vos données d’utilisation, nous enregistrons aussi son premier calcul, sa première sauvegarde, sa première exportation et les jours où il utilise l’application. Nous ne chargeons le pixel Meta et Google Tag Manager que si vous acceptez les cookies publicitaires. Dès lors, ils reçoivent chaque page que vous visitez (sans la partie de l’adresse qui contient un modèle partagé) et les étapes vers un compte : le clic d’une nouvelle personne sur « créer un compte », le début et l’étape des conditions, le compte créé, chaque connexion et le premier projet enregistré. Google Tag Manager envoie ces événements à Google Analytics et à Google Ads. Avec ce même accord, lorsque le compte est créé ou enregistre son premier projet, nous le signalons aussi à Meta depuis notre serveur, via son API Conversions, avec l’adresse e-mail et l’identifiant du compte hachés en SHA-256, votre adresse IP, l’agent utilisateur de votre navigateur et les identifiants des cookies du pixel (_fbp et _fbc). Meta et Google utilisent ces données pour mesurer et améliorer les campagnes selon leurs propres politiques. Aucun d’eux ne reçoit le contenu de vos modèles."
     },
     {
       "k": "h",
@@ -106,7 +106,7 @@ const body: StandingPage['i18n']['en'] = {
     },
     {
       "k": "p",
-      "t": "Nous utilisons le stockage local du navigateur pour votre session et vos préférences, ainsi qu’un cookie propre, stb_visit, qui conserve pendant 30 jours l’origine de votre visite (les paramètres du lien et le site référent) pour savoir ce qui a amené chaque compte. Le pixel Meta et Google Tag Manager, lorsqu’ils sont activés, déposent leurs propres cookies pour mesurer la publicité."
+      "t": "Nous utilisons le stockage local du navigateur pour votre session et vos préférences, y compris votre choix concernant les cookies publicitaires. Ce n’est que si vous les acceptez que nous déposons un cookie propre, stb_visit, qui conserve pendant 30 jours l’origine de votre visite (les paramètres du lien et le site d’origine), et que le pixel Meta et Google Tag Manager déposent les leurs. Vous pouvez changer d’avis à tout moment depuis « Cookies publicitaires », en bas des pages du site."
     }
   ],
   "faqTitle": "Questions fréquentes",

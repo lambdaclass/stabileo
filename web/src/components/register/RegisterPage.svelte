@@ -1,10 +1,7 @@
 <script lang="ts">
   /**
-   * `/register`: the page the ads land on. One aim, an account, with Google from this page in one
-   * click (the popup must open from the click itself, so it cannot wait for the application to
-   * load), and further down the real editor on the portal frame for whoever wants to try first.
-   * The editor loads only when asked: booted on arrival it would download the whole application on
-   * every visit and take the wheel from the page. Not indexed and not in the sitemap.
+   * Google's popup must open from the click itself, so it cannot wait for the application to load.
+   * The editor frame loads only when asked: booted on arrival it would take the wheel from the page.
    */
   import './register-i18n';
   import { onMount } from 'svelte';
@@ -17,7 +14,9 @@
   import { legalHref, TERMS_PATH, PRIVACY_PATH } from '../../lib/legal/legal';
   import { tracking } from '../../lib/tracking/tracking';
   import { signupSource } from '../../lib/tracking/visit';
-  import { pixelCookies } from '../../lib/tracking/attribution';
+  import { adAttribution } from '../../lib/tracking/attribution';
+  import { adConsent } from '../../lib/tracking/ad-consent.svelte';
+  import { accounts } from '../../lib/features';
   import { modeToPath } from '../../lib/app-mode';
   import { enterApp } from '../landing/landing-utils';
   import Eyebrow from '../landing/Eyebrow.svelte';
@@ -40,6 +39,7 @@
   let frameSrc = $state('');
   let frame: HTMLDivElement | undefined = $state();
 
+  const accountsOn = accounts();
   const signedIn = $derived(authStore.isAuthenticated);
   const loginOpen = $derived(authStore.userLoginEnabled);
 
@@ -67,10 +67,9 @@
 
   async function start(placement: string) {
     // Before the config arrives the click still goes to Google: a closed sign-in comes back as an error.
-    if (signedIn || (authStore.configKnown && !loginOpen)) return toEditor();
+    if (!accountsOn || signedIn || (authStore.configKnown && !loginOpen)) return toEditor();
     if (step.kind === 'waiting') return;
     error = null;
-    tracking.signUpClick(placement);
     const attempt = authStore.signInWithGoogle();
     tracking.registrationStart(placement);
     step = { kind: 'waiting', cancel: attempt.cancel };
@@ -81,6 +80,7 @@
         toEditor();
       } else {
         accept = false;
+        tracking.signUpClick(placement);
         step = { kind: 'terms', token: outcome.token, email: outcome.email, placement };
         tracking.registrationStep('terms');
       }
@@ -101,8 +101,8 @@
         accept_terms: true,
         usage_analytics: usageConsent.sharing,
         locale: publicI18n.locale,
-        source: signupSource(`register.${step.placement}`),
-        attribution: pixelCookies(),
+        source: signupSource(`register.${step.placement}`, adConsent.granted),
+        attribution: adAttribution(),
       });
       tracking.completeRegistration(account.id);
       if (usageConsent.sharing) usageConsent.set('granted');
@@ -127,14 +127,14 @@
     live = true;
   }
 
-  const ctaLabel = $derived(signedIn ? t('register.openEditor') : t('register.cta'));
+  const ctaLabel = $derived(signedIn || !accountsOn ? t('register.openEditor') : t('register.cta'));
 </script>
 
 <svelte:head><meta name="robots" content="noindex, follow" /></svelte:head>
 
 {#snippet googleButton(placement: string, size: 'lg' | 'md')}
   <button type="button" class="btn btn-primary rg-google rg-google--{size}" class:btn-lg={size === 'lg'} onclick={() => start(placement)} disabled={step.kind === 'waiting'} data-testid="register-cta-{placement}">
-    {#if !signedIn}<span class="rg-google-mark"><GoogleMark /></span>{/if}
+    {#if !signedIn && accountsOn}<span class="rg-google-mark"><GoogleMark /></span>{/if}
     <span>{step.kind === 'waiting' ? t('register.waiting') : ctaLabel}</span>
   </button>
 {/snippet}
@@ -142,7 +142,7 @@
 <div class="landing rg" data-testid="register-page">
   <SiteHeader>
     {#snippet actions()}
-      {#if !signedIn}
+      {#if !signedIn && accountsOn}
         <button type="button" class="btn btn-ghost btn-sm" onclick={() => start('header')} data-testid="register-signin">{t('register.signIn')}</button>
       {/if}
     {/snippet}

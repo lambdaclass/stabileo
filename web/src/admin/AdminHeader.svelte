@@ -4,7 +4,7 @@
   import { adminSettings } from './admin-settings.svelte';
   import { adminAllowlist } from './admin-allowlist.svelte';
   import { adminMetrics, adminProjects, adminFeedback, adminAudit } from './admin-insights.svelte';
-  import { adsReport, acquisition, marketingSettings } from './admin-marketing.svelte';
+  import { acquisition, marketingSettings } from './admin-marketing.svelte';
   import { adminRoute, PAGE_PATHS, type AdminPage } from './admin-route.svelte';
   import { t } from '../lib/i18n';
 
@@ -39,7 +39,6 @@
       adminProjects.reset();
       adminFeedback.reset();
       adminAudit.reset();
-      adsReport.reset();
       acquisition.reset();
       marketingSettings.reset();
     } finally {

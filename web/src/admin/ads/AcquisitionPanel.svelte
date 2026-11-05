@@ -1,9 +1,4 @@
 <script lang="ts">
-  /**
-   * Where the period's new accounts came from and what they did next, from our own database: works
-   * with no ad account connected, and counts what a blocker or a declined cookie hides from the
-   * platforms.
-   */
   import { t, tp } from '../../lib/i18n';
   import type { Acquisition, AcquisitionSummary } from '../../lib/api/marketing-admin';
   import { channelLabel, count, percent, triggerLabel } from './ads-format';
@@ -31,9 +26,6 @@
 
   {@render table('channel', t('admin.ads.acq.byChannel'), data.channels.map((c) => ({ label: channelLabel(c.channel), row: c })))}
   {@render table('trigger', t('admin.ads.acq.byTrigger'), data.triggers.map((c) => ({ label: triggerLabel(c.trigger), row: c })))}
-  {#if data.campaigns.length}
-    {@render table('campaign', t('admin.ads.acq.byCampaign'), data.campaigns.map((c) => ({ label: `${channelLabel(c.channel)} · ${c.campaign}`, row: c })))}
-  {/if}
 </div>
 
 {#snippet table(kind: string, title: string, rows: { label: string; row: AcquisitionSummary }[])}

@@ -2,9 +2,6 @@
 export const SAME_AS_ENGLISH: readonly string[] = [
   'admin.ads.channel.google',
   'admin.ads.channel.meta',
-  'admin.ads.objective.DEMAND_GEN',
-  'admin.ads.objective.PERFORMANCE_MAX',
-  'admin.ads.objective.VIDEO',
   'admin.brand',
   'admin.detail.id',
   'admin.metrics.v.diagram.moment',

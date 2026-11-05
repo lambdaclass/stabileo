@@ -1,9 +1,4 @@
-/**
- * The Meta pixel and the Google Tag Manager container, loaded once with the ids the backend serves.
- * The pixel's automatic events are off (`autoConfig`, `disablePushState`): without that it reports
- * every route change and click by itself. A vendor's failure is caught here, so it can never turn
- * a sign-up into an error.
- */
+/** Without `autoConfig` false and `disablePushState` the pixel reports every route change and click by itself. */
 type Fbq = ((...args: unknown[]) => void) & { callMethod?: (...a: unknown[]) => void; queue: unknown[]; loaded?: boolean; version?: string; push?: unknown; disablePushState?: boolean };
 
 declare global {
