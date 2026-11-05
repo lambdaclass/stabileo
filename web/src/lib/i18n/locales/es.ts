@@ -3944,7 +3944,6 @@ const es: Record<string, string> = {
   "knownIssue.FR-5": "Las barras con alabeo comparten un único grado de libertad de alabeo en cada unión. La transmisión total del alabeo puede restringir en exceso la unión real; verificá su detalle y la restricción al alabeo de forma independiente.",
   "knownIssue.SP-14": "Fuera del análisis de cables, los cables pueden resistir compresión como barras. Verificá las tracciones y usá el análisis de cables para el destensado.",
   "knownIssue.NL-13": "El análisis de contacto puede congelar un contacto oscilante y declarar convergencia. Verificá el estado de contacto y el equilibrio.",
-  "knownIssue.NL-17": "El análisis de fibras puede devolver una iteración no convergida sin su factor de carga. No uses resultados no convergidos para diseño.",
   "knownIssue.MD-ORTHOGONALITY": "El análisis modal 3D puede duplicar modos o devolver modos no ortogonales. Verificá la base modal, masas efectivas y combinación espectral.",
   "knownIssue.TH-RECIPROCITY": "La historia temporal lineal falló verificaciones de reciprocidad hasta por un factor de 33. Todavía no se aisló qué entradas están afectadas; verificá independientemente esta respuesta antes del diseño.",
   "knownIssue.RC-NM-PAIRING": "Esta verificación de columna combina el esfuerzo axial de una combinación con el momento de otra, lo que puede no ser conservador por debajo del punto de balance. Verificá la columna con cada combinación indicada.",

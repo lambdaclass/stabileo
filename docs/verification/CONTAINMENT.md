@@ -27,7 +27,7 @@ Round 2 containment audit for #447. Every result this change still returns has t
 | #443 | — | CORRECTED | not a current wrong-result defect: unsupported settlements already refused; silent_errors_settlement_winkler_imperfections.rs covers dropped components. | eef739dfeb8f1bf16c170628cb05f93e2442b511; silent_errors_settlement_winkler_imperfections::rotation_on_a_2d_pinned_support_is_refused, settlement_on_an_unflagged_3d_dof_is_refused, settlement_on_a_restrained_dof_is_applied |
 | #442 | — | CORRECTED | not a current wrong-result defect: imperfections.rs applies member gravity with dimension-specific axes and refuses unapplied options; regression suite covers these paths. | eef739dfeb8f1bf16c170628cb05f93e2442b511; silent_errors_settlement_winkler_imperfections::notional_loads_3d_default_gravity_is_z, notional_loads_include_member_gravity_loads, unapplied_imperfections_are_refused, geometric_imperfections_are_applied |
 | #441 | — | SCOPE | not a wrong-result defect: advisory notification process. | Issue scope: Safety advisories: notify users when a released version produced a wrong or unconservative result. No demonstrated current wrong-result case in this item. |
-| #433 | `NL-17` | WARN | Returned fiber iterate is unconverged. | known_issues::fiber_warning_is_only_on_unconverged_results (exact warning and converged negative control); existing fiber numerical tests |
+| #433 | — | CORRECTED | Fixed on main by #1296: the fiber solver stops at the last converged increment and reports `last_converged_load_factor`, the reactions of that state and the stop reason, so no unconverged iterate is returned. The `NL-17` warning is retired. | fiber_nonlinear_gate::load_beyond_collapse_stops_at_the_last_converged_increment and its 3D twin |
 | #432 | `NL-13` | WARN | Contact active-set history reports a frozen gap. | contact::containment_tests::freezing_on_the_first_flip_is_reported; existing contact numerical tests |
 | #428 | `NL-5` | WARN | Material nonlinear analysis (whole-member secant is intrinsic to this algorithm). | known_issues::material_nonlinear_results_are_flagged; analysis negative controls |
 | #426 | `NL-3` | WARN | 3D co-rotational result with a member whose end turns more than 0.02 rad against its chord (`NL3_NATURAL_ROTATION`), main's scoped warning from [#1301](https://github.com/lambdaclass/stabileo/pull/1301) (51a77e5fd), which computes natural rotations from rotation matrices; an increment that turns a member end by 0.9π or more, a chord past 0.9π and a natural rotation that jumps by more than π are refused. #807's blanket warning on every 3D co-rotational solve is removed. | engine/tests/validation/three_d/three_d_corotational.rs on main; known_issue_reproductions::the_45_degree_bend_is_within_two_percent_and_carries_nl3, a_helix_from_a_non_coaxial_tip_moment_matches_the_exact_solution_without_nl3, a_helix_beyond_the_increments_reach_is_reported_unconverged_not_wrong |
@@ -128,7 +128,6 @@ Round 2 containment audit for #447. Every result this change still returns has t
 - NL-5: all material nonlinear analysis because the whole-member secant formulation is intrinsic, independent of input geometry.
 - NL-3: a 3D co-rotational member whose ends turn more than 0.02 rad against its chord; the end forces omit a finite-rotation term whose relative error is about half that rotation.
 - NL-13: only a returned contact history with a frozen gap, including max_flips = 0 on the first flip; no warning for an ordinary converged contact solve.
-- NL-17: only a returned unconverged fiber iterate; no warning for a converged fiber solve.
 - MD-ORTHOGONALITY: 3D modal, spectral, and harmonic modal-superposition analysis; no proven safe input subset.
 - TH-RECIPROCITY: 2D and 3D time history; no proven safe input subset.
 
@@ -179,7 +178,6 @@ Verification results and corpus counts are recorded below. Read-only history evi
 | SP-14 | 0 | 0 |
 | NL-3 | 0 | 0 |
 | NL-13 | 0 | 0 |
-| NL-17 | 0 | 0 |
 | MD-ORTHOGONALITY | 2 | 0 |
 | TH-RECIPROCITY | 0 | 0 |
 
