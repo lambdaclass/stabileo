@@ -68,7 +68,7 @@ jobs:
   # kernels) has ~23,000 mutants at 20 s to 2 min each: one pass is far more than a
   # night of runners, so it is split into MUTANTS_TOTAL shards and the
   # MUTANTS_SLOTS shards that went longest without finishing run each night
-  # (.github/scripts/mutants-plan.py), so a shard lost to a runner comes back the next night.
+  # (.github/scripts/mutants-plan.py), so a shard lost to a runner does not wait a full pass.
   plan:
     runs-on: ubuntu-24.04
     timeout-minutes: 5

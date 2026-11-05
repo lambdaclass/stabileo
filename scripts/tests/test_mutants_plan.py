@@ -14,16 +14,20 @@ spec.loader.exec_module(plan)
 
 
 class MutantsPlan(unittest.TestCase):
-    def test_with_no_markers_it_is_the_day_rotation(self):
-        for day in [0, 7, 20397]:
-            self.assertEqual(plan.pick(512, 32, day, {}), plan.rotation(512, 32, day))
+    def test_with_no_markers_it_starts_at_shard_zero(self):
+        self.assertEqual(plan.pick(512, 32, {}), list(range(32)))
+
+    def test_unfinished_shards_of_a_fresh_start_run_again_the_next_night(self):
+        first = plan.pick(512, 32, {})
+        finished = {k: '2026-11-05T06:00:00Z' for k in first[:28]}
+        self.assertEqual(plan.pick(512, 32, finished), first[28:] + list(range(32, 60)))
 
     def test_a_shard_lost_last_night_runs_again_tonight(self):
         day = 20397
         last_night = plan.rotation(512, 32, day - 1)
         finished = {k: '2026-11-04T06:00:00Z' for k in last_night[:28]}
         older = {k: '2026-10-20T06:00:00Z' for k in range(512) if k not in last_night}
-        tonight = plan.pick(512, 32, day, {**older, **finished})
+        tonight = plan.pick(512, 32, {**older, **finished})
         self.assertTrue(set(last_night[28:]) <= set(tonight))
         self.assertEqual(len(tonight), 32)
         self.assertEqual(len(set(tonight)), 32)
@@ -31,7 +35,7 @@ class MutantsPlan(unittest.TestCase):
     def test_unmarked_shards_go_first_then_the_oldest(self):
         last = {k: f'2026-10-{10 + k % 20:02d}T00:00:00Z' for k in range(8)}
         del last[5]
-        self.assertEqual(plan.pick(8, 3, 0, last), [5, 0, 1])
+        self.assertEqual(plan.pick(8, 3, last), [5, 0, 1])
 
     def run_script(self, fake_gh):
         with tempfile.TemporaryDirectory() as directory:

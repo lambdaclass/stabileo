@@ -2,8 +2,8 @@
 
 Prints a JSON list of SLOTS shard indices out of TOTAL. A shard's age comes from the newest
 mutants-done-<k>-of-<TOTAL> marker of a nightly.yml run on main; shards with no marker go first.
-Ties keep the day-based rotation order, so a fresh start is the old rotation. If GitHub cannot be
-read, it falls back to that rotation and says so.
+Ties go by shard index, so shards a night did not finish stay ahead of every shard not yet run.
+If GitHub cannot be read, it falls back to the day-based rotation and says so.
 """
 import json
 import os
@@ -19,9 +19,8 @@ def rotation(total, slots, day):
     return [(day * slots + i) % total for i in range(slots)]
 
 
-def pick(total, slots, day, last_done):
-    start = (day * slots) % total
-    order = sorted(range(total), key=lambda k: (last_done.get(k, ""), (k - start) % total))
+def pick(total, slots, last_done):
+    order = sorted(range(total), key=lambda k: (last_done.get(k, ""), k))
     return order[:slots]
 
 
@@ -53,7 +52,7 @@ def main():
         print(f"::warning title=Mutants rotation::markers unreadable ({ex}); tonight runs the day-based rotation", file=sys.stderr)
         print(json.dumps(rotation(total, slots, day)))
         return
-    shards = pick(total, slots, day, last)
+    shards = pick(total, slots, last)
     never = sum(1 for k in range(total) if k not in last)
     oldest = min((last[k] for k in shards if k in last), default="none")
     print(f"mutants: {total - never} of {total} shards have a marker; tonight {slots}, {sum(1 for k in shards if k not in last)} without one, oldest marker among them {oldest}", file=sys.stderr)

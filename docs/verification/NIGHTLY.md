@@ -79,9 +79,10 @@ A shard fails whenever `mutants.out/missed.txt` is not empty, whatever cargo-mut
 (it reports timeouts, 3, over missed mutants, 2).
 
 Each night runs the 32 mutation shards that went longest without running to their verdict
-(`.github/scripts/mutants-plan.py`; shards with no marker first, ties in UTC-day rotation order),
-on the nightly runner pool (`stabileo-nightly`, or the `stabileo` pool when it is off). A shard
-lost to a runner or to its time budget runs again the next night instead of waiting a full pass.
+(`.github/scripts/mutants-plan.py`; shards with no marker first, then the oldest marker, ties by
+shard index), on the nightly runner pool (`stabileo-nightly`, or the `stabileo` pool when it is
+off). A shard lost to a runner or to its time budget keeps its place in that order, so it runs again
+before any shard with a newer marker instead of waiting a fixed 16-night turn.
 When every shard finishes, a complete 512-shard pass takes 16 nights, the roadmap's promise; 32
 shards take about 8.5 hours of the nightly pool. A shard that runs to its verdict
 uploads `mutants-done-<k>-of-<n>`; the weekly verification dashboard fails when
