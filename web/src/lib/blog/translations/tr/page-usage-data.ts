@@ -4,7 +4,7 @@ const body: StandingPage['i18n']['en'] = {
   "title": "Stabileo hangi anonim kullanım verisini gönderir",
   "description": "Stabileo'nun gönderdiği anonim kullanım verisinin tam listesi, asla göndermedikleri ve nasıl kapatılacağı.",
   "eyebrow": "Gizlilik",
-  "lead": "Stabileo varsayılan olarak anonim kullanım verisi paylaşır ve bunu istediğiniz zaman Ayarlar'dan veya profilinizden kapatabilirsiniz. Hangi araçların kullanıldığını ve hangilerinin başarısız olduğunu bize söyler; böylece önce neyi geliştireceğimize karar verebiliriz. Gönderilenlerin tam listesi şudur.",
+  "lead": "Stabileo anonim kullanım verisini yalnızca siz seçerseniz paylaşır ve bunu istediğiniz zaman Ayarlar'dan veya profilinizden değiştirebilirsiniz. Hangi araçların kullanıldığını ve hangilerinin başarısız olduğunu bize söyler; böylece önce neyi geliştireceğimize karar verebiliriz. Gönderilenlerin tam listesi şudur.",
   "blocks": [
     {
       "k": "h",

@@ -61,7 +61,7 @@ const body: StandingPage['i18n']['en'] = {
     },
     {
       "k": "p",
-      "t": "Oluşturduğunuz modeller ve projeler size aittir. Bunları buluta kaydederseniz, hesabınızdan açabilmeniz için saklarız ve istediğiniz zaman silebilirsiniz. Hesabınızı oluşturarak bunları anonimleştirilmiş olarak Stabileo'yu geliştirmek için kullanmamızı kabul edersiniz. Bunu profilinizden kapatabilirsiniz ve bu, şirkete özel modülleri hiçbir zaman kapsamaz."
+      "t": "Oluşturduğunuz modeller ve projeler size aittir. Bunları buluta kaydederseniz, hesabınızdan açabilmeniz için saklarız ve istediğiniz zaman silebilirsiniz. Yalnızca hesabınızı oluştururken veya profilinizden izin verirseniz bunları anonimleştirilmiş olarak Stabileo'yu geliştirmek için kullanırız. Bu izni istediğiniz zaman geri alabilirsiniz ve bu, şirkete özel modülleri hiçbir zaman kapsamaz."
     },
     {
       "k": "h",
@@ -69,7 +69,7 @@ const body: StandingPage['i18n']['en'] = {
     },
     {
       "k": "p",
-      "t": "Stabileo anonim kullanım verisi gönderir: hangi araçların kullanıldığı, analizlerin nasıl sonuçlandığı ve uygulama sürümü. Modellerinizin içeriğini asla göndermez. Varsayılan olarak açıktır ve hesabınızı oluşturarak açık tutmayı kabul edersiniz. Paylaşmak istemezseniz profilinizde Gizlilik bölümünden kapatabilirsiniz. Tam liste “Stabileo hangi anonim kullanım verisini gönderir” sayfasındadır; verilerin nasıl işlendiği ise Gizlilik Politikası'nda yer alır."
+      "t": "Stabileo anonim kullanım verisi gönderir: hangi araçların kullanıldığı, analizlerin nasıl sonuçlandığı ve uygulama sürümü. Modellerinizin içeriğini asla göndermez. Yalnızca paylaşmayı seçerseniz gönderilir; bunu istediğiniz zaman profilinizde Gizlilik bölümünden değiştirebilirsiniz. Tam liste “Stabileo hangi anonim kullanım verisini gönderir” sayfasındadır; verilerin nasıl işlendiği ise Gizlilik Politikası'nda yer alır."
     },
     {
       "k": "h",

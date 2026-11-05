@@ -61,7 +61,7 @@ const body: StandingPage['i18n']['en'] = {
     },
     {
       "k": "p",
-      "t": "Les modèles et projets que vous créez vous appartiennent. Si vous les enregistrez dans le cloud, nous les conservons pour que vous puissiez les ouvrir depuis votre compte, et vous pouvez les supprimer à tout moment. En créant votre compte, vous acceptez que nous les utilisions, anonymisés, pour améliorer Stabileo. Vous pouvez le désactiver depuis votre profil, et cela ne couvre jamais les modules personnalisés d'entreprise."
+      "t": "Les modèles et projets que vous créez vous appartiennent. Si vous les enregistrez dans le cloud, nous les conservons pour que vous puissiez les ouvrir depuis votre compte, et vous pouvez les supprimer à tout moment. Seulement si vous l'autorisez, à la création de votre compte ou depuis votre profil, nous les utilisons, anonymisés, pour améliorer Stabileo. Vous pouvez retirer cette autorisation à tout moment, et cela ne couvre jamais les modules personnalisés d'entreprise."
     },
     {
       "k": "h",
@@ -69,7 +69,7 @@ const body: StandingPage['i18n']['en'] = {
     },
     {
       "k": "p",
-      "t": "Stabileo envoie des données d'usage anonymes : quels outils sont utilisés, comment les analyses se terminent et la version de l'application. Il n'envoie jamais le contenu de vos modèles. Cette option est activée par défaut et, en créant votre compte, vous acceptez de la laisser activée. Si vous préférez ne pas partager ces données, désactivez-la dans votre profil, sous Confidentialité. La liste complète figure dans “Les données d'usage anonymes que Stabileo envoie”, et leur traitement est décrit dans la Politique de confidentialité."
+      "t": "Stabileo envoie des données d'usage anonymes : quels outils sont utilisés, comment les analyses se terminent et la version de l'application. Il n'envoie jamais le contenu de vos modèles. Elles ne sont envoyées que si vous choisissez de les partager, et vous pouvez changer d'avis à tout moment dans votre profil, sous Confidentialité. La liste complète figure dans “Les données d'usage anonymes que Stabileo envoie”, et leur traitement est décrit dans la Politique de confidentialité."
     },
     {
       "k": "h",

@@ -61,7 +61,7 @@ const body: StandingPage['i18n']['en'] = {
     },
     {
       "k": "p",
-      "t": "Die Modelle und Projekte, die Sie erstellen, gehören Ihnen. Wenn Sie sie in der Cloud speichern, bewahren wir sie auf, damit Sie sie über Ihr Konto öffnen können, und Sie können sie jederzeit löschen. Mit der Erstellung Ihres Kontos stimmen Sie zu, dass wir sie anonymisiert zur Verbesserung von Stabileo verwenden. Sie können dies in Ihrem Profil ausschalten, und es umfasst niemals unternehmenseigene Module."
+      "t": "Die Modelle und Projekte, die Sie erstellen, gehören Ihnen. Wenn Sie sie in der Cloud speichern, bewahren wir sie auf, damit Sie sie über Ihr Konto öffnen können, und Sie können sie jederzeit löschen. Nur wenn Sie es erlauben, bei der Kontoerstellung oder in Ihrem Profil, verwenden wir sie anonymisiert zur Verbesserung von Stabileo. Sie können diese Erlaubnis jederzeit widerrufen, und sie umfasst niemals unternehmenseigene Module."
     },
     {
       "k": "h",
@@ -69,7 +69,7 @@ const body: StandingPage['i18n']['en'] = {
     },
     {
       "k": "p",
-      "t": "Stabileo sendet anonyme Nutzungsdaten: welche Werkzeuge verwendet werden, wie Berechnungen enden und welche Version der App läuft. Der Inhalt Ihrer Modelle wird nie gesendet. Die Übermittlung ist standardmäßig aktiviert, und mit der Erstellung Ihres Kontos stimmen Sie zu, sie aktiviert zu lassen. Wenn Sie diese Daten lieber nicht teilen möchten, schalten Sie die Übermittlung in Ihrem Profil unter Datenschutz aus. Die vollständige Liste finden Sie unter „Welche anonymen Nutzungsdaten Stabileo sendet“, und der Umgang damit ist in der Datenschutzerklärung beschrieben."
+      "t": "Stabileo sendet anonyme Nutzungsdaten: welche Werkzeuge verwendet werden, wie Berechnungen enden und welche Version der App läuft. Der Inhalt Ihrer Modelle wird nie gesendet. Die Daten werden nur gesendet, wenn Sie sie teilen möchten, und Sie können das jederzeit in Ihrem Profil unter Datenschutz ändern. Die vollständige Liste finden Sie unter „Welche anonymen Nutzungsdaten Stabileo sendet“, und der Umgang damit ist in der Datenschutzerklärung beschrieben."
     },
     {
       "k": "h",
