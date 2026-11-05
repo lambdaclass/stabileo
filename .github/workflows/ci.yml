@@ -121,6 +121,7 @@ jobs:
       determinism: ${{ steps.select.outputs.determinism }}
       results: ${{ steps.select.outputs.results }}
       run_e2e: ${{ steps.labels.outputs.run_e2e == 'true' }}
+      labels: ${{ steps.labels.outputs.names }}
       e2e_timings_run: ${{ steps.timings.outputs.run }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -226,6 +227,7 @@ jobs:
         run: |
           names=$(.github/scripts/retry-infra.sh gh api "repos/$GH_REPO/pulls/$PR" --jq '.labels[].name')
           if grep -qx run-e2e <<<"$names"; then echo "run_e2e=true"; else echo "run_e2e=false"; fi >> "$GITHUB_OUTPUT"
+          echo "names=$(paste -sd, <<<"$names")" >> "$GITHUB_OUTPUT"
       - name: Select PR jobs (all jobs for trusted events)
         id: select
         env:
@@ -440,6 +442,8 @@ jobs:
       - name: Fetch Rust dependencies
         run: .github/scripts/retry-infra.sh nix develop --command cargo fetch --locked
       - name: Clippy
+        env:
+          BENCHMARK_GATE_LABELS: ${{ needs.changes.outputs.labels }}
         run: make lint.engine
 
       - name: Stop the rest of this run
