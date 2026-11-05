@@ -57,15 +57,16 @@ function mergedPrs(messages) {
 
 async function mainlineMessages(github, owner, repo, base, head) {
   const messages = [];
-  for (let sha = head; sha && sha !== base && messages.length < MAINLINE_LIMIT;) {
+  let sha = head;
+  while (sha && sha !== base && messages.length < MAINLINE_LIMIT) {
     const { data } = await github.rest.repos.getCommit({ owner, repo, ref: sha });
     messages.push(data.commit.message);
     sha = data.parents[0]?.sha;
   }
-  return messages.reverse();
+  return { messages: messages.reverse(), complete: sha === base };
 }
 
-function issueBody({ shards, runUrl, sha, lastGreen, prs }) {
+function issueBody({ shards, runUrl, sha, lastGreen, prs, complete = true }) {
   const failures = shards.flatMap((s) => s.failures.map((f) => `- ${f} (shard ${s.shard})`));
   const lines = [
     `The \`@slow\` E2E suite failed on main at ${sha.slice(0, 9)}: ${runUrl}`,
@@ -80,9 +81,11 @@ function issueBody({ shards, runUrl, sha, lastGreen, prs }) {
     lines.push(`No green \`@slow\` run among the last ${SCANNED_RUNS} main pushes, so the suspect PRs are unknown.`);
   } else {
     lines.push(`Last green \`@slow\` run: ${lastGreen.runUrl} (${lastGreen.sha.slice(0, 9)}).`);
-    lines.push(prs.length ? `PRs merged since: ${prs.map((n) => `#${n}`).join(', ')}` : 'No PR merged since it.');
+    const listed = prs.map((n) => `#${n}`).join(', ');
+    if (!complete) lines.push(`Candidate PRs, from the newest ${MAINLINE_LIMIT} mainline commits only (older ones not listed): ${listed || 'none'}`);
+    else lines.push(prs.length ? `Candidate PRs merged since: ${listed}` : 'No PR merged since it.');
   }
-  lines.push('', 'The merge queue does not run `@slow` (#1519), so one of these PRs passed the queue with it red.');
+  lines.push('', 'A red can also be infrastructure or a flaky test. The merge queue does not run `@slow` (#1519), so a regression shows up only here.');
   return lines.join('\n');
 }
 
@@ -96,7 +99,8 @@ async function lastGreenRun(github, owner, repo, current) {
       owner, repo, run_id: run.id, filter: 'latest', per_page: 100,
     });
     const e2e = jobs.filter((j) => /^E2E \(\d+\/\d+\)$/.test(j.name));
-    if (e2e.length && e2e.every((j) => j.conclusion === 'success')) return { runUrl: run.html_url, sha: run.head_sha };
+    const slowPassed = (j) => (j.steps ?? []).some((step) => step.name.startsWith('E2E slow suite') && step.conclusion === 'success');
+    if (e2e.length && e2e.every((j) => j.conclusion === 'success' && slowPassed(j))) return { runUrl: run.html_url, sha: run.head_sha };
   }
   return null;
 }
@@ -122,10 +126,13 @@ module.exports = async function alert({ github, context, core }) {
   if (state !== 'red') return;
   const lastGreen = await lastGreenRun(github, owner, repo, context.runId);
   let prs = [];
+  let complete = true;
   if (lastGreen) {
-    prs = mergedPrs(await mainlineMessages(github, owner, repo, lastGreen.sha, context.sha));
+    const mainline = await mainlineMessages(github, owner, repo, lastGreen.sha, context.sha);
+    prs = mergedPrs(mainline.messages);
+    complete = mainline.complete;
   }
-  const body = issueBody({ shards, runUrl, sha: context.sha, lastGreen, prs });
+  const body = issueBody({ shards, runUrl, sha: context.sha, lastGreen, prs, complete });
   if (existing) {
     await github.rest.issues.createComment({ owner, repo, issue_number: existing.number, body });
     core.warning(`${TITLE}: commented on #${existing.number}`);
@@ -135,4 +142,4 @@ module.exports = async function alert({ github, context, core }) {
   core.warning(`${TITLE}: opened #${data.number}`);
 };
 
-Object.assign(module.exports, { TITLE, failingSpecs, readShards, verdict, mergedPrs, mainlineMessages, lastGreenRun, issueBody });
+Object.assign(module.exports, { TITLE, failingSpecs, readShards, verdict, mergedPrs, mainlineMessages, lastGreenRun, issueBody, MAINLINE_LIMIT });

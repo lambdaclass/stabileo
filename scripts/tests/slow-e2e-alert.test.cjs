@@ -73,8 +73,23 @@ test('only main\'s first-parent chain counts: commits and merges inside a PR bra
   };
   const seen = [];
   const github = {rest: {repos: {getCommit: async ({ref}) => { seen.push(ref); return {data: {commit: {message: commits[ref][1]}, parents: [{sha: commits[ref][0]}]}}; }}}};
-  assert.deepEqual(alert.mergedPrs(await alert.mainlineMessages(github, 'o', 'r', 'base', 'm2')), [807, 1509]);
+  const mainline = await alert.mainlineMessages(github, 'o', 'r', 'base', 'm2');
+  assert.equal(mainline.complete, true);
+  assert.deepEqual(alert.mergedPrs(mainline.messages), [807, 1509]);
   assert.deepEqual(seen, ['m2', 'm1']);
+});
+
+test('a mainline longer than the limit is reported as incomplete', async () => {
+  const github = {rest: {repos: {getCommit: async ({ref}) => {
+    const i = Number(ref.slice(1));
+    return {data: {commit: {message: `Merge pull request #${i} from x`}, parents: [{sha: `c${i - 1}`}]}};
+  }}}};
+  const mainline = await alert.mainlineMessages(github, 'o', 'r', 'c0', `c${alert.MAINLINE_LIMIT + 50}`);
+  assert.equal(mainline.complete, false);
+  assert.equal(mainline.messages.length, alert.MAINLINE_LIMIT);
+  const body = alert.issueBody({shards: [{shard: 1, outcome: 'failure', failures: ['a.spec.ts:1 › x [chromium]']}], runUrl: 'u', sha: 'abcdef1234',
+    lastGreen: {runUrl: 'g', sha: 'c0aaaaaaaaa'}, prs: alert.mergedPrs(mainline.messages).slice(0, 2), complete: false});
+  assert.match(body, /Candidate PRs, from the newest 100 mainline commits only \(older ones not listed\): #51, #52/);
 });
 
 test('the issue body names the failing specs, the run, the last green run and the PRs since', () => {
@@ -98,16 +113,16 @@ test('the issue body names the failing specs, the run, the last green run and th
     'No slow report from shard 8 (the suite did not run there, or its upload failed).',
     '',
     'Last green `@slow` run: https://github.com/o/r/actions/runs/42048340349 (525c78766).',
-    'PRs merged since: #807, #1509',
+    'Candidate PRs merged since: #807, #1509',
     '',
-    'The merge queue does not run `@slow` (#1519), so one of these PRs passed the queue with it red.',
+    'A red can also be infrastructure or a flaky test. The merge queue does not run `@slow` (#1519), so a regression shows up only here.',
   ].join('\n'));
 });
 
 test('without a green run in reach the body says the suspects are unknown', () => {
   const body = alert.issueBody({shards: [{shard: 1, outcome: 'failure', failures: ['a.spec.ts:1 › x [chromium]']}], runUrl: 'u', sha: 'abcdef1234', lastGreen: null, prs: []});
   assert.match(body, /No green `@slow` run among the last 30 main pushes, so the suspect PRs are unknown\./);
-  assert.doesNotMatch(body, /PRs merged since/);
+  assert.doesNotMatch(body, /Candidate PRs/);
 });
 
 function fakeGithub({open = [], runs = [], jobs = {}, commits = []}) {
@@ -149,25 +164,27 @@ async function run(github, entries, total) {
   return logs;
 }
 
+const slowStep = (conclusion) => [{name: 'E2E smoke suite (shard 1/2)', conclusion: 'success'}, {name: 'E2E slow suite (shard 1/2)', conclusion}];
 const red = {outcome: 'failure', report: report([['walks every method', 39, 'unexpected']])};
 const green = {outcome: 'success', report: report([['walks every method', 39, 'expected']])};
 
 test('red with no open issue opens one, labelled and assigned, blaming PRs since the last green run', async () => {
   const {github, calls} = fakeGithub({
-    runs: [{id: 300}, {id: 299, html_url: 'r299', head_sha: 'bbbbbbbbbb'}, {id: 298, html_url: 'r298', head_sha: 'aaaaaaaaaa'}],
-    jobs: {299: [{name: 'E2E (1/2)', conclusion: 'failure'}, {name: 'E2E (2/2)', conclusion: 'success'}],
-      298: [{name: 'E2E (1/2)', conclusion: 'success'}, {name: 'E2E (2/2)', conclusion: 'success'}, {name: 'Web Unit (1/8)', conclusion: 'failure'}]},
+    runs: [{id: 300}, {id: 299, html_url: 'r299', head_sha: 'bbbbbbbbbb'}, {id: 297, html_url: 'r297', head_sha: 'dddddddddd'}, {id: 298, html_url: 'r298', head_sha: 'aaaaaaaaaa'}],
+    jobs: {299: [{name: 'E2E (1/2)', conclusion: 'failure', steps: slowStep('failure')}, {name: 'E2E (2/2)', conclusion: 'success', steps: slowStep('success')}],
+      297: [{name: 'E2E (1/2)', conclusion: 'success', steps: slowStep('skipped')}, {name: 'E2E (2/2)', conclusion: 'success', steps: slowStep('success')}],
+      298: [{name: 'E2E (1/2)', conclusion: 'success', steps: slowStep('success')}, {name: 'E2E (2/2)', conclusion: 'success', steps: slowStep('success')}, {name: 'Web Unit (1/8)', conclusion: 'failure'}]},
     commits: ['Merge pull request #807 from x', 'Merge pull request #1509 from y'],
   });
   await run(github, [red, green], 2);
-  assert.deepEqual(calls.find(c => c.name === 'listJobsForWorkflowRun').args.run_id, 299);
+  assert.deepEqual(calls.filter(c => c.name === 'listJobsForWorkflowRun').map(c => c.args.run_id), [299, 297, 298]);
   assert.deepEqual(calls.filter(c => c.name === 'getCommit').map(c => c.args.ref), ['cccccccccc', 's0']);
   const created = calls.find(c => c.name === 'create').args;
   assert.equal(created.title, 'CI failure: @slow E2E on main');
   assert.deepEqual(created.labels, ['ci-failure']);
   assert.deepEqual(created.assignees, ['unbalancedparentheses', 'Batuis']);
   assert.match(created.body, /explained-steps\.spec\.ts:39 › walks every method \[chromium\] \(shard 1\)/);
-  assert.match(created.body, /Last green `@slow` run: r298 \(aaaaaaaaa\)\.\nPRs merged since: #807, #1509/);
+  assert.match(created.body, /Last green `@slow` run: r298 \(aaaaaaaaa\)\.\nCandidate PRs merged since: #807, #1509/);
   assert.match(created.body, /actions\/runs\/300/);
 });
 

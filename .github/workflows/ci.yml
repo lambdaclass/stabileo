@@ -1982,13 +1982,13 @@ jobs:
           for r in $RESULTS; do
             case "$r" in success|skipped) ;; *) exit 1 ;; esac
           done
-      - if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.slow_e2e == 'true'
+      - if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main' && (needs.changes.outputs.slow_e2e == 'true' || needs.changes.outputs.run_e2e == 'true')
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           sparse-checkout: .github/scripts
       - name: Every shard's slow suite outcome
-        if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.slow_e2e == 'true'
+        if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main' && (needs.changes.outputs.slow_e2e == 'true' || needs.changes.outputs.run_e2e == 'true')
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
@@ -1996,7 +1996,7 @@ jobs:
           RUN_ID: ${{ github.run_id }}
         run: .github/scripts/retry-infra.sh gh run download "$RUN_ID" --pattern 'e2e-slow-*' --dir e2e-slow
       - name: Open, update or close the @slow E2E issue
-        if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.slow_e2e == 'true'
+        if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main' && (needs.changes.outputs.slow_e2e == 'true' || needs.changes.outputs.run_e2e == 'true')
         continue-on-error: true
         uses: actions/github-script@d746ffe35508b1917358783b479e04febd2b8f71 # v9.0.0
         env:
