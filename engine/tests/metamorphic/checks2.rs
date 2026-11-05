@@ -177,7 +177,7 @@ pub fn settle(first: Verdict, retry: impl FnOnce() -> Verdict) -> Verdict {
 /// Analyses that must reproduce the linear static solution on any model they
 /// accept (see the "linear agreement" invariant).
 pub const REDUCES_TO_LINEAR: &[&str] = &[
-    "linear (dense reference)", "linear (sparse path)", "linear (PCG)", "constrained", "certified linear", "load combinations",
+    "linear (WASM typed path)", "linear (load session)", "linear (dense reference)", "linear (sparse path)", "linear (PCG)", "constrained", "certified linear", "load combinations",
     "staged (one stage)", "staged (loads in two stages)", "Winkler (no foundation)", "contact (no gaps)", "SSI (no soil springs)",
     "creep & shrinkage (t = t0)",
 ];

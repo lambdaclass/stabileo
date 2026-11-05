@@ -31,21 +31,25 @@ impl CheckLedger {
     /// ratio stays a plain number for serialization, but the caller can no
     /// longer mistake it for a satisfied check.
     pub fn ratio(&mut self, name: &str, demand: f64, capacity: f64) -> f64 {
-        if !demand.is_finite() || !capacity.is_finite() || capacity <= 0.0 {
-            self.flag(name);
-            return 0.0;
-        }
-        demand / capacity
+        self.record(name, crate::check::ratio(demand, capacity))
     }
 
     /// Ratio for a check that only applies when there is a demand of this kind
     /// (axial tension on a member in compression, say). A zero or absent demand
     /// is "not applicable", not "not evaluated", and is not flagged.
     pub fn ratio_if_loaded(&mut self, name: &str, demand: f64, capacity: f64) -> f64 {
-        if demand == 0.0 {
-            return 0.0;
+        self.record(name, crate::check::ratio_if_loaded(demand, capacity))
+    }
+
+    /// The ratio of an [`crate::check::Outcome`], or 0 with `name` recorded as unevaluated.
+    pub fn record(&mut self, name: &str, outcome: crate::check::Outcome) -> f64 {
+        match outcome {
+            crate::check::Outcome::Ratio(r) => r,
+            crate::check::Outcome::Unevaluated(_) => {
+                self.flag(name);
+                0.0
+            }
         }
-        self.ratio(name, demand, capacity)
     }
 
     /// Record a check as unevaluated for a reason the ratio helpers cannot see.

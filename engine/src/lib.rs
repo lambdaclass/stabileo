@@ -11,10 +11,13 @@ pub mod postprocess;
 pub mod loads;
 pub mod section;
 pub mod certify;
+pub mod check;
+pub mod boundary;
 pub mod sanity;
 pub mod metamorphic;
 pub mod known_issues;
 pub mod reproduce;
+pub mod result_sites;
 pub mod ordered;
 #[cfg(kani)]
 mod kani_proofs;
@@ -41,11 +44,24 @@ pub fn init() {
 /// shape `JSON.parse(serde_json::to_string(...))` produced on the JS side.
 /// Used by the hot-path exports to skip the JSON text round trip.
 fn to_js_value<T: serde::Serialize>(value: &T) -> Result<JsValue, JsValue> {
-    serde::Serialize::serialize(
-        value,
-        &serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true),
-    )
-    .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    let serializer = serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true);
+    let serialized = match boundary::outgoing(value).map_err(|e| JsValue::from_str(&e))? {
+        None => serde::Serialize::serialize(value, &serializer),
+        Some(lifted) => serde::Serialize::serialize(&lifted, &serializer),
+    };
+    serialized.map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+}
+
+fn to_json<T: serde::Serialize>(value: &T) -> Result<String, JsValue> {
+    boundary::to_json(value).map_err(|e| JsValue::from_str(&e))
+}
+
+fn contained_text(text: String) -> Result<String, JsValue> {
+    let value: serde_json::Value = serde_json::from_str(&text).map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))?;
+    match result_sites::contain(&value) {
+        result_sites::Outgoing::Unchanged => Ok(text),
+        _ => to_json(&value),
+    }
 }
 
 /// Deserialize a hot-path input passed straight from JS (plain objects, no
@@ -62,7 +78,7 @@ fn from_js_value<T: serde::de::DeserializeOwned>(value: JsValue) -> Result<T, Js
 /// displacements. JSON `SanityInput` in → JSON `SanityReport` out.
 #[wasm_bindgen]
 pub fn review_model_sanity(json: &str) -> Result<String, JsValue> {
-    sanity::review_json(json).map_err(|e| JsValue::from_str(&e))
+    sanity::review_json(json).map_err(|e| JsValue::from_str(&e)).and_then(contained_text)
 }
 
 /// Which engine this is: `{"engineVersion": CARGO_PKG_VERSION, "engineCommit": <git commit>}`.
@@ -81,7 +97,7 @@ pub fn engine_build_info() -> String {
 #[wasm_bindgen]
 pub fn engine_reproduce_hashes(json: &str, is_3d: bool) -> Result<String, JsValue> {
     let h = reproduce::linear_hashes(json, is_3d).map_err(|e| JsValue::from_str(&e))?;
-    serde_json::to_string(&h).map_err(|e| JsValue::from_str(&e.to_string()))
+    to_json(&h)
 }
 
 /// Solve 2D linear static analysis. JsValue in → JsValue out (hot path).
@@ -150,7 +166,7 @@ pub fn export_linear_bundle_3d(json: &str) -> Result<String, JsValue> {
     let input: types::SolverInput3D = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let bundle = certify::bundle::export_linear_bundle_3d(&input).map_err(|e| JsValue::from_str(&e))?;
-    Ok(bundle.to_json())
+    to_json(&bundle)
 }
 
 /// 2D version of `export_linear_bundle_3d`.
@@ -159,7 +175,7 @@ pub fn export_linear_bundle_2d(json: &str) -> Result<String, JsValue> {
     let input: types::SolverInput = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let bundle = certify::bundle::export_linear_bundle_2d(&input).map_err(|e| JsValue::from_str(&e))?;
-    Ok(bundle.to_json())
+    to_json(&bundle)
 }
 
 /// Solve and certify a 2D plastic collapse model and export its certificate bundle
@@ -170,7 +186,7 @@ pub fn export_plastic_bundle_2d(json: &str) -> Result<String, JsValue> {
     let input: types::PlasticInput = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let bundle = certify::plastic_bundle::export_plastic_bundle_2d(&input).map_err(|e| JsValue::from_str(&e))?;
-    Ok(bundle.to_json())
+    to_json(&bundle)
 }
 
 /// 3D version of `export_plastic_bundle_2d`.
@@ -179,7 +195,7 @@ pub fn export_plastic_bundle_3d(json: &str) -> Result<String, JsValue> {
     let input: types::PlasticInput3D = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let bundle = certify::plastic_bundle::export_plastic_bundle_3d(&input).map_err(|e| JsValue::from_str(&e))?;
-    Ok(bundle.to_json())
+    to_json(&bundle)
 }
 
 /// Solve and certify a 2D multi-case model and export its load-combination bundle
@@ -189,7 +205,7 @@ pub fn export_combination_bundle_2d(json: &str) -> Result<String, JsValue> {
     let input: solver::load_cases::MultiCaseInput = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let bundle = certify::combination_bundle::export_combination_bundle_2d(&input).map_err(|e| JsValue::from_str(&e))?;
-    Ok(bundle.to_json())
+    to_json(&bundle)
 }
 
 /// 3D version of `export_combination_bundle_2d`.
@@ -198,7 +214,7 @@ pub fn export_combination_bundle_3d(json: &str) -> Result<String, JsValue> {
     let input: solver::load_cases::MultiCaseInput3D = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let bundle = certify::combination_bundle::export_combination_bundle_3d(&input).map_err(|e| JsValue::from_str(&e))?;
-    Ok(bundle.to_json())
+    to_json(&bundle)
 }
 
 /// Solve 2D P-Delta and certify the displacements: a Newton–Kantorovich bound on
@@ -211,8 +227,7 @@ pub fn certify_pdelta_2d(json: &str, max_iter: usize, tolerance: f64) -> Result<
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let results = certify::pdelta::certify_pdelta_2d(&input, max_iter, tolerance)
         .map_err(|e| JsValue::from_str(&e))?;
-    serde_json::to_string(&results)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&results)
 }
 
 /// Solve 2D P-Delta analysis. JSON in → JSON out.
@@ -222,8 +237,7 @@ pub fn solve_pdelta_2d(json: &str, max_iter: usize, tolerance: f64) -> Result<St
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let results = solver::pdelta::solve_pdelta_2d(&input, max_iter, tolerance)
         .map_err(|e| JsValue::from_str(&e))?;
-    serde_json::to_string(&results)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&results)
 }
 
 /// Solve 2D buckling analysis. JSON in → JSON out.
@@ -233,8 +247,7 @@ pub fn solve_buckling_2d(json: &str, num_modes: usize) -> Result<String, JsValue
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let results = solver::buckling::solve_buckling_2d(&input, num_modes)
         .map_err(|e| JsValue::from_str(&e))?;
-    serde_json::to_string(&results)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&results)
 }
 
 /// Solve 2D linear buckling and certify the critical load factor
@@ -245,8 +258,7 @@ pub fn certify_buckling_2d(json: &str, num_modes: usize) -> Result<String, JsVal
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let results = certify::buckling::certify_buckling_2d(&input, num_modes)
         .map_err(|e| JsValue::from_str(&e))?;
-    serde_json::to_string(&results)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&results)
 }
 
 /// Solve 2D modal analysis. JSON in → JSON out.
@@ -257,8 +269,7 @@ pub fn solve_modal_2d(json: &str, num_modes: usize) -> Result<String, JsValue> {
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let results = solver::modal::solve_modal_2d(&input.solver, &input.densities, num_modes)
         .map_err(|e| JsValue::from_str(&e))?;
-    serde_json::to_string(&results)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&results)
 }
 
 /// Solve 2D modal analysis and certify the modes: per-mode ω² enclosures and
@@ -270,8 +281,7 @@ pub fn certify_modal_2d(json: &str, num_modes: usize) -> Result<String, JsValue>
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let results = certify::modal::certify_modal_2d(&input.solver, &input.densities, num_modes)
         .map_err(|e| JsValue::from_str(&e))?;
-    serde_json::to_string(&results)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&results)
 }
 
 /// Solve 2D spectral analysis and certify it: enclosures of the SRSS/CQC
@@ -284,8 +294,7 @@ pub fn certify_spectral_2d(json: &str) -> Result<String, JsValue> {
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let results = certify::spectral::certify_spectral_2d(&input)
         .map_err(|e| JsValue::from_str(&e))?;
-    serde_json::to_string(&results)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&results)
 }
 
 /// Solve 2D spectral analysis. JSON in → JSON out.
@@ -295,8 +304,7 @@ pub fn solve_spectral_2d(json: &str) -> Result<String, JsValue> {
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let results = solver::spectral::solve_spectral_2d(&input)
         .map_err(|e| JsValue::from_str(&e))?;
-    serde_json::to_string(&results)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&results)
 }
 
 /// Solve 3D P-Delta and certify the displacements: a Newton–Kantorovich bound on
@@ -309,8 +317,7 @@ pub fn certify_pdelta_3d(json: &str, max_iter: usize, tolerance: f64) -> Result<
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let results = certify::pdelta::certify_pdelta_3d(&input, max_iter, tolerance)
         .map_err(|e| JsValue::from_str(&e))?;
-    serde_json::to_string(&results)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&results)
 }
 
 /// Solve 3D P-Delta analysis. JSON in → JSON out.
@@ -320,8 +327,7 @@ pub fn solve_pdelta_3d(json: &str, max_iter: usize, tolerance: f64) -> Result<St
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let results = solver::pdelta::solve_pdelta_3d(&input, max_iter, tolerance)
         .map_err(|e| JsValue::from_str(&e))?;
-    serde_json::to_string(&results)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&results)
 }
 
 /// Solve 3D buckling analysis. JSON in → JSON out.
@@ -331,8 +337,7 @@ pub fn solve_buckling_3d(json: &str, num_modes: usize) -> Result<String, JsValue
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let results = solver::buckling::solve_buckling_3d(&input, num_modes)
         .map_err(|e| JsValue::from_str(&e))?;
-    serde_json::to_string(&results)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&results)
 }
 
 /// Solve 3D linear buckling and certify the critical load factor
@@ -343,8 +348,7 @@ pub fn certify_buckling_3d(json: &str, num_modes: usize) -> Result<String, JsVal
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let results = certify::buckling::certify_buckling_3d(&input, num_modes)
         .map_err(|e| JsValue::from_str(&e))?;
-    serde_json::to_string(&results)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&results)
 }
 
 /// Solve 3D modal analysis. JSON in → JSON out.
@@ -354,8 +358,7 @@ pub fn solve_modal_3d(json: &str, num_modes: usize) -> Result<String, JsValue> {
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let results = solver::modal::solve_modal_3d(&input.solver, &input.densities, num_modes)
         .map_err(|e| JsValue::from_str(&e))?;
-    serde_json::to_string(&results)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&results)
 }
 
 /// Solve 3D modal analysis and certify the modes: per-mode ω² enclosures and
@@ -367,8 +370,7 @@ pub fn certify_modal_3d(json: &str, num_modes: usize) -> Result<String, JsValue>
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let results = certify::modal::certify_modal_3d(&input.solver, &input.densities, num_modes)
         .map_err(|e| JsValue::from_str(&e))?;
-    serde_json::to_string(&results)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&results)
 }
 
 /// Solve 3D spectral analysis and certify it: enclosures of the SRSS/CQC
@@ -381,8 +383,7 @@ pub fn certify_spectral_3d(json: &str) -> Result<String, JsValue> {
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let results = certify::spectral::certify_spectral_3d(&input)
         .map_err(|e| JsValue::from_str(&e))?;
-    serde_json::to_string(&results)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&results)
 }
 
 /// Solve 3D spectral analysis. JSON in → JSON out.
@@ -392,8 +393,7 @@ pub fn solve_spectral_3d(json: &str) -> Result<String, JsValue> {
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let results = solver::spectral::solve_spectral_3d(&input)
         .map_err(|e| JsValue::from_str(&e))?;
-    serde_json::to_string(&results)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&results)
 }
 
 /// Solve 2D plastic analysis. JSON in → JSON out.
@@ -403,8 +403,7 @@ pub fn solve_plastic_2d(json: &str) -> Result<String, JsValue> {
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let results = solver::plastic::solve_plastic_2d(&input)
         .map_err(|e| JsValue::from_str(&e))?;
-    serde_json::to_string(&results)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&results)
 }
 
 /// Solve 2D plastic analysis and certify the collapse load factor λ_c:
@@ -416,8 +415,7 @@ pub fn certify_plastic_2d(json: &str) -> Result<String, JsValue> {
     let input: types::PlasticInput = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let out = certify::plastic::certify_plastic_2d(&input).map_err(|e| JsValue::from_str(&e))?;
-    serde_json::to_string(&out)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&out)
 }
 
 /// Solve 3D plastic analysis and certify the collapse load factor λ_c of the
@@ -430,8 +428,7 @@ pub fn certify_plastic_3d(json: &str) -> Result<String, JsValue> {
     let input: types::PlasticInput3D = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let out = certify::plastic_3d::certify_plastic_3d(&input).map_err(|e| JsValue::from_str(&e))?;
-    serde_json::to_string(&out)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&out)
 }
 
 /// Solve 3D plastic (pushover) analysis. JSON in → JSON out.
@@ -441,8 +438,7 @@ pub fn solve_plastic_3d(json: &str) -> Result<String, JsValue> {
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let results = solver::plastic::solve_plastic_3d(&input)
         .map_err(|e| JsValue::from_str(&e))?;
-    serde_json::to_string(&results)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&results)
 }
 
 /// Solve 2D moving loads analysis. JSON in → JSON out.
@@ -452,8 +448,7 @@ pub fn solve_moving_loads_2d(json: &str) -> Result<String, JsValue> {
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let results = solver::moving_loads::solve_moving_loads_2d(&input)
         .map_err(|e| JsValue::from_str(&e))?;
-    serde_json::to_string(&results)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&results)
 }
 
 /// Solve 3D moving loads analysis. JSON in → JSON out.
@@ -463,8 +458,7 @@ pub fn solve_moving_loads_3d(json: &str) -> Result<String, JsValue> {
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let results = solver::moving_loads::solve_moving_loads_3d(&input)
         .map_err(|e| JsValue::from_str(&e))?;
-    serde_json::to_string(&results)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&results)
 }
 
 // ==================== Co-rotational Analysis ====================
@@ -476,8 +470,7 @@ pub fn solve_corotational_2d(json: &str, max_iter: usize, tolerance: f64, n_incr
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let results = solver::corotational::solve_corotational_2d(&input, max_iter, tolerance, n_increments, false)
         .map_err(|e| JsValue::from_str(&e))?;
-    serde_json::to_string(&results)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&results)
 }
 
 /// Solve 3D co-rotational (large displacement) analysis. JSON in → JSON out.
@@ -487,8 +480,7 @@ pub fn solve_corotational_3d(json: &str, max_iter: usize, tolerance: f64, n_incr
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let results = solver::corotational::solve_corotational_3d(&input, max_iter, tolerance, n_increments, false)
         .map_err(|e| JsValue::from_str(&e))?;
-    serde_json::to_string(&results)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&results)
 }
 
 // ==================== Nonlinear Material Analysis ====================
@@ -500,8 +492,7 @@ pub fn solve_nonlinear_material_2d(json: &str) -> Result<String, JsValue> {
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let results = solver::material_nonlinear::solve_nonlinear_material_2d(&input)
         .map_err(|e| JsValue::from_str(&e))?;
-    serde_json::to_string(&results)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&results)
 }
 
 /// Solve 3D nonlinear material analysis. JSON in → JSON out.
@@ -511,8 +502,7 @@ pub fn solve_nonlinear_material_3d(json: &str) -> Result<String, JsValue> {
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let results = solver::material_nonlinear::solve_nonlinear_material_3d(&input)
         .map_err(|e| JsValue::from_str(&e))?;
-    serde_json::to_string(&results)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&results)
 }
 
 // ==================== Time History Analysis ====================
@@ -524,8 +514,7 @@ pub fn solve_time_history_2d(json: &str) -> Result<String, JsValue> {
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let results = solver::time_integration::solve_time_history_2d(&input)
         .map_err(|e| JsValue::from_str(&e))?;
-    serde_json::to_string(&results)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&results)
 }
 
 /// Solve 3D linear time-history analysis. JSON in → JSON out.
@@ -535,8 +524,7 @@ pub fn solve_time_history_3d(json: &str) -> Result<String, JsValue> {
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let results = solver::time_integration::solve_time_history_3d(&input)
         .map_err(|e| JsValue::from_str(&e))?;
-    serde_json::to_string(&results)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&results)
 }
 
 /// Solve 2D time-history analysis and certify it: scheme stability for this
@@ -549,8 +537,7 @@ pub fn certify_time_history_2d(json: &str) -> Result<String, JsValue> {
     let input: types::TimeHistoryInput = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let out = certify::dynamics::certify_time_history_2d(&input).map_err(|e| JsValue::from_str(&e))?;
-    serde_json::to_string(&out)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&out)
 }
 
 /// 3D version of `certify_time_history_2d`.
@@ -559,8 +546,7 @@ pub fn certify_time_history_3d(json: &str) -> Result<String, JsValue> {
     let input: types::TimeHistoryInput3D = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let out = certify::dynamics::certify_time_history_3d(&input).map_err(|e| JsValue::from_str(&e))?;
-    serde_json::to_string(&out)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&out)
 }
 
 // ==================== Staged Construction Analysis ====================
@@ -571,8 +557,7 @@ pub fn solve_staged_2d(json: &str) -> Result<String, JsValue> {
     let input = solver::staged::parse_staged_2d(json).map_err(|e| JsValue::from_str(&e))?;
     let results = solver::staged::solve_staged_2d(&input)
         .map_err(|e| JsValue::from_str(&e))?;
-    serde_json::to_string(&results)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&results)
 }
 
 /// Solve 3D staged construction analysis. JSON in → JSON out.
@@ -581,8 +566,7 @@ pub fn solve_staged_3d(json: &str) -> Result<String, JsValue> {
     let input = solver::staged::parse_staged_3d(json).map_err(|e| JsValue::from_str(&e))?;
     let results = solver::staged::solve_staged_3d(&input)
         .map_err(|e| JsValue::from_str(&e))?;
-    serde_json::to_string(&results)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&results)
 }
 
 // ==================== Cable Analysis ====================
@@ -595,8 +579,7 @@ pub fn solve_cable_2d(json: &str, max_iter: usize, tolerance: f64) -> Result<Str
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let result = solver::cable::solve_cable_2d_pretensioned(&input.solver, &input.densities, &input.pretension, max_iter, tolerance)
         .map_err(|e| JsValue::from_str(&e))?;
-    serde_json::to_string(&result.results)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&result.results)
 }
 
 /// Solve 3D cable analysis. JSON in → JSON out.
@@ -611,8 +594,7 @@ pub fn solve_cable_3d(json: &str, max_iter: usize, tolerance: f64) -> Result<Str
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let result = solver::cable::solve_cable_3d_pretensioned(&input.solver, &input.densities, &input.pretension, max_iter, tolerance)
         .map_err(|e| JsValue::from_str(&e))?;
-    serde_json::to_string(&result)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&result)
 }
 
 // ==================== Kinematic Analysis ====================
@@ -623,8 +605,7 @@ pub fn analyze_kinematics_2d(json: &str) -> Result<String, JsValue> {
     let input: types::SolverInput = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let result = solver::kinematic::analyze_kinematics_2d(&input);
-    serde_json::to_string(&result)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&result)
 }
 
 /// Analyze 3D kinematic stability. JSON in → JSON out.
@@ -633,8 +614,7 @@ pub fn analyze_kinematics_3d(json: &str) -> Result<String, JsValue> {
     let input: types::SolverInput3D = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let result = solver::kinematic::analyze_kinematics_3d(&input);
-    serde_json::to_string(&result)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&result)
 }
 
 // ==================== Diagrams ====================
@@ -650,8 +630,7 @@ pub fn compute_diagrams_2d(json: &str) -> Result<String, JsValue> {
     let data: Input = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let diagrams = postprocess::diagrams::compute_diagrams_2d(&data.input, &data.results);
-    serde_json::to_string(&diagrams)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&diagrams)
 }
 
 /// Compute 3D diagrams. JSON: AnalysisResults3D
@@ -660,8 +639,7 @@ pub fn compute_diagrams_3d(json: &str) -> Result<String, JsValue> {
     let results: types::AnalysisResults3D = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let diagrams = postprocess::diagrams_3d::compute_diagrams_3d(&results);
-    serde_json::to_string(&diagrams)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&diagrams)
 }
 
 /// Compute deformed shape for one element. JSON wrapper.
@@ -701,8 +679,7 @@ pub fn compute_deformed_shape(json: &str) -> Result<String, JsValue> {
         d.ei, d.gas, d.load_qi, d.load_qj,
         &d.load_points, &d.dist_loads,
     );
-    serde_json::to_string(&result)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&result)
 }
 
 // ==================== Combinations + Envelope ====================
@@ -758,8 +735,7 @@ pub fn compute_influence_line(json: &str) -> Result<String, JsValue> {
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let result = postprocess::influence::compute_influence_line(&input)
         .map_err(|e| JsValue::from_str(&e))?;
-    serde_json::to_string(&result)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&result)
 }
 
 /// Compute 3D influence line. JSON: InfluenceLineInput3D
@@ -769,8 +745,7 @@ pub fn compute_influence_line_3d(json: &str) -> Result<String, JsValue> {
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let result = postprocess::influence::compute_influence_line_3d(&input)
         .map_err(|e| JsValue::from_str(&e))?;
-    serde_json::to_string(&result)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&result)
 }
 
 // ==================== Section Stress ====================
@@ -781,8 +756,7 @@ pub fn compute_section_stress_2d(json: &str) -> Result<String, JsValue> {
     let input: postprocess::section_stress::SectionStressInput = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let result = postprocess::section_stress::compute_section_stress_2d(&input);
-    serde_json::to_string(&result)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&result)
 }
 
 /// Compute 3D section stress. JSON: SectionStressInput3D
@@ -791,8 +765,7 @@ pub fn compute_section_stress_3d(json: &str) -> Result<String, JsValue> {
     let input: postprocess::section_stress_3d::SectionStressInput3D = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let result = postprocess::section_stress_3d::compute_section_stress_3d(&input);
-    serde_json::to_string(&result)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&result)
 }
 
 /// Compute 3D section stress from raw internal forces (no element forces interpolation).
@@ -828,8 +801,7 @@ pub fn compute_section_stress_3d_from_forces(json: &str) -> Result<String, JsVal
         d.n, d.vy, d.vz, d.mx, d.my, d.mz,
         &d.section, d.fy, d.y_fiber, d.z_fiber,
     );
-    serde_json::to_string(&result)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&result)
 }
 
 /// Compute 2D diagram value at position t for one element. JSON: { kind, t, elementForces }
@@ -845,7 +817,7 @@ pub fn compute_diagram_value_at(json: &str) -> Result<f64, JsValue> {
     let d: Input = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     postprocess::diagrams::check_diagram_kind_2d(&d.kind).map_err(|e| JsValue::from_str(&e))?;
-    Ok(postprocess::diagrams::compute_diagram_value_at(&d.kind, d.t, &d.element_forces))
+    boundary::finite_scalar(postprocess::diagrams::compute_diagram_value_at(&d.kind, d.t, &d.element_forces), &d.kind).map_err(|e| JsValue::from_str(&e))
 }
 
 /// Compute 3D diagram value at position t for one element. JSON: { kind, t, elementForces }
@@ -861,7 +833,7 @@ pub fn compute_diagram_value_at_3d(json: &str) -> Result<f64, JsValue> {
     let d: Input = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     postprocess::diagrams_3d::check_diagram_kind_3d(&d.kind).map_err(|e| JsValue::from_str(&e))?;
-    Ok(postprocess::diagrams_3d::evaluate_diagram_3d_at(&d.element_forces, &d.kind, d.t))
+    boundary::finite_scalar(postprocess::diagrams_3d::evaluate_diagram_3d_at(&d.element_forces, &d.kind, d.t), &d.kind).map_err(|e| JsValue::from_str(&e))
 }
 
 // ==================== Multi-Case Load Combinations ====================
@@ -910,8 +882,7 @@ pub fn certify_steel_members(json: &str) -> Result<String, JsValue> {
     let input: certify::design::CertifiedSteelCheckInput = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let results = certify::design::certify_steel_members(&input);
-    serde_json::to_string(&results)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&results)
 }
 
 /// Certified EC3 member checks: utilization enclosures from bounded demands.
@@ -921,8 +892,7 @@ pub fn certify_ec3_members(json: &str) -> Result<String, JsValue> {
     let input: certify::design::CertifiedEc3CheckInput = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let results = certify::design::certify_ec3_members(&input);
-    serde_json::to_string(&results)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&results)
 }
 
 /// Certified EC2 RC checks (flexure 6.1, shear 6.2) from bounded demands.
@@ -932,8 +902,7 @@ pub fn certify_ec2_members(json: &str) -> Result<String, JsValue> {
     let input: certify::design::CertifiedEc2CheckInput = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let results = certify::design::certify_ec2_members(&input);
-    serde_json::to_string(&results)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&results)
 }
 
 /// Certified CIRSOC 201 RC checks (flexure, shear) from bounded demands.
@@ -943,8 +912,7 @@ pub fn certify_cirsoc201_members(json: &str) -> Result<String, JsValue> {
     let input: certify::design::CertifiedCirsoc201CheckInput = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let results = certify::design::certify_cirsoc201_members(&input);
-    serde_json::to_string(&results)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&results)
 }
 
 /// Certified CIRSOC 301 steel checks from bounded demands.
@@ -954,8 +922,7 @@ pub fn certify_cirsoc301_members(json: &str) -> Result<String, JsValue> {
     let input: certify::design::CertifiedCirsoc301CheckInput = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let results = certify::design::certify_cirsoc301_members(&input);
-    serde_json::to_string(&results)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&results)
 }
 
 /// Certified ACI 318 RC checks (flexure incl. P-M interaction, shear, axial)
@@ -965,8 +932,7 @@ pub fn certify_rc_members(json: &str) -> Result<String, JsValue> {
     let input: certify::design::CertifiedRcCheckInput = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let results = certify::design::certify_rc_members(&input);
-    serde_json::to_string(&results)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&results)
 }
 
 /// Certified NDS timber checks from bounded demands.
@@ -976,8 +942,7 @@ pub fn certify_timber_members(json: &str) -> Result<String, JsValue> {
     let input: certify::design::CertifiedTimberCheckInput = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let results = certify::design::certify_timber_members(&input);
-    serde_json::to_string(&results)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&results)
 }
 
 /// Certified AISI S100 cold-formed steel checks from bounded demands.
@@ -987,8 +952,7 @@ pub fn certify_cfs_members(json: &str) -> Result<String, JsValue> {
     let input: certify::design::CertifiedCfsCheckInput = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let results = certify::design::certify_cfs_members(&input);
-    serde_json::to_string(&results)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&results)
 }
 
 /// Solve + certify a 2D multi-case model, then certify AISC 360 checks for the
@@ -999,8 +963,7 @@ pub fn certify_steel_multi_case_2d(json: &str) -> Result<String, JsValue> {
     let input: certify::design::SteelMultiCaseInput2D = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let out = certify::design::certify_steel_multi_case_2d(&input).map_err(|e| JsValue::from_str(&e))?;
-    serde_json::to_string(&out)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&out)
 }
 
 /// 3D version of `certify_steel_multi_case_2d`.
@@ -1009,8 +972,7 @@ pub fn certify_steel_multi_case_3d(json: &str) -> Result<String, JsValue> {
     let input: certify::design::SteelMultiCaseInput3D = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let out = certify::design::certify_steel_multi_case_3d(&input).map_err(|e| JsValue::from_str(&e))?;
-    serde_json::to_string(&out)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&out)
 }
 
 // ==================== Harmonic Analysis ====================
@@ -1026,8 +988,7 @@ pub fn certify_harmonic_2d(json: &str) -> Result<String, JsValue> {
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let results = certify::harmonic::certify_harmonic_2d(&input)
         .map_err(|e| JsValue::from_str(&e))?;
-    serde_json::to_string(&results)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&results)
 }
 
 /// Solve 2D harmonic (frequency response) analysis. JSON: HarmonicInput
@@ -1037,8 +998,7 @@ pub fn solve_harmonic_2d(json: &str) -> Result<String, JsValue> {
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let result = solver::harmonic::solve_harmonic_2d(&input)
         .map_err(|e| JsValue::from_str(&e))?;
-    serde_json::to_string(&result)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&result)
 }
 
 /// Solve 3D harmonic analysis and certify the steady state at every
@@ -1052,8 +1012,7 @@ pub fn certify_harmonic_3d(json: &str) -> Result<String, JsValue> {
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let results = certify::harmonic::certify_harmonic_3d(&input)
         .map_err(|e| JsValue::from_str(&e))?;
-    serde_json::to_string(&results)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&results)
 }
 
 /// Solve 3D harmonic (frequency response) analysis. JSON: HarmonicInput3D
@@ -1063,8 +1022,7 @@ pub fn solve_harmonic_3d(json: &str) -> Result<String, JsValue> {
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let result = solver::harmonic::solve_harmonic_3d(&input)
         .map_err(|e| JsValue::from_str(&e))?;
-    serde_json::to_string(&result)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&result)
 }
 
 // ==================== Winkler Foundation ====================
@@ -1076,8 +1034,7 @@ pub fn solve_winkler_2d(json: &str) -> Result<String, JsValue> {
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let result = solver::winkler::solve_winkler_2d(&input)
         .map_err(|e| JsValue::from_str(&e))?;
-    serde_json::to_string(&result)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&result)
 }
 
 /// Solve 3D beam on Winkler elastic foundation. JSON: WinklerInput3D
@@ -1087,8 +1044,7 @@ pub fn solve_winkler_3d(json: &str) -> Result<String, JsValue> {
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let result = solver::winkler::solve_winkler_3d(&input)
         .map_err(|e| JsValue::from_str(&e))?;
-    serde_json::to_string(&result)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&result)
 }
 
 // ==================== Constrained Analysis ====================
@@ -1100,8 +1056,7 @@ pub fn solve_constrained_2d(json: &str) -> Result<String, JsValue> {
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let results = solver::constraints::solve_constrained_2d(&input)
         .map_err(|e| JsValue::from_str(&e))?;
-    serde_json::to_string(&results)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&results)
 }
 
 /// Solve 3D constrained analysis (rigid links, diaphragms, MPCs). JSON in → JSON out.
@@ -1111,8 +1066,7 @@ pub fn solve_constrained_3d(json: &str) -> Result<String, JsValue> {
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let results = solver::constraints::solve_constrained_3d(&input)
         .map_err(|e| JsValue::from_str(&e))?;
-    serde_json::to_string(&results)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&results)
 }
 
 // ==================== Contact / Gap Analysis ====================
@@ -1124,8 +1078,7 @@ pub fn solve_contact_2d(json: &str) -> Result<String, JsValue> {
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let results = solver::contact::solve_contact_2d(&input)
         .map_err(|e| JsValue::from_str(&e))?;
-    serde_json::to_string(&results)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&results)
 }
 
 /// Solve 3D contact analysis (tension/compression-only, gaps, uplift). JSON in → JSON out.
@@ -1135,8 +1088,7 @@ pub fn solve_contact_3d(json: &str) -> Result<String, JsValue> {
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let results = solver::contact::solve_contact_3d(&input)
         .map_err(|e| JsValue::from_str(&e))?;
-    serde_json::to_string(&results)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&results)
 }
 
 // ==================== SSI Analysis ====================
@@ -1148,8 +1100,7 @@ pub fn solve_ssi_2d(json: &str) -> Result<String, JsValue> {
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let results = solver::ssi::solve_ssi_2d(&input)
         .map_err(|e| JsValue::from_str(&e))?;
-    serde_json::to_string(&results)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&results)
 }
 
 /// Solve 3D soil-structure interaction with nonlinear p-y/t-z/q-z curves. JSON in → JSON out.
@@ -1159,8 +1110,7 @@ pub fn solve_ssi_3d(json: &str) -> Result<String, JsValue> {
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let results = solver::ssi::solve_ssi_3d(&input)
         .map_err(|e| JsValue::from_str(&e))?;
-    serde_json::to_string(&results)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&results)
 }
 
 // ==================== Arc-Length / Displacement Control ====================
@@ -1172,8 +1122,7 @@ pub fn solve_arc_length(json: &str) -> Result<String, JsValue> {
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let results = solver::arc_length::solve_arc_length(&input)
         .map_err(|e| JsValue::from_str(&e))?;
-    serde_json::to_string(&results)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&results)
 }
 
 /// Solve displacement-controlled analysis. JSON in → JSON out.
@@ -1183,8 +1132,7 @@ pub fn solve_displacement_control(json: &str) -> Result<String, JsValue> {
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let results = solver::arc_length::solve_displacement_control(&input)
         .map_err(|e| JsValue::from_str(&e))?;
-    serde_json::to_string(&results)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&results)
 }
 
 // ==================== Fiber Beam-Column Analysis ====================
@@ -1196,8 +1144,7 @@ pub fn solve_fiber_nonlinear_2d(json: &str) -> Result<String, JsValue> {
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let results = solver::fiber_nonlinear::solve_fiber_nonlinear_2d(&input)
         .map_err(|e| JsValue::from_str(&e))?;
-    serde_json::to_string(&results)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&results)
 }
 
 /// Solve 3D fiber beam-column nonlinear analysis. JSON in → JSON out.
@@ -1207,8 +1154,7 @@ pub fn solve_fiber_nonlinear_3d(json: &str) -> Result<String, JsValue> {
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let results = solver::fiber_nonlinear::solve_fiber_nonlinear_3d(&input)
         .map_err(|e| JsValue::from_str(&e))?;
-    serde_json::to_string(&results)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&results)
 }
 
 /// Solve time-dependent 2D analysis with creep and shrinkage. JSON in → JSON out.
@@ -1218,8 +1164,7 @@ pub fn solve_creep_shrinkage_2d(json: &str) -> Result<String, JsValue> {
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let results = solver::creep_shrinkage::solve_creep_shrinkage_2d(&input)
         .map_err(|e| JsValue::from_str(&e))?;
-    serde_json::to_string(&results)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&results)
 }
 
 // ==================== Section Analysis ====================
@@ -1231,8 +1176,7 @@ pub fn analyze_section(json: &str) -> Result<String, JsValue> {
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let result = section::analyze_section(&input)
         .map_err(|e| JsValue::from_str(&e))?;
-    serde_json::to_string(&result)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&result)
 }
 
 // ==================== Canonical Section Geometry ====================
@@ -1404,8 +1348,7 @@ pub fn build_section_geometry(json: &str) -> Result<String, JsValue> {
     })
     .map_err(|e| JsValue::from_str(&e))?;
 
-    serde_json::to_string(&Response { digest: geometry.digest(), geometry, properties })
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {e}")))
+    to_json(&Response { digest: geometry.digest(), geometry, properties })
 }
 
 /// Axial and unsymmetrical-bending stress over canonical geometry.
@@ -1458,12 +1401,11 @@ pub fn analyze_section_bending(json: &str) -> Result<String, JsValue> {
         geometry_version: u32,
     }
 
-    serde_json::to_string(&Response {
+    to_json(&Response {
         digest: req.geometry.digest(),
         geometry_version: req.geometry.version,
         result,
     })
-    .map_err(|e| JsValue::from_str(&format!("Serialize error: {e}")))
 }
 
 /// Digest, version and provenance of a canonical geometry.
@@ -1488,7 +1430,7 @@ pub fn section_geometry_digest(json: &str) -> Result<String, JsValue> {
         hole_count: usize,
     }
 
-    serde_json::to_string(&Response {
+    to_json(&Response {
         digest: g.digest(),
         version: g.version,
         arc_segments: g.arc_segments,
@@ -1497,7 +1439,6 @@ pub fn section_geometry_digest(json: &str) -> Result<String, JsValue> {
         hole_count: g.polygons.iter().filter(|p| p.is_void).count(),
         source: g.source,
     })
-    .map_err(|e| JsValue::from_str(&format!("Serialize error: {e}")))
 }
 
 // ==================== Steel Design Check ====================
@@ -1508,8 +1449,7 @@ pub fn check_steel_members(json: &str) -> Result<String, JsValue> {
     let input: postprocess::steel_check::SteelCheckInput = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let results = postprocess::steel_check::check_steel_members(&input);
-    serde_json::to_string(&results)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&results)
 }
 
 #[wasm_bindgen]
@@ -1517,8 +1457,7 @@ pub fn check_rc_members(json: &str) -> Result<String, JsValue> {
     let input: postprocess::rc_check::RCCheckInput = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let results = postprocess::rc_check::check_rc_members(&input);
-    serde_json::to_string(&results)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&results)
 }
 
 #[wasm_bindgen]
@@ -1526,8 +1465,7 @@ pub fn check_timber_members(json: &str) -> Result<String, JsValue> {
     let input: postprocess::timber_check::TimberCheckInput = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let results = postprocess::timber_check::check_timber_members(&input);
-    serde_json::to_string(&results)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&results)
 }
 
 #[wasm_bindgen]
@@ -1535,8 +1473,7 @@ pub fn check_serviceability(json: &str) -> Result<String, JsValue> {
     let input: postprocess::serviceability::ServiceabilityInput = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let results = postprocess::serviceability::check_serviceability(&input);
-    serde_json::to_string(&results)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&results)
 }
 
 #[wasm_bindgen]
@@ -1544,8 +1481,7 @@ pub fn check_bolt_groups(json: &str) -> Result<String, JsValue> {
     let input: postprocess::connection_check::BoltGroupInput = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let results = postprocess::connection_check::check_bolt_groups(&input);
-    serde_json::to_string(&results)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&results)
 }
 
 #[wasm_bindgen]
@@ -1553,8 +1489,7 @@ pub fn check_weld_groups(json: &str) -> Result<String, JsValue> {
     let input: postprocess::connection_check::WeldGroupInput = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let results = postprocess::connection_check::check_weld_groups(&input);
-    serde_json::to_string(&results)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&results)
 }
 
 #[wasm_bindgen]
@@ -1562,8 +1497,7 @@ pub fn check_masonry_members(json: &str) -> Result<String, JsValue> {
     let input: postprocess::masonry_check::MasonryCheckInput = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let results = postprocess::masonry_check::check_masonry_members(&input);
-    serde_json::to_string(&results)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&results)
 }
 
 #[wasm_bindgen]
@@ -1571,8 +1505,7 @@ pub fn check_ec3_members(json: &str) -> Result<String, JsValue> {
     let input: postprocess::ec3_check::Ec3CheckInput = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let results = postprocess::ec3_check::check_ec3_members(&input);
-    serde_json::to_string(&results)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&results)
 }
 
 /// Batched CIRSOC 201 beam-section flexure and shear; layout in
@@ -1645,8 +1578,7 @@ pub fn check_cirsoc201_members(json: &str) -> Result<String, JsValue> {
         serde_json::from_str(json)
             .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let results = postprocess::cirsoc201_check::check_cirsoc201_members(&input);
-    serde_json::to_string(&results)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&results)
 }
 
 /// CIRSOC 301-2018 steel member checks. JSON `Cirsoc301CheckInput` in → JSON results.
@@ -1655,8 +1587,7 @@ pub fn check_cirsoc301_members(json: &str) -> Result<String, JsValue> {
     let input: postprocess::cirsoc301_check::Cirsoc301CheckInput = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let results = postprocess::cirsoc301_check::check_cirsoc301_members(&input);
-    serde_json::to_string(&results)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&results)
 }
 
 #[wasm_bindgen]
@@ -1664,8 +1595,7 @@ pub fn check_ec2_members(json: &str) -> Result<String, JsValue> {
     let input: postprocess::ec2_check::Ec2CheckInput = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let results = postprocess::ec2_check::check_ec2_members(&input);
-    serde_json::to_string(&results)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&results)
 }
 
 #[wasm_bindgen]
@@ -1673,8 +1603,7 @@ pub fn check_cfs_members(json: &str) -> Result<String, JsValue> {
     let input: postprocess::cfs_check::CfsCheckInput = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let results = postprocess::cfs_check::check_cfs_members(&input);
-    serde_json::to_string(&results)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&results)
 }
 
 /// Load generation (CIRSOC 101 combinations, INPRES-CIRSOC 103 seismic). JSON `LoadsRequest`
@@ -1684,7 +1613,7 @@ pub fn loads_request(json: &str) -> Result<String, JsValue> {
     let req: loads::LoadsRequest = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let v = loads::answer(req).map_err(|e| JsValue::from_str(&e))?;
-    serde_json::to_string(&v).map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&v)
 }
 
 /// CIRSOC 201-2025 isolated footings: service bearing with biaxial eccentricity, factored
@@ -1694,8 +1623,7 @@ pub fn check_isolated_footings(json: &str) -> Result<String, JsValue> {
     let input: postprocess::isolated_footing::IsolatedFootingInput = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let results = postprocess::isolated_footing::check_isolated_footings(&input);
-    serde_json::to_string(&results)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&results)
 }
 
 /// Certified isolated-footing utilizations: the same formulas in outward-rounded interval
@@ -1705,8 +1633,7 @@ pub fn certify_isolated_footings(json: &str) -> Result<String, JsValue> {
     let input: postprocess::isolated_footing::IsolatedFootingInput = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let results = certify::design::certify_isolated_footings(&input);
-    serde_json::to_string(&results)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&results)
 }
 
 #[wasm_bindgen]
@@ -1714,8 +1641,7 @@ pub fn check_spread_footings(json: &str) -> Result<String, JsValue> {
     let input: postprocess::foundation_check::SpreadFootingInput = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let results = postprocess::foundation_check::check_spread_footings(&input);
-    serde_json::to_string(&results)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&results)
 }
 
 // ==================== Beam Station Extraction ====================
@@ -1734,8 +1660,7 @@ pub fn extract_beam_stations(json: &str) -> Result<String, JsValue> {
     let input: postprocess::beam_stations::BeamStationInput = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let result = postprocess::beam_stations::extract_beam_stations(&input);
-    serde_json::to_string(&result)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&result)
 }
 
 /// Extract 3D beam design stations with per-combo forces and governing values. JSON: BeamStationInput3D
@@ -1744,8 +1669,7 @@ pub fn extract_beam_stations_3d(json: &str) -> Result<String, JsValue> {
     let input: postprocess::beam_stations::BeamStationInput3D = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let result = postprocess::beam_stations::extract_beam_stations_3d(&input);
-    serde_json::to_string(&result)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&result)
 }
 
 /// Extract 2D beam stations grouped by member with member-level governing summaries. JSON: BeamStationInput
@@ -1754,8 +1678,7 @@ pub fn extract_beam_stations_grouped(json: &str) -> Result<String, JsValue> {
     let input: postprocess::beam_stations::BeamStationInput = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let result = postprocess::beam_stations::extract_beam_stations_grouped(&input);
-    serde_json::to_string(&result)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&result)
 }
 
 /// Extract 3D beam stations grouped by member with member-level governing summaries. JSON: BeamStationInput3D
@@ -1764,8 +1687,7 @@ pub fn extract_beam_stations_grouped_3d(json: &str) -> Result<String, JsValue> {
     let input: postprocess::beam_stations::BeamStationInput3D = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let result = postprocess::beam_stations::extract_beam_stations_grouped_3d(&input);
-    serde_json::to_string(&result)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&result)
 }
 
 // ==================== Imperfections ====================
@@ -1787,8 +1709,7 @@ pub fn solve_with_imperfections_2d(json: &str) -> Result<String, JsValue> {
     // Node offsets, notional loads, a linear solve; refuses what it would not apply.
     let results = solver::imperfections::solve_with_imperfections_2d(input.solver, &input.imperfections)
         .map_err(|e| JsValue::from_str(&e))?;
-    serde_json::to_string(&results)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&results)
 }
 
 /// Apply imperfections to a 3D model and solve. JSON in → JSON out.
@@ -1804,8 +1725,7 @@ pub fn solve_with_imperfections_3d(json: &str) -> Result<String, JsValue> {
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let results = solver::imperfections::solve_with_imperfections_3d(input.solver, &input.imperfections)
         .map_err(|e| JsValue::from_str(&e))?;
-    serde_json::to_string(&results)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&results)
 }
 
 // ==================== Creep/Shrinkage 3D ====================
@@ -1817,8 +1737,7 @@ pub fn solve_creep_shrinkage_3d(json: &str) -> Result<String, JsValue> {
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let results = solver::creep_shrinkage::solve_creep_shrinkage_3d(&input)
         .map_err(|e| JsValue::from_str(&e))?;
-    serde_json::to_string(&results)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&results)
 }
 
 // ==================== Model Reduction ====================
@@ -1830,8 +1749,7 @@ pub fn guyan_reduce_2d(json: &str) -> Result<String, JsValue> {
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let results = solver::reduction::guyan_reduce_2d(&input)
         .map_err(|e| JsValue::from_str(&e))?;
-    serde_json::to_string(&results)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&results)
 }
 
 /// Craig-Bampton reduction of a 2D model. JSON in → JSON out.
@@ -1841,8 +1759,7 @@ pub fn craig_bampton_2d(json: &str) -> Result<String, JsValue> {
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let results = solver::reduction::craig_bampton_2d(&input)
         .map_err(|e| JsValue::from_str(&e))?;
-    serde_json::to_string(&results)
-        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    to_json(&results)
 }
 
 #[cfg(test)]
@@ -2201,14 +2118,13 @@ pub fn analyze_section_torsion(json: &str) -> Result<String, JsValue> {
         mesh.locate([p[0] * scale + props.yc * scale, p[1] * scale + props.zc * scale])
             .map(|i| [res.tau[i][0] / scale, res.tau[i][1] / scale])
     });
-    serde_json::to_string(&Response {
+    to_json(&Response {
         j: res.j,
         tau_max: res.tau_max,
         at,
         triangles: mesh.triangles.len(),
         residual: res.residual,
     })
-    .map_err(|e| JsValue::from_str(&format!("Serialize error: {e}")))
 }
 
 /// The torsion solve as a reusable field: mesh plus the per-triangle shear
@@ -2255,7 +2171,7 @@ pub fn analyze_section_torsion_field(json: &str) -> Result<String, JsValue> {
         tau: Vec<[f64; 2]>,
         residual: f64,
     }
-    serde_json::to_string(&Response {
+    to_json(&Response {
         // J is L⁴, shear under unit twist rate is L.
         j: res.j / scale.powi(4),
         tau_max: res.tau_max / scale,
@@ -2264,7 +2180,6 @@ pub fn analyze_section_torsion_field(json: &str) -> Result<String, JsValue> {
         tau: res.tau.iter().map(|t| [t[0] / scale, t[1] / scale]).collect(),
         residual: res.residual,
     })
-    .map_err(|e| JsValue::from_str(&format!("Serialize error: {e}")))
 }
 
 /// Transverse shear over canonical geometry, for unit forces on both axes.
@@ -2336,7 +2251,7 @@ pub fn analyze_section_shear(json: &str) -> Result<String, JsValue> {
     let at_of = |f: &section::shear::ShearField| {
         located.map(|i| [f.tau[i][0] * s2, f.tau[i][1] * s2])
     };
-    serde_json::to_string(&Response {
+    to_json(&Response {
         vy: Axis { tau_max: res.vy.tau_max * s2, kappa: res.vy.kappa, at: at_of(&res.vy) },
         vz: Axis { tau_max: res.vz.tau_max * s2, kappa: res.vz.kappa, at: at_of(&res.vz) },
         // A length, so it scales back by `s` alone.
@@ -2344,7 +2259,6 @@ pub fn analyze_section_shear(json: &str) -> Result<String, JsValue> {
         triangles: mesh.triangles.len(),
         residual: res.residual,
     })
-    .map_err(|e| JsValue::from_str(&format!("Serialize error: {e}")))
 }
 
 /// The shear solve as a reusable field: mesh plus the per-triangle stress for
@@ -2410,7 +2324,7 @@ pub fn analyze_section_shear_field(json: &str) -> Result<String, JsValue> {
         kappa: f.kappa,
         tau: f.tau.iter().map(|t| [t[0] * s2, t[1] * s2]).collect(),
     };
-    serde_json::to_string(&Response {
+    to_json(&Response {
         vy: axis_field(&res.vy),
         vz: axis_field(&res.vz),
         shear_centre: [res.shear_centre[0] / scale, res.shear_centre[1] / scale],
@@ -2418,7 +2332,6 @@ pub fn analyze_section_shear_field(json: &str) -> Result<String, JsValue> {
         triangles: mesh.triangles.clone(),
         residual: res.residual,
     })
-    .map_err(|e| JsValue::from_str(&format!("Serialize error: {e}")))
 }
 
 /// Plastic section moduli for canonical geometry.
@@ -2486,7 +2399,7 @@ pub fn analyze_section_plastic(json: &str) -> Result<String, JsValue> {
         .fold(0.0_f64, |m, v| m.max((v[1] - props.zc).abs()));
     let half_y = req.geometry.polygons.iter().flat_map(|p| p.vertices.iter())
         .fold(0.0_f64, |m, v| m.max((v[0] - props.yc).abs()));
-    serde_json::to_string(&Response {
+    to_json(&Response {
         zy: z.zy / s3,
         zz: z.zz / s3,
         sy: if half_z > 0.0 { props.iy / half_z } else { 0.0 },
@@ -2495,5 +2408,4 @@ pub fn analyze_section_plastic(json: &str) -> Result<String, JsValue> {
         pna_y: z.pna_y / scale - props.yc,
         cw,
     })
-    .map_err(|e| JsValue::from_str(&format!("Serialize error: {e}")))
 }

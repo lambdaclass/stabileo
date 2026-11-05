@@ -587,30 +587,15 @@ pub(crate) fn assemble_stiffness_sparse_2d_typed(
         let artificial_k = if max_diag > 0.0 { max_diag * 1e-10 } else { 1e-6 };
         let already: std::collections::HashSet<usize> = artificial_dofs.iter().copied().collect();
         let tied = super::assembly::rotation_tied_nodes_2d(input);
-        let mut idx_to_local: std::collections::HashMap<usize, usize> = std::collections::HashMap::new();
-        for (&(node, ld), &idx) in &dof_num.map {
-            if idx < nf && !tied.contains(&node) {
-                idx_to_local.insert(idx, ld);
-            }
-        }
-        // Max |entry| per free DOF over the summed full K (lower-tri CSC:
-        // each stored entry touches both endpoints' row+col).
-        // Summed diagonal per DOF; a zero diagonal of the positive
-        // semi-definite K is a zero row. Measured against the largest
-        // rotational diagonal (same units), as in the dense assembler.
         let diag = k_full.diagonal();
-        let max_rot = dof_num.map.iter().filter(|(&(_, ld), _)| ld == 2).fold(0.0f64, |m, (_, &d)| m.max(diag[d].abs()));
-        let orphan_tol = if max_rot > 0.0 { max_rot * 1e-12 } else { 1e-14 };
+        let mut orphans = super::assembly::orphan_rotation_dofs(dof_num, 2..3, |node| tied.contains(&node), |d| diag[d]);
+        orphans.sort_unstable();
         let mut added = false;
-        for i in 0..nf {
-            let mx = diag[i].abs();
+        for i in orphans {
             if already.contains(&i) { continue; }
-            if idx_to_local.get(&i).copied() != Some(2) { continue; }
-            if mx <= orphan_tol {
-                trip_rows.push(i); trip_cols.push(i); trip_vals.push(artificial_k);
-                artificial_dofs.push(i);
-                added = true;
-            }
+            trip_rows.push(i); trip_cols.push(i); trip_vals.push(artificial_k);
+            artificial_dofs.push(i);
+            added = true;
         }
         if added {
             k_full = CscMatrix::from_triplets(n, &trip_rows, &trip_cols, &trip_vals);
@@ -1353,7 +1338,7 @@ pub fn assemble_stiffness_sparse_3d_parallel(input: &SolverInput3D, dof_num: &Do
     let mut artificial_dofs_3d = Vec::new();
     {
         let artificial_k = if max_diag > 0.0 { max_diag * 1e-10 } else { 1e-6 };
-        for d in super::assembly::orphan_rotation_dofs_3d(input, dof_num, |d| diag_vals[d], max_diag) {
+        for d in super::assembly::orphan_rotation_dofs_3d(input, dof_num, |d| diag_vals[d]) {
             trip_rows.push(d); trip_cols.push(d); trip_vals.push(artificial_k);
             artificial_dofs_3d.push(d);
         }

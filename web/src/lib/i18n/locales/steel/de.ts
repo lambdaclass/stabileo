@@ -1494,6 +1494,7 @@ const steelDe: Translations = {
   'c301.refuse.e6Connector': '§E.6.2.1: Die Art der Zwischenverbindung fehlt (handfest angezogene Schrauben oder Schweißnähte)',
   'c301.refuse.e6SpacingTooLarge': '§E.6.2.2: a/ri = {ari} > 3/4 der maßgebenden Schlankheit = {lim}',
   'c301.refuse.engineUnavailable': 'der Rechenkern ist nicht geladen: Der Stab ist nicht nachgewiesen',
+  'c301.refuse.capacityUnusable': 'das Verhältnis lässt sich mit φRn = {phiRn} und der Beanspruchung {demand} nicht bilden: die Bemessungsfestigkeit ist nicht positiv und endlich, oder die Beanspruchung ist nicht endlich',
   'steel.angle.title': 'Winkel unter Druck (§E.5, §E.6)',
   'steel.angle.hint': 'Was der Querschnitt dem Nachweis nicht mitteilen kann: wie ein Einzelwinkel an seinen Enden belastet wird und wie die beiden Winkel eines Doppelwinkels miteinander verbunden sind. Ohne diese Angaben wird der Drucknachweis nicht ausgewertet.',
   'steel.angle.singles': '{n} Einzelwinkel: Endbedingung',

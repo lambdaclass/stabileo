@@ -153,6 +153,26 @@ violation, and also on an expected failure that no longer fails (it passes,
 refuses or is no longer checked): the fix then removes the entry. The run also
 fails when a selected analysis completes no comparison on any curated model.
 
+## WASM entry points
+
+The matrix below is per analysis function; the app calls the WASM exports in
+`engine/src`. `engine/tests/metamorphic/entry_points.json` lists every export.
+A solve entry point names the functions its wrapper calls, each as a path such
+as `linear::solve_2d_typed` (a re-export counts only under the path the wrapper
+uses), and gives each
+invariance (units, relabel, reversal, rotation, mirror, planes: a 2D model in each
+of the three planes and embedded in 3D, prepared: agreement with the regular
+linear solve) one status: a metamorphic analysis whose row calls those same
+functions and shows ✓ below, a `#[test]` under `engine/tests` that calls them and
+asserts something (the gate checks that much; that the assertion is the invariance
+is for review), an
+exemption with a reason, or a tracking issue
+([#1497](https://github.com/lambdaclass/stabileo/issues/1497)). Every other export
+names a described scope (design, section, postprocess, session, utility).
+`scripts/invariance-gate.py`, run by `make lint.engine`, fails on an export with
+no row, a row for a removed export, a missing status, or a claimed coverage the
+code does not back.
+
 ## Matrix (PR tier)
 
 ✓ held on every model it ran on · ✗ violated · R refused by the analysis on
@@ -169,6 +189,8 @@ image is ✗); no collapse factor is verified.
 | Analysis | rotation | mirror | relabel | reversal | units | superposition | reciprocity | energy | symmetry | linear agreement | modal orthogonality |
 |---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
 | linear | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | · |
+| linear (WASM typed path) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · |
+| linear (load session) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · |
 | linear (dense reference) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · |
 | linear (sparse path) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · |
 | linear (PCG) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · |
@@ -204,6 +226,7 @@ image is ✗); no collapse factor is verified.
 | Analysis | rotation | relabel | reversal | units | superposition | reciprocity | energy | symmetry | linear agreement | modal orthogonality |
 |---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
 | linear | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | · |
+| linear (load session) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · |
 | linear (sparse path) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · |
 | linear (PCG) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · |
 | constrained | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · |
@@ -259,6 +282,7 @@ Each has a minimal reproduction in `engine/tests/metamorphic/regressions.rs` (or
 | units (via the feature matrix) | The 2D assemblers put an artificial rotational spring (10⁻¹⁰ × the largest, translational, diagonal) on every all-hinged node, including nodes whose rotation a constraint ties to the structure, where it becomes a real spring. | A rigid-link mechanism was held by it; whether the model counted as a mechanism depended on the units. | Constraint-tied rotations get no artificial spring (as in 3D). |
 | full-suite review | An unknown 2D support type ("pin", "roller") restrained nothing. | A misspelt support silently disappeared (three engine tests relied on it). | Unknown types are refused by name. |
 | harness review | `StagedInput3D` had no `leftHand` field; the app sends it and serde dropped it. | Left-handed models staged with right-handed member axes. | Field added and passed to every stage. |
+| symmetry (nightly #1371) | Modal harmonic analysis computed the omitted modes' static correction as the static response minus the kept modes' share, which leaves only round-off when a kept mode is much softer than the rest. | On a C2-symmetric frame the response at 2.3 Hz was 79× the direct solve, and an on-axis displacement zero by symmetry was 7·10⁻³ (SA-2026-043). | The correction is projected onto the omitted modes; every frequency's energy-norm residual is checked and re-solved directly above 10⁻². |
 
 ## Documented exceptions
 

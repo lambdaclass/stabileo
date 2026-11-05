@@ -133,6 +133,12 @@ const body: PostBody = {
           "Corrigé dans la prochaine version"
         ],
         [
+          "SA-2026-043",
+          "Analyse harmonique : la correction des modes omis perdait ses chiffres lorsqu’un mode était beaucoup plus souple que les autres (79 fois à 2,3 Hz dans un exemple)",
+          "Élevée",
+          "Corrigé dans la prochaine version"
+        ],
+        [
           "SA-2026-037",
           "Analyse corotationnelle 3D : les vecteurs de rotation étaient soustraits (le coude de Bathe–Bolourchi à 1,3 %, sans amélioration au raffinement)",
           "Moyenne",

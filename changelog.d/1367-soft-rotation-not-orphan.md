@@ -1,0 +1,5 @@
+### BREAKING (results)
+
+#### A soft but real node rotation is no longer locked by the orphan-rotation spring (2026-11-05)
+
+A node rotation that nothing stiffens (every member released there, or only trusses and solid shells reach it) gets a small artificial spring so the stiffness matrix stays nonsingular. The 2D and 3D assemblers judged a rotation unstiffened when its diagonal stiffness was below 1e-12 of the largest rotational diagonal in the whole model, so in a model with a stiffness contrast above about 10¹² a real but soft rotation was taken for an orphan and locked: under a force load it solved silently wrong (a soft propped cantilever beside a stiff member: end rotation 1.04e-7 rad instead of the closed-form P·L²/(32·EI) = 0.05 rad), and a nodal moment on it was refused (#1367). The threshold is now 1e-12 of the largest rotational diagonal of the same node, so a soft part of the model is no longer judged against a stiff part elsewhere. A rotation 1e12 softer than another rotation of the same node is still taken for an orphan. Rotations every member releases, and the refusal of a nodal moment on them, are unchanged.

@@ -1063,8 +1063,9 @@ fn harmonic_static_correction_matches_exact() {
 }
 
 /// Far above the modes the eigensolve returned (18-DOF frame, half its modes),
-/// the static-correction series does not converge: those frequencies get plain
-/// superposition and the result says so.
+/// the static-correction series does not converge: plain superposition leaves
+/// a large residual there, so that frequency is solved directly and the result
+/// says so.
 #[test]
 fn harmonic_truncation_is_reported() {
     use dedaliano_engine::solver::harmonic::solve_harmonic_2d;
@@ -1082,7 +1083,8 @@ fn harmonic_truncation_is_reported() {
     let res = solve_harmonic_2d(&hi).unwrap();
     assert_eq!(res.method, "modal+static");
     assert!(res.modes_used < res.n_dof, "{res:?}");
+    assert_eq!(res.direct_frequencies, vec![200.0 * f1], "{res:?}");
     assert_eq!(res.warnings.len(), 1, "{:?}", res.warnings);
-    assert!(res.warnings[0].contains("static correction not applied at 1 frequency"), "{:?}", res.warnings);
+    assert!(res.warnings[0].contains("solved directly instead"), "{:?}", res.warnings);
     assert!(res.response_points.iter().all(|p| p.amplitude.is_finite()));
 }

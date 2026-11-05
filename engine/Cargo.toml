@@ -57,6 +57,8 @@ proptest = "1"
 # CBOR values hold NaN and ±∞, which JSON cannot: the certificate property
 # tests inject them into typed inputs (tests/certify_nonfinite.rs).
 ciborium = "0.2"
+syn = { version = "2", features = ["full", "parsing", "printing"] }
+quote = "1"
 
 [[test]]
 name = "core"
@@ -105,6 +107,10 @@ path = "tests/solver/main.rs"
 [[test]]
 name = "elements"
 path = "tests/elements/main.rs"
+
+[[test]]
+name = "mechanism_fuzz"
+path = "tests/mechanism_fuzz/main.rs"
 
 [[test]]
 name = "robustness"

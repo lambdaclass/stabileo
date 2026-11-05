@@ -1762,29 +1762,62 @@ fn soft_rotation_beside_a_stiff_member(soft_inertia: f64) -> SolverInput3D {
     )
 }
 
+fn tip_rotation(inertia: f64) -> f64 {
+    1e-3 / (2.0 * E * 1000.0 * inertia)
+}
+
+fn tip_tolerance(inertia: f64) -> f64 {
+    if inertia < 1e-6 { 1e-6 } else { 1e-9 }
+}
+
 #[test]
-fn a_soft_rotation_held_by_the_orphan_spring_is_warned_1367() {
-    let soft = dedaliano_engine::solver::linear::solve_3d(&soft_rotation_beside_a_stiff_member(1e-10)).unwrap();
-    let theta = soft.displacements.iter().find(|d| d.node_id == 2).unwrap().ry.abs();
-    assert!(theta < 0.025 * 1e-3, "the orphan spring locks the tip rotation: {theta}");
-    assert!(ids(&soft.structured_diagnostics).contains(&"ORPHAN-SOFT-ROTATION".to_string()), "{:?}", ids(&soft.structured_diagnostics));
-    let held = dedaliano_engine::solver::linear::solve_3d(&soft_rotation_beside_a_stiff_member(1e-4)).unwrap();
+fn a_soft_rotation_beside_a_stiff_member_is_not_held_1367() {
+    for inertia in [1e-10, 1e-4] {
+        let r = dedaliano_engine::solver::linear::solve_3d(&soft_rotation_beside_a_stiff_member(inertia)).unwrap();
+        let theta = r.displacements.iter().find(|d| d.node_id == 2).unwrap().ry.abs();
+        assert!((theta - tip_rotation(inertia)).abs() < tip_tolerance(inertia) * tip_rotation(inertia), "I = {inertia:e}: θ {theta}, PL²/2EI {}", tip_rotation(inertia));
+        assert!(!ids(&r.structured_diagnostics).contains(&"ORPHAN-SOFT-ROTATION".to_string()), "{:?}", ids(&r.structured_diagnostics));
+    }
+}
+
+fn cantilever_soft_about_y(iy: f64) -> SolverInput3D {
+    common::make_3d_input(
+        vec![(1, 0.0, 0.0, 0.0), (2, 1.0, 0.0, 0.0)],
+        vec![(1, E, 0.3)],
+        vec![(1, 0.01, iy, 1e3, 1e3)],
+        vec![(1, "frame", 1, 2, 1, 1)],
+        vec![(1, vec![true; 6])],
+        vec![SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: 2, fx: 0.0, fy: 0.0, fz: -1e-3, mx: 0.0, my: 0.0, mz: 0.0, bw: None })],
+    )
+}
+
+#[test]
+fn a_rotation_far_softer_than_another_at_its_node_is_warned_1496() {
+    let input = cantilever_soft_about_y(1e-10);
+    let regular = dedaliano_engine::solver::linear::solve_3d(&input).unwrap();
+    let prepared = dedaliano_engine::solver::linear::prepare_static_3d(&input).unwrap().solve_loads(&input.loads).unwrap();
+    for r in [&regular, &prepared] {
+        let theta = r.displacements.iter().find(|d| d.node_id == 2).unwrap().ry.abs();
+        assert!(theta.is_finite(), "θ {theta}: {:?}", ids(&r.structured_diagnostics));
+        if (theta - tip_rotation(1e-10)).abs() > 1e-6 * tip_rotation(1e-10) {
+            let warning = r.structured_diagnostics.iter().find(|d| d.phase.as_deref() == Some("ORPHAN-SOFT-ROTATION")).unwrap_or_else(|| panic!("θ {theta}: {:?}", ids(&r.structured_diagnostics)));
+            assert_eq!(warning.severity, dedaliano_engine::types::Severity::Warning);
+        }
+    }
+    let held = dedaliano_engine::solver::linear::solve_3d(&cantilever_soft_about_y(1e-4)).unwrap();
     let theta = held.displacements.iter().find(|d| d.node_id == 2).unwrap().ry.abs();
-    assert!((theta - 1e-3 / (2.0 * E * 1000.0 * 1e-4)).abs() < 1e-9 * theta.max(1e-12) + 1e-15, "{theta}");
+    assert!((theta - tip_rotation(1e-4)).abs() < 1e-9 * tip_rotation(1e-4), "{theta}");
     assert!(!ids(&held.structured_diagnostics).contains(&"ORPHAN-SOFT-ROTATION".to_string()), "{:?}", ids(&held.structured_diagnostics));
 }
 
 #[test]
-fn the_prepared_3d_path_warns_a_soft_rotation_like_the_regular_one_1367() {
+fn the_prepared_3d_path_solves_a_soft_rotation_like_the_regular_one_1367() {
     let input = soft_rotation_beside_a_stiff_member(1e-10);
     let regular = dedaliano_engine::solver::linear::solve_3d(&input).unwrap();
     let prepared = dedaliano_engine::solver::linear::prepare_static_3d(&input).unwrap().solve_loads(&input.loads).unwrap();
-    for r in [&regular, &prepared] {
-        let warning = r.structured_diagnostics.iter().find(|d| d.phase.as_deref() == Some("ORPHAN-SOFT-ROTATION")).unwrap_or_else(|| panic!("{:?}", ids(&r.structured_diagnostics)));
-        assert_eq!(warning.severity, dedaliano_engine::types::Severity::Warning);
-    }
     let ry = |r: &dedaliano_engine::types::AnalysisResults3D| r.displacements.iter().find(|d| d.node_id == 2).unwrap().ry;
     assert_eq!(ry(&regular), ry(&prepared));
+    assert!((ry(&prepared).abs() - tip_rotation(1e-10)).abs() < 1e-6 * tip_rotation(1e-10), "{}", ry(&prepared));
 }
 
 fn soft_rotation_beside_a_stiff_member_2d(soft_inertia: f64) -> SolverInput {
@@ -1799,18 +1832,17 @@ fn soft_rotation_beside_a_stiff_member_2d(soft_inertia: f64) -> SolverInput {
 }
 
 #[test]
-fn a_soft_rotation_held_by_the_orphan_spring_is_warned_in_2d_1367() {
-    let soft = solve_2d(&soft_rotation_beside_a_stiff_member_2d(1e-10)).unwrap();
-    let theta = soft.displacements.iter().find(|d| d.node_id == 2).unwrap().ry.abs();
-    assert!(theta < 0.025 * 1e-3, "the orphan spring locks the tip rotation: {theta}");
-    assert!(ids(&soft.structured_diagnostics).contains(&"ORPHAN-SOFT-ROTATION".to_string()), "{:?}", ids(&soft.structured_diagnostics));
-    let held = solve_2d(&soft_rotation_beside_a_stiff_member_2d(1e-4)).unwrap();
-    let theta = held.displacements.iter().find(|d| d.node_id == 2).unwrap().ry.abs();
-    assert!((theta - 1e-3 / (2.0 * E * 1000.0 * 1e-4)).abs() < 1e-9 * theta, "{theta}");
-    assert!(!ids(&held.structured_diagnostics).contains(&"ORPHAN-SOFT-ROTATION".to_string()), "{:?}", ids(&held.structured_diagnostics));
+fn a_soft_rotation_beside_a_stiff_member_is_not_held_in_2d_1367() {
+    for inertia in [1e-10, 1e-4] {
+        let r = solve_2d(&soft_rotation_beside_a_stiff_member_2d(inertia)).unwrap();
+        let theta = r.displacements.iter().find(|d| d.node_id == 2).unwrap().ry.abs();
+        assert!((theta - tip_rotation(inertia)).abs() < tip_tolerance(inertia) * tip_rotation(inertia), "I = {inertia:e}: θ {theta}, PL²/2EI {}", tip_rotation(inertia));
+        assert!(!ids(&r.structured_diagnostics).contains(&"ORPHAN-SOFT-ROTATION".to_string()), "{:?}", ids(&r.structured_diagnostics));
+    }
     let mut hinged = soft_rotation_beside_a_stiff_member_2d(1e-4);
     for e in hinged.elements.values_mut().filter(|e| e.id == 1) { e.hinge_end = true; }
     let hinged = solve_2d(&hinged).unwrap();
+    assert_eq!(hinged.displacements.iter().find(|d| d.node_id == 2).unwrap().ry, 0.0);
     assert!(!ids(&hinged.structured_diagnostics).contains(&"ORPHAN-SOFT-ROTATION".to_string()), "{:?}", ids(&hinged.structured_diagnostics));
     let masked = common::make_input(
         vec![(1, 0.0, 0.0), (2, 1.0, 0.0), (3, 0.0, 5.0), (4, 1.0, 5.0), (5, 0.0, 10.0), (6, 1.0, 10.0)],
@@ -1821,8 +1853,8 @@ fn a_soft_rotation_held_by_the_orphan_spring_is_warned_in_2d_1367() {
         vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: -1e-3, my: 0.0 }), SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fz: 0.0, my: 1e10 })],
     );
     let masked = solve_2d(&masked).unwrap();
-    assert!(masked.displacements.iter().find(|d| d.node_id == 6).unwrap().ry.abs() > 1e12 * masked.displacements.iter().find(|d| d.node_id == 2).unwrap().ry.abs());
-    assert!(ids(&masked.structured_diagnostics).contains(&"ORPHAN-SOFT-ROTATION".to_string()), "a large rotation elsewhere must not mask it: {:?}", ids(&masked.structured_diagnostics));
+    let theta = masked.displacements.iter().find(|d| d.node_id == 2).unwrap().ry.abs();
+    assert!((theta - tip_rotation(1e-10)).abs() < 1e-6 * tip_rotation(1e-10), "a large rotation elsewhere must not change it: {theta}");
 }
 
 fn harmonic_beam(frequencies: Vec<f64>) -> dedaliano_engine::solver::harmonic::HarmonicResult {
@@ -1849,7 +1881,7 @@ fn harmonic_above_the_kept_modes_is_warned_1434() {
 }
 
 #[test]
-fn harmonic_above_the_kept_modes_is_warned_in_3d_1434() {
+fn harmonic_above_the_kept_modes_is_solved_directly_in_3d_1434() {
     let run = |frequencies: Vec<f64>| {
         let solver = make_3d_beam(8, 8.0, E, 0.3, 0.01, 1e-4, 1e-4, 1e-5, vec![true; 6], None,
             vec![SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: 5, fx: 0.0, fy: 0.0, fz: -10.0, mx: 0.0, my: 0.0, mz: 0.0, bw: None })]);
@@ -1862,13 +1894,14 @@ fn harmonic_above_the_kept_modes_is_warned_in_3d_1434() {
     assert!(low.modes_used < low.n_dof, "{} of {}", low.modes_used, low.n_dof);
     assert!(!ids(&low.structured_diagnostics).contains(&"HARM-TRUNCATION".to_string()), "{:?}", ids(&low.structured_diagnostics));
     let high = run((1..=40).map(|i| i as f64 * 500.0).collect());
-    assert!(high.warnings.iter().any(|w| w.contains("static correction not applied")), "{:?}", high.warnings);
+    assert!(!high.direct_frequencies.is_empty(), "{:?}", high.warnings);
+    assert!(!high.warnings.iter().any(|w| w.contains("static correction not applied")), "{:?}", high.warnings);
     let found = ids(&high.structured_diagnostics);
-    assert!(found.contains(&"HARM-TRUNCATION".to_string()) && found.contains(&"MD-ORTHOGONALITY".to_string()), "{found:?}");
+    assert!(!found.contains(&"HARM-TRUNCATION".to_string()) && found.contains(&"MD-ORTHOGONALITY".to_string()), "{found:?}");
 }
 
 #[test]
-fn a_soft_spring_at_a_hinged_node_held_by_the_orphan_spring_is_warned_1437() {
+fn a_soft_spring_at_a_hinged_node_is_not_replaced_by_the_orphan_spring_1437() {
     let input: SolverInput = serde_json::from_str(r#"{"nodes":{"1":{"id":1,"x":0,"z":0},"2":{"id":2,"x":3,"z":0}},
  "materials":{"1":{"id":1,"e":200000,"nu":0.3}},
  "sections":{"1":{"id":1,"a":0.01,"iz":0.0001}},
@@ -1878,6 +1911,6 @@ fn a_soft_spring_at_a_hinged_node_held_by_the_orphan_spring_is_warned_1437() {
     let out = dedaliano_engine::certify::solver::certify_linear_2d_full(&input).unwrap();
     let ry = out.results.displacements.iter().find(|d| d.node_id == 2).unwrap().ry;
     let found = ids(&out.results.structured_diagnostics);
-    assert!(ry.is_finite(), "ry {ry}: {found:?}");
-    if (ry - 5.0e10).abs() / 5.0e10 > 1e-6 { assert!(found.contains(&"ORPHAN-SOFT-ROTATION".to_string()), "ry {ry}: {found:?}"); }
+    assert!((ry - 5.0e10).abs() <= 1e-6 * 5.0e10, "ry {ry}: {found:?}");
+    assert!(!found.contains(&"ORPHAN-SOFT-ROTATION".to_string()), "{found:?}");
 }
