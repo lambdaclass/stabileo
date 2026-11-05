@@ -68,7 +68,7 @@ pub struct HarmonicResult {
     pub truncation_ratio: Option<f64>,
     /// Largest relative residual `‖(K + iωC − ω²M)u − f‖ / ‖f‖` (K⁻¹ norm) of
     /// the modal response over the sweep, before any frequency was re-solved
-    /// directly. `None` for a direct solve.
+    /// directly; `f64::MAX` when one was not finite. `None` for a direct solve.
     #[serde(default)]
     pub max_modal_residual: Option<f64>,
     /// Frequencies (Hz) whose modal residual exceeded `MODAL_RESIDUAL_TOL`
@@ -674,7 +674,7 @@ fn harmonic_modal_from_eigen(
         modes_used: p,
         n_dof: n,
         truncation_ratio: ratio,
-        max_modal_residual: residuals.iter().cloned().fold(None, |m: Option<f64>, r| Some(m.map_or(r, |m| m.max(r)))),
+        max_modal_residual: max_residual(&residuals),
         direct_frequencies: Vec::new(),
         warnings,
     };
@@ -879,6 +879,10 @@ fn reduce_target(target: &[(usize, f64)], cs: Option<&FreeConstraintSystem>) -> 
         .collect()
 }
 
+fn max_residual(residuals: &[f64]) -> Option<f64> {
+    residuals.iter().map(|&r| if r.is_finite() { r } else { f64::MAX }).reduce(f64::max)
+}
+
 fn dot(a: &[f64], b: &[f64]) -> f64 {
     a.iter().zip(b).map(|(x, y)| x * y).sum()
 }
@@ -975,6 +979,14 @@ mod tests {
             let tol = if p.frequency == 0.4 { 1e-12 } else { 1e-3 } * exact;
             assert!((p.real - re[2]).abs() < tol && (p.imag - im[2]).abs() < tol, "{} Hz: {} {} vs {} {}", p.frequency, p.real, p.imag, re[2], im[2]);
         }
+    }
+
+    #[test]
+    fn a_non_finite_residual_is_the_largest() {
+        assert_eq!(max_residual(&[1e-3, f64::NAN, 2e-3]), Some(f64::MAX));
+        assert_eq!(max_residual(&[1e-3, f64::INFINITY]), Some(f64::MAX));
+        assert_eq!(max_residual(&[1e-3, 2e-3]), Some(2e-3));
+        assert_eq!(max_residual(&[]), None);
     }
 
     #[test]
