@@ -1736,3 +1736,22 @@ fn harmonic_above_the_kept_modes_is_warned_1434() {
     assert!(high.warnings.iter().any(|w| w.contains("static correction not applied")), "{:?}", high.warnings);
     assert!(ids(&high.structured_diagnostics).contains(&"HARM-TRUNCATION".to_string()), "{:?}", ids(&high.structured_diagnostics));
 }
+
+#[test]
+fn harmonic_above_the_kept_modes_is_warned_in_3d_1434() {
+    let run = |frequencies: Vec<f64>| {
+        let solver = make_3d_beam(8, 8.0, E, 0.3, 0.01, 1e-4, 1e-4, 1e-5, vec![true; 6], None,
+            vec![SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: 5, fx: 0.0, fy: 0.0, fz: -10.0, mx: 0.0, my: 0.0, mz: 0.0, bw: None })]);
+        let input = dedaliano_engine::solver::harmonic::HarmonicInput3D {
+            solver, densities: HashMap::from([("1".to_string(), 7850.0)]), frequencies, damping_ratio: 0.05, response_node_id: 5, response_dof: "z".into(),
+        };
+        dedaliano_engine::solver::harmonic::solve_harmonic_3d(&input).unwrap()
+    };
+    let low = run(vec![0.5, 1.0, 2.0]);
+    assert!(low.modes_used < low.n_dof, "{} of {}", low.modes_used, low.n_dof);
+    assert!(!ids(&low.structured_diagnostics).contains(&"HARM-TRUNCATION".to_string()), "{:?}", ids(&low.structured_diagnostics));
+    let high = run((1..=40).map(|i| i as f64 * 500.0).collect());
+    assert!(high.warnings.iter().any(|w| w.contains("static correction not applied")), "{:?}", high.warnings);
+    let found = ids(&high.structured_diagnostics);
+    assert!(found.contains(&"HARM-TRUNCATION".to_string()) && found.contains(&"MD-ORTHOGONALITY".to_string()), "{found:?}");
+}
