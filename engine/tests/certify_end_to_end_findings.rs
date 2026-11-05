@@ -94,31 +94,72 @@ fn moment_on_fully_hinged_node_2d() {
     }
 }
 
-/// A rigid link from a node where its only member is hinged: the linked pair
-/// can rotate about the hinge freely (the truss between them does not
-/// resist a rigid rotation), so the model is a mechanism. The 2D engine's
-/// all-hinged artificial spring holds the rotation, and a load on the slave
-/// drives it to a large, meaningless value that the assembled-level
-/// certificate certifies. The end-to-end check cannot bound the model.
+fn linked_to_a_hinged_column(constraint: &str, member: &str, slave_support: &str) -> SolverInput {
+    input_2d(&format!(
+        r#"{{
+      "nodes": {{"1": {{"id":1,"x":0,"z":0}}, "2": {{"id":2,"x":0,"z":3}}, "3": {{"id":3,"x":2,"z":3}}}},
+      "materials": {{"1": {{"id":1,"e":200000,"nu":0.3}}}},
+      "sections": {{"1": {{"id":1,"a":0.01,"iz":0.0001}}}},
+      "elements": {{
+        "1": {{"id":1,"type":"frame","nodeI":1,"nodeJ":2,"materialId":1,"sectionId":1,"hingeEnd":true}},
+        "2": {{"id":2,"type":"{member}","nodeI":2,"nodeJ":3,"materialId":1,"sectionId":1}}
+      }},
+      "supports": {{"1": {{"id":1,"nodeId":1,"type":"fixed"}}{slave_support}}},
+      "loads": [{{"type":"nodal","data":{{"nodeId":3,"fx":0,"fz":-10,"my":0}}}}],
+      "constraints": [{constraint}]
+    }}"#
+    ))
+}
+
+const TIES_ROTATION: [&str; 3] = [
+    r#"{"type":"rigidLink","masterNode":2,"slaveNode":3,"dofs":[]}"#,
+    r#"{"type":"rigidLink","masterNode":2,"slaveNode":3,"dofs":[0,1,2]}"#,
+    r#"{"type":"diaphragm","masterNode":2,"slaveNodes":[3]}"#,
+];
+
+fn every_2d_path(input: &SolverInput) -> Vec<(&'static str, Result<AnalysisResults, String>)> {
+    use dedaliano_engine::solver::constraints::{solve_constrained_2d, solve_constrained_2d_dense, ConstrainedInput};
+    use dedaliano_engine::solver::dof::DofNumbering;
+    use dedaliano_engine::solver::linear::solve_2d;
+    let ci = ConstrainedInput { solver: input.clone(), constraints: input.constraints.clone() };
+    vec![
+        ("solve_2d", solve_2d(input)),
+        ("constrained", solve_constrained_2d(&ci)),
+        ("constrained dense", solve_constrained_2d_dense(&ci, &DofNumbering::build_2d(input))),
+        ("certify", certify_linear_2d_full(input).map(|o| o.results)),
+    ]
+}
+
+/// A rigid link or diaphragm from a node where its only member is hinged, to a truss end: the
+/// linked pair rotates about the hinge freely, so the model is a mechanism (#458) and every 2D
+/// path must refuse it.
 #[test]
 fn rigid_link_hides_a_mechanism_2d() {
-    let input = input_2d(
-        r#"{
-      "nodes": {"1": {"id":1,"x":0,"z":0}, "2": {"id":2,"x":0,"z":3}, "3": {"id":3,"x":2,"z":3}},
-      "materials": {"1": {"id":1,"e":200000,"nu":0.3}},
-      "sections": {"1": {"id":1,"a":0.01,"iz":0.0001}},
-      "elements": {
-        "1": {"id":1,"type":"frame","nodeI":1,"nodeJ":2,"materialId":1,"sectionId":1,"hingeEnd":true},
-        "2": {"id":2,"type":"truss","nodeI":2,"nodeJ":3,"materialId":1,"sectionId":1}
-      },
-      "supports": {"1": {"id":1,"nodeId":1,"type":"fixed"}},
-      "loads": [{"type":"nodal","data":{"nodeId":3,"fx":0,"fz":-10,"my":0}}],
-      "constraints": [{"type":"rigidLink","masterNode":2,"slaveNode":3,"dofs":[]}]
-    }"#,
-    );
-    let out = certify_linear_2d_full(&input).unwrap();
-    eprintln!("{:?}\n{:?}", out.certificate, out.end_to_end);
-    assert!(!out.end_to_end.is_certified(), "{:?}", out.end_to_end);
+    for c in TIES_ROTATION {
+        let input = linked_to_a_hinged_column(c, "truss", "");
+        for (path, r) in every_2d_path(&input) {
+            assert!(r.is_err(), "{c} {path}: solved a mechanism: {:?}", r.map(|r| r.displacements));
+        }
+    }
+}
+
+/// The same links with a roller under the slave, which holds the pair's rotation about the hinge,
+/// and a horizontal load on the slave: the pair moves as the column's tip, P·L³/(3EI) =
+/// 10·3³/(3·2e8·1e-4) = 4.5 mm, on every path.
+#[test]
+fn a_held_linked_pair_still_solves_2d() {
+    for c in TIES_ROTATION {
+        for member in ["truss", "frame"] {
+            let support = r#","2": {"id":2,"nodeId":3,"type":"rollerX"}"#;
+            let mut input = linked_to_a_hinged_column(c, member, support);
+            input.loads = vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 10.0, fz: 0.0, my: 0.0 })];
+            for (path, r) in every_2d_path(&input) {
+                let r = r.unwrap_or_else(|e| panic!("{c} {member} {path}: {e}"));
+                let ux = r.displacements.iter().find(|d| d.node_id == 3).unwrap().ux;
+                assert!((ux - 4.5e-3).abs() < 1e-9, "{c} {member} {path}: {ux}");
+            }
+        }
+    }
 }
 
 /// Two spans hinged at their common node 2 (its rotation held by nothing),

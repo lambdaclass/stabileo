@@ -97,6 +97,48 @@ const body: PostBody = {
           "Bir sonraki sürümde düzeltildi"
         ],
         [
+          "SA-2026-040",
+          "ACI 318 ve EN 1992 kontrolleri: betonarme çubuklar burulmaları kontrol edilmeden geçiyordu",
+          "Yüksek",
+          "Bir sonraki sürümde sınırlandırıldı"
+        ],
+        [
+          "SA-2026-041",
+          "Betonarme kolonlar: en büyük moment yalnızca en büyük basınçla kontrol ediliyordu",
+          "Yüksek",
+          "Bir sonraki sürümde düzeltildi"
+        ],
+        [
+          "SA-2026-033",
+          "Yük üreteci: bir kısmının üstünde tek bir alçak eleman olan bir döşeme bütün alan yükünü kaybediyordu (bir örnekte 6 × 6 m'lik bir döşemenin 36 m²'si); kafes kirişler çatı taşıyıcı sistemi sayılmıyordu",
+          "Yüksek",
+          "Bir sonraki sürümde düzeltildi"
+        ],
+        [
+          "SA-2026-034",
+          "Denge kontrolü, kontrolünün yükleri dışarıda bıraktığı durumlarda yükleri ve tepkileri uyuşuyor olarak bildiriyordu; benzer katlardaki düzenlemeler diğer türdeki çubuklara ulaşıyor ve kopyalar mafsallarını kaybediyordu",
+          "Orta",
+          "Bir sonraki sürümde düzeltildi"
+        ],
+        [
+          "SA-2026-042",
+          "2B burkulma: ekseni boyunca yük altında basıncı boyunca artan çubukların katsayısı yüksek çıkıyordu (tek çubukta +%43 ile +%68)",
+          "Yüksek",
+          "Bir sonraki sürümde düzeltildi"
+        ],
+        [
+          "SA-2026-037",
+          "3B eşdönel analiz: dönme vektörleri çıkarılıyordu (Bathe–Bolourchi eğrisi %1,3 sapmalı, ağ sıklaştırmayla düzelmiyordu)",
+          "Orta",
+          "Bir sonraki sürümde düzeltildi"
+        ],
+        [
+          "SA-2026-036",
+          "Y–Z veya X–Y üzerinde 3D'den 2D'ye geçiş: kısıtlar çerçeve X–Z'deymiş gibi okunuyordu (yer değiştirme bağları kayboluyor ya da düzlem dışına uygulanıyordu)",
+          "Yüksek",
+          "Bir sonraki sürümde düzeltildi"
+        ],
+        [
           "SA-2026-013",
           "Eğri kabuklar: eğilme momentleri sıfır olarak raporlanıyordu; gerilmeler serbest ısıl şekil değiştirmeyi içinde tutuyordu",
           "Yüksek",

@@ -1,9 +1,10 @@
 import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import { modelStore, resultsStore, uiStore } from '../../store';
+import { currentScopeRef } from '../../store/result-provenance';
 import { initSolver } from '../../engine/wasm-solver';
 import { buildProReportData } from '../../engine/pro-report-inputs';
 import { generateReportHtml, type ReportConfig } from '../../engine/pro-report';
-import { comparePrintedReport } from '../reproduce';
+import { comparePrintedReport, reproduceStatus } from '../reproduce';
 import { printedTables } from '../../engine/report/printed-values';
 import { i18n, setLocale, ensureLocale, t } from '../../i18n';
 
@@ -39,7 +40,7 @@ describe('checking a report value by value', () => {
     const combo = modelStore.combinations.find((c) => c.name === '1.2 D + 1.6 W')!;
     const html = generateReportHtml(buildProReportData({ config: config(`combo:${combo.id}`), t })!);
     expect(printedTables(html).map((p) => p.key)).toEqual(expect.arrayContaining(['reactions', 'forces', 'displacements', 'statics']));
-    const v = comparePrintedReport(html)!;
+    const v = comparePrintedReport(html, { kind: 'combo', id: combo.id })!;
     expect(v.compared).toBeGreaterThan(30);
     expect(v.differences).toEqual([]);
     expect(v.structural).toEqual([]);
@@ -53,7 +54,7 @@ describe('checking a report value by value', () => {
     const original = first.cells[2]!;
     const forged = html.replace(`<td class="num">${original}</td>`, '<td class="num">10.10</td>');
     expect(forged).not.toBe(html);
-    const v = comparePrintedReport(forged)!;
+    const v = comparePrintedReport(forged, { kind: 'combo', id: combo.id })!;
     expect(v.differences).toHaveLength(1);
     expect(v.differences[0]).toMatchObject({ table: 'reactions', row: first.label, printed: '10.10', recomputed: original });
   });
@@ -70,21 +71,21 @@ describe('checking a report value by value', () => {
     const label = reactions.rows[0]!.label.split(' · ')[0]!;
     const relabelled = editAfter(`>${label}</td>`, '>N99</td>');
     expect(relabelled).not.toBe(html);
-    const v = comparePrintedReport(relabelled)!;
+    const v = comparePrintedReport(relabelled, { kind: 'combo', id: combo.id })!;
     expect(v.differences.some((d) => d.table === 'reactions' && d.printed.startsWith('N99'))).toBe(true);
     const header = reactions.headers.at(-1)!;
     const reheaded = editAfter(`>${header}</th>`, '>Other</th>');
     expect(reheaded).not.toBe(html);
-    expect(comparePrintedReport(reheaded)!.structural).toContain('reactions');
+    expect(comparePrintedReport(reheaded, { kind: 'combo', id: combo.id })!.structural).toContain('reactions');
   });
 
   it('finds a printed table removed from the document, and every table removed', () => {
     const combo = modelStore.combinations.find((c) => c.name === '1.2 D + 1.6 W')!;
     const html = generateReportHtml(buildProReportData({ config: config(`combo:${combo.id}`), t })!);
     const without = html.replace(/<table[^>]*data-printed="reactions"[\s\S]*?<\/table>/, '');
-    expect(comparePrintedReport(without)!.structural).toContain('reactions');
+    expect(comparePrintedReport(without, { kind: 'combo', id: combo.id })!.structural).toContain('reactions');
     const none = html.replace(/<table[^>]*data-printed="[^"]+"[\s\S]*?<\/table>/g, '');
-    const v = comparePrintedReport(none)!;
+    const v = comparePrintedReport(none, { kind: 'combo', id: combo.id })!;
     expect(v.structural).toEqual(expect.arrayContaining(['reactions', 'forces', 'displacements']));
   });
 
@@ -92,11 +93,11 @@ describe('checking a report value by value', () => {
     const combo = modelStore.combinations.find((c) => c.name === '1.2 D + 1.6 W')!;
     const was = i18n.locale;
     const html = generateReportHtml(buildProReportData({ config: config(`combo:${combo.id}`), t })!);
-    expect(comparePrintedReport(html)!.labels).toBe(true);
+    expect(comparePrintedReport(html, { kind: 'combo', id: combo.id })!.labels).toBe(true);
     await ensureLocale(was === 'es' ? 'en' : 'es');
     setLocale(was === 'es' ? 'en' : 'es');
     try {
-      const v = comparePrintedReport(html)!;
+      const v = comparePrintedReport(html, { kind: 'combo', id: combo.id })!;
       expect(v.labels).toBe(false);
       expect(v.compared).toBeGreaterThan(30);
       expect(v.differences).toEqual([]);
@@ -107,6 +108,103 @@ describe('checking a report value by value', () => {
   });
 
   it('says nothing about a file without marked tables', () => {
-    expect(comparePrintedReport('<html><body><table><tr><td class="num">1.00</td></tr></table></body></html>')).toBeNull();
+    expect(comparePrintedReport('<html><body><table><tr><td class="num">1.00</td></tr></table></body></html>', { kind: 'single' })).toBeNull();
+  });
+
+  it('binds the reprint to the scope the fingerprint records, not to the key in the editable script', () => {
+    const [a, b] = modelStore.combinations.map((c) => c.id);
+    const otherSet = generateReportHtml(buildProReportData({ config: config(`combo:${b}`), t })!);
+    const v = comparePrintedReport(otherSet, { kind: 'combo', id: a! });
+    expect(v).not.toBeNull();
+    expect(v!.structural).toContain('result-set');
+    const own = comparePrintedReport(otherSet, { kind: 'combo', id: b! })!;
+    expect(own.structural).toEqual([]);
+    expect(own.differences).toEqual([]);
+  });
+
+  it('a report printed from the screen sum is compared while the same view is on screen, never as the single solve', () => {
+    resultsStore.activeView = 'single';
+    resultsStore.activeCaseId = null;
+    const screen = generateReportHtml(buildProReportData({ config: config('screen'), t })!);
+    expect(comparePrintedReport(screen, { kind: 'combo', id: modelStore.combinations[0]!.id })).toBeNull();
+    expect(resultsStore.singleResults3D).not.toBe(resultsStore.results3D);
+    expect(comparePrintedReport(screen, { kind: 'single' })).toBeNull();
+    const sum = currentScopeRef();
+    expect(sum.kind).toBe('other');
+    const own = comparePrintedReport(screen, sum)!;
+    expect(own.compared).toBeGreaterThan(10);
+    expect(own.differences).toEqual([]);
+    expect(own.structural).toEqual([]);
+    const reactions = printedTables(screen).find((p) => p.key === 'reactions')!;
+    const forged = screen.replace(`<td class="num">${reactions.rows[0]!.cells[2]!}</td>`, '<td class="num">10.10</td>');
+    expect(forged).not.toBe(screen);
+    expect(comparePrintedReport(forged, sum)!.differences.length).toBeGreaterThan(0);
+    expect(comparePrintedReport(screen, { kind: 'other', label: 'another view' })).toBeNull();
+  });
+
+  it('a report printed from the screen while a combination, a case or the envelope is shown is compared against that scope', () => {
+    const combo = modelStore.combinations[1]!.id;
+    const views: Array<() => void> = [
+      () => { resultsStore.activeView = 'combo'; resultsStore.activeComboId = combo; },
+      () => { resultsStore.activeView = 'single'; resultsStore.activeComboId = null; resultsStore.activeCaseId = 1; },
+      () => { resultsStore.activeView = 'envelope'; resultsStore.activeCaseId = null; },
+    ];
+    for (const show of views) {
+      show();
+      const scope = currentScopeRef();
+      expect(scope.kind).not.toBe('other');
+      expect(scope.kind).not.toBe('single');
+      const screen = generateReportHtml(buildProReportData({ config: config('screen'), t })!);
+      const v = comparePrintedReport(screen, scope)!;
+      expect(v.structural).toEqual([]);
+      expect(v.differences).toEqual([]);
+      expect(v.compared).toBeGreaterThan(10);
+      expect(comparePrintedReport(screen, { kind: 'single' })).toBeNull();
+    }
+  });
+
+  it('a report of the single solve on screen is compared against the single scope', () => {
+    const r = modelStore.solve3D(false, false, true);
+    if (!r || typeof r === 'string') throw new Error(String(r));
+    resultsStore.setResults3D(r as never);
+    resultsStore.activeView = 'single';
+    resultsStore.activeCaseId = null;
+    expect(resultsStore.results3D).toBe(resultsStore.singleResults3D);
+    const screen = generateReportHtml(buildProReportData({ config: config('screen'), t })!);
+    const v = comparePrintedReport(screen, { kind: 'single' })!;
+    expect(v.compared).toBeGreaterThan(10);
+    expect(v.differences).toEqual([]);
+    expect(v.structural).toEqual([]);
+  });
+
+  it('refuses to compare tables against a fingerprint with no recorded scope', () => {
+    const combo = modelStore.combinations[0]!;
+    const html = generateReportHtml(buildProReportData({ config: config(`combo:${combo.id}`), t })!);
+    expect(comparePrintedReport(html, undefined)).toBeNull();
   });
 });
+
+describe('the verdict of a check', () => {
+  const verdict = (reproduced: boolean) => ({ status: reproduced ? 'reproduced' : 'mismatch', reproduced, hashes: [], model: 'same', sameBuild: true, buildDifferences: [] }) as never;
+  const clean = { compared: 10, differences: [], structural: [], labels: true };
+
+  it('an HTML report whose embedded choices were removed is incomplete, never reproduced', () => {
+    expect(reproduceStatus({ ok: true, verdict: verdict(true), fresh: {} as never, printed: null })).toEqual({ status: 'incomplete', reproduced: false });
+  });
+
+  it('an HTML report whose printed tables compared nothing is incomplete, never reproduced', () => {
+    expect(reproduceStatus({ ok: true, verdict: verdict(true), fresh: {} as never, printed: { ...clean, compared: 0 } })).toEqual({ status: 'incomplete', reproduced: false });
+    expect(reproduceStatus({ ok: true, verdict: verdict(false), fresh: {} as never, printed: { ...clean, compared: 0 } })).toEqual({ status: 'mismatch', reproduced: false });
+  });
+
+  it('a fingerprint pasted on its own is judged by its hashes', () => {
+    expect(reproduceStatus({ ok: true, verdict: verdict(true), fresh: {} as never })).toEqual({ status: 'reproduced', reproduced: true });
+  });
+
+  it('printed tables that match keep the hash verdict; any difference fails it', () => {
+    expect(reproduceStatus({ ok: true, verdict: verdict(true), fresh: {} as never, printed: clean })).toEqual({ status: 'reproduced', reproduced: true });
+    expect(reproduceStatus({ ok: true, verdict: verdict(true), fresh: {} as never, printed: { ...clean, structural: ['result-set'] } })).toEqual({ status: 'printed-differs', reproduced: false });
+    expect(reproduceStatus({ ok: true, verdict: verdict(true), fresh: {} as never, printed: { ...clean, labels: false } })).toEqual({ status: 'incomplete', reproduced: false });
+  });
+});
+

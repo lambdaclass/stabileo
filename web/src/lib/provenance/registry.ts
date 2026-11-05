@@ -78,6 +78,10 @@ export function changelogUrl(c: Pick<ResultChange, 'changelog'>): string {
   return `${REPO_BLOB}${c.changelog.file}#${githubSlug(c.changelog.heading)}`;
 }
 
+export function concernsGeneratedLoads(w: ChangeCondition): boolean {
+  return conditionGroups(w).some((g) => g.includes('generatedLoads'));
+}
+
 /** Every condition group of an entry, normalised to OR-groups that must all hold. */
 export function conditionGroups(w: ChangeCondition): string[][] {
   const groups: string[][] = [];

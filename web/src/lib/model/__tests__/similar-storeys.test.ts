@@ -47,6 +47,21 @@ describe('master and similar storeys', () => {
     expect(x.unmatched).toEqual([]);
   });
 
+  it('a frame member and a truss at the same place are not each other\'s counterpart', () => {
+    const { m, levels } = building(3);
+    levels[2]!.similarTo = 'L1';
+    const elements = m.elements as Map<number, { nodeI: number; nodeJ: number; type?: 'frame' | 'truss' }>;
+    for (const e of elements.values()) e.type = 'frame';
+    const frameOn1 = 3, trussOn2 = 6;
+    elements.get(trussOn2)!.type = 'truss';
+    const fromFrame = expandToStoreys(m, levels, { elements: [frameOn1], nodes: [], shells: [] }, 'similar');
+    expect(fromFrame.elements).toEqual([frameOn1]);
+    expect(fromFrame.unmatched).toEqual([{ kind: 'element', id: frameOn1, level: 'L2' }]);
+    const fromTruss = expandToStoreys(m, levels, { elements: [trussOn2], nodes: [], shells: [] }, 'similar');
+    expect(fromTruss.elements).toEqual([trussOn2]);
+    expect(fromTruss.unmatched).toEqual([{ kind: 'element', id: trussOn2, level: 'L1' }]);
+  });
+
   it('a column of a taller similar storey is the same column; what has no counterpart is reported', () => {
     const { m, levels } = building(5);
     levels[3]!.similarTo = 'L1';
@@ -76,12 +91,12 @@ describe('master and similar storeys', () => {
 
   it('matches places closer than the tolerance across a cell boundary', () => {
     const levels: Level[] = [{ id: 'L0', name: 'N0', z: 0 }, { id: 'L1', name: 'N1', z: 3 }, { id: 'L2', name: 'N2', z: 6, similarTo: 'L1' }];
-    const nodes = new Map([[1, { x: 0.00495, y: 0, z: 3 }], [2, { x: 6, y: 0, z: 3 }], [3, { x: 0.00515, y: 0, z: 6 }], [4, { x: 6, y: 0, z: 6 }]]);
+    const nodes = new Map([[1, { x: 0.0099, y: 0, z: 3 }], [2, { x: 6, y: 0, z: 3 }], [3, { x: 0.0101, y: 0, z: 6 }], [4, { x: 6, y: 0, z: 6 }]]);
     const elements = new Map([[1, { nodeI: 1, nodeJ: 2 }], [2, { nodeI: 3, nodeJ: 4 }]]);
     const m = { nodes, elements } as StoreyModel;
     expect(expandToStoreys(m, levels, { elements: [1], nodes: [], shells: [] }, 'similar').elements.sort()).toEqual([1, 2]);
     expect(expandToStoreys(m, levels, { elements: [], nodes: [1], shells: [] }, 'similar').nodes.sort()).toEqual([1, 3]);
-    const far = new Map(nodes).set(3, { x: 0.0160, y: 0, z: 6 });
+    const far = new Map(nodes).set(3, { x: 0.0205, y: 0, z: 6 });
     expect(expandToStoreys({ nodes: far, elements } as StoreyModel, levels, { elements: [1], nodes: [], shells: [] }, 'similar').unmatched).toHaveLength(1);
   });
 

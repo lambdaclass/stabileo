@@ -217,6 +217,7 @@ export function autoVerifyFromResults(
       NuMax = Math.max(nComp?.absValue ?? 0, nTens?.absValue ?? 0);
       axialLoads = [
         ...((nComp?.absValue ?? 0) > 0 ? [nComp!.absValue] : []),
+        ...(demands.leastCompression !== undefined ? [demands.leastCompression] : []),
         ...((nTens?.absValue ?? 0) > 0 ? [-nTens!.absValue] : []),
       ];
       if (axialLoads.length === 0) axialLoads = [0];

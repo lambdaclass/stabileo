@@ -1,8 +1,383 @@
 {
   "$comment": "Registry of result-affecting changes. Read by web/scripts/result-change-metadata.mjs for build metadata and decoded by web/src/lib/provenance/full-registry.ts; schema and rules in docs/verification/PROVENANCE.md. Add an entry whenever a change makes the same saved model give different numbers, at currentResultsVersion + 1, and bump currentResultsVersion: a version on main is deployed, and an entry added to it later is never shown to the projects it stamped (results-version.test.ts). Feature ids are defined in web/src/lib/provenance/model-features.ts.",
   "schema": 1,
-  "currentResultsVersion": 16,
+  "currentResultsVersion": 26,
   "changes": [
+    {
+      "id": "governing-envelope-true-peak",
+      "resultsVersion": 26,
+      "date": "2026-11-04",
+      "prs": [],
+      "area": "analysis",
+      "when": {
+        "allOf": [
+          [
+            "plane2D"
+          ],
+          [
+            "frameMembers"
+          ],
+          [
+            "combinations"
+          ],
+          [
+            "memberLoads"
+          ]
+        ]
+      },
+      "title": {
+        "en": "A member's governing value and the 2D envelope read the diagram's true peak, not the nearest station",
+        "es": "El valor determinante de una barra y la envolvente 2D toman el pico real del diagrama, no la estación más cercana",
+        "pt": "O valor determinante de uma barra e a envoltória 2D tomam o pico real do diagrama, não a estação mais próxima",
+        "de": "Der maßgebende Wert eines Stabs und die 2D-Umhüllende lesen die wahre Spitze des Verlaufs, nicht die nächste Station",
+        "fr": "La valeur déterminante d'une barre et l'enveloppe 2D lisent le vrai pic du diagramme, pas la station la plus proche",
+        "tr": "Bir çubuğun belirleyici değeri ve 2B zarf, diyagramın en yakın istasyonunu değil gerçek tepe değerini okuyor"
+      },
+      "explanation": {
+        "en": "In plane models with combinations and loads along members, the governing moment, shear or axial force of a member and the envelope were read at 21 stations along it. A peak between two stations was read low: by 0.23 % under a triangular load and by 1.05 % under a short partial load, and a combination that peaked between stations could lose the governing title to one that did not. Both now take the true peak: both sides of every point load and the stationary points of the diagram between load discontinuities. Governing values and envelope peaks can rise; they never fall.",
+        "es": "En modelos planos con combinaciones y cargas sobre las barras, el momento, el corte o el axil determinante de una barra y la envolvente se leían en 21 estaciones a lo largo de ella. Un pico entre dos estaciones se leía bajo: un 0,23 % con una carga triangular y un 1,05 % con una carga parcial corta, y una combinación cuyo pico caía entre estaciones podía perder el carácter de determinante frente a otra. Ahora ambos toman el pico real: los dos lados de cada carga puntual y los puntos estacionarios del diagrama entre discontinuidades de carga. Los valores determinantes y los picos de la envolvente pueden subir; nunca bajan.",
+        "pt": "Em modelos planos com combinações e cargas ao longo das barras, o momento, o cortante ou o esforço normal determinante de uma barra e a envoltória eram lidos em 21 estações ao longo dela. Um pico entre duas estações era lido abaixo: 0,23 % com uma carga triangular e 1,05 % com uma carga parcial curta, e uma combinação cujo pico caía entre estações podia perder o posto de determinante para outra. Agora ambos tomam o pico real: os dois lados de cada carga pontual e os pontos estacionários do diagrama entre descontinuidades de carga. Os valores determinantes e os picos da envoltória podem subir; nunca descem.",
+        "de": "In ebenen Modellen mit Kombinationen und Lasten auf den Stäben wurden das maßgebende Moment, die Querkraft oder die Normalkraft eines Stabs und die Umhüllende an 21 Stationen entlang des Stabs gelesen. Eine Spitze zwischen zwei Stationen wurde zu niedrig gelesen: um 0,23 % unter einer Dreieckslast und um 1,05 % unter einer kurzen Teillast, und eine Kombination mit ihrer Spitze zwischen Stationen konnte die Maßgeblichkeit an eine andere verlieren. Beide nehmen jetzt die wahre Spitze: beide Seiten jeder Einzellast und die stationären Punkte des Verlaufs zwischen Lastsprüngen. Maßgebende Werte und Spitzen der Umhüllenden können steigen, nie fallen.",
+        "fr": "Dans les modèles plans avec combinaisons et charges sur les barres, le moment, l'effort tranchant ou l'effort normal déterminant d'une barre et l'enveloppe étaient lus en 21 stations le long de la barre. Un pic entre deux stations était lu trop bas : de 0,23 % sous une charge triangulaire et de 1,05 % sous une charge partielle courte, et une combinaison dont le pic tombait entre deux stations pouvait perdre le statut de déterminante au profit d'une autre. Les deux prennent maintenant le vrai pic : les deux côtés de chaque charge ponctuelle et les points stationnaires du diagramme entre les discontinuités de charge. Les valeurs déterminantes et les pics de l'enveloppe peuvent augmenter ; ils ne baissent jamais.",
+        "tr": "Kombinasyonlu ve çubuk üzerinde yük bulunan düzlem modellerde, bir çubuğun belirleyici momenti, kesme kuvveti veya eksenel kuvveti ile zarf, çubuk boyunca 21 istasyonda okunuyordu. İki istasyon arasındaki bir tepe düşük okunuyordu: üçgen yükte %0,23, kısa bir kısmi yükte %1,05; tepesi istasyonlar arasına düşen bir kombinasyon belirleyici olma niteliğini başka birine kaptırabiliyordu. Artık ikisi de gerçek tepeyi alıyor: her tekil yükün iki yanı ve yük süreksizlikleri arasındaki diyagramın durağan noktaları. Belirleyici değerler ve zarf tepeleri artabilir, asla azalmaz."
+      },
+      "changelog": {
+        "file": "docs/results-changes/2026-11-governing-true-peak.md",
+        "heading": "Governing value and 2D envelope at the true peak"
+      }
+    },
+    {
+      "id": "constraint-cut-plane",
+      "resultsVersion": 25,
+      "date": "2026-11-03",
+      "prs": [
+        1297
+      ],
+      "area": "analysis",
+      "when": {
+        "allOf": [
+          [
+            "plane2D"
+          ],
+          [
+            "constraints"
+          ]
+        ]
+      },
+      "title": {
+        "en": "Constraints of a 2D model cut from a Y–Z or X–Y plane",
+        "es": "Restricciones de un modelo 2D cortado de un plano Y–Z o X–Y",
+        "pt": "Restrições de um modelo 2D cortado de um plano Y–Z ou X–Y",
+        "de": "Zwangsbedingungen eines aus einer Y–Z- oder X–Y-Ebene geschnittenen 2D-Modells",
+        "fr": "Contraintes d'un modèle 2D coupé dans un plan Y–Z ou X–Y",
+        "tr": "Y–Z veya X–Y düzleminden kesilmiş 2B modelin kısıtları"
+      },
+      "explanation": {
+        "en": "A 2D model cut or projected from a Y–Z or X–Y plane before this version kept its constraints as written in 3D, and the 2D solver read them as if the frame stood in X–Z: a sway tie could be dropped or a tie out of the plane applied in it (SA-2026-036). The file does not record the plane it was cut from, so its constraints cannot be corrected on opening. Re-cut it from the 3D model, or solve in 3D.",
+        "es": "Un modelo 2D cortado o proyectado de un plano Y–Z o X–Y antes de esta versión conservó sus restricciones tal como estaban en 3D, y el solver 2D las leía como si el pórtico estuviera en X–Z: podía perderse un vínculo de desplazamiento lateral o aplicarse en el plano uno que estaba fuera de él (SA-2026-036). El archivo no registra el plano del que se cortó, así que sus restricciones no pueden corregirse al abrirlo. Vuelva a cortarlo del modelo 3D, o resuélvalo en 3D.",
+        "pt": "Um modelo 2D cortado ou projetado de um plano Y–Z ou X–Y antes desta versão manteve suas restrições como escritas em 3D, e o solver 2D as lia como se o pórtico estivesse em X–Z: um vínculo de deslocamento lateral podia ser perdido ou um vínculo fora do plano aplicado nele (SA-2026-036). O arquivo não registra o plano de onde foi cortado, então suas restrições não podem ser corrigidas ao abri-lo. Corte-o de novo a partir do modelo 3D, ou resolva em 3D.",
+        "de": "Ein 2D-Modell, das vor dieser Version aus einer Y–Z- oder X–Y-Ebene geschnitten oder projiziert wurde, behielt seine Zwangsbedingungen wie in 3D, und der 2D-Löser las sie, als stünde der Rahmen in X–Z: eine Seitenkopplung konnte entfallen oder eine Kopplung außerhalb der Ebene in ihr wirken (SA-2026-036). Die Datei speichert nicht, aus welcher Ebene geschnitten wurde, daher lassen sich die Zwangsbedingungen beim Öffnen nicht korrigieren. Schneiden Sie es neu aus dem 3D-Modell oder rechnen Sie in 3D.",
+        "fr": "Un modèle 2D coupé ou projeté depuis un plan Y–Z ou X–Y avant cette version a gardé ses contraintes telles qu'écrites en 3D, et le solveur 2D les lisait comme si le portique était dans X–Z : une liaison de déplacement latéral pouvait être perdue ou une liaison hors du plan appliquée dans celui-ci (SA-2026-036). Le fichier n'enregistre pas le plan de la coupe, donc ses contraintes ne peuvent pas être corrigées à l'ouverture. Recoupez-le depuis le modèle 3D, ou résolvez en 3D.",
+        "tr": "Bu sürümden önce Y–Z veya X–Y düzleminden kesilen ya da izdüşürülen bir 2B model kısıtlarını 3B'deki gibi tuttu ve 2B çözücü bunları çerçeve X–Z'de duruyormuş gibi okudu: yanal öteleme bağı düşebilir veya düzlem dışındaki bir bağ düzlem içinde uygulanabilirdi (SA-2026-036). Dosya kesildiği düzlemi kaydetmez, bu yüzden kısıtlar açılışta düzeltilemez. 3B modelden yeniden kesin veya 3B çözün."
+      },
+      "changelog": {
+        "file": "docs/advisories/SA-2026-036-cut-constraints-plane.md",
+        "heading": "SA-2026-036: 3D-to-2D cut on Y–Z or X–Y read the constraints as if the frame stood in X–Z"
+      }
+    },
+    {
+      "id": "corotational-3d-rotations",
+      "resultsVersion": 24,
+      "date": "2026-11-03",
+      "prs": [
+        1301
+      ],
+      "area": "analysis",
+      "when": {
+        "allOf": [
+          [
+            "space3D"
+          ],
+          [
+            "analysis:nonlinear"
+          ],
+          [
+            "frameMembers"
+          ]
+        ]
+      },
+      "title": {
+        "en": "3D co-rotational analysis with large rotations about several axes",
+        "es": "Análisis corrotacional 3D con grandes rotaciones alrededor de varios ejes",
+        "pt": "Análise corrotacional 3D com grandes rotações em torno de vários eixos",
+        "de": "Korotationale 3D-Analyse mit großen Rotationen um mehrere Achsen",
+        "fr": "Analyse corotationnelle 3D avec de grandes rotations autour de plusieurs axes",
+        "tr": "Birden çok eksen etrafında büyük dönmeli 3B eşdönel analiz"
+      },
+      "explanation": {
+        "en": "Member end rotations were subtracted as rotation vectors, which is exact only for rotations about one axis; the Bathe–Bolourchi bend came out 1.3 % off its published solution, and refining the mesh did not help (SA-2026-037). It concerns co-rotational analyses of 3D models; planar frames do not change while their members turn less than half a turn.",
+        "es": "Las rotaciones de extremo de las barras se restaban como vectores de rotación, lo que sólo es exacto para rotaciones alrededor de un eje; la curva de Bathe–Bolourchi salía 1,3 % fuera de su solución publicada, y refinar la malla no lo corregía (SA-2026-037). Afecta a análisis corrotacionales de modelos 3D; los pórticos planos no cambian mientras sus barras giren menos de media vuelta.",
+        "pt": "As rotações de extremidade das barras eram subtraídas como vetores de rotação, o que só é exato para rotações em torno de um eixo; a curva de Bathe–Bolourchi saía 1,3 % fora da solução publicada, e refinar a malha não corrigia (SA-2026-037). Afeta análises corrotacionais de modelos 3D; pórticos planos não mudam enquanto suas barras girarem menos de meia volta.",
+        "de": "Die Endrotationen der Stäbe wurden als Rotationsvektoren subtrahiert, was nur für Rotationen um eine Achse exakt ist; der Bathe–Bolourchi-Bogen lag 1,3 % neben der veröffentlichten Lösung, und eine Netzverfeinerung half nicht (SA-2026-037). Betrifft korotationale Analysen von 3D-Modellen; ebene Rahmen ändern sich nicht, solange sich ihre Stäbe um weniger als eine halbe Umdrehung drehen.",
+        "fr": "Les rotations d’extrémité des barres étaient soustraites comme des vecteurs de rotation, ce qui n’est exact que pour des rotations autour d’un seul axe ; le coude de Bathe–Bolourchi s’écartait de 1,3 % de sa solution publiée, et raffiner le maillage n’y changeait rien (SA-2026-037). Concerne les analyses corotationnelles de modèles 3D ; les portiques plans ne changent pas tant que leurs barres tournent de moins d’un demi-tour.",
+        "tr": "Eleman uç dönmeleri dönme vektörleri olarak çıkarılıyordu; bu yalnızca tek eksen etrafındaki dönmeler için kesindir. Bathe–Bolourchi eğrisi yayımlanmış çözümden %1,3 sapıyordu ve ağı sıklaştırmak bunu düzeltmiyordu (SA-2026-037). 3B modellerin eşdönel analizlerini etkiler; çubukları yarım turdan az döndükçe düzlem çerçeveler değişmez."
+      },
+      "changelog": {
+        "file": "docs/advisories/SA-2026-037-corotational-3d-rotations.md",
+        "heading": "SA-2026-037: 3D co-rotational analysis differenced rotation vectors (Bathe–Bolourchi bend 1.3 % off)"
+      }
+    },
+    {
+      "id": "buckling-2d-varying-axial-force",
+      "resultsVersion": 23,
+      "date": "2026-11-03",
+      "prs": [
+        1324
+      ],
+      "area": "analysis",
+      "when": {
+        "allOf": [
+          [
+            "analysis:buckling"
+          ],
+          [
+            "memberLoads"
+          ],
+          [
+            "plane2D"
+          ]
+        ]
+      },
+      "title": {
+        "en": "2D buckling: members whose axial force varies along them",
+        "es": "Pandeo 2D: barras cuyo esfuerzo axial varía a lo largo",
+        "pt": "Flambagem 2D: barras cujo esforço axial varia ao longo delas",
+        "de": "2D-Knicken: Stäbe mit veränderlicher Normalkraft",
+        "fr": "Flambement 2D : barres dont l’effort normal varie le long de la barre",
+        "tr": "2B burkulma: eksenel kuvveti boyunca değişen çubuklar"
+      },
+      "explanation": {
+        "en": "Each member's buckling stiffness used its mean axial force. Under loads along a member, where compression grows toward the end that rotates most, the factor came out too high: +43 % for a one-member cantilever whose compression rises to its tip, +68 % with an axial point load at mid-span (SA-2026-042). It concerns 2D buckling with loads along members.",
+        "es": "La rigidez de pandeo de cada barra usaba su esfuerzo axial medio. Con cargas a lo largo de una barra, donde la compresión crece hacia el extremo que más gira, el factor salía demasiado alto: +43 % en una ménsula de una barra cuya compresión crece hacia la punta, +68 % con una carga axial puntual en el centro (SA-2026-042). Afecta al pandeo 2D con cargas a lo largo de las barras.",
+        "pt": "A rigidez de flambagem de cada barra usava seu esforço axial médio. Com cargas ao longo de uma barra, onde a compressão cresce para a extremidade que mais gira, o fator saía alto demais: +43 % num balanço de uma barra cuja compressão cresce até a ponta, +68 % com uma carga axial pontual no meio (SA-2026-042). Afeta a flambagem 2D com cargas ao longo das barras.",
+        "de": "Die Knicksteifigkeit jedes Stabs verwendete seine mittlere Normalkraft. Bei Lasten entlang eines Stabs, wo der Druck zum stärker verdrehten Ende hin wächst, kam der Faktor zu hoch heraus: +43 % bei einem Kragarm aus einem Stab, dessen Druck zur Spitze wächst, +68 % mit einer axialen Einzellast in Feldmitte (SA-2026-042). Betrifft 2D-Knicken mit Lasten entlang der Stäbe.",
+        "fr": "La rigidité de flambement de chaque barre utilisait son effort normal moyen. Avec des charges le long d’une barre, là où la compression croît vers l’extrémité qui tourne le plus, le facteur était trop élevé : +43 % pour une console d’une barre dont la compression croît vers la pointe, +68 % avec une charge axiale ponctuelle à mi-portée (SA-2026-042). Concerne le flambement 2D avec des charges le long des barres.",
+        "tr": "Her çubuğun burkulma rijitliği ortalama eksenel kuvvetini kullanıyordu. Çubuk boyunca yüklerde, basıncın en çok dönen uca doğru arttığı yerde katsayı fazla yüksek çıkıyordu: basıncı uca doğru artan tek çubuklu bir konsolda +%43, açıklık ortasında eksenel tekil yükle +%68 (SA-2026-042). Çubuklar boyunca yük içeren 2B burkulmayı etkiler."
+      },
+      "changelog": {
+        "file": "docs/advisories/SA-2026-042-buckling-2d-varying-axial-force.md",
+        "heading": "SA-2026-042: 2D buckling overstated the factor of members whose compression grows along them under axial span loads"
+      }
+    },
+    {
+      "id": "hidden-mechanism-2d-refused",
+      "resultsVersion": 22,
+      "date": "2026-11-04",
+      "prs": [
+        1298
+      ],
+      "area": "analysis",
+      "when": {
+        "allOf": [
+          [
+            "plane2D"
+          ],
+          [
+            "constraints"
+          ]
+        ]
+      },
+      "title": {
+        "en": "2D: a mechanism behind a rigid link or diaphragm is refused",
+        "es": "2D: un mecanismo detrás de un vínculo rígido o diafragma se rechaza",
+        "pt": "2D: um mecanismo atrás de um vínculo rígido ou diafragma é recusado",
+        "de": "2D: ein Mechanismus hinter einer starren Kopplung oder Scheibe wird abgelehnt",
+        "fr": "2D : un mécanisme derrière une liaison rigide ou un diaphragme est refusé",
+        "tr": "2D: rijit bağ veya diyafram arkasındaki bir mekanizma reddediliyor"
+      },
+      "explanation": {
+        "en": "A plane model where a rigid link or diaphragm ties a truss end to a node whose members are all hinged is a mechanism when nothing else holds the pair's rotation, but the solver held it with an artificial spring and returned meaningless displacements, which the certificate could certify (#458). Such a model is now refused as a mechanism; one whose pair is held still solves. Re-run plane models with rigid links or diaphragms.",
+        "es": "Un modelo plano en el que un vínculo rígido o un diafragma une el extremo de una barra de reticulado a un nudo con todas sus barras articuladas es un mecanismo si nada más impide el giro del par, pero el solver lo sostenía con un resorte artificial y devolvía desplazamientos sin sentido, que el certificado podía certificar (#458). Ese modelo ahora se rechaza como mecanismo; si el par está sostenido, se sigue resolviendo. Vuelva a calcular los modelos planos con vínculos rígidos o diafragmas.",
+        "pt": "Um modelo plano em que um vínculo rígido ou um diafragma liga a extremidade de uma barra de treliça a um nó com todas as barras articuladas é um mecanismo quando nada mais impede o giro do par, mas o solver o segurava com uma mola artificial e devolvia deslocamentos sem sentido, que o certificado podia certificar (#458). Esse modelo agora é recusado como mecanismo; se o par estiver contido, continua sendo resolvido. Recalcule os modelos planos com vínculos rígidos ou diafragmas.",
+        "de": "Ein ebenes Modell, in dem eine starre Kopplung oder Scheibe ein Fachwerkstabende an einen Knoten mit lauter gelenkig angeschlossenen Stäben bindet, ist ein Mechanismus, wenn nichts sonst die Verdrehung des Paars hält; der Löser hielt es mit einer künstlichen Feder und lieferte sinnlose Verschiebungen, die das Zertifikat bestätigen konnte (#458). Ein solches Modell wird jetzt als Mechanismus abgelehnt; ist das Paar gehalten, wird es weiter berechnet. Rechnen Sie ebene Modelle mit starren Kopplungen oder Scheiben neu.",
+        "fr": "Un modèle plan où une liaison rigide ou un diaphragme relie une extrémité de barre de treillis à un nœud dont toutes les barres sont articulées est un mécanisme lorsque rien d'autre ne retient la rotation de la paire, mais le solveur le retenait par un ressort artificiel et renvoyait des déplacements sans signification, que le certificat pouvait certifier (#458). Un tel modèle est maintenant refusé comme mécanisme ; si la paire est retenue, il est toujours résolu. Relancez les modèles plans avec liaisons rigides ou diaphragmes.",
+        "tr": "Rijit bağ veya diyaframın bir kafes çubuğu ucunu tüm çubukları mafsallı bir düğüme bağladığı düzlem model, çiftin dönmesini başka hiçbir şey tutmuyorsa bir mekanizmadır; çözücü onu yapay bir yayla tutup anlamsız yer değiştirmeler veriyordu ve sertifika bunları onaylayabiliyordu (#458). Böyle bir model artık mekanizma olarak reddediliyor; çift tutuluyorsa çözülmeye devam ediyor. Rijit bağlı veya diyaframlı düzlem modelleri yeniden çözün."
+      },
+      "changelog": {
+        "file": "changelog.d/458-hidden-mechanism-2d.md",
+        "heading": "2D: a mechanism hidden behind a rigid link or diaphragm is refused, not solved and certified (2026-11-03)"
+      }
+    },
+    {
+      "id": "shell-figures-paint-the-screen-field",
+      "resultsVersion": 21,
+      "date": "2026-11-03",
+      "prs": [
+        1255
+      ],
+      "area": "analysis",
+      "when": {
+        "any": [
+          "shells"
+        ]
+      },
+      "title": {
+        "en": "Shell result figures show the field and scale of the screen",
+        "es": "Las figuras de resultados de láminas muestran el campo y la escala de la pantalla",
+        "pt": "As figuras de resultados de cascas mostram o campo e a escala da tela",
+        "de": "Ergebnisabbildungen von Schalen zeigen das Feld und die Skala des Bildschirms",
+        "fr": "Les figures de résultats des coques montrent le champ et l'échelle de l'écran",
+        "tr": "Kabuk sonuç şekilleri ekrandaki alanı ve ölçeği gösterir"
+      },
+      "explanation": {
+        "en": "An exported shell figure painted each element with its own centre value over the range those values occupied, while the screen paints the contour field (nodal averages within the chosen domain, the chosen face, a typed range and bands). The figure's colours, scale and peak label could disagree with the screen and its legend. Figures now paint the screen's field, blended across each face, with its range, bands and peak. The shell direction marks and extremes on screen also leave out hidden shells. Solver results are unchanged; re-export shell figures.",
+        "es": "Una figura de láminas exportada pintaba cada elemento con su valor en el centro sobre el rango de esos valores, mientras la pantalla pinta el campo del contorno (promedios en los nudos dentro del dominio elegido, la cara elegida, un rango escrito y bandas). Los colores, la escala y el valor máximo de la figura podían no coincidir con la pantalla ni con su leyenda. Ahora las figuras pintan el campo de la pantalla, mezclado sobre cada cara, con su rango, bandas y máximo. Las direcciones y extremos de láminas en pantalla tampoco toman las láminas ocultas. Los resultados del solver no cambian; vuelva a exportar las figuras de láminas.",
+        "pt": "Uma figura de cascas exportada pintava cada elemento com seu valor no centro sobre a faixa desses valores, enquanto a tela pinta o campo do contorno (médias nos nós dentro do domínio escolhido, a face escolhida, uma faixa digitada e bandas). As cores, a escala e o valor máximo da figura podiam não coincidir com a tela nem com sua legenda. Agora as figuras pintam o campo da tela, misturado sobre cada face, com sua faixa, bandas e máximo. As direções e extremos de cascas na tela também deixam de fora as cascas ocultas. Os resultados do solver não mudam; exporte de novo as figuras de cascas.",
+        "de": "Eine exportierte Schalenabbildung färbte jedes Element mit seinem Mittelpunktwert über den Bereich dieser Werte, während der Bildschirm das Konturfeld zeigt (Knotenmittel im gewählten Bereich, die gewählte Seite, ein eingegebener Bereich und Stufen). Farben, Skala und Höchstwert der Abbildung konnten vom Bildschirm und seiner Legende abweichen. Abbildungen zeigen jetzt das Feld des Bildschirms, über jede Fläche verlaufend, mit seinem Bereich, seinen Stufen und seinem Höchstwert. Richtungen und Extremwerte der Schalen auf dem Bildschirm lassen auch ausgeblendete Schalen aus. Die Ergebnisse des Solvers ändern sich nicht; exportieren Sie Schalenabbildungen erneut.",
+        "fr": "Une figure de coques exportée peignait chaque élément avec sa valeur au centre sur la plage de ces valeurs, alors que l'écran peint le champ des isovaleurs (moyennes aux nœuds dans le domaine choisi, la face choisie, une plage saisie et des paliers). Les couleurs, l'échelle et la valeur maximale de la figure pouvaient différer de l'écran et de sa légende. Les figures peignent désormais le champ de l'écran, fondu sur chaque face, avec sa plage, ses paliers et son maximum. Les directions et extrêmes des coques à l'écran laissent aussi de côté les coques masquées. Les résultats du solveur ne changent pas ; exportez à nouveau les figures de coques.",
+        "tr": "Dışa aktarılan bir kabuk şekli her elemanı merkez değeriyle, bu değerlerin aralığı üzerinde boyuyordu; ekran ise kontur alanını boyar (seçilen bölgede düğüm ortalamaları, seçilen yüz, girilen bir aralık ve bantlar). Şeklin renkleri, ölçeği ve en büyük değeri ekranla ve göstergesiyle uyuşmayabiliyordu. Şekiller artık ekranın alanını, her yüz boyunca harmanlanmış olarak, aralığı, bantları ve en büyük değeriyle boyar. Ekrandaki kabuk yönleri ve uç değerleri de gizli kabukları dışarıda bırakır. Çözücü sonuçları değişmez; kabuk şekillerini yeniden dışa aktarın."
+      },
+      "changelog": {
+        "file": "docs/verification/PROVENANCE.md",
+        "heading": "Shell figures paint the screen's field (PR #1255, review of #1077)"
+      }
+    },
+    {
+      "id": "generated-area-loads-headroom",
+      "resultsVersion": 20,
+      "date": "2026-11-03",
+      "prs": [
+        1253
+      ],
+      "area": "loads",
+      "when": {
+        "any": [
+          "generatedLoads"
+        ]
+      },
+      "title": {
+        "en": "Load generator: a floor partly under low roof structure keeps its area loads",
+        "es": "Generador de cargas: un piso en parte bajo estructura de techo baja conserva sus cargas de área",
+        "pt": "Gerador de cargas: um piso em parte sob estrutura de cobertura baixa mantém suas cargas de área",
+        "de": "Lastgenerator: eine Decke, die teilweise unter niedrigem Dachtragwerk liegt, behält ihre Flächenlasten",
+        "fr": "Générateur de charges : un plancher en partie sous une structure de toiture basse garde ses charges surfaciques",
+        "tr": "Yük üreteci: kısmen alçak çatı taşıyıcı sisteminin altındaki bir döşeme alan yüklerini koruyor"
+      },
+      "explanation": {
+        "en": "Since 2026-11-03 (#1076) \"Generate loads from the code\" left out a panel as the roof's structure when every member found over it was less than 2.2 m above, ignoring the parts of the panel with nothing over them: a floor with one low beam over one edge lost all its dead, live and roof live area load, with only a count in the derivation (SA-2026-033). A panel is now left out only when roof structure lies over all of it, all under 2.2 m, and a deck or beam under 2.2 m stands over its center, and the panels, members and shells loaded above carry all of it; otherwise the part they do not carry stays on it as roof load; trusses count as roof structure. A panel or member only partly under low structure keeps its load, as floor load when a floor or roof stands over its center and as roof load otherwise, and is named in the derivation. Saved loads do not change: generate the loads again for models whose loads came from the generator.",
+        "es": "Desde el 2026-11-03 (#1076) «Generar cargas desde el reglamento» dejaba fuera un paño como estructura del techo cuando todas las barras halladas sobre él estaban a menos de 2,2 m, sin mirar las partes del paño sin nada encima: un piso con una sola viga baja sobre un borde perdía toda su carga de área permanente, de uso y de uso de techo, con solo un conteo en la derivación (SA-2026-033). Ahora un paño queda fuera solo cuando la estructura del techo lo cubre entero, toda a menos de 2,2 m, y hay un entrepiso o una viga a menos de 2,2 m sobre su centro, y los paños, barras y placas cargados arriba lo llevan entero; si no, la parte que no llevan queda en él como carga de techo; las cerchas cuentan como estructura del techo. Un paño o una barra solo en parte bajo estructura baja conserva su carga, como carga de piso si hay un piso o techo sobre su centro y como carga de techo si no, y se nombra en la derivación. Las cargas guardadas no cambian: vuelva a generar las cargas en los modelos cuyas cargas vienen del generador.",
+        "pt": "Desde 2026-11-03 (#1076) \"Gerar cargas a partir da norma\" deixava de fora um painel como estrutura da cobertura quando todas as barras encontradas sobre ele estavam a menos de 2,2 m, sem olhar as partes do painel sem nada por cima: um piso com uma única viga baixa sobre uma borda perdia toda a sua carga de área permanente, de uso e de uso da cobertura, com apenas uma contagem na derivação (SA-2026-033). Agora um painel fica de fora só quando a estrutura da cobertura o cobre inteiro, toda a menos de 2,2 m, e há um piso ou uma viga a menos de 2,2 m sobre o seu centro, e os painéis, barras e placas carregados acima o levam inteiro; se não, a parte que não levam fica nele como carga de cobertura; as treliças contam como estrutura da cobertura. Um painel ou uma barra só em parte sob estrutura baixa mantém sua carga, como carga de piso se há um piso ou cobertura sobre o seu centro e como carga de cobertura se não, e é nomeado na derivação. As cargas salvas não mudam: gere as cargas de novo nos modelos cujas cargas vêm do gerador.",
+        "de": "Seit 2026-11-03 (#1076) ließ „Lasten aus der Norm erzeugen“ ein Feld als Dachtragwerk weg, wenn alle darüber gefundenen Stäbe weniger als 2,2 m darüber lagen, ohne die Teile des Felds ohne etwas darüber zu beachten: eine Decke mit einem einzigen niedrigen Träger über einem Rand verlor ihre gesamte ständige Flächenlast, Nutzlast und Dachnutzlast, mit nur einer Zählung in der Herleitung (SA-2026-033). Ein Feld wird jetzt nur weggelassen, wenn Dachtragwerk über dem ganzen Feld liegt, überall unter 2,2 m, und eine Decke oder ein Träger weniger als 2,2 m über seiner Mitte liegt, und die darüber belasteten Felder, Stäbe und Schalen es ganz tragen; sonst bleibt der Teil, den sie nicht tragen, als Dachlast auf ihm; Fachwerke zählen als Dachtragwerk. Ein Feld oder Stab nur teilweise unter niedrigem Tragwerk behält seine Last, als Deckenlast, wenn eine Decke oder ein Dach über seiner Mitte liegt, sonst als Dachlast, und wird in der Herleitung genannt. Gespeicherte Lasten ändern sich nicht: Erzeugen Sie die Lasten für Modelle, deren Lasten aus dem Generator stammen, erneut.",
+        "fr": "Depuis le 2026-11-03 (#1076), « Générer les charges selon la norme » écartait un panneau comme structure de la toiture quand toutes les barres trouvées au-dessus étaient à moins de 2,2 m, sans regarder les parties du panneau sans rien au-dessus : un plancher avec une seule poutre basse au-dessus d'un bord perdait toute sa charge surfacique permanente, d'exploitation et d'exploitation de toiture, avec un simple décompte dans la dérivation (SA-2026-033). Un panneau n'est désormais écarté que si la structure de la toiture le couvre entièrement, partout à moins de 2,2 m, et si un plancher ou une poutre est à moins de 2,2 m au-dessus de son centre, et si les panneaux, barres et coques chargés au-dessus le portent entièrement ; sinon la partie qu'ils ne portent pas lui reste comme charge de toiture ; les fermes comptent comme structure de toiture. Un panneau ou une barre seulement en partie sous une structure basse garde sa charge, comme charge de plancher si un plancher ou une toiture est au-dessus de son centre et comme charge de toiture sinon, et est nommé dans la dérivation. Les charges enregistrées ne changent pas : générez de nouveau les charges des modèles dont les charges viennent du générateur.",
+        "tr": "2026-11-03'ten beri (#1076) \"Yönetmelikten yük üret\", üzerinde bulunan bütün elemanlar 2,2 m'den daha az yukarıda olduğunda bir paneli çatı taşıyıcı sistemi sayıp dışarıda bırakıyordu; panelin üstünde hiçbir şey olmayan kısımlarına bakmıyordu: bir kenarının üstünde tek bir alçak kiriş olan bir döşeme bütün sabit, hareketli ve çatı hareketli alan yükünü kaybediyor, türetmede yalnızca bir sayım kalıyordu (SA-2026-033). Artık bir panel ancak çatı taşıyıcı sistemi panelin tamamını örttüğünde, her yerde 2,2 m'nin altında olduğunda ve merkezinin 2,2 m'den alçak üstünde bir döşeme veya kiriş olduğunda ve üstte yüklenen paneller, elemanlar ve kabuklar panelin tamamını taşıdığında dışarıda bırakılıyor; aksi halde taşımadıkları kısım üzerinde çatı yükü olarak kalıyor; kafes kirişler çatı taşıyıcı sistemi sayılıyor. Yalnızca kısmen alçak sistemin altında kalan bir panel veya eleman yükünü koruyor (merkezinin üstünde bir döşeme veya çatı varsa döşeme yükü, yoksa çatı yükü olarak) ve türetmede adıyla anılıyor. Kaydedilmiş yükler değişmez: yükleri üreteçten gelen modellerde yükleri yeniden üretin."
+      },
+      "changelog": {
+        "file": "docs/advisories/SA-2026-033-generated-area-loads-headroom.md",
+        "heading": "SA-2026-033: The load generator dropped a floor's area loads when one low member stood over part of it"
+      }
+    },
+    {
+      "id": "rc-column-least-compression",
+      "resultsVersion": 19,
+      "date": "2026-11-03",
+      "prs": [
+        1321
+      ],
+      "area": "design",
+      "when": {
+        "any": [
+          "cirsoc201"
+        ]
+      },
+      "title": {
+        "en": "RC columns are also checked under their least compression",
+        "es": "Las columnas de hormigón armado también se verifican con su menor compresión",
+        "pt": "Os pilares de concreto armado também são verificados com sua menor compressão",
+        "de": "Stahlbetonstützen werden auch unter ihrer kleinsten Druckkraft nachgewiesen",
+        "fr": "Les poteaux en béton armé sont aussi vérifiés sous leur compression minimale",
+        "tr": "Betonarme kolonlar en küçük basınç kuvvetleri altında da kontrol ediliyor"
+      },
+      "explanation": {
+        "en": "A CIRSOC 201 column was checked with its largest moment under its largest compression only; below the balance point a column is weaker with less compression, so wind or 0.9D moments were checked where it is stronger (40×40 column of the design QA frame: utilization 0.727, now 0.832). Columns may now need more bars or fail (SA-2026-041).",
+        "es": "Una columna CIRSOC 201 se verificaba con su momento máximo sólo bajo su compresión máxima; por debajo del punto de balance una columna es más débil con menos compresión, así que los momentos de viento o 0,9D se verificaban donde es más fuerte (columna 40×40 del pórtico de QA de diseño: utilización 0,727, ahora 0,832). Hay columnas que ahora piden más barras o no verifican (SA-2026-041).",
+        "pt": "Um pilar CIRSOC 201 era verificado com seu momento máximo só sob sua compressão máxima; abaixo do ponto de balanço um pilar é mais fraco com menos compressão, então momentos de vento ou 0,9D eram verificados onde ele é mais forte (pilar 40×40 do pórtico de QA de dimensionamento: utilização 0,727, agora 0,832). Há pilares que agora pedem mais barras ou não verificam (SA-2026-041).",
+        "de": "Eine CIRSOC-201-Stütze wurde mit ihrem größten Moment nur unter ihrer größten Druckkraft nachgewiesen; unterhalb des Balancepunkts ist eine Stütze mit weniger Druck schwächer, sodass Wind- oder 0,9D-Momente dort nachgewiesen wurden, wo sie stärker ist (Stütze 40×40 des Bemessungs-QA-Rahmens: Ausnutzung 0,727, jetzt 0,832). Stützen können jetzt mehr Bewehrung brauchen oder den Nachweis nicht erfüllen (SA-2026-041).",
+        "fr": "Un poteau CIRSOC 201 était vérifié avec son moment maximal sous sa compression maximale seulement ; sous le point d'équilibre un poteau est plus faible avec moins de compression, donc les moments de vent ou de 0,9D étaient vérifiés là où il est plus résistant (poteau 40×40 du portique de QA de dimensionnement : taux de travail 0,727, maintenant 0,832). Des poteaux peuvent maintenant nécessiter davantage de barres ou échouer à la vérification (SA-2026-041).",
+        "tr": "Bir CIRSOC 201 kolonu en büyük momentiyle yalnızca en büyük basınç kuvveti altında kontrol ediliyordu; denge noktasının altında kolon daha az basınçla daha zayıftır, bu yüzden rüzgâr veya 0,9D momentleri kolonun daha güçlü olduğu yerde kontrol ediliyordu (tasarım QA çerçevesindeki 40×40 kolon: kullanım oranı 0,727, şimdi 0,832). Kolonlar artık daha fazla donatı isteyebilir veya kontrolü geçemeyebilir (SA-2026-041)."
+      },
+      "changelog": {
+        "file": "docs/advisories/SA-2026-041-rc-column-least-compression.md",
+        "heading": "SA-2026-041: the RC column check paired the largest moment with the largest compression only"
+      }
+    },
+    {
+      "id": "rc-other-codes-torsion-unchecked",
+      "resultsVersion": 18,
+      "date": "2026-11-04",
+      "prs": [
+        1319
+      ],
+      "area": "design",
+      "when": {
+        "any": [
+          "concreteMembers"
+        ]
+      },
+      "title": {
+        "en": "ACI 318 and EN 1992: concrete members with torsion are marked not checked",
+        "es": "ACI 318 y EN 1992: las barras de hormigón con torsión se marcan como no verificadas",
+        "pt": "ACI 318 e EN 1992: barras de concreto com torção são marcadas como não verificadas",
+        "de": "ACI 318 und EN 1992: Betonstäbe mit Torsion werden als nicht nachgewiesen markiert",
+        "fr": "ACI 318 et EN 1992 : les barres en béton avec torsion sont marquées non vérifiées",
+        "tr": "ACI 318 ve EN 1992: burulmalı beton çubuklar kontrol edilmedi olarak işaretleniyor"
+      },
+      "explanation": {
+        "en": "The ACI 318 and EN 1992-1-1 checks under PRO other codes read flexure, shear and axial force only, so a reinforced concrete member with large torsion could pass (SA-2026-040). Such a member is now marked torsion not checked and does not pass: for ACI 318 above the 22.7.1.1 threshold φ·0.083·λ·√f'c·Acp²/pcp, for EN 1992 whenever it carries torsion. Re-run those checks on concrete members with torsion.",
+        "es": "Las verificaciones ACI 318 y EN 1992-1-1 de otras normas en PRO leían flexión, corte y esfuerzo axial solamente, así que una barra de hormigón armado con torsión grande podía verificar (SA-2026-040). Ahora esa barra se marca con torsión no verificada y no verifica: en ACI 318 por encima del umbral de 22.7.1.1, φ·0,083·λ·√f'c·Acp²/pcp, y en EN 1992 siempre que tenga torsión. Vuelva a correr esas verificaciones en barras de hormigón con torsión.",
+        "pt": "As verificações ACI 318 e EN 1992-1-1 de outras normas no PRO liam só flexão, cortante e esforço axial, então uma barra de concreto armado com torção grande podia passar (SA-2026-040). Agora essa barra é marcada com torção não verificada e não passa: na ACI 318 acima do limite de 22.7.1.1, φ·0,083·λ·√f'c·Acp²/pcp, e na EN 1992 sempre que tiver torção. Refaça essas verificações em barras de concreto com torção.",
+        "de": "Die Nachweise nach ACI 318 und EN 1992-1-1 unter anderen Normen in PRO lasen nur Biegung, Querkraft und Normalkraft, sodass ein Stahlbetonstab mit großer Torsion bestehen konnte (SA-2026-040). Ein solcher Stab wird jetzt als Torsion nicht nachgewiesen markiert und besteht nicht: nach ACI 318 oberhalb der Schwelle aus 22.7.1.1, φ·0,083·λ·√f'c·Acp²/pcp, nach EN 1992 bei jeder Torsion. Führen Sie diese Nachweise für Betonstäbe mit Torsion erneut aus.",
+        "fr": "Les vérifications ACI 318 et EN 1992-1-1 des autres normes en PRO ne lisaient que la flexion, l’effort tranchant et l’effort normal, donc une barre en béton armé avec une forte torsion pouvait passer (SA-2026-040). Une telle barre est maintenant marquée torsion non vérifiée et ne passe pas : pour l’ACI 318 au-delà du seuil de 22.7.1.1, φ·0,083·λ·√f'c·Acp²/pcp, pour l’EN 1992 dès qu’elle porte de la torsion. Relancez ces vérifications sur les barres en béton avec torsion.",
+        "tr": "PRO diğer yönetmeliklerdeki ACI 318 ve EN 1992-1-1 kontrolleri yalnızca eğilme, kesme ve eksenel kuvveti okuyordu; bu yüzden büyük burulmalı bir betonarme çubuk geçebiliyordu (SA-2026-040). Böyle bir çubuk artık burulma kontrol edilmedi olarak işaretleniyor ve geçmiyor: ACI 318'de 22.7.1.1 eşiği φ·0,083·λ·√f'c·Acp²/pcp üzerinde, EN 1992'de burulma taşıdığı her durumda. Burulmalı beton çubuklarda bu kontrolleri yeniden çalıştırın."
+      },
+      "changelog": {
+        "file": "changelog.d/1314-rc-other-codes-torsion.md",
+        "heading": "ACI 318 and EN 1992 checks no longer pass a concrete member whose torsion they did not check (2026-11-03)"
+      }
+    },
+    {
+      "id": "joint-weak-axis-moment",
+      "resultsVersion": 17,
+      "date": "2026-11-03",
+      "prs": [
+        1328
+      ],
+      "area": "design",
+      "when": {
+        "any": [
+          "jointDesigns"
+        ]
+      },
+      "title": {
+        "en": "Steel joints: weak-axis moments are no longer ignored",
+        "es": "Nudos de acero: ya no se ignoran los momentos en el eje débil",
+        "pt": "Ligações de aço: momentos no eixo fraco não são mais ignorados",
+        "de": "Stahlknoten: Momente um die schwache Achse werden nicht mehr ignoriert",
+        "fr": "Assemblages acier : les moments selon l’axe faible ne sont plus ignorés",
+        "tr": "Çelik birleşimler: zayıf eksen momentleri artık yok sayılmıyor"
+      },
+      "explanation": {
+        "en": "Joint typologies read only each member's strong-axis end moment: a beam carrying a moment about its weak axis into a joint had it dropped, and the joint was designed without it. Such a joint is now left unresolved, with the reason. It concerns steel joints whose members bend about their weak axis.",
+        "es": "Las tipologías de nudo leían solo el momento de extremo en el eje fuerte de cada barra: una viga que llevaba momento en su eje débil a un nudo lo perdía, y el nudo se diseñaba sin él. Ese nudo ahora queda sin resolver, con el motivo. Afecta a nudos de acero cuyas barras flexionan en el eje débil.",
+        "pt": "As tipologias de ligação liam só o momento de extremidade no eixo forte de cada barra: uma viga que levava momento no eixo fraco a uma ligação o perdia, e a ligação era dimensionada sem ele. Essa ligação agora fica sem resolver, com o motivo. Afeta ligações de aço cujas barras fletem no eixo fraco.",
+        "de": "Die Knotentypologien lasen nur das Endmoment um die starke Achse jedes Stabs: ein Träger, der ein Moment um seine schwache Achse in einen Knoten einleitete, verlor es, und der Knoten wurde ohne es bemessen. Ein solcher Knoten bleibt jetzt ungelöst, mit Begründung. Betrifft Stahlknoten, deren Stäbe um die schwache Achse biegen.",
+        "fr": "Les typologies d’assemblage ne lisaient que le moment d’extrémité selon l’axe fort de chaque barre : une poutre transmettant un moment selon son axe faible à un nœud le perdait, et l’assemblage était dimensionné sans lui. Un tel assemblage reste désormais non résolu, avec la raison. Concerne les assemblages acier dont les barres fléchissent selon l’axe faible.",
+        "tr": "Birleşim tipolojileri her çubuğun yalnızca güçlü eksen uç momentini okuyordu: zayıf ekseni etrafında moment taşıyan bir kirişin momenti düşüyordu ve birleşim onsuz boyutlandırılıyordu. Böyle bir birleşim artık nedeniyle birlikte çözümsüz bırakılıyor. Çubukları zayıf eksende eğilen çelik birleşimleri etkiler."
+      },
+      "changelog": {
+        "file": "changelog.d/532-joint-weak-axis-moment.md",
+        "heading": "Steel joints with a weak-axis moment are left unresolved (2026-11-03)"
+      }
+    },
     {
       "id": "aluminium-weak-axis-shear",
       "resultsVersion": 16,

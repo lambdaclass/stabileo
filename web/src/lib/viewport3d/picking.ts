@@ -119,11 +119,13 @@ export function findNodeHit(
   mouse: THREE.Vector2,
   camera: THREE.Camera,
   nodesParent: THREE.Group,
+  keep?: (point: THREE.Vector3) => boolean,
 ): number | null {
   raycaster.setFromCamera(mouse, camera);
   raycaster.camera = camera;
   const nodeHits = raycaster.intersectObjects(nodesParent.children, true);
   for (const hit of nodeHits) {
+    if (keep && !keep(hit.point)) continue;
     const ud = resolveHitUserData(hit);
     if (ud?.type === 'node') return ud.id;
   }
@@ -139,11 +141,13 @@ export function findElementHit(
   mouse: THREE.Vector2,
   camera: THREE.Camera,
   elementsParent: THREE.Group,
+  keep?: (point: THREE.Vector3) => boolean,
 ): number | null {
   raycaster.setFromCamera(mouse, camera);
   raycaster.camera = camera;
   const elemHits = raycaster.intersectObjects(elementsParent.children, true);
   for (const hit of elemHits) {
+    if (keep && !keep(hit.point)) continue;
     const ud = resolveHitUserData(hit);
     if (ud?.type === 'element') return ud.id;
   }

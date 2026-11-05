@@ -62,3 +62,30 @@ test('@smoke a beam edited on a master storey reaches its similar storeys and no
   await page.keyboard.press(process.platform === 'darwin' ? 'Meta+z' : 'Control+z');
   for (const k of [1, 2, 3, 4]) expect(await section(beams[k]!), `N${k} after undo`).toBe(1);
 });
+
+test('@smoke narrowing the scope back to this storey keeps only what was selected there', async ({ pro: page }) => {
+  const { file, beams } = building();
+  expect(await page.evaluate((f) => window.__stabileoActions.loadProject(f), file)).toBe(true);
+  await page.getByTestId('storey-scope-similar').click();
+  await page.evaluate((id) => window.__stabileoActions.selectElements([id]), beams[5]!);
+  await expect(page.getByTestId('storey-scope-note')).toBeVisible();
+  const selection = () => page.evaluate(() => window.__stabileo.selection());
+  await expect.poll(selection).toEqual([5, 6, 7, 8].map((k) => beams[k]!).sort((a, b) => a - b));
+  await page.getByTestId('storey-scope-this').click();
+  await expect.poll(selection).toEqual([beams[5]!]);
+});
+
+test.describe('@smoke the storey scope on a phone', () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+  test('fits the screen, with buttons a finger can take', async ({ pro: page }) => {
+    const { file } = building();
+    expect(await page.evaluate((f) => window.__stabileoActions.loadProject(f), file)).toBe(true);
+    const bar = page.getByTestId('storey-scope');
+    await expect(bar).toBeVisible();
+    const b = (await bar.boundingBox())!;
+    expect(b.x).toBeGreaterThanOrEqual(0);
+    expect(b.x + b.width).toBeLessThanOrEqual(390);
+    for (const s of ['this', 'similar', 'all']) expect((await page.getByTestId(`storey-scope-${s}`).boundingBox())!.height).toBeGreaterThanOrEqual(32);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  });
+});

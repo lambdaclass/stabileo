@@ -1,11 +1,13 @@
 /**
  * The report after an analysis: one list of what to look at, in three parts. The model (its
- * checks and the solver's findings about it), the analysis (equilibrium of each case, the P-Delta
+ * checks and every diagnostic, the solver's included, as the Diagnostics tab lists them under that
+ * heading), the analysis (equilibrium of each case, the P-Delta
  * iteration, a mechanism) and, with the design on, the members that do not verify. Each line can
  * name the objects it is about, so a click selects them. Pure: the caller gathers the inputs.
  */
 import type { SolverDiagnostic } from './types';
 import { selectionOf } from './model-findings';
+import { staticsVerdict } from './statics-check';
 
 export type PostAnalysisPart = 'model' | 'analysis' | 'design';
 export type PostAnalysisSeverity = 'error' | 'warning' | 'info' | 'ok';
@@ -41,7 +43,7 @@ export function postAnalysisLines(input: PostAnalysisInput, tr: Tr): PostAnalysi
   const out: PostAnalysisLine[] = [];
   for (const d of input.diagnostics) {
     const sel = selectionOf(d);
-    out.push({ part: d.source === 'model' ? 'model' : 'analysis', severity: d.severity, text: tr(d.message), ...(sel ? { selection: sel } : {}) });
+    out.push({ part: 'model', severity: d.severity, text: tr(d.message), ...(d.source !== 'model' ? { detail: tr(`diag.source.${d.source}`) } : {}), ...(sel ? { selection: sel } : {}) });
   }
 
   if (input.mechanism && input.mechanism.mechanismModes > 0) {
@@ -50,18 +52,22 @@ export function postAnalysisLines(input: PostAnalysisInput, tr: Tr): PostAnalysi
   }
 
   if (input.statics) {
-    const off = input.statics.filter((r) => r.worstRelative >= POST_ANALYSIS_BALANCED);
-    for (const r of off) {
-      out.push({
-        part: 'analysis', severity: r.worstRelative >= POST_ANALYSIS_UNBALANCED ? 'error' : 'warning',
-        text: tr('post.unbalanced', { name: r.caseName || tr('post.singleSolve'), residual: pct(r.worstRelative) }),
-        ...(r.uncovered.length ? { detail: tr('post.uncovered', { kinds: r.uncovered.join(', ') }) } : {}),
-      });
+    const name = (r: { caseName: string }) => r.caseName || tr('post.singleSolve');
+    const uncovered = (r: { uncovered: readonly string[] }) => (r.uncovered.length ? { detail: tr('post.uncovered', { kinds: r.uncovered.join(', ') }) } : {});
+    const balanced: number[] = [];
+    for (const r of input.statics) {
+      const verdict = staticsVerdict(r, POST_ANALYSIS_BALANCED);
+      if (verdict === 'unbalanced') {
+        out.push({
+          part: 'analysis', severity: !Number.isFinite(r.worstRelative) || r.worstRelative >= POST_ANALYSIS_UNBALANCED ? 'error' : 'warning',
+          text: Number.isFinite(r.worstRelative) ? tr('post.unbalanced', { name: name(r), residual: pct(r.worstRelative) }) : tr('post.unbalancedNotComputable', { name: name(r) }),
+          ...uncovered(r),
+        });
+      } else if (verdict === 'partial') {
+        out.push({ part: 'analysis', severity: 'warning', text: tr('post.partial', { name: name(r) }), ...uncovered(r) });
+      } else balanced.push(r.worstRelative);
     }
-    if (input.statics.length && !off.length) {
-      const worst = Math.max(...input.statics.map((r) => r.worstRelative));
-      out.push({ part: 'analysis', severity: 'ok', text: tr('post.balanced', { n: input.statics.length, residual: worst.toExponential(1) }) });
-    }
+    if (balanced.length) out.push({ part: 'analysis', severity: 'ok', text: tr(balanced.length === 1 ? 'post.balancedOne' : 'post.balanced', { n: balanced.length, residual: Math.max(...balanced).toExponential(1) }) });
   }
 
   if (input.pdelta) {
