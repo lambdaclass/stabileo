@@ -1676,6 +1676,19 @@ fn a_soft_rotation_held_by_the_orphan_spring_is_warned_1367() {
     assert!(!ids(&held.structured_diagnostics).contains(&"ORPHAN-SOFT-ROTATION".to_string()), "{:?}", ids(&held.structured_diagnostics));
 }
 
+#[test]
+fn the_prepared_3d_path_warns_a_soft_rotation_like_the_regular_one_1367() {
+    let input = soft_rotation_beside_a_stiff_member(1e-10);
+    let regular = dedaliano_engine::solver::linear::solve_3d(&input).unwrap();
+    let prepared = dedaliano_engine::solver::linear::prepare_static_3d(&input).unwrap().solve_loads(&input.loads).unwrap();
+    for r in [&regular, &prepared] {
+        let warning = r.structured_diagnostics.iter().find(|d| d.phase.as_deref() == Some("ORPHAN-SOFT-ROTATION")).unwrap_or_else(|| panic!("{:?}", ids(&r.structured_diagnostics)));
+        assert_eq!(warning.severity, dedaliano_engine::types::Severity::Warning);
+    }
+    let ry = |r: &dedaliano_engine::types::AnalysisResults3D| r.displacements.iter().find(|d| d.node_id == 2).unwrap().ry;
+    assert_eq!(ry(&regular), ry(&prepared));
+}
+
 fn soft_rotation_beside_a_stiff_member_2d(soft_inertia: f64) -> SolverInput {
     common::make_input(
         vec![(1, 0.0, 0.0), (2, 1.0, 0.0), (3, 0.0, 5.0), (4, 1.0, 5.0)],

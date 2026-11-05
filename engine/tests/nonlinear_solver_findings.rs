@@ -847,3 +847,96 @@ fn corotational_small_load_converges_to_tight_tolerance() {
     let uz = |res: &AnalysisResults3D| res.displacements.iter().find(|d| d.node_id == 2).unwrap().uz;
     close(uz(&r.results), uz(&linear::solve_3d(&s3).unwrap()), 1e-6, "3D tip");
 }
+
+fn warns_freezing(d: &[StructuredDiagnostic]) -> bool {
+    d.iter().any(|d| d.phase.as_deref() == Some("NL-13"))
+}
+
+fn gap_2d(max_flips: Option<usize>) -> ContactInput {
+    let g0 = 0.002;
+    let model = make_input(
+        vec![(1, 0.0, 0.0), (2, 1.0, 0.0), (3, 1.0 + g0, 0.0)],
+        vec![(1, 200.0, 0.3)],
+        vec![(1, 0.01, 1e-4)],
+        vec![(1, "frame", 1, 2, 1, 1, false, false)],
+        vec![(1, 1, "fixed"), (2, 3, "fixed")],
+        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 500.0, fz: 0.0, my: 0.0 })],
+    );
+    let mut ci = contact_input(model);
+    ci.max_flips = max_flips;
+    ci.gap_elements.push(GapElement {
+        id: 1, node_i: 2, node_j: 3, direction: 0, initial_gap: g0, stiffness: 5000.0,
+        friction: None, friction_direction: None, friction_coefficient: None,
+    });
+    ci
+}
+
+/// With max_flips = 0 the first status change freezes each contact, so every path must carry
+/// NL-13 (#432), and the same model with room to settle must not.
+#[test]
+fn every_frozen_contact_path_warns_432() {
+    assert!(!warns_freezing(&solve_contact_2d(&gap_2d(None)).unwrap().results.structured_diagnostics));
+    assert!(warns_freezing(&solve_contact_2d(&gap_2d(Some(0))).unwrap().results.structured_diagnostics), "2D gap");
+
+    let model = make_input(
+        vec![(1, 0.0, 2.0), (2, 0.0, 0.01), (3, -1.0, 0.0), (4, 1.0, 0.0)],
+        vec![(1, 200.0, 0.3)],
+        vec![(1, 0.01, 1e-4)],
+        vec![(1, "frame", 1, 2, 1, 1, false, false)],
+        vec![(1, 1, "fixed"), (2, 3, "fixed"), (3, 4, "fixed")],
+        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: -100.0, my: 0.0 })],
+    );
+    let mut ci = contact_input(model);
+    ci.contact_type = ContactType::NodeToSurface;
+    ci.node_to_surface_pairs.push(NodeToSurfacePair {
+        slave_node: 2,
+        master_segment: MasterSegment { id: 1, node_a: 3, node_b: 4 },
+        stiffness: 5000.0,
+        friction_coefficient: None,
+    });
+    assert!(!warns_freezing(&solve_contact_2d(&ci).unwrap().results.structured_diagnostics));
+    ci.max_flips = Some(0);
+    assert!(warns_freezing(&solve_contact_2d(&ci).unwrap().results.structured_diagnostics), "2D node-to-surface");
+
+    let model = make_input(
+        vec![(1, 0.0, 0.0), (2, 6.0, 0.0), (3, 0.0, 4.0), (4, 6.0, 4.0)],
+        vec![(1, 200_000.0, 0.3)],
+        vec![(1, 0.01, 1e-4)],
+        vec![
+            (1, "frame", 1, 3, 1, 1, false, false),
+            (2, "frame", 2, 4, 1, 1, false, false),
+            (3, "frame", 3, 4, 1, 1, false, false),
+        ],
+        vec![(1, 1, "fixed"), (2, 2, "fixed")],
+        vec![
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 200.0, fz: -10.0, my: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fz: -10.0, my: 0.0 }),
+        ],
+    );
+    let mut ci = contact_input(model);
+    ci.uplift_supports = vec![1, 2];
+    assert!(!warns_freezing(&solve_contact_2d(&ci).unwrap().results.structured_diagnostics));
+    ci.max_flips = Some(0);
+    assert!(warns_freezing(&solve_contact_2d(&ci).unwrap().results.structured_diagnostics), "2D uplift");
+
+    let g0 = 0.002;
+    let input = |max_flips: Option<usize>| -> ContactInput3D {
+        serde_json::from_value(serde_json::json!({
+            "solver": {
+                "nodes": {"1": {"id": 1, "x": 0.0, "y": 0.0, "z": 0.0}, "2": {"id": 2, "x": 1.0, "y": 0.0, "z": 0.0}, "3": {"id": 3, "x": 1.0 + g0, "y": 0.0, "z": 0.0}},
+                "materials": {"1": {"id": 1, "e": 200.0, "nu": 0.3}},
+                "sections": {"1": {"id": 1, "a": 0.01, "iy": 1e-4, "iz": 1e-4, "j": 1e-4}},
+                "elements": {"1": {"id": 1, "type": "frame", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1}},
+                "supports": {
+                    "1": {"nodeId": 1, "rx": true, "ry": true, "rz": true, "rrx": true, "rry": true, "rrz": true},
+                    "3": {"nodeId": 3, "rx": true, "ry": true, "rz": true, "rrx": true, "rry": true, "rrz": true}
+                },
+                "loads": [{"type": "nodal", "data": {"nodeId": 2, "fx": 500.0, "fy": 0.0, "fz": 0.0, "mx": 0.0, "my": 0.0, "mz": 0.0}}]
+            },
+            "gapElements": [{"id": 1, "nodeI": 2, "nodeJ": 3, "direction": 0, "initialGap": g0, "stiffness": 5000.0}],
+            "maxFlips": max_flips
+        })).unwrap()
+    };
+    assert!(!warns_freezing(&solve_contact_3d(&input(None)).unwrap().results.structured_diagnostics));
+    assert!(warns_freezing(&solve_contact_3d(&input(Some(0))).unwrap().results.structured_diagnostics), "3D gap");
+}
