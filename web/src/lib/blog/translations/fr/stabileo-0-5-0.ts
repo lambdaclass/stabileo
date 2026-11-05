@@ -23,50 +23,59 @@ const body: PostBody = {
     {"k": "img", "base": "blog/release-050-recheck-de", "w": 1600, "h": 1000, "alt": "Stabileo Basic en allemand, à l’ouverture d’un portique plan des exemples calculé pour la dernière fois avec la version de résultats 15. La demande de revérification liste les changements qui le concernent, chacun avec son titre et son explication en allemand, et demande de cocher leur lecture avant de continuer ou de relancer l’analyse.", "caption": "La demande de revérification explique désormais chaque changement dans les six langues : ici, en allemand."},
     {
       "k": "table",
-      "caption": "Quelques corrections de la 0.5.0, telles que chaque avis les documente.",
+      "caption": "Quelques corrections de la 0.5.0, telles que chaque avis les documente, avec la version de résultats qui a introduit chacune ; SA-2026-035 n’en a pas, son avis est donc la seule notification.",
       "head": [
         "Avis",
+        "Version de résultats",
         "Ce qui était faux",
         "Gravité"
       ],
       "rows": [
         [
           "SA-2026-029",
+          "7",
           "Les vérifications de dimensionnement 3D lisaient le moment ou l’effort tranchant latéral : un poteau CIRSOC 201 fléchi autour de Mz était vérifié sur sa hauteur, avec 36 % d’acier en moins que nécessaire dans un exemple",
           "Critique"
         ],
         [
           "SA-2026-028",
+          "8",
           "La flexion selon l’EN 1992-1-1 supposait que les armatures tendues plastifient : MRd jusqu’à 22 % trop élevé",
           "Élevée"
         ],
         [
           "SA-2026-030",
+          "12",
           "Compression CIRSOC 301 : une section avec Qa ≤ 0 recevait une résistance supérieure à sa charge d’écrasement, et était validée",
           "Élevée"
         ],
         [
           "SA-2026-041",
+          "19",
           "La vérification des poteaux en béton armé associait le plus grand moment uniquement à la plus grande compression : jusqu’à 15 % non conservatif dans un exemple",
           "Élevée"
         ],
         [
           "SA-2026-042",
+          "23",
           "Le flambement 2D surestimait le facteur des barres dont la compression croît le long de la barre : de +43 % à +68 % pour une barre",
           "Élevée"
         ],
         [
           "SA-2026-035",
+          "—",
           "Une coupe de 3D en 2D faisait fléchir les barres autour du mauvais axe de la section : un portique Y–Z 13,5 fois trop rigide",
           "Élevée"
         ],
         [
           "SA-2026-033",
+          "20",
           "Le générateur de charges omettait toute la charge surfacique d’un étage lorsqu’une barre basse se trouvait au-dessus d’une partie de celui-ci",
           "Élevée"
         ],
         [
           "SA-2026-027",
+          "11",
           "L’enveloppe des coques conservait la combinaison ayant le plus grand Von Mises, et non l’extrême de chaque composante : mx 14 % trop faible dans un exemple",
           "Élevée"
         ]

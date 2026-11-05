@@ -23,50 +23,59 @@ const body: PostBody = {
     {"k": "img", "base": "blog/release-050-recheck-de", "w": 1600, "h": 1000, "alt": "Almanca Stabileo Basic, örneklerden en son 15 numaralı sonuç sürümüyle çözülmüş bir düzlem çerçeveyi açarken. Yeniden kontrol uyarısı, çerçeveyi ilgilendiren değişiklikleri her birinin Almanca başlığı ve açıklamasıyla listeliyor ve devam etmeden ya da analizi yeniden çalıştırmadan önce okunduklarının işaretlenmesini istiyor.", "caption": "Yeniden kontrol uyarısı artık her değişikliği altı dilin hepsinde açıklıyor: burada Almanca."},
     {
       "k": "table",
-      "caption": "0.5.0 düzeltmelerinden bazıları, her bildirimin belgelediği şekliyle.",
+      "caption": "0.5.0 düzeltmelerinden bazıları, her bildirimin belgelediği şekliyle ve her birini getiren sonuç sürümüyle; SA-2026-035’in sürümü yok, bu yüzden tek duyurusu bildirimidir.",
       "head": [
         "Bildirim",
+        "Sonuç sürümü",
         "Yanlış olan neydi",
         "Önem derecesi"
       ],
       "rows": [
         [
           "SA-2026-029",
+          "7",
           "3B tasarım kontrolleri yanal momenti veya yanal kesme kuvvetini okuyordu: Mz etrafında eğilen bir CIRSOC 201 kolonu yüksekliği boyunca kontrol ediliyordu; bir örnekte gerekenden %36 az donatı",
           "Kritik"
         ],
         [
           "SA-2026-028",
+          "8",
           "EN 1992-1-1 eğilme hesabı çekme donatısının aktığını varsayıyordu: MRd %22’ye kadar yüksek",
           "Yüksek"
         ],
         [
           "SA-2026-030",
+          "12",
           "CIRSOC 301 basınç: Qa ≤ 0 olan bir kesite ezilme yükünün üzerinde bir kapasite veriliyordu ve kesit kontrolden geçiyordu",
           "Yüksek"
         ],
         [
           "SA-2026-041",
+          "19",
           "Betonarme kolon kontrolü en büyük momenti yalnızca en büyük basınçla eşleştiriyordu: bir örnekte %15’e kadar güvensiz tarafta",
           "Yüksek"
         ],
         [
           "SA-2026-042",
+          "23",
           "2B burkulma, basınç kuvveti boyları boyunca artan çubukların çarpanını olduğundan büyük hesaplıyordu: bir çubuk için +%43 ile +%68 arası",
           "Yüksek"
         ],
         [
           "SA-2026-035",
+          "—",
           "3B’den 2B’ye bir kesim, çubukları yanlış kesit ekseni etrafında eğiyordu: bir Y–Z portal çerçeve 13,5 kat fazla rijit",
           "Yüksek"
         ],
         [
           "SA-2026-033",
+          "20",
           "Yük üreteci, alçak bir çubuk bir katın bir kısmının üzerinde durduğunda o katın alan yükünün tamamını dışarıda bırakıyordu",
           "Yüksek"
         ],
         [
           "SA-2026-027",
+          "11",
           "Kabuk zarfı her bileşenin uç değerini değil, en büyük Von Mises değerine sahip kombinasyonu tutuyordu: bir örnekte mx %14 düşük",
           "Yüksek"
         ]

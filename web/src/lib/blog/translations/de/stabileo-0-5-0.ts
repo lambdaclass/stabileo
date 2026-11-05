@@ -23,50 +23,59 @@ const body: PostBody = {
     {"k": "img", "base": "blog/release-050-recheck-de", "w": 1600, "h": 1000, "alt": "Stabileo Basic auf Deutsch beim Öffnen eines ebenen Rahmens aus den Beispielen, der zuletzt mit der Ergebnisversion 15 berechnet wurde. Die Aufforderung zur Nachprüfung listet die Änderungen, die ihn betreffen, jede mit Titel und Erläuterung auf Deutsch, und verlangt eine Lesebestätigung, bevor man fortfährt oder die Berechnung erneut ausführt.", "caption": "Die Aufforderung zur Nachprüfung erklärt jede Änderung jetzt in allen sechs Sprachen: hier auf Deutsch."},
     {
       "k": "table",
-      "caption": "Einige der Korrekturen in 0.5.0, wie der jeweilige Sicherheitshinweis sie dokumentiert.",
+      "caption": "Einige der Korrekturen in 0.5.0, wie der jeweilige Sicherheitshinweis sie dokumentiert, mit der Ergebnisversion, die jede einführte; SA-2026-035 hat keine, daher ist sein Hinweis die einzige Benachrichtigung.",
       "head": [
         "Hinweis",
+        "Ergebnisversion",
         "Was falsch war",
         "Schweregrad"
       ],
       "rows": [
         [
           "SA-2026-029",
+          "7",
           "Die 3D-Bemessungsnachweise lasen das seitliche Moment oder die seitliche Querkraft: Eine Stütze nach CIRSOC 201 mit Biegung um Mz wurde über ihre Höhe nachgewiesen, in einem Beispiel mit 36 % zu wenig Bewehrung",
           "Kritisch"
         ],
         [
           "SA-2026-028",
+          "8",
           "Die Biegebemessung nach EN 1992-1-1 nahm an, dass die Zugbewehrung fließt: MRd bis zu 22 % zu hoch",
           "Hoch"
         ],
         [
           "SA-2026-030",
+          "12",
           "Druck nach CIRSOC 301: Ein Querschnitt mit Qa ≤ 0 erhielt eine Tragfähigkeit über seiner Quetschlast und bestand den Nachweis",
           "Hoch"
         ],
         [
           "SA-2026-041",
+          "19",
           "Der Nachweis von Stahlbetonstützen kombinierte das größte Moment nur mit der größten Druckkraft: in einem Beispiel bis zu 15 % auf der unsicheren Seite",
           "Hoch"
         ],
         [
           "SA-2026-042",
+          "23",
           "Die 2D-Knickberechnung überschätzte den Knicklastfaktor von Stäben, deren Druckkraft entlang des Stabs zunimmt: +43 % bis +68 % für einen Stab",
           "Hoch"
         ],
         [
           "SA-2026-035",
+          "—",
           "Ein Schnitt von 3D auf 2D bog Stäbe um die falsche Querschnittsachse: ein Y–Z-Rahmen 13,5-mal zu steif",
           "Hoch"
         ],
         [
           "SA-2026-033",
+          "20",
           "Der Lastgenerator ließ die gesamte Flächenlast eines Geschosses weg, wenn ein niedriger Stab über einem Teil davon stand",
           "Hoch"
         ],
         [
           "SA-2026-027",
+          "11",
           "Die Umhüllende der Schalen behielt die Kombination mit dem größten Von-Mises-Wert statt des Extremwerts jeder Komponente: mx in einem Beispiel 14 % zu niedrig",
           "Hoch"
         ]
