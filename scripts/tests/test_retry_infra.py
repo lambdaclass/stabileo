@@ -200,11 +200,32 @@ if [ "$n" = 0 ]; then {first}; else {second}; fi
         self.assertIn('retried', result.stdout)
 
     def test_the_retry_waits_for_a_lock_held_outside_the_attempt_session(self):
-        result, count, elapsed = self.stalled_then('setsid flock LOCK sleep 6 & echo started; sleep 300',
-                                                   'flock -n LOCK echo retried')
-        self.assertEqual((result.returncode, count), (0, 2), result.stderr)
-        self.assertIn('Waiting for the previous attempt to release its lock', result.stderr)
-        self.assertGreater(elapsed, 5)
+        with tempfile.TemporaryDirectory() as directory:
+            count, lock, release, log = (Path(directory) / name for name in ('count', 'lock', 'release', 'stderr'))
+            command = Path(directory) / 'command.sh'
+            command.write_text(f"""n=$(cat {count} 2>/dev/null || echo 0); echo $((n + 1)) > {count}
+if [ "$n" = 0 ]; then setsid flock {lock} sh -c 'until [ -e {release} ]; do sleep 0.1; done' & echo started; sleep 300
+else flock -n {lock} echo retried; fi
+""")
+            with open(log, 'w') as stderr:
+                wrapper = subprocess.Popen([str(WRAPPER), 'bash', str(command)], stdout=subprocess.PIPE, stderr=stderr, text=True,
+                                           env={**os.environ, 'RETRY_INFRA_DELAY_SECONDS': '0', 'RETRY_INFRA_TIMEOUT_SECONDS': '2',
+                                                'RETRY_INFRA_LOCKS': str(lock)})
+                try:
+                    deadline = time.monotonic() + 90
+                    while 'Waiting for the previous attempt to release its lock' not in log.read_text():
+                        self.assertIsNone(wrapper.poll(), log.read_text())
+                        self.assertLess(time.monotonic(), deadline, log.read_text())
+                        time.sleep(0.2)
+                    self.assertFalse(count.read_text().strip() == '2', 'the retry started while the lock was held')
+                    release.touch()
+                    stdout, _ = wrapper.communicate(timeout=90)
+                finally:
+                    release.touch()
+                    if wrapper.poll() is None:
+                        wrapper.kill()
+            self.assertEqual((wrapper.returncode, count.read_text().strip()), (0, '2'), log.read_text())
+            self.assertIn('retried', stdout)
 
     def test_a_slow_command_that_keeps_printing_is_not_killed(self):
         result, count, _ = self.stalled_then('for i in 1 2 3 4 5 6; do echo "Get:$i"; sleep 1; done', 'exit 9')
