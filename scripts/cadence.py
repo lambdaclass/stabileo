@@ -111,6 +111,22 @@ def listing(manifest, tiers, runner, root=ROOT):
     ]
 
 
+SECTIONS = {"Every PR": "pr", "Daily": "daily", "Weekly": "weekly", "Monthly": "monthly"}
+
+
+def documented(doc):
+    rows, tier = {}, None
+    for line in doc.splitlines():
+        h = re.match(r"^### (.+?)\s*$", line)
+        if h:
+            tier = SECTIONS.get(h.group(1))
+            continue
+        row = re.match(r"^\| `([^`]+)` \|", line)
+        if row and tier:
+            rows[row.group(1)] = tier
+    return rows
+
+
 def check(manifest, root=ROOT):
     errors = []
     tiers = set(manifest["tiers"])
@@ -120,6 +136,7 @@ def check(manifest, root=ROOT):
                 errors.append(f"tier {t}: no {k}")
     targets = make_targets(root)
     doc = (root / "docs" / "TESTING_CADENCE.md").read_text() if (root / "docs" / "TESTING_CADENCE.md").exists() else ""
+    rows = documented(doc)
     seen = set()
     for c in manifest["checks"]:
         i = c.get("id", "?")
@@ -146,8 +163,10 @@ def check(manifest, root=ROOT):
                     errors.append(f"{i}: workflow {wf} does not exist")
             elif not re.search(rf"^  {re.escape(job)}:\s*$", path.read_text(), re.M):
                 errors.append(f"{i}: workflow {wf} has no job {job}")
-        if doc and f"`{i}`" not in doc:
+        if i not in rows:
             errors.append(f"{i}: not in docs/TESTING_CADENCE.md")
+        elif c.get("tier") in tiers and rows[i] != c["tier"]:
+            errors.append(f"{i}: docs/TESTING_CADENCE.md lists it under {rows[i]}, the manifest under {c['tier']}")
     return errors
 
 

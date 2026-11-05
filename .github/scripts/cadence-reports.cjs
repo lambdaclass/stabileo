@@ -36,7 +36,12 @@ async function triage({github, context, core, now = Date.now(), dry = false}) {
   const {owner, repo} = context.repo;
   const open = (await github.paginate(github.rest.issues.listForRepo, {owner, repo, labels: CANDIDATE, state: 'open', per_page: 100}))
     .filter((i) => !i.pull_request);
-  const fresh = open.filter((i) => now - Date.parse(i.created_at) <= DAY + 2 * 36e5);
+  const since = now - DAY - 2 * 36e5;
+  const comments = await github.paginate(github.rest.issues.listCommentsForRepo, {owner, repo, since: new Date(since).toISOString(), per_page: 100});
+  const recurred = new Set(comments
+    .filter((c) => c.user?.type === 'Bot' && Date.parse(c.created_at) >= since)
+    .map((c) => Number(String(c.issue_url).split('/').pop())));
+  const fresh = open.filter((i) => Date.parse(i.created_at) >= since || recurred.has(i.number));
   for (const i of open) {
     const missing = ASSIGNEES.filter((a) => !(i.assignees || []).some((x) => x.login === a));
     if (!missing.length) continue;
@@ -47,7 +52,7 @@ async function triage({github, context, core, now = Date.now(), dry = false}) {
   const lines = [
     `### Triage ${day}`,
     '',
-    `${fresh.length} new wrong-result candidate(s) in the last day; ${open.length} open in all.`,
+    `${fresh.length} new or recurring wrong-result candidate(s) in the last day; ${open.length} open in all.`,
     '',
     ...fresh.map((i) => `- [ ] #${i.number} ${i.title}`),
   ];

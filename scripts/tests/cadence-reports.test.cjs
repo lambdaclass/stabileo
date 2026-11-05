@@ -5,7 +5,7 @@ const {upsertIssue, triage, flakyReport} = require('../../.github/scripts/cadenc
 const OWNERS = ['unbalancedparentheses', 'Batuis'];
 const NOW = Date.parse('2026-11-05T06:00:00Z');
 
-function harness({issuesByLabel = {}, runs = [], jobsByRun = {}} = {}) {
+function harness({issuesByLabel = {}, runs = [], jobsByRun = {}, comments = []} = {}) {
   const calls = [];
   const rec = (name, fn) => async (args) => {
     calls.push({name, args});
@@ -15,6 +15,7 @@ function harness({issuesByLabel = {}, runs = [], jobsByRun = {}} = {}) {
     rest: {
       issues: {
         listForRepo: rec('listForRepo', (a) => ({data: issuesByLabel[a.labels] || []})),
+        listCommentsForRepo: rec('listCommentsForRepo', () => ({data: comments})),
         createLabel: rec('createLabel'),
         create: rec('create', (a) => ({data: {...a, number: 900}})),
         createComment: rec('createComment'),
@@ -66,6 +67,24 @@ test('triage assigns the owners to every open candidate and reports only the new
   assert.deepEqual(create.args.assignees, OWNERS);
   assert.match(create.args.body, /- \[ \] #11 /);
   assert.doesNotMatch(create.args.body, /#5 /);
+});
+
+test('a candidate that recurred overnight is reported again', async () => {
+  const h = harness({
+    issuesByLabel: {'wrong-result-candidate': [
+      {number: 5, title: 'Nightly finding: opensees/wrong-result-candidate: b', created_at: '2026-10-20T01:00:00Z', assignees: OWNERS.map((login) => ({login}))},
+      {number: 8, title: 'Nightly finding: fuzz/wrong-result-candidate: c', created_at: '2026-10-21T01:00:00Z', assignees: OWNERS.map((login) => ({login}))},
+    ]},
+    comments: [
+      {issue_url: 'https://api.github.com/repos/o/r/issues/5', created_at: '2026-11-05T02:00:00Z', user: {type: 'Bot'}},
+      {issue_url: 'https://api.github.com/repos/o/r/issues/8', created_at: '2026-11-05T02:00:00Z', user: {type: 'User'}},
+    ],
+  });
+  const r = await triage({...h, now: NOW});
+  assert.deepEqual(r, {fresh: 1, open: 2, issue: 900});
+  const create = h.calls.find((c) => c.name === 'create');
+  assert.match(create.args.body, /- \[ \] #5 /);
+  assert.doesNotMatch(create.args.body, /#8 /);
 });
 
 test('a quiet day opens no triage issue', async () => {

@@ -99,7 +99,7 @@ class CadenceTest(unittest.TestCase):
             {"id": "badrunner", "tier": "pr", "target": "a.quick", "runner": "laptop"},
             {"id": "ok", "tier": "pr", "existing": "ci.yml#lint"},
         ]}
-        doc = "`ok` `nojob` `both` `badtier` `badrunner`"
+        doc = "### Every PR\n\n" + "".join(f"| `{i}` | x |\n" for i in ("ok", "nojob", "both", "badtier", "badrunner"))
         d = tree(MAKE, m, doc=doc, workflows={"ci.yml": "jobs:\n  lint:\n    runs-on: x\n"})
         errors = cadence.check(m, root=d)
         self.assertEqual(sorted(errors), sorted([
@@ -111,6 +111,9 @@ class CadenceTest(unittest.TestCase):
         ]))
         d2 = tree(MAKE, {"tiers": TIERS, "checks": [{"id": "undoc", "tier": "pr", "existing": "ci.yml#lint"}]}, doc="nothing", workflows={"ci.yml": "jobs:\n  lint:\n"})
         self.assertEqual(cadence.check(json.loads((d2 / ".github" / "test-cadence.json").read_text()), root=d2), ["undoc: not in docs/TESTING_CADENCE.md"])
+        m3 = {"tiers": TIERS, "checks": [{"id": "moved", "tier": "monthly", "existing": "ci.yml#lint"}]}
+        d3 = tree(MAKE, m3, doc="### Daily\n\n| `moved` | x |\n\n### Monthly\n\nThe `moved` check.\n", workflows={"ci.yml": "jobs:\n  lint:\n"})
+        self.assertEqual(cadence.check(m3, root=d3), ["moved: docs/TESTING_CADENCE.md lists it under daily, the manifest under monthly"])
 
     def test_the_repository_manifest_is_consistent(self):
         self.assertEqual(cadence.check(cadence.load()), [])
