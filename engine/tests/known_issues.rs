@@ -1085,9 +1085,11 @@ fn a_highly_stressed_quad_does_not_mask_membrane_bending_in_another() {
     let (input, alone) = two_distorted_quads(1e-6, 0.0, 0.0);
     let refused = MembraneBendingGuard::new(&input).check(&[], &alone).unwrap_err();
     assert!(refused.contains("SH-MITC4-DISTORTION"), "{refused}");
-    let (input, beside) = two_distorted_quads(1e-6, 0.0, 1e3);
-    let refused = MembraneBendingGuard::new(&input).check(&[], &beside).unwrap_err();
-    assert!(refused.contains("\"elementIds\":[1]"), "{refused}");
+    for (bend, far) in [(1e-6, 1e3), (1e-18, 1e-3), (1e-18, 1e3), (1e-30, 1e3)] {
+        let (input, beside) = two_distorted_quads(bend, 0.0, far);
+        let refused = MembraneBendingGuard::new(&input).check(&[], &beside).unwrap_err();
+        assert!(refused.contains("\"elementIds\":[1]"), "bend {bend}, far {far}: {refused}");
+    }
     let (input, stretched) = two_distorted_quads(0.0, 1e-6, 1e3);
     MembraneBendingGuard::new(&input).check(&[], &stretched).unwrap();
 }
