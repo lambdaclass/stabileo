@@ -11798,6 +11798,7 @@ const en: Record<string, string> = {
   'spec.axial.cablePretension': "Pretension",
   'spec.axial.cableChord': "none: the chord",
   'cableDiag.selfWeight': "Up to {pct} % of these cables' tension comes from their own weight, with the drawn chord as their unstressed length, and keeps them taut whatever the loads. Give each its pretension (Specifications › Members), or make it a truss member if it is not a cable.",
+  'plasticDiag.noCapacity': "Plastic analysis refused: member {member} (section {section}) lacks a finite, positive plastic moment about at least one axis, and missing or invalid capacity on either axis prevents a reliable plastic analysis. Give its section dimensions, a yield stress above zero, or positive Mp values.",
   'spec.supports.empty': "Select supports to see and change their specifications.",
   'spec.supports.title': "{n} supports selected",
   'spec.supports.oneForDetail': "Restraints, springs, curves and the inclined support are edited one support at a time: select just one.",

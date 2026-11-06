@@ -11613,6 +11613,7 @@ const tr: Translations = {
   'spec.axial.cablePretension': 'Öngerme',
   'spec.axial.cableChord': 'yok: kiriş doğrusu',
   'cableDiag.selfWeight': 'Bu kablolarda çekme kuvvetinin %{pct} oranına varan kısmı, çizilen kiriş doğrusu gerilmesiz boy olarak alındığında öz ağırlıktan gelir ve yükler ne olursa olsun kabloları gergin tutar. Her birine öngermesini verin (Özellikler › Çubuklar) veya kablo değilse kafes çubuğu yapın.',
+  'plasticDiag.noCapacity': "Plastik analiz reddedildi: {member} numaralı çubuğun ({section} numaralı kesit) en az bir eksende sonlu ve pozitif bir plastik momenti yok; eksenlerden herhangi birinde eksik veya geçersiz kapasite güvenilir bir plastik analizi engeller. Kesit boyutlarını, sıfırdan büyük bir akma gerilmesini veya pozitif Mp değerlerini girin.",
   'spec.supports.empty': 'Özelliklerini görmek ve değiştirmek için mesnetleri seçin.',
   'spec.supports.title': '{n} mesnet seçildi',
   'spec.supports.oneForDetail': 'Tutulmalar, yaylar, eğriler ve eğik mesnet her seferinde tek bir mesnet için düzenlenir: yalnızca birini seçin.',

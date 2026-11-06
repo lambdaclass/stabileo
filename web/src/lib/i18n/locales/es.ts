@@ -11787,6 +11787,7 @@ const es: Record<string, string> = {
   'spec.axial.cablePretension': "Pretensado",
   'spec.axial.cableChord': "ninguno: la cuerda",
   'cableDiag.selfWeight': "Hasta el {pct} % de la tensión de estos cables viene de su propio peso, con la cuerda dibujada como largo sin estirar, y los mantiene tensos con cualquier carga. Indicá el pretensado de cada uno (Especificaciones › Barras), o hacelo una barra de reticulado si no es un cable.",
+  'plasticDiag.noCapacity': "Análisis plástico rechazado: la barra {member} (sección {section}) no tiene un momento plástico finito y positivo en al menos uno de sus ejes, y una capacidad faltante o inválida en cualquiera de los dos ejes impide un análisis plástico confiable. Indicá las dimensiones de su sección, una tensión de fluencia mayor que cero o valores de Mp positivos.",
   'spec.supports.empty': "Seleccioná apoyos para ver y cambiar sus especificaciones.",
   'spec.supports.title': "{n} apoyos seleccionados",
   'spec.supports.oneForDetail': "Las restricciones, resortes, curvas y el apoyo inclinado se editan de a un apoyo: seleccioná uno solo.",

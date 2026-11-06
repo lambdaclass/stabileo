@@ -50,7 +50,7 @@ is filed at the highest one.
 | **GitHub issue** labelled `safety-advisory`, titled `SA-YYYY-NNN: <summary>`, body = the advisory | At publication | Release manager |
 | **Advisory file** `docs/advisories/SA-YYYY-NNN-<slug>.md` | Drafted on confirmation, published with the fix | Author of the fix |
 | **Release notes** (`docs/releases/vX.Y.Z{,.es,.pt}.md`): a "Safety advisories" section linking each advisory, in English, Spanish and Portuguese | In the release that fixes it | Release manager |
-| **In-app notice**: the release's "your results may have changed" notice (`web/src/lib/release/whats-new.ts`), and the per-project re-check prompt, which shows the advisory to projects that use the affected feature. Each advisory has an entry in the re-check registry, `web/src/lib/provenance/result-changes.json` (PR [#328](https://github.com/lambdaclass/stabileo/pull/328), schema in `docs/verification/PROVENANCE.md`), whose `when` condition is the advisory's "how to tell if your model is affected" | In the release that fixes it | Author of the fix |
+| **In-app notice**: the release's "your results may have changed" notice (`web/src/lib/release/whats-new.ts`), and the per-project re-check prompt, which shows the advisory to projects that use the affected feature. Each advisory has an entry in the re-check registry, `web/src/lib/provenance/result-changes/` (PR [#328](https://github.com/lambdaclass/stabileo/pull/328), schema in `docs/verification/PROVENANCE.md`), whose `when` condition is the advisory's "how to tell if your model is affected" | In the release that fixes it | Author of the fix |
 | **GitHub Security Advisory** (repository Security tab) | Critical and High, so that the advisory has a stable public identifier | Maintainers |
 | **Email** | There is no mailing list today. When one exists (opt-in, see [#441](https://github.com/lambdaclass/stabileo/issues/441)), Critical and High advisories are mailed at publication | — |
 
@@ -97,7 +97,7 @@ Every advisory has these sections; the [template](#template) lists them.
 | Issue | #NNN |
 | Fix | PR #NNN (merged YYYY-MM-DD), released in vX.Y.Z |
 | Affected versions | from <version or deployment date> to <version>; earlier versions not affected / not yet bisected |
-| Re-check registry | `<id>` in web/src/lib/provenance/result-changes.json |
+| Re-check registry | web/src/lib/provenance/result-changes/`<id>`.json |
 
 ## Affected features
 

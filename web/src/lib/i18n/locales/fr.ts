@@ -11604,6 +11604,7 @@ const fr: Translations = {
   'spec.axial.cablePretension': 'Prétension',
   'spec.axial.cableChord': 'aucune : la corde',
   'cableDiag.selfWeight': 'Jusqu\'à {pct} % de la tension de ces câbles provient de leur poids propre, avec la corde dessinée comme longueur au repos, et les maintient tendus quelles que soient les charges. Indiquez la prétension de chacun (Spécifications › Barres), ou faites-en une barre de treillis s\'il ne s\'agit pas d\'un câble.',
+  'plasticDiag.noCapacity': "Analyse plastique refusée : la barre {member} (section {section}) n’a pas de moment plastique fini et positif selon au moins un axe, et une capacité manquante ou invalide selon l’un ou l’autre axe empêche une analyse plastique fiable. Indiquez les dimensions de sa section, une limite d’élasticité supérieure à zéro ou des valeurs de Mp positives.",
   'spec.supports.empty': 'Sélectionnez des appuis pour voir et modifier leurs spécifications.',
   'spec.supports.title': '{n} appuis sélectionnés',
   'spec.supports.oneForDetail': 'Les blocages, ressorts, courbes et l\'appui incliné se modifient un appui à la fois : sélectionnez-en un seul.',

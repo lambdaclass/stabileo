@@ -11187,6 +11187,7 @@ const pt: Translations = {
   'spec.axial.cablePretension': "Protensão",
   'spec.axial.cableChord': "nenhuma: a corda",
   'cableDiag.selfWeight': "Até {pct} % da tração destes cabos vem do seu peso próprio, com a corda desenhada como comprimento sem esticar, e os mantém tracionados com qualquer carga. Informe a protensão de cada um (Especificações › Barras), ou faça dele uma barra de treliça se não for um cabo.",
+  'plasticDiag.noCapacity': "Análise plástica recusada: a barra {member} (seção {section}) não tem um momento plástico finito e positivo em pelo menos um dos eixos, e uma capacidade ausente ou inválida em qualquer um dos eixos impede uma análise plástica confiável. Informe as dimensões da seção, uma tensão de escoamento maior que zero ou valores de Mp positivos.",
   'spec.supports.empty': "Selecione apoios para ver e mudar as suas especificações.",
   'spec.supports.title': "{n} apoios selecionados",
   'spec.supports.oneForDetail': "Restrições, molas, curvas e o apoio inclinado são editados um apoio por vez: selecione só um.",

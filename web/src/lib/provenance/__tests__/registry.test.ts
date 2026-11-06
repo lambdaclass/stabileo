@@ -5,6 +5,7 @@ import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import { validateRegistry, githubSlug, changelogUrl, conditionGroups, type ResultChangeRegistry } from '../registry';
 import { FEATURE_IDS } from '../model-features';
+import { readRegistry } from '../../../../scripts/result-changes/registry.mjs';
 
 const repo = resolve(__dirname, '../../../../..');
 
@@ -17,7 +18,7 @@ describe('result-change registry', () => {
     expect(JSON.stringify(metadata)).not.toContain('title');
   });
 
-  const source = () => JSON.parse(readFileSync(resolve(repo, 'web/src/lib/provenance/result-changes.json'), 'utf8')) as ResultChangeRegistry;
+  const source = (): ResultChangeRegistry => readRegistry();
 
   it('decodes the complete source registry except the test-only quantities', () => {
     const registry = source();
@@ -72,7 +73,7 @@ describe('result-change registry', () => {
   it('takes an examples-scoped entry only with the example ids it changed, and no when or quantities', () => {
     const entry = RESULT_CHANGES.changes.find((c) => c.scope === 'examples')!;
     expect(entry.examples).toEqual(['3d-cantilever-load']);
-    const check = (over: Record<string, unknown>) => validateRegistry({ ...RESULT_CHANGES, changes: [{ ...entry, ...over } as typeof entry] }, new Set(FEATURE_IDS));
+    const check = (over: Record<string, unknown>) => validateRegistry({ ...RESULT_CHANGES, changes: [{ ...entry, resultsVersion: RESULT_CHANGES.currentResultsVersion, ...over } as typeof entry] }, new Set(FEATURE_IDS));
     expect(check({})).toEqual([]);
     for (const examples of [undefined, [], [''], [7]]) {
       expect(check({ examples }), JSON.stringify(examples)).toContain(`change ${entry.id}: an examples-scoped entry must list the example ids it changed`);

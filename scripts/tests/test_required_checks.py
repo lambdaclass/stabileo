@@ -48,10 +48,11 @@ class RequiredChecks(unittest.TestCase):
         self.assertIn("github.event_name == 'merge_group'", changes)
         self.assertIn('github.event.merge_group.base_sha', changes)
         self.assertIn('github.event.merge_group.head_sha', changes)
-        gate = "${{ !cancelled() && ((github.event_name != 'pull_request' && github.event_name != 'merge_group') || needs.changes.result != 'success' || needs.changes.outputs.verify == 'true') }}"
-        for job in ('lean', 'symbolic', 'kani'):
+        always = "${{ !cancelled() && ((github.event_name != 'pull_request' && github.event_name != 'merge_group') || needs.changes.result != 'success' || "
+        for job, condition in (('lean', "needs.changes.outputs.verify == 'true'"), ('symbolic', "needs.changes.outputs.verify == 'true'"),
+                               ('kani', "needs.changes.outputs.kani != 'false'")):
             body = text.split(f'\n  {job}:\n', 1)[1]
-            self.assertEqual(re.search(r'^    if: (.+)$', body, re.M).group(1), gate, job)
+            self.assertEqual(re.search(r'^    if: (.+)$', body, re.M).group(1), always + condition + ') }}', job)
         self.assertIn("KANI_TIER: ${{ (github.event_name == 'pull_request' || github.event_name == 'merge_group') && 'fast' || 'all' }}", text)
 
     def test_the_parser_sees_triggers_and_names(self):
