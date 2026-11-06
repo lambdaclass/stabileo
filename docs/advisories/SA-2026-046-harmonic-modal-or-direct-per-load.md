@@ -44,8 +44,14 @@ engine's LU and a separate Gauss–Jordan elimination), which agree to 10⁻⁹.
 
 ## How to tell if your results are affected
 
-Only harmonic analyses run on stabileo.com (or with an engine built from `main`) between
-2026-11-05 19:19 UTC and the deploy of #1587 are affected. Among those:
+Two kinds of harmonic analysis are affected:
+
+- analyses run on stabileo.com between 2026-11-05 19:19 UTC and the deploy of #1587;
+- analyses run with an engine or WASM build of `main` from a9d72cbe6 (#1423) up to, but not
+  including, #1587, whenever they were run. Such a build stays affected after the website is
+  fixed; rebuild from a revision that contains #1587.
+
+Among those:
 
 - every frequency that was solved by modal superposition may be wrong. The harmonic certificate
   names the method used (`modal` or `modal+static`). A warning saying that modal superposition
