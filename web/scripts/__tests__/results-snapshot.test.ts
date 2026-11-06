@@ -6,7 +6,7 @@ import { describe, it, expect } from 'vitest';
 // @ts-expect-error plain JavaScript shared with the CI gate (no declaration file)
 import { compareValues, mergeValues, flatten, storeNumber, serialiseSnapshot, parseSnapshot, RTOL, ATOL } from '../results-snapshot/compare.mjs';
 // @ts-expect-error plain JavaScript shared with the CI gate (no declaration file)
-import { decide, isBreakingResultsFragment, newRegistryEntries, newlyRecorded, corpusExamples, modelInputs } from '../results-snapshot/gate.mjs';
+import { decide, isBreakingResultsFragment, newRegistryEntries, newlyRecorded, corpusExamples, modelInputs, proveEquivalence, headEngineServesBase } from '../results-snapshot/gate.mjs';
 
 describe('the tolerance', () => {
   const ref = { 'r.m[e1].my': 100, 'r.m[e2].my': -40, 'r.m[e3].my': 0, 'r.d[n1].ux': 0.0123 };
@@ -222,5 +222,89 @@ describe('the gate', () => {
     expect(isBreakingResultsFragment('\n### BREAKING (results)\n#### x')).toBe(true);
     expect(isBreakingResultsFragment('### Fixed\n### BREAKING (results)')).toBe(false);
     expect(newRegistryEntries(registry, registered).map((e: { id: string }) => e.id)).toEqual(['new']);
+  });
+});
+
+describe('the examples-only equivalence proof, with both engines', () => {
+  const base = 'base-sha';
+  const IPN = '{"sections":[{"name":"IPN 300"}]}';
+  const SHS = '{"sections":[{"name":"SHS 100"}]}';
+  const files: Record<string, Record<string, string>> = {
+    [base]: { 'web/results-snapshots/torsion-beam.json': '{"v":1}', 'web/src/lib/templates/fixtures/torsion.json': IPN, 'web/src/lib/results-snapshot/__tests__/examples-equivalence.test.ts': 'proof' },
+    HEAD: { 'web/results-snapshots/torsion-beam.json': '{"v":2}', 'web/src/lib/templates/fixtures/torsion.json': SHS },
+  };
+  const at = (rev: string, path: string) => files[rev]?.[path] ?? null;
+  const cases = [{ file: 'web/results-snapshots/torsion-beam.json', example: 'torsion' }];
+  const prove = async (engine: (tree: string | null, fixture: string, snapshot: string) => boolean) => {
+    const calls: Array<{ tree: string | null; fixture: string; snapshot: string }> = [];
+    let disposed = 0;
+    const solve = async (tree: string | null, list: string) => {
+      const { readFileSync } = await import('node:fs');
+      const items = JSON.parse(readFileSync(list, 'utf8')) as Array<{ fixture: string; snapshot: string }>;
+      return items.every((item) => {
+        const call = { tree, fixture: readFileSync(item.fixture, 'utf8'), snapshot: readFileSync(item.snapshot, 'utf8') };
+        calls.push(call);
+        return engine(call.tree, call.fixture, call.snapshot);
+      }) ? 0 : 1;
+    };
+    const code = await proveEquivalence(cases, base, at, { solve, baseTree: async () => ({ dir: 'base-tree', dispose: () => { disposed += 1; } }) });
+    return { code, calls, disposed };
+  };
+
+  it('solves the old fixture with this engine against the old numbers, and the new fixture with the base engine against the new numbers', async () => {
+    const { code, calls, disposed } = await prove(() => true);
+    expect(code).toBe(0);
+    expect(calls).toEqual([
+      { tree: null, fixture: IPN, snapshot: '{"v":1}' },
+      { tree: 'base-tree', fixture: SHS, snapshot: '{"v":2}' },
+    ]);
+    expect(disposed).toBe(1);
+  });
+  it('NEGATIVE: fails an engine change that affects only the new section, which the old fixture never reaches', async () => {
+    const changedForShsOnly = (tree: string | null, fixture: string) => !(tree === 'base-tree' && fixture === SHS);
+    const { code, disposed } = await prove(changedForShsOnly);
+    expect(code).toBe(1);
+    expect(disposed).toBe(1);
+  });
+  it('NEGATIVE: fails when this engine gives the old example other numbers, without checking out the base', async () => {
+    const { code, calls, disposed } = await prove((tree) => tree !== null);
+    expect(code).toBe(1);
+    expect(calls).toHaveLength(1);
+    expect(disposed).toBe(0);
+  });
+  it('NEGATIVE: fails an example with no fixture at HEAD, before solving anything', async () => {
+    const { code, calls } = await (async () => {
+      const calls: unknown[] = [];
+      const code = await proveEquivalence(cases, base, (rev: string, path: string) => (rev === 'HEAD' && path.includes('fixtures') ? null : at(rev, path)),
+        { solve: async () => { calls.push(1); return 0; }, baseTree: async () => ({ dir: 'x', dispose: () => {} }) });
+      return { code, calls };
+    })();
+    expect(code).toBe(1);
+    expect(calls).toEqual([]);
+  });
+  it('NEGATIVE: fails against a base that has no equivalence proof, whose engine nothing could ask', async () => {
+    const calls: unknown[] = [];
+    const code = await proveEquivalence(cases, base, (rev: string, path: string) => (path.endsWith('examples-equivalence.test.ts') ? null : at(rev, path)),
+      { solve: async () => { calls.push(1); return 0; }, baseTree: async () => ({ dir: 'x', dispose: () => {} }) });
+    expect(code).toBe(1);
+    expect(calls).toEqual([]);
+  });
+});
+
+describe('the base checkout reuses this build\'s engine', () => {
+  it('when only the app, the docs, the changelog or research papers changed', () => {
+    expect(headEngineServesBase(['web/src/lib/templates/fixtures/torsion.json', 'docs/verification/PROVENANCE.md', 'changelog.d/x.md', 'research/papers.yaml'])).toBe(true);
+    expect(headEngineServesBase([])).toBe(true);
+  });
+  it('NEGATIVE: not when only the WASM build script changed', () => {
+    expect(headEngineServesBase(['web/src/x.ts', 'scripts/wasm-cached.sh'])).toBe(false);
+  });
+  it('NEGATIVE: not when only the engine build script changed', () => {
+    expect(headEngineServesBase(['engine/build.rs'])).toBe(false);
+  });
+  it('NEGATIVE: not for a path it does not know, at the top level or as research Rust', () => {
+    expect(headEngineServesBase(['new-build-input.sh'])).toBe(false);
+    expect(headEngineServesBase(['.github/workflows/ci.yml'])).toBe(false);
+    expect(headEngineServesBase(['research/topopt/src/lib.rs'])).toBe(false);
   });
 });

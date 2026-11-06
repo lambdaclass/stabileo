@@ -31,6 +31,7 @@ export const REGISTRY = 'web/src/lib/provenance/result-changes.json';
 export const FRAGMENT_DIR = 'changelog.d';
 export const FIXTURE_DIR = 'web/src/lib/templates/fixtures';
 export const CORPUS = 'web/src/lib/results-snapshot/corpus.ts';
+export const EQUIVALENCE_TEST = 'web/src/lib/results-snapshot/__tests__/examples-equivalence.test.ts';
 
 /** A fixture's model inputs: its JSON without the names and descriptions it shows, keys sorted. */
 export function modelInputs(fixtureText) {
@@ -186,43 +187,93 @@ async function main(argv) {
   const r = decide({ snapshots, baseRegistry: json(at(base, REGISTRY)), headRegistry: json(at('HEAD', REGISTRY)), fragments, changedFixtures, caseExample: corpusExamples(at('HEAD', CORPUS)) });
   (r.ok ? console.log : console.error)(r.report);
   if (!r.ok) return 1;
-  return r.equivalence?.length ? proveEquivalence(r.equivalence, base, at, root) : 0;
+  if (!r.equivalence?.length) return 0;
+  return proveEquivalence(r.equivalence, base, at, { solve: (tree, list) => solveIn(tree ?? root, list), baseTree: () => checkoutBase(base, root, git) });
 }
 
 /**
- * Solve each case an examples-only entry explains from the fixture it had at `base`, with this
- * build's engine (`make wasm` first), and require the numbers its snapshot had at `base`.
+ * Both engines must agree on both fixtures: this build's on each listed example as it was at
+ * `base`, and the `base` engine on the example as it is now, which an engine change that touches
+ * only what the new fixture uses would fail.
  */
-async function proveEquivalence(cases, base, at, root) {
+export async function proveEquivalence(cases, base, at, { solve, baseTree }) {
   const { mkdtempSync, writeFileSync } = await import('node:fs');
   const { tmpdir } = await import('node:os');
   const { join } = await import('node:path');
-  const { spawnSync } = await import('node:child_process');
-  const missing = cases.filter(({ file, example }) => at(base, file) === null || at(base, `${FIXTURE_DIR}/${example}.json`) === null);
+  const fixtureOf = (example) => `${FIXTURE_DIR}/${example}.json`;
+  const missing = cases.filter(({ file, example }) => [base, 'HEAD'].some((rev) => at(rev, file) === null || at(rev, fixtureOf(example)) === null));
   if (missing.length) {
-    console.error(`FAIL: an examples-scoped entry lists examples with no snapshot or fixture at ${base}: ${missing.map((c) => c.file).join(', ')}. `
-      + 'Nothing then proves the engine still gives them their old numbers: add the corpus case in its own pull request first.');
+    console.error(`FAIL: an examples-scoped entry lists examples with no snapshot or fixture at ${base} or HEAD: ${missing.map((c) => c.file).join(', ')}. `
+      + 'Nothing then proves the engine gives them the same numbers before and after: add the corpus case in its own pull request first.');
+    return 1;
+  }
+  if (at(base, EQUIVALENCE_TEST) === null) {
+    console.error(`FAIL: ${base} has no ${EQUIVALENCE_TEST}, so its engine cannot be asked for the examples' numbers: an examples-scoped entry needs a base that has the proof.`);
     return 1;
   }
   const dir = mkdtempSync(join(tmpdir(), 'examples-equivalence-'));
-  const list = cases.map(({ file, example }) => {
-    const name = file.slice(SNAPSHOT_DIR.length + 1, -'.json'.length);
-    const fixture = join(dir, `${name}.fixture.json`);
-    const snapshot = join(dir, `${name}.snapshot.json`);
-    writeFileSync(fixture, at(base, `${FIXTURE_DIR}/${example}.json`));
-    writeFileSync(snapshot, at(base, file));
-    return { case: name, fixture, snapshot };
-  });
-  writeFileSync(join(dir, 'list.json'), JSON.stringify(list));
-  const run = spawnSync('npx', ['vitest', 'run', '--project', 'results', 'src/lib/results-snapshot/__tests__/examples-equivalence.test.ts'],
-    { cwd: join(root, 'web'), env: { ...process.env, EXAMPLES_EQUIVALENCE: join(dir, 'list.json') }, stdio: 'inherit' });
-  if (run.status === 0) {
-    console.log(`Examples-only change proven: ${list.map((c) => c.case).join(', ')} give their ${base} numbers from their ${base} fixtures.`);
-    return 0;
+  const listAt = (rev) => {
+    const list = cases.map(({ file, example }) => {
+      const name = file.slice(SNAPSHOT_DIR.length + 1, -'.json'.length);
+      const tag = rev === 'HEAD' ? 'head' : 'base';
+      const fixture = join(dir, `${name}.${tag}.fixture.json`);
+      const snapshot = join(dir, `${name}.${tag}.snapshot.json`);
+      writeFileSync(fixture, at(rev, fixtureOf(example)));
+      writeFileSync(snapshot, at(rev, file));
+      return { case: name, fixture, snapshot };
+    });
+    const path = join(dir, `${rev === 'HEAD' ? 'head' : 'base'}.json`);
+    writeFileSync(path, JSON.stringify(list));
+    return path;
+  };
+  const names = cases.map(({ file }) => file.slice(SNAPSHOT_DIR.length + 1, -'.json'.length)).join(', ');
+  if (await solve(null, listAt(base)) !== 0) {
+    console.error('FAIL: an examples-scoped entry suppresses the recheck notice, so this engine must give each example it explains its old numbers from its old inputs, and it does not. '
+      + 'This change moves results of saved models too: register it with an entry that has `when`.');
+    return 1;
   }
-  console.error('FAIL: an examples-scoped entry suppresses the recheck notice, so the engine must give each example it explains its old numbers from its old inputs, and it does not. '
-    + 'This change moves results of saved models too: register it with an entry that has `when`.');
-  return 1;
+  const tree = await baseTree();
+  try {
+    if (await solve(tree.dir, listAt('HEAD')) !== 0) {
+      console.error(`FAIL: the ${base} engine does not give the committed numbers for the examples as they are now, so the engine changed for what the new inputs use. `
+        + 'Saved models using it move too: register this change with an entry that has `when`.');
+      return 1;
+    }
+  } finally {
+    tree.dispose();
+  }
+  console.log(`Examples-only change proven: ${names} give the same numbers with the ${base} engine and this one, from both their ${base} and their new fixtures.`);
+  return 0;
+}
+
+function solveIn(tree, list) {
+  return import('node:child_process').then(({ spawnSync }) => spawnSync('npx', ['vitest', 'run', '--project', 'results', EQUIVALENCE_TEST.slice('web/'.length)],
+    { cwd: `${tree}/web`, env: { ...process.env, EXAMPLES_EQUIVALENCE: list }, stdio: 'inherit' }).status);
+}
+
+export function headEngineServesBase(changedPaths) {
+  return changedPaths.every((path) => /^(web|docs|changelog\.d)\//.test(path) || (/^research\//.test(path) && !/\.(rs|toml|lock)$/.test(path)));
+}
+
+async function checkoutBase(base, root, git) {
+  const { mkdtempSync, symlinkSync, cpSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const { spawnSync } = await import('node:child_process');
+  const dir = join(mkdtempSync(join(tmpdir(), 'examples-base-')), 'tree');
+  git('-C', root, 'worktree', 'add', '--detach', dir, base);
+  const dispose = () => { try { git('-C', root, 'worktree', 'remove', '--force', dir); } catch { return false; } return true; };
+  const unchanged = (...paths) => { try { git('-C', root, 'diff', '--quiet', base, 'HEAD', '--', ...paths); return true; } catch { return false; } };
+  const changed = git('-C', root, 'diff', '--name-only', '--no-renames', base, 'HEAD').split('\n').filter(Boolean);
+  const run = (cmd, args, cwd) => {
+    const r = spawnSync(cmd, args, { cwd, stdio: 'inherit' });
+    if (r.status !== 0) { dispose(); throw new Error(`${cmd} ${args.join(' ')} failed in the ${base} checkout`); }
+  };
+  if (unchanged('web/package.json', 'web/package-lock.json')) symlinkSync(join(root, 'web/node_modules'), join(dir, 'web/node_modules'));
+  else run('npm', ['ci'], join(dir, 'web'));
+  if (headEngineServesBase(changed)) cpSync(join(root, 'web/src/lib/wasm'), join(dir, 'web/src/lib/wasm'), { recursive: true });
+  else run('bash', ['scripts/wasm-cached.sh'], dir);
+  return { dir, dispose };
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
