@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { SolverInput3D } from '../../engine/types-3d';
+import { CodedRefusal } from '../../engine/containment-error';
 
 const buckling = vi.hoisted(() => ({ impl: (): unknown => { throw new Error('eigen solver did not converge'); } }));
 vi.mock('../../engine/wasm-solver', async (orig) => ({ ...(await orig<object>()), solveBuckling3D: () => buckling.impl() }));
@@ -35,11 +36,19 @@ describe('the space P-Δ when its first-mode buckling check cannot run', () => {
     expect(withFirstModeB2(input, { b2Factor: 1.37, isStable: false }).isStable).toBe(false);
   });
 
-  it('"no compressed elements" is still λ₁ = ∞ with B₂ = 1', () => {
-    buckling.impl = () => { throw new Error('Buckling: no compressed elements'); };
+  it('the no_compressed_elements refusal is still λ₁ = ∞ with B₂ = 1, whatever its message', () => {
+    buckling.impl = () => { throw new CodedRefusal('nothing to buckle', 'no_compressed_elements'); };
     const r = withFirstModeB2(input, { b2Factor: 1.37, isStable: true });
     expect(r.b2Factor).toBe(1);
     expect(r.isStable).toBe(true);
     expect(r.secondOrder).toEqual({ lambda1: Infinity, b2: 1 });
+  });
+
+  it('the words "no compressed elements" without the code are a buckling failure, not λ₁ = ∞', () => {
+    buckling.impl = () => { throw new Error('No compressed elements — buckling not applicable'); };
+    const r = withFirstModeB2(input, { b2Factor: 1.37, isStable: true });
+    expect(Number.isNaN(r.b2Factor)).toBe(true);
+    expect(r.isStable).toBeNull();
+    expect(r.secondOrder).toEqual({ lambda1: null, b2: NaN, bucklingError: 'No compressed elements — buckling not applicable' });
   });
 });

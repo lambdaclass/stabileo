@@ -1041,7 +1041,7 @@ fn harmonic_static_correction_matches_exact() {
         };
         let (res, (a0, a1)) = solve_harmonic_2d_with_damping(&hi).unwrap();
         let (k, m, f, dof) = harmonic_model_2d(&input);
-        assert_eq!(res.method, "modal+static", "{bays}x{stories}: {res:?}");
+        assert_eq!(res.method, dedaliano_engine::solver::harmonic::HarmonicMethod::ModalStatic, "{bays}x{stories}: {res:?}");
         assert_eq!(res.n_dof, k.n);
         assert!(res.modes_used > 0 && res.modes_used <= k.n);
         let ratio = res.truncation_ratio.expect("truncation ratio");
@@ -1081,7 +1081,7 @@ fn harmonic_truncation_is_reported() {
         response_dof: "x".into(),
     };
     let res = solve_harmonic_2d(&hi).unwrap();
-    assert_eq!(res.method, "modal+static");
+    assert_eq!(res.method, dedaliano_engine::solver::harmonic::HarmonicMethod::ModalStatic);
     assert!(res.modes_used < res.n_dof, "{res:?}");
     assert_eq!(res.direct_frequencies, vec![200.0 * f1], "{res:?}");
     assert_eq!(res.warnings.len(), 1, "{:?}", res.warnings);

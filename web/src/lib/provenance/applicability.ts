@@ -43,9 +43,9 @@ export function assessProject(
   const known = !!stamp && solvedVersion > 0;
   const features = originalFeatures ?? modelFeatures(snapshot, { analysisMode, analysesRun: known ? stamp!.analyses : null });
   const changes = registry.changes
-    .filter((c) => c.resultsVersion <= currentVersion)
+    .filter((c) => c.resultsVersion <= currentVersion && c.scope !== 'examples')
     .filter((c) => c.resultsVersion > solvedVersion || (c.resultsVersion > loadsVersion && concernsGeneratedLoads(c.when)))
-    .filter((c) => conditionHolds(c.when, features))
+    .filter((c) => conditionHolds(c.when ?? {}, features))
     .sort((a, b) => a.resultsVersion - b.resultsVersion || a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
   return { solvedVersion, currentVersion, older: solvedVersion < currentVersion, newer: solvedVersion > currentVersion, changes };
 }

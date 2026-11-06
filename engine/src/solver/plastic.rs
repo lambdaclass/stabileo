@@ -1085,6 +1085,22 @@ pub(crate) fn no_bending_collapse(lambda: f64) -> String {
 pub(crate) const INITIAL_MECHANISM: &str = "Plastic (pushover) analysis: the structure is a mechanism before any hinge forms, \
      so it has no collapse factor to report. Restrain it first.";
 
+pub(crate) fn no_plastic_capacity_message(element: usize, section: usize) -> String {
+    format!(
+        "Plastic (pushover) analysis: element {element} (section {section}) has no finite, positive plastic moment \
+         about both axes, so it could never form a hinge. Give its section dimensions or inertias, a yield stress above \
+         zero, or positive Mp overrides."
+    )
+}
+
+pub(crate) fn no_plastic_capacity(element: usize, section: usize) -> String {
+    let message = no_plastic_capacity_message(element, section);
+    let mut d = StructuredDiagnostic::global(DiagnosticCode::PlasticCapacityMissing, Severity::Error, message.clone())
+        .with_element(ElementKind::Frame, element);
+    d.value = Some(section as f64);
+    serde_json::json!({"message": message, "structuredDiagnostics": [d]}).to_string()
+}
+
 pub(crate) const NO_MECHANICAL_LOAD: &str = "Plastic (pushover) analysis needs a mechanical load to scale to collapse: \
      temperatures and support settlements alone do not change a collapse load and have no collapse factor.";
 

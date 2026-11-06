@@ -1108,7 +1108,7 @@ fn harmonic_modal_parity() {
     };
     let modal_result = dedaliano_engine::solver::harmonic::solve_harmonic_3d(&harmonic_input)
         .expect("Harmonic modal solve failed");
-    assert_eq!(modal_result.method, "modal+static");
+    assert_eq!(modal_result.method, dedaliano_engine::solver::harmonic::HarmonicMethod::ModalStatic);
 
     // === Direct path (explicit block LU per frequency) ===
     let ns = nf; // no constraints

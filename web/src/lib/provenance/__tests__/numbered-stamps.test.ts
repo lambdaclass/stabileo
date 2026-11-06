@@ -44,9 +44,9 @@ describe('saved projects stamped before the registry became one file per change'
     expect(notices).toBeGreaterThan(0);
   });
 
-  it('are told about every change registered after the frozen versions that concerns them', () => {
+  it('are told about every change registered after the frozen versions that concerns them, and never about a change to bundled examples only', () => {
     const frozen = BEFORE.currentResultsVersion;
-    const later = RESULT_CHANGES.changes.filter((c) => c.resultsVersion > frozen).map((c) => c.id);
+    const later = RESULT_CHANGES.changes.filter((c) => c.resultsVersion > frozen && c.scope !== 'examples').map((c) => c.id);
     for (const { project } of projects) {
       const stamp = { id: 'saved', resultsVersion: frozen, analyses: ['linear'] } as unknown as SolveStamp;
       const all = { ...RESULT_CHANGES, changes: RESULT_CHANGES.changes.map((c) => ({ ...c, when: {} })) };

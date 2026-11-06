@@ -7,17 +7,7 @@
 engine/src/certify/reassembly/mod.rs: if e.starts_with("out of scope") || e.starts_with("unsupported") {
 engine/src/certify/reassembly/mod.rs: } else if e.starts_with("a load acts on") {
 engine/src/certify/reassembly/mod.rs: Err(reason) if reason.starts_with("a load acts on") => return EndToEnd::Failed { reason },
-engine/src/solver/harmonic.rs: if result.method.starts_with("modal") {
-web/src/lib/actions/second-order.ts: if (!/no compressed elements/i.test(msg)) return { ...result, b2Factor: NaN, isStable: result.isStable === false ? false : null, secondOrder: { lambda1: null, b2: NaN, bucklingError: msg } };
 web/src/lib/engine/plastic-collapse.ts: if (/mechanism|singular|instab/i.test(msg)) { if (closeUnloading()) continue; isMechanism = true; break; }
-web/src/lib/engine/second-order/run-pdelta.ts: return /no compressed elements/i.test(String((e as Error)?.message ?? e)) ? Infinity : null;
-web/src/lib/engine/wasm-solver.ts: if (!guards || !DECOMPOSITION_FAILED.test(thrownText(e))) throw e;
-web/src/lib/engine/wasm-solver.ts: if (guards && NO_FREE_DOFS.test(thrownText(e))) return linearPDelta(solve(merged), 'noFreeDofs');
-web/src/lib/engine/wasm-solver.ts: if (NO_FREE_DOFS.test(thrownText(e))) noFreeDofs('buckling', () => solve(merged));
-web/src/lib/engine/wasm-solver.ts: if (NO_FREE_DOFS.test(thrownText(e))) noFreeDofs('modal');
-web/src/lib/engine/wasm-solver.ts: if (guards && NO_FREE_DOFS.test(thrownText(e))) return linearPDelta(solve3D(input), 'noFreeDofs');
-web/src/lib/engine/wasm-solver.ts: if (NO_FREE_DOFS.test(thrownText(e))) noFreeDofs('modal');
-web/src/lib/engine/wasm-solver.ts: if (NO_FREE_DOFS.test(thrownText(e))) noFreeDofs('buckling', () => solve3D(input));
 web/src/lib/listings/listing.ts: if (c.failingOnly && r[statusKey] !== undefined && !/fail|no verifica|não verifica/i.test(String(r[statusKey]))) return false;
 
 ## Classifies nightly or metamorphic findings by message text: a wording change files a refusal under another kind. The classifier is to key on codes.
@@ -57,7 +47,6 @@ web/src/components/pro/ProAdvancedTab.svelte: const turned = /member (\d+) turn 
 web/src/components/pro/ProAdvancedTab.svelte: const bent = /chord of member (\d+) and its ends may be up to ([\d.]+) rad/.exec(errorText(e, ''));
 web/src/components/pro/ProAdvancedTab.svelte: const stepped = /end of member (\d+) turned more than .* within one load increment/.exec(errorText(e, ''));
 web/src/components/research/andreassen2011/TopoptPage.svelte: else { error = message.message?.includes('Iteration limit') ? s.iterationLimit : s.runFailed; stop(); }
-web/src/components/toolbar/ToolbarAdvanced.svelte: if (/no compressed elements/i.test(msg)) uiStore.toast(t('toast.bucklingNoCompression'), 'info');
 web/src/lib/engine/codes/argentina/cirsoc301-verdict.ts: if (steps[last]?.startsWith('=== Resultado global')) steps[last] = steelResultLine(status);
 web/src/lib/engine/dynamics/time-history-refusal.ts: const NON_FINITE = /^TH-NONFINITE: .* from step (\d+) \(t = (\S+) s\)/;
 web/src/lib/engine/dynamics/time-history-refusal.ts: const NON_FINITE_REACTIONS = /^TH-NONFINITE: .*reactions/;

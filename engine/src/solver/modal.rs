@@ -77,7 +77,7 @@ pub fn solve_modal_2d(
     let n = dof_num.n_total;
 
     if nf == 0 {
-        return Err("No free DOFs".into());
+        return Err(crate::refusal::no_free_dofs());
     }
 
     // Mass ratios divide by the mass that can move in their direction: a
@@ -547,7 +547,7 @@ pub fn solve_modal_3d(
     let nf = dof_num.n_free;
     let n = dof_num.n_total;
 
-    if nf == 0 { return Err("No free DOFs".into()); }
+    if nf == 0 { return Err(crate::refusal::no_free_dofs()); }
 
     // Mass ratios per direction: see the 2D solver.
     let [mass_x, mass_y, mass_z] = total_mass_by_direction_3d(input, densities);
@@ -587,7 +587,7 @@ pub fn solve_modal_3d(
         crate::linalg::lanczos::lanczos_generalized_eigen_sparse_observed(k_solve, m_solve, num_modes, 0.0, observe)
     });
     crate::known_issues::attach(&mut structured_diagnostics, conditioning.into_iter().collect());
-    let result = result.ok_or_else(|| crate::linalg::lanczos::eigen_failure_message(k_solve.n))?;
+    let result = result.ok_or_else(|| crate::refusal::eigen_decomposition_failed(&crate::linalg::lanczos::eigen_failure_message(k_solve.n)))?;
 
     let requested = num_modes;
     let num_modes = num_modes.min(ns);
@@ -700,7 +700,7 @@ pub fn solve_modal_3d(
     // The eigensolver excludes certified massless directions from this count;
     // dropping a finite low-frequency mode must still refuse a partial result.
     if modes.len() < num_modes.min(n_converged) {
-        return Err(format!("Eigenvalue decomposition failed: Modal completeness could not be established: only {} of {} computed modes passed the positive-frequency threshold (finite omega² > 0); no incomplete modes were returned. Check stiffness/mass conditioning and supports.", modes.len(), num_modes.min(n_converged)));
+        return Err(crate::refusal::eigen_decomposition_failed(&format!("Eigenvalue decomposition failed: Modal completeness could not be established: only {} of {} computed modes passed the positive-frequency threshold (finite omega² > 0); no incomplete modes were returned. Check stiffness/mass conditioning and supports.", modes.len(), num_modes.min(n_converged))));
     }
 
 

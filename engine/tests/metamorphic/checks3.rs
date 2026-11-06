@@ -20,6 +20,7 @@ use dedaliano_engine::types::*;
 pub fn applicable(a: &Ana3, inv: &str) -> bool {
     match inv {
         "rotation" => !false,
+        "mirror" => MIRRORED.contains(&a.name),
         "superposition" => matches!(a.law, Law::Linear | Law::Inverse),
         "reciprocity" => a.law == Law::Linear,
         "energy" => a.law == Law::Linear && a.full_static,
@@ -28,6 +29,10 @@ pub fn applicable(a: &Ana3, inv: &str) -> bool {
         _ => true,
     }
 }
+
+const MIRRORED: [&str; 8] = [
+    "linear", "linear (load session)", "linear (sparse path)", "linear (PCG)", "certified linear", "P-Delta", "modal", "buckling",
+];
 
 pub struct Ctx<'a> {
     pub tally: &'a Tally,
@@ -260,6 +265,14 @@ pub fn check_case(ctx: &Ctx, c: &Case3, anas: &[Ana3], invariants: &[&str]) {
                         Ok(tc) => same(a, &tc, base.iso3(&q), &cond),
                         Err(e) => Verdict::Unrepresentable(e),
                     })
+                }
+                "mirror" if applicable(a, "mirror") => {
+                    let axis = rng.below(if a.motion == Motion::AboutZ { 2 } else { 3 });
+                    let t = [rng.range(-40.0, 40.0), rng.range(-40.0, 40.0), rng.range(-40.0, 40.0)];
+                    match c.mirror(axis, t) {
+                        Ok(tc) => same(a, &tc, base.mirror3(axis), &cond),
+                        Err(e) => Verdict::Unrepresentable(e),
+                    }
                 }
                 "relabel" => {
                     let seed = rng.next_u64();

@@ -16,6 +16,7 @@ pub mod boundary;
 pub mod sanity;
 pub mod metamorphic;
 pub mod known_issues;
+pub mod refusal;
 pub mod reproduce;
 pub mod result_sites;
 pub mod ordered;
