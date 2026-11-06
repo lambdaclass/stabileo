@@ -36,7 +36,7 @@ The results carried no warning about this. A 2D frame got only the rotary-inerti
 | 2D frame, 6 DOFs (#1537) | loads A and A + B at 2.3 Hz (residuals 4.8·10⁻³ and 6.1·10⁻³); B solved directly | 20 % (node 3, uy); 23 % (A + B, node 3, ux) |
 | 3D cantilever, 6 DOFs (#1538) | unit Fz at 2.3 Hz; Fx and Fy solved directly | 11.5 % at 0.7 Hz |
 | 3D cantilever (#1539) | the same switch | 3.3 % |
-| 3D cantilever (#1540) | each half of the loads (residuals 2.1·10⁻³ and 5.2·10⁻³); their sum solved directly | ux at 0.7 Hz: −9.14 instead of 139.4 (106 %) |
+| 3D cantilever (#1540) | each half of the loads (residuals 2.1·10⁻³ and 5.2·10⁻³); their sum solved directly | ux at 0.7 Hz: −9.14 instead of 139.4 (107 %) |
 | 3D frame (#1541) | unit Fx (residual 4.7·10⁻³); Fy and Fz solved directly | 27 % in amplitude, 8.6 times in the imaginary part |
 
 The exact values come from two independent direct complex solves of (K + iωC − ω²M)u = f (the

@@ -159,7 +159,7 @@ const body: PostBody = {
         ],
         [
           "SA-2026-046",
-          "Harmonik analiz: modal süperpozisyon ile doğrudan çözüm arasında yüke göre seçim yapıyordu; süperpozisyon ve karşılıklılık bozuluyordu (bir örnekte bir düğümde %106); 5 Kasım 2026'dan düzeltmeye kadar stabileo.com ve main dalının motor/WASM derlemeleri",
+          "Harmonik analiz: modal süperpozisyon ile doğrudan çözüm arasında yüke göre seçim yapıyordu; süperpozisyon ve karşılıklılık bozuluyordu (bir örnekte bir düğümde %107); 5 Kasım 2026'dan düzeltmeye kadar stabileo.com ve main dalının motor/WASM derlemeleri",
           "Yüksek",
           "Bir sonraki sürümde düzeltildi"
         ],
