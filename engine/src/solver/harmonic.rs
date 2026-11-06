@@ -758,7 +758,7 @@ fn resolve_unbounded_frequencies(
             "Harmonic analysis: the modal response leaves a relative residual of {worst:.3e} (over {MODAL_RESIDUAL_TOL:.0e}) at {} frequenc{}{}",
             bad.len(),
             if bad.len() == 1 { "y" } else { "ies" },
-            if affordable { String::new() } else { format!(", and the direct solve that would replace it is over the {MAX_DENSE_FALLBACK_DOFS}-DOF dense ceiling ({n} DOFs)") },
+            if affordable { String::new() } else { format!(", past the {MAX_DENSE_FALLBACK_DOFS}-DOF dense ceiling ({n} DOFs) where no frequency is solved directly") },
         ));
     }
     if direct.is_empty() {
@@ -1147,8 +1147,13 @@ mod tests {
                 let scale = a.amplitude + b.amplitude;
                 assert!((ab.real - a.real - b.real).abs() <= 1e-12 * scale && (ab.imag - a.imag - b.imag).abs() <= 1e-12 * scale, "{target:?} at {} Hz", a.frequency);
             }
-            for scale in [1e-300, 1e150] {
+            let unit = solve_harmonic_modal(&k, &m, &fb, n, &frequencies, 0.05, &target).unwrap().residuals;
+            for scale in [1e-170, 1e-300, 1e150] {
                 let fs: Vec<f64> = fb.iter().map(|x| x * scale).collect();
+                let scaled = solve_harmonic_modal(&k, &m, &fs, n, &frequencies, 0.05, &target).unwrap().residuals;
+                for (a, b) in scaled.iter().zip(&unit) {
+                    assert!((a - b).abs() <= 1e-9 * b + 1e-12, "load scale {scale:e}: {scaled:?} vs {unit:?}");
+                }
                 let (rs, _) = sweep_at(&k, &m, &fs, n, &frequencies, &target);
                 assert_eq!(rs.direct_frequencies, rb.direct_frequencies, "load scale {scale:e}");
             }
