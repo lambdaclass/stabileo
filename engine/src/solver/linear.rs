@@ -1018,6 +1018,8 @@ impl PreparedStatic2D<'_> {
         }
         crate::known_issues::attach(&mut r.structured_diagnostics, self.known_model.clone());
         crate::known_issues::attach(&mut r.structured_diagnostics, crate::known_issues::loads_2d(loads));
+        let beyond = crate::known_issues::small_displacement_2d(Some(&self.input), &r);
+        crate::known_issues::attach(&mut r.structured_diagnostics, beyond.into_iter().collect());
         if self.an_artificial_spring_carries_load(&r) {
             crate::known_issues::attach(&mut r.structured_diagnostics, vec![crate::known_issues::diagnostic("ORPHAN-SOFT-ROTATION")]);
         }
@@ -2643,6 +2645,8 @@ impl PreparedStatic3D {
         let mut r = self.solve_loads_by_path(loads)?;
         // Known issues of this load set (the model's are in the pre-solve diagnostics).
         crate::known_issues::attach(&mut r.structured_diagnostics, crate::known_issues::loads_3d(loads));
+        let beyond = crate::known_issues::small_displacement_3d(Some(&self.input), &r);
+        crate::known_issues::attach(&mut r.structured_diagnostics, beyond.into_iter().collect());
         if self.an_artificial_spring_carries_load(&r) {
             crate::known_issues::attach(&mut r.structured_diagnostics, vec![crate::known_issues::diagnostic("ORPHAN-SOFT-ROTATION")]);
         }

@@ -63,6 +63,7 @@ pub const ENTRIES: &[Entry] = &[
     Entry { id: "HARM-TRUNCATION", issue: 1434, mode: Mode::Warn, message: "Harmonic response by modal superposition at frequencies near or above the first omitted mode: the omitted modes are not corrected there, and amplitude and phase can be wrong by large factors. Do not use these frequencies for design; independently verify them with a direct solve" },
     Entry { id: "MD-ORTHOGONALITY", issue: 759, mode: Mode::Warn, message: "3D modal analysis can return non-orthogonal or duplicate modes. Effective masses, response-spectrum combinations and harmonic responses by modal superposition may be wrong, by large factors; independently verify the modal basis" },
     Entry { id: "TH-RECIPROCITY", issue: 760, mode: Mode::Warn, message: "Linear time history has failed reciprocity checks by up to a factor of 33. The affected input class is not yet isolated; independently verify this response before design" },
+    Entry { id: "LIN-SMALL-DISPLACEMENT", issue: 1446, mode: Mode::Warn, message: "A rotation or a member's relative displacement exceeds 0.1 rad, the small-displacement screening limit of linear analysis: at that angle the terms first-order theory drops, such as the chord shortening 1 − cos θ ≈ 0.5 %, may no longer be negligible. Check that the change of geometry is acceptable: a support, spring or release may leave part of the model nearly free; otherwise use a nonlinear analysis" },
     Entry { id: "RC-NM-PAIRING", issue: 1316, mode: Mode::Warn, message: "This CIRSOC 201 column check pairs the axial force of one combination with the moment of another, which can be unconservative below the balance point. Check the column under each named combination" },
 ];
 
@@ -530,6 +531,81 @@ pub const NL3_NATURAL_ROTATION: f64 = 0.02;
 /// A 3D co-rotational member whose ends turn more than [`NL3_NATURAL_ROTATION`] against its chord.
 pub fn corotational_natural_rotation() -> StructuredDiagnostic {
     diagnostic("NL-3")
+}
+
+/// The screening limit for a rotation, and member chord rotation |Δu|/L, in linear analysis: at
+/// 0.1 rad the chord shortening 1 − cos θ ≈ θ²/2 = 0.5 % that first-order theory drops may no longer
+/// be negligible. Past it the result calls for checking geometric validity, not for rejection.
+pub const SMALL_DISPLACEMENT_LIMIT: f64 = 0.1;
+
+fn beyond_small_displacement(v: f64) -> bool {
+    !(v.abs() <= SMALL_DISPLACEMENT_LIMIT)
+}
+
+pub(crate) fn small_displacement(mut nodes: Vec<usize>, mut elements: Vec<usize>) -> Option<StructuredDiagnostic> {
+    if nodes.is_empty() && elements.is_empty() {
+        return None;
+    }
+    nodes.sort_unstable();
+    nodes.dedup();
+    elements.sort_unstable();
+    elements.dedup();
+    let mut d = diagnostic("LIN-SMALL-DISPLACEMENT");
+    d.threshold = Some(SMALL_DISPLACEMENT_LIMIT);
+    if !elements.is_empty() {
+        d.element_kind = Some(ElementKind::Frame);
+    }
+    d.node_ids = nodes;
+    d.element_ids = elements;
+    Some(d)
+}
+
+/// Nodes whose rotation, and two-node members whose chord rotation |Δu|/L, exceed
+/// [`SMALL_DISPLACEMENT_LIMIT`]. Each member is judged against its own length, so a large part
+/// elsewhere in the model does not hide a small one.
+pub fn small_displacement_2d(input: Option<&SolverInput>, r: &AnalysisResults) -> Option<StructuredDiagnostic> {
+    let nodes = r.displacements.iter().filter(|d| beyond_small_displacement(d.ry)).map(|d| d.node_id).collect();
+    let mut elements = Vec::new();
+    if let Some(input) = input {
+        let u: std::collections::HashMap<usize, (f64, f64)> = r.displacements.iter().map(|d| (d.node_id, (d.ux, d.uz))).collect();
+        let at: std::collections::HashMap<usize, &SolverNode> = input.nodes.values().map(|n| (n.id, n)).collect();
+        for e in crate::ordered::values(&input.elements) {
+            let (Some(a), Some(b)) = (at.get(&e.node_i), at.get(&e.node_j)) else { continue };
+            let (ua, ub) = (u.get(&e.node_i).copied().unwrap_or((0.0, 0.0)), u.get(&e.node_j).copied().unwrap_or((0.0, 0.0)));
+            let length = (b.x - a.x).hypot(b.z - a.z);
+            if length > 0.0 && beyond_small_displacement((ub.0 - ua.0).hypot(ub.1 - ua.1) / length) {
+                elements.push(e.id);
+            }
+        }
+    }
+    small_displacement(nodes, elements)
+}
+
+/// A combination's warning: its own node rotations, recomputed, and the members whose chord a
+/// contributing case warned, carried without geometry to recompute them.
+pub(crate) fn combined_small_displacement<'a>(nodes: Option<StructuredDiagnostic>, cases: impl Iterator<Item = &'a StructuredDiagnostic>) -> Option<StructuredDiagnostic> {
+    let elements = cases.filter(|d| d.phase.as_deref() == Some("LIN-SMALL-DISPLACEMENT")).flat_map(|d| d.element_ids.iter().copied()).collect();
+    small_displacement(nodes.map_or_else(Vec::new, |d| d.node_ids), elements)
+}
+
+/// [`small_displacement_2d`] in 3D: the norm of each node's rotation vector, and the chord of every two-node member.
+pub fn small_displacement_3d(input: Option<&SolverInput3D>, r: &AnalysisResults3D) -> Option<StructuredDiagnostic> {
+    let nodes = r.displacements.iter().filter(|d| beyond_small_displacement((d.rx * d.rx + d.ry * d.ry + d.rz * d.rz).sqrt())).map(|d| d.node_id).collect();
+    let mut elements = Vec::new();
+    if let Some(input) = input {
+        let u: std::collections::HashMap<usize, [f64; 3]> = r.displacements.iter().map(|d| (d.node_id, [d.ux, d.uy, d.uz])).collect();
+        let at: std::collections::HashMap<usize, &SolverNode3D> = input.nodes.values().map(|n| (n.id, n)).collect();
+        for e in crate::ordered::values(&input.elements) {
+            let (Some(a), Some(b)) = (at.get(&e.node_i), at.get(&e.node_j)) else { continue };
+            let (ua, ub) = (u.get(&e.node_i).copied().unwrap_or([0.0; 3]), u.get(&e.node_j).copied().unwrap_or([0.0; 3]));
+            let length = ((b.x - a.x).powi(2) + (b.y - a.y).powi(2) + (b.z - a.z).powi(2)).sqrt();
+            let chord = ((ub[0] - ua[0]).powi(2) + (ub[1] - ua[1]).powi(2) + (ub[2] - ua[2]).powi(2)).sqrt();
+            if length > 0.0 && beyond_small_displacement(chord / length) {
+                elements.push(e.id);
+            }
+        }
+    }
+    small_displacement(nodes, elements)
 }
 
 /// Add warnings to a result's diagnostics, once each: a path that already attached a finding
