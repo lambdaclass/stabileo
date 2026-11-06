@@ -178,6 +178,21 @@ describe('the key in an answer', () => {
     expect(err.message).toBe("The assistant's answer contained your API key, so it was not used. Nothing was built; ask again.");
   });
 
+  it('NEGATIVE: a valid model carrying the key in a name is refused', async () => {
+    answer([{ type: 'tool_use', name: 'create_model', input: {
+      analysis_mode: '2d',
+      nodes: [[1, { id: 1, x: 0, y: 0 }], [2, { id: 2, x: 6, y: 0 }]],
+      elements: [[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1 }]],
+      materials: [[1, { id: 1, name: `Steel ${KEY}`, e: 200000, nu: 0.3 }]],
+      sections: [[1, { id: 1, name: 'IPE 300', a: 53.8e-4, iz: 8356e-8 }]],
+      supports: [[1, { id: 1, nodeId: 1, type: 'pinned' }], [2, { id: 2, nodeId: 2, type: 'rollerX' }]],
+      interpretation: 'x',
+    } }]);
+    const err = await buildModel({ provider: 'anthropic', apiKey: KEY }, 'a beam', 'en', '2d').catch((e) => e);
+    expect(err).toBeInstanceOf(AiActionError);
+    expect(err.message).toBe("The assistant's answer contained your API key, so it was not used. Nothing was built; ask again.");
+  });
+
   it('NEGATIVE: a text answer that echoes the key shows it masked', async () => {
     answer([{ type: 'text', text: `Your key ${KEY} looks fine.` }]);
     const resp = await buildModel({ provider: 'anthropic', apiKey: KEY }, 'hello', 'en', '2d');

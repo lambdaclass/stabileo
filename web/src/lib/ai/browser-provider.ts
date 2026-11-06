@@ -280,6 +280,7 @@ export async function buildModel(
     if (err instanceof AiActionError && mentionsKey(err.message, creds.apiKey)) throw new AiActionError(t('ai.err.keyInAnswer'));
     throw err;
   }
+  if (built.snapshot && mentionsKey(JSON.stringify(built.snapshot), creds.apiKey)) throw new AiActionError(t('ai.err.keyInAnswer'));
   const clean = (v: string | undefined): string | undefined => (v === undefined ? v : scrubKey(v, creds.apiKey));
   return { ...built, message: scrubKey(built.message, creds.apiKey), changeSummary: clean(built.changeSummary), rawAiResponse: clean(built.rawAiResponse) };
 }
