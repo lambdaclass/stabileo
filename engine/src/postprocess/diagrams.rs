@@ -466,8 +466,9 @@ impl MemberDeflection {
             [l, l * l / (2.0 * ei), l * l * l / (6.0 * ei) - flex_s * l],
             v_j - v_i - mq2 / ei + flex_s * sql,
         );
+        let end_couples: f64 = d.couples.iter().filter(|c| c.0 >= l).map(|c| c.1).sum();
         let r3 = if hinge_end {
-            ([0.0, 1.0, l], -mql)
+            ([0.0, 1.0, l], end_couples - mql)
         } else {
             ([1.0, l / ei, l * l / (2.0 * ei)], r_j - mq1 / ei)
         };
