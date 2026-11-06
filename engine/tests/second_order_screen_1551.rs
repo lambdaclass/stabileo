@@ -1,4 +1,4 @@
-use dedaliano_engine::known_issues::{SECOND_ORDER_NEAR_FACTOR, SECOND_ORDER_RATIO};
+use dedaliano_engine::known_issues::{SECOND_ORDER_NEAR_FACTOR, SECOND_ORDER_RATIO, TRUSS_ALPHA_CR};
 use dedaliano_engine::postprocess::combinations::{combine_results_3d_refs, combine_results_refs, CombinationFactor};
 use dedaliano_engine::solver::buckling::solve_buckling_2d;
 use dedaliano_engine::solver::linear::{solve_2d, solve_3d};
@@ -312,7 +312,7 @@ fn a_compressed_truss_bar_in_a_stiff_structure_is_bounded_on_its_own_length() {
     let loaded = solve_2d(&truss_v(false, 1e-6)).unwrap();
     assert!(loaded.element_forces.iter().filter(|f| f.element_id != 3).all(|f| f.n_start < -1.0), "{:?}", loaded.element_forces);
     assert!(truss_v_ratio(&loaded, 1, 1e-6) < SECOND_ORDER_RATIO / SECOND_ORDER_NEAR_FACTOR);
-    assert!(solve_buckling_2d(&truss_v(false, 1e-6), 1).unwrap().modes[0].load_factor >= 10.0);
+    assert!(solve_buckling_2d(&truss_v(false, 1e-6), 1).unwrap().modes[0].load_factor >= TRUSS_ALPHA_CR);
     assert_eq!(second_order(&loaded.structured_diagnostics), vec![]);
     let settled = solve_2d(&truss_v(true, 1e-6)).unwrap();
     assert!(settled.element_forces.iter().filter(|f| f.element_id != 3).all(|f| f.n_start < -1.0), "{:?}", settled.element_forces);
@@ -327,7 +327,7 @@ fn a_slender_truss_bar_holds_only_itself_while_the_structure_stays_stiff() {
     assert!(truss_v_ratio(&r, 1, slender) > SECOND_ORDER_RATIO, "{}", truss_v_ratio(&r, 1, slender));
     assert!(truss_v_ratio(&r, 2, 1e-6) < SECOND_ORDER_RATIO / SECOND_ORDER_NEAR_FACTOR);
     let alpha = solve_buckling_2d(&input, 1).unwrap().modes[0].load_factor;
-    assert!(alpha >= 10.0, "α_cr {alpha}");
+    assert!(alpha >= TRUSS_ALPHA_CR, "α_cr {alpha}");
     assert_eq!(second_order(&r.structured_diagnostics), warned(vec![1]));
     let screen = r.result_summary.as_ref().and_then(|s| s.truss_screen.clone()).unwrap();
     assert!((screen.sway.unwrap() - 1.0 / alpha).abs() <= 1e-9 / alpha, "{screen:?}");
@@ -399,7 +399,7 @@ fn a_slender_truss_mast_is_unbounded_though_every_bar_passes_on_its_own_length()
     let input = truss_mast(10, 10.0);
     let r = solve_2d(&input).unwrap();
     let alpha = solve_buckling_2d(&input, 1).unwrap().modes[0].load_factor;
-    assert!(alpha < 10.0, "α_cr {alpha}");
+    assert!(alpha < TRUSS_ALPHA_CR, "α_cr {alpha}");
     let screen = r.result_summary.as_ref().and_then(|s| s.truss_screen.clone()).unwrap();
     assert!(!screen.bars.is_empty() && screen.bars.iter().all(|b| b.ratio < SECOND_ORDER_RATIO / SECOND_ORDER_NEAR_FACTOR), "{screen:?}");
     assert_eq!(second_order(&r.structured_diagnostics), unbounded());
@@ -407,7 +407,7 @@ fn a_slender_truss_mast_is_unbounded_though_every_bar_passes_on_its_own_length()
     assert_eq!(second_order(&combined.structured_diagnostics), unbounded());
 
     let stiff = truss_mast(10, 0.5);
-    assert!(solve_buckling_2d(&stiff, 1).unwrap().modes[0].load_factor >= 10.0);
+    assert!(solve_buckling_2d(&stiff, 1).unwrap().modes[0].load_factor >= TRUSS_ALPHA_CR);
     assert_eq!(second_order(&solve_2d(&stiff).unwrap().structured_diagnostics), vec![]);
     let pair = solve_2d(&stiff).unwrap();
     let combined = combine_results_refs(&[CombinationFactor { case_id: 1, factor: 20.0 }], &[(1, &pair)]).unwrap();

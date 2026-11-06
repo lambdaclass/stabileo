@@ -11,6 +11,7 @@ import LZString from 'lz-string';
 import { deflateSync } from 'fflate';
 import { inflateBounded } from './bounded-inflate';
 import type { ModelSnapshot } from '../store/history.svelte';
+import type { MemberBehaviour } from '../engine/member-behaviour';
 import type { DiagramType } from '../store/results.svelte';
 import { modelStore } from '../store/model.svelte';
 import { viewVisibility } from '../store/view-state.svelte';
@@ -313,6 +314,7 @@ function toCompact(snapshot: ModelSnapshot, meta?: ShareMeta): Record<string, un
     if (v.localYy != null) opt.ly = r(v.localYy);
     if (v.localYz != null) opt.lz = r(v.localYz);
     if ((v as any).rollAngle != null) opt.ra = r((v as any).rollAngle);
+    if (MEMBER_BEHAVIOURS.includes((v as any).behaviour)) opt.bh = (v as any).behaviour;
     const off = (v as any).offset;
     if (off && (off.i || off.j)) {
       const enc: Record<string, unknown> = { f: off.frame === 'local' ? 'l' : 'g' };
@@ -535,6 +537,7 @@ function fromCompact(c: Record<string, unknown>): ModelSnapshot {
         ...(opt.ly != null ? { localYy: opt.ly } : {}),
         ...(opt.lz != null ? { localYz: opt.lz } : {}),
         ...(opt.ra != null ? { rollAngle: opt.ra } : {}),
+        ...(MEMBER_BEHAVIOURS.includes(opt.bh) ? { behaviour: opt.bh } : {}),
         ...(opt.of ? { offset: {
           frame: opt.of.f === 'l' ? 'local' : 'global',
           ...(opt.of.i ? { i: { x: opt.of.i[0], y: opt.of.i[1], z: opt.of.i[2] } } : {}),
@@ -798,6 +801,8 @@ export function generateShareURL(): { url: string; length: number } | null {
  * whatever it is called. Absent, null, false, zero, '' and empty lists and objects count as the
  * same, since the format omits them; numbers compare to the ten figures the format keeps.
  */
+const MEMBER_BEHAVIOURS: readonly unknown[] = ['tensionOnly', 'compressionOnly', 'inactive'] satisfies readonly MemberBehaviour[];
+
 export function compactLoses(snapshot: ModelSnapshot): boolean {
   let back: ModelSnapshot;
   try { back = fromCompact(JSON.parse(JSON.stringify(toCompact(snapshot)))); } catch { return true; }

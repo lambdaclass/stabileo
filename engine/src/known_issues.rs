@@ -66,7 +66,7 @@ pub const ENTRIES: &[Entry] = &[
     Entry { id: "LIN-SMALL-DISPLACEMENT", issue: 1446, mode: Mode::Warn, message: "A rotation or a member's relative displacement exceeds 0.1 rad, the small-displacement screening limit of linear analysis: at that angle the terms first-order theory drops, such as the chord shortening 1 − cos θ ≈ 0.5 %, may no longer be negligible. Check that the change of geometry is acceptable: a support, spring or release may leave part of the model nearly free; otherwise use a nonlinear analysis" },
     Entry { id: "LIN-SECOND-ORDER", issue: 1551, mode: Mode::Warn, message: "Axial compression is a significant fraction of the critical load: second-order effects may amplify these linear displacements and moments by more than 10 % (N/Ncr > 0.075, CIRSOC 301 Appendix 7). Run a P-Delta or second-order analysis before using these moments for design" },
     Entry { id: "LIN-SECOND-ORDER-NEAR", issue: 1551, mode: Mode::Warn, message: "Axial compression is near the second-order limit (N/Ncr above 0.047, the limit 0.075 over the largest CIRSOC 301 load factor 1.6): a combination that factors this case up may pass it. Check the combinations with a P-Delta or second-order analysis" },
-    Entry { id: "LIN-SECOND-ORDER-UNBOUNDED", issue: 1551, mode: Mode::Warn, message: "Members are in compression and the critical load could not be bounded: a frame member's from the member alone, a truss bar's on its own length only while the whole structure's critical load factor α_cr is at least 10. So it is unknown whether second-order effects amplify these linear displacements and moments by more than 10 %. Run a P-Delta or second-order analysis before using these moments for design" },
+    Entry { id: "LIN-SECOND-ORDER-UNBOUNDED", issue: 1551, mode: Mode::Warn, message: "Members are in compression and the critical load could not be bounded: a frame member's from the member alone, a truss bar's on its own length only while the whole structure's critical load factor α_cr is at least 11. So it is unknown whether second-order effects amplify these linear displacements and moments by more than 10 %. Run a P-Delta or second-order analysis before using these moments for design" },
     Entry { id: "RC-NM-PAIRING", issue: 1316, mode: Mode::Warn, message: "This CIRSOC 201 column check pairs the axial force of one combination with the moment of another, which can be unconservative below the balance point. Check the column under each named combination" },
 ];
 
@@ -637,8 +637,8 @@ pub fn small_displacement_3d(input: &SolverInput3D, r: &AnalysisResults3D) -> (O
 pub const SECOND_ORDER_RATIO: f64 = 0.074_83;
 
 /// The least α_cr of the whole structure at which a compressed truss bar is screened on its own
-/// length, EN 1993-1-1 5.2.1(3)'s limit for first-order analysis.
-pub const TRUSS_ALPHA_CR: f64 = 10.0;
+/// length: the sway amplification 1/(1 − 1/α_cr) then stays within the screen's 1.1.
+pub const TRUSS_ALPHA_CR: f64 = 11.0;
 
 /// The largest single load factor of CIRSOC 301 B.2: a case within this factor of the limit can pass
 /// it in a combination.
@@ -843,24 +843,34 @@ pub(crate) fn combined_second_order<'a>(cases: impl Iterator<Item = &'a Structur
     found
 }
 
-/// [`combined_second_order`]'s truss bars past the limit, each bounded by Σ|factor|·(its case
-/// N/N_E). None, unbounded, when a compressed case has no structure α_cr or Σ|factor|/α_cr passes
-/// 1/[`TRUSS_ALPHA_CR`]; with no compressed truss bar in any case, the frame's own screen decides alone.
-pub(crate) fn combined_truss<'a>(cases: impl Iterator<Item = (f64, Option<&'a ResultSummary>, bool)>) -> Option<Vec<usize>> {
-    let cases: Vec<_> = cases.collect();
-    let screens = || cases.iter().filter_map(|(f, s, _)| s.and_then(|s| s.truss_screen.as_ref()).map(|t| (*f, t)));
-    if screens().all(|(_, t)| t.bars.is_empty()) { return Some(Vec::new()); }
-    let mut sway = 0.0;
-    for (factor, summary, compressed) in &cases {
-        if !compressed { continue; }
-        sway += factor * summary.and_then(|s| s.truss_screen.as_ref()).and_then(|t| t.sway)?;
-    }
-    if !(sway * TRUSS_ALPHA_CR <= 1.0) { return None; }
+/// A combination's truss screen: each bar's Σ|factor|·(its case N/N_E), and Σ|factor|/α_cr over the
+/// cases that carry compression, absent when one of them has no α_cr. A case screened without a
+/// truss screen had nothing compressed; one never screened counts as compressed when `compressed`.
+/// None when no case has a truss screen.
+pub(crate) fn combined_truss_screen<'a>(cases: impl Iterator<Item = (f64, Option<&'a ResultSummary>, bool)>) -> Option<TrussScreen> {
+    let cases: Vec<_> = cases.filter(|(factor, _, _)| *factor != 0.0).collect();
+    if !cases.iter().any(|(_, s, _)| s.is_some_and(|s| s.truss_screen.is_some())) { return None; }
+    let mut sway = Some(0.0);
     let mut total: std::collections::BTreeMap<usize, f64> = std::collections::BTreeMap::new();
-    for (factor, t) in screens() {
-        for b in &t.bars { *total.entry(b.element_id).or_default() += factor * b.ratio; }
+    for (factor, summary, compressed) in &cases {
+        match summary.and_then(|s| s.truss_screen.as_ref()) {
+            Some(t) => {
+                sway = sway.zip(t.sway).map(|(a, s)| a + factor * s);
+                for b in &t.bars { *total.entry(b.element_id).or_default() += factor * b.ratio; }
+            }
+            None if *compressed && summary.is_none_or(|s| s.second_order_ratio.is_none()) => sway = None,
+            None => {}
+        }
     }
-    Some(total.into_iter().filter(|&(_, r)| !(r <= SECOND_ORDER_RATIO)).map(|(id, _)| id).collect())
+    Some(TrussScreen { sway, bars: total.into_iter().map(|(element_id, ratio)| MemberRatio { element_id, ratio }).collect() })
+}
+
+/// [`combined_second_order`]'s truss bars past the limit from [`combined_truss_screen`]: None,
+/// unbounded, when a bar is compressed and Σ|factor|/α_cr is unknown or passes 1/[`TRUSS_ALPHA_CR`].
+pub(crate) fn combined_truss(screen: Option<&TrussScreen>) -> Option<Vec<usize>> {
+    let Some(t) = screen.filter(|t| !t.bars.is_empty()) else { return Some(Vec::new()) };
+    if !t.sway.is_some_and(|s| s * TRUSS_ALPHA_CR <= 1.0) { return None; }
+    Some(t.bars.iter().filter(|b| !(b.ratio <= SECOND_ORDER_RATIO)).map(|b| b.element_id).collect())
 }
 
 /// [`combined_second_order`]'s ratio: each case's |factor| times its screened ratio.
@@ -1180,7 +1190,9 @@ mod truss_screen_tests {
         let (d, _, truss) = second_order(&model(), || Some(0.05));
         assert_eq!(phases(&d), vec![("LIN-SECOND-ORDER", vec![1])]);
         assert_eq!(truss.unwrap().bars.iter().map(|b| b.element_id).collect::<Vec<_>>(), vec![1, 2]);
-        for sway in [None, Some(0.2), Some(f64::NAN)] {
+        let (d, _, _) = second_order(&model(), || Some(1.0 / 11.5));
+        assert_eq!(phases(&d), vec![("LIN-SECOND-ORDER", vec![1])], "α_cr 11.5");
+        for sway in [None, Some(0.2), Some(1.0 / 10.5), Some(f64::NAN)] {
             let (d, _, truss) = second_order(&model(), || sway);
             assert_eq!(phases(&d), vec![("LIN-SECOND-ORDER-UNBOUNDED", vec![])], "{sway:?}");
             assert_eq!(truss.unwrap().sway.map(f64::to_bits), sway.map(f64::to_bits));
@@ -1206,13 +1218,22 @@ mod truss_screen_tests {
 
     #[test]
     fn a_combination_with_a_compressed_case_of_unknown_alpha_is_unbounded() {
-        let summary = |sway: Option<f64>, ratio: f64| ResultSummary { truss_screen: Some(TrussScreen { sway, bars: vec![MemberRatio { element_id: 1, ratio }] }), ..Default::default() };
+        let summary = |sway: Option<f64>, ratio: f64| ResultSummary { second_order_ratio: Some(0.0), truss_screen: Some(TrussScreen { sway, bars: vec![MemberRatio { element_id: 1, ratio }] }), ..Default::default() };
+        let verdict = |cases: &[(f64, Option<&ResultSummary>, bool)]| combined_truss(combined_truss_screen(cases.iter().copied()).as_ref());
         let (a, b) = (summary(Some(0.04), 0.03), summary(None, 0.03));
-        assert_eq!(combined_truss([(1.0, Some(&a), true), (1.0, Some(&a), true)].into_iter()), Some(vec![]));
-        assert_eq!(combined_truss([(2.0, Some(&a), true), (2.0, Some(&a), true)].into_iter()), None, "Σ|f|/α_cr = 0.16");
-        assert_eq!(combined_truss([(1.0, Some(&a), true), (1.0, Some(&b), true)].into_iter()), None);
-        assert_eq!(combined_truss([(1.0, Some(&a), true), (5.0, None, false)].into_iter()), Some(vec![]));
-        assert_eq!(combined_truss([(1.0, Some(&a), true), (1.0, None, true)].into_iter()), None);
-        assert_eq!(combined_truss([(1.2, Some(&a), true), (1.0, Some(&summary(Some(0.04), 0.07)), true)].into_iter()), Some(vec![1]), "1.2·0.03 + 0.07");
+        let quiet = ResultSummary { second_order_ratio: Some(0.0), ..Default::default() };
+        assert_eq!(verdict(&[(1.0, Some(&a), true), (1.0, Some(&a), true)]), Some(vec![]));
+        assert_eq!(verdict(&[(2.0, Some(&a), true), (2.0, Some(&a), true)]), None, "Σ|f|/α_cr = 0.16");
+        assert_eq!(verdict(&[(1.0, Some(&a), true), (1.0, Some(&b), true)]), None);
+        assert_eq!(verdict(&[(1.0, Some(&a), true), (0.0, Some(&b), true)]), Some(vec![]), "an unused case asks nothing");
+        assert_eq!(verdict(&[(1.0, Some(&a), true), (5.0, None, false)]), Some(vec![]));
+        assert_eq!(verdict(&[(1.0, Some(&a), true), (5.0, Some(&quiet), false)]), Some(vec![]), "screened with nothing compressed");
+        assert_eq!(verdict(&[(1.0, Some(&a), true), (1.0, None, true)]), None, "never screened, compressed");
+        assert_eq!(verdict(&[(3.0, Some(&a), false)]), None, "compressed by span loads alone, its ends reading zero: 3·0.04 > 1/11");
+        assert_eq!(verdict(&[(1.2, Some(&a), true), (1.0, Some(&summary(Some(0.04), 0.07)), true)]), Some(vec![1]), "1.2·0.03 + 0.07");
+        let inner = ResultSummary { second_order_ratio: Some(0.0), truss_screen: combined_truss_screen([(1.0, Some(&summary(Some(0.04), 0.07)), true)].into_iter()), ..Default::default() };
+        assert_eq!(verdict(&[(1.0, Some(&inner), false)]), Some(vec![]));
+        assert_eq!(verdict(&[(1.5, Some(&inner), false)]), Some(vec![1]), "a combination of a quiet combination keeps its bars: 1.5·0.07");
+        assert_eq!(verdict(&[(3.0, Some(&inner), false), (0.5, Some(&inner), false)]), None, "3.5·0.04 > 1/11");
     }
 }

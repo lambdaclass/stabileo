@@ -4,7 +4,7 @@
     "section": "Properties and stresses of one cross-section; no structural model is solved.",
     "postprocess": "Reads results a solve already produced (diagrams, stations, combinations, envelopes, section stresses); the envelope and combination type is roadmap section 3 item 10.",
     "session": "Builds a prepared session; its solve method carries the invariances.",
-    "utility": "Not an analysis: initialisation, build information, reproduction hashes, the model review and the editor collision geometry."
+    "utility": "Not an analysis: initialisation, build information, reproduction hashes, the model review, the editor collision geometry and the deferral of the second-order screen's buckling solve."
   },
   "entry_points": {
     "Cirsoc201SectionKernel::at_axial": {"scope": "design"},
@@ -330,6 +330,7 @@
       "planes": {"exempt": "no 3D counterpart to embed the 2D model into"},
       "prepared": {"exempt": "no prepared or duplicate linear path: it solves its own iterative, eigenvalue or frequency-domain system"}
     }},
+    "defer_sway_screen": {"scope": "utility"},
     "engine_build_info": {"scope": "utility"},
     "engine_reproduce_hashes": {"scope": "utility"},
     "envelope_shell_stresses": {"scope": "postprocess"},

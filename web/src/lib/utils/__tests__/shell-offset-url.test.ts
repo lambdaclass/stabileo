@@ -94,6 +94,12 @@ describe('what the compact link keeps', () => {
     const graded = { ...base, materials: [[1, { id: 1, name: 'A36', e: 200000, nu: 0.3, rho: 78.5, fy: 250, fu: 400, gradeId: 'astm-a36', standard: 'ASTM A36', region: 'US' }]] } as never;
     expect(compactLoses(graded)).toBe(false);
     expect(decompressSnapshot(compressSnapshot(graded))!.materials[0]![1]).toMatchObject({ fu: 400, gradeId: 'astm-a36', standard: 'ASTM A36', region: 'US', fy: 250 });
+    // A member's behaviour travels too (compared after the round trip): a tension-only rod read back as linear would carry compression.
+    const element = { id: 1, type: 'truss', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1 };
+    const oneWay = { ...base, elements: [[1, { ...element, behaviour: 'tensionOnly' }]] } as never;
+    expect(compactLoses(oneWay)).toBe(false);
+    const unknown = { ...base, elements: [[1, { ...element, behaviour: 'sideways' }]] } as never;
+    expect(compactLoses(unknown)).toBe(true);
   });
 });
 
