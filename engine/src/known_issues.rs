@@ -64,6 +64,9 @@ pub const ENTRIES: &[Entry] = &[
     Entry { id: "MD-ORTHOGONALITY", issue: 759, mode: Mode::Warn, message: "3D modal analysis can return non-orthogonal or duplicate modes. Effective masses, response-spectrum combinations and harmonic responses by modal superposition may be wrong, by large factors; independently verify the modal basis" },
     Entry { id: "TH-RECIPROCITY", issue: 760, mode: Mode::Warn, message: "Linear time history has failed reciprocity checks by up to a factor of 33. The affected input class is not yet isolated; independently verify this response before design" },
     Entry { id: "LIN-SMALL-DISPLACEMENT", issue: 1446, mode: Mode::Warn, message: "A rotation or a member's relative displacement exceeds 0.1 rad, the small-displacement screening limit of linear analysis: at that angle the terms first-order theory drops, such as the chord shortening 1 − cos θ ≈ 0.5 %, may no longer be negligible. Check that the change of geometry is acceptable: a support, spring or release may leave part of the model nearly free; otherwise use a nonlinear analysis" },
+    Entry { id: "LIN-SECOND-ORDER", issue: 1551, mode: Mode::Warn, message: "Axial compression is a significant fraction of the critical load: second-order effects may amplify these linear displacements and moments by more than 10 % (N/Ncr > 0.075, CIRSOC 301 Appendix 7). Run a P-Delta or second-order analysis before using these moments for design" },
+    Entry { id: "LIN-SECOND-ORDER-NEAR", issue: 1551, mode: Mode::Warn, message: "Axial compression is near the second-order limit (N/Ncr above 0.047, the limit 0.075 over the largest CIRSOC 301 load factor 1.6): a combination that factors this case up may pass it. Check the combinations with a P-Delta or second-order analysis" },
+    Entry { id: "LIN-SECOND-ORDER-UNBOUNDED", issue: 1551, mode: Mode::Warn, message: "Members are in compression and the critical load could not be bounded from the members alone, so it is unknown whether second-order effects amplify these linear displacements and moments by more than 10 %. Run a P-Delta or second-order analysis before using these moments for design" },
     Entry { id: "RC-NM-PAIRING", issue: 1316, mode: Mode::Warn, message: "This CIRSOC 201 column check pairs the axial force of one combination with the moment of another, which can be unconservative below the balance point. Check the column under each named combination" },
 ];
 
@@ -606,6 +609,273 @@ pub fn small_displacement_3d(input: Option<&SolverInput3D>, r: &AnalysisResults3
         }
     }
     small_displacement(nodes, elements)
+}
+
+/// The second-order screening limit of a linear result, N/Ncr = 0.07483: the largest ratio at which
+/// the worst elastic moment amplification, sec((π/2)·√(N/Ncr)) under a uniform moment, stays within
+/// 1.1, the ratio of second- to first-order effects up to which CIRSOC 301 Appendix 7 §7.2 treats
+/// them as small. The displacement amplification 1/(1 − N/Ncr) is lower.
+pub const SECOND_ORDER_RATIO: f64 = 0.074_83;
+
+/// The largest single load factor of CIRSOC 301 B.2: a case within this factor of the limit can pass
+/// it in a combination.
+pub const SECOND_ORDER_NEAR_FACTOR: f64 = 1.6;
+
+pub(crate) struct ScreenBar {
+    pub id: usize,
+    pub ends: [usize; 2],
+    pub frame: bool,
+    pub hinged: [bool; 2],
+    pub ei_min: f64,
+    pub compression: f64,
+}
+
+pub(crate) struct ScreenModel {
+    pub bars: Vec<ScreenBar>,
+    pub position: std::collections::HashMap<usize, [f64; 3]>,
+    pub supported: std::collections::HashSet<usize>,
+    pub braced: std::collections::HashSet<usize>,
+    pub clamped: std::collections::HashSet<usize>,
+    pub other_parts: bool,
+}
+
+/// A member with no bound of its own is let off only when its compression is under this fraction of
+/// its pinned-pinned Euler load, π²·E·I_min/L², so that round-off in a member carrying nothing does
+/// not flag the frame; no force elsewhere in the model can raise it. A let-off member still enters
+/// the recorded ratio, scaled so that a combination factoring it past this fraction warns.
+const COMPRESSED: f64 = 1e-9;
+
+fn sub(a: [f64; 3], b: [f64; 3]) -> [f64; 3] {
+    [a[0] - b[0], a[1] - b[1], a[2] - b[2]]
+}
+
+fn norm(v: [f64; 3]) -> f64 {
+    (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt()
+}
+
+/// Frame members as the physical members they belong to: chains of collinear frame elements
+/// through nodes no other element, support or hinge touches. Each chain is its element indices.
+fn member_chains(m: &ScreenModel) -> Vec<Vec<usize>> {
+    let mut at: std::collections::HashMap<usize, Vec<usize>> = std::collections::HashMap::new();
+    for (i, b) in m.bars.iter().enumerate() {
+        for n in b.ends {
+            at.entry(n).or_default().push(i);
+        }
+    }
+    let passes = |node: usize| -> Option<(usize, usize)> {
+        let here = at.get(&node)?;
+        if here.len() != 2 || m.supported.contains(&node) { return None; }
+        let (i, j) = (here[0], here[1]);
+        let (a, b) = (&m.bars[i], &m.bars[j]);
+        if !a.frame || !b.frame || i == j { return None; }
+        let hinged = |bar: &ScreenBar| bar.ends.iter().zip(bar.hinged).any(|(&n, h)| n == node && h);
+        if hinged(a) || hinged(b) { return None; }
+        let p = |bar: &ScreenBar| { let other = if bar.ends[0] == node { bar.ends[1] } else { bar.ends[0] }; m.position.get(&other).copied() };
+        let (pa, pb, here) = (p(a)?, p(b)?, *m.position.get(&node)?);
+        let (u, v) = (sub(pa, here), sub(pb, here));
+        let cos = (u[0] * v[0] + u[1] * v[1] + u[2] * v[2]) / (norm(u) * norm(v));
+        (cos < -1.0 + 1e-9).then_some((i, j))
+    };
+    let mut seen = vec![false; m.bars.len()];
+    let mut chains = Vec::new();
+    for start in 0..m.bars.len() {
+        if seen[start] || !m.bars[start].frame { continue; }
+        let mut chain = vec![start];
+        seen[start] = true;
+        for side in 0..2 {
+            let (mut bar, mut node) = (start, m.bars[start].ends[side]);
+            while let Some((i, j)) = passes(node) {
+                let next = if i == bar { j } else { i };
+                if seen[next] { break; }
+                seen[next] = true;
+                chain.push(next);
+                node = if m.bars[next].ends[0] == node { m.bars[next].ends[1] } else { m.bars[next].ends[0] };
+                bar = next;
+            }
+        }
+        chains.push(chain);
+    }
+    chains
+}
+
+fn chain_ends(m: &ScreenModel, chain: &[usize]) -> Vec<usize> {
+    let mut count: std::collections::HashMap<usize, usize> = std::collections::HashMap::new();
+    for &i in chain {
+        for n in m.bars[i].ends { *count.entry(n).or_default() += 1; }
+    }
+    let mut ends: Vec<usize> = count.into_iter().filter(|&(_, c)| c == 1).map(|(n, _)| n).collect();
+    ends.sort_unstable();
+    ends
+}
+
+/// A linear result's second-order screen (#1551). The K = 2 and K = 1 bounds hold for the frame
+/// only because the clamp or both braces are supports: restraint from other members does not count.
+pub(crate) fn second_order(m: &ScreenModel) -> (Vec<StructuredDiagnostic>, f64) {
+    if !m.bars.iter().any(|b| b.compression > 0.0) { return (Vec::new(), 0.0); }
+    let length = |b: &ScreenBar| match (m.position.get(&b.ends[0]), m.position.get(&b.ends[1])) {
+        (Some(&a), Some(&c)) => norm(sub(c, a)),
+        _ => f64::NAN,
+    };
+    let braced = |chain: &[usize]| { let ends = chain_ends(m, chain); ends.len() == 2 && ends.iter().all(|n| m.braced.contains(n)) };
+    let clamped = |chain: &[usize]| chain.iter().any(|&i| {
+        let b = &m.bars[i];
+        (0..2).any(|k| m.clamped.contains(&b.ends[k]) && !b.hinged[k])
+    });
+    let euler = |bars: &[usize]| {
+        let l: f64 = bars.iter().map(|&i| length(&m.bars[i])).sum();
+        std::f64::consts::PI.powi(2) * bars.iter().map(|&i| m.bars[i].ei_min).fold(f64::INFINITY, f64::min) / l.powi(2)
+    };
+    let let_off = |bars: &[usize], n: f64| { let e = euler(bars); (n <= COMPRESSED * e).then(|| SECOND_ORDER_RATIO * n / (COMPRESSED * e)) };
+    let (mut over, mut near, mut largest, mut unbounded) = (Vec::new(), Vec::new(), 0.0_f64, m.other_parts);
+    let mut unbound = |bars: &[usize], n: f64, largest: &mut f64| match let_off(bars, n) {
+        Some(r) => *largest = largest.max(r),
+        None => unbounded = true,
+    };
+    for i in 0..m.bars.len() {
+        let b = &m.bars[i];
+        if !b.frame && b.compression > 0.0 && !b.ends.iter().all(|n| m.braced.contains(n)) { unbound(&[i], b.compression, &mut largest); }
+    }
+    for chain in member_chains(m) {
+        let n = chain.iter().map(|&i| m.bars[i].compression).fold(0.0, f64::max);
+        if n <= 0.0 { continue; }
+        let k = if clamped(&chain) { 2.0 } else if braced(&chain) { 1.0 } else { unbound(&chain, n, &mut largest); continue };
+        let ratio = n * k * k / euler(&chain);
+        let ids = chain.iter().map(|&i| m.bars[i].id);
+        largest = if ratio.is_nan() { f64::INFINITY } else { largest.max(ratio) };
+        if !(ratio <= SECOND_ORDER_RATIO) {
+            over.extend(ids);
+        } else if ratio * SECOND_ORDER_NEAR_FACTOR > SECOND_ORDER_RATIO {
+            near.extend(ids);
+        }
+    }
+    let mut found: Vec<StructuredDiagnostic> = [("LIN-SECOND-ORDER", over), ("LIN-SECOND-ORDER-NEAR", near)].into_iter().filter_map(|(id, e)| on_elements(id, e)).collect();
+    if unbounded { found.push(whole_frame("LIN-SECOND-ORDER-UNBOUNDED")); }
+    (found, largest)
+}
+
+fn whole_frame(id: &str) -> StructuredDiagnostic {
+    let mut d = diagnostic(id);
+    d.threshold = Some(SECOND_ORDER_RATIO);
+    d
+}
+
+fn on_elements(id: &str, mut elements: Vec<usize>) -> Option<StructuredDiagnostic> {
+    if elements.is_empty() { return None; }
+    elements.sort_unstable();
+    elements.dedup();
+    let mut d = whole_frame(id);
+    d.element_kind = Some(ElementKind::Frame);
+    d.element_ids = elements;
+    Some(d)
+}
+
+pub(crate) fn is_second_order(d: &StructuredDiagnostic) -> bool {
+    d.code == DiagnosticCode::KnownIssue && matches!(d.phase.as_deref(), Some("LIN-SECOND-ORDER" | "LIN-SECOND-ORDER-NEAR" | "LIN-SECOND-ORDER-UNBOUNDED"))
+}
+
+/// A combination's screen. `ratio` is Σ|factor|·(the case's largest N/Ncr), a bound on every
+/// bounded member's N/Ncr in the combination when no factor is negative; None when a compressed
+/// case carries no ratio. The members a case flagged stay flagged; an unbounded case, a negative
+/// factor, which can turn a case's tension into compression, or a missing ratio leaves the
+/// combination unbounded.
+pub(crate) fn combined_second_order<'a>(cases: impl Iterator<Item = &'a StructuredDiagnostic>, reversed: bool, ratio: Option<f64>) -> Vec<StructuredDiagnostic> {
+    let mut elements = Vec::new();
+    let mut unbounded = reversed || ratio.is_none();
+    for d in cases {
+        match d.phase.as_deref() {
+            Some("LIN-SECOND-ORDER") => elements.extend(d.element_ids.iter().copied()),
+            Some("LIN-SECOND-ORDER-UNBOUNDED") => unbounded = true,
+            _ => {}
+        }
+    }
+    let mut found: Vec<StructuredDiagnostic> = match ratio {
+        Some(r) if !(r <= SECOND_ORDER_RATIO) => vec![whole_frame("LIN-SECOND-ORDER")],
+        _ => on_elements("LIN-SECOND-ORDER", elements).into_iter().collect(),
+    };
+    if unbounded { found.push(whole_frame("LIN-SECOND-ORDER-UNBOUNDED")); }
+    found
+}
+
+/// [`combined_second_order`]'s ratio: each case's |factor| times its screened ratio.
+pub(crate) fn combined_ratio<'a>(cases: impl Iterator<Item = (f64, Option<&'a ResultSummary>, bool)>) -> Option<f64> {
+    let mut total = 0.0;
+    for (factor, summary, compressed) in cases {
+        match summary.and_then(|s| s.second_order_ratio) {
+            Some(r) => total += factor.abs() * r,
+            None if compressed => return None,
+            None => {}
+        }
+    }
+    Some(total)
+}
+
+fn span_length(a: Option<f64>, b: Option<f64>, length: Option<f64>) -> f64 {
+    let length = length.unwrap_or(f64::INFINITY);
+    (b.unwrap_or(length) - a.unwrap_or(0.0)).abs()
+}
+
+/// The largest compression along a member, bounded from its end forces and its axial span loads:
+/// a span load can compress the interior while both ends read zero.
+fn compression(n_start: f64, n_end: f64, span: Option<&f64>) -> f64 {
+    (-n_start).max(-n_end).max(0.0) + span.copied().unwrap_or(0.0)
+}
+
+/// [`second_order`] for a 2D result.
+pub fn second_order_2d(input: &SolverInput, loads: &[SolverLoad], r: &AnalysisResults) -> (Vec<StructuredDiagnostic>, f64) {
+    let mut span: std::collections::HashMap<usize, f64> = std::collections::HashMap::new();
+    for load in loads {
+        let (id, total) = match load {
+            SolverLoad::PointOnElement(p) => (p.element_id, p.px.unwrap_or(0.0).abs()),
+            SolverLoad::AxialDistributed(q) => (q.element_id, q.q_i.abs().max(q.q_j.abs()) * span_length(q.a, q.b, r.element_forces.iter().find(|f| f.element_id == q.element_id).map(|f| f.length))),
+            _ => continue,
+        };
+        *span.entry(id).or_default() += total;
+    }
+    let n: std::collections::HashMap<usize, f64> = r.element_forces.iter().map(|f| (f.element_id, compression(f.n_start, f.n_end, span.get(&f.element_id)))).collect();
+    let bars = crate::ordered::values(&input.elements).map(|e| {
+        let ei = input.materials.values().find(|m| m.id == e.material_id).zip(input.sections.values().find(|s| s.id == e.section_id))
+            .map_or(f64::NAN, |(m, s)| m.e * 1000.0 * s.iz);
+        ScreenBar { id: e.id, ends: [e.node_i, e.node_j], frame: e.elem_type == "frame", hinged: [e.hinge_start, e.hinge_end], ei_min: ei, compression: n.get(&e.id).copied().unwrap_or(0.0) }
+    }).collect();
+    let square = |s: &&crate::types::SolverSupport| s.angle.is_none_or(|a| a == 0.0);
+    let model = ScreenModel {
+        bars,
+        position: input.nodes.values().map(|n| (n.id, [n.x, 0.0, n.z])).collect(),
+        supported: input.supports.values().map(|s| s.node_id).collect(),
+        braced: input.supports.values().filter(square).filter(|s| matches!(s.support_type.as_str(), "fixed" | "pinned")).map(|s| s.node_id).collect(),
+        clamped: input.supports.values().filter(square).filter(|s| s.support_type == "fixed").map(|s| s.node_id).collect(),
+        other_parts: !input.constraints.is_empty() || !input.connectors.is_empty(),
+    };
+    second_order(&model)
+}
+
+/// [`second_order`] for a 3D result: I_min is the lesser of Iy and Iz.
+pub fn second_order_3d(input: &SolverInput3D, loads: &[SolverLoad3D], r: &AnalysisResults3D) -> (Vec<StructuredDiagnostic>, f64) {
+    let mut span: std::collections::HashMap<usize, f64> = std::collections::HashMap::new();
+    for load in loads {
+        if let SolverLoad3D::Distributed(q) = load {
+            let length = r.element_forces.iter().find(|f| f.element_id == q.element_id).map(|f| f.length);
+            *span.entry(q.element_id).or_default() += q.q_xi.abs().max(q.q_xj.abs()) * span_length(q.a, q.b, length);
+        }
+    }
+    let n: std::collections::HashMap<usize, f64> = r.element_forces.iter().map(|f| (f.element_id, compression(f.n_start, f.n_end, span.get(&f.element_id)))).collect();
+    let bars = crate::ordered::values(&input.elements).map(|e| {
+        let ei = input.materials.values().find(|m| m.id == e.material_id).zip(input.sections.values().find(|s| s.id == e.section_id))
+            .map_or(f64::NAN, |(m, s)| m.e * 1000.0 * s.iy.min(s.iz));
+        let hinged = [e.release_my_start || e.release_mz_start, e.release_my_end || e.release_mz_end];
+        ScreenBar { id: e.id, ends: [e.node_i, e.node_j], frame: e.elem_type == "frame", hinged, ei_min: ei, compression: n.get(&e.id).copied().unwrap_or(0.0) }
+    }).collect();
+    let held = |s: &&crate::types::SolverSupport3D| s.rx && s.ry && s.rz && [s.kx, s.ky, s.kz].iter().all(Option::is_none) && s.is_inclined != Some(true);
+    let model = ScreenModel {
+        bars,
+        position: input.nodes.values().map(|n| (n.id, [n.x, n.y, n.z])).collect(),
+        supported: input.supports.values().map(|s| s.node_id).collect(),
+        braced: input.supports.values().filter(held).map(|s| s.node_id).collect(),
+        clamped: input.supports.values().filter(held).filter(|s| s.rrx && s.rry && s.rrz && [s.krx, s.kry, s.krz].iter().all(Option::is_none)).map(|s| s.node_id).collect(),
+        other_parts: !input.constraints.is_empty() || !input.connectors.is_empty() || !input.plates.is_empty() || !input.quads.is_empty()
+            || !input.quad9s.is_empty() || !input.solid_shells.is_empty() || !input.curved_shells.is_empty() || !input.curved_beams.is_empty(),
+    };
+    second_order(&model)
 }
 
 /// Add warnings to a result's diagnostics, once each: a path that already attached a finding

@@ -1459,6 +1459,7 @@ const steelTr: Translations = {
   'c301.refuse.noConnection': 'uç birleşimi eksik (delikler ve D.3 katsayısı U)',
   'c301.refuse.endsMissing': '{ends} ucunda uç birleşimi eksik (delikler ve D.3 katsayısı U)',
   'c301.refuse.endRefused': '{end} ucu: {reason}',
+  'c301.refuse.firstOrderMoments': 'momentler birinci mertebedir ve analiz %10\'dan fazla büyüyebileceklerini bildiriyor: H.1 bunları ikinci mertebe kabul eder (C.1); P-Delta veya ikinci mertebe analizi yapın',
   'c301.refuse.connectionRefused': 'uç birleşimi: {reason}',
   'c301.refuse.aeOutOfRange': 'Ae = {Ae} mm², (0, Ag] aralığının dışında',
   'c301.refuse.anOutOfRange': 'An = {An} mm², (0, Ag] aralığının dışında',
