@@ -84,6 +84,7 @@ const body: PostBody = {
       "k": "p",
       "t": "Un écart de 4,5 % ne saute pas aux yeux dans une vérification de dimensionnement : une barre non conforme peut donc sembler conforme."
     },
+    {"k": "img", "base": "blog/torsion-tube", "w": 1600, "h": 1000, "alt": "Stabileo Basic avec une console en tube CHS 105×5 sous un couple de 1 kN·m. Le panneau de section est ouvert sur Torsion : T = 1,00 kN·m, τmax = 13,34 MPa, J = 393,7 cm⁴, marqué comme section circulaire exacte, puis les trois théories en commençant par Saint-Venant.", "caption": "Le tube du tableau dans Stabileo : 13,34 MPa, avec chaque théorie et sa formule en dessous."},
     {
       "k": "embed",
       "query": "example=torsion-tube&inspect=1&open=torsion",

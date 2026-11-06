@@ -62,6 +62,7 @@ const body: PostBody = {
       "k": "p",
       "t": "Grâce à ce bloc, l'application peut reproduire un rapport : elle recalcule le projet et compare chaque empreinte. Le verdict n'est « reproduit » que si toutes concordent (une compilation WebAssembly différente est signalée à côté, sans compter comme une différence) ; si l'une d'elles n'a pas pu être recalculée, il indique « incomplet », jamais « reproduit ». Il existe aussi un outil en ligne de commande qui calcule deux fois la même entrée et vérifie les empreintes."
     },
+    {"k": "img", "base": "blog/reproduce", "w": 1600, "h": 1000, "alt": "Stabileo Basic avec la boîte de dialogue pour reproduire depuis la provenance : une zone pour coller le bloc de provenance d’un rapport ou charger le rapport enregistré, et les boutons pour télécharger l’entrée du solveur et pour recalculer et comparer.", "caption": "« Vérifier un rapport exporté » : le projet ouvert est recalculé et chaque empreinte est comparée à celle du rapport."},
     {
       "k": "h",
       "t": "Les anciens projets le signalent"

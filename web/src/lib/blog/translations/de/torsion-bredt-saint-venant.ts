@@ -84,6 +84,7 @@ const body: PostBody = {
       "k": "p",
       "t": "Ein Unterschied von 4,5 % fällt bei einem Bemessungsnachweis nicht auf, also kann ein Stab, der den Nachweis nicht erfüllt, so aussehen, als würde er ihn erfüllen."
     },
+    {"k": "img", "base": "blog/torsion-tube", "w": 1600, "h": 1000, "alt": "Stabileo Basic mit einem Kragarm aus einem CHS 105×5 unter einem Torsionsmoment von 1 kN·m. Das Querschnittspanel ist bei Torsion geöffnet: T = 1,00 kN·m, τmax = 13,34 MPa, J = 393,7 cm⁴, als exakter Kreisquerschnitt gekennzeichnet, darunter die drei Theorien, beginnend mit Saint-Venant.", "caption": "Das Rohr aus der Tabelle in Stabileo: 13,34 MPa, darunter jede Theorie mit ihrer Formel."},
     {
       "k": "embed",
       "query": "example=torsion-tube&inspect=1&open=torsion",

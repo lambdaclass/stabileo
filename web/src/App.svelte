@@ -34,6 +34,7 @@
   import { EDIT_TOOLS } from './lib/store/ui.svelte';
   import { syncModelTabWithResults } from './lib/store/view-mode';
   import { t, i18n, setLocale } from './lib/i18n';
+  import { LOCALE_NAMES } from './lib/i18n/offered';
   import { OFFERED_LOCALES } from './lib/i18n/store.svelte';
   import { deleteSelection } from './lib/actions/delete-selection';
   import { overlayWasOpenAtKeydown } from './lib/utils/modal-overlay';
@@ -574,7 +575,7 @@
   const initialPublicRoute = routeKind();
   const initialShell = publicShell();
   let showLanding = $state(initialShell.kind === 'landing');
-  let showExperiment = $state(['research', 'tools'].includes(initialPublicRoute.kind));
+  let showExperiment = $state(['research', 'tools', 'examples'].includes(initialPublicRoute.kind));
   let showPaper = $state(initialPublicRoute.kind === 'paper');
   let publicPage = $state<import('svelte').Component<{ path: string }> | null>(null);
   let publicRevision = 0;
@@ -625,7 +626,7 @@
       if (token === publicRevision) location.reload();
       return;
     }
-    showExperiment = next.kind === 'research' || next.kind === 'tools';
+    showExperiment = next.kind === 'research' || next.kind === 'tools' || next.kind === 'examples';
     showPaper = next.kind === 'paper';
     adoptLocaleFromPath();
     showBlog = shell.kind === 'blog';
@@ -1546,7 +1547,7 @@
         <LocaleSelect
           value={i18n.locale}
           options={OFFERED_LOCALES}
-          label={(c) => t(`lang.${c}`)}
+          label={(c) => LOCALE_NAMES[c as keyof typeof LOCALE_NAMES]}
           onChange={(c) => { setLocale(c); tabManager.updateDefaultNames(); }}
           ariaLabel={t('app.language')}
           testid="lang-select"
