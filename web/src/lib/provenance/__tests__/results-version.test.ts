@@ -77,7 +77,7 @@ const RELEASED: Record<number, string[]> = {
   28: ['basic-second-order-split-members-returns'],
   29: ['basic-plastic-closes-unloading-hinges-returns'],
   30: ['connector-mechanism-2d-refused'],
-  32: ['harmonic-modal-residual-checked'],
+  32: ['harmonic-modal-or-direct-per-frequency', 'harmonic-modal-residual-checked'],
   39: ['plastic-3d-member-without-capacity-refused'],
   38: ['example-cantilever-small-rotations'],
   37: ['example-torsion-beam-closed-section'],
@@ -106,12 +106,12 @@ describe('results versions', () => {
     const stamp = { resultsVersion: 4, analyses: ['modal'] } as unknown as SolveStamp;
     const ids = (resultsVersion: number) => assessProject(frame, { ...stamp, resultsVersion }, 'pro').changes.map((c) => c.id).sort();
     for (const version of [4, 5, 6, 7, 8]) {
-      expect(ids(version)).toEqual(['corotational-3d-rotations', 'harmonic-modal-or-direct-per-frequency', 'harmonic-modal-residual-checked', 'linear-second-order-warning', 'linear-small-displacement-warning', 'modal-mechanism-refused', 'modal-repeated-eigenspace-completeness', 'plastic-3d-member-without-capacity-refused', 'safety-containment-diagnostics', 'soft-rotation-not-orphan', 'static-modal-runtime-self-checks']);
+      expect(ids(version)).toEqual(['corotational-3d-rotations', 'harmonic-modal-or-direct-per-frequency', 'harmonic-modal-residual-checked', 'linear-second-order-warning', 'linear-small-displacement-warning', 'material-nonlinear-3d-orphan-dofs', 'modal-mechanism-refused', 'modal-repeated-eigenspace-completeness', 'plastic-3d-member-without-capacity-refused', 'safety-containment-diagnostics', 'soft-rotation-not-orphan', 'static-modal-runtime-self-checks']);
     }
-    expect(ids(9)).toEqual(['corotational-3d-rotations', 'harmonic-modal-or-direct-per-frequency', 'harmonic-modal-residual-checked', 'linear-second-order-warning', 'linear-small-displacement-warning', 'modal-mechanism-refused', 'plastic-3d-member-without-capacity-refused', 'safety-containment-diagnostics', 'soft-rotation-not-orphan', 'static-modal-runtime-self-checks']);
-    for (const version of [10, 11, 12]) expect(ids(version)).toEqual(['corotational-3d-rotations', 'harmonic-modal-or-direct-per-frequency', 'harmonic-modal-residual-checked', 'linear-second-order-warning', 'linear-small-displacement-warning', 'modal-mechanism-refused', 'plastic-3d-member-without-capacity-refused', 'safety-containment-diagnostics', 'soft-rotation-not-orphan']);
-    expect(ids(13)).toEqual(['corotational-3d-rotations', 'harmonic-modal-or-direct-per-frequency', 'harmonic-modal-residual-checked', 'linear-second-order-warning', 'linear-small-displacement-warning', 'plastic-3d-member-without-capacity-refused', 'safety-containment-diagnostics', 'soft-rotation-not-orphan']);
-    expect(ids(26)).toEqual(['harmonic-modal-or-direct-per-frequency', 'harmonic-modal-residual-checked', 'linear-second-order-warning', 'linear-small-displacement-warning', 'plastic-3d-member-without-capacity-refused', 'safety-containment-diagnostics', 'soft-rotation-not-orphan']);
+    expect(ids(9)).toEqual(['corotational-3d-rotations', 'harmonic-modal-or-direct-per-frequency', 'harmonic-modal-residual-checked', 'linear-second-order-warning', 'linear-small-displacement-warning', 'material-nonlinear-3d-orphan-dofs', 'modal-mechanism-refused', 'plastic-3d-member-without-capacity-refused', 'safety-containment-diagnostics', 'soft-rotation-not-orphan', 'static-modal-runtime-self-checks']);
+    for (const version of [10, 11, 12]) expect(ids(version)).toEqual(['corotational-3d-rotations', 'harmonic-modal-or-direct-per-frequency', 'harmonic-modal-residual-checked', 'linear-second-order-warning', 'linear-small-displacement-warning', 'material-nonlinear-3d-orphan-dofs', 'modal-mechanism-refused', 'plastic-3d-member-without-capacity-refused', 'safety-containment-diagnostics', 'soft-rotation-not-orphan']);
+    expect(ids(13)).toEqual(['corotational-3d-rotations', 'harmonic-modal-or-direct-per-frequency', 'harmonic-modal-residual-checked', 'linear-second-order-warning', 'linear-small-displacement-warning', 'material-nonlinear-3d-orphan-dofs', 'plastic-3d-member-without-capacity-refused', 'safety-containment-diagnostics', 'soft-rotation-not-orphan']);
+    expect(ids(26)).toEqual(['harmonic-modal-or-direct-per-frequency', 'harmonic-modal-residual-checked', 'linear-second-order-warning', 'linear-small-displacement-warning', 'material-nonlinear-3d-orphan-dofs', 'plastic-3d-member-without-capacity-refused', 'safety-containment-diagnostics', 'soft-rotation-not-orphan']);
     expect(ids(RESULT_CHANGES.currentResultsVersion)).toEqual([]);
   });
 

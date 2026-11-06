@@ -7,6 +7,7 @@ const en: Record<string, string> = {
   "advanced.modalIncomplete": "Modal analysis refused: only {n} of {m} computed modes have a positive frequency (ω² > 0). No incomplete set of modes was returned. Check stiffness and mass conditioning and the supports.",
   "advanced.eigenFailure": "Eigenvalue analysis refused: convergence and Sturm completeness could not be established for {n} free degrees of freedom. No incomplete set of results was returned. Check supports and releases for mechanisms, stiffness and mass conditioning, or request fewer modes.",
   "landing.navTools": "Tools",
+  "landing.navExamples": "Examples",
 
   // Shared scalar-field viewer
   "scalarViewer.view": "View",
@@ -317,6 +318,7 @@ const en: Record<string, string> = {
   'landing.footChangelog': 'Changelog',
   'landing.footReliability': 'Reliability',
   'landing.footSap2000': 'SAP2000 alternative',
+  'landing.footEtabs': 'ETABS alternative',
   'landing.footRights': 'Free software under AGPL-3.0.',
   'landing.footLaunch': 'Open the editor',
   'landing.footSocial': 'Follow us',
@@ -326,7 +328,6 @@ const en: Record<string, string> = {
   'results.verification': "Verification",
   'resultsTable.diagnostics': "Diagnostics",
   'blog.allPosts': 'All posts',
-  'blog.backHome': 'Back to stabileo.com',
   'blog.by': 'By',
   'blog.embedNote': 'Loads the real application in this page. Nothing runs until you ask.',
   'blog.embedOpenFull': 'Open full size',

@@ -18,6 +18,7 @@ const tr: Translations = {
   "recheck.loadFailed": "Hesap sonuçlarındaki değişiklikler yüklenemedi. Okuduğunuzu onaylamadan önce tekrar deneyin.",
   "recheck.retry": "Tekrar dene",
   "landing.navTools": "Araçlar",
+  "landing.navExamples": "Örnekler",
 
   // ─── Shared scalar-field viewer ───
   'scalarViewer.view': 'Görünüm',
@@ -326,6 +327,7 @@ const tr: Translations = {
   'landing.footChangelog': 'Değişiklikler',
   'landing.footReliability': 'Güvenilirlik',
   'landing.footSap2000': 'SAP2000 alternatifi',
+  'landing.footEtabs': 'ETABS alternatifi',
   'landing.footRights': 'AGPL-3.0 lisanslı özgür yazılım.',
   'landing.footLaunch': 'Düzenleyiciyi aç',
   'landing.footSocial': 'Bizi takip edin',
@@ -334,7 +336,6 @@ const tr: Translations = {
   'results.verification': 'Doğrulama',
   'resultsTable.diagnostics': 'Tanılama',
   'blog.allPosts': 'Tüm yazılar',
-  'blog.backHome': 'stabileo.com\'a dön',
   'blog.by': 'Yazar:',
   'blog.embedNote': 'Gerçek uygulamayı bu sayfaya yükler. Siz istemedikçe hiçbir şey çalışmaz.',
   'blog.embedOpenFull': 'Tam boyutta aç',

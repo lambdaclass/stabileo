@@ -665,3 +665,13 @@
 .landing.blog .standing-cta {
   margin: 1.75rem 0 0;
 }
+
+.landing.blog .standing a:not(:is(p, li, td) a),
+.landing.blog .standing button {
+  display: inline-flex;
+  align-items: center;
+  min-width: 44px;
+  min-height: 44px;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}

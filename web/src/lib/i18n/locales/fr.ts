@@ -9,6 +9,7 @@ const fr: Translations = {
   'steps.catalog.title': 'Pas à pas expliqué',
   'steps.catalog.intro': 'Choisissez une méthode pour voir votre structure résolue pas à pas. Chacune indique ce dont le modèle a besoin et propose un exemple qui le respecte.',
   "landing.navTools": "Outils",
+  "landing.navExamples": "Exemples",
 
   // ─── Shared scalar-field viewer ───
   'scalarViewer.view': 'Vue',
@@ -317,6 +318,7 @@ const fr: Translations = {
   'landing.footChangelog': 'Nouveautés',
   'landing.footReliability': 'Fiabilité',
   'landing.footSap2000': 'Alternative à SAP2000',
+  'landing.footEtabs': 'Alternative à ETABS',
   'landing.footRights': 'Logiciel libre sous AGPL-3.0.',
   'landing.footLaunch': 'Ouvrir l\'éditeur',
   'landing.footSocial': 'Suivez-nous',
@@ -325,7 +327,6 @@ const fr: Translations = {
   'results.verification': 'Vérification',
   'resultsTable.diagnostics': 'Diagnostic',
   'blog.allPosts': 'Tous les articles',
-  'blog.backHome': 'Retour à stabileo.com',
   'blog.by': 'Par',
   'blog.embedNote': 'Charge l\'application réelle dans cette page. Rien ne s\'exécute tant que vous ne le demandez pas.',
   'blog.embedOpenFull': 'Ouvrir en grand',
