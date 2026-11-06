@@ -62,10 +62,11 @@ class Models(unittest.TestCase):
                     summary = json.loads((out / 'summary.json').read_text())
                     self.assertEqual(summary['comparisons']['opensees']['completed'], 0)
                     return
-                if status in {'unsupported', 'ill_conditioned', 'ok'}:
+                if status in {'unsupported', 'ill_conditioned', 'converging', 'ok'}:
                     self.assertEqual(models.main(), 0)
                     counts = json.loads((out / 'summary.json').read_text())['comparisons']['opensees']
-                    category = {'unsupported': 'skipped', 'ill_conditioned': 'inconclusive', 'ok': 'completed'}[status]
+                    category = {'unsupported': 'skipped', 'ill_conditioned': 'inconclusive', 'converging': 'inconclusive',
+                                'ok': 'completed'}[status]
                     self.assertEqual(counts[category] if category == 'completed' else len(counts[category]), 1)
                     if category != 'completed':
                         self.assertEqual(counts['completed'], 0)
@@ -104,7 +105,7 @@ class Models(unittest.TestCase):
         self.replay('mismatch', harness_exit=2)
 
     def test_reference_coverage_separates_skipped_and_inconclusive(self):
-        for status in ('unsupported', 'ill_conditioned', 'ok'):
+        for status in ('unsupported', 'ill_conditioned', 'converging', 'ok'):
             self.replay(status)
 
     def test_budget_does_not_claim_minimality(self):

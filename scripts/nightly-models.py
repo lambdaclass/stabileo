@@ -124,7 +124,7 @@ def main():
                     category = 'completed'
                 elif status in {'unsupported', 'not_applicable', 'unloaded'}:
                     category = 'skipped'
-                elif status in {'ill_conditioned', 'near_singular', 'warned_singular', 'unstable', 'stabileo_failed', 'refused'}:
+                elif status in {'ill_conditioned', 'near_singular', 'warned_singular', 'unstable', 'stabileo_failed', 'refused', 'converging'}:
                     category = 'inconclusive'
                 else:
                     category = 'errors'

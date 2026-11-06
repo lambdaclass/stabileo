@@ -23,6 +23,8 @@ OpenSees: refused (OpenSees finds no unique answer either), false_reject
 no positive load factor on either side), or stabileo_failed (undecided).
 A model stabileo flags ill-conditioned whose OpenSees stiffness is well
 conditioned (kappa < 1e8) is a false_warning (flagged).
+A buckling job whose frames carry axial span loads that never agrees on a
+common mesh but approaches agreement as it is refined is converging.
 
 Exit status: 0 = no discrepancy above tolerance, 1 = mismatch,
 false_reject or false_warning, 2 = harness error.
@@ -1880,6 +1882,94 @@ def _dump(dump_dir, name, model):
         json.dump(model, f, indent=1)
 
 
+def mesh(d, n):
+    """The model with every frame member split into n equal collinear frame
+    members (trusses stay whole: a split truss is a mechanism). Only nodal and
+    full-length uniform member loads are carried over; anything else is left
+    to _check_geom to refuse on the unsplit model."""
+    if n == 1:
+        return d
+    d = json.loads(json.dumps(d))
+    nid = max(v["id"] for v in d["nodes"].values())
+    eid = max(v["id"] for v in d["elements"].values())
+    by_id = {v["id"]: v for v in d["nodes"].values()}
+    pieces = {}
+    for key, e in list(d["elements"].items()):
+        if e["type"] != "frame":
+            continue
+        pi, pj = by_id[e["nodeI"]], by_id[e["nodeJ"]]
+        chain = [e["nodeI"]]
+        for k in range(1, n):
+            nid += 1
+            node = {c: pi[c] + k / n * (pj[c] - pi[c]) for c in pi if c != "id"}
+            node["id"] = nid
+            d["nodes"][str(nid)] = by_id[nid] = node
+            chain.append(nid)
+        chain.append(e["nodeJ"])
+        ids = [e["id"]]
+        for k in range(1, n):
+            eid += 1
+            ids.append(eid)
+        for k, i in enumerate(ids):
+            seg = dict(e, id=i, nodeI=chain[k], nodeJ=chain[k + 1])
+            d["elements"][key if k == 0 else str(i)] = seg
+        pieces[e["id"]] = ids
+    loads = []
+    for ld in d["loads"]:
+        x = ld["data"]
+        if ld["type"] == "distributed" and x.get("elementId") in pieces:
+            loads += [{"type": "distributed", "data": dict(x, elementId=i)} for i in pieces[x["elementId"]]]
+        else:
+            loads.append(ld)
+    d["loads"] = loads
+    return d
+
+
+def _axial_span_loaded(d):
+    """A frame member with an axial span load: its compression varies along
+    it, which the engine's Kg follows and OpenSees' (N constant per element)
+    does not, so one element per member is not a common discretization."""
+    frames = {e["id"] for e in d["elements"].values() if e["type"] == "frame"}
+    return any(ld["type"] == "distributed" and ld["data"].get("elementId") in frames
+               and ((ld["data"].get("qXI") or 0.0) or (ld["data"].get("qXJ") or 0.0)) for ld in d["loads"])
+
+
+MESH_LEVELS = (2, 4, 8, 16)
+MESH_RATE = 2.0
+
+
+def refine_buckling(job, binary, tol, dim):
+    """None when no meshed comparison ran, else (bad, groups, n, converging):
+    bad is empty when both solvers agree within tol on n elements per frame;
+    converging is set when they never agree but each doubling of n at least
+    halves their difference."""
+    levels = []
+    for n in MESH_LEVELS:
+        j = dict(job, model=mesh(job["model"], n))
+        try:
+            sres = normalize_ext("buckling", stabileo_job(j, binary), dim)
+        except RuntimeError:
+            break
+        ores = opensees_isolated(j)
+        kappa = ores.get("kappa")
+        if "values" not in ores or kappa is None or kappa > KAPPA_MAX:
+            break
+        bad, groups = compare_eigen(sres, ores, max(tol, 100 * 2.2e-16 * kappa), job["numModes"], 1)
+        levels.append((n, bad, groups))
+        if not bad:
+            return [], groups, n, None
+    if not levels:
+        return None
+    n, bad, groups = levels[-1]
+    errs = [max(g["eig"], g["mac"]) for _, _, g in levels]
+    trail = ", ".join(f"n={m}: {e:.2e}" for m, e in zip((m for m, _, _ in levels), errs))
+    if len(levels) >= 2 and all(b <= a / MESH_RATE for a, b in zip(errs, errs[1:])) and \
+            not any(q == "eig" and c == "missing" for q, _, c, *_ in bad):
+        return bad, groups, n, f"meshed buckling factors approach each other ({trail})"
+    return bad + [("eig", 0, f"meshed difference not converging ({trail})", errs[-2] if len(errs) > 1 else 0.0,
+                   errs[-1], errs[-1])], groups, n, None
+
+
 def _probe_loads(d):
     """The model under a load on every translational DOF: the linear solve's
     conditioning diagnostics then expose mechanisms (an unloaded mechanism
@@ -1955,6 +2045,12 @@ def run_ext(name, job, binary, tol, dump_dir=None):
     tol = max(tol, 100 * 2.2e-16 * (kappa or 0.0))
     if kind in ("buckling", "modal"):
         bad, groups = compare_eigen(sres, ores, tol, job["numModes"], 1 if kind == "buckling" else 2)
+        converging = None
+        if kind == "buckling" and bad and _axial_span_loaded(d):
+            refined = refine_buckling(job, binary, tol, dim)
+            if refined is not None:
+                bad, groups, n, converging = refined[0], dict(groups, **refined[1]), refined[2], refined[3]
+                base = dict(base, mesh=n)
         if kind == "buckling":
             # The linear solution Kg is built from: displacements and axial
             # forces (OpenSees' shears and moments include N*Kg*u by then).
@@ -1963,6 +2059,8 @@ def run_ext(name, job, binary, tol, dump_dir=None):
             b2, g2 = compare(d, lin, ol, tol)
             bad += b2 or []
             groups.update({"lin_" + k: v for k, v in g2.items()})
+            if converging and not b2:
+                return dict(base, status="converging", why=[converging], max_err=groups, kappa=kappa, tol=tol)
     elif kind == "pdelta":
         bad, groups = compare(d, sres, ores, tol)
     elif kind == "shell":
