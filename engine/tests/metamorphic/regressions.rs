@@ -2,6 +2,8 @@
 //! one per bug, each stated as the physics it must obey
 //! (docs/verification/METAMORPHIC.md, "Violations found").
 
+use crate::case::Case2;
+use dedaliano_engine::solver::plastic_limit::limit_analysis_2d_input;
 use dedaliano_engine::metamorphic::transform::{transform_2d, Iso2, Iso3};
 use dedaliano_engine::postprocess::influence;
 use dedaliano_engine::solver::{constraints, corotational, kinematic, linear, load_cases, moving_loads, plastic, spectral, staged, winkler};
@@ -862,6 +864,193 @@ fn harmonic_shell_rotation_preserves_damping_across_fallback() {
     let analyses: Vec<_> = crate::ana3::rows().into_iter().filter(|a| a.name == "harmonic").collect();
     crate::checks3::check_case(&ctx, &c, &analyses, &["rotation"]);
     assert_eq!(tally.status("harmonic", "rotation"), "holds", "{}", tally.report());
+}
+
+fn issue_758_plastic_input(c: &Case2) -> PlasticInput {
+    let sections = c.s.sections.values().map(|x| {
+        let (b, h) = crate::ana2::rect(x.a, x.iz);
+        let mat = c.s.elements.values().find(|e| e.section_id == x.id).map_or(1, |e| e.material_id);
+        (x.id.to_string(), PlasticSectionData { a: x.a, iz: x.iz, material_id: mat, b: Some(b), h: Some(h) })
+    }).collect();
+    let materials = c.s.materials.values().map(|x| (x.id.to_string(), PlasticMaterialData { fy: Some(c.p.fy) })).collect();
+    PlasticInput { solver: c.s.clone(), sections, materials, max_hinges: None, mp_overrides: None }
+}
+
+type Limit758 = fn(&dedaliano_engine::solver::plastic_limit::LimitInput) -> Result<dedaliano_engine::solver::plastic_limit::LimitResult, String>;
+
+fn issue_758_limit(c: &Case2, limit: Limit758) -> Result<f64, String> {
+    let inp = issue_758_plastic_input(c);
+    let by_section = plastic::section_plastic_moments(&inp);
+    let mp = c.s.elements.values().filter(|e| e.elem_type == "frame").map(|e| (e.id.to_string(), by_section[&e.section_id])).collect();
+    limit(&dedaliano_engine::solver::plastic_limit::LimitInput { solver: c.s.clone(), mp, np: Default::default() }).map(|l| l.lambda)
+}
+
+fn issue_758_public_entry_is_withheld(c: &Case2) {
+    let refusal = plastic::solve_plastic_2d(&issue_758_plastic_input(c)).expect_err("solve_plastic_2d stays withheld until PL-2D-INVARIANCE is lifted");
+    assert!(refusal.contains("PL-2D-INVARIANCE"), "{refusal}");
+}
+
+const ISSUE_758_MECHANISM: &str = "the structure is a mechanism before any hinge forms";
+
+const ISSUE_758_CASES: &[(u64, &str, Option<f64>)] = &[
+    (20754, "feature_matrix/2d-constraint--rigid-link--offset-beam-with", Some(46.666666666666686)),
+    (20754, "fuzz_rich_2d/20772", Some(0.06569871968509293)),
+    (20754, "fuzz_rich_2d/20787", None),
+    (20754, "fuzz_rich_2d/20800", None),
+    (20754, "fuzz_rich_2d/20832", Some(123.29270872808767)),
+    (20754, "fuzz_rich_2d/20833", None),
+    (20754, "fuzz_rich_2d/20840", Some(0.27500611582047574)),
+    (20754, "fuzz_rich_2d/20843", Some(80.12437234517034)),
+    (20749, "feature_matrix/2d-constraint--rigid-link--offset-beam-with", Some(46.666666666666686)),
+    (20749, "fuzz_rich_2d/20772", Some(0.7290143868872333)),
+    (20749, "fuzz_rich_2d/20787", Some(1.7049195603727287)),
+    (20749, "fuzz_rich_2d/20800", None),
+    (20749, "fuzz_rich_2d/20832", Some(123.29270872808767)),
+    (20749, "fuzz_rich_2d/20833", None),
+    (20749, "fuzz_rich_2d/20840", None),
+    (20749, "fuzz_rich_2d/20843", Some(71.71445604810637)),
+];
+
+fn issue_758_allowed_refusal(corpus: u64, name: &str, transform: &str, seed: u64) -> Option<&'static str> {
+    (corpus == 20749 && name == "fuzz_rich_2d/20772" && transform == "units" && [1, 2, 5, 6].contains(&seed)).then_some("self-check static_residual")
+}
+
+fn issue_758_invariance(transform: &str, limit: Limit758) {
+    use dedaliano_engine::metamorphic::{relabel::Relabel, reversal::reverse_2d, units::Units};
+    let mut failures = Vec::new();
+    let mut seen = 0;
+    for corpus in [20754, 20749] {
+        for c in crate::corpus::cases_2d(crate::corpus::Tier::Nightly, corpus) {
+            let Some(&(_, _, expected)) = ISSUE_758_CASES.iter().find(|(k, n, _)| *k == corpus && *n == c.name) else { continue };
+            seen += 1;
+            issue_758_public_entry_is_withheld(&c);
+            let check = |what: String, r: Result<f64, String>, refusal: Option<&str>, failures: &mut Vec<String>| match (expected, r, refusal) {
+                (Some(want), Ok(got), None) if (got - want).abs() <= 1e-9 * want.abs() => {}
+                (Some(_), Err(e), Some(reason)) if e.contains(reason) => {}
+                (None, Err(e), _) if e.contains(ISSUE_758_MECHANISM) => {}
+                (_, r, _) => failures.push(format!("{corpus} {} {what}: expected {expected:?}, got {r:?}", c.name)),
+            };
+            check("base".into(), issue_758_limit(&c, limit), None, &mut failures);
+            for seed in 0..8 {
+                let other = match transform {
+                    "relabel" => c.relabel(&Relabel::random_2d(&c.s, seed), seed),
+                    "reversal" => Case2 { s: reverse_2d(&c.s, &|id| (id + seed as usize) % 3 != 0), ..c.clone() },
+                    _ => c.units(&Units::froude([1e-3, 25.0, 0.3048, 1e3][seed as usize % 4], [1e3, 1e-2, 4.448, 1e3][seed as usize % 4])),
+                };
+                check(format!("{transform}/{seed}"), issue_758_limit(&other, limit), issue_758_allowed_refusal(corpus, &c.name, transform, seed), &mut failures);
+            }
+        }
+    }
+    assert_eq!(seen, ISSUE_758_CASES.len(), "missing reproduction cases");
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+#[test]
+fn issue_758_renumbering() { issue_758_invariance("relabel", |i| limit_analysis_2d_input(i)); }
+#[test]
+fn issue_758_member_reversal() { issue_758_invariance("reversal", |i| limit_analysis_2d_input(i)); }
+#[test]
+fn issue_758_units() { issue_758_invariance("units", |i| limit_analysis_2d_input(i)); }
+
+
+#[test]
+fn issue_758_stiff_link_collapses_like_the_rigid_link() {
+    use dedaliano_engine::metamorphic::{relabel::Relabel, reversal::reverse_2d, units::Units};
+    let run = |c: &Case2| issue_758_limit(c, |i| limit_analysis_2d_input(i)).unwrap();
+    let cases: Vec<Case2> = crate::corpus::cases_2d(crate::corpus::Tier::Pr, 20261018).into_iter().chain(crate::corpus::cases_2d(crate::corpus::Tier::Nightly, 20754)).collect();
+    let case = |suffix: &str| cases.iter().find(|c| c.name.contains(&format!("2d-constraint--rigid-link--offset-beam-{suffix}"))).unwrap().clone();
+    let (with, equiv) = (case("with"), case("equiv"));
+    let reference = run(&with);
+    close(reference, 140.0 / 3.0, 1e-7, "rigid link");
+    for seed in 0..4 {
+        for (what, other) in [
+            ("as given", equiv.clone()),
+            ("relabel", equiv.relabel(&Relabel::random_2d(&equiv.s, seed), seed)),
+            ("reversal", Case2 { s: reverse_2d(&equiv.s, &|id| (id + seed as usize) % 2 == 0), ..equiv.clone() }),
+            ("units", equiv.units(&Units::froude([1e-3, 25.0, 0.3048, 1e3][seed as usize], [1e3, 1e-2, 4.448, 1e3][seed as usize]))),
+        ] {
+            close(run(&other), reference, 1e-7, &format!("stiff link {what}/{seed}"));
+        }
+    }
+    let beam_e = equiv.s.elements.values().find(|e| e.id == 1).and_then(|e| equiv.s.materials.values().find(|m| m.id == e.material_id)).unwrap().e;
+    let link_material = equiv.s.elements.values().find(|e| e.id == 2).unwrap().material_id;
+    for ratio in [1e2, 1e4, 1e6, 1e8] {
+        let mut swept = equiv.clone();
+        swept.s.materials.values_mut().filter(|m| m.id == link_material).for_each(|m| m.e = beam_e * ratio);
+        close(run(&swept), reference, 1e-7, &format!("link {ratio:e} times as stiff"));
+    }
+}
+
+#[test]
+fn issue_758_axial_self_stress_round_off_is_not_a_bending_redundancy() {
+    let cases = crate::corpus::cases_2d(crate::corpus::Tier::Nightly, 40000);
+    let c = cases.iter().find(|c| c.name.contains("2d-prescribed-displacement-support-settlement-equiv")).unwrap().clone();
+    let run = issue_758_plastic_input;
+    let base = run(&c);
+    let cert = dedaliano_engine::certify::plastic::certify_collapse_2d(&base, None);
+    let exact = cert.lambda_upper.unwrap();
+    assert!(cert.certified && (cert.lambda_lower.unwrap() - exact).abs() <= 1e-9 * exact, "{cert:?}");
+    for phi in [0.3, 1.1, 2.0, -0.7] {
+        for (what, iso) in [("rotation", Iso2::rotation(phi)), ("mirror", Iso2::mirror_line(phi))] {
+            let lambda = issue_758_limit(&c.iso(&iso).unwrap(), |i| limit_analysis_2d_input(i)).unwrap();
+            close(lambda, exact, 1e-9, &format!("{what} {phi}"));
+        }
+    }
+}
+
+#[test]
+fn issue_758_confirmation_rejects_the_earlier_unconservative_factors() {
+    use dedaliano_engine::metamorphic::transform::Iso2;
+    use dedaliano_engine::solver::plastic_limit::{confirm_2d, Confirmation};
+    let input = |c: &Case2| {
+        let sections = c.s.sections.values().map(|x| {
+            let (b, h) = crate::ana2::rect(x.a, x.iz);
+            let mat = c.s.elements.values().find(|e| e.section_id == x.id).map_or(1, |e| e.material_id);
+            (x.id.to_string(), PlasticSectionData { a: x.a, iz: x.iz, material_id: mat, b: Some(b), h: Some(h) })
+        }).collect();
+        let materials = c.s.materials.values().map(|x| (x.id.to_string(), PlasticMaterialData { fy: Some(c.p.fy) })).collect();
+        let inp = PlasticInput { solver: c.s.clone(), sections, materials, max_hinges: None, mp_overrides: None };
+        let by_section = plastic::section_plastic_moments(&inp);
+        let mp: std::collections::HashMap<usize, f64> = c.s.elements.values().map(|e| (e.id, by_section[&e.section_id])).collect();
+        (inp, mp)
+    };
+    let none = std::collections::HashMap::new();
+    let cases: Vec<Case2> = crate::corpus::cases_2d(crate::corpus::Tier::Pr, 20261018).into_iter().chain(crate::corpus::cases_2d(crate::corpus::Tier::Nightly, 40000)).collect();
+    let find = |name: &str| cases.iter().find(|c| c.name.contains(name)).unwrap().clone();
+
+    let (link, mp) = input(&find("2d-constraint--rigid-link--offset-beam-equiv"));
+    assert_eq!(confirm_2d(&link.solver, &mp, &none, 140.0 / 3.0), Confirmation::Exact);
+    assert!(matches!(confirm_2d(&link.solver, &mp, &none, 48770.074890207594), Confirmation::Contradicted { reason, lower } if reason.contains("bounds the collapse factor") && lower <= 140.0 / 3.0 && lower >= 140.0 / 3.0 * (1.0 - 1e-6)));
+
+    let settlement = find("2d-prescribed-displacement-support-settlement-equiv");
+    let (base, mp) = input(&settlement);
+    assert_eq!(confirm_2d(&base.solver, &mp, &none, 10.904960242330917), Confirmation::Exact);
+    let (rotated, mp) = input(&settlement.iso(&Iso2::rotation(0.3)).unwrap());
+    let scope = confirm_2d(&rotated.solver, &mp, &none, 148.88932546775965);
+    assert!(matches!(scope, Confirmation::OutOfScope { ref reason } if reason.contains("inclined")), "{scope:?}");
+    assert!(scope.accept(148.88932546775965, Some(10.904960242330917), 1e-6).is_err());
+    assert!(plastic::solve_plastic_2d(&rotated).is_err_and(|e| e.contains("PL-2D-INVARIANCE")));
+}
+
+#[test]
+fn issue_758_when_the_limit_analysis_fails_the_exact_certificate_still_checks_the_history() {
+    use dedaliano_engine::metamorphic::transform::Iso2;
+    let cases = crate::corpus::cases_2d(crate::corpus::Tier::Nightly, 66800);
+    let c = cases.iter().find(|c| c.name.contains("settlement-equiv")).unwrap().clone();
+    let t = c.iso(&Iso2::rotation(4.712398194981313).translated(-14.230913986567536, -19.647139184364594)).unwrap();
+    let sections = t.s.sections.values().map(|x| {
+        let (b, h) = crate::ana2::rect(x.a, x.iz);
+        let mat = t.s.elements.values().find(|e| e.section_id == x.id).map_or(1, |e| e.material_id);
+        (x.id.to_string(), PlasticSectionData { a: x.a, iz: x.iz, material_id: mat, b: Some(b), h: Some(h) })
+    }).collect();
+    let materials = t.s.materials.values().map(|x| (x.id.to_string(), PlasticMaterialData { fy: Some(t.p.fy) })).collect();
+    let inp = PlasticInput { solver: t.s.clone(), sections, materials, max_hinges: None, mp_overrides: None };
+    let by = plastic::section_plastic_moments(&inp);
+    let mp: std::collections::HashMap<usize, f64> = t.s.elements.values().map(|e| (e.id, by[&e.section_id])).collect();
+    assert!(plastic::solve_plastic_2d(&inp).is_err_and(|e| e.contains("PL-2D-INVARIANCE")));
+    let verdict = dedaliano_engine::solver::plastic_limit::confirm_2d(&t.s, &mp, &Default::default(), 399.9960419608519);
+    let dedaliano_engine::solver::plastic_limit::Confirmation::Contradicted { lower, .. } = verdict else { panic!("{verdict:?}") };
+    assert!(lower > 30.0 * 10.904960242330917, "a roller 1.4e-6 rad off the member axis props the tip: {lower}");
 }
 
 fn gauss_complex(k: &[f64], m: &[f64], c: &[f64], f: &[f64], n: usize, w: f64) -> (Vec<f64>, Vec<f64>) {

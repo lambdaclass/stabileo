@@ -582,9 +582,13 @@ fn span_candidates(
 /// rotation would reverse is closed (elastic unloading, `unloaded_at`), and a
 /// closed one that would be loaded past Mp again reopens. When the structure
 /// is a mechanism, a hinge that would unload under the mechanism's motion is
-/// closed and loading continues. `warnings` lists what keeps the result from
-/// being the collapse load: an unresolved reversal, a hinge that would have
-/// to move, the event limit, a final state that is not statically admissible.
+/// closed and loading continues.
+///
+/// `collapse_factor` is the limit analysis's (`plastic_limit::limit_analysis_2d`),
+/// not where the hinge history ends: the history keeps each hinge where it first
+/// formed. When the history ends elsewhere, `warnings` says so; when the limit
+/// analysis cannot run or nothing independent of it confirms its factor, `warnings` says the
+/// factor is unconfirmed and it is the lower of the two.
 pub fn solve_plastic_2d(input: &PlasticInput) -> Result<PlasticResult, String> {
     crate::known_issues::refuse(&crate::known_issues::for_2d(&input.solver, crate::known_issues::Analysis::Plastic))?;
     solve_plastic_2d_body(input)
@@ -614,21 +618,17 @@ pub(crate) fn solve_plastic_2d_body(input: &PlasticInput) -> Result<PlasticResul
         return Err(NO_MECHANICAL_LOAD.into());
     }
 
+    if !super::kinematic::analyze_kinematics_2d(solver_input).is_solvable {
+        return Err(INITIAL_MECHANISM.into());
+    }
+
     let max_hinges = input.max_hinges.unwrap_or(20);
 
-    // Compute plastic moments Mp for each section
-    let mut mp_map: HashMap<usize, f64> = HashMap::new();
-    for (sid, sec_data) in &input.sections {
-        let sec_id: usize = sid.parse().unwrap_or(0);
-        if let Some(&mp) = input.mp_overrides.as_ref().and_then(|m| m.get(sid)) {
-            mp_map.insert(sec_id, mp);
-        } else {
-            let fy = input.materials.get(&sec_data.material_id.to_string())
-                .and_then(|m| m.fy)
-                .unwrap_or(250.0); // Default: 250 MPa steel
-            let mp = compute_plastic_moment(sec_data, fy);
-            mp_map.insert(sec_id, mp);
-        }
+    let mp_map = section_plastic_moments(input);
+    let mut frames: Vec<&SolverElement> = crate::ordered::values(&solver_input.elements).filter(|e| e.elem_type == "frame").collect();
+    frames.sort_by_key(|e| e.id);
+    if let Some(e) = frames.iter().find(|e| !mp_map.contains_key(&e.section_id)) {
+        return Err(format!("element {}: section {} has no plastic section data", e.id, e.section_id));
     }
 
     let mut current_input = solver_input.clone();
@@ -978,8 +978,7 @@ pub(crate) fn solve_plastic_2d_body(input: &PlasticInput) -> Result<PlasticResul
         });
     }
 
-    // Check if mechanism formed
-    let is_mechanism = !super::kinematic::analyze_kinematics_2d(&current_input).is_solvable
+    let mut is_mechanism = !super::kinematic::analyze_kinematics_2d(&current_input).is_solvable
         || super::linear::solve_2d(&current_input).is_err();
 
     if reversal_unresolved {
@@ -988,9 +987,6 @@ pub(crate) fn solve_plastic_2d_body(input: &PlasticInput) -> Result<PlasticResul
              the collapse factor is not guaranteed"
                 .into(),
         );
-    }
-    if !exhausted && !is_mechanism {
-        return Err(no_bending_collapse(cumulative_factor));
     }
     if exhausted && !is_mechanism {
         warnings.push(format!(
@@ -1015,14 +1011,62 @@ pub(crate) fn solve_plastic_2d_body(input: &PlasticInput) -> Result<PlasticResul
         ));
     }
 
+    let mp_of: HashMap<usize, f64> = members.iter().map(|m| (m.id, m.mp)).collect();
+    let mut collapse_factor = cumulative_factor;
+    match super::plastic_limit::limit_analysis_2d(solver_input, &mp_of, &HashMap::new()) {
+        Ok(limit) => {
+            let settled = is_mechanism && warnings.is_empty();
+            if !(settled && (cumulative_factor - limit.lambda).abs() <= TIE * limit.lambda) {
+                warnings = vec![format!(
+                    "the step-by-step hinge history ends at λ = {cumulative_factor:.6}, not at the collapse load: the collapse \
+                     factor is the limit analysis's (static and kinematic theorems) and the hinges of the history are approximate"
+                )];
+            }
+            let confirmed = limit.confirmation.accept(limit.lambda, settled.then_some(cumulative_factor), TIE);
+            is_mechanism = confirmed.is_ok();
+            collapse_factor = limit.lambda;
+            if let Err(why) = confirmed {
+                collapse_factor = limit.confirmation.unconfirmed_factor(limit.lambda, cumulative_factor);
+                warnings.push(format!("the collapse factor is not confirmed: {why}"));
+            }
+        }
+        Err(e) => {
+            if !exhausted && !is_mechanism {
+                return Err(no_bending_collapse(cumulative_factor));
+            }
+            let check = super::plastic_limit::confirm_2d(solver_input, &mp_of, &HashMap::new(), cumulative_factor);
+            if !(check == super::plastic_limit::Confirmation::Exact && is_mechanism && warnings.is_empty()) {
+                collapse_factor = check.unconfirmed_factor(cumulative_factor, cumulative_factor);
+                warnings.push(format!("the collapse factor is not confirmed by the limit analysis: {e}"));
+                is_mechanism = false;
+            }
+        }
+    }
+
     Ok(PlasticResult {
-        collapse_factor: cumulative_factor,
+        collapse_factor,
         steps,
         redundancy: all_hinges.len(),
         hinges: all_hinges,
         is_mechanism,
         warnings,
     })
+}
+
+/// Plastic moment of each section, keyed by section id: the override when given, else from
+/// the section's shape and its material's fy (250 MPa when none is given).
+pub fn section_plastic_moments(input: &PlasticInput) -> HashMap<usize, f64> {
+    let mut mp_map = HashMap::new();
+    for (sid, sec_data) in &input.sections {
+        let sec_id: usize = sid.parse().unwrap_or(0);
+        if let Some(&mp) = input.mp_overrides.as_ref().and_then(|m| m.get(sid)) {
+            mp_map.insert(sec_id, mp);
+        } else {
+            let fy = input.materials.get(&sec_data.material_id.to_string()).and_then(|m| m.fy).unwrap_or(250.0);
+            mp_map.insert(sec_id, compute_plastic_moment(sec_data, fy));
+        }
+    }
+    mp_map
 }
 
 /// The analysis stopped because no section can yield any more, and the
@@ -1037,6 +1081,9 @@ pub(crate) fn no_bending_collapse(lambda: f64) -> String {
          plastic analysis has no collapse factor to report. Check axial capacity and buckling instead."
     )
 }
+
+pub(crate) const INITIAL_MECHANISM: &str = "Plastic (pushover) analysis: the structure is a mechanism before any hinge forms, \
+     so it has no collapse factor to report. Restrain it first.";
 
 pub(crate) fn no_plastic_capacity_message(element: usize, section: usize) -> String {
     format!(
@@ -1058,7 +1105,7 @@ pub(crate) const NO_MECHANICAL_LOAD: &str = "Plastic (pushover) analysis needs a
      temperatures and support settlements alone do not change a collapse load and have no collapse factor.";
 
 /// Σ|load| × model size: the moment scale the loads can produce.
-fn load_moment_scale_2d(input: &SolverInput) -> f64 {
+pub(crate) fn load_moment_scale_2d(input: &SolverInput) -> f64 {
     let xs: Vec<(f64, f64)> = crate::ordered::values(&input.nodes).map(|n| (n.x, n.z)).collect();
     let ext = |f: fn(&(f64, f64)) -> f64| xs.iter().map(f).fold(f64::NEG_INFINITY, f64::max) - xs.iter().map(f).fold(f64::INFINITY, f64::min);
     let l = ext(|p| p.0).max(ext(|p| p.1)).max(f64::MIN_POSITIVE);

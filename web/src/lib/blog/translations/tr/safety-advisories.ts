@@ -133,6 +133,12 @@ const body: PostBody = {
           "Bir sonraki sürümde düzeltildi"
         ],
         [
+          "SA-2026-044",
+          "2B plastik göçme: göçme katsayısı düğüm numaralandırması, çubuk yönü ve birimlerle değişiyordu (aynı yapıda 4,6 kata kadar)",
+          "Yüksek",
+          "Limit analizi bir sonraki sürümde düzeltildi; 2B plastik göçme #758 kapanana kadar geri tutuluyor"
+        ],
+        [
           "SA-2026-043",
           "Harmonik analiz: bir mod diğerlerinden çok daha yumuşak olduğunda atlanan modların düzeltmesi basamaklarını kaybediyordu (bir örnekte 2,3 Hz'de 79 kat)",
           "Yüksek",

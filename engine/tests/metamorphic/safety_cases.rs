@@ -5,7 +5,7 @@ use crate::{
 };
 
 #[test]
-#[ignore = "known wrong result: #758"]
+#[ignore = "withheld by PL-2D-INVARIANCE; #1447's limit analysis is checked by issue_758_*"]
 fn plastic_rigid_link_invariance() {
     plastic_rigid_link_cases(false);
 }
