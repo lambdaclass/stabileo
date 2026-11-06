@@ -1639,6 +1639,8 @@ mod span_tests {
         for r in roots {
             assert!((0.1 - 0.75 * r + r * r * r).abs() < 1e-12, "{r}");
         }
+        let pair = cubic_roots_in_unit([-0.16, 0.84, 0.0, -1.0]);
+        assert!(pair.len() == 2 && (pair[0] - 0.2).abs() < 1e-12 && (pair[1] - 0.8).abs() < 1e-12, "{pair:?}");
     }
 
     #[test]
