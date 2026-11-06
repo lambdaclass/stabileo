@@ -316,6 +316,10 @@ describe('the base checkout reuses this build\'s engine', () => {
   it('NEGATIVE: not when only the WASM build script changed', () => {
     expect(headEngineServesBase(['web/src/x.ts', 'scripts/wasm-cached.sh'])).toBe(false);
   });
+  it('NEGATIVE: not when a committed engine build changed, which is the engine itself', () => {
+    expect(headEngineServesBase(['web/src/lib/wasm/dedaliano_engine_bg.wasm'])).toBe(false);
+    expect(headEngineServesBase(['web/src/x.ts', 'web/src/lib/wasm/dedaliano_engine.js'])).toBe(false);
+  });
   it('NEGATIVE: not when only the engine build script changed', () => {
     expect(headEngineServesBase(['engine/build.rs'])).toBe(false);
   });

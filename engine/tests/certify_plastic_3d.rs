@@ -678,6 +678,7 @@ fn refusal_names_member(e: &str, member: usize, section: usize) {
     assert_eq!(d["elementKind"], "frame");
     assert_eq!(d["value"], serde_json::json!(section as f64));
     assert!(v["message"].as_str().unwrap().contains(&format!("element {member}")), "{e}");
+    assert!(v["message"].as_str().unwrap().contains("either axis") && !v["message"].as_str().unwrap().contains("never form a hinge"), "{e}");
 }
 
 #[test]

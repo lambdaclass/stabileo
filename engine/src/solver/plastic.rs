@@ -1087,9 +1087,9 @@ pub(crate) const INITIAL_MECHANISM: &str = "Plastic (pushover) analysis: the str
 
 pub(crate) fn no_plastic_capacity_message(element: usize, section: usize) -> String {
     format!(
-        "Plastic (pushover) analysis: element {element} (section {section}) has no finite, positive plastic moment \
-         about both axes, so it could never form a hinge. Give its section dimensions or inertias, a yield stress above \
-         zero, or positive Mp overrides."
+        "Plastic (pushover) analysis: element {element} (section {section}) lacks a finite, positive plastic moment \
+         about at least one axis, and missing or invalid capacity on either axis prevents a reliable plastic analysis. \
+         Give its section dimensions or inertias, a yield stress above zero, or positive Mp overrides."
     )
 }
 
