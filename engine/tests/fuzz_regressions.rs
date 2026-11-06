@@ -262,27 +262,39 @@ fn exact_pencil_positive(
     true
 }
 
+fn buckling_741_with_axial_tip_load(p: f64) -> dedaliano_engine::types::SolverInput3D {
+    let input = buckling_741_input();
+    let (a, b) = (&input.nodes["3"], &input.nodes["4"]);
+    let d = [b.x - a.x, b.y - a.y, b.z - a.z];
+    let l = (d[0] * d[0] + d[1] * d[1] + d[2] * d[2]).sqrt();
+    let mut value = serde_json::to_value(&input).unwrap();
+    value["loads"].as_array_mut().unwrap().push(json!({"type": "nodal", "data": {"nodeId": 4, "fx": -p * d[0] / l, "fy": -p * d[1] / l, "fz": -p * d[2] / l, "mx": 0, "my": 0, "mz": 0}}));
+    serde_json::from_value(value).unwrap()
+}
+
 #[test]
 fn buckling_741_certificate_contains_reported_and_reference_factors() {
     use dedaliano_engine::certify::buckling::{buckling_certificate_3d, certify_buckling_3d, BucklingCertificate, BucklingRefusal::ComputedAboveUpperBound};
     use dedaliano_engine::solver::buckling::{buckling_system_3d, solve_buckling_3d};
-    let input = buckling_741_input();
+    for error in [certify_buckling_3d(&buckling_741_input(), 3).map(|_| ()).unwrap_err(), solve_buckling_3d(&buckling_741_input(), 3).map(|_| ()).unwrap_err()] {
+        assert!(error.contains("Buckling not determinable") && error.contains("element 3"), "{error}");
+    }
+    let input = buckling_741_with_axial_tip_load(100.0);
     assert!(certify_buckling_3d(&input, 3).unwrap_err().contains("BU-BOUND"));
     let certificate = buckling_certificate_3d(&input, 3).unwrap();
     let factor = solve_buckling_3d(&input, 3).unwrap().modes[0].load_factor;
     let sys = buckling_system_3d(&input).unwrap();
     assert!(exact_pencil_positive(&sys.k_ff, &sys.neg_kg_csc, 0.0));
-    let (mut lo, mut hi) = (4600.0, 4800.0);
+    let (mut lo, mut hi) = (1.0, 1.5);
     assert!(exact_pencil_positive(&sys.k_ff, &sys.neg_kg_csc, lo));
     assert!(!exact_pencil_positive(&sys.k_ff, &sys.neg_kg_csc, hi));
-    for _ in 0..24 {
+    for _ in 0..40 {
         let mid = (lo + hi) / 2.0;
         if exact_pencil_positive(&sys.k_ff, &sys.neg_kg_csc, mid) { lo = mid; } else { hi = mid; }
     }
-    eprintln!("exact-rational dense inertia eigenvalue bracket: [{lo:.12}, {hi:.12}]; reported: {factor:.12}; certificate: {certificate:?}");
-    assert!(lo > 4688.9203 && hi < 4688.9204);
-    assert!(exact_pencil_positive(&sys.k_ff, &sys.neg_kg_csc, 4644.4835783707595));
-    assert!(!exact_pencil_positive(&sys.k_ff, &sys.neg_kg_csc, 4688.92209616787));
+    eprintln!("exact-rational dense inertia eigenvalue bracket: [{lo:.15}, {hi:.15}]; reported: {factor:.15}; certificate: {certificate:?}");
+    assert!(lo > 1.2087953604 && hi < 1.2087953605, "[{lo}, {hi}]");
+    assert!(factor > 1.20879541 && factor > hi, "the reported factor is above the exact one: {factor}");
     refusal_741_holds(&certificate, factor, &sys, hi).unwrap();
     let ComputedAboveUpperBound { lambda_upper, .. } = refusal_of(&certificate).unwrap();
     let doctored = |lambda_computed, lambda_upper| BucklingCertificate::Uncertified {
@@ -381,8 +393,14 @@ fn generated_buckling_enclosures(cases: u64) {
             node.z *= rng.gen_range(0.8..1.2);
         }
         input.materials.get_mut("1").unwrap().e *= 10f64.powf(rng.gen_range(-2.0..2.0));
+        let q = 10f64.powf(rng.gen_range(0.0..10.0));
+        let (a, b) = (&input.nodes["3"], &input.nodes["4"]);
+        let d = [b.x - a.x, b.y - a.y, b.z - a.z];
+        let l = (d[0] * d[0] + d[1] * d[1] + d[2] * d[2]).sqrt();
+        let p = q * 10f64.powf(rng.gen_range(-9.0..-3.0));
         let mut value = serde_json::to_value(&input).unwrap();
-        value["loads"][0]["data"]["qYI"] = json!(-10f64.powf(rng.gen_range(0.0..10.0)));
+        value["loads"][0]["data"]["qYI"] = json!(-q);
+        value["loads"].as_array_mut().unwrap().push(json!({"type": "nodal", "data": {"nodeId": 4, "fx": -p * d[0] / l, "fy": -p * d[1] / l, "fz": -p * d[2] / l, "mx": 0, "my": 0, "mz": 0}}));
         let input = serde_json::from_value(value).unwrap();
         let column = serde_json::from_value(json!({
             "nodes": { "1": { "id": 1, "x": 0, "z": 0 }, "2": { "id": 2, "x": 0, "z": rng.gen_range(1.0..20.0) } },
@@ -446,7 +464,7 @@ fn generated_buckling_enclosures(cases: u64) {
             dimension + 2, certified[dimension], refused[dimension], above_upper[dimension], errors[dimension]
         );
         assert!(
-            errors[dimension].keys().all(|reason| reason == "No compressed elements — buckling not applicable" || (dimension == 1 && reason == "No positive buckling load factors found")),
+            errors[dimension].keys().all(|reason| reason == "No compressed elements — buckling not applicable" || (dimension == 1 && (reason == "No positive buckling load factors found" || reason.starts_with("Buckling not determinable")))),
             "{}D solver failed for a reason other than no (resolvable) compression: {:#?}", dimension + 2, errors[dimension]
         );
     }
@@ -494,3 +512,4 @@ fn envelope_3d_overflow_is_refused() {
     assert_eq!(my.neg_values[0], ef.my_start.min(0.0));
     assert!(my.neg_values.iter().all(|v| v.is_finite() && *v <= 0.0));
 }
+

@@ -66,11 +66,18 @@ it('also preserves the 2D buckling certificate refusal', () => {
   expect(mocks.plain2D).not.toHaveBeenCalled();
 });
 
-it('the real #741 model stays warned through an ordinary certification fallback', async () => {
+it('the #741 model, whose only compression is round-off, is refused as not determinable (#1548)', async () => {
   const native = await vi.importActual<typeof import('../../wasm/dedaliano_engine.js')>('../../wasm/dedaliano_engine.js');
   const json = readFileSync('../engine/tests/fixtures/buckling-741.json', 'utf8');
+  expect(() => native.solve_buckling_3d(json, 1)).toThrow(/Buckling not determinable/);
+  expect(() => native.certify_buckling_3d(json, 1)).toThrow(/Buckling not determinable/);
+});
+
+it('the real #741 model under a compressive tip load stays warned through an ordinary certification fallback', async () => {
+  const native = await vi.importActual<typeof import('../../wasm/dedaliano_engine.js')>('../../wasm/dedaliano_engine.js');
+  const json = readFileSync('../engine/tests/fixtures/buckling-741-compressed.json', 'utf8');
   const plain = JSON.parse(native.solve_buckling_3d(json, 1));
-  expect(plain.modes[0].loadFactor).toBeCloseTo(4691.397553909858, 6);
+  expect(plain.modes[0].loadFactor).toBeCloseTo(1.2087954149900562, 9);
   expect(plain.structuredDiagnostics).toEqual(expect.arrayContaining([
     expect.objectContaining({ phase: 'BU-ACCURACY', value: 818, severity: 'warning' }),
   ]));
@@ -92,7 +99,7 @@ it('the real #741 model stays warned through an ordinary certification fallback'
 
 it('the real #741 certificate refusal is a containment refusal and withholds the factor', async () => {
   const native = await vi.importActual<typeof import('../../wasm/dedaliano_engine.js')>('../../wasm/dedaliano_engine.js');
-  const json = readFileSync('../engine/tests/fixtures/buckling-741.json', 'utf8');
+  const json = readFileSync('../engine/tests/fixtures/buckling-741-compressed.json', 'utf8');
   let thrown: unknown = null;
   try { native.certify_buckling_3d(json, 1); } catch (e) { thrown = e; }
   expect(thrown).not.toBeNull();
