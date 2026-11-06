@@ -472,6 +472,7 @@ impl MemberDeflection {
     ) -> Self {
         let mut d = MemberDeflection { ei, flex_s, kappa, v_i, theta_i: 0.0, m0: 0.0, s0: 0.0, points, dist, couples };
         let [mql, mq1, mq2, sql] = d.load_terms(l);
+        let at_end: f64 = d.couples.iter().filter(|c| c.0 >= l).map(|c| c.1).sum();
         // Unknowns x = [θ_i, m0, s0].
         let r1 = if hinge_start { ([0.0, 1.0, 0.0], 0.0) } else { ([1.0, 0.0, 0.0], r_i) };
         let r2 = (
@@ -479,7 +480,7 @@ impl MemberDeflection {
             v_j - v_i - mq2 / ei - kappa * l * l / 2.0 + flex_s * sql,
         );
         let r3 = if hinge_end {
-            ([0.0, 1.0, l], -mql)
+            ([0.0, 1.0, l], at_end - mql)
         } else {
             ([1.0, l / ei, l * l / (2.0 * ei)], r_j - mq1 / ei - kappa * l)
         };

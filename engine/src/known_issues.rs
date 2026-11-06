@@ -1600,6 +1600,48 @@ mod span_tests {
     }
 
     #[test]
+    fn a_couple_at_a_released_end_turns_it_as_the_propped_closed_form_1569() {
+        use crate::postprocess::diagrams::SpanRotation;
+        let (l, ei, c) = (2.0, 3.0e4, 600.0);
+        let exact = SpanRotation::new(l, ei, 0.0, 0.0, 0.0, 0.0, 0.0, false, true, Vec::new(), Vec::new(), vec![(l, c)], 0.0);
+        let near = SpanRotation::new(l, ei, 0.0, 0.0, 0.0, 0.0, 0.0, false, true, Vec::new(), Vec::new(), vec![(l * (1.0 - 1e-12), c)], 0.0);
+        assert!((exact.at(l).abs() - c * l / (4.0 * ei)).abs() < 1e-12, "{}", exact.at(l));
+        for k in 0..=10 {
+            let x = l * k as f64 / 10.0;
+            assert!((exact.at(x) - near.at(x)).abs() < 1e-9 * c * l / ei, "x {x}: {} vs {}", exact.at(x), near.at(x));
+        }
+    }
+
+    #[test]
+    fn a_solved_couple_at_a_released_end_follows_the_solved_moment_1569() {
+        let input: SolverInput = serde_json::from_value(serde_json::json!({
+            "nodes": {"1": {"id":1,"x":0,"z":0}, "2": {"id":2,"x":2,"z":0}},
+            "materials": {"1": {"id":1,"e":200000,"nu":0.3}}, "sections": {"1": {"id":1,"a":0.01,"iz":1e-4}},
+            "elements": {"1": {"id":1,"type":"frame","nodeI":1,"nodeJ":2,"materialId":1,"sectionId":1,"hingeEnd":true}},
+            "supports": {"1": {"id":1,"nodeId":1,"type":"fixed"}, "2": {"id":2,"nodeId":2,"type":"fixed"}},
+            "loads": [{"type":"pointOnElement","data":{"elementId":1,"a":2.0,"p":0,"my":600}}]
+        })).unwrap();
+        let r = crate::solver::linear::solve_2d(&input).unwrap();
+        let (_, l, plane) = &span_planes_2d(&member_spans_2d(&input, &input.loads), &r)[0];
+        let ef = &r.element_forces[0];
+        for k in 0..40 {
+            let t = k as f64 / 40.0;
+            let diagram = crate::postprocess::diagrams::compute_diagram_value_at("moment", t, ef);
+            assert!((plane.moment(t * l) + diagram).abs() < 1e-9 * (1.0 + diagram.abs()), "t {t}: {} vs {diagram}", plane.moment(t * l));
+        }
+        assert!((plane.at(*l).abs() - 600.0 * l / (4.0 * 2e4)).abs() < 1e-12, "{}", plane.at(*l));
+    }
+
+    #[test]
+    fn cubic_roots_without_a_quadratic_term_are_found_1569() {
+        let roots = cubic_roots_in_unit([0.1, -0.75, 0.0, 1.0]);
+        assert_eq!(roots.len(), 2, "{roots:?}");
+        for r in roots {
+            assert!((0.1 - 0.75 * r + r * r * r).abs() < 1e-12, "{r}");
+        }
+    }
+
+    #[test]
     fn cubic_roots_in_the_unit_interval_include_both_of_a_close_pair_1506() {
         let roots = cubic_roots_in_unit([-0.18, 1.46, -3.2, 2.0]);
         let expected = [0.2, 0.5, 0.9];

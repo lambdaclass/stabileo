@@ -2495,3 +2495,45 @@ fn a_combination_sums_its_cases_thermal_curvatures_1569() {
     assert_eq!(warned_chords(&combine(&[(2, 1.0), (3, -1.0)]).structured_diagnostics), None, "cancelled");
     assert_eq!(warned_chords(&combine(&[(2, 0.3)]).structured_diagnostics), None, "0.15 reduced to 0.045");
 }
+
+fn unequal_shear_span_3d(py: f64, pz: f64, as_y: f64, as_z: f64, split: bool) -> AnalysisResults3D {
+    let held = serde_json::json!({"rx":true,"ry":true,"rz":true,"rrx":true,"rry":true,"rrz":true});
+    let (mut a, mut b) = (held.clone(), held);
+    a["nodeId"] = 1.into();
+    b["nodeId"] = 2.into();
+    let (nodes, elements, loads) = if split {
+        (
+            serde_json::json!({"1": {"id":1,"x":0,"y":0,"z":0}, "2": {"id":2,"x":1,"y":0,"z":0}, "3": {"id":3,"x":0.5,"y":0,"z":0}}),
+            serde_json::json!({"1": {"id":1,"type":"frame","nodeI":1,"nodeJ":3,"materialId":1,"sectionId":1}, "2": {"id":2,"type":"frame","nodeI":3,"nodeJ":2,"materialId":1,"sectionId":1}}),
+            serde_json::json!([{"type":"nodal","data":{"nodeId":3,"fx":0,"fy":py,"fz":pz,"mx":0,"my":0,"mz":0}}]),
+        )
+    } else {
+        (
+            serde_json::json!({"1": {"id":1,"x":0,"y":0,"z":0}, "2": {"id":2,"x":1,"y":0,"z":0}}),
+            serde_json::json!({"1": {"id":1,"type":"frame","nodeI":1,"nodeJ":2,"materialId":1,"sectionId":1}}),
+            serde_json::json!([{"type":"pointOnElement","data":{"elementId":1,"a":0.5,"py":py,"pz":pz}}]),
+        )
+    };
+    let input: SolverInput3D = serde_json::from_value(serde_json::json!({
+        "nodes": nodes,
+        "materials": {"1": {"id":1,"e":E,"nu":0.3}},
+        "sections": {"1": {"id":1,"a":0.01,"iy":1.0,"iz":1.0,"j":1.0,"asY":as_y,"asZ":as_z}},
+        "elements": elements,
+        "supports": {"1": a, "2": b},
+        "loads": loads
+    })).unwrap();
+    dedaliano_engine::solver::linear::solve_3d(&input).unwrap()
+}
+
+#[test]
+fn unequal_shear_areas_are_paired_with_their_bending_plane_as_the_solver_pairs_them_1569() {
+    for (py, pz) in [(-20.0, 0.0), (0.0, -20.0)] {
+        for (as_y, as_z) in [(1e-6, 1.0), (1.0, 1e-6)] {
+            let split = warned_chords(&unequal_shear_span_3d(py, pz, as_y, as_z, true).structured_diagnostics).is_some();
+            let whole = warned_chords(&unequal_shear_span_3d(py, pz, as_y, as_z, false).structured_diagnostics).is_some();
+            assert_eq!(whole, split, "py {py} pz {pz} asY {as_y} asZ {as_z}");
+        }
+        let flexible = [(1e-6, 1.0), (1.0, 1e-6)].iter().filter(|&&(y, z)| warned_chords(&unequal_shear_span_3d(py, pz, y, z, true).structured_diagnostics).is_some()).count();
+        assert_eq!(flexible, 1, "exactly one shear area turns the cut model for py {py} pz {pz}");
+    }
+}
