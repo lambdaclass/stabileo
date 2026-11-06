@@ -4,7 +4,7 @@
   "format": 2,
   "values": {
     "base.allZero": false,
-    "base.diagnosticCodes": "",
+    "base.diagnosticCodes": "warning:known_issue",
     "base.displacements[n1]": {"rx":0,"ry":0,"rz":0,"ux":0,"uy":0,"uz":0},
     "base.displacements[n2]": {"rx":0.4457779683,"ry":0.0001277387762,"rz":0,"ux":0,"uy":0,"uz":-0.0005961142889},
     "base.displacements[n3]": {"rx":0.4457779683,"ry":-0.0005109551048,"rz":0,"ux":0,"uy":0,"uz":0},
