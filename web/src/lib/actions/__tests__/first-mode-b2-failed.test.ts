@@ -44,6 +44,19 @@ describe('the space P-Δ when its first-mode buckling check cannot run', () => {
     expect(r.secondOrder).toEqual({ lambda1: Infinity, b2: 1 });
   });
 
+  it.fails('a "no compressed elements" refusal that also carries a containment refusal leaves B₂ unknown (#1558)', () => {
+    const both = new Error(JSON.stringify({ message: 'withheld', structuredDiagnostics: [
+      { code: 'no_compressed_elements', severity: 'error', message: 'coded' },
+      { code: 'known_issue', severity: 'error', phase: 'BU-BOUND', value: 741, message: 'withheld' },
+    ] }));
+    buckling.impl = () => { throw both; };
+    const r = withFirstModeB2(input, { b2Factor: 1.37, isStable: true });
+    expect(Number.isNaN(r.b2Factor)).toBe(true);
+    expect(r.isStable).toBeNull();
+    expect(r.secondOrder?.lambda1).toBeNull();
+    expect(r.secondOrder?.bucklingError).toBe(both.message);
+  });
+
   it('the words "no compressed elements" without the code are a buckling failure, not λ₁ = ∞', () => {
     buckling.impl = () => { throw new Error('No compressed elements — buckling not applicable'); };
     const r = withFirstModeB2(input, { b2Factor: 1.37, isStable: true });
