@@ -16,24 +16,24 @@
 
 <section class="sec sec--paper ai" data-section="ai" id="ai" aria-labelledby="ai-title">
   <div class="wrap">
-    <Eyebrow n="04" label={t('landing.ebAi')} />
+    <Eyebrow n="04" label={t('landingAi.ebAi')} />
 
     <div class="mode-split">
       <div class="mode-split-text">
         <div class="mode-head">
-          <h2 id="ai-title" class="display">{t('landing.aiH')}</h2>
-          <span class="badge badge-dev">{t('landing.badgeDevPaid')}</span>
+          <h2 id="ai-title" class="display">{t('landingAi.aiH')}</h2>
+          <span class="badge badge-dev">{t('landingAi.badgeDevPaid')}</span>
         </div>
-        <p class="lead">{t('landing.aiP')}</p>
+        <p class="lead">{t('landingAi.aiP')}</p>
         <ul class="tick-list">
-          {#each points as key}<li>{t('landing.' + key)}</li>{/each}
+          {#each points as key}<li>{t('landingAi.' + key)}</li>{/each}
         </ul>
-        <p class="mode-note">{t('landing.aiStatus')}</p>
+        <p class="mode-note">{t('landingAi.aiStatus')}</p>
       </div>
 
       <figure class="mode-split-shot">
-        <Shot base="ai-panel" w={1240} h={1026} alt={t('landing.shotAiAlt')} sizes="(max-width: 860px) 92vw, 34vw" />
-        <figcaption>{t('landing.shotAiTitle')}</figcaption>
+        <Shot base="ai-panel" w={1240} h={1026} alt={t('landingAi.shotAiAlt')} sizes="(max-width: 860px) 92vw, 34vw" />
+        <figcaption>{t('landingAi.shotAiTitle')}</figcaption>
       </figure>
     </div>
   </div>
