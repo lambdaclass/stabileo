@@ -227,6 +227,28 @@ impl Resp {
         Ok(o)
     }
 
+    pub fn mirror3(&self, axis: usize) -> Result<Resp, String> {
+        let s = |i: usize| if i == axis { -1.0 } else { 1.0 };
+        let mut o = self.clone();
+        for it in o.0.iter_mut() {
+            match (&it.kind, it.tag.as_str()) {
+                (Kind::V3(_), "u" | "R") => it.v[axis] = -it.v[axis],
+                (Kind::V3(_), "r" | "RM") => (0..3).filter(|&i| i != axis).for_each(|i| it.v[i] = -it.v[i]),
+                (Kind::T3(_), _) => {
+                    let ij = [(0, 0), (0, 1), (0, 2), (1, 1), (1, 2), (2, 2)];
+                    it.v.iter_mut().zip(ij).for_each(|(v, (i, j))| *v *= s(i) * s(j));
+                }
+                (Kind::Abs3(_) | Kind::Stress, _) => {}
+                (Kind::Local(..), "N") => {}
+                (Kind::Local(..), "V") => it.v[2..].iter_mut().for_each(|v| *v = -*v),
+                (Kind::Local(..), "M") => it.v[..4].iter_mut().for_each(|v| *v = -*v),
+                (Kind::Local(..), _) if it.v.len() == 1 => {}
+                _ => return Err(format!("{:?} {} has no mirror rule", it.kind, it.tag)),
+            }
+        }
+        Ok(o)
+    }
+
     /// Expected response after reversing the members in `flipped` (see
     /// dedaliano_engine::metamorphic::reversal for the end-force maps).
     pub fn reverse(&self, flipped: &std::collections::HashSet<usize>, three_d: bool) -> Result<Resp, String> {
@@ -420,6 +442,28 @@ pub fn static_2d(r: &AnalysisResults) -> Resp {
         o.push(None, id, "V", Kind::Local(Dim::FORCE, true), vec![e.v_start, e.v_end]);
         o.push(None, id, "M", Kind::Local(Dim::MOMENT, true), vec![e.m_start, e.m_end]);
     }
+    o
+}
+
+pub fn planar_static(p: &dedaliano_engine::metamorphic::planes::PlanarStatic) -> Resp {
+    let mut o = Resp::default();
+    for &(n, ux, uz, ry) in &p.displacements {
+        o.push(Some(n), None, "u", Kind::V2(Dim::LEN), vec![ux, uz]);
+        o.push(Some(n), None, "ry", Kind::P2(Dim::NONE), vec![ry]);
+    }
+    for &(n, rx, rz, m) in &p.reactions {
+        o.push(Some(n), None, "R", Kind::V2(Dim::FORCE), vec![rx, rz]);
+        o.push(Some(n), None, "RM", Kind::P2(Dim::MOMENT), vec![m]);
+    }
+    for &(e, a, b) in &p.element_forces {
+        o.push(None, Some(e), "N", Kind::Local(Dim::FORCE, false), vec![a[0], b[0]]);
+        o.push(None, Some(e), "V", Kind::Local(Dim::FORCE, true), vec![a[1], b[1]]);
+        o.push(None, Some(e), "M", Kind::Local(Dim::MOMENT, true), vec![a[2], b[2]]);
+    }
+    o.scalar("stray force", Dim::FORCE, p.stray_force);
+    o.scalar("stray moment", Dim::MOMENT, p.stray_moment);
+    o.scalar("stray translation", Dim::LEN, p.stray_translation);
+    o.scalar("stray rotation", Dim::NONE, p.stray_rotation);
     o
 }
 

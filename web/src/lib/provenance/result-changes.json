@@ -46,6 +46,134 @@
       }
     },
     {
+      "id": "example-cantilever-small-rotations",
+      "resultsVersion": 38,
+      "date": "2026-11-05",
+      "prs": [
+        1515
+      ],
+      "area": "analysis",
+      "scope": "examples",
+      "examples": [
+        "3d-cantilever-load"
+      ],
+      "title": {
+        "en": "The 3D biaxial cantilever example stays within small rotations",
+        "es": "El ejemplo 3D de voladizo biaxial queda dentro de los giros pequeños",
+        "pt": "O exemplo 3D de balanço biaxial fica dentro das rotações pequenas",
+        "de": "Das 3D-Beispiel zweiachsiger Kragarm bleibt im Bereich kleiner Verdrehungen",
+        "fr": "L’exemple 3D de console biaxiale reste dans les petites rotations",
+        "tr": "3B iki eksenli konsol örneği küçük dönmeler içinde kalıyor"
+      },
+      "explanation": {
+        "en": "Only the bundled example changed; a saved model gives the same numbers as before. The biaxial cantilever twisted 0.42 rad and its 3 m tip moved 103 mm in all (span/29), outside linear analysis (#1446): its torque is now 0.5 kN·m (10 kN at 50 mm eccentricity) and its tip loads Fy 1 kN and Fz 10 kN, so it twists 0.042 rad and its tip moves 11 mm in all (span/272). Its axial compression is now 10 kN, 4% of the weak-axis Euler load of the 3 m cantilever (247 kN; it was 100 kN, 40%), so second-order effects add about 4% instead of about 70%.",
+        "es": "Sólo cambió el ejemplo incluido; un modelo guardado da los mismos números que antes. El voladizo biaxial giraba 0,42 rad y su extremo de 3 m se desplazaba 103 mm en total (luz/29), fuera del análisis lineal (#1446): su torsor ahora es 0,5 kN·m (10 kN con 50 mm de excentricidad) y sus cargas de extremo Fy 1 kN y Fz 10 kN, de modo que gira 0,042 rad y su extremo se desplaza 11 mm en total (luz/272). Su compresión axial ahora es 10 kN, el 4 % de la carga de Euler del voladizo de 3 m según el eje débil (247 kN; era 100 kN, el 40 %), de modo que los efectos de segundo orden suman cerca de un 4 % en lugar de cerca de un 70 %.",
+        "pt": "Só o exemplo incluído mudou; um modelo salvo dá os mesmos números de antes. O balanço biaxial girava 0,42 rad e sua ponta de 3 m se deslocava 103 mm no total (vão/29), fora da análise linear (#1446): seu torçor agora é 0,5 kN·m (10 kN com 50 mm de excentricidade) e suas cargas de ponta Fy 1 kN e Fz 10 kN, de modo que gira 0,042 rad e sua ponta se desloca 11 mm no total (vão/272). Sua compressão axial agora é 10 kN, 4 % da carga de Euler do balanço de 3 m no eixo fraco (247 kN; era 100 kN, 40 %), de modo que os efeitos de segunda ordem somam cerca de 4 % em vez de cerca de 70 %.",
+        "de": "Nur das mitgelieferte Beispiel hat sich geändert; ein gespeichertes Modell liefert dieselben Zahlen wie zuvor. Der zweiachsige Kragarm verdrehte sich um 0,42 rad und sein 3 m langes Ende verschob sich insgesamt um 103 mm (Spannweite/29), außerhalb der linearen Analyse (#1446): sein Torsionsmoment beträgt jetzt 0,5 kN·m (10 kN mit 50 mm Exzentrizität) und seine Endlasten Fy 1 kN und Fz 10 kN, sodass er sich um 0,042 rad verdreht und sein Ende sich insgesamt um 11 mm verschiebt (Spannweite/272). Seine Normalkraft beträgt jetzt 10 kN Druck, 4 % der Eulerlast des 3 m langen Kragarms um die schwache Achse (247 kN; zuvor 100 kN, 40 %), sodass Effekte zweiter Ordnung etwa 4 % statt etwa 70 % ausmachen.",
+        "fr": "Seul l’exemple fourni a changé ; un modèle enregistré donne les mêmes chiffres qu’avant. La console biaxiale tournait de 0,42 rad et son extrémité de 3 m se déplaçait de 103 mm au total (portée/29), hors de l’analyse linéaire (#1446) : son couple est désormais de 0,5 kN·m (10 kN avec 50 mm d’excentricité) et ses charges d’extrémité Fy 1 kN et Fz 10 kN, de sorte qu’elle tourne de 0,042 rad et que son extrémité se déplace de 11 mm au total (portée/272). Sa compression axiale est désormais de 10 kN, 4 % de la charge d’Euler de la console de 3 m selon l’axe faible (247 kN ; elle était de 100 kN, 40 %), de sorte que les effets du second ordre ajoutent environ 4 % au lieu d’environ 70 %.",
+        "tr": "Yalnızca uygulamayla gelen örnek değişti; kaydedilmiş bir model öncekiyle aynı sayıları verir. İki eksenli konsol 0,42 rad dönüyor ve 3 m'lik ucu toplamda 103 mm (açıklık/29) yer değiştiriyordu, doğrusal analizin dışında (#1446): burulma momenti artık 0,5 kN·m (50 mm eksantrisiteyle 10 kN), uç yükleri Fy 1 kN ve Fz 10 kN, böylece 0,042 rad dönüyor ve ucu toplamda 11 mm (açıklık/272) yer değiştiriyor. Eksenel basıncı artık 10 kN; 3 m'lik konsolun zayıf eksendeki Euler yükünün (247 kN) %4'ü (önceden 100 kN, %40), bu yüzden ikinci mertebe etkileri yaklaşık %70 yerine yaklaşık %4 ekliyor."
+      },
+      "changelog": {
+        "file": "changelog.d/1446-example-cantilever.md",
+        "heading": "The 3D biaxial cantilever example stays within small rotations (2026-11-05)"
+      }
+    },
+    {
+      "id": "example-torsion-beam-closed-section",
+      "resultsVersion": 37,
+      "date": "2026-11-05",
+      "prs": [
+        1507
+      ],
+      "area": "analysis",
+      "scope": "examples",
+      "examples": [
+        "3d-torsion-beam"
+      ],
+      "title": {
+        "en": "The 3D torsion beam example uses a closed section and stays within small rotations",
+        "es": "El ejemplo 3D de viga a torsión usa una sección cerrada y queda dentro de los giros pequeños",
+        "pt": "O exemplo 3D de viga à torção usa uma seção fechada e fica dentro das rotações pequenas",
+        "de": "Das 3D-Beispiel Torsionsträger verwendet einen geschlossenen Querschnitt und bleibt im Bereich kleiner Verdrehungen",
+        "fr": "L’exemple 3D de poutre en torsion utilise une section fermée et reste dans les petites rotations",
+        "tr": "3B burulma kirişi örneği kapalı bir kesit kullanıyor ve küçük dönmeler içinde kalıyor"
+      },
+      "explanation": {
+        "en": "Only the bundled example changed; a saved model gives the same numbers as before. The torsion beam twisted 0.45 rad under its 8 kN·m torque on an open IPN 300, outside linear analysis (#1446): it now uses a closed SHS 140×140×8 (IRAM-IAS table: J 1813.95 cm⁴), the usual answer to torsion, and twists 0.011 rad.",
+        "es": "Sólo cambió el ejemplo incluido; un modelo guardado da los mismos números que antes. La viga a torsión giraba 0,45 rad bajo su torsor de 8 kN·m sobre un IPN 300 abierto, fuera del análisis lineal (#1446): ahora usa un tubo cerrado SHS 140×140×8 (tabla IRAM-IAS: J 1813,95 cm⁴), la respuesta habitual a la torsión, y gira 0,011 rad.",
+        "pt": "Só o exemplo incluído mudou; um modelo salvo dá os mesmos números de antes. A viga à torção girava 0,45 rad sob seu momento torçor de 8 kN·m num IPN 300 aberto, fora da análise linear (#1446): agora usa um tubo fechado SHS 140×140×8 (tabela IRAM-IAS: J 1813,95 cm⁴), a resposta habitual à torção, e gira 0,011 rad.",
+        "de": "Nur das mitgelieferte Beispiel hat sich geändert; ein gespeichertes Modell liefert dieselben Zahlen wie zuvor. Der Torsionsträger verdrehte sich unter seinem Torsionsmoment von 8 kN·m an einem offenen IPN 300 um 0,45 rad, außerhalb der linearen Analyse (#1446): er verwendet jetzt ein geschlossenes SHS 140×140×8 (IRAM-IAS-Tabelle: J 1813,95 cm⁴), die übliche Antwort auf Torsion, und verdreht sich um 0,011 rad.",
+        "fr": "Seul l’exemple fourni a changé ; un modèle enregistré donne les mêmes chiffres qu’avant. La poutre en torsion tournait de 0,45 rad sous son couple de 8 kN·m sur un IPN 300 ouvert, hors de l’analyse linéaire (#1446) : elle utilise désormais un tube fermé SHS 140×140×8 (tableau IRAM-IAS : J 1813,95 cm⁴), la réponse habituelle à la torsion, et tourne de 0,011 rad.",
+        "tr": "Yalnızca uygulamayla gelen örnek değişti; kaydedilmiş bir model öncekiyle aynı sayıları verir. Burulma kirişi, açık bir IPN 300 üzerindeki 8 kN·m burulma momenti altında 0,45 rad dönüyordu, doğrusal analizin dışında (#1446): artık burulmaya karşı olağan çözüm olan kapalı bir SHS 140×140×8 kesiti kullanıyor (IRAM-IAS tablosu: J 1813,95 cm⁴) ve 0,011 rad dönüyor."
+      },
+      "changelog": {
+        "file": "changelog.d/1446-example-torsion-beam.md",
+        "heading": "The 3D torsion beam example uses a closed section and stays within small rotations (2026-11-05)"
+      }
+    },
+    {
+      "id": "linear-small-displacement-warning",
+      "resultsVersion": 36,
+      "date": "2026-11-05",
+      "prs": [
+        1502
+      ],
+      "area": "analysis",
+      "when": {
+        "any": [
+          "members",
+          "shells",
+          "connectors",
+          "springs"
+        ]
+      },
+      "title": {
+        "en": "Linear analysis warns when a rotation passes 0.1 rad",
+        "es": "El análisis lineal advierte cuando un giro supera 0,1 rad",
+        "pt": "A análise linear avisa quando uma rotação passa de 0,1 rad",
+        "de": "Die lineare Analyse warnt, wenn eine Verdrehung 0,1 rad überschreitet",
+        "fr": "L’analyse linéaire avertit lorsqu’une rotation dépasse 0,1 rad",
+        "tr": "Doğrusal analiz, bir dönme 0,1 rad'ı aştığında uyarıyor"
+      },
+      "explanation": {
+        "en": "Linear analysis assumes small displacements, yet it returned rotations of many radians without notice, for example 75 rad at a nearly free node (#1446). A static solve now warns (LIN-SMALL-DISPLACEMENT) when a node rotation, or a frame member's relative end displacement over its length, exceeds 0.1 rad, and a load combination when its own rotations do or a member of one of its cases did: 0.1 rad is a screening limit: past it the terms first-order theory drops, such as the chord shortening 1 − cos θ ≈ 0.5 %, may no longer be negligible, and the change of geometry should be checked. Numerical values are unchanged. The 3D torsion beam example twists 0.45 rad and now shows the warning.",
+        "es": "El análisis lineal supone desplazamientos pequeños, pero devolvía giros de muchos radianes sin aviso, por ejemplo 75 rad en un nudo casi libre (#1446). Una resolución estática ahora advierte (LIN-SMALL-DISPLACEMENT) cuando el giro de un nudo, o el desplazamiento relativo de los extremos de una barra respecto de su longitud, supera 0,1 rad, y una combinación de cargas cuando lo superan sus propios giros o lo superó una barra de alguno de sus estados: 0,1 rad es un límite de control: a partir de ahí los términos que la teoría de primer orden desprecia, como el acortamiento de la cuerda 1 − cos θ ≈ 0,5 %, pueden dejar de ser despreciables, y conviene verificar el cambio de geometría. Los valores numéricos no cambian. El ejemplo de viga a torsión 3D gira 0,45 rad y ahora muestra la advertencia.",
+        "pt": "A análise linear supõe deslocamentos pequenos, mas devolvia rotações de muitos radianos sem aviso, por exemplo 75 rad num nó quase livre (#1446). Uma resolução estática agora avisa (LIN-SMALL-DISPLACEMENT) quando a rotação de um nó, ou o deslocamento relativo das extremidades de uma barra em relação ao seu comprimento, passa de 0,1 rad, e uma combinação de cargas quando suas próprias rotações passam disso ou uma barra de um de seus casos passou: 0,1 rad é um limite de controle: a partir daí os termos que a teoria de primeira ordem despreza, como o encurtamento da corda 1 − cos θ ≈ 0,5 %, podem deixar de ser desprezíveis, e convém verificar a mudança de geometria. Os valores numéricos não mudam. O exemplo de viga à torção 3D gira 0,45 rad e agora mostra o aviso.",
+        "de": "Die lineare Analyse setzt kleine Verschiebungen voraus, gab aber Verdrehungen von vielen Radiant ohne Hinweis aus, zum Beispiel 75 rad an einem fast freien Knoten (#1446). Eine statische Berechnung warnt jetzt (LIN-SMALL-DISPLACEMENT), wenn eine Knotenverdrehung oder die relative Endverschiebung eines Stabs bezogen auf seine Länge 0,1 rad überschreitet, und eine Lastkombination, wenn ihre eigenen Verdrehungen das tun oder ein Stab eines ihrer Lastfälle es tat: 0,1 rad ist eine Prüfgrenze: darüber sind die Terme, die die Theorie erster Ordnung vernachlässigt, etwa die Sehnenverkürzung 1 − cos θ ≈ 0,5 %, möglicherweise nicht mehr vernachlässigbar, und die Geometrieänderung sollte geprüft werden. Die Zahlenwerte bleiben unverändert. Das Beispiel des 3D-Torsionsträgers verdreht sich um 0,45 rad und zeigt jetzt die Warnung.",
+        "fr": "L’analyse linéaire suppose de petits déplacements, mais elle renvoyait des rotations de plusieurs radians sans avertir, par exemple 75 rad en un nœud presque libre (#1446). Un calcul statique avertit désormais (LIN-SMALL-DISPLACEMENT) lorsqu’une rotation de nœud, ou le déplacement relatif des extrémités d’une barre rapporté à sa longueur, dépasse 0,1 rad, et une combinaison de charges lorsque ses propres rotations le dépassent ou qu’une barre de l’un de ses cas l’a dépassé : 0,1 rad est une limite de contrôle : au-delà, les termes que la théorie du premier ordre néglige, comme le raccourcissement de la corde 1 − cos θ ≈ 0,5 %, peuvent ne plus être négligeables, et le changement de géométrie doit être vérifié. Les valeurs numériques ne changent pas. L’exemple de poutre en torsion 3D tourne de 0,45 rad et affiche désormais l’avertissement.",
+        "tr": "Doğrusal analiz küçük yer değiştirmeler varsayar, ancak birçok radyanlık dönmeleri uyarı vermeden döndürüyordu; örneğin neredeyse serbest bir düğümde 75 rad (#1446). Statik bir çözüm artık bir düğüm dönmesi ya da bir çubuğun uçlarının göreli yer değiştirmesinin boyuna oranı 0,1 rad'ı aştığında uyarıyor (LIN-SMALL-DISPLACEMENT); bir yük kombinasyonu ise kendi dönmeleri bunu aştığında veya yüklemelerinden birinde bir çubuk aştığında uyarıyor: 0,1 rad bir kontrol sınırıdır: bunun ötesinde birinci mertebe teorinin ihmal ettiği terimler, örneğin kiriş kısalması 1 − cos θ ≈ %0,5, artık ihmal edilebilir olmayabilir ve geometri değişimi kontrol edilmelidir. Sayısal değerler değişmez. 3B burulma kirişi örneği 0,45 rad döner ve artık uyarıyı gösteriyor."
+      },
+      "changelog": {
+        "file": "changelog.d/1446-small-displacement-warning.md",
+        "heading": "Linear analysis warns when a rotation passes 0.1 rad (2026-11-05)"
+      }
+    },
+    {
+      "id": "buckling-3d-varying-axial-force",
+      "resultsVersion": 35,
+      "date": "2026-11-05",
+      "prs": [1309],
+      "area": "analysis",
+      "when": { "allOf": [["analysis:buckling"], ["memberLoads"], ["space3D"]] },
+      "title": {
+        "en": "3D buckling: members whose axial force varies along them",
+        "es": "Pandeo 3D: barras cuyo esfuerzo axial varía a lo largo",
+        "pt": "Flambagem 3D: barras cujo esforço axial varia ao longo delas",
+        "de": "3D-Knicken: Stäbe mit veränderlicher Normalkraft",
+        "fr": "Flambement 3D : barres dont l’effort normal varie le long de la barre",
+        "tr": "3B burkulma: eksenel kuvveti boyunca değişen çubuklar"
+      },
+      "explanation": {
+        "en": "Each member's buckling stiffness used its mean axial force, and whether a member was compressed was judged from the average of its end forces. Under loads along a member's axis the factor could come out too high (+43 % for a one-member cantilever whose compression rises to its tip), and a member compressed only between its ends was refused as uncompressed (SA-2026-038). It concerns 3D buckling with loads along members.",
+        "es": "La rigidez de pandeo de cada barra usaba su esfuerzo axial medio, y si una barra estaba comprimida se decidía por el promedio de sus esfuerzos en los extremos. Con cargas a lo largo del eje de una barra el factor podía salir demasiado alto (+43 % en una ménsula de una barra cuya compresión crece hacia la punta), y una barra comprimida solo entre sus extremos se rechazaba como no comprimida (SA-2026-038). Afecta al pandeo 3D con cargas a lo largo de las barras.",
+        "pt": "A rigidez de flambagem de cada barra usava seu esforço axial médio, e se uma barra estava comprimida era decidido pela média dos esforços nas extremidades. Com cargas ao longo do eixo de uma barra o fator podia sair alto demais (+43 % num balanço de uma barra cuja compressão cresce até a ponta), e uma barra comprimida só entre as extremidades era recusada como não comprimida (SA-2026-038). Afeta a flambagem 3D com cargas ao longo das barras.",
+        "de": "Die Knicksteifigkeit jedes Stabs verwendete seine mittlere Normalkraft, und ob ein Stab gedrückt war, wurde nach dem Mittel seiner Endkräfte entschieden. Bei Lasten entlang der Stabachse konnte der Faktor zu hoch herauskommen (+43 % bei einem Kragarm aus einem Stab, dessen Druck zur Spitze wächst), und ein nur zwischen seinen Enden gedrückter Stab wurde als ungedrückt abgelehnt (SA-2026-038). Betrifft 3D-Knicken mit Lasten entlang der Stäbe.",
+        "fr": "La rigidité de flambement de chaque barre utilisait son effort normal moyen, et la compression d’une barre était jugée sur la moyenne de ses efforts d’extrémité. Avec des charges le long de l’axe d’une barre, le facteur pouvait être trop élevé (+43 % pour une console d’une barre dont la compression croît vers la pointe), et une barre comprimée seulement entre ses extrémités était refusée comme non comprimée (SA-2026-038). Concerne le flambement 3D avec des charges le long des barres.",
+        "tr": "Her çubuğun burkulma rijitliği ortalama eksenel kuvvetini kullanıyordu ve bir çubuğun basınç altında olup olmadığı uç kuvvetlerinin ortalamasına göre belirleniyordu. Çubuk ekseni boyunca yüklerde katsayı fazla yüksek çıkabiliyordu (basıncı uca doğru artan tek çubuklu bir konsolda +%43) ve yalnızca uçları arasında basınç altındaki bir çubuk basınçsız sayılıp reddediliyordu (SA-2026-038). Çubuklar boyunca yük içeren 3B burkulmayı etkiler."
+      },
+      "changelog": { "file": "docs/advisories/SA-2026-038-buckling-3d-varying-axial-force.md", "heading": "SA-2026-038: 3D buckling overstated the factor of members whose compression grows along them, and refused members compressed only between their ends" }
+    },
+    {
       "id": "fail-closed-ratios",
       "resultsVersion": 34,
       "date": "2026-11-05",

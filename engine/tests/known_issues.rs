@@ -560,7 +560,7 @@ fn advanced_3d_and_bundles_keep_conditioning() {
         let modal = solve_modal_3d(&solver, &densities, 2).unwrap();
         let harmonic = solve_harmonic_3d(&HarmonicInput3D { solver: solver.clone(), densities: densities.clone(),
             frequencies: vec![0.1, 1.0], damping_ratio: 0.05, response_node_id: 5, response_dof: "x".into() }).unwrap();
-        assert_eq!(ids(&harmonic.structured_diagnostics).contains(&"MD-ORTHOGONALITY".into()), harmonic.method.starts_with("modal"));
+        assert_eq!(ids(&harmonic.structured_diagnostics).contains(&"MD-ORTHOGONALITY".into()), harmonic.method.superposes_modes());
         let guyan = guyan_reduce_3d(&GuyanInput3D { solver: solver.clone(), boundary_nodes: vec![5] }).unwrap();
         let cb = craig_bampton_3d(&CraigBamptonInput3D { solver: solver.clone(), densities: densities.clone(), boundary_nodes: vec![5], n_modes: 2 }).unwrap();
         let th: TimeHistoryInput3D = serde_json::from_value(serde_json::json!({
@@ -696,7 +696,7 @@ fn curved_only_dynamic_solvers_warn() {
     let densities = HashMap::from([("1".into(), 7850.0)]);
     let harmonic_input = HarmonicInput3D { solver: solver.clone(), densities: densities.clone(), frequencies: vec![0.1, 1.0], damping_ratio: 0.05, response_node_id: 5, response_dof: "z".into() };
     let harmonic = solve_harmonic_3d(&harmonic_input).unwrap();
-    assert_eq!(ids(&harmonic.structured_diagnostics).contains(&"MD-ORTHOGONALITY".into()), harmonic.method.starts_with("modal"));
+    assert_eq!(ids(&harmonic.structured_diagnostics).contains(&"MD-ORTHOGONALITY".into()), harmonic.method.superposes_modes());
     let cb = craig_bampton_3d(&CraigBamptonInput3D { solver: solver.clone(), densities: densities.clone(), boundary_nodes: vec![5], n_modes: 2 }).unwrap();
     let time = solve_time_history_3d(&serde_json::from_value(serde_json::json!({ "solver": solver, "densities": densities, "timeStep": 0.01, "nSteps": 2 })).unwrap()).unwrap();
     for ds in [&harmonic.structured_diagnostics, &cb.structured_diagnostics, &time.structured_diagnostics] {
@@ -771,13 +771,38 @@ fn distorted_mesh_guard_indexes_the_mesh_once_per_solve() {
 }
 
 #[test]
+fn md_orthogonality_follows_the_harmonic_method_not_its_label() {
+    use dedaliano_engine::solver::harmonic::*;
+    let labels = [(HarmonicMethod::Direct, "direct", false), (HarmonicMethod::Modal, "modal", true), (HarmonicMethod::ModalStatic, "modal+static", true)];
+    for (method, label, modal) in labels {
+        assert_eq!(serde_json::to_value(method).unwrap(), serde_json::json!(label));
+        assert_eq!(serde_json::from_value::<HarmonicMethod>(serde_json::json!(label)).unwrap(), method);
+        assert_eq!(method.superposes_modes(), modal, "{method:?}");
+    }
+    let solver: SolverInput3D = serde_json::from_str(include_str!("metamorphic_corpus/differential/modal3d-5.json")).unwrap();
+    let densities: HashMap<String, f64> = solver.materials.keys().map(|id| (id.clone(), 7850.0)).collect();
+    let mut seen = Vec::new();
+    for frequencies in [vec![0.1, 1000.0], vec![0.1]] {
+        let input = HarmonicInput3D { solver: solver.clone(), densities: densities.clone(), frequencies, damping_ratio: 0.05, response_node_id: 6, response_dof: "x".into() };
+        let result = solve_harmonic_3d(&input).unwrap();
+        let warned = ids(&result.structured_diagnostics).contains(&"MD-ORTHOGONALITY".into());
+        match result.method {
+            HarmonicMethod::Modal | HarmonicMethod::ModalStatic => assert_warning(&result.structured_diagnostics, "MD-ORTHOGONALITY", 759.0),
+            HarmonicMethod::Direct => assert!(!warned, "{:?}", result.structured_diagnostics),
+        }
+        seen.push(result.method.superposes_modes());
+    }
+    assert_eq!(seen, [true, false]);
+}
+
+#[test]
 fn reported_modal_model_harmonic_and_certificate_warn() {
     use dedaliano_engine::solver::harmonic::*;
     let solver: SolverInput3D = serde_json::from_str(include_str!("metamorphic_corpus/differential/modal3d-5.json")).unwrap();
     let densities = solver.materials.keys().map(|id| (id.clone(), 7850.0)).collect();
     let input = HarmonicInput3D { solver, densities, frequencies: vec![0.1, 1000.0], damping_ratio: 0.05, response_node_id: 6, response_dof: "x".into() };
     let plain = solve_harmonic_3d(&input).unwrap();
-    assert!(plain.method.starts_with("modal"), "{}", plain.method);
+    assert!(plain.method.superposes_modes(), "{:?}", plain.method);
     assert_warning(&plain.structured_diagnostics, "MD-ORTHOGONALITY", 759.0);
     let certified = dedaliano_engine::certify::harmonic::certify_harmonic_3d(&input).unwrap();
     assert_warning(&certified.results.structured_diagnostics, "MD-ORTHOGONALITY", 759.0);
@@ -979,6 +1004,31 @@ fn buckling_2d_with_axial_span_loads_carries_no_span_warning_1323() {
         assert!(!ids(&result.structured_diagnostics).contains(&"BU-SPAN-AXIAL-2D".into()), "{:?}", ids(&result.structured_diagnostics));
         let certified = dedaliano_engine::certify::buckling::certify_buckling_2d(&input, 1).expect("the cantilever certifies");
         assert!(!ids(&certified.results.structured_diagnostics).contains(&"BU-SPAN-AXIAL-2D".into()));
+    }
+}
+
+#[test]
+fn buckling_3d_with_axial_span_loads_carries_no_span_warning_456() {
+    use dedaliano_engine::solver::buckling::solve_buckling_3d;
+    let beam = |loads: serde_json::Value| -> SolverInput3D {
+        serde_json::from_value(serde_json::json!({
+            "nodes": {"1": {"id": 1, "x": 0.0, "y": 0.0, "z": 0.0}, "2": {"id": 2, "x": 4.0, "y": 0.0, "z": 0.0}},
+            "elements": {"1": {"id": 1, "type": "frame", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1}},
+            "materials": {"1": {"id": 1, "e": E, "nu": 0.3}},
+            "sections": {"1": {"id": 1, "a": 0.01, "iy": 1e-4, "iz": 2e-4, "j": 1e-4}},
+            "supports": {"1": {"nodeId": 1, "rx": true, "ry": true, "rz": true, "rrx": true, "rry": true, "rrz": true}},
+            "loads": loads
+        })).unwrap()
+    };
+    let tip = serde_json::json!({"type": "nodal", "data": {"nodeId": 2, "fx": -100.0, "fy": 0, "fz": 0, "mx": 0, "my": 0, "mz": 0}});
+    let axial = serde_json::json!({"type": "distributed", "data": {"elementId": 1, "qXI": 25.0, "qXJ": 25.0, "qYI": 0, "qYJ": 0, "qZI": 0, "qZJ": 0}});
+    let lateral = serde_json::json!({"type": "distributed", "data": {"elementId": 1, "qYI": 0, "qYJ": 0, "qZI": -1.0, "qZJ": -1.0}});
+    for loads in [serde_json::json!([tip]), serde_json::json!([tip, axial]), serde_json::json!([tip, lateral])] {
+        let input = beam(loads);
+        let result = solve_buckling_3d(&input, 1).unwrap();
+        assert!(result.modes[0].load_factor.is_finite() && result.modes[0].load_factor > 0.0);
+        assert!(!ids(&result.structured_diagnostics).contains(&"BU-SPAN-COMPRESSION".into()), "{:?}", ids(&result.structured_diagnostics));
+        assert!(ids(&result.structured_diagnostics).contains(&"BU-ACCURACY".into()));
     }
 }
 
@@ -1888,4 +1938,191 @@ fn a_soft_spring_at_a_hinged_node_is_not_replaced_by_the_orphan_spring_1437() {
     let found = ids(&out.results.structured_diagnostics);
     assert!((ry - 5.0e10).abs() <= 1e-6 * 5.0e10, "ry {ry}: {found:?}");
     assert!(!found.contains(&"ORPHAN-SOFT-ROTATION".to_string()), "{found:?}");
+}
+
+fn beyond_small_displacement(diagnostics: &[StructuredDiagnostic]) -> Option<&StructuredDiagnostic> {
+    diagnostics.iter().find(|d| d.phase.as_deref() == Some("LIN-SMALL-DISPLACEMENT"))
+}
+
+fn hinged_node_on_a_rotational_spring(kz: f64) -> SolverInput {
+    serde_json::from_value(serde_json::json!({
+        "nodes": {"1": {"id": 1, "x": 0, "z": 0}, "2": {"id": 2, "x": 3, "z": 0}},
+        "materials": {"1": {"id": 1, "e": 200000, "nu": 0.3}},
+        "sections": {"1": {"id": 1, "a": 0.01, "iz": 0.0001}},
+        "elements": {"1": {"id": 1, "type": "frame", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1, "hingeEnd": true}},
+        "supports": {"1": {"id": 1, "nodeId": 1, "type": "fixed"}, "2": {"id": 2, "nodeId": 2, "type": "spring", "kz": kz}},
+        "loads": [{"type": "nodal", "data": {"nodeId": 2, "fx": 0, "fz": 0, "my": 0.005}}]
+    })).unwrap()
+}
+
+#[test]
+fn a_rotation_outside_small_displacements_is_warned_1446() {
+    for kz in [1e-13, 1e-6] {
+        let out = dedaliano_engine::certify::solver::certify_linear_2d_full(&hinged_node_on_a_rotational_spring(kz)).unwrap();
+        let ry = out.results.displacements.iter().find(|d| d.node_id == 2).unwrap().ry;
+        assert!(ry.abs() > 0.1, "kz {kz:e}: ry {ry}");
+        let warning = beyond_small_displacement(&out.results.structured_diagnostics).unwrap_or_else(|| panic!("kz {kz:e}: {:?}", ids(&out.results.structured_diagnostics)));
+        assert_eq!(warning.severity, Severity::Warning);
+        assert_eq!(warning.node_ids, vec![2]);
+    }
+    let held = solve_2d(&hinged_node_on_a_rotational_spring(1.0)).unwrap();
+    assert!((held.displacements.iter().find(|d| d.node_id == 2).unwrap().ry - 0.005).abs() < 1e-12);
+    assert!(beyond_small_displacement(&held.structured_diagnostics).is_none(), "{:?}", ids(&held.structured_diagnostics));
+}
+
+fn a_small_bar_beside_a_large_frame() -> SolverInput {
+    serde_json::from_value(serde_json::json!({
+        "nodes": {"1": {"id": 1, "x": 0, "z": 0}, "2": {"id": 2, "x": 1, "z": 0}, "3": {"id": 3, "x": 0, "z": 100}, "4": {"id": 4, "x": 1000, "z": 100}},
+        "materials": {"1": {"id": 1, "e": 200000, "nu": 0.3}},
+        "sections": {"1": {"id": 1, "a": 0.01, "iz": 0.0001}, "2": {"id": 2, "a": 10.0, "iz": 1000.0}},
+        "elements": {
+            "1": {"id": 1, "type": "truss", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1},
+            "2": {"id": 2, "type": "frame", "nodeI": 3, "nodeJ": 4, "materialId": 1, "sectionId": 2}
+        },
+        "supports": {
+            "1": {"id": 1, "nodeId": 1, "type": "pinned"},
+            "2": {"id": 2, "nodeId": 2, "type": "spring", "ky": 100.0},
+            "3": {"id": 3, "nodeId": 3, "type": "fixed"}
+        },
+        "loads": [
+            {"type": "nodal", "data": {"nodeId": 2, "fx": 0, "fz": -50, "my": 0}},
+            {"type": "nodal", "data": {"nodeId": 4, "fx": 0, "fz": -1, "my": 0}}
+        ]
+    })).unwrap()
+}
+
+#[test]
+fn a_small_part_moving_far_is_warned_beside_a_large_still_one_1446() {
+    let input = a_small_bar_beside_a_large_frame();
+    let r = solve_2d(&input).unwrap();
+    let uz = r.displacements.iter().find(|d| d.node_id == 2).unwrap().uz.abs();
+    assert!(uz > 0.1 && uz < 0.1 * 1000.0 * 0.01, "the small bar turns {uz} rad, a thousandth of the model's size would hide it");
+    let warning = beyond_small_displacement(&r.structured_diagnostics).unwrap_or_else(|| panic!("{:?}", ids(&r.structured_diagnostics)));
+    assert_eq!(warning.element_ids, vec![1]);
+    assert_eq!(warning.element_kind, Some(ElementKind::Frame));
+    assert!(warning.node_ids.is_empty(), "{:?}", warning.node_ids);
+}
+
+#[test]
+fn a_rigid_translation_is_not_warned_1446() {
+    let input: SolverInput = serde_json::from_value(serde_json::json!({
+        "nodes": {"1": {"id": 1, "x": 0, "z": 0}, "2": {"id": 2, "x": 1, "z": 0}},
+        "materials": {"1": {"id": 1, "e": 200000, "nu": 0.3}},
+        "sections": {"1": {"id": 1, "a": 0.01, "iz": 0.0001}},
+        "elements": {"1": {"id": 1, "type": "frame", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1}},
+        "supports": {"1": {"id": 1, "nodeId": 1, "type": "spring", "kx": 1e6, "ky": 1.0}, "2": {"id": 2, "nodeId": 2, "type": "spring", "ky": 1.0}},
+        "loads": [{"type": "nodal", "data": {"nodeId": 1, "fx": 0, "fz": -5, "my": 0}}, {"type": "nodal", "data": {"nodeId": 2, "fx": 0, "fz": -5, "my": 0}}]
+    })).unwrap();
+    let r = solve_2d(&input).unwrap();
+    assert!(r.displacements.iter().all(|d| (d.uz.abs() - 5.0).abs() < 1e-6), "{:?}", r.displacements);
+    assert!(beyond_small_displacement(&r.structured_diagnostics).is_none(), "{:?}", ids(&r.structured_diagnostics));
+}
+
+#[test]
+fn a_combination_past_small_displacements_is_warned_though_its_cases_are_not_1446() {
+    use dedaliano_engine::postprocess::combinations::{combine_results_3d_refs, CombinationFactor};
+    let case = |my: f64| {
+        let input = common::make_3d_input(
+            vec![(1, 0.0, 0.0, 0.0), (2, 1.0, 0.0, 0.0)],
+            vec![(1, E, 0.3)],
+            vec![(1, 0.01, 1e-4, 1e-4, 1e-4)],
+            vec![(1, "frame", 1, 2, 1, 1)],
+            vec![(1, vec![true; 6])],
+            vec![SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: 2, fx: 0.0, fy: 0.0, fz: 0.0, mx: 0.0, my, mz: 0.0, bw: None })],
+        );
+        dedaliano_engine::solver::linear::solve_3d(&input).unwrap()
+    };
+    let (a, b) = (case(1200.0), case(1200.0));
+    for r in [&a, &b] {
+        assert!((r.displacements.iter().find(|d| d.node_id == 2).unwrap().ry.abs() - 0.06).abs() < 1e-9);
+        assert!(beyond_small_displacement(&r.structured_diagnostics).is_none(), "{:?}", ids(&r.structured_diagnostics));
+    }
+    let both = combine_results_3d_refs(&[CombinationFactor { case_id: 1, factor: 1.0 }, CombinationFactor { case_id: 2, factor: 1.0 }], &[(1, &a), (2, &b)]).unwrap().unwrap();
+    assert!((both.displacements.iter().find(|d| d.node_id == 2).unwrap().ry.abs() - 0.12).abs() < 1e-9);
+    assert_eq!(beyond_small_displacement(&both.structured_diagnostics).map(|d| d.node_ids.clone()), Some(vec![2]));
+    let single = case(2400.0);
+    let warning = beyond_small_displacement(&single.structured_diagnostics).unwrap_or_else(|| panic!("{:?}", ids(&single.structured_diagnostics)));
+    assert_eq!((warning.node_ids.clone(), warning.element_ids.clone()), (vec![2], vec![]), "the tip turns 0.12 rad while the chord turns 0.06");
+}
+
+fn cantilever_with_tip_moment(mx: f64, my: f64, mz: f64) -> AnalysisResults3D {
+    let input = common::make_3d_input(
+        vec![(1, 0.0, 0.0, 0.0), (2, 1.0, 0.0, 0.0)],
+        vec![(1, E, 0.3)],
+        vec![(1, 0.01, 1e-4, 1e-4, 2.6e-4)],
+        vec![(1, "frame", 1, 2, 1, 1)],
+        vec![(1, vec![true; 6])],
+        vec![SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: 2, fx: 0.0, fy: 0.0, fz: 0.0, mx, my, mz, bw: None })],
+    );
+    dedaliano_engine::solver::linear::solve_3d(&input).unwrap()
+}
+
+#[test]
+fn a_rotation_past_the_limit_about_an_oblique_axis_is_warned_1446() {
+    let tip = |r: &AnalysisResults3D| r.displacements.iter().find(|d| d.node_id == 2).unwrap().clone();
+    let oblique = cantilever_with_tip_moment(1600.0, 1600.0, 1600.0);
+    let d = tip(&oblique);
+    for c in [d.rx, d.ry, d.rz] {
+        assert!((c.abs() - 0.08).abs() < 1e-9, "{d:?}");
+    }
+    let warning = beyond_small_displacement(&oblique.structured_diagnostics).unwrap_or_else(|| panic!("a 0.139 rad rotation: {:?}", ids(&oblique.structured_diagnostics)));
+    assert_eq!(warning.node_ids, vec![2]);
+    let within = cantilever_with_tip_moment(1100.0, 1100.0, 1100.0);
+    assert!(((tip(&within).rx.powi(2) * 3.0).sqrt() - 0.0953).abs() < 1e-3);
+    assert!(beyond_small_displacement(&within.structured_diagnostics).is_none(), "{:?}", ids(&within.structured_diagnostics));
+}
+
+#[test]
+fn a_combination_that_scales_or_cancels_a_warned_case_is_judged_on_its_own_rotation_1446() {
+    use dedaliano_engine::postprocess::combinations::{combine_results_3d_refs, CombinationFactor};
+    let (up, down) = (cantilever_with_tip_moment(0.0, 2400.0, 0.0), cantilever_with_tip_moment(0.0, -2400.0, 0.0));
+    for r in [&up, &down] {
+        assert!(beyond_small_displacement(&r.structured_diagnostics).is_some(), "{:?}", ids(&r.structured_diagnostics));
+    }
+    let combine = |factors: &[(usize, f64)]| {
+        let f: Vec<CombinationFactor> = factors.iter().map(|&(case_id, factor)| CombinationFactor { case_id, factor }).collect();
+        combine_results_3d_refs(&f, &[(1, &up), (2, &down)]).unwrap().unwrap()
+    };
+    let scaled = combine(&[(1, 0.1)]);
+    assert!((scaled.displacements.iter().find(|d| d.node_id == 2).unwrap().ry.abs() - 0.012).abs() < 1e-9);
+    assert!(beyond_small_displacement(&scaled.structured_diagnostics).is_none(), "{:?}", ids(&scaled.structured_diagnostics));
+    let cancelled = combine(&[(1, 1.0), (2, 1.0)]);
+    assert!(cancelled.displacements.iter().find(|d| d.node_id == 2).unwrap().ry.abs() < 1e-12);
+    assert!(beyond_small_displacement(&cancelled.structured_diagnostics).is_none(), "{:?}", ids(&cancelled.structured_diagnostics));
+    let amplified = combine(&[(1, 1.5)]);
+    assert_eq!(beyond_small_displacement(&amplified.structured_diagnostics).map(|d| d.node_ids.clone()), Some(vec![2]));
+}
+
+#[test]
+fn a_combination_carries_the_member_chord_warning_of_its_cases_1446() {
+    use dedaliano_engine::postprocess::combinations::{combine_results_refs, CombinationFactor};
+    let case = solve_2d(&a_small_bar_beside_a_large_frame()).unwrap();
+    assert_eq!(beyond_small_displacement(&case.structured_diagnostics).map(|d| d.element_ids.clone()), Some(vec![1]));
+    let combined = combine_results_refs(&[CombinationFactor { case_id: 1, factor: 1.2 }], &[(1, &case)]).unwrap();
+    let warning = beyond_small_displacement(&combined.structured_diagnostics).unwrap_or_else(|| panic!("{:?}", ids(&combined.structured_diagnostics)));
+    assert_eq!((warning.node_ids.clone(), warning.element_ids.clone()), (vec![], vec![1]));
+    assert_eq!(combined.structured_diagnostics.iter().filter(|d| d.phase.as_deref() == Some("LIN-SMALL-DISPLACEMENT")).count(), 1);
+}
+
+#[test]
+fn every_export_the_app_falls_back_on_refuses_no_free_dofs_with_a_code() {
+    use dedaliano_engine::solver::{buckling::*, modal::*, pdelta::*};
+    let fixed_2d = make_beam(1, 4.0, E, 0.045, 3.375e-4, "fixed", Some("fixed"), vec![]);
+    let fixed_3d = make_3d_beam(1, 4.0, E, 0.3, 0.01, 1e-4, 1e-4, 1e-5, vec![true; 6], Some(vec![true; 6]), vec![]);
+    let densities = HashMap::from([("1".to_string(), 7850.0)]);
+    let errors = [
+        ("pdelta 2d", solve_pdelta_2d(&fixed_2d, 20, 1e-6).err()),
+        ("pdelta 3d", solve_pdelta_3d(&fixed_3d, 20, 1e-6).err()),
+        ("buckling 2d", solve_buckling_2d(&fixed_2d, 2).err()),
+        ("buckling 3d", solve_buckling_3d(&fixed_3d, 2).err()),
+        ("modal 2d", solve_modal_2d(&fixed_2d, &densities, 2).err()),
+        ("modal 3d", solve_modal_3d(&fixed_3d, &densities, 2).err()),
+    ];
+    for (name, error) in errors {
+        let error = error.unwrap_or_else(|| panic!("{name}: a fully restrained model solved"));
+        let v: serde_json::Value = serde_json::from_str(&error).unwrap_or_else(|e| panic!("{name}: {e}: {error}"));
+        let codes: Vec<_> = v["structuredDiagnostics"].as_array().unwrap().iter()
+            .filter(|d| d["severity"] == "error").map(|d| d["code"].clone()).collect();
+        assert_eq!(codes, [serde_json::json!("no_free_dofs")], "{name}: {error}");
+    }
 }

@@ -29,6 +29,23 @@ import { compareValues, formatCaseReport, parseSnapshot, FORMAT, FORMAT_ADDITION
 export const SNAPSHOT_DIR = 'web/results-snapshots';
 export const REGISTRY = 'web/src/lib/provenance/result-changes.json';
 export const FRAGMENT_DIR = 'changelog.d';
+export const FIXTURE_DIR = 'web/src/lib/templates/fixtures';
+export const CORPUS = 'web/src/lib/results-snapshot/corpus.ts';
+
+/** A fixture's model inputs: its JSON without the names and descriptions it shows, keys sorted. */
+export function modelInputs(fixtureText) {
+  const strip = (v) => Array.isArray(v) ? v.map(strip)
+    : v && typeof v === 'object' ? Object.fromEntries(Object.keys(v).sort().filter((k) => k !== 'name' && k !== 'description').map((k) => [k, strip(v[k])]))
+    : v;
+  return fixtureText === null ? null : JSON.stringify(strip(JSON.parse(fixtureText)));
+}
+
+/** Each corpus case opened from a bundled example: its snapshot file, and the example's id. */
+export function corpusExamples(corpusText) {
+  const out = {};
+  for (const m of (corpusText ?? '').matchAll(/name: '([^']+)', source: ex\('([^']+)'\)/g)) out[`${SNAPSHOT_DIR}/${m[1]}.json`] = m[2];
+  return out;
+}
 export const BREAKING_RESULTS = '### BREAKING (results)';
 
 /** Whether a changelog fragment's text is filed under BREAKING (results): its first line. */
@@ -61,7 +78,7 @@ export function newlyRecorded(path, baseFormat, headFormat, format = FORMAT, for
   return false;
 }
 
-export function decide({ snapshots, baseRegistry, headRegistry, fragments, format = FORMAT, formatAdditions = FORMAT_ADDITIONS }) {
+export function decide({ snapshots, baseRegistry, headRegistry, fragments, format = FORMAT, formatAdditions = FORMAT_ADDITIONS, changedFixtures = [], caseExample = {} }) {
   const changed = [];
   const entries = newRegistryEntries(baseRegistry, headRegistry);
   const releasedVersion = baseRegistry?.currentResultsVersion ?? 0;
@@ -87,12 +104,37 @@ export function decide({ snapshots, baseRegistry, headRegistry, fragments, forma
       changed.push({ file: s.file, report: formatCaseReport(s.file, counted) });
     }
   }
+  const exampleEntries = entries.filter((e) => e.scope === 'examples');
+  const listed = new Set(exampleEntries.flatMap((e) => e.examples ?? []));
+  const unchangedInputs = [...listed].filter((id) => !changedFixtures.includes(id));
+  const equivalence = Object.entries(caseExample).filter(([, example]) => listed.has(example)).map(([file, example]) => ({ file, example }));
+  const unsnapshotted = [...listed].filter((id) => !equivalence.some((e) => e.example === id));
+  if (unsnapshotted.length) {
+    return {
+      ok: false, changed,
+      report: `FAIL: an examples-scoped entry lists examples no corpus case opens: ${unsnapshotted.join(', ')}. `
+        + 'Without a snapshot nothing proves the engine still gives them their old numbers.',
+    };
+  }
+  if (unchangedInputs.length) {
+    return {
+      ok: false, changed,
+      report: `FAIL: an examples-scoped entry lists examples whose fixture (${FIXTURE_DIR}/) did not change: ${unchangedInputs.join(', ')}. `
+        + 'Such an entry registers a change of bundled example inputs only; an engine change needs an entry with `when`.',
+    };
+  }
   if (changed.length === 0) {
-    return { ok: true, changed, report: `Results snapshot gate: no committed result changed (${snapshots.length} snapshot file(s) touched).` };
+    return { ok: true, changed, equivalence, report: `Results snapshot gate: no committed result changed (${snapshots.length} snapshot file(s) touched).` };
   }
   const breaking = fragments.filter((f) => isBreakingResultsFragment(f.text));
   const missing = [];
   if (entries.length === 0) missing.push(`no new entry in ${REGISTRY}`);
+  const examplesOnly = entries.length > 0 && exampleEntries.length === entries.length;
+  if (examplesOnly) {
+    const unexplained = changed.filter((c) => !listed.has(caseExample[c.file]));
+    if (unexplained.length) missing.push(`an examples-only entry cannot explain ${unexplained.map((c) => c.file).join(', ')}: not a snapshot of a listed example`);
+  }
+
   if (breaking.length === 0) missing.push(`no ${FRAGMENT_DIR}/ fragment under "${BREAKING_RESULTS}"`);
   const head = [
     `Results snapshot gate: this pull request changes the committed results of ${changed.length} case(s):`,
@@ -102,7 +144,7 @@ export function decide({ snapshots, baseRegistry, headRegistry, fragments, forma
   ];
   if (missing.length === 0) {
     return {
-      ok: true, changed,
+      ok: true, changed, equivalence,
       report: [...head,
         `Registered: ${entries.map((e) => e.id).join(', ')} (results version ${[...new Set(entries.map((e) => e.resultsVersion))].join(', ')});`,
         `changelog: ${breaking.map((f) => f.file).join(', ')}.`].join('\n'),
@@ -138,9 +180,49 @@ async function main(argv) {
     .map((t) => ({ file: t.file, base: snapshot(at(base, t.file)), head: snapshot(at('HEAD', t.file)) }));
   const fragments = touched.filter((t) => t.file.startsWith(`${FRAGMENT_DIR}/`) && t.status !== 'D' && t.file.endsWith('.md'))
     .map((t) => ({ file: t.file, text: at('HEAD', t.file) ?? '' }));
-  const r = decide({ snapshots, baseRegistry: json(at(base, REGISTRY)), headRegistry: json(at('HEAD', REGISTRY)), fragments });
+  const changedFixtures = git('-C', root, 'diff', '--name-only', '--no-renames', base, 'HEAD', '--', FIXTURE_DIR)
+    .split('\n').filter((f) => f.endsWith('.json')).filter((f) => modelInputs(at(base, f)) !== modelInputs(at('HEAD', f)))
+    .map((f) => f.slice(FIXTURE_DIR.length + 1, -'.json'.length));
+  const r = decide({ snapshots, baseRegistry: json(at(base, REGISTRY)), headRegistry: json(at('HEAD', REGISTRY)), fragments, changedFixtures, caseExample: corpusExamples(at('HEAD', CORPUS)) });
   (r.ok ? console.log : console.error)(r.report);
-  return r.ok ? 0 : 1;
+  if (!r.ok) return 1;
+  return r.equivalence?.length ? proveEquivalence(r.equivalence, base, at, root) : 0;
+}
+
+/**
+ * Solve each case an examples-only entry explains from the fixture it had at `base`, with this
+ * build's engine (`make wasm` first), and require the numbers its snapshot had at `base`.
+ */
+async function proveEquivalence(cases, base, at, root) {
+  const { mkdtempSync, writeFileSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const { spawnSync } = await import('node:child_process');
+  const missing = cases.filter(({ file, example }) => at(base, file) === null || at(base, `${FIXTURE_DIR}/${example}.json`) === null);
+  if (missing.length) {
+    console.error(`FAIL: an examples-scoped entry lists examples with no snapshot or fixture at ${base}: ${missing.map((c) => c.file).join(', ')}. `
+      + 'Nothing then proves the engine still gives them their old numbers: add the corpus case in its own pull request first.');
+    return 1;
+  }
+  const dir = mkdtempSync(join(tmpdir(), 'examples-equivalence-'));
+  const list = cases.map(({ file, example }) => {
+    const name = file.slice(SNAPSHOT_DIR.length + 1, -'.json'.length);
+    const fixture = join(dir, `${name}.fixture.json`);
+    const snapshot = join(dir, `${name}.snapshot.json`);
+    writeFileSync(fixture, at(base, `${FIXTURE_DIR}/${example}.json`));
+    writeFileSync(snapshot, at(base, file));
+    return { case: name, fixture, snapshot };
+  });
+  writeFileSync(join(dir, 'list.json'), JSON.stringify(list));
+  const run = spawnSync('npx', ['vitest', 'run', '--project', 'results', 'src/lib/results-snapshot/__tests__/examples-equivalence.test.ts'],
+    { cwd: join(root, 'web'), env: { ...process.env, EXAMPLES_EQUIVALENCE: join(dir, 'list.json') }, stdio: 'inherit' });
+  if (run.status === 0) {
+    console.log(`Examples-only change proven: ${list.map((c) => c.case).join(', ')} give their ${base} numbers from their ${base} fixtures.`);
+    return 0;
+  }
+  console.error('FAIL: an examples-scoped entry suppresses the recheck notice, so the engine must give each example it explains its old numbers from its old inputs, and it does not. '
+    + 'This change moves results of saved models too: register it with an entry that has `when`.');
+  return 1;
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

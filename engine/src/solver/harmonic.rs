@@ -42,6 +42,29 @@ pub struct HarmonicInput3D {
     pub response_dof: String,
 }
 
+/// How the steady state was computed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum HarmonicMethod {
+    /// The full complex system solved at every frequency; no truncation.
+    #[serde(rename = "direct")]
+    Direct,
+    /// Superposition of the kept modes.
+    #[serde(rename = "modal")]
+    Modal,
+    /// Superposition plus the static correction of the omitted modes, see `harmonic_modal_from_eigen`.
+    #[serde(rename = "modal+static")]
+    ModalStatic,
+}
+
+impl HarmonicMethod {
+    pub fn superposes_modes(self) -> bool {
+        match self {
+            HarmonicMethod::Direct => false,
+            HarmonicMethod::Modal | HarmonicMethod::ModalStatic => true,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HarmonicResult {
@@ -50,12 +73,7 @@ pub struct HarmonicResult {
     pub response_points: Vec<HarmonicResponsePoint>,
     pub peak_frequency: f64,
     pub peak_amplitude: f64,
-    /// How the steady state was computed: `"modal"` (superposition of the
-    /// kept modes), `"modal+static"` (plus the static correction of the
-    /// omitted modes, see `harmonic_modal_from_eigen`) or `"direct"`
-    /// (the full complex system solved at every frequency; no truncation).
-    #[serde(default)]
-    pub method: String,
+    pub method: HarmonicMethod,
     /// Modes superposed (0 for `"direct"`).
     #[serde(default)]
     pub modes_used: usize,
@@ -254,7 +272,7 @@ fn solve_harmonic_2d_contained(input: &HarmonicInput) -> Result<(HarmonicResult,
         response_points,
         peak_frequency: peak_freq,
         peak_amplitude: peak_amp,
-        method: "direct".into(),
+        method: HarmonicMethod::Direct,
         modes_used: 0,
         n_dof: ns,
         truncation_ratio: None,
@@ -278,7 +296,7 @@ pub fn solve_harmonic_3d_with_damping(input: &HarmonicInput3D) -> Result<(Harmon
     crate::known_issues::refuse_distorted(&known_model)?;
     let (mut result, damping) = solve_harmonic_3d_contained(input)?;
     crate::known_issues::attach(&mut result.structured_diagnostics, known_model);
-    if result.method.starts_with("modal") {
+    if result.method.superposes_modes() {
         crate::known_issues::attach(&mut result.structured_diagnostics, vec![crate::known_issues::diagnostic("MD-ORTHOGONALITY")]);
     }
     crate::known_issues::refuse(&result.structured_diagnostics)?;
@@ -442,7 +460,7 @@ fn solve_harmonic_3d_contained(input: &HarmonicInput3D) -> Result<(HarmonicResul
         response_points,
         peak_frequency: peak_freq,
         peak_amplitude: peak_amp,
-        method: "direct".into(),
+        method: HarmonicMethod::Direct,
         modes_used: 0,
         n_dof: ns,
         truncation_ratio: None,
@@ -696,7 +714,7 @@ fn harmonic_modal_from_eigen(
         response_points,
         peak_frequency: peak_freq,
         peak_amplitude: peak_amp,
-        method: if statics.is_some() { "modal+static" } else { "modal" }.into(),
+        method: if statics.is_some() { HarmonicMethod::ModalStatic } else { HarmonicMethod::Modal },
         modes_used: p,
         n_dof: n,
         truncation_ratio: ratio,

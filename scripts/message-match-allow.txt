@@ -1,0 +1,161 @@
+# Lines that match the text of an error or diagnostic message, or that the lint takes for one.
+# Checked by scripts/check-message-matching.py (make lint.engine, make typecheck.web, make test.ci-scripts).
+# One line per occurrence, under the `## reason` that keeps it. New code branches on a DiagnosticCode or a
+# known-issue id instead; an entry leaves this file when its match is converted.
+
+## Decides a refusal, a fallback, a containment or a failing-row filter from engine text: a wording change drops the decision without an error. Convert to a DiagnosticCode (high risk).
+engine/src/certify/reassembly/mod.rs: if e.starts_with("out of scope") || e.starts_with("unsupported") {
+engine/src/certify/reassembly/mod.rs: } else if e.starts_with("a load acts on") {
+engine/src/certify/reassembly/mod.rs: Err(reason) if reason.starts_with("a load acts on") => return EndToEnd::Failed { reason },
+web/src/lib/actions/second-order.ts: if (!/no compressed elements/i.test(msg)) return { ...result, b2Factor: NaN, isStable: result.isStable === false ? false : null, secondOrder: { lambda1: null, b2: NaN, bucklingError: msg } };
+web/src/lib/engine/plastic-collapse.ts: if (/mechanism|singular|instab/i.test(msg)) { if (closeUnloading()) continue; isMechanism = true; break; }
+web/src/lib/engine/second-order/run-pdelta.ts: return /no compressed elements/i.test(String((e as Error)?.message ?? e)) ? Infinity : null;
+web/src/lib/engine/wasm-solver.ts: if (!guards || !DECOMPOSITION_FAILED.test(thrownText(e))) throw e;
+web/src/lib/listings/listing.ts: if (c.failingOnly && r[statusKey] !== undefined && !/fail|no verifica|não verifica/i.test(String(r[statusKey]))) return false;
+
+## Classifies nightly or metamorphic findings by message text: a wording change files a refusal under another kind. The classifier is to key on codes.
+engine/src/metamorphic/compare.rs: if d.labels[k].starts_with("refusal:") { rep.refusals += 1 } else { rep.values += 1 }
+.github/scripts/nightly-findings.cjs: .replace(/^.*?original solved but transformed model failed:\s*/i, '')
+.github/scripts/nightly-findings.cjs: .replace(/failed to solve case\s+['"][^'"]+['"]:\s*/gi, '')
+.github/scripts/nightly-findings.cjs: const refusal = check === 'metamorphic' && /original solved but transformed model failed:/i.test(raw);
+.github/scripts/nightly-findings.cjs: const message = normalize(check === 'metamorphic' && !/^original solved but transformed model failed:/i.test(raw) ? String(raw).replace(/^[^:]+:\s*/, '') : raw);
+
+## Picks the reinforcement the design search enlarges, or the clause shown, from an engine check category label: a wording change makes the search or the clause miss; the verdict still comes from the checks.
+web/src/lib/engine/design/candidate-enumerate-beam.ts: if (cat.startsWith('Bottom Span') || cat.startsWith('Min steel')) want.add('span');
+web/src/lib/engine/design/candidate-enumerate-beam.ts: else if (cat.startsWith('Top Start')) want.add('start');
+web/src/lib/engine/design/candidate-enumerate-beam.ts: else if (cat.startsWith('Top End')) want.add('end');
+web/src/lib/engine/design/candidate-enumerate-beam.ts: else if (cat.startsWith('Top Span')) { want.add('start'); want.add('end'); }
+web/src/lib/engine/design/candidate-enumerate-beam.ts: else if (cat.startsWith('Bottom Start') || cat.startsWith('Bottom End')) want.add('span');
+web/src/lib/engine/design/candidate-enumerate-beam.ts: else if (cat.startsWith('Torsion Al Support')) { want.add('span'); want.add('start'); want.add('end'); }
+web/src/lib/engine/design/candidate-enumerate-beam.ts: else if (cat.startsWith('Torsion Al Span')) want.add('span');
+web/src/lib/engine/design/candidate-enumerate-beam.ts: else if (cat.startsWith('Torsion Support')) want.add('stirSup');
+web/src/lib/engine/design/candidate-enumerate-beam.ts: else if (cat.startsWith('Torsion Span')) want.add('stirSpan');
+web/src/lib/engine/design/candidate-enumerate-beam.ts: else if (cat.startsWith('Shear Support')) want.add('stirSup');
+web/src/lib/engine/design/candidate-enumerate-beam.ts: else if (cat.startsWith('Shear Span')) want.add('stirSpan');
+web/src/lib/engine/design/candidate-enumerate-beam.ts: else if (cat.startsWith('Fit: Bottom') || cat.startsWith('Max steel')) want.add('span');
+web/src/lib/engine/design/candidate-enumerate-beam.ts: else if (cat.startsWith('Fit: Top Start')) want.add('start');
+web/src/lib/engine/design/candidate-enumerate-beam.ts: else if (cat.startsWith('Fit: Top End')) want.add('end');
+web/src/lib/engine/design/candidate-enumerate-column.ts: || cat.startsWith('Longitudinal') || cat.includes('steel ratio')
+web/src/lib/engine/design/check-clauses.ts: if (cat.startsWith('min steel')) return kind === 'beam' ? '9.6.1' : '10.6.1';
+web/src/lib/engine/design/check-clauses.ts: if (cat.startsWith('max steel')) return kind === 'beam' ? '9.3.3' : '10.6.1';
+web/src/lib/engine/design/check-clauses.ts: if (cat.startsWith('tie spacing')) return '25.7.2';
+web/src/lib/engine/design/check-clauses.ts: if (cat.startsWith('steel ratio')) return '10.6.1';
+web/src/lib/engine/design/check-rows.ts: if (c.includes('tie spacing')) return '25.7.2.1';
+web/src/lib/engine/design/check-rows.ts: if (c.includes('min steel') || c.includes('max steel')) return '9.6.1';
+web/src/lib/engine/design/lateral-anchorage-row.ts: const rows = p.checks.filter((c) => BOTTOM_SUPPORT_ROW.test(c.category));
+
+## Translates or reformats an engine message for display, or offers a UI action from it: a wording change shows the engine text untranslated; nothing is decided.
+web/src/components/AiDrawer.svelte: const friendly = msg.includes('Could not generate')
+web/src/components/pro/ProAdvancedTab.svelte: const turned = /member (\d+) turn ([\d.]+) rad/.exec(errorText(e, ''));
+web/src/components/pro/ProAdvancedTab.svelte: const bent = /chord of member (\d+) and its ends may be up to ([\d.]+) rad/.exec(errorText(e, ''));
+web/src/components/pro/ProAdvancedTab.svelte: const stepped = /end of member (\d+) turned more than .* within one load increment/.exec(errorText(e, ''));
+web/src/components/research/andreassen2011/TopoptPage.svelte: else { error = message.message?.includes('Iteration limit') ? s.iterationLimit : s.runFailed; stop(); }
+web/src/components/toolbar/ToolbarAdvanced.svelte: if (/no compressed elements/i.test(msg)) uiStore.toast(t('toast.bucklingNoCompression'), 'info');
+web/src/lib/engine/codes/argentina/cirsoc301-verdict.ts: if (steps[last]?.startsWith('=== Resultado global')) steps[last] = steelResultLine(status);
+web/src/lib/engine/dynamics/time-history-refusal.ts: const NON_FINITE = /^TH-NONFINITE: .* from step (\d+) \(t = (\S+) s\)/;
+web/src/lib/engine/dynamics/time-history-refusal.ts: const NON_FINITE_REACTIONS = /^TH-NONFINITE: .*reactions/;
+web/src/lib/engine/dynamics/time-history-refusal.ts: if (text.startsWith('TH-MASSLESS-MECHANISM: ')) return { key: 'pro.th.refusal.masslessMechanism' };
+web/src/lib/engine/dynamics/time-history-refusal.ts: return text.startsWith('TH-MASS-SINGULAR: ') ? { key: 'pro.th.refusal.massSingular' } : null;
+web/src/lib/engine/dynamics/time-history-refusal.ts: const m = NON_FINITE.exec(text);
+web/src/lib/engine/dynamics/time-history-refusal.ts: if (NON_FINITE_REACTIONS.test(text)) return { key: 'pro.th.refusal.nonFiniteReactions' };
+web/src/lib/engine/dynamics/time-history-refusal.ts: const m = MODAL_MECHANISM.exec(text);
+web/src/lib/engine/dynamics/time-history-refusal.ts: const MODAL_MECHANISM = /^MODAL-MECHANISM: .*?(\d+) mode\(s\) .* moves node (\d+) along (\w+) /;
+web/src/lib/engine/engine-diagnostics.ts: const m = d.message.match(re);
+web/src/lib/engine/finite-spectrum-warning.ts: const below = BELOW_THRESHOLD.exec(message);
+web/src/lib/engine/finite-spectrum-warning.ts: const failed = NOT_CERTIFIED.exec(message);
+web/src/lib/engine/kinematic-2d.ts: if (/^Todos los GDL/.test(r.rawDiagnosis ?? '')) return t('kin.allDofConstrained');
+web/src/lib/engine/known-issue-message.ts: const modes = [...d.message.matchAll(/mode (\d+) \(/g)].map(m => m[1]).join(', ');
+web/src/lib/engine/live-calc.ts: return lc.includes('mecanismo') || lc.includes('hipostática') || lc.includes('singular') || lc.includes('inestable')
+web/src/lib/engine/live-calc.ts: || lc.includes('mechanism') || lc.includes('hypostatic') || lc.includes('unstable');
+web/src/lib/engine/verification-service.ts: if (steps[steps.length - 1]?.startsWith('=== Resultado global')) steps[steps.length - 1] = steelResultLine(overallStatus);
+web/src/lib/i18n/engine-text.ts: for (const [en, key] of ENGINE_SENTENCES) if (out.includes(en)) out = out.split(en).join(tAt(key, i18n.locale));
+web/src/lib/i18n/engine-text.ts: const known = SELF_CHECK_REASONS.find(([pattern]) => pattern.test(reason));
+
+## Matches an i18n key, a code prefix, an enum value or the JSON payload of a structured refusal carried in a message-named field, or a prefix shared through one constant with its producer: not prose.
+engine/src/boundary.rs: Stop::Custom(msg) => match msg.strip_prefix(crate::check::NON_FINITE).and_then(|v| v.parse().ok()) {
+web/src/admin/error-text.ts: return (OAUTH_ERROR_CODES as readonly string[]).includes(code)
+web/src/components/CadImportWizard.svelte: const gapOnly = hardErrors.every((i) => i.message.startsWith('floorRangeGap:'));
+web/src/components/Toolbar.svelte: if (!outcome.ok) { uiStore.toast(outcome.error.startsWith('slice.') ? t(`switch2d.${outcome.error.slice('slice.'.length)}`) : outcome.error, 'error'); return; }
+web/src/components/pro/ProConnectionsTab.svelte: {#if fieldProblem && (!fieldProblem.field.includes('-') || fieldProblem.field.startsWith('plate-'))}
+web/src/components/pro/ProConnectionsTab.svelte: {#if fieldProblem && (!fieldProblem.field.includes('-') || fieldProblem.field.startsWith('plate-'))}
+web/src/components/pro/ProConnectionsTab.svelte: {#if fieldProblem && fieldProblem.field.startsWith('w-')}
+web/src/components/pro/ProConnectionsTab.svelte: {#if fieldProblem && fieldProblem.field.startsWith('b-')}
+web/src/components/pro/ProOtherCodesPanel.svelte: return c.reason.startsWith('otherCodes.') ? t(c.reason).replace('{combo}', c.combo ?? '') : c.reason;
+web/src/components/tools/BatchTool.svelte: catch(e) {if(token===revision)error=t(e instanceof Error&&e.message.startsWith('tools.')?e.message:'tools.failed');}
+web/src/lib/cad/diagnostics.ts: .filter((w) => w.message.startsWith('beamEndsFloating:'))
+web/src/lib/cad/parse.ts: if (doc.warnings.includes('parseError')) return 'parseError';
+web/src/lib/engine/codes/argentina/cirsoc301.ts: if (legacy && r.notEvaluatedMessage?.key.startsWith('c301.refuse.end')) {
+web/src/lib/engine/containment-error.ts: const data = JSON.parse(text.slice(text.indexOf('{')));
+web/src/lib/engine/design/candidate-search.ts: if (truncated && !limiting.includes('searchBudget')) limiting.push('searchBudget');
+web/src/lib/engine/design/candidate-search.ts: limiting: limiting.includes(bound) ? limiting : [bound, ...limiting.filter((l) => l !== 'searchBudget')],
+web/src/lib/engine/design/candidate-search.ts: if (limiting.includes('anchorage')) { gaps.add('headedBars'); gaps.add('mechanicalAnchorage'); gaps.add('columnCageChange'); }
+web/src/lib/engine/design/candidate-search.ts: if (limiting.includes('anchorage') && ctx.elementType === 'beam' && (ctx.lateral?.role ?? 'undeclared') === 'undeclared') gaps.add('lateralRoleUndeclared');
+web/src/lib/engine/design/candidate-search.ts: if (limiting.includes('congestion') && ctx.elementType !== 'column') gaps.add('columnCageChange');
+web/src/lib/engine/design/candidate-search.ts: const refusedOnAnchorage = (x: MemberDesignOutcome) => x.elementType === 'beam' && x.outcome !== 'VERIFIED' && x.limiting.includes('anchorage');
+web/src/lib/engine/design/final-geometry-feedback.ts: if (stats.truncated && !limiting.includes('searchBudget')) limiting.push('searchBudget');
+web/src/lib/engine/detailing/element-status.ts: && EXPLAINS_ITS_OWN_FAILURE.includes(summary.outcome);
+web/src/lib/engine/known-issues.ts: const data = JSON.parse(error.slice(error.indexOf('{')));
+web/src/lib/engine/known-issues.ts: const data = JSON.parse(error.slice(error.indexOf('{')));
+web/src/lib/report/memoria/render.ts: const note = (s: string) => { let i = reasons.indexOf(s); if (i < 0) { reasons.push(s); i = reasons.length - 1; } return i + 1; };
+web/src/lib/store/file.ts: switch (result.failure?.kind) {
+
+## Matches text Stabileo does not write (backend validation messages, GitHub Actions logs, browser and runtime errors, git subjects): there is no code to key on.
+web/src/lib/api/error-text.ts: if (message === 'has already been taken') return t('account.field.taken');
+web/src/lib/api/error-text.ts: if (message === "can't be blank") return t('account.field.blank');
+web/src/lib/api/error-text.ts: if (message === 'has invalid format' || message === 'is invalid') return t('account.field.invalid');
+web/src/lib/api/error-text.ts: if (message === 'must be a two-letter ISO code') return t('account.field.countryCode');
+web/src/lib/api/error-text.ts: if (message === 'must have @ sign and no spaces') return t('account.field.email');
+web/src/lib/api/error-text.ts: if (message === 'must be at an allowed domain') return t('account.field.domainNotAllowed');
+web/src/lib/api/error-text.ts: if (message === 'is already allowed') return t('account.field.alreadyAllowed');
+web/src/lib/api/error-text.ts: const short = /^should be at least (\d+) character/.exec(message);
+web/src/lib/api/error-text.ts: const long = /^should be at most (\d+) character/.exec(message);
+web/src/lib/store/autosave-db.ts: || (typeof message === 'string' && /quota/i.test(message));
+web/scripts/legacy-projects/in-version.capture.ts: if (!(e instanceof ReferenceError) || !/\$state is not defined/.test(e.message)) throw e;
+.github/scripts/infra-retry.py: timeout = JOB_TIMEOUT.match(message)
+.github/scripts/infra-retry.py: elif RUNNER_LOST.match(message):
+.github/scripts/infra-retry.py: elif message != CANCELED and not EXIT_CODE.match(message):
+.github/scripts/infra-retry.py: exits = [message for message in failures if EXIT_CODE.match(message)]
+.github/scripts/infra-retry.py: if job_level and job_level.startswith('runner lost') and not exits:
+.github/scripts/infra-retry.py: if job_level and job_level.startswith('runner lost') and not exits:
+.github/scripts/infra-retry.py: code = EXIT_CODE.match(error)
+.github/scripts/infra-retry.py: if job_level.startswith('job timeout') and (testing(step) or not known_build(step)):
+.github/scripts/post-merge-revert.py: if subject.startswith('Merge pull request #'):
+.github/scripts/verification-alert.cjs: if (comments.some((c) => !isBot(c) && TRUSTED.has(c.author_association) && after(c) && TRIAGE_NOTE.test(c.body || ''))) return { triaged: true, held };
+.github/scripts/slow-e2e-alert.cjs: const match = first.match(/^Merge pull request #(\d+)\b/) ?? first.match(/\(#(\d+)\)\s*$/);
+.github/scripts/slow-e2e-alert.cjs: const slowPassed = (j) => (j.steps ?? []).some((step) => step.name.startsWith('E2E slow suite') && step.conclusion === 'success');
+
+## Not a message: ids, input labels, field names, file, HTML or source text that the name heuristic took for one.
+engine/src/certify/finite.rs: .filter(|(p, x)| !(*x == f64::INFINITY && DOCUMENTED_INFINITE.iter().any(|f| p.ends_with(&format!(".{f}")))))
+engine/src/postprocess/cirsoc301_check.rs: let long = cond.ends_with("Long");
+engine/src/postprocess/cirsoc301_check.rs: let a_case = cond.starts_with("e5a");
+engine/src/postprocess/combinations.rs: first.strip_prefix("$.").unwrap_or(first)
+engine/src/result_sites/mod.rs: if DIAGNOSTIC_KEYS.contains(&key) { mode |= COLLECT }
+web/src/components/research/andreassen2011/TopoptPage.svelte: if (!/^[a-f0-9]{64}$/.test(manifest.build_id)) throw Error(s.failed);
+web/src/components/research/pastrana2026/FormPage.svelte: <p>{s.formPositionError}: <Sci value={Math.max(...validation.checks.filter(c => c.metric.startsWith('jax_fdm positions')).map(c => c.observed))} /> m;
+web/src/components/research/pastrana2026/FormPage.svelte: {s.formForceError}: <Sci value={Math.max(...validation.checks.filter(c => c.metric.startsWith('jax_fdm tension')).map(c => c.observed))} /> kN.</p>
+web/src/lib/cad/draft.ts: if (/replicated across all/i.test(line)) return true;
+web/src/lib/engine/model-sanity.ts: if (typeof v === 'number' && /node/i.test(key)) out.push(v);
+web/src/lib/excel-import/parse.ts: return ['si', 'sí', 'yes', 'y', 'true', 'verdadero', 'x', '1'].includes(v.trim().toLowerCase());
+web/src/lib/excel-import/parse.ts: const wantsNode = type.startsWith('nodal');
+web/src/lib/export/containment.ts: return [...html.matchAll(WARNING_SECTION)].flatMap(([section]) => [...section.matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/g)].map(m => unescape(m[1]!)));
+web/src/lib/export/containment.ts: const body = /<body\b[^>]*>/i.exec(html);
+web/src/lib/export/provenance-attach.ts: const i = html.lastIndexOf('</body>');
+web/src/lib/export/report-docx.ts: CLASS_TONE.find(([re]) => re.test(cls))?.[1] ?? (/border:\s*2px solid/i.test(style) ? 'warn' : undefined);
+web/src/lib/export/report-docx.ts: const tex = /<annotation encoding="application\/x-tex">([\s\S]*?)<\/annotation>/.exec(markup)?.[1];
+web/src/lib/export/report-formats.ts: .replace(/<span class="katex-mathml">[\s\S]*?<\/math><\/span>/gi, '')
+web/scripts/check-research-route-size.mjs: return code.replaceAll("new URL('../wasm/dedaliano_engine_bg.wasm', import.meta.url)", "new URL('data:application/wasm;base64,AGFzbQEAAAA=')");
+web/scripts/gen-result-sites.mjs: for (const file of program.getSourceFiles().filter(f => sources.includes(f.fileName))) visit(file)
+web/scripts/prerender.ts: if (!/<script type="module"[^>]*src=/.test(head)) {
+web/scripts/research-cargo-notices.mjs: if (pkg.license.includes('Unicode-3.0')) needed.push(/^LICENSE-UNICODE$/i);
+web/scripts/translate.mjs: output = output.replace(
+web/scripts/translate.mjs: output = output.replace(/^export default en;$/m, `export default ${lang};`);
+web/scripts/translation-gate.ts: const body = html.match(/<div id="prerender">([\s\S]*)<div id="app">/)?.[1] ?? html;
+scripts/nightly-models.py: if failure['test'].startswith('metamorphic/'):
+scripts/verification-metrics.py: return "linear static" in text.lower() or "member end forces" in text
+scripts/verification-metrics.py: return analysis == "static" and "linear static" in src["codeaster"]
+.github/scripts/cadence-reports.cjs: if (!['success', 'failure'].includes(j.conclusion)) continue;
+.github/scripts/nightly-findings.cjs: if (!dry) for (const name of new Set(['safety', 'nightly-finding', ...[...findings.values()].map(g => g.cause.kind).filter(k => ['invariance-refusal', 'wrong-result-candidate'].includes(k))])) {
+.github/scripts/nightly-findings.cjs: const labels = ['safety', 'nightly-finding', ...(['invariance-refusal', 'wrong-result-candidate'].includes(cause.kind) ? [cause.kind] : [])];
+.github/scripts/nightly-findings.cjs: const existing = issues.find(i => !i.pull_request && i.body?.includes(marker));
+.github/scripts/nightly-findings.cjs: if (!existing.body.includes(occurrence) && !comments.some(c => c.body?.includes(occurrence))) {
+.github/scripts/verification-alert.cjs: `${HELD}: ${body.replace(/^Green again: /, '').replace(/ Closing\.$/, '')} The failures above may be real findings that ` +
