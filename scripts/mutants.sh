@@ -62,15 +62,29 @@ esac
 # The test binary a test file belongs to: the top-level engine/tests/*.rs files are modules of a
 # few binaries (engine/tests/<binary>/main.rs, `#[path = "../<file>.rs"]`); a directory target
 # (core, integration) is its own binary. A binary runs all its modules, a superset of the file.
+lib_mods=$(sed -n 's|^#\[path = "\.\./tests/\([^/]*\)/mod\.rs"\]$|engine/tests/\1/mod.rs|p' engine/src/lib.rs)
 binary_of() {
   local main
-  main=$(grep -l "^#\[path = \"\.\./$1\.rs\"\]" engine/tests/*/main.rs) || { echo "$1"; return; }
-  basename "$(dirname "$main")"
+  if main=$(grep -l "^#\[path = \"\.\./$1\.rs\"\]" engine/tests/*/main.rs); then
+    basename "$(dirname "$main")"
+  elif [[ -f engine/tests/$1/main.rs ]]; then
+    echo "$1"
+  elif [[ -n $lib_mods ]] && grep -q "^#\[path = \"\.\./$1\.rs\"\]" $lib_mods; then
+    echo lib
+  else
+    return 1
+  fi
 }
+declare -A binary
+for t in "${tests[@]}"; do
+  binary[$t]=$(binary_of "$t") || { echo "mutants.sh: no test binary runs engine/tests/$t.rs" >&2; exit 64; }
+done
 # -C passes each test-target flag to both `cargo test --no-run` and `cargo test`,
 # so only the listed targets are built per mutant (`-- …` reaches only the run).
 cargo_args=(-C --lib)
-for t in $(for t in "${tests[@]}"; do binary_of "$t"; done | sort -u); do cargo_args+=(-C --test -C "$t"); done
+for b in $(printf '%s\n' "${binary[@]}" | sort -u); do
+  [[ $b == lib ]] || cargo_args+=(-C --test -C "$b")
+done
 # A shared binary runs every module in it, not just the listed files: since the test files became
 # modules of a few binaries (#611), each mutant also ran the shell convergence studies, the perf
 # gates and the rest (baseline 155 s -> 400 s, a survivor ~800 s), and no shard finished within
@@ -78,7 +92,8 @@ for t in $(for t in "${tests[@]}"; do binary_of "$t"; done | sort -u); do cargo_
 # `<file>::<test>`), as before #611; the plain `cargo test` runner runs the whole binaries.
 filter=(kind\(lib\))
 for t in $(printf '%s\n' "${tests[@]}" | sort -u); do
-  b=$(binary_of "$t")
+  b=${binary[$t]}
+  if [[ $b == lib ]]; then continue; fi
   if [[ $b == "$t" ]]; then filter+=("binary(=$t)"); else filter+=("(binary(=$b) & test(/^$t::/))"); fi
 done
 test_args=()
