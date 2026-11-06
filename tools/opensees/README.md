@@ -58,7 +58,7 @@ stabileo's refusals and warnings are checked against OpenSees too:
 | `false_reject` | stabileo refuses a model whose OpenSees stiffness is regular (κ < 1e10): flagged, exit 1 |
 | `false_warning` | stabileo flags a model ill-conditioned whose OpenSees stiffness is well conditioned (κ < 1e8): flagged, exit 1 |
 | `not_applicable` | buckling with no load factor on either side (no member in compression, or none whose compression reaches a free DOF); an OpenSees factor above 1e9 comes from axial forces of round-off size and counts as none |
-| `converging` | buckling with an axial span load on a frame (see Buckling): engine and OpenSees differ above tolerance on every common mesh up to 16 elements per member, but the difference at least halves at each doubling; not a failure, counted as inconclusive |
+| `converging` | buckling with an axial span load on a frame (see Buckling): engine and OpenSees differ above tolerance on every common mesh tried, but the difference at least halves at each doubling of the elements per member; not a failure, counted as inconclusive |
 | `stabileo_failed` | a refusal neither side decides (1e10 ≤ κ ≤ 1e12, or OpenSees failed for a reason other than a singular stiffness) |
 
 The converter used to drop nodal moments silently in truss-only models
@@ -218,8 +218,16 @@ had such a load, and none of the 414 models without one mismatched. When the
 one-element comparison of such a model fails, both solvers run again on the
 same meshes of n = 2, 4, 8, 16 elements per frame (`mesh`, trusses whole) and
 are compared there at the unchanged tolerance: `ok` at the first n where they
-agree, `converging` when they never agree but the difference at least halves
-from each n to 2n, `mismatch` when it stops falling. buckling3d-763297
+agree, `mismatch` when the difference stops halving from n to 2n, and
+`converging` when it keeps halving but its rate cannot bring it within
+tolerance on the next mesh (refinement stops there: OpenSees' dense eigen
+solve dominates the run). The difference is the largest load-factor or 1−MAC
+error, leaving out the MAC of a mode whose gap to a neighbour is within ten
+times the load-factor error (the solvers may order such a pair either way).
+On seed 763000 the 138 mismatches became 47 `ok` on a common mesh (8 at
+n = 2, 17 at 4, 20 at 8, 2 at 16) and 91 `converging`; the part takes about
+six times as long (2,100 s against 344 s at two jobs on a loaded runner), so
+buckling is its own nightly part, run four at a time. buckling3d-763297
 (member 4, a cantilever under an axial span load, governs mode 1):
 
 | n | engine λ1 | OpenSees λ1 |

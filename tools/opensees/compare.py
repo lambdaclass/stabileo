@@ -1938,11 +1938,27 @@ MESH_LEVELS = (2, 4, 8, 16)
 MESH_RATE = 2.0
 
 
+def _resolved_difference(bad, groups, values):
+    """The largest load-factor or 1-MAC difference, leaving out the MAC of a
+    mode whose gap to a neighbour is within ten times the load-factor
+    difference: the two solvers may order such a pair either way."""
+    worst = groups["eig"]
+    for q, i, _, _, _, e in bad:
+        if q != "mode":
+            continue
+        v = values[i - 1]
+        gap = min(abs(values[j] - v) / abs(v) for j in (i - 2, i) if 0 <= j < len(values))
+        if gap > 10 * groups["eig"]:
+            worst = max(worst, e)
+    return worst
+
+
 def refine_buckling(job, binary, tol, dim):
     """None when no meshed comparison ran, else (bad, groups, n, converging):
     bad is empty when both solvers agree within tol on n elements per frame;
     converging is set when they never agree but each doubling of n at least
-    halves their difference."""
+    halves their difference. Refinement stops once the difference stops
+    halving or its current rate cannot bring it within tol on the next mesh."""
     levels = []
     for n in MESH_LEVELS:
         j = dict(job, model=mesh(job["model"], n))
@@ -1955,14 +1971,18 @@ def refine_buckling(job, binary, tol, dim):
         if "values" not in ores or kappa is None or kappa > KAPPA_MAX:
             break
         bad, groups = compare_eigen(sres, ores, max(tol, 100 * 2.2e-16 * kappa), job["numModes"], 1)
-        levels.append((n, bad, groups))
         if not bad:
             return [], groups, n, None
+        levels.append((n, bad, groups, _resolved_difference(bad, groups, ores["values"])))
+        if len(levels) >= 2:
+            a, b = (e for *_, e in levels[-2:])
+            if b > a / MESH_RATE or b * b / a > tol:
+                break
     if not levels:
         return None
-    n, bad, groups = levels[-1]
-    errs = [max(g["eig"], g["mac"]) for _, _, g in levels]
-    trail = ", ".join(f"n={m}: {e:.2e}" for m, e in zip((m for m, _, _ in levels), errs))
+    n, bad, groups, _ = levels[-1]
+    errs = [e for *_, e in levels]
+    trail = ", ".join(f"n={m}: {e:.2e}" for m, e in zip((m for m, *_ in levels), errs))
     if len(levels) >= 2 and all(b <= a / MESH_RATE for a, b in zip(errs, errs[1:])) and \
             not any(q == "eig" and c == "missing" for q, _, c, *_ in bad):
         return bad, groups, n, f"meshed buckling factors approach each other ({trail})"

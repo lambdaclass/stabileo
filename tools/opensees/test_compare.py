@@ -77,23 +77,24 @@ class RefinedBucklingTest(unittest.TestCase):
     """Engine and OpenSees load factors per number of frame members (2 in the
     unmeshed column): stub solvers, so only the decision logic runs."""
 
-    def run_with(self, stab, ops, axial_span_load=True):
+    def run_with(self, stab, ops, axial_span_load=True, omodes=None):
         job = {"analysis": "buckling", "numModes": 2, "model": column(axial_span_load)}
         lin = dict(disp={}, reac={}, forces={}, diags=[], issues=[])
         seen = []
 
         def stabileo_job(j, binary):
             seen.append(frames(j["model"]) // 2)
-            return {"values": stab[frames(j["model"]) // 2]}
+            return {"values": stab[frames(j["model"]) // 2], "modes": MODES}
 
         def opensees(j):
-            return {"values": ops[frames(j["model"]) // 2], "modes": MODES, "dim": 3, "kappa": 1e3,
+            n = frames(j["model"]) // 2
+            return {"values": ops[n], "modes": (omodes or {}).get(n, MODES), "dim": 3, "kappa": 1e3,
                     "art_rot": [], "linear": dict(lin, art_rot=[], dim=3)}
 
         with mock.patch.object(C, "stabileo", return_value={}), \
                 mock.patch.object(C, "normalize_stabileo", return_value=lin), \
                 mock.patch.object(C, "stabileo_job", side_effect=stabileo_job), \
-                mock.patch.object(C, "normalize_ext", side_effect=lambda kind, r, dim: dict(r, modes=MODES)), \
+                mock.patch.object(C, "normalize_ext", side_effect=lambda kind, r, dim: r), \
                 mock.patch.object(C, "opensees_isolated", side_effect=opensees), \
                 mock.patch.object(C, "compare", return_value=([], {})):
             return C.run_ext("buckling3d-1", job, "bin", 1e-6), seen
@@ -112,16 +113,37 @@ class RefinedBucklingTest(unittest.TestCase):
         stab = {n: [10.0, 30.0] for n in (1, 2, 4, 8, 16)}
         ops = {n: [10.0 * (1 - 1e-3 / n ** 2), 30.0] for n in (1, 2, 4, 8, 16)}
         r, seen = self.run_with(stab, ops)
-        self.assertEqual((r["status"], r["mesh"], seen), ("converging", 16, [1, 2, 4, 8, 16]))
-        self.assertIn("n=2: 2.50e-04", r["why"][0])
+        self.assertEqual((r["status"], r["mesh"], seen), ("converging", 4, [1, 2, 4]))
+        self.assertIn("n=2: 2.50e-04, n=4: 6.25e-05", r["why"][0])
         self.assertNotIn("converging", C.FLAGGED)
+
+    def test_refinement_continues_while_agreement_is_within_reach(self):
+        stab = {n: [10.0, 30.0] for n in (1, 2, 4, 8, 16)}
+        ops = {1: [9.0, 30.0], 2: [10.0 * (1 - 4e-5), 30.0], 4: [10.0 * (1 - 4e-6), 30.0],
+               8: [10.0 * (1 - 4e-7), 30.0], 16: [10.0, 30.0]}
+        r, seen = self.run_with(stab, ops)
+        self.assertEqual((r["status"], r["mesh"], seen), ("ok", 8, [1, 2, 4, 8]))
 
     def test_differences_that_stop_falling_are_a_mismatch(self):
         stab = {n: [10.0, 30.0] for n in (1, 2, 4, 8, 16)}
-        ops = {n: [10.0 * (1 - 1e-3 / min(n, 4) ** 2), 30.0] for n in (1, 2, 4, 8, 16)}
+        ops = {n: [10.0 * (1 - 1e-3 / min(n, 2) ** 2), 30.0] for n in (1, 2, 4, 8, 16)}
         r, _ = self.run_with(stab, ops)
-        self.assertEqual((r["status"], r["mesh"]), ("mismatch", 16))
+        self.assertEqual((r["status"], r["mesh"]), ("mismatch", 4))
         self.assertTrue(any("not converging" in str(w[2]) for w in r["worst"]))
+
+    def test_a_close_pair_in_either_order_does_not_stop_convergence(self):
+        stab = {n: [10.0, 10.05] for n in (1, 2, 4, 8, 16)}
+        ops = {n: [10.0 * (1 - 0.1 / n ** 2), 10.05 * (1 - 0.1 / n ** 2), 30.0] for n in (1, 2, 4, 8, 16)}
+        swapped = {n: [MODES[1], MODES[0]] for n in (1, 2, 4, 8, 16)}
+        r, _ = self.run_with(stab, ops, omodes=swapped)
+        self.assertEqual((r["status"], r["mesh"]), ("converging", 4))
+
+    def test_a_separated_mode_shape_that_stays_different_is_a_mismatch(self):
+        stab = {n: [10.0, 30.0] for n in (1, 2, 4, 8, 16)}
+        ops = {n: [10.0 * (1 - 1e-3 / n ** 2), 30.0, 50.0] for n in (1, 2, 4, 8, 16)}
+        tilted = {n: [{1: [1.0, 0.1, 0.0, 0.0, 0.0, 0.0]}, MODES[1]] for n in (1, 2, 4, 8, 16)}
+        r, _ = self.run_with(stab, ops, omodes=tilted)
+        self.assertEqual(r["status"], "mismatch")
 
     def test_without_an_axial_span_load_a_one_element_mismatch_stands(self):
         r, seen = self.run_with({1: [10.0, 30.0], 2: [10.0, 30.0]}, {1: [10.1, 30.0], 2: [10.0, 30.0]},
