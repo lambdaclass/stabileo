@@ -696,10 +696,9 @@ describe('fixture-to-manifest reconciliation', () => {
     // (`snapshot.solvedWith`, provenance/solve-stamp.ts), so opening it does not raise the
     // re-check notice. The model is unchanged.
     //
-    // And again (was 884c9941…, then 04cf5998…, then 94fa28fe…, then b25eb09b…, then 930646fc…, then 28b5e539…, then bbdbe9b1…, then a64cfe6c…, then 28d9021b…, then 082ab7c3…, then 8fc7c978…):
-    // the stamp moved to results versions 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 and 13 with the registry.
+    // Never restamped for a new results version: e2e opens a restamped copy (`rcFootingProject`).
     expect(sha256(fixtureText()))
-      .toBe('7ff1ebd35cbd70154f519981575ef1488162be43be9acb6fa2e0acaf99d266b9');
+      .toBe('da13526823440e9d95ac5734cf1137d81839aca05fda8ce7936abdc93c3b47d5');
   });
 
   it('every geometric input traces back to a value in the restored project', () => {

@@ -386,7 +386,14 @@ fn eas_centre(coords: &[[f64; 3]; 8]) -> ([f64; 36], f64) {
     (covariant_to_cartesian(&ji0), det0)
 }
 
+#[cfg(test)]
+thread_local! {
+    static EAS_OPERATOR_BUILDS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
 fn eas_operators(coords: &[[f64; 3]; 8], c: &[f64; 36]) -> EasOperators {
+    #[cfg(test)]
+    EAS_OPERATOR_BUILDS.with(|n| n.set(n.get() + 1));
     let ndof = 24;
     let mut k_uu = vec![0.0; ndof * ndof];
     let mut k_ua = [[0.0; N_EAS]; 24];
@@ -1051,10 +1058,27 @@ mod tests {
     }
 
     /// Perf guard for the centroid recovery (compute_quad_stresses, geometric-stiffness
-    /// prestress): it must cost a small fraction of a stiffness evaluation. Through the full
-    /// EAS path it cost MORE than one (8-point blocks + α solve), >20× the fast path.
+    /// prestress): it must not build the EAS blocks (an 8-point integration plus the α solve),
+    /// which made it cost more than a stiffness evaluation. Counted, not timed.
     #[test]
     fn test_centroid_stress_is_cheap() {
+        let coords = unit_cube();
+        let u: Vec<f64> = (0..24).map(|k| 1e-3 * k as f64).collect();
+        let builds = || EAS_OPERATOR_BUILDS.with(|n| n.get());
+        let before = builds();
+        for _ in 0..300 {
+            std::hint::black_box(solid_shell_avg_stress(std::hint::black_box(&coords), &u, 200.0e3, 0.3));
+        }
+        assert_eq!(builds() - before, 0, "centroid stress built the EAS operators");
+        std::hint::black_box(solid_shell_stiffness(&coords, 200.0e3, 0.3));
+        assert_eq!(builds() - before, 1, "a stiffness evaluation builds them once");
+        std::hint::black_box(solid_shell_nodal_von_mises(&coords, &u, 200.0e3, 0.3));
+        assert_eq!(builds() - before, 2, "off-centroid recovery builds them once");
+    }
+
+    #[test]
+    #[ignore = "wall clock: runs alone in Engine Gates (make test.engine.gates)"]
+    fn test_centroid_stress_timing_budget() {
         let coords = unit_cube();
         let u: Vec<f64> = (0..24).map(|k| 1e-3 * k as f64).collect();
         let n = 300;
@@ -1071,7 +1095,7 @@ mod tests {
         let t_k = t0.elapsed();
         std::hint::black_box(acc);
         eprintln!("centroid stress {t_stress:?}, stiffness {t_k:?}");
-        assert!(t_stress * 4 < t_k, "centroid stress {t_stress:?} vs stiffness {t_k:?} for {n} calls");
+        crate::wall_clock::budget(t_stress * 4 < t_k, || format!("centroid stress {t_stress:?} vs stiffness {t_k:?} for {n} calls"));
     }
 
     #[test]

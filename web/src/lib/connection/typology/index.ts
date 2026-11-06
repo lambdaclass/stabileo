@@ -11,7 +11,7 @@ import { designGusset } from './gusset';
 import { designShearTab } from './shear-tab';
 import { designSplice } from './splice';
 import { proposeTypology } from './propose';
-import type { Typology, TypologyContext, TypologyDesign, TypologyParams } from './types';
+import type { JointMember, Typology, TypologyContext, TypologyDesign, TypologyParams } from './types';
 
 export * from './types';
 export { proposeTypology } from './propose';
@@ -27,8 +27,24 @@ function unresolved(kind: Typology, key: string, p: TypologyParams): TypologyDes
   return { kind, params: p, checks: [], parts: [], state: 'unresolved', unresolvedKey: key };
 }
 
-/** One evaluation of a typology with given parameters. */
+const WEAK_MOMENT_FLOOR = 0.01;
+const WEAK_MOMENT_RESIDUAL = 1e-6;
+
+/**
+ * One evaluation of a typology with given parameters. The typologies carry the strong-axis moment
+ * only: a weak-axis end moment beyond round-off of the strong-axis one (and 0,01 kN·m) on any
+ * member but a column continuing through the joint leaves the joint unresolved.
+ */
 export function designTypology(kind: Typology, ctx: TypologyContext, p: TypologyParams, mainId?: number): TypologyDesign {
+  const d = designStrongAxis(kind, ctx, p, mainId);
+  const main = ctx.members.find((m) => m.id === mainId) ?? ctx.members[0];
+  const continuous = (m: JointMember) => kind !== 'splice' && m !== main && m.kind === 'column'
+    && ctx.members.some((o) => o !== m && o.kind === 'column' && o.dir.x * m.dir.x + o.dir.y * m.dir.y + o.dir.z * m.dir.z < -1 + 1e-9);
+  const weak = ctx.members.some((m) => !continuous(m) && (m.Mw ?? 0) > Math.max(WEAK_MOMENT_FLOOR, WEAK_MOMENT_RESIDUAL * m.M));
+  return weak ? { ...d, state: 'unresolved', unresolvedKey: 'joint.typ.unresolved.weakAxisMoment' } : d;
+}
+
+function designStrongAxis(kind: Typology, ctx: TypologyContext, p: TypologyParams, mainId?: number): TypologyDesign {
   const main = ctx.members.find((m) => m.id === mainId) ?? ctx.members[0];
   if (!main) return unresolved(kind, 'joint.typ.unresolved.noMembers', p);
   const col = ctx.members.find((m) => m.kind === 'column' && m.id !== main.id) ?? null;

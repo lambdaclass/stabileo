@@ -775,5 +775,5 @@ pub fn review(input: &SanityInput) -> SanityReport {
 pub fn review_json(json: &str) -> Result<String, String> {
     let input: SanityInput = serde_json::from_str(json).map_err(|e| format!("Parse error: {}", e))?;
     let report = review(&input);
-    serde_json::to_string(&report).map_err(|e| format!("Serialize error: {}", e))
+    crate::boundary::to_json(&report)
 }

@@ -6,32 +6,18 @@
  * small enough to print its matrices, no joints they do not model) and say
  * which limit it crossed when it is not. See `step-by-step-scope.ts`.
  */
-import { t } from '../i18n';
+import { t, tp } from '../i18n';
 import { uiStore, modelStore, dsmStepsStore, fmStepsStore } from '../store';
 import { explainedSteps } from '../store/explained-steps.svelte';
-import { stepByStepScope, STEP_BY_STEP_MAX_DOFS } from '../engine/step-by-step-scope';
-import { solveDetailed } from '../engine/solver-detailed';
-import { solveDetailed3D } from '../engine/solver-detailed-3d';
-import { solveForceMethod, ForceMethodError, FM_MAX_GH } from '../engine/force-method/solve';
-import { solveForceMethod3D } from '../engine/force-method/solve-3d';
-
-function blocked(): boolean {
-  if (modelStore.hasSlidingJoints()) { uiStore.toast(t('advanced.slidingUnsupported'), 'error'); return true; }
-  if (modelStore.hasJoint3D()) { uiStore.toast(t('advanced.jointsUnsupported'), 'error'); return true; }
-  return false;
-}
+import { loadCourse, type Course } from '../course/load-course';
+import { fmChoice } from '../store/fm-choice.svelte';
+import { choiceError } from './fm-fundamental';
+import { blocked, refused } from './wizard-guard';
 
 function inputFor(threeD: boolean) {
   return threeD
     ? modelStore.buildSolverInput3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand', { basic: uiStore.analysisMode !== 'pro', expandMemberOffsets: false })
     : modelStore.buildSolverInput(uiStore.includeSelfWeight);
-}
-
-function refused(input: Parameters<typeof stepByStepScope>[0], threeD: boolean): boolean {
-  const v = stepByStepScope(input, threeD);
-  if (v.ok) return false;
-  uiStore.toast(t(`sbs.scope.${v.reason}`).replace('{n}', String(v.dofs)).replace('{max}', String(STEP_BY_STEP_MAX_DOFS)), 'error');
-  return true;
 }
 
 function errText(e: unknown, fallbackKey: string): string {
@@ -55,13 +41,21 @@ function showPanel() {
 }
 
 /** Open the stiffness wizard on the current model; false (with a toast) when it cannot. */
-export function openStiffnessWizard(): boolean {
+export async function openStiffnessWizard(): Promise<boolean> {
+  let course: Course;
+  try {
+    course = await loadCourse();
+  } catch (e: unknown) {
+    uiStore.toast(errText(e, 'toast.detailedSolverError'), 'error');
+    return false;
+  }
   if (blocked()) return false;
   const threeD = uiStore.is3DWorkspace;
   const input = inputFor(threeD);
   if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return false; }
   if (refused(input, threeD)) return false;
   try {
+    const { solveDetailed, solveDetailed3D } = course;
     const data = threeD ? solveDetailed3D(input as never) : solveDetailed(input as never);
     fmStepsStore.close();
     explainedSteps.leaveForWizard();
@@ -75,15 +69,35 @@ export function openStiffnessWizard(): boolean {
   }
 }
 
+/** The reader's fundamental and axial choice, while the model is the one they were made on. */
+function solvePlaneWithChoice({ solveForceMethod, ForceMethodError }: Course, input: Parameters<Course['solveForceMethod']>[0]) {
+  const opts = fmChoice.optionsFor(modelStore.modelVersion);
+  try { return solveForceMethod(input, opts); } catch (e) {
+    if (!opts.releases || !(e instanceof ForceMethodError)) throw e;
+    const why = choiceError(e);
+    fmChoice.reset(modelStore.modelVersion);
+    uiStore.toast(tp(why.key, why.params), 'error');
+    return solveForceMethod(input, { axial: opts.axial });
+  }
+}
+
 /** Open the flexibility wizard on the current model; false (with a toast) when it cannot. */
-export function openFlexibilityWizard(): boolean {
+export async function openFlexibilityWizard(): Promise<boolean> {
+  let course: Course;
+  try {
+    course = await loadCourse();
+  } catch (e: unknown) {
+    uiStore.toast(errText(e, 'fm.err.unstable'), 'error');
+    return false;
+  }
   if (blocked()) return false;
   const threeD = uiStore.is3DWorkspace;
   const input = inputFor(threeD);
   if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return false; }
   if (refused(input, threeD)) return false;
+  const { solveForceMethod3D, ForceMethodError, FM_MAX_GH } = course;
   try {
-    const result = threeD ? solveForceMethod3D(input as never) : solveForceMethod(input as never);
+    const result = threeD ? solveForceMethod3D(input as never) : solvePlaneWithChoice(course, input as never);
     dsmStepsStore.close();
     explainedSteps.leaveForWizard();
     fmStepsStore.setResult(result);
@@ -106,5 +120,13 @@ export function openExplainedCatalog(): void {
   dsmStepsStore.close();
   fmStepsStore.close();
   explainedSteps.openCatalog();
+  showPanel();
+}
+
+/** Open one explained method's document from another panel. */
+export function openExplainedMethod(id: string): void {
+  dsmStepsStore.close();
+  fmStepsStore.close();
+  explainedSteps.openMethod(id);
   showPanel();
 }

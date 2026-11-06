@@ -2,6 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { routeKind } from '../lib/public-route';
 import { STANDING_PAGES } from '../lib/blog/pages';
+import { RESEARCH_GALLERY, RESEARCH_PAPER_PATHS, researchLocales } from '../components/research/locales';
+import { POSTS, writtenIn as writtenInContent } from '../lib/blog';
+import { PUBLIC_LOCALES } from '../lib/i18n/offered';
+import { PAPER_LOCALES } from '../components/paper/locales';
+import { publicPaths, writtenIn } from '../../scripts/public-paths';
 import { SITE_NAV } from '../components/site/site-nav';
 
 const source = (file: string) => readFileSync(new URL(file, import.meta.url), 'utf8');
@@ -36,23 +41,35 @@ describe('merged public routes', () => {
       }
     }
   });
-  it('prerenders paper, research, tools and the changelog standing page', () => {
-    const prerender = source('../../scripts/prerender.ts');
-    for (const path of ['/paper', '/research', '/tools']) expect(prerender).toContain(`'${path}'`);
-    expect(prerender).toContain('...pages');
-    expect(STANDING_PAGES.some(page => page.path === '/changelog')).toBe(true);
+  it('prerenders paper, research, tools, every standing page and every post, each once', async () => {
+    const paths = await publicPaths();
+    expect(new Set(paths).size).toBe(paths.length);
+    expect(RESEARCH_GALLERY).toBe('/research');
+    for (const path of ['/', '/blog', '/paper', '/tools', '/changelog', RESEARCH_GALLERY, ...RESEARCH_PAPER_PATHS, ...STANDING_PAGES.map(page => page.path), ...POSTS.map(post => `/blog/${post.slug}`)]) {
+      expect(paths, path).toContain(path);
+    }
+  });
+  it('builds each page in exactly the languages it is written in', async () => {
+    const paths = await publicPaths();
+    for (const path of paths) expect(writtenIn(path), path).toContain('en');
+    for (const path of ['/', '/blog', '/tools', ...paths.filter((p) => p.startsWith('/tools/'))]) expect(writtenIn(path), path).toEqual([...PUBLIC_LOCALES]);
+    expect(writtenIn('/paper')).toEqual(PUBLIC_LOCALES.filter((l) => PAPER_LOCALES.includes(l)));
+    for (const path of [RESEARCH_GALLERY, ...RESEARCH_PAPER_PATHS]) expect(writtenIn(path), path).toEqual(PUBLIC_LOCALES.filter((l) => researchLocales(path).includes(l)));
+    for (const p of POSTS) expect(writtenIn(`/blog/${p.slug}`), p.slug).toEqual(writtenInContent(p.i18n));
+    for (const page of STANDING_PAGES) expect(writtenIn(page.path), page.path).toEqual(writtenInContent(page.i18n));
   });
   it('keeps the Root and App feature boundaries lazy and excludes paper from editor activity', () => {
     const root = source('../Root.svelte');
     const app = source('../App.svelte');
     for (const text of [root, app]) {
       expect(text).not.toMatch(/import\s+\w+\s+from\s+['"][^'"]*(?:ResearchPage|ToolsPage|PaperPage)\.svelte/);
-      expect(text).toContain("import('./components/paper/PaperPage.svelte')");
+      expect(text).toContain("loadPublicPage");
     }
-    expect(root).toContain("import('./components/research/load-page')");
-    expect(root).toContain("import('./components/tools/load-page')");
+    const loader = source('../lib/public-navigation.ts');
+    expect(loader).toContain("import('../components/research/load-page')");
+    expect(loader).toContain("import('../components/tools/load-page')");
+    expect(loader).toContain("import('../components/paper/PaperPage.svelte')");
     expect(root).toContain("import('./load-app')");
-    expect(app).toContain("import('./components/research/load-experiment')");
     expect(app).toContain('const editorActive = $derived(!showLanding && !showBlog && !showExperiment && !showPaper && !uiStore.viewerMode)');
     expect(app).toContain("if (showLanding || showBlog || showExperiment || showPaper || typeof window === 'undefined') return;");
   });

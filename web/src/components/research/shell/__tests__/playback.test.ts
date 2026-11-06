@@ -99,6 +99,38 @@ it('a queued visibility notification cannot restart a disposed timer', () => {
   } finally { vi.useRealTimers(); }
 });
 
+it('uses a step duration changed after construction on the next tick', () => {
+  vi.useFakeTimers();
+  try {
+    const p = new Playback(100, 500);
+    p.setCount(4);
+    p.stepMs = 300;
+    p.play();
+    vi.advanceTimersByTime(299);
+    expect(p.shown).toBe(0);
+    vi.advanceTimersByTime(1);
+    expect(p.shown).toBe(1);
+    p.dispose();
+  } finally { vi.useRealTimers(); }
+});
+
+it('keeps a selected sample while live worker frames continue arriving', () => {
+  const p = new Playback();
+  p.follow = true;
+  p.setCount(1);
+  p.setCount(2);
+  expect(p.shown).toBe(1);
+  p.seek(0);
+  p.setCount(3);
+  p.setCount(4);
+  expect(p.shown).toBe(0);
+  expect(p.follow).toBe(false);
+  p.follow = true;
+  p.setCount(1);
+  p.setCount(2);
+  expect(p.shown).toBe(1);
+});
+
 it('allows seeking while a run is active and retains completed steps after cancellation', () => {
   const p = new Playback();
   p.setCount(20);

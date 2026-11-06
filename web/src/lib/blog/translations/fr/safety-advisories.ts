@@ -91,6 +91,78 @@ const body: PostBody = {
           "Corrigé dans la prochaine version"
         ],
         [
+          "SA-2026-035",
+          "Passage de la 3D à la 2D : la coupe faisait fléchir des barres autour du mauvais axe de section (un portique dans le plan Y–Z 13,5 fois trop rigide)",
+          "Élevée",
+          "Corrigé dans la prochaine version"
+        ],
+        [
+          "SA-2026-040",
+          "Vérifications ACI 318 et EN 1992 : barres en béton armé validées sans vérification de leur torsion",
+          "Élevée",
+          "Confiné dans la prochaine version"
+        ],
+        [
+          "SA-2026-041",
+          "Poteaux en béton armé : le moment maximal n'était vérifié qu'avec la compression maximale",
+          "Élevée",
+          "Corrigé dans la prochaine version"
+        ],
+        [
+          "SA-2026-033",
+          "Générateur de charges : un plancher avec une seule barre basse au-dessus d'une partie perdait toute sa charge surfacique (36 m² d'un plancher de 6 × 6 m dans un exemple) ; les fermes ne comptaient pas comme structure de toiture",
+          "Élevée",
+          "Corrigé dans la prochaine version"
+        ],
+        [
+          "SA-2026-034",
+          "La vérification d'équilibre déclarait charges et réactions concordantes pour des cas dont la vérification laissait des charges de côté ; les modifications d'étages similaires atteignaient des barres de l'autre type et les copies perdaient leurs relâchements",
+          "Moyenne",
+          "Corrigé dans la prochaine version"
+        ],
+        [
+          "SA-2026-038",
+          "Flambement 3D : le facteur des barres dont la compression croît le long de la barre sous des charges dans son axe était trop élevé (+43 % pour une barre), et une barre comprimée seulement entre ses extrémités était refusée",
+          "Élevée",
+          "Corrigé dans la prochaine version"
+        ],
+        [
+          "SA-2026-042",
+          "Flambement 2D : le facteur des barres dont la compression croît le long de la barre sous des charges dans son axe était trop élevé (+43 % à +68 % pour une barre)",
+          "Élevée",
+          "Corrigé dans la prochaine version"
+        ],
+        [
+          "SA-2026-044",
+          "Effondrement plastique 2D : le facteur d'effondrement changeait avec la numérotation des nœuds, le sens des barres et les unités (jusqu'à 4,6 fois sur la même structure)",
+          "Élevée",
+          "Analyse limite corrigée dans la prochaine version ; l'effondrement plastique 2D reste retenu jusqu'à la clôture de #758"
+        ],
+        [
+          "SA-2026-043",
+          "Analyse harmonique : la correction des modes omis perdait ses chiffres lorsqu’un mode était beaucoup plus souple que les autres (79 fois à 2,3 Hz dans un exemple)",
+          "Élevée",
+          "Corrigé dans la prochaine version"
+        ],
+        [
+          "SA-2026-045",
+          "Effondrement plastique 3D : une barre sans moment plastique utilisable était traitée comme si elle ne plastifiait jamais (6 fois trop haut dans un exemple, et certifié)",
+          "Élevée",
+          "Corrigé dans la prochaine version"
+        ],
+        [
+          "SA-2026-037",
+          "Analyse corotationnelle 3D : les vecteurs de rotation étaient soustraits (le coude de Bathe–Bolourchi à 1,3 %, sans amélioration au raffinement)",
+          "Moyenne",
+          "Corrigé dans la prochaine version"
+        ],
+        [
+          "SA-2026-036",
+          "Passage de la 3D à la 2D sur Y–Z ou X–Y : les liaisons étaient lues comme si le portique était dans X–Z (liaisons de déplacement perdues ou appliquées hors du plan)",
+          "Élevée",
+          "Corrigé dans la prochaine version"
+        ],
+        [
           "SA-2026-013",
           "Coques courbes : moments fléchissants affichés comme nuls ; les contraintes conservaient la déformation thermique libre",
           "Élevée",

@@ -113,7 +113,7 @@ const html = `<!doctype html><meta charset="utf-8">
   </div>
 </div>`;
 
-const browser = await chromium.launch();
+const browser = await chromium.launch({ args: ['--disable-dev-shm-usage'] });
 const page = await browser.newPage({ viewport: { width: 1200, height: 630 }, deviceScaleFactor: 1 });
 await page.setContent(html, { waitUntil: 'load' });
 await page.evaluate(() => document.fonts.ready);

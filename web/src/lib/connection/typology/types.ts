@@ -25,6 +25,8 @@ export interface JointMember {
   section: JointSection | null;
   /** Its end forces at the joint, envelope magnitudes: axial (+ tension), shear, strong-axis moment. */
   N: number; V: number; M: number;
+  /** Its weak-axis end moment at the joint, envelope magnitude, kN·m. */
+  Mw?: number;
   /** A moment release at this end. */
   released: boolean;
 }

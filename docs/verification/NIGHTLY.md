@@ -1,11 +1,12 @@
 # Nightly verification
 
-`nightly.yml` starts at 05:00 UTC and accepts `workflow_dispatch`. Set the
+`nightly.yml` starts at 00:00 UTC and accepts `workflow_dispatch`. A dispatch takes the nightly pool only between 00:00 and 07:00 UTC and runs on `ubuntu-24.04` the rest of the day, so pull requests and the merge queue keep the hosts' CPU. Set the
 repository Actions variable `STABILEO_SELF_HOSTED=true` to route compute jobs on
-`main` to `[self-hosted, stabileo]`. Otherwise they use `ubuntu-24.04`. `fuzz` goes to its
-own pool, `[self-hosted, stabileo-nightly]`, only when `STABILEO_NIGHTLY_POOL=true` too, and
-otherwise to `ubuntu-24.04`: its four two-hour targets never hold the runners the merge queue
-uses. Dispatches
+`main` to the nightly pool, `[self-hosted, stabileo-nightly]`. Otherwise they use `ubuntu-24.04`.
+No scheduled job may reach the merge queue's runners (`stabileo`, `stabileo-pr`, `stabileo-e2e`,
+`stabileo-timing`); `scripts/tests/test_ci_runners.py` evaluates every scheduled job's `runs-on`
+to enforce it. `fuzz` goes to the nightly pool only when `STABILEO_NIGHTLY_POOL=true` too, and
+otherwise to `ubuntu-24.04`. Dispatches
 on other branches always use hosted runners and dry-run reporting. There is no
 pull-request trigger. The plan and findings jobs always run on GitHub-hosted
 runners. Only `findings` has `issues: write`; compute jobs have `contents: read`.
@@ -77,9 +78,16 @@ that doubled the baseline (155 s to ~400 s, a missed mutant ~800 s) and no shard
 A shard fails whenever `mutants.out/missed.txt` is not empty, whatever cargo-mutants' exit code
 (it reports timeouts, 3, over missed mutants, 2).
 
-Mutation shards rotate by UTC day, 32 each night, on the nightly runner pool
-(`stabileo-nightly`, or the `stabileo` pool when it is off): a complete 512-shard
-pass takes 16 nights, the roadmap's promise. A shard that runs to its verdict
+Each night runs the 32 mutation shards that went longest without running to their verdict
+(`.github/scripts/mutants-plan.py`; shards with no marker first, then the oldest marker, ties by
+shard index), on the nightly runner pool (`stabileo-nightly`, or the `stabileo` pool when it is
+off). A shard lost to a runner or to its time budget keeps its place in that order, so it is
+retried before any shard with a newer marker instead of waiting a fixed 16-night turn. After a
+second miss it is dated by its last attempt and waits like a shard that just ran, so shards that
+never finish cannot take every slot. Retries use slots, so a night that loses shards lengthens the
+pass; the dashboard check below is what catches a shard left without a report.
+When every shard finishes, a complete 512-shard pass takes 16 nights, the roadmap's promise; 32
+shards take about 8.5 hours of the nightly pool. A shard that runs to its verdict
 uploads `mutants-done-<k>-of-<n>`; the weekly verification dashboard fails when
 any shard has none from the last 16 days
 (`scripts/verification-metrics.py --check-mutants-rotation`). Override

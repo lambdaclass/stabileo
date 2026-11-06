@@ -18,7 +18,7 @@
    */
 </script>
 
-<section class="sec sec--paper ai reveal" data-section="ai" id="ai" aria-labelledby="ai-title">
+<section class="sec sec--paper ai" data-section="ai" id="ai" aria-labelledby="ai-title">
   <div class="wrap">
     <Eyebrow n="04" label={t('landing.ebAi')} />
 

@@ -7,6 +7,8 @@ use std::sync::Mutex;
 pub enum Verdict {
     /// Held; worst |diff|/tol seen.
     Pass(f64),
+    /// Every response compared was the same structured refusal: no value was verified.
+    SameRefusal,
     Ignored(&'static str),
     /// The analysis refused or failed on this model (not a metamorphic finding).
     Refused(String),
@@ -23,6 +25,7 @@ pub enum Verdict {
 #[derive(Debug, Default, Clone)]
 pub struct Cell {
     pub pass: usize,
+    pub same_refusal: usize,
     pub ignored: std::collections::BTreeSet<&'static str>,
     pub refused: usize,
     pub unrep: usize,
@@ -48,6 +51,7 @@ impl Tally {
                 c.pass += 1;
                 c.worst = c.worst.max(w);
             }
+            Verdict::SameRefusal => c.same_refusal += 1,
             Verdict::Refused(r) => {
                 c.refused += 1;
                 *c.notes.entry(short(&r)).or_default() += 1;
@@ -69,7 +73,7 @@ impl Tally {
                 "test": format!("metamorphic/{analysis}/{invariant}"), "details": c.fails
             })).collect();
         let verdicts: Vec<_> = cells.iter().map(|((analysis, invariant), c)| serde_json::json!({
-            "analysis": analysis, "invariant": invariant, "pass": c.pass,
+            "analysis": analysis, "invariant": invariant, "pass": c.pass, "same_refusal": c.same_refusal,
             "fail": c.fails.len(), "refused": c.refused, "inconclusive": c.inconclusive,
             "unrepresentable": c.unrep, "not_applicable": c.not_applicable
         })).collect();
@@ -100,7 +104,8 @@ impl Tally {
 
     /// Matrix symbol of a cell: ✓ held on every model it ran on, ✗ violated,
     /// R the analysis refused every model (or the transform's result) by
-    /// name, U never representable, · not applicable.
+    /// name, or every transformed model returned the same refusal, U never
+    /// representable, · not applicable.
     pub fn symbol(&self, ana: &str, inv: &str) -> &'static str {
         let g = self.cells.lock().unwrap();
         match g.get(&(ana.to_string(), inv.to_string())) {
@@ -108,7 +113,7 @@ impl Tally {
             Some(c) if !c.ignored.is_empty() => c.ignored.iter().next().copied().unwrap(),
             Some(c) if c.pass > 0 => "✓",
             Some(c) if c.inconclusive > 0 => "~",
-            Some(c) if c.refused > 0 => "R",
+            Some(c) if c.refused > 0 || c.same_refusal > 0 => "R",
             Some(c) if c.unrep > 0 => "U",
             _ => "·",
         }
@@ -121,7 +126,7 @@ impl Tally {
             Some(c) if !c.fails.is_empty() => "VIOLATED",
             Some(c) if c.pass > 0 => "holds",
             Some(c) if c.unrep > 0 && c.refused == 0 => "unrepresentable",
-            Some(c) if c.refused > 0 => "refused",
+            Some(c) if c.refused > 0 || c.same_refusal > 0 => "refused",
             _ => "—",
         }
     }

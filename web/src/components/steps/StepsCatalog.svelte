@@ -93,7 +93,8 @@
                 {#if v.ok}
                   <p class="sc-state ok">✓ {t('steps.catalog.ready')}</p>
                 {:else}
-                  <p class="sc-state no">{t('steps.catalog.notReady')} <Prose text={say(v.reason)} /></p>
+                  <p class="sc-state no" role={v.issue ? 'alert' : undefined} data-testid={v.issue ? `steps-withheld-${m.id}` : undefined}>{t('steps.catalog.notReady')} <Prose text={say(v.reason)} />
+                    {#if v.issue}<a class="sc-issue" href="https://github.com/lambdaclass/stabileo/issues/{v.issue}" target="_blank" rel="noopener noreferrer">{t('plastic.withheldIssue').replace('{issue}', String(v.issue))}</a>{/if}</p>
                 {/if}
               {/if}
               <div class="sc-actions">
@@ -133,6 +134,7 @@
   .sc-state { margin: 0.2rem 0; font-size: 0.72rem; }
   .sc-state.ok { color: #2fb36b; }
   .sc-state.no { color: var(--st-text-3); }
+  .sc-issue { display: inline-block; min-height: 24px; color: var(--st-accent); overflow-wrap: anywhere; }
   .sc-actions { display: flex; gap: 0.4rem; margin-top: 0.35rem; }
   .sc-actions button { font-size: 0.74rem; padding: 0.25rem 0.7rem; border-radius: 4px; cursor: pointer; border: 1px solid var(--st-hair-strong); }
   .sc-open { background: var(--st-accent); border-color: var(--st-accent) !important; color: #fff; }

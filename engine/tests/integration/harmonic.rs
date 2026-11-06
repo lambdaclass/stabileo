@@ -504,3 +504,37 @@ fn harmonic_3d_with_constraints() {
             "Non-finite response at {} Hz", pt.frequency);
     }
 }
+
+/// A well-conditioned beam stays on modal superposition: no frequency of the
+/// sweep needs the direct fallback, and the modal values match the direct
+/// complex solve.
+#[test]
+fn harmonic_3d_well_behaved_beam_stays_modal() {
+    use dedaliano_engine::solver::{assembly, dof::DofNumbering, mass_matrix};
+    let solver = make_ss_beam_3d_with_load();
+    let mut densities = HashMap::new();
+    densities.insert("1".to_string(), 7850.0);
+    let frequencies: Vec<f64> = (0..=40).map(|i| i as f64 * 1.5).collect();
+    let input = HarmonicInput3D {
+        solver: solver.clone(), densities: densities.clone(), frequencies, damping_ratio: 0.05,
+        response_node_id: 2, response_dof: "z".to_string(),
+    };
+    let (r, (a0, a1)) = solve_harmonic_3d_with_damping(&input).unwrap();
+    assert_eq!(r.method, dedaliano_engine::solver::harmonic::HarmonicMethod::ModalStatic);
+    assert!(r.direct_frequencies.is_empty(), "{:?} {:?}", r.direct_frequencies, r.warnings);
+    let worst = r.max_modal_residual.unwrap();
+    assert!(worst < MODAL_RESIDUAL_TOL, "{worst}");
+    let dn = DofNumbering::build_3d(&solver);
+    let (nf, n) = (dn.n_free, dn.n_total);
+    let asm = assembly::assemble_3d(&solver, &dn);
+    let m = mass_matrix::assemble_mass_matrix_3d(&solver, &dn, &densities);
+    let kff: Vec<f64> = (0..nf * nf).map(|i| asm.k[(i / nf) * n + i % nf]).collect();
+    let mff: Vec<f64> = (0..nf * nf).map(|i| m[(i / nf) * n + i % nf]).collect();
+    let cff: Vec<f64> = (0..nf * nf).map(|i| a0 * mff[i] + a1 * kff[i]).collect();
+    let g = dn.global_dof(2, 2).unwrap();
+    let peak = r.peak_amplitude;
+    for pt in &r.response_points {
+        let (re, im) = solve_complex_system(&kff, &mff, &cff, &asm.f[..nf], nf, pt.omega).unwrap();
+        assert!((pt.real - re[g]).hypot(pt.imag - im[g]) < 1e-4 * peak, "{} Hz: {} {} vs {} {}", pt.frequency, pt.real, pt.imag, re[g], im[g]);
+    }
+}

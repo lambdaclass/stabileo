@@ -1,7 +1,5 @@
 import { RESULT_CHANGES } from '../full-registry';
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'fs';
-import { resolve } from 'path';
 import { assessProject } from '../applicability';
 import type { FeatureSnapshot } from '../model-features';
 import type { SolveStamp } from '../solve-stamp';
@@ -11,8 +9,8 @@ import type { SolveStamp } from '../solve-stamp';
  * (`deploy-gh-pages.yml`) and stamps what it solves with `currentResultsVersion`, so a version on
  * main is released: an entry added to it later is never shown to a project that build solved.
  *
- * Adding a change? Do not add its id to a set below: give it `currentResultsVersion + 1`, bump
- * `currentResultsVersion`, and add the new version's set here (changes merged together share it).
+ * These are the frozen versions of `result-changes/numbered.json`. A change added since is a file
+ * of its own, numbered by main's merge order (`result-changes/README.md`), and is not listed here.
  */
 const RELEASED: Record<number, string[]> = {
   // #328 (2026-10-21), the first build that stamps its solves.
@@ -56,19 +54,51 @@ const RELEASED: Record<number, string[]> = {
   11: ['shell-envelope-per-component'],
   12: ['cirsoc301-q-nonpositive-refused'],
   13: ['time-history-massless-start', 'modal-mechanism-refused'],
-  14: ['modal-inclined-mechanism-refused'],
+  14: [
+    'basic-plastic-closes-unloading-hinges', 'basic-second-order-split-members',
+    'basic-influence-line-moment-sign',
+  ],
+  15: [
+    'basic-plastic-unloading-hinges-withdrawn', 'basic-second-order-split-members-withdrawn',
+    'basic-influence-line-moment-sign-withdrawn',
+  ],
+  16: ['aluminium-weak-axis-shear'],
+  17: ['joint-weak-axis-moment'],
+  18: ['rc-other-codes-torsion-unchecked'],
+  19: ['rc-column-least-compression'],
+  20: ['generated-area-loads-headroom'],
+  21: ['shell-figures-paint-the-screen-field'],
+  22: ['hidden-mechanism-2d-refused'],
+  23: ['buckling-2d-varying-axial-force'],
+  24: ['corotational-3d-rotations'],
+  25: ['constraint-cut-plane'],
+  26: ['governing-envelope-true-peak'],
+  27: ['basic-influence-line-moment-sign-returns'],
+  28: ['basic-second-order-split-members-returns'],
+  29: ['basic-plastic-closes-unloading-hinges-returns'],
+  30: ['connector-mechanism-2d-refused'],
+  32: ['harmonic-modal-residual-checked'],
+  39: ['plastic-3d-member-without-capacity-refused'],
+  38: ['example-cantilever-small-rotations'],
+  37: ['example-torsion-beam-closed-section'],
+  36: ['linear-small-displacement-warning'],
+  33: ['soft-rotation-not-orphan'],
+  31: ['safety-containment-diagnostics'],
+  34: ['fail-closed-ratios'],
+  35: ['buckling-3d-varying-axial-force'],
 };
 
 describe('results versions', () => {
   it('keeps the entries each released version shipped with', () => {
     const byVersion: Record<number, string[]> = {};
-    for (const c of RESULT_CHANGES.changes) (byVersion[c.resultsVersion] ??= []).push(c.id);
+    const frozen = Math.max(...Object.keys(RELEASED).map(Number));
+    for (const c of RESULT_CHANGES.changes) if (c.resultsVersion <= frozen) (byVersion[c.resultsVersion] ??= []).push(c.id);
     const sorted = (r: Record<number, string[]>) => Object.fromEntries(Object.entries(r).map(([v, ids]) => [v, [...ids].sort()]));
     expect(sorted(byVersion)).toEqual(sorted(RELEASED));
-    expect(RESULT_CHANGES.currentResultsVersion).toBe(Math.max(...Object.keys(RELEASED).map(Number)));
+    expect(RESULT_CHANGES.currentResultsVersion).toBeGreaterThanOrEqual(frozen);
   });
 
-  it('tells a modal frame about modal completeness up to version 8, self-checks up to 9 and the mechanism refusal up to 12, until it is re-solved', () => {
+  it('tells a modal frame about modal completeness up to version 8, self-checks up to 9, the mechanism refusal up to 12, the 3D co-rotational rotations up to 23 and the containment diagnostics up to 29, until it is re-solved', () => {
     const frame: FeatureSnapshot = {
       analysisMode: 'pro',
       elements: [[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1 }]],
@@ -76,31 +106,13 @@ describe('results versions', () => {
     const stamp = { resultsVersion: 4, analyses: ['modal'] } as unknown as SolveStamp;
     const ids = (resultsVersion: number) => assessProject(frame, { ...stamp, resultsVersion }, 'pro').changes.map((c) => c.id).sort();
     for (const version of [4, 5, 6, 7, 8]) {
-      expect(ids(version)).toEqual(['modal-mechanism-refused', 'modal-repeated-eigenspace-completeness', 'static-modal-runtime-self-checks']);
+      expect(ids(version)).toEqual(['corotational-3d-rotations', 'harmonic-modal-residual-checked', 'linear-second-order-warning', 'linear-small-displacement-warning', 'modal-mechanism-refused', 'modal-repeated-eigenspace-completeness', 'plastic-3d-member-without-capacity-refused', 'safety-containment-diagnostics', 'soft-rotation-not-orphan', 'static-modal-runtime-self-checks']);
     }
-    expect(ids(9)).toEqual(['modal-mechanism-refused', 'static-modal-runtime-self-checks']);
-    for (const version of [10, 11, 12]) expect(ids(version)).toEqual(['modal-mechanism-refused']);
-    expect(ids(13)).toEqual([]);
-  });
-
-  it('tells a modal frame on an inclined roller about the inclined mechanism refusal up to version 13', () => {
-    const frame: FeatureSnapshot = {
-      analysisMode: 'pro',
-      elements: [[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1 }]],
-      supports: [[1, { nodeId: 1, type: 'rollerX', isInclined: true, angle: 0.5 }]] as never,
-    };
-    const ids = (resultsVersion: number) => assessProject(frame, { resultsVersion, analyses: ['modal'] } as unknown as SolveStamp, 'pro').changes.map((c) => c.id);
-    expect(ids(13)).toEqual(['modal-inclined-mechanism-refused']);
-    expect(ids(14)).toEqual([]);
-    const level = { ...frame, supports: [[1, { nodeId: 1, type: 'rollerX' }]] } as FeatureSnapshot;
-    expect(assessProject(level, { resultsVersion: 13, analyses: ['modal'] } as unknown as SolveStamp, 'pro').changes).toEqual([]);
-  });
-
-  it('stamps the committed project fixture with the current version', () => {
-    // The e2e specs open it as a project of this build; an older stamp raises the re-check notice
-    // over them. Restamping it moves its sha256 in the rc-cad-handoff golden and manifest tests.
-    const fixture = JSON.parse(readFileSync(resolve(__dirname, '../../export/__fixtures__/rc-footing-cad-poc.ded.json'), 'utf8'));
-    expect(fixture.snapshot.solvedWith.resultsVersion).toBe(RESULT_CHANGES.currentResultsVersion);
+    expect(ids(9)).toEqual(['corotational-3d-rotations', 'harmonic-modal-residual-checked', 'linear-second-order-warning', 'linear-small-displacement-warning', 'modal-mechanism-refused', 'plastic-3d-member-without-capacity-refused', 'safety-containment-diagnostics', 'soft-rotation-not-orphan', 'static-modal-runtime-self-checks']);
+    for (const version of [10, 11, 12]) expect(ids(version)).toEqual(['corotational-3d-rotations', 'harmonic-modal-residual-checked', 'linear-second-order-warning', 'linear-small-displacement-warning', 'modal-mechanism-refused', 'plastic-3d-member-without-capacity-refused', 'safety-containment-diagnostics', 'soft-rotation-not-orphan']);
+    expect(ids(13)).toEqual(['corotational-3d-rotations', 'harmonic-modal-residual-checked', 'linear-second-order-warning', 'linear-small-displacement-warning', 'plastic-3d-member-without-capacity-refused', 'safety-containment-diagnostics', 'soft-rotation-not-orphan']);
+    expect(ids(26)).toEqual(['harmonic-modal-residual-checked', 'linear-second-order-warning', 'linear-small-displacement-warning', 'plastic-3d-member-without-capacity-refused', 'safety-containment-diagnostics', 'soft-rotation-not-orphan']);
+    expect(ids(RESULT_CHANGES.currentResultsVersion)).toEqual([]);
   });
 
   it('tells a project solved with version 1 about the changes added after it shipped', () => {

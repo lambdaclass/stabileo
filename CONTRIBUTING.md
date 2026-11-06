@@ -16,7 +16,8 @@ engine test-target registration checks. Additional work depends on changed paths
 Documentation/changelog changes may accompany one code area without broadening
 its selection. Markdown inside a code directory follows that directory's rule.
 Shared libraries, app code, dependencies, tooling, CI and unrecognized E2E specs
-always select full CI. The `run-e2e` label also forces full CI, including slow E2E.
+always select full CI. The `run-e2e` label also forces full CI, including slow E2E; adding it does not
+start a run, so push or re-run CI afterwards.
 Area selectors require unit tests and matching specs; missing coverage falls back
 to full CI. In particular, the tools directory and its `tools*.spec.ts` convention
 are reserved here and do not exist on this branch yet.
@@ -78,10 +79,13 @@ Top-level full-PR build counts, excluding builds spawned by tests (including
 
 Docker smoke tests both the default source build used by Compose and the
 `site-production` artifact from Web Build. The four site builds are production,
-E2E with test hooks, admin, and Docker source. Route budgets additionally
-build main and the candidate with a deterministic engine stub. Every change is
-held to the per-route budgets in `web/scripts/product-route-growth-budgets.json`
-(128 bytes per route), the same tolerance as research isolation.
+E2E with test hooks, admin, and Docker source. The route-size job additionally
+builds main and the candidate with a deterministic engine stub and reports each
+route's growth on the PR; size never fails a PR. A change touching research code
+shipped to the browser may grow a route by 128 bytes at most (research isolation),
+and research modules in a product chunk always fail. The weekly Route size workflow
+checks main against the ceilings in `web/scripts/route-size-ceilings.json` and opens
+a `route-size` issue when a route is over.
 All E2E consumers share `site-e2e`; other WASM consumers share `wasm` and
 `research-wasm` from the current run. Artifact reads use the read-only Actions
 token and the pinned flake's gh CLI (hosted Docker uses gh).

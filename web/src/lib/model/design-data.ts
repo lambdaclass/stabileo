@@ -26,6 +26,7 @@ export type Exposure = 'interior' | 'exterior' | 'ground';
 export interface LoadBasis {
   /** ISO time the plan was applied. */
   at: string;
+  resultsVersion?: number;
   generatedBy?: string;
   factors: Record<string, import('../codes/regulation').ProvenancedValue<number>>;
   levels: Array<Omit<import('../engine/loads/load-plan').LevelMass, 'nodeIds'>>;

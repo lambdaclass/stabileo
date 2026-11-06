@@ -278,6 +278,26 @@ def check_supported(d):
     return sorted(set(why))
 
 
+def unimposed_settlements(d):
+    """(support key, DOF name) of every nonzero prescribed displacement that no
+    rigid restraint carries: an unflagged DOF, a DOF a positive spring frees, or
+    a rotation an inclined support leaves free. `translate` drops these, so
+    Code_Aster solves the model without them; the engine refuses them (AC-10).
+    Translations of an inclined support are not listed: `translate` raises
+    Unsupported for a settlement there."""
+    out = []
+    for key, s in d["supports"].items():
+        normal = [s.get(k) for k in ("normalX", "normalY", "normalZ")]
+        inclined = bool(s.get("isInclined")) and None not in normal and _norm(normal) > 1e-12
+        for k in range(6):
+            v = s.get(PRESC[k])
+            if v is None or abs(v) <= 1e-15 or (inclined and k < 3):
+                continue
+            if not s.get(FLAGS[k]) or (not inclined and (s.get(SPRINGS[k]) or 0.0) > 0):
+                out.append((str(key), PRESC[k]))
+    return sorted(out)
+
+
 def translate(d):
     why = check_supported(d)
     if why:
@@ -287,6 +307,8 @@ def translate(d):
     mats = {x["id"]: x for x in d["materials"].values()}
     secs = {x["id"]: x for x in d["sections"].values()}
     elems = sorted(d["elements"].values(), key=lambda e: e["id"])
+    if not elems:
+        raise Unsupported("no members")
     for nid in sorted(pts):
         m.node(f"N{nid}", pts[nid])
     extra = [0]

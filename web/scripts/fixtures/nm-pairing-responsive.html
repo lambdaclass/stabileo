@@ -1,0 +1,43 @@
+<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>html{font-size:16px}body{margin:0;padding:12px;box-sizing:border-box}</style></head><body><div id="notice"></div><pre id="checks"></pre><script type="module">
+import '/src/lib/i18n/full-dictionaries.ts';
+import { mount, tick } from 'svelte';
+import NmPairingNotice from '/src/components/pro/design/NmPairingNotice.svelte';
+import { verificationStore } from '/src/lib/store/verification.svelte.ts';
+import { buildDesignSummary, normalizeCirsoc201 } from '/src/lib/engine/design-check-results.ts';
+const requestedWidth = Number(new URL(location.href).searchParams.get('width'));
+if (requestedWidth) {
+  const frame = document.createElement('iframe');
+  frame.style.cssText = `width:${requestedWidth}px;height:1000px;border:0`;
+  window.addEventListener('message', e => {
+    if (e.source === frame.contentWindow) document.getElementById('checks').textContent = JSON.stringify(e.data);
+  });
+  frame.src = location.pathname;
+  document.body.append(frame);
+} else {
+const verif = { elementId: 7, elementType: 'column', Mu: 80, Vu: 10, Nu: 500, b: 0.3, h: 0.3, fc: 25, fy: 420, cover: 0.025,
+  flexure: { Mu: 80, AsReq: 8, AsMin: 2, AsProv: 10, phiMn: 150, ratio: 0.5, status: 'ok', steps: [] },
+  shear: { Vu: 10, phiVc: 50, phiVn: 100, ratio: 0.1, status: 'ok', steps: [], AvPerS: 0, spacing: 0.15 },
+  column: { Nu: 500, Mu: 80, phiPn: 800, phiMn: 100, ratio: 0.62, status: 'ok', AsProv: 12, steps: [], spacing: 0.15, bars: '4φ16' },
+  biaxial: { Mres: 40, phiMn: 100, ratio: 0.4, status: 'ok' },
+  overallStatus: 'ok',
+  governingCombos: { flexure: { comboId: 3, comboName: '1.2D+1.0L+1.6W(+X) envelope of a long named combination' }, momentY: { comboId: 4, comboName: '0.9D+1.6W(-Y)' }, axial: { comboId: 1, comboName: '1.2D+1.6L' } } };
+const results = normalizeCirsoc201([verif], new Map());
+verificationStore.setDesignResults(results, buildDesignSummary(results, 'cirsoc', 'CIRSOC 201'));
+mount(NmPairingNotice, { target: document.querySelector('#notice'), props: { elementId: 7 } });
+await tick();
+const root = document.getElementById('notice');
+const visible = e => e.getBoundingClientRect().width > 0 && e.getBoundingClientRect().height > 0;
+const box = root.querySelector('[data-testid=nm-pairing-7]');
+const text = [...root.querySelectorAll('*')].filter(e => visible(e) && [...e.childNodes].some(n => n.nodeType === 3 && n.textContent.trim()));
+const checks = [{
+  width: innerWidth,
+  shown: !!box && visible(box) && box.getAttribute('role') === 'alert',
+  text: box?.textContent ?? '',
+  smallText: text.filter(e => parseFloat(getComputedStyle(e).fontSize) < 12).map(e => e.outerHTML.slice(0, 120)),
+  outside: [...root.querySelectorAll('*')].filter(e => visible(e) && e.getBoundingClientRect().right > innerWidth + 0.5).map(e => e.outerHTML.slice(0, 120)),
+  scrollWidth: document.documentElement.scrollWidth,
+}];
+document.getElementById('checks').textContent = JSON.stringify(checks);
+if (parent !== window) parent.postMessage(checks, location.origin);
+}
+</script></body></html>

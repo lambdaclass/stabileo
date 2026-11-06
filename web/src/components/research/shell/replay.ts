@@ -3,6 +3,8 @@
  * then per load step u8 damage and i8 displacements scaled per step, with every step's results
  * at full precision in the header. See research/fracture/shauer-2025/src/replay.rs for the layout.
  */
+import { holdPrerender } from '../../../lib/prerender-hold';
+
 export type ReplayHeader<S> = {
   build_id?: string;
   nodes: number;
@@ -80,7 +82,11 @@ export function decodeReplay<S>(buf: ArrayBuffer): Replay<S> {
  * Fetch a replay. The file is stored gzip-compressed; a host may or may not have decoded it
  * already, so the gzip magic bytes decide whether to inflate here.
  */
-export async function fetchReplay<S>(url: string, signal?: AbortSignal): Promise<Replay<S>> {
+export function fetchReplay<S>(url: string, signal?: AbortSignal): Promise<Replay<S>> {
+  return holdPrerender(loadReplay<S>(url, signal));
+}
+
+async function loadReplay<S>(url: string, signal?: AbortSignal): Promise<Replay<S>> {
   const r = await fetch(url, { signal });
   if (!r.ok) throw new Error(`replay: HTTP ${r.status} for ${url}`);
   let buf = await r.arrayBuffer();

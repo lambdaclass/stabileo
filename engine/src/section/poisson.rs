@@ -988,12 +988,14 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "wall clock: runs alone in Engine Gates (make test.engine.gates)"]
     fn sparse_path_scales_better_than_cubically() {
         use std::time::Instant;
         // Three refinement levels on the angle profile — the geometry with the
         // narrow legs and the acute corner, so element counts grow realistically.
         let (l, t) = (0.100, 0.010);
         let mut rows: Vec<(usize, usize, f64, f64)> = Vec::new();
+        let mut sizes = Vec::new();
 
         for &ma in &[8.0e-6, 2.0e-6, 5.0e-7] {
             let t0 = Instant::now();
@@ -1014,6 +1016,7 @@ mod tests {
                 ma, mesh.nodes.len(), mesh.triangles.len(), mesh_ms, solve_ms
             );
             rows.push((mesh.nodes.len(), mesh.triangles.len(), mesh_ms, solve_ms));
+            sizes.push(mesh.nodes.len());
         }
 
         // Empirical exponent: t ~ n^k. Dense LU is k = 3. Sparse Cholesky on a
@@ -1023,8 +1026,8 @@ mod tests {
         let (n2, _, _, s2) = rows[rows.len() - 1];
         let k = (s2.max(1e-3) / s0.max(1e-3)).ln() / ((n2 as f64) / (n0 as f64)).ln();
         println!("  observed exponent t ~ n^{k:.2} (dense LU would be 3.0)");
-        assert!(k < 2.5, "solve time scales as n^{k:.2} — that is dense-like, not sparse");
-        assert!(n2 > 4 * n0, "the three levels must actually differ in size");
+        crate::wall_clock::budget(k < 2.5, || format!("solve time scales as n^{k:.2} — that is dense-like, not sparse"));
+        assert!(sizes[sizes.len() - 1] > 4 * sizes[0], "the three levels must actually differ in size");
     }
 
     #[test]

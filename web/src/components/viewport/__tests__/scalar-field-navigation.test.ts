@@ -1,0 +1,36 @@
+import { expect, it } from 'vitest';
+import { PerspectiveCamera, Vector3 } from 'three';
+import { navigateScalarField } from '../scalar-field-navigation';
+
+it('pans, orbits and zooms from the keyboard while preserving the target geometry', () => {
+  const camera = new PerspectiveCamera();
+  camera.up.set(0, 0, 1);
+  camera.position.set(3, -4, 5);
+  camera.lookAt(0, 0, 0);
+  camera.updateMatrix();
+  const controls = { target: new Vector3(), enableRotate: true, update() { camera.lookAt(this.target); camera.updateMatrix(); } };
+  let prevented = 0;
+  const key = (key: string, shiftKey = false) => navigateScalarField({ key, shiftKey, preventDefault() { prevented++; } }, camera, controls);
+  const original = camera.position.clone();
+  expect(key('ArrowRight', true)).toBe('moved');
+  expect(camera.position.distanceTo(original)).toBeGreaterThan(0);
+  expect(camera.position.length()).toBeCloseTo(original.length(), 12);
+  const offset = camera.position.clone().sub(controls.target);
+  key('ArrowUp');
+  expect(controls.target.length()).toBeGreaterThan(0);
+  expect(camera.position.clone().sub(controls.target).distanceTo(offset)).toBeLessThan(1e-12);
+  key('+');
+  expect(camera.position.distanceTo(controls.target)).toBeCloseTo(offset.length() * 0.9, 12);
+  key('-');
+  expect(camera.position.distanceTo(controls.target)).toBeCloseTo(offset.length(), 12);
+  controls.enableRotate = false;
+  const planPosition = camera.position.clone();
+  expect(key('ArrowLeft', true)).toBeNull();
+  expect(camera.position).toEqual(planPosition);
+  expect(key('Tab')).toBeNull();
+  expect(prevented).toBe(5);
+  expect(key('0')).toBe('fit');
+  expect(key('Home')).toBe('fit');
+  expect(navigateScalarField({ key: '+', shiftKey: false, ctrlKey: true, preventDefault() { prevented++; } }, camera, controls)).toBeNull();
+  expect(prevented).toBe(7);
+});

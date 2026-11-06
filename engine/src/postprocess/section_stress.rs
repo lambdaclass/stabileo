@@ -266,10 +266,10 @@ pub fn check_failure(sigma: f64, tau: f64, fy: Option<f64>) -> FailureCheck {
     let radius = tresca_tau_max;
     let rankine = (center + radius).abs().max((center - radius).abs());
 
-    let ratio_vm = fy.map(|f| von_mises / f);
-    let ratio_tresca = fy.map(|f| tresca / f);
-    let ratio_rankine = fy.map(|f| rankine / f);
-    let ok = fy.map(|f| von_mises <= f);
+    let ratio_vm = fy.and_then(|f| crate::check::ratio(von_mises, f).value());
+    let ratio_tresca = fy.and_then(|f| crate::check::ratio(tresca, f).value());
+    let ratio_rankine = fy.and_then(|f| crate::check::ratio(rankine, f).value());
+    let ok = fy.map(|f| crate::check::ratio(von_mises, f).passes());
 
     FailureCheck { von_mises, tresca, rankine, fy, ratio_vm, ratio_tresca, ratio_rankine, ok }
 }

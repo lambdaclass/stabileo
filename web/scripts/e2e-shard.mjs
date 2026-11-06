@@ -24,7 +24,8 @@
  *   node scripts/e2e-shard.mjs [--suite slow] <index> <total>   # the files, one per line
  *   node scripts/e2e-shard.mjs [--suite slow] --update a.json b.json ...
  *
- * `--suite smoke` (the default) reads e2e/shard-timings.json, `--suite slow`
+ * `--suite smoke` (the default) reads e2e/shard-timings.json, or the table E2E_SHARD_TIMINGS names (CI
+ * passes the one measured on a recent main or merge-queue run, the same file to every shard), `--suite slow`
  * e2e/shard-timings-slow.json. Refresh a table from a CI run's
  * `playwright-artifacts-*`: each shard's JSON report is e2e/.results/<suite>.json
  * there; pass all of them to merge the shards.
@@ -100,7 +101,7 @@ if (!(suite in TABLES)) {
   console.error(`unknown suite "${suite}": one of ${Object.keys(TABLES).join(', ')}`);
   process.exit(2);
 }
-const TIMINGS = join(E2E, TABLES[suite]);
+const TIMINGS = suite === 'smoke' && process.env.E2E_SHARD_TIMINGS ? resolve(process.env.E2E_SHARD_TIMINGS) : join(E2E, TABLES[suite]);
 const [a, b, ...rest] = args;
 if (a === '--update') {
   const reports = [b, ...rest].map((p) => JSON.parse(readFileSync(p, 'utf8')));

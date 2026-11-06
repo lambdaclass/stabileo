@@ -56,9 +56,8 @@ const REPORTED = {
    * which reproduces the same design (the V2 golden kept its bytes). V1 is frozen and is not
    * rebuilt from it either way.
    */
-  // Moved when the fixture gained its solve stamp (`snapshot.solvedWith`), and when the stamp
-  // moved to results versions 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 and 13; the model is unchanged.
-  fixtureSha256: '7ff1ebd35cbd70154f519981575ef1488162be43be9acb6fa2e0acaf99d266b9',
+  // Never restamped for a new results version: e2e opens a restamped copy (`rcFootingProject`).
+  fixtureSha256: 'da13526823440e9d95ac5734cf1137d81839aca05fda8ce7936abdc93c3b47d5',
 };
 
 const sha256 = (s: string) => createHash('sha256').update(s, 'utf8').digest('hex');

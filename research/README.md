@@ -32,8 +32,8 @@ The plan every page and contribution follows is [DESIGN.md](DESIGN.md).
 | `benchmarks/macneal-harder-1985/` | Production engine accuracy cases using the shared benchmark page format |
 | `benchmarks/mattiasson-elastica/` | Production corotational cantilever benchmark with provisional reference transcriptions |
 | `benchmarks/cqc-1981/` | First version, 1 review round: close building modes, production modal + spectrum solvers versus closed form |
-| `benchmarks/navier-plate/` | First version: one simply supported plate, production DKT/MITC4 vs Navier series; published `results/stabileo_results.json` |
-| `benchmarks/lee-frame-1968/` | First-version pinned Lee frame, production arc-length replay and provisional limit-load comparison (1 review round) |
+| `benchmarks/navier-plate/` | First version: one simply supported plate, production DKT vs the thin-plate Navier series and MITC4 (hard support) vs the Reissner–Mindlin series; published `results/stabileo_results.json` |
+| `benchmarks/lee-frame-1968/` | First-version pinned Lee frame, production arc-length replay, mesh and step study, first-peak comparison with a by-eye reading of a published figure (2 review rounds) |
 | `numerical-methods/riks-crisfield/` | Production arc-length benchmarks against closed-form snap-through paths, with native/WASM parity checks |
 | `templates/` | Starting point for a new paper entry |
 | `tools/` | Catalog checker and other research-only tooling |
@@ -62,7 +62,7 @@ Statuses in `papers.yaml` are assigned from evidence in the repository, not by h
 | `reference-reproduced` | The authors' code ran here; its outputs are committed with the exact environment |
 | `implementation-in-progress` | A Stabileo implementation exists but its validation tests do not yet pass |
 | `numerically-validated` | Tests compare our implementation with the reproduced reference within documented tolerances, and pass in CI. When the authors publish no code, the reference is the paper's published values plus exact results (see that experiment's README). Whether published numbers were reproduced is the separate `reproduced_published_results` field |
-| `published-figures-compared` | Numerical validation plus `reproduced_published_results: true` and `PUBLISHED_COMPARISON.json` with passing checks naming published sources, metrics, observations and tolerances |
+| `published-figures-compared` | Numerical validation plus `reproduced_published_results: true` and `reference-results/published_comparison.json` (legacy: `PUBLISHED_COMPARISON.json`) with passing checks naming published sources, metrics, observations and tolerances |
 | `interactive` | Numerical validation plus an existing repository-relative `page` file; this does not imply published-results agreement |
 
 `summary_source` is declared provenance for human review, not machine-verified summary content.
@@ -82,16 +82,16 @@ Changes to shipped research JSON/CSV (outside `research/tools/`),
 This includes mixed product/research changes and merge-queue candidates. A push to main, which has
 no base revision, always enforces research isolation.
 
-Every measured candidate also uses `web/scripts/product-route-growth-budgets.json`, the
-per-route growth allowed for product changes relative to `main`. It is 128 bytes for every
-route, the same as the research tolerance: raising any of these numbers is a product decision
-made in its own reviewed change, never as a side effect of another PR.
-Static research imports fail for both product and research changes.
+Product-only changes are measured too, but their growth is only reported (the job summary and a
+notice on the PR); the weekly Route size workflow watches main's absolute size against
+`web/scripts/route-size-ceilings.json`. Static research imports fail for both product and
+research changes.
 
 The script measures uncompressed dependency bytes for `/en/`, `/es/`, `/pt/` and every `/app/*`
 mode. Landing routes count the entry's static closure; app routes also count App's static and
-lazy product dependencies. Explicit lazy research routes are excluded; static research imports
-fail. HTML, bundled JS/CSS, manifest assets and statically referenced public files count once.
+lazy product dependencies. Explicit lazy route boundaries are excluded: research, tools, and the
+blog page (`BLOG_ROUTE_BOUNDARY`, `components/blog/BlogPage.svelte`, loaded only on a blog
+address). Modules the blog shares with App still count. Static research imports fail. HTML, bundled JS/CSS, manifest assets and statically referenced public files count once.
 Runtime-generated asset URLs and the engine binary are outside this gate; a fixed engine stub
 makes the measurements independent of locally built WASM.
 
@@ -117,8 +117,9 @@ For local comparisons, run `nix develop .. -c node scripts/check-research-route-
 without `--update` from the candidate's `web/`, using the same Nix toolchain for both.
 Local comparisons default to research isolation; set `RESEARCH_ISOLATION=false` only for
 product-only changes.
-`node --test web/scripts/research-route-budget.test.mjs` checks both budget modes, their exact
-boundaries, environment selection, unchanged routes and missing measurements.
+`node --test web/scripts/research-route-budget.test.mjs` checks the isolation boundary (128 bytes
+passes, 129 fails), that product growth is reported and not refused, the ceilings and missing
+measurements.
 
 The Mattiasson engine benchmark (`benchmarks/mattiasson-elastica`) reads the
 engine-owned `engine/tests/benchmarks/mattiasson_elastica.json` through its native
@@ -140,4 +141,4 @@ production WASM wrapper and shared Stabileo viewer. Stage: first-version; 1 revi
 1 review round. The page reports hand mechanism bounds separately from the solver result.
 ## First-version engine benchmark
 
-`benchmarks/dadeppo-arch-1975/` is one 215° clamped–hinged arch solved by the production corotational arc-length solver. Its shared case lives in `engine/tests/benchmarks/dadeppo_arch.json`; the web reads only that engine-owned input and the published replay `research/benchmarks/dadeppo-arch-1975/results/stabileo_results.json`. Stage: first-version, 1 review round. See its README for the corrected normalization (PR²/EI = 8.97), source, reproduction commands and limitations.
+`benchmarks/dadeppo-arch-1975/` is one 215° clamped–hinged arch solved by the production corotational arc-length solver. Its shared case lives in `engine/tests/benchmarks/dadeppo_arch.json`; the web reads only that engine-owned input and the native results `research/benchmarks/dadeppo-arch-1975/results/stabileo_results.json` (replay, limit point and mesh study). Stage: first-version, 2 review rounds. See its README for the corrected normalization (PR²/EI = 8.97), source, reproduction commands and limitations.
