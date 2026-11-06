@@ -69,9 +69,11 @@ export function landingsAt(git, rev) {
     throw new Error(`${rev}: no first-parent commit adds ${DIR}/${NUMBERED}`);
   }
   try {
-    git('rev-parse', '--verify', '--quiet', `${commits[anchor].sha}^1`);
-  } catch {
-    throw missing();
+    git('cat-file', '-e', `${commits[anchor].sha}^1^{commit}`);
+  } catch (e) {
+    if (git('rev-parse', '--is-shallow-repository').trim() === 'true') throw missing();
+    throw new Error(`${rev}: cannot read the parent of ${commits[anchor].sha}, where ${DIR} was introduced `
+      + `(git exit ${e.status ?? e.code}): ${String(e.stderr ?? e.message).trim()}`);
   }
   const last = new Map();
   commits.slice(anchor).forEach((c, k) => { for (const f of c.files) if (isFragmentPath(f)) last.set(idOf(f), k); });
