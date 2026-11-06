@@ -7,7 +7,7 @@ const ISSUES = 'https://github.com/lambdaclass/stabileo/issues';
 export const whenResultsChange: Post = {
   slug: 'when-results-change',
   date: '2026-11-05',
-  order: 13,
+  order: 15,
   authors: ['Federico Carrone'],
   tagKeys: ['blog.tag.safety', 'blog.tag.verification', 'blog.tag.solver'],
   i18n: {

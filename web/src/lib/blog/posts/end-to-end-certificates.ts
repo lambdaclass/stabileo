@@ -16,7 +16,7 @@ const REPO = 'https://github.com/lambdaclass/stabileo/blob/main';
 export const endToEndCertificates: Post = {
   slug: 'end-to-end-certificates',
   date: '2026-10-22',
-  order: 9,
+  order: 11,
   authors: ['Federico Carrone'],
   tagKeys: ['blog.tag.verification', 'blog.tag.solver', 'blog.tag.safety'],
   i18n: {
