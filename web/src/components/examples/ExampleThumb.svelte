@@ -16,12 +16,6 @@
       {/each}
     {/each}
     {#each [0, 1, 2] as r}{#each [0, 1, 2] as c}<circle cx={56 + c * 64} cy={6 + r * 64} r="4" class="column" />{/each}{/each}
-  {:else if id === 'rc-pushover'}
-    <path class="ground" d="M20 132 H90" />
-    <path class="member" d="M50 132 V20" />
-    <path class="load" d="M30 20 H50" />
-    <path class="diagram" d="M110 128 L140 60 C160 30 190 26 220 26" />
-    <path class="ground" d="M110 128 H226 M110 128 V12" />
   {:else if id === 'rc-column'}
     <rect class="member" x="40" y="20" width="80" height="100" />
     <rect class="load" x="48" y="28" width="64" height="84" />
