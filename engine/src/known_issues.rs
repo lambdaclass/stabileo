@@ -563,52 +563,78 @@ pub(crate) fn small_displacement(mut nodes: Vec<usize>, mut elements: Vec<usize>
     Some(d)
 }
 
+fn beyond_chords(chords: &[MemberChord]) -> Vec<usize> {
+    chords.iter().filter(|c| beyond_small_displacement(c.chord.iter().map(|v| v * v).sum::<f64>().sqrt())).map(|c| c.element_id).collect()
+}
+
 /// Nodes whose rotation, and two-node members whose chord rotation |Δu|/L, exceed
-/// [`SMALL_DISPLACEMENT_LIMIT`]. Each member is judged against its own length, so a large part
-/// elsewhere in the model does not hide a small one.
-pub fn small_displacement_2d(input: Option<&SolverInput>, r: &AnalysisResults) -> Option<StructuredDiagnostic> {
-    let nodes = r.displacements.iter().filter(|d| beyond_small_displacement(d.ry)).map(|d| d.node_id).collect();
-    let mut elements = Vec::new();
-    if let Some(input) = input {
-        let u: std::collections::HashMap<usize, (f64, f64)> = r.displacements.iter().map(|d| (d.node_id, (d.ux, d.uz))).collect();
-        let at: std::collections::HashMap<usize, &SolverNode> = input.nodes.values().map(|n| (n.id, n)).collect();
-        for e in crate::ordered::values(&input.elements) {
-            let (Some(a), Some(b)) = (at.get(&e.node_i), at.get(&e.node_j)) else { continue };
-            let (ua, ub) = (u.get(&e.node_i).copied().unwrap_or((0.0, 0.0)), u.get(&e.node_j).copied().unwrap_or((0.0, 0.0)));
-            let length = (b.x - a.x).hypot(b.z - a.z);
-            if length > 0.0 && beyond_small_displacement((ub.0 - ua.0).hypot(ub.1 - ua.1) / length) {
-                elements.push(e.id);
+/// [`SMALL_DISPLACEMENT_LIMIT`], with every member's chord for combinations. Each member is
+/// judged against its own length, so a large part elsewhere in the model does not hide a small one.
+pub fn small_displacement_2d(input: &SolverInput, r: &AnalysisResults) -> (Option<StructuredDiagnostic>, Vec<MemberChord>) {
+    let u: std::collections::HashMap<usize, (f64, f64)> = r.displacements.iter().map(|d| (d.node_id, (d.ux, d.uz))).collect();
+    let at: std::collections::HashMap<usize, &SolverNode> = input.nodes.values().map(|n| (n.id, n)).collect();
+    let mut chords = Vec::new();
+    for e in crate::ordered::values(&input.elements) {
+        let (Some(a), Some(b)) = (at.get(&e.node_i), at.get(&e.node_j)) else { continue };
+        let (ua, ub) = (u.get(&e.node_i).copied().unwrap_or((0.0, 0.0)), u.get(&e.node_j).copied().unwrap_or((0.0, 0.0)));
+        let length = (b.x - a.x).hypot(b.z - a.z);
+        if length > 0.0 {
+            chords.push(MemberChord { element_id: e.id, chord: [(ub.0 - ua.0) / length, 0.0, (ub.1 - ua.1) / length] });
+        }
+    }
+    (small_displacement(rotated_nodes_2d(r), beyond_chords(&chords)), chords)
+}
+
+pub(crate) fn rotated_nodes_2d(r: &AnalysisResults) -> Vec<usize> {
+    r.displacements.iter().filter(|d| beyond_small_displacement(d.ry)).map(|d| d.node_id).collect()
+}
+
+pub(crate) fn rotated_nodes_3d(r: &AnalysisResults3D) -> Vec<usize> {
+    r.displacements.iter().filter(|d| beyond_small_displacement((d.rx * d.rx + d.ry * d.ry + d.rz * d.rz).sqrt())).map(|d| d.node_id).collect()
+}
+
+/// A combination's warning: its own node rotations, and its member chords summed from the
+/// factored chords of its cases. A case that recorded no chords has its chord warnings carried,
+/// and the combination then records none.
+pub(crate) fn combined_small_displacement<'a>(nodes: Vec<usize>, cases: impl Iterator<Item = (f64, Option<&'a ResultSummary>, Vec<StructuredDiagnostic>)>) -> (Option<StructuredDiagnostic>, Option<Vec<MemberChord>>) {
+    let mut summed: std::collections::BTreeMap<usize, [f64; 3]> = std::collections::BTreeMap::new();
+    let mut carried = Vec::new();
+    let mut complete = true;
+    for (factor, summary, diagnostics) in cases {
+        match summary.and_then(|s| s.member_chords.as_ref()) {
+            Some(chords) => {
+                for c in chords {
+                    let sum = summed.entry(c.element_id).or_insert([0.0; 3]);
+                    for (s, v) in sum.iter_mut().zip(c.chord) {
+                        *s += factor * v;
+                    }
+                }
+            }
+            None => {
+                complete = false;
+                carried.extend(diagnostics.iter().filter(|d| d.phase.as_deref() == Some("LIN-SMALL-DISPLACEMENT")).flat_map(|d| d.element_ids.iter().copied()));
             }
         }
     }
-    small_displacement(nodes, elements)
-}
-
-/// A combination's warning: its own node rotations, recomputed, and the members whose chord a
-/// contributing case warned, carried without geometry to recompute them.
-pub(crate) fn combined_small_displacement<'a>(nodes: Option<StructuredDiagnostic>, cases: impl Iterator<Item = &'a StructuredDiagnostic>) -> Option<StructuredDiagnostic> {
-    let elements = cases.filter(|d| d.phase.as_deref() == Some("LIN-SMALL-DISPLACEMENT")).flat_map(|d| d.element_ids.iter().copied()).collect();
-    small_displacement(nodes.map_or_else(Vec::new, |d| d.node_ids), elements)
+    let chords: Vec<MemberChord> = summed.into_iter().map(|(element_id, chord)| MemberChord { element_id, chord }).collect();
+    carried.extend(beyond_chords(&chords));
+    (small_displacement(nodes, carried), complete.then_some(chords))
 }
 
 /// [`small_displacement_2d`] in 3D: the norm of each node's rotation vector, and the chord of every two-node member.
-pub fn small_displacement_3d(input: Option<&SolverInput3D>, r: &AnalysisResults3D) -> Option<StructuredDiagnostic> {
-    let nodes = r.displacements.iter().filter(|d| beyond_small_displacement((d.rx * d.rx + d.ry * d.ry + d.rz * d.rz).sqrt())).map(|d| d.node_id).collect();
-    let mut elements = Vec::new();
-    if let Some(input) = input {
-        let u: std::collections::HashMap<usize, [f64; 3]> = r.displacements.iter().map(|d| (d.node_id, [d.ux, d.uy, d.uz])).collect();
-        let at: std::collections::HashMap<usize, &SolverNode3D> = input.nodes.values().map(|n| (n.id, n)).collect();
-        for e in crate::ordered::values(&input.elements) {
-            let (Some(a), Some(b)) = (at.get(&e.node_i), at.get(&e.node_j)) else { continue };
-            let (ua, ub) = (u.get(&e.node_i).copied().unwrap_or([0.0; 3]), u.get(&e.node_j).copied().unwrap_or([0.0; 3]));
-            let length = ((b.x - a.x).powi(2) + (b.y - a.y).powi(2) + (b.z - a.z).powi(2)).sqrt();
-            let chord = ((ub[0] - ua[0]).powi(2) + (ub[1] - ua[1]).powi(2) + (ub[2] - ua[2]).powi(2)).sqrt();
-            if length > 0.0 && beyond_small_displacement(chord / length) {
-                elements.push(e.id);
-            }
+pub fn small_displacement_3d(input: &SolverInput3D, r: &AnalysisResults3D) -> (Option<StructuredDiagnostic>, Vec<MemberChord>) {
+    let u: std::collections::HashMap<usize, [f64; 3]> = r.displacements.iter().map(|d| (d.node_id, [d.ux, d.uy, d.uz])).collect();
+    let at: std::collections::HashMap<usize, &SolverNode3D> = input.nodes.values().map(|n| (n.id, n)).collect();
+    let mut chords = Vec::new();
+    for e in crate::ordered::values(&input.elements) {
+        let (Some(a), Some(b)) = (at.get(&e.node_i), at.get(&e.node_j)) else { continue };
+        let (ua, ub) = (u.get(&e.node_i).copied().unwrap_or([0.0; 3]), u.get(&e.node_j).copied().unwrap_or([0.0; 3]));
+        let length = ((b.x - a.x).powi(2) + (b.y - a.y).powi(2) + (b.z - a.z).powi(2)).sqrt();
+        if length > 0.0 {
+            chords.push(MemberChord { element_id: e.id, chord: [(ub[0] - ua[0]) / length, (ub[1] - ua[1]) / length, (ub[2] - ua[2]) / length] });
         }
     }
-    small_displacement(nodes, elements)
+    (small_displacement(rotated_nodes_3d(r), beyond_chords(&chords)), chords)
 }
 
 /// The second-order screening limit of a linear result, N/Ncr = 0.07483: the largest ratio at which

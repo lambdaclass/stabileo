@@ -464,6 +464,17 @@ pub struct ResultSummary {
     /// compressed, absent when the result was not screened. Combinations sum it by |factor|.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub second_order_ratio: Option<f64>,
+    /// Each two-node member's relative end displacement over its length, in global x, y, z (2D:
+    /// x, 0, z), for combinations to judge chords on their own: absent when not recorded.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub member_chords: Option<Vec<MemberChord>>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MemberChord {
+    pub element_id: usize,
+    pub chord: [f64; 3],
 }
 
 // ==================== Solver Run Metadata ====================

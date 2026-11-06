@@ -2122,7 +2122,6 @@ fn warned_chords(diagnostics: &[StructuredDiagnostic]) -> Option<(Vec<usize>, Ve
 }
 
 #[test]
-#[ignore = "known wrong result: #1506"]
 fn a_combination_judges_member_chords_on_its_own_displacements_1506() {
     use dedaliano_engine::postprocess::combinations::{combine_results_refs, CombinationFactor};
     let (along, across, far) = (chord_case_2d(120_000.0, 0.0), chord_case_2d(0.0, -3600.0), chord_case_2d(600_000.0, 0.0));
@@ -2141,10 +2140,26 @@ fn a_combination_judges_member_chords_on_its_own_displacements_1506() {
     assert_eq!(warned_chords(&combine(&[(3, 0.1)])), None, "0.3 reduced to 0.03");
     assert_eq!(warned_chords(&combine(&[(3, 1.0), (4, -1.0)])), None, "cancelled");
     assert_eq!(warned_chords(&combine(&[(3, 1.0), (4, -0.6)])), Some((vec![], vec![1])));
+    let summed = combine_results_refs(&[CombinationFactor { case_id: 1, factor: 2.0 }, CombinationFactor { case_id: 2, factor: 0.5 }], &cases).unwrap();
+    let chord = summed.result_summary.as_ref().and_then(|s| s.member_chords.clone()).unwrap();
+    assert_eq!(chord.len(), 1);
+    assert!((chord[0].chord[0] - 0.12).abs() < 1e-12 && chord[0].chord[1] == 0.0 && (chord[0].chord[2] + 0.03).abs() < 1e-12, "{chord:?}");
 }
 
 #[test]
-#[ignore = "known wrong result: #1506"]
+fn a_case_without_recorded_chords_has_its_chord_warnings_carried_1506() {
+    use dedaliano_engine::postprocess::combinations::{combine_results_refs, CombinationFactor};
+    let mut far = chord_case_2d(600_000.0, 0.0);
+    let mut along = chord_case_2d(120_000.0, 0.0);
+    for r in [&mut far, &mut along] {
+        r.result_summary.as_mut().unwrap().member_chords = None;
+    }
+    let combined = combine_results_refs(&[CombinationFactor { case_id: 1, factor: 0.1 }, CombinationFactor { case_id: 2, factor: 2.0 }], &[(1, &far), (2, &along)]).unwrap();
+    assert_eq!(warned_chords(&combined.structured_diagnostics), Some((vec![], vec![1])));
+    assert_eq!(combined.result_summary.and_then(|s| s.member_chords), None);
+}
+
+#[test]
 fn a_3d_combination_judges_member_chords_on_its_own_displacements_1506() {
     use dedaliano_engine::postprocess::combinations::{combine_results_3d_refs, CombinationFactor};
     let (along, across, far) = (chord_case_3d(120_000.0, 0.0), chord_case_3d(0.0, -3600.0), chord_case_3d(600_000.0, 0.0));
