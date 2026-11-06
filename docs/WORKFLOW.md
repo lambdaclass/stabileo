@@ -141,7 +141,8 @@ test named after an issue (the monthly re-run against main, docs/TESTING_CADENCE
 A merge to `main` deploys to users, so a merge is a release. Result-affecting changes need a
 release note with a "results may change" section (English, Spanish, Portuguese) and, when an
 earlier release produced a wrong or unconservative result, a safety advisory
-([SAFETY_ADVISORIES.md](SAFETY_ADVISORIES.md)).
+([SAFETY_ADVISORIES.md](SAFETY_ADVISORIES.md)). The release pull request runs `make release.step
+VERSION=<x.y.z> DATE=<yyyy-mm-dd>` after the version bump ([changelog.d/README.md](../changelog.d/README.md)).
 
 ## Engineering standard (kept from the earlier workflow)
 
