@@ -22,3 +22,11 @@ export const SITE_NAV: NavItem[] = [
 ];
 
 export type NavCurrent = 'blog' | 'changelog' | 'research' | 'paper' | 'tools' | 'examples' | null;
+
+/** Active public section, including nested articles and tools. */
+export function currentNav(path: string): NavCurrent {
+  for (const item of SITE_NAV) {
+    if (item.kind === 'page' && (path === item.to || path.startsWith(item.to + '/'))) return item.id;
+  }
+  return null;
+}

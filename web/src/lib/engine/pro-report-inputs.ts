@@ -1,3 +1,4 @@
+import { knownIssueResultDisposition } from './known-issues';
 /**
  * Everything the PRO report is made of, gathered in one place.
  *
@@ -36,7 +37,7 @@ import type { ReportData, ReportConfig } from './pro-report';
 import { projectQuantities } from './quantities';
 import { staticsRows } from '../store/statics-rows';
 import { resultSetName } from '../export/figure';
-import { resultSet } from '../pro/export-results';
+import { hasResultSet, resultSet } from '../pro/export-results';
 import { ruleLabel } from './deflection-limits';
 import { detailingStore } from '../store/detailing.svelte';
 import {
@@ -220,9 +221,9 @@ export function reportStoryDrifts(): { drifts: ReportData['storyDrifts']; basis?
 /**
  * Assemble the whole report.
  *
- * Returns `null` when there are no 3-D results: the report is a document about a solve, and
- * there is no honest version of it without one. An empty model has nothing to solve, and its
- * report comes out empty. The design is reported by the memoria
+ * Returns `null` when there are no 3-D results, or when the chosen result set is not among
+ * them: the report is a document about a solve, and there is no honest version of it without
+ * one. An empty model has nothing to solve, and its report comes out empty. The design is reported by the memoria
  * (`store/memoria-inputs.ts`), which reads the design's own results.
  */
 export function buildProReportData(opts: {
@@ -241,6 +242,7 @@ export function buildProReportData(opts: {
 }): ReportData | null {
   const { config, advancedResults, screenshot, t } = opts;
   const chosen = config.resultSetKey && config.resultSetKey !== 'screen' ? resultSet(config.resultSetKey) : null;
+  if (chosen && !hasResultSet(config.resultSetKey!)) return null;
   const results = chosen?.results ?? resultsStore.results3D
     ?? (modelStore.nodes.size === 0 ? { displacements: [], reactions: [], elementForces: [] } : null);
   if (!results) return null;
@@ -281,6 +283,14 @@ export function buildProReportData(opts: {
   data.resultSets = combos.size > 0
     ? [...combos].map(([id, r]) => ({ id, name: cname.get(id) ?? String(id), results: r }))
     : [...resultsStore.perCase3D].map(([id, r]) => ({ id, name: kname.get(id) ?? String(id), results: r }));
+  data.containment = knownIssueResultDisposition([
+    results, data.resultSets,
+  ]);
+  const caseContainment = resultsStore.caseDisposition3D(modelStore.loadCases.map(c => c.id));
+  data.containment = {
+    refused: data.containment.refused || caseContainment.refused,
+    messages: [...new Set([...data.containment.messages, ...caseContainment.messages])],
+  };
   data.statics = staticsRows();
   const seen = new Set<string>();
   data.deflections = [...deflectionChecks().rows.values()].flatMap((c) => {

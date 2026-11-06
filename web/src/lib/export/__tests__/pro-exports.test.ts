@@ -27,6 +27,8 @@ import { reportResultFigures } from '../../pro/report-export';
 import { generateReportHtml, type ReportConfig, type ReportData } from '../../engine/pro-report';
 import { resultSet, resultSetChoices } from '../../pro/export-results';
 import { t } from '../../i18n';
+import { contourOptions } from '../../store/contour-options.svelte';
+import { currentShellContourField } from '../../store/shell-contour';
 
 beforeAll(async () => { await initSolver(); });
 beforeEach(() => { uiStore.analysisMode = 'pro'; modelStore.clear(); resultsStore.clear3D(); });
@@ -85,8 +87,10 @@ function entities(dxf: string): Array<{ type: string; layer: string; codes: Map<
 describe('the workbook, sheet by sheet', () => {
   it('keeps only the sheets named, with the cover and the conventions', () => {
     slabFrame();
-    const names = currentWorkbookSheets(5, { sheets: new Set(['Nodes', 'Reactions']) }).map((s) => s.name);
-    expect(names).toEqual(['Cover', 'Conventions', 'Nodes', 'Reactions']);
+    const sheets = currentWorkbookSheets(5, { sheets: new Set(['Nodes', 'Reactions']) });
+    const names = sheets.map(s => s.name);
+    expect(sheets.find(s => s.name === 'Warnings')!.rows.flat().join(' ')).toContain('#810');
+    expect(names).toEqual(['Cover', 'Conventions', 'Warnings', 'Nodes', 'Reactions']);
   });
 
   it('keeps only the combinations chosen', () => {
@@ -104,8 +108,10 @@ describe('the workbook, sheet by sheet', () => {
     expect(downloads).toHaveLength(1);
     const { blob, name } = downloads[0]!;
     expect(name).toMatch(/\.zip$/);
-    const files = Object.keys(unzipSync(new Uint8Array(await blob.arrayBuffer())));
-    expect(files).toEqual(['01-Cover.csv', '02-Conventions.csv', '03-Nodes.csv']);
+    const archive = unzipSync(new Uint8Array(await blob.arrayBuffer()));
+    const files = Object.keys(archive);
+    expect(new TextDecoder().decode(archive['03-Warnings.csv'])).toContain('#810');
+    expect(files).toEqual(['01-Cover.csv', '02-Conventions.csv', '03-Warnings.csv', '04-Nodes.csv']);
   });
 });
 
@@ -176,6 +182,46 @@ describe('the figures of a model with shells', () => {
     const bw = toSvg(plan2D('shellMap', { ...opts, style: 'bw', shellComponent: 'mx', view: 'top' })!);
     for (const m of bw.matchAll(/fill="rgb\((\d+),(\d+),(\d+)\)"/g)) expect(m[1] === m[2] && m[2] === m[3]).toBe(true);
     expect(svg).toContain('kN·m/m');
+  });
+
+  it('the shell result is painted from the field and over the range the screen shows', () => {
+    slabFrame();
+    contourOptions.auto = false; contourOptions.min = -50; contourOptions.max = 50; contourOptions.bands = 4;
+    try {
+      const svg = toSvg(plan2D('shellMap', { ...opts, shellComponent: 'mx', view: 'top' })!);
+      const texts = [...svg.matchAll(/<text[^>]*>(.*?)<\/text>/g)].map((m) => m[1]);
+      expect(texts).toEqual(expect.arrayContaining(['50.00', '0.00', '-50.00']));
+      const field = currentShellContourField(resultsStore.results3D, 'mx')!;
+      expect(field.range).toEqual({ min: -50, max: 50 });
+      const shellFills = new Set([...svg.matchAll(/<path[^>]*fill="rgb\((\d+),(\d+),(\d+)\)"/g)].filter((m) => !(m[1] === m[2] && m[2] === m[3])).map((m) => m[0].slice(m[0].indexOf('fill='))));
+      expect(shellFills.size).toBeGreaterThan(1);
+      expect(shellFills.size).toBeLessThanOrEqual(4);
+    } finally {
+      contourOptions.auto = true; contourOptions.min = 0; contourOptions.max = 0; contourOptions.bands = 0;
+    }
+  });
+
+  it('the scale of a banded shell result shows each band once, all of one height', () => {
+    slabFrame();
+    contourOptions.auto = false; contourOptions.min = -50; contourOptions.max = 50; contourOptions.bands = 16;
+    try {
+      const svg = toSvg(plan2D('shellMap', { ...opts, shellComponent: 'mx', view: 'top' })!);
+      const strips = [...svg.matchAll(/<path d="([^"]*)" fill="(rgb\([^)]+\))" stroke="none"\/>/g)].flatMap((m) => {
+        const n = (m[1]!.match(/-?\d+(?:\.\d+)?/g) ?? []).map(Number);
+        if (n.length !== 10) return [];
+        const xs = [n[0]!, n[2]!, n[4]!, n[6]!], ys = [n[1]!, n[3]!, n[5]!, n[7]!];
+        const w = Math.max(...xs) - Math.min(...xs);
+        return Math.abs(w - 14) < 0.05 ? [{ fill: m[2]!, x: Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) }] : [];
+      });
+      const x = Math.max(...strips.map((s) => s.x));
+      const byFill = new Map<string, number>();
+      for (const s of strips.filter((q) => q.x === x)) byFill.set(s.fill, (byFill.get(s.fill) ?? 0) + s.h);
+      expect(byFill.size).toBe(16);
+      const hs = [...byFill.values()];
+      expect(Math.max(...hs) - Math.min(...hs)).toBeLessThan(0.6);
+    } finally {
+      contourOptions.auto = true; contourOptions.min = 0; contourOptions.max = 0; contourOptions.bands = 0;
+    }
   });
 
   it('a figure of another set is headed with its name', () => {

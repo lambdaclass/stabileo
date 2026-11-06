@@ -1,4 +1,5 @@
 import type { Translations } from '../../types';
+import course from '../course/fr';
 
 const stepsFr: Translations = {
   'steps.dsm.classification': 'Classification statique',
@@ -10,9 +11,6 @@ const stepsFr: Translations = {
   'steps.dsm.fem.member': 'Barre {id} ({name})',
   'steps.dsm.fem.freeBody': 'Corps libre de {name} encastrée aux deux extrémités : les charges de la travée, les moments d\'encastrement et les réactions qui les équilibrent (sens antihoraire et +y local positifs).',
   'steps.dsm.fem.feq': 'Vecteur des charges équivalentes de la barre en axes locaux (u, v, θ à chaque extrémité) : les actions de la barre encastrée sur les nœuds.',
-  'steps.catalog.button': 'Pas à pas expliqué',
-  'steps.catalog.title': 'Pas à pas expliqué',
-  'steps.catalog.intro': 'Choisissez une méthode pour voir votre structure résolue pas à pas. Chacune indique ce dont le modèle a besoin et propose un exemple qui le respecte.',
   'steps.catalog.open': 'Ouvrir',
   'steps.catalog.example': 'Ouvrir un exemple',
   'steps.catalog.requiresLead': 'Pour essayer ce pas à pas, la structure doit être :',
@@ -602,6 +600,7 @@ const stepsFr: Translations = {
   // ── The axial term option
   'steps.deformation.axialBigShare': 'Pour ce déplacement, négliger le terme axial n\'est pas une bonne approximation : l\'effort normal contribue à {pct} % du total. Il est conseillé d\'activer l\'option.',
   'steps.m.castigliano.axialKept': 'Inconnues hyperstatiques qui ne reprennent qu\'un effort normal : {list}. Sans le terme axial, leurs équations ne disent rien ; leurs lignes et colonnes le conservent donc, et les autres coefficients ne gardent que la flexion.',
+  'steps.m.castigliano.axialAll': 'Garder le terme axial dans quelques lignes seulement ne suffit pas ici : la matrice mélangée ne serait pas définie positive, donc pas une souplesse. Tous les coefficients gardent le terme axial.',
   'steps.m.castigliano.axialFallback': 'Sans le terme axial, le système n\'a pas de solution unique ; il est donc résolu avec les coefficients complets, terme axial inclus.',
   'steps.deformation.axialOff': 'Solution classique : le terme axial est négligé et seule la flexion compte.',
   'steps.deformation.axialLeftOut': 'Avec l\'option du terme axial désactivée, Σ N·n·L/EA n\'entre pas dans le déplacement. Il est tout de même affiché, pour voir ce qu\'il ajouterait :',
@@ -748,12 +747,12 @@ const stepsFr: Translations = {
 
   // ── Virtual work
   'steps.m.virtualWork.title': 'Travaux virtuels (charge unitaire)',
-  'steps.m.virtualWork.help': 'Détermine un déplacement en appliquant une charge unitaire au point et dans la direction recherchés. Le déplacement est la somme sur les barres de ∫M·m/EI dx plus N·n·L/EA, avec M et N dus aux charges réelles et m et n dus à la charge unitaire.',
-  'steps.m.virtualWork.requires': 'une structure plane à barres (poutre, portique ou treillis), isostatique ou hyperstatique, sans charges thermiques ni appuis spéciaux.',
-  'steps.m.virtualWork.what': 'Le déplacement d\'un nœud dans une direction s\'obtient par le principe des travaux virtuels : le travail d\'une charge unitaire virtuelle dans le déplacement recherché est égal au travail intérieur de ses efforts virtuels dans les déformations réelles.',
+  'steps.m.virtualWork.help': 'Détermine un déplacement, une rotation, ou un déplacement ou une rotation relatifs entre deux nœuds, en appliquant la charge virtuelle qui travaille sur cette grandeur : une force unitaire, un couple unitaire ou une paire de charges opposées. Le résultat est la somme sur les barres de ∫M·m/EI dx plus N·n·L/EA, plus les ressorts, les tassements et la température s\'il y en a.',
+  'steps.m.virtualWork.requires': 'une structure plane à barres (poutre, portique ou treillis), isostatique ou hyperstatique ; elle peut avoir des ressorts, des tassements et des charges thermiques, sans appuis inclinés.',
+  'steps.m.virtualWork.what': 'La grandeur choisie s\'obtient par le principe des travaux virtuels : le travail d\'une charge virtuelle unitaire (une force, un couple ou une paire de charges opposées) dans le déplacement recherché est égal au travail interne de ses efforts virtuels dans les déformations réelles.',
   'steps.m.virtualWork.s1': 'Point, direction et principe',
   'steps.m.virtualWork.principle': 'Principe des travaux virtuels avec une charge unitaire.',
-  'steps.m.virtualWork.principleWhy': 'La charge unitaire et ses efforts m et n forment un système en équilibre ; les courbures M/EI et les déformations axiales N/EA sont les réelles, compatibles avec les appuis. L\'égalité des travaux extérieur et intérieur donne le déplacement.',
+  'steps.m.virtualWork.principleWhy': 'La charge unitaire et ses efforts m et n forment un système en équilibre ; les courbures M/EI et les déformations axiales N/EA sont les réelles, compatibles avec les appuis. L\'égalité des travaux extérieur et intérieur donne la grandeur cherchée : déplacement, rotation ou valeur relative.',
   'steps.m.virtualWork.s2': 'État réel : M et N',
   'steps.m.virtualWork.s3': 'État virtuel : charge unitaire',
   'steps.m.virtualWork.unitLead': 'On applique une charge unitaire en {n}, dans la direction et le sens du déplacement recherché, sans aucune autre charge.',
@@ -765,7 +764,7 @@ const stepsFr: Translations = {
 
   // ── Castigliano
   'steps.m.castigliano.title': 'Théorèmes de Castigliano',
-  'steps.m.castigliano.help': 'Travaille avec l\'énergie de déformation U. Dans une structure hyperstatique, le second théorème (∂U/∂Xⱼ = 0) donne les inconnues hyperstatiques ; dans une structure isostatique, le premier théorème (δ = ∂U/∂P) donne le déplacement d\'un point, avec une charge fictive Q si aucune n\'y agit.',
+  'steps.m.castigliano.help': 'Travaille avec l\'énergie de déformation U. Dans une structure hyperstatique, le second théorème (∂U/∂Xⱼ = 0) donne les inconnues hyperstatiques ; dans une structure isostatique, le premier (δ = ∂U/∂P) donne le déplacement d\'un point ou, avec un moment fictif, sa rotation, avec une charge fictive Q si aucune n\'y agit.',
   'steps.m.castigliano.requires': 'une poutre ou un portique plan à barres fléchies, sans barres de treillis, charges thermiques ni appuis spéciaux, de degré d\'hyperstaticité modéré.',
   'steps.m.castigliano.whatSecond': 'La structure hyperstatique est résolue par le second théorème de Castigliano : les inconnues hyperstatiques prennent les valeurs qui rendent l\'énergie de déformation stationnaire, car le déplacement selon chacune d\'elles est nul.',
   'steps.m.castigliano.whatFirst': 'Le déplacement d\'un nœud s\'obtient par le premier théorème de Castigliano : la dérivée de l\'énergie de déformation par rapport à une charge est le déplacement de son point d\'application dans sa direction.',
@@ -920,6 +919,9 @@ const stepsFr: Translations = {
   'steps.cuts.dia.N': 'Effort normal N [kN], traction positive.',
   'steps.cuts.dia.V': 'Effort tranchant V [kN].',
   'steps.cuts.dia.M': 'Moment fléchissant M [kN·m], du côté de la fibre tendue.',
+  'course.statics.vw.p.title': 'Objet du calcul',
+  'course.statics.vw.p.nodeAuto': 'Automatique ou nœud sélectionné',
+  'course.statics.vw.p.help': 'La charge virtuelle dépend de ce que vous cherchez : une force unitaire pour un déplacement, un couple unitaire pour une rotation, deux forces opposées pour un déplacement relatif entre deux nœuds et deux couples opposés pour une rotation relative. Automatique prend le nœud sélectionné dans le modèle ou celui qui se déplace le plus ; pour une grandeur relative, la direction automatique est la droite qui relie les deux nœuds.',
 };
 
-export default stepsFr;
+export default { ...stepsFr, ...course };

@@ -329,3 +329,18 @@ fn prepared_solves_refuse_invalid_thermal_properties() {
         assert!(prepared.solve_loads(&[load]).is_err(), "3D alpha {alpha:?} depths {dy:?} {dz:?} solved");
     }
 }
+
+#[test]
+fn a_positive_y_gradient_heats_the_minus_y_face_and_a_positive_z_gradient_the_plus_z_face() {
+    let tip = |thermal: Value| {
+        let mut s = fixed_3d(STEEL, 0.01, 1e-5, 1e-5, "frame", thermal);
+        s.supports.remove("2");
+        let r = solve_3d(&s).unwrap();
+        let d = r.displacements.iter().find(|d| d.node_id == 3).unwrap();
+        (d.uy, d.uz)
+    };
+    let (uy, uz) = tip(json!({"dtUniform": 0.0, "dtGradientY": 10.0, "dtGradientZ": 0.0, "alpha": 12e-6, "depthY": 0.3, "depthZ": 0.3}));
+    assert!(uy > 0.0 && uz.abs() < 1e-12 * uy, "the hot −y face lengthens and the tip moves to +y: {uy}, {uz}");
+    let (uy, uz) = tip(json!({"dtUniform": 0.0, "dtGradientY": 0.0, "dtGradientZ": 10.0, "alpha": 12e-6, "depthY": 0.3, "depthZ": 0.3}));
+    assert!(uz < 0.0 && uy.abs() < 1e-12 * uz.abs(), "the hot +z face lengthens and the tip moves to −z: {uy}, {uz}");
+}

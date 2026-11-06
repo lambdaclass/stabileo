@@ -5,6 +5,7 @@ import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import { validateRegistry, githubSlug, changelogUrl, conditionGroups, type ResultChangeRegistry } from '../registry';
 import { FEATURE_IDS } from '../model-features';
+import { readRegistry } from '../../../../scripts/result-changes/registry.mjs';
 
 const repo = resolve(__dirname, '../../../../..');
 
@@ -17,7 +18,7 @@ describe('result-change registry', () => {
     expect(JSON.stringify(metadata)).not.toContain('title');
   });
 
-  const source = () => JSON.parse(readFileSync(resolve(repo, 'web/src/lib/provenance/result-changes.json'), 'utf8')) as ResultChangeRegistry;
+  const source = (): ResultChangeRegistry => readRegistry();
 
   it('decodes the complete source registry except the test-only quantities', () => {
     const registry = source();
@@ -26,7 +27,7 @@ describe('result-change registry', () => {
     expect(RESULT_CHANGES).toEqual({ ...registry, changes: registry.changes.map(({ quantities: _, ...c }) => c) });
   });
 
-  it('is well formed: ids, versions, three languages, known features, quantities', () => {
+  it('is well formed: ids, versions, six languages, known features, quantities', () => {
     expect(validateRegistry(RESULT_CHANGES, new Set(FEATURE_IDS))).toEqual([]);
     expect(validateRegistry(source(), new Set(FEATURE_IDS))).toEqual([]);
   });
@@ -60,8 +61,34 @@ describe('result-change registry', () => {
     expect(problems.some((p) => p.includes('resultsVersion 99'))).toBe(true);
   });
 
+  it.each(['en', 'es', 'pt', 'de', 'fr', 'tr'] as const)('refuses an entry without its %s title or explanation', (locale) => {
+    const entry = RESULT_CHANGES.changes[0];
+    const title = { ...entry.title, [locale]: ' ' };
+    const explanation: Partial<typeof entry.explanation> = { ...entry.explanation };
+    delete explanation[locale];
+    const bad = { ...RESULT_CHANGES, changes: [{ ...entry, title, explanation } as typeof entry] };
+    expect(validateRegistry(bad, new Set(FEATURE_IDS))).toEqual([`change ${entry.id}: missing title.${locale}`, `change ${entry.id}: missing explanation.${locale}`]);
+  });
+
+  it('takes an examples-scoped entry only with the example ids it changed, and no when or quantities', () => {
+    const entry = RESULT_CHANGES.changes.find((c) => c.scope === 'examples')!;
+    expect(entry.examples).toEqual(['3d-cantilever-load']);
+    const check = (over: Record<string, unknown>) => validateRegistry({ ...RESULT_CHANGES, changes: [{ ...entry, resultsVersion: RESULT_CHANGES.currentResultsVersion, ...over } as typeof entry] }, new Set(FEATURE_IDS));
+    expect(check({})).toEqual([]);
+    for (const examples of [undefined, [], [''], [7]]) {
+      expect(check({ examples }), JSON.stringify(examples)).toContain(`change ${entry.id}: an examples-scoped entry must list the example ids it changed`);
+    }
+    expect(check({ when: { any: ['members'] } })).toContain(`change ${entry.id}: an examples-scoped entry concerns no saved model and takes no when`);
+    expect(check({ quantities: ['*'] })).toContain(`change ${entry.id}: an examples-scoped entry explains no saved result and takes no quantities`);
+    expect(check({ scope: 'everything' })).toContain(`change ${entry.id}: unknown scope "everything"`);
+    const engine = RESULT_CHANGES.changes.find((c) => c.scope === undefined)!;
+    const checkEngine = (over: Record<string, unknown>) => validateRegistry({ ...RESULT_CHANGES, changes: [{ ...engine, resultsVersion: RESULT_CHANGES.currentResultsVersion, ...over } as typeof engine] }, new Set(FEATURE_IDS));
+    expect(checkEngine({ when: undefined })).toContain(`change ${engine.id}: missing when`);
+    expect(checkEngine({ examples: ['x'] })).toContain(`change ${engine.id}: examples are listed only with scope "examples"`);
+  });
+
   it('refuses a malformed list of the quantities a change moves', () => {
-    const entry = RESULT_CHANGES.changes.find((c) => c.resultsVersion === RESULT_CHANGES.currentResultsVersion)!;
+    const entry = { ...RESULT_CHANGES.changes.find((c) => c.scope === undefined)!, resultsVersion: RESULT_CHANGES.currentResultsVersion };
     for (const quantities of [[], [''], ['reactions[].fx'], ['a.b.c'], [7]]) {
       const bad = { ...RESULT_CHANGES, changes: [{ ...entry, quantities: quantities as string[] }] };
       expect(validateRegistry(bad, new Set(FEATURE_IDS)), JSON.stringify(quantities)).toContain(`change ${entry.id}: quantities must be a non-empty list of "*", "solve.ok", a collection or collection.field`);

@@ -1,3 +1,4 @@
+import { expectMembraneRefusal } from '../../engine/__tests__/containment-helper';
 /**
  * Gravity loads in the shipped examples point down, and the solved examples stand in equilibrium.
  *
@@ -99,9 +100,6 @@ describe('the corrected examples are in equilibrium under their dead load', () =
         const r = solve3D(input!) as unknown as { reactions: Array<{ fx: number; fy: number; fz: number }> };
         return r.reactions.reduce((s, x) => [s[0] + x.fx, s[1] + x.fy, s[2] + x.fz], [0, 0, 0]);
       };
-      const withLoads = reactions(loads), bare = reactions([]);
-      const react = withLoads.map((v, i) => v - bare[i]);
-
       // What the case applies, summed from the fixture through the solver's axes.
       const fixture = fixtures.find((f) => f.name === name)!.json;
       const applied = [0, 0, 0];
@@ -111,6 +109,15 @@ describe('the corrected examples are in equilibrium under their dead load', () =
       }
       expect(applied[2]).toBeLessThan(0);
       expect(Math.hypot(applied[0], applied[1])).toBeLessThan(1e-6 * Math.abs(applied[2]));
+      if (['full-stadium', 'la-bombonera'].includes(name)) {
+        expectMembraneRefusal(() => solve3D(buildSolverInput3D({ ...model, loads }, false)!));
+        // Post-fix: |reaction + applied| < 1e-6*|applied[2]| + 1e-6 in all three axes.
+        return;
+      }
+      const withLoads = reactions(loads), bare = reactions([]);
+      const react = withLoads.map((v, i) => v - bare[i]);
+
+
       for (let i = 0; i < 3; i++) {
         expect(Math.abs(react[i] + applied[i]), `${name}: ΣR${'xyz'[i]} = ${react[i].toFixed(3)} against applied ${applied[i].toFixed(3)} kN`)
           .toBeLessThan(1e-6 * Math.abs(applied[2]) + 1e-6);

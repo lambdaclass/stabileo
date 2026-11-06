@@ -6,18 +6,18 @@
    */
   import { applyPageMeta, restorePageMeta } from '../../lib/page-meta';
   import { publicI18n } from '../../lib/i18n/store.svelte';
-  import SiteHeader from '../site/SiteHeader.svelte';
   import LandingFooter from '../landing/LandingFooter.svelte';
   import PaperText from './PaperText.svelte';
   import { PAPER, BODY, REFERENCES, LABELS, PDF_HREF, ORIGINAL_PDF_HREF } from '../../lib/paper/jaie-2026';
   import { ps } from './i18n';
+  import { PAPER_LOCALES } from './locales';
   import katex from 'katex';
   import '../landing/landing.css';
   import './paper.css';
 
   const s = $derived(ps());
   $effect(() => {
-    applyPageMeta({ title: s.metaTitle, description: s.metaDescription, locale: publicI18n.locale, path: '/paper' });
+    applyPageMeta({ title: s.metaTitle, description: s.metaDescription, locale: publicI18n.locale, path: '/paper', written: PAPER_LOCALES });
     return () => restorePageMeta();
   });
   $effect(() => () => document.querySelectorAll('script[data-paper-ld]').forEach((el) => el.remove()));
@@ -26,7 +26,6 @@
 </script>
 
 <div class="landing paper-site">
-  <SiteHeader current="paper" />
   <main class="pp-wrap">
     <div class="pp-bar">
       <p class="pp-venue">{s.venue}{#if s.language}<br /><span class="pp-lang">{s.language}</span>{/if}</p>

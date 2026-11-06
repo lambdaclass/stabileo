@@ -123,7 +123,7 @@ class CancelSuperseded(unittest.TestCase):
         self.assertIn('merge_group:', workflow)
         self.assertNotIn('pull_request', workflow)
         self.assertNotIn('push:', workflow)
-        self.assertIn('cancel-superseded-merge-groups.py ci.yml supply-chain.yml verify.yml', workflow)
+        self.assertIn('cancel-superseded-merge-groups.py ci.yml supply-chain.yml verify.yml containment-audit.yml', workflow)
         self.assertIn('actions: write', workflow)
         self.assertIn('timeout-minutes:', workflow)
 

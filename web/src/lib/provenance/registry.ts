@@ -1,5 +1,6 @@
 /**
- * The registry of result-affecting changes (`result-changes.json`), typed and checked.
+ * The registry of result-affecting changes (`result-changes/`, assembled by
+ * `web/scripts/result-changes/registry.mjs`), typed and checked.
  *
  * Each entry says which RESULTS VERSION introduced the change, which model features it touches,
  * and what to tell the engineer in each offered language. A project records the results version
@@ -8,13 +9,18 @@
  *
  * The results version is an integer, not the app version: the app version (`package.json`, still
  * 0.1.0) and the commit say which build ran, but neither orders "did the numbers change". Every
- * change that makes the same saved model give different numbers gets an entry here, and the first
- * entry of a new version bumps `currentResultsVersion`.
+ * change that makes the same saved model give different numbers gets an entry here. The versions
+ * in `numbered.json` are frozen; each later merge to main that adds entries takes the next one.
  */
 import metadata from 'virtual:result-change-metadata';
 
-export type Locale3 = 'en' | 'es' | 'pt';
-export type Localised = Record<Locale3, string>;
+export const REGISTRY_LOCALES = ['en', 'es', 'pt', 'de', 'fr', 'tr'] as const;
+export type RegistryLocale = (typeof REGISTRY_LOCALES)[number];
+export type Localised = Record<RegistryLocale, string>;
+
+export function registryLocale(locale: string): RegistryLocale {
+  return (REGISTRY_LOCALES as readonly string[]).includes(locale) ? (locale as RegistryLocale) : 'en';
+}
 
 /**
  * When an entry applies, in feature ids (`model-features.ts`). Every listed group must hold; a
@@ -37,7 +43,18 @@ export interface ResultChange {
   date: string;
   prs: number[];
   area: 'analysis' | 'design' | 'loads';
-  when: ChangeCondition;
+  /**
+   * Absent for an entry with `scope: 'examples'`, which concerns no saved model and is never
+   * shown on opening one.
+   */
+  when?: ChangeCondition;
+  /**
+   * `examples`: only bundled examples changed, listed in `examples` by id; a saved model gives the
+   * same numbers. The snapshot gate accepts it only for snapshots of those examples, and only when
+   * each listed example's fixture changed too.
+   */
+  scope?: 'examples';
+  examples?: string[];
   /**
    * The solve results it can move, for the legacy-projects test (#718): `*` (every result of a
    * solve), `solve.ok` (a solve that now refuses or now succeeds), a collection
@@ -73,6 +90,10 @@ export function changelogUrl(c: Pick<ResultChange, 'changelog'>): string {
   return `${REPO_BLOB}${c.changelog.file}#${githubSlug(c.changelog.heading)}`;
 }
 
+export function concernsGeneratedLoads(w: ChangeCondition = {}): boolean {
+  return conditionGroups(w).some((g) => g.includes('generatedLoads'));
+}
+
 /** Every condition group of an entry, normalised to OR-groups that must all hold. */
 export function conditionGroups(w: ChangeCondition): string[][] {
   const groups: string[][] = [];
@@ -102,7 +123,7 @@ export function validateRegistry(r: ResultChangeRegistry, knownFeatures: Readonl
     }
     if (!/^\d{4}-\d{2}-\d{2}$/.test(c.date)) problems.push(`${where}: date must be YYYY-MM-DD`);
     if (!['analysis', 'design', 'loads'].includes(c.area)) problems.push(`${where}: unknown area ${c.area}`);
-    for (const loc of ['en', 'es', 'pt'] as const) {
+    for (const loc of REGISTRY_LOCALES) {
       if (!c.title?.[loc]?.trim()) problems.push(`${where}: missing title.${loc}`);
       if (!c.explanation?.[loc]?.trim()) problems.push(`${where}: missing explanation.${loc}`);
     }
@@ -110,6 +131,17 @@ export function validateRegistry(r: ResultChangeRegistry, knownFeatures: Readonl
     if (c.quantities !== undefined && (!Array.isArray(c.quantities) || c.quantities.length === 0
       || c.quantities.some((q) => typeof q !== 'string' || !QUANTITY.test(q)))) {
       problems.push(`${where}: quantities must be a non-empty list of "*", "solve.ok", a collection or collection.field`);
+    }
+    if (c.scope !== undefined && c.scope !== 'examples') problems.push(`${where}: unknown scope "${c.scope}"`);
+    if (c.scope === 'examples') {
+      if (c.when !== undefined) problems.push(`${where}: an examples-scoped entry concerns no saved model and takes no when`);
+      if (c.quantities !== undefined) problems.push(`${where}: an examples-scoped entry explains no saved result and takes no quantities`);
+      if (!Array.isArray(c.examples) || c.examples.length === 0 || c.examples.some((e) => typeof e !== 'string' || !e.trim())) {
+        problems.push(`${where}: an examples-scoped entry must list the example ids it changed`);
+      }
+    } else {
+      if (c.when === undefined) problems.push(`${where}: missing when`);
+      if (c.examples !== undefined) problems.push(`${where}: examples are listed only with scope "examples"`);
     }
     const groups = conditionGroups(c.when ?? {});
     for (const g of groups) {

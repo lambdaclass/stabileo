@@ -102,3 +102,37 @@ describe('the proposal', () => {
     expect(apex.parts.filter((p) => p.kind === 'plate')).toHaveLength(2);
   });
 });
+
+describe('weak-axis moment (#532)', () => {
+  const below = M({ id: 2, kind: 'column', section: HEB240, dir: { x: 0, y: 0, z: -1 }, inclination: -90 });
+  const above = M({ id: 3, kind: 'column', section: HEB240, dir: { x: 0, y: 0, z: 1 }, inclination: 90 });
+  const through = [{ ...below, Mw: 40, M: 10 }, { ...above, Mw: 40, M: 10 }];
+  const plate = { ...P, plateT: 20, rows: 1, weldLeg: 8 };
+  it('a beam end with a weak-axis moment leaves the joint unresolved instead of designing it without', () => {
+    const d = designTypology('endPlate', ctx([M({ id: 1, kind: 'beam', M: 100, V: 50, Mw: 5 }), ...through]), plate, 1);
+    expect(d.state).toBe('unresolved');
+    expect(d.unresolvedKey).toBe('joint.typ.unresolved.weakAxisMoment');
+    const tab = designTypology('shearTab', ctx([M({ id: 1, kind: 'beam', V: 100, released: true, Mw: 0.5 }), ...through]), P, 1);
+    expect(tab.unresolvedKey).toBe('joint.typ.unresolved.weakAxisMoment');
+  });
+  it('a fixed base with a weak-axis column moment is unresolved', () => {
+    const d = designTypology('baseFixed', ctx([M({ id: 1, kind: 'column', section: HEB240, dir: { x: 0, y: 0, z: 1 }, inclination: 90, N: -800, V: 30, M: 50, Mw: 20 })], 'fixed'), { ...P, plateT: 20 }, 1);
+    expect(d.unresolvedKey).toBe('joint.typ.unresolved.weakAxisMoment');
+  });
+  it('a column ending at the joint (knee) or the other column of a splice counts', () => {
+    const knee = designTypology('knee', ctx([M({ id: 1, kind: 'beam', M: 100, V: 50 }), { ...below, Mw: 5, M: 100 }]), plate, 1);
+    expect(knee.unresolvedKey).toBe('joint.typ.unresolved.weakAxisMoment');
+    const kinked = { ...above, dir: { x: Math.sin(Math.PI / 90), y: 0, z: Math.cos(Math.PI / 90) }, Mw: 40, M: 10 };
+    const cranked = designTypology('endPlate', ctx([M({ id: 1, kind: 'beam', M: 100, V: 50 }), { ...below, Mw: 40, M: 10 }, kinked]), plate, 1);
+    expect(cranked.unresolvedKey).toBe('joint.typ.unresolved.weakAxisMoment');
+    const splice = designTypology('splice', ctx([{ ...below, M: 50 }, { ...above, M: 50, Mw: 5 }]), plate, 2);
+    expect(splice.unresolvedKey).toBe('joint.typ.unresolved.weakAxisMoment');
+  });
+  it('a column continuing through the joint does not count; a beam weak moment below 0,01 kN·m does not either', () => {
+    const tab = designTypology('shearTab', ctx([M({ id: 1, kind: 'beam', V: 100, released: true }), ...through]), P, 1);
+    expect(tab.state).toBe('designed');
+    const end = (Mw: number) => designTypology('endPlate', ctx([M({ id: 1, kind: 'beam', M: 100, V: 50, Mw }), ...through]), plate, 1);
+    expect(end(0.009).unresolvedKey).not.toBe('joint.typ.unresolved.weakAxisMoment');
+    expect(end(0.9).unresolvedKey).toBe('joint.typ.unresolved.weakAxisMoment');
+  });
+});

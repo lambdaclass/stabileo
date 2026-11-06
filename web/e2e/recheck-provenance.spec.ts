@@ -171,6 +171,151 @@ test.describe('@smoke re-check prompt for old projects', () => {
   });
 });
 
+const CHECKING = 'Checking this project against the result changes in this version';
+const CHANGED = 'Results have changed since this project was last solved';
+const STEEL_CHANGE = 'cirsoc301-tension-needs-connection';
+
+function watchNotice() {
+  const w = window as unknown as { __recheckTitles: string[] };
+  w.__recheckTitles = [];
+  new MutationObserver(() => {
+    const title = document.querySelector('[data-testid="recheck-overlay"] #rc-title');
+    if (title) w.__recheckTitles.push(title.textContent ?? '');
+  }).observe(document, { childList: true, subtree: true, characterData: true });
+}
+
+const titlesSeen = (page: Page) => page.evaluate(() => (window as unknown as { __recheckTitles: string[] }).__recheckTitles);
+
+async function slowNoticeChunk(page: Page, ms: number) {
+  await page.route(NOTICE_CHUNK, async route => {
+    await new Promise(r => setTimeout(r, ms));
+    await route.continue();
+  });
+}
+
+/** Older than this build, and touched by none of the changes since: supports and a nodal load, no members. */
+async function olderUntouchedProject(page: Page) {
+  const f = oldProject(1, 'truss');
+  f.snapshot.elements = [];
+  const current = (await recheck(page)).stampVersion!;
+  (f.snapshot as Record<string, unknown>).solvedWith = { id: 'e2e-1418', resultsVersion: current - 1, analyses: ['linear'] };
+  return { f, solved: current - 1 };
+}
+
+async function assessed(page: Page) {
+  await expect.poll(async () => (await recheck(page)).pending, { timeout: 30_000 }).toBe(false);
+  return recheck(page);
+}
+
+for (const viewport of [{ width: 1280, height: 800 }, { width: 820, height: 1180 }, { width: 390, height: 844 }]) {
+  test.describe(`@smoke every state of the re-check notice ${viewport.width}x${viewport.height}`, () => {
+    test('an older project that no change concerns opens without the notice', async ({ pro: page }) => {
+      await page.setViewportSize(viewport);
+      await slowNoticeChunk(page, 300);
+      await page.evaluate(watchNotice);
+      const { f, solved } = await olderUntouchedProject(page);
+      expect(await page.evaluate(x => window.__stabileoActions.loadProject(x), f)).toBe(true);
+      const r = await assessed(page);
+      expect(r.solvedVersion).toBe(solved);
+      expect(r.changes, 'pick a model no registered change concerns').toEqual([]);
+      expect(r.noticeOpen).toBe(false);
+      expect(await titlesSeen(page)).not.toContain(CHANGED);
+      await expect(page.getByTestId('recheck-stale-banner')).toHaveCount(0);
+    });
+
+    test('restoring its autosave opens without the notice', async ({ pro: page }) => {
+      await page.setViewportSize(viewport);
+      const { f, solved } = await olderUntouchedProject(page);
+      expect(await page.evaluate(x => window.__stabileoActions.loadProject(x), f)).toBe(true);
+      await assessed(page);
+      await page.evaluate(() => window.__stabileoActions.autosaveNow());
+      await page.addInitScript(watchNotice);
+      await slowNoticeChunk(page, 300);
+      await page.reload();
+      const banner = page.getByTestId('autosave-prompt');
+      await expect(banner).toBeVisible({ timeout: 30_000 });
+      await banner.locator('button.restore').click();
+      const r = await assessed(page);
+      expect(r.solvedVersion).toBe(solved);
+      expect(r.changes).toEqual([]);
+      expect(await titlesSeen(page)).not.toContain(CHANGED);
+      await expect(page.getByTestId('recheck-stale-banner')).toHaveCount(0);
+    });
+
+    test('pending: after a moment it says it is checking, with every action held', async ({ pro: page }) => {
+      await page.setViewportSize(viewport);
+      let release!: () => void;
+      const held = new Promise<void>(r => { release = r; });
+      await page.route(NOTICE_CHUNK, async route => { await held; await route.continue(); });
+      await page.evaluate(watchNotice);
+      try {
+        expect(await page.evaluate(x => window.__stabileoActions.loadProject(x), oldProject(1, 'frame'))).toBe(true);
+        await expect(page.locator('#rc-title')).toHaveText(CHECKING);
+        const r = await recheck(page);
+        expect(r.pending).toBe(true);
+        expect(r.stale).toBe(true);
+        for (const id of ['recheck-ack', 'recheck-later', 'recheck-rerun']) await expect(page.getByTestId(id)).toBeDisabled();
+        await expect(page.getByTestId('recheck-stale-banner')).toHaveCount(0);
+      } finally {
+        release();
+      }
+      await expect(page.locator(`[data-change-id="${STEEL_CHANGE}"]`)).toBeVisible();
+      await expect(page.locator('#rc-title')).toHaveText(CHANGED);
+      await expect(page.getByTestId('recheck-ack')).toBeEnabled();
+      expect(new Set(await titlesSeen(page))).toEqual(new Set([CHECKING, CHANGED]));
+    });
+
+    test('a change applies: it holds until acknowledged, stays stale, and reopening the file shows it again', async ({ pro: page }) => {
+      await page.setViewportSize(viewport);
+      const f = oldProject(1, 'frame');
+      expect(await page.evaluate(x => window.__stabileoActions.loadProject(x), f)).toBe(true);
+      const notice = page.getByTestId('recheck-notice');
+      await expect(notice.locator(`[data-change-id="${STEEL_CHANGE}"]`)).toBeVisible();
+      expect((await assessed(page)).noticeOpen).toBe(true);
+      await page.keyboard.press('Escape');
+      await expect(notice).toBeVisible();
+      await expect(page.getByTestId('recheck-later')).toBeDisabled();
+      await expect(page.getByTestId('recheck-rerun')).toBeDisabled();
+      await page.getByTestId('recheck-ack').check();
+      await page.getByTestId('recheck-later').click();
+      await expect(notice).toBeHidden();
+      await expect(page.getByTestId('recheck-stale-banner')).toBeVisible();
+      const acknowledged = await recheck(page);
+      expect(acknowledged.noticeOpen).toBe(false);
+      expect(acknowledged.stale).toBe(true);
+
+      expect(await page.evaluate(x => window.__stabileoActions.loadProject(x), f)).toBe(true);
+      await expect(notice.locator(`[data-change-id="${STEEL_CHANGE}"]`)).toBeVisible();
+      await expect(page.getByTestId('recheck-ack')).not.toBeChecked();
+      await expect(page.getByTestId('recheck-later')).toBeDisabled();
+      expect((await recheck(page)).noticeOpen).toBe(true);
+    });
+
+    test('the change list fails to load: it says so at once, Retry keeps it open, and reloading brings the changes', async ({ page }) => {
+      await bootPro(page);
+      await page.setViewportSize(viewport);
+      await page.route(NOTICE_CHUNK, route => route.abort());
+      expect(await page.evaluate(x => window.__stabileoActions.loadProject(x), oldProject(1, 'frame'))).toBe(true);
+      await expect(page.getByTestId('recheck-retry')).toBeVisible();
+      await expect(page.locator('#rc-title')).toHaveText(CHECKING);
+      await expect(page.getByTestId('recheck-ack')).toBeDisabled();
+      expect((await recheck(page)).stale).toBe(true);
+      await page.getByTestId('recheck-retry').click();
+      await expect(page.getByTestId('recheck-retry')).toBeVisible();
+      await expect(page.getByTestId('recheck-ack')).toBeDisabled();
+      expect((await recheck(page)).noticeOpen).toBe(true);
+      await page.unroute(NOTICE_CHUNK);
+      await Promise.all([page.waitForEvent('load'), page.getByTestId('recheck-reload').click()]);
+      await expect(page.locator(`[data-change-id="${STEEL_CHANGE}"]`)).toBeVisible();
+      await expect(page.locator('#rc-title')).toHaveText(CHANGED);
+      await page.getByTestId('recheck-ack').check();
+      await page.getByTestId('recheck-later').click();
+      await expect(page.getByTestId('recheck-notice')).toBeHidden();
+      await expect(page.getByTestId('recheck-stale-banner')).toBeVisible();
+    });
+  });
+}
+
 test.describe('@smoke reproducible results', () => {
   test('worker and main thread, and two solves, give the same bits; reproduce confirms it', async ({ pro: page }) => {
     // A model without combinations: with them, "all loads" is the sum of the case solves (another

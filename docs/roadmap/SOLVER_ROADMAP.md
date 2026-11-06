@@ -1155,6 +1155,20 @@ Solver scales to city/portfolio-level analysis and supports climate-driven scena
 208. Add automated fragility curve generation (IDA to fragility to loss estimation pipeline)
 209. Add LiDAR/photogrammetry mesh import (point cloud to FE model)
 
+### Gaps from the live-examples study (2026-11-02)
+
+The engine work the `/examples` gallery needs; the full table with effort and dependencies is in
+[PRODUCT_ROADMAP.md](PRODUCT_ROADMAP.md), section "Live examples gallery". Every item ships
+experimental until it has benchmarks with two independent references, a convergence study,
+self-checks and refusal paths.
+
+- Footfall / walking-load generator and plate time history for floor vibration (M)
+- Force-density form-finding for membranes and cable nets, from `research/form-finding/pastrana-2026` (M)
+- Eurocode 5 timber checks beside the NDS ones in `postprocess/timber_check.rs` (M)
+- Slab yield-line analysis, a new solver; safety-critical: two reviews before main, published benchmarks (L)
+- Nonlinear shell buckling: corotational shells plus arc length (`solver/corotational.rs` rejects
+  shells today; only linear shell buckling exists); safety-critical, same rules (L)
+
 ## Measured Benchmarks (Reference)
 
 Factorization speedup (Criterion, factorization only):

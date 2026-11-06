@@ -16,9 +16,6 @@ export const es: Translations = {
   'steps.dsm.fem.member': 'Barra {id} ({name})',
   'steps.dsm.fem.freeBody': 'Cuerpo libre de {name} empotrada en ambos extremos: las cargas del tramo, los momentos de empotramiento y las reacciones que los equilibran (antihorario y +y local positivos).',
   'steps.dsm.fem.feq': 'Vector de cargas equivalentes de la barra en ejes locales (u, v, θ de cada extremo): las acciones de la barra empotrada sobre los nudos.',
-  'steps.catalog.button': 'Paso a paso explicado',
-  'steps.catalog.title': 'Paso a paso explicado',
-  'steps.catalog.intro': 'Elegí un método para ver la resolución de tu estructura paso a paso. Cada uno dice qué tiene que cumplir el modelo y trae un ejemplo que lo cumple.',
   'steps.catalog.open': 'Abrir',
   'steps.catalog.example': 'Abrir un ejemplo',
   'steps.catalog.requiresLead': 'Para probar este paso a paso la estructura debe ser:',
@@ -111,6 +108,9 @@ export const es: Translations = {
   'steps.common.loads': 'Cargas',
   'steps.common.span': 'Tramo',
   'steps.common.joint': 'Nudo',
+  'course.statics.vw.p.title': 'Qué calcular',
+  'course.statics.vw.p.nodeAuto': 'Automático o el seleccionado',
+  'course.statics.vw.p.help': 'La carga virtual depende de lo que buscás: una fuerza unitaria para un desplazamiento, un par unitario para un giro, dos fuerzas opuestas para un desplazamiento relativo entre dos nodos y dos pares opuestos para un giro relativo. Automático toma el nodo seleccionado en el modelo o el que más se mueve; en una magnitud relativa, la dirección automática es la recta que une los dos nodos.',
 };
 
 export const en: Translations = {
@@ -123,9 +123,6 @@ export const en: Translations = {
   'steps.dsm.fem.member': 'Member {id} ({name})',
   'steps.dsm.fem.freeBody': 'Free body of {name} fixed at both ends: the span loads, the fixed-end moments and the reactions balancing them (counterclockwise and local +y positive).',
   'steps.dsm.fem.feq': 'The member\'s equivalent load vector in local axes (u, v, θ at each end): the actions of the fixed member on the nodes.',
-  'steps.catalog.button': 'Explained step by step',
-  'steps.catalog.title': 'Explained step by step',
-  'steps.catalog.intro': 'Pick a method to see your structure solved step by step. Each one lists what the model needs and comes with an example that meets it.',
   'steps.catalog.open': 'Open',
   'steps.catalog.example': 'Open an example',
   'steps.catalog.requiresLead': 'To try this step by step the structure must be:',
@@ -218,6 +215,9 @@ export const en: Translations = {
   'steps.common.loads': 'Loads',
   'steps.common.span': 'Span',
   'steps.common.joint': 'Joint',
+  'course.statics.vw.p.title': 'What to compute',
+  'course.statics.vw.p.nodeAuto': 'Automatic or the selected one',
+  'course.statics.vw.p.help': 'The virtual load depends on what you look for: a unit force for a displacement, a unit couple for a rotation, two opposite forces for a relative displacement between two nodes and two opposite couples for a relative rotation. Automatic takes the node selected in the model or the one that moves most; for a relative quantity, the automatic direction is the line joining the two nodes.',
 };
 
 export const pt: Translations = {
@@ -230,9 +230,6 @@ export const pt: Translations = {
   'steps.dsm.fem.member': 'Barra {id} ({name})',
   'steps.dsm.fem.freeBody': 'Corpo livre de {name} engastada nas duas extremidades: as cargas do vão, os momentos de engastamento e as reações que os equilibram (anti-horário e +y local positivos).',
   'steps.dsm.fem.feq': 'Vetor de cargas equivalentes da barra em eixos locais (u, v, θ de cada extremidade): as ações da barra engastada sobre os nós.',
-  'steps.catalog.button': 'Passo a passo explicado',
-  'steps.catalog.title': 'Passo a passo explicado',
-  'steps.catalog.intro': 'Escolha um método para ver a sua estrutura resolvida passo a passo. Cada um diz o que o modelo precisa atender e traz um exemplo que atende.',
   'steps.catalog.open': 'Abrir',
   'steps.catalog.example': 'Abrir um exemplo',
   'steps.catalog.requiresLead': 'Para testar este passo a passo a estrutura deve ser:',
@@ -325,4 +322,7 @@ export const pt: Translations = {
   'steps.common.loads': 'Cargas',
   'steps.common.span': 'Vão',
   'steps.common.joint': 'Nó',
+  'course.statics.vw.p.title': 'O que calcular',
+  'course.statics.vw.p.nodeAuto': 'Automático ou o selecionado',
+  'course.statics.vw.p.help': 'A carga virtual depende do que você procura: uma força unitária para um deslocamento, um binário unitário para uma rotação, duas forças opostas para um deslocamento relativo entre dois nós e dois binários opostos para uma rotação relativa. Automático usa o nó selecionado no modelo ou o que mais se desloca; numa grandeza relativa, a direção automática é a reta que une os dois nós.',
 };

@@ -220,6 +220,8 @@ pub enum DiagnosticCode {
     // ---- Pre-solve model quality ----
     /// No free DOFs — fully restrained.
     NoFreeDofs,
+    NoCompressedElements,
+    EigenDecompositionFailed,
     /// Local mechanism detected (hinged node).
     LocalMechanism,
     /// Singular stiffness matrix.
@@ -253,6 +255,12 @@ pub enum DiagnosticCode {
     /// A cable's own weight gives it over a quarter of its tension with its drawn chord as its
     /// unstressed length (#527): `value` the largest share, `threshold` the quarter.
     CableSelfWeightTension,
+    PlasticCapacityMissing,
+
+    // ---- Result boundary ----
+    /// A result held a NaN or ±∞ and was withheld instead of being sent (`boundary`): the path
+    /// of the first one in `phase`.
+    NonFiniteResult,
 }
 
 /// A structured diagnostic with enum code, severity, optional element/node
@@ -260,7 +268,7 @@ pub enum DiagnosticCode {
 ///
 /// Designed for machine consumption: AI review, automated guidance, structured
 /// logging, and query-based result inspection.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StructuredDiagnostic {
     /// Stable enum code — switch on this, not the message.
@@ -376,10 +384,14 @@ impl From<&StructuredDiagnostic> for SolverDiagnostic {
             DiagnosticCode::ResidualOk | DiagnosticCode::ResidualHigh | DiagnosticCode::EquilibriumOk | DiagnosticCode::EquilibriumViolation => "residual",
             DiagnosticCode::HighAspectRatio | DiagnosticCode::NegativeJacobian | DiagnosticCode::HighWarping | DiagnosticCode::PoorJacobianRatio | DiagnosticCode::SmallMinAngle => "element_quality",
             DiagnosticCode::NoFreeDofs | DiagnosticCode::LocalMechanism | DiagnosticCode::SingularMatrix | DiagnosticCode::DisconnectedNode | DiagnosticCode::NearDuplicateNodes | DiagnosticCode::InstabilityRisk | DiagnosticCode::ShellDistortion | DiagnosticCode::SuspiciousLocalAxis | DiagnosticCode::ExcessiveDisplacement | DiagnosticCode::StiffnessNotPositiveDefinite => "model_quality",
+            DiagnosticCode::NoCompressedElements => "model_quality",
+            DiagnosticCode::EigenDecompositionFailed => "solver_path",
             DiagnosticCode::ConflictingConstraints | DiagnosticCode::CircularConstraint | DiagnosticCode::OverConstrainedDof => "constraints",
             DiagnosticCode::KnownIssue => "known_issue",
             DiagnosticCode::ThermalDefaultAssumed => "assumption",
             DiagnosticCode::CableSelfWeightTension => "assumption",
+            DiagnosticCode::PlasticCapacityMissing => "model_quality",
+            DiagnosticCode::NonFiniteResult => "non_finite_result",
         };
         let severity = match sd.severity {
             Severity::Info => "info",
@@ -433,7 +445,7 @@ pub struct ResultExtreme {
 }
 
 /// Query-ready summary of key result quantities.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ResultSummary {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -448,6 +460,10 @@ pub struct ResultSummary {
     pub displacement_resultant: Option<ResultExtreme>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reaction_resultant: Option<ResultExtreme>,
+    /// The largest N/Ncr over members the second-order screen bounds (#1551): 0 with none
+    /// compressed, absent when the result was not screened. Combinations sum it by |factor|.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub second_order_ratio: Option<f64>,
 }
 
 // ==================== Solver Run Metadata ====================
@@ -913,6 +929,8 @@ pub struct ElementPlasticStatus3D {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TimeHistoryResult {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub structured_diagnostics: Vec<StructuredDiagnostic>,
     pub time_steps: Vec<f64>,
     pub node_histories: Vec<NodeTimeHistory>,
     pub peak_displacements: Vec<Displacement>,
@@ -941,6 +959,8 @@ pub struct NodeTimeHistory {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TimeHistoryResult3D {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub structured_diagnostics: Vec<StructuredDiagnostic>,
     pub time_steps: Vec<f64>,
     pub node_histories: Vec<NodeTimeHistory3D>,
     pub peak_displacements: Vec<Displacement3D>,

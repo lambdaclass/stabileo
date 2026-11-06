@@ -1,0 +1,225 @@
+{
+ "materials": {
+  "1": {
+   "fy": 250.0
+  }
+ },
+ "sections": {
+  "1": {
+   "a": 0.01,
+   "b": 0.15,
+   "h": 0.3,
+   "iy": 0.0001,
+   "iz": 0.0001,
+   "materialId": 1
+  }
+ },
+ "solver": {
+  "elements": {
+   "1": {
+    "id": 1,
+    "materialId": 1,
+    "nodeI": 1,
+    "nodeJ": 5,
+    "sectionId": 1,
+    "type": "frame"
+   },
+   "2": {
+    "id": 2,
+    "materialId": 1,
+    "nodeI": 2,
+    "nodeJ": 6,
+    "sectionId": 1,
+    "type": "frame"
+   },
+   "3": {
+    "id": 3,
+    "materialId": 1,
+    "nodeI": 3,
+    "nodeJ": 7,
+    "sectionId": 1,
+    "type": "frame"
+   },
+   "4": {
+    "id": 4,
+    "materialId": 1,
+    "nodeI": 4,
+    "nodeJ": 8,
+    "sectionId": 1,
+    "type": "frame"
+   },
+   "5": {
+    "id": 5,
+    "materialId": 1,
+    "nodeI": 5,
+    "nodeJ": 6,
+    "sectionId": 1,
+    "type": "frame"
+   },
+   "6": {
+    "id": 6,
+    "materialId": 1,
+    "nodeI": 7,
+    "nodeJ": 8,
+    "sectionId": 1,
+    "type": "frame"
+   },
+   "7": {
+    "id": 7,
+    "materialId": 1,
+    "nodeI": 5,
+    "nodeJ": 7,
+    "sectionId": 1,
+    "type": "frame"
+   },
+   "8": {
+    "id": 8,
+    "materialId": 1,
+    "nodeI": 6,
+    "nodeJ": 8,
+    "sectionId": 1,
+    "type": "frame"
+   }
+  },
+  "leftHand": false,
+  "loads": [
+   {
+    "data": {
+     "elementId": 5,
+     "qYI": 0,
+     "qYJ": 0,
+     "qZI": 10,
+     "qZJ": 10
+    },
+    "type": "distributed"
+   },
+   {
+    "data": {
+     "elementId": 6,
+     "qYI": 0,
+     "qYJ": 0,
+     "qZI": 10,
+     "qZJ": 10
+    },
+    "type": "distributed"
+   },
+   {
+    "data": {
+     "fx": 15,
+     "fy": 0,
+     "fz": 5,
+     "mx": 0,
+     "my": 0,
+     "mz": 0,
+     "nodeId": 5
+    },
+    "type": "nodal"
+   }
+  ],
+  "materials": {
+   "1": {
+    "e": 200000,
+    "id": 1,
+    "nu": 0.3
+   }
+  },
+  "nodes": {
+   "1": {
+    "id": 1,
+    "x": 0,
+    "y": 0,
+    "z": 0
+   },
+   "2": {
+    "id": 2,
+    "x": 6,
+    "y": 0,
+    "z": 0
+   },
+   "3": {
+    "id": 3,
+    "x": 0,
+    "y": 0,
+    "z": 4
+   },
+   "4": {
+    "id": 4,
+    "x": 6,
+    "y": 0,
+    "z": 4
+   },
+   "5": {
+    "id": 5,
+    "x": 0,
+    "y": 4,
+    "z": 0
+   },
+   "6": {
+    "id": 6,
+    "x": 6,
+    "y": 4,
+    "z": 0
+   },
+   "8": {
+    "id": 8,
+    "x": 6,
+    "y": 4,
+    "z": 4
+   },
+   "{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{x{{{{{{{{{{{{{{{{{{{{7": {
+    "id": 7,
+    "x": 0,
+    "y": 4,
+    "z": 4
+   }
+  },
+  "sections": {
+   "1": {
+    "a": 0.01,
+    "id": 1,
+    "iy": 0.0001,
+    "iz": 0.0001,
+    "j": 0.0002,
+    "name": "Default"
+   }
+  },
+  "supports": {
+   "1": {
+    "nodeId": 1,
+    "rrx": true,
+    "rry": true,
+    "rrz": true,
+    "rx": true,
+    "ry": true,
+    "rz": true
+   },
+   "2": {
+    "nodeId": 2,
+    "rrx": true,
+    "rry": true,
+    "rrz": true,
+    "rx": true,
+    "ry": true,
+    "rz": true
+   },
+   "3": {
+    "nodeId": 3,
+    "rrx": true,
+    "rry": true,
+    "rrz": true,
+    "rx": true,
+    "ry": true,
+    "rz": true
+   },
+   "[4": {
+    "nodeId": 4,
+    "rrx": true,
+    "rry": true,
+    "rrz": true,
+    "rx": true,
+    "ry": true,
+    "rz": true
+   }
+  }
+ }
+}
