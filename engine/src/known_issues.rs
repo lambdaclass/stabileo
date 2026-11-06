@@ -795,7 +795,7 @@ fn span_planes_2d(spans: &[MemberSpan], r: &AnalysisResults) -> Vec<(usize, f64,
         let end = |id: usize| u.get(&id).map_or((0.0, 0.0), |d| (dot(span.axes[1], [d.ux, 0.0, d.uz]), d.ry));
         let ((v_i, r_i), (v_j, r_j)) = (end(span.nodes[0]), end(span.nodes[1]));
         let mut dist: Vec<(f64, f64, f64, f64)> = ef.distributed_loads.iter().map(|d| (d.q_i, d.q_j, d.a, d.b)).collect();
-        if dist.is_empty() && (ef.q_i.abs() > 1e-10 || ef.q_j.abs() > 1e-10) {
+        if dist.is_empty() && (ef.q_i != 0.0 || ef.q_j != 0.0) {
             dist.push((ef.q_i, ef.q_j, 0.0, span.length));
         }
         let points = ef.point_loads.iter().map(|p| (p.a, p.p)).collect();
@@ -828,7 +828,7 @@ fn span_planes_3d(spans: &[MemberSpan], r: &AnalysisResults3D) -> Vec<SpanPlanes
         let ((ti, ri), (tj, rj)) = (end(span.nodes[0]), end(span.nodes[1]));
         let loads = |dist: &[DistributedLoadInfo], q: (f64, f64), points: &[PointLoadInfo3D]| {
             let mut d: Vec<(f64, f64, f64, f64)> = dist.iter().map(|d| (d.q_i, d.q_j, d.a, d.b)).collect();
-            if d.is_empty() && (q.0.abs() > 1e-10 || q.1.abs() > 1e-10) {
+            if d.is_empty() && (q.0 != 0.0 || q.1 != 0.0) {
                 d.push((q.0, q.1, 0.0, span.length));
             }
             (points.iter().map(|p| (p.a, p.p)).collect(), d)
@@ -1483,6 +1483,54 @@ mod span_tests {
         for s in [1e-200, 1e200] {
             let scaled = peak(s);
             assert!((scaled - reference).abs() < 1e-9 * reference, "{s:e}: {scaled} vs {reference}");
+        }
+    }
+
+    #[test]
+    fn a_tiny_load_on_a_flexible_member_without_a_load_list_still_bends_it_2d_1506() {
+        let input: SolverInput = serde_json::from_value(serde_json::json!({
+            "nodes": {"1": {"id":1,"x":0,"z":0}, "2": {"id":2,"x":1,"z":0}},
+            "materials": {"1": {"id":1,"e":200000,"nu":0.3}},
+            "sections": {"1": {"id":1,"a":0.01,"iz":1e-20}},
+            "elements": {"1": {"id":1,"type":"frame","nodeI":1,"nodeJ":2,"materialId":1,"sectionId":1}},
+            "supports": {"1": {"id":1,"nodeId":1,"type":"fixed"}, "2": {"id":2,"nodeId":2,"type":"fixed"}},
+            "loads": [{"type":"distributed","data":{"elementId":1,"qI":-5e-11,"qJ":-5e-11}}]
+        })).unwrap();
+        let mut r = crate::solver::linear::solve_2d(&input).unwrap();
+        let ef = &mut r.element_forces[0];
+        ef.distributed_loads.clear();
+        (ef.q_i, ef.q_j) = (-5e-11, -5e-11);
+        let planes = span_planes_2d(&member_spans_2d(&input), &r);
+        let largest = largest_span_rotation(1.0, std::slice::from_ref(&planes[0].2), (0.0, 0.0));
+        let exact = 5e-11 / (72.0 * 3f64.sqrt() * 2e-12);
+        assert!(exact > 0.1 && (largest - exact).abs() < 1e-9 * exact, "{largest} vs {exact}");
+        let (warning, _, _) = small_displacement_2d(&input, &r);
+        assert_eq!(warning.map(|d| d.element_ids), Some(vec![1]));
+    }
+
+    #[test]
+    fn a_tiny_load_on_a_flexible_member_without_a_load_list_still_bends_it_3d_1506() {
+        let input: SolverInput3D = serde_json::from_value(serde_json::json!({
+            "nodes": {"1": {"id":1,"x":0,"y":0,"z":0}, "2": {"id":2,"x":1,"y":0,"z":0}},
+            "materials": {"1": {"id":1,"e":200000,"nu":0.3}},
+            "sections": {"1": {"id":1,"a":0.01,"iy":1e-20,"iz":1e-20,"j":1e-20}},
+            "elements": {"1": {"id":1,"type":"frame","nodeI":1,"nodeJ":2,"materialId":1,"sectionId":1}},
+            "supports": {"1": {"nodeId":1,"rx":true,"ry":true,"rz":true,"rrx":true,"rry":true,"rrz":true}, "2": {"nodeId":2,"rx":true,"ry":true,"rz":true,"rrx":true,"rry":true,"rrz":true}},
+            "loads": [{"type":"distributed","data":{"elementId":1,"qYI":-5e-11,"qYJ":-5e-11,"qZI":0,"qZJ":0}}]
+        })).unwrap();
+        let exact = 5e-11 / (72.0 * 3f64.sqrt() * 2e-12);
+        for axis in [0, 1] {
+            let mut r = crate::solver::linear::solve_3d(&input).unwrap();
+            let ef = &mut r.element_forces[0];
+            ef.distributed_loads_y.clear();
+            ef.distributed_loads_z.clear();
+            let q = if axis == 0 { [-5e-11, 0.0] } else { [0.0, -5e-11] };
+            (ef.q_yi, ef.q_yj, ef.q_zi, ef.q_zj) = (q[0], q[0], q[1], q[1]);
+            let planes = span_planes_3d(&member_spans_3d(&input), &r);
+            let largest = largest_span_rotation(1.0, &planes[0].2, planes[0].3);
+            assert!(exact > 0.1 && (largest - exact).abs() < 1e-9 * exact, "axis {axis}: {largest} vs {exact}");
+            let (warning, _, _) = small_displacement_3d(&input, &r);
+            assert_eq!(warning.map(|d| d.element_ids), Some(vec![1]), "axis {axis}");
         }
     }
 
