@@ -71,6 +71,10 @@ export function landingsAt(git, rev) {
   try {
     git('cat-file', '-e', `${commits[anchor].sha}^1^{commit}`);
   } catch (e) {
+    {
+      const shallowFile = git('rev-parse', '--git-path', 'shallow').trim();
+      console.error('REGISTRY-DEBUG', JSON.stringify({ anchor: commits[anchor].sha, commits: commits.length, gitDir: git('rev-parse', '--absolute-git-dir').trim(), shallowFile, shallow: existsSync(shallowFile) ? readFileSync(shallowFile, 'utf8') : null, env: Object.fromEntries(Object.entries(process.env).filter(([k]) => k.startsWith('GIT'))), cwd: process.cwd(), err: String(e.stderr ?? e.message) }));
+    }
     if (git('rev-parse', '--is-shallow-repository').trim() === 'true') throw missing();
     throw new Error(`${rev}: cannot read the parent of ${commits[anchor].sha}, where ${DIR} was introduced `
       + `(git exit ${e.status ?? e.code}): ${String(e.stderr ?? e.message).trim()}`);
