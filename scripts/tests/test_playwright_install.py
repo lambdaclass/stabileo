@@ -8,7 +8,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / 'web/scripts/playwright-install.sh'
 
 
-def run(env_extra):
+def run(env_extra, cwd=None):
     with tempfile.TemporaryDirectory() as tmp:
         bin_dir = pathlib.Path(tmp)
         log = bin_dir / 'calls'
@@ -18,7 +18,7 @@ def run(env_extra):
         env = {k: v for k, v in os.environ.items() if k not in ('PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD', 'PLAYWRIGHT_BROWSERS_PATH')}
         env['PATH'] = f'{bin_dir}{os.pathsep}{env["PATH"]}'
         env.update(env_extra)
-        result = subprocess.run(['bash', str(SCRIPT), 'chromium'], env=env, capture_output=True, text=True)
+        result = subprocess.run(['bash', str(SCRIPT), 'chromium'], env=env, capture_output=True, text=True, cwd=cwd)
         calls = log.read_text().splitlines() if log.exists() else []
         return result.returncode, calls
 
@@ -49,6 +49,32 @@ class PlaywrightInstall(unittest.TestCase):
             nested.symlink_to('/nix/store')
             code, calls = run({'PLAYWRIGHT_BROWSERS_PATH': str(nested / 'abc')})
             self.assertEqual((code, calls), (0, []))
+
+    def test_a_default_cache_linked_into_the_store_is_never_written(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cache = pathlib.Path(tmp) / 'cache'
+            cache.mkdir()
+            (cache / 'ms-playwright').symlink_to('/nix/store/abc-playwright-browsers')
+            code, calls = run({'XDG_CACHE_HOME': str(cache)})
+            self.assertEqual((code, calls), (0, []))
+            home = pathlib.Path(tmp) / 'home'
+            (home / '.cache').mkdir(parents=True)
+            (home / '.cache' / 'ms-playwright').symlink_to('/nix/store/abc-playwright-browsers')
+            code, calls = run({'HOME': str(home), 'XDG_CACHE_HOME': ''})
+            self.assertEqual((code, calls), (0, []))
+
+    def test_browsers_path_zero_linked_into_the_store_is_never_written(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            core = pathlib.Path(tmp) / 'node_modules' / 'playwright-core'
+            core.mkdir(parents=True)
+            (core / '.local-browsers').symlink_to('/nix/store/abc-playwright-browsers')
+            code, calls = run({'PLAYWRIGHT_BROWSERS_PATH': '0'}, cwd=tmp)
+            self.assertEqual((code, calls), (0, []))
+
+    def test_an_unset_path_outside_the_store_installs(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            code, calls = run({'XDG_CACHE_HOME': tmp})
+            self.assertEqual((code, calls), (0, ['playwright install chromium']))
 
     def test_skip_download_installs_nothing(self):
         code, calls = run({'PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD': '1'})
