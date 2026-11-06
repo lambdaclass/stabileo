@@ -407,17 +407,20 @@ struct MemberDeflection {
     s0: f64,
     points: Vec<(f64, f64)>,
     dist: Vec<(f64, f64, f64, f64)>,
+    couples: Vec<(f64, f64)>,
 }
 
 impl MemberDeflection {
-    /// (m_q(x), ∫₀ˣ m_q, ∫₀ˣ (x − t) m_q(t) dt) of the member loads.
-    fn load_terms(&self, x: f64) -> [f64; 3] {
-        let mut out = [0.0; 3];
+    /// (m_q(x), ∫₀ˣ m_q, ∫₀ˣ (x − t) m_q(t) dt, ∫₀ˣ s_q) of the member loads: couples change
+    /// m_q but carry no shear.
+    fn load_terms(&self, x: f64) -> [f64; 4] {
+        let mut out = [0.0; 4];
         let mut add = |p: f64, d: f64| {
             if d > 0.0 {
                 out[0] += p * d;
                 out[1] += p * d * d / 2.0;
                 out[2] += p * d * d * d / 6.0;
+                out[3] += p * d;
             }
         };
         for &(a, p) in &self.points {
@@ -438,6 +441,14 @@ impl MemberDeflection {
                 add(q * w * half, x - tt);
             }
         }
+        for &(a, c) in &self.couples {
+            let d = x - a;
+            if d > 0.0 {
+                out[0] -= c;
+                out[1] -= c * d;
+                out[2] -= c * d * d / 2.0;
+            }
+        }
         out
     }
 
@@ -445,15 +456,15 @@ impl MemberDeflection {
         l: f64, ei: f64, flex_s: f64,
         v_i: f64, r_i: f64, v_j: f64, r_j: f64,
         hinge_start: bool, hinge_end: bool,
-        points: Vec<(f64, f64)>, dist: Vec<(f64, f64, f64, f64)>,
+        points: Vec<(f64, f64)>, dist: Vec<(f64, f64, f64, f64)>, couples: Vec<(f64, f64)>,
     ) -> Self {
-        let mut d = MemberDeflection { ei, flex_s, v_i, theta_i: 0.0, m0: 0.0, s0: 0.0, points, dist };
-        let [mql, mq1, mq2] = d.load_terms(l);
+        let mut d = MemberDeflection { ei, flex_s, v_i, theta_i: 0.0, m0: 0.0, s0: 0.0, points, dist, couples };
+        let [mql, mq1, mq2, sql] = d.load_terms(l);
         // Unknowns x = [θ_i, m0, s0].
         let r1 = if hinge_start { ([0.0, 1.0, 0.0], 0.0) } else { ([1.0, 0.0, 0.0], r_i) };
         let r2 = (
             [l, l * l / (2.0 * ei), l * l * l / (6.0 * ei) - flex_s * l],
-            v_j - v_i - mq2 / ei + flex_s * mql,
+            v_j - v_i - mq2 / ei + flex_s * sql,
         );
         let r3 = if hinge_end {
             ([0.0, 1.0, l], -mql)
@@ -485,11 +496,55 @@ impl MemberDeflection {
     }
 
     fn v(&self, x: f64) -> f64 {
-        let [mq, _, mq2] = self.load_terms(x);
+        let [_, _, mq2, sq] = self.load_terms(x);
         self.v_i
             + self.theta_i * x
             + (self.m0 * x * x / 2.0 + self.s0 * x * x * x / 6.0 + mq2) / self.ei
-            - self.flex_s * (self.s0 * x + mq)
+            - self.flex_s * (self.s0 * x + sq)
+    }
+
+    fn rotation(&self, x: f64) -> f64 {
+        let [_, mq1, ..] = self.load_terms(x);
+        self.theta_i + (self.m0 * x + self.s0 * x * x / 2.0 + mq1) / self.ei
+    }
+
+    fn moment(&self, x: f64) -> f64 {
+        self.m0 + self.s0 * x + self.load_terms(x)[0]
+    }
+}
+
+/// The section rotation along one bending plane of a loaded member, from the same exact
+/// Euler–Bernoulli / Timoshenko deflection as [`compute_deformed_shape`]: end values in the
+/// member's local axes, `points` (a, p) and `dist` (q_i, q_j, a, b) as `ElementForces` carries
+/// them, and `couples` (a, m) its counter-clockwise couples.
+pub(crate) struct SpanRotation {
+    member: MemberDeflection,
+    breaks: Vec<f64>,
+}
+
+impl SpanRotation {
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn new(
+        l: f64, ei: f64, flex_s: f64,
+        v_i: f64, r_i: f64, v_j: f64, r_j: f64,
+        hinge_start: bool, hinge_end: bool,
+        points: Vec<(f64, f64)>, dist: Vec<(f64, f64, f64, f64)>, couples: Vec<(f64, f64)>,
+    ) -> Self {
+        let breaks = points.iter().map(|p| p.0).chain(couples.iter().map(|c| c.0)).chain(dist.iter().flat_map(|d| [d.2, d.3])).filter(|&a| a > 0.0 && a < l).collect();
+        SpanRotation { member: MemberDeflection::new(l, ei, flex_s, v_i, r_i, v_j, r_j, hinge_start, hinge_end, points, dist, couples), breaks }
+    }
+
+    pub(crate) fn at(&self, x: f64) -> f64 {
+        self.member.rotation(x)
+    }
+
+    /// EI times the derivative of [`Self::at`]: the rotation is extreme only where it changes sign.
+    pub(crate) fn moment(&self, x: f64) -> f64 {
+        self.member.moment(x)
+    }
+
+    pub(crate) fn breaks(&self) -> &[f64] {
+        &self.breaks
     }
 }
 
@@ -506,7 +561,7 @@ pub(crate) fn deflection_shape_cubics(
     for (k, row) in out.iter_mut().enumerate() {
         let mut e = [0.0; 4];
         e[k] = 1.0;
-        let d = MemberDeflection::new(l, ei, flex_s, e[0], e[1], e[2], e[3], hinge_start, hinge_end, Vec::new(), Vec::new());
+        let d = MemberDeflection::new(l, ei, flex_s, e[0], e[1], e[2], e[3], hinge_start, hinge_end, Vec::new(), Vec::new(), Vec::new());
         *row = [d.v_i, d.theta_i - flex_s * d.s0, d.m0 / (2.0 * d.ei), d.s0 / (6.0 * d.ei)];
     }
     out
@@ -564,11 +619,11 @@ pub fn compute_deformed_shape(
     let member = if has_ei {
         MemberDeflection::new(
             l, ei_val, flex_s, v_i, r_iz, v_j, r_jz, hinge_start, hinge_end,
-            load_points.to_vec(), all_dist,
+            load_points.to_vec(), all_dist, Vec::new(),
         )
     } else {
         MemberDeflection::new(
-            l, 1.0, 0.0, v_i, r_iz, v_j, r_jz, hinge_start, hinge_end, Vec::new(), Vec::new(),
+            l, 1.0, 0.0, v_i, r_iz, v_j, r_jz, hinge_start, hinge_end, Vec::new(), Vec::new(), Vec::new(),
         )
     };
 

@@ -2177,7 +2177,6 @@ fn fixed_ended_span_3d(qy: f64, qz: f64) -> AnalysisResults3D {
 }
 
 #[test]
-#[ignore = "known wrong result: #1506"]
 fn a_rotation_inside_a_fixed_ended_span_is_warned_1506() {
     let largest = |q: f64| q.abs() / (72.0 * 3f64.sqrt() * 2e4);
     let loaded = fixed_ended_span_2d(-500_000.0);
@@ -2190,7 +2189,6 @@ fn a_rotation_inside_a_fixed_ended_span_is_warned_1506() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1506"]
 fn a_rotation_inside_a_fixed_ended_3d_span_is_warned_in_either_plane_1506() {
     for (qy, qz) in [(-500_000.0, 0.0), (0.0, -500_000.0), (200_000.0, -200_000.0)] {
         let loaded = fixed_ended_span_3d(qy, qz);
