@@ -20,20 +20,33 @@ class TimingBudgetsGate(unittest.TestCase):
         self.body = job('timing-budgets')
         self.steps = steps(self.body)
 
-    def test_both_budgets_fail_the_job_only_outside_pull_requests_and_the_merge_queue(self):
+    def test_only_the_timing_is_soft_and_only_on_pull_requests_and_the_merge_queue(self):
+        soft = f"WALL_CLOCK_REPORT: ${{{{ ({REPORT_ONLY}) && format('{{0}}/wall-clock-overruns.jsonl', runner.temp) || '' }}}}"
         for name in ('Scale budgets', 'E2E wall-clock budgets'):
             with self.subTest(step=name):
-                self.assertIn(f'continue-on-error: ${{{{ {REPORT_ONLY} }}}}', self.steps[name])
+                self.assertIn(soft, self.steps[name])
+                self.assertNotIn('continue-on-error', self.steps[name])
 
-    def test_the_e2e_budgets_still_run_after_a_scale_overrun(self):
+    def test_the_e2e_budgets_still_run_after_a_scale_failure(self):
         self.assertIn("if: ${{ !cancelled() }}", self.steps['E2E wall-clock budgets'])
 
     def test_an_overrun_on_a_pull_request_or_the_merge_queue_is_reported(self):
-        step = self.steps['Report an overrun without failing']
-        self.assertIn(f'({REPORT_ONLY})', step)
-        self.assertIn("steps.scale.outcome == 'failure' || steps.e2e.outcome == 'failure'", step)
+        step = self.steps['Report budget overruns without failing']
+        self.assertIn(f"if: ${{{{ !cancelled() && ({REPORT_ONLY}) }}}}", step)
+        self.assertIn('OVERRUNS: ${{ runner.temp }}/wall-clock-overruns.jsonl', step)
+        self.assertIn('[ -s "$OVERRUNS" ] || exit 0', step)
         self.assertIn('::warning title=Timing Budgets::', step)
         self.assertIn('$GITHUB_STEP_SUMMARY', step)
+
+    def test_every_wall_clock_budget_goes_through_the_report_aware_helper(self):
+        web = ROOT / 'web'
+        for path in ('src/lib/engine/__tests__/scale-budget.test.ts', 'e2e/model-fluidity.spec.ts', 'e2e/rebar-workspace-open.spec.ts'):
+            text = (web / path).read_text()
+            with self.subTest(path=path):
+                self.assertNotIn('NO_WALL_CLOCK', text)
+                self.assertNotRegex(text, r'\bif \(WALL_CLOCK\)')
+                self.assertIn("import { assertBudget } from '", text)
+                self.assertRegex(text, r'if \(assertBudget\(')
 
     def test_main_runs_open_or_close_the_issue_and_pull_requests_never_do(self):
         step = self.steps['Open, update or close the Timing Budgets issue']
@@ -48,8 +61,8 @@ class TimingBudgetsGate(unittest.TestCase):
         self.assertIn('      - timing-budgets\n', ok)
         self.assertIn('case "$r" in success|skipped) ;; *) exit 1 ;; esac', ok)
 
-    def test_no_other_step_of_the_job_is_allowed_to_fail(self):
-        allowed = {'Scale budgets', 'E2E wall-clock budgets', 'Open, update or close the Timing Budgets issue'}
+    def test_no_step_but_the_issue_update_is_allowed_to_fail(self):
+        allowed = {'Open, update or close the Timing Budgets issue'}
         for name, step in self.steps.items():
             if name not in allowed:
                 with self.subTest(step=name):

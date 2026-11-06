@@ -26,24 +26,30 @@ class WallClockOutsideTheQueue(unittest.TestCase):
         gated = {'rebar-workspace-open.spec.ts': 3, 'model-fluidity.spec.ts': 1}
         for name, count in gated.items():
             spec = (ROOT / 'web/e2e' / name).read_text()
-            self.assertIn("const WALL_CLOCK = process.env.NO_WALL_CLOCK !== '1';", spec)
-            lines = [line for line in spec.splitlines() if 'WALL_CLOCK' in line and 'const WALL_CLOCK' not in line]
+            self.assertIn("import { assertBudget } from '../src/lib/engine/__tests__/wall-clock-budget';", spec)
+            self.assertNotIn('WALL_CLOCK', spec, name)
+            lines = [line for line in spec.splitlines() if 'assertBudget(' in line]
             self.assertEqual(len(lines), count, name)
             for line in lines:
-                self.assertRegex(line, r'^\s*if \(WALL_CLOCK\) expect\(', name)
-            gated_asserts = spec.count('if (WALL_CLOCK) expect(')
-            self.assertGreater(len(re.findall(r'\bexpect(?:\.poll)?\(', spec)) - gated_asserts, gated_asserts, name)
+                self.assertRegex(line, r'^\s*if \(assertBudget\(.*\)\) expect\(', name)
+            self.assertGreater(len(re.findall(r'\bexpect(?:\.poll)?\(', spec)) - count, count, name)
         for spec in (ROOT / 'web/e2e').glob('*.spec.ts'):
             if spec.name not in gated:
                 self.assertNotIn('NO_WALL_CLOCK', spec.read_text(), spec.name)
+                self.assertNotIn('assertBudget', spec.read_text(), spec.name)
+
+    def test_the_budget_helper_honours_the_switch(self):
+        helper = (ROOT / 'web/src/lib/engine/__tests__/wall-clock-budget.ts').read_text()
+        self.assertIn("if (env.NO_WALL_CLOCK === '1') return false;", helper)
 
     def test_the_build_pass_passes_the_switch_to_the_scale_budgets(self):
         self.assertIn('NO_WALL_CLOCK=1 npx vitest run --project build', dry_run('test.web.build', 'NO_WALL_CLOCK=1'))
         self.assertIn('NO_WALL_CLOCK= npx vitest run --project build', dry_run('test.web.build'))
         test = (ROOT / 'web/src/lib/engine/__tests__/scale-budget.test.ts').read_text()
-        self.assertIn("const WALL_CLOCK = process.env.NO_WALL_CLOCK !== '1';", test)
-        budgets = re.findall(r'^\s*(.*)expect\(MEASURED\.(\w+)\)\.toBeLessThan\(BUDGET\.\2\);$', test, re.M)
-        self.assertEqual(budgets, [('if (WALL_CLOCK) ', k) for k in ('tables', 'report', 'scene')])
+        self.assertIn("import { assertBudget } from './wall-clock-budget';", test)
+        self.assertNotIn('WALL_CLOCK', test)
+        budgets = re.findall(r"^\s*if \(assertBudget\(MEASURED\.(\w+), BUDGET\.\1, '[^']+'\)\) expect\(MEASURED\.\1\)\.toBeLessThan\(BUDGET\.\1\);$", test, re.M)
+        self.assertEqual(budgets, ['tables', 'report', 'scene'])
 
     def test_every_self_hosted_step_sets_the_switch(self):
         workflow = (ROOT / '.github/workflows/ci.yml').read_text()
