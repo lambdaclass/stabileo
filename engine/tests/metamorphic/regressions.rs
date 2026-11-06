@@ -1316,6 +1316,8 @@ fn only_the_near_mechanism_warning_excuses_a_refused_copy() {
     for unrelated in ["Element 3 references node 9, which does not exist", "No compressed elements — buckling not applicable"] {
         assert!(matches!(crate::checks2::transformed_failure(unrelated.into(), NearMechanism(true)), crate::tally::Verdict::Fail(_)), "{unrelated}");
     }
+    let _strict = crate::generated::Strict::enter();
+    assert!(matches!(crate::checks2::transformed_failure("did not converge".into(), NearMechanism(true)), crate::tally::Verdict::Fail(_)), "strict mode excuses nothing");
 }
 
 /// #983: a near-mechanism whose transformed copies are refused while the
