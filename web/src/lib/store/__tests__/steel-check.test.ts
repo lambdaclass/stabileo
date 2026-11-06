@@ -6,6 +6,7 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import { historyStore, modelStore, resultsStore, uiStore } from '../index';
 import { verificationStore } from '../verification.svelte';
 import { runSteelCheck } from '../steel-check';
+import { amplifiedByCompression } from '../../engine/verification-service';
 import * as wasmSolver from '../../engine/wasm-solver';
 
 beforeAll(async () => {
@@ -38,31 +39,49 @@ describe('the steel check in the design', () => {
     expect(['warn', 'fail']).toContain(high.s);
   });
 
-  it('#1551: a cantilever whose compression may amplify its linear moments is held, not passed, and a lighter one is not', () => {
+  it('#1551: a cantilever whose compression may amplify its linear moments holds every member, and a lighter one holds none', () => {
     const checkUnder = (fx: number) => {
       modelStore.clear(); historyStore.clear(); resultsStore.clear(); verificationStore.clear(); uiStore.analysisMode = 'pro';
       for (const c of [...modelStore.combinations]) modelStore.removeCombination(c.id);
       const mat = modelStore.addMaterial({ name: 'F-24', e: 200000, nu: 0.3, rho: 78.5, fy: 235, fu: 360 } as never);
       const sec = modelStore.addSection({ name: 'IPN 300', a: 69e-4, iy: 9800e-8, iz: 451e-8, h: 0.3, b: 0.125, tw: 0.0108, tf: 0.0162, j: 56.9e-8, shape: 'I' } as never);
-      const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(3, 0, 0);
-      modelStore.addSupport(a, 'fixed3d' as never);
-      const e = modelStore.addElement(a, b, 'frame');
-      modelStore.updateElementMaterial(e, mat); modelStore.updateElementSection(e, sec);
-      modelStore.addNodalLoad3D(b, fx, 1, -10, 0.5, 0, 0);
+      const base = modelStore.addNode(0, 0, 0);
+      modelStore.addSupport(base, 'fixed3d' as never);
+      const cantilever = (x: number, y: number, load: [number, number, number]) => {
+        const tip = modelStore.addNode(x, y, 0);
+        const e = modelStore.addElement(base, tip, 'frame');
+        modelStore.updateElementMaterial(e, mat); modelStore.updateElementSection(e, sec);
+        modelStore.addNodalLoad3D(tip, load[0], load[1], load[2], 0.5, 0, 0);
+        return e;
+      };
+      const loaded = cantilever(3, 0, [fx, 1, -10]), quiet = cantilever(0, 3, [1, -10, -10]);
       const r = modelStore.solve3D(false, false, true);
       if (typeof r === 'string' || !r) throw new Error(String(r));
       resultsStore.setResults3D(r as never);
-      expect(runSteelCheck()).toEqual({ checked: 1 });
-      const phases = (r as { structuredDiagnostics?: Array<{ phase?: string }> }).structuredDiagnostics?.map((d) => d.phase) ?? [];
-      return { phases, v: verificationStore.steelMap.get(e)! };
+      expect(runSteelCheck()).toEqual({ checked: 2 });
+      const second = (r as { structuredDiagnostics?: Array<{ phase?: string; elementIds?: number[] }> }).structuredDiagnostics?.filter((d) => d.phase?.startsWith('LIN-SECOND-ORDER')) ?? [];
+      return { second, loaded: verificationStore.steelMap.get(loaded)!, quiet: verificationStore.steelMap.get(quiet)!, ids: [loaded, quiet] };
     };
+    const hold = { check: 'interaction', clause: 'C.1', key: 'c301.refuse.firstOrderMoments', upperBound: false };
     const heavy = checkUnder(-100);
-    expect(heavy.phases).toContain('LIN-SECOND-ORDER');
-    expect(heavy.v.overallStatus).toBe('held');
-    expect(heavy.v.notEvaluated).toContainEqual({ check: 'interaction', clause: 'C.1', key: 'c301.refuse.firstOrderMoments', upperBound: false });
+    expect(heavy.second).toEqual([expect.objectContaining({ phase: 'LIN-SECOND-ORDER', elementIds: [heavy.ids[0]] })]);
+    for (const v of [heavy.loaded, heavy.quiet]) {
+      expect(v.overallStatus).toBe('held');
+      expect(v.notEvaluated).toContainEqual(hold);
+    }
     const light = checkUnder(-10);
-    expect(light.phases).not.toContain('LIN-SECOND-ORDER');
-    expect(light.v.notEvaluated ?? []).not.toContainEqual(expect.objectContaining({ key: 'c301.refuse.firstOrderMoments' }));
-    expect(light.v.overallStatus).not.toBe('held');
+    expect(light.second).toEqual([]);
+    for (const v of [light.loaded, light.quiet]) {
+      expect(v.notEvaluated ?? []).not.toContainEqual(expect.objectContaining({ key: 'c301.refuse.firstOrderMoments' }));
+      expect(v.overallStatus).not.toBe('held');
+    }
+  });
+
+  it('#1551: an unbounded critical load holds the checks, a case only near the limit does not', () => {
+    const warning = (phase: string) => ({ structuredDiagnostics: [{ code: 'known_issue', severity: 'warning', phase }] });
+    expect(amplifiedByCompression([warning('LIN-SECOND-ORDER-UNBOUNDED')])).toBe(true);
+    expect(amplifiedByCompression([{}, warning('LIN-SECOND-ORDER')])).toBe(true);
+    expect(amplifiedByCompression([warning('LIN-SECOND-ORDER-NEAR'), warning('LIN-SMALL-DISPLACEMENT')])).toBe(false);
+    expect(amplifiedByCompression([{ structuredDiagnostics: [{ code: 'singular_matrix', phase: 'LIN-SECOND-ORDER' }] }])).toBe(false);
   });
 });

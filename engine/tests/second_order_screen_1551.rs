@@ -1,4 +1,4 @@
-use dedaliano_engine::known_issues::SECOND_ORDER_RATIO;
+use dedaliano_engine::known_issues::{SECOND_ORDER_NEAR_FACTOR, SECOND_ORDER_RATIO};
 use dedaliano_engine::postprocess::combinations::{combine_results_refs, CombinationFactor};
 use dedaliano_engine::solver::buckling::solve_buckling_2d;
 use dedaliano_engine::solver::linear::{solve_2d, solve_3d};
@@ -20,6 +20,14 @@ fn second_order(d: &[StructuredDiagnostic]) -> Vec<(String, Vec<usize>)> {
 
 fn warned(ids: Vec<usize>) -> Vec<(String, Vec<usize>)> {
     vec![("LIN-SECOND-ORDER".to_string(), ids)]
+}
+
+fn near(ids: Vec<usize>) -> Vec<(String, Vec<usize>)> {
+    vec![("LIN-SECOND-ORDER-NEAR".to_string(), ids)]
+}
+
+fn unbounded() -> Vec<(String, Vec<usize>)> {
+    vec![("LIN-SECOND-ORDER-UNBOUNDED".to_string(), vec![])]
 }
 
 fn cantilever_2d(segments: usize, fx: f64, e: f64, scale: f64) -> SolverInput {
@@ -74,7 +82,7 @@ fn cantilever_ratio(n: f64) -> f64 {
 
 #[test]
 fn the_1551_cantilever_warns_in_2d_and_3d_and_the_lighter_one_does_not() {
-    assert!(cantilever_ratio(100.0) > 0.4 && cantilever_ratio(10.0) < SECOND_ORDER_RATIO);
+    assert!(cantilever_ratio(100.0) > 0.4 && cantilever_ratio(10.0) * SECOND_ORDER_NEAR_FACTOR < SECOND_ORDER_RATIO);
     let heavy = solve_2d(&cantilever_2d(1, -100.0, E, 1.0)).unwrap();
     assert_eq!(second_order(&heavy.structured_diagnostics), warned(vec![1]));
     let light = solve_2d(&cantilever_2d(1, -10.0, E, 1.0)).unwrap();
@@ -103,8 +111,8 @@ fn the_cantilever_warning_survives_subdivision_rigid_motion_and_load_scale() {
 }
 
 /// A portal of 4 m columns (I = 1e-4 m⁴) and a 4 m beam a tenth as stiff, both columns loaded by
-/// `p` at the head and pushed sideways by p/100.
-fn portal(base: &str, p: f64) -> SolverInput {
+/// `p` at the head and the left head pushed sideways by `push`·p.
+fn portal(base: &str, p: f64, push: f64) -> SolverInput {
     serde_json::from_value(json!({
         "nodes": {"1": {"id": 1, "x": 0.0, "z": 0.0}, "2": {"id": 2, "x": 0.0, "z": 4.0}, "3": {"id": 3, "x": 4.0, "z": 4.0}, "4": {"id": 4, "x": 4.0, "z": 0.0}},
         "materials": {"1": {"id": 1, "e": E, "nu": 0.3}},
@@ -116,7 +124,7 @@ fn portal(base: &str, p: f64) -> SolverInput {
         },
         "supports": {"1": {"id": 1, "nodeId": 1, "type": base}, "2": {"id": 2, "nodeId": 4, "type": base}},
         "loads": [
-            {"type": "nodal", "data": {"nodeId": 2, "fx": p / 100.0, "fz": -p, "my": 0.0}},
+            {"type": "nodal", "data": {"nodeId": 2, "fx": push * p, "fz": -p, "my": 0.0}},
             {"type": "nodal", "data": {"nodeId": 3, "fx": 0.0, "fz": -p, "my": 0.0}},
         ],
     }))
@@ -124,31 +132,91 @@ fn portal(base: &str, p: f64) -> SolverInput {
 }
 
 #[test]
-fn a_pinned_base_sway_portal_warns_where_the_cantilever_bound_would_not() {
+fn a_pinned_base_sway_portal_is_flagged_where_the_cantilever_bound_would_not() {
     let cantilever_ncr = PI * PI * E * 1000.0 * 1e-4 / (2.0 * 4.0_f64).powi(2);
     let p = 0.07 * cantilever_ncr;
-    let pinned = solve_2d(&portal("pinned", p)).unwrap();
+    let pinned = solve_2d(&portal("pinned", p, 0.01)).unwrap();
     let column_n = pinned.element_forces.iter().filter(|f| f.element_id != 2).map(|f| -f.n_start.min(f.n_end)).fold(0.0, f64::max);
     assert!(column_n / cantilever_ncr < SECOND_ORDER_RATIO, "the cantilever bound alone would stay quiet: N/Ncr = {}", column_n / cantilever_ncr);
-    let factor = solve_buckling_2d(&portal("pinned", p), 1).unwrap().modes[0].load_factor;
+    let factor = solve_buckling_2d(&portal("pinned", p, 0.01), 1).unwrap().modes[0].load_factor;
     assert!(factor < 1.0 / SECOND_ORDER_RATIO, "the pinned portal's own critical factor {factor} is under the limit");
-    assert_eq!(second_order(&pinned.structured_diagnostics), warned(vec![]));
+    assert_eq!(second_order(&pinned.structured_diagnostics), unbounded());
+    let pinned = solve_2d(&portal("pinned", p, 0.0)).unwrap();
+    assert_eq!(second_order(&pinned.structured_diagnostics), unbounded());
 
-    let fixed = solve_2d(&portal("fixed", p)).unwrap();
-    let factor = solve_buckling_2d(&portal("fixed", p), 1).unwrap().modes[0].load_factor;
+    let fixed = solve_2d(&portal("fixed", p, 0.0)).unwrap();
+    let factor = solve_buckling_2d(&portal("fixed", p, 0.0), 1).unwrap().modes[0].load_factor;
     assert!(factor > 1.0 / SECOND_ORDER_RATIO, "the fixed portal's critical factor {factor} is over the limit");
+    assert_eq!(second_order(&fixed.structured_diagnostics), near(vec![1, 3]));
+    let fixed = solve_2d(&portal("fixed", p / SECOND_ORDER_NEAR_FACTOR, 0.0)).unwrap();
     assert_eq!(second_order(&fixed.structured_diagnostics), vec![]);
+    let fixed = solve_2d(&portal("fixed", p, 0.01)).unwrap();
+    assert_eq!(second_order(&fixed.structured_diagnostics), [near(vec![1, 3]), unbounded()].concat(), "the pushed beam is compressed and held by neither support");
+}
+
+/// A 6 m member along x on supports holding translation at both ends, pushed toward the start by
+/// `p` at its midpoint, so its first half carries p/2 in compression, and sideways by p/100; `far`
+/// is the support type at x = 6 m.
+fn braced_2d(p: f64, far: &str) -> SolverInput {
+    serde_json::from_value(json!({
+        "nodes": {"1": {"id": 1, "x": 0.0, "z": 0.0}, "2": {"id": 2, "x": 3.0, "z": 0.0}, "3": {"id": 3, "x": 6.0, "z": 0.0}},
+        "materials": {"1": {"id": 1, "e": E, "nu": 0.3}},
+        "sections": {"1": {"id": 1, "a": 6.9e-3, "iz": IPN300_WEAK}},
+        "elements": {
+            "1": {"id": 1, "type": "frame", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1},
+            "2": {"id": 2, "type": "frame", "nodeI": 2, "nodeJ": 3, "materialId": 1, "sectionId": 1},
+        },
+        "supports": {"1": {"id": 1, "nodeId": 1, "type": "pinned"}, "2": {"id": 2, "nodeId": 3, "type": far}},
+        "loads": [{"type": "nodal", "data": {"nodeId": 2, "fx": -p, "fz": -p / 100.0, "my": 0.0}}],
+    }))
+    .unwrap()
+}
+
+fn braced_3d(p: f64) -> SolverInput3D {
+    serde_json::from_value(json!({
+        "nodes": {"1": {"id": 1, "x": 0.0, "y": 0.0, "z": 0.0}, "2": {"id": 2, "x": 3.0, "y": 0.0, "z": 0.0}, "3": {"id": 3, "x": 6.0, "y": 0.0, "z": 0.0}},
+        "materials": {"1": {"id": 1, "e": E, "nu": 0.3}},
+        "sections": {"1": {"id": 1, "a": 6.9e-3, "iy": IPN300_STRONG, "iz": IPN300_WEAK, "j": 5.69e-7}},
+        "elements": {
+            "1": {"id": 1, "type": "frame", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1},
+            "2": {"id": 2, "type": "frame", "nodeI": 2, "nodeJ": 3, "materialId": 1, "sectionId": 1},
+        },
+        "supports": {"1": {"nodeId": 1, "rx": true, "ry": true, "rz": true, "rrx": true, "rry": false, "rrz": false}, "2": {"nodeId": 3, "rx": true, "ry": true, "rz": true, "rrx": false, "rry": false, "rrz": false}},
+        "loads": [{"type": "nodal", "data": {"nodeId": 2, "fx": -p, "fy": p / 100.0, "fz": -p / 100.0, "mx": 0.0, "my": 0.0, "mz": 0.0}}],
+    }))
+    .unwrap()
 }
 
 #[test]
-fn a_combination_carries_the_second_order_warning_of_its_cases() {
+fn a_member_braced_at_both_ends_is_judged_on_its_whole_length() {
+    let ncr = PI * PI * E * 1000.0 * IPN300_WEAK / 6.0_f64.powi(2);
+    let quiet = 0.06 * ncr;
+    assert!(quiet / 2.0 / (ncr / 4.0) > SECOND_ORDER_RATIO, "the cantilever bound would flag it");
+    let loud = 0.2 * ncr;
+    let r = solve_2d(&braced_2d(quiet, "pinned")).unwrap();
+    assert!((r.element_forces[0].n_start + quiet / 2.0).abs() < 1e-6 * quiet, "{:?}", r.element_forces[0]);
+    assert_eq!(second_order(&solve_2d(&braced_2d(quiet, "pinned")).unwrap().structured_diagnostics), vec![]);
+    assert_eq!(second_order(&solve_2d(&braced_2d(loud, "pinned")).unwrap().structured_diagnostics), warned(vec![1, 2]));
+    assert_eq!(second_order(&solve_3d(&braced_3d(quiet)).unwrap().structured_diagnostics), vec![]);
+    assert_eq!(second_order(&solve_3d(&braced_3d(loud)).unwrap().structured_diagnostics), warned(vec![1, 2]));
+    assert_eq!(second_order(&solve_2d(&braced_2d(quiet, "rollerX")).unwrap().structured_diagnostics), unbounded(), "a roller does not hold the far end along the member");
+}
+
+#[test]
+fn a_combination_carries_flagged_members_and_leaves_a_near_case_unbounded() {
     let heavy = solve_2d(&cantilever_2d(2, -100.0, E, 1.0)).unwrap();
     let light = solve_2d(&cantilever_2d(2, -10.0, E, 1.0)).unwrap();
+    let close = solve_2d(&cantilever_2d(2, -15.0, E, 1.0)).unwrap();
+    assert_eq!(second_order(&close.structured_diagnostics), near(vec![1, 2]));
     let combined = combine_results_refs(&[CombinationFactor { case_id: 1, factor: 1.2 }, CombinationFactor { case_id: 2, factor: 1.6 }], &[(1, &heavy), (2, &light)]).unwrap();
     assert_eq!(second_order(&combined.structured_diagnostics), warned(vec![1, 2]));
-    let pinned = solve_2d(&portal("pinned", 250.0)).unwrap();
+    let combined = combine_results_refs(&[CombinationFactor { case_id: 1, factor: 1.2 }, CombinationFactor { case_id: 2, factor: 1.6 }], &[(1, &light), (2, &close)]).unwrap();
+    assert_eq!(second_order(&combined.structured_diagnostics), unbounded());
+    let combined = combine_results_refs(&[CombinationFactor { case_id: 1, factor: 1.2 }, CombinationFactor { case_id: 2, factor: 0.0 }], &[(1, &light), (2, &close)]).unwrap();
+    assert_eq!(second_order(&combined.structured_diagnostics), vec![], "a case the combination leaves out adds nothing");
+    let pinned = solve_2d(&portal("pinned", 250.0, 0.01)).unwrap();
     let combined = combine_results_refs(&[CombinationFactor { case_id: 1, factor: 1.0 }, CombinationFactor { case_id: 2, factor: 1.0 }], &[(1, &heavy), (2, &pinned)]).unwrap();
-    assert_eq!(second_order(&combined.structured_diagnostics), warned(vec![]));
+    assert_eq!(second_order(&combined.structured_diagnostics), [warned(vec![1, 2]), unbounded()].concat());
 }
 
 #[test]
@@ -185,3 +253,49 @@ fn compression_from_span_loads_is_seen_though_both_ends_read_zero() {
     assert_eq!(second_order(&r.structured_diagnostics), vec![]);
 }
 
+
+/// Two truss bars from pinned bases to an apex at node 3, tied sideways by a frame clamped at
+/// node 4; `settled` pins the apex and pushes it down instead of loading it.
+fn truss_v(settled: bool) -> SolverInput {
+    let mut supports = json!({"1": {"id": 1, "nodeId": 1, "type": "pinned"}, "2": {"id": 2, "nodeId": 2, "type": "pinned"}, "4": {"id": 4, "nodeId": 4, "type": "fixed"}});
+    let mut loads = vec![];
+    if settled {
+        supports["3"] = json!({"id": 3, "nodeId": 3, "type": "pinned", "dz": -0.001});
+    } else {
+        loads.push(json!({"type": "nodal", "data": {"nodeId": 3, "fx": 0.0, "fz": -10.0, "my": 0.0}}));
+    }
+    serde_json::from_value(json!({
+        "nodes": {"1": {"id": 1, "x": 0.0, "z": 0.0}, "2": {"id": 2, "x": 3.0, "z": 0.0}, "3": {"id": 3, "x": 1.5, "z": 2.0}, "4": {"id": 4, "x": 3.5, "z": 2.0}},
+        "materials": {"1": {"id": 1, "e": E, "nu": 0.3}},
+        "sections": {"1": {"id": 1, "a": 1e-3, "iz": 1e-6}},
+        "elements": {
+            "1": {"id": 1, "type": "truss", "nodeI": 1, "nodeJ": 3, "materialId": 1, "sectionId": 1},
+            "2": {"id": 2, "type": "truss", "nodeI": 2, "nodeJ": 3, "materialId": 1, "sectionId": 1},
+            "3": {"id": 3, "type": "frame", "nodeI": 3, "nodeJ": 4, "materialId": 1, "sectionId": 1},
+        },
+        "supports": supports,
+        "loads": loads,
+    }))
+    .unwrap()
+}
+
+#[test]
+fn a_compressed_truss_bar_counts_only_when_supports_hold_both_its_ends() {
+    let loaded = solve_2d(&truss_v(false)).unwrap();
+    assert!(loaded.element_forces.iter().filter(|f| f.element_id != 3).all(|f| f.n_start < -1.0), "{:?}", loaded.element_forces);
+    assert_eq!(second_order(&loaded.structured_diagnostics), unbounded());
+    let settled = solve_2d(&truss_v(true)).unwrap();
+    assert!(settled.element_forces.iter().filter(|f| f.element_id != 3).all(|f| f.n_start < -1.0), "{:?}", settled.element_forces);
+    assert_eq!(second_order(&settled.structured_diagnostics), vec![]);
+}
+
+#[test]
+fn a_p_delta_result_does_not_carry_the_linear_screen() {
+    use dedaliano_engine::solver::pdelta::{solve_pdelta_2d, solve_pdelta_3d};
+    let p = solve_pdelta_2d(&portal("pinned", 250.0, 0.01), 30, 1e-6).unwrap();
+    assert_eq!(second_order(&p.linear_results.structured_diagnostics), unbounded());
+    assert_eq!(second_order(&p.results.structured_diagnostics), vec![]);
+    let p = solve_pdelta_3d(&cantilever_3d(2, -100.0, E, 1.0, IDENTITY, [0.0; 3]), 30, 1e-6).unwrap();
+    assert_eq!(second_order(&p.linear_results.structured_diagnostics), warned(vec![1, 2]));
+    assert_eq!(second_order(&p.results.structured_diagnostics), vec![]);
+}

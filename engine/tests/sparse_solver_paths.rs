@@ -2230,7 +2230,7 @@ fn assert_invariance_notice(ds: &[StructuredDiagnostic]) {
 const SMALL: &str = "LIN-SMALL-DISPLACEMENT";
 
 fn screen_warning(d: &StructuredDiagnostic) -> bool {
-    matches!(d.phase.as_deref(), Some(SMALL | "LIN-SECOND-ORDER" | "LIN-SECOND-ORDER-UNBOUNDED"))
+    matches!(d.phase.as_deref(), Some(SMALL | "LIN-SECOND-ORDER" | "LIN-SECOND-ORDER-NEAR" | "LIN-SECOND-ORDER-UNBOUNDED"))
 }
 
 fn beyond_small(v: f64) -> bool {

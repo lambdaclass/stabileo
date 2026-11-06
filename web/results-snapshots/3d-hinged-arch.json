@@ -4,7 +4,7 @@
   "format": 2,
   "values": {
     "base.allZero": false,
-    "base.diagnosticCodes": "warning:known_issue",
+    "base.diagnosticCodes": "warning:known_issue warning:known_issue",
     "base.displacements[n10]": {"rx":0,"ry":-0.00004663616309,"rz":0,"ux":-0.0002237545982,"uy":0,"uz":-0.0004719454859},
     "base.displacements[n11]": {"rx":0,"ry":-0.0001160458095,"rz":0,"ux":-0.0001989725814,"uy":0,"uz":-0.0003646158047},
     "base.displacements[n12]": {"rx":0,"ry":-0.0001676901448,"rz":0,"ux":-0.00009062579889,"uy":0,"uz":-0.0001727629963},

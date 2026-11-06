@@ -65,7 +65,8 @@ pub const ENTRIES: &[Entry] = &[
     Entry { id: "TH-RECIPROCITY", issue: 760, mode: Mode::Warn, message: "Linear time history has failed reciprocity checks by up to a factor of 33. The affected input class is not yet isolated; independently verify this response before design" },
     Entry { id: "LIN-SMALL-DISPLACEMENT", issue: 1446, mode: Mode::Warn, message: "A rotation or a member's relative displacement exceeds 0.1 rad, the small-displacement screening limit of linear analysis: at that angle the terms first-order theory drops, such as the chord shortening 1 − cos θ ≈ 0.5 %, may no longer be negligible. Check that the change of geometry is acceptable: a support, spring or release may leave part of the model nearly free; otherwise use a nonlinear analysis" },
     Entry { id: "LIN-SECOND-ORDER", issue: 1551, mode: Mode::Warn, message: "Axial compression is a significant fraction of the critical load: second-order effects may amplify these linear displacements and moments by more than 10 % (N/Ncr > 0.075, CIRSOC 301 Appendix 7). Run a P-Delta or second-order analysis before using these moments for design" },
-    Entry { id: "LIN-SECOND-ORDER-UNBOUNDED", issue: 1551, mode: Mode::Warn, message: "Members are in compression and the critical load could not be bounded, so it is unknown whether second-order effects amplify these linear displacements and moments by more than 10 %. Run a P-Delta or second-order analysis before using these moments for design" },
+    Entry { id: "LIN-SECOND-ORDER-NEAR", issue: 1551, mode: Mode::Warn, message: "Axial compression is near the second-order limit (N/Ncr above 0.047, the limit 0.075 over the largest CIRSOC 301 load factor 1.6): a combination that factors this case up may pass it. Check the combinations with a P-Delta or second-order analysis" },
+    Entry { id: "LIN-SECOND-ORDER-UNBOUNDED", issue: 1551, mode: Mode::Warn, message: "Members are in compression and the critical load could not be bounded from the members alone, so it is unknown whether second-order effects amplify these linear displacements and moments by more than 10 %. Run a P-Delta or second-order analysis before using these moments for design" },
     Entry { id: "RC-NM-PAIRING", issue: 1316, mode: Mode::Warn, message: "This CIRSOC 201 column check pairs the axial force of one combination with the moment of another, which can be unconservative below the balance point. Check the column under each named combination" },
 ];
 
@@ -616,9 +617,9 @@ pub fn small_displacement_3d(input: Option<&SolverInput3D>, r: &AnalysisResults3
 /// them as small. The displacement amplification 1/(1 − N/Ncr) is lower.
 pub const SECOND_ORDER_RATIO: f64 = 0.074_83;
 
-std::thread_local! {
-    static SECOND_ORDER_SCREEN_RUNNING: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
-}
+/// The largest single load factor of CIRSOC 301 B.2: a case within this factor of the limit can pass
+/// it in a combination.
+pub const SECOND_ORDER_NEAR_FACTOR: f64 = 1.6;
 
 pub(crate) struct ScreenBar {
     pub id: usize,
@@ -633,6 +634,7 @@ pub(crate) struct ScreenModel {
     pub bars: Vec<ScreenBar>,
     pub position: std::collections::HashMap<usize, [f64; 3]>,
     pub supported: std::collections::HashSet<usize>,
+    pub braced: std::collections::HashSet<usize>,
     pub clamped: std::collections::HashSet<usize>,
     pub other_parts: bool,
 }
@@ -692,96 +694,86 @@ fn member_chains(m: &ScreenModel) -> Vec<Vec<usize>> {
     chains
 }
 
-/// A linear result's second-order screen (#1551). Each compressed frame member that is clamped to
-/// a support at one end, with no hinge there, is judged against Ncr = π²·E·I_min/(2L)², L its
-/// whole chain: the cantilever's Euler load, which a member clamped at one end only reaches when
-/// nothing else holds it. Any other compression (a member not clamped that way, a truss bar, or a
-/// model with surfaces, constraints or connectors) is judged on the whole frame by `frame_factor`,
-/// the lowest buckling factor of these loads: None when nothing buckles, an error when it could not
-/// be found.
-pub(crate) fn second_order(m: &ScreenModel, frame_factor: impl FnOnce() -> Result<Option<f64>, String>) -> Option<StructuredDiagnostic> {
-    if SECOND_ORDER_SCREEN_RUNNING.with(|r| r.get()) { return None; }
-    if !m.bars.iter().any(|b| b.compression > COMPRESSED) { return None; }
-    let chains = member_chains(m);
+fn chain_ends(m: &ScreenModel, chain: &[usize]) -> Vec<usize> {
+    let mut count: std::collections::HashMap<usize, usize> = std::collections::HashMap::new();
+    for &i in chain {
+        for n in m.bars[i].ends { *count.entry(n).or_default() += 1; }
+    }
+    let mut ends: Vec<usize> = count.into_iter().filter(|&(_, c)| c == 1).map(|(n, _)| n).collect();
+    ends.sort_unstable();
+    ends
+}
+
+/// A linear result's second-order screen (#1551). The K = 2 and K = 1 bounds hold for the frame
+/// only because the clamp or both braces are supports: restraint from other members does not count.
+pub(crate) fn second_order(m: &ScreenModel) -> Vec<StructuredDiagnostic> {
+    if !m.bars.iter().any(|b| b.compression > COMPRESSED) { return Vec::new(); }
     let length = |b: &ScreenBar| match (m.position.get(&b.ends[0]), m.position.get(&b.ends[1])) {
         (Some(&a), Some(&c)) => norm(sub(c, a)),
         _ => f64::NAN,
     };
-    let clamped_end = |chain: &[usize]| chain.iter().any(|&i| {
+    let braced = |chain: &[usize]| { let ends = chain_ends(m, chain); ends.len() == 2 && ends.iter().all(|n| m.braced.contains(n)) };
+    let clamped = |chain: &[usize]| chain.iter().any(|&i| {
         let b = &m.bars[i];
         (0..2).any(|k| m.clamped.contains(&b.ends[k]) && !b.hinged[k])
     });
-    let bounded = !m.other_parts
-        && m.bars.iter().all(|b| b.frame || b.compression <= COMPRESSED)
-        && chains.iter().all(|c| clamped_end(c) || c.iter().all(|&i| m.bars[i].compression <= COMPRESSED));
-    if !bounded {
-        SECOND_ORDER_SCREEN_RUNNING.with(|r| r.set(true));
-        let factor = frame_factor();
-        SECOND_ORDER_SCREEN_RUNNING.with(|r| r.set(false));
-        let mut d = match factor {
-            Ok(Some(f)) if f > 0.0 && f * SECOND_ORDER_RATIO > 1.0 => return None,
-            Ok(None) => return None,
-            Ok(Some(_)) => diagnostic("LIN-SECOND-ORDER"),
-            Err(_) => diagnostic("LIN-SECOND-ORDER-UNBOUNDED"),
-        };
-        d.threshold = Some(SECOND_ORDER_RATIO);
-        return Some(d);
-    }
-    let mut elements = Vec::new();
-    for chain in &chains {
+    let mut unbounded = m.other_parts || m.bars.iter().any(|b| !b.frame && b.compression > COMPRESSED && !b.ends.iter().all(|n| m.braced.contains(n)));
+    let (mut over, mut near) = (Vec::new(), Vec::new());
+    for chain in member_chains(m) {
         let n = chain.iter().map(|&i| m.bars[i].compression).fold(0.0, f64::max);
         if n <= COMPRESSED { continue; }
+        let k = if clamped(&chain) { 2.0 } else if braced(&chain) { 1.0 } else { unbounded = true; continue };
         let l: f64 = chain.iter().map(|&i| length(&m.bars[i])).sum();
         let ei = chain.iter().map(|&i| m.bars[i].ei_min).fold(f64::INFINITY, f64::min);
-        let ncr = std::f64::consts::PI.powi(2) * ei / (2.0 * l).powi(2);
-        if !(n / ncr <= SECOND_ORDER_RATIO) {
-            elements.extend(chain.iter().map(|&i| m.bars[i].id));
+        let ratio = n / (std::f64::consts::PI.powi(2) * ei / (k * l).powi(2));
+        let ids = chain.iter().map(|&i| m.bars[i].id);
+        if !(ratio <= SECOND_ORDER_RATIO) {
+            over.extend(ids);
+        } else if ratio * SECOND_ORDER_NEAR_FACTOR > SECOND_ORDER_RATIO {
+            near.extend(ids);
         }
     }
-    second_order_on(elements)
+    let mut found: Vec<StructuredDiagnostic> = [("LIN-SECOND-ORDER", over), ("LIN-SECOND-ORDER-NEAR", near)].into_iter().filter_map(|(id, e)| on_elements(id, e)).collect();
+    if unbounded { found.push(whole_frame("LIN-SECOND-ORDER-UNBOUNDED")); }
+    found
 }
 
-fn second_order_on(mut elements: Vec<usize>) -> Option<StructuredDiagnostic> {
+fn whole_frame(id: &str) -> StructuredDiagnostic {
+    let mut d = diagnostic(id);
+    d.threshold = Some(SECOND_ORDER_RATIO);
+    d
+}
+
+fn on_elements(id: &str, mut elements: Vec<usize>) -> Option<StructuredDiagnostic> {
     if elements.is_empty() { return None; }
     elements.sort_unstable();
     elements.dedup();
-    let mut d = diagnostic("LIN-SECOND-ORDER");
-    d.threshold = Some(SECOND_ORDER_RATIO);
+    let mut d = whole_frame(id);
     d.element_kind = Some(ElementKind::Frame);
     d.element_ids = elements;
     Some(d)
 }
 
 pub(crate) fn is_second_order(d: &StructuredDiagnostic) -> bool {
-    d.code == DiagnosticCode::KnownIssue && matches!(d.phase.as_deref(), Some("LIN-SECOND-ORDER" | "LIN-SECOND-ORDER-UNBOUNDED"))
+    d.code == DiagnosticCode::KnownIssue && matches!(d.phase.as_deref(), Some("LIN-SECOND-ORDER" | "LIN-SECOND-ORDER-NEAR" | "LIN-SECOND-ORDER-UNBOUNDED"))
 }
 
-/// A combination's screen: the warnings of its cases, carried. A warning on the whole frame (no
-/// elements) stays on the whole frame.
+/// A combination's screen from its cases' warnings, without its own critical load: the members a
+/// case flagged stay flagged, and a case near the limit, or unbounded, leaves the combination
+/// unbounded, since its factors may carry it past the limit.
 pub(crate) fn combined_second_order<'a>(cases: impl Iterator<Item = &'a StructuredDiagnostic>) -> Vec<StructuredDiagnostic> {
-    let mut whole: Vec<StructuredDiagnostic> = Vec::new();
     let mut elements = Vec::new();
+    let mut unbounded = false;
     for d in cases {
         match d.phase.as_deref() {
-            Some("LIN-SECOND-ORDER-UNBOUNDED") => if !whole.iter().any(|w| w.phase == d.phase) { whole.push(d.clone()) },
-            Some("LIN-SECOND-ORDER") if d.element_ids.is_empty() => if !whole.iter().any(|w| w.phase == d.phase) { whole.push(d.clone()) },
             Some("LIN-SECOND-ORDER") => elements.extend(d.element_ids.iter().copied()),
+            Some("LIN-SECOND-ORDER-NEAR" | "LIN-SECOND-ORDER-UNBOUNDED") => unbounded = true,
             _ => {}
         }
     }
-    if whole.iter().any(|w| w.phase.as_deref() == Some("LIN-SECOND-ORDER")) { return whole; }
-    whole.extend(second_order_on(elements));
-    whole
-}
-
-/// The lowest buckling factor of a frame-level buckling solve, for [`second_order`]: None when
-/// nothing is compressed.
-pub(crate) fn lowest_factor(factors: Result<Vec<f64>, String>) -> Result<Option<f64>, String> {
-    match factors {
-        Ok(f) => Ok(f.into_iter().reduce(f64::min)),
-        Err(e) if crate::refusal::has_code(&e, DiagnosticCode::NoCompressedElements) => Ok(None),
-        Err(e) => Err(e),
-    }
+    let mut found: Vec<StructuredDiagnostic> = on_elements("LIN-SECOND-ORDER", elements).into_iter().collect();
+    if unbounded { found.push(whole_frame("LIN-SECOND-ORDER-UNBOUNDED")); }
+    found
 }
 
 fn span_length(a: Option<f64>, b: Option<f64>, length: Option<f64>) -> f64 {
@@ -796,7 +788,7 @@ fn compression(n_start: f64, n_end: f64, span: Option<&f64>) -> f64 {
 }
 
 /// [`second_order`] for a 2D result.
-pub fn second_order_2d(input: &SolverInput, loads: &[SolverLoad], r: &AnalysisResults, frame_factor: impl FnOnce() -> Result<Option<f64>, String>) -> Option<StructuredDiagnostic> {
+pub fn second_order_2d(input: &SolverInput, loads: &[SolverLoad], r: &AnalysisResults) -> Vec<StructuredDiagnostic> {
     let mut span: std::collections::HashMap<usize, f64> = std::collections::HashMap::new();
     for load in loads {
         let (id, total) = match load {
@@ -812,18 +804,20 @@ pub fn second_order_2d(input: &SolverInput, loads: &[SolverLoad], r: &AnalysisRe
             .map_or(f64::NAN, |(m, s)| m.e * 1000.0 * s.iz);
         ScreenBar { id: e.id, ends: [e.node_i, e.node_j], frame: e.elem_type == "frame", hinged: [e.hinge_start, e.hinge_end], ei_min: ei, compression: n.get(&e.id).copied().unwrap_or(0.0) }
     }).collect();
+    let square = |s: &&crate::types::SolverSupport| s.angle.is_none_or(|a| a == 0.0);
     let model = ScreenModel {
         bars,
         position: input.nodes.values().map(|n| (n.id, [n.x, 0.0, n.z])).collect(),
         supported: input.supports.values().map(|s| s.node_id).collect(),
-        clamped: input.supports.values().filter(|s| s.support_type == "fixed" && s.angle.is_none_or(|a| a == 0.0)).map(|s| s.node_id).collect(),
+        braced: input.supports.values().filter(square).filter(|s| matches!(s.support_type.as_str(), "fixed" | "pinned")).map(|s| s.node_id).collect(),
+        clamped: input.supports.values().filter(square).filter(|s| s.support_type == "fixed").map(|s| s.node_id).collect(),
         other_parts: !input.constraints.is_empty() || !input.connectors.is_empty(),
     };
-    second_order(&model, frame_factor)
+    second_order(&model)
 }
 
 /// [`second_order`] for a 3D result: I_min is the lesser of Iy and Iz.
-pub fn second_order_3d(input: &SolverInput3D, loads: &[SolverLoad3D], r: &AnalysisResults3D, frame_factor: impl FnOnce() -> Result<Option<f64>, String>) -> Option<StructuredDiagnostic> {
+pub fn second_order_3d(input: &SolverInput3D, loads: &[SolverLoad3D], r: &AnalysisResults3D) -> Vec<StructuredDiagnostic> {
     let mut span: std::collections::HashMap<usize, f64> = std::collections::HashMap::new();
     for load in loads {
         if let SolverLoad3D::Distributed(q) = load {
@@ -838,16 +832,17 @@ pub fn second_order_3d(input: &SolverInput3D, loads: &[SolverLoad3D], r: &Analys
         let hinged = [e.release_my_start || e.release_mz_start, e.release_my_end || e.release_mz_end];
         ScreenBar { id: e.id, ends: [e.node_i, e.node_j], frame: e.elem_type == "frame", hinged, ei_min: ei, compression: n.get(&e.id).copied().unwrap_or(0.0) }
     }).collect();
+    let held = |s: &&crate::types::SolverSupport3D| s.rx && s.ry && s.rz && [s.kx, s.ky, s.kz].iter().all(Option::is_none) && s.is_inclined != Some(true);
     let model = ScreenModel {
         bars,
         position: input.nodes.values().map(|n| (n.id, [n.x, n.y, n.z])).collect(),
         supported: input.supports.values().map(|s| s.node_id).collect(),
-        clamped: input.supports.values().filter(|s| s.rx && s.ry && s.rz && s.rrx && s.rry && s.rrz
-            && [s.kx, s.ky, s.kz, s.krx, s.kry, s.krz].iter().all(Option::is_none) && s.is_inclined != Some(true)).map(|s| s.node_id).collect(),
+        braced: input.supports.values().filter(held).map(|s| s.node_id).collect(),
+        clamped: input.supports.values().filter(held).filter(|s| s.rrx && s.rry && s.rrz && [s.krx, s.kry, s.krz].iter().all(Option::is_none)).map(|s| s.node_id).collect(),
         other_parts: !input.constraints.is_empty() || !input.connectors.is_empty() || !input.plates.is_empty() || !input.quads.is_empty()
             || !input.quad9s.is_empty() || !input.solid_shells.is_empty() || !input.curved_shells.is_empty() || !input.curved_beams.is_empty(),
     };
-    second_order(&model, frame_factor)
+    second_order(&model)
 }
 
 /// Add warnings to a result's diagnostics, once each: a path that already attached a finding
