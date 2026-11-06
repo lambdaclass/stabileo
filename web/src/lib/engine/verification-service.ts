@@ -401,6 +401,29 @@ export function steelInputCompleteness(model: AutoVerifyModelData): SteelInputCo
   return out;
 }
 
+/** The members whose linear moments the engine flagged as possibly amplified past 10 % (#1551): all of them when `whole`. */
+export interface FirstOrderMembers { whole: boolean; elements: ReadonlySet<number> }
+
+export function firstOrderMembers(results: Iterable<{ structuredDiagnostics?: ReadonlyArray<{ code?: string; severity?: string; phase?: string; elementIds?: number[] }> }>): FirstOrderMembers {
+  const elements = new Set<number>();
+  let whole = false;
+  for (const r of results) {
+    for (const d of r.structuredDiagnostics ?? []) {
+      if (d.code !== 'known_issue' || (d.phase !== 'LIN-SECOND-ORDER' && d.phase !== 'LIN-SECOND-ORDER-UNBOUNDED')) continue;
+      if (!d.elementIds?.length) whole = true;
+      for (const id of d.elementIds ?? []) elements.add(id);
+    }
+  }
+  return { whole, elements };
+}
+
+/** A check on first-order moments the engine flagged is held, never passed: H.1 takes Mr as second-order (C.1). A failure stays one. */
+function heldOnFirstOrder(v: SteelVerification, firstOrder: FirstOrderMembers | undefined): SteelVerification {
+  if (!firstOrder || !(firstOrder.whole || firstOrder.elements.has(v.elementId)) || v.overallStatus === 'fail') return v;
+  const hold = { check: 'interaction' as const, clause: 'C.1', key: 'c301.refuse.firstOrderMoments', upperBound: false };
+  return { ...v, overallStatus: 'held', notEvaluated: [...(v.notEvaluated ?? []), hold] };
+}
+
 export function runSteelVerification(
   results3D: AnalysisResults3D,
   model: AutoVerifyModelData,
@@ -420,6 +443,7 @@ export function runSteelVerification(
    * buckling (`engine/steel/unbraced-length.ts`). Absent: both are the element's own length.
    */
   lengths?: ReadonlyMap<number, { L: number; Lb: number; chain?: readonly number[] }>,
+  firstOrder?: FirstOrderMembers,
 ): SteelVerification[] {
   const verifs: SteelVerification[] = [];
 
@@ -449,7 +473,7 @@ export function runSteelVerification(
       const vm = isDesigned((elem as { behaviour?: string }).behaviour as never) && isVariableMember(model.sections as never, elem as never)
         ? checkVariableSteelMember(ef.elementId, elem as never, model.sections as never, material as SteelMaterialData, stationDiagrams?.get(ef.elementId), lengths?.get(ef.elementId) ?? { L, Lb: L })
         : null;
-      if (vm) verifs.push(vm);
+      if (vm) verifs.push(heldOnFirstOrder(vm, firstOrder));
       continue;
     }
     const demand = maskAxialDemand(steelDemandOf(ef, stationDemands?.get(ef.elementId), stationDiagrams?.get(ef.elementId)), behaviour);
@@ -457,7 +481,7 @@ export function runSteelVerification(
     const segment = steelSegmentDiagram(ef.elementId, len, stationDiagrams, model);
     const v = checkSteelMember(ef.elementId, demand, section as SteelSectionData, material as SteelMaterialData,
       steelMemberLengths(elem as never, len ?? { L, Lb: L }, memberEndsFor(ef.elementId, model as never, len?.chain)), segment);
-    if (v) verifs.push(v);
+    if (v) verifs.push(heldOnFirstOrder(v, firstOrder));
   }
 
   return verifs;

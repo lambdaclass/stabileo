@@ -1459,6 +1459,7 @@ const steelFr: Translations = {
   'c301.refuse.noConnection': 'l\'assemblage d\'extrémité manque (trous et coefficient U de D.3)',
   'c301.refuse.endsMissing': 'l\'assemblage d\'extrémité manque en {ends} (trous et coefficient U de D.3)',
   'c301.refuse.endRefused': 'extrémité {end} : {reason}',
+  'c301.refuse.firstOrderMoments': 'les moments sont du premier ordre et l’analyse avertit qu’ils peuvent être amplifiés de plus de 10 % : H.1 les prend comme du second ordre (C.1) ; lancez une analyse P-Delta ou du second ordre',
   'c301.refuse.connectionRefused': 'assemblage d\'extrémité : {reason}',
   'c301.refuse.aeOutOfRange': 'Ae = {Ae} mm² hors de (0, Ag]',
   'c301.refuse.anOutOfRange': 'An = {An} mm² hors de (0, Ag]',

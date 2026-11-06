@@ -135,6 +135,7 @@ const c301Es: Record<string, string> = {
   'c301.refuse.noConnection': 'falta la unión extrema (agujeros y coeficiente U de D.3)',
   'c301.refuse.endsMissing': 'falta la unión extrema en {ends} (agujeros y coeficiente U de D.3)',
   'c301.refuse.endRefused': 'extremo {end}: {reason}',
+  'c301.refuse.firstOrderMoments': 'los momentos son de primer orden y el análisis advierte que pueden amplificarse más de un 10 %: H.1 los toma como de segundo orden (C.1); ejecuta un análisis P-Delta o de segundo orden',
   'c301.refuse.connectionRefused': 'unión extrema: {reason}',
   'c301.refuse.aeOutOfRange': 'Ae = {Ae} mm² fuera de (0, Ag]',
   'c301.refuse.anOutOfRange': 'An = {An} mm² fuera de (0, Ag]',

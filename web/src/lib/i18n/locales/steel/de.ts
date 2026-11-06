@@ -1459,6 +1459,7 @@ const steelDe: Translations = {
   'c301.refuse.noConnection': 'der Endanschluss fehlt (Löcher und Beiwert U nach D.3)',
   'c301.refuse.endsMissing': 'der Endanschluss fehlt an {ends} (Löcher und Beiwert U nach D.3)',
   'c301.refuse.endRefused': 'Ende {end}: {reason}',
+  'c301.refuse.firstOrderMoments': 'die Momente sind nach Theorie erster Ordnung und die Berechnung warnt, dass sie um mehr als 10 % vergrößert sein können: H.1 nimmt sie als Momente zweiter Ordnung (C.1); führe eine P-Delta- oder Berechnung nach Theorie zweiter Ordnung durch',
   'c301.refuse.connectionRefused': 'Endanschluss: {reason}',
   'c301.refuse.aeOutOfRange': 'Ae = {Ae} mm² außerhalb von (0, Ag]',
   'c301.refuse.anOutOfRange': 'An = {An} mm² außerhalb von (0, Ag]',
