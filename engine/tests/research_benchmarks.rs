@@ -213,13 +213,20 @@ fn elastica_response(parameter: f64, n: usize, area: f64, steps: usize) -> (f64,
 }
 
 fn elastica(parameter: f64, u: f64, w: f64) {
-    // A=1 reduces P/EA to <=0.00025; residual extensibility changes either
-    // reference by <=0.025%. Retain the original A=.01 model separately below.
-    // Measured worst errors at 16/32/64 elements: .0801/.0384/.0281%.
-    // All tolerances are tighter than the former 2%; refinement must improve
-    // BOTH signed displacements, not merely land inside an acceptance band.
+    // The page states these ceilings: change them only in the shared case file.
+    let data: serde_json::Value =
+        serde_json::from_str(include_str!("benchmarks/mattiasson_elastica.json")).unwrap();
+    let ceilings: Vec<(usize, f64)> = data["meshErrorCeilings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|c| (c["elements"].as_u64().unwrap() as usize, c["relativeError"].as_f64().unwrap()))
+        .collect();
+    assert_eq!(ceilings.iter().map(|c| c.0).collect::<Vec<_>>(), [16, 32, 64]);
+    assert!(ceilings.windows(2).all(|w| w[1].1 < w[0].1));
+    assert!(ceilings[0].1 < data["accuracyTolerance"].as_f64().unwrap());
     let mut previous = (f64::INFINITY, f64::INFINITY);
-    for (n, tolerance) in [(16, 0.000801), (32, 0.000384), (64, 0.000281)] {
+    for (n, tolerance) in ceilings {
         let actual = elastica_response(parameter, n, 1., 100);
         relative(actual.0, u, tolerance);
         relative(actual.1, w, tolerance);
@@ -680,8 +687,17 @@ mod arches {
         let m = basis(64, 16).unwrap();
         relative(m[0].force, 4. * std::f64::consts::PI.powi(2), 1e-5);
         relative(m[1].force, 80.7629142257, 1e-5);
+        let replay: serde_json::Value = serde_json::from_str(include_str!(
+            "../../research/mechanics/biggins-2026/reference-results/replay.json"
+        ))
+        .unwrap();
+        for p in replay["curve"].as_array().unwrap() {
+            assert!(
+                (threshold(&m, p[0].as_f64().unwrap()).0 - p[1].as_f64().unwrap()).abs() < 1e-8
+            );
+        }
         let value = threshold(&m, 0.7).0;
-        assert!((value - 21.52).abs() < 0.02, "threshold={value}");
+        assert!((value - 21.52).abs() < 0.005, "threshold={value}");
     }
 }
 
@@ -785,4 +801,52 @@ fn buckling_818_exact_reference() {
     let input: SolverInput3D = serde_json::from_value(json!({"elements": {"1": {"id": 1, "materialId": 1, "nodeI": 1, "nodeJ": 2, "sectionId": 1, "type": "frame"}, "2": {"id": 2, "materialId": 1, "nodeI": 2, "nodeJ": 3, "sectionId": 1, "type": "frame"}, "3": {"id": 3, "materialId": 1, "nodeI": 3, "nodeJ": 4, "sectionId": 1, "type": "frame"}}, "loads": [{"data": {"elementId": 3, "qYI": -3330997229.0, "qYJ": -18.011781194247305, "qZI": 4.009405128657818, "qZJ": -7.76929097622633}, "type": "distributed"}], "materials": {"1": {"e": 200000, "id": 1, "nu": 0.3}}, "nodes": {"1": {"id": 1, "x": 0, "y": 0, "z": 0}, "2": {"id": 2, "x": 5.741907958187831, "y": 5, "z": 0}, "3": {"id": 3, "x": 0.9414404305807742, "y": 4.848409259226173, "z": 3.27579596824944}, "4": {"id": 4, "x": 3.7865452979101173, "y": 2, "z": 0.3494559196841771}}, "sections": {"1": {"a": 0.00538, "id": 1, "iy": 8.356e-05, "iz": 6.04e-06, "j": 2.01e-07}}, "supports": {"1": {"nodeId": 1, "rrx": true, "rry": true, "rrz": true, "rx": true, "ry": true, "rz": true}, "2": {"nodeId": 2, "rrx": false, "rry": false, "rrz": false, "rx": true, "ry": true, "rz": true}}})).unwrap();
     let value = buckling::solve_buckling_3d(&input, 1).unwrap().modes[0].load_factor;
     relative(value, 4688.920345, 1e-6);
+}
+
+#[test]
+fn ferrari_model_matches_published_parameters() {
+    let paper: serde_json::Value = serde_json::from_str(include_str!(
+        "../../research/stability/ferrari-sigmund-2025/reference-results/paper_values.json"
+    ))
+    .unwrap();
+    let p = &paper["parameters"];
+    for n in [2, 4, 10, 20, 40] {
+        let e = p["eccentricity_m"].as_f64().unwrap();
+        let m = serde_json::to_value(roorda(n, e)).unwrap();
+        let length = p["length_m"].as_f64().unwrap();
+        assert_eq!(m["nodes"].as_object().unwrap().len(), 2 * n + 1);
+        assert_eq!(m["elements"].as_object().unwrap().len(), 2 * n);
+        for i in 0..=2 * n {
+            let node = &m["nodes"][(i + 1).to_string()];
+            let (x, z) = if i <= n {
+                (0., length * i as f64 / n as f64)
+            } else {
+                (length * (i - n) as f64 / n as f64, length)
+            };
+            assert_eq!(node["x"], x);
+            assert_eq!(node["z"], z);
+        }
+        assert_eq!(m["materials"]["1"]["e"].as_f64().unwrap(), p["young_MPa"].as_f64().unwrap());
+        assert_eq!(m["sections"]["1"]["a"].as_f64().unwrap(), p["area_m2"].as_f64().unwrap());
+        assert_eq!(m["sections"]["1"]["iz"].as_f64().unwrap(), p["inertia_m4"].as_f64().unwrap());
+        assert_eq!(m["supports"].as_object().unwrap().len(), 2);
+        for (id, node) in [(1, 1), (2, 2 * n + 1)] {
+            assert_eq!(m["supports"][id.to_string()]["nodeId"], node);
+            assert_eq!(m["supports"][id.to_string()]["type"], "pinned");
+        }
+        for i in 1..=2 * n {
+            let el = &m["elements"][i.to_string()];
+            assert_eq!(el["nodeI"], i);
+            assert_eq!(el["nodeJ"], i + 1);
+            assert_eq!(el["hingeStart"], false);
+            assert_eq!(el["hingeEnd"], false);
+        }
+        let force = p["corner_force_N"].as_f64().unwrap() / 1000.;
+        assert_eq!(m["loads"].as_array().unwrap().len(), 1);
+        let load = &m["loads"][0]["data"];
+        assert_eq!(load["nodeId"], n + 1);
+        assert_eq!(load["fx"], 0.);
+        assert_eq!(load["fz"], force);
+        assert_eq!(load["my"], -force * e);
+    }
 }

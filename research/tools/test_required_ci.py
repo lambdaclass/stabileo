@@ -11,7 +11,8 @@ workflow = yaml.safe_load((root / '.github/workflows/ci.yml').read_text())
 research = yaml.safe_load((root / '.github/workflows/research.yml').read_text())
 jobs = workflow['jobs']
 assert 'research' in jobs['ci-ok']['needs']
-assert jobs['ci-ok']['if'] == 'always()'
+assert jobs['ci-ok']['if'] == "${{ always() && needs.superseded.outputs.newer != 'true' }}"
+assert jobs['ci-ok']['needs'][0] == 'superseded'
 assert jobs['research']['uses'] == './.github/workflows/research.yml'
 assert jobs['research']['needs'] == 'changes'
 assert jobs['research']['if'] == "needs.changes.outputs.research == 'true'"
@@ -44,7 +45,7 @@ for job, tests in {
     'isolation': ['test_asset_identity.py', 'test_docker_context.py'],
     'catalog': ['test_grossman_catalog.py'],
 }.items():
-    assert research['jobs'][job]['if'] == "${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name != 'pull_request') }}"
+    assert research['jobs'][job]['if'] == "${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name == 'schedule') }}"
     commands = [step.get('run', '') for step in research['jobs'][job]['steps']]
     for test in tests:
         assert any(f'-I research/tools/{test}' in command for command in commands), (job, test)
@@ -151,7 +152,7 @@ measured = [step for step in route if 'check-research-route-size.mjs' in step.ge
 assert measured and all('if' not in step for step in measured)
 assert measured[0]['env']['RESEARCH_ISOLATION'] == '${{ steps.scope.outputs.research }}'
 copy = next(line for line in measured[0]['run'].splitlines() if line.startswith('cp '))
-assert 'web/scripts/product-route-growth-budgets.json' in copy.split()
+assert 'web/scripts/product-route-growth-budgets.json' not in copy.split()
 assert copy.split()[-1] == 'route-main/web/scripts/'
 assert 'force_routes' not in jobs['research'].get('with', {})
 assert 'FORCE_ROUTES' not in scope['env']
@@ -160,7 +161,7 @@ assert set(triggers['pull_request']['paths']) == {
     'research/**', 'web/src/components/research/**', '.github/workflows/research.yml'}
 for name, job in research['jobs'].items():
     if name != 'catalog-online':
-        assert "github.workflow != 'Research' || github.event_name != 'pull_request'" in job['if'], name
+        assert "github.workflow != 'Research' || github.event_name == 'schedule'" in job['if'], name
 script = jobs['ci-ok']['steps'][0]['run']
 for result, expected in [('success', 0), ('skipped', 0), ('failure', 1), ('cancelled', 1)]:
     run = subprocess.run(['sh', '-c', script], env={'RESULTS': f'success skipped {result}'}, capture_output=True)
@@ -168,7 +169,7 @@ for result, expected in [('success', 0), ('skipped', 0), ('failure', 1), ('cance
 print('ok required research CI propagates failures and accepts skipped jobs')
 
 koiter = research["jobs"]["koiter"]
-assert koiter["runs-on"].endswith("|| 'ubuntu-24.04' }}") and koiter["if"] == "${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name != 'pull_request') }}"
+assert koiter["runs-on"].endswith("|| 'ubuntu-24.04' }}") and koiter["if"] == "${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name == 'schedule') }}"
 assert any("cargo test --release --locked" in step.get("run", "") for step in koiter["steps"])
 
 assert set(triggers['pull_request']['paths']) == {'research/**', 'web/src/components/research/**', '.github/workflows/research.yml'}
@@ -177,7 +178,8 @@ for caller, event, route_only, expected in [
     ('CI', 'pull_request', False, set(research['jobs']) - {'catalog-online'}),
     ('CI', 'merge_group', False, set(research['jobs']) - {'catalog-online'}),
     ('CI', 'pull_request', True, {'route-size'}),
-    ('Research', 'push', False, set(research['jobs'])),
+    ('Research', 'push', False, {'catalog-online'}),
+    ('CI', 'push', False, set(research['jobs']) - {'catalog-online'}),
     ('Research', 'schedule', False, set(research['jobs'])),
 ]:
     selected = set()
@@ -200,7 +202,10 @@ for name, cache in caches.items():
 build = next(step for step in steps if step.get('name') == 'Build research WASM (cache misses, in parallel)')
 assert 'if' not in build and build['id'] == 'build-research'
 assert build['timeout-minutes'] + 10 <= jobs['research-wasm']['timeout-minutes'], 'the build step must stop early enough for the saves to run'
-assert re.findall(r"steps\.research-([\w-]+)\.outputs\.cache-hit != 'true' && steps\.retry-([\w-]+)\.outputs\.cache-hit != 'true' && '([\w-]+)'", build['run']) == [(name, name, name) for name in caches], build['run']
+host = next(step for step in steps if step.get('id') == 'host-cache')
+assert build['run'] == '.github/scripts/build-research-wasm.sh ${{ steps.host-cache.outputs.build }}', build['run']
+assert steps.index(host) < steps.index(build) and host['run'] == '.github/scripts/research-host-cache.sh restore'
+assert re.findall(r"([\w-]+)=\$\{\{ \(steps\.research-([\w-]+)\.outputs\.cache-hit == 'true' \|\| steps\.retry-([\w-]+)\.outputs\.cache-hit == 'true'\) && 'hit'", host['env']['BUNDLES']) == [(name, name, name) for name in caches], host['env']['BUNDLES']
 listed = subprocess.run(['.github/scripts/build-research-wasm.sh', '--list'], capture_output=True, text=True, check=True).stdout.split('\n')
 assert sorted(line.split()[0] for line in listed if line) == sorted(caches)
 for name, cache in caches.items():

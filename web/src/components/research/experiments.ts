@@ -66,8 +66,8 @@ export const EXPERIMENTS: Experiment[] = [
   },
   {
     paperId: 'macneal-harder-1985', path: '/research/benchmarks/macneal-harder-1985',
-    name: 'MacNeal–Harder: production engine benchmarks',
-    hook: 'Run the production engine on shared accuracy cases; inspect every result, including failures.',
+    name: 'MacNeal–Harder (1985): engine benchmarks',
+    hook: 'Run the production engine on MacNeal–Harder cantilever cases; inspect every result, including failures.',
     thumbnail: 'research-thumbs/macneal-harder-1985.svg', thumbnailAlt: 'Geometry schematic of the cantilever accuracy benchmark', thumbnailQuery: '',
     code: 'https://github.com/lambdaclass/stabileo/tree/main/engine/tests/benchmarks',
   },
@@ -91,7 +91,7 @@ export const EXPERIMENTS: Experiment[] = [
   },
   {
     paperId: 'dadeppo-arch-1975', path: '/research/benchmarks/dadeppo-arch-1975',
-    name: 'DaDeppo–Schmidt deep arch', hook: 'The production arc-length solver traces a 215° arch through its limit load.',
+    name: 'DaDeppo–Schmidt deep arch', hook: 'A 215° arch, a crown load and the production arc-length solver, checked against the published limit load and crown state.',
     thumbnail: 'research-thumbs/dadeppo-arch-1975.svg', thumbnailAlt: 'Deformed arch from the production solver', thumbnailQuery: '',
     code: 'https://github.com/lambdaclass/stabileo/tree/main/research/benchmarks/dadeppo-arch-1975',
   },
@@ -136,8 +136,8 @@ export const EXPERIMENTS: Experiment[] = [
   {
     paperId: 'riks-1979',
     path: '/research/benchmarks/riks-crisfield',
-    name: 'Arc-length snap-through: Riks and Crisfield',
-    hook: 'Follow two-bar trusses through their limit points with Stabileo’s production arc-length engine, checked against closed-form equilibrium paths.',
+    name: 'Arc-length benchmarks: Riks and Crisfield',
+    hook: 'Compare two-bar frame equilibrium paths with analytical references; the slender von Mises case passes its upper limit point.',
     thumbnail: 'research-thumbs/riks-crisfield.webp',
     thumbnailAlt: 'Two-bar benchmark geometry and computed displacement',
     thumbnailQuery: 'case=von-mises-truss&tab=viewer',

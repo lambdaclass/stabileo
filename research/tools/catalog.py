@@ -136,6 +136,11 @@ def check_entry(p, errors):
                           "never from memory or the title (leave the summary empty instead)")
     elif source is not None:
         errors.append(f"{pid}: summary_source given but the summary is empty")
+    if "final_review" in p:
+        if type(p["final_review"]) is not bool:
+            errors.append(f"{pid}: final_review must be a boolean")
+        elif p["final_review"] and not any("round" in r for r in p.get("reviews") or []):
+            errors.append(f"{pid}: final_review needs a recorded review round")
     status = p.get("status")
     if status not in STATUSES:
         errors.append(f"{pid}: status '{status}' not in {STATUSES}")
@@ -180,10 +185,12 @@ def check_entry(p, errors):
                 errors.append(f"{pid}: status '{status}' but VALIDATION.json has a failing or no check")
     if status == "published-figures-compared" or p.get("reproduced_published_results") is True:
         comparison = os.path.join(ROOT, impl or "", "PUBLISHED_COMPARISON.json")
+        if not os.path.isfile(comparison):
+            comparison = os.path.join(ROOT, impl or "", "reference-results", "published_comparison.json")
         if p.get("reproduced_published_results") is not True:
             errors.append(f"{pid}: published comparison requires reproduced_published_results: true")
         if not os.path.isfile(comparison):
-            errors.append(f"{pid}: published comparison needs PUBLISHED_COMPARISON.json")
+            errors.append(f"{pid}: published comparison needs reference-results/published_comparison.json (or legacy PUBLISHED_COMPARISON.json)")
         else:
             with open(comparison) as f:
                 evidence = json.load(f)

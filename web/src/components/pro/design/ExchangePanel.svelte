@@ -8,7 +8,6 @@
   import { exportProjectIfc } from '../../../lib/store/ifc-export';
   import { physicalForcesCsv } from '../../../lib/store/design-exchange';
   import { downloadResultText, prepareExportProvenance } from '../../../lib/export/provenance-attach';
-  import { downloadProjectWorkbook } from '../../../lib/store/project-workbook';
   import { resultsStore } from '../../../lib/store/results.svelte';
   import OutdatedNotice from './OutdatedNotice.svelte';
   import { designData, patchDesignData } from '../../../lib/store/design-data';
@@ -35,7 +34,10 @@
     if (record) save(`${base()}.ifc`, 'application/x-step', exportProjectIfc(t, i18n.locale, projectName, record));
   }
   const csv = () => void downloadResultText(physicalForcesCsv(), `${base()}-physical-forces.csv`, 'text/csv');
-  const xlsx = () => void downloadProjectWorkbook(5);
+  const xlsx = async () => {
+    const { downloadProjectWorkbook } = await import('../../../lib/store/project-workbook');
+    await downloadProjectWorkbook(5);
+  };
 
   const columnTop = $derived<IfcColumnTop>(designData().exchange?.ifcColumnTop ?? 'slabTop');
   const setColumnTop = (v: IfcColumnTop) => patchDesignData({ exchange: { ...designData().exchange, ifcColumnTop: v } });

@@ -538,19 +538,24 @@ fn test_fuzz_portal_envelope() {
 
         for (ae, ee) in actual_elems.iter().zip(expected_elems.iter()) {
             assert_eq!(ae.element_id, ee.element_id);
-            for (j, ((ap, an), (ep, en))) in ae
-                .pos_values
+            for (j, ((et, ep), en)) in ee
+                .t_positions
                 .iter()
-                .zip(ae.neg_values.iter())
-                .zip(ee.pos_values.iter().zip(ee.neg_values.iter()))
+                .zip(ee.pos_values.iter())
+                .zip(ee.neg_values.iter())
                 .enumerate()
             {
                 let lbl = format!(
                     "envelope {} elem{} pt{}",
                     kind_name, ae.element_id, j
                 );
-                assert_close(*ap, *ep, REL_TOL_FORCE, &format!("{} pos", lbl));
-                assert_close(*an, *en, REL_TOL_FORCE, &format!("{} neg", lbl));
+                let k = ae
+                    .t_positions
+                    .iter()
+                    .position(|t| (t - et).abs() <= 1e-12)
+                    .unwrap_or_else(|| panic!("{}: no actual station at t = {}", lbl, et));
+                assert_close(ae.pos_values[k], *ep, REL_TOL_FORCE, &format!("{} pos", lbl));
+                assert_close(ae.neg_values[k], *en, REL_TOL_FORCE, &format!("{} neg", lbl));
             }
         }
     }

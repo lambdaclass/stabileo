@@ -34,13 +34,13 @@ export const UNTRACKED_ANALYSES: readonly AnalysisKind[] = ['timeHistory', 'nonl
 
 /** Every feature id a registry entry may name. The registry test fails on any other. */
 export const FEATURE_IDS = [
-  'plane2D', 'members', 'frameMembers', 'trussMembers', 'hinges', 'arcMembers',
+  'plane2D', 'space3D', 'members', 'frameMembers', 'trussMembers', 'hinges', 'arcMembers',
   'steelMembers', 'steelCirsoc301', 'steelTensionWithoutConnection', 'timberOrAluminiumMembers',
   'concreteMembers', 'cirsoc201', 'aci318', 'footings', 'jointDesigns',
   'shells', 'curvedShells', 'shellEdgeLoads', 'eccentricities',
   'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'settlements',
   'connectors', 'connectorsWithShear',
-  'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads',
+  'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'generatedLoads',
   'combinations', 'cirsocCombinations', 'seismic', 'snow', 'wind', 'timeHistorySpec',
   ...ANALYSIS_KINDS.map((k) => `analysis:${k}` as const),
 ] as const;
@@ -85,6 +85,7 @@ export interface FeatureSnapshot {
   regulations?: { roles?: Record<string, { adapterId?: string | null } | undefined> };
   dynamics?: { timeHistory?: unknown; spectra?: unknown[] };
   massSource?: unknown;
+  designData?: { loadBasis?: { resultsVersion?: unknown } };
 }
 
 export interface FeatureContext {
@@ -129,11 +130,19 @@ function slaveNodes(c: Record<string, unknown>): number[] {
   return out;
 }
 
+export const fromLoadPlan = (by: unknown): boolean => typeof by === 'string' && !!by && !/^(stair|arch):/.test(by);
+
+export function loadsGeneratedWith(s: FeatureSnapshot): number {
+  const basis = s.designData?.loadBasis;
+  if (basis) return Number.isInteger(basis.resultsVersion) ? (basis.resultsVersion as number) : 0;
+  return (Array.isArray(s.loads) ? s.loads : []).some((l) => fromLoadPlan(l.data?.generatedBy)) ? 0 : Infinity;
+}
+
 /** The features of one saved model. */
 export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set<FeatureId> {
   const f = new Set<FeatureId>();
   const mode = ctx.analysisMode ?? s.analysisMode ?? '2d';
-  if (!is3DWorkspace(mode)) f.add('plane2D');
+  f.add(is3DWorkspace(mode) ? 'space3D' : 'plane2D');
 
   const materials = new Map(values(s.materials).map((m) => [m.id, m]));
   const elements = values(s.elements);
@@ -211,7 +220,9 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
     if (/edge/i.test(t)) f.add('shellEdgeLoads');
     const dead = caseType.get(d.caseId as number) === 'D' || d.caseId === undefined;
     if ((t === 'surface3d' || d.fromDef !== undefined) && dead) f.add('areaDeadLoads');
+    if (fromLoadPlan(d.generatedBy)) f.add('generatedLoads');
   }
+  if (s.designData?.loadBasis) f.add('generatedLoads');
   if (values(s.groups).some((g) => g?.kind === 'floorLoad')) f.add('areaDeadLoads');
 
   const types = new Set(cases.map((c) => c.type));

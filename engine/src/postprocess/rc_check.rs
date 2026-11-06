@@ -224,7 +224,7 @@ fn check_single_rc_member(m: &RCMemberData, f: &RCDesignForces) -> RCCheckResult
     // 318-14 Grade 60 value) disagrees with `compute_phi` for any other grade:
     // at fy = 550 MPa the limit is 0.00575, so eps_t = 0.0052 would be flagged
     // tension-controlled while phi was still 0.85.
-    let epsilon_ty = if es > 0.0 { m.fy / es } else { 0.0 };
+    let epsilon_ty = ledger.ratio(RC_FLEXURE, m.fy, es);
     let tension_controlled = epsilon_t >= epsilon_ty + 0.003;
 
     // Governing

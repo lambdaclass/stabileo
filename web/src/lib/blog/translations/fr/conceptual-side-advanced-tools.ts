@@ -94,7 +94,7 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "La formule du degré d'hyperstaticité donne g = 3·m + r − 3·n = 3×2 + 3 − 3×3 = 0. Zéro signifie isostatique, et tout programme qui s'arrête à la formule annoncera exactement cela. Mais rien ne retient la poutre horizontalement : c'est un mécanisme, et elle ne peut pas être calculée."
+      "t": "La formule du degré d'hyperstaticité donne GH = 3·m + r − 3·n − c = 3×2 + 3 − 3×3 − 0 = 0. Zéro signifie isostatique, et tout programme qui s'arrête à la formule annoncera exactement cela. Mais rien ne retient la poutre horizontalement : c'est un mécanisme, et elle ne peut pas être calculée."
     },
     {
       "k": "table",
@@ -107,7 +107,7 @@ const body: PostBody = {
       "rows": [
         [
           "2 · Degré d'hyperstaticité",
-          "g = 3·m + r − 3·n",
+          "GH = 3·m + r − 3·n − c",
           "0"
         ],
         [
@@ -129,12 +129,12 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "L'application ne se contente pas d'annoncer le zéro et de s'en laver les mains. Elle le contredit dans la même étape 2 qui l'a produit : « La formule donne g = 0 (condition nécessaire d'isostaticité), mais PAS suffisante ». L'étape 3 assemble la matrice de rigidité globale, ici de 6×6, et signale « Mécanisme détecté : 1 mode » malgré g = 0 ≥ 0. Elle désigne le nœud 3 et son déplacement horizontal, fait remarquer que l'équation de l'étape 2 compte les liaisons sans vérifier où elles se trouvent, et conclut par « ✗ Mécanisme — ne peut pas être calculé »."
+      "t": "L'application ne se contente pas d'annoncer le zéro et de s'en laver les mains. Elle le contredit dans la même étape 2 qui l'a produit : « La formule donne GH = 0 (condition nécessaire d'isostaticité), mais PAS suffisante ». L'étape 3 assemble la matrice de rigidité globale, ici de 6×6, et signale « Mécanisme détecté : 1 mode » malgré GH = 0 ≥ 0. Elle désigne le nœud 3 et son déplacement horizontal, fait remarquer que l'équation de l'étape 2 compte les liaisons sans vérifier où elles se trouvent, et conclut par « ✗ Mécanisme — ne peut pas être calculé »."
     },
     {
       "k": "embed",
       "query": "example=hidden-mechanism&kin=1",
-      "label": "La poutre sur trois appuis verticaux, avec le panneau d'analyse cinématique ouvert. Parcourez les quatre étapes : la deuxième donne g = 0 et la troisième trouve le mécanisme que ce zéro cache. Essayez de remplacer un appui par un appui articulé et relancez : le degré passe à 1 et le mécanisme disparaît."
+      "label": "La poutre sur trois appuis verticaux, avec le panneau d'analyse cinématique ouvert. Parcourez les quatre étapes : la deuxième donne GH = 0 et la troisième trouve le mécanisme que ce zéro cache. Essayez de remplacer un appui par un appui articulé et relancez : le degré passe à 1 et le mécanisme disparaît."
     },
     {
       "k": "h",

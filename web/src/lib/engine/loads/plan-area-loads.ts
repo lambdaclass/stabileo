@@ -10,7 +10,7 @@
  *
  * Pure: no store.
  */
-import type { GravityLayout, GravityModel } from './plan-gravity';
+import { widthSpans, type GravityLayout, type GravityModel } from './plan-gravity';
 import { adjacentSpanPatterns, layoutSpans, layoutUnits, type Unit } from './plan-spans';
 import { roofLiveLoad, type RoofWeight } from '../../codes/cirsoc101/roof-live';
 import { msg, round, type EngineMessage } from '../../codes/message';
@@ -134,13 +134,16 @@ export function planAreaLoads(i: AreaLoadsInput): AreaLoadsResult {
     }
     for (const m of layout.widthMembers) {
       if (arrangement !== undefined && !arrangement.loads({ member: m.elementId })) continue;
-      const q = -qOf(m.elementId, isRoof(m.elementId)) * i.tributaryWidth;
-      if (Math.abs(q) <= 1e-3) continue;
       // Along global Z in both gravity modes. The width mode used to load along local z, per
       // metre of member: on a sloped member that is the load turned off the vertical, with a
       // horizontal thrust, and the live loads per sloped metre instead of per metre of plan.
-      out.distributed.push({ elementId: m.elementId, caseType, q, frame: perProjection ? 'projected' : 'global', ...arr });
-      if (arrangement === undefined) out.planned.add(caseType);
+      for (const s of widthSpans(m, i.tributaryWidth)) {
+        const q = -qOf(m.elementId, isRoof(m.elementId)) * s.width;
+        if (Math.abs(q) <= 1e-3) continue;
+        const span = m.spans ? { a: s.t0 * m.length, b: s.t1 * m.length } : {};
+        out.distributed.push({ elementId: m.elementId, caseType, q, ...span, frame: perProjection ? 'projected' : 'global', ...arr });
+        if (arrangement === undefined) out.planned.add(caseType);
+      }
     }
     // A slab of shells is a mesh, not panels: its arrangements are not drawn here.
     if (arrangement !== undefined) return;

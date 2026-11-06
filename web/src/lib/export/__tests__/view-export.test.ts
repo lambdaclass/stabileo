@@ -9,10 +9,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const downloads = vi.hoisted(() => [] as Array<{ blob: Blob; name: string }>);
 const encodes = vi.hoisted(() => ({ ok: [] as boolean[] }));
-const solve = vi.hoisted(() => ({ result: { ok: true } as { ok: true } | { ok: false; error: string } }));
+const solve = vi.hoisted(() => ({ result: { ok: true } as { ok: true } | { ok: false; error: string }, effect: null as null | (() => void) }));
 vi.mock('../../actions/solve', async (orig) => ({
   ...(await orig<typeof import('../../actions/solve')>()),
-  ensureResults: async () => solve.result,
+  ensureResults: async () => { solve.effect?.(); return solve.result; },
+}));
+const painted = vi.hoisted(() => [] as Array<string[] | undefined>);
+vi.mock('../containment', async (orig) => ({
+  ...(await orig<typeof import('../containment')>()),
+  warningCanvas: (c: HTMLCanvasElement, w?: string[]) => { painted.push(w); return c; },
 }));
 vi.mock('../../store/file', async (orig) => ({
   ...(await orig<typeof import('../../store/file')>()),
@@ -23,7 +28,7 @@ vi.mock('../view-figure', async (orig) => ({
   toCanvas: () => ({}),
   canvasToBlob: async () => ((encodes.ok.shift() ?? false) ? new Blob(['png'], { type: 'image/png' }) : null),
 }));
-import { uiStore } from '../../store';
+import { resultsStore, uiStore } from '../../store';
 import { DEFAULT_FIGURE_OPTIONS, registerFigure2D } from '../view-figure';
 import { copyView, exportView } from '../view-export';
 
@@ -77,6 +82,69 @@ describe('copy image', () => {
     const toast = vi.spyOn(uiStore, 'toast');
     expect(await copyView({ format: 'png', contents: ['moment'], options: { ...DEFAULT_FIGURE_OPTIONS }, sheet: true })).toBe(false);
     expect(toast.mock.calls.filter((c) => c[1] === 'error')).toHaveLength(1);
+  });
+
+  it.each(['warning', 'error'] as const)('a %s produced by the solve the copy runs is what the picture carries', (severity) => {
+    return (async () => {
+      resultsStore.clear();
+      const unregister = registerFigure2D({
+        nodes: () => [{ x: 0, y: 0 }, { x: 4, y: 0 }],
+        render(ctx, _w, _h, _frame, view) { ctx.beginPath(); ctx.moveTo(view.panX, view.panY); ctx.stroke(); },
+      });
+      painted.length = 0;
+      encodes.ok = [true];
+      solve.result = { ok: true };
+      solve.effect = () => resultsStore.setResults({
+        displacements: [], reactions: [], elementForces: [],
+        structuredDiagnostics: [{ code: 'known_issue', severity, phase: 'BU-BOUND', value: 741, message: 'ENGINE' }],
+      } as never);
+      let copied: Blob | null = null;
+      vi.stubGlobal('navigator', { clipboard: { write: async (items: FakeClipboardItem[]) => { copied = await items[0]!.items['image/png']; } } });
+      const toast = vi.spyOn(uiStore, 'toast');
+      try {
+        const ok = await copyView({ format: 'png', contents: ['moment'], options: { ...DEFAULT_FIGURE_OPTIONS }, sheet: true });
+        if (severity === 'warning') {
+          expect(ok).toBe(true);
+          expect(copied).not.toBeNull();
+          expect(painted).toHaveLength(1);
+          expect(painted[0]!.join()).toContain('#741');
+        } else {
+          expect(ok).toBe(false);
+          expect(copied).toBeNull();
+          expect(painted).toHaveLength(0);
+          const errors = toast.mock.calls.filter((c) => c[1] === 'error');
+          expect(errors).toHaveLength(1);
+          expect(errors[0]![0]).toContain('#741');
+        }
+      } finally {
+        unregister();
+        solve.effect = null;
+        resultsStore.clear();
+      }
+    })();
+  });
+
+  it('a refusal the copy\'s own solve replaces with clean results does not block the copy', async () => {
+    resultsStore.clear();
+    resultsStore.setResults({ displacements: [], reactions: [], elementForces: [],
+      structuredDiagnostics: [{ code: 'known_issue', severity: 'error', phase: 'BU-BOUND', value: 741, message: 'ENGINE' }] } as never);
+    const unregister = registerFigure2D({
+      nodes: () => [{ x: 0, y: 0 }, { x: 4, y: 0 }],
+      render(ctx, _w, _h, _frame, view) { ctx.beginPath(); ctx.moveTo(view.panX, view.panY); ctx.stroke(); },
+    });
+    encodes.ok = [true];
+    solve.result = { ok: true };
+    solve.effect = () => resultsStore.setResults({ displacements: [], reactions: [], elementForces: [] } as never);
+    let copied: Blob | null = null;
+    vi.stubGlobal('navigator', { clipboard: { write: async (items: FakeClipboardItem[]) => { copied = await items[0]!.items['image/png']; } } });
+    try {
+      expect(await copyView({ format: 'png', contents: ['moment'], options: { ...DEFAULT_FIGURE_OPTIONS }, sheet: true })).toBe(true);
+      expect(copied).not.toBeNull();
+    } finally {
+      unregister();
+      solve.effect = null;
+      resultsStore.clear();
+    }
   });
 
   it('a clipboard that refuses first leaves no unhandled rejection', async () => {

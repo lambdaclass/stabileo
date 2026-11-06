@@ -300,10 +300,9 @@ fn solve_2d_10_elements_under_100ms() {
         result.displacements.len()
     );
 
-    assert!(
+    dedaliano_engine::wall_clock::budget(
         elapsed.as_millis() < 100,
-        "10-element 2D solve took {}ms (limit: 100ms)",
-        elapsed.as_millis()
+        || format!("10-element 2D solve took {}ms (limit: 100ms)", elapsed.as_millis()),
     );
     assert!(!result.displacements.is_empty());
 }
@@ -326,10 +325,9 @@ fn solve_2d_100_elements_under_500ms() {
         result.displacements.len()
     );
 
-    assert!(
+    dedaliano_engine::wall_clock::budget(
         elapsed.as_millis() < 500,
-        "100-element 2D solve took {}ms (limit: 500ms)",
-        elapsed.as_millis()
+        || format!("100-element 2D solve took {}ms (limit: 500ms)", elapsed.as_millis()),
     );
     assert!(!result.displacements.is_empty());
 }
@@ -352,10 +350,9 @@ fn solve_3d_5x5_plate_under_2s() {
         result.displacements.len()
     );
 
-    assert!(
+    dedaliano_engine::wall_clock::budget(
         elapsed.as_secs() < 2,
-        "5x5 plate 3D solve took {:.1}s (limit: 2s)",
-        elapsed.as_secs_f64()
+        || format!("5x5 plate 3D solve took {:.1}s (limit: 2s)", elapsed.as_secs_f64()),
     );
     assert!(!result.displacements.is_empty());
 }
@@ -384,10 +381,9 @@ fn assembly_2d_100_elements_under_200ms() {
         nnz
     );
 
-    assert!(
+    dedaliano_engine::wall_clock::budget(
         elapsed.as_millis() < 200,
-        "100-element 2D assembly took {}ms (limit: 200ms)",
-        elapsed.as_millis()
+        || format!("100-element 2D assembly took {}ms (limit: 200ms)", elapsed.as_millis()),
     );
     assert!(nnz > 0, "Assembled matrix should have nonzeros");
 }
@@ -414,10 +410,9 @@ fn assembly_3d_100_elements_under_500ms() {
         nnz
     );
 
-    assert!(
+    dedaliano_engine::wall_clock::budget(
         elapsed.as_millis() < 500,
-        "10x10 plate 3D assembly took {}ms (limit: 500ms)",
-        elapsed.as_millis()
+        || format!("10x10 plate 3D assembly took {}ms (limit: 500ms)", elapsed.as_millis()),
     );
     assert!(nnz > 0, "Assembled matrix should have nonzeros");
 }
@@ -462,10 +457,9 @@ fn scale_2d_solve_sub_cubic() {
         small_us, large_us, ratio, n_ratio
     );
 
-    assert!(
+    dedaliano_engine::wall_clock::budget(
         ratio < 10.0,
-        "2D solve time ratio {:.1}x exceeds 10x for 4x element increase — suggests worse-than-N^1.5 scaling",
-        ratio
+        || format!("2D solve time ratio {:.1}x exceeds 10x for 4x element increase — suggests worse-than-N^1.5 scaling", ratio),
     );
 }
 
@@ -508,10 +502,9 @@ fn scale_3d_assembly_sub_cubic() {
 
     // O(N) assembly => ratio ~ 7.8. O(N^2) => ratio ~ 61.
     // 12x threshold catches quadratic blowup while being generous for CI.
-    assert!(
+    dedaliano_engine::wall_clock::budget(
         ratio < 12.0,
-        "3D assembly time ratio {:.1}x exceeds 12x for {:.1}x element increase — regression likely",
-        ratio, n_elem_ratio
+        || format!("3D assembly time ratio {:.1}x exceeds 12x for {:.1}x element increase — regression likely", ratio, n_elem_ratio),
     );
 }
 
@@ -554,10 +547,9 @@ fn scale_3d_solve_sub_cubic() {
 
     // O(N^1.5) on DOFs => 4^1.5 * DOF-per-elem factor. Practically ~8-12x.
     // 15x catches cubic blowup; 4^3 = 64x.
-    assert!(
+    dedaliano_engine::wall_clock::budget(
         ratio < 15.0,
-        "3D solve time ratio {:.1}x exceeds 15x for 4x element increase — possible cubic regression",
-        ratio
+        || format!("3D solve time ratio {:.1}x exceeds 15x for 4x element increase — possible cubic regression", ratio),
     );
 }
 
@@ -608,9 +600,8 @@ fn sparse_not_slower_than_dense_3d() {
         sparse_us, dense_us, speedup
     );
 
-    assert!(
+    dedaliano_engine::wall_clock::budget(
         sparse_us <= dense_us * 2,
-        "Sparse path ({}us) is more than 2x slower than dense ({}us) on 10x10 plate — regression",
-        sparse_us, dense_us
+        || format!("Sparse path ({}us) is more than 2x slower than dense ({}us) on 10x10 plate — regression", sparse_us, dense_us),
     );
 }

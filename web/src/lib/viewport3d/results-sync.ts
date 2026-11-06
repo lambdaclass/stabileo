@@ -18,6 +18,7 @@ import { createDeformedLines, createDeformedShells, type ElementEI } from '../th
 import { eiOf } from '../engine/member-deflection';
 import { deformedView, nodesToLabel } from '../store/deformed-view.svelte';
 import { viewState, memberLabelText, nodeLabelText, viewVisibility, visibleElements, visiblePlates, visibleQuads, visibleNodes } from '../store/view-state.svelte';
+import { viewCategories } from '../store/view-categories.svelte';
 import { createDiagramGroup3D, createEnvelopeDiagramGroup3D } from '../three/diagram-render-3d';
 import { structureNodes } from '../three/node-scale';
 import { COLORS, setGroupColor, disposeObject, axialForceColor, verificationVisual, createTextSpriteCached, heatmapColor } from '../three/selection-helpers';
@@ -939,6 +940,7 @@ function applyShellContour(
     directions: contourOptions.directions, values: contourOptions.values,
     corners: (key) => { const ids = shellNodesOf(key); const pts = ids?.map(at); return pts && pts.every(Boolean) ? pts as Array<{ x: number; y: number; z: number }> : null; },
     format: (v) => `${Math.abs(v) >= 100 ? v.toFixed(0) : Math.abs(v) >= 1 ? v.toFixed(2) : v.toPrecision(3)} ${unit}`,
+    shown: (key) => !viewCategories.isHidden('shells') && !viewVisibility.isShellHidden(key),
   }) : null;
   ctx.shellOverlayGroup = replaceShellOverlay(ctx.resultsParent, ctx.shellOverlayGroup, overlay);
 }

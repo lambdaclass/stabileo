@@ -75,6 +75,7 @@ test('a failed scheduled run opens one issue named after the workflow, with the 
   const issue = w[1].args;
   assert.equal(issue.title, 'CI failure: Nightly verification');
   assert.deepEqual(issue.labels, ['ci-failure']);
+  assert.deepEqual(issue.assignees, ['unbalancedparentheses', 'Batuis']);
   assert.match(issue.body, /\[55\]\(https:\/\/x\/runs\/55\)/);
   assert.match(issue.body, /\[mutants \(3\)\]\(https:\/\/x\/job\/1\): \*\*failure\*\* in step `Mutants \(shard 3\/512\)`/);
   assert.doesNotMatch(issue.body, /bench/);
@@ -270,6 +271,7 @@ test('the staleness check reports missing, disabled and stale workflows, and lea
     {id: 4, name: 'Mutation testing (TypeScript engine logic)', state: 'active', path: '.github/workflows/mutation-ts.yml'},
     {id: 6, name: 'Verification dashboard', state: 'active', path: '.github/workflows/verification-dashboard.yml'},
     {id: 7, name: 'Runner pools', state: 'active', path: '.github/workflows/runner-pools.yml'},
+    {id: 8, name: 'Performance', state: 'active', path: '.github/workflows/performance.yml'},
   ];
   const runsByWorkflow = {
     1: [{id: 101, html_url: 'u1', conclusion: 'failure', updated_at: at(2)}],
@@ -277,6 +279,7 @@ test('the staleness check reports missing, disabled and stale workflows, and lea
     3: [{id: 103, html_url: 'u3', conclusion: 'success', updated_at: at(1)}],
     6: [{id: 106, html_url: 'u6', conclusion: 'success', updated_at: at(150)}],
     7: [{id: 107, html_url: 'u7', conclusion: 'failure', updated_at: at(20)}],
+    8: [{id: 108, html_url: 'u8', conclusion: 'success', updated_at: at(10)}],
   };
   const h = harness({workflows, runsByWorkflow, label: true, env: {ALERT_MODE: 'stale'}});
   await h.run();

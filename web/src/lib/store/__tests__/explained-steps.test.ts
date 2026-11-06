@@ -4,6 +4,7 @@ import { uiStore } from '../ui.svelte';
 import '../index';
 import { initSolver } from '../../engine/wasm-solver';
 import { explainedSteps, methodContext } from '../explained-steps.svelte';
+import '../../course/course-route';
 
 beforeAll(async () => { await initSolver(); });
 beforeEach(() => {

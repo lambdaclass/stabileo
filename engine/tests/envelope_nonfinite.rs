@@ -36,6 +36,7 @@ fn results_3d() -> Vec<AnalysisResults3D> {
         factors: vec![CombinationFactor { case_id: 1, factor: -0.5 }],
         cases: vec![CaseEntry3D { case_id: 1, results: r.clone() }],
     })
+    .unwrap()
     .unwrap();
     vec![r, scaled]
 }
