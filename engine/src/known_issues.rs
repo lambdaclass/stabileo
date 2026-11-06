@@ -1475,4 +1475,17 @@ mod span_tests {
             assert!(nearly.len() == 2 && (nearly[0] - 0.2).abs() < 1e-7 && (nearly[1] - 0.8).abs() < 1e-7, "{tiny:e}: {nearly:?}");
         }
     }
+
+    #[test]
+    fn cubic_roots_in_the_unit_interval_without_a_square_term_1506() {
+        for c2 in [0.0, -0.0] {
+            let c = [0.2, -0.75, c2, 1.0];
+            let roots = cubic_roots_in_unit(c);
+            assert_eq!(roots.len(), 2, "{c2:?}: {roots:?}");
+            assert!(roots[0] > 0.0 && roots[0] < 0.5 && roots[1] > 0.5 && roots[1] < 1.0, "{c2:?}: {roots:?}");
+            for t in roots {
+                assert!((((c[3] * t + c[2]) * t + c[1]) * t + c[0]).abs() < 1e-12, "{c2:?}: {t}");
+            }
+        }
+    }
 }
