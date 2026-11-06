@@ -113,6 +113,7 @@ fn a_wrong_soft_rotation_is_warned_whatever_masks_its_scale_1496() {
         let tip = r.displacements.iter().find(|d| d.node_id == 2).unwrap();
         let got = (tip.rx * tip.rx + tip.ry * tip.ry + tip.rz * tip.rz).sqrt();
         let found = phases(&r.structured_diagnostics);
+        assert!(got.is_finite(), "{name}: θ {got}: {found:?}");
         if (got - theta).abs() > 1e-6 * theta {
             if on_axes {
                 assert!(found.contains(&"ORPHAN-SOFT-ROTATION"), "{name}: θ {got} instead of {theta}, unwarned: {found:?}");
