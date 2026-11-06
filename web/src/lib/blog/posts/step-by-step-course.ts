@@ -3,7 +3,7 @@ import type { Post } from '../types';
 export const stepByStepCourse: Post = {
   slug: 'learn-structural-analysis-step-by-step',
   date: '2026-11-05',
-  order: 12,
+  order: 14,
   authors: ['Federico Carrone'],
   tagKeys: ['blog.tag.education', 'blog.tag.theory'],
   i18n: {
