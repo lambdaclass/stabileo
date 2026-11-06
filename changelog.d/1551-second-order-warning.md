@@ -1,0 +1,5 @@
+### BREAKING (results)
+
+#### Linear analysis warns when compression may amplify its moments past 10 % (2026-11-06)
+
+A linear solve gave no warning when a member's compression was a large fraction of its critical load, for example a 3 m IPN 300 cantilever at 40 % of its Euler load, whose weak-axis moments are about 68 % larger in a second-order analysis (#1551). A linear static solve, 2D or 3D, now warns with `LIN-SECOND-ORDER` when N/Ncr may exceed 1/11, an amplification 1/(1 − N/Ncr) over 1.1, the limit CIRSOC 301 Appendix 7 takes for small second-order effects. A member clamped to a support at one end is judged against the cantilever's Euler load π²·E·I_min/(2L)² over its whole length; any other compression is judged on the whole frame by its lowest buckling factor, and `LIN-SECOND-ORDER-UNBOUNDED` warns when that factor cannot be found. A load combination carries the warnings of its cases. A CIRSOC 301 check of a member the warning names is held, not passed, since H.1 takes the moments as second-order. Numerical values are unchanged. The 3D hinged arch example now shows the warning.
