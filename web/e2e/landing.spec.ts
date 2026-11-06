@@ -238,19 +238,12 @@ test.describe('@landing landing page', () => {
     await expect(page.locator('.app-container.hidden-behind-landing')).toHaveCount(0);
   });
 
-  test('the hero offers one action and no dead link', async ({ page }) => {
-    /*
-     * The hero used to carry a second button pointing at /demo, the guided
-     * tour. That route is being retired by the tutorials workstream, so the
-     * button went with it: a link to a page that will 404 looks exactly like a
-     * working one until someone presses it, and this one sat in the first
-     * screen of the site.
-     *
-     * What remains is one primary action and the quiet blog link below it.
-     */
+  test('the hero offers the editor and the live examples, and no dead link', async ({ page }) => {
     await bootLanding(page);
 
-    await expect(page.locator('.landing .hero-ctas .btn')).toHaveCount(1);
+    await expect(page.locator('.landing .hero-ctas .btn')).toHaveCount(2);
+    await expect(page.locator('.landing .hero-ctas .btn-primary')).toHaveCount(1);
+    await expect(page.locator('.landing .hero-ctas a.btn')).toHaveAttribute('href', /\/examples\/$/);
     await expect(page.locator('.landing a[href="/demo"]')).toHaveCount(0);
     await expect(page.locator('.landing .hero-blog')).toBeVisible();
 
@@ -993,6 +986,18 @@ test.describe('@landing the model the deck states', () => {
     }
     for (const target of await links.evaluateAll((els) => els.map((e) => e.getAttribute('target')))) {
       expect(target).toBe('_blank');
+    }
+  });
+
+  test('the footer links both alternative pages, with a 44px target each', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await bootLanding(page);
+    for (const [path, name] of [['/sap2000-alternative', 'SAP2000 alternative'], ['/etabs-alternative', 'ETABS alternative']]) {
+      const link = page.locator(`.landing .footer-links a[href$="${path}/"], .landing .footer-links a[href$="${path}"]`);
+      await expect(link).toHaveText(name);
+      const box = (await link.boundingBox())!;
+      expect(box.height).toBeGreaterThanOrEqual(44);
+      expect(box.width).toBeGreaterThanOrEqual(44);
     }
   });
 });

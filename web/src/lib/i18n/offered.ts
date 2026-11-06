@@ -14,3 +14,5 @@ export function isComplete(code: string): boolean {
 export const OFFERED_LOCALES: readonly Locale[] = (['es', 'en', 'pt', 'de', 'fr', 'tr'] as const).filter(isComplete);
 
 export const PUBLIC_LOCALES: readonly Locale[] = (['en', 'es', 'pt', 'de', 'fr', 'tr'] as const).filter(isComplete);
+
+export const LOCALE_NAMES: Record<Locale, string> = { en: 'English', es: 'Español', pt: 'Português', de: 'Deutsch', fr: 'Français', tr: 'Türkçe' };

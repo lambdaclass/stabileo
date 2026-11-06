@@ -29,6 +29,7 @@
         <PublicLink to="/cirsoc">CIRSOC</PublicLink>
         <PublicLink to="/reliability">{t('landing.footReliability')}</PublicLink>
         <PublicLink to="/sap2000-alternative">{t('landing.footSap2000')}</PublicLink>
+        <PublicLink to="/etabs-alternative">{t('landing.footEtabs')}</PublicLink>
         <button onclick={() => enterApp()}>{t('landing.footLaunch')}</button>
       </nav>
 
