@@ -50,7 +50,7 @@ test('@smoke examples show the engine withholding a load on a support by its rea
   await expect(refusal).toContainText('the solution is not finite. (The result was withheld: it contains inf at certificate.relBound)');
   await expect(refusal).not.toContainText(/[{}"]|structuredDiagnostics|NaN/);
   await expect(page.getByTestId('readout-maxMoment')).toHaveCount(0);
-  await expect(page.getByTestId('viewer-body')).toHaveAttribute('aria-busy', 'false');
+  await expect(page.getByTestId('viewer-body')).toHaveCount(0);
 });
 
 test('@smoke examples report the engine refusing a model with no load', async ({ page }) => {
