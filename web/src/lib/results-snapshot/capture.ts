@@ -102,6 +102,10 @@ async function open(c: SnapshotCase, fixture?: unknown): Promise<void> {
 function analysis(prefix: string, r: unknown, out: Values): void {
   if (!r || typeof r !== 'object') { out[prefix] = null; return; }
   const { solverDiagnostics, structuredDiagnostics, diagnostics, ...rest } = r as Record<string, unknown>;
+  if (rest.resultSummary && typeof rest.resultSummary === 'object') {
+    const { secondOrderRatio: _screen, ...summary } = rest.resultSummary as Record<string, unknown>;
+    rest.resultSummary = summary;
+  }
   if (Array.isArray(structuredDiagnostics)) {
     for (const d of structuredDiagnostics) {
       if (d.code === 'known_issue') containmentFindings.add(`${d.severity}:${d.phase}`);

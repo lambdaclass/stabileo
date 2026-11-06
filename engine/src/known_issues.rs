@@ -709,8 +709,8 @@ fn chain_ends(m: &ScreenModel, chain: &[usize]) -> Vec<usize> {
 
 /// A linear result's second-order screen (#1551). The K = 2 and K = 1 bounds hold for the frame
 /// only because the clamp or both braces are supports: restraint from other members does not count.
-pub(crate) fn second_order(m: &ScreenModel) -> Vec<StructuredDiagnostic> {
-    if !m.bars.iter().any(|b| b.compression > 0.0) { return Vec::new(); }
+pub(crate) fn second_order(m: &ScreenModel) -> (Vec<StructuredDiagnostic>, f64) {
+    if !m.bars.iter().any(|b| b.compression > 0.0) { return (Vec::new(), 0.0); }
     let length = |b: &ScreenBar| match (m.position.get(&b.ends[0]), m.position.get(&b.ends[1])) {
         (Some(&a), Some(&c)) => norm(sub(c, a)),
         _ => f64::NAN,
@@ -726,13 +726,14 @@ pub(crate) fn second_order(m: &ScreenModel) -> Vec<StructuredDiagnostic> {
     };
     let loaded = |bars: &[usize], n: f64| !(n <= COMPRESSED * euler(bars));
     let mut unbounded = m.other_parts || (0..m.bars.len()).any(|i| { let b = &m.bars[i]; !b.frame && loaded(&[i], b.compression) && !b.ends.iter().all(|n| m.braced.contains(n)) });
-    let (mut over, mut near) = (Vec::new(), Vec::new());
+    let (mut over, mut near, mut largest) = (Vec::new(), Vec::new(), 0.0_f64);
     for chain in member_chains(m) {
         let n = chain.iter().map(|&i| m.bars[i].compression).fold(0.0, f64::max);
         if n <= 0.0 { continue; }
         let k = if clamped(&chain) { 2.0 } else if braced(&chain) { 1.0 } else { unbounded |= loaded(&chain, n); continue };
         let ratio = n * k * k / euler(&chain);
         let ids = chain.iter().map(|&i| m.bars[i].id);
+        largest = if ratio.is_nan() { f64::INFINITY } else { largest.max(ratio) };
         if !(ratio <= SECOND_ORDER_RATIO) {
             over.extend(ids);
         } else if ratio * SECOND_ORDER_NEAR_FACTOR > SECOND_ORDER_RATIO {
@@ -741,7 +742,7 @@ pub(crate) fn second_order(m: &ScreenModel) -> Vec<StructuredDiagnostic> {
     }
     let mut found: Vec<StructuredDiagnostic> = [("LIN-SECOND-ORDER", over), ("LIN-SECOND-ORDER-NEAR", near)].into_iter().filter_map(|(id, e)| on_elements(id, e)).collect();
     if unbounded { found.push(whole_frame("LIN-SECOND-ORDER-UNBOUNDED")); }
-    found
+    (found, largest)
 }
 
 fn whole_frame(id: &str) -> StructuredDiagnostic {
@@ -764,22 +765,40 @@ pub(crate) fn is_second_order(d: &StructuredDiagnostic) -> bool {
     d.code == DiagnosticCode::KnownIssue && matches!(d.phase.as_deref(), Some("LIN-SECOND-ORDER" | "LIN-SECOND-ORDER-NEAR" | "LIN-SECOND-ORDER-UNBOUNDED"))
 }
 
-/// A combination's screen from its cases' warnings, without its own critical load: the members a
-/// case flagged stay flagged, and a case near the limit, an unbounded case or a negative factor,
-/// which can turn a quiet case's tension into compression, leaves the combination unbounded.
-pub(crate) fn combined_second_order<'a>(cases: impl Iterator<Item = &'a StructuredDiagnostic>, reversed: bool) -> Vec<StructuredDiagnostic> {
+/// A combination's screen. `ratio` is Σ|factor|·(the case's largest N/Ncr), a bound on every
+/// bounded member's N/Ncr in the combination when no factor is negative; None when a compressed
+/// case carries no ratio. The members a case flagged stay flagged; an unbounded case, a negative
+/// factor, which can turn a case's tension into compression, or a missing ratio leaves the
+/// combination unbounded.
+pub(crate) fn combined_second_order<'a>(cases: impl Iterator<Item = &'a StructuredDiagnostic>, reversed: bool, ratio: Option<f64>) -> Vec<StructuredDiagnostic> {
     let mut elements = Vec::new();
-    let mut unbounded = reversed;
+    let mut unbounded = reversed || ratio.is_none();
     for d in cases {
         match d.phase.as_deref() {
             Some("LIN-SECOND-ORDER") => elements.extend(d.element_ids.iter().copied()),
-            Some("LIN-SECOND-ORDER-NEAR" | "LIN-SECOND-ORDER-UNBOUNDED") => unbounded = true,
+            Some("LIN-SECOND-ORDER-UNBOUNDED") => unbounded = true,
             _ => {}
         }
     }
-    let mut found: Vec<StructuredDiagnostic> = on_elements("LIN-SECOND-ORDER", elements).into_iter().collect();
+    let mut found: Vec<StructuredDiagnostic> = match ratio {
+        Some(r) if !(r <= SECOND_ORDER_RATIO) => vec![whole_frame("LIN-SECOND-ORDER")],
+        _ => on_elements("LIN-SECOND-ORDER", elements).into_iter().collect(),
+    };
     if unbounded { found.push(whole_frame("LIN-SECOND-ORDER-UNBOUNDED")); }
     found
+}
+
+/// [`combined_second_order`]'s ratio: each case's |factor| times its screened ratio.
+pub(crate) fn combined_ratio<'a>(cases: impl Iterator<Item = (f64, Option<&'a ResultSummary>, bool)>) -> Option<f64> {
+    let mut total = 0.0;
+    for (factor, summary, compressed) in cases {
+        match summary.and_then(|s| s.second_order_ratio) {
+            Some(r) => total += factor.abs() * r,
+            None if compressed => return None,
+            None => {}
+        }
+    }
+    Some(total)
 }
 
 fn span_length(a: Option<f64>, b: Option<f64>, length: Option<f64>) -> f64 {
@@ -794,7 +813,7 @@ fn compression(n_start: f64, n_end: f64, span: Option<&f64>) -> f64 {
 }
 
 /// [`second_order`] for a 2D result.
-pub fn second_order_2d(input: &SolverInput, loads: &[SolverLoad], r: &AnalysisResults) -> Vec<StructuredDiagnostic> {
+pub fn second_order_2d(input: &SolverInput, loads: &[SolverLoad], r: &AnalysisResults) -> (Vec<StructuredDiagnostic>, f64) {
     let mut span: std::collections::HashMap<usize, f64> = std::collections::HashMap::new();
     for load in loads {
         let (id, total) = match load {
@@ -823,7 +842,7 @@ pub fn second_order_2d(input: &SolverInput, loads: &[SolverLoad], r: &AnalysisRe
 }
 
 /// [`second_order`] for a 3D result: I_min is the lesser of Iy and Iz.
-pub fn second_order_3d(input: &SolverInput3D, loads: &[SolverLoad3D], r: &AnalysisResults3D) -> Vec<StructuredDiagnostic> {
+pub fn second_order_3d(input: &SolverInput3D, loads: &[SolverLoad3D], r: &AnalysisResults3D) -> (Vec<StructuredDiagnostic>, f64) {
     let mut span: std::collections::HashMap<usize, f64> = std::collections::HashMap::new();
     for load in loads {
         if let SolverLoad3D::Distributed(q) = load {

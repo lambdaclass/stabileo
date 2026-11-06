@@ -1,5 +1,5 @@
 use dedaliano_engine::known_issues::{SECOND_ORDER_NEAR_FACTOR, SECOND_ORDER_RATIO};
-use dedaliano_engine::postprocess::combinations::{combine_results_refs, CombinationFactor};
+use dedaliano_engine::postprocess::combinations::{combine_results_3d_refs, combine_results_refs, CombinationFactor};
 use dedaliano_engine::solver::buckling::solve_buckling_2d;
 use dedaliano_engine::solver::linear::{solve_2d, solve_3d};
 use dedaliano_engine::types::*;
@@ -203,25 +203,43 @@ fn a_member_braced_at_both_ends_is_judged_on_its_whole_length() {
 }
 
 #[test]
-fn a_combination_carries_flagged_members_and_leaves_a_near_case_unbounded() {
+fn a_combination_is_bounded_by_its_factored_case_ratios() {
     let heavy = solve_2d(&cantilever_2d(2, -100.0, E, 1.0)).unwrap();
     let light = solve_2d(&cantilever_2d(2, -10.0, E, 1.0)).unwrap();
     let close = solve_2d(&cantilever_2d(2, -15.0, E, 1.0)).unwrap();
+    assert_eq!(second_order(&light.structured_diagnostics), vec![]);
     assert_eq!(second_order(&close.structured_diagnostics), near(vec![1, 2]));
-    let combined = combine_results_refs(&[CombinationFactor { case_id: 1, factor: 1.2 }, CombinationFactor { case_id: 2, factor: 1.6 }], &[(1, &heavy), (2, &light)]).unwrap();
-    assert_eq!(second_order(&combined.structured_diagnostics), warned(vec![1, 2]));
-    let combined = combine_results_refs(&[CombinationFactor { case_id: 1, factor: 1.2 }, CombinationFactor { case_id: 2, factor: 1.6 }], &[(1, &light), (2, &close)]).unwrap();
-    assert_eq!(second_order(&combined.structured_diagnostics), unbounded());
-    let combined = combine_results_refs(&[CombinationFactor { case_id: 1, factor: 1.2 }, CombinationFactor { case_id: 2, factor: 0.0 }], &[(1, &light), (2, &close)]).unwrap();
-    assert_eq!(second_order(&combined.structured_diagnostics), vec![], "a case the combination leaves out adds nothing");
+    let combine = |factors: &[(usize, f64)], cases: &[(usize, &AnalysisResults)]| {
+        let factors: Vec<_> = factors.iter().map(|&(case_id, factor)| CombinationFactor { case_id, factor }).collect();
+        second_order(&combine_results_refs(&factors, cases).unwrap().structured_diagnostics)
+    };
+    let whole = || warned(vec![]);
+    assert_eq!(combine(&[(1, 1.2), (2, 1.6)], &[(1, &light), (2, &light)]), whole(), "1.2·0.040 + 1.6·0.040 = 0.113: two quiet cases pass the limit together");
+    assert_eq!(combine(&[(1, 1.9)], &[(1, &light)]), whole(), "a single factor above 1.6 on a quiet case");
+    assert_eq!(combine(&[(1, 1.0), (2, 0.5)], &[(1, &light), (2, &light)]), vec![], "0.061 stays under the limit");
+    assert_eq!(combine(&[(1, 1.2), (2, 1.6)], &[(1, &light), (2, &close)]), whole());
+    assert_eq!(combine(&[(1, 1.2), (2, 0.0)], &[(1, &light), (2, &close)]), vec![], "a case the combination leaves out adds nothing");
+    assert_eq!(combine(&[(1, 0.9)], &[(1, &heavy)]), whole());
     let pulled = solve_2d(&cantilever_2d(2, 10.0, E, 1.0)).unwrap();
     assert_eq!(second_order(&pulled.structured_diagnostics), vec![]);
-    let combined = combine_results_refs(&[CombinationFactor { case_id: 1, factor: -1.0 }], &[(1, &pulled)]).unwrap();
-    assert!(combined.element_forces.iter().all(|f| f.n_start < -9.0), "{:?}", combined.element_forces);
-    assert_eq!(second_order(&combined.structured_diagnostics), unbounded(), "a negative factor turns tension into compression");
+    let reversed = combine_results_refs(&[CombinationFactor { case_id: 1, factor: -1.0 }], &[(1, &pulled)]).unwrap();
+    assert!(reversed.element_forces.iter().all(|f| f.n_start < -9.0), "{:?}", reversed.element_forces);
+    assert_eq!(second_order(&reversed.structured_diagnostics), unbounded(), "a negative factor turns tension into compression");
     let pinned = solve_2d(&portal("pinned", 250.0, 0.01)).unwrap();
-    let combined = combine_results_refs(&[CombinationFactor { case_id: 1, factor: 1.0 }, CombinationFactor { case_id: 2, factor: 1.0 }], &[(1, &heavy), (2, &pinned)]).unwrap();
-    assert_eq!(second_order(&combined.structured_diagnostics), [warned(vec![1, 2]), unbounded()].concat());
+    assert_eq!(combine(&[(1, 0.1), (2, 1.0)], &[(1, &light), (2, &pinned)]), unbounded());
+    let mut unscreened = light.clone();
+    unscreened.result_summary = None;
+    assert_eq!(combine(&[(1, 1.0)], &[(1, &unscreened)]), unbounded(), "a compressed case without a screened ratio");
+    let first = combine_results_refs(&[CombinationFactor { case_id: 1, factor: 1.0 }, CombinationFactor { case_id: 2, factor: 0.5 }], &[(1, &light), (2, &light)]).unwrap();
+    assert_eq!(combine(&[(1, 1.3)], &[(1, &first)]), whole(), "a combination of a combination keeps the bound");
+    let light = solve_3d(&cantilever_3d(2, -10.0, E, 1.0, IDENTITY, [0.0; 3])).unwrap();
+    assert_eq!(second_order(&light.structured_diagnostics), vec![]);
+    let factors = [CombinationFactor { case_id: 1, factor: 1.2 }, CombinationFactor { case_id: 2, factor: 1.6 }];
+    let combined = combine_results_3d_refs(&factors, &[(1, &light), (2, &light)]).unwrap().unwrap();
+    assert_eq!(second_order(&combined.structured_diagnostics), whole(), "3D: 1.2·0.040 + 1.6·0.040");
+    let factors = [CombinationFactor { case_id: 1, factor: 1.0 }, CombinationFactor { case_id: 2, factor: 0.5 }];
+    let combined = combine_results_3d_refs(&factors, &[(1, &light), (2, &light)]).unwrap().unwrap();
+    assert_eq!(second_order(&combined.structured_diagnostics), vec![]);
 }
 
 #[test]

@@ -443,7 +443,7 @@ pub struct ResultExtreme {
 }
 
 /// Query-ready summary of key result quantities.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ResultSummary {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -458,6 +458,10 @@ pub struct ResultSummary {
     pub displacement_resultant: Option<ResultExtreme>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reaction_resultant: Option<ResultExtreme>,
+    /// The largest N/Ncr over members the second-order screen bounds (#1551): 0 with none
+    /// compressed, absent when the result was not screened. Combinations sum it by |factor|.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub second_order_ratio: Option<f64>,
 }
 
 // ==================== Solver Run Metadata ====================
