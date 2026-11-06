@@ -995,6 +995,18 @@ test.describe('@landing the model the deck states', () => {
       expect(target).toBe('_blank');
     }
   });
+
+  test('the footer links both alternative pages, with a 44px target each', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await bootLanding(page);
+    for (const [path, name] of [['/sap2000-alternative', 'SAP2000 alternative'], ['/etabs-alternative', 'ETABS alternative']]) {
+      const link = page.locator(`.landing .footer-links a[href$="${path}/"], .landing .footer-links a[href$="${path}"]`);
+      await expect(link).toHaveText(name);
+      const box = (await link.boundingBox())!;
+      expect(box.height).toBeGreaterThanOrEqual(44);
+      expect(box.width).toBeGreaterThanOrEqual(44);
+    }
+  });
 });
 
 /*
