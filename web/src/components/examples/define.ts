@@ -57,7 +57,7 @@ export function refusedOutcome(error: unknown): Extract<Outcome, { status: 'refu
 
 function engineMessage(text: string): string {
   try {
-    const message = JSON.parse(text.slice(Math.max(0, text.indexOf('{')))).message;
+    const message = JSON.parse(text).message;
     return typeof message === 'string' ? message : text;
   } catch {
     return text;
