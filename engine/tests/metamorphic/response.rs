@@ -460,6 +460,10 @@ pub fn planar_static(p: &dedaliano_engine::metamorphic::planes::PlanarStatic) ->
         o.push(None, Some(e), "V", Kind::Local(Dim::FORCE, true), vec![a[1], b[1]]);
         o.push(None, Some(e), "M", Kind::Local(Dim::MOMENT, true), vec![a[2], b[2]]);
     }
+    o.scalar("stray force", Dim::FORCE, p.stray_force);
+    o.scalar("stray moment", Dim::MOMENT, p.stray_moment);
+    o.scalar("stray translation", Dim::LEN, p.stray_translation);
+    o.scalar("stray rotation", Dim::NONE, p.stray_rotation);
     o
 }
 

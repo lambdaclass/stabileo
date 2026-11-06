@@ -447,7 +447,7 @@
       "reversal": {"metamorphic": "pr_2d", "analysis": "buckling"},
       "rotation": {"metamorphic": "pr_2d", "analysis": "buckling"},
       "mirror": {"metamorphic": "pr_2d", "analysis": "buckling"},
-      "planes": {"tracked": 1497},
+      "planes": {"metamorphic": "pr_2d", "analysis": "buckling"},
       "prepared": {"exempt": "no prepared or duplicate linear path: it solves its own iterative, eigenvalue or frequency-domain system"}
     }},
     "solve_buckling_3d": {"scope": "solve", "calls": "buckling::solve_buckling_3d", "invariances": {
@@ -456,7 +456,7 @@
       "reversal": {"metamorphic": "pr_3d", "analysis": "buckling"},
       "rotation": {"metamorphic": "pr_3d", "analysis": "buckling"},
       "mirror": {"metamorphic": "pr_3d", "analysis": "buckling"},
-      "planes": {"tracked": 1497},
+      "planes": {"metamorphic": "pr_2d", "analysis": "buckling"},
       "prepared": {"exempt": "no prepared or duplicate linear path: it solves its own iterative, eigenvalue or frequency-domain system"}
     }},
     "solve_cable_2d": {"scope": "solve", "calls": "cable::solve_cable_2d_pretensioned", "invariances": {
@@ -601,7 +601,7 @@
       "reversal": {"metamorphic": "pr_2d", "analysis": "modal"},
       "rotation": {"metamorphic": "pr_2d", "analysis": "modal"},
       "mirror": {"metamorphic": "pr_2d", "analysis": "modal"},
-      "planes": {"tracked": 1497},
+      "planes": {"metamorphic": "pr_2d", "analysis": "modal"},
       "prepared": {"exempt": "no prepared or duplicate linear path: it solves its own iterative, eigenvalue or frequency-domain system"}
     }},
     "solve_modal_3d": {"scope": "solve", "calls": "modal::solve_modal_3d", "invariances": {
@@ -610,7 +610,7 @@
       "reversal": {"metamorphic": "pr_3d", "analysis": "modal"},
       "rotation": {"metamorphic": "pr_3d", "analysis": "modal"},
       "mirror": {"metamorphic": "pr_3d", "analysis": "modal"},
-      "planes": {"tracked": 1497},
+      "planes": {"metamorphic": "pr_2d", "analysis": "modal"},
       "prepared": {"exempt": "no prepared or duplicate linear path: it solves its own iterative, eigenvalue or frequency-domain system"}
     }},
     "solve_moving_loads_2d": {"scope": "solve", "calls": "moving_loads::solve_moving_loads_2d", "invariances": {
@@ -673,7 +673,7 @@
       "reversal": {"metamorphic": "pr_2d", "analysis": "P-Delta"},
       "rotation": {"metamorphic": "pr_2d", "analysis": "P-Delta"},
       "mirror": {"metamorphic": "pr_2d", "analysis": "P-Delta"},
-      "planes": {"tracked": 1497},
+      "planes": {"metamorphic": "pr_2d", "analysis": "P-Delta"},
       "prepared": {"exempt": "no prepared or duplicate linear path: it solves its own iterative, eigenvalue or frequency-domain system"}
     }},
     "solve_pdelta_3d": {"scope": "solve", "calls": "pdelta::solve_pdelta_3d", "invariances": {
@@ -682,7 +682,7 @@
       "reversal": {"metamorphic": "pr_3d", "analysis": "P-Delta"},
       "rotation": {"metamorphic": "pr_3d", "analysis": "P-Delta"},
       "mirror": {"metamorphic": "pr_3d", "analysis": "P-Delta"},
-      "planes": {"tracked": 1497},
+      "planes": {"metamorphic": "pr_2d", "analysis": "P-Delta"},
       "prepared": {"exempt": "no prepared or duplicate linear path: it solves its own iterative, eigenvalue or frequency-domain system"}
     }},
     "solve_plastic_2d": {"scope": "solve", "calls": "plastic::solve_plastic_2d", "invariances": {

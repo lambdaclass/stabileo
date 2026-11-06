@@ -222,8 +222,22 @@ pub fn embed_2d(s: &SolverInput, plane: Plane) -> TResult<SolverInput3D> {
             }
         });
     }
+    let nodal = s
+        .masses
+        .nodal
+        .iter()
+        .map(|m| {
+            let mut t = [Some(m.mass); 3];
+            t[a1] = Some(m.mx());
+            t[a2] = Some(m.mz());
+            let mut r = [0.0; 3];
+            r[normal] = m.rotary_inertia;
+            NodalMass3D { node_id: m.node_id, mass: m.mass, mass_x: t[0], mass_y: t[1], mass_z: t[2], ixx: r[0], iyy: r[1], izz: r[2] }
+        })
+        .collect();
+    let masses = MassInput3D { nodal, line: s.masses.line.clone(), area: vec![] };
     Ok(SolverInput3D {
-        solver_options: s.solver_options.clone(), masses: Default::default(), nodes, materials: s.materials.clone(), sections, elements, supports, loads,
+        solver_options: s.solver_options.clone(), masses, nodes, materials: s.materials.clone(), sections, elements, supports, loads,
         constraints: vec![], left_hand: None, plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(),
         solid_shells: HashMap::new(), curved_shells: HashMap::new(), curved_beams: vec![], connectors: HashMap::new(),
     })
@@ -340,5 +354,28 @@ mod tests {
         let t = embed_2d(&s, Plane::YZ).unwrap();
         let k = &t.supports["1"];
         assert_eq!([k.kx, k.ky, k.kz, k.krx, k.kry, k.krz], [None, Some(7.0), Some(5.0), Some(3.0), None, None]);
+    }
+
+    #[test]
+    fn added_masses_carry_into_3d_with_the_rotary_inertia_about_the_normal() {
+        let s = SolverInput {
+            nodes: HashMap::from([("1".into(), SolverNode { id: 1, x: 0.0, z: 0.0 })]),
+            materials: HashMap::new(),
+            sections: HashMap::new(),
+            elements: HashMap::new(),
+            supports: HashMap::new(),
+            loads: Vec::new(),
+            constraints: Vec::new(),
+            connectors: HashMap::new(),
+            solver_options: None,
+            masses: MassInput {
+                nodal: vec![NodalMass { node_id: 1, mass: 2.0, mass_x: Some(3.0), mass_z: Some(5.0), rotary_inertia: 7.0 }],
+                line: vec![LineMass { element_id: 4, mass_per_length: 11.0 }],
+            },
+        };
+        let t = embed_2d(&s, Plane::YZ).unwrap();
+        let m = &t.masses.nodal[0];
+        assert_eq!((m.translational(), [m.ixx, m.iyy, m.izz]), ([2.0, 3.0, 5.0], [7.0, 0.0, 0.0]));
+        assert_eq!((t.masses.line[0].element_id, t.masses.line[0].mass_per_length), (4, 11.0));
     }
 }
