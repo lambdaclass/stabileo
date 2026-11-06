@@ -64,7 +64,7 @@ pub const ENTRIES: &[Entry] = &[
     Entry { id: "MD-ORTHOGONALITY", issue: 759, mode: Mode::Warn, message: "3D modal analysis can return non-orthogonal or duplicate modes. Effective masses, response-spectrum combinations and harmonic responses by modal superposition may be wrong, by large factors; independently verify the modal basis" },
     Entry { id: "TH-RECIPROCITY", issue: 760, mode: Mode::Warn, message: "Linear time history has failed reciprocity checks by up to a factor of 33. The affected input class is not yet isolated; independently verify this response before design" },
     Entry { id: "LIN-SMALL-DISPLACEMENT", issue: 1446, mode: Mode::Warn, message: "A rotation or a member's relative displacement exceeds 0.1 rad, the small-displacement screening limit of linear analysis: at that angle the terms first-order theory drops, such as the chord shortening 1 − cos θ ≈ 0.5 %, may no longer be negligible. Check that the change of geometry is acceptable: a support, spring or release may leave part of the model nearly free; otherwise use a nonlinear analysis" },
-    Entry { id: "LIN-SECOND-ORDER", issue: 1551, mode: Mode::Warn, message: "Axial compression is a significant fraction of the critical load: second-order effects may amplify these linear displacements and moments by more than 10 % (1/(1 − N/Ncr) > 1.1, CIRSOC 301 Appendix 7). Run a P-Delta or second-order analysis before using these moments for design" },
+    Entry { id: "LIN-SECOND-ORDER", issue: 1551, mode: Mode::Warn, message: "Axial compression is a significant fraction of the critical load: second-order effects may amplify these linear displacements and moments by more than 10 % (N/Ncr > 0.075, CIRSOC 301 Appendix 7). Run a P-Delta or second-order analysis before using these moments for design" },
     Entry { id: "LIN-SECOND-ORDER-UNBOUNDED", issue: 1551, mode: Mode::Warn, message: "Members are in compression and the critical load could not be bounded, so it is unknown whether second-order effects amplify these linear displacements and moments by more than 10 %. Run a P-Delta or second-order analysis before using these moments for design" },
     Entry { id: "RC-NM-PAIRING", issue: 1316, mode: Mode::Warn, message: "This CIRSOC 201 column check pairs the axial force of one combination with the moment of another, which can be unconservative below the balance point. Check the column under each named combination" },
 ];
@@ -610,10 +610,11 @@ pub fn small_displacement_3d(input: Option<&SolverInput3D>, r: &AnalysisResults3
     small_displacement(nodes, elements)
 }
 
-/// The second-order screening limit of a linear result: N/Ncr above 1/11 is an amplification
-/// 1/(1 − N/Ncr) above 1.1, past the ratio of second- to first-order displacement up to which
-/// CIRSOC 301 Appendix 7 §7.2 treats second-order effects as small enough to take k = 1.
-pub const SECOND_ORDER_RATIO: f64 = 1.0 / 11.0;
+/// The second-order screening limit of a linear result, N/Ncr = 0.07483: the largest ratio at which
+/// the worst elastic moment amplification, sec((π/2)·√(N/Ncr)) under a uniform moment, stays within
+/// 1.1, the ratio of second- to first-order effects up to which CIRSOC 301 Appendix 7 §7.2 treats
+/// them as small. The displacement amplification 1/(1 − N/Ncr) is lower.
+pub const SECOND_ORDER_RATIO: f64 = 0.074_83;
 
 std::thread_local! {
     static SECOND_ORDER_SCREEN_RUNNING: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
@@ -718,7 +719,7 @@ pub(crate) fn second_order(m: &ScreenModel, frame_factor: impl FnOnce() -> Resul
         let factor = frame_factor();
         SECOND_ORDER_SCREEN_RUNNING.with(|r| r.set(false));
         let mut d = match factor {
-            Ok(Some(f)) if f > 0.0 && f * SECOND_ORDER_RATIO >= 1.0 => return None,
+            Ok(Some(f)) if f > 0.0 && f * SECOND_ORDER_RATIO > 1.0 => return None,
             Ok(None) => return None,
             Ok(Some(_)) => diagnostic("LIN-SECOND-ORDER"),
             Err(_) => diagnostic("LIN-SECOND-ORDER-UNBOUNDED"),
@@ -783,9 +784,29 @@ pub(crate) fn lowest_factor(factors: Result<Vec<f64>, String>) -> Result<Option<
     }
 }
 
+fn span_length(a: Option<f64>, b: Option<f64>, length: Option<f64>) -> f64 {
+    let length = length.unwrap_or(f64::INFINITY);
+    (b.unwrap_or(length) - a.unwrap_or(0.0)).abs()
+}
+
+/// The largest compression along a member, bounded from its end forces and its axial span loads:
+/// a span load can compress the interior while both ends read zero.
+fn compression(n_start: f64, n_end: f64, span: Option<&f64>) -> f64 {
+    (-n_start).max(-n_end).max(0.0) + span.copied().unwrap_or(0.0)
+}
+
 /// [`second_order`] for a 2D result.
-pub fn second_order_2d(input: &SolverInput, r: &AnalysisResults, frame_factor: impl FnOnce() -> Result<Option<f64>, String>) -> Option<StructuredDiagnostic> {
-    let n: std::collections::HashMap<usize, f64> = r.element_forces.iter().map(|f| (f.element_id, (-f.n_start).max(-f.n_end))).collect();
+pub fn second_order_2d(input: &SolverInput, loads: &[SolverLoad], r: &AnalysisResults, frame_factor: impl FnOnce() -> Result<Option<f64>, String>) -> Option<StructuredDiagnostic> {
+    let mut span: std::collections::HashMap<usize, f64> = std::collections::HashMap::new();
+    for load in loads {
+        let (id, total) = match load {
+            SolverLoad::PointOnElement(p) => (p.element_id, p.px.unwrap_or(0.0).abs()),
+            SolverLoad::AxialDistributed(q) => (q.element_id, q.q_i.abs().max(q.q_j.abs()) * span_length(q.a, q.b, r.element_forces.iter().find(|f| f.element_id == q.element_id).map(|f| f.length))),
+            _ => continue,
+        };
+        *span.entry(id).or_default() += total;
+    }
+    let n: std::collections::HashMap<usize, f64> = r.element_forces.iter().map(|f| (f.element_id, compression(f.n_start, f.n_end, span.get(&f.element_id)))).collect();
     let bars = crate::ordered::values(&input.elements).map(|e| {
         let ei = input.materials.values().find(|m| m.id == e.material_id).zip(input.sections.values().find(|s| s.id == e.section_id))
             .map_or(f64::NAN, |(m, s)| m.e * 1000.0 * s.iz);
@@ -802,8 +823,15 @@ pub fn second_order_2d(input: &SolverInput, r: &AnalysisResults, frame_factor: i
 }
 
 /// [`second_order`] for a 3D result: I_min is the lesser of Iy and Iz.
-pub fn second_order_3d(input: &SolverInput3D, r: &AnalysisResults3D, frame_factor: impl FnOnce() -> Result<Option<f64>, String>) -> Option<StructuredDiagnostic> {
-    let n: std::collections::HashMap<usize, f64> = r.element_forces.iter().map(|f| (f.element_id, (-f.n_start).max(-f.n_end))).collect();
+pub fn second_order_3d(input: &SolverInput3D, loads: &[SolverLoad3D], r: &AnalysisResults3D, frame_factor: impl FnOnce() -> Result<Option<f64>, String>) -> Option<StructuredDiagnostic> {
+    let mut span: std::collections::HashMap<usize, f64> = std::collections::HashMap::new();
+    for load in loads {
+        if let SolverLoad3D::Distributed(q) = load {
+            let length = r.element_forces.iter().find(|f| f.element_id == q.element_id).map(|f| f.length);
+            *span.entry(q.element_id).or_default() += q.q_xi.abs().max(q.q_xj.abs()) * span_length(q.a, q.b, length);
+        }
+    }
+    let n: std::collections::HashMap<usize, f64> = r.element_forces.iter().map(|f| (f.element_id, compression(f.n_start, f.n_end, span.get(&f.element_id)))).collect();
     let bars = crate::ordered::values(&input.elements).map(|e| {
         let ei = input.materials.values().find(|m| m.id == e.material_id).zip(input.sections.values().find(|s| s.id == e.section_id))
             .map_or(f64::NAN, |(m, s)| m.e * 1000.0 * s.iy.min(s.iz));

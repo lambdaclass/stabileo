@@ -126,17 +126,17 @@ fn portal(base: &str, p: f64) -> SolverInput {
 #[test]
 fn a_pinned_base_sway_portal_warns_where_the_cantilever_bound_would_not() {
     let cantilever_ncr = PI * PI * E * 1000.0 * 1e-4 / (2.0 * 4.0_f64).powi(2);
-    let p = 0.08 * cantilever_ncr;
+    let p = 0.07 * cantilever_ncr;
     let pinned = solve_2d(&portal("pinned", p)).unwrap();
     let column_n = pinned.element_forces.iter().filter(|f| f.element_id != 2).map(|f| -f.n_start.min(f.n_end)).fold(0.0, f64::max);
     assert!(column_n / cantilever_ncr < SECOND_ORDER_RATIO, "the cantilever bound alone would stay quiet: N/Ncr = {}", column_n / cantilever_ncr);
     let factor = solve_buckling_2d(&portal("pinned", p), 1).unwrap().modes[0].load_factor;
-    assert!(factor < 1.0 / SECOND_ORDER_RATIO, "the pinned portal's own critical factor {factor} is under 11");
+    assert!(factor < 1.0 / SECOND_ORDER_RATIO, "the pinned portal's own critical factor {factor} is under the limit");
     assert_eq!(second_order(&pinned.structured_diagnostics), warned(vec![]));
 
     let fixed = solve_2d(&portal("fixed", p)).unwrap();
     let factor = solve_buckling_2d(&portal("fixed", p), 1).unwrap().modes[0].load_factor;
-    assert!(factor > 1.0 / SECOND_ORDER_RATIO, "the fixed portal's critical factor {factor} is over 11");
+    assert!(factor > 1.0 / SECOND_ORDER_RATIO, "the fixed portal's critical factor {factor} is over the limit");
     assert_eq!(second_order(&fixed.structured_diagnostics), vec![]);
 }
 
@@ -150,3 +150,38 @@ fn a_combination_carries_the_second_order_warning_of_its_cases() {
     let combined = combine_results_refs(&[CombinationFactor { case_id: 1, factor: 1.0 }, CombinationFactor { case_id: 2, factor: 1.0 }], &[(1, &heavy), (2, &pinned)]).unwrap();
     assert_eq!(second_order(&combined.structured_diagnostics), warned(vec![]));
 }
+
+#[test]
+fn the_limit_keeps_the_worst_moment_amplification_within_ten_percent() {
+    let sec = |rho: f64| 1.0 / (PI / 2.0 * rho.sqrt()).cos();
+    assert!(sec(SECOND_ORDER_RATIO) <= 1.1 && sec(SECOND_ORDER_RATIO) > 1.0999, "{}", sec(SECOND_ORDER_RATIO));
+    assert!(1.0 / (1.0 - SECOND_ORDER_RATIO) < 1.1);
+}
+
+/// A clamped cantilever squeezed between two opposed axial loads inside its span: both end forces
+/// are zero and the middle third carries `p` in compression.
+fn squeezed_cantilever(p: f64) -> SolverInput {
+    serde_json::from_value(json!({
+        "nodes": {"1": {"id": 1, "x": 0.0, "z": 0.0}, "2": {"id": 2, "x": L, "z": 0.0}},
+        "materials": {"1": {"id": 1, "e": E, "nu": 0.3}},
+        "sections": {"1": {"id": 1, "a": 6.9e-3, "iz": IPN300_WEAK}},
+        "elements": {"1": {"id": 1, "type": "frame", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1}},
+        "supports": {"1": {"id": 1, "nodeId": 1, "type": "fixed"}},
+        "loads": [
+            {"type": "pointOnElement", "data": {"elementId": 1, "a": 1.0, "p": -1.0, "px": p}},
+            {"type": "pointOnElement", "data": {"elementId": 1, "a": 2.0, "p": 0.0, "px": -p}},
+        ],
+    }))
+    .unwrap()
+}
+
+#[test]
+fn compression_from_span_loads_is_seen_though_both_ends_read_zero() {
+    let r = solve_2d(&squeezed_cantilever(100.0)).unwrap();
+    let f = &r.element_forces[0];
+    assert!(f.n_start.abs() < 1e-6 && f.n_end.abs() < 1e-6, "{f:?}");
+    assert_eq!(second_order(&r.structured_diagnostics), warned(vec![1]));
+    let r = solve_2d(&squeezed_cantilever(5.0)).unwrap();
+    assert_eq!(second_order(&r.structured_diagnostics), vec![]);
+}
+
