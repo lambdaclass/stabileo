@@ -503,7 +503,20 @@ jobs:
       - name: Fetch Rust dependencies
         run: .github/scripts/retry-infra.sh nix develop --command cargo fetch --locked
       - name: Named correctness gates
+        env:
+          WALL_CLOCK_REPORT: ${{ (github.event_name == 'pull_request' || github.event_name == 'merge_group') && format('{0}/engine-wall-clock-overruns.jsonl', runner.temp) || '' }}
         run: make test.engine.gates
+      - name: Report wall-clock overruns without failing
+        if: ${{ !cancelled() && (github.event_name == 'pull_request' || github.event_name == 'merge_group') }}
+        env:
+          OVERRUNS: ${{ runner.temp }}/engine-wall-clock-overruns.jsonl
+        run: |
+          [ -s "$OVERRUNS" ] || exit 0
+          echo "Engine wall-clock budgets over; reported only on pull requests and the merge queue, enforced on main and nightly (#1562):" >> "$GITHUB_STEP_SUMMARY"
+          while IFS= read -r line; do
+            echo "::warning title=Engine wall-clock budgets::$line"
+            echo "- \`$line\`" >> "$GITHUB_STEP_SUMMARY"
+          done < "$OVERRUNS"
 
   test-engine-suite:
     name: Engine Suite (${{ matrix.shard }}/4)

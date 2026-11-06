@@ -3242,7 +3242,7 @@ mod tests {
             .collect();
         let t = std::time::Instant::now();
         let diags = validate_constraints(&constraints, &dof_num, None, Some(&nodes));
-        assert!(t.elapsed().as_secs_f64() < 2.0, "validate_constraints took {:?}", t.elapsed());
+        crate::wall_clock::budget(t.elapsed().as_secs_f64() < 2.0, || format!("validate_constraints took {:?}", t.elapsed()));
         assert!(diags.is_empty(), "independent links raise nothing: {:?}", diags.len());
     }
 
