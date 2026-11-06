@@ -437,11 +437,11 @@ def _held_identical(sres, hres, dofs):
             return False
     for nid, r in sres["reac"].items():
         h = hres["reac"].get(nid)
-        if h is None or not all(same(a, b) for a, b in zip(r, h)):
+        if h is None or len(h) != len(r) or not all(same(a, b) for a, b in zip(r, h)):
             return False
     for nid, k in dofs:
         r = hres["reac"].get(int(nid)) or hres["reac"].get(nid)
-        if r is None or not same(0.0, r[k]):
+        if r is None or k >= len(r) or not same(0.0, r[k]):
             return False
     for nid, r in hres["reac"].items():
         if nid not in sres["reac"] and not all(same(0.0, v) for v in r):

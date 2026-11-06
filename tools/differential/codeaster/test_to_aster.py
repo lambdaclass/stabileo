@@ -6,6 +6,7 @@
 Run by the codeaster-diff job (.github/workflows/nightly.yml) before the
 comparison.
 """
+import math
 import os
 import sys
 import unittest
@@ -530,6 +531,14 @@ class HeldRoundOffRegression(unittest.TestCase):
         nid = next(iter(sres["reac"]))
         hres["reac"][nid][0] += 1e-9 * top
         self.assertFalse(R._held_identical(sres, hres, dofs))
+
+    def test_a_reaction_of_another_length_is_not(self):
+        import run as R
+        for change in (lambda r: r.pop(), lambda r: r.append(0.0), lambda r: r.append(math.nan)):
+            sres, hres, dofs = self.load()
+            change(hres["reac"][next(iter(sres["reac"]))])
+            self.assertFalse(R._held_identical(sres, hres, dofs))
+
 
 class AsterOnTheHeldModel(unittest.TestCase):
     """Code_Aster solves the held model with its singularity check on and must agree with stabileo's
