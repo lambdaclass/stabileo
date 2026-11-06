@@ -1,7 +1,7 @@
 {
   "id": "combination-member-chords",
   "date": "2026-11-06",
-  "prs": [0],
+  "prs": [1567],
   "area": "analysis",
   "when": { "allOf": [["members"], ["combinations"]] },
   "title": {
