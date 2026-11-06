@@ -9,7 +9,12 @@ function refusal(error: unknown): Refusal | null {
   } catch { return null; }
 }
 
+export class CodedRefusal extends Error {
+  constructor(message: string, readonly code: string) { super(message); }
+}
+
 export function refusedWithCode(error: unknown, code: string): boolean {
+  if (error instanceof CodedRefusal) return error.code === code;
   return refusal(error)?.structuredDiagnostics.some((d) => d?.code === code && d.severity === 'error') ?? false;
 }
 
@@ -18,9 +23,10 @@ export function isContainmentRefusal(error: unknown): boolean {
   return refusedWithCode(error, 'known_issue');
 }
 
-export function plainRefusal(error: unknown): unknown {
-  const r = refusal(error);
-  return r && typeof r.message === 'string' ? new Error(r.message) : error;
+export function asCodedRefusal(error: unknown, code: string): unknown {
+  if (error instanceof CodedRefusal || !refusedWithCode(error, code)) return error;
+  const message = refusal(error)?.message;
+  return typeof message === 'string' ? new CodedRefusal(message, code) : error;
 }
 
 export class ContainmentExportError extends Error {}

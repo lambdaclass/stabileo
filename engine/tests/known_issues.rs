@@ -491,7 +491,7 @@ fn reported_seeds_advanced_modal_and_time_history_are_contained() {
     let (solver, densities) = crate::fuzz_models::random_3d_model_rich(20788);
     match solve_modal_3d(&solver, &densities, 2) {
         Ok(r) => assert_warning(&r.structured_diagnostics, "NUM-INVARIANCE", 762.0),
-        Err(error) => assert!(error.starts_with("MODAL-MECHANISM:") || error.starts_with("Eigenvalue decomposition failed"), "{error}"),
+        Err(error) => assert!(error.starts_with("MODAL-MECHANISM:") || codes(&error) == ["eigen_decomposition_failed"], "{error}"),
     }
     let th: TimeHistoryInput3D = serde_json::from_value(serde_json::json!({
         "solver": solver, "densities": densities, "timeStep": 0.01, "nSteps": 2
@@ -1931,9 +1931,24 @@ fn every_export_the_app_falls_back_on_refuses_no_free_dofs_with_a_code() {
     ];
     for (name, error) in errors {
         let error = error.unwrap_or_else(|| panic!("{name}: a fully restrained model solved"));
-        let v: serde_json::Value = serde_json::from_str(&error).unwrap_or_else(|e| panic!("{name}: {e}: {error}"));
-        let codes: Vec<_> = v["structuredDiagnostics"].as_array().unwrap().iter()
-            .filter(|d| d["severity"] == "error").map(|d| d["code"].clone()).collect();
-        assert_eq!(codes, [serde_json::json!("no_free_dofs")], "{name}: {error}");
+        assert_eq!(codes(&error), ["no_free_dofs"], "{name}: {error}");
+    }
+}
+
+fn codes(error: &str) -> Vec<String> {
+    let Ok(v) = serde_json::from_str::<serde_json::Value>(error) else { return vec![] };
+    v["structuredDiagnostics"].as_array().into_iter().flatten()
+        .filter(|d| d["severity"] == "error").filter_map(|d| d["code"].as_str().map(str::to_owned)).collect()
+}
+
+#[test]
+fn buckling_with_nothing_compressed_refuses_with_a_code_in_2d_and_3d() {
+    use dedaliano_engine::solver::buckling::*;
+    let cantilever_2d = make_beam(1, 4.0, E, 0.045, 3.375e-4, "fixed", None, vec![]);
+    let cantilever_3d = make_3d_beam(1, 4.0, E, 0.3, 0.01, 1e-4, 1e-4, 1e-5, vec![true; 6], None, vec![]);
+    for (name, error) in [("2d", solve_buckling_2d(&cantilever_2d, 2).err()), ("3d", solve_buckling_3d(&cantilever_3d, 2).err())] {
+        let error = error.unwrap_or_else(|| panic!("{name}: an unloaded cantilever buckled"));
+        assert_eq!(codes(&error), ["no_compressed_elements"], "{name}: {error}");
+        assert_eq!(serde_json::from_str::<serde_json::Value>(&error).unwrap()["message"], "No compressed elements — buckling not applicable");
     }
 }
