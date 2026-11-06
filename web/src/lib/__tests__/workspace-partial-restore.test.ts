@@ -251,6 +251,20 @@ describe('a workspace write that does not fit', () => {
     expect(stored.tabs[0].undoStack).toEqual([]);
     expect(stored.tabs[0].redoStack).toEqual([]);
   });
+
+  it('never reads the undo snapshots it leaves out', () => {
+    let reads = 0;
+    const undone = snapshot();
+    Object.defineProperty(undone, 'detailing', { enumerable: true, get: () => { reads++; return { assemblies: [] }; } });
+    tabManager.restoreSession([{ ...tab('a', 'Pórtico A', snapshot()), undoStack: [undone, undone], redoStack: [undone] } as never], 'a');
+    expect(saveWorkspaceToLocalStorage()).toBe(true);
+    const stored = JSON.parse(storage.getItem(WORKSPACE_KEY)!);
+    expect(stored.tabs[0].name).toBe('Pórtico A');
+    expect(stored.tabs[0].modelSnapshot.elements.map(([id]: [number]) => id)).toEqual([1]);
+    expect(stored.tabs[0].undoStack).toEqual([]);
+    expect(stored.tabs[0].redoStack).toEqual([]);
+    expect(reads, 'the 30 s workspace save walked the undo history it then drops').toBe(0);
+  });
 });
 
 it('reopens the notice with every change id when a stale project is restored after reload', async () => {
