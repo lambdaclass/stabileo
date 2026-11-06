@@ -224,6 +224,11 @@ tolerance on the next mesh (refinement stops there: OpenSees' dense eigen
 solve dominates the run). The difference is the largest load-factor or 1−MAC
 error, leaving out the MAC of a mode whose gap to a neighbour is within ten
 times the load-factor error (the solvers may order such a pair either way).
+`converging` is inconclusive by construction: a constant difference smaller
+than the remaining discretisation difference cannot be told apart from it on
+these meshes. The engine failing on a finer mesh is a `mismatch`, OpenSees
+failing is `opensees_failed`, and a mesh OpenSees cannot take (too large,
+ill-conditioned) ends the refinement.
 On seed 763000 the 138 mismatches became 47 `ok` on a common mesh (8 at
 n = 2, 17 at 4, 20 at 8, 2 at 16) and 91 `converging`; the part takes about
 six times as long (2,100 s against 344 s at two jobs on a loaded runner), so

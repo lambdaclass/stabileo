@@ -1947,7 +1947,7 @@ def _resolved_difference(bad, groups, values):
         if q != "mode":
             continue
         v = values[i - 1]
-        gap = min(abs(values[j] - v) / abs(v) for j in (i - 2, i) if 0 <= j < len(values))
+        gap = min([abs(values[j] - v) / abs(v) for j in (i - 2, i) if 0 <= j < len(values)] or [math.inf])
         if gap > 10 * groups["eig"]:
             worst = max(worst, e)
     return worst
@@ -1958,16 +1958,22 @@ def refine_buckling(job, binary, tol, dim):
     bad is empty when both solvers agree within tol on n elements per frame;
     converging is set when they never agree but each doubling of n at least
     halves their difference. Refinement stops once the difference stops
-    halving or its current rate cannot bring it within tol on the next mesh."""
+    halving, its current rate cannot bring it within tol on the next mesh, or
+    OpenSees cannot take the next mesh (too large, ill-conditioned). The
+    engine failing on a mesh is a mismatch; OpenSees failing raises
+    RuntimeError."""
     levels = []
     for n in MESH_LEVELS:
         j = dict(job, model=mesh(job["model"], n))
         try:
             sres = normalize_ext("buckling", stabileo_job(j, binary), dim)
-        except RuntimeError:
-            break
+        except RuntimeError as ex:
+            failed = ("eig", 0, f"stabileo failed on the n={n} mesh: {str(ex)[:160]}", None, None, math.inf)
+            return [failed], {}, n, None
         ores = opensees_isolated(j)
         kappa = ores.get("kappa")
+        if "failed" in ores:
+            raise RuntimeError(f"OpenSees failed on the n={n} mesh: {ores['failed']}")
         if "values" not in ores or kappa is None or kappa > KAPPA_MAX:
             break
         bad, groups = compare_eigen(sres, ores, max(tol, 100 * 2.2e-16 * kappa), job["numModes"], 1)
@@ -1976,7 +1982,7 @@ def refine_buckling(job, binary, tol, dim):
         levels.append((n, bad, groups, _resolved_difference(bad, groups, ores["values"])))
         if len(levels) >= 2:
             a, b = (e for *_, e in levels[-2:])
-            if b > a / MESH_RATE or b * b / a > tol:
+            if b > a / MESH_RATE or b * b > tol * a:
                 break
     if not levels:
         return None
@@ -2067,7 +2073,10 @@ def run_ext(name, job, binary, tol, dump_dir=None):
         bad, groups = compare_eigen(sres, ores, tol, job["numModes"], 1 if kind == "buckling" else 2)
         converging = None
         if kind == "buckling" and bad and _axial_span_loaded(d):
-            refined = refine_buckling(job, binary, tol, dim)
+            try:
+                refined = refine_buckling(job, binary, tol, dim)
+            except RuntimeError as ex:
+                return dict(base, status="opensees_failed", why=[str(ex)[:300]])
             if refined is not None:
                 bad, groups, n, converging = refined[0], dict(groups, **refined[1]), refined[2], refined[3]
                 base = dict(base, mesh=n)

@@ -77,17 +77,23 @@ class RefinedBucklingTest(unittest.TestCase):
     """Engine and OpenSees load factors per number of frame members (2 in the
     unmeshed column): stub solvers, so only the decision logic runs."""
 
-    def run_with(self, stab, ops, axial_span_load=True, omodes=None):
+    def run_with(self, stab, ops, axial_span_load=True, omodes=None, fail=None):
         job = {"analysis": "buckling", "numModes": 2, "model": column(axial_span_load)}
         lin = dict(disp={}, reac={}, forces={}, diags=[], issues=[])
         seen = []
 
         def stabileo_job(j, binary):
             seen.append(frames(j["model"]) // 2)
+            if fail == ("stabileo", frames(j["model"]) // 2):
+                raise RuntimeError("Singular stiffness matrix")
             return {"values": stab[frames(j["model"]) // 2], "modes": MODES}
 
         def opensees(j):
             n = frames(j["model"]) // 2
+            if fail == ("opensees", n):
+                return {"failed": "analyze failed"}
+            if fail == ("large", n):
+                return {"unsupported": "too large for dense eigen/transient comparison"}
             return {"values": ops[n], "modes": (omodes or {}).get(n, MODES), "dim": 3, "kappa": 1e3,
                     "art_rot": [], "linear": dict(lin, art_rot=[], dim=3)}
 
@@ -118,10 +124,7 @@ class RefinedBucklingTest(unittest.TestCase):
         self.assertNotIn("converging", C.FLAGGED)
 
     def test_refinement_continues_while_agreement_is_within_reach(self):
-        stab = {n: [10.0, 30.0] for n in (1, 2, 4, 8, 16)}
-        ops = {1: [9.0, 30.0], 2: [10.0 * (1 - 4e-5), 30.0], 4: [10.0 * (1 - 4e-6), 30.0],
-               8: [10.0 * (1 - 4e-7), 30.0], 16: [10.0, 30.0]}
-        r, seen = self.run_with(stab, ops)
+        r, seen = self.run_with(*self.within_reach())
         self.assertEqual((r["status"], r["mesh"], seen), ("ok", 8, [1, 2, 4, 8]))
 
     def test_differences_that_stop_falling_are_a_mismatch(self):
@@ -144,6 +147,30 @@ class RefinedBucklingTest(unittest.TestCase):
         tilted = {n: [{1: [1.0, 0.1, 0.0, 0.0, 0.0, 0.0]}, MODES[1]] for n in (1, 2, 4, 8, 16)}
         r, _ = self.run_with(stab, ops, omodes=tilted)
         self.assertEqual(r["status"], "mismatch")
+
+    def within_reach(self):
+        stab = {n: [10.0, 30.0] for n in (1, 2, 4, 8, 16)}
+        ops = {1: [9.0, 30.0], 2: [10.0 * (1 - 4e-5), 30.0], 4: [10.0 * (1 - 4e-6), 30.0],
+               8: [10.0 * (1 - 4e-7), 30.0], 16: [10.0, 30.0]}
+        return stab, ops
+
+    def test_the_engine_failing_on_a_finer_mesh_is_a_mismatch(self):
+        r, seen = self.run_with(*self.within_reach(), fail=("stabileo", 8))
+        self.assertEqual((r["status"], r["mesh"], seen), ("mismatch", 8, [1, 2, 4, 8]))
+        self.assertIn("stabileo failed on the n=8 mesh", r["worst"][0][2])
+
+    def test_opensees_failing_on_a_finer_mesh_is_not_converging(self):
+        r, _ = self.run_with(*self.within_reach(), fail=("opensees", 8))
+        self.assertEqual(r["status"], "opensees_failed")
+        self.assertIn("n=8", r["why"][0])
+
+    def test_a_mesh_too_large_for_opensees_ends_the_refinement(self):
+        r, _ = self.run_with(*self.within_reach(), fail=("large", 8))
+        self.assertEqual((r["status"], r["mesh"]), ("converging", 4))
+
+    def test_a_mode_without_neighbours_keeps_its_shape_difference(self):
+        groups = {"eig": 1e-4, "mac": 0.01}
+        self.assertEqual(C._resolved_difference([("mode", 1, "1-MAC", 0.01, 0.0, 0.01)], groups, [10.0]), 0.01)
 
     def test_without_an_axial_span_load_a_one_element_mismatch_stands(self):
         r, seen = self.run_with({1: [10.0, 30.0], 2: [10.0, 30.0]}, {1: [10.1, 30.0], 2: [10.0, 30.0]},
