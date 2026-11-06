@@ -483,6 +483,7 @@ test.ci-scripts: test.nightly-scripts check.cadence
 	python3 -B -I scripts/tests/test_check_containment.py
 	python3 -B -I scripts/tests/test_mutants_safety.py
 	python3 -B -I scripts/tests/test_retry_infra.py
+	python3 -B -I scripts/tests/test_kani_shards.py
 	python3 -B -I scripts/tests/test_build_research_wasm.py
 	python3 -B -I scripts/tests/test_research_host_cache.py
 	python3 -B -I scripts/tests/test_ci_aggregate.py
