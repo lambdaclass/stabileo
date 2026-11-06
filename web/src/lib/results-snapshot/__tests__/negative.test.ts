@@ -21,9 +21,10 @@ import { snapshotFile } from '../run-group';
 import { compareValues, formatCaseReport, mergeValues, parseSnapshot, serialiseSnapshot } from '../../../../scripts/results-snapshot/compare.mjs';
 // @ts-expect-error plain JavaScript shared with the CI gate (no declaration file)
 import { decide } from '../../../../scripts/results-snapshot/gate.mjs';
+import { readSourcesAt } from '../../../../scripts/result-changes/registry.mjs';
 
 const CASE = CORPUS.find((c) => c.name === '2d-simply-supported')!;
-const REGISTRY = JSON.parse(readFileSync(new URL('../../provenance/result-changes.json', import.meta.url), 'utf8'));
+const REGISTRY = readSourcesAt('HEAD')!;
 
 beforeAll(async () => { await initSolver(); });
 
@@ -73,13 +74,13 @@ describe('a deliberate result change', () => {
 
     const unregistered = decide({ snapshots, baseRegistry: REGISTRY, headRegistry: REGISTRY, fragments: [] });
     expect(unregistered.ok).toBe(false);
-    expect(unregistered.report).toContain('no new entry in web/src/lib/provenance/result-changes.json');
+    expect(unregistered.report).toContain('no new entry in web/src/lib/provenance/result-changes');
     expect(unregistered.report).toContain('no changelog.d/ fragment under "### BREAKING (results)"');
     expect(unregistered.report).toContain(file);
 
     // A fragment alone, or a fragment in another section, is not enough.
-    const entry = { ...REGISTRY.changes.find((c: { scope?: string }) => c.scope === undefined), id: 'negative-case-entry', resultsVersion: REGISTRY.currentResultsVersion + 1 };
-    const registered = { ...REGISTRY, currentResultsVersion: entry.resultsVersion, changes: [entry, ...REGISTRY.changes] };
+    const { resultsVersion: _, ...entry } = { ...REGISTRY.numbered.find((c: { scope?: string }) => c.scope === undefined), id: 'negative-case-entry' };
+    const registered = { ...REGISTRY, unnumbered: [...REGISTRY.unnumbered, entry] };
     const fixed = { file: 'changelog.d/x.md', text: '### Fixed\n#### Something (2026-10-28)\n' };
     const breaking = { file: 'changelog.d/y.md', text: '### BREAKING (results)\n#### The beam load (2026-10-28)\n' };
     expect(decide({ snapshots, baseRegistry: REGISTRY, headRegistry: REGISTRY, fragments: [breaking] }).ok).toBe(false);
@@ -89,7 +90,7 @@ describe('a deliberate result change', () => {
     expect(ok.report).toContain('negative-case-entry');
 
     const examplesOnly = { ...entry, when: undefined, scope: 'examples', examples: ['simply-supported'] };
-    const asExamples = { ...REGISTRY, currentResultsVersion: entry.resultsVersion, changes: [examplesOnly, ...REGISTRY.changes] };
+    const asExamples = { ...REGISTRY, unnumbered: [...REGISTRY.unnumbered, examplesOnly] };
     const disguised = decide({ snapshots, baseRegistry: REGISTRY, headRegistry: asExamples, fragments: [breaking], changedFixtures: [], caseExample: { [file]: CASE.source && 'example' in CASE.source ? CASE.source.example : '' } });
     expect(disguised.ok).toBe(false);
     expect(disguised.report).toContain('did not change');

@@ -35,6 +35,16 @@ declare module 'virtual:result-change-metadata' {
   export default registry;
 }
 
+declare module 'virtual:result-change-metadata?*' {
+  const registry: { currentResultsVersion: number };
+  export default registry;
+}
+
+declare module 'virtual:result-change-quantities' {
+  const quantities: Record<string, string[]>;
+  export default quantities;
+}
+
 declare module 'virtual:result-change-packed' {
   const packed: string;
   export default packed;

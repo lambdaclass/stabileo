@@ -12,7 +12,7 @@
        release.secrets backend.release.build backend.release.run backend.release.migrate \
        services services.stop postgres.start postgres.stop \
        inst inst.check inst.claim inst.release inst.list ports \
-       docker.build docker.up docker.down cloud-init.render \
+       result-changes.order docker.build docker.up docker.down cloud-init.render \
        check-pins check.changelog check.test-targets test.cadence check.cadence check.containment deps.audit test.engine.reproducers test.reproducers.published check.issue-reproducers worktree worktree-prune hooks \
        fmt check clean
 
@@ -361,7 +361,7 @@ test.web.results:
 	$(NIX_RUN) bash -c "cd web && npx vitest run --project results"
 
 ## Regenerate web/results-snapshots/ after a DELIBERATE result change, then register it:
-## an entry in web/src/lib/provenance/result-changes.json and a "BREAKING (results)" fragment.
+## an entry in web/src/lib/provenance/result-changes/ and a "BREAKING (results)" fragment.
 snapshots-update:
 	$(NIX_RUN) bash -c "cd web && RESULTS_SNAPSHOT_UPDATE=1 npx vitest run --project results"
 
@@ -473,6 +473,7 @@ test.nightly-scripts:
 	$(NIX_RUN) node --test scripts/tests/nightly-findings.test.cjs
 	$(NIX_RUN) node --test scripts/tests/verification-alert.test.cjs
 	$(NIX_RUN) node --test scripts/tests/slow-e2e-alert.test.cjs
+	$(NIX_RUN) node --test scripts/tests/timing-budget-alert.test.cjs
 	$(NIX_RUN) node --test scripts/tests/runner-pools.test.cjs
 	$(NIX_RUN) node --test scripts/tests/cadence-reports.test.cjs
 
@@ -485,6 +486,7 @@ test.ci-scripts: test.nightly-scripts check.cadence
 	python3 -B -I scripts/tests/test_build_research_wasm.py
 	python3 -B -I scripts/tests/test_research_host_cache.py
 	python3 -B -I scripts/tests/test_ci_aggregate.py
+	python3 -B -I scripts/tests/test_full_history_checkouts.py
 	python3 -B -I scripts/tests/test_ci_selection.py
 	python3 -B -I scripts/tests/test_check_wall_clock_tests.py
 	python3 -B -I scripts/tests/test_check_fail_closed.py
@@ -506,6 +508,7 @@ test.ci-scripts: test.nightly-scripts check.cadence
 	python3 -B -I scripts/tests/test_benchmark_gate.py
 	python3 -B -I scripts/tests/test_invariance_gate.py
 	python3 -B -I scripts/tests/test_engine_wall_clock_gate.py
+	python3 -B -I scripts/tests/test_timing_budgets_gate.py
 	python3 -B -I scripts/tests/test_verify_changes.py
 	$(NIX_RUN) bash -c 'shellcheck -S warning .github/scripts/*.sh'
 	$(NIX_RUN) actionlint .github/workflows/ci.yml .github/workflows/research.yml .github/workflows/merge-queue-supersede.yml .github/workflows/post-merge.yml .github/workflows/infra-retry.yml .github/workflows/stop-failed-run.yml .github/workflows/nightly.yml .github/workflows/route-size.yml .github/workflows/issue-reproducers.yml .github/workflows/verify.yml
@@ -738,7 +741,11 @@ postgres.stop:
 cloud-init.render:
 	$(NIX_RUN) python3 -I infra/cloud-init/render.py
 
-docker.build:
+# The order results changes reached main, for a build without the git history (Docker).
+result-changes.order:
+	node web/scripts/result-changes/registry.mjs --write-order
+
+docker.build: result-changes.order
 	docker compose build
 
 docker.up:
