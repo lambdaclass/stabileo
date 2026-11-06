@@ -82,6 +82,7 @@
   import BucklingDetails from '../advanced/BucklingDetails.svelte';
   import { pdeltaBasic2D, bucklingBasic2D, withFirstModeB2, rerunSecondOrder } from '../../lib/actions/second-order';
   import { solveModal, solveModal3D as wasmModal3D, solveBuckling3D as wasmBuckling3D, initSolver, isWasmReady } from '../../lib/engine/wasm-solver';
+  import { refusedWithCode } from '../../lib/engine/containment-error';
   import { solvePDelta3D as wasmPDelta3D } from '../../lib/engine/wasm-solver';
   import { amplification } from '../../lib/engine/pdelta-amplification';
   import { getPredefinedTrains, solveMovingLoadsAsync } from '../../lib/engine/moving-loads';
@@ -317,9 +318,8 @@
    * find. The engine says so by throwing; that is an answer, not a failure.
    */
   function bucklingFailure(e: unknown): void {
-    const msg = errText(e, 'toast.bucklingError');
-    if (/no compressed elements/i.test(msg)) uiStore.toast(t('toast.bucklingNoCompression'), 'info');
-    else uiStore.toast(eigenRefusalText(msg, t), 'error');
+    if (refusedWithCode(e, 'no_compressed_elements')) uiStore.toast(t('toast.bucklingNoCompression'), 'info');
+    else uiStore.toast(eigenRefusalText(errText(e, 'toast.bucklingError'), t), 'error');
   }
 
   function errText(e: unknown, fallbackKey: string): string {

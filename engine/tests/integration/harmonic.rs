@@ -520,7 +520,7 @@ fn harmonic_3d_well_behaved_beam_stays_modal() {
         response_node_id: 2, response_dof: "z".to_string(),
     };
     let (r, (a0, a1)) = solve_harmonic_3d_with_damping(&input).unwrap();
-    assert_eq!(r.method, "modal+static");
+    assert_eq!(r.method, dedaliano_engine::solver::harmonic::HarmonicMethod::ModalStatic);
     assert!(r.direct_frequencies.is_empty(), "{:?} {:?}", r.direct_frequencies, r.warnings);
     let worst = r.max_modal_residual.unwrap();
     assert!(worst < MODAL_RESIDUAL_TOL, "{worst}");

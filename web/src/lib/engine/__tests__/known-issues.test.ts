@@ -6,6 +6,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { knownIssueMessage, knownIssueDisposition, knownIssueRefusal, knownIssueResultDisposition } from '../known-issues';
 import { setLocale } from '../../i18n';
 import { dictFor, ensureLocale, isOfferedLocale } from '../../i18n/store.svelte';
+import { errorText } from '../../utils/error-text';
 
 afterEach(() => setLocale('en'));
 
@@ -44,6 +45,21 @@ describe('known-issue warnings in the reader’s language', () => {
       expect(m, loc).toMatch(/100 %/);
     }
     expect(knownIssueMessage({ code: 'cable_self_weight_tension', value: 0.4, message: 'ENGINE' })).toMatch(/40 %/);
+  });
+
+  it('names the member and section of a 3D plastic refusal for missing capacity, in every offered language (#1525)', async () => {
+    await Promise.all(['de', 'fr', 'tr'].map(ensureLocale));
+    const d = { code: 'plastic_capacity_missing', severity: 'error', elementIds: [7], value: 12, message: 'ENGINE' };
+    const error = JSON.stringify({ message: 'ENGINE', structuredDiagnostics: [d] });
+    for (const loc of ['es', 'en', 'pt', 'de', 'fr', 'tr'] as const) {
+      setLocale(loc);
+      const m = knownIssueRefusal(error);
+      expect(m, loc).not.toBe('ENGINE');
+      expect(m, loc).toMatch(/\b7\b[^]*\b12\b/);
+      expect(errorText(error, 'fallback'), loc).toBe(m);
+    }
+    expect(knownIssueRefusal(JSON.stringify({ message: 'ENGINE', structuredDiagnostics: [{ ...d, severity: 'warning' }] }))).toBeNull();
+    expect(knownIssueMessage({ ...d, elementIds: [] })).toBe('ENGINE');
   });
 
   it('has a sentence for every finding the engine contains, in every offered language', async () => {

@@ -491,7 +491,7 @@ fn reported_seeds_advanced_modal_and_time_history_are_contained() {
     let (solver, densities) = crate::fuzz_models::random_3d_model_rich(20788);
     match solve_modal_3d(&solver, &densities, 2) {
         Ok(r) => assert_warning(&r.structured_diagnostics, "NUM-INVARIANCE", 762.0),
-        Err(error) => assert!(error.starts_with("MODAL-MECHANISM:") || error.starts_with("Eigenvalue decomposition failed"), "{error}"),
+        Err(error) => assert!(error.starts_with("MODAL-MECHANISM:") || codes(&error) == ["eigen_decomposition_failed"], "{error}"),
     }
     let th: TimeHistoryInput3D = serde_json::from_value(serde_json::json!({
         "solver": solver, "densities": densities, "timeStep": 0.01, "nSteps": 2
@@ -560,7 +560,7 @@ fn advanced_3d_and_bundles_keep_conditioning() {
         let modal = solve_modal_3d(&solver, &densities, 2).unwrap();
         let harmonic = solve_harmonic_3d(&HarmonicInput3D { solver: solver.clone(), densities: densities.clone(),
             frequencies: vec![0.1, 1.0], damping_ratio: 0.05, response_node_id: 5, response_dof: "x".into() }).unwrap();
-        assert_eq!(ids(&harmonic.structured_diagnostics).contains(&"MD-ORTHOGONALITY".into()), harmonic.method.starts_with("modal"));
+        assert_eq!(ids(&harmonic.structured_diagnostics).contains(&"MD-ORTHOGONALITY".into()), harmonic.method.superposes_modes());
         let guyan = guyan_reduce_3d(&GuyanInput3D { solver: solver.clone(), boundary_nodes: vec![5] }).unwrap();
         let cb = craig_bampton_3d(&CraigBamptonInput3D { solver: solver.clone(), densities: densities.clone(), boundary_nodes: vec![5], n_modes: 2 }).unwrap();
         let th: TimeHistoryInput3D = serde_json::from_value(serde_json::json!({
@@ -696,7 +696,7 @@ fn curved_only_dynamic_solvers_warn() {
     let densities = HashMap::from([("1".into(), 7850.0)]);
     let harmonic_input = HarmonicInput3D { solver: solver.clone(), densities: densities.clone(), frequencies: vec![0.1, 1.0], damping_ratio: 0.05, response_node_id: 5, response_dof: "z".into() };
     let harmonic = solve_harmonic_3d(&harmonic_input).unwrap();
-    assert_eq!(ids(&harmonic.structured_diagnostics).contains(&"MD-ORTHOGONALITY".into()), harmonic.method.starts_with("modal"));
+    assert_eq!(ids(&harmonic.structured_diagnostics).contains(&"MD-ORTHOGONALITY".into()), harmonic.method.superposes_modes());
     let cb = craig_bampton_3d(&CraigBamptonInput3D { solver: solver.clone(), densities: densities.clone(), boundary_nodes: vec![5], n_modes: 2 }).unwrap();
     let time = solve_time_history_3d(&serde_json::from_value(serde_json::json!({ "solver": solver, "densities": densities, "timeStep": 0.01, "nSteps": 2 })).unwrap()).unwrap();
     for ds in [&harmonic.structured_diagnostics, &cb.structured_diagnostics, &time.structured_diagnostics] {
@@ -771,13 +771,38 @@ fn distorted_mesh_guard_indexes_the_mesh_once_per_solve() {
 }
 
 #[test]
+fn md_orthogonality_follows_the_harmonic_method_not_its_label() {
+    use dedaliano_engine::solver::harmonic::*;
+    let labels = [(HarmonicMethod::Direct, "direct", false), (HarmonicMethod::Modal, "modal", true), (HarmonicMethod::ModalStatic, "modal+static", true)];
+    for (method, label, modal) in labels {
+        assert_eq!(serde_json::to_value(method).unwrap(), serde_json::json!(label));
+        assert_eq!(serde_json::from_value::<HarmonicMethod>(serde_json::json!(label)).unwrap(), method);
+        assert_eq!(method.superposes_modes(), modal, "{method:?}");
+    }
+    let solver: SolverInput3D = serde_json::from_str(include_str!("metamorphic_corpus/differential/modal3d-5.json")).unwrap();
+    let densities: HashMap<String, f64> = solver.materials.keys().map(|id| (id.clone(), 7850.0)).collect();
+    let mut seen = Vec::new();
+    for frequencies in [vec![0.1, 1000.0], vec![0.1]] {
+        let input = HarmonicInput3D { solver: solver.clone(), densities: densities.clone(), frequencies, damping_ratio: 0.05, response_node_id: 6, response_dof: "x".into() };
+        let result = solve_harmonic_3d(&input).unwrap();
+        let warned = ids(&result.structured_diagnostics).contains(&"MD-ORTHOGONALITY".into());
+        match result.method {
+            HarmonicMethod::Modal | HarmonicMethod::ModalStatic => assert_warning(&result.structured_diagnostics, "MD-ORTHOGONALITY", 759.0),
+            HarmonicMethod::Direct => assert!(!warned, "{:?}", result.structured_diagnostics),
+        }
+        seen.push(result.method.superposes_modes());
+    }
+    assert_eq!(seen, [true, false]);
+}
+
+#[test]
 fn reported_modal_model_harmonic_and_certificate_warn() {
     use dedaliano_engine::solver::harmonic::*;
     let solver: SolverInput3D = serde_json::from_str(include_str!("metamorphic_corpus/differential/modal3d-5.json")).unwrap();
     let densities = solver.materials.keys().map(|id| (id.clone(), 7850.0)).collect();
     let input = HarmonicInput3D { solver, densities, frequencies: vec![0.1, 1000.0], damping_ratio: 0.05, response_node_id: 6, response_dof: "x".into() };
     let plain = solve_harmonic_3d(&input).unwrap();
-    assert!(plain.method.starts_with("modal"), "{}", plain.method);
+    assert!(plain.method.superposes_modes(), "{:?}", plain.method);
     assert_warning(&plain.structured_diagnostics, "MD-ORTHOGONALITY", 759.0);
     let certified = dedaliano_engine::certify::harmonic::certify_harmonic_3d(&input).unwrap();
     assert_warning(&certified.results.structured_diagnostics, "MD-ORTHOGONALITY", 759.0);
@@ -2077,4 +2102,42 @@ fn a_combination_carries_the_member_chord_warning_of_its_cases_1446() {
     let warning = beyond_small_displacement(&combined.structured_diagnostics).unwrap_or_else(|| panic!("{:?}", ids(&combined.structured_diagnostics)));
     assert_eq!((warning.node_ids.clone(), warning.element_ids.clone()), (vec![], vec![1]));
     assert_eq!(combined.structured_diagnostics.iter().filter(|d| d.phase.as_deref() == Some("LIN-SMALL-DISPLACEMENT")).count(), 1);
+}
+
+#[test]
+fn every_export_the_app_falls_back_on_refuses_no_free_dofs_with_a_code() {
+    use dedaliano_engine::solver::{buckling::*, modal::*, pdelta::*};
+    let fixed_2d = make_beam(1, 4.0, E, 0.045, 3.375e-4, "fixed", Some("fixed"), vec![]);
+    let fixed_3d = make_3d_beam(1, 4.0, E, 0.3, 0.01, 1e-4, 1e-4, 1e-5, vec![true; 6], Some(vec![true; 6]), vec![]);
+    let densities = HashMap::from([("1".to_string(), 7850.0)]);
+    let errors = [
+        ("pdelta 2d", solve_pdelta_2d(&fixed_2d, 20, 1e-6).err()),
+        ("pdelta 3d", solve_pdelta_3d(&fixed_3d, 20, 1e-6).err()),
+        ("buckling 2d", solve_buckling_2d(&fixed_2d, 2).err()),
+        ("buckling 3d", solve_buckling_3d(&fixed_3d, 2).err()),
+        ("modal 2d", solve_modal_2d(&fixed_2d, &densities, 2).err()),
+        ("modal 3d", solve_modal_3d(&fixed_3d, &densities, 2).err()),
+    ];
+    for (name, error) in errors {
+        let error = error.unwrap_or_else(|| panic!("{name}: a fully restrained model solved"));
+        assert_eq!(codes(&error), ["no_free_dofs"], "{name}: {error}");
+    }
+}
+
+fn codes(error: &str) -> Vec<String> {
+    let Ok(v) = serde_json::from_str::<serde_json::Value>(error) else { return vec![] };
+    v["structuredDiagnostics"].as_array().into_iter().flatten()
+        .filter(|d| d["severity"] == "error").map(|d| d["code"].as_str().unwrap_or_else(|| panic!("an error diagnostic without a code: {error}")).to_owned()).collect()
+}
+
+#[test]
+fn buckling_with_nothing_compressed_refuses_with_a_code_in_2d_and_3d() {
+    use dedaliano_engine::solver::buckling::*;
+    let cantilever_2d = make_beam(1, 4.0, E, 0.045, 3.375e-4, "fixed", None, vec![]);
+    let cantilever_3d = make_3d_beam(1, 4.0, E, 0.3, 0.01, 1e-4, 1e-4, 1e-5, vec![true; 6], None, vec![]);
+    for (name, error) in [("2d", solve_buckling_2d(&cantilever_2d, 2).err()), ("3d", solve_buckling_3d(&cantilever_3d, 2).err())] {
+        let error = error.unwrap_or_else(|| panic!("{name}: an unloaded cantilever buckled"));
+        assert_eq!(codes(&error), ["no_compressed_elements"], "{name}: {error}");
+        assert_eq!(serde_json::from_str::<serde_json::Value>(&error).unwrap()["message"], "No compressed elements — buckling not applicable");
+    }
 }

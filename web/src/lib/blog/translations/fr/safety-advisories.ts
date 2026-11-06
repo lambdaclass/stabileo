@@ -139,6 +139,12 @@ const body: PostBody = {
           "Corrigé dans la prochaine version"
         ],
         [
+          "SA-2026-045",
+          "Effondrement plastique 3D : une barre sans moment plastique utilisable était traitée comme si elle ne plastifiait jamais (6 fois trop haut dans un exemple, et certifié)",
+          "Élevée",
+          "Corrigé dans la prochaine version"
+        ],
+        [
           "SA-2026-037",
           "Analyse corotationnelle 3D : les vecteurs de rotation étaient soustraits (le coude de Bathe–Bolourchi à 1,3 %, sans amélioration au raffinement)",
           "Moyenne",

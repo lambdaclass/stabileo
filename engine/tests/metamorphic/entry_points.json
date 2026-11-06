@@ -43,7 +43,7 @@
       "relabel": {"metamorphic": "pr_3d", "analysis": "linear (load session)"},
       "reversal": {"metamorphic": "pr_3d", "analysis": "linear (load session)"},
       "rotation": {"metamorphic": "pr_3d", "analysis": "linear (load session)"},
-      "mirror": {"tracked": 1497},
+      "mirror": {"metamorphic": "pr_3d", "analysis": "linear (load session)"},
       "planes": {"metamorphic": "pr_2d", "analysis": "linear (load session)"},
       "prepared": {"metamorphic": "pr_3d", "analysis": "linear (load session)"}
     }},
@@ -129,7 +129,7 @@
       "relabel": {"metamorphic": "pr_3d", "analysis": "certified linear"},
       "reversal": {"metamorphic": "pr_3d", "analysis": "certified linear"},
       "rotation": {"metamorphic": "pr_3d", "analysis": "certified linear"},
-      "mirror": {"tracked": 1497},
+      "mirror": {"metamorphic": "pr_3d", "analysis": "certified linear"},
       "planes": {"metamorphic": "pr_2d", "analysis": "certified linear"},
       "prepared": {"metamorphic": "pr_3d", "analysis": "certified linear"}
     }},
@@ -428,7 +428,7 @@
       "relabel": {"metamorphic": "pr_3d", "analysis": "linear"},
       "reversal": {"metamorphic": "pr_3d", "analysis": "linear"},
       "rotation": {"metamorphic": "pr_3d", "analysis": "linear"},
-      "mirror": {"tracked": 1497},
+      "mirror": {"metamorphic": "pr_3d", "analysis": "linear"},
       "planes": {"metamorphic": "pr_2d", "analysis": "linear"},
       "prepared": {"exempt": "the regular path itself: prepared and duplicate linear paths are compared against it"}
     }},
@@ -455,7 +455,7 @@
       "relabel": {"metamorphic": "pr_3d", "analysis": "buckling"},
       "reversal": {"metamorphic": "pr_3d", "analysis": "buckling"},
       "rotation": {"metamorphic": "pr_3d", "analysis": "buckling"},
-      "mirror": {"tracked": 1497},
+      "mirror": {"metamorphic": "pr_3d", "analysis": "buckling"},
       "planes": {"metamorphic": "pr_2d", "analysis": "buckling"},
       "prepared": {"exempt": "no prepared or duplicate linear path: it solves its own iterative, eigenvalue or frequency-domain system"}
     }},
@@ -609,7 +609,7 @@
       "relabel": {"metamorphic": "pr_3d", "analysis": "modal"},
       "reversal": {"metamorphic": "pr_3d", "analysis": "modal"},
       "rotation": {"metamorphic": "pr_3d", "analysis": "modal"},
-      "mirror": {"tracked": 1497},
+      "mirror": {"metamorphic": "pr_3d", "analysis": "modal"},
       "planes": {"metamorphic": "pr_2d", "analysis": "modal"},
       "prepared": {"exempt": "no prepared or duplicate linear path: it solves its own iterative, eigenvalue or frequency-domain system"}
     }},
@@ -681,7 +681,7 @@
       "relabel": {"metamorphic": "pr_3d", "analysis": "P-Delta"},
       "reversal": {"metamorphic": "pr_3d", "analysis": "P-Delta"},
       "rotation": {"metamorphic": "pr_3d", "analysis": "P-Delta"},
-      "mirror": {"tracked": 1497},
+      "mirror": {"metamorphic": "pr_3d", "analysis": "P-Delta"},
       "planes": {"metamorphic": "pr_2d", "analysis": "P-Delta"},
       "prepared": {"exempt": "no prepared or duplicate linear path: it solves its own iterative, eigenvalue or frequency-domain system"}
     }},

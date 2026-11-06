@@ -98,9 +98,12 @@ wrong-result bug.
    that fix is not working and is revisited.
 
 **Phase 2 (about one week):**
-6. Typed refusals and diagnostics (G, C; M): solver errors carry a `DiagnosticCode`, not text (388
-   `Result<_, String>` lines on main); the nightly classifier keys on codes; a lint forbids matching
-   on message text.
+6. Typed refusals and diagnostics (G, C; M): solver errors carry a `DiagnosticCode`, not text
+   (baseline on 2026-11-05: 464 function signatures outside tests return `Result<_, String>`, in 533
+   lines of `engine/src`); the nightly classifier keys on codes; a lint forbids matching on message
+   text ([#1527](https://github.com/lambdaclass/stabileo/pull/1527): 150 existing matches listed
+   with a reason each, converted cluster by cluster, starting with the MD-ORTHOGONALITY containment
+   keyed on the harmonic method's label).
 7. A required invariance and parity harness for every WASM solve entry point (C, D, E; M): scale and
    units, renumbering, member reversal, rotation and mirror, a 2D model in each of the three planes and
    embedded in 3D, prepared against regular; a fast tier per PR, the long tier nightly. A

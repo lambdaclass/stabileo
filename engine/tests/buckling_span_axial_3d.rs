@@ -213,7 +213,7 @@ fn a_member_with_zero_mean_force_and_compression_inside() {
 fn a_member_in_tension_all_along_is_refused() {
     for (q, tip) in [(falling_q as Load, P), (|x| -parabolic_q(x), 0.0), (rising_q, 0.0)] {
         let err = solve_buckling_3d(&Column::new(1, q, tip).input(), 1).unwrap_err();
-        assert_eq!(err, "No compressed elements — buckling not applicable", "tip {tip}");
+        assert_eq!(err, dedaliano_engine::refusal::no_compressed_elements(), "tip {tip}");
     }
 }
 
