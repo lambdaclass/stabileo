@@ -158,6 +158,34 @@ describe('sections the assistant may use', () => {
   });
 });
 
+describe('the key in an answer', () => {
+  const answer = (content: Array<Record<string, unknown>>) => stubFetch(() => sseResponse(anthropicStream({ content, stopReason: 'tool_use' })));
+  const current = {
+    analysisMode: '2d',
+    nodes: [[1, { id: 1, x: 0, y: 0 }], [2, { id: 2, x: 6, y: 0 }]],
+    elements: [[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1 }]],
+    materials: [[1, { id: 1, name: 'Steel A36', e: 200000, nu: 0.3 }]],
+    sections: [[1, { id: 1, name: 'IPE 300', a: 53.8e-4, iz: 8356e-8 }]],
+    supports: [[1, { id: 1, nodeId: 1, type: 'pinned' }], [2, { id: 2, nodeId: 2, type: 'rollerX' }]],
+    loads: [],
+  };
+
+  it('NEGATIVE: an error built from an answer that echoes the key never shows it', async () => {
+    answer([{ type: 'tool_use', name: 'change_section', input: { section: KEY, interpretation: 'x' } }]);
+    const err = await buildModel({ provider: 'anthropic', apiKey: KEY }, 'my key is in the chat', 'en', '2d', undefined, current).catch((e) => e);
+    expect(err).toBeInstanceOf(AiActionError);
+    expect(err.message).not.toContain(KEY.slice(0, 12));
+    expect(err.message).toBe("The assistant's answer contained your API key, so it was not used. Nothing was built; ask again.");
+  });
+
+  it('NEGATIVE: a text answer that echoes the key shows it masked', async () => {
+    answer([{ type: 'text', text: `Your key ${KEY} looks fine.` }]);
+    const resp = await buildModel({ provider: 'anthropic', apiKey: KEY }, 'hello', 'en', '2d');
+    expect(JSON.stringify(resp)).not.toContain(KEY.slice(0, 12));
+    expect(resp.message).toBe('Your key [key] looks fine.');
+  });
+});
+
 describe('the dimension of the model on the canvas', () => {
   const planar = {
     analysisMode: '2d',

@@ -422,6 +422,7 @@ describe('change summaries', () => {
       expect(actionSummary(model(['IPE 300']))).toBe('Modelo propio (2 nudos, 1 elementos)');
       expect(actionSummary({ action: 'add_story', params: { height: 3 } })).toBe('Se agregó un piso de 3 m. Los miembros nuevos no tienen cargas');
       expect(actionSummary({ action: 'change_section', params: { section: 'HEB 300', element_filter: 'column' } })).toBe('Las columnas pasaron a HEB 300');
+      expect(actionSummary({ action: 'change_section', params: { section: 'HEB 300' } })).toBe('Todos los elementos de pórtico pasaron a HEB 300; las barras de reticulado conservan su sección');
     } finally {
       setLocale('en');
     }

@@ -273,6 +273,22 @@ export async function buildModel(
     tools: toolDefinitions(mode, current !== undefined),
     signal,
   });
+  let built: BuildModelResponse;
+  try {
+    built = buildFromResponse(resp, mode, current);
+  } catch (err) {
+    if (err instanceof AiActionError && mentionsKey(err.message, creds.apiKey)) throw new AiActionError(t('ai.err.keyInAnswer'));
+    throw err;
+  }
+  const clean = (v: string | undefined): string | undefined => (v === undefined ? v : scrubKey(v, creds.apiKey));
+  return { ...built, message: scrubKey(built.message, creds.apiKey), changeSummary: clean(built.changeSummary), rawAiResponse: clean(built.rawAiResponse) };
+}
+
+const keyParts = (apiKey: string): string[] => (apiKey ? [apiKey, apiKey.slice(0, 12)] : []);
+const mentionsKey = (text: string, apiKey: string): boolean => keyParts(apiKey).some((part) => text.includes(part));
+const scrubKey = (text: string, apiKey: string): string => keyParts(apiKey).reduce((out, part) => out.split(part).join('[key]'), text);
+
+function buildFromResponse(resp: LlmResponse, mode: AnalysisMode, current?: Record<string, unknown>): BuildModelResponse {
   const meta = metaOf(resp);
   if (resp.toolCalls.length > 1) throw new AiActionError(t('ai.err.oneChange'));
   const checked = (outcome: ToolOutcome): ToolOutcome => inMode(outcome, mode);

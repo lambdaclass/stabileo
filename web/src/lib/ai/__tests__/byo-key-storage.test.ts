@@ -121,6 +121,7 @@ describe('client routing', () => {
     }));
     const err = await buildModel('a 6 m beam', 'en', '2d').catch((e) => e);
     expect(err.kind).toBe('invalidKey');
+    expect(urls.length).toBeGreaterThan(0);
     expect(urls.every((u) => u.startsWith('https://api.openai.com/'))).toBe(true);
     aiKeys.setProvider('anthropic');
   });
