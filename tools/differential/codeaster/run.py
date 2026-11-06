@@ -292,10 +292,10 @@ def finish(r, tol, dump_dir, model, binary=None):
         if bad and near_mechanism:
             if warned and held_mechanism(model, sres, bad, binary, tol):
                 st = "warned_singular"
-            elif held_forces_identical(model, sres, bad, binary):
+            elif held_forces_identical(model, sres, bad, binary) and held_mechanism(model, sres, [b for b in bad if b[0] == "disp"], binary, tol):
                 st = "warned_singular"
-                held = ["stabileo warned: NUM-INVARIANCE", "stabileo forces bit-identical with the disagreeing DOFs held: "
-                        + ", ".join(f"{b[1]} {b[2]}" for b in bad if b[0] == "disp")]
+                held = ["stabileo warned: NUM-INVARIANCE", "stabileo forces bit-identical with the disagreeing DOFs held, "
+                        "and moving them needs no force: " + ", ".join(f"{b[1]} {b[2]}" for b in bad if b[0] == "disp")]
         if bad:
             why = ["code_aster: singular at NPREC=10, and with the check off its solution disagrees"] + [
                 f"stabileo warned: {w}" for w in warned] + held
@@ -370,9 +370,9 @@ def held_mechanism(model, sres, bad, binary, tol):
 
 def held_forces_identical(model, sres, bad, binary):
     """Whether stabileo's answer is that of its model with every disagreeing displacement held at
-    stabileo's own value, every reaction and member force bit-identical, and no force at any held DOF:
-    holding a DOF at its solved value changes nothing even under load, so the zero reaction is what
-    shows the mechanism carries none. Code_Aster's forces may disagree; its solve was singular."""
+    stabileo's own value: every member force and reaction bit-identical, and no force at any support
+    the holding added. This alone is self-consistency (a stiff DOF passes too); held_mechanism is
+    what shows the DOFs are a mechanism."""
     names = ["ux", "uy", "uz", "rx", "ry", "rz"]
     dofs = sorted({(str(b[1]), names.index(b[2])) for b in bad if b[0] == "disp" and b[2] in names})
     nodes = {str(n.get("id")) for n in (model.get("nodes") or {}).values()}
@@ -405,8 +405,10 @@ def held_forces_identical(model, sres, bad, binary):
         if hres["reac"].get(nid) != r or not all(math.isfinite(v) for v in r):
             return False
     for nid, k in dofs:
-        r = hres["reac"].get(int(nid)) or hres["reac"].get(nid)
-        if r is None or r[k] != 0.0:
+        if (hres["reac"].get(int(nid)) or hres["reac"].get(nid)) is None:
+            return False
+    for nid, r in hres["reac"].items():
+        if nid not in sres["reac"] and any(v != 0.0 for v in r):
             return False
     return True
 

@@ -390,7 +390,17 @@ class SingularVerdict(unittest.TestCase):
         r = self.finish(["known_issue"], ["NUM-INVARIANCE"], bad, held_forces=lambda bad: True)
         self.assertEqual(r["status"], "warned_singular")
         self.assertIn("stabileo warned: NUM-INVARIANCE", r["why"])
-        self.assertIn("stabileo forces bit-identical with the disagreeing DOFs held: 5 rz", r["why"])
+        self.assertIn("stabileo forces bit-identical with the disagreeing DOFs held, and moving them needs no force: 5 rz", r["why"])
+
+    def test_held_forces_without_a_proven_mechanism_are_silent(self):
+        bad = [("disp", 5, "rz", 0.0, 1.04e13, 1.0), ("force", 1, "mz", 1.0, 2.0, 1.0)]
+        seen = []
+        def held(b):
+            seen.append(b)
+            return False
+        r = self.finish(["high_diagonal_ratio", "known_issue"], ["NUM-INVARIANCE"], bad, held=held, held_forces=lambda bad: True)
+        self.assertEqual(r["status"], "silent_singular", "a loaded stiff DOF holds its forces too")
+        self.assertIn([("disp", 5, "rz", 0.0, 1.04e13, 1.0)], seen, "the mechanism proof runs on the displacements alone")
 
     def test_held_forces_without_the_near_mechanism_warning_are_silent(self):
         bad = [("disp", 5, "rz", 0.0, 1.04e13, 1.0), ("force", 1, "mz", 1.0, 2.0, 1.0)]
@@ -402,6 +412,19 @@ class SingularVerdict(unittest.TestCase):
         bad = [("disp", 5, "rz", 0.0, 1.04e13, 1.0), ("force", 1, "mz", 1.0, 2.0, 1.0)]
         r = self.finish(["known_issue"], ["NUM-INVARIANCE"], bad, held_forces=lambda bad: False)
         self.assertEqual(r["status"], "silent_singular")
+
+
+    def test_summary_survives_a_result_without_why(self):
+        import contextlib
+        import io
+        import sys as S
+        from unittest import mock
+        import run as R
+        argv = ["run.py", "--bin", os.path.abspath(__file__)]
+        with mock.patch.object(S, "argv", argv), mock.patch.object(R, "collect", lambda a: [("m", {})]), \
+                mock.patch.object(R, "prepare", lambda *a: {"name": "m", "status": "silent_singular", "max_err": {"disp_r": 1.0}}), \
+                contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(R.main(), 1)
 
 
 class HeldForces(unittest.TestCase):
@@ -438,6 +461,11 @@ class HeldForces(unittest.TestCase):
         self.assertFalse(self.held(_raw(rz5=0.0, reac5=1e-300))[0], "the held DOF carries load")
         self.assertFalse(self.held(_raw(rz5=0.0))[0], "no reaction reported at the held DOF")
 
+    def test_a_new_support_with_any_force_is_not(self):
+        rerun = _raw(rz5=0.0, reac5=0.0)
+        next(r for r in rerun["reactions"] if r["nodeId"] == 5)["fx"] = 1e-300
+        self.assertFalse(self.held(rerun)[0])
+
     def test_a_reaction_that_moves_is_not(self):
         moved = _raw(rz5=0.0, reac5=0.0)
         moved["reactions"][0]["fz"] = math_next(1.0)
@@ -455,18 +483,6 @@ class HeldForces(unittest.TestCase):
 def math_next(x):
     import math
     return math.nextafter(x, math.inf)
-
-    def test_summary_survives_a_result_without_why(self):
-        import contextlib
-        import io
-        import sys as S
-        from unittest import mock
-        import run as R
-        argv = ["run.py", "--bin", os.path.abspath(__file__)]
-        with mock.patch.object(S, "argv", argv), mock.patch.object(R, "collect", lambda a: [("m", {})]), \
-                mock.patch.object(R, "prepare", lambda *a: {"name": "m", "status": "silent_singular", "max_err": {"disp_r": 1.0}}), \
-                contextlib.redirect_stdout(io.StringIO()):
-            self.assertEqual(R.main(), 1)
 
 
 if __name__ == "__main__":
