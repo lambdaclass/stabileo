@@ -1970,14 +1970,17 @@ def _outside_span(a, others, art, nt):
     return max(0.0, 1.0 - sum(sum(x * y for x, y in zip(va, q)) ** 2 for q in basis) / aa)
 
 
-def _resolved_difference(bad, groups, sres, ores):
-    """The largest load-factor or 1-MAC difference, where a mode whose gap to
-    a neighbour is within ten times its own load-factor difference (the
-    solvers may order such modes either way) is measured against the span of
-    the OpenSees modes of that connected cluster instead of the single mode."""
+def _resolved_differences(bad, sres, ores):
+    """Each load-factor and 1-MAC difference above tolerance, by (kind, mode).
+    A mode whose gap to a neighbour is within ten times its own load-factor
+    difference (the solvers may order such modes either way) is measured
+    between the spans of the two solvers' modes of that connected cluster,
+    both ways, instead of mode against mode."""
     values, nt, art = ores["values"], 2 if ores["dim"] == 2 else 3, set(ores.get("art_rot", []))
-    worst = groups["eig"]
-    for q, i, _, _, _, e in bad:
+    out = {}
+    for q, i, c, _, _, e in bad:
+        if q == "eig" and c == "value":
+            out["eig", i] = e
         if q != "mode":
             continue
         k = i - 1
@@ -1988,21 +1991,22 @@ def _resolved_difference(bad, groups, sres, ores):
         while hi + 1 < min(len(values), len(ores["modes"])) and abs(values[hi + 1] - values[hi]) <= reach * abs(values[k]):
             hi += 1
         if hi > lo:
-            e = _outside_span(sres["modes"][k], ores["modes"][lo:hi + 1], art, nt)
-        worst = max(worst, e)
-    return worst
+            ours, theirs = sres["modes"][lo:hi + 1], ores["modes"][lo:hi + 1]
+            e = max([_outside_span(sres["modes"][k], theirs, art, nt)] +
+                    [_outside_span(t, ours, art, nt) if len(ours) == len(theirs) else 1.0 for t in theirs])
+        out["mode", i] = e
+    return out
 
 
 def refine_buckling(job, binary, tol, dim):
     """None when no meshed comparison ran, else (bad, groups, n, converging):
     bad is empty when both solvers agree within tol on n elements per frame;
     converging is set when they never agree but each doubling of n at least
-    halves their difference. Refinement stops once the difference stops
-    halving, its current rate cannot bring it within tol on the next mesh, or
-    OpenSees cannot take the next mesh (too large, or conditioned so that
-    tol is within its round-off). The
-    engine failing on a mesh is a mismatch; OpenSees failing raises
-    RuntimeError."""
+    halves every difference still above tol. Refinement stops once one does
+    not, the current rate cannot bring the largest within tol on the next
+    mesh, or OpenSees cannot take the next mesh (too large, or conditioned so
+    that tol is within its round-off). The engine failing on a mesh is a
+    mismatch; OpenSees failing raises RuntimeError."""
     levels = []
     for n in MESH_LEVELS:
         j = dict(job, model=mesh(job["model"], n))
@@ -2020,21 +2024,27 @@ def refine_buckling(job, binary, tol, dim):
         bad, groups = compare_eigen(sres, ores, tol, job["numModes"], 1)
         if not bad:
             return [], groups, n, None
-        levels.append((n, bad, groups, _resolved_difference(bad, groups, sres, ores)))
+        levels.append((n, bad, groups, _resolved_differences(bad, sres, ores)))
+        if len(levels) >= 2 and not _halved(levels[-2][3], levels[-1][3], tol):
+            break
         if len(levels) >= 2:
-            a, b = (e for *_, e in levels[-2:])
-            if b > a / MESH_RATE or b * b > tol * a:
+            a, b = (max(d.values(), default=0.0) for *_, d in levels[-2:])
+            if b * b > tol * a:
                 break
     if not levels:
         return None
     n, bad, groups, _ = levels[-1]
-    errs = [e for *_, e in levels]
+    errs = [max(d.values(), default=0.0) for *_, d in levels]
     trail = ", ".join(f"n={m}: {e:.2e}" for m, e in zip((m for m, *_ in levels), errs))
-    if len(levels) >= 2 and all(b <= a / MESH_RATE for a, b in zip(errs, errs[1:])) and \
-            not any(q == "eig" and c == "missing" for q, _, c, *_ in bad):
+    if len(levels) >= 2 and all(_halved(a, b, tol) for a, b in zip((d for *_, d in levels), (d for *_, d in levels[1:]))) \
+            and not any(q == "eig" and c == "missing" for q, _, c, *_ in bad):
         return bad, groups, n, f"meshed buckling factors approach each other ({trail})"
     return bad + [("eig", 0, f"meshed difference not converging ({trail})", errs[-2] if len(errs) > 1 else 0.0,
                    errs[-1], errs[-1])], groups, n, None
+
+
+def _halved(before, after, tol):
+    return all(e <= tol or before.get(k, 0.0) >= MESH_RATE * e for k, e in after.items())
 
 
 def _probe_loads(d):

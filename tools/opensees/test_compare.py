@@ -1,3 +1,4 @@
+import math
 import os
 import sys
 import unittest
@@ -172,20 +173,35 @@ class RefinedBucklingTest(unittest.TestCase):
         groups = {"eig": 1e-4, "mac": 0.01}
         ores = {"values": [10.0], "dim": 3, "modes": MODES[:1]}
         sres = {"values": [10.001], "modes": MODES[:1]}
-        self.assertEqual(C._resolved_difference([("mode", 1, "1-MAC", 0.01, 0.0, 0.01)], groups, sres, ores), 0.01)
+        self.assertEqual(C._resolved_differences([("mode", 1, "1-MAC", 0.01, 0.0, 0.01)], sres, ores), {("mode", 1): 0.01})
 
     def test_a_rotated_basis_of_a_triple_mode_is_the_same_eigenspace(self):
         x, y, z = ({1: [1.0 * (k == m) for k in range(6)]} for m in (0, 1, 2))
         ores = {"values": [10.0, 10.0, 10.0], "dim": 3, "modes": [x, y, z]}
         sres = {"values": [10.01, 10.01, 10.01], "modes": [z, x, y]}
         bad = [("mode", i, "1-MAC", 1.0, 0.0, 1.0) for i in (1, 2, 3)]
-        self.assertEqual(C._resolved_difference(bad, {"eig": 1e-3, "mac": 1.0}, sres, ores), 1e-3)
+        self.assertLess(max(C._resolved_differences(bad, sres, ores).values()), 1e-12)
+
+    def test_a_duplicated_mode_does_not_span_a_pair(self):
+        x, y = MODES
+        ores = {"values": [10.0, 10.0], "dim": 3, "modes": [x, y]}
+        sres = {"values": [10.01, 10.01], "modes": [x, x]}
+        bad = [("mode", 2, "1-MAC", 1.0, 0.0, 1.0)]
+        self.assertEqual(C._resolved_differences(bad, sres, ores), {("mode", 2): 1.0})
+
+    def test_a_shape_difference_that_stays_while_factors_converge_is_a_mismatch(self):
+        stab = {n: [10.0, 30.0] for n in (1, 2, 4, 8, 16)}
+        ops = {n: [10.0 * (1 - 1e-3 / n ** 2), 30.0, 50.0] for n in (1, 2, 4, 8, 16)}
+        c, s_ = math.sqrt(1 - 4e-6), math.sqrt(4e-6)
+        tilted = {n: [{1: [c, s_, 0.0, 0.0, 0.0, 0.0]}, MODES[1]] for n in (1, 2, 4, 8, 16)}
+        r, _ = self.run_with(stab, ops, omodes=tilted)
+        self.assertEqual(r["status"], "mismatch")
 
     def test_a_separated_mode_is_not_excused_by_another_modes_error(self):
         ores = {"values": [10.0, 10.5, 30.0], "dim": 3, "modes": [MODES[0], MODES[1], {1: [0.0, 0.0, 1.0, 0.0, 0.0, 0.0]}]}
         sres = {"values": [10.0, 10.5, 33.0], "modes": [MODES[1], MODES[1], ores["modes"][2]]}
         bad = [("mode", 1, "1-MAC", 1.0, 0.0, 1.0)]
-        self.assertEqual(C._resolved_difference(bad, {"eig": 0.1, "mac": 1.0}, sres, ores), 1.0)
+        self.assertEqual(C._resolved_differences(bad, sres, ores), {("mode", 1): 1.0})
 
     def test_meshes_compare_at_the_tolerance_of_the_unmeshed_model(self):
         stab = {n: [10.0, 30.0] for n in (1, 2, 4, 8, 16)}
