@@ -208,7 +208,7 @@ pub fn compute_diagram_value_at_sorted(
     // of references on *every* station evaluation, which in the envelope path is
     // elements x 21 stations x load cases x diagram kinds allocations.
     let d_loads = &ef.distributed_loads;
-    let use_legacy_q = ef.distributed_loads.is_empty() && (ef.q_i.abs() > 1e-10 || ef.q_j.abs() > 1e-10);
+    let use_legacy_q = ef.distributed_loads.is_empty() && (ef.q_i != 0.0 || ef.q_j != 0.0);
 
     match kind {
         "moment" => {
@@ -710,5 +710,66 @@ mod tests {
         let pinned = shape([0.0, 7.0, 0.0, -7.0], (true, true), ei, Some(gas), &[], &dist, l);
         let want = 5.0 * q * l.powi(4) / (384.0 * ei) + q * l * l / (8.0 * gas);
         assert!((pinned[10] - want).abs() < 1e-12 * want.abs().max(1.0), "{} vs {want}", pinned[10]);
+    }
+
+    fn scaled_beam_2d(s: f64) -> ElementForces {
+        let input: crate::types::SolverInput = serde_json::from_value(serde_json::json!({
+            "nodes": {"1": {"id":1,"x":0,"z":0}, "2": {"id":2,"x":4,"z":0}},
+            "materials": {"1": {"id":1,"e":200000.0 * s,"nu":0.3}},
+            "sections": {"1": {"id":1,"a":0.01,"iz":0.0001}},
+            "elements": {"1": {"id":1,"type":"frame","nodeI":1,"nodeJ":2,"materialId":1,"sectionId":1}},
+            "supports": {"1": {"id":1,"nodeId":1,"type":"fixed"}, "2": {"id":2,"nodeId":2,"type":"pinned"}},
+            "loads": [{"type":"distributed","data":{"elementId":1,"qI":-10.0 * s,"qJ":-4.0 * s}}]
+        })).unwrap();
+        let mut ef = crate::solver::linear::solve_2d(&input).unwrap().element_forces.remove(0);
+        ef.distributed_loads.clear();
+        (ef.q_i, ef.q_j) = (-10.0 * s, -4.0 * s);
+        ef
+    }
+
+    #[test]
+    fn a_member_without_a_load_list_keeps_its_load_at_any_scale_1614() {
+        let reference = scaled_beam_2d(1.0);
+        let r_gaps = crate::certify::stations::diagram_gaps_2d(&reference);
+        for s in [1e-6, 1e-12] {
+            let scaled = scaled_beam_2d(s);
+            for k in 0..=20 {
+                let t = k as f64 / 20.0;
+                for kind in ["moment", "shear"] {
+                    let (want, got) = (compute_diagram_value_at(kind, t, &reference), compute_diagram_value_at(kind, t, &scaled) / s);
+                    assert!((got - want).abs() < 1e-9 * (1.0 + want.abs()), "{s:e} {kind} t {t}: {got} vs {want}");
+                }
+            }
+            let gaps = crate::certify::stations::diagram_gaps_2d(&scaled);
+            assert!((gaps.moment / s - r_gaps.moment).abs() <= 1e-9 * (1.0 + r_gaps.moment.abs()), "{s:e}: {gaps:?} vs {r_gaps:?}");
+        }
+    }
+
+    fn scaled_beam_3d(s: f64) -> crate::types::ElementForces3D {
+        let input: crate::types::SolverInput3D = serde_json::from_value(serde_json::json!({
+            "nodes": {"1": {"id":1,"x":0,"y":0,"z":0}, "2": {"id":2,"x":4,"y":0,"z":0}},
+            "materials": {"1": {"id":1,"e":200000.0 * s,"nu":0.3}},
+            "sections": {"1": {"id":1,"a":0.01,"iy":0.0001,"iz":0.0002,"j":0.0001}},
+            "elements": {"1": {"id":1,"type":"frame","nodeI":1,"nodeJ":2,"materialId":1,"sectionId":1}},
+            "supports": {"1": {"nodeId":1,"rx":true,"ry":true,"rz":true,"rrx":true,"rry":true,"rrz":true}, "2": {"nodeId":2,"rx":true,"ry":true,"rz":true,"rrx":true,"rry":true,"rrz":true}},
+            "loads": [{"type":"distributed","data":{"elementId":1,"qYI":-10.0 * s,"qYJ":-4.0 * s,"qZI":3.0 * s,"qZJ":7.0 * s}}]
+        })).unwrap();
+        crate::solver::linear::solve_3d(&input).unwrap().element_forces.remove(0)
+    }
+
+    #[test]
+    fn a_3d_member_diagram_keeps_its_load_at_any_scale_1614() {
+        let reference = scaled_beam_3d(1.0);
+        for s in [1e-12, 1e-200] {
+            let scaled = scaled_beam_3d(s);
+            for k in 0..=20 {
+                let t = k as f64 / 20.0;
+                for kind in ["momentZ", "momentY", "shearY", "shearZ"] {
+                    let want = crate::postprocess::diagrams_3d::evaluate_diagram_3d_at(&reference, kind, t);
+                    let got = crate::postprocess::diagrams_3d::evaluate_diagram_3d_at(&scaled, kind, t) / s;
+                    assert!((got - want).abs() < 1e-9 * (1.0 + want.abs()), "{s:e} {kind} t {t}: {got} vs {want}");
+                }
+            }
+        }
     }
 }
