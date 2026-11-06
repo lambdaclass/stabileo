@@ -784,6 +784,24 @@ jobs:
       - name: Check for modified migration files
         run: ./.github/scripts/check-migrations-immutable.sh "origin/${{ github.base_ref }}"
 
+  revert-check:
+    name: Revert Check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    needs: [changes]
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: The merge deletes no recent lines the branch never had
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          LABELS: ${{ needs.changes.outputs.labels }}
+        run: .github/scripts/retry-infra.sh make check.reverts BASE="origin/$BASE_REF" HEAD=HEAD
+
   check-migrations:
     name: Check Migration Safety
     runs-on: ubuntu-24.04
@@ -2054,6 +2072,7 @@ jobs:
       - test-backend
       - check-migrations-immutable
       - check-migrations
+      - revert-check
       - wasm
       - research-wasm
       - research

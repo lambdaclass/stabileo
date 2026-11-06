@@ -13,7 +13,7 @@
        services services.stop postgres.start postgres.stop \
        inst inst.check inst.claim inst.release inst.list ports \
        result-changes.order docker.build docker.up docker.down cloud-init.render \
-       check-pins check.changelog check.test-targets test.cadence check.cadence check.containment deps.audit test.engine.reproducers test.reproducers.published check.issue-reproducers worktree worktree-prune hooks \
+       check-pins check.changelog check.reverts check.test-targets test.cadence check.cadence check.containment deps.audit test.engine.reproducers test.reproducers.published check.issue-reproducers worktree worktree-prune hooks \
        fmt check clean
 
 NIX_RUN = nix develop --command
@@ -78,6 +78,7 @@ help:
 	@echo "CI-shaped targets (what each CI job runs):"
 	@echo "  make check-pins           - One version of each tool in rust-toolchain.toml, .nvmrc, flake.nix and CI"
 	@echo "  make check.changelog      - changelog.d/ fragments are well formed"
+	@echo "  make check.reverts [BASE=origin/main] [HEAD=HEAD] - Merging HEAD into BASE deletes no recent lines HEAD's branch never had"
 	@echo "  make lint.engine          - Clippy over the engine"
 	@echo "  make test.engine.gates    - The named engine correctness gates"
 	@echo "  make test.engine.metamorphic - Metamorphic tests, in release"
@@ -451,6 +452,11 @@ check-pins:
 check.changelog:
 	$(NIX_RUN) python3 -I scripts/changelog.py --check
 
+## Merging HEAD into BASE deletes no lines written in the last 21 days that reached the branch only by merging BASE
+## (the `reverts-ok` label, in $$GITHUB_EVENT_PATH or LABELS=a,b, acknowledges them)
+check.reverts:
+	python3 -B -I .github/scripts/revert-check.py $(or $(BASE),origin/main) $(or $(HEAD),HEAD)
+
 # The engine's test files are modules of a few listed binaries (autotests = false): a file
 # in no binary would never run, one in two would run twice.
 check.test-targets:
@@ -498,6 +504,7 @@ test.ci-scripts: test.nightly-scripts check.cadence
 	python3 -B -I scripts/tests/test_ci_runners.py
 	python3 -B -I scripts/tests/test_ci_events.py
 	python3 -B -I scripts/tests/test_post_merge_revert.py
+	python3 -B -I scripts/tests/test_revert_check.py
 	python3 -B -I scripts/tests/test_required_checks.py
 	python3 -B -I scripts/tests/test_wall_clock.py
 	python3 -B -I scripts/tests/test_check_quick.py
