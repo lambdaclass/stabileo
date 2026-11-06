@@ -1095,7 +1095,7 @@ mod tests {
         let t_k = t0.elapsed();
         std::hint::black_box(acc);
         eprintln!("centroid stress {t_stress:?}, stiffness {t_k:?}");
-        assert!(t_stress * 4 < t_k, "centroid stress {t_stress:?} vs stiffness {t_k:?} for {n} calls");
+        crate::wall_clock::budget(t_stress * 4 < t_k, || format!("centroid stress {t_stress:?} vs stiffness {t_k:?} for {n} calls"));
     }
 
     #[test]

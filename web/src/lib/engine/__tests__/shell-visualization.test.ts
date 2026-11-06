@@ -108,4 +108,18 @@ describe('the directions and values written over the shells', () => {
     expect(Math.abs(p[4]! - p[1]!)).toBeLessThan(1e-9);
     expect(g.children.filter((c) => c.userData.shellValue !== undefined)).toHaveLength(1);
   });
+
+  it('marks nothing on a hidden shell, and its values govern no extreme', () => {
+    const sq = (x: number) => [{ x, y: 0, z: 0 }, { x: x + 1, y: 0, z: 0 }, { x: x + 1, y: 1, z: 0 }, { x, y: 1, z: 0 }];
+    const pts = { q1: sq(0), q2: sq(5) } as Record<string, Array<{ x: number; y: number; z: number }>>;
+    const a = { elementId: 1, sigmaXx: 0, sigmaYy: 0, tauXy: 0, mx: 10, my: 0, mxy: 0, vonMises: 0 };
+    const b = { ...a, elementId: 2, mx: 80 };
+    const stresses = { plates: [], quads: [a, b] };
+    const field = shellContourField(stresses, (k) => (k === 'q1' ? [1, 2, 3, 4] : [5, 6, 7, 8]), 'mmax', { at: 'nodes', auto: true, min: 0, max: 0 });
+    const g = buildShellOverlay({ field, stresses, component: 'mmax', face: 'mid', directions: true, values: true, corners: (k) => pts[k] ?? null, format: (v) => String(v), shown: (k) => k !== 'q2' })!;
+    const lines = g.children.find((c) => c.userData.shellDirections) as unknown as { geometry: { getAttribute: (n: string) => { array: Float32Array } } };
+    expect(lines.geometry.getAttribute('position').array.length).toBe(6);
+    expect(g.children.filter((c) => c.userData.shellValue !== undefined).map((c) => c.userData.shellValue)).toEqual([10]);
+    expect(buildShellOverlay({ field, stresses, component: 'mmax', face: 'mid', directions: true, values: true, corners: (k) => pts[k] ?? null, format: String, shown: () => false })).toBeNull();
+  });
 });

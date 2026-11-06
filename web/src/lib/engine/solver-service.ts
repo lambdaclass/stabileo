@@ -1,3 +1,5 @@
+import { knownIssueRefusal } from './known-issues';
+import { isContainmentRefusal } from './containment-error';
 // Solver service — pure functions extracted from model.svelte.ts
 // Each function takes a ModelData parameter instead of accessing reactive store state.
 
@@ -178,6 +180,17 @@ export function effectiveBendingInertia(
   const alpha = (sec.rotation ?? 0) * Math.PI / 180;
   if (Math.abs(alpha) < 1e-10) return Iy;  // fast path: no rotation
   return Iy * Math.cos(alpha) ** 2 + Iz * Math.sin(alpha) ** 2;
+}
+
+/** The inertias a space solve bends a member with: `iy` about local y, `iz` about local z. */
+export function spaceBendingInertias(
+  s: Section,
+  props: ReturnType<typeof solverProperties> = solverProperties(s),
+): { iy: number; iz: number } {
+  return {
+    iy: props.source === 'canonical' ? props.iy : (s.iy ?? (s.b && s.h ? (s.b * s.h ** 3) / 12 : s.iz)),
+    iz: props.source === 'canonical' ? props.iz : s.iz,
+  };
 }
 
 /** Build solver supports map (2D), handling roller angle/inclined roller and spring rotation. */
@@ -1061,7 +1074,7 @@ export function validateAndSolve2D(
     return certifiable(finalizeSolve2DResults(results, prep), '2d', () => input2DToWireObject(prep.input));
   } catch (err: any) {
     console.error('Solver error:', err);
-    return t('svc.solverError').replace('{n}', localizeEngineText(errorText(err, String(err))));
+    return knownIssueRefusal(err) ?? t('svc.solverError').replace('{n}', localizeEngineText(errorText(err, String(err))));
   }
 }
 
@@ -1163,7 +1176,7 @@ export async function validateAndSolve2DAsync(
     return finalResults;
   } catch (err: any) {
     console.error('Solver error:', err);
-    return t('svc.solverError').replace('{n}', localizeEngineText(errorText(err, String(err))));
+    return knownIssueRefusal(err) ?? t('svc.solverError').replace('{n}', localizeEngineText(errorText(err, String(err))));
   }
 }
 
@@ -1310,6 +1323,7 @@ function solveCombinations2DCore(
 
     return { perCase, perCombo, envelope: mcResult.envelope };
   } catch (err: any) {
+    if (isContainmentRefusal(err)) return err instanceof Error ? err.message : String(err);
     // Fallback: if multi-case fails (e.g. an unsolvable case), the per-case
     // path reproduces the precise validation/kinematics error message.
     // (The engine throws plain strings, so don't rely on err.message.)
@@ -1745,14 +1759,7 @@ export function buildSolverInput3D(
           ...(model.analysis?.shearDeformation === 'none' ? {} : shearOf(s)),
         }];
       }
-      // s.iy = about Y-axis (horizontal), s.iz = about Z-axis (vertical)
-      // Solver convention: iy controls bending about Y (w, θy DOFs), iz controls bending about Z (v, θz DOFs)
-      // A geometry-backed section reports the inertia its canonical polygons
-      // actually have; a properties-only section keeps what it declared.
-      const aboutY = props.source === 'canonical'
-        ? props.iy
-        : (s.iy ?? (s.b && s.h ? (s.b * s.h ** 3) / 12 : s.iz));  // Iy: about Y horizontal
-      const aboutZ = props.source === 'canonical' ? props.iz : s.iz;  // Iz: about Z vertical
+      const { iy: aboutY, iz: aboutZ } = spaceBendingInertias(s, props);
       return [id, {
         id: s.id, name: s.name, a: props.a,
         iy: aboutY,   // solver iy = Iy (about Y horizontal) → controls Z-displacement bending (w, θy)
@@ -2285,7 +2292,7 @@ export function validateAndSolve3D(model: ModelData, includeSelfWeight = false, 
     return nonlinear ? finalResults : certifiable(finalResults, '3d', () => input3DToWireObject(input));
   } catch (err: any) {
     console.error('Solver 3D error:', err);
-    return t('svc.solver3dError').replace('{n}', err.message);
+    return knownIssueRefusal(err) ?? t('svc.solver3dError').replace('{n}', err.message);
   }
 }
 
@@ -2327,7 +2334,7 @@ export async function validateAndSolve3DAsync(model: ModelData, includeSelfWeigh
     return finalResults;
   } catch (err: any) {
     console.error('Solver 3D error:', err);
-    return t('svc.solver3dError').replace('{n}', err.message);
+    return knownIssueRefusal(err) ?? t('svc.solver3dError').replace('{n}', err.message);
   }
 }
 
@@ -2441,6 +2448,7 @@ export function solveCombinations3D(
   } catch (err) {
     const said = loadRefusal(err);
     if (said) return said;
+    if (isContainmentRefusal(err)) return err instanceof Error ? err.message : String(err);
     throw err;
   }
 }
@@ -2634,6 +2642,7 @@ function solveCombinations3DCore(
 
     return pruneComboBundle3D({ perCase, perCombo, envelope: mcResult.envelope }, model);
   } catch (err: any) {
+    if (isContainmentRefusal(err)) return err instanceof Error ? err.message : String(err);
     // Fallback: if multi-case fails, try the old per-case approach
     console.warn('Multi-case 3D failed, falling back to per-case solve:', err.message);
     return solveCombinations3DFallback(model, loadCases, combinations, includeSelfWeight, leftHand);
@@ -2767,7 +2776,7 @@ function solveCombinations3DNonlinear(
     if (hasShells && method === 'superpose') enrichComboShellStresses(perCase, perCombo, envelope.maxAbsResults3D, combinations as never, model.plates ?? new Map());
     return pruneComboBundle3D({ perCase, perCombo, envelope }, model);
   } catch (err: any) {
-    return t('svc.solver3dError').replace('{n}', err.message);
+    return knownIssueRefusal(err) ?? t('svc.solver3dError').replace('{n}', err.message);
   }
 }
 
@@ -2834,7 +2843,7 @@ function solveCombinations3DPDelta(
       perCombo.set(combo.id, results);
     }
   } catch (err: any) {
-    return t('svc.solver3dError').replace('{n}', err.message);
+    return knownIssueRefusal(err) ?? t('svc.solver3dError').replace('{n}', err.message);
   }
   if (perCombo.size === 0) return unstable.length > 0 ? t('svc.pdeltaNoneStable') : t('svc.noLoadsApplied');
   const envelope = computeEnvelope3D([...perCombo.values()]);
@@ -2945,6 +2954,7 @@ export async function solveCombinations3DParallel(
   } catch (err) {
     const said = loadRefusal(err);
     if (said) return said;
+    if (isContainmentRefusal(err)) return err instanceof Error ? err.message : String(err);
     throw err;
   }
 }

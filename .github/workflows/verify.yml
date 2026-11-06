@@ -25,13 +25,13 @@ on:
     - cron: "0 5 * * *"
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'push' && 'push-main' || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'push' }}
+
 # Least privilege: jobs only read the repository.
 permissions:
   contents: read
-
-env:
-  # The proofs run when a pull request touches one of these paths.
-  VERIFY_PATHS: '^(verify/|engine/src/|engine/Cargo\.toml$|Cargo\.lock$|docs/verification/|tools/symbolic/|engine/tests/symbolic_elements\.rs$|flake\.(nix|lock)$|scripts/kani|\.github/workflows/verify\.yml$)'
 
 jobs:
   # Pull requests and merge-queue entries only. If this job fails, the proofs run anyway (fail safe).
@@ -44,11 +44,11 @@ jobs:
       pull-requests: read
     outputs:
       verify: ${{ steps.filter.outputs.verify }}
+      kani: ${{ steps.filter.outputs.kani }}
     steps:
-      - if: github.event_name == 'merge_group'
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.event.merge_group.head_sha }}
+          ref: ${{ github.event.merge_group.head_sha || github.event.pull_request.head.sha }}
           fetch-depth: 1
       - id: filter
         env:
@@ -65,8 +65,7 @@ jobs:
             files=$(git diff --name-only "$BASE" "$HEAD")
           fi
           echo "$files"
-          if grep -qE "$VERIFY_PATHS" <<<"$files"; then verify=true; else verify=false; fi
-          echo "verify=$verify" | tee -a "$GITHUB_OUTPUT"
+          python3 -I .github/scripts/verify-changes.py <<<"$files" | tee -a "$GITHUB_OUTPUT"
 
   lean:
     needs: changes
@@ -127,7 +126,7 @@ jobs:
 
   kani:
     needs: changes
-    if: ${{ !cancelled() && ((github.event_name != 'pull_request' && github.event_name != 'merge_group') || needs.changes.result != 'success' || needs.changes.outputs.verify == 'true') }}
+    if: ${{ !cancelled() && ((github.event_name != 'pull_request' && github.event_name != 'merge_group') || needs.changes.result != 'success' || needs.changes.outputs.kani != 'false') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 180
     steps:

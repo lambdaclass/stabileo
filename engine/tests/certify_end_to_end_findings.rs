@@ -94,31 +94,196 @@ fn moment_on_fully_hinged_node_2d() {
     }
 }
 
-/// A rigid link from a node where its only member is hinged: the linked pair
-/// can rotate about the hinge freely (the truss between them does not
-/// resist a rigid rotation), so the model is a mechanism. The 2D engine's
-/// all-hinged artificial spring holds the rotation, and a load on the slave
-/// drives it to a large, meaningless value that the assembled-level
-/// certificate certifies. The end-to-end check cannot bound the model.
+fn linked_to_a_hinged_column(constraint: &str, member: &str, slave_support: &str) -> SolverInput {
+    input_2d(&format!(
+        r#"{{
+      "nodes": {{"1": {{"id":1,"x":0,"z":0}}, "2": {{"id":2,"x":0,"z":3}}, "3": {{"id":3,"x":2,"z":3}}}},
+      "materials": {{"1": {{"id":1,"e":200000,"nu":0.3}}}},
+      "sections": {{"1": {{"id":1,"a":0.01,"iz":0.0001}}}},
+      "elements": {{
+        "1": {{"id":1,"type":"frame","nodeI":1,"nodeJ":2,"materialId":1,"sectionId":1,"hingeEnd":true}},
+        "2": {{"id":2,"type":"{member}","nodeI":2,"nodeJ":3,"materialId":1,"sectionId":1}}
+      }},
+      "supports": {{"1": {{"id":1,"nodeId":1,"type":"fixed"}}{slave_support}}},
+      "loads": [{{"type":"nodal","data":{{"nodeId":3,"fx":0,"fz":-10,"my":0}}}}],
+      "constraints": [{constraint}]
+    }}"#
+    ))
+}
+
+const TIES_ROTATION: [&str; 3] = [
+    r#"{"type":"rigidLink","masterNode":2,"slaveNode":3,"dofs":[]}"#,
+    r#"{"type":"rigidLink","masterNode":2,"slaveNode":3,"dofs":[0,1,2]}"#,
+    r#"{"type":"diaphragm","masterNode":2,"slaveNodes":[3]}"#,
+];
+
+fn every_2d_path(input: &SolverInput) -> Vec<(&'static str, Result<AnalysisResults, String>)> {
+    use dedaliano_engine::solver::constraints::{solve_constrained_2d, solve_constrained_2d_dense, ConstrainedInput};
+    use dedaliano_engine::solver::dof::DofNumbering;
+    use dedaliano_engine::solver::linear::solve_2d;
+    let ci = ConstrainedInput { solver: input.clone(), constraints: input.constraints.clone() };
+    vec![
+        ("solve_2d", solve_2d(input)),
+        ("constrained", solve_constrained_2d(&ci)),
+        ("constrained dense", solve_constrained_2d_dense(&ci, &DofNumbering::build_2d(input))),
+        ("certify", certify_linear_2d_full(input).map(|o| o.results)),
+    ]
+}
+
+/// A rigid link or diaphragm from a node where its only member is hinged, to a truss end: the
+/// linked pair rotates about the hinge freely, so the model is a mechanism (#458) and every 2D
+/// path must refuse it.
 #[test]
 fn rigid_link_hides_a_mechanism_2d() {
-    let input = input_2d(
-        r#"{
-      "nodes": {"1": {"id":1,"x":0,"z":0}, "2": {"id":2,"x":0,"z":3}, "3": {"id":3,"x":2,"z":3}},
-      "materials": {"1": {"id":1,"e":200000,"nu":0.3}},
-      "sections": {"1": {"id":1,"a":0.01,"iz":0.0001}},
-      "elements": {
-        "1": {"id":1,"type":"frame","nodeI":1,"nodeJ":2,"materialId":1,"sectionId":1,"hingeEnd":true},
-        "2": {"id":2,"type":"truss","nodeI":2,"nodeJ":3,"materialId":1,"sectionId":1}
-      },
-      "supports": {"1": {"id":1,"nodeId":1,"type":"fixed"}},
-      "loads": [{"type":"nodal","data":{"nodeId":3,"fx":0,"fz":-10,"my":0}}],
-      "constraints": [{"type":"rigidLink","masterNode":2,"slaveNode":3,"dofs":[]}]
-    }"#,
-    );
-    let out = certify_linear_2d_full(&input).unwrap();
-    eprintln!("{:?}\n{:?}", out.certificate, out.end_to_end);
-    assert!(!out.end_to_end.is_certified(), "{:?}", out.end_to_end);
+    for c in TIES_ROTATION {
+        let input = linked_to_a_hinged_column(c, "truss", "");
+        for (path, r) in every_2d_path(&input) {
+            assert!(r.is_err(), "{c} {path}: solved a mechanism: {:?}", r.map(|r| r.displacements));
+        }
+    }
+}
+
+/// The same links with a roller under the slave, which holds the pair's rotation about the hinge,
+/// and a horizontal load on the slave: the pair moves as the column's tip, P·L³/(3EI) =
+/// 10·3³/(3·2e8·1e-4) = 4.5 mm, on every path.
+#[test]
+fn a_held_linked_pair_still_solves_2d() {
+    for c in TIES_ROTATION {
+        for member in ["truss", "frame"] {
+            let support = r#","2": {"id":2,"nodeId":3,"type":"rollerX"}"#;
+            let mut input = linked_to_a_hinged_column(c, member, support);
+            input.loads = vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 10.0, fz: 0.0, my: 0.0 })];
+            for (path, r) in every_2d_path(&input) {
+                let r = r.unwrap_or_else(|e| panic!("{c} {member} {path}: {e}"));
+                let ux = r.displacements.iter().find(|d| d.node_id == 3).unwrap().ux;
+                assert!((ux - 4.5e-3).abs() < 1e-9, "{c} {member} {path}: {ux}");
+            }
+        }
+    }
+}
+
+/// A cantilever of `segments` frame elements from node 1 (fixed) to node 2 at x = 4, its last end
+/// hinged when `hinged`; nodes 3, 4, … at node 2's position, chained to it by zero-length
+/// connectors `chain` (kMoment of each, kAxial = kShear = 1e9); a nodal moment of 1 at `loaded`.
+fn connector_chain(segments: usize, hinged: bool, chain: &[f64], loaded: usize, extra_supports: &str) -> SolverInput {
+    let tip = 2;
+    let mut nodes = vec![r#""1": {"id":1,"x":0,"z":0}"#.to_string(), r#""2": {"id":2,"x":4,"z":0}"#.to_string()];
+    for k in 0..chain.len() {
+        let id = 3 + k;
+        nodes.push(format!(r#""{id}": {{"id":{id},"x":4,"z":0}}"#));
+    }
+    let first_inner = 3 + chain.len();
+    for s in 1..segments {
+        let id = first_inner + s - 1;
+        nodes.push(format!(r#""{id}": {{"id":{id},"x":{},"z":0}}"#, 4.0 * s as f64 / segments as f64));
+    }
+    let node_at = |s: usize| if s == 0 { 1 } else if s == segments { tip } else { first_inner + s - 1 };
+    let elements: Vec<String> = (0..segments)
+        .map(|s| {
+            let hinge = if hinged && s + 1 == segments { r#","hingeEnd":true"# } else { "" };
+            format!(
+                r#""{id}": {{"id":{id},"type":"frame","nodeI":{},"nodeJ":{},"materialId":1,"sectionId":1{hinge}}}"#,
+                node_at(s),
+                node_at(s + 1),
+                id = s + 1
+            )
+        })
+        .collect();
+    let connectors: Vec<String> = chain
+        .iter()
+        .enumerate()
+        .map(|(k, km)| {
+            let id = k + 1;
+            format!(
+                r#""{id}": {{"id":{id},"nodeI":{},"nodeJ":{},"kAxial":1e9,"kShear":1e9,"kMoment":{km}}}"#,
+                2 + k,
+                3 + k
+            )
+        })
+        .collect();
+    input_2d(&format!(
+        r#"{{
+      "nodes": {{{}}},
+      "materials": {{"1": {{"id":1,"e":200000,"nu":0.3}}}},
+      "sections": {{"1": {{"id":1,"a":0.045,"iz":3.375e-4}}}},
+      "elements": {{{}}},
+      "supports": {{"1": {{"id":1,"nodeId":1,"type":"fixed"}}{extra_supports}}},
+      "loads": [{{"type":"nodal","data":{{"nodeId":{loaded},"fx":0,"fz":0,"my":1.0}}}}],
+      "connectors": {{{}}}
+    }}"#,
+        nodes.join(","),
+        elements.join(","),
+        connectors.join(",")
+    ))
+}
+
+fn every_2d_path_with_prepared(input: &SolverInput) -> Vec<(&'static str, Result<AnalysisResults, String>)> {
+    use dedaliano_engine::solver::linear::{prepare_static_2d, prepare_static_2d_dense_reference};
+    let mut paths = every_2d_path(input);
+    paths.push(("prepared", prepare_static_2d(input).and_then(|p| p.solve_loads(&input.loads))));
+    paths.push(("prepared dense", prepare_static_2d_dense_reference(input).and_then(|p| p.solve_loads(&input.loads))));
+    paths
+}
+
+/// A hinged cantilever tip tied by zero-length connectors to coincident nodes, a moment on the
+/// chain and nothing restraining its rotation against ground: the chain spins about the hinge, a
+/// mechanism (#1414). The 2D assembler held the hinged tip's rotation with its artificial spring,
+/// which the connector's moment spring turned into a real spring on the chain, and every path
+/// returned a rotation of about 10 rad. With 25 segments the free DOFs pass 64 and the sparse
+/// assembly is used.
+#[test]
+fn connector_hides_a_mechanism_2d() {
+    let cases: [(&[f64], usize); 6] = [
+        (&[1e9], 3),
+        (&[0.0], 3),
+        (&[1e9, 1e9], 4),
+        (&[1e9, 1e9], 3),
+        (&[1e9, 0.0], 3),
+        (&[0.0, 1e9], 4),
+    ];
+    for segments in [1, 25] {
+        for (chain, loaded) in cases {
+            let input = connector_chain(segments, true, chain, loaded, "");
+            for (path, r) in every_2d_path_with_prepared(&input) {
+                assert!(
+                    r.is_err(),
+                    "{segments} segments, chain {chain:?}, moment at {loaded}, {path}: solved a mechanism: {:?}",
+                    r.map(|r| r.displacements.iter().map(|d| (d.node_id, d.ry)).collect::<Vec<_>>())
+                );
+            }
+        }
+    }
+}
+
+fn assert_rotations(input: &SolverInput, what: &str, expected: &[(usize, f64)]) {
+    for (path, r) in every_2d_path_with_prepared(input) {
+        let r = r.unwrap_or_else(|e| panic!("{what} {path}: {e}"));
+        for &(node, ry) in expected {
+            let got = r.displacements.iter().find(|d| d.node_id == node).unwrap().ry;
+            assert!((got - ry).abs() <= 1e-9 * ry.abs(), "{what} {path}: node {node} ry {got}, expected {ry}");
+        }
+    }
+}
+
+/// The same chains with the rotation held: by a rotational spring support under node 3
+/// (θ = M/k = 1/1000), by an unhinged cantilever (θ₂ = ML/EI = 4/(2e8·3.375e-4), θ₃ = θ₂ + M/kMoment),
+/// or by a fixed support at the end of a two-connector chain (θ₃ = M/kMoment, the hinged tip
+/// turning with it). Every path solves and agrees with the hand values.
+#[test]
+fn a_held_connector_chain_still_solves_2d() {
+    let theta_tip = 4.0 / (2e8 * 3.375e-4);
+    for segments in [1, 25] {
+        let spring = r#","2": {"id":2,"nodeId":3,"type":"spring","kz":1000}"#;
+        let input = connector_chain(segments, true, &[1e9], 3, spring);
+        assert_rotations(&input, "spring under node 3", &[(2, 1e-3), (3, 1e-3)]);
+
+        let input = connector_chain(segments, false, &[1e9], 3, "");
+        assert_rotations(&input, "unhinged tip", &[(2, theta_tip), (3, theta_tip + 1e-9)]);
+
+        let fixed = r#","2": {"id":2,"nodeId":4,"type":"fixed"}"#;
+        let input = connector_chain(segments, true, &[1e9, 1e9], 3, fixed);
+        assert_rotations(&input, "chain to a fixed node", &[(2, 1e-9), (3, 1e-9)]);
+    }
 }
 
 /// Two spans hinged at their common node 2 (its rotation held by nothing),

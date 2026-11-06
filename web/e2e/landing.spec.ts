@@ -84,6 +84,37 @@ async function bootLanding(page: Page, opts: { locale?: string; manual?: boolean
   await expect(page.locator('.landing')).toBeVisible();
 }
 
+test.describe('the landing below the hero', () => {
+  const below = SECTIONS.filter((s) => s !== 'hero');
+  const shown = (page: Page) =>
+    page.evaluate((names) => names.map((name) => {
+      const el = document.querySelector<HTMLElement>(`.landing [data-section="${name}"]`);
+      if (!el) return { name, opacity: 'missing', text: 0 };
+      let opacity = 1;
+      for (let n: HTMLElement | null = el; n; n = n.parentElement) opacity *= Number(getComputedStyle(n).opacity);
+      return { name, opacity: String(opacity), text: el.innerText.trim().length };
+    }), [...below]);
+
+  test('@smoke is painted before any scroll, in the browser and in the prerendered page without JavaScript', async ({ page, browser }) => {
+    await bootLanding(page);
+    await page.waitForTimeout(800);
+    for (const s of await shown(page)) {
+      expect(s.opacity, `${s.name} is painted without scrolling`).toBe('1');
+      expect(s.text, `${s.name} has its copy`).toBeGreaterThan(20);
+    }
+    expect(await page.locator('.landing').evaluate((el) => el.scrollTop)).toBe(0);
+
+    const context = await browser.newContext({ javaScriptEnabled: false });
+    const noJs = await context.newPage();
+    await noJs.goto('/en/');
+    for (const s of await shown(noJs)) {
+      expect(s.opacity, `${s.name} is painted without JavaScript`).toBe('1');
+      expect(s.text, `${s.name} is in the prerendered HTML`).toBeGreaterThan(20);
+    }
+    await context.close();
+  });
+});
+
 test.describe('@landing landing page', () => {
   test('a long German compound in the hero does not widen the page on a phone', async ({ page }) => {
     // "Tragwerksberechnung" once set the hero grid's minimum width: 424 px of page at 390 px.
@@ -103,10 +134,9 @@ test.describe('@landing landing page', () => {
     await expect(page.locator('#changelog')).toHaveCount(0);
     await expect(page.locator('.landing [data-section]').last()).toHaveAttribute('data-section', 'blog');
 
-    const links = page.locator('.landing nav.nav .nav-links a.nav-link');
-    await expect(links.nth(0)).toHaveAttribute('data-nav', 'tools');
-    await expect(links.nth(1)).toHaveAttribute('data-nav', 'blog');
-    const changelog = links.nth(2);
+    const blog = page.locator('nav.site-header .nav-links a[data-nav="blog"]');
+    await expect(blog).toHaveCount(1);
+    const changelog = page.locator('nav.site-header .nav-links a[data-nav="blog"] + a');
     await expect(changelog).toHaveAttribute('data-nav', 'changelog');
     await expect(changelog).toHaveText('Changelog');
     await expect(changelog).toHaveAttribute('href', '/es/changelog/');
@@ -120,12 +150,12 @@ test.describe('@landing landing page', () => {
     // It used to be a button scrolling to the #blog section. Now a real link:
     // crawlable, middle-clickable, in the reader's language.
     await bootLanding(page, { locale: 'es' });
-    const blog = page.locator('.landing nav.nav .nav-links a.nav-link[data-nav="blog"]');
+    const blog = page.locator('nav.site-header .nav-links a.nav-link[data-nav="blog"]');
     await expect(blog).toHaveText('Blog');
     await expect(blog).toHaveAttribute('href', '/es/blog/');
     // Nav items are written as words, not as the uppercase section eyebrows
     // ("PRECIOS" used to sit between "Educativo" and "Blog").
-    await expect(page.locator('.landing nav.nav .nav-links button', { hasText: 'Precios' })).toHaveText('Precios');
+    await expect(page.locator('nav.site-header .nav-links a[data-nav="pricing"]')).toHaveText('Precios');
     await blog.click();
     await expect(page).toHaveURL(/\/es\/blog\/$/);
     await expect(page.locator('.post-card')).not.toHaveCount(0);
@@ -158,7 +188,9 @@ test.describe('@landing landing page', () => {
       .evaluateAll((els) => els.map((el) => el.getAttribute('data-section')));
     expect(order).toEqual([...SECTIONS]);
 
-    await expect(page.locator('.landing nav.nav')).toHaveCount(1);
+    // The single public header persists outside the lazy page's scroll container.
+    await expect(page.locator('nav.nav')).toHaveCount(1);
+    await expect(page.locator('nav.site-header')).toBeVisible();
     await expect(page.locator('.landing footer.lp-footer')).toHaveCount(1);
   });
 
@@ -192,15 +224,6 @@ test.describe('@landing landing page', () => {
       expect(s.id, `${s.cls} has aria-labelledby`).toBeTruthy();
       expect(s.text, `${s.cls} label resolves to a heading with text`).toBeTruthy();
     }
-  });
-
-  test('reveal animation does not leave content permanently hidden', async ({ page }) => {
-    await bootLanding(page);
-
-    const cta = page.locator('.landing [data-section="education"]');
-    await cta.scrollIntoViewIfNeeded();
-    await expect(cta).toHaveClass(/visible/);
-    await expect(cta).toBeVisible();
   });
 
   test('the primary CTA enters Basic mode', async ({ page }) => {
@@ -244,7 +267,7 @@ test.describe('@landing landing page', () => {
      */
     const titleTop = () => page.locator('.landing .hero h1').evaluate((el) => el.getBoundingClientRect().top);
     const onOpen = await titleTop();
-    await page.locator('.landing .nav-brand').click();
+    await page.locator('nav.site-header .nav-brand').click();
     await page.waitForTimeout(700); // smooth scroll, if any happens
     expect(Math.abs((await titleTop()) - onOpen)).toBeLessThan(2);
 
@@ -674,11 +697,15 @@ test.describe('@landing landing page', () => {
       await page.waitForTimeout(300);
       await page.locator('.landing .hero-ctas .btn-primary').click();
       await expect(page.locator('.landing')).toHaveCount(0);
+      await expect(page.locator('nav.site-header')).toHaveCount(0);
+      await expect(page.locator('.app-container')).toBeVisible();
+      // The persisted choice still labels the editor's own translated content.
+      await expect(page.locator('.app-language')).toHaveAttribute('lang', 'es');
+      await expect(page.locator('html'), 'the document is in the editor language').toHaveAttribute('lang', 'es');
 
       const h = await readHead(page);
       expect(h.headTitles).toBe(1);
       expect(h.title, 'restored to the static English title').toBe(EN_TITLE);
-      expect(h.lang).toBe('en');
       expect(one(h, 'og:locale')).toBe('en_US');
       /*
        * The description is the hero's own lead, not the fallback string

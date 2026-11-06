@@ -745,6 +745,13 @@ fn check_3d(input: &SolverInput3D, densities: &HashMap<String, f64>, seed: u64) 
             let uu = u_of_3d(&sys.dof_num, &sys.linear);
             let mut kgl = vec![0.0; n * n];
             add_geometric_stiffness_3d(input, &sys.dof_num, &uu, &mut kgl);
+            for (_, dofs, g) in &sys.span_axial {
+                for (a, &i) in dofs.iter().enumerate() {
+                    for (b, &j) in dofs.iter().enumerate() {
+                        kgl[i * n + j] += g[a * dofs.len() + b];
+                    }
+                }
+            }
             rotate_all_3d(&mut kgl, n, &st.inclined_transforms);
             let neg: Vec<f64> = block(&kgl, n, &free).iter().map(|v| -v).collect();
             c.mat("3d.buckling.kg", &dense(&sys.neg_kg_csc), &neg, nf);

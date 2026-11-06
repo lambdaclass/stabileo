@@ -60,6 +60,15 @@ export function resultSet(key: ResultSetKey): { results: AnalysisResults3D | nul
   return { results: resultsStore.results3D, name: resultSetName() };
 }
 
+export function hasResultSet(key: ResultSetKey): boolean {
+  const [kind, id] = key.split(':');
+  const n = Number(id);
+  if (kind === 'case') return resultsStore.perCase3D.has(n);
+  if (kind === 'combo') return resultsStore.perCombo3D.has(n);
+  if (kind === 'envelope') return !!resultsStore.envelope3D && id === undefined;
+  return false;
+}
+
 /** The set on screen as a key a re-run can select again: the screen itself only for the factor-1 sum. */
 export function screenSetKey(): ResultSetKey {
   const v = resultsStore.activeView;

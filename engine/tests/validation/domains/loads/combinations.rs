@@ -227,7 +227,7 @@ fn validation_comb_3d_biaxial() {
             CaseEntry3D { case_id: 2, results: res_fz },
         ],
     };
-    let combined = combine_results_3d(&combo).unwrap();
+    let combined = combine_results_3d(&combo).unwrap().unwrap();
 
     // Direct solve: 2×Fy + Fz
     let direct_loads = vec![SolverLoad3D::Nodal(SolverNodalLoad3D {

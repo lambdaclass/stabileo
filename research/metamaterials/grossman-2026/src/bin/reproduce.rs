@@ -42,7 +42,7 @@ fn main() {
             s.eta = eta;
             s.seed = seed;
             let r = run_periodic(&PeriodicSpec { network: s.clone(), n1: FOAM_CELLS, n2: FOAM_CELLS, strain: [0.0; 3] }).unwrap();
-            nu.push(r.isotropic.poisson);
+            nu.push(r.uniaxial_y.unwrap().1);
             b.push(r.isotropic.bulk);
             g.push(r.isotropic.shear);
             y.push(r.isotropic.young);

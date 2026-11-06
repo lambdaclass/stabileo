@@ -22,7 +22,7 @@
   const body = $derived(blog && latest ? blog.inLocale(latest.i18n, publicI18n.locale) : undefined);
 </script>
 
-<section class="sec sec--ink blog-cta reveal" data-section="blog" id="blog" aria-labelledby="blog-cta-title">
+<section class="sec sec--ink blog-cta" data-section="blog" id="blog" aria-labelledby="blog-cta-title">
   <div class="wrap">
     <div class="blog-cta-inner">
       <p class="eyebrow">

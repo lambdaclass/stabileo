@@ -25,7 +25,7 @@
 
 use super::exact::*;
 use super::plastic_bundle::{sparse_rows, CubicF, LimitProblem, LinF, YieldComp, YieldMember, YieldPiece};
-use crate::solver::plastic::{solve_plastic_2d, PlasticResult};
+use crate::solver::plastic::{solve_plastic_2d_body, PlasticResult};
 use crate::types::*;
 use num_traits::{One, Signed, Zero};
 use serde::{Deserialize, Serialize};
@@ -276,7 +276,7 @@ pub fn build_model(input: &PlasticInput) -> Result<PlasticModel, String> {
     let mut nodal = vec![[Q::zero(), Q::zero(), Q::zero()]; nn];
     let mut mp_by_sec: HashMap<usize, Option<(Q, Q)>> = HashMap::new();
     for (sid, sec) in &input.sections {
-        let sec_id: usize = sid.parse().unwrap_or(0);
+        let sec_id: usize = sid.parse().map_err(|_| format!("section id {sid:?} is not a number"))?;
         let over = input.mp_overrides.as_ref().and_then(|m| m.get(sid)).copied();
         let fy = input.materials.get(&sec.material_id.to_string()).and_then(|m| m.fy).unwrap_or(250.0);
         mp_by_sec.insert(sec_id, mp_interval(sec, fy, over)?);
@@ -961,7 +961,7 @@ fn dense_solve(mut bm: Vec<Vec<f64>>, mut r: Vec<Vec<f64>>) -> Option<Vec<Vec<f6
 /// (f64): the tableau is rebuilt from the original data every few pivots and
 /// the ratio test is Harris's two-pass test, which keeps it well-behaved on the
 /// highly degenerate limit-analysis LPs.
-pub(super) fn simplex_min_sum(a: &[Vec<f64>], b: &[f64]) -> Option<(Vec<f64>, Vec<f64>)> {
+pub(crate) fn simplex_min_sum(a: &[Vec<f64>], b: &[f64]) -> Option<(Vec<f64>, Vec<f64>)> {
     let p = a.len();
     let n = a[0].len();
     let w = n + p + 1;
@@ -1720,7 +1720,19 @@ fn collapse_2d(input: &PlasticInput, solver: Option<&PlasticResult>) -> PlasticC
 /// Run the incremental plastic solver and certify its collapse load factor.
 pub fn certify_plastic_2d(input: &PlasticInput) -> Result<CertifiedPlastic2D, String> {
     super::finite::check_input(input)?;
-    let results = solve_plastic_2d(input)?;
+    crate::known_issues::refuse(&crate::known_issues::for_2d(&input.solver, crate::known_issues::Analysis::Plastic))?;
+    certify_plastic_2d_body(input)
+}
+
+/// `certify_plastic_2d` without the #758 refusal; it exists only in the engine's unit-test build.
+#[cfg(test)]
+pub(crate) fn certify_plastic_2d_unrefused(input: &PlasticInput) -> Result<CertifiedPlastic2D, String> {
+    certify_plastic_2d_body(input)
+}
+
+fn certify_plastic_2d_body(input: &PlasticInput) -> Result<CertifiedPlastic2D, String> {
+    super::finite::check_input(input)?;
+    let results = solve_plastic_2d_body(input)?;
     super::finite::check_results(&results)?;
     let certificate = certify_collapse_2d(input, Some(&results));
     Ok(CertifiedPlastic2D { results, certificate })

@@ -15,6 +15,8 @@
  *   XLSX    a status line on the summary and a Provenance sheet (`export/excel.ts`)
  *   reports (DOCX, XLSX, CSV of a report) as `report-formats.ts` carries `reportProvenanceLines`
  */
+import { exportMessages, requiredExportMessages, warningHtml } from './containment';
+import { knownIssueResultDisposition } from '../engine/known-issues';
 import { uiStore } from '../store/ui.svelte';
 import { downloadText } from '../store/file';
 import {
@@ -28,6 +30,7 @@ import { provenanceBlockHtml, provenanceTextLines, type ResultProvenance } from 
  * reader, when the project moved while the engine hashes were awaited.
  */
 export async function prepareExportProvenance(): Promise<ResultProvenance | null> {
+  if (exportMessages() === null) return null;
   const token = captureProvenanceToken();
   try {
     return await provenanceForExport(token);
@@ -42,23 +45,41 @@ export function provenanceLines(p: ResultProvenance): Array<[string, string]> {
   return provenanceTextLines(p, provenanceLabels());
 }
 
-export function csvWithProvenance(csv: string, p: ResultProvenance): string {
+export function csvWithProvenance(csv: string, p: ResultProvenance, warnings = requiredExportMessages()): string {
+  csv = warnings.map(w => `# ${w.replace(/[\r\n]+/g, ' ')}`).join('\n') + (warnings.length ? '\n' : '') + csv;
   const head = provenanceLines(p).map(([k, v]) => `# ${k}: ${v.replace(/[\r\n]+/g, ' ')}`).join('\n');
   return `${head}\n${csv}`;
 }
 
 /** The record's title and its `key: value` lines, the status line first, for a format that prints them. */
 export function reportProvenanceLines(p: ResultProvenance): { title: string; lines: Array<[string, string]> } {
-  return { title: provenanceLabels().title, lines: provenanceLines(p) };
+  return { title: provenanceLabels().title, lines: [...requiredExportMessages().map(w => ['⚠', w] as [string, string]), ...provenanceLines(p)] };
 }
 
-export function htmlWithProvenance(html: string, p: ResultProvenance): string {
+export function htmlWithProvenance(html: string, p: ResultProvenance, warnings = requiredExportMessages()): string {
+  html = warningHtml(html, warnings);
   const block = provenanceBlockHtml(p, provenanceLabels());
   const i = html.lastIndexOf('</body>');
   return i >= 0 ? html.slice(0, i) + block + html.slice(i) : html + block;
 }
 
-export function dxfWithProvenance(dxf: string, p: ResultProvenance): string {
+export function dxfWithProvenance(dxf: string, p: ResultProvenance, warnings = requiredExportMessages()): string {
+  // TEXT entities are visible in CAD; comments alone are not a warning.
+  const entitiesAt = /(?:^|\n) *0\r?\n *SECTION\r?\n *2\r?\n *ENTITIES\r?\n/.exec(dxf);
+  const entities = entitiesAt ? dxf.slice(entitiesAt.index, dxf.indexOf('ENDSEC', entitiesAt.index) >>> 0) : '';
+  const coordinates = (code: string) => [...entities.matchAll(new RegExp(`(?:^|\\n) *${code}\\r?\\n([^\\r\\n]+)`, 'g'))].map(m => Number(m[1])).filter(Number.isFinite);
+  const xs = coordinates('1[01]'), ys = coordinates('2[01]');
+  const bounds = (v: number[]) => v.length ? v.reduce(([lo, hi], x) => [Math.min(lo, x), Math.max(hi, x)], [Infinity, -Infinity]) : [0, 0];
+  const [minX, maxX] = bounds(xs), [minY, maxY] = bounds(ys);
+  const span = Math.max(maxX - minX, maxY - minY);
+  const textHeight = span > 0 ? span / 80 : 3;
+  const lines = warnings.flatMap(w => w.split(/[\r\n]+/).flatMap(line => line.match(/.{1,90}/gu) ?? []));
+  const dxfText = (line: string) => [...line].map(ch => ch.codePointAt(0)! < 128 ? ch : `\\U+${ch.codePointAt(0)!.toString(16).toUpperCase().padStart(4, '0')}`).join('');
+  const warningEntities = lines.map((line, i) => `0\nTEXT\n8\nSTABILEO_WARNINGS\n10\n${minX}\n20\n${minY - (i + 2) * textHeight * 1.5}\n30\n0\n40\n${textHeight}\n1\n${dxfText(line)}\n`).join('');
+  if (warningEntities) {
+    if (entitiesAt) { const at = entitiesAt.index + entitiesAt[0].length; dxf = dxf.slice(0, at) + warningEntities + dxf.slice(at); }
+    else dxf = dxf.replace(/ *0\r?\n *EOF/, `0\nSECTION\n2\nENTITIES\n${warningEntities}0\nENDSEC\n0\nEOF`);
+  }
   // Group code 999 is a comment: every reader skips it, and it survives a text round trip.
   const comments = provenanceLines(p).map(([k, v]) => `999\n${`stabileo provenance ${k}: ${v}`.replace(/[\r\n]+/g, ' ')}`).join('\n');
   return `${comments}\n${dxf}`;
@@ -67,13 +88,28 @@ export function dxfWithProvenance(dxf: string, p: ResultProvenance): string {
 const xmlComment = (s: string) => s.replace(/--/g, '- -');
 const xmlText = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-export function svgWithProvenance(svg: string, p: ResultProvenance): string {
+const MIN_WARNED_SVG_WIDTH = 640;
+
+export function svgWithProvenance(svg: string, p: ResultProvenance, warnings = requiredExportMessages()): string {
   const m = /<svg\b[^>]*>/.exec(svg);
   if (!m) return svg;
   const comment = `<!--\n${xmlComment(provenanceLines(p).map(([k, v]) => `${k}: ${v}`).join('\n'))}\n-->`;
   const meta = `<metadata id="stabileo-provenance">${xmlText(JSON.stringify(p))}</metadata>`;
   const at = m.index + m[0].length;
-  return svg.slice(0, at) + comment + meta + svg.slice(at);
+  const annotated = svg.slice(0, at) + comment + meta + svg.slice(at);
+  if (!warnings.length) return annotated;
+  const vb = /viewBox=["']([^"']+)["']/.exec(m[0])?.[1]?.split(/[ ,]+/).map(Number);
+  const width = vb?.[2] || parseFloat(/width=["']([\d.]+)/.exec(m[0])?.[1] ?? '800');
+  const height = vb?.[3] || parseFloat(/height=["']([\d.]+)/.exec(m[0])?.[1] ?? '600');
+  const outer = Math.max(width, MIN_WARNED_SVG_WIDTH), shown = height * outer / width;
+  const font = Math.max(12, outer / 80), chars = Math.max(1, Math.floor(outer / (font * 0.65)) - 4);
+  const lines = warnings.flatMap(w => w.match(new RegExp(`.{1,${chars}}`, 'gu')) ?? [w]);
+  const band = (lines.length + 2) * font * 1.5;
+  // Keep the original styling, namespaces and viewBox while moving the whole drawing.
+  const originalTag = m[0].replace(/\s(?:x|y|width|height)=["'][^"']*["']/g, '');
+  const viewBox = vb ? '' : ` viewBox="0 0 ${width} ${height}"`;
+  const nested = annotated.replace(m[0], originalTag.slice(0, -1) + `${viewBox} x="0" y="${band}" width="${outer}" height="${shown}">`);
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${outer}" height="${shown + band}" viewBox="0 0 ${outer} ${shown + band}"><rect width="${outer}" height="${band}" fill="white"/>${lines.map((line, i) => `<text x="12" y="${(i + 1.5) * font * 1.5}" font-size="${font}" fill="#742d00">${xmlText(line)}</text>`).join('')}${nested.replace(/<\?xml[^>]*>/g, '')}</svg>`;
 }
 
 // ─── PNG tEXt chunk ──────────────────────────────────────────────
@@ -96,6 +132,7 @@ function crc32(bytes: Uint8Array): number {
 
 /** The PNG with a `tEXt` chunk `stabileo-provenance` = the JSON record, right after IHDR. */
 export function pngWithProvenance(png: Uint8Array, p: ResultProvenance): Uint8Array {
+  requiredExportMessages();
   // Signature (8) + IHDR chunk (4 length + 4 type + 13 data + 4 crc) = 33.
   if (png.length < 33 || png[12] !== 0x49 || png[13] !== 0x48 || png[14] !== 0x44 || png[15] !== 0x52) return png;
   // tEXt is Latin-1: the record is ASCII once non-ASCII is escaped.
@@ -116,6 +153,7 @@ export function pngWithProvenance(png: Uint8Array, p: ResultProvenance): Uint8Ar
 
 /** The JPEG with a COM segment (FF FE) carrying the JSON record, right after SOI. */
 export function jpegWithProvenance(jpg: Uint8Array, p: ResultProvenance): Uint8Array {
+  requiredExportMessages();
   if (jpg.length < 2 || jpg[0] !== 0xff || jpg[1] !== 0xd8) return jpg;
   const text = new TextEncoder().encode(`stabileo-provenance ${JSON.stringify(p)}`).subarray(0, 65533);
   const seg = new Uint8Array(4 + text.length);
@@ -156,16 +194,19 @@ export function provenanceFromPng(png: Uint8Array): string | null {
  * `downloadText` for a file of results: the record attached in the file's own format (by its
  * extension: .csv, .html, .dxf, .svg), or nothing written when the project moved meanwhile.
  * Call it in the same tick as the content is built. An independent analysis must supply the
- * record captured with its own inputs and results, rather than borrowing the viewport's record.
+ * record captured with its own inputs and results, rather than borrowing the viewport's record,
+ * and its results as `sources`, which then decide its warnings and refusal instead of the workspace.
  */
-export async function downloadResultText(content: string, filename: string, mime: string, record?: ResultProvenance): Promise<boolean> {
+export async function downloadResultText(content: string, filename: string, mime: string, record?: ResultProvenance, sources?: unknown): Promise<boolean> {
+  const warnings = exportMessages(record && sources !== undefined ? knownIssueResultDisposition(sources) : undefined);
+  if (warnings === null) return false;
   const p = record ? analysisProvenanceForExport(record) : await prepareExportProvenance();
   if (!p) return false;
   const ext = filename.toLowerCase().split('.').pop();
-  const out = ext === 'csv' ? csvWithProvenance(content, p)
-    : ext === 'html' || ext === 'htm' ? htmlWithProvenance(content, p)
-    : ext === 'dxf' ? dxfWithProvenance(content, p)
-    : ext === 'svg' ? svgWithProvenance(content, p)
+  const out = ext === 'csv' ? csvWithProvenance(content, p, warnings)
+    : ext === 'html' || ext === 'htm' ? htmlWithProvenance(content, p, warnings)
+    : ext === 'dxf' ? dxfWithProvenance(content, p, warnings)
+    : ext === 'svg' ? svgWithProvenance(content, p, warnings)
     : content;
   downloadText(out, filename, mime);
   return true;

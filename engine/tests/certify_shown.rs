@@ -189,7 +189,7 @@ fn full_system_3d(input: &SolverInput3D, loads: &[SolverLoad3D]) -> (DofNumberin
 }
 
 /// Reaction at component (node, i) for full displacement `u` (hi) + `lo`, in
-/// double-double: restrained → (K u − f)_d, free with spring k → −k·u_d.
+/// double-double: restrained → (K u − f)_d − k·u_d, free with spring k → −k·u_d.
 fn reaction_dd(k: &[f64], f: &[f64], n: usize, nf: usize, d: usize, spring: f64, spring_type: bool, u: &[f64], lo: &[f64]) -> f64 {
     let mut acc = Acc::default();
     if spring_type || d < nf {
@@ -202,6 +202,8 @@ fn reaction_dd(k: &[f64], f: &[f64], n: usize, nf: usize, d: usize, spring: f64,
             acc.add_prod(k[d * n + j], u[j]);
             acc.add_prod(k[d * n + j], lo[j]);
         }
+        acc.add_prod(-spring.max(0.0), u[d]);
+        acc.add_prod(-spring.max(0.0), lo[d]);
     }
     acc.hi_lo().0
 }

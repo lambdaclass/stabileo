@@ -1,4 +1,4 @@
-# Ferrari & Sigmund (2025): Roorda frame, implementation in progress
+# Ferrari & Sigmund (2025): Roorda frame buckling and solver regression
 
 Research, not a design tool. **The requested Koiter reproduction is not complete.**
 The page at `/research/stability/ferrari-sigmund-2025` exposes only production buckling
@@ -41,6 +41,8 @@ Mesh sequence for 4, 10, 20, 40 elements per member:
 The last refinement changes λ₁ by 3.08526e-6. Acceptance tolerances were set at 1e-4
 absolute against the rounded numerical value and 0.1% against the reported closed form.
 The closed form is a transcribed paper value, not a separately derived analytical solution.
+The 0.1% tolerance accommodates the paper’s own numerical-versus-closed-form difference
+(0.0535%); our refined mesh differs by 0.0536%. It is not evidence of exact analytical convergence.
 
 The paper's rounded values imply relative differences of approximately 0.0535%, 0.3942%
 and 1.0556% for λ₁, α and β, respectively. Its accompanying percentages for α and β are
@@ -64,7 +66,7 @@ beam element. The implementation refuses hinges, shear areas, and chord rotation
 its local differentiation domain (dot product with the original chord must be positive).
 It is presently for trusted research models, not a general user-input validation API.
 
-Tests compare its gradient and Hessian with the production force and tangent. All 6 + 36 +
+Tests compare its gradient and Hessian with the production force and tangent. For one vertical 0.5 m element, all 6 + 36 +
 216 + 1296 ordered partial derivatives through fourth order are checked at three states,
 using central differences of the preceding derivative at steps 1e-4, 5e-5, 2.5e-5.
 The metric is |AD - FD|/(1+|AD|), taking the best of those three step sizes.
@@ -107,7 +109,7 @@ own workspace with a lockfile and depends on the engine as a library. No engine 
 is modified. Run `cargo test --locked -- --nocapture` from this directory.
 The page has unit tests and a Playwright spec; Chromium execution belongs to the maintainer.
 
-## Questions for Ferrari and Sigmund
+## Open questions
 
 Draft only; no messages sent.
 
@@ -120,3 +122,28 @@ Draft only; no messages sent.
 4. Are the printed relative errors for α and β typographical errors, or do they refer
    to different, unrounded or differently normalized quantities?
 5. Is there a minimal implementation that can be shared under an explicit software licence?
+
+## Review round 2 — 2026-10-30
+
+Verified findings consolidated from Kimi, Codex and Claude. The live page now presents
+buckling against the two published scalar references and the eccentric path against native
+production replay (every saved frame) plus native/WASM final-state parity. It does not
+present a Koiter reproduction, author-code comparison or Figure 2b agreement. Questions
+are kept above, under Open questions, rather than on the live page.
+
+Source availability checked against the stored publisher PDF and the DTU publication record
+https://orbit.dtu.dk/en/publications/optimization-of-the-initial-post-buckling-response-of-trusses-and/ .
+The paper’s Data Availability Statement says supporting data are available on request,
+not publicly. The catalogue has no author code or supplement data links; this checkout has
+scalar transcriptions, not reference path arrays. The public DTU/Wiley endpoints did not
+provide additional code/data in this review. Accordingly the page states the actual solver
+regression comparison, without a pending badge. No coefficient or curve agreement is inferred
+from the available rounded coefficients or from the visually plotted Figure 2b.
+
+Both independent model builders (research and engine test) now check geometry, material,
+section, signed eccentric load, connected unreleased elements and pinned outer supports
+against the same paper fixture over five mesh sizes. Product code does not import research
+code. Rendered reference values are checked against that fixture in en/es/pt; unsupported
+de/fr/tr research pages are excluded from prerendering and numeric formatting covers all six.
+Derivative evidence uses a 0.1% relative regression tolerance, in addition to the unchanged
+2e-5 acceptance bound. Horizontal/rotated derivative coverage is not claimed.
