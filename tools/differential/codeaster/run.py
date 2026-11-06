@@ -287,11 +287,18 @@ def finish(r, tol, dump_dir, model, binary=None):
     if r.pop("near_singular", False):
         st = "silent_singular" if bad else "near_singular"
         warned = sorted(set(sres["diags"]) & WARNED_CONDITIONING)
-        if bad and warned and "NUM-INVARIANCE" in sres.get("issues", []) and held_mechanism(model, sres, bad, binary, tol):
-            st = "warned_singular"
+        near_mechanism = "NUM-INVARIANCE" in sres.get("issues", [])
+        held = []
+        if bad and near_mechanism:
+            if warned and held_mechanism(model, sres, bad, binary, tol):
+                st = "warned_singular"
+            elif held_forces_identical(model, sres, bad, binary):
+                st = "warned_singular"
+                held = ["stabileo warned: NUM-INVARIANCE", "stabileo forces bit-identical with the disagreeing DOFs held: "
+                        + ", ".join(f"{b[1]} {b[2]}" for b in bad if b[0] == "disp")]
         if bad:
             why = ["code_aster: singular at NPREC=10, and with the check off its solution disagrees"] + [
-                f"stabileo warned: {w}" for w in warned]
+                f"stabileo warned: {w}" for w in warned] + held
     r = dict(r, status=st, max_err=groups, tol=tol, n_bad=len(bad),
              worst=sorted(bad, key=lambda b: -b[5])[:8], **({"why": why} if why else {}))
     if bad and dump_dir:
@@ -357,6 +364,49 @@ def held_mechanism(model, sres, bad, binary, tol):
             return False
         reaction = mres["reac"].get(int(nid)) or mres["reac"].get(nid)
         if reaction is None or not math.isfinite(reaction[k]) or abs(reaction[k]) > tol * scale:
+            return False
+    return True
+
+
+def held_forces_identical(model, sres, bad, binary):
+    """Whether stabileo's answer is that of its model with every disagreeing displacement held at
+    stabileo's own value, every reaction and member force bit-identical, and no force at any held DOF:
+    holding a DOF at its solved value changes nothing even under load, so the zero reaction is what
+    shows the mechanism carries none. Code_Aster's forces may disagree; its solve was singular."""
+    names = ["ux", "uy", "uz", "rx", "ry", "rz"]
+    dofs = sorted({(str(b[1]), names.index(b[2])) for b in bad if b[0] == "disp" and b[2] in names})
+    nodes = {str(n.get("id")) for n in (model.get("nodes") or {}).values()}
+    if not binary or not dofs or any(nid not in nodes for nid, _ in dofs):
+        return False
+    held = json.loads(json.dumps(model))
+    sups = held.setdefault("supports", {})
+    for nid, k in dofs:
+        own = (sres["disp"].get(int(nid)) or sres["disp"].get(nid) or [None] * 6)[k]
+        if own is None or not math.isfinite(own):
+            return False
+        sup = next((s for s in sups.values() if str(s.get("nodeId")) == nid), None)
+        if sup is None:
+            next_id = max([int(s.get("id", 0) or 0) for s in sups.values()] + [0]) + 1
+            sup = sups.setdefault(f"held-{nid}", {"id": next_id, "nodeId": int(nid)})
+        if sup.get(to_aster.FLAGS[k]) or sup.get(to_aster.PRESC[k]) is not None or (sup.get(to_aster.SPRINGS[k]) or 0.0) != 0.0:
+            return False
+        sup[to_aster.FLAGS[k]] = True
+        sup[to_aster.PRESC[k]] = own
+    try:
+        hres = C.normalize_stabileo(C.stabileo(held, binary), 3)
+    except RuntimeError:
+        return False
+    if not sres["forces"] or set(hres["forces"]) != set(sres["forces"]):
+        return False
+    for eid, f in sres["forces"].items():
+        if hres["forces"][eid] != f or not all(math.isfinite(v) for v in f.values()):
+            return False
+    for nid, r in sres["reac"].items():
+        if hres["reac"].get(nid) != r or not all(math.isfinite(v) for v in r):
+            return False
+    for nid, k in dofs:
+        r = hres["reac"].get(int(nid)) or hres["reac"].get(nid)
+        if r is None or r[k] != 0.0:
             return False
     return True
 

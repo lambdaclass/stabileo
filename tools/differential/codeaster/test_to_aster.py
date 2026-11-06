@@ -345,7 +345,8 @@ class SingularVerdict(unittest.TestCase):
     `silent_singular` only when stabileo gave no conditioning warning; every
     such result carries `why`, and the summary never needs one."""
 
-    def finish(self, diags, issues=(), bad=(("disp", 5, "rz", 0.0, 1.04e13, 1.0),), held=lambda bad: all(b[0] == "disp" for b in bad)):
+    def finish(self, diags, issues=(), bad=(("disp", 5, "rz", 0.0, 1.04e13, 1.0),), held=lambda bad: all(b[0] == "disp" for b in bad),
+               held_forces=lambda bad: False):
         import json as J
         import tempfile
         from unittest import mock
@@ -357,7 +358,8 @@ class SingularVerdict(unittest.TestCase):
             with open(os.path.join(job, "result.json"), "w") as f:
                 J.dump({}, f)
             r = {"name": "m", "job": job, "sres": {"diags": diags, "issues": list(issues), "forces": {}}, "meta": {"elements": []}, "near_singular": True}
-            with mock.patch.object(R, "held_mechanism", lambda model, sres, bad, binary, tol: held(bad)):
+            with mock.patch.object(R, "held_mechanism", lambda model, sres, bad, binary, tol: held(bad)), \
+                    mock.patch.object(R, "held_forces_identical", lambda model, sres, bad, binary: held_forces(bad)):
                 return R.finish(r, 1e-6, None, _mechanism_beam(), "bin")
 
     def test_unwarned_singular_solve_is_silent(self):
@@ -382,6 +384,77 @@ class SingularVerdict(unittest.TestCase):
     def test_a_conditioning_warning_without_the_known_issue_is_silent(self):
         r = self.finish(["high_diagonal_ratio"])
         self.assertEqual(r["status"], "silent_singular")
+
+    def test_a_force_disagreement_is_inconclusive_when_stabileo_warned_and_its_forces_hold(self):
+        bad = [("disp", 5, "rz", 0.0, 1.04e13, 1.0), ("force", 1, "mz", 1.0, 2.0, 1.0)]
+        r = self.finish(["known_issue"], ["NUM-INVARIANCE"], bad, held_forces=lambda bad: True)
+        self.assertEqual(r["status"], "warned_singular")
+        self.assertIn("stabileo warned: NUM-INVARIANCE", r["why"])
+        self.assertIn("stabileo forces bit-identical with the disagreeing DOFs held: 5 rz", r["why"])
+
+    def test_held_forces_without_the_near_mechanism_warning_are_silent(self):
+        bad = [("disp", 5, "rz", 0.0, 1.04e13, 1.0), ("force", 1, "mz", 1.0, 2.0, 1.0)]
+        for diags, issues in [(["high_diagonal_ratio"], []), (["high_diagonal_ratio", "known_issue"], ["SP-17"])]:
+            r = self.finish(diags, issues, bad, held_forces=lambda bad: True)
+            self.assertEqual(r["status"], "silent_singular", issues)
+
+    def test_a_warning_without_held_forces_is_silent(self):
+        bad = [("disp", 5, "rz", 0.0, 1.04e13, 1.0), ("force", 1, "mz", 1.0, 2.0, 1.0)]
+        r = self.finish(["known_issue"], ["NUM-INVARIANCE"], bad, held_forces=lambda bad: False)
+        self.assertEqual(r["status"], "silent_singular")
+
+
+class HeldForces(unittest.TestCase):
+    """Stabileo solved again with the disagreeing displacements held at its own values: inconclusive
+    only if every reaction and member force is bit-identical and no held DOF needs a force."""
+
+    def held(self, rerun, bad=(("disp", 5, "rz", 0.0, 1.04e13, 1.0), ("force", 1, "myStart", 3.0, 4.0, 0.25)), binary="bin", model=None):
+        from unittest import mock
+        import run as R
+        sres = R.C.normalize_stabileo(_raw(rz5=0.0), 3)
+        seen = []
+
+        def solve(m, b):
+            seen.append(m)
+            if isinstance(rerun, Exception):
+                raise rerun
+            return rerun
+        with mock.patch.object(R.C, "stabileo", solve):
+            ok = R.held_forces_identical(model or _mechanism_beam(), sres, list(bad), binary)
+        return ok, seen
+
+    def test_identical_forces_and_no_force_at_the_held_dof_are_inconclusive(self):
+        ok, seen = self.held(_raw(rz5=0.0, reac5=0.0))
+        self.assertTrue(ok)
+        sup = next(s for s in seen[0]["supports"].values() if s.get("nodeId") == 5)
+        self.assertTrue(sup["rrz"])
+        self.assertEqual(sup["drz"], 0.0)
+
+    def test_a_member_force_one_ulp_off_is_not(self):
+        import math
+        self.assertFalse(self.held(_raw(rz5=0.0, reac5=0.0, m12=math.nextafter(3.0, 4.0)))[0])
+
+    def test_a_force_at_the_held_dof_is_not(self):
+        self.assertFalse(self.held(_raw(rz5=0.0, reac5=1e-300))[0], "the held DOF carries load")
+        self.assertFalse(self.held(_raw(rz5=0.0))[0], "no reaction reported at the held DOF")
+
+    def test_a_reaction_that_moves_is_not(self):
+        moved = _raw(rz5=0.0, reac5=0.0)
+        moved["reactions"][0]["fz"] = math_next(1.0)
+        self.assertFalse(self.held(moved)[0])
+
+    def test_only_free_displacements_of_known_nodes_with_a_binary_qualify(self):
+        rerun = _raw(rz5=0.0, reac5=0.0)
+        self.assertFalse(self.held(rerun, bad=[("force", 1, "myStart", 3.0, 4.0, 0.25)])[0], "no displacement disagrees")
+        self.assertFalse(self.held(rerun, bad=[("disp", 9, "rz", 0.0, 1.0, 1.0)])[0])
+        self.assertFalse(self.held(rerun, bad=[("disp", 1, "rz", 0.0, 1.0, 1.0)])[0], "node 1 is fixed")
+        self.assertFalse(self.held(rerun, binary=None)[0])
+        self.assertFalse(self.held(RuntimeError("stabileo: refused"))[0])
+
+
+def math_next(x):
+    import math
+    return math.nextafter(x, math.inf)
 
     def test_summary_survives_a_result_without_why(self):
         import contextlib

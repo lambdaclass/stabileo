@@ -41,8 +41,12 @@ Inputs:
 - `FILES`: any `SolverInput3D` JSON files. The nightly job also passes
   `regressions/*.json`: reduced models from past nightly findings that were
   harness errors (diaphragm kinematics; settlements on DOFs no rigid restraint
-  carries; a twist mechanism nothing loads, on which stabileo warns
-  `high_diagonal_ratio`). Each must now end `ok`, `refused` or `warned_singular`.
+  carries; twist mechanisms nothing loads, on which stabileo warns
+  `NUM-INVARIANCE`). Each must now end `ok`, `refused` or `warned_singular`.
+  A singular Code_Aster solve whose forces also disagree is `warned_singular`
+  only when stabileo carries `NUM-INVARIANCE` and, solved again with every
+  disagreeing displacement held at its own value, gives bit-identical
+  reactions and member forces and no force at any held DOF.
 - `--fixtures`: the 3D `engine/tests/fixtures/*-input.json` files, which
   include the example models (buildings, industrial hall, tower, grid slab,
   space truss and so on).
