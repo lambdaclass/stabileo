@@ -762,6 +762,12 @@ fn solve_plastic_3d_contained(input: &PlasticInput3D) -> Result<PlasticResult3D,
     // Curved beams become ordinary frame members first, so that hinges can
     // form on them like on any other member.
     let mut current_input = super::super::linear::expand_curved_beams_3d(&input.solver);
+    let mut frames: Vec<&SolverElement3D> = current_input.elements.values().filter(|e| e.elem_type == "frame").collect();
+    frames.sort_by_key(|e| e.id);
+    let usable = |mp: &(f64, f64)| mp.0.is_finite() && mp.0 > 0.0 && mp.1.is_finite() && mp.1 > 0.0;
+    if let Some(e) = frames.iter().find(|e| !mp_map.get(&e.section_id).is_some_and(usable)) {
+        return Err(super::no_plastic_capacity(e.id, e.section_id));
+    }
     let node_xyz: HashMap<usize, [f64; 3]> = crate::ordered::values(&current_input.nodes).map(|n| (n.id, [n.x, n.y, n.z])).collect();
     let mut members: Vec<Member3> = current_input
         .elements
@@ -771,7 +777,7 @@ fn solve_plastic_3d_contained(input: &PlasticInput3D) -> Result<PlasticResult3D,
             let pj = node_xyz[&e.node_j];
             let d = [pj[0] - pi[0], pj[1] - pi[1], pj[2] - pi[2]];
             let mp = if e.elem_type == "frame" {
-                mp_map.get(&e.section_id).copied().unwrap_or((f64::INFINITY, f64::INFINITY))
+                mp_map[&e.section_id]
             } else {
                 (f64::INFINITY, f64::INFINITY)
             };

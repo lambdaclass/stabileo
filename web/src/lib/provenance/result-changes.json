@@ -1,8 +1,50 @@
 {
   "$comment": "Registry of result-affecting changes. Read by web/scripts/result-change-metadata.mjs for build metadata and decoded by web/src/lib/provenance/full-registry.ts; schema and rules in docs/verification/PROVENANCE.md. Add an entry whenever a change makes the same saved model give different numbers, at currentResultsVersion + 1, and bump currentResultsVersion: a version on main is deployed, and an entry added to it later is never shown to the projects it stamped (results-version.test.ts). Feature ids are defined in web/src/lib/provenance/model-features.ts.",
   "schema": 1,
-  "currentResultsVersion": 38,
+  "currentResultsVersion": 39,
   "changes": [
+    {
+      "id": "plastic-3d-member-without-capacity-refused",
+      "resultsVersion": 39,
+      "date": "2026-11-05",
+      "prs": [
+        1526
+      ],
+      "area": "analysis",
+      "when": {
+        "allOf": [
+          [
+            "space3D"
+          ],
+          [
+            "analysis:nonlinear"
+          ],
+          [
+            "frameMembers"
+          ]
+        ]
+      },
+      "title": {
+        "en": "3D plastic collapse refuses a member without a usable plastic moment",
+        "es": "El colapso plástico 3D rechaza una barra sin momento plástico utilizable",
+        "pt": "O colapso plástico 3D recusa uma barra sem momento plástico utilizável",
+        "de": "Der plastische 3D-Kollaps lehnt einen Stab ohne verwendbares plastisches Moment ab",
+        "fr": "L’effondrement plastique 3D refuse une barre sans moment plastique utilisable",
+        "tr": "3B plastik göçme, kullanılabilir plastik momenti olmayan bir çubuğu reddediyor"
+      },
+      "explanation": {
+        "en": "The 3D pushover treated a frame member whose plastic moment about either axis was zero or missing as one that never yields, and reported a collapse factor that was too high: on a 3D portal, 192.8 instead of 31.9, still as a mechanism (#1525, SA-2026-045). The app computes Mp about both axes from each section, so this concerns models with a section whose plastic modulus about one axis came out zero. Such a member is now refused, naming the member and its section, and so is a negative Mp, which was used as its absolute value. Models whose members all have positive plastic moments give the same numbers.",
+        "es": "El pushover 3D trataba una barra cuyo momento plástico en alguno de los ejes era cero o faltaba como si nunca plastificara, e informaba un factor de colapso demasiado alto: en un pórtico 3D, 192,8 en lugar de 31,9, igualmente como mecanismo (#1525, SA-2026-045). La aplicación calcula Mp en ambos ejes a partir de cada sección, así que esto afecta a modelos con una sección cuyo módulo plástico en un eje daba cero. Esa barra ahora se rechaza, indicando la barra y su sección, y también un Mp negativo, que se usaba por su valor absoluto. Los modelos cuyas barras tienen todas momentos plásticos positivos dan los mismos números.",
+        "pt": "O pushover 3D tratava uma barra cujo momento plástico em algum dos eixos era zero ou faltava como se nunca plastificasse, e informava um fator de colapso alto demais: num pórtico 3D, 192,8 em vez de 31,9, ainda como mecanismo (#1525, SA-2026-045). O aplicativo calcula Mp nos dois eixos a partir de cada seção, então isto afeta modelos com uma seção cujo módulo plástico num eixo dava zero. Essa barra agora é recusada, indicando a barra e sua seção, assim como um Mp negativo, que era usado pelo seu valor absoluto. Modelos cujas barras têm todas momentos plásticos positivos dão os mesmos números.",
+        "de": "Der 3D-Pushover behandelte einen Stab, dessen plastisches Moment um eine der Achsen null war oder fehlte, als würde er nie plastifizieren, und gab einen zu hohen Kollapsfaktor aus: bei einem 3D-Rahmen 192,8 statt 31,9, weiterhin als Mechanismus (#1525, SA-2026-045). Die App berechnet Mp um beide Achsen aus jedem Querschnitt, daher betrifft dies Modelle mit einem Querschnitt, dessen plastisches Widerstandsmoment um eine Achse null ergab. Ein solcher Stab wird jetzt abgelehnt, mit Angabe des Stabs und seines Querschnitts, ebenso ein negatives Mp, das als sein Betrag verwendet wurde. Modelle, deren Stäbe alle positive plastische Momente haben, ergeben dieselben Zahlen.",
+        "fr": "Le pushover 3D traitait une barre dont le moment plastique selon l’un des axes était nul ou absent comme si elle ne plastifiait jamais, et donnait un facteur d’effondrement trop élevé : sur un portique 3D, 192,8 au lieu de 31,9, toujours comme mécanisme (#1525, SA-2026-045). L’application calcule Mp selon les deux axes à partir de chaque section, cela concerne donc les modèles dont une section avait un module plastique nul selon un axe. Une telle barre est désormais refusée, avec la barre et sa section, de même qu’un Mp négatif, qui était pris en valeur absolue. Les modèles dont toutes les barres ont des moments plastiques positifs donnent les mêmes nombres.",
+        "tr": "3B pushover, herhangi bir eksendeki plastik momenti sıfır ya da eksik olan bir çubuğu hiç akmayan bir çubuk gibi ele alıyor ve fazla yüksek bir göçme katsayısı veriyordu: bir 3B çerçevede 31,9 yerine 192,8, yine mekanizma olarak (#1525, SA-2026-045). Uygulama Mp'yi her kesitten iki eksende hesaplar; bu yüzden bu durum bir eksendeki plastik mukavemet momenti sıfır çıkan bir kesite sahip modelleri ilgilendirir. Böyle bir çubuk artık çubuk ve kesiti belirtilerek reddediliyor; mutlak değeri kullanılan negatif bir Mp de artık reddediliyor. Bütün çubukları pozitif plastik momentlere sahip modeller aynı sayıları verir."
+      },
+      "changelog": {
+        "file": "changelog.d/1525-plastic-3d-member-without-capacity.md",
+        "heading": "3D plastic collapse refuses a frame member without a usable plastic moment (2026-11-05)"
+      }
+    },
     {
       "id": "example-cantilever-small-rotations",
       "resultsVersion": 38,
