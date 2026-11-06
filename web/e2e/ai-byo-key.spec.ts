@@ -121,15 +121,17 @@ test.describe('@smoke AI with your own key', () => {
     await expect(page.getByTestId('ai-key-note')).toContainText('api.anthropic.com');
     const input = page.getByTestId('ai-key-input');
     await expect(input).toHaveAttribute('type', 'password');
-    await input.fill(ANTHROPIC_KEY);
+    await input.fill(`  ${ANTHROPIC_KEY}  `);
     await page.getByTestId('ai-key-save').click();
     await expect(page.getByTestId('ai-key-bar')).toBeVisible();
+    expect(await page.evaluate(() => localStorage.getItem('stabileo.ai.key.anthropic'))).toBe(ANTHROPIC_KEY);
 
     await sendAndApply(page, 'simply supported 6 m beam with 10 kN/m');
 
     expect(await nodeXs(page)).toEqual([0, 6]);
     expect(await page.evaluate(() => window.__stabileo.elementIds().length)).toBe(1);
     expect(await page.evaluate(() => window.__stabileo.supportCount())).toBe(2);
+    expect(await page.evaluate(() => window.__stabileo.verticalReaction2D())).toBeCloseTo(60, 6);
 
     expect(seen).toHaveLength(1);
     expect(seen[0].url).toBe('https://api.anthropic.com/v1/messages');
@@ -177,6 +179,7 @@ test.describe('@smoke AI with your own key', () => {
 
     expect(await nodeXs(page)).toEqual([0, 4, 9]);
     expect(await page.evaluate(() => window.__stabileo.elementIds().length)).toBe(2);
+    expect(await page.evaluate(() => window.__stabileo.verticalReaction2D())).toBeCloseTo(12 * 9, 6);
     expect(seen).toHaveLength(1);
     expect(seen[0].url).toBe('https://api.openai.com/v1/chat/completions');
     expect(seen[0].headers.authorization).toBe(`Bearer ${OPENAI_KEY}`);
@@ -215,6 +218,8 @@ test.describe('@smoke AI with your own key', () => {
     await expect(page.getByTestId('ai-apply')).toBeVisible({ timeout: 20_000 });
     expect(seen).toHaveLength(1);
     expect(await page.evaluate(() => window.__stabileo.viewportPick().hasResults)).toBe(false);
+    await expect(page.getByTestId('ai-key-manage'), 'the key cannot be changed while a draft waits').toBeDisabled();
+    await expect(page.getByTestId('ai-apply')).toBeEnabled();
 
     await page.locator('.ai-drawer .draft-cancel').click();
     await expect(page.getByTestId('ai-apply')).toHaveCount(0);

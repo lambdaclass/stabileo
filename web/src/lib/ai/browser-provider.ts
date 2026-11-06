@@ -252,7 +252,7 @@ export async function buildModel(
     system,
     messages: conversation,
     maxTokens: 32000,
-    tools: toolDefinitions(mode, modelContext !== undefined),
+    tools: toolDefinitions(mode, current !== undefined),
     signal,
   });
   const meta = metaOf(resp);
@@ -266,7 +266,8 @@ export async function buildModel(
   if (call) {
     const raw = `tool_call: ${call.name}(${JSON.stringify(call.input)})`;
     const outcome = outcomeFromToolCall(call.name, call.input, current);
-    if (outcome) return toBuildResponse(checked(outcome), raw, meta);
+    if (!outcome) throw new AiActionError(`the ${JSON.stringify(call.name)} call could not be read as a tool with valid parameters; nothing was built`);
+    return toBuildResponse(checked(outcome), raw, meta);
   }
   const text = resp.text.trim();
   return toBuildResponse(checked(outcomeFromText(text, current)), text, meta);

@@ -158,6 +158,37 @@ describe('a section with the user\'s own values', () => {
   });
 });
 
+describe('a tool call that cannot be read', () => {
+  const answer = (content: Array<Record<string, unknown>>) => stubFetch(() => sseResponse(anthropicStream({ content, stopReason: 'tool_use' })));
+
+  it('NEGATIVE: is refused, even when the text carries another action', async () => {
+    answer([
+      { type: 'text', text: '{"action":"create_beam","params":{"span":9},"interpretation":"from the text"}' },
+      { type: 'tool_use', name: 'create_beam', input: { span: '6', interpretation: 'a' } },
+    ]);
+    const err = await buildModel({ provider: 'anthropic', apiKey: KEY }, 'Build a beam', 'en', '2d').catch((e) => e);
+    expect(err).toBeInstanceOf(AiActionError);
+    expect(err.message).toBe('the "create_beam" call could not be read as a tool with valid parameters; nothing was built');
+  });
+
+  it('NEGATIVE: an unknown tool is refused rather than read as text', async () => {
+    answer([{ type: 'tool_use', name: 'create_bridge', input: { span: 30, interpretation: 'a' } }]);
+    const err = await buildModel({ provider: 'anthropic', apiKey: KEY }, 'Build a bridge', 'en', '2d').catch((e) => e);
+    expect(err).toBeInstanceOf(AiActionError);
+    expect(err.message).toContain('"create_bridge" call could not be read');
+  });
+
+  it('edit tools are offered only with a model to edit', async () => {
+    const calls = answer([{ type: 'tool_use', name: 'create_beam', input: { span: 6, interpretation: 'a' } }]);
+    const context = { nodeCount: 2, elementCount: 1, supportCount: 2, loadCount: 0, bounds: { xMin: 0, xMax: 6, zMin: 0, zMax: 0 }, verticalAxis: 'z', sections: [], materials: [], supportTypes: [], elementTypes: [], floorHeights: [], bayWidths: [] } as never;
+    await buildModel({ provider: 'anthropic', apiKey: KEY }, 'Build a beam', 'en', '2d', context);
+    const offered = (calls[0].body.tools as Array<{ name: string }>).map((d) => d.name);
+    expect(offered).toContain('create_beam');
+    expect(offered).not.toContain('add_bay');
+    expect(offered).not.toContain('delete_element');
+  });
+});
+
 describe('a draft in the other dimension', () => {
   it('NEGATIVE: a 2D model proposed for a 3D request is refused', async () => {
     stubFetch(() => sseResponse(anthropicStream({
@@ -196,6 +227,9 @@ describe('an edit of the model on the canvas', () => {
       stopReason: 'tool_use',
     })));
     const resp = await buildModel({ provider: 'anthropic', apiKey: KEY }, 'push node 2 sideways', 'en', '3d', undefined, pro());
+    const offered = (calls[0].body.tools as Array<{ name: string }>).map((d) => d.name);
+    expect(offered).toContain('add_nodal_load');
+    expect(offered).toContain('delete_element');
     const system = JSON.stringify(calls[0].body.system);
     expect(system).toContain('[12,{\\"id\\":12,\\"type\\":\\"frame\\",\\"nodeI\\":2,\\"nodeJ\\":3');
     const loads = (resp.snapshot as { loads: Array<{ type: string; data: Record<string, number> }> }).loads;

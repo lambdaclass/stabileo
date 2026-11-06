@@ -16,8 +16,9 @@
 
   function save(e: SubmitEvent) {
     e.preventDefault();
-    if (!draft.trim()) return;
-    aiKeys.setKey(provider, draft);
+    const key = draft.trim();
+    if (!key) return;
+    aiKeys.setKey(provider, key);
     draft = '';
     onDone?.();
   }

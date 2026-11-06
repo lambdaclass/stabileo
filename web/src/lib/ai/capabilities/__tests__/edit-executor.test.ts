@@ -261,6 +261,22 @@ describe('edit executor', () => {
     expect(loadsOf(r).filter((l) => l.type === 'nodal')).toHaveLength(floors.length - 1);
   });
 
+  it('puts the lateral load at the floors only, not at nodes that split a column', () => {
+    const portal = (beams: Array<[number, number]>) => ({
+      analysisMode: '2d',
+      nodes: [[1, { id: 1, x: 0, y: 0 }], [2, { id: 2, x: 0, y: 2.5 }], [3, { id: 3, x: 0, y: 5 }], [4, { id: 4, x: 8, y: 0 }], [5, { id: 5, x: 8, y: 2.5 }], [6, { id: 6, x: 8, y: 5 }]],
+      elements: [[1, 2], [2, 3], [4, 5], [5, 6], ...beams].map(([i, j], k) => [k + 1, { id: k + 1, type: 'frame', nodeI: i, nodeJ: j, materialId: 1, sectionId: 1 }]),
+      supports: [[1, { id: 1, nodeId: 1, type: 'fixed' }], [2, { id: 2, nodeId: 4, type: 'fixed' }]],
+      sections: [[1, { id: 1, name: 'HEB 300', a: 149e-4, iz: 25170e-8 }]], materials: [[1, { id: 1, e: 200000 }]], loads: [],
+    });
+    const added = loadsOf(applyEdit({ action: 'add_lateral_loads', params: { h: 10 } }, portal([[3, 6]]))).filter((l) => l.type === 'nodal');
+    expect(added.map((l) => [l.data.nodeId, l.data.fx])).toEqual([[3, 10]]);
+    const twoFloors = loadsOf(applyEdit({ action: 'add_lateral_loads', params: { h: 10 } }, portal([[2, 5], [3, 6]]))).filter((l) => l.type === 'nodal');
+    expect(twoFloors.map((l) => [l.data.nodeId, l.data.fx])).toEqual([[2, 10], [3, 10]]);
+    expect(() => applyEdit({ action: 'add_lateral_loads', params: { h: 10 } }, portal([])))
+      .toThrow('Cannot add lateral loads: no horizontal member above the base marks a floor');
+  });
+
   it('shares a 3D floor lateral load across the x=0 face, like the generator', () => {
     const r = applyEdit({ action: 'add_lateral_loads', params: { h: 12 } }, makeMultiStory3d());
     const added = loadsOf(r).filter((l) => l.type === 'nodal3d');

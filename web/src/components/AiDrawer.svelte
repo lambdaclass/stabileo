@@ -717,7 +717,7 @@
       <!-- Apply / Retry / Cancel bar -->
       {#if pendingDraft}
         <div class="draft-actions">
-          <button class="draft-btn draft-apply" onclick={handleApply} data-testid="ai-apply">{t('pro.apply')}</button>
+          <button class="draft-btn draft-apply" onclick={handleApply} disabled={!aiEnabled} data-testid="ai-apply">{t('pro.apply')}</button>
           <button class="draft-btn draft-retry" onclick={handleRetry} disabled={!aiEnabled}>{t('ai.retry')}</button>
           <button class="draft-btn draft-cancel" onclick={handleCancel}>{t('app.cancel')}</button>
         </div>

@@ -194,7 +194,9 @@ function runAction(action: BuildAction, current?: Record<string, unknown>): Reco
 }
 
 const capitalize = (s: string): string => (s.length === 0 ? s : s[0].toUpperCase() + s.slice(1));
-const withLoad = (text: string, q?: number): string => (q !== undefined ? `${text}, q = ${q} kN/m` : text);
+const applied = (v?: number): v is number => v !== undefined && v !== 0;
+const withLoad = (text: string, q?: number, p?: number): string =>
+  [text, ...(applied(q) ? [`q = ${q} kN/m`] : []), ...(applied(p) ? [`P = ${p} kN`] : [])].join(', ');
 
 function sectionSummary(p: Extract<BuildAction, { action: 'change_section' }>['params']): string {
   const section = p.section;
@@ -206,12 +208,8 @@ function sectionSummary(p: Extract<BuildAction, { action: 'change_section' }>['p
 
 export function actionSummary(a: BuildAction): string {
   switch (a.action) {
-    case 'create_beam': return withLoad(tp('ai.sum.beam', { span: a.params.span }), a.params.q);
-    case 'create_cantilever': {
-      const { p_tip, q } = a.params;
-      const base = tp('ai.sum.cantilever', { length: a.params.length });
-      return p_tip !== undefined ? `${base}, P = ${p_tip} kN` : withLoad(base, q);
-    }
+    case 'create_beam': return withLoad(tp('ai.sum.beam', { span: a.params.span }), a.params.q, a.params.p_tip);
+    case 'create_cantilever': return withLoad(tp('ai.sum.cantilever', { length: a.params.length }), a.params.q, a.params.p_tip);
     case 'create_continuous_beam': return withLoad(tp('ai.sum.continuousBeam', { spans: a.params.spans.join(' + ') }), a.params.q);
     case 'create_portal_frame': return tp('ai.sum.portal', { width: a.params.width, height: a.params.height });
     case 'create_truss': return tp('ai.sum.truss', { pattern: capitalize(a.params.pattern ?? 'pratt'), span: a.params.span, height: a.params.height });

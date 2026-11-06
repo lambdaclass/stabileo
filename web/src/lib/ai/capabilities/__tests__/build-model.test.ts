@@ -67,7 +67,20 @@ describe('validate snapshot', () => {
       expect(() => checkCustomSectionsGiven(custom({ a: 0.0123, iz: 4.56e-5 }), ['A = 123 cm2, and the span is 6 m']))
         .toThrow('section 1: iz = 0.0000456 is not a value the user gave');
     });
+    it('NEGATIVE: a length, or a quantity of the wrong kind, does not stand for a section property', () => {
+      expect(() => checkCustomSectionsGiven(custom({ a: 0.001, iz: 1e-7 }), ['Build a 10 m beam']))
+        .toThrow('section 1: a = 0.001 is not a value the user gave');
+      expect(() => checkCustomSectionsGiven(custom({ a: 0.001, iz: 1e-7 }), ['the area is 10 cm4']))
+        .toThrow('section 1: a = 0.001 is not a value the user gave');
+      expect(() => checkCustomSectionsGiven(custom({ a: 0.001, iz: 1e-7 }), ['A = 10 cm2, I = 10 cm2']))
+        .toThrow('section 1: iz = 1e-7 is not a value the user gave');
+      expect(() => checkCustomSectionsGiven(custom({ a: 0.0123, iz: 4.56e-5 }), ['A = 123 cm2, span 4560 mm']))
+        .toThrow('section 1: iz = 0.0000456 is not a value the user gave');
+    });
     it('accepts the values the user wrote, in m or a smaller unit', () => {
+      expect(() => checkCustomSectionsGiven(custom({ a: 0.0123, iz: 4.56e-5 }), ['A = 123 cm², I = 4560 cm⁴'])).not.toThrow();
+      expect(() => checkCustomSectionsGiven(custom({ a: 0.0123, iz: 4.56e-5 }), ['A = 0.0123, I = 0.0000456'])).not.toThrow();
+      expect(() => checkCustomSectionsGiven(custom({ a: 0.0254 ** 2 * 19.1, iz: 0.0254 ** 4 * 1650 }), ['A = 19.1 in^2, Ix = 1650 in^4'])).not.toThrow();
       expect(() => checkCustomSectionsGiven(custom({ a: 0.0123, iz: 4.56e-5 }), ['A = 123 cm2', 'I = 4560 cm4'])).not.toThrow();
       expect(() => checkCustomSectionsGiven(custom({ a: 0.0123, iz: 4.56e-5 }), ['A = 0.0123 m2, I = 4.56e-5 m4'])).not.toThrow();
       expect(() => checkCustomSectionsGiven(custom({ a: 0.0123, iz: 4.56e-5 }), ['A = 12300 mm2, I = 45.600.000 mm4'])).not.toThrow();
@@ -423,6 +436,17 @@ describe('request, conversation and prompt', () => {
 });
 
 describe('change summaries', () => {
+  it('name every load a beam or cantilever is built with, and none that is zero', () => {
+    const beam = actionSummary({ action: 'create_beam', params: { span: 6, q: -10, p_tip: -20 } });
+    expect(beam).toContain('q = -10 kN/m');
+    expect(beam).toContain('P = -20 kN');
+    const cantilever = actionSummary({ action: 'create_cantilever', params: { length: 3, q: -5, p_tip: 0 } });
+    expect(cantilever).toContain('q = -5 kN/m');
+    expect(cantilever).not.toContain('P =');
+    const both = actionSummary({ action: 'create_cantilever', params: { length: 3, q: -5, p_tip: -8 } });
+    expect(both).toContain('q = -5 kN/m');
+    expect(both).toContain('P = -8 kN');
+  });
   it('are written in the reader\'s language', async () => {
     await ensureLocale('es');
     setLocale('es');

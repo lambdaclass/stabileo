@@ -107,6 +107,21 @@ export function floorLevels(snap: Json): number[] {
   return sortedDistinct(nodes(snap).map((n) => asF64(at(at(n, 1), key))).filter((v): v is number => v !== undefined));
 }
 
+export function storyLevels(snap: Json): number[] {
+  const space = isSnapshot3d(snap);
+  const levels: number[] = [];
+  for (const entry of elements(snap)) {
+    const data = entryData(entry);
+    const [i, j] = [asU64(at(data, 'nodeI')), asU64(at(data, 'nodeJ'))].map((id) => (id === undefined ? undefined : getNodeCoords(snap, id)));
+    if (!i || !j) continue;
+    const [ei, ej] = space ? [i.z ?? 0, j.z ?? 0] : [i.y, j.y];
+    const run = space ? Math.hypot(i.x - j.x, i.y - j.y) : Math.abs(i.x - j.x);
+    if (Math.abs(ei - ej) < EPS && run > EPS) levels.push(ei);
+  }
+  const base = floorLevels(snap)[0];
+  return sortedDistinct(levels).filter((v) => base === undefined || v > base + EPS);
+}
+
 export function findNodeAt(snap: Json, x: number, y: number): number | undefined {
   for (const n of nodes(snap)) {
     const nx = asF64(at(at(n, 1), 'x'));

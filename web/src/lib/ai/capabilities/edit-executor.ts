@@ -4,8 +4,8 @@ import { AiActionError } from './limits';
 import { supportTypesFor } from './registry';
 import {
   EPS, type Json, addDistributedLoadToSnap, arrayMut, asArray, asF64, asU64, at, columnLines,
-  elements, ensureSection, findNodeAt, floorLevels, getNodeCoords, isSnapshot3d,
-  nextId, nodes,
+  elements, ensureSection, findNodeAt, getNodeCoords, isSnapshot3d,
+  nextId, nodes, storyLevels,
 } from './snapshot-json';
 
 const COLLECTIONS = ['nodes', 'elements', 'materials', 'sections', 'supports', 'loads'] as const;
@@ -131,13 +131,13 @@ function setAllBeamLoads(snap: Json, q: number): void {
 
 function addLateralLoads(snap: Json, h: number): void {
   const cols = columnLines(snap);
-  const floors = floorLevels(snap);
-  if (cols.length === 0 || floors.length < 2) {
-    throw new AiActionError('Cannot add lateral loads: need at least 2 floor levels');
+  const floors = storyLevels(snap);
+  if (cols.length === 0 || floors.length === 0) {
+    throw new AiActionError('Cannot add lateral loads: no horizontal member above the base marks a floor');
   }
   const leftX = cols[0];
   if (isSnapshot3d(snap)) {
-    for (const z of floors.slice(1)) {
+    for (const z of floors) {
       const face = nodes(snap).filter((n) => {
         const x = asF64(at(at(n, 1), 'x'));
         const nz = asF64(at(at(n, 1), 'z'));
@@ -150,7 +150,7 @@ function addLateralLoads(snap: Json, h: number): void {
       }
     }
   } else {
-    for (const y of floors.slice(1)) {
+    for (const y of floors) {
       const nodeId = findNodeAt(snap, leftX, y);
       if (nodeId === undefined) throw new AiActionError(`Cannot add lateral loads: no node at x=${leftX}, y=${y}`);
       const id = nextId(snap, 'load');

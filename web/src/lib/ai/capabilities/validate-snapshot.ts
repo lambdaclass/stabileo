@@ -211,35 +211,54 @@ export function validateSnapshot(snapshot: unknown, { existingModel = false } = 
   }
 }
 
-const UNIT_SCALES = [1, 1e2, 1e3, 1e4, 1e6, 1e8, 1e12];
+type Quantities = { area: number[]; inertia: number[]; bare: number[] };
 
-export function numbersIn(texts: readonly string[]): number[] {
-  const out: number[] = [];
+const AREA_TO_M2: Record<string, number> = { m: 1, cm: 1e-4, mm: 1e-6, in: 0.0254 ** 2 };
+const INERTIA_TO_M4: Record<string, number> = { m: 1, cm: 1e-8, mm: 1e-12, in: 0.0254 ** 4 };
+
+function readings(raw: string): number[] {
+  const out = new Set<number>();
+  for (const candidate of [raw.replace(/,/g, ''), raw.replace(/\./g, '').replace(',', '.'), raw.replace(',', '.')]) {
+    const v = Number(candidate);
+    if (Number.isFinite(v) && v !== 0) out.add(Math.abs(v));
+  }
+  return [...out];
+}
+
+export function quantitiesIn(texts: readonly string[]): Quantities {
+  const q: Quantities = { area: [], inertia: [], bare: [] };
   for (const text of texts) {
-    for (const m of text.matchAll(/[-+]?\d+(?:[.,]\d+)*(?:[eE][-+]?\d+)?/g)) {
-      const raw = m[0];
-      for (const candidate of new Set([raw.replace(/,/g, ''), raw.replace(/\./g, '').replace(',', '.'), raw.replace(',', '.')])) {
-        const v = Number(candidate);
-        if (Number.isFinite(v) && v !== 0) out.push(Math.abs(v));
+    for (const m of text.matchAll(/([-+]?\d+(?:[.,]\d+)*(?:[eE][-+]?\d+)?)(\s*([a-zA-Z]+)\s*(\^?\s*[24]|[²⁴])?)?/g)) {
+      const values = readings(m[1]);
+      const unit = m[3]?.toLowerCase();
+      const power = m[4]?.replace(/[\s^]/g, '');
+      if (unit === undefined) q.bare.push(...values);
+      else if (power === '2' || power === '²') {
+        if (unit in AREA_TO_M2) q.area.push(...values.map((v) => v * AREA_TO_M2[unit]));
+      } else if (power === '4' || power === '⁴') {
+        if (unit in INERTIA_TO_M4) q.inertia.push(...values.map((v) => v * INERTIA_TO_M4[unit]));
       }
     }
   }
-  return out;
+  return q;
 }
 
-const given = (v: number, numbers: readonly number[]): boolean =>
-  UNIT_SCALES.some((k) => numbers.some((n) => Math.abs(v * k - n) <= 1e-3 * n));
+const near = (v: number, list: readonly number[]): boolean => list.some((n) => Math.abs(v - n) <= 1e-3 * n);
+
+function given(key: 'a' | 'iz' | 'iy' | 'j', v: number, q: Quantities): boolean {
+  return near(v, q.bare) || near(v, key === 'a' ? q.area : q.inertia);
+}
 
 export function checkCustomSectionsGiven(snapshot: Record<string, unknown>, userTexts: readonly string[], current?: Record<string, unknown>): void {
   const before = new Set((Array.isArray(current?.sections) ? current.sections : []).map((s) => JSON.stringify(s)));
-  const numbers = numbersIn(userTexts);
+  const quantities = quantitiesIn(userTexts);
   for (const entry of Array.isArray(snapshot.sections) ? snapshot.sections : []) {
     if (before.has(JSON.stringify(entry))) continue;
     const [id, data] = parseEntry(entry);
     if (!(typeof data.name === 'string' && data.name.trim().startsWith(CUSTOM_SECTION))) continue;
     for (const key of ['a', 'iz', 'iy', 'j'] as const) {
       const v = asF64(data[key]);
-      if (v !== undefined && !given(Math.abs(v), numbers)) {
+      if (v !== undefined && !given(key, Math.abs(v), quantities)) {
         throw new AiActionError(`section ${id}: ${key} = ${v} is not a value the user gave; use a listed section, or ask the user for its properties`);
       }
     }
