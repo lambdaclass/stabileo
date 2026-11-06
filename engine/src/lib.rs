@@ -20,6 +20,8 @@ pub mod refusal;
 pub mod reproduce;
 pub mod result_sites;
 pub mod ordered;
+#[doc(hidden)]
+pub mod wall_clock;
 #[cfg(kani)]
 mod kani_proofs;
 

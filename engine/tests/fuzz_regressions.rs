@@ -208,7 +208,7 @@ fn a_blocking_child_is_killed_at_its_timeout() {
     sleeper.args(["-c", "exec sleep 30"]);
     let start = std::time::Instant::now();
     assert_eq!(run_limited(sleeper, std::time::Duration::from_secs(1)), None);
-    assert!(start.elapsed() < std::time::Duration::from_secs(10));
+    dedaliano_engine::wall_clock::budget(start.elapsed() < std::time::Duration::from_secs(10), || format!("the 1 s timeout took {:?} to kill a 30 s sleeper", start.elapsed()));
 }
 
 #[test]

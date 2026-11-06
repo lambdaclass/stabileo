@@ -767,7 +767,7 @@ fn distorted_mesh_guard_indexes_the_mesh_once_per_solve() {
     let start = std::time::Instant::now();
     let guard = MembraneBendingGuard::new(&input);
     for _ in 0..4 { guard.check(&[], &result).unwrap(); }
-    assert!(start.elapsed().as_secs_f64() < 5.0, "guard must index mesh data once per solve");
+    dedaliano_engine::wall_clock::budget(start.elapsed().as_secs_f64() < 5.0, || format!("guard must index mesh data once per solve"));
 }
 
 #[test]

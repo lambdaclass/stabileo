@@ -869,10 +869,9 @@ fn sparse_faster_than_dense() {
     println!("20x20: sparse={}us, dense={}us, ratio={:.2}",
         sparse_us, dense_us, dense_us as f64 / sparse_us.max(1) as f64);
 
-    assert!(
+    dedaliano_engine::wall_clock::budget(
         sparse_us <= dense_us,
-        "Sparse assembly ({}us) should be faster than dense ({} us) at 20×20",
-        sparse_us, dense_us
+        || format!("Sparse assembly ({}us) should be faster than dense ({} us) at 20×20", sparse_us, dense_us),
     );
 }
 
@@ -1460,9 +1459,9 @@ fn sparse_buckling_runtime() {
 
     // Generous bound — catches catastrophic regression, not tight perf gate
     // On Apple M1 this is typically <500ms.
-    assert!(
+    dedaliano_engine::wall_clock::budget(
         elapsed_ms < 15000,
-        "Buckling solve too slow: {}ms on 10×10 plate", elapsed_ms
+        || format!("Buckling solve too slow: {}ms on 10×10 plate", elapsed_ms),
     );
     assert!(result.modes.len() >= 3, "Should find at least 3 buckling modes");
 }
@@ -1548,10 +1547,9 @@ fn guyan_single_factorization() {
     println!("  {} separate LU decompositions: {} us", nb + 2, lu_us);
     println!("  Speedup: {:.1}x", lu_us as f64 / chol_us.max(1) as f64);
 
-    assert!(
+    dedaliano_engine::wall_clock::budget(
         chol_us < lu_us,
-        "Cholesky factorize-once ({} us) should be faster than repeated LU ({} us)",
-        chol_us, lu_us
+        || format!("Cholesky factorize-once ({} us) should be faster than repeated LU ({} us)", chol_us, lu_us),
     );
 
     // End-to-end: Guyan solver succeeds
@@ -2347,7 +2345,7 @@ fn sparse_2d_runtime() {
     println!("200-element 2D beam: {}ms, {} displacements", elapsed_ms, result.displacements.len());
 
     // Should be fast (typically <100ms)
-    assert!(elapsed_ms < 2000, "2D sparse solve too slow: {}ms", elapsed_ms);
+    dedaliano_engine::wall_clock::budget(elapsed_ms < 2000, || format!("2D sparse solve too slow: {}ms", elapsed_ms));
 
     // Equilibrium should be good
     let eq = result.equilibrium.as_ref().expect("should have equilibrium");

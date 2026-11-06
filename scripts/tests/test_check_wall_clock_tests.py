@@ -1,4 +1,4 @@
-"""check-wall-clock-tests.py: no engine test in the shared suite asserts on elapsed wall-clock time."""
+"""check-wall-clock-tests.py: engine wall-clock budgets go through wall_clock::budget and stay out of the shared suite."""
 import importlib.util
 from pathlib import Path
 import tempfile
@@ -21,10 +21,18 @@ mod tests {{
         let t0 = std::time::Instant::now();
         work();
         let dt = t0.elapsed();
-        assert!(dt.as_secs_f64() < 1.0, "took {{dt:?}}");
+        crate::wall_clock::budget(dt.as_secs_f64() < 1.0, || format!("took {{dt:?}}"));
     }}
 }}
 '''
+
+RAW_ASSERT = 'assert!(dt.as_secs_f64() < 1.0, "took {dt:?}")'
+BUDGET = 'crate::wall_clock::budget(dt.as_secs_f64() < 1.0, || format!("took {dt:?}"))'
+
+
+def raw(source):
+    assert BUDGET in source
+    return source.replace(BUDGET, RAW_ASSERT)
 
 
 def violations(files):
@@ -41,10 +49,27 @@ class WallClockTests(unittest.TestCase):
     def test_the_repository_has_none(self):
         self.assertEqual(check.violations(), [])
 
-    def test_a_timed_assertion_in_the_suite_fails(self):
+    def test_a_budget_in_the_suite_fails(self):
         found = violations({'engine/src/a.rs': TIMED.format(name='budget')})
         self.assertEqual(len(found), 1)
-        self.assertTrue(found[0].startswith('engine/src/a.rs:4 a::tests::budget: asserts on wall-clock time'), found)
+        self.assertTrue(found[0].startswith('engine/src/a.rs:4 a::tests::budget: has a wall-clock budget'), found)
+
+    def test_a_timed_assert_macro_fails_even_where_engine_gates_runs_it(self):
+        listed = raw(TIMED.format(name='listed_budget').replace('#[test]\n', '#[test]\n    #[ignore = "wall clock"]\n'))
+        for path, source in [('engine/src/a.rs', raw(TIMED.format(name='budget'))), ('engine/src/a.rs', listed),
+                             ('engine/tests/perf_regression_gates.rs', raw(TIMED.format(name='x'))),
+                             ('engine/tests/sparse_shell_gates.rs', raw(TIMED.format(name='y')))]:
+            with self.subTest(path=path, source=source):
+                found = violations({path: source})
+                self.assertEqual(len(found), 1)
+                self.assertIn(': asserts on wall-clock time (assert!(dt.as_secs_f64() < 1.0', found[0])
+                self.assertIn('use wall_clock::budget', found[0])
+
+    def test_a_budget_spread_over_lines_is_found(self):
+        source = TIMED.format(name='budget').replace(BUDGET, 'dedaliano_engine::wall_clock::budget(\n            dt.as_secs_f64() < 1.0,\n            || format!("took {dt:?}"),\n        )')
+        found = violations({'engine/tests/other.rs': source})
+        self.assertEqual(len(found), 1)
+        self.assertIn('has a wall-clock budget (wall_clock::budget( dt.as_secs_f64() < 1.0,', found[0])
 
     def test_ignored_and_listed_passes_but_either_alone_fails(self):
         ignored = TIMED.format(name='listed_budget').replace('#[test]\n', '#[test]\n    #[ignore = "wall clock"]\n')
@@ -66,7 +91,7 @@ class WallClockTests(unittest.TestCase):
         for macro in ['assert!(dt.as_secs() < 1)', 'assert_eq!(dt.as_secs(), 0)', 'assert_ne!(dt.as_secs(), 9)',
                       'debug_assert!(dt.as_secs() < 1)', 'debug_assert_eq!(dt.as_secs(), 0)', 'debug_assert_ne!(dt.as_secs(), 9)']:
             with self.subTest(macro=macro):
-                source = TIMED.format(name='m').replace('assert!(dt.as_secs_f64() < 1.0, "took {dt:?}")', macro)
+                source = TIMED.format(name='m').replace(BUDGET, macro)
                 self.assertIn(macro, source)
                 self.assertEqual(len(violations({'engine/src/a.rs': source})), 1)
 
@@ -74,6 +99,7 @@ class WallClockTests(unittest.TestCase):
         self.assertEqual(violations({'engine/tests/perf_regression_gates.rs': TIMED.format(name='x'),
                                      'engine/tests/sparse_shell_gates.rs': TIMED.format(name='y')}), [])
         self.assertEqual(len(violations({'engine/tests/other.rs': TIMED.format(name='z')})), 1)
+        self.assertEqual(len(violations({'engine/tests/perf_regression_gates.rs': raw(TIMED.format(name='x'))})), 1)
 
     def test_timing_through_collections_and_multiline_asserts_is_caught(self):
         source = '''

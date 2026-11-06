@@ -1,6 +1,8 @@
-"""Fail on an engine #[test] that asserts on elapsed wall-clock time and could run in the shared
-engine suite. Such a test must be #[ignore] and named in the Makefile's GATE_TIMED_IGNORED (run
-alone in Engine Gates), or live in a module Engine Gates runs (GATE_MODULES, GATE_TIMED_MODULES)."""
+"""Fail on an engine #[test] that asserts on elapsed wall-clock time with an assert macro: the
+budget goes through wall_clock::budget, which pull-request and merge-queue runs report instead
+of failing on. A test with a budget must be #[ignore] and named in the Makefile's
+GATE_TIMED_IGNORED (run alone in Engine Gates), or live in a module Engine Gates runs
+(GATE_MODULES, GATE_TIMED_MODULES)."""
 import pathlib
 import re
 import sys
@@ -136,6 +138,11 @@ def asserts_on_time(body):
     return hits
 
 
+def budget_calls(body):
+    text = '\n'.join(body)
+    return [' '.join(('wall_clock::budget' + balanced(text, m.end() - 1)).split()) for m in re.finditer(r'\bwall_clock::budget\s*\(', text)]
+
+
 def violations(root=ROOT):
     makefile = (root / 'Makefile').read_text()
     listed = set(re.findall(r'test\(=([\w:]+)\)', makefile_var(makefile, 'GATE_TIMED_IGNORED')))
@@ -143,15 +150,19 @@ def violations(root=ROOT):
                   for m in (makefile_var(makefile, 'GATE_MODULES') + ' ' + makefile_var(makefile, 'GATE_TIMED_MODULES')).split()}
     out = []
     for path in sorted((root / 'engine').rglob('*.rs')):
-        if 'target' in path.relative_to(root).parts or path in gate_files:
+        if 'target' in path.relative_to(root).parts:
             continue
         module = module_of(path.relative_to(root))
         for inner, ignored, body, line in tests(path.read_text()):
             name = '::'.join(module + [inner])
-            hits = asserts_on_time(body)
-            if hits and not (ignored and name in listed):
-                out.append(f'{path.relative_to(root)}:{line} {name}: asserts on wall-clock time ({hits[0]}); '
-                           'count the work instead, or #[ignore] it and add it to GATE_TIMED_IGNORED')
+            where = f'{path.relative_to(root)}:{line} {name}'
+            raw = asserts_on_time(body)
+            if raw:
+                out.append(f'{where}: asserts on wall-clock time ({raw[0]}); count the work instead, '
+                           'or use wall_clock::budget so pull-request runs report the overrun instead of failing')
+            elif budget_calls(body) and path not in gate_files and not (ignored and name in listed):
+                out.append(f'{where}: has a wall-clock budget ({budget_calls(body)[0]}); '
+                           '#[ignore] it and add it to GATE_TIMED_IGNORED')
     return out
 
 

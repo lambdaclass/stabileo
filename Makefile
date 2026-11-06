@@ -505,6 +505,7 @@ test.ci-scripts: test.nightly-scripts check.cadence
 	python3 -B -I scripts/tests/test_ci_scripts_target.py
 	python3 -B -I scripts/tests/test_benchmark_gate.py
 	python3 -B -I scripts/tests/test_invariance_gate.py
+	python3 -B -I scripts/tests/test_engine_wall_clock_gate.py
 	python3 -B -I scripts/tests/test_verify_changes.py
 	$(NIX_RUN) bash -c 'shellcheck -S warning .github/scripts/*.sh'
 	$(NIX_RUN) actionlint .github/workflows/ci.yml .github/workflows/research.yml .github/workflows/merge-queue-supersede.yml .github/workflows/post-merge.yml .github/workflows/infra-retry.yml .github/workflows/stop-failed-run.yml .github/workflows/nightly.yml .github/workflows/route-size.yml .github/workflows/issue-reproducers.yml .github/workflows/verify.yml
