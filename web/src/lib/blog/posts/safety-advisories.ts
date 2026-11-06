@@ -20,7 +20,7 @@ export const safetyAdvisories: Post = {
   slug: 'safety-advisories',
   date: '2026-10-20',
   updated: '2026-10-28',
-  order: 6,
+  order: 7,
   authors: ['Federico Carrone'],
   tagKeys: ['blog.tag.safety', 'blog.tag.verification'],
   i18n: {

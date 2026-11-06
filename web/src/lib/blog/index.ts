@@ -20,6 +20,8 @@ import { sameModelSameNumbers } from './posts/same-model-same-numbers';
 import { researchToolsAndCheckingOurTests } from './posts/research-tools-and-checking-our-tests';
 import { whenResultsChange } from './posts/when-results-change';
 import { stepByStepCourse } from './posts/step-by-step-course';
+import { jaie2026Talk } from './posts/jaie-2026-talk';
+import { tiic2026SecondPlace } from './posts/tiic-2026-second-place';
 
 /**
  * By `order`, not by date.
@@ -42,6 +44,8 @@ export const POSTS: Post[] = [
   researchToolsAndCheckingOurTests,
   whenResultsChange,
   stepByStepCourse,
+  jaie2026Talk,
+  tiic2026SecondPlace,
 ].sort((a, b) => a.order - b.order);
 
 addTranslations(POSTS, (p) => p.slug, import.meta.glob(['./translations/*/*.ts', '!./translations/*/page-*.ts'], { eager: true, import: 'default' }));
