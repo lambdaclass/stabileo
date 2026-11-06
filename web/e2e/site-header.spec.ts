@@ -14,10 +14,11 @@ const PAGES: Array<[string, string | null]> = [
   ['/en/blog/', 'blog'],
   ['/en/blog/the-determinism-boundary/', 'blog'],
   ['/en/cirsoc/', null],
-  ['/en/changelog/', 'changelog'],
-  ['/en/paper/', 'paper'],
+  ['/en/changelog/', 'blog'],
+  ['/en/paper/', 'research'],
   ['/en/research/', 'research'],
   ['/en/tools/', 'tools'],
+  ['/en/examples/', 'examples'],
   ...EXPERIMENTS.map(({ path }): [string, string] => [`/en${path}/`, 'research']),
 ];
 

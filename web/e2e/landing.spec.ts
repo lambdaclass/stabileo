@@ -129,21 +129,22 @@ test.describe('@landing landing page', () => {
     expect(widths.landing).toBeLessThanOrEqual(widths.view);
   });
 
-  test('the nav\'s Changelog item, beside Blog, opens the whole history, and the landing ends at the blog', async ({ page }) => {
+  test('the changelog is reached from the blog\'s header and the footer, not the nav, and the landing ends at the blog', async ({ page }) => {
     await bootLanding(page, { locale: 'es' });
     await expect(page.locator('#changelog')).toHaveCount(0);
     await expect(page.locator('.landing [data-section]').last()).toHaveAttribute('data-section', 'blog');
+    await expect(page.locator('nav.site-header [data-nav="changelog"]')).toHaveCount(0);
+    await expect(page.locator('footer.lp-footer a[href="/es/changelog/"]')).toHaveText('Historial de cambios');
 
-    const blog = page.locator('nav.site-header .nav-links a[data-nav="blog"]');
-    await expect(blog).toHaveCount(1);
-    const changelog = page.locator('nav.site-header .nav-links a[data-nav="blog"] + a');
-    await expect(changelog).toHaveAttribute('data-nav', 'changelog');
-    await expect(changelog).toHaveText('Changelog');
-    await expect(changelog).toHaveAttribute('href', '/es/changelog/');
+    await page.locator('nav.site-header .nav-links a[data-nav="blog"]').click();
+    await expect(page).toHaveURL(/\/es\/blog\/$/);
+    const changelog = page.locator('.blog-head a[href="/es/changelog/"]');
+    await expect(changelog).toHaveText('Historial de cambios');
     await changelog.click();
     await expect(page).toHaveURL(/\/es\/changelog\/$/);
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Historial de cambios de Stabileo');
     await expect(page.getByTestId('changelog-entry').first()).toBeVisible();
+    await expect(page.locator('nav.site-header [aria-current="page"]')).toHaveAttribute('data-nav', 'blog');
   });
 
   test('the nav\'s Blog item opens the blog, not the teaser at the foot of the page', async ({ page }) => {

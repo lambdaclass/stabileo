@@ -3,30 +3,33 @@
  * `section` items are parts of the landing (scrolled to there, linked to from elsewhere); `page`
  * items are pages of their own.
  */
+export type NavPage = 'examples' | 'tools' | 'research' | 'blog';
+
 export type NavItem =
   | { kind: 'section'; id: string; key: string }
-  | { kind: 'page'; id: 'blog' | 'changelog' | 'research' | 'paper' | 'tools' | 'examples'; to: string; key: string };
+  | { kind: 'page'; id: NavPage; to: string; key: string };
 
 export const SITE_NAV: NavItem[] = [
-  { kind: 'section', id: 'basic', key: 'landing.navBasic' },
-  { kind: 'section', id: 'pro', key: 'landing.navPro' },
-  { kind: 'section', id: 'ai', key: 'landing.navAi' },
-  { kind: 'section', id: 'education', key: 'landing.navEducation' },
-  { kind: 'section', id: 'pricing', key: 'landing.navPricing' },
+  { kind: 'section', id: 'basic', key: 'landing.navProduct' },
   { kind: 'page', id: 'examples', to: '/examples', key: 'landing.navExamples' },
   { kind: 'page', id: 'tools', to: '/tools', key: 'landing.navTools' },
-  { kind: 'page', id: 'blog', to: '/blog', key: 'landing.navBlog' },
-  { kind: 'page', id: 'changelog', to: '/changelog', key: 'landing.navChangelog' },
-  { kind: 'page', id: 'paper', to: '/paper', key: 'landing.navPaper' },
   { kind: 'page', id: 'research', to: '/research', key: 'landing.navResearch' },
+  { kind: 'section', id: 'pricing', key: 'landing.navPricing' },
+  { kind: 'page', id: 'blog', to: '/blog', key: 'landing.navBlog' },
 ];
 
-export type NavCurrent = 'blog' | 'changelog' | 'research' | 'paper' | 'tools' | 'examples' | null;
+export type NavCurrent = NavPage | null;
 
-/** Active public section, including nested articles and tools. */
+const UNDER: Array<[string, NavPage]> = [
+  ...SITE_NAV.flatMap((item): Array<[string, NavPage]> => (item.kind === 'page' ? [[item.to, item.id]] : [])),
+  ['/paper', 'research'],
+  ['/changelog', 'blog'],
+];
+
+/** Active public section, including nested articles and tools; the paper sits under research and the changelog under the blog. */
 export function currentNav(path: string): NavCurrent {
-  for (const item of SITE_NAV) {
-    if (item.kind === 'page' && (path === item.to || path.startsWith(item.to + '/'))) return item.id;
+  for (const [to, id] of UNDER) {
+    if (path === to || path.startsWith(to + '/')) return id;
   }
   return null;
 }
