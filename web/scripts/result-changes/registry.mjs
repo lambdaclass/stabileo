@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
-import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -72,7 +72,7 @@ export function landingsAt(git, rev) {
     git('cat-file', '-e', `${commits[anchor].sha}^1^{commit}`);
   } catch (e) {
     {
-      const shallowFile = git('rev-parse', '--git-path', 'shallow').trim();
+      const shallowFile = join(git('rev-parse', '--absolute-git-dir').trim(), 'shallow'); const st = existsSync(shallowFile) ? statSync(shallowFile) : null; console.error('REGISTRY-SHALLOW-MTIME', st && st.mtime.toISOString(), st && st.ctime.toISOString());
       console.error('REGISTRY-DEBUG', JSON.stringify({ anchor: commits[anchor].sha, commits: commits.length, gitDir: git('rev-parse', '--absolute-git-dir').trim(), shallowFile, shallow: existsSync(shallowFile) ? readFileSync(shallowFile, 'utf8') : null, env: Object.fromEntries(Object.entries(process.env).filter(([k]) => k.startsWith('GIT'))), cwd: process.cwd(), err: String(e.stderr ?? e.message) }));
     }
     if (git('rev-parse', '--is-shallow-repository').trim() === 'true') throw missing();
