@@ -29,6 +29,27 @@ class PlaywrightInstall(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertEqual(calls, [])
 
+    def test_the_store_root_is_never_written(self):
+        code, calls = run({'PLAYWRIGHT_BROWSERS_PATH': '/nix/store'})
+        self.assertEqual(code, 0)
+        self.assertEqual(calls, [])
+
+    def test_a_non_canonical_store_path_is_never_written(self):
+        for path in ('/nix/./store/abc-playwright-browsers', '/nix//store/abc', '/tmp/../nix/store/abc'):
+            code, calls = run({'PLAYWRIGHT_BROWSERS_PATH': path})
+            self.assertEqual((code, calls), (0, []), path)
+
+    def test_a_symlink_into_the_store_is_never_written(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            link = pathlib.Path(tmp) / 'browsers'
+            link.symlink_to('/nix/store/abc-playwright-browsers')
+            code, calls = run({'PLAYWRIGHT_BROWSERS_PATH': str(link)})
+            self.assertEqual((code, calls), (0, []))
+            nested = pathlib.Path(tmp) / 'parent'
+            nested.symlink_to('/nix/store')
+            code, calls = run({'PLAYWRIGHT_BROWSERS_PATH': str(nested / 'abc')})
+            self.assertEqual((code, calls), (0, []))
+
     def test_skip_download_installs_nothing(self):
         code, calls = run({'PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD': '1'})
         self.assertEqual(code, 0)
@@ -41,7 +62,7 @@ class PlaywrightInstall(unittest.TestCase):
 
     def test_every_makefile_install_goes_through_the_guard(self):
         makefile = (ROOT / 'Makefile').read_text()
-        self.assertNotIn('npx playwright install chromium', makefile)
+        self.assertNotIn('npx playwright install', makefile)
         self.assertIn('PLAYWRIGHT_INSTALL = bash scripts/playwright-install.sh', makefile)
 
 
