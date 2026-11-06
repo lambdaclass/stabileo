@@ -5,7 +5,7 @@ use crate::linalg::sparse::CscMatrix;
 use super::dof::DofNumbering;
 
 /// Maps 12-DOF element indices to 14-DOF positions, skipping warping DOFs 6 and 13.
-const DOF_MAP_12_TO_14: [usize; 12] = [0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12];
+pub(crate) const DOF_MAP_12_TO_14: [usize; 12] = [0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12];
 
 /// Assembly result: global stiffness matrix and force vector.
 pub struct AssemblyResult {
