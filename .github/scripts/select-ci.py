@@ -32,21 +32,16 @@ SITE_EXCLUDED = ('web/package.json', 'web/package-lock.json', 'web/src/lib/wasm/
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
-def strip_ts_comments(text):
-    text = re.sub(r'/\*.*?\*/', '', text, flags=re.S)
-    return re.sub(r'//[^\n]*', '', text)
-
-
 def discover_slow_specs(e2e_dir):
     helpers = {
         p.stem for p in e2e_dir.glob('*.ts')
-        if not p.name.endswith('.spec.ts') and '@slow' in strip_ts_comments(p.read_text())
+        if not p.name.endswith('.spec.ts') and '@slow' in p.read_text()
     }
     specs = []
     for p in sorted(e2e_dir.glob('*.spec.ts')):
         if p.name == 'rc-design-visual.spec.ts':
             continue
-        code = strip_ts_comments(p.read_text())
+        code = p.read_text()
         imports = set(re.findall(r'''from\s+['"]\./([^'"]+)['"]''', code))
         if '@slow' in code or (imports & helpers):
             specs.append(p.name)
@@ -130,6 +125,8 @@ def slow_specs_for_path(path):
         return ()
     if path.startswith('web/src/') and (path.endswith('.test.ts') or '/__tests__/' in path):
         return ()
+    if path in ('web/scripts/e2e-shard.mjs', 'web/playwright.config.ts') or path.startswith('web/e2e/shard-timings'):
+        return ALL_SLOW_SPECS
     if path.startswith('web/scripts/') and not path.startswith(('web/scripts/prerender', 'web/scripts/translation-gate')):
         return ()
     if path.startswith(('research/', 'web/src/components/research/', 'web/public/research-wasm')):

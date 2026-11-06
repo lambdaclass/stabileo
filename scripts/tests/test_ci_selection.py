@@ -518,7 +518,7 @@ exit 0
         flat = [f for shard in assigned for f in shard]
         self.assertEqual(sorted(flat), ['e2e/basic-advanced-sweep-2d-a.spec.ts', 'e2e/design-desk.spec.ts'])
         self.assertEqual(sum(1 for shard in assigned if not shard), selection.E2E_SHARDS - 2)
-        for bad in ['not-json', '[]', '["nonexistent-spec.spec.ts"]']:
+        for bad in ['not-json', '[]', '["nonexistent-spec.spec.ts"]', '["design-desk.spec.ts", "missing.spec.ts"]', '["design-desk.spec.ts", 7]']:
             with self.subTest(bad=bad):
                 proc = subprocess.run(
                     ['node', str(shard_script), '--suite', 'slow', '1', '1'],
@@ -529,6 +529,18 @@ exit 0
                     check=True,
                 )
                 self.assertGreater(len(proc.stdout.split()), 100)
+
+    def test_shard_runner_and_playwright_config_select_all_slow_specs(self):
+        for path in ['web/scripts/e2e-shard.mjs', 'web/playwright.config.ts', 'web/e2e/shard-timings-slow.json']:
+            with self.subTest(path=path):
+                self.assertEqual(selection.slow_specs_for_path(path), selection.ALL_SLOW_SPECS)
+
+    def test_slow_tag_inside_a_string_with_slashes_is_discovered(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            e2e = Path(tmp)
+            (e2e / 'url-title.spec.ts').write_text("test('https://example.test @slow', async () => {});\n")
+            (e2e / 'fast.spec.ts').write_text("test('fast', async () => {});\n")
+            self.assertEqual(selection.discover_slow_specs(e2e), ('url-title.spec.ts',))
 
 
 if __name__ == '__main__':

@@ -79,9 +79,10 @@ function selectedSpecFiles(suite) {
   try {
     const raw = JSON.parse(process.env.E2E_SLOW_SPECS);
     if (!Array.isArray(raw) || raw.length === 0) return all;
-    const wanted = new Set(raw.filter((s) => typeof s === 'string').map((s) => s.replace(/^e2e\//, '')));
+    if (!raw.every((s) => typeof s === 'string')) return all;
+    const wanted = new Set(raw.map((s) => s.replace(/^e2e\//, '')));
     const matched = all.filter((f) => wanted.has(f));
-    return matched.length > 0 ? matched : all;
+    return matched.length === wanted.size ? matched : all;
   } catch {
     return all;
   }
