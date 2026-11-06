@@ -950,3 +950,37 @@ fn harmonic_c2_symmetric_frame_matches_direct_solve() {
     }
     assert_eq!(tally.status("harmonic", "symmetry"), "holds", "{}", tally.report());
 }
+
+#[test]
+fn a_mirrored_frame_flips_what_acts_along_local_z() {
+    let s: SolverInput3D = serde_json::from_value(json!({
+        "nodes": {
+            "1": {"id": 1, "x": 0.0, "y": 0.0, "z": 0.0},
+            "2": {"id": 2, "x": 3.0, "y": 1.0, "z": 2.0},
+            "3": {"id": 3, "x": 5.0, "y": 1.5, "z": 4.0}
+        },
+        "materials": {"1": {"id": 1, "e": 200000.0, "nu": 0.3}},
+        "sections": {"1": {"id": 1, "a": 0.01, "iy": 2e-4, "iz": 1e-4, "j": 5e-5, "shearCenterY": 0.02, "shearCenterZ": 0.05}},
+        "elements": {
+            "1": {"id": 1, "type": "frame", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1},
+            "2": {"id": 2, "type": "frame", "nodeI": 2, "nodeJ": 3, "materialId": 1, "sectionId": 1}
+        },
+        "supports": {"1": {"nodeId": 1, "rx": true, "ry": true, "rz": true, "rrx": true, "rry": true, "rrz": true}},
+        "loads": [
+            {"type": "thermal", "data": {"elementId": 1, "dtUniform": 0.0, "dtGradientY": 0.0, "dtGradientZ": 40.0, "alpha": 1.2e-5}},
+            {"type": "distributed", "data": {"elementId": 2, "qYI": 1.0, "qYJ": 1.0, "qZI": -3.0, "qZJ": -1.0}},
+            {"type": "pointOnElement", "data": {"elementId": 1, "a": 1.5, "py": 0.5, "pz": 2.0}},
+            {"type": "nodal", "data": {"nodeId": 3, "fx": -40.0, "fy": 1.0, "fz": -2.0, "mx": 0.5, "my": -1.0, "mz": 0.3}}
+        ]
+    }))
+    .unwrap();
+    let c = crate::case::Case3::new("mirror-local-z", s);
+    let analyses: Vec<_> = crate::ana3::rows().into_iter().filter(|a| ["linear", "P-Delta"].contains(&a.name)).collect();
+    for seed in 0..6 {
+        let tally = crate::tally::Tally::default();
+        crate::checks3::check_case(&crate::checks3::Ctx { tally: &tally, rng_seed: seed }, &c, &analyses, &["mirror"]);
+        for a in &analyses {
+            assert_eq!(tally.status(a.name, "mirror"), "holds", "seed {seed}: {}", tally.report());
+        }
+    }
+}
