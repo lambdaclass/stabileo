@@ -3,7 +3,7 @@
   import ExperimentShell from '../shell/ExperimentShell.svelte';
   import ExperimentLink from '../shell/ExperimentLink.svelte';
   import StabileoViewer from '../shell/StabileoViewer.svelte';
-  import Segmented from '../shell/Segmented.svelte';
+  import PaneTabs from '../shell/PaneTabs.svelte';
   import LineChart from '../shauer2025/LineChart.svelte';
   import { Playback } from '../shell/playback.svelte';
   import { num } from '../shell/format';
@@ -23,7 +23,7 @@
   const cantilever = replay.cantilever as CantileverRun;
   const playback = new Playback(140);
   let run = $state.raw<RiserRun>(decodeRiser(replay.riser));
-  let tab = $state<'riser' | 'cantilever'>('riser');
+  let tab = $state<'riser' | 'forces' | 'cantilever'>('riser');
   let pull = $state(1000);
   let lift = $state(186);
   let friction = $state(0.2);
@@ -33,7 +33,7 @@
   let host: HTMLDivElement;
   let worker: Worker | null = null;
 
-  const frames = $derived(tab === 'riser' ? run.frames.length : cantilever.frames.length);
+  const frames = $derived(tab === 'cantilever' ? cantilever.frames.length : run.frames.length);
   const shown = $derived(Math.min(playback.shown, frames - 1));
   const frame = $derived(run.frames[Math.min(shown, run.frames.length - 1)]);
   const atDefaults = $derived(run.params.pull === 1e6 && run.params.lift === 186 && run.params.friction === 0.2);
@@ -67,7 +67,7 @@
 
   function stop() { playback.interact(); worker?.terminate(); worker = null; busy = false; }
   function compute() {
-    stop(); busy = true; failed = false; tab = 'riser';
+    stop(); busy = true; failed = false; if (tab === 'cantilever') setTab('riser');
     const active = new Worker(new URL('./sim.worker.ts', import.meta.url), { type: 'module' });
     worker = active;
     active.onmessage = event => {
@@ -82,7 +82,17 @@
     active.postMessage({ pull: pull * 1000, lift, friction });
   }
   function restart() { stop(); playback.seek(0); playback.play(); }
-  function switchTab() { playback.setCount(frames); playback.seek(0); playback.play(); }
+  function setTab(next: string) {
+    if (next !== 'riser' && next !== 'forces' && next !== 'cantilever') return;
+    const swapped = (next === 'cantilever') !== (tab === 'cantilever');
+    tab = next;
+    if (swapped) { playback.setCount(frames); playback.seek(0); playback.play(); }
+  }
+  function goToStep(step: number) {
+    if (tab === 'cantilever') setTab('riser');
+    playback.interact();
+    playback.seek(run.frames.findLastIndex(f => f.step === step + 1));
+  }
 
   onMount(() => {
     playback.setCount(run.frames.length);
@@ -94,15 +104,19 @@
   onDestroy(() => { stop(); playback.dispose(); });
 </script>
 
-<ExperimentShell paperId="gay-neto-2014" name={s.title} lead={s.lead} introInArticle compactHeader wide locale={publicI18n.locale}
+<ExperimentShell paperId="gay-neto-2014" name={s.title} lead={s.lead} introInArticle compactHeader locale={publicI18n.locale}
   sourcePath="research/mechanics/gay-neto-2014"
   verification={{ reference: { kind: 'checks', passed: validation.checks.filter(c => c.passed).length, total: validation.checks.length, href: '#checks' } }}
-  actions={{ goToStep: i => { playback.seek(i); }, setParams: () => {}, showTab: t => { if (t === 'riser' || t === 'cantilever') { tab = t; switchTab(); } } }}>
+  actions={{ goToStep, setParams: () => {}, showTab: setTab }}>
   {#snippet article()}
-    <h2>{s.model}</h2><p>{s.theory}</p><p>{s.method}</p><p>{s.comparison}</p>
-    <p><ExperimentLink tab="riser">{s.riser}</ExperimentLink> · <ExperimentLink tab="cantilever">{s.cantilever}</ExperimentLink></p>
+    <h2>{s.model}</h2>
+    <p>{s.theory}</p>
+    <p>{s.method}</p>
+    <p>{#each s.steps as label, i}{#if i > 0}{' · '}{/if}<ExperimentLink step={i}>{i + 1}. {label}</ExperimentLink>{/each}</p>
+    <p>{s.comparison}</p>
+    <p><ExperimentLink tab="forces">{s.forces}</ExperimentLink> · <ExperimentLink tab="cantilever">{s.cantilever}</ExperimentLink></p>
     <h2 id="checks">{s.checks}</h2>
-    <dl>
+    <dl class="checks">
       {#each validation.checks as check}
         <dt>{s.checkLabels[check.metric] ?? check.metric}</dt>
         <dd>{num(check.observed, { sig: 3 })} · {shared.tolerance} {num(check.tolerance, { sig: 3 })}</dd>
@@ -112,55 +126,75 @@
     <p><a href="https://github.com/alfredogneto/GIRAFFE/tree/1b8241ed337e79d29e0b65262a4ec340e2f1f443">{s.code}</a> · <a href="https://github.com/lambdaclass/stabileo/tree/main/research/mechanics/gay-neto-2014/inputs">{s.inputs}</a></p>
   {/snippet}
   {#snippet app()}
-    <div lang={publicI18n.locale} class="riser-app" bind:this={host} data-source={source} data-step={shown} data-tab={tab}
+    <div lang={publicI18n.locale} class="riser-pane" bind:this={host} data-source={source} data-step={shown} data-tab={tab}
       data-touchdown={run.summary.touchdown} data-moment-min={run.summary.moment_min}
       onpointerdowncapture={() => playback.interact()} onkeydowncapture={() => playback.interact()} onwheelcapture={() => playback.interact()} role="group" aria-label={s.title}>
-      <Segmented label={s.caseLabel} options={[{ id: 'riser', label: s.riser }, { id: 'cantilever', label: s.cantilever }]} bind:value={tab} onchange={switchTab} />
-      <p>{source === 'replay' || tab === 'cantilever' ? shared.replaySource : shared.liveSource}</p>
-      {#if tab === 'riser'}
+      <PaneTabs label={s.caseLabel} tabs={[{ id: 'riser', label: s.riser }, { id: 'forces', label: s.forces }, { id: 'cantilever', label: s.cantilever }]}
+        bind:active={() => tab, setTab} oninteract={() => playback.interact()} />
+      <p class="source">{source === 'replay' || tab === 'cantilever' ? shared.replaySource : shared.liveSource}</p>
+      <div id="rs-panel-riser" role="tabpanel" aria-labelledby="rs-tab-riser" hidden={tab !== 'riser'}>
         <StabileoViewer editorButton={false} xy={riserXY} cells={riserCells} cellSize={2} values={riserValues} displacement={riserDisplacement} deformScale={1}
-          range={{ min: -300, max: 300 }} colourMap="diverging" title={s.moment} unit="N·m" height="17rem" view={[-30, -250, 1060, 230]} lineWidth={4} showAxes={false} lengthUnit="m" />
-        <p>{s.coordinates}</p>
-        <p><strong>{s.steps[frame.step - 1]}</strong> · {shared.step} {shown + 1}/{run.frames.length}</p>
-      {:else}
-        <StabileoViewer editorButton={false} xy={beamXY} cells={beamCells} cellSize={2} values={nodal(beam.m)} displacement={beamDisplacement} deformScale={1}
-          range={{ min: -900, max: 900 }} colourMap="diverging" title={s.moment} unit="N·m" height="17rem" view={[-0.2, -0.1, 1.1, 1.1]} lineWidth={8} showAxes={false} lengthUnit="m" />
-        <p>{s.cantileverNote}</p>
+          range={{ min: -300, max: 300 }} colourMap="diverging" title={s.moment} unit="N·m" height="max(240px, min(20rem, 38svh))" view={[-30, -330, 1300, 220]} lineWidth={4} showAxes={false} lengthUnit="m" />
+        <p class="caption">{s.coordinates}</p>
+      </div>
+      <div id="rs-panel-forces" role="tabpanel" aria-labelledby="rs-tab-forces" hidden={tab !== 'forces'}>
+        {#if tab === 'forces'}
+          <LineChart dataTable series={momentSeries} xLabel={s.length} yLabel={`${s.moment} (N·m)`} height={210} />
+          <LineChart series={shearSeries} xLabel={s.length} yLabel={`${s.shear} (N)`} height={210} />
+          {#if atDefaults && lastFrame}<p class="caption">{s.defaults}</p>{/if}
+        {/if}
+      </div>
+      <div id="rs-panel-cantilever" role="tabpanel" aria-labelledby="rs-tab-cantilever" hidden={tab !== 'cantilever'}>
+        {#if tab === 'cantilever'}
+          <StabileoViewer editorButton={false} xy={beamXY} cells={beamCells} cellSize={2} values={nodal(beam.m)} displacement={beamDisplacement} deformScale={1}
+            range={{ min: -900, max: 900 }} colourMap="diverging" title={s.moment} unit="N·m" height="max(220px, min(17rem, 32svh))" view={[-0.2, -0.1, 1.1, 1.1]} lineWidth={8} showAxes={false} lengthUnit="m" />
+          <p class="caption">{s.cantileverNote}</p>
+          <LineChart dataTable series={tipSeries} xLabel={s.time} yLabel={`${s.tipX} · ${s.tipZ}`} height={200} marker={beam.t} />
+        {/if}
+      </div>
+      <label class="step">
+        <span>{#if tab !== 'cantilever'}<strong>{s.steps[frame.step - 1]}</strong>{' · '}{/if}{shared.step} {shown + 1}/{frames}</span>
+        <input type="range" min="0" max={frames - 1} value={shown} oninput={e => playback.seek(Number(e.currentTarget.value))} />
+      </label>
+      {#if tab !== 'cantilever'}
+        <div class="params">
+          <label>{s.pull} <strong>{num(pull, { dp: 0 })} kN</strong><input type="range" min="300" max="2000" step="50" bind:value={pull} /></label>
+          <label>{s.lift} <strong>{num(lift, { dp: 0 })} m</strong><input type="range" min="50" max="190" step="2" bind:value={lift} /></label>
+          <label>{s.friction} <strong>{num(friction, { dp: 2 })}</strong><input type="range" min="0" max="0.6" step="0.05" bind:value={friction} /></label>
+        </div>
       {/if}
-      <label for="riser-step">{shared.step} {shown + 1}</label>
-      <input id="riser-step" type="range" min="0" max={frames - 1} value={shown} oninput={e => playback.seek(Number(e.currentTarget.value))} />
-      {#if tab === 'riser'}
-        <label for="riser-pull">{s.pull} {num(pull, { dp: 0 })} kN</label>
-        <input id="riser-pull" type="range" min="300" max="2000" step="50" bind:value={pull} />
-        <label for="riser-lift">{s.lift} {num(lift, { dp: 0 })} m</label>
-        <input id="riser-lift" type="range" min="50" max="190" step="2" bind:value={lift} />
-        <label for="riser-friction">{s.friction} {num(friction, { dp: 2 })}</label>
-        <input id="riser-friction" type="range" min="0" max="0.6" step="0.05" bind:value={friction} />
-        <div class="buttons"><button onclick={compute} disabled={busy}>{s.run}</button><button onclick={stop}>{s.stop}</button><button onclick={restart}>{s.restart}</button></div>
-        {#if busy}<p aria-live="polite">{s.computing}</p>{/if}
-        {#if failed}<p role="alert">{s.error}</p>{/if}
+      <div class="buttons">
+        {#if tab !== 'cantilever'}<button onclick={compute} disabled={busy}>{s.run}</button>{/if}
+        <button onclick={stop}>{s.stop}</button><button onclick={restart}>{s.restart}</button>
+      </div>
+      {#if busy}<p aria-live="polite">{s.computing}</p>{/if}
+      {#if failed}<p role="alert">{s.error}</p>{/if}
+      {#if tab !== 'cantilever'}
         <dl class="summary">
           <dt>{s.fairlead}</dt><dd>x {num(run.summary.fairlead[0], { dp: 2 })} m · z {num(run.summary.fairlead[1], { dp: 2 })} m</dd>
           <dt>{s.touchdown}</dt><dd>{num(run.summary.touchdown, { dp: 1 })} m</dd>
           <dt>{s.anchor}</dt><dd>{num(run.summary.anchor_tension / 1000, { dp: 1 })} kN</dd>
         </dl>
-        {#if atDefaults && lastFrame}<p>{s.defaults}</p>{/if}
-        <LineChart dataTable series={momentSeries} xLabel={s.length} yLabel={`${s.moment} (N·m)`} height={200} />
-        <LineChart series={shearSeries} xLabel={s.length} yLabel={`${s.shear} (N)`} height={200} />
-      {:else}
-        <LineChart dataTable series={tipSeries} xLabel={s.time} yLabel={`${s.tipX} · ${s.tipZ}`} height={200} marker={beam.t} />
       {/if}
     </div>
   {/snippet}
 </ExperimentShell>
 
 <style>
-  .riser-app { min-width: 0; padding: 0.6rem; border: 1px solid var(--hair); border-radius: 6px; }
-  label { display: block; font-size: 0.85rem; }
-  input[type='range'] { width: 100%; min-height: 44px; }
-  p { font-size: 0.8rem; margin: 0.4rem 0; }
+  .riser-pane { min-width: 0; height: 100%; overflow: auto; display: flex; flex-direction: column; gap: 0.5rem; }
+  [role='tabpanel'] { display: flex; flex-direction: column; gap: 0.5rem; }
+  [role='tabpanel'][hidden] { display: none; }
+  p { font-size: 0.85rem; margin: 0; }
+  .source, .caption { color: var(--fg-2); font-size: 0.8rem; }
+  label { display: flex; flex-direction: column; gap: 0.15rem; font-size: 0.85rem; }
+  input[type='range'] { width: 100%; min-height: 44px; margin: 0; }
+  .params { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: 0 1rem; }
   .buttons { display: flex; flex-wrap: wrap; gap: 0.5rem; }
-  button { min-height: 44px; min-width: 44px; font-size: max(12px, 0.85rem); padding: 0.4rem 0.7rem; border: 1px solid var(--hair); border-radius: 4px; color: var(--fg); background: var(--lp-ink); cursor: pointer; }
-  .summary { display: grid; grid-template-columns: auto 1fr; gap: 0.2rem 0.6rem; font-size: 0.8rem; }
+  button { min-height: 44px; min-width: 44px; font: inherit; font-size: max(12px, 0.85rem); padding: 0.4rem 0.7rem; border: 1px solid var(--hair); border-radius: 4px; color: var(--fg); background: var(--lp-ink); cursor: pointer; }
+  button:disabled { opacity: 0.6; cursor: default; }
+  .summary { display: grid; grid-template-columns: auto 1fr; gap: 0.2rem 0.8rem; font-size: 0.85rem; margin: 0; }
+  .summary dt { color: var(--fg-2); }
   .summary dd { margin: 0; }
+  .checks { display: grid; grid-template-columns: 1fr auto; gap: 0.35rem 1rem; font-size: 0.9rem; line-height: 1.4; }
+  .checks dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
 </style>
