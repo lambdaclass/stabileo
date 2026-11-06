@@ -32,7 +32,7 @@ test.describe('@smoke landing footer sitemap', () => {
     });
   }
 
-  const PAGES = GROUPS.flatMap((g) => g.links.map(([, href]) => href)).filter((h): h is string => typeof h === 'string' && h.startsWith('/en/') && !h.includes('#'));
+  const PAGES = GROUPS.flatMap((g) => g.links.map(([, href]) => href)).flatMap((h) => (typeof h === 'string' && h.startsWith('/en/') && !h.includes('#') ? [h as string] : []));
   for (const href of PAGES) {
     test(`the footer link ${href} opens a real page`, async ({ page }) => {
       await page.goto(href);
