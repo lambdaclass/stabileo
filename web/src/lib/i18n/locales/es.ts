@@ -7,6 +7,7 @@ const es: Record<string, string> = {
   "advanced.modalIncomplete": "Análisis modal rechazado: solo {n} de {m} modos calculados tienen frecuencia positiva (ω² > 0). No se devolvió un conjunto incompleto de modos. Revisá el condicionamiento de rigidez y masa y los apoyos.",
   "advanced.eigenFailure": "Análisis de autovalores rechazado: no se pudo establecer la convergencia ni la completitud de Sturm para {n} grados de libertad libres. No se devolvió un conjunto incompleto de resultados. Revisá apoyos y liberaciones en busca de mecanismos, el condicionamiento de rigidez y masa, o pedí menos modos.",
   "landing.navTools": "Herramientas",
+  "landing.navExamples": "Ejemplos",
 
   // Shared scalar-field viewer
   "scalarViewer.view": "Vista",
@@ -326,7 +327,6 @@ const es: Record<string, string> = {
   'results.verification': "Verificación",
   'resultsTable.diagnostics': "Diagnóstico",
   'blog.allPosts': 'Todas las notas',
-  'blog.backHome': 'Volver a stabileo.com',
   'blog.by': 'Por',
   'blog.embedNote': 'Carga la aplicación real dentro de esta página. No corre nada hasta que lo pidas.',
   'blog.embedOpenFull': 'Abrir en grande',

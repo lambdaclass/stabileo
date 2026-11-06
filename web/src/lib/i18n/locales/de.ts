@@ -9,6 +9,7 @@ const de: Translations = {
   'steps.catalog.title': 'Schritt für Schritt erklärt',
   'steps.catalog.intro': 'Wählen Sie ein Verfahren, um die Lösung Ihres Tragwerks Schritt für Schritt zu sehen. Zu jedem steht, was das Modell erfüllen muss, und ein Beispiel, das es erfüllt.',
   "landing.navTools": "Werkzeuge",
+  "landing.navExamples": "Beispiele",
 
   // ─── Shared scalar-field viewer ───
   'scalarViewer.view': 'Ansicht',
@@ -325,7 +326,6 @@ const de: Translations = {
   'results.verification': 'Verifikation',
   'resultsTable.diagnostics': 'Diagnose',
   'blog.allPosts': 'Alle Beiträge',
-  'blog.backHome': 'Zurück zu stabileo.com',
   'blog.by': 'Von',
   'blog.embedNote': 'Lädt die echte Anwendung in diese Seite. Nichts läuft, bevor Sie es anfordern.',
   'blog.embedOpenFull': 'In voller Größe öffnen',
