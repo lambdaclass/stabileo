@@ -1,6 +1,3 @@
-//! Refusals an export returns as a code the app can branch on, in the shape of a known-issue
-//! refusal: `{"message", "structuredDiagnostics": [..]}` with one error-severity diagnostic.
-
 use crate::types::{DiagnosticCode, Severity, StructuredDiagnostic};
 
 pub fn coded(code: DiagnosticCode, message: &str) -> String {
