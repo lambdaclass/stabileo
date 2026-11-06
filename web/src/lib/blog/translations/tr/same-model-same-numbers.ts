@@ -62,6 +62,7 @@ const body: PostBody = {
       "k": "p",
       "t": "Bu blok sayesinde uygulama bir raporu yeniden üretebilir: projeyi yeniden çözer ve her parmak izini karşılaştırır. Sonuç yalnızca hepsi eşleştiğinde “yeniden üretildi” olur (farklı bir WebAssembly derlemesi yanında belirtilir, fark sayılmaz); biri yeniden hesaplanamadıysa sonuç “yeniden üretildi” değil, “eksik” olur. Aynı girdiyi iki kez çözüp parmak izlerini kontrol eden bir komut satırı aracı da var."
     },
+    {"k": "img", "base": "blog/reproduce", "w": 1600, "h": 1000, "alt": "Kaynak bilgisinden yeniden üretme iletişim kutusuyla Stabileo Basic: bir raporun kaynak bloğunu yapıştırmak ya da kayıtlı raporu yüklemek için bir alan, çözücü girdisini indirme ve yeniden çözüp karşılaştırma düğmeleri.", "caption": "“Dışa aktarılmış raporu doğrula”: açık proje yeniden çözülür ve her parmak izi raporunkiyle karşılaştırılır."},
     {
       "k": "h",
       "t": "Eski projeler bunu belirtir"

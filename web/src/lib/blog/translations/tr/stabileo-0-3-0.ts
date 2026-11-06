@@ -20,6 +20,7 @@ const body: PostBody = {
       "k": "p",
       "t": "Bir tasarım sonucunu en çok değiştirebilecek durumlar bunlardır. Her bildirimde çözümlü örneğin tamamı ve daha önce teslim ettiğiniz sonuçlarla ilgili ne yapılması gerektiği yer alır."
     },
+    {"k": "img", "base": "blog/recheck-notice", "w": 1600, "h": 1000, "alt": "Eylülde kaydedilmiş bir betonarme çerçeveyi açan Stabileo PRO. Bir iletişim kutusu, proje son çözüldüğünden beri sonuçların değiştiğini bildiriyor; aralarında sertifikalarla bulunan çözücü düzeltmeleri ve CIRSOC 201 şekil değiştirme uygunluğu olan, modeli ilgilendiren değişiklikleri listeliyor ve eskimiş sonuçlarla devam etmeden ya da yeniden çözmeden önce okunduklarının işaretlenmesini istiyor.", "caption": "Kendisini ilgilendiren bir düzeltmeden önce çözülmüş bir proje açılırken: uygulama bu değişiklikleri listeliyor ve proje yeniden çözülene kadar sonuçları eskimiş tutuyor."},
     {
       "k": "table",
       "caption": "0.3.0 düzeltmelerinden bazıları: doğru değer ve önceki sürümün verdiği değer.",
