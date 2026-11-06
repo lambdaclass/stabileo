@@ -28,7 +28,7 @@ KANI_MODULES = (
 )
 
 KANI_BUILD = re.compile(
-    r'^((engine/)?Cargo\.(toml|lock)|engine/\.cargo/.*|rust-toolchain(\.toml)?|flake\.(nix|lock)'
+    r'^((engine/)?Cargo\.(toml|lock)|(engine/)?\.cargo/.*|(engine/)?build\.rs|rust-toolchain(\.toml)?|flake\.(nix|lock)'
     r'|scripts/kani[^/]*|\.github/workflows/verify\.yml|\.github/scripts/verify-changes\.py)$')
 
 
