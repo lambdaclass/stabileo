@@ -2145,3 +2145,60 @@ fn buckling_with_nothing_compressed_refuses_with_a_code_in_2d_and_3d() {
         assert_eq!(serde_json::from_str::<serde_json::Value>(&error).unwrap()["message"], "No compressed elements — buckling not applicable");
     }
 }
+
+fn fixed_ended_span_2d(q: f64) -> AnalysisResults {
+    let input = common::make_input(
+        vec![(1, 0.0, 0.0), (2, 1.0, 0.0), (3, 2.0, 0.0)],
+        vec![(1, E, 0.3)],
+        vec![(1, 0.01, 1e-4)],
+        vec![(1, "frame", 1, 2, 1, 1, false, false), (2, "frame", 2, 3, 1, 1, false, false)],
+        vec![(1, 1, "fixed"), (2, 2, "fixed")],
+        vec![
+            SolverLoad::Distributed(SolverDistributedLoad { element_id: 1, q_i: q, q_j: q, a: None, b: None }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: -1.0, my: 0.0 }),
+        ],
+    );
+    solve_2d(&input).unwrap()
+}
+
+fn fixed_ended_span_3d(qy: f64, qz: f64) -> AnalysisResults3D {
+    let input = common::make_3d_input(
+        vec![(1, 0.0, 0.0, 0.0), (2, 1.0, 0.0, 0.0), (3, 2.0, 0.0, 0.0)],
+        vec![(1, E, 0.3)],
+        vec![(1, 0.01, 1e-4, 1e-4, 1e-4)],
+        vec![(1, "frame", 1, 2, 1, 1), (2, "frame", 2, 3, 1, 1)],
+        vec![(1, vec![true; 6]), (2, vec![true; 6])],
+        vec![
+            SolverLoad3D::Distributed(SolverDistributedLoad3D { q_xi: 0.0, q_xj: 0.0, element_id: 1, q_yi: qy, q_yj: qy, q_zi: qz, q_zj: qz, a: None, b: None }),
+            SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: 3, fx: 0.0, fy: 0.0, fz: -1.0, mx: 0.0, my: 0.0, mz: 0.0, bw: None }),
+        ],
+    );
+    dedaliano_engine::solver::linear::solve_3d(&input).unwrap()
+}
+
+#[test]
+#[ignore = "known wrong result: #1506"]
+fn a_rotation_inside_a_fixed_ended_span_is_warned_1506() {
+    let largest = |q: f64| q.abs() / (72.0 * 3f64.sqrt() * 2e4);
+    let loaded = fixed_ended_span_2d(-500_000.0);
+    assert!(largest(500_000.0) > 0.2);
+    assert!(loaded.displacements.iter().filter(|d| d.node_id != 3).all(|d| d.ux == 0.0 && d.uz == 0.0 && d.ry == 0.0), "{:?}", loaded.displacements);
+    assert_eq!(beyond_small_displacement(&loaded.structured_diagnostics).map(|d| (d.node_ids.clone(), d.element_ids.clone())), Some((vec![], vec![1])), "{:?}", ids(&loaded.structured_diagnostics));
+    let light = fixed_ended_span_2d(-100_000.0);
+    assert!(largest(100_000.0) < 0.05);
+    assert!(beyond_small_displacement(&light.structured_diagnostics).is_none(), "{:?}", ids(&light.structured_diagnostics));
+}
+
+#[test]
+#[ignore = "known wrong result: #1506"]
+fn a_rotation_inside_a_fixed_ended_3d_span_is_warned_in_either_plane_1506() {
+    for (qy, qz) in [(-500_000.0, 0.0), (0.0, -500_000.0), (200_000.0, -200_000.0)] {
+        let loaded = fixed_ended_span_3d(qy, qz);
+        assert!(loaded.displacements.iter().filter(|d| d.node_id != 3).all(|d| [d.ux, d.uy, d.uz, d.rx, d.ry, d.rz] == [0.0; 6]), "{:?}", loaded.displacements);
+        assert_eq!(beyond_small_displacement(&loaded.structured_diagnostics).map(|d| (d.node_ids.clone(), d.element_ids.clone())), Some((vec![], vec![1])), "qy {qy} qz {qz}: {:?}", ids(&loaded.structured_diagnostics));
+    }
+    for (qy, qz) in [(-100_000.0, 0.0), (0.0, -100_000.0)] {
+        let light = fixed_ended_span_3d(qy, qz);
+        assert!(beyond_small_displacement(&light.structured_diagnostics).is_none(), "qy {qy} qz {qz}: {:?}", ids(&light.structured_diagnostics));
+    }
+}
