@@ -1,4 +1,5 @@
 import type * as Engine from '../../lib/engine/wasm-solver';
+import { refusedWithCode } from '../../lib/engine/containment-error';
 
 export type EngineApi = typeof Engine;
 
@@ -48,6 +49,20 @@ export type Chart = { key: string; xUnit: string; yUnit: string; points: [number
 export type Outcome =
   | { status: 'ok'; readouts: Readout[]; certificate: Certificate; views: Record<string, View>; charts: Chart[]; notes: string[]; stopped?: { loadFactor: number; reason: string } }
   | { status: 'refused'; code: 'engine' | 'noLoad' | 'nonFinite' | 'barsDoNotFit' | 'needsCrossties'; reason?: string };
+
+export function refusedOutcome(error: unknown): Extract<Outcome, { status: 'refused' }> {
+  const text = error instanceof Error ? error.message : String(error);
+  return { status: 'refused', code: refusedWithCode(error, 'non_finite_result') ? 'nonFinite' : 'engine', reason: engineMessage(text) };
+}
+
+function engineMessage(text: string): string {
+  try {
+    const message = JSON.parse(text.slice(Math.max(0, text.indexOf('{')))).message;
+    return typeof message === 'string' ? message : text;
+  } catch {
+    return text;
+  }
+}
 
 export type EditorModel = { app: 'basic'; model: import('../../lib/engine/types').SolverInput } | { app: 'pro'; model: import('../../lib/engine/types-3d').SolverInput3D };
 

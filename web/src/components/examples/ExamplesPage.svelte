@@ -1,7 +1,6 @@
 <script lang="ts">
   import '../tools/register-i18n';
   import { onDestroy, untrack } from 'svelte';
-  import SiteHeader from '../site/SiteHeader.svelte';
   import LandingFooter from '../landing/LandingFooter.svelte';
   import PublicLink from '../landing/PublicLink.svelte';
   import ScalarFieldViewer from '../viewport/ScalarFieldViewer.svelte';
@@ -97,7 +96,6 @@
 </script>
 
 <div class="landing blog research examples">
-  <SiteHeader current="examples" />
   <main class="sec sec--ink">
     <div class="wrap examples-wrap" class:gallery={!example}>
     {#if example}

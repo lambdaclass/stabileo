@@ -1,6 +1,6 @@
 import * as engine from '../../lib/engine/wasm-solver';
 import { findExample } from './catalog';
-import type { Values } from './define';
+import { refusedOutcome, type Values } from './define';
 
 self.onmessage = async ({ data }: MessageEvent<{ id: string; values: Values; token: number }>) => {
   try {
@@ -10,6 +10,6 @@ self.onmessage = async ({ data }: MessageEvent<{ id: string; values: Values; tok
     const outcome = example.analyses(example.build(data.values), data.values, engine);
     self.postMessage({ token: data.token, outcome });
   } catch (error) {
-    self.postMessage({ token: data.token, outcome: { status: 'refused', code: 'engine', reason: error instanceof Error ? error.message : String(error) } });
+    self.postMessage({ token: data.token, outcome: refusedOutcome(error) });
   }
 };
