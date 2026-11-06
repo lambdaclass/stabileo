@@ -364,5 +364,26 @@ class Workflow(unittest.TestCase):
             self.assertIn('--ignored', workflow.split(name, 1)[1].split('\n', 1)[0])
 
 
+
+class OpenSeesShards(unittest.TestCase):
+    def test_every_opensees_case_runs_in_exactly_one_part_with_its_own_artifacts(self):
+        workflow = (ROOT / '.github/workflows/nightly.yml').read_text()
+        job = workflow[workflow.index('  opensees-diff:'):workflow.index('  codeaster-diff:')]
+        parts = re.search(r'part: \[([^\]]*)\]', job).group(1).split(', ')
+        arms = dict(re.findall(r'\n\s+(\w+)\) cases=\(([^)]*(?:\)\)[^)]*)*)\) ;;', job))
+        self.assertEqual(sorted(arms), sorted(parts))
+        flags = [f for arm in arms.values() for f in re.findall(r'--(\w+)', arm)]
+        source = (ROOT / 'tools/opensees/compare.py').read_text()
+        kinds = re.findall(r"[\"'](\w+)[\"']", re.search(r'^EXT_KINDS = (.*)$', source, re.M).group(1))
+        static = ['fixtures', 'random2d', 'random3d', 'rich2d', 'rich3d', 'plates', 'shells']
+        for case in static:
+            self.assertIn(f'"--{case}"', source)
+        self.assertEqual(len(re.findall(r'ap\.add_argument\("--(?:fixtures|random[23]d|rich[23]d|plates|shells)"', source)), len(static))
+        cases = static + [k + d for k in kinds for d in ('2d', '3d')]
+        self.assertEqual(sorted(flags), sorted(cases))
+        self.assertIn('name: nightly-findings-opensees-${{ matrix.part }}', job)
+        self.assertIn('name: opensees-report-${{ matrix.part }}', job)
+        self.assertIn('fail-fast: false', job)
+
 if __name__ == '__main__':
     unittest.main()
