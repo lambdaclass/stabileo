@@ -640,9 +640,10 @@ pub(crate) struct ScreenModel {
     pub compressed: f64,
 }
 
-/// Compression below this fraction of the largest end force is round-off, not load: only a member
-/// with no bound of its own is let off by it.
-const COMPRESSED: f64 = 1e-10;
+/// Compression below this fraction of the largest end force is f64 round-off, not load: only a
+/// member with no bound of its own is let off by it, so raising it lets an unrelated large force
+/// hide real compression.
+const COMPRESSED: f64 = 1e-13;
 
 fn compressed_above(forces: impl Iterator<Item = f64>) -> f64 {
     COMPRESSED * forces.fold(0.0, |a: f64, f| a.max(f.abs()))
