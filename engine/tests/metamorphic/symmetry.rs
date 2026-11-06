@@ -339,7 +339,7 @@ pub fn check_3d(tally: &Tally, sym: &Sym3, anti: bool, anas: &[Ana3]) {
         if a.name == "moving loads" || a.name == "influence line" {
             continue;
         }
-        let v = match guarded(|| (a.run)(c)) {
+        let v = match guarded(|| (a.run)(c).map(|r| r.tag_shell_families(&c.s))) {
             Err(e) => Verdict::Refused(e),
             Ok(r) => match r.iso3(&sym.iso) {
                 Err(e) => Verdict::Unrepresentable(e),

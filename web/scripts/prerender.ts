@@ -214,6 +214,9 @@ async function newCapturePage(browser: Browser, stars: number | null) {
   // Read the current route on every navigation: reused pages must not accumulate
   // locale-specific init scripts or inherit the previous route's preferences.
   await page.addInitScript(() => {
+    // Capture only the visited route's dependencies, never idle/hover prefetches.
+    Object.defineProperty(navigator, 'connection', { configurable: true, value: { saveData: true } });
+    (window as { __prerenderCapture?: boolean }).__prerenderCapture = true;
     try {
       localStorage.clear();
       sessionStorage.clear();
@@ -231,12 +234,28 @@ async function capture(page: Page, base: string, locale: Locale, path: string) {
   // happens on the address a reader actually lands on.
   const href = path === '/' ? `/${locale}/` : `/${locale}${path}/`;
   await page.goto(base + href, { waitUntil: 'networkidle' });
+  if (/^\/tools\/[^/]+$/.test(path)) await page.waitForSelector('head script[data-prerendered-result]', { state: 'attached', timeout: 60_000 });
   // Network idle is not rendered: a page whose next chunk is requested only after a long main-thread task looks idle in between.
   await waitForRenderedApp(page);
-  const { head, body } = await page.evaluate(() => ({
-    head: document.head.innerHTML,
-    body: document.querySelector('#app')?.innerHTML ?? '',
-  }));
+  const { head, body } = await page.evaluate(() => {
+    const listed = new Set([...document.querySelectorAll<HTMLLinkElement | HTMLScriptElement>('link[rel=modulepreload], script[src]')]
+      .map((e) => new URL(e instanceof HTMLLinkElement ? e.href : e.src).pathname));
+    const loaded = new Set<string>();
+    for (const entry of performance.getEntriesByType('resource') as PerformanceResourceTiming[]) {
+      const path = new URL(entry.name).pathname;
+      if (entry.initiatorType === 'script' && /^\/assets\/[^/]+\.js$/.test(path) && !listed.has(path)) loaded.add(path);
+    }
+    for (const path of [...loaded].sort()) {
+      const link = document.createElement('link');
+      link.rel = 'modulepreload';
+      link.setAttribute('as', 'script');
+      link.crossOrigin = '';
+      link.href = path;
+      document.head.appendChild(link);
+    }
+    for (const control of document.querySelectorAll('#app form, #app input, #app select, #app textarea')) control.setAttribute('inert', '');
+    return { head: document.head.innerHTML, body: document.querySelector('#app')?.innerHTML ?? '' };
+  });
   const lang = await page.evaluate(() => document.documentElement.lang);
   return { head, body, lang, href };
 }

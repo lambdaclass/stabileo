@@ -355,13 +355,13 @@ fn check_single_cfs_member(m: &CfsMemberData, f: &CfsDesignForces) -> CfsCheckRe
     // A capacity that is zero, negative or not finite was read as ratio 0 and
     // the member passed (ry = 0 gave Pn = 0 and passed any compression).
     let mut ledger = CheckLedger::new();
-    let compression_ratio = ledger.ratio_if_loaded(n[0], (-axial).max(0.0), PHI_C * pn);
+    let compression_ratio = ledger.ratio_if_loaded(n[0], crate::check::positive_part(-axial), PHI_C * pn);
     // Without xo the flexural-torsional mode of E2 is unknown: Pn above is the
     // doubly-symmetric value, which overstates a channel's strength.
     if axial < 0.0 && m.xo.is_none() {
         ledger.flag(n[0]);
     }
-    let tension_ratio = ledger.ratio_if_loaded(n[1], axial.max(0.0), PHI_T * tn);
+    let tension_ratio = ledger.ratio_if_loaded(n[1], crate::check::positive_part(axial), PHI_T * tn);
     let flexure_ratio_x = ledger.ratio_if_loaded(n[2], mx.abs(), PHI_B * mn_x);
     let flexure_ratio_y = ledger.ratio_if_loaded(n[3], my.abs(), PHI_B * mn_y);
     let shear_ratio = match vn {

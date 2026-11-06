@@ -12,7 +12,7 @@ import { PUBLIC_KEY_PREFIXES } from '../public-prefixes';
 
 const SRC = join(import.meta.dirname, '../../..');
 /** What Root.svelte renders without the application, and what it imports. */
-const PUBLIC = ['Root.svelte', 'components/LandingPage.svelte', 'components/landing', 'components/blog', 'components/LocaleSelect.svelte', 'lib/blog', 'lib/contact', 'lib/page-meta.ts'];
+const PUBLIC = ['Root.svelte', 'components/LandingPage.svelte', 'components/landing', 'components/site', 'components/blog', 'components/LocaleSelect.svelte', 'lib/blog', 'lib/contact', 'lib/page-meta.ts'];
 
 function files(p: string): string[] {
   const full = join(SRC, p);

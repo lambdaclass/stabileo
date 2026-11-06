@@ -1492,7 +1492,8 @@ def normalize_stabileo(res, dim):
         keys = [f"{n}{s}" for n in ("n", "vy", "vz", "mx", "my", "mz") for s in ("Start", "End")]
     forces = {x["elementId"]: {k: x[k] for k in keys} for x in res["elementForces"]}
     diags = [d.get("code") for d in res.get("structuredDiagnostics", [])]
-    return dict(disp=disp, reac=reac, forces=forces, diags=diags)
+    issues = [d.get("phase") for d in res.get("structuredDiagnostics", []) if d.get("code") == "known_issue"]
+    return dict(disp=disp, reac=reac, forces=forces, diags=diags, issues=issues)
 
 
 # ---------------------------------------------------------------- comparison

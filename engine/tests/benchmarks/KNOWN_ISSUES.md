@@ -1,47 +1,59 @@
 # Benchmark accuracy findings
 
-This test-owned ledger records accuracy failures without changing runtime diagnostics.
+This test-owned ledger records accuracy failures and production containment outcomes.
 The production registry is [`engine/src/known_issues.rs`](../../src/known_issues.rs).
-Entries here are not runtime registry entries; a GitHub issue link tracks the finding, not
+Distorted MITC4 membrane bending is contained by SH-MITC4-DISTORTION, known issue #798.
+MITC4 and MITC9 on twisted surfaces are contained by SH-WARPED-MITC4 and SH-WARPED-MITC9, known issue #1057.
+Other entries here are not runtime registry entries; a GitHub issue link tracks the finding, not
 a runtime diagnostic.
 
 ## MH-MITC4-DISTORTION
 
 On the MacNeal–Harder straight cantilever (6 × 1, full root clamp), production MITC4 misses
-the page's strict 2% accuracy target for both trapezoidal and parallelogram meshes:
+the page's strict 2% accuracy target for distorted out-of-plane meshes. The two
+distorted in-plane cases are now withheld by the engine (known issue #798):
 
 | Mesh | Load | Reference | Computed | Relative error |
 |---|---|---:|---:|---:|
 | Trapezoidal | Out of plane | 0.4321 | 0.4162053612497649 | 3.678463% |
-| Trapezoidal | In plane | 0.1081 | 0.008443013508022026 | 92.189627% |
+| Trapezoidal | In plane | 0.1081 | Withheld (#798) | — |
 | Parallelogram | Out of plane | 0.4321 | 0.42257240188170075 | 2.204952% |
-| Parallelogram | In plane | 0.1081 | 0.010379694543545988 | 90.398062% |
+| Parallelogram | In plane | 0.1081 | Withheld (#798) | — |
 
-Tracked as [#798](https://github.com/lambdaclass/stabileo/issues/798). Native and production
-WASM agree. `shells macneal_harder::browser_cases` pins each computed value above (`nativeBounds`,
-relative drift below 1e-8) and every case's pass/fail outcome (`expectedPass`), so a change in
-these numbers fails CI; `research/benchmarks/macneal-harder-1985/wasm/check.mjs` requires WASM
-to match. Inputs, signed references and the accuracy threshold are in `macneal_harder.json`. These measurements are evidence of the
+Tracked as [#798](https://github.com/lambdaclass/stabileo/issues/798). The 12 live cases
+comprise eight accuracy passes, two numeric failures, and two expected containment refusals.
+Refusals are not accuracy passes and retain their cases, inputs, signed references and the
+accuracy threshold. `shells macneal_harder::browser_cases` pins each computed out-of-plane value
+above (`nativeBounds`, relative drift below 1e-8) and every computed case's pass/fail outcome
+(`expectedPass`), and requires the two in-plane cases to refuse with #798 and
+SH-MITC4-DISTORTION (`expectedRefusal`; their `nativeBounds` are null), so a change in these
+outcomes fails CI. `research/benchmarks/macneal-harder-1985/wasm/check.mjs` requires production
+WASM to match the native values and to refuse the same two cases. Inputs, signed references and
+the accuracy threshold are in `macneal_harder.json`. These measurements are evidence of the
 specified mesh's accuracy, not proof of a new implementation defect. Existing solid-shell
 regression floors document related distortion sensitivity and remain unchanged.
 
-## MH-TWISTED-BEAM-MITC4 and MH-TWISTED-BEAM-MITC9
+## SH-WARPED-MITC (twisted beam, #1057)
 
-The MacNeal–Harder twisted beam (L = 12, w = 1.1, t = 0.32, 90° linear twist, E = 29·10⁶,
-ν = 0.22, unit tip load) used to enter E = 29·10⁶ into the MPa field, so every shell family
-was 1000× too stiff and the ~0.1 % ratios were read as "flat-faceted locking". With E entered
-as 29·10³ MPa (consistent units), MITC4 converges to a wrong, too-flexible answer, MITC9 stays
-too flexible without converging (load A still rising), and no warning is attached to the result:
+On the MacNeal–Harder twisted cantilever (L 12, width 1.1, t 0.32, 90° twist, E 29000 in the
+engine's MPa field, ν 0.22; references 0.005424 for load A and 0.001754 for load B, and
+Euler–Bernoulli integration of the twisted strip), MITC4 and MITC9 are too flexible and the
+error does not shrink with refinement. Ratio to beam theory, load A / load B:
 
-| Family | Load | 6×2 (Q9 3×1) | 12×4 (Q9 6×2) | 24×8 (Q9 12×4) | 48×16 |
-|---|---|---:|---:|---:|---:|
-| MITC4 | A (Pz, 0.005424) | 1.2751 | 1.3047 | 1.3180 | 1.3237 |
-| MITC4 | B (Py, 0.001754) | 1.2838 | 1.2653 | 1.2617 | 1.2611 |
-| MITC9 | A | 1.6979 | 2.1416 | 2.4142 | |
-| MITC9 | B | 2.3611 | 2.3250 | 2.3229 | |
-| Curved shell | A | 0.9927 | 0.9938 | 0.9968 | |
-| Curved shell | B | 0.8140 | 0.9234 | 0.9755 | |
-| SHB8-ANS | B | 4×1: 0.8995 | 8×1: 0.9715 | | |
+| Twist | MITC4 6×2 | 12×4 | 24×8 | 48×16 | MITC9 3×1 | 6×2 | 12×4 | 24×8 | Curved shell 48×16 |
+|---|---|---|---|---|---|---|---|---|---|
+| 0° | 0.986 / 0.993 | 0.994 / 1.001 | 0.996 / 1.004 | 0.997 / 1.005 | 0.994 / 0.986 | 0.996 / 1.002 | 0.997 / 1.004 | 0.997 / 1.005 | 0.997 / 0.984 |
+| 15° | 0.995 / 0.995 | 1.003 / 1.002 | 1.006 / 1.004 | 1.007 / 1.005 | 1.019 / 1.000 | 1.036 / 1.006 | 1.046 / 1.009 | 1.051 / 1.009 | 0.997 / 0.985 |
+| 45° | 1.062 / 1.040 | 1.075 / 1.040 | 1.080 / 1.041 | 1.082 / 1.041 | 1.211 / 1.229 | 1.337 / 1.209 | 1.414 / 1.214 | 1.452 / 1.215 | 0.997 / 0.991 |
+| 90° | withheld (#798) | 1.304 / 1.271 | 1.318 / 1.267 | 1.323 / 1.267 | 1.697 / 2.372 | 2.141 / 2.336 | 2.413 / 2.333 | 2.544 / 2.318 | 0.998 / 0.997 |
+
+The error follows the twist curvature times the thickness (κt; 0.042 at 90°), not the warp
+per element: at 90° with the width halved or doubled MITC4 stays at 1.30 to 1.32 (load A),
+while halving t gives 1.08 and doubling it 2.21. The engine now withholds both elements above
+the measured 5 % level and warns above 1.5 % (docs/verification/CONTAINMENT.md, #1057). The
+formulation fix is open in #1057 and must be checked against both references.
+
+SHB8-ANS on the same model, load B: 4×1 0.8995, 8×1 0.9715.
 
 References: MacNeal & Harder (1985) 0.005424 / 0.001754; Euler–Bernoulli bending of the
 twisted strip (`twisted_beam_beam_theory` in `shell_benchmark.rs`) 0.0054259 / 0.0017462.
@@ -59,11 +71,8 @@ warped-element treatment (warp offsets / local frame) of `element/quad.rs` and
 `element/quad9.rs`, not at locking. Over-flexibility is the conservative direction for
 deflection but distributes forces wrongly in a statically indeterminate shell structure.
 
-Tests: `benchmark_twisted_beam_load_{a,b}` and `benchmark_q9_twisted_beam_load_{a,b}` pin the
-present ratios (±0.001) so any change fails; `benchmark_twisted_beam_mitc4_accuracy` and
-`benchmark_q9_twisted_beam_accuracy` are the ignored strict 2 % checks
-(`cargo test --test validation twisted -- --ignored`). Needs solver-owner triage, a runtime
-`known_issues.rs` entry or a warping warning, and a GitHub issue.
+Tests: `benchmark_twisted_beam_load_{a,b}` and `benchmark_q9_twisted_beam_load_{a,b}` assert the
+refusal on the 90° meshes (MITC4 6×2 to 24×8, MITC9 3×1 to 12×4).
 
 ## MH-REFERENCE-PROVENANCE
 
@@ -111,17 +120,21 @@ Fresh native measurements (signed, with direction-aware relative error):
 | cylinder | 8 | -1.8248e-05 | -1.37558255336e-05 | 24.617352% | Fail |
 | cylinder | 12 | -1.8248e-05 | -1.60504470647e-05 | 12.042706% | Fail |
 | cylinder | 16 | -1.8248e-05 | -1.70116168007e-05 | 6.775445% | Fail |
-| hemisphere | 4 | 0.185 | 0.185219186992 | 0.118479% | Pass |
-| hemisphere | 8 | 0.185 | 0.185741984976 | 0.401073% | Pass |
-| hemisphere | 16 | 0.185 | 0.186206839041 | 0.652345% | Pass |
+| hemisphere | 4 | 0.185 | Withheld (#798) | — | Withheld |
+| hemisphere | 8 | 0.185 | Withheld (#798) | — | Withheld |
+| hemisphere | 16 | 0.185 | Withheld (#798) | — | Withheld |
 | cylinder | 32 | -1.8248e-05 | -1.80643677592e-05 | 1.006314% | Pass |
 
 All four roof meshes pass the unchanged strict 2% gate. Cylinder error decreases
 with refinement; the four 6–16 checks remain ignored because they still exceed 2%.
 The native-only 32×32 cylinder passes at 1.006314% error. The browser retains its
-16×16 cap and reports 2/3 finest selected meshes passing. The old roof plateau and
+16×16 cap and reports 1/3 finest selected meshes passing (the hemisphere is withheld). The old roof plateau and
 cylinder over-compliance were model-definition errors, not engine failures.
 See [replay evidence](../../../research/benchmarks/shell-obstacle-course/README.md).
+Production withholds the hemisphere meshes under SH-MITC4-DISTORTION (#798), and
+their tests assert that refusal. Without containment they measured 0.185219186992,
+0.185741984976 and 0.186206839041 (errors 0.118479%, 0.401073%, 0.652345%). These obstacle-course accuracy findings have no assigned runtime
+issue numbers; the separate distorted membrane-bending containment is #798.
 
 The live hemisphere is the NAFEMS LE3-labelled 18°-hole case in
 `benchmark_hemisphere_hole_convergence`: quarter loads ±2, reference 0.185. The solid-shell

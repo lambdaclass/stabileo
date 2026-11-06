@@ -64,6 +64,7 @@ pub struct ModeEnclosure {
     pub omega2_computed: f64,
     pub omega2_lower: f64,
     /// +∞ (null) when the residual is too large to bound λ from above.
+    #[serde(serialize_with = "crate::check::ser_ratio", deserialize_with = "crate::check::de_ratio")]
     pub omega2_upper: f64,
 }
 

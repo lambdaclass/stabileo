@@ -577,7 +577,7 @@ impl Section {
         let lim = end.s.phi_pn;
         let reaches = if compression { lim > 1e-6 } else { lim < -1e-6 };
         Utilisation {
-            ratio: if pu.abs() < 1e-6 { 0.0 } else if reaches { pu / lim } else { f64::INFINITY },
+            ratio: if pu.abs() < 1e-6 { 0.0 } else if reaches { ratio_or_infinity(pu.abs(), lim.abs()) } else { f64::INFINITY },
             phi_pn: lim,
             phi_mn: 0.0,
             c: f64::NAN,
@@ -609,7 +609,7 @@ impl Section {
                 if w[0].s.phi_pn >= 0.0 && w[1].s.phi_pn < 0.0 {
                     let p = self.refine(nx, ny, w[0].c, w[1].c, |q| q.s.phi_pn);
                     let m = cap(&p);
-                    return at(&p, if m > 1e-6 { mres / m } else { f64::INFINITY }, 0.0, m);
+                    return at(&p, ratio_or_infinity(mres, m), 0.0, m);
                 }
             }
             // No crossing: every point carries compression, so the section cannot bend alone.
@@ -624,7 +624,7 @@ impl Section {
                 let p = if fa == 0.0 { w[0] } else { self.refine(nx, ny, w[0].c, w[1].c, on_ray) };
                 let (cap_p, cap_m) = (p.s.phi_pn, cap(&p));
                 let capacity = cap_m.hypot(cap_p);
-                let ratio = if capacity > 1e-6 { mres.hypot(pu) / capacity } else { f64::INFINITY };
+                let ratio = ratio_or_infinity(mres.hypot(pu), capacity);
                 return at(&p, ratio, cap_p, cap_m);
             }
         }
@@ -739,7 +739,7 @@ impl Section {
                 let sy = if my < 0.0 { -1.0 } else { 1.0 };
                 let t = Self::theta_for(g.fi, sx, sy);
                 Utilisation {
-                    ratio: if g.phi_mn > 1e-6 { mres / g.phi_mn } else { f64::INFINITY },
+                    ratio: ratio_or_infinity(mres, g.phi_mn),
                     phi_pn: pu,
                     phi_mn: g.phi_mn,
                     c: g.point.c,
@@ -794,6 +794,10 @@ impl Section {
 
 /// The keys of [`Section::characteristic_points`], in order.
 pub const CHARACTERISTIC_KEYS: [&str; 6] = ["axialCap", "zeroStrain", "yieldStrain", "tensionControlled", "pureFlexure", "maxTension"];
+
+fn ratio_or_infinity(demand: f64, capacity: f64) -> f64 {
+    if capacity > 1e-6 { crate::check::ratio(demand, capacity).value().unwrap_or(f64::INFINITY) } else { f64::INFINITY }
+}
 
 /// Demand over capacity, and the section's state at the capacity.
 #[derive(Debug, Clone, Copy)]
