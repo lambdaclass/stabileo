@@ -788,7 +788,6 @@ export function solve(input: SolverInput): AnalysisResults {
   return wasmSolve2d(wire);
 }
 
-/** Solve 3D linear static analysis via WASM. JsValue in/out — no JSON round trip. */
 /** Solves under `run` get no structure α_cr in their second-order screen, which then holds compressed truss bars frame-wide. */
 export function withSwayScreenDeferred<T>(run: () => T): T {
   wasmDeferSwayScreen?.(true);
@@ -799,6 +798,7 @@ export function withSwayScreenDeferred<T>(run: () => T): T {
   }
 }
 
+/** Solve 3D linear static analysis via WASM. JsValue in/out — no JSON round trip. */
 export function solve3D(input: SolverInput3D): AnalysisResults3D {
   if (!wasmReady || !wasmSolve3d) throw new Error('WASM solver not initialized. Call initSolver() first.');
   const wire = input3DToWireObject(input);
