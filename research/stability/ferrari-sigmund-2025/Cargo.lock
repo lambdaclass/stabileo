@@ -28,7 +28,7 @@ checksum = "4e7648175b45a9a48536d676f68d918270699102aa8dab5496df06904c914600"
 
 [[package]]
 name = "dedaliano-engine"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "num-bigint",
  "num-integer",
@@ -47,14 +47,6 @@ name = "equivalent"
 version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "00d174d5400e5e8fd687ad1049e2f578285fa914201b1af7e8b112a4546bd826"
-
-[[package]]
-name = "koiter-ferrari-sigmund-2025"
-version = "0.1.0"
-dependencies = [
- "dedaliano-engine",
- "serde_json",
-]
 
 [[package]]
 name = "foldhash"
@@ -112,6 +104,14 @@ dependencies = [
  "cfg-if",
  "futures-util",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "koiter-ferrari-sigmund-2025"
+version = "0.1.0"
+dependencies = [
+ "dedaliano-engine",
+ "serde_json",
 ]
 
 [[package]]
