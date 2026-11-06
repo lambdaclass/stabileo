@@ -115,7 +115,7 @@ for (const width of [1440, 390]) {
     });
     expect(probe.baseline.present).toBe(true);
     expect(probe.baseline.height).toBe(58);
-    expect(probe.baseline.links).toHaveLength(13);
+    expect(probe.baseline.links).toHaveLength(8);
     expect(probe.samples.length).toBeGreaterThan(20);
     for (const sample of probe.samples) expect(sample).toEqual(probe.baseline);
   });
