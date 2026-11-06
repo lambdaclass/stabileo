@@ -21,9 +21,9 @@ Results go to `target/kani-report.tsv` (status, seconds, peak GB); logs go to
 (`.github/workflows/verify.yml`). A pull request or merge-queue entry runs Kani only when it
 changes a Kani input (`.github/scripts/verify-changes.py`): the harnesses, the engine modules
 they call and what those use, the Cargo configuration, build script and Rust toolchain pins, the flake, the Kani scripts or the
-workflow; otherwise the job is skipped, which counts as passed. A new harness that calls into
-another engine module must add it to `KANI_MODULES` there (`scripts/tests/test_verify_changes.py`
-fails until it does). Pushes to main and the nightly run always run it.
+workflow; otherwise the job is skipped, which counts as passed. `scripts/tests/test_verify_changes.py`
+follows what the harnesses call through every non-test `crate::`/`super::` reference and
+re-export, and fails until each file reached is in `KANI_MODULES`. Pushes to main and the nightly run always run it.
 
 In a git worktree, `nix develop .#verify` can fail with "getting Git object … object
 not found". Point it at a directory holding a copy of only `flake.nix` and `flake.lock`
