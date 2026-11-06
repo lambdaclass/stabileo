@@ -152,7 +152,7 @@ exit 0
                     subprocess.run(['bash', '-eu', '-c', script_with_diff], env=env, check=True, stdout=subprocess.DEVNULL)
                     self.assertEqual(output.read_text().strip(), 'research=' + expected)
         self.assertIn('RESEARCH_ISOLATION: ${{ steps.scope.outputs.research }}', workflow)
-        self.assertIn('web/scripts/research-route-budget.mjs route-main/web/scripts/', workflow)
+        self.assertIn('.github/scripts/route-size-from-base.sh route-main .', workflow)
         self.assertNotIn('product-route-growth-budgets.json', workflow)
         self.assertNotIn('--product-budget', workflow)
 
