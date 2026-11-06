@@ -11,7 +11,6 @@
   import PostEmbed from './PostEmbed.svelte';
   import Shot from '../landing/Shot.svelte';
   import PublicLink from '../landing/PublicLink.svelte';
-  import Shot from '../landing/Shot.svelte';
   import { smartQuotes as q } from '../../lib/blog/typography';
 
   let { blocks }: { blocks: Block[] } = $props();
