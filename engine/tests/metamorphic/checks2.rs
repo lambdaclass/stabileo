@@ -95,7 +95,7 @@ pub fn judge(res: Result<dedaliano_engine::metamorphic::compare::Report, String>
 pub fn judge_split(got: &Resp, expected: &Resp, rel: f64, base: f64, cmp: impl Fn(&Resp, &Resp, f64) -> Result<dedaliano_engine::metamorphic::compare::Report, String>) -> Verdict {
     let free: std::collections::HashSet<String> = expected.0.iter().filter(|i| EIGEN_FREE.contains(&i.tag.as_str())).map(|i| i.tag.clone()).collect();
     if !free.is_empty() && base <= INCONCLUSIVE {
-        let only = |r: &Resp| Resp(r.0.iter().filter(|i| free.contains(&i.tag)).cloned().collect(), r.1.clone());
+        let only = |r: &Resp| Resp(r.0.iter().filter(|i| free.contains(&i.tag)).cloned().collect(), r.1.clone(), r.2);
         if let Err(e) = cmp(&only(got), &only(expected), base) {
             return Verdict::Fail(e);
         }
@@ -126,7 +126,7 @@ fn same(a: &Ana2, tc: &Case2, expected: Result<Resp, String>, cond: &Conditionin
     match run(a, tc) {
         Ok(got) => bounded(&got, &expected, rel).unwrap_or_else(|| crate::checks2::judge_split(&got, &expected, rel, crate::checks2::rel_without_eigen(a.name, a.iter_tol, &c2), |g, e, rel| compare_with_compliance(&g.flat(), &e.flat(), c2.lchar, rel, load_floor_2d(&tc.s, c2.lchar), crate::checks2::compliance(a.name, &c2)))),
         Err(e) if is_lower_bound(&expected) && crate::response::incomplete_collapse(&e) => Verdict::Inconclusive(rel),
-        Err(e) => transformed_failure(e),
+        Err(e) => transformed_failure(e, expected.2),
     }
 }
 
@@ -155,11 +155,14 @@ pub fn bounded(got: &Resp, expected: &Resp, rel: f64) -> Option<Verdict> {
 /// The original solved and its transformed copy did not. A refusal that
 /// names a feature the transform introduced (a rotated roller becomes an
 /// inclined support, which some analyses refuse by name) is a documented
-/// limitation; anything else is a violation.
-pub fn transformed_failure(e: String) -> Verdict {
+/// limitation, and so is any refusal of a copy whose original solve carried
+/// the #762 near-mechanism warning; anything else is a violation.
+pub fn transformed_failure(e: String, original: crate::response::NearMechanism) -> Verdict {
     let l = e.to_lowercase();
     if !crate::generated::strict() && l.contains("inclined support") && ["not supported", "not yet supported", "unsupported", "does not support"].iter().any(|k| l.contains(k)) {
         Verdict::Refused(format!("transformed model: {e}"))
+    } else if !crate::generated::strict() && original.0 {
+        Verdict::Refused(format!("original solved with the near-mechanism warning (#762), transformed model refused: {e}"))
     } else {
         Verdict::Fail(format!("original solved but transformed model failed: {e}"))
     }
@@ -753,7 +756,7 @@ fn a_one_sided_failure_or_refusal_or_a_nonfinite_3d_result_fails_the_planes_chec
     }));
     assert!(fails(|_| Err("singular".into())));
     let id = ENTRIES.iter().find(|e| e.mode == Mode::Refuse).unwrap();
-    let refused_2d = Resp(Vec::new(), vec![(id.id.to_string(), id.issue as u64)]);
+    let refused_2d = Resp(Vec::new(), vec![(id.id.to_string(), id.issue as u64)], Default::default());
     let refuse_in_xz = |s: &SolverInput3D| {
         if normal_axis(s) == 1 {
             let id = ENTRIES.iter().find(|e| e.mode == Mode::Refuse).unwrap().id;

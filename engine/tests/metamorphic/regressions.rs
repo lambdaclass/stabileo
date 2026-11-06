@@ -1293,3 +1293,37 @@ fn the_3d_mode_check_follows_each_members_own_offset_along_it() {
         }
     }
 }
+
+#[test]
+fn only_the_near_mechanism_warning_excuses_a_refused_copy() {
+    use crate::response::NearMechanism;
+    let diag = |code: &str, phase: Option<&str>| -> StructuredDiagnostic {
+        serde_json::from_value(json!({"code": code, "severity": "warning", "message": "", "phase": phase})).unwrap()
+    };
+    assert_eq!(NearMechanism::of(&[diag("known_issue", Some("NUM-INVARIANCE"))]), NearMechanism(true));
+    assert_eq!(NearMechanism::of(&[diag("stiffness_not_positive_definite", None)]), NearMechanism(true));
+    assert_eq!(NearMechanism::of(&[diag("known_issue", Some("LIN-SECOND-ORDER-UNBOUNDED")), diag("high_diagonal_ratio", None)]), NearMechanism(false));
+    let refusal = "Singular stiffness matrix — structure is a mechanism".to_string();
+    assert!(matches!(crate::checks2::transformed_failure(refusal.clone(), NearMechanism(true)), crate::tally::Verdict::Refused(_)));
+    assert!(matches!(crate::checks2::transformed_failure(refusal, NearMechanism(false)), crate::tally::Verdict::Fail(_)));
+}
+
+/// #983: a near-mechanism whose transformed copies are refused while the
+/// original solves under NUM-INVARIANCE and stiffness_not_positive_definite.
+#[test]
+fn a_copy_refused_beside_a_near_mechanism_original_is_not_a_violation() {
+    let text = std::fs::read_to_string(format!("{}/tests/metamorphic_corpus/nightly/issue-983.json", env!("CARGO_MANIFEST_DIR"))).unwrap();
+    let crate::corpus::Model::D2(s) = crate::corpus::parse(&text).unwrap() else { panic!("2D model") };
+    let original = linear::solve_2d(&s).unwrap();
+    assert_eq!(crate::response::NearMechanism::of(&original.structured_diagnostics), crate::response::NearMechanism(true));
+    let t = crate::tally::Tally::default();
+    let anas: Vec<_> = crate::ana2::rows().into_iter().filter(|a| a.name == "creep & shrinkage (t = t0)").collect();
+    let case = Case2::new("issue-983", s);
+    assert_eq!((anas[0].run)(&case).unwrap().2, crate::response::NearMechanism(true));
+    crate::checks2::check_case(&crate::checks2::Ctx { tally: &t, rng_seed: 2026110601678 }, &case, &anas, &["relabel", "units"]);
+    let cells = t.cells.lock().unwrap();
+    for inv in ["relabel", "units"] {
+        let cell = &cells[&("creep & shrinkage (t = t0)".to_string(), inv.to_string())];
+        assert!(cell.fails.is_empty() && cell.refused > 0, "{inv}: {cell:?}");
+    }
+}

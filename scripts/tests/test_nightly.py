@@ -149,6 +149,31 @@ class Models(unittest.TestCase):
             self.assertEqual(finding['model'], {'loads': [1], 'elements': {'needed': {}}})
             self.assertTrue(all('needed' in model['elements'] for model in evaluated))
 
+    def test_reduction_keeps_a_load_when_the_failure_does_not_need_one(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            source = base / 'model.json'
+            source.write_text(json.dumps({'loads': [1, 2, 3], 'elements': {'a': {}, 'b': {}}}))
+            out = base / 'out'
+            def replay(cmd, **kwargs):
+                if '-c' in cmd:
+                    return subprocess.CompletedProcess(cmd, 1)
+                if 'input' in kwargs:
+                    return subprocess.CompletedProcess(cmd, 0, '{}', '')
+                failure = {'test': 'metamorphic/static/rotation',
+                           'details': ['replay: original solved but transformed model failed: Singular stiffness matrix']}
+                row = dict.fromkeys(['pass', 'fail', 'refused', 'inconclusive', 'unrepresentable', 'not_applicable'], 0)
+                row['fail'] = 1
+                Path(kwargs['env']['NIGHTLY_RESULTS']).write_text(json.dumps({'failures': [failure], 'verdicts': [row]}))
+                return subprocess.CompletedProcess(cmd, 101, '', '')
+            with patch.object(sys, 'argv', ['nightly', '--model', str(source), '--check', 'metamorphic', '--out', str(out)]), \
+                    patch.dict(os.environ, {'NIGHTLY_REPLAY_BIN': 'replay', 'ASTER_PYTHON': ''}), \
+                    patch.object(models, 'run', side_effect=replay), contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(models.main(), 1)
+            finding = json.loads(next(out.glob('*.finding.json')).read_text())
+            self.assertEqual(len(finding['model']['loads']), 1)
+            self.assertEqual(finding['model']['elements'], {})
+
     def test_metamorphic_coverage_requires_usable_verdicts(self):
         for verdict in ('pass', 'refused', 'inconclusive', 'unrepresentable', 'not_applicable'):
             with self.subTest(verdict=verdict), tempfile.TemporaryDirectory() as tmp:

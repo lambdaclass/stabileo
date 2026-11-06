@@ -119,7 +119,7 @@ fn same(a: &Ana3, tc: &Case3, expected: Result<Resp, String>, cond: &Conditionin
     match run(a, tc) {
         Ok(got) => bounded(&got, &expected, rel).unwrap_or_else(|| crate::checks2::judge_split(&got, &expected, rel, crate::checks2::rel_without_eigen(a.name, a.iter_tol, &c2), |g, e, rel| compare_with_compliance(&g.flat(), &e.flat(), c2.lchar, rel, load_floor_3d(&tc.s, c2.lchar), crate::checks2::compliance(a.name, &c2)))),
         Err(e) if is_lower_bound(&expected) && crate::response::incomplete_collapse(&e) => Verdict::Inconclusive(rel),
-        Err(e) => transformed_failure(e),
+        Err(e) => transformed_failure(e, expected.2),
     }
 }
 
