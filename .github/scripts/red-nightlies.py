@@ -3,8 +3,9 @@
 usage: red-nightlies.py [--dry-run]   (GH_TOKEN and GITHUB_REPOSITORY from the environment)
 
 A job counts red on failure, timed_out or startup_failure, and on cancelled only when GitHub
-cancelled it for exceeding its timeout. Matrix jobs share their name without the parenthesised
-suffix, so a rotating shard name does not hide a job that fails every night.
+cancelled it for exceeding its timeout; any other cancellation leaves that run undecided for the
+job. Only the latest attempt of a rerun job counts. Matrix jobs share their name without the
+parenthesised suffix, so a rotating shard name does not hide a job that fails every night.
 """
 import argparse
 import json
@@ -36,7 +37,18 @@ def outcome(job):
         return 'red'
     if conclusion in GOOD:
         return 'green'
+    if conclusion == 'cancelled':
+        return 'unknown'
     return None
+
+
+def latest_attempts(jobs):
+    latest = {}
+    for job in jobs:
+        prev = latest.get(job['name'])
+        if prev is None or job.get('run_attempt', 1) > prev.get('run_attempt', 1):
+            latest[job['name']] = job
+    return list(latest.values())
 
 
 def job_history(runs):
@@ -48,7 +60,7 @@ def job_history(runs):
             seen['(run)'] = ('red', [])
         elif run.get('conclusion') in GOOD:
             seen['(run)'] = ('green', [])
-        for job in jobs:
+        for job in latest_attempts(jobs):
             state = outcome(job)
             if state is None:
                 continue
@@ -56,9 +68,10 @@ def job_history(runs):
             prev, failing = seen.get(key, ('green', []))
             if state == 'red':
                 failing = failing + [job]
-            seen[key] = ('red' if 'red' in (prev, state) else 'green', failing)
+            seen[key] = (next(st for st in ('red', 'unknown', 'green') if st in (prev, state)), failing)
         for key, (state, failing) in seen.items():
-            history.setdefault(key, []).append({'run': run, 'state': state, 'failing': failing})
+            if state != 'unknown':
+                history.setdefault(key, []).append({'run': run, 'state': state, 'failing': failing})
     return history
 
 
@@ -125,7 +138,7 @@ def fetch(repo):
                 continue
             runs = json.loads(gh('api', f"repos/{repo}/actions/workflows/{wf['id']}/runs?branch=main&event=schedule&status=completed&per_page={RUNS}"))['workflow_runs']
             for run in runs:
-                pages = json.loads(gh('api', '--paginate', '--slurp', f"repos/{repo}/actions/runs/{run['id']}/jobs?per_page=100"))
+                pages = json.loads(gh('api', '--paginate', '--slurp', f"repos/{repo}/actions/runs/{run['id']}/jobs?filter=all&per_page=100"))
                 run['jobs'] = [j for p in pages for j in p['jobs']]
                 for job in run['jobs']:
                     if job.get('conclusion') == 'cancelled':

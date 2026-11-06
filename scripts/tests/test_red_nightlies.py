@@ -57,10 +57,27 @@ class Verdicts(unittest.TestCase):
         acts = red.plan(v, [{'number': 5, 'title': red.title('Verify', '(run)'), 'text': ''}])
         self.assertEqual([(a['action'], a['number']) for a in acts], [('close', 5)])
 
+    def test_a_manually_cancelled_shard_leaves_its_group_undecided(self):
+        runs = [{'id': 2, 'conclusion': 'cancelled', 'jobs': [{'name': 'fuzz (a)', 'conclusion': 'success'}, {'name': 'fuzz (b)', 'conclusion': 'cancelled'}]},
+                {'id': 1, 'conclusion': 'failure', 'jobs': [{'name': 'fuzz (a)', 'conclusion': 'success'}, {'name': 'fuzz (b)', 'conclusion': 'failure'}]}]
+        self.assertEqual([e['run']['id'] for e in red.job_history(runs)['fuzz']], [1])
+        runs[0]['jobs'][1]['timed_out'] = True
+        self.assertEqual([e['state'] for e in red.job_history(runs)['fuzz']], ['red', 'red'])
+
+    def test_only_the_latest_attempt_of_a_rerun_job_counts(self):
+        runs = [{'id': 2, 'conclusion': 'success', 'jobs': [
+                    {'name': 'diff', 'conclusion': 'failure', 'run_attempt': 1},
+                    {'name': 'bench', 'conclusion': 'success', 'run_attempt': 1},
+                    {'name': 'diff', 'conclusion': 'success', 'run_attempt': 2}]},
+                {'id': 1, 'conclusion': 'failure', 'jobs': [{'name': 'diff', 'conclusion': 'failure'}, {'name': 'bench', 'conclusion': 'failure'}]}]
+        history = red.job_history(runs)
+        self.assertEqual([e['state'] for e in history['diff']], ['green', 'red'])
+        self.assertEqual([e['state'] for e in history['bench']], ['green', 'red'])
+
     def test_cancelled_counts_only_when_github_timed_it_out(self):
         self.assertEqual(red.outcome({'conclusion': 'cancelled', 'timed_out': True}), 'red')
-        self.assertIsNone(red.outcome({'conclusion': 'cancelled', 'timed_out': False}))
-        self.assertIsNone(red.outcome({'conclusion': 'cancelled'}))
+        self.assertEqual(red.outcome({'conclusion': 'cancelled', 'timed_out': False}), 'unknown')
+        self.assertEqual(red.outcome({'conclusion': 'cancelled'}), 'unknown')
         self.assertEqual(red.outcome({'conclusion': 'timed_out'}), 'red')
         self.assertIsNone(red.outcome({'conclusion': 'skipped'}))
 
