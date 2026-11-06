@@ -1006,6 +1006,7 @@ fn solve_nonlinear_material_3d_inner(
     let asm = super::assembly::assemble_3d(solver, &dof_num);
     let f_total = asm.f.clone();
     let art = assembly::artificial_stiffness_entries(&asm);
+    super::linear::refuse_loads_on_orphan_dofs_3d(&dof_num, &asm.artificial_dofs.iter().copied().collect(), &solver.loads)?;
 
     // Build constraint system (if constraints present)
     let cs = FreeConstraintSystem::build_3d(&solver, &dof_num)?;
@@ -1090,6 +1091,9 @@ fn solve_nonlinear_material_3d_inner(
                 assembly::reverse_inclined_transform(&mut u_geom, &it.dofs, &it.r);
             }
             let mut f_int = compute_global_internal_forces_3d(solver, &dof_num, &u_geom, &states);
+            for &(d, k) in &art {
+                f_int[d] += k * u_geom[d];
+            }
 
             if sparse_tangent {
                 assemble_tangent_stiffness_3d_triplets(
