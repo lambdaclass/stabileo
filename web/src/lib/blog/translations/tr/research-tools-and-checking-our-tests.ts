@@ -136,6 +136,71 @@ const body: PostBody = {
     },
     {
       "k": "h",
+      "t": "Yirmi dakikada yanıt veren kontroller"
+    },
+    {
+      "k": "p",
+      "t": "Stabileo’daki her değişiklik main’e ulaşmadan önce etkileyebileceği kontrollerden geçer, motordaki bir değişiklik ise hepsinden: motor testleri, web birim testleri, üretim derlemeleri, tarayıcıda uçtan uca testler, sonuç anlık görüntüleri ve belirlenimcilik kontrolü. Hatalı bir sonucun düzeltilmesi ancak bu kontroller kadar hızlı olabilir; bu yüzden 4 Kasım’da bu kontrollerin hızı üzerinde çalıştık. Önce ölçtük. 44 ila 47 dakika süren temiz bir birleştirme kuyruğu çalıştırmasında motor ve birim testleri bitişten 8 ila 15 dakika önce tamamlanıyordu; bu yüzden onlardan daha fazlasını paralel çalıştırmak hiçbir şey kazandırmazdı. Süre, araştırma paketlerinin birbiri ardına derlenmesine ve en yavaş uçtan uca parçaya gidiyordu. Bunlar kısaldıktan sonra en yavaş parça hazırlık yüzünden yavaştı: bir çalıştırmada 16 dakikasının 7,2’sini testlere, altı buçuğunu da yavaş bir yansı sunucudan tarayıcı paketleri indirmeye harcadı."
+    },
+    {
+      "k": "ul",
+      "items": [
+        "Bir kez derle, derleneni test et. Üretim derlemesi testleri kendi başlarına beş derleme daha yapıyordu ve bunların dördü CI’ın az önce derlediği ağacın aynısıydı; bu dördü artık o derlemeyi okuyor (#1411). Her derleme, neyden derlendiyse hepsinin bir damgasını taşıyor ve damga üzerinde çalıştığı ağaçla eşleşmezse test başarısız olur, asla atlanmaz.",
+        "Girdiye göre önbellek. Her araştırma paketi, her paketin bağladığı motor dâhil kendi girdilerinden oluşan bir anahtarla önbelleğe alınıyor; böylece bir makaledeki değişiklik yalnızca o makaleyi, motordaki bir değişiklik ise hepsini yeniden derliyor. Bir pull request, birleştirme kuyruğunun aynı girdilerden zaten derlediği paketleri her dosyayı sağlama toplamına karşı kontrol ettikten sonra yeniden kullanıyor; bu önbelleği okuyabiliyor ama asla yazamıyor (#1395). Tarayıcı paketleri de yansı sunucu yerine bir önbellekten geliyor (#1413).",
+        "Yalnızca bir değişikliğin etkileyebileceğini çalıştır. Belgelerdeki bir değişiklik hiçbir şey derlemiyor ve tam bir çalıştırma yerine bir iki dakikada bitiyor. Yalnızca siteyi etkileyen bir değişiklik motor işlerini atlıyor ama tüm uçtan uca parçaları koruyor, çünkü 281 spesifikasyonun 59’u ekrandaki metni okuyor (#1381). Kuyrukta her öğenin kapsamı, önündeki öğeye karşı kendi diff’iyle belirleniyor; bu sağlam bir yöntem, çünkü bir öğe ancak önündeki tüm öğeler geçtiyse birleştiriliyor. Diff eksik ya da belirsiz olduğunda her şey çalışıyor (#1400).",
+        "En yavaş yolu dengele. Uçtan uca testler 10 yerine 14 parçada, ölçülen sürelere göre dengelenerek çalışıyor (#1382). Eski süre tablosu, bir çalıştırmanın 69,8 dakika sürdüğü yerde 41,5 dakikalık test öngörüyordu."
+      ]
+    },
+    {
+      "k": "table",
+      "caption": "Tüm işleri çalıştıran başarılı CI çalıştırmalarının oluşturulmalarından son işe kadar geçen gerçek süresi, GitHub Actions API’siyle ölçüldü. Önce: 4 Kasım, 08:00 UTC’den (pull request’ler) veya 13:48 UTC’den (birleştirme kuyruğu) 21:10 UTC’ye kadar; sonra: 21:15 UTC’den 5 Kasım 03:00 UTC’ye kadar.",
+      "head": [
+        "Çalıştırmalar",
+        "Sayı",
+        "Medyan",
+        "Aralık"
+      ],
+      "rows": [
+        [
+          "Birleştirme kuyruğu, önce",
+          "20",
+          "42 dk",
+          "25 ila 56 dk"
+        ],
+        [
+          "Birleştirme kuyruğu, sonra",
+          "10",
+          "20 dk",
+          "15 ila 26 dk"
+        ],
+        [
+          "Pull request’ler (ilk deneme), önce",
+          "69",
+          "59 dk",
+          "35 ila 127 dk"
+        ],
+        [
+          "Pull request’ler (ilk deneme), sonra",
+          "19",
+          "27 dk",
+          "16 ila 45 dk"
+        ]
+      ]
+    },
+    {
+      "k": "h",
+      "t": "Değişikliğin suçu olmayan kırmızı bir kontrol"
+    },
+    {
+      "k": "p",
+      "t": "Ağdan ya da kaybedilen bir makineden kaynaklanan bir hata gürültüdür, ama aynı zamanda birinin bakması gereken kırmızı bir kontroldür; kırmızı kontrolleri yeniden çalıştırma alışkanlığı da gerçek bir hatanın üzerinde durulmadan geçirilmesinin yoludur. Bu yüzden bir pull request’in başarısız işleri, yalnızca başarısız işlerin her biri bir altyapı arızasına dair olumlu kanıt taşıdığında, otomatik olarak bir kez yeniden çalıştırılıyor: bir indirme adımında zaman aşımı, iş ortasında kaybedilen bir CI makinesi, bir indirmenin son denemesini sonlandıran bir ağ hatası (#1380). Günlüğün herhangi bir yerinde test hatasına benzeyen herhangi bir şey yeniden çalıştırmayı engelliyor; sınıflandırıcının tanımadığı her şey de öyle. Bu onu temkinli tutuyor: en fazla bir kez ve hiçbir zaman başarısız bir test adımından sonra yeniden çalıştırmıyor. Bu bir garanti değil: sınıflandırıcının yanlışlıkla altyapı hatası olarak okuduğu aralıklı bir hata yeniden çalıştırmada geçebilir; bu yüzden tanımadığı her şey yeniden çalıştırmayı engelliyor."
+    },
+    {
+      "k": "p",
+      "t": "İki düzeltme daha yanlış alarmları ortadan kaldırdı. Aynı commit üzerindeki daha yeni bir çalıştırma yerini aldığı için iptal edilen bir pull request çalıştırması eskiden kırmızı bir zorunlu kontrol gösteriyordu; artık bu kontrolü atlıyor, ama yalnızca daha yeni çalıştırmanın var olduğunu ve başarısız olmadığını doğruladıktan sonra, çünkü atlanan zorunlu bir kontrol geçmiş sayılır (#1397). Ayrıca takılan bir indirme, paket yöneticisinin kilidini tutan bir süreç bırakabiliyordu ve yeniden deneme indirme yerine kilit yüzünden başarısız oluyordu; artık bir deneme ancak dakikalarca çıktı vermediğinde takılmış sayılıyor, başlattığı her şeyle birlikte durduruluyor ve yeniden deneme kilidi bekliyor (#1408)."
+    },
+    {
+      "k": "h",
       "t": "Sırada ne var"
     },
     {
