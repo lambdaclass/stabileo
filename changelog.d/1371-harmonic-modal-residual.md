@@ -1,5 +1,0 @@
-### BREAKING (results)
-
-#### Harmonic analysis checks the residual of its modal response and computes the omitted modes' correction in their own subspace (2026-11-05)
-
-The static correction of the omitted modes was the static response minus the kept modes' share of it. With one kept mode much softer than the rest that difference was all round-off, multiplied by ω²: on the C2-symmetric frame of #1371 the antisymmetric response at 2.3 Hz came out 3.14 instead of 0.0396 (79×), 0.520 instead of 0.434 at 0.7 Hz, and a displacement that is zero by symmetry 7.3·10⁻³ (SA-2026-043). The correction is now projected off the kept modes before and after each solve, and every frequency's response is checked against the full dynamic system: a relative residual ‖(K + iωC − ω²M)u − f‖ above 10⁻² in the energy norm is solved directly instead, listed in `directFrequencies` with a warning (refused when the direct solve is over the dense ceiling). `maxModalResidual` reports the largest modal residual of the sweep.
