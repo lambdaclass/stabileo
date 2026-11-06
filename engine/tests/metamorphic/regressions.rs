@@ -1303,9 +1303,19 @@ fn only_the_near_mechanism_warning_excuses_a_refused_copy() {
     assert_eq!(NearMechanism::of(&[diag("known_issue", Some("NUM-INVARIANCE"))]), NearMechanism(true));
     assert_eq!(NearMechanism::of(&[diag("stiffness_not_positive_definite", None)]), NearMechanism(true));
     assert_eq!(NearMechanism::of(&[diag("known_issue", Some("LIN-SECOND-ORDER-UNBOUNDED")), diag("high_diagonal_ratio", None)]), NearMechanism(false));
-    let refusal = "Singular stiffness matrix — structure is a mechanism".to_string();
-    assert!(matches!(crate::checks2::transformed_failure(refusal.clone(), NearMechanism(true)), crate::tally::Verdict::Refused(_)));
-    assert!(matches!(crate::checks2::transformed_failure(refusal, NearMechanism(false)), crate::tally::Verdict::Fail(_)));
+    assert!(!crate::generated::strict());
+    for refusal in [
+        "Singular stiffness matrix — structure is a mechanism",
+        "did not converge",
+        "REFUSE: self-check static_residual: 2.1e-2 exceeds 1.0e-3; excessive displacement indicates a likely mechanism",
+        "Eigenvalue decomposition failed: could not establish convergence and Sturm completeness for 3 frequencies",
+    ] {
+        assert!(matches!(crate::checks2::transformed_failure(refusal.into(), NearMechanism(true)), crate::tally::Verdict::Refused(_)), "{refusal}");
+        assert!(matches!(crate::checks2::transformed_failure(refusal.into(), NearMechanism(false)), crate::tally::Verdict::Fail(_)), "{refusal}");
+    }
+    for unrelated in ["Element 3 references node 9, which does not exist", "No compressed elements — buckling not applicable"] {
+        assert!(matches!(crate::checks2::transformed_failure(unrelated.into(), NearMechanism(true)), crate::tally::Verdict::Fail(_)), "{unrelated}");
+    }
 }
 
 /// #983: a near-mechanism whose transformed copies are refused while the
@@ -1314,6 +1324,7 @@ fn only_the_near_mechanism_warning_excuses_a_refused_copy() {
 fn a_copy_refused_beside_a_near_mechanism_original_is_not_a_violation() {
     let text = std::fs::read_to_string(format!("{}/tests/metamorphic_corpus/nightly/issue-983.json", env!("CARGO_MANIFEST_DIR"))).unwrap();
     let crate::corpus::Model::D2(s) = crate::corpus::parse(&text).unwrap() else { panic!("2D model") };
+    assert!(!crate::generated::strict());
     let original = linear::solve_2d(&s).unwrap();
     assert_eq!(crate::response::NearMechanism::of(&original.structured_diagnostics), crate::response::NearMechanism(true));
     let t = crate::tally::Tally::default();

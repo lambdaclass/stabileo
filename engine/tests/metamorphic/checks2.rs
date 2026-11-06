@@ -152,16 +152,22 @@ pub fn bounded(got: &Resp, expected: &Resp, rel: f64) -> Option<Verdict> {
     })
 }
 
+const NEAR_MECHANISM_REFUSALS: [&str; 8] = [
+    "singular", "mechanism", "not positive definite", "conditioning", "self-check", "did not converge",
+    "eigenvalue decomposition failed", "sturm",
+];
+
 /// The original solved and its transformed copy did not. A refusal that
 /// names a feature the transform introduced (a rotated roller becomes an
 /// inclined support, which some analyses refuse by name) is a documented
-/// limitation, and so is any refusal of a copy whose original solve carried
-/// the #762 near-mechanism warning; anything else is a violation.
+/// limitation, and so is a numerical (singular, unconverged, self-check)
+/// refusal of a copy whose original solve carried the #762 near-mechanism
+/// warning; anything else is a violation.
 pub fn transformed_failure(e: String, original: crate::response::NearMechanism) -> Verdict {
     let l = e.to_lowercase();
     if !crate::generated::strict() && l.contains("inclined support") && ["not supported", "not yet supported", "unsupported", "does not support"].iter().any(|k| l.contains(k)) {
         Verdict::Refused(format!("transformed model: {e}"))
-    } else if !crate::generated::strict() && original.0 {
+    } else if !crate::generated::strict() && original.0 && NEAR_MECHANISM_REFUSALS.iter().any(|k| l.contains(k)) {
         Verdict::Refused(format!("original solved with the near-mechanism warning (#762), transformed model refused: {e}"))
     } else {
         Verdict::Fail(format!("original solved but transformed model failed: {e}"))
