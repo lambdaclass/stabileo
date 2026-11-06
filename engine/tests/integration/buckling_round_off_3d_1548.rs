@@ -22,7 +22,6 @@ fn orientations() -> Vec<(String, Iso3)> {
 }
 
 #[test]
-#[ignore = "known wrong result: #1548 3D buckling has no round-off compression gate"]
 fn buckling_from_round_off_compression_is_refused_in_every_orientation_and_at_every_load_scale_1548() {
     let mut determinable_refusals = 0;
     for scale in [1e-6, 1.0, 1e6] {
@@ -43,7 +42,6 @@ fn buckling_from_round_off_compression_is_refused_in_every_orientation_and_at_ev
 }
 
 #[test]
-#[ignore = "known wrong result: #1548 3D buckling has no round-off compression gate"]
 fn the_buckling_bound_refusal_is_not_masked_by_rigid_motion_or_load_scale_1548() {
     let motions = [Iso3::from_euler(0.3, 1.1, -0.7).translated([1e4, -3e3, 7e3]), Iso3::axis_permutation(5).translated([-250.0, 40.0, 1e3])];
     for scale in [1e-6, 1.0, 1e6] {

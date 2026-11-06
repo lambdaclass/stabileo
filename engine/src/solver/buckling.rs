@@ -160,6 +160,25 @@ fn axial_force_round_off_2d(input: &SolverInput, linear: &AnalysisResults) -> Ha
     out
 }
 
+fn axial_force_round_off_3d(input: &SolverInput3D, dof_num: &DofNumbering, u: &[f64]) -> HashMap<usize, f64> {
+    let nodes: HashMap<usize, &SolverNode3D> = crate::ordered::values(&input.nodes).map(|n| (n.id, n)).collect();
+    let mats: HashMap<usize, &SolverMaterial> = crate::ordered::values(&input.materials).map(|m| (m.id, m)).collect();
+    let secs: HashMap<usize, &SolverSection3D> = crate::ordered::values(&input.sections).map(|s| (s.id, s)).collect();
+    let at = |node: usize, i: usize| dof_num.global_dof(node, i).map(|d| u[d]).unwrap_or(0.0);
+    let mut out = HashMap::new();
+    for e in crate::ordered::values(&input.elements) {
+        let (Some(a), Some(b)) = (nodes.get(&e.node_i), nodes.get(&e.node_j)) else { continue };
+        let (Some(m), Some(s)) = (mats.get(&e.material_id), secs.get(&e.section_id)) else { continue };
+        let d = [b.x - a.x, b.y - a.y, b.z - a.z];
+        let l = (d[0] * d[0] + d[1] * d[1] + d[2] * d[2]).sqrt();
+        if l > 0.0 {
+            let terms = |n: usize| (0..3).map(|i| (at(n, i) * d[i] / l).abs()).sum::<f64>();
+            out.insert(e.id, 100.0 * f64::EPSILON * m.e * 1000.0 * s.a * (terms(e.node_i) + terms(e.node_j)) / l);
+        }
+    }
+    out
+}
+
 /// A mode is resolved when the round-off of the axial forces can move its geometric work by at most this fraction.
 const MODE_RESOLUTION: f64 = 1e-2;
 
@@ -386,7 +405,18 @@ pub fn buckling_system_3d(input: &SolverInput3D) -> Result<BucklingSystem3D, Str
     }
     let mean_n = super::geometric_stiffness::mean_axial_forces_3d(input, &dof_num, &u_full);
     let (span_axial, span_least) = span_axial_geometric_stiffness_3d(input, &dof_num);
-    let has_frame_compression = mean_n.iter().any(|(id, &n)| n + span_least.get(id).copied().unwrap_or(0.0).min(0.0) < -1e-6);
+    let compression = |id: &usize, n: f64| n + span_least.get(id).copied().unwrap_or(0.0).min(0.0);
+    let has_frame_compression = mean_n.iter().any(|(id, &n)| compression(id, n) < -1e-6);
+    let axial_noise = axial_force_round_off_3d(input, &dof_num, &u_full);
+    let resolvable = |id: &usize, n: f64| compression(id, n) < -axial_noise.get(id).copied().unwrap_or(0.0).max(1e-6);
+    let has_resolved_compression = mean_n.iter().any(|(id, &n)| resolvable(id, n));
+    let not_determinable = || {
+        let (id, n) = mean_n.iter().map(|(id, &n)| (*id, compression(id, n))).min_by(|a, b| a.1.total_cmp(&b.1).then(a.0.cmp(&b.0))).unwrap_or((0, 0.0));
+        format!(
+            "Buckling not determinable: every axial compression is within round-off of the member elongations (largest {:.3e} kN in element {id}, resolvable beyond {:.3e} kN)",
+            -n, axial_noise.get(&id).copied().unwrap_or(0.0)
+        )
+    };
     let has_surfaces = !input.quads.is_empty()
         || !input.plates.is_empty()
         || !input.quad9s.is_empty()
@@ -399,6 +429,9 @@ pub fn buckling_system_3d(input: &SolverInput3D) -> Result<BucklingSystem3D, Str
     // elements at all, no amount of assembly can change the answer.
     if !has_frame_compression && !has_surfaces {
         return Err("No compressed elements — buckling not applicable".into());
+    }
+    if has_frame_compression && !has_resolved_compression && !has_surfaces {
+        return Err(not_determinable());
     }
 
     // K (the linear path's, rotated into the inclined-support frames) first:
@@ -445,6 +478,9 @@ pub fn buckling_system_3d(input: &SolverInput3D) -> Result<BucklingSystem3D, Str
     let has_shell_kg = has_surfaces && neg_kg_csc.values.iter().any(|&v| v.abs() > 1e-15);
     if !has_frame_compression && !has_shell_kg {
         return Err("No compressed elements — buckling not applicable".into());
+    }
+    if !has_resolved_compression && !has_shell_kg {
+        return Err(not_determinable());
     }
     Ok(BucklingSystem3D { linear, dof_num, k_ff, neg_kg_csc, inclined_transforms, mean_n, span_axial })
 }
