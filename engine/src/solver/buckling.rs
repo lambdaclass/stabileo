@@ -4,7 +4,7 @@ use crate::linalg::*;
 use super::dof::DofNumbering;
 use super::assembly::*;
 use super::geometric_stiffness::{
-    emit_geometric_stiffness_2d, emit_geometric_stiffness_3d, geometric_stiffness_terms_2d, span_axial_geometric_stiffness_2d,
+    emit_geometric_stiffness_2d, emit_geometric_stiffness_3d, geometric_stiffness_terms_2d, geometric_stiffness_terms_3d, span_axial_geometric_stiffness_2d,
     span_axial_geometric_stiffness_3d, KgTriplets,
 };
 use super::constraints::FreeConstraintSystem;
@@ -182,7 +182,7 @@ fn axial_force_round_off_3d(input: &SolverInput3D, dof_num: &DofNumbering, u: &[
 /// A mode is resolved when the round-off of the axial forces can move its geometric work by at most this fraction.
 const MODE_RESOLUTION: f64 = 1e-2;
 
-fn geometric_work_uncertainty_2d(
+fn geometric_work_uncertainty(
     terms: &[super::geometric_stiffness::KgAffineTerm],
     span_axial: &[(usize, Vec<usize>, Vec<f64>)],
     mean_n: &HashMap<usize, f64>,
@@ -296,7 +296,7 @@ pub fn solve_buckling_2d(
             }
         }
 
-        let (work, uncertainty, drivers) = geometric_work_uncertainty_2d(&kg_terms, &span_axial, &mean_n, &axial_noise, &u_mode);
+        let (work, uncertainty, drivers) = geometric_work_uncertainty(&kg_terms, &span_axial, &mean_n, &axial_noise, &u_mode);
         if !(uncertainty <= MODE_RESOLUTION * work.abs()) {
             unresolved.push((modes.len() + 1, lambda));
             unresolved_members.extend(drivers);
@@ -378,6 +378,8 @@ pub struct BucklingSystem3D {
     /// Each member's mean axial force at the linear solution; Kg is built from it and `span_axial`.
     pub mean_n: HashMap<usize, f64>,
     pub span_axial: Vec<(usize, Vec<usize>, Vec<f64>)>,
+    /// Per member, the round-off of `mean_n` (as `axial_force_round_off_3d`).
+    pub axial_noise: HashMap<usize, f64>,
 }
 
 #[doc(hidden)]
@@ -482,7 +484,7 @@ pub fn buckling_system_3d(input: &SolverInput3D) -> Result<BucklingSystem3D, Str
     if !has_resolved_compression && !has_shell_kg {
         return Err(not_determinable());
     }
-    Ok(BucklingSystem3D { linear, dof_num, k_ff, neg_kg_csc, inclined_transforms, mean_n, span_axial })
+    Ok(BucklingSystem3D { linear, dof_num, k_ff, neg_kg_csc, inclined_transforms, mean_n, span_axial, axial_noise })
 }
 
 /// 3D buckling analysis result.
@@ -533,7 +535,7 @@ pub fn solve_buckling_3d(
     let sec_by_id: HashMap<usize, &SolverSection3D> =
         crate::ordered::values(&input.sections).map(|s| (s.id, s)).collect();
 
-    let BucklingSystem3D { linear, dof_num, k_ff, neg_kg_csc, inclined_transforms, mean_n, .. } = buckling_system_3d(input)?;
+    let BucklingSystem3D { linear, dof_num, k_ff, neg_kg_csc, inclined_transforms, mean_n, axial_noise, .. } = buckling_system_3d(input)?;
     let nf = dof_num.n_free;
     let n = dof_num.n_total;
 
@@ -570,6 +572,9 @@ pub fn solve_buckling_3d(
     }
     mode_pairs.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
 
+    let kg_terms = geometric_stiffness_terms_3d(input, &dof_num);
+    let mut unresolved: Vec<(usize, f64)> = Vec::new();
+    let mut unresolved_members: Vec<usize> = Vec::new();
     let mut modes = Vec::new();
     for &(lambda, idx) in mode_pairs.iter().take(num_modes) {
         let phi_s: Vec<f64> = (0..ns).map(|i| result.vectors[i * n_converged + idx]).collect();
@@ -581,6 +586,12 @@ pub fn solve_buckling_3d(
 
         // Back to global axes at inclined supports before normalizing (as 2D).
         let mut u_mode = to_global(&phi_f[..nf], n, &inclined_transforms);
+        let work = -neg_kg_csc.sym_mat_vec(&phi_f[..nf]).iter().zip(&phi_f[..nf]).map(|(a, b)| a * b).sum::<f64>();
+        let (_, uncertainty, drivers) = geometric_work_uncertainty(&kg_terms, &[], &mean_n, &axial_noise, &u_mode);
+        if !(uncertainty <= MODE_RESOLUTION * work.abs()) {
+            unresolved.push((modes.len() + 1, lambda));
+            unresolved_members.extend(drivers);
+        }
         let max_disp = u_mode.iter().fold(0.0f64, |m, v| m.max(v.abs()));
         if max_disp > 1e-20 {
             for v in u_mode.iter_mut() { *v /= max_disp; }
@@ -591,6 +602,15 @@ pub fn solve_buckling_3d(
 
     if modes.is_empty() {
         return Err("No positive buckling load factors found".into());
+    }
+
+    if !unresolved.is_empty() {
+        unresolved_members.sort_unstable();
+        unresolved_members.dedup();
+        let listed: Vec<String> = unresolved.iter().map(|(k, l)| format!("mode {k} (λ = {l:.3e})")).collect();
+        let mut d = crate::known_issues::diagnostic("BU-UNRESOLVED-MODE").with_elements(unresolved_members);
+        d.message = format!("{}: {}", d.message, listed.join(", "));
+        crate::known_issues::attach(&mut structured_diagnostics, vec![d]);
     }
 
     let lambda_cr = modes[0].load_factor;
@@ -643,7 +663,7 @@ mod tests {
         let mean_n = HashMap::from([(1, 0.0)]);
         let noise = HashMap::from([(1, 1e-9)]);
         let phi = [1.0, -1.0];
-        let (work, uncertainty, _) = geometric_work_uncertainty_2d(&[term], &span, &mean_n, &noise, &phi);
+        let (work, uncertainty, _) = geometric_work_uncertainty(&[term], &span, &mean_n, &noise, &phi);
         assert_eq!(work, -8.0);
         assert!(uncertainty <= MODE_RESOLUTION * work.abs(), "work {work}, uncertainty {uncertainty}");
     }
