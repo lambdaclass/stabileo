@@ -140,14 +140,19 @@ fn around(x: f64, d: f64, what: &str) -> Result<Interval, String> {
 /// demand is "not applicable" (ratio 0), exactly as `CheckLedger::ratio_if_loaded`;
 /// otherwise the capacity must be certified positive.
 fn loaded_ratio(name: &str, d: Interval, cap: Interval) -> Result<Interval, String> {
-    if d.lo == 0.0 && d.hi == 0.0 {
-        return Ok(Interval::ZERO);
+    certified(name, cap, crate::check::enclosure_if_loaded(d, cap))
+}
+
+fn certified(name: &str, cap: Interval, o: crate::check::Outcome<Interval>) -> Result<Interval, String> {
+    use crate::check::{Outcome, Reason};
+    match o {
+        Outcome::Ratio(r) => Ok(r),
+        Outcome::Unevaluated(Reason::NonFiniteCapacity | Reason::NonPositiveCapacity) => {
+            Err(format!("{name}: capacity not certified positive ({cap:?})"))
+        }
+        Outcome::Unevaluated(Reason::NonFiniteDemand) => Err(format!("{name}: non-finite demand")),
+        Outcome::Unevaluated(Reason::NonFiniteRatio) => Err(format!("{name}: non-finite ratio")),
     }
-    if !cap.is_finite() || !(cap.lo > 0.0) {
-        return Err(format!("{name}: capacity not certified positive ({cap:?})"));
-    }
-    let r = d.div(cap);
-    if r.is_finite() { Ok(r) } else { Err(format!("{name}: non-finite ratio")) }
 }
 
 /// Interval enclosures of the six AISC ratios for one demand box. Mirrors
@@ -175,7 +180,7 @@ pub fn steel_ratio_enclosures(
     let compression = loaded_ratio(CHECK_NAMES[1], (-n).max(zero), phi_pn_c)?;
     let flex_y = loaded_ratio(CHECK_NAMES[2], my, phi_mn_y)?;
     let flex_z = loaded_ratio(CHECK_NAMES[3], mz, phi_mn_z)?;
-    let strong_shear = branch(zero.lt(phi_vn), || v_strong.div(phi_vn), || zero);
+    let strong_shear = loaded_ratio(CHECK_NAMES[4], v_strong, phi_vn)?;
     let weak_shear = match m.aw_weak {
         Some(_) => loaded_ratio(SHEAR_WEAK, v_weak, shear_capacity_weak(m))?,
         None if v_weak.lo == 0.0 && v_weak.hi == 0.0 => zero,
@@ -291,7 +296,7 @@ pub fn certify_steel_members(input: &CertifiedSteelCheckInput) -> Vec<CertifiedS
 // ───────────────────────────── EC3 ─────────────────────────────
 
 /// EC3 design forces with their certified error bounds (`n`→NEd, `my`→My,Ed,
-/// `mz`→Mz,Ed, `vy`→VEd).
+/// `mz`→Mz,Ed, `vStrong`→VEd).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BoundedEc3Demand {
@@ -506,7 +511,7 @@ pub fn steel_demands_from_combinations_3d(
 // ───────────────────────────── EC2 (RC) ─────────────────────────────
 
 /// EC2 design forces with their certified error bounds (`n`→NEd, `my`→MEd,
-/// `vy`→VEd; `mz` unused).
+/// `vStrong`→VEd; `mz` unused).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BoundedEc2Demand {
@@ -535,12 +540,7 @@ pub fn ec2_ratio_enclosures(
     let v = around(f.v_ed.unwrap_or(0.0), b.v_strong, "VEd")?.abs();
     let n = around(f.n_ed.unwrap_or(0.0), b.n, "NEd")?;
     let flex: Ec2Flexure<Interval> = ec2_flexure(m);
-    // `CheckLedger::ratio` (not `_if_loaded`): the flexural resistance must be
-    // usable even without a moment.
-    if !flex.m_rd.is_finite() || !(flex.m_rd.lo > 0.0) {
-        return Err(format!("{}: MRd not certified positive ({:?})", EC2_CHECK_NAMES[0], flex.m_rd));
-    }
-    let flexure = mm.div(flex.m_rd);
+    let flexure = required_ratio(EC2_CHECK_NAMES[0], mm, flex.m_rd)?;
     let shear: Ec2Shear<Interval> = ec2_shear(m, n);
     let shear = loaded_ratio(EC2_CHECK_NAMES[1], v, shear.v_rd)?;
     if !flexure.is_finite() || !shear.is_finite() {
@@ -564,7 +564,7 @@ pub fn certify_ec2_members(input: &CertifiedEc2CheckInput) -> Vec<CertifiedMembe
 // ───────────────────────────── CIRSOC 201 (RC) ─────────────────────────────
 
 /// CIRSOC 201 design forces with their certified error bounds (`my`→Mu,
-/// `vy`→Vu; `n`, `mz` unused).
+/// `vStrong`→Vu; `n`, `mz` unused).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BoundedCirsoc201Demand {
@@ -584,11 +584,7 @@ const CIRSOC201_CHECK_NAMES: [&str; 4] = [CIRSOC201_FLEXURE, CIRSOC201_DUCTILITY
 /// Flexure ratio as `CheckLedger::ratio`: the capacity must be certified
 /// positive even with no moment (the f64 check flags it otherwise).
 fn required_ratio(name: &str, d: Interval, cap: Interval) -> Result<Interval, String> {
-    if !cap.is_finite() || !(cap.lo > 0.0) {
-        return Err(format!("{name}: capacity not certified positive ({cap:?})"));
-    }
-    let r = d.div(cap);
-    if r.is_finite() { Ok(r) } else { Err(format!("{name}: non-finite ratio")) }
+    certified(name, cap, crate::check::enclosure(d, cap))
 }
 
 /// Refuse a flexure section whose force residual is not provably strictly
@@ -627,10 +623,7 @@ pub fn cirsoc201_ratio_enclosures(
     let ductility = match applies {
         Tri::False => Interval::ZERO,
         _ => {
-            if !(flex.epsilon_t.lo > 0.0) {
-                return Err(format!("{CIRSOC201_DUCTILITY}: εt not certified positive"));
-            }
-            let r = cirsoc201_ductility_strain::<Interval>(m.edition, m.fy, es).div(flex.epsilon_t);
+            let r = required_ratio(CIRSOC201_DUCTILITY, cirsoc201_ductility_strain::<Interval>(m.edition, m.fy, es), flex.epsilon_t)?;
             if applies == Tri::True { r } else { r.hull(Interval::ZERO) }
         }
     };
@@ -684,7 +677,7 @@ pub fn cirsoc201_demands(demands: &[BoundedSteelDemand]) -> Result<Vec<BoundedCi
 
 /// CIRSOC 301 design forces with their certified error bounds: `n`→Nu
 /// (compression-positive, as the forces), `my`→Mu strong axis, `mz`→Mu weak
-/// axis, `vy`→Vu.
+/// axis, `vStrong`→Vu.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BoundedCirsoc301Demand {
@@ -835,7 +828,7 @@ pub fn cirsoc301_demands(demands: &[BoundedSteelDemand]) -> Result<Vec<BoundedCi
 // ───────────────────────────── ACI 318 (RC) ─────────────────────────────
 
 /// ACI 318 RC design forces with their certified error bounds (`my`→Mu,
-/// `vy`→Vu, `n`→Nu tension-positive; `mz` unused).
+/// `vStrong`→Vu, `n`→Nu tension-positive; `mz` unused).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BoundedRcDemand {
@@ -994,7 +987,7 @@ pub fn rc_demands(demands: &[BoundedSteelDemand]) -> Result<Vec<BoundedRcDemand>
 // ───────────────────────────── NDS timber ─────────────────────────────
 
 /// NDS timber design forces with their certified error bounds (`my`→M,
-/// `n`→N tension-positive, `vy`→V; `mz` unused).
+/// `n`→N tension-positive, `vStrong`→V; `mz` unused).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BoundedTimberDemand {
@@ -1072,7 +1065,7 @@ pub fn timber_demands(demands: &[BoundedSteelDemand]) -> Result<Vec<BoundedTimbe
 // ───────────────────────────── AISI S100 (CFS) ─────────────────────────────
 
 /// AISI S100 design forces with their certified error bounds (`n`→axial
-/// tension-positive, `my`→Mx strong axis, `mz`→My weak axis, `vy`→shear).
+/// tension-positive, `my`→Mx strong axis, `mz`→My weak axis, `vStrong`→shear).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BoundedCfsDemand {
@@ -1369,6 +1362,10 @@ mod tests {
         for i in 0..3000 {
             let m = random_member(&mut g, i);
             let f = random_forces(&mut g, i);
+            if m.aw.is_none() {
+                assert!(steel_ratio_enclosures(&m, &f, &ZERO_BOUND).is_err(), "member {i}");
+                continue;
+            }
             let r = steel_ratio_enclosures(&m, &f, &ZERO_BOUND).unwrap();
             let p = f64_ratios(&m, &f);
             for k in 0..CHECK_NAMES.len() {
@@ -1392,6 +1389,10 @@ mod tests {
                 mz: f.mz.unwrap().abs() * g.range(0.0, 0.3),
                 v_weak: 0.0, v_strong: f.v_strong.unwrap().abs() * g.range(0.0, 0.3),
             };
+            if m.aw.is_none() {
+                assert!(steel_ratio_enclosures(&m, &f, &b).is_err(), "member {i}");
+                continue;
+            }
             let r = steel_ratio_enclosures(&m, &f, &b).unwrap();
             for _ in 0..50 {
                 let s = ElementDesignForces {
@@ -1454,6 +1455,54 @@ mod tests {
             demands: vec![BoundedSteelDemand { forces: f.clone(), bound: ZERO_BOUND }],
         });
         assert!(res.iter().all(|r| !r.certified && !r.certified_ok), "{res:?}");
+    }
+
+    #[test]
+    fn aisc_shear_without_web_area_is_unevaluated_in_both_paths() {
+        let mut m = w_member(1, 3.0);
+        m.aw = None;
+        let f = ElementDesignForces { element_id: 1, n: 0.0, my: 1e4, mz: None, v_strong: Some(4e5), v_weak: None };
+        let r = &check_steel_members(&SteelCheckInput { members: vec![m.clone()], forces: vec![f.clone()] })[0];
+        assert!(r.unevaluated.iter().any(|n| n == "Shear G2"), "{:?}", r.unevaluated);
+        assert!(r.governing_check.ends_with("(incomplete)"), "{}", r.governing_check);
+        let e = steel_ratio_enclosures(&m, &f, &ZERO_BOUND).unwrap_err();
+        assert!(e.starts_with("Shear G2"), "{e}");
+        let res = certify_steel_members(&CertifiedSteelCheckInput {
+            members: vec![m.clone()],
+            demands: vec![BoundedSteelDemand { forces: f.clone(), bound: ZERO_BOUND }],
+        });
+        assert!(!res[0].certified && !res[0].certified_ok, "{:?}", res[0]);
+
+        let unloaded = ElementDesignForces { v_strong: Some(0.0), ..f };
+        let r = &check_steel_members(&SteelCheckInput { members: vec![m.clone()], forces: vec![unloaded.clone()] })[0];
+        assert!(r.unevaluated.is_empty(), "{:?}", r.unevaluated);
+        let res = certify_steel_members(&CertifiedSteelCheckInput {
+            members: vec![m],
+            demands: vec![BoundedSteelDemand { forces: unloaded, bound: ZERO_BOUND }],
+        });
+        assert!(res[0].certified && res[0].certified_ok, "{:?}", res[0]);
+    }
+
+    #[test]
+    fn sa_2026_025_shear_without_web_area_is_unevaluated_at_the_ratio_boundary() {
+        let mut m = w_member(1, 3.0);
+        m.aw = None;
+        let phi_vn: f64 = crate::postprocess::steel_check::shear_capacity(&m);
+        assert_eq!(phi_vn, 0.0);
+        assert_eq!(crate::check::ratio_if_loaded(400e3, phi_vn), crate::check::Outcome::Unevaluated(crate::check::Reason::NonPositiveCapacity));
+        let f = ElementDesignForces { element_id: 1, n: 0.0, my: 10e3, mz: None, v_strong: Some(400e3), v_weak: None };
+        let r = &check_steel_members(&SteelCheckInput { members: vec![m.clone()], forces: vec![f.clone()] })[0];
+        assert_eq!(r.unevaluated, vec!["Shear G2".to_string()]);
+        assert!(steel_ratio_enclosures(&m, &f, &ZERO_BOUND).is_err());
+    }
+
+    #[test]
+    fn aisc_shear_bound_reaching_zero_without_web_area_is_refused() {
+        let mut m = w_member(1, 3.0);
+        m.aw = None;
+        let f = ElementDesignForces { element_id: 1, n: 0.0, my: 1e4, mz: None, v_strong: Some(0.0), v_weak: None };
+        let b = DemandBound { v_strong: 1e3, ..ZERO_BOUND };
+        assert!(steel_ratio_enclosures(&m, &f, &b).is_err());
     }
 
     /// Member results: max over demand sets; ok / fail flags are certified.
@@ -1629,6 +1678,140 @@ mod tests {
             demands: vec![BoundedEc3Demand { forces: f, bound: ZERO_BOUND }],
         });
         assert!(!res[0].certified && !res[0].certified_ok);
+    }
+
+    fn heb300(id: usize) -> Ec3MemberData {
+        Ec3MemberData {
+            a: 1.491e-2,
+            wpl_y: 1.869e-3,
+            wel_y: 1.678e-3,
+            wpl_z: 8.70e-4,
+            wel_z: 5.71e-4,
+            iy: 2.517e-4,
+            iz: 8.563e-5,
+            it: 1.85e-6,
+            iw: 1.688e-6,
+            lb: 0.0,
+            av: None,
+            geometry: Some(crate::postprocess::ec3_check::Ec3Geometry::I { h: 0.300, b: 0.300, tw: 0.011, tf: 0.019, r: 0.027 }),
+            ..ipe(id, 3.0)
+        }
+    }
+
+    fn ec3_shear_only(m: &Ec3MemberData, v: f64) -> (crate::postprocess::ec3_check::Ec3CheckResult, CertifiedMemberResult) {
+        let f = Ec3DesignForces { element_id: m.element_id, n_ed: None, my_ed: None, mz_ed: None, v_ed: Some(v) };
+        let r = check_ec3_members(&Ec3CheckInput { members: vec![m.clone()], forces: vec![f.clone()] }).remove(0);
+        let c = certify_ec3_members(&CertifiedEc3CheckInput {
+            members: vec![m.clone()],
+            demands: vec![BoundedEc3Demand { forces: f, bound: ZERO_BOUND }],
+        })
+        .remove(0);
+        (r, c)
+    }
+
+    fn vpl(av: f64, fy: f64) -> f64 {
+        av * fy / 3f64.sqrt()
+    }
+
+    #[test]
+    fn ec3_heb300_without_av_uses_the_rolled_shear_area_not_half_of_a() {
+        let m = heb300(1);
+        let avz_table = 47.43e-4;
+        let v = 1.2 * vpl(avz_table, m.fy);
+        let (r, c) = ec3_shear_only(&m, v);
+        assert!(r.unevaluated.is_empty(), "{:?}", r.unevaluated);
+        assert!((r.shear_ratio / 1.2 - 1.0).abs() < 1e-3, "{}", r.shear_ratio);
+        assert!(!r.pass);
+        assert!(c.certified && c.certified_fail && !c.certified_ok, "{c:?}");
+        let shear = c.checks.iter().find(|x| x.name == "Shear 6.2.6").unwrap();
+        assert!(shear.lower <= r.shear_ratio && r.shear_ratio <= shear.upper, "{shear:?}");
+    }
+
+    #[test]
+    fn ec3_ipe300_without_av_matches_the_published_shear_area() {
+        let m = Ec3MemberData { av: None, ..ipe(1, 3.0) };
+        let avz_table = 25.68e-4;
+        let v = 0.5 * vpl(avz_table, m.fy);
+        let (r, c) = ec3_shear_only(&m, v);
+        assert!(r.unevaluated.is_empty(), "{:?}", r.unevaluated);
+        assert!((r.shear_ratio / 0.5 - 1.0).abs() < 1e-3, "{}", r.shear_ratio);
+        assert!(c.certified && c.certified_ok, "{c:?}");
+    }
+
+    #[test]
+    fn ec3_welded_i_without_av_takes_the_web_alone() {
+        let mut m = heb300(1);
+        m.geometry = Some(crate::postprocess::ec3_check::Ec3Geometry::I { h: 0.300, b: 0.300, tw: 0.011, tf: 0.019, r: 0.0 });
+        let v = vpl((0.300 - 2.0 * 0.019) * 0.011, m.fy);
+        let (r, _) = ec3_shear_only(&m, v);
+        assert!((r.shear_ratio - 1.0).abs() < 1e-12, "{}", r.shear_ratio);
+    }
+
+    #[test]
+    fn ec3_hollow_sections_without_av_use_the_6_2_6_areas() {
+        let mut m = heb300(1);
+        m.a = 3.35e-3;
+        m.geometry = Some(crate::postprocess::ec3_check::Ec3Geometry::Rhs { h: 0.200, b: 0.100, t: 0.006 });
+        let (r, _) = ec3_shear_only(&m, vpl(m.a * 0.200 / 0.300, m.fy));
+        assert!((r.shear_ratio - 1.0).abs() < 1e-12, "{}", r.shear_ratio);
+        m.a = 5.6e-3;
+        m.geometry = Some(crate::postprocess::ec3_check::Ec3Geometry::Rhs { h: 0.200, b: 0.100, t: 0.010 });
+        let (r, _) = ec3_shear_only(&m, vpl(2.0 * (0.200 - 2.0 * 0.010) * 0.010, m.fy));
+        assert!((r.shear_ratio - 1.0).abs() < 1e-12, "{}", r.shear_ratio);
+        m.a = 3.6e-3;
+        m.geometry = Some(crate::postprocess::ec3_check::Ec3Geometry::Chs { d: 0.1683, t: 0.0071 });
+        let (r, _) = ec3_shear_only(&m, vpl(2.0 * m.a / std::f64::consts::PI, m.fy));
+        assert!((r.shear_ratio - 1.0).abs() < 1e-12, "{}", r.shear_ratio);
+    }
+
+    #[test]
+    fn ec3_shear_without_av_or_geometry_is_unevaluated_in_both_paths() {
+        let mut m = heb300(1);
+        m.geometry = None;
+        m.ltb = None;
+        let (r, c) = ec3_shear_only(&m, 1e5);
+        assert!(r.unevaluated.iter().any(|n| n == "Shear 6.2.6"), "{:?}", r.unevaluated);
+        assert!(!r.pass);
+        assert!(!c.certified && !c.certified_ok, "{c:?}");
+        let (r, c) = ec3_shear_only(&m, 0.0);
+        assert!(r.unevaluated.is_empty() && r.pass, "{:?}", r.unevaluated);
+        assert!(c.certified && c.certified_ok, "{c:?}");
+    }
+
+    #[test]
+    fn sa_2026_026_shear_without_av_or_geometry_is_unevaluated_at_the_ratio_boundary() {
+        let mut m = heb300(1);
+        m.geometry = None;
+        m.ltb = None;
+        let av: f64 = crate::postprocess::ec3_check::shear_area(&m);
+        assert!(av.is_nan(), "no 0.5·A substitute: {av}");
+        let vpl_rd = av * m.fy / 3f64.sqrt();
+        assert_eq!(crate::check::ratio_if_loaded(1e5, vpl_rd), crate::check::Outcome::Unevaluated(crate::check::Reason::NonFiniteCapacity));
+        let (r, c) = ec3_shear_only(&m, 1e5);
+        assert_eq!(r.shear_ratio, 0.0);
+        assert!(r.unevaluated.iter().any(|n| n == "Shear 6.2.6") && !r.pass, "{:?}", r.unevaluated);
+        assert!(!c.certified_ok, "{c:?}");
+    }
+
+    #[test]
+    fn an_unknown_ec3_reduction_factor_crosses_the_boundary_as_null_with_its_check_unevaluated() {
+        let mut m = heb300(1);
+        m.geometry = None;
+        m.lb = 4.0;
+        let (r, _) = ec3_shear_only(&m, 1e5);
+        assert!(r.chi_lt.is_nan(), "{}", r.chi_lt);
+        let json: serde_json::Value = serde_json::from_str(&crate::boundary::to_json(&r).expect("an unknown chi_LT is reported, not refused")).unwrap();
+        assert!(json["chiLt"].is_null(), "{json}");
+        assert!(json["unevaluated"].as_array().unwrap().iter().any(|n| n == "LTB chi_LT"), "{json}");
+    }
+
+    #[test]
+    fn ec3_degenerate_i_geometry_without_av_is_unevaluated() {
+        let mut m = heb300(1);
+        m.geometry = Some(crate::postprocess::ec3_check::Ec3Geometry::I { h: 0.030, b: 0.300, tw: 0.011, tf: 0.019, r: 0.027 });
+        let (r, c) = ec3_shear_only(&m, 1e5);
+        assert!(r.unevaluated.iter().any(|n| n == "Shear 6.2.6"), "{:?}", r.unevaluated);
+        assert!(!c.certified_ok, "{c:?}");
     }
 
     // ───────────── EC2 ─────────────

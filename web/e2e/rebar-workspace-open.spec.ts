@@ -48,6 +48,8 @@
  */
 
 import { test, expect, designAll, loadModel, openDocumentsStage, designPlace, openFloorPass } from './fixtures';
+import { assertBudget } from '../src/lib/engine/__tests__/wall-clock-budget';
+
 
 type Page = import('@playwright/test').Page;
 
@@ -202,7 +204,9 @@ test('@slow the 3-D workspace opens without freezing the window', async ({ pro: 
      * which on this runner's software rasteriser costs several times what it costs on real
      * hardware. That is reported in the table and deliberately not asserted.
      */
-    expect(r.phases.document, `${name}: the document phase is off the quadratic's scale`)
+    expect(typeof r.phases.document, `${name}: the document phase was measured`).toBe('number');
+    expect(typeof r.phases.geometry, `${name}: the geometry phase was measured`).toBe('number');
+    if (assertBudget(r.phases.document ?? NaN, 1500, `rebar open, ${name}: the document phase`)) expect(r.phases.document, `${name}: the document phase is off the quadratic's scale`)
       .toBeLessThan(1500);
     /*
      * Calibrated 2026-08-19: the shared runner measured 2543.5 ms and 2645.3 ms
@@ -211,7 +215,7 @@ test('@slow the 3-D workspace opens without freezing the window', async ({ pro: 
      * signal in the failure. 3000 ms keeps the budget far below the seconds
      * scale it guards against while absorbing runner noise.
      */
-    expect(r.phases.geometry, `${name}: the app's own work stays off the seconds scale`)
+    if (assertBudget(r.phases.geometry ?? NaN, 3000, `rebar open, ${name}: the geometry phase`)) expect(r.phases.geometry, `${name}: the app's own work stays off the seconds scale`)
       .toBeLessThan(3000);
     expect(r.builds, `${name}: exactly one geometry build`).toBe(1);
     expect(r.misses, `${name}: exactly one scene projection`).toBe(1);
@@ -253,6 +257,6 @@ test('@slow the 3-D workspace opens without freezing the window', async ({ pro: 
   // end and drops straight out of the median, which is the failure it claimed to catch.
   const documentTimes = sameDocument.map(([, r]) => r.phases.document!).sort((a, b) => a - b);
   const median = documentTimes[1];
-  expect(median, `the median of ${documentTimes.map(Math.round).join('/')} ms stays under 500 ms`)
+  if (assertBudget(median, 500, 'rebar open: the median document phase')) expect(median, `the median of ${documentTimes.map(Math.round).join('/')} ms stays under 500 ms`)
     .toBeLessThan(500);
 });

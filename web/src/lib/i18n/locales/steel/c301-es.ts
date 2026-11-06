@@ -135,6 +135,7 @@ const c301Es: Record<string, string> = {
   'c301.refuse.noConnection': 'falta la unión extrema (agujeros y coeficiente U de D.3)',
   'c301.refuse.endsMissing': 'falta la unión extrema en {ends} (agujeros y coeficiente U de D.3)',
   'c301.refuse.endRefused': 'extremo {end}: {reason}',
+  'c301.refuse.firstOrderMoments': 'los momentos son de primer orden y el análisis advierte que pueden amplificarse más de un 10 %: H.1 los toma como de segundo orden (C.1); ejecuta un análisis P-Delta o de segundo orden',
   'c301.refuse.connectionRefused': 'unión extrema: {reason}',
   'c301.refuse.aeOutOfRange': 'Ae = {Ae} mm² fuera de (0, Ag]',
   'c301.refuse.anOutOfRange': 'An = {An} mm² fuera de (0, Ag]',
@@ -147,6 +148,8 @@ const c301Es: Record<string, string> = {
   'c301.refuse.noShearLag': 'la unión no da U: falta U, todos los elementos unidos, chapa soldada o x̄ y L (D.3)',
   'c301.refuse.unknownShape': 'forma de sección «{shape}» sin clasificación según la Tabla B.4.1a',
   'c301.refuse.elementInvalid': 'elemento comprimido «{kind}» no válido para la Tabla B.4.1a',
+  'c301.refuse.qNonPositive': 'el área efectiva da Qa = {Qa} ≤ 0 (A = {A} mm², Σ(b − be)·t = {lost} mm²): el área de la sección no concuerda con los anchos y espesores de sus elementos comprimidos (§E.7)',
+  'c301.refuse.fcrAboveFy': 'Fcr = {Fcr} MPa > Fy = {Fy} MPa: la resistencia a compresión superaría la carga de aplastamiento',
   'c301.refuse.chsTooSlender': 'D/t = {Dt} > 0,45·E/Fy = {lim}: E.7.2(c) no cubre este tubo',
   'c301.refuse.e4NoJCw': '§E.4: kz·Lz > ky·L y faltan J o Cw para el pandeo torsional',
   'c301.refuse.e4NoJ': '§E.4: falta J para el pandeo flexotorsional',
@@ -168,6 +171,7 @@ const c301Es: Record<string, string> = {
   'c301.refuse.e6Connector': '§E.6.2.1: falta el tipo de unión intermedia (bulones sin pretensar o soldadura)',
   'c301.refuse.e6SpacingTooLarge': '§E.6.2.2: a/ri = {ari} > 3/4 de la esbeltez gobernante = {lim}',
   'c301.refuse.engineUnavailable': 'el motor de cálculo no está cargado: el elemento no está verificado',
+  'c301.refuse.capacityUnusable': 'no se puede formar la relación con φRn = {phiRn} y la solicitación {demand}: la resistencia de diseño no es positiva y finita, o la solicitación no es finita',
 
   // The steel results screen and the angle editor.
   'steel.angle.title': 'Ángulos comprimidos (§E.5, §E.6)',

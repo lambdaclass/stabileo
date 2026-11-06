@@ -1,8 +1,11 @@
+import { uiStore } from './ui.svelte';
+import { timeHistoryView } from './time-history-view.svelte';
 // Results store
 
 import { carryCertifyJob } from '../engine/certify-tags';
 import type { AnalysisResults, InfluenceLineResult, Section, Material } from './model.svelte';
 import type { ElementForces, FullEnvelope, ConstraintForce, SolverDiagnostic, SolveTimings } from '../engine/types';
+import { knownIssueResultDisposition } from '../engine/known-issues';
 import { modelFindings } from '../engine/model-findings';
 import type { AnalysisResults3D, Displacement3D, Reaction3D, ElementForces3D, FullEnvelope3D } from '../engine/types-3d';
 import type { GoverningPerElement, GoverningPerElement3D } from '../engine/governing-case';
@@ -271,6 +274,14 @@ function createResultsStore() {
   let perCombo3D = $state<Map<number, AnalysisResults3D>>(new Map());
   let unstableCombinations3D = $state<number[]>([]);
   let envelope3D = $state.raw<FullEnvelope3D | null>(null);
+  const anyRefused = (...maps: ReadonlyMap<number, unknown>[]) => maps.some(m => [...m.values()].some(r => knownIssueResultDisposition(r).refused));
+  const NO_RESULTS = new Map<number, never>();
+  const combosRefused2D = () => anyRefused(perCase, perCombo);
+  const combosRefused3D = () => anyRefused(perCase3D, perCombo3D);
+  const comboRefused2D = () => combosRefused2D() || knownIssueResultDisposition(envelope?.maxAbsResults).refused;
+  const comboRefused3D = () => combosRefused3D() || knownIssueResultDisposition(envelope3D?.maxAbsResults3D).refused;
+  const viewedRefused3D = () => knownIssueResultDisposition(liveViewedEnvelope3D()?.maxAbsResults3D).refused;
+  const liveViewedEnvelope3D = () => viewedEnvelope3D && envelope3D && viewedEnvelope3D.over === envelope3D ? viewedEnvelope3D.env : null;
   /** A named envelope on screen in place of the active one, valid only over the solve it was
    *  built from (`over`): any republish or clear makes it lapse without being reset. */
   let viewedEnvelope3D = $state.raw<{ env: FullEnvelope3D; name: string; over: FullEnvelope3D } | null>(null);
@@ -342,14 +353,14 @@ function createResultsStore() {
 
   /** The static results the current view selects, from what the store holds. */
   const staticResults2D = (): AnalysisResults | null => {
-    if (activeView === 'envelope' && envelope) return envelope.maxAbsResults;
-    if (activeView === 'combo' && activeComboId !== null && perCombo.has(activeComboId)) return perCombo.get(activeComboId)!;
+    if (activeView === 'envelope' && envelope) return comboRefused2D() ? null : envelope.maxAbsResults;
+    if (activeView === 'combo' && activeComboId !== null && perCombo.has(activeComboId)) return combosRefused2D() ? null : perCombo.get(activeComboId)!;
     if (activeCaseId !== null && perCase.has(activeCaseId)) return perCase.get(activeCaseId)!;
     return singleResults;
   };
   const staticResults3D = (): AnalysisResults3D | null => {
-    if (activeView === 'envelope' && envelope3D) return envelope3D.maxAbsResults3D;
-    if (activeView === 'combo' && activeComboId !== null && perCombo3D.has(activeComboId)) return perCombo3D.get(activeComboId)!;
+    if (activeView === 'envelope' && envelope3D) return comboRefused3D() ? null : envelope3D.maxAbsResults3D;
+    if (activeView === 'combo' && activeComboId !== null && perCombo3D.has(activeComboId)) return combosRefused3D() ? null : perCombo3D.get(activeComboId)!;
     if (activeCaseId !== null && perCase3D.has(activeCaseId)) return perCase3D.get(activeCaseId)!;
     return singleResults3D;
   };
@@ -432,7 +443,7 @@ function createResultsStore() {
      *  editing/reading exclusion, not just the ones that call showDiagram(). */
     _setOnDiagramShown(fn: () => void) { _onDiagramShown = fn; },
 
-    get results() { return results; },
+    get results() { return knownIssueResultDisposition(results).refused ? null : results; },
     /** True when ANY result of any kind is present. Used by the mutation hook
      *  to decide whether an edit must clear stale results. Covers 2D + 3D base,
      *  per-case/per-combo/envelope, every advanced result (2D + 3D), and the
@@ -464,7 +475,7 @@ function createResultsStore() {
         movingLoadRunning
       );
     },
-    get diagramType() { return diagramType; },
+    get diagramType() { return (uiStore.is3DWorkspace ? this.knownIssues3D.refused : this.knownIssues.refused) ? 'none' as const : diagramType; },
     /**
      * Putting a diagram on screen is a MODE change, so it carries the rule
      * with it — like `uiStore.currentTool`, the dependency is inverted through
@@ -515,17 +526,17 @@ function createResultsStore() {
     set animSpeed(v: number) { animSpeed = Math.max(0.25, Math.min(3, v)); },
 
     // Combination state
-    get perCase() { return perCase; },
-    get perCombo() { return perCombo; },
-    get envelope() { return envelope; },
+    get perCase(): Map<number, AnalysisResults> { return anyRefused(perCase) ? NO_RESULTS : perCase; },
+    get perCombo(): Map<number, AnalysisResults> { return combosRefused2D() ? NO_RESULTS : perCombo; },
+    get envelope() { return comboRefused2D() ? null : envelope; },
     get activeView() { return activeView; },
     set activeView(v: ResultsView) {
       activeView = v;
       // Update displayed 2D results based on view
       if (v === 'envelope' && envelope) {
-        results = envelope.maxAbsResults;
+        results = comboRefused2D() ? null : envelope.maxAbsResults;
       } else if (v === 'combo' && activeComboId !== null) {
-        results = perCombo.get(activeComboId) ?? null;
+        results = combosRefused2D() ? null : perCombo.get(activeComboId) ?? null;
       } else if (v === 'single') {
         if (activeCaseId !== null && perCase.size > 0) {
           results = perCase.get(activeCaseId) ?? singleResults;
@@ -542,9 +553,9 @@ function createResultsStore() {
     set activeComboId(v: number | null) {
       activeComboId = v;
       if (activeView === 'combo' && v !== null) {
-        results = perCombo.get(v) ?? null;
+        results = combosRefused2D() ? null : perCombo.get(v) ?? null;
         if (perCombo3D.size > 0) {
-          results3D = perCombo3D.get(v) ?? null;
+          results3D = combosRefused3D() ? null : perCombo3D.get(v) ?? null;
         }
       }
     },
@@ -560,16 +571,16 @@ function createResultsStore() {
         results3D = perCase3D.get(v) ?? singleResults3D;
       }
     },
-    get singleResults() { return singleResults; },
-    get singleResults3D() { return singleResults3D; },
-    get hasCombinations() { return perCombo.size > 0 || perCombo3D.size > 0; },
+    get singleResults() { return knownIssueResultDisposition(singleResults).refused ? null : singleResults; },
+    get singleResults3D() { return knownIssueResultDisposition(singleResults3D).refused ? null : singleResults3D; },
+    get hasCombinations() { return (perCombo.size > 0 && !combosRefused2D()) || (perCombo3D.size > 0 && !combosRefused3D()); },
     get isEnvelopeActive() { return activeView === 'envelope' && (envelope !== null || envelope3D !== null); },
-    get fullEnvelope() { return envelope; },
+    get fullEnvelope() { return this.envelope; },
 
     get combinationsDirty() { return combinationsDirty; },
     set combinationsDirty(v: boolean) { combinationsDirty = v; },
 
-    get influenceLine() { return influenceLine; },
+    get influenceLine() { return knownIssueResultDisposition(influenceLine).refused ? null : influenceLine; },
     get ilAnimating() { return ilAnimating; },
     set ilAnimating(v: boolean) { ilAnimating = v; if (v && ilAnimProgress >= 1) ilAnimProgress = 0; },
     get ilAnimProgress() { return ilAnimProgress; },
@@ -577,8 +588,8 @@ function createResultsStore() {
     get ilAnimSpeed() { return ilAnimSpeed; },
     set ilAnimSpeed(v: number) { ilAnimSpeed = Math.max(0.25, Math.min(3, v)); },
 
-    get overlayResults() { return overlayResults; },
-    get overlayResults3D() { return overlayResults3D; },
+    get overlayResults() { return knownIssueResultDisposition(overlayResults).refused ? null : overlayResults; },
+    get overlayResults3D() { return knownIssueResultDisposition(overlayResults3D).refused ? null : overlayResults3D; },
     get overlayLabel() { return overlayLabel; },
     /** The member sign the plane results are published with; see transverse-sign-2d.ts. */
     _setTransverseSignProvider(fn: SignOf) { _signOf = fn; },
@@ -599,7 +610,7 @@ function createResultsStore() {
     },
 
     // Advanced analysis
-    get movingLoadEnvelope() { return movingLoadEnvelope; },
+    get movingLoadEnvelope() { return knownIssueResultDisposition(movingLoadEnvelope).refused ? null : movingLoadEnvelope; },
     get activeMovingLoadPosition() { return activeMovingLoadPosition; },
     set activeMovingLoadPosition(v: number) {
       activeMovingLoadPosition = v;
@@ -742,7 +753,7 @@ function createResultsStore() {
       }
     },
 
-    get pdeltaResult() { return pdeltaResult; },
+    get pdeltaResult() { return knownIssueResultDisposition(pdeltaResult).refused ? null : pdeltaResult; },
     setPDeltaResult(r: PDeltaResult) {
       _onAnalysisPublish?.('pdelta');
       r = carryCertifyJob(r, { ...r, results: drawn(r.results), ...(r.linearResults ? { linearResults: drawn(r.linearResults) } : {}) });
@@ -776,7 +787,7 @@ function createResultsStore() {
       }
     },
 
-    get modalResult() { return modalResult; },
+    get modalResult() { return knownIssueResultDisposition(modalResult).refused ? null : modalResult; },
     get activeModeIndex() { return activeModeIndex; },
     set activeModeIndex(v: number) { activeModeIndex = v; },
     setModalResult(r: ModalResult) {
@@ -789,7 +800,7 @@ function createResultsStore() {
       diagramType = 'modeShape';
     },
 
-    get bucklingResult() { return bucklingResult; },
+    get bucklingResult() { return knownIssueResultDisposition(bucklingResult).refused ? null : bucklingResult; },
     get activeBucklingMode() { return activeBucklingMode; },
     set activeBucklingMode(v: number) { activeBucklingMode = v; },
     setBucklingResult(r: BucklingResult) {
@@ -806,7 +817,7 @@ function createResultsStore() {
     get stressQuery() { return stressQuery; },
     set stressQuery(v: { elementId: number; t: number; worldX: number; worldY: number; worldZ?: number } | null) { stressQuery = v; },
 
-    get plasticResult() { return plasticResult; },
+    get plasticResult() { return knownIssueResultDisposition(plasticResult).refused ? null : plasticResult; },
     get plasticStep() { return plasticStep; },
     set plasticStep(v: number) { plasticStep = v; },
     setPlasticResult(r: PlasticResult) {
@@ -826,7 +837,7 @@ function createResultsStore() {
       diagramType = 'plasticHinges';
     },
 
-    get spectralResult() { return spectralResult; },
+    get spectralResult() { return knownIssueResultDisposition(spectralResult).refused ? null : spectralResult; },
     setSpectralResult(r: SpectralResult) {
       _onAnalysisPublish?.('spectral');
       // Spectral needs modal, so don't clear modal
@@ -841,7 +852,7 @@ function createResultsStore() {
     },
 
     // ─── 3D Advanced Analysis Results ─────────────────────────────
-    get pdeltaResult3D() { return pdeltaResult3D; },
+    get pdeltaResult3D() { return knownIssueResultDisposition(pdeltaResult3D).refused ? null : pdeltaResult3D; },
     setPDeltaResult3D(r: PDeltaResult3D) {
       _onAnalysisPublish?.('pdelta');
       if (_normaliseAdvanced3D) r = carryCertifyJob(r, _normaliseAdvanced3D.pdelta(r));
@@ -856,7 +867,7 @@ function createResultsStore() {
       release(true);
     },
 
-    get modalResult3D() { return modalResult3D; },
+    get modalResult3D() { return knownIssueResultDisposition(modalResult3D).refused ? null : modalResult3D; },
     setModalResult3D(r: ModalResult3D) {
       _onAnalysisPublish?.('modal');
       if (_normaliseAdvanced3D) r = carryCertifyJob(r, _normaliseAdvanced3D.modes(r));
@@ -874,7 +885,7 @@ function createResultsStore() {
       release(true);
     },
 
-    get bucklingResult3D() { return bucklingResult3D; },
+    get bucklingResult3D() { return knownIssueResultDisposition(bucklingResult3D).refused ? null : bucklingResult3D; },
     setBucklingResult3D(r: BucklingResult3D) {
       _onAnalysisPublish?.('buckling');
       if (_normaliseAdvanced3D) r = _normaliseAdvanced3D.modes(r);
@@ -891,7 +902,7 @@ function createResultsStore() {
       release(true);
     },
 
-    get spectralResult3D() { return spectralResult3D; },
+    get spectralResult3D() { return knownIssueResultDisposition(spectralResult3D).refused ? null : spectralResult3D; },
     setSpectralResult3D(r: SpectralResult3D) {
       _onAnalysisPublish?.('spectral');
       if (_normalise3D) r = { ...r, results: _normalise3D(r.results) };
@@ -943,9 +954,6 @@ function createResultsStore() {
     setInfluenceLine(il: InfluenceLineResult | null) {
       if (!il) { this.clearInfluenceLine(); return; }
       hold();
-      if ((il.quantity === 'M' || il.quantity === 'V') && il.targetElementId !== undefined && _signOf(il.targetElementId) < 0) {
-        il = { ...il, points: il.points.map((p) => ({ ...p, value: -p.value })) };
-      }
       influenceLine = il;
       diagramType = 'influenceLine';
       ilAnimating = false;
@@ -1142,7 +1150,7 @@ function createResultsStore() {
 
     // ─── 3D Results ─────────────────────────────────────────────
 
-    get results3D() { return results3D; },
+    get results3D() { return knownIssueResultDisposition(results3D).refused ? null : results3D; },
 
     setResults3D(r: AnalysisResults3D, preserveDiagram = false) {
       _onStaticPublish?.(r, '3d');
@@ -1208,14 +1216,19 @@ function createResultsStore() {
     },
 
     // 3D combination state
-    get perCase3D() { return perCase3D; },
-    get perCombo3D() { return perCombo3D; },
+    /** Diagnostics remain available when refused numerical case results are withheld. */
+    caseDisposition3D(ids: readonly number[]) {
+      return knownIssueResultDisposition(ids.map(id => perCase3D.get(id)));
+    },
+    get perCase3D(): Map<number, AnalysisResults3D> { return anyRefused(perCase3D) ? NO_RESULTS : perCase3D; },
+    get perCombo3D(): Map<number, AnalysisResults3D> { return combosRefused3D() ? NO_RESULTS : perCombo3D; },
     get unstableCombinations3D(): readonly number[] { return unstableCombinations3D; },
-    get envelope3D() { return envelope3D; },
-    get hasCombinations3D() { return perCombo3D.size > 0; },
+    get envelope3D() { return comboRefused3D() ? null : envelope3D; },
+    get hasCombinations3D() { return perCombo3D.size > 0 && !combosRefused3D(); },
     /** The envelope on SCREEN: a named one when shown, else the active one. Design reads
      *  `envelope3D`, which is always the active list's. */
     get fullEnvelope3D() {
+      if (comboRefused3D() || viewedRefused3D()) return null;
       return viewedEnvelope3D && envelope3D && viewedEnvelope3D.over === envelope3D ? viewedEnvelope3D.env : envelope3D;
     },
     get viewedEnvelopeName(): string | null {
@@ -1279,9 +1292,9 @@ function createResultsStore() {
     /** Switch 3D results based on activeView change (called from activeView setter) */
     _update3DView(v: ResultsView) {
       if (v === 'envelope' && envelope3D) {
-        results3D = (this.fullEnvelope3D ?? envelope3D).maxAbsResults3D;
+        results3D = comboRefused3D() || viewedRefused3D() ? null : (this.fullEnvelope3D ?? envelope3D).maxAbsResults3D;
       } else if (v === 'combo' && activeComboId !== null && perCombo3D.size > 0) {
-        results3D = perCombo3D.get(activeComboId) ?? null;
+        results3D = combosRefused3D() ? null : perCombo3D.get(activeComboId) ?? null;
       } else if (v === 'single') {
         if (activeCaseId !== null && perCase3D.size > 0) {
           results3D = perCase3D.get(activeCaseId) ?? singleResults3D;
@@ -1292,20 +1305,21 @@ function createResultsStore() {
     },
 
     getDisplacement3D(nodeId: number): Displacement3D | undefined {
-      return results3D?.displacements.find(d => d.nodeId === nodeId);
+      return this.results3D?.displacements.find(d => d.nodeId === nodeId);
     },
 
     getReaction3D(nodeId: number): Reaction3D | undefined {
-      return results3D?.reactions.find(r => r.nodeId === nodeId);
+      return this.results3D?.reactions.find(r => r.nodeId === nodeId);
     },
 
     getElementForces3D(elementId: number): ElementForces3D | undefined {
-      return results3D?.elementForces.find(f => f.elementId === elementId);
+      return this.results3D?.elementForces.find(f => f.elementId === elementId);
     },
 
     get maxDisplacement3D(): number {
-      if (!results3D) return 0;
-      return Math.max(...results3D.displacements.map(d =>
+      const r = this.results3D;
+      if (!r) return 0;
+      return Math.max(...r.displacements.map(d =>
         Math.sqrt(d.ux ** 2 + d.uy ** 2 + d.uz ** 2)
       ));
     },
@@ -1317,8 +1331,8 @@ function createResultsStore() {
     // ─── Diagnostics ───────────────────────────────────────────
     get diagnostics() { return diagnostics2D; },
     get diagnostics3D() { return diagnostics3DArr; },
-    get constraintForces() { return constraintForces2D; },
-    get constraintForces3D() { return constraintForces3DArr; },
+    get constraintForces() { return this.knownIssues.refused ? [] : constraintForces2D; },
+    get constraintForces3D() { return this.knownIssues3D.refused ? [] : constraintForces3DArr; },
 
     /** Add diagnostics (appends to existing list) */
     addDiagnostics(diags: SolverDiagnostic[], is3D: boolean = false) {
@@ -1349,27 +1363,29 @@ function createResultsStore() {
     },
 
     getDisplacement(nodeId: number) {
-      return results?.displacements.find(d => d.nodeId === nodeId);
+      return this.results?.displacements.find(d => d.nodeId === nodeId);
     },
 
     getReaction(nodeId: number) {
-      return results?.reactions.find(r => r.nodeId === nodeId);
+      return this.results?.reactions.find(r => r.nodeId === nodeId);
     },
 
     getElementForces(elementId: number) {
-      return results?.elementForces.find(f => f.elementId === elementId);
+      return this.results?.elementForces.find(f => f.elementId === elementId);
     },
 
     get maxMoment(): number {
-      if (!results) return 0;
-      return Math.max(...results.elementForces.map(f =>
+      const r = this.results;
+      if (!r) return 0;
+      return Math.max(...r.elementForces.map(f =>
         Math.max(Math.abs(f.mStart), Math.abs(f.mEnd))
       ));
     },
 
     get maxShear(): number {
-      if (!results) return 0;
-      return Math.max(...results.elementForces.map(f =>
+      const r = this.results;
+      if (!r) return 0;
+      return Math.max(...r.elementForces.map(f =>
         Math.max(Math.abs(f.vStart), Math.abs(f.vEnd))
       ));
     },
@@ -1382,15 +1398,23 @@ function createResultsStore() {
     // With no single solve (combinations published on their own), a load case
     // carries the gates' findings; a combination or the envelope does not.
     get structuredDiagnostics(): SolverDiagnostic[] {
-      return findingsOf(singleResults ?? perCase.values().next().value ?? results);
+      return [...findingsOf(singleResults ?? perCase.values().next().value ?? results), ...findingsOf(modalResult), ...findingsOf(spectralResult)];
     },
     get structuredDiagnostics3D(): SolverDiagnostic[] {
-      return findingsOf(singleResults3D ?? perCase3D.values().next().value ?? results3D);
+      return [...findingsOf(singleResults3D ?? perCase3D.values().next().value ?? results3D), ...findingsOf(modalResult3D), ...findingsOf(bucklingResult3D), ...findingsOf(spectralResult3D)];
+    },
+
+    get knownIssues() {
+      return knownIssueResultDisposition([singleResults, results, [...perCase.values()], [...perCombo.values()], envelope?.maxAbsResults, overlayResults, pdeltaResult, modalResult, bucklingResult, plasticResult, spectralResult, movingLoadEnvelope, influenceLine]);
+    },
+    get knownIssues3D() {
+      return knownIssueResultDisposition([singleResults3D, results3D, [...perCase3D.values()], [...perCombo3D.values()], envelope3D?.maxAbsResults3D, liveViewedEnvelope3D()?.maxAbsResults3D, overlayResults3D, pdeltaResult3D, modalResult3D, bucklingResult3D, spectralResult3D, timeHistoryView.storedDiagnostics]);
     },
 
     get maxDisplacement(): number {
-      if (!results) return 0;
-      return Math.max(...results.displacements.map(d =>
+      const r = this.results;
+      if (!r) return 0;
+      return Math.max(...r.displacements.map(d =>
         Math.sqrt(d.ux ** 2 + get2DDisplayDisplacementVertical(d) ** 2)
       ));
     },

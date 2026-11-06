@@ -183,6 +183,16 @@ describe('a row fails on its own', () => {
     expect(p.message).toContain('nodal3d');
   });
 
+  it('without a LoadCases sheet, refuses a load in a case beyond the four the model starts with', () => {
+    const b = goodBook();
+    delete b.LoadCases;
+    delete b.Combinations;
+    b.Loads = aoa(['type', 'case', 'node', 'fz'], ['nodal3d', 4, 3, -1], ['nodal3d', 5, 3, -1]);
+    const r = parseWorkbook(b);
+    expect(r.problems.filter((x) => x.sheet === 'Loads').map((x) => x.row)).toEqual([3]);
+    expect(r.model.loads.map((l) => l.data.caseId)).toEqual([4]);
+  });
+
   it('will not attach a member load to a node', () => {
     const b = goodBook();
     b.Loads = aoa(['type', 'case', 'node', 'member'], ['distributed', 1, 3, '']);

@@ -5,7 +5,7 @@
 //! (engine/tests/fuzz_models).
 
 #[path = "../fuzz_models/mod.rs"]
-mod fuzz_models;
+pub mod fuzz_models;
 
 use crate::case::{Case2, Case3};
 use dedaliano_engine::types::*;
@@ -22,7 +22,7 @@ pub enum Model {
     D3(SolverInput3D),
 }
 
-fn root() -> PathBuf {
+pub fn root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("tests")
 }
 
@@ -88,17 +88,20 @@ pub fn cases_2d(tier: Tier, seed: u64) -> Vec<Case2> {
         .collect();
     let n_rand = if tier == Tier::Pr { 6 } else { nightly_cases(120) };
     let base = if tier == Tier::Pr { 0 } else { seed };
-    for k in 0..n_rand {
-        let sd = base.wrapping_add(k);
-        let (mut s, dens) = fuzz_models::random_2d_model_rich(sd);
-        if k % 3 == 2 {
-            fuzz_models::add_random_constraints_2d(&mut s, sd);
-        }
-        let mut c = Case2::new(format!("fuzz_rich_2d/{sd}"), s);
-        c.dens = dens;
-        out.push(c);
-    }
+    out.extend((0..n_rand).map(|k| fuzz_case_2d(base, k)));
     out
+}
+
+/// The `k`-th random 2D model of a run whose random part starts at `base`.
+pub fn fuzz_case_2d(base: u64, k: u64) -> Case2 {
+    let sd = base.wrapping_add(k);
+    let (mut s, dens) = fuzz_models::random_2d_model_rich(sd);
+    if k % 3 == 2 {
+        fuzz_models::add_random_constraints_2d(&mut s, sd);
+    }
+    let mut c = Case2::new(format!("fuzz_rich_2d/{sd}"), s);
+    c.dens = dens;
+    c
 }
 
 pub fn cases_3d(tier: Tier, seed: u64) -> Vec<Case3> {
@@ -110,17 +113,28 @@ pub fn cases_3d(tier: Tier, seed: u64) -> Vec<Case3> {
         .collect();
     let n_rand = if tier == Tier::Pr { 4 } else { nightly_cases(80) };
     let base = if tier == Tier::Pr { 0 } else { seed };
-    for k in 0..n_rand {
-        let sd = base.wrapping_add(k);
-        let (mut s, dens) = fuzz_models::random_3d_model_rich(sd);
-        if k % 3 == 2 {
-            fuzz_models::add_random_constraints_3d(&mut s, sd);
-        }
-        let mut c = Case3::new(format!("fuzz_rich_3d/{sd}"), s);
-        c.dens = dens;
-        out.push(c);
-    }
+    out.extend((0..n_rand).map(|k| fuzz_case_3d(base, k)));
     out
+}
+
+/// The `k`-th random 3D model of a run whose random part starts at `base`.
+pub fn fuzz_case_3d(base: u64, k: u64) -> Case3 {
+    let sd = base.wrapping_add(k);
+    let (mut s, dens) = fuzz_models::random_3d_model_rich(sd);
+    if k % 3 == 2 {
+        fuzz_models::add_random_constraints_3d(&mut s, sd);
+    }
+    let mut c = Case3::new(format!("fuzz_rich_3d/{sd}"), s);
+    c.dens = dens;
+    c
+}
+
+#[test]
+fn issue_759_seed_20754_orthogonality() {
+    let (s, densities) = fuzz_models::random_3d_model_rich(20754);
+    let cond = dedaliano_engine::metamorphic::conditioning::of_3d(&s).unwrap();
+    let verdict = crate::modal_checks::check_3d(&s, &densities, &cond);
+    assert!(matches!(verdict, crate::tally::Verdict::Pass(_)), "{verdict:?}");
 }
 
 fn nightly_cases(default: u64) -> u64 {

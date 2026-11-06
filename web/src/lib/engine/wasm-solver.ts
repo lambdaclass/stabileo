@@ -1,8 +1,10 @@
+import { CodedRefusal, asCodedRefusal, isContainmentRefusal, refusedWithCode } from './containment-error';
+import { materialToWire, sectionToWire, type ElasticMaterialWire, type ElasticSectionWire } from './unit-types';
 import { registerColumnCapacityKernel } from './column-capacity-kernel';
 import { noteEngineBuild } from '../provenance/build-identity';
 import { registerCirsoc201BeamKernel } from './codes/argentina/cirsoc201-beam-kernel';
 import { registerCirsoc301Kernel } from './codes/argentina/cirsoc301-kernel';
-import { packedShellCombinationKernel, registerShellCombinationKernel } from './shell-combination-kernel';
+import { packedShellCombinationKernel, packedShellEnvelopeKernel, registerShellCombinationKernel, registerShellEnvelopeKernel } from './shell-combination-kernel';
 import { registerCirsoc201Engine } from './codes/argentina/cirsoc201-engine';
 import { registerCollisionKernel } from './detailing/collision-kernel';
 /**
@@ -23,9 +25,10 @@ import type { SolverInput3D, SolverElement3D, SolverSection3D, AnalysisResults3D
 import { bucklingWarpingInput, hasBucklingWarping, torsionGaps3D } from './buckling-warping';
 import { finishSolve3D, finishPDelta3D } from './solve-finish';
 import { plainDeepCopy, findUncloneablePath } from '../utils/plain-deep-copy';
-import { errorText } from '../utils/error-text';
+import { errorText } from '../utils/thrown-text';
 import { EngineUnavailableError, EngineCheckError } from './engine-unavailable';
 import { tagCertifyJob } from './certify-tags';
+import { modalMechanismRefusal } from './dynamics/time-history-refusal';
 
 let wasmReady = false;
 let wasmInitPromise: Promise<void> | null = null;
@@ -241,6 +244,7 @@ export async function initSolver(): Promise<void> {
     loadSession2D = wasm.LoadSession2D ?? null;
     loadSession3D = wasm.LoadSession3D ?? null;
     registerShellCombinationKernel(wasm.combine_shell_stresses ? packedShellCombinationKernel(wasm.combine_shell_stresses) : null);
+    registerShellEnvelopeKernel(wasm.envelope_shell_stresses ? packedShellEnvelopeKernel(wasm.envelope_shell_stresses) : null);
     wasmSolve2d = wasm.solve_2d;
     wasmSolve3d = wasm.solve_3d;
     wasmSolvePdelta2d = wasm.solve_pdelta_2d;
@@ -465,16 +469,20 @@ export function assertFiniteWire(value: any, path = 'input'): void {
 
 /** Convert SolverInput (with Maps) to the plain JSON-ready wire object,
  *  without a string round trip. */
-export function input2DToWireObject(input: SolverInput): Record<string, any> {
+export function input2DToWireObject(input: SolverInput): Record<string, any> & {
+  materials: Record<string, ElasticMaterialWire>;
+  sections: Record<string, ElasticSectionWire>;
+} {
   return {
     nodes: mapToObj(input.nodes),
-    materials: mapToObj(input.materials),
-    sections: mapToObj(input.sections),
+    materials: Object.fromEntries(Array.from(input.materials, ([id, m]) => [String(id), materialToWire(plainDeepCopy(m))])),
+    sections: Object.fromEntries(Array.from(input.sections, ([id, s]) => [String(id), sectionToWire(plainDeepCopy(s))])),
     elements: mapToObj(input.elements),
     supports: mapToObj(input.supports),
     loads: input.loads,
     constraints: plainDeepCopy(input.constraints ?? []),
     connectors: input.connectors ? mapToPlainObj(input.connectors) : {},
+    ...(input.masses?.nodal?.length ? { masses: plainDeepCopy(input.masses) } : {}),
   };
 }
 
@@ -586,7 +594,12 @@ function refuse(msg: string | null | undefined): void {
   if (msg) throw new Error(msg);
 }
 
-const NO_FREE_DOFS = /^No free DOFs/;
+const noFreeDofsRefusal = (e: unknown) => refusedWithCode(e, 'no_free_dofs');
+
+function translateModalMechanism(e: unknown): void {
+  const m = guards ? modalMechanismRefusal(thrownText(e)) : null;
+  if (m) throw new Error(guards!.text(m.key, m.params as Record<string, string | number>));
+}
 
 /** Largest nodal translation or rotation of a result. */
 function maxDisplacement(r: { displacements?: Array<Record<string, number>> } | undefined): number {
@@ -624,15 +637,10 @@ function dominantDof(mode: { displacements?: Array<Record<string, number>> }): {
 }
 
 /**
- * A frequency under this is none: no structure in this app sways once in 20 minutes.
- *
- * Each mode is judged by its own value, never against the largest one found: one spurious or very
- * stiff mode in the batch (a load factor of 1e12 from a bar with almost no axial force, a
- * 20 000 Hz local mode) raised a relative cut above the structure's real modes and threw them
- * away as mechanisms — the real λcr = 3,5 went, and 1e12 was shown as the critical factor.
+ * A load factor under this is none: the mechanism's zero, 1e-12 as the engine returns it. Each mode
+ * is judged by its own value, never against the largest one found: a relative cut once threw away
+ * the real λcr = 3,5 next to a spurious 1e12.
  */
-const NULL_FREQUENCY_HZ = 1e-3;
-/** And a load factor under this is none: the mechanism's zero, 1e-12 as the engine returns it. */
 const NULL_LOAD_FACTOR = 1e-6;
 
 export interface DiscardedMode { value: number; nodeId: number; dof: string }
@@ -669,9 +677,12 @@ function mechanismOnly(): never {
 
 /** A modal result without its null modes, the mass sums and Rayleigh damping taken over what is kept. */
 export function filterModal<R extends { modes: any[]; rayleigh?: any; [k: string]: any }>(result: R, dirs: string[]): R & { discardedModes: DiscardedMode[] } {
-  const { kept, discarded } = withoutNullModes(result.modes ?? [], (m: any) => m.frequency, NULL_FREQUENCY_HZ);
+  const { kept, discarded: below } = withoutNullModes(result.modes ?? [], (m: any) => m.frequency, Number.MIN_VALUE);
+  const engineNull: DiscardedMode[] = (result.nullModes ?? []).map((m: { omegaSq: number; nodeId: number; dof: string }) => ({ value: Math.sign(m.omegaSq) * Math.sqrt(Math.abs(m.omegaSq)) / (2 * Math.PI), nodeId: m.nodeId, dof: m.dof }));
+  const discarded = [...engineNull, ...below];
   if (!discarded.length) return { ...result, discardedModes: [] };
-  if (!kept.length) mechanismOnly();
+  if (!kept.length && below.length) mechanismOnly();
+  if (!below.length) return { ...result, discardedModes: discarded };
   const out: any = { ...result, modes: kept, discardedModes: discarded };
   for (const d of dirs) out[`cumulativeMassRatio${d}`] = kept.reduce((a: number, m: any) => a + (m[`massRatio${d}`] ?? 0), 0);
   if (result.rayleigh && Array.isArray(result.rayleigh.dampingRatios)) {
@@ -704,11 +715,10 @@ function compressesAny(r: { elementForces?: Array<{ nStart: number; nEnd: number
 function noFreeDofs(kind: 'buckling' | 'modal', linear?: () => { elementForces?: Array<{ nStart: number; nEnd: number }> }): never {
   if (!guards) throw new Error('No free DOFs');
   // A beam no bar of which is compressed has nothing to buckle either way; say that, as for any other.
-  if (kind === 'buckling' && linear && !compressesAny(linear())) throw new Error('No compressed elements — buckling not applicable');
+  if (kind === 'buckling' && linear && !compressesAny(linear())) throw new CodedRefusal('No compressed elements — buckling not applicable', 'no_compressed_elements');
   throw new Error(guards.text(kind === 'buckling' ? 'advanced.noFreeDofsBuckling' : 'advanced.noFreeDofsModal'));
 }
 
-const DECOMPOSITION_FAILED = /Eigenvalue decomposition failed/;
 const SUPPORT_FLAG_3D: Record<string, 'rx' | 'ry' | 'rz' | 'rrx' | 'rry' | 'rrz'> = {
   ux: 'rx', uy: 'ry', uz: 'rz', rx: 'rrx', ry: 'rry', rz: 'rrz',
 };
@@ -756,10 +766,13 @@ function eigen3D<R>(input: SolverInput3D, run: (i: SolverInput3D) => R): { resul
   try {
     return { result: run(input), held: [] };
   } catch (e) {
-    if (!guards || !DECOMPOSITION_FAILED.test(thrownText(e))) throw e;
-    const hold = holdMechanism3D(input);
-    if (!hold) throw e;
-    return { result: run(hold.input), held: hold.held };
+    const hold = guards && refusedWithCode(e, 'eigen_decomposition_failed') ? holdMechanism3D(input) : null;
+    if (!hold) throw asCodedRefusal(e, 'eigen_decomposition_failed');
+    try {
+      return { result: run(hold.input), held: hold.held };
+    } catch (again) {
+      throw asCodedRefusal(again, 'eigen_decomposition_failed');
+    }
   }
 }
 
@@ -1060,14 +1073,15 @@ export function certifyBuckling3D(input: SolverInput3D, numModes = 4) {
 
 /**
  * The buckling result with its certificate attached, or null to solve it plainly:
- * no certify export, or the certifier threw (the plain solve then reports its own error).
+ * no certify export, or an ordinary certification failure. Containment refusals propagate.
  */
 function bucklingWithCertificate(certify: ((json: string, numModes: number) => string) | null, json: string, numModes: number): any | null {
   if (!certify) return null;
   try {
     const out = JSON.parse(certify(json, numModes));
     return { ...out.results, certificate: out.certificate as BucklingCertificate };
-  } catch {
+  } catch (error) {
+    if (isContainmentRefusal(error)) throw error;
     return null;
   }
 }
@@ -1088,8 +1102,9 @@ export function solvePDelta(input: SolverInput, maxIter = 20, tolerance = 1e-4) 
   try {
     result = normalizePDeltaResult(JSON.parse(wasmSolvePdelta2d(json, maxIter, tolerance)));
   } catch (e) {
-    if (guards && NO_FREE_DOFS.test(thrownText(e))) return linearPDelta(solve(merged), 'noFreeDofs');
-    throw e;
+    if (!noFreeDofsRefusal(e)) throw e;
+    if (guards) return linearPDelta(solve(merged), 'noFreeDofs');
+    throw asCodedRefusal(e, 'no_free_dofs');
   }
   if (guards && result.linearResults && !(maxDisplacement(result.linearResults) > 0)) return linearPDelta(result.linearResults, 'noLoads');
   return tagCertifyJob(result, { name: 'certify_pdelta_2d', args: [json, maxIter, tolerance] });
@@ -1108,8 +1123,8 @@ export function solveBuckling(input: SolverInput, numModes = 4) {
     const json = serializeInput2D(restrainOrphanRotations2D(merged));
     result = bucklingWithCertificate(wasmCertifyBuckling2d, json, numModes) ?? JSON.parse(wasmSolveBuckling2d(json, numModes));
   } catch (e) {
-    if (NO_FREE_DOFS.test(thrownText(e))) noFreeDofs('buckling', () => solve(merged));
-    throw e;
+    if (noFreeDofsRefusal(e)) noFreeDofs('buckling', () => solve(merged));
+    throw asCodedRefusal(e, 'no_compressed_elements');
   }
   return withoutStaleCertificate(filterBuckling(result));
 }
@@ -1132,7 +1147,8 @@ export function solveModal(
   try {
     result = JSON.parse(wasmSolveModal2d(payload, numModes));
   } catch (e) {
-    if (NO_FREE_DOFS.test(thrownText(e))) noFreeDofs('modal');
+    if (noFreeDofsRefusal(e)) noFreeDofs('modal');
+    translateModalMechanism(e);
     throw e;
   }
   return tagCertifyJob(filterModal(result, ['X', 'Y']), { name: 'certify_modal_2d', args: [payload, numModes] });
@@ -1242,8 +1258,9 @@ export function solvePDelta3D(input: SolverInput3D, maxIter = 20, tolerance = 1e
   try {
     result = JSON.parse(wasmSolvePdelta3d(json, maxIter, tolerance));
   } catch (e) {
-    if (guards && NO_FREE_DOFS.test(thrownText(e))) return linearPDelta(solve3D(input), 'noFreeDofs');
-    throw e;
+    if (!noFreeDofsRefusal(e)) throw e;
+    if (guards) return linearPDelta(solve3D(input), 'noFreeDofs');
+    throw asCodedRefusal(e, 'no_free_dofs');
   }
   // Same as `solve3D` (`solve-finish.ts`). The no-free-DOF answer above is solve3D's, already finished.
   finishPDelta3D(result, input);
@@ -1266,7 +1283,8 @@ export function solveModal3D(input: SolverInput3D, densities: Map<number, number
       densities: mapToObj(densities),
     }), numModes)));
   } catch (e) {
-    if (NO_FREE_DOFS.test(thrownText(e))) noFreeDofs('modal');
+    if (noFreeDofsRefusal(e)) noFreeDofs('modal');
+    translateModalMechanism(e);
     throw e;
   }
   const out = filterModal(run.result, ['X', 'Y', 'Z']);
@@ -1284,7 +1302,10 @@ export function solveBuckling3D(input: SolverInput3D, numModes = 4) {
   if (hasBucklingWarping(input)) {
     try {
       axial = new Map(solve3D(input).elementForces.map((f) => [f.elementId, (f.nStart + f.nEnd) / 2]));
-    } catch { axial = null; /* The buckling solve below says why. */ }
+    } catch (error) {
+      if (isContainmentRefusal(error)) throw error;
+      axial = null; /* The buckling solve below says why. */
+    }
   }
   let warpingMembers: number[] = [];
   let run;
@@ -1296,8 +1317,8 @@ export function solveBuckling3D(input: SolverInput3D, numModes = 4) {
       return bucklingWithCertificate(wasmCertifyBuckling3d, json, numModes) ?? JSON.parse(wasmSolveBuckling3d!(json, numModes));
     });
   } catch (e) {
-    if (NO_FREE_DOFS.test(thrownText(e))) noFreeDofs('buckling', () => solve3D(input));
-    throw e;
+    if (noFreeDofsRefusal(e)) noFreeDofs('buckling', () => solve3D(input));
+    throw asCodedRefusal(e, 'no_compressed_elements');
   }
   const out = filterBuckling(run.result);
   return withoutStaleCertificate({ ...out, discardedModes: [...run.held, ...out.discardedModes], warpingMembers });
@@ -1367,26 +1388,25 @@ export function solveCorotational2D(input: SolverInput, maxIter = 50, tolerance 
 export function solveTimeHistory2D(config: {
   solver: SolverInput;
   densities: Map<number, number>;
-  accelerogram: { dt: number; values: number[] };
-  direction: 'X' | 'Y';
-  damping?: number;
-  method?: 'Newmark' | 'Wilson';
+  timeStep: number;
+  nSteps: number;
+  /** Ground acceleration, m/s², one value per step from t = 0. */
+  groundAccel?: number[];
+  groundDirection?: 'X' | 'Y';
+  /** Nodal forces at given times, interpolated linearly between records. */
+  forceHistory?: Array<{ time: number; loads: Array<{ nodeId: number; fx: number; fz: number; my: number }> }>;
+  /** Rayleigh damping with this ratio on the first two modes; none when absent or 0. */
+  dampingXi?: number;
 }) {
   if (!wasmReady || !wasmSolveTimeHistory2d) throw new Error('WASM Time History solver not available.');
   const payload = JSON.stringify({
-    solver: {
-      nodes: mapToObj(config.solver.nodes),
-      materials: mapToObj(config.solver.materials),
-      sections: mapToObj(config.solver.sections),
-      elements: mapToObj(config.solver.elements),
-      supports: mapToObj(config.solver.supports),
-      loads: config.solver.loads,
-    },
+    solver: input2DToWireObject(config.solver),
     densities: mapToObj(config.densities),
-    accelerogram: config.accelerogram,
-    direction: config.direction,
-    damping: config.damping,
-    method: config.method,
+    timeStep: config.timeStep,
+    nSteps: config.nSteps,
+    ...(config.groundAccel ? { groundAccel: config.groundAccel, groundDirection: config.groundDirection ?? 'X' } : {}),
+    ...(config.forceHistory ? { forceHistory: config.forceHistory } : {}),
+    ...(config.dampingXi ? { dampingXi: config.dampingXi } : {}),
   });
   const resultJson = wasmSolveTimeHistory2d(payload);
   return tagCertifyJob(JSON.parse(resultJson), { name: 'certify_time_history_2d', args: [payload] });

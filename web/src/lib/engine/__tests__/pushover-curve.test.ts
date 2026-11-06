@@ -143,3 +143,22 @@ describe('pushover with stiffness modifiers', () => {
     expect(res.collapseFactor).toBeCloseTo(plain.collapseFactor, 1);
   });
 });
+
+it('actual pushover conversion carries run and step diagnostics into viewport/export disposition', async () => {
+  const { resultsStore, uiStore } = await import('../../store');
+  const { timeHistoryView } = await import('../../store/time-history-view.svelte');
+  const { workspaceExportDisposition } = await import('../../export/containment');
+  const { res: result } = portal();
+  result.structuredDiagnostics = [...(result.structuredDiagnostics ?? []), { code: 'known_issue', severity: 'warning', phase: 'PL-3D-INVARIANCE', value: 758, message: 'numbering' }];
+  result.steps[0]!.results.structuredDiagnostics = [{ code: 'known_issue', severity: 'warning', phase: 'NUM-INVARIANCE', value: 762, message: 'conditioning' }];
+  const frames = pushoverFrames(result);
+  expect(frames.structuredDiagnostics).toEqual(expect.arrayContaining(result.structuredDiagnostics ?? []));
+  expect(frames.structuredDiagnostics!.some(d => d.phase === 'NUM-INVARIANCE')).toBe(true);
+  uiStore.analysisMode = 'pro';
+  timeHistoryView.set(frames, modelStore.modelVersion, 'pushover');
+  timeHistoryView.setShown(true);
+  expect(resultsStore.knownIssues3D.messages.join()).toContain('#762');
+  expect(workspaceExportDisposition().messages.join()).toContain('#762');
+  expect(workspaceExportDisposition().messages.join()).toContain('#758');
+  timeHistoryView.clear(); resultsStore.clear();
+});

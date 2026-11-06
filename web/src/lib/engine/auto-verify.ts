@@ -13,6 +13,7 @@
  */
 
 import { concreteFc } from '../model/design-data';
+import { CONCRETE_E_BAND_MPA } from '../model/material-family';
 import type { AnalysisResults3D } from './types-3d';
 import type { GoverningPerElement3D } from './governing-case';
 import type { ElementDesignDemands } from './station-design-forces';
@@ -30,7 +31,7 @@ export interface AutoVerifyModelData {
   elements: Map<number, { id: number; nodeI: number; nodeJ: number; sectionId: number; materialId: number; type: string }>;
   nodes: Map<number, { id: number; x: number; y: number; z?: number }>;
   sections: Map<number, { id: number; name: string; b?: number; h?: number }>;
-  materials: Map<number, { id: number; name: string; fy?: number }>;
+  materials: Map<number, { id: number; name: string; fy?: number; fc?: number; e?: number }>;
   supports: Map<number, { id: number; nodeId: number; type: string }>;
 }
 
@@ -69,13 +70,18 @@ const CONCRETE_FY_CEILING = 80;
 export function rcCheckability(
   elem: { sectionId: number; materialId: number },
   model: Pick<AutoVerifyModelData, 'sections' | 'materials'>,
-): 'checkable' | 'noSection' | 'noMaterial' | 'notConcrete' | 'noRectangle' {
+): 'checkable' | 'noSection' | 'noMaterial' | 'noStrength' | 'notConcrete' | 'noRectangle' {
   const section = model.sections.get(elem.sectionId);
   if (!section) return 'noSection';
   const material = model.materials.get(elem.materialId);
   if (!material) return 'noMaterial';
   const fc = concreteFc(material);
-  if (!fc || fc > CONCRETE_FY_CEILING) return 'notConcrete';
+  if (fc === undefined || fc === null || !Number.isFinite(fc) || fc <= 0) {
+    const e = material.e;
+    const concreteStiffness = e === undefined || (e >= CONCRETE_E_BAND_MPA.min && e <= CONCRETE_E_BAND_MPA.max);
+    return concreteStiffness ? 'noStrength' : 'notConcrete';
+  }
+  if (fc > CONCRETE_FY_CEILING) return 'notConcrete';
   if (!section.b || !section.h) return 'noRectangle';
   return 'checkable';
 }
@@ -88,6 +94,8 @@ export interface RcCheckabilityCensus {
   noRectangle: number;
   noSection: number;
   noMaterial: number;
+  noStrength: number;
+  noStrengthMaterials: string[];
 }
 
 export function censusRcCheckability(
@@ -95,6 +103,7 @@ export function censusRcCheckability(
 ): RcCheckabilityCensus {
   const out: RcCheckabilityCensus = {
     total: 0, checkable: 0, notConcrete: 0, noRectangle: 0, noSection: 0, noMaterial: 0,
+    noStrength: 0, noStrengthMaterials: [],
   };
   for (const elem of model.elements.values()) {
     out.total += 1;
@@ -104,6 +113,12 @@ export function censusRcCheckability(
       case 'noRectangle': out.noRectangle += 1; break;
       case 'noSection': out.noSection += 1; break;
       case 'noMaterial': out.noMaterial += 1; break;
+      case 'noStrength': {
+        out.noStrength += 1;
+        const name = model.materials.get(elem.materialId)?.name ?? String(elem.materialId);
+        if (!out.noStrengthMaterials.includes(name)) out.noStrengthMaterials.push(name);
+        break;
+      }
     }
   }
   return out;
@@ -175,7 +190,6 @@ export function autoVerifyFromResults(
     // The signed axial forces the member sees, + = compression: the column is checked under
     // each (a member in tension is not checked as if compressed).
     let axialLoads: number[];
-    // Station-based governing combo refs (richer than endpoint-only governing-case.ts)
     let stationGovCombos: ElementVerification['governingCombos'] | undefined;
 
     const demands = stationDemands?.get(ef.elementId);
@@ -203,6 +217,7 @@ export function autoVerifyFromResults(
       NuMax = Math.max(nComp?.absValue ?? 0, nTens?.absValue ?? 0);
       axialLoads = [
         ...((nComp?.absValue ?? 0) > 0 ? [nComp!.absValue] : []),
+        ...(demands.leastCompression !== undefined ? [demands.leastCompression] : []),
         ...((nTens?.absValue ?? 0) > 0 ? [-nTens!.absValue] : []),
       ];
       if (axialLoads.length === 0) axialLoads = [0];

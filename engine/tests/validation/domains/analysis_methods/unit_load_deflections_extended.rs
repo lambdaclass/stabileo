@@ -367,24 +367,17 @@ fn validation_unit_load_two_span_midspan() {
     let f_mid: f64 = results.displacements.iter()
         .find(|d| d.node_id == mid_span1).unwrap().uz.abs();
 
-    // For SS beam of span L: f = L^3/(48EI) = 0.02083 L^3/(EI)
-    // For two-span continuous beam, midspan deflection is reduced.
-    // Exact coefficient for unit load at midspan of one span:
-    //   delta = 5PL^3/(768EI) from three-moment equation solution
-    // (this is the well-known result for 2-span continuous beam)
     let f_ss: f64 = span.powi(3) / (48.0 * e_eff * IZ);
 
-    // Deflection must be less than SS case (continuity stiffens)
     assert!(f_mid < f_ss,
         "Two-span: midspan deflection ({:.6e}) < SS ({:.6e})",
         f_mid, f_ss);
 
-    // Verify against exact two-span result: 5PL^3/(768EI)
-    // The factor 5/768 vs 1/48 = 16/768, so ratio ~ 5/16 = 0.3125
-    let f_exact: f64 = 5.0 * span.powi(3) / (768.0 * e_eff * IZ);
+    // M_B = 3PL/32 from the three-moment equation; δ = PL³/(48EI) − M_B·L²/(16EI) = 23PL³/(1536EI).
+    let f_exact: f64 = 23.0 * span.powi(3) / (1536.0 * e_eff * IZ);
 
-    assert_close(f_mid, f_exact, 0.05,
-        "Two-span: midspan deflection = 5L^3/(768EI)");
+    assert_close(f_mid, f_exact, 1e-6,
+        "Two-span: midspan deflection = 23L^3/(1536EI)");
 
     // Linearity check: 10x the load gives 10x the deflection
     let loads_10 = vec![SolverLoad::Nodal(SolverNodalLoad {

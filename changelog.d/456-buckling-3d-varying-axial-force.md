@@ -1,0 +1,5 @@
+### BREAKING (results)
+
+#### 3D buckling integrates each member's varying axial force (2026-11-05)
+
+3D buckling built each member's geometric stiffness from its mean axial force, and judged whether a member was compressed from the average of its end forces. Under a load along a member's axis the force varies along it: where compression grows toward the end that rotates most the factor came out too high, 4.97 instead of 3.48 (+43 %) for a one-member cantilever whose compression rises to its tip, and a cantilever under q = 10 − 5x, with zero end forces and compression between them, was refused as having no compressed members (#456, SA-2026-038). The geometric stiffness now integrates the whole axial force along the member, as in 2D (SA-2026-042); one member gives 3.54 and 460.1 against the exact 3.48 and 455.7, and a finer mesh converges to them. The BU-SPAN-COMPRESSION warning is removed. Any 3D buckling model with a load along a member's axis may change, whichever member governs; models with no such load keep their factors, and their per-member table reads each member's mean axial force.

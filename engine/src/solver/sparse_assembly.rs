@@ -178,13 +178,13 @@ pub fn assemble_2d_sparse(input: &SolverInput, dof_num: &DofNumbering) -> Triple
             // FEF builder below, which already computes phi from as_y —
             // passing 0.0 here paired Euler-Bernoulli stiffness with
             // Timoshenko fixed-end forces).
-            let phi = if let Some(as_y) = sec.as_y {
-                let g = e / (2.0 * (1.0 + mat.nu));
-                12.0 * e * sec.iz / (g * as_y * l * l)
-            } else {
-                0.0
-            };
-            let k_local = frame_local_stiffness_2d(e, sec.a, sec.iz, l, elem.hinge_start, elem.hinge_end, phi);
+            let material = crate::types::units::ElasticMaterial::from(mat);
+            let section = crate::types::units::ElasticSection2D::from(sec);
+            let phi = section.shear_parameter(material.e.to_internal(), material.nu, crate::types::units::Length::from_m(l));
+            let k_local = crate::element::frame_local_stiffness_2d_typed(
+                material.e.to_internal(), section.a, section.iz, crate::types::units::Length::from_m(l),
+                elem.hinge_start, elem.hinge_end, phi,
+            );
             let t = frame_transform_2d(cos, sin);
             let k_glob = transform_stiffness(&k_local, &t, 6);
             let elem_dofs = dof_num.element_dofs(elem.node_i, elem.node_j);
@@ -305,6 +305,14 @@ pub struct StiffnessSparseAssembly2D {
 /// guard), and inclined roller transforms. The force vector is built
 /// separately by `assemble_load_vector_2d`.
 pub fn assemble_stiffness_sparse_2d(input: &SolverInput, dof_num: &DofNumbering) -> StiffnessSparseAssembly2D {
+    let properties = crate::types::units::ElasticProperties2D::from_legacy(input);
+    assemble_stiffness_sparse_2d_typed(input, dof_num, &properties)
+}
+
+pub(crate) fn assemble_stiffness_sparse_2d_typed(
+    input: &SolverInput, dof_num: &DofNumbering,
+    properties: &crate::types::units::ElasticProperties2D,
+) -> StiffnessSparseAssembly2D {
     let n = dof_num.n_total;
     let nf = dof_num.n_free;
 
@@ -359,14 +367,12 @@ pub fn assemble_stiffness_sparse_2d(input: &SolverInput, dof_num: &DofNumbering)
             }
         } else {
             // Frame element
-            let phi = if let Some(as_y) = sec.as_y {
-                let g = e / (2.0 * (1.0 + mat.nu));
-                12.0 * e * sec.iz / (g * as_y * l * l)
-            } else {
-                0.0
-            };
-            let k_local = frame_local_stiffness_2d(
-                e, sec.a, sec.iz, l, elem.hinge_start, elem.hinge_end, phi,
+            let material = properties.materials[&elem.material_id];
+            let section = properties.sections[&elem.section_id];
+            let phi = section.shear_parameter(material.e.to_internal(), material.nu, crate::types::units::Length::from_m(l));
+            let k_local = crate::element::frame_local_stiffness_2d_typed(
+                material.e.to_internal(), section.a, section.iz, crate::types::units::Length::from_m(l),
+                elem.hinge_start, elem.hinge_end, phi,
             );
             let t = frame_transform_2d(cos, sin);
             let k_glob = transform_stiffness(&k_local, &t, 6);
@@ -581,30 +587,15 @@ pub fn assemble_stiffness_sparse_2d(input: &SolverInput, dof_num: &DofNumbering)
         let artificial_k = if max_diag > 0.0 { max_diag * 1e-10 } else { 1e-6 };
         let already: std::collections::HashSet<usize> = artificial_dofs.iter().copied().collect();
         let tied = super::assembly::rotation_tied_nodes_2d(input);
-        let mut idx_to_local: std::collections::HashMap<usize, usize> = std::collections::HashMap::new();
-        for (&(node, ld), &idx) in &dof_num.map {
-            if idx < nf && !tied.contains(&node) {
-                idx_to_local.insert(idx, ld);
-            }
-        }
-        // Max |entry| per free DOF over the summed full K (lower-tri CSC:
-        // each stored entry touches both endpoints' row+col).
-        // Summed diagonal per DOF; a zero diagonal of the positive
-        // semi-definite K is a zero row. Measured against the largest
-        // rotational diagonal (same units), as in the dense assembler.
         let diag = k_full.diagonal();
-        let max_rot = dof_num.map.iter().filter(|(&(_, ld), _)| ld == 2).fold(0.0f64, |m, (_, &d)| m.max(diag[d].abs()));
-        let orphan_tol = if max_rot > 0.0 { max_rot * 1e-12 } else { 1e-14 };
+        let mut orphans = super::assembly::orphan_rotation_dofs(dof_num, 2..3, |node| tied.contains(&node), |d| diag[d]);
+        orphans.sort_unstable();
         let mut added = false;
-        for i in 0..nf {
-            let mx = diag[i].abs();
+        for i in orphans {
             if already.contains(&i) { continue; }
-            if idx_to_local.get(&i).copied() != Some(2) { continue; }
-            if mx <= orphan_tol {
-                trip_rows.push(i); trip_cols.push(i); trip_vals.push(artificial_k);
-                artificial_dofs.push(i);
-                added = true;
-            }
+            trip_rows.push(i); trip_cols.push(i); trip_vals.push(artificial_k);
+            artificial_dofs.push(i);
+            added = true;
         }
         if added {
             k_full = CscMatrix::from_triplets(n, &trip_rows, &trip_cols, &trip_vals);
@@ -710,13 +701,13 @@ pub fn assemble_elements_parallel_2d(input: &SolverInput, dof_num: &DofNumbering
             // FEF builder below, which already computes phi from as_y —
             // passing 0.0 here paired Euler-Bernoulli stiffness with
             // Timoshenko fixed-end forces).
-            let phi = if let Some(as_y) = sec.as_y {
-                let g = e / (2.0 * (1.0 + mat.nu));
-                12.0 * e * sec.iz / (g * as_y * l * l)
-            } else {
-                0.0
-            };
-            let k_local = frame_local_stiffness_2d(e, sec.a, sec.iz, l, elem.hinge_start, elem.hinge_end, phi);
+            let material = crate::types::units::ElasticMaterial::from(mat);
+            let section = crate::types::units::ElasticSection2D::from(sec);
+            let phi = section.shear_parameter(material.e.to_internal(), material.nu, crate::types::units::Length::from_m(l));
+            let k_local = crate::element::frame_local_stiffness_2d_typed(
+                material.e.to_internal(), section.a, section.iz, crate::types::units::Length::from_m(l),
+                elem.hinge_start, elem.hinge_end, phi,
+            );
             let t = frame_transform_2d(cos, sin);
             let k_glob = transform_stiffness(&k_local, &t, 6);
             let elem_dofs = dof_num.element_dofs(elem.node_i, elem.node_j);
@@ -1347,7 +1338,7 @@ pub fn assemble_stiffness_sparse_3d_parallel(input: &SolverInput3D, dof_num: &Do
     let mut artificial_dofs_3d = Vec::new();
     {
         let artificial_k = if max_diag > 0.0 { max_diag * 1e-10 } else { 1e-6 };
-        for d in super::assembly::orphan_rotation_dofs_3d(input, dof_num, |d| diag_vals[d], max_diag) {
+        for d in super::assembly::orphan_rotation_dofs_3d(input, dof_num, |d| diag_vals[d]) {
             trip_rows.push(d); trip_cols.push(d); trip_vals.push(artificial_k);
             artificial_dofs_3d.push(d);
         }

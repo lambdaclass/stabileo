@@ -32,7 +32,7 @@ use crate::common::*;
 // load produces:
 //   Reaction at base: V = gamma_w * H^2 / 2  (total horizontal force)
 //   Base moment:      M = gamma_w * H^3 / 6
-//   Maximum deflection at top: delta = gamma_w * H^4 / (30 * E * I)
+//   Maximum deflection at top: delta = (gamma_w * H) * H^4 / (30 * E * I)
 
 #[test]
 fn water_retaining_hydrostatic_cantilever() {
@@ -88,14 +88,13 @@ fn water_retaining_hydrostatic_cantilever() {
     assert_close(r_base.my.abs(), m_exact, 0.02,
         "Hydrostatic cantilever: base moment = gamma_w * H^3 / 6");
 
-    // Tip deflection: delta = gamma_w * H^4 / (30 * E * I)
-    // E in MPa = N/mm^2 = 1e3 kN/m^2; loads in kN/m; I in m^4
-    let e_kn_m2: f64 = e * 1e3; // convert MPa to kN/m^2
-    let delta_exact: f64 = gamma_w * h.powi(4) / (30.0 * e_kn_m2 * iz);
+    let e_kn_m2: f64 = e * 1e3;
+    let q_base: f64 = gamma_w * h;
+    let delta_exact: f64 = q_base * h.powi(4) / (30.0 * e_kn_m2 * iz);
     let tip_disp = results.displacements.iter()
         .find(|d| d.node_id == n + 1).unwrap();
-    assert_close(tip_disp.uz.abs(), delta_exact, 0.03,
-        "Hydrostatic cantilever: tip deflection = gamma_w*H^4/(30EI)");
+    assert_close(tip_disp.uz.abs(), delta_exact, 1e-9,
+        "Hydrostatic cantilever: tip deflection = (gamma_w*H)*H^4/(30EI)");
 }
 
 // ================================================================

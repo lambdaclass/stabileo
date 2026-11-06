@@ -16,6 +16,8 @@ const fixtures2D: Record<string, FixtureLoader> = {
   'portal-frame': () => import('./fixtures/portal-frame.json'),
   /* The portal with its top held sideways: no sway, for moment distribution without sway. */
   'portal-frame-braced': () => import('./fixtures/portal-frame-braced.json'),
+  /* A steel portal near enough to its critical load for second order to show (λ₁ ≈ 4). Not in the examples menu. */
+  'portal-second-order': () => import('./fixtures/portal-second-order.json'),
   'two-story-frame': () => import('./fixtures/two-story-frame.json'),
   'multi-section-frame': () => import('./fixtures/multi-section-frame.json'),
   'color-map-demo': () => import('./fixtures/color-map-demo.json'),
@@ -57,6 +59,9 @@ const fixtures2D: Record<string, FixtureLoader> = {
    * article fixtures.
    */
   'deep-beam-bar': () => import('./fixtures/deep-beam-bar.json'),
+  /* The structural dynamics examples of the explained catalog, with point masses; not in the examples menu. */
+  'dynamics-column-mass': () => import('./fixtures/dynamics-column-mass.json'),
+  'dynamics-shear-building': () => import('./fixtures/dynamics-shear-building.json'),
 };
 
 // 3D examples (basic + PRO)

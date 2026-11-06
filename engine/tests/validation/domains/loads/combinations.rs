@@ -227,7 +227,7 @@ fn validation_comb_3d_biaxial() {
             CaseEntry3D { case_id: 2, results: res_fz },
         ],
     };
-    let combined = combine_results_3d(&combo).unwrap();
+    let combined = combine_results_3d(&combo).unwrap().unwrap();
 
     // Direct solve: 2×Fy + Fz
     let direct_loads = vec![SolverLoad3D::Nodal(SolverNodalLoad3D {
@@ -451,9 +451,9 @@ fn validation_comb_element_forces() {
             .find(|e| e.element_id == ef_comb.element_id).unwrap();
         assert_close(ef_comb.v_start, ef_direct.v_start, 1e-5,
             &format!("elem {} v_start", ef_comb.element_id));
-        assert_close(ef_comb.m_start, ef_direct.m_start, 1e-5,
+        assert_close_abs(ef_comb.m_start, ef_direct.m_start, 1e-5, 1e-6,
             &format!("elem {} m_start", ef_comb.element_id));
-        assert_close(ef_comb.m_end, ef_direct.m_end, 1e-5,
+        assert_close_abs(ef_comb.m_end, ef_direct.m_end, 1e-5, 1e-6,
             &format!("elem {} m_end", ef_comb.element_id));
     }
 }

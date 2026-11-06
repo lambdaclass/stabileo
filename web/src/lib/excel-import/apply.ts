@@ -20,7 +20,8 @@
 import { modelStore, uiStore } from '../store';
 import { t } from '../i18n';
 import { shouldProjectModelToXZ } from '../geometry/coordinate-system';
-import { loadFixture } from '../templates/load-fixture';
+import { fixtureLoadCases, loadFixture } from '../templates/load-fixture';
+import { defaultCombinations, defaultLoadCases } from '../model/default-loads';
 import { parseWorkbook, type ParseResult } from './parse';
 import { unzipSync } from 'fflate';
 
@@ -43,6 +44,12 @@ export function applyWorkbook(sheets: Record<string, unknown[][]>): ImportOutcom
 
   if (parsed.model.nodes.length === 0) {
     return { ...parsed, loaded: { nodes: 0, elements: 0, sections: 0 } };
+  }
+  try {
+    fixtureLoadCases(parsed.model, { loadCases: defaultLoadCases(), combinations: defaultCombinations() });
+  } catch (err) {
+    const problems = [...parsed.problems, { sheet: 'LoadCases', row: 1, message: (err as Error).message }];
+    return { ...parsed, problems, loaded: { nodes: 0, elements: 0, sections: 0 } };
   }
 
   const api = modelStore.fixtureApi();

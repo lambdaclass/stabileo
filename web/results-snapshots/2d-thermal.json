@@ -1,10 +1,10 @@
 {
   "case": "2d-thermal",
   "covers": "2D thermal load",
-  "format": 1,
+  "format": 2,
   "values": {
     "base.allZero": false,
-    "base.diagnosticCodes": "",
+    "base.diagnosticCodes": "warning:known_issue",
     "base.displacements[n1]": {"ry":0,"ux":0,"uz":0},
     "base.displacements[n2]": {"ry":-0.0002420453077,"ux":-0.00007303224656,"uz":8.90458478e-7},
     "base.displacements[n3]": {"ry":0.0002012623094,"ux":0.00142344221,"uz":-8.90458478e-7},

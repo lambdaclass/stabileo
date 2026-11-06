@@ -1151,15 +1151,22 @@ fn contact_constraints_on_inclined_supports_match_rotated_model() {
 }
 
 #[test]
-fn fiber_constraints_on_inclined_supports_match_rotated_model() {
+fn fiber_constraints_on_inclined_supports_are_refused() {
     use dedaliano_engine::solver::fiber_nonlinear::{solve_fiber_nonlinear_2d, solve_fiber_nonlinear_3d, FiberNonlinearInput, FiberNonlinearInput3D};
+    let refused = |name: &str, r: Result<(), String>| assert!(r.err().is_some_and(|e| e.contains("constraints are not supported")), "{name}: a constrained fiber model must be refused");
     for (name, c) in analysis_cases_2d() {
-        let run = |s: Sup| solve_fiber_nonlinear_2d(&json_input::<FiberNonlinearInput, _>(model_2d(s, 1, &c), extra(FIBER))).expect(name).results;
-        assert_static_2d(&format!("2D {name}"), &run(Sup::Inclined), &run(Sup::Rotated), 1e-6);
+        for s in [Sup::Inclined, Sup::Rotated] {
+            let input = json_input::<FiberNonlinearInput, _>(model_2d(s, 1, &c), extra(FIBER));
+            assert!(!input.solver.constraints.is_empty(), "{name}");
+            refused(name, solve_fiber_nonlinear_2d(&input).map(|_| ()));
+        }
     }
     for (name, c) in analysis_cases_3d() {
-        let run = |s: Sup| solve_fiber_nonlinear_3d(&json_input::<FiberNonlinearInput3D, _>(model_3d(s, 1, &c), extra(FIBER))).expect(name).results;
-        assert_static_3d(&format!("3D {name}"), &run(Sup::Inclined), &run(Sup::Rotated), 1e-6);
+        for s in [Sup::Inclined, Sup::Rotated] {
+            let input = json_input::<FiberNonlinearInput3D, _>(model_3d(s, 1, &c), extra(FIBER));
+            assert!(!input.solver.constraints.is_empty(), "{name}");
+            refused(name, solve_fiber_nonlinear_3d(&input).map(|_| ()));
+        }
     }
 }
 

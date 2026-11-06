@@ -49,10 +49,9 @@ pub fn artificial_stiffness_entries(asm: &AssemblyResult) -> Vec<(usize, f64)> {
 /// EqualDOF), and once the constraint is imposed an artificial spring on it
 /// would become a real spring to ground on the structure. If such a tied
 /// rotation has no stiffness anywhere the model stays singular and is refused.
-pub(crate) fn orphan_rotation_dofs_3d(input: &SolverInput3D, dof_num: &DofNumbering, diag: impl Fn(usize) -> f64, max_diag: f64) -> Vec<usize> {
-    let mut out = Vec::new();
+pub(crate) fn orphan_rotation_dofs_3d(input: &SolverInput3D, dof_num: &DofNumbering, diag: impl Fn(usize) -> f64) -> Vec<usize> {
     if dof_num.dofs_per_node < 6 {
-        return out;
+        return Vec::new();
     }
     let mut tied: std::collections::HashSet<usize> = std::collections::HashSet::new();
     for c in &input.constraints {
@@ -64,30 +63,22 @@ pub(crate) fn orphan_rotation_dofs_3d(input: &SolverInput3D, dof_num: &DofNumber
             Constraint::EccentricConnection(e) => { tied.insert(e.master_node); tied.insert(e.slave_node); }
         }
     }
-    // Relative to the largest ROTATIONAL diagonal (same units, F·L): against
-    // the overall maximum — a translational stiffness, F/L — a real but
-    // small rotational stiffness fell under the threshold in a model in
-    // millimetres with one stiff member, was taken for an orphan and locked
-    // by the artificial spring (found by the metamorphic unit-scaling check).
-    // K is positive semi-definite, so a zero diagonal means a zero row.
-    let max_rot = dof_num
-        .node_order
-        .iter()
-        .flat_map(|&nid| (3..6).filter_map(move |l| dof_num.map.get(&(nid, l)).copied()))
-        .fold(0.0f64, |m, d| m.max(diag(d).abs()));
-    let _ = max_diag;
-    let tol = if max_rot > 0.0 { max_rot * 1e-12 } else { 1e-14 };
+    orphan_rotation_dofs(dof_num, 3..6, |node| tied.contains(&node), diag)
+}
+
+/// Free rotation DOFs whose diagonal is zero, or at round-off of the largest
+/// rotational diagonal of the same node. Never measured against the model's
+/// largest: a real but soft rotation in a model with a stiff part elsewhere
+/// would be locked by the artificial spring.
+pub(crate) fn orphan_rotation_dofs(dof_num: &DofNumbering, locals: std::ops::Range<usize>, skip: impl Fn(usize) -> bool, diag: impl Fn(usize) -> f64) -> Vec<usize> {
+    let mut out = Vec::new();
     for &node_id in &dof_num.node_order {
-        if tied.contains(&node_id) {
+        if skip(node_id) {
             continue;
         }
-        for local in 3..6 {
-            if let Some(&d) = dof_num.map.get(&(node_id, local)) {
-                if d < dof_num.n_free && diag(d).abs() <= tol {
-                    out.push(d);
-                }
-            }
-        }
+        let rots: Vec<usize> = locals.clone().filter_map(|l| dof_num.map.get(&(node_id, l)).copied()).collect();
+        let scale = rots.iter().fold(0.0f64, |m, &d| m.max(diag(d).abs()));
+        out.extend(rots.into_iter().filter(|&d| d < dof_num.n_free && diag(d).abs() <= 1e-12 * scale));
     }
     out
 }
@@ -99,21 +90,38 @@ pub struct InclinedTransformData {
     pub r: [[f64; 3]; 3],        // Rotation matrix (rows = local axes)
 }
 
-/// 2D nodes whose rotation a constraint ties to other DOFs. An artificial
-/// rotational spring on such a node is not inert: once the constraint is
-/// imposed it becomes a real spring on the structure (a rigid-link mechanism
-/// was held by it, so whether it counted as a mechanism depended on the
-/// units — found by the metamorphic checks). The 3D assembler already leaves
-/// constraint nodes out (`orphan_rotation_dofs_3d`).
+/// 2D nodes whose rotation a connector stiffens: through its rotational
+/// spring, or through the rigid arms of a finite-length shear spring.
+pub(crate) fn connector_rotation_nodes_2d(input: &SolverInput) -> std::collections::HashSet<usize> {
+    let node_xz: std::collections::HashMap<usize, (f64, f64)> =
+        crate::ordered::values(&input.nodes).map(|n| (n.id, (n.x, n.z))).collect();
+    let mut out = std::collections::HashSet::new();
+    for c in crate::ordered::values(&input.connectors) {
+        let l = match (node_xz.get(&c.node_i), node_xz.get(&c.node_j)) {
+            (Some(a), Some(b)) => ((b.0 - a.0).powi(2) + (b.1 - a.1).powi(2)).sqrt(),
+            _ => 0.0,
+        };
+        if c.k_moment > 0.0 || (c.k_shear > 0.0 && l > crate::element::connector::ZERO_LENGTH) {
+            out.extend([c.node_i, c.node_j]);
+        }
+    }
+    out
+}
+
+/// 2D nodes whose rotation a constraint or a connector ties to other DOFs.
+/// An artificial rotational spring on such a node is not inert: it becomes a
+/// real spring on the structure, and a mechanism it holds solves with a
+/// confident wrong answer. The 3D assembler already leaves constraint nodes
+/// out (`orphan_rotation_dofs_3d`).
 pub(crate) fn rotation_tied_nodes_2d(input: &SolverInput) -> std::collections::HashSet<usize> {
-    let mut tied = std::collections::HashSet::new();
+    let mut tied = connector_rotation_nodes_2d(input);
     for c in &input.constraints {
         match c {
             Constraint::RigidLink(r) => {
                 tied.insert(r.master_node);
-                if r.dofs.contains(&2) { tied.insert(r.slave_node); }
+                if r.dofs.is_empty() || r.dofs.contains(&2) { tied.insert(r.slave_node); }
             }
-            Constraint::Diaphragm(d) => { tied.insert(d.master_node); }
+            Constraint::Diaphragm(d) => { tied.insert(d.master_node); tied.extend(d.slave_nodes.iter().copied()); }
             Constraint::EqualDOF(e) => {
                 if e.dofs.contains(&2) { tied.extend([e.master_node, e.slave_node]); }
             }
@@ -336,6 +344,14 @@ pub struct StiffnessAssembly2D {
 /// Assemble the global stiffness matrix for 2D (load-independent).
 /// The force vector is assembled separately by `assemble_load_vector_2d`.
 pub fn assemble_stiffness_2d(input: &SolverInput, dof_num: &DofNumbering) -> StiffnessAssembly2D {
+    let properties = crate::types::units::ElasticProperties2D::from_legacy(input);
+    assemble_stiffness_2d_typed(input, dof_num, &properties)
+}
+
+pub(crate) fn assemble_stiffness_2d_typed(
+    input: &SolverInput, dof_num: &DofNumbering,
+    properties: &crate::types::units::ElasticProperties2D,
+) -> StiffnessAssembly2D {
     let n = dof_num.n_total;
     let mut k_global = vec![0.0; n * n];
 
@@ -380,14 +396,12 @@ pub fn assemble_stiffness_2d(input: &SolverInput, dof_num: &DofNumbering) -> Sti
             }
         } else {
             // Frame element
-            let phi = if let Some(as_y) = sec.as_y {
-                let g = e / (2.0 * (1.0 + mat.nu));
-                12.0 * e * sec.iz / (g * as_y * l * l)
-            } else {
-                0.0
-            };
-            let k_local = frame_local_stiffness_2d(
-                e, sec.a, sec.iz, l, elem.hinge_start, elem.hinge_end, phi,
+            let material = properties.materials[&elem.material_id];
+            let section = properties.sections[&elem.section_id];
+            let phi = section.shear_parameter(material.e.to_internal(), material.nu, crate::types::units::Length::from_m(l));
+            let k_local = crate::element::frame_local_stiffness_2d_typed(
+                material.e.to_internal(), section.a, section.iz, crate::types::units::Length::from_m(l),
+                elem.hinge_start, elem.hinge_end, phi,
             );
             let t = frame_transform_2d(cos, sin);
             let k_glob = transform_stiffness(&k_local, &t, 6);
@@ -531,32 +545,13 @@ pub fn assemble_stiffness_2d(input: &SolverInput, dof_num: &DofNumbering) -> Sti
             }
         }
 
-        // Topology-agnostic orphan-ROTATION-DOF guard: any free *rotation* DOF
-        // whose row+col in K_global is identically zero gets artificial stiffness
-        // so the linear solver doesn't trip on a singular matrix. Restricted to
-        // rotation DOFs (local_dof=2 in 2D) so a truly floating node (translation
-        // DOFs all-zero) still surfaces as a singular-matrix error.
-        let nf = dof_num.n_free;
         let already: std::collections::HashSet<usize> = artificial_dofs.iter().copied().collect();
-        let mut idx_to_local: std::collections::HashMap<usize, usize> = std::collections::HashMap::new();
-        for (&(node, ld), &idx) in &dof_num.map {
-            if idx < nf && !tied.contains(&node) {
-                idx_to_local.insert(idx, ld);
-            }
-        }
-        // Against the largest rotational diagonal (same units), not the
-        // overall maximum: see `orphan_rotation_dofs_3d`. K is positive
-        // semi-definite, so a zero diagonal is a zero row.
-        let max_rot = dof_num.map.iter().filter(|(&(_, ld), _)| ld == 2).fold(0.0f64, |m, (_, &d)| m.max(k_global[d * n + d].abs()));
-        let orphan_tol = if max_rot > 0.0 { max_rot * 1e-12 } else { 1e-14 };
-        for i in 0..nf {
+        let mut orphans = orphan_rotation_dofs(dof_num, 2..3, |node| tied.contains(&node), |d| k_global[d * n + d]);
+        orphans.sort_unstable();
+        for i in orphans {
             if already.contains(&i) { continue; }
-            if idx_to_local.get(&i).copied() != Some(2) { continue; }
-            let all_zero = k_global[i * n + i].abs() <= orphan_tol;
-            if all_zero {
-                k_global[i * n + i] += artificial_k;
-                artificial_dofs.push(i);
-            }
+            k_global[i * n + i] += artificial_k;
+            artificial_dofs.push(i);
         }
     }
 
@@ -1157,7 +1152,7 @@ pub fn assemble_stiffness_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> S
     let mut artificial_dofs_3d = Vec::new();
     {
         let artificial_k = if max_diag > 0.0 { max_diag * 1e-10 } else { 1e-6 };
-        for d in orphan_rotation_dofs_3d(input, dof_num, |d| k_global[d * n + d], max_diag) {
+        for d in orphan_rotation_dofs_3d(input, dof_num, |d| k_global[d * n + d]) {
             k_global[d * n + d] += artificial_k;
             artificial_dofs_3d.push(d);
         }
@@ -2620,7 +2615,7 @@ pub fn assemble_stiffness_sparse_3d(input: &SolverInput3D, dof_num: &DofNumberin
     let mut artificial_dofs_3d = Vec::new();
     {
         let artificial_k = if max_diag > 0.0 { max_diag * 1e-10 } else { 1e-6 };
-        for d in orphan_rotation_dofs_3d(input, dof_num, |d| diag_vals[d], max_diag) {
+        for d in orphan_rotation_dofs_3d(input, dof_num, |d| diag_vals[d]) {
             trip_rows.push(d); trip_cols.push(d); trip_vals.push(artificial_k);
             artificial_dofs_3d.push(d);
         }

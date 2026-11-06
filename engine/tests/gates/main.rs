@@ -16,6 +16,8 @@ mod bench_phases;
 mod conditioning_adversarial;
 #[path = "../kfull_overbuild_gates.rs"]
 mod kfull_overbuild_gates;
+#[path = "../result_sites.rs"]
+mod result_sites;
 #[path = "../perf_regression_advanced.rs"]
 mod perf_regression_advanced;
 #[path = "../perf_regression_gates.rs"]

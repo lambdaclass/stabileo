@@ -23,6 +23,13 @@ never silently wrong and verification never silently stops working.
 
 - **One branch and one pull request per workstream**, based on `main`. Open the PR as a draft
   after the first coherent commit; push after every working step (a branch push is the backup).
+- **Before each push, `make check.quick`.** It runs what CI checks first, for what the branch
+  changed against `origin/main` (uncommitted work included): the changelog, pin and test-target
+  checks always; the engine's clippy, the backend's format and credo, the CI-script tests and the
+  web typecheck when those areas changed; then the unit tests related to the changed web files
+  and the engine tests of the touched sources (`scripts/test-changed.sh`). It prints its plan
+  first (`scripts/check-quick.sh --dry-run`). It is a quick guess, not the whole suite: CI still
+  runs everything, and `make test.backend` and the E2E suites are not part of it.
 - **Waves.** When several workstreams land together (e.g. the October 2026 safety wave), an
   **integration branch per wave** (`integration/<wave>`) merges every PR of the wave onto `main`
   in a planned order, resolves conflicts once, and runs the full suite. It is never merged
@@ -30,9 +37,52 @@ never silently wrong and verification never silently stops working.
   Each PR is then merged on its own, in that order.
 - **Review before merge.** Every PR gets an independent review (Codex review, plus a human
   reviewer for solver, certificate and design-check changes) before it leaves draft and merges.
+- **When a PR merges.** All three must hold on the PR's current head commit:
+  - CI is green on that commit.
+  - The branch contains the latest `main`, merged into the branch for real. A clean local
+    `git merge-tree` preview is not enough: GitHub ignores `merge=union` and fails on criss-cross
+    merge bases where a local merge succeeds.
+  - An LLM review (Codex at high reasoning effort) of that exact commit has no unresolved blockers.
+    Any new commit needs a new review.
+- **Review rounds.** After about three review rounds on the same PR, fix only the blockers that
+  can produce a wrong result and defer the rest with the evidence in the PR body; a finding deferred
+  that way counts as resolved for the merge rule above.
+- **Bugs first.** Bug and safety fixes merge before features.
+- **Results versions.** A PR that changes results adds one file,
+  `web/src/lib/provenance/result-changes/<id>.json`, **without a version number**. Main's merge
+  order numbers it ([the registry's README](../web/src/lib/provenance/result-changes/README.md),
+  [verification/PROVENANCE.md](verification/PROVENANCE.md)). Don't pick a number, bump
+  `currentResultsVersion`, pin `RELEASED` or restamp a fixture. Results-changing PRs don't
+  conflict with each other and can be queued together.
+- **Merge status.** The pinned issue [Merge status (#1391)](https://github.com/lambdaclass/stabileo/issues/1391)
+  and the `status:*` labels (`status:in-queue`, `status:ready`, `status:in-progress`,
+  `status:blocked`, `status:needs-owner-ok`) show every open PR's state and expected merge time.
+- **No stacked PRs in the merge queue.** The queue marks an ancestor unmergeable and rejects its
+  descendants (`invalid_merge_commit`). Retarget every PR of a stack to `main`, or land the stack
+  as one integration PR.
+- **Re-arm auto-merge after a dequeue.** Taking a PR out of the queue, or the queue dropping it,
+  clears its auto-merge. Set it again once the fix is pushed.
+- **Before pushing,** run `make check.quick` (upcoming; until it is on `main`, the `make` targets of
+  the areas you changed).
+- **Never use `git stash`.** Every worktree of a clone shares one stash list, so a stash in one
+  worktree can be popped or dropped from another. Commit to your branch or copy the files instead.
 - **Required checks** must be green (engine, web, e2e, Kani, Lean, symbolic; see
-  [#355](https://github.com/lambdaclass/stabileo/issues/355)). A red nightly verification job
-  opens an issue labelled `verification-failure` and is triaged like a bug.
+  [#355](https://github.com/lambdaclass/stabileo/issues/355)). A red scheduled verification run
+  opens (or updates) one `ci-failure` issue per workflow, closed by the next green run once triaged; each real
+  finding behind it is triaged into its own `bug` issue ([verification/NIGHTLY.md](verification/NIGHTLY.md)).
+- **Infrastructure retry.** A pull request run of CI, Research or Supply chain whose every failed
+  job shows infrastructure evidence (a lost runner, a job timeout in a download or research WASM
+  build step, or exit 137, a cache, artifact or network error in a download step) has its failed jobs rerun once, automatically
+  (`.github/workflows/infra-retry.yml`); the decision and its evidence are in the summary of that
+  workflow's run. A timeout or exit 137 inside a test step, a test failure next to an
+  infrastructure warning, and anything unrecognised are never retried.
+  Merge-queue runs are not retried: a red required check has already dequeued the PR, so a rerun
+  reports to a group that no longer exists; re-enqueue instead. Pushes to `main` are handled by
+  `post-merge.yml`.
+- **Closing an issue.** A fix closes its issue only after running every reproducer listed in the
+  issue. A partial fix says "partly fixed" and leaves a follow-up issue for the rest.
+- **Nightly wrong-result candidates** are triaged daily, and each gets a recorded decision:
+  contained, fixed (with the PR), or out of scope (with the numbers that show it).
 - **Never force-push** a shared branch without explicit authorization. Before deleting a branch,
   prove its work exists elsewhere.
 - QA and evidence branches are pushed but get no PR.
@@ -47,7 +97,44 @@ never silently wrong and verification never silently stops working.
   `roadmap:release-safety`: backlog items of [roadmap/PRODUCT_ROADMAP.md](roadmap/PRODUCT_ROADMAP.md)
   (tracker [#396](https://github.com/lambdaclass/stabileo/issues/396)).
 - `derivations`: findings of the element-derivation review ([#330](https://github.com/lambdaclass/stabileo/pull/330)).
-- `verification-failure`: a scheduled verification job failed.
+- `ci-failure`: a scheduled verification workflow (or the production health check) is red;
+  opened and closed by CI.
+- `verification-failure`: a finding of a scheduled verification job (the per-job issues the alert
+  opened before October 2026).
+
+## Wrong-result reproducers
+
+Every wrong-result issue (labelled `safety`, `wrong-result` or `wrong-result-candidate`) has its
+reproducers in the test suite, named after the issue, as expected failures:
+
+- **Rust**: `fn issue_<N>_<what>()` with `#[ignore = "known wrong result: #<N>"]` (more text may
+  follow the number).
+- **TypeScript**: `it.fails('#<N> <what>', …)` (or `test.fails`).
+
+They run while the issue is open: `make test.engine.reproducers` (Engine Quick Checks on every
+pull request) runs each Rust one and fails if one passes, and Vitest fails an `it.fails` that
+passes. A reproducer that starts passing means the bug is fixed, or the test stopped reproducing
+it; either way it is dealt with in that pull request.
+
+**A fix flips them.** It removes the tag (the `ignore`, or `.fails`), and the test then passes.
+The **Issue reproducers** check (`.github/workflows/issue-reproducers.yml`,
+`scripts/issue-reproducers.py`) holds every pull request whose body says `Fixes #N` (or
+closes/resolves) for a wrong-result issue #N to that rule:
+
+- at least one of #N's expected-failure reproducers is flipped: it still exists, is a `#[test]`
+  with no `ignore` at all (or a plain `it`), and passes;
+- none of #N's reproducers is still tagged. A fix of part of an issue says **Partly addresses
+  #N** instead of a closing keyword (GitHub reads "partly fixes #N" as closing #N, so the check
+  holds it to the full rule): one flip is then enough, and the issue stays open with the
+  remaining reproducers;
+- a wrong-result issue with no reproducer fails the check: add it as an expected failure, either
+  on `main` or in an earlier commit of the same pull request than the fix.
+
+Deleting a reproducer, retagging it or dropping its `#[test]` does not count as flipping it. An
+issue whose labels cannot be read fails the check, and `make test.engine.reproducers` fails on a
+reproducer that does not build or selects no test, as well as on one that passes. `make check.issue-reproducers BASE=<rev>
+HEAD=<rev> BODY=<file>` runs the check locally, and `make test.reproducers.published` runs every
+test named after an issue (the monthly re-run against main, docs/TESTING_CADENCE.md).
 
 ## Releases
 

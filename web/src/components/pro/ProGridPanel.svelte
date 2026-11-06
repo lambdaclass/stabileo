@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { similarityIssues } from '../../lib/model/similar-storeys';
+  import Hint from './Hint.svelte';
   /**
    * The structural grid and the levels: typed as bays and storey heights, or read off the model;
    * edited axis by axis; and the level to work on. What is built on it is placed in Building.
@@ -15,6 +17,7 @@
   import { unitQ } from '../../lib/store/display-units.svelte';
   import QuantityInput from './loads/QuantityInput.svelte';
   import UnderlayCard from './building/UnderlayCard.svelte';
+  import LinkedModelsCard from './building/LinkedModelsCard.svelte';
   import { buildingUi } from '../../lib/store/building-ui.svelte';
 
   /** Inside the Building panel, its first tool: the way on is that panel's columns, not the panel itself. */
@@ -76,6 +79,9 @@
     const lv = levelsFromHeights(h, base, names.split(/[;,]/));
     setGrid({ ...grid, levels: lv });
   }
+  /** Levels some other level repeats. */
+  const masters = $derived(new Set(levels.flatMap((l) => (l.similarTo ? [l.similarTo] : []))));
+  const similarIssues = $derived(similarityIssues(levels));
   function editLevel(l: Level, patch: Partial<Level>) {
     setGrid({ ...grid, levels: grid.levels.map((x) => (x.id === l.id ? { ...x, ...patch } : x)) });
   }
@@ -95,7 +101,7 @@
 <div class="pk gr" data-testid="grid-panel">
   <section class="pk-card">
     <h4 class="pk-heading">{t('grid.axesTitle')}</h4>
-    <p class="pk-hint">{t('grid.axesHint')}</p>
+    <Hint text={t('grid.axesHint')} />
     {#each [{ axis: 'x' as const, d: bx, list: xs }, { axis: 'y' as const, d: by, list: ys }] as row (row.axis)}
       <div class="gr-dir" data-testid="grid-dir-{row.axis}">
         <div class="gr-dir-head">{t(`grid.dir.${row.axis}`)}</div>
@@ -141,7 +147,7 @@
 
   <section class="pk-card">
     <h4 class="pk-heading">{t('grid.levelsTitle')}</h4>
-    <p class="pk-hint">{t('grid.levelsHint')}</p>
+    <Hint text={t('grid.levelsHint')} />
     <div class="pk-row gr-wrap">
       <label class="gr-field gr-grow">{t('grid.heights')}
         <span class="gr-unit"><input bind:value={heights} placeholder="3; 3; 3" data-testid="grid-heights" /> {lenUnit}</span>
@@ -156,13 +162,21 @@
     </div>
     {#if levels.length > 0}
       <table class="gr-table">
-        <thead><tr><th>{t('grid.name')}</th><th>z ({unitQ('length')})</th><th>{t('grid.workHere')}</th><th></th></tr></thead>
+        <thead><tr><th>{t('grid.name')}</th><th>z ({unitQ('length')})</th><th>{t('storeys.similarTo')}</th><th title={t('storeys.spliceHint')}>{t('storeys.splice')}</th><th>{t('storeys.color')}</th><th>{t('grid.workHere')}</th><th></th></tr></thead>
         <tbody>
           {#each [...levels].reverse() as l (l.id)}
             {@const active = activeZ !== null && Math.abs(activeZ - l.z) < 1e-6}
             <tr class:gr-active={active} data-testid="grid-level-{l.name}">
               <td><input class="gr-cell" value={l.name} onchange={(e) => editLevel(l, { name: e.currentTarget.value.trim() || l.name })} /></td>
               <td><QuantityInput cls="gr-cell gr-num" wrap="gr-qi" showUnit={false} value={l.z} quantity="length" onchange={(v) => editLevel(l, { z: v })} /></td>
+              <td>
+                <select class="gr-cell" value={l.similarTo ?? ''} onchange={(e) => editLevel(l, { similarTo: e.currentTarget.value || undefined })} aria-label={tp('storeys.similarToOf', { name: l.name })} data-testid="grid-similar-{l.name}">
+                  <option value="">{masters.has(l.id) ? t('storeys.master') : '—'}</option>
+                  {#each levels.filter((x) => x.id !== l.id && !x.similarTo) as m (m.id)}<option value={m.id}>{m.name}</option>{/each}
+                </select>
+              </td>
+              <td><input type="checkbox" checked={!!l.splice} onchange={(e) => editLevel(l, { splice: e.currentTarget.checked || undefined })} aria-label={tp('storeys.spliceOf', { name: l.name })} data-testid="grid-splice-{l.name}" /></td>
+              <td><input type="color" class="gr-color" value={l.color ?? '#8fa3b3'} onchange={(e) => editLevel(l, { color: e.currentTarget.value })} aria-label={tp('storeys.colorOf', { name: l.name })} /></td>
               <td><input type="radio" name="gr-active" checked={active} onchange={() => uiStore.setActiveLevel(l.z)} aria-label={tp('grid.workOn', { name: l.name })} data-testid="grid-activate-{l.name}" /></td>
               <td><button class="pk-btn gr-del" title={t('grid.remove')} onclick={() => removeLevel(l)}>×</button></td>
             </tr>
@@ -170,12 +184,14 @@
         </tbody>
       </table>
     {/if}
+    {#if levels.length > 1}<Hint text={t('storeys.hint')} />{/if}
+    {#each similarIssues as i (i.level + i.issue)}<p class="pk-warn" data-testid="grid-similar-issue">{tp(`storeys.issue.${i.issue}`, { name: levels.find((l) => l.id === i.level)?.name ?? i.level })}</p>{/each}
     <label class="pk-row gr-check"><input type="checkbox" bind:checked={uiStore.snapToAxes} data-testid="grid-snap" /> {t('grid.snap')}</label>
   </section>
 
   <section class="pk-card">
     <h4 class="pk-heading">{t('grid.fromModelTitle')}</h4>
-    <p class="pk-hint">{t('grid.fromModelHint')}</p>
+    <Hint text={t('grid.fromModelHint')} />
     <button class="pk-btn" disabled={modelStore.nodes.size === 0} onclick={readFromModel} data-testid="grid-from-model">{t('grid.fromModel')}</button>
     {#if grid.axes.length > 0 || grid.levels.length > 0}
       <button class="pk-btn gr-del" onclick={() => setGrid({ axes: [], levels: [] })} data-testid="grid-clear">{t('grid.clear')}</button>
@@ -184,16 +200,18 @@
   </section>
 
   <UnderlayCard />
+  <LinkedModelsCard />
 
   {#if xs.length > 0 && ys.length > 0 && levels.length > 0}
     <section class="pk-card">
-      <p class="pk-hint">{t('building.fromGrid')}</p>
+      <Hint text={t('building.fromGrid')} />
       <button class="pk-btn" onclick={() => { buildingUi.tool = 'columns'; if (!embedded) uiStore.proActiveTab = 'building'; }} data-testid="grid-open-building">{t(embedded ? 'building.next.columns' : 'building.open')}</button>
     </section>
   {/if}
 </div>
 
 <style>
+  .gr-color { width: 26px; height: 18px; padding: 0; border: 0; background: none; }
   .gr-dir { display: flex; flex-direction: column; gap: 4px; padding: 6px 0; border-top: 1px solid var(--st-hair); }
   .gr-dir:first-of-type { border-top: none; }
   .gr-dir-head { font-size: 0.66rem; font-weight: 600; color: var(--st-text-2); }

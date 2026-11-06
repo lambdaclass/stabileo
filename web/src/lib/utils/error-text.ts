@@ -1,3 +1,5 @@
+import { knownIssueRefusal } from '../engine/known-issues';
+
 /**
  * The readable text of a thrown value.
  *
@@ -17,6 +19,8 @@
  * it were the engine's explanation.
  */
 export function errorText(e: unknown, fallback: string): string {
+  const refusal = knownIssueRefusal(e);
+  if (refusal) return refusal;
   if (typeof e === 'string') return e.trim() ? e : fallback;
   const message = (e as { message?: unknown } | null | undefined)?.message;
   if (typeof message === 'string' && message.trim()) return message;

@@ -57,7 +57,8 @@
   }
   button {
     font: 500 0.8125rem/1 var(--st-sans);
-    min-height: 1.75rem;
+    min-height: 2.75rem;
+    min-width: 2.75rem;
     padding: 0 0.6rem;
     border-radius: var(--st-radius, 3px);
     border: 1px solid var(--rs-control-border);

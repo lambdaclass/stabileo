@@ -212,7 +212,8 @@ pub struct SteelCheckResult {
     pub flexure_y_ratio: f64,
     /// Flexural capacity check about Z-axis (Mr / phi*Mn_z)
     pub flexure_z_ratio: f64,
-    /// Shear capacity check (Vr / phi*Vn), 0.0 when Aw was not supplied
+    /// Shear capacity check (Vr / phi*Vn), 0.0 when Aw was not supplied, and
+    /// then "Shear G2" is in `unevaluated` if the member carries shear.
     pub shear_ratio: f64,
     /// Weak-axis shear ratio, AISC G4/G6 against `aw_weak`.
     #[serde(default)]
@@ -307,12 +308,12 @@ fn check_single_member(member: &SteelMemberData, forces: &ElementDesignForces) -
     let mut ledger = CheckLedger::new();
 
     let tension_ratio =
-        ledger.ratio_if_loaded("Tension D2", n.max(0.0), phi_pn_tension);
+        ledger.ratio_if_loaded("Tension D2", crate::check::positive_part(n), phi_pn_tension);
     if n < 0.0 && member.compression_elements.is_none() {
         ledger.flag("Compression E7: compressionElements not given (Table B4.1a)");
     }
     let compression_ratio =
-        ledger.ratio_if_loaded("Compression E3/E7", (-n).max(0.0), phi_pn_compression);
+        ledger.ratio_if_loaded("Compression E3/E7", crate::check::positive_part(-n), phi_pn_compression);
     let flexure_y_ratio = ledger.ratio_if_loaded("Flexure-Y F2", my, phi_mn_y);
     let flexure_z_ratio = ledger.ratio_if_loaded("Flexure-Z F6", mz, phi_mn_z);
 
@@ -321,11 +322,10 @@ fn check_single_member(member: &SteelMemberData, forces: &ElementDesignForces) -
         ledger.flag("Axial demand");
     }
 
-    // AISC G2 shear
     let phi_vn: f64 = shear_capacity(member);
     let v_strong = forces.v_strong.unwrap_or(0.0).abs();
     let v_weak = forces.v_weak.unwrap_or(0.0).abs();
-    let strong_shear_ratio = ledger.require_finite("Shear G2", if phi_vn > 0.0 { v_strong / phi_vn } else { 0.0 });
+    let strong_shear_ratio = ledger.ratio_if_loaded("Shear G2", v_strong, phi_vn);
     let weak_shear_ratio = match member.aw_weak {
         Some(_) => ledger.ratio_if_loaded(SHEAR_WEAK, v_weak, shear_capacity_weak(member)),
         None if v_weak != 0.0 => {
@@ -408,10 +408,8 @@ pub(crate) fn tension_capacity<T: Real>(m: &SteelMemberData) -> T {
     }
 }
 
-/// AISC G2-1: Vn = 0.6·Fy·Aw·Cv1.
-///
-/// Returns 0.0 when the web area is unknown — there is no shear check to
-/// report rather than a capacity to invent.
+/// AISC G2-1: Vn = 0.6·Fy·Aw·Cv1, or 0 when Aw is unknown, which leaves a
+/// loaded G2 check unevaluated.
 pub(crate) fn shear_capacity<T: Real>(m: &SteelMemberData) -> T {
     match m.aw {
         Some(aw) if aw > 0.0 => {

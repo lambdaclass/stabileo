@@ -15,3 +15,6 @@ serde_json = "1.0"
 opt-level = 3
 lto = true
 codegen-units = 1
+
+[profile.release.package.dedaliano-engine]
+codegen-units = 16

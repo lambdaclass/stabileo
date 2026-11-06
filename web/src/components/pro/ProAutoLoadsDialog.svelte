@@ -1,4 +1,6 @@
 <script lang="ts">
+  import Hint from './Hint.svelte';
+  import { roleSelectOptions } from './design/role-select-options';
   import { untrack } from 'svelte';
   import { previewCodeSpectrum } from '../../lib/store/spectrum-preview';
   import { proNav } from '../../lib/store/pro-nav.svelte';
@@ -138,6 +140,7 @@
     return { h: Math.max(...ns.map((n) => n.z ?? 0)), least: Math.min(span('x'), span('y')) || Math.max(span('x'), span('y')) };
   });
   let gravitySlab = $state<'twoWay' | 'oneWay'>(start.gravitySlab);
+  let gravityLoadEveryPanel = $state(start.gravityLoadEveryPanel);
   let gravitySpan = $state<'x' | 'y'>(start.gravitySpan);
 
   // ─── Seismic config ────────────────────
@@ -147,6 +150,15 @@
   // `bound`, not `usable`: this dialog supplies the settings, so gating on
   // configComplete would be circular.
   const seismicAvailable = $derived(regulationsStore.bound('seismic'));
+  let bindRefusal = $state<string | null>(null);
+  /** Binds a load code from here, staged as the Regulations panel stages it: this preview is where its loads are reviewed. */
+  function bindRegulation(role: 'wind' | 'seismic', adapterId: string) {
+    bindRefusal = null;
+    if (!adapterId) return;
+    const r = regulationsStore.requestChange(role, adapterId);
+    if (r.kind === 'refused') { bindRefusal = r.problems.map((p) => te({ key: p.key, params: p.params })).join(' '); return; }
+    if (role === 'wind') enableWind = true; else enableSeismic = true;
+  }
   const windAvailable = $derived(regulationsStore.bound('wind'));
   const snowAvailable = $derived(regulationsStore.bound('snow'));
   /** CIRSOC 102's editions in the catalogue, the ones without their text included. */
@@ -319,7 +331,7 @@
    * Only while the dialog is open: it lays out the whole model's gravity loads.
    */
   const autoRoofWeight = $derived(open && roofCfg.enabled && !roofCfg.weight
-    ? roofWeightFor(modelSlice(), { mode: gravityMode, slab: gravitySlab, spanAxis: gravitySpan }, tributaryWidth, roofCfg.dead ?? totalDead)
+    ? roofWeightFor(modelSlice(), { mode: gravityMode, slab: gravitySlab, spanAxis: gravitySpan, loadEveryPanel: gravityLoadEveryPanel }, tributaryWidth, roofCfg.dead ?? totalDead)
     : undefined);
   let delta = $state<PlanDelta | null>(null);
   let applyError = $state<string | null>(null);
@@ -393,7 +405,7 @@
       occupancyKey: selectedOccupancy,
       partitionLive: partitionLive.on ? partitionLive.q : 0,
       tributaryWidth,
-      gravity: { mode: gravityMode, slab: gravitySlab, spanAxis: gravitySpan },
+      gravity: { mode: gravityMode, slab: gravitySlab, spanAxis: gravitySpan, loadEveryPanel: gravityLoadEveryPanel },
       patterns: livePatterns,
       thermal: special.thermal.on ? { dtUniform: special.thermal.dt, dtGradient: special.thermal.grad } : undefined,
       soil: special.soil.on ? { gradeZ: special.soil.gradeZ, gamma: special.soil.gamma, k: special.soil.k, surcharge: special.soil.surcharge, permanent: special.soil.permanent,
@@ -401,7 +413,7 @@
       fluid: special.fluid.on ? { levelZ: special.fluid.levelZ, gamma: special.fluid.gamma,
         ...(special.fluid.insideOn ? { inside: { x: special.fluid.insideX, y: special.fluid.insideY } } : {}) } : undefined,
       roof: roofCfg.enabled ? {
-        use: roofCfg.use, dead: roofCfg.dead ?? totalDead,
+        use: roofCfg.use, dead: roofCfg.dead ?? totalDead, deadFromFloors: roofCfg.dead === null,
         // Absent unless chosen: the plan weighs the roof's structure with its cladding (§4.8.1,
         // `roofWeightOf`); the dead load alone took a concrete roof with light finishes for light.
         ...(roofCfg.weight ? { weight: roofCfg.weight } : {}),
@@ -471,7 +483,7 @@
       dead: deadComponents.map(d => ({ labelKey: d.labelKey, q: d.q })),
       tributaryWidth, applyLiveReduction, reductionElementKind, floorsSupported,
       // The dialog's own state, to start from next time (`restoreFromRoles`).
-      dialog: $state.snapshot({ deadRows, partitionLive, gravityMode, gravitySlab, gravitySpan, roofCfg, livePatterns, special }),
+      dialog: $state.snapshot({ deadRows, partitionLive, gravityMode, gravitySlab, gravitySpan, gravityLoadEveryPanel, roofCfg, livePatterns, special }),
     }, true);
     if (enableWind) {
       regulationsStore.configureRole('wind', {
@@ -509,7 +521,7 @@
     selectedOccupancy = m.selectedOccupancy; tributaryWidth = m.tributaryWidth;
     applyLiveReduction = m.applyLiveReduction; reductionElementKind = m.reductionElementKind;
     floorsSupported = m.floorsSupported;
-    deadRows = m.deadRows; partitionLive = m.partitionLive; gravityMode = m.gravityMode; gravitySlab = m.gravitySlab; gravitySpan = m.gravitySpan;
+    deadRows = m.deadRows; partitionLive = m.partitionLive; gravityMode = m.gravityMode; gravitySlab = m.gravitySlab; gravitySpan = m.gravitySpan; gravityLoadEveryPanel = m.gravityLoadEveryPanel;
     roofCfg = m.roofCfg; livePatterns = m.livePatterns; special = m.special;
     enableWind = m.enableWind; windV = m.windV; windExposure = m.windExposure; windEnclosure = m.windEnclosure;
     windAltitude = m.windAltitude; windKzt = m.windKzt; windKztSurveyed = m.windKztSurveyed;
@@ -919,7 +931,7 @@
                       <option value="none">{t('autoLoad.patterns.none')}</option>
                     </select>
                   </label>
-                  <p class="al-hint">{t('autoLoad.patternsHint')}</p>
+                  <Hint text={t('autoLoad.patternsHint')} />
                 </div>
               </div>
             </div>
@@ -948,11 +960,8 @@
             <div class="al-pane-scroll" data-testid="al-wind-section">
               <div class="al-pane-body">
                 {#if !windAvailable}
-                  <p class="al-warn" data-testid="al-wind-unavailable">
-                    {t('autoLoad.windNeedsRole')}
-                    <button class="al-link" data-testid="al-goto-regulations-wind"
-                            onclick={() => { proNav.openRegulations(); onclose(); }}>{t('autoLoad.openRegulations')}</button>
-                  </p>
+                  <p class="al-warn" data-testid="al-wind-unavailable">{t('autoLoad.windNeedsRole')}</p>
+                  {@render bindHere('wind')}
                 {:else if !enableWind}
                   <p class="al-hint">{t('autoLoad.wind.off')}</p>
                 {:else}
@@ -970,7 +979,7 @@
                         {/each}
                       </select>
                     </label>
-                    {#if windEditions.some((o) => !optionIsAvailable(o))}<p class="al-hint">{t('autoLoad.windEditionHint')}</p>{/if}
+                    {#if windEditions.some((o) => !optionIsAvailable(o))}<Hint text={t('autoLoad.windEditionHint')} />{/if}
                     <div class="al-grid">
                       <label class="al-field"><span class="al-label">{t('autoLoad.windSpeed')}</span>
                         <QuantityInput bind:value={windV} quantity="speed" min={10} max={120} testid="al-wind-speed" wrap="al-unit-field" />
@@ -1013,7 +1022,7 @@
                     {#if windProfileOn}
                       <textarea class="al-profile" rows="5" bind:value={windProfileText} placeholder="z (m); p (kPa)" data-testid="al-wind-profile-text"></textarea>
                       {#if windProfile}<ProfileChart points={windProfile} />{:else}<p class="al-hint">{t('windProfile.bad')}</p>{/if}
-                      <p class="al-hint">{t('windProfile.hint')}</p>
+                      <Hint text={t('windProfile.hint')} />
                       <!-- A structure other than a building takes the code's coefficients: the profile is not used. -->
                       {#if windStructure.kind !== 'building'}<p class="al-warn" data-testid="al-wind-profile-other">{t('loadPlan.note.windProfileOther')}</p>{/if}
                     {/if}
@@ -1051,7 +1060,7 @@
               {:else}
                 <ProSnowSection bind:config={snowCfg} roof={snowRoof} />
                 <ProActionRegion bind:region={snowRegion} testid="al-snow-roof" />
-                <p class="al-hint">{t('snowRoof.hint')}</p>
+                <Hint text={t('snowRoof.hint')} />
               {/if}
             </div>
 
@@ -1065,11 +1074,8 @@
               <div class="al-pane-body">
                 {#if !seismicAvailable}
                   <!-- Why it is disabled, and where to fix it. -->
-                  <p class="al-warn" data-testid="al-seismic-unavailable">
-                    {t('autoLoad.seismicNeedsRole')}
-                    <button class="al-link" data-testid="al-goto-regulations"
-                            onclick={() => { proNav.openRegulations(); onclose(); }}>{t('autoLoad.openRegulations')}</button>
-                  </p>
+                  <p class="al-warn" data-testid="al-seismic-unavailable">{t('autoLoad.seismicNeedsRole')}</p>
+                  {@render bindHere('seismic')}
                 {:else if !enableSeismic}
                   <p class="al-hint">{t('autoLoad.seismic.off')}</p>
                 {:else}
@@ -1177,7 +1183,7 @@
           {:else if section === 'applying'}
             <div class="al-pane-head"><h3>{t('autoLoad.applying')}</h3></div>
             <div class="al-pane-scroll">
-              <ProAutoLoadsApplying bind:mode={gravityMode} bind:slab={gravitySlab} bind:spanAxis={gravitySpan}
+              <ProAutoLoadsApplying bind:mode={gravityMode} bind:slab={gravitySlab} bind:spanAxis={gravitySpan} bind:loadEveryPanel={gravityLoadEveryPanel}
                 bind:tributaryWidth {clearExisting} onClearChange={onClearExistingChange} />
             </div>
 
@@ -1224,6 +1230,22 @@
   </div>
 </div>
 {/if}
+
+{#snippet bindHere(role: 'wind' | 'seismic')}
+  <div class="al-row" data-testid={`al-bind-${role}`}>
+    <label class="al-field"><span class="al-label">{t('autoLoad.bindHere')}</span>
+      <select value="" onchange={(e) => bindRegulation(role, e.currentTarget.value)} data-testid={`al-bind-${role}-select`}>
+        <option value="">{t('regulations.none')}</option>
+        {#each roleSelectOptions(role, null).filter((o) => !o.noModule) as { option: o } (o.adapterId)}
+          <option value={o.adapterId}>{te(optionLabel(o))}</option>
+        {/each}
+      </select>
+    </label>
+    <button class="al-link" data-testid={role === 'wind' ? 'al-goto-regulations-wind' : 'al-goto-regulations'}
+            onclick={() => { proNav.openRegulations(); onclose(); }}>{t('autoLoad.openRegulations')}</button>
+  </div>
+  {#if bindRefusal}<p class="al-warn">{bindRefusal}</p>{/if}
+{/snippet}
 
 <style>
   /*

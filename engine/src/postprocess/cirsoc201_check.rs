@@ -153,6 +153,7 @@ pub struct Cirsoc201CheckResult {
     /// Least εt the ductility clause allows (0 when it does not apply)
     pub epsilon_t_min: f64,
     /// εt,min / εt: above 1 the beam is not ductile enough (0 when it does not apply)
+    #[serde(serialize_with = "crate::check::ser_ratio", deserialize_with = "crate::check::de_ratio")]
     pub ductility_ratio: f64,
     /// Design shear strength φ·(Vc + Vs) (N)
     pub phi_vn: f64,
@@ -169,6 +170,7 @@ pub struct Cirsoc201CheckResult {
     /// Whether Vs was limited by the section maximum
     pub vs_capped: bool,
     pub phi_v: f64,
+    #[serde(serialize_with = "crate::check::ser_ratio", deserialize_with = "crate::check::de_ratio")]
     pub unity_ratio: f64,
     pub governing_check: String,
     pub pass: bool,
@@ -674,7 +676,15 @@ pub fn check_single_cirsoc201(m: &Cirsoc201MemberData, f: &Cirsoc201DesignForces
     let (epsilon_t_min, ductility_ratio) = match (applies, flex) {
         (true, Some(s)) => {
             let lim = ductility_strain(m.edition, m.fy, es);
-            (lim, if s.epsilon_t > 0.0 { lim / s.epsilon_t } else { f64::INFINITY })
+            let ratio = match crate::check::ratio(lim, s.epsilon_t) {
+                crate::check::Outcome::Ratio(r) => r,
+                crate::check::Outcome::Unevaluated(crate::check::Reason::NonPositiveCapacity) => f64::INFINITY,
+                crate::check::Outcome::Unevaluated(_) => {
+                    ledger.flag(CIRSOC201_DUCTILITY);
+                    0.0
+                }
+            };
+            (lim, ratio)
         }
         (true, None) => {
             ledger.flag(CIRSOC201_DUCTILITY);

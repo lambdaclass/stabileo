@@ -21,11 +21,35 @@ import { snapshotFile } from '../run-group';
 import { compareValues, formatCaseReport, mergeValues, parseSnapshot, serialiseSnapshot } from '../../../../scripts/results-snapshot/compare.mjs';
 // @ts-expect-error plain JavaScript shared with the CI gate (no declaration file)
 import { decide } from '../../../../scripts/results-snapshot/gate.mjs';
+import { readSourcesAt } from '../../../../scripts/result-changes/registry.mjs';
 
 const CASE = CORPUS.find((c) => c.name === '2d-simply-supported')!;
-const REGISTRY = JSON.parse(readFileSync(new URL('../../provenance/result-changes.json', import.meta.url), 'utf8'));
+const REGISTRY = readSourcesAt('HEAD')!;
 
 beforeAll(async () => { await initSolver(); });
+
+describe('a change to the envelope alone', () => {
+  it('NEGATIVE: is reported, and fails the gate without registration', async () => {
+    const name = '3d-building';
+    const base = parseSnapshot(readFileSync(snapshotFile(name), 'utf8'));
+    // The case has combinations, so its snapshot carries their envelope and governing combinations.
+    const envelopePaths = Object.keys(base.values).filter((p) => p.startsWith('envelope.') && typeof base.values[p] === 'number' && base.values[p] !== 0);
+    expect(envelopePaths.length).toBeGreaterThan(0);
+    expect(Object.keys(base.values).some((p) => p.startsWith('envelope.governing['))).toBe(true);
+    // The fresh capture produces the same envelope as committed.
+    const fresh = await capture(CORPUS.find((c) => c.name === name)!);
+    const d0 = compareValues(base.values, fresh.values);
+    expect(d0.differs, formatCaseReport(name, d0)).toBe(false);
+
+    const path = envelopePaths.find((p) => /posValues|negValues/.test(p))!;
+    const head = { ...base, values: { ...base.values, [path]: (base.values[path] as number) * 1.01 } };
+    const diff = compareValues(base.values, head.values);
+    expect(diff.changed.map((c: { path: string }) => c.path)).toEqual([path]);
+    const r = decide({ snapshots: [{ file: `web/results-snapshots/${name}.json`, base, head }], baseRegistry: REGISTRY, headRegistry: REGISTRY, fragments: [] });
+    expect(r.ok).toBe(false);
+    expect(r.report).toContain(path);
+  });
+});
 
 describe('a deliberate result change', () => {
   it('is reported by the snapshot test, value by value', async () => {
@@ -50,13 +74,13 @@ describe('a deliberate result change', () => {
 
     const unregistered = decide({ snapshots, baseRegistry: REGISTRY, headRegistry: REGISTRY, fragments: [] });
     expect(unregistered.ok).toBe(false);
-    expect(unregistered.report).toContain('no new entry in web/src/lib/provenance/result-changes.json');
+    expect(unregistered.report).toContain('no new entry in web/src/lib/provenance/result-changes');
     expect(unregistered.report).toContain('no changelog.d/ fragment under "### BREAKING (results)"');
     expect(unregistered.report).toContain(file);
 
     // A fragment alone, or a fragment in another section, is not enough.
-    const entry = { ...REGISTRY.changes[0], id: 'negative-case-entry', resultsVersion: REGISTRY.currentResultsVersion + 1 };
-    const registered = { ...REGISTRY, currentResultsVersion: entry.resultsVersion, changes: [entry, ...REGISTRY.changes] };
+    const { resultsVersion: _, ...entry } = { ...REGISTRY.numbered.find((c: { scope?: string }) => c.scope === undefined), id: 'negative-case-entry' };
+    const registered = { ...REGISTRY, unnumbered: [...REGISTRY.unnumbered, entry] };
     const fixed = { file: 'changelog.d/x.md', text: '### Fixed\n#### Something (2026-10-28)\n' };
     const breaking = { file: 'changelog.d/y.md', text: '### BREAKING (results)\n#### The beam load (2026-10-28)\n' };
     expect(decide({ snapshots, baseRegistry: REGISTRY, headRegistry: REGISTRY, fragments: [breaking] }).ok).toBe(false);
@@ -64,5 +88,41 @@ describe('a deliberate result change', () => {
     const ok = decide({ snapshots, baseRegistry: REGISTRY, headRegistry: registered, fragments: [breaking] });
     expect(ok.ok).toBe(true);
     expect(ok.report).toContain('negative-case-entry');
+
+    const examplesOnly = { ...entry, when: undefined, scope: 'examples', examples: ['simply-supported'] };
+    const asExamples = { ...REGISTRY, unnumbered: [...REGISTRY.unnumbered, examplesOnly] };
+    const disguised = decide({ snapshots, baseRegistry: REGISTRY, headRegistry: asExamples, fragments: [breaking], changedFixtures: [], caseExample: { [file]: CASE.source && 'example' in CASE.source ? CASE.source.example : '' } });
+    expect(disguised.ok).toBe(false);
+    expect(disguised.report).toContain('did not change');
   });
+});
+
+describe('containment audit', () => {
+  it('finds a refusal nested in an outcome error string', async () => {
+    const { collectContainment, containmentFindings } = await import('../capture');
+    containmentFindings.clear();
+    const refusal = JSON.stringify({ message: 'withheld', structuredDiagnostics: [{ code: 'known_issue', severity: 'error', phase: 'BU-BOUND', value: 741 }] });
+    collectContainment({ outcome: { ok: false, error: refusal } });
+    expect([...containmentFindings]).toEqual(['error:BU-BOUND']);
+    containmentFindings.clear();
+    collectContainment({ outcome: { ok: false, error: new Error(refusal) } });
+    expect([...containmentFindings]).toEqual(['error:BU-BOUND']);
+    containmentFindings.clear();
+  });
+});
+
+describe('the examples-only equivalence proof', () => {
+  it('NEGATIVE: holds for an example the engine still solves as recorded, and fails once the engine output for it shifts', async () => {
+    const { sameAsBefore } = await import('../equivalence');
+    const c = CORPUS.find((x) => x.name === '3d-torsion-beam')!;
+    const fixture = JSON.parse(readFileSync(new URL('../../templates/fixtures/3d-torsion-beam.json', import.meta.url), 'utf8'));
+    const recorded = parseSnapshot(readFileSync(snapshotFile(c.name), 'utf8'));
+    expect((await sameAsBefore(c, fixture, recorded)).same).toBe(true);
+    const rx = recorded.values['base.displacements[n2].rx'] as number;
+    expect(rx).toBeCloseTo(0.0115, 4);
+    const shifted = { ...recorded, values: { ...recorded.values, 'base.displacements[n2].rx': rx * 1.01 } };
+    const r = await sameAsBefore(c, fixture, shifted);
+    expect(r.same).toBe(false);
+    expect(r.report).toContain('base.displacements[n2].rx');
+  }, 120_000);
 });
