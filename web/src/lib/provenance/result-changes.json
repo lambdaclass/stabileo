@@ -1,8 +1,41 @@
 {
   "$comment": "Registry of result-affecting changes. Read by web/scripts/result-change-metadata.mjs for build metadata and decoded by web/src/lib/provenance/full-registry.ts; schema and rules in docs/verification/PROVENANCE.md. Add an entry whenever a change makes the same saved model give different numbers, at currentResultsVersion + 1, and bump currentResultsVersion: a version on main is deployed, and an entry added to it later is never shown to the projects it stamped (results-version.test.ts). Feature ids are defined in web/src/lib/provenance/model-features.ts.",
   "schema": 1,
-  "currentResultsVersion": 36,
+  "currentResultsVersion": 37,
   "changes": [
+    {
+      "id": "example-torsion-beam-closed-section",
+      "resultsVersion": 37,
+      "date": "2026-11-05",
+      "prs": [
+        1507
+      ],
+      "area": "analysis",
+      "scope": "examples",
+      "examples": [
+        "3d-torsion-beam"
+      ],
+      "title": {
+        "en": "The 3D torsion beam example uses a closed section and stays within small rotations",
+        "es": "El ejemplo 3D de viga a torsión usa una sección cerrada y queda dentro de los giros pequeños",
+        "pt": "O exemplo 3D de viga à torção usa uma seção fechada e fica dentro das rotações pequenas",
+        "de": "Das 3D-Beispiel Torsionsträger verwendet einen geschlossenen Querschnitt und bleibt im Bereich kleiner Verdrehungen",
+        "fr": "L’exemple 3D de poutre en torsion utilise une section fermée et reste dans les petites rotations",
+        "tr": "3B burulma kirişi örneği kapalı bir kesit kullanıyor ve küçük dönmeler içinde kalıyor"
+      },
+      "explanation": {
+        "en": "Only the bundled example changed; a saved model gives the same numbers as before. The torsion beam twisted 0.45 rad under its 8 kN·m torque on an open IPN 300, outside linear analysis (#1446): it now uses a closed SHS 140×140×8 (IRAM-IAS table: J 1813.95 cm⁴), the usual answer to torsion, and twists 0.011 rad.",
+        "es": "Sólo cambió el ejemplo incluido; un modelo guardado da los mismos números que antes. La viga a torsión giraba 0,45 rad bajo su torsor de 8 kN·m sobre un IPN 300 abierto, fuera del análisis lineal (#1446): ahora usa un tubo cerrado SHS 140×140×8 (tabla IRAM-IAS: J 1813,95 cm⁴), la respuesta habitual a la torsión, y gira 0,011 rad.",
+        "pt": "Só o exemplo incluído mudou; um modelo salvo dá os mesmos números de antes. A viga à torção girava 0,45 rad sob seu momento torçor de 8 kN·m num IPN 300 aberto, fora da análise linear (#1446): agora usa um tubo fechado SHS 140×140×8 (tabela IRAM-IAS: J 1813,95 cm⁴), a resposta habitual à torção, e gira 0,011 rad.",
+        "de": "Nur das mitgelieferte Beispiel hat sich geändert; ein gespeichertes Modell liefert dieselben Zahlen wie zuvor. Der Torsionsträger verdrehte sich unter seinem Torsionsmoment von 8 kN·m an einem offenen IPN 300 um 0,45 rad, außerhalb der linearen Analyse (#1446): er verwendet jetzt ein geschlossenes SHS 140×140×8 (IRAM-IAS-Tabelle: J 1813,95 cm⁴), die übliche Antwort auf Torsion, und verdreht sich um 0,011 rad.",
+        "fr": "Seul l’exemple fourni a changé ; un modèle enregistré donne les mêmes chiffres qu’avant. La poutre en torsion tournait de 0,45 rad sous son couple de 8 kN·m sur un IPN 300 ouvert, hors de l’analyse linéaire (#1446) : elle utilise désormais un tube fermé SHS 140×140×8 (tableau IRAM-IAS : J 1813,95 cm⁴), la réponse habituelle à la torsion, et tourne de 0,011 rad.",
+        "tr": "Yalnızca uygulamayla gelen örnek değişti; kaydedilmiş bir model öncekiyle aynı sayıları verir. Burulma kirişi, açık bir IPN 300 üzerindeki 8 kN·m burulma momenti altında 0,45 rad dönüyordu, doğrusal analizin dışında (#1446): artık burulmaya karşı olağan çözüm olan kapalı bir SHS 140×140×8 kesiti kullanıyor (IRAM-IAS tablosu: J 1813,95 cm⁴) ve 0,011 rad dönüyor."
+      },
+      "changelog": {
+        "file": "changelog.d/1446-example-torsion-beam.md",
+        "heading": "The 3D torsion beam example uses a closed section and stays within small rotations (2026-11-05)"
+      }
+    },
     {
       "id": "linear-small-displacement-warning",
       "resultsVersion": 36,

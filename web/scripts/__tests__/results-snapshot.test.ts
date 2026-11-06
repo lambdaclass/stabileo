@@ -6,7 +6,7 @@ import { describe, it, expect } from 'vitest';
 // @ts-expect-error plain JavaScript shared with the CI gate (no declaration file)
 import { compareValues, mergeValues, flatten, storeNumber, serialiseSnapshot, parseSnapshot, RTOL, ATOL } from '../results-snapshot/compare.mjs';
 // @ts-expect-error plain JavaScript shared with the CI gate (no declaration file)
-import { decide, isBreakingResultsFragment, newRegistryEntries, newlyRecorded } from '../results-snapshot/gate.mjs';
+import { decide, isBreakingResultsFragment, newRegistryEntries, newlyRecorded, corpusExamples, modelInputs } from '../results-snapshot/gate.mjs';
 
 describe('the tolerance', () => {
   const ref = { 'r.m[e1].my': 100, 'r.m[e2].my': -40, 'r.m[e3].my': 0, 'r.d[n1].ux': 0.0123 };
@@ -168,6 +168,55 @@ describe('the gate', () => {
     const r = decide({ snapshots: moved, baseRegistry: registry, headRegistry: registered, fragments: [breaking] });
     expect(r.ok).toBe(true);
     expect(r.report).toContain('Registered: new (results version 5)');
+  });
+  describe('an examples-scoped entry', () => {
+    const examplesOnly = { currentResultsVersion: 5, changes: [{ id: 'ex', resultsVersion: 5, scope: 'examples', examples: ['torsion'] }, ...registry.changes] };
+    const caseExample = { 'web/results-snapshots/c.json': 'torsion', 'web/results-snapshots/d.json': 'other' };
+    const run = (snapshots: unknown[], changedFixtures: string[], headRegistry: unknown = examplesOnly) =>
+      decide({ snapshots, baseRegistry: registry, headRegistry, fragments: [breaking], changedFixtures, caseExample });
+
+    it('registers a moved snapshot of a listed example whose fixture changed', () => {
+      expect(run(moved, ['torsion']).ok).toBe(true);
+    });
+    it('NEGATIVE: fails when a listed example\'s fixture did not change: the numbers moved for another reason', () => {
+      const r = run(moved, []);
+      expect(r.ok).toBe(false);
+      expect(r.report).toContain('did not change: torsion');
+      expect(run([], []).ok).toBe(false);
+    });
+    it('NEGATIVE: cannot explain a moved snapshot of an example it does not list, so an engine change still needs an entry with when', () => {
+      const other = [...moved, { file: 'web/results-snapshots/d.json', base: snap({ v: 1 }), head: snap({ v: 2 }) }];
+      const r = run(other, ['torsion']);
+      expect(r.ok).toBe(false);
+      expect(r.report).toContain('cannot explain web/results-snapshots/d.json');
+      const withEngineEntry = { ...examplesOnly, currentResultsVersion: 5, changes: [{ id: 'engine', resultsVersion: 5 }, ...examplesOnly.changes] };
+      expect(run(other, ['torsion'], withEngineEntry).ok).toBe(true);
+    });
+    it('NEGATIVE: asks the CLI to prove every snapshot of a listed example, moved or not, even beside an unrelated engine entry', () => {
+      const proof = [{ file: 'web/results-snapshots/c.json', example: 'torsion' }];
+      expect(run(moved, ['torsion']).equivalence).toEqual(proof);
+      expect(run([], ['torsion']).equivalence).toEqual(proof);
+      const withEngineEntry = { ...examplesOnly, changes: [{ id: 'engine', resultsVersion: 5 }, ...examplesOnly.changes] };
+      expect(run(moved, ['torsion'], withEngineEntry).equivalence).toEqual(proof);
+    });
+    it('NEGATIVE: fails for a listed example no corpus case opens: nothing could prove its numbers', () => {
+      const unknown = { ...examplesOnly, changes: [{ ...examplesOnly.changes[0], examples: ['torsion', 'nowhere'] }, ...registry.changes] };
+      const r = run(moved, ['torsion', 'nowhere'], unknown);
+      expect(r.ok).toBe(false);
+      expect(r.report).toContain('no corpus case opens: nowhere');
+    });
+    it('NEGATIVE: a fixture edited only in whitespace, key order or names has the same model inputs, so it is not a changed example', () => {
+      const fixture = { name: 'Torsion Beam', sections: [{ id: 1, name: 'IPN 300', j: 1e-7 }], loads: [{ type: 'nodal3d', data: { mx: 8 } }] };
+      const text = JSON.stringify(fixture, null, 2);
+      expect(modelInputs(JSON.stringify(fixture))).toBe(modelInputs(text));
+      expect(modelInputs(text)).toBe(modelInputs(JSON.stringify({ loads: fixture.loads, sections: [{ j: 1e-7, id: 1, name: 'SHS' }], name: 'Renamed' })));
+      expect(modelInputs(text)).not.toBe(modelInputs(JSON.stringify({ ...fixture, loads: [{ type: 'nodal3d', data: { mx: 0.8 } }] })));
+      expect(run(moved, []).ok).toBe(false);
+    });
+  });
+  it('maps each corpus case opened from an example to its snapshot', () => {
+    const corpus = "  { name: '3d-torsion-beam', source: ex('3d-torsion-beam'), workspace: '3d' },\n  { name: '2d-simply-supported', source: ex('simply-supported'), workspace: '2d' },\n  { name: 'pro-x', source: { ded: 'a.ded' } },";
+    expect(corpusExamples(corpus)).toEqual({ 'web/results-snapshots/3d-torsion-beam.json': '3d-torsion-beam', 'web/results-snapshots/2d-simply-supported.json': 'simply-supported' });
   });
   it('reads the fragment section from its first line and the entries by id', () => {
     expect(isBreakingResultsFragment('\n### BREAKING (results)\n#### x')).toBe(true);

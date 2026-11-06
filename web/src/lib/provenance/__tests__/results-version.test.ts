@@ -80,6 +80,7 @@ const RELEASED: Record<number, string[]> = {
   29: ['basic-plastic-closes-unloading-hinges-returns'],
   30: ['connector-mechanism-2d-refused'],
   32: ['harmonic-modal-residual-checked'],
+  37: ['example-torsion-beam-closed-section'],
   36: ['linear-small-displacement-warning'],
   33: ['soft-rotation-not-orphan'],
   31: ['safety-containment-diagnostics'],
