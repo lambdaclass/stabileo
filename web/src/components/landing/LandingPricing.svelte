@@ -2,24 +2,7 @@
   import { tPublic as t } from '../../lib/i18n/store.svelte';
   import Eyebrow from './Eyebrow.svelte';
 
-  /**
-   * Pricing, at the end of the deck rather than the start.
-   *
-   * It opened the page for one draft, under the business model's own headline
-   * — "what can be copied is free, what cannot is not". That sentence is true
-   * and it belongs in an internal document: it explains the pricing from the
-   * company's side, and a visitor meeting it first reads a page that is
-   * thinking about revenue before it has said what the thing does. The deck
-   * shows the product, then says what it costs.
-   *
-   * The rows are the ones in the one-page business model (Stabileo SAS,
-   * September 2026). Keep them in step: this page is the public face of that
-   * document, and a landing that prices a module differently from the plan is
-   * worse than a landing that does not price it at all.
-   */
-  // The tone belongs to the cell, not the row: one module can be free for one audience and paid for the other.
   const FREE = { k: 'priceFree', tone: 'free' } as const;
-  const PER_TOKEN = { k: 'pricePerToken', tone: 'paid', note: 2 } as const;
 
   /*
    * Footnote markers live in the markup, not in the strings.
@@ -37,14 +20,9 @@
   const rows = [
     { mod: 'modBasic',     firms: FREE, unis: FREE },
     { mod: 'modProCalc',   firms: FREE, unis: FREE },
-    /*
-     * Free while it is being built, for everyone — not "paid, at low prices".
-     * The note the asterisk points at carries the rest: early users keep it,
-     * public universities always do, and what comes later is cheap. No date
-     * is published, deliberately.
-     */
-    { mod: 'modProDesign', firms: { k: 'priceFreeDev', tone: 'free', note: 1 }, unis: FREE },
-    { mod: 'modAi',        firms: PER_TOKEN, unis: PER_TOKEN },
+    { mod: 'modProDesign', firms: { k: 'pricePaid', tone: 'paid', note: 1 }, unis: FREE },
+    { mod: 'modAi', firms: { k: 'priceAtCost', tone: 'paid', note: 2 },
+      unis: { k: 'priceAtCost', tone: 'paid', note: 2 } },
     /*
      * Education's firms cell is blank, not "free". The mode is aimed at
      * teaching; saying "gratis" to a firm invites the question of what a firm

@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { bootLanding } from './landing-helpers';
 import { pickLanguage } from './fixtures';
 import { PUBLIC_LOCALES, isComplete, type Locale } from '../src/lib/i18n/offered';
 import fullDe from '../src/lib/i18n/locales/full/de';
@@ -30,8 +31,9 @@ const ogAlternates = (locale: Locale) => PUBLIC_LOCALES.filter((l) => l !== loca
  * continuous requestAnimationFrame animation under software GL on a two-core
  * runner. That is a harness problem, and it is not this file's to fix.
  *
- * So it stays local for now. Every case here has been run on every commit that
- * touched the landing, by hand:
+ * Pricing/layout coverage runs in landing-pricing-*.spec.ts with a fresh browser
+ * per case under @smoke. The remaining cases stay local for now and have
+ * historically been run by hand when the landing changes:
  *
  *   npx playwright test --grep @landing
  *
@@ -63,26 +65,6 @@ const SECTIONS = [
   'pricing',
   'blog',
 ] as const;
-
-async function bootLanding(page: Page, opts: { locale?: string; manual?: boolean } = {}) {
-  const { locale = 'en', manual = true } = opts;
-  await page.addInitScript(
-    ({ locale, manual }) => {
-      try {
-        localStorage.clear();
-        if (manual) {
-          localStorage.setItem('stabileo-lang', locale);
-          localStorage.setItem('stabileo-lang-manual', '1');
-        }
-      } catch {
-        /* private mode */
-      }
-    },
-    { locale, manual },
-  );
-  await page.goto('/');
-  await expect(page.locator('.landing')).toBeVisible();
-}
 
 test.describe('the landing below the hero', () => {
   const below = SECTIONS.filter((s) => s !== 'hero');
@@ -562,7 +544,7 @@ test.describe('@landing landing page', () => {
        * file a crawler receives already holds the page's real metadata — there
        * is no longer a generic head to be refined later.
        */
-      expect(one(h, 'description')).toMatch(/^Free and open source, in your browser: .*CIRSOC 201 design, experimental AISC, ACI and Eurocode checks, and an AI assistant in development\.$/);
+      expect(one(h, 'description')).toMatch(/^Free and open source, in your browser: .*CIRSOC 201 design and experimental AISC, ACI and Eurocode checks are paid, free for universities\. AI assistant in development\.$/);
       expect(one(h, 'theme-color')).toBe('#0c1620');
       expect(one(h, 'og:type')).toBe('website');
       // og:url names the page, and the page here is /en — the same address
@@ -638,7 +620,7 @@ test.describe('@landing landing page', () => {
       expect(one(h, 'og:locale')).toBe('es_AR');
       expect(h.meta['og:locale:alternate']).toEqual(ogAlternates('es'));
       expect(h.canonicals).toEqual(['https://stabileo.com/es/']);
-      expect(one(h, 'description')).toMatch(/^Gratis y de código abierto, en el navegador: .*diseño CIRSOC 201, verificación experimental AISC, ACI y Eurocódigo, y un asistente de IA en desarrollo\.$/);
+      expect(one(h, 'description')).toMatch(/^Gratis y de código abierto, en el navegador: .*El diseño CIRSOC 201 y la verificación experimental AISC, ACI y Eurocódigo son pagos y gratuitos para las universidades; asistente de IA en desarrollo\.$/);
       expect(one(h, 'twitter:description')).toBe(one(h, 'description'));
       // The canonical DOES vary by locale now: each language is its own
       // indexable page, which is the whole reason the prefixes exist.
@@ -713,7 +695,7 @@ test.describe('@landing landing page', () => {
        * file a crawler receives already holds the page's real metadata — there
        * is no longer a generic head to be refined later.
        */
-      expect(one(h, 'description')).toMatch(/^Free and open source, in your browser: .*CIRSOC 201 design, experimental AISC, ACI and Eurocode checks, and an AI assistant in development\.$/);
+      expect(one(h, 'description')).toMatch(/^Free and open source, in your browser: .*CIRSOC 201 design and experimental AISC, ACI and Eurocode checks are paid, free for universities\. AI assistant in development\.$/);
     });
 
     test('the social card exists, resolves, and is a 1200x630 PNG', async ({ page }) => {
@@ -858,25 +840,6 @@ test.describe('@landing landing page', () => {
  * made to universities — costs more than a broken layout.
  */
 test.describe('@landing the model the deck states', () => {
-  test('the table prices every module for both audiences', async ({ page }) => {
-    await bootLanding(page, { locale: 'es' });
-
-    const rows = await page
-      .locator('section[data-section="pricing"] .model-table tbody tr')
-      .evaluateAll((trs) =>
-        trs.map((tr) => [...tr.querySelectorAll('th,td')].map((c) => c.textContent?.trim() ?? '')),
-      );
-
-    // Five modules, two audiences. Stabileo AI is paid by everyone, universities included.
-    expect(rows).toEqual([
-      ['Básico', 'Gratis', 'Gratis'],
-      ['PRO · Cálculo', 'Gratis', 'Gratis'],
-      ['PRO · Diseño normativo', 'Gratis durante el desarrollo*', 'Gratis'],
-      ['Stabileo IA', 'Pago por token**', 'Pago por token**'],
-      ['Educativo', '', 'Gratis'],
-    ]);
-  });
-
   test('the product sections describe the product and price nothing', async ({ page }) => {
     await bootLanding(page, { locale: 'es' });
 
@@ -899,50 +862,6 @@ test.describe('@landing the model the deck states', () => {
         expect(prose, `"${word}" belongs in the pricing section, not in ${id}`).not.toContain(word);
       }
     }
-  });
-
-  test('what universities pay is said in one place, and the table agrees', async ({ page }) => {
-    await bootLanding(page, { locale: 'es' });
-
-    /*
-     * The promise used to live in the Education section as well. It is here
-     * only now, so there is one statement to keep true instead of two that
-     * can drift.
-     */
-    const pricing = page.locator('section[data-section="pricing"]');
-    await expect(pricing).toContainText('Para las universidades, el programa es gratuito');
-
-    await expect(pricing).toContainText('salvo Stabileo IA y el cálculo intensivo en la nube');
-    const unis = await pricing
-      .locator('.model-table tbody tr')
-      .evaluateAll((trs) => trs.map((tr) => tr.querySelectorAll('td')[1]?.textContent?.trim() ?? ''));
-    expect(unis).toEqual(['Gratis', 'Gratis', 'Gratis', 'Pago por token**', 'Gratis']);
-
-    // And the firms column, where Education is blank for the same kind of
-    // reason: a price there would answer a question the mode does not pose.
-    const firms = await pricing
-      .locator('.model-table tbody tr')
-      .evaluateAll((trs) => trs.map((tr) => tr.querySelectorAll('td')[0]?.textContent?.trim() ?? ''));
-    expect(firms).toEqual([
-      'Gratis',
-      'Gratis',
-      'Gratis durante el desarrollo*',
-      'Pago por token**',
-      '',
-    ]);
-
-    /*
-     * Every marker in the table has a note that starts with it, and no note
-     * carries a marker nothing points at. A translator cannot break this —
-     * the markers are drawn from the component, not the strings — but a row
-     * added without one, or a note deleted, would leave a reader following an
-     * asterisk to nothing.
-     */
-    const inTable = await pricing.locator('.model-table .fn').allInnerTexts();
-    const inNotes = await pricing.locator('.mode-note .fn').allInnerTexts();
-    expect([...new Set(inTable)].sort()).toEqual(inNotes.sort());
-
-    await expect(pricing).toContainText('será paga para todos, universidades incluidas');
   });
 
   test('the AI section shows the panel, and the panel shows a decision', async ({ page }) => {
