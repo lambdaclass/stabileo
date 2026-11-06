@@ -15,8 +15,9 @@ over, to be fixed then.
 ## First paint on /app (every change to the web app)
 
 An `/app/*` address is served the prerendered landing, which `main.ts` removes before the
-application (about 2.4 MB of JavaScript) downloads. Until App mounts, the page shows the brand mark
-from `src/lib/app-boot.ts`; without it nothing paints until App mounts, and simulated mobile first
+application (about 2.4 MB of JavaScript) downloads. An inline script in `index.html` marks an `/app`
+address before the first paint, so the page shows the brand mark on the application's ground until
+App mounts; without it nothing paints until App mounts, and simulated mobile first
 contentful paint moves from about 2 s to about 9 s (2026-11-06, run 42176395212: mobile `/app/basic`
 and `/app/pro` performance 26 against a baseline of 46). The smoke spec `e2e/app-boot.spec.ts`
 holds the App chunk and fails unless the mark, and a first contentful paint, appear first.

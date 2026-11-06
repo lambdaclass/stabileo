@@ -4,14 +4,13 @@ const mocks = vi.hoisted(() => ({
   route: 'app', mount: vi.fn(() => ({ mounted: true })), hooks: vi.fn(),
   load: vi.fn(async () => ({ default: 'Editor' })),
   publicLocale: vi.fn(async (_locale: string) => {}),
-  bootRemove: vi.fn(), boot: vi.fn(),
+  boot: vi.fn(),
 }));
 vi.mock('../dev-favicon', () => ({}));
 vi.mock('../Root.svelte', () => ({ default: 'PublicRoot' }));
 vi.mock('svelte', async original => ({ ...await original<object>(), mount: mocks.mount }));
 vi.mock('../lib/public-route', () => ({ routeKind: () => ({ kind: mocks.route }), restoreRedirectedRoute: vi.fn() }));
 vi.mock('../lib/i18n/store.svelte', () => ({ i18n: { locale: 'en' }, ensureLocale: async () => {}, ensurePublicLocale: mocks.publicLocale, PUBLIC_LOCALES: ['en', 'es', 'pt', 'de', 'fr', 'tr'] }));
-vi.mock('../lib/app-boot', () => ({ showAppBoot: (target: unknown) => { mocks.boot(target); return { remove: mocks.bootRemove }; } }));
 vi.mock('../load-app', () => ({ loadApplication: mocks.load }));
 vi.mock('../lib/utils/e2e-hooks', () => ({ installE2EHooks: mocks.hooks }));
 
@@ -20,7 +19,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.stubEnv('VITE_E2E', '1');
   vi.stubGlobal('window', new EventTarget());
-  vi.stubGlobal('document', { getElementById: (id: string) => id === 'app' ? {} : null });
+  vi.stubGlobal('document', { getElementById: (id: string) => id === 'app' ? {} : null, documentElement: { classList: { add: mocks.boot } } });
   vi.stubGlobal('location', { pathname: '/pt/research/' });
 });
 afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
@@ -32,11 +31,8 @@ it('loads the named loader and installs hooks after a direct editor mount', asyn
   expect(mocks.load).toHaveBeenCalledOnce();
   expect(mocks.mount).toHaveBeenCalledWith('Editor', { target: {} });
   expect(mocks.mount.mock.invocationCallOrder[0]).toBeLessThan(mocks.hooks.mock.invocationCallOrder[0]);
-  expect(mocks.boot).toHaveBeenCalledWith({});
+  expect(mocks.boot).toHaveBeenCalledWith('app-boot');
   expect(mocks.boot.mock.invocationCallOrder[0]).toBeLessThan(mocks.load.mock.invocationCallOrder[0]);
-  expect(mocks.bootRemove).toHaveBeenCalledOnce();
-  expect(mocks.load.mock.invocationCallOrder[0]).toBeLessThan(mocks.bootRemove.mock.invocationCallOrder[0]);
-  expect(mocks.bootRemove.mock.invocationCallOrder[0]).toBeLessThan(mocks.mount.mock.invocationCallOrder[0]);
 });
 it('waits for the lazy editor ready event on a public route and installs once', async () => {
   mocks.route = 'research';
