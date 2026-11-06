@@ -1,4 +1,4 @@
-use dedaliano_engine::known_issues::{SECOND_ORDER_NEAR_FACTOR, SECOND_ORDER_RATIO, TRUSS_ALPHA_CR};
+use dedaliano_engine::known_issues::{SECOND_ORDER_NEAR_FACTOR, SECOND_ORDER_RATIO};
 use dedaliano_engine::postprocess::combinations::{combine_results_3d_refs, combine_results_refs, CombinationFactor};
 use dedaliano_engine::solver::buckling::solve_buckling_2d;
 use dedaliano_engine::solver::linear::{solve_2d, solve_3d};
@@ -278,8 +278,8 @@ fn compression_from_span_loads_is_seen_though_both_ends_read_zero() {
 
 
 /// Two truss bars from pinned bases to an apex at node 3, tied sideways by a frame clamped at
-/// node 4; `settled` pins the apex and pushes it down instead of loading it. Bar 1 has `iz1`.
-fn truss_v(settled: bool, iz1: f64) -> SolverInput {
+/// node 4; `settled` pins the apex and pushes it down instead of loading it.
+fn truss_v(settled: bool) -> SolverInput {
     let mut supports = json!({"1": {"id": 1, "nodeId": 1, "type": "pinned"}, "2": {"id": 2, "nodeId": 2, "type": "pinned"}, "4": {"id": 4, "nodeId": 4, "type": "fixed"}});
     let mut loads = vec![];
     if settled {
@@ -290,9 +290,9 @@ fn truss_v(settled: bool, iz1: f64) -> SolverInput {
     serde_json::from_value(json!({
         "nodes": {"1": {"id": 1, "x": 0.0, "z": 0.0}, "2": {"id": 2, "x": 3.0, "z": 0.0}, "3": {"id": 3, "x": 1.5, "z": 2.0}, "4": {"id": 4, "x": 3.5, "z": 2.0}},
         "materials": {"1": {"id": 1, "e": E, "nu": 0.3}},
-        "sections": {"1": {"id": 1, "a": 1e-3, "iz": 1e-6}, "2": {"id": 2, "a": 1e-3, "iz": iz1}},
+        "sections": {"1": {"id": 1, "a": 1e-3, "iz": 1e-6}},
         "elements": {
-            "1": {"id": 1, "type": "truss", "nodeI": 1, "nodeJ": 3, "materialId": 1, "sectionId": 2},
+            "1": {"id": 1, "type": "truss", "nodeI": 1, "nodeJ": 3, "materialId": 1, "sectionId": 1},
             "2": {"id": 2, "type": "truss", "nodeI": 2, "nodeJ": 3, "materialId": 1, "sectionId": 1},
             "3": {"id": 3, "type": "frame", "nodeI": 3, "nodeJ": 4, "materialId": 1, "sectionId": 1},
         },
@@ -302,116 +302,14 @@ fn truss_v(settled: bool, iz1: f64) -> SolverInput {
     .unwrap()
 }
 
-/// N/N_E of truss_v's bar `id` on its own length, 2.5 m.
-fn truss_v_ratio(r: &AnalysisResults, id: usize, iz: f64) -> f64 {
-    -r.element_forces.iter().find(|f| f.element_id == id).unwrap().n_start / (PI * PI * E * 1000.0 * iz / 2.5_f64.powi(2))
-}
-
 #[test]
-fn a_compressed_truss_bar_in_a_stiff_structure_is_bounded_on_its_own_length() {
-    let loaded = solve_2d(&truss_v(false, 1e-6)).unwrap();
+fn a_compressed_truss_bar_counts_only_when_supports_hold_both_its_ends() {
+    let loaded = solve_2d(&truss_v(false)).unwrap();
     assert!(loaded.element_forces.iter().filter(|f| f.element_id != 3).all(|f| f.n_start < -1.0), "{:?}", loaded.element_forces);
-    assert!(truss_v_ratio(&loaded, 1, 1e-6) < SECOND_ORDER_RATIO / SECOND_ORDER_NEAR_FACTOR);
-    assert!(solve_buckling_2d(&truss_v(false, 1e-6), 1).unwrap().modes[0].load_factor >= TRUSS_ALPHA_CR);
-    assert_eq!(second_order(&loaded.structured_diagnostics), vec![]);
-    let settled = solve_2d(&truss_v(true, 1e-6)).unwrap();
+    assert_eq!(second_order(&loaded.structured_diagnostics), unbounded());
+    let settled = solve_2d(&truss_v(true)).unwrap();
     assert!(settled.element_forces.iter().filter(|f| f.element_id != 3).all(|f| f.n_start < -1.0), "{:?}", settled.element_forces);
     assert_eq!(second_order(&settled.structured_diagnostics), vec![]);
-}
-
-#[test]
-fn a_slender_truss_bar_holds_only_itself_while_the_structure_stays_stiff() {
-    let slender = 2e-9;
-    let input = truss_v(false, slender);
-    let r = solve_2d(&input).unwrap();
-    assert!(truss_v_ratio(&r, 1, slender) > SECOND_ORDER_RATIO, "{}", truss_v_ratio(&r, 1, slender));
-    assert!(truss_v_ratio(&r, 2, 1e-6) < SECOND_ORDER_RATIO / SECOND_ORDER_NEAR_FACTOR);
-    let alpha = solve_buckling_2d(&input, 1).unwrap().modes[0].load_factor;
-    assert!(alpha >= TRUSS_ALPHA_CR, "α_cr {alpha}");
-    assert_eq!(second_order(&r.structured_diagnostics), warned(vec![1]));
-    let screen = r.result_summary.as_ref().and_then(|s| s.truss_screen.clone()).unwrap();
-    assert!((screen.sway.unwrap() - 1.0 / alpha).abs() <= 1e-9 / alpha, "{screen:?}");
-    assert_eq!(screen.bars.iter().map(|b| b.element_id).collect::<Vec<_>>(), vec![1, 2]);
-    assert!((screen.bars[0].ratio - truss_v_ratio(&r, 1, slender)).abs() <= 1e-9 * screen.bars[0].ratio);
-
-    let combined = combine_results_refs(&[CombinationFactor { case_id: 1, factor: 1.4 }], &[(1, &r)]).unwrap();
-    assert_eq!(second_order(&combined.structured_diagnostics), warned(vec![1]));
-}
-
-#[test]
-fn a_deferred_screen_holds_the_truss_bar_frame_wide_until_solved_undeferred() {
-    use dedaliano_engine::solver::buckling::defer_sway_screen;
-    defer_sway_screen(true);
-    let deferred = solve_2d(&truss_v(false, 2e-9));
-    defer_sway_screen(false);
-    let deferred = deferred.unwrap();
-    assert_eq!(second_order(&deferred.structured_diagnostics), unbounded());
-    assert_eq!(deferred.result_summary.as_ref().and_then(|s| s.truss_screen.as_ref()).and_then(|t| t.sway), None);
-    assert_eq!(second_order(&solve_2d(&truss_v(false, 2e-9)).unwrap().structured_diagnostics), warned(vec![1]));
-}
-
-#[test]
-fn a_combination_bounds_each_truss_bar_by_its_factored_case_ratios() {
-    let iz = 2e-9 * truss_v_ratio(&solve_2d(&truss_v(false, 2e-9)).unwrap(), 1, 2e-9) / (0.8 * SECOND_ORDER_RATIO);
-    let r = solve_2d(&truss_v(false, iz)).unwrap();
-    assert!((truss_v_ratio(&r, 1, iz) - 0.8 * SECOND_ORDER_RATIO).abs() < 1e-9);
-    assert_eq!(second_order(&r.structured_diagnostics), near(vec![1]));
-    let combined = combine_results_refs(&[CombinationFactor { case_id: 1, factor: 1.0 }, CombinationFactor { case_id: 2, factor: 0.5 }], &[(1, &r), (2, &r)]).unwrap();
-    assert_eq!(second_order(&combined.structured_diagnostics), warned(vec![1]), "1.0·0.08 + 0.5·0.08");
-    let combined = combine_results_refs(&[CombinationFactor { case_id: 1, factor: 1.2 }], &[(1, &r)]).unwrap();
-    assert_eq!(second_order(&combined.structured_diagnostics), vec![]);
-}
-
-/// A truss-only mast, `panels` 1 m panels tall and 0.5 m wide, pinned at its base, with `p` down
-/// and a hundredth of it sideways at each top node.
-fn truss_mast(panels: usize, p: f64) -> SolverInput {
-    let mut nodes = serde_json::Map::new();
-    for k in 0..=panels {
-        nodes.insert((2 * k + 1).to_string(), json!({"id": 2 * k + 1, "x": 0.0, "z": k as f64}));
-        nodes.insert((2 * k + 2).to_string(), json!({"id": 2 * k + 2, "x": 0.5, "z": k as f64}));
-    }
-    let mut elements = serde_json::Map::new();
-    let mut bar = |i: usize, j: usize| { let id = elements.len() + 1; elements.insert(id.to_string(), json!({"id": id, "type": "truss", "nodeI": i, "nodeJ": j, "materialId": 1, "sectionId": 1})); };
-    for k in 0..panels {
-        let (a, b, c, d) = (2 * k + 1, 2 * k + 2, 2 * k + 3, 2 * k + 4);
-        bar(a, c);
-        bar(b, d);
-        bar(a, d);
-        bar(c, d);
-    }
-    let top = 2 * panels + 1;
-    serde_json::from_value(json!({
-        "nodes": nodes,
-        "materials": {"1": {"id": 1, "e": E, "nu": 0.3}},
-        "sections": {"1": {"id": 1, "a": 1e-4, "iz": 1e-6}},
-        "elements": elements,
-        "supports": {"1": {"id": 1, "nodeId": 1, "type": "pinned"}, "2": {"id": 2, "nodeId": 2, "type": "pinned"}},
-        "loads": [
-            {"type": "nodal", "data": {"nodeId": top, "fx": p / 100.0, "fz": -p, "my": 0.0}},
-            {"type": "nodal", "data": {"nodeId": top + 1, "fx": 0.0, "fz": -p, "my": 0.0}},
-        ],
-    }))
-    .unwrap()
-}
-
-#[test]
-fn a_slender_truss_mast_is_unbounded_though_every_bar_passes_on_its_own_length() {
-    let input = truss_mast(10, 10.0);
-    let r = solve_2d(&input).unwrap();
-    let alpha = solve_buckling_2d(&input, 1).unwrap().modes[0].load_factor;
-    assert!(alpha < TRUSS_ALPHA_CR, "α_cr {alpha}");
-    let screen = r.result_summary.as_ref().and_then(|s| s.truss_screen.clone()).unwrap();
-    assert!(!screen.bars.is_empty() && screen.bars.iter().all(|b| b.ratio < SECOND_ORDER_RATIO / SECOND_ORDER_NEAR_FACTOR), "{screen:?}");
-    assert_eq!(second_order(&r.structured_diagnostics), unbounded());
-    let combined = combine_results_refs(&[CombinationFactor { case_id: 1, factor: 1.0 }], &[(1, &r)]).unwrap();
-    assert_eq!(second_order(&combined.structured_diagnostics), unbounded());
-
-    let stiff = truss_mast(10, 0.5);
-    assert!(solve_buckling_2d(&stiff, 1).unwrap().modes[0].load_factor >= TRUSS_ALPHA_CR);
-    assert_eq!(second_order(&solve_2d(&stiff).unwrap().structured_diagnostics), vec![]);
-    let pair = solve_2d(&stiff).unwrap();
-    let combined = combine_results_refs(&[CombinationFactor { case_id: 1, factor: 20.0 }], &[(1, &pair)]).unwrap();
-    assert_eq!(second_order(&combined.structured_diagnostics), unbounded(), "20 times a load with α_cr under 200");
 }
 
 #[test]

@@ -112,7 +112,7 @@ describe('what the compact link keeps', () => {
       return '2.' + Buffer.from(deflateSync(new TextEncoder().encode(JSON.stringify(compact)))).toString('base64url');
     };
     expect(decompressSnapshot(relink('tensionOnly'))!.elements[0]![1]).toMatchObject({ behaviour: 'tensionOnly' });
-    for (const bh of ['sideways', 1, '']) expect(decompressSnapshot(relink(bh)), String(bh)).toBeNull();
+    for (const bh of ['sideways', 1, '', null]) expect(decompressSnapshot(relink(bh)), String(bh)).toBeNull();
     delete compact.e[0][6].bh;
     expect(decompressSnapshot('2.' + Buffer.from(deflateSync(new TextEncoder().encode(JSON.stringify(compact)))).toString('base64url'))!.elements[0]![1]).not.toHaveProperty('behaviour');
   });

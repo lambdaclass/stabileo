@@ -6,7 +6,7 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import { historyStore, modelStore, resultsStore, uiStore } from '../index';
 import { verificationStore } from '../verification.svelte';
 import { runSteelCheck } from '../steel-check';
-import { heldByCompression, runSteelVerification } from '../../engine/verification-service';
+import { amplifiedByCompression, runSteelVerification } from '../../engine/verification-service';
 import * as wasmSolver from '../../engine/wasm-solver';
 
 beforeAll(async () => {
@@ -79,46 +79,11 @@ describe('the steel check in the design', () => {
     }
   });
 
-  it('#1551: a slender truss bar in a stiff structure holds only its own check', () => {
-    modelStore.clear(); historyStore.clear(); resultsStore.clear(); verificationStore.clear(); uiStore.analysisMode = 'pro';
-    for (const c of [...modelStore.combinations]) modelStore.removeCombination(c.id);
-    const mat = modelStore.addMaterial({ name: 'F-24', e: 200000, nu: 0.3, rho: 78.5, fy: 235, fu: 360 } as never);
-    const ipe = modelStore.addSection({ name: 'IPE 200', a: 28.5e-4, iy: 1943e-8, iz: 142e-8, h: 0.2, b: 0.1, tw: 0.0056, tf: 0.0085, j: 6.98e-8, shape: 'I' } as never);
-    const bar = modelStore.addSection({ name: 'IPE 80', a: 7.64e-4, iy: 80.1e-8, iz: 8.49e-8, h: 0.08, b: 0.046, tw: 0.0038, tf: 0.0052, j: 0.7e-8, shape: 'I' } as never);
-    const [b1, b2, apex, wall] = [[0, 0, 0], [3, 0, 0], [1.5, 0, 2], [3.5, 0, 2]].map(([x, y, z]) => modelStore.addNode(x, y, z));
-    modelStore.addSupport(b1, 'pinned3d' as never); modelStore.addSupport(b2, 'pinned3d' as never); modelStore.addSupport(wall, 'fixed3d' as never);
-    const member = (i: number, j: number, type: 'frame' | 'truss', sec: number) => {
-      const e = modelStore.addElement(i, j, type);
-      modelStore.updateElementMaterial(e, mat); modelStore.updateElementSection(e, sec);
-      return e;
-    };
-    const slender = member(b1, apex, 'truss', bar), stocky = member(b2, apex, 'truss', ipe), tie = member(apex, wall, 'frame', ipe);
-    modelStore.addNodalLoad3D(apex, 0, 0, -10, 0, 0, 0);
-    const r = modelStore.solve3D(false, false, true);
-    if (typeof r === 'string' || !r) throw new Error(String(r));
-    resultsStore.setResults3D(r as never);
-    const second = (r as { structuredDiagnostics?: Array<{ phase?: string; elementIds?: number[] }> }).structuredDiagnostics?.filter((d) => d.phase?.startsWith('LIN-SECOND-ORDER')) ?? [];
-    expect(second).toEqual([expect.objectContaining({ phase: 'LIN-SECOND-ORDER', elementIds: [slender] })]);
-    runSteelCheck();
-    const status = (e: number) => verificationStore.steelMap.get(e)?.overallStatus;
-    expect(status(slender)).toBe('held');
-    expect(verificationStore.steelMap.get(slender)!.notEvaluated).toContainEqual(expect.objectContaining({ key: 'c301.refuse.firstOrderMoments' }));
-    for (const e of [stocky, tie]) {
-      expect(verificationStore.steelMap.get(e)).toBeDefined();
-      expect(status(e)).not.toBe('held');
-    }
-  });
-
-  it('#1551: an unbounded critical load or a flagged frame member holds every check, flagged truss bars only themselves', () => {
-    const warning = (phase: string, elementIds?: number[]) => ({ structuredDiagnostics: [{ code: 'known_issue', severity: 'warning', phase, elementIds }] });
-    const truss = (id: number) => id >= 10;
-    expect(heldByCompression([warning('LIN-SECOND-ORDER-UNBOUNDED')], truss)).toBe('all');
-    expect(heldByCompression([{}, warning('LIN-SECOND-ORDER')], truss)).toBe('all');
-    expect(heldByCompression([warning('LIN-SECOND-ORDER', [3])], truss)).toBe('all');
-    expect(heldByCompression([warning('LIN-SECOND-ORDER', [3, 10])], truss)).toBe('all');
-    expect(heldByCompression([warning('LIN-SECOND-ORDER', [10, 12]), warning('LIN-SECOND-ORDER', [11])], truss)).toEqual(new Set([10, 11, 12]));
-    expect(heldByCompression([warning('LIN-SECOND-ORDER', [10]), warning('LIN-SECOND-ORDER-UNBOUNDED')], truss)).toBe('all');
-    expect(heldByCompression([warning('LIN-SECOND-ORDER-NEAR', [3]), warning('LIN-SMALL-DISPLACEMENT')], truss)).toEqual(new Set());
-    expect(heldByCompression([{ structuredDiagnostics: [{ code: 'singular_matrix', phase: 'LIN-SECOND-ORDER' }] }], truss)).toEqual(new Set());
+  it('#1551: an unbounded critical load holds the checks, a case only near the limit does not', () => {
+    const warning = (phase: string) => ({ structuredDiagnostics: [{ code: 'known_issue', severity: 'warning', phase }] });
+    expect(amplifiedByCompression([warning('LIN-SECOND-ORDER-UNBOUNDED')])).toBe(true);
+    expect(amplifiedByCompression([{}, warning('LIN-SECOND-ORDER')])).toBe(true);
+    expect(amplifiedByCompression([warning('LIN-SECOND-ORDER-NEAR'), warning('LIN-SMALL-DISPLACEMENT')])).toBe(false);
+    expect(amplifiedByCompression([{ structuredDiagnostics: [{ code: 'singular_matrix', phase: 'LIN-SECOND-ORDER' }] }])).toBe(false);
   });
 });

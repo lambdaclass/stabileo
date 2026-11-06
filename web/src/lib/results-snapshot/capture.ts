@@ -103,7 +103,7 @@ function analysis(prefix: string, r: unknown, out: Values): void {
   if (!r || typeof r !== 'object') { out[prefix] = null; return; }
   const { solverDiagnostics, structuredDiagnostics, diagnostics, ...rest } = r as Record<string, unknown>;
   if (rest.resultSummary && typeof rest.resultSummary === 'object') {
-    const { secondOrderRatio: _screen, memberChords: _chords, trussScreen: _truss, ...summary } = rest.resultSummary as Record<string, unknown>;
+    const { secondOrderRatio: _screen, memberChords: _chords, ...summary } = rest.resultSummary as Record<string, unknown>;
     rest.resultSummary = summary;
   }
   if (Array.isArray(structuredDiagnostics)) {

@@ -44,7 +44,6 @@ export function setPreparedLoadSessionsEnabled(enabled: boolean): void { prepare
 // Dynamically loaded WASM functions
 let wasmSolve2d: ((input: any) => any) | null = null;
 let wasmSolve3d: ((input: any) => any) | null = null;
-let wasmDeferSwayScreen: ((deferred: boolean) => void) | null = null;
 let wasmSolvePdelta2d: ((json: string, maxIter: number, tolerance: number) => string) | null = null;
 let wasmSolveBuckling2d: ((json: string, numModes: number) => string) | null = null;
 let wasmSolveModal2d: ((json: string, numModes: number) => string) | null = null;
@@ -248,7 +247,6 @@ export async function initSolver(): Promise<void> {
     registerShellEnvelopeKernel(wasm.envelope_shell_stresses ? packedShellEnvelopeKernel(wasm.envelope_shell_stresses) : null);
     wasmSolve2d = wasm.solve_2d;
     wasmSolve3d = wasm.solve_3d;
-    wasmDeferSwayScreen = wasm.defer_sway_screen ?? null;
     wasmSolvePdelta2d = wasm.solve_pdelta_2d;
     wasmSolveBuckling2d = wasm.solve_buckling_2d;
     wasmSolveModal2d = wasm.solve_modal_2d;
@@ -786,16 +784,6 @@ export function solve(input: SolverInput): AnalysisResults {
   const wire = input2DToWireObject(input);
   assertFiniteWire(wire);
   return wasmSolve2d(wire);
-}
-
-/** Solves under `run` get no structure α_cr in their second-order screen, which then holds compressed truss bars frame-wide. */
-export function withSwayScreenDeferred<T>(run: () => T): T {
-  wasmDeferSwayScreen?.(true);
-  try {
-    return run();
-  } finally {
-    wasmDeferSwayScreen?.(false);
-  }
 }
 
 /** Solve 3D linear static analysis via WASM. JsValue in/out — no JSON round trip. */

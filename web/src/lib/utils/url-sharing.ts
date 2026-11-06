@@ -537,7 +537,7 @@ function fromCompact(c: Record<string, unknown>): ModelSnapshot {
         ...(opt.ly != null ? { localYy: opt.ly } : {}),
         ...(opt.lz != null ? { localYz: opt.lz } : {}),
         ...(opt.ra != null ? { rollAngle: opt.ra } : {}),
-        ...(opt.bh != null ? { behaviour: memberBehaviour(opt.bh) } : {}),
+        ...(Object.hasOwn(opt, 'bh') ? { behaviour: memberBehaviour(opt.bh) } : {}),
         ...(opt.of ? { offset: {
           frame: opt.of.f === 'l' ? 'local' : 'global',
           ...(opt.of.i ? { i: { x: opt.of.i[0], y: opt.of.i[1], z: opt.of.i[2] } } : {}),
