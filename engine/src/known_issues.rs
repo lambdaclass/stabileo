@@ -641,7 +641,8 @@ pub(crate) struct ScreenModel {
 
 /// A member with no bound of its own is let off only when its compression is under this fraction of
 /// its pinned-pinned Euler load, π²·E·I_min/L², so that round-off in a member carrying nothing does
-/// not flag the frame; no force elsewhere in the model can raise it.
+/// not flag the frame; no force elsewhere in the model can raise it. A let-off member still enters
+/// the recorded ratio, scaled so that a combination factoring it past this fraction warns.
 const COMPRESSED: f64 = 1e-9;
 
 fn sub(a: [f64; 3], b: [f64; 3]) -> [f64; 3] {
@@ -724,13 +725,20 @@ pub(crate) fn second_order(m: &ScreenModel) -> (Vec<StructuredDiagnostic>, f64) 
         let l: f64 = bars.iter().map(|&i| length(&m.bars[i])).sum();
         std::f64::consts::PI.powi(2) * bars.iter().map(|&i| m.bars[i].ei_min).fold(f64::INFINITY, f64::min) / l.powi(2)
     };
-    let loaded = |bars: &[usize], n: f64| !(n <= COMPRESSED * euler(bars));
-    let mut unbounded = m.other_parts || (0..m.bars.len()).any(|i| { let b = &m.bars[i]; !b.frame && loaded(&[i], b.compression) && !b.ends.iter().all(|n| m.braced.contains(n)) });
-    let (mut over, mut near, mut largest) = (Vec::new(), Vec::new(), 0.0_f64);
+    let let_off = |bars: &[usize], n: f64| { let e = euler(bars); (n <= COMPRESSED * e).then(|| SECOND_ORDER_RATIO * n / (COMPRESSED * e)) };
+    let (mut over, mut near, mut largest, mut unbounded) = (Vec::new(), Vec::new(), 0.0_f64, m.other_parts);
+    let mut unbound = |bars: &[usize], n: f64, largest: &mut f64| match let_off(bars, n) {
+        Some(r) => *largest = largest.max(r),
+        None => unbounded = true,
+    };
+    for i in 0..m.bars.len() {
+        let b = &m.bars[i];
+        if !b.frame && b.compression > 0.0 && !b.ends.iter().all(|n| m.braced.contains(n)) { unbound(&[i], b.compression, &mut largest); }
+    }
     for chain in member_chains(m) {
         let n = chain.iter().map(|&i| m.bars[i].compression).fold(0.0, f64::max);
         if n <= 0.0 { continue; }
-        let k = if clamped(&chain) { 2.0 } else if braced(&chain) { 1.0 } else { unbounded |= loaded(&chain, n); continue };
+        let k = if clamped(&chain) { 2.0 } else if braced(&chain) { 1.0 } else { unbound(&chain, n, &mut largest); continue };
         let ratio = n * k * k / euler(&chain);
         let ids = chain.iter().map(|&i| m.bars[i].id);
         largest = if ratio.is_nan() { f64::INFINITY } else { largest.max(ratio) };

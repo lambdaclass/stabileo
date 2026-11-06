@@ -368,3 +368,21 @@ fn a_much_larger_force_at_its_supports_does_not_hide_an_unbounded_member() {
     assert!(r.element_forces.iter().filter(|f| f.element_id >= 4).all(|f| f.n_start > 1e15), "{:?}", r.element_forces);
     assert_eq!(second_order(&r.structured_diagnostics), unbounded());
 }
+
+#[test]
+fn compression_let_off_as_round_off_still_counts_once_a_combination_scales_it_up() {
+    let tiny = solve_2d(&portal("pinned", 1e-6, 0.0)).unwrap();
+    assert_eq!(second_order(&tiny.structured_diagnostics), vec![], "1e-6 kN is under 1e-9 of the columns' Euler load");
+    let combined = combine_results_refs(&[CombinationFactor { case_id: 1, factor: 1e10 }], &[(1, &tiny)]).unwrap();
+    assert!(combined.element_forces.iter().any(|f| f.n_start < -1e3), "{:?}", combined.element_forces);
+    assert_eq!(second_order(&combined.structured_diagnostics), warned(vec![]));
+    let combined = combine_results_refs(&[CombinationFactor { case_id: 1, factor: 10.0 }], &[(1, &tiny)]).unwrap();
+    assert_eq!(second_order(&combined.structured_diagnostics), vec![]);
+
+    let mut value = serde_json::to_value(cantilever_3d(1, -1.0, E, 1e-9, IDENTITY, [0.0; 3])).unwrap();
+    value["supports"]["1"]["kx"] = json!(1e12);
+    let tiny = solve_3d(&serde_json::from_value(value).unwrap()).unwrap();
+    assert_eq!(second_order(&tiny.structured_diagnostics), vec![], "3D: a spring support bounds nothing, and 1e-9 kN is round-off");
+    let combined = combine_results_3d_refs(&[CombinationFactor { case_id: 1, factor: 1e10 }], &[(1, &tiny)]).unwrap().unwrap();
+    assert_eq!(second_order(&combined.structured_diagnostics), warned(vec![]));
+}
