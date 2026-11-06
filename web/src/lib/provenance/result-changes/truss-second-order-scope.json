@@ -1,7 +1,7 @@
 {
   "id": "truss-second-order-scope",
   "date": "2026-11-06",
-  "prs": [],
+  "prs": [1589],
   "area": "analysis",
   "when": { "any": ["trussMembers"] },
   "title": {
