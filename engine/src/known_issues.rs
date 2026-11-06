@@ -594,31 +594,24 @@ pub(crate) fn rotated_nodes_3d(r: &AnalysisResults3D) -> Vec<usize> {
 }
 
 /// A combination's warning: its own node rotations, and its member chords summed from the
-/// factored chords of its cases. A case that recorded no chords has its chord warnings carried,
-/// and the combination then records none.
-pub(crate) fn combined_small_displacement<'a>(nodes: Vec<usize>, cases: impl Iterator<Item = (f64, Option<&'a ResultSummary>, Vec<StructuredDiagnostic>)>) -> (Option<StructuredDiagnostic>, Option<Vec<MemberChord>>) {
+/// factored chords of its cases. When a case recorded no chords the sum is incomplete, so the
+/// chord warnings of every case are carried instead and the combination records none.
+pub(crate) fn combined_small_displacement<'a>(nodes: Vec<usize>, cases: impl Iterator<Item = (f64, Option<&'a ResultSummary>)>, carried: &[StructuredDiagnostic]) -> (Option<StructuredDiagnostic>, Option<Vec<MemberChord>>) {
     let mut summed: std::collections::BTreeMap<usize, [f64; 3]> = std::collections::BTreeMap::new();
-    let mut carried = Vec::new();
-    let mut complete = true;
-    for (factor, summary, diagnostics) in cases {
-        match summary.and_then(|s| s.member_chords.as_ref()) {
-            Some(chords) => {
-                for c in chords {
-                    let sum = summed.entry(c.element_id).or_insert([0.0; 3]);
-                    for (s, v) in sum.iter_mut().zip(c.chord) {
-                        *s += factor * v;
-                    }
-                }
-            }
-            None => {
-                complete = false;
-                carried.extend(diagnostics.iter().filter(|d| d.phase.as_deref() == Some("LIN-SMALL-DISPLACEMENT")).flat_map(|d| d.element_ids.iter().copied()));
+    for (factor, summary) in cases {
+        let Some(chords) = summary.and_then(|s| s.member_chords.as_ref()) else {
+            let elements = carried.iter().filter(|d| d.phase.as_deref() == Some("LIN-SMALL-DISPLACEMENT")).flat_map(|d| d.element_ids.iter().copied()).collect();
+            return (small_displacement(nodes, elements), None);
+        };
+        for c in chords {
+            let sum = summed.entry(c.element_id).or_insert([0.0; 3]);
+            for (s, v) in sum.iter_mut().zip(c.chord) {
+                *s += factor * v;
             }
         }
     }
     let chords: Vec<MemberChord> = summed.into_iter().map(|(element_id, chord)| MemberChord { element_id, chord }).collect();
-    carried.extend(beyond_chords(&chords));
-    (small_displacement(nodes, carried), complete.then_some(chords))
+    (small_displacement(nodes, beyond_chords(&chords)), Some(chords))
 }
 
 /// [`small_displacement_2d`] in 3D: the norm of each node's rotation vector, and the chord of every two-node member.

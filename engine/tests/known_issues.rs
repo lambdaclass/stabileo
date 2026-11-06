@@ -2157,6 +2157,13 @@ fn a_case_without_recorded_chords_has_its_chord_warnings_carried_1506() {
     let combined = combine_results_refs(&[CombinationFactor { case_id: 1, factor: 0.1 }, CombinationFactor { case_id: 2, factor: 2.0 }], &[(1, &far), (2, &along)]).unwrap();
     assert_eq!(warned_chords(&combined.structured_diagnostics), Some((vec![], vec![1])));
     assert_eq!(combined.result_summary.and_then(|s| s.member_chords), None);
+    let recorded = chord_case_2d(600_000.0, 0.0);
+    let mut unrecorded = chord_case_2d(160_000.0, 0.0);
+    unrecorded.result_summary.as_mut().unwrap().member_chords = None;
+    assert_eq!(warned_chords(&unrecorded.structured_diagnostics), None);
+    let mixed = combine_results_refs(&[CombinationFactor { case_id: 1, factor: 0.1 }, CombinationFactor { case_id: 2, factor: 1.0 }], &[(1, &recorded), (2, &unrecorded)]).unwrap();
+    assert_eq!(warned_chords(&mixed.structured_diagnostics), Some((vec![], vec![1])), "0.03 recorded and 0.08 unrecorded make 0.11; the recorded case's warning is carried");
+    assert_eq!(mixed.result_summary.and_then(|s| s.member_chords), None);
 }
 
 #[test]
