@@ -1,0 +1,28 @@
+{
+  "id": "material-nonlinear-3d-orphan-dofs",
+  "date": "2026-11-06",
+  "prs": [1578],
+  "area": "analysis",
+  "when": { "allOf": [["space3D"], ["members"], ["analysis:nonlinear"]] },
+  "quantities": ["solve.ok"],
+  "title": {
+    "en": "3D material-nonlinear analysis solves mixed-warping frames and truss-only nodes",
+    "es": "El análisis no lineal de material 3D resuelve barras con y sin alabeo y nudos solo con bielas",
+    "pt": "A análise não linear de material 3D resolve barras com e sem empenamento e nós só com treliças",
+    "de": "Die materialnichtlineare 3D-Berechnung löst Stäbe mit und ohne Wölbung und Knoten nur mit Fachwerkstäben",
+    "fr": "L’analyse non linéaire matérielle 3D résout des barres avec et sans gauchissement et des nœuds reliés seulement par des barres articulées",
+    "tr": "3B malzeme doğrusal olmayan analizi, çarpılmalı ve çarpılmasız çubukları ve yalnızca kafes çubuklu düğümleri çözüyor"
+  },
+  "explanation": {
+    "en": "3D material-nonlinear analysis crashed when one section had a warping constant and another frame's section had none (#1578), and refused as singular a model with a DOF no member holds, such as the rotation of a node reached only by trusses. Both now solve, giving the linear solver's displacements in the elastic range. Models that solved before give the same numbers.",
+    "es": "El análisis no lineal de material 3D fallaba cuando una sección tenía constante de alabeo y la de otra barra no (#1578), y rechazaba como singular un modelo con un grado de libertad que ninguna barra sostiene, como el giro de un nudo al que solo llegan bielas. Ambos casos ahora se resuelven, con los desplazamientos del solver lineal en el rango elástico. Los modelos que ya se resolvían dan los mismos números.",
+    "pt": "A análise não linear de material 3D falhava quando uma seção tinha constante de empenamento e a de outra barra não (#1578), e recusava como singular um modelo com um grau de liberdade que nenhuma barra sustenta, como a rotação de um nó ao qual só chegam treliças. Ambos os casos agora são resolvidos, com os deslocamentos do solver linear no regime elástico. Modelos que já eram resolvidos dão os mesmos números.",
+    "de": "Die materialnichtlineare 3D-Berechnung stürzte ab, wenn ein Querschnitt eine Wölbkonstante hatte und der eines anderen Stabes nicht (#1578), und lehnte ein Modell mit einem Freiheitsgrad, den kein Stab hält, etwa die Drehung eines nur von Fachwerkstäben erreichten Knotens, als singulär ab. Beides wird jetzt gelöst, im elastischen Bereich mit den Verschiebungen der linearen Berechnung. Modelle, die schon gelöst wurden, liefern dieselben Zahlen.",
+    "fr": "L’analyse non linéaire matérielle 3D plantait quand une section avait une constante de gauchissement et celle d’une autre barre non (#1578), et refusait comme singulier un modèle avec un degré de liberté qu’aucune barre ne retient, comme la rotation d’un nœud atteint seulement par des barres articulées. Les deux cas sont maintenant résolus, avec les déplacements du solveur linéaire dans le domaine élastique. Les modèles déjà résolus donnent les mêmes nombres.",
+    "tr": "3B malzeme doğrusal olmayan analizi, bir kesitin çarpılma sabiti varken başka bir çubuğun kesitinde yokken çöküyordu (#1578) ve hiçbir çubuğun tutmadığı bir serbestlik derecesi olan modeli, örneğin yalnızca kafes çubuklarının ulaştığı bir düğümün dönmesini, tekil diye reddediyordu. İkisi de artık çözülüyor ve elastik bölgede doğrusal çözücünün yerdeğiştirmelerini veriyor. Daha önce çözülen modeller aynı sayıları veriyor."
+  },
+  "changelog": {
+    "file": "changelog.d/1578-material-nonlinear-3d-orphan-dofs.md",
+    "heading": "3D material-nonlinear analysis solves a frame without warping beside one with it, and a truss-only node (2026-11-06)"
+  }
+}

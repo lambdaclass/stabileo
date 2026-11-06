@@ -437,7 +437,6 @@ fn mixed_warping_cantilever() -> NonlinearMaterialInput3D {
 }
 
 #[test]
-#[ignore = "known wrong result: #1578"]
 fn a_frame_without_warping_beside_one_with_it_solves_as_the_linear_path_does() {
     let input = mixed_warping_cantilever();
     let nl = solve_nonlinear_material_3d(&input).unwrap();
@@ -453,7 +452,6 @@ fn a_frame_without_warping_beside_one_with_it_solves_as_the_linear_path_does() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1578"]
 fn a_node_reached_only_by_a_truss_solves_as_the_linear_path_does() {
     let mut input = cantilever_3d_nl(
         3.0, 0.0, 0.002, -0.001,
