@@ -12,6 +12,9 @@
 //! * `metamorphic_nightly_*` (`--ignored`) — the whole corpus and many random
 //!   models; `METAMORPHIC_SEED` moves the random part (printed on failure).
 
+#[path = "../common/mod.rs"]
+mod common;
+
 mod active;
 mod stiffness;
 mod generated;
@@ -23,6 +26,9 @@ mod checks2;
 mod checks3;
 mod corpus;
 mod modal_checks;
+mod parity;
+mod nightly_tolerances;
+mod quick;
 mod regressions;
 mod response;
 mod symmetry;
@@ -30,8 +36,8 @@ mod tally;
 
 use tally::Tally;
 
-pub const INV_2D: &[&str] = &["rotation", "mirror", "relabel", "reversal", "units", "superposition", "reciprocity", "energy", "symmetry", "linear agreement", "modal orthogonality"];
-pub const INV_3D: &[&str] = &["rotation", "relabel", "reversal", "units", "superposition", "reciprocity", "energy", "symmetry", "linear agreement", "modal orthogonality"];
+pub const INV_2D: &[&str] = &["rotation", "mirror", "relabel", "reversal", "units", "superposition", "reciprocity", "energy", "symmetry", "linear agreement", "modal orthogonality", "planes"];
+pub const INV_3D: &[&str] = &["rotation", "mirror", "relabel", "reversal", "units", "superposition", "reciprocity", "energy", "symmetry", "linear agreement", "modal orthogonality"];
 
 fn seed() -> u64 {
     std::env::var("METAMORPHIC_SEED").ok().and_then(|s| s.parse().ok()).unwrap_or(20261018)

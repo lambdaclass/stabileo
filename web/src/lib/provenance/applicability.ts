@@ -8,9 +8,9 @@
  *
  * Pure: the store (`store/recheck.svelte.ts`) calls it on open, the tests call it directly.
  */
-import { conditionGroups, type ResultChange, type ResultChangeRegistry, type ChangeCondition } from './registry';
+import { conditionGroups, concernsGeneratedLoads, type ResultChange, type ResultChangeRegistry, type ChangeCondition } from './registry';
 import { RESULT_CHANGES } from './full-registry';
-import { modelFeatures, type FeatureSnapshot } from './model-features';
+import { loadsGeneratedWith, modelFeatures, type FeatureSnapshot } from './model-features';
 import type { SolveStamp } from './solve-stamp';
 
 export function conditionHolds(w: ChangeCondition, features: ReadonlySet<string>): boolean {
@@ -36,14 +36,16 @@ export function assessProject(
   analysisMode?: string,
   registry: ResultChangeRegistry = RESULT_CHANGES,
   originalFeatures?: ReadonlySet<string>,
+  loadsVersion: number = loadsGeneratedWith(snapshot),
 ): RecheckAssessment {
   const solvedVersion = stamp?.resultsVersion ?? 0;
   const currentVersion = registry.currentResultsVersion;
   const known = !!stamp && solvedVersion > 0;
   const features = originalFeatures ?? modelFeatures(snapshot, { analysisMode, analysesRun: known ? stamp!.analyses : null });
-  const changes = solvedVersion >= currentVersion ? [] : registry.changes
-    .filter((c) => c.resultsVersion > solvedVersion && c.resultsVersion <= currentVersion)
-    .filter((c) => conditionHolds(c.when, features))
+  const changes = registry.changes
+    .filter((c) => c.resultsVersion <= currentVersion && c.scope !== 'examples')
+    .filter((c) => c.resultsVersion > solvedVersion || (c.resultsVersion > loadsVersion && concernsGeneratedLoads(c.when)))
+    .filter((c) => conditionHolds(c.when ?? {}, features))
     .sort((a, b) => a.resultsVersion - b.resultsVersion || a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
   return { solvedVersion, currentVersion, older: solvedVersion < currentVersion, newer: solvedVersion > currentVersion, changes };
 }

@@ -37,6 +37,10 @@ export interface ResultsLike {
 export function analysisValues(prefix: string, r: unknown, out: Values): void {
   if (!r || typeof r !== 'object') { out[prefix] = null; return; }
   const { solverDiagnostics, structuredDiagnostics, diagnostics, ...rest } = r as Record<string, unknown>;
+  if (rest.resultSummary && typeof rest.resultSummary === 'object') {
+    const { secondOrderRatio: _screen, ...summary } = rest.resultSummary as Record<string, unknown>;
+    rest.resultSummary = summary;
+  }
   const own: Values = {};
   flatten(rest, prefix, own);
   const numbers = Object.entries(own).filter(([k, v]) => typeof v === 'number' && !/\.nodeIndex$/.test(k)).map(([, v]) => v);

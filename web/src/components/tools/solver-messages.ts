@@ -1,5 +1,5 @@
 import type { StructuredDiagnostic } from '../../lib/engine/types';
-import { knownIssueMessage } from '../../lib/engine/known-issues';
+import { knownIssueMessage } from '../../lib/engine/known-issue-message';
 
 export function solverMessages(diagnostics: StructuredDiagnostic[], translate: (key: string) => string): string[] {
   return diagnostics.filter(d => d.severity !== 'info').map(d => {

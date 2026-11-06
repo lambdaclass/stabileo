@@ -91,6 +91,78 @@ const body: PostBody = {
           "Behoben in der nächsten Version"
         ],
         [
+          "SA-2026-035",
+          "Wechsel von 3D zu 2D: Der Schnitt bog Stäbe um die falsche Querschnittsachse (ein Rahmen in der Y–Z-Ebene 13,5-mal zu steif)",
+          "Hoch",
+          "Behoben in der nächsten Version"
+        ],
+        [
+          "SA-2026-040",
+          "ACI-318- und EN-1992-Nachweise: Stahlbetonstäbe bestanden, ohne dass ihre Torsion nachgewiesen wurde",
+          "Hoch",
+          "In der nächsten Version eingedämmt"
+        ],
+        [
+          "SA-2026-041",
+          "Stahlbetonstützen: das größte Moment wurde nur mit der größten Druckkraft nachgewiesen",
+          "Hoch",
+          "In der nächsten Version behoben"
+        ],
+        [
+          "SA-2026-033",
+          "Lastgenerator: eine Decke mit einem einzigen niedrigen Stab über einem Teil davon verlor ihre gesamte Flächenlast (36 m² einer 6 × 6 m großen Decke in einem Beispiel); Fachwerke zählten nicht als Dachtragwerk",
+          "Hoch",
+          "Behoben in der nächsten Version"
+        ],
+        [
+          "SA-2026-034",
+          "Die Gleichgewichtsprüfung meldete Lasten und Auflagerkräfte als übereinstimmend für Lastfälle, deren Prüfung Lasten ausließ; Bearbeitungen ähnlicher Geschosse erreichten Stäbe des anderen Typs, und Kopien verloren ihre Gelenke",
+          "Mittel",
+          "Behoben in der nächsten Version"
+        ],
+        [
+          "SA-2026-038",
+          "3D-Knicken: Der Faktor von Stäben, deren Druck unter Lasten entlang ihrer Achse zunimmt, kam zu hoch heraus (+43 % bei einem Stab), und ein nur zwischen seinen Enden gedrückter Stab wurde abgelehnt",
+          "Hoch",
+          "Behoben in der nächsten Version"
+        ],
+        [
+          "SA-2026-042",
+          "2D-Knicken: Der Faktor von Stäben, deren Druck unter Lasten entlang ihrer Achse zunimmt, kam zu hoch heraus (+43 % bis +68 % bei einem Stab)",
+          "Hoch",
+          "Behoben in der nächsten Version"
+        ],
+        [
+          "SA-2026-044",
+          "2D-Plastischer Kollaps: Der Kollapsfaktor änderte sich mit Knotennummerierung, Stabrichtung und Einheiten (bis zum 4,6-Fachen bei derselben Struktur)",
+          "Hoch",
+          "Traglastberechnung in der nächsten Version behoben; der ebene plastische Kollaps bleibt zurückgehalten, bis #758 geschlossen ist"
+        ],
+        [
+          "SA-2026-043",
+          "Harmonische Analyse: Die Korrektur der weggelassenen Moden verlor ihre Stellen, wenn eine Mode viel weicher war als die übrigen (79-fach bei 2,3 Hz in einem Beispiel)",
+          "Hoch",
+          "Behoben in der nächsten Version"
+        ],
+        [
+          "SA-2026-045",
+          "3D-Plastischer Kollaps: Ein Stab ohne verwendbares plastisches Moment wurde behandelt, als würde er nie plastifizieren (6-fach zu hoch in einem Beispiel, und zertifiziert)",
+          "Hoch",
+          "Behoben in der nächsten Version"
+        ],
+        [
+          "SA-2026-037",
+          "Korotationale 3D-Analyse: Rotationsvektoren wurden subtrahiert (der Bathe–Bolourchi-Bogen 1,3 % daneben, ohne Besserung bei Netzverfeinerung)",
+          "Mittel",
+          "Behoben in der nächsten Version"
+        ],
+        [
+          "SA-2026-036",
+          "Wechsel von 3D zu 2D auf Y–Z oder X–Y: Zwangsbedingungen wurden gelesen, als stünde der Rahmen in X–Z (Verschiebungskopplungen verloren oder außerhalb der Ebene angesetzt)",
+          "Hoch",
+          "Behoben in der nächsten Version"
+        ],
+        [
           "SA-2026-013",
           "Gekrümmte Schalen: Biegemomente als null ausgegeben; Spannungen enthielten die freie Temperaturdehnung",
           "Hoch",

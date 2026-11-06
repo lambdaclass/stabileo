@@ -34,16 +34,12 @@ import { displayedLoads3D, despieceNote3D, despieceDrawsActions, despieceNoteTex
 import { drawFreeBody, type P3 } from '../canvas/free-body';
 import { createLabelCollector } from '../canvas/label-layout';
 import { drawHiddenLabelsNote } from './hidden-labels-note';
-import { shellStressInputs } from '../store/shell-contour';
-import { contourOptions } from '../store/contour-options.svelte';
+import { drawShellMap, type DrawShells } from './figure-shell-map';
 import { addMemberTags } from '../canvas/member-tags';
 import { freeBodyActions3D } from '../viewport3d/free-body-3d';
 import { fixedQuantity, displacementText } from '../utils/unit-format';
 import type { ExportFrame, Figure2DRenderer, FigureView, FrameView } from './view-figure';
 import type { AnalysisResults3D, ElementForces3D, FullEnvelope3D } from '../engine/types-3d';
-import { shellComponentMeta, shellComponentValue, type ShellContourComponent } from '../engine/shell-stress';
-import { shellContourColor } from '../three/stress-heatmap';
-import { RAW_INK } from './paper-ink';
 
 type V = [number, number, number];
 
@@ -242,8 +238,8 @@ export function createFigure3DRenderer(): Figure2DRenderer {
        * its colour (a contour's band); without it they are a light tint under the members.
        * `move` gives a corner's position (the deformed figure moves them with the nodes).
        */
-      const drawShells = (fill?: (key: string) => string | null, move?: (nodeId: number) => P3 | undefined) => {
-        if (frame.options.shells === false && !fill) return;
+      const drawShells: DrawShells = (fill, move, paint) => {
+        if (frame.options.shells === false && !fill && !paint) return;
         const faces = shellFaces().map((f) => {
           const pts = f.nodes.map((id) => move?.(id) ?? scenePos(id)).filter((p): p is P3 => !!p);
           const depth = pts.reduce((a, p) => a + towardViewer(p), 0) / Math.max(1, pts.length);
@@ -255,11 +251,17 @@ export function createFigure3DRenderer(): Figure2DRenderer {
           ctx.beginPath();
           f.pts.forEach((p, k) => { const c = toScreen(p); if (k) ctx.lineTo(c.x, c.y); else ctx.moveTo(c.x, c.y); });
           ctx.closePath();
-          const colour = fill?.(f.key);
-          ctx.fillStyle = colour ?? 'rgba(143, 163, 179, 0.16)';
-          ctx.fill();
-          ctx.strokeStyle = colour ? 'rgba(60, 70, 80, 0.45)' : 'rgba(143, 163, 179, 0.7)';
-          ctx.lineWidth = colour ? 0.5 : 0.8;
+          const painted = !!paint && paint(f.key, f.pts.map(toScreen));
+          const colour = painted ? null : fill?.(f.key);
+          if (!painted) {
+            ctx.fillStyle = colour ?? 'rgba(143, 163, 179, 0.16)';
+            ctx.fill();
+          }
+          ctx.beginPath();
+          f.pts.forEach((p, k) => { const c = toScreen(p); if (k) ctx.lineTo(c.x, c.y); else ctx.moveTo(c.x, c.y); });
+          ctx.closePath();
+          ctx.strokeStyle = colour || painted ? 'rgba(60, 70, 80, 0.45)' : 'rgba(143, 163, 179, 0.7)';
+          ctx.lineWidth = colour || painted ? 0.5 : 0.8;
           ctx.stroke();
         }
         ctx.restore();
@@ -422,87 +424,4 @@ export function createFigure3DRenderer(): Figure2DRenderer {
       }
     },
   };
-}
-
-/** A value's colour on the figure: the screen's contour ramp, or a grey ramp in black and white. */
-function bandColour(v: number, min: number, max: number, style: string): string {
-  if (style === 'bw') {
-    const t = max > min ? (v - min) / (max - min) : 0.5;
-    const g = Math.round(235 - 175 * Math.max(0, Math.min(1, t)));
-    return `${RAW_INK}rgb(${g},${g},${g})`;
-  }
-  return `${RAW_INK}#${shellContourColor(v, min, max).toString(16).padStart(6, '0')}`;
-}
-
-/**
- * The shells painted by one result, element by element (each its own value, as the table gives
- * it), with the scale beside the structure: its colours, the range's ends and the component.
- * The largest absolute value is written on its element when values are on.
- */
-function drawShellMap(
-  ctx: CanvasRenderingContext2D,
-  component: ShellContourComponent,
-  style: string,
-  r3d: AnalysisResults3D | null | undefined,
-  shellFaces: () => Array<{ key: string; id: number; nodes: number[] }>,
-  drawShells: (fill?: (key: string) => string | null) => void,
-  toScreen: (p: P3) => { x: number; y: number },
-  scenePos: (id: number) => P3 | undefined,
-  values: boolean,
-  labels: ReturnType<typeof createLabelCollector>,
-): void {
-  const value = new Map<string, number>();
-  const inputs = r3d ? shellStressInputs(r3d, component) : { plates: [], quads: [] };
-  for (const s of inputs.plates) { const v = shellComponentValue(s, component, contourOptions.face); if (Number.isFinite(v)) value.set(`p${s.elementId}`, v); }
-  for (const s of inputs.quads) { const v = shellComponentValue(s, component, contourOptions.face); if (Number.isFinite(v)) value.set(`q${s.elementId}`, v); }
-  let min = Infinity, max = -Infinity;
-  for (const v of value.values()) { if (v < min) min = v; if (v > max) max = v; }
-  if (!Number.isFinite(min)) { drawShells(); return; }
-  drawShells((key) => {
-    const v = value.get(key);
-    return v === undefined ? null : bandColour(v, min, max, style);
-  });
-
-  // Where the structure lands on the page, to put the scale to its right.
-  let x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
-  for (const f of shellFaces()) for (const id of f.nodes) {
-    const p = scenePos(id); if (!p) continue;
-    const c = toScreen(p);
-    x1 = Math.max(x1, c.x); y0 = Math.min(y0, c.y); y1 = Math.max(y1, c.y);
-  }
-  if (!Number.isFinite(x1)) return;
-  const meta = shellComponentMeta(component);
-  const fmt = (v: number) => (Math.abs(v) >= 1000 || (Math.abs(v) < 0.01 && v !== 0) ? v.toExponential(2) : v.toFixed(Math.abs(v) >= 100 ? 0 : 2));
-  const h = Math.max(120, Math.min(260, y1 - y0)), w = 14, x = x1 + 36, top = (y0 + y1) / 2 - h / 2;
-  const steps = 24;
-  ctx.save();
-  for (let k = 0; k < steps; k++) {
-    const v = max - ((max - min) * (k + 0.5)) / steps;
-    ctx.fillStyle = bandColour(v, min, max, style);
-    ctx.fillRect(x, top + (h * k) / steps, w, h / steps + 0.5);
-  }
-  ctx.strokeStyle = '#8fa3b3'; ctx.lineWidth = 0.8; ctx.strokeRect(x, top, w, h);
-  ctx.fillStyle = '#c7d3dd'; ctx.font = '10.5px sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-  if (max - min > 1e-9 * Math.max(1, Math.abs(max))) {
-    ctx.fillText(fmt(max), x + w + 6, top);
-    ctx.fillText(fmt((max + min) / 2), x + w + 6, top + h / 2);
-    ctx.fillText(fmt(min), x + w + 6, top + h);
-  } else {
-    // One value over every element: the scale says so rather than spreading it over a range.
-    ctx.fillText(fmt(max), x + w + 6, top + h / 2);
-  }
-  ctx.textBaseline = 'alphabetic';
-  ctx.fillText(`${meta.label} [${meta.unit}]`, x, top - 10);
-  ctx.restore();
-
-  if (values) {
-    let best: string | null = null, peak = -1;
-    for (const [k, v] of value) if (Math.abs(v) > peak) { peak = Math.abs(v); best = k; }
-    const f = best ? shellFaces().find((s) => s.key === best) : undefined;
-    const pts = f?.nodes.map(scenePos).filter((p): p is P3 => !!p) ?? [];
-    if (f && pts.length) {
-      const c = toScreen({ x: pts.reduce((a, p) => a + p.x, 0) / pts.length, y: pts.reduce((a, p) => a + p.y, 0) / pts.length, z: pts.reduce((a, p) => a + (p.z ?? 0), 0) / pts.length });
-      labels.add({ text: fmt(value.get(best!)!), colour: '#f4f7fa', font: 'bold 10.5px sans-serif', box: { x: c.x, y: c.y - 6, width: 0, height: 0, dirX: 0, dirY: -1, priority: peak, anchorX: 'center', sweep: 'any' } });
-    }
-  }
 }

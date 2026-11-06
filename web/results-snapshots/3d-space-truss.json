@@ -4,7 +4,7 @@
   "format": 2,
   "values": {
     "base.allZero": false,
-    "base.diagnosticCodes": "warning:suspicious_local_axis warning:suspicious_local_axis warning:suspicious_local_axis warning:suspicious_local_axis warning:suspicious_local_axis warning:suspicious_local_axis warning:suspicious_local_axis warning:suspicious_local_axis warning:suspicious_local_axis",
+    "base.diagnosticCodes": "warning:known_issue warning:suspicious_local_axis warning:suspicious_local_axis warning:suspicious_local_axis warning:suspicious_local_axis warning:suspicious_local_axis warning:suspicious_local_axis warning:suspicious_local_axis warning:suspicious_local_axis warning:suspicious_local_axis",
     "base.displacements[n10]": {"rx":0,"ry":0,"rz":0,"ux":0,"uy":0,"uz":0},
     "base.displacements[n11]": {"rx":0,"ry":0,"rz":0,"ux":0.0002083629313,"uy":0.0001984862322,"uz":0},
     "base.displacements[n12]": {"rx":0,"ry":0,"rz":0,"ux":0.000379352926,"uy":0.0002569909388,"uz":-0.0006551137183},

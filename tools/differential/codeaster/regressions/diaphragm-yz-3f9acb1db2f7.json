@@ -1,0 +1,157 @@
+{
+ "constraints": [
+  {
+   "masterNode": 3,
+   "plane": "YZ",
+   "slaveNodes": [
+    2
+   ],
+   "type": "diaphragm"
+  }
+ ],
+ "elements": {
+  "1": {
+   "id": 1,
+   "materialId": 2,
+   "nodeI": 1,
+   "nodeJ": 2,
+   "rollAngle": 88.05310918905622,
+   "sectionId": 2,
+   "type": "frame"
+  },
+  "2": {
+   "id": 2,
+   "materialId": 1,
+   "nodeI": 1,
+   "nodeJ": 4,
+   "sectionId": 2,
+   "type": "frame"
+  },
+  "3": {
+   "id": 3,
+   "materialId": 1,
+   "nodeI": 3,
+   "nodeJ": 2,
+   "sectionId": 3,
+   "type": "frame"
+  },
+  "4": {
+   "id": 4,
+   "materialId": 1,
+   "nodeI": 3,
+   "nodeJ": 4,
+   "sectionId": 2,
+   "type": "truss"
+  }
+ },
+ "loads": [
+  {
+   "data": {
+    "a": 1.3372459483768466,
+    "elementId": 4,
+    "py": -24.95997224735597,
+    "pz": -48.96617571747603
+   },
+   "type": "pointOnElement"
+  },
+  {
+   "data": {
+    "dtGradientY": 16.4027796486875,
+    "dtGradientZ": -19.263801914887964,
+    "dtUniform": 35.40657023266229,
+    "elementId": 4
+   },
+   "type": "thermal"
+  },
+  {
+   "data": {
+    "dtGradientY": 3.5430640292025863,
+    "dtGradientZ": -5.8024323103614925,
+    "dtUniform": -16.27976550721547,
+    "elementId": 2
+   },
+   "type": "thermal"
+  }
+ ],
+ "materials": {
+  "1": {
+   "e": 187622.88845831048,
+   "id": 1,
+   "nu": 0.16230745954192388
+  },
+  "2": {
+   "e": 200000.0,
+   "id": 2,
+   "nu": 0.3122357823923661
+  }
+ },
+ "nodes": {
+  "1": {
+   "id": 1,
+   "x": 5.604,
+   "y": 2.047,
+   "z": 3.229
+  },
+  "2": {
+   "id": 2,
+   "x": 2.18,
+   "y": 1.696,
+   "z": 4.67
+  },
+  "3": {
+   "id": 3,
+   "x": 5.712,
+   "y": 6.098,
+   "z": 3.776
+  },
+  "4": {
+   "id": 4,
+   "x": 6.058,
+   "y": 2.573,
+   "z": 6.876
+  }
+ },
+ "sections": {
+  "1": {
+   "a": 0.18028589893366653,
+   "id": 1,
+   "iy": 0.007766575535993958,
+   "iz": 0.0009446153013917937,
+   "j": 0.0037662977544938876
+  },
+  "2": {
+   "a": 0.25561036613850985,
+   "id": 2,
+   "iy": 0.011082763920173154,
+   "iz": 0.0026748736673746208,
+   "j": 0.0053432630374325414
+  },
+  "3": {
+   "a": 0.23164354395312045,
+   "id": 3,
+   "iy": 0.01050665783424625,
+   "iz": 0.001903065435851687,
+   "j": 0.007533736250684492
+  }
+ },
+ "supports": {
+  "1": {
+   "nodeId": 1,
+   "rrx": true,
+   "rry": true,
+   "rrz": true,
+   "rx": true,
+   "ry": true,
+   "rz": true
+  },
+  "2": {
+   "nodeId": 3,
+   "rrx": true,
+   "rry": false,
+   "rrz": true,
+   "rx": false,
+   "ry": false,
+   "rz": false
+  }
+ }
+}

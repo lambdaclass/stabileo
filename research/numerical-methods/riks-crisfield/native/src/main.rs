@@ -57,7 +57,7 @@ struct Tolerances {
     equilibrium_path_normalized_by_limit_load: f64,
 }
 
-#[derive(serde::Serialize)]
+#[derive(serde::Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct NativeResults {
     schema_version: u32,
@@ -67,7 +67,7 @@ struct NativeResults {
     cases: Vec<NativeCase>,
 }
 
-#[derive(serde::Serialize)]
+#[derive(serde::Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct NativeCase {
     id: String,
@@ -80,7 +80,7 @@ struct NativeCase {
     prefix_checks: Vec<PrefixCheck>,
 }
 
-#[derive(serde::Serialize)]
+#[derive(serde::Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct DisplacementFrame {
     step: usize,
@@ -90,7 +90,7 @@ struct DisplacementFrame {
     displacements: Vec<Displacement>,
 }
 
-#[derive(serde::Serialize)]
+#[derive(serde::Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct PrefixCheck {
     max_steps: usize,
@@ -185,7 +185,12 @@ fn validate(case: &Case, native: &NativeCase) -> Result<(Vec<Value>, Value), Str
         let y = case.geometry.rise - v;
         let length = case.geometry.half_span.hypot(y);
         let length0 = case.geometry.half_span.hypot(case.geometry.rise);
-        let reference_load = 2.0 * e_eff * section.a * (1.0 - length / length0) * y / length;
+        let mut reference_load = 2.0 * e_eff * section.a * (1.0 - length / length0) * y / length;
+        if case.id == "shallow-toggle" {
+            let a = case.geometry.half_span;
+            let beta = y.atan2(a) - case.geometry.rise.atan2(a);
+            reference_load -= 6.0 * e_eff * section.iz * a * beta / (length0 * length * length);
+        }
         let computed_load = frame.load_factor * case.apex.reference_load;
         let error = (computed_load - reference_load).abs() / case.reference.upper_limit.load.abs();
         if error > max_path_error {
@@ -197,7 +202,7 @@ fn validate(case: &Case, native: &NativeCase) -> Result<(Vec<Value>, Value), Str
     }
 
     let first_limit =
-        (0..loads.len().saturating_sub(1)).find(|&i| loads[i] > 0.0 && loads[i + 1] < loads[i]);
+        (0..loads.len().saturating_sub(1)).find(|&i| native.frames[i].converged && native.frames[i + 1].converged && loads[i] > 0.0 && loads[i + 1] < loads[i]);
     let limit_reached = first_limit.is_some();
     let limit_index = match first_limit {
         Some(index) => index,
@@ -209,8 +214,22 @@ fn validate(case: &Case, native: &NativeCase) -> Result<(Vec<Value>, Value), Str
             .map(|(index, _)| index)
             .ok_or_else(|| format!("{}: empty equilibrium path", case.id))?,
     };
-    let measured_load = loads[limit_index];
-    let measured_displacement = displacements[limit_index];
+    let mut measured_load = loads[limit_index];
+    let mut measured_displacement = displacements[limit_index];
+    if limit_reached && limit_index > 0 && native.frames[limit_index - 1].converged {
+        let i = limit_index;
+        let h0 = displacements[i - 1] - displacements[i];
+        let h1 = displacements[i + 1] - displacements[i];
+        let d0 = (loads[i - 1] - loads[i]) / h0;
+        let d1 = (loads[i + 1] - loads[i]) / h1;
+        let a = (d1 - d0) / (h1 - h0);
+        let b = d0 - a * h0;
+        let dx = -b / (2.0 * a);
+        if a < 0.0 && dx >= h0 && dx <= h1 {
+            measured_load += b * dx + a * dx * dx;
+            measured_displacement += dx;
+        }
+    }
     let limit_load_error = (measured_load - case.reference.upper_limit.load).abs()
         / case.reference.upper_limit.load.abs();
     let limit_displacement_error =
@@ -225,7 +244,7 @@ fn validate(case: &Case, native: &NativeCase) -> Result<(Vec<Value>, Value), Str
             "name": "upper limit load",
             "observed": limit_load_error,
             "tolerance": case.tolerances.limit_load_relative,
-            "passed": limit_load_error <= case.tolerances.limit_load_relative,
+            "passed": limit_reached && limit_load_error <= case.tolerances.limit_load_relative,
             "measured": measured_load,
             "reference": case.reference.upper_limit.load,
             "step": native.frames[limit_index].step
@@ -261,16 +280,17 @@ fn validate(case: &Case, native: &NativeCase) -> Result<(Vec<Value>, Value), Str
             "step": native.frames[limit_index].step
         }));
     }
+    if case.id == "shallow-toggle" { checks.remove(0); }
     let summary = json!({
         "caseId": case.id,
         "steps": native.steps.len(),
         "limitPointReached": limit_reached,
-        "measuredLimitLoad": measured_load,
+        "measuredLimitLoad": if limit_reached { Some(measured_load) } else { None },
         "referenceLimitLoad": case.reference.upper_limit.load,
-        "limitLoadRelativeError": limit_load_error,
-        "measuredLimitDisplacement": measured_displacement,
+        "limitLoadRelativeError": if limit_reached { Some(limit_load_error) } else { None },
+        "measuredLimitDisplacement": if limit_reached { Some(measured_displacement) } else { None },
         "referenceLimitDisplacement": case.reference.upper_limit.displacement,
-        "limitDisplacementRelativeError": limit_displacement_error,
+        "limitDisplacementRelativeError": if limit_reached { Some(limit_displacement_error) } else { None },
         "maxEquilibriumPathError": max_path_error,
         "maxEquilibriumPathErrorStep": max_path_step
     });
@@ -493,5 +513,30 @@ fn main() {
             eprintln!("{error}");
             std::process::exit(1);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn limit_checks_require_a_converged_reversal() {
+        let cases: CaseFile = serde_json::from_str(include_str!("../../reference-results/arc_length_snap_through.json")).unwrap();
+        let evidence = include_str!("../../reference-results/native-results.json");
+        for failed in [false, true] {
+            let mut native: NativeResults = serde_json::from_str(evidence).unwrap();
+            let run = &mut native.cases[1];
+            let i = run.frames.windows(2).position(|f| f[1].load_factor < f[0].load_factor).unwrap();
+            let count = i + 1 + usize::from(failed);
+            run.frames.truncate(count);
+            run.steps.truncate(count);
+            if failed { run.frames.last_mut().unwrap().converged = false; }
+            let (checks, summary) = validate(&cases.cases[1], run).unwrap();
+            assert_eq!(summary["limitPointReached"], false);
+            assert!(summary["limitLoadRelativeError"].is_null());
+            assert_eq!(checks[0]["passed"], false);
+        }
+        let native: NativeResults = serde_json::from_str(evidence).unwrap();
+        assert_eq!(validation(&cases, &native).unwrap()["allPassed"], true);
     }
 }

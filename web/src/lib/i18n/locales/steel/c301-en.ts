@@ -124,6 +124,7 @@ const c301En: Record<string, string> = {
   'c301.refuse.noConnection': 'the end connection is missing (holes and the D.3 coefficient U)',
   'c301.refuse.endsMissing': 'the end connection is missing at {ends} (holes and the D.3 coefficient U)',
   'c301.refuse.endRefused': 'end {end}: {reason}',
+  'c301.refuse.firstOrderMoments': 'the moments are first-order and the analysis warns they may be amplified by more than 10 %: H.1 takes them as second-order (C.1); run a P-Delta or second-order analysis',
   'c301.refuse.connectionRefused': 'end connection: {reason}',
   'c301.refuse.aeOutOfRange': 'Ae = {Ae} mm² outside (0, Ag]',
   'c301.refuse.anOutOfRange': 'An = {An} mm² outside (0, Ag]',
@@ -159,6 +160,7 @@ const c301En: Record<string, string> = {
   'c301.refuse.e6Connector': '§E.6.2.1: the intermediate connector type is missing (snug bolts or welds)',
   'c301.refuse.e6SpacingTooLarge': '§E.6.2.2: a/ri = {ari} > 3/4 of the governing slenderness = {lim}',
   'c301.refuse.engineUnavailable': 'the calculation engine is not loaded: the member is not verified',
+  'c301.refuse.capacityUnusable': 'the ratio cannot be formed from φRn = {phiRn} and demand {demand}: the design strength is not positive and finite, or the demand is not finite',
 
   // The steel results screen and the angle editor.
   'steel.angle.title': 'Angles in compression (§E.5, §E.6)',

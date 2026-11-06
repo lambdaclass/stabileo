@@ -184,6 +184,8 @@ pub fn flat_3d(r: &AnalysisResults3D, p: Parts) -> Flat {
 pub struct Report {
     pub worst: f64,
     pub where_: String,
+    pub values: usize,
+    pub refusals: usize,
 }
 
 /// Compare `actual` against `expected` family by family (see module docs);
@@ -195,6 +197,11 @@ pub fn compare(actual: &Flat, expected: &Flat, lchar: f64, rel: f64) -> Result<R
 /// As [`compare`] with a force floor (see [`compare_floored`]).
 pub fn compare_with_floor(actual: &Flat, expected: &Flat, lchar: f64, rel: f64, force_floor: f64) -> Result<Report, String> {
     compare_floored(actual, expected, expected, lchar, rel, force_floor)
+}
+
+/// As [`compare_with_floor`] with a translation floor (see [`compare_compliant`]).
+pub fn compare_with_compliance(actual: &Flat, expected: &Flat, lchar: f64, rel: f64, force_floor: f64, compliance: [f64; 2]) -> Result<Report, String> {
+    compare_compliant(actual, expected, expected, lchar, rel, force_floor, compliance)
 }
 
 fn check_shape(a: &Flat, e: &Flat) -> Result<(), String> {
@@ -274,6 +281,18 @@ pub fn compare_scaled(actual: &Flat, expected: &Flat, scale_src: &Flat, lchar: f
 /// zero in exact arithmetic comes out as round-off of the loads that pass
 /// through the structure, not of the (zero) force family itself.
 pub fn compare_floored(actual: &Flat, expected: &Flat, scale_src: &Flat, lchar: f64, rel: f64, force_floor: f64) -> Result<Report, String> {
+    compare_compliant(actual, expected, scale_src, lchar, rel, force_floor, [0.0, 0.0])
+}
+
+/// As [`compare_floored`], with the translation scale floored by
+/// `force_floor · compliance[0]` and the rotation scale by
+/// `force_floor · lchar · compliance[1]` (see `Conditioning::compliance`):
+/// when every displacement is zero in exact arithmetic (loads straight into
+/// supports), a transformed copy still carries round-off of the displacement
+/// those loads would cause on the stiffest DOF. The rotational floor stays in
+/// its family: a soft rotational DOF must not lift the translation scale
+/// through `|r|·L` in a response that reports no rotations.
+pub fn compare_compliant(actual: &Flat, expected: &Flat, scale_src: &Flat, lchar: f64, rel: f64, force_floor: f64, compliance: [f64; 2]) -> Result<Report, String> {
     check_shape(actual, expected)?;
     check_shape(scale_src, expected)?;
     let diff = Flat::lin_comb(1.0, actual, -1.0, expected);
@@ -282,16 +301,17 @@ pub fn compare_floored(actual: &Flat, expected: &Flat, scale_src: &Flat, lchar: 
     let m = scale_src.m.maxabs().max(force_floor * lchar);
     let l = lchar.max(f64::MIN_POSITIVE);
     let fams: [(&str, &Family, &Family, f64); 6] = [
-        ("translation", &diff.t, &scale_src.t, t.max(r * l)),
-        ("rotation", &diff.r, &scale_src.r, r.max(t / l)),
+        ("translation", &diff.t, &scale_src.t, t.max(r * l).max(force_floor * compliance[0])),
+        ("rotation", &diff.r, &scale_src.r, r.max(t.max(force_floor * compliance[0]) / l).max(force_floor * lchar * compliance[1])),
         ("force", &diff.f, &scale_src.f, f.max(m / l)),
         ("moment", &diff.m, &scale_src.m, m.max(f * l)),
         ("stress", &diff.s, &scale_src.s, scale_src.s.maxabs()),
         ("scalar", &diff.x, &scale_src.x, 0.0),
     ];
-    let mut rep = Report { worst: 0.0, where_: String::new() };
+    let mut rep = Report { worst: 0.0, where_: String::new(), values: 0, refusals: 0 };
     for (name, d, src, s) in fams {
         for k in 0..d.vals.len() {
+            if d.labels[k].starts_with("refusal:") { rep.refusals += 1 } else { rep.values += 1 }
             let scale = if name == "scalar" { src.scales.get(k).copied().unwrap_or(src.vals[k].abs()) } else { s };
             let tol = rel * scale + f64::MIN_POSITIVE;
             let ratio = d.vals[k].abs() / tol;

@@ -21,6 +21,8 @@ fn dir() -> PathBuf {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 struct Check {
+    #[serde(default)]
+    id: String,
     category: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     source: Option<String>,
@@ -37,7 +39,7 @@ struct Checks(Vec<Check>);
 impl Checks {
     fn at_most(&mut self, name: &str, metric: &str, observed: f64, tolerance: f64) {
         assert!(observed.is_finite() && tolerance.is_finite() && observed >= 0.0 && tolerance >= 0.0);
-        self.0.push(Check { category: "independent".into(), source: None, name: name.into(), metric: metric.into(), tolerance, observed, passed: observed <= tolerance });
+        self.0.push(Check { id: String::new(), category: "independent".into(), source: None, name: name.into(), metric: metric.into(), tolerance, observed, passed: observed <= tolerance });
     }
 }
 
@@ -78,7 +80,7 @@ fn inside_error_bar(mean: f64, lo: f64, hi: f64) -> bool {
 // Labels, declared tolerances and pass/fail are exact: noise must never hide a failed check.
 fn records_match(a: &[Check], b: &[Check]) -> bool {
     a.len() == b.len() && a.iter().zip(b).all(|(a, b)| {
-        a.category == b.category && a.source == b.source && a.name == b.name && a.metric == b.metric
+        a.id == b.id && a.category == b.category && a.source == b.source && a.name == b.name && a.metric == b.metric
             && a.tolerance == b.tolerance && a.passed == b.passed
             && a.observed.is_finite() && b.observed.is_finite()
             && (a.observed - b.observed).abs() <= 1e-12 + 1e-8 * a.observed.abs().max(b.observed.abs())
@@ -258,7 +260,9 @@ fn part_a(c: &mut Checks) {
         run_strip(&StripSpec { network: spec(tri(1.0, 1.0)), width: w, height: 4.0 * w, theta: 0.0, clamp_band: 0.5, strain: 0.01 }).unwrap().poisson
     };
     let (n13, n26, n52) = (nu_strip(13.0), nu_strip(26.0), nu_strip(52.0));
-    c.at_most("equilateral strip 13 x 52 (paper's protocol): finite-size bias of nu", "nu - 1/3", n13 - 1.0 / 3.0, 0.05);
+    c.at_most("equilateral strip 13 x 52 (linear increment protocol): finite-size bias of nu", "nu - 1/3", n13 - 1.0 / 3.0, 0.05);
+    c.at_most("equilateral strip width 26: displayed nu = 0.354", "absolute difference", (n26 - 0.354).abs(), 0.0005);
+    c.at_most("equilateral strip width 52: displayed nu = 0.345", "absolute difference", (n52 - 0.345).abs(), 0.0005);
     c.at_most("equilateral strips 26 x 104 and 52 x 208: Richardson extrapolation of nu = 1/3", "absolute difference", (2.0 * n52 - n26 - 1.0 / 3.0).abs(), 0.005);
 }
 
@@ -338,7 +342,7 @@ fn part_b(c: &mut Checks) {
             let mut s = spec(tri(1.0, 1.0));
             s.eta = eta;
             s.seed = seed;
-            nus.push(periodic(s, 26).isotropic.poisson);
+            nus.push(periodic(s, 26).uniaxial_y.unwrap().1);
         }
         let m = nus.iter().sum::<f64>() / nus.len() as f64;
         assert!(m.is_finite());
@@ -358,7 +362,7 @@ fn part_b(c: &mut Checks) {
         let mut s = spec(tri(1.0, 1.0));
         s.eta = 0.5;
         s.seed = seed;
-        nus.push(periodic(s, 26).isotropic.poisson);
+        nus.push(periodic(s, 26).uniaxial_y.unwrap().1);
     }
     let m5 = nus.iter().sum::<f64>() / nus.len() as f64;
     assert!(m5.is_finite());
@@ -376,6 +380,9 @@ fn main_checks() -> Checks {
             ch.source = Some(format!("https://doi.org/10.1103/17sg-gzhl — {}", ch.name));
         }
     }
+    let ids = ["triangular-bulk", "triangular-shear", "triangular-poisson", "triangular-isotropy", "triangular-affinity", "bravais-stiffness", "bravais-cauchy", "square-shear", "square-stiffness", "square-tension", "energy", "energy-prestress", "rotation", "dilution-floppy", "dilution-rigid", "engine-displacement", "engine-force", "strip-bias", "strip-26", "strip-52", "strip-extrapolation", "eq9", "hookean-convention", "eq9-convention", "fig7", "honey-3", "honey-6", "fig9", "fig5-periodic", "zero-crossing", "ensemble-regression"];
+    assert_eq!(ids.len(), c.0.len());
+    for (check, id) in c.0.iter_mut().zip(ids) { check.id = id.into(); }
     c
 }
 

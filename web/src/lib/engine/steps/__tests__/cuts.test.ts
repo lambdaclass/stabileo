@@ -340,3 +340,21 @@ describe('method of cuts: what it refuses', () => {
     }
   });
 });
+
+describe('the classification step counts what its formula substitutes', () => {
+  it('the sentence, the substitution and the box come from one count', () => {
+    const a = modelStore.addNode(0, 0), b = modelStore.addNode(0, 3), c = modelStore.addNode(4, 3), d = modelStore.addNode(4, 0);
+    modelStore.addElement(a, b); modelStore.addElement(b, c); modelStore.addElement(c, d);
+    modelStore.addSupport(a, 'fixed'); modelStore.addSupport(d, 'pinned');
+    modelStore.addNodalLoad(b, 5, 0, 0);
+    const c0 = ctx();
+    expect(cuts.applies(c0).ok).toBe(true);
+    const step = buildCuts(c0).doc.steps[0];
+    const count = step.blocks.find((x) => x.kind === 'p' && x.text.key === 'steps.cuts.class.count');
+    const calc = step.blocks.find((x) => x.kind === 'calc');
+    if (!count || count.kind !== 'p' || !calc || calc.kind !== 'calc') throw new Error('no classification');
+    expect(count.text.params).toMatchObject({ m: 3, n: 4, r: 5, c: 0 });
+    expect(calc.subst).toBe('GH = 3 \\cdot 3 + 5 - 3 \\cdot 4 - 0');
+    expect(calc.result).toBe('\\boxed{GH = 2}');
+  });
+});

@@ -401,10 +401,9 @@ fn modal_3d_5x5_plate_under_5s() {
         result.modes[0].frequency,
     );
 
-    assert!(
+    dedaliano_engine::wall_clock::budget(
         elapsed.as_secs() < 5,
-        "5x5 plate modal solve took {:.1}s (limit: 5s)",
-        elapsed.as_secs_f64()
+        || format!("5x5 plate modal solve took {:.1}s (limit: 5s)", elapsed.as_secs_f64()),
     );
     assert!(
         result.modes.len() >= 3,
@@ -439,10 +438,9 @@ fn modal_3d_10x10_plate_under_10s() {
         result.modes[0].frequency,
     );
 
-    assert!(
+    dedaliano_engine::wall_clock::budget(
         elapsed.as_secs() < 10,
-        "10x10 plate modal solve took {:.1}s (limit: 10s)",
-        elapsed.as_secs_f64()
+        || format!("10x10 plate modal solve took {:.1}s (limit: 10s)", elapsed.as_secs_f64()),
     );
     assert!(
         result.modes.len() >= 3,
@@ -474,10 +472,9 @@ fn buckling_3d_5x5_plate_under_5s() {
         result.modes[0].load_factor,
     );
 
-    assert!(
+    dedaliano_engine::wall_clock::budget(
         elapsed.as_secs() < 5,
-        "5x5 plate buckling solve took {:.1}s (limit: 5s)",
-        elapsed.as_secs_f64()
+        || format!("5x5 plate buckling solve took {:.1}s (limit: 5s)", elapsed.as_secs_f64()),
     );
     assert!(
         result.modes.len() >= 2,
@@ -511,10 +508,9 @@ fn buckling_3d_10x10_plate_under_15s() {
         result.modes[0].load_factor,
     );
 
-    assert!(
+    dedaliano_engine::wall_clock::budget(
         elapsed.as_secs() < 15,
-        "10x10 plate buckling solve took {:.1}s (limit: 15s)",
-        elapsed.as_secs_f64()
+        || format!("10x10 plate buckling solve took {:.1}s (limit: 15s)", elapsed.as_secs_f64()),
     );
     assert!(
         result.modes.len() >= 2,
@@ -581,10 +577,9 @@ fn harmonic_3d_5x5_plate_under_15s() {
         result.peak_amplitude,
     );
 
-    assert!(
+    dedaliano_engine::wall_clock::budget(
         elapsed.as_secs() < 30,
-        "5x5 plate harmonic solve took {:.1}s (limit: 30s)",
-        elapsed.as_secs_f64()
+        || format!("5x5 plate harmonic solve took {:.1}s (limit: 30s)", elapsed.as_secs_f64()),
     );
     assert_eq!(
         result.response_points.len(), 20,
@@ -632,10 +627,9 @@ fn guyan_3d_8x8_plate_under_5s() {
         result.displacements.len(),
     );
 
-    assert!(
+    dedaliano_engine::wall_clock::budget(
         elapsed.as_secs() < 5,
-        "8x8 plate Guyan reduction took {:.1}s (limit: 5s)",
-        elapsed.as_secs_f64()
+        || format!("8x8 plate Guyan reduction took {:.1}s (limit: 5s)", elapsed.as_secs_f64()),
     );
     assert!(result.n_boundary > 0, "Should have boundary DOFs");
     assert!(result.n_interior > 0, "Should have interior DOFs");
@@ -683,10 +677,9 @@ fn craig_bampton_3d_6x6_plate_under_5s() {
         result.n_modes_kept,
     );
 
-    assert!(
+    dedaliano_engine::wall_clock::budget(
         elapsed.as_secs() < 5,
-        "6x6 plate Craig-Bampton took {:.1}s (limit: 5s)",
-        elapsed.as_secs_f64()
+        || format!("6x6 plate Craig-Bampton took {:.1}s (limit: 5s)", elapsed.as_secs_f64()),
     );
     assert!(result.n_modes_kept > 0, "Should retain at least 1 interior mode");
     assert_eq!(
@@ -743,10 +736,9 @@ fn scale_modal_3d_sub_cubic() {
 
     // O(N^1.5) => ratio ~ 4^1.5 = 8. O(N^3) => ratio ~ 4^3 = 64.
     // 20x catches cubic blowup while being generous for CI variability.
-    assert!(
+    dedaliano_engine::wall_clock::budget(
         ratio < 20.0,
-        "Modal solve time ratio {:.1}x exceeds 20x for 4x element increase -- possible cubic regression",
-        ratio
+        || format!("Modal solve time ratio {:.1}x exceeds 20x for 4x element increase -- possible cubic regression", ratio),
     );
 }
 
@@ -785,10 +777,9 @@ fn modal_3d_uses_sparse_path() {
 
     // Modal should not be more than 30x slower than linear
     // (if it's 100x+ slower, the sparse path probably isn't being used)
-    assert!(
+    dedaliano_engine::wall_clock::budget(
         ratio < 30.0,
-        "Modal solve ({}us) is {:.1}x slower than linear ({}us) -- sparse path may not be active",
-        modal_us, ratio, linear_us
+        || format!("Modal solve ({}us) is {:.1}x slower than linear ({}us) -- sparse path may not be active", modal_us, ratio, linear_us),
     );
 
     // Verify we got valid modes
@@ -831,10 +822,9 @@ fn buckling_3d_uses_sparse_path() {
 
     // Buckling should not be more than 50x slower than linear
     // (dense Jacobi fallback on this size would be enormously slower)
-    assert!(
+    dedaliano_engine::wall_clock::budget(
         ratio < 50.0,
-        "Buckling solve ({}us) is {:.1}x slower than linear ({}us) -- possible dense fallback",
-        buckling_us, ratio, linear_us
+        || format!("Buckling solve ({}us) is {:.1}x slower than linear ({}us) -- possible dense fallback", buckling_us, ratio, linear_us),
     );
 
     assert!(
@@ -883,9 +873,8 @@ fn scale_buckling_3d_sub_cubic() {
     );
 
     // 25x threshold catches cubic blowup (4^3 = 64x) while being generous.
-    assert!(
+    dedaliano_engine::wall_clock::budget(
         ratio < 25.0,
-        "Buckling solve time ratio {:.1}x exceeds 25x for 4x element increase -- possible cubic regression",
-        ratio
+        || format!("Buckling solve time ratio {:.1}x exceeds 25x for 4x element increase -- possible cubic regression", ratio),
     );
 }
