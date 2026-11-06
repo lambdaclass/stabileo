@@ -56,6 +56,12 @@ const body: PostBody = {
           "Behoben in 0.4.0"
         ],
         [
+          "SA-2026-039",
+          "Excel- und IFC-Import: Iy und Iz von Rechtecken und Rohren vertauscht (ein Kragträger 20 × 40 viermal zu weich, einer 40 × 20 viermal zu steif)",
+          "Hoch",
+          "Behoben in der nächsten Version"
+        ],
+        [
           "SA-2026-027",
           "Schalen-Umhüllende: übernahm die Kombination mit der größten Von-Mises-Spannung statt des Extremwerts jeder Komponente (mx in einem Beispiel 14 % zu niedrig)",
           "Hoch",

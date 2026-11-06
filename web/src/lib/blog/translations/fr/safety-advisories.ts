@@ -56,6 +56,12 @@ const body: PostBody = {
           "Corrigé dans la 0.4.0"
         ],
         [
+          "SA-2026-039",
+          "Import Excel et IFC : Iy et Iz des rectangles et des tubes étaient inversés (une console de 20 × 40 quatre fois trop souple, une de 40 × 20 quatre fois trop rigide)",
+          "Élevée",
+          "Corrigé dans la prochaine version"
+        ],
+        [
           "SA-2026-027",
           "Enveloppe des coques : retenait la combinaison de plus grande contrainte de Von Mises, et non l'extrême de chaque composante (mx inférieur de 14 % dans un exemple)",
           "Élevée",
