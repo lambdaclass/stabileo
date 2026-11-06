@@ -628,6 +628,7 @@ pub(crate) struct ScreenBar {
     pub hinged: [bool; 2],
     pub ei_min: f64,
     pub compression: f64,
+    pub force: f64,
 }
 
 pub(crate) struct ScreenModel {
@@ -637,16 +638,14 @@ pub(crate) struct ScreenModel {
     pub braced: std::collections::HashSet<usize>,
     pub clamped: std::collections::HashSet<usize>,
     pub other_parts: bool,
-    pub compressed: f64,
 }
 
-/// Compression below this fraction of the largest end force is f64 round-off, not load: only a
-/// member with no bound of its own is let off by it, so raising it lets an unrelated large force
-/// hide real compression.
+/// Compression below this fraction of the largest end force on the member or a member touching it
+/// is f64 round-off, not load; only a member with no bound of its own is let off by it.
 const COMPRESSED: f64 = 1e-13;
 
-fn compressed_above(forces: impl Iterator<Item = f64>) -> f64 {
-    COMPRESSED * forces.fold(0.0, |a: f64, f| a.max(f.abs()))
+fn largest(forces: impl IntoIterator<Item = f64>) -> f64 {
+    forces.into_iter().fold(0.0, |a: f64, f| a.max(f.abs()))
 }
 
 fn sub(a: [f64; 3], b: [f64; 3]) -> [f64; 3] {
@@ -725,12 +724,17 @@ pub(crate) fn second_order(m: &ScreenModel) -> Vec<StructuredDiagnostic> {
         let b = &m.bars[i];
         (0..2).any(|k| m.clamped.contains(&b.ends[k]) && !b.hinged[k])
     });
-    let mut unbounded = m.other_parts || m.bars.iter().any(|b| !b.frame && b.compression > m.compressed && !b.ends.iter().all(|n| m.braced.contains(n)));
+    let mut at_node: std::collections::HashMap<usize, f64> = std::collections::HashMap::new();
+    for b in &m.bars {
+        for n in b.ends { let f = at_node.entry(n).or_default(); *f = f.max(b.force); }
+    }
+    let loaded = |bars: &[usize], n: f64| n > COMPRESSED * largest(bars.iter().flat_map(|&i| m.bars[i].ends).map(|node| at_node[&node]));
+    let mut unbounded = m.other_parts || (0..m.bars.len()).any(|i| { let b = &m.bars[i]; !b.frame && loaded(&[i], b.compression) && !b.ends.iter().all(|n| m.braced.contains(n)) });
     let (mut over, mut near) = (Vec::new(), Vec::new());
     for chain in member_chains(m) {
         let n = chain.iter().map(|&i| m.bars[i].compression).fold(0.0, f64::max);
         if n <= 0.0 { continue; }
-        let k = if clamped(&chain) { 2.0 } else if braced(&chain) { 1.0 } else { unbounded |= n > m.compressed; continue };
+        let k = if clamped(&chain) { 2.0 } else if braced(&chain) { 1.0 } else { unbounded |= loaded(&chain, n); continue };
         let l: f64 = chain.iter().map(|&i| length(&m.bars[i])).sum();
         let ei = chain.iter().map(|&i| m.bars[i].ei_min).fold(f64::INFINITY, f64::min);
         let ratio = n / (std::f64::consts::PI.powi(2) * ei / (k * l).powi(2));
@@ -807,10 +811,11 @@ pub fn second_order_2d(input: &SolverInput, loads: &[SolverLoad], r: &AnalysisRe
         *span.entry(id).or_default() += total;
     }
     let n: std::collections::HashMap<usize, f64> = r.element_forces.iter().map(|f| (f.element_id, compression(f.n_start, f.n_end, span.get(&f.element_id)))).collect();
+    let force: std::collections::HashMap<usize, f64> = r.element_forces.iter().map(|f| (f.element_id, largest([f.n_start, f.n_end, f.v_start, f.v_end]))).collect();
     let bars = crate::ordered::values(&input.elements).map(|e| {
         let ei = input.materials.values().find(|m| m.id == e.material_id).zip(input.sections.values().find(|s| s.id == e.section_id))
             .map_or(f64::NAN, |(m, s)| m.e * 1000.0 * s.iz);
-        ScreenBar { id: e.id, ends: [e.node_i, e.node_j], frame: e.elem_type == "frame", hinged: [e.hinge_start, e.hinge_end], ei_min: ei, compression: n.get(&e.id).copied().unwrap_or(0.0) }
+        ScreenBar { id: e.id, ends: [e.node_i, e.node_j], frame: e.elem_type == "frame", hinged: [e.hinge_start, e.hinge_end], ei_min: ei, compression: n.get(&e.id).copied().unwrap_or(0.0), force: force.get(&e.id).copied().unwrap_or(0.0) }
     }).collect();
     let square = |s: &&crate::types::SolverSupport| s.angle.is_none_or(|a| a == 0.0);
     let model = ScreenModel {
@@ -820,7 +825,6 @@ pub fn second_order_2d(input: &SolverInput, loads: &[SolverLoad], r: &AnalysisRe
         braced: input.supports.values().filter(square).filter(|s| matches!(s.support_type.as_str(), "fixed" | "pinned")).map(|s| s.node_id).collect(),
         clamped: input.supports.values().filter(square).filter(|s| s.support_type == "fixed").map(|s| s.node_id).collect(),
         other_parts: !input.constraints.is_empty() || !input.connectors.is_empty(),
-        compressed: compressed_above(r.element_forces.iter().flat_map(|f| [f.n_start, f.n_end, f.v_start, f.v_end])),
     };
     second_order(&model)
 }
@@ -835,11 +839,12 @@ pub fn second_order_3d(input: &SolverInput3D, loads: &[SolverLoad3D], r: &Analys
         }
     }
     let n: std::collections::HashMap<usize, f64> = r.element_forces.iter().map(|f| (f.element_id, compression(f.n_start, f.n_end, span.get(&f.element_id)))).collect();
+    let force: std::collections::HashMap<usize, f64> = r.element_forces.iter().map(|f| (f.element_id, largest([f.n_start, f.n_end, f.vy_start, f.vy_end, f.vz_start, f.vz_end]))).collect();
     let bars = crate::ordered::values(&input.elements).map(|e| {
         let ei = input.materials.values().find(|m| m.id == e.material_id).zip(input.sections.values().find(|s| s.id == e.section_id))
             .map_or(f64::NAN, |(m, s)| m.e * 1000.0 * s.iy.min(s.iz));
         let hinged = [e.release_my_start || e.release_mz_start, e.release_my_end || e.release_mz_end];
-        ScreenBar { id: e.id, ends: [e.node_i, e.node_j], frame: e.elem_type == "frame", hinged, ei_min: ei, compression: n.get(&e.id).copied().unwrap_or(0.0) }
+        ScreenBar { id: e.id, ends: [e.node_i, e.node_j], frame: e.elem_type == "frame", hinged, ei_min: ei, compression: n.get(&e.id).copied().unwrap_or(0.0), force: force.get(&e.id).copied().unwrap_or(0.0) }
     }).collect();
     let held = |s: &&crate::types::SolverSupport3D| s.rx && s.ry && s.rz && [s.kx, s.ky, s.kz].iter().all(Option::is_none) && s.is_inclined != Some(true);
     let model = ScreenModel {
@@ -850,7 +855,6 @@ pub fn second_order_3d(input: &SolverInput3D, loads: &[SolverLoad3D], r: &Analys
         clamped: input.supports.values().filter(held).filter(|s| s.rrx && s.rry && s.rrz && [s.krx, s.kry, s.krz].iter().all(Option::is_none)).map(|s| s.node_id).collect(),
         other_parts: !input.constraints.is_empty() || !input.connectors.is_empty() || !input.plates.is_empty() || !input.quads.is_empty()
             || !input.quad9s.is_empty() || !input.solid_shells.is_empty() || !input.curved_shells.is_empty() || !input.curved_beams.is_empty(),
-        compressed: compressed_above(r.element_forces.iter().flat_map(|f| [f.n_start, f.n_end, f.vy_start, f.vy_end, f.vz_start, f.vz_end])),
     };
     second_order(&model)
 }
