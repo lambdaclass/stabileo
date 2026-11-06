@@ -307,7 +307,7 @@ describe('edited projects with older provenance', () => {
     const store = createRecheckStore();
     store.openProject({ ...frame(), solvedWith: { ...oldStamp(), resultsVersion: 30 } }, 'pro');
     await vi.waitFor(() => expect(store.pending).toBe(false));
-    expect(store.assessment?.changes.map(c => c.id).sort()).toEqual(['fail-closed-ratios', 'harmonic-modal-residual-checked', 'linear-second-order-warning', 'linear-small-displacement-warning', 'linear-span-rotation-warning', 'plastic-3d-member-without-capacity-refused', 'safety-containment-diagnostics', 'soft-rotation-not-orphan']);
+    expect(store.assessment?.changes.map(c => c.id).sort()).toEqual(['fail-closed-ratios', 'harmonic-modal-residual-checked', 'linear-second-order-warning', 'linear-small-displacement-warning', 'linear-span-rotation-warning', 'plastic-3d-member-without-capacity-refused', 'safety-containment-diagnostics', 'soft-rotation-not-orphan', 'span-check-shear-thermal']);
     expect(store.noticeOpen).toBe(true);
     expect(store.stale).toBe(true);
   });

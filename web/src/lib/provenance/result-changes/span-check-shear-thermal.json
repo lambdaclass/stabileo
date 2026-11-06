@@ -1,7 +1,7 @@
 {
   "id": "span-check-shear-thermal",
   "date": "2026-11-06",
-  "prs": [0],
+  "prs": [1593],
   "area": "analysis",
   "when": { "any": ["frameMembers"] },
   "title": {
