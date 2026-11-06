@@ -22,6 +22,9 @@ const DEFAULT_VALUES: Record<string, number> = { 'simply-supported-beam': 0.0105
 for (const id of TOOL_IDS) test(`@smoke tools ${id} computes and opens the same model`, async ({ page, request }) => {
   const html = await (await request.get(`/en/tools/${id}/`)).text();
   expect(html).toContain('id="prerender"');
+  const snapshot = html.slice(html.indexOf('id="prerender"'), html.indexOf('id="app"'));
+  expect(snapshot).toMatch(/<form[^>]*\sinert/);
+  expect(snapshot.match(/<input(?![^>]*\sinert)[^>]*>/g) ?? []).toEqual([]);
   for (const p of workedExamples(id)) expect(html).toContain(`data-value="${format(formula(id, p).value)}"`);
   await page.goto(`/en/tools/${id}/?e2e=1`);
   const agreement = page.getByTestId('agreement');
@@ -122,6 +125,33 @@ test('@smoke tools shared model survives a client-side editor transition', async
   await expect.poll(() => page.evaluate(() => (window as any).__stabileo?.memberAxialForces()?.length ?? 0)).toBeGreaterThan(0);
   expect(await page.evaluate(() => performance.timeOrigin)).toBe(origin);
   await expect(page.locator('canvas').first()).toBeVisible();
+});
+
+for (const id of [...TOOL_IDS, ...BATCH_IDS]) test(`@smoke tools ${id} shows the build's engine result before the engine downloads, and the engine agrees`, async ({ page }) => {
+  const requested: string[] = [];
+  let release!: () => void;
+  const held = new Promise<void>(resolve => { release = resolve; });
+  await page.route(/dedaliano_engine_bg[^/]*\.wasm$/, async route => { requested.push(route.request().url()); await held; await route.continue(); });
+  await page.goto(`/en/tools/${id}/?e2e=1`);
+  const values = page.locator('#app [data-testid=engine-value]');
+  await expect(values.first()).toBeVisible();
+  await expect(page.locator('#prerender')).toHaveCount(0);
+  await expect(page.locator('#app a.btn-primary[href*="#data=2."]')).toBeVisible();
+  const shown = await values.allTextContents();
+  const difference = await page.getByTestId('agreement').getAttribute('data-difference');
+  expect(shown.every(text => /\d/.test(text))).toBe(true);
+  expect(requested).toEqual([]);
+  release();
+  await page.evaluate(() => document.querySelectorAll('script[data-prerendered-result]').forEach(script => script.remove()));
+  const input = page.getByTestId(id === 'influence-line' ? 'load' : 'e');
+  const original = await input.inputValue();
+  await input.fill(String(Number(original) / 2));
+  await expect(values.first()).not.toHaveText(shown[0]);
+  await input.fill(original);
+  await expect(values).toHaveText(shown);
+  if (difference === null) await expect(page.getByTestId('agreement')).not.toHaveAttribute('data-difference');
+  else await expect(page.getByTestId('agreement')).toHaveAttribute('data-difference', difference);
+  expect(requested).toHaveLength(1);
 });
 
 test('@smoke tools warn when the deflection leaves small-deflection theory', async ({ page }) => {

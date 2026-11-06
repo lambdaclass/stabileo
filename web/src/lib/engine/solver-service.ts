@@ -1,3 +1,5 @@
+import { knownIssueRefusal } from './known-issues';
+import { isContainmentRefusal } from './containment-error';
 // Solver service — pure functions extracted from model.svelte.ts
 // Each function takes a ModelData parameter instead of accessing reactive store state.
 
@@ -1072,7 +1074,7 @@ export function validateAndSolve2D(
     return certifiable(finalizeSolve2DResults(results, prep), '2d', () => input2DToWireObject(prep.input));
   } catch (err: any) {
     console.error('Solver error:', err);
-    return t('svc.solverError').replace('{n}', localizeEngineText(errorText(err, String(err))));
+    return knownIssueRefusal(err) ?? t('svc.solverError').replace('{n}', localizeEngineText(errorText(err, String(err))));
   }
 }
 
@@ -1174,7 +1176,7 @@ export async function validateAndSolve2DAsync(
     return finalResults;
   } catch (err: any) {
     console.error('Solver error:', err);
-    return t('svc.solverError').replace('{n}', localizeEngineText(errorText(err, String(err))));
+    return knownIssueRefusal(err) ?? t('svc.solverError').replace('{n}', localizeEngineText(errorText(err, String(err))));
   }
 }
 
@@ -1321,6 +1323,7 @@ function solveCombinations2DCore(
 
     return { perCase, perCombo, envelope: mcResult.envelope };
   } catch (err: any) {
+    if (isContainmentRefusal(err)) return err instanceof Error ? err.message : String(err);
     // Fallback: if multi-case fails (e.g. an unsolvable case), the per-case
     // path reproduces the precise validation/kinematics error message.
     // (The engine throws plain strings, so don't rely on err.message.)
@@ -2289,7 +2292,7 @@ export function validateAndSolve3D(model: ModelData, includeSelfWeight = false, 
     return nonlinear ? finalResults : certifiable(finalResults, '3d', () => input3DToWireObject(input));
   } catch (err: any) {
     console.error('Solver 3D error:', err);
-    return t('svc.solver3dError').replace('{n}', err.message);
+    return knownIssueRefusal(err) ?? t('svc.solver3dError').replace('{n}', err.message);
   }
 }
 
@@ -2331,7 +2334,7 @@ export async function validateAndSolve3DAsync(model: ModelData, includeSelfWeigh
     return finalResults;
   } catch (err: any) {
     console.error('Solver 3D error:', err);
-    return t('svc.solver3dError').replace('{n}', err.message);
+    return knownIssueRefusal(err) ?? t('svc.solver3dError').replace('{n}', err.message);
   }
 }
 
@@ -2445,6 +2448,7 @@ export function solveCombinations3D(
   } catch (err) {
     const said = loadRefusal(err);
     if (said) return said;
+    if (isContainmentRefusal(err)) return err instanceof Error ? err.message : String(err);
     throw err;
   }
 }
@@ -2638,6 +2642,7 @@ function solveCombinations3DCore(
 
     return pruneComboBundle3D({ perCase, perCombo, envelope: mcResult.envelope }, model);
   } catch (err: any) {
+    if (isContainmentRefusal(err)) return err instanceof Error ? err.message : String(err);
     // Fallback: if multi-case fails, try the old per-case approach
     console.warn('Multi-case 3D failed, falling back to per-case solve:', err.message);
     return solveCombinations3DFallback(model, loadCases, combinations, includeSelfWeight, leftHand);
@@ -2771,7 +2776,7 @@ function solveCombinations3DNonlinear(
     if (hasShells && method === 'superpose') enrichComboShellStresses(perCase, perCombo, envelope.maxAbsResults3D, combinations as never, model.plates ?? new Map());
     return pruneComboBundle3D({ perCase, perCombo, envelope }, model);
   } catch (err: any) {
-    return t('svc.solver3dError').replace('{n}', err.message);
+    return knownIssueRefusal(err) ?? t('svc.solver3dError').replace('{n}', err.message);
   }
 }
 
@@ -2838,7 +2843,7 @@ function solveCombinations3DPDelta(
       perCombo.set(combo.id, results);
     }
   } catch (err: any) {
-    return t('svc.solver3dError').replace('{n}', err.message);
+    return knownIssueRefusal(err) ?? t('svc.solver3dError').replace('{n}', err.message);
   }
   if (perCombo.size === 0) return unstable.length > 0 ? t('svc.pdeltaNoneStable') : t('svc.noLoadsApplied');
   const envelope = computeEnvelope3D([...perCombo.values()]);
@@ -2949,6 +2954,7 @@ export async function solveCombinations3DParallel(
   } catch (err) {
     const said = loadRefusal(err);
     if (said) return said;
+    if (isContainmentRefusal(err)) return err instanceof Error ? err.message : String(err);
     throw err;
   }
 }

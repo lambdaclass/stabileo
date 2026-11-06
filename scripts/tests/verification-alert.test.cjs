@@ -75,6 +75,7 @@ test('a failed scheduled run opens one issue named after the workflow, with the 
   const issue = w[1].args;
   assert.equal(issue.title, 'CI failure: Nightly verification');
   assert.deepEqual(issue.labels, ['ci-failure']);
+  assert.deepEqual(issue.assignees, ['unbalancedparentheses', 'Batuis']);
   assert.match(issue.body, /\[55\]\(https:\/\/x\/runs\/55\)/);
   assert.match(issue.body, /\[mutants \(3\)\]\(https:\/\/x\/job\/1\): \*\*failure\*\* in step `Mutants \(shard 3\/512\)`/);
   assert.doesNotMatch(issue.body, /bench/);

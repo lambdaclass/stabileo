@@ -133,6 +133,9 @@ describe('blog posts', () => {
               expect(b.head.length).toBeGreaterThan(1);
               expect(b.rows.length).toBeGreaterThan(0);
               for (const row of b.rows) expect(row).toHaveLength(b.head.length);
+            } else if (b.k === 'photo') {
+              expect(b.alt.trim().length).toBeGreaterThan(20);
+              expect(b.caption.trim()).not.toBe('');
             } else {
               expect(b.t.trim()).not.toBe('');
             }
@@ -155,6 +158,8 @@ describe('blog posts', () => {
                 ? `table:${b.head.length}x${b.rows.length}`
                 : b.k === 'embed'
                   ? `embed:${b.mode ?? 'basic'}:${b.query}`
+                  : b.k === 'photo'
+                    ? `photo:${b.src}:${b.w}x${b.h}`
                   : b.k === 'link'
                     ? `link:${b.slug}`
                     : b.k === 'ext'
@@ -200,9 +205,9 @@ describe('blog posts', () => {
         }
       });
 
-      it('shows at least one image, and every image it shows is committed at the size it declares', () => {
+      it('shows at least one screenshot or photo, and every screenshot it shows is committed at the size it declares', () => {
         const images = post.i18n.en.blocks.filter((b): b is Extract<Block, { k: 'img' }> => b.k === 'img');
-        expect(images.length).toBeGreaterThan(0);
+        expect(images.length + post.i18n.en.blocks.filter((b) => b.k === 'photo').length).toBeGreaterThan(0);
         for (const img of images) {
           for (const w of [800, 1600]) {
             for (const ext of ['avif', 'webp']) {
@@ -215,6 +220,17 @@ describe('blog posts', () => {
         const alts = (l: PublicLocale) => post.i18n[l]!.blocks.flatMap((b) => (b.k === 'img' ? [b.alt] : []));
         for (const locale of written(post).filter((l) => l !== 'en')) {
           alts(locale).forEach((alt, i) => expect(alt, `${locale} alt ${i} is the English one`).not.toBe(alts('en')[i]));
+        }
+      });
+
+      it('shows only photos that are committed at both widths, in both formats', async () => {
+        const { existsSync } = await import('node:fs');
+        const { join } = await import('node:path');
+        for (const b of post.i18n.en.blocks) {
+          if (b.k !== 'photo') continue;
+          for (const file of [`${b.src}-800.avif`, `${b.src}-800.webp`, `${b.src}-1600.avif`, `${b.src}-1600.webp`]) {
+            expect(existsSync(join(__dirname, '../../../../public/photos', file)), file).toBe(true);
+          }
         }
       });
 

@@ -1,12 +1,12 @@
 import type { PostBody } from '../../types';
 
 const body: PostBody = {
-  "title": "Stabileo 0.5.0: sechzehn weitere Sicherheitshinweise, und jeder offene Fehler gewarnt oder abgelehnt",
-  "excerpt": "Was sich seit 0.4.0 geändert hat: sechzehn Fehler, die ein falsches oder unsicheres Ergebnis liefern konnten, behoben und als Sicherheitshinweise dokumentiert; eine Warnung oder eine Ablehnung für jeden noch offenen Fehler; der Schritt-für-Schritt-Kurs in Basic; und die App in sechs Sprachen.",
+  "title": "Stabileo 0.5.0: zwanzig weitere Sicherheitshinweise, und jeder offene Fehler gewarnt oder abgelehnt",
+  "excerpt": "Was sich seit 0.4.0 geändert hat: zwanzig Fehler, die ein falsches oder unsicheres Ergebnis liefern konnten, behoben und als Sicherheitshinweise dokumentiert; eine Warnung oder eine Ablehnung für jeden noch offenen Fehler; der Schritt-für-Schritt-Kurs in Basic; und die App in sechs Sprachen.",
   "blocks": [
     {
       "k": "p",
-      "t": "Seit 0.4.0 haben wir Stabileo weiter von mehreren Seiten zugleich geprüft: den Rechenkern gegen veröffentlichte Lösungen und andere Programme, die Bemessungsnachweise gegen durchgerechnete Beispiele, dieselbe Struktur umnummeriert, skaliert und verschoben, und die Dateien, die frühere Versionen gespeichert haben. Dabei fanden sich sechzehn weitere Fehler, die ein falsches Ergebnis oder ein Ergebnis auf der unsicheren Seite liefern konnten. Sie sind behoben, und zu jedem gibt es einen Sicherheitshinweis, der sagt, was falsch war, wer betroffen ist und was erneut zu prüfen ist."
+      "t": "Seit 0.4.0 haben wir Stabileo weiter von mehreren Seiten zugleich geprüft: den Rechenkern gegen veröffentlichte Lösungen und andere Programme, die Bemessungsnachweise gegen durchgerechnete Beispiele, dieselbe Struktur umnummeriert, skaliert und verschoben, und die Dateien, die frühere Versionen gespeichert haben. Dabei fanden sich zwanzig weitere Fehler, die ein falsches Ergebnis oder ein Ergebnis auf der unsicheren Seite liefern konnten. Sie sind behoben, und zu jedem gibt es einen Sicherheitshinweis, der sagt, was falsch war, wer betroffen ist und was erneut zu prüfen ist."
     },
     {
       "k": "note",
@@ -62,6 +62,18 @@ const body: PostBody = {
           "Hoch"
         ],
         [
+          "SA-2026-038",
+          "35",
+          "Die 3D-Knickberechnung verwendete die mittlere Normalkraft jedes Stabs: +43 % beim Knicklastfaktor eines Stabs mit einer Last entlang des Stabs",
+          "Hoch"
+        ],
+        [
+          "SA-2026-043",
+          "32",
+          "Die harmonische Analyse verlor die Korrektur der weggelassenen Eigenformen, wenn eine Eigenform viel weicher war als die übrigen: das 79-Fache bei 2,3 Hz in einem Beispiel",
+          "Hoch"
+        ],
+        [
           "SA-2026-035",
           "—",
           "Ein Schnitt von 3D auf 2D bog Stäbe um die falsche Querschnittsachse: ein Y–Z-Rahmen 13,5-mal zu steif",
@@ -83,7 +95,7 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "Die übrigen Sicherheitshinweise betreffen Betonstäbe mit Torsion nach ACI 318 und EN 1992 (SA-2026-040), die Zwangsbedingungen eines Modells, das aus einer Y–Z- oder X–Y-Ebene auf 2D geschnitten wird (SA-2026-036), die korotierende 3D-Berechnung mit großen Rotationen (SA-2026-037), eine Last bei t = 0 auf einem Knoten ohne Masse in der Zeitverlaufsberechnung (SA-2026-031), die Null-Eigenform eines Mechanismus in der Modalanalyse (SA-2026-032), die Gleichgewichtskontrolle des Berichts nach der Berechnung (SA-2026-034) und, für alle, die den Rechenkern direkt aufrufen, die Querkraft bei Stahl ohne Schubfläche nach AISC 360 und EN 1993 (SA-2026-025 und 026)."
+      "t": "Die übrigen Sicherheitshinweise betreffen Betonstäbe mit Torsion nach ACI 318 und EN 1992 (SA-2026-040), die Zwangsbedingungen eines Modells, das aus einer Y–Z- oder X–Y-Ebene auf 2D geschnitten wird (SA-2026-036), die korotierende 3D-Berechnung mit großen Rotationen (SA-2026-037), eine Last bei t = 0 auf einem Knoten ohne Masse in der Zeitverlaufsberechnung (SA-2026-031), die Null-Eigenform eines Mechanismus in der Modalanalyse (SA-2026-032), die Gleichgewichtskontrolle des Berichts nach der Berechnung (SA-2026-034), die plastische Traglastberechnung in 2D, die abgelehnt bleibt, bis #758 behoben ist (SA-2026-044), die plastische Traglastberechnung in 3D mit einem Stab ohne nutzbares plastisches Moment, jetzt abgelehnt (SA-2026-045), und, für alle, die den Rechenkern direkt aufrufen, die Querkraft bei Stahl ohne Schubfläche nach AISC 360 und EN 1993 (SA-2026-025 und 026)."
     },
     {
       "k": "h",
@@ -99,7 +111,9 @@ const body: PostBody = {
         "Der maßgebende Wert eines Stabs und die 2D-Umhüllende lesen den tatsächlichen Spitzenwert des Verlaufs, nicht den nächstgelegenen von 21 Auswertungspunkten: Sie können steigen, in den dokumentierten Fällen um 0,23 % unter einer Dreieckslast und um 1,05 % unter einer kurzen Teillast, und sinken nie.",
         "Mechanismen werden abgelehnt statt berechnet: hinter einer starren Kopplung oder einer Scheibe in 2D, hinter einem Verbindungselement in 2D (#1415) und in der Modalanalyse, die früher die Null-Eigenform verwarf und die übrigen als vollständig zurückgab.",
         "Mehrfache Eigenwerte behalten ihre Vielfachheit, und statische und modale Ergebnisse prüfen ihr eigenes Gleichgewicht und ihre Orthogonalität, bevor sie angezeigt werden.",
-        "In Basic teilen P-Δ und die kritische Last jeden Stab in Elemente, die plastische Traglastberechnung schließt Gelenke, die entlastet werden, und die Einflusslinie des Biegemoments zählt Momente mit Zug an der Unterseite als positiv, wie jedes andere Moment in Basic."
+        "In Basic teilen P-Δ und die kritische Last jeden Stab in Elemente, die plastische Traglastberechnung schließt Gelenke, die entlastet werden, und die Einflusslinie des Biegemoments zählt Momente mit Zug an der Unterseite als positiv, wie jedes andere Moment in Basic.",
+        "Eine Bemessungsprüfung, die sich nicht auswerten lässt, wird abgelehnt statt bestanden, und eine weiche, aber echte Knotenverdrehung wird nicht mehr gesperrt, wenn das Modell einen viel steiferen Teil hat.",
+        "Die lineare Berechnung warnt, wenn eine Verdrehung 0,1 rad überschreitet und wenn die Druckkraft ihre Momente um mehr als 10 % vergrößern kann; solange diese zweite Warnung angezeigt wird, werden die Nachweise nach CIRSOC 301 zurückgehalten. Wo sie warnt, führen Sie eine nichtlineare oder P-Δ-Berechnung durch."
       ]
     },
     {
@@ -114,7 +128,7 @@ const body: PostBody = {
       "k": "ul",
       "items": [
         "Abgelehnt: der plastische Traglastfaktor in 2D, der sich mit der Nummerierung, der Richtung der Stäbe und den Einheiten um bis zum 4,6-Fachen ändern kann (#758); ein Knicklastfaktor außerhalb der Schranken seines eigenen Zertifikats (#741); MITC4-Schalen auf verzerrten Netzen unter nennenswerter Biegung in der Ebene (#798); und MITC4- und MITC9-Schalen auf verwundener Geometrie (#1057).",
-        "Gewarnt: unter anderem Zeitverlaufsberechnung, modale Superposition in 3D, nahezu singuläre Modelle, 3D-Knicken mit Lasten entlang der Stäbe, Kontakt, materiell nichtlineare Berechnung und Verbindungselemente mit ungleichen Steifigkeiten.",
+        "Gewarnt: unter anderem Zeitverlaufsberechnung, modale Superposition in 3D, nahezu singuläre Modelle, Kontakt, materiell nichtlineare Berechnung und Verbindungselemente mit ungleichen Steifigkeiten.",
         "Abgesehen von dem, was sie ablehnt, ändert diese Absicherung offener Fehler eine einzige Zahl: Die 2D-Reaktion eines Auflagers mit vorgegebener Setzung, das in Setzungsrichtung zusätzlich eine Feder hat, enthält jetzt die Kraft dieser Feder. Jeder andere der 145.515 Werte im Ergebniskorpus ist identisch."
       ]
     },
@@ -129,7 +143,7 @@ const body: PostBody = {
     {
       "k": "ul",
       "items": [
-        "Basic lehrt Tragwerksberechnung Schritt für Schritt: Statik, Kraft- und Weggrößenverfahren, Einflusslinien, Theorie II. Ordnung und Knicken, plastische Berechnung und Dynamik, jeweils Schritt für Schritt in der App erklärt.",
+        "Basic lehrt Tragwerksberechnung Schritt für Schritt: Statik, Kraft- und Weggrößenverfahren, Einflusslinien, Theorie II. Ordnung und Knicken, plastische Berechnung und Dynamik, jeweils Schritt für Schritt in der App erklärt. Die Einheit zur plastischen Traglast wird mit der übrigen plastischen Traglastberechnung in 2D zurückgehalten, bis #758 behoben ist.",
         "Die App und die öffentliche Website auf Deutsch, Französisch und Türkisch, neben Spanisch, Englisch und Portugiesisch. Die Aufforderung zur Nachprüfung erklärt jede Änderung in allen sechs Sprachen.",
         "PRO: Mustergeschosse und ähnliche Geschosse, Plattenergebnisse je Breiteneinheit mit Hauptmomenten und Hauptrichtungen, der Bericht nach der Berechnung, ein schreibgeschützter Viewer mit „Duplizieren und bearbeiten“ und ein verknüpftes IFC, als 3D-Referenz dargestellt.",
         "Dateien, die mit 0.2.0, 0.3.0 und 0.4.0 gespeichert wurden, öffnen sich, werden migriert und liefern bei jeder Änderung dieselben Ergebnisse, außer wo eine registrierte Ergebnisänderung greift; eine Datei, die mit einer neueren Version gespeichert wurde, wird mit einer Meldung abgelehnt, die das sagt.",

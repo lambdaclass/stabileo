@@ -27,6 +27,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          fetch-depth: 0
+          filter: blob:none
       - uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
         continue-on-error: true
       - uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
@@ -60,5 +62,5 @@ jobs:
             if (open.data.length) {
               await github.rest.issues.createComment({ ...context.repo, issue_number: open.data[0].number, body });
             } else {
-              await github.rest.issues.create({ ...context.repo, title: 'Page size over its ceiling', labels: [label], body });
+              await github.rest.issues.create({ ...context.repo, title: 'Page size over its ceiling', labels: [label], assignees: [...require('./.github/scripts/issue-assignees.cjs')], body });
             }

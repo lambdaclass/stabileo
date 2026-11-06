@@ -7,11 +7,9 @@
  * only looked at the panel.
  */
 import { readFileSync, writeFileSync } from 'node:fs';
-import { test, expect, loadModel, solveModel } from './fixtures';
+import { test, expect, loadModel, solveModel, rcFootingProject } from './fixtures';
 import type { Page } from '@playwright/test';
 
-const FIXTURE = new URL(
-  '../src/lib/export/__fixtures__/rc-footing-cad-poc.ded.json', import.meta.url).pathname;
 
 async function openLoads(page: Page) {
   await page.getByTestId('pr-stage-model').click();
@@ -87,7 +85,7 @@ test.describe('@slow PRO analysis rules', () => {
 
   test('an older project is given its self-weight rule once, and says so', async ({ pro: page }, info) => {
     // The committed project without its rule: what a file saved before the rule existed holds.
-    const project = JSON.parse(readFileSync(FIXTURE, 'utf8'));
+    const project = JSON.parse(readFileSync(rcFootingProject(), 'utf8'));
     delete project.snapshot.analysis;
     const older = info.outputPath('older-project.ded.json');
     writeFileSync(older, JSON.stringify(project));

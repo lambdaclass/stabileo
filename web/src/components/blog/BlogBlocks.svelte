@@ -53,6 +53,11 @@
       <Shot base={block.base} w={block.w} h={block.h} alt={block.alt} sizes="(max-width: 760px) 92vw, (min-width: 1100px) 960px, 768px" />
       <figcaption>{q(block.caption)}</figcaption>
     </figure>
+  {:else if block.k === 'photo'}
+    <figure class="post-figure post-photo" class:post-photo--tall={block.h > block.w}>
+      <Shot dir="photos" base={block.src} w={block.w} h={block.h} alt={block.alt} sizes="(max-width: 760px) 92vw, 720px" />
+      <figcaption>{q(block.caption)}</figcaption>
+    </figure>
   {:else if block.k === 'embed'}
     <PostEmbed query={block.query} mode={block.mode} label={block.label} />
   {:else if block.k === 'table'}

@@ -18,6 +18,10 @@ import { release030 } from './posts/release-0-3-0';
 import { endToEndCertificates } from './posts/end-to-end-certificates';
 import { sameModelSameNumbers } from './posts/same-model-same-numbers';
 import { researchToolsAndCheckingOurTests } from './posts/research-tools-and-checking-our-tests';
+import { whenResultsChange } from './posts/when-results-change';
+import { stepByStepCourse } from './posts/step-by-step-course';
+import { jaie2026Talk } from './posts/jaie-2026-talk';
+import { tiic2026SecondPlace } from './posts/tiic-2026-second-place';
 import { release050 } from './posts/release-0-5-0';
 
 /**
@@ -39,6 +43,10 @@ export const POSTS: Post[] = [
   endToEndCertificates,
   sameModelSameNumbers,
   researchToolsAndCheckingOurTests,
+  whenResultsChange,
+  stepByStepCourse,
+  jaie2026Talk,
+  tiic2026SecondPlace,
   release050,
 ].sort((a, b) => a.order - b.order);
 

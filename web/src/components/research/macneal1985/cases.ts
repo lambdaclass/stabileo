@@ -1,13 +1,14 @@
 import data from '../../../../../engine/tests/benchmarks/macneal_harder.json';
 import type { SolverInput } from '../../../lib/engine/types';
 import type { SolverInput3D } from '../../../lib/engine/types-3d';
+import { knownIssueRefusal, knownIssueResultDisposition, refusedKnownIssues } from '../../../lib/engine/known-issues';
 
 export type Case = typeof data.cases[number];
 export const cases = data.cases;
 export const nativeOnly = data.nativeOnly;
 export const tolerance = data.accuracyTolerance;
-export type Verdict = 'pass' | 'marginal' | 'marginalFail' | 'documented' | 'mismatch' | 'error';
-export type Result = { id: string; value: number | null; error: number | null; pass: boolean; marginal?: boolean; failure?: string; displacement?: Record<string, number>[] };
+export type Verdict = 'pass' | 'marginal' | 'marginalFail' | 'documented' | 'withheld' | 'mismatch' | 'error';
+export type Result = { id: string; value: number | null; error: number | null; pass: boolean; marginal?: boolean; refused?: boolean; knownIssue?: string; issue?: number; failure?: string; displacement?: Record<string, number>[] };
 
 export const category = (c: Case): 'shell' | 'frame' => (c.element === 'frame' ? 'frame' : 'shell');
 export const unitOf = (c: Case) => (c.measurement.component.startsWith('r') ? 'rad' : 'm');
@@ -35,10 +36,11 @@ export function compare(c: Case, displacements: Record<string, number>[]): Resul
 }
 
 export function verdict(c: Case, r: Result): Verdict {
+  if (r.refused) return 'withheld';
   if (r.failure) return 'error';
   if (r.marginal) return r.pass ? 'marginal' : 'marginalFail';
   if (r.pass) return 'pass';
-  const { pinnedValue, relativeTolerance } = c.nativeBounds as { pinnedValue?: number; relativeTolerance?: number };
+  const { pinnedValue, relativeTolerance } = (c.nativeBounds ?? {}) as { pinnedValue?: number; relativeTolerance?: number };
   const locked = r.value !== null && pinnedValue !== undefined && relativeTolerance !== undefined && Math.abs(r.value / pinnedValue - 1) <= relativeTolerance;
   return !c.expectedPass && 'knownIssue' in c && c.knownIssue && locked ? 'documented' : 'mismatch';
 }
@@ -46,9 +48,17 @@ export function verdict(c: Case, r: Result): Verdict {
 export function counts(rows: Result[]) {
   const of = (k: 'shell' | 'frame') => {
     const ids = new Set(cases.filter(c => category(c) === k).map(c => c.id));
-    return { passed: rows.filter(r => ids.has(r.id) && r.pass).length, total: ids.size };
+    return { passed: rows.filter(r => ids.has(r.id) && r.pass).length, withheld: rows.filter(r => ids.has(r.id) && r.refused).length, total: ids.size };
   };
   return { shell: of('shell'), frame: of('frame') };
+}
+
+export function refusalFor(c: Case, e: unknown): Result {
+  const failure = knownIssueRefusal(e) ?? String(e);
+  const expected = c.expectedRefusal;
+  const refused = !!expected && refusedKnownIssues(e).some(d => d.phase === expected.id && d.value === expected.issue);
+  return { id: c.id, value: null, error: null, pass: false, failure,
+    ...(refused ? { refused: true, knownIssue: expected!.id, issue: expected!.issue } : {}) };
 }
 
 export async function runCases(onResult?: (r: Result) => void): Promise<Result[]> {
@@ -60,9 +70,11 @@ export async function runCases(onResult?: (r: Result) => void): Promise<Result[]
     try {
       const input = inputFor(c);
       const result = c.dimension === 2 ? engine.solve(input as SolverInput) : engine.solve3D(input as SolverInput3D);
+      if (knownIssueResultDisposition(result).refused) throw new Error(JSON.stringify({ structuredDiagnostics: result.structuredDiagnostics }));
+      if (c.expectedRefusal) throw new Error(`Expected containment refusal: ${c.id}`);
       row = compare(c, result.displacements as unknown as Record<string, number>[]);
     } catch (e) {
-      row = { id: c.id, value: null, error: null, pass: false, failure: String(e) };
+      row = refusalFor(c, e);
     }
     rows.push(row);
     onResult?.(row);

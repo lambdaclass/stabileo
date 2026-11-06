@@ -1,3 +1,4 @@
+import { expectMembraneRefusal } from '../../engine/__tests__/containment-helper';
 /**
  * A wall designed as a member through the production command: placed with an opening on a grid,
  * solved, designed by `generateFloors`; it reports its geometry, gets the opening bars, and a
@@ -12,6 +13,8 @@ import { storedDecisions } from '../design-decisions';
 import { placeFrame, placeWall, placeSlabs } from '../../model/building/build-on-grid';
 import type { StructuralGrid } from '../../model/grid';
 import * as wasmSolver from '../../engine/wasm-solver';
+import { computeEnvelope3D } from '../../engine/wasm-solver';
+import type { AnalysisResults3D, ElementForces3D, QuadStress } from '../../engine/types-3d';
 
 beforeAll(async () => {
   await new Promise((r) => setTimeout(r, 0));
@@ -26,30 +29,59 @@ const grid: StructuralGrid = {
   levels: [{ id: 'N0', name: 'PB', z: 0 }, { id: 'N1', name: 'P1', z: 3 }],
 };
 
+type Opening = { offset: number; width: number; sill: number; height: number };
+
+function build(opening: Opening) {
+  modelStore.clear(); historyStore.clear(); resultsStore.clear(); verificationStore.clear(); uiStore.analysisMode = 'pro';
+  const mat = modelStore.addMaterial({ name: 'H-25', e: 23500, nu: 0.2, rho: 25, fy: 25, fc: 25 });
+  const col = modelStore.addSection({ name: '30×30', a: 0.09, iy: 0.000675, iz: 0.000675, j: 0.00114, b: 0.3, h: 0.3, shape: 'rect' } as never);
+  const bm = modelStore.addSection({ name: '20×40', a: 0.08, iy: 0.00107, iz: 0.00027, j: 0.0007, b: 0.2, h: 0.4, shape: 'rect' } as never);
+  placeFrame(grid, { x: ['x0', 'x1'], y: ['y0', 'y1'], levels: ['N0', 'N1'], columns: { sectionId: col, materialId: mat }, beamsX: { sectionId: bm, materialId: mat }, beamsY: { sectionId: bm, materialId: mat } }, { fixBase: true });
+  expect(placeWall(grid, { axis: 'y1', from: 'x0', to: 'x1', levelFrom: 'N0', levelTo: 'N1', thickness: 0.2, materialId: mat, meshSize: 0.5, openings: [opening] }).created).toBe(1);
+  placeSlabs(grid, { levels: ['N1'], thickness: 0.12, materialId: mat, meshSize: 1 });
+  for (const q of modelStore.quads.values()) if (Math.abs(modelStore.nodes.get(q.nodes[0]!)!.z! - 3) < 1e-6 && q.nodes.every((n) => Math.abs(modelStore.nodes.get(n)!.z! - 3) < 1e-6)) modelStore.addSurfaceLoad3D(q.id, 5, 1);
+  for (const n of modelStore.nodes.values()) if (Math.abs((n.z ?? 0) - 3) < 1e-6) modelStore.addNodalLoad3D(n.id, 8, 0, 0, 0, 0, 0, 1);
+}
+
+/** Per-combination results a solve would publish: every member unstressed, every shell under `sigma` kPa of compression. */
+function publish(sigma = 1000) {
+  const quadStresses: QuadStress[] = [...modelStore.quads.keys()].map((elementId) => ({ elementId, sigmaXx: -sigma, sigmaYy: -sigma, tauXy: 0, mx: 0, my: 0, mxy: 0, vonMises: sigma }));
+  const elementForces = [...modelStore.elements.values()].map((e) => {
+    const [a, b] = [modelStore.nodes.get(e.nodeI)!, modelStore.nodes.get(e.nodeJ)!];
+    const length = Math.hypot(b.x - a.x, (b.y ?? 0) - (a.y ?? 0), (b.z ?? 0) - (a.z ?? 0));
+    return { elementId: e.id, length, nStart: 0, nEnd: 0, vyStart: 0, vyEnd: 0, vzStart: 0, vzEnd: 0, mxStart: 0, mxEnd: 0, myStart: 0, myEnd: 0, mzStart: 0, mzEnd: 0, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false, qYI: 0, qYJ: 0, qZI: 0, qZJ: 0, distributedLoadsY: [], pointLoadsY: [], distributedLoadsZ: [], pointLoadsZ: [] } as ElementForces3D;
+  });
+  const result = () => ({ displacements: [], reactions: [], elementForces, quadStresses }) as AnalysisResults3D;
+  resultsStore.setCombinationResults3D(
+    new Map(modelStore.model.loadCases.map((c) => [c.id, result()])),
+    new Map(modelStore.model.combinations.map((c) => [c.id, result()])),
+    computeEnvelope3D(modelStore.model.combinations.map(() => result()))!,
+  );
+}
+
 describe('a wall designed as a member', () => {
-  it('geometry, opening bars, and saved bars that govern', () => {
-    modelStore.clear(); historyStore.clear(); resultsStore.clear(); verificationStore.clear(); uiStore.analysisMode = 'pro';
-    const mat = modelStore.addMaterial({ name: 'H-25', e: 23500, nu: 0.2, rho: 25, fy: 25, fc: 25 });
-    const col = modelStore.addSection({ name: '30×30', a: 0.09, iy: 0.000675, iz: 0.000675, j: 0.00114, b: 0.3, h: 0.3, shape: 'rect' } as never);
-    const bm = modelStore.addSection({ name: '20×40', a: 0.08, iy: 0.00107, iz: 0.00027, j: 0.0007, b: 0.2, h: 0.4, shape: 'rect' } as never);
-    placeFrame(grid, { x: ['x0', 'x1'], y: ['y0', 'y1'], levels: ['N0', 'N1'], columns: { sectionId: col, materialId: mat }, beamsX: { sectionId: bm, materialId: mat }, beamsY: { sectionId: bm, materialId: mat } }, { fixBase: true });
-    expect(placeWall(grid, { axis: 'y1', from: 'x0', to: 'x1', levelFrom: 'N0', levelTo: 'N1', thickness: 0.2, materialId: mat, meshSize: 0.5, openings: [{ offset: 1.5, width: 1, sill: 0.9, height: 1.2 }] }).created).toBe(1);
-    placeSlabs(grid, { levels: ['N1'], thickness: 0.12, materialId: mat, meshSize: 1 });
-    for (const q of modelStore.quads.values()) if (Math.abs(modelStore.nodes.get(q.nodes[0]!)!.z! - 3) < 1e-6 && q.nodes.every((n) => Math.abs(modelStore.nodes.get(n)!.z! - 3) < 1e-6)) modelStore.addSurfaceLoad3D(q.id, 5, 1);
-    for (const n of modelStore.nodes.values()) if (Math.abs((n.z ?? 0) - 3) < 1e-6) modelStore.addNodalLoad3D(n.id, 8, 0, 0, 0, 0, 0, 1);
-    const combo = modelStore.solveCombinations3D(false, false, true);
-    if (!combo || typeof combo === 'string') throw new Error(String(combo));
-    resultsStore.setCombinationResults3D(combo.perCase, combo.perCombo, combo.envelope);
+  const opening = { offset: 1.5, width: 1, sill: 0.9, height: 1.2 };
+
+  it('its paved wall and slab meshes are withheld while SH-MITC4-DISTORTION (#798) is open', () => {
+    build(opening);
+    expectMembraneRefusal(() => modelStore.solveCombinations3D(false, false, true));
+  });
+
+  it('geometry, opening bars, and saved bars that govern, designed from published combination results', () => {
+    build(opening);
+    publish();
     expect(designRunStore.computeDemands().ok).toBe(true);
 
     const run = detailingStore.generateFloors({ families: ['wall'] })!;
     expect(run.walls.length).toBeGreaterThan(0);
     const w = run.walls[0]!;
     const g = run.wallGeometry![w.wallId]!;
-    expect(g.openings).toEqual([{ offset: 1.5, width: 1, sill: 0.9, height: 1.2 }]);
+    expect(g.openings).toEqual([opening]);
     expect(w.reinforcement.openings).toEqual({ count: 2, diameter: 16 });
     expect(w.checks.find((c) => c.category === 'Openings (§11.7.5)')?.ok).toBe(true);
     expect(w.input.openingCount).toBe(1);
+    expect(w.input.pu).toBeGreaterThan(0);
+    expect(w.input.vuInPlane).toBe(0);
 
     // A person's bars: Ø10 c/20 both ways, then they govern and are drawn.
     const mine = { vertical: { diameter: 10, spacing: 0.2 }, horizontal: { diameter: 10, spacing: 0.2 }, curtains: 1 as const, openings: { count: 3, diameter: 12 } };
@@ -69,5 +101,10 @@ describe('a wall designed as a member', () => {
       return along > 1.5 && along < 2.5 && Math.min(...zs) < 0.9 + 1.2 && Math.max(...zs) > 0.9 + 0.01;
     });
     expect(through).toEqual([]);
+
+    publish(2000);
+    expect(designRunStore.computeDemands().ok).toBe(true);
+    const doubled = detailingStore.generateFloors({ families: ['wall'] })!.walls.find((x) => x.wallId === w.wallId)!;
+    expect(doubled.input.pu).toBeCloseTo(2 * w.input.pu, 6);
   });
 });

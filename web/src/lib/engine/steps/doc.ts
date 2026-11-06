@@ -67,7 +67,7 @@ export interface StepDoc {
 }
 
 /** Why a method cannot run on the model, in words. */
-export interface NotApplicable { ok: false; reason: Txt }
+export interface NotApplicable { ok: false; reason: Txt; issue?: number }
 export type Applicability = { ok: true } | NotApplicable;
 
 export const tx = (key: string, params?: Record<string, string | number>): Txt => (params ? { key, params } : { key });

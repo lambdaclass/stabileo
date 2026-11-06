@@ -122,8 +122,32 @@ const body: PostBody = {
           "Corrigé dans la prochaine version"
         ],
         [
+          "SA-2026-038",
+          "Flambement 3D : le facteur des barres dont la compression croît le long de la barre sous des charges dans son axe était trop élevé (+43 % pour une barre), et une barre comprimée seulement entre ses extrémités était refusée",
+          "Élevée",
+          "Corrigé dans la prochaine version"
+        ],
+        [
           "SA-2026-042",
           "Flambement 2D : le facteur des barres dont la compression croît le long de la barre sous des charges dans son axe était trop élevé (+43 % à +68 % pour une barre)",
+          "Élevée",
+          "Corrigé dans la prochaine version"
+        ],
+        [
+          "SA-2026-044",
+          "Effondrement plastique 2D : le facteur d'effondrement changeait avec la numérotation des nœuds, le sens des barres et les unités (jusqu'à 4,6 fois sur la même structure)",
+          "Élevée",
+          "Analyse limite corrigée dans la prochaine version ; l'effondrement plastique 2D reste retenu jusqu'à la clôture de #758"
+        ],
+        [
+          "SA-2026-043",
+          "Analyse harmonique : la correction des modes omis perdait ses chiffres lorsqu’un mode était beaucoup plus souple que les autres (79 fois à 2,3 Hz dans un exemple)",
+          "Élevée",
+          "Corrigé dans la prochaine version"
+        ],
+        [
+          "SA-2026-045",
+          "Effondrement plastique 3D : une barre sans moment plastique utilisable était traitée comme si elle ne plastifiait jamais (6 fois trop haut dans un exemple, et certifié)",
           "Élevée",
           "Corrigé dans la prochaine version"
         ],

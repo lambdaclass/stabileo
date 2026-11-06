@@ -6,8 +6,8 @@
  */
 import { test, expect, designAll, loadModel, designPlace } from './fixtures';
 import type { Page } from '@playwright/test';
+import { assertBudget } from '../src/lib/engine/__tests__/wall-clock-budget';
 
-const WALL_CLOCK = process.env.NO_WALL_CLOCK !== '1';
 
 test.use({ viewport: { width: 1400, height: 900 } });
 
@@ -49,6 +49,6 @@ test.describe('@slow model fluidity with design', () => {
     console.log(`FLUIDITY wireframe ${wire.toFixed(0)} ms · physical ${physical.toFixed(0)} ms`);
     test.info().annotations.push({ type: 'fluidity', description: `wireframe ${wire.toFixed(0)} ms, physical ${physical.toFixed(0)} ms` });
     expect(Number.isFinite(physical) && Number.isFinite(wire), 'both views were timed').toBe(true);
-    if (WALL_CLOCK) expect(physical, 'an edit in the physical view, drawn').toBeLessThan(Math.max(250, 4 * wire));
+    if (assertBudget(physical, Math.max(250, 4 * wire), 'fluidity: an edit in the physical view, drawn')) expect(physical, 'an edit in the physical view, drawn').toBeLessThan(Math.max(250, 4 * wire));
   });
 });

@@ -4,7 +4,7 @@ export const researchToolsAndCheckingOurTests: Post = {
   slug: 'research-tools-and-checking-our-tests',
   date: '2026-11-03',
   updated: '2026-11-05',
-  "order": 11,
+  "order": 13,
   "authors": [
     "Federico Carrone"
   ],
@@ -126,7 +126,7 @@ export const researchToolsAndCheckingOurTests: Post = {
         },
         {
           "k": "p",
-          "t": "We are containing every known wrong-result issue: refusals or warnings in the engine carry the known-issue ID, instead of returning an unchecked number (#807, in review). Every refusal is tested, including unsupported dynamic models with member or shell offsets."
+          "t": "We are containing every known wrong-result issue: refusals or warnings in the engine carry the known-issue ID, instead of returning an unchecked number (#807, merged on 5 November). Every refusal is tested, including unsupported dynamic models with member or shell offsets."
         },
         {
           "k": "p",
@@ -146,6 +146,71 @@ export const researchToolsAndCheckingOurTests: Post = {
             "Share links with non-finite numbers, or with members, supports or loads that point to something missing, are refused instead of opened (#1058).",
             "The invariance suite now checks six priority analyses under rotation, mirroring and superposition, and four of them under uniform stiffness scaling (#1060)."
           ]
+        },
+        {
+          "k": "h",
+          "t": "Checks that answer in twenty minutes"
+        },
+        {
+          "k": "p",
+          "t": "Before it reaches main, every change to Stabileo passes the checks it can affect, and a change to the engine passes all of them: engine tests, web unit tests, production builds, end-to-end tests in a browser, the results snapshots and the determinism check. A safety fix is only as fast as those checks, so on 4 November we worked on their speed. We measured first. In a clean merge-queue run of 44 to 47 minutes, the engine and unit tests finished 8 to 15 minutes before the end, so adding more of them in parallel would have gained nothing. The time went to building the research bundles one after another, and to the slowest end-to-end shard. Once those were shorter, the slowest shard was slow because of setup: in one run it spent 7.2 of its 16 minutes on tests and six and a half downloading browser packages from a slow mirror."
+        },
+        {
+          "k": "ul",
+          "items": [
+            "Build once, test what was built. The production-build tests made five more builds of their own, four of them of the same tree CI had just built; those four now read that build (#1411). Each build carries a stamp of everything it was built from, and a test fails, never skips, if the stamp does not match the tree it runs on.",
+            "Cache by input. Each research bundle is cached under a key of its own inputs, including the engine every bundle links, so a change to one paper rebuilds only that paper and a change to the engine rebuilds all of them. A pull request reuses bundles the merge queue already built from the same inputs, after checking every file against its checksum, and it can read that cache but never write it (#1395). Browser packages come from a cache too, instead of the mirror (#1413).",
+            "Run only what a change can affect. A change to documentation builds nothing, in one or two minutes instead of a whole run. A change to the site alone skips the engine jobs but keeps every end-to-end shard, because 59 of the 281 specs read text on screen (#1381). In the queue, each entry is scoped by its own diff against the entry ahead of it, which is sound because an entry merges only if every entry ahead of it passed; when the diff is missing or unclear, it runs everything (#1400).",
+            "Balance the slowest path. End-to-end tests run in 14 shards instead of 10, balanced on measured timings (#1382). The old timing table predicted 41.5 minutes of tests where a run took 69.8."
+          ]
+        },
+        {
+          "k": "table",
+          "caption": "Wall time of successful CI runs that ran every job, from creation to the last job, measured with the GitHub Actions API. Before: 4 November, from 08:00 UTC (pull requests) or 13:48 UTC (merge queue) to 21:10 UTC; after: from 21:15 UTC to 03:00 UTC on 5 November.",
+          "head": [
+            "Runs",
+            "Count",
+            "Median",
+            "Range"
+          ],
+          "rows": [
+            [
+              "Merge queue, before",
+              "20",
+              "42 min",
+              "25 to 56 min"
+            ],
+            [
+              "Merge queue, after",
+              "10",
+              "20 min",
+              "15 to 26 min"
+            ],
+            [
+              "Pull requests (first attempt), before",
+              "69",
+              "59 min",
+              "35 to 127 min"
+            ],
+            [
+              "Pull requests (first attempt), after",
+              "19",
+              "27 min",
+              "16 to 45 min"
+            ]
+          ]
+        },
+        {
+          "k": "h",
+          "t": "A red check that is not the change’s fault"
+        },
+        {
+          "k": "p",
+          "t": "A failure caused by the network or a lost machine is noise, but it is also a red check that someone must look at, and a habit of rerunning red checks is how a real failure gets waved through. So a pull request’s failed jobs are rerun once, automatically, only when every failed job carries positive evidence of an infrastructure failure: a timeout in a download step, a CI machine lost mid-job, a network error that ends the last attempt of a download (#1380). Anything that looks like a test failure anywhere in the log blocks the rerun, and so does anything the classifier does not recognise. That keeps it conservative: it reruns at most once and never after a failed test step. It is not a guarantee: an intermittent failure the classifier misreads as infrastructure could pass on the rerun, which is why anything it does not recognise blocks the rerun."
+        },
+        {
+          "k": "p",
+          "t": "Two more fixes removed false alarms. A pull-request run cancelled because a newer run on the same commit replaced it used to show a red required check; it now skips that check, but only after confirming that the newer run exists and has not failed, because a skipped required check counts as passed (#1397). And a stalled download could leave a process holding the package manager’s lock, so the retry failed on the lock rather than the download; an attempt now counts as stalled only after minutes without output, is stopped together with everything it started, and the retry waits for the lock (#1408)."
         },
         {
           "k": "h",
@@ -270,7 +335,7 @@ export const researchToolsAndCheckingOurTests: Post = {
         },
         {
           "k": "p",
-          "t": "Estamos conteniendo todos los problemas conocidos de resultados incorrectos: los rechazos o advertencias del motor incluyen el identificador del problema, en lugar de devolver un número sin verificar (#807, en revisión). Se prueba cada rechazo, incluidos los modelos dinámicos no admitidos con excentricidades de barras o láminas."
+          "t": "Estamos conteniendo todos los problemas conocidos de resultados incorrectos: los rechazos o advertencias del motor incluyen el identificador del problema, en lugar de devolver un número sin verificar (#807, integrado el 5 de noviembre). Se prueba cada rechazo, incluidos los modelos dinámicos no admitidos con excentricidades de barras o láminas."
         },
         {
           "k": "p",
@@ -290,6 +355,71 @@ export const researchToolsAndCheckingOurTests: Post = {
             "Los enlaces compartidos con números no finitos, o con barras, apoyos o cargas que apuntan a algo que no existe, se rechazan en lugar de abrirse (#1058).",
             "La suite de invariancia ahora verifica seis análisis prioritarios ante rotación, simetría y superposición, y cuatro de ellos ante un escalado uniforme de la rigidez (#1060)."
           ]
+        },
+        {
+          "k": "h",
+          "t": "Controles que responden en veinte minutos"
+        },
+        {
+          "k": "p",
+          "t": "Antes de llegar a main, cada cambio en Stabileo pasa por los controles que puede afectar, y un cambio en el motor pasa por todos: pruebas del motor, pruebas unitarias de la web, builds de producción, pruebas de extremo a extremo en un navegador, las instantáneas de resultados y el control de determinismo. Una corrección que afecta la seguridad estructural no llega más rápido que esos controles, así que el 4 de noviembre trabajamos en su velocidad. Primero medimos. En una ejecución limpia de la cola de merge de 44 a 47 minutos, las pruebas del motor y las unitarias terminaban entre 8 y 15 minutos antes del final, así que sumar más en paralelo no habría servido de nada. El tiempo se iba en compilar los paquetes de investigación uno detrás de otro y en el fragmento de extremo a extremo más lento. Una vez acortados esos dos, el fragmento más lento era lento por la preparación: en una ejecución dedicó 7,2 de sus 16 minutos a las pruebas y seis y medio a descargar paquetes de navegadores desde un mirror lento."
+        },
+        {
+          "k": "ul",
+          "items": [
+            "Compilar una vez y probar lo compilado. Las pruebas de los builds de producción hacían cinco builds propios más, cuatro de ellos del mismo árbol que CI acababa de compilar; esos cuatro ahora leen ese build (#1411). Cada build lleva un sello de todo aquello a partir de lo que se compiló, y una prueba falla, nunca se omite, si el sello no coincide con el árbol sobre el que corre.",
+            "Caché por entradas. Cada paquete de investigación se guarda en caché bajo una clave de sus propias entradas, incluido el motor que enlaza cada paquete, de modo que un cambio en un artículo recompila solo ese artículo y un cambio en el motor los recompila todos. Un pull request reutiliza los paquetes que la cola de merge ya compiló a partir de las mismas entradas, después de verificar cada archivo contra su checksum, y puede leer esa caché pero nunca escribir en ella (#1395). Los paquetes de navegadores también salen de una caché, en lugar del mirror (#1413).",
+            "Ejecutar solo lo que un cambio puede afectar. Un cambio en la documentación no compila nada y termina en uno o dos minutos, en lugar de una ejecución completa. Un cambio solo en el sitio omite los trabajos del motor pero mantiene todos los fragmentos de extremo a extremo, porque 59 de las 281 especificaciones leen texto en pantalla (#1381). En la cola, el alcance de cada entrada se define por su propio diff contra la entrada que tiene delante, lo cual es válido porque una entrada se integra solo si pasaron todas las entradas que tiene delante; cuando el diff falta o no es claro, se ejecuta todo (#1400).",
+            "Equilibrar el camino más lento. Las pruebas de extremo a extremo corren en 14 fragmentos en lugar de 10, equilibrados según tiempos medidos (#1382). La tabla de tiempos anterior predecía 41,5 minutos de pruebas donde una ejecución tardó 69,8."
+          ]
+        },
+        {
+          "k": "table",
+          "caption": "Duración real de las ejecuciones exitosas de CI que corrieron todos los trabajos, desde su creación hasta el último trabajo, medida con la API de GitHub Actions. Antes: 4 de noviembre, desde las 08:00 UTC (pull requests) o las 13:48 UTC (cola de merge) hasta las 21:10 UTC; después: desde las 21:15 UTC hasta las 03:00 UTC del 5 de noviembre.",
+          "head": [
+            "Ejecuciones",
+            "Cantidad",
+            "Mediana",
+            "Rango"
+          ],
+          "rows": [
+            [
+              "Cola de merge, antes",
+              "20",
+              "42 min",
+              "de 25 a 56 min"
+            ],
+            [
+              "Cola de merge, después",
+              "10",
+              "20 min",
+              "de 15 a 26 min"
+            ],
+            [
+              "Pull requests (primer intento), antes",
+              "69",
+              "59 min",
+              "de 35 a 127 min"
+            ],
+            [
+              "Pull requests (primer intento), después",
+              "19",
+              "27 min",
+              "de 16 a 45 min"
+            ]
+          ]
+        },
+        {
+          "k": "h",
+          "t": "Un control en rojo que no es culpa del cambio"
+        },
+        {
+          "k": "p",
+          "t": "Una falla causada por la red o por una máquina perdida es ruido, pero también es un control en rojo que alguien tiene que mirar, y la costumbre de volver a ejecutar los controles en rojo es la forma en que una falla real termina dejándose pasar. Por eso los trabajos fallidos de un pull request se vuelven a ejecutar una vez, automáticamente, solo cuando cada trabajo fallido trae evidencia positiva de una falla de infraestructura: un timeout en un paso de descarga, una máquina de CI perdida a mitad del trabajo, un error de red que termina el último intento de una descarga (#1380). Cualquier cosa que parezca una falla de prueba en cualquier parte del log bloquea la reejecución, y lo mismo pasa con cualquier cosa que el clasificador no reconozca. Eso la mantiene conservadora: reejecuta como mucho una vez y nunca después de un paso de pruebas fallido. No es una garantía: una falla intermitente que el clasificador lea mal como de infraestructura podría pasar en la reejecución, y por eso cualquier cosa que no reconozca bloquea la reejecución."
+        },
+        {
+          "k": "p",
+          "t": "Otras dos correcciones eliminaron falsas alarmas. Una ejecución de pull request cancelada porque otra más nueva sobre el mismo commit la reemplazó mostraba un control obligatorio en rojo; ahora omite ese control, pero solo después de confirmar que la ejecución más nueva existe y no falló, porque un control obligatorio omitido cuenta como aprobado (#1397). Y una descarga trabada podía dejar un proceso con el lock del gestor de paquetes, así que el reintento fallaba por el lock y no por la descarga; ahora un intento cuenta como trabado solo después de varios minutos sin salida, se detiene junto con todo lo que inició, y el reintento espera el lock (#1408)."
         },
         {
           "k": "h",
@@ -414,7 +544,7 @@ export const researchToolsAndCheckingOurTests: Post = {
         },
         {
           "k": "p",
-          "t": "Estamos contendo todos os problemas conhecidos de resultados incorretos: as recusas ou os avisos do motor incluem o identificador do problema, em vez de retornar um número sem verificação (#807, em revisão). Cada recusa é testada, incluindo modelos dinâmicos não suportados com excentricidades de barras ou cascas."
+          "t": "Estamos contendo todos os problemas conhecidos de resultados incorretos: as recusas ou os avisos do motor incluem o identificador do problema, em vez de retornar um número sem verificação (#807, integrado em 5 de novembro). Cada recusa é testada, incluindo modelos dinâmicos não suportados com excentricidades de barras ou cascas."
         },
         {
           "k": "p",
@@ -434,6 +564,71 @@ export const researchToolsAndCheckingOurTests: Post = {
             "Links compartilhados com números não finitos, ou com barras, apoios ou cargas que apontam para algo inexistente, são recusados em vez de abertos (#1058).",
             "A suíte de invariância agora verifica seis análises prioritárias sob rotação, espelhamento e superposição, e quatro delas sob escala uniforme da rigidez (#1060)."
           ]
+        },
+        {
+          "k": "h",
+          "t": "Verificações que respondem em vinte minutos"
+        },
+        {
+          "k": "p",
+          "t": "Antes de chegar à main, toda alteração no Stabileo passa pelas verificações que pode afetar, e uma alteração no motor passa por todas: testes do motor, testes unitários da web, builds de produção, testes de ponta a ponta num navegador, os snapshots de resultados e a verificação de determinismo. Uma correção de um resultado errado não chega mais rápido do que essas verificações, por isso em 4 de novembro trabalhamos na velocidade delas. Primeiro medimos. Numa execução limpa da fila de merge de 44 a 47 minutos, os testes do motor e os unitários terminavam de 8 a 15 minutos antes do fim, então adicionar mais deles em paralelo não teria ganhado nada. O tempo ia para compilar os pacotes de pesquisa um depois do outro e para o fragmento de ponta a ponta mais lento. Depois que esses ficaram mais curtos, o fragmento mais lento era lento por causa da preparação: numa execução, gastou 7,2 dos seus 16 minutos em testes e seis e meio baixando pacotes de navegadores de um espelho lento."
+        },
+        {
+          "k": "ul",
+          "items": [
+            "Compilar uma vez, testar o que foi compilado. Os testes dos builds de produção faziam mais cinco builds próprios, quatro deles da mesma árvore que a CI tinha acabado de compilar; esses quatro agora leem aquele build (#1411). Cada build leva um selo de tudo a partir do que foi compilado, e um teste falha, nunca é pulado, se o selo não corresponder à árvore em que roda.",
+            "Cache por entradas. Cada pacote de pesquisa é guardado em cache sob uma chave das suas próprias entradas, incluindo o motor que todo pacote vincula, de modo que uma alteração num artigo recompila só esse artigo e uma alteração no motor recompila todos. Um pull request reutiliza os pacotes que a fila de merge já compilou a partir das mesmas entradas, depois de verificar cada arquivo contra seu checksum, e pode ler esse cache, mas nunca escrever nele (#1395). Os pacotes de navegadores também vêm de um cache, em vez do espelho (#1413).",
+            "Executar só o que uma alteração pode afetar. Uma alteração na documentação não compila nada e termina em um ou dois minutos, em vez de uma execução completa. Uma alteração só no site pula os jobs do motor, mas mantém todos os fragmentos de ponta a ponta, porque 59 das 281 specs leem texto na tela (#1381). Na fila, o escopo de cada entrada é definido pelo seu próprio diff em relação à entrada à frente dela, o que é válido porque uma entrada só é integrada se todas as entradas à frente dela passaram; quando o diff está ausente ou não está claro, tudo é executado (#1400).",
+            "Equilibrar o caminho mais lento. Os testes de ponta a ponta rodam em 14 fragmentos em vez de 10, equilibrados por tempos medidos (#1382). A tabela de tempos antiga previa 41,5 minutos de testes onde uma execução levou 69,8."
+          ]
+        },
+        {
+          "k": "table",
+          "caption": "Tempo real das execuções bem-sucedidas de CI que rodaram todos os jobs, da criação até o último job, medido pela API do GitHub Actions. Antes: 4 de novembro, das 08:00 UTC (pull requests) ou 13:48 UTC (fila de merge) até as 21:10 UTC; depois: das 21:15 UTC até as 03:00 UTC de 5 de novembro.",
+          "head": [
+            "Execuções",
+            "Quantidade",
+            "Mediana",
+            "Intervalo"
+          ],
+          "rows": [
+            [
+              "Fila de merge, antes",
+              "20",
+              "42 min",
+              "de 25 a 56 min"
+            ],
+            [
+              "Fila de merge, depois",
+              "10",
+              "20 min",
+              "de 15 a 26 min"
+            ],
+            [
+              "Pull requests (primeira tentativa), antes",
+              "69",
+              "59 min",
+              "de 35 a 127 min"
+            ],
+            [
+              "Pull requests (primeira tentativa), depois",
+              "19",
+              "27 min",
+              "de 16 a 45 min"
+            ]
+          ]
+        },
+        {
+          "k": "h",
+          "t": "Uma verificação vermelha que não é culpa da alteração"
+        },
+        {
+          "k": "p",
+          "t": "Uma falha causada pela rede ou por uma máquina perdida é ruído, mas também é uma verificação vermelha que alguém precisa olhar, e o hábito de reexecutar verificações vermelhas é como uma falha real acaba sendo deixada passar. Por isso os jobs que falharam num pull request são reexecutados uma vez, automaticamente, só quando cada job que falhou traz evidência positiva de uma falha de infraestrutura: um timeout numa etapa de download, uma máquina de CI perdida no meio do trabalho, um erro de rede que encerra a última tentativa de um download (#1380). Qualquer coisa que pareça uma falha de teste em qualquer parte do log bloqueia a reexecução, assim como qualquer coisa que o classificador não reconheça. Isso a mantém conservadora: reexecuta no máximo uma vez e nunca depois de uma etapa de testes com falha. Não é uma garantia: uma falha intermitente que o classificador interprete mal como de infraestrutura poderia passar na reexecução, e por isso qualquer coisa que ele não reconheça bloqueia a reexecução."
+        },
+        {
+          "k": "p",
+          "t": "Duas outras correções eliminaram alarmes falsos. Uma execução de pull request cancelada porque uma execução mais nova no mesmo commit a substituiu mostrava uma verificação obrigatória vermelha; agora ela pula essa verificação, mas só depois de confirmar que a execução mais nova existe e não falhou, porque uma verificação obrigatória pulada conta como aprovada (#1397). E um download travado podia deixar um processo segurando o lock do gerenciador de pacotes, então a nova tentativa falhava no lock e não no download; agora uma tentativa só conta como travada depois de minutos sem saída, é interrompida junto com tudo o que iniciou, e a nova tentativa espera pelo lock (#1408)."
         },
         {
           "k": "h",

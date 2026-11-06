@@ -370,14 +370,19 @@ pub struct Ec3CheckResult {
     #[serde(default)]
     pub k_zz: f64,
     /// Column buckling reduction chi_y
+    #[serde(serialize_with = "crate::check::ser_known", deserialize_with = "crate::check::de_known")]
     pub chi_y: f64,
     /// Column buckling reduction chi_z
+    #[serde(serialize_with = "crate::check::ser_known", deserialize_with = "crate::check::de_known")]
     pub chi_z: f64,
     /// LTB reduction chi_LT
+    #[serde(serialize_with = "crate::check::ser_known", deserialize_with = "crate::check::de_known")]
     pub chi_lt: f64,
     /// Compression buckling resistance Nb,Rd (N)
+    #[serde(serialize_with = "crate::check::ser_known", deserialize_with = "crate::check::de_known")]
     pub nb_rd: f64,
     /// LTB moment resistance Mb,Rd (N-m)
+    #[serde(serialize_with = "crate::check::ser_known", deserialize_with = "crate::check::de_known")]
     pub mb_rd: f64,
     /// Elastic critical moment Mcr (N-m) with the load height; absent for
     /// Lb = 0 (no LTB) and when it could not be evaluated.
@@ -986,8 +991,8 @@ fn check_single_ec3_member(m: &Ec3MemberData, f: &Ec3DesignForces) -> Ec3CheckRe
     }
 
     let compression_ratio =
-        ledger.ratio_if_loaded("Compression 6.3.1", (-n_ed).max(0.0), nb_rd);
-    let tension_ratio = ledger.ratio_if_loaded("Tension 6.2.3", n_ed.max(0.0), npl_rd);
+        ledger.ratio_if_loaded("Compression 6.3.1", crate::check::positive_part(-n_ed), nb_rd);
+    let tension_ratio = ledger.ratio_if_loaded("Tension 6.2.3", crate::check::positive_part(n_ed), npl_rd);
 
     ledger.require_finite("LTB chi_LT", chi_lt);
     let flexure_ratio_y = ledger.ratio_if_loaded("Flexure-y 6.3.2", my_ed.abs(), mb_rd);

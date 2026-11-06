@@ -28,6 +28,7 @@
 import { execFileSync, spawnSync } from 'node:child_process';
 import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+import { readRegistryAt } from '../result-changes/registry.mjs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gzipSync } from 'node:zlib';
@@ -129,7 +130,7 @@ function generate(tag) {
   mkdirSync(dest, { recursive: true });
   const run = JSON.parse(readFileSync(join(raw, 'run.json'), 'utf8'));
   const registry = (() => {
-    try { return JSON.parse(git('show', `${tag}:web/src/lib/provenance/result-changes.json`)).currentResultsVersion; } catch { return 0; }
+    return readRegistryAt(tag, repo)?.currentResultsVersion ?? 0;
   })();
   const entries = [];
   const editedFixtures = join(corpus, 'fixtures');

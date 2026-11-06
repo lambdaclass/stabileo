@@ -1,3 +1,4 @@
+// Node-compatible dictionary for scripts and Playwright test discovery.
 import type { Translations } from '../../types';
 import main from '../tr';
 import steel from '../steel/tr';

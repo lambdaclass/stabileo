@@ -2,13 +2,14 @@
 
 use crate::ana2::{Ana2, Law};
 use crate::case::Case2;
-use crate::response::{Kind, Resp};
+use crate::response::{Dim, Kind, Resp};
 use crate::tally::{Tally, Verdict};
 use dedaliano_engine::metamorphic::compare::{compare_compliant, compare_with_compliance, Flat};
 use dedaliano_engine::metamorphic::conditioning::{self, Conditioning, INCONCLUSIVE};
 use dedaliano_engine::metamorphic::relabel::Relabel;
 use dedaliano_engine::metamorphic::transform::Iso2;
 use dedaliano_engine::metamorphic::units::Units;
+use dedaliano_engine::metamorphic::planes::Plane;
 use dedaliano_engine::metamorphic::Rng;
 use dedaliano_engine::types::*;
 use std::panic::{catch_unwind, AssertUnwindSafe};
@@ -72,8 +73,8 @@ pub fn with_eigen_2d(cond: Conditioning, c: &Case2) -> Conditioning {
 
 fn run(a: &Ana2, c: &Case2) -> Result<Resp, String> {
     guarded(|| {
-        let r = (a.run)(c)?;
-        if crate::generated::strict() {
+        let r = crate::response::scoped(a.name, true, false, crate::response::outcome((a.run)(c))?)?;
+        if crate::generated::strict() && r.1.is_empty() {
             crate::generated::validate_2d(a.name, &r, c)?;
         }
         Ok(r)
@@ -85,6 +86,7 @@ pub fn judge(res: Result<dedaliano_engine::metamorphic::compare::Report, String>
         return Verdict::Inconclusive(rel);
     }
     match res {
+        Ok(r) if r.values == 0 && r.refusals > 0 => Verdict::SameRefusal,
         Ok(r) => Verdict::Pass(r.worst),
         Err(e) => Verdict::Fail(e),
     }
@@ -93,7 +95,7 @@ pub fn judge(res: Result<dedaliano_engine::metamorphic::compare::Report, String>
 pub fn judge_split(got: &Resp, expected: &Resp, rel: f64, base: f64, cmp: impl Fn(&Resp, &Resp, f64) -> Result<dedaliano_engine::metamorphic::compare::Report, String>) -> Verdict {
     let free: std::collections::HashSet<String> = expected.0.iter().filter(|i| EIGEN_FREE.contains(&i.tag.as_str())).map(|i| i.tag.clone()).collect();
     if !free.is_empty() && base <= INCONCLUSIVE {
-        let only = |r: &Resp| Resp(r.0.iter().filter(|i| free.contains(&i.tag)).cloned().collect());
+        let only = |r: &Resp| Resp(r.0.iter().filter(|i| free.contains(&i.tag)).cloned().collect(), r.1.clone());
         if let Err(e) = cmp(&only(got), &only(expected), base) {
             return Verdict::Fail(e);
         }
@@ -104,6 +106,7 @@ pub fn judge_split(got: &Resp, expected: &Resp, rel: f64, base: f64, cmp: impl F
     let widened = crate::response::widened_past(expected, rel, INCONCLUSIVE);
     match cmp(&got.without_tags(&widened), &expected.without_tags(&widened), rel) {
         Err(e) => Verdict::Fail(e),
+        Ok(r) if r.values == 0 && r.refusals > 0 => Verdict::SameRefusal,
         Ok(_) if !widened.is_empty() => Verdict::Inconclusive(rel),
         Ok(r) => Verdict::Pass(r.worst),
     }
@@ -165,7 +168,7 @@ pub fn transformed_failure(e: String) -> Verdict {
 pub fn settle(first: Verdict, retry: impl FnOnce() -> Verdict) -> Verdict {
     match first {
         Verdict::Refused(_) | Verdict::Unrepresentable(_) => match retry() {
-            v @ (Verdict::Pass(_) | Verdict::Fail(_) | Verdict::Inconclusive(_)) => v,
+            v @ (Verdict::Pass(_) | Verdict::SameRefusal | Verdict::Fail(_) | Verdict::Inconclusive(_)) => v,
             _ => first,
         },
         v => v,
@@ -175,7 +178,7 @@ pub fn settle(first: Verdict, retry: impl FnOnce() -> Verdict) -> Verdict {
 /// Analyses that must reproduce the linear static solution on any model they
 /// accept (see the "linear agreement" invariant).
 pub const REDUCES_TO_LINEAR: &[&str] = &[
-    "linear (dense reference)", "linear (sparse path)", "linear (PCG)", "constrained", "certified linear", "load combinations",
+    "linear (WASM typed path)", "linear (load session)", "linear (dense reference)", "linear (sparse path)", "linear (PCG)", "constrained", "certified linear", "load combinations",
     "staged (one stage)", "staged (loads in two stages)", "Winkler (no foundation)", "contact (no gaps)", "SSI (no soil springs)",
     "creep & shrinkage (t = t0)",
 ];
@@ -189,6 +192,7 @@ pub fn applicable(a: &Ana2, inv: &str) -> bool {
         "reciprocity" => a.law == Law::Linear,
         "energy" => a.law == Law::Linear && a.full_static,
         "linear agreement" => REDUCES_TO_LINEAR.contains(&a.name),
+        "planes" => a.planar.is_some(),
         "modal orthogonality" => a.name == "modal",
         _ => true,
     }
@@ -294,6 +298,11 @@ pub fn check_case(ctx: &Ctx, c: &Case2, anas: &[Ana2], invariants: &[&str]) {
                     let u = Units::froude(l, f);
                     same(a, &c.units(&u), Ok(base.units(&u)), &cond)
                 }
+                "load order" => {
+                    let mut loads = c.s.loads.clone();
+                    loads.reverse();
+                    if loads.len() < 2 { Verdict::NotApplicable } else { same(a, &c.with_loads(loads), Ok(base.clone()), &cond) }
+                }
                 "superposition" => superposition(a, c, &base, &cond),
                 "modal orthogonality" => {
                     if a.name == "modal" {
@@ -321,6 +330,10 @@ pub fn check_case(ctx: &Ctx, c: &Case2, anas: &[Ana2], invariants: &[&str]) {
                         }
                     }
                 }
+                "planes" => match a.planar {
+                    Some(solve) => planes(a, c, &base, solve, &cond),
+                    None => Verdict::NotApplicable,
+                },
                 "reciprocity" => reciprocity(a, c, &cond, &mut rng),
                 "energy" => energy(a, c, &cond, &mut rng),
                 _ => Verdict::NotApplicable,
@@ -330,8 +343,99 @@ pub fn check_case(ctx: &Ctx, c: &Case2, anas: &[Ana2], invariants: &[&str]) {
     }
 }
 
-/// Magnitude of the applied loads (force units): Σ|F| + Σ|M|/L + Σ|q|·L_e.
+/// The plane frame in each coordinate plane of a 3D model, solved by `solve` and read back in
+/// the frame's axes, must give `base`, with no force out of the plane or at a node the frame leaves free. A known-issue refusal on
+/// one side only is not a pass: the two dimensions contain the same model differently.
+fn planes(a: &Ana2, c: &Case2, base: &Resp, solve: impl Fn(&Case2, Plane, &SolverInput3D) -> Result<Resp, String>, cond: &Conditioning) -> Verdict {
+    use dedaliano_engine::metamorphic::planes::embed_2d;
+    let rel = rel_for(a.name, a.iter_tol, cond) * 2.0;
+    let rel_free = rel_without_eigen(a.name, a.iter_tol, cond) * 2.0;
+    let mut verdict = Verdict::NotApplicable;
+    let mut refused = None;
+    for plane in Plane::ALL {
+        let s3 = match embed_2d(&c.s, plane) {
+            Ok(s3) => s3,
+            Err(e) => return Verdict::Unrepresentable(e.to_string()),
+        };
+        let got = crate::response::outcome(guarded(|| solve(c, plane, &s3)));
+        let got = match got {
+            Ok(g) => g,
+            Err(e) => return Verdict::Fail(format!("{plane:?}: 2D {}, 3D failed: {e}", if base.1.is_empty() { "solved" } else { "refused" })),
+        };
+        match (base.1.is_empty(), got.1.is_empty()) {
+            (true, true) => {}
+            (false, false) => {
+                refused.get_or_insert(format!("{plane:?}: both refuse: 2D {:?}, 3D {:?}", base.1, got.1));
+                continue;
+            }
+            (b, _) => return Verdict::Fail(format!("{plane:?}: containment differs ({} only): 2D {:?}, 3D {:?}", if b { "3D" } else { "2D" }, base.1, got.1)),
+        }
+        let mut exp = base.clone();
+        exp.0.extend(got.0.iter().filter(|i| i.tag.starts_with("stray ")).map(|i| {
+            let mut zero = i.clone();
+            zero.v.fill(0.0);
+            zero
+        }));
+        let keys = |r: &Resp| r.0.iter().map(|i| (i.node, i.elem, i.tag.clone())).collect::<std::collections::BTreeSet<_>>();
+        if keys(&got) != keys(&exp) {
+            let (g, e) = (keys(&got), keys(&exp));
+            return Verdict::Fail(format!("{plane:?}: results differ in shape: only in 3D {:?}, only in 2D {:?}", g.difference(&e).take(4).collect::<Vec<_>>(), e.difference(&g).take(4).collect::<Vec<_>>()));
+        }
+        let cmp = |g: &Resp, e: &Resp, rel: f64| compare_with_compliance(&g.flat(), &e.flat(), cond.lchar, rel, load_floor_2d(&c.s, cond.lchar), compliance(a.name, cond));
+        verdict = match judge_split(&got, &exp, rel, rel_free, cmp) {
+            Verdict::Fail(e) => return Verdict::Fail(format!("{plane:?}: {e}")),
+            Verdict::Pass(w) => match verdict {
+                Verdict::Pass(v) => Verdict::Pass(v.max(w)),
+                _ => Verdict::Pass(w),
+            },
+            other => return other,
+        };
+    }
+    match refused {
+        Some(r) => Verdict::Refused(r),
+        None => verdict,
+    }
+}
+
+/// Magnitude of the applied actions (force units): Σ|F| + Σ|M|/L + Σ|q|·L_e,
+/// plus the force a thermal strain or a settlement would cause if restrained
+/// (E·A·α·ΔT, E·I·α·ΔT_grad/(h·L); for a settlement, the end forces of each
+/// member at that node: EA/L·d_axial + 12EI/L³·d_transverse + 6EI/L²·θ): a
+/// statically determinate model under those has member forces that are zero
+/// up to round-off of that size, not of zero.
 pub fn load_floor_2d(s: &SolverInput, lchar: f64) -> f64 {
+    let member = |id: usize| -> Option<(f64, f64, f64, f64)> {
+        let e = s.elements.get(&id.to_string())?;
+        let (a, b) = (s.nodes.get(&e.node_i.to_string())?, s.nodes.get(&e.node_j.to_string())?);
+        let m = s.materials.get(&e.material_id.to_string())?;
+        let x = s.sections.get(&e.section_id.to_string())?;
+        Some((m.e * 1000.0, x.a, x.iz, ((b.x - a.x).powi(2) + (b.z - a.z).powi(2)).sqrt()))
+    };
+    let imposed: f64 = s.supports.values().map(|x| {
+        let (dx, dz, th) = (x.dx.unwrap_or(0.0), x.dz.unwrap_or(0.0), x.dry.unwrap_or(0.0).abs());
+        if dx == 0.0 && dz == 0.0 && th == 0.0 {
+            return 0.0;
+        }
+        s.elements.values().filter(|e| e.node_i == x.node_id || e.node_j == x.node_id).filter_map(|e| {
+            let (em, a, i, l) = member(e.id).filter(|m| m.3 > 0.0)?;
+            let (n1, n2) = (s.nodes.get(&e.node_i.to_string())?, s.nodes.get(&e.node_j.to_string())?);
+            let (cx, cz) = ((n2.x - n1.x) / l, (n2.z - n1.z) / l);
+            let (axial, transverse) = ((dx * cx + dz * cz).abs(), (dx * cz - dz * cx).abs());
+            Some(em * (a / l * axial + 12.0 * i / l.powi(3) * transverse + 6.0 * i / (l * l) * th))
+        }).sum::<f64>()
+    }).sum();
+    let thermal: f64 = s.loads.iter().map(|l| match l {
+        SolverLoad::Thermal(t) => member(t.element_id).map_or(0.0, |(em, a, i, _)| {
+            let alpha = t.alpha.unwrap_or(1.2e-5).abs();
+            let h = t.depth.unwrap_or((12.0 * i / a).sqrt());
+            em * alpha * (a * t.dt_uniform.abs() + i * t.dt_gradient.abs() / (h * lchar))
+        }),
+        _ => 0.0,
+    }).sum();
+    imposed + thermal + applied_2d(s, lchar)
+}
+
+fn applied_2d(s: &SolverInput, lchar: f64) -> f64 {
     let len = |id: usize| -> f64 {
         s.elements.get(&id.to_string()).and_then(|e| {
             let (a, b) = (s.nodes.get(&e.node_i.to_string())?, s.nodes.get(&e.node_j.to_string())?);
@@ -610,4 +714,84 @@ fn energy(a: &Ana2, c: &Case2, cond: &Conditioning, rng: &mut Rng) -> Verdict {
     } else {
         Verdict::Fail(format!("ΣP·u = {w:.10e} but Σ f_e·u_e + springs = {e2:.10e}, |diff| {:.3e} > tol {tol:.3e}", (w - e2).abs()))
     }
+}
+
+#[test]
+fn a_one_sided_failure_or_refusal_or_a_nonfinite_3d_result_fails_the_planes_check() {
+    use dedaliano_engine::known_issues::{diagnostic, refuse, Mode, ENTRIES};
+    use crate::ana2::in_plane;
+    use dedaliano_engine::solver::linear;
+    let c = crate::corpus::cases_2d(crate::corpus::Tier::Pr, crate::seed()).into_iter().find(|c| c.name.contains("ex-cantilever-input")).unwrap();
+    let a = crate::ana2::rows().into_iter().find(|a| a.name == "linear").unwrap();
+    let cond = with_eigen_2d(conditioning::of_2d(&c.s).unwrap(), &c);
+    let base = run(&a, &c).unwrap();
+    let check = |base: &Resp, solve: fn(&SolverInput3D) -> Result<AnalysisResults3D, String>| planes(&a, &c, base, |c, p, s| in_plane(c, p, solve(s)), &cond);
+    let fails = |solve: fn(&SolverInput3D) -> Result<AnalysisResults3D, String>| matches!(check(&base, solve), Verdict::Fail(_));
+    assert!(matches!(check(&base, |s| linear::solve_3d(s)), Verdict::Pass(_)));
+    assert!(fails(|s| {
+        let mut r = linear::solve_3d(s)?;
+        r.element_forces[0].mx_start = f64::NAN;
+        Ok(r)
+    }));
+    assert!(fails(|s| {
+        let mut r = linear::solve_3d(s)?;
+        let k = normal_axis(s);
+        let d = &mut r.displacements[1];
+        let mut u = [d.ux, d.uy, d.uz];
+        u[k] = 1e-3 * u.iter().fold(0.0, |m: f64, v| m.max(v.abs()));
+        [d.ux, d.uy, d.uz] = u;
+        Ok(r)
+    }));
+    assert!(fails(|s| {
+        let mut r = linear::solve_3d(s)?;
+        let k = normal_axis(s);
+        let d = &mut r.displacements[1];
+        let mut t = [d.rx, d.ry, d.rz];
+        t[(k + 1) % 3] = 1e-3 * t[k].abs();
+        [d.rx, d.ry, d.rz] = t;
+        Ok(r)
+    }));
+    assert!(fails(|_| Err("singular".into())));
+    let id = ENTRIES.iter().find(|e| e.mode == Mode::Refuse).unwrap();
+    let refused_2d = Resp(Vec::new(), vec![(id.id.to_string(), id.issue as u64)]);
+    let refuse_in_xz = |s: &SolverInput3D| {
+        if normal_axis(s) == 1 {
+            let id = ENTRIES.iter().find(|e| e.mode == Mode::Refuse).unwrap().id;
+            return refuse(&[diagnostic(id)]).map(|_| unreachable!());
+        }
+        linear::solve_3d(s)
+    };
+    assert!(matches!(check(&refused_2d, refuse_in_xz), Verdict::Fail(_)));
+    assert!(matches!(check(&refused_2d, |_| Err("singular".into())), Verdict::Fail(_)));
+    let nan = |s: &SolverInput3D| {
+        let mut r = linear::solve_3d(s)?;
+        r.element_forces[0].mx_start = f64::NAN;
+        Ok(r)
+    };
+    assert!(matches!(check(&refused_2d, nan), Verdict::Fail(_)));
+    assert!(fails(|_| {
+        let id = ENTRIES.iter().find(|e| e.mode == Mode::Refuse).unwrap().id;
+        refuse(&[diagnostic(id)]).map(|_| unreachable!())
+    }));
+}
+
+#[test]
+fn a_nonfinite_3d_modal_result_fails_the_planes_check() {
+    use crate::ana2::modal_in_plane;
+    use dedaliano_engine::solver::modal;
+    let c = crate::corpus::cases_2d(crate::corpus::Tier::Pr, crate::seed()).into_iter().find(|c| c.name.contains("ex-cantilever-input")).unwrap();
+    let a = crate::ana2::rows().into_iter().find(|a| a.name == "modal").unwrap();
+    let cond = with_eigen_2d(conditioning::of_2d(&c.s).unwrap(), &c);
+    let base = run(&a, &c).unwrap();
+    assert!(matches!(planes(&a, &c, &base, a.planar.unwrap(), &cond), Verdict::Pass(_)));
+    let last_nan = |c: &Case2, p: Plane, s: &SolverInput3D| {
+        let mut r = modal::solve_modal_3d(s, &c.dens, 6)?;
+        r.modes.last_mut().unwrap().effective_mass_x = f64::NAN;
+        modal_in_plane(p, &r)
+    };
+    assert!(matches!(planes(&a, &c, &base, last_nan, &cond), Verdict::Fail(_)));
+}
+
+fn normal_axis(s: &SolverInput3D) -> usize {
+    (0..3).find(|&k| s.supports.values().all(|x| [x.rx, x.ry, x.rz][k])).unwrap()
 }
