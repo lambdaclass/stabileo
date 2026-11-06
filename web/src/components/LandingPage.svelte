@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, type Component } from 'svelte';
   import { tPublic as t, publicI18n } from '../lib/i18n/store.svelte';
   import { applyPageMeta, restorePageMeta, stabileoSoftware } from '../lib/page-meta';
   import LandingHero from './landing/LandingHero.svelte';
@@ -8,18 +8,19 @@
   import LandingBasic from './landing/LandingBasic.svelte';
   import LandingProCalc from './landing/LandingProCalc.svelte';
   import LandingProDesign from './landing/LandingProDesign.svelte';
-  import LandingAi from './landing/LandingAi.svelte';
   import LandingVerification from './landing/LandingVerification.svelte';
   import LandingEducation from './landing/LandingEducation.svelte';
   import LandingBlog from './landing/LandingBlog.svelte';
   import LandingFooter from './landing/LandingFooter.svelte';
   import LinksButton from './landing/LinksButton.svelte';
   import { enterApp } from './landing/landing-utils';
+  import { holdPrerender } from '../lib/prerender-hold';
   import './landing/landing.css';
 
   let landingEl: HTMLDivElement;
   let scrollPct = $state(0);
   let prefersReducedMotion = $state(false);
+  let LandingAi = $state<Component | null>(null);
 
   /**
    * Reactive metadata. The landing is client-rendered, so index.html holds the
@@ -43,6 +44,11 @@
   });
 
   onMount(() => {
+    holdPrerender(import('./landing/LandingAi.svelte')).then(
+      (m) => { LandingAi = m.default; },
+      (err) => console.warn('landing: the AI section did not load', err),
+    );
+
     const onScroll = () => {
       const el = landingEl;
       if (!el) return;
@@ -128,7 +134,7 @@
   <LandingBasic />
   <LandingProCalc />
   <LandingProDesign />
-  <LandingAi />
+  {#if LandingAi}<LandingAi />{/if}
   <LandingVerification />
   <LandingEducation />
   <LandingPricing />
