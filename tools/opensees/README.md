@@ -222,9 +222,11 @@ agree, `mismatch` when the difference stops halving from n to 2n, and
 `converging` when it keeps halving but its rate cannot bring it within
 tolerance on the next mesh (refinement stops there: OpenSees' dense eigen
 solve dominates the run). The difference is the largest load-factor or 1−MAC
-error; a mode whose gap to a neighbour is within ten times the load-factor
-error (the solvers may order such a pair either way) is measured against the
-span of OpenSees' modes of its cluster instead of the single mode.
+error; a mode whose gap to a neighbour is within ten times its own
+load-factor error (the solvers may order such modes either way) is measured
+against the span of OpenSees' modes of that connected cluster instead of the
+single mode. Every mesh is compared at the unmeshed model's tolerance; a mesh
+whose κ puts its round-off (100·ε·κ) above it ends the refinement.
 `converging` is inconclusive by construction: a constant difference smaller
 than the remaining discretisation difference cannot be told apart from it on
 these meshes. The engine failing on a finer mesh is a `mismatch`, OpenSees

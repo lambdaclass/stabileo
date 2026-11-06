@@ -77,7 +77,7 @@ class RefinedBucklingTest(unittest.TestCase):
     """Engine and OpenSees load factors per number of frame members (2 in the
     unmeshed column): stub solvers, so only the decision logic runs."""
 
-    def run_with(self, stab, ops, axial_span_load=True, omodes=None, fail=None):
+    def run_with(self, stab, ops, axial_span_load=True, omodes=None, fail=None, kappa=None):
         job = {"analysis": "buckling", "numModes": 2, "model": column(axial_span_load)}
         lin = dict(disp={}, reac={}, forces={}, diags=[], issues=[])
         seen = []
@@ -94,7 +94,7 @@ class RefinedBucklingTest(unittest.TestCase):
                 return {"failed": "analyze failed"}
             if fail == ("large", n):
                 return {"unsupported": "too large for dense eigen/transient comparison"}
-            return {"values": ops[n], "modes": (omodes or {}).get(n, MODES), "dim": 3, "kappa": 1e3,
+            return {"values": ops[n], "modes": (omodes or {}).get(n, MODES), "dim": 3, "kappa": (kappa or {}).get(n, 1e3),
                     "art_rot": [], "linear": dict(lin, art_rot=[], dim=3)}
 
         with mock.patch.object(C, "stabileo", return_value={}), \
@@ -171,8 +171,28 @@ class RefinedBucklingTest(unittest.TestCase):
     def test_a_mode_without_neighbours_keeps_its_shape_difference(self):
         groups = {"eig": 1e-4, "mac": 0.01}
         ores = {"values": [10.0], "dim": 3, "modes": MODES[:1]}
-        sres = {"modes": MODES[:1]}
+        sres = {"values": [10.001], "modes": MODES[:1]}
         self.assertEqual(C._resolved_difference([("mode", 1, "1-MAC", 0.01, 0.0, 0.01)], groups, sres, ores), 0.01)
+
+    def test_a_rotated_basis_of_a_triple_mode_is_the_same_eigenspace(self):
+        x, y, z = ({1: [1.0 * (k == m) for k in range(6)]} for m in (0, 1, 2))
+        ores = {"values": [10.0, 10.0, 10.0], "dim": 3, "modes": [x, y, z]}
+        sres = {"values": [10.01, 10.01, 10.01], "modes": [z, x, y]}
+        bad = [("mode", i, "1-MAC", 1.0, 0.0, 1.0) for i in (1, 2, 3)]
+        self.assertEqual(C._resolved_difference(bad, {"eig": 1e-3, "mac": 1.0}, sres, ores), 1e-3)
+
+    def test_a_separated_mode_is_not_excused_by_another_modes_error(self):
+        ores = {"values": [10.0, 10.5, 30.0], "dim": 3, "modes": [MODES[0], MODES[1], {1: [0.0, 0.0, 1.0, 0.0, 0.0, 0.0]}]}
+        sres = {"values": [10.0, 10.5, 33.0], "modes": [MODES[1], MODES[1], ores["modes"][2]]}
+        bad = [("mode", 1, "1-MAC", 1.0, 0.0, 1.0)]
+        self.assertEqual(C._resolved_difference(bad, {"eig": 0.1, "mac": 1.0}, sres, ores), 1.0)
+
+    def test_meshes_compare_at_the_tolerance_of_the_unmeshed_model(self):
+        stab = {n: [10.0, 30.0] for n in (1, 2, 4, 8, 16)}
+        ops = {1: [9.0, 30.0], **{n: [10.0 * (1 - 4e-6), 30.0] for n in (2, 4, 8, 16)}}
+        with mock.patch.object(C, "KAPPA_MAX", 1e30):
+            r, seen = self.run_with(stab, ops, kappa={1: 1e3, 2: 1e3, 4: 1e10})
+        self.assertEqual((r["status"], seen), ("mismatch", [1, 2, 4]))
 
     def test_a_close_pair_spanning_other_shapes_is_a_mismatch(self):
         stab = {n: [10.0, 10.05] for n in (1, 2, 4, 8, 16)}

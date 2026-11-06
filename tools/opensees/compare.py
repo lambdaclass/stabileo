@@ -1972,19 +1972,23 @@ def _outside_span(a, others, art, nt):
 
 def _resolved_difference(bad, groups, sres, ores):
     """The largest load-factor or 1-MAC difference, where a mode whose gap to
-    a neighbour is within ten times the load-factor difference (the solvers
-    may order such a pair either way) is measured against the span of the
-    OpenSees modes of its cluster instead of the single mode."""
+    a neighbour is within ten times its own load-factor difference (the
+    solvers may order such modes either way) is measured against the span of
+    the OpenSees modes of that connected cluster instead of the single mode."""
     values, nt, art = ores["values"], 2 if ores["dim"] == 2 else 3, set(ores.get("art_rot", []))
     worst = groups["eig"]
     for q, i, _, _, _, e in bad:
         if q != "mode":
             continue
-        v = values[i - 1]
-        near = [j for j in (i - 2, i) if 0 <= j < len(values) and abs(values[j] - v) / abs(v) <= 10 * groups["eig"]]
-        if near:
-            cluster = [ores["modes"][j] for j in sorted(near + [i - 1])]
-            e = _outside_span(sres["modes"][i - 1], cluster, art, nt)
+        k = i - 1
+        reach = 10 * abs(sres["values"][k] - values[k]) / abs(values[k])
+        lo, hi = k, k
+        while lo > 0 and abs(values[lo - 1] - values[lo]) <= reach * abs(values[k]):
+            lo -= 1
+        while hi + 1 < min(len(values), len(ores["modes"])) and abs(values[hi + 1] - values[hi]) <= reach * abs(values[k]):
+            hi += 1
+        if hi > lo:
+            e = _outside_span(sres["modes"][k], ores["modes"][lo:hi + 1], art, nt)
         worst = max(worst, e)
     return worst
 
@@ -1995,7 +1999,8 @@ def refine_buckling(job, binary, tol, dim):
     converging is set when they never agree but each doubling of n at least
     halves their difference. Refinement stops once the difference stops
     halving, its current rate cannot bring it within tol on the next mesh, or
-    OpenSees cannot take the next mesh (too large, ill-conditioned). The
+    OpenSees cannot take the next mesh (too large, or conditioned so that
+    tol is within its round-off). The
     engine failing on a mesh is a mismatch; OpenSees failing raises
     RuntimeError."""
     levels = []
@@ -2010,9 +2015,9 @@ def refine_buckling(job, binary, tol, dim):
         kappa = ores.get("kappa")
         if "failed" in ores:
             raise RuntimeError(f"OpenSees failed on the n={n} mesh: {ores['failed']}")
-        if "values" not in ores or kappa is None or kappa > KAPPA_MAX:
+        if "values" not in ores or kappa is None or 100 * 2.2e-16 * kappa > tol:
             break
-        bad, groups = compare_eigen(sres, ores, max(tol, 100 * 2.2e-16 * kappa), job["numModes"], 1)
+        bad, groups = compare_eigen(sres, ores, tol, job["numModes"], 1)
         if not bad:
             return [], groups, n, None
         levels.append((n, bad, groups, _resolved_difference(bad, groups, sres, ores)))
