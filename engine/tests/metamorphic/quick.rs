@@ -13,6 +13,9 @@ const SEEDS: &[u64] = &[20754, 20261105];
 pub const INVARIANTS_2D: &[&str] = &["rotation", "mirror", "relabel", "reversal", "units", "load order", "planes"];
 pub const INVARIANTS_3D: &[&str] = &["rotation", "mirror", "relabel", "reversal", "units", "load order"];
 
+/// Properties checked on top of the invariances, on the curated models and the nightly models of their issues.
+pub const PROPERTIES: &[(&str, &[&str], &[u32])] = &[("harmonic", &["superposition", "reciprocity"], &[1537, 1538, 1539, 1540, 1541])];
+
 const ALL: &[&str] = &["*"];
 const LINEAR: &[&str] = &["linear", "linear (WASM typed path)", "linear (load session)", "linear (dense reference)", "linear (sparse path)", "linear (PCG)", "certified linear"];
 const DYNAMIC: &[&str] = &["modal", "certified modal", "spectral", "time history", "time history (ground motion)", "harmonic"];
@@ -270,6 +273,30 @@ pub fn run(sel: &Selection) -> Outcome {
             }
         }
     }
+    for &(name, properties, issues) in PROPERTIES.iter().filter(|p| sel.has(p.0)) {
+        let (mut c2, mut c3) = (cases_2d(), cases_3d());
+        for &issue in issues {
+            match crate::harmonic_linearity::nightly_case(issue) {
+                (Some(c), None) => c2.push(c),
+                (None, Some(c)) => c3.push(c),
+                _ => unreachable!(),
+            }
+        }
+        let a2: Vec<_> = ana2::rows().into_iter().filter(|a| a.name == name).collect();
+        let a3: Vec<_> = ana3::rows().into_iter().filter(|a| a.name == name).collect();
+        for &seed in SEEDS {
+            for c in &c2 {
+                let t = Tally::default();
+                checks2::check_case(&checks2::Ctx { tally: &t, rng_seed: seed }, c, &a2, properties);
+                collect(&mut out, &format!("{seed}:{}", c.name), &t);
+            }
+            for c in &c3 {
+                let t = Tally::default();
+                checks3::check_case(&checks3::Ctx { tally: &t, rng_seed: seed }, c, &a3, properties);
+                collect(&mut out, &format!("{seed}:{}", c.name), &t);
+            }
+        }
+    }
     out
 }
 
@@ -363,8 +390,22 @@ fn every_mapped_analysis_exists() {
     }
     for e in EXPECTED {
         assert!(names.contains(e.analysis), "#{}: no analysis named {:?}", e.issue, e.analysis);
-        assert!(INVARIANTS_2D.contains(&e.invariant) || INVARIANTS_3D.contains(&e.invariant), "#{}: no invariant {:?}", e.issue, e.invariant);
+        assert!(INVARIANTS_2D.contains(&e.invariant) || INVARIANTS_3D.contains(&e.invariant) || PROPERTIES.iter().any(|p| p.0 == e.analysis && p.1.contains(&e.invariant)), "#{}: no invariant {:?}", e.issue, e.invariant);
     }
+    for (name, properties, _) in PROPERTIES {
+        assert!(names.contains(name), "no analysis named {name:?}");
+        assert!(properties.iter().all(|p| crate::INV_2D.contains(p) && crate::INV_3D.contains(p)), "{properties:?}");
+    }
+}
+
+#[test]
+fn harmonic_superposition_and_reciprocity_are_checked_per_pr() {
+    let out = run(&Selection::Some(["harmonic"].into()));
+    for invariant in ["superposition", "reciprocity"] {
+        let issues: BTreeSet<&str> = out.passed.iter().filter(|(_, a, i)| a == "harmonic" && i == invariant).filter_map(|(c, _, _)| c.split_once(':').map(|x| x.1)).collect();
+        assert!(issues.len() >= 10, "harmonic × {invariant} held on only {issues:?}");
+    }
+    assert!(out.fails.is_empty(), "{:?}", out.fails);
 }
 
 #[test]

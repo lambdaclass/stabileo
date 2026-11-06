@@ -30,6 +30,7 @@ mod parity;
 mod nightly_tolerances;
 mod quick;
 mod regressions;
+mod harmonic_linearity;
 mod response;
 mod symmetry;
 mod tally;

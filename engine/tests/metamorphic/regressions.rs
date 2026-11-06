@@ -1053,7 +1053,7 @@ fn issue_758_when_the_limit_analysis_fails_the_exact_certificate_still_checks_th
     assert!(lower > 30.0 * 10.904960242330917, "a roller 1.4e-6 rad off the member axis props the tip: {lower}");
 }
 
-fn gauss_complex(k: &[f64], m: &[f64], c: &[f64], f: &[f64], n: usize, w: f64) -> (Vec<f64>, Vec<f64>) {
+pub(crate) fn gauss_complex(k: &[f64], m: &[f64], c: &[f64], f: &[f64], n: usize, w: f64) -> (Vec<f64>, Vec<f64>) {
     let n2 = 2 * n;
     let w1 = n2 + 1;
     let mut a = vec![0.0; n2 * w1];
