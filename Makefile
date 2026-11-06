@@ -13,7 +13,7 @@
        services services.stop postgres.start postgres.stop \
        inst inst.check inst.claim inst.release inst.list ports \
        result-changes.order docker.build docker.up docker.down cloud-init.render \
-       check-pins check.changelog check.reverts check.test-targets test.cadence check.cadence check.containment deps.audit test.engine.reproducers test.reproducers.published check.issue-reproducers worktree worktree-prune hooks \
+       check-pins check.changelog release.step check.reverts check.test-targets test.cadence check.cadence check.containment deps.audit test.engine.reproducers test.reproducers.published check.issue-reproducers worktree worktree-prune hooks \
        fmt check clean
 
 NIX_RUN = nix develop --command
@@ -452,6 +452,11 @@ check-pins:
 check.changelog:
 	$(NIX_RUN) python3 -I scripts/changelog.py --check
 
+## The release step: fragments into CHANGELOG.md, links rebased, registry and engine locks updated (scripts/release-step.py)
+release.step:
+	@test -n "$(VERSION)" -a -n "$(DATE)" || { echo 'usage: make release.step VERSION=0.5.0 DATE=2026-11-06'; exit 2; }
+	$(NIX_RUN) python3 -I scripts/release-step.py $(VERSION) $(DATE)
+
 ## Merging HEAD into BASE deletes no lines written in the last 21 days that reached the branch only by merging BASE
 ## (the `reverts-ok` label, in $$GITHUB_EVENT_PATH or LABELS=a,b, acknowledges them)
 check.reverts:
@@ -491,6 +496,7 @@ test.ci-scripts: test.nightly-scripts check.cadence
 	python3 -B -I scripts/tests/test_retry_infra.py
 	python3 -B -I scripts/tests/test_kani_shards.py
 	python3 -B -I scripts/tests/test_build_research_wasm.py
+	python3 -B -I scripts/tests/test_release_step.py
 	python3 -B -I scripts/tests/test_research_host_cache.py
 	python3 -B -I scripts/tests/test_ci_aggregate.py
 	python3 -B -I scripts/tests/test_full_history_checkouts.py
