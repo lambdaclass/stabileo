@@ -405,7 +405,7 @@ fn harmonic_solid_shell_static_limit_and_mixed_model() {
     let stat = disp(&linear::solve_3d(&s).unwrap(), bot(NX, 1))[2];
     assert!(rel(a.response_points[0].amplitude, stat.abs()) < 1e-3, "{} vs {stat}", a.response_points[0].amplitude);
     for k in 0..2 {
-        assert!(rel(b.response_points[k].amplitude, a.response_points[k].amplitude) < 1e-4, "point {k}: {} vs {} ({} / {})", b.response_points[k].amplitude, a.response_points[k].amplitude, b.method, a.method);
+        assert!(rel(b.response_points[k].amplitude, a.response_points[k].amplitude) < 1e-4, "point {k}: {} vs {} ({:?} / {:?})", b.response_points[k].amplitude, a.response_points[k].amplitude, b.method, a.method);
     }
 }
 
