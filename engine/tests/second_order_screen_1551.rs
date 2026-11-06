@@ -335,3 +335,18 @@ fn a_much_larger_force_elsewhere_does_not_hide_an_unbounded_member() {
     assert!(r.element_forces.iter().any(|f| f.element_id == 4 && f.n_start > 9e15), "{:?}", r.element_forces);
     assert_eq!(second_order(&r.structured_diagnostics), unbounded());
 }
+
+#[test]
+fn a_much_larger_force_at_its_supports_does_not_hide_an_unbounded_member() {
+    let mut value = serde_json::to_value(portal("pinned", 216.0, 0.0)).unwrap();
+    value["nodes"]["5"] = json!({"id": 5, "x": -3.0, "z": 0.0});
+    value["nodes"]["6"] = json!({"id": 6, "x": 7.0, "z": 0.0});
+    value["sections"]["3"] = json!({"id": 3, "a": 1e9, "iz": 1e6});
+    value["elements"]["4"] = json!({"id": 4, "type": "truss", "nodeI": 5, "nodeJ": 1, "materialId": 1, "sectionId": 3});
+    value["elements"]["5"] = json!({"id": 5, "type": "truss", "nodeI": 4, "nodeJ": 6, "materialId": 1, "sectionId": 3});
+    value["supports"]["4"] = json!({"id": 4, "nodeId": 6, "type": "pinned", "dx": 1e7});
+    value["supports"]["5"] = json!({"id": 5, "nodeId": 5, "type": "pinned", "dx": -1e7});
+    let r = solve_2d(&serde_json::from_value(value).unwrap()).unwrap();
+    assert!(r.element_forces.iter().filter(|f| f.element_id >= 4).all(|f| f.n_start > 1e15), "{:?}", r.element_forces);
+    assert_eq!(second_order(&r.structured_diagnostics), unbounded());
+}
