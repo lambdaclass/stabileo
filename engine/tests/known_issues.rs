@@ -560,7 +560,7 @@ fn advanced_3d_and_bundles_keep_conditioning() {
         let modal = solve_modal_3d(&solver, &densities, 2).unwrap();
         let harmonic = solve_harmonic_3d(&HarmonicInput3D { solver: solver.clone(), densities: densities.clone(),
             frequencies: vec![0.1, 1.0], damping_ratio: 0.05, response_node_id: 5, response_dof: "x".into() }).unwrap();
-        assert_eq!(ids(&harmonic.structured_diagnostics).contains(&"MD-ORTHOGONALITY".into()), harmonic.method.starts_with("modal"));
+        assert_eq!(ids(&harmonic.structured_diagnostics).contains(&"MD-ORTHOGONALITY".into()), harmonic.method.superposes_modes());
         let guyan = guyan_reduce_3d(&GuyanInput3D { solver: solver.clone(), boundary_nodes: vec![5] }).unwrap();
         let cb = craig_bampton_3d(&CraigBamptonInput3D { solver: solver.clone(), densities: densities.clone(), boundary_nodes: vec![5], n_modes: 2 }).unwrap();
         let th: TimeHistoryInput3D = serde_json::from_value(serde_json::json!({
@@ -696,7 +696,7 @@ fn curved_only_dynamic_solvers_warn() {
     let densities = HashMap::from([("1".into(), 7850.0)]);
     let harmonic_input = HarmonicInput3D { solver: solver.clone(), densities: densities.clone(), frequencies: vec![0.1, 1.0], damping_ratio: 0.05, response_node_id: 5, response_dof: "z".into() };
     let harmonic = solve_harmonic_3d(&harmonic_input).unwrap();
-    assert_eq!(ids(&harmonic.structured_diagnostics).contains(&"MD-ORTHOGONALITY".into()), harmonic.method.starts_with("modal"));
+    assert_eq!(ids(&harmonic.structured_diagnostics).contains(&"MD-ORTHOGONALITY".into()), harmonic.method.superposes_modes());
     let cb = craig_bampton_3d(&CraigBamptonInput3D { solver: solver.clone(), densities: densities.clone(), boundary_nodes: vec![5], n_modes: 2 }).unwrap();
     let time = solve_time_history_3d(&serde_json::from_value(serde_json::json!({ "solver": solver, "densities": densities, "timeStep": 0.01, "nSteps": 2 })).unwrap()).unwrap();
     for ds in [&harmonic.structured_diagnostics, &cb.structured_diagnostics, &time.structured_diagnostics] {
@@ -771,13 +771,38 @@ fn distorted_mesh_guard_indexes_the_mesh_once_per_solve() {
 }
 
 #[test]
+fn md_orthogonality_follows_the_harmonic_method_not_its_label() {
+    use dedaliano_engine::solver::harmonic::*;
+    let labels = [(HarmonicMethod::Direct, "direct", false), (HarmonicMethod::Modal, "modal", true), (HarmonicMethod::ModalStatic, "modal+static", true)];
+    for (method, label, modal) in labels {
+        assert_eq!(serde_json::to_value(method).unwrap(), serde_json::json!(label));
+        assert_eq!(serde_json::from_value::<HarmonicMethod>(serde_json::json!(label)).unwrap(), method);
+        assert_eq!(method.superposes_modes(), modal, "{method:?}");
+    }
+    let solver: SolverInput3D = serde_json::from_str(include_str!("metamorphic_corpus/differential/modal3d-5.json")).unwrap();
+    let densities: HashMap<String, f64> = solver.materials.keys().map(|id| (id.clone(), 7850.0)).collect();
+    let mut seen = Vec::new();
+    for frequencies in [vec![0.1, 1000.0], vec![0.1]] {
+        let input = HarmonicInput3D { solver: solver.clone(), densities: densities.clone(), frequencies, damping_ratio: 0.05, response_node_id: 6, response_dof: "x".into() };
+        let result = solve_harmonic_3d(&input).unwrap();
+        let warned = ids(&result.structured_diagnostics).contains(&"MD-ORTHOGONALITY".into());
+        match result.method {
+            HarmonicMethod::Modal | HarmonicMethod::ModalStatic => assert_warning(&result.structured_diagnostics, "MD-ORTHOGONALITY", 759.0),
+            HarmonicMethod::Direct => assert!(!warned, "{:?}", result.structured_diagnostics),
+        }
+        seen.push(result.method.superposes_modes());
+    }
+    assert_eq!(seen, [true, false]);
+}
+
+#[test]
 fn reported_modal_model_harmonic_and_certificate_warn() {
     use dedaliano_engine::solver::harmonic::*;
     let solver: SolverInput3D = serde_json::from_str(include_str!("metamorphic_corpus/differential/modal3d-5.json")).unwrap();
     let densities = solver.materials.keys().map(|id| (id.clone(), 7850.0)).collect();
     let input = HarmonicInput3D { solver, densities, frequencies: vec![0.1, 1000.0], damping_ratio: 0.05, response_node_id: 6, response_dof: "x".into() };
     let plain = solve_harmonic_3d(&input).unwrap();
-    assert!(plain.method.starts_with("modal"), "{}", plain.method);
+    assert!(plain.method.superposes_modes(), "{:?}", plain.method);
     assert_warning(&plain.structured_diagnostics, "MD-ORTHOGONALITY", 759.0);
     let certified = dedaliano_engine::certify::harmonic::certify_harmonic_3d(&input).unwrap();
     assert_warning(&certified.results.structured_diagnostics, "MD-ORTHOGONALITY", 759.0);

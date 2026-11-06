@@ -136,14 +136,14 @@ fn allowances(sp: &Spectrum, modes_used: usize, omega: f64, (a0, a1): (f64, f64)
 
 fn compare(d: &Dense, res: &HarmonicResult, damping: (f64, f64)) -> Result<Report, String> {
     let sp = spectrum(d)?;
-    let corrected = res.method == "modal+static";
+    let corrected = res.method == dedaliano_engine::solver::harmonic::HarmonicMethod::ModalStatic;
     let mut r = Report::new();
     for pt in &res.response_points {
         let (re, im, umax) = direct(d, damping, pt.omega)?;
         let (floor, truncation, q) = allowances(&sp, res.modes_used, pt.omega, damping, corrected, umax);
         let tol = floor + truncation;
         let uncorrected = if corrected && q < 0.5 { "" } else { ", uncorrected" };
-        let at = format!("{:.4} Hz ({}, {} of {} modes, q = {q:.2}{uncorrected})", pt.frequency, res.method, res.modes_used, d.n);
+        let at = format!("{:.4} Hz ({:?}, {} of {} modes, q = {q:.2}{uncorrected})", pt.frequency, res.method, res.modes_used, d.n);
         r.close(&format!("Re u at {at}"), Length::from_m(pt.real), re, tol);
         r.close(&format!("Im u at {at}"), Length::from_m(pt.imag), im, tol);
     }
