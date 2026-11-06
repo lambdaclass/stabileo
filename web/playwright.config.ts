@@ -155,6 +155,7 @@ export default defineConfig({
     toHaveScreenshot: { maxDiffPixelRatio: 0.02 },
   },
   // On a pull request in CI the default diff runs `git fetch --depth=1` of the PR base, which cuts the checkout's history there and breaks the results registry (scripts/result-changes/registry.mjs).
+  globalSetup: './e2e/global-setup.ts',
   captureGitInfo: { diff: false },
   reporter: process.env.CI
     // E2E_JSON_REPORT names the JSON report per suite (CI: e2e/.results/smoke.json, slow.json) for

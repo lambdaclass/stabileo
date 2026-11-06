@@ -1,7 +1,6 @@
 {
-  "$comment": "Registry of result-affecting changes. Read by web/scripts/result-change-metadata.mjs for build metadata and decoded by web/src/lib/provenance/full-registry.ts; schema and rules in docs/verification/PROVENANCE.md. Add an entry whenever a change makes the same saved model give different numbers, at currentResultsVersion + 1, and bump currentResultsVersion: a version on main is deployed, and an entry added to it later is never shown to the projects it stamped (results-version.test.ts). Feature ids are defined in web/src/lib/provenance/model-features.ts.",
+  "$comment": "Results versions 1 to 39, frozen: each entry shipped with its version and is never renumbered or removed. A new change is its own file in this directory, without a version (README.md).",
   "schema": 1,
-  "currentResultsVersion": 39,
   "changes": [
     {
       "id": "plastic-3d-member-without-capacity-refused",

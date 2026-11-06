@@ -109,6 +109,7 @@ const NOT_VITEST = ['**/node_modules/**', '**/dist/**', 'e2e/**', 'determinism/*
 const RESULTS_SNAPSHOT_TESTS = ['src/lib/results-snapshot/__tests__/**'];
 
 const PRODUCTION_BUILD_TESTS = [
+  'src/lib/provenance/__tests__/numbered-stamps.test.ts',
   'src/lib/utils/__tests__/benchmark-build.test.ts',
   'src/lib/provenance/__tests__/notice-bundle.test.ts',
   // Wall-clock budgets must not compete with the parallel unit workers. Keep the full

@@ -5,6 +5,7 @@ import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import { validateRegistry, githubSlug, changelogUrl, conditionGroups, type ResultChangeRegistry } from '../registry';
 import { FEATURE_IDS } from '../model-features';
+import { readRegistry } from '../../../../scripts/result-changes/registry.mjs';
 
 const repo = resolve(__dirname, '../../../../..');
 
@@ -17,7 +18,7 @@ describe('result-change registry', () => {
     expect(JSON.stringify(metadata)).not.toContain('title');
   });
 
-  const source = () => JSON.parse(readFileSync(resolve(repo, 'web/src/lib/provenance/result-changes.json'), 'utf8')) as ResultChangeRegistry;
+  const source = (): ResultChangeRegistry => readRegistry();
 
   it('decodes the complete source registry except the test-only quantities', () => {
     const registry = source();
