@@ -227,6 +227,28 @@ impl Resp {
         Ok(o)
     }
 
+    pub fn mirror3(&self, axis: usize) -> Result<Resp, String> {
+        let s = |i: usize| if i == axis { -1.0 } else { 1.0 };
+        let mut o = self.clone();
+        for it in o.0.iter_mut() {
+            match (&it.kind, it.tag.as_str()) {
+                (Kind::V3(_), "u" | "R") => it.v[axis] = -it.v[axis],
+                (Kind::V3(_), "r" | "RM") => (0..3).filter(|&i| i != axis).for_each(|i| it.v[i] = -it.v[i]),
+                (Kind::T3(_), _) => {
+                    let ij = [(0, 0), (0, 1), (0, 2), (1, 1), (1, 2), (2, 2)];
+                    it.v.iter_mut().zip(ij).for_each(|(v, (i, j))| *v *= s(i) * s(j));
+                }
+                (Kind::Abs3(_) | Kind::Stress, _) => {}
+                (Kind::Local(..), "N") => {}
+                (Kind::Local(..), "V") => it.v[2..].iter_mut().for_each(|v| *v = -*v),
+                (Kind::Local(..), "M") => it.v[..4].iter_mut().for_each(|v| *v = -*v),
+                (Kind::Local(..), _) if it.v.len() == 1 => {}
+                _ => return Err(format!("{:?} {} has no mirror rule", it.kind, it.tag)),
+            }
+        }
+        Ok(o)
+    }
+
     /// Expected response after reversing the members in `flipped` (see
     /// dedaliano_engine::metamorphic::reversal for the end-force maps).
     pub fn reverse(&self, flipped: &std::collections::HashSet<usize>, three_d: bool) -> Result<Resp, String> {
