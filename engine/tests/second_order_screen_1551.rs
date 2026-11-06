@@ -304,3 +304,19 @@ fn a_p_delta_result_does_not_carry_the_linear_screen() {
     assert_eq!(second_order(&p.linear_results.structured_diagnostics), warned(vec![1, 2]));
     assert_eq!(second_order(&p.results.structured_diagnostics), vec![]);
 }
+
+#[test]
+fn a_much_larger_force_elsewhere_does_not_hide_a_bounded_member() {
+    let mut input = cantilever_2d(1, -100.0, E, 1.0);
+    let mut value = serde_json::to_value(&input).unwrap();
+    value["nodes"]["3"] = json!({"id": 3, "x": 0.0, "z": 5.0});
+    value["nodes"]["4"] = json!({"id": 4, "x": L, "z": 5.0});
+    value["sections"]["2"] = json!({"id": 2, "a": 1e6, "iz": 1e3});
+    value["elements"]["2"] = json!({"id": 2, "type": "frame", "nodeI": 3, "nodeJ": 4, "materialId": 1, "sectionId": 2});
+    value["supports"]["2"] = json!({"id": 2, "nodeId": 3, "type": "fixed"});
+    value["loads"].as_array_mut().unwrap().push(json!({"type": "nodal", "data": {"nodeId": 4, "fx": 1e13, "fz": 0.0, "my": 0.0}}));
+    input = serde_json::from_value(value).unwrap();
+    let r = solve_2d(&input).unwrap();
+    assert!(r.element_forces.iter().any(|f| f.element_id == 2 && f.n_start > 9e12), "{:?}", r.element_forces);
+    assert_eq!(second_order(&r.structured_diagnostics), warned(vec![1]));
+}

@@ -640,8 +640,9 @@ pub(crate) struct ScreenModel {
     pub compressed: f64,
 }
 
-/// Compression below this fraction of the largest end force is round-off, not load.
-const COMPRESSED: f64 = 1e-8;
+/// Compression below this fraction of the largest end force is round-off, not load: only a member
+/// with no bound of its own is let off by it.
+const COMPRESSED: f64 = 1e-10;
 
 fn compressed_above(forces: impl Iterator<Item = f64>) -> f64 {
     COMPRESSED * forces.fold(0.0, |a: f64, f| a.max(f.abs()))
@@ -713,7 +714,7 @@ fn chain_ends(m: &ScreenModel, chain: &[usize]) -> Vec<usize> {
 /// A linear result's second-order screen (#1551). The K = 2 and K = 1 bounds hold for the frame
 /// only because the clamp or both braces are supports: restraint from other members does not count.
 pub(crate) fn second_order(m: &ScreenModel) -> Vec<StructuredDiagnostic> {
-    if !m.bars.iter().any(|b| b.compression > m.compressed) { return Vec::new(); }
+    if !m.bars.iter().any(|b| b.compression > 0.0) { return Vec::new(); }
     let length = |b: &ScreenBar| match (m.position.get(&b.ends[0]), m.position.get(&b.ends[1])) {
         (Some(&a), Some(&c)) => norm(sub(c, a)),
         _ => f64::NAN,
@@ -727,8 +728,8 @@ pub(crate) fn second_order(m: &ScreenModel) -> Vec<StructuredDiagnostic> {
     let (mut over, mut near) = (Vec::new(), Vec::new());
     for chain in member_chains(m) {
         let n = chain.iter().map(|&i| m.bars[i].compression).fold(0.0, f64::max);
-        if n <= m.compressed { continue; }
-        let k = if clamped(&chain) { 2.0 } else if braced(&chain) { 1.0 } else { unbounded = true; continue };
+        if n <= 0.0 { continue; }
+        let k = if clamped(&chain) { 2.0 } else if braced(&chain) { 1.0 } else { unbounded |= n > m.compressed; continue };
         let l: f64 = chain.iter().map(|&i| length(&m.bars[i])).sum();
         let ei = chain.iter().map(|&i| m.bars[i].ei_min).fold(f64::INFINITY, f64::min);
         let ratio = n / (std::f64::consts::PI.powi(2) * ei / (k * l).powi(2));
