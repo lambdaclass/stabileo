@@ -651,32 +651,71 @@ pub fn small_displacement_3d(input: &SolverInput3D, r: &AnalysisResults3D) -> (O
 
 const SPAN_STATIONS: usize = 64;
 
-/// The largest rotation along a member: its bending planes' section rotations and a twist
-/// interpolated between `twist`, at [`SPAN_STATIONS`] stations, the load positions, and the
-/// zeros of each plane's moment, where its rotation is extreme.
+/// The real roots in (0, 1) of the cubic `c[0] + c[1]·t + c[2]·t² + c[3]·t³`: the interval is
+/// split where the cubic turns, so each piece holds at most one root.
+fn cubic_roots_in_unit(c: [f64; 4]) -> Vec<f64> {
+    let p = |t: f64| ((c[3] * t + c[2]) * t + c[1]) * t + c[0];
+    let (qa, qb, qc) = (3.0 * c[3], 2.0 * c[2], c[1]);
+    let mut cuts = vec![0.0, 1.0];
+    if qa != 0.0 {
+        let disc = qb * qb - 4.0 * qa * qc;
+        if disc >= 0.0 {
+            cuts.extend([(-qb - disc.sqrt()) / (2.0 * qa), (-qb + disc.sqrt()) / (2.0 * qa)]);
+        }
+    } else if qb != 0.0 {
+        cuts.push(-qc / qb);
+    }
+    cuts.retain(|t| (0.0..=1.0).contains(t));
+    cuts.sort_by(f64::total_cmp);
+    let mut roots = Vec::new();
+    for w in cuts.windows(2) {
+        let (mut lo, mut hi) = (w[0], w[1]);
+        let (plo, phi) = (p(lo), p(hi));
+        if !(plo * phi <= 0.0) || plo == phi {
+            continue;
+        }
+        for _ in 0..80 {
+            let mid = 0.5 * (lo + hi);
+            if (p(mid) <= 0.0) == (plo <= 0.0) { lo = mid } else { hi = mid }
+        }
+        roots.push(0.5 * (lo + hi));
+    }
+    roots
+}
+
+/// The largest rotation along a member, its bending planes' section rotations and a twist
+/// interpolated between `twist`, bounded on each interval between [`SPAN_STATIONS`] stations and
+/// the load positions. Between them a plane's moment is a cubic, so its zeros, where the plane's
+/// rotation is extreme, are found exactly; the interval's value is the norm of each part's own
+/// largest magnitude on it, which the rotation vector cannot exceed.
 fn largest_span_rotation(l: f64, planes: &[crate::postprocess::diagrams::SpanRotation], twist: (f64, f64)) -> f64 {
     let mut stations: Vec<f64> = (0..=SPAN_STATIONS).map(|k| l * k as f64 / SPAN_STATIONS as f64).chain(planes.iter().flat_map(|p| p.breaks().iter().copied())).collect();
     stations.sort_by(f64::total_cmp);
     stations.dedup();
-    let mut extremes = Vec::new();
-    for p in planes {
-        for w in stations.windows(2) {
-            let (mut a, mut b) = (w[0], w[1]);
-            let (ma, mb) = (p.moment(a + (b - a) * 1e-12), p.moment(b - (b - a) * 1e-12));
-            if !(ma * mb < 0.0) {
-                continue;
+    let nodes: [f64; 4] = std::array::from_fn(|k| 0.5 * (1.0 - ((2 * k + 1) as f64 * std::f64::consts::PI / 8.0).cos()));
+    let mut worst = 0.0f64;
+    for w in stations.windows(2) {
+        let (a, b) = (w[0], w[1]);
+        let mut sum = (twist.0 + (twist.1 - twist.0) * a / l).abs().max((twist.0 + (twist.1 - twist.0) * b / l).abs()).powi(2);
+        for p in planes {
+            let m = nodes.map(|t| p.moment(a + (b - a) * t));
+            let mut c = [0.0; 4];
+            for (k, &tk) in nodes.iter().enumerate() {
+                let others: Vec<f64> = nodes.iter().enumerate().filter(|&(j, _)| j != k).map(|(_, &t)| t).collect();
+                let scale = m[k] / others.iter().map(|&t| tk - t).product::<f64>();
+                let (r0, r1, r2) = (others[0], others[1], others[2]);
+                c[0] -= scale * r0 * r1 * r2;
+                c[1] += scale * (r0 * r1 + r0 * r2 + r1 * r2);
+                c[2] -= scale * (r0 + r1 + r2);
+                c[3] += scale;
             }
-            for _ in 0..60 {
-                let mid = 0.5 * (a + b);
-                if (p.moment(mid) < 0.0) == (ma < 0.0) { a = mid } else { b = mid }
-            }
-            extremes.push(0.5 * (a + b));
+            let largest = cubic_roots_in_unit(c).into_iter().map(|t| p.at(a + (b - a) * t).abs()).fold(p.at(a).abs().max(p.at(b).abs()), |x, y| if x.is_nan() || y.is_nan() { f64::NAN } else { x.max(y) });
+            sum += largest * largest;
         }
+        let v = sum.sqrt();
+        worst = if v.is_nan() || worst.is_nan() { f64::NAN } else { worst.max(v) };
     }
-    stations.into_iter().chain(extremes).map(|x| {
-        let t = twist.0 + (twist.1 - twist.0) * x / l;
-        (t * t + planes.iter().map(|p| p.at(x).powi(2)).sum::<f64>()).sqrt()
-    }).fold(0.0, |worst: f64, v| if v.is_nan() || worst.is_nan() { f64::NAN } else { worst.max(v) })
+    worst
 }
 
 fn member_spans_2d(input: &SolverInput) -> Vec<MemberSpan> {
@@ -1365,5 +1404,51 @@ mod span_tests {
                 assert!((z.at(*l) + dot(ey, rot(e.node_j))).abs() < 1e-9 * dot(ey, rot(e.node_j)).abs().max(1e-12), "element {id}");
             }
         }
+    }
+
+    fn dense_largest(l: f64, planes: &[crate::postprocess::diagrams::SpanRotation], twist: (f64, f64), from: f64, to: f64) -> f64 {
+        (0..=200_000).map(|k| from + (to - from) * k as f64 / 200_000.0).map(|x| {
+            let t = twist.0 + (twist.1 - twist.0) * x / l;
+            (t * t + planes.iter().map(|p| p.at(x).powi(2)).sum::<f64>()).sqrt()
+        }).fold(0.0, f64::max)
+    }
+
+    #[test]
+    fn a_rotation_peak_between_two_moment_zeros_inside_one_interval_is_found_1506() {
+        use crate::postprocess::diagrams::SpanRotation;
+        let (q, h) = (1.6e7, 0.01);
+        let c0 = q * h * h / 12.0;
+        let plane = SpanRotation::new(1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, true, true, vec![(0.5, -q * h / 2.0), (0.5 + h, -q * h / 2.0)], vec![(q, q, 0.5, 0.5 + h)], vec![(0.5, -c0), (0.5 + h, c0)]);
+        assert!(plane.moment(0.5 + 1e-9) > 0.0 && plane.moment(0.5 + h - 1e-9) > 0.0 && plane.moment(0.5 + h / 2.0) < 0.0, "the moment is positive at both ends of the interval and negative inside");
+        let stations = (0..=SPAN_STATIONS).map(|k| k as f64 / SPAN_STATIONS as f64).chain([0.5 + h]);
+        assert!(stations.map(|x| plane.at(x).abs()).fold(0.0, f64::max) < 0.1);
+        let dense = dense_largest(1.0, std::slice::from_ref(&plane), (0.0, 0.0), 0.5, 0.5 + h);
+        assert!(dense > 0.1, "{dense}");
+        let largest = largest_span_rotation(1.0, std::slice::from_ref(&plane), (0.0, 0.0));
+        assert!((largest - dense).abs() < 1e-6 * dense, "{largest} vs {dense}");
+    }
+
+    #[test]
+    fn the_largest_span_rotation_bounds_the_rotation_vector_tightly_1506() {
+        use crate::postprocess::diagrams::SpanRotation;
+        let y = SpanRotation::new(3.0, 2e4, 0.0, 0.0, 0.0, 0.0, 0.0, false, false, Vec::new(), vec![(-4e5, -1e5, 0.0, 3.0)], Vec::new());
+        let z = SpanRotation::new(3.0, 1e4, 2e-6, 0.01, 0.02, -0.03, 0.0, false, true, vec![(1.0, 3e4)], vec![(2e4, 2e4, 1.2, 2.7)], Vec::new());
+        let planes = [y, z];
+        let twist = (0.03, -0.05);
+        let dense = dense_largest(3.0, &planes, twist, 0.0, 3.0);
+        let largest = largest_span_rotation(3.0, &planes, twist);
+        assert!(largest >= dense && largest <= dense * 1.01, "{largest} vs {dense}");
+    }
+
+    #[test]
+    fn cubic_roots_in_the_unit_interval_include_both_of_a_close_pair_1506() {
+        let roots = cubic_roots_in_unit([-0.18, 1.46, -3.2, 2.0]);
+        let expected = [0.2, 0.5, 0.9];
+        assert_eq!(roots.len(), 3, "{roots:?}");
+        for (r, e) in roots.iter().zip(expected) {
+            assert!((r - e).abs() < 1e-12, "{roots:?}");
+        }
+        let pair = cubic_roots_in_unit([0.24, -1.0, 1.0, 0.0]);
+        assert!(pair.len() == 2 && (pair[0] - 0.4).abs() < 1e-12 && (pair[1] - 0.6).abs() < 1e-12, "{pair:?}");
     }
 }
