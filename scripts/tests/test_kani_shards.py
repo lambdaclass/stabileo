@@ -124,5 +124,15 @@ class KaniShards(unittest.TestCase):
         self.assertIn('run: python3 -I .github/scripts/kani-aggregate.py target/kani-results 5', workflow)
 
 
+class KaniAggregateJob(unittest.TestCase):
+    def test_aggregate_requires_the_shard_jobs_to_succeed(self):
+        text = (ROOT / '.github/workflows/verify.yml').read_text()
+        job = text.split('\n  kani:\n', 1)[1]
+        self.assertIn('needs: [changes, kani-shard]', job)
+        self.assertIn('SHARDS_RESULT: ${{ needs.kani-shard.result }}', job)
+        self.assertIn('if [ "$SHARDS_RESULT" != success ]; then', job)
+        self.assertLess(job.index('SHARDS_RESULT'), job.index('kani-aggregate.py'))
+
+
 if __name__ == '__main__':
     unittest.main()
