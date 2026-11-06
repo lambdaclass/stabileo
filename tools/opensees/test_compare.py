@@ -170,7 +170,16 @@ class RefinedBucklingTest(unittest.TestCase):
 
     def test_a_mode_without_neighbours_keeps_its_shape_difference(self):
         groups = {"eig": 1e-4, "mac": 0.01}
-        self.assertEqual(C._resolved_difference([("mode", 1, "1-MAC", 0.01, 0.0, 0.01)], groups, [10.0]), 0.01)
+        ores = {"values": [10.0], "dim": 3, "modes": MODES[:1]}
+        sres = {"modes": MODES[:1]}
+        self.assertEqual(C._resolved_difference([("mode", 1, "1-MAC", 0.01, 0.0, 0.01)], groups, sres, ores), 0.01)
+
+    def test_a_close_pair_spanning_other_shapes_is_a_mismatch(self):
+        stab = {n: [10.0, 10.05] for n in (1, 2, 4, 8, 16)}
+        ops = {n: [10.0 * (1 - 0.1 / n ** 2), 10.05 * (1 - 0.1 / n ** 2), 30.0] for n in (1, 2, 4, 8, 16)}
+        other = [{1: [0.0, 0.0, 1.0, 0.0, 0.0, 0.0]}, {1: [0.0, 0.0, 0.0, 1.0, 0.0, 0.0]}]
+        r, _ = self.run_with(stab, ops, omodes={n: other for n in (1, 2, 4, 8, 16)})
+        self.assertEqual(r["status"], "mismatch")
 
     def test_without_an_axial_span_load_a_one_element_mismatch_stands(self):
         r, seen = self.run_with({1: [10.0, 30.0], 2: [10.0, 30.0]}, {1: [10.1, 30.0], 2: [10.0, 30.0]},

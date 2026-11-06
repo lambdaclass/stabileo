@@ -1938,18 +1938,54 @@ MESH_LEVELS = (2, 4, 8, 16)
 MESH_RATE = 2.0
 
 
-def _resolved_difference(bad, groups, values):
-    """The largest load-factor or 1-MAC difference, leaving out the MAC of a
-    mode whose gap to a neighbour is within ten times the load-factor
-    difference: the two solvers may order such a pair either way."""
+def _vectors(a, others, art, nt):
+    va, vo = [], [[] for _ in others]
+    for nid, ua in a.items():
+        if any(nid not in o for o in others):
+            continue
+        for k in range(len(ua)):
+            if k >= nt and nid in art:
+                continue
+            va.append(ua[k])
+            for v, o in zip(vo, others):
+                v.append(o[nid][k])
+    return va, vo
+
+
+def _outside_span(a, others, art, nt):
+    """1 - |P a|^2 / |a|^2, P the projection onto the span of `others`."""
+    va, vo = _vectors(a, others, art, nt)
+    basis = []
+    for v in vo:
+        w = list(v)
+        for q in basis:
+            d = sum(x * y for x, y in zip(w, q))
+            w = [x - d * y for x, y in zip(w, q)]
+        n = math.sqrt(sum(x * x for x in w))
+        if n > 1e-12 * math.sqrt(sum(x * x for x in v) or 1.0):
+            basis.append([x / n for x in w])
+    aa = sum(x * x for x in va)
+    if aa == 0.0:
+        return 1.0
+    return max(0.0, 1.0 - sum(sum(x * y for x, y in zip(va, q)) ** 2 for q in basis) / aa)
+
+
+def _resolved_difference(bad, groups, sres, ores):
+    """The largest load-factor or 1-MAC difference, where a mode whose gap to
+    a neighbour is within ten times the load-factor difference (the solvers
+    may order such a pair either way) is measured against the span of the
+    OpenSees modes of its cluster instead of the single mode."""
+    values, nt, art = ores["values"], 2 if ores["dim"] == 2 else 3, set(ores.get("art_rot", []))
     worst = groups["eig"]
     for q, i, _, _, _, e in bad:
         if q != "mode":
             continue
         v = values[i - 1]
-        gap = min([abs(values[j] - v) / abs(v) for j in (i - 2, i) if 0 <= j < len(values)] or [math.inf])
-        if gap > 10 * groups["eig"]:
-            worst = max(worst, e)
+        near = [j for j in (i - 2, i) if 0 <= j < len(values) and abs(values[j] - v) / abs(v) <= 10 * groups["eig"]]
+        if near:
+            cluster = [ores["modes"][j] for j in sorted(near + [i - 1])]
+            e = _outside_span(sres["modes"][i - 1], cluster, art, nt)
+        worst = max(worst, e)
     return worst
 
 
@@ -1979,7 +2015,7 @@ def refine_buckling(job, binary, tol, dim):
         bad, groups = compare_eigen(sres, ores, max(tol, 100 * 2.2e-16 * kappa), job["numModes"], 1)
         if not bad:
             return [], groups, n, None
-        levels.append((n, bad, groups, _resolved_difference(bad, groups, ores["values"])))
+        levels.append((n, bad, groups, _resolved_difference(bad, groups, sres, ores)))
         if len(levels) >= 2:
             a, b = (e for *_, e in levels[-2:])
             if b > a / MESH_RATE or b * b > tol * a:
