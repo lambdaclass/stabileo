@@ -322,6 +322,9 @@ const en: Record<string, string> = {
   'landing.footRights': 'Free software under AGPL-3.0.',
   'landing.footLaunch': 'Open the editor',
   'landing.footSocial': 'Follow us',
+  'landing.navProduct': 'Product',
+  'landing.footVerification': 'Verification',
+  'landing.footProject': 'Project',
 
   'combos.needsRecalcSolve': 'The combinations no longer match the model — press Solve to run them again.',
   'table.showProperties': "Show properties and shape",

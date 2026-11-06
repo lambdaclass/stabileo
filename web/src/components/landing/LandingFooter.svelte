@@ -6,8 +6,6 @@
   import BrandMark from './BrandMark.svelte';
 
   const year = new Date().getFullYear();
-
-
 </script>
 
 <footer class="sec sec--ink lp-footer">
@@ -22,15 +20,35 @@
 
     <div class="footer-right">
       <nav class="footer-links" aria-label={t('landing.footNav')}>
-        <a href={DOCS_HUB_URL} target="_blank" rel="noreferrer">{t('landing.footDocs')}</a>
-        <a href={REPO_URL} target="_blank" rel="noreferrer">{t('landing.footRepo')}</a>
-        <PublicLink to="/blog">{t('landing.footBlog')}</PublicLink>
-        <PublicLink to="/changelog">{t('landing.footChangelog')}</PublicLink>
-        <PublicLink to="/cirsoc">CIRSOC</PublicLink>
-        <PublicLink to="/reliability">{t('landing.footReliability')}</PublicLink>
-        <PublicLink to="/sap2000-alternative">{t('landing.footSap2000')}</PublicLink>
-        <PublicLink to="/etabs-alternative">{t('landing.footEtabs')}</PublicLink>
-        <button onclick={() => enterApp()}>{t('landing.footLaunch')}</button>
+        <div class="footer-group">
+          <p class="footer-head" id="foot-product">{t('landing.navProduct')}</p>
+          <ul aria-labelledby="foot-product">
+            <li><button onclick={() => enterApp()}>{t('landing.footLaunch')}</button></li>
+            <li><PublicLink to="/examples">{t('landing.navExamples')}</PublicLink></li>
+            <li><PublicLink to="/tools">{t('landing.navTools')}</PublicLink></li>
+            <li><PublicLink to="/#pricing">{t('landing.navPricing')}</PublicLink></li>
+          </ul>
+        </div>
+        <div class="footer-group">
+          <p class="footer-head" id="foot-verification">{t('landing.footVerification')}</p>
+          <ul aria-labelledby="foot-verification">
+            <li><PublicLink to="/reliability">{t('landing.footReliability')}</PublicLink></li>
+            <li><PublicLink to="/research">{t('landing.navResearch')}</PublicLink></li>
+            <li><PublicLink to="/paper">{t('landing.navPaper')}</PublicLink></li>
+            <li><PublicLink to="/cirsoc">CIRSOC</PublicLink></li>
+            <li><PublicLink to="/sap2000-alternative">{t('landing.footSap2000')}</PublicLink></li>
+            <li><PublicLink to="/etabs-alternative">{t('landing.footEtabs')}</PublicLink></li>
+          </ul>
+        </div>
+        <div class="footer-group">
+          <p class="footer-head" id="foot-project">{t('landing.footProject')}</p>
+          <ul aria-labelledby="foot-project">
+            <li><PublicLink to="/blog">{t('landing.footBlog')}</PublicLink></li>
+            <li><PublicLink to="/changelog">{t('landing.footChangelog')}</PublicLink></li>
+            <li><a href={DOCS_HUB_URL} target="_blank" rel="noreferrer">{t('landing.footDocs')}</a></li>
+            <li><a href={REPO_URL} target="_blank" rel="noreferrer">{t('landing.footRepo')}</a></li>
+          </ul>
+        </div>
       </nav>
 
       <ul class="footer-social" aria-label={t('landing.footSocial')}>

@@ -320,6 +320,9 @@ const pt: Translations = {
   'landing.footRights': 'Software livre sob AGPL-3.0.',
   'landing.footLaunch': 'Abrir o editor',
   'landing.footSocial': 'Siga-nos',
+  'landing.navProduct': 'Produto',
+  'landing.footVerification': 'Verificação',
+  'landing.footProject': 'Projeto',
 
   /*
    * One flat, alphabetically sorted map, and the union of two branches

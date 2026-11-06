@@ -322,6 +322,9 @@ const es: Record<string, string> = {
   'landing.footRights': 'Software libre bajo AGPL-3.0.',
   'landing.footLaunch': 'Abrir el editor',
   'landing.footSocial': 'Seguinos',
+  'landing.navProduct': 'Producto',
+  'landing.footVerification': 'Verificación',
+  'landing.footProject': 'Proyecto',
 
   'combos.needsRecalcSolve': "Las combinaciones ya no corresponden al modelo — apretá Calcular para volver a resolverlas.",
   'table.showProperties': "Ver propiedades y forma",

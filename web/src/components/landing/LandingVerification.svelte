@@ -21,6 +21,8 @@
     <p class="verification-links">
       <PublicLink to="/blog/how-stabileo-checks-its-results" class="link-arrow">{t('landing.verifHow')}</PublicLink>
       <PublicLink to="/blog/safety-advisories" class="link-arrow">{t('landing.verifAdvisories')}</PublicLink>
+      <PublicLink to="/reliability" class="link-arrow">{t('landing.footReliability')}</PublicLink>
+      <PublicLink to="/research" class="link-arrow">{t('landing.navResearch')}</PublicLink>
     </p>
   </div>
 </section>
@@ -31,5 +33,10 @@
     flex-wrap: wrap;
     gap: 0.75rem 2rem;
     margin-top: 1.5rem;
+  }
+  .verification-links :global(a) {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
   }
 </style>
