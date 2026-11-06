@@ -2340,3 +2340,145 @@ fn a_combination_runs_the_check_whose_record_is_complete_1506() {
     let summary = spans_only.result_summary.unwrap();
     assert!(summary.member_chords.is_none() && summary.member_spans.is_some());
 }
+
+fn shear_flexible_span_2d(p: f64, split: bool) -> AnalysisResults {
+    let (nodes, elements, loads) = if split {
+        (
+            serde_json::json!({"1": {"id":1,"x":0,"z":0}, "2": {"id":2,"x":1,"z":0}, "3": {"id":3,"x":2,"z":0}, "4": {"id":4,"x":0.5,"z":0}}),
+            serde_json::json!({
+                "1": {"id":1,"type":"frame","nodeI":1,"nodeJ":4,"materialId":1,"sectionId":1},
+                "3": {"id":3,"type":"frame","nodeI":4,"nodeJ":2,"materialId":1,"sectionId":1},
+                "2": {"id":2,"type":"frame","nodeI":2,"nodeJ":3,"materialId":1,"sectionId":1}
+            }),
+            serde_json::json!([{"type":"nodal","data":{"nodeId":4,"fx":0,"fz":p,"my":0}}]),
+        )
+    } else {
+        (
+            serde_json::json!({"1": {"id":1,"x":0,"z":0}, "2": {"id":2,"x":1,"z":0}, "3": {"id":3,"x":2,"z":0}}),
+            serde_json::json!({
+                "1": {"id":1,"type":"frame","nodeI":1,"nodeJ":2,"materialId":1,"sectionId":1},
+                "2": {"id":2,"type":"frame","nodeI":2,"nodeJ":3,"materialId":1,"sectionId":1}
+            }),
+            serde_json::json!([{"type":"pointOnElement","data":{"elementId":1,"a":0.5,"p":p}}]),
+        )
+    };
+    let input: SolverInput = serde_json::from_value(serde_json::json!({
+        "nodes": nodes,
+        "materials": {"1": {"id":1,"e":E,"nu":0.3}},
+        "sections": {"1": {"id":1,"a":0.01,"iz":1.0,"asY":1e-6}},
+        "elements": elements,
+        "supports": {"1": {"id":1,"nodeId":1,"type":"fixed"}, "2": {"id":2,"nodeId":2,"type":"fixed"}},
+        "loads": loads
+    })).unwrap();
+    solve_2d(&input).unwrap()
+}
+
+#[test]
+#[ignore = "known wrong result: #1569"]
+fn the_shear_slope_inside_a_timoshenko_span_is_warned_1569() {
+    let g_as = E * 1000.0 / 2.6 * 1e-6;
+    let slope = |p: f64| p.abs() / 2.0 / g_as;
+    assert!(slope(20.0) > 0.12 && slope(10.0) < 0.07);
+    let split = shear_flexible_span_2d(-20.0, true);
+    let mid = split.displacements.iter().find(|d| d.node_id == 4).unwrap();
+    assert!((mid.uz.abs() - slope(20.0) * 0.5).abs() < 1e-3 * slope(20.0), "{mid:?}");
+    assert_eq!(warned_chords(&split.structured_diagnostics), Some((vec![], vec![1, 3])), "the same span cut at the load is warned on its chords");
+    let whole = shear_flexible_span_2d(-20.0, false);
+    assert!(whole.displacements.iter().filter(|d| d.node_id != 3).all(|d| d.ux == 0.0 && d.uz == 0.0 && d.ry == 0.0));
+    assert_eq!(warned_chords(&whole.structured_diagnostics), Some((vec![], vec![1])), "{:?}", ids(&whole.structured_diagnostics));
+    assert_eq!(warned_chords(&shear_flexible_span_2d(-10.0, true).structured_diagnostics), None);
+    assert_eq!(warned_chords(&shear_flexible_span_2d(-10.0, false).structured_diagnostics), None);
+}
+
+fn shear_flexible_span_3d(py: f64, pz: f64) -> AnalysisResults3D {
+    let input: SolverInput3D = serde_json::from_value(serde_json::json!({
+        "nodes": {"1": {"id":1,"x":0,"y":0,"z":0}, "2": {"id":2,"x":1,"y":0,"z":0}, "3": {"id":3,"x":2,"y":0,"z":0}},
+        "materials": {"1": {"id":1,"e":E,"nu":0.3}},
+        "sections": {"1": {"id":1,"a":0.01,"iy":1.0,"iz":1.0,"j":1.0,"asY":1e-6,"asZ":1e-6}},
+        "elements": {
+            "1": {"id":1,"type":"frame","nodeI":1,"nodeJ":2,"materialId":1,"sectionId":1},
+            "2": {"id":2,"type":"frame","nodeI":2,"nodeJ":3,"materialId":1,"sectionId":1}
+        },
+        "supports": {"1": {"nodeId":1,"rx":true,"ry":true,"rz":true,"rrx":true,"rry":true,"rrz":true}, "2": {"nodeId":2,"rx":true,"ry":true,"rz":true,"rrx":true,"rry":true,"rrz":true}},
+        "loads": [{"type":"pointOnElement","data":{"elementId":1,"a":0.5,"py":py,"pz":pz}}]
+    })).unwrap();
+    dedaliano_engine::solver::linear::solve_3d(&input).unwrap()
+}
+
+#[test]
+#[ignore = "known wrong result: #1569"]
+fn the_shear_slope_inside_a_timoshenko_3d_span_is_warned_in_either_plane_1569() {
+    for (py, pz) in [(-20.0, 0.0), (0.0, -20.0)] {
+        let r = shear_flexible_span_3d(py, pz);
+        assert!(r.displacements.iter().filter(|d| d.node_id != 3).all(|d| [d.ux, d.uy, d.uz, d.rx, d.ry, d.rz] == [0.0; 6]));
+        assert_eq!(warned_chords(&r.structured_diagnostics), Some((vec![], vec![1])), "py {py} pz {pz}: {:?}", ids(&r.structured_diagnostics));
+    }
+    assert_eq!(warned_chords(&shear_flexible_span_3d(-10.0, 0.0).structured_diagnostics), None);
+}
+
+fn warmed_propped_span_2d(dt: f64, split: bool) -> AnalysisResults {
+    let thermal = |id: usize| serde_json::json!({"type":"thermal","data":{"elementId":id,"dtUniform":0,"dtGradient":dt,"alpha":1.2e-5,"depth":0.05}});
+    let (nodes, elements, loads) = if split {
+        (
+            serde_json::json!({"1": {"id":1,"x":0,"z":0}, "2": {"id":2,"x":4,"z":0}, "3": {"id":3,"x":2,"z":0}}),
+            serde_json::json!({
+                "1": {"id":1,"type":"frame","nodeI":1,"nodeJ":3,"materialId":1,"sectionId":1},
+                "2": {"id":2,"type":"frame","nodeI":3,"nodeJ":2,"materialId":1,"sectionId":1,"hingeEnd":true}
+            }),
+            serde_json::json!([thermal(1), thermal(2)]),
+        )
+    } else {
+        (
+            serde_json::json!({"1": {"id":1,"x":0,"z":0}, "2": {"id":2,"x":4,"z":0}}),
+            serde_json::json!({"1": {"id":1,"type":"frame","nodeI":1,"nodeJ":2,"materialId":1,"sectionId":1,"hingeEnd":true}}),
+            serde_json::json!([thermal(1)]),
+        )
+    };
+    let input: SolverInput = serde_json::from_value(serde_json::json!({
+        "nodes": nodes,
+        "materials": {"1": {"id":1,"e":E,"nu":0.3}},
+        "sections": {"1": {"id":1,"a":0.01,"iz":1e-4}},
+        "elements": elements,
+        "supports": {"1": {"id":1,"nodeId":1,"type":"fixed"}, "2": {"id":2,"nodeId":2,"type":"fixed"}},
+        "loads": loads
+    })).unwrap();
+    solve_2d(&input).unwrap()
+}
+
+#[test]
+#[ignore = "known wrong result: #1569"]
+fn a_thermal_curvature_at_a_released_end_is_warned_1569() {
+    let kappa = |dt: f64| 1.2e-5 * dt / 0.05;
+    let (l, hot, mild) = (4.0, 625.0, 200.0);
+    assert!(kappa(hot) * l / 4.0 > 0.14 && kappa(mild) * l / 4.0 < 0.05);
+    let split = warmed_propped_span_2d(hot, true);
+    let mid = split.displacements.iter().find(|d| d.node_id == 3).unwrap();
+    assert!((mid.ry.abs() - kappa(hot) * l / 16.0).abs() < 1e-9, "ψ(L/2) = −κL/16 for a propped span under a free curvature: {mid:?}");
+    assert!((mid.uz.abs() - kappa(hot) * l * l / 32.0).abs() < 1e-9, "v(L/2) = −κL²/32: {mid:?}");
+    let whole = warmed_propped_span_2d(hot, false);
+    assert!(whole.displacements.iter().all(|d| d.ux == 0.0 && d.uz == 0.0 && d.ry == 0.0));
+    assert_eq!(warned_chords(&whole.structured_diagnostics), Some((vec![], vec![1])), "ψ(L) = κL/4 at the hinge: {:?}", ids(&whole.structured_diagnostics));
+    assert_eq!(warned_chords(&warmed_propped_span_2d(mild, false).structured_diagnostics), None);
+}
+
+fn warmed_propped_span_3d(dt_y: f64, dt_z: f64) -> AnalysisResults3D {
+    let input: SolverInput3D = serde_json::from_value(serde_json::json!({
+        "nodes": {"1": {"id":1,"x":0,"y":0,"z":0}, "2": {"id":2,"x":4,"y":0,"z":0}},
+        "materials": {"1": {"id":1,"e":E,"nu":0.3}},
+        "sections": {"1": {"id":1,"a":0.01,"iy":1e-4,"iz":1e-4,"j":1e-4}},
+        "elements": {"1": {"id":1,"type":"frame","nodeI":1,"nodeJ":2,"materialId":1,"sectionId":1,"releaseMyEnd":true,"releaseMzEnd":true}},
+        "supports": {"1": {"nodeId":1,"rx":true,"ry":true,"rz":true,"rrx":true,"rry":true,"rrz":true}, "2": {"nodeId":2,"rx":true,"ry":true,"rz":true,"rrx":true,"rry":true,"rrz":true}},
+        "loads": [{"type":"thermal","data":{"elementId":1,"dtUniform":0,"dtGradientY":dt_y,"dtGradientZ":dt_z,"alpha":1.2e-5,"depthY":0.05,"depthZ":0.05}}]
+    })).unwrap();
+    dedaliano_engine::solver::linear::solve_3d(&input).unwrap()
+}
+
+#[test]
+#[ignore = "known wrong result: #1569"]
+fn a_thermal_curvature_at_a_released_3d_end_is_warned_in_either_plane_1569() {
+    for (dy, dz) in [(625.0, 0.0), (0.0, 625.0), (-625.0, 0.0), (0.0, -625.0)] {
+        let r = warmed_propped_span_3d(dy, dz);
+        assert_eq!(warned_chords(&r.structured_diagnostics), Some((vec![], vec![1])), "dy {dy} dz {dz}: {:?}", ids(&r.structured_diagnostics));
+    }
+    assert_eq!(warned_chords(&warmed_propped_span_3d(200.0, 0.0).structured_diagnostics), None);
+}
