@@ -66,6 +66,6 @@ export async function publicPaths(): Promise<string[]> {
     const day = researchLastReview(path);
     if (day) POST_LASTMOD.set(path, day);
   }
-  return ['/', ...pages, '/blog', ...slugs.map((s) => `/blog/${s}`), '/paper', ...research, '/tools', '/tools/simply-supported-beam', '/tools/cantilever-beam', '/tools/column-buckling', '/tools/continuous-beam', '/tools/portal-frame', '/tools/truss-2d', '/tools/influence-line', '/tools/beam-natural-frequency', '/examples', '/examples/beam-frame', '/examples/slab-on-columns', '/examples/earthquake-frame', '/examples/rc-column', '/examples/outrigger', '/examples/tower'];
+  return ['/', ...pages, '/blog', ...slugs.map((s) => `/blog/${s}`), '/paper', ...research, '/tools', '/tools/simply-supported-beam', '/tools/cantilever-beam', '/tools/column-buckling', '/tools/continuous-beam', '/tools/portal-frame', '/tools/truss-2d', '/tools/influence-line', '/tools/beam-natural-frequency', '/examples', '/examples/beam-frame', '/examples/slab-on-columns', '/examples/earthquake-frame', '/examples/rc-column', '/examples/outrigger', '/examples/tower', '/examples/rc-pushover'];
 }
 
