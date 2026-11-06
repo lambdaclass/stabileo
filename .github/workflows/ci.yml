@@ -2017,6 +2017,7 @@ jobs:
       - test-backend
       - check-migrations-immutable
       - check-migrations
+      - revert-check
       - wasm
       - research-wasm
       - research
