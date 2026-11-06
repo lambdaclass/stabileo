@@ -657,13 +657,14 @@ fn cubic_roots_in_unit(c: [f64; 4]) -> Vec<f64> {
     let p = |t: f64| ((c[3] * t + c[2]) * t + c[1]) * t + c[0];
     let (qa, qb, qc) = (3.0 * c[3], 2.0 * c[2], c[1]);
     let mut cuts = vec![0.0, 1.0];
-    if qa != 0.0 {
-        let disc = qb * qb - 4.0 * qa * qc;
-        if disc >= 0.0 {
-            cuts.extend([(-qb - disc.sqrt()) / (2.0 * qa), (-qb + disc.sqrt()) / (2.0 * qa)]);
+    let disc = qb * qb - 4.0 * qa * qc;
+    if disc >= 0.0 {
+        let q = -0.5 * (qb + qb.signum() * disc.sqrt());
+        if q != 0.0 {
+            cuts.extend([q / qa, qc / q]);
+        } else if qa != 0.0 {
+            cuts.push(0.0);
         }
-    } else if qb != 0.0 {
-        cuts.push(-qc / qb);
     }
     cuts.retain(|t| (0.0..=1.0).contains(t));
     cuts.sort_by(f64::total_cmp);
@@ -1416,16 +1417,18 @@ mod span_tests {
     #[test]
     fn a_rotation_peak_between_two_moment_zeros_inside_one_interval_is_found_1506() {
         use crate::postprocess::diagrams::SpanRotation;
-        let (q, h) = (1.6e7, 0.01);
-        let c0 = q * h * h / 12.0;
-        let plane = SpanRotation::new(1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, true, true, vec![(0.5, -q * h / 2.0), (0.5 + h, -q * h / 2.0)], vec![(q, q, 0.5, 0.5 + h)], vec![(0.5, -c0), (0.5 + h, c0)]);
-        assert!(plane.moment(0.5 + 1e-9) > 0.0 && plane.moment(0.5 + h - 1e-9) > 0.0 && plane.moment(0.5 + h / 2.0) < 0.0, "the moment is positive at both ends of the interval and negative inside");
-        let stations = (0..=SPAN_STATIONS).map(|k| k as f64 / SPAN_STATIONS as f64).chain([0.5 + h]);
-        assert!(stations.map(|x| plane.at(x).abs()).fold(0.0, f64::max) < 0.1);
-        let dense = dense_largest(1.0, std::slice::from_ref(&plane), (0.0, 0.0), 0.5, 0.5 + h);
-        assert!(dense > 0.1, "{dense}");
-        let largest = largest_span_rotation(1.0, std::slice::from_ref(&plane), (0.0, 0.0));
-        assert!((largest - dense).abs() < 1e-6 * dense, "{largest} vs {dense}");
+        for scale in [1.0, 1.0 + 1e-13, 1.0 - 3e-14, 0.999_999_9, 1.000_000_7] {
+            let (q, h) = (1.6e7 * scale, 0.01);
+            let c0 = q * h * h / 12.0;
+            let plane = SpanRotation::new(1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, true, true, vec![(0.5, -q * h / 2.0), (0.5 + h, -q * h / 2.0)], vec![(q, q, 0.5, 0.5 + h)], vec![(0.5, -c0), (0.5 + h, c0)]);
+            assert!(plane.moment(0.5 + 1e-9) > 0.0 && plane.moment(0.5 + h - 1e-9) > 0.0 && plane.moment(0.5 + h / 2.0) < 0.0, "the moment is positive at both ends of the interval and negative inside");
+            let stations = (0..=SPAN_STATIONS).map(|k| k as f64 / SPAN_STATIONS as f64).chain([0.5 + h]);
+            assert!(stations.map(|x| plane.at(x).abs()).fold(0.0, f64::max) < 0.1);
+            let dense = dense_largest(1.0, std::slice::from_ref(&plane), (0.0, 0.0), 0.5, 0.5 + h);
+            assert!(dense > 0.1, "{dense}");
+            let largest = largest_span_rotation(1.0, std::slice::from_ref(&plane), (0.0, 0.0));
+            assert!((largest - dense).abs() < 1e-6 * dense, "{scale}: {largest} vs {dense}");
+        }
     }
 
     #[test]
@@ -1450,5 +1453,9 @@ mod span_tests {
         }
         let pair = cubic_roots_in_unit([0.24, -1.0, 1.0, 0.0]);
         assert!(pair.len() == 2 && (pair[0] - 0.4).abs() < 1e-12 && (pair[1] - 0.6).abs() < 1e-12, "{pair:?}");
+        for tiny in [1e-16, -1e-16, 1e-300, 1e-8] {
+            let nearly = cubic_roots_in_unit([0.16, -1.0, 1.0, tiny]);
+            assert!(nearly.len() == 2 && (nearly[0] - 0.2).abs() < 1e-7 && (nearly[1] - 0.8).abs() < 1e-7, "{tiny:e}: {nearly:?}");
+        }
     }
 }
