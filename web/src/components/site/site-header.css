@@ -115,7 +115,7 @@
   border-color: rgba(143, 163, 179, 0.4);
 }
 
-.site-header .nav-menu-cta { display: none; }
+.site-header .nav-links .nav-menu-cta { display: none; }
 
 .site-header .nav-toggle {
   cursor: pointer;
@@ -137,7 +137,7 @@
   background: var(--lp-slate-2);
 }
 
-@media (max-width: 1140px) {
+@media (max-width: 1080px) {
   .site-header .nav-links {
     display: none;
     max-height: calc(100dvh - 3.625rem);
