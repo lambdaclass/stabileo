@@ -48,6 +48,8 @@ mod model_sanity;
 mod nan_output_gates;
 #[path = "../opensees_differential_regressions.rs"]
 mod opensees_differential_regressions;
+#[path = "../second_order_screen_1551.rs"]
+mod second_order_screen_1551;
 #[path = "../solver_mutation_kills.rs"]
 mod solver_mutation_kills;
 #[path = "../sparse_ex_analysis_regressions.rs"]

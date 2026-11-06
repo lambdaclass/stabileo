@@ -17,6 +17,13 @@ pub fn eigen_decomposition_failed(message: &str) -> String {
     coded(DiagnosticCode::EigenDecompositionFailed, message)
 }
 
+pub fn has_code(error: &str, code: DiagnosticCode) -> bool {
+    #[derive(serde::Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct Coded { structured_diagnostics: Vec<StructuredDiagnostic> }
+    serde_json::from_str::<Coded>(error).is_ok_and(|c| c.structured_diagnostics.iter().any(|d| d.code == code && d.severity == Severity::Error))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
