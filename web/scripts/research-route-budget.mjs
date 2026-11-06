@@ -1,27 +1,67 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 
-const productBudgets = JSON.parse(readFileSync(new URL('./product-route-growth-budgets.json', import.meta.url), 'utf8'));
+export const RESEARCH_ISOLATION_BYTES = 128;
 
-export function compareRouteSizes(baseline, measured, researchIsolation = process.env.RESEARCH_ISOLATION !== 'false', budgets = productBudgets) {
+export function routeGrowth(baseline, measured) {
   if (JSON.stringify(Object.keys(baseline).sort()) !== JSON.stringify(Object.keys(measured).sort())) throw new Error('route baseline coverage differs');
-  for (const [route, bytes] of Object.entries(measured)) {
-    const productBudget = budgets[route];
-    if (!Number.isFinite(productBudget) || productBudget < 0) throw new Error(`missing or invalid product budget for ${route}`);
-    const tolerance = researchIsolation ? Math.min(128, productBudget) : productBudget;
-    if (!Number.isFinite(baseline[route]) || !Number.isFinite(bytes) || bytes > baseline[route] + tolerance) {
-      const mode = researchIsolation
-        ? 'research isolation: the change touches research code shipped to the browser'
-        : 'product budget from web/scripts/product-route-growth-budgets.json';
-      throw new Error(`${route} grew: ${baseline[route]} -> ${bytes} bytes (${tolerance} byte tolerance, ${mode})`);
+  return Object.entries(measured).map(([route, bytes]) => {
+    if (!Number.isFinite(baseline[route]) || !Number.isFinite(bytes)) throw new Error(`${route} has no finite measurement`);
+    return { route, before: baseline[route], after: bytes, growth: bytes - baseline[route] };
+  });
+}
+
+export function routeAllowances(text, exists) {
+  const { routes } = JSON.parse(text);
+  return Object.fromEntries(Object.entries(routes).map(([route, entry]) => {
+    const list = Array.isArray(entry) ? entry : [entry];
+    for (const a of list) {
+      if (!Number.isInteger(a?.bytes) || a.bytes <= 0 || typeof a.reason !== 'string' || !a.reason.trim() || typeof a.module !== 'string' || !exists(a.module)) {
+        throw new Error(`invalid route allowance for ${route}: bytes, reason and an existing module are required`);
+      }
     }
+    if (!list.length) throw new Error(`invalid route allowance for ${route}: bytes, reason and an existing module are required`);
+    return [route, { bytes: list.reduce((n, a) => n + a.bytes, 0), reason: list.map((a) => a.reason).join(' + '), modules: list.map((a) => a.module) }];
+  }));
+}
+
+function shippedAllowances() {
+  const read = (path) => readFileSync(new URL(path, import.meta.url), 'utf8');
+  return routeAllowances(read('./research-route-allowances.json'), (module) => existsSync(new URL(`../${module}`, import.meta.url)));
+}
+
+export function checkResearchIsolation(rows, allowances = {}) {
+  const limit = (route) => RESEARCH_ISOLATION_BYTES + (allowances[route]?.bytes ?? 0);
+  const grown = rows.filter((r) => r.growth > limit(r.route));
+  if (grown.length) {
+    throw new Error(grown.map((r) => `${r.route} grew: ${r.before} -> ${r.after} bytes (${limit(r.route)} byte tolerance${allowances[r.route] ? `, with ${allowances[r.route].bytes} allowed for ${allowances[r.route].reason}` : ''}, research isolation: the change touches research code shipped to the browser)`).join('\n'));
   }
 }
 
+export function reviewRouteGrowth(baseline, measured, isolation = process.env.RESEARCH_ISOLATION, allowances = shippedAllowances()) {
+  const rows = routeGrowth(baseline, measured);
+  if (isolation !== 'false') checkResearchIsolation(rows, allowances);
+  return rows;
+}
+
+export function overCeilings(measured, ceilings) {
+  return Object.entries(measured).map(([route, bytes]) => {
+    const ceiling = ceilings[route];
+    if (!Number.isFinite(ceiling) || ceiling <= 0) throw new Error(`missing or invalid ceiling for ${route}`);
+    return { route, bytes, ceiling };
+  }).filter((r) => r.bytes > r.ceiling);
+}
+
+export function growthTable(rows) {
+  const lines = ['| Route | main | this change | growth |', '|---|---:|---:|---:|'];
+  for (const r of rows) lines.push(`| ${r.route} | ${r.before} | ${r.after} | ${r.growth > 0 ? '+' : ''}${r.growth} |`);
+  return lines.join('\n');
+}
 
 export const BLOG_ROUTE_BOUNDARY = 'src/components/blog/BlogPage.svelte';
+export const COURSE_ROUTE_BOUNDARY = 'src/lib/course/course-route.ts';
 
 export function isLazyRouteBoundary(key) {
-  return /components\/research\//.test(key) || /components\/tools\//.test(key) || key === BLOG_ROUTE_BOUNDARY;
+  return /components\/research\//.test(key) || /components\/tools\//.test(key) || key === BLOG_ROUTE_BOUNDARY || key === COURSE_ROUTE_BOUNDARY;
 }
 
 export function routeChunkFiles(manifest, roots, check = () => {}) {

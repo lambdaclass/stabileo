@@ -56,6 +56,18 @@ export interface Snapshot {
 }
 
 type Values = Snapshot['values'];
+export const containmentFindings = new Set<string>();
+export function collectContainment(value: unknown): void {
+  if (typeof value === 'string') {
+    try { collectContainment(JSON.parse(value)); } catch { /* Ordinary error text. */ }
+  } else if (Array.isArray(value)) value.forEach(collectContainment);
+  else if (value && typeof value === 'object') {
+    if (value instanceof Error) collectContainment(value.message);
+    const record = value as Record<string, unknown>;
+    if (record.code === 'known_issue') containmentFindings.add(`${record.severity}:${record.phase}`);
+    for (const child of Object.values(record)) if (child && (typeof child === 'object' || typeof child === 'string')) collectContainment(child);
+  }
+}
 
 /** Every store a case writes to, back to a fresh session's state. */
 function reset(c: SnapshotCase): void {
@@ -75,9 +87,9 @@ function reset(c: SnapshotCase): void {
   uiStore.designInPro = !!c.design;
 }
 
-async function open(c: SnapshotCase): Promise<void> {
+async function open(c: SnapshotCase, fixture?: unknown): Promise<void> {
   if ('example' in c.source) {
-    await modelStore.loadExample(c.source.example);
+    await modelStore.loadExample(c.source.example, fixture === undefined ? undefined : async () => structuredClone(fixture));
   } else {
     const text = readFileSync(new URL(`../../../${c.source.ded}`, import.meta.url), 'utf8');
     if (!deserializeProject(text)) throw new Error(`${c.source.ded} does not open`);
@@ -90,6 +102,15 @@ async function open(c: SnapshotCase): Promise<void> {
 function analysis(prefix: string, r: unknown, out: Values): void {
   if (!r || typeof r !== 'object') { out[prefix] = null; return; }
   const { solverDiagnostics, structuredDiagnostics, diagnostics, ...rest } = r as Record<string, unknown>;
+  if (rest.resultSummary && typeof rest.resultSummary === 'object') {
+    const { secondOrderRatio: _screen, ...summary } = rest.resultSummary as Record<string, unknown>;
+    rest.resultSummary = summary;
+  }
+  if (Array.isArray(structuredDiagnostics)) {
+    for (const d of structuredDiagnostics) {
+      if (d.code === 'known_issue') containmentFindings.add(`${d.severity}:${d.phase}`);
+    }
+  }
   const own: Values = {};
   flatten(rest, prefix, own);
   // A case with no loads gives zeros everywhere: one line says so. If it ever gives anything
@@ -193,12 +214,13 @@ function captureDesign(out: Values): void {
 /** The Advanced tab's runs, with its inputs and its reading of each result. */
 function captureAdvanced(c: SnapshotCase, out: Values): void {
   const guard = (name: string, run: () => void) => {
-    try { run(); } catch (e) { out[`${name}.refusal`] = errorText(e, 'Error'); }
+    try { run(); } catch (e) { collectContainment(e); out[`${name}.refusal`] = errorText(e, 'Error'); }
   };
   let modal: { modes?: unknown[] } | null = null;
   for (const a of c.advanced ?? []) {
     if (a === 'pdelta') guard('pdelta', () => {
       const res = solvePDelta3D(centerlineInput({ caseDisplacements: true }));
+      collectContainment(res);
       if (typeof res === 'string') { out['pdelta.refusal'] = res; return; }
       const amp = res.results ? amplification(res as never) : { b2: Infinity, stable: false };
       flatten({ converged: !!res.converged, iterations: res.iterations ?? 0, b2: amp.b2, stable: amp.stable }, 'pdelta', out);
@@ -207,6 +229,7 @@ function captureAdvanced(c: SnapshotCase, out: Values): void {
     if (a === 'modal') guard('modal', () => {
       const { input, densities } = dynamicInput();
       const res = solveModal3D(input, densities, 6);
+      collectContainment(res);
       if (typeof res === 'string') { out['modal.refusal'] = res; return; }
       modal = res as never;
       flatten((res as { totalMass?: number }).totalMass, 'modal.totalMass', out);
@@ -230,12 +253,14 @@ function captureAdvanced(c: SnapshotCase, out: Values): void {
       const modes = spectralModesFrom(modal as never);
       for (const direction of HORIZONTAL_DIRECTIONS) {
         const res = solveSpectral3D({ solver: input, modes, densities, spectrum, direction, rule: 'CQC', importanceFactor: RISK_FACTOR[group as keyof typeof RISK_FACTOR], reductionFactor: settingsR ?? 1, xi: 0.05 } as never);
+        collectContainment(res);
         if (typeof res === 'string') { out[`spectral.${direction}.refusal`] = res; continue; }
         analysis(`spectral.${direction}`, res, out);
       }
     });
     if (a === 'buckling') guard('buckling', () => {
       const res = solveBuckling3D(centerlineInput(), 4);
+      collectContainment(res);
       if (typeof res === 'string') { out['buckling.refusal'] = res; return; }
       const factors = (res as { factors?: number[]; eigenvalues?: number[]; modes?: Array<{ loadFactor?: number; factor?: number; eigenvalue?: number }> });
       flatten(factors.factors ?? factors.eigenvalues ?? factors.modes?.map((m) => m.loadFactor ?? m.factor ?? m.eigenvalue) ?? [], 'buckling.factors', out);
@@ -245,18 +270,21 @@ function captureAdvanced(c: SnapshotCase, out: Values): void {
 
 /**
  * Run one case and return its snapshot. `afterOpen` edits the opened project before the solve:
- * the negative test's deliberate result change (`__tests__/negative.test.ts`).
+ * the negative test's deliberate result change (`__tests__/negative.test.ts`). `fixture` opens an
+ * example from that fixture instead of the bundled one: the example as another commit had it.
  */
-export async function capture(c: SnapshotCase, opts: { afterOpen?: () => void } = {}): Promise<Snapshot> {
+export async function capture(c: SnapshotCase, opts: { afterOpen?: () => void; fixture?: unknown } = {}): Promise<Snapshot> {
+  containmentFindings.clear();
   setLocale('en');
   reset(c);
-  await open(c);
+  await open(c, opts.fixture);
   opts.afterOpen?.();
   const values: Values = {};
   values['model.nodes'] = modelStore.nodes.size;
   values['model.elements'] = modelStore.elements.size;
   values['model.shells'] = modelStore.quads.size + modelStore.plates.size;
   const outcome = await solveNow();
+  collectContainment(outcome);
   values['solve.ok'] = outcome.ok;
   if (!outcome.ok) values['solve.refusal'] = outcome.error;
   else {

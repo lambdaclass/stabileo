@@ -1,3 +1,11 @@
+<script lang="ts" module>
+  import { registerFeatureDictionaries } from '../../lib/i18n/store.svelte';
+  import { OFFERED_LOCALES } from '../../lib/i18n/offered';
+  import { aiTranslations } from './ai-translations';
+
+  registerFeatureDictionaries(Object.fromEntries(OFFERED_LOCALES.map((l) => [l, aiTranslations[l]])));
+</script>
+
 <script lang="ts">
   import { tPublic as t } from '../../lib/i18n/store.svelte';
   import Eyebrow from './Eyebrow.svelte';
@@ -6,7 +14,7 @@
   const points = ['aiPt1', 'aiPt2', 'aiPt3', 'aiPt4'];
 </script>
 
-<section class="sec sec--paper ai reveal" data-section="ai" id="ai" aria-labelledby="ai-title">
+<section class="sec sec--paper ai" data-section="ai" id="ai" aria-labelledby="ai-title">
   <div class="wrap">
     <Eyebrow n="04" label={t('landing.ebAi')} />
 

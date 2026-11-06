@@ -2,9 +2,9 @@
   import { onMount } from 'svelte';
   import { tPublic as t, publicI18n } from '../lib/i18n/store.svelte';
   import { applyPageMeta, restorePageMeta, stabileoSoftware } from '../lib/page-meta';
-  import SiteHeader from './site/SiteHeader.svelte';
   import LandingHero from './landing/LandingHero.svelte';
   import LandingPricing from './landing/LandingPricing.svelte';
+  import LandingFit from './landing/LandingFit.svelte';
   import LandingBasic from './landing/LandingBasic.svelte';
   import LandingProCalc from './landing/LandingProCalc.svelte';
   import LandingProDesign from './landing/LandingProDesign.svelte';
@@ -43,44 +43,12 @@
   });
 
   onMount(() => {
-    /**
-     * Safety net for the reveal animation.
-     *
-     * `.reveal` starts transparent and is only painted once the observer adds
-     * `.visible`, so a single missed callback does not degrade the animation —
-     * it hides an entire section permanently, and the page looks like it has a
-     * hole in it. That is far too much damage for a decorative effect.
-     *
-     * This runs on every scroll (the handler already exists) and reveals
-     * anything whose top has passed the bottom of the scroll container,
-     * regardless of whether the observer ever fired for it. The observer still
-     * does the work in the normal case; this only guarantees the floor.
-     */
-    const revealPassed = () => {
-      const el = landingEl;
-      if (!el) return;
-      const limit = el.getBoundingClientRect().bottom;
-      for (const node of el.querySelectorAll('.reveal:not(.visible)')) {
-        if (node.getBoundingClientRect().top < limit) node.classList.add('visible');
-      }
-    };
-
     const onScroll = () => {
       const el = landingEl;
       if (!el) return;
       const denom = Math.max(1, el.scrollHeight - el.clientHeight);
       scrollPct = (el.scrollTop / denom) * 100;
-      revealPassed();
     };
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          if (entry.isIntersecting) entry.target.classList.add('visible');
-        }
-      },
-      { threshold: 0.08, root: landingEl },
-    );
 
     const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
     const onMotionChange = (e: MediaQueryListEvent) => {
@@ -94,8 +62,6 @@
     landingEl?.addEventListener('scroll', onScroll, { passive: true });
     onScroll();
 
-    for (const el of landingEl.querySelectorAll('.reveal')) observer.observe(el);
-
     const onMessage = (e: MessageEvent) => {
       // Same origin only: any page that frames or opened this one can post to it.
       if (e.origin !== window.location.origin) return;
@@ -104,7 +70,6 @@
     window.addEventListener('message', onMessage);
 
     return () => {
-      observer.disconnect();
       landingEl?.removeEventListener('scroll', onScroll);
       window.removeEventListener('message', onMessage);
       if (motionQuery.removeEventListener) motionQuery.removeEventListener('change', onMotionChange);
@@ -158,8 +123,8 @@
     between Basic and the capabilities matrix — was the second, and the deck
     is renumbered so the sequence has no gap where it was.
   -->
-  <SiteHeader page="landing" />
   <LandingHero {prefersReducedMotion} />
+  <LandingFit />
   <LandingBasic />
   <LandingProCalc />
   <LandingProDesign />

@@ -1,4 +1,4 @@
-import { currentResultsVersion } from '../../../lib/provenance/result-changes.json?research-page';
+import metadata from 'virtual:result-change-metadata?research-page';
 
 export type Form = {
   nodes: number[][];
@@ -16,7 +16,7 @@ export function projection(form: Form, elevation: boolean): number[] {
 export function compactModel(form: Form, label: string) {
   return {
     m: '3d', nm: label, lx: 'zUpStrongAxis', sv: 6,
-    sw: { resultsVersion: currentResultsVersion, resultsSchemaVersion: 1, analyses: [] },
+    sw: { resultsVersion: metadata.currentResultsVersion, resultsSchemaVersion: 1, analyses: [] },
     n: form.nodes.map((p, i) => [i + 1, ...p]),
     mt: [[1, label, 200000, 0.3, 0]],
     sc: [[1, label, 0.001, 1e-8, { iy: 1e-8, j: 1e-8 }]],

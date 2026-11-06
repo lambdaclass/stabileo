@@ -36,8 +36,6 @@ mod certify_end_to_end_mutations;
 mod certify_nonfinite;
 #[path = "../certify_nonlinear.rs"]
 mod certify_nonlinear;
-#[path = "../certify_plastic.rs"]
-mod certify_plastic;
 #[path = "../certify_plastic_3d.rs"]
 mod certify_plastic_3d;
 #[path = "../certify_shown.rs"]

@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { newPrerenderPage, PRERENDER_NAVIGATION_TIMEOUT_MS, prerenderConcurrency, routePool } from '../prerender-pool';
+import { MIN_CAPTURE_CHARS, newPrerenderPage, PRERENDER_NAVIGATION_TIMEOUT_MS, prerenderConcurrency, routePool, waitForRenderedApp } from '../prerender-pool';
 
 const routes = ['/a/', '/b/', '/c/', '/d/'].map(href => ({ href }));
 
@@ -65,5 +65,59 @@ describe('prerender navigation timeout', () => {
     const wrapped = source.match(/newPrerenderPage\(\(\) => browser\.newPage\(/g) ?? [];
     expect(pages.length).toBeGreaterThan(0);
     expect(wrapped.length).toBe(pages.length);
+  });
+
+  it('a capture waits for the page to render, not only for the network to go quiet', async () => {
+    const calls: { fn: (min: number) => boolean; arg: number; timeout: number }[] = [];
+    await waitForRenderedApp({ waitForFunction: async (fn, arg, { timeout }) => { calls.push({ fn, arg, timeout }); }, evaluate: async (fn) => fn() });
+    expect(calls).toHaveLength(1);
+    expect(calls[0].arg).toBe(MIN_CAPTURE_CHARS);
+    expect(calls[0].timeout).toBe(PRERENDER_NAVIGATION_TIMEOUT_MS);
+    const app = { innerHTML: '<!----><!---->' };
+    const doc = globalThis as { document?: unknown };
+    const before = doc.document;
+    doc.document = { querySelector: (s: string) => (s === '#app' ? app : null) };
+    try {
+      expect(calls[0].fn(MIN_CAPTURE_CHARS)).toBe(false);
+      app.innerHTML = 'x'.repeat(MIN_CAPTURE_CHARS);
+      expect(calls[0].fn(MIN_CAPTURE_CHARS)).toBe(true);
+    } finally {
+      doc.document = before;
+    }
+  });
+
+  it('a rendered shell is not captured while the page still holds work it will render (#1452)', async () => {
+    const calls: ((min: number) => boolean)[] = [];
+    await waitForRenderedApp({ waitForFunction: async (fn) => { calls.push(fn); }, evaluate: async (fn) => fn() });
+    const doc = globalThis as { document?: unknown; __prerenderHolds?: number };
+    const before = doc.document;
+    doc.document = { querySelector: (s: string) => (s === '#app' ? { innerHTML: 'x'.repeat(MIN_CAPTURE_CHARS * 10) } : null) };
+    try {
+      doc.__prerenderHolds = 1;
+      expect(calls[0](MIN_CAPTURE_CHARS)).toBe(false);
+      doc.__prerenderHolds = 0;
+      expect(calls[0](MIN_CAPTURE_CHARS)).toBe(true);
+    } finally {
+      doc.document = before;
+      delete doc.__prerenderHolds;
+    }
+  });
+
+  it('a load that never settles fails the capture instead of writing the shell (#1452)', async () => {
+    const scope = globalThis as { __prerenderHolds?: number };
+    scope.__prerenderHolds = 1;
+    try {
+      await expect(waitForRenderedApp({ waitForFunction: async () => { throw new Error('Timeout 120000ms exceeded'); }, evaluate: async (fn) => fn() }))
+        .rejects.toThrow(/1 load\(s\) the page renders were still pending/);
+    } finally {
+      delete scope.__prerenderHolds;
+    }
+  });
+
+  it('a page that never renders is left to the caller, which reports it as nearly empty', async () => {
+    await expect(waitForRenderedApp({ waitForFunction: async () => { throw new Error('Timeout 120000ms exceeded'); }, evaluate: async (fn) => fn() })).resolves.toBeUndefined();
+    const source = readFileSync(new URL('../prerender.ts', import.meta.url), 'utf8');
+    expect(source).toMatch(/await waitForRenderedApp\(page\);\n\s*const \{ head, body \}/);
+    expect(source).toMatch(/body\.length < MIN_CAPTURE_CHARS\) throw new Error\(`prerender: \$\{href\} came back nearly empty/);
   });
 });

@@ -37,7 +37,7 @@ import type { CombinationInputs, LoadCombinationSpec, LoadSymbol } from '../../c
 import { partitionLiveAllowance, type ElementKind, type OccupancyEntry } from '../../codes/cirsoc101/live-loads';
 import type { Enclosure, Exposure, ServiceRecurrence } from '../../codes/cirsoc102/wind';
 import type { WindCaseSet, WindDirection } from './wind-cases';
-import { gravityLayout, type GravityLayout } from './plan-gravity';
+import { gravityLayout, widthSpans, type GravityLayout } from './plan-gravity';
 import { specialLoads, type ThermalInput, type SoilInput, type FluidInput } from './special-loads';
 import type { OtherStructure } from './wind-other';
 import type { ModeShape } from './seismic-modal';
@@ -479,8 +479,8 @@ export function levelsWithPlanArea(
   return buckets;
 }
 
-/** A shell's weight is spread evenly over its corners' levels, so a wall weighs half on each floor. */
-function selfWeightByLevel(
+/** A shell's weight is spread evenly over the levels its corners are on, so a wall weighs half on each floor. */
+export function selfWeightByLevel(
   model: LoadModelData, levelOfNode: Map<number, number>, count: number,
 ): { weights: number[]; skipped: number; skippedShells: number } {
   const weights = new Array(count).fill(0);
@@ -495,11 +495,10 @@ function selfWeightByLevel(
     const L = Math.hypot(nJ.x - nI.x, nJ.y - nI.y, elevationOf(nJ) - elevationOf(nI));
     // A member of variable section weighs its mean area along it (`section/variable.ts`).
     const meanRatio = (el as { variableSection?: unknown }).variableSection ? (memberMeanArea(model.sections as never, el as never) ?? sec.a) / sec.a : 1;
+    const ends = [el.nodeI, el.nodeJ].map((id) => levelOfNode.get(id)).filter((lv) => lv !== undefined);
+    if (ends.length === 0) { skipped++; continue; }
     const w = sectionWeight(sec, el.materialId) * L * meanRatio;
-    for (const id of [el.nodeI, el.nodeJ]) {
-      const lv = levelOfNode.get(id);
-      if (lv !== undefined) weights[lv] += w / 2;
-    }
+    for (const lv of ends) weights[lv] += w / ends.length;
   }
   let skippedShells = 0;
   for (const q of model.quads?.values() ?? []) {
@@ -507,11 +506,10 @@ function selfWeightByLevel(
     const rho = q.materialId !== undefined ? model.materials.get(q.materialId)?.rho : undefined;
     if (pts.some((p) => !p) || !(q.thickness! > 0) || rho === undefined || !(rho >= 0)) { skippedShells++; continue; }
     const xyz = pts.map((p) => [p!.x, p!.y, elevationOf(p!)] as [number, number, number]);
+    const corners = q.nodes.map((id) => levelOfNode.get(id)).filter((lv) => lv !== undefined);
+    if (corners.length === 0) { skippedShells++; continue; }
     const w = q.thickness! * rho * surfaceArea(xyz);
-    for (const id of q.nodes) {
-      const lv = levelOfNode.get(id);
-      if (lv !== undefined) weights[lv] += w / q.nodes.length;
-    }
+    for (const lv of corners) weights[lv] += w / corners.length;
   }
   return { weights, skipped, skippedShells };
 }
@@ -764,6 +762,11 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
     tributaryWidth: input.tributaryWidth,
   });
   derivation.push(...layout.notes);
+  if (layout.oneSided.length > 0) {
+    const note = msg('loadPlan.assumption.oneSidedTorsion', { n: layout.oneSided.length, ids: layout.oneSided.join(', ') });
+    assumptions.push(note);
+    derivation.push(note);
+  }
   // A flat roof may well carry the floors' screed and tiles; a pitched one with no slab, on rafters or trusses, may not.
   if (input.roof?.deadFromFloors && input.roof.slopeDeg >= PITCHED_ROOF_DEG && ![...layout.areaOf.values()].some((a) => a > 0) && layout.shellQuads.length === 0) {
     return { ...empty, blockedKeys: [msg('loadPlan.blocked.roofDeadWithoutFloors')] };
@@ -775,7 +778,7 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
    * area any member of the model could carry (`tributaryAreaM2` above): an edge beam 6 m long under
    * a 3 m width, KLL·AT = 36 m² < 37 m² and so not reducible by §4.7.2, came out 21 % lighter.
    */
-  const widthArea = new Map(layout.widthMembers.map((m) => [m.elementId, input.tributaryWidth * m.horizontalLength]));
+  const widthArea = new Map(layout.widthMembers.map((m) => [m.elementId, widthSpans(m, input.tributaryWidth).reduce((s, w) => s + w.width * (w.t1 - w.t0), 0) * m.horizontalLength]));
   const reducedFor = (entry: OccupancyEntry, loKNm2: number, _uniform: number, areas: Map<number, number>) => (elementId: number): number => {
     if (!input.applyLiveReduction) return loKNm2;
     return codes.loads.reduce({

@@ -1,0 +1,35 @@
+import pathlib
+import re
+import unittest
+
+ROOT = pathlib.Path(__file__).resolve().parents[2]
+
+
+def recipe(makefile, target, seen=None):
+    seen = seen if seen is not None else set()
+    if target in seen:
+        return ''
+    seen.add(target)
+    match = re.search(rf'^{re.escape(target)}:([^\n]*)\n((?:\t[^\n]*\n)*)', makefile, re.M)
+    if not match:
+        return ''
+    return match.group(2) + ''.join(recipe(makefile, prerequisite, seen) for prerequisite in match.group(1).split())
+
+
+class CiScriptsTarget(unittest.TestCase):
+    def test_every_script_test_runs_in_the_required_job(self):
+        commands = recipe((ROOT / 'Makefile').read_text(), 'test.ci-scripts')
+        tests = sorted(p.relative_to(ROOT).as_posix() for pattern in ('test_*.py', '*.test.cjs')
+                       for p in (ROOT / 'scripts/tests').glob(pattern))
+        self.assertIn('scripts/tests/test_ci_scripts_target.py', tests)
+        self.assertEqual([t for t in tests if not re.search(rf'(^|\s){re.escape(t)}(\s|$)', commands, re.M)], [])
+
+    def test_a_file_named_only_inside_another_path_does_not_count(self):
+        makefile = 'test.ci-scripts: test.a\n\tpython3 scripts/tests/test_x.py.bak\ntest.a:\n\tnode --test scripts/tests/y.test.cjs\n'
+        commands = recipe(makefile, 'test.ci-scripts')
+        self.assertIn('scripts/tests/y.test.cjs', commands)
+        self.assertIsNone(re.search(r'(^|\s)scripts/tests/test_x\.py(\s|$)', commands, re.M))
+
+
+if __name__ == '__main__':
+    unittest.main()

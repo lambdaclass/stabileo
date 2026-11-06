@@ -52,6 +52,7 @@ pub fn compute_result_summary_2d(results: &AnalysisResults) -> ResultSummary {
         rotation: ry,
         displacement_resultant: res,
         reaction_resultant: rxn,
+        second_order_ratio: None,
     }
 }
 
@@ -78,5 +79,6 @@ pub fn compute_result_summary_3d(results: &AnalysisResults3D) -> ResultSummary {
         rotation: None, // 3D rotation is complex (3 components), skip for now
         displacement_resultant: res,
         reaction_resultant: rxn,
+        second_order_ratio: None,
     }
 }

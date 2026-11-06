@@ -27,6 +27,7 @@ import { promisify } from 'node:util';
 import { readdirSync, readFileSync, rmSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { sharedBuild, SHARED_PLAIN_BUILD } from './shared-build';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const WEB_ROOT = resolve(__dirname, '../../../..');
@@ -35,7 +36,8 @@ const WEB_ROOT = resolve(__dirname, '../../../..');
  *  (Deliberately not `orientationSuspectCount` — that is a real verificationStore
  *  getter the design toolbar uses, so it legitimately ships in production.) */
 const HOOK_MARKERS = ['__stabileoActions', 'canvasInkRatio', 'e2eQueryEnabled'];
-const OUT_OFF = '.dist-hookgate-off';
+const SHARED = sharedBuild(SHARED_PLAIN_BUILD);
+const OUT_OFF = SHARED ?? '.dist-hookgate-off';
 const OUT_ON = '.dist-hookgate-on';
 
 const execFileAsync = promisify(execFile);
@@ -61,7 +63,7 @@ function bundleText(outDir: string): string {
 }
 
 function cleanup(): void {
-  for (const d of [OUT_OFF, OUT_ON]) {
+  for (const d of SHARED ? [OUT_ON] : [OUT_OFF, OUT_ON]) {
     rmSync(resolve(WEB_ROOT, d), { recursive: true, force: true });
   }
 }
@@ -70,7 +72,7 @@ describe('E2E hook build-time gating', () => {
   afterAll(cleanup);
 
   it('a normal production build contains NO test-hook code', async () => {
-    await build(OUT_OFF, {});
+    if (!SHARED) await build(OUT_OFF, {});
     const js = bundleText(OUT_OFF);
     expect(js.length, 'the build must produce JavaScript assets').toBeGreaterThan(10_000);
     for (const marker of HOOK_MARKERS) {

@@ -309,15 +309,17 @@ fn check_single_timber_member(
     let n = f.n.unwrap_or(0.0);
     let v_abs = f.v.unwrap_or(0.0).abs();
 
-    let fb_actual = if s > 0.0 { m_abs / s } else { 0.0 };
-    let fv_actual = if area > 0.0 {
-        // NDS 3.4.2: fv = 3V/(2bd) for rectangular sections
-        1.5 * v_abs / area
-    } else {
-        0.0
-    };
-
     let mut ledger = CheckLedger::new();
+    if !(s > 0.0 && s.is_finite() && area > 0.0 && area.is_finite()) {
+        ledger.flag(TIMBER_CHECK_NAMES[0]);
+        ledger.flag(TIMBER_CHECK_NAMES[3]);
+    }
+    if !n.is_finite() {
+        ledger.flag(TIMBER_CHECK_NAMES[1]);
+        ledger.flag(TIMBER_CHECK_NAMES[2]);
+    }
+    let fb_actual = m_abs / s;
+    let fv_actual = 1.5 * v_abs / area;
 
     // Bending ratio
     let bending_ratio = ledger.ratio(TIMBER_CHECK_NAMES[0], fb_actual, fb_prime);

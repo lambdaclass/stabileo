@@ -13,6 +13,7 @@
   import { verificationColumnDiagram } from '../../../lib/engine/design/column-interaction';
   import ColumnInteraction from '../desk/column/ColumnInteraction.svelte';
   import OutcomeBadge from './OutcomeBadge.svelte';
+  import NmPairingNotice from './NmPairingNotice.svelte';
   import type { MemberContext } from '../../../lib/engine/design/member-context';
   import type { ProvidedRebarResult } from '../../../lib/engine/station-design-forces';
   import type { MemberDesignOutcome } from '../../../lib/engine/design/outcome';
@@ -155,6 +156,7 @@
   {/if}
 
   <!-- ─── Authoritative check table ─── -->
+  <NmPairingNotice {elementId} />
   {#if provided && provided.checks.length > 0}
     <p class="local-title" data-testid={`local-checks-title-${elementId}`}><strong>{t('verdict.local.title')}</strong> <span class="muted">{t('verdict.local.note')}</span></p>
     <table class="checks" data-testid={`checks-${elementId}`}>

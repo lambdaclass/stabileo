@@ -54,7 +54,7 @@
   ];
 </script>
 
-<section class="sec sec--ink pricing reveal" data-section="pricing" id="pricing" aria-labelledby="pricing-title">
+<section class="sec sec--ink pricing" data-section="pricing" id="pricing" aria-labelledby="pricing-title">
   <div class="wrap">
     <Eyebrow n="07" label={t('landing.ebPricing')} />
 
