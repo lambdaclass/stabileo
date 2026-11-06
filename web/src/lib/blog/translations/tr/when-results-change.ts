@@ -165,7 +165,7 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "Sınırlandırma bir defterde tutulur; defter her açık güvenlik sorununu, onun uyarısını ya da reddetmesini, onu tetikleyen koşulu ve tetiklendiğini gösteren testi ya da sınırlandırmaya gerek olmadığının kanıtını listeler. Bir test bu defterle motorun bilinen sorunlar listesini uyumlu tutar, zamanlanmış bir iş de defteri GitHub’da açık olan issue’larla karşılaştırır. Koşullar bilerek dar tutulmuştur: sonuç derlemindeki 39 modelde her uyarı en fazla ikisinde tetiklenir. Bu defteri her açık issue için tamamlayan pull request (#807) bu yazı yazılırken son incelemesindedir; 0.5.0 sürümünden önce birleştirilecek."
+      "t": "Sınırlandırma bir defterde tutulur; defter her açık güvenlik sorununu, onun uyarısını ya da reddetmesini, onu tetikleyen koşulu ve tetiklendiğini gösteren testi ya da sınırlandırmaya gerek olmadığının kanıtını listeler. Bir test bu defterle motorun bilinen sorunlar listesini uyumlu tutar, zamanlanmış bir iş de defteri GitHub’da açık olan issue’larla karşılaştırır. Koşullar bilerek dar tutulmuştur: sonuç derlemindeki 39 modelde her uyarı en fazla ikisinde tetiklenir. Bu defteri her açık issue için tamamlayan pull request (#807) 5 Kasım’da, 0.5.0 sürümünden önce birleştirildi."
     },
     {
       "k": "p",
@@ -219,7 +219,7 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "2B’de gizli bir mekanizma (#1298, 22. sürüm). Tüm çubukları mafsallı bir düğümden bir kafes çubuğunun ucuna giden rijit bir bağ ya da diyafram bir mekanizmadır, ancak çözücü onu çok küçük yapay bir yayla tutuyor ve yüzlerce kilometrelik yer değiştirmeler döndürüyordu; sertifika da bunları sertifikalıyordu. Böyle bir model artık reddediliyor. Düzeltme bunun için bir güvenlik uyarısı önermedi: bulunan durumlarda yer değiştirmeler saçmaydı, 10⁵ m civarındaydı ve uygulamanın olası bir mekanizma uyarısıyla birlikte geliyordu. Bu, o durumlar hakkında bir yargıdır; etkilenen hiçbir sonucun makul görünmediğinin kanıtı değildir. Yanlış olan sertifikanın iddiasıydı ve sürüm kaydı bunu ilgilendirdiği projelere bildiriyor. Rijit bağ yerine bir bağlayıcı üzerinden oluşan benzer bir durum daha sonra bulundu (#1414); düzeltmesi (#1415) incelemede ve 0.5.0 ile birleştirilecek."
+      "t": "2B’de gizli bir mekanizma (#1298, 22. sürüm). Tüm çubukları mafsallı bir düğümden bir kafes çubuğunun ucuna giden rijit bir bağ ya da diyafram bir mekanizmadır, ancak çözücü onu çok küçük yapay bir yayla tutuyor ve yüzlerce kilometrelik yer değiştirmeler döndürüyordu; sertifika da bunları sertifikalıyordu. Böyle bir model artık reddediliyor. Düzeltme bunun için bir güvenlik uyarısı önermedi: bulunan durumlarda yer değiştirmeler saçmaydı, 10⁵ m civarındaydı ve uygulamanın olası bir mekanizma uyarısıyla birlikte geliyordu. Bu, o durumlar hakkında bir yargıdır; etkilenen hiçbir sonucun makul görünmediğinin kanıtı değildir. Yanlış olan sertifikanın iddiasıydı ve sürüm kaydı bunu ilgilendirdiği projelere bildiriyor. Rijit bağ yerine bir bağlayıcı üzerinden oluşan benzer bir durum daha sonra bulundu (#1414); düzeltmesi (#1415) 5 Kasım’da birleştirildi."
     },
     {
       "k": "p",
