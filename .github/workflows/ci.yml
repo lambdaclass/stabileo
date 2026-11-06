@@ -1545,7 +1545,6 @@ jobs:
     if: needs.changes.outputs.web == 'true'
     env:
       E2E_PREBUILT: '1'
-      GIT_TRACE2_EVENT: /tmp/git-trace2
     strategy:
       fail-fast: false
       matrix:
@@ -1686,13 +1685,6 @@ jobs:
           retention-days: 3
           if-no-files-found: error
       # Both paths are dot-directories, which upload-artifact skips unless told otherwise.
-      - name: TEMP git trace
-        if: always()
-        run: |
-          ls -la --time-style=full-iso .git/shallow || true
-          grep '"event":"start"' /tmp/git-trace2 | grep -v '"argv":\["git","-C"' | grep -v '"argv":\["git","\(rev-parse\|cat-file\|show\|ls-files\|ls-tree\|config\|version\|submodule\|init\|remote\|sparse-checkout\|checkout\|log\)"' | head -60 || true
-          grep '"event":"start"' /tmp/git-trace2 | grep 'depth\|fetch\|clone' | head -40 || true
-          for sid in $(grep '"event":"start"' /tmp/git-trace2 | grep 'depth\|fetch\|clone' | grep -o '"sid":"[^"]*"' | cut -d'"' -f4 | head -10); do grep -F "\"sid\":\"$sid\"" /tmp/git-trace2 | grep 'cmd_ancestry\|"event":"exit"' ; done || true
       - name: Upload Playwright artifacts
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
