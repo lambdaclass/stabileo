@@ -318,6 +318,7 @@ const es: Record<string, string> = {
   'landing.footChangelog': 'Historial de cambios',
   'landing.footReliability': 'Confiabilidad',
   'landing.footSap2000': 'Alternativa a SAP2000',
+  'landing.footEtabs': 'Alternativa a ETABS',
   'landing.footRights': 'Software libre bajo AGPL-3.0.',
   'landing.footLaunch': 'Abrir el editor',
   'landing.footSocial': 'Seguinos',

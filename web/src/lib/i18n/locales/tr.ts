@@ -327,6 +327,7 @@ const tr: Translations = {
   'landing.footChangelog': 'Değişiklikler',
   'landing.footReliability': 'Güvenilirlik',
   'landing.footSap2000': 'SAP2000 alternatifi',
+  'landing.footEtabs': 'ETABS alternatifi',
   'landing.footRights': 'AGPL-3.0 lisanslı özgür yazılım.',
   'landing.footLaunch': 'Düzenleyiciyi aç',
   'landing.footSocial': 'Bizi takip edin',
