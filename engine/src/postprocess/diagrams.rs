@@ -514,7 +514,7 @@ impl MemberDeflection {
 }
 
 /// The section rotation along one bending plane of a loaded member, from the same exact
-/// Euler–Bernoulli / Timoshenko deflection as [`compute_deformed_shape`]: end values in the
+/// Euler–Bernoulli / Timoshenko deflection as [`compute_deformed_shape`], couples included: end values in the
 /// member's local axes, `points` (a, p) and `dist` (q_i, q_j, a, b) as `ElementForces` carries
 /// them, and `couples` (a, m) its counter-clockwise couples.
 pub(crate) struct SpanRotation {

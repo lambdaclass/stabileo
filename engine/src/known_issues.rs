@@ -599,34 +599,51 @@ pub(crate) fn rotated_nodes_3d(r: &AnalysisResults3D) -> Vec<usize> {
 
 /// A combination's warning: its own node rotations, its member chords summed from the factored
 /// chords of its cases, and its members' span rotations from its own displacements and span
-/// loads (`span_rotations` over the members its cases recorded). When a case recorded neither,
-/// the chord and span warnings of every case are carried instead and the combination records none.
+/// loads (`span_rotations` over the members its cases recorded). Each check runs when every case
+/// recorded what it needs; when a case lacks either record, the member warnings of every case are
+/// carried as well, and the combination records only what is complete.
 pub(crate) fn combined_small_displacement<'a>(
     nodes: Vec<usize>,
     cases: impl Iterator<Item = (f64, Option<&'a ResultSummary>)>,
     carried: &[StructuredDiagnostic],
     span_rotations: impl FnOnce(&[MemberSpan]) -> Vec<usize>,
 ) -> (Option<StructuredDiagnostic>, Option<Vec<MemberChord>>, Option<Vec<MemberSpan>>) {
-    let mut summed: std::collections::BTreeMap<usize, [f64; 3]> = std::collections::BTreeMap::new();
-    let mut spans: Option<&Vec<MemberSpan>> = None;
+    let mut summed: Option<std::collections::BTreeMap<usize, [f64; 3]>> = Some(std::collections::BTreeMap::new());
+    let mut spans: Option<Option<&Vec<MemberSpan>>> = Some(None);
     for (factor, summary) in cases {
-        let (Some(chords), Some(own)) = (summary.and_then(|s| s.member_chords.as_ref()), summary.and_then(|s| s.member_spans.as_ref())) else {
-            let elements = carried.iter().filter(|d| d.phase.as_deref() == Some("LIN-SMALL-DISPLACEMENT")).flat_map(|d| d.element_ids.iter().copied()).collect();
-            return (small_displacement(nodes, elements), None, None);
-        };
-        spans.get_or_insert(own);
-        for c in chords {
-            let sum = summed.entry(c.element_id).or_insert([0.0; 3]);
-            for (s, v) in sum.iter_mut().zip(c.chord) {
-                *s += factor * v;
+        match (summary.and_then(|s| s.member_chords.as_ref()), summed.as_mut()) {
+            (Some(chords), Some(sum)) => {
+                for c in chords {
+                    let entry = sum.entry(c.element_id).or_insert([0.0; 3]);
+                    for (s, v) in entry.iter_mut().zip(c.chord) {
+                        *s += factor * v;
+                    }
+                }
             }
+            (None, _) => summed = None,
+            _ => {}
+        }
+        match (summary.and_then(|s| s.member_spans.as_ref()), spans.as_mut()) {
+            (Some(own), Some(first)) => {
+                first.get_or_insert(own);
+            }
+            (None, _) => spans = None,
+            _ => {}
         }
     }
-    let chords: Vec<MemberChord> = summed.into_iter().map(|(element_id, chord)| MemberChord { element_id, chord }).collect();
-    let spans = spans.cloned().unwrap_or_default();
-    let mut elements = beyond_chords(&chords);
-    elements.extend(span_rotations(&spans));
-    (small_displacement(nodes, elements), Some(chords), Some(spans))
+    let chords: Option<Vec<MemberChord>> = summed.map(|s| s.into_iter().map(|(element_id, chord)| MemberChord { element_id, chord }).collect());
+    let spans: Option<Vec<MemberSpan>> = spans.map(|s| s.cloned().unwrap_or_default());
+    let mut elements = Vec::new();
+    if chords.is_none() || spans.is_none() {
+        elements.extend(carried.iter().filter(|d| d.phase.as_deref() == Some("LIN-SMALL-DISPLACEMENT")).flat_map(|d| d.element_ids.iter().copied()));
+    }
+    if let Some(chords) = &chords {
+        elements.extend(beyond_chords(chords));
+    }
+    if let Some(spans) = &spans {
+        elements.extend(span_rotations(spans));
+    }
+    (small_displacement(nodes, elements), chords, spans)
 }
 
 /// [`small_displacement_2d`] in 3D: the norm of each node's rotation vector, the chord of every
@@ -786,7 +803,7 @@ fn span_planes_2d(spans: &[MemberSpan], r: &AnalysisResults) -> Vec<(usize, f64,
     out
 }
 
-/// [`span_rotations_2d`] in 3D: both bending planes, as the deformed shape draws them, and the
+/// [`span_rotations_2d`] in 3D: both bending planes, in the axes the app's 3D deformed shape uses, and the
 /// twist, judged together as the norm of the rotation vector.
 pub(crate) fn span_rotations_3d(spans: &[MemberSpan], r: &AnalysisResults3D) -> Vec<usize> {
     span_planes_3d(spans, r).into_iter().filter(|(_, length, planes, twist)| beyond_small_displacement(largest_span_rotation(*length, planes, *twist))).map(|(id, ..)| id).collect()

@@ -2323,3 +2323,20 @@ fn a_case_without_recorded_spans_has_its_span_warnings_carried_1506() {
     assert_eq!(beyond_small_displacement(&combined.structured_diagnostics).map(|d| d.element_ids.clone()), Some(vec![1]));
     assert_eq!(combined.result_summary.and_then(|s| s.member_spans), None);
 }
+
+#[test]
+fn a_combination_runs_the_check_whose_record_is_complete_1506() {
+    use dedaliano_engine::postprocess::combinations::{combine_results_refs, CombinationFactor};
+    let mut along = chord_case_2d(120_000.0, 0.0);
+    along.result_summary.as_mut().unwrap().member_spans = None;
+    let chords_only = combine_results_refs(&[CombinationFactor { case_id: 1, factor: 2.0 }], &[(1, &along)]).unwrap();
+    assert_eq!(beyond_small_displacement(&chords_only.structured_diagnostics).map(|d| d.element_ids.clone()), Some(vec![1]), "0.06 amplified twice is 0.12 with no span record");
+    let summary = chords_only.result_summary.unwrap();
+    assert!(summary.member_chords.is_some() && summary.member_spans.is_none());
+    let mut moderate = fixed_ended_span_2d(-150_000.0);
+    moderate.result_summary.as_mut().unwrap().member_chords = None;
+    let spans_only = combine_results_refs(&[CombinationFactor { case_id: 1, factor: 2.0 }], &[(1, &moderate)]).unwrap();
+    assert_eq!(beyond_small_displacement(&spans_only.structured_diagnostics).map(|d| d.element_ids.clone()), Some(vec![1]), "a 0.06 span rotation amplified twice with no chord record");
+    let summary = spans_only.result_summary.unwrap();
+    assert!(summary.member_chords.is_none() && summary.member_spans.is_some());
+}
