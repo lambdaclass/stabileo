@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isContainmentRefusal, plainRefusal, refusedWithCode } from '../containment-error';
+import { CodedRefusal, asCodedRefusal, isContainmentRefusal, refusedWithCode } from '../containment-error';
 
 const coded = (code: string, message: string, severity = 'error') =>
   new Error(JSON.stringify({ message, structuredDiagnostics: [{ code, severity, message }] }));
@@ -23,11 +23,19 @@ describe('coded engine refusals', () => {
     expect(isContainmentRefusal(coded('known_issue', 'x'))).toBe(true);
   });
 
-  it('become a plain error with the engine message when shown', () => {
-    const plain = plainRefusal(coded('no_free_dofs', 'No free DOFs'));
-    expect(plain).toBeInstanceOf(Error);
-    expect((plain as Error).message).toBe('No free DOFs');
+  it('become a CodedRefusal with the engine message when converted for that code', () => {
+    const plain = asCodedRefusal(coded('no_free_dofs', 'No free DOFs'), 'no_free_dofs');
+    expect(plain).toBeInstanceOf(CodedRefusal);
+    expect(plain).toMatchObject({ message: 'No free DOFs', code: 'no_free_dofs' });
+    expect(refusedWithCode(plain, 'no_free_dofs')).toBe(true);
+    expect(refusedWithCode(plain, 'known_issue')).toBe(false);
     const other = new Error('Singular matrix');
-    expect(plainRefusal(other)).toBe(other);
+    expect(asCodedRefusal(other, 'no_free_dofs')).toBe(other);
+  });
+
+  it('are left intact when converted for another code, so a containment refusal stays one', () => {
+    const contained = coded('known_issue', 'BU-BOUND');
+    expect(asCodedRefusal(contained, 'eigen_decomposition_failed')).toBe(contained);
+    expect(isContainmentRefusal(asCodedRefusal(contained, 'no_compressed_elements'))).toBe(true);
   });
 });

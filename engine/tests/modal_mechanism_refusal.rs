@@ -58,6 +58,7 @@ const SINGULAR: &str = "Eigenvalue decomposition failed";
 fn refusal(result: Result<Vec<f64>, String>, what: &str, expected: &[&str]) -> String {
     match result {
         Err(e) => {
+            let e = serde_json::from_str::<serde_json::Value>(&e).ok().and_then(|v| v["message"].as_str().map(str::to_owned)).unwrap_or(e);
             assert!(expected.iter().any(|x| e.starts_with(x)), "{what}: refused for another reason: {e}");
             e
         }

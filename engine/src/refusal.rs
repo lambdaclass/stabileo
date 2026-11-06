@@ -9,6 +9,14 @@ pub fn no_free_dofs() -> String {
     coded(DiagnosticCode::NoFreeDofs, "No free DOFs")
 }
 
+pub fn no_compressed_elements() -> String {
+    coded(DiagnosticCode::NoCompressedElements, "No compressed elements — buckling not applicable")
+}
+
+pub fn eigen_decomposition_failed(message: &str) -> String {
+    coded(DiagnosticCode::EigenDecompositionFailed, message)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -20,5 +28,14 @@ mod tests {
         assert_eq!(v["structuredDiagnostics"][0]["code"], "no_free_dofs");
         assert_eq!(v["structuredDiagnostics"][0]["severity"], "error");
         assert!(!crate::known_issues::is_refusal(&no_free_dofs()));
+    }
+
+    #[test]
+    fn an_eigen_failure_keeps_the_solver_message_under_its_code() {
+        let message = crate::linalg::lanczos::eigen_failure_message(12);
+        let v: serde_json::Value = serde_json::from_str(&eigen_decomposition_failed(&message)).unwrap();
+        assert_eq!(v["message"], message.as_str());
+        assert_eq!(v["structuredDiagnostics"][0]["code"], "eigen_decomposition_failed");
+        assert_eq!(v["structuredDiagnostics"][0]["severity"], "error");
     }
 }
