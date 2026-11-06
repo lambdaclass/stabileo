@@ -31,6 +31,7 @@ export const REGISTRY = 'web/src/lib/provenance/result-changes.json';
 export const FRAGMENT_DIR = 'changelog.d';
 export const FIXTURE_DIR = 'web/src/lib/templates/fixtures';
 export const CORPUS = 'web/src/lib/results-snapshot/corpus.ts';
+export const EQUIVALENCE_TEST = 'web/src/lib/results-snapshot/__tests__/examples-equivalence.test.ts';
 
 /** A fixture's model inputs: its JSON without the names and descriptions it shows, keys sorted. */
 export function modelInputs(fixtureText) {
@@ -206,6 +207,10 @@ export async function proveEquivalence(cases, base, at, { solve, baseTree }) {
       + 'Nothing then proves the engine gives them the same numbers before and after: add the corpus case in its own pull request first.');
     return 1;
   }
+  if (at(base, EQUIVALENCE_TEST) === null) {
+    console.error(`FAIL: ${base} has no ${EQUIVALENCE_TEST}, so its engine cannot be asked for the examples' numbers: an examples-scoped entry needs a base that has the proof.`);
+    return 1;
+  }
   const dir = mkdtempSync(join(tmpdir(), 'examples-equivalence-'));
   const listAt = (rev) => {
     const list = cases.map(({ file, example }) => {
@@ -242,7 +247,7 @@ export async function proveEquivalence(cases, base, at, { solve, baseTree }) {
 }
 
 function solveIn(tree, list) {
-  return import('node:child_process').then(({ spawnSync }) => spawnSync('npx', ['vitest', 'run', '--project', 'results', 'src/lib/results-snapshot/__tests__/examples-equivalence.test.ts'],
+  return import('node:child_process').then(({ spawnSync }) => spawnSync('npx', ['vitest', 'run', '--project', 'results', EQUIVALENCE_TEST.slice('web/'.length)],
     { cwd: `${tree}/web`, env: { ...process.env, EXAMPLES_EQUIVALENCE: list }, stdio: 'inherit' }).status);
 }
 

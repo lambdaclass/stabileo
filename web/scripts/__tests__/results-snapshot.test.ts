@@ -230,7 +230,7 @@ describe('the examples-only equivalence proof, with both engines', () => {
   const IPN = '{"sections":[{"name":"IPN 300"}]}';
   const SHS = '{"sections":[{"name":"SHS 100"}]}';
   const files: Record<string, Record<string, string>> = {
-    [base]: { 'web/results-snapshots/torsion-beam.json': '{"v":1}', 'web/src/lib/templates/fixtures/torsion.json': IPN },
+    [base]: { 'web/results-snapshots/torsion-beam.json': '{"v":1}', 'web/src/lib/templates/fixtures/torsion.json': IPN, 'web/src/lib/results-snapshot/__tests__/examples-equivalence.test.ts': 'proof' },
     HEAD: { 'web/results-snapshots/torsion-beam.json': '{"v":2}', 'web/src/lib/templates/fixtures/torsion.json': SHS },
   };
   const at = (rev: string, path: string) => files[rev]?.[path] ?? null;
@@ -279,6 +279,13 @@ describe('the examples-only equivalence proof, with both engines', () => {
         { solve: async () => { calls.push(1); return 0; }, baseTree: async () => ({ dir: 'x', dispose: () => {} }) });
       return { code, calls };
     })();
+    expect(code).toBe(1);
+    expect(calls).toEqual([]);
+  });
+  it('NEGATIVE: fails against a base that has no equivalence proof, whose engine nothing could ask', async () => {
+    const calls: unknown[] = [];
+    const code = await proveEquivalence(cases, base, (rev: string, path: string) => (path.endsWith('examples-equivalence.test.ts') ? null : at(rev, path)),
+      { solve: async () => { calls.push(1); return 0; }, baseTree: async () => ({ dir: 'x', dispose: () => {} }) });
     expect(code).toBe(1);
     expect(calls).toEqual([]);
   });
