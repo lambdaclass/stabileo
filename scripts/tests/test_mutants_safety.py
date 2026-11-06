@@ -77,6 +77,52 @@ class DispatchTest(unittest.TestCase):
         self.assertIn("-C --test -C", run[0])
 
 
+    def run_scope(self, scope, root=ROOT, extra=()):
+        bin_dir = Path(tempfile.mkdtemp())
+        log = bin_dir / "calls"
+        fake = bin_dir / "cargo"
+        fake.write_text('#!/bin/sh\nprintf "%s\\n" "$*" >> "' + str(log) + '"\ncase "$*" in *--list*) echo "[]" ;; esac\n')
+        fake.chmod(0o755)
+        env = {**os.environ, "PATH": f"{bin_dir}:{os.environ['PATH']}", "MUTANTS_SCOPE": scope}
+        r = subprocess.run(["bash", str(root / "scripts" / "mutants.sh"), *extra], cwd=root, env=env, capture_output=True, text=True)
+        calls = log.read_text().splitlines() if log.exists() else []
+        return r, [c for c in calls if "--list" not in c]
+
+    def test_every_scope_names_only_test_targets_cargo_has(self):
+        for scope in ["certify", "solver", "element", "all", "safety"]:
+            r, run = self.run_scope(scope, extra=["--test-tool", "nextest"])
+            self.assertNotEqual(r.returncode, 64, r.stderr)
+            self.assertEqual(len(run), 1, scope)
+            for t in re.findall(r"-C --test -C (\S+)", run[0]):
+                self.assertTrue((ROOT / "engine" / "tests" / t / "main.rs").exists(), f"{scope}: --test {t}")
+            for b in re.findall(r"binary\(=(\w+)\)", run[0]):
+                self.assertTrue((ROOT / "engine" / "tests" / b / "main.rs").exists(), f"{scope}: binary(={b})")
+
+    def test_a_test_file_the_library_includes_runs_with_the_library_tests(self):
+        r, run = self.run_scope("certify", extra=["--test-tool", "nextest"])
+        self.assertTrue((ROOT / "engine" / "tests" / "certify_plastic.rs").exists())
+        self.assertIn("../certify_plastic.rs", (ROOT / "engine" / "tests" / "unrefused" / "mod.rs").read_text())
+        self.assertIn("-C --lib", run[0])
+        self.assertNotRegex(run[0], r"certify_plastic(?!_)")
+        self.assertIn("kind(lib)", run[0])
+
+    def test_a_test_file_no_binary_runs_stops_the_run(self):
+        root = Path(tempfile.mkdtemp())
+        subprocess.run(["git", "init", "-q", str(root)], check=True)
+        (root / "scripts").mkdir()
+        (root / "scripts" / "mutants.sh").write_text((ROOT / "scripts" / "mutants.sh").read_text())
+        (root / "engine" / "src").mkdir(parents=True)
+        (root / "engine" / "src" / "lib.rs").write_text("")
+        (root / "engine" / "tests" / "certify").mkdir(parents=True)
+        (root / "engine" / "tests" / "certify" / "main.rs").write_text("")
+        (root / "engine" / "tests" / "fuzz_regressions").mkdir()
+        (root / "engine" / "tests" / "fuzz_regressions" / "main.rs").write_text("")
+        (root / "engine" / "tests" / "certify_orphan.rs").write_text("")
+        r, run = self.run_scope("certify", root=root)
+        self.assertEqual(r.returncode, 64)
+        self.assertIn("no test binary runs engine/tests/certify_orphan.rs", r.stderr)
+        self.assertEqual(run, [])
+
 class ReportTest(unittest.TestCase):
     def test_kill_rate_per_module_counts_timeouts_as_killed_and_ignores_unviable_and_duplicates(self):
         a = shard([

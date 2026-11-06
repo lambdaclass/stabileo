@@ -1340,3 +1340,21 @@ fn a_copy_refused_beside_a_near_mechanism_original_is_not_a_violation() {
         assert!(cell.fails.is_empty() && cell.refused > 0, "{inv}: {cell:?}");
     }
 }
+
+/// Quad 1 and MITC9 quad 1 in one model: the linear reference has to tag its
+/// shell families as the analysis rows do, or the quad9 entry drops out of
+/// the comparison as "2 values vs 3 expected".
+#[test]
+fn linear_agreement_pairs_a_quad_and_a_quad9_with_the_same_id() {
+    let c = crate::corpus::fuzz_case_3d(20898, 0);
+    assert!(c.s.quads.values().any(|q| q.id == 1) && c.s.quad9s.values().any(|q| q.id == 1));
+    let t = crate::tally::Tally::default();
+    let names = ["Winkler (no foundation)", "linear (load session)", "certified linear"];
+    let anas: Vec<_> = crate::ana3::rows().into_iter().filter(|a| names.contains(&a.name)).collect();
+    crate::checks3::check_case(&crate::checks3::Ctx { tally: &t, rng_seed: 20763 }, &c, &anas, &["linear agreement"]);
+    let cells = t.cells.lock().unwrap();
+    for a in names {
+        let cell = &cells[&(a.to_string(), "linear agreement".to_string())];
+        assert!(cell.fails.is_empty() && cell.pass > 0, "{a}: {cell:?}");
+    }
+}

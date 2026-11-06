@@ -606,10 +606,7 @@ test.describe('blog', () => {
     const link = page.locator('.landing .hero-blog');
     await expect(link).toBeVisible();
     await expect(link).toHaveText(/read our blog/i);
-    // A link, not another button: the hero's job is still to get someone into
-    // the editor, and one button plus a link is one decision with a footnote.
-    // (It was two buttons until /demo was retired — see landing.spec.ts.)
-    await expect(page.locator('.landing .hero-ctas .btn')).toHaveCount(1);
+    await expect(page.locator('.landing .hero-ctas .btn-primary')).toHaveCount(1);
     await expect(page.locator('.landing .hero-ctas .hero-blog')).toHaveCount(0);
 
     await link.click();

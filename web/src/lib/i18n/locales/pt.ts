@@ -8,6 +8,7 @@ const pt: Translations = {
   "advanced.modalIncomplete": "Análise modal recusada: apenas {n} de {m} modos calculados têm frequência positiva (ω² > 0). Nenhum conjunto incompleto de modos foi retornado. Verifique o condicionamento de rigidez e massa e os apoios.",
   "advanced.eigenFailure": "Análise de autovalores recusada: não foi possível estabelecer a convergência e a completude de Sturm para {n} graus de liberdade livres. Nenhum conjunto incompleto de resultados foi retornado. Verifique apoios e liberações em busca de mecanismos, o condicionamento de rigidez e massa, ou peça menos modos.",
   "landing.navTools": "Ferramentas",
+  "landing.navExamples": "Exemplos",
 
   // Shared scalar-field viewer
   "scalarViewer.view": "Vista",
@@ -315,6 +316,7 @@ const pt: Translations = {
   'landing.footChangelog': 'Histórico de mudanças',
   'landing.footReliability': 'Confiabilidade',
   'landing.footSap2000': 'Alternativa ao SAP2000',
+  'landing.footEtabs': 'Alternativa ao ETABS',
   'landing.footRights': 'Software livre sob AGPL-3.0.',
   'landing.footLaunch': 'Abrir o editor',
   'landing.footSocial': 'Siga-nos',
@@ -828,7 +830,6 @@ const pt: Translations = {
   'autoLoad.zoneModerate': 'Moderada',
   'autoLoad.zoneVeryHigh': 'Muito elevada',
   'blog.allPosts': 'Todas as notas',
-  'blog.backHome': 'Voltar a stabileo.com',
   'blog.by': 'Por',
   'blog.embedNote': 'Carrega a aplicação real dentro desta página. Nada roda até você pedir.',
   'blog.embedOpenFull': 'Abrir em tamanho grande',
