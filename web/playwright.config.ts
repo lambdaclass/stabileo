@@ -3,6 +3,7 @@ import { SMOKE_PATTERN, SMOKE_TIMEOUT_MS } from './scripts/e2e-budgets';
 import { fileURLToPath } from 'node:url';
 import { existsSync, readdirSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { readRegistry } from './scripts/result-changes/registry.mjs';
 
 /**
  * Playwright configuration (PR15).
@@ -80,6 +81,7 @@ const HOST = '127.0.0.1';
  * rather than served (a production dist would time every PRO fixture out, as it once did).
  */
 const PREBUILT = process.env.E2E_PREBUILT === '1';
+process.env.E2E_RESULTS_VERSION ??= String(readRegistry().currentResultsVersion);
 export const E2E_BUILD_MARKER = 'e2e-build.txt';
 if (PREBUILT && !existsSync(resolve(fileURLToPath(new URL('.', import.meta.url)), 'dist', E2E_BUILD_MARKER))) {
   throw new Error(`E2E_PREBUILT=1 but dist/${E2E_BUILD_MARKER} is missing: dist is not a VITE_E2E=1 build`);

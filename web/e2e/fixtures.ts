@@ -3,20 +3,18 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test as base, expect, type Page } from '@playwright/test';
-import { readRegistry } from '../scripts/result-changes/registry.mjs';
 
 /**
  * A project a spec writes stands for one made in this build: stamped as solved with it, so opening
  * it raises no re-check notice (`src/lib/store/recheck.svelte.ts`). A spec about that notice
  * (`recheck-provenance.spec.ts`) leaves the stamp out on purpose.
  */
-let resultsVersion: number | undefined;
-
 export const CURRENT_STAMP = {
   id: 'e2e-current',
   get resultsVersion(): number {
-    resultsVersion ??= readRegistry().currentResultsVersion;
-    return resultsVersion;
+    const version = Number(process.env.E2E_RESULTS_VERSION);
+    if (!Number.isInteger(version) || version < 1) throw new Error(`E2E_RESULTS_VERSION is "${process.env.E2E_RESULTS_VERSION}": playwright.config.ts sets it before the workers start`);
+    return version;
   },
   analyses: [] as string[],
 };
