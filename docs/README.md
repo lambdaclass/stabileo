@@ -2,7 +2,7 @@
 
 ## Release notes · Notas de la versión
 
-**0.5.0 (2026-11-DD): wrong results fixed in design, the solver and dynamics, every open defect contained (SA-2026-025…038, 040…045) /
+**0.5.0 (2026-11-DD): wrong results fixed in design, the solver and dynamics, every open defect contained (SA-2026-025…038, 040…046) /
 resultados incorrectos corregidos en diseño, solver y dinámica, cada error abierto contenido.**
 [English](releases/v0.5.0.md) · [Español](releases/v0.5.0.es.md) · [Português](releases/v0.5.0.pt.md) · [Deutsch](releases/v0.5.0.de.md) · [Français](releases/v0.5.0.fr.md) · [Türkçe](releases/v0.5.0.tr.md)
 

@@ -15,7 +15,7 @@ One file per change in [`changelog.d/`](changelog.d/README.md); `scripts/changel
 
 Release notes: [`docs/releases/v0.5.0.md`](docs/releases/v0.5.0.md) (also in
 [Spanish](docs/releases/v0.5.0.es.md), [Portuguese](docs/releases/v0.5.0.pt.md), [German](docs/releases/v0.5.0.de.md), [French](docs/releases/v0.5.0.fr.md) and [Turkish](docs/releases/v0.5.0.tr.md)). Safety advisories
-SA-2026-025…038 and SA-2026-040…045 are fixed and published in this release.
+SA-2026-025…038 and SA-2026-040…046 are fixed and published in this release.
 
 ### BREAKING (results)
 
@@ -72,6 +72,10 @@ The CIRSOC 201 column check took the largest moment of any combination and check
 #### A soft but real node rotation is no longer locked by the orphan-rotation spring (2026-11-05)
 
 A node rotation that nothing stiffens (every member released there, or only trusses and solid shells reach it) gets a small artificial spring so the stiffness matrix stays nonsingular. The 2D and 3D assemblers judged a rotation unstiffened when its diagonal stiffness was below 1e-12 of the largest rotational diagonal in the whole model, so in a model with a stiffness contrast above about 10¹² a real but soft rotation was taken for an orphan and locked: under a force load it solved silently wrong (a soft propped cantilever beside a stiff member: end rotation 1.04e-7 rad instead of the closed-form P·L²/(32·EI) = 0.05 rad), and a nodal moment on it was refused (#1367). The threshold is now 1e-12 of the largest rotational diagonal of the same node, so a soft part of the model is no longer judged against a stiff part elsewhere. A rotation 1e12 softer than another rotation of the same node is still taken for an orphan. Rotations every member releases, and the refusal of a nodal moment on them, are unchanged.
+
+#### Harmonic analysis chooses between modal superposition and the direct solve per model and frequency, never per load (2026-11-06)
+
+- Fix #1537, #1538, #1539, #1540 and #1541: since #1423 a frequency was solved directly when the residual of its modal response, which depends on the load, exceeded 10⁻², and the modal response was accepted below that. So a sum of loads could be solved one way and each load the other, which broke superposition and reciprocity, and accepted modal responses were off from the direct solve by up to 106 % at a node (a one-member 3D cantilever at 0.7 Hz: −9.14 instead of 139.4) with imaginary parts off by up to 8.6×. A 2D frame showed only the rotary-inertia warning. Now a model with fewer than 64 free DOFs is solved directly at every frequency (exact), and a larger one keeps the modal response only where the omitted modes are bounded (`q = |ω² − i a₀ω| / (λ_omit |1 + i a₁ω|)` at most 1/16, error under q² of their share) and solves the other frequencies directly, the same frequencies for every load. A modal response kept that way whose residual still exceeds 10⁻² is refused, never replaced for that load alone. Past the dense ceiling (more than 3000 DOFs) frequencies are not re-solved and HARM-TRUNCATION (#1434) still warns where the omitted modes are not corrected (SA-2026-046).
 
 #### Harmonic analysis checks the residual of its modal response and computes the omitted modes' correction in their own subspace (2026-11-05)
 
