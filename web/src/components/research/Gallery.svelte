@@ -29,7 +29,7 @@
   import { rs, fieldName, statusName } from './i18n';
   import { strings as mattiassonStrings } from './mattiasson1981/i18n';
   import { card as macnealCard } from './macneal1985/card';
-  import { publicI18n } from '../../lib/i18n/store.svelte';
+  import { publicI18n, tPublic } from '../../lib/i18n/store.svelte';
   import type { Experiment } from './experiments';
 
   type Paper = (typeof catalog.papers)[number];
@@ -80,7 +80,7 @@
       <p class="rs-g-lead">
         {s.galleryLead}
       </p>
-      <p class="rs-g-paper"><PublicLink to="/paper">{s.paperFeature}</PublicLink></p>
+      <p class="link-row"><PublicLink to="/paper" class="link-arrow">{tPublic('landing.navPaper')} · JAIE 2026</PublicLink></p>
       <p class="rs-g-note"><strong>{s.notDesign}.</strong> {s.galleryDisclaimer} <a href="https://github.com/lambdaclass/stabileo/blob/main/research/CONTRIBUTING.md" rel="noreferrer" target="_blank">{"CONTRIBUTING.md"}</a>.</p>
     </header>
 
@@ -189,19 +189,6 @@
   .rs-g-note {
     color: var(--fg-2);
     font-size: 0.95rem;
-  }
-  .rs-g-paper :global(a) {
-    display: inline-flex;
-    align-items: center;
-    box-sizing: border-box;
-    min-height: 44px;
-    padding: 0.5rem 0.9rem;
-    border: 1px solid var(--lp-accent-dim);
-    border-left: 3px solid var(--lp-accent);
-    border-radius: var(--lp-radius);
-    font-size: 1rem;
-    line-height: 1.35;
-    text-decoration: none;
   }
   a {
     color: inherit;
