@@ -12,6 +12,16 @@ weekly Route size workflow (`.github/workflows/route-size.yml`, also run by hand
 `web/scripts/route-size-ceilings.json` and opens or updates a `route-size` issue when a route is
 over, to be fixed then.
 
+## First paint on /app (every change to the web app)
+
+An `/app/*` address is served the prerendered landing, which `main.ts` removes before the
+application (about 2.4 MB of JavaScript) downloads. An inline script in `index.html` marks an `/app`
+address before the first paint, so the page shows the brand mark on the application's ground until
+App mounts; without it nothing paints until App mounts, and simulated mobile first
+contentful paint moves from about 2 s to about 9 s (2026-11-06, run 42176395212: mobile `/app/basic`
+and `/app/pro` performance 26 against a baseline of 46). The smoke spec `e2e/app-boot.spec.ts`
+holds the App chunk and fails unless the mark, and a first contentful paint, appear first.
+
 ## Lighthouse (daily, against production)
 
 `web/scripts/perf-lighthouse.mjs`, run by `.github/workflows/performance.yml` every day, on demand
