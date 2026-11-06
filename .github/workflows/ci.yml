@@ -1011,6 +1011,21 @@ jobs:
         with:
           path: web/public/research-wasm/fairclough-2026
           key: research-assets-v3-fairclough-2026-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.nix', 'flake.lock', 'rust-toolchain.toml', 'Cargo.toml', 'Cargo.lock', '.cargo/**', 'research/tools/**', 'engine/src/**', 'engine/Cargo.toml', 'engine/build.rs', 'engine/.cargo/**', 'research/optimisation/fairclough-2026/**') }}
+      - name: Research compiled assets (gay-neto-2014)
+        id: research-gay-neto-2014
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        continue-on-error: true
+        with:
+          path: web/public/research-wasm/gay-neto-2014
+          key: research-assets-v3-gay-neto-2014-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.nix', 'flake.lock', 'rust-toolchain.toml', 'Cargo.toml', 'Cargo.lock', '.cargo/**', 'research/tools/**', 'engine/src/**', 'engine/Cargo.toml', 'engine/build.rs', 'engine/.cargo/**', 'research/mechanics/gay-neto-2014/**') }}
+      - name: Research compiled assets (gay-neto-2014, second try)
+        id: retry-gay-neto-2014
+        if: steps.research-gay-neto-2014.outputs.cache-hit != 'true'
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        continue-on-error: true
+        with:
+          path: web/public/research-wasm/gay-neto-2014
+          key: research-assets-v3-gay-neto-2014-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.nix', 'flake.lock', 'rust-toolchain.toml', 'Cargo.toml', 'Cargo.lock', '.cargo/**', 'research/tools/**', 'engine/src/**', 'engine/Cargo.toml', 'engine/build.rs', 'engine/.cargo/**', 'research/mechanics/gay-neto-2014/**') }}
       - if: runner.environment == 'github-hosted'
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         continue-on-error: true
@@ -1020,6 +1035,7 @@ jobs:
             research/metamaterials/grossman-2026/wasm
             research/form-finding/pastrana-2026/wasm
             research/optimisation/fairclough-2026
+            research/mechanics/gay-neto-2014
           shared-key: research-wasm
       - name: Install viewer dependencies
         run: .github/scripts/retry-infra.sh make web.deps
@@ -1034,6 +1050,7 @@ jobs:
             grossman-2026=${{ (steps.research-grossman-2026.outputs.cache-hit == 'true' || steps.retry-grossman-2026.outputs.cache-hit == 'true') && 'hit' || steps.research-grossman-2026.outputs.cache-primary-key || steps.retry-grossman-2026.outputs.cache-primary-key || 'none' }}
             pastrana-2026=${{ (steps.research-pastrana-2026.outputs.cache-hit == 'true' || steps.retry-pastrana-2026.outputs.cache-hit == 'true') && 'hit' || steps.research-pastrana-2026.outputs.cache-primary-key || steps.retry-pastrana-2026.outputs.cache-primary-key || 'none' }}
             fairclough-2026=${{ (steps.research-fairclough-2026.outputs.cache-hit == 'true' || steps.retry-fairclough-2026.outputs.cache-hit == 'true') && 'hit' || steps.research-fairclough-2026.outputs.cache-primary-key || steps.retry-fairclough-2026.outputs.cache-primary-key || 'none' }}
+            gay-neto-2014=${{ (steps.research-gay-neto-2014.outputs.cache-hit == 'true' || steps.retry-gay-neto-2014.outputs.cache-hit == 'true') && 'hit' || steps.research-gay-neto-2014.outputs.cache-primary-key || steps.retry-gay-neto-2014.outputs.cache-primary-key || 'none' }}
         run: .github/scripts/research-host-cache.sh restore
       - name: Build research WASM (cache misses, in parallel)
         id: build-research
@@ -1052,6 +1069,7 @@ jobs:
             grossman-2026=${{ steps.build-research.outputs.grossman-2026 == 'ok' && (steps.research-grossman-2026.outputs.cache-primary-key || steps.retry-grossman-2026.outputs.cache-primary-key) || '' }}
             pastrana-2026=${{ steps.build-research.outputs.pastrana-2026 == 'ok' && (steps.research-pastrana-2026.outputs.cache-primary-key || steps.retry-pastrana-2026.outputs.cache-primary-key) || '' }}
             fairclough-2026=${{ steps.build-research.outputs.fairclough-2026 == 'ok' && (steps.research-fairclough-2026.outputs.cache-primary-key || steps.retry-fairclough-2026.outputs.cache-primary-key) || '' }}
+            gay-neto-2014=${{ steps.build-research.outputs.gay-neto-2014 == 'ok' && (steps.research-gay-neto-2014.outputs.cache-primary-key || steps.retry-gay-neto-2014.outputs.cache-primary-key) || '' }}
         run: .github/scripts/research-host-cache.sh save
       - name: Save research compiled assets (shauer-2025)
         if: always() && steps.build-research.outputs.shauer-2025 == 'ok'
@@ -1095,6 +1113,13 @@ jobs:
         with:
           path: web/public/research-wasm/fairclough-2026
           key: ${{ steps.research-fairclough-2026.outputs.cache-primary-key || steps.retry-fairclough-2026.outputs.cache-primary-key }}
+      - name: Save research compiled assets (gay-neto-2014)
+        if: always() && steps.build-research.outputs.gay-neto-2014 == 'ok'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        continue-on-error: true
+        with:
+          path: web/public/research-wasm/gay-neto-2014
+          key: ${{ steps.research-gay-neto-2014.outputs.cache-primary-key || steps.retry-gay-neto-2014.outputs.cache-primary-key }}
       - name: Build viewer and publish matching asset identity (also on cache hits)
         run: |
           nix develop --command bash -c 'cd web && npx --no-install vite build -c vite.research-viewer.config.ts --outDir public/research-wasm/viewer --logLevel warn'
