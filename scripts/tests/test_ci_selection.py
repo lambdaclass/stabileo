@@ -449,8 +449,7 @@ exit 0
                 self.assertEqual(result['slow_e2e'], 'true')
                 specs = json.loads(result['slow_specs'])
                 self.assertIn('design-desk.spec.ts', specs)
-                for sweep in selection.SWEEP_SPECS:
-                    self.assertIn(sweep, specs)
+                self.assertTrue(any(s.startswith('basic-advanced-sweep-') for s in specs))
                 self.assertIn('explained-steps.spec.ts', specs)
                 self.assertIn('basic-plastic-course.spec.ts', specs)
                 self.assertIn('excel-import.spec.ts', specs)
@@ -536,13 +535,24 @@ exit 0
             with self.subTest(path=path):
                 self.assertEqual(selection.slow_specs_for_path(path), selection.ALL_SLOW_SPECS)
 
-    def test_every_spec_file_except_the_visual_baselines_is_a_slow_candidate(self):
+    def test_slow_discovery_follows_helpers_transitively_and_skips_smoke_only_specs(self):
         with tempfile.TemporaryDirectory() as tmp:
             e2e = Path(tmp)
             (e2e / 'url-title.spec.ts').write_text("test('https://example.test @slow', async () => {});\n")
-            (e2e / 'fast.spec.ts').write_text("test('fast', async () => {});\n")
-            (e2e / 'rc-design-visual.spec.ts').write_text("test('visual', async () => {});\n")
-            self.assertEqual(selection.discover_slow_specs(e2e), ('fast.spec.ts', 'url-title.spec.ts'))
+            (e2e / 'smoke-only.spec.ts').write_text("test('fast @smoke', async () => {});\n")
+            (e2e / 'deep.ts').write_text("export const t = (n: string) => `${n} @slow`;\n")
+            (e2e / 'mid.ts').write_text("export { t } from './deep';\n")
+            (e2e / 'via-helper.spec.ts').write_text("import { t } from './mid.ts';\ntest(t('x'), async () => {});\n")
+            (e2e / 'rc-design-visual.spec.ts').write_text("test('visual @slow', async () => {});\n")
+            self.assertEqual(selection.discover_slow_specs(e2e), ('url-title.spec.ts', 'via-helper.spec.ts'))
+
+    def test_a_smoke_only_spec_change_selects_no_slow_run(self):
+        smoke_only = next(p.name for p in sorted((ROOT / 'web/e2e').glob('*.spec.ts')) if p.name not in selection.ALL_SLOW_SET)
+        self.assertEqual(selection.slow_specs_for_path(f'web/e2e/{smoke_only}'), ())
+
+    def test_an_unknown_web_script_selects_every_slow_spec(self):
+        self.assertEqual(selection.slow_specs_for_path('web/scripts/new-script.mjs'), selection.ALL_SLOW_SPECS)
+        self.assertEqual(selection.slow_specs_for_path('web/scripts/__tests__/x.test.mjs'), ())
 
     def test_shared_web_paths_select_every_slow_spec(self):
         for path in ['web/src/styles/tokens.css', 'web/src/lib/geometry/plane.ts', 'web/src/components/viewport/Viewport.svelte',
@@ -551,8 +561,25 @@ exit 0
                 self.assertEqual(selection.slow_specs_for_path(path), selection.ALL_SLOW_SPECS)
 
     def test_area_runner_falls_back_to_every_spec_when_one_pattern_matches_nothing(self):
-        script = (ROOT / '.github/scripts/run-area-e2e.py').read_text()
-        self.assertIn('any(not found for found in matches)', script)
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / 'e2e').mkdir()
+            for name in ('a.spec.ts', 'b.spec.ts', 'c.spec.ts'):
+                (root / 'e2e' / name).write_text('')
+            bin_dir = root / 'bin'
+            bin_dir.mkdir()
+            log = root / 'calls'
+            (bin_dir / 'npx').write_text(f'#!/bin/sh\nprintf "%s\\n" "$*" >> {log}\n')
+            (bin_dir / 'npx').chmod(0o755)
+            env = {**os.environ, 'PATH': f'{bin_dir}{os.pathsep}{os.environ["PATH"]}', 'E2E_SUITE': 'slow'}
+            for specs, expected in [('["a.spec.ts"]', ['e2e/a.spec.ts']),
+                                    ('["a.spec.ts", "missing.spec.ts"]', ['e2e/a.spec.ts', 'e2e/b.spec.ts', 'e2e/c.spec.ts'])]:
+                with self.subTest(specs=specs):
+                    log.unlink(missing_ok=True)
+                    subprocess.run([sys.executable, '-I', str(ROOT / '.github/scripts/run-area-e2e.py')], cwd=root,
+                                   env={**env, 'E2E_SPECS': specs}, check=True)
+                    args = log.read_text().split()
+                    self.assertEqual([a for a in args if a.startswith('e2e/')], expected)
 
 
 if __name__ == '__main__':

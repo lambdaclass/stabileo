@@ -32,70 +32,41 @@ SITE_EXCLUDED = ('web/package.json', 'web/package-lock.json', 'web/src/lib/wasm/
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
+SLOW_TAG = re.compile(r'@slow\b')
+IMPORT = re.compile(r'''(?:from|import)\s*\(?\s*['"](\.{1,2}/[^'"]+)['"]''')
+
+
+def _resolve(base, spec):
+    target = (base.parent / spec).resolve()
+    for candidate in (target, target.with_name(target.name + '.ts'), target.with_name(target.name + '.mjs'),
+                      target.with_name(target.name + '.js'), target / 'index.ts'):
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+def _reaches_slow(path, seen):
+    if path in seen:
+        return False
+    seen.add(path)
+    source = path.read_text(errors='replace')
+    if SLOW_TAG.search(source):
+        return True
+    for spec in IMPORT.findall(source):
+        target = _resolve(path, spec)
+        if target is not None and target.suffix in ('.ts', '.mjs', '.js') and _reaches_slow(target, seen):
+            return True
+    return False
+
+
 def discover_slow_specs(e2e_dir):
-    return tuple(p.name for p in sorted(e2e_dir.glob('*.spec.ts')) if p.name != 'rc-design-visual.spec.ts')
+    return tuple(p.name for p in sorted(e2e_dir.glob('*.spec.ts'))
+                 if p.name != 'rc-design-visual.spec.ts' and _reaches_slow(p.resolve(), set()))
 
 
 ALL_SLOW_SPECS = discover_slow_specs(REPO_ROOT / 'web/e2e')
 ALL_SLOW_SET = frozenset(ALL_SLOW_SPECS)
-SWEEP_SPECS = tuple(s for s in ALL_SLOW_SPECS if s.startswith('basic-advanced-sweep-'))
 RESEARCH_SLOW_SPECS = ('research-dadeppo.spec.ts', 'research-ferrari.spec.ts')
-NON_SOLVING_SLOW_SPECS = frozenset({
-    'basic-draw-members.spec.ts',
-    'basic-mobile-delete.spec.ts',
-    'excel-import.spec.ts',
-    'loads-progress.spec.ts',
-    'plan-navigation.spec.ts',
-    'pro-example-gallery.spec.ts',
-    'pro-large-model-tables.spec.ts',
-    'pro-load-generator-areas.spec.ts',
-    'pro-panel-consistency.spec.ts',
-    'public-shared-link.spec.ts',
-    'research-dadeppo.spec.ts',
-    'research-ferrari.spec.ts',
-    'share-link-fidelity.spec.ts',
-})
-SOLVE_SLOW_SPECS = tuple(s for s in ALL_SLOW_SPECS if s not in NON_SOLVING_SLOW_SPECS)
-BASIC_SLOW_SPECS = (
-    *SWEEP_SPECS,
-    'basic-course-dynamics.spec.ts',
-    'basic-demos.spec.ts',
-    'basic-draw-members.spec.ts',
-    'basic-influence-course.spec.ts',
-    'basic-mobile-delete.spec.ts',
-    'basic-mobile-modelling.spec.ts',
-    'basic-plastic-course.spec.ts',
-    'basic-second-order.spec.ts',
-    'basic-whatif.spec.ts',
-    'blog.spec.ts',
-    'cirsoc-flex.spec.ts',
-    'course-kinematics.spec.ts',
-    'excel-import.spec.ts',
-    'explained-steps.spec.ts',
-    'export-empty-and-drawings.spec.ts',
-    'force-method-fundamental.spec.ts',
-    'force-method-wizard.spec.ts',
-    'frame-editor-detail.spec.ts',
-    'other-materials.spec.ts',
-    'physical-geometry.spec.ts',
-    'pro-project-files.spec.ts',
-    'public-shared-link.spec.ts',
-    'rc-cad-production-download.spec.ts',
-    'section-analysis.spec.ts',
-    'share-link-fidelity.spec.ts',
-)
-SHARED_BASIC_PRO_SPECS = frozenset({
-    'export-empty-and-drawings.spec.ts',
-    'frame-editor-detail.spec.ts',
-    'other-materials.spec.ts',
-    'physical-geometry.spec.ts',
-    'pro-project-files.spec.ts',
-    'rc-cad-production-download.spec.ts',
-})
-PRO_SLOW_SPECS = tuple(
-    s for s in ALL_SLOW_SPECS
-    if s not in (set(BASIC_SLOW_SPECS) - SHARED_BASIC_PRO_SPECS) | set(RESEARCH_SLOW_SPECS)
-)
 
 
 def slow_specs_for_path(path):
@@ -115,7 +86,7 @@ def slow_specs_for_path(path):
         return ()
     if path in ('web/scripts/e2e-shard.mjs', 'web/playwright.config.ts') or path.startswith('web/e2e/shard-timings'):
         return ALL_SLOW_SPECS
-    if path.startswith('web/scripts/') and not path.startswith(('web/scripts/prerender', 'web/scripts/translation-gate')):
+    if path.startswith('web/scripts/') and re.search(r'(^|/)(__tests__/|[^/]+\.test\.(m?js|ts)$)', path):
         return ()
     if path.startswith(('research/', 'web/src/components/research/', 'web/public/research-wasm')):
         return RESEARCH_SLOW_SPECS
