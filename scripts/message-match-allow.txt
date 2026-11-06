@@ -155,3 +155,6 @@ scripts/verification-metrics.py: return analysis == "static" and "linear static"
 .github/scripts/nightly-findings.cjs: const existing = issues.find(i => !i.pull_request && i.body?.includes(marker));
 .github/scripts/nightly-findings.cjs: if (!existing.body.includes(occurrence) && !comments.some(c => c.body?.includes(occurrence))) {
 .github/scripts/verification-alert.cjs: `${HELD}: ${body.replace(/^Green again: /, '').replace(/ Closing\.$/, '')} The failures above may be real findings that ` +
+
+## Redacts the user's own API key from a provider error before it is shown: nothing is decided from the wording.
+web/src/lib/ai/providers/types.ts: if (apiKey && err.message.includes(apiKey.slice(0, 12))) return new AiProviderError(err.kind, err.status);

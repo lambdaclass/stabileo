@@ -68,6 +68,24 @@ async function openApp(page: Page): Promise<string[]> {
   return stabileoCalls;
 }
 
+type Traffic = { requests: { host: string; text: string }[]; console: string[] };
+
+function watchTraffic(page: Page): Traffic {
+  const traffic: Traffic = { requests: [], console: [] };
+  page.on('request', (r) => {
+    traffic.requests.push({ host: new URL(r.url()).host, text: r.url() + JSON.stringify(r.headers()) + (r.postData() ?? '') });
+  });
+  page.on('console', (m) => traffic.console.push(m.text()));
+  return traffic;
+}
+
+function expectKeyOnlyTo(traffic: Traffic, key: string, host: string): void {
+  const carrying = traffic.requests.filter((r) => r.text.includes(key)).map((r) => r.host);
+  expect(carrying.length).toBeGreaterThan(0);
+  expect(new Set(carrying)).toEqual(new Set([host]));
+  expect(traffic.console.filter((line) => line.includes(key))).toEqual([]);
+}
+
 async function sendAndApply(page: Page, prompt: string): Promise<void> {
   await page.locator('.chat-input').fill(prompt);
   await page.getByTestId('ai-send').click();
@@ -88,6 +106,7 @@ async function nodeXs(page: Page): Promise<number[]> {
 test.describe('@smoke AI with your own key', () => {
   test('Anthropic: paste a key, ask for a beam, Apply puts the validated beam on the canvas and solves it', async ({ page }) => {
     const seen = await mockAnthropic(page, 'create_beam', { span: 6, q: -10, interpretation: 'A 6 m simply supported beam.' });
+    const traffic = watchTraffic(page);
     const stabileoCalls = await openApp(page);
 
     await expect(page.getByTestId('ai-key-settings')).toBeVisible();
@@ -112,6 +131,7 @@ test.describe('@smoke AI with your own key', () => {
     expect(seen[0].body.thinking).toEqual({ type: 'adaptive' });
     expect(seen[0].body).not.toHaveProperty('temperature');
     expect(stabileoCalls).toEqual([]);
+    expectKeyOnlyTo(traffic, ANTHROPIC_KEY, 'api.anthropic.com');
 
     const shareable = await page.evaluate(() => document.location.href + JSON.stringify(window.__stabileo.counts()));
     expect(shareable).not.toContain(ANTHROPIC_KEY);
@@ -130,6 +150,7 @@ test.describe('@smoke AI with your own key', () => {
         localStorage.setItem('stabileo.ai.key.openai', key);
       } catch { return; }
     }, OPENAI_KEY);
+    const traffic = watchTraffic(page);
     const stabileoCalls = await openApp(page);
 
     await expect(page.getByTestId('ai-key-bar')).toContainText('OpenAI');
@@ -142,6 +163,21 @@ test.describe('@smoke AI with your own key', () => {
     expect(seen[0].headers.authorization).toBe(`Bearer ${OPENAI_KEY}`);
     expect(seen[0].body.model).toBe('gpt-6-astra');
     expect(stabileoCalls).toEqual([]);
+    expectKeyOnlyTo(traffic, OPENAI_KEY, 'api.openai.com');
+  });
+
+  test('without a key every AI action is unavailable and each tab shows the key settings', async ({ page }) => {
+    const traffic = watchTraffic(page);
+    await openApp(page);
+    await expect(page.locator('.ai-drawer .tab')).toHaveCount(4);
+    for (const tab of await page.locator('.ai-drawer .tab').all()) {
+      await tab.click();
+      await expect(page.getByTestId('ai-key-settings')).toBeVisible();
+      for (const action of ['[data-testid="ai-send"]', '[data-testid="ai-apply"]', '.chat-input', '.action-btn', '.draft-retry', '.fix-issues-btn']) {
+        await expect(page.locator(`.ai-drawer ${action}`), action).toHaveCount(0);
+      }
+    }
+    expect(traffic.requests.filter((r) => r.host === 'api.anthropic.com' || r.host === 'api.openai.com')).toEqual([]);
   });
 
   test('an invalid proposal is never applied', async ({ page }) => {
