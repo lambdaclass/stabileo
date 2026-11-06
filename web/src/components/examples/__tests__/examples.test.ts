@@ -3,7 +3,7 @@ import * as engine from '../../../lib/engine/wasm-solver';
 import { codeToModel } from '../../../lib/model/code/format';
 import { EXAMPLES } from '../catalog';
 import { EXAMPLE_IDS } from '../ids';
-import { defaults, readValues, writeValues, mergeQuery, clampValue, referenceGap, type Outcome, type Values } from '../define';
+import { defaults, readValues, writeValues, mergeQuery, clampValue, referenceGap, refusedOutcome, type Outcome, type Values } from '../define';
 import { exampleStrings } from '../strings';
 import { proCode } from '../editor';
 import { beamFrame, EI, build as buildBeam } from '../beam-frame';
@@ -26,6 +26,17 @@ describe('catalog and contract', () => {
     expect(referenceGap(81, 80)).toEqual({ value: expect.closeTo(1.25, 12), relative: true });
     expect(referenceGap(-3e-15, 0)).toEqual({ value: 3e-15, relative: false });
     expect(referenceGap(0, 0)).toEqual({ value: 0, relative: false });
+  });
+  it('reads an engine refusal as its code and message, never the raw JSON', () => {
+    const v = { ...defaults(beamFrame.params), load: 0, point: 50, position: 0 };
+    let error: unknown;
+    try { beamFrame.analyses(beamFrame.build(v), v, engine); } catch (e) { error = e; }
+    expect(error).toBeDefined();
+    const out = refusedOutcome(error);
+    expect(out.code).toBe('nonFinite');
+    expect(out.reason).toMatch(/^The result was withheld: it contains inf at certificate\.relBound$/);
+    expect(refusedOutcome(new Error('plain failure'))).toEqual({ status: 'refused', code: 'engine', reason: 'plain failure' });
+    expect(refusedOutcome(new Error('{"message":"singular","structuredDiagnostics":[{"code":"singular","severity":"error"}]}'))).toEqual({ status: 'refused', code: 'engine', reason: 'singular' });
   });
   it('reads, clamps and writes the share query', () => {
     const params = beamFrame.params;
