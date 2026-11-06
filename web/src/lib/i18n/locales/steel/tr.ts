@@ -1494,6 +1494,7 @@ const steelTr: Translations = {
   'c301.refuse.e6Connector': '§E.6.2.1: ara bağlantı elemanı tipi eksik (öngermesiz bulonlar veya kaynak)',
   'c301.refuse.e6SpacingTooLarge': '§E.6.2.2: a/ri = {ari} > belirleyici narinliğin 3/4\'ü = {lim}',
   'c301.refuse.engineUnavailable': 'hesap motoru yüklenmedi: çubuk kontrol edilmedi',
+  'c301.refuse.capacityUnusable': 'oran φRn = {phiRn} ve {demand} etkisiyle kurulamıyor: tasarım dayanımı pozitif ve sonlu değil ya da etki sonlu değil',
   'steel.angle.title': 'Basınçtaki korniyerler (§E.5, §E.6)',
   'steel.angle.hint': 'Kesitin hesaba söyleyemediği şey: tek bir korniyerin uçlarından nasıl yüklendiği ve çift korniyerin iki korniyerinin birbirine nasıl bağlandığı. Bu olmadan basınç kontrolü değerlendirilmez.',
   'steel.angle.singles': '{n} tek korniyer: uç koşulu',

@@ -77,7 +77,7 @@ pub fn solve_modal_2d(
     let n = dof_num.n_total;
 
     if nf == 0 {
-        return Err("No free DOFs".into());
+        return Err(crate::refusal::no_free_dofs());
     }
 
     // Mass ratios divide by the mass that can move in their direction: a
@@ -547,7 +547,7 @@ pub fn solve_modal_3d(
     let nf = dof_num.n_free;
     let n = dof_num.n_total;
 
-    if nf == 0 { return Err("No free DOFs".into()); }
+    if nf == 0 { return Err(crate::refusal::no_free_dofs()); }
 
     // Mass ratios per direction: see the 2D solver.
     let [mass_x, mass_y, mass_z] = total_mass_by_direction_3d(input, densities);

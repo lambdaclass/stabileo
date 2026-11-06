@@ -11,9 +11,12 @@ pub mod postprocess;
 pub mod loads;
 pub mod section;
 pub mod certify;
+pub mod check;
+pub mod boundary;
 pub mod sanity;
 pub mod metamorphic;
 pub mod known_issues;
+pub mod refusal;
 pub mod reproduce;
 pub mod result_sites;
 pub mod ordered;
@@ -43,21 +46,15 @@ pub fn init() {
 /// Used by the hot-path exports to skip the JSON text round trip.
 fn to_js_value<T: serde::Serialize>(value: &T) -> Result<JsValue, JsValue> {
     let serializer = serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true);
-    let serialized = match result_sites::contain(value) {
-        result_sites::Outgoing::Unchanged => serde::Serialize::serialize(value, &serializer),
-        result_sites::Outgoing::Lifted(lifted) => serde::Serialize::serialize(&lifted, &serializer),
-        result_sites::Outgoing::Refused(refusal) => return Err(JsValue::from_str(&refusal)),
+    let serialized = match boundary::outgoing(value).map_err(|e| JsValue::from_str(&e))? {
+        None => serde::Serialize::serialize(value, &serializer),
+        Some(lifted) => serde::Serialize::serialize(&lifted, &serializer),
     };
     serialized.map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
 }
 
 fn to_json<T: serde::Serialize>(value: &T) -> Result<String, JsValue> {
-    let serialized = match result_sites::contain(value) {
-        result_sites::Outgoing::Unchanged => serde_json::to_string(value),
-        result_sites::Outgoing::Lifted(lifted) => serde_json::to_string(&lifted),
-        result_sites::Outgoing::Refused(refusal) => return Err(JsValue::from_str(&refusal)),
-    };
-    serialized.map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+    boundary::to_json(value).map_err(|e| JsValue::from_str(&e))
 }
 
 fn contained_text(text: String) -> Result<String, JsValue> {
@@ -170,7 +167,7 @@ pub fn export_linear_bundle_3d(json: &str) -> Result<String, JsValue> {
     let input: types::SolverInput3D = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let bundle = certify::bundle::export_linear_bundle_3d(&input).map_err(|e| JsValue::from_str(&e))?;
-    Ok(bundle.to_json())
+    to_json(&bundle)
 }
 
 /// 2D version of `export_linear_bundle_3d`.
@@ -179,7 +176,7 @@ pub fn export_linear_bundle_2d(json: &str) -> Result<String, JsValue> {
     let input: types::SolverInput = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let bundle = certify::bundle::export_linear_bundle_2d(&input).map_err(|e| JsValue::from_str(&e))?;
-    Ok(bundle.to_json())
+    to_json(&bundle)
 }
 
 /// Solve and certify a 2D plastic collapse model and export its certificate bundle
@@ -190,7 +187,7 @@ pub fn export_plastic_bundle_2d(json: &str) -> Result<String, JsValue> {
     let input: types::PlasticInput = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let bundle = certify::plastic_bundle::export_plastic_bundle_2d(&input).map_err(|e| JsValue::from_str(&e))?;
-    Ok(bundle.to_json())
+    to_json(&bundle)
 }
 
 /// 3D version of `export_plastic_bundle_2d`.
@@ -199,7 +196,7 @@ pub fn export_plastic_bundle_3d(json: &str) -> Result<String, JsValue> {
     let input: types::PlasticInput3D = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let bundle = certify::plastic_bundle::export_plastic_bundle_3d(&input).map_err(|e| JsValue::from_str(&e))?;
-    Ok(bundle.to_json())
+    to_json(&bundle)
 }
 
 /// Solve and certify a 2D multi-case model and export its load-combination bundle
@@ -209,7 +206,7 @@ pub fn export_combination_bundle_2d(json: &str) -> Result<String, JsValue> {
     let input: solver::load_cases::MultiCaseInput = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let bundle = certify::combination_bundle::export_combination_bundle_2d(&input).map_err(|e| JsValue::from_str(&e))?;
-    Ok(bundle.to_json())
+    to_json(&bundle)
 }
 
 /// 3D version of `export_combination_bundle_2d`.
@@ -218,7 +215,7 @@ pub fn export_combination_bundle_3d(json: &str) -> Result<String, JsValue> {
     let input: solver::load_cases::MultiCaseInput3D = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let bundle = certify::combination_bundle::export_combination_bundle_3d(&input).map_err(|e| JsValue::from_str(&e))?;
-    Ok(bundle.to_json())
+    to_json(&bundle)
 }
 
 /// Solve 2D P-Delta and certify the displacements: a Newton–Kantorovich bound on
@@ -821,7 +818,7 @@ pub fn compute_diagram_value_at(json: &str) -> Result<f64, JsValue> {
     let d: Input = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     postprocess::diagrams::check_diagram_kind_2d(&d.kind).map_err(|e| JsValue::from_str(&e))?;
-    Ok(postprocess::diagrams::compute_diagram_value_at(&d.kind, d.t, &d.element_forces))
+    boundary::finite_scalar(postprocess::diagrams::compute_diagram_value_at(&d.kind, d.t, &d.element_forces), &d.kind).map_err(|e| JsValue::from_str(&e))
 }
 
 /// Compute 3D diagram value at position t for one element. JSON: { kind, t, elementForces }
@@ -837,7 +834,7 @@ pub fn compute_diagram_value_at_3d(json: &str) -> Result<f64, JsValue> {
     let d: Input = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     postprocess::diagrams_3d::check_diagram_kind_3d(&d.kind).map_err(|e| JsValue::from_str(&e))?;
-    Ok(postprocess::diagrams_3d::evaluate_diagram_3d_at(&d.element_forces, &d.kind, d.t))
+    boundary::finite_scalar(postprocess::diagrams_3d::evaluate_diagram_3d_at(&d.element_forces, &d.kind, d.t), &d.kind).map_err(|e| JsValue::from_str(&e))
 }
 
 // ==================== Multi-Case Load Combinations ====================

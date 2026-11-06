@@ -4,6 +4,7 @@ use crate::ana2::{conv, rect, Law};
 use crate::case::{pad_3d, Case3};
 use crate::response::{disp_3d, static_3d, Dim, Kind, Resp};
 use dedaliano_engine::element::fiber_beam::{Fiber, FiberMaterial, FiberSectionDef};
+use dedaliano_engine::load_session::LoadSession3D;
 use dedaliano_engine::postprocess::influence;
 use dedaliano_engine::solver::{
     buckling, cable, constraints, contact, corotational, creep_shrinkage, fiber_nonlinear, harmonic, kinematic, linear, load_cases,
@@ -106,6 +107,14 @@ pub fn rows() -> Vec<Ana3> {
     vec![
         Ana3 { name: "linear", law: Law::Linear, motion: Motion::Any, iter_tol: 0.0, full_static: true, run: |c| Ok(static_3d(&linear::solve_3d(&c.s)?)) },
         Ana3 {
+            name: "linear (load session)",
+            law: Law::Linear,
+            motion: Motion::Any,
+            iter_tol: 0.0,
+            full_static: true,
+            run: |c| Ok(static_3d(&LoadSession3D::from_input(c.s.clone())?.solve_loads(&c.s.loads)?)),
+        },
+        Ana3 {
             name: "linear (sparse path)",
             law: Law::Linear,
             motion: Motion::Any,
@@ -146,7 +155,7 @@ pub fn rows() -> Vec<Ana3> {
             motion: Motion::Any,
             iter_tol: 0.0,
             full_static: true,
-            run: |c| Ok(static_3d(&dedaliano_engine::certify::solver::certify_linear_3d_full(&c.s)?.results)),
+            run: |c| Ok(static_3d(&dedaliano_engine::certify::certify_linear_3d_full(&c.s)?.results)),
         },
         Ana3 {
             name: "load combinations",

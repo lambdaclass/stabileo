@@ -109,6 +109,10 @@ name = "elements"
 path = "tests/elements/main.rs"
 
 [[test]]
+name = "mechanism_fuzz"
+path = "tests/mechanism_fuzz/main.rs"
+
+[[test]]
 name = "robustness"
 path = "tests/robustness/main.rs"
 

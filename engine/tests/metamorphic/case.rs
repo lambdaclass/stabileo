@@ -2,6 +2,7 @@
 //! analyses derive their inputs from, so that a transform of the case
 //! transforms everything consistently.
 
+use dedaliano_engine::metamorphic::mirror::mirror_3d;
 use dedaliano_engine::metamorphic::relabel::Relabel;
 use dedaliano_engine::metamorphic::transform::{transform_2d, transform_3d, Iso2, Iso3};
 use dedaliano_engine::metamorphic::units::{scale_2d, scale_3d, scale_densities, Units};
@@ -121,6 +122,12 @@ impl Case3 {
         let probes = probes_3d(&s);
         let path = path_3d(&s);
         Case3 { name: name.into(), s, dens, p: Params::default(), probes, path }
+    }
+    pub fn mirror(&self, axis: usize, t: [f64; 3]) -> Result<Case3, String> {
+        let s = mirror_3d(&self.s, axis, t).map_err(|e| e.to_string())?;
+        let mut p = self.p.clone();
+        p.ground[axis] = -p.ground[axis];
+        Ok(Case3 { s, p, ..self.clone() })
     }
     pub fn iso(&self, iso: &Iso3) -> Result<Case3, String> {
         let s = transform_3d(&self.s, iso).map_err(|e| e.to_string())?;
