@@ -2,12 +2,14 @@
 budget goes through wall_clock::budget, which pull-request and merge-queue runs report instead
 of failing on. A test with a budget must be #[ignore] and named in the Makefile's
 GATE_TIMED_IGNORED (run alone in Engine Gates), or live in a module Engine Gates runs
-(GATE_MODULES, GATE_TIMED_MODULES)."""
+(GATE_MODULES, GATE_TIMED_MODULES). A watchdog test, whose timing is the contract under test
+rather than a performance budget, keeps a hard assert but must still be ignored and listed."""
 import pathlib
 import re
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
+WATCHDOGS = {'fuzz_regressions::a_blocking_child_is_killed_at_its_timeout'}
 TIMING = re.compile(r'\.elapsed\(\)|Instant::now\(\)|\.duration_since\(')
 
 
@@ -157,7 +159,10 @@ def violations(root=ROOT):
             name = '::'.join(module + [inner])
             where = f'{path.relative_to(root)}:{line} {name}'
             raw = asserts_on_time(body)
-            if raw:
+            if raw and name in WATCHDOGS:
+                if not (ignored and name in listed):
+                    out.append(f'{where}: a watchdog test asserts on wall-clock time; #[ignore] it and add it to GATE_TIMED_IGNORED')
+            elif raw:
                 out.append(f'{where}: asserts on wall-clock time ({raw[0]}); count the work instead, '
                            'or use wall_clock::budget so pull-request runs report the overrun instead of failing')
             elif budget_calls(body) and path not in gate_files and not (ignored and name in listed):

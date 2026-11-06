@@ -65,6 +65,22 @@ class WallClockTests(unittest.TestCase):
                 self.assertIn(': asserts on wall-clock time (assert!(dt.as_secs_f64() < 1.0', found[0])
                 self.assertIn('use wall_clock::budget', found[0])
 
+    def test_a_watchdog_keeps_its_hard_assert_but_still_runs_alone(self):
+        self.assertEqual(check.WATCHDOGS, {'fuzz_regressions::a_blocking_child_is_killed_at_its_timeout'})
+        watchdog = raw(TIMED.format(name='a_blocking_child_is_killed_at_its_timeout')).replace('mod tests {\n', '').rsplit('}', 1)[0]
+        makefile = MAKEFILE.replace('GATE_TIMED_IGNORED = ', 'GATE_TIMED_IGNORED = test(=fuzz_regressions::a_blocking_child_is_killed_at_its_timeout) + ')
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / 'Makefile').write_text(makefile)
+            (root / 'engine/tests').mkdir(parents=True)
+            (root / 'engine/tests/fuzz_regressions.rs').write_text(watchdog.replace('#[test]\n', '#[test]\n    #[ignore]\n'))
+            self.assertEqual(check.violations(root), [])
+            (root / 'engine/tests/fuzz_regressions.rs').write_text(watchdog)
+            found = check.violations(root)
+        self.assertEqual(len(found), 1)
+        self.assertIn('a watchdog test asserts on wall-clock time', found[0])
+        self.assertEqual(len(violations({'engine/tests/other.rs': raw(TIMED.format(name='a_blocking_child_is_killed_at_its_timeout'))})), 1)
+
     def test_a_budget_spread_over_lines_is_found(self):
         source = TIMED.format(name='budget').replace(BUDGET, 'dedaliano_engine::wall_clock::budget(\n            dt.as_secs_f64() < 1.0,\n            || format!("took {dt:?}"),\n        )')
         found = violations({'engine/tests/other.rs': source})
