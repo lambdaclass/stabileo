@@ -3,7 +3,8 @@
 use crate::case::{pad_2d, Case2};
 use crate::response::{disp_2d, static_2d, Dim, Kind, Resp};
 use dedaliano_engine::element::fiber_beam::{Fiber, FiberMaterial, FiberSectionDef};
-use dedaliano_engine::load_session::LoadSession2D;
+use dedaliano_engine::load_session::{LoadSession2D, LoadSession3D};
+use dedaliano_engine::metamorphic::planes::{pull_static, Plane};
 use dedaliano_engine::postprocess::influence;
 use dedaliano_engine::solver::{
     buckling, cable, constraints, contact, corotational, creep_shrinkage, fiber_nonlinear, harmonic, kinematic, linear, load_cases,
@@ -36,6 +37,9 @@ pub struct Ana2 {
     /// Whether the static response carries the full results (energy check).
     pub full_static: bool,
     pub run: fn(&Case2) -> Result<Resp, String>,
+    /// The 3D analysis the same plane frame, placed in a coordinate plane, must agree with, read
+    /// back in the frame's axes. Tags starting with "stray " must be zero.
+    pub planar: Option<fn(&Case2, Plane, &SolverInput3D) -> Result<Resp, String>>,
 }
 
 pub fn conv<T>(r: Result<(bool, T), String>) -> Result<T, String> {
@@ -101,36 +105,82 @@ fn stage(name: &str, s: &SolverInput, loads: Vec<usize>, all: bool) -> Construct
 }
 
 pub fn modal_resp(r: &modal::ModalResult) -> Resp {
+    let modes: Vec<_> = r.modes.iter().map(|m| (m.frequency, [m.participation_x, m.participation_y], [m.effective_mass_x, m.effective_mass_y])).collect();
+    planar_modal_resp(r.total_mass, &modes)
+}
+
+/// (frequency, participation, effective mass), each along the frame's x and z.
+fn planar_modal_resp(total_mass: f64, modes: &[(f64, [f64; 2], [f64; 2])]) -> Resp {
     let mut o = Resp::default();
-    o.scalar("total_mass", Dim::MASS, r.total_mass);
+    o.scalar("total_mass", Dim::MASS, total_mass);
     let mut cum = [0.0; 3];
-    for (k, m) in r.modes.iter().enumerate() {
-        o.scalar(&format!("f{k:02}"), Dim::FREQ, m.frequency);
+    for (k, &(frequency, p, me)) in modes.iter().enumerate() {
+        o.scalar(&format!("f{k:02}"), Dim::FREQ, frequency);
         // Effective-mass vector g = sign(Γ)·√m_eff per direction, tensor g·gᵀ.
-        let g = [m.participation_x.signum() * m.effective_mass_x.max(0.0).sqrt(), m.participation_y.signum() * m.effective_mass_y.max(0.0).sqrt()];
+        let g = [p[0].signum() * me[0].max(0.0).sqrt(), p[1].signum() * me[1].max(0.0).sqrt()];
         cum[0] += g[0] * g[0];
         cum[1] += g[0] * g[1];
         cum[2] += g[1] * g[1];
         // The last computed mode may be one of a repeated pair whose partner
         // was not computed: only boundaries with a known gap above.
-        let sep = r.modes.get(k + 1).is_some_and(|n| crate::response::modal_gap(m.frequency, n.frequency));
+        let sep = modes.get(k + 1).is_some_and(|n| crate::response::modal_gap(frequency, n.0));
         if sep {
             o.push(None, None, &format!("meff{k:02}"), Kind::T2(Dim::MASS), cum.to_vec());
-            o.set_floor(&format!("meff{k:02}"), r.total_mass * crate::response::eigen_gap_factor(m.frequency, r.modes[k + 1].frequency));
+            o.set_floor(&format!("meff{k:02}"), total_mass * crate::response::eigen_gap_factor(frequency, modes[k + 1].0));
         }
+    }
+    o
+}
+
+fn along(v: [f64; 3], axis: [f64; 3]) -> f64 {
+    v[0] * axis[0] + v[1] * axis[1] + v[2] * axis[2]
+}
+
+pub(crate) fn modal_in_plane(plane: Plane, r: &modal::ModalResult3D) -> Result<Resp, String> {
+    let finite = r.total_mass.is_finite()
+        && r.modes.iter().all(|m| {
+            [m.frequency, m.participation_x, m.participation_y, m.participation_z, m.effective_mass_x, m.effective_mass_y, m.effective_mass_z].iter().all(|v| v.is_finite())
+        });
+    if !finite {
+        return Err("the 3D modal result is not finite".into());
+    }
+    let (e1, e2, n) = (plane.e1(), plane.e2(), plane.normal());
+    let modes: Vec<_> = r
+        .modes
+        .iter()
+        .map(|m| {
+            let (p, me) = ([m.participation_x, m.participation_y, m.participation_z], [m.effective_mass_x, m.effective_mass_y, m.effective_mass_z]);
+            (m.frequency, [along(p, e1), along(p, e2)], [along(me, e1), along(me, e2)])
+        })
+        .collect();
+    let mut o = planar_modal_resp(r.total_mass, &modes);
+    let stray = r.modes.iter().map(|m| along([m.effective_mass_x, m.effective_mass_y, m.effective_mass_z], n).abs()).fold(0.0, f64::max);
+    o.scalar("stray mass", Dim::MASS, stray);
+    Ok(o)
+}
+
+pub(crate) fn in_plane(c: &Case2, plane: Plane, r: Result<AnalysisResults3D, String>) -> Result<Resp, String> {
+    Ok(crate::response::planar_static(&pull_static(&c.s, plane, &r?).map_err(|e| e.to_string())?))
+}
+
+fn load_factors(f: impl Iterator<Item = f64>) -> Resp {
+    let mut o = Resp::default();
+    for (k, l) in f.enumerate() {
+        o.scalar(&format!("lambda{k}"), Dim::NONE, l);
     }
     o
 }
 
 pub fn rows() -> Vec<Ana2> {
     vec![
-        Ana2 { name: "linear", law: Law::Linear, axis_bound: false, iter_tol: 0.0, full_static: true, run: |c| Ok(static_2d(&linear::solve_2d(&c.s)?)) },
+        Ana2 { name: "linear", law: Law::Linear, axis_bound: false, iter_tol: 0.0, full_static: true, run: |c| Ok(static_2d(&linear::solve_2d(&c.s)?)), planar: Some(|c, p, s| in_plane(c, p, linear::solve_3d(s))) },
         Ana2 {
             name: "linear (WASM typed path)",
             law: Law::Linear,
             axis_bound: false,
             iter_tol: 0.0,
             full_static: true,
+            planar: Some(|c, p, s| in_plane(c, p, linear::solve_3d(s))),
             run: |c| {
                 let typed: dedaliano_engine::types::units::ElasticInput2D = serde_json::to_value(&c.s).and_then(serde_json::from_value).map_err(|e| e.to_string())?;
                 Ok(static_2d(&linear::solve_2d_typed(&typed)?))
@@ -142,6 +192,7 @@ pub fn rows() -> Vec<Ana2> {
             axis_bound: false,
             iter_tol: 0.0,
             full_static: true,
+            planar: Some(|c, p, s| in_plane(c, p, LoadSession3D::from_input(s.clone()).and_then(|x| x.solve_loads(&s.loads)))),
             run: |c| Ok(static_2d(&LoadSession2D::from_input(c.s.clone())?.solve_loads(&c.s.loads)?)),
         },
         Ana2 {
@@ -150,6 +201,7 @@ pub fn rows() -> Vec<Ana2> {
             axis_bound: false,
             iter_tol: 0.0,
             full_static: true,
+            planar: None,
             run: |c| Ok(static_2d(&linear::prepare_static_2d_dense_reference(&c.s)?.solve_loads(&c.s.loads)?)),
         },
         Ana2 {
@@ -158,6 +210,7 @@ pub fn rows() -> Vec<Ana2> {
             axis_bound: false,
             iter_tol: 0.0,
             full_static: true,
+            planar: None,
             run: |c| {
                 let (p, n, e) = pad_2d(&c.s);
                 let mut r = static_2d(&linear::solve_2d(&p)?);
@@ -171,6 +224,7 @@ pub fn rows() -> Vec<Ana2> {
             axis_bound: false,
             iter_tol: 1e-10,
             full_static: true,
+            planar: None,
             run: |c| {
                 let (mut p, n, e) = pad_2d(&c.s);
                 p.solver_options = Some(SolverOptions { method: Some("pcg".into()), preconditioner: None, tolerance: Some(1e-12), max_iterations: Some(100_000) });
@@ -185,6 +239,7 @@ pub fn rows() -> Vec<Ana2> {
             axis_bound: false,
             iter_tol: 0.0,
             full_static: true,
+            planar: None,
             run: |c| Ok(static_2d(&constraints::solve_constrained_2d(&constraints::ConstrainedInput { solver: c.s.clone(), constraints: c.s.constraints.clone() })?)),
         },
         Ana2 {
@@ -193,6 +248,7 @@ pub fn rows() -> Vec<Ana2> {
             axis_bound: false,
             iter_tol: 0.0,
             full_static: true,
+            planar: Some(|c, p, s| in_plane(c, p, dedaliano_engine::certify::certify_linear_3d_full(s).map(|r| r.results))),
             run: |c| Ok(static_2d(&dedaliano_engine::certify::certify_linear_2d_full(&c.s)?.results)),
         },
         Ana2 {
@@ -201,6 +257,7 @@ pub fn rows() -> Vec<Ana2> {
             axis_bound: false,
             iter_tol: 0.0,
             full_static: true,
+            planar: None,
             run: |c| {
                 // Two cases (even / odd loads) combined 1.0·A + 1.0·B.
                 let mut s = c.s.clone();
@@ -223,6 +280,7 @@ pub fn rows() -> Vec<Ana2> {
             axis_bound: false,
             iter_tol: 0.0,
             full_static: true,
+            planar: None,
             run: |c| {
                 let st = stage("all", &c.s, (0..c.s.loads.len()).collect(), true);
                 Ok(static_2d(&staged::solve_staged_2d(&staged_input(&c.s, vec![st])?)?.final_results))
@@ -234,6 +292,7 @@ pub fn rows() -> Vec<Ana2> {
             axis_bound: false,
             iter_tol: 0.0,
             full_static: false,
+            planar: None,
             run: |c| {
                 let n = c.s.loads.len();
                 let s1 = stage("1", &c.s, (0..n).filter(|k| k % 2 == 0).collect(), true);
@@ -247,6 +306,7 @@ pub fn rows() -> Vec<Ana2> {
             axis_bound: false,
             iter_tol: 0.0,
             full_static: true,
+            planar: None,
             run: |c| Ok(static_2d(&winkler::solve_winkler_2d(&winkler::WinklerInput { solver: c.s.clone(), foundation_springs: vec![] })?)),
         },
         Ana2 {
@@ -255,6 +315,7 @@ pub fn rows() -> Vec<Ana2> {
             axis_bound: false,
             iter_tol: 1e-8,
             full_static: false,
+            planar: None,
             run: |c| {
                 let inp: contact::ContactInput = serde_json::from_value(serde_json::json!({ "solver": c.s })).map_err(|e| e.to_string())?;
                 Ok(static_2d(&conv(contact::solve_contact_2d(&inp).map(|r| (r.converged, r.results)))?))
@@ -266,6 +327,7 @@ pub fn rows() -> Vec<Ana2> {
             axis_bound: false,
             iter_tol: 1e-8,
             full_static: false,
+            planar: None,
             run: |c| Ok(static_2d(&conv(ssi::solve_ssi_2d(&ssi::SSIInput { solver: c.s.clone(), soil_springs: vec![], max_iter: 50, tolerance: 1e-10 }).map(|r| (r.converged, r.results)))?)),
         },
         Ana2 {
@@ -274,6 +336,7 @@ pub fn rows() -> Vec<Ana2> {
             axis_bound: false,
             iter_tol: 0.0,
             full_static: false,
+            planar: None,
             run: |c| {
                 let inp = creep_shrinkage::CreepShrinkageInput {
                     solver: c.s.clone(), creep_params: HashMap::new(),
@@ -294,6 +357,7 @@ pub fn rows() -> Vec<Ana2> {
             axis_bound: false,
             iter_tol: 1e-10,
             full_static: false,
+            planar: Some(|c, p, s| in_plane(c, p, converged_finite(pdelta::solve_pdelta_3d(s, 100, 1e-12).map(|r| (r.converged, r.results)), finite_3d))),
             run: |c| Ok(static_2d(&converged_finite(pdelta::solve_pdelta_2d(&c.s, 100, 1e-12).map(|r| (r.converged, r.results)), finite_2d)?)),
         },
         Ana2 {
@@ -302,6 +366,7 @@ pub fn rows() -> Vec<Ana2> {
             axis_bound: false,
             iter_tol: 1e-9,
             full_static: false,
+            planar: None,
             run: |c| Ok(static_2d(&conv(corotational::solve_corotational_2d(&c.s, 100, 1e-10, 4, false).map(|r| (r.converged, r.results)))?)),
         },
         Ana2 {
@@ -310,6 +375,7 @@ pub fn rows() -> Vec<Ana2> {
             axis_bound: false,
             iter_tol: 1e-9,
             full_static: false,
+            planar: None,
             run: |c| {
                 let fy = c.p.fy * 1000.0; // MPa → kN/m²
                 let inp = NonlinearMaterialInput {
@@ -341,6 +407,7 @@ pub fn rows() -> Vec<Ana2> {
             axis_bound: false,
             iter_tol: 1e-9,
             full_static: false,
+            planar: None,
             run: |c| {
                 let sections = c
                     .s
@@ -363,6 +430,7 @@ pub fn rows() -> Vec<Ana2> {
             axis_bound: true,
             iter_tol: 1e-9,
             full_static: false,
+            planar: None,
             run: |c| Ok(static_2d(&conv(cable::solve_cable_2d(&c.s, &c.dens, 100, 1e-10).map(|r| (r.converged, r.results)))?)),
         },
         Ana2 {
@@ -371,6 +439,7 @@ pub fn rows() -> Vec<Ana2> {
             axis_bound: false,
             iter_tol: 1e-10,
             full_static: false,
+            planar: Some(|c, p, s| modal_in_plane(p, &modal::solve_modal_3d(s, &c.dens, 6)?)),
             run: |c| Ok(modal_resp(&modal::solve_modal_2d(&c.s, &c.dens, 6)?)),
         },
         Ana2 {
@@ -379,6 +448,7 @@ pub fn rows() -> Vec<Ana2> {
             axis_bound: false,
             iter_tol: 1e-10,
             full_static: false,
+            planar: None,
             run: |c| Ok(modal_resp(&dedaliano_engine::certify::modal::certify_modal_2d(&c.s, &c.dens, 6)?.results)),
         },
         Ana2 {
@@ -387,14 +457,8 @@ pub fn rows() -> Vec<Ana2> {
             axis_bound: false,
             iter_tol: 1e-10,
             full_static: false,
-            run: |c| {
-                let r = buckling::solve_buckling_2d(&c.s, 3)?;
-                let mut o = Resp::default();
-                for (k, m) in r.modes.iter().enumerate() {
-                    o.scalar(&format!("lambda{k}"), Dim::NONE, m.load_factor);
-                }
-                Ok(o)
-            },
+            planar: Some(|_, _, s| Ok(load_factors(buckling::solve_buckling_3d(s, 3)?.modes.iter().map(|m| m.load_factor)))),
+            run: |c| Ok(load_factors(buckling::solve_buckling_2d(&c.s, 3)?.modes.iter().map(|m| m.load_factor))),
         },
         Ana2 {
             name: "time history",
@@ -402,6 +466,7 @@ pub fn rows() -> Vec<Ana2> {
             axis_bound: false,
             iter_tol: 1e-10,
             full_static: false,
+            planar: None,
             run: |c| {
                 let loads = nodal_loads_2d(&c.s);
                 let n_steps = 60;
@@ -427,6 +492,7 @@ pub fn rows() -> Vec<Ana2> {
             axis_bound: true,
             iter_tol: 1e-10,
             full_static: false,
+            planar: None,
             run: |c| {
                 // Never cut a repeated pair: a symmetric model's response would not be symmetric (#1030).
                 let (md, n) = cluster_complete(|k| modal::solve_modal_2d(&c.s, &c.dens, k), |m| m.modes.iter().map(|x| x.omega).collect(), 4, 8)?;
@@ -474,6 +540,7 @@ pub fn rows() -> Vec<Ana2> {
             axis_bound: false,
             iter_tol: 1e-10,
             full_static: false,
+            planar: None,
             run: |c| {
                 let node = *c.probes.first().ok_or("no probe node")?;
                 let mut comps = Vec::new();
@@ -504,6 +571,7 @@ pub fn rows() -> Vec<Ana2> {
             axis_bound: false,
             iter_tol: 5e-8 /* event resolution TIE = 1e-6 (solver/plastic.rs) / 20 */,
             full_static: false,
+            planar: None,
             run: |c| {
                 let sections = c
                     .s
@@ -531,6 +599,7 @@ pub fn rows() -> Vec<Ana2> {
             axis_bound: false,
             iter_tol: 0.0,
             full_static: false,
+            planar: None,
             run: |c| {
                 let r = kinematic::analyze_kinematics_2d(&c.s);
                 if let Some(e) = r.invalid_input {
@@ -549,6 +618,7 @@ pub fn rows() -> Vec<Ana2> {
             axis_bound: true,
             iter_tol: 0.0,
             full_static: false,
+            planar: None,
             run: |c| {
                 let path = c.path.clone().ok_or("no deck path")?;
                 let inp = MovingLoadInput {
@@ -579,6 +649,7 @@ pub fn rows() -> Vec<Ana2> {
             axis_bound: true,
             iter_tol: 0.0,
             full_static: false,
+            planar: None,
             run: |c| {
                 let path = c.path.as_ref().ok_or("no deck path")?;
                 let inp = influence::InfluenceLineInput {

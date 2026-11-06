@@ -423,6 +423,28 @@ pub fn static_2d(r: &AnalysisResults) -> Resp {
     o
 }
 
+pub fn planar_static(p: &dedaliano_engine::metamorphic::planes::PlanarStatic) -> Resp {
+    let mut o = Resp::default();
+    for &(n, ux, uz, ry) in &p.displacements {
+        o.push(Some(n), None, "u", Kind::V2(Dim::LEN), vec![ux, uz]);
+        o.push(Some(n), None, "ry", Kind::P2(Dim::NONE), vec![ry]);
+    }
+    for &(n, rx, rz, m) in &p.reactions {
+        o.push(Some(n), None, "R", Kind::V2(Dim::FORCE), vec![rx, rz]);
+        o.push(Some(n), None, "RM", Kind::P2(Dim::MOMENT), vec![m]);
+    }
+    for &(e, a, b) in &p.element_forces {
+        o.push(None, Some(e), "N", Kind::Local(Dim::FORCE, false), vec![a[0], b[0]]);
+        o.push(None, Some(e), "V", Kind::Local(Dim::FORCE, true), vec![a[1], b[1]]);
+        o.push(None, Some(e), "M", Kind::Local(Dim::MOMENT, true), vec![a[2], b[2]]);
+    }
+    o.scalar("stray force", Dim::FORCE, p.stray_force);
+    o.scalar("stray moment", Dim::MOMENT, p.stray_moment);
+    o.scalar("stray translation", Dim::LEN, p.stray_translation);
+    o.scalar("stray rotation", Dim::NONE, p.stray_rotation);
+    o
+}
+
 pub fn disp_2d(r: &AnalysisResults) -> Resp {
     let mut o = Resp::default();
     for d in &r.displacements {
