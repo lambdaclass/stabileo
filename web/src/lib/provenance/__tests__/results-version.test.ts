@@ -80,6 +80,7 @@ const RELEASED: Record<number, string[]> = {
   32: ['harmonic-modal-residual-checked'],
   33: ['soft-rotation-not-orphan'],
   31: ['safety-containment-diagnostics'],
+  34: ['fail-closed-ratios'],
 };
 
 describe('results versions', () => {

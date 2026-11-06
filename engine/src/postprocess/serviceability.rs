@@ -56,6 +56,7 @@ pub struct ServiceabilityResult {
     /// Deflection unity ratio (actual/allowable)
     pub deflection_ratio: f64,
     /// Allowable deflection (m)
+    #[serde(serialize_with = "crate::check::ser_ratio", deserialize_with = "crate::check::de_ratio")]
     pub allowable_deflection: f64,
     /// Actual deflection (m)
     pub actual_deflection: f64,
@@ -96,17 +97,15 @@ pub fn check_serviceability(input: &ServiceabilityInput) -> Vec<ServiceabilityRe
         // A frequency that was requested but is unusable (a modal solve that
         // produced nothing) is an unevaluated check, not an absent one — the
         // previous `unwrap_or(true)` turned it into a pass.
-        let (vibration_ratio, vibration_ok) = match (m.natural_frequency, m.min_frequency) {
-            (Some(freq), min) if freq > 0.0 && freq.is_finite() => {
-                let min_freq = min.unwrap_or(3.0); // default floor criterion
-                let ratio = min_freq / freq;
-                (Some(ratio), Some(ratio <= 1.0))
-            }
-            (Some(_), _) => {
-                ledger.flag("Vibration");
-                (None, Some(false))
-            }
-            (None, _) => (None, None),
+        let (vibration_ratio, vibration_ok) = match m.natural_frequency {
+            Some(freq) => match crate::check::ratio(m.min_frequency.unwrap_or(3.0), freq) {
+                crate::check::Outcome::Ratio(r) => (Some(r), Some(r <= 1.0)),
+                crate::check::Outcome::Unevaluated(_) => {
+                    ledger.flag("Vibration");
+                    (None, Some(false))
+                }
+            },
+            None => (None, None),
         };
 
         let pass = ledger.all_evaluated() && deflection_ok && vibration_ok.unwrap_or(true);

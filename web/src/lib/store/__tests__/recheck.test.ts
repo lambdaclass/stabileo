@@ -303,11 +303,11 @@ describe('edited projects with older provenance', () => {
     expect(restored.captureNotice()).toBeUndefined();
   });
 
-  it('a frame solved before the containment diagnostics opens with exactly that notice and the harmonic one after it', async () => {
+  it('a frame solved before the containment diagnostics opens with exactly that notice and the ones after it', async () => {
     const store = createRecheckStore();
     store.openProject({ ...frame(), solvedWith: { ...oldStamp(), resultsVersion: 30 } }, 'pro');
     await vi.waitFor(() => expect(store.pending).toBe(false));
-    expect(store.assessment?.changes.map(c => c.id).sort()).toEqual(['harmonic-modal-residual-checked', 'safety-containment-diagnostics', 'soft-rotation-not-orphan']);
+    expect(store.assessment?.changes.map(c => c.id).sort()).toEqual(['fail-closed-ratios', 'harmonic-modal-residual-checked', 'safety-containment-diagnostics', 'soft-rotation-not-orphan']);
     expect(store.noticeOpen).toBe(true);
     expect(store.stale).toBe(true);
   });
