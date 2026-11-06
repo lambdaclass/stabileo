@@ -2127,7 +2127,7 @@ fn every_export_the_app_falls_back_on_refuses_no_free_dofs_with_a_code() {
 fn codes(error: &str) -> Vec<String> {
     let Ok(v) = serde_json::from_str::<serde_json::Value>(error) else { return vec![] };
     v["structuredDiagnostics"].as_array().into_iter().flatten()
-        .filter(|d| d["severity"] == "error").filter_map(|d| d["code"].as_str().map(str::to_owned)).collect()
+        .filter(|d| d["severity"] == "error").map(|d| d["code"].as_str().unwrap_or_else(|| panic!("an error diagnostic without a code: {error}")).to_owned()).collect()
 }
 
 #[test]
