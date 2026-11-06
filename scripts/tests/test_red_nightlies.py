@@ -50,6 +50,13 @@ class Verdicts(unittest.TestCase):
     def test_a_run_that_never_started_its_jobs_is_red_as_a_whole(self):
         self.assertEqual(states()[red.title('Verify', '(run)')], 'red')
 
+    def test_a_successful_run_after_runs_that_never_started_is_green(self):
+        runs = [{**RUNS['Verify'][0], 'id': 4003, 'conclusion': 'success', 'jobs': [{'name': 'kani', 'conclusion': 'success'}]}, *RUNS['Verify']]
+        v = red.verdicts('Verify', runs)
+        self.assertEqual(v[red.title('Verify', '(run)')]['state'], 'green')
+        acts = red.plan(v, [{'number': 5, 'title': red.title('Verify', '(run)'), 'text': ''}])
+        self.assertEqual([(a['action'], a['number']) for a in acts], [('close', 5)])
+
     def test_cancelled_counts_only_when_github_timed_it_out(self):
         self.assertEqual(red.outcome({'conclusion': 'cancelled', 'timed_out': True}), 'red')
         self.assertIsNone(red.outcome({'conclusion': 'cancelled', 'timed_out': False}))

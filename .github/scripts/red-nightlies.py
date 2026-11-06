@@ -46,6 +46,8 @@ def job_history(runs):
         jobs = run.get('jobs') or []
         if not jobs and run.get('conclusion') in BAD:
             seen['(run)'] = ('red', [])
+        elif run.get('conclusion') in GOOD:
+            seen['(run)'] = ('green', [])
         for job in jobs:
             state = outcome(job)
             if state is None:
@@ -127,8 +129,8 @@ def fetch(repo):
                 run['jobs'] = [j for p in pages for j in p['jobs']]
                 for job in run['jobs']:
                     if job.get('conclusion') == 'cancelled':
-                        notes = json.loads(gh('api', f"repos/{repo}/check-runs/{job['id']}/annotations"))
-                        job['timed_out'] = any(TIMEOUT_NOTE in (n.get('message') or '') for n in notes)
+                        notes = json.loads(gh('api', '--paginate', '--slurp', f"repos/{repo}/check-runs/{job['id']}/annotations?per_page=100"))
+                        job['timed_out'] = any(TIMEOUT_NOTE in (n.get('message') or '') for p in notes for n in p)
             if runs:
                 found.update(verdicts(wf['name'], runs))
     return found
