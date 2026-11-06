@@ -18,7 +18,7 @@
 
 NIX_RUN = nix develop --command
 # The e2e shell supplies immutable browser builds; Ubuntu keeps its existing installer.
-PLAYWRIGHT_INSTALL = $(if $(filter 1,$(PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD)),true,npx playwright install)
+PLAYWRIGHT_INSTALL = bash scripts/playwright-install.sh
 
 # Multi-instance support: INST=0 (default), INST=1, ... Each instance gets its own
 # ports and databases, so several checkouts/worktrees can run side by side:
@@ -376,7 +376,7 @@ test.web.determinism:
 	$(NIX_RUN) bash -c "cd web && $(PLAYWRIGHT_INSTALL) chromium firefox webkit && node --test determinism/serve.test.mjs determinism/checks.test.mjs determinism/containment.test.mjs && node determinism/node-run.mjs && npx playwright test -c determinism/playwright.config.ts"
 
 e2e.web.setup:
-	$(NIX_RUN) bash -c "cd web && npx playwright install chromium"
+	$(NIX_RUN) bash -c "cd web && $(PLAYWRIGHT_INSTALL) chromium"
 
 # The site the e2e suites test with E2E_PREBUILT=1: VITE_E2E=1 compiles the read-only test hooks in,
 # and web/playwright.config.ts refuses a prebuilt dist without the marker. Needs make e2e.web.setup.
@@ -484,6 +484,7 @@ test.nightly-scripts:
 
 test.ci-scripts: test.nightly-scripts check.cadence
 	python3 -B -I scripts/tests/test_cadence.py
+	python3 -B -I scripts/tests/test_playwright_install.py
 	python3 -B -I scripts/tests/test_deps_audit.py
 	python3 -B -I scripts/tests/test_check_containment.py
 	python3 -B -I scripts/tests/test_mutants_safety.py
