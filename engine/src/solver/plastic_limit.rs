@@ -386,10 +386,10 @@ pub fn limit_analysis_2d(input: &SolverInput, mp: &HashMap<usize, f64>, np: &Has
         return Err(format!("more than {MAX_LIMIT_ELEMENTS} members: too large for the limit analysis"));
     }
     for (what, map) in [("plastic moment", mp), ("axial yield force", np)] {
-        let mut bad: Vec<(usize, f64)> = map.iter().filter(|(_, v)| !(**v > 0.0)).map(|(k, v)| (*k, *v)).collect();
+        let mut bad: Vec<(usize, f64)> = map.iter().filter(|(_, v)| !(v.is_finite() && **v > 0.0)).map(|(k, v)| (*k, *v)).collect();
         bad.sort_by_key(|b| b.0);
         if let Some((id, v)) = bad.first() {
-            return Err(format!("element {id}: {what} {v} must be positive"));
+            return Err(format!("element {id}: {what} {v} must be finite and positive; leave out a member that never yields"));
         }
     }
     let mut frames: Vec<usize> = crate::ordered::values(&input.elements).filter(|e| e.elem_type == "frame").map(|e| e.id).collect();
@@ -654,12 +654,18 @@ pub fn limit_analysis_2d(input: &SolverInput, mp: &HashMap<usize, f64>, np: &Has
 /// `limit_analysis_2d` from its JSON input.
 pub fn limit_analysis_2d_input(input: &LimitInput) -> Result<LimitResult, String> {
     let parse = |m: &HashMap<String, f64>| -> Result<HashMap<usize, f64>, String> {
-        m.iter().map(|(k, v)| k.parse::<usize>().map(|k| (k, *v)).map_err(|_| format!("element id '{k}' is not a number"))).collect()
+        let mut keys: Vec<&String> = m.keys().collect();
+        keys.sort();
+        let mut out = HashMap::new();
+        for k in keys {
+            let id = k.parse::<usize>().map_err(|_| format!("element id '{k}' is not a number"))?;
+            if out.insert(id, m[k]).is_some() {
+                return Err(format!("element {id} is given more than one capacity (key '{k}')"));
+            }
+        }
+        Ok(out)
     };
     super::linear::validate_input_2d(&input.solver)?;
     let (mp, np) = (parse(&input.mp)?, parse(&input.np)?);
-    if let Some((id, v)) = mp.iter().chain(&np).find(|(_, v)| !v.is_finite()) {
-        return Err(format!("element {id}: capacity {v} must be finite; leave out a member that never yields"));
-    }
     limit_analysis_2d(&input.solver, &mp, &np)
 }

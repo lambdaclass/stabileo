@@ -689,7 +689,7 @@ fn issue_758_limit_analysis_refuses_a_capacity_that_is_not_positive_and_finite()
         let r = limit_analysis_2d_input(&with(m1));
         assert!(r.as_ref().is_err_and(|e| e.contains("element 1")), "Mp = {m1}: {r:?}");
         let r = limit_analysis_2d(&solver, &HashMap::from([(1, m1), (2, 1.0)]), &HashMap::new());
-        assert!(r.as_ref().is_err_and(|e| e.contains("element 1: plastic moment") && e.contains("must be positive")), "Mp = {m1}: {r:?}");
+        assert!(r.as_ref().is_err_and(|e| e.contains("element 1: plastic moment") && e.contains("must be finite and positive")), "Mp = {m1}: {r:?}");
     }
     let r = limit_analysis_2d_input(&with(f64::INFINITY));
     assert!(r.as_ref().is_err_and(|e| e.contains("must be finite")), "{r:?}");
@@ -697,6 +697,32 @@ fn issue_758_limit_analysis_refuses_a_capacity_that_is_not_positive_and_finite()
     assert!(limit_analysis_2d_input(&omitted).is_err_and(|e| e.contains("element 1: frame has no finite plastic moment")));
     let np = LimitInput { np: HashMap::from([("2".to_string(), 0.0)]), ..with(1.0) };
     assert!(limit_analysis_2d_input(&np).is_err_and(|e| e.contains("axial yield force")));
+    for n2 in [f64::INFINITY, 0.0, -1.0, f64::NAN] {
+        let r = limit_analysis_2d_input(&LimitInput { np: HashMap::from([("2".to_string(), n2)]), ..with(1.0) });
+        assert!(r.as_ref().is_err_and(|e| e.contains("element 2: axial yield force") && e.contains("must be finite and positive")), "Np = {n2}: {r:?}");
+        let r = limit_analysis_2d(&solver, &HashMap::from([(1, 1.0), (2, 1.0)]), &HashMap::from([(2, n2)]));
+        assert!(r.as_ref().is_err_and(|e| e.contains("element 2: axial yield force") && e.contains("must be finite and positive")), "Np = {n2}: {r:?}");
+    }
+    let r = limit_analysis_2d(&solver, &HashMap::from([(1, f64::INFINITY), (2, 1.0)]), &HashMap::new());
+    assert!(r.as_ref().is_err_and(|e| e.contains("element 1: plastic moment") && e.contains("must be finite and positive")), "{r:?}");
+}
+
+#[test]
+fn issue_758_limit_analysis_refuses_two_capacities_for_one_element() {
+    use dedaliano_engine::solver::plastic_limit::{limit_analysis_2d_input, LimitInput};
+    let solver = two_member_cantilever();
+    for (key, field) in [("01", "mp"), ("1", "np")] {
+        let mut mp = HashMap::from([("1".to_string(), 1.0), ("2".to_string(), 1.0)]);
+        let mut np = HashMap::new();
+        if field == "mp" {
+            mp.insert(key.to_string(), 100.0);
+        } else {
+            np.insert("1".to_string(), 5.0);
+            np.insert("001".to_string(), 500.0);
+        }
+        let r = limit_analysis_2d_input(&LimitInput { solver: solver.clone(), mp, np });
+        assert!(r.as_ref().is_err_and(|e| e.contains("element 1 is given more than one capacity")), "{field}: {r:?}");
+    }
 }
 
 #[test]
