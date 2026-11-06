@@ -83,6 +83,8 @@ const RELEASED: Record<number, string[]> = {
   36: ['linear-small-displacement-warning'],
   33: ['soft-rotation-not-orphan'],
   31: ['safety-containment-diagnostics'],
+  34: ['fail-closed-ratios'],
+  35: ['buckling-3d-varying-axial-force'],
 };
 
 describe('results versions', () => {

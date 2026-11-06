@@ -159,6 +159,7 @@ const c301Pt: Record<string, string> = {
   'c301.refuse.e6Connector': '§E.6.2.1: falta o tipo de ligação intermediária (parafusos sem protensão ou solda)',
   'c301.refuse.e6SpacingTooLarge': '§E.6.2.2: a/ri = {ari} > 3/4 da esbeltez governante = {lim}',
   'c301.refuse.engineUnavailable': 'o motor de cálculo não está carregado: o elemento não está verificado',
+  'c301.refuse.capacityUnusable': 'não é possível formar a razão com φRn = {phiRn} e a solicitação {demand}: a resistência de cálculo não é positiva e finita, ou a solicitação não é finita',
 
   // The steel results screen and the angle editor.
   'steel.angle.title': 'Cantoneiras comprimidas (§E.5, §E.6)',

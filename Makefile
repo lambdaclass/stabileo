@@ -1,5 +1,5 @@
 .PHONY: research.wasm paper.pdf help install-nix shell setup setup.run git.setup deps backend.run console routes \
-       lint.engine gen.result-sites test.engine.units-types check.engine.acceptance-models test.engine.gates test.engine.metamorphic test.engine.invariance.quick test.engine.suite test.engine.differential.quick test.engine.differential.full bench.engine mutants.engine mutants.safety.report mutants.safety.record \
+       lint.engine gen.result-sites test.engine.units-types check.engine.acceptance-models test.engine.gates test.engine.metamorphic test.engine.invariance.quick test.engine.mechanism-fuzz.quick test.engine.mechanism-fuzz.long test.engine.mechanism-fuzz.replay test.engine.suite test.engine.differential.quick test.engine.differential.full bench.engine mutants.engine mutants.safety.report mutants.safety.record \
        web.deps typecheck.web test.web.unit test.web.build web.build.tested test.web.build.shared test.web.timing test.web.results snapshots-update check.results-snapshot-gate test.web.determinism e2e.web.setup e2e.web.build e2e.web.smoke e2e.web.slow e2e.web.timing e2e.web.visual e2e.web.flaky \
        perf.lighthouse.deps perf.lighthouse \
        test.ci-scripts test.nightly-scripts test.infra.caddy test.infra.caddy.redirects check.web.translations check.web.route-size \
@@ -82,6 +82,9 @@ help:
 	@echo "  make test.engine.gates    - The named engine correctness gates"
 	@echo "  make test.engine.metamorphic - Metamorphic tests, in release"
 	@echo "  make test.engine.invariance.quick - Invariance of the analyses the changes since BASE touch (KINDS=all for every one)"
+	@echo "  make test.engine.mechanism-fuzz.quick - Mechanism fuzzing of the certificate: the checked-in seeds"
+	@echo "  make test.engine.mechanism-fuzz.long DURATION=30m - Mechanism fuzzing from SEED until DURATION (REPORT_DIR keeps reproducers)"
+	@echo "  make test.engine.mechanism-fuzz.replay SEEDS=12,44 FILES=a.json - Fuzz seeds or saved cases: model, outcome, minimised reproducer"
 	@echo "  make test.engine.suite [SHARD=1/4] - Every engine test outside the gates"
 	@echo "  make test.engine.differential.quick - Cross-method pairs that must agree (per PR)"
 	@echo "  make test.engine.differential.full  - Those plus the parametrised families (nightly)"
@@ -239,6 +242,7 @@ NEXTEST = cd engine && $(NIX_RUN) cargo nextest run --profile ci
 
 lint.engine:
 	python3 -B -I .github/scripts/check-wall-clock-tests.py
+	python3 -B -I scripts/check-fail-closed.py
 	python3 -B -I scripts/benchmark-gate.py
 	python3 -B -I scripts/invariance-gate.py
 	cd engine && $(NIX_RUN) cargo clippy --lib -- -W clippy::all -A clippy::erasing_op
@@ -275,6 +279,16 @@ test.engine.invariance.quick:
 	export INVARIANCE_KINDS="$(KINDS)"; \
 	if base=$$(git merge-base $(or $(BASE),origin/main) HEAD); then export INVARIANCE_PATHS="$$(git diff --name-only $$base; git ls-files --others --exclude-standard)"; fi; \
 	$(NEXTEST) --cargo-profile release --test metamorphic --run-ignored only --no-capture -E 'test(=quick::invariance_quick)'
+
+MECHANISM_FUZZ = $(NEXTEST) --cargo-profile release --test mechanism_fuzz --run-ignored only --no-capture
+test.engine.mechanism-fuzz.quick:
+	$(MECHANISM_FUZZ) -E 'test(=mechanism_fuzz_quick)'
+
+test.engine.mechanism-fuzz.long:
+	export MECHANISM_FUZZ_DURATION=$(or $(DURATION),30m) $(if $(SEED),MECHANISM_FUZZ_SEED=$(SEED)) $(if $(REPORT_DIR),MECHANISM_FUZZ_REPORT_DIR=$(abspath $(REPORT_DIR))) && $(MECHANISM_FUZZ) -E 'test(=mechanism_fuzz_long)'
+
+test.engine.mechanism-fuzz.replay:
+	export MECHANISM_FUZZ_SEEDS=$(SEEDS) MECHANISM_FUZZ_FILES=$(FILES) && $(MECHANISM_FUZZ) -E 'test(=mechanism_fuzz_replay)'
 
 test.engine.suite:
 	$(NEXTEST) -E '$(SUITE_FILTER)' $(if $(SHARD),--partition count:$(SHARD))
@@ -456,6 +470,7 @@ test.nightly-scripts:
 	python3 -B -I tools/opensees/test_gen_models.py
 	$(NIX_RUN) node --test scripts/tests/nightly-findings.test.cjs
 	$(NIX_RUN) node --test scripts/tests/verification-alert.test.cjs
+	$(NIX_RUN) node --test scripts/tests/slow-e2e-alert.test.cjs
 	$(NIX_RUN) node --test scripts/tests/runner-pools.test.cjs
 	$(NIX_RUN) node --test scripts/tests/cadence-reports.test.cjs
 
@@ -470,6 +485,7 @@ test.ci-scripts: test.nightly-scripts check.cadence
 	python3 -B -I scripts/tests/test_ci_aggregate.py
 	python3 -B -I scripts/tests/test_ci_selection.py
 	python3 -B -I scripts/tests/test_check_wall_clock_tests.py
+	python3 -B -I scripts/tests/test_check_fail_closed.py
 	python3 -B -I scripts/tests/test_main_tested.py
 	python3 -B -I scripts/tests/test_cancel_superseded.py
 	python3 -B -I scripts/tests/test_ci_runners.py

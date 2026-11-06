@@ -170,6 +170,7 @@ const c301Es: Record<string, string> = {
   'c301.refuse.e6Connector': '§E.6.2.1: falta el tipo de unión intermedia (bulones sin pretensar o soldadura)',
   'c301.refuse.e6SpacingTooLarge': '§E.6.2.2: a/ri = {ari} > 3/4 de la esbeltez gobernante = {lim}',
   'c301.refuse.engineUnavailable': 'el motor de cálculo no está cargado: el elemento no está verificado',
+  'c301.refuse.capacityUnusable': 'no se puede formar la relación con φRn = {phiRn} y la solicitación {demand}: la resistencia de diseño no es positiva y finita, o la solicitación no es finita',
 
   // The steel results screen and the angle editor.
   'steel.angle.title': 'Ángulos comprimidos (§E.5, §E.6)',

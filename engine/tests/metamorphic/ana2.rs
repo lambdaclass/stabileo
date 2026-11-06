@@ -3,6 +3,7 @@
 use crate::case::{pad_2d, Case2};
 use crate::response::{disp_2d, static_2d, Dim, Kind, Resp};
 use dedaliano_engine::element::fiber_beam::{Fiber, FiberMaterial, FiberSectionDef};
+use dedaliano_engine::load_session::LoadSession2D;
 use dedaliano_engine::postprocess::influence;
 use dedaliano_engine::solver::{
     buckling, cable, constraints, contact, corotational, creep_shrinkage, fiber_nonlinear, harmonic, kinematic, linear, load_cases,
@@ -125,6 +126,25 @@ pub fn rows() -> Vec<Ana2> {
     vec![
         Ana2 { name: "linear", law: Law::Linear, axis_bound: false, iter_tol: 0.0, full_static: true, run: |c| Ok(static_2d(&linear::solve_2d(&c.s)?)) },
         Ana2 {
+            name: "linear (WASM typed path)",
+            law: Law::Linear,
+            axis_bound: false,
+            iter_tol: 0.0,
+            full_static: true,
+            run: |c| {
+                let typed: dedaliano_engine::types::units::ElasticInput2D = serde_json::to_value(&c.s).and_then(serde_json::from_value).map_err(|e| e.to_string())?;
+                Ok(static_2d(&linear::solve_2d_typed(&typed)?))
+            },
+        },
+        Ana2 {
+            name: "linear (load session)",
+            law: Law::Linear,
+            axis_bound: false,
+            iter_tol: 0.0,
+            full_static: true,
+            run: |c| Ok(static_2d(&LoadSession2D::from_input(c.s.clone())?.solve_loads(&c.s.loads)?)),
+        },
+        Ana2 {
             name: "linear (dense reference)",
             law: Law::Linear,
             axis_bound: false,
@@ -173,7 +193,7 @@ pub fn rows() -> Vec<Ana2> {
             axis_bound: false,
             iter_tol: 0.0,
             full_static: true,
-            run: |c| Ok(static_2d(&dedaliano_engine::certify::solver::certify_linear_2d_full(&c.s)?.results)),
+            run: |c| Ok(static_2d(&dedaliano_engine::certify::certify_linear_2d_full(&c.s)?.results)),
         },
         Ana2 {
             name: "load combinations",

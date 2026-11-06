@@ -14,7 +14,7 @@ pub const INVARIANTS_2D: &[&str] = &["rotation", "mirror", "relabel", "reversal"
 pub const INVARIANTS_3D: &[&str] = &["rotation", "relabel", "reversal", "units", "load order"];
 
 const ALL: &[&str] = &["*"];
-const LINEAR: &[&str] = &["linear", "linear (dense reference)", "linear (sparse path)", "linear (PCG)", "certified linear"];
+const LINEAR: &[&str] = &["linear", "linear (WASM typed path)", "linear (load session)", "linear (dense reference)", "linear (sparse path)", "linear (PCG)", "certified linear"];
 const DYNAMIC: &[&str] = &["modal", "certified modal", "spectral", "time history", "time history (ground motion)", "harmonic"];
 const NONLINEAR: &[&str] = &["corotational", "material nonlinear", "fiber nonlinear"];
 
