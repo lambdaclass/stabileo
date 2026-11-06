@@ -24,7 +24,7 @@ HUNK = re.compile(r'^@@ -(\d+)(?:,(\d+))? ')
 
 
 def git(repo, *args, ok=(0,)):
-    proc = subprocess.run(['git', '-c', 'core.quotePath=false', *args], cwd=repo, capture_output=True, text=True)
+    proc = subprocess.run(['git', *args], cwd=repo, capture_output=True, text=True)
     if proc.returncode not in ok:
         raise RuntimeError(f'git {" ".join(args)} failed: {proc.stderr.strip()}')
     return proc
@@ -35,7 +35,28 @@ def merge_tree(repo, base, head):
     lines = proc.stdout.splitlines()
     if not lines or not re.fullmatch(r'[0-9a-f]{40,64}', lines[0]):
         raise RuntimeError(f'git merge-tree {base} {head} failed: {proc.stderr.strip()}')
-    return lines[0], (sorted(set(l for l in lines[1:] if l)) if proc.returncode == 1 else [])
+    if proc.returncode == 0:
+        return lines[0], []
+    return lines[0], sorted(set(l for l in lines[1:] if l)) or ['(no conflicted file named)']
+
+
+def unquote(name):
+    if not (len(name) >= 2 and name[0] == name[-1] == '"'):
+        return name
+    out, i, body = bytearray(), 0, name[1:-1]
+    escapes = {'a': 7, 'b': 8, 't': 9, 'n': 10, 'v': 11, 'f': 12, 'r': 13, '"': 34, '\\': 92}
+    while i < len(body):
+        c = body[i]
+        if c != '\\':
+            out += c.encode()
+            i += 1
+        elif body[i + 1] in escapes:
+            out.append(escapes[body[i + 1]])
+            i += 2
+        else:
+            out.append(int(body[i + 1:i + 4], 8))
+            i += 4
+    return out.decode('utf-8', 'surrogateescape')
 
 
 def deleted_ranges(repo, base, tree):
@@ -43,7 +64,8 @@ def deleted_ranges(repo, base, tree):
     ranges, path = {}, None
     for line in out.splitlines():
         if line.startswith('--- '):
-            path = line[6:].rstrip('\t') if line.startswith('--- a/') else None
+            name = unquote(line[4:].rstrip('\t'))
+            path = name[2:] if name.startswith('a/') else None
         elif path and (m := HUNK.match(line)):
             start, count = int(m.group(1)), int(m.group(2) if m.group(2) is not None else 1)
             if count:

@@ -122,6 +122,32 @@ class RevertCheck(unittest.TestCase):
         rows, _ = check.recent_foreign_deletions(self.repo, 'main', 'pr', 21, NOW)
         self.assertEqual([(r['file'], r['lines']) for r in rows], [('gone.txt', 3)])
 
+    def test_paths_git_quotes_are_still_checked(self):
+        for name in ['say "hi".txt', 'año\\x.txt', 'tab\there.txt']:
+            with self.subTest(name=name):
+                self.tearDown()
+                self.setUp()
+                self.pr_merges_main_work_then_drops_it(name, 'kept\nrecent\n', 'kept\n', NOW - 3 * DAY)
+                rows, _ = check.recent_foreign_deletions(self.repo, 'main', 'pr', 21, NOW)
+                self.assertEqual([(r['file'], r['lines']) for r in rows], [(name, 1)])
+
+    def test_a_conflict_git_reports_without_naming_a_file_still_fails(self):
+        real = check.git
+        def git_stub(repo, *args, ok=(0,)):
+            if args[0] == 'merge-tree':
+                return subprocess.CompletedProcess(args, 1, stdout='0' * 40 + '\n', stderr='')
+            return real(repo, *args, ok=ok)
+        check.git = git_stub
+        try:
+            git(self.repo, 'branch', 'pr', 'main')
+            rows, conflicts = check.recent_foreign_deletions(self.repo, 'main', 'pr', 21, NOW)
+            code, out = self.run_check()
+        finally:
+            check.git = real
+        self.assertIsNone(rows)
+        self.assertEqual(conflicts, ['(no conflicted file named)'])
+        self.assertEqual(code, 2)
+
     def test_a_conflicting_merge_reports_the_conflict(self):
         git(self.repo, 'checkout', '-q', '-b', 'pr', 'main')
         commit(self.repo, {'new.txt': 'theirs\n'}, 'PR edit', NOW - DAY)
