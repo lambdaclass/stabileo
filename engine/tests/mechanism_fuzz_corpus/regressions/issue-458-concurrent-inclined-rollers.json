@@ -1,0 +1,148 @@
+{
+  "name": "issue-458-concurrent-inclined-rollers",
+  "family": "skew-supports",
+  "model": {
+    "dim": "2d",
+    "input": {
+      "nodes": {
+        "2": {
+          "id": 2,
+          "x": 7.5,
+          "z": 5.0
+        },
+        "1": {
+          "id": 1,
+          "x": 0.0,
+          "z": 1.0
+        }
+      },
+      "materials": {
+        "1": {
+          "id": 1,
+          "e": 200000.0,
+          "nu": 0.3
+        }
+      },
+      "sections": {
+        "2": {
+          "id": 2,
+          "a": 0.02,
+          "iz": 0.0002,
+          "asY": null
+        },
+        "1": {
+          "id": 1,
+          "a": 0.01,
+          "iz": 1e-05,
+          "asY": null
+        }
+      },
+      "elements": {
+        "1": {
+          "id": 1,
+          "type": "frame",
+          "nodeI": 1,
+          "nodeJ": 2,
+          "materialId": 1,
+          "sectionId": 1,
+          "hingeStart": false,
+          "hingeEnd": false
+        }
+      },
+      "supports": {
+        "2": {
+          "id": 2,
+          "nodeId": 2,
+          "type": "inclinedRoller",
+          "kx": null,
+          "ky": null,
+          "kz": null,
+          "dx": null,
+          "dz": null,
+          "dry": null,
+          "angle": -2.356194490192345
+        },
+        "1": {
+          "id": 1,
+          "nodeId": 1,
+          "type": "inclinedRoller",
+          "kx": null,
+          "ky": null,
+          "kz": null,
+          "dx": null,
+          "dz": null,
+          "dry": null,
+          "angle": 1.1071487177940904
+        }
+      },
+      "loads": [
+        {
+          "type": "nodal",
+          "data": {
+            "nodeId": 2,
+            "fx": -10.0,
+            "fz": 8.0,
+            "my": 0.0
+          }
+        },
+        {
+          "type": "nodal",
+          "data": {
+            "nodeId": 1,
+            "fx": 8.0,
+            "fz": 7.0,
+            "my": -7.0
+          }
+        },
+        {
+          "type": "nodal",
+          "data": {
+            "nodeId": 1,
+            "fx": 1.0,
+            "fz": -2.0,
+            "my": 0.0
+          }
+        }
+      ],
+      "constraints": [],
+      "connectors": {},
+      "solverOptions": null
+    }
+  },
+  "modes": [
+    [
+      [
+        1,
+        0,
+        -0.4175849903903257
+      ],
+      [
+        1,
+        1,
+        0.8351699807806513
+      ],
+      [
+        1,
+        2,
+        -0.11930999725437866
+      ],
+      [
+        2,
+        0,
+        0.05965499862718893
+      ],
+      [
+        2,
+        1,
+        -0.059654998627188593
+      ],
+      [
+        2,
+        2,
+        -0.11930999725437866
+      ]
+    ]
+  ],
+  "exact": [],
+  "knownIssue": 458
+}

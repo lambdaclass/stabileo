@@ -85,7 +85,8 @@ fn validation_neal_1_ss_beam_central() {
     })];
 
     let input = make_plastic_beam(n, l, "pinned", Some("rollerX"), loads);
-    let result = plastic::solve_plastic_2d(&input).unwrap();
+    crate::common::assert_containment(plastic::solve_plastic_2d(&input), "PL-2D-INVARIANCE");
+    let result = plastic::solve_plastic_2d_unrefused(&input).unwrap();
 
     let expected = 4.0 * MP / l; // 562.5
     let error = (result.collapse_factor - expected).abs() / expected;
@@ -122,7 +123,8 @@ fn validation_neal_2_fixed_beam_udl() {
     }
 
     let input = make_plastic_beam(n, l, "fixed", Some("fixed"), loads);
-    let result = plastic::solve_plastic_2d(&input).unwrap();
+    crate::common::assert_containment(plastic::solve_plastic_2d(&input), "PL-2D-INVARIANCE");
+    let result = plastic::solve_plastic_2d_unrefused(&input).unwrap();
 
     let expected = 16.0 * MP / (l * l); // 375.0
     let error = (result.collapse_factor - expected).abs() / expected;
@@ -156,7 +158,8 @@ fn validation_neal_3_propped_cantilever() {
     })];
 
     let input = make_plastic_beam(n, l, "fixed", Some("rollerX"), loads);
-    let result = plastic::solve_plastic_2d(&input).unwrap();
+    crate::common::assert_containment(plastic::solve_plastic_2d(&input), "PL-2D-INVARIANCE");
+    let result = plastic::solve_plastic_2d_unrefused(&input).unwrap();
 
     let expected = 6.0 * MP / l; // 843.75
     let error = (result.collapse_factor - expected).abs() / expected;
@@ -209,7 +212,8 @@ fn validation_neal_4_portal_combined() {
         make_input(nodes.clone(), vec![(1, E_EFF, 0.3)], vec![(1, A_SEC, IZ_SEC)],
             elems.clone(), sups.clone(), loads_beam);
     let input_beam = make_plastic(solver_beam);
-    let result_beam = plastic::solve_plastic_2d(&input_beam).unwrap();
+    crate::common::assert_containment(plastic::solve_plastic_2d(&input_beam), "PL-2D-INVARIANCE");
+    let result_beam = plastic::solve_plastic_2d_unrefused(&input_beam).unwrap();
 
     // Sway mechanism only (lateral load)
     let loads_sway = vec![SolverLoad::Nodal(SolverNodalLoad {
@@ -222,7 +226,8 @@ fn validation_neal_4_portal_combined() {
         make_input(nodes.clone(), vec![(1, E_EFF, 0.3)], vec![(1, A_SEC, IZ_SEC)],
             elems.clone(), sups.clone(), loads_sway);
     let input_sway = make_plastic(solver_sway);
-    let result_sway = plastic::solve_plastic_2d(&input_sway).unwrap();
+    crate::common::assert_containment(plastic::solve_plastic_2d(&input_sway), "PL-2D-INVARIANCE");
+    let result_sway = plastic::solve_plastic_2d_unrefused(&input_sway).unwrap();
 
     // Combined mechanism (lateral + gravity)
     let loads_combined = vec![
@@ -243,7 +248,8 @@ fn validation_neal_4_portal_combined() {
         make_input(nodes, vec![(1, E_EFF, 0.3)], vec![(1, A_SEC, IZ_SEC)],
             elems, sups, loads_combined);
     let input_combined = make_plastic(solver_combined);
-    let result_combined = plastic::solve_plastic_2d(&input_combined).unwrap();
+    crate::common::assert_containment(plastic::solve_plastic_2d(&input_combined), "PL-2D-INVARIANCE");
+    let result_combined = plastic::solve_plastic_2d_unrefused(&input_combined).unwrap();
 
     // All mechanisms should find collapse
     assert!(
@@ -309,7 +315,8 @@ fn validation_neal_5_two_span_udl() {
         loads,
     );
     let input = make_plastic(solver);
-    let result = plastic::solve_plastic_2d(&input).unwrap();
+    crate::common::assert_containment(plastic::solve_plastic_2d(&input), "PL-2D-INVARIANCE");
+    let result = plastic::solve_plastic_2d_unrefused(&input).unwrap();
 
     let expected = 11.66 * MP / (l_span * l_span); // ≈ 273.2
     // Allow wider tolerance since hinge location discretization affects result
@@ -354,7 +361,8 @@ fn validation_neal_6_three_hinge_collapse() {
     })];
 
     let input = make_plastic_beam(n, l, "fixed", Some("fixed"), loads);
-    let result = plastic::solve_plastic_2d(&input).unwrap();
+    crate::common::assert_containment(plastic::solve_plastic_2d(&input), "PL-2D-INVARIANCE");
+    let result = plastic::solve_plastic_2d_unrefused(&input).unwrap();
 
     // Exact: λ = 9Mp/L for fixed-fixed with load at a=L/3, b=2L/3.
     // Virtual work: left part rotates θ, right part rotates θ·a/b = θ/2.
@@ -395,7 +403,8 @@ fn validation_neal_7_frame_sway_mechanism() {
     // Portal with lateral load only at top-left
     let solver = make_portal_frame(h, w, E_EFF, A_SEC, IZ_SEC, 1.0, 0.0);
     let input = make_plastic(solver);
-    let result = plastic::solve_plastic_2d(&input).unwrap();
+    crate::common::assert_containment(plastic::solve_plastic_2d(&input), "PL-2D-INVARIANCE");
+    let result = plastic::solve_plastic_2d_unrefused(&input).unwrap();
 
     // Sway mechanism: virtual work gives λ·1·H = 4Mp (for equal columns/beams)
     // λ = 4Mp/H = 4*843.75/4 = 843.75
@@ -474,7 +483,8 @@ fn validation_neal_8_upper_lower_bound() {
         loads,
     );
     let input = make_plastic(solver);
-    let result = plastic::solve_plastic_2d(&input).unwrap();
+    crate::common::assert_containment(plastic::solve_plastic_2d(&input), "PL-2D-INVARIANCE");
+    let result = plastic::solve_plastic_2d_unrefused(&input).unwrap();
 
     // Upper bound (kinematic): Consider combined mechanism
     // Sway mechanism: λ·1·H = 4Mp → λ_sway = 4Mp/H = 843.75

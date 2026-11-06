@@ -1,5 +1,6 @@
 import data from '../../../../../engine/tests/benchmarks/shell_obstacle_course.json';
 import type { SolverInput3D } from '../../../lib/engine/types-3d';
+import { knownIssueRefusal, knownIssueResultDisposition, refusedKnownIssues } from '../../../lib/engine/known-issues';
 
 // Normalize numeric-keyed maps at the JSON boundary; otherwise every mesh produces
 // a distinct huge object union throughout the viewer and editor type checks.
@@ -15,7 +16,7 @@ export const nativeOnly = data.nativeOnly;
 export const tolerance = data.accuracyTolerance;
 export const groups = ['roof', 'cylinder', 'hemisphere'];
 export const finest = groups.map(group => cases.filter(c => c.group === group).at(-1)!);
-export type Result = { id: string; value: number | null; error: number | null; pass: boolean; failure?: string; displacement?: Record<string, number>[] };
+export type Result = { id: string; value: number | null; error: number | null; pass: boolean; refused?: boolean; knownIssue?: string; issue?: number; failure?: string; displacement?: Record<string, number>[] };
 
 export function inputFor(c: Case): SolverInput3D {
   const input: Record<string, unknown> = { ...c.input };
@@ -42,6 +43,19 @@ export function compare(c: Case, displacements: Record<string, number>[]): Resul
   return { id: c.id, value, error, pass: error < c.tolerance, displacement: displacements };
 }
 
+/** Only the three distorted hemisphere meshes currently trigger the #798 refusal. */
+export function refusalFor(c: Case, e: unknown): Result {
+  const failure = knownIssueRefusal(e) ?? String(e);
+  const refused = c.group === 'hemisphere' && refusedKnownIssues(e).some(d => d.phase === 'SH-MITC4-DISTORTION' && d.value === 798);
+  return { id: c.id, value: null, error: null, pass: false, failure,
+    ...(refused ? { refused: true, knownIssue: 'SH-MITC4-DISTORTION', issue: 798 } : {}) };
+}
+
+export function shown(result?: Result): { value: number | null; error: number | null } {
+  if (!result || result.refused) return { value: null, error: null };
+  return { value: result.value, error: result.error };
+}
+
 export async function runCases(onResult?: (r: Result) => void): Promise<Result[]> {
   const engine = await import('../../../lib/engine/wasm-solver');
   await engine.initSolver();
@@ -49,9 +63,11 @@ export async function runCases(onResult?: (r: Result) => void): Promise<Result[]
   for (const c of cases) {
     let row: Result;
     try {
-      row = compare(c, engine.solve3D(inputFor(c)).displacements as unknown as Record<string, number>[]);
+      const result = engine.solve3D(inputFor(c));
+      if (knownIssueResultDisposition(result).refused) throw new Error(JSON.stringify({ structuredDiagnostics: result.structuredDiagnostics }));
+      row = compare(c, result.displacements as unknown as Record<string, number>[]);
     } catch (e) {
-      row = { id: c.id, value: null, error: null, pass: false, failure: String(e) };
+      row = refusalFor(c, e);
     }
     rows.push(row);
     onResult?.(row);

@@ -22,4 +22,4 @@ jobs:
           sparse-checkout: .github/scripts
       - env:
           GH_TOKEN: ${{ github.token }}
-        run: python3 -I .github/scripts/cancel-superseded-merge-groups.py ci.yml supply-chain.yml verify.yml
+        run: python3 -I .github/scripts/cancel-superseded-merge-groups.py ci.yml supply-chain.yml verify.yml containment-audit.yml

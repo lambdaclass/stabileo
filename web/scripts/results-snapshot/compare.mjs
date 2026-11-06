@@ -229,8 +229,8 @@ export function formatCaseReport(name, diff, limit = 25) {
 export const HOW_TO_REGISTER = [
   'A result changed. If the change is deliberate:',
   '  1. regenerate the snapshots:  make snapshots-update   (or: cd web && npm run snapshots:update)',
-  '  2. add an entry to web/src/lib/provenance/result-changes.json at currentResultsVersion + 1',
-  '     and bump currentResultsVersion (docs/verification/PROVENANCE.md, "Adding a change");',
+  '  2. add one file for it to web/src/lib/provenance/result-changes/, with no resultsVersion:',
+  '     main\'s merge order numbers it (that directory\'s README.md);',
   '  3. add a changelog.d/ fragment whose first line is "### BREAKING (results)".',
   'If it is not deliberate, it is a regression: fix the code, not the snapshot.',
 ].join('\n');

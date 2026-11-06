@@ -1,0 +1,3 @@
+# Seeds of the per-PR mechanism-fuzz tier, and the silent ones each open issue explains.
+# Rewritten by MECHANISM_FUZZ_UPDATE=1 make test.engine.mechanism-fuzz.quick.
+seeds 0 100000

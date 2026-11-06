@@ -740,6 +740,16 @@ pub fn lanczos_generalized_eigen_sparse(
     k: usize,
     sigma: f64,
 ) -> Option<EigenResult> {
+    lanczos_generalized_eigen_sparse_observed(k_ff, m_ff, k, sigma, &mut |_| {})
+}
+
+pub fn lanczos_generalized_eigen_sparse_observed(
+    k_ff: &CscMatrix,
+    m_ff: &CscMatrix,
+    k: usize,
+    sigma: f64,
+    observe: &mut dyn FnMut(Option<&super::sparse_chol::NumericCholesky>),
+) -> Option<EigenResult> {
     let n = k_ff.n;
     assert_eq!(m_ff.n, n, "K and M must have the same dimension");
     let k = k.min(n);
@@ -748,7 +758,9 @@ pub fn lanczos_generalized_eigen_sparse(
         return lanczos_generalized_eigen(&k_ff.to_dense_symmetric(), &m_ff.to_dense_symmetric(), n, k, sigma);
     }
     // K is SPD: zero-shift inversion always targets the lowest finite modes.
-    if let Some(op) = SparseShiftInvertOp::new(k_ff, m_ff) {
+    let op = SparseShiftInvertOp::new(k_ff, m_ff);
+    observe(op.as_ref().map(|op| &op.factor));
+    if let Some(op) = op {
         return sturm_complete(&op, k_ff, m_ff, k);
     }
     // Small non-SPD stiffness problems include the mechanism-detection path.
@@ -942,6 +954,15 @@ pub fn lanczos_buckling_eigen_sparse(
     neg_kg: &CscMatrix,
     k: usize,
 ) -> Option<EigenResult> {
+    lanczos_buckling_eigen_sparse_observed(k_ff, neg_kg, k, &mut |_| {})
+}
+
+pub fn lanczos_buckling_eigen_sparse_observed(
+    k_ff: &CscMatrix,
+    neg_kg: &CscMatrix,
+    k: usize,
+    observe: &mut dyn FnMut(Option<&super::sparse_chol::NumericCholesky>),
+) -> Option<EigenResult> {
     let n = k_ff.n;
     assert_eq!(neg_kg.n, n, "K and Kg must have the same dimension");
     let k = k.min(n);
@@ -956,7 +977,9 @@ pub fn lanczos_buckling_eigen_sparse(
         return solve_generalized_eigen(&neg_kg_dense, &k_dense, n, 200);
     }
 
-    let op = SparseShiftInvertOp::new_k_inner_product(k_ff,neg_kg)?;
+    let op = SparseShiftInvertOp::new_k_inner_product(k_ff,neg_kg);
+    observe(op.as_ref().map(|op| &op.factor));
+    let op = op?;
     let mut result = sturm_complete(&op,k_ff,neg_kg,k)?;
     for value in &mut result.values { *value = 1.0 / *value; }
     Some(result)
@@ -1879,6 +1902,42 @@ mod completeness_tests {
                 let residual: f64 = (0..3).map(|j| (a[i*3+j]-r.values[col]*b[i*3+j])*v[j]).sum();
                 assert!(residual.abs() < 1e-12);
             }
+        }
+    }
+}
+
+#[cfg(test)]
+mod factor_observation_tests {
+    use super::*;
+
+    #[test]
+    fn observing_sparse_eigen_factors_preserves_every_bit() {
+        let n = 220;
+        let rows: Vec<_> = (0..n).collect();
+        let values: Vec<_> = (0..n).map(|i| 1.0 + i as f64).collect();
+        let k = CscMatrix::from_triplets(n, &rows, &rows, &values);
+        let m = CscMatrix::from_triplets(n, &rows, &rows, &vec![1.0; n]);
+        let bits = |r: EigenResult| r.values.into_iter().chain(r.vectors).map(f64::to_bits).collect::<Vec<_>>();
+        for buckling in [false, true] {
+            let mut count = 0;
+            let mut observe = |factor: Option<&super::super::sparse_chol::NumericCholesky>| {
+                assert!(factor.is_some());
+                count += 1;
+            };
+            let (plain, observed) = if buckling {
+                (lanczos_buckling_eigen_sparse(&k, &m, 3), lanczos_buckling_eigen_sparse_observed(&k, &m, 3, &mut observe))
+            } else {
+                (lanczos_generalized_eigen_sparse(&k, &m, 3, 0.0), lanczos_generalized_eigen_sparse_observed(&k, &m, 3, 0.0, &mut observe))
+            };
+            assert_eq!(count, 1);
+            let observed = observed.unwrap();
+            let mut values = observed.values.clone();
+            values.sort_by(|a, b| a.total_cmp(b));
+            let exact: Vec<f64> = if buckling { vec![1.0 / 3.0, 0.5, 1.0] } else { vec![1.0, 2.0, 3.0] };
+            assert_eq!(values.len(), 3, "buckling={buckling}: {values:?}");
+            assert_eq!(observed.vectors.len(), 3 * n, "buckling={buckling}");
+            for (v, e) in values.iter().zip(&exact) { assert!((v - e).abs() < 1e-9 * e, "buckling={buckling}: {values:?}"); }
+            assert_eq!(bits(plain.unwrap()), bits(observed));
         }
     }
 }

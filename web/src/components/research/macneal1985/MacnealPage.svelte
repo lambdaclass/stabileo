@@ -26,7 +26,7 @@
   ]);
   const fmt = (v: number | null | undefined) => v == null ? '—' : new Intl.NumberFormat(publicI18n.locale, { maximumSignificantDigits: 7 }).format(v);
   const pct = (e: number | null | undefined) => e == null ? '—' : 100 * e < 1e-4 ? `< ${fmt(1e-4)}` : new Intl.NumberFormat(publicI18n.locale, { maximumFractionDigits: 4 }).format(100 * e);
-  const tallyText = (t: { passed: number; total: number }) => s.tally.replace('{passed}', String(t.passed)).replace('{total}', String(t.total)).replace('{tol}', fmt(100 * tolerance));
+  const tallyText = (t: { passed: number; withheld: number; total: number }) => s.tally.replace('{passed}', String(t.passed)).replace('{total}', String(t.total)).replace('{tol}', fmt(100 * tolerance)) + (t.withheld ? `; ${s.withheldTally.replace('{n}', String(t.withheld))}` : '');
   const ISSUE = 'https://github.com/lambdaclass/stabileo/issues/798';
   async function run() {
     if (busy) return;
@@ -85,6 +85,7 @@
           <button onclick={open}>{s.open}</button>
         </div>
         <p>{s.projection}</p>
+        {#if result?.refused}<p data-testid="viewer-withheld">{s.withheld}</p>{/if}
         <p>{category(current) === 'frame' ? s.frameSource : s.shellSource}</p>
       </div>
       <div id="rs-panel-results" role="tabpanel" aria-labelledby="rs-tab-results" hidden={tab !== 'results'}>
@@ -111,6 +112,7 @@
                       {:else if v === 'marginal'}<span title={s.marginalTitle}>{s.marginal}</span>
                       {:else if v === 'marginalFail'}<span title={s.marginalFailTitle}>{s.marginalFail}</span>
                       {:else if v === 'documented' && 'knownIssue' in c}<a class="mh-link" href={c.knownIssue}>{s.documented}</a>
+                      {:else if v === 'withheld'}<a class="mh-link" href={ISSUE}>{s.withheld}</a>
                       {:else if v === 'mismatch'}<strong>{s.mismatch}</strong>
                       {:else}<strong>{s.engineError}</strong><span class="mh-failure">{r?.failure}</span>{/if}
                     </td>

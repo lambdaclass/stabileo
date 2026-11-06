@@ -54,6 +54,7 @@
   /** Combinations are asked for but none solved: the cases stand in, as they always did. */
   const effectiveBasis = $derived<TableBasis>(basis === 'combos' && !hasCombos ? 'cases' : basis);
   const sources = $derived.by<Source[]>(() => {
+    if (resultsStore.knownIssues3D.refused) return [];
     if (effectiveBasis === 'combos') return [...activePerCombo3D()].map(([id, results]) => ({ id, name: comboName(id), results }));
     if (effectiveBasis === 'cases') return caseSources();
     return [...caseSources(), ...[...resultsStore.perCombo3D].map(([id, results]) => ({ id, name: comboName(id), results }))];
@@ -84,7 +85,7 @@
   const envelope = $derived(mode === 'envelope' ? envelopeRows(kind, sources, opts) : []);
   // Station demands are the engine's: its absence or refusal is shown in place of the rows.
   const guardedByType = $derived(engineGuarded(() => {
-    if (mode !== 'maxType') return [];
+    if (mode !== 'maxType' || resultsStore.knownIssues3D.refused) return [];
     const md = { elements: modelStore.elements, nodes: modelStore.nodes, sections: modelStore.sections, materials: modelStore.materials, supports: modelStore.supports };
     let perCombo: Map<number, AnalysisResults3D> = activePerCombo3D();
     let combos = activeCombinations();
@@ -150,6 +151,7 @@
   }
 </script>
 
+{#each resultsStore.knownIssues3D.messages as message}<p role="alert">{message}</p>{/each}
 <div class="tm-bar" role="tablist" data-testid="table-modes-{kind}"><div class="pk-tabs tm-tabs">
   {#each modes as m (m)}
     <button class:on={mode === m} role="tab" aria-selected={mode === m}

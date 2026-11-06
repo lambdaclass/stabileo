@@ -1,3 +1,4 @@
+const ASSIGNEES = require('./issue-assignees.cjs');
 // Issues for the production health check (.github/workflows/production-health.yml).
 //
 // Reads the JSON lines scripts/production-health.mjs wrote ($HEALTH_RESULTS), one per site.
@@ -87,7 +88,7 @@ module.exports = async ({ github, context, core }) => {
 
     if (dryRun) { core.info(`[dry run] ${existing ? `update #${existing.number}` : 'open issue'}: ${t}\n${body}`); continue; }
     if (!existing) {
-      const created = await github.rest.issues.create({ owner, repo, title: t, labels: Object.keys(LABELS), body });
+      const created = await github.rest.issues.create({ owner, repo, title: t, labels: Object.keys(LABELS), assignees: [...ASSIGNEES], body });
       core.warning(`${t}: opened #${created.data.number}`);
       continue;
     }

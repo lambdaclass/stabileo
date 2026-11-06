@@ -134,7 +134,8 @@ fn validation_pushover_ext_single_story_capacity_curve() {
 
     let solver = make_portal_frame(h, bay, E, A_SEC, IZ_SEC, unit_load, 0.0);
     let input = wrap_plastic(solver, 10);
-    let result = plastic::solve_plastic_2d(&input).unwrap();
+    crate::common::assert_containment(plastic::solve_plastic_2d(&input), "PL-2D-INVARIANCE");
+    let result = plastic::solve_plastic_2d_unrefused(&input).unwrap();
 
     // Must have at least 2 steps (progressive hinge formation)
     assert!(
@@ -256,7 +257,8 @@ fn validation_pushover_ext_two_story_hinge_sequence() {
     );
 
     let input = wrap_plastic(solver, 15);
-    let result = plastic::solve_plastic_2d(&input).unwrap();
+    crate::common::assert_containment(plastic::solve_plastic_2d(&input), "PL-2D-INVARIANCE");
+    let result = plastic::solve_plastic_2d_unrefused(&input).unwrap();
 
     // Should form at least 2 hinges
     assert!(
@@ -381,8 +383,12 @@ fn validation_pushover_ext_push_pattern_comparison() {
         loads_triangular,
     );
 
-    let result_uniform = plastic::solve_plastic_2d(&wrap_plastic(solver_uniform, 15)).unwrap();
-    let result_tri = plastic::solve_plastic_2d(&wrap_plastic(solver_tri, 15)).unwrap();
+    let input_uniform = wrap_plastic(solver_uniform, 15);
+    let input_tri = wrap_plastic(solver_tri, 15);
+    crate::common::assert_containment(plastic::solve_plastic_2d(&input_uniform), "PL-2D-INVARIANCE");
+    let result_uniform = plastic::solve_plastic_2d_unrefused(&input_uniform).unwrap();
+    crate::common::assert_containment(plastic::solve_plastic_2d(&input_tri), "PL-2D-INVARIANCE");
+    let result_tri = plastic::solve_plastic_2d_unrefused(&input_tri).unwrap();
 
     // Both should find collapse
     assert!(
@@ -471,7 +477,8 @@ fn validation_pushover_ext_target_displacement() {
 
     let solver = make_portal_frame(h, bay, E, A_SEC, IZ_SEC, unit_load, 0.0);
     let input = wrap_plastic(solver.clone(), 10);
-    let result = plastic::solve_plastic_2d(&input).unwrap();
+    crate::common::assert_containment(plastic::solve_plastic_2d(&input), "PL-2D-INVARIANCE");
+    let result = plastic::solve_plastic_2d_unrefused(&input).unwrap();
 
     assert!(
         !result.steps.is_empty(),
@@ -570,7 +577,8 @@ fn validation_pushover_ext_ductility_ratio() {
 
     let solver = make_portal_frame(h, bay, E, A_SEC, IZ_SEC, unit_load, 0.0);
     let input = wrap_plastic(solver, 10);
-    let result = plastic::solve_plastic_2d(&input).unwrap();
+    crate::common::assert_containment(plastic::solve_plastic_2d(&input), "PL-2D-INVARIANCE");
+    let result = plastic::solve_plastic_2d_unrefused(&input).unwrap();
 
     let roof_node = 2;
 
@@ -646,7 +654,8 @@ fn validation_pushover_ext_hinge_rotation_capacity() {
 
     let solver = make_portal_frame(h, bay, E, A_SEC, IZ_SEC, unit_load, 0.0);
     let input = wrap_plastic(solver.clone(), 10);
-    let result = plastic::solve_plastic_2d(&input).unwrap();
+    crate::common::assert_containment(plastic::solve_plastic_2d(&input), "PL-2D-INVARIANCE");
+    let result = plastic::solve_plastic_2d_unrefused(&input).unwrap();
 
     let roof_node = 2;
 
@@ -880,7 +889,8 @@ fn validation_pushover_ext_weak_story_mechanism() {
         15,
     );
 
-    let result = plastic::solve_plastic_2d(&plastic_input).unwrap();
+    crate::common::assert_containment(plastic::solve_plastic_2d(&plastic_input), "PL-2D-INVARIANCE");
+    let result = plastic::solve_plastic_2d_unrefused(&plastic_input).unwrap();
 
     // Should form hinges
     assert!(
@@ -976,7 +986,8 @@ fn validation_pushover_ext_symmetric_frame_response() {
 
     // Now run plastic analysis
     let input = wrap_plastic(solver, 10);
-    let result = plastic::solve_plastic_2d(&input).unwrap();
+    crate::common::assert_containment(plastic::solve_plastic_2d(&input), "PL-2D-INVARIANCE");
+    let result = plastic::solve_plastic_2d_unrefused(&input).unwrap();
 
     assert!(
         !result.hinges.is_empty(),

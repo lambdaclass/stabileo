@@ -15,7 +15,13 @@ export default defineConfig({
     {
       // This standalone viewer uses the main app's translator, with only its own keys.
       name: 'scalar-viewer-i18n',
-      resolveId(id) { return id === 'virtual:public-i18n' ? '\0scalar-viewer-i18n' : null; },
+      resolveId(id) {
+        // The shared store also imports the lazy browser dictionaries. Their
+        // app modules must resolve to this viewer's scoped dictionary as well.
+        const ids = ['virtual:public-i18n', 'virtual:app-i18n',
+          ...['de', 'fr', 'tr'].map(locale => `virtual:app-i18n/${locale}`)];
+        return ids.includes(id) ? '\0scalar-viewer-i18n' : null;
+      },
       load(id) {
         if (id !== '\0scalar-viewer-i18n') return null;
         const tools = resolve(__dirname, 'src/components/tools/translations.ts');
@@ -31,7 +37,7 @@ export default defineConfig({
           const known = new Set(entries.map(key));
           const viewerOnly = toolLines.slice(start + 1, end).filter((line) => key(line) && !known.has(key(line)));
           return `export const ${locale} = {\n${[...entries, ...viewerOnly].join('\n')}\n};`;
-        }).join('\n');
+        }).join('\n') + '\nexport const loaders = {};';
       },
     },
   ],

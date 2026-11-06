@@ -1,3 +1,4 @@
+import { expectPlasticRefusal } from './containment-helper';
 /**
  * Temperature in second-order and plastic analysis, through the WASM boundary
  * the app uses.
@@ -91,7 +92,10 @@ describe('plastic collapse is not moved by a temperature', () => {
     ['a gradient on one half', [grad(1, 30)]],
     ['a reversed gradient on the other half', [grad(2, -25)]],
   ] as Array<[string, SolverLoad[]]>) {
-    it(`fixed-fixed beam, central load, ${label}: λ = 8Mp/(PL)`, () => {
+    it(`fixed-fixed beam, central load, ${label}: withheld while PL-2D-INVARIANCE (#758) is open`, () => {
+      expectPlasticRefusal(() => beam(extra));
+    });
+    it.skip(`fixed-fixed beam, central load, ${label}: λ = 8Mp/(PL) (skipped: #758 PL-2D-INVARIANCE withholds the 2D plastic result)`, () => {
       const r = beam(extra);
       expect(r.isMechanism).toBe(true);
       expect(r.collapseFactor).toBeCloseTo(8 * MP / (50 * 6), 2);

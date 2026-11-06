@@ -1,0 +1,256 @@
+{
+ "connectors": {
+  "1": {
+   "id": 1,
+   "kAxial": 258302.2350957369,
+   "kBendY": 823117.335464326,
+   "kBendZ": 481635.8867857932,
+   "kMoment": 323447.9290579126,
+   "kShear": 981721.9538373066,
+   "kShearZ": 915898.6223943866,
+   "nodeI": 2,
+   "nodeJ": 7
+  },
+  "2": {
+   "id": 2,
+   "kAxial": 160104.38168398305,
+   "kBendY": 114863.29559376088,
+   "kBendZ": 735782.647381905,
+   "kMoment": 495244.2189393343,
+   "kShear": 550911.4269836524,
+   "kShearZ": 772503.7980872878,
+   "nodeI": 6,
+   "nodeJ": 7
+  }
+ },
+ "constraints": [
+  {
+   "masterNode": 6,
+   "plane": "XY",
+   "slaveNodes": [
+    3,
+    4,
+    5
+   ],
+   "type": "diaphragm"
+  }
+ ],
+ "elements": {
+  "1": {
+   "id": 1,
+   "materialId": 2,
+   "nodeI": 1,
+   "nodeJ": 2,
+   "sectionId": 2,
+   "type": "frame"
+  },
+  "2": {
+   "id": 2,
+   "materialId": 2,
+   "nodeI": 1,
+   "nodeJ": 6,
+   "releaseMyStart": true,
+   "sectionId": 2,
+   "type": "frame"
+  },
+  "3": {
+   "id": 3,
+   "materialId": 1,
+   "nodeI": 7,
+   "nodeJ": 1,
+   "releaseTEnd": true,
+   "sectionId": 1,
+   "type": "frame"
+  },
+  "4": {
+   "id": 4,
+   "materialId": 1,
+   "nodeI": 3,
+   "nodeJ": 2,
+   "sectionId": 3,
+   "type": "frame"
+  },
+  "5": {
+   "id": 5,
+   "materialId": 2,
+   "nodeI": 3,
+   "nodeJ": 4,
+   "sectionId": 2,
+   "type": "frame"
+  },
+  "6": {
+   "id": 6,
+   "materialId": 2,
+   "nodeI": 3,
+   "nodeJ": 5,
+   "releaseTStart": true,
+   "sectionId": 2,
+   "type": "frame"
+  },
+  "7": {
+   "id": 7,
+   "materialId": 2,
+   "nodeI": 3,
+   "nodeJ": 7,
+   "releaseMzEnd": true,
+   "rollAngle": 88.22944372031918,
+   "sectionId": 2,
+   "type": "frame"
+  },
+  "8": {
+   "id": 8,
+   "localYx": -0.6661921212501976,
+   "localYy": -0.437057400766119,
+   "localYz": -0.6236975297918903,
+   "materialId": 1,
+   "nodeI": 5,
+   "nodeJ": 1,
+   "sectionId": 1,
+   "type": "frame"
+  },
+  "9": {
+   "id": 9,
+   "localYx": 0.17293794582918176,
+   "localYy": 0.11522145605825629,
+   "localYz": -0.2596414693283704,
+   "materialId": 1,
+   "nodeI": 6,
+   "nodeJ": 2,
+   "releaseTEnd": true,
+   "sectionId": 3,
+   "type": "frame"
+  }
+ },
+ "loads": [
+  {
+   "data": {
+    "elementId": 7,
+    "qXI": 6.200311591060984,
+    "qXJ": 9.862516561114784,
+    "qYI": -8.601991706558575,
+    "qYJ": 19.27563244224509,
+    "qZI": 10.725440750790092,
+    "qZJ": 1.129477536530601
+   },
+   "type": "distributed"
+  },
+  {
+   "data": {
+    "a": 1.878047569157928,
+    "elementId": 4,
+    "py": 46.675771074548834,
+    "pz": -31.587159615224827
+   },
+   "type": "pointOnElement"
+  },
+  {
+   "data": {
+    "elementId": 5,
+    "qYI": -2.434002529278839,
+    "qYJ": -2.434002529278839,
+    "qZI": 3.2511400668147097,
+    "qZJ": 3.2511400668147097
+   },
+   "type": "distributed"
+  }
+ ],
+ "materials": {
+  "1": {
+   "e": 30000.0,
+   "id": 1,
+   "nu": 0.21021791337580487
+  },
+  "2": {
+   "e": 170463.69551914852,
+   "id": 2,
+   "nu": 0.22295255366544922
+  }
+ },
+ "nodes": {
+  "1": {
+   "id": 1,
+   "x": 0.065,
+   "y": 1.011,
+   "z": 2.495
+  },
+  "2": {
+   "id": 2,
+   "x": 6.762,
+   "y": 7.734,
+   "z": 4.582
+  },
+  "3": {
+   "id": 3,
+   "x": 7.496,
+   "y": 4.96,
+   "z": 3.101
+  },
+  "4": {
+   "id": 4,
+   "x": 3.108,
+   "y": 2.926,
+   "z": 1.596
+  },
+  "5": {
+   "id": 5,
+   "x": 1.154,
+   "y": 3.518,
+   "z": 2.396
+  },
+  "6": {
+   "id": 6,
+   "x": 3.128,
+   "y": 3.916,
+   "z": 5.159
+  },
+  "7": {
+   "id": 7,
+   "x": 4.867,
+   "y": 5.231,
+   "z": 0.824
+  }
+ },
+ "sections": {
+  "1": {
+   "a": 0.0934716032262842,
+   "id": 1,
+   "iy": 0.002205806246523612,
+   "iz": 0.00024031944523178386,
+   "j": 0.0008536017681092198
+  },
+  "2": {
+   "a": 0.19900934168144965,
+   "id": 2,
+   "iy": 0.008144698142215249,
+   "iz": 0.00133738475096986,
+   "j": 0.0037868573453887708
+  },
+  "3": {
+   "a": 0.14392309040770657,
+   "id": 3,
+   "iy": 0.004388139522399375,
+   "iz": 0.000679014398786006,
+   "j": 0.001339633565356233
+  }
+ },
+ "supports": {
+  "1": {
+   "nodeId": 1,
+   "rrx": true,
+   "rry": true,
+   "rrz": true,
+   "rx": true,
+   "ry": true,
+   "rz": true
+  },
+  "2": {
+   "nodeId": 2,
+   "rrx": false,
+   "rry": false,
+   "rrz": true,
+   "rx": false,
+   "ry": true,
+   "rz": false
+  }
+ }
+}
