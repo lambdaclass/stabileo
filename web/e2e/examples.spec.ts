@@ -3,6 +3,11 @@ import { EXAMPLE_IDS } from '../src/components/examples/ids';
 
 const value = async (page: Page, testId: string) => Number(await page.getByTestId(testId).getAttribute('data-value'));
 const near = (actual: number, expected: number, relative: number) => expect(Math.abs(actual - expected)).toBeLessThanOrEqual(relative * Math.abs(expected));
+const receivesPointer = (el: Element) => {
+  const b = el.getBoundingClientRect();
+  const hit = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2);
+  return !!hit && (hit === el || el.contains(hit) || (el as HTMLInputElement).labels?.[0]?.contains(hit) === true);
+};
 const pageOverflow = (page: Page) => page.evaluate(() => [...document.querySelectorAll('main *')].filter(el => {
   for (let parent = el.parentElement; parent && parent.tagName !== 'MAIN'; parent = parent.parentElement) if (getComputedStyle(parent).overflowX !== 'visible') return false;
   const box = el.getBoundingClientRect();
@@ -109,12 +114,21 @@ for (const [width, height] of [[360, 800], [390, 844], [844, 390], [820, 1180], 
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     expect(await pageOverflow(page)).toEqual([]);
     expect((await page.locator('.ex-viewer').boundingBox())!.y).toBeLessThan(height <= 400 ? height - 120 : 450);
+    expect(await page.evaluate((check) => {
+      const receives = new Function(`return (${check})`)() as (el: Element) => boolean;
+      return [...document.querySelectorAll('main input, main select, main button, main a')].filter(el => {
+        const b = el.getBoundingClientRect();
+        return b.width > 0 && b.top >= 0 && b.bottom <= innerHeight / 2 && !receives(el);
+      }).map(el => el.outerHTML.slice(0, 120));
+    }, receivesPointer.toString())).toEqual([]);
     for (const control of await page.locator('main input, main select, main button, main a').all()) {
       if (!await control.isVisible()) continue;
       const box = (await control.boundingBox())!;
       expect(box.height).toBeGreaterThanOrEqual(44);
       expect(box.width).toBeGreaterThanOrEqual(44);
       expect(await control.evaluate(el => parseFloat(getComputedStyle(el).fontSize))).toBeGreaterThanOrEqual(12);
+      await control.evaluate(el => el.scrollIntoView({ block: 'center', behavior: 'instant' }));
+      expect(await control.evaluate(receivesPointer), await control.evaluate(el => el.outerHTML.slice(0, 120))).toBe(true);
     }
   });
 }
