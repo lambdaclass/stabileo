@@ -315,7 +315,7 @@ pub fn check_case(ctx: &Ctx, c: &Case3, anas: &[Ana3], invariants: &[&str]) {
                     if !REDUCES_TO_LINEAR.iter().any(|n| a.name == *n) {
                         Verdict::NotApplicable
                     } else {
-                        match guarded(|| Ok(crate::response::static_3d(&dedaliano_engine::solver::linear::solve_3d(&c.s)?))) {
+                        match guarded(|| Ok(crate::response::static_3d(&dedaliano_engine::solver::linear::solve_3d(&c.s)?).tag_shell_families(&c.s))) {
                             Err(e) => Verdict::Refused(format!("linear: {e}")),
                             Ok(lin) => {
                                 let exp = lin.common(&base);
