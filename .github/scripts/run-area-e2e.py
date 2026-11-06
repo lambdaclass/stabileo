@@ -4,10 +4,22 @@ import os
 from pathlib import Path
 import subprocess
 
-specs = json.loads(os.environ['E2E_SPECS'])
-files = sorted({str(p) for pattern in specs for p in Path('e2e').glob(pattern)})
+slow = os.environ.get('E2E_SUITE') == 'slow'
+try:
+    specs = json.loads(os.environ['E2E_SPECS'])
+    if not isinstance(specs, list) or not specs or not all(isinstance(s, str) and s for s in specs):
+        raise ValueError('empty or invalid E2E_SPECS')
+except (KeyError, ValueError, TypeError):
+    if not slow:
+        raise
+    specs = ['*.spec.ts']
+matches = [sorted(Path('e2e').glob(pattern)) for pattern in specs]
+files = sorted({str(p) for found in matches for p in found})
+if slow and (not files or any(not found for found in matches)):
+    files = sorted(str(p) for p in Path('e2e').glob('*.spec.ts'))
 if not files:
     raise SystemExit('Selected E2E area has no specs; refusing a green empty run')
-grep = r'(?=.*@smoke)(?=.*@engine)' if os.environ['CI_SCOPE'] == 'engine' else '@smoke'
+grep = '@slow' if slow else (r'(?=.*@smoke)(?=.*@engine)' if os.environ.get('CI_SCOPE') == 'engine' else '@smoke')
+invert = 'visual baselines|@flaky' if slow else '@flaky'
 subprocess.run(['npx', 'playwright', 'test', *files, '--grep', grep,
-                '--grep-invert', '@flaky'], check=True)
+                '--grep-invert', invert], check=True)
