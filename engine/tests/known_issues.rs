@@ -1914,3 +1914,26 @@ fn a_soft_spring_at_a_hinged_node_is_not_replaced_by_the_orphan_spring_1437() {
     assert!((ry - 5.0e10).abs() <= 1e-6 * 5.0e10, "ry {ry}: {found:?}");
     assert!(!found.contains(&"ORPHAN-SOFT-ROTATION".to_string()), "{found:?}");
 }
+
+#[test]
+fn every_export_the_app_falls_back_on_refuses_no_free_dofs_with_a_code() {
+    use dedaliano_engine::solver::{buckling::*, modal::*, pdelta::*};
+    let fixed_2d = make_beam(1, 4.0, E, 0.045, 3.375e-4, "fixed", Some("fixed"), vec![]);
+    let fixed_3d = make_3d_beam(1, 4.0, E, 0.3, 0.01, 1e-4, 1e-4, 1e-5, vec![true; 6], Some(vec![true; 6]), vec![]);
+    let densities = HashMap::from([("1".to_string(), 7850.0)]);
+    let errors = [
+        ("pdelta 2d", solve_pdelta_2d(&fixed_2d, 20, 1e-6).err()),
+        ("pdelta 3d", solve_pdelta_3d(&fixed_3d, 20, 1e-6).err()),
+        ("buckling 2d", solve_buckling_2d(&fixed_2d, 2).err()),
+        ("buckling 3d", solve_buckling_3d(&fixed_3d, 2).err()),
+        ("modal 2d", solve_modal_2d(&fixed_2d, &densities, 2).err()),
+        ("modal 3d", solve_modal_3d(&fixed_3d, &densities, 2).err()),
+    ];
+    for (name, error) in errors {
+        let error = error.unwrap_or_else(|| panic!("{name}: a fully restrained model solved"));
+        let v: serde_json::Value = serde_json::from_str(&error).unwrap_or_else(|e| panic!("{name}: {e}: {error}"));
+        let codes: Vec<_> = v["structuredDiagnostics"].as_array().unwrap().iter()
+            .filter(|d| d["severity"] == "error").map(|d| d["code"].clone()).collect();
+        assert_eq!(codes, [serde_json::json!("no_free_dofs")], "{name}: {error}");
+    }
+}
