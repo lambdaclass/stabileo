@@ -44,7 +44,7 @@ describe('the space P-Δ when its first-mode buckling check cannot run', () => {
     expect(r.secondOrder).toEqual({ lambda1: Infinity, b2: 1 });
   });
 
-  it.fails('a "no compressed elements" refusal that also carries a containment refusal leaves B₂ unknown (#1558)', () => {
+  it('a "no compressed elements" refusal that also carries a containment refusal leaves B₂ unknown (#1558)', () => {
     const both = new Error(JSON.stringify({ message: 'withheld', structuredDiagnostics: [
       { code: 'no_compressed_elements', severity: 'error', message: 'coded' },
       { code: 'known_issue', severity: 'error', phase: 'BU-BOUND', value: 741, message: 'withheld' },

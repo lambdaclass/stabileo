@@ -33,7 +33,7 @@ describe('coded engine refusals', () => {
     expect(asCodedRefusal(other, 'no_free_dofs')).toBe(other);
   });
 
-  it.fails('do not match, and stay intact, when the same error is also a containment refusal (#1558)', () => {
+  it('do not match, and stay intact, when the same error is also a containment refusal (#1558)', () => {
     const both = new Error(JSON.stringify({ message: 'withheld', structuredDiagnostics: [
       { code: 'no_compressed_elements', severity: 'error', message: 'coded' },
       { code: 'known_issue', severity: 'error', message: 'withheld' },
@@ -49,7 +49,7 @@ describe('coded engine refusals', () => {
     expect(refusedWithCode(warned, 'no_free_dofs')).toBe(true);
   });
 
-  it.fails('a CodedRefusal for containment is one, and a CodedRefusal whose message carries containment is not its own code (#1558)', () => {
+  it('a CodedRefusal for containment is one, and a CodedRefusal whose message carries containment is not its own code (#1558)', () => {
     const contained = new CodedRefusal('withheld', 'known_issue');
     expect(isContainmentRefusal(contained)).toBe(true);
     expect(refusedWithCode(contained, 'known_issue')).toBe(true);
