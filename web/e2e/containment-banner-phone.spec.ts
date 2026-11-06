@@ -7,11 +7,10 @@ import { test, expect } from './fixtures';
 test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
 
 test('@smoke on a phone the second-order notice is one line, opens on a tap, and leaves the beam to tap', async ({ page }) => {
-  test.setTimeout(120_000);
   await page.goto('/app/basic?e2e=1');
-  await page.waitForFunction(() => !!window.__stabileoActions, null, { timeout: 60_000 });
+  await page.waitForFunction(() => !!window.__stabileoActions, null, { timeout: 30_000 });
   await page.evaluate(() => window.__stabileoActions.loadExample('portal-frame'));
-  await expect.poll(() => page.evaluate(() => window.__stabileo?.solverReady() ?? false), { timeout: 60_000 }).toBe(true);
+  await expect.poll(() => page.evaluate(() => window.__stabileo?.solverReady() ?? false), { timeout: 30_000 }).toBe(true);
   await page.getByTestId('rb-cmd-solve').tap();
   const notice = page.getByTestId('containment-notice');
   await expect(notice).toContainText('#1551', { timeout: 30_000 });
