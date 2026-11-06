@@ -312,7 +312,7 @@ fn admitted_refusals(analysis: &str) -> Vec<(String, u64)> {
     use dedaliano_engine::known_issues::{Mode, ENTRIES};
     ENTRIES.iter().filter(|e| e.mode == Mode::Refuse)
         .map(|e| (e.id.to_string(), u64::from(e.issue)))
-        .filter(|r| crate::response::scoped(analysis, true, false, crate::response::Resp(Vec::new(), vec![r.clone()])).is_ok())
+        .filter(|r| crate::response::scoped(analysis, true, false, crate::response::Resp(Vec::new(), vec![r.clone()], Default::default())).is_ok())
         .collect()
 }
 

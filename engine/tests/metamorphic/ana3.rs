@@ -239,6 +239,7 @@ pub fn rows() -> Vec<Ana3> {
                 };
                 let r = creep_shrinkage::solve_creep_shrinkage_3d(&inp)?;
                 let mut o = Resp::default();
+                o.2 = crate::response::NearMechanism::of(&r.structured_diagnostics);
                 for d in &r.steps[0].displacements {
                     o.push(Some(d.node_id), None, "u", Kind::V3(Dim::LEN), vec![d.ux, d.uy, d.uz]);
                     o.push(Some(d.node_id), None, "r", Kind::V3(Dim::NONE), vec![d.rx, d.ry, d.rz]);
@@ -342,6 +343,7 @@ pub fn rows() -> Vec<Ana3> {
             run: |c| {
                 let r = buckling::solve_buckling_3d(&c.s, 3)?;
                 let mut o = Resp::default();
+                o.2 = crate::response::NearMechanism::of(&r.structured_diagnostics);
                 for (k, m) in r.modes.iter().enumerate() {
                     o.scalar(&format!("lambda{k}"), Dim::NONE, m.load_factor);
                 }
@@ -363,6 +365,7 @@ pub fn rows() -> Vec<Ana3> {
                 };
                 let r = time_integration::solve_time_history_3d(&inp)?;
                 let mut o = Resp::default();
+                o.2 = crate::response::NearMechanism::of(&r.structured_diagnostics);
                 for h in &r.node_histories {
                     for k in (0..h.ux.len()).step_by(if crate::generated::strict() { 1 } else { 10 }) {
                         o.push(Some(h.node_id), None, &format!("u_t{k:03}"), Kind::V3(Dim::LEN), vec![h.ux[k], h.uy[k], h.uz[k]]);
@@ -389,6 +392,7 @@ pub fn rows() -> Vec<Ana3> {
                 };
                 let r = time_integration::solve_time_history_3d(&inp)?;
                 let mut o = Resp::default();
+                o.2 = crate::response::NearMechanism::of(&r.structured_diagnostics);
                 for h in &r.node_histories {
                     for k in (0..h.ux.len()).step_by(if crate::generated::strict() { 1 } else { 10 }) {
                         o.push(Some(h.node_id), None, &format!("u_t{k:03}"), Kind::V3(Dim::LEN), vec![h.ux[k], h.uy[k], h.uz[k]]);
@@ -433,6 +437,7 @@ pub fn rows() -> Vec<Ana3> {
                 };
                 let r = spectral::solve_spectral_3d(&inp)?;
                 let mut o = Resp::default();
+                o.2 = crate::response::NearMechanism::of(&r.structured_diagnostics);
                 let sd = md.modes.first().map_or(0.0, |m| 0.5 * 9.81 / (m.omega * m.omega));
                 for d in &r.displacements {
                     o.push(Some(d.node_id), None, "u", Kind::Abs3(Dim::LEN), vec![d.ux.abs(), d.uy.abs(), d.uz.abs()]);
@@ -492,6 +497,7 @@ pub fn rows() -> Vec<Ana3> {
                 let materials = c.s.materials.values().map(|x| (x.id.to_string(), PlasticMaterialData { fy: Some(c.p.fy) })).collect();
                 let r = plastic::solve_plastic_3d(&PlasticInput3D { solver: c.s.clone(), sections, materials, max_hinges: None, mp_overrides: None })?;
                 let mut o = Resp::default();
+                o.2 = crate::response::NearMechanism::of(&r.structured_diagnostics);
                 o.scalar("collapse_factor", Dim::NONE, r.collapse_factor);
                 if !r.is_mechanism {
                     o.scalar(crate::response::LOWER_BOUND, Dim::NONE, 1.0);
@@ -566,6 +572,7 @@ pub fn rows() -> Vec<Ana3> {
                 };
                 let r = influence::compute_influence_line_3d(&inp)?;
                 let mut o = Resp::default();
+                o.2 = crate::response::NearMechanism::of(&r.structured_diagnostics);
                 for p in r.points.iter().filter(|p| path.contains(&p.element_id)) {
                     o.push(None, Some(p.element_id), &format!("IL_t{:04}", (p.t * 1000.0).round() as i64), Kind::Local(Dim::LEN, false), vec![p.value]);
                 }
