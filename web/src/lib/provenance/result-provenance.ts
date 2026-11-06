@@ -64,6 +64,14 @@ export interface CertificateRecord {
   absBound?: number;
 }
 
+/** What a report printed, recorded so a check prints the same tables and expects exactly these. */
+export interface PrintedManifest {
+  /** The report's choices of what to print (`engine/report/printed-values.ts` `reportChoices`). */
+  choices: Record<string, unknown>;
+  locale: string | null;
+  tables: Array<{ section: string; table: string; rows: number }>;
+}
+
 export interface ResultProvenance {
   schema: typeof PROVENANCE_SCHEMA;
   appVersion: string;
@@ -106,6 +114,18 @@ export interface ResultProvenance {
   /** The stamp of the solve that produced the results. */
   solvedWith: Pick<SolveStamp, 'resultsVersion' | 'commit' | 'engineVersion' | 'solvedAt'> | null;
   generatedAt: string;
+  /** Absent in records written before it existed, and in every export but the report. */
+  report?: PrintedManifest;
+  /** `exactHash(report)`; checked with the printed tables, not with the solve. */
+  reportHash?: string;
+}
+
+export function withPrintedManifest(p: ResultProvenance, report: PrintedManifest): ResultProvenance {
+  return { ...p, report, reportHash: exactHash(report) };
+}
+
+export function printedManifestIntact(p: Pick<ResultProvenance, 'report' | 'reportHash'>): boolean {
+  return !!p.report && p.reportHash === exactHash(p.report);
 }
 
 export function modelHash(snapshot: unknown): string {
@@ -116,6 +136,11 @@ function stripModel(snapshot: unknown): unknown {
   if (!snapshot || typeof snapshot !== 'object') return snapshot;
   const out: Record<string, unknown> = { ...(snapshot as Record<string, unknown>) };
   for (const k of MODEL_HASH_OMIT) delete out[k];
+  const design = out.designData as { loadBasis?: { at?: unknown } } | undefined;
+  if (design?.loadBasis && 'at' in design.loadBasis) {
+    const { at: _at, ...loadBasis } = design.loadBasis;
+    out.designData = { ...design, loadBasis };
+  }
   return out;
 }
 
@@ -211,8 +236,8 @@ export interface ReproduceVerdict {
 
 /** Hash fields that name the BUILD, not the answer: a different build is reported, not failed. */
 const BUILD_HASH_FIELDS = new Set(['wasmHash']);
-/** Hash fields compared by their own rule above (scope-aware), not by the generic pass. */
-const SCOPED_HASH_FIELDS = new Set(['modelHash', 'settingsHash', 'resultsHash', 'baseResultsHash']);
+/** Hash fields compared by their own rule (above, scope-aware; `reportHash` with the printed tables, `actions/reproduce.ts`), not by the generic pass. */
+const SCOPED_HASH_FIELDS = new Set(['modelHash', 'settingsHash', 'resultsHash', 'baseResultsHash', 'reportHash']);
 const isHashField = (k: string) => /(Hash|Sha256)$/.test(k);
 
 const verdict = (a: string | null | undefined, b: string | null | undefined): FieldVerdict =>

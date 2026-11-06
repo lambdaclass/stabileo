@@ -1,10 +1,10 @@
 {
   "case": "2d-two-story-frame",
   "covers": "2D multi-storey frame",
-  "format": 1,
+  "format": 2,
   "values": {
     "base.allZero": false,
-    "base.diagnosticCodes": "",
+    "base.diagnosticCodes": "warning:known_issue",
     "base.displacements[n1]": {"ry":0,"ux":0,"uz":0},
     "base.displacements[n2]": {"ry":-0.000661644785,"ux":0.001533172907,"uz":-0.00007741367042},
     "base.displacements[n3]": {"ry":-0.000655578276,"ux":0.002526662258,"uz":-0.0001140730558},

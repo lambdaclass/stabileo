@@ -1,10 +1,10 @@
 {
   "case": "2d-howe-truss",
   "covers": "2D truss",
-  "format": 1,
+  "format": 2,
   "values": {
     "base.allZero": false,
-    "base.diagnosticCodes": "warning:instability_risk warning:instability_risk warning:instability_risk warning:instability_risk warning:instability_risk warning:instability_risk warning:instability_risk warning:instability_risk warning:instability_risk warning:instability_risk",
+    "base.diagnosticCodes": "warning:instability_risk warning:instability_risk warning:instability_risk warning:instability_risk warning:instability_risk warning:instability_risk warning:instability_risk warning:instability_risk warning:instability_risk warning:instability_risk warning:known_issue",
     "base.displacements[n10]": {"ry":0,"ux":-0.0008151566162,"uz":-0.0005706096313},
     "base.displacements[n1]": {"ry":0,"ux":0,"uz":0},
     "base.displacements[n2]": {"ry":0,"ux":-5.844047334e-19,"uz":-0.004140913269},

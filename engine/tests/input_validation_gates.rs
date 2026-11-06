@@ -617,3 +617,11 @@ fn the_stable_defaults_still_run() {
         assert!(time_integration::solve_time_history_2d(&i2).is_ok(), "alpha={good}");
     }
 }
+
+#[test]
+fn time_history_2d_refuses_an_overflowing_response_with_its_code() {
+    let mut input = th_input(tiny_beam_2d());
+    input.ground_accel = Some(vec![1.7e308; 10]);
+    let err = time_integration::solve_time_history_2d(&input).unwrap_err();
+    assert!(err.starts_with(&format!("{}: ", time_integration::NON_FINITE_RESPONSE)), "{err}");
+}

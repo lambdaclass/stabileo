@@ -272,6 +272,34 @@ fn roller_with_spring_reaction_balances_load() {
     assert!((sum + 10.0).abs() < 1e-9, "ΣRx = {sum}, load 10");
 }
 
+#[test]
+fn settled_roller_with_its_own_spring_keeps_reactions_in_balance() {
+    use dedaliano_engine::certify::reactions::reaction_bounds_2d;
+    for p in [0.0, 30.0] {
+        let input = input_2d(json!({
+            "nodes": {"1": {"id": 1, "x": 0.0, "z": 0.0}, "2": {"id": 2, "x": 2.0, "z": 0.0},
+                      "3": {"id": 3, "x": 4.0, "z": 0.0}},
+            "materials": {"1": {"id": 1, "e": 200000.0, "nu": 0.3}},
+            "sections": {"1": {"id": 1, "a": 0.01, "iz": 1e-4}},
+            "elements": {"1": {"id": 1, "type": "frame", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1},
+                         "2": {"id": 2, "type": "frame", "nodeI": 2, "nodeJ": 3, "materialId": 1, "sectionId": 1}},
+            "supports": {"1": {"id": 1, "nodeId": 1, "type": "pinned"},
+                         "2": {"id": 2, "nodeId": 3, "type": "rollerX", "ky": 1000.0, "kz": 500.0, "dz": -0.01}},
+            "loads": [{"type": "nodal", "data": {"nodeId": 2, "fx": 0.0, "fz": -p, "my": 0.0}}]
+        }));
+        let res = solve_2d(&input).unwrap();
+        let tip = res.displacements.iter().find(|d| d.node_id == 3).unwrap();
+        assert!(close(tip.uz, -0.01, 1e-12), "settlement {}", tip.uz);
+        let r3 = res.reactions.iter().find(|r| r.node_id == 3).unwrap();
+        assert!(close(r3.my, -500.0 * tip.ry, 1e-12), "P = {p}: my {} vs {}", r3.my, -500.0 * tip.ry);
+        let rz: f64 = res.reactions.iter().map(|r| r.rz).sum();
+        assert!((rz - p).abs() < 1e-9, "P = {p}: ΣRz = {rz}");
+        for b in reaction_bounds_2d(&input, &input.loads, &res, 0.0).unwrap() {
+            assert!(b.rz < 1e-9 && b.my < 1e-9, "P = {p}: node {} bound {b:?}", b.node_id);
+        }
+    }
+}
+
 /// The geometric stiffness of a bar is (1/L)·∫N dx times the string matrix:
 /// its mean axial force, which is EA·δ/L. Buckling took (N_start + N_end)/2,
 /// which is the mean only while N is linear along the member, so an axial
@@ -304,14 +332,13 @@ fn buckling_uses_mean_axial_force_of_truss_with_axial_point_load() {
     assert!(close(got, lambda, 1e-9), "λ {got} vs {lambda}");
 }
 
-/// The same on a 3D frame member: a cantilever column (one element, so the
-/// consistent Kg is the whole discretisation) with a tip load P and a uniform
-/// axial load w on its lowest s metres. The discrete eigenproblem
-/// det(K − μ·G) = 0 in the tip's (v, θ) gives μ = λ·|N̄| in closed form, with
-/// N̄ = −(P + w·s²/(2L)) the mean axial force; the end average −(P + w·s/2)
-/// was used before.
+/// The same on a 3D frame member: a cantilever column (one element) with a tip load P and a
+/// uniform axial load w on its lowest s metres, so the compression is P + w·(s − x) below s and
+/// P above. The one-member model integrates that whole force (#456): det(K − λ·G) = 0 in the
+/// tip's (v, θ) with G = ∫C(x)·φ'ᵢ·φ'ⱼ dx. Its mean alone gave 16.25 and the end average, more compressive, 11.6;
+/// RK4 shooting of EI·θ'' + λ·C(x)·θ = 0 gives the exact 20.946, below the one-member 20.998.
 #[test]
-fn buckling_3d_uses_mean_axial_force_of_frame_with_partial_axial_load() {
+fn buckling_3d_integrates_the_axial_force_of_frame_with_partial_axial_load() {
     let (l, s, p, w): (f64, f64, f64, f64) = (3.0, 1.2, 200.0, 300.0);
     let (e, iz) = (200000.0 * 1000.0, 8e-5);
     let input = input_3d(json!({
@@ -330,16 +357,30 @@ fn buckling_3d_uses_mean_axial_force_of_frame_with_partial_axial_load() {
                                              "qYI": 0.0, "qYJ": 0.0, "qZI": 0.0, "qZJ": 0.0}}
         ]
     }));
-    // det([12c − 36d, −6Lc + 3Ld], [−6Lc + 3Ld, 4L²c − 4L²d]) = 0, c = EI/L³,
-    // d = μ/(30L), with I the weaker one: a quadratic in d, smallest root.
-    let c = e * iz / l.powi(3);
-    let (qa, qb, qc) = (144.0 * l * l - 9.0 * l * l, -(192.0 * l * l * c) + 36.0 * l * l * c, 48.0 * l * l * c * c - 36.0 * l * l * c * c);
-    let d = (-qb - (qb * qb - 4.0 * qa * qc).sqrt()) / (2.0 * qa);
-    let mu = d * 30.0 * l;
-    let lambda = mu / (p + w * s * s / (2.0 * l));
+    let gauss = [(-0.861_136_311_594_052_6, 0.347_854_845_137_453_9), (-0.339_981_043_584_856_3, 0.652_145_154_862_546_1), (0.339_981_043_584_856_3, 0.652_145_154_862_546_1), (0.861_136_311_594_052_6, 0.347_854_845_137_453_9)];
+    let mut g = [[0.0; 2]; 2];
+    for (x0, x1) in [(0.0, s), (s, l)] {
+        for (t, wt) in gauss {
+            let x = 0.5 * (x0 + x1) + 0.5 * (x1 - x0) * t;
+            let r = x / l;
+            let d = [(6.0 * r - 6.0 * r * r) / l, 3.0 * r * r - 2.0 * r];
+            let compression = p + w * (s - x).max(0.0);
+            for i in 0..2 {
+                for j in 0..2 {
+                    g[i][j] += 0.5 * (x1 - x0) * wt * compression * d[i] * d[j];
+                }
+            }
+        }
+    }
+    let k = [[12.0 * e * iz / l.powi(3), -6.0 * e * iz / l.powi(2)], [-6.0 * e * iz / l.powi(2), 4.0 * e * iz / l]];
+    let qa = g[0][0] * g[1][1] - g[0][1] * g[0][1];
+    let qb = -(k[0][0] * g[1][1] + k[1][1] * g[0][0] - 2.0 * k[0][1] * g[0][1]);
+    let qc = k[0][0] * k[1][1] - k[0][1] * k[0][1];
+    let lambda = (-qb - (qb * qb - 4.0 * qa * qc).sqrt()) / (2.0 * qa);
     let res = solve_buckling_3d(&input, 1).unwrap();
     let got = res.modes[0].load_factor;
-    assert!(close(got, lambda, 1e-9), "λ {got} vs {lambda}");
+    assert!(close(got, lambda, 1e-9), "λ {got} vs one-member {lambda}");
+    assert!(got > 20.946_066 && got < 20.946_066 * 1.003, "λ {got}, exact 20.946066");
 }
 
 /// A mass matrix with a massless DOF (the rotations of lumped-mass members —

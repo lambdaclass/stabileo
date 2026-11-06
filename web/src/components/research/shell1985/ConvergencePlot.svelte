@@ -8,11 +8,13 @@
   const x = (n: number) => 50 + 300 * (n - xmin) / Math.max(1, xmax - xmin);
   const y = (ratio: number) => 180 - 140 * ratio / ymax;
   const fmt = (v: number) => new Intl.NumberFormat(locale, { maximumSignificantDigits: 3 }).format(v);
+  let width = $state(400);
+  const font = $derived(Math.max(11, 12.5 * 400 / Math.max(width, 1)));
 </script>
 
 <figure>
   <figcaption>{title}</figcaption>
-  <svg viewBox="0 0 400 230" role="img" aria-label={`${title}: ${xLabel}, ${yLabel}`}>
+  <svg viewBox="0 0 400 230" bind:clientWidth={width} style:font-size="{font}px" role="img" aria-label={`${title}: ${xLabel}, ${yLabel}`}>
     <path d="M50 30V180H365" fill="none" stroke="currentColor" />
     <path d={`M50 ${y(1)}H365`} stroke="currentColor" stroke-dasharray="5 4" />
     <text x="40" y={y(1) + 4} text-anchor="end">1</text>
@@ -36,5 +38,5 @@
   figure { margin: 1rem 0; }
   figcaption { font-weight: 600; }
   svg { width: 100%; max-height: 16rem; }
-  text { fill: currentColor; font: 11px sans-serif; }
+  text { fill: currentColor; font-family: sans-serif; }
 </style>

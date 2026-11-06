@@ -201,7 +201,7 @@ fn validation_contraflexure_portal_column() {
     // For symmetric gravity on symmetric frame, base moments are equal
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap();
-    assert_close(r1.my.abs(), r4.my.abs(), 0.01,
+    assert_close_abs(r1.my.abs(), r4.my.abs(), 0.01, 1e-6,
         "Portal: symmetric base moments");
 
     // Vertical reactions should be equal

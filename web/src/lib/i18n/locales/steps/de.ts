@@ -1,4 +1,5 @@
 import type { Translations } from '../../types';
+import course from '../course/de';
 
 const stepsDe: Translations = {
   'steps.dsm.classification': 'Statische Bestimmtheit',
@@ -10,9 +11,6 @@ const stepsDe: Translations = {
   'steps.dsm.fem.member': 'Stab {id} ({name})',
   'steps.dsm.fem.freeBody': 'Freikörperbild von {name}, beidseitig eingespannt: die Feldlasten, die Volleinspannmomente und die Reaktionen, die sie im Gleichgewicht halten (gegen den Uhrzeigersinn und lokal +y positiv).',
   'steps.dsm.fem.feq': 'Vektor der äquivalenten Stablasten in lokalen Achsen (u, v, θ an jedem Ende): die Wirkungen des eingespannten Stabs auf die Knoten.',
-  'steps.catalog.button': 'Schritt für Schritt erklärt',
-  'steps.catalog.title': 'Schritt für Schritt erklärt',
-  'steps.catalog.intro': 'Wählen Sie ein Verfahren, um die Lösung Ihres Tragwerks Schritt für Schritt zu sehen. Zu jedem steht, was das Modell erfüllen muss, und ein Beispiel, das es erfüllt.',
   'steps.catalog.open': 'Öffnen',
   'steps.catalog.example': 'Beispiel öffnen',
   'steps.catalog.requiresLead': 'Für dieses Schritt für Schritt muss das Tragwerk Folgendes sein:',
@@ -602,6 +600,7 @@ const stepsDe: Translations = {
   // ── The axial term option
   'steps.deformation.axialBigShare': 'Für diese Verschiebung ist das Weglassen des Normalkraftanteils keine gute Näherung: Die Normalkraft trägt {pct} % zur Gesamtverschiebung bei. Es empfiehlt sich, die Option einzuschalten.',
   'steps.m.castigliano.axialKept': 'Überzählige, die nur Normalkraft tragen: {list}. Ohne den Normalkraftanteil sagen ihre Gleichungen nichts aus, daher behalten ihre Zeilen und Spalten ihn; die übrigen Koeffizienten berücksichtigen nur die Biegung.',
+  'steps.m.castigliano.axialAll': 'Den Normalkraftanteil nur in einigen Zeilen zu behalten reicht hier nicht: Die gemischte Matrix wäre nicht positiv definit, also keine Nachgiebigkeit. Alle Koeffizienten behalten den Normalkraftanteil.',
   'steps.m.castigliano.axialFallback': 'Ohne den Normalkraftanteil hat das System keine eindeutige Lösung, daher wird es mit den vollständigen Koeffizienten einschließlich des Normalkraftanteils gelöst.',
   'steps.deformation.axialOff': 'Klassische Lösung: Der Normalkraftanteil wird weggelassen, nur die Biegung zählt.',
   'steps.deformation.axialLeftOut': 'Bei ausgeschalteter Option für den Normalkraftanteil geht Σ N·n·L/EA nicht in die Verschiebung ein. Er wird dennoch angezeigt, um zu sehen, wie viel er beitragen würde:',
@@ -748,12 +747,12 @@ const stepsDe: Translations = {
 
   // ── Virtual work
   'steps.m.virtualWork.title': 'Virtuelle Arbeit (Einheitslast)',
-  'steps.m.virtualWork.help': 'Ermittelt eine Verschiebung, indem eine Einheitslast im gesuchten Punkt und in der gesuchten Richtung aufgebracht wird. Die Verschiebung ist die Summe über die Stäbe von ∫M·m/EI dx plus N·n·L/EA, mit M und N aus den wirklichen Lasten und m und n aus der Einheitslast.',
-  'steps.m.virtualWork.requires': 'ein ebenes Stabtragwerk (Balken, Rahmen oder Fachwerk), statisch bestimmt oder unbestimmt, ohne Temperaturlasten oder besondere Auflager.',
-  'steps.m.virtualWork.what': 'Die Verschiebung eines Knotens in einer Richtung wird mit dem Prinzip der virtuellen Arbeit ermittelt: Die Arbeit einer virtuellen Einheitslast auf der gesuchten Verschiebung ist gleich der inneren Arbeit ihrer virtuellen Schnittgrößen auf den wirklichen Verformungen.',
+  'steps.m.virtualWork.help': 'Ermittelt eine Verschiebung, eine Verdrehung oder eine Relativverschiebung bzw. -verdrehung zwischen zwei Knoten, indem die virtuelle Last aufgebracht wird, die an dieser Größe Arbeit leistet: eine Einheitskraft, ein Einheitsmoment oder ein Paar entgegengesetzter Lasten. Das Ergebnis ist die Summe über die Stäbe von ∫M·m/EI dx plus N·n·L/EA, dazu Federn, Stützensenkungen und Temperatur, sofern vorhanden.',
+  'steps.m.virtualWork.requires': 'ein ebenes Stabtragwerk (Balken, Rahmen oder Fachwerk), statisch bestimmt oder unbestimmt; Federn, Stützensenkungen und Temperaturlasten sind möglich, schräge Auflager nicht.',
+  'steps.m.virtualWork.what': 'Die gewählte Größe wird mit dem Prinzip der virtuellen Arbeit ermittelt: Die Arbeit einer virtuellen Einheitslast (einer Kraft, eines Moments oder eines Paars entgegengesetzter Lasten) auf der gesuchten Verschiebung ist gleich der inneren Arbeit ihrer virtuellen Schnittgrößen an den wirklichen Verformungen.',
   'steps.m.virtualWork.s1': 'Punkt, Richtung und Prinzip',
   'steps.m.virtualWork.principle': 'Prinzip der virtuellen Arbeit mit einer Einheitslast.',
-  'steps.m.virtualWork.principleWhy': 'Die Einheitslast und ihre Schnittgrößen m und n bilden ein System im Gleichgewicht; die Krümmungen M/EI und die Dehnungen N/EA sind die wirklichen, mit den Auflagern verträglichen. Die Gleichsetzung von äußerer und innerer Arbeit liefert die Verschiebung.',
+  'steps.m.virtualWork.principleWhy': 'Die Einheitslast und ihre Schnittgrößen m und n bilden ein System im Gleichgewicht; die Krümmungen M/EI und die Dehnungen N/EA sind die wirklichen, mit den Auflagern verträglichen. Die Gleichsetzung von äußerer und innerer Arbeit liefert die gesuchte Größe: Verschiebung, Verdrehung oder relativen Wert.',
   'steps.m.virtualWork.s2': 'Wirklicher Zustand: M und N',
   'steps.m.virtualWork.s3': 'Virtueller Zustand: Einheitslast',
   'steps.m.virtualWork.unitLead': 'Bei {n} wird eine Einheitslast in Richtung und Sinn der gesuchten Verschiebung aufgebracht, ohne weitere Lasten.',
@@ -765,7 +764,7 @@ const stepsDe: Translations = {
 
   // ── Castigliano
   'steps.m.castigliano.title': 'Sätze von Castigliano',
-  'steps.m.castigliano.help': 'Arbeitet mit der Formänderungsenergie U. In einem statisch unbestimmten Tragwerk liefert der zweite Satz (∂U/∂Xⱼ = 0) die Überzähligen; in einem statisch bestimmten liefert der erste Satz (δ = ∂U/∂P) die Verschiebung eines Punktes, mit einer Hilfslast Q, falls dort keine Last angreift.',
+  'steps.m.castigliano.help': 'Arbeitet mit der Formänderungsenergie U. In einem statisch unbestimmten Tragwerk liefert der zweite Satz (∂U/∂Xⱼ = 0) die Überzähligen; in einem statisch bestimmten liefert der erste (δ = ∂U/∂P) die Verschiebung eines Punktes oder, mit einem fiktiven Moment, seine Verdrehung, mit einer fiktiven Last Q, wenn dort keine wirkt.',
   'steps.m.castigliano.requires': 'ein ebener Balken oder Rahmen aus biegebeanspruchten Stäben, ohne Fachwerkstäbe, Temperaturlasten oder besondere Auflager, mit mäßigem Grad der statischen Unbestimmtheit.',
   'steps.m.castigliano.whatSecond': 'Das statisch unbestimmte Tragwerk wird mit dem zweiten Satz von Castigliano gelöst: Die Überzähligen nehmen die Werte an, für die die Formänderungsenergie stationär ist, weil die Verschiebung in Richtung jeder von ihnen null ist.',
   'steps.m.castigliano.whatFirst': 'Die Verschiebung eines Knotens wird mit dem ersten Satz von Castigliano ermittelt: Die Ableitung der Formänderungsenergie nach einer Last ist die Verschiebung ihres Angriffspunktes in ihrer Richtung.',
@@ -920,6 +919,9 @@ const stepsDe: Translations = {
   'steps.cuts.dia.N': 'Normalkraft N [kN], Zug positiv.',
   'steps.cuts.dia.V': 'Querkraft V [kN].',
   'steps.cuts.dia.M': 'Biegemoment M [kN·m], auf der Seite der gezogenen Faser.',
+  'course.statics.vw.p.title': 'Berechnungsziel',
+  'course.statics.vw.p.nodeAuto': 'Automatisch oder der ausgewählte',
+  'course.statics.vw.p.help': 'Die virtuelle Last hängt von der gesuchten Größe ab: eine Einheitskraft für eine Verschiebung, ein Einheitsmoment für eine Verdrehung, zwei entgegengesetzte Kräfte für eine Relativverschiebung zwischen zwei Knoten und zwei entgegengesetzte Momente für eine Relativverdrehung. Die Option Automatisch nimmt den im Modell ausgewählten Knoten oder den, der sich am meisten bewegt; bei einer relativen Größe ist die automatische Richtung die Verbindungslinie der beiden Knoten.',
 };
 
-export default stepsDe;
+export default { ...stepsDe, ...course };

@@ -10,11 +10,10 @@
    * pays for a reload.
    */
   import { tPublic as t, tpPublic as tp, publicI18n } from '../../lib/i18n/store.svelte';
-  import { applyPageMeta, restorePageMeta, postImageUrl, ERGODIC_GROUP, LAMBDA_CLASS } from '../../lib/page-meta';
+  import { applyPageMeta, restorePageMeta, postImageUrl, stabileoSoftware, breadcrumbs, PUBLISHER, SOFTWARE_ID, WEBSITE_ID } from '../../lib/page-meta';
   import { publicUrl } from '../../lib/i18n/public-routes';
   import { POSTS, POSTS_NEWEST_FIRST, findPost, formatPostDate, postReadingMinutes, inLocale, writtenIn } from '../../lib/blog';
   import { enterApp } from '../landing/landing-utils';
-  import SiteHeader from '../site/SiteHeader.svelte';
   import PublicLink from '../landing/PublicLink.svelte';
   import LandingFooter from '../landing/LandingFooter.svelte';
   import BlogBlocks from './BlogBlocks.svelte';
@@ -63,13 +62,12 @@
   const older = $derived(position >= 0 && position < POSTS_NEWEST_FIRST.length - 1 ? POSTS_NEWEST_FIRST[position + 1] : undefined);
   const body = $derived(post ? inLocale(post.i18n, publicI18n.locale) : undefined);
 
-  let pageEl: HTMLDivElement | undefined = $state();
 
   $effect(() => {
     if (standing && standingBody) {
       const url = publicUrl(standing.path, publicI18n.locale);
       applyPageMeta({
-        title: `${standingBody.title} — Stabileo`,
+        title: standingBody.metaTitle ?? (standingBody.title.includes('Stabileo') ? standingBody.title : `${standingBody.title} — Stabileo`),
         description: standingBody.description,
         locale: publicI18n.locale,
         path: standing.path,
@@ -85,28 +83,16 @@
             description: standingBody.description,
             inLanguage: publicI18n.locale,
             dateModified: standing.updated,
-            about: { '@id': 'https://stabileo.com/#software' },
-            isPartOf: { '@id': 'https://stabileo.com/#website' },
+            about: { '@id': SOFTWARE_ID },
+            isPartOf: { '@id': WEBSITE_ID },
           },
-          {
-            '@type': 'SoftwareApplication',
-            '@id': 'https://stabileo.com/#software',
-            name: 'Stabileo',
-            url: publicUrl('/', publicI18n.locale),
-            applicationCategory: 'EngineeringApplication',
-            operatingSystem: 'Web browser',
-            isAccessibleForFree: true,
-            license: 'https://www.gnu.org/licenses/agpl-3.0.html',
-            publisher: ERGODIC_GROUP,
-            author: LAMBDA_CLASS,
-            ...(standingBody.blocks.some((b) => b.k === 'table')
-              ? {
-                  featureList: standingBody.blocks.flatMap((b) =>
-                    b.k === 'table' ? b.rows.map((r) => `${r[0]}: ${r[1]}`) : [],
-                  ),
-                }
-              : {}),
-          },
+          stabileoSoftware(
+            publicI18n.locale,
+            standingBody.blocks.some((b) => b.k === 'table')
+              ? { featureList: standingBody.blocks.flatMap((b) => (b.k === 'table' ? b.rows.map((r) => `${r[0]}: ${r[1]}`) : [])) }
+              : {},
+          ),
+          breadcrumbs(publicI18n.locale, [['Stabileo', '/'], [standingBody.title, standing.path]]),
           ...(standingBody.faq.length
             ? [
                 {
@@ -159,7 +145,7 @@
               description: t('blog.lead'),
               url: publicUrl('/blog', publicI18n.locale),
               inLanguage: publicI18n.locale,
-              publisher: { '@id': 'https://stabileo.com/#organization' },
+              publisher: PUBLISHER,
               blogPost: POSTS.map((p) => ({
                 '@type': 'BlogPosting',
                 headline: inLocale(p.i18n, publicI18n.locale).title,
@@ -168,23 +154,17 @@
                 dateModified: p.updated ?? p.date,
               })),
             },
+            breadcrumbs(publicI18n.locale, [['Stabileo', '/'], ['Blog', '/blog']]),
           ],
     });
     return restorePageMeta;
   });
 
-  // A new post starts at its own beginning, not at the scroll position the
-  // index was left at — the shell is one long scroller that never unmounts.
-  $effect(() => {
-    void path;
-    pageEl?.scrollTo({ top: 0 });
-  });
 </script>
 
-<div class="landing blog" bind:this={pageEl}>
+<div class="landing blog">
   <!-- `slug`, not `post`: an unknown slug is still inside a post's address,
        and that reader needs the way back to the index more than anyone. -->
-  <SiteHeader current={standing?.view === 'changelog' ? 'changelog' : standing ? null : 'blog'} />
 
   {#if standing?.view === 'changelog' && standingBody}
     {#await import('./ChangelogView.svelte') then { default: ChangelogView }}

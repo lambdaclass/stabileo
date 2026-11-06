@@ -1,0 +1,145 @@
+#!/usr/bin/env node
+import { readFileSync, writeFileSync } from 'node:fs'
+import { dirname, join, relative, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import ts from 'typescript'
+
+const webRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+const OUT = join(webRoot, 'src/lib/engine/generated/result-sites-ts.ts')
+
+export function resultSites(sources, options) {
+  const program = ts.createProgram(sources, options)
+  const checker = program.getTypeChecker()
+
+  const leads = new Map()
+  const pending = []
+
+  function known(type) {
+    if (!leads.has(type)) { leads.set(type, false); pending.push(type) }
+    return leads.get(type)
+  }
+
+  function constituents(type, seen = new Set()) {
+    if (seen.has(type)) return []
+    seen.add(type)
+    const inner = t => constituents(t, seen)
+    if (type.isUnionOrIntersection()) return type.types.flatMap(inner)
+    if (checker.isArrayType(type) || checker.isTupleType(type)) return checker.getTypeArguments(type).flatMap(inner)
+    const name = type.getSymbol()?.getName()
+    const args = (type.flags & ts.TypeFlags.Object) !== 0 && (type.objectFlags & ts.ObjectFlags.Reference) !== 0 ? checker.getTypeArguments(type) : []
+    if ((name === 'Map' || name === 'ReadonlyMap' || name === 'WeakMap') && args.length === 2) return inner(args[1])
+    if ((name === 'Set' || name === 'ReadonlySet') && args.length === 1) return inner(args[0])
+    return [type]
+  }
+
+  function isObject(type) {
+    return (type.flags & ts.TypeFlags.Object) !== 0 && type.getCallSignatures().length === 0
+  }
+
+  function prop(type, name) {
+    const symbol = type.getProperty(name)
+    return symbol ? checker.getTypeOfSymbol(symbol) : undefined
+  }
+
+  function isStringish(type) {
+    return type !== undefined && constituents(type).every(t => (t.flags & (ts.TypeFlags.StringLike | ts.TypeFlags.Undefined)) !== 0)
+  }
+
+  function isDiagnostic(type) {
+    return isObject(type) && isStringish(prop(type, 'code')) && isStringish(prop(type, 'severity')) && isStringish(prop(type, 'message'))
+  }
+
+  function edges(type) {
+    const out = []
+    if (!isObject(type) || isDiagnostic(type)) return out
+    for (const symbol of type.getProperties()) {
+      const name = symbol.getName()
+      if (name.startsWith('__')) continue
+      out.push({ key: name, type: checker.getTypeOfSymbol(symbol) })
+    }
+    for (const info of checker.getIndexInfosOfType(type)) out.push({ key: null, type: info.type })
+    return out
+  }
+
+  function leadsTo(type) {
+    return constituents(type).some(t => isObject(t) && (isDiagnostic(t) || known(t)))
+  }
+
+  function classify(type) {
+    const kinds = new Set()
+    for (const t of constituents(type)) {
+      if (!isObject(t)) continue
+      if (isDiagnostic(t)) { kinds.add('diagnostic'); continue }
+      if (!known(t)) continue
+      if (checker.getIndexInfosOfType(t).some(info => leadsTo(info.type))) kinds.add('map')
+      if (t.getProperties().some(p => leadsTo(checker.getTypeOfSymbol(p)))) kinds.add('record')
+    }
+    return kinds
+  }
+
+  function compute(type) {
+    return edges(type).some(e => leadsTo(e.type))
+  }
+
+  const visit = node => {
+    if ((ts.isInterfaceDeclaration(node) || ts.isTypeAliasDeclaration(node) || ts.isClassDeclaration(node)) && node.name) {
+      const symbol = checker.getSymbolAtLocation(node.name)
+      if (symbol) {
+        const type = checker.getDeclaredTypeOfSymbol(symbol)
+        for (const t of constituents(type)) known(t)
+      }
+    }
+    ts.forEachChild(node, visit)
+  }
+  for (const file of program.getSourceFiles().filter(f => sources.includes(f.fileName))) visit(file)
+
+  function settle() {
+    for (let changed = true; changed;) {
+      changed = false
+      for (let i = 0; i < pending.length; i++) {
+        const type = pending[i]
+        const now = compute(type)
+        if (now !== leads.get(type)) { leads.set(type, now); changed = true }
+      }
+    }
+  }
+
+  let sets
+  for (let size = -1; size !== leads.size;) {
+    settle()
+    size = leads.size
+    sets = { diagnostic: new Set(), record: new Set(), map: new Set() }
+    for (const [type, has] of [...leads]) {
+      if (!has) continue
+      for (const edge of edges(type)) {
+        if (edge.key === null) continue
+        for (const kind of classify(edge.type)) sets[kind].add(edge.key)
+      }
+    }
+  }
+  return sets
+}
+
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  const config = ts.getParsedCommandLineOfConfigFile(join(webRoot, 'tsconfig.json'), {}, { ...ts.sys, onUnRecoverableConfigFileDiagnostic: d => { throw new Error(ts.flattenDiagnosticMessageText(d.messageText, '\n')) } })
+  const sources = config.fileNames.filter(f => f.endsWith('.ts') && !f.endsWith('.d.ts') && !/__tests__|\.test\.ts$|\/generated\//.test(f))
+  const sets = resultSites(sources, config.options)
+  const list = set => [...set].sort().map(k => JSON.stringify(k)).join(', ')
+  const text = `// Generated by \`make gen.result-sites\` from the web app's result types (web/scripts/gen-result-sites.mjs). Do not edit.
+
+export const tsDiagnosticKeys = [${list(sets.diagnostic)}] as const;
+export const tsRecordKeys = [${list(sets.record)}] as const;
+export const tsMapKeys = [${list(sets.map)}] as const;
+`
+
+  if (process.argv.includes('--write')) {
+    writeFileSync(OUT, text)
+  } else {
+    let current
+    try { current = readFileSync(OUT, 'utf8') } catch { current = '' }
+    if (current !== text) {
+      console.error(`${relative(webRoot, OUT)} no longer matches the web app's result types: run \`make gen.result-sites\` and commit the result.`)
+      process.exit(1)
+    }
+  }
+}

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from '../Hint.svelte';
   /**
    * Batch reinforcement editor: preview → validate → apply, or cancel with no effect.
    *
@@ -262,7 +263,7 @@
           <option value="">—</option>{#each [...modelStore.sections.values()] as sec (sec.id)}<option value={sec.id}>{sec.name}</option>{/each}
         </select></label>
       <button class="piece-apply" disabled={coverCm === undefined && sectionId === undefined} onclick={applyPieces} data-testid="batch-pieces-apply">{tp('design.batch.piecesApply', { n: selection.length })}</button>
-      <p class="piece-hint">{t('design.batch.piecesHint')}</p>
+      <Hint text={t('design.batch.piecesHint')} />
       {#if pieceNote}<p class="piece-hint" role="status" data-testid="batch-pieces-note">{pieceNote}</p>{/if}
     </fieldset>
 

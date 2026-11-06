@@ -476,10 +476,10 @@ fn validation_portal_two_bay_horizontal_equilibrium() {
 
     // Horizontal equilibrium: sum_rx + applied_fx = 0
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
-    assert_close(
+    assert_close_abs(
         (sum_rx + f1).abs(),
         0.0,
-        0.01,
+        0.01, 1e-6,
         "two-bay portal: horizontal equilibrium sum_rx + F = 0",
     );
 

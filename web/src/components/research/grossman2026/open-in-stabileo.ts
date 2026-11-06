@@ -1,3 +1,5 @@
+import { rs } from '../i18n';
+import { publicI18n } from '../../../lib/i18n/store.svelte';
 /**
  * "Open in Stabileo": the current strip as an ordinary 2D model, handed to the editor through the
  * app's own share-link format (#data=2.<base64url(deflate(compact JSON))>, see
@@ -12,10 +14,10 @@
 import type { StripResult } from './springs';
 // Only the current results version, read as a separate module (the query keeps it from becoming
 // a chunk shared with the application, which must not grow by a byte).
-import { currentResultsVersion } from '../../../lib/provenance/result-changes.json?research-page';
+import metadata from 'virtual:result-change-metadata?research-page';
 
 export function stripCompact(strip: StripResult, label: string, stamp?: unknown) {
-  if (strip.prestress_force.some((force) => force !== 0)) throw new Error('Editor export does not support prestress or geometric stiffness.');
+  if (strip.prestress_force.some((force) => force !== 0)) throw new Error(rs().springsExportDisabled);
   const n = strip.nodes.map((p, i) => [i + 1, p[0], p[1]]);
   const sections: (string | number)[][] = [];
   const sectionOf = new Map<number, number>();
@@ -27,7 +29,7 @@ export function stripCompact(strip: StripResult, label: string, stamp?: unknown)
     if (sid === undefined) {
       sid = sections.length + 1;
       sectionOf.set(key, sid);
-      sections.push([sid, `Spring ${sid}`, key, 1e-12]);
+      sections.push([sid, `${rs().springsSprings} ${sid}`, key, 1e-12]);
     }
     return [i + 1, 1, b[0] + 1, b[1] + 1, 1, sid];
   });
@@ -46,7 +48,7 @@ export function stripCompact(strip: StripResult, label: string, stamp?: unknown)
     lx: 'zUpStrongAxis',
     sv: 6,
     n,
-    mt: [[1, 'Spring network (Stabileo Research): E·A/L = 1000 k kN/m', 1, 0, 0]],
+    mt: [[1, `${rs().springsTitle}: E·A/L = 1000 k kN/m`, 1, 0, 0]],
     sc: sections,
     e,
     s,
@@ -76,9 +78,11 @@ export async function stripShareHash(strip: StripResult, label: string, stamp?: 
 
 export type StripLabel = { family: string; eta: number; keep: number; seed: number; strain: number };
 
-function label(p: StripLabel): string {
-  const what = p.family === 'foam' ? `foam η = ${p.eta.toFixed(2)}` : p.family;
-  return `From Stabileo Research: spring network (${what}, bonds kept ${p.keep.toFixed(2)}, seed ${p.seed}, strain ${p.strain})`;
+export function stripLabel(p: StripLabel): string {
+  const s = rs();
+  const fmt = (n: number) => new Intl.NumberFormat(publicI18n.locale, Number.isInteger(n) ? {} : { maximumSignificantDigits: 6 }).format(n);
+  const family = { foam: s.springsFoamOption, ordered: s.springsOrderedOption, honeycomb: s.springsHoneyOption, square: s.springsSquareOption }[p.family as 'foam'];
+  return `${s.springsTitle}: ${family}, η = ${fmt(p.eta)}, ${s.springsBondsKept} ${fmt(p.keep)}, ${s.springsSeed} ${fmt(p.seed)}, ${s.springsStrain} ${fmt(p.strain)}`;
 }
 
 /** The share payload "2.<...>" of the strip, carrying the app's stamp for a fresh, unsolved project. */
@@ -86,8 +90,8 @@ async function payload(strip: StripResult, p: StripLabel): Promise<string> {
   // A project that carries no results, stamped with this build's results version (what the app's
   // freshStamp() gives a new project), so the editor does not present it as results solved by an
   // unknown older version. The editor solves it itself on opening.
-  const stamp = { resultsVersion: currentResultsVersion, resultsSchemaVersion: 1, analyses: [] };
-  return (await stripShareHash(strip, label(p), stamp)).slice('#data='.length);
+  const stamp = { resultsVersion: metadata.currentResultsVersion, resultsSchemaVersion: 1, analyses: [] };
+  return (await stripShareHash(strip, stripLabel(p), stamp)).slice('#data='.length);
 }
 
 /** The app in embed mode (ribbon and viewport, no header or footer) with the strip loaded. */

@@ -1,4 +1,5 @@
 import type { Translations } from '../../types';
+import course from '../course/tr';
 
 const stepsTr: Translations = {
   'steps.dsm.classification': 'Statik sınıflandırma',
@@ -10,9 +11,6 @@ const stepsTr: Translations = {
   'steps.dsm.fem.member': 'Çubuk {id} ({name})',
   'steps.dsm.fem.freeBody': 'İki ucundan ankastre {name} çubuğunun serbest cisim diyagramı: açıklık yükleri, ankastrelik momentleri ve onları dengeleyen tepkiler (saat yönünün tersi ve yerel +y pozitif).',
   'steps.dsm.fem.feq': 'Çubuğun yerel eksenlerdeki eşdeğer yük vektörü (her uçta u, v, θ): ankastre çubuğun düğümlere etkileri.',
-  'steps.catalog.button': 'Açıklamalı adım adım',
-  'steps.catalog.title': 'Açıklamalı adım adım',
-  'steps.catalog.intro': 'Yapınızın adım adım çözümünü görmek için bir yöntem seçin. Her biri modelin neyi sağlaması gerektiğini listeler ve bunu sağlayan bir örnekle gelir.',
   'steps.catalog.open': 'Aç',
   'steps.catalog.example': 'Bir örnek aç',
   'steps.catalog.requiresLead': 'Bu adım adım çözümü denemek için yapı şöyle olmalıdır:',
@@ -602,6 +600,7 @@ const stepsTr: Translations = {
   // ── The axial term option
   'steps.deformation.axialBigShare': 'Bu yer değiştirme için eksenel terimi dışarıda bırakmak iyi bir yaklaşım değil: eksenel kuvvet toplamın %{pct} kadarını oluşturuyor. Seçeneği açmanız önerilir.',
   'steps.m.castigliano.axialKept': 'Yalnızca eksenel kuvvet taşıyan hiperstatik bilinmeyenler: {list}. Eksenel terim olmadan denklemleri bir şey söylemez; bu yüzden satırları ve sütunları bu terimi korur, diğer katsayılar yalnızca eğilmeyi içerir.',
+  'steps.m.castigliano.axialAll': 'Eksenel terimi yalnızca bazı satırlarda tutmak burada yetmez: karışık matris pozitif tanımlı olmaz, yani bir esneklik matrisi olmaz. Tüm katsayılar eksenel terimi korur.',
   'steps.m.castigliano.axialFallback': 'Eksenel terim olmadan sistemin tek bir çözümü yok; bu yüzden eksenel terim dahil tam katsayılarla çözülür.',
   'steps.deformation.axialOff': 'Klasik çözüm: eksenel terim dışarıda bırakılır ve yalnızca eğilme hesaba katılır.',
   'steps.deformation.axialLeftOut': 'Eksenel terim seçeneği kapalıyken Σ N·n·L/EA yer değiştirmeye girmez. Ne kadar katkı yapacağını görmek için yine de gösterilir:',
@@ -748,12 +747,12 @@ const stepsTr: Translations = {
 
   // ── Virtual work
   'steps.m.virtualWork.title': 'Virtüel iş (birim yük)',
-  'steps.m.virtualWork.help': 'Bir yer değiştirmeyi, aranan noktaya ve doğrultuya birim yük uygulayarak bulur. Yer değiştirme, çubuklar üzerinden ∫M·m/EI dx artı N·n·L/EA toplamıdır; M ve N gerçek yüklerden, m ve n birim yükten gelir.',
-  'steps.m.virtualWork.requires': 'izostatik veya hiperstatik, sıcaklık yükü ve özel mesnet içermeyen bir düzlem çubuk taşıyıcı sistem (kiriş, çerçeve veya kafes kiriş).',
-  'steps.m.virtualWork.what': 'Bir düğümün bir doğrultudaki yer değiştirmesi virtüel iş ilkesiyle bulunur: virtüel bir birim yükün aranan yer değiştirme üzerindeki işi, virtüel kuvvetlerinin gerçek şekil değiştirmeler üzerindeki iç işine eşittir.',
+  'steps.m.virtualWork.help': 'Bir yer değiştirmeyi, bir dönmeyi veya iki düğüm arasındaki göreli yer değiştirmeyi ya da göreli dönmeyi, o büyüklük üzerinde iş yapan virtüel yükü uygulayarak bulur: birim kuvvet, birim moment veya bir çift zıt yük. Sonuç, çubuklar üzerinden ∫M·m/EI dx artı N·n·L/EA toplamıdır; varsa yaylar, mesnet çökmeleri ve sıcaklık da eklenir.',
+  'steps.m.virtualWork.requires': 'izostatik veya hiperstatik bir düzlem çubuk taşıyıcı sistem (kiriş, çerçeve veya kafes kiriş); yay, mesnet çökmesi ve sıcaklık yükü içerebilir, eğik mesnet içeremez.',
+  'steps.m.virtualWork.what': 'Seçilen büyüklük virtüel iş ilkesiyle bulunur: virtüel birim yükün (bir kuvvet, bir moment veya bir çift zıt yük) aranan yer değiştirme üzerindeki işi, virtüel iç kuvvetlerinin gerçek şekil değiştirmeler üzerindeki iç işine eşittir.',
   'steps.m.virtualWork.s1': 'Nokta, doğrultu ve ilke',
   'steps.m.virtualWork.principle': 'Birim yükle virtüel iş ilkesi.',
-  'steps.m.virtualWork.principleWhy': 'Birim yük ve onun m ve n kuvvetleri dengede bir sistem oluşturur; M/EI eğrilikleri ve N/EA eksenel birim şekil değiştirmeleri gerçektir ve mesnetlerle uyumludur. Dış ve iç işi eşitlemek yer değiştirmeyi verir.',
+  'steps.m.virtualWork.principleWhy': 'Birim yük ve onun m ve n kuvvetleri dengede bir sistem oluşturur; M/EI eğrilikleri ve N/EA eksenel birim şekil değiştirmeleri gerçektir ve mesnetlerle uyumludur. Dış ve iç işi eşitlemek aranan büyüklüğü verir: yer değiştirme, dönme ya da göreli değer.',
   'steps.m.virtualWork.s2': 'Gerçek durum: M ve N',
   'steps.m.virtualWork.s3': 'Virtüel durum: birim yük',
   'steps.m.virtualWork.unitLead': '{n} noktasına, aranan yer değiştirmenin doğrultusunda ve yönünde, başka yük olmadan bir birim yük uygulanır.',
@@ -765,7 +764,7 @@ const stepsTr: Translations = {
 
   // ── Castigliano
   'steps.m.castigliano.title': 'Castigliano teoremleri',
-  'steps.m.castigliano.help': 'Şekil değiştirme enerjisi U ile çalışır. Hiperstatik bir yapıda ikinci teorem (∂U/∂Xⱼ = 0) hiperstatik bilinmeyenleri verir; izostatik bir yapıda birinci teorem (δ = ∂U/∂P) bir noktanın yer değiştirmesini verir, orada yük yoksa hayali bir Q yüküyle.',
+  'steps.m.castigliano.help': 'Şekil değiştirme enerjisi U ile çalışır. Hiperstatik bir yapıda ikinci teorem (∂U/∂Xⱼ = 0) hiperstatik bilinmeyenleri verir; izostatik bir yapıda birinci teorem (δ = ∂U/∂P) bir noktanın yer değiştirmesini veya fiktif bir momentle dönmesini verir; orada yük yoksa fiktif bir Q yükü kullanılır.',
   'steps.m.castigliano.requires': 'kafes çubuğu, sıcaklık yükü ve özel mesnet içermeyen, eğilen çubuklardan oluşan, orta hiperstatiklik dereceli bir düzlem kiriş veya çerçeve.',
   'steps.m.castigliano.whatSecond': 'Hiperstatik yapı Castigliano\'nun ikinci teoremiyle çözülür: hiperstatik bilinmeyenler şekil değiştirme enerjisini durağan yapan değerleri alır, çünkü her birinin doğrultusundaki yer değiştirme sıfırdır.',
   'steps.m.castigliano.whatFirst': 'Bir düğümün yer değiştirmesi Castigliano\'nun birinci teoremiyle bulunur: şekil değiştirme enerjisinin bir yüke göre türevi, o yükün uygulama noktasının yük doğrultusundaki yer değiştirmesidir.',
@@ -920,6 +919,9 @@ const stepsTr: Translations = {
   'steps.cuts.dia.N': 'Eksenel kuvvet N [kN], çekme pozitif.',
   'steps.cuts.dia.V': 'Kesme kuvveti V [kN].',
   'steps.cuts.dia.M': 'Eğilme momenti M [kN·m], çekmedeki lifin tarafında.',
+  'course.statics.vw.p.title': 'Ne hesaplanacak',
+  'course.statics.vw.p.nodeAuto': 'Otomatik veya seçili olan',
+  'course.statics.vw.p.help': 'Virtüel yük aradığınız büyüklüğe bağlıdır: yer değiştirme için birim kuvvet, dönme için birim moment, iki düğüm arasındaki göreli yer değiştirme için zıt iki kuvvet ve göreli dönme için zıt iki moment. Otomatik seçenek, modelde seçili düğümü veya en çok hareket eden düğümü alır; göreli bir büyüklükte otomatik doğrultu, iki düğümü birleştiren doğrudur.',
 };
 
-export default stepsTr;
+export default { ...stepsTr, ...course };

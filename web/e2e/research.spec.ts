@@ -4,6 +4,19 @@ import { EXPERIMENTS } from '../src/components/research/experiments';
 import catalog from '../../research/papers.json' with { type: 'json' };
 import type { StabileoTestActions, StabileoTestHooks } from '../src/lib/utils/e2e-hooks';
 
+const REVIEW_NOTE = /First version|Primera versión|Primeira versão|Erste Version|Première version|İlk sürüm|review rounds?\b|rondas? de revisión|rodadas? de revisão|Prüfrunden?|cycles? de revue|inceleme turu/;
+
+for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
+  test(`@smoke no research page shows a first-version or review-round note in ${locale}`, async ({ page }) => {
+    for (const path of ['/research', ...EXPERIMENTS.map((e) => e.path)]) {
+      await page.goto(`/${locale}${path}/`);
+      await expect(page.locator('h1').first()).toBeVisible();
+      await expect(page.locator('.rs-review, .rs-g-first')).toHaveCount(0);
+      await expect(page.locator('body'), `${locale}${path}`).not.toContainText(REVIEW_NOTE);
+    }
+  });
+}
+
 /**
  * Stabileo Research: the gallery, and the phase-field page running its real simulation (the
  * research WASM, in a worker) for a few load steps on the coarse mesh.
@@ -37,8 +50,9 @@ test.describe('@smoke research', () => {
       const title = (await heading.innerText()).trim();
       expect(title.length).toBeGreaterThan(0);
       const paper = catalog.papers.find((p) => p.id === experiment.paperId)!;
-      const rounds = new Set((paper.reviews ?? []).flatMap((r) => ('round' in r ? [r.round] : []))).size;
-      await expect(card.getByText(`First version · ${rounds} review round${rounds === 1 ? '' : 's'}`, { exact: true })).toBeVisible();
+      expect(new Set((paper.reviews ?? []).flatMap((r) => ('round' in r ? [r.round] : []))).size).toBeGreaterThan(0);
+      await expect(card.locator('.rs-g-first')).toHaveCount(0);
+      await expect(card).not.toContainText(REVIEW_NOTE);
       // Every runnable experiment shows its build-time thumbnail, never the field icon.
       await expect(card.locator('.rs-g-thumb-icon')).toHaveCount(0);
       await expect(card.locator('a.rs-g-thumb')).toHaveAttribute('href', path);
@@ -50,8 +64,31 @@ test.describe('@smoke research', () => {
       await link.click();
       await expect(page).toHaveURL(new URL(path, page.url()).href);
       await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible();
+      await expect(page.locator('.rs-review')).toHaveCount(0);
+      await expect(page.locator('body')).not.toContainText(REVIEW_NOTE);
       await page.goto('/en/research/');
     }
+  });
+
+  test('the phase-field page replaces its prerendered copy only once the replay has arrived, so the viewer does not jump', async ({ page }) => {
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => { release = resolve; });
+    await page.route(/shauer-2025\/replay\.srpl$/, async (route) => { await held; await route.continue(); });
+    await page.addInitScript(() => {
+      new MutationObserver((_, observer) => {
+        if (document.getElementById('prerender') || !document.querySelector('#app .rs-app')) return;
+        (window as unknown as { __steps: string | null }).__steps = document.querySelector('#app .rs-app')!.getAttribute('data-steps');
+        observer.disconnect();
+      }).observe(document, { childList: true, subtree: true });
+    });
+    await page.goto('/en/research/fracture/shauer-2025/');
+    await expect(page.locator('#prerender .rs-app')).toBeVisible();
+    await page.waitForTimeout(1500);
+    await expect(page.locator('#prerender')).toHaveCount(1);
+    release();
+    await expect(page.locator('#prerender')).toHaveCount(0);
+    await expect(page.locator('#app .rs-compare-line')).toBeVisible();
+    expect(Number(await page.evaluate(() => (window as unknown as { __steps: string | null }).__steps))).toBeGreaterThan(0);
   });
 
   test('the phase-field experiment replays, then runs load steps live and plots the force', async ({ page }) => {
@@ -220,17 +257,19 @@ test.describe('@smoke research review regressions', () => {
   });
 });
 
-test('@smoke destroying the research page aborts its replay fetch and ignores a late resolution', async ({ page }) => {
+test('@smoke destroying the research page aborts the replay fetch it retries itself and ignores a late resolution', async ({ page }) => {
   await page.addInitScript(() => {
     const original = window.fetch;
-    const state = window as unknown as { replaySignal: AbortSignal; releaseReplay: () => void; replayTicks: number };
+    const state = window as unknown as { replaySignal: AbortSignal; releaseReplay: () => void; replayTicks: number; replayCalls: number };
     state.replayTicks = 0;
+    state.replayCalls = 0;
     const timeout = window.setTimeout;
     window.setTimeout = ((handler: TimerHandler, delay?: number, ...args: unknown[]) => {
       if (delay === 110) state.replayTicks++;
       return timeout(handler, delay, ...args);
     }) as typeof window.setTimeout;
     window.fetch = async (url, init) => {
+      if (String(url).includes('replay.srpl') && state.replayCalls++ === 0) throw new TypeError('offline');
       const response = await original(url, init);
       if (String(url).includes('replay.srpl')) {
         state.replaySignal = init!.signal!;
@@ -244,6 +283,8 @@ test('@smoke destroying the research page aborts its replay fetch and ignores a 
   });
   await page.goto('/en/research/fracture/shauer-2025/');
   await page.waitForFunction(() => !!(window as unknown as { releaseReplay: unknown }).releaseReplay);
+  await expect(page.locator('#prerender')).toHaveCount(0);
+  await expect(page.locator('#app .rs-app')).toBeVisible();
   await page.evaluate(() => window.dispatchEvent(new CustomEvent('stabileo-navigate', { detail: '/' })));
   await expect(page.locator('.rs-app')).toHaveCount(0);
   expect(await page.evaluate(() => (window as unknown as { replaySignal: AbortSignal }).replaySignal.aborted)).toBe(true);
@@ -351,8 +392,9 @@ for (const failure of ['constructor', 'unavailable', 'error']) {
     await page.locator('#rs-tab-parameters').click();
     await page.getByRole('button', { name: 'Run', exact: true }).click();
     await page.locator('#rs-tab-viewer').click();
-    await expect(page.locator('.rs-placeholder')).toContainText('test solver failure');
+    await expect(page.locator('.rs-placeholder')).toContainText('The solver failed. Retry or return to the replay in Parameters.');
     await expect(page.locator('.rs-placeholder')).not.toContainText('Loading the replay');
+    await expect(page.locator('body')).not.toContainText('test solver failure');
   });
 }
 
@@ -410,3 +452,48 @@ test('@smoke public-page entry installs editor hooks after its lazy mount', asyn
   await expect(page.locator('canvas').first()).toBeVisible();
   expect(await page.evaluate(() => performance.timeOrigin)).toBe(origin);
 });
+
+// Real layout coverage; run in CI with browsers available (no worker stub).
+for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
+  for (const viewport of [{ width: 360, height: 800 }, { width: 390, height: 844 }, { width: 844, height: 390 }, { width: 810, height: 1080 }]) {
+    test(`Shauer accessible reflow ${locale} ${viewport.width}x${viewport.height}`, async ({ page }) => {
+      await page.setViewportSize(viewport);
+      await page.goto(`/${locale}/research/fracture/shauer-2025/`);
+      const viewer = page.locator('.rs-viewer-slot');
+      await expect(viewer).toBeVisible();
+      await expect.poll(async () => (await viewer.boundingBox())?.y ?? Infinity).toBeLessThan(viewport.height - 44);
+      for (const tab of ['viewer', 'force', 'convergence', 'parameters']) {
+        await page.locator(`#rs-tab-${tab}`).click();
+        const metrics = await page.evaluate(() => {
+          const pane = document.querySelector('.rs-app') as HTMLElement;
+          const visible = (e: Element) => e.getBoundingClientRect().width > 0 && e.getBoundingClientRect().height > 0;
+          const controls = [...pane.querySelectorAll('button, select, input')].filter(visible);
+          return {
+            overflow: document.documentElement.scrollWidth - innerWidth,
+            paneOverflow: pane.scrollWidth - pane.clientWidth,
+            small: controls.filter(e => {
+              const r = e.getBoundingClientRect(); return r.width < 44 || r.height < 44;
+            }).map(e => e.outerHTML),
+            tiny: [...pane.querySelectorAll('button, input, select, label, .sfv-mark, .rs-seg-label, .rs-tog-label')].filter(visible)
+              .filter(e => parseFloat(getComputedStyle(e).fontSize) < 12).map(e => e.outerHTML),
+          };
+        });
+        expect(metrics.overflow).toBeLessThanOrEqual(1);
+        expect(metrics.paneOverflow).toBeLessThanOrEqual(1);
+        expect(metrics.small).toEqual([]);
+        expect(metrics.tiny).toEqual([]);
+      }
+      await page.locator('#rs-tab-convergence').click();
+      const readout = page.locator('#rs-panel-convergence .chart input[type=range]').last();
+      const shown = page.locator('#rs-panel-convergence .readout').last();
+      await readout.focus();
+      await expect(shown).toBeVisible();
+      const first = await shown.innerText();
+      await readout.press('ArrowRight');
+      await expect(shown).not.toHaveText(first);
+      const second = await shown.innerText();
+      await readout.evaluate((el: HTMLInputElement) => { el.value = el.max; el.dispatchEvent(new Event('input', { bubbles: true })); });
+      await expect(shown).not.toHaveText(second);
+    });
+  }
+}

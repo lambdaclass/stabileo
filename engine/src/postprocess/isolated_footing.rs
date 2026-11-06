@@ -165,6 +165,7 @@ pub struct BearingOut {
     pub b: AxisActionsOut,
     pub l: AxisActionsOut,
     pub uplift: bool,
+    #[serde(serialize_with = "crate::check::ser_ratio", deserialize_with = "crate::check::de_ratio")]
     pub utilization: f64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub refusal: Option<FootingRefusal>,
@@ -190,7 +191,9 @@ pub struct OneWayShearOut {
     /// Factored shear at the governing critical section (kN).
     pub vu: f64,
     /// φVc (kN); infinite when no critical section falls inside the base.
+    #[serde(serialize_with = "crate::check::ser_ratio", deserialize_with = "crate::check::de_ratio")]
     pub phi_vc: f64,
+    #[serde(serialize_with = "crate::check::ser_ratio", deserialize_with = "crate::check::de_ratio")]
     pub utilization: f64,
     /// The direction whose strips govern.
     pub direction: Direction,
@@ -232,7 +235,9 @@ pub struct PunchingOut {
     /// Shear stress on the critical perimeter (MPa).
     pub vu: f64,
     /// φvc (MPa).
+    #[serde(serialize_with = "crate::check::ser_ratio", deserialize_with = "crate::check::de_ratio")]
     pub phi_vc: f64,
+    #[serde(serialize_with = "crate::check::ser_ratio", deserialize_with = "crate::check::de_ratio")]
     pub utilization: f64,
     /// Transferred force less the soil load inside the perimeter (kN).
     pub demand_vu: f64,
@@ -486,8 +491,9 @@ fn one_way_along(f: &IsolatedFootingData, dir: &Dir, q0: f64, direction: Directi
         let phi_vc = one_way_capacity(f.fc, dir.l, f.d, rho_w);
         out.vu = vu;
         out.phi_vc = phi_vc;
-        out.utilization = if phi_vc > 0.0 { vu / phi_vc } else { f64::INFINITY };
-        out.status = if vu <= phi_vc { FootingStatus::Ok } else { FootingStatus::Fail };
+        let (utilization, status) = shear_utilization(vu, phi_vc);
+        out.utilization = utilization;
+        out.status = status;
         out.governing_side = Some(side);
         out.cantilever = a;
         out.q_section = q_sec;
@@ -579,7 +585,7 @@ pub fn check_isolated_footing(f: &IsolatedFootingData) -> IsolatedFootingResult 
     // ── Bearing, service level (13.3.1) ──
     let sb = axis_out(f.b, f.service_axial, f.service_moment_b, f.eccentricity_b);
     let sl = axis_out(f.l, f.service_axial, f.service_moment_l, f.eccentricity_l);
-    let bearing = if !(area > 0.0) || !(f.service_axial > 0.0) {
+    let bearing = if !(area > 0.0) || !(f.service_axial > 0.0) || !(f.allowable_bearing > 0.0 && f.allowable_bearing.is_finite()) {
         refusals.push(FootingRefusal::BearingInvalidInput);
         BearingOut {
             status: FootingStatus::Unsupported,
@@ -594,8 +600,21 @@ pub fn check_isolated_footing(f: &IsolatedFootingData) -> IsolatedFootingResult 
     } else {
         let q0 = f.service_axial / area;
         let (q_max, q_min, full) = extremes(q0, f.b, f.l, &sb, &sl);
-        let utilization = q_max / f.allowable_bearing;
-        if !full {
+        let bearing_ratio = crate::check::ratio(q_max, f.allowable_bearing);
+        let utilization = bearing_ratio.value().unwrap_or(f64::INFINITY);
+        if bearing_ratio.value().is_none() {
+            refusals.push(FootingRefusal::BearingInvalidInput);
+            BearingOut {
+                status: FootingStatus::Unsupported,
+                q_max: 0.0,
+                q_min: 0.0,
+                b: zero_axis(),
+                l: zero_axis(),
+                uplift: false,
+                utilization,
+                refusal: Some(FootingRefusal::BearingInvalidInput),
+            }
+        } else if !full {
             refusals.push(FootingRefusal::BearingUplift);
             BearingOut {
                 status: FootingStatus::Unsupported,
@@ -666,13 +685,13 @@ pub fn check_isolated_footing(f: &IsolatedFootingData) -> IsolatedFootingResult 
         let beta = if short > 0.0 { long / short } else { 1.0 };
         let transferred = f.factored_axial.abs();
         let load_inside = inside * enclosed;
-        let demand_vu = (transferred - load_inside).max(0.0);
+        let demand_vu = crate::check::positive_part(transferred - load_inside);
         let [a, b, c] = punching_vc(f.fc, f.d, bo, beta, f.position);
         let vc = a.min(b).min(c);
         let governed_by = if vc == a { "a" } else if vc == b { "b" } else { "c" };
         let phi_vc = PHI_SHEAR * vc;
         let vu = demand_vu / (bo * f.d) / 1000.0;
-        let utilization = if phi_vc > 0.0 { vu / phi_vc } else { f64::INFINITY };
+        let (utilization, shear_status) = shear_utilization(vu, phi_vc);
         let tol = f.moment_tolerance.unwrap_or(0.02);
         let threshold = tol * (demand_vu * f.d).max(1e-9);
         let (unbalanced_b, unbalanced_l) = if f.position == ColumnPosition::Interior {
@@ -694,7 +713,7 @@ pub fn check_isolated_footing(f: &IsolatedFootingData) -> IsolatedFootingResult 
             (FootingStatus::Unsupported, MomentTransferStatus::UnsupportedMomentTransferNotEvaluated, Some(FootingRefusal::PunchingMomentTransfer))
         } else {
             (
-                if utilization <= 1.0 { FootingStatus::Ok } else { FootingStatus::Fail },
+                shear_status,
                 if msc > 0.0 { MomentTransferStatus::Negligible } else { MomentTransferStatus::None },
                 None,
             )
@@ -748,7 +767,9 @@ pub fn check_isolated_footing(f: &IsolatedFootingData) -> IsolatedFootingResult 
     let any_fail = bearing.status == FootingStatus::Fail
         || one_way_shear.as_ref().is_some_and(|o| o.status == FootingStatus::Fail)
         || punching.as_ref().is_some_and(|p| p.status == FootingStatus::Fail);
-    let status = if !refusals.is_empty() {
+    let unsupported = one_way_shear.as_ref().is_some_and(|o| o.status == FootingStatus::Unsupported)
+        || punching.as_ref().is_some_and(|p| p.status == FootingStatus::Unsupported);
+    let status = if !refusals.is_empty() || unsupported {
         FootingStatus::Unsupported
     } else if any_fail {
         FootingStatus::Fail
@@ -771,6 +792,13 @@ pub fn check_isolated_footing(f: &IsolatedFootingData) -> IsolatedFootingResult 
         punching_load_inside_perimeter: inside,
         worst_utilization,
         refusals,
+    }
+}
+
+fn shear_utilization(vu: f64, phi_vc: f64) -> (f64, FootingStatus) {
+    match crate::check::ratio_if_loaded(vu, phi_vc) {
+        crate::check::Outcome::Ratio(r) => (r, if vu <= phi_vc { FootingStatus::Ok } else { FootingStatus::Fail }),
+        crate::check::Outcome::Unevaluated(_) => (f64::INFINITY, FootingStatus::Unsupported),
     }
 }
 

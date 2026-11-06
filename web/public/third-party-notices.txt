@@ -24,12 +24,12 @@ and build dependencies. Licence and copyright texts come from each package.
 | `@babel/runtime` | 7.29.10 | MIT |
 | `@opentelemetry/api` | 1.10.0 | Apache-2.0 |
 | `@stablelib/base64` | 1.0.1 | MIT |
-| `commander` | 8.3.0 | MIT |
+| `commander` | 15.0.0 | MIT |
 | `dxf-parser` | 1.1.2 | MIT |
 | `fast-sha256` | 1.3.0 | Unlicense |
 | `fflate` | 0.8.3 | MIT |
 | `json-schema-to-ts` | 3.1.1 | MIT |
-| `katex` | 0.16.47 | MIT |
+| `katex` | 0.19.1 | MIT |
 | `loglevel` | 1.9.2 | MIT |
 | `lz-string` | 1.5.0 | MIT |
 | `openai` | 7.47.0 | Apache-2.0 |
@@ -37,10 +37,10 @@ and build dependencies. Licence and copyright texts come from each package.
 | `robust-predicates` | 3.0.3 | Unlicense |
 | `splaytree` | 3.2.3 | MIT |
 | `standardwebhooks` | 1.1.1 | MIT |
-| `three` | 0.182.0 | MIT |
-| `three-mesh-bvh` | 0.9.9 | MIT |
+| `three` | 0.186.1 | MIT |
+| `three-mesh-bvh` | 0.9.17 | MIT |
 | `ts-algebra` | 2.0.0 | MIT |
-| `web-ifc` | 0.0.75 | MPL-2.0 |
+| `web-ifc` | 0.0.78 | MPL-2.0 |
 | `xlsx` | 0.20.3 | Apache-2.0 |
 
 ---
@@ -549,7 +549,7 @@ SOFTWARE.
 
 ---
 
-## commander 8.3.0
+## commander 15.0.0
 
 - **Licence:** MIT
 - **Source:** https://github.com/tj/commander.js
@@ -731,7 +731,7 @@ SOFTWARE.
 
 ---
 
-## katex 0.16.47
+## katex 0.19.1
 
 - **Licence:** MIT
 - **Homepage:** https://katex.org
@@ -1188,7 +1188,7 @@ THE SOFTWARE.
 
 ---
 
-## three 0.182.0
+## three 0.186.1
 
 - **Licence:** MIT
 - **Homepage:** https://threejs.org/
@@ -1199,7 +1199,7 @@ THE SOFTWARE.
 ```
 The MIT License
 
-Copyright © 2010-2025 three.js authors
+Copyright © 2010-2026 three.js authors
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -1224,7 +1224,7 @@ THE SOFTWARE.
 
 ---
 
-## three-mesh-bvh 0.9.9
+## three-mesh-bvh 0.9.17
 
 - **Licence:** MIT
 - **Homepage:** https://github.com/gkjohnson/three-mesh-bvh#readme
@@ -1296,7 +1296,7 @@ SOFTWARE.
 
 ---
 
-## web-ifc 0.0.75
+## web-ifc 0.0.78
 
 - **Licence:** MPL-2.0
 - **Source:** https://github.com/ThatOpen/engine_web-ifc

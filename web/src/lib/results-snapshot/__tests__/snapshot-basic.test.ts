@@ -4,4 +4,6 @@ import { initSolver } from '../../engine/wasm-solver';
 import { runGroup } from '../run-group';
 
 beforeAll(async () => { await initSolver(); });
-runGroup('basic');
+runGroup('basic', {
+  '3d-torsion-beam': [],
+});

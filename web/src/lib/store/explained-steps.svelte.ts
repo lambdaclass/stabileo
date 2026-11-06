@@ -10,10 +10,25 @@ import { modelStore } from './model.svelte';
 import { uiStore } from './ui.svelte';
 import type { StepDoc, Txt } from '../engine/steps/doc';
 import { tx } from '../engine/steps/doc';
-import { planeModel } from '../engine/steps/plane-model';
-import { solveReference } from '../engine/steps/reference';
-import type { MethodContext } from '../engine/steps/registry';
-import { methodById } from '../engine/steps/methods';
+import type { MethodContext, ExplainedMethod } from '../engine/steps/registry';
+import type { planeModel } from '../engine/steps/plane-model';
+import type { solveReference } from '../engine/steps/reference';
+import { loadCourse } from '../course/load-course';
+import { fmChoice } from './fm-choice.svelte';
+
+interface CourseMethods {
+  methodById: (id: string) => ExplainedMethod | undefined;
+  planeModel: typeof planeModel;
+  solveReference: typeof solveReference;
+}
+
+let course: CourseMethods | null = null;
+
+export function installCourse(c: CourseMethods): void {
+  course = c;
+}
+
+const methodById = (id: string) => course?.methodById(id);
 
 type View = 'catalog' | 'doc';
 
@@ -26,21 +41,34 @@ let builtWithSelfWeight = $state(false);
 let step = $state(0);
 /** A wizard was opened from the catalog: closing it returns there. */
 let returnToCatalog = $state(false);
+/** A document opened from an analysis rather than the catalog: going back closes it, back to that analysis. */
+let fromTool = $state(false);
 
 /** The reader's choices of each method's assumptions, by method id (kept while the session lasts). */
 let options = $state<Record<string, Record<string, boolean>>>({});
+/** What the reader chose to compute, by method id. */
+let params = $state<Record<string, Record<string, string>>>({});
 
 /** The model as the methods read it, or null when there is nothing to read. */
 export function methodContext(methodId?: string): MethodContext | null {
   const input = modelStore.buildSolverInput(uiStore.includeSelfWeight);
-  if (!input || input.elements.size === 0) return null;
+  if (!course || !input || input.elements.size === 0) return null;
   return {
     input,
-    pm: planeModel(input),
-    ref: solveReference(input),
+    pm: course.planeModel(input),
+    ref: course.solveReference(input),
     selection: { members: [...uiStore.selectedElements], nodes: [...uiStore.selectedNodes] },
     options: { ...(methodId ? optionsOf(methodId) : {}) },
+    params: { ...(methodId ? paramsOf(methodId) : {}) },
+    fundamental: fmChoice.releasesFor(modelStore.modelVersion),
+    model: modelStore.model,
   };
+}
+
+function paramsOf(id: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const q of methodById(id)?.params ?? []) out[q.id] = params[id]?.[q.id] ?? q.default;
+  return out;
 }
 
 /** A method's assumptions: each as the reader set it, else its default. */
@@ -87,7 +115,11 @@ export const explainedSteps = {
   get returnToCatalog() { return returnToCatalog; },
   /** A wizard is being opened from the catalog (the catalog itself closes). */
   leaveForWizard(): void { view = null; methodId = null; doc = null; error = null; returnToCatalog = true; },
-  openMethod(id: string): void { methodId = id; view = 'doc'; build(id); },
+  openMethod(id: string, opener: 'catalog' | 'tool' = 'catalog'): void {
+    fromTool = opener === 'tool'; methodId = id; view = 'doc'; doc = null; error = null;
+    if (course) { build(id); return; }
+    loadCourse().then(() => { if (methodId === id && view === 'doc') build(id); }, () => { if (methodId === id) error = tx('steps.view.failed'); });
+  },
   refresh(): void { if (methodId) build(methodId); },
   /** The open method's assumptions, as shown over its document. */
   get options(): Record<string, boolean> { return methodId ? optionsOf(methodId) : {}; },
@@ -99,6 +131,17 @@ export const explainedSteps = {
     build(methodId);
     this.step = keep;
   },
-  back(): void { this.openCatalog(); },
-  close(): void { view = null; methodId = null; doc = null; error = null; returnToCatalog = false; },
+  /** What the open method computes, as shown over its document. */
+  get params(): Record<string, string> { return methodId ? paramsOf(methodId) : {}; },
+  /** Change what the open method computes; the document is rebuilt on the same step. */
+  setParam(id: string, value: string): void {
+    if (!methodId) return;
+    params = { ...params, [methodId]: { ...(params[methodId] ?? {}), [id]: value } };
+    const keep = step;
+    build(methodId);
+    this.step = keep;
+  },
+  back(): void { if (fromTool) this.close(); else this.openCatalog(); },
+  get fromTool() { return fromTool; },
+  close(): void { view = null; methodId = null; doc = null; error = null; returnToCatalog = false; fromTool = false; },
 };

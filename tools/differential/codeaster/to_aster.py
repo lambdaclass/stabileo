@@ -278,6 +278,26 @@ def check_supported(d):
     return sorted(set(why))
 
 
+def unimposed_settlements(d):
+    """(support key, DOF name) of every nonzero prescribed displacement that no
+    rigid restraint carries: an unflagged DOF, a DOF a positive spring frees, or
+    a rotation an inclined support leaves free. `translate` drops these, so
+    Code_Aster solves the model without them; the engine refuses them (AC-10).
+    Translations of an inclined support are not listed: `translate` raises
+    Unsupported for a settlement there."""
+    out = []
+    for key, s in d["supports"].items():
+        normal = [s.get(k) for k in ("normalX", "normalY", "normalZ")]
+        inclined = bool(s.get("isInclined")) and None not in normal and _norm(normal) > 1e-12
+        for k in range(6):
+            v = s.get(PRESC[k])
+            if v is None or abs(v) <= 1e-15 or (inclined and k < 3):
+                continue
+            if not s.get(FLAGS[k]) or (not inclined and (s.get(SPRINGS[k]) or 0.0) > 0):
+                out.append((str(key), PRESC[k]))
+    return sorted(out)
+
+
 def translate(d):
     why = check_supported(d)
     if why:
@@ -287,6 +307,8 @@ def translate(d):
     mats = {x["id"]: x for x in d["materials"].values()}
     secs = {x["id"]: x for x in d["sections"].values()}
     elems = sorted(d["elements"].values(), key=lambda e: e["id"])
+    if not elems:
+        raise Unsupported("no members")
     for nid in sorted(pts):
         m.node(f"N{nid}", pts[nid])
     extra = [0]
@@ -844,7 +866,10 @@ def _constraint_rows(d, pts):
       rigidLink   u_s = u_m + th_m x r (dofs listed; default translations),
                   rotations listed: th_s = th_m; r = x_s - x_m
       diaphragm   in-plane translations of each slave follow the master's
-                  in-plane rigid motion (slave rotation is NOT tied)
+                  in-plane rigid motion, theta x r (right-handed: XY about z,
+                  YZ about x, XZ about y), and the slave's in-plane rotation
+                  equals the master's (a rigid floor turns as one body; the
+                  engine ties it since 89bed56b4, as SAP2000/OpenSees do)
       equalDOF    u_s,k = u_m,k
       linearMPC   sum c_i u_i = 0
       eccentricConnection  rigidLink with an explicit offset, every DOF not
@@ -883,14 +908,16 @@ def _constraint_rows(d, pts):
         elif t == "linearMPC":
             rows.append([(tm["nodeId"], tm["dof"], tm["coefficient"]) for tm in x["terms"]])
         elif t == "diaphragm":
-            plane = x.get("plane", "XY")
-            d0, d1, dr, i0, i1 = {"XZ": (0, 2, 4, 0, 2), "YZ": (1, 2, 3, 1, 2)}.get(plane, (0, 1, 5, 0, 1))
+            plane = (x.get("plane") or "XY").upper()
+            d0, d1, dr = {"XZ": (0, 2, 4), "YZ": (1, 2, 3)}.get(plane, (0, 1, 5))
             ms = x["masterNode"]
             for sl in x["slaveNodes"]:
-                o0 = pts[sl][i0] - pts[ms][i0]
-                o1 = pts[sl][i1] - pts[ms][i1]
-                rows.append([t_ for t_ in [(sl, d0, 1.0), (ms, d0, -1.0), (ms, dr, o1)] if abs(t_[2]) > 1e-15])
-                rows.append([t_ for t_ in [(sl, d1, 1.0), (ms, d1, -1.0), (ms, dr, -o0)] if abs(t_[2]) > 1e-15])
+                dx, dy, dz = (pts[sl][k] - pts[ms][k] for k in range(3))
+                # u_slave = u_master + c * theta_master (constraints.rs, diaphragm_lever)
+                c0, c1 = {"XZ": (dz, -dx), "YZ": (-dz, dy)}.get(plane, (-dy, dx))
+                rows.append([t_ for t_ in [(sl, d0, 1.0), (ms, d0, -1.0), (ms, dr, -c0)] if abs(t_[2]) > 1e-15])
+                rows.append([t_ for t_ in [(sl, d1, 1.0), (ms, d1, -1.0), (ms, dr, -c1)] if abs(t_[2]) > 1e-15])
+                rows.append([(sl, dr, 1.0), (ms, dr, -1.0)])
         else:
             raise Unsupported(f"constraint {t}")
     return rows

@@ -12,6 +12,8 @@ import { modelStore, historyStore, uiStore } from '../../store';
 import { setLocale, t } from '../../i18n';
 import { solvePDelta, solveBuckling, solveModal, solvePDelta3D, solveBuckling3D, solveModal3D, isSolverReady } from '../wasm-solver';
 import { runPlasticCollapse } from '../../actions/plastic';
+import { refusedWithCode } from '../containment-error';
+import { engineLambda1 } from '../second-order/run-pdelta';
 import { analyzeKinematics as analyzeKinematics2D } from '../kinematic-2d';
 import { restrainOrphanRotations2D } from '../orphan-rotations-2d';
 import { exactOrphanRotations3D } from '../orphan-rotations-3d';
@@ -29,6 +31,7 @@ afterAll(() => { quiet.forEach((s) => s.mockRestore()); });
 
 const errMsg = (e: unknown): string => typeof e === 'string' ? e : String((e as { message?: unknown })?.message ?? e);
 const thrown = (f: () => unknown): string | null => { try { f(); return null; } catch (e) { return errMsg(e); } };
+const caught = (f: () => unknown): unknown => { try { f(); return null; } catch (e) { return e; } };
 
 // ── 2D model building ───────────────────────────────────────────────
 
@@ -72,7 +75,7 @@ describe('2D D15 — P-Δ, buckling, modal and plastic refuse what the static so
     expect(thrown(() => solvePDelta(input))).toBe(expected);
     expect(thrown(() => solveBuckling(input))).toBe(expected);
     expect(thrown(() => solveModal(input, densities()))).toBe(expected);
-    expect(thrown(() => runPlasticCollapse())).toBe(expected);
+    expect(thrown(() => runPlasticCollapse())).toContain('#758');
   });
 });
 
@@ -120,11 +123,13 @@ describe('2D D9 — a model without loads', () => {
   });
   it('plastic collapse says there is nothing to collapse under', () => {
     build2D(unloaded);
-    expect(thrown(() => runPlasticCollapse())).toBe(t('advanced.plasticNoLoads'));
+    expect(thrown(() => runPlasticCollapse())).toContain('#758');
   });
   it('buckling still says no bar is compressed, and modal runs', () => {
     build2D(unloaded);
     expect(thrown(() => solveBuckling(input2D()))).toMatch(/no compressed elements/i);
+    expect(refusedWithCode(caught(() => solveBuckling(input2D())), 'no_compressed_elements')).toBe(true);
+    expect(engineLambda1(input2D())).toBe(Infinity);
     expect(solveModal(input2D(), densities()).modes.length).toBeGreaterThan(0);
   });
 });
@@ -140,6 +145,7 @@ describe('2D D11 — every degree of freedom restrained', () => {
     expect(thrown(() => solveModal(input2D(), densities()))).toBe(t('advanced.noFreeDofsModal'));
     // Nothing compressed: the usual answer.
     expect(thrown(() => solveBuckling(input2D()))).toMatch(/no compressed elements/i);
+    expect(refusedWithCode(caught(() => solveBuckling(input2D())), 'no_compressed_elements')).toBe(true);
   });
   it('compressed, buckling says nothing is free to buckle', () => {
     build2D(() => { const a = N(0, 0), b = N(5, 0); const e = E(a, b); modelStore.addSupport(a, 'fixed'); modelStore.addSupport(b, 'fixed'); modelStore.addThermalLoad(e, 30, 0); });
@@ -404,8 +410,12 @@ describe('3D — a mechanism the static solve accepts: its zero modes are discar
     buildRandom('hinged-frame', 10);
     expect(typeof staticSolve3D()).toBe('object');
     const input = input3D();
-    // Modal: the engine's own cut drops a zero frequency; none reaches the result.
-    expect(solveModal3D(input, densities()).modes.every((q: { frequency: number }) => q.frequency > 1e-3)).toBe(true);
+    const modal = solveModal3D(input, densities());
+    expect(modal.modes.every((q: { frequency: number }) => q.frequency > 1e-3)).toBe(true);
+    const column = new Set([...input.elements.values()].filter((e) => e.nodeI === 11 || e.nodeJ === 11).flatMap((e) => [e.nodeI, e.nodeJ]));
+    const spin = modal.discardedModes.filter((d: { value: number; dof: string }) => Math.abs(d.value) < 1e-3 && d.dof === 'rz');
+    expect(spin).toHaveLength(1);
+    expect(column.has(spin[0].nodeId)).toBe(true);
     // Buckling: the spin is held for the analysis and named, instead of a failed decomposition.
     const bk = solveBuckling3D(input);
     expect(bk.modes.every((q: { loadFactor: number }) => q.loadFactor > 0)).toBe(true);
@@ -428,7 +438,7 @@ describe('2D — a moment on a node nothing there can turn against is refused, n
     expect(thrown(() => solvePDelta(input))).toBe(msg(3));
     expect(thrown(() => solveBuckling(input))).toBe(msg(3));
     expect(thrown(() => solveModal(input, densities()))).toBe(msg(3));
-    expect(thrown(() => runPlasticCollapse())).toBe(msg(3));
+    expect(thrown(() => runPlasticCollapse())).toContain('#758');
   });
 
   it('on a joint where every frame end is hinged', () => {

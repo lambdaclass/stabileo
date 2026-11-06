@@ -65,7 +65,7 @@ fn partial_triangle_survives_combination_and_diagram_recovery() {
         }],
         &[(1, &r)],
     )
-    .unwrap();
+    .unwrap().unwrap();
     close(
         evaluate_diagram_3d_at(&c.element_forces[0], "axial", 0.5),
         -9.,

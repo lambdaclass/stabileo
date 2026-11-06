@@ -1,0 +1,66 @@
+name: Route size
+
+# Weekly: measures the landing and /app footprints on main against web/scripts/route-size-ceilings.json.
+# A route over its ceiling opens (or comments on) one open `route-size` issue. Pull requests only
+# report their growth (research.yml, route-size job); no PR fails for size.
+
+on:
+  schedule:
+    - cron: '41 7 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: route-size
+  cancel-in-progress: false
+
+jobs:
+  ceiling:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          filter: blob:none
+      - uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
+        continue-on-error: true
+      - uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+        continue-on-error: true
+        with:
+          use-flakehub: false
+      - name: Prepare Nix shell (infrastructure retries)
+        run: .github/scripts/retry-infra.sh nix develop --command true
+      - name: Measure against the ceilings
+        id: measure
+        run: |
+          .github/scripts/retry-infra.sh nix develop . -c sh -c 'cd web && npm ci'
+          if nix develop . -c sh -c "cd web && node scripts/check-research-route-size.mjs --ceiling scripts/route-size-ceilings.json --report '$RUNNER_TEMP/over.md'"; then
+            echo over=false >> "$GITHUB_OUTPUT"
+          else
+            test -s "$RUNNER_TEMP/over.md"
+            echo over=true >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.measure.outputs.over == 'true'
+        uses: actions/github-script@d746ffe35508b1917358783b479e04febd2b8f71 # v9.0.0
+        env:
+          REPORT: ${{ runner.temp }}/over.md
+        with:
+          script: |
+            const fs = require('fs');
+            const run = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body = `The weekly route-size check (${run}) found routes over their ceilings in \`web/scripts/route-size-ceilings.json\`:\n\n${fs.readFileSync(process.env.REPORT, 'utf8')}\nShrink the routes, or raise the ceiling in a reviewed change if the growth is wanted.`;
+            const label = 'route-size';
+            try { await github.rest.issues.createLabel({ ...context.repo, name: label, color: 'fbca04' }); } catch (e) { if (e.status !== 422) throw e; }
+            const open = await github.rest.issues.listForRepo({ ...context.repo, labels: label, state: 'open', per_page: 1 });
+            if (open.data.length) {
+              await github.rest.issues.createComment({ ...context.repo, issue_number: open.data[0].number, body });
+            } else {
+              await github.rest.issues.create({ ...context.repo, title: 'Page size over its ceiling', labels: [label], assignees: [...require('./.github/scripts/issue-assignees.cjs')], body });
+            }

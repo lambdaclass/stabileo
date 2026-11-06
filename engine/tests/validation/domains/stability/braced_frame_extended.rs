@@ -196,7 +196,7 @@ fn validation_braced_frame_column_overturning_forces() {
 
     // Vertical reactions should form a couple
     // Sum should be ~0 (no net vertical load)
-    assert_close(ry_left + ry_right, 0.0, 0.05, "Overturning: SumRy ~ 0");
+    assert_close_abs(ry_left + ry_right, 0.0, 0.05, 1e-6, "Overturning: SumRy ~ 0");
 
     // Each vertical reaction magnitude ~ P*h/w
     assert_close(
@@ -368,7 +368,7 @@ fn validation_braced_frame_distributed_gravity() {
 
     // No horizontal load => horizontal reactions should sum to zero
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
-    assert_close(sum_rx, 0.0, 0.05, "Distributed gravity: SumRx ~ 0");
+    assert_close_abs(sum_rx, 0.0, 0.05, 1e-6, "Distributed gravity: SumRx ~ 0");
 
     // Beam should develop midspan moment. For a beam with fixed ends,
     // M_midspan ~ qL^2/24 (fixed-fixed) or qL^2/8 (simply-supported).

@@ -71,7 +71,7 @@ function createRegulationsStore() {
   const currentRevisions = (): RevisionVector => modelStore.model.revisions ?? emptyRevisions();
 
   function writeRoles(next: ProjectRegulations, settingsByCode = stored().settingsByCode): void {
-    modelStore.model.regulations = { version: REGULATIONS_SCHEMA_VERSION, roles: next, ...(settingsByCode ? { settingsByCode } : {}) };
+    modelStore.model.regulations = { version: REGULATIONS_SCHEMA_VERSION, roles: next, ...(settingsByCode && Object.keys(settingsByCode).length ? { settingsByCode } : {}) };
   }
   function writeRevisions(next: RevisionVector): void {
     modelStore.model.revisions = next;

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from './Hint.svelte';
   /**
    * The calculation report, as PDF, Word or HTML (the results as data are the Results export): who
    * it is from, what it carries and how its figures look.
@@ -8,8 +9,9 @@
    * table, its figures or both; the figures are drawn from the model (`pro/report-export.ts`),
    * and figures added from the view still go at the end.
    */
+  import { untrack } from 'svelte';
   import { proNav } from '../../lib/store/pro-nav.svelte';
-  import { modelStore } from '../../lib/store';
+  import { modelStore, resultsStore } from '../../lib/store';
   import { t, tp } from '../../lib/i18n';
   import ExportDialog from '../export/ExportDialog.svelte';
   import ExportSection from '../export/ExportSection.svelte';
@@ -23,6 +25,7 @@
   import { captureFigure } from '../../lib/export/figure';
   import CheckGroup from './export/CheckGroup.svelte';
   import type { ReportFormat } from '../../lib/export/report-formats';
+  import { defaultReportSetKey, resultSetChoices, screenSetKey } from '../../lib/pro/export-results';
 
   interface Props {
     open: boolean;
@@ -70,6 +73,14 @@
   });
   let modes = $state<Record<ReportResult, ResultMode>>({ reactions: 'both', displacements: 'both', forces: 'both', shells: 'both', ...(saved.modes ?? {}) });
   let figs = $state<ReportFigureChoices>({ style: 'color', values: true, view: 'screen', shellComponent: 'vonMises', ...(saved.figures ?? {}) });
+  const setChoices = $derived(open && hasResults ? resultSetChoices() : []);
+  let resultSetKey = $state('screen');
+  let wasOpen = false;
+  $effect(() => {
+    if (open && !wasOpen) resultSetKey = untrack(defaultReportSetKey);
+    wasOpen = open;
+  });
+  const sumChosen = $derived(resultSetKey === 'screen' && resultsStore.activeView === 'single' && resultsStore.activeCaseId === null && resultsStore.perCase3D.size > 1);
   /** Which advanced analyses to print, of the ones that ran. */
   let advancedPicked = $state<Record<string, boolean>>({});
 
@@ -187,6 +198,7 @@
         storyDrift: sec.storyDrift && hasDrift,
       },
       resultModes: $state.snapshot(modes),
+      resultSetKey: resultSetKey === 'screen' ? screenSetKey() : resultSetKey,
     }, $state.snapshot(figs), format);
   }
 </script>
@@ -196,7 +208,7 @@
     <div class="xs-seg">
       {#each FORMATS as f (f)}<button type="button" class:on={format === f} aria-pressed={format === f} onclick={() => (format = f)} data-testid={`rpt-format-${f}`}>{t(`proReport.format.${f}`)}</button>{/each}
     </div>
-    <p class="xs-note">{t(`proReport.formatNote.${format}`)}</p>
+    <Hint class="xs-note" text={t(`proReport.formatNote.${format}`)} />
   </ExportSection>
   <ExportSection title={t('proReport.letterhead')} summary={projectSummary} open={hasProjectInfo} testid="rpt-project">
     <div class="rpt-logo-row">
@@ -236,6 +248,15 @@
             <input type="checkbox" bind:checked={sec.results} onchange={persist} disabled={!hasResults} />
             <span>{t('proReport.results')}</span>
           </label>
+          {#if setChoices.length > 1}
+            <label class="rpt-row rpt-row-set" class:off={!sec.results}>
+              <span>{t('proReport.resultSet')}</span>
+              <select bind:value={resultSetKey} disabled={!sec.results} data-testid="rpt-result-set">
+                {#each setChoices as c (c.key)}<option value={c.key}>{c.label}</option>{/each}
+              </select>
+            </label>
+            {#if sumChosen}<p class="xs-note rpt-sum-note" data-testid="rpt-sum-note">{t('proReport.resultSetSumNote')}</p>{:else}<Hint class="xs-note" text={t('proReport.resultSetHint')} />{/if}
+          {/if}
           {#each resultsShown as r (r.id)}
             <label class="rpt-row" class:off={!sec.results || !hasResults}>
               <span>{t(r.key)}</span>
@@ -252,6 +273,7 @@
               </label>
             {/if}
           {/each}
+          {#if hasResults && sec.results}<Hint class="xs-note" text={t('proReport.modesHint')} />{/if}
         </div>
         <CheckGroup title={t('proReport.advanced')} items={advItems}
           on={(id) => sec.advancedAnalysis && (advancedPicked[id] ?? true)}
@@ -280,7 +302,7 @@
       </select>
     </label>
     <label class="xs-check"><input type="checkbox" bind:checked={figs.values} onchange={persist} />{t('viewExport.optValuesLong')}</label>
-    <p class="xs-note">{t('proReport.figuresNote')}</p>
+    <Hint class="xs-note" text={t('proReport.figuresNote')} />
 
     <label class="xs-check"><input type="checkbox" bind:checked={sec.figures} onchange={persist} />{t('proReport.addedFigures')} ({reportFigures.list.length})</label>
     <div>
@@ -295,7 +317,7 @@
         <button type="button" class="rpt-small" onclick={() => reportFigures.remove(f.id)} aria-label={t('report.removeFigure')}>×</button>
       </div>
     {/each}
-    <p class="xs-note">{t('report.figuresHint')}</p>
+    <Hint class="xs-note" text={t('report.figuresHint')} />
   </ExportSection>
 
   {#snippet actions()}
@@ -314,6 +336,8 @@
   .rpt-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-left: 20px; color: var(--st-text-2); font-size: 0.78rem; }
   .rpt-row.off { opacity: 0.5; }
   .rpt-row-sub { padding-left: 32px; color: var(--st-text-3); }
+  .rpt-sum-note { padding-left: 20px; margin: 0; color: var(--st-warn); }
+  .rpt-row.rpt-row-set select { width: 14em; max-width: 60%; }
   .rpt-row select { flex: none; width: 9.5em; padding: 2px 4px; background: var(--st-surface-2); border: 1px solid var(--st-hair-strong); border-radius: var(--st-radius); color: var(--st-text); font: inherit; }
   .xs-seg { justify-self: start; align-self: flex-start; }
   .rpt-logo-row { display: flex; align-items: center; gap: 8px; color: var(--st-text-2); }

@@ -1,0 +1,195 @@
+#!/usr/bin/env python3
+import json
+from pathlib import Path
+import re
+import subprocess
+import sys
+
+# TRIAGE: a reported wrong result whose cause (model setup or engine) is not yet confirmed;
+# it gets WARN/REFUSE within 24 h of confirmation.
+MODES = {'WARN', 'REFUSE', 'SCOPE', 'CORRECTED', 'PARTIAL', 'TRIAGE'}
+
+
+def decisions(text):
+    recorded = {}
+    for line in text.splitlines():
+        if not line.startswith('| #'):
+            continue
+        cells = [cell.strip() for cell in line.split('|')[1:-1]]
+        if len(cells) != 5 or not re.fullmatch(r'#\d+(?:, #\d+)*', cells[0]):
+            raise ValueError(f'Invalid containment row: {line}')
+        numbers = [int(n.strip()[1:]) for n in cells[0].split(',')]
+        modes = set(cells[2].split(' / '))
+        if any(number <= 0 or number in recorded for number in numbers) or not modes or not modes <= MODES:
+            raise ValueError(f'Invalid or duplicate containment decision: {line}')
+        active = bool(modes & {'WARN', 'REFUSE'})
+        if active and not re.fullmatch(r'`[^`]+`(?: / `[^`]+`)*', cells[1]):
+            raise ValueError(f'Missing containment id: {line}')
+        for number in numbers:
+            recorded[number] = modes
+    if not recorded:
+        raise ValueError('Empty containment ledger')
+    return recorded
+
+
+def audit(recorded, issues):
+    indexed = {}
+    for issue in issues:
+        if not isinstance(issue, dict) or type(issue.get('number')) is not int or issue['number'] <= 0 or issue.get('state') not in ('open', 'closed') or not isinstance(issue.get('labels'), list):
+            raise ValueError('Invalid issue response')
+        if not all(isinstance(label, dict) and isinstance(label.get('name'), str) for label in issue['labels']):
+            raise ValueError('Invalid issue labels')
+        if issue['number'] in indexed:
+            raise ValueError('Duplicate issue response')
+        if 'pull_request' not in issue:
+            indexed[issue['number']] = issue
+    problems = []
+    for number, issue in indexed.items():
+        if issue['state'] == 'open' and any(label.get('name') == 'safety' for label in issue['labels']) and (number not in recorded or 'TRIAGE' in recorded[number]):
+            problems.append(f'#{number}: no completed containment decision')
+    for number, modes in recorded.items():
+        if modes & {'WARN', 'REFUSE'}:
+            if number not in indexed:
+                problems.append(f'#{number}: active containment issue missing from response')
+            elif indexed[number]['state'] == 'closed':
+                problems.append(f'#{number}: CLOSED issue still has active containment')
+    return problems
+
+
+CLOSING = re.compile(r'\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\b:?\s+(?:(?:lambdaclass/stabileo)?#|https?://github\.com/lambdaclass/stabileo/issues/)(\d+)\b', re.IGNORECASE)
+QUEUED_PR = re.compile(r'^Merge pull request #(\d+) from ', re.MULTILINE)
+REPORT_TITLE = 'Safety containment audit: open safety issues without a decision'
+LEDGER = 'docs/verification/CONTAINMENT.md'
+ASSIGNEES = 'unbalancedparentheses,Batuis'
+
+
+def closed_by(texts):
+    return sorted({int(n) for text in texts for n in CLOSING.findall(text or '')})
+
+
+def contained_ids(text):
+    ids = {}
+    for line in text.splitlines():
+        if line.startswith('| #'):
+            cells = [cell.strip() for cell in line.split('|')[1:-1]]
+            for n in cells[0].split(','):
+                ids[int(n.strip()[1:])] = set(re.findall(r'`([^`]+)`', cells[1]))
+    return ids
+
+
+def change_problems(base, head, closes, base_ids=None, head_ids=None):
+    base_ids, head_ids = base_ids or {}, head_ids or {}
+    problems = [f'#{n}: its containment row was removed' for n in sorted(set(base) - set(head))]
+    for n in sorted(set(base) & set(head)):
+        if not base[n] & {'WARN', 'REFUSE'} or 'CORRECTED' in head[n]:
+            continue
+        dropped = base_ids.get(n, set()) - head_ids.get(n, set())
+        if not head[n] & {'WARN', 'REFUSE'}:
+            problems.append(f'#{n}: an active row became {" / ".join(sorted(head[n]))} without CORRECTED')
+        elif dropped:
+            problems.append(f'#{n}: {", ".join(sorted(dropped))} dropped while the row stays active without CORRECTED')
+    for n in closes:
+        if n in head and head[n] & {'WARN', 'REFUSE', 'TRIAGE'}:
+            problems.append(f'#{n}: closed by this change while its row is {" / ".join(sorted(head[n]))}')
+    return problems
+
+
+def report_body(problems):
+    lines = ['Open safety issues need a completed decision in docs/verification/CONTAINMENT.md, and an issue with an active (WARN/REFUSE) row must stay open.', '']
+    return '\n'.join(lines + [f'- {p}' for p in problems]) + '\n'
+
+
+def git(*args):
+    return subprocess.run(['git', *args], check=True, capture_output=True, text=True).stdout
+
+
+def queued_pull_requests(log):
+    return sorted({int(n) for n in QUEUED_PR.findall(log)})
+
+
+PR_QUERY = 'query($n:Int!){repository(owner:"lambdaclass",name:"stabileo"){pullRequest(number:$n){title body closingIssuesReferences(first:100){nodes{number}} linked:closingIssuesReferences(first:100,userLinkedOnly:true){nodes{number}}}}}'
+QUEUE_HEAD = re.compile(r'^refs/heads/gh-readonly-queue/[^/]+/pr-(\d+)-[0-9a-f]+$')
+
+
+def pull_request_closes(number):
+    out = subprocess.run(['gh', 'api', 'graphql', '-f', f'query={PR_QUERY}', '-F', f'n={number}'], check=True, capture_output=True, text=True).stdout
+    pr = json.loads(out)['data']['repository']['pullRequest']
+    return sorted(set(closed_by([pr['title'], pr['body']])) | {i['number'] for key in ('closingIssuesReferences', 'linked') for i in pr[key]['nodes']})
+
+
+def pull_requests_of(event, log):
+    if event.get('pull_request'):
+        return [event['pull_request']['number']]
+    if event.get('merge_group'):
+        last = QUEUE_HEAD.match(event['merge_group'].get('head_ref', ''))
+        if not last:
+            raise ValueError(f'Cannot tell which pull request this merge group queues: {event["merge_group"].get("head_ref")!r}')
+        return sorted(set(queued_pull_requests(log)) | {int(last.group(1))})
+    return []
+
+
+def check_change(base_ref, event_path):
+    root = Path(__file__).resolve().parents[1]
+    text = (root / LEDGER).read_text()
+    head, head_ids = decisions(text), contained_ids(text)
+    listed = git('-C', str(root), 'ls-tree', '--name-only', base_ref, '--', LEDGER)
+    base_text = git('-C', str(root), 'show', f'{base_ref}:{LEDGER}') if listed.strip() else ''
+    base, base_ids = (decisions(base_text), contained_ids(base_text)) if base_text else ({}, {})
+    log = git('-C', str(root), 'log', '--format=%B', f'{base_ref}..HEAD')
+    event = json.loads(Path(event_path).read_text()) if event_path else {}
+    closes = set(closed_by([log]))
+    for number in pull_requests_of(event, log):
+        closes |= set(pull_request_closes(number))
+    return change_problems(base, head, sorted(closes), base_ids, head_ids)
+
+
+def live_issues():
+    result = subprocess.run(
+        ['gh', 'api', '--paginate', '--slurp',
+         'repos/lambdaclass/stabileo/issues?state=all&per_page=100'],
+        check=True, capture_output=True, text=True,
+    )
+    pages = json.loads(result.stdout)
+    if not isinstance(pages, list) or not all(isinstance(page, list) for page in pages):
+        raise ValueError('Invalid paginated issue response')
+    return [issue for page in pages for issue in page]
+
+
+def file_report(problems):
+    found = json.loads(subprocess.run(
+        ['gh', 'issue', 'list', '--repo', 'lambdaclass/stabileo', '--state', 'open', '--search', f'in:title "{REPORT_TITLE}"', '--json', 'number,title'],
+        check=True, capture_output=True, text=True).stdout)
+    reports = sorted(i['number'] for i in found if i['title'] == REPORT_TITLE)
+    if problems and reports:
+        subprocess.run(['gh', 'issue', 'edit', str(reports[0]), '--repo', 'lambdaclass/stabileo', '--body', report_body(problems), '--add-assignee', ASSIGNEES], check=True)
+    elif problems:
+        subprocess.run(['gh', 'issue', 'create', '--repo', 'lambdaclass/stabileo', '--title', REPORT_TITLE, '--body', report_body(problems), '--assignee', ASSIGNEES], check=True)
+    for number in reports[1:] if problems else reports:
+        comment = 'Superseded by an older report issue.' if problems else 'Every open safety issue has a decision again.'
+        subprocess.run(['gh', 'issue', 'close', str(number), '--repo', 'lambdaclass/stabileo', '--comment', comment], check=True)
+
+
+def main():
+    import argparse
+    parser = argparse.ArgumentParser(description='Without --live: checks the ledger and what this change does to it, never the issue list. With --live: audits the ledger against the issue list.')
+    parser.add_argument('--base', default='origin/main', help='commit the change is measured against')
+    parser.add_argument('--event', help='GitHub event JSON; a pull request title and body are scanned for closing keywords')
+    parser.add_argument('--live', action='store_true')
+    parser.add_argument('--file-issue', action='store_true', help='with --live: open, update or close the report issue')
+    args = parser.parse_args()
+    if args.live:
+        recorded = decisions((Path(__file__).resolve().parents[1] / LEDGER).read_text())
+        problems = audit(recorded, live_issues())
+        if args.file_issue:
+            file_report(problems)
+    else:
+        problems = check_change(args.base, args.event)
+    for problem in problems:
+        print(problem)
+    if not problems:
+        print('Containment ledger consistent.')
+    return bool(problems) and not args.file_issue
+
+
+if __name__ == '__main__':
+    sys.exit(main())

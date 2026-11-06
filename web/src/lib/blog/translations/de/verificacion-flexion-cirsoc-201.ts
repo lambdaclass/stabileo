@@ -212,7 +212,7 @@ const body: PostBody = {
       "k": "embed",
       "mode": "pro",
       "query": "example=rc-beam-flexure&proTab=design",
-      "label": "Der Balken in Stabileo, im Bemessungsablauf von PRO. Ist die Bemessung ausgeschaltet, klicken Sie im Hinweis auf „Bemessung für diesen Besuch einschalten“. Drei Schaltflächen, in dieser Reihenfolge: „Schnittgrößen ermitteln“, „Erforderliche Bewehrung berechnen“ und „Bemessen…“. Erst die dritte wählt die Stäbe, und solange es keine Stäbe gibt, gibt es nichts nachzuweisen: Die Tabelle zeigt „keine Bewehrung“. Das Feld von 5 m ist mit zwei Elementen modelliert; beide schließen mit einer Ausnutzung D/C = 0,90 ab, maßgebend ist die Querkraft im Feld: Biegung und Verankerung der Stäbe bleiben darunter. Ändern Sie die Last und berechnen Sie erneut. PRO befindet sich in Entwicklung; das Betonmodul ist der Teil, der implementiert und getestet ist."
+      "label": "Der Balken in Stabileo, im Bemessungsablauf von PRO. Ist die Bemessung ausgeschaltet, klicken Sie im Hinweis auf „Bemessung für diesen Besuch einschalten“. Drei Schaltflächen, in dieser Reihenfolge: „Schnittgrößen ermitteln“, „Erforderliche Bewehrung berechnen“ und „Bemessen…“. Erst die dritte wählt die Stäbe, und solange es keine Stäbe gibt, gibt es nichts nachzuweisen: Die Tabelle zeigt „keine Bewehrung“. Das Feld von 5 m ist mit zwei Elementen modelliert; beide schließen mit einer Ausnutzung D/C = 0,90 ab, maßgebend ist die Querkraft im Feld: Biegung und Verankerung der Stäbe bleiben darunter. Ändern Sie die Last und berechnen Sie erneut. Die normgemäße Bemessung in PRO befindet sich noch in Entwicklung; das Betonmodul ist der Teil, der implementiert und getestet ist."
     },
     {
       "k": "h",

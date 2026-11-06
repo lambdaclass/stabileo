@@ -869,10 +869,9 @@ fn sparse_faster_than_dense() {
     println!("20x20: sparse={}us, dense={}us, ratio={:.2}",
         sparse_us, dense_us, dense_us as f64 / sparse_us.max(1) as f64);
 
-    assert!(
+    dedaliano_engine::wall_clock::budget(
         sparse_us <= dense_us,
-        "Sparse assembly ({}us) should be faster than dense ({} us) at 20×20",
-        sparse_us, dense_us
+        || format!("Sparse assembly ({}us) should be faster than dense ({} us) at 20×20", sparse_us, dense_us),
     );
 }
 
@@ -918,10 +917,20 @@ fn fill_ratio_regression() {
     }
 }
 
+#[test]
+fn modal_refuses_the_plate_whose_in_plane_rotation_only_drilling_stiffness_holds() {
+    let mut densities = HashMap::new();
+    densities.insert("1".to_string(), 7850.0);
+    let e = modal::solve_modal_3d(&make_ss_plate(8, 8), &densities, 5).unwrap_err();
+    assert!(e.starts_with("MODAL-MECHANISM: "), "{e}");
+}
+
 /// Gate 5d: Sparse modal eigenvalues match dense Lanczos eigenvalues.
 #[test]
 fn sparse_modal_parity() {
-    let input = make_ss_plate(8, 8);
+    let mut input = make_ss_plate(8, 8);
+    let corner = input.nodes.values().find(|n| n.x == 10.0 && n.y == 0.0).unwrap().id;
+    input.supports.values_mut().find(|s| s.node_id == corner).unwrap().ry = true;
     let num_modes = 5;
 
     // Both paths need densities
@@ -973,6 +982,85 @@ fn sparse_modal_parity() {
     }
 }
 
+fn shifted_negative_inertia(k: &dedaliano_engine::linalg::CscMatrix, m: &dedaliano_engine::linalg::CscMatrix, sigma: f64) -> usize {
+    let n = k.n;
+    let (mut rows, mut cols, mut vals) = (Vec::new(), Vec::new(), Vec::new());
+    for (matrix, scale) in [(k, 1.0), (m, -sigma)] {
+        for j in 0..n { for p in matrix.col_ptr[j]..matrix.col_ptr[j + 1] {
+            rows.push(matrix.row_idx[p]); cols.push(j); vals.push(scale * matrix.values[p]);
+        }}
+    }
+    let shifted = dedaliano_engine::linalg::CscMatrix::from_triplets(n, &rows, &cols, &vals);
+    dedaliano_engine::linalg::sparse_chol::sparse_negative_inertia(&symbolic_cholesky(&shifted), &shifted)
+        .expect("K - sigma M factorization refused")
+}
+
+fn infinity_norm(matrix: &dedaliano_engine::linalg::CscMatrix) -> f64 {
+    let mut sums = vec![0.0; matrix.n];
+    for j in 0..matrix.n { for p in matrix.col_ptr[j]..matrix.col_ptr[j + 1] {
+        let i = matrix.row_idx[p];
+        sums[i] += matrix.values[p].abs();
+        if i != j { sums[j] += matrix.values[p].abs(); }
+    }}
+    sums.into_iter().fold(0.0, f64::max)
+}
+
+/// Gate: the 8×8 MITC4 plate's in-plane rotation about the pinned corner is
+/// held only by drilling stiffness (λ₁ ≈ 4e-9), so its inverse is ~2e8 and
+/// K⁻¹ rounding along it must not block locking the higher modes.
+#[test]
+fn near_mechanism_plate_modal_is_complete() {
+    let input = make_ss_plate(8, 8);
+    let mut densities = HashMap::new();
+    densities.insert("1".to_string(), 7850.0);
+    let dof_num = DofNumbering::build_3d(&input);
+    let sasm = assemble_sparse_3d(&input, &dof_num, false);
+    assert!(sasm.inclined_transforms.is_empty());
+    let k = &sasm.k_ff;
+    let m = &dedaliano_engine::solver::mass_matrix::assemble_mass_matrix_3d_sparse(&input, &dof_num, &densities);
+    let n = k.n;
+    let (k_norm, m_norm) = (infinity_norm(k), infinity_norm(m));
+    for requested in [10, 50] {
+        let refusal = modal::solve_modal_3d(&input, &densities, requested).unwrap_err();
+        assert!(refusal.starts_with("MODAL-MECHANISM: "), "{requested} modes: {refusal}");
+
+        let r = dedaliano_engine::linalg::lanczos_generalized_eigen_sparse(k, m, requested, 0.0)
+            .expect("eigensolve refused");
+        assert_eq!(r.values.len(), requested);
+        assert!(r.values.windows(2).all(|w| w[0] <= w[1]));
+        assert!(r.values[0] > 0.0 && r.values[0] < 1e-6, "near-mechanism eigenvalue {}", r.values[0]);
+        let vectors: Vec<Vec<f64>> = (0..requested)
+            .map(|c| (0..n).map(|i| r.vectors[i * requested + c]).collect()).collect();
+        let m_vectors: Vec<Vec<f64>> = vectors.iter().map(|v| m.sym_mat_vec(v)).collect();
+        let mut worst_backward = 0.0f64;
+        let mut worst_gram = 0.0f64;
+        for (c, v) in vectors.iter().enumerate() {
+            let lambda = r.values[c];
+            let kv = k.sym_mat_vec(v);
+            let v_norm = v.iter().fold(0.0f64, |a, x| a.max(x.abs()));
+            let residual = (0..n).map(|i| (kv[i] - lambda * m_vectors[c][i]).abs()).fold(0.0, f64::max);
+            let backward = residual / ((k_norm + lambda * m_norm) * v_norm);
+            assert!(backward <= 1e-10, "mode {c} (λ={lambda}) backward error {backward:e}");
+            worst_backward = worst_backward.max(backward);
+            for (d, mw) in m_vectors.iter().enumerate() {
+                let gram: f64 = v.iter().zip(mw).map(|(a, b)| a * b).sum();
+                let error = (gram - if c == d { 1.0 } else { 0.0 }).abs();
+                assert!(error <= 1e-8, "VᵀMV[{c},{d}] = {gram}");
+                worst_gram = worst_gram.max(error);
+            }
+        }
+
+        let boundary = r.values[requested - 1];
+        let below = shifted_negative_inertia(k, m, boundary * (1.0 - 1e-6));
+        let returned_below = r.values.iter().filter(|&&v| v < boundary * (1.0 - 1e-6)).count();
+        assert_eq!(below, returned_below, "{requested} modes: an eigenvalue below the boundary cluster was skipped");
+        let through = shifted_negative_inertia(k, m, boundary * (1.0 + 1e-6));
+        assert!(through >= requested, "{requested} modes: Sturm count {through} through the boundary");
+        println!("{requested} modes: λ₁={:e}, λ_k={boundary}, Sturm below/through = {below}/{through}, worst backward {worst_backward:.1e}, worst |VᵀMV−I| {worst_gram:.1e}",
+            r.values[0]);
+    }
+}
+
 /// Gate: Harmonic modal path matches direct path within tolerance.
 #[test]
 fn harmonic_modal_parity() {
@@ -1019,6 +1107,7 @@ fn harmonic_modal_parity() {
     };
     let modal_result = dedaliano_engine::solver::harmonic::solve_harmonic_3d(&harmonic_input)
         .expect("Harmonic modal solve failed");
+    assert_eq!(modal_result.method, dedaliano_engine::solver::harmonic::HarmonicMethod::ModalStatic);
 
     // === Direct path (explicit block LU per frequency) ===
     let ns = nf; // no constraints
@@ -1066,10 +1155,12 @@ fn harmonic_modal_parity() {
     // frequencies where amplitudes are very small — use peak amplitude as scale.
     let scale = direct_peak_amp.max(1e-30);
     let mut max_norm_err = 0.0f64;
+    let mut max_rel_err = 0.0f64;
     for (i, &freq) in frequencies.iter().enumerate() {
         let modal_amp = modal_result.response_points[i].amplitude;
         let direct_amp = direct_amps[i];
         let abs_err = (modal_amp - direct_amp).abs();
+        max_rel_err = max_rel_err.max(abs_err / direct_amp.max(1e-30));
         // Normalized error: absolute difference / peak amplitude
         let norm_err = abs_err / scale;
         if norm_err > max_norm_err {
@@ -1080,7 +1171,7 @@ fn harmonic_modal_parity() {
                 freq, modal_amp, direct_amp, norm_err);
         }
     }
-    println!("Max normalized error (vs peak): {:.2e}", max_norm_err);
+    println!("Max normalized error (vs peak): {:.2e}, max relative error: {:.2e}", max_norm_err, max_rel_err);
 
     // 5% of peak amplitude is a tight enough tolerance for modal superposition
     assert!(
@@ -1368,9 +1459,9 @@ fn sparse_buckling_runtime() {
 
     // Generous bound — catches catastrophic regression, not tight perf gate
     // On Apple M1 this is typically <500ms.
-    assert!(
+    dedaliano_engine::wall_clock::budget(
         elapsed_ms < 15000,
-        "Buckling solve too slow: {}ms on 10×10 plate", elapsed_ms
+        || format!("Buckling solve too slow: {}ms on 10×10 plate", elapsed_ms),
     );
     assert!(result.modes.len() >= 3, "Should find at least 3 buckling modes");
 }
@@ -1456,10 +1547,9 @@ fn guyan_single_factorization() {
     println!("  {} separate LU decompositions: {} us", nb + 2, lu_us);
     println!("  Speedup: {:.1}x", lu_us as f64 / chol_us.max(1) as f64);
 
-    assert!(
+    dedaliano_engine::wall_clock::budget(
         chol_us < lu_us,
-        "Cholesky factorize-once ({} us) should be faster than repeated LU ({} us)",
-        chol_us, lu_us
+        || format!("Cholesky factorize-once ({} us) should be faster than repeated LU ({} us)", chol_us, lu_us),
     );
 
     // End-to-end: Guyan solver succeeds
@@ -2255,7 +2345,7 @@ fn sparse_2d_runtime() {
     println!("200-element 2D beam: {}ms, {} displacements", elapsed_ms, result.displacements.len());
 
     // Should be fast (typically <100ms)
-    assert!(elapsed_ms < 2000, "2D sparse solve too slow: {}ms", elapsed_ms);
+    dedaliano_engine::wall_clock::budget(elapsed_ms < 2000, || format!("2D sparse solve too slow: {}ms", elapsed_ms));
 
     // Equilibrium should be good
     let eq = result.equilibrium.as_ref().expect("should have equilibrium");
@@ -2396,10 +2486,32 @@ fn assert_modal_mass_parity(input: &SolverInput3D, densities: &HashMap<String, f
 
 /// Gate: fully-sparse modal solve (sparse M + sparse eigensolve + sym_mat_vec
 /// post-processing) matches dense-computed frequencies and modal masses on an
+/// The 8×8 plate with one pinned corner keeps an in-plane rigid rotation. Its
+/// modal solve must either be refused by the self-check or pass every residual.
+#[test]
+fn sparse_modal_on_a_mechanism_is_refused_or_verified() {
+    let input = make_ss_plate(8, 8);
+    let mut densities = HashMap::new();
+    densities.insert("1".to_string(), 7850.0);
+    match modal::solve_modal_3d(&input, &densities, 5) {
+        Err(e) => assert!(e.starts_with("REFUSE: self-check modal_residual:") || e.starts_with("MODAL-MECHANISM: "), "{e}"),
+        Ok(r) => {
+            let residuals: Vec<_> = r.structured_diagnostics.iter()
+                .filter(|d| d.phase.as_deref().unwrap_or("").starts_with("self_check:modal_residual")).collect();
+            assert_eq!(residuals.len(), r.modes.len());
+            for d in residuals { assert!(d.value.unwrap() < 1e-6, "{}", d.message); }
+        }
+    }
+}
+
 /// 8×8 MITC4 plate.
 #[test]
 fn sparse_modal_mass_parity() {
-    let input = make_ss_plate(8, 8);
+    let mut input = make_ss_plate(8, 8);
+    // One pinned corner leaves in-plane rigid rotation about that corner.
+    // Restrain Y at the opposite X corner: no bending DOF is changed.
+    let corner = input.nodes.values().find(|n| n.x == 10.0 && n.y == 0.0).unwrap().id;
+    input.supports.values_mut().find(|s| s.node_id == corner).unwrap().ry = true;
     let mut densities = HashMap::new();
     densities.insert("1".to_string(), 7850.0);
     // 7 modes: the 6th mode (~28.2 Hz) belongs to a degenerate pair; retaining

@@ -1,0 +1,44 @@
+name: Post-merge
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+
+permissions: {}
+
+jobs:
+  revert:
+    name: Revert a failed main push
+    if: github.event.workflow_run.event == 'push' && github.event.workflow_run.conclusion == 'failure'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Rerun once, then open the revert and enqueue it when approved
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REVERT_TOKEN: ${{ secrets.REVERT_BOT_TOKEN }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          NTFY_SERVER: ${{ secrets.NTFY_SERVER }}
+          NTFY_TOKEN: ${{ secrets.NTFY_TOKEN }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          RUN_CREATED_AT: ${{ github.event.workflow_run.created_at }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+        run: |
+          if [ -z "$REVERT_TOKEN" ]; then
+            .github/scripts/ntfy-send.sh urgent "main CI failed" "$RUN_URL (no REVERT_BOT_TOKEN: revert by hand)"
+            exit 1
+          fi
+          python3 -I .github/scripts/post-merge-revert.py

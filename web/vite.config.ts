@@ -4,8 +4,10 @@ import { copyFileSync, cpSync, existsSync, readFileSync } from 'fs';
 import { execSync, execFileSync } from 'child_process';
 import { resolve } from 'path';
 import { PUBLIC_KEY_PREFIXES } from './src/lib/i18n/public-prefixes';
+import { loadedPreloads } from './scripts/loaded-preloads';
 import { isComplete } from './src/lib/i18n/offered';
 import { resultChangeMetadataPlugin } from './scripts/result-change-metadata.mjs';
+import { blogTranslations } from './scripts/blog-translations';
 
 /**
  * Stub out the WASM glue module when it hasn't been built yet.
@@ -30,35 +32,52 @@ function wasmStubPlugin(): Plugin {
 
 /**
  * `virtual:public-i18n`: the dictionaries' entries the public pages read (`landing.*`, `blog.*`, `lang.*`,
- * `contact.*`), in en, es and pt. The landing and the blog load these instead of the whole
- * dictionaries (3 MB of source, most of the public bundle); the application registers the rest
- * when it loads (`lib/i18n/full-dictionaries.ts`). The entries are copied line by line, which
- * `union-merge-safe.test.ts` keeps possible: one entry per line.
+ * `contact.*`). The landing and the blog load these instead of the whole dictionaries (3 MB of
+ * source, most of the public bundle); the application registers the rest when it loads
+ * (`lib/i18n/full-dictionaries.ts`, from `virtual:app-i18n`, the entries that are not public).
+ * English is bundled; every other language is its own chunk (`loaders`, awaited by
+ * `ensurePublicLocale` before a page renders in it), except under Vitest, which gets them all
+ * bundled. The entries are copied line by line, which `union-merge-safe.test.ts` keeps possible:
+ * one entry per line.
  */
 function publicI18nPlugin(): Plugin {
   const id = 'virtual:public-i18n';
+  const app = 'virtual:app-i18n';
+  const eager = !!process.env.VITEST;
+  const entries = (loc: string, publicOnly: boolean, watch: (file: string) => void) => {
+    const file = resolve(__dirname, 'src/lib/i18n/locales', `${loc}.ts`);
+    watch(file);
+    const lines = readFileSync(file, 'utf8').split('\n').filter((l) => {
+      const m = /^\s*(['"])([^'"]+)\1: /.exec(l);
+      return !!m && PUBLIC_KEY_PREFIXES.some((p) => m[2].startsWith(p)) === publicOnly;
+    });
+    return `{\n${lines.join('\n')}\n}`;
+  };
   return {
     name: 'public-i18n',
     resolveId(s) {
-      return s === id ? '\0' + id : null;
+      return [id, app].some((v) => s === v || s.startsWith(`${v}/`)) ? '\0' + s : null;
     },
     load(resolved) {
+      const watch = (f: string) => this.addWatchFile(f);
+      if (resolved.startsWith(`\0${id}/`)) return `export default ${entries(resolved.slice(id.length + 2), true, watch)};\n`;
+      if (resolved === `\0${app}` || resolved.startsWith(`\0${app}/`)) {
+        const locale = resolved.slice(app.length + 2);
+        return (locale ? [locale] : ['en', 'es', 'pt', 'de', 'fr', 'tr'])
+          .map((loc) => `export const ${loc} = ${isComplete(loc) ? entries(loc, false, watch) : '{}'};\n`).join('');
+      }
       if (resolved !== '\0' + id) return null;
       let out = '';
+      const lazy: string[] = [];
       for (const loc of ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
-        if (!isComplete(loc)) {
+        if (!isComplete(loc) || (!eager && loc !== 'en')) {
           out += `export const ${loc} = {};\n`;
+          if (isComplete(loc)) lazy.push(`${loc}: () => import(${JSON.stringify(`${id}/${loc}`)})`);
           continue;
         }
-        const file = resolve(__dirname, 'src/lib/i18n/locales', `${loc}.ts`);
-        this.addWatchFile(file);
-        const lines = readFileSync(file, 'utf8').split('\n').filter((l) => {
-          const m = /^\s*(['"])([^'"]+)\1: /.exec(l);
-          return !!m && PUBLIC_KEY_PREFIXES.some((p) => m[2].startsWith(p));
-        });
-        out += `export const ${loc} = {\n${lines.join('\n')}\n};\n`;
+        out += `export const ${loc} = ${entries(loc, true, watch)};\n`;
       }
-      return out;
+      return out + `export const loaders = {${lazy.join(', ')}};\n`;
     },
   };
 }
@@ -90,12 +109,14 @@ const NOT_VITEST = ['**/node_modules/**', '**/dist/**', 'e2e/**', 'determinism/*
 const RESULTS_SNAPSHOT_TESTS = ['src/lib/results-snapshot/__tests__/**'];
 
 const PRODUCTION_BUILD_TESTS = [
+  'src/lib/provenance/__tests__/numbered-stamps.test.ts',
   'src/lib/utils/__tests__/benchmark-build.test.ts',
   'src/lib/provenance/__tests__/notice-bundle.test.ts',
   // Wall-clock budgets must not compete with the parallel unit workers. Keep the full
   // 5,000-member fixture and thresholds; run it in the serial pass, including in CI.
   'src/lib/engine/__tests__/scale-budget.test.ts',
   'src/lib/utils/__tests__/e2e-hook-gating.test.ts',
+  'src/lib/utils/__tests__/shared-build.test.ts',
   // Runs `scripts/typecheck.mjs` itself, to prove the gate cannot report a green it has not
   // earned. It spawns a Node process rather than a vite build, but it is the same reason for
   // being here: a process-spawning test does not belong in the parallel pool.
@@ -115,6 +136,7 @@ const PRODUCTION_BUILD_TESTS = [
   // its own for the same reason as the one above: reading a checked-out dist/ let it
   // skip itself into a green on any machine where nobody had built.
   'src/lib/i18n/__tests__/published-urls-resolve.test.ts',
+  'src/lib/utils/__tests__/prerender-reproducible.test.ts',
 ];
 
 
@@ -205,14 +227,17 @@ if (researchBuildId !== 'unavailable') {
   if (actual !== researchBuildId) throw new Error('Research assets are stale: run make research.wasm');
 }
 
+const preloads = loadedPreloads();
+
 export default defineConfig({
-  plugins: [wasmStubPlugin(), publicI18nPlugin(), resultChangeMetadataPlugin(), svelte(), ...(ADMIN ? [adminRootPlugin(), adminPublicAssetsPlugin()] : [])],
+  plugins: [preloads.plugin, wasmStubPlugin(), publicI18nPlugin(), resultChangeMetadataPlugin(), svelte(), ...(ADMIN ? [adminRootPlugin(), adminPublicAssetsPlugin()] : [])],
   define: {
     "import.meta.env.RESEARCH_BUILD_ID": JSON.stringify(researchBuildId),
     __STABILEO_COMMIT__: JSON.stringify(buildCommit()),
     __STABILEO_VERSION__: JSON.stringify(appVersion()),
     __STABILEO_APP_VERSION__: JSON.stringify(appVersion()),
     __STABILEO_DEV_API_URL__: JSON.stringify(DEV_API_URL),
+    __BLOG_TRANSLATIONS__: JSON.stringify(blogTranslations(__dirname)),
   },
   base: process.env.BASE_PATH || '/',
   server: {
@@ -232,6 +257,7 @@ export default defineConfig({
       }
     : {
         target: 'esnext',
+        modulePreload: { resolveDependencies: preloads.resolveDependencies },
       },
   optimizeDeps: {
     exclude: ['dedaliano-engine', 'web-ifc'],
@@ -299,8 +325,10 @@ export default defineConfig({
           // parallel rollup/esbuild job: it does not occupy one worker slot, it occupies
           // the machine. Measured at 58.9 s of a 60.3 s run — it set the wall-clock floor
           // for the whole suite by itself, and it peaked at 1.75 GB RSS / 78 % CPU.
-          fileParallelism: false,
-          maxWorkers: 1,
+          // Vitest 3 reads fileParallelism and maxWorkers from the root config only, so inside a project they are ignored.
+          poolOptions: { forks: { singleFork: true } },
+          // Every file here spawns a process; on a hosted runner `npm ls --all` alone took 64 s.
+          testTimeout: 120_000,
         },
       },
       {

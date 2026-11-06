@@ -13,12 +13,14 @@
  */
 
 import { concreteFc } from '../model/design-data';
+import { CONCRETE_E_BAND_MPA } from '../model/material-family';
 import type { AnalysisResults3D } from './types-3d';
 import type { GoverningPerElement3D } from './governing-case';
 import type { ElementDesignDemands } from './station-design-forces';
 import { verifyElement, classifyElement, computeJointPsiFromModel } from './codes/argentina/cirsoc201';
 import type { ElementVerification, VerificationInput } from './codes/argentina/cirsoc201';
 import { isDesignedMember } from './design/behaviour-demands';
+import { primaryAxis } from './design/design-axes';
 import { engineRecheckElement } from './codes/argentina/cirsoc201-engine-gate';
 import { CIRSOC201_DESIGN_EDITION } from './codes/argentina/cirsoc201-basis';
 import type { RegulationEdition } from '../codes/regulation';
@@ -29,7 +31,7 @@ export interface AutoVerifyModelData {
   elements: Map<number, { id: number; nodeI: number; nodeJ: number; sectionId: number; materialId: number; type: string }>;
   nodes: Map<number, { id: number; x: number; y: number; z?: number }>;
   sections: Map<number, { id: number; name: string; b?: number; h?: number }>;
-  materials: Map<number, { id: number; name: string; fy?: number }>;
+  materials: Map<number, { id: number; name: string; fy?: number; fc?: number; e?: number }>;
   supports: Map<number, { id: number; nodeId: number; type: string }>;
 }
 
@@ -68,13 +70,18 @@ const CONCRETE_FY_CEILING = 80;
 export function rcCheckability(
   elem: { sectionId: number; materialId: number },
   model: Pick<AutoVerifyModelData, 'sections' | 'materials'>,
-): 'checkable' | 'noSection' | 'noMaterial' | 'notConcrete' | 'noRectangle' {
+): 'checkable' | 'noSection' | 'noMaterial' | 'noStrength' | 'notConcrete' | 'noRectangle' {
   const section = model.sections.get(elem.sectionId);
   if (!section) return 'noSection';
   const material = model.materials.get(elem.materialId);
   if (!material) return 'noMaterial';
   const fc = concreteFc(material);
-  if (!fc || fc > CONCRETE_FY_CEILING) return 'notConcrete';
+  if (fc === undefined || fc === null || !Number.isFinite(fc) || fc <= 0) {
+    const e = material.e;
+    const concreteStiffness = e === undefined || (e >= CONCRETE_E_BAND_MPA.min && e <= CONCRETE_E_BAND_MPA.max);
+    return concreteStiffness ? 'noStrength' : 'notConcrete';
+  }
+  if (fc > CONCRETE_FY_CEILING) return 'notConcrete';
   if (!section.b || !section.h) return 'noRectangle';
   return 'checkable';
 }
@@ -87,6 +94,8 @@ export interface RcCheckabilityCensus {
   noRectangle: number;
   noSection: number;
   noMaterial: number;
+  noStrength: number;
+  noStrengthMaterials: string[];
 }
 
 export function censusRcCheckability(
@@ -94,6 +103,7 @@ export function censusRcCheckability(
 ): RcCheckabilityCensus {
   const out: RcCheckabilityCensus = {
     total: 0, checkable: 0, notConcrete: 0, noRectangle: 0, noSection: 0, noMaterial: 0,
+    noStrength: 0, noStrengthMaterials: [],
   };
   for (const elem of model.elements.values()) {
     out.total += 1;
@@ -103,6 +113,12 @@ export function censusRcCheckability(
       case 'noRectangle': out.noRectangle += 1; break;
       case 'noSection': out.noSection += 1; break;
       case 'noMaterial': out.noMaterial += 1; break;
+      case 'noStrength': {
+        out.noStrength += 1;
+        const name = model.materials.get(elem.materialId)?.name ?? String(elem.materialId);
+        if (!out.noStrengthMaterials.includes(name)) out.noStrengthMaterials.push(name);
+        break;
+      }
     }
   }
   return out;
@@ -174,7 +190,6 @@ export function autoVerifyFromResults(
     // The signed axial forces the member sees, + = compression: the column is checked under
     // each (a member in tension is not checked as if compressed).
     let axialLoads: number[];
-    // Station-based governing combo refs (richer than endpoint-only governing-case.ts)
     let stationGovCombos: ElementVerification['governingCombos'] | undefined;
 
     const demands = stationDemands?.get(ef.elementId);
@@ -202,6 +217,7 @@ export function autoVerifyFromResults(
       NuMax = Math.max(nComp?.absValue ?? 0, nTens?.absValue ?? 0);
       axialLoads = [
         ...((nComp?.absValue ?? 0) > 0 ? [nComp!.absValue] : []),
+        ...(demands.leastCompression !== undefined ? [demands.leastCompression] : []),
         ...((nTens?.absValue ?? 0) > 0 ? [-nTens!.absValue] : []),
       ];
       if (axialLoads.length === 0) axialLoads = [0];
@@ -251,51 +267,33 @@ export function autoVerifyFromResults(
       TuMax = Math.max(Math.abs(ef.mxStart), Math.abs(ef.mxEnd));
     }
 
-    // ─── Flexure axis selection ───────────────────────────────
-    // SEAM-3 identity is preserved: My and Mz are NEVER magnitude-sorted into a
-    // single "Mu". For COLUMNS, the strong axis stays Mz (Mu, paired shear Vy)
-    // and My is the weak/biaxial moment (Muy, paired shear Vz) — unchanged.
-    //
-    // For BEAMS, the primary flexural axis is chosen per element: in this
-    // solver's local frame a horizontal beam's vertical-plane (gravity) bending
-    // is My (depth = h, paired shear Vz), while horizontal-plane (lateral)
-    // bending is Mz (depth = b, paired shear Vy). We pick the governing axis by
-    // an elastic-stress proxy Mu/(width·depth²) that embeds the correct b/h, then
-    // run the full CIRSOC check on that axis with the axis-correct section
-    // orientation + paired shear. Columns previously "worked" only because their
-    // gravity+lateral demand is genuinely Mz; beams were stuck at Mz → 0.
-    const MuyMax = MyMax; // column weak-axis moment (biaxial) — unchanged
-    let MuMax: number, VuMax: number, bFlex: number, hFlex: number;
-    let flexureAxis: 'My' | 'Mz';
-    if (isVertical) {
-      MuMax = MzMax; VuMax = VyAbs; bFlex = section.b; hFlex = section.h; flexureAxis = 'Mz';
-    } else {
-      // My bends about local-y → depth h; Mz bends about local-z → depth b.
-      const stressMy = MyMax / (section.b * section.h * section.h);
-      const stressMz = MzMax / (section.h * section.b * section.b);
-      if (stressMy >= stressMz) {
-        flexureAxis = 'My'; MuMax = MyMax; VuMax = VzMax;
-        bFlex = section.b; hFlex = section.h;            // standard orientation (depth h)
-        // Re-point flexure/shear governing combos to the My/Vz pairing.
-        if (stationGovCombos) {
-          if (stationGovCombos.momentY) stationGovCombos.flexure = stationGovCombos.momentY;
-          if (stationGovCombos.shearZ) stationGovCombos.shear = stationGovCombos.shearZ;
-        }
-      } else {
-        flexureAxis = 'Mz'; MuMax = MzMax; VuMax = VyAbs;
-        bFlex = section.h; hFlex = section.b;            // rotated orientation (depth b)
+    const flexureAxis = primaryAxis(elemType, section, MyMax, MzMax);
+    const onMy = flexureAxis === 'My';
+    const MuMax = onMy ? MyMax : MzMax;
+    const VuMax = onMy ? VzMax : VyAbs;
+    const MuySecondary = onMy ? MzMax : MyMax;
+    const VuSecondary = onMy ? VyAbs : VzMax;
+    const bFlex = onMy ? section.b : section.h;
+    const hFlex = onMy ? section.h : section.b;
+    if (stationGovCombos) {
+      const shearY = stationGovCombos.shear;
+      if (onMy) {
+        if (stationGovCombos.momentY) stationGovCombos.flexure = stationGovCombos.momentY;
+        if (stationGovCombos.shearZ) stationGovCombos.shear = stationGovCombos.shearZ;
       }
+      const secondary = onMy ? shearY : stationGovCombos.shearZ;
+      if (isVertical && secondary) stationGovCombos.shearSecondary = secondary;
     }
 
-    let M1: number | undefined, M2: number | undefined;
+    const endMoments = (mStart: number, mEnd: number) => {
+      const [big, small] = Math.abs(mStart) >= Math.abs(mEnd) ? [mStart, mEnd] : [mEnd, mStart];
+      return { M2: Math.abs(big), M1: Math.sign(mStart) === Math.sign(mEnd) ? Math.abs(small) : -Math.abs(small) };
+    };
+    let M1: number | undefined, M2: number | undefined, M1Secondary: number | undefined, M2Secondary: number | undefined;
     if (isVertical) {
-      if (Math.abs(ef.mzStart) >= Math.abs(ef.mzEnd)) {
-        M2 = Math.abs(ef.mzStart);
-        M1 = Math.sign(ef.mzStart) === Math.sign(ef.mzEnd) ? Math.abs(ef.mzEnd) : -Math.abs(ef.mzEnd);
-      } else {
-        M2 = Math.abs(ef.mzEnd);
-        M1 = Math.sign(ef.mzStart) === Math.sign(ef.mzEnd) ? Math.abs(ef.mzStart) : -Math.abs(ef.mzStart);
-      }
+      const my = endMoments(ef.myStart, ef.myEnd), mz = endMoments(ef.mzStart, ef.mzEnd);
+      ({ M1, M2 } = onMy ? my : mz);
+      ({ M1: M1Secondary, M2: M2Secondary } = onMy ? mz : my);
     }
 
     let psiA: number | undefined, psiB: number | undefined;
@@ -313,13 +311,11 @@ export function autoVerifyFromResults(
     const input: VerificationInput = {
       elementId: ef.elementId, elementType: elemType,
       Mu: MuMax, Vu: VuMax, Nu: NuMax, NuShear, axialLoads, edition,
-      // Axis-correct section orientation for the governing beam axis (columns
-      // keep their real b/h since they always use Mz).
       b: bFlex, h: hFlex, fc, fy: rebarFy, cover: isVertical ? options?.columnCover ?? cover : cover, stirrupDia,
-      Muy: isVertical ? MuyMax : undefined,
-      Vz: VzMax > 0.01 ? VzMax : undefined,
+      Muy: isVertical ? MuySecondary : undefined,
+      VuSecondary: isVertical && !(VuSecondary <= 0.01) ? VuSecondary : undefined,
       Tu: TuMax > 0.001 ? TuMax : undefined,
-      Lu: isVertical ? L : undefined, M1, M2, psiA, psiB,
+      Lu: isVertical ? L : undefined, M1, M2, M1Secondary, M2Secondary, psiA, psiB,
     };
 
     // The TypeScript designs and checks; the engine re-checks what it settled on, and a pass the
@@ -338,11 +334,14 @@ export function autoVerifyFromResults(
       const gov = governing?.get(ef.elementId);
       if (gov) {
         v.governingCombos = {};
-        if (gov.momentZ) v.governingCombos.flexure = { comboId: gov.momentZ.comboId, comboName: gov.momentZ.comboName };
-        if (gov.shearY) v.governingCombos.shear = { comboId: gov.shearY.comboId, comboName: gov.shearY.comboName };
+        const flex = onMy ? gov.momentY : gov.momentZ, shear = onMy ? gov.shearZ : gov.shearY;
+        if (flex) v.governingCombos.flexure = { comboId: flex.comboId, comboName: flex.comboName };
+        if (shear) v.governingCombos.shear = { comboId: shear.comboId, comboName: shear.comboName };
         if (gov.axial) v.governingCombos.axial = { comboId: gov.axial.comboId, comboName: gov.axial.comboName };
         if (gov.momentY) v.governingCombos.momentY = { comboId: gov.momentY.comboId, comboName: gov.momentY.comboName };
         if (gov.shearZ) v.governingCombos.shearZ = { comboId: gov.shearZ.comboId, comboName: gov.shearZ.comboName };
+        const secondary = onMy ? gov.shearY : gov.shearZ;
+        if (isVertical && secondary) v.governingCombos.shearSecondary = { comboId: secondary.comboId, comboName: secondary.comboName };
         if (gov.torsion) v.governingCombos.torsion = { comboId: gov.torsion.comboId, comboName: gov.torsion.comboName };
       }
     }

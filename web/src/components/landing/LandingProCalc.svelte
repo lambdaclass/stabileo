@@ -21,13 +21,13 @@
   ];
 </script>
 
-<section class="sec sec--paper pro-calc reveal" data-section="pro-calc" id="pro" aria-labelledby="pro-calc-title">
+<section class="sec sec--paper pro-calc" data-section="pro-calc" id="pro" aria-labelledby="pro-calc-title">
   <div class="wrap">
     <Eyebrow n="02" label={t('landing.ebProCalc')} />
 
     <div class="mode-head">
       <h2 id="pro-calc-title" class="display">{t('landing.proCalcH')}</h2>
-      <span class="badge badge-dev">{t('landing.badgeDevFree')}</span>
+      <span class="badge badge-today">{t('landing.badgeFreeAlways')}</span>
     </div>
     <p class="lead">{t('landing.proCalcP')}</p>
 
