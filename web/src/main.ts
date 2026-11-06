@@ -14,6 +14,7 @@ import { mount } from 'svelte';
 import { routeKind, restoreRedirectedRoute } from './lib/public-route';
 import { i18n, ensureLocale, ensurePublicLocale } from './lib/i18n/store.svelte';
 import { parsePublicPath } from './lib/i18n/public-routes';
+import { showAppBoot } from './lib/app-boot';
 
 // Browser-test hooks — BUILD-TIME GATED.
 //
@@ -46,11 +47,13 @@ async function bootstrap() {
   const target = document.getElementById('app')!;
   if (routeKind().kind === 'app') {
     document.getElementById('prerender')?.remove();
+    const boot = showAppBoot(target);
     await ensureLocale(i18n.locale);
     // Keep the loader namespace separate: Vite's dynamic-import analysis treats
     // destructuring an awaited .then() chain as destructuring the import itself.
     const loader = await import('./load-app');
     const application = await loader.loadApplication();
+    boot.remove();
     const app = mount(application.default, { target });
     installTestHooks();
     return app;
