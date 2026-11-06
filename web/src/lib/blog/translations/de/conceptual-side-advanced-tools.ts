@@ -131,6 +131,7 @@ const body: PostBody = {
       "k": "p",
       "t": "Die Anwendung meldet nicht einfach die Null und wäscht ihre Hände in Unschuld. Sie widerspricht ihr im selben Schritt 2, der sie geliefert hat: „Die Formel ergibt GH = 0 (notwendige Bedingung für ein statisch bestimmtes Tragwerk), aber NICHT hinreichend“. Schritt 3 stellt die globale Steifigkeitsmatrix auf, hier 6×6, und meldet „1 Mechanismus-Mode erkannt“ trotz GH = 0 ≥ 0. Er nennt Knoten 3 und seine horizontale Verschiebung, weist darauf hin, dass die Gleichung aus Schritt 2 die Bindungen zählt, ohne zu prüfen, wo sie liegen, und schließt mit „✗ Mechanismus — kann nicht berechnet werden“."
     },
+    {"k": "img", "base": "blog/hidden-mechanism", "w": 1600, "h": 1000, "alt": "Stabileo Basic mit einem Zweifeldträger auf drei horizontal verschieblichen Lagern unter 10 kN/m. Das Panel der kinematischen Analyse zeigt GH = 3·2 + 3 − 3·3 = 0, und eine Meldung weist das Tragwerk als instabil (Mechanismus) aus, weil kein Lager horizontal hält.", "caption": "Derselbe Träger in der App: Die Formel ergibt null, und der Solver lehnt ihn trotzdem als Mechanismus ab."},
     {
       "k": "embed",
       "query": "example=hidden-mechanism&kin=1",

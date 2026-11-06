@@ -20,6 +20,7 @@ const body: PostBody = {
       "k": "p",
       "t": "Das sind die Fälle, die ein Bemessungsergebnis am stärksten verschieben können. Jeder Sicherheitshinweis enthält das vollständig durchgerechnete Beispiel und sagt, was mit bereits abgegebenen Ergebnissen zu tun ist."
     },
+    {"k": "img", "base": "blog/recheck-notice", "w": 1600, "h": 1000, "alt": "Stabileo PRO beim Öffnen eines im September gespeicherten Stahlbetonrahmens. Ein Dialog meldet, dass sich die Ergebnisse seit der letzten Berechnung geändert haben, listet die Änderungen, die das Modell betreffen, darunter durch Zertifikate gefundene Solver-Korrekturen und die Dehnungsverträglichkeit nach CIRSOC 201, und verlangt eine Lesebestätigung, bevor man mit veralteten Ergebnissen weitermacht oder neu rechnet.", "caption": "Beim Öffnen eines Projekts, das vor einer es betreffenden Korrektur gelöst wurde: Die App listet diese Änderungen und hält die Ergebnisse veraltet, bis neu gerechnet wird."},
     {
       "k": "table",
       "caption": "Einige der Korrekturen in 0.3.0: der richtige Wert und der Wert, den die vorherige Version lieferte.",

@@ -126,7 +126,7 @@ export function searchMetadataSuite(dist: string) {
       expect(problems, report(problems)).toEqual([]);
     });
 
-    it('positions Stabileo as open-source structural engineering software, its AI as in development with your own key', () => {
+    it('positions Stabileo as open-source structural engineering software, its AI as in development', () => {
       const positioning: Record<string, string[]> = {
         en: ['open-source structural engineering software'],
         es: ['software de ingeniería estructural de código abierto'],
@@ -135,6 +135,14 @@ export function searchMetadataSuite(dist: string) {
         fr: ['logiciel open source d’ingénierie des structures'],
         tr: ['açık kaynaklı yapı mühendisliği yazılımı'],
       };
+      const aiInDevelopment: Record<string, string> = {
+        en: 'AI assistant in development',
+        es: 'asistente de IA en desarrollo',
+        pt: 'assistente de IA em desenvolvimento',
+        de: 'KI-Assistent in Entwicklung',
+        fr: 'assistant IA en développement',
+        tr: 'geliştirilmekte olan yapay zekâ asistanı',
+      };
       const problems = ownPages()
         .filter((p) => p.path === '/' || p.path === '/tools')
         .flatMap((p) => {
@@ -142,7 +150,8 @@ export function searchMetadataSuite(dist: string) {
           const text = p.path === '/' ? title(p) : description(p);
           if (!positioning[p.locale].every((words) => text.toLocaleLowerCase(p.locale).includes(words))) out.push(`${p.url}: "${text}" does not say "${positioning[p.locale].join(' … ')}"`);
           if (p.path === '/') {
-            if (!/Claude/.test(description(p)) || !/OpenAI/.test(description(p))) out.push(`${p.url}: the description does not say the AI assistant uses your own Claude or OpenAI key`);
+            if (!description(p).includes(aiInDevelopment[p.locale])) out.push(`${p.url}: the description does not say the AI assistant is in development`);
+            if (/Claude|OpenAI/.test(description(p))) out.push(`${p.url}: the description offers an AI provider key, which the app does not take yet`);
             for (const tag of ['og:title', 'twitter:title']) {
               if (decode(p.head.match(new RegExp(`(?:property|name)="${tag}" content="([^"]*)"`))?.[1] ?? '') !== title(p)) out.push(`${p.url}: ${tag} is not the title`);
             }

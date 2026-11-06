@@ -57,6 +57,7 @@ section and re-check registry entry in the same way.
 | [SA-2026-044](SA-2026-044-plastic-2d-invariance.md) | 2D plastic collapse factor changed with node numbering, member direction and units (up to 4.6×) | High | [#758](https://github.com/lambdaclass/stabileo/issues/758) | #1447 | limit analysis in the next release; 2D plastic collapse withheld until #758 closes | Draft |
 | [SA-2026-043](SA-2026-043-harmonic-modal-static-correction.md) | Harmonic analysis lost the omitted modes' correction when one mode was much softer than the rest (79× at 2.3 Hz in an example) | High | [#1371](https://github.com/lambdaclass/stabileo/issues/1371) | #1423 | next release | Draft |
 | [SA-2026-045](SA-2026-045-plastic-3d-member-without-capacity.md) | 3D plastic collapse treated a frame member without a usable plastic moment as one that never yields (6× high in an example, and certified) | High | [#1525](https://github.com/lambdaclass/stabileo/issues/1525) | #1526 | next release | Draft |
+| [SA-2026-039](SA-2026-039-import-rectangle-axes.md) | Excel and IFC imports swapped Iy and Iz of rectangles and tubes (a 20 × 40 cantilever 4 times too flexible, a 40 × 20 one 4 times too stiff) | High | [#532](https://github.com/lambdaclass/stabileo/issues/532) | #1310 | next release | Draft |
 
 Other open `safety` issues (the derivation-review findings #406–#433, #439) get an advisory
 or a recorded "no advisory needed" when they are triaged; the list is on the

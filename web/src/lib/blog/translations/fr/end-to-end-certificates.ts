@@ -45,6 +45,7 @@ const body: PostBody = {
       "k": "p",
       "t": "Le théorème qui fonde la borne est démontré en Lean. Dans l'application, le panneau des résultats affiche la ligne « Vérifié de bout en bout » avec la borne de l'erreur sur les déplacements, ou la raison pour laquelle la vérification n'a pas pu se faire."
     },
+    {"k": "img", "base": "blog/certificate", "w": 1600, "h": 1000, "alt": "Stabileo Basic avec l’exemple de portique résolu. Dans les vérifications du résultat, sous le certificat, la ligne de bout en bout indique qu’un réassemblage indépendant du modèle concorde, avec une erreur de déplacement d’au plus 3,68e-15.", "caption": "La ligne dans le panneau des résultats, sur l’exemple de portique."},
     {
       "k": "h",
       "t": "Ce qu'il a trouvé"
