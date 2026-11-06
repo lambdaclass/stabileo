@@ -568,7 +568,7 @@ fn beyond_chords(chords: &[MemberChord]) -> Vec<usize> {
 }
 
 /// Nodes whose rotation, two-node members whose chord rotation |Δu|/L, and frame members whose
-/// section rotation inside the span exceed [`SMALL_DISPLACEMENT_LIMIT`], with every member's chord
+/// section rotation or axis slope inside the span exceed [`SMALL_DISPLACEMENT_LIMIT`], with every member's chord
 /// and span for combinations. Each member is judged against its own length, so a large part
 /// elsewhere in the model does not hide a small one.
 pub fn small_displacement_2d(input: &SolverInput, loads: &[SolverLoad], r: &AnalysisResults) -> (Option<StructuredDiagnostic>, Vec<MemberChord>, Vec<MemberSpan>) {
