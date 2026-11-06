@@ -77,7 +77,7 @@ const RELEASED: Record<number, string[]> = {
   28: ['basic-second-order-split-members-returns'],
   29: ['basic-plastic-closes-unloading-hinges-returns'],
   30: ['connector-mechanism-2d-refused'],
-  32: ['harmonic-modal-or-direct-per-frequency', 'harmonic-modal-residual-checked'],
+  32: ['harmonic-modal-residual-checked'],
   39: ['plastic-3d-member-without-capacity-refused'],
   38: ['example-cantilever-small-rotations'],
   37: ['example-torsion-beam-closed-section'],
