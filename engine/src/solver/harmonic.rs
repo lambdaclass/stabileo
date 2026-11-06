@@ -1091,9 +1091,10 @@ mod tests {
         let n = 80;
         let (k, m) = diagonal(n);
         let f = vec![1.0; n];
-        let target = [(2, 1.0)];
+        let target = [(60, 1.0)];
         let sweep = solve_harmonic_modal(&k, &m, &f, n, &[0.0, 0.5, 3.0], 0.05, &target).unwrap();
         assert!(sweep.truncation[1] <= MODAL_TRUNCATION_Q && sweep.truncation[2] > MODAL_TRUNCATION_Q, "{:?}", sweep.truncation);
+        assert!(sweep.result.modes_used < 60, "{}", sweep.result.modes_used);
         let q = sweep.truncation[1];
         let (r, (a0, a1)) = resolve_unbounded_frequencies(sweep, || (k.clone(), m.clone()), &f, n, &target).unwrap();
         assert_eq!(r.method, HarmonicMethod::ModalStatic);
@@ -1102,9 +1103,9 @@ mod tests {
         let c = rayleigh_damping_matrix(&m, &k, n, a0, a1);
         for p in &r.response_points {
             let (re, im) = solve_complex_system(&k, &m, &c, &f, n, p.omega).unwrap();
-            let exact = re[2].hypot(im[2]);
-            let tol = if p.frequency == 3.0 { 1e-12 } else { q * q } * exact;
-            assert!((p.real - re[2]).abs() < tol && (p.imag - im[2]).abs() < tol, "{} Hz: {} {} vs {} {}", p.frequency, p.real, p.imag, re[2], im[2]);
+            let exact = re[60].hypot(im[60]);
+            let tol = if p.frequency == 3.0 { 1e-12 } else { (q * q).max(1e-12) } * exact;
+            assert!((p.real - re[60]).hypot(p.imag - im[60]) <= tol, "{} Hz: {} {} vs {} {}", p.frequency, p.real, p.imag, re[60], im[60]);
         }
     }
 

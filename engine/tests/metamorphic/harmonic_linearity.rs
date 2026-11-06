@@ -2,7 +2,7 @@ use crate::case::{Case2, Case3};
 use crate::corpus::Model;
 use dedaliano_engine::solver::{assembly, dof::DofNumbering, harmonic, mass_matrix};
 use dedaliano_engine::types::*;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 pub(crate) fn nightly_case(issue: u32) -> (Option<Case2>, Option<Case3>) {
     let (model, name, dens) = nightly(issue);
@@ -75,14 +75,13 @@ fn direct_rows_2d(c: &Case2) -> Vec<Row> {
     let (nf, n) = (dn.n_free, dn.n_total);
     let asm = assembly::assemble_2d(&c.s, &dn);
     let (kff, mff) = (free_block(&asm.k, n, nf), free_block(&mass_matrix::assemble_mass_matrix_2d(&c.s, &dn, &c.dens), n, nf));
-    let sup: HashSet<usize> = c.s.supports.values().map(|s| s.node_id).collect();
     let mut rows = Vec::new();
-    for node in c.s.nodes.values().map(|x| x.id).filter(|id| !sup.contains(id)) {
+    for node in c.s.nodes.values().map(|x| x.id) {
         for (di, dof) in ["x", "y"].into_iter().enumerate() {
+            let Some(g) = dn.global_dof(node, di).filter(|&g| g < nf) else { continue };
             let inp = harmonic::HarmonicInput { solver: c.s.clone(), densities: c.dens.clone(), frequencies: c.p.freqs.clone(), damping_ratio: 0.05, response_node_id: node, response_dof: dof.into() };
             let (r, (a0, a1)) = harmonic::solve_harmonic_2d_with_damping(&inp).unwrap();
             let cff: Vec<f64> = (0..nf * nf).map(|i| a0 * mff[i] + a1 * kff[i]).collect();
-            let g = dn.global_dof(node, di).unwrap();
             for pt in &r.response_points {
                 let (lr, li) = harmonic::solve_complex_system(&kff, &mff, &cff, &asm.f[..nf], nf, pt.omega).unwrap();
                 let (gr, gi) = crate::regressions::gauss_complex(&kff, &mff, &cff, &asm.f[..nf], nf, pt.omega);
@@ -98,14 +97,13 @@ fn direct_rows_3d(c: &Case3) -> Vec<Row> {
     let (nf, n) = (dn.n_free, dn.n_total);
     let asm = assembly::assemble_3d(&c.s, &dn);
     let (kff, mff) = (free_block(&asm.k, n, nf), free_block(&mass_matrix::assemble_mass_matrix_3d(&c.s, &dn, &c.dens), n, nf));
-    let sup: HashSet<usize> = c.s.supports.values().map(|s| s.node_id).collect();
     let mut rows = Vec::new();
-    for node in c.s.nodes.values().map(|x| x.id).filter(|id| !sup.contains(id)) {
+    for node in c.s.nodes.values().map(|x| x.id) {
         for (di, dof) in ["x", "y", "z"].into_iter().enumerate() {
+            let Some(g) = dn.global_dof(node, di).filter(|&g| g < nf) else { continue };
             let inp = harmonic::HarmonicInput3D { solver: c.s.clone(), densities: c.dens.clone(), frequencies: c.p.freqs.clone(), damping_ratio: 0.05, response_node_id: node, response_dof: dof.into() };
             let (r, (a0, a1)) = harmonic::solve_harmonic_3d_with_damping(&inp).unwrap();
             let cff: Vec<f64> = (0..nf * nf).map(|i| a0 * mff[i] + a1 * kff[i]).collect();
-            let g = dn.global_dof(node, di).unwrap();
             for pt in &r.response_points {
                 let (lr, li) = harmonic::solve_complex_system(&kff, &mff, &cff, &asm.f[..nf], nf, pt.omega).unwrap();
                 let (gr, gi) = crate::regressions::gauss_complex(&kff, &mff, &cff, &asm.f[..nf], nf, pt.omega);
@@ -117,10 +115,13 @@ fn direct_rows_3d(c: &Case3) -> Vec<Row> {
 }
 
 fn unit_loads_3d(c: &Case3) -> Vec<(String, Vec<SolverLoad3D>)> {
-    let sup: HashSet<usize> = c.s.supports.values().map(|s| s.node_id).collect();
+    let dn = DofNumbering::build_3d(&c.s);
     let mut out = Vec::new();
-    for node_id in c.s.nodes.values().map(|x| x.id).filter(|id| !sup.contains(id)) {
+    for node_id in c.s.nodes.values().map(|x| x.id) {
         for (d, axis) in ["x", "y", "z"].into_iter().enumerate() {
+            if !dn.global_dof(node_id, d).is_some_and(|g| g < dn.n_free) {
+                continue;
+            }
             let mut v = [0.0; 3];
             v[d] = 1.0;
             out.push((format!("unit F{axis} at n{node_id}"), vec![SolverLoad3D::Nodal(SolverNodalLoad3D { node_id, fx: v[0], fy: v[1], fz: v[2], mx: 0.0, my: 0.0, mz: 0.0, bw: None })]));
