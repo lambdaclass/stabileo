@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   AiActionError, buildConversation, buildSystemPrompt, outcomeFromText, outcomeFromToolCall, validateBuildRequest,
 } from '../index';
-import { validateSnapshot } from '../validate-snapshot';
+import { checkCustomSectionsGiven, validateSnapshot } from '../validate-snapshot';
 import { generatePortalFrame, generatePortalFrame3d } from '../generators';
 import type { ModelContext } from '../../client';
 import { ensureLocale, setLocale } from '../../../i18n';
@@ -42,6 +42,44 @@ describe('validate snapshot', () => {
   });
 
   it('passes a valid snapshot', () => expect(() => validateSnapshot(minimal())).not.toThrow());
+  it('a listed 3D section leaves j to the catalogue, and one that carries a j is refused', () => {
+    const frame = snapshotOf(outcomeFromToolCall('create_portal_frame_3d', { width: 6, depth: 4, height: 3, interpretation: 'x' }));
+    expect(arr(frame, 'sections').every(([, s]) => s.j === undefined)).toBe(true);
+    expect(() => validateSnapshot(frame)).not.toThrow();
+    const withJ = structuredClone(frame);
+    const [id, sec] = arr(withJ, 'sections')[0];
+    sec.j = 2e-7;
+    expect(() => validateSnapshot(withJ)).toThrow(`section ${id}: leave j out for ${sec.name}; the app takes its torsional constant from the catalogue`);
+  });
+  it('NEGATIVE: a material with a negative unit weight or a yield strength that is not positive is refused', () => {
+    const withMaterial = (extra: Record<string, unknown>) => ({ ...minimal(), materials: [[1, { id: 1, name: 'Steel A36', e: 200000, nu: 0.3, ...extra }]] });
+    expect(() => validateSnapshot(withMaterial({ rho: 78.5, fy: 250 }))).not.toThrow();
+    expect(() => validateSnapshot(withMaterial({ rho: 0 }))).not.toThrow();
+    expect(() => validateSnapshot(withMaterial({ rho: -78.5 }))).toThrow('material 1: unit weight (rho) must be a number of at least 0');
+    expect(() => validateSnapshot(withMaterial({ fy: 0 }))).toThrow('material 1: yield strength (fy) must be positive');
+    expect(() => validateSnapshot(withMaterial({ fy: -250 }))).toThrow('material 1: yield strength (fy) must be positive');
+  });
+  describe('a section with the user\'s own values', () => {
+    const custom = (props: Record<string, unknown>) => ({ ...minimal(), sections: [[1, { id: 1, name: 'Custom (user values)', ...props }]] });
+    it('NEGATIVE: values the user never wrote are refused, whatever the section is called', () => {
+      expect(() => checkCustomSectionsGiven(custom({ a: 0.0123, iz: 4.56e-5 }), ['Build a 6 m beam with my own section']))
+        .toThrow('section 1: a = 0.0123 is not a value the user gave; use a listed section, or ask the user for its properties');
+      expect(() => checkCustomSectionsGiven(custom({ a: 0.0123, iz: 4.56e-5 }), ['A = 123 cm2, and the span is 6 m']))
+        .toThrow('section 1: iz = 0.0000456 is not a value the user gave');
+    });
+    it('accepts the values the user wrote, in m or a smaller unit', () => {
+      expect(() => checkCustomSectionsGiven(custom({ a: 0.0123, iz: 4.56e-5 }), ['A = 123 cm2', 'I = 4560 cm4'])).not.toThrow();
+      expect(() => checkCustomSectionsGiven(custom({ a: 0.0123, iz: 4.56e-5 }), ['A = 0.0123 m2, I = 4.56e-5 m4'])).not.toThrow();
+      expect(() => checkCustomSectionsGiven(custom({ a: 0.0123, iz: 4.56e-5 }), ['A = 12300 mm2, I = 45.600.000 mm4'])).not.toThrow();
+    });
+    it('leaves a section the model already had alone', () => {
+      const snap = custom({ a: 0.0123, iz: 4.56e-5 });
+      expect(() => checkCustomSectionsGiven(snap, ['make it longer'], snap)).not.toThrow();
+    });
+    it('does not ask about listed sections', () => {
+      expect(() => checkCustomSectionsGiven(minimal(), ['Build a beam'])).not.toThrow();
+    });
+  });
   it('NEGATIVE: a new model may not name a section that is neither listed nor the user\'s own values', () => {
     const named = (name: string) => ({ ...minimal(), sections: [[1, { id: 1, name, a: 0.0171, iz: 0.000416 }]] });
     expect(() => validateSnapshot(named('W 14x90'))).toThrow('section 1: "W 14x90" is not a listed section');
@@ -137,7 +175,7 @@ describe('validate snapshot', () => {
   it('fails on a 3D node without z and on non-positive 3D section properties', () => {
     const space = (): Record<string, unknown> => ({
       ...minimal(), analysisMode: '3d', nodes: [[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: 6, y: 0, z: 0 }]],
-      sections: [[1, { id: 1, name: 'IPE 300', a: 0.005381, iz: 0.00008356, iy: 0.00000604, j: 2e-7 }]],
+      sections: [[1, { id: 1, name: 'IPE 300', a: 0.005381, iz: 0.00008356, iy: 0.00000604 }]],
       supports: [[1, { id: 1, nodeId: 1, type: 'fixed3d' }]],
     });
     expect(() => validateSnapshot(space())).not.toThrow();

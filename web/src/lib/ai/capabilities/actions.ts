@@ -106,6 +106,9 @@ function convert(kind: Kind, v: unknown): { ok: true; value: unknown } | { ok: f
 export function parseAction(name: unknown, params: unknown): BuildAction | null {
   if (typeof name !== 'string' || !Object.prototype.hasOwnProperty.call(SPECS, name)) return null;
   if (!isPlainObject(params)) return null;
+  const known = new Set(SPECS[name as ActionName].flatMap(([field, , , aliases]) => [field, ...(aliases ?? [])]));
+  const unknown = Object.keys(params).filter((k) => !known.has(k));
+  if (unknown.length > 0) throw new AiActionError(`${name} has no parameter ${unknown.map((k) => JSON.stringify(k)).join(', ')}; nothing was built`);
   const out: Record<string, unknown> = {};
   for (const [field, kind, required, aliases] of SPECS[name as ActionName]) {
     const keys = [field, ...(aliases ?? [])].filter((k) => Object.prototype.hasOwnProperty.call(params, k));

@@ -78,6 +78,13 @@ describe('actions', () => {
     expect(parseAction('create_beam', [6])).toBeNull();
     expect(parseAction('add_nodal_load', { node_id: 1, fy: -5, mz: 2 })).toEqual({ action: 'add_nodal_load', params: { node_id: 1, fy: -5, mz: 2 } });
     expect(parseAction('create_model', { analysisMode: '2d', nodes: [], elements: [], materials: [], sections: [], supports: [] })?.params).toMatchObject({ analysis_mode: '2d' });
+  });
+
+  it('NEGATIVE: a parameter the action does not have is refused instead of dropped', () => {
+    expect(() => parseAction('create_beam', { span: 6, point_load: -20 })).toThrow('create_beam has no parameter "point_load"; nothing was built');
+    expect(() => parseAction('create_beam', { span: 6, q: -10, P: 5, support_mid: 'pinned' })).toThrow('create_beam has no parameter "P", "support_mid"; nothing was built');
+    expect(() => parseActionResponse({ action: 'create_beam', params: { span: 6, point_load: -20 }, interpretation: 'x' })).toThrow('no parameter "point_load"');
+    expect(parseAction('create_model', { analysisMode: '3d', nodes: [], elements: [], materials: [], sections: [], supports: [] })?.params).toMatchObject({ analysis_mode: '3d' });
     expect(parseActionResponse({ action: 'create_beam', params: { span: 6 } })).toBeNull();
   });
 
@@ -104,7 +111,7 @@ describe('generators', () => {
       analysisMode: '2d',
       nodes: [[1, { id: 1, x: 0, y: 0 }], [2, { id: 2, x: 6, y: 0 }]],
       materials: [[1, { id: 1, name: 'Steel A36', e: 200000, nu: 0.3, rho: 78.5, fy: 250 }]],
-      sections: [[1, { id: 1, name: 'IPE 300', a: 53.8e-4, iz: 8356e-8, iy: 604e-8, j: 2.0e-7, h: 0.3, b: 0.15, tw: 0.0071, tf: 0.0107, shape: 'I' }]],
+      sections: [[1, { id: 1, name: 'IPE 300', a: 53.8 * 1e-4, iz: 8356 * 1e-8, iy: 604 * 1e-8, h: 300 * 1e-3, b: 150 * 1e-3, tw: 7.1 * 1e-3, tf: 10.7 * 1e-3, shape: 'I' }]],
       elements: [[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }]],
       supports: [[1, { id: 1, nodeId: 1, type: 'pinned' }], [2, { id: 2, nodeId: 2, type: 'rollerX' }]],
       loads: [

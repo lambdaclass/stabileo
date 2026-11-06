@@ -52,7 +52,7 @@ describe('edit executor', () => {
   it('changes every section', () => {
     const r = applyEdit({ action: 'change_section', params: { section: 'HEB 400' } }, makeFrame());
     const heb = arr(r, 'sections').find((s) => s[1].name === 'HEB 400')!;
-    expect(heb[1]).toEqual({ id: 3, name: 'HEB 400', a: 198e-4, iz: 57680e-8, iy: 10820e-8, j: 3.68e-6, h: 0.4, b: 0.3, tw: 0.0135, tf: 0.024, shape: 'H' });
+    expect(heb[1]).toEqual({ id: 3, name: 'HEB 400', a: 198 * 1e-4, iz: 57680 * 1e-8, iy: 10820 * 1e-8, h: 400 * 1e-3, b: 300 * 1e-3, tw: 13.5 * 1e-3, tf: 24 * 1e-3, shape: 'H' });
     expect(arr(r, 'elements').every((e) => e[1].sectionId === 3)).toBe(true);
   });
 
@@ -357,14 +357,16 @@ describe('edit executor', () => {
     expect(diagonals[1][1]).toMatchObject({ type: 'truss', hingeStart: true, hingeEnd: true });
   });
 
-  it('a 3D profile change does not reuse a same-named section missing iy or j', () => {
+  it('a 3D profile change does not reuse a same-named section missing iy, and leaves j to the catalogue', () => {
     const snap = makeMultiStory3d();
     const sid = Math.max(...arr(snap, 'sections').map((x) => x[0])) + 1;
     arr(snap, 'sections').push([sid, { id: sid, name: 'HEB 400', a: 198e-4, iz: 57680e-8 }]);
     const r = applyEdit({ action: 'change_section', params: { section: 'HEB 400' } }, snap);
     const used = new Set(arr(r, 'elements').map(([, e]) => e.sectionId));
     expect(used.has(sid)).toBe(false);
-    expect(arr(r, 'sections').find(([id]) => used.has(id))![1]).toMatchObject({ name: 'HEB 400', iy: 10820e-8, j: 3.68e-6 });
+    const made = arr(r, 'sections').find(([id]) => used.has(id))![1];
+    expect(made).toMatchObject({ name: 'HEB 400', iy: 10820 * 1e-8 });
+    expect(made).not.toHaveProperty('j');
   });
 
   it('refuses a 3D story when no column reaches the top floor, rather than adding a loose roof', () => {

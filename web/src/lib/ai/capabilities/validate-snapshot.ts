@@ -129,19 +129,25 @@ export function validateSnapshot(snapshot: unknown, { existingModel = false } = 
       const v = asF64(data[key]);
       if (v === undefined || v <= 0) throw new AiActionError(`section ${id}: ${key} must be a positive number`);
     }
+    const listed = !existingModel && typeof data.name === 'string' ? lookupSection(data.name) : undefined;
     for (const key of ['iy', 'j'] as const) {
-      if ((!space || existingModel) && data[key] === undefined) continue;
+      if ((!space || existingModel || (key === 'j' && listed)) && data[key] === undefined) continue;
       const v = asF64(data[key]);
       if (v === undefined || v <= 0) throw new AiActionError(`section ${id}: ${key} must be a positive number`);
     }
-    const listed = !existingModel && typeof data.name === 'string' ? lookupSection(data.name) : undefined;
     if (!existingModel && !listed && !(typeof data.name === 'string' && data.name.trim().startsWith(CUSTOM_SECTION))) {
       throw new AiActionError(`section ${id}: ${JSON.stringify(data.name)} is not a listed section; use a listed one, or name values the user gave "${CUSTOM_SECTION}"`);
     }
-    for (const key of ['a', 'iz', 'iy', 'j'] as const) {
+    for (const key of ['a', 'iz', 'iy'] as const) {
       const v = asF64(data[key]);
       if (listed && v !== undefined && Math.abs(v - listed[key]) > 1e-3 * listed[key]) {
         throw new AiActionError(`section ${id}: ${key} is not that of ${listed.name}; use the listed values or name the section "${CUSTOM_SECTION}"`);
+      }
+    }
+    if (listed && data.j !== undefined) {
+      const v = asF64(data.j);
+      if (listed.j === undefined || v === undefined || Math.abs(v - listed.j) > 1e-3 * listed.j) {
+        throw new AiActionError(`section ${id}: leave j out for ${listed.name}; the app takes its torsional constant from the catalogue`);
       }
     }
   }
@@ -155,6 +161,14 @@ export function validateSnapshot(snapshot: unknown, { existingModel = false } = 
     if (data.nu !== undefined) {
       const nu = asF64(data.nu);
       if (nu === undefined || nu < 0 || nu >= 0.5) throw new AiActionError(`material ${id}: Poisson's ratio (nu) must be at least 0 and below 0.5`);
+    }
+    if (data.rho !== undefined) {
+      const rho = asF64(data.rho);
+      if (rho === undefined || rho < 0) throw new AiActionError(`material ${id}: unit weight (rho) must be a number of at least 0`);
+    }
+    if (data.fy !== undefined) {
+      const fy = asF64(data.fy);
+      if (fy === undefined || fy <= 0) throw new AiActionError(`material ${id}: yield strength (fy) must be positive`);
     }
   }
 
@@ -193,6 +207,41 @@ export function validateSnapshot(snapshot: unknown, { existingModel = false } = 
     const frame = outer.data.frame;
     if (frame !== undefined && !(typeof frame === 'string' && MEMBER_FRAMES.includes(frame))) {
       throw new AiActionError(`${type} load: frame must be one of ${MEMBER_FRAMES.join(', ')}, got ${JSON.stringify(frame)}`);
+    }
+  }
+}
+
+const UNIT_SCALES = [1, 1e2, 1e3, 1e4, 1e6, 1e8, 1e12];
+
+export function numbersIn(texts: readonly string[]): number[] {
+  const out: number[] = [];
+  for (const text of texts) {
+    for (const m of text.matchAll(/[-+]?\d+(?:[.,]\d+)*(?:[eE][-+]?\d+)?/g)) {
+      const raw = m[0];
+      for (const candidate of new Set([raw.replace(/,/g, ''), raw.replace(/\./g, '').replace(',', '.'), raw.replace(',', '.')])) {
+        const v = Number(candidate);
+        if (Number.isFinite(v) && v !== 0) out.push(Math.abs(v));
+      }
+    }
+  }
+  return out;
+}
+
+const given = (v: number, numbers: readonly number[]): boolean =>
+  UNIT_SCALES.some((k) => numbers.some((n) => Math.abs(v * k - n) <= 1e-3 * n));
+
+export function checkCustomSectionsGiven(snapshot: Record<string, unknown>, userTexts: readonly string[], current?: Record<string, unknown>): void {
+  const before = new Set((Array.isArray(current?.sections) ? current.sections : []).map((s) => JSON.stringify(s)));
+  const numbers = numbersIn(userTexts);
+  for (const entry of Array.isArray(snapshot.sections) ? snapshot.sections : []) {
+    if (before.has(JSON.stringify(entry))) continue;
+    const [id, data] = parseEntry(entry);
+    if (!(typeof data.name === 'string' && data.name.trim().startsWith(CUSTOM_SECTION))) continue;
+    for (const key of ['a', 'iz', 'iy', 'j'] as const) {
+      const v = asF64(data[key]);
+      if (v !== undefined && !given(Math.abs(v), numbers)) {
+        throw new AiActionError(`section ${id}: ${key} = ${v} is not a value the user gave; use a listed section, or ask the user for its properties`);
+      }
     }
   }
 }

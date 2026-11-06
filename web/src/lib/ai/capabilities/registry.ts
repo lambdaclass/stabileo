@@ -184,7 +184,7 @@ const modeOf = (mode: string): AnalysisMode => (isSpaceProtocol(mode) ? '3d' : '
 export function promptText(analysisMode: string): string {
   const mode = modeOf(analysisMode);
   let out = `Units: ${UNITS.length} (length), ${UNITS.force} (force), ${UNITS.distributed} (distributed), ${UNITS.moment} (moment), ${UNITS.stress} (stress)\n\n`;
-  out += `Available sections (a in m², iz, iy and j in m⁴; copy these values with the name): ${SECTIONS.map((s) => `${s.name} (a=${s.a.toPrecision(4)}, iz=${s.iz.toPrecision(4)}, iy=${s.iy.toPrecision(4)}, j=${s.j.toPrecision(4)})`).join(', ')}\n`;
+  out += `Available sections (a in m², iz and iy in m⁴; copy these values with the name, and leave j out: the app takes a listed profile's torsional constant from its catalogue geometry): ${SECTIONS.map((s) => `${s.name} (a=${s.a.toPrecision(4)}, iz=${s.iz.toPrecision(4)}, iy=${s.iy.toPrecision(4)})`).join(', ')}\n`;
   out += 'Material: Steel A36 (E=200000 MPa, fy=250 MPa). Always used.\n\n';
   out += 'Element types: ';
   out += ELEMENT_TYPES.filter((e) => e.modes.includes(analysisMode))
@@ -256,7 +256,7 @@ const CREATE_MODEL_SCHEMA: Record<string, unknown> = {
       a: { type: 'number', description: 'Cross-section area (m²)' },
       iz: { type: 'number', description: 'Moment of inertia about Z (m⁴)' },
       iy: { type: 'number', description: 'Moment of inertia about Y (m⁴), required in 3D' },
-      j: { type: 'number', description: 'Torsional constant (m⁴), required in 3D' },
+      j: { type: 'number', description: 'Torsional constant (m⁴): required in 3D for a "Custom (user values)" section, and left out for a listed one' },
     }, required: ['id', 'name', 'a', 'iz'] } },
     supports: { type: 'array', items: { type: 'object', properties: {
       id: { type: 'integer' },

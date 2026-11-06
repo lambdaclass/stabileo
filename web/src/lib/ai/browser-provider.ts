@@ -15,6 +15,7 @@ import {
   AiActionError,
   buildConversation,
   buildSystemPrompt,
+  checkCustomSectionsGiven,
   checkPromptSize,
   checkText,
   checkListLen,
@@ -256,12 +257,17 @@ export async function buildModel(
   });
   const meta = metaOf(resp);
   if (resp.toolCalls.length > 1) throw new AiActionError(t('ai.err.oneChange'));
+  const userTexts = [description, ...(messages ?? []).filter((m) => m.role === 'user').map((m) => m.content)];
+  const checked = (outcome: ToolOutcome): ToolOutcome => {
+    if (outcome.kind === 'snapshot') checkCustomSectionsGiven(outcome.snapshot, userTexts, current);
+    return inMode(outcome, mode);
+  };
   const call = resp.toolCalls[0];
   if (call) {
     const raw = `tool_call: ${call.name}(${JSON.stringify(call.input)})`;
     const outcome = outcomeFromToolCall(call.name, call.input, current);
-    if (outcome) return toBuildResponse(inMode(outcome, mode), raw, meta);
+    if (outcome) return toBuildResponse(checked(outcome), raw, meta);
   }
   const text = resp.text.trim();
-  return toBuildResponse(inMode(outcomeFromText(text, current), mode), text, meta);
+  return toBuildResponse(checked(outcomeFromText(text, current)), text, meta);
 }

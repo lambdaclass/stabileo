@@ -5,7 +5,7 @@ import { defaultMaterial, defaultSection, lookupSection, type SectionProps } fro
 export type Snapshot = Record<string, unknown>;
 
 export function sectionToJson(id: number, s: SectionProps): [number, Record<string, unknown>] {
-  return [id, { id, name: s.name, a: s.a, iz: s.iz, iy: s.iy, j: s.j, h: s.h, b: s.b, tw: s.tw, tf: s.tf, shape: s.shape }];
+  return [id, { id, name: s.name, a: s.a, iz: s.iz, iy: s.iy, ...(s.j !== undefined ? { j: s.j } : {}), h: s.h, b: s.b, tw: s.tw, tf: s.tf, shape: s.shape }];
 }
 
 export function resolveSection(name: string | undefined, fallback: () => SectionProps = defaultSection): SectionProps {

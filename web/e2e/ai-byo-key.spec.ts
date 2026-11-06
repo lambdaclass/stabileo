@@ -1,5 +1,6 @@
+import { inflateRawSync } from 'node:zlib';
 import type { Page, Route } from '@playwright/test';
-import { test, expect } from './fixtures';
+import { test, expect, loadModel } from './fixtures';
 
 const ANTHROPIC_KEY = 'sk-ant-e2e-0000-secret';
 const OPENAI_KEY = 'sk-e2e-openai-1111-secret';
@@ -86,6 +87,12 @@ function expectKeyOnlyTo(traffic: Traffic, key: string, host: string): void {
   expect(traffic.console.filter((line) => line.includes(key))).toEqual([]);
 }
 
+function sharedPayload(link: string): string {
+  const m = /#(code|data)=(?:2\.)?([A-Za-z0-9_-]+)/.exec(link);
+  expect(m, `a share link with a model: ${link}`).not.toBeNull();
+  return inflateRawSync(Buffer.from(m![2], 'base64url')).toString('utf8');
+}
+
 async function sendAndApply(page: Page, prompt: string): Promise<void> {
   await page.locator('.chat-input').fill(prompt);
   await page.getByTestId('ai-send').click();
@@ -104,7 +111,7 @@ async function nodeXs(page: Page): Promise<number[]> {
 }
 
 test.describe('@smoke AI with your own key', () => {
-  test('Anthropic: paste a key, ask for a beam, Apply puts the validated beam on the canvas and solves it', async ({ page }) => {
+  test('Anthropic: paste a key, ask for a beam, Apply puts the validated beam on the canvas and solves it, and neither the .ded nor the share link carries the key', async ({ page, context }) => {
     const seen = await mockAnthropic(page, 'create_beam', { span: 6, q: -10, interpretation: 'A 6 m simply supported beam.' });
     const traffic = watchTraffic(page);
     const stabileoCalls = await openApp(page);
@@ -133,8 +140,20 @@ test.describe('@smoke AI with your own key', () => {
     expect(stabileoCalls).toEqual([]);
     expectKeyOnlyTo(traffic, ANTHROPIC_KEY, 'api.anthropic.com');
 
-    const shareable = await page.evaluate(() => document.location.href + JSON.stringify(window.__stabileo.counts()));
-    expect(shareable).not.toContain(ANTHROPIC_KEY);
+    const ded = await page.evaluate(() => window.__stabileo.serializeProject());
+    expect(JSON.parse(ded).snapshot.nodes).toHaveLength(2);
+    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+    await page.getByTestId('hdr-project').click();
+    await page.getByTestId('project-share-link').click();
+    const shareLink = await page.evaluate(() => navigator.clipboard.readText());
+    const shared = sharedPayload(shareLink);
+    expect(shared).toContain('6');
+    for (const payload of [ded, shareLink, shared, page.url()]) {
+      expect(payload).not.toContain(ANTHROPIC_KEY);
+      expect(payload).not.toContain('sk-ant-');
+    }
+    await page.keyboard.press('Escape');
+    if (!(await page.getByTestId('ai-key-manage').isVisible())) await page.getByTestId('ai-open').click();
 
     await page.getByTestId('ai-key-manage').click();
     await page.getByTestId('ai-key-forget').click();
@@ -178,6 +197,30 @@ test.describe('@smoke AI with your own key', () => {
       }
     }
     expect(traffic.requests.filter((r) => r.host === 'api.anthropic.com' || r.host === 'api.openai.com')).toEqual([]);
+  });
+
+  test('Cancel on an edit of a loaded model puts back exactly the model there was', async ({ page }) => {
+    const seen = await mockAnthropic(page, 'add_bay', { width: 5, interpretation: 'One more bay.' });
+    await page.addInitScript((key) => { try { localStorage.setItem('stabileo.ai.key.anthropic', key); } catch { return; } }, ANTHROPIC_KEY);
+    await openApp(page);
+    await loadModel(page, 'two-story-frame');
+    const model = () => page.evaluate(() => JSON.parse(window.__stabileo.serializeProject()).snapshot);
+    const before = await model();
+    const nodesBefore = await page.evaluate(() => window.__stabileo.nodeCount());
+    const solvedBefore = await page.evaluate(() => window.__stabileo.viewportPick().hasResults);
+    expect(nodesBefore).toBeGreaterThan(0);
+
+    await page.locator('.chat-input').fill('add a 5 m bay');
+    await page.getByTestId('ai-send').click();
+    await expect(page.getByTestId('ai-apply')).toBeVisible({ timeout: 20_000 });
+    expect(seen).toHaveLength(1);
+    expect(await page.evaluate(() => window.__stabileo.viewportPick().hasResults)).toBe(false);
+
+    await page.locator('.ai-drawer .draft-cancel').click();
+    await expect(page.getByTestId('ai-apply')).toHaveCount(0);
+    expect(await model()).toEqual(before);
+    expect(await page.evaluate(() => window.__stabileo.nodeCount())).toBe(nodesBefore);
+    expect(await page.evaluate(() => window.__stabileo.viewportPick().hasResults)).toBe(solvedBefore);
   });
 
   test('an invalid proposal is never applied', async ({ page }) => {

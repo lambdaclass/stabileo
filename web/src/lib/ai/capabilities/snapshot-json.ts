@@ -203,13 +203,15 @@ const close = (v: unknown, want: number): boolean => {
   return x !== undefined && Math.abs(x - want) <= 1e-9 * want;
 };
 
+const sameJ = (v: unknown, want: number | undefined): boolean => (want === undefined ? v === undefined : close(v, want));
+
 export function ensureSection(snap: Json, name: string): number {
   const props = lookupSection(name);
   for (const s of asArray(snap.sections) ?? []) {
     const data = at(s, 1);
     if (at(data, 'name') !== name) continue;
     const needed = (k: string): boolean => k === 'a' || k === 'iz' || isSnapshot3d(snap);
-    if (!props || (['a', 'iz', 'iy', 'j'] as const).every((k) => (at(data, k) === undefined && !needed(k)) || close(at(data, k), props[k]))) {
+    if (!props || (['a', 'iz', 'iy'] as const).every((k) => (at(data, k) === undefined && !needed(k)) || close(at(data, k), props[k])) && sameJ(at(data, 'j'), props.j)) {
       return asU64(at(s, 0)) ?? 1;
     }
   }

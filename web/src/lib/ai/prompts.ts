@@ -98,7 +98,7 @@ Respond with ONLY a JSON object (no markdown fences):
 
 {
   "answer": "direct answer to the user's question",
-  "assessment": "ok|marginal|excessive — one-word assessment of the result",
+  "assessment": "ok|marginal|excessive|undetermined — one-word assessment of the result; undetermined when the span, the limit or anything else the comparison needs is missing",
   "codeReferences": ["only code clauses the user quoted; empty otherwise"],
   "warnings": ["any caveats or things the user should be aware of"]
 }
@@ -106,7 +106,8 @@ Respond with ONLY a JSON object (no markdown fences):
 ## Guidelines
 - Answer the specific question asked, don't give a generic report
 - If the user asks about deflection limits, compute the ratio and compare it with the limit the user gives; without one, report the ratio and say which limit they must confirm
-- If span length is not provided, mention that you need it for a ratio check
+- If span length is not provided, mention that you need it for a ratio check, and give the assessment as undetermined
+- Without a limit the user gave, the assessment is undetermined: never ok when nothing was compared
 - Be conservative — when in doubt, flag as marginal
 - Warnings should flag things like: second-order effects not considered, dynamic loads, creep in concrete`;
 }
@@ -158,7 +159,7 @@ export const INTERPRET_SCHEMA: Record<string, unknown> = {
   type: 'object',
   properties: {
     answer: { type: 'string' },
-    assessment: { type: 'string', enum: ['ok', 'marginal', 'excessive'] },
+    assessment: { type: 'string', enum: ['ok', 'marginal', 'excessive', 'undetermined'] },
     codeReferences: strings,
     warnings: strings,
   },

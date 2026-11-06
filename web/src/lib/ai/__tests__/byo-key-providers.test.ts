@@ -115,6 +115,49 @@ describe('several tool calls in one answer', () => {
   });
 });
 
+describe('a section with the user\'s own values', () => {
+  const customModel = (input: Record<string, unknown> = {}) => ({
+    analysis_mode: '2d',
+    nodes: [[1, { id: 1, x: 0, y: 0 }], [2, { id: 2, x: 6, y: 0 }]],
+    elements: [[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1 }]],
+    materials: [[1, { id: 1, name: 'Steel A36', e: 200000, nu: 0.3 }]],
+    sections: [[1, { id: 1, name: 'Custom (user values)', a: 0.0123, iz: 4.56e-5 }]],
+    supports: [[1, { id: 1, nodeId: 1, type: 'pinned' }], [2, { id: 2, nodeId: 2, type: 'rollerX' }]],
+    interpretation: 'x',
+    ...input,
+  });
+  const answer = () => stubFetch(() => sseResponse(anthropicStream({
+    content: [{ type: 'tool_use', name: 'create_model', input: customModel() }],
+    stopReason: 'tool_use',
+  })));
+
+  it('NEGATIVE: is refused when the model made the numbers up', async () => {
+    answer();
+    const err = await buildModel({ provider: 'anthropic', apiKey: KEY }, 'Build a 6 m beam with a custom section', 'en', '2d').catch((e) => e);
+    expect(err).toBeInstanceOf(AiActionError);
+    expect(err.message).toBe('section 1: a = 0.0123 is not a value the user gave; use a listed section, or ask the user for its properties');
+  });
+
+  it('is built when the user wrote them, also in an earlier message', async () => {
+    answer();
+    const resp = await buildModel(
+      { provider: 'anthropic', apiKey: KEY }, 'and I = 4560 cm4', 'en', '2d', undefined, undefined,
+      [{ role: 'user', content: 'Build a 6 m beam, A = 123 cm2' }, { role: 'assistant', content: 'What is its inertia?' }],
+    );
+    expect(resp.snapshot?.sections).toEqual([[1, { id: 1, name: 'Custom (user values)', a: 0.0123, iz: 4.56e-5 }]]);
+  });
+
+  it('NEGATIVE: numbers only the assistant wrote do not count', async () => {
+    answer();
+    const err = await buildModel(
+      { provider: 'anthropic', apiKey: KEY }, 'yes, use those', 'en', '2d', undefined, undefined,
+      [{ role: 'user', content: 'Build a 6 m beam' }, { role: 'assistant', content: 'Shall I use A = 123 cm2 and I = 4560 cm4?' }],
+    ).catch((e) => e);
+    expect(err).toBeInstanceOf(AiActionError);
+    expect(err.message).toContain('is not a value the user gave');
+  });
+});
+
 describe('a draft in the other dimension', () => {
   it('NEGATIVE: a 2D model proposed for a 3D request is refused', async () => {
     stubFetch(() => sseResponse(anthropicStream({

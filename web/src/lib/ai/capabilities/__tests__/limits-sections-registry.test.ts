@@ -4,6 +4,7 @@ import {
 } from '../limits';
 import { lookupSection } from '../sections';
 import { generatorCatalog, promptText, toolDefinitions } from '../registry';
+import { INTERPRET_SCHEMA, interpretSystemPrompt } from '../../prompts';
 
 describe('limits', () => {
   it('passes locale tags and rejects prose', () => {
@@ -53,6 +54,16 @@ describe('sections', () => {
   });
 });
 
+describe('result interpretation', () => {
+  it('can say undetermined, and never says ok when nothing was compared', () => {
+    const assessment = (INTERPRET_SCHEMA.properties as Record<string, { enum: string[] }>).assessment;
+    expect(assessment.enum).toEqual(['ok', 'marginal', 'excessive', 'undetermined']);
+    const prompt = interpretSystemPrompt('en');
+    expect(prompt).toContain('give the assessment as undetermined');
+    expect(prompt).toContain('never ok when nothing was compared');
+  });
+});
+
 describe('registry', () => {
   it('has eight generators', () => {
     expect(generatorCatalog()).toHaveLength(8);
@@ -84,8 +95,10 @@ describe('registry', () => {
 
   it('prompt lists sections', () => {
     const text = promptText('2d');
-    expect(text).toContain('IPE 300 (a=0.005380, iz=0.00008356, iy=0.000006040, j=2.000e-7)');
-    expect(text).toContain('HEB 300 (a=0.01490, iz=0.0002517, iy=0.00008563, j=0.000001850)');
+    expect(text).toContain('IPE 300 (a=0.005380, iz=0.00008356, iy=0.000006040)');
+    expect(text).toContain('HEB 300 (a=0.01490, iz=0.0002517, iy=0.00008563)');
+    expect(text).toContain('leave j out');
+    expect(text).not.toMatch(/\bj=/);
   });
 
   it('tool definitions: 2D without model has 2D generators plus create_model', () => {
