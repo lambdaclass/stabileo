@@ -18,7 +18,7 @@
     { base: '3d-section-analysis', w: 1600, h: 876, alt: 'landing.shotStress3dAlt', title: 'landing.shotStress3dTitle' },
   ];
 
-  const points = ['basicPt1', 'basicPt2', 'basicPt3', 'basicPt4'];
+  const points = ['basicPt1', 'basicPt2', 'basicPt3', 'basicPt4', 'basicPt5'];
 </script>
 
 <section class="sec sec--paper basic" data-section="basic" id="basic" aria-labelledby="basic-title">

@@ -62,6 +62,7 @@ const body: PostBody = {
       "k": "p",
       "t": "Mit diesem Block kann die App eine Statische Berechnung reproduzieren: Sie berechnet das Projekt erneut und vergleicht jeden Fingerabdruck. Das Urteil lautet nur dann „reproduziert“, wenn alle übereinstimmen (ein anderer WebAssembly-Build wird daneben gemeldet, nicht als Abweichung gezählt); konnte einer nicht neu berechnet werden, lautet es „unvollständig“, nie „reproduziert“. Außerdem gibt es ein Kommandozeilenwerkzeug, das dieselbe Eingabe zweimal berechnet und die Fingerabdrücke prüft."
     },
+    {"k": "img", "base": "blog/reproduce", "w": 1600, "h": 1000, "alt": "Stabileo Basic mit dem Dialog zum Reproduzieren aus der Herkunftsangabe: ein Feld, um den Herkunftsblock eines Berichts einzufügen oder den gespeicherten Bericht zu laden, und die Schaltflächen, um die Solver-Eingabe herunterzuladen und neu zu lösen und zu vergleichen.", "caption": "„Exportierten Bericht prüfen“: Das offene Projekt wird neu gelöst, und jeder Fingerabdruck wird mit dem des Berichts verglichen."},
     {
       "k": "h",
       "t": "Alte Projekte weisen darauf hin"

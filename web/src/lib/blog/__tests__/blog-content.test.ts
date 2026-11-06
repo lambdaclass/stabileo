@@ -19,6 +19,8 @@ import { POSTS, findPost } from '..';
 import { readingMinutes, wordCount, addTranslations, inLocale, type Block, type Localized, type PostBody } from '../types';
 import { type PublicLocale, dictFor } from '../../i18n/store.svelte';
 import { completeLocales } from '../../i18n/locales/all';
+import { existsSync, readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
 const REQUIRED = completeLocales() as PublicLocale[];
 const written = (post: { i18n: Partial<Record<PublicLocale, PostBody>> }) =>
@@ -26,6 +28,20 @@ const written = (post: { i18n: Partial<Record<PublicLocale, PostBody>> }) =>
 
 // Thousands may be grouped with a comma, a point or a (non-breaking) space depending on the
 // language: "15,833", "15.833" and "15 833" are one number, while "0,976" is a decimal.
+const SCREENSHOTS = fileURLToPath(new URL('../../../../public/screenshots/', import.meta.url));
+
+function webpSize(file: string): [number, number] {
+  const b = readFileSync(file);
+  const chunk = b.toString('ascii', 12, 16);
+  if (chunk === 'VP8X') return [1 + b.readUIntLE(24, 3), 1 + b.readUIntLE(27, 3)];
+  if (chunk === 'VP8 ') return [b.readUInt16LE(26) & 0x3fff, b.readUInt16LE(28) & 0x3fff];
+  if (chunk === 'VP8L') {
+    const bits = b.readUInt32LE(21);
+    return [1 + (bits & 0x3fff), 1 + ((bits >> 14) & 0x3fff)];
+  }
+  throw new Error(`${file}: not a WebP`);
+}
+
 function normalizeNumber(cell: string): string | null {
   const c = cell.trim();
   if (/^-?[1-9]\d{0,2}(?:[.,\s\u00a0\u202f]\d{3})+$/.test(c)) return c.replace(/[.,\s\u00a0\u202f]/g, '');
@@ -109,6 +125,9 @@ describe('blog posts', () => {
               // application into the page; it has to say what they are getting.
               expect(b.label.trim().length).toBeGreaterThan(30);
               expect(b.query).toMatch(/example=/);
+            } else if (b.k === 'img') {
+              expect(b.alt.trim().length, `${b.base}: alt`).toBeGreaterThan(30);
+              expect(b.caption.trim()).not.toBe('');
             } else if (b.k === 'table') {
               expect(b.caption.trim()).not.toBe('');
               expect(b.head.length).toBeGreaterThan(1);
@@ -140,7 +159,9 @@ describe('blog posts', () => {
                     ? `link:${b.slug}`
                     : b.k === 'ext'
                       ? `ext:${b.href}`
-                      : b.k,
+                      : b.k === 'img'
+                        ? `img:${b.base}:${b.w}x${b.h}`
+                        : b.k,
           );
         for (const locale of written(post)) {
           expect(shape(locale), `${locale} does not match the English structure`).toEqual(shape('en'));
@@ -176,6 +197,24 @@ describe('blog posts', () => {
             expect(b.href, `${locale}: ${b.href}`).toMatch(/^https:\/\/github\.com\/lambdaclass\/stabileo\/[\w./#-]+$/);
             expect(b.label.trim()).not.toBe('');
           }
+        }
+      });
+
+      it('shows at least one image, and every image it shows is committed at the size it declares', () => {
+        const images = post.i18n.en.blocks.filter((b): b is Extract<Block, { k: 'img' }> => b.k === 'img');
+        expect(images.length).toBeGreaterThan(0);
+        for (const img of images) {
+          for (const w of [800, 1600]) {
+            for (const ext of ['avif', 'webp']) {
+              expect(existsSync(`${SCREENSHOTS}${img.base}-${w}.${ext}`), `${img.base}-${w}.${ext}`).toBe(true);
+            }
+          }
+          expect(webpSize(`${SCREENSHOTS}${img.base}-1600.webp`), img.base).toEqual([img.w, img.h]);
+          expect(webpSize(`${SCREENSHOTS}${img.base}-800.webp`)[0], img.base).toBe(800);
+        }
+        const alts = (l: PublicLocale) => post.i18n[l]!.blocks.flatMap((b) => (b.k === 'img' ? [b.alt] : []));
+        for (const locale of written(post).filter((l) => l !== 'en')) {
+          alts(locale).forEach((alt, i) => expect(alt, `${locale} alt ${i} is the English one`).not.toBe(alts('en')[i]));
         }
       });
 
