@@ -276,7 +276,7 @@ export function mapIfcToModel(
       // The profile's own rectangle or circle, as the file draws it.
       const d = dimsOf(name)!;
       if (d.shape === 'rect') {
-        sections.push({ name, a: d.b * d.h, iy: d.b * d.h ** 3 / 12, iz: d.h * d.b ** 3 / 12, j: torsionRect(d.b, d.h), h: d.h, b: d.b, shape: 'rect' });
+        sections.push({ name, a: d.b * d.h, iz: d.b * d.h ** 3 / 12, iy: d.h * d.b ** 3 / 12, j: torsionRect(d.b, d.h), h: d.h, b: d.b, shape: 'rect' });
       } else {
         const r = d.d / 2;
         sections.push({ name, a: Math.PI * r * r, iz: Math.PI * r ** 4 / 4, iy: Math.PI * r ** 4 / 4, j: Math.PI * r ** 4 / 2, h: d.d, b: d.d, shape: 'generic' });
@@ -290,8 +290,8 @@ export function mapIfcToModel(
         const tw = dims[3] ? parseFloat(dims[3]) * 1e-3 : undefined;
         // Estimate properties
         const a = tw ? 2 * (h + b) * tw : h * b; // hollow vs solid
-        const iy = tw ? (h ** 3 * b / 12 - (h - 2 * tw) ** 3 * (b - 2 * tw) / 12) : h ** 3 * b / 12;
-        const iz = tw ? (b ** 3 * h / 12 - (b - 2 * tw) ** 3 * (h - 2 * tw) / 12) : b ** 3 * h / 12;
+        const iz = tw ? (h ** 3 * b / 12 - (h - 2 * tw) ** 3 * (b - 2 * tw) / 12) : h ** 3 * b / 12;
+        const iy = tw ? (b ** 3 * h / 12 - (b - 2 * tw) ** 3 * (h - 2 * tw) / 12) : b ** 3 * h / 12;
         sections.push({
           name, a, iz, iy, h, b, t: tw,
           shape: tw ? 'RHS' : 'rect',
@@ -318,8 +318,7 @@ export function mapIfcToModel(
     sections.push({
       name: 'Default',
       a: 0.00285,
-      iy: 1.943e-5,
-      iz: 1.42e-6,
+      iz: 1.943e-5,
       h: 0.2,
       b: 0.1,
       shape: 'I',
