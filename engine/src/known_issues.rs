@@ -719,8 +719,9 @@ fn cubic_roots_in_unit(c: [f64; 4]) -> Vec<f64> {
 /// ψ − V/(G·As), and a twist interpolated between `twist`, bounded on each interval between
 /// [`SPAN_STATIONS`] stations and the load positions. Between them a plane's moment M is a cubic,
 /// so the zeros of M and of M/EI − M''/(G·As), where ψ and the slope are extreme, are found
-/// exactly, and the slope is taken on both sides of a point load; the interval's value is the norm
-/// of each part's own largest magnitude on it, which the rotation vector cannot exceed.
+/// exactly, and the slope is taken on both sides of a point load. The section rotation vector and
+/// the axis slope vector are bounded apart, each by the norm of its parts' largest magnitudes on
+/// the interval, and the interval's value is the larger bound.
 fn largest_span_rotation(l: f64, planes: &[crate::postprocess::diagrams::SpanRotation], twist: (f64, f64)) -> f64 {
     let mut stations: Vec<f64> = (0..=SPAN_STATIONS).map(|k| l * k as f64 / SPAN_STATIONS as f64).chain(planes.iter().flat_map(|p| p.breaks().iter().copied())).collect();
     stations.sort_by(f64::total_cmp);
@@ -729,7 +730,8 @@ fn largest_span_rotation(l: f64, planes: &[crate::postprocess::diagrams::SpanRot
     let mut worst = 0.0f64;
     for w in stations.windows(2) {
         let (a, b) = (w[0], w[1]);
-        let mut sum = (twist.0 + (twist.1 - twist.0) * a / l).abs().max((twist.0 + (twist.1 - twist.0) * b / l).abs()).powi(2);
+        let twisted = (twist.0 + (twist.1 - twist.0) * a / l).abs().max((twist.0 + (twist.1 - twist.0) * b / l).abs()).powi(2);
+        let (mut sections, mut axes) = (twisted, twisted);
         for p in planes {
             let m = nodes.map(|t| p.moment(a + (b - a) * t));
             let mut c = [0.0; 4];
@@ -745,18 +747,18 @@ fn largest_span_rotation(l: f64, planes: &[crate::postprocess::diagrams::SpanRot
             let (h, f, ei) = (b - a, p.shear_flexibility(), p.ei());
             let turn = |t: f64| {
                 let psi = p.at(a + h * t);
-                let axis = psi - f * (c[1] + (2.0 * c[2] + 3.0 * c[3] * t) * t) / h;
-                nan_max(psi.abs(), axis.abs())
+                (psi.abs(), (psi - f * (c[1] + (2.0 * c[2] + 3.0 * c[3] * t) * t) / h).abs())
             };
             let mut at = vec![0.0, 1.0];
             at.extend(cubic_roots_in_unit(c));
             if f != 0.0 {
                 at.extend(cubic_roots_in_unit([c[0] / ei - 2.0 * f * c[2] / (h * h), c[1] / ei - 6.0 * f * c[3] / (h * h), c[2] / ei, c[3] / ei]));
             }
-            let largest = at.into_iter().map(turn).fold(0.0, nan_max);
-            sum += largest * largest;
+            let (section, axis) = at.into_iter().map(turn).fold((0.0, 0.0), |(s, x), (ps, px)| (nan_max(s, ps), nan_max(x, px)));
+            sections += section * section;
+            axes += axis * axis;
         }
-        worst = nan_max(worst, sum.sqrt());
+        worst = nan_max(worst, nan_max(sections.sqrt(), axes.sqrt()));
     }
     worst
 }
@@ -1473,11 +1475,13 @@ mod span_tests {
         let dx = 1e-7 * l;
         (0..=200_000).map(|k| from + (to - from) * k as f64 / 200_000.0).map(|x| {
             let t = twist.0 + (twist.1 - twist.0) * x / l;
-            let turn = |p: &crate::postprocess::diagrams::SpanRotation| {
+            let slope = |p: &crate::postprocess::diagrams::SpanRotation| {
                 let (lo, hi) = ((x - dx).max(0.0), (x + dx).min(l));
-                p.at(x).abs().max(((p.deflection(hi) - p.deflection(lo)) / (hi - lo)).abs())
+                (p.deflection(hi) - p.deflection(lo)) / (hi - lo)
             };
-            (t * t + planes.iter().map(|p| turn(p).powi(2)).sum::<f64>()).sqrt()
+            let section = (t * t + planes.iter().map(|p| p.at(x).powi(2)).sum::<f64>()).sqrt();
+            let axis = (t * t + planes.iter().map(|p| slope(p).powi(2)).sum::<f64>()).sqrt();
+            section.max(axis)
         }).fold(0.0, f64::max)
     }
 
@@ -1630,6 +1634,38 @@ mod span_tests {
             assert!((plane.moment(t * l) + diagram).abs() < 1e-9 * (1.0 + diagram.abs()), "t {t}: {} vs {diagram}", plane.moment(t * l));
         }
         assert!((plane.at(*l).abs() - 600.0 * l / (4.0 * 2e4)).abs() < 1e-12, "{}", plane.at(*l));
+    }
+
+    #[test]
+    fn a_section_rotation_in_one_plane_and_a_shear_slope_in_the_other_are_not_added_1569() {
+        use crate::postprocess::diagrams::SpanRotation;
+        let bending = SpanRotation::new(1.0, 1e9, 0.09, 0.0, 0.09, 0.0, 0.09, false, false, Vec::new(), Vec::new(), Vec::new(), 0.0);
+        let shear = SpanRotation::new(1.0, 1e9, 0.09, 0.0, 0.0, -0.09, 0.0, false, false, Vec::new(), Vec::new(), Vec::new(), 0.0);
+        assert!((bending.at(0.5) - 0.09).abs() < 1e-6 && bending.deflection(0.5).abs() < 1e-6 && shear.at(0.5).abs() < 1e-6, "{} {}", bending.at(0.5), shear.at(0.5));
+        let planes = [bending, shear];
+        let largest = largest_span_rotation(1.0, &planes, (0.0, 0.0));
+        let dense = dense_largest(1.0, &planes, (0.0, 0.0), 0.0, 1.0);
+        assert!(largest < 0.1 && (largest - dense).abs() < 1e-6, "{largest} vs {dense}");
+    }
+
+    #[test]
+    fn a_solved_couple_at_a_released_start_follows_the_solved_moment_1569() {
+        let input: SolverInput = serde_json::from_value(serde_json::json!({
+            "nodes": {"1": {"id":1,"x":0,"z":0}, "2": {"id":2,"x":2,"z":0}},
+            "materials": {"1": {"id":1,"e":200000,"nu":0.3}}, "sections": {"1": {"id":1,"a":0.01,"iz":1e-4}},
+            "elements": {"1": {"id":1,"type":"frame","nodeI":1,"nodeJ":2,"materialId":1,"sectionId":1,"hingeStart":true}},
+            "supports": {"1": {"id":1,"nodeId":1,"type":"fixed"}, "2": {"id":2,"nodeId":2,"type":"fixed"}},
+            "loads": [{"type":"pointOnElement","data":{"elementId":1,"a":0.0,"p":0,"my":600}}]
+        })).unwrap();
+        let r = crate::solver::linear::solve_2d(&input).unwrap();
+        let (_, l, plane) = &span_planes_2d(&member_spans_2d(&input, &input.loads), &r)[0];
+        let ef = &r.element_forces[0];
+        for k in 1..=40 {
+            let t = k as f64 / 40.0;
+            let diagram = crate::postprocess::diagrams::compute_diagram_value_at("moment", t, ef);
+            assert!((plane.moment(t * l) + diagram).abs() < 1e-9 * (1.0 + diagram.abs()), "t {t}: {} vs {diagram}", plane.moment(t * l));
+        }
+        assert!((plane.at(0.0).abs() - 600.0 * l / (4.0 * 2e4)).abs() < 1e-12, "{}", plane.at(0.0));
     }
 
     #[test]
