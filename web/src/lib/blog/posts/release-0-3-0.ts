@@ -14,7 +14,7 @@ const REPO = 'https://github.com/lambdaclass/stabileo/blob/main';
 export const release030: Post = {
   slug: 'stabileo-0-3-0',
   date: '2026-10-21',
-  order: 8,
+  order: 10,
   authors: ['Federico Carrone'],
   tagKeys: ['blog.tag.safety', 'blog.tag.verification', 'blog.tag.solver'],
   i18n: {
@@ -28,6 +28,7 @@ export const release030: Post = {
 
         { k: 'h', t: 'Volvé a resolver tus proyectos' },
         { k: 'p', t: 'Estos son los casos que más pueden mover un resultado de diseño. Cada aviso tiene el caso resuelto completo y qué hacer con resultados ya entregados.' },
+        { k: 'img', base: 'blog/recheck-notice', w: 1600, h: 1000, alt: 'Stabileo PRO al abrir un pórtico de hormigón guardado en septiembre. Un diálogo avisa que los resultados cambiaron desde la última vez que se resolvió el proyecto, lista los cambios que afectan al modelo, entre ellos correcciones del solver halladas por los certificados y la compatibilidad de deformaciones de CIRSOC 201, y pide marcar que se leyeron antes de seguir con resultados desactualizados o volver a calcular.', caption: 'Al abrir un proyecto resuelto antes de una corrección que lo afecta: la aplicación lista esos cambios y mantiene los resultados desactualizados hasta que se vuelvan a calcular.' },
         {
           k: 'table',
           caption: 'Algunas correcciones de la 0.3.0: el valor correcto y el que daba la versión anterior.',
@@ -77,6 +78,7 @@ export const release030: Post = {
 
         { k: 'h', t: 'Re-run your projects' },
         { k: 'p', t: 'These are the cases that can move a design result the most. Each advisory has the full worked case and what to do with results you already delivered.' },
+        { k: 'img', base: 'blog/recheck-notice', w: 1600, h: 1000, alt: 'Stabileo PRO opening a concrete frame saved in September. A dialog titled “Results have changed since this project was last solved” lists the changes that concern the model, among them solver fixes found by result certificates and CIRSOC 201 strain compatibility, and asks to tick “I have read these changes” before continuing with stale results or re-running.', caption: 'Opening a project solved before a fix that concerns it: the app lists those changes and keeps the results stale until they are solved again.' },
         {
           k: 'table',
           caption: 'Some of the 0.3.0 fixes: the correct value and the one the previous version gave.',
@@ -126,6 +128,7 @@ export const release030: Post = {
 
         { k: 'h', t: 'Resolva seus projetos de novo' },
         { k: 'p', t: 'Estes são os casos que mais podem mover um resultado de projeto. Cada aviso tem o caso resolvido completo e o que fazer com resultados já entregues.' },
+        { k: 'img', base: 'blog/recheck-notice', w: 1600, h: 1000, alt: 'Stabileo PRO ao abrir um pórtico de concreto salvo em setembro. Um diálogo avisa que os resultados mudaram desde a última vez que o projeto foi resolvido, lista as mudanças que afetam o modelo, entre elas correções do solver encontradas pelos certificados e a compatibilidade de deformações da CIRSOC 201, e pede para marcar que foram lidas antes de seguir com resultados desatualizados ou recalcular.', caption: 'Ao abrir um projeto resolvido antes de uma correção que o afeta: o aplicativo lista essas mudanças e mantém os resultados desatualizados até serem recalculados.' },
         {
           k: 'table',
           caption: 'Algumas correções da 0.3.0: o valor correto e o que a versão anterior dava.',

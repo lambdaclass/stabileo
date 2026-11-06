@@ -423,10 +423,31 @@
   border-bottom: 0;
 }
 
+.landing.blog .post-shot img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--hair);
+  border-radius: var(--lp-radius);
+}
+
 .landing.blog .post-figure figcaption {
   margin-top: 0.65rem;
   font-size: 0.8rem;
   color: var(--fg-2);
+}
+
+.landing.blog .post-photo picture,
+.landing.blog .post-photo img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: var(--lp-radius);
+}
+
+.landing.blog .post-photo--tall {
+  max-width: 30rem;
+  margin-inline: auto;
 }
 
 .landing.blog .post-foot {

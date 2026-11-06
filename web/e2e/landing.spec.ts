@@ -238,19 +238,12 @@ test.describe('@landing landing page', () => {
     await expect(page.locator('.app-container.hidden-behind-landing')).toHaveCount(0);
   });
 
-  test('the hero offers one action and no dead link', async ({ page }) => {
-    /*
-     * The hero used to carry a second button pointing at /demo, the guided
-     * tour. That route is being retired by the tutorials workstream, so the
-     * button went with it: a link to a page that will 404 looks exactly like a
-     * working one until someone presses it, and this one sat in the first
-     * screen of the site.
-     *
-     * What remains is one primary action and the quiet blog link below it.
-     */
+  test('the hero offers the editor and the live examples, and no dead link', async ({ page }) => {
     await bootLanding(page);
 
-    await expect(page.locator('.landing .hero-ctas .btn')).toHaveCount(1);
+    await expect(page.locator('.landing .hero-ctas .btn')).toHaveCount(2);
+    await expect(page.locator('.landing .hero-ctas .btn-primary')).toHaveCount(1);
+    await expect(page.locator('.landing .hero-ctas a.btn')).toHaveAttribute('href', /\/examples\/$/);
     await expect(page.locator('.landing a[href="/demo"]')).toHaveCount(0);
     await expect(page.locator('.landing .hero-blog')).toBeVisible();
 
@@ -867,15 +860,12 @@ test.describe('@landing the model the deck states', () => {
         trs.map((tr) => [...tr.querySelectorAll('th,td')].map((c) => c.textContent?.trim() ?? '')),
       );
 
-    // Five modules, two audiences. Universities are one audience now: public
-    // and private were separate rows and everything is free for both.
+    // Five modules, two audiences. Stabileo AI is paid by everyone, universities included.
     expect(rows).toEqual([
       ['Básico', 'Gratis', 'Gratis'],
       ['PRO · Cálculo', 'Gratis', 'Gratis'],
       ['PRO · Diseño normativo', 'Gratis durante el desarrollo*', 'Gratis'],
-      // Blank on purpose: a university brings its own model API, and the
-      // paragraph under the table is where that is explained.
-      ['Stabileo IA', 'Pago por token**', ''],
+      ['Stabileo IA', 'Pago por token**', 'Pago por token**'],
       ['Educativo', '', 'Gratis'],
     ]);
   });
@@ -915,16 +905,11 @@ test.describe('@landing the model the deck states', () => {
     const pricing = page.locator('section[data-section="pricing"]');
     await expect(pricing).toContainText('Para las universidades, el programa es gratuito');
 
-    /*
-     * And the table agrees. Every module is free for universities, and the
-     * AI's cell is blank rather than priced: what a university pays for the
-     * agent depends on the model API it brings, which the paragraph under the
-     * table explains and a number in a cell would contradict.
-     */
+    await expect(pricing).toContainText('salvo Stabileo IA y el cálculo intensivo en la nube');
     const unis = await pricing
       .locator('.model-table tbody tr')
       .evaluateAll((trs) => trs.map((tr) => tr.querySelectorAll('td')[1]?.textContent?.trim() ?? ''));
-    expect(unis).toEqual(['Gratis', 'Gratis', 'Gratis', '', 'Gratis']);
+    expect(unis).toEqual(['Gratis', 'Gratis', 'Gratis', 'Pago por token**', 'Gratis']);
 
     // And the firms column, where Education is blank for the same kind of
     // reason: a price there would answer a question the mode does not pose.
@@ -948,10 +933,9 @@ test.describe('@landing the model the deck states', () => {
      */
     const inTable = await pricing.locator('.model-table .fn').allInnerTexts();
     const inNotes = await pricing.locator('.mode-note .fn').allInnerTexts();
-    expect(inTable.sort()).toEqual(inNotes.sort());
+    expect([...new Set(inTable)].sort()).toEqual(inNotes.sort());
 
-    // And the explanation is actually there, since the blank now depends on it.
-    await expect(pricing).toContainText('conectar la API del modelo de lenguaje');
+    await expect(pricing).toContainText('será paga para todos, universidades incluidas');
   });
 
   test('the AI section shows the panel, and the panel shows a decision', async ({ page }) => {
@@ -965,6 +949,15 @@ test.describe('@landing the model the deck states', () => {
     const img = ai.locator('img');
     await expect(img).toHaveCount(1);
     await expect(img).toHaveAttribute('alt', /propone|aplicarl/i);
+  });
+
+  test('the AI section lists what the assistant does, and says it is switched off', async ({ page }) => {
+    await bootLanding(page, { locale: 'es' });
+    const ai = page.locator('section[data-section="ai"]');
+    await expect(ai.locator('.tick-list li')).toHaveCount(4);
+    await expect(ai.locator('.tick-list li').first()).toContainText('Arma un modelo a partir de una descripción');
+    await expect(ai).toContainText('responsabilidad del ingeniero');
+    await expect(ai.locator('.mode-note')).toHaveText('El panel ya está en el editor, desactivado mientras lo probamos.');
   });
 
   test('the footer links the five accounts, and opens none of them in place', async ({ page }) => {
