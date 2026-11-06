@@ -251,6 +251,10 @@ function solveIn(tree, list) {
     { cwd: `${tree}/web`, env: { ...process.env, EXAMPLES_EQUIVALENCE: list }, stdio: 'inherit' }).status);
 }
 
+export function headEngineServesBase(changedPaths) {
+  return changedPaths.every((path) => /^(web|docs|changelog\.d)\//.test(path) || (/^research\//.test(path) && !/\.(rs|toml|lock)$/.test(path)));
+}
+
 async function checkoutBase(base, root, git) {
   const { mkdtempSync, symlinkSync, cpSync } = await import('node:fs');
   const { tmpdir } = await import('node:os');
@@ -260,13 +264,14 @@ async function checkoutBase(base, root, git) {
   git('-C', root, 'worktree', 'add', '--detach', dir, base);
   const dispose = () => { try { git('-C', root, 'worktree', 'remove', '--force', dir); } catch { return false; } return true; };
   const unchanged = (...paths) => { try { git('-C', root, 'diff', '--quiet', base, 'HEAD', '--', ...paths); return true; } catch { return false; } };
+  const changed = git('-C', root, 'diff', '--name-only', '--no-renames', base, 'HEAD').split('\n').filter(Boolean);
   const run = (cmd, args, cwd) => {
     const r = spawnSync(cmd, args, { cwd, stdio: 'inherit' });
     if (r.status !== 0) { dispose(); throw new Error(`${cmd} ${args.join(' ')} failed in the ${base} checkout`); }
   };
   if (unchanged('web/package.json', 'web/package-lock.json')) symlinkSync(join(root, 'web/node_modules'), join(dir, 'web/node_modules'));
   else run('npm', ['ci'], join(dir, 'web'));
-  if (unchanged('engine', 'Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', 'flake.nix', 'flake.lock')) cpSync(join(root, 'web/src/lib/wasm'), join(dir, 'web/src/lib/wasm'), { recursive: true });
+  if (headEngineServesBase(changed)) cpSync(join(root, 'web/src/lib/wasm'), join(dir, 'web/src/lib/wasm'), { recursive: true });
   else run('bash', ['scripts/wasm-cached.sh'], dir);
   return { dir, dispose };
 }

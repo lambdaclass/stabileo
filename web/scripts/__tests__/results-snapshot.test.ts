@@ -6,7 +6,7 @@ import { describe, it, expect } from 'vitest';
 // @ts-expect-error plain JavaScript shared with the CI gate (no declaration file)
 import { compareValues, mergeValues, flatten, storeNumber, serialiseSnapshot, parseSnapshot, RTOL, ATOL } from '../results-snapshot/compare.mjs';
 // @ts-expect-error plain JavaScript shared with the CI gate (no declaration file)
-import { decide, isBreakingResultsFragment, newRegistryEntries, newlyRecorded, corpusExamples, modelInputs, proveEquivalence } from '../results-snapshot/gate.mjs';
+import { decide, isBreakingResultsFragment, newRegistryEntries, newlyRecorded, corpusExamples, modelInputs, proveEquivalence, headEngineServesBase } from '../results-snapshot/gate.mjs';
 
 describe('the tolerance', () => {
   const ref = { 'r.m[e1].my': 100, 'r.m[e2].my': -40, 'r.m[e3].my': 0, 'r.d[n1].ux': 0.0123 };
@@ -288,5 +288,23 @@ describe('the examples-only equivalence proof, with both engines', () => {
       { solve: async () => { calls.push(1); return 0; }, baseTree: async () => ({ dir: 'x', dispose: () => {} }) });
     expect(code).toBe(1);
     expect(calls).toEqual([]);
+  });
+});
+
+describe('the base checkout reuses this build\'s engine', () => {
+  it('when only the app, the docs, the changelog or research papers changed', () => {
+    expect(headEngineServesBase(['web/src/lib/templates/fixtures/torsion.json', 'docs/verification/PROVENANCE.md', 'changelog.d/x.md', 'research/papers.yaml'])).toBe(true);
+    expect(headEngineServesBase([])).toBe(true);
+  });
+  it('NEGATIVE: not when only the WASM build script changed', () => {
+    expect(headEngineServesBase(['web/src/x.ts', 'scripts/wasm-cached.sh'])).toBe(false);
+  });
+  it('NEGATIVE: not when only the engine build script changed', () => {
+    expect(headEngineServesBase(['engine/build.rs'])).toBe(false);
+  });
+  it('NEGATIVE: not for a path it does not know, at the top level or as research Rust', () => {
+    expect(headEngineServesBase(['new-build-input.sh'])).toBe(false);
+    expect(headEngineServesBase(['.github/workflows/ci.yml'])).toBe(false);
+    expect(headEngineServesBase(['research/topopt/src/lib.rs'])).toBe(false);
   });
 });
