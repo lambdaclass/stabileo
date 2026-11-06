@@ -154,7 +154,7 @@
           <div aria-live="polite">
             {#if busy}<p role="status" data-testid="solving">{te('solving')}</p>{/if}
             {#if outcome?.status === 'refused'}
-              <p class="warning" role="alert" data-testid="refusal" data-code={outcome.code}>{te('refused')} {te(`refuse.${outcome.code}`)}{#if outcome.reason} <span lang="en">({outcome.reason})</span>{/if}</p>
+              <p class="warning" role="alert" data-testid="refusal" data-code={outcome.code}>{te('refused')} {te(`refuse.${outcome.code}`)}{#if outcome.reason}{' '}<span lang="en">({outcome.reason})</span>{/if}</p>
             {:else if outcome?.status === 'ok' && !busy}
               <div class="readouts">
                 {#each outcome.readouts as r (r.key)}
@@ -172,7 +172,7 @@
               {@const c = outcome.certificate}
               <p class="certificate" data-testid="certificate" data-status={c.status}>
                 {#if c.status === 'certified'}{te('cert.certified')} ({te(`cert.${c.kind}`)}){#if c.bound !== null} · {te(`cert.${c.measure}`)} ≤ <Sci value={c.bound} unit="" />{/if}{#if c.kind === 'timeHistory'}. {te('cert.timeNote')}{/if}
-                {:else}{te(`cert.${c.status}`)} {te(`cert.${c.kind}`)}: {te(`cert.code.${c.code}`)}{#if c.reason} <span lang="en">({c.reason})</span>{/if}{/if}
+                {:else}{te(`cert.${c.status}`)} {te(`cert.${c.kind}`)}: {te(`cert.code.${c.code}`)}{#if c.reason}{' '}<span lang="en">({c.reason})</span>{/if}{/if}
               </p>
               {#each outcome.charts as chart (chart.key)}
                 <div class="chart">
