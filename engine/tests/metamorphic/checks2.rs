@@ -9,6 +9,7 @@ use dedaliano_engine::metamorphic::conditioning::{self, Conditioning, INCONCLUSI
 use dedaliano_engine::metamorphic::relabel::Relabel;
 use dedaliano_engine::metamorphic::transform::Iso2;
 use dedaliano_engine::metamorphic::units::Units;
+use dedaliano_engine::metamorphic::planes::Plane;
 use dedaliano_engine::metamorphic::Rng;
 use dedaliano_engine::types::*;
 use std::panic::{catch_unwind, AssertUnwindSafe};
@@ -345,9 +346,10 @@ pub fn check_case(ctx: &Ctx, c: &Case2, anas: &[Ana2], invariants: &[&str]) {
 /// The plane frame in each coordinate plane of a 3D model, solved by `solve` and read back in
 /// the frame's axes, must give `base`, with no force out of the plane or at a node the frame leaves free. A known-issue refusal on
 /// one side only is not a pass: the two dimensions contain the same model differently.
-fn planes(a: &Ana2, c: &Case2, base: &Resp, solve: fn(&SolverInput3D) -> Result<AnalysisResults3D, String>, cond: &Conditioning) -> Verdict {
-    use dedaliano_engine::metamorphic::planes::{embed_2d, pull_static, Plane};
+fn planes(a: &Ana2, c: &Case2, base: &Resp, solve: impl Fn(&Case2, Plane, &SolverInput3D) -> Result<Resp, String>, cond: &Conditioning) -> Verdict {
+    use dedaliano_engine::metamorphic::planes::embed_2d;
     let rel = rel_for(a.name, a.iter_tol, cond) * 2.0;
+    let rel_free = rel_without_eigen(a.name, a.iter_tol, cond) * 2.0;
     let mut verdict = Verdict::NotApplicable;
     let mut refused = None;
     for plane in Plane::ALL {
@@ -355,15 +357,7 @@ fn planes(a: &Ana2, c: &Case2, base: &Resp, solve: fn(&SolverInput3D) -> Result<
             Ok(s3) => s3,
             Err(e) => return Verdict::Unrepresentable(e.to_string()),
         };
-        let got = crate::response::outcome(guarded(|| {
-            let p = pull_static(&c.s, plane, &solve(&s3)?).map_err(|e| e.to_string())?;
-            let mut r = crate::response::planar_static(&p);
-            r.scalar("stray force", Dim::FORCE, p.stray_force);
-            r.scalar("stray moment", Dim::MOMENT, p.stray_moment);
-            r.scalar("stray translation", Dim::LEN, p.stray_translation);
-            r.scalar("stray rotation", Dim::NONE, p.stray_rotation);
-            Ok(r)
-        }));
+        let got = crate::response::outcome(guarded(|| solve(c, plane, &s3)));
         let got = match got {
             Ok(g) => g,
             Err(e) => return Verdict::Fail(format!("{plane:?}: 2D {}, 3D failed: {e}", if base.1.is_empty() { "solved" } else { "refused" })),
@@ -377,16 +371,18 @@ fn planes(a: &Ana2, c: &Case2, base: &Resp, solve: fn(&SolverInput3D) -> Result<
             (b, _) => return Verdict::Fail(format!("{plane:?}: containment differs ({} only): 2D {:?}, 3D {:?}", if b { "3D" } else { "2D" }, base.1, got.1)),
         }
         let mut exp = base.clone();
-        exp.scalar("stray force", Dim::FORCE, 0.0);
-        exp.scalar("stray moment", Dim::MOMENT, 0.0);
-        exp.scalar("stray translation", Dim::LEN, 0.0);
-        exp.scalar("stray rotation", Dim::NONE, 0.0);
+        exp.0.extend(got.0.iter().filter(|i| i.tag.starts_with("stray ")).map(|i| {
+            let mut zero = i.clone();
+            zero.v.fill(0.0);
+            zero
+        }));
         let keys = |r: &Resp| r.0.iter().map(|i| (i.node, i.elem, i.tag.clone())).collect::<std::collections::BTreeSet<_>>();
         if keys(&got) != keys(&exp) {
             let (g, e) = (keys(&got), keys(&exp));
             return Verdict::Fail(format!("{plane:?}: results differ in shape: only in 3D {:?}, only in 2D {:?}", g.difference(&e).take(4).collect::<Vec<_>>(), e.difference(&g).take(4).collect::<Vec<_>>()));
         }
-        verdict = match judge(compare_with_compliance(&got.flat(), &exp.flat(), cond.lchar, rel, load_floor_2d(&c.s, cond.lchar), compliance(a.name, cond)), rel) {
+        let cmp = |g: &Resp, e: &Resp, rel: f64| compare_with_compliance(&g.flat(), &e.flat(), cond.lchar, rel, load_floor_2d(&c.s, cond.lchar), compliance(a.name, cond));
+        verdict = match judge_split(&got, &exp, rel, rel_free, cmp) {
             Verdict::Fail(e) => return Verdict::Fail(format!("{plane:?}: {e}")),
             Verdict::Pass(w) => match verdict {
                 Verdict::Pass(v) => Verdict::Pass(v.max(w)),
@@ -723,13 +719,15 @@ fn energy(a: &Ana2, c: &Case2, cond: &Conditioning, rng: &mut Rng) -> Verdict {
 #[test]
 fn a_one_sided_failure_or_refusal_or_a_nonfinite_3d_result_fails_the_planes_check() {
     use dedaliano_engine::known_issues::{diagnostic, refuse, Mode, ENTRIES};
+    use crate::ana2::in_plane;
     use dedaliano_engine::solver::linear;
     let c = crate::corpus::cases_2d(crate::corpus::Tier::Pr, crate::seed()).into_iter().find(|c| c.name.contains("ex-cantilever-input")).unwrap();
     let a = crate::ana2::rows().into_iter().find(|a| a.name == "linear").unwrap();
     let cond = with_eigen_2d(conditioning::of_2d(&c.s).unwrap(), &c);
     let base = run(&a, &c).unwrap();
-    let fails = |solve: fn(&SolverInput3D) -> Result<AnalysisResults3D, String>| matches!(planes(&a, &c, &base, solve, &cond), Verdict::Fail(_));
-    assert!(matches!(planes(&a, &c, &base, |s| linear::solve_3d(s), &cond), Verdict::Pass(_)));
+    let check = |base: &Resp, solve: fn(&SolverInput3D) -> Result<AnalysisResults3D, String>| planes(&a, &c, base, |c, p, s| in_plane(c, p, solve(s)), &cond);
+    let fails = |solve: fn(&SolverInput3D) -> Result<AnalysisResults3D, String>| matches!(check(&base, solve), Verdict::Fail(_));
+    assert!(matches!(check(&base, |s| linear::solve_3d(s)), Verdict::Pass(_)));
     assert!(fails(|s| {
         let mut r = linear::solve_3d(s)?;
         r.element_forces[0].mx_start = f64::NAN;
@@ -763,18 +761,35 @@ fn a_one_sided_failure_or_refusal_or_a_nonfinite_3d_result_fails_the_planes_chec
         }
         linear::solve_3d(s)
     };
-    assert!(matches!(planes(&a, &c, &refused_2d, refuse_in_xz, &cond), Verdict::Fail(_)));
-    assert!(matches!(planes(&a, &c, &refused_2d, |_| Err("singular".into()), &cond), Verdict::Fail(_)));
+    assert!(matches!(check(&refused_2d, refuse_in_xz), Verdict::Fail(_)));
+    assert!(matches!(check(&refused_2d, |_| Err("singular".into())), Verdict::Fail(_)));
     let nan = |s: &SolverInput3D| {
         let mut r = linear::solve_3d(s)?;
         r.element_forces[0].mx_start = f64::NAN;
         Ok(r)
     };
-    assert!(matches!(planes(&a, &c, &refused_2d, nan, &cond), Verdict::Fail(_)));
+    assert!(matches!(check(&refused_2d, nan), Verdict::Fail(_)));
     assert!(fails(|_| {
         let id = ENTRIES.iter().find(|e| e.mode == Mode::Refuse).unwrap().id;
         refuse(&[diagnostic(id)]).map(|_| unreachable!())
     }));
+}
+
+#[test]
+fn a_nonfinite_3d_modal_result_fails_the_planes_check() {
+    use crate::ana2::modal_in_plane;
+    use dedaliano_engine::solver::modal;
+    let c = crate::corpus::cases_2d(crate::corpus::Tier::Pr, crate::seed()).into_iter().find(|c| c.name.contains("ex-cantilever-input")).unwrap();
+    let a = crate::ana2::rows().into_iter().find(|a| a.name == "modal").unwrap();
+    let cond = with_eigen_2d(conditioning::of_2d(&c.s).unwrap(), &c);
+    let base = run(&a, &c).unwrap();
+    assert!(matches!(planes(&a, &c, &base, a.planar.unwrap(), &cond), Verdict::Pass(_)));
+    let last_nan = |c: &Case2, p: Plane, s: &SolverInput3D| {
+        let mut r = modal::solve_modal_3d(s, &c.dens, 6)?;
+        r.modes.last_mut().unwrap().effective_mass_x = f64::NAN;
+        modal_in_plane(p, &r)
+    };
+    assert!(matches!(planes(&a, &c, &base, last_nan, &cond), Verdict::Fail(_)));
 }
 
 fn normal_axis(s: &SolverInput3D) -> usize {
