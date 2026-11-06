@@ -2108,6 +2108,63 @@ fn a_combination_carries_the_member_chord_warning_of_its_cases_1446() {
     assert_eq!(combined.structured_diagnostics.iter().filter(|d| d.phase.as_deref() == Some("LIN-SMALL-DISPLACEMENT")).count(), 1);
 }
 
+fn chord_case_2d(fx: f64, fz: f64) -> AnalysisResults {
+    solve_2d(&make_beam(1, 1.0, E, 0.01, 1e-4, "fixed", None, vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx, fz, my: 0.0 })])).unwrap()
+}
+
+fn chord_case_3d(fx: f64, fz: f64) -> AnalysisResults3D {
+    let load = SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: 2, fx, fy: 0.0, fz, mx: 0.0, my: 0.0, mz: 0.0, bw: None });
+    dedaliano_engine::solver::linear::solve_3d(&make_3d_beam(1, 1.0, E, 0.3, 0.01, 1e-4, 1e-4, 1e-5, vec![true; 6], None, vec![load])).unwrap()
+}
+
+fn warned_chords(diagnostics: &[StructuredDiagnostic]) -> Option<(Vec<usize>, Vec<usize>)> {
+    beyond_small_displacement(diagnostics).map(|d| (d.node_ids.clone(), d.element_ids.clone()))
+}
+
+#[test]
+#[ignore = "known wrong result: #1506"]
+fn a_combination_judges_member_chords_on_its_own_displacements_1506() {
+    use dedaliano_engine::postprocess::combinations::{combine_results_refs, CombinationFactor};
+    let (along, across, far) = (chord_case_2d(120_000.0, 0.0), chord_case_2d(0.0, -3600.0), chord_case_2d(600_000.0, 0.0));
+    let tip = |r: &AnalysisResults| r.displacements.iter().find(|d| d.node_id == 2).unwrap().clone();
+    assert!((tip(&along).ux - 0.06).abs() < 1e-9 && (tip(&across).uz.abs() - 0.06).abs() < 1e-9 && (tip(&across).ry.abs() - 0.09).abs() < 1e-9);
+    assert_eq!((warned_chords(&along.structured_diagnostics), warned_chords(&across.structured_diagnostics)), (None, None));
+    assert_eq!(warned_chords(&far.structured_diagnostics), Some((vec![], vec![1])));
+    let cases = [(1, &along), (2, &across), (3, &far), (4, &far)];
+    let combine = |factors: &[(usize, f64)]| {
+        let f: Vec<CombinationFactor> = factors.iter().map(|&(case_id, factor)| CombinationFactor { case_id, factor }).collect();
+        combine_results_refs(&f, &cases).unwrap().structured_diagnostics
+    };
+    assert_eq!(warned_chords(&combine(&[(1, 2.0)])), Some((vec![], vec![1])), "0.06 amplified twice is 0.12");
+    assert_eq!(warned_chords(&combine(&[(1, 1.0), (1, 1.0)])), Some((vec![], vec![1])));
+    assert_eq!(warned_chords(&combine(&[(1, 1.0), (2, 1.0)])), None, "perpendicular chords of 0.06 make 0.085");
+    assert_eq!(warned_chords(&combine(&[(3, 0.1)])), None, "0.3 reduced to 0.03");
+    assert_eq!(warned_chords(&combine(&[(3, 1.0), (4, -1.0)])), None, "cancelled");
+    assert_eq!(warned_chords(&combine(&[(3, 1.0), (4, -0.6)])), Some((vec![], vec![1])));
+}
+
+#[test]
+#[ignore = "known wrong result: #1506"]
+fn a_3d_combination_judges_member_chords_on_its_own_displacements_1506() {
+    use dedaliano_engine::postprocess::combinations::{combine_results_3d_refs, CombinationFactor};
+    let (along, across, far) = (chord_case_3d(120_000.0, 0.0), chord_case_3d(0.0, -3600.0), chord_case_3d(600_000.0, 0.0));
+    let tip = |r: &AnalysisResults3D| r.displacements.iter().find(|d| d.node_id == 2).unwrap().clone();
+    assert!((tip(&along).ux - 0.06).abs() < 1e-9 && (tip(&across).uz.abs() - 0.06).abs() < 1e-9 && (tip(&across).ry.abs() - 0.09).abs() < 1e-9);
+    assert_eq!((warned_chords(&along.structured_diagnostics), warned_chords(&across.structured_diagnostics)), (None, None));
+    assert_eq!(warned_chords(&far.structured_diagnostics), Some((vec![], vec![1])));
+    let cases = [(1, &along), (2, &across), (3, &far), (4, &far)];
+    let combine = |factors: &[(usize, f64)]| {
+        let f: Vec<CombinationFactor> = factors.iter().map(|&(case_id, factor)| CombinationFactor { case_id, factor }).collect();
+        combine_results_3d_refs(&f, &cases).unwrap().unwrap().structured_diagnostics
+    };
+    assert_eq!(warned_chords(&combine(&[(1, 2.0)])), Some((vec![], vec![1])), "0.06 amplified twice is 0.12");
+    assert_eq!(warned_chords(&combine(&[(1, 1.0), (1, 1.0)])), Some((vec![], vec![1])));
+    assert_eq!(warned_chords(&combine(&[(1, 1.0), (2, 1.0)])), None, "perpendicular chords of 0.06 make 0.085");
+    assert_eq!(warned_chords(&combine(&[(3, 0.1)])), None, "0.3 reduced to 0.03");
+    assert_eq!(warned_chords(&combine(&[(3, 1.0), (4, -1.0)])), None, "cancelled");
+    assert_eq!(warned_chords(&combine(&[(3, 1.0), (4, -0.6)])), Some((vec![], vec![1])));
+}
+
 #[test]
 fn every_export_the_app_falls_back_on_refuses_no_free_dofs_with_a_code() {
     use dedaliano_engine::solver::{buckling::*, modal::*, pdelta::*};
