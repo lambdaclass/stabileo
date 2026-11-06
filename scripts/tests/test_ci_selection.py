@@ -453,8 +453,9 @@ exit 0
                     self.assertIn(sweep, specs)
                 self.assertIn('explained-steps.spec.ts', specs)
                 self.assertIn('basic-plastic-course.spec.ts', specs)
-                self.assertNotIn('excel-import.spec.ts', specs)
-                self.assertLess(len(specs), len(selection.ALL_SLOW_SPECS))
+                self.assertIn('excel-import.spec.ts', specs)
+                self.assertIn('basic-draw-members.spec.ts', specs)
+                self.assertEqual(specs, list(selection.ALL_SLOW_SPECS))
 
     def test_merge_queue_unknown_path_selects_all_slow_specs(self):
         for paths in [
@@ -535,12 +536,23 @@ exit 0
             with self.subTest(path=path):
                 self.assertEqual(selection.slow_specs_for_path(path), selection.ALL_SLOW_SPECS)
 
-    def test_slow_tag_inside_a_string_with_slashes_is_discovered(self):
+    def test_every_spec_file_except_the_visual_baselines_is_a_slow_candidate(self):
         with tempfile.TemporaryDirectory() as tmp:
             e2e = Path(tmp)
             (e2e / 'url-title.spec.ts').write_text("test('https://example.test @slow', async () => {});\n")
             (e2e / 'fast.spec.ts').write_text("test('fast', async () => {});\n")
-            self.assertEqual(selection.discover_slow_specs(e2e), ('url-title.spec.ts',))
+            (e2e / 'rc-design-visual.spec.ts').write_text("test('visual', async () => {});\n")
+            self.assertEqual(selection.discover_slow_specs(e2e), ('fast.spec.ts', 'url-title.spec.ts'))
+
+    def test_shared_web_paths_select_every_slow_spec(self):
+        for path in ['web/src/styles/tokens.css', 'web/src/lib/geometry/plane.ts', 'web/src/components/viewport/Viewport.svelte',
+                     'web/src/components/pro/ProShell.svelte', 'web/src/lib/store/model.svelte.ts']:
+            with self.subTest(path=path):
+                self.assertEqual(selection.slow_specs_for_path(path), selection.ALL_SLOW_SPECS)
+
+    def test_area_runner_falls_back_to_every_spec_when_one_pattern_matches_nothing(self):
+        script = (ROOT / '.github/scripts/run-area-e2e.py').read_text()
+        self.assertIn('any(not found for found in matches)', script)
 
 
 if __name__ == '__main__':

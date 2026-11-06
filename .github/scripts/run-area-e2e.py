@@ -13,8 +13,9 @@ except (KeyError, ValueError, TypeError):
     if not slow:
         raise
     specs = ['*.spec.ts']
-files = sorted({str(p) for pattern in specs for p in Path('e2e').glob(pattern)})
-if not files and slow:
+matches = [sorted(Path('e2e').glob(pattern)) for pattern in specs]
+files = sorted({str(p) for found in matches for p in found})
+if slow and (not files or any(not found for found in matches)):
     files = sorted(str(p) for p in Path('e2e').glob('*.spec.ts'))
 if not files:
     raise SystemExit('Selected E2E area has no specs; refusing a green empty run')
