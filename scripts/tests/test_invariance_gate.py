@@ -544,8 +544,8 @@ class Coverage(unittest.TestCase):
         self.assertIn("has no analysis 'inner'", self.status('relabel', {'metamorphic': 'pr_2d', 'analysis': 'inner'})[0])
         self.assertIn("unknown metamorphic tier 'pr_4d'", self.status('relabel', {'metamorphic': 'pr_4d', 'analysis': 'beam'})[0])
 
-    def test_planes_cannot_be_claimed_by_the_metamorphic_tier(self):
-        self.assertIn("has no 'planes' check", self.status('planes', {'metamorphic': 'pr_2d', 'analysis': 'beam'})[0])
+    def test_a_column_the_table_lacks_is_not_coverage(self):
+        self.assertIn("shows nothing for 'beam' × 'planes', not ✓", self.status('planes', {'metamorphic': 'pr_2d', 'analysis': 'beam'})[0])
 
     def test_a_missing_table_fails(self):
         errors = self.status('relabel', {'metamorphic': 'pr_2d', 'analysis': 'beam'}, files={gate.DOC: 'no tables'})

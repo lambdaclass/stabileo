@@ -26,6 +26,7 @@ mod checks2;
 mod checks3;
 mod corpus;
 mod modal_checks;
+mod parity;
 mod nightly_tolerances;
 mod quick;
 mod regressions;
@@ -35,7 +36,7 @@ mod tally;
 
 use tally::Tally;
 
-pub const INV_2D: &[&str] = &["rotation", "mirror", "relabel", "reversal", "units", "superposition", "reciprocity", "energy", "symmetry", "linear agreement", "modal orthogonality"];
+pub const INV_2D: &[&str] = &["rotation", "mirror", "relabel", "reversal", "units", "superposition", "reciprocity", "energy", "symmetry", "linear agreement", "modal orthogonality", "planes"];
 pub const INV_3D: &[&str] = &["rotation", "relabel", "reversal", "units", "superposition", "reciprocity", "energy", "symmetry", "linear agreement", "modal orthogonality"];
 
 fn seed() -> u64 {

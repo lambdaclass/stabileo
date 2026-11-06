@@ -10,7 +10,7 @@ use std::time::Instant;
 /// EXPECTED is keyed by seed: changing one changes every transform drawn from it.
 const SEEDS: &[u64] = &[20754, 20261105];
 
-pub const INVARIANTS_2D: &[&str] = &["rotation", "mirror", "relabel", "reversal", "units", "load order"];
+pub const INVARIANTS_2D: &[&str] = &["rotation", "mirror", "relabel", "reversal", "units", "load order", "planes"];
 pub const INVARIANTS_3D: &[&str] = &["rotation", "relabel", "reversal", "units", "load order"];
 
 const ALL: &[&str] = &["*"];
