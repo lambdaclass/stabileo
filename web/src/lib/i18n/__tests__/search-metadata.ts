@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import toolReviews from '../../../../../research/tools/batches/VALIDATION.json';
 import { BATCH_IDS } from '../../../components/tools/batch';
 import { EXPERIMENTS } from '../../../components/research/experiments';
+import { webpSize } from '../../../../scripts/research-card';
 
 const ORIGIN = 'https://stabileo.com';
 const ORGANIZATION = 'https://stabileo.com/#organization';
@@ -305,12 +306,4 @@ export function searchMetadataSuite(dist: string) {
         .toEqual([`${ORIGIN}/og/stabileo-social.png`, 'image/png', '1200', '630']);
     });
   });
-}
-
-function webpSize(file: Buffer): { width: number; height: number } {
-  const chunk = file.toString('ascii', 12, 16);
-  if (chunk === 'VP8 ') return { width: file.readUInt16LE(26) & 0x3fff, height: file.readUInt16LE(28) & 0x3fff };
-  if (chunk === 'VP8X') return { width: 1 + file.readUIntLE(24, 3), height: 1 + file.readUIntLE(27, 3) };
-  if (chunk === 'VP8L') { const b = file.readUInt32LE(21); return { width: (b & 0x3fff) + 1, height: ((b >>> 14) & 0x3fff) + 1 }; }
-  throw new Error(`not a WebP file (${chunk})`);
 }
