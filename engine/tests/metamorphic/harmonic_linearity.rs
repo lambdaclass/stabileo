@@ -4,6 +4,26 @@ use dedaliano_engine::solver::{assembly, dof::DofNumbering, harmonic, mass_matri
 use dedaliano_engine::types::*;
 use std::collections::{HashMap, HashSet};
 
+pub(crate) fn nightly_case(issue: u32) -> (Option<Case2>, Option<Case3>) {
+    let (model, name, dens) = nightly(issue);
+    match model {
+        Model::D2(s) => {
+            let mut c = Case2::new(name, s);
+            if let Some(d) = dens {
+                c.dens = d;
+            }
+            (Some(c), None)
+        }
+        Model::D3(s) => {
+            let mut c = Case3::new(name, s);
+            if let Some(d) = dens {
+                c.dens = d;
+            }
+            (None, Some(c))
+        }
+    }
+}
+
 fn nightly(issue: u32) -> (Model, String, Option<HashMap<String, f64>>) {
     let text = std::fs::read_to_string(format!("{}/tests/metamorphic_corpus/nightly/issue-{issue}.json", env!("CARGO_MANIFEST_DIR"))).unwrap();
     let meta: serde_json::Value = serde_json::from_str(&text).unwrap();
@@ -110,14 +130,9 @@ fn unit_loads_3d(c: &Case3) -> Vec<(String, Vec<SolverLoad3D>)> {
 }
 
 fn check(issue: u32, seed: u64, invariant: &str) {
-    let (model, name, dens) = nightly(issue);
     let t = crate::tally::Tally::default();
-    match model {
-        Model::D2(s) => {
-            let mut c = Case2::new(name, s);
-            if let Some(d) = dens {
-                c.dens = d;
-            }
+    match nightly_case(issue) {
+        (Some(c), _) => {
             let anas: Vec<_> = crate::ana2::rows().into_iter().filter(|a| a.name == "harmonic").collect();
             for rng_seed in seed..seed + 16 {
                 crate::checks2::check_case(&crate::checks2::Ctx { tally: &t, rng_seed }, &c, &anas, &[invariant]);
@@ -128,11 +143,7 @@ fn check(issue: u32, seed: u64, invariant: &str) {
                 assert_rows_match_direct(issue, what, &direct_rows_2d(&c.with_loads(loads)));
             }
         }
-        Model::D3(s) => {
-            let mut c = Case3::new(name, s);
-            if let Some(d) = dens {
-                c.dens = d;
-            }
+        (None, Some(c)) => {
             let anas: Vec<_> = crate::ana3::rows().into_iter().filter(|a| a.name == "harmonic").collect();
             for rng_seed in seed..seed + 16 {
                 crate::checks3::check_case(&crate::checks3::Ctx { tally: &t, rng_seed }, &c, &anas, &[invariant]);
@@ -148,6 +159,7 @@ fn check(issue: u32, seed: u64, invariant: &str) {
                 assert_rows_match_direct(issue, &what, &direct_rows_3d(&c.with_loads(loads)));
             }
         }
+        (None, None) => unreachable!(),
     }
 }
 
@@ -159,31 +171,26 @@ fn assert_cell_holds(issue: u32, t: &crate::tally::Tally, invariant: &str) {
 }
 
 #[test]
-#[ignore = "known wrong result: #1537"]
 fn issue_1537_harmonic_superposition_2d_frame() {
     check(1537, 20763, "superposition");
 }
 
 #[test]
-#[ignore = "known wrong result: #1538"]
 fn issue_1538_harmonic_reciprocity_3d_cantilever() {
     check(1538, 2026110602647, "reciprocity");
 }
 
 #[test]
-#[ignore = "known wrong result: #1539"]
 fn issue_1539_harmonic_reciprocity_3d_cantilever() {
     check(1539, 2026110607457, "reciprocity");
 }
 
 #[test]
-#[ignore = "known wrong result: #1540"]
 fn issue_1540_harmonic_superposition_3d_cantilever() {
     check(1540, 2026110607353, "superposition");
 }
 
 #[test]
-#[ignore = "known wrong result: #1541"]
 fn issue_1541_harmonic_reciprocity_3d_frame() {
     check(1541, 2026110607389, "reciprocity");
 }

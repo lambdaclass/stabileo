@@ -783,16 +783,20 @@ fn md_orthogonality_follows_the_harmonic_method_not_its_label() {
         assert_eq!(serde_json::from_value::<HarmonicMethod>(serde_json::json!(label)).unwrap(), method);
         assert_eq!(method.superposes_modes(), modal, "{method:?}");
     }
-    let solver: SolverInput3D = serde_json::from_str(include_str!("metamorphic_corpus/differential/modal3d-5.json")).unwrap();
-    let densities: HashMap<String, f64> = solver.materials.keys().map(|id| (id.clone(), 7850.0)).collect();
+    let solver = make_3d_beam(16, 8.0, E, 0.3, 0.01, 1e-4, 1e-4, 1e-5, vec![true; 6], None,
+        vec![SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: 9, fx: 1.0, fy: 0.0, fz: -10.0, mx: 0.0, my: 0.0, mz: 0.0, bw: None })]);
+    let densities: HashMap<String, f64> = HashMap::from([("1".to_string(), 7850.0)]);
     let mut seen = Vec::new();
     for frequencies in [vec![0.1, 1000.0], vec![0.1]] {
-        let input = HarmonicInput3D { solver: solver.clone(), densities: densities.clone(), frequencies, damping_ratio: 0.05, response_node_id: 6, response_dof: "x".into() };
+        let input = HarmonicInput3D { solver: solver.clone(), densities: densities.clone(), frequencies, damping_ratio: 0.05, response_node_id: 9, response_dof: "x".into() };
         let result = solve_harmonic_3d(&input).unwrap();
-        let warned = ids(&result.structured_diagnostics).contains(&"MD-ORTHOGONALITY".into());
-        match result.method {
-            HarmonicMethod::Modal | HarmonicMethod::ModalStatic => assert_warning(&result.structured_diagnostics, "MD-ORTHOGONALITY", 759.0),
-            HarmonicMethod::Direct => assert!(!warned, "{:?}", result.structured_diagnostics),
+        let certified = dedaliano_engine::certify::harmonic::certify_harmonic_3d(&input).unwrap().results;
+        for r in [&result, &certified] {
+            let warned = ids(&r.structured_diagnostics).contains(&"MD-ORTHOGONALITY".into());
+            match result.method {
+                HarmonicMethod::Modal | HarmonicMethod::ModalStatic => assert_warning(&r.structured_diagnostics, "MD-ORTHOGONALITY", 759.0),
+                HarmonicMethod::Direct => assert!(!warned, "{:?}", r.structured_diagnostics),
+            }
         }
         seen.push(result.method.superposes_modes());
     }
@@ -800,16 +804,16 @@ fn md_orthogonality_follows_the_harmonic_method_not_its_label() {
 }
 
 #[test]
-fn reported_modal_model_harmonic_and_certificate_warn() {
+fn reported_modal_model_harmonic_is_solved_directly_without_the_modal_warning() {
     use dedaliano_engine::solver::harmonic::*;
     let solver: SolverInput3D = serde_json::from_str(include_str!("metamorphic_corpus/differential/modal3d-5.json")).unwrap();
     let densities = solver.materials.keys().map(|id| (id.clone(), 7850.0)).collect();
     let input = HarmonicInput3D { solver, densities, frequencies: vec![0.1, 1000.0], damping_ratio: 0.05, response_node_id: 6, response_dof: "x".into() };
     let plain = solve_harmonic_3d(&input).unwrap();
-    assert!(plain.method.superposes_modes(), "{:?}", plain.method);
-    assert_warning(&plain.structured_diagnostics, "MD-ORTHOGONALITY", 759.0);
+    assert_eq!(plain.method, HarmonicMethod::Direct);
+    assert!(!ids(&plain.structured_diagnostics).contains(&"MD-ORTHOGONALITY".into()), "{:?}", plain.structured_diagnostics);
     let certified = dedaliano_engine::certify::harmonic::certify_harmonic_3d(&input).unwrap();
-    assert_warning(&certified.results.structured_diagnostics, "MD-ORTHOGONALITY", 759.0);
+    assert!(!ids(&certified.results.structured_diagnostics).contains(&"MD-ORTHOGONALITY".into()), "{:?}", certified.results.structured_diagnostics);
     assert_eq!(serde_json::to_value(&plain.response_points).unwrap(), serde_json::to_value(&certified.results.response_points).unwrap());
 }
 
@@ -1899,20 +1903,19 @@ fn harmonic_beam(frequencies: Vec<f64>) -> dedaliano_engine::solver::harmonic::H
 }
 
 #[test]
-fn harmonic_above_the_kept_modes_is_warned_1434() {
-    let low = harmonic_beam(vec![0.5, 1.0, 2.0]);
-    assert!(low.modes_used < low.n_dof, "{} of {}", low.modes_used, low.n_dof);
-    assert!(low.warnings.is_empty(), "{:?}", low.warnings);
-    assert!(!ids(&low.structured_diagnostics).contains(&"HARM-TRUNCATION".to_string()), "{:?}", ids(&low.structured_diagnostics));
-    let high = harmonic_beam((1..=40).map(|i| i as f64 * 250.0).collect());
-    assert!(high.warnings.iter().any(|w| w.contains("static correction not applied")), "{:?}", high.warnings);
-    assert!(ids(&high.structured_diagnostics).contains(&"HARM-TRUNCATION".to_string()), "{:?}", ids(&high.structured_diagnostics));
+fn harmonic_above_the_kept_modes_of_a_small_model_is_solved_directly_1434() {
+    for frequencies in [vec![0.5, 1.0, 2.0], (1..=40).map(|i| i as f64 * 250.0).collect()] {
+        let r = harmonic_beam(frequencies);
+        assert_eq!(r.method, dedaliano_engine::solver::harmonic::HarmonicMethod::Direct);
+        assert!(r.warnings.is_empty(), "{:?}", r.warnings);
+        assert!(!ids(&r.structured_diagnostics).contains(&"HARM-TRUNCATION".to_string()), "{:?}", ids(&r.structured_diagnostics));
+    }
 }
 
 #[test]
 fn harmonic_above_the_kept_modes_is_solved_directly_in_3d_1434() {
     let run = |frequencies: Vec<f64>| {
-        let solver = make_3d_beam(8, 8.0, E, 0.3, 0.01, 1e-4, 1e-4, 1e-5, vec![true; 6], None,
+        let solver = make_3d_beam(16, 8.0, E, 0.3, 0.01, 1e-4, 1e-4, 1e-5, vec![true; 6], None,
             vec![SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: 5, fx: 0.0, fy: 0.0, fz: -10.0, mx: 0.0, my: 0.0, mz: 0.0, bw: None })]);
         let input = dedaliano_engine::solver::harmonic::HarmonicInput3D {
             solver, densities: HashMap::from([("1".to_string(), 7850.0)]), frequencies, damping_ratio: 0.05, response_node_id: 5, response_dof: "z".into(),
@@ -1922,7 +1925,7 @@ fn harmonic_above_the_kept_modes_is_solved_directly_in_3d_1434() {
     let low = run(vec![0.5, 1.0, 2.0]);
     assert!(low.modes_used < low.n_dof, "{} of {}", low.modes_used, low.n_dof);
     assert!(!ids(&low.structured_diagnostics).contains(&"HARM-TRUNCATION".to_string()), "{:?}", ids(&low.structured_diagnostics));
-    let high = run((1..=40).map(|i| i as f64 * 500.0).collect());
+    let high = run(std::iter::once(0.5).chain((1..=40).map(|i| i as f64 * 500.0)).collect());
     assert!(!high.direct_frequencies.is_empty(), "{:?}", high.warnings);
     assert!(!high.warnings.iter().any(|w| w.contains("static correction not applied")), "{:?}", high.warnings);
     let found = ids(&high.structured_diagnostics);
