@@ -5,10 +5,17 @@ import { cardTitle } from './card-title';
 import { RESEARCH_GALLERY, researchLastReview, researchLocales } from './locales';
 import { publicUrl } from '../../lib/i18n/public-routes';
 import { publishedLocale } from '../../lib/i18n/published';
-import { ORGANIZATION_ID, PUBLISHER } from '../../lib/page-meta';
+import { ORGANIZATION_ID, PUBLISHER, type SocialImage } from '../../lib/page-meta';
 import type { PublicLocale } from '../../lib/i18n/store.svelte';
 
 type Labels = { research: string; researchTitle: string };
+
+export const THUMBNAIL_SIZE = { width: 640, height: 400 } as const;
+
+export function thumbnailImage(thumbnail: string, alt: string): SocialImage | undefined {
+  if (!thumbnail.endsWith('.webp')) return undefined;
+  return { url: `https://stabileo.com/${thumbnail}`, alt, type: 'image/webp', ...THUMBNAIL_SIZE };
+}
 
 function paper(paperId: string) {
   const entry = catalog.papers.find((p) => p.id === paperId);
@@ -98,6 +105,7 @@ export function paperMeta(head: { paperId: string; name: string; lead: string },
     path,
     written: researchLocales(path) as readonly PublicLocale[],
     graph,
+    image: thumbnailImage(experiment.thumbnail, experiment.thumbnailAlt),
   };
 }
 

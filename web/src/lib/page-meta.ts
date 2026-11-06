@@ -34,7 +34,10 @@ const META_TAGS = [
 	['meta[property="og:image"]', 'content'],
 	['meta[property="og:image:alt"]', 'content'],
 	['meta[name="twitter:image"]', 'content'],
-	['meta[name="twitter:image:alt"]', 'content']
+	['meta[name="twitter:image:alt"]', 'content'],
+	['meta[property="og:image:type"]', 'content'],
+	['meta[property="og:image:width"]', 'content'],
+	['meta[property="og:image:height"]', 'content']
 ] as const;
 
 /** The site-wide card; a post has its own (rendered by scripts/prerender.ts). */
@@ -91,6 +94,8 @@ export type ArticleMeta = {
 	/** Absolute URL of the post's own social card. */
 	image?: string;
 };
+
+export type SocialImage = { url: string; alt: string; type: string; width: number; height: number };
 
 /** The backer and publisher. LambdaClass is its development arm, credited as the developer. */
 export const ERGODIC_GROUP = {
@@ -341,6 +346,8 @@ export function applyPageMeta(meta: {
 	graph?: object[];
 	/** The languages a post or standing page is written in; every public language otherwise. */
 	written?: readonly PublicLocale[];
+	/** A page's own social card, other than a post's. */
+	image?: SocialImage;
 }) {
 	const written = meta.written ?? PUBLIC_LOCALES;
 	if (!original) {
@@ -364,14 +371,18 @@ export function applyPageMeta(meta: {
 	setMeta('meta[name="twitter:description"]', meta.description);
 	setLinks(meta.path, meta.locale, written);
 	setFeedLink(meta.path, meta.locale);
-	if (meta.article?.image) {
-		for (const sel of ['meta[property="og:image"]', 'meta[name="twitter:image"]']) setMeta(sel, meta.article.image);
-		for (const sel of ['meta[property="og:image:alt"]', 'meta[name="twitter:image:alt"]']) setMeta(sel, meta.article.headline);
-	} else if (original) {
-		// Back to the site's card (and its alt) on a page that has none of its own.
-		META_TAGS.forEach(([sel, attr], i) => {
-			if (/image/.test(sel) && original!.tags[i] !== null) document.querySelector(sel)?.setAttribute(attr, original!.tags[i]!);
-		});
+	META_TAGS.forEach(([sel, attr], i) => {
+		if (/image/.test(sel) && original!.tags[i] !== null) document.querySelector(sel)?.setAttribute(attr, original!.tags[i]!);
+	});
+	const image = meta.image ?? (meta.article?.image ? { url: meta.article.image, alt: meta.article.headline } : undefined);
+	if (image) {
+		for (const sel of ['meta[property="og:image"]', 'meta[name="twitter:image"]']) setMeta(sel, image.url);
+		for (const sel of ['meta[property="og:image:alt"]', 'meta[name="twitter:image:alt"]']) setMeta(sel, image.alt);
+	}
+	if (meta.image) {
+		setMeta('meta[property="og:image:type"]', meta.image.type);
+		setMeta('meta[property="og:image:width"]', String(meta.image.width));
+		setMeta('meta[property="og:image:height"]', String(meta.image.height));
 	}
 	setOgArticle(meta.article);
 	setStructuredData(meta.article, meta.graph, meta.locale);

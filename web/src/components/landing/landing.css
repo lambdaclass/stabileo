@@ -913,6 +913,8 @@
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
+  min-height: 44px;
+  min-width: 44px;
   padding: 0.34rem 0.6rem;
   border: 1px solid rgba(143, 163, 179, 0.22);
   border-radius: var(--lp-radius);
@@ -955,7 +957,7 @@
 
 .landing .footer-links {
   display: flex;
-  gap: 1.25rem;
+  gap: 0 1.25rem;
   flex-wrap: wrap;
 }
 
@@ -963,9 +965,9 @@
 .landing .footer-links button {
   background: none;
   border: 0;
-  /* At least 24 px tall (WCAG 2.5.8); the links measured 23 px. */
   padding: 0.25rem 0;
-  min-height: 1.5rem;
+  min-height: 44px;
+  min-width: 44px;
   display: inline-flex;
   align-items: center;
   cursor: pointer;

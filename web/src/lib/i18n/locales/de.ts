@@ -317,6 +317,7 @@ const de: Translations = {
   'landing.footChangelog': 'Änderungen',
   'landing.footReliability': 'Zuverlässigkeit',
   'landing.footSap2000': 'Alternative zu SAP2000',
+  'landing.footEtabs': 'Alternative zu ETABS',
   'landing.footRights': 'Freie Software unter AGPL-3.0.',
   'landing.footLaunch': 'Editor öffnen',
   'landing.footSocial': 'Folgen Sie uns',

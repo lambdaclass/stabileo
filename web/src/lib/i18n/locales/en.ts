@@ -317,6 +317,7 @@ const en: Record<string, string> = {
   'landing.footChangelog': 'Changelog',
   'landing.footReliability': 'Reliability',
   'landing.footSap2000': 'SAP2000 alternative',
+  'landing.footEtabs': 'ETABS alternative',
   'landing.footRights': 'Free software under AGPL-3.0.',
   'landing.footLaunch': 'Open the editor',
   'landing.footSocial': 'Follow us',

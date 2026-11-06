@@ -315,6 +315,7 @@ const pt: Translations = {
   'landing.footChangelog': 'Histórico de mudanças',
   'landing.footReliability': 'Confiabilidade',
   'landing.footSap2000': 'Alternativa ao SAP2000',
+  'landing.footEtabs': 'Alternativa ao ETABS',
   'landing.footRights': 'Software livre sob AGPL-3.0.',
   'landing.footLaunch': 'Abrir o editor',
   'landing.footSocial': 'Siga-nos',

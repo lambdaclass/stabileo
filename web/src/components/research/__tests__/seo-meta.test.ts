@@ -1,4 +1,6 @@
 import { afterEach, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { render } from 'svelte/server';
 import catalog from '../../../../../research/papers.json';
 import Gallery from '../Gallery.svelte';
@@ -131,5 +133,25 @@ it('links each gallery card to a URL the paper is published under', () => {
         expect(body, `${locale} links ${e.path} in ${other}`).not.toContain(`href="/${other}${e.path}/"`);
       }
     }
+  }
+});
+
+it('gives a research page its WebP thumbnail as its social card, at the size the file has, and leaves vector thumbnails to the site card', () => {
+  const webp = EXPERIMENTS.filter((e) => e.thumbnail.endsWith('.webp'));
+  expect(webp.length).toBeGreaterThan(0);
+  for (const e of EXPERIMENTS) {
+    const head = { paperId: e.paperId, name: e.name, lead: e.hook };
+    const { image } = paperMeta(head, 'en', labels);
+    if (!e.thumbnail.endsWith('.webp')) {
+      expect(image, e.path).toBeUndefined();
+      continue;
+    }
+    const file = readFileSync(join(import.meta.dirname, '../../../../public', e.thumbnail));
+    expect(file.toString('ascii', 8, 12), e.thumbnail).toBe('WEBP');
+    const chunk = file.toString('ascii', 12, 16);
+    const size = chunk === 'VP8X'
+      ? { width: 1 + file.readUIntLE(24, 3), height: 1 + file.readUIntLE(27, 3) }
+      : { width: file.readUInt16LE(26) & 0x3fff, height: file.readUInt16LE(28) & 0x3fff };
+    expect(image, e.path).toEqual({ url: `https://stabileo.com/${e.thumbnail}`, alt: e.thumbnailAlt, type: 'image/webp', ...size });
   }
 });
