@@ -208,6 +208,7 @@ const body: PostBody = {
       "k": "p",
       "t": "Unten finden Sie das Modell: einen Einfeldträger mit 5 m Spannweite, 20×40, H-25, mit 12 kN/m ständiger Last und 8 kN/m Nutzlast zuzüglich Eigengewicht. Es öffnet sich im Bemessungsablauf von PRO, mit CIRSOC 201 als geltender Bemessungsnorm."
     },
+    {"k": "img", "base": "blog/cirsoc-201-beam", "w": 1600, "h": 1000, "alt": "Stabileo PRO, Bemessungsbereich, Schritt Dimensionieren, mit dem ausgewählten 20×40-Balken nach Berechnung und Bemessung. Das Stabpanel zeigt „nachgewiesen, lokales η 0,90“ nach CIRSOC 201 (2025), mit 13 Nachweisen für die Achsen My und Vz und einer höchsten Ausnutzung von 0,900.", "caption": "Der Balken unten nach „Dimensionieren…“: CIRSOC 201 weist ihn mit einer Ausnutzung von 0,90 nach."},
     {
       "k": "embed",
       "mode": "pro",

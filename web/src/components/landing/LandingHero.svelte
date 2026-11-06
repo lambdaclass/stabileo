@@ -18,17 +18,7 @@
 
       <div class="hero-ctas">
         <button class="btn btn-primary btn-lg" onclick={() => enterApp()}>{t('landing.heroCtaPrimary')}</button>
-        <!--
-          The hero had a second button here, pointing at /demo, the guided
-          tour. That route is being retired by the tutorials workstream, so
-          the button is gone rather than left aiming at a 404 — a dead link
-          looks exactly like a working one until it is pressed, and this one
-          sat in the first screen.
-
-          The hero keeps one action and the quiet blog link below it. When
-          /demo returns as the no-login entry point, a second button here is
-          a two-line change.
-        -->
+        <PublicLink to="/examples" class="btn btn-ghost btn-lg">{t('landing.navExamples')} →</PublicLink>
       </div>
 
       <!--

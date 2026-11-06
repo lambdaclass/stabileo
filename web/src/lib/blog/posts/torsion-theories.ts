@@ -62,6 +62,7 @@ export const torsionTheories: Post = {
         { k: 'p', t: 'En los cuatro casos Bredt queda por debajo. Para un tubo de 5 mm de pared sobre 50 mm de radio medio, que por la regla habitual todavía es pared delgada, la tensión real es 4,5 % mayor que la calculada. Con 10 mm de pared, 8,2 %.' },
         { k: 'quote', t: 'El error mantiene siempre el mismo signo: Bredt queda por debajo.' },
         { k: 'p', t: 'Una diferencia de 4,5 % no llama la atención en una verificación, y una pieza que no verifica puede pasar como que sí.' },
+        { k: 'img', base: 'blog/torsion-tube', w: 1600, h: 1000, alt: 'Stabileo Básico con un voladizo de tubo CHS 105×5 bajo un torsor de 1 kN·m. El panel de la sección está abierto en Torsión: T = 1,00 kN·m, τmax = 13,34 MPa, J = 393,7 cm⁴, con la etiqueta de sección circular exacta, y debajo las tres teorías empezando por Saint-Venant.', caption: 'El tubo de la tabla en Stabileo: 13,34 MPa, con cada teoría listada debajo con su fórmula.' },
 
         { k: 'embed', query: 'example=torsion-tube&inspect=1&open=torsion', label: 'El mismo tubo, en Stabileo: CHS 105×5 en voladizo con 1 kN·m de torsor. El panel abre en Torsión y muestra Cauchy 13,34 MPa y Bredt 12,73 MPa, el 95 % de la tabla de arriba. Si movés el punto o cambiás la sección, los tres valores se recalculan.' },
 
@@ -136,6 +137,7 @@ export const torsionTheories: Post = {
         { k: 'p', t: 'Bredt is low in all four cases. For a tube with a 5 mm wall and a 50 mm mean radius, which the usual rule of thumb still counts as thin-walled, the actual stress is 4.5% higher than the calculated one. With a 10 mm wall, 8.2%.' },
         { k: 'quote', t: 'The error always has the same sign: Bredt comes out low.' },
         { k: 'p', t: 'A 4.5% difference does not stand out in a design check, so a member that fails can look as if it passes.' },
+        { k: 'img', base: 'blog/torsion-tube', w: 1600, h: 1000, alt: 'Stabileo Basic with a CHS 105×5 cantilever under a 1 kN·m torque. The section panel is open on Torsion: T = 1.00 kN·m, τmax = 13.34 MPa, J = 393.7 cm⁴, labelled “Circular — exact”, followed by the three theories starting with Saint-Venant.', caption: 'The tube from the table in Stabileo: 13.34 MPa, with each theory listed below with its formula.' },
 
         { k: 'embed', query: 'example=torsion-tube&inspect=1&open=torsion', label: 'The same tube in Stabileo: a CHS 105×5 cantilever under a 1 kN·m torque. The panel opens on Torsion and shows Cauchy 13.34 MPa and Bredt 12.73 MPa, the 95% from the table above. Move the point or change the section and all three values update.' },
 
@@ -210,6 +212,7 @@ export const torsionTheories: Post = {
         { k: 'p', t: 'Nos quatro casos, Bredt fica abaixo. Para um tubo com parede de 5 mm e raio médio de 50 mm, que pela regra prática ainda conta como parede fina, a tensão real é 4,5 % maior que a calculada. Com parede de 10 mm, 8,2 %.' },
         { k: 'quote', t: 'O erro tem sempre o mesmo sinal: Bredt fica abaixo.' },
         { k: 'p', t: 'Uma diferença de 4,5 % não chama atenção numa verificação, e uma peça que não passa pode parecer aprovada.' },
+        { k: 'img', base: 'blog/torsion-tube', w: 1600, h: 1000, alt: 'Stabileo Básico com um balanço em tubo CHS 105×5 sob um torque de 1 kN·m. O painel da seção está aberto em Torção: T = 1,00 kN·m, τmax = 13,34 MPa, J = 393,7 cm⁴, com o rótulo de seção circular exata, e abaixo as três teorias começando por Saint-Venant.', caption: 'O tubo da tabela no Stabileo: 13,34 MPa, com cada teoria listada abaixo com sua fórmula.' },
 
         { k: 'embed', query: 'example=torsion-tube&inspect=1&open=torsion', label: 'O mesmo tubo no Stabileo: um CHS 105×5 em balanço sob um torque de 1 kN·m. O painel abre em Torção e mostra Cauchy 13,34 MPa e Bredt 12,73 MPa, os 95 % da tabela acima. Mova o ponto ou troque a seção, e os três valores são recalculados.' },
 

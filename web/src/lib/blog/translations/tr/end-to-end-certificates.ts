@@ -45,6 +45,7 @@ const body: PostBody = {
       "k": "p",
       "t": "Sınırın dayandığı teorem Lean'de kanıtlanmıştır. Uygulamada sonuçlar paneli, yer değiştirme hatasının sınırıyla birlikte “Uçtan uca kontrol edildi” satırını ya da kontrol edilememe gerekçesini gösterir."
     },
+    {"k": "img", "base": "blog/certificate", "w": 1600, "h": 1000, "alt": "Çerçeve örneği çözülmüş Stabileo Basic. Sonuç kontrollerinde, sertifikanın altında, uçtan uca satırı modelin bağımsız yeniden kurulumunun uyuştuğunu ve yer değiştirme hatasının en fazla 3,68e-15 olduğunu söylüyor.", "caption": "Sonuç panelindeki satır, çerçeve örneği üzerinde."},
     {
       "k": "h",
       "t": "Neler buldu"

@@ -80,6 +80,7 @@ const body: PostBody = {
       "k": "p",
       "t": "Model çözüldüğünde her kolon 90 kN düşey tepki taşır ve global denge tam olarak sağlanır: ΣRz = 180 kN = q·L. Belirleyici kiriş momenti açıklık ortasında Mu = 80,8 kN·m'dir. 3Ø16 donatılı 25×40 kirişin CIRSOC 201 eğilme kontrolü φMn = 73,3 kN·m kapasite verir; dolayısıyla kiriş kontrolü sağlamaz."
     },
+    {"k": "img", "base": "blog/determinism-portal", "w": 1600, "h": 1000, "alt": "Stabileo Basic’te 6 m açıklıklı, 4 m yüksekliğinde, tabanı ankastre bir betonarme çerçeve, kirişte 30 kN/m yükle çözülmüş. Eğilme momenti diyagramı açıklık ortasında 80,8 kN·m, kiriş uçlarında −54,2 kN·m ve kolon tabanlarında 27,0 kN·m gösteriyor.", "caption": "Bu bölümdeki çerçeve Stabileo’da (H-21, 30×30 kolonlar, 25×40 kiriş): çözücü yukarıda anılan 80,8 kN·m açıklık momentini veriyor."},
     {
       "k": "table",
       "caption": "Çerçeve kirişinin düzeltme öncesi ve sonrası eğilme kontrolü.",

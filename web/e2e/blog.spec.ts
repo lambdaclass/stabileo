@@ -121,6 +121,22 @@ test.describe('blog', () => {
     await expect(page).toHaveTitle(/— Stabileo$/);
   });
 
+  for (const slug of ['jaie-2026-talk', 'tiic-2026-second-place']) {
+    test(`@smoke the ${slug} post shows its photos, loaded and described`, async ({ page }) => {
+      await boot(page, `/blog/${slug}`);
+      await expect(page.locator('.post-title')).toBeVisible();
+      const photos = page.locator('.post-photo img');
+      await expect(photos).toHaveCount(2);
+      for (const img of await photos.all()) {
+        await img.scrollIntoViewIfNeeded();
+        await expect.poll(() => img.evaluate((el: HTMLImageElement) => el.complete && el.naturalWidth)).toBeGreaterThan(0);
+        expect((await img.getAttribute('alt'))?.length).toBeGreaterThan(20);
+        expect(await img.evaluate((el: HTMLImageElement) => el.currentSrc)).toMatch(/\/photos\/[a-z0-9-]+-(800|1600)\.(avif|webp)$/);
+      }
+      await expect(page.locator('.post-photo figcaption').first()).not.toBeEmpty();
+    });
+  }
+
   test('@smoke a cold deep link renders the post', async ({ page }) => {
     // How a shared link arrives in production: 404.html hands the path over as
     // ?route=, and App.svelte restores it.
@@ -590,10 +606,7 @@ test.describe('blog', () => {
     const link = page.locator('.landing .hero-blog');
     await expect(link).toBeVisible();
     await expect(link).toHaveText(/read our blog/i);
-    // A link, not another button: the hero's job is still to get someone into
-    // the editor, and one button plus a link is one decision with a footnote.
-    // (It was two buttons until /demo was retired — see landing.spec.ts.)
-    await expect(page.locator('.landing .hero-ctas .btn')).toHaveCount(1);
+    await expect(page.locator('.landing .hero-ctas .btn-primary')).toHaveCount(1);
     await expect(page.locator('.landing .hero-ctas .hero-blog')).toHaveCount(0);
 
     await link.click();

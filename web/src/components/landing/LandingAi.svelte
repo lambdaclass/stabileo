@@ -1,39 +1,39 @@
+<script lang="ts" module>
+  import { registerFeatureDictionaries } from '../../lib/i18n/store.svelte';
+  import { OFFERED_LOCALES } from '../../lib/i18n/offered';
+  import { aiTranslations } from './ai-translations';
+
+  registerFeatureDictionaries(Object.fromEntries(OFFERED_LOCALES.map((l) => [l, aiTranslations[l]])));
+</script>
+
 <script lang="ts">
   import { tPublic as t } from '../../lib/i18n/store.svelte';
   import Eyebrow from './Eyebrow.svelte';
   import Shot from './Shot.svelte';
 
-  /**
-   * The agent, with the one view of it that exists.
-   *
-   * Laid out as a split rather than as a full-width card. The panel is 1240 by
-   * 1026 — nearly square, and about a third of a screen in the application —
-   * so a card the width of the deck rendered it four times the size it is in
-   * the product, which is both wrong and the loudest thing on the page. It
-   * sits beside the copy at the size it actually has.
-   *
-   * The screen IS the argument the section makes: a request in plain language,
-   * the change set out before anything happens, and Cancel next to Apply. The
-   * agent proposes and a person decides.
-   */
+  const points = ['aiPt1', 'aiPt2', 'aiPt3', 'aiPt4'];
 </script>
 
 <section class="sec sec--paper ai" data-section="ai" id="ai" aria-labelledby="ai-title">
   <div class="wrap">
-    <Eyebrow n="04" label={t('landing.ebAi')} />
+    <Eyebrow n="04" label={t('landingAi.ebAi')} />
 
     <div class="mode-split">
       <div class="mode-split-text">
         <div class="mode-head">
-          <h2 id="ai-title" class="display">{t('landing.aiH')}</h2>
-          <span class="badge badge-dev">{t('landing.badgeDevPaid')}</span>
+          <h2 id="ai-title" class="display">{t('landingAi.aiH')}</h2>
+          <span class="badge badge-dev">{t('landingAi.badgeDevPaid')}</span>
         </div>
-        <p class="lead">{t('landing.aiP')}</p>
+        <p class="lead">{t('landingAi.aiP')}</p>
+        <ul class="tick-list">
+          {#each points as key}<li>{t('landingAi.' + key)}</li>{/each}
+        </ul>
+        <p class="mode-note">{t('landingAi.aiStatus')}</p>
       </div>
 
       <figure class="mode-split-shot">
-        <Shot base="ai-panel" w={1240} h={1026} alt={t('landing.shotAiAlt')} sizes="(max-width: 860px) 92vw, 34vw" />
-        <figcaption>{t('landing.shotAiTitle')}</figcaption>
+        <Shot base="ai-panel" w={1240} h={1026} alt={t('landingAi.shotAiAlt')} sizes="(max-width: 860px) 92vw, 34vw" />
+        <figcaption>{t('landingAi.shotAiTitle')}</figcaption>
       </figure>
     </div>
   </div>

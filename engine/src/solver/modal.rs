@@ -412,16 +412,15 @@ fn null_modes_or_mechanism(
             if pmp.abs() > 1e-30 && *mass > 1e-20 { w.max(pl * pl / pmp / mass) } else { w }
         });
         let uf = free(&phi);
-        let kinetic = |&&(_, local, g): &&(usize, usize, usize)| {
-            rigid.get(local).and_then(|m| m.get(g)).zip(uf.get(g)).map_or(0.0, |(m, u)| m.abs() * u * u)
-        };
+        let weight = |local: usize, g: usize| if local < rigid.len() { rigid.iter().map(|m| m.get(g).map_or(0.0, |x| x * x)).sum::<f64>().sqrt() } else { 0.0 };
+        let kinetic = |&&(_, local, g): &&(usize, usize, usize)| uf.get(g).map_or(0.0, |u| weight(local, g) * u * u);
         let heaviest = dofs.iter().filter(|d| d.1 < rigid.len()).max_by(|a, b| kinetic(a).total_cmp(&kinetic(b)));
         let translational: f64 = dofs.iter().map(|d| kinetic(&d)).sum();
         let u = shape(&phi);
         let (node_id, dof) = dofs.iter().filter(|d| d.2 < u.len()).max_by(|a, b| u[a.2].abs().total_cmp(&u[b.2].abs()))
             .map_or((0, String::new()), |&(node, local, _)| (node, dof_names.get(local).copied().unwrap_or("").to_string()));
         let reach = uf.iter().fold(0.0f64, |m, x| m.max(x.abs()));
-        let carries = |&&(_, local, g): &&(usize, usize, usize)| rigid.get(local).and_then(|m| m.get(g)).is_some_and(|m| m.abs() > MASSLESS * heaviest_mass);
+        let carries = |&&(_, local, g): &&(usize, usize, usize)| weight(local, g) > MASSLESS * heaviest_mass;
         let swings = dofs.iter().filter(carries).any(|&(_, _, g)| uf.get(g).is_some_and(|u| u.abs() > TRANSLATION_ROUND_OFF * reach));
         let translates = share > NULL_MODE_MASS_RATIO || translational > NULL_MODE_MASS_RATIO * pmp.abs() || swings;
         if moving.is_none() && (!round_off || translates) {

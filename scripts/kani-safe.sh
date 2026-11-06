@@ -40,6 +40,21 @@ harnesses=$(awk -v tier="$tier" '
 if [ $# -gt 0 ]; then
 	harnesses=$(for h in $harnesses; do for f in "$@"; do case $h in *"$f"*) echo "$h"; break;; esac; done; done)
 fi
+if [ -n "${KANI_SHARD:-}" ]; then
+	if [[ ! $KANI_SHARD =~ ^([1-9][0-9]*)/([1-9][0-9]*)$ ]]; then
+		echo "KANI_SHARD must be i/N with 1 <= i <= N" >&2
+		exit 2
+	fi
+	shard=${BASH_REMATCH[1]}
+	shards=${BASH_REMATCH[2]}
+	if [ "$shard" -gt "$shards" ]; then
+		echo "KANI_SHARD must be i/N with 1 <= i <= N" >&2
+		exit 2
+	fi
+	if [ -n "$harnesses" ]; then
+		harnesses=$(printf '%s\n' $harnesses | LC_ALL=C sort | awk -v shard="$shard" -v shards="$shards" '(NR - 1) % shards == shard - 1')
+	fi
+fi
 
 # Sum RSS (KB) over a process and all its descendants.
 tree_rss() {
