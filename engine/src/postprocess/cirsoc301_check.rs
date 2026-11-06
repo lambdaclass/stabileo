@@ -343,7 +343,7 @@ pub struct CheckOutcome {
     pub demand: f64,
     /// Design strength φRn (0 when refused under load).
     pub capacity: f64,
-    #[serde(serialize_with = "ser_ratio", deserialize_with = "de_ratio")]
+    #[serde(serialize_with = "crate::check::ser_ratio", deserialize_with = "crate::check::de_ratio")]
     pub ratio: f64,
     pub pass: bool,
     /// Clause of the governing expression (e.g. "F.2", "E.4").
@@ -355,14 +355,6 @@ pub struct CheckOutcome {
     pub steps: Vec<Msg>,
 }
 
-fn ser_ratio<S: serde::Serializer>(v: &f64, s: S) -> Result<S::Ok, S::Error> {
-    if v.is_finite() { s.serialize_f64(*v) } else { s.serialize_none() }
-}
-
-fn de_ratio<'de, D: serde::Deserializer<'de>>(d: D) -> Result<f64, D::Error> {
-    let v: Option<f64> = Option::deserialize(d)?;
-    Ok(v.unwrap_or(f64::INFINITY))
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -383,7 +375,7 @@ pub struct Cirsoc301CheckResult {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub interaction: Option<CheckOutcome>,
     /// Largest ratio over the checks run (∞ = JSON null when a loaded check was refused).
-    #[serde(serialize_with = "ser_ratio", deserialize_with = "de_ratio")]
+    #[serde(serialize_with = "crate::check::ser_ratio", deserialize_with = "crate::check::de_ratio")]
     pub unity_ratio: f64,
     pub governing_check: String,
     /// Every check run passed (ratio ≤ 1) and none was refused under load.
@@ -1745,19 +1737,25 @@ pub fn interaction_h1<T: Real>(axial: T, mx: T, my: T) -> T {
 // ==================== Member check (f64) ====================
 
 fn ratio_of(d: f64, cap: f64) -> f64 {
-    if cap > 0.0 { d / cap } else if d > 0.0 { f64::INFINITY } else { 0.0 }
+    crate::check::ratio_if_loaded(d, cap).value().unwrap_or(f64::INFINITY)
 }
 
 fn outcome(demand: f64, capacity: f64, clause: &str, values: Map<String, Value>, steps: Vec<Msg>) -> CheckOutcome {
-    let ratio = ratio_of(demand, capacity);
-    CheckOutcome { demand, capacity, ratio, pass: ratio <= 1.0, clause: clause.into(), not_evaluated: None, values, steps }
+    match crate::check::ratio_if_loaded(demand, capacity) {
+        crate::check::Outcome::Ratio(ratio) => {
+            CheckOutcome { demand, capacity, ratio, pass: ratio <= 1.0, clause: clause.into(), not_evaluated: None, values, steps }
+        }
+        crate::check::Outcome::Unevaluated(_) => {
+            refused_outcome(demand, 0.0, clause, refuse("capacityUnusable", &[("phiRn", n(capacity, 2)), ("demand", n(demand, 2))]), steps)
+        }
+    }
 }
 
 fn refused_outcome(demand: f64, capacity_if_unloaded: f64, clause: &str, reason: Msg, mut steps: Vec<Msg>) -> CheckOutcome {
     let mut params = Map::new();
     params.insert("reason".into(), serde_json::to_value(&reason).unwrap_or(Value::Null));
     steps.push(Msg { key: "c301.notEvaluated".into(), params });
-    let loaded = demand > 0.0;
+    let loaded = demand != 0.0;
     CheckOutcome {
         demand,
         capacity: if loaded { 0.0 } else { capacity_if_unloaded },
@@ -1865,14 +1863,14 @@ fn check_interaction_t(m: &Cirsoc301MemberData, nu: f64, mux: f64, muy: f64, tra
     let pu = nu.abs();
     let refused = [(&axial, pu), (&fx, mux.abs()), (&fy, muy.abs())]
         .iter()
-        .find_map(|(o, d)| if *d > 0.0 { o.not_evaluated.clone() } else { None });
+        .find_map(|(o, d)| if *d != 0.0 { o.not_evaluated.clone() } else { None });
     st.push("h.title", &[]);
     if let Some(r) = refused {
         let mut o = refused_outcome(1.0, 0.0, "H.1", r, st.list);
         o.demand = 0.0;
         return o;
     }
-    let ar = if axial.capacity > 0.0 { pu / axial.capacity } else { 0.0 };
+    let ar = ratio_of(pu, axial.capacity);
     let rx = ratio_of(mux.abs(), fx.capacity);
     let ry = ratio_of(muy.abs(), fy.capacity);
     let value = interaction_h1(ar, rx, ry);

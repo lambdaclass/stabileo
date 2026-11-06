@@ -983,6 +983,31 @@ fn buckling_2d_with_axial_span_loads_carries_no_span_warning_1323() {
 }
 
 #[test]
+fn buckling_3d_with_axial_span_loads_carries_no_span_warning_456() {
+    use dedaliano_engine::solver::buckling::solve_buckling_3d;
+    let beam = |loads: serde_json::Value| -> SolverInput3D {
+        serde_json::from_value(serde_json::json!({
+            "nodes": {"1": {"id": 1, "x": 0.0, "y": 0.0, "z": 0.0}, "2": {"id": 2, "x": 4.0, "y": 0.0, "z": 0.0}},
+            "elements": {"1": {"id": 1, "type": "frame", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1}},
+            "materials": {"1": {"id": 1, "e": E, "nu": 0.3}},
+            "sections": {"1": {"id": 1, "a": 0.01, "iy": 1e-4, "iz": 2e-4, "j": 1e-4}},
+            "supports": {"1": {"nodeId": 1, "rx": true, "ry": true, "rz": true, "rrx": true, "rry": true, "rrz": true}},
+            "loads": loads
+        })).unwrap()
+    };
+    let tip = serde_json::json!({"type": "nodal", "data": {"nodeId": 2, "fx": -100.0, "fy": 0, "fz": 0, "mx": 0, "my": 0, "mz": 0}});
+    let axial = serde_json::json!({"type": "distributed", "data": {"elementId": 1, "qXI": 25.0, "qXJ": 25.0, "qYI": 0, "qYJ": 0, "qZI": 0, "qZJ": 0}});
+    let lateral = serde_json::json!({"type": "distributed", "data": {"elementId": 1, "qYI": 0, "qYJ": 0, "qZI": -1.0, "qZJ": -1.0}});
+    for loads in [serde_json::json!([tip]), serde_json::json!([tip, axial]), serde_json::json!([tip, lateral])] {
+        let input = beam(loads);
+        let result = solve_buckling_3d(&input, 1).unwrap();
+        assert!(result.modes[0].load_factor.is_finite() && result.modes[0].load_factor > 0.0);
+        assert!(!ids(&result.structured_diagnostics).contains(&"BU-SPAN-COMPRESSION".into()), "{:?}", ids(&result.structured_diagnostics));
+        assert!(ids(&result.structured_diagnostics).contains(&"BU-ACCURACY".into()));
+    }
+}
+
+#[test]
 fn pdelta_with_axial_span_loads_warns_1329() {
     use dedaliano_engine::solver::pdelta::{solve_pdelta_2d, solve_pdelta_3d};
     let tip = SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: -100.0, fz: -1.0, my: 0.0 });

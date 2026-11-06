@@ -21,6 +21,7 @@ mod isolated_footing;
 mod loads_cirsoc;
 mod harmonic;
 mod influence_3d;
+mod invariance_gate_1513;
 mod load_cases;
 mod multi_case_parity;
 mod moving_influence_parity;

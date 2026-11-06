@@ -159,6 +159,7 @@ const c301En: Record<string, string> = {
   'c301.refuse.e6Connector': '§E.6.2.1: the intermediate connector type is missing (snug bolts or welds)',
   'c301.refuse.e6SpacingTooLarge': '§E.6.2.2: a/ri = {ari} > 3/4 of the governing slenderness = {lim}',
   'c301.refuse.engineUnavailable': 'the calculation engine is not loaded: the member is not verified',
+  'c301.refuse.capacityUnusable': 'the ratio cannot be formed from φRn = {phiRn} and demand {demand}: the design strength is not positive and finite, or the demand is not finite',
 
   // The steel results screen and the angle editor.
   'steel.angle.title': 'Angles in compression (§E.5, §E.6)',
