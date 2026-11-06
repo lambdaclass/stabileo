@@ -198,8 +198,8 @@ fn a_buckling_mode_driven_by_round_off_is_named_at_any_load_scale_or_units_982()
 }
 
 fn harmonic_beam(frequencies: Vec<f64>, load: f64, u: Option<&Units>) -> dedaliano_engine::solver::harmonic::HarmonicResult {
-    let n = 8;
-    let nodes = (0..=n).map(|i| (i + 1, i as f64 * 1.25, 0.0)).collect();
+    let n = 24;
+    let nodes = (0..=n).map(|i| (i + 1, i as f64 * 10.0 / n as f64, 0.0)).collect();
     let elems = (0..n).map(|i| (i + 1, "frame", i + 1, i + 2, 1, 1, false, false)).collect();
     let mut solver = common::make_input(nodes, vec![(1, E, 0.3)], vec![(1, 0.05, 1e-4)], elems, vec![(1, 1, "pinned"), (2, n + 1, "rollerX")],
         vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fz: -load, my: 0.0 })]);
@@ -217,8 +217,8 @@ fn harmonic_beam(frequencies: Vec<f64>, load: f64, u: Option<&Units>) -> dedalia
 }
 
 #[test]
-fn harmonic_truncation_is_warned_at_any_load_scale_or_units_1434() {
-    let high: Vec<f64> = (1..=40).map(|i| i as f64 * 250.0).collect();
+fn harmonic_above_the_kept_modes_is_solved_directly_at_any_load_scale_or_units_1434() {
+    let high: Vec<f64> = std::iter::once(0.5).chain((1..=40).map(|i| i as f64 * 250.0)).collect();
     let mut cases: Vec<(String, dedaliano_engine::solver::harmonic::HarmonicResult)> = Vec::new();
     for load in [10.0, 1e-9, 1e9] {
         cases.push((format!("load {load:e}"), harmonic_beam(high.clone(), load, None)));
@@ -226,8 +226,14 @@ fn harmonic_truncation_is_warned_at_any_load_scale_or_units_1434() {
     for u in units() {
         cases.push((format!("units {} {}", u.length, u.force), harmonic_beam(high.clone(), 10.0, Some(&u))));
     }
-    for (name, r) in cases {
+    let direct_at = |r: &dedaliano_engine::solver::harmonic::HarmonicResult| -> Vec<usize> {
+        r.response_points.iter().enumerate().filter(|(_, p)| r.direct_frequencies.contains(&p.frequency)).map(|(i, _)| i).collect()
+    };
+    let expected = direct_at(&cases[0].1);
+    assert!(!expected.is_empty() && expected.len() < high.len(), "{expected:?}");
+    for (name, r) in &cases {
         assert!(r.modes_used < r.n_dof, "{name}: {} of {}", r.modes_used, r.n_dof);
-        assert!(phases(&r.structured_diagnostics).contains(&"HARM-TRUNCATION"), "{name}: {:?}", phases(&r.structured_diagnostics));
+        assert_eq!(direct_at(r), expected, "{name}");
+        assert!(!phases(&r.structured_diagnostics).contains(&"HARM-TRUNCATION"), "{name}: {:?}", phases(&r.structured_diagnostics));
     }
 }
