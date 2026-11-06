@@ -441,6 +441,7 @@ export function runSteelVerification(
   amplified = false,
 ): SteelVerification[] {
   const verifs: SteelVerification[] = [];
+  amplified ||= amplifiedByCompression([results3D]);
 
   for (const ef of results3D.elementForces) {
     const elem = model.elements.get(ef.elementId);

@@ -637,9 +637,15 @@ pub(crate) struct ScreenModel {
     pub braced: std::collections::HashSet<usize>,
     pub clamped: std::collections::HashSet<usize>,
     pub other_parts: bool,
+    pub compressed: f64,
 }
 
-const COMPRESSED: f64 = 1e-6;
+/// Compression below this fraction of the largest end force is round-off, not load.
+const COMPRESSED: f64 = 1e-8;
+
+fn compressed_above(forces: impl Iterator<Item = f64>) -> f64 {
+    COMPRESSED * forces.fold(0.0, |a: f64, f| a.max(f.abs()))
+}
 
 fn sub(a: [f64; 3], b: [f64; 3]) -> [f64; 3] {
     [a[0] - b[0], a[1] - b[1], a[2] - b[2]]
@@ -707,7 +713,7 @@ fn chain_ends(m: &ScreenModel, chain: &[usize]) -> Vec<usize> {
 /// A linear result's second-order screen (#1551). The K = 2 and K = 1 bounds hold for the frame
 /// only because the clamp or both braces are supports: restraint from other members does not count.
 pub(crate) fn second_order(m: &ScreenModel) -> Vec<StructuredDiagnostic> {
-    if !m.bars.iter().any(|b| b.compression > COMPRESSED) { return Vec::new(); }
+    if !m.bars.iter().any(|b| b.compression > m.compressed) { return Vec::new(); }
     let length = |b: &ScreenBar| match (m.position.get(&b.ends[0]), m.position.get(&b.ends[1])) {
         (Some(&a), Some(&c)) => norm(sub(c, a)),
         _ => f64::NAN,
@@ -717,11 +723,11 @@ pub(crate) fn second_order(m: &ScreenModel) -> Vec<StructuredDiagnostic> {
         let b = &m.bars[i];
         (0..2).any(|k| m.clamped.contains(&b.ends[k]) && !b.hinged[k])
     });
-    let mut unbounded = m.other_parts || m.bars.iter().any(|b| !b.frame && b.compression > COMPRESSED && !b.ends.iter().all(|n| m.braced.contains(n)));
+    let mut unbounded = m.other_parts || m.bars.iter().any(|b| !b.frame && b.compression > m.compressed && !b.ends.iter().all(|n| m.braced.contains(n)));
     let (mut over, mut near) = (Vec::new(), Vec::new());
     for chain in member_chains(m) {
         let n = chain.iter().map(|&i| m.bars[i].compression).fold(0.0, f64::max);
-        if n <= COMPRESSED { continue; }
+        if n <= m.compressed { continue; }
         let k = if clamped(&chain) { 2.0 } else if braced(&chain) { 1.0 } else { unbounded = true; continue };
         let l: f64 = chain.iter().map(|&i| length(&m.bars[i])).sum();
         let ei = chain.iter().map(|&i| m.bars[i].ei_min).fold(f64::INFINITY, f64::min);
@@ -759,11 +765,11 @@ pub(crate) fn is_second_order(d: &StructuredDiagnostic) -> bool {
 }
 
 /// A combination's screen from its cases' warnings, without its own critical load: the members a
-/// case flagged stay flagged, and a case near the limit, or unbounded, leaves the combination
-/// unbounded, since its factors may carry it past the limit.
-pub(crate) fn combined_second_order<'a>(cases: impl Iterator<Item = &'a StructuredDiagnostic>) -> Vec<StructuredDiagnostic> {
+/// case flagged stay flagged, and a case near the limit, an unbounded case or a negative factor,
+/// which can turn a quiet case's tension into compression, leaves the combination unbounded.
+pub(crate) fn combined_second_order<'a>(cases: impl Iterator<Item = &'a StructuredDiagnostic>, reversed: bool) -> Vec<StructuredDiagnostic> {
     let mut elements = Vec::new();
-    let mut unbounded = false;
+    let mut unbounded = reversed;
     for d in cases {
         match d.phase.as_deref() {
             Some("LIN-SECOND-ORDER") => elements.extend(d.element_ids.iter().copied()),
@@ -812,6 +818,7 @@ pub fn second_order_2d(input: &SolverInput, loads: &[SolverLoad], r: &AnalysisRe
         braced: input.supports.values().filter(square).filter(|s| matches!(s.support_type.as_str(), "fixed" | "pinned")).map(|s| s.node_id).collect(),
         clamped: input.supports.values().filter(square).filter(|s| s.support_type == "fixed").map(|s| s.node_id).collect(),
         other_parts: !input.constraints.is_empty() || !input.connectors.is_empty(),
+        compressed: compressed_above(r.element_forces.iter().flat_map(|f| [f.n_start, f.n_end, f.v_start, f.v_end])),
     };
     second_order(&model)
 }
@@ -841,6 +848,7 @@ pub fn second_order_3d(input: &SolverInput3D, loads: &[SolverLoad3D], r: &Analys
         clamped: input.supports.values().filter(held).filter(|s| s.rrx && s.rry && s.rrz && [s.krx, s.kry, s.krz].iter().all(Option::is_none)).map(|s| s.node_id).collect(),
         other_parts: !input.constraints.is_empty() || !input.connectors.is_empty() || !input.plates.is_empty() || !input.quads.is_empty()
             || !input.quad9s.is_empty() || !input.solid_shells.is_empty() || !input.curved_shells.is_empty() || !input.curved_beams.is_empty(),
+        compressed: compressed_above(r.element_forces.iter().flat_map(|f| [f.n_start, f.n_end, f.vy_start, f.vy_end, f.vz_start, f.vz_end])),
     };
     second_order(&model)
 }

@@ -6,7 +6,7 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import { historyStore, modelStore, resultsStore, uiStore } from '../index';
 import { verificationStore } from '../verification.svelte';
 import { runSteelCheck } from '../steel-check';
-import { amplifiedByCompression } from '../../engine/verification-service';
+import { amplifiedByCompression, runSteelVerification } from '../../engine/verification-service';
 import * as wasmSolver from '../../engine/wasm-solver';
 
 beforeAll(async () => {
@@ -64,6 +64,8 @@ describe('the steel check in the design', () => {
     };
     const hold = { check: 'interaction', clause: 'C.1', key: 'c301.refuse.firstOrderMoments', upperBound: false };
     const heavy = checkUnder(-100);
+    const direct = runSteelVerification(resultsStore.results3D!, { elements: modelStore.elements, nodes: modelStore.nodes, sections: modelStore.sections, materials: modelStore.materials, supports: modelStore.supports } as never);
+    expect(direct.map((v) => v.overallStatus)).toEqual(['held', 'held']);
     expect(heavy.second).toEqual([expect.objectContaining({ phase: 'LIN-SECOND-ORDER', elementIds: [heavy.ids[0]] })]);
     for (const v of [heavy.loaded, heavy.quiet]) {
       expect(v.overallStatus).toBe('held');

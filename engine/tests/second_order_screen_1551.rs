@@ -96,7 +96,7 @@ fn the_1551_cantilever_warns_in_2d_and_3d_and_the_lighter_one_does_not() {
 
 #[test]
 fn the_cantilever_warning_survives_subdivision_rigid_motion_and_load_scale() {
-    for (segments, scale, r, t) in [(4, 1.0, IDENTITY, [0.0; 3]), (1, 1.0, oblique(), [120.0, -35.0, 7.5]), (6, 1.0, oblique(), [-3.0, 0.0, 40.0]), (1, 1000.0, IDENTITY, [0.0; 3]), (3, 1e-3, oblique(), [1.0, 2.0, 3.0])] {
+    for (segments, scale, r, t) in [(4, 1.0, IDENTITY, [0.0; 3]), (1, 1.0, oblique(), [120.0, -35.0, 7.5]), (6, 1.0, oblique(), [-3.0, 0.0, 40.0]), (1, 1000.0, IDENTITY, [0.0; 3]), (3, 1e-3, oblique(), [1.0, 2.0, 3.0]), (2, 1e-9, IDENTITY, [0.0; 3]), (2, 1e9, oblique(), [0.0; 3])] {
         let label = format!("{segments} segments, loads and E ×{scale}, rotation {r:?}, translation {t:?}");
         let ids: Vec<usize> = (1..=segments).collect();
         let heavy = solve_3d(&cantilever_3d(segments, -100.0, E * scale, scale, r, t)).unwrap();
@@ -214,6 +214,11 @@ fn a_combination_carries_flagged_members_and_leaves_a_near_case_unbounded() {
     assert_eq!(second_order(&combined.structured_diagnostics), unbounded());
     let combined = combine_results_refs(&[CombinationFactor { case_id: 1, factor: 1.2 }, CombinationFactor { case_id: 2, factor: 0.0 }], &[(1, &light), (2, &close)]).unwrap();
     assert_eq!(second_order(&combined.structured_diagnostics), vec![], "a case the combination leaves out adds nothing");
+    let pulled = solve_2d(&cantilever_2d(2, 10.0, E, 1.0)).unwrap();
+    assert_eq!(second_order(&pulled.structured_diagnostics), vec![]);
+    let combined = combine_results_refs(&[CombinationFactor { case_id: 1, factor: -1.0 }], &[(1, &pulled)]).unwrap();
+    assert!(combined.element_forces.iter().all(|f| f.n_start < -9.0), "{:?}", combined.element_forces);
+    assert_eq!(second_order(&combined.structured_diagnostics), unbounded(), "a negative factor turns tension into compression");
     let pinned = solve_2d(&portal("pinned", 250.0, 0.01)).unwrap();
     let combined = combine_results_refs(&[CombinationFactor { case_id: 1, factor: 1.0 }, CombinationFactor { case_id: 2, factor: 1.0 }], &[(1, &heavy), (2, &pinned)]).unwrap();
     assert_eq!(second_order(&combined.structured_diagnostics), [warned(vec![1, 2]), unbounded()].concat());
