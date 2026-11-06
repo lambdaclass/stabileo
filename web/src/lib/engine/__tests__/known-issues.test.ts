@@ -58,6 +58,9 @@ describe('known-issue warnings in the reader’s language', () => {
       expect(m, loc).toMatch(/\b7\b[^]*\b12\b/);
       expect(errorText(error, 'fallback'), loc).toBe(m);
     }
+    setLocale('en');
+    expect(knownIssueRefusal(error)).toMatch(/at least one axis[^]*either axis prevents a reliable plastic analysis/);
+    expect(knownIssueRefusal(error)).not.toMatch(/never form a hinge/);
     expect(knownIssueRefusal(JSON.stringify({ message: 'ENGINE', structuredDiagnostics: [{ ...d, severity: 'warning' }] }))).toBeNull();
     expect(knownIssueMessage({ ...d, elementIds: [] })).toBe('ENGINE');
   });
