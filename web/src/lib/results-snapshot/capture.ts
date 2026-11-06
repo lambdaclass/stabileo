@@ -87,9 +87,9 @@ function reset(c: SnapshotCase): void {
   uiStore.designInPro = !!c.design;
 }
 
-async function open(c: SnapshotCase): Promise<void> {
+async function open(c: SnapshotCase, fixture?: unknown): Promise<void> {
   if ('example' in c.source) {
-    await modelStore.loadExample(c.source.example);
+    await modelStore.loadExample(c.source.example, fixture === undefined ? undefined : async () => structuredClone(fixture));
   } else {
     const text = readFileSync(new URL(`../../../${c.source.ded}`, import.meta.url), 'utf8');
     if (!deserializeProject(text)) throw new Error(`${c.source.ded} does not open`);
@@ -266,13 +266,14 @@ function captureAdvanced(c: SnapshotCase, out: Values): void {
 
 /**
  * Run one case and return its snapshot. `afterOpen` edits the opened project before the solve:
- * the negative test's deliberate result change (`__tests__/negative.test.ts`).
+ * the negative test's deliberate result change (`__tests__/negative.test.ts`). `fixture` opens an
+ * example from that fixture instead of the bundled one: the example as another commit had it.
  */
-export async function capture(c: SnapshotCase, opts: { afterOpen?: () => void } = {}): Promise<Snapshot> {
+export async function capture(c: SnapshotCase, opts: { afterOpen?: () => void; fixture?: unknown } = {}): Promise<Snapshot> {
   containmentFindings.clear();
   setLocale('en');
   reset(c);
-  await open(c);
+  await open(c, opts.fixture);
   opts.afterOpen?.();
   const values: Values = {};
   values['model.nodes'] = modelStore.nodes.size;

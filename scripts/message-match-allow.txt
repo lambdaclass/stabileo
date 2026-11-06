@@ -7,7 +7,6 @@
 engine/src/certify/reassembly/mod.rs: if e.starts_with("out of scope") || e.starts_with("unsupported") {
 engine/src/certify/reassembly/mod.rs: } else if e.starts_with("a load acts on") {
 engine/src/certify/reassembly/mod.rs: Err(reason) if reason.starts_with("a load acts on") => return EndToEnd::Failed { reason },
-engine/src/solver/harmonic.rs: if result.method.starts_with("modal") {
 web/src/lib/engine/plastic-collapse.ts: if (/mechanism|singular|instab/i.test(msg)) { if (closeUnloading()) continue; isMechanism = true; break; }
 web/src/lib/listings/listing.ts: if (c.failingOnly && r[statusKey] !== undefined && !/fail|no verifica|não verifica/i.test(String(r[statusKey]))) return false;
 

@@ -674,12 +674,12 @@ fn transform_constraints_3d(cs: &[Constraint], iso: &Iso3) -> TResult<Vec<Constr
     Ok(out)
 }
 
-fn npos3(m: &SolverInput3D, id: usize) -> [f64; 3] {
+pub(crate) fn npos3(m: &SolverInput3D, id: usize) -> [f64; 3] {
     let n = &m.nodes[&id.to_string()];
     [n.x, n.y, n.z]
 }
 
-fn axes_of(m: &SolverInput3D, e: &SolverElement3D) -> ([f64; 3], [f64; 3], [f64; 3]) {
+pub(crate) fn axes_of(m: &SolverInput3D, e: &SolverElement3D) -> ([f64; 3], [f64; 3], [f64; 3]) {
     let (a, b) = (npos3(m, e.node_i), npos3(m, e.node_j));
     compute_local_axes_3d(a[0], a[1], a[2], b[0], b[1], b[2], e.local_yx, e.local_yy, e.local_yz, e.roll_angle, m.left_hand.unwrap_or(false))
 }
