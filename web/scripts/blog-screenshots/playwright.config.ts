@@ -8,6 +8,7 @@ export default defineConfig({
   ...base,
   testDir: '.',
   testMatch: '*.shots.ts',
+  globalSetup: `${WEB}e2e/global-setup.ts`,
   outputDir: `${WEB}e2e/.artifacts/blog-screenshots`,
   reporter: [['list']],
   retries: 0,

@@ -208,3 +208,85 @@ test('Mattiasson benchmark results', async ({ page }) => {
   await page.waitForTimeout(1000);
   await shot(page, 'blog-research-mattiasson');
 });
+
+async function basicWith(page: Page, example: string) {
+  await english(page);
+  await page.addInitScript(() => localStorage.setItem('liveCalc', 'false'));
+  await page.goto('/app/basic?e2e=1');
+  await page.waitForFunction(() => !!window.__stabileoActions, null, { timeout: 60_000 });
+  await page.evaluate((n) => window.__stabileoActions.loadExample(n), example);
+  await page.getByTestId('rb-cmd-advanced').click();
+}
+
+test('course: the explained step-by-step catalog', async ({ page }) => {
+  await basicWith(page, 'portal-frame');
+  await page.getByTestId('adv-steps').click();
+  await expect(page.getByTestId('steps-catalog')).toBeVisible();
+  await expect(page.getByTestId('steps-open-dsm')).toBeEnabled();
+  await hide(page, '.toast-container');
+  await settle(page);
+  await shot(page, 'blog-course-catalog');
+});
+
+test('course: the force method with a primary structure chosen by hand', async ({ page }) => {
+  await basicWith(page, 'portal-frame');
+  await page.getByTestId('adv-steps').click();
+  await page.getByTestId('steps-open-fm').click();
+  await expect(page.getByTestId('fm-wizard')).toBeVisible();
+  await page.getByTestId('fm-dot-2').click();
+  await page.getByTestId('fm-fund-manual').click();
+  for (const r of ['r:4:0', 'r:4:1', 'r:4:2']) await page.getByTestId(`fm-rel-${r}`).check();
+  await page.getByTestId('fm-fund-solve').click();
+  await expect(page.getByTestId('fm-fund-ok')).toBeVisible();
+  await expect(page.getByTestId('fm-redundants').locator('li')).toHaveCount(3);
+  await hide(page, '.toast-container');
+  await settle(page);
+  await shot(page, 'blog-course-force-method');
+});
+
+test('course: a moment influence line on the continuous beam, loaded', async ({ page }) => {
+  await basicWith(page, 'continuous-beam');
+  await page.locator('button.adv-btn', { hasText: /^Influence line$/ }).click();
+  await expect(page.getByTestId('il-panel')).toBeVisible();
+  await page.getByTestId('il-q-M').click();
+  const mid = await page.evaluate(() => {
+    const h = window.__stabileo as unknown as { elementEnds(id: number): { i: number; j: number } | null; nodeScreenPos(id: number): { x: number; y: number } | null };
+    const e = h.elementEnds(1)!;
+    const a = h.nodeScreenPos(e.i)!, b = h.nodeScreenPos(e.j)!;
+    return { x: a.x + (b.x - a.x) * 0.4, y: a.y + (b.y - a.y) * 0.4 };
+  });
+  await page.mouse.click(mid.x, mid.y);
+  await page.getByTestId('il-loading').locator('summary').click();
+  await expect(page.getByTestId('il-max')).toContainText('kN·m');
+  await page.getByTestId('il-envelope').click();
+  await expect(page.getByTestId('il-envelope')).toHaveClass(/on/);
+  await hide(page, '.toast-container');
+  await settle(page);
+  await shot(page, 'blog-course-influence');
+});
+
+test('course: plastic collapse of the portal frame, withheld until #758', async ({ page }) => {
+  await basicWith(page, 'portal-frame');
+  await page.locator('button.adv-btn', { hasText: /Plastic collapse/ }).click();
+  await expect(page.getByTestId('plastic-withheld')).toContainText('4.6');
+  await expect(page.getByTestId('plastic-verdict')).toHaveCount(0);
+  await page.getByTestId('plastic-withheld').scrollIntoViewIfNeeded();
+  await hide(page, '.toast-container');
+  await settle(page);
+  await shot(page, 'blog-course-plastic');
+});
+
+test('course: one degree of freedom under a harmonic force', async ({ page }) => {
+  await basicWith(page, 'dynamics-column-mass');
+  await page.getByRole('button', { name: /^Dynamic$/ }).first().click();
+  await expect(page.getByTestId('dynamics-course')).toBeVisible();
+  await page.getByTestId('dyn-sdof-toggle').click();
+  await expect(page.getByTestId('dyn-sdof-props')).toContainText('rad/s');
+  await page.getByTestId('dyn-sdof-F0').fill('20');
+  await page.getByTestId('dyn-sdof-F0').press('Enter');
+  await expect(page.getByTestId('dyn-sdof-harm')).toContainText('β');
+  await page.getByTestId('dyn-sdof-harm').evaluate((el) => el.scrollIntoView({ block: 'end' }));
+  await hide(page, '.toast-container');
+  await settle(page);
+  await shot(page, 'blog-course-dynamics');
+});
