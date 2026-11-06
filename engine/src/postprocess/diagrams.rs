@@ -388,12 +388,14 @@ pub fn compute_diagrams_2d(
 /// Transverse deflection of a loaded 2D member, exact for Euler–Bernoulli
 /// (`flex_s = 0`) and Timoshenko (`flex_s = 1/(G·As)`) beams.
 ///
-/// With m = EI·(ψ' − κ) (sagging) for a free curvature κ such as a thermal gradient's,
-/// s = m', s' = q and v' = ψ − s/(G·As), integrating from node i gives, for loads with
-/// moment m_q and shear s_q of their own (zero at x = 0):
+/// With m = EI·ψ' (sagging), s = m', s' = q and v' = ψ − s/(G·As), integrating
+/// from node i gives, for loads with moment m_q and shear s_q of their own
+/// (zero at x = 0):
 ///   m(x) = m0 + s0·x + m_q(x)
-///   ψ(x) = θ_i + (m0·x + s0·x²/2 + ∫₀ˣ m_q)/EI + κ·x
-///   v(x) = v_i + θ_i·x + (m0·x²/2 + s0·x³/6 + ∫₀ˣ(x − t)·m_q)/EI + κ·x²/2 − (s0·x + m_q(x))/(G·As)
+///   ψ(x) = θ_i + (m0·x + s0·x²/2 + ∫₀ˣ m_q)/EI
+///   v(x) = v_i + θ_i·x + (m0·x²/2 + s0·x³/6 + ∫₀ˣ(x − t)·m_q)/EI − (s0·x + m_q(x))/(G·As)
+/// A free curvature κ, such as a thermal gradient's, makes the member's moment m − EI·κ, so
+/// it only moves the released-end conditions to m = EI·κ.
 /// The unknowns (θ_i, m0, s0) follow from the end conditions: θ_i is the node
 /// rotation or, at a hinge, m(0) = 0; v(L) = v_j; ψ(L) = θ_j or, at a hinge,
 /// m(L) = 0. Without shear flexibility the homogeneous part is the cubic
@@ -401,7 +403,6 @@ pub fn compute_diagrams_2d(
 struct MemberDeflection {
     ei: f64,
     flex_s: f64,
-    kappa: f64,
     v_i: f64,
     theta_i: f64,
     m0: f64,
@@ -412,16 +413,17 @@ struct MemberDeflection {
 }
 
 impl MemberDeflection {
-    /// (m_q(x), ∫₀ˣ m_q, ∫₀ˣ (x − t) m_q(t) dt, ∫₀ˣ s_q) of the member loads: couples change
-    /// m_q but carry no shear.
-    fn load_terms(&self, x: f64) -> [f64; 4] {
-        let mut out = [0.0; 4];
+    /// (m_q(x), ∫₀ˣ m_q, ∫₀ˣ (x − t) m_q(t) dt, ∫₀ˣ s_q, s_q(x)) of the member loads: couples
+    /// change m_q but carry no shear.
+    fn load_terms(&self, x: f64) -> [f64; 5] {
+        let mut out = [0.0; 5];
         let mut add = |p: f64, d: f64| {
             if d > 0.0 {
                 out[0] += p * d;
                 out[1] += p * d * d / 2.0;
                 out[2] += p * d * d * d / 6.0;
                 out[3] += p * d;
+                out[4] += p;
             }
         };
         for &(a, p) in &self.points {
@@ -470,19 +472,20 @@ impl MemberDeflection {
         points: Vec<(f64, f64)>, dist: Vec<(f64, f64, f64, f64)>, couples: Vec<(f64, f64)>,
         kappa: f64,
     ) -> Self {
-        let mut d = MemberDeflection { ei, flex_s, kappa, v_i, theta_i: 0.0, m0: 0.0, s0: 0.0, points, dist, couples };
-        let [mql, mq1, mq2, sql] = d.load_terms(l);
+        let mut d = MemberDeflection { ei, flex_s, v_i, theta_i: 0.0, m0: 0.0, s0: 0.0, points, dist, couples };
+        let [mql, mq1, mq2, sql, _] = d.load_terms(l);
+        let free = ei * kappa;
         let at_end: f64 = d.couples.iter().filter(|c| c.0 >= l).map(|c| c.1).sum();
         // Unknowns x = [θ_i, m0, s0].
-        let r1 = if hinge_start { ([0.0, 1.0, 0.0], 0.0) } else { ([1.0, 0.0, 0.0], r_i) };
+        let r1 = if hinge_start { ([0.0, 1.0, 0.0], free) } else { ([1.0, 0.0, 0.0], r_i) };
         let r2 = (
             [l, l * l / (2.0 * ei), l * l * l / (6.0 * ei) - flex_s * l],
-            v_j - v_i - mq2 / ei - kappa * l * l / 2.0 + flex_s * sql,
+            v_j - v_i - mq2 / ei + flex_s * sql,
         );
         let r3 = if hinge_end {
-            ([0.0, 1.0, l], at_end - mql)
+            ([0.0, 1.0, l], free + at_end - mql)
         } else {
-            ([1.0, l / ei, l * l / (2.0 * ei)], r_j - mq1 / ei - kappa * l)
+            ([1.0, l / ei, l * l / (2.0 * ei)], r_j - mq1 / ei)
         };
         let a = [r1.0, r2.0, r3.0];
         let rhs = [r1.1, r2.1, r3.1];
@@ -509,21 +512,24 @@ impl MemberDeflection {
     }
 
     fn v(&self, x: f64) -> f64 {
-        let [_, _, mq2, sq] = self.load_terms(x);
+        let [_, _, mq2, sq, _] = self.load_terms(x);
         self.v_i
             + self.theta_i * x
             + (self.m0 * x * x / 2.0 + self.s0 * x * x * x / 6.0 + mq2) / self.ei
-            + self.kappa * x * x / 2.0
             - self.flex_s * (self.s0 * x + sq)
     }
 
     fn rotation(&self, x: f64) -> f64 {
         let [_, mq1, ..] = self.load_terms(x);
-        self.theta_i + (self.m0 * x + self.s0 * x * x / 2.0 + mq1) / self.ei + self.kappa * x
+        self.theta_i + (self.m0 * x + self.s0 * x * x / 2.0 + mq1) / self.ei
     }
 
     fn moment(&self, x: f64) -> f64 {
         self.m0 + self.s0 * x + self.load_terms(x)[0]
+    }
+
+    fn shear(&self, x: f64) -> f64 {
+        self.s0 + self.load_terms(x)[4]
     }
 }
 
@@ -555,9 +561,14 @@ impl SpanRotation {
     }
 
     /// EI times the derivative of [`Self::at`]: the rotation is extreme only where it changes sign.
-    /// Its derivative is the shear, as a free curvature is uniform.
     pub(crate) fn moment(&self, x: f64) -> f64 {
-        self.member.moment(x) + self.member.ei * self.member.kappa
+        self.member.moment(x)
+    }
+
+    /// The shear, from the end shear and the loads rather than from differences of the moment,
+    /// which a large free curvature would swamp.
+    pub(crate) fn shear(&self, x: f64) -> f64 {
+        self.member.shear(x)
     }
 
     #[cfg(test)]

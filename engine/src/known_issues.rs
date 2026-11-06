@@ -717,9 +717,9 @@ fn cubic_roots_in_unit(c: [f64; 4]) -> Vec<f64> {
 
 /// The largest rotation along a member, its bending planes' section rotations ψ and axis slopes
 /// ψ − V/(G·As), and a twist interpolated between `twist`, bounded on each interval between
-/// [`SPAN_STATIONS`] stations and the load positions. Between them a plane's moment M is a cubic,
-/// so the zeros of M and of M/EI − M''/(G·As), where ψ and the slope are extreme, are found
-/// exactly, and the slope is taken on both sides of a point load. The section rotation vector and
+/// [`SPAN_STATIONS`] stations and the load positions. Between them a plane's EI·ψ' is a cubic and
+/// its shear V a quadratic, so the zeros of ψ' and of ψ' − V'/(G·As), where ψ and the slope are
+/// extreme, are found exactly, and the slope is taken on both sides of a point load. The section rotation vector and
 /// the axis slope vector are bounded apart, each by the norm of its parts' largest magnitudes on
 /// the interval, and the interval's value is the larger bound.
 fn largest_span_rotation(l: f64, planes: &[crate::postprocess::diagrams::SpanRotation], twist: (f64, f64)) -> f64 {
@@ -745,14 +745,22 @@ fn largest_span_rotation(l: f64, planes: &[crate::postprocess::diagrams::SpanRot
                 c[3] += scale;
             }
             let (h, f, ei) = (b - a, p.shear_flexibility(), p.ei());
+            let thirds = [0.5 - 0.5 * 0.75f64.sqrt(), 0.5, 0.5 + 0.5 * 0.75f64.sqrt()];
+            let v = thirds.map(|t| p.shear(a + h * t));
+            let w = std::array::from_fn::<f64, 3, _>(|k| v[k] / thirds.iter().enumerate().filter(|&(j, _)| j != k).map(|(_, &t)| thirds[k] - t).product::<f64>());
+            let s = [
+                w[0] * thirds[1] * thirds[2] + w[1] * thirds[0] * thirds[2] + w[2] * thirds[0] * thirds[1],
+                -(w[0] * (thirds[1] + thirds[2]) + w[1] * (thirds[0] + thirds[2]) + w[2] * (thirds[0] + thirds[1])),
+                w[0] + w[1] + w[2],
+            ];
             let turn = |t: f64| {
                 let psi = p.at(a + h * t);
-                (psi.abs(), (psi - f * (c[1] + (2.0 * c[2] + 3.0 * c[3] * t) * t) / h).abs())
+                (psi.abs(), (psi - f * (s[0] + (s[1] + s[2] * t) * t)).abs())
             };
             let mut at = vec![0.0, 1.0];
             at.extend(cubic_roots_in_unit(c));
             if f != 0.0 {
-                at.extend(cubic_roots_in_unit([c[0] / ei - 2.0 * f * c[2] / (h * h), c[1] / ei - 6.0 * f * c[3] / (h * h), c[2] / ei, c[3] / ei]));
+                at.extend(cubic_roots_in_unit([c[0] / ei - f * s[1] / h, c[1] / ei - 2.0 * f * s[2] / h, c[2] / ei, c[3] / ei]));
             }
             let (section, axis) = at.into_iter().map(turn).fold((0.0, 0.0), |(s, x), (ps, px)| (nan_max(s, ps), nan_max(x, px)));
             sections += section * section;
@@ -1666,6 +1674,17 @@ mod span_tests {
             assert!((plane.moment(t * l) + diagram).abs() < 1e-9 * (1.0 + diagram.abs()), "t {t}: {} vs {diagram}", plane.moment(t * l));
         }
         assert!((plane.at(0.0).abs() - 600.0 * l / (4.0 * 2e4)).abs() < 1e-12, "{}", plane.at(0.0));
+    }
+
+    #[test]
+    fn a_large_free_curvature_does_not_swamp_the_shear_slope_1569() {
+        use crate::postprocess::diagrams::SpanRotation;
+        let (f, p) = (1.0 / 76.923, -20.0);
+        for kappa in [0.0, 1e-3] {
+            let plane = SpanRotation::new(1.0, 2e20, f, 0.0, 0.0, 0.0, 0.0, false, false, vec![(0.5, p)], Vec::new(), Vec::new(), kappa);
+            let largest = largest_span_rotation(1.0, std::slice::from_ref(&plane), (0.0, 0.0));
+            assert!((largest - 10.0 * f).abs() < 1e-6 * largest, "κ {kappa}: {largest}");
+        }
     }
 
     #[test]
