@@ -645,3 +645,86 @@ fn random_space_frames_solver_is_safe() {
     }
     eprintln!("space frames: {inside} inside, {below} below with the biaxial warning");
 }
+
+fn portal_sample() -> serde_json::Value {
+    serde_json::from_str(include_str!("../../verify/samples/plastic-3d-portal.input.json")).unwrap()
+}
+
+fn column_1_on_section_2(mut v: serde_json::Value, plastic_section: Option<serde_json::Value>, mp_override: Option<[f64; 2]>) -> PlasticInput3D {
+    v["solver"]["sections"]["2"] = v["solver"]["sections"]["1"].clone();
+    v["solver"]["sections"]["2"]["id"] = serde_json::json!(2);
+    v["solver"]["elements"]["1"]["sectionId"] = serde_json::json!(2);
+    if let Some(s) = plastic_section {
+        v["sections"]["2"] = s;
+    }
+    if let Some(o) = mp_override {
+        v["mpOverrides"]["2"] = serde_json::json!(o);
+    }
+    serde_json::from_value(v).unwrap()
+}
+
+fn hinged_members(r: &dedaliano_engine::solver::plastic::PlasticResult3D) -> Vec<usize> {
+    let mut m: Vec<usize> = r.hinges.iter().map(|h| h.element_id).collect();
+    m.sort_unstable();
+    m.dedup();
+    m
+}
+
+fn refusal_names_member(e: &str, member: usize, section: usize) {
+    let v: serde_json::Value = serde_json::from_str(e).unwrap_or_else(|_| panic!("not a structured refusal: {e}"));
+    let d = v["structuredDiagnostics"].as_array().and_then(|ds| ds.iter().find(|d| d["code"] == "plastic_capacity_missing")).unwrap_or_else(|| panic!("{e}"));
+    assert_eq!(d["severity"], "error");
+    assert_eq!(d["elementIds"], serde_json::json!([member]));
+    assert_eq!(d["elementKind"], "frame");
+    assert_eq!(d["value"], serde_json::json!(section as f64));
+    assert!(v["message"].as_str().unwrap().contains(&format!("element {member}")), "{e}");
+    assert!(v["message"].as_str().unwrap().contains("either axis") && !v["message"].as_str().unwrap().contains("never form a hinge"), "{e}");
+}
+
+#[test]
+fn the_portal_sample_collapses_with_hinges_on_both_columns_1525() {
+    let base: PlasticInput3D = serde_json::from_value(portal_sample()).unwrap();
+    let r = solve_plastic_3d(&base).unwrap();
+    assert!((r.collapse_factor - 31.865).abs() < 5e-4, "{}", r.collapse_factor);
+    assert!(r.is_mechanism);
+    assert_eq!(hinged_members(&r), vec![1, 3]);
+    let same = column_1_on_section_2(portal_sample(), Some(serde_json::json!({"a": 0.001, "iy": 8e-6, "iz": 4e-6, "materialId": 1})), Some([100.0, 50.0]));
+    let s = solve_plastic_3d(&same).unwrap();
+    assert_eq!(s.collapse_factor.to_bits(), r.collapse_factor.to_bits());
+    assert_eq!(hinged_members(&s), vec![1, 3]);
+    let c = certify_plastic_3d(&same).unwrap();
+    assert_eq!(c.results.collapse_factor.to_bits(), r.collapse_factor.to_bits());
+}
+
+#[test]
+fn a_frame_without_plastic_capacity_is_refused_1525() {
+    let no_inertia = Some(serde_json::json!({"a": 0.001, "iy": 0.0, "iz": 0.0, "materialId": 1}));
+    let shaped = Some(serde_json::json!({"a": 0.001, "iy": 8e-6, "iz": 4e-6, "materialId": 1}));
+    let cases = [
+        ("missing section", column_1_on_section_2(portal_sample(), None, None)),
+        ("iy = iz = 0", column_1_on_section_2(portal_sample(), no_inertia.clone(), None)),
+        ("iy = 1e-21", column_1_on_section_2(portal_sample(), Some(serde_json::json!({"a": 0.001, "iy": 1e-21, "iz": 4e-6, "materialId": 1})), None)),
+        ("negative override", column_1_on_section_2(portal_sample(), shaped.clone(), Some([-100.0, 50.0]))),
+        ("zero override", column_1_on_section_2(portal_sample(), shaped.clone(), Some([100.0, 0.0]))),
+        ("override without a section", column_1_on_section_2(portal_sample(), None, Some([-100.0, -50.0]))),
+        ("fy = 0", {
+            let mut v = portal_sample();
+            v["materials"]["2"] = serde_json::json!({"fy": 0.0});
+            column_1_on_section_2(v, Some(serde_json::json!({"a": 0.001, "iy": 8e-6, "iz": 4e-6, "materialId": 2})), None)
+        }),
+    ];
+    for (what, input) in cases {
+        match solve_plastic_3d(&input) {
+            Ok(r) => panic!("{what}: solved to λ = {} (mechanism {}), hinges on {:?}", r.collapse_factor, r.is_mechanism, hinged_members(&r)),
+            Err(e) => refusal_names_member(&e, 1, 2),
+        }
+        let certified = certify_plastic_3d(&input);
+        assert!(certified.is_err(), "{what}: certified {:?}", certified.map(|c| c.results.collapse_factor));
+        refusal_names_member(&certified.unwrap_err(), 1, 2);
+        let c = certify_collapse_3d(&input, None);
+        assert!(!c.certified && c.lambda_lower.is_none() && c.lambda_upper.is_none(), "{what}: {c:?}");
+        assert!(c.reason.as_deref().is_some_and(|r| r.contains("element 1")), "{what}: {:?}", c.reason);
+        let bundle = dedaliano_engine::certify::plastic_bundle::export_plastic_bundle_3d(&input);
+        refusal_names_member(&bundle.err().unwrap_or_else(|| panic!("{what}: bundle exported")), 1, 2);
+    }
+}

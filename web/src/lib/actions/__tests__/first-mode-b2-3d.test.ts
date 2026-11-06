@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { modelStore } from '../../store';
 import { solveBuckling3D } from '../../engine/wasm-solver';
+import { CodedRefusal } from '../../engine/containment-error';
 import { resetModel3D, frame, support } from '../../engine/__tests__/helpers/random-models-3d';
 import { withFirstModeB2 } from '../second-order';
 
@@ -19,7 +20,10 @@ function cantilever(Pz: number) {
 describe('the space P-Δ takes B₂ from the lowest buckling factor', () => {
   it('a column in tension: the engine says no compression, read as λ₁ = ∞ and B₂ = 1, not as an unknown', () => {
     const input = cantilever(100);
-    expect(() => solveBuckling3D(input, 1)).toThrow(/no compressed elements/i);
+    let thrown: unknown;
+    try { solveBuckling3D(input, 1); } catch (e) { thrown = e; }
+    expect(thrown).toBeInstanceOf(CodedRefusal);
+    expect(thrown).toMatchObject({ code: 'no_compressed_elements', message: 'No compressed elements — buckling not applicable' });
     const r = withFirstModeB2(input, { b2Factor: 1.0001, isStable: true });
     expect(r.secondOrder).toEqual({ lambda1: Infinity, b2: 1 });
     expect(r.b2Factor).toBe(1);
