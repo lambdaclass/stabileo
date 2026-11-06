@@ -2374,7 +2374,6 @@ fn shear_flexible_span_2d(p: f64, split: bool) -> AnalysisResults {
 }
 
 #[test]
-#[ignore = "known wrong result: #1569"]
 fn the_shear_slope_inside_a_timoshenko_span_is_warned_1569() {
     let g_as = E * 1000.0 / 2.6 * 1e-6;
     let slope = |p: f64| p.abs() / 2.0 / g_as;
@@ -2406,7 +2405,6 @@ fn shear_flexible_span_3d(py: f64, pz: f64) -> AnalysisResults3D {
 }
 
 #[test]
-#[ignore = "known wrong result: #1569"]
 fn the_shear_slope_inside_a_timoshenko_3d_span_is_warned_in_either_plane_1569() {
     for (py, pz) in [(-20.0, 0.0), (0.0, -20.0)] {
         let r = shear_flexible_span_3d(py, pz);
@@ -2446,7 +2444,6 @@ fn warmed_propped_span_2d(dt: f64, split: bool) -> AnalysisResults {
 }
 
 #[test]
-#[ignore = "known wrong result: #1569"]
 fn a_thermal_curvature_at_a_released_end_is_warned_1569() {
     let kappa = |dt: f64| 1.2e-5 * dt / 0.05;
     let (l, hot, mild) = (4.0, 625.0, 200.0);
@@ -2474,11 +2471,27 @@ fn warmed_propped_span_3d(dt_y: f64, dt_z: f64) -> AnalysisResults3D {
 }
 
 #[test]
-#[ignore = "known wrong result: #1569"]
 fn a_thermal_curvature_at_a_released_3d_end_is_warned_in_either_plane_1569() {
     for (dy, dz) in [(625.0, 0.0), (0.0, 625.0), (-625.0, 0.0), (0.0, -625.0)] {
         let r = warmed_propped_span_3d(dy, dz);
         assert_eq!(warned_chords(&r.structured_diagnostics), Some((vec![], vec![1])), "dy {dy} dz {dz}: {:?}", ids(&r.structured_diagnostics));
     }
     assert_eq!(warned_chords(&warmed_propped_span_3d(200.0, 0.0).structured_diagnostics), None);
+}
+
+#[test]
+fn a_combination_sums_its_cases_thermal_curvatures_1569() {
+    use dedaliano_engine::postprocess::combinations::{combine_results_refs, CombinationFactor};
+    let (mild, hot) = (warmed_propped_span_2d(200.0, false), warmed_propped_span_2d(625.0, false));
+    let cases = [(1, &mild), (2, &hot), (3, &hot)];
+    let combine = |factors: &[(usize, f64)]| {
+        let f: Vec<CombinationFactor> = factors.iter().map(|&(case_id, factor)| CombinationFactor { case_id, factor }).collect();
+        combine_results_refs(&f, &cases).unwrap()
+    };
+    let amplified = combine(&[(1, 2.5)]);
+    assert_eq!(warned_chords(&amplified.structured_diagnostics), Some((vec![], vec![1])), "κL/4 = 0.048 amplified 2.5 times is 0.12");
+    let span = amplified.result_summary.unwrap().member_spans.unwrap();
+    assert!((span[0].curvature[0] - 2.5 * 1.2e-5 * 200.0 / 0.05).abs() < 1e-12, "{span:?}");
+    assert_eq!(warned_chords(&combine(&[(2, 1.0), (3, -1.0)]).structured_diagnostics), None, "cancelled");
+    assert_eq!(warned_chords(&combine(&[(2, 0.3)]).structured_diagnostics), None, "0.15 reduced to 0.045");
 }
