@@ -1,4 +1,4 @@
-import { benchmark, frameFrom } from './case';
+import { benchmark, failureCode, frameFrom } from './case';
 import { initSolver, solveArcLength } from '../../../lib/engine/wasm-solver';
 self.onmessage = async () => {
   try {
@@ -8,5 +8,5 @@ self.onmessage = async () => {
       self.postMessage({ frame: frameFrom(result, step) });
     }
     self.postMessage({ done: true });
-  } catch (error) { self.postMessage({ error: String(error) }); }
+  } catch (error) { self.postMessage({ error: failureCode(error) }); }
 };

@@ -106,7 +106,7 @@ fn steel() -> Json {
                 { "kind": "web", "b": 0.255, "t": 0.0099 }
             ]
         }],
-        "demands": [{ "forces": { "elementId": 1, "n": -300.0, "my": 80.0, "vy": 20.0 }, "bound": { "n": 0.5, "my": 0.2 } }]
+        "demands": [{ "forces": { "elementId": 1, "n": -300.0, "my": 80.0, "vStrong": 20.0 }, "bound": { "n": 0.5, "my": 0.2 } }]
     })
 }
 
@@ -290,6 +290,10 @@ fn base_value(kind: &str, json: &Json) -> Value {
 fn base_inputs_are_accepted_and_finite() {
     for (kind, json, runner) in kinds() {
         let v = base_value(kind, &json);
+        if kind == "plastic_2d" {
+            crate::common::assert_containment(runner(&v), "PL-2D-INVARIANCE");
+            continue;
+        }
         assert_eq!(runner(&v), Ok(None), "{kind}");
         // A bundle is `Ok` only when certified; it has no status field.
         assert!(kind.starts_with("bundle") || CLAIMED.with(|c| c.get()), "{kind}: the base input is not certified");

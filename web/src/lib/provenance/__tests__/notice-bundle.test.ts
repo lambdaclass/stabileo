@@ -6,12 +6,16 @@ import { resolve } from 'node:path';
 import { inflateRawSync } from 'node:zlib';
 import packed from 'virtual:result-change-packed';
 import { RESULT_CHANGES } from '../full-registry';
+import { REGISTRY_LOCALES } from '../registry';
+import { sharedBuild, SHARED_PLAIN_BUILD } from '../../utils/__tests__/shared-build';
+
+const SHARED = sharedBuild(SHARED_PLAIN_BUILD);
 
 it('loads translated recheck notices outside the static app route closure', async () => {
   const web = resolve(__dirname, '../../../../..', 'web');
-  const out = '.dist-recheck-notice';
+  const out = SHARED ?? '.dist-recheck-notice';
   try {
-    await promisify(execFile)('npx', ['vite', 'build', '--manifest', '--outDir', out, '--emptyOutDir', '--logLevel', 'error'], {
+    if (!SHARED) await promisify(execFile)('npx', ['vite', 'build', '--manifest', '--outDir', out, '--emptyOutDir', '--logLevel', 'error'], {
       cwd: web, timeout: 240_000, maxBuffer: 32 * 1024 * 1024,
     });
     type Chunk = { file: string; imports?: string[]; dynamicImports?: string[] };
@@ -48,13 +52,13 @@ it('loads translated recheck notices outside the static app route closure', asyn
       const entry = `id:${JSON.stringify(change.id)},resultsVersion:${change.resultsVersion}`;
       expect(allProduct.includes(entry), `duplicate registry entry: ${change.id}`).toBe(false);
       expect(initial.includes(entry), `eager registry entry: ${change.id}`).toBe(false);
-      for (const locale of ['en', 'es', 'pt'] as const) {
+      for (const locale of REGISTRY_LOCALES) {
         expect(initial).not.toContain(change.explanation[locale]);
         expect(initial).not.toContain(JSON.stringify(change.explanation[locale]).slice(1, -1));
       }
     }
     console.info(`App static JavaScript: ${Buffer.byteLength(initial)} bytes; lazy notices: ${Buffer.byteLength(notices)} bytes`);
   } finally {
-    rmSync(resolve(web, out), { recursive: true, force: true });
+    if (!SHARED) rmSync(resolve(web, out), { recursive: true, force: true });
   }
 }, 300_000);

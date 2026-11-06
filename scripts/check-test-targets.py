@@ -7,7 +7,8 @@ engine/tests/*.rs files are modules of a few binaries (engine/tests/<binary>/mai
 Without discovery, a new tests/*.rs that nobody adds to a main.rs would never be compiled, and
 its tests would silently never run. This check fails on that, on a file included twice (its
 tests would run twice), on a [[test]] whose path does not exist, and on a tests/*/main.rs that
-no [[test]] builds.
+no [[test]] builds. Files that need the engine's cfg(test) items are compiled into the library's
+unit tests instead, through engine/tests/unrefused/mod.rs, and count as that one binary.
 
 Run from anywhere: python3 -I scripts/check-test-targets.py
 """
@@ -40,6 +41,15 @@ for name, path in targets.items():
         if file != module:
             errors.append(f"{path}: module {module} includes {file}.rs (name them the same)")
         included.setdefault(file, []).append(name)
+
+lib_tests = tests / "unrefused" / "mod.rs"
+if lib_tests.is_file():
+    if '#[path = "../tests/unrefused/mod.rs"]' not in (root / "src" / "lib.rs").read_text():
+        errors.append("engine/tests/unrefused/mod.rs is not included by engine/src/lib.rs: it never runs")
+    for file, module in path_mod.findall(lib_tests.read_text()):
+        if file != module:
+            errors.append(f"tests/unrefused/mod.rs: module {module} includes {file}.rs (name them the same)")
+        included.setdefault(file, []).append("the library's unit tests")
 
 for f in sorted(tests.glob("*.rs")):
     bins = included.get(f.stem, [])

@@ -45,7 +45,8 @@ fn make_plastic_portal(lateral_load: f64) -> PlasticInput {
 #[test]
 fn plastic_finds_hinges() {
     let input = make_plastic_portal(50.0);
-    let result = plastic::solve_plastic_2d(&input).unwrap();
+    crate::common::assert_containment(plastic::solve_plastic_2d(&input), "PL-2D-INVARIANCE");
+    let result = plastic::solve_plastic_2d_unrefused(&input).unwrap();
 
     assert!(result.collapse_factor > 0.0, "collapse factor should be positive");
     assert!(!result.hinges.is_empty(), "should form at least one hinge");
@@ -54,7 +55,8 @@ fn plastic_finds_hinges() {
 #[test]
 fn plastic_hinges_ordered_by_load_factor() {
     let input = make_plastic_portal(50.0);
-    let result = plastic::solve_plastic_2d(&input).unwrap();
+    crate::common::assert_containment(plastic::solve_plastic_2d(&input), "PL-2D-INVARIANCE");
+    let result = plastic::solve_plastic_2d_unrefused(&input).unwrap();
 
     // Hinges should form at non-decreasing load factors
     for i in 1..result.hinges.len() {
@@ -69,7 +71,8 @@ fn plastic_hinges_ordered_by_load_factor() {
 #[test]
 fn plastic_collapse_factor_reasonable() {
     let input = make_plastic_portal(50.0);
-    let result = plastic::solve_plastic_2d(&input).unwrap();
+    crate::common::assert_containment(plastic::solve_plastic_2d(&input), "PL-2D-INVARIANCE");
+    let result = plastic::solve_plastic_2d_unrefused(&input).unwrap();
 
     // Mp = 843.75 kN·m, H=50 kN applied
     // Simple estimate: portal with lateral load, collapse ~ 4Mp/(H*L)
@@ -83,7 +86,8 @@ fn plastic_collapse_factor_reasonable() {
 #[test]
 fn plastic_steps_recorded() {
     let input = make_plastic_portal(50.0);
-    let result = plastic::solve_plastic_2d(&input).unwrap();
+    crate::common::assert_containment(plastic::solve_plastic_2d(&input), "PL-2D-INVARIANCE");
+    let result = plastic::solve_plastic_2d_unrefused(&input).unwrap();
 
     assert!(!result.steps.is_empty(), "should have steps");
     for step in &result.steps {
@@ -127,7 +131,8 @@ fn plastic_simply_supported_beam() {
         mp_overrides: None,
     };
 
-    let result = plastic::solve_plastic_2d(&input).unwrap();
+    crate::common::assert_containment(plastic::solve_plastic_2d(&input), "PL-2D-INVARIANCE");
+    let result = plastic::solve_plastic_2d_unrefused(&input).unwrap();
 
     // Simply-supported beam: 1 hinge at midspan creates mechanism
     // For unit load: Mmax = L/4 at midspan
@@ -143,7 +148,8 @@ fn plastic_simply_supported_beam() {
 #[test]
 fn plastic_mechanism_detection() {
     let input = make_plastic_portal(50.0);
-    let result = plastic::solve_plastic_2d(&input).unwrap();
+    crate::common::assert_containment(plastic::solve_plastic_2d(&input), "PL-2D-INVARIANCE");
+    let result = plastic::solve_plastic_2d_unrefused(&input).unwrap();
 
     // After enough hinges, should detect mechanism
     if result.hinges.len() >= 3 {
@@ -195,7 +201,9 @@ fn plastic_collapse_load_is_unchanged_by_a_temperature() {
         ("gradient on one half", vec![gradient(1, 30.0)]),
         ("gradient on the other half, reversed", vec![gradient(2, -25.0)]),
     ] {
-        let r = plastic::solve_plastic_2d(&fixed_fixed_central(extra)).unwrap();
+        let input = fixed_fixed_central(extra);
+        crate::common::assert_containment(plastic::solve_plastic_2d(&input), "PL-2D-INVARIANCE");
+        let r = plastic::solve_plastic_2d_unrefused(&input).unwrap();
         assert!(r.is_mechanism, "{label}: ends in a mechanism");
         assert!((r.collapse_factor - want).abs() / want < 1e-4,
             "{label}: λ = {:.4}, expected 8Mp/(PL) = {want:.4}", r.collapse_factor);
@@ -220,7 +228,8 @@ fn plastic_double_hinge_over_a_support_is_not_a_mechanism() {
     );
     let mut input = make_plastic_portal(0.0);
     input.solver = solver;
-    let r = plastic::solve_plastic_2d(&input).unwrap();
+    crate::common::assert_containment(plastic::solve_plastic_2d(&input), "PL-2D-INVARIANCE");
+    let r = plastic::solve_plastic_2d_unrefused(&input).unwrap();
     let mp = FY * 1000.0 * B * H * H / 4.0;
     let want = 6.0 * mp / (50.0 * 6.0);
     assert!(r.is_mechanism);
@@ -246,7 +255,8 @@ fn plastic_cantilever_stops_at_its_one_hinge() {
     let mut mp = HashMap::new();
     mp.insert("1".to_string(), 190.5);
     input.mp_overrides = Some(mp);
-    let r = plastic::solve_plastic_2d(&input).unwrap();
+    crate::common::assert_containment(plastic::solve_plastic_2d(&input), "PL-2D-INVARIANCE");
+    let r = plastic::solve_plastic_2d_unrefused(&input).unwrap();
     assert!(r.is_mechanism);
     assert_eq!(r.hinges.len(), 1, "hinges: {:?}", r.hinges.iter().map(|h| (h.element_id, h.end.clone())).collect::<Vec<_>>());
     assert!((r.collapse_factor - 190.5 / (15.0 * 3.0)).abs() < 1e-6, "λ = {}", r.collapse_factor);

@@ -7,11 +7,15 @@
    */
   import { onMount } from 'svelte';
   import { parseProvenance } from '../lib/provenance/result-provenance';
-  import { reproduceFrom, type ReproduceOutcome } from '../lib/actions/reproduce';
+  import { reproduceFrom, reproduceStatus, reportTextOf, OTHER_RESULT_SET, OTHER_MANIFEST, type ReproduceOutcome } from '../lib/actions/reproduce';
   import { captureFocus, cycleTabWithin } from '../lib/utils/dialog-focus';
-  import { t, tp } from '../lib/i18n';
+  import { i18n, t, tp } from '../lib/i18n';
   import { baseSolverInputJson } from '../lib/store/result-provenance';
   import { downloadText } from '../lib/store/file';
+
+  const languageName = (code: string) => {
+    try { return new Intl.DisplayNames([i18n.locale], { type: 'language' }).of(code) ?? code; } catch { return code; }
+  };
 
   /** The base solve's engine input, for `cargo run --release --example reproduce`. */
   function downloadInput() {
@@ -58,7 +62,7 @@
     const claimed = parseProvenance(text);
     if (!claimed) { error = t('provenance.reproduce.invalid'); return; }
     busy = true;
-    try { outcome = await reproduceFrom(claimed); } finally { busy = false; }
+    try { outcome = await reproduceFrom(claimed, reportTextOf(text)); } finally { busy = false; }
   }
 
   const field = (v: string) => t(`provenance.reproduce.field.${v}`);
@@ -81,14 +85,37 @@
       {#if outcome}
         {#if outcome.ok}
           {@const v = outcome.verdict}
-          <div class="rp-verdict" class:ok={v.reproduced} data-testid="reproduce-verdict" data-reproduced={v.reproduced} data-status={v.status}>
-            <strong>{v.status === 'reproduced' ? t('provenance.reproduce.match') : v.status === 'incomplete' ? t('provenance.reproduce.incomplete') : t('provenance.reproduce.mismatch')}</strong>
+          {@const { status, reproduced } = reproduceStatus(outcome)}
+          <div class="rp-verdict" class:ok={reproduced} data-testid="reproduce-verdict" data-reproduced={reproduced} data-status={status}>
+            <strong>{status === 'printed-differs' && outcome.printed?.structural.includes(OTHER_RESULT_SET) ? t('provenance.reproduce.printedOtherSet') : status === 'printed-differs' ? t('provenance.reproduce.printedTampered') : status === 'reproduced' ? t('provenance.reproduce.match') : status === 'incomplete' ? t('provenance.reproduce.incomplete') : t('provenance.reproduce.mismatch')}</strong>
             <ul data-testid="reproduce-hashes">
               {#each v.hashes as h (h.field)}
                 <li data-field={h.field} data-verdict={h.verdict}>{FIELD_LABEL[h.field] ?? h.field}: {field(h.verdict)}</li>
               {/each}
             </ul>
             {#if v.model === 'differs'}<p>{t('provenance.reproduce.modelDiffers')}</p>{/if}
+            {#if outcome.printed && !outcome.printed.structural.includes(OTHER_RESULT_SET)}
+              {@const pv = outcome.printed}
+              {@const tables = pv.structural.filter((k) => k !== OTHER_MANIFEST)}
+              <p data-testid="reproduce-printed" data-differences={pv.differences.length} data-compared={pv.compared}>
+                {pv.differences.length === 0 && pv.structural.length === 0
+                  ? tp('provenance.reproduce.printedMatch', { n: pv.compared })
+                  : tp('provenance.reproduce.printedDiffers', { m: pv.differences.length, n: pv.compared })}
+              </p>
+              {#if pv.differences.length > 0}
+                <ul class="rp-diffs" data-testid="reproduce-printed-diffs">
+                  {#each pv.differences.slice(0, 20) as d, i (i)}
+                    <li>{tp('provenance.reproduce.printedLine', { table: t(`provenance.reproduce.table.${d.table.replace(/^envelope-.*/, 'envelope')}`), row: d.row, column: d.column, printed: d.printed, recomputed: d.recomputed })}</li>
+                  {/each}
+                </ul>
+              {/if}
+              {#if tables.length > 0}<p>{tp('provenance.reproduce.printedStructure', { tables: tables.join(', ') })}</p>{/if}
+              {#if pv.structural.includes(OTHER_MANIFEST)}<p data-testid="reproduce-printed-manifest">{t('provenance.reproduce.printedManifest')}</p>{/if}
+              {#if !pv.manifest}<p data-testid="reproduce-printed-no-manifest">{t('provenance.reproduce.printedNoManifest')}</p>{/if}
+              {#if !pv.labels && outcome.reportLocale}<p data-testid="reproduce-printed-labels">{tp('provenance.reproduce.printedLabelsOther', { language: languageName(outcome.reportLocale) })}</p>{/if}
+            {:else if outcome.printed === null}
+              <p data-testid="reproduce-printed-none">{t('provenance.reproduce.printedNone')}</p>
+            {/if}
             {#if !v.sameBuild}<p>{tp('provenance.reproduce.buildDiffers', { fields: v.buildDifferences.join(', ') })}</p>{/if}
           </div>
         {:else}
@@ -115,6 +142,7 @@
   .rp-verdict { margin: 10px 0; padding: 8px 10px; font-size: 0.72rem; border: 1px solid var(--st-danger, #c0392b); border-radius: var(--st-radius); color: var(--st-text); }
   .rp-verdict.ok { border-color: var(--st-ok, #2e8b57); }
   .rp-verdict ul { margin: 6px 0 0; padding-left: 18px; }
+  .rp-diffs { max-height: 160px; overflow-y: auto; }
   .rp-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; flex-wrap: wrap; }
   .rp-btn { padding: 6px 12px; font-size: 0.75rem; border-radius: var(--st-radius); border: 1px solid var(--st-hair-strong); background: var(--st-surface-2, var(--st-surface)); color: var(--st-text); cursor: pointer; }
   .rp-btn:disabled { opacity: 0.5; cursor: not-allowed; }

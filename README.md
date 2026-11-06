@@ -7,7 +7,7 @@
 
 <p align="center">
   <strong>Structural analysis, in a browser tab.</strong><br>
-  An open structural-analysis platform. The solver runs on your machine:
+  Open-source structural engineering software. The solver runs on your machine:
   nothing to install, no licences, no account.
 </p>
 
@@ -31,7 +31,8 @@
 
 ## What it is
 
-Stabileo is structural analysis software that runs in any modern browser. You model, load, solve
+Stabileo is structural analysis and design software that runs in any modern browser, with an AI
+assistant in development. You model, load, solve
 and read results in 2D and 3D. The analysis engine is written in Rust and compiled to WebAssembly,
 so it runs on your own computer: the model is not sent to a server to be solved.
 
@@ -40,14 +41,14 @@ Aires), and it keeps that origin: besides giving the answer, **it shows the work
 of indeterminacy, the stiffness matrix step by step, which torsion theory applies to a section and
 why.
 
-The interface is available in **English, Spanish and Portuguese**.
+The interface is available in **English, Spanish, Portuguese, German, French and Turkish**.
 
 ## The modes
 
 | Mode | Status | What it does |
 |------|--------|--------------|
 | **Basic** | Available | Frame and truss structures in 2D and 3D. Axial, shear and moment diagrams, stresses, and advanced tools: kinematic analysis, section analysis, second order, buckling, modal analysis, plastic collapse, influence lines and the stiffness method step by step. Models load from Excel templates, save to a file or travel in a link. |
-| **PRO** | In development | Finite elements and complex models: slabs and walls as plates and shells, constraints, code-based load generation, import from AutoCAD (DXF) or Excel, and dynamic, staged and non-linear analysis. |
+| **PRO** | Available | Finite elements and complex models: slabs and walls as plates and shells, constraints, code-based load generation, import from AutoCAD (DXF), Excel or IFC, and dynamic, staged and non-linear analysis. Code design (reinforcement, detailing and connections) is a separate switch in PRO, still in development and off by default. |
 | **Education** | In development | The teacher writes an exercise inside the app and hands it out as a link. The student solves it without the result in view and hands the answers back as a file or a short code. |
 | **Stabileo AI** | In development | An agent being built to create, review and explain models, working on the same structured model and the same solver you use. The AI proposes; the solver decides. |
 

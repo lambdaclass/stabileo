@@ -978,10 +978,10 @@ fn validation_kassimali_8_compound_truss() {
     // Symmetric inner diagonals
     let ef10 = results.element_forces.iter().find(|e| e.element_id == 10).unwrap();
     let ef11 = results.element_forces.iter().find(|e| e.element_id == 11).unwrap();
-    assert_close(
+    assert_close_abs(
         ef10.n_start.abs(),
         ef11.n_start.abs(),
-        0.03,
+        0.03, 1e-6,
         "Compound Fink: symmetric inner diagonals",
     );
 

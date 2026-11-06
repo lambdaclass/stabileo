@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from './Hint.svelte';
   /**
    * The load cases: which ones show in the model, the self-weight, the table of cases, and the
    * form that makes a new one.
@@ -222,10 +223,11 @@
     {/each}
   </tbody>
 </table>
+<Hint text={t('pro.lcTableHint')} />
 
 <details class="lc-notional" data-testid="lc-notional">
   <summary>{t('caseDetails.notionalCases')}</summary>
-  <p class="lc-hint">{t('caseDetails.notionalCasesHint')}</p>
+  <Hint text={t('caseDetails.notionalCasesHint')} />
   <div class="lc-not-row">
     {#each loadCases.filter((c) => !c.notional) as c (c.id)}
       <label><input type="checkbox" checked={notSources.includes(c.id)} onchange={(e) => (notSources = e.currentTarget.checked ? [...notSources, c.id] : notSources.filter((x) => x !== c.id))} data-testid="lc-not-src-{c.id}" /> {c.type ? `${c.type} · ` : ''}{c.name}</label>
@@ -303,7 +305,6 @@
   .lc-details td { background: var(--st-surface-2); cursor: default; }
   .lc-notional { margin-top: 8px; font-size: 0.7rem; color: var(--st-text-2); }
   .lc-notional summary { cursor: pointer; color: var(--st-text); font-weight: 600; }
-  .lc-hint { margin: 2px 0; font-size: 0.62rem; color: var(--st-text-3); }
   .lc-not-row { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; margin-top: 4px; }
   .lc-not-row label { display: inline-flex; align-items: center; gap: 3px; }
   .lc-not-num { width: 56px; font-family: var(--st-mono); }

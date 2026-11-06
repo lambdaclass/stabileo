@@ -4,7 +4,7 @@ const body: StandingPage['i18n']['en'] = {
   "title": "Vérifications CIRSOC dans votre navigateur : ce qui est disponible et ce qui ne l'est pas",
   "description": "Stabileo vérifie le béton (CIRSOC 201) et l'acier (CIRSOC 301, expérimental) et génère les charges CIRSOC 101–104, en ligne. Ce qui est prêt, ce qui manque.",
   "eyebrow": "CIRSOC",
-  "lead": "Stabileo est un logiciel open source d'analyse de structures qui vérifie les barres en béton armé selon CIRSOC 201 (édition 2025) et les barres en acier selon CIRSOC 301-2018, et qui génère les charges et les combinaisons selon CIRSOC 101-2025, 102-2025, INPRES-CIRSOC 103-2018 (partie I) et CIRSOC 104-2005, les normes de structures argentines. Il utilise le même modèle et le même solveur que l'analyse, fonctionne dans le navigateur et ne demande aucune installation. L'analyse est gratuite pour tout le monde ; le dimensionnement réglementaire se trouve dans le module PRO, encore en développement, payant et gratuit pour les universités.",
+  "lead": "Stabileo est un logiciel open source d'analyse de structures qui vérifie les barres en béton armé selon CIRSOC 201 (édition 2025) et les barres en acier selon CIRSOC 301-2018, et qui génère les charges et les combinaisons selon CIRSOC 101-2025, 102-2025, INPRES-CIRSOC 103-2018 (partie I) et CIRSOC 104-2005, les normes de structures argentines. Il utilise le même modèle et le même solveur que l'analyse, fonctionne dans le navigateur et ne demande aucune installation. L'analyse est gratuite pour tout le monde ; le dimensionnement réglementaire se trouve dans PRO ; il est encore en développement, payant et gratuit pour les universités.",
   "blocks": [
     {
       "k": "h",

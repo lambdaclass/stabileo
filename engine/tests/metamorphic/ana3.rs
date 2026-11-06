@@ -4,6 +4,7 @@ use crate::ana2::{conv, rect, Law};
 use crate::case::{pad_3d, Case3};
 use crate::response::{disp_3d, static_3d, Dim, Kind, Resp};
 use dedaliano_engine::element::fiber_beam::{Fiber, FiberMaterial, FiberSectionDef};
+use dedaliano_engine::load_session::LoadSession3D;
 use dedaliano_engine::postprocess::influence;
 use dedaliano_engine::solver::{
     buckling, cable, constraints, contact, corotational, creep_shrinkage, fiber_nonlinear, harmonic, kinematic, linear, load_cases,
@@ -69,10 +70,9 @@ pub fn modal_resp_3d(r: &modal::ModalResult3D) -> Resp {
         for i in 0..6 {
             cum[i] += t[i];
         }
-        // Only boundaries with a known gap above (see the 2D version).
-        if r.modes.get(k + 1).is_some_and(|n| n.frequency > m.frequency * (1.0 + 1e-3)) {
+        if r.modes.get(k + 1).is_some_and(|n| crate::response::modal_gap(m.frequency, n.frequency)) {
             o.push(None, None, &format!("meff{k:02}"), Kind::T3(Dim::MASS), cum.to_vec());
-            o.set_floor(&format!("meff{k:02}"), r.total_mass);
+            o.set_floor(&format!("meff{k:02}"), r.total_mass * crate::response::eigen_gap_factor(m.frequency, r.modes[k + 1].frequency));
         }
     }
     o
@@ -106,6 +106,14 @@ fn stage_all(s: &SolverInput3D, loads: Vec<usize>) -> serde_json::Value {
 pub fn rows() -> Vec<Ana3> {
     vec![
         Ana3 { name: "linear", law: Law::Linear, motion: Motion::Any, iter_tol: 0.0, full_static: true, run: |c| Ok(static_3d(&linear::solve_3d(&c.s)?)) },
+        Ana3 {
+            name: "linear (load session)",
+            law: Law::Linear,
+            motion: Motion::Any,
+            iter_tol: 0.0,
+            full_static: true,
+            run: |c| Ok(static_3d(&LoadSession3D::from_input(c.s.clone())?.solve_loads(&c.s.loads)?)),
+        },
         Ana3 {
             name: "linear (sparse path)",
             law: Law::Linear,
@@ -147,7 +155,7 @@ pub fn rows() -> Vec<Ana3> {
             motion: Motion::Any,
             iter_tol: 0.0,
             full_static: true,
-            run: |c| Ok(static_3d(&dedaliano_engine::certify::solver::certify_linear_3d_full(&c.s)?.results)),
+            run: |c| Ok(static_3d(&dedaliano_engine::certify::certify_linear_3d_full(&c.s)?.results)),
         },
         Ana3 {
             name: "load combinations",
@@ -244,7 +252,7 @@ pub fn rows() -> Vec<Ana3> {
             motion: Motion::Any,
             iter_tol: 1e-10,
             full_static: false,
-            run: |c| Ok(static_3d(&conv(pdelta::solve_pdelta_3d(&c.s, 100, 1e-12).map(|r| (r.converged, r.results)))?)),
+            run: |c| Ok(static_3d(&crate::ana2::converged_finite(pdelta::solve_pdelta_3d(&c.s, 100, 1e-12).map(|r| (r.converged, r.results)), crate::ana2::finite_3d)?)),
         },
         Ana3 {
             name: "corotational",
@@ -298,7 +306,7 @@ pub fn rows() -> Vec<Ana3> {
                     .values()
                     .map(|x| {
                         let (b, h) = rect3(x);
-                        let e = c.s.elements.values().find(|e| e.section_id == x.id).map_or(200_000.0, |e| c.s.materials[&e.material_id.to_string()].e);
+                        let e = crate::ana2::section_material(&c.s.materials, c.s.elements.values().filter(|e| e.section_id == x.id).map(|e| e.material_id)).map_or(200_000.0, |m| m.e);
                         (x.id.to_string(), rect_fibers(b, h, 12, 12, e))
                     })
                     .collect();
@@ -344,7 +352,7 @@ pub fn rows() -> Vec<Ana3> {
             name: "time history",
             law: Law::Linear,
             motion: Motion::Any,
-            iter_tol: 0.0,
+            iter_tol: 1e-10,
             full_static: false,
             run: |c| {
                 let loads = nodal_loads_3d(&c.s);
@@ -368,7 +376,7 @@ pub fn rows() -> Vec<Ana3> {
             name: "time history (ground motion)",
             law: Law::Indep,
             motion: Motion::Any,
-            iter_tol: 0.0,
+            iter_tol: 1e-10,
             full_static: false,
             run: |c| {
                 // Three-component record a(t) = c.p.ground; rotates as a vector.
@@ -401,11 +409,13 @@ pub fn rows() -> Vec<Ana3> {
                 // the pair, and the response of a symmetric model is then not
                 // symmetric (rich3d-5/sym, built from two copies joined at
                 // one node, has such a pair at modes 6 and 7).
-                let md = modal::solve_modal_3d(&c.s, &c.dens, 12)?;
-                let mut n = md.modes.len().min(6);
-                while n > 0 && n < md.modes.len() && md.modes[n].omega - md.modes[n - 1].omega <= 1e-3 * md.modes[n].omega {
-                    n += 1;
-                }
+                let (md, n) = if crate::generated::strict() {
+                    let md = modal::solve_modal_3d(&c.s, &c.dens, 12)?;
+                    let n = md.modes.len();
+                    (md, n)
+                } else {
+                    crate::ana2::cluster_complete(|k| modal::solve_modal_3d(&c.s, &c.dens, k), |m| m.modes.iter().map(|x| x.omega).collect(), 6, 12)?
+                };
                 let modes = md.modes[..n]
                     .iter()
                     .map(|x| SpectralModeInput3D {
@@ -429,6 +439,7 @@ pub fn rows() -> Vec<Ana3> {
                 }
                 o.set_floor("u", sd);
                 o.scalar("base_shear", Dim::FORCE, r.base_shear);
+                o.set_floor("base_shear", md.total_mass * pts.iter().fold(0.0f64, |m, p| m.max(p.1)) * 9.81);
                 Ok(o)
             },
         },
@@ -449,7 +460,8 @@ pub fn rows() -> Vec<Ana3> {
                     comps.push(harmonic::solve_harmonic_3d(&inp)?);
                 }
                 let mut o = Resp::default();
-                let us = linear::solve_3d(&c.s).map(|r| r.displacements.iter().fold(0.0f64, |m, d| m.max(d.ux.abs()).max(d.uy.abs()).max(d.uz.abs()))).unwrap_or(0.0);
+                let l = crate::case::extent(c.s.nodes.values().map(|n| [n.x, n.y, n.z]));
+                let us = linear::solve_3d(&c.s).map(|r| r.displacements.iter().fold(0.0f64, |m, d| m.max(d.ux.abs()).max(d.uy.abs()).max(d.uz.abs()).max(d.rx.abs().max(d.ry.abs()).max(d.rz.abs()) * l))).unwrap_or(0.0);
                 for k in 0..c.p.freqs.len() {
                     let p = |i: usize| &comps[i].response_points[k];
                     o.push(Some(node), None, &format!("H_re{k}"), Kind::V3(Dim::LEN), vec![p(0).real, p(1).real, p(2).real]);
@@ -473,7 +485,7 @@ pub fn rows() -> Vec<Ana3> {
                     .values()
                     .map(|x| {
                         let (b, h) = rect3(x);
-                        let mat = c.s.elements.values().find(|e| e.section_id == x.id).map_or(1, |e| e.material_id);
+                        let mat = crate::ana2::section_material(&c.s.materials, c.s.elements.values().filter(|e| e.section_id == x.id).map(|e| e.material_id)).map_or(1, |m| m.id);
                         (x.id.to_string(), PlasticSectionData3D { a: x.a, iy: x.iy, iz: x.iz, material_id: mat, b: Some(b), h: Some(h), d: Some(b) })
                     })
                     .collect();
@@ -481,6 +493,9 @@ pub fn rows() -> Vec<Ana3> {
                 let r = plastic::solve_plastic_3d(&PlasticInput3D { solver: c.s.clone(), sections, materials, max_hinges: None, mp_overrides: None })?;
                 let mut o = Resp::default();
                 o.scalar("collapse_factor", Dim::NONE, r.collapse_factor);
+                if !r.is_mechanism {
+                    o.scalar(crate::response::LOWER_BOUND, Dim::NONE, 1.0);
+                }
                 Ok(o)
             },
         },

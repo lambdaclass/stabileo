@@ -4,7 +4,7 @@ Roadmap: "Trust and verification backlog", items 8 and 9 (`docs/roadmap/PRODUCT_
 
 ## Registry of result-affecting changes
 
-`web/src/lib/provenance/result-changes.json` lists every change that makes the same saved model
+`web/src/lib/provenance/result-changes/` lists every change that makes the same saved model
 give different numbers. Each entry has:
 
 | field | meaning |
@@ -14,7 +14,9 @@ give different numbers. Each entry has:
 | `date`, `prs` | when it reached main, and the pull requests |
 | `area` | `analysis`, `design` or `loads` |
 | `when` | which models it concerns, in feature ids (`any`: one of; `all`: each of; `allOf`: groups that must all hold) |
-| `title`, `explanation` | what to tell the engineer, in `en`, `es` and `pt` |
+| `scope`, `examples` | optional: `scope: "examples"` with the ids of the bundled examples it changed, and no `when` or `quantities`, when only example inputs changed and a saved model gives the same numbers. It is never shown on opening a project; the snapshot gate accepts it only for snapshots of the listed examples, only when each listed example's fixture changed its model inputs (names and descriptions aside), and only when both engines agree on both fixtures: this build, solving each explained example from its fixture at the base, gives the base snapshot's numbers, and the base's engine, solving it from its new fixture, gives the committed numbers (`examples-equivalence.test.ts`, run by `gate.mjs` in this checkout and in a checkout of the base). Otherwise the engine moved them too, and the change needs an entry with `when` |
+| `quantities` | optional: the solve results it can move, `*` (every result value), `solve.ok`, `errorCodes`, `unstableCombinations`, a collection (`reactions`) or one field (`quadStresses.sigmaXx`). `*` does not cover a refusal (`solve.ok`), a new error (`errorCodes`) or a newly unstable combination (`unstableCombinations`): each must be named. The legacy-projects test (#718) accepts a difference in an old project file (a value changed, no longer produced, or newly produced) only in values an applicable entry declares; without it, the entry explains none. That test alone also takes two values of a reaction force component as the same zero when both are within 1e-12 of that node's reaction force, because round-off in a component statics makes zero moves between releases (v0.2.0's truss reactions); every other quantity is compared by the gate's rule (`web/src/lib/legacy-projects/vector-floor.ts`); the snapshot gate does not |
+| `title`, `explanation` | what to tell the engineer, in each of the app's six languages: `en`, `es`, `pt`, `de`, `fr` and `tr` |
 | `changelog` | a file and one of its headings (checked by `registry.test.ts`) |
 
 Feature ids are defined in `web/src/lib/provenance/model-features.ts`, read from the saved
@@ -23,21 +25,25 @@ a false "absent" hides a change that moved the engineer's numbers. In particular
 not bound to another code counts as CIRSOC 301, an unbound concrete code as CIRSOC 201, and
 analyses a project does not record count as run.
 
-**Adding a change**: add an entry with `resultsVersion` one above the current
-`currentResultsVersion` and bump `currentResultsVersion`; changes merged together share the new
-version. Never add an entry to a version already on main: every merge to main is deployed and
-stamps what it solves with that version, so an entry added to it later is never shown to those
-projects. `results-version.test.ts` pins each version's entries and fails on such an addition
-(add the new version's set there), and the committed `.ded` fixture's stamp must follow the
-bump. `registry.test.ts` fails on unknown features, missing translations or a heading that does
-not exist.
+**Adding a change**: add one file, `result-changes/<id>.json`, with no `resultsVersion`
+([its README](../../web/src/lib/provenance/result-changes/README.md)). The versions numbered by hand are
+frozen in `result-changes/numbered.json`. Each later merge to main that adds entry files takes
+the next version, in main's merge order: `web/scripts/result-changes/registry.mjs` reads it from
+the first-parent history of the commit being built. Changes merged together share a version.
+A version on main is deployed and stamps what it solves, so an entry can never join a version
+already on main. Under this rule it can't: a version is given when its merge lands. Two pull
+requests that each add a file don't conflict, and the merge queue can land them in one run. A
+build without the history fails rather than guess (CI checks out the whole history; Docker
+reads `web/.result-change-order.json` from `make result-changes.order`). `registry.test.ts`
+fails on unknown features, missing translations or a heading that doesn't exist.
+`results-version.test.ts` pins the frozen versions' entries.
 
-The results snapshot gate also compares registry versions against its base commit,
-even when no snapshot changes. New entries cannot reuse a released version, and
-released entries cannot be removed or renumbered. PRs #807 and #814 both proposed
-version 5 while main was at 4: whichever merges second must preserve the first
-PR's entries and use version 6, updating the pinned version sets, fixture stamp
-and hashes, and documentation. Version 5 here remains provisional until merge.
+The results snapshot gate also compares the registry with its base commit, even when no
+snapshot changes. It fails a pull request that adds to `numbered.json`, gives a new entry a
+version, or removes, renames or changes an entry already on main. Only its wording (`title`,
+`explanation`, `changelog`) may change. Before this (until November 2026), each pull request
+picked `currentResultsVersion + 1` by hand. It renumbered whenever another one landed first,
+and every results-changing pull request conflicted with every other.
 
 The registry is seeded with every behaviour change of the October 2026 safety wave
 (`docs/MERGE_PLAN_SAFETY_WAVE.md` section 3) and the earlier BREAKING entries of `CHANGELOG.md`,
@@ -48,6 +54,43 @@ wind minimum and the earth-pressure dead load, #581 and #593); version 3, the co
 version 4, the design chain (`docs/results-changes/2026-10-design-chain.md`): #460 and #461
 reached main without entries and their builds stamped 3, so their changes are told at 4 with
 those of #462–#475, which entered with the design switch (#624) in one merge.
+
+## CIRSOC 301 Qa ≤ 0 refused (PR #1246, issue #467)
+
+Results version 12, after #1237's 11, registers `cirsoc301-q-nonpositive-refused`: a CIRSOC 301 compression member whose §E.7
+reduction gave Qa ≤ 0, or whose Fcr exceeded Fy, is held instead of passed above its squash load
+(SA-2026-030). The same entry covers the CHS Q of E.7.2(c), now capped at 1: round tubes with
+D/t just above 0.11·E/Fy, consistent ones included, lose up to 1.2 % of compression capacity.
+Other consistent sections give the same numbers.
+
+## Dynamics: time history from a consistent start, modal refuses mechanisms (PR #1247, issues #760, #338)
+
+Results version 13, after #1246's 12, registers `time-history-massless-start`: a time-history force already on at t = 0 on a
+massless direction now enters the initial state, so the response near such a node changes
+(SA-2026-031); and `modal-mechanism-refused`: a modal analysis whose zero or negative ω² modes move mass refuses
+instead of dropping them, and reports those that move none (SA-2026-032). A time history whose
+massless directions carry no load at t = 0 keeps its displacements when undamped, but its
+massless accelerations now start consistent instead of zero (with damping that also changes the
+displacements that follow); and it can now refuse: a
+massless part with no stiffness, or a singular mass whose null direction mixes several DOFs (it
+used to divide by the diagonal of M). Those refusals can hit any time history, ground motion
+included, and so can #1239's Rayleigh fix, which turns runs that were not finite into numbers; the
+registry entry therefore flags every saved model with a time history (`timeHistorySpec`).
+
+## Generated area loads under low roof structure (PR #1253, after #1076)
+
+Results version 20 (the next free version when this was marked ready: 15 is #1372's, 16–19 are
+held by #1326, #1328, #1319 and #1321) registers
+`generated-area-loads-headroom`: the load generator no longer leaves out a panel's area loads when
+low roof structure stands over only part of it, and counts trusses as roof structure
+(SA-2026-033). It concerns models whose loads came from the generator (`generatedLoads`); saved
+loads change only when generated again.
+## Shell figures paint the screen's field (PR #1255, review of #1077)
+
+Results version 21 (the next free version when this was marked ready) registers `shell-figures-paint-the-screen-field`: exported shell result figures paint
+the contour field the screen shows (nodal averages within the chosen domain, face, typed range and
+bands) instead of one centre value per element over its own range, so their colours, scale and
+peak label change. Solver results are unchanged.
 
 ## Solid-shell local stress axes (PR #814, issue #757)
 
@@ -73,6 +116,30 @@ unit suite passes 15,706 tests (14 skipped), including regressions for colliding
 results versions and missing or renumbered released entries; the web typecheck and guarded Svelte
 checks pass against their existing baselines. The changelog check passes.
 
+## Column design axes (PR #1233, issue #532)
+
+Results version 7 registers `cirsoc201-column-design-axes` (SA-2026-029): the CIRSOC 201 column
+check bends each moment over its own depth. Version 6 is #817's buckling certificate, which lands
+first.
+
+## Governing value and 2D envelope at the true peak (issue #1389)
+
+`governing-envelope-true-peak` (results version 26, the next free version when this was marked
+ready): `governingMagnitude2D` reads each diagram's true peak (`peakAlong`), and the engine's
+2D envelope adds each combination's peak stations to its grid
+(`diagram_peak_stations_2d`), so `governing-envelope.test.ts` still finds the governing value of
+every member equal to its envelope peak. What moves is in
+[the results change note](../results-changes/2026-11-governing-true-peak.md).
+## Basic course units return (PRs #1304–#1306)
+
+The course stack registers again, one results version per pull request, the three changes that
+version 15 withdrew: `basic-influence-line-moment-sign-returns` (#1304),
+`basic-second-order-split-members-returns` (#1305) and
+`basic-plastic-closes-unloading-hinges-returns` (#1306). What moves is in
+[the results change note](../results-changes/2026-11-basic-course-returns.md).
+`provenance/__tests__/basic-course-returns.test.ts` checks which a Basic frame stamped before each is
+told. They are results versions 27, 28 and 29, the next free numbers when the stack was marked ready.
+
 ## Results snapshot gate
 
 A pull request that changes any result must say so (#716; #461 changed steel verdicts and no
@@ -89,7 +156,11 @@ PRO's design on it then runs the CIRSOC 201 code check (`designRunStore.runCodeC
 CIRSOC 301 steel check (`runSteelCheck`) and the footing run, and records each member's verdict as
 the design table reads it (`verificationStore.memberVerdict`, `getDisplayRatio`); with advanced
 analyses, P-Δ, modal, spectral and buckling with the Advanced tab's inputs. Recorded: displacements,
-reactions, member forces, shell stresses, per case and per combination; equilibrium flags and the
+reactions, member forces, shell stresses, per case and per combination; the combinations'
+envelope (each diagram's maximum and minimum at every station, the max-abs results) and the
+combination that governs each member's every component anywhere along it, recorded with every combination that ties
+with it and the one the app named (1.2D + L + E and 0.9D + E give exactly the same lateral moment,
+and the app names whichever it met first); equilibrium flags and the
 warning/error diagnostic codes; design verdicts, holds, ratios, required steel, steel limit
 states, footing checks; and every refusal with its reason (in English).
 
@@ -114,9 +185,12 @@ the snapshot exactly; what the tolerance absorbs is a refactor that reorders flo
 operations, whose error is about κ·ε ≈ 1e-8 of the peak on these models (κ up to ~1e8). Strings
 and booleans (verdicts, refusals) compare exactly. Not recorded: timings, the build that ran,
 residual magnitudes (their pass/fail flags are), the id at which an extreme occurs (a tie on a
-symmetric model), mode shapes and participation factors (arbitrary sign), and the worked
+symmetric model), mode shapes, and the worked
 explanation text of the checks (their numbers are recorded as numbers). The rule is in
-`web/scripts/results-snapshot/compare.mjs`, shared by the test and the gate.
+`web/scripts/results-snapshot/compare.mjs`, shared by the test and the gate. A spectral mode's
+participation factor and modal force carry the arbitrary sign of their eigenvector: they are
+stored and compared as magnitudes (`SIGN_FREE`), so a flipped eigenvector is not a change and a
+changed magnitude is.
 
 **The gate.** Two steps of the `Results Snapshot` job, required through CI OK:
 
@@ -124,8 +198,18 @@ explanation text of the checks (their numbers are recorded as numbers). The rule
    with each moved value, before → after, and the percentage.
 2. `make check.results-snapshot-gate BASE=<base>` (pull requests and the merge queue): if the
    pull request changes or deletes a committed snapshot (beyond the tolerance), it must also add
-   an entry to `result-changes.json` (a change id the base does not have) and a `changelog.d/`
-   fragment under `### BREAKING (results)`. A new case or a new recorded quantity is not a change.
+   an entry file to `result-changes/` (a change id the base does not have) and a `changelog.d/`
+   fragment under `### BREAKING (results)`. A value that moved, disappeared, or is newly produced
+   in an existing snapshot (another combination, mode, member result or limit state) is a change;
+   so is a deleted snapshot. Only a new snapshot file, a new corpus case, is coverage. When the
+   harness itself starts recording more, the snapshot `FORMAT` (`compare.mjs`) is bumped in the
+   same pull request, and the values it adds are not changes; values that moved or disappeared
+   still are.
+
+The corpus, the snapshot files and the group entry points (`__tests__/snapshot-<group>.test.ts`)
+match one to one (`results-snapshot/coverage.ts`, `coverage.test.ts`): removing a case fails until
+its snapshot is deleted, and the gate counts the deletion; a snapshot no case owns, a case without
+a snapshot, or a group without its entry point fails too.
 
 **A deliberate change**: `make snapshots-update` (or `cd web && npm run snapshots:update`)
 rewrites the snapshots, keeping every value still within the tolerance as committed so the diff
@@ -134,8 +218,10 @@ Adding a case: add it to `corpus.ts` and run the same command.
 
 The negative case (#451) is `results-snapshot/__tests__/negative.test.ts`: a 1 % change to a
 corpus case is reported value by value, and the gate fails it without a registry entry, with only
-a fragment, or with a fragment in another section, and passes it with both.
-`web/scripts/__tests__/results-snapshot.test.ts` covers the tolerance and the decision.
+a fragment, or with a fragment in another section, and passes it with both; a change to one
+envelope value alone fails it too. `web/scripts/__tests__/results-snapshot.test.ts` covers the
+tolerance, a newly produced value, the eigenvector sign, the format bump and the decision;
+`coverage.test.ts` a removed case and an orphaned snapshot.
 
 In Node the worker pool is not available and the combinations are solved by the sequential
 fallback (`solveCombinations3DParallel`), on the same WASM bytes as the workers.
@@ -163,6 +249,14 @@ If there are any:
 
 Acknowledgement is per stamp and per session: reopening the file in a new session asks again.
 A project solved with a newer version than the build opening it is flagged as `newer`.
+
+A change whose condition names `generatedLoads` concerns a project until its loads are generated
+again, not until it is solved again: solving does not change saved loads. Applying a load plan
+records the results version in `designData.loadBasis.resultsVersion`. A project whose load basis
+lacks it counts as generated with version 0, and a load basis alone makes a model `generatedLoads`,
+so a plan that wrote no loads is still covered. Loads tagged by the load plan with no load basis also
+count as generated with version 0. Loads from the stair and architecture generators (`stair:`, `arch:`)
+are not `generatedLoads`.
 
 ## Provenance of results and reports
 

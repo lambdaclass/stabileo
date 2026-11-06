@@ -21,7 +21,7 @@ import type { AnalysisResults3D } from './types-3d';
  * first order is compared with its second-order counterpart: a reversed or vanishing one means no
  * equilibrium exists at this load.
  */
-export function amplification(r: { results: AnalysisResults3D; linearResults?: AnalysisResults3D; isStable?: boolean }): { b2: number; stable: boolean } {
+export function amplification(r: { results: AnalysisResults3D; linearResults?: AnalysisResults3D; isStable?: boolean | null }): { b2: number; stable: boolean } {
   if (r.isStable === false) return { b2: Infinity, stable: false };
   const lin = r.linearResults?.displacements ?? [];
   const second = new Map((r.results.displacements ?? []).map((d) => [d.nodeId, d]));

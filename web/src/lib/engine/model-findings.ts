@@ -17,7 +17,7 @@
  *
  * Pure, and kept out of the results store, which only calls it.
  */
-import { knownIssueMessage } from './known-issues';
+import { knownIssueMessage } from './known-issue-message';
 import type { SolverDiagnostic, StructuredDiagnostic } from './types';
 
 const MODEL_PHASES = new Set(['pre_solve', 'constraints']);

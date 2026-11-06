@@ -6,7 +6,7 @@ use super::assembly;
 use super::constraints::FreeConstraintSystem;
 use super::linear::SPARSE_THRESHOLD;
 use super::sparse_tangent::{
-    cached_symbolic, solve_tangent_sparse, tangent_free_sparse_triplets, SparseSymbolicCache,
+    cached_symbolic, solve_tangent_sparse_diagnosed, tangent_free_sparse_triplets, SparseSymbolicCache,
 };
 
 /// Resolve the local-Y reference ONCE from the INITIAL element geometry so the
@@ -128,6 +128,7 @@ pub fn solve_corotational_2d(
     // symbolic phase is computed once and only the numeric phase repeats
     // per Newton iteration.
     let mut sparse_sym_cache: Option<SparseSymbolicCache> = None;
+    let mut conditioning = None;
 
     // Incremental-iterative procedure
     for increment in 1..=n_increments {
@@ -258,7 +259,9 @@ pub fn solve_corotational_2d(
                         &trip_rows, &trip_cols, &trip_vals, nf, &cs,
                     );
                     let sym = cached_symbolic(&mut sparse_sym_cache, &k_s_csc);
-                    match numeric_cholesky(sym, &k_s_csc) {
+                    let factor = numeric_cholesky(sym, &k_s_csc);
+                    if let Some(found) = crate::known_issues::sparse_factor_conditioning(&k_s_csc, factor.as_ref()) { conditioning = Some(found); }
+                    match factor {
                         Some(num) => {
                             let result = sparse_cholesky_solve(&num, &r_s);
                             cached_factor = Some(CachedTangentFactor::Sparse(num));
@@ -266,7 +269,7 @@ pub fn solve_corotational_2d(
                         }
                         None => {
                             // Sparse Cholesky failed — fall back to full NR for this increment
-                            solve_tangent_sparse(&k_s_csc, &r_s, &mut sparse_sym_cache)?
+                            solve_tangent_sparse_diagnosed(&k_s_csc, &r_s, &mut sparse_sym_cache, &mut conditioning)?
                         }
                     }
                 } else {
@@ -277,7 +280,9 @@ pub fn solve_corotational_2d(
                     } else {
                         k_ff
                     };
-                    match try_cholesky_factor(&k_s, ns) {
+                    let factor = try_cholesky_factor(&k_s, ns);
+                    if let Some(found) = crate::known_issues::dense_factor_conditioning(&k_s, ns, factor.as_ref().map(|f| f.l.as_slice())) { conditioning = Some(found); }
+                    match factor {
                         Some(factor) => {
                             let result = solve_with_cholesky_factor(&factor.l, &r_s, factor.n);
                             cached_factor = Some(CachedTangentFactor::Dense(factor));
@@ -285,7 +290,7 @@ pub fn solve_corotational_2d(
                         }
                         None => {
                             // Cholesky failed — fall back to full NR for this increment
-                            solve_free_dofs(&k_s, &r_s, ns)?
+                            solve_free_dofs(&k_s, &r_s, ns, &mut conditioning)?
                         }
                     }
                 }
@@ -293,7 +298,7 @@ pub fn solve_corotational_2d(
                 let k_s_csc = tangent_free_sparse_triplets(
                     &trip_rows, &trip_cols, &trip_vals, nf, &cs,
                 );
-                solve_tangent_sparse(&k_s_csc, &r_s, &mut sparse_sym_cache)?
+                solve_tangent_sparse_diagnosed(&k_s_csc, &r_s, &mut sparse_sym_cache, &mut conditioning)?
             } else {
                 let free_idx: Vec<usize> = (0..nf).collect();
                 let k_ff = extract_submatrix(&k_t, n, &free_idx, &free_idx);
@@ -302,7 +307,7 @@ pub fn solve_corotational_2d(
                 } else {
                     k_ff
                 };
-                solve_free_dofs(&k_s, &r_s, ns)?
+                solve_free_dofs(&k_s, &r_s, ns, &mut conditioning)?
             };
 
             let delta_u_f = if let Some(ref cs) = cs {
@@ -338,7 +343,9 @@ pub fn solve_corotational_2d(
     } else {
         input
     };
-    let results = build_final_results(at_state, &dof_num, &u_full, &cs)?;
+    let mut results = build_final_results(at_state, &dof_num, &u_full, &cs)?;
+    crate::known_issues::attach(&mut results.structured_diagnostics, conditioning.into_iter().collect());
+    crate::known_issues::attach(&mut results.structured_diagnostics, crate::known_issues::for_2d(input, crate::known_issues::Analysis::Corotational));
 
     Ok(CorotationalResult {
         results,
@@ -912,9 +919,11 @@ fn solve_with_cached_factor(factor: &CachedTangentFactor, r_s: &[f64]) -> Vec<f6
 // `super::sparse_tangent` (shared with arc_length, contact and fiber_nonlinear),
 // including `tangent_free_sparse_triplets` used by the sparse paths above.
 
-fn solve_free_dofs(k_ff: &[f64], r_f: &[f64], nf: usize) -> Result<Vec<f64>, String> {
+fn solve_free_dofs(k_ff: &[f64], r_f: &[f64], nf: usize, conditioning: &mut Option<StructuredDiagnostic>) -> Result<Vec<f64>, String> {
     let mut k_work = k_ff.to_vec();
-    match cholesky_solve(&mut k_work, r_f, nf) {
+    let solved = cholesky_solve(&mut k_work, r_f, nf);
+    if let Some(found) = crate::known_issues::dense_factor_conditioning(k_ff, nf, solved.as_ref().map(|_| k_work.as_slice())) { *conditioning = Some(found); }
+    match solved {
         Some(u) => Ok(u),
         None => {
             let mut k_work = k_ff.to_vec();
@@ -1342,11 +1351,13 @@ pub fn solve_corotational_3d(
     let mut converged = true;
     // The state and load factor of the last converged increment.
     let mut u_converged = u_full.clone();
+    let mut naturals = member_deformations_3d(input, &dof_num, &u_full, left_hand);
     let mut converged_factor = 0.0f64;
 
     // See solve_corotational_2d: sparse symbolic factorization cache for the
     // ns >= SPARSE_THRESHOLD path (pattern is constant within a solve call).
     let mut sparse_sym_cache: Option<SparseSymbolicCache> = None;
+    let mut conditioning = None;
 
     for increment in 1..=n_increments {
         let load_factor = increment as f64 / n_increments as f64;
@@ -1462,13 +1473,15 @@ pub fn solve_corotational_3d(
                         &trip_rows, &trip_cols, &trip_vals, nf, &cs,
                     );
                     let sym = cached_symbolic(&mut sparse_sym_cache, &k_s_csc);
-                    match numeric_cholesky(sym, &k_s_csc) {
+                    let factor = numeric_cholesky(sym, &k_s_csc);
+                    if let Some(found) = crate::known_issues::sparse_factor_conditioning(&k_s_csc, factor.as_ref()) { conditioning = Some(found); }
+                    match factor {
                         Some(num) => {
                             let result = sparse_cholesky_solve(&num, &r_s);
                             cached_factor = Some(CachedTangentFactor::Sparse(num));
                             result
                         }
-                        None => solve_tangent_sparse(&k_s_csc, &r_s, &mut sparse_sym_cache)?,
+                        None => solve_tangent_sparse_diagnosed(&k_s_csc, &r_s, &mut sparse_sym_cache, &mut conditioning)?,
                     }
                 } else {
                     let free_idx: Vec<usize> = (0..nf).collect();
@@ -1478,20 +1491,22 @@ pub fn solve_corotational_3d(
                     } else {
                         k_ff
                     };
-                    match try_cholesky_factor(&k_s, ns) {
+                    let factor = try_cholesky_factor(&k_s, ns);
+                    if let Some(found) = crate::known_issues::dense_factor_conditioning(&k_s, ns, factor.as_ref().map(|f| f.l.as_slice())) { conditioning = Some(found); }
+                    match factor {
                         Some(factor) => {
                             let result = solve_with_cholesky_factor(&factor.l, &r_s, factor.n);
                             cached_factor = Some(CachedTangentFactor::Dense(factor));
                             result
                         }
-                        None => solve_free_dofs(&k_s, &r_s, ns)?,
+                        None => solve_free_dofs(&k_s, &r_s, ns, &mut conditioning)?,
                     }
                 }
             } else if ns >= SPARSE_THRESHOLD {
                 let k_s_csc = tangent_free_sparse_triplets(
                     &trip_rows, &trip_cols, &trip_vals, nf, &cs,
                 );
-                solve_tangent_sparse(&k_s_csc, &r_s, &mut sparse_sym_cache)?
+                solve_tangent_sparse_diagnosed(&k_s_csc, &r_s, &mut sparse_sym_cache, &mut conditioning)?
             } else {
                 let free_idx: Vec<usize> = (0..nf).collect();
                 let k_ff = extract_submatrix(&k_t, n, &free_idx, &free_idx);
@@ -1500,7 +1515,7 @@ pub fn solve_corotational_3d(
                 } else {
                     k_ff
                 };
-                solve_free_dofs(&k_s, &r_s, ns)?
+                solve_free_dofs(&k_s, &r_s, ns, &mut conditioning)?
             };
 
             let delta_u = if let Some(ref cs) = cs {
@@ -1520,10 +1535,12 @@ pub fn solve_corotational_3d(
             u_full.copy_from_slice(&u_converged);
             break;
         }
+        naturals = on_one_branch_3d(input, &dof_num, (&u_converged, &naturals), &u_full, left_hand)?;
         u_converged.copy_from_slice(&u_full);
         converged_factor = load_factor;
     }
 
+    let deformations = on_one_branch_3d(input, &dof_num, (&u_converged, &naturals), &u_full, left_hand)?;
     let max_displacement = compute_max_displacement_3d(&dof_num, &u_full);
     let scaled;
     let at_state = if converged_factor < 1.0 {
@@ -1532,7 +1549,13 @@ pub fn solve_corotational_3d(
     } else {
         input
     };
-    let results = build_final_results_3d(at_state, &dof_num, &u_full, left_hand, &cs, pre_solve_diags)?;
+    let mut results = build_final_results_3d(at_state, &dof_num, &u_full, left_hand, &cs, pre_solve_diags)?;
+    crate::known_issues::attach(&mut results.structured_diagnostics, conditioning.into_iter().collect());
+    crate::known_issues::attach(&mut results.structured_diagnostics, crate::known_issues::for_3d(input, crate::known_issues::Analysis::Corotational));
+    if deformations.iter().any(|d| d.natural > crate::known_issues::NL3_NATURAL_ROTATION) {
+        crate::known_issues::attach(&mut results.structured_diagnostics, vec![crate::known_issues::corotational_natural_rotation()]);
+    }
+    crate::known_issues::refuse(&results.structured_diagnostics)?;
 
     Ok(CorotationalResult3D {
         results,
@@ -1779,61 +1802,17 @@ fn assemble_frame_corotational_3d(
         elem.roll_angle, left_hand,
     );
 
-    // Corotated local axes: chord, and the twist carried by the end nodes.
-    let (ex_n, ey_n, ez_n) = corotated_axes_3d(
+    let ((ex_n, ey_n, ez_n), theta_i_nat, theta_j_nat, _) = natural_rotations_3d(
         [dx_n / l_n, dy_n / l_n, dz_n / l_n], (&ex_0, &ey_0, &ez_0),
         [u_elem[3], u_elem[4], u_elem[5]], [u_elem[9], u_elem[10], u_elem[11]],
     );
 
-    // Rigid body rotation: R_rigid = R_n * R_0^T
-    // R_0 columns = [ex_0, ey_0, ez_0], R_n columns = [ex_n, ey_n, ez_n]
-    let r_0 = [ex_0, ey_0, ez_0]; // r_0[axis][component]
-    let r_n = [ex_n, ey_n, ez_n];
-
-    // R_rigid[i][j] = sum_k R_n[i][k] * R_0[j][k] = sum_k r_n[k][i] * r_0[k][j]
-    let mut r_rigid = [[0.0; 3]; 3];
-    for i in 0..3 {
-        for jj in 0..3 {
-            for k in 0..3 {
-                r_rigid[i][jj] += r_n[k][i] * r_0[k][jj];
-            }
-        }
-    }
-
-    // Rigid-body rotation vector of the chord frame (exact, see `rotation_vector`).
-    let [beta_x, beta_y, beta_z] = rotation_vector(&r_rigid);
-
-    // Project global rotations to corotated frame and subtract rigid body rotation
-    let theta_i_global = [u_elem[3], u_elem[4], u_elem[5]];
-    let theta_j_global = [u_elem[9], u_elem[10], u_elem[11]];
-
-    // R_n^T * θ_global: project to corotated frame
-    // Using r_n[axis][component]: (R_n^T * v)[m] = sum_k r_n[m][k] * v[k]
-    let project = |v: &[f64; 3]| -> [f64; 3] {
-        [
-            ex_n[0] * v[0] + ex_n[1] * v[1] + ex_n[2] * v[2],
-            ey_n[0] * v[0] + ey_n[1] * v[1] + ey_n[2] * v[2],
-            ez_n[0] * v[0] + ez_n[1] * v[1] + ez_n[2] * v[2],
-        ]
-    };
-
-    let theta_i_local = project(&theta_i_global);
-    let theta_j_local = project(&theta_j_global);
-    // β is the axial vector of R_n·R_0ᵀ, a rotation in GLOBAL axes: it has to
-    // be taken to the corotated frame before it is subtracted from the
-    // (projected) nodal rotations. Subtracted as it was, it was right only
-    // where the member's local axes happen to coincide with the global ones
-    // (a member along +X); a column (local y = −Y) converged to itself folded
-    // in half, u_z = −2L, and reported convergence.
-    let [beta_x, beta_y, beta_z] = project(&[beta_x, beta_y, beta_z]);
-
     // Natural deformations (rigid body removed)
-    let d_axial = elong;
     let d_nat = [
-        0.0, 0.0, 0.0,                                                          // u_i, v_i, w_i
-        theta_i_local[0] - beta_x, theta_i_local[1] - beta_y, theta_i_local[2] - beta_z, // θx_i, θy_i, θz_i
-        d_axial, 0.0, 0.0,                                                      // u_j, v_j, w_j
-        theta_j_local[0] - beta_x, theta_j_local[1] - beta_y, theta_j_local[2] - beta_z, // θx_j, θy_j, θz_j
+        0.0, 0.0, 0.0,
+        theta_i_nat[0], theta_i_nat[1], theta_i_nat[2],
+        elong, 0.0, 0.0,
+        theta_j_nat[0], theta_j_nat[1], theta_j_nat[2],
     ];
 
     // Local stiffness (using original length)
@@ -1930,34 +1909,141 @@ fn rotate_by(theta: [f64; 3], v: &[f64; 3]) -> [f64; 3] {
     [0, 1, 2].map(|m| v[m] * c + kxv[m] * s + k[m] * kv * (1.0 - c))
 }
 
-/// The corotated frame of a 3D member: the initial frame turned by the mean
-/// of the two end rotations, then by the smallest rotation that takes its x
-/// axis onto the deformed chord `ex_n`.
-///
-/// The frame used to be rebuilt from the deformed chord and the initial
-/// reference vector alone. That is right only while the member bends in a
-/// plane containing or normal to the reference; otherwise the rebuilt frame
-/// twists about the chord by an amount of the order of the square of the
-/// rigid rotation, and the twist was read as torsion. A portal frame standing
-/// in a vertical plane at 53° to X, loaded in its plane, moved out of it.
-/// For rotations about one axis (any planar frame) this frame is exact.
-fn corotated_axes_3d(
+type Mat3 = [[f64; 3]; 3];
+
+fn columns(a: &[f64; 3], b: &[f64; 3], c: &[f64; 3]) -> Mat3 {
+    [[a[0], b[0], c[0]], [a[1], b[1], c[1]], [a[2], b[2], c[2]]]
+}
+
+fn mat_mul(a: &Mat3, b: &Mat3) -> Mat3 {
+    let mut out = [[0.0; 3]; 3];
+    for i in 0..3 {
+        for j in 0..3 {
+            out[i][j] = (0..3).map(|k| a[i][k] * b[k][j]).sum();
+        }
+    }
+    out
+}
+
+fn transposed(a: &Mat3) -> Mat3 {
+    [[a[0][0], a[1][0], a[2][0]], [a[0][1], a[1][1], a[2][1]], [a[0][2], a[1][2], a[2][2]]]
+}
+
+fn rotation_matrix(theta: [f64; 3]) -> Mat3 {
+    let e = [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]].map(|v| rotate_by(theta, &v));
+    columns(&e[0], &e[1], &e[2])
+}
+
+type Axes3 = ([f64; 3], [f64; 3], [f64; 3]);
+
+/// The nodal rotation DOFs hold total rotation vectors ψ, so they must go through exp(ψ) before
+/// being compared: differencing them is wrong for non-coaxial rotations. The last value bounds
+/// either end's turn against the chord frame (chord from the mean end frame, plus half the turn
+/// between the ends): below π the natural rotations are on their principal branch.
+fn natural_rotations_3d(
     ex_n: [f64; 3],
     (ex_0, ey_0, ez_0): (&[f64; 3], &[f64; 3], &[f64; 3]),
-    theta_i: [f64; 3],
-    theta_j: [f64; 3],
-) -> ([f64; 3], [f64; 3], [f64; 3]) {
-    let mean = [0, 1, 2].map(|m| 0.5 * (theta_i[m] + theta_j[m]));
-    let e1 = rotate_by(mean, ex_0);
-    let e2 = rotate_by(mean, ey_0);
-    let e3 = rotate_by(mean, ez_0);
-    // Smallest rotation taking e1 onto ex_n.
+    psi_i: [f64; 3],
+    psi_j: [f64; 3],
+) -> (Axes3, [f64; 3], [f64; 3], f64) {
+    let r_i = rotation_matrix(psi_i);
+    let r_j = rotation_matrix(psi_j);
+    let half = rotation_vector(&mat_mul(&transposed(&r_i), &r_j)).map(|v| 0.5 * v);
+    let r_mean = mat_mul(&r_i, &rotation_matrix(half));
+    let turned = |v: &[f64; 3]| [0, 1, 2].map(|m| (0..3).map(|k| r_mean[m][k] * v[k]).sum::<f64>());
+    let (e1, e2, e3) = (turned(ex_0), turned(ey_0), turned(ez_0));
     let k = [e1[1] * ex_n[2] - e1[2] * ex_n[1], e1[2] * ex_n[0] - e1[0] * ex_n[2], e1[0] * ex_n[1] - e1[1] * ex_n[0]];
     let sin = (k[0] * k[0] + k[1] * k[1] + k[2] * k[2]).sqrt();
     let cos = e1[0] * ex_n[0] + e1[1] * ex_n[1] + e1[2] * ex_n[2];
     let angle = sin.atan2(cos);
     let phi = if sin > 1e-300 { [0, 1, 2].map(|m| k[m] / sin * angle) } else { [0.0; 3] };
-    (ex_n, rotate_by(phi, &e2), rotate_by(phi, &e3))
+    let (ey_n, ez_n) = (rotate_by(phi, &e2), rotate_by(phi, &e3));
+    let r_n_t = transposed(&columns(&ex_n, &ey_n, &ez_n));
+    let r_0 = columns(ex_0, ey_0, ez_0);
+    let natural = |r: &Mat3| rotation_vector(&mat_mul(&mat_mul(&r_n_t, r), &r_0));
+    let half_turn = (half[0] * half[0] + half[1] * half[1] + half[2] * half[2]).sqrt();
+    ((ex_n, ey_n, ez_n), natural(&r_i), natural(&r_j), angle + half_turn)
+}
+
+/// Each frame member's largest natural rotation and the turn of its chord away from its mean end frame.
+struct MemberDeformation3D {
+    id: usize,
+    natural: f64,
+    chord: f64,
+    ends: [[f64; 3]; 2],
+}
+
+fn on_one_branch_3d(input: &SolverInput3D, dof_num: &DofNumbering, (u_before, before): (&[f64], &[MemberDeformation3D]), u: &[f64], left_hand: bool) -> Result<Vec<MemberDeformation3D>, String> {
+    let turned = |node: usize| {
+        let d = [3, 4, 5].map(|i| dof_num.global_dof(node, i).map(|k| u[k] - u_before[k]).unwrap_or(0.0));
+        (d[0] * d[0] + d[1] * d[1] + d[2] * d[2]).sqrt()
+    };
+    for e in crate::ordered::values(&input.elements).filter(|e| e.elem_type == "frame") {
+        if turned(e.node_i).max(turned(e.node_j)) > MAX_RELATIVE_END_ROTATION {
+            return Err(format!(
+                "Co-rotational 3D: an end of member {} turned more than {MAX_RELATIVE_END_ROTATION:.2} rad within one load increment; use more load increments",
+                e.id
+            ));
+        }
+    }
+    if let Some((id, turn)) = largest_relative_end_rotation_3d(input, dof_num, u).filter(|&(_, turn)| turn > MAX_RELATIVE_END_ROTATION) {
+        return Err(format!(
+            "Co-rotational 3D: the ends of member {id} turn {turn:.2} rad relative to each other, more than {MAX_RELATIVE_END_ROTATION:.2} rad; split it into shorter members"
+        ));
+    }
+    let now = member_deformations_3d(input, dof_num, u, left_hand);
+    if let Some(d) = now.iter().find(|d| d.chord > MAX_RELATIVE_END_ROTATION) {
+        return Err(format!(
+            "Co-rotational 3D: the chord of member {} and its ends may be up to {:.2} rad apart (chord turn plus half the turn between the ends), more than {MAX_RELATIVE_END_ROTATION:.2} rad; split it into shorter members",
+            d.id, d.chord
+        ));
+    }
+    let jump = |a: [f64; 3], b: [f64; 3]| ((a[0] - b[0]).powi(2) + (a[1] - b[1]).powi(2) + (a[2] - b[2]).powi(2)).sqrt();
+    let before: std::collections::HashMap<usize, &MemberDeformation3D> = before.iter().map(|b| (b.id, b)).collect();
+    for (d, b) in now.iter().filter_map(|d| Some((d, *before.get(&d.id)?))) {
+        if (0..2).any(|k| jump(d.ends[k], b.ends[k]) > std::f64::consts::PI) {
+            return Err(format!(
+                "Co-rotational 3D: an end of member {} turned more than {:.2} rad against its chord within one load increment; use more load increments or split it into shorter members",
+                d.id,
+                std::f64::consts::PI
+            ));
+        }
+    }
+    Ok(now)
+}
+
+fn member_deformations_3d(input: &SolverInput3D, dof_num: &DofNumbering, u: &[f64], left_hand: bool) -> Vec<MemberDeformation3D> {
+    let at = |node: usize, i: usize| dof_num.global_dof(node, i).map(|d| u[d]).unwrap_or(0.0);
+    let norm = |v: [f64; 3]| (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt();
+    let node_by_id: std::collections::HashMap<usize, &SolverNode3D> = crate::ordered::values(&input.nodes).map(|n| (n.id, n)).collect();
+    crate::ordered::values(&input.elements).filter(|e| e.elem_type == "frame").filter_map(|e| {
+        let (ni, nj) = (*node_by_id.get(&e.node_i)?, *node_by_id.get(&e.node_j)?);
+        let d = [0, 1, 2].map(|k| [nj.x - ni.x, nj.y - ni.y, nj.z - ni.z][k] + at(e.node_j, k) - at(e.node_i, k));
+        let l_n = norm(d);
+        if l_n < 1e-15 { return None; }
+        let (ry_x, ry_y, ry_z) = corot_local_y_ref(ni.x, ni.y, ni.z, nj.x, nj.y, nj.z, e.local_yx, e.local_yy, e.local_yz);
+        let (ex_0, ey_0, ez_0) = compute_local_axes_3d(ni.x, ni.y, ni.z, nj.x, nj.y, nj.z, ry_x, ry_y, ry_z, e.roll_angle, left_hand);
+        let (_, ti, tj, chord) = natural_rotations_3d(d.map(|v| v / l_n), (&ex_0, &ey_0, &ez_0), [3, 4, 5].map(|k| at(e.node_i, k)), [3, 4, 5].map(|k| at(e.node_j, k)));
+        Some(MemberDeformation3D { id: e.id, natural: norm(ti).max(norm(tj)), chord, ends: [ti, tj] })
+    }).collect()
+}
+
+/// Past half a turn between a member's ends the rotation matrices no longer say which whole turn is meant.
+const MAX_RELATIVE_END_ROTATION: f64 = 0.9 * std::f64::consts::PI;
+
+fn largest_relative_end_rotation_3d(input: &SolverInput3D, dof_num: &DofNumbering, u: &[f64]) -> Option<(usize, f64)> {
+    let psi = |node: usize| [3, 4, 5].map(|i| dof_num.global_dof(node, i).map(|d| u[d]).unwrap_or(0.0));
+    let norm = |v: [f64; 3]| (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt();
+    crate::ordered::values(&input.elements).filter(|e| e.elem_type == "frame").map(|e| {
+        let (psi_i, psi_j) = (psi(e.node_i), psi(e.node_j));
+        let r_i_t = transposed(&rotation_matrix(psi_i));
+        let principal = norm(rotation_vector(&mat_mul(&r_i_t, &rotation_matrix(psi_j))));
+        let accumulated = norm([0, 1, 2].map(|m| (0..3).map(|k| r_i_t[m][k] * (psi_j[k] - psi_i[k])).sum::<f64>()));
+        (e.id, principal.max(accumulated))
+    }).fold(None, |largest: Option<(usize, f64)>, (id, turn)| match largest {
+        Some((_, most)) if most >= turn => largest,
+        _ => Some((id, turn)),
+    })
 }
 
 /// End shears in equilibrium with the end moments on the CURRENT chord.
@@ -2336,45 +2422,15 @@ fn elastic_corotational_forces_3d(
             ref_yx, ref_yy, ref_yz,
             elem.roll_angle, left_hand,
         );
-        let (ex_n, ey_n, ez_n) = corotated_axes_3d(
+        let (_, ti, tj, _) = natural_rotations_3d(
             [dx_n / l_n, dy_n / l_n, dz_n / l_n], (&ex_0, &ey_0, &ez_0),
             [u_elem_12[3], u_elem_12[4], u_elem_12[5]], [u_elem_12[9], u_elem_12[10], u_elem_12[11]],
         );
-
-        // Rigid body rotation
-        let r_0 = [ex_0, ey_0, ez_0];
-        let r_n = [ex_n, ey_n, ez_n];
-        let mut r_rigid = [[0.0; 3]; 3];
-        for i in 0..3 {
-            for jj in 0..3 {
-                for k in 0..3 {
-                    r_rigid[i][jj] += r_n[k][i] * r_0[k][jj];
-                }
-            }
-        }
-        let [beta_x, beta_y, beta_z] = rotation_vector(&r_rigid);
-
-        let project = |v: &[f64; 3]| -> [f64; 3] {
-            [
-                ex_n[0] * v[0] + ex_n[1] * v[1] + ex_n[2] * v[2],
-                ey_n[0] * v[0] + ey_n[1] * v[1] + ey_n[2] * v[2],
-                ez_n[0] * v[0] + ez_n[1] * v[1] + ez_n[2] * v[2],
-            ]
-        };
-
-        let theta_i = [u_elem_12[3], u_elem_12[4], u_elem_12[5]];
-        let theta_j = [u_elem_12[9], u_elem_12[10], u_elem_12[11]];
-        let ti = project(&theta_i);
-        let tj = project(&theta_j);
-        // β to the corotated frame, as in `assemble_frame_corotational_3d`.
-        let [beta_x, beta_y, beta_z] = project(&[beta_x, beta_y, beta_z]);
-
-        let d_axial = elong;
         let d_nat = [
             0.0, 0.0, 0.0,
-            ti[0] - beta_x, ti[1] - beta_y, ti[2] - beta_z,
-            d_axial, 0.0, 0.0,
-            tj[0] - beta_x, tj[1] - beta_y, tj[2] - beta_z,
+            ti[0], ti[1], ti[2],
+            elong, 0.0, 0.0,
+            tj[0], tj[1], tj[2],
         ];
 
         let l_calc = l0;
@@ -2441,6 +2497,76 @@ fn elastic_corotational_forces_3d(
 mod tests {
     use super::*;
     use std::collections::HashMap;
+
+    #[test]
+    fn ends_a_whole_turn_apart_are_refused_whichever_turn_is_meant() {
+        let input: SolverInput3D = serde_json::from_value(serde_json::json!({
+            "nodes": {"1": {"id": 1, "x": 0.0, "y": 0.0, "z": 0.0}, "2": {"id": 2, "x": 2.0, "y": 0.0, "z": 0.0}},
+            "elements": {"1": {"id": 1, "type": "frame", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1}},
+            "materials": {"1": {"id": 1, "e": 1.0e4, "nu": 0.0}},
+            "sections": {"1": {"id": 1, "a": 1.0, "iy": 1.0 / 12.0, "iz": 1.0 / 12.0, "j": 1.0 / 6.0}},
+            "supports": {}, "loads": []
+        })).unwrap();
+        let dof_num = DofNumbering::build_3d(&input);
+        let state = |psi_i: [f64; 3], psi_j: [f64; 3]| {
+            let mut u = vec![0.0; dof_num.n_total];
+            for (node, psi) in [(1, psi_i), (2, psi_j)] {
+                for k in 0..3 { u[dof_num.global_dof(node, 3 + k).unwrap()] = psi[k]; }
+            }
+            largest_relative_end_rotation_3d(&input, &dof_num, &u).filter(|&(_, turn)| turn > MAX_RELATIVE_END_ROTATION)
+        };
+        let turn = 2.0 * std::f64::consts::PI - 0.01;
+        assert!(state([-turn, 0.0, 0.0], [turn, 0.0, 0.0]).is_some());
+        assert!(state([0.0; 3], [2.0 * std::f64::consts::PI, 0.0, 0.0]).is_some());
+        assert!(state([0.0, 0.0, 1.0], [0.0, 0.0, 1.0 + 0.95 * std::f64::consts::PI]).is_some());
+        assert!(state([0.3, -0.2, 2.5], [0.4, -0.1, 2.9]).is_none());
+        assert!(state([0.0; 3], [0.8 * std::f64::consts::PI, 0.0, 0.0]).is_none());
+    }
+
+    #[test]
+    fn an_end_bent_past_half_a_turn_against_its_chord_is_refused_not_wrapped() {
+        let input: SolverInput3D = serde_json::from_value(serde_json::json!({
+            "nodes": {"1": {"id": 1, "x": 0.0, "y": 0.0, "z": 0.0}, "2": {"id": 2, "x": 2.0, "y": 0.0, "z": 0.0}},
+            "elements": {"1": {"id": 1, "type": "frame", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1}},
+            "materials": {"1": {"id": 1, "e": 1.0e4, "nu": 0.0}},
+            "sections": {"1": {"id": 1, "a": 1.0, "iy": 1.0 / 12.0, "iz": 1.0 / 12.0, "j": 1.0 / 6.0}},
+            "supports": {}, "loads": []
+        })).unwrap();
+        let dof_num = DofNumbering::build_3d(&input);
+        let bent = |chord: f64, rz_i: f64, rz_j: f64| {
+            let mut u = vec![0.0; dof_num.n_total];
+            u[dof_num.global_dof(2, 0).unwrap()] = 2.0 * chord.cos() - 2.0;
+            u[dof_num.global_dof(2, 1).unwrap()] = 2.0 * chord.sin();
+            u[dof_num.global_dof(1, 5).unwrap()] = rz_i;
+            u[dof_num.global_dof(2, 5).unwrap()] = rz_j;
+            member_deformations_3d(&input, &dof_num, &u, false)[0].chord
+        };
+        assert!(bent(2.6, -1.3, 1.3) > MAX_RELATIVE_END_ROTATION);
+        assert!(bent(2.6, 1.3, 1.3) < MAX_RELATIVE_END_ROTATION);
+        assert!((bent(0.5, -0.4, 0.4) - 0.9).abs() < 1e-12);
+    }
+
+    #[test]
+    fn a_chord_turned_back_through_its_ends_is_measured_not_read_as_undeformed() {
+        let input: SolverInput3D = serde_json::from_value(serde_json::json!({
+            "nodes": {"1": {"id": 1, "x": 0.0, "y": 0.0, "z": 0.0}, "2": {"id": 2, "x": 2.0, "y": 0.0, "z": 0.0}},
+            "elements": {"1": {"id": 1, "type": "frame", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1}},
+            "materials": {"1": {"id": 1, "e": 1.0e4, "nu": 0.0}},
+            "sections": {"1": {"id": 1, "a": 1.0, "iy": 1.0 / 12.0, "iz": 1.0 / 12.0, "j": 1.0 / 6.0}},
+            "supports": {}, "loads": []
+        })).unwrap();
+        let dof_num = DofNumbering::build_3d(&input);
+        let chord_with_tip_at = |dx: f64, dy: f64| {
+            let mut u = vec![0.0; dof_num.n_total];
+            u[dof_num.global_dof(2, 0).unwrap()] = dx;
+            u[dof_num.global_dof(2, 1).unwrap()] = dy;
+            member_deformations_3d(&input, &dof_num, &u, false)[0].chord
+        };
+        assert!((chord_with_tip_at(-4.0, 0.0) - std::f64::consts::PI).abs() < 1e-12);
+        assert!(chord_with_tip_at(-4.0, 0.0) > MAX_RELATIVE_END_ROTATION);
+        assert!(chord_with_tip_at(-4.0, 0.3) > MAX_RELATIVE_END_ROTATION);
+        assert!((chord_with_tip_at(-2.0, 2.0) - std::f64::consts::FRAC_PI_2).abs() < 1e-12);
+    }
 
     fn cantilever_input(length: f64, load_fy: f64) -> SolverInput {
         let mut nodes = HashMap::new();

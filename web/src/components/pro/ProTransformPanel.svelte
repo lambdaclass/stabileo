@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from './Hint.svelte';
   /**
    * Repeat, polar repeat, mirror, rotate and move — one panel over one edit layer.
    *
@@ -324,7 +325,7 @@
     <button class="pk-btn pk-btn-primary" disabled={!canRun} onclick={run} data-testid="tp-run">{t(`transform.run.${mode}`)}</button>
   </div>
   {#if message}<p class="pk-ok" data-testid="tp-done">{message}</p>{/if}
-  <p class="pk-hint">{t('transform.weldNote')}</p>
+  <Hint text={t('transform.weldNote')} />
   </section>
 </div>
 

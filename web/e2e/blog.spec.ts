@@ -69,6 +69,8 @@ test.describe('blog', () => {
     await expect(page.getByRole('heading', { level: 2, name: 'Octubre de 2026' })).toBeVisible();
     const total = CHANGELOG.reduce((n, e) => n + e.areas.length, 0);
     await expect(page.getByTestId('changelog-stats')).toContainText(`${total} cambios · desde febrero de 2026`);
+    const chipCounts = await page.locator('.cl-filter .cl-chip-n').allInnerTexts();
+    expect(chipCounts.reduce((n, c) => n + Number(c), 0), 'the area counts add up to the total').toBe(total);
     const first = weeks.last();
     await expect(first).toHaveAttribute('data-date', '2026-02-01');
     await expect(first.locator('time')).toHaveText(/feb\s*mes/);
@@ -83,7 +85,9 @@ test.describe('blog', () => {
     await page.getByRole('button', { name: /^Educativo/ }).click();
     await expect(weeks).toHaveCount(edu.length);
     await expect(weeks.first().getByRole('heading', { level: 4 })).toHaveText(['Educativo']);
-    await expect(page.getByTestId('changelog-stats')).toContainText(`${edu.reduce((n, e) => n + e.areas.filter((a) => a === 'edu').length, 0)} cambios`);
+    const eduChanges = edu.reduce((n, e) => n + e.areas.filter((a) => a === 'edu').length, 0);
+    await expect(page.getByRole('button', { name: /^Educativo/ }).locator('.cl-chip-n')).toHaveText(String(eduChanges));
+    await expect(page.getByTestId('changelog-stats')).toContainText(`${eduChanges} cambios`);
     await page.getByRole('button', { name: 'Todo' }).click();
     await expect(weeks).toHaveCount(CHANGELOG.length);
   });
@@ -432,7 +436,7 @@ test.describe('blog', () => {
     await expect(app.getByTestId('bp-title')).toHaveText('Avanzado', { timeout: 60_000 });
 
     const body = app.locator('body');
-    await expect(body).toContainText('g = 3×2 + 3 − 3×3 = 0');
+    await expect(body).toContainText('GH = 3×2 + 3 − 3×3 − 0 = 0');
     /*
      * Generous timeouts on the rank check, and the reason is worth keeping.
      *
@@ -490,6 +494,25 @@ test.describe('blog', () => {
     await expect(page.locator('meta[property="article:published_time"]')).toHaveAttribute('content', data.datePublished);
   });
 
+  test('@smoke a post served by the fallback never states the landing structured data while its code loads', async ({ page }) => {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    const chunk = /\/assets\/BlogPage-[^/]+\.js$/;
+    await page.route(chunk, async (route) => {
+      await gate;
+      await route.continue();
+    });
+    const held = page.waitForRequest(chunk);
+    await boot(page, `/es/blog/${SLUG}`, 'es');
+    await held;
+    const graphs = () => page.locator('script[type="application/ld+json"]').evaluateAll((els) =>
+      els.map((e) => (JSON.parse(e.textContent ?? '{}')['@graph'] ?? []).map((n: { '@type': string }) => n['@type'])));
+    expect((await graphs()).flat()).not.toContain('SoftwareApplication');
+    release();
+    await expect.poll(async () => (await graphs()).flat()).toContain('BlogPosting');
+    expect((await graphs()).flat()).not.toContain('SoftwareApplication');
+  });
+
   test('@smoke the index is not an article, and the post is not the homepage', async ({ page }) => {
     // Two mistakes that look like nothing and cost the whole point of the
     // exercise: structured data on a page that is not an article, and a
@@ -497,7 +520,8 @@ test.describe('blog', () => {
     await boot(page, '/es/blog');
     // The index states itself as the blog, not as an article.
     const index = JSON.parse((await page.locator('script[type="application/ld+json"]').textContent())!)['@graph'];
-    expect(index.map((n: { '@type': string }) => n['@type'])).toEqual(['Blog']);
+    const types = index.map((n: { '@type': string }) => n['@type']).sort();
+    expect(types).toEqual(['Blog', 'BreadcrumbList', 'Organization', 'Organization', 'Organization', 'WebSite']);
     await expect(page.locator('meta[property="og:type"]')).toHaveAttribute('content', 'website');
     await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
       'href',
@@ -589,10 +613,40 @@ test.describe('blog', () => {
     await expect(page.locator('.post-card')).not.toHaveCount(0);
   });
 
+  test('@smoke the latest post arrives on the landing without covering its way out', async ({ page }) => {
+    for (const width of [390, 820]) {
+      await page.setViewportSize({ width, height: 900 });
+      await boot(page, '/');
+      const section = page.locator('.landing section[data-section="blog"]');
+      await section.scrollIntoViewIfNeeded();
+      const latest = section.locator('.blog-latest');
+      await expect(latest).toBeVisible();
+      await expect(latest.locator('.blog-latest-title')).not.toBeEmpty();
+
+      const button = section.locator('.btn-primary');
+      const [card, link, box] = await Promise.all([latest.boundingBox(), button.boundingBox(), section.boundingBox()]);
+      expect(card!.y + card!.height, `card covers the index link at ${width}px`).toBeLessThanOrEqual(link!.y);
+      expect(link!.y + link!.height, `index link leaves its section at ${width}px`).toBeLessThanOrEqual(box!.y + box!.height);
+      const overflow = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, client: document.documentElement.clientWidth }));
+      expect(overflow.scroll, `overflows at ${width}px`).toBeLessThanOrEqual(overflow.client + 1);
+    }
+  });
+
+  test('@smoke the editor opens the blog in place', async ({ page }) => {
+    await boot(page, '/app/');
+    await page.waitForFunction(() => document.querySelector('.app-container') !== null);
+
+    await page.evaluate(() => window.dispatchEvent(new CustomEvent('stabileo-navigate', { detail: '/blog' })));
+
+    await expect(page).toHaveURL(/\/blog\/?$/);
+    await expect(page.locator('.post-card')).not.toHaveCount(0);
+    await expect(page.locator('.app-container')).toHaveClass(/hidden-behind-landing/);
+  });
+
   test('@smoke the editor is one click away and leaves the blog behind', async ({ page }) => {
     await boot(page, `/blog/${SLUG}`);
 
-    await page.locator('.landing.blog .nav .btn-primary').click();
+    await page.locator('#app .site-header .btn-primary').click();
 
     await expect(page.locator('.landing.blog')).toHaveCount(0);
     await expect(page.locator('.app-container')).not.toHaveClass(/hidden-behind-landing/);

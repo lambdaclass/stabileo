@@ -968,6 +968,7 @@ pub fn solve_nonlinear_material_3d(
 ) -> Result<NonlinearMaterialResult3D, String> {
     let mut r = solve_nonlinear_material_3d_inner(input)?;
     crate::known_issues::attach(&mut r.results.structured_diagnostics, crate::known_issues::for_3d(&input.solver, crate::known_issues::Analysis::MaterialNonlinear));
+    crate::known_issues::refuse(&r.results.structured_diagnostics)?;
     Ok(r)
 }
 

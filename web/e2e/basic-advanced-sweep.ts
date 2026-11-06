@@ -439,12 +439,15 @@ async function memberMiddle(page: Page): Promise<{ x: number; y: number } | null
       elementIds(): number[]; elementEnds(id: number): { i: number; j: number } | null;
       nodeScreenPos(id: number): { x: number; y: number } | null;
     };
+    const view = document.querySelector('canvas:not(.axis-gizmo)')?.getBoundingClientRect();
     let best: { x: number; y: number } | null = null, len = -1;
     for (const id of h.elementIds()) {
       const e = h.elementEnds(id); if (!e) continue;
       const a = h.nodeScreenPos(e.i), b = h.nodeScreenPos(e.j); if (!a || !b) continue;
+      const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+      if (view && (mid.x < view.left || mid.x > view.right || mid.y < view.top || mid.y > view.bottom)) continue;
       const l = Math.hypot(a.x - b.x, a.y - b.y);
-      if (l > len) { len = l; best = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }; }
+      if (l > len) { len = l; best = mid; }
     }
     return best;
   });
@@ -472,7 +475,7 @@ const FUNCTIONS: Fn[] = [
   { key: 'pdelta', find: entry(/^P-Δ/), shows: (p) => p.getByTestId('pdelta-result') },
   { key: 'buckling', find: entry(/^Pcr/), draws: true, shows: (p) => p.locator('.adv-result-info').filter({ hasText: /λ_cr = \d/ }) },
   { key: 'modal', find: entry(/^Dynamic$/), draws: true, shows: (p) => p.locator('.adv-result-info').filter({ hasText: /f = [\d.]+ Hz/ }) },
-  { key: 'plastic', find: entry(/^Plastic collapse/), only2d: true, draws: true, drawsUnless: /No collapse/, shows: (p) => p.getByTestId('plastic-verdict') },
+  { key: 'plastic', find: entry(/^Plastic collapse/), only2d: true },
   {
     key: 'influenceLine', find: entry(/^Influence line/), only2d: true,
     follow: async (ctx) => {
@@ -1023,14 +1026,17 @@ export function pinnedDefects(): void {
       expect((await page.evaluate(() => window.__stabileo.viewportPick())).hasResults).toBe(false);
     });
 
-    test('D4 plastic collapse: after "← Back" the solved view shows the collapse state', async ({ page }) => {
+    test('D4 plastic collapse: withheld (#758), it says why and leaves the solved view as it was', async ({ page }) => {
       const ctx = await boot(page);
       await loadNamed(ctx, 'portal-frame');
       await solveFromRibbon(ctx);
       await openList(ctx);
       const before = await shot(page);
       await runFn(ctx, 'plastic');
-      await pressBack(page);
+      await expect(page.getByTestId('plastic-withheld')).toContainText(/4[.,]6/);
+      await expect(page.getByTestId('plastic-withheld').locator('a')).toHaveAttribute('href', 'https://github.com/lambdaclass/stabileo/issues/758');
+      await expect(page.getByTestId('plastic-verdict')).toHaveCount(0);
+      await expect(page.getByTestId('adv-running')).toHaveCount(0);
       const d = await diff(page, before, await shot(page));
       expect(d.changed).toBeLessThan(Math.max(400, d.total * 0.002));
     });

@@ -365,10 +365,10 @@ fn validation_sdm_carryover_factor() {
 // another beam with pinned far end (same L, E, I). Compare the
 // required end moment M = K * θ.
 //
-// Method: apply unit moment at node 2 in a beam of 2 elements.
+// Method: apply a moment at node 2 (held vertically) in a beam of 2 elements of length L.
 // Element 1 connects node 1 to node 2; element 2 connects node 2 to node 3.
-// Case A: node 3 fixed → K1 = 4EI/L, joint moment = M
-// Case B: node 3 pinned → K1 = 3EI/L, joint moment = M
+// Case A: node 3 fixed → K2 = 4EI/L, joint moment = M
+// Case B: node 3 pinned → K2 = 3EI/L, joint moment = M
 // Compare rotation at node 2 for the same applied moment.
 //
 // Ref: Hibbeler, "Structural Analysis", §11.1, stiffness factor
@@ -380,41 +380,45 @@ fn validation_sdm_stiffness_coefficient() {
     let m = 10.0;
     let e_eff = E * 1000.0; // kN/m²
 
-    // Stiffness coefficients
-    let k_fixed = 4.0 * e_eff * IZ / l; // far-end fixed
-    let k_pinned = 3.0 * e_eff * IZ / l; // far-end pinned
+    let le = l / n as f64;
+    let k_fixed = 4.0 * e_eff * IZ / le;
+    let k_pinned = 3.0 * e_eff * IZ / le;
 
-    // Case A: both ends of the single element in question have fixed far ends
-    // Use: fixed at node 1, apply moment at node 2, fixed at node 3
+    // Node 2 must be held vertically: without it the joint sways in case B and M = Kθ no longer holds.
+    let hold_joint = |input: &mut SolverInput| {
+        let sup_id = input.supports.len() + 1;
+        input.supports.insert(sup_id.to_string(), SolverSupport {
+            id: sup_id, node_id: n,
+            support_type: "rollerX".to_string(),
+            kx: None, ky: None, kz: None,
+            dx: None, dz: None, dry: None, angle: None,
+        });
+    };
+
     let loads_a = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: n, fx: 0.0, fz: 0.0, my: m,
     })];
-    let input_a = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"), loads_a);
+    let mut input_a = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"), loads_a);
+    hold_joint(&mut input_a);
     let res_a = linear::solve_2d(&input_a).unwrap();
     let theta_a = res_a.displacements.iter()
         .find(|d| d.node_id == n).unwrap().ry;
 
-    // Case B: fixed at node 1, apply moment at node 2, rollerX (pinned) at node 3
     let loads_b = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: n, fx: 0.0, fz: 0.0, my: m,
     })];
-    let input_b = make_beam(n, l, E, A, IZ, "fixed", Some("rollerX"), loads_b);
+    let mut input_b = make_beam(n, l, E, A, IZ, "fixed", Some("rollerX"), loads_b);
+    hold_joint(&mut input_b);
     let res_b = linear::solve_2d(&input_b).unwrap();
     let theta_b = res_b.displacements.iter()
         .find(|d| d.node_id == n).unwrap().ry;
 
-    // From slope-deflection: M = K * θ, so θ = M / K
-    // For two elements in series: the net rotation accounts for both spans.
-    // Case A: two spans each with fixed far end → combined stiffness = 2K_fixed at joint
-    // Case B: one fixed, one pinned → combined stiffness = K_fixed + K_pinned
-    // θ_A = M / (2 * K_fixed), θ_B = M / (K_fixed + K_pinned)
-
     let theta_a_expected = m / (2.0 * k_fixed);
     let theta_b_expected = m / (k_fixed + k_pinned);
 
-    assert_close(theta_a, theta_a_expected, 0.02,
+    assert_close(theta_a, theta_a_expected, 1e-6,
         "SDM Q7: θ (both fixed) = M / (2 * 4EI/L)");
-    assert_close(theta_b, theta_b_expected, 0.02,
+    assert_close(theta_b, theta_b_expected, 1e-6,
         "SDM Q7: θ (fixed+pinned) = M / (4EI/L + 3EI/L)");
 
     // θ_B > θ_A since pinned far end is less stiff (K_pinned < K_fixed)

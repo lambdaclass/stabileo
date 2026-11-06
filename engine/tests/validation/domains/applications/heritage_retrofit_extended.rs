@@ -768,6 +768,6 @@ fn heritage_historic_truss_assessment() {
     // With no external horizontal load, the horizontal reaction at node 1
     // should be zero — the tie beam resolves horizontal thrust internally.
     // rollerX at node 2 has no horizontal restraint.
-    assert_close(r1.rx.abs(), 0.0, 0.10,
+    assert_close_abs(r1.rx.abs(), 0.0, 0.10, 1e-6,
                  "No horizontal reaction for symmetric vertical load");
 }

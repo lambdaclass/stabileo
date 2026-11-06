@@ -124,6 +124,7 @@ const c301Pt: Record<string, string> = {
   'c301.refuse.noConnection': 'falta a ligação de extremidade (furos e o coeficiente U de D.3)',
   'c301.refuse.endsMissing': 'falta a ligação de extremidade em {ends} (furos e o coeficiente U de D.3)',
   'c301.refuse.endRefused': 'extremidade {end}: {reason}',
+  'c301.refuse.firstOrderMoments': 'os momentos são de primeira ordem e a análise avisa que podem ser amplificados em mais de 10 %: H.1 os toma como de segunda ordem (C.1); execute uma análise P-Delta ou de segunda ordem',
   'c301.refuse.connectionRefused': 'ligação de extremidade: {reason}',
   'c301.refuse.aeOutOfRange': 'Ae = {Ae} mm² fora de (0, Ag]',
   'c301.refuse.anOutOfRange': 'An = {An} mm² fora de (0, Ag]',
@@ -136,6 +137,8 @@ const c301Pt: Record<string, string> = {
   'c301.refuse.noShearLag': 'a ligação não dá U: falta U, todos os elementos ligados, chapa soldada ou x̄ e L (D.3)',
   'c301.refuse.unknownShape': 'forma de seção «{shape}» sem classificação na Tabela B.4.1a',
   'c301.refuse.elementInvalid': 'elemento comprimido «{kind}» inválido para a Tabela B.4.1a',
+  'c301.refuse.qNonPositive': 'a área efetiva resulta Qa = {Qa} ≤ 0 (A = {A} mm², Σ(b − be)·t = {lost} mm²): a área da seção não concorda com as larguras e espessuras dos seus elementos comprimidos (§E.7)',
+  'c301.refuse.fcrAboveFy': 'Fcr = {Fcr} MPa > Fy = {Fy} MPa: a resistência à compressão superaria a carga de esmagamento',
   'c301.refuse.chsTooSlender': 'D/t = {Dt} > 0,45·E/Fy = {lim}: E.7.2(c) não cobre este tubo',
   'c301.refuse.e4NoJCw': '§E.4: kz·Lz > ky·L e faltam J ou Cw para a flambagem por torção',
   'c301.refuse.e4NoJ': '§E.4: falta J para a flambagem por flexo-torção',
@@ -157,6 +160,7 @@ const c301Pt: Record<string, string> = {
   'c301.refuse.e6Connector': '§E.6.2.1: falta o tipo de ligação intermediária (parafusos sem protensão ou solda)',
   'c301.refuse.e6SpacingTooLarge': '§E.6.2.2: a/ri = {ari} > 3/4 da esbeltez governante = {lim}',
   'c301.refuse.engineUnavailable': 'o motor de cálculo não está carregado: o elemento não está verificado',
+  'c301.refuse.capacityUnusable': 'não é possível formar a razão com φRn = {phiRn} e a solicitação {demand}: a resistência de cálculo não é positiva e finita, ou a solicitação não é finita',
 
   // The steel results screen and the angle editor.
   'steel.angle.title': 'Cantoneiras comprimidas (§E.5, §E.6)',

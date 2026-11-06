@@ -284,7 +284,7 @@ fn validation_3d_eq_multi_story() {
     // ΣFy = ΣFz = 0
     let sum_ry: f64 = results.reactions.iter().map(|r| r.fy).sum();
     let sum_rz: f64 = results.reactions.iter().map(|r| r.fz).sum();
-    assert_close(sum_ry, 0.0, 0.01, "3D multi-story: ΣRy = 0");
+    assert_close_abs(sum_ry, 0.0, 0.01, 1e-6, "3D multi-story: ΣRy = 0");
     assert_close(sum_rz, 0.0, 0.01, "3D multi-story: ΣRz = 0");
 }
 

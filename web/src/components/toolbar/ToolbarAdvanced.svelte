@@ -59,25 +59,39 @@
 </script>
 
 <script lang="ts">
+  import { errorText } from '../../lib/utils/error-text';
   import { whatIf } from '../../lib/store/whatif.svelte';
   import { explainedSteps } from '../../lib/store/explained-steps.svelte';
   import { openExplainedCatalog } from '../../lib/actions/step-wizards';
+  import { loadCourse } from '../../lib/course/load-course';
   import CirsocFlexPanel from '../CirsocFlexPanel.svelte';
   import { t } from '../../lib/i18n';
+  import { localizeEngineText } from '../../lib/i18n/engine-text';
   import { DOF_LABEL_KEY } from '../../lib/engine/kinematic-2d';
-  import { withSectionMass } from '../../lib/engine/dynamics/section-mass';
+  import { withBasicMass } from '../../lib/engine/dynamics/basic-mass';
   import { variableRefusal2D, imposedRefusal } from '../../lib/engine/solver-service';
   import { formatPDeltaFactor } from '../../lib/engine/pdelta-result';
   import BucklingCertificate from '../advanced/BucklingCertificate.svelte';
   import PDeltaCertificate from '../advanced/PDeltaCertificate.svelte';
+  import FiniteSpectrumWarning from '../advanced/FiniteSpectrumWarning.svelte';
+  import { finiteSpectrumWarning, eigenRefusalText } from '../../lib/engine/finite-spectrum-warning';
   import ModalCertificate from '../advanced/ModalCertificate.svelte';
-  import { solvePDelta, solveBuckling, solveModal, solveModal3D as wasmModal3D, solveBuckling3D as wasmBuckling3D, initSolver, isWasmReady } from '../../lib/engine/wasm-solver';
+  import DynamicsCourse from '../advanced/dynamics/DynamicsCourse.svelte';
+  import SecondOrderOptions from '../advanced/SecondOrderOptions.svelte';
+  import PDeltaSummary from '../advanced/PDeltaSummary.svelte';
+  import BucklingDetails from '../advanced/BucklingDetails.svelte';
+  import { pdeltaBasic2D, bucklingBasic2D, withFirstModeB2, rerunSecondOrder } from '../../lib/actions/second-order';
+  import { solveModal, solveModal3D as wasmModal3D, solveBuckling3D as wasmBuckling3D, initSolver, isWasmReady } from '../../lib/engine/wasm-solver';
+  import { bucklingFailureToast } from '../../lib/engine/buckling-failure';
   import { solvePDelta3D as wasmPDelta3D } from '../../lib/engine/wasm-solver';
   import { amplification } from '../../lib/engine/pdelta-amplification';
   import { getPredefinedTrains, solveMovingLoadsAsync } from '../../lib/engine/moving-loads';
   import type { SectionMp } from '../../lib/engine/plastic-moments';
-  import { runPlasticCollapse } from '../../lib/actions/plastic';
+  import { runPlasticCollapse, PlasticWithheld } from '../../lib/actions/plastic';
   import PlasticResultPanel from '../advanced/PlasticResultPanel.svelte';
+  import { collapseVerdict } from '../advanced/plastic/user-compare';
+  import InfluencePanel from '../advanced/InfluencePanel.svelte';
+  import LoadStatesPanel from '../advanced/LoadStatesPanel.svelte';
 
   let showAdvanced = $state(false);
   let showTrainPanel = $state(false);
@@ -91,6 +105,7 @@
    * and a ribbon command cost the canvas ten pixels for the privilege.
    */
   let showFlex = $state(false);
+  let showLoadStates = $state(false);
 
   let advHelpKey = $state<string | null>(null);
 
@@ -137,6 +152,10 @@
     'influenceLine': {
       labelKey: 'advHelp.influenceLine.label',
       textKey: 'advHelp.influenceLine.text',
+    },
+    'loadStates': {
+      labelKey: 'course.influence.states.title',
+      textKey: 'course.influence.states.help',
     },
     'kinematic': {
       labelKey: 'advHelp.kinematic.label',
@@ -250,6 +269,9 @@
     { key: 'influenceLine', labelKey: 'advanced.influenceLine',
       isActive: () => !is3D && uiStore.currentTool === 'influenceLine',
       close: () => { uiStore.currentTool = 'select'; resultsStore.clearInfluenceLine(); } },
+    { key: 'loadStates', labelKey: 'course.influence.states.title',
+      isActive: () => showLoadStates,
+      close: () => { showLoadStates = false; } },
     { key: 'whatif', labelKey: 'advanced.whatIf',
       isActive: () => uiStore.showWhatIf,
       close: () => { void whatIf.close(); } },
@@ -296,16 +318,12 @@
    * find. The engine says so by throwing; that is an answer, not a failure.
    */
   function bucklingFailure(e: unknown): void {
-    const msg = errText(e, 'toast.bucklingError');
-    if (/no compressed elements/i.test(msg)) uiStore.toast(t('toast.bucklingNoCompression'), 'info');
-    else uiStore.toast(msg, 'error');
+    const { text, kind } = bucklingFailureToast(e, t);
+    uiStore.toast(text, kind);
   }
 
   function errText(e: unknown, fallbackKey: string): string {
-    if (typeof e === 'string' && e.trim()) return e;
-    const msg = (e as { message?: unknown } | null)?.message;
-    if (typeof msg === 'string' && msg.trim()) return msg;
-    return t(fallbackKey);
+    return localizeEngineText(errorText(e, t(fallbackKey)));
   }
 
   /**
@@ -341,10 +359,12 @@
       uiStore.toast(t(result.notice === 'noLoads' ? 'toast.pdeltaLinearNoLoads' : 'toast.pdeltaLinearNoFreeDofs'), 'info');
       return;
     }
-    const msg = !result.isStable ? t('toast.pdeltaUnstable') : result.converged
+    const unknown = result.isStable === null;
+    const base = result.isStable === false ? t('toast.pdeltaUnstable') : result.converged
       ? t('toast.pdeltaConverged').replace('{iterations}', String(result.iterations)).replace('{b2}', formatPDeltaFactor(result.b2Factor, 2)).replace('{ms}', dt.toFixed(0))
       : t('toast.pdeltaNotConverged').replace('{iterations}', String(result.iterations));
-    uiStore.toast(notDrawn ? `${msg}. ${t('toast.pdeltaNotDrawn')}` : msg, result.converged && result.isStable ? 'success' : 'error');
+    const msg = unknown && result.converged ? `${base}. ${t('toast.pdeltaStabilityUnknown')}` : base;
+    uiStore.toast(notDrawn ? `${msg}. ${t('toast.pdeltaNotDrawn')}` : msg, result.converged && result.isStable === true ? 'success' : unknown && result.converged ? 'info' : 'error');
   }
 
   /* The plane engine names its vertical `uy` and its rotation `rz`; the app says Z and Y. */
@@ -411,7 +431,7 @@
     if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
     try {
       const t0 = performance.now();
-      const result = solvePDelta(input);
+      const result = pdeltaBasic2D(input);
       const dt = performance.now() - t0;
       if (typeof result === 'string') { uiStore.toast(result, 'error'); return; }
       publishPDelta(result, false, dt);
@@ -426,18 +446,18 @@
     if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
     try {
       const t0 = performance.now();
-      const physical = withSectionMass(input, modelStore.model);
+      const physical = withBasicMass(input, modelStore.model, 'iy');
       const result = solveModal(physical.input, physical.densities);
       const dt = performance.now() - t0;
-      if (typeof result === 'string') { uiStore.toast(result, 'error'); return; }
+      if (typeof result === 'string') { uiStore.toast(eigenRefusalText(result, t), 'error'); return; }
       resultsStore.setModalResult(result);
       const rayleighInfo = result.rayleigh ? ` | Rayleigh: a\u2080=${result.rayleigh.a0.toFixed(3)}, a\u2081=${result.rayleigh.a1.toFixed(5)}` : '';
       // The plane solver's y is the vertical, labelled Z everywhere else.
       const cumMassInfo = ` | \u03a3Meff: X=${(result.cumulativeMassRatioX * 100).toFixed(0)}%, Z=${(result.cumulativeMassRatioY * 100).toFixed(0)}%`;
-      uiStore.toast(t('toast.modalSuccess').replace('{modes}', String(result.modes.length)).replace('{cumMass}', cumMassInfo).replace('{rayleigh}', rayleighInfo).replace('{ms}', dt.toFixed(0)), 'success');
+      uiStore.toast([finiteSpectrumWarning(result, t), t('toast.modalSuccess').replace('{modes}', String(result.modes.length)).replace('{cumMass}', cumMassInfo).replace('{rayleigh}', rayleighInfo).replace('{ms}', dt.toFixed(0))].filter(Boolean).join(' '), result.finiteSpectrumDiagnostic ? 'info' : 'success');
       nullModesToast(result, true);
     } catch (e: any) {
-      uiStore.toast(errText(e, 'toast.modalError'), 'error');
+      uiStore.toast(eigenRefusalText(errText(e, 'toast.modalError'), t), 'error');
     }
   }
 
@@ -448,9 +468,9 @@
     if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
     try {
       const t0 = performance.now();
-      const result = solveBuckling(input);
+      const result = bucklingBasic2D(input);
       const dt = performance.now() - t0;
-      if (typeof result === 'string') { uiStore.toast(result, 'error'); return; }
+      if (typeof result === 'string') { uiStore.toast(eigenRefusalText(result, t), 'error'); return; }
       resultsStore.setBucklingResult(result);
       const factor = result.modes[0]?.loadFactor;
       const nComp = result.elementData.length;
@@ -463,9 +483,11 @@
 
   /** The Mp each section went in with, shown under the result. */
   let plasticMps = $state<SectionMp[]>([]);
+  let plasticWithheld = $state<PlasticWithheld | null>(null);
 
   function handlePlastic() {
     if (blockedBySlidingJoints()) return;
+    plasticWithheld = null;
     try {
       const t0 = performance.now();
       /* The step-by-step collapse analysis (lib/engine/plastic-collapse.ts). */
@@ -475,10 +497,13 @@
       plasticMps = run.mps;
       resultsStore.setPlasticResult(run.result);
       const r = run.result;
-      uiStore.toast(r.isMechanism
+      const verdict = collapseVerdict(r);
+      if (verdict === 'unresolved') uiStore.toast(t('course.plastic.unresolved'), 'error');
+      else uiStore.toast(verdict === 'collapse'
         ? t('toast.plasticCollapse').replace('{lambda}', r.collapseFactor.toFixed(3)).replace('{hinges}', String(r.hinges.length)).replace('{ms}', dt.toFixed(0))
-        : t('plastic.noCollapse'), r.isMechanism ? 'info' : 'success');
+        : t('plastic.noCollapse'), verdict === 'collapse' ? 'info' : 'success');
     } catch (e: any) {
+      if (e instanceof PlasticWithheld) plasticWithheld = e;
       uiStore.toast(errText(e, 'toast.plasticError'), 'error');
     }
   }
@@ -536,8 +561,9 @@
       const t0 = performance.now();
       let result: any;
       result = wasmPDelta3D(input);
-      const dt = performance.now() - t0;
       if (typeof result === 'string') { uiStore.toast(result, 'error'); return; }
+      result = withFirstModeB2(input, result);
+      const dt = performance.now() - t0;
       publishPDelta(result, true, dt);
     } catch (e: any) {
       uiStore.toast(errText(e, 'toast.pdeltaError'), 'error');
@@ -552,16 +578,16 @@
     try {
       const t0 = performance.now();
       let result: any;
-      const physical = withSectionMass(input, modelStore.model);
+      const physical = withBasicMass(input, modelStore.model, 'izz');
       result = wasmModal3D(physical.input, physical.densities);
       const dt = performance.now() - t0;
-      if (typeof result === 'string') { uiStore.toast(result, 'error'); return; }
+      if (typeof result === 'string') { uiStore.toast(eigenRefusalText(result, t), 'error'); return; }
       resultsStore.setModalResult3D(result);
       const cumMassInfo = ` | \u03a3Meff: X=${(result.cumulativeMassRatioX * 100).toFixed(0)}%, Y=${(result.cumulativeMassRatioY * 100).toFixed(0)}%, Z=${(result.cumulativeMassRatioZ * 100).toFixed(0)}%`;
-      uiStore.toast(t('toast.modalSuccess').replace('{modes}', String(result.modes.length)).replace('{cumMass}', cumMassInfo).replace('{rayleigh}', '').replace('{ms}', dt.toFixed(0)), 'success');
+      uiStore.toast([finiteSpectrumWarning(result, t), t('toast.modalSuccess').replace('{modes}', String(result.modes.length)).replace('{cumMass}', cumMassInfo).replace('{rayleigh}', '').replace('{ms}', dt.toFixed(0))].filter(Boolean).join(' '), result.finiteSpectrumDiagnostic ? 'info' : 'success');
       nullModesToast(result, false);
     } catch (e: any) {
-      uiStore.toast(errText(e, 'toast.modalError'), 'error');
+      uiStore.toast(eigenRefusalText(errText(e, 'toast.modalError'), t), 'error');
     }
   }
 
@@ -575,7 +601,7 @@
       let result: any;
       result = wasmBuckling3D(input);
       const dt = performance.now() - t0;
-      if (typeof result === 'string') { uiStore.toast(result, 'error'); return; }
+      if (typeof result === 'string') { uiStore.toast(eigenRefusalText(result, t), 'error'); return; }
       resultsStore.setBucklingResult3D(result);
       const factor = result.modes[0]?.loadFactor;
       const nComp = result.elementData.length;
@@ -598,6 +624,10 @@
    * what they explicitly asked to see.
    */
   let { flat = false }: { flat?: boolean } = $props();
+  let courseReady = $state(false);
+  $effect(() => {
+    if ((flat || showAdvanced) && !courseReady) loadCourse().then(() => { courseReady = true; }, () => { courseReady = true; });
+  });
 </script>
 
 <div class="toolbar-section" class:flat data-tour="advanced-section" onclickcapture={noteOpening}>
@@ -636,6 +666,7 @@
     </div>
   {/if}
 
+  {#if courseReady}
   <div class="advanced-grid">
     {#if !(flat && active) && (shown('kinematic') || shown('despiece') || shown('stress'))}
     <!-- How the structure holds together, member by member, and what a section carries. -->
@@ -743,6 +774,9 @@
     {@render helpPanel('pdelta')}
     {@render helpPanel('buckling')}
     {/if}
+    {#if !is3D && (shown('pdelta') || shown('buckling'))}
+      <SecondOrderOptions onchange={() => rerunSecondOrder(handlePDelta, handleBuckling)} />
+    {/if}
     {#if !(flat && active) && (shown('modal') || shown('plastic'))}
     <!-- Beyond the static elastic answer: vibration modes and the plastic collapse. -->
     <div class="adv-group" style="grid-column: span 2" data-testid="adv-group-dynamics">{t('advanced.group.dynamics')}</div>
@@ -791,9 +825,9 @@
     {@render helpPanel('plastic')}
       {/if}
     {/if}
-    {#if !(flat && active) && (shown('influenceLine') || shown('trainLoad'))}
-    <!-- The influence line and the moving train come from the same idea: a load that travels. -->
-    <div class="adv-group" style="grid-column: span 2" data-testid="adv-group-moving">{t('advanced.group.movingLoads')}</div>
+    {#if !(flat && active) && (shown('influenceLine') || shown('trainLoad') || shown('loadStates'))}
+    <!-- A load that travels, and the largest and smallest effects of loads that come and go. -->
+    <div class="adv-group" style="grid-column: span 2" data-testid="adv-group-moving">{t('course.influence.group')}</div>
     {/if}
     {#if shown('influenceLine')}
     <!-- 2D only; disabled with a reason rather than hidden — see Kinematic above. -->
@@ -807,10 +841,6 @@
             return;
           }
           if (blockedBySlidingJoints()) return;
-          if (!resultsStore.results && !resultsStore.results3D) {
-            uiStore.toast(t('advanced.calculateFirstF5'), 'error');
-            return;
-          }
           uiStore.currentTool = 'influenceLine';
         }}>
         {t('advanced.influenceLine')}
@@ -819,6 +849,7 @@
     </div>
     {@render helpPanel('influenceLine')}
       {/if}
+      {#if active?.key === 'influenceLine'}<InfluencePanel />{/if}
     {/if}
     {#if shown('trainLoad')}
     <!-- 2D only; disabled with a reason rather than hidden — see Kinematic above. -->
@@ -869,6 +900,21 @@
         {/if}
       </div>
     {/if}
+    {/if}
+    {#if shown('loadStates')}
+      {#if !flat || active?.key !== 'loadStates'}
+    <div class="adv-btn-wrap" style="grid-column: span 2">
+      <button class="adv-btn" style="flex:1" class:active={showLoadStates} data-testid="adv-load-states"
+        onclick={() => { if (showLoadStates) closeEntry('loadStates'); else showLoadStates = true; }}>
+        {t('course.influence.states.title')}
+      </button>
+      <button class="adv-help-btn" onclick={(e) => toggleAdvHelp('loadStates', e)} class:active={advHelpKey === 'loadStates'}>?</button>
+    </div>
+    {@render helpPanel('loadStates')}
+      {/if}
+      {#if showLoadStates}
+        <LoadStatesPanel onInfluence={() => { showLoadStates = false; if (!is3D && !blockedBySlidingJoints()) uiStore.currentTool = 'influenceLine'; }} />
+      {/if}
     {/if}
     {#if !(flat && active) && (shown('whatif') || shown('steps'))}
     <!-- Changing the model live, and each method solved step by step. -->
@@ -950,18 +996,18 @@
       {/if}
     {/if}
   </div>
+  {/if}
+  {#each (is3D ? resultsStore.knownIssues3D : resultsStore.knownIssues).messages as message}<p role="alert">{message}</p>{/each}
   {@const pdR = is3D ? resultsStore.pdeltaResult3D : resultsStore.pdeltaResult}
   {@const moR = is3D ? resultsStore.modalResult3D : resultsStore.modalResult}
   {@const buR = is3D ? resultsStore.bucklingResult3D : resultsStore.bucklingResult}
   {#if pdR}
-    <div class="adv-result-info" style="font-size:10px" data-testid="pdelta-result">
-      P-Δ: B₂ = {formatPDeltaFactor(pdR.b2Factor)} |
-      {pdR.converged ? `${pdR.iterations} iter` : t('advanced.notConvergedShort')} |
-      {pdR.isStable ? t('advanced.stable') : t('advanced.unstable')}
-    </div>
+    <PDeltaSummary result={pdR} />
     <PDeltaCertificate result={pdR} />
   {/if}
   {#if moR}
+    <ModalCertificate result={moR} mode={resultsStore.activeModeIndex} />
+    <FiniteSpectrumWarning result={moR} />
     <div class="adv-result-row">
       <button class="adv-result-btn" class:active={resultsStore.diagramType === 'modeShape'} onclick={() => resultsStore.diagramType = 'modeShape'}>{t('advanced.dynamic')}</button>
       <button class="small-btn" onclick={() => { if (resultsStore.activeModeIndex > 0) resultsStore.activeModeIndex--; }} disabled={resultsStore.activeModeIndex === 0}>&#9664;</button>
@@ -974,8 +1020,7 @@
         f = {mode.frequency.toFixed(2)} Hz |
         T = {mode.period.toFixed(3)} s
       </div>
-      <ModalCertificate result={moR} mode={resultsStore.activeModeIndex} />
-      <div class="adv-result-info" style="font-size:10px; opacity:0.8">
+      <div class="adv-result-info" style="opacity:0.8">
         <!-- The plane solver's second axis is the vertical, Z on screen; a space model has all three. -->
         {#if is3D}
           {@const m3 = mode as { massRatioZ?: number }}
@@ -987,6 +1032,7 @@
           Σ: X={(moR.cumulativeMassRatioX * 100).toFixed(1)}% Z={(moR.cumulativeMassRatioY * 100).toFixed(1)}%
         {/if}
       </div>
+      <DynamicsCourse result={moR} mode={resultsStore.activeModeIndex} {is3D} onRerun={() => (is3D ? handleModal3D() : handleModal())} />
     {/if}
   {/if}
   {#if buR}
@@ -1000,11 +1046,13 @@
       &lambda;_cr = {buR.modes[resultsStore.activeBucklingMode]?.loadFactor.toFixed(3) ?? '—'}
     </div>
     <BucklingCertificate certificate={buR.certificate} />
-    {#if buR.elementData.length > 0}
-      <div class="adv-result-info" style="font-size:10px; opacity:0.8">
-        Keff: {buR.elementData.slice(0, 3).map((ed: any) => `E${ed.elementId}=${ed.kEffective.toFixed(2)}`).join(', ')}{buR.elementData.length > 3 ? '...' : ''}
-      </div>
-    {/if}
+    <BucklingDetails result={buR} />
+  {/if}
+  {#if plasticWithheld && !is3D}
+    <div class="adv-withheld" role="alert" data-testid="plastic-withheld">
+      <p>{plasticWithheld.message}</p>
+      <a href="https://github.com/lambdaclass/stabileo/issues/{plasticWithheld.issue}" target="_blank" rel="noopener noreferrer">{t('plastic.withheldIssue').replace('{issue}', String(plasticWithheld.issue))}</a>
+    </div>
   {/if}
   <PlasticResultPanel mps={plasticMps} />
   {#if resultsStore.movingLoadEnvelope}
@@ -1088,6 +1136,17 @@
      inert without touching sixty of them, and every child stretches to the
      panel width on its own. Thirteen analyses read better as a list anyway.
   */
+  .adv-withheld {
+    margin: 6px 0;
+    padding: 8px 10px;
+    border: 1px solid var(--st-danger);
+    border-radius: 6px;
+    font-size: 0.8rem;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+  }
+  .adv-withheld p { margin: 0 0 6px; }
+  .adv-withheld a { display: inline-block; min-height: 24px; color: var(--st-accent); }
   .adv-running {
     display: flex;
     align-items: center;
@@ -1329,12 +1388,14 @@
 
   /* Reachable from the result panels mounted inside this section (components/advanced/). */
   :where(.toolbar-section) :global(.small-btn) {
+    min-width: 44px;
+    min-height: 44px;
     padding: 0.1rem 0.4rem;
     border: 1px solid var(--st-hair-strong);
     border-radius: 3px;
     background: var(--st-surface-2);
     color: var(--st-text);
-    font-size: 0.7rem;
+    font-size: 12px;
     cursor: pointer;
   }
 
@@ -1350,18 +1411,21 @@
 
   :where(.toolbar-section) :global(.adv-result-row) {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 0.25rem;
     margin-top: 0.25rem;
   }
 
   :where(.toolbar-section) :global(.adv-result-btn) {
+    min-width: 44px;
+    min-height: 44px;
     padding: 0.2rem 0.5rem;
     border: 1px solid var(--st-hair-strong);
     border-radius: 4px;
     background: var(--st-surface-2);
     color: var(--st-text);
-    font-size: 0.72rem;
+    font-size: 12px;
     cursor: pointer;
     flex-shrink: 0;
   }
@@ -1378,14 +1442,15 @@
   }
 
   :where(.toolbar-section) :global(.adv-result-label) {
-    font-size: 0.72rem;
+    font-size: 12px;
     color: var(--st-value);
     min-width: 2rem;
     text-align: center;
   }
 
   :where(.toolbar-section) :global(.adv-result-info) {
-    font-size: 0.68rem;
+    overflow-wrap: anywhere;
+    font-size: 12px;
     color: var(--st-text-3);
     padding: 0 0 0 0.25rem;
   }
@@ -1398,7 +1463,7 @@
   */
   .flat :global(.adv-result-info) {
     font-family: var(--st-mono);
-    font-size: 0.66rem;
+    font-size: 12px;
     letter-spacing: 0.02em;
     margin-left: 0.6rem;
     padding: 0.1rem 0 0.1rem 0.6rem;

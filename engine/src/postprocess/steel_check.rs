@@ -35,6 +35,10 @@ pub struct SteelMemberData {
     /// Web shear strength coefficient Cv1 (default 1.0, AISC G2.1)
     #[serde(default)]
     pub cv1: Option<f64>,
+    /// Shear area for weak-axis shear times Cv2 (AISC G6: 2·bf·tf·Cv2 for
+    /// I-shapes; G4: 2·h·t·Cv2 for rectangular HSS, h the walls along local y).
+    #[serde(default)]
+    pub aw_weak: Option<f64>,
     /// Unbraced length for compression about Y-axis
     pub lby: f64,
     /// Unbraced length for compression about Z-axis
@@ -172,7 +176,7 @@ pub struct SteelCheckInput {
 
 /// Design forces for an element.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ElementDesignForces {
     pub element_id: usize,
     /// Axial force (positive = tension, negative = compression)
@@ -182,9 +186,13 @@ pub struct ElementDesignForces {
     /// Bending moment about Z-axis (minor axis)
     #[serde(default)]
     pub mz: Option<f64>,
-    /// Shear force
+    /// Strong-axis shear, along the web (local z in 3D, `design_axes`).
     #[serde(default)]
-    pub vy: Option<f64>,
+    pub v_strong: Option<f64>,
+    /// Weak-axis shear, across the web (local y in 3D). Checked against
+    /// `aw_weak`; without it the shear check is not evaluated.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub v_weak: Option<f64>,
 }
 
 /// Result of steel design check for one member.
@@ -204,12 +212,18 @@ pub struct SteelCheckResult {
     pub flexure_y_ratio: f64,
     /// Flexural capacity check about Z-axis (Mr / phi*Mn_z)
     pub flexure_z_ratio: f64,
-    /// Shear capacity check (Vr / phi*Vn), 0.0 when Aw was not supplied
+    /// Shear capacity check (Vr / phi*Vn), 0.0 when Aw was not supplied, and
+    /// then "Shear G2" is in `unevaluated` if the member carries shear.
     pub shear_ratio: f64,
+    /// Weak-axis shear ratio, AISC G4/G6 against `aw_weak`.
+    #[serde(default)]
+    pub shear_weak_ratio: f64,
     /// Combined interaction ratio (AISC H1-1)
     pub interaction_ratio: f64,
     /// Available shear strength (phi*Vn), 0.0 when Aw was not supplied
     pub phi_vn: f64,
+    #[serde(default)]
+    pub phi_vn_weak: f64,
     /// Available axial compression strength (phi*Pn)
     pub phi_pn_compression: f64,
     /// Available axial tension strength (phi*Pn)
@@ -294,12 +308,12 @@ fn check_single_member(member: &SteelMemberData, forces: &ElementDesignForces) -
     let mut ledger = CheckLedger::new();
 
     let tension_ratio =
-        ledger.ratio_if_loaded("Tension D2", n.max(0.0), phi_pn_tension);
+        ledger.ratio_if_loaded("Tension D2", crate::check::positive_part(n), phi_pn_tension);
     if n < 0.0 && member.compression_elements.is_none() {
         ledger.flag("Compression E7: compressionElements not given (Table B4.1a)");
     }
     let compression_ratio =
-        ledger.ratio_if_loaded("Compression E3/E7", (-n).max(0.0), phi_pn_compression);
+        ledger.ratio_if_loaded("Compression E3/E7", crate::check::positive_part(-n), phi_pn_compression);
     let flexure_y_ratio = ledger.ratio_if_loaded("Flexure-Y F2", my, phi_mn_y);
     let flexure_z_ratio = ledger.ratio_if_loaded("Flexure-Z F6", mz, phi_mn_z);
 
@@ -308,10 +322,20 @@ fn check_single_member(member: &SteelMemberData, forces: &ElementDesignForces) -
         ledger.flag("Axial demand");
     }
 
-    // AISC G2 shear
     let phi_vn: f64 = shear_capacity(member);
-    let vy = forces.vy.unwrap_or(0.0).abs();
-    let shear_ratio = if phi_vn > 0.0 { vy / phi_vn } else { 0.0 };
+    let v_strong = forces.v_strong.unwrap_or(0.0).abs();
+    let v_weak = forces.v_weak.unwrap_or(0.0).abs();
+    let strong_shear_ratio = ledger.ratio_if_loaded("Shear G2", v_strong, phi_vn);
+    let weak_shear_ratio = match member.aw_weak {
+        Some(_) => ledger.ratio_if_loaded(SHEAR_WEAK, v_weak, shear_capacity_weak(member)),
+        None if v_weak != 0.0 => {
+            ledger.flag(SHEAR_WEAK);
+            0.0
+        }
+        None => 0.0,
+    };
+    let shear_ratio = strong_shear_ratio;
+    let phi_vn_weak: f64 = shear_capacity_weak(member);
 
     // AISC H1 interaction (using appropriate axial capacity)
     let axial_ratio = if n < 0.0 { compression_ratio } else { tension_ratio };
@@ -327,6 +351,7 @@ fn check_single_member(member: &SteelMemberData, forces: &ElementDesignForces) -
         (flexure_y_ratio, "Flexure-Y F2"),
         (flexure_z_ratio, "Flexure-Z F6"),
         (shear_ratio, "Shear G2"),
+        (weak_shear_ratio, SHEAR_WEAK),
         (interaction_ratio, "Interaction H1"),
     ];
 
@@ -346,8 +371,10 @@ fn check_single_member(member: &SteelMemberData, forces: &ElementDesignForces) -
         flexure_y_ratio,
         flexure_z_ratio,
         shear_ratio,
+        shear_weak_ratio: weak_shear_ratio,
         interaction_ratio,
         phi_vn,
+        phi_vn_weak,
         phi_pn_compression,
         phi_pn_tension,
         phi_mn_y,
@@ -381,16 +408,24 @@ pub(crate) fn tension_capacity<T: Real>(m: &SteelMemberData) -> T {
     }
 }
 
-/// AISC G2-1: Vn = 0.6·Fy·Aw·Cv1.
-///
-/// Returns 0.0 when the web area is unknown — there is no shear check to
-/// report rather than a capacity to invent.
+/// AISC G2-1: Vn = 0.6·Fy·Aw·Cv1, or 0 when Aw is unknown, which leaves a
+/// loaded G2 check unevaluated.
 pub(crate) fn shear_capacity<T: Real>(m: &SteelMemberData) -> T {
     match m.aw {
         Some(aw) if aw > 0.0 => {
             let cv1 = m.cv1.unwrap_or(1.0);
             T::lit(PHI_V) * T::lit(0.6) * T::exact(m.fy) * T::exact(aw) * T::exact(cv1)
         }
+        _ => T::exact(0.0),
+    }
+}
+
+pub(crate) const SHEAR_WEAK: &str = "Shear G6";
+
+/// AISC G4/G6: φ·0.6·Fy·aw_weak, 0.0 when `aw_weak` is absent.
+pub(crate) fn shear_capacity_weak<T: Real>(m: &SteelMemberData) -> T {
+    match m.aw_weak {
+        Some(aw) if aw > 0.0 => T::lit(PHI_V) * T::lit(0.6) * T::exact(m.fy) * T::exact(aw),
         _ => T::exact(0.0),
     }
 }

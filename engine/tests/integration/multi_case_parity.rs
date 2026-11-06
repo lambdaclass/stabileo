@@ -178,7 +178,7 @@ fn reference_2d(input: &MultiCaseInput) -> (Vec<AnalysisResults>, Vec<(String, A
     });
     let mut combos = Vec::new();
     for combo in &input.combinations {
-        let mut factors: Vec<CombinationFactor> = combo.factors.iter()
+        let mut factors: Vec<CombinationFactor> = dedaliano_engine::ordered::entries(&combo.factors)
             .filter_map(|(name, &factor)| case_map.get(name)
                 .map(|&idx| CombinationFactor { case_id: idx, factor }))
             .collect();
@@ -230,7 +230,7 @@ fn reference_3d(input: &MultiCaseInput3D) -> (Vec<AnalysisResults3D>, Vec<(Strin
     });
     let mut combos = Vec::new();
     for combo in &input.combinations {
-        let mut factors: Vec<CombinationFactor> = combo.factors.iter()
+        let mut factors: Vec<CombinationFactor> = dedaliano_engine::ordered::entries(&combo.factors)
             .filter_map(|(name, &factor)| case_map.get(name)
                 .map(|&idx| CombinationFactor { case_id: idx, factor }))
             .collect();
@@ -242,7 +242,7 @@ fn reference_3d(input: &MultiCaseInput3D) -> (Vec<AnalysisResults3D>, Vec<(Strin
             factors.push(CombinationFactor { case_id: cases.len(), factor: 1.0 - sum });
             cases.push(CaseEntry3D { case_id: cases.len(), results: r0.clone() });
         }
-        let combined = combine_results_3d(&CombinationInput3D { factors, cases }).unwrap();
+        let combined = combine_results_3d(&CombinationInput3D { factors, cases }).unwrap().unwrap();
         combos.push((combo.name.clone(), combined));
     }
     (cases, combos)

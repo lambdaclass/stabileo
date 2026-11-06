@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from '../Hint.svelte';
   /**
    * Walls: the typology (drawn), the thickness, along which axis and between which crossing axes,
    * from one level to another, its doors and windows, and a strip footing under it when asked.
@@ -92,7 +93,7 @@
     <button class="pk-btn" onclick={() => addOpening(true)} data-testid="building-add-door">{t('building.opening.addDoor')}</button>
     <button class="pk-btn" onclick={() => addOpening(false)} data-testid="building-add-window">{t('building.opening.addWindow')}</button>
   </div>
-  <p class="pk-hint">{t('building.openingsHint')}</p>
+  <Hint text={t('building.openingsHint')} />
   <div class="pk-row">
     <label class="bw-check"><input type="checkbox" bind:checked={withStrip} data-testid="building-wall-strip" /> {t('building.withStrip')}</label>
     <label class="bw-check">{t('building.thickness')} <input type="number" min="0.2" step="0.05" bind:value={stripThickness} disabled={!withStrip} /></label>

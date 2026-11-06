@@ -6,9 +6,10 @@
  * (`engine/src/shell_combination_kernel.rs`) and throws `EngineUnavailableError` without it. This
  * copy is the independent statement the kernel is compared with in `shell-combos.test.ts`.
  */
-import type { AnalysisResults3D, PlateStress, QuadStress } from '../../types-3d';
+import type { AnalysisResults3D, PlateStress, QuadStress, ShellEnvelope, ShellEnvelopeKey, ShellEnvelopeSource } from '../../types-3d';
 import { principalStresses, vonMisesPlane, worseFace } from '../../shell-stress';
-import { envelopeShellStresses, type ComboFactor, type PlateThickness } from '../../shell-combos';
+import { type ComboFactor, type PlateThickness } from '../../shell-combos';
+import { woodArmer } from '../../wood-armer';
 
 type Membrane = { sigmaXx: number; sigmaYy: number; tauXy: number; mx: number; my: number; mxy: number; qx?: number; qy?: number };
 
@@ -106,9 +107,67 @@ export function enrichComboShellStressesOracle(
   }
 
   if (envelopeMaxAbs) {
-    const env = envelopeShellStresses([...perCombo.values()]);
+    const env = envelopeShellStressesOracle([...perCombo].map(([id, results]) => ({ source: { kind: 'combination' as const, id }, results })));
     envelopeMaxAbs.plateStresses = env.plateStresses;
     envelopeMaxAbs.quadStresses = env.quadStresses;
   }
 }
 
+
+type Shell = PlateStress | QuadStress;
+
+function componentsOf(s: Shell, plate: boolean): Partial<Record<ShellEnvelopeKey, number>> {
+  const p = principalStresses(s.sigmaXx, s.sigmaYy, s.tauXy);
+  const w = woodArmer(s.mx, s.my, s.mxy);
+  return {
+    sigmaXx: s.sigmaXx, sigmaYy: s.sigmaYy, tauXy: s.tauXy, mx: s.mx, my: s.my, mxy: s.mxy,
+    ...(s.qx !== undefined && s.qy !== undefined ? { qx: s.qx, qy: s.qy } : {}),
+    vonMises: s.vonMises, sigma1: p.sigma1, sigma2: p.sigma2,
+    woodArmerBottomX: w.bottomX, woodArmerBottomY: w.bottomY, woodArmerTopX: w.topX, woodArmerTopY: w.topY,
+    ...(plate ? { faceSigma1: (s as PlateStress).sigma1, faceSigma2: (s as PlateStress).sigma2 } : {}),
+  };
+}
+
+function envelopeList(lists: Array<{ source: ShellEnvelopeSource; rows: Shell[] }>, plate: boolean): Shell[] {
+  const order: number[] = [];
+  const byId = new Map<number, { envelope: ShellEnvelope; missing: Set<ShellEnvelopeKey>; sets: Set<ShellEnvelopeSource> }>();
+  const all: ShellEnvelopeKey[] = ['sigmaXx', 'sigmaYy', 'tauXy', 'mx', 'my', 'mxy', 'qx', 'qy', 'vonMises', 'sigma1', 'sigma2',
+    'woodArmerBottomX', 'woodArmerBottomY', 'woodArmerTopX', 'woodArmerTopY', 'faceSigma1', 'faceSigma2'];
+  for (const { source, rows } of lists) {
+    for (const s of rows) {
+      let e = byId.get(s.elementId);
+      if (!e) { e = { envelope: {}, missing: new Set(), sets: new Set() }; byId.set(s.elementId, e); order.push(s.elementId); }
+      e.sets.add(source);
+      const c = componentsOf(s, plate);
+      for (const k of all) {
+        const v = c[k];
+        if (v === undefined) { e.missing.add(k); continue; }
+        const x = e.envelope[k];
+        if (!x) { e.envelope[k] = { max: v, maxSource: source, min: v, minSource: source }; continue; }
+        if (v > x.max) { x.max = v; x.maxSource = source; }
+        if (v < x.min) { x.min = v; x.minSource = source; }
+      }
+    }
+  }
+  const peak = (x: { max: number; min: number } | undefined) => (!x ? 0 : Math.abs(x.max) >= Math.abs(x.min) ? x.max : x.min);
+  return order.map((id) => {
+    const { envelope, missing, sets } = byId.get(id)!;
+    for (const k of sets.size < lists.length ? all : missing) delete envelope[k];
+    const base = {
+      elementId: id, sigmaXx: peak(envelope.sigmaXx), sigmaYy: peak(envelope.sigmaYy), tauXy: peak(envelope.tauXy),
+      mx: peak(envelope.mx), my: peak(envelope.my), mxy: peak(envelope.mxy), vonMises: envelope.vonMises?.max ?? 0,
+      ...(envelope.qx && envelope.qy ? { qx: peak(envelope.qx), qy: peak(envelope.qy) } : {}),
+    };
+    return plate ? { ...base, sigma1: envelope.faceSigma1?.max ?? NaN, sigma2: envelope.faceSigma2?.min ?? NaN, envelope } : { ...base, envelope };
+  });
+}
+
+/** Each component's own extremes over the sets, written independently of the engine's kernel. */
+export function envelopeShellStressesOracle(
+  sets: ReadonlyArray<{ source: ShellEnvelopeSource; results: AnalysisResults3D }>,
+): { plateStresses: PlateStress[]; quadStresses: QuadStress[] } {
+  return {
+    plateStresses: envelopeList(sets.map((s) => ({ source: s.source, rows: s.results.plateStresses ?? [] })), true) as PlateStress[],
+    quadStresses: envelopeList(sets.map((s) => ({ source: s.source, rows: s.results.quadStresses ?? [] })), false) as QuadStress[],
+  };
+}

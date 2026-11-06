@@ -3,6 +3,7 @@ import importlib.util
 import io
 import json
 import os
+import re
 from pathlib import Path
 import runpy
 import subprocess
@@ -208,6 +209,39 @@ class Artifacts(unittest.TestCase):
                     self.assertEqual((base / 'crash.bin').read_bytes(), raw)
                     self.assertEqual((crashes / 'crash-original').read_bytes(), raw)
 
+    def test_slow_units_are_not_findings_and_every_oom_is_one(self):
+        for oom_fails_alone in (False, True):
+            with self.subTest(oom_fails_alone=oom_fails_alone), tempfile.TemporaryDirectory() as tmp:
+                base = Path(tmp)
+                crashes = base / 'engine/fuzz/artifacts/json_plastic'
+                crashes.mkdir(parents=True)
+                (crashes / 'slow-unit-1').write_bytes(b'\x03R{"slow": 1}')
+                (crashes / 'oom-2').write_bytes(b'\x03R{"oom": 2}')
+                (base / 'nightly-findings').mkdir()
+                calls = []
+
+                def fake(cmd, **kwargs):
+                    calls.append(cmd)
+                    if cmd[3] == 'run':
+                        self.assertIn('-rss_limit_mb=2048', cmd)
+                        self.assertIn('-timeout=60', cmd)
+                        return subprocess.CompletedProcess(cmd, 1 if oom_fails_alone else 0)
+                    raise subprocess.CalledProcessError(1, cmd)
+
+                with contextlib.chdir(base), patch.dict(os.environ, {
+                    'FUZZ_TARGET': 'json_plastic', 'FUZZ_SEED': '42', 'FUZZ_TARGET_TRIPLE': 'x86_64-unknown-linux-gnu'
+                }), patch('subprocess.run', side_effect=fake):
+                    runpy.run_path(str(ROOT / 'scripts/nightly-fuzz-findings.py'))
+                self.assertFalse(any('slow-unit-1' in ' '.join(c) for c in calls))
+                records = [json.loads(p.read_text()) for p in (base / 'nightly-findings').glob('*.finding.json')]
+                self.assertEqual([r['details'] for r in records], ['oom-2'])
+                self.assertEqual(bytes.fromhex(records[0]['model']['raw_hex']), b'\x03R{"oom": 2}')
+                if oom_fails_alone:
+                    self.assertNotIn('when run alone', records[0]['reduction'])
+                else:
+                    self.assertIn('when run alone', records[0]['reduction'])
+                    self.assertFalse(any(c[3] == 'tmin' for c in calls))
+
     def test_collector_continues_after_finding_and_harness_error(self):
         with tempfile.TemporaryDirectory() as tmp:
             for name in ('a', 'b', 'c'):
@@ -310,6 +344,24 @@ class Workflow(unittest.TestCase):
         ci = (ROOT / '.github/workflows/ci.yml').read_text().split('            ci_scripts:\n', 1)[1].split('\n\n', 1)[0]
         for path in ('scripts/nightly-*.py', '.github/workflows/nightly.yml', 'scripts/tests/**', '.github/scripts/**'):
             self.assertIn(f"- '{path}'", ci)
+
+    def test_exact_cargo_filters_name_an_ignored_test_of_their_harness(self):
+        workflow = (ROOT / '.github/workflows/nightly.yml').read_text()
+        cargo = (ROOT / 'engine/Cargo.toml').read_text()
+        commands = re.findall(r'cargo test [^\n]*--test (\S+) (\S+) -- [^\n]*--exact[^\n]*', workflow)
+        self.assertTrue(commands)
+        for harness, name in commands:
+            main = re.search(rf'\[\[test\]\]\nname = "{harness}"\npath = "([^"]+)"', cargo)
+            self.assertIsNotNone(main, harness)
+            source = ROOT / 'engine' / main.group(1)
+            *mods, fn = name.split('::')
+            for mod in mods:
+                text = source.read_text()
+                decl = re.search(rf'(?:#\[path = "([^"]+)"\]\n)?mod {mod};', text)
+                self.assertIsNotNone(decl, f'{harness}: mod {mod}')
+                source = source.parent / (decl.group(1) or f'{mod}.rs')
+            self.assertRegex(source.read_text(), rf'(?m)^#\[test\]\n#\[ignore\]\nfn {fn}\(\)', name)
+            self.assertIn('--ignored', workflow.split(name, 1)[1].split('\n', 1)[0])
 
 
 if __name__ == '__main__':

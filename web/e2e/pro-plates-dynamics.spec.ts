@@ -105,11 +105,26 @@ test.describe('@smoke PRO plates and dynamics', () => {
     expect(d.timeHistory.ground.y).toMatchObject({ source: 'sine', scale: 0.5 });
     expect(d.timeHistory.ground.y.sine).toEqual({ ampG: 0.3, freqHz: 2 });
     expect(d.timeHistory.forces).toHaveLength(1);
-    // Closed and opened again, the panel reads the project, not its defaults.
+    await page.getByTestId('th-show').check();
     await page.getByTestId('adv-chip-timehistory').click();
+    await expect(page.getByTestId('th-chart')).toHaveCount(0);
+    await expect(page.locator('.containment-notice').filter({ hasText: '#760' })).toBeVisible();
     await page.getByTestId('adv-chip-timehistory').click();
     await expect(page.getByTestId('th-steps')).toHaveValue('100');
     await expect(page.getByTestId('th-scale-y')).toHaveValue('0.5');
+  });
+
+  test('a time history whose response overflows is refused with its translated reason, not shown', async ({ pro: page }) => {
+    await loadModel(page, '3d-portal-frame');
+    await page.getByTestId('pr-stage-analyse').click();
+    await page.getByTestId('pr-cmd-advanced').click();
+    await page.getByTestId('adv-chip-timehistory').click();
+    await page.getByTestId('th-steps').fill('20');
+    await page.getByTestId('th-scale-x').fill('1e307');
+    await page.getByTestId('th-run').click();
+    await expect(page.locator('.adv-error')).toContainText(/no es finita|is not finite/);
+    await expect(page.locator('.adv-error')).not.toContainText('TH-NONFINITE');
+    await expect(page.getByTestId('th-chart')).toHaveCount(0);
   });
 
   test('a record read in the wrong unit is flagged, and choosing its unit reads it again', async ({ pro: page }) => {

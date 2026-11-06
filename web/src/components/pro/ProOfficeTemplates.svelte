@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from './Hint.svelte';
   /**
    * The office's project templates (`store/office-templates.ts`): save the open project's
    * materials, sections, cases, combinations, rules, regulations and deflection limits as a
@@ -47,7 +48,7 @@
 
 <details class="ot" data-testid="office-templates">
   <summary class="pp-heading">{t('templates.title')}{list.length ? ` · ${list.length}` : ''}</summary>
-  <p class="ot-hint">{t('templates.hint')}</p>
+  <Hint text={t('templates.hint')} />
   <div class="ot-row">
     <input bind:value={name} placeholder={t('templates.name')} data-testid="ot-name" />
     <button class="pp-btn" disabled={!name.trim()} onclick={save} data-testid="ot-save">{t('templates.save')}</button>

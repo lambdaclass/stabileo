@@ -17,6 +17,11 @@ test('@smoke Basic: the result checks are folded under the results table, closed
   const panel = page.locator('[data-testid="basic-panel"]');
   const table = (await panel.getByText(/^Results$|^Resultados$/).last().boundingBox())!;
   expect((await checks.boundingBox())!.y, 'below the results table').toBeGreaterThan(table.y);
-  await page.getByTestId('result-checks-toggle').click();
+  const toggle = page.getByTestId('result-checks-toggle');
+  expect((await toggle.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  for (const text of await toggle.locator('span').all()) {
+    expect(await text.evaluate((el) => parseFloat(getComputedStyle(el).fontSize))).toBeGreaterThanOrEqual(12);
+  }
+  await toggle.click();
   await expect(page.getByTestId('certificate-status')).toBeVisible();
 });

@@ -9,6 +9,7 @@ pub mod buckling;
 pub mod modal;
 pub mod spectral;
 pub mod plastic;
+pub mod plastic_limit;
 pub mod moving_loads;
 pub mod kinematic;
 pub mod corotational;
@@ -56,3 +57,5 @@ pub use cable::*;
 pub use harmonic::*;
 pub use load_cases::*;
 pub use winkler::*;
+
+pub(crate) mod self_checks;

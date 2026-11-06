@@ -242,12 +242,9 @@ fn validation_two_bar_axial_stiffness() {
     // By symmetry: δy at node 3 can be computed from virtual work.
     //
     // δy = Σ (N_i * n_i * L_i) / (EA)
-    // Real forces: N₁ = N₂ = -P/(2 sin45) = -P√2/2 (compression)
-    // Virtual unit load at node 3: n₁ = n₂ = -1/(2 sin45) = -√2/2
-    // δy = 2 * (-P√2/2) * (-√2/2) * 2√2 / (EA) = 2 * (P/2) * 2√2 / (EA)
-    //     = 2P√2 / (EA)
-    // With P=100, E_EFF=200e6, A=0.01:
-    // δy = 2*100*√2 / (200e6 * 0.01) = 200√2 / 2e6 = √2 * 1e-4
+    // Real forces: N₁ = N₂ = -P/(2 sin45) = -P√2/2 (compression), tie N₃ = +P/2
+    // Virtual unit load at node 3: n₁ = n₂ = -√2/2, n₃ = +1/2
+    // δy = 2 * (P/2) * 2√2 / (EA) + (P/2)(1/2)(4) / (EA) = (2√2 + 1) P / (EA)
 
     let p: f64 = 100.0;
     let input = make_input(
@@ -268,10 +265,10 @@ fn validation_two_bar_axial_stiffness() {
 
     // Expected vertical displacement (downward, so negative)
     let sqrt2: f64 = 2.0_f64.sqrt();
-    let expected_dy: f64 = -2.0 * p * sqrt2 / (E_EFF * A);
+    let expected_dy: f64 = -(2.0 * sqrt2 + 1.0) * p / (E_EFF * A);
 
     let d3 = results.displacements.iter().find(|d| d.node_id == 3).unwrap();
-    assert_close(d3.uz, expected_dy, 0.03, "two-bar axial δy");
+    assert_close(d3.uz, expected_dy, 1e-6, "two-bar axial δy");
 
     // Axial forces: both inclined bars should be in compression
     let expected_n: f64 = -p * sqrt2 / 2.0; // ≈ -70.71
@@ -429,7 +426,7 @@ fn validation_diamond_truss() {
     // By symmetry bars 3-4 and 4-1 should also have equal magnitude
     let ef3 = results.element_forces.iter().find(|e| e.element_id == 3).unwrap();
     let ef4 = results.element_forces.iter().find(|e| e.element_id == 4).unwrap();
-    assert_close(ef3.n_start.abs(), ef4.n_start.abs(), 0.02, "diamond bottom symmetry");
+    assert_close_abs(ef3.n_start.abs(), ef4.n_start.abs(), 0.02, 1e-6, "diamond bottom symmetry");
 
     // Global equilibrium
     let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();

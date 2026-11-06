@@ -66,6 +66,38 @@ impl Drop for Strict {
     }
 }
 
+fn report_seed(seed: u64) {
+    eprintln!(
+        "Reproducer seed={seed}\n2D={}\n3D={}",
+        model(seed, false),
+        model(seed, true)
+    );
+    if let Ok(dir) = std::env::var("METAMORPHIC_REPORT_DIR") {
+        std::fs::create_dir_all(&dir).unwrap();
+        for (dim, spatial) in [("2d", false), ("3d", true)] {
+            std::fs::write(
+                format!("{dir}/seed-{seed}-{dim}.json"),
+                serde_json::to_string_pretty(&model(seed, spatial)).unwrap(),
+            )
+            .unwrap();
+        }
+    }
+}
+
+fn history_witness(
+    seed: u64,
+    solve: impl FnOnce() -> Result<crate::response::Resp, String>,
+    shape: &ResponseShape,
+) {
+    if let Err(e) = checks2::guarded(|| {
+        excited_history_witness(&solve()?, shape);
+        Ok(())
+    }) {
+        report_seed(seed);
+        panic!("time-history witness: {e}");
+    }
+}
+
 fn sweep(count: u64, only: Option<&str>) {
     let _strict = Strict::enter();
     let inv3: Vec<_> = crate::INV_3D
@@ -85,6 +117,7 @@ fn sweep(count: u64, only: Option<&str>) {
         iter_tol: 0.0,
         full_static: false,
         run: foundation_2d,
+        planar: None,
     });
     a3.push(ana3::Ana3 {
         name: "Winkler (active)",
@@ -101,6 +134,7 @@ fn sweep(count: u64, only: Option<&str>) {
         iter_tol: 1e-10,
         full_static: false,
         run: gap_2d,
+        planar: None,
     });
     a3.push(ana3::Ana3 {
         name: "contact (active gap)",
@@ -128,6 +162,9 @@ fn sweep(count: u64, only: Option<&str>) {
             serde_json::from_value(model(seed, true)).unwrap(),
         );
         for a in &a2 {
+            if a.name.starts_with("time history") {
+                history_witness(seed, || (a.run)(&c2), &ResponseShape::of_2d(&c2));
+            }
             let invs: Vec<_> = crate::INV_2D
                 .iter()
                 .copied()
@@ -162,6 +199,9 @@ fn sweep(count: u64, only: Option<&str>) {
             );
         }
         for a in &a3 {
+            if a.name.starts_with("time history") {
+                history_witness(seed, || (a.run)(&c3), &ResponseShape::of_3d(&c3));
+            }
             let invs: Vec<_> = crate::INV_3D
                 .iter()
                 .copied()
@@ -194,21 +234,7 @@ fn sweep(count: u64, only: Option<&str>) {
             t3.record(a.name, "reflection", &c3.name, reflection_3d(a, &c3));
         }
         if t2.failures().len() + t3.failures().len() > before {
-            if let Ok(dir) = std::env::var("METAMORPHIC_REPORT_DIR") {
-                std::fs::create_dir_all(&dir).unwrap();
-                for (dim, spatial) in [("2d", false), ("3d", true)] {
-                    std::fs::write(
-                        format!("{dir}/seed-{seed}-{dim}.json"),
-                        serde_json::to_string_pretty(&model(seed, spatial)).unwrap(),
-                    )
-                    .unwrap();
-                }
-            }
-            eprintln!(
-                "Reproducer seed={seed}\n2D={}\n3D={}",
-                model(seed, false),
-                model(seed, true)
-            );
+            report_seed(seed);
         }
     }
     println!(
@@ -324,7 +350,7 @@ fn foundation_3d(c: &Case3) -> Result<crate::response::Resp, String> {
 }
 
 #[test]
-#[ignore = "safety #761"]
+#[ignore = "known wrong result: #761"]
 fn corotational_rigid_motion_reproducer() {
     use dedaliano_engine::metamorphic::transform::{Iso2, Iso3};
     use dedaliano_engine::solver::corotational;
@@ -364,16 +390,16 @@ fn corotational_rigid_motion_reproducer() {
 }
 
 #[test]
-#[ignore = "safety #761"]
+#[ignore = "known wrong result: #761"]
 fn generated_corotational_rigid_motions() {
     sweep(128, Some("corotational"));
 }
 
 fn gap_2d(c: &Case2) -> Result<crate::response::Resp, String> {
     use dedaliano_engine::solver::contact;
-    let support = c.s.supports.values().next().unwrap().node_id;
-    let sec = c.s.sections.values().next().unwrap();
-    let e = c.s.materials.values().next().unwrap().e;
+    let support = dedaliano_engine::ordered::values(&c.s.supports).next().unwrap().node_id;
+    let sec = dedaliano_engine::ordered::values(&c.s.sections).next().unwrap();
+    let e = dedaliano_engine::ordered::values(&c.s.materials).next().unwrap().e;
     let input: contact::ContactInput = serde_json::from_value(json!({
         "solver": c.s, "tolerance": 1e-10,
         "gapElements": [{"id":1,"nodeI":support,"nodeJ":c.probes.last().unwrap(),"direction":0,
@@ -407,9 +433,9 @@ fn gap_2d(c: &Case2) -> Result<crate::response::Resp, String> {
 
 fn gap_3d(c: &Case3) -> Result<crate::response::Resp, String> {
     use dedaliano_engine::solver::contact;
-    let support = c.s.supports.values().next().unwrap().node_id;
-    let sec = c.s.sections.values().next().unwrap();
-    let e = c.s.materials.values().next().unwrap().e;
+    let support = dedaliano_engine::ordered::values(&c.s.supports).next().unwrap().node_id;
+    let sec = dedaliano_engine::ordered::values(&c.s.sections).next().unwrap();
+    let e = dedaliano_engine::ordered::values(&c.s.materials).next().unwrap().e;
     let input: contact::ContactInput3D = serde_json::from_value(json!({
         "solver": c.s, "tolerance": 1e-10,
         "gapElements": [{"id":1,"nodeI":support,"nodeJ":c.probes.last().unwrap(),"direction":0,
@@ -555,69 +581,72 @@ fn reflection_3d(a: &ana3::Ana3, c: &Case3) -> crate::tally::Verdict {
 }
 
 const MATRIX_2D: &[(&str, &str)] = &[
-    ("linear", "PPPPPPPP---"),
-    ("linear (dense reference)", "PPPPPPPP-P-"),
-    ("linear (sparse path)", "PPPPPPPP-P-"),
-    ("linear (PCG)", "PPPPPPPP-P-"),
-    ("constrained", "PPPPPPPP-P-"),
-    ("certified linear", "PPPPPPPP-P-"),
-    ("load combinations", "PPPPPPPP-P-"),
-    ("staged (one stage)", "PPPPPPPP-P-"),
-    ("staged (loads in two stages)", "PPPPPPP--P-"),
-    ("Winkler (no foundation)", "PPPPPPPP-P-"),
-    ("contact (no gaps)", "PPPPPPP--P-"),
-    ("SSI (no soil springs)", "PPPPPPP--P-"),
-    ("creep & shrinkage (t = t0)", "PPPPPPP--P-"),
-    ("P-Delta", "PPPPP------"),
-    ("corotational", "IIPPP------"),
-    ("material nonlinear", "PPPPP------"),
-    ("fiber nonlinear", "PPPPP------"),
-    ("cable solver", "-PPPP------"),
-    ("modal", "PPPPP-----P"),
-    ("certified modal", "PPPPP------"),
-    ("buckling", "PPPPPP-----"),
-    ("time history", "PPPPPPP----"),
-    ("spectral", "-PPPP------"),
-    ("harmonic", "PPPPPPP----"),
-    ("plastic collapse", "PPPPPP-----"),
-    ("kinematic check", "PPPPP------"),
-    ("moving loads", "-PPPP------"),
-    ("influence line", "-PPPP------"),
-    ("Winkler (active)", "PPPPPPP----"),
-    ("contact (active gap)", "--PPP------"),
+    ("linear", "PPPPPPPP---P"),
+    ("linear (WASM typed path)", "PPPPPPPP-P-P"),
+    ("linear (load session)", "PPPPPPPP-P-P"),
+    ("linear (dense reference)", "PPPPPPPP-P--"),
+    ("linear (sparse path)", "PPPPPPPP-P--"),
+    ("linear (PCG)", "PPPPPPPP-P--"),
+    ("constrained", "PPPPPPPP-P--"),
+    ("certified linear", "PPPPPPPP-P-P"),
+    ("load combinations", "PPPPPPPP-P--"),
+    ("staged (one stage)", "PPPPPPPP-P--"),
+    ("staged (loads in two stages)", "PPPPPPP--P--"),
+    ("Winkler (no foundation)", "PPPPPPPP-P--"),
+    ("contact (no gaps)", "PPPPPPP--P--"),
+    ("SSI (no soil springs)", "PPPPPPP--P--"),
+    ("creep & shrinkage (t = t0)", "PPPPPPP--P--"),
+    ("P-Delta", "PPPPP------P"),
+    ("corotational", "IIPPP-------"),
+    ("material nonlinear", "PPPPP-------"),
+    ("fiber nonlinear", "PPPPP-------"),
+    ("cable solver", "-PPPP-------"),
+    ("modal", "PPPPP-----PP"),
+    ("certified modal", "PPPPP-------"),
+    ("buckling", "PPPPPP-----P"),
+    ("time history", "PPPPPPP-----"),
+    ("spectral", "-PPPP-------"),
+    ("harmonic", "PPPPPPP-----"),
+    ("plastic collapse", "PPPPPP------"),
+    ("kinematic check", "PPPPP-------"),
+    ("moving loads", "-PPPP-------"),
+    ("influence line", "-PPPP-------"),
+    ("Winkler (active)", "PPPPPPP-----"),
+    ("contact (active gap)", "--PPP-------"),
 ];
 
 const MATRIX_3D: &[(&str, &str)] = &[
-    ("linear", "PPPPPPP---P"),
-    ("linear (sparse path)", "PPPPPPP-P-P"),
-    ("linear (PCG)", "PPPPPPP-P-P"),
-    ("constrained", "PPPPPPP-P-P"),
-    ("certified linear", "PPPPPPP-P-P"),
-    ("load combinations", "PPPPPPP-P-P"),
-    ("staged (one stage)", "PPPPPPP-P-P"),
-    ("staged (loads in two stages)", "PPPPPP--P-P"),
-    ("Winkler (no foundation)", "PPPPPPP-P-P"),
-    ("contact (no gaps)", "PPPPPP--P-P"),
-    ("SSI (no soil springs)", "PPPPPP--P-P"),
-    ("creep & shrinkage (t = t0)", "PPPPPP--P-P"),
-    ("P-Delta", "PPPP------P"),
-    ("corotational", "IPPP------P"),
-    ("material nonlinear", "PPPP------P"),
-    ("fiber nonlinear", "PPPP------P"),
-    ("cable solver", "PPPP-------"),
-    ("modal", "PPPP-----PP"),
-    ("certified modal", "PPPP------P"),
-    ("buckling", "PPPPP-----P"),
-    ("time history", "PPPPPP----P"),
-    ("time history (ground motion)", "PPPP------P"),
-    ("spectral", "PPPP------P"),
-    ("harmonic", "PPPPPP----P"),
-    ("plastic collapse", "PPPPP-----P"),
-    ("kinematic check", "PPPP------P"),
-    ("moving loads", "PPPP-------"),
-    ("influence line", "PPPP-------"),
-    ("Winkler (active)", "PPPPPP----P"),
-    ("contact (active gap)", "-PPP-------"),
+    ("linear", "PPPPPPPP---P"),
+    ("linear (load session)", "PPPPPPPP-P-P"),
+    ("linear (sparse path)", "PPPPPPPP-P-P"),
+    ("linear (PCG)", "PPPPPPPP-P-P"),
+    ("constrained", "P-PPPPPP-P-P"),
+    ("certified linear", "PPPPPPPP-P-P"),
+    ("load combinations", "P-PPPPPP-P-P"),
+    ("staged (one stage)", "P-PPPPPP-P-P"),
+    ("staged (loads in two stages)", "P-PPPPP--P-P"),
+    ("Winkler (no foundation)", "P-PPPPPP-P-P"),
+    ("contact (no gaps)", "P-PPPPP--P-P"),
+    ("SSI (no soil springs)", "P-PPPPP--P-P"),
+    ("creep & shrinkage (t = t0)", "P-PPPPP--P-P"),
+    ("P-Delta", "PPPPP------P"),
+    ("corotational", "I-PPP------P"),
+    ("material nonlinear", "P-PPP------P"),
+    ("fiber nonlinear", "P-PPP------P"),
+    ("cable solver", "P-PPP-------"),
+    ("modal", "PPPPP-----PP"),
+    ("certified modal", "P-PPP------P"),
+    ("buckling", "PPPPPP-----P"),
+    ("time history", "P-PPPPP----P"),
+    ("time history (ground motion)", "P-PPP------P"),
+    ("spectral", "P-PPP------P"),
+    ("harmonic", "P-PPPPP----P"),
+    ("plastic collapse", "P-PPPP-----P"),
+    ("kinematic check", "P-PPP------P"),
+    ("moving loads", "P-PPP-------"),
+    ("influence line", "P-PPP-------"),
+    ("Winkler (active)", "P-PPPPP----P"),
+    ("contact (active gap)", "--PPP-------"),
 ];
 
 fn assert_coverage(t: &Tally, names: &[&str], spatial: bool, count: u64, only: Option<&str>) {
@@ -660,11 +689,11 @@ fn assert_coverage(t: &Tally, names: &[&str], spatial: bool, count: u64, only: O
                     cell.ignored.iter().copied().collect::<Vec<_>>(),
                     vec!["ignored(#761)"]
                 );
-                assert_eq!(cell.pass + cell.fails.len(), 0);
+                assert_eq!(cell.pass + cell.same_refusal + cell.fails.len(), 0);
             } else {
                 assert!(cell.ignored.is_empty(), "unexpected ignore: {name} × {inv}");
                 assert_eq!(
-                    cell.pass + cell.fails.len(),
+                    cell.pass + cell.same_refusal + cell.fails.len(),
                     if expected == '-' { 0 } else { count as usize },
                     "coverage lost: {name} × {inv}"
                 );
@@ -862,6 +891,21 @@ pub(crate) fn validate_3d(name: &str, r: &crate::response::Resp, c: &Case3) -> R
     validate_response(name, r, &shape)
 }
 
+fn reported_frequencies(r: &crate::response::Resp) -> Vec<f64> {
+    (0..)
+        .map_while(|k| {
+            r.0.iter()
+                .find(|i| {
+                    i.node.is_none()
+                        && i.elem.is_none()
+                        && crate::response::frequency_index(&i.tag) == Some(k)
+                })
+                .and_then(|i| i.v.first())
+                .copied()
+        })
+        .collect()
+}
+
 pub(crate) fn validate_response(
     name: &str,
     r: &crate::response::Resp,
@@ -902,14 +946,30 @@ pub(crate) fn validate_response(
             for k in 0..6 {
                 add(None, None, format!("f{k:02}"), 1);
             }
-            for item in &shape.reference.0 {
-                if item.tag.starts_with("meff") {
-                    add(
-                        None,
-                        None,
-                        item.tag.clone(),
-                        if shape.spatial { 6 } else { 3 },
-                    );
+            // Stiffness scaling also uses this validator for shape-only checks;
+            // full adapter validation supplies an independent modal reference.
+            if shape.reference.0.is_empty() {
+                let frequencies = reported_frequencies(r);
+                for (k, pair) in frequencies.windows(2).enumerate() {
+                    if crate::response::modal_gap(pair[0], pair[1]) {
+                        add(
+                            None,
+                            None,
+                            format!("meff{k:02}"),
+                            if shape.spatial { 6 } else { 3 },
+                        );
+                    }
+                }
+            } else {
+                for item in &shape.reference.0 {
+                    if item.tag.starts_with("meff") {
+                        add(
+                            None,
+                            None,
+                            item.tag.clone(),
+                            if shape.spatial { 6 } else { 3 },
+                        );
+                    }
                 }
             }
         }
@@ -925,7 +985,12 @@ pub(crate) fn validate_response(
                 }
             }
         }
-        "plastic collapse" => add(None, None, "collapse_factor".into(), 1),
+        "plastic collapse" => {
+            add(None, None, "collapse_factor".into(), 1);
+            if r.0.iter().any(|i| i.tag == crate::response::LOWER_BOUND) {
+                add(None, None, crate::response::LOWER_BOUND.into(), 1);
+            }
+        }
         "kinematic check" => {
             for tag in ["mechanisms", "degree", "solvable"] {
                 add(None, None, tag.into(), 1);
@@ -971,7 +1036,7 @@ pub(crate) fn validate_response(
                 for &n in shape
                     .supports
                     .iter()
-                    .filter(|_| !["SSI (no soil springs)", "fiber nonlinear"].contains(&name))
+                    .filter(|_| name != "SSI (no soil springs)")
                 {
                     add(Some(n), None, "R".into(), w);
                     add(Some(n), None, "RM".into(), rw);
@@ -993,19 +1058,26 @@ pub(crate) fn validate_response(
             "{name}: response shape mismatch: expected {expected:?}, got {actual:?}"
         ));
     }
-    if matches!(name, "modal" | "certified modal") {
-        let frequencies: Vec<_> =
+    if name == "spectral" {
+        let positive_shear =
             r.0.iter()
-                .filter(|i| i.tag.starts_with('f'))
-                .map(|i| i.v[0])
-                .collect();
-        if r.0
-            .iter()
-            .any(|i| (i.tag == "total_mass" || i.tag.starts_with('f')) && i.v[0] <= 0.0)
-            || frequencies.windows(2).any(|f| f[1] < f[0])
+                .any(|i| i.tag == "base_shear" && matches!(i.v.as_slice(), [v] if *v > 0.0));
+        let motion =
+            r.0.iter()
+                .any(|i| i.tag == "u" && i.v.iter().any(|v| v.abs() > 0.0));
+        if !positive_shear || !motion {
+            return Err("spectral: expected positive base shear and nonzero motion".into());
+        }
+    }
+    if matches!(name, "modal" | "certified modal") {
+        let frequencies = reported_frequencies(r);
+        if r.0.iter().any(|i| {
+            (i.tag == "total_mass" || crate::response::frequency_index(&i.tag).is_some())
+                && i.v.first().map_or(true, |v| *v <= 0.0)
+        }) || frequencies.windows(2).any(|f| f[1] < f[0])
         {
             return Err(format!(
-                "{name}: nonpositive mass/frequency or unordered modes"
+                "{name}: mass/frequency must be positive and modes ordered"
             ));
         }
     }
@@ -1129,18 +1201,24 @@ fn response_shape_rejects_missing_data() {
             ResponseShape::of_2d(&c2),
             ana2::rows()
                 .into_iter()
-                .map(|a| (a.name, (a.run)(&c2).unwrap()))
+                .map(|a| (a.name, crate::response::outcome((a.run)(&c2)).unwrap()))
                 .collect::<Vec<_>>(),
         ),
         (
             ResponseShape::of_3d(&c3),
             ana3::rows()
                 .into_iter()
-                .map(|a| (a.name, (a.run)(&c3).unwrap()))
+                .map(|a| (a.name, crate::response::outcome((a.run)(&c3)).unwrap()))
                 .collect::<Vec<_>>(),
         ),
     ] {
         for (name, response) in responses {
+            if !response.1.is_empty() {
+                assert_eq!((name, shape.spatial), ("plastic collapse", false));
+                assert!(response.0.is_empty(), "refusal must withhold quantities");
+                assert_eq!(response.1, vec![("PL-2D-INVARIANCE".into(), 758)]);
+                continue;
+            }
             let shape = ResponseShape {
                 reference: if shape.spatial {
                     reference_3d(name, &c3)
@@ -1387,6 +1465,156 @@ fn strict_3d_rejects_failed_zero_load_solves() {
     }
 }
 
+pub(crate) fn excited_history_witness(r: &crate::response::Resp, shape: &ResponseShape) {
+    assert!(
+        r.0.iter().any(|i| {
+            i.node
+                .is_some_and(|n| shape.nodes.contains(&n) && !shape.supports.contains(&n))
+                && i.tag.starts_with("u_t")
+                && i.tag != "u_t000"
+                && i.v.iter().any(|v| v.is_finite() && v.abs() > 0.0)
+        }),
+        "excited fixture has no free-node motion after the initial step"
+    );
+}
+
+#[test]
+fn excited_history_rejects_zero_responses() {
+    let _strict = Strict::enter();
+    for seed in 0..8 {
+        let c2 = Case2::new(
+            "excited",
+            serde_json::from_value(model(seed, false)).unwrap(),
+        );
+        let c3 = Case3::new(
+            "excited",
+            serde_json::from_value(model(seed, true)).unwrap(),
+        );
+        let responses = ana2::rows()
+            .into_iter()
+            .filter(|a| a.name == "time history")
+            .map(|a| (a.name, ResponseShape::of_2d(&c2), (a.run)(&c2).unwrap()))
+            .chain(
+                ana3::rows()
+                    .into_iter()
+                    .filter(|a| a.name.starts_with("time history"))
+                    .map(|a| (a.name, ResponseShape::of_3d(&c3), (a.run)(&c3).unwrap())),
+            );
+        for (name, shape, mut response) in responses {
+            validate_response(name, &response, &shape).unwrap();
+            excited_history_witness(&response, &shape);
+            for item in &mut response.0 {
+                item.v.fill(0.0);
+            }
+            validate_response(name, &response, &shape).unwrap();
+            assert!(
+                std::panic::catch_unwind(|| excited_history_witness(&response, &shape)).is_err()
+            );
+        }
+    }
+}
+
+#[test]
+fn strict_rejects_zero_modal_and_spectral_adapters() {
+    fn name(index: usize) -> &'static str {
+        ["modal", "certified modal", "spectral"][index]
+    }
+    fn zero(mut r: crate::response::Resp) -> crate::response::Resp {
+        // Zero frequencies have no separated-mode boundaries: omit the tensors
+        // exactly as a correctly shaped all-zero modal adapter would.
+        r.0.retain(|i| !i.tag.starts_with("meff"));
+        for i in &mut r.0 {
+            i.v.fill(0.0);
+        }
+        r
+    }
+    fn faulty2<const N: usize>(c: &Case2) -> Result<crate::response::Resp, String> {
+        let a = ana2::rows()
+            .into_iter()
+            .find(|a| a.name == name(N))
+            .unwrap();
+        (a.run)(c).map(zero)
+    }
+    fn faulty3<const N: usize>(c: &Case3) -> Result<crate::response::Resp, String> {
+        let a = ana3::rows()
+            .into_iter()
+            .find(|a| a.name == name(N))
+            .unwrap();
+        (a.run)(c).map(zero)
+    }
+    let _strict = Strict::enter();
+    let c2 = Case2::new(
+        "zero mutation",
+        serde_json::from_value(model(1, false)).unwrap(),
+    );
+    let c3 = Case3::new(
+        "zero mutation",
+        serde_json::from_value(model(1, true)).unwrap(),
+    );
+    for (n, (run2, run3)) in [
+        (
+            faulty2::<0> as fn(&Case2) -> _,
+            faulty3::<0> as fn(&Case3) -> _,
+        ),
+        (faulty2::<1>, faulty3::<1>),
+        (faulty2::<2>, faulty3::<2>),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let mut a2 = ana2::rows()
+            .into_iter()
+            .find(|a| a.name == name(n))
+            .unwrap();
+        let mut a3 = ana3::rows()
+            .into_iter()
+            .find(|a| a.name == name(n))
+            .unwrap();
+        for faulty in [false, true] {
+            if faulty {
+                a2.run = run2;
+                a3.run = run3;
+            }
+            let t2 = Tally::default();
+            let t3 = Tally::default();
+            checks2::check_case(
+                &checks2::Ctx {
+                    tally: &t2,
+                    rng_seed: 1,
+                },
+                &c2,
+                std::slice::from_ref(&a2),
+                &["relabel"],
+            );
+            checks3::check_case(
+                &checks3::Ctx {
+                    tally: &t3,
+                    rng_seed: 1,
+                },
+                &c3,
+                std::slice::from_ref(&a3),
+                &["relabel"],
+            );
+            for t in [&t2, &t3] {
+                assert_eq!(
+                    t.symbol(name(n), "relabel"),
+                    if faulty { "✗" } else { "✓" },
+                    "{} {:?}",
+                    t.report(),
+                    t.failures()
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn generated_modal_and_spectral_witnesses() {
+    for name in ["modal", "certified modal", "spectral"] {
+        sweep(8, Some(name));
+    }
+}
+
 #[test]
 fn absolute_oracles_reject_zeroed_adapters() {
     let _strict = Strict::enter();
@@ -1536,5 +1764,249 @@ fn absolute_oracles_reject_zeroed_adapter_runs() {
                 tally.report()
             );
         }
+    }
+}
+
+#[test]
+fn structured_refusals_require_exact_identity() {
+    use crate::response::{outcome, Resp};
+    use dedaliano_engine::{known_issues, metamorphic::compare::compare};
+    let error =
+        || known_issues::refuse(&[known_issues::diagnostic("PL-2D-INVARIANCE")]).unwrap_err();
+    let refused = outcome(Err(error())).unwrap();
+    assert_eq!(refused.1, vec![("PL-2D-INVARIANCE".into(), 758)]);
+    let same = outcome(Err(error())).unwrap();
+    assert!(compare(&refused.flat(), &same.flat(), 1.0, 1e-10).is_ok());
+    for different in [
+        Resp::default(),
+        Resp(vec![], vec![("another-id".into(), 758)]),
+        Resp(vec![], vec![("PL-2D-INVARIANCE".into(), 759)]),
+    ] {
+        assert!(compare(&refused.flat(), &different.flat(), 1.0, 1e-10).is_err());
+        assert!(compare(&different.flat(), &refused.flat(), 1.0, 1e-10).is_err());
+    }
+    for invalid in [
+        "ordinary solver failure".to_string(),
+        "{}".to_string(),
+        json!({"structuredDiagnostics": [known_issues::diagnostic("PL-3D-INVARIANCE")]})
+            .to_string(),
+        error().replace("\"phase\":\"PL-2D-INVARIANCE\"", "\"phase\":null"),
+    ] {
+        assert!(outcome(Err(invalid)).is_err());
+    }
+}
+
+#[test]
+fn refusals_must_be_registered_and_in_scope() {
+    use crate::response::{outcome, scoped};
+    use dedaliano_engine::known_issues;
+    let plastic = || outcome(Err(known_issues::refuse(&[known_issues::diagnostic("PL-2D-INVARIANCE")]).unwrap_err())).unwrap();
+    assert!(scoped("plastic collapse", true, false, plastic()).is_ok());
+    assert!(scoped("plastic collapse", false, false, plastic()).is_err(), "the 2D issue never withholds a 3D result");
+    assert!(scoped("linear", true, false, plastic()).is_err(), "an ordinary linear model that always refuses must fail");
+    let distortion = || outcome(Err(known_issues::refuse(&[known_issues::diagnostic("SH-MITC4-DISTORTION")]).unwrap_err())).unwrap();
+    assert!(scoped("linear", false, true, distortion()).is_ok());
+    assert!(scoped("linear", false, false, distortion()).is_err());
+    let strip = |direction: usize| -> dedaliano_engine::types::SolverInput3D {
+        let nodes: serde_json::Map<_, _> = (0..=6).flat_map(|i| (0..2).map(move |j| {
+            let shift = if i == 0 || i == 6 { 0.0 } else { (if i % 2 == 1 { 0.1 } else { -0.1 }) * (if j == 0 { -1.0 } else { 1.0 }) };
+            let id = 1 + 2 * i + j;
+            (id.to_string(), json!({"id": id, "x": i as f64 + shift, "y": 0.2 * j as f64, "z": 0.0}))
+        })).collect();
+        let quads: serde_json::Map<_, _> = (0..6).map(|i| ((i + 1).to_string(), json!({"id": i + 1, "nodes": [2 * i + 1, 2 * i + 3, 2 * i + 4, 2 * i + 2], "materialId": 1, "thickness": 0.1}))).collect();
+        let fixed = |id: usize| json!({"nodeId": id, "rx": true, "ry": true, "rz": true, "rrx": true, "rry": true, "rrz": true});
+        let mut f = [0.0; 3];
+        f[direction] = 0.5;
+        let load = |id: usize| json!({"type": "nodal", "data": {"nodeId": id, "fx": f[0], "fy": f[1], "fz": f[2], "mx": 0.0, "my": 0.0, "mz": 0.0}});
+        serde_json::from_value(json!({
+            "nodes": nodes, "quads": quads, "elements": {}, "sections": {},
+            "materials": {"1": {"id": 1, "e": 10000.0, "nu": 0.3}},
+            "supports": {"1": fixed(1), "2": fixed(2)},
+            "loads": [load(13), load(14)],
+        })).unwrap()
+    };
+    let admissible = |direction: usize| crate::checks3::distortion_refusal_admissible("linear", &strip(direction));
+    assert!(admissible(1), "in-plane bending of the distorted strip is refused");
+    assert!(!admissible(2), "an unconditional refusal of the distorted strip under out-of-plane bending must fail");
+    assert!(dedaliano_engine::solver::linear::solve_3d(&strip(2)).is_ok());
+    assert!(scoped("linear", false, admissible(2), distortion()).is_err());
+    assert!(crate::checks3::distortion_refusal_admissible("modal", &strip(2)), "fields the harness does not solve keep the model-level scope");
+    let mut promoted = known_issues::diagnostic("NUM-INVARIANCE");
+    promoted.severity = dedaliano_engine::types::Severity::Error;
+    assert!(outcome(Err(known_issues::refuse(&[promoted]).unwrap_err())).is_err(), "a warning-only issue is not a registered refusal");
+    let error = known_issues::refuse(&[known_issues::diagnostic("PL-2D-INVARIANCE")]).unwrap_err();
+    assert!(outcome(Err(error.replace("\"value\":758.0", "\"value\":759.0"))).is_err(), "issue number must match the registry");
+    let mut failure = known_issues::diagnostic("PL-2D-INVARIANCE");
+    failure.code = dedaliano_engine::types::DiagnosticCode::SingularMatrix;
+    failure.phase = None;
+    failure.value = None;
+    let both = known_issues::refuse(&[known_issues::diagnostic("PL-2D-INVARIANCE"), failure]).unwrap_err();
+    assert!(outcome(Err(both)).is_err(), "a solver error beside a registered refusal is still an error");
+}
+
+#[test]
+fn refusal_changes_under_units_fail_in_both_directions() {
+    fn refusal() -> Result<crate::response::Resp, String> {
+        Err(
+            dedaliano_engine::known_issues::refuse(&[dedaliano_engine::known_issues::diagnostic(
+                "PL-2D-INVARIANCE",
+            )])
+            .unwrap_err(),
+        )
+    }
+    fn faulty2<const BASE_REFUSED: bool>(c: &Case2) -> Result<crate::response::Resp, String> {
+        let base_e = model(1, false)["materials"]["1"]["e"].as_f64().unwrap();
+        if (c.s.materials["1"].e == base_e) == BASE_REFUSED {
+            return refusal();
+        }
+        (ana2::rows()
+            .into_iter()
+            .find(|a| a.name == "linear")
+            .unwrap()
+            .run)(c)
+    }
+    fn always2(_: &Case2) -> Result<crate::response::Resp, String> { refusal() }
+    fn refusal3() -> Result<crate::response::Resp, String> {
+        Err(dedaliano_engine::known_issues::refuse(&[dedaliano_engine::known_issues::diagnostic("BU-BOUND")]).unwrap_err())
+    }
+    fn always3(_: &Case3) -> Result<crate::response::Resp, String> { refusal3() }
+    fn faulty3<const BASE_REFUSED: bool>(c: &Case3) -> Result<crate::response::Resp, String> {
+        let base_e = model(1, true)["materials"]["1"]["e"].as_f64().unwrap();
+        if (c.s.materials["1"].e == base_e) == BASE_REFUSED {
+            return refusal3();
+        }
+        (ana3::rows()
+            .into_iter()
+            .find(|a| a.name == "linear")
+            .unwrap()
+            .run)(c)
+    }
+    let _strict = Strict::enter();
+    let c2 = Case2::new("refusal", serde_json::from_value(model(1, false)).unwrap());
+    let c3 = Case3::new("refusal", serde_json::from_value(model(1, true)).unwrap());
+    let mut a2 = ana2::rows()
+        .into_iter()
+        .find(|a| a.name == "linear")
+        .unwrap();
+    a2.name = "plastic collapse";
+    let mut a3 = ana3::rows()
+        .into_iter()
+        .find(|a| a.name == "linear")
+        .unwrap();
+    a3.name = "buckling";
+    for (run, expected) in [(faulty2::<false> as fn(&Case2) -> _, "✗"), (faulty2::<true>, "✗"), (always2, "R")] {
+        a2.run = run;
+        let t = Tally::default();
+        checks2::check_case(
+            &checks2::Ctx {
+                tally: &t,
+                rng_seed: 1,
+            },
+            &c2,
+            std::slice::from_ref(&a2),
+            &["units"],
+        );
+        assert_eq!(t.symbol("plastic collapse", "units"), expected, "{}", t.report());
+    }
+    for (run, expected) in [(faulty3::<false> as fn(&Case3) -> _, "✗"), (faulty3::<true>, "✗"), (always3, "✗")] {
+        a3.run = run;
+        let t = Tally::default();
+        checks3::check_case(
+            &checks3::Ctx {
+                tally: &t,
+                rng_seed: 1,
+            },
+            &c3,
+            std::slice::from_ref(&a3),
+            &["units"],
+        );
+        assert_eq!(t.symbol("buckling", "units"), expected, "{}", t.report());
+    }
+}
+
+#[test]
+fn strict_validator_rejects_bad_spectral_shear_and_modal_tensors() {
+    let _strict = Strict::enter();
+    let c2 = Case2::new(
+        "validator",
+        serde_json::from_value(model(1, false)).unwrap(),
+    );
+    let c3 = Case3::new("validator", serde_json::from_value(model(1, true)).unwrap());
+    let run2 = |name: &str| {
+        let a = ana2::rows().into_iter().find(|a| a.name == name).unwrap();
+        (a.run)(&c2).unwrap()
+    };
+    let run3 = |name: &str| {
+        let a = ana3::rows().into_iter().find(|a| a.name == name).unwrap();
+        (a.run)(&c3).unwrap()
+    };
+    let shapes = [ResponseShape::of_2d(&c2), ResponseShape::of_3d(&c3)];
+    for (spectral, shape) in [run2("spectral"), run3("spectral")]
+        .into_iter()
+        .zip(&shapes)
+    {
+        validate_response("spectral", &spectral, shape).unwrap();
+        for (shear, error) in [
+            (
+                vec![0.0],
+                "spectral: expected positive base shear and nonzero motion",
+            ),
+            (
+                vec![-1.0],
+                "spectral: expected positive base shear and nonzero motion",
+            ),
+            (vec![1.0, 1.0], "spectral: response shape mismatch"),
+            (
+                vec![f64::INFINITY],
+                "spectral: empty, nonfinite or duplicate response",
+            ),
+        ] {
+            let mut r = spectral.clone();
+            r.0.iter_mut().find(|i| i.tag == "base_shear").unwrap().v = shear;
+            assert!(validate_response("spectral", &r, shape)
+                .unwrap_err()
+                .starts_with(error));
+        }
+        let mut still = spectral.clone();
+        for item in still.0.iter_mut().filter(|i| i.tag == "u") {
+            item.v.iter_mut().for_each(|v| *v = 0.0);
+        }
+        assert!(still.0.iter().any(|i| i.tag == "base_shear" && i.v[0] > 0.0));
+        assert!(validate_response("spectral", &still, shape)
+            .unwrap_err()
+            .starts_with("spectral: expected positive base shear and nonzero motion"));
+    }
+    for (modal, shape) in [run2("modal"), run3("modal")].into_iter().zip(&shapes) {
+        validate_response("modal", &modal, shape).unwrap();
+        let last = modal
+            .0
+            .iter()
+            .rev()
+            .find(|i| i.tag.starts_with("meff"))
+            .unwrap()
+            .tag
+            .clone();
+        let mut missing = modal.clone();
+        missing.0.retain(|i| i.tag != last);
+        assert!(validate_response("modal", &missing, shape)
+            .unwrap_err()
+            .starts_with("modal: response shape mismatch"));
+        let k: usize = last.strip_prefix("meff").unwrap().parse().unwrap();
+        let mut clustered = modal.clone();
+        let lower = clustered
+            .0
+            .iter()
+            .find(|i| crate::response::frequency_index(&i.tag) == Some(k))
+            .unwrap()
+            .v[0];
+        clustered
+            .0
+            .iter_mut()
+            .find(|i| crate::response::frequency_index(&i.tag) == Some(k + 1))
+            .unwrap()
+            .v = vec![lower * (1.0 + 1e-3)];
+        assert!(validate_response("modal", &clustered, shape)
+            .unwrap_err()
+            .starts_with("modal: response shape mismatch"));
     }
 }

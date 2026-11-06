@@ -12,7 +12,11 @@
 //! * `metamorphic_nightly_*` (`--ignored`) — the whole corpus and many random
 //!   models; `METAMORPHIC_SEED` moves the random part (printed on failure).
 
+#[path = "../common/mod.rs"]
+mod common;
+
 mod active;
+mod stiffness;
 mod generated;
 mod safety_cases;
 mod ana2;
@@ -22,6 +26,9 @@ mod checks2;
 mod checks3;
 mod corpus;
 mod modal_checks;
+mod parity;
+mod nightly_tolerances;
+mod quick;
 mod regressions;
 mod response;
 mod symmetry;
@@ -29,8 +36,8 @@ mod tally;
 
 use tally::Tally;
 
-pub const INV_2D: &[&str] = &["rotation", "mirror", "relabel", "reversal", "units", "superposition", "reciprocity", "energy", "symmetry", "linear agreement", "modal orthogonality"];
-pub const INV_3D: &[&str] = &["rotation", "relabel", "reversal", "units", "superposition", "reciprocity", "energy", "symmetry", "linear agreement", "modal orthogonality"];
+pub const INV_2D: &[&str] = &["rotation", "mirror", "relabel", "reversal", "units", "superposition", "reciprocity", "energy", "symmetry", "linear agreement", "modal orthogonality", "planes"];
+pub const INV_3D: &[&str] = &["rotation", "mirror", "relabel", "reversal", "units", "superposition", "reciprocity", "energy", "symmetry", "linear agreement", "modal orthogonality"];
 
 fn seed() -> u64 {
     std::env::var("METAMORPHIC_SEED").ok().and_then(|s| s.parse().ok()).unwrap_or(20261018)
@@ -66,11 +73,13 @@ fn check_doc(section: &str, table: &str) {
 fn finish(name: &str, t: &Tally) {
     let rep = t.report();
     println!("== {name} (seed {})\n{rep}", seed());
+    let f = t.failures();
     if let Ok(dir) = std::env::var("METAMORPHIC_REPORT_DIR") {
         let _ = std::fs::create_dir_all(&dir);
         let _ = std::fs::write(format!("{dir}/{name}.txt"), &rep);
+        // One violation per line, for the job summary and the triage issues.
+        let _ = std::fs::write(format!("{dir}/{name}-violations.txt"), f.iter().map(|v| format!("{v}\n")).collect::<String>());
     }
-    let f = t.failures();
     assert!(f.is_empty(), "{} metamorphic violation(s) (seed {}):\n{}", f.len(), seed(), f.join("\n"));
 }
 

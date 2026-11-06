@@ -471,9 +471,9 @@ fn sfrc_beam_vs_conventional_rc_stiffness() {
     let fc: f64 = 35.0;
     let ec: f64 = 4700.0 * fc.sqrt();
 
-    let b: f64 = 300.0;
-    let h: f64 = 600.0;
-    let l: f64 = 8000.0;
+    let b: f64 = 0.3;
+    let h: f64 = 0.6;
+    let l: f64 = 8.0;
     let a_sec: f64 = b * h;
     let ig: f64 = b * h.powi(3) / 12.0; // gross moment of inertia
 
@@ -487,7 +487,7 @@ fn sfrc_beam_vs_conventional_rc_stiffness() {
     let iz_sfrc: f64 = ig * cracked_ratio_sfrc;
 
     let n = 8;
-    let q = -0.030; // kN/mm (30 kN/m UDL)
+    let q = -30.0;
 
     let mut loads_rc = Vec::new();
     let mut loads_sfrc = Vec::new();
@@ -525,10 +525,8 @@ fn sfrc_beam_vs_conventional_rc_stiffness() {
     let reduction_pct: f64 = (1.0 - d_sfrc / d_rc) * 100.0;
     assert_close(reduction_pct, 30.0, 0.05, "SFRC deflection reduction ~30%");
 
-    // Verify exact deflection formula: delta = 5*q*L^4 / (384*E*I)
-    // All in consistent units: E in MPa, I in mm^4, q in same force/length as solver, L in mm
-    let delta_rc_exact: f64 = 5.0 * q.abs() * l.powi(4) / (384.0 * ec * iz_rc);
-    assert_close(d_rc, delta_rc_exact, 0.05, "RC deflection matches formula");
+    let delta_rc_exact: f64 = 5.0 * q.abs() * l.powi(4) / (384.0 * ec * 1000.0 * iz_rc);
+    assert_close(d_rc, delta_rc_exact, 1e-9, "RC deflection matches formula");
 }
 
 // ================================================================

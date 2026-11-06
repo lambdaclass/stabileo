@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from '../../Hint.svelte';
   /**
    * The frame editor's tools: the selected bar (its face, row, bars, diameter, ends and hooks; cut,
    * lap with a second bar, join, delete), a new bar, the selected stirrup zone (edit, split,
@@ -72,7 +73,7 @@
           <button onclick={() => { apply(joinBars(line, bar.id, second.id)); clearSelection(); }} data-testid="frame-bar-join">{t('frameEd.join')}</button>
         </div>
       {:else}
-        <p class="fp-hint">{t('frameEd.shiftHint')}</p>
+        <Hint text={t('frameEd.shiftHint')} />
       {/if}
       <button class="fp-danger" onclick={() => { apply(removeBar(line, bar.id)); clearSelection(); }} data-testid="frame-bar-delete">{t('frameEd.delete')}</button>
     </section>
@@ -114,7 +115,7 @@
   {#if line.members.length > 1}
     <section class="fp-card">
       <h5>{t('frameEd.spans')}</h5>
-      <p class="fp-hint">{t('frameEd.spansHint')}</p>
+      <Hint text={t('frameEd.spansHint')} />
       <div class="fp-row">
         <label>{t('frameEd.fromSpan')}<input type="number" min="1" max={line.members.length} value={s0 + 1} onchange={(e) => (s0 = num(e) - 1)} /></label>
         <label>{t('frameEd.toSpan')}<input type="number" min="1" max={line.members.length} value={s1 + 1} onchange={(e) => (s1 = num(e) - 1)} /></label>

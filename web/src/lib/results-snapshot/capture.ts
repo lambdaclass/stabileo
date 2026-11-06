@@ -44,8 +44,9 @@ import { findBehaviour, R_ELASTIC } from '../codes/cirsoc103/behaviour';
 import { setLocale } from '../i18n';
 import { errorText } from '../utils/error-text';
 // @ts-expect-error plain JavaScript shared with the CI gate (no declaration file)
-import { flatten, FORMAT } from '../../../scripts/results-snapshot/compare.mjs';
+import { flatten, FORMAT, DEFAULT_SKIP } from '../../../scripts/results-snapshot/compare.mjs';
 import type { SnapshotCase } from './corpus';
+import { governingCombos } from './governing-ties';
 
 export interface Snapshot {
   case: string;
@@ -55,6 +56,18 @@ export interface Snapshot {
 }
 
 type Values = Snapshot['values'];
+export const containmentFindings = new Set<string>();
+export function collectContainment(value: unknown): void {
+  if (typeof value === 'string') {
+    try { collectContainment(JSON.parse(value)); } catch { /* Ordinary error text. */ }
+  } else if (Array.isArray(value)) value.forEach(collectContainment);
+  else if (value && typeof value === 'object') {
+    if (value instanceof Error) collectContainment(value.message);
+    const record = value as Record<string, unknown>;
+    if (record.code === 'known_issue') containmentFindings.add(`${record.severity}:${record.phase}`);
+    for (const child of Object.values(record)) if (child && (typeof child === 'object' || typeof child === 'string')) collectContainment(child);
+  }
+}
 
 /** Every store a case writes to, back to a fresh session's state. */
 function reset(c: SnapshotCase): void {
@@ -74,9 +87,9 @@ function reset(c: SnapshotCase): void {
   uiStore.designInPro = !!c.design;
 }
 
-async function open(c: SnapshotCase): Promise<void> {
+async function open(c: SnapshotCase, fixture?: unknown): Promise<void> {
   if ('example' in c.source) {
-    await modelStore.loadExample(c.source.example);
+    await modelStore.loadExample(c.source.example, fixture === undefined ? undefined : async () => structuredClone(fixture));
   } else {
     const text = readFileSync(new URL(`../../../${c.source.ded}`, import.meta.url), 'utf8');
     if (!deserializeProject(text)) throw new Error(`${c.source.ded} does not open`);
@@ -89,6 +102,15 @@ async function open(c: SnapshotCase): Promise<void> {
 function analysis(prefix: string, r: unknown, out: Values): void {
   if (!r || typeof r !== 'object') { out[prefix] = null; return; }
   const { solverDiagnostics, structuredDiagnostics, diagnostics, ...rest } = r as Record<string, unknown>;
+  if (rest.resultSummary && typeof rest.resultSummary === 'object') {
+    const { secondOrderRatio: _screen, ...summary } = rest.resultSummary as Record<string, unknown>;
+    rest.resultSummary = summary;
+  }
+  if (Array.isArray(structuredDiagnostics)) {
+    for (const d of structuredDiagnostics) {
+      if (d.code === 'known_issue') containmentFindings.add(`${d.severity}:${d.phase}`);
+    }
+  }
   const own: Values = {};
   flatten(rest, prefix, own);
   // A case with no loads gives zeros everywhere: one line says so. If it ever gives anything
@@ -111,16 +133,50 @@ function analysis(prefix: string, r: unknown, out: Values): void {
   out[`${prefix}.diagnosticCodes`] = [codes(solverDiagnostics), codes(structuredDiagnostics), codes(diagnostics)].filter(Boolean).join(' | ');
 }
 
+/**
+ * The combinations' envelope as the app publishes it (`resultsStore.envelope3D` / `envelope`): each
+ * diagram's maximum and minimum at every station of every member, its peak, the max-abs results,
+ * and the combination that governs each member's every component (`governing3D` / `governing2D`).
+ */
+function captureEnvelope(env: unknown, governing: Map<number, unknown>, perCombo: Map<number, { elementForces: unknown[] }>, out: Values): void {
+  if (!env || typeof env !== 'object') return;
+  const { maxAbsResults, maxAbsResults3D, ...diagrams } = env as Record<string, unknown>;
+  for (const [kind, d] of Object.entries(diagrams)) {
+    const { elements, ...rest } = (d ?? {}) as { elements?: Array<{ elementId: number; posValues: number[]; negValues: number[] }> };
+    flatten(rest, `envelope.${kind}`, out, ENVELOPE_SKIP);
+    for (const e of elements ?? []) flatten({ posValues: e.posValues, negValues: e.negValues }, `envelope.${kind}[e${e.elementId}]`, out);
+  }
+  analysis('envelope.maxAbs', maxAbsResults3D ?? maxAbsResults, out);
+  for (const [id, g] of [...governing].sort(([a], [b]) => a - b)) {
+    for (const [component, ref] of Object.entries((g ?? {}) as Record<string, { comboId: number; value: number } | undefined>)) {
+      if (!ref) continue;
+      const p = `envelope.governing[e${id}].${component}`;
+      flatten(ref.value, `${p}.value`, out);
+      out[`${p}.combos`] = governingCombos(perCombo, id, component, ref).join(',');
+    }
+  }
+}
+
+/** The station positions are each member's geometry, not a result. */
+const ENVELOPE_SKIP = new Set(['tPositions', 'kind']);
+
 function captureResults(out: Values): void {
   if (uiStore.is3DWorkspace) {
     analysis('base', resultsStore.singleResults3D ?? resultsStore.results3D, out);
     for (const [id, r] of resultsStore.perCase3D) analysis(`case[${id}]`, r, out);
     for (const [id, r] of resultsStore.perCombo3D) analysis(`combo[${id}]`, r, out);
+    const env = resultsStore.envelope3D?.maxAbsResults3D;
+    if (env?.plateStresses?.length || env?.quadStresses?.length) {
+      // Which set an extreme comes from is a tie on a symmetric model, as `maxId` is.
+      flatten({ plateStresses: env.plateStresses ?? [], quadStresses: env.quadStresses ?? [] }, 'envelope', out, new Set([...DEFAULT_SKIP, 'maxSource', 'minSource']));
+    }
     if (resultsStore.unstableCombinations3D.length) out['unstableCombinations'] = resultsStore.unstableCombinations3D.join(',');
+    captureEnvelope(resultsStore.envelope3D, resultsStore.governing3D as Map<number, unknown>, resultsStore.perCombo3D as never, out);
   } else {
     analysis('base', resultsStore.singleResults ?? resultsStore.results, out);
     for (const [id, r] of resultsStore.perCase) analysis(`case[${id}]`, r, out);
     for (const [id, r] of resultsStore.perCombo) analysis(`combo[${id}]`, r, out);
+    captureEnvelope(resultsStore.envelope, resultsStore.governing2D as Map<number, unknown>, resultsStore.perCombo as never, out);
   }
 }
 
@@ -158,12 +214,13 @@ function captureDesign(out: Values): void {
 /** The Advanced tab's runs, with its inputs and its reading of each result. */
 function captureAdvanced(c: SnapshotCase, out: Values): void {
   const guard = (name: string, run: () => void) => {
-    try { run(); } catch (e) { out[`${name}.refusal`] = errorText(e, 'Error'); }
+    try { run(); } catch (e) { collectContainment(e); out[`${name}.refusal`] = errorText(e, 'Error'); }
   };
   let modal: { modes?: unknown[] } | null = null;
   for (const a of c.advanced ?? []) {
     if (a === 'pdelta') guard('pdelta', () => {
       const res = solvePDelta3D(centerlineInput({ caseDisplacements: true }));
+      collectContainment(res);
       if (typeof res === 'string') { out['pdelta.refusal'] = res; return; }
       const amp = res.results ? amplification(res as never) : { b2: Infinity, stable: false };
       flatten({ converged: !!res.converged, iterations: res.iterations ?? 0, b2: amp.b2, stable: amp.stable }, 'pdelta', out);
@@ -172,6 +229,7 @@ function captureAdvanced(c: SnapshotCase, out: Values): void {
     if (a === 'modal') guard('modal', () => {
       const { input, densities } = dynamicInput();
       const res = solveModal3D(input, densities, 6);
+      collectContainment(res);
       if (typeof res === 'string') { out['modal.refusal'] = res; return; }
       modal = res as never;
       flatten((res as { totalMass?: number }).totalMass, 'modal.totalMass', out);
@@ -195,12 +253,14 @@ function captureAdvanced(c: SnapshotCase, out: Values): void {
       const modes = spectralModesFrom(modal as never);
       for (const direction of HORIZONTAL_DIRECTIONS) {
         const res = solveSpectral3D({ solver: input, modes, densities, spectrum, direction, rule: 'CQC', importanceFactor: RISK_FACTOR[group as keyof typeof RISK_FACTOR], reductionFactor: settingsR ?? 1, xi: 0.05 } as never);
+        collectContainment(res);
         if (typeof res === 'string') { out[`spectral.${direction}.refusal`] = res; continue; }
         analysis(`spectral.${direction}`, res, out);
       }
     });
     if (a === 'buckling') guard('buckling', () => {
       const res = solveBuckling3D(centerlineInput(), 4);
+      collectContainment(res);
       if (typeof res === 'string') { out['buckling.refusal'] = res; return; }
       const factors = (res as { factors?: number[]; eigenvalues?: number[]; modes?: Array<{ loadFactor?: number; factor?: number; eigenvalue?: number }> });
       flatten(factors.factors ?? factors.eigenvalues ?? factors.modes?.map((m) => m.loadFactor ?? m.factor ?? m.eigenvalue) ?? [], 'buckling.factors', out);
@@ -210,18 +270,21 @@ function captureAdvanced(c: SnapshotCase, out: Values): void {
 
 /**
  * Run one case and return its snapshot. `afterOpen` edits the opened project before the solve:
- * the negative test's deliberate result change (`__tests__/negative.test.ts`).
+ * the negative test's deliberate result change (`__tests__/negative.test.ts`). `fixture` opens an
+ * example from that fixture instead of the bundled one: the example as another commit had it.
  */
-export async function capture(c: SnapshotCase, opts: { afterOpen?: () => void } = {}): Promise<Snapshot> {
+export async function capture(c: SnapshotCase, opts: { afterOpen?: () => void; fixture?: unknown } = {}): Promise<Snapshot> {
+  containmentFindings.clear();
   setLocale('en');
   reset(c);
-  await open(c);
+  await open(c, opts.fixture);
   opts.afterOpen?.();
   const values: Values = {};
   values['model.nodes'] = modelStore.nodes.size;
   values['model.elements'] = modelStore.elements.size;
   values['model.shells'] = modelStore.quads.size + modelStore.plates.size;
   const outcome = await solveNow();
+  collectContainment(outcome);
   values['solve.ok'] = outcome.ok;
   if (!outcome.ok) values['solve.refusal'] = outcome.error;
   else {

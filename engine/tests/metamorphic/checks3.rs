@@ -3,11 +3,11 @@
 use crate::ana2::Law;
 use crate::ana3::{Ana3, Motion};
 use crate::case::Case3;
-use crate::checks2::{guarded, hash, rel_for, settle, transformed_failure, REDUCES_TO_LINEAR};
+use crate::checks2::{bounded, guarded, hash, is_lower_bound, rel_for, settle, transformed_failure, REDUCES_TO_LINEAR};
 use crate::response::{Kind, Resp};
 use crate::tally::{Tally, Verdict};
 use dedaliano_engine::element::compute_local_axes_3d;
-use dedaliano_engine::metamorphic::compare::{compare_floored, compare_with_floor, Flat, Report};
+use dedaliano_engine::metamorphic::compare::{compare_compliant, compare_with_compliance, Flat, Report};
 use dedaliano_engine::metamorphic::conditioning::{self, Conditioning, INCONCLUSIVE};
 use dedaliano_engine::metamorphic::relabel::Relabel;
 use dedaliano_engine::metamorphic::transform::Iso3;
@@ -20,6 +20,7 @@ use dedaliano_engine::types::*;
 pub fn applicable(a: &Ana3, inv: &str) -> bool {
     match inv {
         "rotation" => !false,
+        "mirror" => MIRRORED.contains(&a.name),
         "superposition" => matches!(a.law, Law::Linear | Law::Inverse),
         "reciprocity" => a.law == Law::Linear,
         "energy" => a.law == Law::Linear && a.full_static,
@@ -29,19 +30,65 @@ pub fn applicable(a: &Ana3, inv: &str) -> bool {
     }
 }
 
+const MIRRORED: [&str; 8] = [
+    "linear", "linear (load session)", "linear (sparse path)", "linear (PCG)", "certified linear", "P-Delta", "modal", "buckling",
+];
+
 pub struct Ctx<'a> {
     pub tally: &'a Tally,
     pub rng_seed: u64,
 }
 
+/// Analyses whose guarded field is the linear static response to the model's loads.
+const LINEAR_STATIC_FIELD: [&str; 8] = [
+    "linear", "linear (sparse path)", "linear (PCG)", "certified linear", "load combinations",
+    "Winkler (no foundation)", "contact (no gaps)", "SSI (no soil springs)",
+];
+
+/// Whether an SH-MITC4-DISTORTION refusal may stand: the model has distorted quads and, where the
+/// guarded field is the linear static one and the harness can solve it independently, that field
+/// exceeds the membrane-bending bound.
+pub(crate) fn distortion_refusal_admissible(analysis: &str, s: &SolverInput3D) -> bool {
+    use dedaliano_engine::known_issues::{model_3d, MembraneBendingGuard};
+    if !model_3d(s).iter().any(|d| d.phase.as_deref() == Some("SH-MITC4-DISTORTION")) {
+        return false;
+    }
+    let independent = LINEAR_STATIC_FIELD.contains(&analysis)
+        && s.constraints.is_empty()
+        && s.curved_beams.is_empty()
+        && s.loads.iter().all(|l| matches!(l, SolverLoad3D::Nodal(_)))
+        && s.supports.values().all(|x| !x.is_inclined.unwrap_or(false)
+            && [x.dx, x.dy, x.dz, x.drx, x.dry, x.drz].iter().all(|d| d.unwrap_or(0.0) == 0.0));
+    if !independent {
+        return true;
+    }
+    let dof = dedaliano_engine::solver::dof::DofNumbering::build_3d(s);
+    let assembled = dedaliano_engine::solver::assembly::assemble_3d(s, &dof);
+    let (n, nf) = (dof.n_total, dof.n_free);
+    let mut k: Vec<f64> = (0..nf * nf).map(|ij| assembled.k[(ij / nf) * n + ij % nf]).collect();
+    let mut f = assembled.f[..nf].to_vec();
+    let Some(u) = dedaliano_engine::linalg::lu_solve(&mut k, &mut f, nf) else { return true };
+    let field = |node: usize| {
+        let mut d = [0.0; 6];
+        for (i, v) in d.iter_mut().enumerate() {
+            if let Some(&g) = dof.map.get(&(node, i)) {
+                if g < nf { *v = u[g]; }
+            }
+        }
+        Some(d)
+    };
+    MembraneBendingGuard::new(s).check_field(&s.loads, field).is_err()
+}
+
 pub(crate) fn run(a: &Ana3, c: &Case3) -> Result<Resp, String> {
     guarded(|| {
-        let r = (a.run)(c)?;
-        if crate::generated::strict() {
+        let r = crate::response::scoped(a.name, false, distortion_refusal_admissible(a.name, &c.s), crate::response::outcome((a.run)(c))?)?.tag_shell_families(&c.s);
+        if crate::generated::strict() && r.1.is_empty() {
             crate::generated::validate_3d(a.name, &r, c)?;
         }
         Ok(r)
     })
+    .map(|r| r.tag_shell_families(&c.s))
 }
 
 fn judge(res: Result<Report, String>, rel: f64) -> Verdict {
@@ -49,9 +96,14 @@ fn judge(res: Result<Report, String>, rel: f64) -> Verdict {
         return Verdict::Inconclusive(rel);
     }
     match res {
+        Ok(r) if r.values == 0 && r.refusals > 0 => Verdict::SameRefusal,
         Ok(r) => Verdict::Pass(r.worst),
         Err(e) => Verdict::Fail(e),
     }
+}
+
+pub fn with_eigen_3d(cond: Conditioning, c: &Case3) -> Conditioning {
+    crate::checks2::with_eigen(cond, |n| Ok(dedaliano_engine::solver::modal::solve_modal_3d(&c.s, &c.dens, n)?.modes.iter().map(|m| m.omega).collect()))
 }
 
 fn same(a: &Ana3, tc: &Case3, expected: Result<Resp, String>, cond: &Conditioning) -> Verdict {
@@ -65,13 +117,54 @@ fn same(a: &Ana3, tc: &Case3, expected: Result<Resp, String>, cond: &Conditionin
     };
     let rel = rel_for(a.name, a.iter_tol, &c2);
     match run(a, tc) {
-        Ok(got) => judge(compare_with_floor(&got.flat(), &expected.flat(), c2.lchar, rel, load_floor_3d(&tc.s, c2.lchar)), rel),
+        Ok(got) => bounded(&got, &expected, rel).unwrap_or_else(|| crate::checks2::judge_split(&got, &expected, rel, crate::checks2::rel_without_eigen(a.name, a.iter_tol, &c2), |g, e, rel| compare_with_compliance(&g.flat(), &e.flat(), c2.lchar, rel, load_floor_3d(&tc.s, c2.lchar), crate::checks2::compliance(a.name, &c2)))),
+        Err(e) if is_lower_bound(&expected) && crate::response::incomplete_collapse(&e) => Verdict::Inconclusive(rel),
         Err(e) => transformed_failure(e),
     }
 }
 
-/// Magnitude of the applied loads (force units), see `load_floor_2d`.
+/// Magnitude of the applied actions (force units), see `load_floor_2d`; a
+/// settled rotation about the member axis adds E·J/L²·θ (E bounds G), and a
+/// bimoment B counts as B/L².
 pub fn load_floor_3d(s: &SolverInput3D, lchar: f64) -> f64 {
+    let member = |id: usize| -> Option<(f64, f64, f64, f64, f64)> {
+        let e = s.elements.get(&id.to_string())?;
+        let (a, b) = (s.nodes.get(&e.node_i.to_string())?, s.nodes.get(&e.node_j.to_string())?);
+        let m = s.materials.get(&e.material_id.to_string())?;
+        let x = s.sections.get(&e.section_id.to_string())?;
+        Some((m.e * 1000.0, x.a, x.iy, x.iz, ((b.x - a.x).powi(2) + (b.y - a.y).powi(2) + (b.z - a.z).powi(2)).sqrt()))
+    };
+    let imposed: f64 = s.supports.values().map(|x| {
+        let v = |o: Option<f64>| o.unwrap_or(0.0);
+        let (d, r) = ([v(x.dx), v(x.dy), v(x.dz)], [v(x.drx), v(x.dry), v(x.drz)]);
+        if d.iter().chain(&r).all(|c| *c == 0.0) {
+            return 0.0;
+        }
+        s.elements.values().filter(|e| e.node_i == x.node_id || e.node_j == x.node_id).filter_map(|e| {
+            let (em, a, iy, iz, l) = member(e.id).filter(|m| m.4 > 0.0)?;
+            let (n1, n2) = (s.nodes.get(&e.node_i.to_string())?, s.nodes.get(&e.node_j.to_string())?);
+            let c = [(n2.x - n1.x) / l, (n2.y - n1.y) / l, (n2.z - n1.z) / l];
+            let along = |w: [f64; 3]| w[0] * c[0] + w[1] * c[1] + w[2] * c[2];
+            let across = |w: [f64; 3]| (w.iter().map(|q| q * q).sum::<f64>() - along(w).powi(2)).max(0.0).sqrt();
+            let i = iy.max(iz);
+            let j = s.sections.get(&e.section_id.to_string()).map_or(0.0, |x| x.j);
+            Some(em * (a / l * along(d).abs() + 12.0 * i / l.powi(3) * across(d) + 6.0 * i / (l * l) * across(r) + j / (l * l) * along(r).abs()))
+        }).sum::<f64>()
+    }).sum();
+    let other: f64 = s.loads.iter().map(|l| match l {
+        SolverLoad3D::Thermal(t) => member(t.element_id).map_or(0.0, |(em, a, iy, iz, _)| {
+            let alpha = t.alpha.unwrap_or(1.2e-5).abs();
+            let hy = t.depth_y.unwrap_or((12.0 * iz / a).sqrt());
+            let hz = t.depth_z.unwrap_or((12.0 * iy / a).sqrt());
+            em * alpha * (a * t.dt_uniform.abs() + (iz * t.dt_gradient_y.abs() / hy + iy * t.dt_gradient_z.abs() / hz) / lchar)
+        }),
+        SolverLoad3D::Bimoment(b) => b.bimoment.abs() / (lchar * lchar),
+        _ => 0.0,
+    }).sum();
+    imposed + other + applied_3d(s, lchar)
+}
+
+fn applied_3d(s: &SolverInput3D, lchar: f64) -> f64 {
     let len = |id: usize| -> f64 {
         s.elements.get(&id.to_string()).and_then(|e| {
             let (a, b) = (s.nodes.get(&e.node_i.to_string())?, s.nodes.get(&e.node_j.to_string())?);
@@ -132,7 +225,7 @@ fn rotation_for(a: &Ana3, rng: &mut Rng) -> Iso3 {
 
 pub fn check_case(ctx: &Ctx, c: &Case3, anas: &[Ana3], invariants: &[&str]) {
     let cond = match guarded(|| conditioning::of_3d(&c.s)) {
-        Ok(k) => k,
+        Ok(k) => with_eigen_3d(k, c),
         Err(e) => {
             for a in anas {
                 for inv in invariants.iter().filter(|i| applicable(a, i)) {
@@ -173,6 +266,14 @@ pub fn check_case(ctx: &Ctx, c: &Case3, anas: &[Ana3], invariants: &[&str]) {
                         Err(e) => Verdict::Unrepresentable(e),
                     })
                 }
+                "mirror" if applicable(a, "mirror") => {
+                    let axis = rng.below(if a.motion == Motion::AboutZ { 2 } else { 3 });
+                    let t = [rng.range(-40.0, 40.0), rng.range(-40.0, 40.0), rng.range(-40.0, 40.0)];
+                    match c.mirror(axis, t) {
+                        Ok(tc) => same(a, &tc, base.mirror3(axis), &cond),
+                        Err(e) => Verdict::Unrepresentable(e),
+                    }
+                }
                 "relabel" => {
                     let seed = rng.next_u64();
                     let rl = Relabel::random_3d(&c.s, seed);
@@ -192,6 +293,11 @@ pub fn check_case(ctx: &Ctx, c: &Case3, anas: &[Ana3], invariants: &[&str]) {
                     let (l, f) = [(1e-3, 1e3), (25.0, 1e-2), (0.3048, 4.448)][rng.below(3)];
                     let u = Units::froude(l, f);
                     same(a, &c.units(&u), Ok(base.units(&u)), &cond)
+                }
+                "load order" => {
+                    let mut loads = c.s.loads.clone();
+                    loads.reverse();
+                    if loads.len() < 2 { Verdict::NotApplicable } else { same(a, &c.with_loads(loads), Ok(base.clone()), &cond) }
                 }
                 "superposition" => superposition(a, c, &base, &cond),
                 "modal orthogonality" => {
@@ -215,7 +321,7 @@ pub fn check_case(ctx: &Ctx, c: &Case3, anas: &[Ana3], invariants: &[&str]) {
                                 let exp = lin.common(&base);
                                 let got = base.common(&exp);
                                 let rel = rel_for(a.name, a.iter_tol, &cond) * 2.0;
-                                judge(compare_with_floor(&got.flat(), &exp.flat(), cond.lchar, rel, load_floor_3d(&c.s, cond.lchar)), rel)
+                                judge(compare_with_compliance(&got.flat(), &exp.flat(), cond.lchar, rel, load_floor_3d(&c.s, cond.lchar), crate::checks2::compliance(a.name, &cond)), rel)
                             }
                         }
                     }
@@ -232,7 +338,7 @@ pub fn check_case(ctx: &Ctx, c: &Case3, anas: &[Ana3], invariants: &[&str]) {
 fn superposition(a: &Ana3, c: &Case3, base: &Resp, cond: &Conditioning) -> Verdict {
     if a.law == Law::Inverse {
         let k = 3.7;
-        let rel = rel_for(a.name, a.iter_tol, cond);
+        let rel = crate::checks2::rel_without_eigen(a.name, a.iter_tol, cond);
         // The whole action scales: loads and prescribed displacements.
         let mut ck = c.with_loads(scale_loads_3d(&c.s.loads, k));
         for sp in ck.s.supports.values_mut() {
@@ -243,11 +349,12 @@ fn superposition(a: &Ana3, c: &Case3, base: &Resp, cond: &Conditioning) -> Verdi
         return match run(a, &ck) {
             Ok(r) => {
                 let mut exp = base.clone();
-                for it in exp.0.iter_mut() {
+                for it in exp.0.iter_mut().filter(|i| i.tag != crate::response::LOWER_BOUND) {
                     it.v.iter_mut().for_each(|x| *x /= k);
                 }
-                judge(compare_with_floor(&r.flat(), &exp.flat(), cond.lchar, rel, load_floor_3d(&c.s, cond.lchar) * k), rel)
+                bounded(&r, &exp, rel).unwrap_or_else(|| judge(compare_with_compliance(&r.flat(), &exp.flat(), cond.lchar, rel, load_floor_3d(&c.s, cond.lchar) * k, crate::checks2::compliance(a.name, &cond)), rel))
             }
+            Err(e) if is_lower_bound(base) && crate::response::incomplete_collapse(&e) => Verdict::Inconclusive(rel),
             Err(e) => Verdict::Fail(format!("scaled loads failed: {e}")),
         };
     }
@@ -264,7 +371,7 @@ fn superposition(a: &Ana3, c: &Case3, base: &Resp, cond: &Conditioning) -> Verdi
     let mut ab = la.clone();
     ab.extend(lb.iter().cloned());
     let k = -2.5;
-    let rel = rel_for(a.name, a.iter_tol, cond) * 4.0;
+    let rel = crate::checks2::rel_without_eigen(a.name, a.iter_tol, cond) * 4.0;
     let r = (|| -> Result<(Flat, Flat, Flat, Flat, Flat), String> {
         let ra = run(a, &c.with_loads(la.clone()))?.without_stress().flat();
         let rb = run(a, &c.with_loads(lb.clone()))?.without_stress().flat();
@@ -287,12 +394,12 @@ fn superposition(a: &Ana3, c: &Case3, base: &Resp, cond: &Conditioning) -> Verdi
     let exp_ab = Flat::lin_comb(1.0, &Flat::lin_comb(1.0, &da, 1.0, &db), 1.0, &r0);
     let scale = Flat::lin_comb(1.0, &Flat::abs_comb(1.0, &ra, 1.0, &rb), 2.0, &Flat::abs_comb(1.0, &r0, 0.0, &r0));
     let floor = load_floor_3d(&c.s, cond.lchar) * (1.0 + k.abs());
-    if let v @ Verdict::Fail(_) = judge(compare_floored(&rab, &exp_ab, &scale, cond.lchar, rel, floor).map_err(|e| format!("R(A+B) ≠ R(A)+R(B)−R(∅): {e}")), rel) {
+    if let v @ Verdict::Fail(_) = judge(compare_compliant(&rab, &exp_ab, &scale, cond.lchar, rel, floor, crate::checks2::compliance(a.name, &cond)).map_err(|e| format!("R(A+B) ≠ R(A)+R(B)−R(∅): {e}")), rel) {
         return v;
     }
     let exp_k = Flat::lin_comb(k, &da, 1.0, &r0);
     let scale_k = Flat::abs_comb(k, &ra, 1.0 + k.abs(), &r0);
-    judge(compare_floored(&rk, &exp_k, &scale_k, cond.lchar, rel, floor).map_err(|e| format!("R(kA) ≠ k·R(A): {e}")), rel)
+    judge(compare_compliant(&rk, &exp_k, &scale_k, cond.lchar, rel, floor, crate::checks2::compliance(a.name, &cond)).map_err(|e| format!("R(kA) ≠ k·R(A): {e}")), rel)
 }
 
 fn free_nodes(c: &Case3) -> Vec<usize> {
@@ -355,7 +462,7 @@ fn reciprocity(a: &Ana3, c: &Case3, cond: &Conditioning, rng: &mut Rng) -> Verdi
     if pairs.is_empty() {
         return Verdict::NotApplicable;
     }
-    let rel = rel_for(a.name, a.iter_tol, cond) * 4.0;
+    let rel = crate::checks2::rel_without_eigen(a.name, a.iter_tol, cond) * 4.0;
     if rel > INCONCLUSIVE {
         return Verdict::Inconclusive(rel);
     }
@@ -456,7 +563,7 @@ fn energy(a: &Ana3, c: &Case3, cond: &Conditioning, rng: &mut Rng) -> Verdict {
             eabs += t.abs();
         }
     }
-    let rel = rel_for(a.name, a.iter_tol, cond) * 4.0;
+    let rel = crate::checks2::rel_without_eigen(a.name, a.iter_tol, cond) * 4.0;
     if rel > INCONCLUSIVE {
         return Verdict::Inconclusive(rel);
     }

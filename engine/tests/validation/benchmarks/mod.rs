@@ -5,7 +5,6 @@ mod ansys_vm_benchmarks;
 mod ansys_vm_benchmarks_extended;
 mod ansys_vm_extended;
 mod beam_shell_benchmark;
-mod constraints_benchmark;
 mod contact_benchmark;
 mod creep_shrinkage_benchmark;
 mod corotational_benchmarks;

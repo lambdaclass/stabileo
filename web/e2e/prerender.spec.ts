@@ -2,6 +2,7 @@ import { test, expect, type Browser, type Page } from '@playwright/test';
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { PUBLIC_LOCALES } from '../src/lib/i18n/offered';
+import { unfinishedProClaims, type CopyLocale } from '../src/lib/i18n/pro-copy';
 
 /**
  * What a crawler receives, with JavaScript switched off.
@@ -58,9 +59,9 @@ const ORIGIN = 'https://stabileo.com';
 
 /** A sentence that only exists in one language, from `landing.heroP`. */
 const HERO = {
-  en: 'An open structural-analysis platform',
-  es: 'Una plataforma abierta de análisis estructural',
-  pt: 'Uma plataforma aberta de análise estrutural',
+  en: 'checked against seven other finite-element programs',
+  es: 'contrastados con otros siete programas de elementos finitos',
+  pt: 'comparados com outros sete programas de elementos finitos',
 } as const;
 
 /** The same, for the blog index — `blog.lead`. */
@@ -141,6 +142,27 @@ async function expectLinks(page: Page, path: string, locale: Locale) {
 }
 
 test.describe('@smoke prerender', () => {
+  for (const locale of PUBLIC_LOCALES as CopyLocale[]) {
+    test(`/${locale}: what a crawler reads presents PRO as available`, async ({ browser }) => {
+      const { page, close } = await crawl(browser, `/${locale}/`);
+      try {
+        const section = await page.locator('#prerender [data-section="pro-calc"]').innerText();
+        expect(unfinishedProClaims(section, locale, { aboutPro: true })).toEqual([]);
+        expect(unfinishedProClaims(await page.locator('#prerender').innerText(), locale, { aboutPro: false })).toEqual([]);
+      } finally {
+        await close();
+      }
+      for (const path of ['/blog/bars-or-finite-elements', '/blog/verificacion-flexion-cirsoc-201', '/reliability', '/sap2000-alternative', '/cirsoc']) {
+        const crawled = await crawl(browser, `/${locale}${path}/`);
+        try {
+          expect(unfinishedProClaims(await crawled.page.locator('#prerender').innerText(), locale, { aboutPro: false }), path).toEqual([]);
+        } finally {
+          await crawled.close();
+        }
+      }
+    });
+  }
+
   for (const locale of LOCALES) {
     test(`/${locale} is served as ${locale}, with text, to a crawler`, async ({ browser }) => {
       const { page, close } = await crawl(browser, `/${locale}/`);

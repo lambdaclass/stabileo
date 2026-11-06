@@ -20,10 +20,13 @@
  * rather than not going out.
  */
 
-import { captureProvenanceToken, provenanceForExport, provenanceLabels, ExportChangedError } from '../store/result-provenance';
+import { captureProvenanceToken, provenanceForExport, provenanceLabels, scopeOfResultSet, ExportChangedError } from '../store/result-provenance';
 import { reportProvenanceLines } from '../export/provenance-attach';
 import { runEngineActionAsync } from '../store/engine-action';
 import { tick } from 'svelte';
+import { errorText } from '../utils/error-text';
+import { exportMessages } from '../export/containment';
+import { ContainmentExportError, isContainmentRefusal } from '../engine/containment-error';
 import { viewportCanvas } from '../utils/viewport-canvas';
 import { uiStore } from '../store/ui.svelte';
 import { viewState } from '../store/view-state.svelte';
@@ -36,6 +39,7 @@ import type { InkStyle } from '../export/paper-ink';
 import type { ShellContourComponent } from '../engine/shell-stress';
 import { t as tr } from '../i18n';
 import { modelStore, resultsStore } from '../store';
+import { resultSet, hasResultSet } from './export-results';
 
 export interface ReportExportInputs {
   config: ReportConfig;
@@ -90,12 +94,21 @@ async function screenshotWithNumbers(): Promise<string | undefined> {
  * goes in the memoria (`lib/report/memoria`), the one document that states it.
  */
 export async function exportReportAs(input: ReportExportInputs): Promise<void> {
+  // A refused display accessor is null; explain the refusal before report assembly
+  // can mistake it for a project with no results.
+  if (exportMessages() === null) return;
   // What the report is taken from, checked again before its provenance is written.
   const token = captureProvenanceToken();
-  await runEngineActionAsync(() => exportReportWithEngine(input, token));
+  try { await runEngineActionAsync(() => exportReportWithEngine(input, token)); }
+  catch (error) {
+    if (!(error instanceof ContainmentExportError) && !isContainmentRefusal(error)) throw error;
+    uiStore.toast(errorText(error, tr('knownIssue.exportHeading')), 'error');
+  }
 }
 
 async function exportReportWithEngine(input: ReportExportInputs, token: ReturnType<typeof captureProvenanceToken>): Promise<void> {
+  const key = input.config.resultSetKey;
+  if (key && key !== 'screen' && !hasResultSet(key)) { uiStore.toast(input.t('proReport.resultSetMissing'), 'error'); return; }
   const figures = input.figureOptions ? reportResultFigures(input.config, input.figureOptions) : {};
   // The model's figure is drawn; a capture of the screen only when it cannot be.
   const capture = input.config.sections?.modelData !== false && !figures.model;
@@ -110,7 +123,7 @@ async function exportReportWithEngine(input: ReportExportInputs, token: ReturnTy
   if (!data) return;
   data.resultFigures = figures;
   try {
-    data.resultProvenance = { record: await provenanceForExport(token), labels: provenanceLabels() };
+    data.resultProvenance = { record: await provenanceForExport(token, scopeOfResultSet(input.config.resultSetKey)), labels: provenanceLabels() };
   } catch (e) {
     if (e instanceof ExportChangedError) { uiStore.toast(e.message, 'error'); return; }
     throw e;
@@ -119,6 +132,9 @@ async function exportReportWithEngine(input: ReportExportInputs, token: ReturnTy
   const { downloadReport } = await import('../export/report-download');
   await downloadReport(input.format, { title: data.projectName || input.t('proReport.title'), html: generateReportHtml(data), stem: `report-${(data.projectName || 'model').replace(/[^\w.-]+/g, '-')}`, ...(data.resultProvenance ? { provenance: reportProvenanceLines(data.resultProvenance.record) } : {}) });
 }
+
+/** Load cases drawn as figures, one each; the tables list them all. */
+const MAX_LOAD_FIGURES = 12;
 
 /** How the report's figures are drawn: the dialog's choices. */
 export interface ReportFigureChoices { style: InkStyle; values: boolean; view: FigureView; shellComponent: ShellContourComponent }
@@ -136,11 +152,22 @@ function asReportFigure(content: FigureContent, o: FigureOptions, caption: strin
  */
 export function reportResultFigures(config: ReportConfig, c: ReportFigureChoices): ReportResultFigures {
   const s = config.sections;
-  const o: FigureOptions = { ...DEFAULT_FIGURE_OPTIONS, style: c.style, values: c.values, titles: false, view: c.view, shells: true, shellComponent: c.shellComponent };
+  const set = config.resultSetKey && config.resultSetKey !== 'screen' ? resultSet(config.resultSetKey) : null;
+  const o: FigureOptions = {
+    ...DEFAULT_FIGURE_OPTIONS, style: c.style, values: c.values, titles: false, view: c.view, shells: true, shellComponent: c.shellComponent,
+    ...(set?.results ? { results: set.results, resultsName: set.name } : {}),
+  };
   const out: ReportResultFigures = {};
   if (s.modelData) {
     out.model = asReportFigure('model', { ...o, loads: false, numbering: true }, tr('report.modelFigureCaption'));
-    if (s.loads) out.loads = asReportFigure('model', { ...o, loads: true, numbering: false }, tr('figures.modelLoaded'));
+    if (s.loads) {
+      const loaded = modelStore.model.loadCases.filter((c) => modelStore.loads.some((l) => (l.data.caseId ?? 1) === c.id));
+      const one = loaded.length <= 1;
+      out.loads = loaded.slice(0, MAX_LOAD_FIGURES)
+        .map((c) => asReportFigure('model', { ...o, loads: true, numbering: false, loadCases: [c.id] }, one ? tr('figures.modelLoaded') : `${tr('figures.modelLoaded')}: ${c.name}`))
+        .filter((f): f is ReportFigure => !!f);
+      if (loaded.length > MAX_LOAD_FIGURES) out.loadsOmitted = loaded.length - MAX_LOAD_FIGURES;
+    }
   }
   if (!s.results || !resultsStore.results3D) return out;
   const wants = (k: ReportResult) => (config.resultModes?.[k] ?? 'both') !== 'table';
