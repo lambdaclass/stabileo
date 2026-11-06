@@ -4,6 +4,7 @@
   import { applyPageMeta, restorePageMeta, stabileoSoftware } from '../lib/page-meta';
   import LandingHero from './landing/LandingHero.svelte';
   import LandingPricing from './landing/LandingPricing.svelte';
+  import LandingFit from './landing/LandingFit.svelte';
   import LandingBasic from './landing/LandingBasic.svelte';
   import LandingProCalc from './landing/LandingProCalc.svelte';
   import LandingProDesign from './landing/LandingProDesign.svelte';
@@ -123,6 +124,7 @@
     is renumbered so the sequence has no gap where it was.
   -->
   <LandingHero {prefersReducedMotion} />
+  <LandingFit />
   <LandingBasic />
   <LandingProCalc />
   <LandingProDesign />

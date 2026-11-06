@@ -32,7 +32,7 @@
 ## Qué es
 
 Stabileo es un programa de cálculo y diseño estructural que funciona en cualquier navegador actual,
-con un asistente de IA en desarrollo (con tu propia clave de Claude u OpenAI). Modelás,
+con un asistente de IA en desarrollo. Modelás,
 cargás, resolvés y leés resultados en 2D y en 3D. El motor de cálculo está escrito en Rust y
 compilado a WebAssembly, así que corre en tu propia computadora: el modelo no se manda a un
 servidor para calcularlo.
