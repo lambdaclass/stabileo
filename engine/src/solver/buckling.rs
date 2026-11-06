@@ -94,7 +94,7 @@ pub fn buckling_system_2d(input: &SolverInput) -> Result<BucklingSystem2D, Strin
     //    span load both end forces can be 0 with the member compressed.
     let mean_n = super::geometric_stiffness::mean_axial_forces_2d(input, &dof_num, &u);
     if !mean_n.values().any(|&n| n < -1e-6) {
-        return Err("No compressed elements — buckling not applicable".into());
+        return Err(crate::refusal::no_compressed_elements());
     }
     let axial_noise = axial_force_round_off_2d(input, &linear);
     if !mean_n.iter().any(|(id, &n)| n < -axial_noise.get(id).copied().unwrap_or(0.0).max(1e-6)) {
@@ -398,7 +398,7 @@ pub fn buckling_system_3d(input: &SolverInput3D) -> Result<BucklingSystem3D, Str
     // there are surfaces to assemble: with no compressed frame and no surface
     // elements at all, no amount of assembly can change the answer.
     if !has_frame_compression && !has_surfaces {
-        return Err("No compressed elements — buckling not applicable".into());
+        return Err(crate::refusal::no_compressed_elements());
     }
 
     // K (the linear path's, rotated into the inclined-support frames) first:
@@ -444,7 +444,7 @@ pub fn buckling_system_3d(input: &SolverInput3D) -> Result<BucklingSystem3D, Str
     // populated -Kg, as "no compressed elements".
     let has_shell_kg = has_surfaces && neg_kg_csc.values.iter().any(|&v| v.abs() > 1e-15);
     if !has_frame_compression && !has_shell_kg {
-        return Err("No compressed elements — buckling not applicable".into());
+        return Err(crate::refusal::no_compressed_elements());
     }
     Ok(BucklingSystem3D { linear, dof_num, k_ff, neg_kg_csc, inclined_transforms, mean_n, span_axial })
 }
@@ -522,7 +522,7 @@ pub fn solve_buckling_3d(
         crate::linalg::lanczos::lanczos_buckling_eigen_sparse_observed(k_solve, kg_solve, num_modes, observe)
     });
     crate::known_issues::attach(&mut structured_diagnostics, conditioning.into_iter().collect());
-    let result = result.ok_or_else(|| crate::linalg::lanczos::eigen_failure_message(k_solve.n))?;
+    let result = result.ok_or_else(|| crate::refusal::eigen_decomposition_failed(&crate::linalg::lanczos::eigen_failure_message(k_solve.n)))?;
 
     let num_modes = num_modes.min(ns);
     let n_converged = result.values.len();

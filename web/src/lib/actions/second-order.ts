@@ -8,6 +8,7 @@ import { runPDelta2D, type SoPDeltaResult } from '../engine/second-order/run-pde
 import { runBuckling2D, type SoBucklingResult } from '../engine/second-order/run-buckling';
 import { firstModeB2, type SoSettings } from '../engine/second-order/settings';
 import { solveBuckling3D } from '../engine/wasm-solver';
+import { refusedWithCode } from '../engine/containment-error';
 import { secondOrderSettings } from '../store/second-order.svelte';
 import { resultsStore } from '../store';
 import { explainedSteps } from '../store/explained-steps.svelte';
@@ -33,8 +34,7 @@ export function withFirstModeB2<R extends { b2Factor: number; isStable: boolean 
     lambda1 = solveBuckling3D(input, 1).modes[0]?.loadFactor ?? NaN;
     if (!Number.isFinite(lambda1) && lambda1 !== Infinity) throw new Error('no buckling mode');
   } catch (e) {
-    const msg = String((e as Error)?.message ?? e);
-    if (!/no compressed elements/i.test(msg)) return { ...result, b2Factor: NaN, isStable: result.isStable === false ? false : null, secondOrder: { lambda1: null, b2: NaN, bucklingError: msg } };
+    if (!refusedWithCode(e, 'no_compressed_elements')) return { ...result, b2Factor: NaN, isStable: result.isStable === false ? false : null, secondOrder: { lambda1: null, b2: NaN, bucklingError: String((e as Error)?.message ?? e) } };
     lambda1 = Infinity;
   }
   const b2 = firstModeB2(lambda1);

@@ -220,6 +220,8 @@ pub enum DiagnosticCode {
     // ---- Pre-solve model quality ----
     /// No free DOFs — fully restrained.
     NoFreeDofs,
+    NoCompressedElements,
+    EigenDecompositionFailed,
     /// Local mechanism detected (hinged node).
     LocalMechanism,
     /// Singular stiffness matrix.
@@ -381,6 +383,8 @@ impl From<&StructuredDiagnostic> for SolverDiagnostic {
             DiagnosticCode::ResidualOk | DiagnosticCode::ResidualHigh | DiagnosticCode::EquilibriumOk | DiagnosticCode::EquilibriumViolation => "residual",
             DiagnosticCode::HighAspectRatio | DiagnosticCode::NegativeJacobian | DiagnosticCode::HighWarping | DiagnosticCode::PoorJacobianRatio | DiagnosticCode::SmallMinAngle => "element_quality",
             DiagnosticCode::NoFreeDofs | DiagnosticCode::LocalMechanism | DiagnosticCode::SingularMatrix | DiagnosticCode::DisconnectedNode | DiagnosticCode::NearDuplicateNodes | DiagnosticCode::InstabilityRisk | DiagnosticCode::ShellDistortion | DiagnosticCode::SuspiciousLocalAxis | DiagnosticCode::ExcessiveDisplacement | DiagnosticCode::StiffnessNotPositiveDefinite => "model_quality",
+            DiagnosticCode::NoCompressedElements => "model_quality",
+            DiagnosticCode::EigenDecompositionFailed => "solver_path",
             DiagnosticCode::ConflictingConstraints | DiagnosticCode::CircularConstraint | DiagnosticCode::OverConstrainedDof => "constraints",
             DiagnosticCode::KnownIssue => "known_issue",
             DiagnosticCode::ThermalDefaultAssumed => "assumption",
