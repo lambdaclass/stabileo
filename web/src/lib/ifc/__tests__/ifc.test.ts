@@ -254,7 +254,7 @@ describe('mapIfcToModel — names as models write them', () => {
     expect(ipe30.warnings.some((w) => w.includes('IPE 30'))).toBe(true);
   });
 
-  it.fails('puts the inertia of a deep section about the horizontal axis, as the app\'s own sections do (#532)', () => {
+  it('puts the inertia of a deep section about the horizontal axis, as the app\'s own sections do (#532)', () => {
     const rect = one('500x200').sections[0]!;
     expect(rect.iy).toBeCloseTo(0.2 * 0.5 ** 3 / 12, 12);
     expect(rect.iz).toBeCloseTo(0.5 * 0.2 ** 3 / 12, 12);

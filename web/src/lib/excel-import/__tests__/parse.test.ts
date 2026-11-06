@@ -57,7 +57,7 @@ describe('reading a workbook', () => {
     });
   });
 
-  it.fails('derives a rectangle about its depth rather than asking for the arithmetic (#532)', () => {
+  it('derives a rectangle about its depth rather than asking for the arithmetic (#532)', () => {
     const s = parseWorkbook(goodBook()).model.sections[0];
     expect(s.a).toBeCloseTo(0.08, 10);
     expect(s.iy).toBeCloseTo((0.2 * 0.4 ** 3) / 12, 12);
