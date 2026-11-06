@@ -48,25 +48,30 @@ class TimingBudgetsGate(unittest.TestCase):
                 self.assertIn("import { assertBudget } from '", text)
                 self.assertRegex(text, r'if \(assertBudget\(')
 
-    def test_main_runs_open_or_close_the_issue_and_pull_requests_never_do(self):
-        step = self.steps['Open, update or close the Timing Budgets issue']
-        self.assertIn("github.event_name != 'pull_request' && github.event_name != 'merge_group' && github.ref == 'refs/heads/main'", step)
-        self.assertIn("require('./.github/scripts/timing-budget-alert.cjs')", step)
-        self.assertIn('SCALE_OUTCOME: ${{ steps.scale.outcome }}', step)
-        self.assertIn('E2E_OUTCOME: ${{ steps.e2e.outcome }}', step)
-        self.assertRegex(self.body, r'permissions:\n      contents: read\n      actions: read\n      issues: write\n')
+    def test_only_a_main_only_job_may_write_issues(self):
+        self.assertNotIn('permissions:', self.body)
+        self.assertNotIn('github-script', self.body)
+        self.assertIn('      scale: ${{ steps.scale.outcome }}\n      e2e: ${{ steps.e2e.outcome }}\n', self.body)
+        alert = job('timing-budgets-alert')
+        self.assertIn('    needs: timing-budgets\n', alert)
+        self.assertIn("    if: ${{ !cancelled() && github.event_name != 'pull_request' && github.event_name != 'merge_group' && github.ref == 'refs/heads/main' && needs.timing-budgets.result != 'skipped' }}\n", alert)
+        self.assertIn('    permissions:\n      contents: read\n      issues: write\n', alert)
+        self.assertIn("require('./.github/scripts/timing-budget-alert.cjs')", alert)
+        self.assertIn('SCALE_OUTCOME: ${{ needs.timing-budgets.outputs.scale }}', alert)
+        self.assertIn('E2E_OUTCOME: ${{ needs.timing-budgets.outputs.e2e }}', alert)
+        self.assertNotIn('timing-budgets-alert', job('ci-ok'))
+        writers = [m.group(1) for m in re.finditer(r'\n  ([\w-]+):\n(?:(?!\n  [\w-]+:\n)[\s\S])*?issues: write', CI)]
+        self.assertEqual(sorted(set(writers)), ['ci-ok', 'timing-budgets-alert'])
 
     def test_ci_ok_still_fails_on_a_failed_timing_job(self):
         ok = job('ci-ok')
         self.assertIn('      - timing-budgets\n', ok)
         self.assertIn('case "$r" in success|skipped) ;; *) exit 1 ;; esac', ok)
 
-    def test_no_step_but_the_issue_update_is_allowed_to_fail(self):
-        allowed = {'Open, update or close the Timing Budgets issue'}
+    def test_no_step_of_the_job_is_allowed_to_fail(self):
         for name, step in self.steps.items():
-            if name not in allowed:
-                with self.subTest(step=name):
-                    self.assertNotIn('continue-on-error', step)
+            with self.subTest(step=name):
+                self.assertNotIn('continue-on-error', step)
 
 
 if __name__ == '__main__':

@@ -31,11 +31,14 @@ module.exports = async function alert({ github, context, core }) {
   const runUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
   core.info(`Timing Budgets on ${context.sha}: ${state}`);
   if (state === 'unknown') return;
+  const { data: main } = await github.rest.git.getRef({ owner, repo, ref: 'heads/main' });
+  if (main.object.sha !== context.sha) {
+    core.info(`main is now at ${main.object.sha}; only a run of main's head opens or closes the issue`);
+    return;
+  }
   const issues = await openIssues(github, owner, repo);
   if (state === 'green') {
     if (!issues.length) return;
-    const { data: main } = await github.rest.git.getRef({ owner, repo, ref: 'heads/main' });
-    if (main.object.sha !== context.sha) return;
     for (const issue of issues) {
       await github.rest.issues.createComment({ owner, repo, issue_number: issue.number, body: `Green again: Timing Budgets passed on main at ${context.sha.slice(0, 9)}: ${runUrl}` });
       await github.rest.issues.update({ owner, repo, issue_number: issue.number, state: 'closed', state_reason: 'completed' });

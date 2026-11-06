@@ -62,6 +62,11 @@ test('a green of main\'s head closes the open issue; a green of an older commit 
   assert.deepEqual(stale, []);
 });
 
+test('a red of an older commit, rerun after main moved on, touches nothing', async () => {
+  assert.deepEqual(await run({SCALE_OUTCOME: 'failure', E2E_OUTCOME: 'success'}, fake({mainSha: 'fff'})), []);
+  assert.deepEqual(await run({SCALE_OUTCOME: 'failure', E2E_OUTCOME: 'success'}, fake({open: [issue], mainSha: 'fff'})), []);
+});
+
 test('an unknown outcome touches nothing', async () => {
   assert.deepEqual(await run({SCALE_OUTCOME: 'success', E2E_OUTCOME: 'skipped'}, fake({open: [issue]})), []);
 });

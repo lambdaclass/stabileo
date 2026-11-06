@@ -1848,10 +1848,9 @@ jobs:
     needs: [changes, wasm, site-e2e]
     if: needs.changes.outputs.web == 'true' && needs.changes.outputs.retest == 'true' && (github.event_name != 'pull_request' || vars.STABILEO_PR_POOL == 'true')
     timeout-minutes: 60
-    permissions:
-      contents: read
-      actions: read
-      issues: write
+    outputs:
+      scale: ${{ steps.scale.outcome }}
+      e2e: ${{ steps.e2e.outcome }}
     env:
       E2E_PREBUILT: '1'
     steps:
@@ -1917,13 +1916,27 @@ jobs:
             echo "::warning title=Timing Budgets::$line"
             echo "- \`$line\`" >> "$GITHUB_STEP_SUMMARY"
           done < "$OVERRUNS"
+
+  # Main only, apart from the job that runs proposed code: the only job here that may write issues.
+  timing-budgets-alert:
+    name: Timing Budgets issue
+    runs-on: ubuntu-24.04
+    needs: timing-budgets
+    if: ${{ !cancelled() && github.event_name != 'pull_request' && github.event_name != 'merge_group' && github.ref == 'refs/heads/main' && needs.timing-budgets.result != 'skipped' }}
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/scripts
       - name: Open, update or close the Timing Budgets issue
-        if: ${{ !cancelled() && github.event_name != 'pull_request' && github.event_name != 'merge_group' && github.ref == 'refs/heads/main' }}
-        continue-on-error: true
         uses: actions/github-script@d746ffe35508b1917358783b479e04febd2b8f71 # v9.0.0
         env:
-          SCALE_OUTCOME: ${{ steps.scale.outcome }}
-          E2E_OUTCOME: ${{ steps.e2e.outcome }}
+          SCALE_OUTCOME: ${{ needs.timing-budgets.outputs.scale }}
+          E2E_OUTCOME: ${{ needs.timing-budgets.outputs.e2e }}
         with:
           script: |
             const alert = require('./.github/scripts/timing-budget-alert.cjs');
