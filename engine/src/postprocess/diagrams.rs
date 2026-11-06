@@ -208,7 +208,7 @@ pub fn compute_diagram_value_at_sorted(
     // of references on *every* station evaluation, which in the envelope path is
     // elements x 21 stations x load cases x diagram kinds allocations.
     let d_loads = &ef.distributed_loads;
-    let use_legacy_q = ef.distributed_loads.is_empty() && (ef.q_i.abs() > 1e-10 || ef.q_j.abs() > 1e-10);
+    let use_legacy_q = ef.distributed_loads.is_empty() && (ef.q_i != 0.0 || ef.q_j != 0.0);
 
     match kind {
         "moment" => {
@@ -728,7 +728,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #1614"]
     fn a_member_without_a_load_list_keeps_its_load_at_any_scale_1614() {
         let reference = scaled_beam_2d(1.0);
         let r_gaps = crate::certify::stations::diagram_gaps_2d(&reference);
