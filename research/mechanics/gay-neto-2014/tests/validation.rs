@@ -14,8 +14,27 @@ fn csv(name: &str) -> Vec<Vec<f64>> {
         .collect()
 }
 
-fn check(metric: &str, observed: f64, tolerance: f64, why: &str) -> Value {
-    json!({"metric": metric, "observed": observed, "tolerance": tolerance, "rationale": why, "passed": observed <= tolerance})
+struct Check<'a> {
+    metric: &'a str,
+    source: &'a str,
+    reference: Value,
+    ours: Value,
+    observed: f64,
+    tolerance: f64,
+    why: &'a str,
+}
+
+fn check(c: Check) -> Value {
+    json!({
+        "metric": c.metric,
+        "source": c.source,
+        "reference": c.reference,
+        "ours": c.ours,
+        "observed": c.observed,
+        "tolerance": c.tolerance,
+        "rationale": c.why,
+        "passed": c.observed <= c.tolerance,
+    })
 }
 
 fn cantilever(elements: usize) -> Input {
@@ -100,25 +119,35 @@ fn tutorial01() -> Vec<Value> {
     let fine = Model::from_input(&cantilever(40)).unwrap();
     let fine_tip = fine.run(1, |_, _| {}).unwrap().x[80];
     let err = |p: [f64; 3]| (p[0] - tip_x).abs().max((p[2] - tip_z).abs());
+    let end = figure.last().unwrap();
     vec![
-        check(
-            "T1 tip X and Z at t = 0.1 … 1.0 vs reference Figure 1-6 [m, max abs]",
-            worst,
-            1e-3,
-            "0.1% of the 1 m span: the figure's vector polyline and the reference run's 1e-4 convergence tolerance",
-        ),
-        check(
-            "T1 tip at t = 1, 5 elements vs Reissner rod boundary-value solution [m, max abs]",
-            err(tip),
-            1e-3,
-            "discretization error of the tutorial's 5-element mesh, same bound as the figure check",
-        ),
-        check(
-            "T1 tip at t = 1, 40 elements vs Reissner rod boundary-value solution [m, max abs]",
-            err(fine_tip),
-            1e-6,
-            "refinement must converge to the independent rod solution (RK4, 20 000 steps)",
-        ),
+        check(Check {
+            metric: "T1 tip X and Z at t = 0.1 … 1.0 vs reference Figure 1-6 [m, max abs]",
+            source: "figure",
+            reference: json!([end[1], end[2]]),
+            ours: json!([tip[0], tip[2]]),
+            observed: worst,
+            tolerance: 1e-3,
+            why: "0.1% of the 1 m span: the figure's vector polyline and the reference run's 1e-4 convergence tolerance",
+        }),
+        check(Check {
+            metric: "T1 tip at t = 1, 5 elements vs Reissner rod boundary-value solution [m, max abs]",
+            source: "exact",
+            reference: json!([tip_x, tip_z]),
+            ours: json!([tip[0], tip[2]]),
+            observed: err(tip),
+            tolerance: 1e-3,
+            why: "discretization error of the tutorial's 5-element mesh, same bound as the figure check",
+        }),
+        check(Check {
+            metric: "T1 tip at t = 1, 40 elements vs Reissner rod boundary-value solution [m, max abs]",
+            source: "exact",
+            reference: json!([tip_x, tip_z]),
+            ours: json!([fine_tip[0], fine_tip[2]]),
+            observed: err(fine_tip),
+            tolerance: 1e-6,
+            why: "refinement must converge to the independent rod solution (RK4, 20 000 steps)",
+        }),
     ]
 }
 
@@ -223,37 +252,56 @@ fn tutorial16() -> (Vec<Value>, Value) {
         }
     }
     let lambda = (pipe.ei / horizontal).sqrt();
+    let peak = |v: Vec<f64>| {
+        v.into_iter()
+            .fold(0.0_f64, |a, b| if b.abs() > a.abs() { b } else { a })
+    };
     let checks = vec![
-        check(
-            "T16 step 3: M(e1) per element vs reference Figure 16-12 data [N·m, max abs over 134 elements]",
-            dm,
-            0.1,
-            "reference run converged to 1e-4 relative; 1e-4 of the 294 N·m plateau is 0.03 N·m, bound set at about 3 times that",
-        ),
-        check(
-            "T16 step 3: V(e2) per element vs reference Figure 16-13 data [N, max abs over 134 elements]",
-            dv,
-            0.1,
-            "same convergence budget as the moment, applied to the 92 N peak",
-        ),
-        check(
-            "T16 step 3: touchdown (moment at half its plateau) vs reference data [m]",
-            (our_tdp - ref_tdp).abs(),
-            0.05,
-            "the transition crosses one 4.18 m element; 0.05 m is about 1% of it",
-        ),
-        check(
-            "T16 step 3: touchdown, last node on the seabed vs elastic catenary [m of line]",
-            (model.reference[last_touching][0] - tdp_analytic).abs(),
-            2.0 * lambda + 2.09,
-            "bending boundary layer sqrt(EI/H) on each side, plus one node spacing in the refined zone",
-        ),
-        check(
-            "T16 step 3: suspended shape vs elastic catenary hung from the computed fairlead [m, max distance]",
-            shape,
-            2.0 * lambda,
-            "the cable solution ignores bending, which moves the line by about sqrt(EI/H) near the touchdown",
-        ),
+        check(Check {
+            metric: "T16 step 3: M(e1) per element vs reference Figure 16-12 data [N·m, max abs over 134 elements]",
+            source: "giraffe",
+            reference: json!(ref_min),
+            ours: json!(our_min),
+            observed: dm,
+            tolerance: 0.1,
+            why: "reference run converged to 1e-4 relative; 1e-4 of the 294 N·m plateau is 0.03 N·m, bound set at about 3 times that",
+        }),
+        check(Check {
+            metric: "T16 step 3: V(e2) per element vs reference Figure 16-13 data [N, max abs over 134 elements]",
+            source: "giraffe",
+            reference: json!(peak(reference.iter().map(|r| r[2]).collect())),
+            ours: json!(peak(ours.iter().map(|(_, r)| r[1]).collect())),
+            observed: dv,
+            tolerance: 0.1,
+            why: "same convergence budget as the moment, applied to the 92 N peak",
+        }),
+        check(Check {
+            metric: "T16 step 3: touchdown (moment at half its plateau) vs reference data [m]",
+            source: "giraffe",
+            reference: json!(ref_tdp),
+            ours: json!(our_tdp),
+            observed: (our_tdp - ref_tdp).abs(),
+            tolerance: 0.05,
+            why: "the transition crosses one 4.18 m element; 0.05 m is about 1% of it",
+        }),
+        check(Check {
+            metric: "T16 step 3: touchdown, last node on the seabed vs elastic catenary [m of line]",
+            source: "catenary",
+            reference: json!(tdp_analytic),
+            ours: json!(model.reference[last_touching][0]),
+            observed: (model.reference[last_touching][0] - tdp_analytic).abs(),
+            tolerance: 2.0 * lambda + 2.09,
+            why: "bending boundary layer sqrt(EI/H) on each side, plus one node spacing in the refined zone",
+        }),
+        check(Check {
+            metric: "T16 step 3: suspended shape vs elastic catenary hung from the computed fairlead [m, max distance]",
+            source: "catenary",
+            reference: Value::Null,
+            ours: Value::Null,
+            observed: shape,
+            tolerance: 2.0 * lambda,
+            why: "the cable solution ignores bending, which moves the line by about sqrt(EI/H) near the touchdown",
+        }),
     ];
     let summary = json!({
         "fairlead": fairlead,

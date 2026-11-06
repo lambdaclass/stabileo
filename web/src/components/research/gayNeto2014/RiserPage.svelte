@@ -65,6 +65,10 @@
     { name: `${s.ours}: Z`, color: 'var(--rs-plot-ours)', points: cantilever.frames.map(f => [f.t, f.z[10]] as [number, number]) },
   ]);
 
+  function value(v: number | number[] | null) {
+    if (v === null) return s.wholeLine;
+    return Array.isArray(v) ? v.map(x => num(x, { dp: 4 })).join(', ') : num(v, { dp: 4 });
+  }
   function stop() { playback.interact(); worker?.terminate(); worker = null; busy = false; }
   function compute() {
     stop(); busy = true; failed = false; if (tab === 'cantilever') setTab('riser');
@@ -116,12 +120,23 @@
     <p>{s.comparison}</p>
     <p><ExperimentLink tab="forces">{s.forces}</ExperimentLink> · <ExperimentLink tab="cantilever">{s.cantilever}</ExperimentLink></p>
     <h2 id="checks">{s.checks}</h2>
-    <dl class="checks">
-      {#each validation.checks as check}
-        <dt>{s.checkLabels[check.metric] ?? check.metric}</dt>
-        <dd>{num(check.observed, { sig: 3 })} · {shared.tolerance} {num(check.tolerance, { sig: 3 })}</dd>
-      {/each}
-    </dl>
+    <p>{s.tableIntro}</p>
+    <div class="table-scroll">
+      <table class="checks">
+        <thead><tr><th scope="col">{s.table.quantity}</th><th scope="col">{s.table.reference}</th><th scope="col">{s.table.ours}</th><th scope="col">{s.table.difference}</th><th scope="col">{s.table.tolerance}</th></tr></thead>
+        <tbody>
+          {#each validation.checks as check}
+            <tr>
+              <th scope="row">{s.checkLabels[check.metric] ?? check.metric}<span>{s.sources[check.source]}</span></th>
+              <td>{value(check.reference)}</td>
+              <td>{value(check.ours)}</td>
+              <td>{check.passed ? '✓ ' : ''}{num(check.observed, { sig: 3 })}</td>
+              <td>{num(check.tolerance, { sig: 3 })}</td>
+            </tr>
+          {/each}
+        </tbody>
+      </table>
+    </div>
     <p>{s.limits}</p>
     <p><a href="https://github.com/alfredogneto/GIRAFFE/tree/1b8241ed337e79d29e0b65262a4ec340e2f1f443">{s.code}</a> · <a href="https://github.com/lambdaclass/stabileo/tree/main/research/mechanics/gay-neto-2014/inputs">{s.inputs}</a></p>
   {/snippet}
@@ -195,6 +210,12 @@
   .summary { display: grid; grid-template-columns: auto 1fr; gap: 0.2rem 0.8rem; font-size: 0.85rem; margin: 0; }
   .summary dt { color: var(--fg-2); }
   .summary dd { margin: 0; }
-  .checks { display: grid; grid-template-columns: 1fr auto; gap: 0.35rem 1rem; font-size: 0.9rem; line-height: 1.4; }
-  .checks dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+  .table-scroll { overflow-x: auto; }
+  .checks { width: 100%; border-collapse: collapse; font-size: 0.85rem; line-height: 1.35; }
+  .checks th, .checks td { text-align: left; vertical-align: top; padding: 0.45rem 0.5rem; border-bottom: 1px solid var(--hair); }
+  .checks thead th { color: var(--fg-2); font-weight: 500; }
+  .checks thead th + th { text-align: right; white-space: nowrap; }
+  .checks td { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .checks tbody th { font-weight: 500; min-width: 11rem; }
+  .checks tbody th span { display: block; color: var(--fg-2); font-weight: 400; font-size: 0.8rem; }
 </style>
