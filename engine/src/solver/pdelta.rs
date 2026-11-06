@@ -223,7 +223,7 @@ pub struct PDeltaResult {
 pub fn solve_pdelta_2d(input: &SolverInput, max_iter: usize, tolerance: f64) -> Result<PDeltaResult, String> {
     let dof_num = DofNumbering::build_2d(input);
     if dof_num.n_free == 0 {
-        return Err("No free DOFs".into());
+        return Err(crate::refusal::no_free_dofs());
     }
     let cs = FreeConstraintSystem::build_2d(&input, &dof_num)?;
     solve_pdelta_2d_on(input, &dof_num, cs, dof_num.n_total >= SPARSE_THRESHOLD, max_iter, tolerance)
@@ -565,7 +565,7 @@ pub fn solve_pdelta_3d(input: &SolverInput3D, max_iter: usize, tolerance: f64) -
     super::feature_gates::refuse_3d(input, "P-Delta analysis", &[super::feature_gates::Feature::ShellThermalNonQuad])?;
     let input = &super::linear::expand_curved_beams_3d(input);
     let dof_num = DofNumbering::build_3d(input);
-    if dof_num.n_free == 0 { return Err("No free DOFs".into()); }
+    if dof_num.n_free == 0 { return Err(crate::refusal::no_free_dofs()); }
     let cs = FreeConstraintSystem::build_3d(&input, &dof_num)?;
     let r = solve_pdelta_3d_on(input, &dof_num, cs, dof_num.n_total >= SPARSE_THRESHOLD, max_iter, tolerance)?;
     crate::known_issues::membrane_bending_3d(input, &input.loads, &r.results)?;

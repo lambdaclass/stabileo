@@ -11,7 +11,7 @@ import { t, tp } from '../i18n';
 
 const WARNING_BANDS = new Set(['SH-MITC4-DISTORTION', 'SH-WARPED-MITC4', 'SH-WARPED-MITC9']);
 
-export function knownIssueMessage(d: { code: string; phase?: string; value?: number; message: string; severity?: string }): string {
+export function knownIssueMessage(d: { code: string; phase?: string; value?: number; message: string; severity?: string; elementIds?: number[] }): string {
   // A thermal load solved with a default it did not state (#407): `phase` names the default.
   if (d.code === 'thermal_default_assumed' && d.phase) {
     const key = `thermalDefault.${d.phase}`;
@@ -28,6 +28,10 @@ export function knownIssueMessage(d: { code: string; phase?: string; value?: num
   if (d.code === 'cable_self_weight_tension') {
     if (t('cableDiag.selfWeight') === 'cableDiag.selfWeight') return d.message;
     return tp('cableDiag.selfWeight', { pct: Math.round(100 * Math.min(1, d.value ?? 1)) });
+  }
+  if (d.code === 'plastic_capacity_missing') {
+    if (t('plasticDiag.noCapacity') === 'plasticDiag.noCapacity' || d.elementIds?.length !== 1 || d.value === undefined) return d.message;
+    return tp('plasticDiag.noCapacity', { member: d.elementIds[0]!, section: d.value });
   }
   if (d.code !== 'known_issue' || !d.phase) return d.message;
   const key = `knownIssue.${d.phase}${WARNING_BANDS.has(d.phase) && d.severity === 'warning' ? '.warning' : ''}`;
