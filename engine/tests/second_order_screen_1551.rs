@@ -386,3 +386,46 @@ fn compression_let_off_as_round_off_still_counts_once_a_combination_scales_it_up
     let combined = combine_results_3d_refs(&[CombinationFactor { case_id: 1, factor: 1e10 }], &[(1, &tiny)]).unwrap().unwrap();
     assert_eq!(second_order(&combined.structured_diagnostics), warned(vec![]));
 }
+
+/// #1607: results from outside the engine can arrive with no screen; such a case is judged by
+/// whether any member may carry compression, not by its end forces alone.
+#[test]
+fn a_case_without_a_screen_counts_as_compressed_when_a_span_load_compresses_a_member() {
+    let span = DistributedLoadInfo { q_i: -5.0, q_j: -5.0, a: 0.0, b: L / 2.0 };
+    let light = solve_2d(&cantilever_2d(2, -10.0, E, 1.0)).unwrap();
+    let combine = |case: &AnalysisResults| second_order(&combine_results_refs(&[CombinationFactor { case_id: 1, factor: 1.0 }], &[(1, case)]).unwrap().structured_diagnostics);
+    let blank = |case: &AnalysisResults, n: f64| {
+        let mut r = case.clone();
+        r.result_summary = None;
+        r.structured_diagnostics.clear();
+        for f in &mut r.element_forces { (f.n_start, f.n_end) = (n, n); f.distributed_loads_x.clear(); f.point_loads.iter_mut().for_each(|p| p.px = None); }
+        r
+    };
+    assert_eq!(combine(&blank(&light, 0.0)), vec![], "no axial force at all");
+    for n in [0.0, 4.0] {
+        let mut spanned = blank(&light, n);
+        spanned.element_forces[0].distributed_loads_x.push(span.clone());
+        assert_eq!(combine(&spanned), unbounded(), "ends at {n}, compressed inside by a span load");
+        let mut pointed = blank(&light, n);
+        pointed.element_forces[0].point_loads.push(PointLoadInfo { a: L / 4.0, p: 0.0, px: Some(-3.0), my: None });
+        assert_eq!(combine(&pointed), unbounded(), "ends at {n}, compressed inside by an axial point load");
+    }
+    assert_eq!(combine(&blank(&light, 4.0)), unbounded(), "tension at the ends, which a negative factor elsewhere could reverse, is not trusted without a screen");
+    assert_eq!(combine(&blank(&light, f64::NAN)), unbounded());
+
+    let light = solve_3d(&cantilever_3d(2, -10.0, E, 1.0, IDENTITY, [0.0; 3])).unwrap();
+    let combine = |case: &AnalysisResults3D| second_order(&combine_results_3d_refs(&[CombinationFactor { case_id: 1, factor: 1.0 }], &[(1, case)]).unwrap().unwrap().structured_diagnostics);
+    let blank = |n: f64| {
+        let mut r = light.clone();
+        r.result_summary = None;
+        r.structured_diagnostics.clear();
+        for f in &mut r.element_forces { (f.n_start, f.n_end) = (n, n); f.distributed_loads_x.clear(); }
+        r
+    };
+    assert_eq!(combine(&blank(0.0)), vec![], "3D: no axial force at all");
+    for n in [0.0, 4.0] {
+        let mut spanned = blank(n);
+        spanned.element_forces[0].distributed_loads_x.push(span.clone());
+        assert_eq!(combine(&spanned), unbounded(), "3D: ends at {n}, compressed inside by a span load");
+    }
+}

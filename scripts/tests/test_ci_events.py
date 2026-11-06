@@ -10,8 +10,8 @@ spec = importlib.util.spec_from_file_location('select_ci', ROOT / '.github/scrip
 selection = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(selection)
 WORKFLOW = (ROOT / '.github/workflows/ci.yml').read_text()
-QUEUE_KEEPS = ['engine', 'web', 'web_build', 'results', 'backend', 'ai_backend', 'ci_scripts', 'research']
-HEAVY = ['slow_e2e', 'docker', 'determinism', 'flaky']
+QUEUE_KEEPS = ['engine', 'web', 'web_build', 'results', 'backend', 'ai_backend', 'ci_scripts', 'research', 'slow_e2e']
+HEAVY = ['docker', 'determinism', 'flaky']
 
 
 def job(name):
@@ -57,7 +57,8 @@ class JobSelectionPerEvent(unittest.TestCase):
 
     def test_pull_requests_keep_their_path_selection(self):
         full = selection.select('pull_request', ['Makefile'])
-        self.assertEqual([full[k] for k in HEAVY], ['false', 'true', 'true', 'true'])
+        self.assertEqual(full['slow_e2e'], 'false')
+        self.assertEqual([full[k] for k in HEAVY], ['true', 'true', 'true'])
         self.assertEqual(full['research_route_only'], 'false')
         engine = selection.select('pull_request', ['engine/src/lib.rs'])
         self.assertEqual(engine['determinism'], 'true')
