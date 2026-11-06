@@ -283,7 +283,7 @@ const en: Record<string, string> = {
   'landing.proDesignH': 'Code verification and element design.',
   'landing.proDesignP': 'Check and design members: concrete to CIRSOC 201, steel to CIRSOC 301 (experimental), loads and combinations to CIRSOC 101–104. Experimental checks to AISC 360, EN 1993-1-1, AISI S100, ACI 318 and EN 1992-1-1 cover limited sections.',
   'landing.proDesign3d': 'Open critical issue #532: 3D design demands may be taken about the wrong axis. Until it is fixed, check the governing forces by hand.',
-  'landing.metaDescription': 'Free and open source, in your browser: 2D and 3D frames and trusses, CIRSOC 201 design, experimental AISC, ACI and Eurocode checks, and an AI assistant in development.',
+  'landing.metaDescription': 'Free and open source, in your browser: 2D and 3D frames and trusses. CIRSOC 201 design and experimental AISC, ACI and Eurocode checks are paid, free for universities. AI assistant in development.',
   'landing.metaTitle': 'Stabileo — Open-source structural engineering software, AI in development',
   'landing.proDesignCirsocLink': 'What it checks against CIRSOC today',
   'landing.ebVerif': 'VERIFICATION',

@@ -544,7 +544,7 @@ test.describe('@landing landing page', () => {
        * file a crawler receives already holds the page's real metadata — there
        * is no longer a generic head to be refined later.
        */
-      expect(one(h, 'description')).toMatch(/^Free and open source, in your browser: .*CIRSOC 201 design, experimental AISC, ACI and Eurocode checks, and an AI assistant in development\.$/);
+      expect(one(h, 'description')).toMatch(/^Free and open source, in your browser: .*CIRSOC 201 design and experimental AISC, ACI and Eurocode checks are paid, free for universities\. AI assistant in development\.$/);
       expect(one(h, 'theme-color')).toBe('#0c1620');
       expect(one(h, 'og:type')).toBe('website');
       // og:url names the page, and the page here is /en — the same address
@@ -620,7 +620,7 @@ test.describe('@landing landing page', () => {
       expect(one(h, 'og:locale')).toBe('es_AR');
       expect(h.meta['og:locale:alternate']).toEqual(ogAlternates('es'));
       expect(h.canonicals).toEqual(['https://stabileo.com/es/']);
-      expect(one(h, 'description')).toMatch(/^Gratis y de código abierto, en el navegador: .*diseño CIRSOC 201, verificación experimental AISC, ACI y Eurocódigo, y un asistente de IA en desarrollo\.$/);
+      expect(one(h, 'description')).toMatch(/^Gratis y de código abierto, en el navegador: .*El diseño CIRSOC 201 y la verificación experimental AISC, ACI y Eurocódigo son pagos y gratuitos para las universidades; asistente de IA en desarrollo\.$/);
       expect(one(h, 'twitter:description')).toBe(one(h, 'description'));
       // The canonical DOES vary by locale now: each language is its own
       // indexable page, which is the whole reason the prefixes exist.
@@ -695,7 +695,7 @@ test.describe('@landing landing page', () => {
        * file a crawler receives already holds the page's real metadata — there
        * is no longer a generic head to be refined later.
        */
-      expect(one(h, 'description')).toMatch(/^Free and open source, in your browser: .*CIRSOC 201 design, experimental AISC, ACI and Eurocode checks, and an AI assistant in development\.$/);
+      expect(one(h, 'description')).toMatch(/^Free and open source, in your browser: .*CIRSOC 201 design and experimental AISC, ACI and Eurocode checks are paid, free for universities\. AI assistant in development\.$/);
     });
 
     test('the social card exists, resolves, and is a 1200x630 PNG', async ({ page }) => {

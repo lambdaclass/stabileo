@@ -292,7 +292,7 @@ const tr: Translations = {
   'landing.proDesignH': 'Yönetmelik kontrolü ve eleman boyutlandırma.',
   'landing.proDesignP': 'Elemanları kontrol edin ve boyutlandırın: CIRSOC 201’e göre betonarme, CIRSOC 301’e göre çelik (deneysel), CIRSOC 101–104’e göre yükler ve kombinasyonlar. AISC 360, EN 1993-1-1, AISI S100, ACI 318 ve EN 1992-1-1 deneysel kontrolleri az sayıda kesiti kapsar.',
   'landing.proDesign3d': 'Açık kritik sorun #532: 3B tasarım iç kuvvetleri yanlış eksene göre alınabilir. Düzeltilene kadar belirleyici iç kuvvetleri elle kontrol edin.',
-  'landing.metaDescription': 'Ücretsiz ve açık kaynaklı, tarayıcıda: 2B ve 3B çerçeve ve kafesler, CIRSOC 201 tasarımı, deneysel AISC, ACI ve Eurocode kontrolleri ve geliştirilmekte olan yapay zekâ asistanı.',
+  'landing.metaDescription': 'Ücretsiz ve açık kaynaklı, tarayıcıda: 2B ve 3B çerçeve ve kafesler. CIRSOC 201 tasarımı ve deneysel AISC, ACI ve Eurocode kontrolleri ücretlidir, üniversiteler için ücretsizdir; ayrıca geliştirilmekte olan yapay zekâ asistanı var.',
   'landing.metaTitle': 'Stabileo — Açık kaynaklı yapı mühendisliği yazılımı, yapay zekâ geliştiriliyor',
   'landing.proDesignCirsocLink': 'Bugün CIRSOC\'a göre neleri kontrol ediyor',
   'landing.ebVerif': 'DOĞRULAMA',

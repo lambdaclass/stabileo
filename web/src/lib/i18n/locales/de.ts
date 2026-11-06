@@ -283,7 +283,7 @@ const de: Translations = {
   'landing.proDesignH': 'Normnachweise und Bemessung von Bauteilen.',
   'landing.proDesignP': 'Bauteile nachweisen und bemessen: Stahlbeton nach CIRSOC 201, Stahl nach CIRSOC 301 (experimentell), Lasten und Kombinationen nach CIRSOC 101–104. Experimentelle Nachweise nach AISC 360, EN 1993-1-1, AISI S100, ACI 318 und EN 1992-1-1 decken wenige Querschnitte ab.',
   'landing.proDesign3d': 'Offener kritischer Fehler #532: 3D-Bemessungsschnittgrößen können um die falsche Achse genommen werden. Bis zur Behebung die maßgebenden Schnittgrößen von Hand prüfen.',
-  'landing.metaDescription': 'Kostenlos und quelloffen im Browser: Rahmen und Fachwerke in 2D und 3D, CIRSOC-201-Bemessung, experimentelle AISC-, ACI- und Eurocode-Nachweise, KI-Assistent in Entwicklung.',
+  'landing.metaDescription': 'Kostenlos und quelloffen im Browser: Rahmen und Fachwerke in 2D und 3D. CIRSOC-201-Bemessung und experimentelle AISC-, ACI- und Eurocode-Nachweise sind kostenpflichtig, für Universitäten kostenlos. KI-Assistent in Entwicklung.',
   'landing.metaTitle': 'Stabileo — Quelloffene Software für die Tragwerksplanung, KI in Entwicklung',
   'landing.proDesignCirsocLink': 'Was es heute nach CIRSOC nachweist',
   'landing.ebVerif': 'VERIFIKATION',
