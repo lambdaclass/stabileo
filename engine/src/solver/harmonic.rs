@@ -1110,6 +1110,24 @@ mod tests {
     }
 
     #[test]
+    fn past_the_dense_ceiling_an_uncorrected_frequency_keeps_its_warning() {
+        let n = MAX_DENSE_FALLBACK_DOFS / 2 + 1;
+        let idx: Vec<usize> = (0..n).collect();
+        let k = CscMatrix::from_triplets(n, &idx, &idx, &(0..n).map(|i| ((i + 1) * (i + 1)) as f64).collect::<Vec<_>>());
+        let m = CscMatrix::from_triplets(n, &idx, &idx, &vec![1.0; n]);
+        let mut f = vec![0.0; n];
+        f[0] = 1.0;
+        let sweep = solve_harmonic_modal_sparse(&k, &m, &f, &[0.05, 3000.0], 0.05, &[(0, 1.0)]).unwrap();
+        assert_eq!(sweep.uncorrected, vec![3000.0]);
+        assert!(sweep.residuals.iter().all(|&r| r <= MODAL_RESIDUAL_TOL), "{:?}", sweep.residuals);
+        let (r, _) = resolve_unbounded_frequencies(sweep, || unreachable!(), &f, n, &[(0, 1.0)]).unwrap();
+        assert_eq!(r.method, HarmonicMethod::ModalStatic);
+        assert!(r.direct_frequencies.is_empty(), "{:?}", r.direct_frequencies);
+        assert!(r.warnings.iter().any(|w| w.starts_with(UNCORRECTED_WARNING)), "{:?}", r.warnings);
+        assert!(r.structured_diagnostics.iter().any(|d| d.phase.as_deref() == Some("HARM-TRUNCATION")), "{:?}", r.structured_diagnostics);
+    }
+
+    #[test]
     fn the_response_is_linear_in_the_load() {
         let n = 80;
         let (k, m) = diagonal(n);

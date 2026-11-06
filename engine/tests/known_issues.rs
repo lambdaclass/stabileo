@@ -791,9 +791,10 @@ fn md_orthogonality_follows_the_harmonic_method_not_its_label() {
         let input = HarmonicInput3D { solver: solver.clone(), densities: densities.clone(), frequencies, damping_ratio: 0.05, response_node_id: 9, response_dof: "x".into() };
         let result = solve_harmonic_3d(&input).unwrap();
         let certified = dedaliano_engine::certify::harmonic::certify_harmonic_3d(&input).unwrap().results;
+        assert_eq!(certified.method, result.method);
         for r in [&result, &certified] {
             let warned = ids(&r.structured_diagnostics).contains(&"MD-ORTHOGONALITY".into());
-            match result.method {
+            match r.method {
                 HarmonicMethod::Modal | HarmonicMethod::ModalStatic => assert_warning(&r.structured_diagnostics, "MD-ORTHOGONALITY", 759.0),
                 HarmonicMethod::Direct => assert!(!warned, "{:?}", r.structured_diagnostics),
             }
