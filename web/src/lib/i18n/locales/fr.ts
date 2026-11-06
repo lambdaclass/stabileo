@@ -10774,7 +10774,6 @@ const fr: Translations = {
   'ai.sum.deleteElement': "Élément {id} supprimé",
   'ai.sum.deleteLoad': "Charge {id} supprimée",
   'ai.sum.custom': "Modèle personnalisé ({nodes} nœuds, {elements} éléments)",
-  'ai.sum.customSections': "{names} : valeurs de section hors catalogue, vérifiez-les avant d'appliquer",
   'ai.err.oneChange': "L’assistant a proposé plusieurs modifications à la fois ; demandez une modification à la fois.",
   'ai.err.planarInSpace': "L’assistant a proposé un modèle 2D pour un modèle 3D ; redemandez, ou décrivez-le dans les trois dimensions.",
   'ai.err.spaceInPlane': "L’assistant a proposé un modèle 3D pour un modèle 2D ; redemandez un modèle dans le plan.",

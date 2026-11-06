@@ -88,9 +88,9 @@ function expectKeyOnlyTo(traffic: Traffic, key: string, host: string): void {
 }
 
 function sharedPayload(link: string): string {
-  const m = /#(code|data)=(?:2\.)?([A-Za-z0-9_-]+)/.exec(link);
-  expect(m, `a share link with a model: ${link}`).not.toBeNull();
-  return inflateRawSync(Buffer.from(m![2], 'base64url')).toString('utf8');
+  const m = /#code=([A-Za-z0-9_-]+)/.exec(link);
+  expect(m, `a share link carrying the model code: ${link}`).not.toBeNull();
+  return inflateRawSync(Buffer.from(m![1], 'base64url')).toString('utf8');
 }
 
 async function sendAndApply(page: Page, prompt: string): Promise<void> {
@@ -149,7 +149,11 @@ test.describe('@smoke AI with your own key', () => {
     await page.getByTestId('project-share-link').click();
     const shareLink = await page.evaluate(() => navigator.clipboard.readText());
     const shared = sharedPayload(shareLink);
-    expect(shared).toContain('6');
+    const lines = shared.split('\n');
+    expect(lines.filter((l) => l.startsWith('node ')).map((l) => l.split(' ').slice(1, 4).map(Number))).toEqual([[1, 0, 0], [2, 6, 0]]);
+    expect(lines.filter((l) => l.startsWith('member '))).toHaveLength(1);
+    expect(lines.filter((l) => l.startsWith('support '))).toHaveLength(2);
+    expect(lines.filter((l) => l.startsWith('load distributed '))).toHaveLength(1);
     for (const payload of [ded, shareLink, shared, page.url()]) {
       expect(payload).not.toContain(ANTHROPIC_KEY);
       expect(payload).not.toContain('sk-ant-');

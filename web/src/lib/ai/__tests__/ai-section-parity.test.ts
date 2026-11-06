@@ -48,8 +48,11 @@ function expectSame(a: ReturnType<typeof solved>, b: ReturnType<typeof solved>) 
   });
   expect(a.displacements.length).toBe(b.displacements.length);
   a.displacements.forEach((d, i) => {
+    const e = b.displacements[i];
+    expect(Object.keys(d).sort()).toEqual(Object.keys(e).sort());
     for (const [k, v] of Object.entries(d)) {
-      if (typeof v === 'number') expect(Math.abs(v - b.displacements[i][k])).toBeLessThanOrEqual(1e-9 * (1 + Math.abs(v)));
+      if (typeof v === 'number') expect(Math.abs(v - e[k]), k).toBeLessThanOrEqual(1e-9 * (1 + Math.abs(v)));
+      else expect(v, k).toEqual(e[k]);
     }
   });
 }

@@ -10783,7 +10783,6 @@ const tr: Translations = {
   'ai.sum.deleteElement': "{id} elemanı silindi",
   'ai.sum.deleteLoad': "{id} yükü silindi",
   'ai.sum.custom': "Özel model ({nodes} düğüm, {elements} eleman)",
-  'ai.sum.customSections': "{names}: katalog dışı kesit değerleri, uygulamadan önce kontrol edin",
   'ai.err.oneChange': "Asistan aynı anda birkaç değişiklik önerdi; her seferinde tek bir değişiklik isteyin.",
   'ai.err.planarInSpace': "Asistan 3B model yerine 2B model önerdi; yeniden isteyin ya da üç boyutta tarif edin.",
   'ai.err.spaceInPlane': "Asistan 2B model yerine 3B model önerdi; düzlemde bir model için yeniden isteyin.",

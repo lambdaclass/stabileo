@@ -10331,7 +10331,6 @@ const pt: Translations = {
   'ai.sum.deleteElement': "Elemento {id} excluído",
   'ai.sum.deleteLoad': "Carga {id} excluída",
   'ai.sum.custom': "Modelo próprio ({nodes} nós, {elements} elementos)",
-  'ai.sum.customSections': "{names}: valores de seção fora do catálogo, confira-os antes de aplicar",
   'ai.err.oneChange': "O assistente propôs várias alterações de uma vez; peça uma alteração por vez.",
   'ai.err.planarInSpace': "O assistente propôs um modelo 2D para um 3D; peça de novo ou descreva-o nas três dimensões.",
   'ai.err.spaceInPlane': "O assistente propôs um modelo 3D para um 2D; peça de novo um modelo no plano.",

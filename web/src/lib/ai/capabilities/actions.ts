@@ -131,7 +131,9 @@ export interface ActionResponse {
 }
 
 export function parseActionResponse(value: unknown): ActionResponse | null {
-  if (!isPlainObject(value) || typeof value.interpretation !== 'string') return null;
+  if (!isPlainObject(value) || typeof value.interpretation !== 'string' || !('action' in value)) return null;
+  const extra = Object.keys(value).filter((k) => k !== 'action' && k !== 'params' && k !== 'interpretation');
+  if (extra.length > 0) throw new AiActionError(`the action carries ${extra.map((k) => JSON.stringify(k)).join(', ')} outside its params; nothing was built`);
   const action = parseAction(value.action, value.params);
   return action ? { action, interpretation: value.interpretation } : null;
 }

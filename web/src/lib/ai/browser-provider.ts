@@ -11,11 +11,11 @@ import type {
 } from './client';
 import type { AiCredentials } from './keys.svelte';
 import { t } from '../i18n';
+import { is3DWorkspace } from '../utils/workspace';
 import {
   AiActionError,
   buildConversation,
   buildSystemPrompt,
-  checkCustomSectionsGiven,
   checkPromptSize,
   checkText,
   checkListLen,
@@ -87,6 +87,15 @@ function str(obj: Record<string, unknown>, key: string): string {
   return v;
 }
 
+function oneOf(obj: Record<string, unknown>, key: string, allowed: readonly string[]): string {
+  const v = str(obj, key);
+  if (!allowed.includes(v)) throw new AiProviderError('badResponse');
+  return v;
+}
+
+const enumOf = (schema: Record<string, unknown>, ...path: string[]): string[] =>
+  path.reduce<unknown>((node, key) => (node as Record<string, unknown>)[key], schema) as string[];
+
 function strList(obj: Record<string, unknown>, key: string, optional = false): string[] {
   const v = obj[key];
   if (v === undefined && optional) return [];
@@ -109,7 +118,7 @@ export function parseReview(text: string): Omit<ReviewModelResponse, 'meta'> {
     const o = f as Record<string, unknown>;
     return {
       title: str(o, 'title'),
-      severity: str(o, 'severity'),
+      severity: oneOf(o, 'severity', enumOf(REVIEW_SCHEMA, 'properties', 'findings', 'items', 'properties', 'severity', 'enum')),
       explanation: str(o, 'explanation'),
       relatedDiagnostics: strList(o, 'relatedDiagnostics', true),
       affectedIds: idList(o, 'affectedIds'),
@@ -118,7 +127,7 @@ export function parseReview(text: string): Omit<ReviewModelResponse, 'meta'> {
   });
   return {
     findings,
-    riskLevel: str(raw, 'riskLevel'),
+    riskLevel: oneOf(raw, 'riskLevel', enumOf(REVIEW_SCHEMA, 'properties', 'riskLevel', 'enum')),
     reviewOrder: strList(raw, 'reviewOrder'),
     riskyAssumptions: strList(raw, 'riskyAssumptions'),
     summary: str(raw, 'summary'),
@@ -202,7 +211,7 @@ export async function interpretResults(
   const raw = parseJsonObject(resp.text);
   return {
     answer: str(raw, 'answer'),
-    assessment: str(raw, 'assessment'),
+    assessment: oneOf(raw, 'assessment', enumOf(INTERPRET_SCHEMA, 'properties', 'assessment', 'enum')),
     codeReferences: strList(raw, 'codeReferences', true),
     warnings: strList(raw, 'warnings', true),
     meta: metaOf(resp),
@@ -244,6 +253,15 @@ export async function buildModel(
     }
   }
   const mode = analysisMode as AnalysisMode;
+  const declared = currentSnapshot?.analysisMode;
+  if (declared !== undefined) {
+    if (!(typeof declared === 'string' && ['2d', '3d', 'pro', 'edu'].includes(declared))) {
+      throw new AiActionError(`the model on the canvas has an unknown analysis mode ${JSON.stringify(declared)}; nothing was built`);
+    }
+    if (is3DWorkspace(declared) !== isSpaceProtocol(mode)) {
+      throw new AiActionError(`the model on the canvas is ${is3DWorkspace(declared) ? '3D' : '2D'} but the request is ${isSpaceProtocol(mode) ? '3D' : '2D'}; nothing was built`);
+    }
+  }
   const current = currentSnapshot ? { ...currentSnapshot, analysisMode: mode } : undefined;
   const system = buildSystemPrompt(sanitizeLocale(locale), mode, modelContext, current);
   const conversation = buildConversation(description, messages, solverDiagnostics);
@@ -257,11 +275,7 @@ export async function buildModel(
   });
   const meta = metaOf(resp);
   if (resp.toolCalls.length > 1) throw new AiActionError(t('ai.err.oneChange'));
-  const userTexts = [description, ...(messages ?? []).filter((m) => m.role === 'user').map((m) => m.content)];
-  const checked = (outcome: ToolOutcome): ToolOutcome => {
-    if (outcome.kind === 'snapshot') checkCustomSectionsGiven(outcome.snapshot, userTexts, current);
-    return inMode(outcome, mode);
-  };
+  const checked = (outcome: ToolOutcome): ToolOutcome => inMode(outcome, mode);
   const call = resp.toolCalls[0];
   if (call) {
     const raw = `tool_call: ${call.name}(${JSON.stringify(call.input)})`;

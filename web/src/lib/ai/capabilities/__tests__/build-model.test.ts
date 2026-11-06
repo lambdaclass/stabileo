@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   AiActionError, buildConversation, buildSystemPrompt, outcomeFromText, outcomeFromToolCall, validateBuildRequest,
 } from '../index';
-import { checkCustomSectionsGiven, validateSnapshot } from '../validate-snapshot';
+import { validateSnapshot } from '../validate-snapshot';
 import { generatePortalFrame, generatePortalFrame3d } from '../generators';
 import type { ModelContext } from '../../client';
 import { ensureLocale, setLocale } from '../../../i18n';
@@ -59,46 +59,12 @@ describe('validate snapshot', () => {
     expect(() => validateSnapshot(withMaterial({ fy: 0 }))).toThrow('material 1: yield strength (fy) must be positive');
     expect(() => validateSnapshot(withMaterial({ fy: -250 }))).toThrow('material 1: yield strength (fy) must be positive');
   });
-  describe('a section with the user\'s own values', () => {
-    const custom = (props: Record<string, unknown>) => ({ ...minimal(), sections: [[1, { id: 1, name: 'Custom (user values)', ...props }]] });
-    it('NEGATIVE: values the user never wrote are refused, whatever the section is called', () => {
-      expect(() => checkCustomSectionsGiven(custom({ a: 0.0123, iz: 4.56e-5 }), ['Build a 6 m beam with my own section']))
-        .toThrow('section 1: a = 0.0123 is not a value the user gave; use a listed section, or ask the user for its properties');
-      expect(() => checkCustomSectionsGiven(custom({ a: 0.0123, iz: 4.56e-5 }), ['A = 123 cm2, and the span is 6 m']))
-        .toThrow('section 1: iz = 0.0000456 is not a value the user gave');
-    });
-    it('NEGATIVE: a length, or a quantity of the wrong kind, does not stand for a section property', () => {
-      expect(() => checkCustomSectionsGiven(custom({ a: 0.001, iz: 1e-7 }), ['Build a 10 m beam']))
-        .toThrow('section 1: a = 0.001 is not a value the user gave');
-      expect(() => checkCustomSectionsGiven(custom({ a: 0.001, iz: 1e-7 }), ['the area is 10 cm4']))
-        .toThrow('section 1: a = 0.001 is not a value the user gave');
-      expect(() => checkCustomSectionsGiven(custom({ a: 0.001, iz: 1e-7 }), ['A = 10 cm2, I = 10 cm2']))
-        .toThrow('section 1: iz = 1e-7 is not a value the user gave');
-      expect(() => checkCustomSectionsGiven(custom({ a: 0.0123, iz: 4.56e-5 }), ['A = 123 cm2, span 4560 mm']))
-        .toThrow('section 1: iz = 0.0000456 is not a value the user gave');
-    });
-    it('accepts the values the user wrote, in m or a smaller unit', () => {
-      expect(() => checkCustomSectionsGiven(custom({ a: 0.0123, iz: 4.56e-5 }), ['A = 123 cm², I = 4560 cm⁴'])).not.toThrow();
-      expect(() => checkCustomSectionsGiven(custom({ a: 0.0123, iz: 4.56e-5 }), ['A = 0.0123, I = 0.0000456'])).not.toThrow();
-      expect(() => checkCustomSectionsGiven(custom({ a: 0.0254 ** 2 * 19.1, iz: 0.0254 ** 4 * 1650 }), ['A = 19.1 in^2, Ix = 1650 in^4'])).not.toThrow();
-      expect(() => checkCustomSectionsGiven(custom({ a: 0.0123, iz: 4.56e-5 }), ['A = 123 cm2', 'I = 4560 cm4'])).not.toThrow();
-      expect(() => checkCustomSectionsGiven(custom({ a: 0.0123, iz: 4.56e-5 }), ['A = 0.0123 m2, I = 4.56e-5 m4'])).not.toThrow();
-      expect(() => checkCustomSectionsGiven(custom({ a: 0.0123, iz: 4.56e-5 }), ['A = 12300 mm2, I = 45.600.000 mm4'])).not.toThrow();
-    });
-    it('leaves a section the model already had alone', () => {
-      const snap = custom({ a: 0.0123, iz: 4.56e-5 });
-      expect(() => checkCustomSectionsGiven(snap, ['make it longer'], snap)).not.toThrow();
-    });
-    it('does not ask about listed sections', () => {
-      expect(() => checkCustomSectionsGiven(minimal(), ['Build a beam'])).not.toThrow();
-    });
-  });
-  it('NEGATIVE: a new model may not name a section that is neither listed nor the user\'s own values', () => {
+  it('NEGATIVE: a new model may not name a section that is not listed, not even one the assistant calls the user\'s own values', () => {
     const named = (name: string) => ({ ...minimal(), sections: [[1, { id: 1, name, a: 0.0171, iz: 0.000416 }]] });
     expect(() => validateSnapshot(named('W 14x90'))).toThrow('section 1: "W 14x90" is not a listed section');
     expect(() => validateSnapshot(named('W 14x90'), { existingModel: true })).not.toThrow();
-    expect(() => validateSnapshot(named('Custom (user values)'))).not.toThrow();
-    expect(() => validateSnapshot(named('Custom (user values) 2'))).not.toThrow();
+    expect(() => validateSnapshot(named('Custom (user values)'))).toThrow('section 1: "Custom (user values)" is not a listed section. The assistant only uses listed sections; define any other section in the app\'s section editor, then ask again naming it');
+    expect(() => validateSnapshot(named('Custom (user values) 2'))).toThrow('is not a listed section');
   });
   it('NEGATIVE: a new model may not put a distributed load on a truss member', () => {
     const truss = (load: Record<string, unknown>) => ({
@@ -134,8 +100,7 @@ describe('validate snapshot', () => {
     const near = { ...minimal(), sections: [[1, { id: 1, name: 'IPE 300', a: 53.8e-4 * 1.005, iz: 8356e-8 }]] };
     expect(() => validateSnapshot(near)).toThrow('section 1: a is not that of IPE 300');
     expect(() => validateSnapshot(wrong, { existingModel: true })).not.toThrow();
-    const custom = { ...minimal(), sections: [[1, { id: 1, name: 'Custom (user values)', a: 0.005381, iz: 0.0002 }]] };
-    expect(() => validateSnapshot(custom)).not.toThrow();
+
   });
   it('takes a member load frame only from the ones the solver knows, in either kind of snapshot', () => {
     const withFrame = (frame: unknown) => {
@@ -454,11 +419,7 @@ describe('change summaries', () => {
       expect(actionSummary({ action: 'add_bay', params: { width: 5, side: 'left' } })).toBe('Se agregó un vano de 5 m a la izquierda. Los miembros nuevos no tienen cargas');
       expect(actionSummary({ action: 'add_bay', params: { width: 5, side: ' Left ' } })).toBe('Se agregó un vano de 5 m a la izquierda. Los miembros nuevos no tienen cargas');
       const model = (names: string[]) => ({ action: 'create_model', params: { nodes: [1, 2], elements: [1], materials: [], supports: [], sections: names.map((name, i) => ({ id: i + 1, name })) } }) as never;
-      expect(actionSummary(model(['IPE 300', 'Custom (user values)', 'Custom (user values) 2'])))
-        .toBe('Modelo propio (2 nudos, 1 elementos). Custom (user values), Custom (user values) 2: valores de sección que no son del catálogo, revíselos antes de aplicar');
       expect(actionSummary(model(['IPE 300']))).toBe('Modelo propio (2 nudos, 1 elementos)');
-      const tuples = { action: 'create_model', params: { nodes: [1, 2], elements: [1], materials: [], supports: [], sections: [[1, { id: 1, name: 'Custom (user values)' }]] } } as never;
-      expect(actionSummary(tuples)).toBe('Modelo propio (2 nudos, 1 elementos). Custom (user values): valores de sección que no son del catálogo, revíselos antes de aplicar');
       expect(actionSummary({ action: 'add_story', params: { height: 3 } })).toBe('Se agregó un piso de 3 m. Los miembros nuevos no tienen cargas');
       expect(actionSummary({ action: 'change_section', params: { section: 'HEB 300', element_filter: 'column' } })).toBe('Las columnas pasaron a HEB 300');
     } finally {

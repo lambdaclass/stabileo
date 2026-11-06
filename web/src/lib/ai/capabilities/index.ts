@@ -8,4 +8,3 @@ export {
   AiActionError, checkText, checkListLen, checkPromptSize, sanitizeLocale, promptLabel,
   MAX_TEXT_BYTES, MAX_MESSAGES, MAX_LIST_LEN, MAX_PROMPT_BYTES,
 } from './limits';
-export { checkCustomSectionsGiven } from './validate-snapshot';

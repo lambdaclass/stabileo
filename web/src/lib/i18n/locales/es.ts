@@ -10960,7 +10960,6 @@ const es: Record<string, string> = {
   'ai.sum.deleteElement': "Se eliminó el elemento {id}",
   'ai.sum.deleteLoad': "Se eliminó la carga {id}",
   'ai.sum.custom': "Modelo propio ({nodes} nudos, {elements} elementos)",
-  'ai.sum.customSections': "{names}: valores de sección que no son del catálogo, revíselos antes de aplicar",
   'ai.err.oneChange': "El asistente propuso varios cambios a la vez; pedí un cambio por vez.",
   'ai.err.planarInSpace': "El asistente propuso un modelo 2D para uno 3D; volvé a pedirlo o describilo en las tres dimensiones.",
   'ai.err.spaceInPlane': "El asistente propuso un modelo 3D para uno 2D; volvé a pedir un modelo en el plano.",

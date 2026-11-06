@@ -4,7 +4,7 @@ import OpenAI from 'openai';
 import { anthropicProvider, anthropicParams, mapAnthropicError, ANTHROPIC_MODEL } from '../providers/anthropic';
 import { openaiProvider, openaiParams, mapOpenAiError, OPENAI_MODEL } from '../providers/openai';
 import { AiProviderError, shortDetail, withoutKey, type LlmRequest } from '../providers/types';
-import { buildModel } from '../browser-provider';
+import { buildModel, interpretResults, parseReview } from '../browser-provider';
 import { AiActionError } from '../capabilities';
 import { t } from '../../i18n';
 import es from '../../i18n/locales/es';
@@ -115,8 +115,8 @@ describe('several tool calls in one answer', () => {
   });
 });
 
-describe('a section with the user\'s own values', () => {
-  const customModel = (input: Record<string, unknown> = {}) => ({
+describe('sections the assistant may use', () => {
+  const customModel = () => ({
     analysis_mode: '2d',
     nodes: [[1, { id: 1, x: 0, y: 0 }], [2, { id: 2, x: 6, y: 0 }]],
     elements: [[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1 }]],
@@ -124,37 +124,85 @@ describe('a section with the user\'s own values', () => {
     sections: [[1, { id: 1, name: 'Custom (user values)', a: 0.0123, iz: 4.56e-5 }]],
     supports: [[1, { id: 1, nodeId: 1, type: 'pinned' }], [2, { id: 2, nodeId: 2, type: 'rollerX' }]],
     interpretation: 'x',
-    ...input,
   });
-  const answer = () => stubFetch(() => sseResponse(anthropicStream({
-    content: [{ type: 'tool_use', name: 'create_model', input: customModel() }],
+  const answer = (name: string, input: Record<string, unknown>) => stubFetch(() => sseResponse(anthropicStream({
+    content: [{ type: 'tool_use', name, input }],
     stopReason: 'tool_use',
   })));
 
-  it('NEGATIVE: is refused when the model made the numbers up', async () => {
-    answer();
-    const err = await buildModel({ provider: 'anthropic', apiKey: KEY }, 'Build a 6 m beam with a custom section', 'en', '2d').catch((e) => e);
-    expect(err).toBeInstanceOf(AiActionError);
-    expect(err.message).toBe('section 1: a = 0.0123 is not a value the user gave; use a listed section, or ask the user for its properties');
-  });
-
-  it('is built when the user wrote them, also in an earlier message', async () => {
-    answer();
-    const resp = await buildModel(
-      { provider: 'anthropic', apiKey: KEY }, 'and I = 4560 cm4', 'en', '2d', undefined, undefined,
-      [{ role: 'user', content: 'Build a 6 m beam, A = 123 cm2' }, { role: 'assistant', content: 'What is its inertia?' }],
-    );
-    expect(resp.snapshot?.sections).toEqual([[1, { id: 1, name: 'Custom (user values)', a: 0.0123, iz: 4.56e-5 }]]);
-  });
-
-  it('NEGATIVE: numbers only the assistant wrote do not count', async () => {
-    answer();
+  it('NEGATIVE: a section the assistant defines is refused, even with the values the user typed', async () => {
+    answer('create_model', customModel());
     const err = await buildModel(
-      { provider: 'anthropic', apiKey: KEY }, 'yes, use those', 'en', '2d', undefined, undefined,
-      [{ role: 'user', content: 'Build a 6 m beam' }, { role: 'assistant', content: 'Shall I use A = 123 cm2 and I = 4560 cm4?' }],
+      { provider: 'anthropic', apiKey: KEY }, 'Build a 6 m beam with A = 123 cm2 and I = 4560 cm4', 'en', '2d', undefined, undefined,
+      [{ role: 'user', content: 'My section has A = 0.0123 m2 and I = 4.56e-5 m4' }],
     ).catch((e) => e);
     expect(err).toBeInstanceOf(AiActionError);
-    expect(err.message).toContain('is not a value the user gave');
+    expect(err.message).toBe('section 1: "Custom (user values)" is not a listed section. The assistant only uses listed sections; define any other section in the app\'s section editor, then ask again naming it');
+  });
+
+  it('an edit may use a section the user defined in the model, by its name', async () => {
+    const current = {
+      analysisMode: '2d',
+      nodes: [[1, { id: 1, x: 0, y: 0 }], [2, { id: 2, x: 6, y: 0 }]],
+      elements: [[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1 }]],
+      materials: [[1, { id: 1, name: 'Steel A36', e: 200000, nu: 0.3 }]],
+      sections: [[1, { id: 1, name: 'IPE 300', a: 53.8e-4, iz: 8356e-8 }], [2, { id: 2, name: 'Mi viga 30x60', a: 0.18, iz: 0.0054, b: 0.3, h: 0.6, shape: 'rect' }]],
+      supports: [[1, { id: 1, nodeId: 1, type: 'pinned' }], [2, { id: 2, nodeId: 2, type: 'rollerX' }]],
+      loads: [],
+    };
+    answer('change_section', { section: 'Mi viga 30x60', interpretation: 'x' });
+    const resp = await buildModel({ provider: 'anthropic', apiKey: KEY }, 'use my section', 'en', '2d', undefined, current);
+    const snap = resp.snapshot as { elements: Array<[number, { sectionId: number }]>; sections: unknown[] };
+    expect(snap.elements[0][1].sectionId).toBe(2);
+    expect(snap.sections).toEqual(current.sections);
+  });
+});
+
+describe('the dimension of the model on the canvas', () => {
+  const planar = {
+    analysisMode: '2d',
+    nodes: [[1, { id: 1, x: 0, y: 0 }], [2, { id: 2, x: 6, y: 0 }]],
+    elements: [[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1 }]],
+    materials: [[1, { id: 1, name: 'Steel A36', e: 200000, nu: 0.3 }]],
+    sections: [[1, { id: 1, name: 'IPE 300', a: 53.8e-4, iz: 8356e-8 }]],
+    supports: [[1, { id: 1, nodeId: 1, type: 'pinned' }], [2, { id: 2, nodeId: 2, type: 'rollerX' }]],
+    loads: [],
+  };
+  const space = { ...planar, analysisMode: '3d' };
+  const any = () => stubFetch(() => sseResponse(anthropicStream({ content: [{ type: 'tool_use', name: 'add_nodal_load', input: { node_id: 1, fx: 1, interpretation: 'x' } }], stopReason: 'tool_use' })));
+
+  it('NEGATIVE: a 3D model is never edited as 2D, nor a 2D one as 3D', async () => {
+    const calls = any();
+    const a = await buildModel({ provider: 'anthropic', apiKey: KEY }, 'push it', 'en', '2d', undefined, space).catch((e) => e);
+    expect(a).toBeInstanceOf(AiActionError);
+    expect(a.message).toBe('the model on the canvas is 3D but the request is 2D; nothing was built');
+    const b = await buildModel({ provider: 'anthropic', apiKey: KEY }, 'push it', 'en', '3d', undefined, planar).catch((e) => e);
+    expect(b.message).toBe('the model on the canvas is 2D but the request is 3D; nothing was built');
+    const c = await buildModel({ provider: 'anthropic', apiKey: KEY }, 'push it', 'en', '3d', undefined, { ...planar, analysisMode: 'Z' }).catch((e) => e);
+    expect(c.message).toBe('the model on the canvas has an unknown analysis mode "Z"; nothing was built');
+    expect(calls).toHaveLength(0);
+  });
+
+  it('a PRO model is a 3D one and an educational model a 2D one', async () => {
+    any();
+    await expect(buildModel({ provider: 'anthropic', apiKey: KEY }, 'push it', 'en', '2d', undefined, { ...planar, analysisMode: 'edu' })).resolves.toBeDefined();
+    await expect(buildModel({ provider: 'anthropic', apiKey: KEY }, 'push it', 'en', '2d', undefined, { ...planar, analysisMode: 'pro' })).rejects.toThrow('is 3D but the request is 2D');
+  });
+});
+
+describe('labels the assistant answers with', () => {
+  it('NEGATIVE: a severity, risk level or assessment outside its list is a bad response', async () => {
+    const review = (finding: Record<string, unknown>, riskLevel: string) => JSON.stringify({
+      findings: [{ title: 't', severity: 'warning', explanation: 'e', relatedDiagnostics: [], affectedIds: [], recommendation: 'r', ...finding }],
+      riskLevel, reviewOrder: [], riskyAssumptions: [], summary: 's',
+    });
+    expect(parseReview(review({}, 'high')).riskLevel).toBe('high');
+    expect(() => parseReview(review({ severity: 'catastrophic' }, 'high'))).toThrow(AiProviderError);
+    expect(() => parseReview(review({}, 'extreme'))).toThrow(AiProviderError);
+    stubFetch(() => sseResponse(anthropicStream({ content: [{ type: 'text', text: JSON.stringify({ answer: 'a', assessment: 'fine', codeReferences: [], warnings: [] }) }], stopReason: 'end_turn' })));
+    const err = await interpretResults({ provider: 'anthropic', apiKey: KEY }, {}, 'is it ok?').catch((e) => e);
+    expect(err).toBeInstanceOf(AiProviderError);
+    expect(err.kind).toBe('badResponse');
   });
 });
 

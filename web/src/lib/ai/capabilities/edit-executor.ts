@@ -84,6 +84,11 @@ function changeSection(snap: Json, name: string, ids?: number[], filter?: string
   for (const elem of elems) {
     const eid = asU64(at(elem, 0));
     if (eid === undefined) continue;
+    const type = at(at(elem, 1), 'type');
+    if (type !== undefined && type !== 'frame') {
+      if (ids !== undefined && ids.includes(eid)) throw new AiActionError(`Element ${eid} is not a frame element; only frame elements take a section change`);
+      continue;
+    }
     let matches = true;
     if (ids !== undefined) matches = ids.includes(eid);
     else if (filter === 'beam' || filter === 'beams') matches = isHorizontalElement(snap, at(elem, 1));

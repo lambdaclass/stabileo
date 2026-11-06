@@ -84,6 +84,9 @@ describe('actions', () => {
     expect(() => parseAction('create_beam', { span: 6, point_load: -20 })).toThrow('create_beam has no parameter "point_load"; nothing was built');
     expect(() => parseAction('create_beam', { span: 6, q: -10, P: 5, support_mid: 'pinned' })).toThrow('create_beam has no parameter "P", "support_mid"; nothing was built');
     expect(() => parseActionResponse({ action: 'create_beam', params: { span: 6, point_load: -20 }, interpretation: 'x' })).toThrow('no parameter "point_load"');
+    expect(() => parseActionResponse({ action: 'create_beam', params: { span: 6 }, point_load: -20, interpretation: 'x' }))
+      .toThrow('the action carries "point_load" outside its params; nothing was built');
+    expect(parseActionResponse({ snapshot: {}, interpretation: 'x' })).toBeNull();
     expect(parseAction('create_model', { analysisMode: '3d', nodes: [], elements: [], materials: [], sections: [], supports: [] })?.params).toMatchObject({ analysis_mode: '3d' });
     expect(parseActionResponse({ action: 'create_beam', params: { span: 6 } })).toBeNull();
   });

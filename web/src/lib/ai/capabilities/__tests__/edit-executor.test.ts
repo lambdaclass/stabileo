@@ -56,6 +56,32 @@ describe('edit executor', () => {
     expect(arr(r, 'elements').every((e) => e[1].sectionId === 3)).toBe(true);
   });
 
+  it('changes the section of frame elements only, never a truss member\'s', () => {
+    const snap = makeMultiStory();
+    const elems = arr(snap, 'elements');
+    const tie = elems.find((e) => {
+      const xy = (id: unknown) => arr(snap, 'nodes').find((n) => n[0] === id)![1] as { y: number };
+      return Math.abs(xy(e[1].nodeI).y - xy(e[1].nodeJ).y) < 1e-9;
+    })!;
+    tie[1].type = 'truss';
+    const before = tie[1].sectionId;
+    const r = applyEdit({ action: 'change_section', params: { section: 'HEB 400', element_filter: 'beam' } }, snap);
+    expect(arr(r, 'elements').find((e) => e[0] === tie[0])![1].sectionId).toBe(before);
+    expect(() => applyEdit({ action: 'change_section', params: { section: 'HEB 400', element_filter: 'beam' } }, { ...snap, elements: [tie] }))
+      .toThrow('No element matches the section change');
+    expect(() => applyEdit({ action: 'change_section', params: { section: 'HEB 400', element_ids: [tie[0]] } }, snap))
+      .toThrow(`Element ${tie[0]} is not a frame element; only frame elements take a section change`);
+  });
+
+  it('uses a section the user defined in the model, by its name', () => {
+    const snap = makeFrame();
+    arr(snap, 'sections').push([7, { id: 7, name: 'Mi viga 30x60', a: 0.18, iz: 0.0054, b: 0.3, h: 0.6, shape: 'rect' }]);
+    const r = applyEdit({ action: 'change_section', params: { section: 'Mi viga 30x60', element_filter: 'beam' } }, snap);
+    expect(arr(r, 'sections').filter((x) => x[1].name === 'Mi viga 30x60')).toHaveLength(1);
+    const beams = arr(r, 'elements').filter((e) => e[1].sectionId === 7);
+    expect(beams.length).toBeGreaterThan(0);
+  });
+
   it('refuses an unknown section, filter or element instead of guessing', () => {
     const snap = makeFrame();
     expect(() => applyEdit({ action: 'change_section', params: { section: 'W 14x90' } }, snap)).toThrow("Unknown section 'W 14x90'");
@@ -378,7 +404,7 @@ describe('edit executor', () => {
     const sid = Math.max(...arr(snap, 'sections').map((x) => x[0])) + 1;
     arr(snap, 'sections').push([sid, { id: sid, name: 'HEB 400', a: 198e-4, iz: 57680e-8 }]);
     const r = applyEdit({ action: 'change_section', params: { section: 'HEB 400' } }, snap);
-    const used = new Set(arr(r, 'elements').map(([, e]) => e.sectionId));
+    const used = new Set(arr(r, 'elements').filter(([, e]) => e.type === 'frame').map(([, e]) => e.sectionId));
     expect(used.has(sid)).toBe(false);
     const made = arr(r, 'sections').find(([id]) => used.has(id))![1];
     expect(made).toMatchObject({ name: 'HEB 400', iy: 10820 * 1e-8 });

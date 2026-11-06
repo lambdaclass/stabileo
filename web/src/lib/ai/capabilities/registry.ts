@@ -136,8 +136,8 @@ export function editToolCatalog(): GeneratorDef[] {
       popt('beam_section', 'string', 'Beam section name'),
       popt('column_section', 'string', 'Column section name'),
     ] },
-    { action: 'change_section', description: 'Change section on elements (all, specific IDs, or by type: beam/column)', params: [
-      preq('section', 'string', "New section name (e.g. 'HEB 400')"),
+    { action: 'change_section', description: 'Change section on frame elements (all, specific IDs, or by type: beam/column)', params: [
+      preq('section', 'string', "A listed section (e.g. 'HEB 400'), or a section already in the model, by its exact name"),
       popt('element_ids', '[u32]', 'Specific element IDs to change'),
       popt('element_filter', 'string', "Filter: 'beam' or 'column'"),
     ] },
@@ -256,7 +256,7 @@ const CREATE_MODEL_SCHEMA: Record<string, unknown> = {
       a: { type: 'number', description: 'Cross-section area (m²)' },
       iz: { type: 'number', description: 'Moment of inertia about Z (m⁴)' },
       iy: { type: 'number', description: 'Moment of inertia about Y (m⁴), required in 3D' },
-      j: { type: 'number', description: 'Torsional constant (m⁴): required in 3D for a "Custom (user values)" section, and left out for a listed one' },
+      j: { type: 'number', description: 'Torsional constant (m⁴): leave it out; the app takes it from the catalogue' },
     }, required: ['id', 'name', 'a', 'iz'] } },
     supports: { type: 'array', items: { type: 'object', properties: {
       id: { type: 'integer' },

@@ -6,7 +6,7 @@ import {
   AiActionError, MAX_LIST_LEN, MAX_MESSAGES, checkListLen, checkText, promptLabel, promptLine, sanitizeLocale,
 } from './limits';
 import { type AnalysisMode, promptText } from './registry';
-import { CUSTOM_SECTION, validateSnapshot } from './validate-snapshot';
+import { validateSnapshot } from './validate-snapshot';
 import { asU64 } from './snapshot-json';
 import { t, tp } from '../../i18n';
 
@@ -126,7 +126,7 @@ Rules for create_model:
 - Every element must reference valid node, section, and material IDs
 - At least one support is required, but that alone does not make a model stable: restrain every rigid-body motion (in 2D a single pin still lets the frame rotate) and connect members, with their releases, so that no part is a mechanism
 - Default material: Steel A36 (E=200000, nu=0.3, rho=78.5, fy=250)
-- Section properties: use a section from the available sections list with its listed name and values, leaving j out. Use other values only when the user gives them (a in m², iz in m⁴; in 3D also iy and j in m⁴, all positive), name that section "Custom (user values)" (with a number after it for a second one), and never invent properties or label invented ones with a real profile name
+- Section properties: use a section from the available sections list with its listed name and values, leaving j out. Never define section properties yourself, not even from values the user gives: for any other section, tell the user to define it in the app's section editor and then ask again naming it
 - For 2D: nodes have x, y where y = vertical (up). Nodal loads use fx/fz/my (Z-up convention). Gravity = negative fz. Downward loads use negative fz.
 - For 3D: nodes have x, y, z where z = elevation (up). Gravity = negative z. Downward loads use negative fz.
 - Generate DETAILED structures with realistic geometry: use 20-60 nodes for complex structures like stadiums, bridges, towers. Don't oversimplify — a stadium needs columns, tiers, roof trusses with diagonals. A bridge needs deck, piers, cables or trusses.
@@ -232,13 +232,7 @@ export function actionSummary(a: BuildAction): string {
     case 'add_nodal_load': return tp('ai.sum.nodalLoad', { id: a.params.node_id });
     case 'delete_element': return tp('ai.sum.deleteElement', { id: a.params.element_id });
     case 'delete_load': return tp('ai.sum.deleteLoad', { id: a.params.load_id });
-    case 'create_model': {
-      const summary = tp('ai.sum.custom', { nodes: a.params.nodes.length, elements: a.params.elements.length });
-      const custom = toTuples(a.params.sections).map((entry) => (Array.isArray(entry) && isPlainObject(entry[1]) ? entry[1].name : undefined))
-        .map((name) => (typeof name === 'string' ? name.trim() : ''))
-        .filter((name) => name.startsWith(CUSTOM_SECTION));
-      return custom.length > 0 ? `${summary}. ${tp('ai.sum.customSections', { names: custom.join(', ') })}` : summary;
-    }
+    case 'create_model': return tp('ai.sum.custom', { nodes: a.params.nodes.length, elements: a.params.elements.length });
     case 'unsupported': return '';
   }
 }
