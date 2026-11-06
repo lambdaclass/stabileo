@@ -35,13 +35,33 @@ export function nominalMoment(v: Values): number {
   });
 }
 
-export function crackedStiffness(v: Values): { stiffness: number; inertia: number; depth: number } {
+export function displacedConcrete(v: Values, from: number, to: number): number {
+  const { area, cover } = layers(v);
+  const half = v.barDia / 2000;
+  return [v.h / 2 - cover, -(v.h / 2 - cover)]
+    .reduce((sum, y) => sum + Math.max(0, Math.min(to, y + half) - Math.max(from, y - half)) * area / (2 * half), 0);
+}
+
+export function concreteLayers(v: Values, count: number): { y: number; area: number }[] {
+  const dy = v.h / count;
+  return Array.from({ length: count }, (_, k) => {
+    const from = -v.h / 2 + dy * k;
+    return { y: from + dy / 2, area: v.b * dy - displacedConcrete(v, from, from + dy) };
+  });
+}
+
+export function crackedStiffness(v: Values): { stiffness: number; inertia: number; depth: number; topRatio: number } {
   const { area, depth: d, cover: dc } = layers(v);
   const n = ES_MPA / concreteModulus(v.fc);
-  const a = v.b / 2, b = 2 * n * area, c = -n * area * (dc + d);
-  const x = (-b + Math.sqrt(b * b - 4 * a * c)) / (2 * a);
-  const inertia = v.b * x ** 3 / 3 + n * area * ((x - dc) ** 2 + (d - x) ** 2);
-  return { stiffness: 3 * concreteModulus(v.fc) * 1000 * inertia / v.height ** 3, inertia, depth: x };
+  const neutralAxis = (top: number) => {
+    const a = v.b / 2, b = (top + n) * area, c = -(top * dc + n * d) * area;
+    return (-b + Math.sqrt(b * b - 4 * a * c)) / (2 * a);
+  };
+  const compressed = neutralAxis(n - 1);
+  const topRatio = compressed > dc ? n - 1 : n;
+  const x = topRatio === n ? neutralAxis(n) : compressed;
+  const inertia = v.b * x ** 3 / 3 + topRatio * area * (x - dc) ** 2 + n * area * (d - x) ** 2;
+  return { stiffness: 3 * concreteModulus(v.fc) * 1000 * inertia / v.height ** 3, inertia, depth: x, topRatio };
 }
 
 export const EPS_CU = 0.004;
@@ -62,13 +82,12 @@ function steelStress(fy: number, strain: number): number {
 export function sectionPeak(v: Values, strips = 400, steps = 200, iterations = 60): number {
   const { area, cover } = layers(v);
   const fy = STEELS[v.steel];
-  const dy = v.h / strips;
+  const concrete = concreteLayers(v, strips);
   const resultant = (top: number, c: number) => {
     const strain = (y: number) => -top * (1 - (v.h / 2 - y) / c);
     let n = 0, m = 0;
-    for (let k = 0; k < strips; k++) {
-      const y = -v.h / 2 + dy * (k + 0.5);
-      const f = concreteStress(v.fc, strain(y)) * v.b * dy;
+    for (const { y, area: a } of concrete) {
+      const f = concreteStress(v.fc, strain(y)) * a;
       n += f; m -= f * y;
     }
     for (const y of [v.h / 2 - cover, -(v.h / 2 - cover)]) {
@@ -111,8 +130,7 @@ export function build(v: Values): Model {
 
 export function fiberSection(v: Values) {
   const { area, cover } = layers(v);
-  const dy = v.h / LAYERS;
-  const concrete = Array.from({ length: LAYERS }, (_, k) => ({ y: -v.h / 2 + dy * (k + 0.5), z: 0, area: v.b * dy, materialIdx: 0 }));
+  const concrete = concreteLayers(v, LAYERS).map(({ y, area: a }) => ({ y, z: 0, area: a, materialIdx: 0 }));
   const steel = [v.h / 2 - cover, -(v.h / 2 - cover)].map(y => ({ y, z: 0, area, materialIdx: 1 }));
   return {
     fibers: [...concrete, ...steel],

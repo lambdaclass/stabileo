@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import * as engine from '../../../lib/engine/wasm-solver';
 import { defaults, type Outcome, type Values } from '../define';
-import { rcPushover, build, crackedStiffness, nominalMoment, sectionPeak, layers, concreteModulus } from '../rc-pushover';
+import { rcPushover, build, crackedStiffness, nominalMoment, sectionPeak, layers, concreteModulus, fiberSection, concreteLayers, LAYERS } from '../rc-pushover';
 
 beforeAll(async () => { await engine.initSolver(); });
 
@@ -19,10 +19,26 @@ describe('rc-pushover', () => {
     const v = defaults(rcPushover.params);
     const { area, depth, cover } = layers(v);
     const n = 200000 / concreteModulus(v.fc);
-    const { depth: x, inertia } = crackedStiffness(v);
-    expect(v.b * x * x / 2 + (n - 1 + 1) * area * (x - cover)).toBeCloseTo(n * area * (depth - x), 9);
-    expect(inertia).toBeGreaterThan(0);
+    const { depth: x, inertia, topRatio } = crackedStiffness(v);
+    expect(x).toBeGreaterThan(cover);
+    expect(topRatio).toBe(n - 1);
+    expect(v.b * x * x / 2 + (n - 1) * area * (x - cover)).toBeCloseTo(n * area * (depth - x), 9);
+    expect(inertia).toBeCloseTo(v.b * x ** 3 / 3 + (n - 1) * area * (x - cover) ** 2 + n * area * (depth - x) ** 2, 12);
     expect(inertia).toBeLessThan(v.b * v.h ** 3 / 12);
+  });
+
+  it('the concrete fibres leave out the area the bars displace, in the engine section and the reference alike', () => {
+    for (const extra of [{}, { b: 0.25, h: 0.3, barDia: 32 }, { perFace: 2, barDia: 12 }] as Values[]) {
+      const v = { ...defaults(rcPushover.params), ...extra };
+      const { area } = layers(v);
+      const section = fiberSection(v);
+      const concrete = section.fibers.filter(f => f.materialIdx === 0);
+      expect(concrete).toHaveLength(LAYERS);
+      expect(concrete.reduce((sum, f) => sum + f.area, 0)).toBeCloseTo(v.b * v.h - 2 * area, 12);
+      for (const f of concrete) expect(f.area).toBeGreaterThan(0);
+      expect(concreteLayers(v, 400).reduce((sum, f) => sum + f.area, 0)).toBeCloseTo(v.b * v.h - 2 * area, 12);
+      expect(section.fibers.filter(f => f.materialIdx === 1).reduce((sum, f) => sum + f.area, 0)).toBeCloseTo(2 * area, 15);
+    }
   });
 
   it('below capacity the run completes, carries the full target and the base shear balances it', () => {
