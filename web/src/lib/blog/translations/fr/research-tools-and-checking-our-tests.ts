@@ -113,7 +113,7 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "Nous travaillons à contenir tous les problèmes connus de résultats incorrects : les refus ou avertissements du moteur portent l’identifiant du problème, au lieu de renvoyer un nombre non vérifié (#807, en cours de revue). Chaque refus est testé, y compris les modèles dynamiques non pris en charge avec excentrements de barres ou de coques."
+      "t": "Nous travaillons à contenir tous les problèmes connus de résultats incorrects : les refus ou avertissements du moteur portent l’identifiant du problème, au lieu de renvoyer un nombre non vérifié (#807, intégré le 5 novembre). Chaque refus est testé, y compris les modèles dynamiques non pris en charge avec excentrements de barres ou de coques."
     },
     {
       "k": "p",

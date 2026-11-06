@@ -126,7 +126,7 @@ export const researchToolsAndCheckingOurTests: Post = {
         },
         {
           "k": "p",
-          "t": "We are containing every known wrong-result issue: refusals or warnings in the engine carry the known-issue ID, instead of returning an unchecked number (#807, in review). Every refusal is tested, including unsupported dynamic models with member or shell offsets."
+          "t": "We are containing every known wrong-result issue: refusals or warnings in the engine carry the known-issue ID, instead of returning an unchecked number (#807, merged on 5 November). Every refusal is tested, including unsupported dynamic models with member or shell offsets."
         },
         {
           "k": "p",
@@ -335,7 +335,7 @@ export const researchToolsAndCheckingOurTests: Post = {
         },
         {
           "k": "p",
-          "t": "Estamos conteniendo todos los problemas conocidos de resultados incorrectos: los rechazos o advertencias del motor incluyen el identificador del problema, en lugar de devolver un número sin verificar (#807, en revisión). Se prueba cada rechazo, incluidos los modelos dinámicos no admitidos con excentricidades de barras o láminas."
+          "t": "Estamos conteniendo todos los problemas conocidos de resultados incorrectos: los rechazos o advertencias del motor incluyen el identificador del problema, en lugar de devolver un número sin verificar (#807, integrado el 5 de noviembre). Se prueba cada rechazo, incluidos los modelos dinámicos no admitidos con excentricidades de barras o láminas."
         },
         {
           "k": "p",
@@ -544,7 +544,7 @@ export const researchToolsAndCheckingOurTests: Post = {
         },
         {
           "k": "p",
-          "t": "Estamos contendo todos os problemas conhecidos de resultados incorretos: as recusas ou os avisos do motor incluem o identificador do problema, em vez de retornar um número sem verificação (#807, em revisão). Cada recusa é testada, incluindo modelos dinâmicos não suportados com excentricidades de barras ou cascas."
+          "t": "Estamos contendo todos os problemas conhecidos de resultados incorretos: as recusas ou os avisos do motor incluem o identificador do problema, em vez de retornar um número sem verificação (#807, integrado em 5 de novembro). Cada recusa é testada, incluindo modelos dinâmicos não suportados com excentricidades de barras ou cascas."
         },
         {
           "k": "p",

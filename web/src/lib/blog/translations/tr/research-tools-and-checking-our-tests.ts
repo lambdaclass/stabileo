@@ -113,7 +113,7 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "Bilinen tüm yanlış sonuç sorunlarını sınırlamak için çalışıyoruz: motordaki retler veya uyarılar, kontrol edilmemiş bir sayı döndürmek yerine bilinen sorunun kimliğini taşıyor (#807, incelemede). Çubuk veya kabuk eksantrisitesi içeren ve desteklenmeyen dinamik modeller dâhil her ret test ediliyor."
+      "t": "Bilinen tüm yanlış sonuç sorunlarını sınırlamak için çalışıyoruz: motordaki retler veya uyarılar, kontrol edilmemiş bir sayı döndürmek yerine bilinen sorunun kimliğini taşıyor (#807, 5 Kasım’da birleştirildi). Çubuk veya kabuk eksantrisitesi içeren ve desteklenmeyen dinamik modeller dâhil her ret test ediliyor."
     },
     {
       "k": "p",
