@@ -245,6 +245,7 @@ describe('which registered changes concern a model', () => {
     const previous = { resultsVersion: RESULTS_VERSION - 1, analyses: ['linear'] } as SolveStamp;
     const loads = [{ type: 'nodal3d', data: { caseId: 1, nodeId: 3, fz: -20 } }];
     expect(ids(model({ loads, elements: [member(1, 1, 'truss')] }), { resultsVersion: 30, analyses: ['linear'] } as SolveStamp)).toContain('safety-containment-diagnostics');
+    expect(ids(model({ loads, elements: [member(1, 1, 'truss')] }), { resultsVersion: 30, analyses: ['linear'] } as SolveStamp)).toContain('fail-closed-ratios');
     expect(ids(model({ loads }), previous)).toEqual([]);
   });
 

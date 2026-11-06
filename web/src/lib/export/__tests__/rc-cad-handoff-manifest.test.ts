@@ -696,8 +696,8 @@ describe('fixture-to-manifest reconciliation', () => {
     // (`snapshot.solvedWith`, provenance/solve-stamp.ts), so opening it does not raise the
     // re-check notice. The model is unchanged.
     //
-    // And again (was 884c9941…, then 04cf5998…, then 94fa28fe…, then b25eb09b…, then 930646fc…, then 28b5e539…, then bbdbe9b1…, then a64cfe6c…, then 28d9021b…, then 082ab7c3…, then 8fc7c978…, then 74bb6d46…, then 7ff1ebd3…, then 60bd41ff…, then 951d93b5…, then 5cb39281…, then 169fdcac…, then a9cb6610…, then 8fbd906f…, then b52cdff8…, then 5daa74ec…, then cd1263b3…, then c5d8584e…, then ffe0664a…, then a689b9b2…, then e5243023…, then 5b969446…, then 69f737ac…, then 68e2b0fc…, then 466aacd9…, then a1ff6ec9…):
-    // the stamp moved to results versions 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 36 and 37 with the registry.
+    // And again (was 884c9941…, then 04cf5998…, then 94fa28fe…, then b25eb09b…, then 930646fc…, then 28b5e539…, then bbdbe9b1…, then a64cfe6c…, then 28d9021b…, then 082ab7c3…, then 8fc7c978…, then 74bb6d46…, then 7ff1ebd3…, then 60bd41ff…, then 951d93b5…, then 5cb39281…, then 169fdcac…, then a9cb6610…, then 8fbd906f…, then b52cdff8…, then 5daa74ec…, then cd1263b3…, then c5d8584e…, then ffe0664a…, then a689b9b2…, then e5243023…, then 5b969446…, then 69f737ac…, then 68e2b0fc…, then 466aacd9…, then da135268…, then 47963578…, then 3f9318b7…, then a1ff6ec9…):
+    // the stamp moved to results versions 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36 and 37 with the registry.
     expect(sha256(fixtureText()))
       .toBe('a3328cd54353ae3b870f8a598c464513c96a9ee8c40db16daa407a24f05c226f');
   });
