@@ -671,6 +671,8 @@ const SPAN_STATIONS: usize = 64;
 /// The real roots in (0, 1) of the cubic `c[0] + c[1]·t + c[2]·t² + c[3]·t³`: the interval is
 /// split where the cubic turns, so each piece holds at most one root.
 fn cubic_roots_in_unit(c: [f64; 4]) -> Vec<f64> {
+    let size = c.iter().map(|v| v.abs()).filter(|v| v.is_finite() && *v > 0.0).fold(0.0, f64::max);
+    let c = if size > 0.0 { c.map(|v| v / size) } else { c };
     let p = |t: f64| ((c[3] * t + c[2]) * t + c[1]) * t + c[0];
     let (qa, qb, qc) = (3.0 * c[3], 2.0 * c[2], c[1]);
     let mut cuts = vec![0.0, 1.0];
@@ -1454,6 +1456,33 @@ mod span_tests {
             assert!(exact > 0.1 && (largest - exact).abs() < 1e-9 * exact, "a {a}: {largest} vs {exact}");
             let (warning, _, _) = small_displacement_2d(&input, &r);
             assert_eq!(warning.map(|d| d.element_ids), Some(vec![1]), "a {a}");
+        }
+    }
+
+    #[test]
+    fn cubic_roots_in_the_unit_interval_do_not_depend_on_the_cubic_scale_1506() {
+        for scale in [1e-200, 1e200, -1e-200, -1e200] {
+            let pair = cubic_roots_in_unit([0.16, -1.0, 1.0, 0.0].map(|v| v * scale));
+            assert!(pair.len() == 2 && (pair[0] - 0.2).abs() < 1e-12 && (pair[1] - 0.8).abs() < 1e-12, "{scale:e}: {pair:?}");
+            let three = cubic_roots_in_unit([-0.18, 1.46, -3.2, 2.0].map(|v| v * scale));
+            assert!(three.len() == 3 && three.iter().zip([0.2, 0.5, 0.9]).all(|(r, e)| (r - e).abs() < 1e-12), "{scale:e}: {three:?}");
+        }
+    }
+
+    #[test]
+    fn a_rotation_peak_inside_one_interval_is_found_when_loads_and_stiffness_scale_together_1506() {
+        use crate::postprocess::diagrams::SpanRotation;
+        let peak = |s: f64| {
+            let (q, h, ei) = (1.6e7 * s, 0.01, s);
+            let c0 = q * h * h / 12.0;
+            let plane = SpanRotation::new(1.0, ei, 0.0, 0.0, 0.0, 0.0, 0.0, true, true, vec![(0.5, -q * h / 2.0), (0.5 + h, -q * h / 2.0)], vec![(q, q, 0.5, 0.5 + h)], vec![(0.5, -c0), (0.5 + h, c0)]);
+            largest_span_rotation(1.0, std::slice::from_ref(&plane), (0.0, 0.0))
+        };
+        let reference = peak(1.0);
+        assert!(reference > 0.1, "{reference}");
+        for s in [1e-200, 1e200] {
+            let scaled = peak(s);
+            assert!((scaled - reference).abs() < 1e-9 * reference, "{s:e}: {scaled} vs {reference}");
         }
     }
 
