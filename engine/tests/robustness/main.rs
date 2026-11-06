@@ -40,6 +40,8 @@ mod input_validation_gates;
 mod known_issue_reproductions;
 #[path = "../known_issues.rs"]
 mod known_issues;
+#[path = "../known_issues_masking.rs"]
+mod known_issues_masking;
 #[path = "../model_sanity.rs"]
 mod model_sanity;
 #[path = "../nan_output_gates.rs"]
