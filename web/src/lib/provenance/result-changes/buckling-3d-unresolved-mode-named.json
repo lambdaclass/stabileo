@@ -21,7 +21,7 @@
     "tr": "3B burkulmada 2B'nin BU-UNRESOLVED-MODE denetiminin karşılığı yoktu (#982). Gerçek bir basıncın yanında eksenel kuvveti yalnızca yuvarlama hatası olan bir çubuk bulunan model, bu çubuğun yönettiği λ ≈ 1e10 olan bir mod döndürebiliyor ve çözümlenmediğine dair bir uyarı vermiyordu: 3B'ye yerleştirilen #982 modeli çoğu yönde bunu yapıyordu. 3B burkulma artık 2B'de olduğu gibi, geometrik işi eksenel kuvvetlerdeki yuvarlama hatasıyla %1'den fazla değişebilen her modu ve onu yöneten çubukları belirtiyor. Yük katsayıları değişmedi; artık bu uyarıyı taşıyan her 3B burkulma sonucunu yeniden kontrol edin."
   },
   "changelog": {
-    "file": "changelog.d/982-buckling-3d-unresolved-mode.md",
+    "file": "CHANGELOG.md",
     "heading": "3D buckling names the modes that round-off in the axial forces can move (2026-11-06)"
   }
 }
