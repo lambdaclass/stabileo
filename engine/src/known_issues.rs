@@ -66,7 +66,7 @@ pub const ENTRIES: &[Entry] = &[
     Entry { id: "LIN-SMALL-DISPLACEMENT", issue: 1446, mode: Mode::Warn, message: "A rotation or a member's relative displacement exceeds 0.1 rad, the small-displacement screening limit of linear analysis: at that angle the terms first-order theory drops, such as the chord shortening 1 − cos θ ≈ 0.5 %, may no longer be negligible. Check that the change of geometry is acceptable: a support, spring or release may leave part of the model nearly free; otherwise use a nonlinear analysis" },
     Entry { id: "LIN-SECOND-ORDER", issue: 1551, mode: Mode::Warn, message: "Axial compression is a significant fraction of the critical load: second-order effects may amplify these linear displacements and moments by more than 10 % (N/Ncr > 0.075, CIRSOC 301 Appendix 7). Run a P-Delta or second-order analysis before using these moments for design" },
     Entry { id: "LIN-SECOND-ORDER-NEAR", issue: 1551, mode: Mode::Warn, message: "Axial compression is near the second-order limit (N/Ncr above 0.047, the limit 0.075 over the largest CIRSOC 301 load factor 1.6): a combination that factors this case up may pass it. Check the combinations with a P-Delta or second-order analysis" },
-    Entry { id: "LIN-SECOND-ORDER-UNBOUNDED", issue: 1551, mode: Mode::Warn, message: "Members are in compression and the critical load could not be bounded from the members alone, so it is unknown whether second-order effects amplify these linear displacements and moments by more than 10 %. Run a P-Delta or second-order analysis before using these moments for design" },
+    Entry { id: "LIN-SECOND-ORDER-UNBOUNDED", issue: 1551, mode: Mode::Warn, message: "Members are in compression and the critical load could not be bounded: a frame member's from the member alone, a truss bar's on its own length only while the whole structure's critical load factor α_cr is at least 10. So it is unknown whether second-order effects amplify these linear displacements and moments by more than 10 %. Run a P-Delta or second-order analysis before using these moments for design" },
     Entry { id: "RC-NM-PAIRING", issue: 1316, mode: Mode::Warn, message: "This CIRSOC 201 column check pairs the axial force of one combination with the moment of another, which can be unconservative below the balance point. Check the column under each named combination" },
 ];
 
@@ -636,6 +636,10 @@ pub fn small_displacement_3d(input: &SolverInput3D, r: &AnalysisResults3D) -> (O
 /// them as small. The displacement amplification 1/(1 − N/Ncr) is lower.
 pub const SECOND_ORDER_RATIO: f64 = 0.074_83;
 
+/// The least α_cr of the whole structure at which a compressed truss bar is screened on its own
+/// length, EN 1993-1-1 5.2.1(3)'s limit for first-order analysis.
+pub const TRUSS_ALPHA_CR: f64 = 10.0;
+
 /// The largest single load factor of CIRSOC 301 B.2: a case within this factor of the limit can pass
 /// it in a combination.
 pub const SECOND_ORDER_NEAR_FACTOR: f64 = 1.6;
@@ -729,8 +733,11 @@ fn chain_ends(m: &ScreenModel, chain: &[usize]) -> Vec<usize> {
 
 /// A linear result's second-order screen (#1551). The K = 2 and K = 1 bounds hold for the frame
 /// only because the clamp or both braces are supports: restraint from other members does not count.
-pub(crate) fn second_order(m: &ScreenModel) -> (Vec<StructuredDiagnostic>, f64) {
-    if !m.bars.iter().any(|b| b.compression > 0.0) { return (Vec::new(), 0.0); }
+/// A truss bar is bounded on its own length only while `sway`, 1/α_cr of the whole structure, keeps
+/// α_cr at [`TRUSS_ALPHA_CR`] or more; under it, or when it is unknown, the frame is unbounded.
+/// `sway` is asked only when its answer can change the result.
+pub(crate) fn second_order(m: &ScreenModel, sway: impl FnOnce() -> Option<f64>) -> (Vec<StructuredDiagnostic>, f64, Option<TrussScreen>) {
+    if !m.bars.iter().any(|b| b.compression > 0.0) { return (Vec::new(), 0.0, None); }
     let length = |b: &ScreenBar| match (m.position.get(&b.ends[0]), m.position.get(&b.ends[1])) {
         (Some(&a), Some(&c)) => norm(sub(c, a)),
         _ => f64::NAN,
@@ -750,10 +757,6 @@ pub(crate) fn second_order(m: &ScreenModel) -> (Vec<StructuredDiagnostic>, f64) 
         Some(r) => *largest = largest.max(r),
         None => unbounded = true,
     };
-    for i in 0..m.bars.len() {
-        let b = &m.bars[i];
-        if !b.frame && b.compression > 0.0 && !b.ends.iter().all(|n| m.braced.contains(n)) { unbound(&[i], b.compression, &mut largest); }
-    }
     for chain in member_chains(m) {
         let n = chain.iter().map(|&i| m.bars[i].compression).fold(0.0, f64::max);
         if n <= 0.0 { continue; }
@@ -767,9 +770,34 @@ pub(crate) fn second_order(m: &ScreenModel) -> (Vec<StructuredDiagnostic>, f64) 
             near.extend(ids);
         }
     }
+    let loose = |b: &ScreenBar| !b.frame && !b.ends.iter().all(|n| m.braced.contains(n));
+    let mut bars = Vec::new();
+    for i in 0..m.bars.len() {
+        let b = &m.bars[i];
+        if !loose(b) || b.compression <= 0.0 { continue; }
+        match let_off(&[i], b.compression) {
+            Some(r) => largest = largest.max(r),
+            None => bars.push(MemberRatio { element_id: b.id, ratio: b.compression / euler(&[i]) }),
+        }
+    }
+    let frame_wide = unbounded || !over.is_empty();
+    let truss = m.bars.iter().any(loose).then(|| TrussScreen { sway: if bars.is_empty() || frame_wide { None } else { sway() }, bars });
+    if let Some(t) = truss.as_ref().filter(|t| !t.bars.is_empty()) {
+        if t.sway.is_some_and(|s| s * TRUSS_ALPHA_CR <= 1.0) {
+            for b in &t.bars {
+                if !(b.ratio <= SECOND_ORDER_RATIO) {
+                    over.push(b.element_id);
+                } else if b.ratio * SECOND_ORDER_NEAR_FACTOR > SECOND_ORDER_RATIO {
+                    near.push(b.element_id);
+                }
+            }
+        } else {
+            unbounded = true;
+        }
+    }
     let mut found: Vec<StructuredDiagnostic> = [("LIN-SECOND-ORDER", over), ("LIN-SECOND-ORDER-NEAR", near)].into_iter().filter_map(|(id, e)| on_elements(id, e)).collect();
     if unbounded { found.push(whole_frame("LIN-SECOND-ORDER-UNBOUNDED")); }
-    (found, largest)
+    (found, largest, truss)
 }
 
 fn whole_frame(id: &str) -> StructuredDiagnostic {
@@ -797,9 +825,9 @@ pub(crate) fn is_second_order(d: &StructuredDiagnostic) -> bool {
 /// case carries no ratio. The members a case flagged stay flagged; an unbounded case, a negative
 /// factor, which can turn a case's tension into compression, or a missing ratio leaves the
 /// combination unbounded.
-pub(crate) fn combined_second_order<'a>(cases: impl Iterator<Item = &'a StructuredDiagnostic>, reversed: bool, ratio: Option<f64>) -> Vec<StructuredDiagnostic> {
-    let mut elements = Vec::new();
-    let mut unbounded = reversed || ratio.is_none();
+pub(crate) fn combined_second_order<'a>(cases: impl Iterator<Item = &'a StructuredDiagnostic>, reversed: bool, ratio: Option<f64>, truss: Option<Vec<usize>>) -> Vec<StructuredDiagnostic> {
+    let mut elements = truss.clone().unwrap_or_default();
+    let mut unbounded = reversed || ratio.is_none() || truss.is_none();
     for d in cases {
         match d.phase.as_deref() {
             Some("LIN-SECOND-ORDER") => elements.extend(d.element_ids.iter().copied()),
@@ -813,6 +841,26 @@ pub(crate) fn combined_second_order<'a>(cases: impl Iterator<Item = &'a Structur
     };
     if unbounded { found.push(whole_frame("LIN-SECOND-ORDER-UNBOUNDED")); }
     found
+}
+
+/// [`combined_second_order`]'s truss bars past the limit, each bounded by Σ|factor|·(its case
+/// N/N_E). None, unbounded, when a compressed case has no structure α_cr or Σ|factor|/α_cr passes
+/// 1/[`TRUSS_ALPHA_CR`]; with no compressed truss bar in any case, the frame's own screen decides alone.
+pub(crate) fn combined_truss<'a>(cases: impl Iterator<Item = (f64, Option<&'a ResultSummary>, bool)>) -> Option<Vec<usize>> {
+    let cases: Vec<_> = cases.collect();
+    let screens = || cases.iter().filter_map(|(f, s, _)| s.and_then(|s| s.truss_screen.as_ref()).map(|t| (*f, t)));
+    if screens().all(|(_, t)| t.bars.is_empty()) { return Some(Vec::new()); }
+    let mut sway = 0.0;
+    for (factor, summary, compressed) in &cases {
+        if !compressed { continue; }
+        sway += factor * summary.and_then(|s| s.truss_screen.as_ref()).and_then(|t| t.sway)?;
+    }
+    if !(sway * TRUSS_ALPHA_CR <= 1.0) { return None; }
+    let mut total: std::collections::BTreeMap<usize, f64> = std::collections::BTreeMap::new();
+    for (factor, t) in screens() {
+        for b in &t.bars { *total.entry(b.element_id).or_default() += factor * b.ratio; }
+    }
+    Some(total.into_iter().filter(|&(_, r)| !(r <= SECOND_ORDER_RATIO)).map(|(id, _)| id).collect())
 }
 
 /// [`combined_second_order`]'s ratio: each case's |factor| times its screened ratio.
@@ -840,7 +888,7 @@ fn compression(n_start: f64, n_end: f64, span: Option<&f64>) -> f64 {
 }
 
 /// [`second_order`] for a 2D result.
-pub fn second_order_2d(input: &SolverInput, loads: &[SolverLoad], r: &AnalysisResults) -> (Vec<StructuredDiagnostic>, f64) {
+pub fn second_order_2d(input: &SolverInput, loads: &[SolverLoad], r: &AnalysisResults) -> (Vec<StructuredDiagnostic>, f64, Option<TrussScreen>) {
     let mut span: std::collections::HashMap<usize, f64> = std::collections::HashMap::new();
     for load in loads {
         let (id, total) = match load {
@@ -865,11 +913,11 @@ pub fn second_order_2d(input: &SolverInput, loads: &[SolverLoad], r: &AnalysisRe
         clamped: input.supports.values().filter(square).filter(|s| s.support_type == "fixed").map(|s| s.node_id).collect(),
         other_parts: !input.constraints.is_empty() || !input.connectors.is_empty(),
     };
-    second_order(&model)
+    second_order(&model, || crate::solver::buckling::sway_ratio_2d(input, loads))
 }
 
 /// [`second_order`] for a 3D result: I_min is the lesser of Iy and Iz.
-pub fn second_order_3d(input: &SolverInput3D, loads: &[SolverLoad3D], r: &AnalysisResults3D) -> (Vec<StructuredDiagnostic>, f64) {
+pub fn second_order_3d(input: &SolverInput3D, loads: &[SolverLoad3D], r: &AnalysisResults3D) -> (Vec<StructuredDiagnostic>, f64, Option<TrussScreen>) {
     let mut span: std::collections::HashMap<usize, f64> = std::collections::HashMap::new();
     for load in loads {
         if let SolverLoad3D::Distributed(q) = load {
@@ -894,7 +942,7 @@ pub fn second_order_3d(input: &SolverInput3D, loads: &[SolverLoad3D], r: &Analys
         other_parts: !input.constraints.is_empty() || !input.connectors.is_empty() || !input.plates.is_empty() || !input.quads.is_empty()
             || !input.quad9s.is_empty() || !input.solid_shells.is_empty() || !input.curved_shells.is_empty() || !input.curved_beams.is_empty(),
     };
-    second_order(&model)
+    second_order(&model, || crate::solver::buckling::sway_ratio_3d(input, loads))
 }
 
 /// Add warnings to a result's diagnostics, once each: a path that already attached a finding
@@ -1100,4 +1148,71 @@ pub fn with_sparse_factor_conditioning(
     let mut observed = None;
     let result = solve(&mut |factor| observed = Some(sparse_factor_conditioning(k, factor)));
     (result, observed.unwrap_or_else(|| sparse_stiffness_conditioning(k)))
+}
+
+#[cfg(test)]
+mod truss_screen_tests {
+    use super::*;
+
+    fn bar(id: usize, ends: [usize; 2], compression: f64) -> ScreenBar {
+        ScreenBar { id, ends, frame: false, hinged: [false; 2], ei_min: 1000.0, compression }
+    }
+
+    fn model() -> ScreenModel {
+        ScreenModel {
+            bars: vec![bar(1, [1, 3], 500.0), bar(2, [2, 3], 1.0)],
+            position: [(1, [0.0, 0.0, 0.0]), (2, [4.0, 0.0, 0.0]), (3, [2.0, 0.0, 2.0])].into_iter().collect(),
+            supported: [1, 2].into_iter().collect(),
+            braced: [1, 2].into_iter().collect(),
+            clamped: Default::default(),
+            other_parts: false,
+        }
+    }
+
+    fn phases(d: &[StructuredDiagnostic]) -> Vec<(&str, Vec<usize>)> {
+        d.iter().map(|d| (d.phase.as_deref().unwrap(), d.element_ids.clone())).collect()
+    }
+
+    #[test]
+    fn a_failed_or_low_structure_buckling_solve_holds_the_whole_frame() {
+        let ratio = 500.0 / (std::f64::consts::PI.powi(2) * 1000.0 / 8.0);
+        assert!(ratio > SECOND_ORDER_RATIO);
+        let (d, _, truss) = second_order(&model(), || Some(0.05));
+        assert_eq!(phases(&d), vec![("LIN-SECOND-ORDER", vec![1])]);
+        assert_eq!(truss.unwrap().bars.iter().map(|b| b.element_id).collect::<Vec<_>>(), vec![1, 2]);
+        for sway in [None, Some(0.2), Some(f64::NAN)] {
+            let (d, _, truss) = second_order(&model(), || sway);
+            assert_eq!(phases(&d), vec![("LIN-SECOND-ORDER-UNBOUNDED", vec![])], "{sway:?}");
+            assert_eq!(truss.unwrap().sway.map(f64::to_bits), sway.map(f64::to_bits));
+        }
+    }
+
+    #[test]
+    fn the_structure_buckling_solve_runs_only_when_it_can_change_the_result() {
+        let unasked = || -> Option<f64> { panic!("α_cr asked for") };
+        let mut swaying = model();
+        swaying.bars.push(ScreenBar { id: 3, ends: [3, 4], frame: true, hinged: [false; 2], ei_min: 1000.0, compression: 10.0 });
+        swaying.position.insert(4, [2.0, 0.0, 5.0]);
+        let (d, _, truss) = second_order(&swaying, unasked);
+        assert_eq!(phases(&d), vec![("LIN-SECOND-ORDER-UNBOUNDED", vec![])]);
+        assert_eq!(truss.unwrap().sway, None);
+        let mut quiet = model();
+        for b in &mut quiet.bars { b.compression = 0.0; }
+        quiet.bars.push(ScreenBar { id: 3, ends: [1, 2], frame: true, hinged: [false; 2], ei_min: 1000.0, compression: 1.0 });
+        let (d, _, truss) = second_order(&quiet, unasked);
+        assert_eq!(phases(&d), vec![]);
+        assert_eq!(truss, Some(TrussScreen { sway: None, bars: vec![] }));
+    }
+
+    #[test]
+    fn a_combination_with_a_compressed_case_of_unknown_alpha_is_unbounded() {
+        let summary = |sway: Option<f64>, ratio: f64| ResultSummary { truss_screen: Some(TrussScreen { sway, bars: vec![MemberRatio { element_id: 1, ratio }] }), ..Default::default() };
+        let (a, b) = (summary(Some(0.04), 0.03), summary(None, 0.03));
+        assert_eq!(combined_truss([(1.0, Some(&a), true), (1.0, Some(&a), true)].into_iter()), Some(vec![]));
+        assert_eq!(combined_truss([(2.0, Some(&a), true), (2.0, Some(&a), true)].into_iter()), None, "Σ|f|/α_cr = 0.16");
+        assert_eq!(combined_truss([(1.0, Some(&a), true), (1.0, Some(&b), true)].into_iter()), None);
+        assert_eq!(combined_truss([(1.0, Some(&a), true), (5.0, None, false)].into_iter()), Some(vec![]));
+        assert_eq!(combined_truss([(1.0, Some(&a), true), (1.0, None, true)].into_iter()), None);
+        assert_eq!(combined_truss([(1.2, Some(&a), true), (1.0, Some(&summary(Some(0.04), 0.07)), true)].into_iter()), Some(vec![1]), "1.2·0.03 + 0.07");
+    }
 }

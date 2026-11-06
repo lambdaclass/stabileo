@@ -112,6 +112,12 @@ pub fn solve_2d(input: JsValue) -> Result<JsValue, JsValue> {
     to_js_value(&results)
 }
 
+/// Defers the second-order screen's structure buckling solve (`solver::buckling::defer_sway_screen`).
+#[wasm_bindgen]
+pub fn defer_sway_screen(deferred: bool) {
+    solver::buckling::defer_sway_screen(deferred);
+}
+
 /// Solve 3D linear static analysis. JsValue in → JsValue out (hot path).
 #[wasm_bindgen]
 pub fn solve_3d(input: JsValue) -> Result<JsValue, JsValue> {

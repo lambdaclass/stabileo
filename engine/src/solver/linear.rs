@@ -1021,9 +1021,11 @@ impl PreparedStatic2D<'_> {
         let (beyond, chords) = crate::known_issues::small_displacement_2d(&self.input, &r);
         crate::known_issues::attach(&mut r.structured_diagnostics, beyond.into_iter().collect());
         r.result_summary.get_or_insert_with(Default::default).member_chords = Some(chords);
-        let (second, ratio) = crate::known_issues::second_order_2d(&self.input, loads, &r);
+        let (second, ratio, truss) = crate::known_issues::second_order_2d(&self.input, loads, &r);
         crate::known_issues::attach(&mut r.structured_diagnostics, second);
-        r.result_summary.get_or_insert_with(Default::default).second_order_ratio = Some(ratio);
+        let summary = r.result_summary.get_or_insert_with(Default::default);
+        summary.second_order_ratio = Some(ratio);
+        summary.truss_screen = truss;
         if self.an_artificial_spring_carries_load(&r) {
             crate::known_issues::attach(&mut r.structured_diagnostics, vec![crate::known_issues::diagnostic("ORPHAN-SOFT-ROTATION")]);
         }
@@ -2652,9 +2654,11 @@ impl PreparedStatic3D {
         let (beyond, chords) = crate::known_issues::small_displacement_3d(&self.input, &r);
         crate::known_issues::attach(&mut r.structured_diagnostics, beyond.into_iter().collect());
         r.result_summary.get_or_insert_with(Default::default).member_chords = Some(chords);
-        let (second, ratio) = crate::known_issues::second_order_3d(&self.input, loads, &r);
+        let (second, ratio, truss) = crate::known_issues::second_order_3d(&self.input, loads, &r);
         crate::known_issues::attach(&mut r.structured_diagnostics, second);
-        r.result_summary.get_or_insert_with(Default::default).second_order_ratio = Some(ratio);
+        let summary = r.result_summary.get_or_insert_with(Default::default);
+        summary.second_order_ratio = Some(ratio);
+        summary.truss_screen = truss;
         if self.an_artificial_spring_carries_load(&r) {
             crate::known_issues::attach(&mut r.structured_diagnostics, vec![crate::known_issues::diagnostic("ORPHAN-SOFT-ROTATION")]);
         }

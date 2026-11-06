@@ -401,22 +401,43 @@ export function steelInputCompleteness(model: AutoVerifyModelData): SteelInputCo
   return out;
 }
 
+/** The steel checks a second-order warning holds: every member, or only the members named. */
+export type CompressionHold = 'all' | ReadonlySet<number>;
+
 /**
- * Whether the engine flagged any result's linear moments as possibly amplified past 10 % by
- * compression (#1551). The amplification runs through the joints, so it holds every member's check.
+ * The checks the engine's second-order warnings hold (#1551). Amplification runs through the
+ * joints, so an unbounded warning or a flagged frame member holds every check; a warning naming
+ * only truss bars, which the engine bounds alone once the structure's α_cr is at least 10, holds
+ * those bars.
  */
-export function amplifiedByCompression(results: Iterable<{ structuredDiagnostics?: ReadonlyArray<{ code?: string; phase?: string }> }>): boolean {
+export function heldByCompression(
+  results: Iterable<{ structuredDiagnostics?: ReadonlyArray<{ code?: string; phase?: string; elementIds?: readonly number[] }> }>,
+  isTruss: (elementId: number) => boolean,
+): CompressionHold {
+  const members = new Set<number>();
   for (const r of results) {
-    if ((r.structuredDiagnostics ?? []).some((d) => d.code === 'known_issue' && (d.phase === 'LIN-SECOND-ORDER' || d.phase === 'LIN-SECOND-ORDER-UNBOUNDED'))) return true;
+    for (const d of r.structuredDiagnostics ?? []) {
+      if (d.code !== 'known_issue') continue;
+      if (d.phase === 'LIN-SECOND-ORDER-UNBOUNDED') return 'all';
+      if (d.phase !== 'LIN-SECOND-ORDER') continue;
+      const ids = d.elementIds ?? [];
+      if (ids.length === 0 || !ids.every(isTruss)) return 'all';
+      for (const id of ids) members.add(id);
+    }
   }
-  return false;
+  return members;
 }
 
 /** H.1 takes Mr as second-order (C.1), so a check on first-order moments the engine flagged is held, never passed. A failure stays one. */
-function heldOnFirstOrder(v: SteelVerification, amplified: boolean): SteelVerification {
-  if (!amplified || v.overallStatus === 'fail') return v;
+function heldOnFirstOrder(v: SteelVerification, held: CompressionHold): SteelVerification {
+  if ((held !== 'all' && !held.has(v.elementId)) || v.overallStatus === 'fail') return v;
   const hold = { check: 'interaction' as const, clause: 'C.1', key: 'c301.refuse.firstOrderMoments', upperBound: false };
   return { ...v, overallStatus: 'held', notEvaluated: [...(v.notEvaluated ?? []), hold] };
+}
+
+/** Both holds at once: 'all' if either is. */
+function bothHolds(a: CompressionHold, b: CompressionHold): CompressionHold {
+  return a === 'all' || b === 'all' ? 'all' : new Set([...a, ...b]);
 }
 
 export function runSteelVerification(
@@ -438,10 +459,10 @@ export function runSteelVerification(
    * buckling (`engine/steel/unbraced-length.ts`). Absent: both are the element's own length.
    */
   lengths?: ReadonlyMap<number, { L: number; Lb: number; chain?: readonly number[] }>,
-  amplified = false,
+  held: CompressionHold = new Set(),
 ): SteelVerification[] {
   const verifs: SteelVerification[] = [];
-  amplified ||= amplifiedByCompression([results3D]);
+  held = bothHolds(held, heldByCompression([results3D], (id) => model.elements.get(id)?.type === 'truss'));
 
   for (const ef of results3D.elementForces) {
     const elem = model.elements.get(ef.elementId);
@@ -469,7 +490,7 @@ export function runSteelVerification(
       const vm = isDesigned((elem as { behaviour?: string }).behaviour as never) && isVariableMember(model.sections as never, elem as never)
         ? checkVariableSteelMember(ef.elementId, elem as never, model.sections as never, material as SteelMaterialData, stationDiagrams?.get(ef.elementId), lengths?.get(ef.elementId) ?? { L, Lb: L })
         : null;
-      if (vm) verifs.push(heldOnFirstOrder(vm, amplified));
+      if (vm) verifs.push(heldOnFirstOrder(vm, held));
       continue;
     }
     const demand = maskAxialDemand(steelDemandOf(ef, stationDemands?.get(ef.elementId), stationDiagrams?.get(ef.elementId)), behaviour);
@@ -477,7 +498,7 @@ export function runSteelVerification(
     const segment = steelSegmentDiagram(ef.elementId, len, stationDiagrams, model);
     const v = checkSteelMember(ef.elementId, demand, section as SteelSectionData, material as SteelMaterialData,
       steelMemberLengths(elem as never, len ?? { L, Lb: L }, memberEndsFor(ef.elementId, model as never, len?.chain)), segment);
-    if (v) verifs.push(heldOnFirstOrder(v, amplified));
+    if (v) verifs.push(heldOnFirstOrder(v, held));
   }
 
   return verifs;

@@ -242,8 +242,9 @@ pub fn combine_results_refs(factors: &[CombinationFactor], cases: &[(usize, &Ana
         second_order.extend(second);
         crate::known_issues::attach(&mut structured_diagnostics, others);
     }
-    let ratio = crate::known_issues::combined_ratio(cases.iter().map(|(id, r)| (factors.iter().filter(|f| f.case_id == *id).map(|f| f.factor.abs()).sum(), r.result_summary.as_ref(), r.element_forces.iter().any(|f| f.n_start < 0.0 || f.n_end < 0.0))));
-    crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::combined_second_order(second_order.iter(), factors.iter().any(|f| f.factor < 0.0 && cases.iter().any(|(id, _)| *id == f.case_id)), ratio));
+    let screened = || cases.iter().map(|(id, r)| (factors.iter().filter(|f| f.case_id == *id).map(|f| f.factor.abs()).sum(), r.result_summary.as_ref(), r.element_forces.iter().any(|f| f.n_start < 0.0 || f.n_end < 0.0)));
+    let (ratio, truss) = (crate::known_issues::combined_ratio(screened()), crate::known_issues::combined_truss(screened()));
+    crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::combined_second_order(second_order.iter(), factors.iter().any(|f| f.factor < 0.0 && cases.iter().any(|(id, _)| *id == f.case_id)), ratio, truss));
     let mut combined = AnalysisResults { displacements, reactions, element_forces, constraint_forces: vec![], diagnostics: vec![], solver_diagnostics: vec![], structured_diagnostics, equilibrium: None, result_summary: Some(ResultSummary { second_order_ratio: ratio, ..Default::default() }), solver_run_meta: None };
     let factored = factors.iter().filter(|f| f.factor != 0.0).filter_map(|f| case_slot.get(&f.case_id).map(|&i| (f.factor, cases[i].1))).map(|(f, r)| (f, r.result_summary.as_ref()));
     let (beyond, chords) = crate::known_issues::combined_small_displacement(crate::known_issues::rotated_nodes_2d(&combined), factored, &carried);
@@ -504,8 +505,9 @@ pub(crate) fn combine_results_3d_refs_unchecked(factors: &[CombinationFactor], c
         second_order.extend(second);
         crate::known_issues::attach(&mut structured_diagnostics, others);
     }
-    let ratio = crate::known_issues::combined_ratio(cases.iter().map(|(id, r)| (factors.iter().filter(|f| f.case_id == *id).map(|f| f.factor.abs()).sum(), r.result_summary.as_ref(), r.element_forces.iter().any(|f| f.n_start < 0.0 || f.n_end < 0.0))));
-    crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::combined_second_order(second_order.iter(), factors.iter().any(|f| f.factor < 0.0 && cases.iter().any(|(id, _)| *id == f.case_id)), ratio));
+    let screened = || cases.iter().map(|(id, r)| (factors.iter().filter(|f| f.case_id == *id).map(|f| f.factor.abs()).sum(), r.result_summary.as_ref(), r.element_forces.iter().any(|f| f.n_start < 0.0 || f.n_end < 0.0)));
+    let (ratio, truss) = (crate::known_issues::combined_ratio(screened()), crate::known_issues::combined_truss(screened()));
+    crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::combined_second_order(second_order.iter(), factors.iter().any(|f| f.factor < 0.0 && cases.iter().any(|(id, _)| *id == f.case_id)), ratio, truss));
     let mut combined = AnalysisResults3D { displacements, reactions, element_forces, plate_stresses: vec![], quad_stresses: vec![], quad_nodal_stresses: vec![], constraint_forces: vec![], diagnostics: vec![], solver_diagnostics: vec![], structured_diagnostics, equilibrium: None, timings: None, result_summary: Some(ResultSummary { second_order_ratio: ratio, ..Default::default() }), solver_run_meta: None };
     let factored = factors.iter().filter(|f| f.factor != 0.0).filter_map(|f| case_slot.get(&f.case_id).map(|&i| (f.factor, cases[i].1))).map(|(f, r)| (f, r.result_summary.as_ref()));
     let (beyond, chords) = crate::known_issues::combined_small_displacement(crate::known_issues::rotated_nodes_3d(&combined), factored, &carried);

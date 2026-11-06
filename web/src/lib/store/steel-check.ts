@@ -8,7 +8,7 @@ import { modelStore } from './model.svelte';
 import { resultsStore } from './results.svelte';
 import { verificationStore } from './verification.svelte';
 import { activeCombinations, activePerCombo3D, designCombinationsWithheld } from './active-results';
-import { computeStationDemands, amplifiedByCompression, runSteelVerification } from '../engine/verification-service';
+import { computeStationDemands, heldByCompression, runSteelVerification } from '../engine/verification-service';
 import { memberLengths } from '../engine/steel/unbraced-length';
 import type { AnalysisResults3D } from '../engine/types-3d';
 
@@ -26,7 +26,7 @@ export function runSteelCheck(): { checked: number } | { refused: 'noResults' } 
    * here, and the desk's check read Cb from the element's own diagram: 2,3 on a cantilever.
    */
   const lengths = new Map([...memberLengths(modelStore.model)].map(([id, l]) => [id, { L: l.L, Lb: l.Lb, chain: l.chain, freeEnd: l.freeEnd }]));
-  const verifs = runSteelVerification(results3D, md as never, demands, stations, lengths, amplifiedByCompression([results3D, ...perCombo.values()]));
+  const verifs = runSteelVerification(results3D, md as never, demands, stations, lengths, heldByCompression([results3D, ...perCombo.values()], (id) => modelStore.elements.get(id)?.type === 'truss'));
   verificationStore.setSteel(verifs);
   return { checked: verifs.length };
 }

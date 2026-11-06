@@ -54,6 +54,7 @@ pub fn compute_result_summary_2d(results: &AnalysisResults) -> ResultSummary {
         reaction_resultant: rxn,
         second_order_ratio: None,
         member_chords: None,
+        truss_screen: None,
     }
 }
 
@@ -82,5 +83,6 @@ pub fn compute_result_summary_3d(results: &AnalysisResults3D) -> ResultSummary {
         reaction_resultant: rxn,
         second_order_ratio: None,
         member_chords: None,
+        truss_screen: None,
     }
 }

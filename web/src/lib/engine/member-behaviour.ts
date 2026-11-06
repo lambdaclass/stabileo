@@ -25,7 +25,7 @@
 import { expandVariableMembers } from './variable-members';
 import type { ModelData } from './solver-service';
 import type { AnalysisResults3D, SolverInput3D, ElementForces3D, NonlinearReport } from './types-3d';
-import { solve3D, solveSSI3D, solveCable3D, type SolverInputCable3D } from './wasm-solver';
+import { solve3D, solveSSI3D, solveCable3D, withSwayScreenDeferred, type SolverInputCable3D } from './wasm-solver';
 import { computeLocalAxes3D } from './local-axes-3d';
 import { transverseToNodes, type MemberRef } from './member-loads';
 import { stabiliseOrphanRotations3D } from './orphan-rotations-3d';
@@ -330,21 +330,7 @@ export function solveNonlinear3D(model: ModelData, input: SolverInput3D): { resu
   let prevKey = '';
   const maxIterations = Math.max(MAX_ITER, 2 * upliftNodes.length);
 
-  for (let it = 1; it <= maxIterations; it++) {
-    const trial = withoutMembers(base, off);
-    for (const [n, c] of curved) {
-      for (const [sid, s] of trial.supports) {
-        if (s.nodeId !== n) continue;
-        const next = { ...s } as Record<string, unknown>;
-        for (const d of ['x', 'y', 'z'] as const) if (c[d]?.length) { next[FREE[d]] = false; next[SPRING[d]] = undefined; }
-        trial.supports.set(sid, next as never);
-      }
-    }
-    for (const [sid, s] of trial.supports) if (lifted.has(s.nodeId)) trial.supports.set(sid, s.isInclined ? { ...s, isInclined: false } : { ...s, rz: false, kz: undefined, dz: undefined });
-    // A node that only one-way members held in rotation needs the same vanishing spring the
-    // input builder gives any orphan rotation.
-    if (oneWay.size || cables.size) stabiliseOrphanRotations3D(trial);
-
+  const solveTrial = (trial: SolverInput3D): AnalysisResults3D => {
     let results: AnalysisResults3D;
     if (soilSprings.length) {
       const live = soilSprings.filter((x) => !(lifted.has(x.nodeId) && x.direction === 2));
@@ -361,7 +347,24 @@ export function solveNonlinear3D(model: ModelData, input: SolverInput3D): { resu
     } else {
       results = linearSolve(trial);
     }
-    results = stripStabilisedReactions(results, trial);
+    return stripStabilisedReactions(results, trial);
+  };
+  for (let it = 1; it <= maxIterations; it++) {
+    const trial = withoutMembers(base, off);
+    for (const [n, c] of curved) {
+      for (const [sid, s] of trial.supports) {
+        if (s.nodeId !== n) continue;
+        const next = { ...s } as Record<string, unknown>;
+        for (const d of ['x', 'y', 'z'] as const) if (c[d]?.length) { next[FREE[d]] = false; next[SPRING[d]] = undefined; }
+        trial.supports.set(sid, next as never);
+      }
+    }
+    for (const [sid, s] of trial.supports) if (lifted.has(s.nodeId)) trial.supports.set(sid, s.isInclined ? { ...s, isInclined: false } : { ...s, rz: false, kz: undefined, dz: undefined });
+    // A node that only one-way members held in rotation needs the same vanishing spring the
+    // input builder gives any orphan rotation.
+    if (oneWay.size || cables.size) stabiliseOrphanRotations3D(trial);
+
+    let results = withSwayScreenDeferred(() => solveTrial(trial));
     last = results;
 
     let changed = false;
@@ -406,6 +409,8 @@ export function solveNonlinear3D(model: ModelData, input: SolverInput3D): { resu
 
     const lengths = [...off].map((id) => ({ id, length: refs.get(id)?.axes.L ?? 0 }));
     if (!changed) {
+      const screen = (results as { resultSummary?: { trussScreen?: { sway?: number; bars: unknown[] } } }).resultSummary?.trussScreen;
+      if (screen && screen.bars.length > 0 && screen.sway === undefined) results = solveTrial(trial);
       return { results: withZeroRows(results, lengths), report: { converged: cablesConverged, iterations: it, lifted: [...lifted], slack: [...off], ...cableReport() } };
     }
     const key = stateKey();

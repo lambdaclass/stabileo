@@ -468,6 +468,27 @@ pub struct ResultSummary {
     /// x, 0, z), for combinations to judge chords on their own: absent when not recorded.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub member_chords: Option<Vec<MemberChord>>,
+    /// The second-order screen of truss bars no supports hold at both ends (#1551): absent when
+    /// the model has none or nothing is compressed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub truss_screen: Option<TrussScreen>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TrussScreen {
+    /// 1/α_cr of the whole structure under this load set; absent when its buckling solve refused or failed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sway: Option<f64>,
+    /// Each compressed bar's N/N_E on its own length.
+    pub bars: Vec<MemberRatio>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MemberRatio {
+    pub element_id: usize,
+    pub ratio: f64,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]

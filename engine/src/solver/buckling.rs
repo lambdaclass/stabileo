@@ -9,6 +9,53 @@ use super::geometric_stiffness::{
 };
 use super::constraints::FreeConstraintSystem;
 
+thread_local! {
+    static PRELOADING: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+    static DEFERRED: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// While deferred, the second-order screen has no α_cr and holds compressed truss bars frame-wide:
+/// for the trial solves of an iteration, whose converged state is then solved once undeferred.
+pub fn defer_sway_screen(deferred: bool) {
+    DEFERRED.with(|d| d.set(deferred));
+}
+
+fn preloading<T>(solve: impl FnOnce() -> T) -> T {
+    struct Reset(bool);
+    impl Drop for Reset {
+        fn drop(&mut self) { PRELOADING.with(|p| p.set(self.0)); }
+    }
+    let _reset = Reset(PRELOADING.with(|p| p.replace(true)));
+    solve()
+}
+
+/// 1/α_cr of the whole structure under `loads`, from its lowest buckling mode. None when the solve
+/// refuses or fails, when that mode is unresolved, while deferred, and inside a buckling preload,
+/// whose own screen would otherwise start another buckling solve.
+fn sway_ratio(solve: impl FnOnce() -> Result<(f64, bool), String>) -> Option<f64> {
+    if PRELOADING.with(|p| p.get()) || DEFERRED.with(|d| d.get()) { return None; }
+    let (lambda, unresolved) = solve().ok()?;
+    (!unresolved && lambda > 0.0 && lambda.is_finite()).then(|| 1.0 / lambda)
+}
+
+fn unresolved(d: &[StructuredDiagnostic]) -> bool {
+    d.iter().any(|d| d.phase.as_deref() == Some("BU-UNRESOLVED-MODE"))
+}
+
+pub(crate) fn sway_ratio_2d(input: &SolverInput, loads: &[SolverLoad]) -> Option<f64> {
+    sway_ratio(|| {
+        let r = solve_buckling_2d(&SolverInput { loads: loads.to_vec(), ..input.clone() }, 1)?;
+        Ok((r.modes.first().ok_or("no mode")?.load_factor, unresolved(&r.structured_diagnostics)))
+    })
+}
+
+pub(crate) fn sway_ratio_3d(input: &SolverInput3D, loads: &[SolverLoad3D]) -> Option<f64> {
+    sway_ratio(|| {
+        let r = solve_buckling_3d(&SolverInput3D { loads: loads.to_vec(), ..input.clone() }, 1)?;
+        Ok((r.modes.first().ok_or("no mode")?.load_factor, unresolved(&r.structured_diagnostics)))
+    })
+}
+
 /// Buckling analysis result.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -67,8 +114,7 @@ pub struct BucklingSystem2D {
 
 #[doc(hidden)]
 pub fn buckling_system_2d(input: &SolverInput) -> Result<BucklingSystem2D, String> {
-    // 1. Linear solve to get axial forces
-    let linear = super::linear::solve_2d(input)?;
+    let linear = preloading(|| super::linear::solve_2d(input))?;
     let dof_num = DofNumbering::build_2d(input);
     let nf = dof_num.n_free;
 
@@ -389,7 +435,7 @@ pub fn buckling_system_3d(input: &SolverInput3D) -> Result<BucklingSystem3D, Str
     // the unexpanded model has no elements for (an index panic).
     let expanded = (!input.curved_beams.is_empty()).then(|| super::linear::expand_curved_beams_3d(input));
     let input = expanded.as_ref().unwrap_or(input);
-    let linear = super::linear::buckling_preload_3d(input)?;
+    let linear = preloading(|| super::linear::buckling_preload_3d(input))?;
     let dof_num = DofNumbering::build_3d(input);
     let nf = dof_num.n_free;
     let n = dof_num.n_total;
