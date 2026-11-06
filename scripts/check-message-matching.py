@@ -21,7 +21,7 @@ SOURCES = (
     ('scripts', ('.py', '.js', '.mjs', '.cjs')),
     ('.github/scripts', ('.py', '.js', '.mjs', '.cjs')),
 )
-SKIP = re.compile(r'(^|/)(__tests__|tests|e2e|node_modules)/|\.(test|spec)\.[a-z]+$|^web/src/lib/wasm/')
+SKIP = re.compile(r'(^|/)(__tests__|tests|e2e|node_modules)/|\.(test|spec)\.[a-z]+$|^web/src/lib/wasm/|^scripts/check-message-matching\.py$')
 
 MESSAGE_PARTS = {'err', 'errs', 'error', 'errors', 'msg', 'msgs', 'message', 'messages', 'reason', 'reasons',
                  'warning', 'warnings', 'diag', 'diags', 'diagnostic', 'diagnostics', 'refusal', 'refusals',
@@ -181,17 +181,23 @@ def before(text, at):
 EXPLICIT_MESSAGE = {'message', 'msg', 'stderr'}
 
 
-def explicit_message(value):
-    """Whether `value` ends in a message field, like `error.message`: any string compared to it is message text."""
-    words = re.findall(r'[A-Za-z_$][\w$]*', value)
-    return bool(words) and words[-1].lower() in EXPLICIT_MESSAGE
+def explicit_message(value, fields=frozenset()):
+    """Whether `value` ends in a message field, like `error.message`, or names a local copied from one."""
+    words = re.findall(r'[A-Za-z_$][\w$]*', value) if re.fullmatch(r'[\w$.?\[\]()]+', value.strip()) else []
+    return bool(words) and (words[-1].lower() in EXPLICIT_MESSAGE or (len(words) == 1 and words[0] in fields))
+
+
+def message_fields_in(code):
+    """Names assigned from a message field in `code`, e.g. `text` in `const text = error.message`."""
+    return frozenset(m[1] for m in ALIAS.finditer(code) if explicit_message(re.split(r'[?|&;]', m[2])[0].strip()))
 
 
 JS_TEXT_REGEX = re.compile(rf'\b([A-Za-z_$][\w$]*)\s*=\s*({JS_REGEX_LITERAL}|new RegExp\(\s*(?:{LITERAL}))')
 
 
 def js_hits(text):
-    found, aliases, line = [], aliases_in(text), lines_of(text, ('//', '*', '/*'))
+    found, aliases, line = [], aliases_in(text) | message_fields_in(text), lines_of(text, ('//', '*', '/*'))
+    fields = message_fields_in(text)
     text_regexes = {m[1] for m in JS_TEXT_REGEX.finditer(text) if spells_text(m[2])}
 
     def hit(offset, name):
@@ -225,7 +231,7 @@ def js_hits(text):
         else:
             continue
         typeof = after and re.search(r'\btypeof\s*$', left.rstrip()[:len(left.rstrip()) - len(value)])
-        if message_like(value, aliases) and (spells_text(literal) or (explicit_message(value) and not typeof)):
+        if message_like(value, aliases) and (spells_text(literal) or (explicit_message(value, fields) and not typeof)):
             hit(m.start(), m[1])
     return sorted(set(found))
 
@@ -234,7 +240,7 @@ PY_CALL = re.compile(r'\.(startswith|endswith|find|rfind|index|rindex|count)\(')
 PY_RE = re.compile(r'\b(?:re\.(search|match|fullmatch|findall|finditer)\(|([A-Za-z_]\w*)\.(search|match|fullmatch|findall|finditer)\()')
 PY_LITERAL = r"""[rbfu]{0,2}(?:'(?:\\.|[^'\\\n])*'|"(?:\\.|[^"\\\n])*")"""
 PY_IN = re.compile(rf'({PY_LITERAL})\s+(?:not\s+)?in\s+([\w.\[\]()\'"]+)')
-PY_EQ = re.compile(rf'([\w.\[\]()\'"]+)\s*(==|!=)\s*({PY_LITERAL})')
+PY_EQ = re.compile(rf'([\w.\[\]()\'"]+)\s*(==|!=)\s*({PY_LITERAL})|({PY_LITERAL})\s*(==|!=)\s*([\w.\[\]()]+)')
 
 
 def py_hits(text):
@@ -256,9 +262,11 @@ def py_hits(text):
     for m in PY_IN.finditer(text):
         if message_like(m[2], aliases) or spells_text(m[1]):
             hit(m.start(), 'in')
+    fields = message_fields_in(text)
     for m in PY_EQ.finditer(text):
-        if message_like(m[1], aliases) and (spells_text(m[3]) or explicit_message(m[1])):
-            hit(m.start(), m[2])
+        value, op, literal = (m[1], m[2], m[3]) if m[1] else (m[6], m[5], m[4])
+        if message_like(value, aliases | fields) and (spells_text(literal) or explicit_message(value, fields)):
+            hit(m.start(), op)
     return sorted(set(found))
 
 

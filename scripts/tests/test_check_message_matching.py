@@ -85,6 +85,12 @@ class Caught(unittest.TestCase):
             with self.subTest(body=body):
                 self.assert_caught(ts(body))
         self.assert_caught(py("return failure.stderr == 'killed'"))
+        for body in ("return 'no free DOFs' == message", "return 'x' != failure.stderr"):
+            with self.subTest(body=body):
+                self.assert_caught(py(body))
+        self.assert_caught({'web/src/lib/a.ts': "export function f(error: Error) {\n  const text = error.message;\n"
+                                                "  return text === 'singular';\n}\n"}, line=3)
+        self.assert_caught({'scripts/a.py': "def f(failure):\n    text = failure.message\n    return text == 'singular'\n"}, line=3)
 
     def test_a_call_split_over_lines_is_caught_at_its_first_line(self):
         self.assert_caught({'web/src/lib/a.ts': 'export function f(message: string) {\n  return NO_FREE_DOFS.test(\n    message\n  );\n}\n'})
