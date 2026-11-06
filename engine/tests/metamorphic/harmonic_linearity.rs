@@ -58,7 +58,7 @@ fn assert_rows_match_direct(issue: u32, what: &str, rows: &[Row]) {
     });
     for f in freqs {
         let at_f: Vec<&Row> = rows.iter().filter(|r| r.frequency == f).collect();
-        let scale = at_f.iter().map(|r| r.lu.0.hypot(r.lu.1)).fold(0.0f64, f64::max);
+        let scale = at_f.iter().flat_map(|r| [r.lu, r.gauss, r.got]).map(|v| v.0.hypot(v.1)).fold(0.0f64, f64::max);
         if scale == 0.0 {
             continue;
         }
