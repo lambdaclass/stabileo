@@ -13,6 +13,7 @@ It fails if a moved link still climbs out of the root, a registry entry still na
 or a lock pins another engine version.
 """
 import importlib.util
+import json
 import pathlib
 import re
 import subprocess
@@ -22,7 +23,9 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 REGISTRY = ROOT / "web/src/lib/provenance/result-changes"
 LANGUAGES = [("es", "Spanish"), ("pt", "Portuguese"), ("de", "German"), ("fr", "French"), ("tr", "Turkish")]
 ENGINE = "dedaliano-engine"
-CLIMBING = re.compile(r"\]\(\.\./|^\[[^\]]+\]:\s*\.\./", re.M)
+INLINE = re.compile(r"(\]\(\s*<?)\.\./")
+REFERENCE = re.compile(r"^( {0,3}\[[^\]]+\]:\s*<?)\.\./", re.M)
+CLIMBING = re.compile(INLINE.pattern + "|" + REFERENCE.pattern, re.M)
 
 
 def section_bounds(log, version, date):
@@ -47,8 +50,8 @@ def notes_line(version, root=ROOT):
 def rebase_section(log, version, date, line=""):
     start, end = section_bounds(log, version, date)
     heading = f"## {version} ({date})\n\n"
-    body = log[start + len(heading):end].replace("](../", "](")
-    body = re.sub(r"^(\[[^\]]+\]:\s*)\.\./", r"\1", body, flags=re.M)
+    body = INLINE.sub(r"\1", log[start + len(heading):end])
+    body = REFERENCE.sub(r"\1", body)
     return log[:start] + heading + line + body + log[end:]
 
 
@@ -57,19 +60,28 @@ def climbing_links(log, version, date):
     return [m.group(0) for m in CLIMBING.finditer(log[start:end])]
 
 
+def links_fragment(entry):
+    return str(entry.get("changelog", {}).get("file", "")).startswith("changelog.d/")
+
+
 def repoint_registry(directory=REGISTRY):
     changed = []
     for path in sorted(directory.glob("*.json")):
         text = path.read_text()
-        new = re.sub(r'"changelog\.d/[^"]+\.md"', '"CHANGELOG.md"', text)
-        if new != text:
-            path.write_text(new)
-            changed.append(path.name)
+        if not links_fragment(json.loads(text)):
+            continue
+        new = re.sub(r'"changelog\.d(?:/|\\/)[^"]*"', '"CHANGELOG.md"', text)
+        if links_fragment(json.loads(new)):
+            entry = json.loads(text)
+            entry["changelog"]["file"] = "CHANGELOG.md"
+            new = json.dumps(entry, indent=2, ensure_ascii=False) + "\n"
+        path.write_text(new)
+        changed.append(path.name)
     return changed
 
 
 def registry_fragment_links(directory=REGISTRY):
-    return [p.name for p in sorted(directory.glob("*.json")) if '"changelog.d/' in p.read_text()]
+    return [p.name for p in sorted(directory.glob("*.json")) if links_fragment(json.loads(p.read_text()))]
 
 
 def engine_version(root=ROOT):

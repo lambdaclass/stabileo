@@ -59,6 +59,17 @@ class RebaseLinks(unittest.TestCase):
             self.assertNotIn("Portuguese", line)
 
 
+    def test_angle_bracket_and_indented_destinations_are_rebased(self):
+        log = LOG.replace("See [the advisory]", "See [b](<../docs/b.md>), [s](  ../docs/s.md) and [the advisory]") + ""
+        log = log.replace("[ref]: ../docs/results-changes/x.md", "[ref]: ../docs/results-changes/x.md\n   [ind]: <../docs/ind.md>")
+        self.assertEqual(len(step.climbing_links(log, "0.5.0", "2026-11-06")), 6)
+        out = step.rebase_section(log, "0.5.0", "2026-11-06")
+        self.assertIn("[b](<docs/b.md>)", out)
+        self.assertIn("[s](  docs/s.md)", out)
+        self.assertIn("   [ind]: <docs/ind.md>", out)
+        self.assertEqual(step.climbing_links(out, "0.5.0", "2026-11-06"), [])
+
+
 class EngineLocks(unittest.TestCase):
     def lock(self, version):
         return f'[[package]]\nname = "dedaliano-engine"\nversion = "{version}"\ndependencies = []\n'
@@ -81,6 +92,17 @@ class Registry(unittest.TestCase):
             self.assertEqual(step.registry_fragment_links(directory), ["x.json"])
             self.assertEqual(step.repoint_registry(directory), ["x.json"])
             self.assertEqual(json.loads((directory / "x.json").read_text())["changelog"], {"file": "CHANGELOG.md", "heading": "X"})
+            self.assertEqual(step.registry_fragment_links(directory), [])
+
+    def test_an_escaped_fragment_path_is_found_and_repointed(self):
+        with tempfile.TemporaryDirectory() as d:
+            directory = pathlib.Path(d)
+            (directory / "x.json").write_text('{"id": "x", "changelog": {"file": "changelog.d\\/1-x.md", "heading": "X"}}\n')
+            (directory / "u.json").write_text('{"id": "u", "changelog": {"file": "\\u0063hangelog.d/1-u.md"}}\n')
+            self.assertEqual(step.registry_fragment_links(directory), ["u.json", "x.json"])
+            self.assertEqual(step.repoint_registry(directory), ["u.json", "x.json"])
+            for name in ["u.json", "x.json"]:
+                self.assertEqual(json.loads((directory / name).read_text())["changelog"]["file"], "CHANGELOG.md")
             self.assertEqual(step.registry_fragment_links(directory), [])
 
 
