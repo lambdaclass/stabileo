@@ -53,6 +53,7 @@ class Caught(unittest.TestCase):
             '"out of scope" == err',
             '"x" != d.message',
             'regex::Regex::new("no free DOFs").is_ok()',
+            'err.contains ("singular")',
         ):
             with self.subTest(body=body):
                 self.assert_caught(rust(body))
@@ -68,6 +69,7 @@ class Caught(unittest.TestCase):
             "return message === 'has already been taken';",
             "switch (error.message) { default: return 1; }",
             "return cat.startsWith('Bottom Span');",
+            "return msg.includes ('singular');",
         ):
             with self.subTest(body=body):
                 self.assert_caught(ts(body))
@@ -113,6 +115,7 @@ class Caught(unittest.TestCase):
             "return re.search(r'original solved but transformed', failure)",
             "return EXIT_CODE.match(message)",
             "return message == 'runner lost communication'",
+            "return stderr.startswith ('singular')",
         ):
             with self.subTest(body=body):
                 self.assert_caught(py(body))

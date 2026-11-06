@@ -1,7 +1,7 @@
 """Fail on code that matches the text of an error or diagnostic message: when the wording changes the
-match stops, silently. Branch on a DiagnosticCode or a known-issue id. Engine code may not match a
-string literal at all; web and script code may not match a message-named value or a literal that
-spells prose or a code. Existing lines are listed in scripts/message-match-allow.txt under a reason."""
+match stops, silently. Branch on a DiagnosticCode or a known-issue id. Engine code may not search a
+string for a literal, nor compare or match a message-named value against one; web and script code may
+not match a message-named value or a literal that spells prose or a code. Existing lines are listed in scripts/message-match-allow.txt under a reason."""
 import bisect
 import importlib.util
 import pathlib
@@ -111,7 +111,7 @@ def call_arg(text, at):
 
 
 RUST_CALL = re.compile(r'\.(contains|starts_with|ends_with|find|rfind|strip_prefix|strip_suffix|split_once|rsplit_once|'
-                       r'matches|match_indices|trim_start_matches|trim_end_matches)\(')
+                       r'matches|match_indices|trim_start_matches|trim_end_matches)\s*\(')
 RUST_LITERAL = re.compile(r'\s*&?\s*(?:"|r#*"|format!)')
 RUST_EQ = re.compile(r'(==|!=)')
 RUST_MATCH = re.compile(r'\bmatch\s+([^{};]*)\{')
@@ -149,11 +149,11 @@ def rust_hits(text):
     return [(n, name, lines[n - 1].strip()) for n, name in sorted(set(found))]
 
 
-JS_CALL = re.compile(r'\??\.(includes|startsWith|endsWith|indexOf|lastIndexOf|match|matchAll|search|replace|replaceAll|split)\(')
+JS_CALL = re.compile(r'\??\.(includes|startsWith|endsWith|indexOf|lastIndexOf|match|matchAll|search|replace|replaceAll|split)\s*\(')
 JS_TRANSFORM = {'replace', 'replaceAll', 'split'}
 JS_SWITCH = re.compile(r'\bswitch\s*\(([^)]*)\)')
 JS_REGEX_LITERAL = r'/(?![/*\s])(?:\\.|\[(?:\\.|[^\]\\\n])*\]|[^/\\\n\[])+/[dgimsuyv]*'
-JS_REGEX_CALL = re.compile(rf'({JS_REGEX_LITERAL}|\b[A-Za-z_$][\w$]*)\.(test|exec)\(')
+JS_REGEX_CALL = re.compile(rf'({JS_REGEX_LITERAL}|\b[A-Za-z_$][\w$]*)\.(test|exec)\s*\(')
 JS_REGEX = re.compile(rf'(?<![\w$)\]])\s*{JS_REGEX_LITERAL}')
 JS_EQ = re.compile(r'(?<![<>=!])(===?|!==?)(?!=)')
 JS_LITERAL_AFTER = re.compile(rf'\s*({LITERAL})')
@@ -236,8 +236,8 @@ def js_hits(text):
     return sorted(set(found))
 
 
-PY_CALL = re.compile(r'\.(startswith|endswith|find|rfind|index|rindex|count)\(')
-PY_RE = re.compile(r'\b(?:re\.(search|match|fullmatch|findall|finditer)\(|([A-Za-z_]\w*)\.(search|match|fullmatch|findall|finditer)\()')
+PY_CALL = re.compile(r'\.(startswith|endswith|find|rfind|index|rindex|count)\s*\(')
+PY_RE = re.compile(r'\b(?:re\.(search|match|fullmatch|findall|finditer)\s*\(|([A-Za-z_]\w*)\.(search|match|fullmatch|findall|finditer)\s*\()')
 PY_LITERAL = r"""[rbfu]{0,2}(?:'(?:\\.|[^'\\\n])*'|"(?:\\.|[^"\\\n])*")"""
 PY_IN = re.compile(rf'({PY_LITERAL})\s+(?:not\s+)?in\s+([\w.\[\]()\'"]+)')
 PY_EQ = re.compile(rf'([\w.\[\]()\'"]+)\s*(==|!=)\s*({PY_LITERAL})|({PY_LITERAL})\s*(==|!=)\s*([\w.\[\]()]+)')
