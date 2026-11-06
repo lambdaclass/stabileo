@@ -151,6 +151,8 @@ jobs:
               - 'engine/**'
               - 'scripts/check-fail-closed.py'
               - 'scripts/fail-closed-allow.txt'
+              - 'scripts/check-message-matching.py'
+              - 'scripts/message-match-allow.txt'
               - 'scripts/invariance-gate.py'
               - 'docs/verification/METAMORPHIC.md'
               - 'Cargo.toml'
@@ -171,6 +173,8 @@ jobs:
               - '.dockerignore'
               - *tooling
               - 'web/**'
+              - 'scripts/check-message-matching.py'
+              - 'scripts/message-match-allow.txt'
               # The /research pages import the catalog and reference results and ship its WASM.
               - 'research/**'
               - 'engine/**'
@@ -207,6 +211,8 @@ jobs:
               - 'scripts/ci/**'
               - 'scripts/verification-metrics.py'
               - 'scripts/check-fail-closed.py'
+              - 'scripts/check-message-matching.py'
+              - 'scripts/message-match-allow.txt'
               - 'docs/roadmap/PRODUCT_ROADMAP.md'
               - 'Makefile'
               - 'Dockerfile'
