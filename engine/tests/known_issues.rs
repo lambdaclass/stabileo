@@ -610,9 +610,13 @@ fn conditioning_detects_roundoff_pivots_without_changing_matrices() {
 fn reported_buckling_741_818_plain_and_certified() {
     use dedaliano_engine::solver::buckling::solve_buckling_3d;
     use dedaliano_engine::certify::buckling::certify_buckling_3d;
-    let input: SolverInput3D = serde_json::from_str(include_str!("fixtures/buckling-741.json")).unwrap();
+    let uncompressed: SolverInput3D = serde_json::from_str(include_str!("fixtures/buckling-741.json")).unwrap();
+    for error in [solve_buckling_3d(&uncompressed, 1).map(|_| ()).unwrap_err(), certify_buckling_3d(&uncompressed, 1).map(|_| ()).unwrap_err()] {
+        assert!(error.contains("Buckling not determinable") && error.contains("element 3"), "{error}");
+    }
+    let input: SolverInput3D = serde_json::from_str(include_str!("fixtures/buckling-741-compressed.json")).unwrap();
     let result = solve_buckling_3d(&input, 1).unwrap();
-    assert!((result.modes[0].load_factor - 4691.397553909858).abs() < 1e-6);
+    assert!((result.modes[0].load_factor / 1.2087954149900562 - 1.0).abs() < 1e-9, "{}", result.modes[0].load_factor);
     assert_warning(&result.structured_diagnostics, "BU-ACCURACY", 818.0);
     let error = certify_buckling_3d(&input, 1).unwrap_err();
     assert!(error.contains("BU-BOUND"), "{error}");
