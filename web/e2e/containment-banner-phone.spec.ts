@@ -38,6 +38,19 @@ test('@smoke on a phone the second-order notice is one line, opens on a tap, and
   await expect(toggle).toHaveAttribute('aria-expanded', 'true');
   expect((await notice.boundingBox())!.height).toBeGreaterThan(56);
   await expect(notice.locator('p').first()).toBeVisible();
+  const scroll = await notice.evaluate((el) => {
+    const first = el.querySelector('p')!;
+    for (let i = 0; i < 12; i++) el.appendChild(first.cloneNode(true));
+    const r = el.getBoundingClientRect(), style = getComputedStyle(el);
+    return { bottom: r.bottom, overflows: el.scrollHeight > el.clientHeight, overflowY: style.overflowY, pointerEvents: style.pointerEvents };
+  });
+  expect(scroll.overflows, 'twelve more messages overflow the open notice').toBe(true);
+  expect(scroll.bottom).toBeLessThanOrEqual(844);
+  expect(scroll).toMatchObject({ overflowY: 'auto', pointerEvents: 'auto' });
+  const box2 = (await notice.boundingBox())!;
+  await page.mouse.move(box2.x + box2.width / 2, box2.y + box2.height / 2);
+  await page.mouse.wheel(0, 400);
+  await expect.poll(() => notice.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
   await toggle.tap();
   await expect(toggle).toHaveAttribute('aria-expanded', 'false');
 });

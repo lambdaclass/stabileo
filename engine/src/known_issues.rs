@@ -854,6 +854,7 @@ pub(crate) fn combined_truss_screen<'a>(cases: impl Iterator<Item = (f64, Option
     let mut total: std::collections::BTreeMap<usize, f64> = std::collections::BTreeMap::new();
     for (factor, summary, compressed) in &cases {
         match summary.and_then(|s| s.truss_screen.as_ref()) {
+            Some(t) if t.bars.is_empty() => {}
             Some(t) => {
                 sway = sway.zip(t.sway).map(|(a, s)| a + factor * s);
                 for b in &t.bars { *total.entry(b.element_id).or_default() += factor * b.ratio; }
@@ -1229,6 +1230,12 @@ mod truss_screen_tests {
         assert_eq!(verdict(&[(1.0, Some(&a), true), (5.0, None, false)]), Some(vec![]));
         assert_eq!(verdict(&[(1.0, Some(&a), true), (5.0, Some(&quiet), false)]), Some(vec![]), "screened with nothing compressed");
         assert_eq!(verdict(&[(1.0, Some(&a), true), (1.0, None, true)]), None, "never screened, compressed");
+        let mut slack = model();
+        for b in &mut slack.bars { b.compression = 0.0; }
+        slack.bars.push(ScreenBar { id: 3, ends: [1, 2], frame: true, hinged: [false; 2], ei_min: 1000.0, compression: 1.0 });
+        let slack = ResultSummary { second_order_ratio: Some(0.0), truss_screen: second_order(&slack, || panic!("α_cr asked for")).2, ..Default::default() };
+        assert_eq!(slack.truss_screen, Some(TrussScreen { sway: None, bars: vec![] }));
+        assert_eq!(verdict(&[(1.0, Some(&a), true), (1e-6, Some(&slack), true)]), Some(vec![]), "a case whose loose bars carry no compression adds no α_cr to know");
         assert_eq!(verdict(&[(3.0, Some(&a), false)]), None, "compressed by span loads alone, its ends reading zero: 3·0.04 > 1/11");
         assert_eq!(verdict(&[(1.2, Some(&a), true), (1.0, Some(&summary(Some(0.04), 0.07)), true)]), Some(vec![1]), "1.2·0.03 + 0.07");
         let inner = ResultSummary { second_order_ratio: Some(0.0), truss_screen: combined_truss_screen([(1.0, Some(&summary(Some(0.04), 0.07)), true)].into_iter()), ..Default::default() };

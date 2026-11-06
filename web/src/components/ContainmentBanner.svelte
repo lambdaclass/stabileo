@@ -22,7 +22,7 @@
     .containment-notice { display: flex; align-items: center; gap: 8px; padding: 2px 4px 2px 8px; }
     .containment-notice p { flex: 1; min-width: 0; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .containment-notice p + p { display: none; }
-    .containment-notice.open { display: block; padding: 8px 12px; }
+    .containment-notice.open { display: block; padding: 8px 12px; max-height: 60vh; overflow-y: auto; pointer-events: auto; }
     .containment-notice.open p { white-space: normal; margin: 4px 0; }
     .containment-notice.open p + p { display: block; }
     .cn-toggle { display: block; order: 1; flex: none; pointer-events: auto; min-height: 40px; padding: 0 12px; border: 1px solid currentColor; border-radius: 4px; background: transparent; color: inherit; font-size: 12px; }

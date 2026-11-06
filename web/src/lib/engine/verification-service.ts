@@ -407,7 +407,7 @@ export type CompressionHold = 'all' | ReadonlySet<number>;
 /**
  * The checks the engine's second-order warnings hold (#1551). Amplification runs through the
  * joints, so an unbounded warning or a flagged frame member holds every check; a warning naming
- * only truss bars, which the engine bounds alone once the structure's α_cr is at least 10, holds
+ * only truss bars, which the engine bounds alone once the structure's α_cr is at least 11, holds
  * those bars.
  */
 export function heldByCompression(

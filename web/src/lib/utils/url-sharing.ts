@@ -537,7 +537,7 @@ function fromCompact(c: Record<string, unknown>): ModelSnapshot {
         ...(opt.ly != null ? { localYy: opt.ly } : {}),
         ...(opt.lz != null ? { localYz: opt.lz } : {}),
         ...(opt.ra != null ? { rollAngle: opt.ra } : {}),
-        ...(MEMBER_BEHAVIOURS.includes(opt.bh) ? { behaviour: opt.bh } : {}),
+        ...(opt.bh != null ? { behaviour: memberBehaviour(opt.bh) } : {}),
         ...(opt.of ? { offset: {
           frame: opt.of.f === 'l' ? 'local' : 'global',
           ...(opt.of.i ? { i: { x: opt.of.i[0], y: opt.of.i[1], z: opt.of.i[2] } } : {}),
@@ -802,6 +802,11 @@ export function generateShareURL(): { url: string; length: number } | null {
  * same, since the format omits them; numbers compare to the ten figures the format keeps.
  */
 const MEMBER_BEHAVIOURS: readonly unknown[] = ['tensionOnly', 'compressionOnly', 'inactive'] satisfies readonly MemberBehaviour[];
+
+function memberBehaviour(bh: unknown): MemberBehaviour {
+  if (!MEMBER_BEHAVIOURS.includes(bh)) throw new Error(`unknown member behaviour ${String(bh)}`);
+  return bh as MemberBehaviour;
+}
 
 export function compactLoses(snapshot: ModelSnapshot): boolean {
   let back: ModelSnapshot;

@@ -101,6 +101,21 @@ describe('what the compact link keeps', () => {
     const unknown = { ...base, elements: [[1, { ...element, behaviour: 'sideways' }]] } as never;
     expect(compactLoses(unknown)).toBe(true);
   });
+
+  it('refuses an incoming compact link whose member behaviour it does not know, rather than load a linear member', () => {
+    const element = { id: 1, type: 'truss', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, behaviour: 'tensionOnly' };
+    const base = snap({});
+    const link = compressSnapshot({ ...base, sections: [[1, { id: 1, name: 'R', a: 0.01, iz: 1e-5 }]], elements: [[1, element]], nextId: { ...base.nextId, section: 2, element: 2 } } as never);
+    const compact = JSON.parse(new TextDecoder().decode(inflateSync(Buffer.from(link.slice(2), 'base64url'))));
+    const relink = (bh: unknown) => {
+      compact.e[0][6].bh = bh;
+      return '2.' + Buffer.from(deflateSync(new TextEncoder().encode(JSON.stringify(compact)))).toString('base64url');
+    };
+    expect(decompressSnapshot(relink('tensionOnly'))!.elements[0]![1]).toMatchObject({ behaviour: 'tensionOnly' });
+    for (const bh of ['sideways', 1, '']) expect(decompressSnapshot(relink(bh)), String(bh)).toBeNull();
+    delete compact.e[0][6].bh;
+    expect(decompressSnapshot('2.' + Buffer.from(deflateSync(new TextEncoder().encode(JSON.stringify(compact)))).toString('base64url'))!.elements[0]![1]).not.toHaveProperty('behaviour');
+  });
 });
 
 describe('the Basic examples', () => {
