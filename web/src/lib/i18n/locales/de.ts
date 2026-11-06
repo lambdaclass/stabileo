@@ -11604,7 +11604,7 @@ const de: Translations = {
   'spec.axial.cablePretension': 'Vorspannung',
   'spec.axial.cableChord': 'keine: die Sehne',
   'cableDiag.selfWeight': 'Bis zu {pct} % der Zugkraft dieser Seile stammen aus ihrem Eigengewicht, mit der gezeichneten Sehne als spannungsloser Länge, und halten sie unabhängig von den Lasten gespannt. Geben Sie für jedes seine Vorspannung an (Spezifikationen › Stäbe) oder machen Sie es zu einem Fachwerkstab, wenn es kein Seil ist.',
-  'plasticDiag.noCapacity': "Plastische Analyse abgelehnt: Stab {member} (Querschnitt {section}) hat kein endliches, positives plastisches Moment um beide Achsen und könnte daher nie ein Gelenk bilden. Geben Sie die Querschnittsabmessungen, eine Streckgrenze über null oder positive Mp-Werte an.",
+  'plasticDiag.noCapacity': "Plastische Analyse abgelehnt: Stab {member} (Querschnitt {section}) hat um mindestens eine Achse kein endliches, positives plastisches Moment, und eine fehlende oder ungültige Tragfähigkeit um eine der beiden Achsen verhindert eine verlässliche plastische Analyse. Geben Sie die Querschnittsabmessungen, eine Streckgrenze über null oder positive Mp-Werte an.",
   'spec.supports.empty': 'Wählen Sie Auflager aus, um ihre Spezifikationen anzuzeigen und zu ändern.',
   'spec.supports.title': '{n} Auflager ausgewählt',
   'spec.supports.oneForDetail': 'Festhaltungen, Federn, Kennlinien und das geneigte Auflager werden für jeweils ein Auflager bearbeitet: Wählen Sie nur eines aus.',
