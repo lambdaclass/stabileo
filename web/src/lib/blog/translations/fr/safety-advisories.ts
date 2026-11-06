@@ -159,7 +159,7 @@ const body: PostBody = {
         ],
         [
           "SA-2026-046",
-          "Analyse harmonique : choisissait entre la superposition modale et la résolution directe selon la charge, si bien que la superposition et la réciprocité échouaient (106 % en un nœud dans un exemple) ; seulement sur stabileo.com depuis le 5 novembre 2026",
+          "Analyse harmonique : choisissait entre la superposition modale et la résolution directe selon la charge, si bien que la superposition et la réciprocité échouaient (106 % en un nœud dans un exemple) ; stabileo.com et les builds moteur/WASM de main, du 5 novembre 2026 jusqu'à la correction",
           "Élevée",
           "Corrigé dans la prochaine version"
         ],
