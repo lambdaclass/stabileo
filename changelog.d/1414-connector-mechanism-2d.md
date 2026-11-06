@@ -1,0 +1,5 @@
+### BREAKING (results)
+
+#### 2D: a mechanism hidden behind a connector is refused, not solved (2026-11-05)
+
+A 2D node whose frame members are all hinged got an artificial rotational spring to keep the stiffness matrix nonsingular. That spring is inert only while nothing else touches the node's rotation; a connector with a rotational spring (or a finite-length connector with a shear spring) ties it to the other end, so the artificial spring became a real spring to ground on everything the connector reaches. A hinged cantilever tip tied by a connector to a coincident node carrying a moment is a mechanism, yet every 2D path and the end-to-end certificate returned a rotation of about 10 rad with a zero reaction moment (#1414). Such a model is now singular and refused on every 2D path, including chains of connectors. Where something real holds the rotation (a rotational spring support, an unhinged member, a connector chain to a fixed node), the model still solves, without the artificial spring's share of the moment (0.01 % of the rotation in the test case).

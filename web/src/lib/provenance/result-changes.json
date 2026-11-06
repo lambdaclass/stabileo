@@ -38,7 +38,7 @@
         "tr": "Dönme yaylı bir bağlayıcının tüm çubukları mafsallı bir düğümü başka düğümlere bağladığı düzlem model, dönmeyi başka hiçbir şey tutmuyorsa bir mekanizmadır; çözücü onu yapay bir yayla tutup tepki momenti olmadan yaklaşık 10 rad dönmeler veriyordu ve sertifika bunları kabul ediyordu (#1414). Böyle bir model artık mekanizma olarak reddediliyor. Dönmeyi bir mesnet, mafsalsız bir çubuk veya başka bir bağlayıcı tutuyorsa çözülmeye devam ediyor; yapay yayın aldığı küçük moment payı artık yok. Mafsallı düğümlerde bağlayıcı bulunan düzlem modelleri yeniden çözün."
       },
       "changelog": {
-        "file": "CHANGELOG.md",
+        "file": "changelog.d/1414-connector-mechanism-2d.md",
         "heading": "2D: a mechanism hidden behind a connector is refused, not solved (2026-11-05)"
       }
     },
@@ -361,7 +361,7 @@
         "tr": "Rijit bağ veya diyaframın bir kafes çubuğu ucunu tüm çubukları mafsallı bir düğüme bağladığı düzlem model, çiftin dönmesini başka hiçbir şey tutmuyorsa bir mekanizmadır; çözücü onu yapay bir yayla tutup anlamsız yer değiştirmeler veriyordu ve sertifika bunları onaylayabiliyordu (#458). Böyle bir model artık mekanizma olarak reddediliyor; çift tutuluyorsa çözülmeye devam ediyor. Rijit bağlı veya diyaframlı düzlem modelleri yeniden çözün."
       },
       "changelog": {
-        "file": "CHANGELOG.md",
+        "file": "changelog.d/458-hidden-mechanism-2d.md",
         "heading": "2D: a mechanism hidden behind a rigid link or diaphragm is refused, not solved and certified (2026-11-03)"
       }
     },
@@ -497,7 +497,7 @@
         "tr": "PRO diğer yönetmeliklerdeki ACI 318 ve EN 1992-1-1 kontrolleri yalnızca eğilme, kesme ve eksenel kuvveti okuyordu; bu yüzden büyük burulmalı bir betonarme çubuk geçebiliyordu (SA-2026-040). Böyle bir çubuk artık burulma kontrol edilmedi olarak işaretleniyor ve geçmiyor: ACI 318'de 22.7.1.1 eşiği φ·0,083·λ·√f'c·Acp²/pcp üzerinde, EN 1992'de burulma taşıdığı her durumda. Burulmalı beton çubuklarda bu kontrolleri yeniden çalıştırın."
       },
       "changelog": {
-        "file": "CHANGELOG.md",
+        "file": "changelog.d/1314-rc-other-codes-torsion.md",
         "heading": "ACI 318 and EN 1992 checks no longer pass a concrete member whose torsion they did not check (2026-11-03)"
       }
     },
@@ -531,7 +531,7 @@
         "tr": "Birleşim tipolojileri her çubuğun yalnızca güçlü eksen uç momentini okuyordu: zayıf ekseni etrafında moment taşıyan bir kirişin momenti düşüyordu ve birleşim onsuz boyutlandırılıyordu. Böyle bir birleşim artık nedeniyle birlikte çözümsüz bırakılıyor. Çubukları zayıf eksende eğilen çelik birleşimleri etkiler."
       },
       "changelog": {
-        "file": "CHANGELOG.md",
+        "file": "changelog.d/532-joint-weak-axis-moment.md",
         "heading": "Steel joints with a weak-axis moment are left unresolved (2026-11-03)"
       }
     },
@@ -565,7 +565,7 @@
         "tr": "EN 1999 alüminyum kontrolünde zayıf eksen kesmesi için satır yoktu: yanal kesme altındaki bir çubuk kesme kontrolü olmadan geçiyordu. Yeni bir satır kesmeye paralel parçalarla bunu kontrol ediyor. Yanal kesmeli alüminyum çubukları etkiler."
       },
       "changelog": {
-        "file": "CHANGELOG.md",
+        "file": "changelog.d/532-aluminium-weak-axis-shear.md",
         "heading": "Aluminium checks shear along the weak axis (2026-11-03)"
       }
     },
