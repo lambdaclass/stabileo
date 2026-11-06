@@ -73,7 +73,7 @@ pub fn buckling_system_2d(input: &SolverInput) -> Result<BucklingSystem2D, Strin
     let nf = dof_num.n_free;
 
     if nf == 0 {
-        return Err("No free DOFs".into());
+        return Err(crate::refusal::no_free_dofs());
     }
 
     // Global-axes displacements of the linear solution (its results are
@@ -373,7 +373,7 @@ pub fn buckling_system_3d(input: &SolverInput3D) -> Result<BucklingSystem3D, Str
     let nf = dof_num.n_free;
     let n = dof_num.n_total;
 
-    if nf == 0 { return Err("No free DOFs".into()); }
+    if nf == 0 { return Err(crate::refusal::no_free_dofs()); }
 
     let mut u_full = vec![0.0; n];
     for d in &linear.displacements {

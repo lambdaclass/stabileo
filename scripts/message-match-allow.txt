@@ -11,12 +11,6 @@ web/src/lib/actions/second-order.ts: if (!/no compressed elements/i.test(msg)) r
 web/src/lib/engine/plastic-collapse.ts: if (/mechanism|singular|instab/i.test(msg)) { if (closeUnloading()) continue; isMechanism = true; break; }
 web/src/lib/engine/second-order/run-pdelta.ts: return /no compressed elements/i.test(String((e as Error)?.message ?? e)) ? Infinity : null;
 web/src/lib/engine/wasm-solver.ts: if (!guards || !DECOMPOSITION_FAILED.test(thrownText(e))) throw e;
-web/src/lib/engine/wasm-solver.ts: if (guards && NO_FREE_DOFS.test(thrownText(e))) return linearPDelta(solve(merged), 'noFreeDofs');
-web/src/lib/engine/wasm-solver.ts: if (NO_FREE_DOFS.test(thrownText(e))) noFreeDofs('buckling', () => solve(merged));
-web/src/lib/engine/wasm-solver.ts: if (NO_FREE_DOFS.test(thrownText(e))) noFreeDofs('modal');
-web/src/lib/engine/wasm-solver.ts: if (guards && NO_FREE_DOFS.test(thrownText(e))) return linearPDelta(solve3D(input), 'noFreeDofs');
-web/src/lib/engine/wasm-solver.ts: if (NO_FREE_DOFS.test(thrownText(e))) noFreeDofs('modal');
-web/src/lib/engine/wasm-solver.ts: if (NO_FREE_DOFS.test(thrownText(e))) noFreeDofs('buckling', () => solve3D(input));
 web/src/lib/listings/listing.ts: if (c.failingOnly && r[statusKey] !== undefined && !/fail|no verifica|não verifica/i.test(String(r[statusKey]))) return false;
 
 ## Classifies nightly or metamorphic findings by message text: a wording change files a refusal under another kind. The classifier is to key on codes.

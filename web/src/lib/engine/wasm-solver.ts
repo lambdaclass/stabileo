@@ -1,4 +1,4 @@
-import { isContainmentRefusal } from './containment-error';
+import { isContainmentRefusal, plainRefusal, refusedWithCode } from './containment-error';
 import { materialToWire, sectionToWire, type ElasticMaterialWire, type ElasticSectionWire } from './unit-types';
 import { registerColumnCapacityKernel } from './column-capacity-kernel';
 import { noteEngineBuild } from '../provenance/build-identity';
@@ -594,7 +594,7 @@ function refuse(msg: string | null | undefined): void {
   if (msg) throw new Error(msg);
 }
 
-const NO_FREE_DOFS = /^No free DOFs/;
+const noFreeDofsRefusal = (e: unknown) => refusedWithCode(e, 'no_free_dofs');
 
 function translateModalMechanism(e: unknown): void {
   const m = guards ? modalMechanismRefusal(thrownText(e)) : null;
@@ -1100,8 +1100,9 @@ export function solvePDelta(input: SolverInput, maxIter = 20, tolerance = 1e-4) 
   try {
     result = normalizePDeltaResult(JSON.parse(wasmSolvePdelta2d(json, maxIter, tolerance)));
   } catch (e) {
-    if (guards && NO_FREE_DOFS.test(thrownText(e))) return linearPDelta(solve(merged), 'noFreeDofs');
-    throw e;
+    if (!noFreeDofsRefusal(e)) throw e;
+    if (guards) return linearPDelta(solve(merged), 'noFreeDofs');
+    throw plainRefusal(e);
   }
   if (guards && result.linearResults && !(maxDisplacement(result.linearResults) > 0)) return linearPDelta(result.linearResults, 'noLoads');
   return tagCertifyJob(result, { name: 'certify_pdelta_2d', args: [json, maxIter, tolerance] });
@@ -1120,7 +1121,7 @@ export function solveBuckling(input: SolverInput, numModes = 4) {
     const json = serializeInput2D(restrainOrphanRotations2D(merged));
     result = bucklingWithCertificate(wasmCertifyBuckling2d, json, numModes) ?? JSON.parse(wasmSolveBuckling2d(json, numModes));
   } catch (e) {
-    if (NO_FREE_DOFS.test(thrownText(e))) noFreeDofs('buckling', () => solve(merged));
+    if (noFreeDofsRefusal(e)) noFreeDofs('buckling', () => solve(merged));
     throw e;
   }
   return withoutStaleCertificate(filterBuckling(result));
@@ -1144,7 +1145,7 @@ export function solveModal(
   try {
     result = JSON.parse(wasmSolveModal2d(payload, numModes));
   } catch (e) {
-    if (NO_FREE_DOFS.test(thrownText(e))) noFreeDofs('modal');
+    if (noFreeDofsRefusal(e)) noFreeDofs('modal');
     translateModalMechanism(e);
     throw e;
   }
@@ -1255,8 +1256,9 @@ export function solvePDelta3D(input: SolverInput3D, maxIter = 20, tolerance = 1e
   try {
     result = JSON.parse(wasmSolvePdelta3d(json, maxIter, tolerance));
   } catch (e) {
-    if (guards && NO_FREE_DOFS.test(thrownText(e))) return linearPDelta(solve3D(input), 'noFreeDofs');
-    throw e;
+    if (!noFreeDofsRefusal(e)) throw e;
+    if (guards) return linearPDelta(solve3D(input), 'noFreeDofs');
+    throw plainRefusal(e);
   }
   // Same as `solve3D` (`solve-finish.ts`). The no-free-DOF answer above is solve3D's, already finished.
   finishPDelta3D(result, input);
@@ -1279,7 +1281,7 @@ export function solveModal3D(input: SolverInput3D, densities: Map<number, number
       densities: mapToObj(densities),
     }), numModes)));
   } catch (e) {
-    if (NO_FREE_DOFS.test(thrownText(e))) noFreeDofs('modal');
+    if (noFreeDofsRefusal(e)) noFreeDofs('modal');
     translateModalMechanism(e);
     throw e;
   }
@@ -1313,7 +1315,7 @@ export function solveBuckling3D(input: SolverInput3D, numModes = 4) {
       return bucklingWithCertificate(wasmCertifyBuckling3d, json, numModes) ?? JSON.parse(wasmSolveBuckling3d!(json, numModes));
     });
   } catch (e) {
-    if (NO_FREE_DOFS.test(thrownText(e))) noFreeDofs('buckling', () => solve3D(input));
+    if (noFreeDofsRefusal(e)) noFreeDofs('buckling', () => solve3D(input));
     throw e;
   }
   const out = filterBuckling(run.result);
