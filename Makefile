@@ -1,9 +1,9 @@
 .PHONY: research.wasm paper.pdf help install-nix shell setup setup.run git.setup deps backend.run console routes \
-       lint.engine test.engine.units-types check.engine.acceptance-models test.engine.gates test.engine.metamorphic test.engine.suite bench.engine \
+       lint.engine gen.result-sites test.engine.units-types check.engine.acceptance-models test.engine.gates test.engine.metamorphic test.engine.invariance.quick test.engine.mechanism-fuzz.quick test.engine.mechanism-fuzz.long test.engine.mechanism-fuzz.replay test.engine.suite test.engine.differential.quick test.engine.differential.full bench.engine mutants.engine mutants.safety.report mutants.safety.record \
        web.deps typecheck.web test.web.unit test.web.build web.build.tested test.web.build.shared test.web.timing test.web.results snapshots-update check.results-snapshot-gate test.web.determinism e2e.web.setup e2e.web.build e2e.web.smoke e2e.web.slow e2e.web.timing e2e.web.visual e2e.web.flaky \
        perf.lighthouse.deps perf.lighthouse \
        test.ci-scripts test.nightly-scripts test.infra.caddy test.infra.caddy.redirects check.web.translations check.web.route-size \
-       test test.engine test.engine.benchmark-protocol test.backend test.backend.file test.web test.ai-backend test.inventory test-changed \
+       test test.engine test.engine.benchmark-protocol test.backend test.backend.file test.web test.ai-backend test.inventory test-changed check.quick \
        lint.backend format format.backend \
        wasm web.setup web.run web.build admin.run admin.build \
        ai-backend.run ai-backend.build \
@@ -12,8 +12,8 @@
        release.secrets backend.release.build backend.release.run backend.release.migrate \
        services services.stop postgres.start postgres.stop \
        inst inst.check inst.claim inst.release inst.list ports \
-       docker.build docker.up docker.down cloud-init.render \
-       check-pins check.changelog check.test-targets worktree worktree-prune hooks \
+       result-changes.order docker.build docker.up docker.down cloud-init.render \
+       check-pins check.changelog check.test-targets test.cadence check.cadence check.containment deps.audit test.engine.reproducers test.reproducers.published check.issue-reproducers worktree worktree-prune hooks \
        fmt check clean
 
 NIX_RUN = nix develop --command
@@ -81,7 +81,13 @@ help:
 	@echo "  make lint.engine          - Clippy over the engine"
 	@echo "  make test.engine.gates    - The named engine correctness gates"
 	@echo "  make test.engine.metamorphic - Metamorphic tests, in release"
+	@echo "  make test.engine.invariance.quick - Invariance of the analyses the changes since BASE touch (KINDS=all for every one)"
+	@echo "  make test.engine.mechanism-fuzz.quick - Mechanism fuzzing of the certificate: the checked-in seeds"
+	@echo "  make test.engine.mechanism-fuzz.long DURATION=30m - Mechanism fuzzing from SEED until DURATION (REPORT_DIR keeps reproducers)"
+	@echo "  make test.engine.mechanism-fuzz.replay SEEDS=12,44 FILES=a.json - Fuzz seeds or saved cases: model, outcome, minimised reproducer"
 	@echo "  make test.engine.suite [SHARD=1/4] - Every engine test outside the gates"
+	@echo "  make test.engine.differential.quick - Cross-method pairs that must agree (per PR)"
+	@echo "  make test.engine.differential.full  - Those plus the parametrised families (nightly)"
 	@echo "  make bench.engine         - Criterion benchmarks (informational)"
 	@echo "  make typecheck.web        - tsc against its baseline + svelte-check gate"
 	@echo "  make test.web.unit [SHARD=1/4] - Vitest unit pass"
@@ -93,6 +99,7 @@ help:
 	@echo "  make e2e.web.flaky       - The quarantined (@flaky) tests, two retries"
 	@echo "  make check.test-targets  - Every engine test file is in exactly one test binary"
 	@echo "  make test-changed        - Only the tests your changes most likely affect"
+	@echo "  make check.quick         - Before a push: CI's fast checks and the related tests, for what changed"
 	@echo "  make hooks               - The versioned pre-push hook (typecheck + related unit tests)"
 	@echo "  make lint.backend   - Format check and credo over the backend"
 	@echo "  make format         - Format Elixir and Rust"
@@ -167,6 +174,11 @@ hooks:
 test-changed:
 	scripts/test-changed.sh $(if $(BASE),--base $(BASE))
 
+## Before a push: the lint, typecheck and unit checks CI runs first, for what changed (vs origin/main,
+## uncommitted work included); BASE=<rev> to compare with something else.
+check.quick:
+	BASE=$(BASE) scripts/check-quick.sh
+
 console: services
 	$(NIX_RUN) bash -c "cd backend && MIX_ENV=dev INST=$(INST) iex -S mix"
 
@@ -218,24 +230,33 @@ test.web:
 GATE_SHELL_BENCH = test(/benchmark_shell/) + test(/benchmark_beam_shell/) + test(/benchmark_plate/) + test(/benchmark_navier/) + test(/benchmark_scordelis/) + test(/benchmark_cantilever/) + test(/benchmark_pinched/) + test(/test_quad_thin_plate/)
 GATE_SHELL_ACCEPTANCE = test(/acceptance_.*shell/) + test(/acceptance_.*diaphragm/)
 GATE_CONSTRAINT_BENCH = test(/benchmark_.*constraint/)
-GATE_MODULES = sparse_shell_gates solver_invariants solver_ci_coverage conditioning_adversarial kfull_overbuild_gates acceptance
+GATE_MODULES = sparse_shell_gates solver_invariants solver_ci_coverage conditioning_adversarial kfull_overbuild_gates acceptance result_sites
 # Wall-clock gates run single-threaded, so elapsed time is CPU work, not contention.
 GATE_TIMED_MODULES = perf_regression_gates perf_regression_advanced
-GATE_TIMED_IGNORED = test(=element::solid_shell::tests::test_centroid_stress_timing_budget) + test(=section::poisson::tests::sparse_path_scales_better_than_cubically) + test(=solver::constraints::tests::validate_constraints_reads_the_nodes_once_not_once_per_constraint) + test(=solver::dynamic_validation::tests::area_mass_validation_is_linear_in_the_number_of_shells) + test(=postprocess_scaling::rc_check_scales_linearly_in_member_count)
+GATE_TIMED_IGNORED = test(=element::solid_shell::tests::test_centroid_stress_timing_budget) + test(=section::poisson::tests::sparse_path_scales_better_than_cubically) + test(=solver::constraints::tests::validate_constraints_reads_the_nodes_once_not_once_per_constraint) + test(=solver::dynamic_validation::tests::area_mass_validation_is_linear_in_the_number_of_shells) + test(=postprocess_scaling::rc_check_scales_linearly_in_member_count) + test(=fuzz_regressions::a_blocking_child_is_killed_at_its_timeout) + test(=known_issues::distorted_mesh_guard_indexes_the_mesh_once_per_solve)
 GATE_CERTIFICATES = test(/^certify::/) + test(/^properties_2d::/) + test(/^properties_3d::/)
 # Metamorphic tests run apart, in release: unoptimised they outlast a suite shard.
 GATE_RELEASE_BINARIES = metamorphic
-SUITE_FILTER = all() - test(harmonic_phase_breakdown) - test(harmonic_modal_vs_direct_timing) - (binary(gates) & (test(/^perf_regression_advanced::/) + test(/^perf_regression_gates::/))) - ($(GATE_SHELL_BENCH)) - ($(GATE_SHELL_ACCEPTANCE)) - $(GATE_CONSTRAINT_BENCH) - (binary(gates) & (test(/^sparse_shell_gates::/) + test(/^solver_invariants::/) + test(/^solver_ci_coverage::/) + test(/^conditioning_adversarial::/) + test(/^kfull_overbuild_gates::/) + test(/^acceptance::/))) - (binary(certificates) & ($(GATE_CERTIFICATES))) $(foreach b,$(GATE_RELEASE_BINARIES),- binary($(b)) )
+SUITE_FILTER = all() - test(harmonic_phase_breakdown) - test(harmonic_modal_vs_direct_timing) - (binary(gates) & (test(/^perf_regression_advanced::/) + test(/^perf_regression_gates::/))) - ($(GATE_SHELL_BENCH)) - ($(GATE_SHELL_ACCEPTANCE)) - $(GATE_CONSTRAINT_BENCH) - (binary(gates) & (test(/^sparse_shell_gates::/) + test(/^solver_invariants::/) + test(/^solver_ci_coverage::/) + test(/^conditioning_adversarial::/) + test(/^kfull_overbuild_gates::/) + test(/^acceptance::/))) - (binary(certificates) & ($(GATE_CERTIFICATES))) - binary(differential) $(foreach b,$(GATE_RELEASE_BINARIES),- binary($(b)) )
 NEXTEST = cd engine && $(NIX_RUN) cargo nextest run --profile ci
 
 lint.engine:
 	python3 -B -I .github/scripts/check-wall-clock-tests.py
+	python3 -B -I scripts/check-fail-closed.py
+	python3 -B -I scripts/check-message-matching.py
+	python3 -B -I scripts/benchmark-gate.py
+	python3 -B -I scripts/invariance-gate.py
 	cd engine && $(NIX_RUN) cargo clippy --lib -- -W clippy::all -A clippy::erasing_op
 
 # The acceptance models are generated (docs/verification/ACCEPTANCE.md); a hand edit fails here.
 check.engine.acceptance-models:
 	$(NIX_RUN) bash -c 'for g in engine/tests/acceptance/generators/*.py; do python3 -I "$$g"; done'
 	git diff --exit-code -- engine/tests/acceptance/models
+
+# The result walkers' keys are generated from the engine's result types; a hand edit fails test.engine.gates.
+gen.result-sites:
+	cd engine && STABILEO_WRITE_RESULT_SITES=1 $(NIX_RUN) cargo nextest run --profile ci --test gates -E 'test(=result_sites::generated_result_sites_are_current)'
+	$(NIX_RUN) bash -c "cd web && node scripts/gen-result-sites.mjs --write"
 
 # nextest does not execute the compile-fail doctests protecting unit boundaries.
 test.engine.units-types:
@@ -253,8 +274,41 @@ test.engine.gates: check.engine.acceptance-models test.engine.units-types
 test.engine.metamorphic:
 	$(NEXTEST) --cargo-profile release $(foreach b,$(GATE_RELEASE_BINARIES),--test $(b))
 
+# The per-PR invariance tier: the analyses the changes since BASE (default origin/main) can
+# affect, or KINDS="plastic collapse,harmonic" / KINDS=all.
+test.engine.invariance.quick:
+	export INVARIANCE_KINDS="$(KINDS)"; \
+	if base=$$(git merge-base $(or $(BASE),origin/main) HEAD); then export INVARIANCE_PATHS="$$(git diff --name-only $$base; git ls-files --others --exclude-standard)"; fi; \
+	$(NEXTEST) --cargo-profile release --test metamorphic --run-ignored only --no-capture -E 'test(=quick::invariance_quick)'
+
+MECHANISM_FUZZ = $(NEXTEST) --cargo-profile release --test mechanism_fuzz --run-ignored only --no-capture
+test.engine.mechanism-fuzz.quick:
+	$(MECHANISM_FUZZ) -E 'test(=mechanism_fuzz_quick)'
+
+test.engine.mechanism-fuzz.long:
+	export MECHANISM_FUZZ_DURATION=$(or $(DURATION),30m) $(if $(SEED),MECHANISM_FUZZ_SEED=$(SEED)) $(if $(REPORT_DIR),MECHANISM_FUZZ_REPORT_DIR=$(abspath $(REPORT_DIR))) && $(MECHANISM_FUZZ) -E 'test(=mechanism_fuzz_long)'
+
+test.engine.mechanism-fuzz.replay:
+	export MECHANISM_FUZZ_SEEDS=$(SEEDS) MECHANISM_FUZZ_FILES=$(FILES) && $(MECHANISM_FUZZ) -E 'test(=mechanism_fuzz_replay)'
+
 test.engine.suite:
 	$(NEXTEST) -E '$(SUITE_FILTER)' $(if $(SHARD),--partition count:$(SHARD))
+
+test.engine.differential.quick:
+	$(NEXTEST) --test differential
+
+test.engine.differential.full:
+	$(NEXTEST) --cargo-profile release --test differential --run-ignored all
+
+mutants.engine:
+	$(NIX_RUN) env -u RUSTC_WRAPPER MUTANTS_SCOPE=$(or $(SCOPE),all) CARGO_INCREMENTAL=1 CARGO_PROFILE_DEV_DEBUG=0 CARGO_PROFILE_TEST_DEBUG=0 scripts/mutants.sh $(ARGS)
+
+mutants.safety.report:
+	python3 -I scripts/mutants-safety.py report $(or $(OUT),mutants.out) --json mutants-safety-report.json
+	python3 -I scripts/mutants-safety.py ratchet mutants-safety-report.json
+
+mutants.safety.record:
+	python3 -I scripts/mutants-safety.py record $(or $(REPORT),mutants-safety-report.json) $(ARGS)
 
 bench.engine:
 	cd engine && $(NIX_RUN) cargo bench --no-run
@@ -264,10 +318,11 @@ web.deps:
 	$(NIX_RUN) bash -c "cd web && npm ci"
 
 typecheck.web:
-	$(NIX_RUN) bash -c "cd web && npm run typecheck && npm run test:units:types && npm run check:gate && node scripts/check-site-header.mjs"
+	python3 -B -I scripts/check-message-matching.py
+	$(NIX_RUN) bash -c "cd web && npm run typecheck && npm run test:units:types && npm run check:gate && node scripts/check-site-header.mjs && node scripts/gen-result-sites.mjs"
 
 test.web.unit:
-	$(NIX_RUN) bash -c "cd web && npx vitest run --project unit $${UNIT_AREA:+src/components/$$UNIT_AREA} $(if $(SHARD),--shard=$(SHARD))"
+	$(NIX_RUN) bash -c "cd web && npx vitest run --project unit $${UNIT_AREA:+src/components/$$UNIT_AREA} $(if $(SHARD),--shard=$(SHARD)) $(if $(BAIL),--bail=$(BAIL))"
 
 test.web.build: web.build.tested
 	$(MAKE) test.web.build.shared
@@ -306,7 +361,7 @@ test.web.results:
 	$(NIX_RUN) bash -c "cd web && npx vitest run --project results"
 
 ## Regenerate web/results-snapshots/ after a DELIBERATE result change, then register it:
-## an entry in web/src/lib/provenance/result-changes.json and a "BREAKING (results)" fragment.
+## an entry in web/src/lib/provenance/result-changes/ and a "BREAKING (results)" fragment.
 snapshots-update:
 	$(NIX_RUN) bash -c "cd web && RESULTS_SNAPSHOT_UPDATE=1 npx vitest run --project results"
 
@@ -318,7 +373,7 @@ check.results-snapshot-gate:
 # The WASM must give bit-identical results in Node, Chromium, Firefox and WebKit
 # (docs/verification/TRUSTED_BASE.md). Needs make wasm and make web.deps first.
 test.web.determinism:
-	$(NIX_RUN) bash -c "cd web && $(PLAYWRIGHT_INSTALL) chromium firefox webkit && node --test determinism/serve.test.mjs determinism/checks.test.mjs && node determinism/node-run.mjs && npx playwright test -c determinism/playwright.config.ts"
+	$(NIX_RUN) bash -c "cd web && $(PLAYWRIGHT_INSTALL) chromium firefox webkit && node --test determinism/serve.test.mjs determinism/checks.test.mjs determinism/containment.test.mjs && node determinism/node-run.mjs && npx playwright test -c determinism/playwright.config.ts"
 
 e2e.web.setup:
 	$(NIX_RUN) bash -c "cd web && npx playwright install chromium"
@@ -376,6 +431,18 @@ test.inventory:
 			printf "total registered: %d\n", eng + ref; \
 		}'
 
+test.cadence:
+	python3 -I scripts/cadence.py run $(TIER) $(if $(RUNNER),--runner $(RUNNER)) $(if $(ID),--id $(ID))
+
+check.cadence:
+	python3 -I scripts/cadence.py check
+
+check.containment:
+	$(NIX_RUN) python3 -I scripts/check-containment.py
+
+deps.audit:
+	$(NIX_RUN) python3 -I scripts/deps-audit.py $(or $(OUT),deps-audit.md)
+
 ## One version of each tool everywhere (rust-toolchain.toml, .nvmrc, flake.nix, CI)
 check-pins:
 	scripts/check-pins.sh
@@ -389,20 +456,42 @@ check.changelog:
 check.test-targets:
 	python3 -I scripts/check-test-targets.py
 
+test.engine.reproducers:
+	$(NIX_RUN) python3 -I scripts/issue-reproducers.py xfail
+
+test.reproducers.published:
+	$(NEXTEST) -E 'test(/(^|::)issue_[0-9]+/)' --no-tests warn
+	$(NIX_RUN) bash -c 'cd web && npx vitest run --project unit -t "#[0-9]+"'
+
+check.issue-reproducers:
+	python3 -I scripts/issue-reproducers.py flip-check --base $(BASE) --head $(HEAD) --body-file $(BODY) $(if $(LABELS),--labels-json $(LABELS))
+
 test.nightly-scripts:
 	python3 -B -I scripts/tests/test_nightly.py
+	python3 -B -I scripts/tests/test_mutants_plan.py
 	python3 -B -I tools/opensees/test_gen_models.py
 	$(NIX_RUN) node --test scripts/tests/nightly-findings.test.cjs
 	$(NIX_RUN) node --test scripts/tests/verification-alert.test.cjs
+	$(NIX_RUN) node --test scripts/tests/slow-e2e-alert.test.cjs
+	$(NIX_RUN) node --test scripts/tests/timing-budget-alert.test.cjs
 	$(NIX_RUN) node --test scripts/tests/runner-pools.test.cjs
+	$(NIX_RUN) node --test scripts/tests/cadence-reports.test.cjs
 
-test.ci-scripts: test.nightly-scripts
+test.ci-scripts: test.nightly-scripts check.cadence
+	python3 -B -I scripts/tests/test_cadence.py
+	python3 -B -I scripts/tests/test_deps_audit.py
+	python3 -B -I scripts/tests/test_check_containment.py
+	python3 -B -I scripts/tests/test_mutants_safety.py
 	python3 -B -I scripts/tests/test_retry_infra.py
 	python3 -B -I scripts/tests/test_build_research_wasm.py
 	python3 -B -I scripts/tests/test_research_host_cache.py
 	python3 -B -I scripts/tests/test_ci_aggregate.py
+	python3 -B -I scripts/tests/test_full_history_checkouts.py
 	python3 -B -I scripts/tests/test_ci_selection.py
 	python3 -B -I scripts/tests/test_check_wall_clock_tests.py
+	python3 -B -I scripts/tests/test_check_fail_closed.py
+	python3 -B -I scripts/tests/test_check_message_matching.py
+	python3 -B -I scripts/check-message-matching.py
 	python3 -B -I scripts/tests/test_main_tested.py
 	python3 -B -I scripts/tests/test_cancel_superseded.py
 	python3 -B -I scripts/tests/test_ci_runners.py
@@ -410,9 +499,19 @@ test.ci-scripts: test.nightly-scripts
 	python3 -B -I scripts/tests/test_post_merge_revert.py
 	python3 -B -I scripts/tests/test_required_checks.py
 	python3 -B -I scripts/tests/test_wall_clock.py
+	python3 -B -I scripts/tests/test_check_quick.py
 	python3 -B -I scripts/tests/test_infra_retry.py
+	python3 -B -I scripts/tests/test_e2e_timings.py
+	python3 -B -I scripts/tests/test_issue_reproducers.py
+	python3 -B -I scripts/tests/test_verification_metrics.py
+	python3 -B -I scripts/tests/test_ci_scripts_target.py
+	python3 -B -I scripts/tests/test_benchmark_gate.py
+	python3 -B -I scripts/tests/test_invariance_gate.py
+	python3 -B -I scripts/tests/test_engine_wall_clock_gate.py
+	python3 -B -I scripts/tests/test_timing_budgets_gate.py
+	python3 -B -I scripts/tests/test_verify_changes.py
 	$(NIX_RUN) bash -c 'shellcheck -S warning .github/scripts/*.sh'
-	$(NIX_RUN) actionlint .github/workflows/ci.yml .github/workflows/research.yml .github/workflows/merge-queue-supersede.yml .github/workflows/post-merge.yml .github/workflows/infra-retry.yml
+	$(NIX_RUN) actionlint .github/workflows/ci.yml .github/workflows/research.yml .github/workflows/merge-queue-supersede.yml .github/workflows/post-merge.yml .github/workflows/infra-retry.yml .github/workflows/stop-failed-run.yml .github/workflows/nightly.yml .github/workflows/route-size.yml .github/workflows/issue-reproducers.yml .github/workflows/verify.yml
 
 # DIST=web/dist checks a real build instead of the fixture site.
 test.infra.caddy:
@@ -642,7 +741,11 @@ postgres.stop:
 cloud-init.render:
 	$(NIX_RUN) python3 -I infra/cloud-init/render.py
 
-docker.build:
+# The order results changes reached main, for a build without the git history (Docker).
+result-changes.order:
+	node web/scripts/result-changes/registry.mjs --write-order
+
+docker.build: result-changes.order
 	docker compose build
 
 docker.up:

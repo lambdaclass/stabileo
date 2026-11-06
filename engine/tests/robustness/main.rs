@@ -22,8 +22,6 @@ mod entry_point_validation;
 mod envelope_nonfinite;
 #[path = "../feature_matrix.rs"]
 mod feature_matrix;
-#[path = "../feature_matrix_regressions.rs"]
-mod feature_matrix_regressions;
 #[path = "../fp_environment.rs"]
 mod fp_environment;
 #[path = "../fuzz_crash_free.rs"]
@@ -38,14 +36,20 @@ mod hostile_sizes;
 mod index_exhaustive;
 #[path = "../input_validation_gates.rs"]
 mod input_validation_gates;
+#[path = "../known_issue_reproductions.rs"]
+mod known_issue_reproductions;
 #[path = "../known_issues.rs"]
 mod known_issues;
+#[path = "../known_issues_masking.rs"]
+mod known_issues_masking;
 #[path = "../model_sanity.rs"]
 mod model_sanity;
 #[path = "../nan_output_gates.rs"]
 mod nan_output_gates;
 #[path = "../opensees_differential_regressions.rs"]
 mod opensees_differential_regressions;
+#[path = "../second_order_screen_1551.rs"]
+mod second_order_screen_1551;
 #[path = "../solver_mutation_kills.rs"]
 mod solver_mutation_kills;
 #[path = "../sparse_ex_analysis_regressions.rs"]

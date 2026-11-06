@@ -472,7 +472,9 @@ pub struct SolverPointLoad3D {
 pub struct SolverThermalLoad3D {
     pub element_id: usize,
     pub dt_uniform: f64,
+    /// T(−y face) − T(+y face), °C: the opposite sign of `dt_gradient_z`.
     pub dt_gradient_y: f64,
+    /// T(+z face) − T(−z face), °C: the opposite sign of `dt_gradient_y`.
     pub dt_gradient_z: f64,
     /// The member material's coefficient of thermal expansion, 1/°C. Omitted:
     /// [`DEFAULT_FRAME_THERMAL_ALPHA`], and the result says so (`known_issues::FR-4`).

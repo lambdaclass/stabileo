@@ -1,3 +1,4 @@
+const ASSIGNEES = require('./issue-assignees.cjs');
 const LABEL = 'ci-failure';
 const BAD = new Set(['failure', 'timed_out', 'cancelled', 'startup_failure']);
 const FORCED = '[forced failure]';
@@ -74,7 +75,7 @@ async function raise(ctx, issueTitle, body) {
   }
   await ensureLabel(github, owner, repo);
   const created = await github.rest.issues.create({
-    owner, repo, title: issueTitle, labels: [LABEL],
+    owner, repo, title: issueTitle, labels: [LABEL], assignees: [...ASSIGNEES],
     body: `${body}\n\n---\nOpened by \`.github/workflows/verification-alert.yml\`. Later failures ` +
       'are added as comments. Triage each real finding (mismatch, crash, missed mutant, failing ' +
       'proof) into its own issue and link it in a comment here (or comment "no finding" and why), or add the ' +

@@ -6,7 +6,7 @@ use super::assembly;
 use super::constraints::FreeConstraintSystem;
 use super::linear::SPARSE_THRESHOLD;
 use super::sparse_tangent::{
-    cached_symbolic, solve_tangent_sparse, tangent_free_sparse_triplets, SparseSymbolicCache,
+    cached_symbolic, solve_tangent_sparse_diagnosed, tangent_free_sparse_triplets, SparseSymbolicCache,
 };
 
 /// Resolve the local-Y reference ONCE from the INITIAL element geometry so the
@@ -128,6 +128,7 @@ pub fn solve_corotational_2d(
     // symbolic phase is computed once and only the numeric phase repeats
     // per Newton iteration.
     let mut sparse_sym_cache: Option<SparseSymbolicCache> = None;
+    let mut conditioning = None;
 
     // Incremental-iterative procedure
     for increment in 1..=n_increments {
@@ -258,7 +259,9 @@ pub fn solve_corotational_2d(
                         &trip_rows, &trip_cols, &trip_vals, nf, &cs,
                     );
                     let sym = cached_symbolic(&mut sparse_sym_cache, &k_s_csc);
-                    match numeric_cholesky(sym, &k_s_csc) {
+                    let factor = numeric_cholesky(sym, &k_s_csc);
+                    if let Some(found) = crate::known_issues::sparse_factor_conditioning(&k_s_csc, factor.as_ref()) { conditioning = Some(found); }
+                    match factor {
                         Some(num) => {
                             let result = sparse_cholesky_solve(&num, &r_s);
                             cached_factor = Some(CachedTangentFactor::Sparse(num));
@@ -266,7 +269,7 @@ pub fn solve_corotational_2d(
                         }
                         None => {
                             // Sparse Cholesky failed — fall back to full NR for this increment
-                            solve_tangent_sparse(&k_s_csc, &r_s, &mut sparse_sym_cache)?
+                            solve_tangent_sparse_diagnosed(&k_s_csc, &r_s, &mut sparse_sym_cache, &mut conditioning)?
                         }
                     }
                 } else {
@@ -277,7 +280,9 @@ pub fn solve_corotational_2d(
                     } else {
                         k_ff
                     };
-                    match try_cholesky_factor(&k_s, ns) {
+                    let factor = try_cholesky_factor(&k_s, ns);
+                    if let Some(found) = crate::known_issues::dense_factor_conditioning(&k_s, ns, factor.as_ref().map(|f| f.l.as_slice())) { conditioning = Some(found); }
+                    match factor {
                         Some(factor) => {
                             let result = solve_with_cholesky_factor(&factor.l, &r_s, factor.n);
                             cached_factor = Some(CachedTangentFactor::Dense(factor));
@@ -285,7 +290,7 @@ pub fn solve_corotational_2d(
                         }
                         None => {
                             // Cholesky failed — fall back to full NR for this increment
-                            solve_free_dofs(&k_s, &r_s, ns)?
+                            solve_free_dofs(&k_s, &r_s, ns, &mut conditioning)?
                         }
                     }
                 }
@@ -293,7 +298,7 @@ pub fn solve_corotational_2d(
                 let k_s_csc = tangent_free_sparse_triplets(
                     &trip_rows, &trip_cols, &trip_vals, nf, &cs,
                 );
-                solve_tangent_sparse(&k_s_csc, &r_s, &mut sparse_sym_cache)?
+                solve_tangent_sparse_diagnosed(&k_s_csc, &r_s, &mut sparse_sym_cache, &mut conditioning)?
             } else {
                 let free_idx: Vec<usize> = (0..nf).collect();
                 let k_ff = extract_submatrix(&k_t, n, &free_idx, &free_idx);
@@ -302,7 +307,7 @@ pub fn solve_corotational_2d(
                 } else {
                     k_ff
                 };
-                solve_free_dofs(&k_s, &r_s, ns)?
+                solve_free_dofs(&k_s, &r_s, ns, &mut conditioning)?
             };
 
             let delta_u_f = if let Some(ref cs) = cs {
@@ -338,7 +343,9 @@ pub fn solve_corotational_2d(
     } else {
         input
     };
-    let results = build_final_results(at_state, &dof_num, &u_full, &cs)?;
+    let mut results = build_final_results(at_state, &dof_num, &u_full, &cs)?;
+    crate::known_issues::attach(&mut results.structured_diagnostics, conditioning.into_iter().collect());
+    crate::known_issues::attach(&mut results.structured_diagnostics, crate::known_issues::for_2d(input, crate::known_issues::Analysis::Corotational));
 
     Ok(CorotationalResult {
         results,
@@ -912,9 +919,11 @@ fn solve_with_cached_factor(factor: &CachedTangentFactor, r_s: &[f64]) -> Vec<f6
 // `super::sparse_tangent` (shared with arc_length, contact and fiber_nonlinear),
 // including `tangent_free_sparse_triplets` used by the sparse paths above.
 
-fn solve_free_dofs(k_ff: &[f64], r_f: &[f64], nf: usize) -> Result<Vec<f64>, String> {
+fn solve_free_dofs(k_ff: &[f64], r_f: &[f64], nf: usize, conditioning: &mut Option<StructuredDiagnostic>) -> Result<Vec<f64>, String> {
     let mut k_work = k_ff.to_vec();
-    match cholesky_solve(&mut k_work, r_f, nf) {
+    let solved = cholesky_solve(&mut k_work, r_f, nf);
+    if let Some(found) = crate::known_issues::dense_factor_conditioning(k_ff, nf, solved.as_ref().map(|_| k_work.as_slice())) { *conditioning = Some(found); }
+    match solved {
         Some(u) => Ok(u),
         None => {
             let mut k_work = k_ff.to_vec();
@@ -1348,6 +1357,7 @@ pub fn solve_corotational_3d(
     // See solve_corotational_2d: sparse symbolic factorization cache for the
     // ns >= SPARSE_THRESHOLD path (pattern is constant within a solve call).
     let mut sparse_sym_cache: Option<SparseSymbolicCache> = None;
+    let mut conditioning = None;
 
     for increment in 1..=n_increments {
         let load_factor = increment as f64 / n_increments as f64;
@@ -1463,13 +1473,15 @@ pub fn solve_corotational_3d(
                         &trip_rows, &trip_cols, &trip_vals, nf, &cs,
                     );
                     let sym = cached_symbolic(&mut sparse_sym_cache, &k_s_csc);
-                    match numeric_cholesky(sym, &k_s_csc) {
+                    let factor = numeric_cholesky(sym, &k_s_csc);
+                    if let Some(found) = crate::known_issues::sparse_factor_conditioning(&k_s_csc, factor.as_ref()) { conditioning = Some(found); }
+                    match factor {
                         Some(num) => {
                             let result = sparse_cholesky_solve(&num, &r_s);
                             cached_factor = Some(CachedTangentFactor::Sparse(num));
                             result
                         }
-                        None => solve_tangent_sparse(&k_s_csc, &r_s, &mut sparse_sym_cache)?,
+                        None => solve_tangent_sparse_diagnosed(&k_s_csc, &r_s, &mut sparse_sym_cache, &mut conditioning)?,
                     }
                 } else {
                     let free_idx: Vec<usize> = (0..nf).collect();
@@ -1479,20 +1491,22 @@ pub fn solve_corotational_3d(
                     } else {
                         k_ff
                     };
-                    match try_cholesky_factor(&k_s, ns) {
+                    let factor = try_cholesky_factor(&k_s, ns);
+                    if let Some(found) = crate::known_issues::dense_factor_conditioning(&k_s, ns, factor.as_ref().map(|f| f.l.as_slice())) { conditioning = Some(found); }
+                    match factor {
                         Some(factor) => {
                             let result = solve_with_cholesky_factor(&factor.l, &r_s, factor.n);
                             cached_factor = Some(CachedTangentFactor::Dense(factor));
                             result
                         }
-                        None => solve_free_dofs(&k_s, &r_s, ns)?,
+                        None => solve_free_dofs(&k_s, &r_s, ns, &mut conditioning)?,
                     }
                 }
             } else if ns >= SPARSE_THRESHOLD {
                 let k_s_csc = tangent_free_sparse_triplets(
                     &trip_rows, &trip_cols, &trip_vals, nf, &cs,
                 );
-                solve_tangent_sparse(&k_s_csc, &r_s, &mut sparse_sym_cache)?
+                solve_tangent_sparse_diagnosed(&k_s_csc, &r_s, &mut sparse_sym_cache, &mut conditioning)?
             } else {
                 let free_idx: Vec<usize> = (0..nf).collect();
                 let k_ff = extract_submatrix(&k_t, n, &free_idx, &free_idx);
@@ -1501,7 +1515,7 @@ pub fn solve_corotational_3d(
                 } else {
                     k_ff
                 };
-                solve_free_dofs(&k_s, &r_s, ns)?
+                solve_free_dofs(&k_s, &r_s, ns, &mut conditioning)?
             };
 
             let delta_u = if let Some(ref cs) = cs {
@@ -1536,9 +1550,12 @@ pub fn solve_corotational_3d(
         input
     };
     let mut results = build_final_results_3d(at_state, &dof_num, &u_full, left_hand, &cs, pre_solve_diags)?;
+    crate::known_issues::attach(&mut results.structured_diagnostics, conditioning.into_iter().collect());
+    crate::known_issues::attach(&mut results.structured_diagnostics, crate::known_issues::for_3d(input, crate::known_issues::Analysis::Corotational));
     if deformations.iter().any(|d| d.natural > crate::known_issues::NL3_NATURAL_ROTATION) {
         crate::known_issues::attach(&mut results.structured_diagnostics, vec![crate::known_issues::corotational_natural_rotation()]);
     }
+    crate::known_issues::refuse(&results.structured_diagnostics)?;
 
     Ok(CorotationalResult3D {
         results,

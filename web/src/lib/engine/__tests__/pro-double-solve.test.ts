@@ -47,7 +47,8 @@ describe('PRO solve: no redundant baseline single solve', () => {
   it('combo failure: falls back to exactly one single solve3D', async () => {
     const single = vi.spyOn(modelStore, 'solve3DAsync').mockResolvedValue(fakeCaseResult());
     const combo = vi.spyOn(modelStore, 'solveCombinations3DParallel').mockResolvedValue('combo error');
-    await runGlobalSolve();
+    const outcome = await runGlobalSolve();
+    expect(outcome.ok).toBe(false);
     expect(combo).toHaveBeenCalledTimes(1);
     expect(single).toHaveBeenCalledTimes(1); // fallback path preserved
   });

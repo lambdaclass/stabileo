@@ -36,6 +36,7 @@
             pkgs.wasm-pack
             pkgs.cargo-watch
             pkgs.cargo-nextest
+            pkgs.cargo-mutants
             # Compiled crates shared by every worktree (RUSTC_WRAPPER below).
             pkgs.sccache
 

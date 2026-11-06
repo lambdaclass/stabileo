@@ -10,6 +10,7 @@ import type { PDeltaResult } from '../result-types';
 import type { Txt } from '../steps/doc';
 import { tx } from '../steps/doc';
 import { solvePDelta, solveBuckling } from '../wasm-solver';
+import { refusedWithCode } from '../containment-error';
 import { buildSystem } from './system';
 import { iteratePDelta, toAnalysisResults, InteriorNotFinite, PDELTA_MAX_ITER, PDELTA_TOL, type TeachingPDelta } from './pdelta';
 import { teachingBuckling } from './buckling';
@@ -96,7 +97,7 @@ export function engineLambda1(input: SolverInput): number | null {
   try {
     return solveBuckling(input, 1).modes[0]?.loadFactor ?? null;
   } catch (e) {
-    return /no compressed elements/i.test(String((e as Error)?.message ?? e)) ? Infinity : null;
+    return refusedWithCode(e, 'no_compressed_elements') ? Infinity : null;
   }
 }
 

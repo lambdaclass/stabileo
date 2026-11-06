@@ -33,7 +33,7 @@ function frame(): void {
   const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(0, 0, 3), c = modelStore.addNode(4, 0, 3);
   modelStore.addElement(a, b, 'frame'); modelStore.addElement(b, c, 'frame');
   modelStore.addSupport(a, 'fixed3d');
-  modelStore.addNodalLoad3D(c, 0, 0, -10, 0, 0, 0);
+  modelStore.addNodalLoad3D(c, 0, 0, -2, 0, 0, 0);
 }
 function solve(): void {
   const r = modelStore.solve3D(true, false, true);

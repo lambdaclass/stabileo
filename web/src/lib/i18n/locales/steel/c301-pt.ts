@@ -124,6 +124,7 @@ const c301Pt: Record<string, string> = {
   'c301.refuse.noConnection': 'falta a ligação de extremidade (furos e o coeficiente U de D.3)',
   'c301.refuse.endsMissing': 'falta a ligação de extremidade em {ends} (furos e o coeficiente U de D.3)',
   'c301.refuse.endRefused': 'extremidade {end}: {reason}',
+  'c301.refuse.firstOrderMoments': 'os momentos são de primeira ordem e a análise avisa que podem ser amplificados em mais de 10 %: H.1 os toma como de segunda ordem (C.1); execute uma análise P-Delta ou de segunda ordem',
   'c301.refuse.connectionRefused': 'ligação de extremidade: {reason}',
   'c301.refuse.aeOutOfRange': 'Ae = {Ae} mm² fora de (0, Ag]',
   'c301.refuse.anOutOfRange': 'An = {An} mm² fora de (0, Ag]',
@@ -159,6 +160,7 @@ const c301Pt: Record<string, string> = {
   'c301.refuse.e6Connector': '§E.6.2.1: falta o tipo de ligação intermediária (parafusos sem protensão ou solda)',
   'c301.refuse.e6SpacingTooLarge': '§E.6.2.2: a/ri = {ari} > 3/4 da esbeltez governante = {lim}',
   'c301.refuse.engineUnavailable': 'o motor de cálculo não está carregado: o elemento não está verificado',
+  'c301.refuse.capacityUnusable': 'não é possível formar a razão com φRn = {phiRn} e a solicitação {demand}: a resistência de cálculo não é positiva e finita, ou a solicitação não é finita',
 
   // The steel results screen and the angle editor.
   'steel.angle.title': 'Cantoneiras comprimidas (§E.5, §E.6)',

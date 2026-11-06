@@ -1,3 +1,4 @@
+import { expectPlasticRefusal } from './containment-helper';
 /**
  * Mp for the plastic collapse analysis, from each section's own plastic
  * modulus — not the solid rectangle b·h²/4 the engine assumes whenever a
@@ -18,6 +19,15 @@ describe('plastic moments', () => {
     expect(Math.abs(m.zp * 1e6 / 762 - 1)).toBeLessThan(0.05);
     expect(m.fyAssumed).toBe(false);
 
+    const sections = new Map([...modelStore.sections].map(([id, s]) => [id, { a: s.a, iz: s.iy ?? s.iz, materialId: 1 }]));
+    const materials = new Map([...modelStore.materials].map(([id, x]) => [id, { fy: x.fy }]));
+    expectPlasticRefusal(() => solvePlastic({ solver: modelStore.buildSolverInput(false)!, sections, materials, mpOverrides: new Map([[m.sectionId, m.mp]]) }));
+  });
+
+  it.skip('the cantilever-point example: first hinge at λ = Mp/(PL) (skipped: #758 PL-2D-INVARIANCE withholds the 2D plastic result)', async () => {
+    historyStore.clear(); uiStore.analysisMode = '2d'; modelStore.clear();
+    await modelStore.loadExample('cantilever-point');
+    const [m] = plasticMoments(modelStore.sections, modelStore.materials, modelStore.elements);
     const sections = new Map([...modelStore.sections].map(([id, s]) => [id, { a: s.a, iz: s.iy ?? s.iz, materialId: 1 }]));
     const materials = new Map([...modelStore.materials].map(([id, x]) => [id, { fy: x.fy }]));
     const r = solvePlastic({ solver: modelStore.buildSolverInput(false)!, sections, materials, mpOverrides: new Map([[m.sectionId, m.mp]]) });

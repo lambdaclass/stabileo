@@ -1,0 +1,13 @@
+{
+  "name": "issue-458-skew",
+  "family": "skew-torsion",
+  "model": {"dim": "3d", "input": {
+    "nodes": {"1": {"id": 1, "x": 0, "y": 0, "z": 0}, "2": {"id": 2, "x": 2, "y": 1, "z": 1}},
+    "materials": {"1": {"id": 1, "e": 200000, "nu": 0.3}},
+    "sections": {"1": {"id": 1, "a": 0.01, "iy": 0.0001, "iz": 0.00005, "j": 0.00003}},
+    "elements": {"1": {"id": 1, "type": "frame", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1, "releaseTEnd": true}},
+    "supports": {"1": {"nodeId": 1, "rx": true, "ry": true, "rz": true, "rrx": true, "rry": true, "rrz": true}},
+    "loads": [{"type": "nodal", "data": {"nodeId": 2, "fx": 0, "fy": 0, "fz": -5, "mx": 2, "my": 1, "mz": 1}}]
+  }},
+  "modes": [[[2, 3, 0.8164965809277261], [2, 4, 0.4082482904638631], [2, 5, 0.4082482904638631]]]
+}

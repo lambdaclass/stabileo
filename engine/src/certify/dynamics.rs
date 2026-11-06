@@ -124,6 +124,7 @@ pub struct TimeErrorEstimate {
     /// ESTIMATE, not a bound: max_n ‖(β − 1/6) Δt² (a_{n+1} − a_n)‖_∞
     /// (Zienkiewicz–Xie local displacement error per step).
     pub max_local_displacement_error: f64,
+    #[serde(serialize_with = "crate::check::ser_ratio", deserialize_with = "crate::check::de_ratio")]
     pub relative_to_peak_displacement: f64,
 }
 
@@ -482,7 +483,7 @@ fn residuals(tr: &DynamicTrace) -> Result<(ResidualReport, EnergyReport, TimeErr
     };
     let time = TimeErrorEstimate {
         max_local_displacement_error: est,
-        relative_to_peak_displacement: if umax > 0.0 { est / umax } else { 0.0 },
+        relative_to_peak_displacement: crate::check::ratio_if_loaded(est, umax).value().unwrap_or(f64::INFINITY),
     };
     Ok((residual, energy, time))
 }

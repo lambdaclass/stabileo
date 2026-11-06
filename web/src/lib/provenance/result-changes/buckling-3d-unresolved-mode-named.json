@@ -1,0 +1,27 @@
+{
+  "id": "buckling-3d-unresolved-mode-named",
+  "date": "2026-11-06",
+  "prs": [1555],
+  "area": "analysis",
+  "when": { "allOf": [["space3D"], ["members"], ["analysis:buckling"]] },
+  "title": {
+    "en": "3D buckling names the modes that round-off in the axial forces can move",
+    "es": "El pandeo 3D señala los modos que el redondeo de los esfuerzos axiales puede alterar",
+    "pt": "A flambagem 3D aponta os modos que o arredondamento dos esforços normais pode alterar",
+    "de": "3D-Knicken benennt die Eigenformen, die Rundungsfehler in den Normalkräften verschieben können",
+    "fr": "Le flambement 3D signale les modes que l’arrondi des efforts normaux peut modifier",
+    "tr": "3B burkulma, eksenel kuvvetlerdeki yuvarlama hatasının değiştirebileceği modları belirtiyor"
+  },
+  "explanation": {
+    "en": "3D buckling had no counterpart of 2D's BU-UNRESOLVED-MODE check (#982). A model with a real compression beside a member whose axial force is only round-off could return a mode driven by that member, with λ ≈ 1e10, and no warning saying it was not resolved: the #982 model placed in 3D did so in most orientations. 3D buckling now names, as 2D does, every mode whose geometric work round-off in the axial forces can change by more than 1 %, and the members that drive it. Load factors are unchanged; re-check any 3D buckling result that now carries this warning.",
+    "es": "El pandeo 3D no tenía el equivalente de la comprobación BU-UNRESOLVED-MODE del 2D (#982). Un modelo con una compresión real junto a una barra cuyo esfuerzo axial es solo redondeo podía devolver un modo gobernado por esa barra, con λ ≈ 1e10, sin ningún aviso de que no estaba resuelto: el modelo de #982 colocado en 3D lo hacía en la mayoría de las orientaciones. El pandeo 3D ahora señala, como el 2D, cada modo cuyo trabajo geométrico puede cambiar más de un 1 % por el redondeo de los esfuerzos axiales, y las barras que lo gobiernan. Los factores de carga no cambian; revise todo resultado de pandeo 3D que ahora lleve este aviso.",
+    "pt": "A flambagem 3D não tinha o equivalente da verificação BU-UNRESOLVED-MODE do 2D (#982). Um modelo com uma compressão real ao lado de uma barra cujo esforço normal é apenas arredondamento podia devolver um modo governado por essa barra, com λ ≈ 1e10, sem nenhum aviso de que não estava resolvido: o modelo de #982 colocado em 3D fazia isso na maioria das orientações. A flambagem 3D agora aponta, como o 2D, cada modo cujo trabalho geométrico pode mudar mais de 1 % pelo arredondamento dos esforços normais, e as barras que o governam. Os fatores de carga não mudam; revise todo resultado de flambagem 3D que agora traga este aviso.",
+    "de": "Das 3D-Knicken hatte kein Gegenstück zur BU-UNRESOLVED-MODE-Prüfung des 2D (#982). Ein Modell mit echter Druckkraft neben einem Stab, dessen Normalkraft nur Rundungsfehler ist, konnte eine von diesem Stab bestimmte Eigenform mit λ ≈ 1e10 liefern, ohne Warnung, dass sie nicht aufgelöst ist: Das #982-Modell im 3D tat das in den meisten Ausrichtungen. Das 3D-Knicken benennt jetzt wie das 2D jede Eigenform, deren geometrische Arbeit sich durch Rundungsfehler in den Normalkräften um mehr als 1 % ändern kann, und die Stäbe, die sie bestimmen. Die Lastfaktoren bleiben gleich; prüfen Sie jedes 3D-Knickergebnis, das jetzt diese Warnung trägt.",
+    "fr": "Le flambement 3D n’avait pas d’équivalent de la vérification BU-UNRESOLVED-MODE du 2D (#982). Un modèle avec une compression réelle à côté d’une barre dont l’effort normal n’est qu’une erreur d’arrondi pouvait renvoyer un mode gouverné par cette barre, avec λ ≈ 1e10, sans avertissement indiquant qu’il n’était pas résolu : le modèle de #982 placé en 3D le faisait dans la plupart des orientations. Le flambement 3D signale désormais, comme le 2D, chaque mode dont le travail géométrique peut varier de plus de 1 % avec l’arrondi des efforts normaux, et les barres qui le gouvernent. Les facteurs de charge sont inchangés ; revérifiez tout résultat de flambement 3D qui porte désormais cet avertissement.",
+    "tr": "3B burkulmada 2B'nin BU-UNRESOLVED-MODE denetiminin karşılığı yoktu (#982). Gerçek bir basıncın yanında eksenel kuvveti yalnızca yuvarlama hatası olan bir çubuk bulunan model, bu çubuğun yönettiği λ ≈ 1e10 olan bir mod döndürebiliyor ve çözümlenmediğine dair bir uyarı vermiyordu: 3B'ye yerleştirilen #982 modeli çoğu yönde bunu yapıyordu. 3B burkulma artık 2B'de olduğu gibi, geometrik işi eksenel kuvvetlerdeki yuvarlama hatasıyla %1'den fazla değişebilen her modu ve onu yöneten çubukları belirtiyor. Yük katsayıları değişmedi; artık bu uyarıyı taşıyan her 3B burkulma sonucunu yeniden kontrol edin."
+  },
+  "changelog": {
+    "file": "changelog.d/982-buckling-3d-unresolved-mode.md",
+    "heading": "3D buckling names the modes that round-off in the axial forces can move (2026-11-06)"
+  }
+}

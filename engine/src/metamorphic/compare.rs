@@ -184,6 +184,8 @@ pub fn flat_3d(r: &AnalysisResults3D, p: Parts) -> Flat {
 pub struct Report {
     pub worst: f64,
     pub where_: String,
+    pub values: usize,
+    pub refusals: usize,
 }
 
 /// Compare `actual` against `expected` family by family (see module docs);
@@ -306,9 +308,10 @@ pub fn compare_compliant(actual: &Flat, expected: &Flat, scale_src: &Flat, lchar
         ("stress", &diff.s, &scale_src.s, scale_src.s.maxabs()),
         ("scalar", &diff.x, &scale_src.x, 0.0),
     ];
-    let mut rep = Report { worst: 0.0, where_: String::new() };
+    let mut rep = Report { worst: 0.0, where_: String::new(), values: 0, refusals: 0 };
     for (name, d, src, s) in fams {
         for k in 0..d.vals.len() {
+            if d.labels[k].starts_with("refusal:") { rep.refusals += 1 } else { rep.values += 1 }
             let scale = if name == "scalar" { src.scales.get(k).copied().unwrap_or(src.vals[k].abs()) } else { s };
             let tol = rel * scale + f64::MIN_POSITIVE;
             let ratio = d.vals[k].abs() / tol;

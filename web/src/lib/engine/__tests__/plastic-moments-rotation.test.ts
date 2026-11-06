@@ -1,3 +1,4 @@
+import { expectPlasticRefusal } from './containment-helper';
 /**
  * A rotated section's plastic modulus is about the axis the analysis bends it
  * about. The 2D stiffness turns a rotated section (Iy·cos²α + Iz·sin²α); Zp
@@ -24,7 +25,7 @@ describe('plastic Mp of a rotated section', () => {
     expect(rotated.zp).toBeCloseTo(zz, 7);
   });
 
-  it('plastic collapse of the rotated cantilever: first hinge at λ = fy·Zp,weak/(P·L)', async () => {
+  const rotatedCantilever = async () => {
     historyStore.clear(); uiStore.analysisMode = '2d'; modelStore.clear();
     await modelStore.loadExample('cantilever-point');
     const [id, sec] = [...modelStore.sections.entries()][0];
@@ -36,10 +37,20 @@ describe('plastic Mp of a rotated section', () => {
     const mps = plasticMoments(modelStore.sections, modelStore.materials, modelStore.elements);
     const sections = new Map([...modelStore.sections].map(([sid, s]) => [sid, { a: s.a, iz: s.iy ?? s.iz, materialId: 1 }]));
     const materials = new Map([...modelStore.materials].map(([mid, x]) => [mid, { fy: x.fy }]));
-    const res = solvePlastic({ solver: modelStore.buildSolverInput(false)!, sections, materials, mpOverrides: new Map(mps.map((m) => [m.sectionId, m.mp])) });
+    return { zz, mps, run: () => solvePlastic({ solver: modelStore.buildSolverInput(false)!, sections, materials, mpOverrides: new Map(mps.map((m) => [m.sectionId, m.mp])) }) };
+  };
+
+  it('plastic collapse of the rotated cantilever is withheld; its Mp is fy·Zp,weak', async () => {
+    const { zz, mps, run } = await rotatedCantilever();
+    expectPlasticRefusal(run);
+    expect(mps[0].mp).toBeCloseTo(mps[0].fy * 1000 * zz, 7);
+  });
+
+  it.skip('plastic collapse of the rotated cantilever: first hinge at λ = fy·Zp,weak/(P·L) (skipped: #758 PL-2D-INVARIANCE withholds the 2D plastic result)', async () => {
+    const { zz, mps, run } = await rotatedCantilever();
+    const res = run();
     const fy = mps[0].fy;
     const lambdaWeak = fy * 1000 * zz / (15 * 3);
-    console.log(JSON.stringify({ lambda: res.steps[0].loadFactor, lambdaWeak }));
     expect(res.steps[0].loadFactor).toBeCloseTo(lambdaWeak, 3);
   });
 });

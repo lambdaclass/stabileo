@@ -11,7 +11,7 @@ use crate::common;
 use common::*;
 use dedaliano_engine::certify::exact::{q, qi, Q};
 use dedaliano_engine::certify::plastic::*;
-use dedaliano_engine::solver::plastic::solve_plastic_2d;
+use dedaliano_engine::solver::plastic::{solve_plastic_2d, solve_plastic_2d_unrefused};
 use dedaliano_engine::types::*;
 use std::collections::HashMap;
 
@@ -65,7 +65,8 @@ fn assert_encloses(label: &str, c: &PlasticCertificate, exact: f64, rel: f64) {
 }
 
 fn certify(input: &PlasticInput) -> PlasticCertificate {
-    let res = solve_plastic_2d(input).ok();
+    assert_containment(solve_plastic_2d(input), "PL-2D-INVARIANCE");
+    let res = solve_plastic_2d_unrefused(input).ok();
     certify_collapse_2d(input, res.as_ref())
 }
 
@@ -91,7 +92,9 @@ fn fixed_beam_udl_solver_hinge_at_midspan_for_any_element_count() {
     let exact = 16.0 * MP / (qv * l * l);
     for n in [1, 2, 3, 5, 7] {
         let loads = (1..=n).map(|e| udl(e, -qv)).collect();
-        let res = solve_plastic_2d(&plastic(make_beam(n, l, E, A_SEC, IZ_SEC, "fixed", Some("fixed"), loads))).unwrap();
+        let inp = plastic(make_beam(n, l, E, A_SEC, IZ_SEC, "fixed", Some("fixed"), loads));
+        assert_containment(solve_plastic_2d(&inp), "PL-2D-INVARIANCE");
+        let res = solve_plastic_2d_unrefused(&inp).unwrap();
         assert!(res.is_mechanism && res.warnings.is_empty(), "n={n}: {:?}", res.warnings);
         assert!((res.collapse_factor - exact).abs() < 1e-6 * exact, "n={n}: {} vs {exact}", res.collapse_factor);
         // the last hinge is at midspan: x = L/2 on the member that holds it
@@ -107,14 +110,16 @@ fn fixed_beam_udl_solver_hinge_at_midspan_for_any_element_count() {
 }
 
 #[test]
-fn solver_warns_when_it_stops_before_a_mechanism() {
+fn solver_reports_the_collapse_load_when_its_history_stops_before_a_mechanism() {
     let loads = vec![udl(1, -10.0)];
     let mut inp = plastic(make_beam(1, 6.0, E, A_SEC, IZ_SEC, "fixed", Some("fixed"), loads));
     inp.max_hinges = Some(1);
-    let res = solve_plastic_2d(&inp).unwrap();
-    assert!(!res.is_mechanism);
-    assert!(res.warnings.iter().any(|w| w.contains("lower bound")), "{:?}", res.warnings);
-    assert!(res.collapse_factor <= 37.5);
+    assert_containment(solve_plastic_2d(&inp), "PL-2D-INVARIANCE");
+    let res = solve_plastic_2d_unrefused(&inp).unwrap();
+    assert!(res.is_mechanism);
+    assert!(res.steps.last().unwrap().load_factor < 37.5);
+    assert!(res.warnings.iter().any(|w| w.contains("history ends at")), "{:?}", res.warnings);
+    assert!((res.collapse_factor - 37.5).abs() <= 1e-9 * 37.5, "{}", res.collapse_factor);
 }
 
 #[test]
@@ -179,6 +184,7 @@ fn portal_frame_mechanisms() {
         assert_encloses(&format!("portal H={hl} V={v}"), &c, exact, 1e-12);
         // the incremental solver agrees up to its own f64 round-off
         assert!(c.solver_deviation.unwrap() < 1e-10, "solver value outside: {c:?}");
+        assert_containment(certify_plastic_2d(&inp), "PL-2D-INVARIANCE");
     }
 }
 
@@ -357,7 +363,8 @@ fn unsupported_models_are_refused() {
 #[test]
 fn certify_plastic_2d_reports_solver_value() {
     let inp = plastic(portal(4.0, 6.0, 1.0, 1.0));
-    let out = certify_plastic_2d(&inp).unwrap();
+    assert_containment(certify_plastic_2d(&inp), "PL-2D-INVARIANCE");
+    let out = certify_plastic_2d_unrefused(&inp).unwrap();
     assert!(out.certificate.certified);
     assert_eq!(out.certificate.solver_collapse_factor, Some(out.results.collapse_factor));
     assert!(!out.certificate.mechanism.is_empty());
@@ -424,7 +431,8 @@ fn random_frames_agree_with_incremental_solver() {
         let mp_beam = 500.0 + (g.next() * 1000.0).round();
         inp.sections.insert("2".to_string(), PlasticSectionData { a: A_SEC, iz: IZ_SEC, material_id: 1, b: Some(B), h: Some(H) });
         inp.mp_overrides.as_mut().unwrap().insert("2".to_string(), mp_beam);
-        let res = solve_plastic_2d(&inp).unwrap();
+        assert_containment(solve_plastic_2d(&inp), "PL-2D-INVARIANCE");
+        let res = solve_plastic_2d_unrefused(&inp).unwrap();
         let c = certify_collapse_2d(&inp, Some(&res));
         assert!(c.certified, "case {case}: {c:?}");
         let (lo, up) = (c.lambda_lower.unwrap(), c.lambda_upper.unwrap());
@@ -462,6 +470,7 @@ fn moment_sign_conventions_match_solver() {
     let c = certify(&inp);
     assert_encloses("tip force + nodal couple", &c, MP / 5.0, 1e-12);
     assert!(c.solver_deviation.unwrap() < 1e-12, "{c:?}");
+    assert_containment(certify_plastic_2d(&inp), "PL-2D-INVARIANCE");
 
     let loads = vec![
         nodal(2, 0.0, 1.0),
@@ -471,10 +480,255 @@ fn moment_sign_conventions_match_solver() {
     let c = certify(&inp);
     assert_encloses("tip force + member couple", &c, MP / 5.0, 1e-12);
     assert!(c.solver_deviation.unwrap() < 1e-12, "{c:?}");
+    assert_containment(certify_plastic_2d(&inp), "PL-2D-INVARIANCE");
 
     // transverse member load q > 0 acts along local y = (−sin, cos): on a beam
     // along +x it pushes up, like a tip force fz > 0, so they add: M_base = qL²/2 + F L
     let loads = vec![nodal(2, 0.0, 1.0), udl(1, 1.0)];
     let inp = plastic(make_beam(1, l, E, A_SEC, IZ_SEC, "fixed", None, loads));
     assert_encloses("tip force + member UDL", &certify(&inp), MP / (8.0 + 4.0), 1e-12);
+}
+
+#[test]
+fn issue_758_textbook_absolute_references() {
+    let mut cases = vec![
+        ("propped", plastic(make_beam(1, 8.0, E, A_SEC, IZ_SEC, "fixed", Some("rollerX"), vec![udl(1, -5.0)])), (6.0 + 4.0 * 2f64.sqrt()) * MP / 320.0),
+        ("fixed-fixed", plastic(make_beam(1, 6.0, E, A_SEC, IZ_SEC, "fixed", Some("fixed"), vec![udl(1, -10.0)])), 16.0 * MP / 360.0),
+    ];
+    for (name, h, v, expected) in [("beam", 0.0, 1.0, 4.0 * MP / 3.0), ("sway", 1.0, 0.0, MP), ("combined", 1.0, 1.0, 6.0 * MP / 7.0)] {
+        cases.push((name, plastic(portal(4.0, 6.0, h, v)), expected));
+    }
+    for (name, input, expected) in cases {
+        let result = solve_plastic_2d_unrefused(&input).unwrap();
+        assert!(result.is_mechanism && result.warnings.is_empty(), "{name}: {result:?}");
+        assert!((result.collapse_factor - expected).abs() <= 1e-9 * expected, "{name}: {} vs {expected}", result.collapse_factor);
+        assert_encloses(name, &certify_collapse_2d(&input, Some(&result)), expected, 1e-8);
+    }
+}
+
+#[test]
+fn issue_758_course_portal_beam_mechanism() {
+    let nodes = vec![(1, 0.0, 0.0), (2, 0.0, 4.0), (3, 6.0, 4.0), (4, 6.0, 0.0)];
+    let elems = vec![
+        (1, "frame", 1, 2, 1, 2, false, false),
+        (2, "frame", 2, 3, 1, 3, false, false),
+        (3, "frame", 4, 3, 1, 2, false, false),
+    ];
+    let solver = make_input(nodes, vec![(1, 30_000.0, 0.2)], vec![(2, 0.09, 0.000675), (3, 0.1, 0.002083)], elems, vec![(1, 1, "fixed"), (2, 4, "fixed")], vec![udl(2, -15.0), nodal(2, 10.0, 0.0)]);
+    let (mpc, mpb) = (1687.5, 3125.0);
+    let sections = HashMap::from([
+        ("2".to_string(), PlasticSectionData { a: 0.09, iz: 0.000675, material_id: 1, b: Some(0.3), h: Some(0.3) }),
+        ("3".to_string(), PlasticSectionData { a: 0.1, iz: 0.002083, material_id: 1, b: Some(0.2), h: Some(0.5) }),
+    ]);
+    let materials = HashMap::from([("1".to_string(), PlasticMaterialData { fy: Some(FY) })]);
+    let input = PlasticInput { solver, sections, materials, max_hinges: None, mp_overrides: Some(HashMap::from([("2".to_string(), mpc), ("3".to_string(), mpb)])) };
+    let beam = 8.0 * (mpc + mpb) / (15.0 * 36.0);
+    let sway = 4.0 * mpc / (10.0 * 4.0);
+    let combined = (0..=6000).map(|k| 6.0 * k as f64 / 6001.0).map(|x| (2.0 * mpc + (mpb + mpc) * 6.0 / (6.0 - x)) / (40.0 + 45.0 * x)).fold(f64::INFINITY, f64::min);
+    let exact = 1925.0 / 27.0;
+    assert!((beam - exact).abs() <= 1e-13 * exact && sway > beam && combined > beam, "{beam} {sway} {combined}");
+    let result = solve_plastic_2d_unrefused(&input).unwrap();
+    assert!(result.is_mechanism, "{result:?}");
+    assert!((result.collapse_factor - exact).abs() <= 1e-9 * exact, "{} vs {exact}", result.collapse_factor);
+    let history = result.steps.last().unwrap().load_factor;
+    assert!(history > exact * (1.0 + 1e-3), "the hinge history overshoots the collapse load: {history}");
+    assert!(result.warnings.len() == 1 && result.warnings[0].contains("history ends at"), "{:?}", result.warnings);
+    assert_encloses("course portal", &certify_collapse_2d(&input, Some(&result)), exact, 1e-8);
+}
+
+#[test]
+fn issue_758_limit_analysis_refuses_axial_point_loads_too_close_to_resolve() {
+    let bar = |gap: f64| {
+        let loads = [(0.5, -9.0), (0.5 + gap, 10.0)]
+            .map(|(a, px)| SolverLoad::PointOnElement(SolverPointLoadOnElement { element_id: 1, a, p: 0.0, px: Some(px), my: None }))
+            .to_vec();
+        make_input(vec![(1, 0.0, 0.0), (2, 1.0, 0.0)], vec![(1, E, 0.3)], vec![(1, A_SEC, IZ_SEC)], vec![(1, "frame", 1, 2, 1, 1, false, false)], vec![(1, 1, "fixed")], loads)
+    };
+    let (mp, np) = (HashMap::from([(1, 1e6)]), HashMap::from([(1, 10.0)]));
+    let resolved = dedaliano_engine::solver::plastic_limit::limit_analysis_2d(&bar(1e-3), &mp, &np).unwrap();
+    assert!((resolved.lambda - 1.0).abs() <= 1e-9, "{resolved:?}");
+    let err = dedaliano_engine::solver::plastic_limit::limit_analysis_2d(&bar(1e-12), &mp, &np).unwrap_err();
+    assert!(err.contains("closer than 1e-9"), "{err}");
+}
+
+#[test]
+fn issue_758_limit_analysis_refuses_a_transverse_load_too_close_to_a_fixed_end() {
+    let cantilever = |a: f64| {
+        let loads = vec![
+            SolverLoad::PointOnElement(SolverPointLoadOnElement { element_id: 1, a, p: -5e8, px: None, my: None }),
+            nodal(2, 0.0, -1.0),
+        ];
+        make_input(vec![(1, 0.0, 0.0), (2, 1.0, 0.0)], vec![(1, E, 0.3)], vec![(1, A_SEC, IZ_SEC)], vec![(1, "frame", 1, 2, 1, 1, false, false)], vec![(1, 1, "fixed")], loads)
+    };
+    let mp = HashMap::from([(1, 1.0)]);
+    let resolved = dedaliano_engine::solver::plastic_limit::limit_analysis_2d(&cantilever(1e-9 * 4.0), &mp, &HashMap::new()).unwrap();
+    let exact = 1.0 / (1.0 + 5e8 * 4e-9);
+    assert!((resolved.lambda - exact).abs() <= 1e-6 * exact, "{resolved:?} vs {exact}");
+    let err = dedaliano_engine::solver::plastic_limit::limit_analysis_2d(&cantilever(5e-10), &mp, &HashMap::new()).unwrap_err();
+    assert!(err.contains("closer than 1e-9"), "{err}");
+}
+
+#[test]
+fn issue_758_exact_certificate_rejects_the_unresolved_load_factors() {
+    use dedaliano_engine::solver::plastic_limit::{confirm_2d, Confirmation};
+    let cantilever = make_input(
+        vec![(1, 0.0, 0.0), (2, 1.0, 0.0)], vec![(1, E, 0.3)], vec![(1, A_SEC, IZ_SEC)], vec![(1, "frame", 1, 2, 1, 1, false, false)], vec![(1, 1, "fixed")],
+        vec![SolverLoad::PointOnElement(SolverPointLoadOnElement { element_id: 1, a: 5e-10, p: -5e8, px: None, my: None }), nodal(2, 0.0, -1.0)],
+    );
+    let mp = HashMap::from([(1, 1.0)]);
+    let exact = 1.0 / (1.0 + 5e8 * 5e-10);
+    assert_eq!(confirm_2d(&cantilever, &mp, &HashMap::new(), exact), Confirmation::Exact);
+    assert!(matches!(confirm_2d(&cantilever, &mp, &HashMap::new(), 1.0), Confirmation::Contradicted { reason, lower } if reason.contains("bounds the collapse factor") && lower <= exact && lower >= exact * (1.0 - 1e-6)));
+
+    let bar = make_input(
+        vec![(1, 0.0, 0.0), (2, 1.0, 0.0)], vec![(1, E, 0.3)], vec![(1, A_SEC, IZ_SEC)], vec![(1, "frame", 1, 2, 1, 1, false, false)], vec![(1, 1, "fixed")],
+        [(0.5, -9.0), (0.5 + 1e-12, 10.0)].map(|(a, px)| SolverLoad::PointOnElement(SolverPointLoadOnElement { element_id: 1, a, p: 0.0, px: Some(px), my: None })).to_vec(),
+    );
+    assert!(matches!(confirm_2d(&bar, &HashMap::from([(1, 1e6)]), &HashMap::from([(1, 10.0)]), 10.0), Confirmation::OutOfScope { .. }));
+}
+
+#[test]
+fn issue_758_exact_confirmation_holds_the_static_field_to_the_axial_capacity() {
+    use dedaliano_engine::solver::plastic_limit::Confirmation as C;
+    let verdict_lower = |c: &C| match c {
+        C::Contradicted { lower, .. } | C::Bracketed { lower, .. } => *lower,
+        _ => f64::NAN,
+    };
+    use dedaliano_engine::solver::plastic_limit::{confirm_2d, Confirmation};
+    let column = make_input(
+        vec![(1, 0.0, 0.0), (2, 1.0, 0.0)], vec![(1, E, 0.3)], vec![(1, A_SEC, IZ_SEC)], vec![(1, "frame", 1, 2, 1, 1, false, false)], vec![(1, 1, "fixed")],
+        vec![nodal(2, -10.0, -1.0)],
+    );
+    let mp = HashMap::from([(1, 1.0)]);
+    assert_eq!(confirm_2d(&column, &mp, &HashMap::new(), 1.0), Confirmation::Exact);
+    let np = HashMap::from([(1, 5.0)]);
+    for lambda in [0.5, 1.0] {
+        let verdict = confirm_2d(&column, &mp, &np, lambda);
+        assert!(matches!(verdict, Confirmation::Bracketed { lower, upper, .. } if lower <= 0.5 && lower >= 0.5 * (1.0 - 1e-6) && (upper - 1.0).abs() <= 1e-9), "{lambda}: {verdict:?}");
+        assert!(verdict.accept(lambda, None, 1e-6).is_err());
+        assert_eq!(verdict.unconfirmed_factor(lambda, 2.0), verdict_lower(&verdict));
+    }
+    assert!(matches!(confirm_2d(&column, &mp, &np, 1.1), Confirmation::Contradicted { lower, .. } if lower <= 0.5));
+    assert!(matches!(confirm_2d(&column, &mp, &np, 0.4), Confirmation::Contradicted { lower, .. } if lower >= 0.5 * (1.0 - 1e-6)));
+    assert!(matches!(confirm_2d(&column, &mp, &HashMap::new(), 0.5), Confirmation::Contradicted { lower, .. } if (lower - 1.0).abs() <= 1e-6));
+    assert!(matches!(confirm_2d(&column, &mp, &HashMap::new(), 1.01), Confirmation::Contradicted { reason, lower } if reason.contains("bounds the collapse factor") && lower <= 1.0 && lower >= 1.0 - 1e-6));
+}
+
+#[test]
+fn issue_758_a_small_real_bending_redundancy_survives_every_unit_system() {
+    use dedaliano_engine::solver::plastic_limit::limit_analysis_2d;
+    let (a, p, mp) = (3.0f64, 10.0, 1.0);
+    for rise in [1e-4, 1e-7] {
+        let np = mp / rise;
+        let l2 = a * a + rise * rise;
+        let reference = (4.0 * a * mp + 2.0 * rise * np * l2.sqrt()) / (p * l2);
+        let flat = 4.0 * mp / (p * a);
+        assert!(reference > 1.4 * flat);
+        for (length, force) in [(1.0, 1.0), (1e-6, 1.0), (1e6, 1.0), (1.0, 1e-6), (1.0, 1e6), (1e-6, 1e6), (1e6, 1e-6)] {
+            let arch = make_input(
+                vec![(1, 0.0, 0.0), (2, a * length, rise * length), (3, 2.0 * a * length, 0.0)],
+                vec![(1, E * force / (length * length), 0.3)],
+                vec![(1, A_SEC * length * length, IZ_SEC * length.powi(4))],
+                vec![(1, "frame", 1, 2, 1, 1, false, false), (2, "frame", 2, 3, 1, 1, false, false)],
+                vec![(1, 1, "fixed"), (2, 3, "fixed")],
+                vec![nodal(2, 0.0, -p * force)],
+            );
+            let r = limit_analysis_2d(&arch, &HashMap::from([(1, mp * force * length), (2, mp * force * length)]), &HashMap::from([(1, np * force), (2, np * force)])).unwrap();
+            assert!((r.lambda - reference).abs() <= 1e-6 * reference, "rise {rise}, units ({length}, {force}): {} vs {reference}", r.lambda);
+        }
+    }
+}
+
+fn plastic_758_fixture(name: &str) -> PlasticInput {
+    let path = format!("{}/tests/fixtures/plastic-758/{name}.json", env!("CARGO_MANIFEST_DIR"));
+    serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap()
+}
+
+#[test]
+fn issue_758_an_inclined_settlement_frame_reports_the_limit_analysis_factor() {
+    let input = plastic_758_fixture("settlement-equiv-rotated-0.3");
+    assert_containment(solve_plastic_2d(&input), "PL-2D-INVARIANCE");
+    let r = solve_plastic_2d_unrefused(&input).unwrap();
+    assert!(r.is_mechanism, "{:?}", r.warnings);
+    assert!((r.collapse_factor - 10.904960242330917).abs() <= 1e-6 * 10.904960242330917, "{}", r.collapse_factor);
+}
+
+#[test]
+fn issue_758_when_the_limit_analysis_fails_the_certified_lower_bound_is_reported() {
+    use dedaliano_engine::solver::plastic::section_plastic_moments;
+    use dedaliano_engine::solver::plastic_limit::{confirm_2d, Confirmation};
+    let input = plastic_758_fixture("settlement-equiv-roller-off-axis");
+    assert_containment(solve_plastic_2d(&input), "PL-2D-INVARIANCE");
+    let by = section_plastic_moments(&input);
+    let mp: HashMap<usize, f64> = input.solver.elements.values().map(|e| (e.id, by[&e.section_id])).collect();
+    let Confirmation::Contradicted { lower, .. } = confirm_2d(&input.solver, &mp, &Default::default(), 399.9960419608519) else { panic!("expected a contradiction") };
+    let r = solve_plastic_2d_unrefused(&input).unwrap();
+    assert!(!r.is_mechanism, "{:?}", r.warnings);
+    assert_eq!(r.collapse_factor, lower, "the history stops 1e-5 short of the certified bounds, so the certified lower bound is reported");
+}
+
+fn two_member_cantilever() -> SolverInput {
+    make_input(
+        vec![(1, 0.0, 0.0), (2, 1.0, 0.0), (3, 2.0, 0.0)],
+        vec![(1, E, 0.3)],
+        vec![(1, A_SEC, IZ_SEC)],
+        vec![(1, "frame", 1, 2, 1, 1, false, false), (2, "frame", 2, 3, 1, 1, false, false)],
+        vec![(1, 1, "fixed")],
+        vec![nodal(3, 0.0, -1.0)],
+    )
+}
+
+#[test]
+fn issue_758_limit_analysis_refuses_a_capacity_that_is_not_positive_and_finite() {
+    use dedaliano_engine::solver::plastic_limit::{limit_analysis_2d, limit_analysis_2d_input, LimitInput};
+    let solver = two_member_cantilever();
+    let with = |m1: f64| LimitInput { solver: solver.clone(), mp: HashMap::from([("1".to_string(), m1), ("2".to_string(), 1.0)]), np: HashMap::new() };
+    let lambda = limit_analysis_2d_input(&with(1.0)).unwrap().lambda;
+    assert!((lambda - 0.5).abs() <= 1e-9, "Mp / (P L) = 0.5, got {lambda}");
+    for m1 in [0.0, -1.0, f64::NAN] {
+        let r = limit_analysis_2d_input(&with(m1));
+        assert!(r.as_ref().is_err_and(|e| e.contains("element 1")), "Mp = {m1}: {r:?}");
+        let r = limit_analysis_2d(&solver, &HashMap::from([(1, m1), (2, 1.0)]), &HashMap::new());
+        assert!(r.as_ref().is_err_and(|e| e.contains("element 1: plastic moment") && e.contains("must be finite and positive")), "Mp = {m1}: {r:?}");
+    }
+    let r = limit_analysis_2d_input(&with(f64::INFINITY));
+    assert!(r.as_ref().is_err_and(|e| e.contains("must be finite")), "{r:?}");
+    let omitted = LimitInput { mp: HashMap::from([("2".to_string(), 1.0)]), ..with(1.0) };
+    assert!(limit_analysis_2d_input(&omitted).is_err_and(|e| e.contains("element 1: frame has no finite plastic moment")));
+    let np = LimitInput { np: HashMap::from([("2".to_string(), 0.0)]), ..with(1.0) };
+    assert!(limit_analysis_2d_input(&np).is_err_and(|e| e.contains("axial yield force")));
+    for n2 in [f64::INFINITY, 0.0, -1.0, f64::NAN] {
+        let r = limit_analysis_2d_input(&LimitInput { np: HashMap::from([("2".to_string(), n2)]), ..with(1.0) });
+        assert!(r.as_ref().is_err_and(|e| e.contains("element 2: axial yield force") && e.contains("must be finite and positive")), "Np = {n2}: {r:?}");
+        let r = limit_analysis_2d(&solver, &HashMap::from([(1, 1.0), (2, 1.0)]), &HashMap::from([(2, n2)]));
+        assert!(r.as_ref().is_err_and(|e| e.contains("element 2: axial yield force") && e.contains("must be finite and positive")), "Np = {n2}: {r:?}");
+    }
+    let r = limit_analysis_2d(&solver, &HashMap::from([(1, f64::INFINITY), (2, 1.0)]), &HashMap::new());
+    assert!(r.as_ref().is_err_and(|e| e.contains("element 1: plastic moment") && e.contains("must be finite and positive")), "{r:?}");
+}
+
+#[test]
+fn issue_758_limit_analysis_refuses_two_capacities_for_one_element() {
+    use dedaliano_engine::solver::plastic_limit::{limit_analysis_2d_input, LimitInput};
+    let solver = two_member_cantilever();
+    for (key, field) in [("01", "mp"), ("1", "np")] {
+        let mut mp = HashMap::from([("1".to_string(), 1.0), ("2".to_string(), 1.0)]);
+        let mut np = HashMap::new();
+        if field == "mp" {
+            mp.insert(key.to_string(), 100.0);
+        } else {
+            np.insert("1".to_string(), 5.0);
+            np.insert("001".to_string(), 500.0);
+        }
+        let r = limit_analysis_2d_input(&LimitInput { solver: solver.clone(), mp, np });
+        assert!(r.as_ref().is_err_and(|e| e.contains("element 1 is given more than one capacity")), "{field}: {r:?}");
+    }
+}
+
+#[test]
+fn issue_758_a_frame_without_plastic_section_data_is_refused() {
+    let mut input = plastic(two_member_cantilever());
+    input.sections.clear();
+    let r = solve_plastic_2d_unrefused(&input);
+    assert!(r.as_ref().is_err_and(|e| e.contains("no plastic section data")), "{:?}", r.map(|r| r.collapse_factor));
 }
