@@ -257,7 +257,7 @@ const tr: Translations = {
   'landing.navResearch': 'Araştırma',
   'landing.ebHero': 'ÜCRETSİZ VE AÇIK · YAPI ANALİZİ',
   'landing.heroH': 'Açık kaynaklı yapı mühendisliği yazılımı. Yapay zekâ yolda.',
-  'landing.heroP': '2B ve 3B çerçeve ve kafesler kendi bilgisayarınızda çözülür ve yedi farklı sonlu eleman programıyla karşılaştırılır. Geliştirilmekte olan yapay zekâ asistanı da aynı model ve aynı çözücü üzerinde çalışacak.',
+  'landing.heroP': '2B ve 3B çerçeve ve kafesler kendi bilgisayarınızda çözülür ve yedi farklı sonlu eleman programıyla karşılaştırılır. Geliştirilmekte olan yapay zekâ asistanı, kendi Claude veya OpenAI anahtarınızla aynı model ve aynı çözücü üzerinde şimdiden çalışıyor.',
   'landing.heroCtaPrimary': 'Düzenleyiciyi aç',
   'landing.heroBlogLink': 'Blogumuzu okuyun',
   'landing.heroMetaA': 'Tüm güncel tarayıcılarda çalışır',

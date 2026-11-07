@@ -1085,8 +1085,8 @@ Pull requests that change the solver now check that the analyses they touch give
 
 The AI section lists what the assistant does: it drafts a model from a description, edits it on
 screen and shows each change before it is applied, reviews a solved model, and explains solver
-warnings and results. It says the engineer decides and that the panel is switched off while it is
-tested. Pricing says Stabileo AI is paid by everyone, universities included. The section, its
+warnings and results. It says the engineer decides, and that the panel is in the editor and works with your own
+Anthropic (Claude) or OpenAI key, kept only in the browser. Pricing says Stabileo AI is paid by everyone, universities included. The section, its
 copy in six languages and its screenshot now load once the rest of the landing is up, so the first
 load of the landing is lighter.
 
@@ -1095,8 +1095,8 @@ load of the landing is lighter.
 The hero, page title and description in all six languages now say it plainly: open-source
 structural engineering software whose solver runs on your machine and is checked against seven
 other finite-element programs, with an AI assistant that is still in development and will work on
-the same model and solver. The description and README no longer say the assistant takes your own
-Claude or OpenAI key; that is not available yet.
+the same model and solver. The description and README no longer lead with the assistant's own-key mode, which stays the
+interim way to use it until Stabileo's own AI service opens.
 
 #### The landing says where Stabileo fits and what each design code check covers today (2026-11-02)
 
@@ -1422,6 +1422,13 @@ test must count the work instead, or be marked ignored and listed to run alone i
   reproducer passes, and to triage nightly wrong-result candidates daily with a recorded decision.
 
 ### Fixed
+
+#### The landing says the AI assistant works with your own key (2026-11-07)
+
+The landing said the AI panel was switched off while it was tested, and that the assistant would
+work later, although the editor's panel already works with your own Anthropic (Claude) or OpenAI
+key, kept only in the browser and sent only to that provider. The AI section and the hero now say
+so, in every language.
 
 #### The span check includes a member's shear slope and the thermal curvature at a release (2026-11-06)
 
