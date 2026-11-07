@@ -817,12 +817,111 @@ mod tests {
         assert_eq!(inactive_first.quad_stresses[0].qx, a.quad_stresses[0].qx);
     }
 
+    fn doubled_quad(sxx: f64, syy: f64, txy: f64) -> Result<Option<AnalysisResults3D>, String> {
+        let (_, mc) = two_cases(1);
+        let mut r = mc.case_results[0].results.clone();
+        let q = &mut r.quad_stresses[0];
+        (q.sigma_xx, q.sigma_yy, q.tau_xy) = (sxx, syy, txy);
+        combine_results_3d_refs(&[CombinationFactor { case_id: 0, factor: 2.0 }], &[(0, &r)])
+    }
+
+    fn doubled_plate(sxx: f64, syy: f64, txy: f64) -> Result<Option<AnalysisResults3D>, String> {
+        let (s, mc) = two_cases(0);
+        let mut r = mc.case_results[0].results.clone();
+        let p = &mut r.plate_stresses[0];
+        (p.sigma_xx, p.sigma_yy, p.tau_xy, p.mx, p.my, p.mxy) = (sxx, syy, txy, 0.0, 0.0, 0.0);
+        combine_results_3d_refs_with_thickness(&[CombinationFactor { case_id: 0, factor: 2.0 }], &[(0, &r)], &plate_thicknesses(&s))
+    }
+
+    #[test]
+    fn a_combined_shell_stress_whose_square_overflows_f64_is_still_combined() {
+        let q = doubled_quad(1e154, 1e154, 0.0).unwrap().unwrap().quad_stresses[0].clone();
+        assert_eq!((q.sigma_xx, q.von_mises), (2e154, 2e154));
+        let q = doubled_quad(3e307, -3e307, 0.0).unwrap().unwrap().quad_stresses[0].clone();
+        assert!((q.von_mises / (3f64.sqrt() * 6e307) - 1.0).abs() < 1e-15, "{}", q.von_mises);
+        let p = doubled_plate(4e307, 0.0, 2e307).unwrap().unwrap().plate_stresses[0].clone();
+        let close = |got: f64, want: f64| assert!((got / want - 1.0).abs() < 1e-14, "{got} vs {want}");
+        close(p.sigma_1, 4e307 * (1.0 + 2f64.sqrt()));
+        close(p.sigma_2, 4e307 * (1.0 - 2f64.sqrt()));
+        close(p.von_mises, 4e307 * 7f64.sqrt());
+    }
+
+    #[test]
+    fn a_plate_bending_stress_whose_numerator_or_thickness_square_leaves_f64_is_still_computed() {
+        let (s, mc) = two_cases(0);
+        let mut r = mc.case_results[0].results.clone();
+        let id = r.plate_stresses[0].element_id;
+        let close = |got: f64, want: f64| assert!((got / want - 1.0).abs() < 1e-14, "{got} vs {want}");
+        for (m, t, bending) in [(4e307, 2.0, 6e307), (1e200, 1e200, 6e-200), (1e-300, 1e-200, 6e100)] {
+            let p = &mut r.plate_stresses[0];
+            (p.sigma_xx, p.sigma_yy, p.tau_xy, p.mx, p.my, p.mxy) = (0.0, 0.0, 0.0, m, 0.0, 0.0);
+            let mut thickness = plate_thicknesses(&s);
+            thickness.insert(id, t);
+            let p = combine_results_3d_refs_with_thickness(&[CombinationFactor { case_id: 0, factor: 1.0 }], &[(0, &r)], &thickness).unwrap().unwrap().plate_stresses[0].clone();
+            close(p.von_mises, bending);
+            close(p.sigma_2, -bending);
+        }
+    }
+
+    #[test]
+    fn a_combined_shell_stress_is_kept_when_only_its_partial_sum_overflows() {
+        let (_, mc) = two_cases(1);
+        let (mut a, mut b) = (mc.case_results[0].results.clone(), mc.case_results[1].results.clone());
+        for (r, x) in [(&mut a, 1e308), (&mut b, -0.5e308)] {
+            let q = &mut r.quad_stresses[0];
+            (q.sigma_xx, q.sigma_yy, q.tau_xy, q.qx) = (x, 0.0, 0.0, Some(x));
+        }
+        let two = [CombinationFactor { case_id: 0, factor: 2.0 }, CombinationFactor { case_id: 1, factor: 2.0 }];
+        let q = combine_results_3d_refs(&two, &[(0, &a), (1, &b)]).unwrap().unwrap().quad_stresses[0].clone();
+        assert_eq!((q.sigma_xx, q.von_mises, q.qx), (1e308, 1e308, Some(1e308)));
+        let mut c = a.clone();
+        for (r, x) in [(&mut a, 1e308), (&mut b, 1e308), (&mut c, 1e-200)] {
+            (r.quad_stresses[0].sigma_xx, r.quad_stresses[0].qx) = (x, Some(x));
+        }
+        let cancelling = [CombinationFactor { case_id: 0, factor: 2.0 }, CombinationFactor { case_id: 1, factor: -2.0 }, CombinationFactor { case_id: 2, factor: 1.0 }];
+        let q = combine_results_3d_refs(&cancelling, &[(0, &a), (1, &b), (2, &c)]).unwrap().unwrap().quad_stresses[0].clone();
+        assert_eq!((q.sigma_xx, q.von_mises, q.qx), (1e-200, 1e-200, Some(1e-200)));
+        for order in [[0, 2, 1], [2, 0, 1], [0, 1, 2]] {
+            let (factor, x) = ([2.0, -2.0, 1.0], [1e308, 1e308, 1.0]);
+            let cases: Vec<AnalysisResults3D> = order.iter().map(|&k| {
+                let mut r = a.clone();
+                (r.quad_stresses[0].sigma_xx, r.quad_stresses[0].qx) = (x[k], Some(x[k]));
+                r
+            }).collect();
+            let factors: Vec<_> = order.iter().enumerate().map(|(i, &k)| CombinationFactor { case_id: i, factor: factor[k] }).collect();
+            let refs: Vec<_> = cases.iter().enumerate().map(|(i, r)| (i, r)).collect();
+            let q = combine_results_3d_refs(&factors, &refs).unwrap().unwrap().quad_stresses[0].clone();
+            assert_eq!((q.sigma_xx, q.qx), (1.0, Some(1.0)), "{order:?}");
+        }
+    }
+
+    #[test]
+    fn a_plate_face_beyond_f64_is_refused_even_when_the_other_face_is_finite() {
+        let (s, mc) = two_cases(0);
+        let mut r = mc.case_results[0].results.clone();
+        let id = r.plate_stresses[0].element_id;
+        let p = &mut r.plate_stresses[0];
+        (p.sigma_xx, p.sigma_yy, p.tau_xy, p.mx, p.my, p.mxy) = (-1.5 * 2f64.powi(1023), 0.0, 0.0, 2f64.powi(1023), 0.0, 0.0);
+        let mut thickness = plate_thicknesses(&s);
+        thickness.insert(id, 2.0);
+        let one = [CombinationFactor { case_id: 0, factor: 1.0 }];
+        assert!(combine_results_3d_refs_with_thickness(&one, &[(0, &r)], &thickness).unwrap_err().contains("beyond the range of f64"));
+    }
+
+    #[test]
+    fn a_tiny_combined_shell_stress_keeps_its_von_mises() {
+        let q = doubled_quad(1e-200, 0.0, 0.0).unwrap().unwrap().quad_stresses[0].clone();
+        assert_eq!(q.von_mises, 2e-200);
+        let p = doubled_plate(1e-200, 0.0, 0.0).unwrap().unwrap().plate_stresses[0].clone();
+        assert_eq!((p.sigma_1, p.sigma_2, p.von_mises), (2e-200, 0.0, 2e-200));
+    }
+
     #[test]
     fn a_combined_shell_stress_beyond_f64_is_refused() {
+        assert!(doubled_quad(1.5e308 / 2.0, -1.5e308 / 2.0, 0.0).unwrap_err().contains("beyond the range of f64"));
+        assert!(doubled_plate(1.5e308 / 2.0, -1.5e308 / 2.0, 0.0).unwrap_err().contains("beyond the range of f64"));
+        assert!(doubled_quad(1e308, 0.0, 0.0).unwrap_err().contains("beyond the range of f64"));
         let (_, mc) = two_cases(1);
-        let mut huge = mc.case_results[0].results.clone();
-        (huge.quad_stresses[0].sigma_xx, huge.quad_stresses[0].sigma_yy) = (1e154, 1e154);
-        assert!(combine_results_3d_refs(&[CombinationFactor { case_id: 0, factor: 2.0 }], &[(0, &huge)]).is_err());
         assert!(combine_results_3d_refs(&[CombinationFactor { case_id: 0, factor: 2.0 }], &[(0, &mc.case_results[0].results)]).is_ok());
     }
 

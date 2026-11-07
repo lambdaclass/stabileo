@@ -443,7 +443,37 @@ fn same_sequence<T, K: PartialEq>(case: usize, what: &str, template: (usize, &[T
 }
 
 fn membrane_von_mises(sxx: f64, syy: f64, txy: f64) -> f64 {
-    (sxx * sxx - sxx * syy + syy * syy + 3.0 * txy * txy).sqrt()
+    let (down, up) = crate::element::plate::power_of_two_scale([sxx, syy, txy]);
+    let (sxx, syy, txy) = (sxx * down, syy * down, txy * down);
+    (sxx * sxx - sxx * syy + syy * syy + 3.0 * txy * txy).sqrt() * up
+}
+
+/// Σ f·b for finite terms whose plain sum overflowed partway. Products are summed with compensation, scaled
+/// down by 2^shift, and those too small to survive that scaling apart and unscaled, so a residual left by
+/// cancelling large terms is kept wherever it sits and only a total beyond f64 stays non-finite.
+fn rescaled_sum(terms: impl Iterator<Item = (f64, f64)> + Clone) -> f64 {
+    use crate::element::plate::{binary_exponent, ldexp};
+    if terms.clone().any(|(f, b)| !f.is_finite() || !b.is_finite()) {
+        return terms.fold(0.0, |a, (f, b)| a + f * b);
+    }
+    let products = terms.filter(|&(f, b)| f != 0.0 && b != 0.0).map(|(f, b)| (binary_exponent(f) + binary_exponent(b), ldexp(f, -binary_exponent(f)) * ldexp(b, -binary_exponent(b))));
+    let Some(top) = products.clone().map(|(e, _)| e).max() else { return 0.0 };
+    let shift = (top - 1000).max(0);
+    let (mut large, mut small) = ([0.0, 0.0], [0.0, 0.0]);
+    for (e, p) in products {
+        if e - shift >= -1000 {
+            compensated_add(&mut large, ldexp(p, e - shift));
+        } else {
+            compensated_add(&mut small, ldexp(p, e));
+        }
+    }
+    ldexp(large[0] + large[1], shift) + (small[0] + small[1])
+}
+
+fn compensated_add(acc: &mut [f64; 2], x: f64) {
+    let t = acc[0] + x;
+    acc[1] += if acc[0].abs() >= x.abs() { (acc[0] - t) + x } else { (x - t) + acc[0] };
+    acc[0] = t;
 }
 
 fn combine_shells(terms: &[(f64, usize, &AnalysisResults3D)], template: (usize, &AnalysisResults3D), plate_thickness: &PlateThicknesses) -> Result<CombinedShells, String> {
@@ -462,6 +492,11 @@ fn combine_shells(terms: &[(f64, usize, &AnalysisResults3D)], template: (usize, 
                 *a += f * b;
             }
         }
+        for (i, a) in v.iter_mut().enumerate() {
+            if !a.is_finite() {
+                *a = rescaled_sum(terms.iter().map(|&(f, _, r)| (f, at(r)[i])));
+            }
+        }
         v
     };
     let shear = |init: [Option<f64>; 2], at: &dyn Fn(&AnalysisResults3D) -> [Option<f64>; 2]| -> [Option<f64>; 2] {
@@ -469,6 +504,11 @@ fn combine_shells(terms: &[(f64, usize, &AnalysisResults3D)], template: (usize, 
         for &(f, _, r) in terms {
             let v = at(r);
             q = [0, 1].map(|i| q[i].zip(v[i]).map(|(a, b)| a + f * b));
+        }
+        for (i, a) in q.iter_mut().enumerate() {
+            if a.is_some_and(|a| !a.is_finite()) {
+                *a = Some(rescaled_sum(terms.iter().filter_map(|&(f, _, r)| at(r)[i].map(|b| (f, b)))));
+            }
         }
         if q[0].is_none() || q[1].is_none() { [None, None] } else { q }
     };
