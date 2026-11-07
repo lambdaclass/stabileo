@@ -240,7 +240,7 @@ const pt: Translations = {
   'landing.reload': "Tentar novamente",
   'landing.navResearch': 'Pesquisa',
   'landing.ebHero': 'LIVRE E ABERTO · CÁLCULO ESTRUTURAL',
-  'landing.heroH': 'Software de engenharia estrutural de código aberto, com IA a caminho.',
+  'landing.heroH': 'Análise estrutural que você pode verificar.',
   'landing.heroP': 'Pórticos e treliças em 2D e 3D, resolvidos na sua própria máquina e comparados com outros sete programas de elementos finitos. O assistente de IA, ainda em desenvolvimento, vai trabalhar sobre o mesmo modelo e o mesmo solver.',
   'landing.heroCtaPrimary': 'Abrir o editor',
   'landing.heroBlogLink': 'Ler nosso blog',

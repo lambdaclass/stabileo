@@ -290,7 +290,7 @@ test.describe('@landing landing page', () => {
     await bootLanding(page, { locale: 'en' });
 
     const h1 = page.locator('.landing h1');
-    await expect(h1).toHaveText('Open-source structural engineering software, with AI on the way.');
+    await expect(h1).toHaveText('Structural analysis you can check.');
 
     /*
        A drawn listbox now, not a native `<select>` — the platform put the
@@ -300,7 +300,7 @@ test.describe('@landing landing page', () => {
     await page.getByTestId('nav-lang-button').click();
     await page.getByTestId('nav-lang-list').getByRole('option', { name: 'Español' }).click();
 
-    await expect(h1).toHaveText('Software de ingeniería estructural de código abierto, con IA en camino.');
+    await expect(h1).toHaveText('Análisis estructural que puedes verificar.');
     /*
      * A second heading, further down, so the assertion covers the whole page
      * rather than the one string the switcher is most likely to get right.
@@ -331,7 +331,7 @@ test.describe('@landing landing page', () => {
     const ctx = await browser.newContext({ locale: 'pt-BR' });
     const page = await ctx.newPage();
     await bootLanding(page, { manual: false });
-    await expect(page.locator('.landing h1')).toHaveText('Software de engenharia estrutural de código aberto, com IA a caminho.');
+    await expect(page.locator('.landing h1')).toHaveText('Análise estrutural que você pode verificar.');
     await expect(page.getByTestId('nav-lang')).toHaveAttribute('data-value', 'pt');
     await ctx.close();
   });
@@ -340,7 +340,7 @@ test.describe('@landing landing page', () => {
     const ctx = await browser.newContext({ locale: 'es-AR' });
     const page = await ctx.newPage();
     await bootLanding(page, { manual: false });
-    await expect(page.locator('.landing h1')).toHaveText('Software de ingeniería estructural de código abierto, con IA en camino.');
+    await expect(page.locator('.landing h1')).toHaveText('Análisis estructural que puedes verificar.');
     await ctx.close();
   });
 
@@ -356,7 +356,7 @@ test.describe('@landing landing page', () => {
     const ctx = await browser.newContext({ locale: 'it-IT' });
     const page = await ctx.newPage();
     await bootLanding(page, { manual: false });
-    await expect(page.locator('.landing h1')).toHaveText('Open-source structural engineering software, with AI on the way.');
+    await expect(page.locator('.landing h1')).toHaveText('Structural analysis you can check.');
     await expect(page.getByTestId('nav-lang')).toHaveAttribute('data-value', 'en');
     await ctx.close();
   });
@@ -622,7 +622,7 @@ test.describe('@landing landing page', () => {
        * already uses.
        */
       await pickLanguage(page, 'nav-lang', 'es');
-      await expect(page.locator('.landing h1')).toHaveText('Software de ingeniería estructural de código abierto, con IA en camino.');
+      await expect(page.locator('.landing h1')).toHaveText('Análisis estructural que puedes verificar.');
       const h = await readHead(page);
 
       expect(h.headTitles).toBe(1);
@@ -642,7 +642,7 @@ test.describe('@landing landing page', () => {
     test('the Portuguese landing carries Portuguese metadata', async ({ page }) => {
       await bootLanding(page);
       await pickLanguage(page, 'nav-lang', 'pt');
-      await expect(page.locator('.landing h1')).toHaveText('Software de engenharia estrutural de código aberto, com IA a caminho.');
+      await expect(page.locator('.landing h1')).toHaveText('Análise estrutural que você pode verificar.');
       const h = await readHead(page);
 
       expect(h.headTitles).toBe(1);

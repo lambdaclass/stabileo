@@ -242,7 +242,7 @@ const es: Record<string, string> = {
   'landing.reload': "Reintentar",
   'landing.navResearch': 'Investigación',
   'landing.ebHero': 'LIBRE Y ABIERTO · CÁLCULO ESTRUCTURAL',
-  'landing.heroH': 'Software de ingeniería estructural de código abierto, con IA en camino.',
+  'landing.heroH': 'Análisis estructural que puedes verificar.',
   'landing.heroP': 'Pórticos y reticulados en 2D y 3D, resueltos en tu propia máquina y contrastados con otros siete programas de elementos finitos. El asistente de IA, todavía en desarrollo, va a trabajar sobre el mismo modelo y el mismo solver.',
   'landing.heroCtaPrimary': 'Abrir el editor',
   'landing.heroBlogLink': 'Leer nuestro blog',
