@@ -167,10 +167,11 @@ class RefinedBucklingTest(unittest.TestCase):
         self.assertEqual((r["status"], r["mesh"], seen), ("mismatch", 8, [1, 2, 4, 8]))
         self.assertIn("stabileo failed on the n=8 mesh", r["worst"][0][2])
 
-    def test_opensees_failing_on_a_finer_mesh_is_not_converging(self):
+    def test_opensees_failing_on_a_finer_mesh_keeps_the_mismatch(self):
         r, _ = self.run_with(*self.within_reach(), fail=("opensees", 8))
-        self.assertEqual(r["status"], "opensees_failed")
-        self.assertIn("n=8", r["why"][0])
+        self.assertEqual(r["status"], "mismatch")
+        self.assertIn(r["status"], C.FLAGGED)
+        self.assertTrue(any("n=8" in str(w[2]) and "meshed comparison stopped" in str(w[2]) for w in r["worst"]))
 
     def test_a_mesh_too_large_for_opensees_ends_the_refinement(self):
         r, _ = self.run_with(*self.within_reach(), fail=("large", 8))
@@ -203,6 +204,15 @@ class RefinedBucklingTest(unittest.TestCase):
         tilted = {n: [{1: [c, s_, 0.0, 0.0, 0.0, 0.0]}, MODES[1]] for n in (1, 2, 4, 8, 16)}
         r, _ = self.run_with(stab, ops, omodes=tilted)
         self.assertEqual(r["status"], "mismatch")
+
+    def test_a_repeated_mode_in_either_basis_agrees_on_a_common_mesh(self):
+        stab = {n: [10.0, 10.0] for n in (1, 2, 4, 8, 16)}
+        ops = {1: [9.0, 9.0], **{n: [10.0, 10.0] for n in (2, 4, 8, 16)}}
+        h = math.sqrt(0.5)
+        rotated = {n: [{1: [h, h, 0.0, 0.0, 0.0, 0.0]}, {1: [h, -h, 0.0, 0.0, 0.0, 0.0]}] for n in (1, 2, 4, 8, 16)}
+        r, seen = self.run_with(stab, ops, omodes=rotated)
+        self.assertEqual((r["status"], r["mesh"], seen), ("ok", 2, [1, 2]))
+        self.assertLess(r["max_err"]["mac"], 1e-12)
 
     def test_a_separated_mode_is_not_excused_by_another_modes_error(self):
         ores = {"values": [10.0, 10.5, 30.0], "dim": 3, "modes": [MODES[0], MODES[1], {1: [0.0, 0.0, 1.0, 0.0, 0.0, 0.0]}]}

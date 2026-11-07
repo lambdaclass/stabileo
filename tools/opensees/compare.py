@@ -2129,7 +2129,8 @@ def run_ext(name, job, binary, tol, dump_dir=None):
             try:
                 refined = refine_buckling(job, binary, tol, dim)
             except RuntimeError as ex:
-                return dict(base, status="opensees_failed", why=[str(ex)[:300]])
+                bad = bad + [("eig", 0, f"one-element mismatch stands, meshed comparison stopped: {str(ex)[:200]}", None, None, math.inf)]
+                refined = None
             if refined is not None:
                 bad, groups, n, converging = refined[0], dict(groups, **refined[1]), refined[2], refined[3]
                 base = dict(base, mesh=n)

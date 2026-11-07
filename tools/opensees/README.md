@@ -230,7 +230,7 @@ whose κ puts its round-off (100·ε·κ) above it ends the refinement.
 `converging` is flagged like a `mismatch`: a constant difference smaller than
 the remaining discretisation difference cannot be told apart from it on these
 meshes, so only agreement within tolerance on a common mesh passes. The engine failing on a finer mesh is a `mismatch`, OpenSees
-failing is `opensees_failed`, and a mesh OpenSees cannot take (too large,
+failing on one keeps the one-element `mismatch`, and a mesh OpenSees cannot take (too large,
 ill-conditioned) ends the refinement.
 On seed 763000 the 138 mismatches became 47 `ok` on a common mesh (8 at
 n = 2, 17 at 4, 20 at 8, 2 at 16) and 91 `converging`; the part takes about
