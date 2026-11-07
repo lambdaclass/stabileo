@@ -261,10 +261,23 @@ class Workflow(unittest.TestCase):
         self.assertNotIn('QUEUE_REF', job)
         self.assertIn('merge_group:', workflow.split('\njobs:\n', 1)[0])
 
+    def test_adding_or_removing_the_label_reruns_the_job_without_rerunning_ci(self):
+        ci = (ROOT / '.github/workflows/ci.yml').read_text().split('\njobs:\n', 1)[0]
+        self.assertIn('types: [opened, synchronize, reopened]\n', ci)
+        label = (ROOT / '.github/workflows/revert-check-label.yml').read_text()
+        self.assertIn('types: [labeled, unlabeled]', label)
+        self.assertIn("github.event.label.name == 'reverts-ok'", label)
+        self.assertIn('select(.name == "Revert Check")', label)
+        self.assertIn('actions/jobs/$job/rerun', label)
+        self.assertIn('[ "$status" = completed ] && break', label)
+
 
 FAKE_GH = """#!/usr/bin/env python3
 import json, os, sys
-pr = json.load(open(os.path.join(os.environ['FAKE_GH'], sys.argv[2].rsplit('/', 1)[1] + '.json')))
+path = os.path.join(os.environ['FAKE_GH'], sys.argv[2].rsplit('/', 1)[1] + '.json')
+if not os.path.exists(path):
+    sys.exit('HTTP 502: Bad Gateway')
+pr = json.load(open(path))
 expr = sys.argv[sys.argv.index('--jq') + 1]
 print(pr['head']['sha'] if expr == '.head.sha' else ','.join(l['name'] for l in pr['labels']))
 """
@@ -342,17 +355,37 @@ class MergeQueue(unittest.TestCase):
         stale = pathlib.Path(self.tmp.name, 'event.json')
         stale.write_text(json.dumps({'pull_request': {'labels': [{'name': 'reverts-ok'}]}}))
         git(self.repo, 'checkout', '-q', 'a')
-        code, out = self.run_job(EVENT='pull_request', GITHUB_EVENT_PATH=str(stale), PR_LABELS='run-e2e')
+        self.pr(1, 'a', ['run-e2e'])
+        code, out = self.run_job(EVENT='pull_request', PR='1', GITHUB_EVENT_PATH=str(stale), PR_LABELS='reverts-ok')
         self.assertEqual(code, 1, out)
         self.assertIn('new.txt: 1 line from', out)
         self.assertNotIn('Acknowledged', out)
-        self.assertEqual(self.run_job(EVENT='pull_request', GITHUB_EVENT_PATH=str(stale), PR_LABELS='run-e2e,reverts-ok')[0], 0)
+        self.pr(1, 'a', ['run-e2e', 'reverts-ok'])
+        self.assertEqual(self.run_job(EVENT='pull_request', PR='1', GITHUB_EVENT_PATH=str(stale), PR_LABELS='run-e2e')[0], 0)
         self.queue()
         self.pr(1, 'a', [])
         self.pr(2, 'b', [])
         code, out = self.run_job(GITHUB_EVENT_PATH=str(stale))
         self.assertEqual(code, 1, out)
         self.assertNotIn('Acknowledged', out)
+
+    def test_a_rerun_sees_a_label_added_after_detect_changes_read_them(self):
+        git(self.repo, 'checkout', '-q', 'a')
+        self.pr(1, 'a', ['status:in-queue', 'reverts-ok'])
+        code, out = self.run_job(EVENT='pull_request', PR='1', PR_LABELS='status:in-queue')
+        self.assertEqual(code, 0, out)
+        self.assertIn('Labels: status:in-queue,reverts-ok', out)
+        self.assertIn('Acknowledged by the reverts-ok label.', out)
+
+    def test_without_the_api_it_falls_back_to_the_labels_detect_changes_read(self):
+        git(self.repo, 'checkout', '-q', 'a')
+        code, out = self.run_job(EVENT='pull_request', PR='1', PR_LABELS='status:in-queue')
+        self.assertEqual(code, 1, out)
+        self.assertIn('Could not read the labels of #1 now', out)
+        self.assertNotIn('Acknowledged', out)
+        code, out = self.run_job(EVENT='pull_request', PR='1', PR_LABELS='status:in-queue,reverts-ok')
+        self.assertEqual(code, 0, out)
+        self.assertIn('Acknowledged by the reverts-ok label.', out)
 
     def test_a_group_commit_that_is_not_a_queue_merge_fails(self):
         self.queue('Merge branch a')

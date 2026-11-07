@@ -801,6 +801,7 @@ jobs:
         env:
           BASE: ${{ github.event_name == 'merge_group' && github.event.merge_group.base_sha || format('origin/{0}', github.base_ref) }}
           EVENT: ${{ github.event_name }}
+          PR: ${{ github.event.pull_request.number }}
           PR_LABELS: ${{ needs.changes.outputs.labels }}
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -811,7 +812,12 @@ jobs:
           fi
           git show "$BASE:.github/scripts/revert-check.py" > "$RUNNER_TEMP/revert-check.py"
           if [ "$EVENT" != merge_group ]; then
-            LABELS=$PR_LABELS exec python3 -B -I "$RUNNER_TEMP/revert-check.py" "$BASE" HEAD --event ''
+            if ! LABELS=$(gh api "repos/$GH_REPO/pulls/$PR" --jq '[.labels[].name] | join(",")'); then
+              echo "Could not read the labels of #$PR now; using the ones Detect Changes read."
+              LABELS=$PR_LABELS
+            fi
+            echo "Labels: $LABELS"
+            LABELS=$LABELS exec python3 -B -I "$RUNNER_TEMP/revert-check.py" "$BASE" HEAD --event ''
           fi
           status=0
           for step in $(git rev-list --first-parent --reverse "$BASE..HEAD"); do
