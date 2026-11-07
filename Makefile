@@ -13,12 +13,12 @@
        services services.stop postgres.start postgres.stop \
        inst inst.check inst.claim inst.release inst.list ports \
        result-changes.order docker.build docker.up docker.down cloud-init.render \
-       check-pins check.changelog check.test-targets test.cadence check.cadence check.containment deps.audit test.engine.reproducers test.reproducers.published check.issue-reproducers worktree worktree-prune hooks \
+       check-pins check.changelog release.step check.test-targets test.cadence check.cadence check.containment deps.audit test.engine.reproducers test.reproducers.published check.issue-reproducers worktree worktree-prune hooks \
        fmt check clean
 
 NIX_RUN = nix develop --command
 # The e2e shell supplies immutable browser builds; Ubuntu keeps its existing installer.
-PLAYWRIGHT_INSTALL = $(if $(filter 1,$(PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD)),true,npx playwright install)
+PLAYWRIGHT_INSTALL = bash scripts/playwright-install.sh
 
 # Multi-instance support: INST=0 (default), INST=1, ... Each instance gets its own
 # ports and databases, so several checkouts/worktrees can run side by side:
@@ -376,7 +376,7 @@ test.web.determinism:
 	$(NIX_RUN) bash -c "cd web && $(PLAYWRIGHT_INSTALL) chromium firefox webkit && node --test determinism/serve.test.mjs determinism/checks.test.mjs determinism/containment.test.mjs && node determinism/node-run.mjs && npx playwright test -c determinism/playwright.config.ts"
 
 e2e.web.setup:
-	$(NIX_RUN) bash -c "cd web && npx playwright install chromium"
+	$(NIX_RUN) bash -c "cd web && $(PLAYWRIGHT_INSTALL) chromium"
 
 # The site the e2e suites test with E2E_PREBUILT=1: VITE_E2E=1 compiles the read-only test hooks in,
 # and web/playwright.config.ts refuses a prebuilt dist without the marker. Needs make e2e.web.setup.
@@ -389,7 +389,7 @@ e2e.web.smoke:
 	$(NIX_RUN) bash -c 'cd web && E2E_JSON_REPORT=e2e/.results/smoke.json npx playwright test --grep @smoke --grep-invert @flaky $(if $(SHARD),$$(node scripts/e2e-shard.mjs $(subst /, ,$(SHARD))))'
 
 e2e.web.slow:
-	$(NIX_RUN) bash -c 'cd web && E2E_JSON_REPORT=e2e/.results/slow.json NO_WALL_CLOCK=$(NO_WALL_CLOCK) npx playwright test --grep "@slow" --grep-invert "visual baselines|@flaky" $(if $(SHARD),$$(node scripts/e2e-shard.mjs --suite slow $(subst /, ,$(SHARD))))'
+	$(NIX_RUN) bash -c 'cd web && $(if $(SHARD),files=$$(node scripts/e2e-shard.mjs --suite slow $(subst /, ,$(SHARD))) && if [ -z "$$files" ]; then exit 0; fi && )E2E_JSON_REPORT=e2e/.results/slow.json NO_WALL_CLOCK=$(NO_WALL_CLOCK) npx playwright test --grep "@slow" --grep-invert "visual baselines|@flaky" $(if $(SHARD),$$files)'
 
 e2e.web.timing:
 	$(NIX_RUN) bash -c 'cd web && npx playwright test --grep "@slow" e2e/rebar-workspace-open.spec.ts e2e/model-fluidity.spec.ts'
@@ -451,6 +451,11 @@ check-pins:
 check.changelog:
 	$(NIX_RUN) python3 -I scripts/changelog.py --check
 
+## The release step: fragments into CHANGELOG.md, links rebased, registry and engine locks updated (scripts/release-step.py)
+release.step:
+	@test -n "$(VERSION)" -a -n "$(DATE)" || { echo 'usage: make release.step VERSION=0.5.0 DATE=2026-11-06'; exit 2; }
+	$(NIX_RUN) python3 -I scripts/release-step.py $(VERSION) $(DATE)
+
 # The engine's test files are modules of a few listed binaries (autotests = false): a file
 # in no binary would never run, one in two would run twice.
 check.test-targets:
@@ -479,11 +484,14 @@ test.nightly-scripts:
 
 test.ci-scripts: test.nightly-scripts check.cadence
 	python3 -B -I scripts/tests/test_cadence.py
+	python3 -B -I scripts/tests/test_playwright_install.py
 	python3 -B -I scripts/tests/test_deps_audit.py
 	python3 -B -I scripts/tests/test_check_containment.py
 	python3 -B -I scripts/tests/test_mutants_safety.py
 	python3 -B -I scripts/tests/test_retry_infra.py
+	python3 -B -I scripts/tests/test_kani_shards.py
 	python3 -B -I scripts/tests/test_build_research_wasm.py
+	python3 -B -I scripts/tests/test_release_step.py
 	python3 -B -I scripts/tests/test_research_host_cache.py
 	python3 -B -I scripts/tests/test_ci_aggregate.py
 	python3 -B -I scripts/tests/test_full_history_checkouts.py

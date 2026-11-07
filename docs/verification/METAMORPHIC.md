@@ -146,7 +146,9 @@ examples, feature-matrix models with hinges, connectors, rigid links, diaphragms
 and inclined supports, and the fuzz models of #758. The transforms are rigid
 rotation, mirror, renumbering, member reversal, unit scaling and load order
 (the load list reversed, which also swaps the two cases of `load combinations`),
-each drawn from two fixed seeds. It takes about 10 s plus the release build.
+each drawn from two fixed seeds. `quick::PROPERTIES` adds properties on top: harmonic
+superposition and reciprocity, on the same models and the nightly models of #1537–#1541.
+It takes about 10 s plus the release build.
 `KINDS=all` (or `KINDS="plastic collapse,harmonic"`) overrides the selection, and
 `BASE=<rev>` sets the comparison base (default `origin/main`).
 

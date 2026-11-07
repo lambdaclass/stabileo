@@ -437,6 +437,19 @@
   color: var(--fg-2);
 }
 
+.landing.blog .post-photo picture,
+.landing.blog .post-photo img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: var(--lp-radius);
+}
+
+.landing.blog .post-photo--tall {
+  max-width: 30rem;
+  margin-inline: auto;
+}
+
 .landing.blog .post-foot {
   display: flex;
   flex-wrap: wrap;
@@ -651,4 +664,14 @@
 
 .landing.blog .standing-cta {
   margin: 1.75rem 0 0;
+}
+
+.landing.blog .standing a:not(:is(p, li, td) a),
+.landing.blog .standing button {
+  display: inline-flex;
+  align-items: center;
+  min-width: 44px;
+  min-height: 44px;
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }

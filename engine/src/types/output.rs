@@ -468,6 +468,10 @@ pub struct ResultSummary {
     /// x, 0, z), for combinations to judge chords on their own: absent when not recorded.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub member_chords: Option<Vec<MemberChord>>,
+    /// Each frame member's geometry and stiffness, for combinations to judge the rotation inside
+    /// its span from their own displacements and span loads: absent when not recorded.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub member_spans: Option<Vec<MemberSpan>>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -475,6 +479,19 @@ pub struct ResultSummary {
 pub struct MemberChord {
     pub element_id: usize,
     pub chord: [f64; 3],
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MemberSpan {
+    pub element_id: usize,
+    pub nodes: [usize; 2],
+    pub length: f64,
+    /// Local x, y and z axes in global components; in 2D the plane's transverse axis is y.
+    pub axes: [[f64; 3]; 3],
+    /// E·I and 1/(G·As) of bending in the local x–y and x–z planes; 2D uses the first.
+    pub ei: [f64; 2],
+    pub shear_flexibility: [f64; 2],
 }
 
 // ==================== Solver Run Metadata ====================

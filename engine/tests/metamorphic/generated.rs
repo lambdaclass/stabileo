@@ -1779,8 +1779,8 @@ fn structured_refusals_require_exact_identity() {
     assert!(compare(&refused.flat(), &same.flat(), 1.0, 1e-10).is_ok());
     for different in [
         Resp::default(),
-        Resp(vec![], vec![("another-id".into(), 758)]),
-        Resp(vec![], vec![("PL-2D-INVARIANCE".into(), 759)]),
+        Resp(vec![], vec![("another-id".into(), 758)], Default::default()),
+        Resp(vec![], vec![("PL-2D-INVARIANCE".into(), 759)], Default::default()),
     ] {
         assert!(compare(&refused.flat(), &different.flat(), 1.0, 1e-10).is_err());
         assert!(compare(&different.flat(), &refused.flat(), 1.0, 1e-10).is_err());

@@ -25,23 +25,25 @@
     sizes?: string;
     class?: string;
     eager?: boolean;
+    dir?: string;
   };
-  let { base, alt, w, h, sizes = '(max-width: 760px) 92vw, 45vw', class: cls = '', eager = false }: Props = $props();
+  let { base, alt, w, h, sizes = '(max-width: 760px) 92vw, 45vw', class: cls = '', eager = false, dir = 'screenshots' }: Props = $props();
+  let wide = $derived(Math.min(w, 1600));
 </script>
 
 <picture class={cls}>
   <source
     type="image/avif"
-    srcset="/screenshots/{base}-800.avif 800w, /screenshots/{base}-1600.avif 1600w"
+    srcset="/{dir}/{base}-800.avif 800w, /{dir}/{base}-1600.avif {wide}w"
     {sizes}
   />
   <source
     type="image/webp"
-    srcset="/screenshots/{base}-800.webp 800w, /screenshots/{base}-1600.webp 1600w"
+    srcset="/{dir}/{base}-800.webp 800w, /{dir}/{base}-1600.webp {wide}w"
     {sizes}
   />
   <img
-    src="/screenshots/{base}-1600.webp"
+    src="/{dir}/{base}-1600.webp"
     {alt}
     width={w}
     height={h}

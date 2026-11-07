@@ -6,9 +6,12 @@
 Run by the codeaster-diff job (.github/workflows/nightly.yml) before the
 comparison.
 """
+import math
 import os
 import sys
 import unittest
+
+HERE = os.path.dirname(os.path.abspath(__file__))
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import to_aster as T  # noqa: E402
@@ -345,7 +348,8 @@ class SingularVerdict(unittest.TestCase):
     `silent_singular` only when stabileo gave no conditioning warning; every
     such result carries `why`, and the summary never needs one."""
 
-    def finish(self, diags, issues=(), bad=(("disp", 5, "rz", 0.0, 1.04e13, 1.0),), held=lambda bad: all(b[0] == "disp" for b in bad)):
+    def finish(self, diags, issues=(), bad=(("disp", 5, "rz", 0.0, 1.04e13, 1.0),), held=lambda bad: all(b[0] == "disp" for b in bad),
+               held_forces=lambda bad: False, aster_held=lambda bad: True):
         import json as J
         import tempfile
         from unittest import mock
@@ -357,7 +361,9 @@ class SingularVerdict(unittest.TestCase):
             with open(os.path.join(job, "result.json"), "w") as f:
                 J.dump({}, f)
             r = {"name": "m", "job": job, "sres": {"diags": diags, "issues": list(issues), "forces": {}}, "meta": {"elements": []}, "near_singular": True}
-            with mock.patch.object(R, "held_mechanism", lambda model, sres, bad, binary, tol: held(bad)):
+            with mock.patch.object(R, "held_mechanism", lambda model, sres, bad, binary, tol: held(bad)), \
+                    mock.patch.object(R, "held_solve", lambda model, sres, bad, binary: {} if held_forces(bad) else None), \
+                    mock.patch.object(R, "aster_agrees_held", lambda model, sres, hres, bad, job, tol: aster_held(bad)):
                 return R.finish(r, 1e-6, None, _mechanism_beam(), "bin")
 
     def test_unwarned_singular_solve_is_silent(self):
@@ -383,6 +389,40 @@ class SingularVerdict(unittest.TestCase):
         r = self.finish(["high_diagonal_ratio"])
         self.assertEqual(r["status"], "silent_singular")
 
+    def test_a_force_disagreement_is_inconclusive_when_stabileo_warned_and_its_forces_hold(self):
+        bad = [("disp", 5, "rz", 0.0, 1.04e13, 1.0), ("force", 1, "mz", 1.0, 2.0, 1.0)]
+        r = self.finish(["known_issue"], ["NUM-INVARIANCE"], bad, held_forces=lambda bad: True)
+        self.assertEqual(r["status"], "warned_singular")
+        self.assertIn("stabileo warned: NUM-INVARIANCE", r["why"])
+        self.assertIn("stabileo forces the same to round-off with the disagreeing DOFs held, moving them needs no force, and code_aster agrees on the held model: 5 rz", r["why"])
+
+    def test_held_forces_without_a_proven_mechanism_are_silent(self):
+        bad = [("disp", 5, "rz", 0.0, 1.04e13, 1.0), ("force", 1, "mz", 1.0, 2.0, 1.0)]
+        seen = []
+        def held(b):
+            seen.append(b)
+            return False
+        r = self.finish(["high_diagonal_ratio", "known_issue"], ["NUM-INVARIANCE"], bad, held=held, held_forces=lambda bad: True)
+        self.assertEqual(r["status"], "silent_singular", "a loaded stiff DOF holds its forces too")
+        self.assertIn([("disp", 5, "rz", 0.0, 1.04e13, 1.0)], seen, "the mechanism proof runs on the displacements alone")
+
+    def test_held_forces_and_a_mechanism_beside_a_force_code_aster_disputes_on_the_held_model_are_silent(self):
+        bad = [("disp", 5, "rz", 0.0, 1.04e13, 1.0), ("force", 1, "mz", 1.0, 2.0, 1.0)]
+        r = self.finish(["known_issue"], ["NUM-INVARIANCE"], bad, held_forces=lambda bad: True, aster_held=lambda bad: False)
+        self.assertEqual(r["status"], "silent_singular", "a stable member's force error repeats in stabileo's own rerun")
+
+    def test_held_forces_without_the_near_mechanism_warning_are_silent(self):
+        bad = [("disp", 5, "rz", 0.0, 1.04e13, 1.0), ("force", 1, "mz", 1.0, 2.0, 1.0)]
+        for diags, issues in [(["high_diagonal_ratio"], []), (["high_diagonal_ratio", "known_issue"], ["SP-17"])]:
+            r = self.finish(diags, issues, bad, held_forces=lambda bad: True)
+            self.assertEqual(r["status"], "silent_singular", issues)
+
+    def test_a_warning_without_held_forces_is_silent(self):
+        bad = [("disp", 5, "rz", 0.0, 1.04e13, 1.0), ("force", 1, "mz", 1.0, 2.0, 1.0)]
+        r = self.finish(["known_issue"], ["NUM-INVARIANCE"], bad, held_forces=lambda bad: False)
+        self.assertEqual(r["status"], "silent_singular")
+
+
     def test_summary_survives_a_result_without_why(self):
         import contextlib
         import io
@@ -394,6 +434,167 @@ class SingularVerdict(unittest.TestCase):
                 mock.patch.object(R, "prepare", lambda *a: {"name": "m", "status": "silent_singular", "max_err": {"disp_r": 1.0}}), \
                 contextlib.redirect_stdout(io.StringIO()):
             self.assertEqual(R.main(), 1)
+
+
+class HeldForces(unittest.TestCase):
+    """Stabileo solved again with the disagreeing displacements held at its own values: inconclusive
+    only if every reaction and member force is the same to 64 eps of the largest one and no held DOF
+    needs a force. The largest force or reaction of _raw is 3.0."""
+
+    def held(self, rerun, bad=(("disp", 5, "rz", 0.0, 1.04e13, 1.0), ("force", 1, "myStart", 3.0, 4.0, 0.25)), binary="bin", model=None, original=None):
+        from unittest import mock
+        import run as R
+        sres = R.C.normalize_stabileo(original or _raw(rz5=0.0), 3)
+        seen = []
+
+        def solve(m, b):
+            seen.append(m)
+            if isinstance(rerun, Exception):
+                raise rerun
+            return rerun
+        with mock.patch.object(R.C, "stabileo", solve):
+            ok = R.held_solve(model or _mechanism_beam(), sres, list(bad), binary) is not None
+        return ok, seen
+
+    def test_identical_forces_and_no_force_at_the_held_dof_are_inconclusive(self):
+        ok, seen = self.held(_raw(rz5=0.0, reac5=0.0))
+        self.assertTrue(ok)
+        sup = next(s for s in seen[0]["supports"].values() if s.get("nodeId") == 5)
+        self.assertTrue(sup["rrz"])
+        self.assertEqual(sup["drz"], 0.0)
+
+    def test_round_off_of_the_largest_force_is_the_same_answer(self):
+        import sys as S
+        self.assertTrue(self.held(_raw(rz5=0.0, reac5=0.0, m12=3.0 + 60 * S.float_info.epsilon * 3.0))[0])
+        self.assertFalse(self.held(_raw(rz5=0.0, reac5=0.0, m12=3.0 + 70 * S.float_info.epsilon * 3.0))[0])
+
+    def test_a_member_force_off_by_1e_9_of_the_largest_is_not(self):
+        self.assertFalse(self.held(_raw(rz5=0.0, reac5=0.0, m12=3.0 + 1e-9 * 3.0))[0])
+
+    def test_a_force_at_the_held_dof_is_not(self):
+        self.assertFalse(self.held(_raw(rz5=0.0, reac5=1e-9 * 3.0))[0], "the held DOF carries load")
+        self.assertTrue(self.held(_raw(rz5=0.0, reac5=1e-15))[0], "round-off at the held DOF")
+        self.assertFalse(self.held(_raw(rz5=0.0))[0], "no reaction reported at the held DOF")
+
+    def test_a_new_support_with_any_force_is_not(self):
+        rerun = _raw(rz5=0.0, reac5=0.0)
+        next(r for r in rerun["reactions"] if r["nodeId"] == 5)["fx"] = 1e-9 * 3.0
+        self.assertFalse(self.held(rerun)[0])
+
+    def test_a_force_at_a_held_dof_of_an_existing_support_is_not(self):
+        model = _mechanism_beam()
+        model["supports"]["9"] = {"id": 9, "nodeId": 5, "rx": True}
+        self.assertFalse(self.held(_raw(rz5=0.0, reac5=0.5), model=model, original=_raw(rz5=0.0, reac5=0.5))[0])
+        self.assertTrue(self.held(_raw(rz5=0.0, reac5=0.0), model=model, original=_raw(rz5=0.0, reac5=0.0))[0])
+
+    def test_a_reaction_that_moves_is_not(self):
+        moved = _raw(rz5=0.0, reac5=0.0)
+        moved["reactions"][0]["fz"] = 1.0 + 1e-9 * 3.0
+        self.assertFalse(self.held(moved)[0])
+        moved["reactions"][0]["fz"] = math_next(1.0)
+        self.assertTrue(self.held(moved)[0])
+
+    def test_only_free_displacements_of_known_nodes_with_a_binary_qualify(self):
+        rerun = _raw(rz5=0.0, reac5=0.0)
+        self.assertFalse(self.held(rerun, bad=[("force", 1, "myStart", 3.0, 4.0, 0.25)])[0], "no displacement disagrees")
+        self.assertFalse(self.held(rerun, bad=[("disp", 9, "rz", 0.0, 1.0, 1.0)])[0])
+        self.assertFalse(self.held(rerun, bad=[("disp", 1, "rz", 0.0, 1.0, 1.0)])[0], "node 1 is fixed")
+        self.assertFalse(self.held(rerun, binary=None)[0])
+        self.assertFalse(self.held(RuntimeError("stabileo: refused"))[0])
+
+
+class HeldRoundOffRegression(unittest.TestCase):
+    """aster3d-763354, unreduced: holding node 4 rz moves forces by up to 3.6e-15 on 32.6 (a different
+    factorization of a larger system), which must count as the same answer; 1e-9 of it must not."""
+
+    def load(self):
+        import json as J
+        with open(os.path.join(HERE, "fixtures", "held-aster3d-763354.json")) as f:
+            d = J.load(f)
+        side = lambda x: {"forces": {int(k): v for k, v in x["forces"].items()}, "reac": {int(k): v for k, v in x["reac"].items()}}
+        return side(d["sres"]), side(d["hres"]), [tuple(t) for t in d["dofs"]]
+
+    def test_the_nightly_model_is_the_same_answer_to_round_off(self):
+        import run as R
+        sres, hres, dofs = self.load()
+        self.assertTrue(any(sres["forces"][e][k] != hres["forces"][e][k] for e in sres["forces"] for k in sres["forces"][e]))
+        self.assertTrue(R._held_identical(sres, hres, dofs))
+
+    def test_1e_9_of_the_largest_force_is_not(self):
+        import run as R
+        sres, hres, dofs = self.load()
+        top = max(abs(v) for f in sres["forces"].values() for v in f.values())
+        e, k = next((e, k) for e, f in hres["forces"].items() for k, v in f.items() if abs(sres["forces"][e][k]) == top)
+        hres["forces"][e][k] += 1e-9 * top
+        self.assertFalse(R._held_identical(sres, hres, dofs))
+        sres, hres, dofs = self.load()
+        nid = next(iter(sres["reac"]))
+        hres["reac"][nid][0] += 1e-9 * top
+        self.assertFalse(R._held_identical(sres, hres, dofs))
+
+    def test_a_reaction_of_another_length_is_not(self):
+        import run as R
+        for change in (lambda r: r.pop(), lambda r: r.append(0.0), lambda r: r.append(math.nan)):
+            sres, hres, dofs = self.load()
+            change(hres["reac"][next(iter(sres["reac"]))])
+            self.assertFalse(R._held_identical(sres, hres, dofs))
+
+
+class AsterOnTheHeldModel(unittest.TestCase):
+    """Code_Aster solves the held model with its singularity check on and must agree with stabileo's
+    held answer: the reference for the forces stabileo's own rerun cannot vouch for."""
+
+    def agrees(self, compared=(), writes=True, unsupported=False):
+        import tempfile
+        from unittest import mock
+        import run as R
+        sres = R.C.normalize_stabileo(_raw(rz5=0.0), 3)
+        seen = {}
+
+        def translate(model):
+            if unsupported:
+                raise R.to_aster.Unsupported("no")
+            seen["model"] = model
+            return "COMM", {"elements": []}
+
+        def run_aster(pending, workdir, jobs):
+            seen["jobs"] = [p["job"] for p in pending]
+            if writes:
+                with open(os.path.join(pending[0]["job"], "result.json"), "w") as f:
+                    f.write("{}")
+
+        with tempfile.TemporaryDirectory() as wd, mock.patch.object(R.to_aster, "translate", translate), \
+                mock.patch.object(R, "run_aster", run_aster), \
+                mock.patch.object(R, "compare_with_aster", lambda model, s, meta, out, tol: (None if compared is None else list(compared), {}, s)):
+            job = os.path.join(wd, "m")
+            os.makedirs(job)
+            ok = R.aster_agrees_held(_mechanism_beam(), sres, sres, [("disp", 5, "rz", 0.0, 1.04e13, 1.0)], job, 1e-6)
+            if "jobs" in seen:
+                self.assertEqual(seen["jobs"], [job + "-held"])
+                with open(os.path.join(job + "-held", "model.comm")) as f:
+                    self.assertEqual(f.read(), "COMM")
+        if "model" in seen:
+            sup = next(s for s in seen["model"]["supports"].values() if s.get("nodeId") == 5)
+            self.assertTrue(sup["rrz"])
+            self.assertEqual(sup["drz"], 0.0)
+        return ok
+
+    def test_agreement_on_the_held_model_qualifies(self):
+        self.assertTrue(self.agrees())
+
+    def test_a_disagreement_on_the_held_model_does_not(self):
+        self.assertFalse(self.agrees([("force", 1, "myStart", 3.0, 4.0, 0.25)]))
+
+    def test_no_reference_does_not(self):
+        self.assertFalse(self.agrees(writes=False), "Code_Aster still singular or failed")
+        self.assertFalse(self.agrees(unsupported=True))
+        self.assertFalse(self.agrees(None))
+
+
+
+def math_next(x):
+    import math
+    return math.nextafter(x, math.inf)
 
 
 if __name__ == "__main__":
