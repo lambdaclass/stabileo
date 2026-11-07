@@ -301,7 +301,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        part: [frames, stability, dynamics, shells]
+        part: [frames, buckling, pdelta, dynamics, shells]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -334,14 +334,15 @@ jobs:
           echo "DIFF_SEED=$seed" >> "$GITHUB_ENV"
           case "$PART" in
             frames) cases=(--fixtures --random2d $((300 * S)) --random3d $((300 * S)) --rich2d $((500 * S)) --rich3d $((500 * S))) ;;
-            stability) cases=(--buckling2d $((300 * S)) --buckling3d $((300 * S)) --pdelta2d $((300 * S)) --pdelta3d $((300 * S))) ;;
+            buckling) cases=(--buckling2d $((300 * S)) --buckling3d $((300 * S))) ;;
+            pdelta) cases=(--pdelta2d $((300 * S)) --pdelta3d $((300 * S))) ;;
             dynamics) cases=(--modal2d $((300 * S)) --modal3d $((300 * S)) --th2d $((200 * S)) --th3d $((200 * S)) --plates $((300 * S))) ;;
             shells) cases=(--shells $((60 * S))) ;;
             *) echo "unknown part $PART"; exit 2 ;;
           esac
           python tools/opensees/compare.py "${cases[@]}" \
             --bin "${CARGO_TARGET_DIR:-$GITHUB_WORKSPACE/target}/release/examples/solve_json" \
-            --seed-start "$seed" -j 2 --report opensees-report.json \
+            --seed-start "$seed" -j "$([ "$PART" = buckling ] && echo 4 || echo 2)" --report opensees-report.json \
             --dump-dir opensees-mismatches
       - name: Reduce and package opensees findings
         if: failure()
