@@ -73,41 +73,32 @@ pub(crate) fn displacements_3d(s: &SolverInput3D, d: &[Displacement3D]) -> Resul
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) enum Known {
     None,
-    SsiNoReactions,
     CombinationNoShellStresses,
 }
 
 impl Known {
     fn of(analysis: &str, label: &str) -> Known {
         match (analysis, label.starts_with("combination")) {
-            ("SSI" | "SSI (soil springs)", _) => Known::SsiNoReactions,
             ("load combinations", true) => Known::CombinationNoShellStresses,
             _ => Known::None,
         }
     }
 }
 
-fn reactions<T>(known: Known, expected: &[usize], got: &[T], id: impl Fn(&T) -> usize) -> Result<(), String> {
-    if known == Known::SsiNoReactions {
-        return if got.is_empty() {
-            Ok(())
-        } else {
-            Err(format!("known bug #1672 (SSI reports no reactions) no longer holds: {} reactions reported; switch SSI to the full reaction check", got.len()))
-        };
-    }
+fn reactions<T>(expected: &[usize], got: &[T], id: impl Fn(&T) -> usize) -> Result<(), String> {
     same_ids("reactions", expected, got.iter().map(id))
 }
 
-pub(crate) fn check_2d(s: &SolverInput, r: &AnalysisResults, known: Known) -> Result<(), String> {
+pub(crate) fn check_2d(s: &SolverInput, r: &AnalysisResults) -> Result<(), String> {
     displacements_2d(s, &r.displacements)?;
-    reactions(known, &support_nodes_2d(s), &r.reactions, |x| x.node_id)?;
+    reactions(&support_nodes_2d(s), &r.reactions, |x| x.node_id)?;
     same_ids("element forces", &ids(&s.elements, |e| e.id), r.element_forces.iter().map(|x| x.element_id))
 }
 
 pub(crate) fn check_3d(s: &SolverInput3D, r: &AnalysisResults3D, known: Known) -> Result<(), String> {
     let x = linear::expand_curved_beams_3d(s);
     displacements_3d(&x, &r.displacements)?;
-    reactions(known, &support_nodes_3d(&x), &r.reactions, |x| x.node_id)?;
+    reactions(&support_nodes_3d(&x), &r.reactions, |x| x.node_id)?;
     same_ids("element forces", &ids(&x.elements, |e| e.id), r.element_forces.iter().map(|x| x.element_id))?;
     if known == Known::CombinationNoShellStresses {
         let counts = (r.plate_stresses.len(), r.quad_stresses.len(), r.quad_nodal_stresses.len());
@@ -470,7 +461,7 @@ fn every_node_support_and_element_has_one_record_2d() {
     let mut ledger = Ledger::default();
     for (name, s, dens) in models_2d() {
         for (analysis, run) in analyses_2d() {
-            let r = run(&s, &dens).map(|v| std::iter::once(outputs_complete(analysis, &v)).chain(v.iter().map(|(label, r)| check_2d(&s, r, Known::of(analysis, label)).map_err(|e| format!("{label} {e}")))).collect());
+            let r = run(&s, &dens).map(|v| std::iter::once(outputs_complete(analysis, &v)).chain(v.iter().map(|(label, r)| check_2d(&s, r).map_err(|e| format!("{label} {e}")))).collect());
             ledger.record(analysis, &name, &[], r);
         }
         let modes = modal_2d(&s, &dens).map(|m| std::iter::once(mode_count(&name, m.len())).chain(m.iter().enumerate().map(|(k, d)| displacements_2d(&s, d).map_err(|e| format!("mode {k} {e}")))).collect());
@@ -589,7 +580,7 @@ mod tests {
     fn a_missing_or_duplicated_record_fails_2d() {
         let (name, s, _) = models_2d().find(|(_, s, _)| linear::solve_2d(s).is_ok() && s.elements.len() > 1 && !s.supports.is_empty()).unwrap();
         let r = linear::solve_2d(&s).unwrap();
-        check_2d(&s, &r, Known::None).unwrap();
+        check_2d(&s, &r).unwrap();
         let edits: [fn(&mut AnalysisResults); 6] = [
             |b| b.displacements = removed(&b.displacements, 0),
             |b| b.displacements = duplicated(&b.displacements, 0),
@@ -601,7 +592,7 @@ mod tests {
         for edit in edits {
             let mut bad = r.clone();
             edit(&mut bad);
-            assert!(check_2d(&s, &bad, Known::None).is_err(), "{name}: an edited result passed");
+            assert!(check_2d(&s, &bad).is_err(), "{name}: an edited result passed");
         }
     }
 
@@ -622,11 +613,6 @@ mod tests {
         for seed in [0, 1] {
             let s = building_3d(seed);
             let r = linear::solve_3d(&s).unwrap();
-            let mut ssi = r.clone();
-            ssi.reactions.clear();
-            check_3d(&s, &ssi, Known::SsiNoReactions).unwrap();
-            assert!(check_3d(&s, &ssi, Known::None).is_err());
-            assert!(check_3d(&s, &r, Known::SsiNoReactions).unwrap_err().contains("#1672"));
             let mut combined = r.clone();
             (combined.plate_stresses, combined.quad_stresses, combined.quad_nodal_stresses) = (vec![], vec![], vec![]);
             check_3d(&s, &combined, Known::CombinationNoShellStresses).unwrap();
@@ -637,7 +623,7 @@ mod tests {
             if !nodal_only.quad_nodal_stresses.is_empty() {
                 assert!(check_3d(&s, &nodal_only, Known::CombinationNoShellStresses).unwrap_err().contains("#1673"));
             }
-            for (known, base) in [(Known::SsiNoReactions, &ssi), (Known::CombinationNoShellStresses, &combined)] {
+            for (known, base) in [(Known::None, &r), (Known::CombinationNoShellStresses, &combined)] {
                 let edits: [fn(&mut AnalysisResults3D); 4] = [
                     |b| b.displacements = removed(&b.displacements, 0),
                     |b| b.displacements = duplicated(&b.displacements, 0),
@@ -650,10 +636,9 @@ mod tests {
                     assert!(check_3d(&s, &bad, known).is_err(), "{known:?}: an edited result passed");
                 }
             }
-            let mut ssi_shells = ssi.clone();
-            ssi_shells.plate_stresses.clear();
-            ssi_shells.quad_stresses.clear();
-            assert!(check_3d(&s, &ssi_shells, Known::SsiNoReactions).is_err());
+            let mut no_reactions = r.clone();
+            no_reactions.reactions.clear();
+            assert!(check_3d(&s, &no_reactions, Known::None).is_err());
             let mut combined_reactions = combined.clone();
             combined_reactions.reactions = removed(&combined_reactions.reactions, 0);
             assert!(check_3d(&s, &combined_reactions, Known::CombinationNoShellStresses).is_err());
@@ -661,16 +646,18 @@ mod tests {
     }
 
     #[test]
-    fn known_ssi_bug_2d_holds_exactly() {
+    fn ssi_is_held_to_the_full_reaction_check_1672() {
+        for analysis in ["SSI", "SSI (soil springs)"] {
+            assert_eq!(Known::of(analysis, "case"), Known::None, "{analysis}");
+        }
         let (_, s, _) = models_2d().find(|(_, s, _)| linear::solve_2d(s).is_ok() && !s.supports.is_empty()).unwrap();
-        let r = linear::solve_2d(&s).unwrap();
-        assert!(check_2d(&s, &r, Known::SsiNoReactions).unwrap_err().contains("#1672"));
-        let mut ssi = r.clone();
-        ssi.reactions.clear();
-        check_2d(&s, &ssi, Known::SsiNoReactions).unwrap();
-        assert!(check_2d(&s, &ssi, Known::None).is_err());
-        ssi.element_forces = removed(&ssi.element_forces, 0);
-        assert!(check_2d(&s, &ssi, Known::SsiNoReactions).is_err());
+        let r = ssi::solve_ssi_2d(&ssi::SSIInput { solver: s.clone(), soil_springs: vec![], max_iter: 50, tolerance: 1e-10 }).unwrap().results;
+        check_2d(&s, &r).unwrap();
+        for bad in [vec![], removed(&r.reactions, 0), duplicated(&r.reactions, 0)] {
+            let mut edited = r.clone();
+            edited.reactions = bad;
+            assert!(check_2d(&s, &edited).is_err());
+        }
     }
 
     #[test]
