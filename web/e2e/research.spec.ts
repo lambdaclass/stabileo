@@ -3,10 +3,11 @@ import { pickLanguage } from './fixtures';
 import { EXPERIMENTS } from '../src/components/research/experiments';
 import catalog from '../../research/papers.json' with { type: 'json' };
 import type { StabileoTestActions, StabileoTestHooks } from '../src/lib/utils/e2e-hooks';
+import { PUBLIC_LOCALES } from '../src/lib/i18n/offered';
 
 const REVIEW_NOTE = /First version|Primera versión|Primeira versão|Erste Version|Première version|İlk sürüm|review rounds?\b|rondas? de revisión|rodadas? de revisão|Prüfrunden?|cycles? de revue|inceleme turu/;
 
-for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
+for (const locale of PUBLIC_LOCALES) {
   test(`@smoke no research page shows a first-version or review-round note in ${locale}`, async ({ page }) => {
     for (const path of ['/research', ...EXPERIMENTS.map((e) => e.path)]) {
       await page.goto(`/${locale}${path}/`);
@@ -454,7 +455,7 @@ test('@smoke public-page entry installs editor hooks after its lazy mount', asyn
 });
 
 // Real layout coverage; run in CI with browsers available (no worker stub).
-for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
+for (const locale of PUBLIC_LOCALES) {
   for (const viewport of [{ width: 360, height: 800 }, { width: 390, height: 844 }, { width: 844, height: 390 }, { width: 810, height: 1080 }]) {
     test(`Shauer accessible reflow ${locale} ${viewport.width}x${viewport.height}`, async ({ page }) => {
       await page.setViewportSize(viewport);

@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { isComplete } from '../src/lib/i18n/offered';
 
 const route = (locale: string) => `/${locale}/research/benchmarks/plastic-collapse/`;
 const VIEWPORTS = [{ width: 360, height: 800 }, { width: 390, height: 844 }, { width: 844, height: 390 }, { width: 810, height: 1080 }];
@@ -81,6 +82,7 @@ test.describe('@smoke plastic collapse', () => {
   ]) {
     for (const viewport of [VIEWPORTS[1], VIEWPORTS[2]]) {
       test(`translated page and layout: ${locale} at ${viewport.width}×${viewport.height}`, async ({ page }) => {
+        test.skip(!isComplete(locale), 'not offered until a native speaker checks it (#1628)');
         await page.setViewportSize(viewport);
         await page.emulateMedia({ reducedMotion: 'reduce' });
         await page.goto(route(locale));

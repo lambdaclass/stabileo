@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { PUBLIC_LOCALES } from '../src/lib/i18n/offered';
 test('@smoke research arches replay, mode and production WASM recomputation', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/en/research/mechanics/biggins-2026/');
@@ -28,7 +29,7 @@ test('@smoke research arches width recomputation and stop', async ({ page }) => 
   await expect(app).toHaveAttribute('data-step', step!);
 });
 
-for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
+for (const locale of PUBLIC_LOCALES) {
   for (const viewport of [{ width: 360, height: 780 }, { width: 390, height: 844 }, { width: 844, height: 390 }, { width: 810, height: 1080 }]) {
     test(`@smoke arches accessibility ${locale} ${viewport.width}x${viewport.height}`, async ({ page }) => {
       await page.setViewportSize(viewport);
