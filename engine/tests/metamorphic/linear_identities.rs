@@ -77,7 +77,7 @@ fn combinations_2d(s: &SolverInput) -> Outcome {
     let r0 = match solve(vec![]) {
         Ok(r) if !refused(&r.structured_diagnostics, &r) => r,
         Ok(_) => return Outcome::Violation("zero-load solve refused on a model whose own loads solve".into()),
-        Err(e) => return Outcome::Skipped(e),
+        Err(e) => return Outcome::Violation(format!("zero-load solve refused on a model whose own loads solve: {e}")),
     };
     let (cond, rel) = match conditioned(conditioning::of_2d(s)) {
         Ok(x) => x,
@@ -188,7 +188,7 @@ fn combinations_3d(s: &SolverInput3D) -> Outcome {
     let r0 = match solve(vec![]) {
         Ok(r) if !refused(&r.structured_diagnostics, &r) => r,
         Ok(_) => return Outcome::Violation("zero-load solve refused on a model whose own loads solve".into()),
-        Err(e) => return Outcome::Skipped(e),
+        Err(e) => return Outcome::Violation(format!("zero-load solve refused on a model whose own loads solve: {e}")),
     };
     let (cond, rel) = match conditioned(conditioning::of_3d(s)) {
         Ok(x) => x,
@@ -233,7 +233,10 @@ fn combinations_3d(s: &SolverInput3D) -> Outcome {
         }
     }
     for (c, loads) in parts.iter().enumerate() {
-        let Ok(direct) = solve(loads.clone()) else { return Outcome::Violation(format!("case {}: direct solve refused", CASES[c])) };
+        let direct = match solve(loads.clone()) {
+            Ok(r) if !refused(&r.structured_diagnostics, &r) => r,
+            _ => return Outcome::Violation(format!("case {}: direct solve refused", CASES[c])),
+        };
         let case = &mc.case_results[c].results;
         let floor = load_floor_3d(&SolverInput3D { loads: loads.clone(), ..s.clone() }, cond.lchar);
         let (fc, fd) = (flat_3d(case, Parts::ALL), flat_3d(&direct, Parts::ALL));
@@ -288,11 +291,11 @@ fn shell_superposition(s: &SolverInput3D) -> Outcome {
     };
     let plate = |r: &AnalysisResults3D| r.plate_stresses.iter().map(|p| [p.sigma_xx, p.sigma_yy, p.tau_xy, p.mx, p.my, p.mxy, p.qx.unwrap_or(0.0), p.qy.unwrap_or(0.0)]).collect();
     let quad = |r: &AnalysisResults3D| r.quad_stresses.iter().map(|q| [q.sigma_xx, q.sigma_yy, q.tau_xy, q.mx, q.my, q.mxy, q.qx.unwrap_or(0.0), q.qy.unwrap_or(0.0)]).collect();
-    let shear_presence = |r: &AnalysisResults3D| -> Vec<(bool, bool)> {
-        r.plate_stresses.iter().map(|p| (p.qx.is_some(), p.qy.is_some())).chain(r.quad_stresses.iter().map(|q| (q.qx.is_some(), q.qy.is_some()))).collect()
+    let shear_presence = |r: &AnalysisResults3D| -> Vec<(usize, bool, bool)> {
+        r.plate_stresses.iter().map(|p| (p.element_id, p.qx.is_some(), p.qy.is_some())).chain(r.quad_stresses.iter().map(|q| (q.element_id, q.qx.is_some(), q.qy.is_some()))).collect()
     };
     if [&ra, &rb, &r0].iter().any(|r| r.plate_stresses.len() != rab.plate_stresses.len() || r.quad_stresses.len() != rab.quad_stresses.len() || shear_presence(r) != shear_presence(&rab)) {
-        return Outcome::Violation("shell stress lists or their shear components differ between load cases".into());
+        return Outcome::Violation("shell stress lists, their element ids or their shear components differ between load cases".into());
     }
     for (p, v) in expected.plate_stresses.iter_mut().zip(combine(plate)) {
         (p.sigma_xx, p.sigma_yy, p.tau_xy, p.mx, p.my, p.mxy) = (v[0], v[1], v[2], v[3], v[4], v[5]);
