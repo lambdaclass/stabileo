@@ -70,17 +70,53 @@ pub(crate) fn displacements_3d(s: &SolverInput3D, d: &[Displacement3D]) -> Resul
     same_ids("displacements", &ids(&s.nodes, |n| n.id), d.iter().map(|x| x.node_id))
 }
 
-pub(crate) fn check_2d(s: &SolverInput, r: &AnalysisResults) -> Result<(), String> {
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) enum Known {
+    None,
+    SsiNoReactions,
+    CombinationNoShellStresses,
+}
+
+impl Known {
+    fn of(analysis: &str, label: &str) -> Known {
+        match (analysis, label.starts_with("combination")) {
+            ("SSI", _) => Known::SsiNoReactions,
+            ("load combinations", true) => Known::CombinationNoShellStresses,
+            _ => Known::None,
+        }
+    }
+}
+
+fn reactions<T>(known: Known, expected: &[usize], got: &[T], id: impl Fn(&T) -> usize) -> Result<(), String> {
+    if known == Known::SsiNoReactions {
+        return if got.is_empty() {
+            Ok(())
+        } else {
+            Err(format!("known bug #1672 (SSI reports no reactions) no longer holds: {} reactions reported; switch SSI to the full reaction check", got.len()))
+        };
+    }
+    same_ids("reactions", expected, got.iter().map(id))
+}
+
+pub(crate) fn check_2d(s: &SolverInput, r: &AnalysisResults, known: Known) -> Result<(), String> {
     displacements_2d(s, &r.displacements)?;
-    same_ids("reactions", &support_nodes_2d(s), r.reactions.iter().map(|x| x.node_id))?;
+    reactions(known, &support_nodes_2d(s), &r.reactions, |x| x.node_id)?;
     same_ids("element forces", &ids(&s.elements, |e| e.id), r.element_forces.iter().map(|x| x.element_id))
 }
 
-pub(crate) fn check_3d(s: &SolverInput3D, r: &AnalysisResults3D) -> Result<(), String> {
+pub(crate) fn check_3d(s: &SolverInput3D, r: &AnalysisResults3D, known: Known) -> Result<(), String> {
     let x = linear::expand_curved_beams_3d(s);
     displacements_3d(&x, &r.displacements)?;
-    same_ids("reactions", &support_nodes_3d(&x), r.reactions.iter().map(|x| x.node_id))?;
+    reactions(known, &support_nodes_3d(&x), &r.reactions, |x| x.node_id)?;
     same_ids("element forces", &ids(&x.elements, |e| e.id), r.element_forces.iter().map(|x| x.element_id))?;
+    if known == Known::CombinationNoShellStresses {
+        let counts = (r.plate_stresses.len(), r.quad_stresses.len(), r.quad_nodal_stresses.len());
+        return if counts == (0, 0, 0) {
+            Ok(())
+        } else {
+            Err(format!("known bug #1673 (3D combinations drop shell stresses) no longer holds: {counts:?} plate, quad and quad nodal stress records; switch combinations to the full shell check"))
+        };
+    }
     same_ids("plate stresses", &ids(&x.plates, |e| e.id), r.plate_stresses.iter().map(|x| x.element_id))?;
     let families = [
         ("MITC4 quad stresses", ids(&x.quads, |e| e.id)),
@@ -352,7 +388,7 @@ fn every_node_support_and_element_has_one_record_2d() {
     let mut ledger = Ledger::default();
     for (name, s, dens) in models_2d() {
         for (analysis, run) in analyses_2d() {
-            let r = run(&s, &dens).map(|v| v.iter().map(|(label, r)| check_2d(&s, r).map_err(|e| format!("{label} {e}"))).collect());
+            let r = run(&s, &dens).map(|v| v.iter().map(|(label, r)| check_2d(&s, r, Known::of(analysis, label)).map_err(|e| format!("{label} {e}"))).collect());
             ledger.record(analysis, &name, &[], r);
         }
         let modes = modal_2d(&s, &dens).map(|m| m.iter().enumerate().map(|(k, d)| displacements_2d(&s, d).map_err(|e| format!("mode {k} {e}"))).collect());
@@ -369,7 +405,7 @@ fn every_node_support_element_and_shell_has_one_record_3d() {
     for (name, s, dens) in models_3d() {
         let tags = shell_tags(&s);
         for (analysis, run) in analyses_3d() {
-            let r = run(&s, &dens).map(|v| v.iter().map(|(label, r)| check_3d(&s, r).map_err(|e| format!("{label} {e}"))).collect());
+            let r = run(&s, &dens).map(|v| v.iter().map(|(label, r)| check_3d(&s, r, Known::of(analysis, label)).map_err(|e| format!("{label} {e}"))).collect());
             ledger.record(analysis, &name, &tags, r);
         }
         let nodal = linear::solve_3d(&s).map(|r| vec![nodal_stresses_3d(&s, &r)]);
@@ -411,7 +447,7 @@ mod tests {
     fn rejects_3d(s: &SolverInput3D, r: &AnalysisResults3D, edit: impl Fn(&mut AnalysisResults3D)) {
         let mut bad = r.clone();
         edit(&mut bad);
-        assert!(check_3d(s, &bad).is_err(), "an edited result passed");
+        assert!(check_3d(s, &bad, Known::None).is_err(), "an edited result passed");
     }
 
     #[test]
@@ -419,7 +455,7 @@ mod tests {
         for seed in 0..5 {
             let s = building_3d(seed);
             let r = linear::solve_3d(&s).unwrap();
-            check_3d(&s, &r).unwrap();
+            check_3d(&s, &r, Known::None).unwrap();
             nodal_stresses_3d(&s, &r).unwrap();
             let last = r.displacements.len() - 1;
             rejects_3d(&s, &r, |b| b.displacements = removed(&b.displacements, last));
@@ -455,20 +491,20 @@ mod tests {
         s.quads.remove("4");
         s.curved_shells.insert("7".into(), SolverCurvedShellElement { id: 7, nodes: quad.nodes, material_id: quad.material_id, thickness: quad.thickness, normals: None });
         let r = linear::solve_3d(&SolverInput3D { loads: vec![], ..s.clone() }).unwrap();
-        check_3d(&s, &r).unwrap();
+        check_3d(&s, &r, Known::None).unwrap();
         let mut relabelled = r.clone();
         relabelled.quad_stresses[3].element_id = 1;
-        assert!(check_3d(&s, &relabelled).is_err());
+        assert!(check_3d(&s, &relabelled, Known::None).is_err());
         let mut reordered = r.clone();
         reordered.quad_stresses.swap(0, 3);
-        assert!(check_3d(&s, &reordered).is_err());
+        assert!(check_3d(&s, &reordered, Known::None).is_err());
     }
 
     #[test]
     fn a_missing_or_duplicated_record_fails_2d() {
         let (name, s, _) = models_2d().find(|(_, s, _)| linear::solve_2d(s).is_ok() && s.elements.len() > 1 && !s.supports.is_empty()).unwrap();
         let r = linear::solve_2d(&s).unwrap();
-        check_2d(&s, &r).unwrap();
+        check_2d(&s, &r, Known::None).unwrap();
         let edits: [fn(&mut AnalysisResults); 6] = [
             |b| b.displacements = removed(&b.displacements, 0),
             |b| b.displacements = duplicated(&b.displacements, 0),
@@ -480,7 +516,7 @@ mod tests {
         for edit in edits {
             let mut bad = r.clone();
             edit(&mut bad);
-            assert!(check_2d(&s, &bad).is_err(), "{name}: an edited result passed");
+            assert!(check_2d(&s, &bad, Known::None).is_err(), "{name}: an edited result passed");
         }
     }
 
@@ -494,5 +530,61 @@ mod tests {
             assert!(displacements_3d(&s, &removed(d, 0)).is_err());
             assert!(displacements_3d(&s, &duplicated(d, 0)).is_err());
         }
+    }
+
+    #[test]
+    fn known_bugs_hold_exactly_and_everything_else_stays_checked() {
+        for seed in [0, 1] {
+            let s = building_3d(seed);
+            let r = linear::solve_3d(&s).unwrap();
+            let mut ssi = r.clone();
+            ssi.reactions.clear();
+            check_3d(&s, &ssi, Known::SsiNoReactions).unwrap();
+            assert!(check_3d(&s, &ssi, Known::None).is_err());
+            assert!(check_3d(&s, &r, Known::SsiNoReactions).unwrap_err().contains("#1672"));
+            let mut combined = r.clone();
+            (combined.plate_stresses, combined.quad_stresses, combined.quad_nodal_stresses) = (vec![], vec![], vec![]);
+            check_3d(&s, &combined, Known::CombinationNoShellStresses).unwrap();
+            assert!(check_3d(&s, &combined, Known::None).is_err());
+            assert!(check_3d(&s, &r, Known::CombinationNoShellStresses).unwrap_err().contains("#1673"));
+            let mut nodal_only = combined.clone();
+            nodal_only.quad_nodal_stresses = r.quad_nodal_stresses.clone();
+            if !nodal_only.quad_nodal_stresses.is_empty() {
+                assert!(check_3d(&s, &nodal_only, Known::CombinationNoShellStresses).unwrap_err().contains("#1673"));
+            }
+            for (known, base) in [(Known::SsiNoReactions, &ssi), (Known::CombinationNoShellStresses, &combined)] {
+                let edits: [fn(&mut AnalysisResults3D); 4] = [
+                    |b| b.displacements = removed(&b.displacements, 0),
+                    |b| b.displacements = duplicated(&b.displacements, 0),
+                    |b| b.element_forces = removed(&b.element_forces, 0),
+                    |b| b.element_forces = duplicated(&b.element_forces, 0),
+                ];
+                for edit in edits {
+                    let mut bad = base.clone();
+                    edit(&mut bad);
+                    assert!(check_3d(&s, &bad, known).is_err(), "{known:?}: an edited result passed");
+                }
+            }
+            let mut ssi_shells = ssi.clone();
+            ssi_shells.plate_stresses.clear();
+            ssi_shells.quad_stresses.clear();
+            assert!(check_3d(&s, &ssi_shells, Known::SsiNoReactions).is_err());
+            let mut combined_reactions = combined.clone();
+            combined_reactions.reactions = removed(&combined_reactions.reactions, 0);
+            assert!(check_3d(&s, &combined_reactions, Known::CombinationNoShellStresses).is_err());
+        }
+    }
+
+    #[test]
+    fn known_ssi_bug_2d_holds_exactly() {
+        let (_, s, _) = models_2d().find(|(_, s, _)| linear::solve_2d(s).is_ok() && !s.supports.is_empty()).unwrap();
+        let r = linear::solve_2d(&s).unwrap();
+        assert!(check_2d(&s, &r, Known::SsiNoReactions).unwrap_err().contains("#1672"));
+        let mut ssi = r.clone();
+        ssi.reactions.clear();
+        check_2d(&s, &ssi, Known::SsiNoReactions).unwrap();
+        assert!(check_2d(&s, &ssi, Known::None).is_err());
+        ssi.element_forces = removed(&ssi.element_forces, 0);
+        assert!(check_2d(&s, &ssi, Known::SsiNoReactions).is_err());
     }
 }

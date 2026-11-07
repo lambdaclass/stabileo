@@ -72,6 +72,24 @@ UPDATE_METAMORPHIC_DOC=1 cargo test --locked --release --test metamorphic metamo
   shells, pressure, thermal, member, point and nodal loads, a spring and a settlement.
   Membrane stress, bending moment and shear per length are compared each against its
   own magnitude, floored by the load floor carried through the thinnest shell.
+* `completeness.rs`: result completeness. The metamorphic checks compare responses with
+  each other, so a record missing from every response would pass them. Here every result is
+  checked against the input model: one displacement per node, one reaction per distinct
+  support node, one force record per element (curved beams expanded), one plate stress per
+  plate, quad stresses per family in the engine's order (MITC4, MITC9, solid shells, curved
+  shells), and on the linear solve one quad nodal stress per MITC4/MITC9 corner node. A
+  missing id, an id reported twice or an id not in the model fails. It runs linear, load
+  session, constrained, certified linear, load combinations (every case and the
+  combination), staged (every stage and the final result), Winkler, contact, SSI, P-Delta,
+  corotational, material and fiber nonlinear, cable, and every mode shape. Models: the same
+  fuzz seeds and 20 buildings as `linear_identities.rs`, plus frame-only copies of the
+  plate, MITC4 and curved-shell buildings (no settlement or thermal load) so that
+  corotational and fiber analyses are reached. Every analysis and every shell family on the
+  linear solve must be checked at least once. Two engine bugs are asserted as they are now,
+  not exempted: SSI reports no reactions (#1672), and 3D combination results have no plate,
+  quad or quad nodal stresses (#1673). Every other field of those results is fully checked.
+  When either bug is fixed, the test fails and points to the issue, and the case moves to
+  the full check.
 
 ## Invariants
 
