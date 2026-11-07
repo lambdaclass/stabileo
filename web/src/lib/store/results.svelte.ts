@@ -274,6 +274,7 @@ function createResultsStore() {
   let perCombo3D = $state<Map<number, AnalysisResults3D>>(new Map());
   let unstableCombinations3D = $state<number[]>([]);
   let envelope3D = $state.raw<FullEnvelope3D | null>(null);
+  // Keyed by object: a known issue written into an already published result is not seen, so publish a new object instead.
   const refusals = new WeakMap<object, boolean>();
   const refused = (r: unknown): boolean => {
     if (!r || typeof r !== 'object') return knownIssueResultDisposition(r).refused;
