@@ -491,7 +491,7 @@ fn combine_shells(terms: &[(f64, usize, &AnalysisResults3D)], template: (usize, 
         }
         for (i, a) in q.iter_mut().enumerate() {
             if a.is_some_and(|a| !a.is_finite()) {
-                *a = Some(rescaled_sum(terms.iter().map(|&(f, _, r)| (f, at(r)[i].unwrap_or(0.0)))));
+                *a = Some(rescaled_sum(terms.iter().filter_map(|&(f, _, r)| at(r)[i].map(|b| (f, b)))));
             }
         }
         if q[0].is_none() || q[1].is_none() { [None, None] } else { q }
