@@ -80,7 +80,7 @@ pub(crate) enum Known {
 impl Known {
     fn of(analysis: &str, label: &str) -> Known {
         match (analysis, label.starts_with("combination")) {
-            ("SSI", _) => Known::SsiNoReactions,
+            ("SSI" | "SSI (soil springs)", _) => Known::SsiNoReactions,
             ("load combinations", true) => Known::CombinationNoShellStresses,
             _ => Known::None,
         }
@@ -285,6 +285,13 @@ fn analyses_2d() -> Vec<Ana2> {
     ]
 }
 
+fn soil_springs(s: &SolverInput3D) -> Vec<ssi::SoilSpring> {
+    let supported: std::collections::HashSet<usize> = s.supports.values().map(|x| x.node_id).collect();
+    let mut nodes: Vec<usize> = s.nodes.values().map(|n| n.id).filter(|n| !supported.contains(n)).collect();
+    nodes.sort_unstable();
+    nodes.into_iter().take(6).map(|node_id| ssi::SoilSpring { node_id, direction: 2, curve: dedaliano_engine::solver::soil_curves::SoilCurve::Tz { t_ult: 50.0, z_ult: 0.01, perimeter: Some(1.0) }, tributary_length: 1.0 }).collect()
+}
+
 fn analyses_3d() -> Vec<Ana3> {
     vec![
         ("linear", |s, _| one(linear::solve_3d(s))),
@@ -299,6 +306,8 @@ fn analyses_3d() -> Vec<Ana3> {
             one(contact::solve_contact_3d(&inp).map(|r| r.results))
         }),
         ("SSI", |s, _| one(ssi::solve_ssi_3d(&ssi::SSIInput3D { solver: s.clone(), soil_springs: vec![], max_iter: 50, tolerance: 1e-10 }).map(|r| r.results))),
+        ("Winkler (springs)", |s, _| one(winkler::solve_winkler_3d(&winkler::WinklerInput3D { solver: s.clone(), foundation_springs: s.elements.values().filter(|e| ![e.release_my_start, e.release_my_end, e.release_mz_start, e.release_mz_end, e.release_t_start, e.release_t_end].contains(&true)).map(|e| winkler::FoundationSpring3D { element_id: e.id, ky: Some(2e3), kz: Some(5e3) }).collect() }))),
+        ("SSI (soil springs)", |s, _| one(ssi::solve_ssi_3d(&ssi::SSIInput3D { solver: s.clone(), soil_springs: soil_springs(s), max_iter: 200, tolerance: 1e-8 }).map(|r| r.results))),
         ("P-Delta", |s, _| one(converged_finite(pdelta::solve_pdelta_3d(s, 100, 1e-12).map(|r| (r.converged, r.results)), finite_3d))),
         ("corotational", |s, _| one(corotational::solve_corotational_3d(s, 100, 1e-10, 4, false).map(|r| r.results))),
         ("material nonlinear", |s, _| material_3d(s)),
@@ -366,6 +375,7 @@ const DECLARED_REFUSALS: &[(&str, &str, Applies)] = &[
     ("fiber nonlinear", "does not support member end releases", has_releases),
     ("fiber nonlinear", "does not support prescribed support displacements", has_settlements),
     ("SSI", "does not support prescribed support displacements", has_settlements),
+    ("SSI (soil springs)", "does not support prescribed support displacements", has_settlements),
     ("staged", "Nine-node shell elements are not yet supported in staged construction", |s| !s.quad9s.is_empty()),
     ("staged", "does not support curved shell elements", |s| !s.curved_shells.is_empty()),
     ("staged", "does not support solid shell elements", |s| !s.solid_shells.is_empty()),

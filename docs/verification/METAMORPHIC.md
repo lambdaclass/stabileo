@@ -83,7 +83,8 @@ UPDATE_METAMORPHIC_DOC=1 cargo test --locked --release --test metamorphic metamo
   missing id, an id reported twice or an id not in the model fails. It runs linear, load
   session, constrained, certified linear, load combinations (every case and the
   combination), staged (every stage and the final result; the case, combination and stage
-  names must be exactly the requested ones), Winkler, contact, SSI, P-Delta,
+  names must be exactly the requested ones), Winkler and SSI without springs and in 3D with
+  foundation springs on every unreleased member and soil springs on six free nodes, contact, P-Delta,
   corotational, material and fiber nonlinear, cable, and every mode shape (4 modes on the
   buildings and frame copies, 1 to 4 on fuzz models). Models: the same
   fuzz seeds and 20 buildings as `linear_identities.rs`, plus frame-only copies of the
