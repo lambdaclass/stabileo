@@ -56,6 +56,28 @@ password `stabileo-demo-password` (`StabileoRepo.DemoPassword`).
 - Do not add Co-Authored-By lines to commits or PRs
 - **DETERMINISTIC SEEDS ALWAYS**: Seeds must produce identical data on every run. Never use `Enum.random()`, `:rand`, or any randomness in seeds.
 - **ALWAYS USE `make` TARGETS**: every toolchain (Elixir, PostgreSQL, Rust + wasm-pack, Node) comes from the Nix flake, and every target runs inside it. Never run `mix`, `iex`, `cargo`, `wasm-pack` or `npm` directly; use the matching `make` target (`make test.backend`, `make wasm`, `make web.run`, `make db.gen.migration name=...`), or `make shell` for anything without one. Check the `Makefile`.
+- **NEVER KEEP A USER FROM THEIR OWN MODEL**: when an account gate, a sign-in or the backend fails, the browser still lets the user save to a local file, open and export the model in the editor. Only in the client: server endpoints still deny on any auth or ownership check they cannot complete.
+- **DELETE UNUSED CODE**: never keep it behind a flag or a dead branch "in case"; git keeps it.
+
+# Stop and ask
+
+Do not decide these yourself. Ask the user, and list each one under
+"Decisions that need approval" at the top of the PR description:
+
+- a default for consent, privacy or personal data
+- a third-party tracker or service (analytics pixels, tag managers, external APIs)
+- a new dependency
+- removing a sign-in method, or putting behind an account something that works
+  today without one
+- porting code from another product
+- weakening or skipping an auth, permission or validation check
+
+# New endpoints
+
+The PR description answers, for each new endpoint: who can call it, what stops
+one account from reading or changing another's data, its rate limit, the size cap on what it accepts, how long its data is kept and what
+deletes it, and whether anything the caller sends is rendered anywhere (URLs,
+HTML).
 
 # Code comments
 
