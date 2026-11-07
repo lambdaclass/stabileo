@@ -14108,6 +14108,8 @@ const es: Record<string, string> = {
   "recheck.advisoryMaybe": "Este modelo puede estar afectado por un error conocido de resultados ({name}): si usaste {analysis}, ejecutá ese análisis de nuevo",
   "recheck.advisoryBannerMaybe": "Los resultados pueden estar afectados por un error conocido ({name}): si usaste {analysis}, ejecutá ese análisis de nuevo.",
   "recheck.advisoryAnalysis": "Error conocido de resultados ({name}) en {analysis}: ejecutá ese análisis de nuevo",
+  "recheck.advisoryMaybeIf": "Este modelo puede estar afectado por un error conocido de resultados ({name}): si tenía {analysis} cuando se resolvió, resolvelo de nuevo",
+  "recheck.advisoryBannerMaybeIf": "Los resultados pueden estar afectados por un error conocido ({name}): si el modelo tenía {analysis} cuando se resolvió, resolvelo de nuevo.",
   "recheck.rerunning": "Volviendo a correr análisis y diseño…",
   "recheck.rerunDone": "Análisis y diseño recalculados con la versión de resultados {v}.",
   "recheck.rerunAnalysis": "Volver a correr el análisis",

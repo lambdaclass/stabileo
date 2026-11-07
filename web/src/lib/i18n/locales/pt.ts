@@ -13760,6 +13760,8 @@ const pt: Translations = {
   "recheck.advisoryMaybe": "Este modelo pode ser afetado por um erro conhecido de resultados ({name}): se você usou {analysis}, execute essa análise de novo",
   "recheck.advisoryBannerMaybe": "Os resultados podem ser afetados por um erro conhecido ({name}): se você usou {analysis}, execute essa análise de novo.",
   "recheck.advisoryAnalysis": "Erro conhecido de resultados ({name}) afetando {analysis}: execute essa análise de novo",
+  "recheck.advisoryMaybeIf": "Este modelo pode ser afetado por um erro conhecido de resultados ({name}): se tinha {analysis} quando foi resolvido, resolva-o de novo",
+  "recheck.advisoryBannerMaybeIf": "Os resultados podem ser afetados por um erro conhecido ({name}): se o modelo tinha {analysis} quando foi resolvido, resolva-o de novo.",
   "recheck.rerunning": "Executando novamente análise e dimensionamento…",
   "recheck.rerunDone": "Análise e dimensionamento recalculados com a versão de resultados {v}.",
   "recheck.rerunAnalysis": "Executar novamente a análise",

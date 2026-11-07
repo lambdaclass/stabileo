@@ -13926,6 +13926,8 @@ const de: Translations = {
   'recheck.advisoryMaybe': 'Dieses Modell kann von einem bekannten Ergebnisfehler betroffen sein ({name}): wenn Sie {analysis} verwendet haben, führen Sie diese Analyse erneut aus',
   'recheck.advisoryBannerMaybe': 'Ergebnisse können von einem bekannten Ergebnisfehler betroffen sein ({name}): wenn Sie {analysis} verwendet haben, führen Sie diese Analyse erneut aus.',
   'recheck.advisoryAnalysis': 'Bekannter Ergebnisfehler ({name}) betrifft {analysis}: führen Sie diese Analyse erneut aus',
+  'recheck.advisoryMaybeIf': 'Dieses Modell kann von einem bekannten Ergebnisfehler betroffen sein ({name}): wenn es bei der Berechnung {analysis} hatte, berechnen Sie es neu',
+  'recheck.advisoryBannerMaybeIf': 'Ergebnisse können von einem bekannten Ergebnisfehler betroffen sein ({name}): wenn das Modell bei der Berechnung {analysis} hatte, berechnen Sie es neu.',
   'recheck.rerunning': 'Berechnung und Bemessung werden erneut ausgeführt…',
   'recheck.rerunDone': 'Berechnung und Bemessung mit Ergebnisversion {v} erneut ausgeführt.',
   'recheck.rerunAnalysis': 'Berechnung erneut ausführen',
