@@ -588,7 +588,7 @@ fn rotational_reciprocity(a: &Ana2, c: &Case2, cond: &Conditioning, seed: u64) -
         Err(e) => return Verdict::Refused(e),
     };
     if !crate::betti::has_rotations(&force_a, "ry") {
-        return Verdict::NotApplicable;
+        return if a.name == "harmonic" { Verdict::NotApplicable } else { Verdict::Fail(format!("{} reports no rotations", a.name)) };
     }
     let r = (|| -> Result<crate::betti::Solves, String> {
         let moment_a = run(a, &at(na, vec![nb, na], 0.0, 0.0, ma[0]))?;

@@ -223,11 +223,19 @@ fn combinations_3d(s: &SolverInput3D) -> Outcome {
             return Outcome::Violation(format!("{name} ≠ linear solve of the factored loads: {e}"));
         }
         if !got.results.plate_stresses.is_empty() || !got.results.quad_stresses.is_empty() {
-            let mut rterms: Vec<(f64, &AnalysisResults3D)> = vec![(1.0, &exp), (1.0 - sum, &r0)];
-            rterms.extend(fs.iter().map(|&(c, f)| (f, &mc.case_results[c].results)));
-            if let Err(e) = compare_shells(&got.results, &rterms, &exp, rel, floor, thickness_range(s).unwrap_or(1.0)) {
-                return Outcome::Violation(format!("{name} shell results ≠ linear solve of the factored loads: {e}"));
-            }
+            return Outcome::Violation(format!("{name}: combinations now report shell stresses; compare them against the factored solve"));
+        }
+    }
+    for (c, loads) in parts.iter().enumerate() {
+        let Ok(direct) = solve(loads.clone()) else { return Outcome::Violation(format!("case {}: direct solve refused", CASES[c])) };
+        let case = &mc.case_results[c].results;
+        let floor = load_floor_3d(&SolverInput3D { loads: loads.clone(), ..s.clone() }, cond.lchar);
+        let (fc, fd) = (flat_3d(case, Parts::ALL), flat_3d(&direct, Parts::ALL));
+        if let Err(e) = compare_compliant(&fc, &fd, &magnitude_of(&[(1.0, &fc), (1.0, &fd)]), cond.lchar, rel, floor, cond.compliance()) {
+            return Outcome::Violation(format!("case {} ≠ its linear solve: {e}", CASES[c]));
+        }
+        if let Err(e) = compare_shells(case, &[(1.0, case), (1.0, &direct)], &direct, rel, floor, thickness_range(s).unwrap_or(1.0)) {
+            return Outcome::Violation(format!("case {} shell results ≠ its linear solve: {e}", CASES[c]));
         }
     }
     Outcome::Checked
