@@ -881,6 +881,18 @@ mod tests {
         let cancelling = [CombinationFactor { case_id: 0, factor: 2.0 }, CombinationFactor { case_id: 1, factor: -2.0 }, CombinationFactor { case_id: 2, factor: 1.0 }];
         let q = combine_results_3d_refs(&cancelling, &[(0, &a), (1, &b), (2, &c)]).unwrap().unwrap().quad_stresses[0].clone();
         assert_eq!((q.sigma_xx, q.von_mises, q.qx), (1e-200, 1e-200, Some(1e-200)));
+        for order in [[0, 2, 1], [2, 0, 1], [0, 1, 2]] {
+            let (factor, x) = ([2.0, -2.0, 1.0], [1e308, 1e308, 1.0]);
+            let cases: Vec<AnalysisResults3D> = order.iter().map(|&k| {
+                let mut r = a.clone();
+                (r.quad_stresses[0].sigma_xx, r.quad_stresses[0].qx) = (x[k], Some(x[k]));
+                r
+            }).collect();
+            let factors: Vec<_> = order.iter().enumerate().map(|(i, &k)| CombinationFactor { case_id: i, factor: factor[k] }).collect();
+            let refs: Vec<_> = cases.iter().enumerate().map(|(i, r)| (i, r)).collect();
+            let q = combine_results_3d_refs(&factors, &refs).unwrap().unwrap().quad_stresses[0].clone();
+            assert_eq!((q.sigma_xx, q.qx), (1.0, Some(1.0)), "{order:?}");
+        }
     }
 
     #[test]
