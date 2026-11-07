@@ -6,14 +6,9 @@
   ],
   "area": "analysis",
   "when": {
-    "allOf": [
-      [
-        "shells",
-        "curvedShells"
-      ],
-      [
-        "combinations"
-      ]
+    "any": [
+      "shells",
+      "curvedShells"
     ]
   },
   "quantities": [
