@@ -406,7 +406,7 @@ Re-check the model and reference behind a failed benchmark before calling it an 
 This slice changes tests and their evidence, not the production solver or existing accuracy
 tolerances; previously solved user projects need no recalculation for it.
 
-#### Benchmark gate: every benchmark has a spec, two references and a justified tolerance (2026-11-05)
+#### Benchmark gate: every benchmark has a spec, two references or a listed exemption, and a justified tolerance (2026-11-05)
 
 `engine/tests/benchmarks/registry.json` records, for every benchmark, the quantity checked, its
 references with citation, location and units, a justified tolerance and whether the references
@@ -2261,7 +2261,7 @@ names the route, stops assigning new work and closes the workers. This shortens 
 multilingual site's build without changing its published content. Re-check generated pages,
 feed order and the sitemap when changing the pool or route list.
 
-#### Lighthouse scores can only get better without a recorded decision (2026-11-01)
+#### A Lighthouse score that moves past its margin opens an issue (2026-11-01)
 
 A daily workflow runs Lighthouse against stabileo.com (median of five, mobile and desktop) and opens
 an issue when a score moves beyond its margin from `web/perf-lighthouse.json`: down is a
