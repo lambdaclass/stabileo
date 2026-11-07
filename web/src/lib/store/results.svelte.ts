@@ -274,24 +274,7 @@ function createResultsStore() {
   let perCombo3D = $state<Map<number, AnalysisResults3D>>(new Map());
   let unstableCombinations3D = $state<number[]>([]);
   let envelope3D = $state.raw<FullEnvelope3D | null>(null);
-  // A cached answer lives for one task and only while the result's own diagnostic lists are the ones scanned, so a refusal written into a published result is still seen.
-  const OWN_DIAGNOSTICS = ['structuredDiagnostics', 'diagnostics', 'solverDiagnostics', 'findings'] as const;
-  type Refusal = { lists: unknown[]; lengths: number[]; refused: boolean };
-  let refusals = new WeakMap<object, Refusal>();
-  let refusalsExpire: ReturnType<typeof setTimeout> | null = null;
-  const refused = (r: unknown): boolean => {
-    if (!r || typeof r !== 'object') return knownIssueResultDisposition(r).refused;
-    const rec = r as Record<string, unknown>;
-    const lists = OWN_DIAGNOSTICS.map((k) => rec[k]);
-    const lengths = lists.map((l) => (Array.isArray(l) ? l.length : -1));
-    const hit = refusals.get(r);
-    if (hit && hit.lists.every((l, i) => l === lists[i] && hit.lengths[i] === lengths[i])) return hit.refused;
-    const v = knownIssueResultDisposition(r).refused;
-    refusals.set(r, { lists, lengths, refused: v });
-    refusalsExpire ??= setTimeout(() => { refusals = new WeakMap(); refusalsExpire = null; }, 0);
-    return v;
-  };
-  const anyRefused = (...maps: ReadonlyMap<number, unknown>[]) => maps.some(m => [...m.values()].some(refused));
+  const anyRefused = (...maps: ReadonlyMap<number, unknown>[]) => maps.some(m => [...m.values()].some(r => knownIssueResultDisposition(r).refused));
   const NO_RESULTS = new Map<number, never>();
   const combosRefused2D = () => anyRefused(perCase, perCombo);
   const combosRefused3D = () => anyRefused(perCase3D, perCombo3D);
@@ -460,7 +443,7 @@ function createResultsStore() {
      *  editing/reading exclusion, not just the ones that call showDiagram(). */
     _setOnDiagramShown(fn: () => void) { _onDiagramShown = fn; },
 
-    get results() { return refused(results) ? null : results; },
+    get results() { return knownIssueResultDisposition(results).refused ? null : results; },
     /** True when ANY result of any kind is present. Used by the mutation hook
      *  to decide whether an edit must clear stale results. Covers 2D + 3D base,
      *  per-case/per-combo/envelope, every advanced result (2D + 3D), and the
@@ -588,8 +571,8 @@ function createResultsStore() {
         results3D = perCase3D.get(v) ?? singleResults3D;
       }
     },
-    get singleResults() { return refused(singleResults) ? null : singleResults; },
-    get singleResults3D() { return refused(singleResults3D) ? null : singleResults3D; },
+    get singleResults() { return knownIssueResultDisposition(singleResults).refused ? null : singleResults; },
+    get singleResults3D() { return knownIssueResultDisposition(singleResults3D).refused ? null : singleResults3D; },
     get hasCombinations() { return (perCombo.size > 0 && !combosRefused2D()) || (perCombo3D.size > 0 && !combosRefused3D()); },
     get isEnvelopeActive() { return activeView === 'envelope' && (envelope !== null || envelope3D !== null); },
     get fullEnvelope() { return this.envelope; },
@@ -1167,7 +1150,7 @@ function createResultsStore() {
 
     // ─── 3D Results ─────────────────────────────────────────────
 
-    get results3D() { return refused(results3D) ? null : results3D; },
+    get results3D() { return knownIssueResultDisposition(results3D).refused ? null : results3D; },
 
     setResults3D(r: AnalysisResults3D, preserveDiagram = false) {
       _onStaticPublish?.(r, '3d');
