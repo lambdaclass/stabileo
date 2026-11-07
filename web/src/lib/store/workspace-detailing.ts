@@ -147,7 +147,9 @@ function isHeavy(h: unknown): h is HeavyDetailing {
   if (!h || typeof h !== 'object') return false;
   const { assemblies, designRefusals, floorReadings } = h as Record<string, unknown>;
   return Array.isArray(assemblies)
-    && assemblies.every((a) => !!a && typeof a === 'object' && Array.isArray((a as { bars?: unknown }).bars))
+    && assemblies.every((a) => !!a && typeof a === 'object' && typeof (a as { id?: unknown }).id === 'string'
+      && Array.isArray((a as { bars?: unknown }).bars)
+      && ((a as { bars: unknown[] }).bars).every((b) => !!b && typeof b === 'object' && typeof (b as { id?: unknown }).id === 'string'))
     && (designRefusals === undefined || (!!designRefusals && typeof designRefusals === 'object'))
     && (floorReadings === undefined || (!!floorReadings && typeof floorReadings === 'object'));
 }

@@ -289,15 +289,39 @@ describe('the designed and detailed 7-storey building', () => {
     expect((await readDetailing([ref])).has(ref), 'not used for an hour and named by nothing: pruned').toBe(false);
   }, 300_000);
 
+  it('the save keeps the versions the workspace backup names, and prunes them once nothing names them', async () => {
+    const aged = async (withBackup: boolean) => {
+      storage.removeItem('stabileo-workspace-backup');
+      startWith([designed], designed.id);
+      expect(await saveWorkspaceSettled()).toBe(true);
+      const ref = storedRef();
+      if (withBackup) storage.setItem('stabileo-workspace-backup', JSON.stringify({ version: 1, entries: [{ savedAt: '', reason: 'tabs-dropped', dropped: [], raw: storage.getItem(WORKSPACE_KEY) }] }));
+      await rawWrite('touched', (s) => s.put({ ref, at: Date.now() - 60 * 60 * 1000 }));
+      startWith([repinned()], designed.id);
+      expect(await saveWorkspaceSettled()).toBe(true);
+      expect(storedRef()).not.toBe(ref);
+      return ref;
+    };
+    const unnamed = await aged(false);
+    await vi.waitFor(async () => expect((await readDetailing([unnamed])).has(unnamed)).toBe(false));
+    const named = await aged(true);
+    await new Promise((r) => setTimeout(r, 300));
+    expect((await readDetailing([named])).has(named)).toBe(true);
+  }, 300_000);
+
   it('treats a malformed record as lost bars, not as a tab with none', async () => {
     startWith([designed], designed.id);
     expect(await saveWorkspaceSettled()).toBe(true);
     const ref = storedRef();
-    await rawWrite('detailing', (s) => s.put({ ref, heavy: {} }));
+    for (const heavy of [{}, { assemblies: [{ id: 'a', bars: [null] }] }, { assemblies: [{ bars: [] }] }]) {
+      toast.mockClear();
+      storage.setItem(WORKSPACE_KEY, JSON.stringify({ ...JSON.parse(storage.getItem(WORKSPACE_KEY)!), tabs: JSON.parse(storage.getItem(WORKSPACE_KEY)!).tabs.map((tab: TabState) => ({ ...tab, detailingRef: ref })) }));
+      await rawWrite('detailing', (s) => s.put({ ref, heavy }));
 
-    await reload();
+      await reload();
 
-    expect(toast.mock.calls.find((c) => String(c[0]).includes('«Edificio»'))?.[1]).toBe('error');
+      expect(toast.mock.calls.find((c) => String(c[0]).includes('«Edificio»'))?.[1], JSON.stringify(heavy)).toBe('error');
+    }
   }, 300_000);
 
   it('says which tab lost its bars when their record is gone, and restores it without them', async () => {

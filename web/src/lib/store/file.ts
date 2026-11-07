@@ -1214,13 +1214,19 @@ export function saveWorkspaceToLocalStorage(): boolean {
   return true;
 }
 
-function storedWorkspaceRefs(): string[] {
+function refsIn(text: string | null): string[] {
   try {
-    const tabs = (JSON.parse(localStorage.getItem(WORKSPACE_KEY) ?? 'null') as { tabs?: Array<{ detailingRef?: unknown }> } | null)?.tabs;
+    const tabs = (JSON.parse(text ?? 'null') as { tabs?: Array<{ detailingRef?: unknown }> } | null)?.tabs;
     return Array.isArray(tabs) ? tabs.flatMap((tab) => (typeof tab?.detailingRef === 'string' ? [tab.detailingRef] : [])) : [];
   } catch {
     return [];
   }
+}
+
+function storedWorkspaceRefs(): string[] {
+  let current: string | null = null;
+  try { current = localStorage.getItem(WORKSPACE_KEY); } catch { /* none */ }
+  return [...refsIn(current), ...readWorkspaceBackups().flatMap((b) => refsIn(b.raw))];
 }
 
 /** For a caller about to reload the page. */
