@@ -330,7 +330,7 @@ class MergeQueue(unittest.TestCase):
         job = workflow.split('\n  revert-check:\n', 1)[1].split('\n  check-migrations:\n', 1)[0]
         script = textwrap.dedent(job.split('        run: |\n', 1)[1])
         env = {**os.environ, 'PATH': f'{self.bin}:{os.environ["PATH"]}', 'FAKE_GH': str(self.prs), 'BASE': self.base,
-               'EVENT': 'merge_group', 'GH_REPO': 'lambdaclass/stabileo', 'RUNNER_TEMP': self.tmp.name, 'PR_LABELS': '', 'GITHUB_RUN_ATTEMPT': '1'}
+               'EVENT': 'merge_group', 'GH_REPO': 'lambdaclass/stabileo', 'RUNNER_TEMP': self.tmp.name, 'PR_LABELS': ''}
         env.pop('GITHUB_EVENT_PATH', None)
         env.update(extra)
         r = subprocess.run(['bash', '--noprofile', '--norc', '-e', '-o', 'pipefail', '-c', script], cwd=self.repo, env=env, capture_output=True, text=True)
@@ -380,22 +380,20 @@ class MergeQueue(unittest.TestCase):
         self.assertIn('Labels: status:in-queue,reverts-ok', out)
         self.assertIn('Acknowledged by the reverts-ok label.', out)
 
-    def test_without_the_api_it_falls_back_to_the_labels_detect_changes_read(self):
+    def test_without_the_api_a_reverts_ok_it_could_not_confirm_live_does_not_acknowledge(self):
         git(self.repo, 'checkout', '-q', 'a')
-        code, out = self.run_job(EVENT='pull_request', PR='1', PR_LABELS='status:in-queue')
-        self.assertEqual(code, 1, out)
-        self.assertIn('Could not read the labels of #1 now', out)
-        self.assertNotIn('Acknowledged', out)
         code, out = self.run_job(EVENT='pull_request', PR='1', PR_LABELS='status:in-queue,reverts-ok')
-        self.assertEqual(code, 0, out)
-        self.assertIn('Acknowledged by the reverts-ok label.', out)
-
-    def test_a_rerun_without_the_api_does_not_trust_the_labels_of_an_earlier_attempt(self):
-        git(self.repo, 'checkout', '-q', 'a')
-        code, out = self.run_job(EVENT='pull_request', PR='1', PR_LABELS='reverts-ok', GITHUB_RUN_ATTEMPT='2')
         self.assertEqual(code, 1, out)
-        self.assertIn('from an earlier attempt of this run', out)
+        self.assertIn("Couldn't read the labels of #1 live; re-run Revert Check.", out)
+        self.assertIn('Labels: status:in-queue\n', out)
+        self.assertIn('new.txt: 1 line from', out)
         self.assertNotIn('Acknowledged', out)
+
+    def test_without_the_api_a_branch_that_deletes_nothing_recent_still_passes(self):
+        git(self.repo, 'checkout', '-q', 'b')
+        code, out = self.run_job(EVENT='pull_request', PR='1', PR_LABELS='reverts-ok')
+        self.assertEqual(code, 0, out)
+        self.assertIn("Couldn't read the labels of #1 live", out)
 
     def test_a_group_commit_that_is_not_a_queue_merge_fails(self):
         self.queue('Merge branch a')
