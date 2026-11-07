@@ -1221,7 +1221,11 @@ export function saveWorkspaceToLocalStorage(): boolean {
     return ok;
   }
   const save = storeDetailing(staged).then((stored) => {
-    if (!stored) publishedGen = Math.max(publishedGen, gen);
+    if (!stored && gen > publishedGen) {
+      // An older workspace left in place would be restored at the next start over the newer autosave.
+      clearWorkspaceFromLocalStorage();
+      publishedGen = gen;
+    }
     const ok = stored && publishWorkspace(gen, text);
     if (ok && gen === publishedGen) void pruneDetailing(() => new Set([...staged.map((s) => s.ref), ...storedWorkspaceRefs()]));
     return finishSave(gen, ok);
@@ -1254,7 +1258,10 @@ function storedWorkspaceRefs(): string[] {
 
 /** For a caller about to reload the page. */
 export async function saveWorkspaceSettled(): Promise<boolean> {
-  return saveWorkspaceToLocalStorage() && (await lastSave);
+  if (!saveWorkspaceToLocalStorage()) return false;
+  const ok = await lastSave;
+  await workspaceSavesFinished();
+  return ok && !workspaceSaveStatus.failed;
 }
 
 export function workspaceNeedsDetailing(session: DedalSessionFile): boolean {

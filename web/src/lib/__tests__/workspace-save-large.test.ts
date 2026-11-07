@@ -357,6 +357,16 @@ describe('the designed and detailed 7-storey building', () => {
     expect(modelStore.snapshot().detailing?.assemblies ?? []).toEqual([]);
   }, 300_000);
 
+  it('a save awaited by a reload reports failure when a newer save failed while it was storing its bars', async () => {
+    startWith([designed], designed.id);
+    const earlier = saveWorkspaceSettled();
+    const sync = vi.spyOn(tabManager, 'syncCurrentTab').mockImplementation(() => { throw new Error('capture failed'); });
+    expect(saveWorkspaceToLocalStorage()).toBe(false);
+    sync.mockRestore();
+    expect(await earlier, 'a reload would run with nothing saved').toBe(false);
+    expect(storage.getItem(WORKSPACE_KEY)).toBeNull();
+  }, 300_000);
+
   it('an earlier save still storing its bars does not publish after a later save failed to store its own', async () => {
     startWith([designed], designed.id);
     expect(saveWorkspaceToLocalStorage()).toBe(true);
@@ -425,7 +435,7 @@ describe('the designed and detailed 7-storey building', () => {
     expect(workspaceSaveStatus.failed).toBe(true);
   }, 300_000);
 
-  it('when the bars cannot be stored, keeps the previous workspace, shows the notice, and clears it once the tab is closed', async () => {
+  it('when the bars cannot be stored, withdraws the older workspace so the newer autosave is offered, and shows the notice until a save succeeds', async () => {
     startWith([designed], designed.id);
     expect(await saveWorkspaceSettled()).toBe(true);
     const previous = storage.getItem(WORKSPACE_KEY);
@@ -435,7 +445,8 @@ describe('the designed and detailed 7-storey building', () => {
     startWith([repinned()], designed.id);
     expect(await saveWorkspaceSettled()).toBe(false);
     expect(workspaceSaveStatus.failed).toBe(true);
-    expect(storage.getItem(WORKSPACE_KEY)).toBe(previous);
+    expect(previous).not.toBeNull();
+    expect(storage.getItem(WORKSPACE_KEY), 'the older workspace would win over the newer autosave at the next start').toBeNull();
 
     startWith([smallTab('b', 'Pórtico B')], 'b');
     expect(await saveWorkspaceSettled()).toBe(true);
