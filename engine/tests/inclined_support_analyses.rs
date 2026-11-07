@@ -18,7 +18,7 @@ use dedaliano_engine::certify::buckling::{certify_buckling_3d, BucklingCertifica
 use dedaliano_engine::certify::modal::{certify_modal_2d, certify_modal_3d};
 use dedaliano_engine::solver::harmonic::{solve_harmonic_2d, solve_harmonic_3d, HarmonicInput, HarmonicInput3D, HarmonicResponsePoint, HarmonicResult};
 use dedaliano_engine::solver::reduction::{craig_bampton_2d, craig_bampton_3d, CraigBamptonInput, CraigBamptonInput3D, CraigBamptonResult};
-use dedaliano_engine::solver::{buckling, modal, pdelta, spectral, time_integration};
+use dedaliano_engine::solver::{buckling, modal, pdelta, spectral, ssi, time_integration};
 use dedaliano_engine::types::*;
 use std::collections::HashMap;
 
@@ -911,5 +911,56 @@ fn corotational_3d_inclined_support_matches_rotated_model() {
         let b = solve_corotational_3d(&frame_3d(Some(&q), sub), 50, 1e-8, 4, false).expect("b");
         assert!(a.converged && b.converged, "corotational 3d sub {sub}: converged {} {}", a.converged, b.converged);
         assert_static_3d(&format!("corotational 3d sub {sub}"), &q, &a.results, &b.results, 1e-6);
+    }
+}
+
+fn reaction_rows_2d(r: &[Reaction]) -> Vec<(usize, [f64; 3])> {
+    r.iter().map(|x| (x.node_id, [x.rx, x.rz, x.my])).collect()
+}
+
+fn reaction_rows_3d(r: &[Reaction3D]) -> Vec<(usize, [f64; 6])> {
+    r.iter().map(|x| (x.node_id, [x.fx, x.fy, x.fz, x.mx, x.my, x.mz])).collect()
+}
+
+fn assert_same_reactions<const N: usize>(what: &str, a: &[(usize, [f64; N])], b: &[(usize, [f64; N])]) {
+    assert!(!b.is_empty(), "{what}: the reference reports no reactions");
+    assert_eq!(a.iter().map(|r| r.0).collect::<Vec<_>>(), b.iter().map(|r| r.0).collect::<Vec<_>>(), "{what}: reaction nodes");
+    let scale = b.iter().flat_map(|r| r.1).fold(0.0f64, |m, v| m.max(v.abs()));
+    assert!(scale > 1e-6, "{what}: no reaction");
+    for ((node, x), (_, y)) in a.iter().zip(b) {
+        for i in 0..N {
+            assert_close(&format!("{what} node {node} component {i}"), x[i], y[i], scale, 1e-9);
+        }
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #1672"]
+fn issue_1672_ssi_without_soil_springs_reports_the_linear_reactions_2d() {
+    for sub in SUBS {
+        for rotated in [false, true] {
+            let input = model_2d(THETA, rotated, sub, &LOADS_2D);
+            let what = format!("2D sub {sub} rotated {rotated}");
+            let linear = dedaliano_engine::solver::linear::solve_2d(&input).unwrap();
+            let r = ssi::solve_ssi_2d(&ssi::SSIInput { solver: input, soil_springs: vec![], max_iter: 50, tolerance: 1e-10 }).unwrap();
+            assert!(r.converged, "{what}");
+            assert_same_reactions(&what, &reaction_rows_2d(&r.results.reactions), &reaction_rows_2d(&linear.reactions));
+        }
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #1672"]
+fn issue_1672_ssi_without_soil_springs_reports_the_linear_reactions_3d() {
+    let q = q_3d();
+    for sub in SUBS_3D {
+        for rotation in [None, Some(&q)] {
+            let input = model_3d(normal_3d(), rotation, sub, &LOADS_3D);
+            let what = format!("3D sub {sub} rotated {}", rotation.is_some());
+            let linear = dedaliano_engine::solver::linear::solve_3d(&input).unwrap();
+            let r = ssi::solve_ssi_3d(&ssi::SSIInput3D { solver: input, soil_springs: vec![], max_iter: 50, tolerance: 1e-10 }).unwrap();
+            assert!(r.converged, "{what}");
+            assert_same_reactions(&what, &reaction_rows_3d(&r.results.reactions), &reaction_rows_3d(&linear.reactions));
+        }
     }
 }

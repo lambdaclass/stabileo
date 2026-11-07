@@ -6,6 +6,7 @@ Pull requests and the merge queue check this ledger against their base and their
 
 | Issue | id | mode | predicate / disposition | evidence |
 |---|---|---|---|---|
+| #1672 | `SSI-REACTIONS` | WARN | 2D/3D soil-structure interaction returns no support reactions; every SSI result carries the warning, so the app says reactions were not computed wherever it shows the result. | known_issues_analysis_predicates_have_negative_controls; known_issues.rs ssi_results_carry_structural_warnings_once; reproducers inclined_support_analyses::issue_1672_ssi_without_soil_springs_reports_the_linear_reactions_2d/_3d (expected to fail) |
 | #762 | `NUM-INVARIANCE` | WARN | Existing conditioning/stability diagnostics; original and reduced constrained stiffness (§ below). | known_issues::invariance_reported_seeds_are_flagged_or_refused (all ten reported seeds); a_plain_frame_carries_no_known_issue; sparse_solver_paths numerical/diagnostic parity |
 | #760 | `TH-RECIPROCITY` | WARN | 2D/3D time history; no validated safe subset. | known_issues_analysis_predicates_have_negative_controls; existing time-history numerical tests retained |
 | #759 | `MD-ORTHOGONALITY` | WARN | 3D modal/spectral and harmonic modal superposition; no validated safe subset. | known_issues_analysis_predicates_have_negative_controls; unchanged modal/spectral numerical tests |

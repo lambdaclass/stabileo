@@ -130,9 +130,7 @@ fn ssi_results_carry_structural_warnings_once() {
     };
     let r = solve_ssi_2d(&input).unwrap();
     let found = ids(&r.results.structured_diagnostics);
-    // FR-4 (#407) and the soil curves AC-12/13/16 (SA-2026-017) are fixed: no known issue, and the
-    // structural thermal default is attached once.
-    assert!(found.is_empty(), "{found:?}");
+    assert_eq!(found, vec!["SSI-REACTIONS".to_string()], "attached once");
     assert_eq!(assumed(&r.results.structured_diagnostics), vec!["alpha".to_string()], "attached once");
 }
 

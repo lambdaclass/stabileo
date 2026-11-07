@@ -84,6 +84,27 @@ describe('production containment', () => {
     expect(resultsStore.knownIssues3D.messages).toEqual([]);
   });
 
+  it.each(['en', 'es'] as const)('an SSI result says next to the results, in %s, that its support reactions were not computed', async (locale) => {
+    await model();
+    await ensureLocale(locale);
+    setLocale(locale);
+    resultsStore.setResults3D({
+      displacements: [], reactions: [], elementForces: [],
+      structuredDiagnostics: [{ code: 'known_issue', severity: 'warning', phase: 'SSI-REACTIONS', value: 1672, message: 'ENGINE' }],
+    } as never);
+    const html = render(ContainmentBanner, { props: {
+      disposition: resultsStore.knownIssues3D,
+      children: createRawSnippet(() => ({ render: () => '<span>Reactions table</span>' })),
+    } }).body;
+    expect(resultsStore.knownIssues3D.refused).toBe(false);
+    expect(resultsStore.knownIssues3D.messages).toEqual([`${tAt('knownIssue.SSI-REACTIONS', locale)} (#1672)`]);
+    expect(html).toContain('role="alert"');
+    expect(html).toContain('#1672');
+    expect(html).toContain(locale === 'en' ? 'does not compute support reactions' : 'no calcula las reacciones de apoyo');
+    expect(html).toContain('Reactions table');
+    expect(html).not.toContain('ENGINE');
+  });
+
   it('a refused time history is withheld even while hidden, and only from the 3D workspace', () => {
     timeHistoryView.set({
       structuredDiagnostics: [{ code: 'known_issue', severity: 'error', phase: 'SH-MITC4-DISTORTION', value: 798, message: 'ENGINE' }],
