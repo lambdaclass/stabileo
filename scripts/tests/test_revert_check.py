@@ -270,6 +270,9 @@ class Workflow(unittest.TestCase):
         self.assertIn('select(.name == "Revert Check")', label)
         self.assertIn('actions/jobs/$job/rerun', label)
         self.assertIn('[ "$status" = completed ] && break', label)
+        self.assertNotIn('concurrency', label.split('\njobs:\n', 1)[0])
+        self.assertIn("    if: github.event.label.name == 'reverts-ok'", label)
+        self.assertIn('    concurrency:\n      group: revert-check-label-', label)
 
 
 FAKE_GH = """#!/usr/bin/env python3
@@ -327,7 +330,7 @@ class MergeQueue(unittest.TestCase):
         job = workflow.split('\n  revert-check:\n', 1)[1].split('\n  check-migrations:\n', 1)[0]
         script = textwrap.dedent(job.split('        run: |\n', 1)[1])
         env = {**os.environ, 'PATH': f'{self.bin}:{os.environ["PATH"]}', 'FAKE_GH': str(self.prs), 'BASE': self.base,
-               'EVENT': 'merge_group', 'GH_REPO': 'lambdaclass/stabileo', 'RUNNER_TEMP': self.tmp.name, 'PR_LABELS': ''}
+               'EVENT': 'merge_group', 'GH_REPO': 'lambdaclass/stabileo', 'RUNNER_TEMP': self.tmp.name, 'PR_LABELS': '', 'GITHUB_RUN_ATTEMPT': '1'}
         env.pop('GITHUB_EVENT_PATH', None)
         env.update(extra)
         r = subprocess.run(['bash', '--noprofile', '--norc', '-e', '-o', 'pipefail', '-c', script], cwd=self.repo, env=env, capture_output=True, text=True)
@@ -386,6 +389,13 @@ class MergeQueue(unittest.TestCase):
         code, out = self.run_job(EVENT='pull_request', PR='1', PR_LABELS='status:in-queue,reverts-ok')
         self.assertEqual(code, 0, out)
         self.assertIn('Acknowledged by the reverts-ok label.', out)
+
+    def test_a_rerun_without_the_api_does_not_trust_the_labels_of_an_earlier_attempt(self):
+        git(self.repo, 'checkout', '-q', 'a')
+        code, out = self.run_job(EVENT='pull_request', PR='1', PR_LABELS='reverts-ok', GITHUB_RUN_ATTEMPT='2')
+        self.assertEqual(code, 1, out)
+        self.assertIn('from an earlier attempt of this run', out)
+        self.assertNotIn('Acknowledged', out)
 
     def test_a_group_commit_that_is_not_a_queue_merge_fails(self):
         self.queue('Merge branch a')

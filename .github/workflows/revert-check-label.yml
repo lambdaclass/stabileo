@@ -6,14 +6,13 @@ on:
 
 permissions: {}
 
-concurrency:
-  group: revert-check-label-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
-
 jobs:
   rerun:
     name: Rerun Revert Check on the reverts-ok label
     if: github.event.label.name == 'reverts-ok' && github.event.pull_request.head.repo.full_name == github.repository
+    concurrency:
+      group: revert-check-label-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
     runs-on: ubuntu-24.04
     timeout-minutes: 180
     permissions:

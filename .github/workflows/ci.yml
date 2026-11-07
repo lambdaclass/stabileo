@@ -812,8 +812,13 @@ jobs:
           fi
           git show "$BASE:.github/scripts/revert-check.py" > "$RUNNER_TEMP/revert-check.py"
           if [ "$EVENT" != merge_group ]; then
-            if ! LABELS=$(gh api "repos/$GH_REPO/pulls/$PR" --jq '[.labels[].name] | join(",")'); then
-              echo "Could not read the labels of #$PR now; using the ones Detect Changes read."
+            if ! LABELS=$(gh api "repos/$GH_REPO/pulls/$PR" --jq '[.labels[].name] | join(",")') &&
+               ! { sleep 5; LABELS=$(gh api "repos/$GH_REPO/pulls/$PR" --jq '[.labels[].name] | join(",")'); }; then
+              if [ "$GITHUB_RUN_ATTEMPT" != 1 ]; then
+                echo "Could not read the labels of #$PR, and the ones Detect Changes read are from an earlier attempt of this run."
+                exit 1
+              fi
+              echo "Could not read the labels of #$PR now; using the ones Detect Changes read at the start of this run."
               LABELS=$PR_LABELS
             fi
             echo "Labels: $LABELS"
