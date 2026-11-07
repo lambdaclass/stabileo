@@ -799,6 +799,11 @@ mod tests {
         }
         let zero = [CombinationFactor { case_id: 0, factor: 1.0 }, CombinationFactor { case_id: 1, factor: 0.0 }];
         assert!(combine_results_3d_refs_with_thickness(&zero, &[(0, a), (1, &missing)], &none).is_ok());
+        let mut shearless = missing.clone();
+        shearless.quad_stresses[0].qx = None;
+        let inactive_first = combine_results_3d_refs_with_thickness(&zero, &[(1, &shearless), (0, a)], &none).unwrap().unwrap();
+        assert_eq!(inactive_first.quad_stresses.len(), a.quad_stresses.len());
+        assert_eq!(inactive_first.quad_stresses[0].qx, a.quad_stresses[0].qx);
     }
 
     #[test]

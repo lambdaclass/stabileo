@@ -148,6 +148,7 @@ describe('a slab with a displacement imposed by a load case (#1673)', () => {
       const list = (res: typeof r.perCombo extends Map<number, infer R> ? R : never) => (kind === 'quad' ? res.quadStresses : res.plateStresses) ?? [];
       const [settled, loaded, combo] = [list(r.perCase.get(c1)!), list(r.perCase.get(c2)!), list(r.perCombo.get(cid)!)];
       expect(settled.length).toBe(kind === 'quad' ? 2 : 4);
+      expect([loaded.length, combo.length]).toEqual([settled.length, settled.length]);
       expect(Math.max(...settled.map((s) => Math.abs(s.mx)))).toBeGreaterThan(1);
       combo.forEach((s, k) => {
         expect(s.elementId).toBe(settled[k]!.elementId);

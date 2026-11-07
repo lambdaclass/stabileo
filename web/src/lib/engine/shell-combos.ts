@@ -177,7 +177,7 @@ export function enrichComboShellStresses(
  *     both linear in the displacements;
  *   · the diagnostics, which describe the model and the solve rather than one case's loads,
  *     and the timings are the first case's.
- * Nodal shell stresses are not carried, as for every combination (see the header).
+ * The nodal Von Mises lists are not carried, as for every combination (see the header).
  */
 export function allLoadsResult3D(
   combined: AnalysisResults3D,

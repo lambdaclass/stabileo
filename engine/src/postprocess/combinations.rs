@@ -413,7 +413,7 @@ pub fn combine_results_3d_refs(factors: &[CombinationFactor], cases: &[(usize, &
 /// avoiding per-combination clones of every case. Distorted-shell results combine only when
 /// Σ|factor| ≤ 1, which keeps each case's checked membrane-stress variation within its bound.
 /// Shell stresses are refused unless every contributing case lists the same shells in the same
-/// order as the first case, and plate stresses unless `plate_thickness` has each plate.
+/// order, and plate stresses unless `plate_thickness` has each plate.
 pub fn combine_results_3d_refs_with_thickness(factors: &[CombinationFactor], cases: &[(usize, &AnalysisResults3D)], plate_thickness: &PlateThicknesses) -> Result<Option<AnalysisResults3D>, String> {
     let contributing: Vec<_> = cases.iter().filter(|(id, _)| factors.iter().any(|f| f.case_id == *id && f.factor != 0.0)).collect();
     let weight: f64 = factors.iter().filter(|f| cases.iter().any(|(id, _)| *id == f.case_id)).map(|f| f.factor.abs()).sum();
@@ -602,7 +602,7 @@ pub(crate) fn combine_results_3d_refs_unchecked(factors: &[CombinationFactor], c
     let ratio = crate::known_issues::combined_ratio(cases.iter().map(|(id, r)| (factors.iter().filter(|f| f.case_id == *id).map(|f| f.factor.abs()).sum(), r.result_summary.as_ref(), r.element_forces.iter().any(axial_3d))));
     crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::combined_second_order(second_order.iter(), factors.iter().any(|f| f.factor < 0.0 && cases.iter().any(|(id, _)| *id == f.case_id)), ratio));
     let terms: Vec<(f64, usize, &AnalysisResults3D)> = factors.iter().filter(|f| f.factor != 0.0).filter_map(|f| case_slot.get(&f.case_id).map(|&i| (f.factor, cases[i].0, cases[i].1))).collect();
-    let shells = combine_shells(&terms, (template.0, tr), plate_thickness)?;
+    let shells = combine_shells(&terms, terms.first().map_or((template.0, tr), |&(_, id, r)| (id, r)), plate_thickness)?;
     let mut combined = AnalysisResults3D { displacements, reactions, element_forces, plate_stresses: shells.plates, quad_stresses: shells.quads, quad_nodal_stresses: shells.nodal, constraint_forces: vec![], diagnostics: vec![], solver_diagnostics: vec![], structured_diagnostics, equilibrium: None, timings: None, result_summary: Some(ResultSummary { second_order_ratio: ratio, ..Default::default() }), solver_run_meta: None };
     let factored = factors.iter().filter(|f| f.factor != 0.0).filter_map(|f| case_slot.get(&f.case_id).map(|&i| (f.factor, cases[i].1))).map(|(f, r)| (f, r.result_summary.as_ref()));
     let (beyond, chords, spans) = crate::known_issues::combined_small_displacement(crate::known_issues::rotated_nodes_3d(&combined), factored, &carried, |spans| crate::known_issues::span_rotations_3d(spans, &combined));
