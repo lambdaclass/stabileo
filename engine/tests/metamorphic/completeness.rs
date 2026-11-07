@@ -253,11 +253,11 @@ fn fiber_3d(s: &SolverInput3D) -> Out3 {
 }
 
 fn modal_2d(s: &SolverInput, dens: &HashMap<String, f64>) -> Result<Vec<Vec<Displacement>>, String> {
-    Ok(modal::solve_modal_2d(s, dens, 4)?.modes.into_iter().map(|m| m.displacements).collect())
+    Ok(modal::solve_modal_2d(s, dens, MODES)?.modes.into_iter().map(|m| m.displacements).collect())
 }
 
 fn modal_3d(s: &SolverInput3D, dens: &HashMap<String, f64>) -> Result<Vec<Vec<Displacement3D>>, String> {
-    Ok(modal::solve_modal_3d(s, dens, 4)?.modes.into_iter().map(|m| m.displacements).collect())
+    Ok(modal::solve_modal_3d(s, dens, MODES)?.modes.into_iter().map(|m| m.displacements).collect())
 }
 
 type Ana2 = (&'static str, fn(&SolverInput, &HashMap<String, f64>) -> Out2);
@@ -345,21 +345,51 @@ fn frame_only(s: SolverInput3D) -> SolverInput3D {
     s
 }
 
-const DECLARED_REFUSALS: &[(&str, &str)] = &[
-    ("corotational", "does not support shell elements"),
-    ("material nonlinear", "does not support shell elements"),
-    ("fiber nonlinear", "does not support shell elements"),
-    ("fiber nonlinear", "does not support member end releases"),
-    ("fiber nonlinear", "does not support prescribed support displacements"),
-    ("SSI", "does not support prescribed support displacements"),
-    ("staged", "Nine-node shell elements are not yet supported in staged construction"),
-    ("staged", "does not support curved shell elements"),
-    ("staged", "does not support solid shell elements"),
+fn has_shells(s: &SolverInput3D) -> bool {
+    !(s.plates.is_empty() && s.quads.is_empty() && s.quad9s.is_empty() && s.solid_shells.is_empty() && s.curved_shells.is_empty())
+}
+
+fn has_releases(s: &SolverInput3D) -> bool {
+    s.elements.values().any(|e| [e.release_my_start, e.release_my_end, e.release_mz_start, e.release_mz_end, e.release_t_start, e.release_t_end].contains(&true))
+}
+
+fn has_settlements(s: &SolverInput3D) -> bool {
+    s.supports.values().any(|x| [x.dx, x.dy, x.dz, x.drx, x.dry, x.drz].iter().any(Option::is_some))
+}
+
+type Applies = fn(&SolverInput3D) -> bool;
+
+const DECLARED_REFUSALS: &[(&str, &str, Applies)] = &[
+    ("corotational", "does not support shell elements", has_shells),
+    ("material nonlinear", "does not support shell elements", has_shells),
+    ("fiber nonlinear", "does not support shell elements", has_shells),
+    ("fiber nonlinear", "does not support member end releases", has_releases),
+    ("fiber nonlinear", "does not support prescribed support displacements", has_settlements),
+    ("SSI", "does not support prescribed support displacements", has_settlements),
+    ("staged", "Nine-node shell elements are not yet supported in staged construction", |s| !s.quad9s.is_empty()),
+    ("staged", "does not support curved shell elements", |s| !s.curved_shells.is_empty()),
+    ("staged", "does not support solid shell elements", |s| !s.solid_shells.is_empty()),
 ];
 
-fn declared_refusal(analysis: &str, error: &str) -> bool {
-    DECLARED_REFUSALS.iter().any(|(a, phrase)| *a == analysis && error.contains(phrase))
+fn declared_refusal(analysis: &str, error: &str, s: &SolverInput3D) -> bool {
+    DECLARED_REFUSALS.iter().any(|(a, phrase, applies)| *a == analysis && error.contains(phrase) && applies(s))
 }
+
+type Checks = Result<Vec<Result<(), String>>, String>;
+
+fn gate(analysis: &str, model: &str, s: &SolverInput3D, r: Checks) -> Checks {
+    match r {
+        Err(e) if !model.starts_with("fuzz") && !declared_refusal(analysis, &e, s) => Ok(vec![Err(format!("refused a deterministic model: {e}"))]),
+        r => r,
+    }
+}
+
+fn mode_count(model: &str, n: usize) -> Result<(), String> {
+    let wanted = if model.starts_with("fuzz") { 1..=MODES } else { MODES..=MODES };
+    if wanted.contains(&n) { Ok(()) } else { Err(format!("{n} modes, expected {wanted:?}")) }
+}
+
+const MODES: usize = 4;
 
 #[derive(Default)]
 struct Ledger {
@@ -370,9 +400,8 @@ struct Ledger {
 }
 
 impl Ledger {
-    fn record(&mut self, analysis: &str, model: &str, tags: &[&str], results: Result<Vec<Result<(), String>>, String>) {
+    fn record(&mut self, analysis: &str, model: &str, tags: &[&str], results: Checks) {
         match results {
-            Err(e) if !model.starts_with("fuzz") && !declared_refusal(analysis, &e) => self.violations.push(format!("{analysis} refused the deterministic model {model}: {e}")),
             Err(e) => {
                 *self.refused.entry(analysis.to_string()).or_default() += 1;
                 self.reasons.entry(analysis.to_string()).or_insert_with(|| format!("{model}: {}", e.chars().take(200).collect::<String>()));
@@ -434,7 +463,7 @@ fn every_node_support_and_element_has_one_record_2d() {
             let r = run(&s, &dens).map(|v| std::iter::once(outputs_complete(analysis, &v)).chain(v.iter().map(|(label, r)| check_2d(&s, r, Known::of(analysis, label)).map_err(|e| format!("{label} {e}")))).collect());
             ledger.record(analysis, &name, &[], r);
         }
-        let modes = modal_2d(&s, &dens).map(|m| m.iter().enumerate().map(|(k, d)| displacements_2d(&s, d).map_err(|e| format!("mode {k} {e}"))).collect());
+        let modes = modal_2d(&s, &dens).map(|m| std::iter::once(mode_count(&name, m.len())).chain(m.iter().enumerate().map(|(k, d)| displacements_2d(&s, d).map_err(|e| format!("mode {k} {e}")))).collect());
         ledger.record("modal", &name, &[], modes);
     }
     let mut required: Vec<String> = analyses_2d().iter().map(|a| a.0.to_string()).collect();
@@ -449,13 +478,13 @@ fn every_node_support_element_and_shell_has_one_record_3d() {
         let tags = shell_tags(&s);
         for (analysis, run) in analyses_3d() {
             let r = run(&s, &dens).map(|v| std::iter::once(outputs_complete(analysis, &v)).chain(v.iter().map(|(label, r)| check_3d(&s, r, Known::of(analysis, label)).map_err(|e| format!("{label} {e}")))).collect());
-            ledger.record(analysis, &name, &tags, r);
+            ledger.record(analysis, &name, &tags, gate(analysis, &name, &s, r));
         }
         let nodal = linear::solve_3d(&s).map(|r| vec![nodal_stresses_3d(&s, &r)]);
         let nodal_tags: Vec<&str> = tags.iter().copied().filter(|t| matches!(*t, "MITC4" | "MITC9")).collect();
-        ledger.record("linear nodal stresses", &name, &nodal_tags, nodal);
-        let modes = modal_3d(&s, &dens).map(|m| m.iter().enumerate().map(|(k, d)| displacements_3d(&s, d).map_err(|e| format!("mode {k} {e}"))).collect());
-        ledger.record("modal", &name, &tags, modes);
+        ledger.record("linear nodal stresses", &name, &nodal_tags, gate("linear", &name, &s, nodal));
+        let modes = modal_3d(&s, &dens).map(|m| std::iter::once(mode_count(&name, m.len())).chain(m.iter().enumerate().map(|(k, d)| displacements_3d(&s, d).map_err(|e| format!("mode {k} {e}")))).collect());
+        ledger.record("modal", &name, &tags, gate("modal", &name, &s, modes));
     }
     let mut required: Vec<String> = analyses_3d().iter().map(|a| a.0.to_string()).collect();
     required.extend(["modal", "linear nodal stresses"].map(String::from));
@@ -667,13 +696,30 @@ mod tests {
     }
 
     #[test]
-    fn only_declared_refusals_pass_on_deterministic_models() {
+    fn only_declared_refusals_that_apply_pass_on_deterministic_models() {
+        let shells = building_3d(0);
+        let frames = frame_only(building_3d(0));
+        let shell_refusal = "Corotational 3D solver does not support shell elements.";
+        let violates = |analysis: &str, model: &str, s: &SolverInput3D, e: &str| gate(analysis, model, s, Err(e.into())).is_ok();
+        assert!(!violates("corotational", "building_3d/0", &shells, shell_refusal));
+        assert!(violates("corotational", "frame_3d/0", &frames, shell_refusal));
+        assert!(violates("corotational", "frame_3d/0", &frames, "Corotational analysis does not support thermal loads (member 1)"));
+        assert!(violates("linear", "building_3d/0", &shells, "Singular stiffness matrix"));
+        assert!(violates("SSI", "frame_3d/0", &frames, "Soil-structure interaction analysis does not support prescribed support displacements"));
+        assert!(violates("staged", "building_3d/0", &shells, "Staged construction analysis does not support curved shell elements"));
+        assert!(!violates("linear", "fuzz_rich_3d/0", &shells, "leftHand: true is not supported"));
         let mut ledger = Ledger::default();
-        ledger.record("linear", "building_3d/0", &[], Err("Singular stiffness matrix".into()));
-        ledger.record("corotational", "building_3d/0", &[], Err("Corotational 3D solver does not support shell elements.".into()));
-        ledger.record("corotational", "frame_3d/0", &[], Err("Corotational analysis does not support thermal loads (member 1)".into()));
-        ledger.record("linear", "fuzz_rich_3d/0", &[], Err("leftHand: true is not supported".into()));
-        assert_eq!(ledger.violations.len(), 2, "{:?}", ledger.violations);
-        assert!(ledger.violations[0].starts_with("linear refused") && ledger.violations[1].starts_with("corotational refused the deterministic model frame_3d/0"));
+        ledger.record("corotational", "frame_3d/0", &[], gate("corotational", "frame_3d/0", &frames, Err(shell_refusal.into())));
+        assert_eq!(ledger.violations.len(), 1);
+    }
+
+    #[test]
+    fn missing_modes_fail() {
+        mode_count("building_3d/0", MODES).unwrap();
+        assert!(mode_count("building_3d/0", MODES - 1).is_err());
+        assert!(mode_count("building_3d/0", 0).is_err());
+        assert!(mode_count("fuzz_rich_3d/0", 0).is_err());
+        assert!(mode_count("fuzz_rich_3d/0", MODES + 1).is_err());
+        mode_count("fuzz_rich_3d/0", 2).unwrap();
     }
 }
