@@ -10,5 +10,5 @@ geometry was built through growing JavaScript arrays and half a million temporar
 garbage collector then caused stalls of about a second, landing in a different place on each run.
 Results are now checked for refusals once each, the document is stored as built, and the tubes are
 written into buffers sized up front. The geometry is bit-identical to before, and a refused result
-is still withheld. On CI, reopening went from 2.2–3.2 s to about 1.2–1.6 s, and the
-global-design-only open went from 1.4–2.8 s to about 1 s.
+is still withheld. Measured on the same CI job against main, the reopened workspace finished its
+geometry in 1.2–1.5 s, down from 1.7–2.4 s. The first open went from 1.3–1.4 s to 0.9–1.0 s.
