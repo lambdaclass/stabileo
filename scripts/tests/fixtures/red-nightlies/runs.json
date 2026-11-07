@@ -1,0 +1,198 @@
+{
+ "Nightly verification": [
+  {
+   "id": 3003,
+   "created_at": "2026-11-06T00:04:11Z",
+   "conclusion": "failure",
+   "event": "schedule",
+   "head_branch": "main",
+   "html_url": "https://github.com/lambdaclass/stabileo/actions/runs/3003",
+   "jobs": [
+    {
+     "id": 300301,
+     "name": "opensees-diff",
+     "status": "completed",
+     "conclusion": "cancelled",
+     "html_url": "https://github.com/lambdaclass/stabileo/actions/runs/3003/job/300301",
+     "timed_out": true
+    },
+    {
+     "id": 300302,
+     "name": "codeaster-diff",
+     "status": "completed",
+     "conclusion": "failure",
+     "html_url": "https://github.com/lambdaclass/stabileo/actions/runs/3003/job/300302"
+    },
+    {
+     "id": 300303,
+     "name": "fuzz (json_static)",
+     "status": "completed",
+     "conclusion": "success",
+     "html_url": "https://github.com/lambdaclass/stabileo/actions/runs/3003/job/300303"
+    },
+    {
+     "id": 300304,
+     "name": "fuzz (json_plastic)",
+     "status": "completed",
+     "conclusion": "failure",
+     "html_url": "https://github.com/lambdaclass/stabileo/actions/runs/3003/job/300304"
+    },
+    {
+     "id": 300305,
+     "name": "mutants (5 of 512)",
+     "status": "completed",
+     "conclusion": "failure",
+     "html_url": "https://github.com/lambdaclass/stabileo/actions/runs/3003/job/300305"
+    },
+    {
+     "id": 300306,
+     "name": "bench",
+     "status": "completed",
+     "conclusion": "success",
+     "html_url": "https://github.com/lambdaclass/stabileo/actions/runs/3003/job/300306"
+    },
+    {
+     "id": 300307,
+     "name": "triage",
+     "status": "completed",
+     "conclusion": "cancelled",
+     "html_url": "https://github.com/lambdaclass/stabileo/actions/runs/3003/job/300307",
+     "timed_out": false
+    },
+    {
+     "id": 300308,
+     "name": "properties",
+     "status": "completed",
+     "conclusion": "skipped",
+     "html_url": "https://github.com/lambdaclass/stabileo/actions/runs/3003/job/300308"
+    }
+   ]
+  },
+  {
+   "id": 3002,
+   "created_at": "2026-11-05T00:04:11Z",
+   "conclusion": "failure",
+   "event": "schedule",
+   "head_branch": "main",
+   "html_url": "https://github.com/lambdaclass/stabileo/actions/runs/3002",
+   "jobs": [
+    {
+     "id": 300201,
+     "name": "opensees-diff",
+     "status": "completed",
+     "conclusion": "cancelled",
+     "html_url": "https://github.com/lambdaclass/stabileo/actions/runs/3002/job/300201",
+     "timed_out": true
+    },
+    {
+     "id": 300202,
+     "name": "codeaster-diff",
+     "status": "completed",
+     "conclusion": "success",
+     "html_url": "https://github.com/lambdaclass/stabileo/actions/runs/3002/job/300202"
+    },
+    {
+     "id": 300203,
+     "name": "fuzz (json_static)",
+     "status": "completed",
+     "conclusion": "failure",
+     "html_url": "https://github.com/lambdaclass/stabileo/actions/runs/3002/job/300203"
+    },
+    {
+     "id": 300204,
+     "name": "fuzz (json_plastic)",
+     "status": "completed",
+     "conclusion": "success",
+     "html_url": "https://github.com/lambdaclass/stabileo/actions/runs/3002/job/300204"
+    },
+    {
+     "id": 300205,
+     "name": "mutants (320)",
+     "status": "completed",
+     "conclusion": "failure",
+     "html_url": "https://github.com/lambdaclass/stabileo/actions/runs/3002/job/300205"
+    },
+    {
+     "id": 300206,
+     "name": "bench",
+     "status": "completed",
+     "conclusion": "failure",
+     "html_url": "https://github.com/lambdaclass/stabileo/actions/runs/3002/job/300206"
+    },
+    {
+     "id": 300207,
+     "name": "triage",
+     "status": "completed",
+     "conclusion": "cancelled",
+     "html_url": "https://github.com/lambdaclass/stabileo/actions/runs/3002/job/300207",
+     "timed_out": false
+    },
+    {
+     "id": 300208,
+     "name": "properties",
+     "status": "completed",
+     "conclusion": "success",
+     "html_url": "https://github.com/lambdaclass/stabileo/actions/runs/3002/job/300208"
+    }
+   ]
+  },
+  {
+   "id": 3001,
+   "created_at": "2026-11-04T00:04:11Z",
+   "conclusion": "failure",
+   "event": "schedule",
+   "head_branch": "main",
+   "html_url": "https://github.com/lambdaclass/stabileo/actions/runs/3001",
+   "jobs": [
+    {
+     "id": 300101,
+     "name": "opensees-diff",
+     "status": "completed",
+     "conclusion": "failure",
+     "html_url": "https://github.com/lambdaclass/stabileo/actions/runs/3001/job/300101"
+    },
+    {
+     "id": 300102,
+     "name": "codeaster-diff",
+     "status": "completed",
+     "conclusion": "failure",
+     "html_url": "https://github.com/lambdaclass/stabileo/actions/runs/3001/job/300102"
+    },
+    {
+     "id": 300106,
+     "name": "bench",
+     "status": "completed",
+     "conclusion": "failure",
+     "html_url": "https://github.com/lambdaclass/stabileo/actions/runs/3001/job/300106"
+    },
+    {
+     "id": 300107,
+     "name": "triage",
+     "status": "completed",
+     "conclusion": "failure",
+     "html_url": "https://github.com/lambdaclass/stabileo/actions/runs/3001/job/300107"
+    }
+   ]
+  }
+ ],
+ "Verify": [
+  {
+   "id": 4002,
+   "created_at": "2026-11-06T00:04:11Z",
+   "conclusion": "startup_failure",
+   "event": "schedule",
+   "head_branch": "main",
+   "html_url": "https://github.com/lambdaclass/stabileo/actions/runs/4002",
+   "jobs": []
+  },
+  {
+   "id": 4001,
+   "created_at": "2026-11-05T00:04:11Z",
+   "conclusion": "startup_failure",
+   "event": "schedule",
+   "head_branch": "main",
+   "html_url": "https://github.com/lambdaclass/stabileo/actions/runs/4001",
+   "jobs": []
+  }
+ ]
+}
