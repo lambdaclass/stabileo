@@ -55,7 +55,7 @@ is a harness error, not a successful comparison.
 | `metamorphic-nightly` | Full corpus plus 1,000 random cases **per dimension** on own runners; 200 per dimension hosted; exhaustive invariants/analyses; test command capped at 110 min | 150 min |
 | `random-models` | 1,000 valid generated models, alternating 2D/3D attempts; 100 hosted; two-hour work budget, 30 min hosted | 150 min |
 | `properties` | 10,000 cases per property, 1,000 hosted; command budget 2 h / 30 min | 150 min |
-| `opensees-diff` | Fixtures plus 4,160 random analysis cases | 45 min |
+| `opensees-diff` | Fixtures plus 4,160 random analysis cases, in four parallel parts (frames, stability, dynamics, shells) | 45 min per part |
 | `codeaster-diff` | Fixtures plus 900 random 3D models | 60 min |
 | `fuzz` | Four independent targets, each 2 h own / 30 min hosted, 2 GiB RSS and 60 s per input | 180 min each |
 | `mutants` | Four of 512 shards, each capped at 120 min | 150 min each |

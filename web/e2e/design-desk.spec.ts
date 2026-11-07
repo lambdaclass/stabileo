@@ -7,6 +7,25 @@ import { test, expect, loadModel, solveModel, openDeskStage, deskTab, leaveDesig
 
 test.use({ viewport: { width: 1440, height: 900 } });
 
+/** An IPE 200 beam, 4 m, clamped at one end and pinned at the other, loaded at mid-span: no member compressed. */
+function steelBeam() {
+  return {
+    version: '2.0', name: 'Viga', timestamp: '2026-11-06T12:00:00.000Z', analysisMode: 'pro',
+    snapshot: {
+      localAxisConvention: 'zUpStrongAxis',
+      nodes: [[1, { id: 1, x: 0, y: 0, z: 3 }], [2, { id: 2, x: 2, y: 0, z: 3 }], [3, { id: 3, x: 4, y: 0, z: 3 }]],
+      materials: [[1, { id: 1, name: 'F-24', e: 200000, nu: 0.3, rho: 78.5, fy: 235, fu: 360 }]],
+      sections: [[1, { id: 1, name: 'IPE 200', a: 28.5e-4, iy: 1943e-8, iz: 142e-8, h: 0.2, b: 0.1, tw: 0.0056, tf: 0.0085, j: 6.98e-8, shape: 'I' }]],
+      elements: [[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1 }], [2, { id: 2, type: 'frame', nodeI: 2, nodeJ: 3, materialId: 1, sectionId: 1 }]],
+      supports: [[1, { id: 1, nodeId: 1, type: 'fixed3d' }], [2, { id: 2, nodeId: 3, type: 'pinned3d' }]],
+      loads: [{ type: 'nodal3d', data: { id: 1, nodeId: 2, fx: 0, fy: 0, fz: -10, mx: 0, my: 0, mz: 0, caseId: 1 } }],
+      loadCases: [{ id: 1, type: 'D', name: 'D' }],
+      combinations: [{ id: 1, name: '1.4 D', factors: [{ caseId: 1, factor: 1.4 }] }],
+      nextId: { node: 4, material: 2, section: 2, element: 3, support: 3, load: 2, loadCase: 2, combination: 2 },
+    },
+  };
+}
+
 test.describe('design desk', () => {
   test('@slow design everything, open a member, lock it, redesign around it', async ({ pro: page }) => {
     await loadModel(page, 'rc-design-qa-8');
@@ -134,7 +153,7 @@ test.describe('design desk', () => {
     expect(errors).toEqual([]);
   });
 
-  test('@slow a steel frame: its members checked by CIRSOC 301 and shown with their utilisation', async ({ pro: page }) => {
+  test('@slow a steel frame whose linear moments compression may amplify: its checks held, saying why', async ({ pro: page }) => {
     await loadModel(page, '3d-nave-industrial');
     await solveModel(page);
     await openDeskStage(page);
@@ -146,29 +165,43 @@ test.describe('design desk', () => {
     const rows = page.locator('[data-testid^="desk-row-"]');
     expect(await rows.count()).toBeGreaterThan(0);
     /*
-     * A checked one reads its ratio; one whose section is incomplete says so (D122). A member whose
-     * check the engine refuses in part (a single angle in flexure, F.10; a brace without its end
-     * connection) is held and shows no ratio, so the member taken is one that verified (`st-ok`).
-     * The text filter on a ratio used to catch section names like «L 76x76x6.35» as well. A purlin
-     * (UPN 160): an angle that verified shows its unloaded flexure first, which F.10 leaves out.
+     * The roof-truss chords carry N/N_E ≈ 0.64 on their own length, past the #1551 screen's 0.075,
+     * so the frame's first-order moments may be amplified and no member's check passes on them.
      */
-    await rows.filter({ hasText: 'UPN160' }).filter({ has: page.locator('.dot.st-ok') }).first().click();
-    // Its sheet: every limit state, and the working of one when it is opened.
+    await expect(rows.filter({ has: page.locator('.dot.st-ok') })).toHaveCount(0);
+    await rows.filter({ hasText: 'UPN160' }).first().click();
+    await expect(page.getByTestId('desk-status-holds')).toContainText(/C\.1/);
+    await expect(page.getByTestId('desk-status-holds')).toContainText(/second-order|segundo orden/);
+    const sheet = page.getByTestId('steel-member-sheet');
+    await expect(sheet).toBeVisible();
+    await sheet.getByTestId('steel-sheet-row-0').locator('button').click();
+    await expect(sheet.getByTestId('steel-sheet-derivation')).toContainText('φ');
+    /*
+     * Rows without a ratio are both the held members and the ones never checked. In this example
+     * the sections the check cannot read (D122) are the facade columns' RHS 160×160×6 and the tie
+     * rods. The member is taken by its section, as the purlin above is.
+     */
+    await rows.filter({ hasText: 'RHS 160×160×6' }).filter({ hasText: '—' }).first().click();
+    await expect(page.getByTestId('desk-inspector'), 'an incomplete steel section names its notice').toContainText('D122');
+  });
+
+  test('@slow a steel beam the second-order screen bounds: checked by CIRSOC 301 and shown with its utilisation', async ({ pro: page }) => {
+    expect(await page.evaluate((f) => window.__stabileoActions.loadProject(f), steelBeam())).toBe(true);
+    await solveModel(page);
+    await openDeskStage(page);
+    await page.getByTestId('desk-design').click();
+    if (await page.getByTestId('desk-run-resize').count()) await page.getByTestId('desk-run-resize').setChecked(false);
+    await page.getByTestId('desk-run').click();
+    await expect(page.getByTestId('desk-report')).toContainText(/steel members calculated|barras de acero calculadas/, { timeout: 120_000 });
+    await page.getByTestId('desk-filter-steel').click();
+    const rows = page.locator('[data-testid^="desk-row-"]');
+    await rows.filter({ hasText: 'IPE 200' }).filter({ has: page.locator('.dot.st-ok') }).first().click();
+    await expect(page.getByTestId('desk-status-holds')).toHaveCount(0);
     const sheet = page.getByTestId('steel-member-sheet');
     await expect(sheet).toBeVisible();
     await sheet.getByTestId('steel-sheet-row-0').locator('button').click();
     await expect(sheet.getByTestId('steel-sheet-derivation')).toContainText('φ');
     await expect(page.getByTestId('desk-status')).toContainText(/\d\.\d\d/);
-    /*
-     * Rows without a ratio are both the held members and the ones never checked. In this example
-     * the sections the check cannot read (D122) are the facade columns' RHS 160×160×6 and the tie
-     * rods; the held ones (angles in flexure, braces) come first in the list. Clicking through
-     * every row without a ratio until one named D122 took 374 clicks: about 30 s here and past the
-     * 60 s test timeout on CI's runner (it stopped at the 305th). The member is taken by its
-     * section, as the purlin above is.
-     */
-    await rows.filter({ hasText: 'RHS 160×160×6' }).filter({ hasText: '—' }).first().click();
-    await expect(page.getByTestId('desk-inspector'), 'an incomplete steel section names its notice').toContainText('D122');
   });
 
   test('@slow a steel I member: rolled or welded is declared on its section, never read off the catalogue', async ({ pro: page }) => {
@@ -181,8 +214,8 @@ test.describe('design desk', () => {
     await expect(page.getByTestId('desk-report')).toContainText(/steel members calculated|barras de acero calculadas/, { timeout: 120_000 });
     await page.getByTestId('desk-filter-steel').click();
     const rows = page.locator('[data-testid^="desk-row-"]');
-    // A channel (the purlins, UPN 160), whose checks read the fabrication, that verified.
-    await rows.filter({ hasText: 'UPN160' }).filter({ has: page.locator('.dot.st-ok') }).first().click();
+    // A channel (the purlins, UPN 160), whose checks read the fabrication; held on first-order moments, its sheet still reads both.
+    await rows.filter({ hasText: 'UPN160' }).first().click();
     const fab = page.getByTestId('desk-steel-fabrication');
     await expect(fab).toBeVisible();
     // Undeclared: the sheet says both readings were checked.
