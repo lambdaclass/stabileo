@@ -88,8 +88,6 @@ describe('results version 4: the design chain', () => {
   });
 
   it('tells every eccentric model about the dynamic refusal, and no model without eccentricities', () => {
-    // Time histories are solved outside the stamp (`UNTRACKED_ANALYSES`), so a stamp can never say
-    // one was not run: the entry errs towards present, as the registry's rule asks.
     const inserted = model({ elements: [member(1, 1, { offset: { frame: 'global', i: { x: 0, y: 0, z: -0.25 } } })] });
     expect(ids(inserted, stamp(3, ['linear']))).toContain('dynamic-analyses-refuse-eccentricities');
     expect(ids(inserted, stamp(3, ['linear', 'modal']))).toContain('dynamic-analyses-refuse-eccentricities');

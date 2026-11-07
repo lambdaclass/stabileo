@@ -282,6 +282,7 @@ pub fn solve_multi_case_3d(input: &MultiCaseInput3D) -> Result<MultiCaseResult3D
     }
     let mut combo_names: Vec<String> = Vec::new();
     let mut all_combined_results: Vec<AnalysisResults3D> = Vec::new();
+    let plate_thickness: PlateThicknesses = crate::ordered::values(&input.solver.plates).map(|p| (p.id, p.thickness)).collect();
 
     for combo in &input.combinations {
         let mut combo_factors = Vec::new();
@@ -298,7 +299,9 @@ pub fn solve_multi_case_3d(input: &MultiCaseInput3D) -> Result<MultiCaseResult3D
             combo_factors.push(CombinationFactor { case_id: settle_idx, factor: 1.0 - sum });
         }
 
-        if let Some(combined) = combine_results_3d_refs_unchecked(&combo_factors, &case_refs) {
+        let combined = combine_results_3d_refs_unchecked(&combo_factors, &case_refs, &plate_thickness)
+            .map_err(|e| crate::known_issues::contextual_error(e, format!("Failed to combine '{}'", combo.name)))?;
+        if let Some(combined) = combined {
             check_combined_containment(input, combo, &combo_factors, &case_refs, &combined)?;
             all_combined_results.push(combined);
             combo_names.push(combo.name.clone());
@@ -380,6 +383,7 @@ fn solve_multi_case_3d_per_case(input: &MultiCaseInput3D) -> Result<MultiCaseRes
     }
     let mut combo_names: Vec<String> = Vec::new();
     let mut all_combined_results: Vec<AnalysisResults3D> = Vec::new();
+    let plate_thickness: PlateThicknesses = crate::ordered::values(&input.solver.plates).map(|p| (p.id, p.thickness)).collect();
 
     for combo in &input.combinations {
         let mut combo_factors = Vec::new();
@@ -396,7 +400,9 @@ fn solve_multi_case_3d_per_case(input: &MultiCaseInput3D) -> Result<MultiCaseRes
             combo_factors.push(CombinationFactor { case_id: settle_idx, factor: 1.0 - sum });
         }
 
-        if let Some(combined) = combine_results_3d_refs_unchecked(&combo_factors, &case_refs) {
+        let combined = combine_results_3d_refs_unchecked(&combo_factors, &case_refs, &plate_thickness)
+            .map_err(|e| crate::known_issues::contextual_error(e, format!("Failed to combine '{}'", combo.name)))?;
+        if let Some(combined) = combined {
             check_combined_containment(input, combo, &combo_factors, &case_refs, &combined)?;
             all_combined_results.push(combined);
             combo_names.push(combo.name.clone());

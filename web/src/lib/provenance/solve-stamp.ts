@@ -12,7 +12,7 @@
  */
 import { RESULTS_VERSION } from './registry';
 import { buildIdentity } from './build-identity';
-import type { AnalysisKind } from './model-features';
+import { ANALYSIS_KINDS, LEGACY_RECORDED_ANALYSES, type AnalysisKind, type FeatureContext } from './model-features';
 
 /** Bumped when the shape of stored results changes (independent of what the numbers are). */
 export const RESULTS_SCHEMA_VERSION = 1;
@@ -31,6 +31,18 @@ export interface SolveStamp {
   solvedAt: string;
   /** The analyses run under this stamp (best effort: the static solve and the advanced panels). */
   analyses: AnalysisKind[];
+  /**
+   * The analyses the stamp knows the runs of: one listed here and absent from `analyses` was not
+   * run. Absent on stamps written before #1658 (`LEGACY_RECORDED_ANALYSES`). A solve in another
+   * build adds the analysis it ran and drops those the previous stamp listed as run: they ran
+   * once, so they must never read as not run.
+   */
+  recorded?: AnalysisKind[];
+}
+
+/** What a stamp says about which analyses its results came from (`modelFeatures`). */
+export function analysesContext(s: SolveStamp): Pick<FeatureContext, 'analysesRun' | 'analysesRecorded'> {
+  return { analysesRun: s.resultsVersion > 0 ? s.analyses : null, analysesRecorded: s.recorded };
 }
 
 /** A stamp for a project that carries none: the oldest version, nothing else known. */
@@ -70,6 +82,8 @@ export function stampSolve(kind: AnalysisKind, previous: SolveStamp | null | und
   const b = buildIdentity();
   const keep = previous && previous.resultsVersion === RESULTS_VERSION && previous.commit === b.commit ? previous.analyses : [];
   const analyses = [...new Set<AnalysisKind>([...keep, kind])].sort();
+  const known = !previous ? ANALYSIS_KINDS : previous.resultsVersion === 0 ? [] : (previous.recorded ?? LEGACY_RECORDED_ANALYSES)
+    .filter((k) => keep.includes(k) || !previous.analyses.includes(k));
   return {
     id: `${now.getTime().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
     resultsVersion: RESULTS_VERSION,
@@ -80,6 +94,7 @@ export function stampSolve(kind: AnalysisKind, previous: SolveStamp | null | und
     wasmHash: b.wasmHash,
     solvedAt: now.toISOString(),
     analyses,
+    recorded: [...new Set<AnalysisKind>([...known, kind])].sort(),
   };
 }
 
@@ -103,5 +118,6 @@ export function readStamp(v: unknown): SolveStamp | undefined {
     wasmHash: str('wasmHash'),
     solvedAt: str('solvedAt', ''),
     analyses: Array.isArray(s.analyses) ? (s.analyses.filter((a) => typeof a === 'string') as AnalysisKind[]) : [],
+    ...(Array.isArray(s.recorded) ? { recorded: s.recorded.filter((a): a is AnalysisKind => (ANALYSIS_KINDS as readonly unknown[]).includes(a)) } : {}),
   };
 }

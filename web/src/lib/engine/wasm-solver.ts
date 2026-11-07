@@ -4,6 +4,7 @@ import { registerColumnCapacityKernel } from './column-capacity-kernel';
 import { noteEngineBuild } from '../provenance/build-identity';
 import { registerCirsoc201BeamKernel } from './codes/argentina/cirsoc201-beam-kernel';
 import { registerCirsoc301Kernel } from './codes/argentina/cirsoc301-kernel';
+import type { PlateThickness } from './shell-combos';
 import { packedShellCombinationKernel, packedShellEnvelopeKernel, registerShellCombinationKernel, registerShellEnvelopeKernel } from './shell-combination-kernel';
 import { registerCirsoc201Engine } from './codes/argentina/cirsoc201-engine';
 import { registerCollisionKernel } from './detailing/collision-kernel';
@@ -1456,10 +1457,14 @@ export function combineResults(
   return wasmCombineResults2d({ factors, cases });
 }
 
-/** Combine 3D results with factors via WASM. JsValue in/out — no JSON round trip. */
+/**
+ * Combine 3D results with factors via WASM. JsValue in/out — no JSON round trip. The engine
+ * refuses plate stresses without `plates`' thicknesses.
+ */
 export function combineResults3D(
   factors: Array<{ caseId: number; factor: number }>,
   perCase: Map<number, AnalysisResults3D>,
+  plates: PlateThickness,
 ): AnalysisResults3D | null {
   if (!wasmReady || !wasmCombineResults3d) throw new Error('WASM solver not initialized.');
   const cases = factors
@@ -1468,7 +1473,7 @@ export function combineResults3D(
   if (cases.length === 0) return null;
   // Same rationale as combineResults: guard factors (cheap), trust solver output.
   assertFiniteWire(factors);
-  return wasmCombineResults3d({ factors, cases });
+  return wasmCombineResults3d({ factors, cases, plateThicknesses: [...plates].map(([id, p]) => [id, p.thickness]) });
 }
 
 /** Compute 2D envelope via WASM. JsValue in/out — no JSON round trip. */

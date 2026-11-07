@@ -9,6 +9,7 @@ import { activeCombinations, activePerCombo3D } from './active-results';
 import { designData } from './design-data';
 import { concreteFc } from '../model/design-data';
 import { woodArmer } from '../engine/wood-armer';
+import { uniqueShells } from '../engine/shell-combos';
 import { providedAt } from '../engine/detailing/slab-panel';
 import { deflectionBetween, panelDeflection, type DeflectionModel, type PanelDeflection } from '../engine/detailing/slab-deflection';
 import type { SlabDesignResult } from '../engine/detailing/slab-design';
@@ -31,7 +32,7 @@ export function serviceResult(): { result: AnalysisResults3D; source: 'service' 
   const quads = new Map<number, { elementId: number; mx: number; my: number; mxy: number }>();
   for (const r of cases) {
     for (const d of r.displacements) uz.set(d.nodeId, (uz.get(d.nodeId) ?? 0) + d.uz);
-    for (const q of r.quadStresses ?? []) { const p = quads.get(q.elementId); quads.set(q.elementId, { elementId: q.elementId, mx: (p?.mx ?? 0) + q.mx, my: (p?.my ?? 0) + q.my, mxy: (p?.mxy ?? 0) + q.mxy }); }
+    for (const q of uniqueShells(r.quadStresses)) { const p = quads.get(q.elementId); quads.set(q.elementId, { elementId: q.elementId, mx: (p?.mx ?? 0) + q.mx, my: (p?.my ?? 0) + q.my, mxy: (p?.mxy ?? 0) + q.mxy }); }
   }
   return {
     result: { displacements: [...uz].map(([nodeId, z]) => ({ nodeId, ux: 0, uy: 0, uz: z, rx: 0, ry: 0, rz: 0 })), quadStresses: [...quads.values()] as never, reactions: [], elementForces: [] } as AnalysisResults3D,

@@ -590,6 +590,7 @@ fn test_parity_3d_combination_superposition() {
 
     // Combine: 2.0*case1 + 1.0*case2
     let combined = combine_results_3d(&CombinationInput3D {
+        plate_thicknesses: vec![],
         factors: vec![
             CombinationFactor { case_id: 1, factor: 2.0 },
             CombinationFactor { case_id: 2, factor: 1.0 },
