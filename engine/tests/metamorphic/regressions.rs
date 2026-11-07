@@ -1053,7 +1053,7 @@ fn issue_758_when_the_limit_analysis_fails_the_exact_certificate_still_checks_th
     assert!(lower > 30.0 * 10.904960242330917, "a roller 1.4e-6 rad off the member axis props the tip: {lower}");
 }
 
-fn gauss_complex(k: &[f64], m: &[f64], c: &[f64], f: &[f64], n: usize, w: f64) -> (Vec<f64>, Vec<f64>) {
+pub(crate) fn gauss_complex(k: &[f64], m: &[f64], c: &[f64], f: &[f64], n: usize, w: f64) -> (Vec<f64>, Vec<f64>) {
     let n2 = 2 * n;
     let w1 = n2 + 1;
     let mut a = vec![0.0; n2 * w1];
@@ -1291,6 +1291,53 @@ fn the_3d_mode_check_follows_each_members_own_offset_along_it() {
                 assert_eq!(flagged.unwrap().element_ids, Vec::<usize>::new(), "{at}: no member is within round-off of zero");
             }
         }
+    }
+}
+
+#[test]
+fn only_the_near_mechanism_warning_excuses_a_refused_copy() {
+    use crate::response::NearMechanism;
+    let diag = |code: &str, phase: Option<&str>| -> StructuredDiagnostic {
+        serde_json::from_value(json!({"code": code, "severity": "warning", "message": "", "phase": phase})).unwrap()
+    };
+    assert_eq!(NearMechanism::of(&[diag("known_issue", Some("NUM-INVARIANCE"))]), NearMechanism(true));
+    assert_eq!(NearMechanism::of(&[diag("stiffness_not_positive_definite", None)]), NearMechanism(true));
+    assert_eq!(NearMechanism::of(&[diag("known_issue", Some("LIN-SECOND-ORDER-UNBOUNDED")), diag("high_diagonal_ratio", None)]), NearMechanism(false));
+    assert!(!crate::generated::strict());
+    for refusal in [
+        "Singular stiffness matrix — structure is a mechanism",
+        "did not converge",
+        "REFUSE: self-check static_residual: 2.1e-2 exceeds 1.0e-3; excessive displacement indicates a likely mechanism",
+        "Eigenvalue decomposition failed: could not establish convergence and Sturm completeness for 3 frequencies",
+    ] {
+        assert!(matches!(crate::checks2::transformed_failure(refusal.into(), NearMechanism(true)), crate::tally::Verdict::Refused(_)), "{refusal}");
+        assert!(matches!(crate::checks2::transformed_failure(refusal.into(), NearMechanism(false)), crate::tally::Verdict::Fail(_)), "{refusal}");
+    }
+    for unrelated in ["Element 3 references node 9, which does not exist", "No compressed elements — buckling not applicable"] {
+        assert!(matches!(crate::checks2::transformed_failure(unrelated.into(), NearMechanism(true)), crate::tally::Verdict::Fail(_)), "{unrelated}");
+    }
+    let _strict = crate::generated::Strict::enter();
+    assert!(matches!(crate::checks2::transformed_failure("did not converge".into(), NearMechanism(true)), crate::tally::Verdict::Fail(_)), "strict mode excuses nothing");
+}
+
+/// #983: a near-mechanism whose transformed copies are refused while the
+/// original solves under NUM-INVARIANCE and stiffness_not_positive_definite.
+#[test]
+fn a_copy_refused_beside_a_near_mechanism_original_is_not_a_violation() {
+    let text = std::fs::read_to_string(format!("{}/tests/metamorphic_corpus/nightly/issue-983.json", env!("CARGO_MANIFEST_DIR"))).unwrap();
+    let crate::corpus::Model::D2(s) = crate::corpus::parse(&text).unwrap() else { panic!("2D model") };
+    assert!(!crate::generated::strict());
+    let original = linear::solve_2d(&s).unwrap();
+    assert_eq!(crate::response::NearMechanism::of(&original.structured_diagnostics), crate::response::NearMechanism(true));
+    let t = crate::tally::Tally::default();
+    let anas: Vec<_> = crate::ana2::rows().into_iter().filter(|a| a.name == "creep & shrinkage (t = t0)").collect();
+    let case = Case2::new("issue-983", s);
+    assert_eq!((anas[0].run)(&case).unwrap().2, crate::response::NearMechanism(true));
+    crate::checks2::check_case(&crate::checks2::Ctx { tally: &t, rng_seed: 2026110601678 }, &case, &anas, &["relabel", "units"]);
+    let cells = t.cells.lock().unwrap();
+    for inv in ["relabel", "units"] {
+        let cell = &cells[&("creep & shrinkage (t = t0)".to_string(), inv.to_string())];
+        assert!(cell.fails.is_empty() && cell.refused > 0, "{inv}: {cell:?}");
     }
 }
 

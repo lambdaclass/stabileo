@@ -149,6 +149,8 @@ def main():
                 changed = False
                 for field in ('loads', 'elements'):
                     values = structural_model(model).get(field, [])
+                    if field == 'loads' and len(values) <= 1:
+                        continue
                     for key in list(range(len(values))) if isinstance(values, list) else list(values):
                         if time.monotonic() >= end:
                             return model, 'budget-limited reduction'

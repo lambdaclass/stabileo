@@ -472,6 +472,16 @@ function sessionTabsCopy(): TabState[] {
   return plainDeepCopy(tabManager.tabs);
 }
 
+const HISTORY_KEYS = new Set(['undoStack', 'redoStack', 'undoKinds', 'redoKinds']);
+
+function sessionTabsWithoutHistory(): TabState[] {
+  return tabManager.tabs.map((tab) => {
+    const out: Record<string, unknown> = { undoStack: [], redoStack: [], undoKinds: [], redoKinds: [] };
+    for (const [k, v] of Object.entries(tab)) if (!HISTORY_KEYS.has(k)) out[k] = plainDeepCopy(v);
+    return out as unknown as TabState;
+  });
+}
+
 /** A stored tab the project gate refused: where it was and what it was called. */
 export interface DroppedSessionTab {
   index: number;
@@ -1145,7 +1155,7 @@ export function saveWorkspaceToLocalStorage(): boolean {
       // The tabs without their undo stacks: a reload does not undo across it, and the stacks (up to
       // 50 snapshots a tab, the detailing in each) are what overflowed localStorage on a designed
       // project.
-      tabs: sessionTabsCopy().map((tab) => ({ ...tab, undoStack: [], redoStack: [], undoKinds: [], redoKinds: [] })),
+      tabs: sessionTabsWithoutHistory(),
     };
     localStorage.setItem(WORKSPACE_KEY, JSON.stringify(session));
     return true;

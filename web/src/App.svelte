@@ -1592,9 +1592,8 @@
           class="btn-ai"
           class:on={aiPanelOpen}
           onclick={openAiPanel}
-          title="{t('ai.title')} — {t('ai.devShort')}"
-          aria-label="{t('ai.title')} — {t('ai.devShort')}"
-          data-dev="1"
+          title={t('ai.title')}
+          aria-label={t('ai.title')}
           data-testid="ai-open"
         >
           <span class="ai-glyph" aria-hidden="true">△</span>
