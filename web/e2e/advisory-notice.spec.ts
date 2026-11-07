@@ -132,8 +132,8 @@ function slabProject(solvedWith: object, imposed: boolean) {
         ...(imposed ? [{ type: 'displacement3d', data: { id: 2, nodeId: 3, dz: -0.01, caseId: 1 } }] : []),
       ],
       loadCases: [{ id: 1, type: 'D', name: 'Dead Load' }, { id: 2, type: 'L', name: 'Live Load' }],
-      combinations: [],
-      nextId: { node: 5, material: 2, section: 1, element: 1, support: 4, load: 3, loadCase: 3, combination: 1, quad: 2 },
+      combinations: [{ id: 1, name: '1.2 D + 1.6 L', factors: [{ caseId: 1, factor: 1.2 }, { caseId: 2, factor: 1.6 }] }],
+      nextId: { node: 5, material: 2, section: 1, element: 1, support: 4, load: 3, loadCase: 3, combination: 2, quad: 2 },
       solvedWith,
     },
   };

@@ -48,8 +48,9 @@ In the combinations' results, that case showed no plate or quad stresses, and a 
 that case's factor changed.
 
 The app names this advisory when it opens a project solved before the fix: as affected when the
-model has shells and a load case that imposes a displacement, and as possibly affected when the
-model has shells and none now (the project may have had one when it was solved).
+model has shells, a load case that imposes a displacement and load combinations, and as possibly
+affected when the model has shells but not the other two now (it may have had them when it was
+solved).
 
 ## Fixed in
 

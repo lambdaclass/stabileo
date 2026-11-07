@@ -39,7 +39,7 @@ function frame(opts: { shear?: boolean; thermal?: boolean; hinge?: boolean } = {
   return e;
 }
 
-function slab(opts: { imposed?: boolean; settlement?: boolean } = {}) {
+function slab(opts: { imposed?: boolean; settlement?: boolean; combinations?: boolean } = {}) {
   modelStore.clear();
   const n = [[0, 0], [2, 0], [2, 2], [0, 2]].map(([x, y]) => modelStore.addNode(x!, y!, 0));
   const mat = modelStore.addMaterial({ name: 'H', e: 25000, nu: 0.2, rho: 0 });
@@ -51,6 +51,8 @@ function slab(opts: { imposed?: boolean; settlement?: boolean } = {}) {
   const [c1, c2] = modelStore.model.loadCases;
   if (opts.imposed) modelStore.addLoadEntry({ type: 'displacement3d', data: { id: 0, nodeId: n[2]!, dz: -0.01, caseId: c1!.id } });
   modelStore.addNodalLoad3D(n[3]!, 0, 0, -10, 0, 0, 0, c2!.id);
+  if (opts.combinations ?? true) modelStore.addCombination('1.2 D + 1.6 L', [{ caseId: c1!.id, factor: 1.2 }, { caseId: c2!.id, factor: 1.6 }]);
+  else for (const c of [...modelStore.model.combinations]) modelStore.removeCombination(c.id);
   return { corner: n[2]!, c1: c1!.id };
 }
 
@@ -238,7 +240,7 @@ describe('advisories', () => {
     expect(recheckStore.capture()).toEqual(solved);
   });
 
-  it('a shell model with a load case that imposes a displacement, solved before the fix, is affected', async () => {
+  it('a shell model with a load case that imposes a displacement and combinations, solved before the fix, is affected', async () => {
     slab({ imposed: true });
     expect(await reopen(SHELL_FIX - 1)).toContain('SA-2026-047');
     expect(recheckStore.assessment!.maybe).not.toContain('SA-2026-047');
@@ -253,6 +255,7 @@ describe('advisories', () => {
   it.each([
     ['without an imposed displacement', {}],
     ['with a support settlement and no imposed displacement in a case', { settlement: true }],
+    ['with an imposed displacement and no combinations, which the solve without them handles', { imposed: true, combinations: false }],
   ] as const)('a shell model %s, solved before the fix, may be affected', async (_label, opts) => {
     slab(opts);
     expect(await reopen(SHELL_FIX - 1)).toContain('SA-2026-047');

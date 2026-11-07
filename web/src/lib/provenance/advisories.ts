@@ -60,7 +60,7 @@ export const ADVISORIES: readonly Advisory[] = [
     introducedBy: null,
     fixedBy: 'combined-shell-stresses',
     when: [{ any: ['shells', 'curvedShells'] }],
-    certain: [{ allOf: [['shells', 'curvedShells'], ['caseDisplacements']] }],
+    certain: [{ allOf: [['shells', 'curvedShells'], ['caseDisplacements'], ['combinations']] }],
     ifUsed: {
       en: 'a load case that imposed a support displacement',
       es: 'un caso de carga que imponía un desplazamiento de apoyo',
