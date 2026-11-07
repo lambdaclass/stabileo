@@ -165,7 +165,7 @@ const body: PostBody = {
         ],
         [
           "SA-2026-047",
-          "Coques : un cas de charge imposant un déplacement d'appui perdait ses contraintes de coque, et les combinaisons et enveloppes ne sommaient que celles des autres cas (du côté de l'insécurité, sans avertissement) ; 0.2.0 à 0.4.0",
+          "Coques : un cas de charge imposant un déplacement d'appui perdait ses contraintes de coque, et les combinaisons et enveloppes ne sommaient que celles des autres cas (parfois du côté de l'insécurité, sans avertissement) ; 0.2.0 à 0.4.0",
           "Élevée",
           "Corrigé dans la prochaine version"
         ],

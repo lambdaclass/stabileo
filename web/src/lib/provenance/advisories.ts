@@ -70,12 +70,12 @@ export const ADVISORIES: readonly Advisory[] = [
       tr: 'mesnet yer değiştirmesi zorlayan bir yük durumu',
     },
     title: {
-      en: 'In a model with shells, a load case that imposed a support displacement lost all of its shell stresses, and its combinations and envelopes summed only the other cases\' shell stresses: the combined shell stresses were unconservative, without a warning.',
-      es: 'En un modelo con cáscaras, un caso de carga que imponía un desplazamiento de apoyo perdía todas sus tensiones de cáscara, y sus combinaciones y envolventes sumaban solo las de los demás casos: las tensiones de cáscara combinadas quedaban del lado inseguro, sin aviso.',
-      pt: 'Em um modelo com cascas, um caso de carga que impunha um deslocamento de apoio perdia todas as suas tensões de casca, e suas combinações e envoltórias somavam apenas as dos demais casos: as tensões de casca combinadas ficavam contra a segurança, sem aviso.',
-      de: 'In einem Modell mit Schalen verlor ein Lastfall mit eingeprägter Auflagerverschiebung alle Schalenspannungen, und seine Kombinationen und Umhüllenden summierten nur die der anderen Lastfälle: die kombinierten Schalenspannungen lagen ohne Warnung auf der unsicheren Seite.',
-      fr: 'Dans un modèle avec coques, un cas de charge imposant un déplacement d\'appui perdait toutes ses contraintes de coque, et ses combinaisons et enveloppes ne sommaient que celles des autres cas : les contraintes de coque combinées étaient du côté de l\'insécurité, sans avertissement.',
-      tr: 'Kabuklu bir modelde mesnet yer değiştirmesi zorlayan bir yük durumu tüm kabuk gerilmelerini kaybediyor, kombinasyonları ve zarfları yalnızca diğer durumların kabuk gerilmelerini topluyordu: birleşik kabuk gerilmeleri uyarı vermeden güvensiz taraftaydı.',
+      en: 'In a model with shells, a load case that imposed a support displacement lost all of its shell stresses, and its combinations and envelopes summed only the other cases\' shell stresses: the combined shell stresses could be unconservative, without a warning.',
+      es: 'En un modelo con cáscaras, un caso de carga que imponía un desplazamiento de apoyo perdía todas sus tensiones de cáscara, y sus combinaciones y envolventes sumaban solo las de los demás casos: las tensiones de cáscara combinadas podían quedar del lado inseguro, sin aviso.',
+      pt: 'Em um modelo com cascas, um caso de carga que impunha um deslocamento de apoio perdia todas as suas tensões de casca, e suas combinações e envoltórias somavam apenas as dos demais casos: as tensões de casca combinadas podiam ficar contra a segurança, sem aviso.',
+      de: 'In einem Modell mit Schalen verlor ein Lastfall mit eingeprägter Auflagerverschiebung alle Schalenspannungen, und seine Kombinationen und Umhüllenden summierten nur die der anderen Lastfälle: die kombinierten Schalenspannungen konnten ohne Warnung auf der unsicheren Seite liegen.',
+      fr: 'Dans un modèle avec coques, un cas de charge imposant un déplacement d\'appui perdait toutes ses contraintes de coque, et ses combinaisons et enveloppes ne sommaient que celles des autres cas : les contraintes de coque combinées pouvaient être du côté de l\'insécurité, sans avertissement.',
+      tr: 'Kabuklu bir modelde mesnet yer değiştirmesi zorlayan bir yük durumu tüm kabuk gerilmelerini kaybediyor, kombinasyonları ve zarfları yalnızca diğer durumların kabuk gerilmelerini topluyordu: birleşik kabuk gerilmeleri uyarı vermeden güvensiz tarafta kalabiliyordu.',
     },
   },
   {

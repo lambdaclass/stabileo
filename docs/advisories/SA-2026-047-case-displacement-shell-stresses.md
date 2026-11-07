@@ -13,7 +13,9 @@
 
 - **App, 3D: a load case with an imposed displacement** (a `displacement3d` load, PRO's imposed
   support displacement per load case) in a model with plates or quads, solved with load
-  combinations.
+  combinations. The case's own results in that solve are affected too.
+- A solve without combinations, which applies the imposed displacements on the supports directly,
+  is not affected.
 - A support's own settlement, which is not part of a load case, is not affected: it is solved
   once as the settlement case and keeps its shell stresses.
 
@@ -28,8 +30,9 @@ those of its loads and those of the imposed displacement.
 
 The app then builds each combination's shell stresses, and the envelope's, from the cases' shell
 stresses. A case without any added nothing. Each combination's plate and quad stresses were the
-factored sum of the other cases only, with no warning. Where the imposed displacement or that
-case's loads stressed a shell, the combined stresses and the envelope were unconservative.
+factored sum of the other cases only, with no warning. Leaving a case out can raise or lower a
+combined stress: where that case's stresses add to the others', the combined stresses and the
+envelope were unconservative; where they oppose them, the reported value was too high.
 
 ## How to tell if your results are affected
 
@@ -38,7 +41,8 @@ Your results are affected if all of these hold:
 - they were solved with a version in the range above;
 - the model has plates or quads;
 - a load case imposes a displacement on a node;
-- the combinations were solved.
+- the combinations were solved (Solve with load combinations defined). The load cases shown by
+  that solve are affected as well as the combinations and the envelope.
 
 In the combinations' results, that case showed no plate or quad stresses, and a combination's shell stresses did not change when
 that case's factor changed.

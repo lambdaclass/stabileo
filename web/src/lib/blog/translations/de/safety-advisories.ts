@@ -165,7 +165,7 @@ const body: PostBody = {
         ],
         [
           "SA-2026-047",
-          "Schalen: Ein Lastfall mit eingeprägter Auflagerverschiebung verlor seine Schalenspannungen, und Kombinationen und Umhüllende summierten nur die der anderen Lastfälle (unsicher, ohne Warnung); 0.2.0 bis 0.4.0",
+          "Schalen: Ein Lastfall mit eingeprägter Auflagerverschiebung verlor seine Schalenspannungen, und Kombinationen und Umhüllende summierten nur die der anderen Lastfälle (möglicherweise unsicher, ohne Warnung); 0.2.0 bis 0.4.0",
           "Hoch",
           "Behoben in der nächsten Version"
         ],
