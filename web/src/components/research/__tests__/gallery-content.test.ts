@@ -7,11 +7,12 @@ import catalog from '../../../../../research/papers.json';
 import { bibliography, citation } from '../catalogue';
 import { finalReview, reviewCount } from '../reviews';
 import { rs } from '../i18n';
+import { PUBLIC_LOCALES } from '../../../lib/i18n/offered';
 
 const original = publicI18n.locale;
 afterEach(() => setLocale(original));
 it('renders citations without empty separators and descriptive leads for every live card', () => {
-  for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
+  for (const locale of PUBLIC_LOCALES) {
     setLocale(locale);
     const { body } = render(Gallery);
     const cards = [...body.matchAll(/<li class="rs-g-runcard[^>]*>([\s\S]*?)<\/li>/g)];
@@ -49,20 +50,20 @@ it('omits absent bibliographic fields without dangling separators', () => {
 });
 it('translates the gallery scope in all six locales', () => {
   const titles = new Set<string>();
-  for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
+  for (const locale of PUBLIC_LOCALES) {
     setLocale(locale);
     titles.add(rs().researchTitle);
     expect(rs().galleryLead.length).toBeGreaterThan(80);
     expect(rs().galleryLead).toContain('Stabileo');
   }
-  expect(titles.size).toBe(6);
+  expect(titles.size).toBe(PUBLIC_LOCALES.length);
 });
 it('shows no first-version or review-round note on any card, while the catalogue keeps the records', () => {
   expect(finalReview('mattiasson-elastica')).toBe(true);
   for (const e of EXPERIMENTS) expect(reviewCount(e.paperId)).toBeGreaterThan(0);
   expect(reviewCount('tools-batch-1')).toBe(2);
   expect(reviewCount('tools-batch-2')).toBe(2);
-  for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
+  for (const locale of PUBLIC_LOCALES) {
     setLocale(locale);
     const { body } = render(Gallery);
     expect(body).not.toContain('rs-g-first');
@@ -74,7 +75,7 @@ it('titles the Riks card in the language its article is written in', async () =>
   const { cardTitle } = await import('../card-title');
   const { articleStrings } = await import('../riksCrisfield/article');
   const riks = EXPERIMENTS.find((e) => e.paperId === 'riks-1979')!;
-  for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
+  for (const locale of PUBLIC_LOCALES) {
     setLocale(locale);
     expect(cardTitle(riks)).toBe(articleStrings(locale).arcLengthSnapThroughRiksAndCrisfield);
     const { body } = render(Gallery);

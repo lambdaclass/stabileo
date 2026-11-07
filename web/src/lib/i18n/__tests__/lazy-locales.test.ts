@@ -66,6 +66,7 @@ describe('a lazily loaded language', () => {
       loaders: { [loc]: async () => ({ default: { 'landing.probe': `public ${loc}` } }) },
     }));
     vi.doMock(`../locales/browser/${loc}`, () => ({ default: { 'app.probe': `app ${loc}` } }));
+    vi.doMock(`../locales/complete/${loc}`, () => ({ COMPLETE: true }));
     try {
       const store = await import('../store.svelte');
       store.registerDictionaries({ es: {}, en: { 'landing.probe': 'public en', 'app.probe': 'app en' }, pt: {} });
@@ -75,6 +76,7 @@ describe('a lazily loaded language', () => {
     } finally {
       vi.doUnmock('virtual:public-i18n');
       vi.doUnmock(`../locales/browser/${loc}`);
+      vi.doUnmock(`../locales/complete/${loc}`);
     }
   });
 });

@@ -8,6 +8,7 @@ import { RESEARCH_PAPER_PATHS, researchLastReview, researchLocales } from '../lo
 import { galleryGraph, paperMeta, paperTitle } from '../meta';
 import { PAPER_PUBLISHED, publishedLocale, publishedLocales } from '../../../lib/i18n/published';
 import { PAPER_LOCALES } from '../../paper/locales';
+import { PUBLIC_LOCALES } from '../../../lib/i18n/offered';
 import { publicI18n, setLocale, type PublicLocale } from '../../../lib/i18n/store.svelte';
 
 const labels = { research: 'Research', researchTitle: 'Research in structural engineering' };
@@ -20,8 +21,9 @@ it('publishes every paper page, in English at least and never in a language with
     const locales = researchLocales(path);
     expect(locales).toContain('en');
     for (const locale of ['de', 'fr', 'tr'] as PublicLocale[]) {
-      expect(publishedLocales(path).includes(locale)).toBe(locales.includes(locale));
-      expect(publishedLocale(path, locale)).toBe(locales.includes(locale) ? locale : 'en');
+      const published = locales.includes(locale) && PUBLIC_LOCALES.includes(locale);
+      expect(publishedLocales(path).includes(locale)).toBe(published);
+      expect(publishedLocale(path, locale)).toBe(published ? locale : 'en');
     }
   }
   expect(researchLocales('/research/benchmarks/shell-obstacle-course')).toEqual(['en']);

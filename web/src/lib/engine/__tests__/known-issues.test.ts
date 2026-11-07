@@ -7,6 +7,7 @@ import { knownIssueMessage, knownIssueDisposition, knownIssueRefusal, knownIssue
 import { setLocale } from '../../i18n';
 import { dictFor, ensureLocale, isOfferedLocale } from '../../i18n/store.svelte';
 import { errorText } from '../../utils/error-text';
+import { OFFERED_LOCALES } from '../../i18n/offered';
 
 afterEach(() => setLocale('en'));
 
@@ -51,7 +52,7 @@ describe('known-issue warnings in the reader’s language', () => {
     await Promise.all(['de', 'fr', 'tr'].map(ensureLocale));
     const d = { code: 'plastic_capacity_missing', severity: 'error', elementIds: [7], value: 12, message: 'ENGINE' };
     const error = JSON.stringify({ message: 'ENGINE', structuredDiagnostics: [d] });
-    for (const loc of ['es', 'en', 'pt', 'de', 'fr', 'tr'] as const) {
+    for (const loc of OFFERED_LOCALES) {
       setLocale(loc);
       const m = knownIssueRefusal(error);
       expect(m, loc).not.toBe('ENGINE');
@@ -67,12 +68,12 @@ describe('known-issue warnings in the reader’s language', () => {
 
   it('has a sentence for every finding the engine contains, in every offered language', async () => {
     await Promise.all(['de', 'fr', 'tr'].map(ensureLocale));
-    expect(['de', 'fr', 'tr'].every(isOfferedLocale)).toBe(true);
+    expect(OFFERED_LOCALES.every(isOfferedLocale)).toBe(true);
     const registry = readFileSync('../engine/src/known_issues.rs', 'utf8');
     const ids = [...registry.matchAll(/Entry \{ id: "([^"]+)"/g)].map(match => match[1]);
     expect(ids.length).toBeGreaterThan(1);
     for (const id of ids) {
-      for (const loc of ['es', 'en', 'pt', 'de', 'fr', 'tr'] as const) {
+      for (const loc of OFFERED_LOCALES) {
         setLocale(loc);
         const message = knownIssueMessage({ code: 'known_issue', phase: id, message: 'ENGINE' });
         expect(message, `${id} ${loc}`).not.toBe('ENGINE');
@@ -111,7 +112,7 @@ describe('known-issue warnings in the reader’s language', () => {
     await Promise.all(['de', 'fr', 'tr'].map(ensureLocale));
     for (const element of ['MITC4', 'MITC9']) {
       const phase = `SH-WARPED-${element}`;
-      for (const loc of ['es', 'en', 'pt', 'de', 'fr', 'tr'] as const) {
+      for (const loc of OFFERED_LOCALES) {
         setLocale(loc);
         const refused = knownIssueMessage({ code: 'known_issue', severity: 'error', phase, value: 1057, message: 'ENGINE' });
         const warned = knownIssueMessage({ code: 'known_issue', severity: 'warning', phase, value: 1057, message: 'ENGINE' });

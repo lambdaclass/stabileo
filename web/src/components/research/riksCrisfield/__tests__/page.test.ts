@@ -4,11 +4,12 @@ import Page from '../RiksCrisfieldPage.svelte';
 import Chart from '../PathChart.svelte';
 import { articleStrings, translations } from '../article';
 import { publicI18n, setLocale } from '../../../../lib/i18n/store.svelte';
+import { PUBLIC_LOCALES } from '../../../../lib/i18n/offered';
 
 const original = publicI18n.locale;
 afterEach(() => setLocale(original));
 
-it.each(['en','es','pt','de','fr','tr'] as const)('renders the complete %s page with an honest reference scope', locale => {
+it.each(PUBLIC_LOCALES)('renders the complete %s page with an honest reference scope', locale => {
   setLocale(locale);
   const copy = articleStrings(locale);
   const { body } = render(Page);
