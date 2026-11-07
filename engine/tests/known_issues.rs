@@ -130,7 +130,7 @@ fn ssi_results_carry_structural_warnings_once() {
     };
     let r = solve_ssi_2d(&input).unwrap();
     let found = ids(&r.results.structured_diagnostics);
-    assert_eq!(found, vec!["SSI-REACTIONS".to_string()], "attached once");
+    assert!(found.is_empty(), "{found:?}");
     assert_eq!(assumed(&r.results.structured_diagnostics), vec!["alpha".to_string()], "attached once");
 }
 

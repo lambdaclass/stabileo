@@ -2553,6 +2553,7 @@ pub struct FreeConstraintSystem {
     /// row of an independent DOF. Sniffing it classified those as independent
     /// and dropped their constraint forces from the results entirely.
     dependent: Vec<bool>,
+    restrained_masters: Vec<Vec<(usize, f64)>>,
     /// Inclined-support frames the transform was built in (constraint
     /// forces there are rotated back to global components).
     inclined: Vec<InclinedDofs>,
@@ -2606,11 +2607,14 @@ impl FreeConstraintSystem {
 
         // Slice rows 0..nf (free DOFs) and remap columns.
         let mut rows: Vec<Vec<(usize, f64)>> = vec![Vec::new(); nf];
+        let mut restrained_masters: Vec<Vec<(usize, f64)>> = vec![Vec::new(); nf];
         for i in 0..nf {
             for p in ct.c.row_ptr[i]..ct.c.row_ptr[i + 1] {
                 let j_old = ct.c.col_idx[p];
                 if col_map[j_old] != usize::MAX {
                     rows[i].push((col_map[j_old], ct.c.vals[p]));
+                } else {
+                    restrained_masters[i].push((ct.independent_dofs[j_old] - nf, ct.c.vals[p]));
                 }
             }
         }
@@ -2628,8 +2632,19 @@ impl FreeConstraintSystem {
             n_free_indep,
             nf,
             dependent,
+            restrained_masters,
             inclined: Vec::new(),
             dimensions,
+        }
+    }
+
+    /// Adds to the restrained-DOF reactions (indexed from `nf`) the share of the
+    /// constraint forces `raw` that the slaves carry into restrained masters.
+    pub fn add_restrained_master_forces(&self, raw: &[(usize, f64)], reactions: &mut [f64]) {
+        for &(i, g) in raw {
+            for &(r, c) in &self.restrained_masters[i] {
+                reactions[r] += c * g;
+            }
         }
     }
 

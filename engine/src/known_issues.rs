@@ -59,7 +59,6 @@ pub const ENTRIES: &[Entry] = &[
     Entry { id: "SP-17", issue: 419, mode: Mode::Warn, message: "Anisotropic connector transverse axes are not user-orientable and can change abruptly with direction. Independently verify the spring directions before using these results" },
     Entry { id: "FR-5", issue: 408, mode: Mode::Warn, message: "Warping members share one warping degree of freedom at a joint. Full warping transmission may over-restrain the real connection; verify its detailing and warping restraint independently" },
     Entry { id: "SP-14", issue: 417, mode: Mode::Warn, message: "Outside the cable analysis, cable elements can carry compression as truss bars. Verify cable tensions and use a tension-only cable analysis for slackening" },
-    Entry { id: "SSI-REACTIONS", issue: 1672, mode: Mode::Warn, message: "Soil-structure interaction analysis does not compute support reactions yet: none are reported, and an empty reaction list does not mean the supports carry nothing. Take reactions from another analysis of the same model or from equilibrium" },
     Entry { id: "NL-13", issue: 432, mode: Mode::Warn, message: "Contact analysis can freeze a chattering gap while reporting convergence. Verify the contact state and equilibrium independently" },
     Entry { id: "HARM-TRUNCATION", issue: 1434, mode: Mode::Warn, message: "Harmonic response by modal superposition at frequencies near or above the first omitted mode: the omitted modes are not corrected there, and amplitude and phase can be wrong by large factors. Do not use these frequencies for design; independently verify them with a direct solve" },
     Entry { id: "MD-ORTHOGONALITY", issue: 759, mode: Mode::Warn, message: "3D modal analysis can return non-orthogonal or duplicate modes. Effective masses, response-spectrum combinations and harmonic responses by modal superposition may be wrong, by large factors; independently verify the modal basis" },
@@ -188,7 +187,6 @@ pub fn for_analysis(analysis: Analysis) -> Vec<StructuredDiagnostic> {
         Analysis::MaterialNonlinear => vec![diagnostic("NL-5")],
         Analysis::TimeHistory => vec![diagnostic("TH-RECIPROCITY")],
         Analysis::Contact => vec![diagnostic("NL-13")],
-        Analysis::Ssi => vec![diagnostic("SSI-REACTIONS")],
         _ => vec![],
     }
 }
@@ -1235,8 +1233,6 @@ mod tests {
             ("NL-DYNAMIC-GAPS", Analysis::MaterialNonlinear, false),
             ("PL-2D-INVARIANCE", Analysis::Plastic, false),
             ("NL-13", Analysis::Contact, false),
-            ("SSI-REACTIONS", Analysis::Ssi, false),
-            ("SSI-REACTIONS", Analysis::Ssi, true),
             ("TH-RECIPROCITY", Analysis::TimeHistory, false),
             ("MD-ORTHOGONALITY", Analysis::Modal, true),
             ("BU-ACCURACY", Analysis::Buckling, true),

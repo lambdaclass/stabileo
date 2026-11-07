@@ -18,6 +18,7 @@ use dedaliano_engine::certify::buckling::{certify_buckling_3d, BucklingCertifica
 use dedaliano_engine::certify::modal::{certify_modal_2d, certify_modal_3d};
 use dedaliano_engine::solver::harmonic::{solve_harmonic_2d, solve_harmonic_3d, HarmonicInput, HarmonicInput3D, HarmonicResponsePoint, HarmonicResult};
 use dedaliano_engine::solver::reduction::{craig_bampton_2d, craig_bampton_3d, CraigBamptonInput, CraigBamptonInput3D, CraigBamptonResult};
+use dedaliano_engine::solver::soil_curves::SoilCurve;
 use dedaliano_engine::solver::{buckling, modal, pdelta, spectral, ssi, time_integration};
 use dedaliano_engine::types::*;
 use std::collections::HashMap;
@@ -934,8 +935,14 @@ fn assert_same_reactions<const N: usize>(what: &str, a: &[(usize, [f64; N])], b:
     }
 }
 
+fn soil_spring(node_id: usize, direction: usize) -> ssi::SoilSpring {
+    ssi::SoilSpring {
+        node_id, direction, tributary_length: 1.0,
+        curve: SoilCurve::Custom { points: vec![[0.0, 0.0], [1e-4, 400.0], [1e-3, 1500.0], [1e-2, 3000.0], [1.0, 3500.0]] },
+    }
+}
+
 #[test]
-#[ignore = "known wrong result: #1672"]
 fn issue_1672_ssi_without_soil_springs_reports_the_linear_reactions_2d() {
     for sub in SUBS {
         for rotated in [false, true] {
@@ -950,7 +957,6 @@ fn issue_1672_ssi_without_soil_springs_reports_the_linear_reactions_2d() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1672"]
 fn issue_1672_ssi_without_soil_springs_reports_the_linear_reactions_3d() {
     let q = q_3d();
     for sub in SUBS_3D {
@@ -962,5 +968,48 @@ fn issue_1672_ssi_without_soil_springs_reports_the_linear_reactions_3d() {
             assert!(r.converged, "{what}");
             assert_same_reactions(&what, &reaction_rows_3d(&r.results.reactions), &reaction_rows_3d(&linear.reactions));
         }
+    }
+}
+
+fn assert_balanced(what: &str, reactions: &[f64], loads: &[f64], springs: &[f64]) {
+    let scale = loads.iter().chain(springs).fold(0.0f64, |m, v| m.max(v.abs()));
+    assert!(springs.iter().any(|s| s.abs() > 1e-3 * scale), "{what}: the soil springs carry nothing");
+    for i in 0..loads.len() {
+        let residual = reactions[i] + loads[i] - springs[i];
+        assert!(residual.abs() <= 1e-8 * scale, "{what} axis {i}: reactions {} + loads {} − soil springs {} = {residual} (scale {scale})", reactions[i], loads[i], springs[i]);
+    }
+}
+
+#[test]
+fn ssi_reactions_and_soil_springs_balance_the_loads_2d() {
+    let springs = vec![soil_spring(4, 0), soil_spring(2, 0), soil_spring(3, 1), soil_spring(5, 0)];
+    for sub in SUBS {
+        let input = model_2d(THETA, false, sub, &LOADS_2D);
+        let what = format!("2D sub {sub}");
+        let r = ssi::solve_ssi_2d(&ssi::SSIInput { solver: input, soil_springs: springs.clone(), max_iter: 200, tolerance: 1e-12 }).unwrap();
+        assert!(r.converged, "{what}");
+        assert_eq!(r.results.reactions.iter().map(|x| x.node_id).collect::<Vec<_>>(), vec![1, 4, 6], "{what}");
+        let mut sums = [[0.0f64; 2]; 3];
+        for x in &r.results.reactions { sums[0][0] += x.rx; sums[0][1] += x.rz; }
+        for &(_, fx, fz) in &LOADS_2D { sums[1][0] += fx; sums[1][1] += fz; }
+        for s in &r.spring_results { sums[2][s.direction] += s.reaction; }
+        assert_balanced(&what, &sums[0], &sums[1], &sums[2]);
+    }
+}
+
+#[test]
+fn ssi_reactions_and_soil_springs_balance_the_loads_3d() {
+    let springs = vec![soil_spring(4, 0), soil_spring(2, 0), soil_spring(5, 1), soil_spring(3, 2)];
+    for sub in SUBS_3D {
+        let input = model_3d(normal_3d(), None, sub, &LOADS_3D);
+        let what = format!("3D sub {sub}");
+        let r = ssi::solve_ssi_3d(&ssi::SSIInput3D { solver: input, soil_springs: springs.clone(), max_iter: 200, tolerance: 1e-12 }).unwrap();
+        assert!(r.converged, "{what}");
+        assert_eq!(r.results.reactions.iter().map(|x| x.node_id).collect::<Vec<_>>(), vec![1, 4], "{what}");
+        let mut sums = [[0.0f64; 3]; 3];
+        for x in &r.results.reactions { sums[0][0] += x.fx; sums[0][1] += x.fy; sums[0][2] += x.fz; }
+        for &(_, f) in &LOADS_3D { for i in 0..3 { sums[1][i] += f[i]; } }
+        for s in &r.spring_results { sums[2][s.direction] += s.reaction; }
+        assert_balanced(&what, &sums[0], &sums[1], &sums[2]);
     }
 }
