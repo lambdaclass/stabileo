@@ -4,6 +4,7 @@ import { EXPERIMENTS } from '../src/components/research/experiments';
 import catalog from '../../research/papers.json' with { type: 'json' };
 import type { StabileoTestActions, StabileoTestHooks } from '../src/lib/utils/e2e-hooks';
 
+const AWAITING_REVIEW = new Set(['gay-neto-2014']);
 const REVIEW_NOTE = /First version|Primera versión|Primeira versão|Erste Version|Première version|İlk sürüm|review rounds?\b|rondas? de revisión|rodadas? de revisão|Prüfrunden?|cycles? de revue|inceleme turu/;
 
 for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
@@ -50,7 +51,9 @@ test.describe('@smoke research', () => {
       const title = (await heading.innerText()).trim();
       expect(title.length).toBeGreaterThan(0);
       const paper = catalog.papers.find((p) => p.id === experiment.paperId)!;
-      expect(new Set((paper.reviews ?? []).flatMap((r) => ('round' in r ? [r.round] : []))).size).toBeGreaterThan(0);
+      const rounds = new Set((paper.reviews ?? []).flatMap((r) => ('round' in r ? [r.round] : []))).size;
+      if (AWAITING_REVIEW.has(experiment.paperId)) expect(rounds).toBe(0);
+      else expect(rounds).toBeGreaterThan(0);
       await expect(card.locator('.rs-g-first')).toHaveCount(0);
       await expect(card).not.toContainText(REVIEW_NOTE);
       // Every runnable experiment shows its build-time thumbnail, never the field icon.
