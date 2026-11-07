@@ -137,13 +137,22 @@ pub(crate) fn check_3d(s: &SolverInput3D, r: &AnalysisResults3D, known: Known) -
     Ok(())
 }
 
+fn in_key_order<T>(m: &HashMap<String, T>) -> Vec<&T> {
+    let mut v: Vec<(&String, &T)> = m.iter().collect();
+    v.sort_by(|a, b| a.0.cmp(b.0));
+    v.into_iter().map(|x| x.1).collect()
+}
+
 pub(crate) fn nodal_stresses_3d(s: &SolverInput3D, r: &AnalysisResults3D) -> Result<(), String> {
-    let mut expected: Vec<usize> = s.quads.values().flat_map(|q| q.nodes).collect();
-    expected.extend(s.quad9s.values().flat_map(|q| q.nodes));
+    let mut expected: Vec<(usize, usize)> = in_key_order(&s.quads).into_iter().flat_map(|q| q.nodes.map(|n| (q.id, n))).collect();
+    expected.extend(in_key_order(&s.quad9s).into_iter().flat_map(|q| q.nodes.map(|n| (q.id, n))));
     if r.quad_nodal_stresses.len() != expected.len() {
         return Err(format!("quad nodal stresses: {} records for {} expected", r.quad_nodal_stresses.len(), expected.len()));
     }
-    same_ids("quad nodal stresses", &expected, r.quad_nodal_stresses.iter().map(|n| n.node_index))
+    match expected.iter().zip(&r.quad_nodal_stresses).position(|((_, n), got)| *n != got.node_index) {
+        None => Ok(()),
+        Some(k) => Err(format!("quad nodal stresses: record {k} is node {}, expected node {} of shell {}", r.quad_nodal_stresses[k].node_index, expected[k].1, expected[k].0)),
+    }
 }
 
 type Out2 = Result<Vec<(String, AnalysisResults)>, String>;
@@ -336,6 +345,22 @@ fn frame_only(s: SolverInput3D) -> SolverInput3D {
     s
 }
 
+const DECLARED_REFUSALS: &[(&str, &str)] = &[
+    ("corotational", "does not support shell elements"),
+    ("material nonlinear", "does not support shell elements"),
+    ("fiber nonlinear", "does not support shell elements"),
+    ("fiber nonlinear", "does not support member end releases"),
+    ("fiber nonlinear", "does not support prescribed support displacements"),
+    ("SSI", "does not support prescribed support displacements"),
+    ("staged", "Nine-node shell elements are not yet supported in staged construction"),
+    ("staged", "does not support curved shell elements"),
+    ("staged", "does not support solid shell elements"),
+];
+
+fn declared_refusal(analysis: &str, error: &str) -> bool {
+    DECLARED_REFUSALS.iter().any(|(a, phrase)| *a == analysis && error.contains(phrase))
+}
+
 #[derive(Default)]
 struct Ledger {
     checked: BTreeMap<String, usize>,
@@ -347,6 +372,7 @@ struct Ledger {
 impl Ledger {
     fn record(&mut self, analysis: &str, model: &str, tags: &[&str], results: Result<Vec<Result<(), String>>, String>) {
         match results {
+            Err(e) if !model.starts_with("fuzz") && !declared_refusal(analysis, &e) => self.violations.push(format!("{analysis} refused the deterministic model {model}: {e}")),
             Err(e) => {
                 *self.refused.entry(analysis.to_string()).or_default() += 1;
                 self.reasons.entry(analysis.to_string()).or_insert_with(|| format!("{model}: {}", e.chars().take(200).collect::<String>()));
@@ -625,5 +651,29 @@ mod tests {
         let linear = one(linear::solve_3d(&s)).unwrap();
         outputs_complete("linear", &linear).unwrap();
         assert!(outputs_complete("linear", &removed(&linear, 0)).is_err());
+    }
+
+    #[test]
+    fn a_nodal_stress_out_of_its_shell_block_fails() {
+        let s = building_3d(1);
+        let r = linear::solve_3d(&s).unwrap();
+        nodal_stresses_3d(&s, &r).unwrap();
+        let mut reordered = r.clone();
+        reordered.quad_nodal_stresses.swap(0, 5);
+        assert!(nodal_stresses_3d(&s, &reordered).is_err());
+        let mut substituted = r.clone();
+        substituted.quad_nodal_stresses[0] = r.quad_nodal_stresses[1].clone();
+        assert!(nodal_stresses_3d(&s, &substituted).is_err());
+    }
+
+    #[test]
+    fn only_declared_refusals_pass_on_deterministic_models() {
+        let mut ledger = Ledger::default();
+        ledger.record("linear", "building_3d/0", &[], Err("Singular stiffness matrix".into()));
+        ledger.record("corotational", "building_3d/0", &[], Err("Corotational 3D solver does not support shell elements.".into()));
+        ledger.record("corotational", "frame_3d/0", &[], Err("Corotational analysis does not support thermal loads (member 1)".into()));
+        ledger.record("linear", "fuzz_rich_3d/0", &[], Err("leftHand: true is not supported".into()));
+        assert_eq!(ledger.violations.len(), 2, "{:?}", ledger.violations);
+        assert!(ledger.violations[0].starts_with("linear refused") && ledger.violations[1].starts_with("corotational refused the deterministic model frame_3d/0"));
     }
 }

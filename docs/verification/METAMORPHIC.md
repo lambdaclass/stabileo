@@ -77,7 +77,9 @@ UPDATE_METAMORPHIC_DOC=1 cargo test --locked --release --test metamorphic metamo
   checked against the input model: one displacement per node, one reaction per distinct
   support node, one force record per element (curved beams expanded), one plate stress per
   plate, quad stresses per family in the engine's order (MITC4, MITC9, solid shells, curved
-  shells), and on the linear solve one quad nodal stress per MITC4/MITC9 element node. A
+  shells), and on the linear solve one quad nodal stress per MITC4/MITC9 element node, in the
+  engine's element and node order (the record carries no element id, so its position is its
+  identity). A
   missing id, an id reported twice or an id not in the model fails. It runs linear, load
   session, constrained, certified linear, load combinations (every case and the
   combination), staged (every stage and the final result; the case, combination and stage
@@ -86,7 +88,11 @@ UPDATE_METAMORPHIC_DOC=1 cargo test --locked --release --test metamorphic metamo
   fuzz seeds and 20 buildings as `linear_identities.rs`, plus frame-only copies of the
   plate, MITC4 and curved-shell buildings (no settlement or thermal load) so that
   corotational and fiber analyses are reached. Every analysis and every shell family on the
-  linear solve must be checked at least once. Two engine bugs are asserted as they are now,
+  linear solve must be checked at least once. On the buildings and frame copies, the only
+  accepted refusals are the declared unsupported features (`DECLARED_REFUSALS`: shells in
+  corotational, material and fiber nonlinear, and staged MITC9/solid/curved shells; releases and
+  settlements in fiber nonlinear; settlements in SSI). Any other refusal fails. Fuzz models
+  may be refused. Two engine bugs are asserted as they are now,
   not exempted: SSI reports no reactions (#1672), and 3D combination results have no plate,
   quad or quad nodal stresses (#1673). Every other field of those results is fully checked.
   When either bug is fixed, the test fails and points to the issue, and the case moves to
