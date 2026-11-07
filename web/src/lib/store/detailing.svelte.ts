@@ -102,8 +102,8 @@ function createDetailingStore() {
   let lastFootingRun = $state<RunFootingDesignResult | null>(null);
   /** The inputs `lastFootingRun` was produced from. See `footingRunFingerprint`. */
   let lastFootingRunFingerprint = $state<string | null>(null);
-  let currentDocument = $state<DocumentModel | null>(null);
-  let supersededDocs = $state<DocumentModel[]>([]);
+  let currentDocument = $state.raw<DocumentModel | null>(null);
+  let supersededDocs = $state.raw<DocumentModel[]>([]);
   /**
    * The last design–detailing feedback loop: its outcome, iterations and full trace.
    *

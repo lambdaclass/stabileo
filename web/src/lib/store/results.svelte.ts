@@ -274,7 +274,14 @@ function createResultsStore() {
   let perCombo3D = $state<Map<number, AnalysisResults3D>>(new Map());
   let unstableCombinations3D = $state<number[]>([]);
   let envelope3D = $state.raw<FullEnvelope3D | null>(null);
-  const anyRefused = (...maps: ReadonlyMap<number, unknown>[]) => maps.some(m => [...m.values()].some(r => knownIssueResultDisposition(r).refused));
+  const refusals = new WeakMap<object, boolean>();
+  const refused = (r: unknown): boolean => {
+    if (!r || typeof r !== 'object') return knownIssueResultDisposition(r).refused;
+    let v = refusals.get(r);
+    if (v === undefined) { v = knownIssueResultDisposition(r).refused; refusals.set(r, v); }
+    return v;
+  };
+  const anyRefused = (...maps: ReadonlyMap<number, unknown>[]) => maps.some(m => [...m.values()].some(refused));
   const NO_RESULTS = new Map<number, never>();
   const combosRefused2D = () => anyRefused(perCase, perCombo);
   const combosRefused3D = () => anyRefused(perCase3D, perCombo3D);
@@ -443,7 +450,7 @@ function createResultsStore() {
      *  editing/reading exclusion, not just the ones that call showDiagram(). */
     _setOnDiagramShown(fn: () => void) { _onDiagramShown = fn; },
 
-    get results() { return knownIssueResultDisposition(results).refused ? null : results; },
+    get results() { return refused(results) ? null : results; },
     /** True when ANY result of any kind is present. Used by the mutation hook
      *  to decide whether an edit must clear stale results. Covers 2D + 3D base,
      *  per-case/per-combo/envelope, every advanced result (2D + 3D), and the
@@ -571,8 +578,8 @@ function createResultsStore() {
         results3D = perCase3D.get(v) ?? singleResults3D;
       }
     },
-    get singleResults() { return knownIssueResultDisposition(singleResults).refused ? null : singleResults; },
-    get singleResults3D() { return knownIssueResultDisposition(singleResults3D).refused ? null : singleResults3D; },
+    get singleResults() { return refused(singleResults) ? null : singleResults; },
+    get singleResults3D() { return refused(singleResults3D) ? null : singleResults3D; },
     get hasCombinations() { return (perCombo.size > 0 && !combosRefused2D()) || (perCombo3D.size > 0 && !combosRefused3D()); },
     get isEnvelopeActive() { return activeView === 'envelope' && (envelope !== null || envelope3D !== null); },
     get fullEnvelope() { return this.envelope; },
@@ -1150,7 +1157,7 @@ function createResultsStore() {
 
     // ─── 3D Results ─────────────────────────────────────────────
 
-    get results3D() { return knownIssueResultDisposition(results3D).refused ? null : results3D; },
+    get results3D() { return refused(results3D) ? null : results3D; },
 
     setResults3D(r: AnalysisResults3D, preserveDiagram = false) {
       _onStaticPublish?.(r, '3d');
