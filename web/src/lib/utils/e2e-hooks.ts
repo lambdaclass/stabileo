@@ -894,19 +894,23 @@ export function installE2EHooks(): void {
   };
   const actions: StabileoTestActions = {
     seedSelfCheckWarning: (count = 1, cases = 0) => {
-      for (const result of [resultsStore.results, resultsStore.results3D, resultsStore.modalResult, resultsStore.modalResult3D]) {
-        if (!result) continue;
-        result.structuredDiagnostics = [...(result.structuredDiagnostics ?? []), ...Array.from({ length: count }, (_, i) => ({
-          code: 'residual_high' as const, severity: 'warning' as const, phase: `self_check:static_balance:${i}`,
-          message: 'WARN: self-check fixture: balance needs review before using these results',
-          value: 2e-6, threshold: 1e-6,
-        }))];
+      const warnings = Array.from({ length: count }, (_, i) => ({
+        code: 'residual_high' as const, severity: 'warning' as const, phase: `self_check:static_balance:${i}`,
+        message: 'WARN: self-check fixture: balance needs review before using these results',
+        value: 2e-6, threshold: 1e-6,
+      }));
+      for (const result of [resultsStore.results, resultsStore.modalResult, resultsStore.modalResult3D]) {
+        if (result) result.structuredDiagnostics = [...(result.structuredDiagnostics ?? []), ...warnings];
       }
+      const r3 = resultsStore.results3D;
       if (resultsStore.results) resultsStore.setResults(resultsStore.results, true);
-      if (resultsStore.results3D) resultsStore.setResults3D(resultsStore.results3D, true);
+      if (r3) resultsStore.setResults3D({ ...r3, structuredDiagnostics: [...(r3.structuredDiagnostics ?? []), ...warnings] }, true);
       for (let i = 0; i < cases; i++) {
         if (resultsStore.results) resultsStore.perCase.set(i + 1, i === 0 ? resultsStore.results : { ...resultsStore.results });
-        if (resultsStore.results3D) resultsStore.perCase3D.set(i + 1, i === 0 ? resultsStore.results3D : { ...resultsStore.results3D });
+      }
+      const seeded = resultsStore.results3D;
+      if (seeded && cases > 0) {
+        resultsStore.setCombinationResults3D(new Map(Array.from({ length: cases }, (_, i) => [i + 1, i === 0 ? seeded : { ...seeded }])), new Map(), null as never);
       }
     },
     /** Seed a coordinated assembly — the same shape the pipeline writes. */

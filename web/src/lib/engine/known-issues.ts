@@ -47,7 +47,46 @@ const OPAQUE_KEYS: readonly string[] = opaqueKeys;
 const isKnownIssue = (d: unknown): d is Diagnostic =>
   !!d && typeof d === 'object' && (d as Diagnostic).code === 'known_issue' && typeof (d as Diagnostic).message === 'string';
 
+const frozenResults = new WeakSet<object>();
+const frozenDiagnostics = new WeakMap<object, Diagnostic[]>();
+
+function refuseEdit(): never {
+  throw new TypeError('A published result cannot be edited in place');
+}
+
+const locked = { value: refuseEdit, enumerable: false, writable: false, configurable: false };
+
+function lockCollection(value: Map<unknown, unknown> | Set<unknown>): void {
+  Object.defineProperties(value, value instanceof Map ? { set: locked, delete: locked, clear: locked } : { add: locked, delete: locked, clear: locked });
+}
+
+/** Typed arrays inside stay writable: they hold numbers only, never a diagnostic. */
+export function freezeResult<T>(result: T): T {
+  const walked = new Set<object>();
+  function walk(value: unknown): void {
+    if (!value || typeof value !== 'object' || walked.has(value) || frozenResults.has(value) || ArrayBuffer.isView(value)) return;
+    walked.add(value);
+    if (value instanceof Map) { value.forEach((v, k) => { walk(k); walk(v); }); lockCollection(value); }
+    else if (value instanceof Set) { value.forEach(walk); lockCollection(value); }
+    Object.values(value).forEach(walk);
+    Object.freeze(value);
+  }
+  walk(result);
+  if (result && typeof result === 'object') frozenResults.add(result);
+  return result;
+}
+
+function frozenDiagnosticsOf(result: object): Diagnostic[] {
+  let found = frozenDiagnostics.get(result);
+  if (!found) { found = diagnosticsIn(result, result); frozenDiagnostics.set(result, found); }
+  return found;
+}
+
 export function knownIssueDiagnosticsIn(result: unknown): Diagnostic[] {
+  return diagnosticsIn(result, null);
+}
+
+function diagnosticsIn(result: unknown, root: object | null): Diagnostic[] {
   const diagnostics: Diagnostic[] = [];
   const seen = new Set<object>();
   const scanned = new Set<object>();
@@ -69,6 +108,7 @@ export function knownIssueDiagnosticsIn(result: unknown): Diagnostic[] {
   function visit(value: unknown): void {
     if (!value || typeof value !== 'object' || seen.has(value)) return;
     seen.add(value);
+    if (value !== root && frozenResults.has(value)) { diagnostics.push(...frozenDiagnosticsOf(value)); return; }
     if (Array.isArray(value)) { value.forEach(visit); return; }
     if (value instanceof Map) { value.forEach(visit); return; }
     const record = value as Record<string, unknown>;

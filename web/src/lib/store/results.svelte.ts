@@ -5,7 +5,7 @@ import { timeHistoryView } from './time-history-view.svelte';
 import { carryCertifyJob } from '../engine/certify-tags';
 import type { AnalysisResults, InfluenceLineResult, Section, Material } from './model.svelte';
 import type { ElementForces, FullEnvelope, ConstraintForce, SolverDiagnostic, SolveTimings } from '../engine/types';
-import { knownIssueResultDisposition } from '../engine/known-issues';
+import { freezeResult, knownIssueResultDisposition } from '../engine/known-issues';
 import { modelFindings } from '../engine/model-findings';
 import type { AnalysisResults3D, Displacement3D, Reaction3D, ElementForces3D, FullEnvelope3D } from '../engine/types-3d';
 import type { GoverningPerElement, GoverningPerElement3D } from '../engine/governing-case';
@@ -270,12 +270,12 @@ function createResultsStore() {
     if (!found) { found = modelFindings(list, r?.solverDiagnostics as { category?: string }[] | undefined); findingsCache.set(list, found); }
     return found;
   };
-  let perCase3D = $state<Map<number, AnalysisResults3D>>(new Map());
-  let perCombo3D = $state<Map<number, AnalysisResults3D>>(new Map());
+  let perCase3D = $state.raw<Map<number, AnalysisResults3D>>(freezeResult(new Map()));
+  let perCombo3D = $state.raw<Map<number, AnalysisResults3D>>(freezeResult(new Map()));
   let unstableCombinations3D = $state<number[]>([]);
   let envelope3D = $state.raw<FullEnvelope3D | null>(null);
   const anyRefused = (...maps: ReadonlyMap<number, unknown>[]) => maps.some(m => [...m.values()].some(r => knownIssueResultDisposition(r).refused));
-  const NO_RESULTS = new Map<number, never>();
+  const NO_RESULTS = freezeResult(new Map<number, never>());
   const combosRefused2D = () => anyRefused(perCase, perCombo);
   const combosRefused3D = () => anyRefused(perCase3D, perCombo3D);
   const comboRefused2D = () => combosRefused2D() || knownIssueResultDisposition(envelope?.maxAbsResults).refused;
@@ -1099,8 +1099,8 @@ function createResultsStore() {
       // This allows the panel to survive live-calc re-solves where results are only briefly null.
       results3D = null;
       singleResults3D = null;
-      perCase3D = new Map();
-      perCombo3D = new Map();
+      perCase3D = freezeResult(new Map());
+      perCombo3D = freezeResult(new Map());
       unstableCombinations3D = [];
       envelope3D = null;
       governing2D = new Map();
@@ -1155,6 +1155,7 @@ function createResultsStore() {
     setResults3D(r: AnalysisResults3D, preserveDiagram = false) {
       _onStaticPublish?.(r, '3d');
       if (_normalise3D) r = _normalise3D(r);
+      r = freezeResult(r);
       noteStructuralSolve();
       _onResultsPublish?.();
       results3D = r;
@@ -1179,8 +1180,8 @@ function createResultsStore() {
       // Reset 3D combos on fresh solve
       activeView = 'single';
       activeCaseId = null;
-      perCase3D = new Map();
-      perCombo3D = new Map();
+      perCase3D = freezeResult(new Map());
+      perCombo3D = freezeResult(new Map());
       unstableCombinations3D = [];
       envelope3D = null;
       governing3D = new Map();
@@ -1196,8 +1197,8 @@ function createResultsStore() {
       _held = null;
       results3D = null;
       singleResults3D = null;
-      perCase3D = new Map();
-      perCombo3D = new Map();
+      perCase3D = freezeResult(new Map());
+      perCombo3D = freezeResult(new Map());
       unstableCombinations3D = [];
       envelope3D = null;
       governing3D = new Map();
@@ -1236,7 +1237,7 @@ function createResultsStore() {
     },
     /** Show a named envelope (built over the current solve) in place of the active one, or go back (`null`). */
     viewEnvelope3D(env: FullEnvelope3D | null, name = '') {
-      viewedEnvelope3D = env && envelope3D ? { env, name, over: envelope3D } : null;
+      viewedEnvelope3D = env && envelope3D ? { env: freezeResult(env), name, over: envelope3D } : null;
       if (activeView === 'envelope') this._update3DView('envelope');
     },
 
@@ -1254,6 +1255,7 @@ function createResultsStore() {
         pco = new Map([...pco].map(([k, r]) => [k, n(r)]));
         if (_normaliseEnvelope3D && env) env = _normaliseEnvelope3D(env);
       }
+      for (const r of [...pc.values(), ...pco.values(), env?.maxAbsResults3D, env, pc, pco]) freezeResult(r);
       noteStructuralSolve();
       _onResultsPublish?.();
       perCase3D = pc;
