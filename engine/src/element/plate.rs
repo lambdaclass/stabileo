@@ -985,9 +985,7 @@ pub fn plate_stress_at_nodes_thermal(
 /// Principal stresses and von Mises on the face (z = ±t/2, membrane ∓ 6M/t²) with the larger von
 /// Mises, the top face on a tie.
 pub fn plate_worse_face(sigma_xx: f64, sigma_yy: f64, tau_xy: f64, mx: f64, my: f64, mxy: f64, t: f64) -> (f64, f64, f64) {
-    let bend_xx = 6.0 * mx / (t * t);
-    let bend_yy = 6.0 * my / (t * t);
-    let bend_xy = 6.0 * mxy / (t * t);
+    let (bend_xx, bend_yy, bend_xy) = (bending_stress(mx, t), bending_stress(my, t), bending_stress(mxy, t));
     let (s1_top, s2_top, vm_top) = principal_and_von_mises(sigma_xx - bend_xx, sigma_yy - bend_yy, tau_xy - bend_xy);
     let (s1_bot, s2_bot, vm_bot) = principal_and_von_mises(sigma_xx + bend_xx, sigma_yy + bend_yy, tau_xy + bend_xy);
     if vm_top >= vm_bot {
@@ -1008,6 +1006,33 @@ fn principal_and_von_mises(sx: f64, sy: f64, txy: f64) -> (f64, f64, f64) {
     let s2 = avg - r;
     let vm = (s1 * s1 - s1 * s2 + s2 * s2).sqrt();
     (s1 * up, s2 * up, vm * up)
+}
+
+fn bending_stress(m: f64, t: f64) -> f64 {
+    if m == 0.0 || t == 0.0 || !m.is_finite() || !t.is_finite() {
+        return 6.0 * m / (t * t);
+    }
+    let (em, et) = (binary_exponent(m), binary_exponent(t));
+    let t = ldexp(t, -et);
+    ldexp(6.0 * ldexp(m, -em) / (t * t), em - 2 * et)
+}
+
+/// The exponent of a finite non-zero `x`, with subnormals counted as 2^-1022.
+pub(crate) fn binary_exponent(x: f64) -> i32 {
+    (((x.to_bits() >> 52) & 0x7ff) as i32 - 1023).max(-1022)
+}
+
+pub(crate) fn ldexp(mut x: f64, mut k: i32) -> f64 {
+    let pow2 = |e: i32| f64::from_bits(((1023 + e) as u64) << 52);
+    while k > 1000 {
+        x *= pow2(1000);
+        k -= 1000;
+    }
+    while k < -1000 {
+        x *= pow2(-1000);
+        k += 1000;
+    }
+    x * pow2(k)
 }
 
 /// Scaling by these powers of two is exact, so a formula evaluated on scaled values stays bit-identical to the unscaled one wherever that one neither overflows nor underflows.

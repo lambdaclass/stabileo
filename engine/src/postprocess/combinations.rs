@@ -448,6 +448,18 @@ fn membrane_von_mises(sxx: f64, syy: f64, txy: f64) -> f64 {
     (sxx * sxx - sxx * syy + syy * syy + 3.0 * txy * txy).sqrt() * up
 }
 
+/// Σ f·b for finite terms whose plain sum overflowed partway: each product is scaled to the largest
+/// one's binary exponent before adding, so only a sum that is itself beyond f64 stays non-finite.
+fn rescaled_sum(terms: impl Iterator<Item = (f64, f64)> + Clone) -> f64 {
+    use crate::element::plate::{binary_exponent, ldexp};
+    if terms.clone().any(|(f, b)| !f.is_finite() || !b.is_finite()) {
+        return terms.fold(0.0, |a, (f, b)| a + f * b);
+    }
+    let nonzero = terms.filter(|&(f, b)| f != 0.0 && b != 0.0).map(|(f, b)| (binary_exponent(f) + binary_exponent(b), ldexp(f, -binary_exponent(f)) * ldexp(b, -binary_exponent(b))));
+    let Some(top) = nonzero.clone().map(|(e, _)| e).max() else { return 0.0 };
+    ldexp(nonzero.fold(0.0, |a, (e, p)| a + ldexp(p, e - top)), top)
+}
+
 fn combine_shells(terms: &[(f64, usize, &AnalysisResults3D)], template: (usize, &AnalysisResults3D), plate_thickness: &PlateThicknesses) -> Result<CombinedShells, String> {
     let (tid, tr) = template;
     crate::shell_combination_kernel::unique_ids(tr.plate_stresses.iter().map(|p| p.element_id))?;
@@ -464,6 +476,11 @@ fn combine_shells(terms: &[(f64, usize, &AnalysisResults3D)], template: (usize, 
                 *a += f * b;
             }
         }
+        for (i, a) in v.iter_mut().enumerate() {
+            if !a.is_finite() {
+                *a = rescaled_sum(terms.iter().map(|&(f, _, r)| (f, at(r)[i])));
+            }
+        }
         v
     };
     let shear = |init: [Option<f64>; 2], at: &dyn Fn(&AnalysisResults3D) -> [Option<f64>; 2]| -> [Option<f64>; 2] {
@@ -471,6 +488,11 @@ fn combine_shells(terms: &[(f64, usize, &AnalysisResults3D)], template: (usize, 
         for &(f, _, r) in terms {
             let v = at(r);
             q = [0, 1].map(|i| q[i].zip(v[i]).map(|(a, b)| a + f * b));
+        }
+        for (i, a) in q.iter_mut().enumerate() {
+            if a.is_some_and(|a| !a.is_finite()) {
+                *a = Some(rescaled_sum(terms.iter().map(|&(f, _, r)| (f, at(r)[i].unwrap_or(0.0)))));
+            }
         }
         if q[0].is_none() || q[1].is_none() { [None, None] } else { q }
     };

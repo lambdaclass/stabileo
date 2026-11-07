@@ -847,6 +847,36 @@ mod tests {
     }
 
     #[test]
+    fn a_plate_bending_stress_whose_numerator_or_thickness_square_leaves_f64_is_still_computed() {
+        let (s, mc) = two_cases(0);
+        let mut r = mc.case_results[0].results.clone();
+        let id = r.plate_stresses[0].element_id;
+        let close = |got: f64, want: f64| assert!((got / want - 1.0).abs() < 1e-14, "{got} vs {want}");
+        for (m, t, bending) in [(4e307, 2.0, 6e307), (1e200, 1e200, 6e-200)] {
+            let p = &mut r.plate_stresses[0];
+            (p.sigma_xx, p.sigma_yy, p.tau_xy, p.mx, p.my, p.mxy) = (0.0, 0.0, 0.0, m, 0.0, 0.0);
+            let mut thickness = plate_thicknesses(&s);
+            thickness.insert(id, t);
+            let p = combine_results_3d_refs_with_thickness(&[CombinationFactor { case_id: 0, factor: 1.0 }], &[(0, &r)], &thickness).unwrap().unwrap().plate_stresses[0].clone();
+            close(p.von_mises, bending);
+            close(p.sigma_2, -bending);
+        }
+    }
+
+    #[test]
+    fn a_combined_shell_stress_is_kept_when_only_its_partial_sum_overflows() {
+        let (_, mc) = two_cases(1);
+        let (mut a, mut b) = (mc.case_results[0].results.clone(), mc.case_results[1].results.clone());
+        for (r, x) in [(&mut a, 1e308), (&mut b, -0.5e308)] {
+            let q = &mut r.quad_stresses[0];
+            (q.sigma_xx, q.sigma_yy, q.tau_xy, q.qx) = (x, 0.0, 0.0, Some(x));
+        }
+        let two = [CombinationFactor { case_id: 0, factor: 2.0 }, CombinationFactor { case_id: 1, factor: 2.0 }];
+        let q = combine_results_3d_refs(&two, &[(0, &a), (1, &b)]).unwrap().unwrap().quad_stresses[0].clone();
+        assert_eq!((q.sigma_xx, q.von_mises, q.qx), (1e308, 1e308, Some(1e308)));
+    }
+
+    #[test]
     fn a_tiny_combined_shell_stress_keeps_its_von_mises() {
         let q = doubled_quad(1e-200, 0.0, 0.0).unwrap().unwrap().quad_stresses[0].clone();
         assert_eq!(q.von_mises, 2e-200);
