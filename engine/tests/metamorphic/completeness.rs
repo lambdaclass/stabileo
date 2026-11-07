@@ -455,7 +455,8 @@ fn every_node_support_element_and_shell_has_one_record_3d() {
     for (name, s, dens) in models_3d() {
         let tags = shell_tags(&s);
         for (analysis, run) in analyses_3d() {
-            let r = run(&s, &dens).map(|v| std::iter::once(outputs_complete(analysis, &v)).chain(v.iter().map(|(label, r)| check_3d(&s, r).map_err(|e| format!("{label} {e}")))).collect());
+            let nodal = analysis == "load combinations";
+            let r = run(&s, &dens).map(|v| std::iter::once(outputs_complete(analysis, &v)).chain(v.iter().map(|(label, r)| check_3d(&s, r).and_then(|()| if nodal { nodal_stresses_3d(&s, r) } else { Ok(()) }).map_err(|e| format!("{label} {e}")))).collect());
             ledger.record(analysis, &name, &tags, gate(analysis, &name, &s, r));
         }
         let nodal = linear::solve_3d(&s).map(|r| vec![nodal_stresses_3d(&s, &r)]);
@@ -591,18 +592,21 @@ mod tests {
             let s = building_3d(seed);
             let r = linear::solve_3d(&s).unwrap();
             check_3d(&s, &r).unwrap();
-            let edits: [fn(&mut AnalysisResults3D); 4] = [
+            let edits: [fn(&mut AnalysisResults3D); 3] = [
                 |b| (b.plate_stresses, b.quad_stresses, b.quad_nodal_stresses) = (vec![], vec![], vec![]),
-                |b| b.quad_nodal_stresses.clear(),
                 |b| b.reactions.clear(),
                 |b| b.reactions = removed(&b.reactions, 0),
             ];
             for (k, edit) in edits.into_iter().enumerate() {
                 let mut bad = r.clone();
                 edit(&mut bad);
-                if k != 1 || !r.quad_nodal_stresses.is_empty() {
-                    assert!(check_3d(&s, &bad).is_err(), "edit {k} passed");
-                }
+                assert!(check_3d(&s, &bad).is_err(), "edit {k} passed");
+            }
+            if !r.quad_nodal_stresses.is_empty() {
+                nodal_stresses_3d(&s, &r).unwrap();
+                let mut no_nodal = r.clone();
+                no_nodal.quad_nodal_stresses.clear();
+                assert!(nodal_stresses_3d(&s, &no_nodal).is_err());
             }
         }
     }
