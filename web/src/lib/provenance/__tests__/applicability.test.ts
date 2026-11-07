@@ -344,6 +344,18 @@ describe('versions and recorded analyses (a later registry)', () => {
     expect(modelFeatures(steel, { analysesRun: harmonic.analyses, analysesRecorded: harmonic.recorded }).has('analysis:harmonic')).toBe(true);
   });
 
+  it('a solve in another build never makes an analysis that ran under the previous stamp read as not run', () => {
+    const before = { ...stampSolve('harmonic', solvedHere(['linear'])), resultsVersion: 1, commit: 'old' };
+    expect(before.analyses).toEqual(['harmonic', 'linear']);
+    const solved = stampSolve('linear', before);
+    expect(solved.analyses).toEqual(['linear']);
+    expect(solved.recorded).not.toContain('harmonic');
+    expect(modelFeatures(steel, analysesContext(solved)).has('analysis:harmonic')).toBe(true);
+    expect(modelFeatures(steel, analysesContext(solved)).has('analysis:nonlinear')).toBe(false);
+    const fromUnknown = stampSolve('linear', unknownStamp());
+    expect(fromUnknown.recorded).toEqual(['linear']);
+  });
+
   it('a solve on top of a stamp written before #1658 keeps the analyses it did not record counted as run', () => {
     const { recorded: _all, ...legacy } = { ...solvedHere(['linear', 'harmonic']), resultsVersion: 1, commit: 'old' };
     const solved = stampSolve('linear', legacy);

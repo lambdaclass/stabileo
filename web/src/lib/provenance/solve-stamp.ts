@@ -33,8 +33,9 @@ export interface SolveStamp {
   analyses: AnalysisKind[];
   /**
    * The analyses the stamp knows the runs of: one listed here and absent from `analyses` was not
-   * run. Absent on stamps written before #1658 (`LEGACY_RECORDED_ANALYSES`); a solve on top of
-   * one adds only the analysis it ran, so an older run nothing recorded never reads as absent.
+   * run. Absent on stamps written before #1658 (`LEGACY_RECORDED_ANALYSES`). A solve in another
+   * build adds the analysis it ran and drops those the previous stamp listed as run: they ran
+   * once, so they must never read as not run.
    */
   recorded?: AnalysisKind[];
 }
@@ -81,6 +82,8 @@ export function stampSolve(kind: AnalysisKind, previous: SolveStamp | null | und
   const b = buildIdentity();
   const keep = previous && previous.resultsVersion === RESULTS_VERSION && previous.commit === b.commit ? previous.analyses : [];
   const analyses = [...new Set<AnalysisKind>([...keep, kind])].sort();
+  const known = !previous ? ANALYSIS_KINDS : previous.resultsVersion === 0 ? [] : (previous.recorded ?? LEGACY_RECORDED_ANALYSES)
+    .filter((k) => keep.includes(k) || !previous.analyses.includes(k));
   return {
     id: `${now.getTime().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
     resultsVersion: RESULTS_VERSION,
@@ -91,7 +94,7 @@ export function stampSolve(kind: AnalysisKind, previous: SolveStamp | null | und
     wasmHash: b.wasmHash,
     solvedAt: now.toISOString(),
     analyses,
-    recorded: previous ? [...new Set<AnalysisKind>([...(previous.recorded ?? LEGACY_RECORDED_ANALYSES), kind])].sort() : [...ANALYSIS_KINDS],
+    recorded: [...new Set<AnalysisKind>([...known, kind])].sort(),
   };
 }
 

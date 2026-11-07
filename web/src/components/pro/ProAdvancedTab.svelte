@@ -467,7 +467,7 @@
       const elapsed = performance.now() - t0;
       harmonicElapsed = elapsed;
       harmResult = res;
-      recheckStore.noteSolved('harmonic');
+      if (!knownIssueResultDisposition(res).refused) recheckStore.noteSolved('harmonic');
     } catch (e: any) {
       solveError = tp('adv.failed', { analysis: t('adv.name.harmonic'), error: errorText(e, t('pro.unknownError')) });
     }
@@ -578,7 +578,7 @@
         const co: any = solveCorotational3D(input, nlMaxIter, nlTol, nlIncrements);
         nlResult = co?.results ? { ...co, results: asModel(co.results) } : co;
       }
-      recheckStore.noteSolved('nonlinear');
+      if (!knownIssueResultDisposition(nlResult).refused) recheckStore.noteSolved('nonlinear');
       // The fibre analysis was offered here and never ran: the engine needs fibre sections and
       // material laws this panel does not build, so it is out of the list until it does.
     } catch (e: any) {
@@ -752,7 +752,7 @@
       // member's load until it is given back.
       if (res.results) finishSolve3D(res.results, input);
       ssiResult = res?.results ? { ...res, results: asModel(res.results) } : res;
-      if (res.results) { resultsStore.setResults3D(res.results); ssiPublished = resultsStore.results3D; recheckStore.noteSolved('ssi'); }
+      if (res.results) { resultsStore.setResults3D(res.results); ssiPublished = resultsStore.results3D; if (!knownIssueResultDisposition(res).refused) recheckStore.noteSolved('ssi'); }
     } catch (e: any) {
       solveError = tp('adv.failed', { analysis: t('adv.name.ssi'), error: errorText(e, t('pro.unknownError')) });
     }

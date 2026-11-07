@@ -26,8 +26,10 @@ not bound to another code counts as CIRSOC 301, an unbound concrete code as CIRS
 analyses a project's stamp does not record count as run. A stamp lists the analyses it knows
 the runs of (`recorded`): since #1658 the PRO advanced panel's time history, nonlinear, harmonic
 and SSI runs report themselves, and a project begun since lists every analysis. A stamp without
-`recorded` was written before, and for it those four always count as run; a solve on top of
-such a stamp adds only the analysis it ran.
+`recorded` was written before, and for it those four always count as run. A solve in another
+build adds the analysis it ran and drops from `recorded` those the previous stamp listed as run,
+so an analysis that ran under an earlier stamp never reads as not run. An advanced-panel run whose
+result is refused is not recorded.
 
 **Adding a change**: add one file, `result-changes/<id>.json`, with no `resultsVersion`
 ([its README](../../web/src/lib/provenance/result-changes/README.md)). The versions numbered by hand are

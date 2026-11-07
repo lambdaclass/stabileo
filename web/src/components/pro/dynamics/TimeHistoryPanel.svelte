@@ -125,7 +125,7 @@
       const fields = timeHistoryInput(spec, densities, spectrumSa);
       const res = solveTimeHistory3D({ solver: input, ...fields }) as TimeHistoryResult3D;
       timeHistoryView.set(res, modelStore.modelVersion);
-      recheckStore.noteSolved('timeHistory');
+      if (!knownIssueResultDisposition(res).refused) recheckStore.noteSolved('timeHistory');
       const main = (['x', 'y', 'z'] as const).find((d) => spec.ground[d].source !== 'none') ?? 'x';
       component = main === 'z' ? 'uz' : main === 'y' ? 'uy' : 'ux';
       nodeId = peakNode(res);

@@ -267,3 +267,17 @@ it('a moving-load envelope returned with a refusal shows the refusal and no enve
   expect(scope.error).toContain('#741');
   expect(scope.notes.join()).not.toContain('#741');
 });
+
+it('records a harmonic run in the stamp only when its result is not refused', () => {
+  for (const [result, recorded] of [[{ peakAmplitude: 0.01, responsePoints: [] }, true], [{ structuredDiagnostics: [diagnostic] }, false]] as const) {
+    const scope = setup();
+    Object.assign(scope, {
+      densityRecord: () => ({}), defaultFreeNode: () => 1, harmNodeId: null, harmFMin: 1, harmFMax: 2, harmNPoints: 2,
+      harmDamping: 0.05, harmDir: 'X', harmResult: null, harmonicElapsed: null,
+      solveHarmonic3D: () => result,
+    });
+    handler('handleHarmonic', scope)();
+    expect(scope.solveError).toBeNull();
+    expect(scope.recheckStore.noteSolved.mock.calls).toEqual(recorded ? [['harmonic']] : []);
+  }
+});
