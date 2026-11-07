@@ -818,6 +818,15 @@ mod tests {
     }
 
     #[test]
+    fn a_combined_shell_stress_beyond_f64_is_refused() {
+        let (_, mc) = two_cases(1);
+        let mut huge = mc.case_results[0].results.clone();
+        (huge.quad_stresses[0].sigma_xx, huge.quad_stresses[0].sigma_yy) = (1e154, 1e154);
+        assert!(combine_results_3d_refs(&[CombinationFactor { case_id: 0, factor: 2.0 }], &[(0, &huge)]).is_err());
+        assert!(combine_results_3d_refs(&[CombinationFactor { case_id: 0, factor: 2.0 }], &[(0, &mc.case_results[0].results)]).is_ok());
+    }
+
+    #[test]
     fn a_shell_shear_is_combined_only_where_every_case_has_it() {
         let (_, mc) = two_cases(1);
         let (a, mut b) = (&mc.case_results[0].results, mc.case_results[1].results.clone());

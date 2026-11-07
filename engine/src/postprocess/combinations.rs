@@ -494,7 +494,11 @@ fn combine_shells(terms: &[(f64, usize, &AnalysisResults3D)], template: (usize, 
         let [qx, qy] = shear([n.qx, n.qy], &|r| [r.quad_nodal_stresses[k].qx, r.quad_nodal_stresses[k].qy]);
         nodal.push(QuadNodalStress { node_index: n.node_index, sigma_xx: v[0], sigma_yy: v[1], tau_xy: v[2], mx: v[3], my: v[4], mxy: v[5], von_mises: membrane_von_mises(v[0], v[1], v[2]), qx, qy });
     }
-    Ok(CombinedShells { plates, quads, nodal })
+    let combined = CombinedShells { plates, quads, nodal };
+    if let Some(at) = crate::certify::finite::non_finite_paths(&(&combined.plates, &combined.quads, &combined.nodal)).first() {
+        return Err(format!("Cannot combine the shell stresses: the combined value at {at} is beyond the range of f64"));
+    }
+    Ok(combined)
 }
 
 pub(crate) fn combine_results_3d_refs_unchecked(factors: &[CombinationFactor], cases: &[(usize, &AnalysisResults3D)], plate_thickness: &PlateThicknesses) -> Result<Option<AnalysisResults3D>, String> {
