@@ -237,14 +237,40 @@ describe('what the cache cannot see is scanned on every read', () => {
     }
   });
 
-  it('a proxy that reports a diagnostic it does not own is not cached: what it reports next is seen', () => {
-    let list: object[] | undefined = [];
-    const target = result(1);
-    const r = new Proxy(target, { get: (t, key, receiver) => (key === 'findings' ? list : Reflect.get(t, key, receiver)) });
+  it('a proxy that later reports a diagnostic it does not own is seen', () => {
+    let list: object[] | undefined;
+    const r = new Proxy(result(1), { get: (t, key, receiver) => (key === 'findings' ? list : Reflect.get(t, key, receiver)) });
     resultsStore.setResults3D(r as never);
+    expect(resultsStore.results3D).toBe(r);
     expect(resultsStore.results3D).toBe(r);
     list = [refusal()];
     expect(resultsStore.results3D).toBeNull();
+    expect(resultsStore.knownIssues3D.refused).toBe(true);
+  });
+
+  it('a diagnostic list inherited after the clean verdict was cached is seen', () => {
+    const r = result(1);
+    resultsStore.setResults3D(r as never);
+    expect(resultsStore.results3D).toBe(r);
+    Object.defineProperty(Object.prototype, 'findings', { value: [refusal()], configurable: true, writable: true });
+    try {
+      expect(resultsStore.results3D).toBeNull();
+    } finally {
+      delete (Object.prototype as Record<string, unknown>).findings;
+    }
+  });
+
+  it('a combination whose inherited diagnostics change after the bundle was cached is seen', () => {
+    resultsStore.setResults3D(result(0) as never);
+    resultsStore.setCombinationResults3D(new Map([[1, result(1)]]) as never, new Map([[2, result(2)]]) as never, { maxAbsResults3D: result(3) } as never);
+    expect(resultsStore.perCombo3D.size).toBe(1);
+    Object.defineProperty(Object.prototype, 'findings', { value: [refusal()], configurable: true, writable: true });
+    try {
+      expect(resultsStore.perCombo3D.size).toBe(0);
+      expect(resultsStore.envelope3D).toBeNull();
+    } finally {
+      delete (Object.prototype as Record<string, unknown>).findings;
+    }
   });
 
   it('a case added to the published map through the native mutator is scanned', () => {

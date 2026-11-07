@@ -48,7 +48,8 @@ const isKnownIssue = (d: unknown): d is Diagnostic =>
   !!d && typeof d === 'object' && (d as Diagnostic).code === 'known_issue' && typeof (d as Diagnostic).message === 'string';
 
 const frozenResults = new WeakSet<object>();
-const frozenDiagnostics = new WeakMap<object, Diagnostic[]>();
+type Absent = Array<[object, string]>;
+const frozenDiagnostics = new WeakMap<object, { diagnostics: Diagnostic[]; absent: Absent }>();
 
 function refuseEdit(): never {
   throw new TypeError('A published result cannot be edited in place');
@@ -88,41 +89,52 @@ function assertSealed(value: object): void {
   for (const key of Object.getOwnPropertyNames(value)) if (!('value' in Object.getOwnPropertyDescriptor(value, key)!)) throw UNSOUND;
 }
 
-function ownRead(record: object, key: string): unknown {
-  const property = Object.getOwnPropertyDescriptor(record, key);
-  if (!property && key in record) throw UNSOUND;
-  if ((record as Record<string, unknown>)[key] !== property?.value) throw UNSOUND;
-  return property?.value;
+function ownReader(absent: Absent) {
+  return (record: object, key: string): unknown => {
+    const property = Object.getOwnPropertyDescriptor(record, key);
+    if ((record as Record<string, unknown>)[key] !== property?.value) throw UNSOUND;
+    if (!property) absent.push([record, key]);
+    return property?.value;
+  };
 }
 
-const isOwnKnownIssue = (d: unknown): d is Diagnostic =>
-  !!d && typeof d === 'object' && ownRead(d, 'code') === 'known_issue' && typeof ownRead(d, 'message') === 'string';
+const stillAbsent = (absent: Absent) => absent.every(([record, key]) => (record as Record<string, unknown>)[key] === undefined);
 
-function frozenDiagnosticsOf(result: object): Diagnostic[] {
+function frozenDiagnosticsOf(result: object, absentOut: Absent | null): Diagnostic[] {
   const cached = frozenDiagnostics.get(result);
-  if (cached) return cached;
+  if (cached && stillAbsent(cached.absent)) {
+    absentOut?.push(...cached.absent);
+    return cached.diagnostics;
+  }
   try {
-    const found = diagnosticsIn(result, result, true);
-    frozenDiagnostics.set(result, found);
-    return found;
+    if (cached) throw UNSOUND;
+    const absent: Absent = [];
+    const diagnostics = diagnosticsIn(result, result, absent);
+    frozenDiagnostics.set(result, { diagnostics, absent });
+    absentOut?.push(...absent);
+    return diagnostics;
   } catch (error) {
     if (error !== UNSOUND) throw error;
     frozenResults.delete(result);
-    return diagnosticsIn(result, null, false);
+    frozenDiagnostics.delete(result);
+    return diagnosticsIn(result, null, null);
   }
 }
 
 export function knownIssueDiagnosticsIn(result: unknown): Diagnostic[] {
-  return diagnosticsIn(result, null, false);
+  return diagnosticsIn(result, null, null);
 }
 
-function diagnosticsIn(result: unknown, root: object | null, sealed: boolean): Diagnostic[] {
+function diagnosticsIn(result: unknown, root: object | null, absent: Absent | null): Diagnostic[] {
   const diagnostics: Diagnostic[] = [];
   const seen = new Set<object>();
   const scanned = new Set<object>();
+  const sealed = absent !== null;
   const check = sealed ? assertSealed : () => {};
-  const read = sealed ? ownRead : (record: object, key: string) => (record as Record<string, unknown>)[key];
-  const knownIssue = sealed ? isOwnKnownIssue : isKnownIssue;
+  const read = sealed ? ownReader(absent) : (record: object, key: string) => (record as Record<string, unknown>)[key];
+  const knownIssue = sealed
+    ? (d: unknown): d is Diagnostic => !!d && typeof d === 'object' && read(d, 'code') === 'known_issue' && typeof read(d, 'message') === 'string'
+    : isKnownIssue;
   function collect(value: unknown): void {
     if (value && typeof value === 'object') check(value);
     if (Array.isArray(value)) value.forEach(collect);
@@ -145,7 +157,7 @@ function diagnosticsIn(result: unknown, root: object | null, sealed: boolean): D
     if (!value || typeof value !== 'object' || seen.has(value)) return;
     seen.add(value);
     if (value !== root && frozenResults.has(value)) {
-      const found = frozenDiagnosticsOf(value);
+      const found = frozenDiagnosticsOf(value, absent);
       if (sealed && !frozenResults.has(value)) throw UNSOUND;
       diagnostics.push(...found);
       return;
