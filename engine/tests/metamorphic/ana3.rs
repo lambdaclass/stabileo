@@ -33,7 +33,7 @@ pub struct Ana3 {
     pub run: fn(&Case3) -> Result<Resp, String>,
 }
 
-fn rect_fibers(b: f64, h: f64, ny: usize, nz: usize, e: f64) -> FiberSectionDef {
+pub(crate) fn rect_fibers(b: f64, h: f64, ny: usize, nz: usize, e: f64) -> FiberSectionDef {
     let mut fibers = Vec::new();
     for i in 0..ny {
         for j in 0..nz {
@@ -51,7 +51,7 @@ pub fn nodal_loads_3d(s: &SolverInput3D) -> Vec<SolverNodalLoad3D> {
 
 /// Rectangle (b along local z, h along local y) bending about local z with
 /// I_z, and its width from I_y: h = √(12 I_z / A), b = √(12 I_y / A).
-fn rect3(s: &SolverSection3D) -> (f64, f64) {
+pub(crate) fn rect3(s: &SolverSection3D) -> (f64, f64) {
     ((12.0 * s.iy / s.a).sqrt(), (12.0 * s.iz / s.a).sqrt())
 }
 
@@ -78,7 +78,7 @@ pub fn modal_resp_3d(r: &modal::ModalResult3D) -> Resp {
     o
 }
 
-fn staged_3d(s: &SolverInput3D, stages: serde_json::Value) -> Result<StagedAnalysisResults3D, String> {
+pub(crate) fn staged_3d(s: &SolverInput3D, stages: serde_json::Value) -> Result<StagedAnalysisResults3D, String> {
     let mut v = serde_json::json!({
         "nodes": s.nodes, "materials": s.materials, "sections": s.sections, "elements": s.elements,
         "supports": s.supports, "loads": s.loads, "constraints": s.constraints,
@@ -90,7 +90,7 @@ fn staged_3d(s: &SolverInput3D, stages: serde_json::Value) -> Result<StagedAnaly
     staged::solve_staged_3d(&staged::parse_staged_3d(&v.to_string())?)
 }
 
-fn stage_all(s: &SolverInput3D, loads: Vec<usize>) -> serde_json::Value {
+pub(crate) fn stage_all(s: &SolverInput3D, loads: Vec<usize>) -> serde_json::Value {
     // 3D stages name supports by node id (as the app does).
     let sup: Vec<usize> = s.supports.values().map(|x| x.node_id).collect();
     serde_json::json!({

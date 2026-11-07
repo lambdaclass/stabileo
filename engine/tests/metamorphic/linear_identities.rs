@@ -376,7 +376,7 @@ fn models_3d() -> impl Iterator<Item = (String, SolverInput3D)> {
     (0..20u64).map(|seed| (format!("building_3d/{seed}"), building_3d(seed))).chain(fuzz)
 }
 
-fn building_3d(seed: u64) -> SolverInput3D {
+pub(crate) fn building_3d(seed: u64) -> SolverInput3D {
     let mut rng = Rng::new(seed ^ 0x5eed_b111_d1a6);
     let (bx, by, h) = (rng.range(3.0, 6.0), rng.range(3.0, 6.0), rng.range(2.8, 3.6));
     let stories = 1 + (seed / 5 % 2) as usize;

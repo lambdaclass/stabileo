@@ -62,11 +62,11 @@ pub(crate) fn section_material(
     ids.map(|id| &materials[&id.to_string()]).max_by(|a, b| a.e.total_cmp(&b.e).then(a.nu.total_cmp(&b.nu)))
 }
 
-fn mat_e(s: &SolverInput, sec: usize) -> f64 {
+pub(crate) fn mat_e(s: &SolverInput, sec: usize) -> f64 {
     section_material(&s.materials, s.elements.values().filter(|e| e.section_id == sec).map(|e| e.material_id)).map_or(200_000.0, |m| m.e)
 }
 
-fn rect_fibers(b: f64, h: f64, ny: usize, nz: usize, e: f64) -> FiberSectionDef {
+pub(crate) fn rect_fibers(b: f64, h: f64, ny: usize, nz: usize, e: f64) -> FiberSectionDef {
     let mut fibers = Vec::new();
     for i in 0..ny {
         for j in 0..nz {
@@ -82,7 +82,7 @@ pub fn nodal_loads_2d(s: &SolverInput) -> Vec<SolverNodalLoad> {
     s.loads.iter().filter_map(|l| if let SolverLoad::Nodal(n) = l { Some(n.clone()) } else { None }).collect()
 }
 
-fn staged_input(s: &SolverInput, stages: Vec<ConstructionStage>) -> Result<StagedInput, String> {
+pub(crate) fn staged_input(s: &SolverInput, stages: Vec<ConstructionStage>) -> Result<StagedInput, String> {
     let inp = StagedInput {
         nodes: s.nodes.clone(), materials: s.materials.clone(), sections: s.sections.clone(), elements: s.elements.clone(),
         supports: s.supports.clone(), loads: s.loads.clone(), constraints: s.constraints.clone(), stages,
@@ -92,7 +92,7 @@ fn staged_input(s: &SolverInput, stages: Vec<ConstructionStage>) -> Result<Stage
     staged::parse_staged_2d(&v.to_string())
 }
 
-fn stage(name: &str, s: &SolverInput, loads: Vec<usize>, all: bool) -> ConstructionStage {
+pub(crate) fn stage(name: &str, s: &SolverInput, loads: Vec<usize>, all: bool) -> ConstructionStage {
     ConstructionStage {
         name: name.into(),
         elements_added: if all { s.elements.values().map(|e| e.id).collect() } else { vec![] },
