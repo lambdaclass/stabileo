@@ -1033,11 +1033,7 @@ pub(crate) fn validate_response(
             } else if !["staged (loads in two stages)", "creep & shrinkage (t = t0)"]
                 .contains(&name)
             {
-                for &n in shape
-                    .supports
-                    .iter()
-                    .filter(|_| name != "SSI (no soil springs)")
-                {
+                for &n in &shape.supports {
                     add(Some(n), None, "R".into(), w);
                     add(Some(n), None, "RM".into(), rw);
                 }

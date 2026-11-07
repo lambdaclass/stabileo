@@ -44,6 +44,38 @@ fn spring_triplets<T: InclinedFrame>(
     (rows, cols, vals)
 }
 
+/// K·[u_f; 0] − F over every DOF, K with the soil springs at the secants of the solve.
+fn residual<T: InclinedFrame>(
+    mut ku: Vec<f64>, springs: &[SoilSpring], spring_k: &[f64], dof_num: &DofNumbering, its: &[T],
+    u_frame: &[f64], f_global: &[f64],
+) -> Vec<f64> {
+    let nf = dof_num.n_free;
+    let (sr, sc, sv) = spring_triplets(springs, spring_k, dof_num, its);
+    for t in 0..sr.len() {
+        let (a, b, v) = (sr[t], sc[t], sv[t]);
+        if b < nf {
+            ku[a] += v * u_frame[b];
+        }
+        if a != b && a < nf {
+            ku[b] += v * u_frame[a];
+        }
+    }
+    for (r, f) in ku.iter_mut().zip(f_global) {
+        *r -= f;
+    }
+    ku
+}
+
+fn dense_ku(k: &[f64], n: usize, u_frame: &[f64]) -> Vec<f64> {
+    (0..n).map(|i| u_frame.iter().enumerate().map(|(j, u)| k[i * n + j] * u).sum()).collect()
+}
+
+fn sparse_ku(k_full: &crate::linalg::sparse::CscMatrix, n: usize, u_frame: &[f64]) -> Vec<f64> {
+    let mut u = u_frame.to_vec();
+    u.resize(n, 0.0);
+    k_full.sym_mat_vec(&u)
+}
+
 /// Soil spring attached to a node along a pile.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -243,6 +275,7 @@ fn solve_ssi_2d_inner(input: &SSIInput) -> Result<SSIResult, String> {
 
     let mut u_full = vec![0.0; n];
     let mut u_frame = vec![0.0; nf];
+    let mut solved_k = spring_k.clone();
     let mut converged = false;
     let mut total_iters = 0;
     let mut conditioning = None;
@@ -322,6 +355,7 @@ fn solve_ssi_2d_inner(input: &SSIInput) -> Result<SSIResult, String> {
         // K's frames for the constraint forces.
         u_full = assembly::to_global(&u_f, n, its);
         u_frame = u_f;
+        solved_k.clone_from(&spring_k);
 
         // Update soil spring stiffnesses
         let mut max_change = 0.0_f64;
@@ -370,24 +404,29 @@ fn solve_ssi_2d_inner(input: &SSIInput) -> Result<SSIResult, String> {
         })
         .collect::<Result<_, String>>()?;
 
-    // Compute constraint forces if constraints are active
+    let ku = if let Some(ref s) = sparse_stiff {
+        sparse_ku(&s.k_full, n, &u_frame)
+    } else {
+        dense_ku(&dense_asm.as_ref().unwrap().k, n, &u_frame)
+    };
+    let mut free_residual = residual(ku, &input.soil_springs, &solved_k, &dof_num, its, &u_frame, &f_global);
+    let mut reactions_vec = free_residual.split_off(nf);
     let constraint_forces = if let Some(ref fcs) = cs {
-        let raw = if let Some(ref s) = sparse_stiff {
-            fcs.compute_constraint_forces_sparse(&s.k_ff, &u_frame, &f_global[..nf])
-        } else {
-            let free_idx: Vec<usize> = (0..nf).collect();
-            let k_ff = extract_submatrix(&dense_asm.as_ref().unwrap().k, n, &free_idx, &free_idx);
-            fcs.compute_constraint_forces(&k_ff, &u_frame, &f_global[..nf])
-        };
+        let raw = fcs.constraint_forces_from_residual(&free_residual);
+        fcs.add_restrained_master_forces(&raw, &mut reactions_vec);
         fcs.constraint_forces(&raw, &dof_num)
     } else {
         vec![]
     };
+    let mut reactions = linear::build_reactions_2d_inclined(
+        &input.solver, &dof_num, &reactions_vec, &f_global[nf..], nf, &u_full, its,
+    );
+    reactions.sort_by_key(|r| r.node_id);
 
     Ok(SSIResult {
         results: AnalysisResults {
             displacements,
-            reactions: vec![],
+            reactions,
             element_forces,
             constraint_forces,
             diagnostics: vec![],
@@ -437,15 +476,15 @@ fn solve_ssi_3d_inner(input: &SSIInput3D) -> Result<SSIResult3D, String> {
 
     // Base assembly (without soil springs). Below the sparse threshold: the
     // legacy dense n×n path, unchanged. At or above it: CSC assembly (k_ff
-    // for the per-iteration solves; no k_full needed — SSI reports no
-    // reactions) — no dense n×n matrix is ever built.
+    // for the per-iteration solves, k_full for the reactions) — no dense n×n
+    // matrix is ever built.
     let dense_asm = if use_sparse {
         None
     } else {
         Some(assembly::assemble_3d(&expanded_solver, &dof_num))
     };
     let sparse_asm = if use_sparse {
-        Some(assembly::assemble_sparse_3d(&expanded_solver, &dof_num, false))
+        Some(assembly::assemble_sparse_3d(&expanded_solver, &dof_num, true))
     } else {
         None
     };
@@ -491,6 +530,7 @@ fn solve_ssi_3d_inner(input: &SSIInput3D) -> Result<SSIResult3D, String> {
 
     let mut u_full = vec![0.0; n];
     let mut u_frame = vec![0.0; nf];
+    let mut solved_k = spring_k.clone();
     let mut converged = false;
     let mut total_iters = 0;
     let mut conditioning = None;
@@ -568,6 +608,7 @@ fn solve_ssi_3d_inner(input: &SSIInput3D) -> Result<SSIResult3D, String> {
         // K's frames for the constraint forces.
         u_full = assembly::to_global(&u_f, n, its);
         u_frame = u_f;
+        solved_k.clone_from(&spring_k);
 
         let mut max_change = 0.0_f64;
 
@@ -614,24 +655,29 @@ fn solve_ssi_3d_inner(input: &SSIInput3D) -> Result<SSIResult3D, String> {
         })
         .collect::<Result<_, String>>()?;
 
-    // Compute constraint forces if constraints are active
+    let ku = if let Some(ref s) = sparse_asm {
+        sparse_ku(s.k_full.as_ref().ok_or("SSI: sparse assembly without the full stiffness")?, n, &u_frame)
+    } else {
+        dense_ku(&dense_asm.as_ref().unwrap().k, n, &u_frame)
+    };
+    let mut free_residual = residual(ku, &input.soil_springs, &solved_k, &dof_num, its, &u_frame, &f_global);
+    let mut reactions_vec = free_residual.split_off(nf);
     let constraint_forces = if let Some(ref fcs) = cs {
-        let raw = if let Some(ref s) = sparse_asm {
-            fcs.compute_constraint_forces_sparse(&s.k_ff, &u_frame, &f_global[..nf])
-        } else {
-            let free_idx: Vec<usize> = (0..nf).collect();
-            let k_ff = extract_submatrix(&dense_asm.as_ref().unwrap().k, n, &free_idx, &free_idx);
-            fcs.compute_constraint_forces(&k_ff, &u_frame, &f_global[..nf])
-        };
+        let raw = fcs.constraint_forces_from_residual(&free_residual);
+        fcs.add_restrained_master_forces(&raw, &mut reactions_vec);
         fcs.constraint_forces(&raw, &dof_num)
     } else {
         vec![]
     };
+    let mut reactions = linear::build_reactions_3d_inclined(
+        &expanded_solver, &dof_num, &reactions_vec, &f_global[nf..], nf, &u_full, its,
+    );
+    reactions.sort_by_key(|r| r.node_id);
 
     Ok(SSIResult3D {
         results: AnalysisResults3D {
             displacements,
-            reactions: vec![],
+            reactions,
             element_forces,
             plate_stresses: linear::compute_plate_stresses(&expanded_solver, &dof_num, &u_full, None),
             quad_stresses: linear::compute_quad_stresses(&expanded_solver, &dof_num, &u_full, None),
