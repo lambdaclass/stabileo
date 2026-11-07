@@ -47,10 +47,10 @@ pub fn check(p: &Pair, s: &Solves, rel: f64) -> Verdict {
         let Some(t) = step(&it.tag, p.rotation) else { continue };
         let lhs = project(s, &s.force_a, p.b, &it.tag, p.moment_b);
         let rhs = project(s, &s.moment_b, p.a, &format!("u{t}"), p.force_a);
-        if let (Some(l), Some(r)) = (lhs, rhs) {
-            let tol = rel * (scale(&s.force_a, p.rotation) + scale(&s.moment_b, "u") + z_u + z_r);
-            rows.push((format!("θ(n{}←F n{}) vs u(n{}←M n{}) {}", p.b, p.a, p.a, p.b, it.tag), l, r, tol));
-        }
+        let what = format!("θ(n{}←F n{}) vs u(n{}←M n{}) {}", p.b, p.a, p.a, p.b, it.tag);
+        let (Some(l), Some(r)) = (lhs, rhs) else { return Verdict::Fail(format!("{what}: a side is missing or malformed")) };
+        let tol = rel * (scale(&s.force_a, p.rotation) + scale(&s.moment_b, "u") + z_u + z_r);
+        rows.push((what, l, r, tol));
     }
     for it in s.moment_a.0.iter().filter(|i| i.node == Some(p.b)) {
         if step(&it.tag, p.rotation).is_none() {
@@ -58,13 +58,14 @@ pub fn check(p: &Pair, s: &Solves, rel: f64) -> Verdict {
         }
         let lhs = project(s, &s.moment_a, p.b, &it.tag, p.moment_b);
         let rhs = project(s, &s.moment_b, p.a, &it.tag, p.moment_a);
-        if let (Some(l), Some(r)) = (lhs, rhs) {
-            let tol = rel * (scale(&s.moment_a, p.rotation) + scale(&s.moment_b, p.rotation) + 2.0 * z_r);
-            rows.push((format!("θ(n{}←M n{}) vs θ(n{}←M n{}) {}", p.b, p.a, p.a, p.b, it.tag), l, r, tol));
-        }
+        let what = format!("θ(n{}←M n{}) vs θ(n{}←M n{}) {}", p.b, p.a, p.a, p.b, it.tag);
+        let (Some(l), Some(r)) = (lhs, rhs) else { return Verdict::Fail(format!("{what}: a side is missing or malformed")) };
+        let tol = rel * (scale(&s.moment_a, p.rotation) + scale(&s.moment_b, p.rotation) + 2.0 * z_r);
+        rows.push((what, l, r, tol));
     }
-    if rows.is_empty() {
-        return Verdict::NotApplicable;
+    let force_rows = rows.iter().filter(|r| r.0.contains("←F")).count();
+    if force_rows == 0 || 2 * force_rows != rows.len() {
+        return Verdict::Fail(format!("rotations at n{} missing from a unit-force or unit-moment response ({force_rows} of {} identities)", p.b, rows.len()));
     }
     let mut worst: f64 = 0.0;
     for (what, l, r, tol) in rows {

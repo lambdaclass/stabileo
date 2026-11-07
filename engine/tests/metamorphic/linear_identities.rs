@@ -271,8 +271,11 @@ fn shell_superposition(s: &SolverInput3D) -> Outcome {
     };
     let plate = |r: &AnalysisResults3D| r.plate_stresses.iter().map(|p| [p.sigma_xx, p.sigma_yy, p.tau_xy, p.mx, p.my, p.mxy, p.qx.unwrap_or(0.0), p.qy.unwrap_or(0.0)]).collect();
     let quad = |r: &AnalysisResults3D| r.quad_stresses.iter().map(|q| [q.sigma_xx, q.sigma_yy, q.tau_xy, q.mx, q.my, q.mxy, q.qx.unwrap_or(0.0), q.qy.unwrap_or(0.0)]).collect();
-    if [&ra, &rb, &r0].iter().any(|r| r.plate_stresses.len() != rab.plate_stresses.len() || r.quad_stresses.len() != rab.quad_stresses.len()) {
-        return Outcome::Violation("shell stress lists differ in length between load cases".into());
+    let shear_presence = |r: &AnalysisResults3D| -> Vec<(bool, bool)> {
+        r.plate_stresses.iter().map(|p| (p.qx.is_some(), p.qy.is_some())).chain(r.quad_stresses.iter().map(|q| (q.qx.is_some(), q.qy.is_some()))).collect()
+    };
+    if [&ra, &rb, &r0].iter().any(|r| r.plate_stresses.len() != rab.plate_stresses.len() || r.quad_stresses.len() != rab.quad_stresses.len() || shear_presence(r) != shear_presence(&rab)) {
+        return Outcome::Violation("shell stress lists or their shear components differ between load cases".into());
     }
     for (p, v) in expected.plate_stresses.iter_mut().zip(combine(plate)) {
         (p.sigma_xx, p.sigma_yy, p.tau_xy, p.mx, p.my, p.mxy) = (v[0], v[1], v[2], v[3], v[4], v[5]);
