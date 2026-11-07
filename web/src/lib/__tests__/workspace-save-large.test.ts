@@ -147,6 +147,22 @@ describe('a workspace save the browser refuses', () => {
     expect(readWorkspaceBackups(), 'a failure with nothing stored backs nothing up').toHaveLength(1);
   });
 
+  it('backs the previous workspace up in the room it frees when the storage is full', () => {
+    let full = false;
+    storage = memoryStorage((k) => (full && (k === WORKSPACE_KEY || storage.map.has(WORKSPACE_KEY)) ? quota() : null));
+    vi.stubGlobal('localStorage', storage);
+    tabManager.restoreSession([smallTab('a', 'Pórtico A')], 'a');
+    expect(saveWorkspaceToLocalStorage()).toBe(true);
+    const previous = storage.getItem(WORKSPACE_KEY)!;
+
+    full = true;
+    modelStore.model.name = 'Pórtico A, editado';
+    expect(saveWorkspaceToLocalStorage()).toBe(false);
+    expect(workspaceSaveStatus.failed).toBe(true);
+    expect(storage.getItem(WORKSPACE_KEY)).toBeNull();
+    expect(readWorkspaceBackups().map((b) => b.raw)).toEqual([previous]);
+  });
+
   it('does not write a workspace that has not changed since it was stored', () => {
     tabManager.restoreSession([smallTab('a', 'Pórtico A'), smallTab('b', 'Pórtico B')], 'a');
     const writes = vi.spyOn(storage, 'setItem');

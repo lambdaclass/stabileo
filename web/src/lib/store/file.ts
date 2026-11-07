@@ -1114,7 +1114,7 @@ export interface WorkspaceBackup {
   savedAt: string;
   /** `tabs-dropped`: some or all tabs were refused; `unreadable`: the text is not a session; `save-failed`: a newer save could not replace it. */
   reason: 'tabs-dropped' | 'unreadable' | 'save-failed';
-  /** Names of the refused tabs (empty for `unreadable`). */
+  /** Names of the refused tabs (empty for `unreadable` and `save-failed`). */
   dropped: string[];
   /** The stored workspace text, exactly as it was found. */
   raw: string;
@@ -1234,8 +1234,9 @@ function storedWorkspaceText(): string | null {
 /** The workspace written before would be restored at the next start over the newer autosave, so it is moved to the backups. */
 function withdrawWorkspace(): void {
   const previous = storedWorkspaceText();
+  const kept = !!previous && backupStoredWorkspace(previous, 'save-failed', []);
   clearWorkspaceFromLocalStorage();
-  if (previous) backupStoredWorkspace(previous, 'save-failed', []);
+  if (previous && !kept) backupStoredWorkspace(previous, 'save-failed', []);
 }
 
 /**
