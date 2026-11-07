@@ -131,26 +131,30 @@ fn combinations_2d(s: &SolverInput) -> Outcome {
     Outcome::Checked
 }
 
-fn shell_groups(r: &AnalysisResults3D) -> [Vec<(String, f64)>; 3] {
-    let mut g: [Vec<(String, f64)>; 3] = Default::default();
-    let mut push = |kind: &str, k: usize, id: usize, membrane: [f64; 3], bending: [f64; 3], shear: [Option<f64>; 2]| {
+fn shell_groups(r: &AnalysisResults3D) -> [Vec<(String, f64)>; 4] {
+    let mut g: [Vec<(String, f64)>; 4] = Default::default();
+    let mut push = |at: String, membrane: [f64; 3], bending: [f64; 3], shear: [Option<f64>; 2], von_mises: f64| {
         for (n, v) in ["sxx", "syy", "txy"].iter().zip(membrane) {
-            g[0].push((format!("{kind}#{k}(e{id}).{n}"), v));
+            g[0].push((format!("{at}.{n}"), v));
         }
         for (n, v) in ["mx", "my", "mxy"].iter().zip(bending) {
-            g[1].push((format!("{kind}#{k}(e{id}).{n}"), v));
+            g[1].push((format!("{at}.{n}"), v));
         }
         for (n, v) in ["qx", "qy"].iter().zip(shear) {
             if let Some(v) = v {
-                g[2].push((format!("{kind}#{k}(e{id}).{n}"), v));
+                g[2].push((format!("{at}.{n}"), v));
             }
         }
+        g[3].push((format!("{at}.vm"), von_mises));
     };
     for (k, p) in r.plate_stresses.iter().enumerate() {
-        push("plate", k, p.element_id, [p.sigma_xx, p.sigma_yy, p.tau_xy], [p.mx, p.my, p.mxy], [p.qx, p.qy]);
+        push(format!("plate#{k}(e{})", p.element_id), [p.sigma_xx, p.sigma_yy, p.tau_xy], [p.mx, p.my, p.mxy], [p.qx, p.qy], p.von_mises);
     }
     for (k, q) in r.quad_stresses.iter().enumerate() {
-        push("quad", k, q.element_id, [q.sigma_xx, q.sigma_yy, q.tau_xy], [q.mx, q.my, q.mxy], [q.qx, q.qy]);
+        push(format!("quad#{k}(e{})", q.element_id), [q.sigma_xx, q.sigma_yy, q.tau_xy], [q.mx, q.my, q.mxy], [q.qx, q.qy], q.von_mises);
+    }
+    for (k, n) in r.quad_nodal_stresses.iter().enumerate() {
+        push(format!("nodal#{k}(n{})", n.node_index), [n.sigma_xx, n.sigma_yy, n.tau_xy], [n.mx, n.my, n.mxy], [n.qx, n.qy], n.von_mises);
     }
     g
 }
@@ -178,8 +182,8 @@ fn thickness_range(s: &SolverInput3D) -> Option<f64> {
 /// Membrane stress, bending moment and shear per length have different units: each needs its own scale.
 fn compare_shells(got: &AnalysisResults3D, terms: &[(f64, &AnalysisResults3D)], expected: &AnalysisResults3D, rel: f64, force_floor: f64, t_min: f64) -> Result<(), String> {
     let (gg, ge) = (shell_groups(got), shell_groups(expected));
-    let floors = [6.0 * force_floor / (t_min * t_min), force_floor, force_floor / t_min];
-    for (k, family) in ["membrane stress", "bending moment", "transverse shear"].iter().enumerate() {
+    let floors = [6.0 * force_floor / (t_min * t_min), force_floor, force_floor / t_min, 6.0 * force_floor / (t_min * t_min)];
+    for (k, family) in ["membrane stress", "bending moment", "transverse shear", "von Mises stress"].iter().enumerate() {
         let (a, e) = (&gg[k], &ge[k]);
         if a.iter().map(|x| &x.0).ne(e.iter().map(|x| &x.0)) {
             return Err(format!("{family}: {} entries vs {} expected", a.len(), e.len()));
@@ -193,6 +197,138 @@ fn compare_shells(got: &AnalysisResults3D, terms: &[(f64, &AnalysisResults3D)], 
         }
     }
     Ok(())
+}
+
+fn membrane_von_mises(x: f64, y: f64, xy: f64) -> f64 {
+    (x * x - x * y + y * y + 3.0 * xy * xy).sqrt()
+}
+
+/// σ1, σ2 and von Mises on the bottom (membrane + 6M/t²) and top (membrane − 6M/t²) faces.
+fn plate_faces(p: &PlateStress, t: f64) -> [(f64, f64, f64); 2] {
+    let k = 6.0 / (t * t);
+    [1.0, -1.0].map(|side| {
+        let (x, y, xy) = (p.sigma_xx + side * k * p.mx, p.sigma_yy + side * k * p.my, p.tau_xy + side * k * p.mxy);
+        let (centre, radius) = (0.5 * (x + y), (0.25 * (x - y) * (x - y) + xy * xy).sqrt());
+        (centre + radius, centre - radius, membrane_von_mises(x, y, xy))
+    })
+}
+
+fn plate_thicknesses(s: &SolverInput3D) -> std::collections::HashMap<usize, f64> {
+    s.plates.values().map(|p| (p.id, p.thickness)).collect()
+}
+
+/// `like`'s shells, each component the factored sum of the terms' and the von Mises and principal
+/// stresses recomputed from those sums.
+fn factored_shells(terms: &[(f64, &AnalysisResults3D)], like: &AnalysisResults3D, thickness: &std::collections::HashMap<usize, f64>) -> Result<AnalysisResults3D, String> {
+    let mut e = like.clone();
+    for (_, r) in terms {
+        let ids = |r: &AnalysisResults3D| (r.plate_stresses.iter().map(|p| p.element_id).collect::<Vec<_>>(), r.quad_stresses.iter().map(|q| q.element_id).collect::<Vec<_>>(), r.quad_nodal_stresses.iter().map(|n| n.node_index).collect::<Vec<_>>());
+        if ids(r) != ids(like) {
+            return Err("a case lists its shells differently from the factored solve".into());
+        }
+    }
+    let sum = |at: &dyn Fn(&AnalysisResults3D) -> [f64; 6]| -> [f64; 6] {
+        let mut v = [0.0; 6];
+        for (w, r) in terms {
+            for (a, b) in v.iter_mut().zip(at(r)) {
+                *a += w * b;
+            }
+        }
+        v
+    };
+    let shear = |at: &dyn Fn(&AnalysisResults3D) -> [Option<f64>; 2]| -> [Option<f64>; 2] {
+        [0, 1].map(|i| terms.iter().try_fold(0.0, |acc, (w, r)| at(r)[i].map(|v| acc + w * v)))
+    };
+    for (k, p) in e.plate_stresses.iter_mut().enumerate() {
+        let v = sum(&|r| { let x = &r.plate_stresses[k]; [x.sigma_xx, x.sigma_yy, x.tau_xy, x.mx, x.my, x.mxy] });
+        (p.sigma_xx, p.sigma_yy, p.tau_xy, p.mx, p.my, p.mxy) = (v[0], v[1], v[2], v[3], v[4], v[5]);
+        [p.qx, p.qy] = shear(&|r| [r.plate_stresses[k].qx, r.plate_stresses[k].qy]);
+        let t = *thickness.get(&p.element_id).ok_or_else(|| format!("plate {} has no thickness", p.element_id))?;
+        let faces = plate_faces(p, t);
+        let worse = if faces[1].2 >= faces[0].2 { faces[1] } else { faces[0] };
+        (p.sigma_1, p.sigma_2, p.von_mises) = worse;
+    }
+    for (k, q) in e.quad_stresses.iter_mut().enumerate() {
+        let v = sum(&|r| { let x = &r.quad_stresses[k]; [x.sigma_xx, x.sigma_yy, x.tau_xy, x.mx, x.my, x.mxy] });
+        (q.sigma_xx, q.sigma_yy, q.tau_xy, q.mx, q.my, q.mxy) = (v[0], v[1], v[2], v[3], v[4], v[5]);
+        [q.qx, q.qy] = shear(&|r| [r.quad_stresses[k].qx, r.quad_stresses[k].qy]);
+        q.von_mises = membrane_von_mises(v[0], v[1], v[2]);
+    }
+    for (k, n) in e.quad_nodal_stresses.iter_mut().enumerate() {
+        let v = sum(&|r| { let x = &r.quad_nodal_stresses[k]; [x.sigma_xx, x.sigma_yy, x.tau_xy, x.mx, x.my, x.mxy] });
+        (n.sigma_xx, n.sigma_yy, n.tau_xy, n.mx, n.my, n.mxy) = (v[0], v[1], v[2], v[3], v[4], v[5]);
+        [n.qx, n.qy] = shear(&|r| [r.quad_nodal_stresses[k].qx, r.quad_nodal_stresses[k].qy]);
+        n.von_mises = membrane_von_mises(v[0], v[1], v[2]);
+    }
+    Ok(e)
+}
+
+/// A plate's principal stresses are those of its face with the larger von Mises stress: where the
+/// two faces tie within the tolerance, either face's pair is accepted.
+fn compare_principal(got: &AnalysisResults3D, terms: &[(f64, &AnalysisResults3D)], expected: &AnalysisResults3D, rel: f64, force_floor: f64, t_min: f64, thickness: &std::collections::HashMap<usize, f64>) -> Result<(), String> {
+    if got.plate_stresses.len() != expected.plate_stresses.len() {
+        return Err(format!("principal stresses: {} plates vs {} expected", got.plate_stresses.len(), expected.plate_stresses.len()));
+    }
+    let peak = |r: &AnalysisResults3D| r.plate_stresses.iter().fold(0.0, |m: f64, p| m.max(p.sigma_1.abs()).max(p.sigma_2.abs()).max(p.von_mises));
+    let scale = terms.iter().map(|(w, r)| w.abs() * peak(r)).sum::<f64>().max(6.0 * force_floor / (t_min * t_min));
+    let tol = rel * scale + f64::MIN_POSITIVE;
+    for (k, (g, e)) in got.plate_stresses.iter().zip(&expected.plate_stresses).enumerate() {
+        let near = |a: f64, b: f64| (a - b).abs() <= tol;
+        let matches = |s1: f64, s2: f64| near(g.sigma_1, s1) && near(g.sigma_2, s2);
+        let t = *thickness.get(&e.element_id).ok_or_else(|| format!("plate {} has no thickness", e.element_id))?;
+        let faces = plate_faces(e, t);
+        let tie = near(faces[0].2, faces[1].2);
+        if g.element_id != e.element_id || !tol.is_finite() || !(matches(e.sigma_1, e.sigma_2) || tie && faces.iter().any(|f| matches(f.0, f.1))) {
+            return Err(format!(
+                "principal stresses plate#{k}(e{}): got ({:.10e}, {:.10e}), expected ({:.10e}, {:.10e}), tol {tol:.3e}",
+                e.element_id, g.sigma_1, g.sigma_2, e.sigma_1, e.sigma_2
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// A combination's shell stresses against the linear solve of its factored loads, and against the
+/// factored sum of its cases' components with von Mises and principal stresses recomputed from it.
+fn check_combined_shells(s: &SolverInput3D, got: &AnalysisResults3D, direct: &AnalysisResults3D, terms: &[(f64, &AnalysisResults3D)], rel: f64, floor: f64) -> Result<(), String> {
+    let t_min = thickness_range(s).unwrap_or(1.0);
+    let thickness = plate_thicknesses(s);
+    let mut with_direct = terms.to_vec();
+    with_direct.push((1.0, direct));
+    compare_shells(got, &with_direct, direct, rel, floor, t_min).map_err(|e| format!("shell stresses ≠ the factored solve's: {e}"))?;
+    compare_principal(got, &with_direct, direct, rel, floor, t_min, &thickness).map_err(|e| format!("shell stresses ≠ the factored solve's: {e}"))?;
+    let sum = factored_shells(terms, direct, &thickness)?;
+    compare_shells(got, terms, &sum, rel, floor, t_min).map_err(|e| format!("shell stresses ≠ the factored sum of the cases: {e}"))?;
+    compare_principal(got, terms, &sum, rel, floor, t_min, &thickness).map_err(|e| format!("shell stresses ≠ the factored sum of the cases: {e}"))
+}
+
+/// The #1673 reproduction: two cases from the model's loads, combined 1.2A + 1.6B.
+fn combined_shells_3d(s: &SolverInput3D) -> Outcome {
+    let solve = |loads: Vec<SolverLoad3D>| linear::solve_3d(&SolverInput3D { loads, ..s.clone() });
+    let (cond, rel) = match conditioned(conditioning::of_3d(s)) {
+        Ok(x) => x,
+        Err(e) => return Outcome::Skipped(e),
+    };
+    let (Ok(r0), [a, b, _]) = (solve(vec![]), split(&s.loads)) else {
+        return Outcome::Violation("zero-load solve refused".into());
+    };
+    let input = load_cases::MultiCaseInput3D {
+        solver: SolverInput3D { loads: vec![], ..s.clone() },
+        load_cases: vec![load_cases::LoadCase3D { name: "A".into(), loads: a.clone() }, load_cases::LoadCase3D { name: "B".into(), loads: b.clone() }],
+        combinations: vec![load_cases::CombinationDef { name: "1.2A+1.6B".into(), factors: [("A".to_string(), 1.2), ("B".to_string(), 1.6)].into_iter().collect() }],
+    };
+    let mut factored = scale_loads_3d(&a, 1.2);
+    factored.extend(scale_loads_3d(&b, 1.6));
+    let (mc, direct) = match (load_cases::solve_multi_case_3d(&input), solve(factored.clone())) {
+        (Ok(mc), Ok(direct)) => (mc, direct),
+        (Err(e), _) | (_, Err(e)) => return Outcome::Violation(format!("refused: {e}")),
+    };
+    let floor = load_floor_3d(&SolverInput3D { loads: factored, ..s.clone() }, cond.lchar);
+    let terms = [(1.2, &mc.case_results[0].results), (1.6, &mc.case_results[1].results), (1.0 - 1.2 - 1.6, &r0)];
+    match check_combined_shells(s, &mc.combination_results[0].results, &direct, &terms, rel, floor) {
+        Ok(()) => Outcome::Checked,
+        Err(e) => Outcome::Violation(e),
+    }
 }
 
 fn combinations_3d(s: &SolverInput3D) -> Outcome {
@@ -559,6 +695,17 @@ fn factored_combinations_equal_the_factored_solve_3d() {
 fn shell_stress_components_superpose() {
     let covered = run("shell superposition", models_3d().filter(|(_, s)| thickness_range(s).is_some()), shell_superposition, tags_3d);
     require(&covered, &["plates", "quads", "quad9s", "solid shells", "curved shells"]);
+}
+
+#[test]
+#[ignore = "known wrong result: #1673 multi-case 3D combinations report no shell stresses"]
+fn issue_1673_combinations_report_the_shell_stresses_of_the_factored_solve() {
+    for seed in 0..5 {
+        match combined_shells_3d(&building_3d(seed)) {
+            Outcome::Checked => {}
+            Outcome::Skipped(e) | Outcome::Violation(e) => panic!("building_3d/{seed}: {e}"),
+        }
+    }
 }
 
 #[cfg(test)]
