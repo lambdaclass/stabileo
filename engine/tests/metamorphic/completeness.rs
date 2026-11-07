@@ -383,12 +383,29 @@ fn shell_tags(s: &SolverInput3D) -> Vec<&'static str> {
         .collect()
 }
 
+fn outputs(analysis: &str) -> &'static [&'static str] {
+    match analysis {
+        "load combinations" => &["case A", "case B", "combination C"],
+        "staged" => &["stage all", "final"],
+        _ => &[""],
+    }
+}
+
+pub(crate) fn outputs_complete<T>(analysis: &str, got: &[(String, T)]) -> Result<(), String> {
+    let labels: Vec<&str> = got.iter().map(|(l, _)| l.as_str()).collect();
+    if labels == outputs(analysis) {
+        Ok(())
+    } else {
+        Err(format!("outputs {labels:?}, expected {:?}", outputs(analysis)))
+    }
+}
+
 #[test]
 fn every_node_support_and_element_has_one_record_2d() {
     let mut ledger = Ledger::default();
     for (name, s, dens) in models_2d() {
         for (analysis, run) in analyses_2d() {
-            let r = run(&s, &dens).map(|v| v.iter().map(|(label, r)| check_2d(&s, r, Known::of(analysis, label)).map_err(|e| format!("{label} {e}"))).collect());
+            let r = run(&s, &dens).map(|v| std::iter::once(outputs_complete(analysis, &v)).chain(v.iter().map(|(label, r)| check_2d(&s, r, Known::of(analysis, label)).map_err(|e| format!("{label} {e}")))).collect());
             ledger.record(analysis, &name, &[], r);
         }
         let modes = modal_2d(&s, &dens).map(|m| m.iter().enumerate().map(|(k, d)| displacements_2d(&s, d).map_err(|e| format!("mode {k} {e}"))).collect());
@@ -405,11 +422,12 @@ fn every_node_support_element_and_shell_has_one_record_3d() {
     for (name, s, dens) in models_3d() {
         let tags = shell_tags(&s);
         for (analysis, run) in analyses_3d() {
-            let r = run(&s, &dens).map(|v| v.iter().map(|(label, r)| check_3d(&s, r, Known::of(analysis, label)).map_err(|e| format!("{label} {e}"))).collect());
+            let r = run(&s, &dens).map(|v| std::iter::once(outputs_complete(analysis, &v)).chain(v.iter().map(|(label, r)| check_3d(&s, r, Known::of(analysis, label)).map_err(|e| format!("{label} {e}")))).collect());
             ledger.record(analysis, &name, &tags, r);
         }
         let nodal = linear::solve_3d(&s).map(|r| vec![nodal_stresses_3d(&s, &r)]);
-        ledger.record("linear nodal stresses", &name, &tags, nodal);
+        let nodal_tags: Vec<&str> = tags.iter().copied().filter(|t| matches!(*t, "MITC4" | "MITC9")).collect();
+        ledger.record("linear nodal stresses", &name, &nodal_tags, nodal);
         let modes = modal_3d(&s, &dens).map(|m| m.iter().enumerate().map(|(k, d)| displacements_3d(&s, d).map_err(|e| format!("mode {k} {e}"))).collect());
         ledger.record("modal", &name, &tags, modes);
     }
@@ -417,6 +435,8 @@ fn every_node_support_element_and_shell_has_one_record_3d() {
     required.extend(["modal", "linear nodal stresses"].map(String::from));
     for family in ["plates", "MITC4", "MITC9", "solid shells", "curved shells"] {
         required.push(format!("linear / {family}"));
+    }
+    for family in ["MITC4", "MITC9"] {
         required.push(format!("linear nodal stresses / {family}"));
     }
     ledger.finish("completeness 3D", &required);
@@ -586,5 +606,24 @@ mod tests {
         assert!(check_2d(&s, &ssi, Known::None).is_err());
         ssi.element_forces = removed(&ssi.element_forces, 0);
         assert!(check_2d(&s, &ssi, Known::SsiNoReactions).is_err());
+    }
+
+    #[test]
+    fn a_missing_case_combination_or_stage_fails() {
+        let s = building_3d(1);
+        let combos = multi_case_3d(&s).unwrap();
+        outputs_complete("load combinations", &combos).unwrap();
+        for k in 0..combos.len() {
+            assert!(outputs_complete("load combinations", &removed(&combos, k)).is_err());
+        }
+        assert!(outputs_complete("load combinations", &duplicated(&combos, 0)).is_err());
+        let stages = staged_3d_all(&s).unwrap();
+        outputs_complete("staged", &stages).unwrap();
+        for k in 0..stages.len() {
+            assert!(outputs_complete("staged", &removed(&stages, k)).is_err());
+        }
+        let linear = one(linear::solve_3d(&s)).unwrap();
+        outputs_complete("linear", &linear).unwrap();
+        assert!(outputs_complete("linear", &removed(&linear, 0)).is_err());
     }
 }

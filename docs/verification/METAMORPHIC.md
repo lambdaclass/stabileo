@@ -77,10 +77,11 @@ UPDATE_METAMORPHIC_DOC=1 cargo test --locked --release --test metamorphic metamo
   checked against the input model: one displacement per node, one reaction per distinct
   support node, one force record per element (curved beams expanded), one plate stress per
   plate, quad stresses per family in the engine's order (MITC4, MITC9, solid shells, curved
-  shells), and on the linear solve one quad nodal stress per MITC4/MITC9 corner node. A
+  shells), and on the linear solve one quad nodal stress per MITC4/MITC9 element node. A
   missing id, an id reported twice or an id not in the model fails. It runs linear, load
   session, constrained, certified linear, load combinations (every case and the
-  combination), staged (every stage and the final result), Winkler, contact, SSI, P-Delta,
+  combination), staged (every stage and the final result; the case, combination and stage
+  names must be exactly the requested ones), Winkler, contact, SSI, P-Delta,
   corotational, material and fiber nonlinear, cable, and every mode shape. Models: the same
   fuzz seeds and 20 buildings as `linear_identities.rs`, plus frame-only copies of the
   plate, MITC4 and curved-shell buildings (no settlement or thermal load) so that
