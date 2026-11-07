@@ -29,7 +29,7 @@ export async function diagStop(page: Page, label: string): Promise<void> {
   const out: string[] = [];
   out.push(`[diag ${label}] marks: ${marks.filter((m) => m.pid === pid).map((m) => `${m.name.slice(12)}@${rel(m.ts)}`).join(' ')}`);
   const mainEvs = events.filter((e) => e.pid === pid && e.tid === main && e.ph === 'X' && (e.dur ?? 0) >= 40_000);
-  const end = Math.max(...events.filter((e) => e.pid === pid && e.ts).map((e) => e.ts));
+  const end = events.reduce((m, e) => (e.pid === pid && e.ts > m ? e.ts : m), 0);
   for (const e of mainEvs.sort((a, b) => a.ts - b.ts)) {
     const d = e.args?.data ?? e.args?.beginData ?? {};
     const fn = d.functionName ? ` fn=${d.functionName}` : '';
