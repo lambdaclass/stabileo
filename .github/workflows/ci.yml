@@ -801,7 +801,9 @@ jobs:
         env:
           BASE_REF: ${{ github.base_ref }}
           LABELS: ${{ needs.changes.outputs.labels }}
-        run: .github/scripts/retry-infra.sh make check.reverts BASE="origin/$BASE_REF" HEAD=HEAD
+        run: |
+          git show "origin/$BASE_REF:.github/scripts/revert-check.py" > "$RUNNER_TEMP/revert-check.py" || cp .github/scripts/revert-check.py "$RUNNER_TEMP/revert-check.py"
+          python3 -B -I "$RUNNER_TEMP/revert-check.py" "origin/$BASE_REF" HEAD
 
   check-migrations:
     name: Check Migration Safety

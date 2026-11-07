@@ -158,6 +158,16 @@ class RevertCheck(unittest.TestCase):
         rows, _ = check.recent_foreign_deletions(self.repo, 'main', 'pr', 21, NOW)
         self.assertEqual([(r['file'], r['lines']) for r in rows], [('src.rs', 1)])
 
+    def test_a_nul_byte_the_branch_adds_cannot_hide_its_deletions(self):
+        git(self.repo, 'checkout', '-q', '-b', 'pr', 'fork-point')
+        git(self.repo, 'checkout', '-q', 'main')
+        commit(self.repo, {'src.rs': 'kept\nrecent\n'}, 'Newer work on main', NOW - 3 * DAY)
+        git(self.repo, 'checkout', '-q', 'pr')
+        git(self.repo, 'merge', '-q', '--no-ff', '-m', 'Merge main', 'main', when=NOW - DAY)
+        commit(self.repo, {'src.rs': 'kept\n\x00\n'}, 'Drop it', NOW)
+        rows, _ = check.recent_foreign_deletions(self.repo, 'main', 'pr', 21, NOW)
+        self.assertEqual([(r['file'], r['lines']) for r in rows], [('src.rs', 1)])
+
     def test_a_conflict_git_reports_without_naming_a_file_still_fails(self):
         real = check.git
         def git_stub(repo, *args, ok=(0,)):
@@ -202,6 +212,15 @@ class RevertCheck(unittest.TestCase):
         self.assertEqual(self.run_check('--labels', 'run-e2e')[0], 1)
         self.assertEqual(self.run_check('--labels', 'run-e2e,reverts-ok')[0], 0)
 
+
+class Workflow(unittest.TestCase):
+    def test_the_gate_runs_the_base_branchs_checker_not_the_pull_requests(self):
+        workflow = (ROOT / '.github/workflows/ci.yml').read_text()
+        job = workflow.split('\n  revert-check:\n', 1)[1].split('\n  check-migrations:\n', 1)[0]
+        self.assertIn('git show "origin/$BASE_REF:.github/scripts/revert-check.py" > "$RUNNER_TEMP/revert-check.py"', job)
+        self.assertIn('python3 -B -I "$RUNNER_TEMP/revert-check.py" "origin/$BASE_REF" HEAD', job)
+        self.assertNotIn('make ', job)
+        self.assertNotIn('retry-infra.sh', job)
 
 if __name__ == '__main__':
     unittest.main()

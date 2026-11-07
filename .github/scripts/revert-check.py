@@ -62,7 +62,7 @@ def unquote(name):
 
 
 def deleted_ranges(repo, base, tree):
-    out = git(repo, f'--attr-source={base}', 'diff', '-U0', '--find-renames', '--no-color', '--no-ext-diff', '--no-textconv', base, tree).stdout
+    out = git(repo, 'diff', '-U0', '--text', '--find-renames', '--no-color', '--no-ext-diff', '--no-textconv', base, tree).stdout
     ranges, path, header = {}, None, False
     for line in out.split('\n'):
         if line.startswith('diff --git '):
