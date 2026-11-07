@@ -21,7 +21,7 @@
     "tr": "3B burkulma, basınç altında olmayan bir çubuğun yuvarlama hatasından gelen eksenel kuvvetini basınç sayıyordu; 2B de #959'dan önce böyleydi. Yalnızca enine yüklenmiş bir konsolda bu kuvvet modelin yönüne ve yük ölçeğine göre değişiyor, analiz dönüşe bağlı olarak 1,49e-3 ile 3,1e7 arasında yük katsayıları veriyor ya da reddediyordu (#1548). Her çubuğun basıncı kendi uzamasının yuvarlama hatası içinde kaldığında, 3B burkulma ve sertifikası artık modeli en büyük basıncı belirterek belirlenemez diye reddediyor, 2B'de olduğu gibi. Herhangi bir yerinde çözümlenmiş basınç olan bir model aynı katsayıları veriyor."
   },
   "changelog": {
-    "file": "changelog.d/1548-buckling-3d-round-off.md",
+    "file": "CHANGELOG.md",
     "heading": "3D buckling refuses a model whose only compression is round-off (2026-11-06)"
   }
 }
