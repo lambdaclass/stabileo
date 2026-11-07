@@ -1208,10 +1208,19 @@ export function saveWorkspaceToLocalStorage(): boolean {
   }
   lastSave = storeDetailing(staged).then((stored) => {
     const ok = stored && publishWorkspace(gen, text);
-    if (ok && gen === publishedGen) void pruneDetailing(new Set(staged.map((s) => s.ref)));
+    if (ok && gen === publishedGen) void pruneDetailing(() => new Set([...staged.map((s) => s.ref), ...storedWorkspaceRefs()]));
     return finishSave(gen, ok);
   });
   return true;
+}
+
+function storedWorkspaceRefs(): string[] {
+  try {
+    const tabs = (JSON.parse(localStorage.getItem(WORKSPACE_KEY) ?? 'null') as { tabs?: Array<{ detailingRef?: unknown }> } | null)?.tabs;
+    return Array.isArray(tabs) ? tabs.flatMap((tab) => (typeof tab?.detailingRef === 'string' ? [tab.detailingRef] : [])) : [];
+  } catch {
+    return [];
+  }
 }
 
 /** For a caller about to reload the page. */

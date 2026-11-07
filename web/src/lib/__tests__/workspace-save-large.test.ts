@@ -238,6 +238,25 @@ describe('the designed and detailed 7-storey building', () => {
     expect((await readDetailing([ref])).has(ref)).toBe(true);
   }, 300_000);
 
+  it('treats a malformed record as lost bars, not as a tab with none', async () => {
+    startWith([designed], designed.id);
+    expect(await saveWorkspaceSettled()).toBe(true);
+    const ref = storedRef();
+    await new Promise<void>((resolve, reject) => {
+      const open = indexedDB.open('stabileo-workspace-detailing');
+      open.onsuccess = () => {
+        const tx = open.result.transaction('detailing', 'readwrite');
+        tx.objectStore('detailing').put({ ref, savedAt: Date.now(), heavy: {} });
+        tx.oncomplete = () => { open.result.close(); resolve(); };
+        tx.onerror = () => reject(tx.error);
+      };
+    });
+
+    await reload();
+
+    expect(toast.mock.calls.find((c) => String(c[0]).includes('«Edificio»'))?.[1]).toBe('error');
+  }, 300_000);
+
   it('says which tab lost its bars when their record is gone, and restores it without them', async () => {
     startWith([designed, smallTab('b', 'Pórtico B')], designed.id);
     expect(await saveWorkspaceSettled()).toBe(true);
