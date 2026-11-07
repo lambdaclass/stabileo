@@ -78,6 +78,22 @@ describe('comparison-page pricing policy', () => {
   }
 });
 
+describe('the obsolete-pricing patterns', () => {
+  const removed = {
+    en: ['Code design is free while it is in development.'],
+    es: ['El diseño normativo es gratis mientras esté en desarrollo.', 'gratis para las universidades públicas'],
+    pt: ['é grátis enquanto o módulo de dimensionamento estiver em desenvolvimento.'],
+    de: ['Die normgemäße Bemessung ist kostenlos, solange sie in Entwicklung ist.', 'noch in Entwicklung und bleibt so lange kostenlos.'],
+    fr: ["Le dimensionnement réglementaire est gratuit tant qu'il est en développement.", 'reste gratuit tant que le module de dimensionnement est en développement.'],
+    tr: ['geliştirilmesine katkıda bulunanlar için ücretsiz kalır.'],
+  } satisfies Partial<Record<keyof typeof OBSOLETE_PRICING, string[]>>;
+  for (const [locale, texts] of Object.entries(removed) as [keyof typeof removed, string[]][]) {
+    it(`catch the removed ${locale} copy`, () => {
+      for (const text of texts) expect(text).toMatch(OBSOLETE_PRICING[locale]);
+    });
+  }
+});
+
 describe('the standing page paths', () => {
   it('name exactly the standing pages, so the public router needs no page content', () => {
     expect([...STANDING_PAGE_PATHS]).toEqual(STANDING_PAGES.map((p) => p.path));

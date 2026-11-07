@@ -135,8 +135,8 @@ export const OBSOLETE_PRICING: Record<Locale, RegExp> = {
   en: /free (?:during|while|throughout)|(?:everything|all modules) (?:is |are )?free|(?:education|universities).{0,40}without exceptions|public universities|taking part in (?:its|Stabileo’s) development|contributors/i,
   es: /gratis (?:durante|mientras)|gratuito (?:durante|mientras)|todo (?:es )?gratis|sin excepciones|universidades públicas|particip\w+ del desarrollo/i,
   pt: /grátis (?:durante|enquanto)|gratuito (?:durante|enquanto)|tudo (?:é )?grátis|sem exceções|universidades públicas|particip\w+ do desenvolvimento/i,
-  de: /kostenlos (?:während|solange)|(?:während|solange)[^.]*kostenlos|alles (?:ist )?kostenlos|ohne Ausnahmen|öffentlichen? Universitäten|an seiner Entwicklung beteilig/i,
-  fr: /gratuit(?:e|s)? (?:pendant|durant|tant que)|tout est gratuit|sans exception|universités publiques|particip\w+ à son développement/i,
+  de: /kostenlos,? (?:während|solange)|so lange kostenlos|(?:während|solange)[^.]*kostenlos|alles (?:ist )?kostenlos|ohne Ausnahmen|öffentlichen? Universitäten|an seiner Entwicklung beteilig/i,
+  fr: /gratuit(?:e|s)? (?:pendant|durant|tant qu)|tout est gratuit|sans exception|universités publiques|particip\w+ à son développement/i,
   tr: /geliştirme (?:süresince|boyunca|aşamasında)[^.]*ücretsiz|her şey ücretsiz|istisnasız|devlet üniversiteleri|geliştirilmesine katkıda/i,
 };
 
