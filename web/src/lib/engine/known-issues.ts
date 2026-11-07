@@ -84,7 +84,9 @@ export function freezeResult<T>(result: T): T {
 
 function assertSealed(value: object): void {
   if (!Object.isFrozen(value) || ArrayBuffer.isView(value) || value instanceof Map || value instanceof Set || !PLAIN_PROTOTYPES.has(Object.getPrototypeOf(value))) throw UNSOUND;
-  for (const key of Object.getOwnPropertyNames(value)) if (!('value' in Object.getOwnPropertyDescriptor(value, key)!)) throw UNSOUND;
+  const keys = Object.getOwnPropertyNames(value);
+  if (Array.isArray(value) && keys.length !== value.length + 1) throw UNSOUND;
+  for (const key of keys) if (!('value' in Object.getOwnPropertyDescriptor(value, key)!)) throw UNSOUND;
 }
 
 function frozenDiagnosticsOf(result: object): Diagnostic[] {

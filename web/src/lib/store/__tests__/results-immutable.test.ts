@@ -194,6 +194,20 @@ describe('what the cache cannot see is scanned on every read', () => {
     expect(resultsStore.results3D).toBeNull();
   });
 
+  it('a diagnostic list with holes is not cached: what fills a hole is seen', () => {
+    const holes: object[] = [];
+    holes.length = 2;
+    const r = result(1, holes);
+    resultsStore.setResults3D(r as never);
+    expect(resultsStore.results3D).toBe(r);
+    Object.defineProperty(Array.prototype, 0, { value: refusal(), configurable: true, writable: true });
+    try {
+      expect(resultsStore.results3D).toBeNull();
+    } finally {
+      delete (Array.prototype as unknown as Record<number, unknown>)[0];
+    }
+  });
+
   it('a case added to the published map through the native mutator is scanned', () => {
     resultsStore.setResults3D(result(0) as never);
     resultsStore.setCombinationResults3D(new Map([[1, result(1)]]) as never, new Map([[2, result(2)]]) as never, { maxAbsResults3D: result(3) } as never);
