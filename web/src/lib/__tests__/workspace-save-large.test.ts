@@ -6,7 +6,7 @@ import {
   loadWorkspaceFromLocalStorage, resetWorkspaceGuard, restoreWorkspaceDetailing,
   saveWorkspaceSettled, saveWorkspaceToLocalStorage, workspaceNeedsDetailing,
 } from '../store/file';
-import { readDetailing, resetWorkspaceDetailingDb, resetWorkspaceDetailingMemory } from '../store/workspace-detailing';
+import { pruneDetailing, readDetailing, resetWorkspaceDetailingDb, resetWorkspaceDetailingMemory } from '../store/workspace-detailing';
 import type { DetailingStore } from '../engine/detailing/assembly';
 import { workspaceSaveStatus } from '../store/workspace-save-status.svelte';
 import { modelStore } from '../store/model.svelte';
@@ -52,6 +52,18 @@ function smallTab(id: string, name: string): TabState {
       nextId: { node: 3, material: 2, section: 2, element: 2, support: 2, load: 1, loadCase: 1, combination: 1 },
     },
   } as unknown as TabState;
+}
+
+function rawWrite(store: string, write: (s: IDBObjectStore) => void): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const open = indexedDB.open('stabileo-workspace-detailing');
+    open.onsuccess = () => {
+      const tx = open.result.transaction(store, 'readwrite');
+      write(tx.objectStore(store));
+      tx.oncomplete = () => { open.result.close(); resolve(); };
+      tx.onerror = () => reject(tx.error);
+    };
+  });
 }
 
 const canon = (v: unknown) => JSON.stringify(v, (_k, x) => (x && typeof x === 'object' && !Array.isArray(x) ? Object.fromEntries(Object.keys(x).sort().map((k) => [k, (x as Record<string, unknown>)[k]])) : x));
@@ -244,34 +256,44 @@ describe('the designed and detailed 7-storey building', () => {
     startWith([designed], designed.id);
     expect(await saveWorkspaceSettled()).toBe(true);
     const ref = storedRef();
-    await new Promise<void>((resolve, reject) => {
-      const open = indexedDB.open('stabileo-workspace-detailing');
-      open.onsuccess = () => {
-        const tx = open.result.transaction('detailing', 'readwrite');
-        tx.objectStore('detailing').delete(ref);
-        tx.oncomplete = () => { open.result.close(); resolve(); };
-        tx.onerror = () => reject(tx.error);
-      };
-    });
+    await rawWrite('detailing', (s) => s.delete(ref));
     expect((await readDetailing([ref])).has(ref)).toBe(false);
     expect(await saveWorkspaceSettled()).toBe(true);
     expect(storedRef()).toBe(ref);
     expect((await readDetailing([ref])).has(ref)).toBe(true);
   }, 300_000);
 
+  it('a snapshot of the detailing cannot be written in place', () => {
+    startWith([designed], designed.id);
+    const snap = modelStore.snapshot();
+    const bar = snap.detailing!.assemblies.find((a) => a.bars.length > 0)!.bars[0] as { locked?: boolean };
+    expect(() => { bar.locked = !bar.locked; }).toThrow(TypeError);
+    expect(() => { snap.detailing!.assemblies.push(snap.detailing!.assemblies[0]!); }).toThrow(TypeError);
+  });
+
+  it('a version reused by a save is kept by a prune from another window, however old it was', async () => {
+    startWith([designed], designed.id);
+    expect(await saveWorkspaceSettled()).toBe(true);
+    const ref = storedRef();
+    const old = Date.now() - 60 * 60 * 1000;
+    await rawWrite('touched', (s) => s.put({ ref, at: old }));
+    expect(await saveWorkspaceSettled()).toBe(true);
+    expect(storedRef()).toBe(ref);
+
+    await resetWorkspaceDetailingDb();
+    await pruneDetailing(() => new Set());
+    expect((await readDetailing([ref])).has(ref), 'used just now: kept').toBe(true);
+
+    await rawWrite('touched', (s) => s.put({ ref, at: old }));
+    await pruneDetailing(() => new Set());
+    expect((await readDetailing([ref])).has(ref), 'not used for an hour and named by nothing: pruned').toBe(false);
+  }, 300_000);
+
   it('treats a malformed record as lost bars, not as a tab with none', async () => {
     startWith([designed], designed.id);
     expect(await saveWorkspaceSettled()).toBe(true);
     const ref = storedRef();
-    await new Promise<void>((resolve, reject) => {
-      const open = indexedDB.open('stabileo-workspace-detailing');
-      open.onsuccess = () => {
-        const tx = open.result.transaction('detailing', 'readwrite');
-        tx.objectStore('detailing').put({ ref, savedAt: Date.now(), heavy: {} });
-        tx.oncomplete = () => { open.result.close(); resolve(); };
-        tx.onerror = () => reject(tx.error);
-      };
-    });
+    await rawWrite('detailing', (s) => s.put({ ref, heavy: {} }));
 
     await reload();
 
