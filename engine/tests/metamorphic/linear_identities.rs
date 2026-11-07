@@ -76,7 +76,7 @@ fn combinations_2d(s: &SolverInput) -> Outcome {
     }
     let r0 = match solve(vec![]) {
         Ok(r) if !refused(&r.structured_diagnostics, &r) => r,
-        Ok(_) => return Outcome::Skipped("refused".into()),
+        Ok(_) => return Outcome::Violation("zero-load solve refused on a model whose own loads solve".into()),
         Err(e) => return Outcome::Skipped(e),
     };
     let (cond, rel) = match conditioned(conditioning::of_2d(s)) {
@@ -90,6 +90,9 @@ fn combinations_2d(s: &SolverInput) -> Outcome {
         combinations: definitions(),
     };
     let mc = match load_cases::solve_multi_case_2d(&input) {
+        Ok(m) if m.case_results.iter().any(|c| refused(&c.results.structured_diagnostics, &c.results)) || m.combination_results.iter().any(|c| refused(&c.results.structured_diagnostics, &c.results)) => {
+            return Outcome::Violation("multi-case result carries a refusal the linear solve does not".into())
+        }
         Ok(m) => m,
         Err(e) => return Outcome::Violation(format!("multi-case refused a model the linear solve accepts: {e}")),
     };
@@ -99,7 +102,7 @@ fn combinations_2d(s: &SolverInput) -> Outcome {
         let loads: Vec<SolverLoad> = fs.iter().flat_map(|&(c, f)| scale_loads_2d(&parts[c], f)).collect();
         let exp = match solve(loads.clone()) {
             Ok(r) if !refused(&r.structured_diagnostics, &r) => r,
-            _ => return Outcome::Skipped(format!("{name}: factored solve refused")),
+            _ => return Outcome::Violation(format!("{name}: factored solve refused on a model whose own loads solve")),
         };
         let Some(got) = mc.combination_results.iter().find(|c| c.name == *name) else {
             return Outcome::Violation(format!("{name}: combination missing from the results"));
@@ -184,7 +187,7 @@ fn combinations_3d(s: &SolverInput3D) -> Outcome {
     }
     let r0 = match solve(vec![]) {
         Ok(r) if !refused(&r.structured_diagnostics, &r) => r,
-        Ok(_) => return Outcome::Skipped("refused".into()),
+        Ok(_) => return Outcome::Violation("zero-load solve refused on a model whose own loads solve".into()),
         Err(e) => return Outcome::Skipped(e),
     };
     let (cond, rel) = match conditioned(conditioning::of_3d(s)) {
@@ -198,6 +201,9 @@ fn combinations_3d(s: &SolverInput3D) -> Outcome {
         combinations: definitions(),
     };
     let mc = match load_cases::solve_multi_case_3d(&input) {
+        Ok(m) if m.case_results.iter().any(|c| refused(&c.results.structured_diagnostics, &c.results)) || m.combination_results.iter().any(|c| refused(&c.results.structured_diagnostics, &c.results)) => {
+            return Outcome::Violation("multi-case result carries a refusal the linear solve does not".into())
+        }
         Ok(m) => m,
         Err(e) => return Outcome::Violation(format!("multi-case refused a model the linear solve accepts: {e}")),
     };
@@ -208,7 +214,7 @@ fn combinations_3d(s: &SolverInput3D) -> Outcome {
         let loads: Vec<SolverLoad3D> = fs.iter().flat_map(|&(c, f)| scale_loads_3d(&parts[c], f)).collect();
         let exp = match solve(loads.clone()) {
             Ok(r) if !refused(&r.structured_diagnostics, &r) => r,
-            _ => return Outcome::Skipped(format!("{name}: factored solve refused")),
+            _ => return Outcome::Violation(format!("{name}: factored solve refused on a model whose own loads solve")),
         };
         let Some(got) = mc.combination_results.iter().find(|c| c.name == *name) else {
             return Outcome::Violation(format!("{name}: combination missing from the results"));
@@ -253,8 +259,11 @@ fn shell_superposition(s: &SolverInput3D) -> Outcome {
     let mut lab = scale_loads_3d(&la, a);
     lab.extend(scale_loads_3d(&lb, b));
     let solve = |loads: Vec<SolverLoad3D>| linear::solve_3d(&SolverInput3D { loads, ..s.clone() }).ok().filter(|r| !refused(&r.structured_diagnostics, r));
+    if solve(s.loads.clone()).is_none() {
+        return Outcome::Skipped("the model's own loads are refused".into());
+    }
     let (Some(ra), Some(rb), Some(rab), Some(r0)) = (solve(la.clone()), solve(lb.clone()), solve(lab.clone()), solve(vec![])) else {
-        return Outcome::Skipped("refused".into());
+        return Outcome::Violation("a load subset is refused on a model whose own loads solve".into());
     };
     let (cond, rel) = match conditioned(conditioning::of_3d(s)) {
         Ok(x) => x,
