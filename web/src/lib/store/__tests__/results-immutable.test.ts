@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { resultsStore, uiStore } from '../../store';
-import { freezeResult, knownIssueResultDisposition } from '../../engine/known-issues';
+import { freezeResult, knownIssueDiagnosticsIn, knownIssueResultDisposition } from '../../engine/known-issues';
 
 const refusal = () => ({ code: 'known_issue', severity: 'error', phase: 'BU-BOUND', value: 741, message: 'ENGINE' });
 const warning = () => ({ code: 'known_issue', severity: 'warning', phase: 'BU-BOUND', value: 741, message: 'ENGINE' });
@@ -271,6 +271,26 @@ describe('what the cache cannot see is scanned on every read', () => {
     } finally {
       delete (Object.prototype as Record<string, unknown>).findings;
     }
+  });
+
+  it('a list whose own iteration method changes after the verdict was cached is seen', () => {
+    let refuse = false;
+    const list: object[] = [];
+    Object.defineProperty(list, 'forEach', { value: (cb: (d: object) => void) => { if (refuse) cb(refusal()); }, enumerable: false });
+    const r = result(1, list);
+    resultsStore.setResults3D(r as never);
+    expect(resultsStore.results3D).toBe(r);
+    refuse = true;
+    expect(resultsStore.results3D).toBeNull();
+  });
+
+  it('emptying the diagnostics handed out for a frozen result never clears its refusal', () => {
+    const r = freezeResult(result(1, [refusal()]));
+    expect(knownIssueResultDisposition(r).refused).toBe(true);
+    knownIssueDiagnosticsIn(r).length = 0;
+    expect(knownIssueResultDisposition(r).refused).toBe(true);
+    resultsStore.setResults3D(r as never);
+    expect(resultsStore.results3D).toBeNull();
   });
 
   it('a case added to the published map through the native mutator is scanned', () => {

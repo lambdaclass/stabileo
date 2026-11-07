@@ -86,7 +86,10 @@ export function freezeResult<T>(result: T): T {
 function assertSealed(value: object): void {
   if (!Object.isFrozen(value) || ArrayBuffer.isView(value) || value instanceof Map || value instanceof Set || !PLAIN_PROTOTYPES.has(Object.getPrototypeOf(value))) throw UNSOUND;
   if (Array.isArray(value)) for (let i = 0; i < value.length; i++) if (!Object.prototype.hasOwnProperty.call(value, i)) throw UNSOUND;
-  for (const key of Object.getOwnPropertyNames(value)) if (!('value' in Object.getOwnPropertyDescriptor(value, key)!)) throw UNSOUND;
+  for (const key of Object.getOwnPropertyNames(value)) {
+    const property = Object.getOwnPropertyDescriptor(value, key)!;
+    if (!('value' in property) || typeof property.value === 'function') throw UNSOUND;
+  }
 }
 
 function ownReader(absent: Absent) {
@@ -110,7 +113,7 @@ function frozenDiagnosticsOf(result: object, absentOut: Absent | null): Diagnost
     if (cached) throw UNSOUND;
     const absent: Absent = [];
     const diagnostics = diagnosticsIn(result, result, absent);
-    frozenDiagnostics.set(result, { diagnostics, absent });
+    frozenDiagnostics.set(result, { diagnostics: Object.freeze(diagnostics) as Diagnostic[], absent });
     absentOut?.push(...absent);
     return diagnostics;
   } catch (error) {
