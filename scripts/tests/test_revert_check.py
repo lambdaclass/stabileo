@@ -168,6 +168,32 @@ class RevertCheck(unittest.TestCase):
         rows, _ = check.recent_foreign_deletions(self.repo, 'main', 'pr', 21, NOW)
         self.assertEqual([(r['file'], r['lines']) for r in rows], [('src.rs', 1)])
 
+    def test_a_merge_with_the_base_as_first_parent_is_still_checked(self):
+        git(self.repo, 'checkout', '-q', '-b', 'pr', 'fork-point')
+        commit(self.repo, {'other.txt': 'x\n'}, 'PR work', NOW - 4 * DAY)
+        git(self.repo, 'checkout', '-q', 'main')
+        commit(self.repo, {'new.txt': 'n1\nrecent\n'}, 'Newer work on main', NOW - 3 * DAY)
+        git(self.repo, 'checkout', '-q', '--detach', 'main')
+        git(self.repo, 'merge', '-q', '--no-ff', '--no-commit', 'pr', when=NOW - DAY)
+        pathlib.Path(self.repo, 'new.txt').write_text('n1\n')
+        git(self.repo, 'add', '-A')
+        git(self.repo, 'commit', '-q', '-m', 'Merge pr into main, stale', when=NOW - DAY)
+        git(self.repo, 'branch', '-f', 'pr', 'HEAD')
+        git(self.repo, 'checkout', '-q', 'main')
+        self.assertEqual(git(self.repo, 'rev-parse', 'pr^1'), git(self.repo, 'rev-parse', 'main'))
+        rows, _ = check.recent_foreign_deletions(self.repo, 'main', 'pr', 21, NOW)
+        self.assertEqual([(r['file'], r['lines']) for r in rows], [('new.txt', 1)])
+
+    def test_diff_settings_in_the_git_config_do_not_change_what_is_found(self):
+        keep = ''.join(f'keep {i}\n' for i in range(4))
+        commit(self.repo, {'c.txt': keep}, 'Old text', NOW - 100 * DAY)
+        git(self.repo, 'branch', '-f', 'fork-point')
+        self.pr_merges_main_work_then_drops_it('c.txt', 'recent a\n' + keep + 'recent b\n', keep, NOW - 3 * DAY)
+        for key, value in [('diff.noprefix', 'true'), ('diff.interHunkContext', '10'), ('diff.mnemonicPrefix', 'true')]:
+            git(self.repo, 'config', key, value)
+        rows, _ = check.recent_foreign_deletions(self.repo, 'main', 'pr', 21, NOW)
+        self.assertEqual([(r['file'], r['lines']) for r in rows], [('c.txt', 2)])
+
     def test_a_conflict_git_reports_without_naming_a_file_still_fails(self):
         real = check.git
         def git_stub(repo, *args, ok=(0,)):
@@ -221,6 +247,8 @@ class Workflow(unittest.TestCase):
         self.assertIn('python3 -B -I "$RUNNER_TEMP/revert-check.py" "origin/$BASE_REF" HEAD', job)
         self.assertNotIn('make ', job)
         self.assertNotIn('retry-infra.sh', job)
+        self.assertNotIn('cp .github/scripts/revert-check.py', job)
+        self.assertNotIn('python3 -B -I .github/scripts/revert-check.py', job)
 
 if __name__ == '__main__':
     unittest.main()

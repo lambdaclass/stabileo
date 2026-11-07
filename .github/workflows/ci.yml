@@ -802,7 +802,11 @@ jobs:
           BASE_REF: ${{ github.base_ref }}
           LABELS: ${{ needs.changes.outputs.labels }}
         run: |
-          git show "origin/$BASE_REF:.github/scripts/revert-check.py" > "$RUNNER_TEMP/revert-check.py" || cp .github/scripts/revert-check.py "$RUNNER_TEMP/revert-check.py"
+          if ! git cat-file -e "origin/$BASE_REF:.github/scripts/revert-check.py"; then
+            echo "origin/$BASE_REF has no revert check yet; the pull request's own copy is not trusted to judge it."
+            exit 0
+          fi
+          git show "origin/$BASE_REF:.github/scripts/revert-check.py" > "$RUNNER_TEMP/revert-check.py"
           python3 -B -I "$RUNNER_TEMP/revert-check.py" "origin/$BASE_REF" HEAD
 
   check-migrations:

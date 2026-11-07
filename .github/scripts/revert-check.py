@@ -4,8 +4,9 @@ usage: revert-check.py BASE HEAD [--days N] [--now EPOCH] [--event FILE] [--labe
 
 Simulates the merge (git merge-tree --write-tree), blames on BASE every line the merge deletes, and
 lists the lines last written within --days by a commit the branch did not start from and did not
-make: the branch is HEAD's first-parent line back to the fork, its first commit on BASE's
-first-parent line. Lines the branch started with are edits; lines that reached it only by merging
+make: the branch is every commit HEAD has and BASE does not, whichever side of a merge it is on, and
+its forks are where its first commits left BASE (a first commit that is a merge left at its parents'
+merge base). Lines the branch started with are edits; lines that reached it only by merging
 BASE, then went missing, are what a stale merge resolution undoes. The PR label `reverts-ok`, in
 the event payload (--event, default $GITHUB_EVENT_PATH) or in --labels (default $LABELS), acknowledges them.
 Exit 0: nothing flagged or acknowledged; 1: flagged; 2: the merge conflicts.
@@ -62,7 +63,8 @@ def unquote(name):
 
 
 def deleted_ranges(repo, base, tree):
-    out = git(repo, 'diff', '-U0', '--text', '--find-renames', '--no-color', '--no-ext-diff', '--no-textconv', base, tree).stdout
+    out = git(repo, 'diff', '-U0', '--inter-hunk-context=0', '--src-prefix=a/', '--dst-prefix=b/', '--no-relative', '--text', '--find-renames',
+              '--no-color', '--no-ext-diff', '--no-textconv', base, tree).stdout
     ranges, path, header = {}, None, False
     for line in out.split('\n'):
         if line.startswith('diff --git '):
@@ -90,31 +92,29 @@ def blame(repo, base, path, ranges):
 
 
 def branch(repo, base, head):
-    trunk = set(git(repo, 'rev-list', '--first-parent', base).stdout.split())
-    own = set()
-    for sha in git(repo, 'rev-list', '--first-parent', head).stdout.split():
-        if sha in trunk:
-            return own, sha
-        own.add(sha)
-    return own, None
+    rows = [line.split() for line in git(repo, 'rev-list', '--parents', head, '--not', base).stdout.split('\n') if line]
+    own = {row[0] for row in rows}
+    roots = [parents for _, *parents in rows if parents and not any(p in own for p in parents)]
+    forks = {parents[0] if len(parents) == 1 else git(repo, 'merge-base', '--octopus', *parents).stdout.strip() for parents in roots}
+    return own, forks - {''}
 
 
-def seen_at_fork(repo, sha, fork):
-    return fork is not None and git(repo, 'merge-base', '--is-ancestor', sha, fork, ok=(0, 1)).returncode == 0
+def seen_at_fork(repo, sha, forks):
+    return any(git(repo, 'merge-base', '--is-ancestor', sha, fork, ok=(0, 1)).returncode == 0 for fork in forks)
 
 
 def recent_foreign_deletions(repo, base, head, days, now):
     tree, conflicts = merge_tree(repo, base, head)
     if conflicts:
         return None, conflicts
-    own, fork = branch(repo, base, head)
+    own, forks = branch(repo, base, head)
     since = now - days * 86400
     foreign, hits = {}, Counter()
     for path, ranges in deleted_ranges(repo, base, tree).items():
         for sha in blame(repo, base, path, ranges):
             if sha not in foreign:
                 recent = int(git(repo, 'show', '-s', '--format=%ct', sha).stdout) >= since
-                foreign[sha] = recent and sha not in own and not seen_at_fork(repo, sha, fork)
+                foreign[sha] = recent and sha not in own and not seen_at_fork(repo, sha, forks)
             if foreign[sha]:
                 hits[(path, sha)] += 1
     rows = []
