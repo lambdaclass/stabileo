@@ -117,6 +117,17 @@ fn combinations_2d(s: &SolverInput) -> Outcome {
             return Outcome::Violation(format!("{name} ≠ linear solve of the factored loads: {e}"));
         }
     }
+    for (c, loads) in parts.iter().enumerate() {
+        let direct = match solve(loads.clone()) {
+            Ok(r) if !refused(&r.structured_diagnostics, &r) => r,
+            _ => return Outcome::Violation(format!("case {}: direct solve refused", CASES[c])),
+        };
+        let (fc, fd) = (flat(&mc.case_results[c].results), flat(&direct));
+        let floor = load_floor_2d(&SolverInput { loads: loads.clone(), ..s.clone() }, cond.lchar);
+        if let Err(e) = compare_compliant(&fc, &fd, &magnitude_of(&[(1.0, &fc), (1.0, &fd)]), cond.lchar, rel, floor, cond.compliance()) {
+            return Outcome::Violation(format!("case {} ≠ its linear solve: {e}", CASES[c]));
+        }
+    }
     Outcome::Checked
 }
 

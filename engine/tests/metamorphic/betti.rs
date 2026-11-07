@@ -133,6 +133,13 @@ mod tests {
     }
 
     #[test]
+    fn a_nonreciprocal_moment_pair_fails() {
+        let mut s = solves(vec![0.0], vec![0.0, 0.0]);
+        s.moment_a = resp(&[(1, "u", vec![0.2, 0.0]), (1, "ry", vec![0.7]), (2, "u", vec![0.1, 0.0]), (2, "ry", vec![0.41])]);
+        assert!(matches!(check(&pair(), &s, 1e-12), Verdict::Fail(_)));
+    }
+
+    #[test]
     fn an_empty_or_truncated_baseline_fails() {
         assert!(matches!(check(&pair(), &solves(vec![], vec![0.0, 0.0]), 1e-12), Verdict::Fail(_)));
         assert!(matches!(check(&pair(), &solves(vec![0.0], vec![0.0]), 1e-12), Verdict::Fail(_)));

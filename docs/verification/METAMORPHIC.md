@@ -61,7 +61,7 @@ UPDATE_METAMORPHIC_DOC=1 cargo test --locked --release --test metamorphic metamo
   found), `active.rs` (active cable fixtures), `generated.rs` (strict generated
   coverage), `safety_cases.rs` (issue-linked reproductions), and `stiffness.rs`
   (priority invariances and uniform stiffness scaling), and `linear_identities.rs`
-  (load combinations with factors 1.2 / 1.6 / 0.5 / 0.9 / −1.0 / 0 on three cases,
+  (load combinations 1.2A + 1.6B + 0.5C, 0.9A − 1.0B, 0A + 1.4C and 1.0B on three cases, each case also against its own linear solve,
   `solve_multi_case_2d/3d` on its prepared and constrained paths, against the linear
   solve of the factored loads with settlements counted once; and superposition
   R(aA + bB) = a·R(A) + b·R(B) + (1 − a − b)·R(∅) of the shell stress components
