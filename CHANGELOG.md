@@ -14,7 +14,8 @@ One file per change in [`changelog.d/`](changelog.d/README.md); `scripts/changel
 ## 0.5.0 (2026-11-07)
 
 Release notes: [`docs/releases/v0.5.0.md`](docs/releases/v0.5.0.md) (also in [Spanish](docs/releases/v0.5.0.es.md) and [Portuguese](docs/releases/v0.5.0.pt.md)).
-Safety advisories SA-2026-025…046 are fixed and published in this release. German, French and
+Safety advisories SA-2026-025…046 are published in this release, and all but SA-2026-044 are fixed:
+2D plastic collapse stays refused until #758 is fixed. German, French and
 Turkish are not offered in this release: they return once a native speaker has checked them, and
 their pages redirect to English until then.
 
