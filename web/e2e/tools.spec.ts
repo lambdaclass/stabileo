@@ -194,6 +194,7 @@ test('@smoke a calculator and its research benchmarks link to each other, each i
   await expect(related.locator('a[href="/es/research/benchmarks/riks-crisfield/"]')).toHaveCount(1);
   await expect(related.locator('a[href="/es/tools/"]')).toHaveCount(1);
   await expect(related.locator('a[href="/es/research/"]')).toHaveCount(1);
+  await expect(related.locator('a[href="/es/examples/"]')).toHaveText('Ejemplos');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await related.locator('a[href="/es/research/metamaterials/grossman-2026/"]').click();
   await expect(page).toHaveURL(/\/es\/research\/metamaterials\/grossman-2026\/$/);

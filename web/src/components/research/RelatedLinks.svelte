@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { publicI18n } from '../../lib/i18n/store.svelte';
+  import { publicI18n, tPublic } from '../../lib/i18n/store.svelte';
   import PublicLink from '../landing/PublicLink.svelte';
   import ResearchLink from './ResearchLink.svelte';
   import { RELATED_COPY, relatedPaths } from './related';
@@ -8,7 +8,7 @@
   const route = $derived(path.replace(/\/+$/, ''));
   const copy = $derived(RELATED_COPY[publicI18n.locale]);
   const links = $derived(relatedPaths(route));
-  const sections = $derived(['/research', '/tools', '/blog'].map((to, i) => ({ to, label: copy[i + 1] })).filter((s) => s.to !== route));
+  const sections = $derived([...['/research', '/tools', '/blog'].map((to, i) => ({ to, label: copy[i + 1] })), { to: '/examples', label: tPublic('landing.navExamples') }].filter((s) => s.to !== route));
 </script>
 
 <nav class="wrap rs-related" aria-label={copy[0]}>
