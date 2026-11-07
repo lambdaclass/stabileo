@@ -384,8 +384,8 @@
       const containment = knownIssueResultDisposition(byDir);
       if (containment.refused) { solveError = `${t('pro.spectralTitle')}: ${containment.messages.join('\n')}`; solving = false; return; }
       spectralResult = byDir;
-      recheckStore.noteSolved('spectral');
       advancedResults = { ...advancedResults, spectral: { disposition: containment, baseShearX: byDir.X!.baseShear, baseShearY: byDir.Y!.baseShear } };
+      recheckStore.noteSolved('spectral');
     } catch (e: any) {
       solveError = `${t('pro.spectralTitle')}: ${errorText(e, t('pro.unknownError'))}`;
     }

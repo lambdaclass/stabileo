@@ -27,6 +27,7 @@ function setup() {
     modelStore: { modelVersion: 1 }, knownIssueResultDisposition, errorText, eigenRefusalText,
     amplification: () => ({ b2: 1.2, stable: true }),
     t: (s: string) => s, tp: (_s: string, p: any) => p.error,
+    recheckStore: { noteSolved: vi.fn() },
   };
   const store: Record<string, any> = {};
   for (const name of ['Modal', 'Buckling', 'PDelta']) {
@@ -152,11 +153,14 @@ it('spectral success followed by string or thrown refusal retires report and loc
     scope.resultsStore.clearSpectral3D = vi.fn();
     const run = handler('handleSpectral', scope); run();
     expect(scope.advancedResults.spectral.baseShearX).toBe(12345);
+    expect(scope.recheckStore.noteSolved).toHaveBeenCalledWith('spectral');
+    scope.recheckStore.noteSolved.mockClear();
     scope.wasmSpectral3D = () => { if (throws) throw refusal; return refusal; };
     run();
     expect(scope.spectralResult).toBeNull();
     expect(scope.advancedResults.spectral).toBeUndefined();
     expect(scope.resultsStore.clearSpectral3D).toHaveBeenCalledTimes(2);
+    expect(scope.recheckStore.noteSolved, 'a refused run is not recorded').not.toHaveBeenCalled();
     expect(scope.solveError).toContain('#741');
     expect(scope.solveError).not.toContain('structuredDiagnostics');
   }
