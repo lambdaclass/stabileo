@@ -180,7 +180,7 @@ describe('the designed and detailed 7-storey building', () => {
     startWith([designed], designed.id);
     expect(await saveWorkspaceSettled()).toBe(true);
     const text = storage.getItem(WORKSPACE_KEY)!;
-    expect(text.length, 'the bars are back in the workspace text').toBeLessThan(1_000_000);
+    expect(text.length, 'the workspace text carries no bars').toBeLessThan(1_000_000);
     const stored = JSON.parse(text);
     expect(stored.tabs[0].modelSnapshot.detailing.assemblies).toEqual([]);
     expect((await readDetailing([storedRef()]))!.get(storedRef())?.assemblies?.length).toBe(designed.modelSnapshot.detailing!.assemblies.length);
@@ -379,6 +379,17 @@ describe('the designed and detailed 7-storey building', () => {
     full = false;
     await workspaceSavesFinished();
     expect(storage.getItem(WORKSPACE_KEY), 'the earlier save published its older tabs after the refusal').toBeNull();
+  }, 300_000);
+
+  it('an earlier save still storing its bars does not publish after a later save failed to serialize', async () => {
+    startWith([designed], designed.id);
+    expect(saveWorkspaceToLocalStorage()).toBe(true);
+    const sync = vi.spyOn(tabManager, 'syncCurrentTab').mockImplementation(() => { throw new Error('capture failed'); });
+    expect(saveWorkspaceToLocalStorage()).toBe(false);
+    sync.mockRestore();
+    await workspaceSavesFinished();
+    expect(storage.getItem(WORKSPACE_KEY)).toBeNull();
+    expect(workspaceSaveStatus.failed).toBe(true);
   }, 300_000);
 
   it('when the bars cannot be stored, keeps the previous workspace, shows the notice, and clears it once the tab is closed', async () => {

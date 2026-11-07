@@ -1204,6 +1204,8 @@ export function saveWorkspaceToLocalStorage(): boolean {
     };
     text = JSON.stringify(session);
   } catch {
+    clearWorkspaceFromLocalStorage();
+    publishedGen = Math.max(publishedGen, gen);
     lastSave = Promise.resolve(finishSave(gen, false));
     return false;
   }
