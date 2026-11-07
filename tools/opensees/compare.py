@@ -24,9 +24,11 @@ no positive load factor on either side), or stabileo_failed (undecided).
 A model stabileo flags ill-conditioned whose OpenSees stiffness is well
 conditioned (kappa < 1e8) is a false_warning (flagged).
 A buckling job whose frames carry axial span loads that never agrees on a
-common mesh but approaches agreement as it is refined is converging.
+common mesh but approaches agreement as it is refined is converging: flagged,
+since a constant difference cannot be told apart from the remaining
+discretisation difference.
 
-Exit status: 0 = no discrepancy above tolerance, 1 = mismatch,
+Exit status: 0 = no discrepancy above tolerance, 1 = mismatch, converging,
 false_reject or false_warning, 2 = harness error.
 
 Conventions (read from the engine source, see README.md):
@@ -2140,6 +2142,8 @@ def run_ext(name, job, binary, tol, dump_dir=None):
             bad += b2 or []
             groups.update({"lin_" + k: v for k, v in g2.items()})
             if converging and not b2:
+                if dump_dir:
+                    _dump(dump_dir, name, job)
                 return dict(base, status="converging", why=[converging], max_err=groups, kappa=kappa, tol=tol)
     elif kind == "pdelta":
         bad, groups = compare(d, sres, ores, tol)
@@ -2252,10 +2256,11 @@ def main():
     return 1 if any(cnt.get(st) for st in FLAGGED) else 0
 
 
-# Statuses that fail the run (and are dumped): a disagreement, stabileo
-# refusing a model OpenSees solves with a regular stiffness, or warning about
-# one OpenSees finds well conditioned.
-FLAGGED = ("mismatch", "false_reject", "false_warning")
+# Statuses that fail the run (and are dumped): a disagreement (converging is
+# one still above tolerance on the finest mesh compared), stabileo refusing a
+# model OpenSees solves with a regular stiffness, or warning about one
+# OpenSees finds well conditioned.
+FLAGGED = ("mismatch", "converging", "false_reject", "false_warning")
 
 
 if __name__ == "__main__":

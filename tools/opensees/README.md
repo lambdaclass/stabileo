@@ -58,7 +58,7 @@ stabileo's refusals and warnings are checked against OpenSees too:
 | `false_reject` | stabileo refuses a model whose OpenSees stiffness is regular (κ < 1e10): flagged, exit 1 |
 | `false_warning` | stabileo flags a model ill-conditioned whose OpenSees stiffness is well conditioned (κ < 1e8): flagged, exit 1 |
 | `not_applicable` | buckling with no load factor on either side (no member in compression, or none whose compression reaches a free DOF); an OpenSees factor above 1e9 comes from axial forces of round-off size and counts as none |
-| `converging` | buckling with an axial span load on a frame (see Buckling): engine and OpenSees differ above tolerance on every common mesh tried, but the difference at least halves at each doubling of the elements per member; not a failure, counted as inconclusive |
+| `converging` | buckling with an axial span load on a frame (see Buckling): engine and OpenSees differ above tolerance on every common mesh tried, but the difference at least halves at each doubling of the elements per member; flagged, exit 1: it never agreed, and a constant difference cannot be told apart from the remaining discretisation difference |
 | `stabileo_failed` | a refusal neither side decides (1e10 ≤ κ ≤ 1e12, or OpenSees failed for a reason other than a singular stiffness) |
 
 The converter used to drop nodal moments silently in truss-only models
@@ -227,9 +227,9 @@ load-factor error (the solvers may order such modes either way) is measured
 against the span of OpenSees' modes of that connected cluster instead of the
 single mode. Every mesh is compared at the unmeshed model's tolerance; a mesh
 whose κ puts its round-off (100·ε·κ) above it ends the refinement.
-`converging` is inconclusive by construction: a constant difference smaller
-than the remaining discretisation difference cannot be told apart from it on
-these meshes. The engine failing on a finer mesh is a `mismatch`, OpenSees
+`converging` is flagged like a `mismatch`: a constant difference smaller than
+the remaining discretisation difference cannot be told apart from it on these
+meshes, so only agreement within tolerance on a common mesh passes. The engine failing on a finer mesh is a `mismatch`, OpenSees
 failing is `opensees_failed`, and a mesh OpenSees cannot take (too large,
 ill-conditioned) ends the refinement.
 On seed 763000 the 138 mismatches became 47 `ok` on a common mesh (8 at

@@ -116,13 +116,20 @@ class RefinedBucklingTest(unittest.TestCase):
         self.assertEqual((r["status"], r["mesh"], seen), ("ok", 2, [1, 2]))
         self.assertLess(r["max_err"]["eig"], 1e-6)
 
-    def test_differences_falling_with_the_mesh_are_converging_not_ok(self):
+    def test_differences_falling_with_the_mesh_are_converging_and_flagged(self):
         stab = {n: [10.0, 30.0] for n in (1, 2, 4, 8, 16)}
         ops = {n: [10.0 * (1 - 1e-3 / n ** 2), 30.0] for n in (1, 2, 4, 8, 16)}
         r, seen = self.run_with(stab, ops)
         self.assertEqual((r["status"], r["mesh"], seen), ("converging", 4, [1, 2, 4]))
         self.assertIn("n=2: 2.50e-04, n=4: 6.25e-05", r["why"][0])
-        self.assertNotIn("converging", C.FLAGGED)
+        self.assertIn("converging", C.FLAGGED)
+
+    def test_a_constant_difference_under_a_falling_one_is_flagged(self):
+        stab = {n: [10.0, 30.0] for n in (1, 2, 4, 8, 16)}
+        ops = {n: [10.0 * (1 - (1e-4 + 1e-3 / n ** 2)), 30.0] for n in (1, 2, 4, 8, 16)}
+        r, _ = self.run_with(stab, ops)
+        self.assertIn(r["status"], C.FLAGGED)
+        self.assertGreater(r["max_err"]["eig"], 1e-4)
 
     def test_refinement_continues_while_agreement_is_within_reach(self):
         r, seen = self.run_with(*self.within_reach())
