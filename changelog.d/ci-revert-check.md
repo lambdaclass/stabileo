@@ -8,5 +8,6 @@
   stale conflict resolution does. Edits to lines the branch started from, its own lines and older
   lines pass. The `reverts-ok` label acknowledges an intended removal (push, or re-run all jobs,
   after adding it).
-  A merge that conflicts fails and names the files. The merge queue runs it too, on the queued
-  group against its base, with the labels of the pull requests in the group.
+  A merge that conflicts fails and names the files. The merge queue runs it too, on each
+  pull request in the queued group against the group before it, with that pull request's own labels;
+  a group commit that is not GitHub's merge of a pull request's current head fails.

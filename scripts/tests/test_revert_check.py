@@ -6,6 +6,8 @@ import os
 import pathlib
 import subprocess
 import tempfile
+import textwrap
+import time
 import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
@@ -256,7 +258,101 @@ class Workflow(unittest.TestCase):
         self.assertIn("if: github.event_name == 'pull_request' || github.event_name == 'merge_group'", job)
         self.assertIn('ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}', job)
         self.assertIn("github.event_name == 'merge_group' && github.event.merge_group.base_sha", job)
+        self.assertNotIn('QUEUE_REF', job)
         self.assertIn('merge_group:', workflow.split('\njobs:\n', 1)[0])
+
+
+FAKE_GH = """#!/usr/bin/env python3
+import json, os, sys
+pr = json.load(open(os.path.join(os.environ['FAKE_GH'], sys.argv[2].rsplit('/', 1)[1] + '.json')))
+expr = sys.argv[sys.argv.index('--jq') + 1]
+print(pr['head']['sha'] if expr == '.head.sha' else ','.join(l['name'] for l in pr['labels']))
+"""
+
+
+class MergeQueue(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.repo = pathlib.Path(self.tmp.name, 'repo')
+        self.bin = pathlib.Path(self.tmp.name, 'bin')
+        self.prs = pathlib.Path(self.tmp.name, 'prs')
+        for d in (self.repo, self.bin, self.prs):
+            d.mkdir()
+        gh = self.bin / 'gh'
+        gh.write_text(FAKE_GH)
+        gh.chmod(0o755)
+        now = int(time.time())
+        self.repo = str(self.repo)
+        git(self.repo, 'init', '-q', '-b', 'main')
+        checker = (ROOT / '.github/scripts/revert-check.py').read_text()
+        commit(self.repo, {'.github/scripts/revert-check.py': checker, 'new.txt': 'n1\n', 'b.txt': 'b\n'}, 'base', now - 100 * DAY)
+        git(self.repo, 'branch', 'fork-point')
+        commit(self.repo, {'new.txt': 'n1\nrecent\n'}, 'Newer work on main', now - 3 * DAY)
+        git(self.repo, 'checkout', '-q', '-b', 'a', 'fork-point')
+        git(self.repo, 'merge', '-q', '--no-ff', '-m', 'Merge main', 'main', when=now - 2 * DAY)
+        commit(self.repo, {'new.txt': 'n1\n'}, 'Drop it, as #2 says', now - DAY)
+        git(self.repo, 'checkout', '-q', '-b', 'b', 'main')
+        commit(self.repo, {'b.txt': 'b2\n'}, 'Harmless', now - DAY)
+        git(self.repo, 'checkout', '-q', 'main')
+        self.base = git(self.repo, 'rev-parse', 'main')
+        self.now = now
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def queue(self, first_subject='Merge pull request #1 from lambdaclass/a'):
+        git(self.repo, 'checkout', '-q', '--detach', self.base)
+        git(self.repo, 'merge', '-q', '--no-ff', '-m', first_subject, 'a', when=self.now)
+        git(self.repo, 'merge', '-q', '--no-ff', '-m', 'Merge pull request #2 from lambdaclass/b', 'b', when=self.now)
+
+    def pr(self, number, branch, labels):
+        sha = git(self.repo, 'rev-parse', branch)
+        (self.prs / f'{number}.json').write_text(json.dumps({'head': {'sha': sha}, 'labels': [{'name': l} for l in labels]}))
+
+    def run_job(self):
+        workflow = (ROOT / '.github/workflows/ci.yml').read_text()
+        job = workflow.split('\n  revert-check:\n', 1)[1].split('\n  check-migrations:\n', 1)[0]
+        script = textwrap.dedent(job.split('        run: |\n', 1)[1])
+        env = {**os.environ, 'PATH': f'{self.bin}:{os.environ["PATH"]}', 'FAKE_GH': str(self.prs), 'BASE': self.base,
+               'EVENT': 'merge_group', 'GH_REPO': 'lambdaclass/stabileo', 'RUNNER_TEMP': self.tmp.name, 'PR_LABELS': ''}
+        env.pop('GITHUB_EVENT_PATH', None)
+        r = subprocess.run(['bash', '--noprofile', '--norc', '-e', '-o', 'pipefail', '-c', script], cwd=self.repo, env=env, capture_output=True, text=True)
+        return r.returncode, r.stdout + r.stderr
+
+    def test_each_pull_request_needs_its_own_acknowledgement(self):
+        self.queue()
+        self.pr(1, 'a', [])
+        self.pr(2, 'b', ['reverts-ok'])
+        code, out = self.run_job()
+        self.assertEqual(code, 1, out)
+        self.assertIn('Pull request #1:', out)
+        self.assertIn('new.txt: 1 line from', out)
+        self.assertNotIn('Acknowledged', out)
+
+    def test_the_deleting_pull_requests_own_label_acknowledges_it(self):
+        self.queue()
+        self.pr(1, 'a', ['reverts-ok'])
+        self.pr(2, 'b', [])
+        code, out = self.run_job()
+        self.assertEqual(code, 0, out)
+        self.assertIn('Acknowledged by the reverts-ok label.', out)
+
+    def test_a_group_commit_that_is_not_a_queue_merge_fails(self):
+        self.queue('Merge branch a')
+        self.pr(1, 'a', ['reverts-ok'])
+        self.pr(2, 'b', ['reverts-ok'])
+        code, out = self.run_job()
+        self.assertEqual(code, 1, out)
+        self.assertIn("is not the merge queue's merge", out)
+
+    def test_a_merge_of_anything_but_the_pull_requests_head_fails(self):
+        self.queue()
+        self.pr(1, 'b', ['reverts-ok'])
+        self.pr(2, 'b', [])
+        code, out = self.run_job()
+        self.assertEqual(code, 1, out)
+        self.assertIn("is not the merge queue's merge", out)
+
 
 if __name__ == '__main__':
     unittest.main()

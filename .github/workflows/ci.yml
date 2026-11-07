@@ -800,7 +800,7 @@ jobs:
       - name: The merge deletes no recent lines the branch never had
         env:
           BASE: ${{ github.event_name == 'merge_group' && github.event.merge_group.base_sha || format('origin/{0}', github.base_ref) }}
-          QUEUE_REF: ${{ github.event.merge_group.head_ref }}
+          EVENT: ${{ github.event_name }}
           PR_LABELS: ${{ needs.changes.outputs.labels }}
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -810,12 +810,20 @@ jobs:
             exit 0
           fi
           git show "$BASE:.github/scripts/revert-check.py" > "$RUNNER_TEMP/revert-check.py"
-          LABELS=$PR_LABELS
-          if [ -n "$QUEUE_REF" ]; then
-            prs=$( { git log --format=%s "$BASE..HEAD"; echo "$QUEUE_REF"; } | grep -oE '(#|pr-)[0-9]+' | grep -oE '[0-9]+' | sort -u)
-            LABELS=$(for pr in $prs; do gh api "repos/$GH_REPO/pulls/$pr" --jq '.labels[].name'; done | paste -sd,)
+          if [ "$EVENT" != merge_group ]; then
+            LABELS=$PR_LABELS exec python3 -B -I "$RUNNER_TEMP/revert-check.py" "$BASE" HEAD
           fi
-          LABELS=$LABELS python3 -B -I "$RUNNER_TEMP/revert-check.py" "$BASE" HEAD
+          status=0
+          for step in $(git rev-list --first-parent --reverse "$BASE..HEAD"); do
+            pr=$(git show -s --format=%s "$step" | sed -nE 's/^Merge pull request #([0-9]+) from .*/\1/p')
+            if [ -z "$pr" ] || [ "$(gh api "repos/$GH_REPO/pulls/$pr" --jq .head.sha)" != "$(git rev-parse -q --verify "$step^2")" ]; then
+              echo "$step is not the merge queue's merge of a pull request's current head, so whose acknowledgement applies is unknown."
+              exit 1
+            fi
+            echo "Pull request #$pr:"
+            LABELS=$(gh api "repos/$GH_REPO/pulls/$pr" --jq '[.labels[].name] | join(",")') python3 -B -I "$RUNNER_TEMP/revert-check.py" "$step^1" "$step^2" || status=1
+          done
+          exit "$status"
   check-migrations:
     name: Check Migration Safety
     runs-on: ubuntu-24.04
