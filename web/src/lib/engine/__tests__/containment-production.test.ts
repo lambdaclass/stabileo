@@ -14,6 +14,7 @@ import * as pool from '../solver-pool';
 import { setLocale } from '../../i18n';
 import { ensureLocale, tAt } from '../../i18n/store.svelte';
 import ContainmentBanner from '../../../components/ContainmentBanner.svelte';
+import { OFFERED_LOCALES } from '../../i18n/offered';
 
 const refusal = JSON.stringify({ structuredDiagnostics: [{
   code: 'known_issue', severity: 'error', phase: 'SH-MITC4-DISTORTION', value: 798, message: 'ENGINE',
@@ -34,7 +35,7 @@ async function model() {
 }
 
 describe('production containment', () => {
-  it.each(['en', 'es', 'pt', 'de', 'fr', 'tr'] as const)('solveNow exposes a localized refusal in %s', async (locale) => {
+  it.each(OFFERED_LOCALES)('solveNow exposes a localized refusal in %s', async (locale) => {
     await model();
     await ensureLocale(locale);
     setLocale(locale);
