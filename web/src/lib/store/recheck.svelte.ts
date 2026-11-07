@@ -21,14 +21,19 @@
  *     has read nothing.
  *   - Until the model is solved again in this build, its results are STALE, acknowledged or
  *     not, and say so (`stale`). A solve stamps the current version and clears it; the static
- *     (linear) solve, not a modal or P-Δ run alone.
+ *     (linear) solve, not a modal or P-Δ run alone. An advisory about one analysis (harmonic)
+ *     stays up until that analysis is run again.
  */
 import type { RecheckAssessment } from '../provenance/applicability';
-import { freshStamp, readStamp, stampSolve, unknownStamp, type SolveStamp } from '../provenance/solve-stamp';
+import type { Advisory } from '../provenance/advisories';
+import { analysesContext, freshStamp, readStamp, stampSolve, unknownStamp, type SolveStamp } from '../provenance/solve-stamp';
 import { RESULTS_VERSION } from '../provenance/registry';
 import { loadsGeneratedWith, modelFeatures, type AnalysisKind, type FeatureSnapshot } from '../provenance/model-features';
 
-/** Independent of the latest solve: retained until the original notice is read. */
+/**
+ * Independent of the latest solve: retained until the original notice is read, and saved after
+ * that while a solve has replaced the stamp but something it lists has not been run again.
+ */
 export interface PendingRecheckNotice {
   stamp: SolveStamp;
   features: string[];
@@ -49,10 +54,11 @@ export function createRecheckStore(load = () => import('../provenance/applicabil
   let generation = 0;
   let retry = () => Promise.resolve();
 
-  // Ended by the static solve: a modal run alone leaves the results the older version's.
+  const rerun = (kind: AnalysisKind): boolean =>
+    stamp !== null && stamp.id !== assessedStampId && stamp.id !== currentAssessmentStampId && stamp.analyses.includes(kind);
+  const openAdvisories = (): Advisory[] => assessment?.advisories.filter((a) => !rerun(a.analysis ?? 'linear')) ?? [];
   const stale = (): boolean =>
-    !!assessment && (pending || assessment.changes.length > 0 || assessment.advisories.length > 0)
-    && (stamp === null || stamp.id === assessedStampId || stamp.id === currentAssessmentStampId || !stamp.analyses.includes('linear'));
+    !!assessment && (((pending || assessment.changes.length > 0) && !rerun('linear')) || openAdvisories().length > 0);
 
   return {
     get pending() { return pending; },
@@ -62,6 +68,10 @@ export function createRecheckStore(load = () => import('../provenance/applicabil
     get assessment() { return assessment; },
     /** Results on hand (or about to be produced from saved design state) predate registered changes. */
     get stale() { return stale(); },
+    /** The static solve has run in this build since the project was opened. */
+    get solvedAgain() { return rerun('linear'); },
+    /** The advisories whose analysis has not been run again in this build. */
+    get openAdvisories() { return openAdvisories(); },
     /** The blocking notice is up. */
     get noticeOpen() {
       // Not tied to `stale`: live calc may re-solve the moment a project opens, and the notice
@@ -87,7 +97,7 @@ export function createRecheckStore(load = () => import('../provenance/applicabil
       currentAssessmentStampId = stored.resultsVersion < RESULTS_VERSION ? stored.id : null;
       const loadsVersion = loadsGeneratedWith(snapshot);
       pending = original.resultsVersion < RESULTS_VERSION || stored.resultsVersion < RESULTS_VERSION || loadsVersion < RESULTS_VERSION;
-      const currentFeatures = modelFeatures(snapshot, { analysisMode, analysesRun: stored.resultsVersion > 0 ? stored.analyses : null });
+      const currentFeatures = modelFeatures(snapshot, { analysisMode, ...analysesContext(stored) });
       // Capture before attempting the lazy import. Solves and edits must not replace
       // the version or applicability of the notice the engineer has yet to read.
       outstanding = pending ? {
@@ -97,14 +107,14 @@ export function createRecheckStore(load = () => import('../provenance/applicabil
         features: [...new Set([
           ...(Array.isArray(savedNotice?.features) && savedNotice.features.every(f => typeof f === 'string')
             ? savedNotice.features
-            : modelFeatures(snapshot, { analysisMode, analysesRun: original.resultsVersion > 0 ? original.analyses : null })),
+            : modelFeatures(snapshot, { analysisMode, ...analysesContext(original) })),
           ...currentFeatures,
         ])],
       } : undefined;
       loadFailed = false;
       assessment = {
         solvedVersion: original.resultsVersion, currentVersion: RESULTS_VERSION,
-        older: pending, newer: stored.resultsVersion > RESULTS_VERSION, changes: [], advisories: [],
+        older: pending, newer: stored.resultsVersion > RESULTS_VERSION, changes: [], advisories: [], maybe: [],
       };
       const features = new Set(outstanding?.features);
       retry = async () => {
@@ -122,6 +132,8 @@ export function createRecheckStore(load = () => import('../provenance/applicabil
             changes: [...new Map([...preserved.changes, ...current.changes].map(c => [c.id, c])).values()]
               .sort((a, b) => a.resultsVersion - b.resultsVersion || a.date.localeCompare(b.date) || a.id.localeCompare(b.id)),
             advisories: [...new Map([...preserved.advisories, ...current.advisories].map(x => [x.id, x])).values()],
+            maybe: [...new Set([...preserved.maybe, ...current.maybe])].filter(id =>
+              ![preserved, current].some(r => r.advisories.some(x => x.id === id) && !r.maybe.includes(id))),
           };
           // An empty assessment has no notice to preserve. Never let its frozen
           // features suppress changes applicable to a later edited snapshot.
@@ -165,12 +177,12 @@ export function createRecheckStore(load = () => import('../provenance/applicabil
     acknowledge(): void {
       if (!pending && assessedStampId) {
         acknowledged = new Set([...acknowledged, assessedStampId]);
-        outstanding = undefined;
       }
     },
 
     captureNotice(): PendingRecheckNotice | undefined {
-      if (!outstanding || acknowledged.has(outstanding.stamp.id)) return undefined;
+      if (!outstanding) return undefined;
+      if (acknowledged.has(outstanding.stamp.id) && !(stale() && stamp?.id !== outstanding.stamp.id)) return undefined;
       return { stamp: { ...outstanding.stamp, analyses: [...outstanding.stamp.analyses] }, features: [...outstanding.features] };
     },
 

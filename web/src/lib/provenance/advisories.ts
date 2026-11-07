@@ -1,4 +1,5 @@
 import type { ChangeCondition, Localised, ResultChangeRegistry } from './registry';
+import type { AnalysisKind } from './model-features';
 
 /**
  * A known wrong-result bug and the results versions it affected: from the version of
@@ -14,9 +15,10 @@ export interface Advisory {
   /** Any one of these holds: the model uses the affected feature. */
   when: ChangeCondition[];
   /**
-   * Set when nothing saved says whether the feature was used (an analysis the stamp does not
-   * record): the warning then says the results may be affected, if this was used.
+   * The analysis the bug was in. The warning stays up until it is run again, and, for a stamp
+   * that does not record it, says the results may be affected if `ifUsed` was used.
    */
+  analysis?: AnalysisKind;
   ifUsed?: Localised;
   title: Localised;
 }
@@ -31,6 +33,7 @@ export const ADVISORIES: readonly Advisory[] = [
     introducedBy: 'harmonic-modal-residual-checked',
     fixedBy: 'harmonic-modal-or-direct-per-frequency',
     when: [{ allOf: [['members', 'shells', 'curvedShells', 'connectors', 'springs']], any: ['analysis:harmonic'] }],
+    analysis: 'harmonic',
     ifUsed: {
       en: 'harmonic analysis',
       es: 'el análisis armónico',
