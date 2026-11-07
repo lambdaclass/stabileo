@@ -273,14 +273,37 @@ describe('what the cache cannot see is scanned on every read', () => {
     }
   });
 
-  it('a list whose own iteration method changes after the verdict was cached is seen', () => {
+  it('a list with its own iteration method is read by index, cached or not', () => {
     let refuse = false;
-    const list: object[] = [];
-    Object.defineProperty(list, 'forEach', { value: (cb: (d: object) => void) => { if (refuse) cb(refusal()); }, enumerable: false });
-    const r = result(1, list);
+    const withForEach = () => {
+      const list: object[] = [];
+      Object.defineProperty(list, 'forEach', { value: (cb: (d: object) => void) => { if (refuse) cb(refusal()); }, enumerable: false });
+      return list;
+    };
+    const r = result(1, withForEach());
     resultsStore.setResults3D(r as never);
     expect(resultsStore.results3D).toBe(r);
     refuse = true;
+    expect(resultsStore.results3D).toBe(r);
+    expect(knownIssueResultDisposition(result(1, withForEach())).refused).toBe(false);
+  });
+
+  it('a replaced Array.prototype.forEach changes neither the cached verdict nor a fresh scan', () => {
+    const r = result(1);
+    resultsStore.setResults3D(r as never);
+    expect(resultsStore.results3D).toBe(r);
+    const forEach = Array.prototype.forEach;
+    Array.prototype.forEach = function (this: unknown[], cb: (v: unknown, i: number, a: unknown[]) => void) { cb(refusal(), 0, this); };
+    let cached: unknown, fresh: boolean;
+    try {
+      cached = resultsStore.results3D;
+      fresh = knownIssueResultDisposition({ ...r, structuredDiagnostics: [...r.structuredDiagnostics] }).refused;
+    } finally {
+      Array.prototype.forEach = forEach;
+    }
+    expect(cached).toBe(r);
+    expect(fresh).toBe(false);
+    resultsStore.setResults3D(result(2, [refusal()]) as never);
     expect(resultsStore.results3D).toBeNull();
   });
 

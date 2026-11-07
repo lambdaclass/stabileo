@@ -83,25 +83,36 @@ export function freezeResult<T>(result: T): T {
   return result;
 }
 
+const { isFrozen, getPrototypeOf, getOwnPropertyNames, getOwnPropertyDescriptor, keys: ownKeys } = Object;
+const isArray = Array.isArray;
+const isView = ArrayBuffer.isView;
+const objectValues = Object.values;
+const each = (list: readonly unknown[], f: (v: unknown) => void) => { for (let i = 0; i < list.length; i++) if (i in list) f(list[i]); };
+const hasOwn = Function.prototype.call.bind(Object.prototype.hasOwnProperty) as (o: object, k: PropertyKey) => boolean;
+
 function assertSealed(value: object): void {
-  if (!Object.isFrozen(value) || ArrayBuffer.isView(value) || value instanceof Map || value instanceof Set || !PLAIN_PROTOTYPES.has(Object.getPrototypeOf(value))) throw UNSOUND;
-  if (Array.isArray(value)) for (let i = 0; i < value.length; i++) if (!Object.prototype.hasOwnProperty.call(value, i)) throw UNSOUND;
-  for (const key of Object.getOwnPropertyNames(value)) {
-    const property = Object.getOwnPropertyDescriptor(value, key)!;
+  if (!isFrozen(value) || isView(value) || value instanceof Map || value instanceof Set || !PLAIN_PROTOTYPES.has(getPrototypeOf(value))) throw UNSOUND;
+  if (isArray(value)) for (let i = 0; i < value.length; i++) if (!hasOwn(value, i)) throw UNSOUND;
+  const names = getOwnPropertyNames(value);
+  for (let i = 0; i < names.length; i++) {
+    const property = getOwnPropertyDescriptor(value, names[i]!)!;
     if (!('value' in property) || typeof property.value === 'function') throw UNSOUND;
   }
 }
 
 function ownReader(absent: Absent) {
   return (record: object, key: string): unknown => {
-    const property = Object.getOwnPropertyDescriptor(record, key);
+    const property = getOwnPropertyDescriptor(record, key);
     if ((record as Record<string, unknown>)[key] !== property?.value) throw UNSOUND;
     if (!property) absent.push([record, key]);
     return property?.value;
   };
 }
 
-const stillAbsent = (absent: Absent) => absent.every(([record, key]) => (record as Record<string, unknown>)[key] === undefined);
+function stillAbsent(absent: Absent): boolean {
+  for (let i = 0; i < absent.length; i++) if ((absent[i]![0] as Record<string, unknown>)[absent[i]![1]] !== undefined) return false;
+  return true;
+}
 
 function frozenDiagnosticsOf(result: object, absentOut: Absent | null): Diagnostic[] {
   const cached = frozenDiagnostics.get(result);
@@ -135,12 +146,15 @@ function diagnosticsIn(result: unknown, root: object | null, absent: Absent | nu
   const sealed = absent !== null;
   const check = sealed ? assertSealed : () => {};
   const read = sealed ? ownReader(absent) : (record: object, key: string) => (record as Record<string, unknown>)[key];
+  const valuesOf = sealed
+    ? (value: object) => { const keys = ownKeys(value), out: unknown[] = []; for (let i = 0; i < keys.length; i++) out.push(read(value, keys[i]!)); return out; }
+    : (value: object) => (value instanceof Map ? [...value.values()] : objectValues(value));
   const knownIssue = sealed
     ? (d: unknown): d is Diagnostic => !!d && typeof d === 'object' && read(d, 'code') === 'known_issue' && typeof read(d, 'message') === 'string'
     : isKnownIssue;
   function collect(value: unknown): void {
     if (value && typeof value === 'object') check(value);
-    if (Array.isArray(value)) value.forEach(collect);
+    if (Array.isArray(value)) each(value, collect);
     else if (knownIssue(value)) diagnostics.push(value);
   }
   function scan(value: unknown): void {
@@ -148,13 +162,13 @@ function diagnosticsIn(result: unknown, root: object | null, absent: Absent | nu
     scanned.add(value);
     check(value);
     if (knownIssue(value)) diagnostics.push(value);
-    (value instanceof Map ? [...value.values()] : Object.values(value)).forEach(scan);
+    each(valuesOf(value), scan);
   }
   function values(value: unknown): void {
     if (!value || typeof value !== 'object') return;
     check(value);
-    if (Array.isArray(value)) { value.forEach(values); return; }
-    (value instanceof Map ? [...value.values()] : Object.values(value)).forEach(visit);
+    if (Array.isArray(value)) { each(value, values); return; }
+    each(valuesOf(value), visit);
   }
   function visit(value: unknown): void {
     if (!value || typeof value !== 'object' || seen.has(value)) return;
@@ -166,7 +180,7 @@ function diagnosticsIn(result: unknown, root: object | null, absent: Absent | nu
       return;
     }
     check(value);
-    if (Array.isArray(value)) { value.forEach(visit); return; }
+    if (Array.isArray(value)) { each(value, visit); return; }
     if (value instanceof Map) { value.forEach(visit); return; }
     for (const key of DIAGNOSTIC_KEYS) collect(read(value, key));
     for (const key of OPAQUE_KEYS) scan(read(value, key));
