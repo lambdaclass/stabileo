@@ -309,13 +309,14 @@ class MergeQueue(unittest.TestCase):
         sha = git(self.repo, 'rev-parse', branch)
         (self.prs / f'{number}.json').write_text(json.dumps({'head': {'sha': sha}, 'labels': [{'name': l} for l in labels]}))
 
-    def run_job(self):
+    def run_job(self, **extra):
         workflow = (ROOT / '.github/workflows/ci.yml').read_text()
         job = workflow.split('\n  revert-check:\n', 1)[1].split('\n  check-migrations:\n', 1)[0]
         script = textwrap.dedent(job.split('        run: |\n', 1)[1])
         env = {**os.environ, 'PATH': f'{self.bin}:{os.environ["PATH"]}', 'FAKE_GH': str(self.prs), 'BASE': self.base,
                'EVENT': 'merge_group', 'GH_REPO': 'lambdaclass/stabileo', 'RUNNER_TEMP': self.tmp.name, 'PR_LABELS': ''}
         env.pop('GITHUB_EVENT_PATH', None)
+        env.update(extra)
         r = subprocess.run(['bash', '--noprofile', '--norc', '-e', '-o', 'pipefail', '-c', script], cwd=self.repo, env=env, capture_output=True, text=True)
         return r.returncode, r.stdout + r.stderr
 
@@ -336,6 +337,22 @@ class MergeQueue(unittest.TestCase):
         code, out = self.run_job()
         self.assertEqual(code, 0, out)
         self.assertIn('Acknowledged by the reverts-ok label.', out)
+
+    def test_a_label_removed_since_the_event_does_not_acknowledge(self):
+        stale = pathlib.Path(self.tmp.name, 'event.json')
+        stale.write_text(json.dumps({'pull_request': {'labels': [{'name': 'reverts-ok'}]}}))
+        git(self.repo, 'checkout', '-q', 'a')
+        code, out = self.run_job(EVENT='pull_request', GITHUB_EVENT_PATH=str(stale), PR_LABELS='run-e2e')
+        self.assertEqual(code, 1, out)
+        self.assertIn('new.txt: 1 line from', out)
+        self.assertNotIn('Acknowledged', out)
+        self.assertEqual(self.run_job(EVENT='pull_request', GITHUB_EVENT_PATH=str(stale), PR_LABELS='run-e2e,reverts-ok')[0], 0)
+        self.queue()
+        self.pr(1, 'a', [])
+        self.pr(2, 'b', [])
+        code, out = self.run_job(GITHUB_EVENT_PATH=str(stale))
+        self.assertEqual(code, 1, out)
+        self.assertNotIn('Acknowledged', out)
 
     def test_a_group_commit_that_is_not_a_queue_merge_fails(self):
         self.queue('Merge branch a')

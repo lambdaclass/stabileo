@@ -811,7 +811,7 @@ jobs:
           fi
           git show "$BASE:.github/scripts/revert-check.py" > "$RUNNER_TEMP/revert-check.py"
           if [ "$EVENT" != merge_group ]; then
-            LABELS=$PR_LABELS exec python3 -B -I "$RUNNER_TEMP/revert-check.py" "$BASE" HEAD
+            LABELS=$PR_LABELS exec python3 -B -I "$RUNNER_TEMP/revert-check.py" "$BASE" HEAD --event ''
           fi
           status=0
           for step in $(git rev-list --first-parent --reverse "$BASE..HEAD"); do
@@ -821,7 +821,7 @@ jobs:
               exit 1
             fi
             echo "Pull request #$pr:"
-            LABELS=$(gh api "repos/$GH_REPO/pulls/$pr" --jq '[.labels[].name] | join(",")') python3 -B -I "$RUNNER_TEMP/revert-check.py" "$step^1" "$step^2" || status=1
+            LABELS=$(gh api "repos/$GH_REPO/pulls/$pr" --jq '[.labels[].name] | join(",")') python3 -B -I "$RUNNER_TEMP/revert-check.py" "$step^1" "$step^2" --event '' || status=1
           done
           exit "$status"
   check-migrations:
