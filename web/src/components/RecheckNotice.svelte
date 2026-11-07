@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { saveWorkspaceToLocalStorage, saveSession } from '../lib/store/file';
+  import { saveWorkspaceSettled, saveSession } from '../lib/store/file';
   import { recheckStore } from '../lib/store/recheck.svelte';
   import { rerunAnalysisAndDesign, recheckKey } from '../lib/actions/recheck';
   import { changelogUrl, concernsGeneratedLoads, registryLocale } from '../lib/provenance/registry';
@@ -10,8 +10,8 @@
   const loadFailed = $derived(recheckStore.loadFailed);
   let recoveryFailed = $state(false);
 
-  function saveAndReload() {
-    recoveryFailed = !saveWorkspaceToLocalStorage();
+  async function saveAndReload() {
+    recoveryFailed = !(await saveWorkspaceSettled());
     if (!recoveryFailed) window.location.reload();
   }
 

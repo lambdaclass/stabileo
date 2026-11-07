@@ -21,6 +21,8 @@ import {
   autosaveClear, autosaveRead, autosaveStatus, autosaveWrite,
   type AutosaveFingerprint, type AutosavePolicy, type AutosaveReadResult, type AutosaveWriteResult,
 } from './autosave-db';
+import { readDetailing, splitDetailing, stageDetailing, noteDetailingHeld, writeDetailing, type StagedDetailing } from './workspace-detailing';
+import { workspaceSaveStatus } from './workspace-save-status.svelte';
 import {
   type ViewportPresentation3D,
   get2DDisplayDisplacementVertical,
@@ -474,12 +476,17 @@ function sessionTabsCopy(): TabState[] {
 
 const HISTORY_KEYS = new Set(['undoStack', 'redoStack', 'undoKinds', 'redoKinds']);
 
-function sessionTabsWithoutHistory(): TabState[] {
-  return tabManager.tabs.map((tab) => {
-    const out: Record<string, unknown> = { undoStack: [], redoStack: [], undoKinds: [], redoKinds: [] };
-    for (const [k, v] of Object.entries(tab)) if (!HISTORY_KEYS.has(k)) out[k] = plainDeepCopy(v);
-    return out as unknown as TabState;
-  });
+function workspaceTab(tab: TabState, staged: StagedDetailing[]): TabState {
+  const out: Record<string, unknown> = { undoStack: [], redoStack: [], undoKinds: [], redoKinds: [] };
+  for (const [k, v] of Object.entries(tab)) if (!HISTORY_KEYS.has(k) && k !== 'detailingRef') out[k] = v;
+  const { light, heavy } = splitDetailing(tab.modelSnapshot.detailing);
+  if (heavy) {
+    const s = stageDetailing(tab.id, heavy);
+    staged.push(s);
+    out.modelSnapshot = { ...tab.modelSnapshot, detailing: light };
+    out.detailingRef = s.ref;
+  }
+  return out as unknown as TabState;
 }
 
 /** A stored tab the project gate refused: where it was and what it was called. */
@@ -1143,8 +1150,13 @@ function protectStoredWorkspace(raw: string, reason: WorkspaceBackup['reason'], 
   uiStore.toast(`${head} ${tail}`, 'error');
 }
 
+let workspaceRestorePending = false;
+let detailingWrite: Promise<boolean> = Promise.resolve(true);
+
+/** Each tab's detailing bars go to IndexedDB (`workspace-detailing.ts`), not into the text. */
 export function saveWorkspaceToLocalStorage(): boolean {
-  if (workspaceOverwriteHeld) return false;
+  if (workspaceOverwriteHeld || workspaceRestorePending) return false;
+  const staged: StagedDetailing[] = [];
   try {
     tabManager.syncCurrentTab();
     const session: DedalSessionFile = {
@@ -1152,19 +1164,59 @@ export function saveWorkspaceToLocalStorage(): boolean {
       type: 'session',
       timestamp: new Date().toISOString(),
       activeTabId: tabManager.activeTabId ?? '',
-      // The tabs without their undo stacks: a reload does not undo across it, and the stacks (up to
-      // 50 snapshots a tab, the detailing in each) are what overflowed localStorage on a designed
-      // project.
-      tabs: sessionTabsWithoutHistory(),
+      tabs: tabManager.tabs.map((tab) => workspaceTab(tab, staged)),
     };
     localStorage.setItem(WORKSPACE_KEY, JSON.stringify(session));
-    return true;
   } catch {
-    // localStorage is full or unavailable. The workspace written before stays behind otherwise, and
-    // at the next start it would be restored over the newer autosave: withdrawn, so the autosave is
-    // offered instead.
+    // The workspace written before would be restored at the next start over the newer autosave.
     clearWorkspaceFromLocalStorage();
+    workspaceSaveStatus.report('text', false);
     return false;
+  }
+  workspaceSaveStatus.report('text', true);
+  if (staged.some((s) => s.write)) {
+    const live = tabManager.tabs.map((tab) => tab.id);
+    detailingWrite = writeDetailing(staged, live).then((ok) => {
+      workspaceSaveStatus.report('detailing', ok);
+      return ok;
+    });
+  }
+  return true;
+}
+
+/** The workspace save, resolved once its detailing is in IndexedDB too: for a caller about to reload the page. */
+export async function saveWorkspaceSettled(): Promise<boolean> {
+  return saveWorkspaceToLocalStorage() && (await detailingWrite);
+}
+
+export function workspaceNeedsDetailing(session: DedalSessionFile): boolean {
+  return session.tabs.some((tab) => typeof tab.detailingRef === 'string');
+}
+
+/** Mutates `session`. Workspace saves are refused until it settles, so the empty start-up tab is not written over the stored one. */
+export async function restoreWorkspaceDetailing(session: DedalSessionFile): Promise<void> {
+  const wanted = session.tabs.filter((tab) => typeof tab.detailingRef === 'string');
+  if (wanted.length === 0) return;
+  workspaceRestorePending = true;
+  try {
+    const records = await readDetailing(wanted.map((tab) => tab.id));
+    const lost: DroppedSessionTab[] = [];
+    for (const tab of wanted) {
+      const rec = records.get(tab.id);
+      if (rec && rec.ref === tab.detailingRef) {
+        tab.modelSnapshot = { ...tab.modelSnapshot, detailing: { ...tab.modelSnapshot.detailing!, ...rec.heavy } };
+        forgetSessionDemandRevisions(tab.modelSnapshot);
+        noteDetailingHeld(tab.id, rec.ref, rec.heavy);
+      } else {
+        lost.push({ index: session.tabs.indexOf(tab), name: tab.name });
+      }
+      delete tab.detailingRef;
+    }
+    if (lost.length > 0) {
+      uiStore.toast(t('file.workspaceDetailingLost').replace('{names}', droppedTabNames(lost)), 'error', undefined, true);
+    }
+  } finally {
+    workspaceRestorePending = false;
   }
 }
 

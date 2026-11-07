@@ -48,7 +48,7 @@
   import ContactMenu from './components/ContactMenu.svelte';
   import {
     loadAutosave, clearAutosave,
-    loadWorkspaceFromLocalStorage, saveWorkspaceToLocalStorage,
+    loadWorkspaceFromLocalStorage, saveWorkspaceToLocalStorage, workspaceNeedsDetailing, restoreWorkspaceDetailing,
     downloadCanvasPNG, downloadDataUrlPNG, onProjectOpened, noteBasicSelfWeightRuleIfNeeded, adoptStoredProject,
     type DedalFile,
   } from './lib/store/file';
@@ -326,6 +326,7 @@
   import ColourScaleLegend from './components/ColourScaleLegend.svelte';
   import SwitchTo2DDialog from './components/SwitchTo2DDialog.svelte';
   import RecheckNotice from './components/RecheckNotice.svelte';
+  import WorkspaceSaveNotice from './components/WorkspaceSaveNotice.svelte';
   import { prepareExportProvenance, pngWithProvenance } from './lib/export/provenance-attach';
   import ReproduceDialog from './components/ReproduceDialog.svelte';
   import TabBar from './components/TabBar.svelte';
@@ -1042,14 +1043,21 @@
     if (!hashMode) {
       const savedWorkspace = loadWorkspaceFromLocalStorage();
       if (savedWorkspace && savedWorkspace.tabs.length > 0) {
-        tabManager.restoreSession(savedWorkspace.tabs, savedWorkspace.activeTabId);
-        const requestedTab = findTabBySlug(new URLSearchParams(location.search).get('tab'));
-        if (requestedTab && requestedTab.id !== tabManager.activeTabId) {
-          tabManager.switchTab(requestedTab.id);
+        const restoreWorkspace = () => {
+          tabManager.restoreSession(savedWorkspace.tabs, savedWorkspace.activeTabId);
+          const requestedTab = findTabBySlug(new URLSearchParams(location.search).get('tab'));
+          if (requestedTab && requestedTab.id !== tabManager.activeTabId) {
+            tabManager.switchTab(requestedTab.id);
+          }
+          currentAppMode = uiStore.appMode;
+          replaceAppUrl(currentAppMode, modelStore.model.name);
+          autosaveData = null;
+        };
+        if (workspaceNeedsDetailing(savedWorkspace)) {
+          void restoreWorkspaceDetailing(savedWorkspace).then(restoreWorkspace);
+        } else {
+          restoreWorkspace();
         }
-        currentAppMode = uiStore.appMode;
-        replaceAppUrl(currentAppMode, modelStore.model.name);
-        autosaveData = null;
       }
 
       // Load autosave data if no workspace was restored.
@@ -2351,6 +2359,7 @@
   its results marked stale until they are re-run (`lib/store/recheck.svelte.ts`).
 -->
 <RecheckNotice />
+<WorkspaceSaveNotice />
 <ReproduceDialog />
 
 <DxfImportDialog
