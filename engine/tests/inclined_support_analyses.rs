@@ -946,7 +946,8 @@ fn soil_spring(node_id: usize, direction: usize) -> ssi::SoilSpring {
 fn issue_1672_ssi_without_soil_springs_reports_the_linear_reactions_2d() {
     for sub in SUBS {
         for rotated in [false, true] {
-            let input = model_2d(THETA, rotated, sub, &LOADS_2D);
+            let loads: Vec<_> = LOADS_2D.iter().copied().chain([(1, 7.0, -40.0), (4, -3.0, -60.0)]).collect();
+            let input = model_2d(THETA, rotated, sub, &loads);
             let what = format!("2D sub {sub} rotated {rotated}");
             let linear = dedaliano_engine::solver::linear::solve_2d(&input).unwrap();
             let r = ssi::solve_ssi_2d(&ssi::SSIInput { solver: input, soil_springs: vec![], max_iter: 50, tolerance: 1e-10 }).unwrap();
@@ -961,7 +962,8 @@ fn issue_1672_ssi_without_soil_springs_reports_the_linear_reactions_3d() {
     let q = q_3d();
     for sub in SUBS_3D {
         for rotation in [None, Some(&q)] {
-            let input = model_3d(normal_3d(), rotation, sub, &LOADS_3D);
+            let loads: Vec<_> = LOADS_3D.iter().copied().chain([(1, [6.0, -2.0, -40.0]), (4, [-3.0, 4.0, -60.0])]).collect();
+            let input = model_3d(normal_3d(), rotation, sub, &loads);
             let what = format!("3D sub {sub} rotated {}", rotation.is_some());
             let linear = dedaliano_engine::solver::linear::solve_3d(&input).unwrap();
             let r = ssi::solve_ssi_3d(&ssi::SSIInput3D { solver: input, soil_springs: vec![], max_iter: 50, tolerance: 1e-10 }).unwrap();
