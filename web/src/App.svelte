@@ -48,7 +48,7 @@
   import ContactMenu from './components/ContactMenu.svelte';
   import {
     loadAutosave, clearAutosave,
-    loadWorkspaceFromLocalStorage, saveWorkspaceToLocalStorage, workspaceNeedsDetailing, restoreWorkspaceDetailing,
+    loadWorkspaceFromLocalStorage, saveWorkspaceToLocalStorage, workspaceNeedsDetailing, restoreWorkspaceDetailing, snapshotHoldsWork,
     downloadCanvasPNG, downloadDataUrlPNG, onProjectOpened, noteBasicSelfWeightRuleIfNeeded, adoptStoredProject,
     type DedalFile,
   } from './lib/store/file';
@@ -1071,10 +1071,7 @@
       // the banner, so "this is not your newest save" is on screen and not only in a toast.
       if (!savedWorkspace) {
         void loadAutosave().then((result) => {
-          // Offered when it holds work: nodes, or project data stated before the first node.
-          const s = result.value?.snapshot as unknown as Record<string, unknown> | undefined;
-          const holdsWork = !!s && ((s.nodes as unknown[]).length > 0 || ['grid', 'analysis', 'projectInfo', 'deflectionLimits', 'dynamics', 'notes'].some((k) => s[k] != null));
-          if (result.value && holdsWork) {
+          if (result.value && snapshotHoldsWork(result.value.snapshot)) {
             autosaveData = result.value;
             autosaveStamp = { timestamp: result.timestamp, older: result.rejected.length > 0 };
           }

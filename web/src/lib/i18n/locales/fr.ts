@@ -3462,6 +3462,7 @@ const fr: Translations = {
   'file.workspaceSaveToFile': 'Enregistrer la session dans un fichier',
   'file.workspaceDetailingLost': 'Le ferraillage de ces onglets n\'a pas pu être récupéré depuis le navigateur ; ils ont été restaurés sans barres : {names}. Générez à nouveau le ferraillage ou ouvrez votre fichier .ded enregistré.',
   'file.workspaceDetailingUnread': 'Le ferraillage de ces onglets n\'a pas pu être lu depuis le navigateur cette fois ; ils se sont ouverts sans barres : {names}. Il reste enregistré et sera relu à la prochaine ouverture de la page ; ne le régénérez que si nécessaire.',
+  'file.workspaceRestoredBeside': 'Votre espace de travail enregistré s\'est ouvert dans de nouveaux onglets, à côté de ce que vous avez commencé pendant son chargement.',
   'file.invalidFormat': 'Format de fichier invalide. Assurez-vous qu\'il s\'agit d\'un fichier .ded de Stabileo.',
   'file.newerVersion': 'Ce fichier a été enregistré par une version plus récente de Stabileo (format de fichier {version} ; cette version lit jusqu\'à {supported}). Il n\'a pas été ouvert et rien n\'a été modifié : ouvrez-le avec une version plus récente.',
   'file.loadedNoAxisConvention': 'Chargé sans métadonnées de convention d\'axes locaux : le modèle est maintenant évalué avec la convention d\'axes locaux corrigée, Z vers le haut. Relancez le calcul et revoyez les diagrammes et vérifications des barres.',

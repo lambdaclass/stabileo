@@ -3471,6 +3471,7 @@ const tr: Translations = {
   'file.workspaceSaveToFile': 'Oturumu dosyaya kaydet',
   'file.workspaceDetailingLost': 'Bu sekmelerin detaylandırması tarayıcıdan geri alınamadı, bu yüzden donatısız geri yüklendiler: {names}. Detaylandırmayı yeniden oluşturun veya kaydettiğiniz .ded dosyasını açın.',
   'file.workspaceDetailingUnread': 'Bu sekmelerin detaylandırması bu sefer tarayıcıdan okunamadı, bu yüzden donatısız açıldılar: {names}. Hâlâ saklanıyor ve sayfayı bir sonraki açışınızda yeniden okunacak; gerekmedikçe yeniden oluşturmayın.',
+  'file.workspaceRestoredBeside': 'Kaydedilmiş çalışma alanınız, yüklenirken başladığınız çalışmanın yanında yeni sekmelerde açıldı.',
   'file.invalidFormat': 'Geçersiz dosya biçimi. Bunun bir Stabileo .ded dosyası olduğundan emin olun.',
   'file.newerVersion': 'Bu dosya Stabileo\'nun daha yeni bir sürümüyle kaydedildi (dosya biçimi {version}; bu sürüm en fazla {supported} okuyabilir). Açılmadı ve hiçbir şey değiştirilmedi: daha yeni bir sürümle açın.',
   'file.loadedNoAxisConvention': 'Yerel eksen kuralı meta verisi olmadan yüklendi; artık düzeltilmiş Z-yukarı yerel eksen kuralıyla değerlendiriliyor. Yeniden çözün ve çubuk diyagramlarını/kontrollerini gözden geçirin.',

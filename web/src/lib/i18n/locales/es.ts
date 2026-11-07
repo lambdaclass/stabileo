@@ -3495,6 +3495,7 @@ const es: Record<string, string> = {
   'file.workspaceSaveToFile': 'Guardar sesión en archivo',
   'file.workspaceDetailingLost': 'El detallado de estas pestañas no se pudo recuperar del navegador y se restauraron sin barras: {names}. Volvé a generar el detallado o abrí el archivo .ded guardado.',
   'file.workspaceDetailingUnread': 'El detallado de estas pestañas no se pudo leer del navegador esta vez y se abrieron sin barras: {names}. Sigue guardado y se va a intentar de nuevo la próxima vez que abras la página; no lo vuelvas a generar si no hace falta.',
+  'file.workspaceRestoredBeside': 'Tu espacio de trabajo guardado se abrió en pestañas nuevas, junto a lo que empezaste mientras se cargaba.',
   'file.invalidFormat': 'Formato de archivo inválido. Verificá que sea un archivo .ded de Stabileo.',
   'file.newerVersion': 'Este archivo fue guardado por una versión más nueva de Stabileo (formato de archivo {version}; esta versión lee hasta {supported}). No se abrió y no se cambió nada: abrilo con una versión más nueva.',
   'file.loadedNoAxisConvention': 'Cargado sin metadatos de convención de ejes locales — ahora se evalúa con la convención corregida de ejes locales Z-up. Recalculá y revisá los diagramas/verificaciones de las barras.',

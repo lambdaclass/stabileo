@@ -46,6 +46,17 @@ export function stageDetailing(tabId: string, heavy: HeavyDetailing): StagedDeta
   return { tabId, ref, heavy };
 }
 
+let detailingWritten: (() => void) | null = null;
+
+/** Called on every replacement of the active tab's detailing by the detailing store. */
+export function noteDetailingWrite(): void {
+  detailingWritten?.();
+}
+
+export function onDetailingWrite(fn: () => void): void {
+  detailingWritten = fn;
+}
+
 export function noteDetailingKnown(tabId: string, ref: string, heavy: HeavyDetailing): void {
   known.set(tabId, { ref, parts: partsOf(heavy) });
 }
@@ -143,15 +154,46 @@ export async function pruneDetailing(keepNow: () => ReadonlySet<string>): Promis
   }
 }
 
+const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
+const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
+const finiteList = (v: unknown): boolean => Array.isArray(v) && v.every(finite);
+const isPoint = (p: unknown): boolean => isObj(p) && finite(p.x) && finite(p.y) && finite(p.z);
+
+const isNonNeg = (v: unknown): boolean => finite(v) && v >= 0;
+const isPositive = (v: unknown): boolean => finite(v) && v > 0;
+
+function isSegment(s: unknown): boolean {
+  if (!isObj(s) || !isPoint(s.start) || !isPoint(s.end) || !isNonNeg(s.length)) return false;
+  if (s.kind === 'straight') return true;
+  return s.kind === 'arc' && isPositive(s.radius) && isPositive(s.sweepDeg) && (s.centre === undefined || isPoint(s.centre));
+}
+
+function isHook(h: unknown): boolean {
+  return isObj(h) && (h.angle === 90 || h.angle === 135 || h.angle === 180)
+    && isPositive(h.mandrelDiameter) && isPositive(h.centrelineRadius) && isNonNeg(h.extension) && Array.isArray(h.refs);
+}
+
+function isEnd(e: unknown): boolean {
+  return isObj(e) && (e.kind === 'straight' || e.kind === 'continuous' || (e.kind === 'hook' && isHook(e.hook)));
+}
+
+function isBar(b: unknown): boolean {
+  return isObj(b) && typeof b.id === 'string' && finite(b.diameterMm) && b.diameterMm > 0
+    && (b.role === 'longitudinal' || b.role === 'transverse')
+    && Array.isArray(b.segments) && b.segments.length > 0 && b.segments.every(isSegment)
+    && isEnd(b.startTreatment) && isEnd(b.endTreatment)
+    && isNonNeg(b.cuttingLength) && finiteList(b.ownerElementIds);
+}
+
+function isAssembly(a: unknown): boolean {
+  return isObj(a) && typeof a.id === 'string' && finiteList(a.elementIds) && Array.isArray(a.bars) && a.bars.every(isBar)
+    && ['marks', 'joints', 'conflicts', 'unsupported'].every((k) => a[k] === undefined || (Array.isArray(a[k]) && a[k].every(isObj)));
+}
+
 function isHeavy(h: unknown): h is HeavyDetailing {
-  if (!h || typeof h !== 'object') return false;
-  const { assemblies, designRefusals, floorReadings } = h as Record<string, unknown>;
-  return Array.isArray(assemblies)
-    && assemblies.every((a) => !!a && typeof a === 'object' && typeof (a as { id?: unknown }).id === 'string'
-      && Array.isArray((a as { bars?: unknown }).bars)
-      && ((a as { bars: unknown[] }).bars).every((b) => !!b && typeof b === 'object' && typeof (b as { id?: unknown }).id === 'string'))
-    && (designRefusals === undefined || (!!designRefusals && typeof designRefusals === 'object'))
-    && (floorReadings === undefined || (!!floorReadings && typeof floorReadings === 'object'));
+  return isObj(h) && Array.isArray(h.assemblies) && h.assemblies.every(isAssembly)
+    && (h.designRefusals === undefined || isObj(h.designRefusals))
+    && (h.floorReadings === undefined || isObj(h.floorReadings));
 }
 
 /** Null when the store could not be read, which is not the same as a version that is not there. */
