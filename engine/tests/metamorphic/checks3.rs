@@ -420,6 +420,70 @@ fn reciprocity(a: &Ana3, c: &Case3, cond: &Conditioning, rng: &mut Rng) -> Verdi
     if a.law != Law::Linear {
         return Verdict::NotApplicable;
     }
+    let seed = rng.clone().next_u64() ^ 0x9e37_79b9_7f4a_7c15;
+    crate::betti::both(translational_reciprocity(a, c, cond, rng), || rotational_reciprocity(a, c, cond, seed))
+}
+
+fn rotational_nodes(c: &Case3) -> Vec<usize> {
+    let held = |e: &SolverElement3D, start: bool| if start { !(e.release_my_start || e.release_mz_start || e.release_t_start) } else { !(e.release_my_end || e.release_mz_end || e.release_t_end) };
+    free_nodes(c)
+        .into_iter()
+        .filter(|&n| c.s.elements.values().any(|e| e.elem_type == "frame" && ((e.node_i == n && held(e, true)) || (e.node_j == n && held(e, false)))))
+        .collect()
+}
+
+fn rotational_reciprocity(a: &Ana3, c: &Case3, cond: &Conditioning, seed: u64) -> Verdict {
+    let nodes = rotational_nodes(c);
+    if nodes.is_empty() {
+        return Verdict::NotApplicable;
+    }
+    let mut rng = Rng::new(seed);
+    let (na, nb) = (nodes[rng.below(nodes.len())], nodes[rng.below(nodes.len())]);
+    let (da, ma, mb) = (unit_dir(&mut rng), unit_dir(&mut rng), unit_dir(&mut rng));
+    let mut c = c.clone();
+    for sp in c.s.supports.values_mut() {
+        (sp.dx, sp.dy, sp.dz, sp.drx, sp.dry, sp.drz) = (None, None, None, None, None, None);
+    }
+    let at = |n: usize, probes: Vec<usize>, f: [f64; 3], m: [f64; 3]| {
+        let loaded = f.iter().chain(&m).any(|x| *x != 0.0);
+        let mut x = c.with_loads(if loaded { vec![SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: n, fx: f[0], fy: f[1], fz: f[2], mx: m[0], my: m[1], mz: m[2], bw: None })] } else { vec![] });
+        x.probes = probes;
+        x
+    };
+    let force_a = match run(a, &at(na, vec![nb, na], da, [0.0; 3])) {
+        Ok(r) => r,
+        Err(e) if crate::generated::strict() => return Verdict::Fail(format!("unit force: {e}")),
+        Err(e) => return Verdict::Refused(e),
+    };
+    if !crate::betti::has_rotations(&force_a, "r") {
+        return Verdict::NotApplicable;
+    }
+    let r = (|| -> Result<crate::betti::Solves, String> {
+        let moment_a = run(a, &at(na, vec![nb, na], [0.0; 3], ma))?;
+        let moment_b = run(a, &at(nb, vec![na, nb], [0.0; 3], mb))?;
+        let zero = match run(a, &at(na, vec![nb, na], [0.0; 3], [0.0; 3])) {
+            Ok(r) => Some(r),
+            Err(e) if crate::generated::strict() => return Err(format!("zero-load solve: {e}")),
+            Err(_) => None,
+        };
+        Ok(crate::betti::Solves { force_a: force_a.clone(), moment_a, moment_b, zero })
+    })();
+    let solves = match r {
+        Ok(x) => x,
+        Err(e) if crate::generated::strict() => return Verdict::Fail(e),
+        Err(e) => return Verdict::Refused(e),
+    };
+    let rel = crate::checks2::rel_without_eigen(a.name, a.iter_tol, cond);
+    if rel > INCONCLUSIVE {
+        return Verdict::Inconclusive(rel);
+    }
+    crate::betti::check(&crate::betti::Pair { a: na, b: nb, force_a: &da, moment_a: &ma, moment_b: &mb, rotation: "r" }, &solves, rel)
+}
+
+fn translational_reciprocity(a: &Ana3, c: &Case3, cond: &Conditioning, rng: &mut Rng) -> Verdict {
+    if a.law != Law::Linear {
+        return Verdict::NotApplicable;
+    }
     let nodes = free_nodes(c);
     if nodes.is_empty() {
         return Verdict::NotApplicable;

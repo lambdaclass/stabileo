@@ -212,7 +212,7 @@ pub struct Ctx<'a> {
     pub rng_seed: u64,
 }
 
-fn scale_loads_2d(loads: &[SolverLoad], k: f64) -> Vec<SolverLoad> {
+pub(crate) fn scale_loads_2d(loads: &[SolverLoad], k: f64) -> Vec<SolverLoad> {
     let u = Units { length: 1.0, force: k, time: 1.0 };
     loads
         .iter()
@@ -547,10 +547,75 @@ fn free_nodes(c: &Case2) -> Vec<usize> {
     v
 }
 
+fn reciprocity(a: &Ana2, c: &Case2, cond: &Conditioning, rng: &mut Rng) -> Verdict {
+    if a.law != Law::Linear {
+        return Verdict::NotApplicable;
+    }
+    let seed = rng.clone().next_u64() ^ 0x9e37_79b9_7f4a_7c15;
+    crate::betti::both(translational_reciprocity(a, c, cond, rng), || rotational_reciprocity(a, c, cond, seed))
+}
+
+fn rotational_nodes(c: &Case2) -> Vec<usize> {
+    free_nodes(c)
+        .into_iter()
+        .filter(|&n| c.s.elements.values().any(|e| e.elem_type == "frame" && ((e.node_i == n && !e.hinge_start) || (e.node_j == n && !e.hinge_end))))
+        .collect()
+}
+
+fn rotational_reciprocity(a: &Ana2, c: &Case2, cond: &Conditioning, seed: u64) -> Verdict {
+    let nodes = rotational_nodes(c);
+    if nodes.is_empty() {
+        return Verdict::NotApplicable;
+    }
+    let mut rng = Rng::new(seed);
+    let (na, nb) = (nodes[rng.below(nodes.len())], nodes[rng.below(nodes.len())]);
+    let t = rng.range(0.0, std::f64::consts::TAU);
+    let da = [t.cos(), t.sin()];
+    let sign = |r: &mut Rng| if r.f64() < 0.5 { -1.0 } else { 1.0 };
+    let (ma, mb) = ([sign(&mut rng)], [sign(&mut rng)]);
+    let mut c = c.clone();
+    for sp in c.s.supports.values_mut() {
+        (sp.dx, sp.dz, sp.dry) = (None, None, None);
+    }
+    let at = |n: usize, probes: Vec<usize>, fx: f64, fz: f64, my: f64| {
+        let mut x = c.with_loads(if fx == 0.0 && fz == 0.0 && my == 0.0 { vec![] } else { vec![SolverLoad::Nodal(SolverNodalLoad { node_id: n, fx, fz, my })] });
+        x.probes = probes;
+        x
+    };
+    let force_a = match run(a, &at(na, vec![nb, na], da[0], da[1], 0.0)) {
+        Ok(r) => r,
+        Err(e) if crate::generated::strict() => return Verdict::Fail(format!("unit force: {e}")),
+        Err(e) => return Verdict::Refused(e),
+    };
+    if !crate::betti::has_rotations(&force_a, "ry") {
+        return Verdict::NotApplicable;
+    }
+    let r = (|| -> Result<crate::betti::Solves, String> {
+        let moment_a = run(a, &at(na, vec![nb, na], 0.0, 0.0, ma[0]))?;
+        let moment_b = run(a, &at(nb, vec![na, nb], 0.0, 0.0, mb[0]))?;
+        let zero = match run(a, &at(na, vec![nb, na], 0.0, 0.0, 0.0)) {
+            Ok(r) => Some(r),
+            Err(e) if crate::generated::strict() => return Err(format!("zero-load solve: {e}")),
+            Err(_) => None,
+        };
+        Ok(crate::betti::Solves { force_a: force_a.clone(), moment_a, moment_b, zero })
+    })();
+    let solves = match r {
+        Ok(x) => x,
+        Err(e) if crate::generated::strict() => return Verdict::Fail(e),
+        Err(e) => return Verdict::Refused(e),
+    };
+    let rel = rel_without_eigen(a.name, a.iter_tol, cond);
+    if rel > INCONCLUSIVE {
+        return Verdict::Inconclusive(rel);
+    }
+    crate::betti::check(&crate::betti::Pair { a: na, b: nb, force_a: &da, moment_a: &ma, moment_b: &mb, rotation: "ry" }, &solves, rel)
+}
+
 /// Maxwell–Betti: the translation at b along d_b under a unit force at a
 /// along d_a equals the translation at a along d_a under a unit force at b
 /// along d_b. Responses minus R(∅).
-fn reciprocity(a: &Ana2, c: &Case2, cond: &Conditioning, rng: &mut Rng) -> Verdict {
+fn translational_reciprocity(a: &Ana2, c: &Case2, cond: &Conditioning, rng: &mut Rng) -> Verdict {
     if a.law != Law::Linear {
         return Verdict::NotApplicable;
     }
