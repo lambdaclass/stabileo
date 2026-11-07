@@ -112,3 +112,76 @@ test('a static solve leaves the harmonic advisory up, and running harmonic analy
   expect(stamp.analyses).toEqual(expect.arrayContaining(['harmonic', 'linear']));
   expect(stamp.recorded).toContain('harmonic');
 });
+
+function slabProject(solvedWith: object, imposed: boolean) {
+  return {
+    version: '2.0',
+    name: 'Old slab',
+    timestamp: '2026-10-20T12:00:00.000Z',
+    analysisMode: 'pro',
+    snapshot: {
+      localAxisConvention: 'zUpStrongAxis',
+      nodes: [[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: 2, y: 0, z: 0 }], [3, { id: 3, x: 2, y: 2, z: 0 }], [4, { id: 4, x: 0, y: 2, z: 0 }]],
+      materials: [[1, { id: 1, name: 'H-25', e: 25000, nu: 0.2, rho: 25 }]],
+      sections: [],
+      elements: [],
+      quads: [[1, { id: 1, nodes: [1, 2, 3, 4], materialId: 1, thickness: 0.2 }]],
+      supports: [[1, { id: 1, nodeId: 1, type: 'fixed3d' }], [2, { id: 2, nodeId: 2, type: 'fixed3d' }], [3, { id: 3, nodeId: 3, type: 'pinned3d' }]],
+      loads: [
+        { type: 'nodal3d', data: { id: 1, nodeId: 4, fx: 0, fy: 0, fz: -10, mx: 0, my: 0, mz: 0, caseId: 2 } },
+        ...(imposed ? [{ type: 'displacement3d', data: { id: 2, nodeId: 3, dz: -0.01, caseId: 1 } }] : []),
+      ],
+      loadCases: [{ id: 1, type: 'D', name: 'Dead Load' }, { id: 2, type: 'L', name: 'Live Load' }],
+      combinations: [],
+      nextId: { node: 5, material: 2, section: 1, element: 1, support: 4, load: 3, loadCase: 3, combination: 1, quad: 2 },
+      solvedWith,
+    },
+  };
+}
+
+const shellFix = () => readRegistry().changes.find((c: { id: string }) => c.id === 'combined-shell-stresses')!.resultsVersion;
+
+for (const [label, viewport] of [['phone', { width: 390, height: 844 }], ['tablet', { width: 820, height: 1180 }]] as const) {
+  test.describe(`${label}, shell stresses of an imposed-displacement case`, () => {
+    test.use({ viewport, hasTouch: true, isMobile: true });
+
+    for (const imposed of [true, false]) {
+      test(`@smoke on a ${label} a shell model ${imposed ? 'with' : 'without'} an imposed displacement, solved before #1676, is ${imposed ? '' : 'maybe '}affected until solved again`, async ({ page }) => {
+        await bootPro(page);
+        const project = slabProject({ id: `e2e-shells-${imposed}`, resultsVersion: shellFix() - 1, analyses: ['linear'] }, imposed);
+        expect(await page.evaluate((f) => window.__stabileoActions.loadProject(f), project)).toBe(true);
+        const notice = page.getByTestId('recheck-notice');
+        const item = notice.locator('[data-advisory-id="SA-2026-047"]');
+        await expect(item).toBeVisible();
+        if (imposed) await expect(item).not.toContainText('may be affected');
+        else await expect(item).toContainText('may be affected');
+        await page.getByTestId('recheck-ack').check();
+        await page.getByTestId('recheck-later').click();
+        await expect(notice).toBeHidden();
+
+        const banner = page.getByTestId('recheck-stale-banner');
+        await expect(banner).toHaveAttribute('role', 'alert');
+        const advisory = page.getByTestId('recheck-advisory-banner');
+        await expect(advisory).toContainText('SA-2026-047');
+        if (imposed) await expect(advisory).not.toContainText('may be affected');
+        else await expect(advisory).toContainText('a load case that imposed a support displacement');
+        const layout = await banner.evaluate((el) => {
+          const r = el.getBoundingClientRect();
+          const button = el.querySelector('[data-testid="recheck-banner-rerun"]')!.getBoundingClientRect();
+          const onTop = el.contains(document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2));
+          return { left: r.left, right: r.right, pageOverflow: document.documentElement.scrollWidth - window.innerWidth, buttonHeight: button.height, onTop };
+        });
+        await page.screenshot({ path: test.info().outputPath(`${label}-shells-${imposed}.png`) });
+        expect(layout.left).toBeGreaterThanOrEqual(0);
+        expect(layout.right).toBeLessThanOrEqual(viewport.width);
+        expect(layout.pageOverflow).toBeLessThanOrEqual(0);
+        expect(layout.buttonHeight).toBeGreaterThanOrEqual(44);
+        expect(layout.onTop).toBe(true);
+
+        await page.getByTestId('recheck-banner-rerun').click();
+        await expect(banner).toBeHidden({ timeout: 45_000 });
+        await expect(advisory).toHaveCount(0);
+      });
+    }
+  });
+}
