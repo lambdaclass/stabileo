@@ -21,7 +21,7 @@ import {
   autosaveClear, autosaveRead, autosaveStatus, autosaveWrite,
   type AutosaveFingerprint, type AutosavePolicy, type AutosaveReadResult, type AutosaveWriteResult,
 } from './autosave-db';
-import { readDetailing, splitDetailing, stageDetailing, noteDetailingHeld, writeDetailing, type StagedDetailing } from './workspace-detailing';
+import { noteDetailingKnown, pruneDetailing, readDetailing, splitDetailing, stageDetailing, storeDetailing, type StagedDetailing } from './workspace-detailing';
 import { workspaceSaveStatus } from './workspace-save-status.svelte';
 import {
   type ViewportPresentation3D,
@@ -1151,12 +1151,42 @@ function protectStoredWorkspace(raw: string, reason: WorkspaceBackup['reason'], 
 }
 
 let workspaceRestorePending = false;
-let detailingWrite: Promise<boolean> = Promise.resolve(true);
+let saveGen = 0;
+let publishedGen = 0;
+let finishedGen = 0;
+let lastSave: Promise<boolean> = Promise.resolve(true);
 
-/** Each tab's detailing bars go to IndexedDB (`workspace-detailing.ts`), not into the text. */
+function finishSave(gen: number, ok: boolean): boolean {
+  if (gen >= finishedGen) {
+    finishedGen = gen;
+    workspaceSaveStatus.report(ok);
+  }
+  return ok;
+}
+
+function publishWorkspace(gen: number, text: string): boolean {
+  if (gen < publishedGen) return true;
+  try {
+    localStorage.setItem(WORKSPACE_KEY, text);
+    publishedGen = gen;
+    return true;
+  } catch {
+    // The workspace written before would be restored at the next start over the newer autosave.
+    clearWorkspaceFromLocalStorage();
+    return false;
+  }
+}
+
+/**
+ * Each tab's detailing bars go to IndexedDB (`workspace-detailing.ts`) and the text naming them is
+ * written only once they are stored, so a page closed mid-save keeps the previous complete
+ * workspace. True when the save was written or is under way; `saveWorkspaceSettled` waits for it.
+ */
 export function saveWorkspaceToLocalStorage(): boolean {
   if (workspaceOverwriteHeld || workspaceRestorePending) return false;
+  const gen = ++saveGen;
   const staged: StagedDetailing[] = [];
+  let text: string;
   try {
     tabManager.syncCurrentTab();
     const session: DedalSessionFile = {
@@ -1166,27 +1196,27 @@ export function saveWorkspaceToLocalStorage(): boolean {
       activeTabId: tabManager.activeTabId ?? '',
       tabs: tabManager.tabs.map((tab) => workspaceTab(tab, staged)),
     };
-    localStorage.setItem(WORKSPACE_KEY, JSON.stringify(session));
+    text = JSON.stringify(session);
   } catch {
-    // The workspace written before would be restored at the next start over the newer autosave.
-    clearWorkspaceFromLocalStorage();
-    workspaceSaveStatus.report('text', false);
+    lastSave = Promise.resolve(finishSave(gen, false));
     return false;
   }
-  workspaceSaveStatus.report('text', true);
-  if (staged.some((s) => s.write)) {
-    const live = tabManager.tabs.map((tab) => tab.id);
-    detailingWrite = writeDetailing(staged, live).then((ok) => {
-      workspaceSaveStatus.report('detailing', ok);
-      return ok;
-    });
+  if (staged.length === 0) {
+    const ok = finishSave(gen, publishWorkspace(gen, text));
+    lastSave = Promise.resolve(ok);
+    return ok;
   }
+  lastSave = storeDetailing(staged).then((stored) => {
+    const ok = stored && publishWorkspace(gen, text);
+    if (ok && gen === publishedGen) void pruneDetailing(new Set(staged.map((s) => s.ref)));
+    return finishSave(gen, ok);
+  });
   return true;
 }
 
-/** The workspace save, resolved once its detailing is in IndexedDB too: for a caller about to reload the page. */
+/** For a caller about to reload the page. */
 export async function saveWorkspaceSettled(): Promise<boolean> {
-  return saveWorkspaceToLocalStorage() && (await detailingWrite);
+  return saveWorkspaceToLocalStorage() && (await lastSave);
 }
 
 export function workspaceNeedsDetailing(session: DedalSessionFile): boolean {
@@ -1199,14 +1229,14 @@ export async function restoreWorkspaceDetailing(session: DedalSessionFile): Prom
   if (wanted.length === 0) return;
   workspaceRestorePending = true;
   try {
-    const records = await readDetailing(wanted.map((tab) => tab.id));
+    const records = await readDetailing(wanted.map((tab) => tab.detailingRef!));
     const lost: DroppedSessionTab[] = [];
     for (const tab of wanted) {
-      const rec = records.get(tab.id);
-      if (rec && rec.ref === tab.detailingRef) {
-        tab.modelSnapshot = { ...tab.modelSnapshot, detailing: { ...tab.modelSnapshot.detailing!, ...rec.heavy } };
+      const heavy = records.get(tab.detailingRef!);
+      if (heavy) {
+        tab.modelSnapshot = { ...tab.modelSnapshot, detailing: { ...tab.modelSnapshot.detailing!, ...heavy } };
         forgetSessionDemandRevisions(tab.modelSnapshot);
-        noteDetailingHeld(tab.id, rec.ref, rec.heavy);
+        noteDetailingKnown(tab.id, tab.detailingRef!, heavy);
       } else {
         lost.push({ index: session.tabs.indexOf(tab), name: tab.name });
       }
