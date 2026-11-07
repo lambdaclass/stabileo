@@ -59,4 +59,31 @@ describe('the results store scans a published result for refusals once, not on e
     expect(scans.count).toBeLessThanOrEqual(1);
     expect(resultsStore.results3D?.structuredDiagnostics).toEqual([]);
   });
+
+  it('a refusal pushed into a published result after a clean read is withheld on the next read', () => {
+    const r = result();
+    resultsStore.setResults3D(r);
+    expect(resultsStore.results3D).not.toBeNull();
+    (r.structuredDiagnostics as unknown[]).push(refusal);
+    expect(resultsStore.results3D).toBeNull();
+  });
+
+  it('a refusal assigned as a new diagnostics list is withheld, in the maps as in results3D', () => {
+    const c = result();
+    resultsStore.setCombinationResults3D(new Map([[1, c]]), new Map([[10, result()]]), envelope);
+    expect(resultsStore.perCase3D.size).toBe(1);
+    (c as { structuredDiagnostics: unknown[] }).structuredDiagnostics = [refusal];
+    expect(resultsStore.perCase3D.size).toBe(0);
+    expect(resultsStore.perCombo3D.size).toBe(0);
+  });
+
+  it('a refusal written deeper than the result\'s own lists is withheld from the next task on', async () => {
+    const r = result() as unknown as { caseResults: { structuredDiagnostics: unknown[] } };
+    r.caseResults = { structuredDiagnostics: [] };
+    resultsStore.setResults3D(r as unknown as AnalysisResults3D);
+    expect(resultsStore.results3D).not.toBeNull();
+    r.caseResults.structuredDiagnostics.push(refusal);
+    await new Promise((done) => setTimeout(done, 0));
+    expect(resultsStore.results3D).toBeNull();
+  });
 });

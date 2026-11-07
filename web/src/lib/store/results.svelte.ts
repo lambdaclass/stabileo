@@ -274,12 +274,21 @@ function createResultsStore() {
   let perCombo3D = $state<Map<number, AnalysisResults3D>>(new Map());
   let unstableCombinations3D = $state<number[]>([]);
   let envelope3D = $state.raw<FullEnvelope3D | null>(null);
-  // Keyed by object: a known issue written into an already published result is not seen, so publish a new object instead.
-  const refusals = new WeakMap<object, boolean>();
+  // A cached answer lives for one task and only while the result's own diagnostic lists are the ones scanned, so a refusal written into a published result is still seen.
+  const OWN_DIAGNOSTICS = ['structuredDiagnostics', 'diagnostics', 'solverDiagnostics', 'findings'] as const;
+  type Refusal = { lists: unknown[]; lengths: number[]; refused: boolean };
+  let refusals = new WeakMap<object, Refusal>();
+  let refusalsExpire: ReturnType<typeof setTimeout> | null = null;
   const refused = (r: unknown): boolean => {
     if (!r || typeof r !== 'object') return knownIssueResultDisposition(r).refused;
-    let v = refusals.get(r);
-    if (v === undefined) { v = knownIssueResultDisposition(r).refused; refusals.set(r, v); }
+    const rec = r as Record<string, unknown>;
+    const lists = OWN_DIAGNOSTICS.map((k) => rec[k]);
+    const lengths = lists.map((l) => (Array.isArray(l) ? l.length : -1));
+    const hit = refusals.get(r);
+    if (hit && hit.lists.every((l, i) => l === lists[i] && hit.lengths[i] === lengths[i])) return hit.refused;
+    const v = knownIssueResultDisposition(r).refused;
+    refusals.set(r, { lists, lengths, refused: v });
+    refusalsExpire ??= setTimeout(() => { refusals = new WeakMap(); refusalsExpire = null; }, 0);
     return v;
   };
   const anyRefused = (...maps: ReadonlyMap<number, unknown>[]) => maps.some(m => [...m.values()].some(refused));
