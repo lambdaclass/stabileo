@@ -6,6 +6,7 @@ use crate::checks3::{load_floor_3d, scale_loads_3d};
 use crate::corpus::fuzz_models::{add_random_constraints_2d, add_random_constraints_3d, random_2d_model_rich, random_3d_model_rich};
 use dedaliano_engine::metamorphic::compare::{compare_compliant, flat_2d, flat_3d, Flat, Parts};
 use dedaliano_engine::metamorphic::conditioning::{self, Conditioning, INCONCLUSIVE};
+use dedaliano_engine::postprocess::combinations::{combine_results_3d_refs_with_thickness, CombinationFactor};
 use dedaliano_engine::solver::{linear, load_cases};
 use dedaliano_engine::types::*;
 use dedaliano_engine::metamorphic::Rng;
@@ -358,7 +359,17 @@ fn combinations_3d(s: &SolverInput3D) -> Outcome {
     };
     let mc = match load_cases::solve_multi_case_3d(&input) {
         Ok(_) if shell_ids_collide(s) => return Outcome::Violation("combined shells whose ids collide across families were not refused".into()),
-        Err(_) if shell_ids_collide(s) => return Outcome::Skipped("shell ids collide across families: combinations refused (#1666)".into()),
+        Err(e) if shell_ids_collide(s) => {
+            let Ok(r) = solve(s.loads.clone()) else { return Outcome::Violation(format!("multi-case refused: {e}")) };
+            let mut no_quads = r.clone();
+            (no_quads.quad_stresses, no_quads.quad_nodal_stresses) = (vec![], vec![]);
+            let once = |r: &AnalysisResults3D| combine_results_3d_refs_with_thickness(&[CombinationFactor { case_id: 0, factor: 1.0 }], &[(0, r)], &plate_thicknesses(s)).is_ok();
+            return if !once(&r) && once(&no_quads) {
+                Outcome::Skipped("shell ids collide across families: combinations refused (#1666)".into())
+            } else {
+                Outcome::Violation(format!("multi-case refused for another reason than its colliding shell ids: {e}"))
+            };
+        }
         Ok(m) if m.case_results.iter().any(|c| refused(&c.results.structured_diagnostics, &c.results)) || m.combination_results.iter().any(|c| refused(&c.results.structured_diagnostics, &c.results)) => {
             return Outcome::Violation("multi-case result carries a refusal the linear solve does not".into())
         }
@@ -719,7 +730,7 @@ fn issue_1673_combinations_report_the_shell_stresses_of_the_factored_solve() {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use dedaliano_engine::postprocess::combinations::{combine_results_3d, combine_results_3d_refs, combine_results_3d_refs_with_thickness, CaseEntry3D, CombinationFactor, CombinationInput3D, PlateThicknesses};
+    use dedaliano_engine::postprocess::combinations::{combine_results_3d, combine_results_3d_refs, CaseEntry3D, CombinationInput3D, PlateThicknesses};
 
     fn quad_building() -> (SolverInput3D, AnalysisResults3D) {
         let s = building_3d(1);
