@@ -139,6 +139,25 @@ class RevertCheck(unittest.TestCase):
         rows, _ = check.recent_foreign_deletions(self.repo, 'main', 'pr', 21, NOW)
         self.assertEqual([(r['file'], r['lines']) for r in rows], [('q.sql', 1)])
 
+    def test_form_feeds_and_carriage_returns_in_deleted_lines_do_not_hide_later_hunks(self):
+        keep = ''.join(f'keep {i}\n' for i in range(10))
+        old_text = 'x\fdiff --git a/fake b/fake\ny\rdiff --git a/other b/other\n' + keep
+        commit(self.repo, {'f.txt': old_text}, 'Old text', NOW - 100 * DAY)
+        git(self.repo, 'branch', '-f', 'fork-point')
+        self.pr_merges_main_work_then_drops_it('f.txt', old_text + 'recent\n', keep, NOW - 3 * DAY)
+        rows, _ = check.recent_foreign_deletions(self.repo, 'main', 'pr', 21, NOW)
+        self.assertEqual([(r['file'], r['lines']) for r in rows], [('f.txt', 1)])
+
+    def test_attributes_the_branch_adds_cannot_hide_its_deletions(self):
+        git(self.repo, 'checkout', '-q', '-b', 'pr', 'fork-point')
+        git(self.repo, 'checkout', '-q', 'main')
+        commit(self.repo, {'src.rs': 'kept\nrecent\n'}, 'Newer work on main', NOW - 3 * DAY)
+        git(self.repo, 'checkout', '-q', 'pr')
+        git(self.repo, 'merge', '-q', '--no-ff', '-m', 'Merge main', 'main', when=NOW - DAY)
+        commit(self.repo, {'src.rs': 'kept\n', '.gitattributes': '*.rs -diff\n'}, 'Drop it', NOW)
+        rows, _ = check.recent_foreign_deletions(self.repo, 'main', 'pr', 21, NOW)
+        self.assertEqual([(r['file'], r['lines']) for r in rows], [('src.rs', 1)])
+
     def test_a_conflict_git_reports_without_naming_a_file_still_fails(self):
         real = check.git
         def git_stub(repo, *args, ok=(0,)):

@@ -24,7 +24,9 @@ HUNK = re.compile(r'^@@ -(\d+)(?:,(\d+))? ')
 
 
 def git(repo, *args, ok=(0,)):
-    proc = subprocess.run(['git', *args], cwd=repo, capture_output=True, text=True)
+    proc = subprocess.run(['git', *args], cwd=repo, capture_output=True)
+    proc.stdout = proc.stdout.decode('utf-8', 'surrogateescape')
+    proc.stderr = proc.stderr.decode('utf-8', 'replace')
     if proc.returncode not in ok:
         raise RuntimeError(f'git {" ".join(args)} failed: {proc.stderr.strip()}')
     return proc
@@ -32,7 +34,7 @@ def git(repo, *args, ok=(0,)):
 
 def merge_tree(repo, base, head):
     proc = git(repo, 'merge-tree', '--write-tree', '--name-only', '--no-messages', base, head, ok=(0, 1))
-    lines = proc.stdout.splitlines()
+    lines = proc.stdout.split('\n')
     if not lines or not re.fullmatch(r'[0-9a-f]{40,64}', lines[0]):
         raise RuntimeError(f'git merge-tree {base} {head} failed: {proc.stderr.strip()}')
     if proc.returncode == 0:
@@ -60,9 +62,9 @@ def unquote(name):
 
 
 def deleted_ranges(repo, base, tree):
-    out = git(repo, 'diff', '-U0', '--find-renames', '--no-color', base, tree).stdout
+    out = git(repo, f'--attr-source={base}', 'diff', '-U0', '--find-renames', '--no-color', '--no-ext-diff', '--no-textconv', base, tree).stdout
     ranges, path, header = {}, None, False
-    for line in out.splitlines():
+    for line in out.split('\n'):
         if line.startswith('diff --git '):
             path, header = None, True
         elif header and line.startswith('--- '):
@@ -84,7 +86,7 @@ def blame(repo, base, path, ranges):
     for start, count in ranges:
         args += ['-L', f'{start},+{count}']
     out = git(repo, *args, base, '--', path).stdout
-    return [l.split(' ', 1)[0] for l in out.splitlines() if re.match(r'^[0-9a-f]{40} \d+ \d+', l)]
+    return [l.split(' ', 1)[0] for l in out.split('\n') if re.match(r'^[0-9a-f]{40} \d+ \d+', l)]
 
 
 def branch(repo, base, head):

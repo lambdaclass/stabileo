@@ -13,7 +13,7 @@
        services services.stop postgres.start postgres.stop \
        inst inst.check inst.claim inst.release inst.list ports \
        result-changes.order docker.build docker.up docker.down cloud-init.render \
-       check-pins check.changelog release.step check.reverts check.test-targets test.cadence check.cadence check.containment deps.audit test.engine.reproducers test.reproducers.published check.issue-reproducers worktree worktree-prune hooks \
+       check-pins check.changelog release.step check.test-targets test.cadence check.cadence check.containment deps.audit test.engine.reproducers test.reproducers.published check.issue-reproducers worktree worktree-prune hooks \
        fmt check clean
 
 NIX_RUN = nix develop --command
@@ -459,6 +459,7 @@ release.step:
 
 ## Merging HEAD into BASE deletes no lines written in the last 21 days that reached the branch only by merging BASE
 ## (the `reverts-ok` label, in $$GITHUB_EVENT_PATH or LABELS=a,b, acknowledges them)
+.PHONY: check.reverts
 check.reverts:
 	python3 -B -I .github/scripts/revert-check.py $(or $(BASE),origin/main) $(or $(HEAD),HEAD)
 
