@@ -36,6 +36,8 @@
   const regenerate = $derived(!!a?.changes.some((c) => concernsGeneratedLoads(c.when)));
   const resolve = $derived(!a || !a.changes.length || a.changes.some((c) => !concernsGeneratedLoads(c.when)));
   const loc = $derived(registryLocale(i18n.locale));
+  const certain = $derived(a?.advisories.filter((x) => !x.ifUsed) ?? []);
+  const maybe = $derived(a?.advisories.filter((x) => x.ifUsed) ?? []);
 
   // A new notice (another project) starts unticked.
   $effect(() => {
@@ -114,7 +116,7 @@
         <ul class="rc-list rc-advisories" role="alert" data-testid="recheck-advisories">
           {#each a.advisories as adv (adv.id)}
             <li class="rc-item rc-advisory" data-advisory-id={adv.id}>
-              <span class="rc-item-title">{tp('recheck.advisory', { name: advisoryName(adv) })}</span>
+              <span class="rc-item-title">{adv.ifUsed ? tp('recheck.advisoryMaybe', { name: advisoryName(adv), analysis: adv.ifUsed[loc] }) : tp('recheck.advisory', { name: advisoryName(adv) })}</span>
               <p class="rc-item-text">{adv.title[loc]}</p>
               <a class="rc-link" href={adv.url} target="_blank" rel="noopener noreferrer">{t('recheck.advisoryLink')}</a>
             </li>
@@ -160,7 +162,10 @@
 {#if !open && details && recheckStore.stale && a}
   <div class="rc-banner" class:rc-banner-advisory={a.advisories.length > 0} role={a.advisories.length ? 'alert' : 'status'} data-testid="recheck-stale-banner">
     {#if a.advisories.length}
-      <span data-testid="recheck-advisory-banner">{tp('recheck.advisoryBanner', { names: a.advisories.map(advisoryName).join(', ') })}</span>
+      <span data-testid="recheck-advisory-banner">
+        {#if certain.length}{tp('recheck.advisoryBanner', { names: certain.map(advisoryName).join(', ') })}{/if}
+        {#each maybe as adv (adv.id)} {tp('recheck.advisoryBannerMaybe', { name: advisoryName(adv), analysis: adv.ifUsed![loc] })}{/each}
+      </span>
     {:else}
       <span>{tp('recheck.banner', { n: a.changes.length })}</span>
     {/if}

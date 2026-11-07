@@ -13,6 +13,11 @@ export interface Advisory {
   fixedBy: string;
   /** Any one of these holds: the model uses the affected feature. */
   when: ChangeCondition[];
+  /**
+   * Set when nothing saved says whether the feature was used (an analysis the stamp does not
+   * record): the warning then says the results may be affected, if this was used.
+   */
+  ifUsed?: Localised;
   title: Localised;
 }
 
@@ -26,6 +31,14 @@ export const ADVISORIES: readonly Advisory[] = [
     introducedBy: 'harmonic-modal-residual-checked',
     fixedBy: 'harmonic-modal-or-direct-per-frequency',
     when: [{ allOf: [['members', 'shells', 'curvedShells', 'connectors', 'springs']], any: ['analysis:harmonic'] }],
+    ifUsed: {
+      en: 'harmonic analysis',
+      es: 'el análisis armónico',
+      pt: 'a análise harmônica',
+      de: 'die harmonische Analyse',
+      fr: 'l\'analyse harmonique',
+      tr: 'harmonik analiz',
+    },
     title: {
       en: 'Harmonic analysis chose between modal superposition and the direct solve per load: superposition and reciprocity failed, and responses were off by up to 107 % at a node.',
       es: 'El análisis armónico elegía entre superposición modal y solución directa según la carga: la superposición y la reciprocidad fallaban, y las respuestas diferían hasta un 107 % en un nudo.',

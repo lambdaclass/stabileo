@@ -13922,6 +13922,8 @@ const tr: Translations = {
   'recheck.advisory': 'Bilinen sonuç hatası ({name}): bu model yeniden çözülmeli',
   'recheck.advisoryLink': 'Duyuru',
   'recheck.advisoryBanner': 'Bilinen bir sonuç hatası olan bir sürümden gelen sonuçlar ({names}): bu modeli yeniden çözün.',
+  'recheck.advisoryMaybe': 'Bu model bilinen bir sonuç hatasından etkilenmiş olabilir ({name}): {analysis} kullandıysanız yeniden çözün',
+  'recheck.advisoryBannerMaybe': 'Sonuçlar bilinen bir sonuç hatasından etkilenmiş olabilir ({name}): {analysis} kullandıysanız bu modeli yeniden çözün.',
   'recheck.rerunning': 'Analiz ve tasarım yeniden çalıştırılıyor…',
   'recheck.rerunDone': 'Analiz ve tasarım {v} sonuç sürümüyle yeniden çalıştırıldı.',
   'recheck.rerunAnalysis': 'Analizi yeniden çalıştır',

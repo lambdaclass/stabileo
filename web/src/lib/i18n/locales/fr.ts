@@ -13922,6 +13922,8 @@ const fr: Translations = {
   'recheck.advisory': 'Erreur de résultats connue ({name}) : ce modèle doit être recalculé',
   'recheck.advisoryLink': 'Avis',
   'recheck.advisoryBanner': 'Résultats d\'une version avec une erreur de résultats connue ({names}) : recalculez ce modèle.',
+  'recheck.advisoryMaybe': 'Ce modèle peut être touché par une erreur de résultats connue ({name}) : recalculez-le si vous avez utilisé {analysis}',
+  'recheck.advisoryBannerMaybe': 'Les résultats peuvent être touchés par une erreur de résultats connue ({name}) : recalculez ce modèle si vous avez utilisé {analysis}.',
   'recheck.rerunning': 'Nouveau calcul de l\'analyse et du dimensionnement…',
   'recheck.rerunDone': 'Analyse et dimensionnement recalculés avec la version de résultats {v}.',
   'recheck.rerunAnalysis': 'Relancer l\'analyse',

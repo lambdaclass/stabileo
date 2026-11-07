@@ -14115,6 +14115,8 @@ const en: Record<string, string> = {
   "recheck.advisory": "Known wrong-result bug ({name}): this model must be solved again",
   "recheck.advisoryLink": "Advisory",
   "recheck.advisoryBanner": "Results from a version with a known wrong-result bug ({names}): solve this model again.",
+  "recheck.advisoryMaybe": "This model may be affected by a known wrong-result bug ({name}): solve it again if you used {analysis}",
+  "recheck.advisoryBannerMaybe": "Results may be affected by a known wrong-result bug ({name}): solve this model again if you used {analysis}.",
   "recheck.rerunning": "Re-running analysis and design…",
   "recheck.rerunDone": "Analysis and design re-run with results version {v}.",
   "recheck.rerunAnalysis": "Re-run the analysis",

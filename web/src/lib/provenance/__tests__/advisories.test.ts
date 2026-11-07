@@ -3,14 +3,14 @@ import { render } from 'svelte/server';
 import { ADVISORIES } from '../advisories';
 import { RESULT_CHANGES } from '../full-registry';
 import { FEATURE_IDS } from '../model-features';
-import { REGISTRY_LOCALES, conditionGroups } from '../registry';
+import { REGISTRY_LOCALES, conditionGroups, registryLocale } from '../registry';
 import type { SolveStamp } from '../solve-stamp';
 import { modelStore } from '../../store/model.svelte';
 import { recheckStore } from '../../store/recheck.svelte';
 import { buildProjectFile, deserializeProject, serializeProject } from '../../store/file';
 import { currentResultProvenance } from '../../store/result-provenance';
 import RecheckNotice from '../../../components/RecheckNotice.svelte';
-import { t } from '../../i18n';
+import { i18n, t } from '../../i18n';
 import '../../store/index';
 
 const versionOf = (id: string) => RESULT_CHANGES.changes.find((c) => c.id === id)!.resultsVersion;
@@ -59,6 +59,7 @@ describe('advisories', () => {
       expect(a.when.length, a.id).toBeGreaterThan(0);
       for (const w of a.when) for (const f of conditionGroups(w).flat()) expect(features.has(f), `${a.id}: ${f}`).toBe(true);
       for (const l of REGISTRY_LOCALES) expect(a.title[l], `${a.id} ${l}`).toBeTruthy();
+      if (a.ifUsed) for (const l of REGISTRY_LOCALES) expect(a.ifUsed[l], `${a.id} ifUsed ${l}`).toBeTruthy();
     }
   });
 
@@ -117,7 +118,12 @@ describe('advisories', () => {
     expect(await reopen(HARMONIC_FIX, ['linear', 'harmonic'])).not.toContain('SA-2026-046');
     await reopen(HARMONIC_FROM, ['linear', 'harmonic']);
     recheckStore.acknowledge();
-    expect(banner()).toContain(t('recheck.advisoryBanner').replace('{names}', 'SA-2026-046'));
+    const harmonic = ADVISORIES.find((x) => x.id === 'SA-2026-046')!;
+    const html = banner();
+    expect(html, 'nothing saved says a harmonic analysis ran: the warning says it may apply').toContain(
+      t('recheck.advisoryBannerMaybe').replace('{name}', 'SA-2026-046').replace('{analysis}', harmonic.ifUsed![registryLocale(i18n.locale)]),
+    );
+    expect(html).not.toContain(t('recheck.advisoryBanner').replace('{names}', 'SA-2026-046'));
   });
 
   it('keeps the version stamp through save, load and export', async () => {
