@@ -23,8 +23,12 @@ OpenSees: refused (OpenSees finds no unique answer either), false_reject
 no positive load factor on either side), or stabileo_failed (undecided).
 A model stabileo flags ill-conditioned whose OpenSees stiffness is well
 conditioned (kappa < 1e8) is a false_warning (flagged).
+A buckling job whose frames carry axial span loads that never agrees on a
+common mesh but approaches agreement as it is refined is converging: flagged,
+since a constant difference cannot be told apart from the remaining
+discretisation difference.
 
-Exit status: 0 = no discrepancy above tolerance, 1 = mismatch,
+Exit status: 0 = no discrepancy above tolerance, 1 = mismatch, converging,
 false_reject or false_warning, 2 = harness error.
 
 Conventions (read from the engine source, see README.md):
@@ -1880,6 +1884,174 @@ def _dump(dump_dir, name, model):
         json.dump(model, f, indent=1)
 
 
+def mesh(d, n):
+    """The model with every frame member split into n equal collinear frame
+    members (trusses stay whole: a split truss is a mechanism), an end's
+    hinges and releases kept on the segment at that end only. Only nodal and
+    full-length uniform member loads are carried over; anything else is left
+    to _check_geom to refuse on the unsplit model."""
+    if n == 1:
+        return d
+    d = json.loads(json.dumps(d))
+    nid = max(v["id"] for v in d["nodes"].values())
+    eid = max(v["id"] for v in d["elements"].values())
+    by_id = {v["id"]: v for v in d["nodes"].values()}
+    pieces = {}
+    for key, e in list(d["elements"].items()):
+        if e["type"] != "frame":
+            continue
+        pi, pj = by_id[e["nodeI"]], by_id[e["nodeJ"]]
+        chain = [e["nodeI"]]
+        for k in range(1, n):
+            nid += 1
+            node = {c: pi[c] + k / n * (pj[c] - pi[c]) for c in pi if c != "id"}
+            node["id"] = nid
+            d["nodes"][str(nid)] = by_id[nid] = node
+            chain.append(nid)
+        chain.append(e["nodeJ"])
+        ids = [e["id"]]
+        for k in range(1, n):
+            eid += 1
+            ids.append(eid)
+        for k, i in enumerate(ids):
+            seg = {f: v for f, v in e.items()
+                   if not (f.startswith(("hinge", "release")) and (f.endswith("Start") and k > 0 or f.endswith("End") and k < n - 1))}
+            seg.update(id=i, nodeI=chain[k], nodeJ=chain[k + 1])
+            d["elements"][key if k == 0 else str(i)] = seg
+        pieces[e["id"]] = ids
+    loads = []
+    for ld in d["loads"]:
+        x = ld["data"]
+        if ld["type"] == "distributed" and x.get("elementId") in pieces:
+            loads += [{"type": "distributed", "data": dict(x, elementId=i)} for i in pieces[x["elementId"]]]
+        else:
+            loads.append(ld)
+    d["loads"] = loads
+    return d
+
+
+def _axial_span_loaded(d):
+    """A frame member with an axial span load: its compression varies along
+    it, which the engine's Kg follows and OpenSees' (N constant per element)
+    does not, so one element per member is not a common discretization."""
+    frames = {e["id"] for e in d["elements"].values() if e["type"] == "frame"}
+    return any(ld["type"] == "distributed" and ld["data"].get("elementId") in frames
+               and ((ld["data"].get("qXI") or 0.0) or (ld["data"].get("qXJ") or 0.0)) for ld in d["loads"])
+
+
+MESH_LEVELS = (2, 4, 8, 16)
+MESH_RATE = 2.0
+
+
+def _vectors(a, others, art, nt):
+    va, vo = [], [[] for _ in others]
+    for nid, ua in a.items():
+        if any(nid not in o for o in others):
+            continue
+        for k in range(len(ua)):
+            if k >= nt and nid in art:
+                continue
+            va.append(ua[k])
+            for v, o in zip(vo, others):
+                v.append(o[nid][k])
+    return va, vo
+
+
+def _outside_span(a, others, art, nt):
+    """1 - |P a|^2 / |a|^2, P the projection onto the span of `others`."""
+    va, vo = _vectors(a, others, art, nt)
+    basis = []
+    for v in vo:
+        w = list(v)
+        for q in basis:
+            d = sum(x * y for x, y in zip(w, q))
+            w = [x - d * y for x, y in zip(w, q)]
+        n = math.sqrt(sum(x * x for x in w))
+        if n > 1e-12 * math.sqrt(sum(x * x for x in v) or 1.0):
+            basis.append([x / n for x in w])
+    aa = sum(x * x for x in va)
+    if aa == 0.0:
+        return 1.0
+    return max(0.0, 1.0 - sum(sum(x * y for x, y in zip(va, q)) ** 2 for q in basis) / aa)
+
+
+def _resolved_differences(bad, sres, ores):
+    """Each load-factor and 1-MAC difference above tolerance, by (kind, mode).
+    A mode whose gap to a neighbour is within ten times its own load-factor
+    difference (the solvers may order such modes either way) is measured
+    between the spans of the two solvers' modes of that connected cluster,
+    both ways, instead of mode against mode."""
+    values, nt, art = ores["values"], 2 if ores["dim"] == 2 else 3, set(ores.get("art_rot", []))
+    out = {}
+    for q, i, c, _, _, e in bad:
+        if q == "eig" and c == "value":
+            out["eig", i] = e
+        if q != "mode":
+            continue
+        k = i - 1
+        reach = 10 * abs(sres["values"][k] - values[k]) / abs(values[k])
+        lo, hi = k, k
+        while lo > 0 and abs(values[lo - 1] - values[lo]) <= reach * abs(values[k]):
+            lo -= 1
+        while hi + 1 < min(len(values), len(ores["modes"])) and abs(values[hi + 1] - values[hi]) <= reach * abs(values[k]):
+            hi += 1
+        if hi > lo:
+            ours, theirs = sres["modes"][lo:hi + 1], ores["modes"][lo:hi + 1]
+            e = max([_outside_span(sres["modes"][k], theirs, art, nt)] +
+                    [_outside_span(t, ours, art, nt) if len(ours) == len(theirs) else 1.0 for t in theirs])
+        out["mode", i] = e
+    return out
+
+
+def refine_buckling(job, binary, tol, dim):
+    """None when no meshed comparison ran, else (bad, groups, n, converging):
+    bad is empty when both solvers agree within tol on n elements per frame;
+    converging is set when they never agree but each doubling of n at least
+    halves every difference still above tol. Refinement stops once one does
+    not, the current rate cannot bring the largest within tol on the next
+    mesh, or OpenSees cannot take the next mesh (too large, or conditioned so
+    that tol is within its round-off). The engine failing on a mesh is a
+    mismatch; OpenSees failing raises RuntimeError."""
+    levels = []
+    for n in MESH_LEVELS:
+        j = dict(job, model=mesh(job["model"], n))
+        try:
+            sres = normalize_ext("buckling", stabileo_job(j, binary), dim)
+        except RuntimeError as ex:
+            failed = ("eig", 0, f"stabileo failed on the n={n} mesh: {str(ex)[:160]}", None, None, math.inf)
+            return [failed], {}, n, None
+        ores = opensees_isolated(j)
+        kappa = ores.get("kappa")
+        if "failed" in ores:
+            raise RuntimeError(f"OpenSees failed on the n={n} mesh: {ores['failed']}")
+        if "values" not in ores or kappa is None or 100 * 2.2e-16 * kappa > tol:
+            break
+        bad, groups = compare_eigen(sres, ores, tol, job["numModes"], 1)
+        if not bad:
+            return [], groups, n, None
+        levels.append((n, bad, groups, _resolved_differences(bad, sres, ores)))
+        if len(levels) >= 2 and not _halved(levels[-2][3], levels[-1][3], tol):
+            break
+        if len(levels) >= 2:
+            a, b = (max(d.values(), default=0.0) for *_, d in levels[-2:])
+            if b * b > tol * a:
+                break
+    if not levels:
+        return None
+    n, bad, groups, _ = levels[-1]
+    errs = [max(d.values(), default=0.0) for *_, d in levels]
+    trail = ", ".join(f"n={m}: {e:.2e}" for m, e in zip((m for m, *_ in levels), errs))
+    if len(levels) >= 2 and all(_halved(a, b, tol) for a, b in zip((d for *_, d in levels), (d for *_, d in levels[1:]))) \
+            and not any(q == "eig" and c == "missing" for q, _, c, *_ in bad):
+        return bad, groups, n, f"meshed buckling factors approach each other ({trail})"
+    return bad + [("eig", 0, f"meshed difference not converging ({trail})", errs[-2] if len(errs) > 1 else 0.0,
+                   errs[-1], errs[-1])], groups, n, None
+
+
+def _halved(before, after, tol):
+    return all(e <= tol or before.get(k, 0.0) >= MESH_RATE * e for k, e in after.items())
+
+
 def _probe_loads(d):
     """The model under a load on every translational DOF: the linear solve's
     conditioning diagnostics then expose mechanisms (an unloaded mechanism
@@ -1955,6 +2127,16 @@ def run_ext(name, job, binary, tol, dump_dir=None):
     tol = max(tol, 100 * 2.2e-16 * (kappa or 0.0))
     if kind in ("buckling", "modal"):
         bad, groups = compare_eigen(sres, ores, tol, job["numModes"], 1 if kind == "buckling" else 2)
+        converging = None
+        if kind == "buckling" and bad and _axial_span_loaded(d):
+            try:
+                refined = refine_buckling(job, binary, tol, dim)
+            except RuntimeError as ex:
+                bad = bad + [("eig", 0, f"one-element mismatch stands, meshed comparison stopped: {str(ex)[:200]}", None, None, math.inf)]
+                refined = None
+            if refined is not None:
+                bad, groups, n, converging = refined[0], dict(groups, **refined[1]), refined[2], refined[3]
+                base = dict(base, mesh=n)
         if kind == "buckling":
             # The linear solution Kg is built from: displacements and axial
             # forces (OpenSees' shears and moments include N*Kg*u by then).
@@ -1963,6 +2145,10 @@ def run_ext(name, job, binary, tol, dump_dir=None):
             b2, g2 = compare(d, lin, ol, tol)
             bad += b2 or []
             groups.update({"lin_" + k: v for k, v in g2.items()})
+            if converging and not b2:
+                if dump_dir:
+                    _dump(dump_dir, name, job)
+                return dict(base, status="converging", why=[converging], max_err=groups, kappa=kappa, tol=tol)
     elif kind == "pdelta":
         bad, groups = compare(d, sres, ores, tol)
     elif kind == "shell":
@@ -2074,10 +2260,11 @@ def main():
     return 1 if any(cnt.get(st) for st in FLAGGED) else 0
 
 
-# Statuses that fail the run (and are dumped): a disagreement, stabileo
-# refusing a model OpenSees solves with a regular stiffness, or warning about
-# one OpenSees finds well conditioned.
-FLAGGED = ("mismatch", "false_reject", "false_warning")
+# Statuses that fail the run (and are dumped): a disagreement (converging is
+# one still above tolerance on the finest mesh compared), stabileo refusing a
+# model OpenSees solves with a regular stiffness, or warning about one
+# OpenSees finds well conditioned.
+FLAGGED = ("mismatch", "converging", "false_reject", "false_warning")
 
 
 if __name__ == "__main__":
