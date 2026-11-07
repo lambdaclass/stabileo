@@ -1286,7 +1286,7 @@ export async function restoreWorkspaceDetailing(session: DedalSessionFile, repla
   try {
     const records = wanted.length > 0 ? await readDetailing(wanted.map((tab) => tab.detailingRef!)) : new Map<string, HeavyDetailing>();
     const lost: DroppedSessionTab[] = [];
-    const unread = new Map<string, string>();
+    const unread = new Map<TabState, string>();
     for (const tab of wanted) {
       const ref = tab.detailingRef!;
       const heavy = records?.get(ref);
@@ -1297,7 +1297,7 @@ export async function restoreWorkspaceDetailing(session: DedalSessionFile, repla
         noteDetailingKnown(tab.id, ref, heavy);
       } else {
         lost.push({ index: session.tabs.indexOf(tab), name: tab.name });
-        if (!records) unread.set(tab.id, ref);
+        if (!records) unread.set(tab, ref);
       }
       delete tab.detailingRef;
     }
@@ -1305,7 +1305,8 @@ export async function restoreWorkspaceDetailing(session: DedalSessionFile, repla
     if (beside) tabManager.addTabs(session.tabs);
     else replace(session);
     const cleared = detailingKey(emptyDetailingStore());
-    for (const [id, ref] of unread) {
+    for (const [saved, ref] of unread) {
+      const id = saved.id;
       const tab = tabManager.tabs.find((x) => x.id === id);
       if (!tab) continue;
       const key = detailingKey(id === tabManager.activeTabId ? modelStore.snapshot().detailing : tab.modelSnapshot.detailing);

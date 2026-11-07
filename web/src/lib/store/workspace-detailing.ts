@@ -148,13 +148,22 @@ const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFi
 const finiteList = (v: unknown): boolean => Array.isArray(v) && v.every(finite);
 const isPoint = (p: unknown): boolean => isObj(p) && finite(p.x) && finite(p.y) && finite(p.z);
 
+const isNonNeg = (v: unknown): boolean => finite(v) && v >= 0;
+const isPositive = (v: unknown): boolean => finite(v) && v > 0;
+
 function isSegment(s: unknown): boolean {
-  return isObj(s) && (s.kind === 'straight' || s.kind === 'arc') && isPoint(s.start) && isPoint(s.end)
-    && (s.radius === undefined || finite(s.radius)) && (s.sweepDeg === undefined || finite(s.sweepDeg));
+  if (!isObj(s) || !isPoint(s.start) || !isPoint(s.end) || !isNonNeg(s.length)) return false;
+  if (s.kind === 'straight') return true;
+  return s.kind === 'arc' && isPositive(s.radius) && isPositive(s.sweepDeg) && (s.centre === undefined || isPoint(s.centre));
+}
+
+function isHook(h: unknown): boolean {
+  return isObj(h) && (h.angle === 90 || h.angle === 135 || h.angle === 180)
+    && isPositive(h.mandrelDiameter) && isPositive(h.centrelineRadius) && isNonNeg(h.extension) && Array.isArray(h.refs);
 }
 
 function isEnd(e: unknown): boolean {
-  return isObj(e) && (e.kind === 'straight' || e.kind === 'continuous' || (e.kind === 'hook' && isObj(e.hook)));
+  return isObj(e) && (e.kind === 'straight' || e.kind === 'continuous' || (e.kind === 'hook' && isHook(e.hook)));
 }
 
 function isBar(b: unknown): boolean {
@@ -162,7 +171,7 @@ function isBar(b: unknown): boolean {
     && (b.role === 'longitudinal' || b.role === 'transverse')
     && Array.isArray(b.segments) && b.segments.every(isSegment)
     && isEnd(b.startTreatment) && isEnd(b.endTreatment)
-    && finite(b.cuttingLength) && b.cuttingLength >= 0 && finiteList(b.ownerElementIds);
+    && isNonNeg(b.cuttingLength) && finiteList(b.ownerElementIds);
 }
 
 function isAssembly(a: unknown): boolean {

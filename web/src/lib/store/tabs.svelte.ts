@@ -614,13 +614,18 @@ function createTabManager() {
     },
 
     /** Open stored tabs after the current ones, leaving the active tab as it is. */
+    /** Gives a saved tab whose id is already open a new one, in place. */
     addTabs(savedTabs: TabState[]): void {
       if (savedTabs.length === 0) return;
       const ids = new Set(tabs.map((tab) => tab.id));
       const updated = [...tabs];
       const idx = updated.findIndex((tab) => tab.id === activeTabId);
       if (idx !== -1) updated[idx] = captureCurrentState();
-      tabs = [...updated, ...savedTabs.filter((tab) => !ids.has(tab.id))];
+      for (const tab of savedTabs) {
+        if (ids.has(tab.id)) tab.id = generateTabId();
+        ids.add(tab.id);
+      }
+      tabs = [...updated, ...savedTabs];
     },
 
     /** Restore a full session (all tabs) from a saved file */
