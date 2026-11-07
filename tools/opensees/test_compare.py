@@ -29,6 +29,19 @@ def column(axial_span_load=True):
 
 
 class MeshTest(unittest.TestCase):
+    def test_end_releases_stay_at_the_member_ends(self):
+        d = column()
+        d["elements"]["2"].update(hingeStart=True, hingeEnd=True, releaseMyStart=True, releaseTEnd=True)
+        m = C.mesh(d, 4)
+        z = lambda e: m["nodes"][str(e["nodeI"])]["z"]
+        segs = sorted((e for e in m["elements"].values() if e["type"] == "frame" and z(e) >= 3.0), key=z)
+        self.assertEqual(len(segs), 4)
+        released = lambda e: sorted(f for f in e if f.startswith(("hinge", "release")))
+        self.assertEqual(released(segs[0]), ["hingeStart", "releaseMyStart"])
+        self.assertEqual([released(s) for s in segs[1:3]], [[], []])
+        self.assertEqual(released(segs[3]), ["hingeEnd", "releaseTEnd"])
+        self.assertEqual((segs[0]["nodeI"], segs[3]["nodeJ"]), (2, 3))
+
     def test_one_element_is_the_model_itself(self):
         d = column()
         self.assertIs(C.mesh(d, 1), d)

@@ -1886,7 +1886,8 @@ def _dump(dump_dir, name, model):
 
 def mesh(d, n):
     """The model with every frame member split into n equal collinear frame
-    members (trusses stay whole: a split truss is a mechanism). Only nodal and
+    members (trusses stay whole: a split truss is a mechanism), an end's
+    hinges and releases kept on the segment at that end only. Only nodal and
     full-length uniform member loads are carried over; anything else is left
     to _check_geom to refuse on the unsplit model."""
     if n == 1:
@@ -1913,7 +1914,9 @@ def mesh(d, n):
             eid += 1
             ids.append(eid)
         for k, i in enumerate(ids):
-            seg = dict(e, id=i, nodeI=chain[k], nodeJ=chain[k + 1])
+            seg = {f: v for f, v in e.items()
+                   if not (f.startswith(("hinge", "release")) and (f.endswith("Start") and k > 0 or f.endswith("End") and k < n - 1))}
+            seg.update(id=i, nodeI=chain[k], nodeJ=chain[k + 1])
             d["elements"][key if k == 0 else str(i)] = seg
         pieces[e["id"]] = ids
     loads = []
