@@ -790,25 +790,32 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     needs: [changes]
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
           fetch-depth: 0
           persist-credentials: false
       - name: The merge deletes no recent lines the branch never had
         env:
-          BASE_REF: ${{ github.base_ref }}
-          LABELS: ${{ needs.changes.outputs.labels }}
+          BASE: ${{ github.event_name == 'merge_group' && github.event.merge_group.base_sha || format('origin/{0}', github.base_ref) }}
+          QUEUE_REF: ${{ github.event.merge_group.head_ref }}
+          PR_LABELS: ${{ needs.changes.outputs.labels }}
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
-          if ! git cat-file -e "origin/$BASE_REF:.github/scripts/revert-check.py"; then
-            echo "origin/$BASE_REF has no revert check yet; the pull request's own copy is not trusted to judge it."
+          if ! git cat-file -e "$BASE:.github/scripts/revert-check.py"; then
+            echo "$BASE has no revert check yet; the pull request's own copy is not trusted to judge it."
             exit 0
           fi
-          git show "origin/$BASE_REF:.github/scripts/revert-check.py" > "$RUNNER_TEMP/revert-check.py"
-          python3 -B -I "$RUNNER_TEMP/revert-check.py" "origin/$BASE_REF" HEAD
-
+          git show "$BASE:.github/scripts/revert-check.py" > "$RUNNER_TEMP/revert-check.py"
+          LABELS=$PR_LABELS
+          if [ -n "$QUEUE_REF" ]; then
+            prs=$( { git log --format=%s "$BASE..HEAD"; echo "$QUEUE_REF"; } | grep -oE '(#|pr-)[0-9]+' | grep -oE '[0-9]+' | sort -u)
+            LABELS=$(for pr in $prs; do gh api "repos/$GH_REPO/pulls/$pr" --jq '.labels[].name'; done | paste -sd,)
+          fi
+          LABELS=$LABELS python3 -B -I "$RUNNER_TEMP/revert-check.py" "$BASE" HEAD
   check-migrations:
     name: Check Migration Safety
     runs-on: ubuntu-24.04

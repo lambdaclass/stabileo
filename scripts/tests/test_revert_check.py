@@ -243,12 +243,20 @@ class Workflow(unittest.TestCase):
     def test_the_gate_runs_the_base_branchs_checker_not_the_pull_requests(self):
         workflow = (ROOT / '.github/workflows/ci.yml').read_text()
         job = workflow.split('\n  revert-check:\n', 1)[1].split('\n  check-migrations:\n', 1)[0]
-        self.assertIn('git show "origin/$BASE_REF:.github/scripts/revert-check.py" > "$RUNNER_TEMP/revert-check.py"', job)
-        self.assertIn('python3 -B -I "$RUNNER_TEMP/revert-check.py" "origin/$BASE_REF" HEAD', job)
+        self.assertIn('git show "$BASE:.github/scripts/revert-check.py" > "$RUNNER_TEMP/revert-check.py"', job)
+        self.assertIn('python3 -B -I "$RUNNER_TEMP/revert-check.py" "$BASE" HEAD', job)
         self.assertNotIn('make ', job)
         self.assertNotIn('retry-infra.sh', job)
         self.assertNotIn('cp .github/scripts/revert-check.py', job)
         self.assertNotIn('python3 -B -I .github/scripts/revert-check.py', job)
+
+    def test_the_merge_queue_runs_it_on_the_group_against_the_group_base(self):
+        workflow = (ROOT / '.github/workflows/ci.yml').read_text()
+        job = workflow.split('\n  revert-check:\n', 1)[1].split('\n  check-migrations:\n', 1)[0]
+        self.assertIn("if: github.event_name == 'pull_request' || github.event_name == 'merge_group'", job)
+        self.assertIn('ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}', job)
+        self.assertIn("github.event_name == 'merge_group' && github.event.merge_group.base_sha", job)
+        self.assertIn('merge_group:', workflow.split('\njobs:\n', 1)[0])
 
 if __name__ == '__main__':
     unittest.main()
