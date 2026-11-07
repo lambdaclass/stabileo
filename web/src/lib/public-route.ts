@@ -12,7 +12,7 @@ import { isStandingPagePath } from './blog/pages/paths';
  */
 const SHARED_MODEL = /^#(data=|embed=|code=)/;
 
-export type RouteKind = 'app' | 'blog' | 'research' | 'paper' | 'tools' | 'landing';
+export type RouteKind = 'app' | 'blog' | 'research' | 'paper' | 'tools' | 'examples' | 'landing';
 
 /** `/app` and everything under it: the application's own addresses. */
 export function isAppPath(pathname: string): boolean {
@@ -43,7 +43,8 @@ export function routeKind(loc: Pick<Location, 'pathname' | 'search' | 'hash'> = 
   // (`loadFromURLHash`): it used to be mounted behind the landing and read the fragment.
   if (SHARED_MODEL.test(loc.hash)) return { kind: 'app', path };
   if (path === '/blog' || path.startsWith('/blog/') || isStandingPagePath(path)) return { kind: 'blog', path };
-  if (path === '/tools' || path.startsWith('/tools/')) return { kind: 'tools', path };
+  const top = path.split('/')[1];
+  if (top === 'tools' || top === 'examples') return { kind: top, path };
   if (isResearchPath(path)) return { kind: 'research', path };
   if (isPaperPath(path)) return { kind: 'paper', path };
   return { kind: 'landing', path };

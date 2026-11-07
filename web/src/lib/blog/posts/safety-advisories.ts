@@ -20,7 +20,7 @@ export const safetyAdvisories: Post = {
   slug: 'safety-advisories',
   date: '2026-10-20',
   updated: '2026-10-28',
-  order: 6,
+  order: 7,
   authors: ['Federico Carrone'],
   tagKeys: ['blog.tag.safety', 'blog.tag.verification'],
   i18n: {
@@ -32,6 +32,7 @@ export const safetyAdvisories: Post = {
         { k: 'p', t: 'Los resultados de Stabileo se usan para dimensionar estructuras reales. Cuando encontramos un error que pudo dar un resultado equivocado, y en particular uno del lado inseguro, lo publicamos como aviso de seguridad: qué estaba mal, qué modelos afecta, cómo reconocerlos, qué hacer hasta que la corrección esté publicada y qué revisar en los resultados que ya se usaron.' },
         { k: 'p', t: 'Casi todos estos errores los encontró nuestro propio programa de verificación: comparación contra otros siete programas de elementos finitos, ejemplos resueltos publicados, pruebas de invariantes físicos y revisión de las derivaciones de cada elemento. Publicarlos es parte de ese trabajo: un error que no se informa sigue en los cálculos que ya se entregaron.' },
         { k: 'note', t: 'Estado al 28 de octubre de 2026: los avisos SA-2026-001 a 020 están corregidos en la versión 0.3.0 y SA-2026-021 a 024 en la versión 0.4.0 (en stabileo.com, SA-2026-021 y 022 desde el 22 de octubre y SA-2026-023 y 024 desde el 25 y el 26). Publicarlos es parte de cómo verificamos los resultados, no una señal de que sigan abiertos. Un aviso cuenta como corregido cuando la corrección está publicada en stabileo.com, no cuando existe el cambio. Mientras un aviso esté abierto, usá la alternativa que indica y revisá a mano el resultado afectado antes de firmar.' },
+        { k: 'img', base: 'blog/recheck-stale', w: 1600, h: 1000, alt: 'Stabileo PRO con un pórtico de hormigón guardado antes de que los resultados tuvieran versión. Un aviso abajo indica que los resultados están desactualizados porque el proyecto se resolvió con una versión anterior y 19 cambios registrados lo afectan, con los botones para ver qué cambió y volver a calcular.', caption: 'Cómo llega una corrección a un proyecto guardado: hasta que se resuelve de nuevo, sus resultados quedan marcados como desactualizados, con los cambios que lo afectan a un clic.' },
 
         { k: 'h', t: 'Resumen' },
         {
@@ -43,6 +44,7 @@ export const safetyAdvisories: Post = {
             ['SA-2026-022', 'Con empuje de suelo H faltaba la combinación en que el peso propio lo resiste (27 a 45 % bajo en un ejemplo)', 'Alta', 'Corregido en 0.4.0'],
             ['SA-2026-023', 'Columnas de hormigón armado: la verificación leía un solo signo del momento; con barras desparejas (6, 10, 14…) aprobaba con el lado más fuerte', 'Crítica', 'Corregido en 0.4.0'],
             ['SA-2026-024', 'Bases, nudos, losas, tabiques y el optimizador de acero diseñados con las cargas sin mayorar cuando las combinaciones estaban definidas y sin resolver (cálculo en vivo, un cálculo de combinaciones fallido o una lista activa vacía)', 'Alta', 'Corregido en 0.4.0'],
+            ['SA-2026-039', 'Importación de Excel e IFC: Iy e Iz de rectángulos y tubos intercambiados (un voladizo de 20 × 40, 4 veces demasiado flexible; uno de 40 × 20, 4 veces demasiado rígido)', 'Alta', 'Corregido en la próxima versión'],
             ['SA-2026-027', 'Envolvente de láminas: tomaba la combinación de mayor Von Mises, no el extremo de cada componente (mx 14 % bajo en un ejemplo)', 'Alta', 'Corrección en revisión'],
             ['SA-2026-028', 'Flexión EN 1992-1-1 (otras normas en PRO, certificada): suponía que el acero traccionado fluye y no iteraba la armadura superior; MRd hasta un 22 % alto', 'Alta', 'Corregido después de 0.4.0'],
             ['SA-2026-029', '3D: las columnas CIRSOC 201 de la app se calculaban con Mz sobre la altura de la sección (36 % menos armadura en un ejemplo); las verificaciones certificadas 3D del motor leían el corte lateral Vy como corte del alma', 'Crítica', 'Corregido en la próxima versión'],
@@ -59,6 +61,7 @@ export const safetyAdvisories: Post = {
             ['SA-2026-044', 'Colapso plástico 2D: el factor de colapso cambiaba con la numeración de nudos, el sentido de las barras y las unidades (hasta 4,6 veces en la misma estructura)', 'Alta', 'Análisis límite corregido en la próxima versión; el colapso plástico 2D queda retenido hasta que se cierre #758'],
             ['SA-2026-043', 'Análisis armónico: la corrección de los modos omitidos perdía sus cifras cuando un modo era mucho más flexible que los demás (79 veces a 2,3 Hz en un ejemplo)', 'Alta', 'Corregido en la próxima versión'],
             ['SA-2026-045', 'Colapso plástico 3D: una barra sin momento plástico utilizable se trataba como si nunca plastificara (6 veces alto en un ejemplo, y certificado)', 'Alta', 'Corregido en la próxima versión'],
+            ['SA-2026-046', 'Análisis armónico: elegía entre la superposición modal y la solución directa según la carga, así que la superposición y la reciprocidad fallaban (107 % en un nudo en un ejemplo); stabileo.com y las compilaciones del motor/WASM de main, desde el 5 de noviembre de 2026 hasta la corrección', 'Alta', 'Corregido en la próxima versión'],
             ['SA-2026-037', 'Análisis corrotacional 3D: restaba vectores de rotación (la curva de Bathe–Bolourchi 1,3 % fuera, sin mejorar al refinar)', 'Media', 'Corregido en la próxima versión'],
             ['SA-2026-036', 'Paso de 3D a 2D en Y–Z o X–Y: las restricciones se leían como si el pórtico estuviera en X–Z (vínculos de desplazamiento perdidos o aplicados fuera del plano)', 'Alta', 'Corregido en la próxima versión'],
             ['SA-2026-013', 'Láminas curvas: momentos flectores informados como cero; tensiones con la deformación térmica libre', 'Alta', 'Corregido en 0.3.0'],
@@ -270,6 +273,7 @@ export const safetyAdvisories: Post = {
         { k: 'p', t: 'Stabileo’s results are used to design real structures. When we find a defect that could have produced a wrong result, and especially an unconservative one, we publish it as a safety advisory: what was wrong, which models it affects, how to recognise them, what to do until the fix is live, and what to re-check in results that were already used.' },
         { k: 'p', t: 'Almost all of these defects were found by our own verification programme: comparison against seven other finite-element programs, published worked examples, physical-invariant tests and a review of every element’s derivation. Publishing them is part of that work: a defect that is not reported stays in the calculations that were already delivered.' },
         { k: 'note', t: 'Status as of 28 October 2026: SA-2026-001 to 020 are fixed in version 0.3.0 and SA-2026-021 to 024 in version 0.4.0 (live on stabileo.com, SA-2026-021 and 022 since 22 October and SA-2026-023 and 024 since 25 and 26 October). Publishing them is part of how we verify the results, not a sign that they are still open. An advisory counts as fixed when the fix is live on stabileo.com, not when the change exists. While an advisory is open, use its workaround and check the affected result by hand before signing.' },
+        { k: 'img', base: 'blog/recheck-stale', w: 1600, h: 1000, alt: 'Stabileo PRO with a concrete frame saved before results were versioned. A banner at the bottom reads “Results stale: this project was last solved with an older version, and 19 registered changes concern it”, with the buttons “What changed” and “Re-run”.', caption: 'How a fix reaches a saved project: until it is solved again, its results stay marked stale, with the changes that concern it one click away.' },
 
         { k: 'h', t: 'Summary' },
         {
@@ -281,6 +285,7 @@ export const safetyAdvisories: Post = {
             ['SA-2026-022', 'With earth pressure H, the combination where the dead load resists it was missing (27 to 45 % low in an example)', 'High', 'Fixed in 0.4.0'],
             ['SA-2026-023', 'RC columns: the check read one sign of the moment; uneven bar layouts (6, 10, 14…) passed on the stronger side', 'Critical', 'Fixed in 0.4.0'],
             ['SA-2026-024', 'Footings, joints, slabs, walls and the steel optimiser designed for the unfactored loads when combinations were defined and not solved (live calc, a failed combination solve, or an empty active list)', 'High', 'Fixed in 0.4.0'],
+            ['SA-2026-039', 'Excel and IFC import: Iy and Iz of rectangles and tubes were swapped (a 20 × 40 cantilever 4 times too flexible, a 40 × 20 one 4 times too stiff)', 'High', 'Fixed in the next release'],
             ['SA-2026-027', 'Shell envelope: kept the combination with the largest Von Mises, not each component\'s extreme (mx 14 % low in an example)', 'High', 'Fix in review'],
             ['SA-2026-028', 'EN 1992-1-1 flexure (PRO other codes, certified): assumed the tension steel yields and did not iterate the top bars; MRd up to 22 % high', 'High', 'Fixed after 0.4.0'],
             ['SA-2026-029', '3D: app CIRSOC 201 columns were designed with Mz over the section depth (36 % too little steel in one example); the engine\'s certified 3D checks read the lateral shear Vy as the web shear', 'Critical', 'Fixed in the next release'],
@@ -297,6 +302,7 @@ export const safetyAdvisories: Post = {
             ['SA-2026-044', '2D plastic collapse: the collapse factor changed with node numbering, member direction and units (up to 4.6 times on the same structure)', 'High', 'Limit analysis fixed in the next release; 2D plastic collapse withheld until #758 closes'],
             ['SA-2026-043', 'Harmonic analysis: the omitted modes\' correction lost its digits when one mode was much softer than the rest (79 times at 2.3 Hz in an example)', 'High', 'Fixed in the next release'],
             ['SA-2026-045', '3D plastic collapse: a member without a usable plastic moment was treated as one that never yields (6 times high in an example, and certified)', 'High', 'Fixed in the next release'],
+            ['SA-2026-046', 'Harmonic analysis: chose between modal superposition and the direct solve per load, so superposition and reciprocity broke (107 % at a node in an example); stabileo.com and engine/WASM builds of main, from 5 November 2026 until the fix', 'High', 'Fixed in the next release'],
             ['SA-2026-037', '3D co-rotational analysis: rotation vectors were subtracted (the Bathe–Bolourchi bend 1.3 % off, not shrinking with refinement)', 'Medium', 'Fixed in the next release'],
             ['SA-2026-036', '3D-to-2D switch on Y–Z or X–Y: constraints were read as if the frame stood in X–Z (sway ties dropped or applied out of plane)', 'High', 'Fixed in the next release'],
             ['SA-2026-013', 'Curved shells: bending moments reported as zero; stresses kept the free thermal strain', 'High', 'Fixed in 0.3.0'],
@@ -508,6 +514,7 @@ export const safetyAdvisories: Post = {
         { k: 'p', t: 'Os resultados do Stabileo são usados para dimensionar estruturas reais. Quando encontramos um defeito que pode ter produzido um resultado errado, e em especial um contra a segurança, publicamos um aviso de segurança: o que estava errado, quais modelos afeta, como reconhecê-los, o que fazer até a correção estar publicada e o que revisar nos resultados que já foram usados.' },
         { k: 'p', t: 'Quase todos esses defeitos foram encontrados pelo nosso próprio programa de verificação: comparação com outros sete programas de elementos finitos, exemplos resolvidos publicados, testes de invariantes físicos e revisão da derivação de cada elemento. Publicá-los faz parte desse trabalho: um defeito que não é informado continua nos cálculos já entregues.' },
         { k: 'note', t: 'Situação em 28 de outubro de 2026: os avisos SA-2026-001 a 020 estão corrigidos na versão 0.3.0 e SA-2026-021 a 024 na versão 0.4.0 (em stabileo.com, SA-2026-021 e 022 desde 22 de outubro e SA-2026-023 e 024 desde 25 e 26). Publicá-los faz parte de como verificamos os resultados, não um sinal de que continuam abertos. Um aviso conta como corrigido quando a correção está publicada em stabileo.com, não quando a mudança existe. Enquanto um aviso estiver aberto, use a alternativa indicada e confira à mão o resultado afetado antes de assinar.' },
+        { k: 'img', base: 'blog/recheck-stale', w: 1600, h: 1000, alt: 'Stabileo PRO com um pórtico de concreto salvo antes de os resultados terem versão. Um aviso embaixo indica que os resultados estão desatualizados porque o projeto foi resolvido com uma versão anterior e 19 mudanças registradas o afetam, com os botões para ver o que mudou e recalcular.', caption: 'Como uma correção chega a um projeto salvo: até ser resolvido de novo, seus resultados ficam marcados como desatualizados, com as mudanças que o afetam a um clique.' },
 
         { k: 'h', t: 'Resumo' },
         {
@@ -519,6 +526,7 @@ export const safetyAdvisories: Post = {
             ['SA-2026-022', 'Com empuxo de solo H faltava a combinação em que o peso próprio o resiste (27 a 45 % baixo num exemplo)', 'Alta', 'Corrigido em 0.4.0'],
             ['SA-2026-023', 'Pilares de concreto armado: a verificação lia um só sinal do momento; com barras desiguais (6, 10, 14…) aprovava com o lado mais forte', 'Crítica', 'Corrigido em 0.4.0'],
             ['SA-2026-024', 'Sapatas, nós, lajes, paredes e o otimizador de aço dimensionados com as cargas sem majorar quando as combinações estavam definidas e não resolvidas (cálculo ao vivo, um cálculo de combinações que falhou ou uma lista ativa vazia)', 'Alta', 'Corrigido em 0.4.0'],
+            ['SA-2026-039', 'Importação de Excel e IFC: Iy e Iz de retângulos e tubos trocados (um balanço de 20 × 40, 4 vezes flexível demais; um de 40 × 20, 4 vezes rígido demais)', 'Alta', 'Corrigido na próxima versão'],
             ['SA-2026-027', 'Envoltória de cascas: tomava a combinação de maior Von Mises, não o extremo de cada componente (mx 14 % baixo em um exemplo)', 'Alta', 'Correção em revisão'],
             ['SA-2026-028', 'Flexão EN 1992-1-1 (outras normas no PRO, certificada): supunha que o aço tracionado escoa e não iterava a armadura superior; MRd até 22 % alto', 'Alta', 'Corrigido depois de 0.4.0'],
             ['SA-2026-029', '3D: os pilares CIRSOC 201 do app eram dimensionados com Mz sobre a altura da seção (36 % menos armadura em um exemplo); as verificações certificadas 3D do motor liam o cortante lateral Vy como cortante da alma', 'Crítica', 'Corrigido na próxima versão'],
@@ -535,6 +543,7 @@ export const safetyAdvisories: Post = {
             ['SA-2026-044', 'Colapso plástico 2D: o fator de colapso mudava com a numeração dos nós, o sentido das barras e as unidades (até 4,6 vezes na mesma estrutura)', 'Alta', 'Análise limite corrigida na próxima versão; o colapso plástico 2D fica retido até que #758 seja fechado'],
             ['SA-2026-043', 'Análise harmônica: a correção dos modos omitidos perdia seus dígitos quando um modo era muito mais flexível que os demais (79 vezes a 2,3 Hz num exemplo)', 'Alta', 'Corrigido na próxima versão'],
             ['SA-2026-045', 'Colapso plástico 3D: uma barra sem momento plástico utilizável era tratada como se nunca plastificasse (6 vezes alto num exemplo, e certificado)', 'Alta', 'Corrigido na próxima versão'],
+            ['SA-2026-046', 'Análise harmônica: escolhia entre a superposição modal e a solução direta conforme a carga, então a superposição e a reciprocidade falhavam (107 % num nó num exemplo); stabileo.com e as compilações do motor/WASM de main, de 5 de novembro de 2026 até a correção', 'Alta', 'Corrigido na próxima versão'],
             ['SA-2026-037', 'Análise corrotacional 3D: subtraía vetores de rotação (a curva de Bathe–Bolourchi 1,3 % fora, sem melhorar ao refinar)', 'Média', 'Corrigido na próxima versão'],
             ['SA-2026-036', 'Passagem de 3D para 2D em Y–Z ou X–Y: as restrições eram lidas como se o pórtico estivesse em X–Z (vínculos de deslocamento perdidos ou aplicados fora do plano)', 'Alta', 'Corrigido na próxima versão'],
             ['SA-2026-013', 'Cascas curvas: momentos fletores informados como zero; tensões com a deformação térmica livre', 'Alta', 'Corrigido na 0.3.0'],

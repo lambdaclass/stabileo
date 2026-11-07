@@ -1018,8 +1018,11 @@ impl PreparedStatic2D<'_> {
         }
         crate::known_issues::attach(&mut r.structured_diagnostics, self.known_model.clone());
         crate::known_issues::attach(&mut r.structured_diagnostics, crate::known_issues::loads_2d(loads));
-        let beyond = crate::known_issues::small_displacement_2d(Some(&self.input), &r);
+        let (beyond, chords, spans) = crate::known_issues::small_displacement_2d(&self.input, &r);
         crate::known_issues::attach(&mut r.structured_diagnostics, beyond.into_iter().collect());
+        let summary = r.result_summary.get_or_insert_with(Default::default);
+        summary.member_chords = Some(chords);
+        summary.member_spans = Some(spans);
         let (second, ratio) = crate::known_issues::second_order_2d(&self.input, loads, &r);
         crate::known_issues::attach(&mut r.structured_diagnostics, second);
         r.result_summary.get_or_insert_with(Default::default).second_order_ratio = Some(ratio);
@@ -2648,8 +2651,11 @@ impl PreparedStatic3D {
         let mut r = self.solve_loads_by_path(loads)?;
         // Known issues of this load set (the model's are in the pre-solve diagnostics).
         crate::known_issues::attach(&mut r.structured_diagnostics, crate::known_issues::loads_3d(loads));
-        let beyond = crate::known_issues::small_displacement_3d(Some(&self.input), &r);
+        let (beyond, chords, spans) = crate::known_issues::small_displacement_3d(&self.input, &r);
         crate::known_issues::attach(&mut r.structured_diagnostics, beyond.into_iter().collect());
+        let summary = r.result_summary.get_or_insert_with(Default::default);
+        summary.member_chords = Some(chords);
+        summary.member_spans = Some(spans);
         let (second, ratio) = crate::known_issues::second_order_3d(&self.input, loads, &r);
         crate::known_issues::attach(&mut r.structured_diagnostics, second);
         r.result_summary.get_or_insert_with(Default::default).second_order_ratio = Some(ratio);

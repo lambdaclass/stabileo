@@ -143,6 +143,7 @@ export const cirsoc201Flexure: Post = {
 
         { k: 'h', t: 'Probalo sobre una viga de verdad' },
         { k: 'p', t: 'Acá abajo está el modelo: una viga simplemente apoyada de 5 m, 20×40, H-25, con 12 kN/m de carga permanente y 8 kN/m de sobrecarga, más su peso propio. Abre en el flujo de diseño de PRO, con CIRSOC 201 como reglamento en vigencia.' },
+        { k: 'img', base: 'blog/cirsoc-201-beam', w: 1600, h: 1000, alt: 'Stabileo PRO, espacio de Diseño, paso Dimensionar, con la viga de 20×40 seleccionada después de resolver y diseñar. El panel de la barra indica verificada con η local 0,90 según CIRSOC 201 (2025), con 13 verificaciones en los ejes My y Vz y una utilización máxima de 0,900.', caption: 'La viga de abajo después de «Dimensionar…»: CIRSOC 201 la verifica con una utilización de 0,90.' },
         {
           k: 'embed',
           mode: 'pro',
@@ -242,6 +243,7 @@ export const cirsoc201Flexure: Post = {
 
         { k: 'h', t: 'Try it on a real beam' },
         { k: 'p', t: 'Below is the model: a simply supported 5 m beam, 20×40, H-25, with 12 kN/m of dead load and 8 kN/m of live load, plus its own weight. It opens in PRO\'s design workflow, with CIRSOC 201 as the design code in force.' },
+        { k: 'img', base: 'blog/cirsoc-201-beam', w: 1600, h: 1000, alt: 'Stabileo PRO, Design workspace, Size step, with the 20×40 beam selected after solving and designing. The member panel reads “Verified · local η 0.90” under CIRSOC 201 (2025), with 13 checks on the My and Vz axes and a worst utilization of 0.900.', caption: 'The beam below after “Size…”: CIRSOC 201 checks it at a utilization of 0.90.' },
         {
           k: 'embed',
           mode: 'pro',
@@ -341,6 +343,7 @@ export const cirsoc201Flexure: Post = {
 
         { k: 'h', t: 'Experimente numa viga de verdade' },
         { k: 'p', t: 'Abaixo está o modelo: uma viga simplesmente apoiada de 5 m, 20×40, H-25, com 12 kN/m de carga permanente e 8 kN/m de sobrecarga, mais o peso próprio. Abre no fluxo de projeto do PRO, com a CIRSOC 201 como norma em vigor.' },
+        { k: 'img', base: 'blog/cirsoc-201-beam', w: 1600, h: 1000, alt: 'Stabileo PRO, espaço de Projeto, etapa Dimensionar, com a viga de 20×40 selecionada depois de resolver e dimensionar. O painel da barra indica verificada com η local 0,90 pela CIRSOC 201 (2025), com 13 verificações nos eixos My e Vz e utilização máxima de 0,900.', caption: 'A viga abaixo depois de «Dimensionar…»: a CIRSOC 201 a verifica com utilização de 0,90.' },
         {
           k: 'embed',
           mode: 'pro',

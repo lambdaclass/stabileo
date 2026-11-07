@@ -104,6 +104,7 @@ export const conceptualAdvanced: Post = {
           ],
         },
         { k: 'p', t: 'La app no informa el cero y se lava las manos: lo contradice, y en el mismo paso 2 donde lo calculó: "La fórmula da GH = 0 (condición necesaria para isostática), pero NO suficiente". El paso 3 arma la matriz de rigidez global (6×6 acá) y marca "Se detectaron 1 modo de mecanismo a pesar de que GH = 0 ≥ 0". Nombra el nodo 3 y su desplazamiento horizontal, aclara que la ecuación del paso 2 cuenta restricciones pero no mira dónde están, y cierra con "✗ Mecanismo — no se puede resolver".' },
+        { k: 'img', base: 'blog/hidden-mechanism', w: 1600, h: 1000, alt: 'Stabileo Básico con una viga de dos tramos sobre tres apoyos deslizantes horizontales bajo 10 kN/m. El panel de análisis cinemático muestra GH = 3·2 + 3 − 3·3 = 0, y un mensaje avisa que la estructura es inestable (mecanismo) porque ningún apoyo restringe el movimiento horizontal.', caption: 'La misma viga en la aplicación: la fórmula da cero y el solver igual la rechaza como mecanismo.' },
         {
           k: 'embed',
           query: 'example=hidden-mechanism&kin=1',
@@ -169,6 +170,7 @@ export const conceptualAdvanced: Post = {
           ],
         },
         { k: 'p', t: 'The app does not just report the zero and wash its hands. It contradicts it in the same step 2 that produced it: "The formula gives GH = 0 (necessary condition for isostatic), but NOT sufficient". Step 3 assembles the global stiffness matrix, 6×6 here, and flags "Detected 1 mechanism mode" in spite of GH = 0 ≥ 0. It names node 3 and its horizontal displacement, points out that the step 2 equation counts constraints without checking where they sit, and closes with "✗ Mechanism — cannot be solved".' },
+        { k: 'img', base: 'blog/hidden-mechanism', w: 1600, h: 1000, alt: 'Stabileo Basic with a two-span beam on three horizontal rollers under 10 kN/m. The kinematic analysis panel shows GH = 3·2 + 3 − 3·3 = 0, and a message reads “Unstable structure (mechanism): no horizontal restraint at any support”.', caption: 'The same beam in the app: the formula gives zero, and the solver still refuses it as a mechanism.' },
         {
           k: 'embed',
           query: 'example=hidden-mechanism&kin=1',
@@ -234,6 +236,7 @@ export const conceptualAdvanced: Post = {
           ],
         },
         { k: 'p', t: 'O app não se limita a informar o zero e lavar as mãos. Ele contradiz esse resultado no mesmo passo 2 em que o calculou: "A fórmula dá GH = 0 (condição necessária para isostática), mas NÃO suficiente". O passo 3 monta a matriz de rigidez global, 6×6 aqui, e marca "Detectado 1 modo de mecanismo" apesar de GH = 0 ≥ 0. Aponta o nó 3 e o seu deslocamento horizontal, explica que a equação do passo 2 conta restrições sem olhar onde elas estão e fecha com "✗ Mecanismo — não pode ser resolvida".' },
+        { k: 'img', base: 'blog/hidden-mechanism', w: 1600, h: 1000, alt: 'Stabileo Básico com uma viga de dois vãos sobre três apoios deslizantes horizontais sob 10 kN/m. O painel de análise cinemática mostra GH = 3·2 + 3 − 3·3 = 0, e uma mensagem avisa que a estrutura é instável (mecanismo) porque nenhum apoio restringe o movimento horizontal.', caption: 'A mesma viga no aplicativo: a fórmula dá zero e o solver ainda assim a recusa como mecanismo.' },
         {
           k: 'embed',
           query: 'example=hidden-mechanism&kin=1',

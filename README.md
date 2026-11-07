@@ -32,7 +32,7 @@
 ## What it is
 
 Stabileo is structural analysis and design software that runs in any modern browser, with an AI
-assistant in development (bring your own Claude or OpenAI key). You model, load, solve
+assistant in development. You model, load, solve
 and read results in 2D and 3D. The analysis engine is written in Rust and compiled to WebAssembly,
 so it runs on your own computer: the model is not sent to a server to be solved.
 

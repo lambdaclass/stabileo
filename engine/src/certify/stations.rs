@@ -311,7 +311,7 @@ fn xs(ef_len: f64, ts: &[f64]) -> Vec<f64> {
 pub fn diagram_gaps_2d(ef: &ElementForces) -> DiagramGaps2D {
     let l = ef.length;
     let mut dists = dists_of(&ef.distributed_loads);
-    if dists.is_empty() && (ef.q_i.abs() > 1e-10 || ef.q_j.abs() > 1e-10) && l >= 1e-12 {
+    if dists.is_empty() && (ef.q_i != 0.0 || ef.q_j != 0.0) && l >= 1e-12 {
         dists.push(Dist { qi: ef.q_i, qj: ef.q_j, a: 0.0, b: l });
     }
     let pls = sorted_point_loads(ef);

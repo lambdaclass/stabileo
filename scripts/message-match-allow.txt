@@ -96,6 +96,8 @@ web/src/lib/report/memoria/render.ts: const note = (s: string) => { let i = reas
 web/src/lib/store/file.ts: switch (result.failure?.kind) {
 
 ## Matches text Stabileo does not write (backend validation messages, GitHub Actions logs, browser and runtime errors, git subjects): there is no code to key on.
+.github/scripts/select-ci.py: if SLOW_TAG.search(source):
+.github/scripts/select-ci.py: for spec in IMPORT.findall(source):
 web/src/lib/api/error-text.ts: if (message === 'has already been taken') return t('account.field.taken');
 web/src/lib/api/error-text.ts: if (message === "can't be blank") return t('account.field.blank');
 web/src/lib/api/error-text.ts: if (message === 'has invalid format' || message === 'is invalid') return t('account.field.invalid');
@@ -155,3 +157,6 @@ scripts/verification-metrics.py: return analysis == "static" and "linear static"
 .github/scripts/nightly-findings.cjs: const existing = issues.find(i => !i.pull_request && i.body?.includes(marker));
 .github/scripts/nightly-findings.cjs: if (!existing.body.includes(occurrence) && !comments.some(c => c.body?.includes(occurrence))) {
 .github/scripts/verification-alert.cjs: `${HELD}: ${body.replace(/^Green again: /, '').replace(/ Closing\.$/, '')} The failures above may be real findings that ` +
+
+## Redacts the user's own API key from a provider error before it is shown: nothing is decided from the wording.
+web/src/lib/ai/providers/types.ts: if (apiKey && err.message.includes(apiKey.slice(0, 12))) return new AiProviderError(err.kind, err.status);

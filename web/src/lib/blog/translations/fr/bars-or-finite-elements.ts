@@ -290,6 +290,7 @@ const body: PostBody = {
       "k": "p",
       "t": "Stabileo réunit les deux modes dans un même programme. Le mode Basique calcule avec des éléments de barre et déroule la méthode des déplacements en neuf étapes : numérotation des degrés de liberté, matrices locales, transformation, assemblage, vecteur des charges, conditions aux limites, résolution, réactions et efforts internes. Le mode PRO calcule par éléments finis, avec des coques MITC4 et des plaques DKT aux côtés des éléments de barre. Parmi les outils que nous avons examinés, nous n'en avons pas trouvé d'autre qui permette d'apprendre le fonctionnement de l'analyse puis de l'appliquer à un modèle plus complet sans changer d'outil."
     },
+    {"k": "img", "base": "blog/deep-beam-shell", "w": 1600, "h": 1000, "alt": "Stabileo PRO, espace Analyse, avec la poutre-cloison de 6 m sur 2 m modélisée comme un mur d’éléments coques et résolue. Le panneau des résultats liste 225 déplacements et 192 contraintes de coque ; dans les vérifications du résultat, il estime l’erreur de discrétisation à environ 11 % en norme énergétique et demande d’affiner le maillage ou de lancer la vérification de convergence avant d’utiliser les résultats.", "caption": "Le modèle en coques ci-dessous, résolu : l’application estime l’erreur de son propre maillage et prévient quand il est trop grossier pour s’y fier."},
     {
       "k": "embed",
       "query": "example=deep-beam-bar",
