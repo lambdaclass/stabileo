@@ -276,7 +276,7 @@ describe('advisories', () => {
     expect(await reopen(0)).not.toContain('SA-2026-047');
   });
 
-  it('a shell model solved with the fix, or opened with no stamp at all, is warned only before the fix', async () => {
+  it('a shell model is warned at results versions 0 (unknown) and 1, and not once solved with the fix', async () => {
     slab({ imposed: true });
     expect(await reopen(SHELL_FIX)).not.toContain('SA-2026-047');
     expect(await reopen(0)).toContain('SA-2026-047');
