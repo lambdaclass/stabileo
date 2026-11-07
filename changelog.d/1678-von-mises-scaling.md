@@ -1,0 +1,4 @@
+### Fixed
+#### Shell von Mises and principal stresses no longer overflow or underflow at extreme magnitudes (2026-11-07)
+
+A combination's quad von Mises, and every plate's principal and von Mises stresses (per case and combined), squared the unscaled components (#1678). Above about 1e154 kN/m² the squares overflowed, so a representable result was refused as beyond the range of f64; below about 1e-160 they underflowed, so a stress of 1e-200 gave a von Mises of 0. The components are now scaled by a power of two near the largest before squaring and the result is scaled back, which is exact: results in the normal range are bit-identical, and only a result that is itself beyond f64 is refused. The multi-case parity test now builds its reference combination with the plates' thicknesses and checks a plate model, which it could not before.

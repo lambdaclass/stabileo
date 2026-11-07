@@ -999,16 +999,25 @@ pub fn plate_worse_face(sigma_xx: f64, sigma_yy: f64, tau_xy: f64, mx: f64, my: 
 
 /// Compute principal stresses and von Mises equivalent from 2D plane stress.
 fn principal_and_von_mises(sx: f64, sy: f64, txy: f64) -> (f64, f64, f64) {
+    let (down, up) = power_of_two_scale([sx, sy, txy]);
+    let (sx, sy, txy) = (sx * down, sy * down, txy * down);
     let avg = (sx + sy) / 2.0;
     let diff = (sx - sy) / 2.0;
     let r = (diff * diff + txy * txy).sqrt();
-
     let s1 = avg + r;
     let s2 = avg - r;
-
-    // Von Mises: sqrt(s1^2 - s1*s2 + s2^2)
     let vm = (s1 * s1 - s1 * s2 + s2 * s2).sqrt();
-    (s1, s2, vm)
+    (s1 * up, s2 * up, vm * up)
+}
+
+/// Scaling by these powers of two is exact, so a formula evaluated on scaled values stays bit-identical to the unscaled one wherever that one neither overflows nor underflows.
+pub(crate) fn power_of_two_scale<const N: usize>(values: [f64; N]) -> (f64, f64) {
+    let largest = values.iter().fold(0.0_f64, |m, v| m.max(v.abs()));
+    if largest == 0.0 || !largest.is_finite() {
+        return (1.0, 1.0);
+    }
+    let exponent = (((largest.to_bits() >> 52) & 0x7ff) as i64 - 1023).clamp(-1022, 1022);
+    (f64::from_bits(((1023 - exponent) as u64) << 52), f64::from_bits(((1023 + exponent) as u64) << 52))
 }
 
 // ---------------------------------------------------------------------------

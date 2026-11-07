@@ -817,12 +817,49 @@ mod tests {
         assert_eq!(inactive_first.quad_stresses[0].qx, a.quad_stresses[0].qx);
     }
 
+    fn doubled_quad(sxx: f64, syy: f64, txy: f64) -> Result<Option<AnalysisResults3D>, String> {
+        let (_, mc) = two_cases(1);
+        let mut r = mc.case_results[0].results.clone();
+        let q = &mut r.quad_stresses[0];
+        (q.sigma_xx, q.sigma_yy, q.tau_xy) = (sxx, syy, txy);
+        combine_results_3d_refs(&[CombinationFactor { case_id: 0, factor: 2.0 }], &[(0, &r)])
+    }
+
+    fn doubled_plate(sxx: f64, syy: f64, txy: f64) -> Result<Option<AnalysisResults3D>, String> {
+        let (s, mc) = two_cases(0);
+        let mut r = mc.case_results[0].results.clone();
+        let p = &mut r.plate_stresses[0];
+        (p.sigma_xx, p.sigma_yy, p.tau_xy, p.mx, p.my, p.mxy) = (sxx, syy, txy, 0.0, 0.0, 0.0);
+        combine_results_3d_refs_with_thickness(&[CombinationFactor { case_id: 0, factor: 2.0 }], &[(0, &r)], &plate_thicknesses(&s))
+    }
+
+    #[test]
+    fn a_combined_shell_stress_whose_square_overflows_f64_is_still_combined() {
+        let q = doubled_quad(1e154, 1e154, 0.0).unwrap().unwrap().quad_stresses[0].clone();
+        assert_eq!((q.sigma_xx, q.von_mises), (2e154, 2e154));
+        let q = doubled_quad(3e307, -3e307, 0.0).unwrap().unwrap().quad_stresses[0].clone();
+        assert!((q.von_mises / (3f64.sqrt() * 6e307) - 1.0).abs() < 1e-15, "{}", q.von_mises);
+        let p = doubled_plate(4e307, 0.0, 2e307).unwrap().unwrap().plate_stresses[0].clone();
+        let close = |got: f64, want: f64| assert!((got / want - 1.0).abs() < 1e-14, "{got} vs {want}");
+        close(p.sigma_1, 4e307 * (1.0 + 2f64.sqrt()));
+        close(p.sigma_2, 4e307 * (1.0 - 2f64.sqrt()));
+        close(p.von_mises, 4e307 * 7f64.sqrt());
+    }
+
+    #[test]
+    fn a_tiny_combined_shell_stress_keeps_its_von_mises() {
+        let q = doubled_quad(1e-200, 0.0, 0.0).unwrap().unwrap().quad_stresses[0].clone();
+        assert_eq!(q.von_mises, 2e-200);
+        let p = doubled_plate(1e-200, 0.0, 0.0).unwrap().unwrap().plate_stresses[0].clone();
+        assert_eq!((p.sigma_1, p.sigma_2, p.von_mises), (2e-200, 0.0, 2e-200));
+    }
+
     #[test]
     fn a_combined_shell_stress_beyond_f64_is_refused() {
+        assert!(doubled_quad(1.5e308 / 2.0, -1.5e308 / 2.0, 0.0).unwrap_err().contains("beyond the range of f64"));
+        assert!(doubled_plate(1.5e308 / 2.0, -1.5e308 / 2.0, 0.0).unwrap_err().contains("beyond the range of f64"));
+        assert!(doubled_quad(1e308, 0.0, 0.0).unwrap_err().contains("beyond the range of f64"));
         let (_, mc) = two_cases(1);
-        let mut huge = mc.case_results[0].results.clone();
-        (huge.quad_stresses[0].sigma_xx, huge.quad_stresses[0].sigma_yy) = (1e154, 1e154);
-        assert!(combine_results_3d_refs(&[CombinationFactor { case_id: 0, factor: 2.0 }], &[(0, &huge)]).is_err());
         assert!(combine_results_3d_refs(&[CombinationFactor { case_id: 0, factor: 2.0 }], &[(0, &mc.case_results[0].results)]).is_ok());
     }
 

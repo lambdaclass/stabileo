@@ -443,7 +443,9 @@ fn same_sequence<T, K: PartialEq>(case: usize, what: &str, template: (usize, &[T
 }
 
 fn membrane_von_mises(sxx: f64, syy: f64, txy: f64) -> f64 {
-    (sxx * sxx - sxx * syy + syy * syy + 3.0 * txy * txy).sqrt()
+    let (down, up) = crate::element::plate::power_of_two_scale([sxx, syy, txy]);
+    let (sxx, syy, txy) = (sxx * down, syy * down, txy * down);
+    (sxx * sxx - sxx * syy + syy * syy + 3.0 * txy * txy).sqrt() * up
 }
 
 fn combine_shells(terms: &[(f64, usize, &AnalysisResults3D)], template: (usize, &AnalysisResults3D), plate_thickness: &PlateThicknesses) -> Result<CombinedShells, String> {
