@@ -19,6 +19,8 @@ export interface Advisory {
    * that does not record it, says the results may be affected if `ifUsed` was used.
    */
   analysis?: AnalysisKind;
+  /** Any one of these holds: the model provably hit the bug. Otherwise it may have, if `ifUsed` was used. */
+  certain?: ChangeCondition[];
   ifUsed?: Localised;
   title: Localised;
 }
@@ -49,6 +51,31 @@ export const ADVISORIES: readonly Advisory[] = [
       de: 'Die harmonische Analyse wählte je Last zwischen Modalsuperposition und direkter Lösung: Superposition und Reziprozität versagten, und Antworten wichen an einem Knoten um bis zu 107 % ab.',
       fr: 'L\'analyse harmonique choisissait entre superposition modale et résolution directe selon la charge : la superposition et la réciprocité échouaient, et les réponses s\'écartaient jusqu\'à 107 % en un nœud.',
       tr: 'Harmonik analiz modal süperpozisyon ile doğrudan çözüm arasında yüke göre seçim yapıyordu: süperpozisyon ve karşılıklılık bozuluyor, yanıtlar bir düğümde %107\'ye kadar sapıyordu.',
+    },
+  },
+  {
+    id: 'SA-2026-047',
+    issue: 1673,
+    url: `${REPO}blob/main/docs/advisories/SA-2026-047-case-displacement-shell-stresses.md`,
+    introducedBy: null,
+    fixedBy: 'combined-shell-stresses',
+    when: [{ any: ['shells', 'curvedShells'] }],
+    certain: [{ allOf: [['shells', 'curvedShells'], ['caseDisplacements'], ['combinations']] }],
+    ifUsed: {
+      en: 'a load case that imposed a support displacement',
+      es: 'un caso de carga que imponía un desplazamiento de apoyo',
+      pt: 'um caso de carga que impunha um deslocamento de apoio',
+      de: 'einen Lastfall mit eingeprägter Auflagerverschiebung',
+      fr: 'un cas de charge imposant un déplacement d\'appui',
+      tr: 'mesnet yer değiştirmesi zorlayan bir yük durumu',
+    },
+    title: {
+      en: 'In a model with shells, a load case that imposed a support displacement lost all of its shell stresses, and its combinations and envelopes summed only the other cases\' shell stresses: the combined shell stresses could be unconservative, without a warning.',
+      es: 'En un modelo con cáscaras, un caso de carga que imponía un desplazamiento de apoyo perdía todas sus tensiones de cáscara, y sus combinaciones y envolventes sumaban solo las de los demás casos: las tensiones de cáscara combinadas podían quedar del lado inseguro, sin aviso.',
+      pt: 'Em um modelo com cascas, um caso de carga que impunha um deslocamento de apoio perdia todas as suas tensões de casca, e suas combinações e envoltórias somavam apenas as dos demais casos: as tensões de casca combinadas podiam ficar contra a segurança, sem aviso.',
+      de: 'In einem Modell mit Schalen verlor ein Lastfall mit eingeprägter Auflagerverschiebung alle Schalenspannungen, und seine Kombinationen und Umhüllenden summierten nur die der anderen Lastfälle: die kombinierten Schalenspannungen konnten ohne Warnung auf der unsicheren Seite liegen.',
+      fr: 'Dans un modèle avec coques, un cas de charge imposant un déplacement d\'appui perdait toutes ses contraintes de coque, et ses combinaisons et enveloppes ne sommaient que celles des autres cas : les contraintes de coque combinées pouvaient être du côté de l\'insécurité, sans avertissement.',
+      tr: 'Kabuklu bir modelde mesnet yer değiştirmesi zorlayan bir yük durumu tüm kabuk gerilmelerini kaybediyor, kombinasyonları ve zarfları yalnızca diğer durumların kabuk gerilmelerini topluyordu: birleşik kabuk gerilmeleri uyarı vermeden güvensiz tarafta kalabiliyordu.',
     },
   },
   {

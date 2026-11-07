@@ -37,12 +37,14 @@
   const resolve = $derived(!a || !a.changes.length || a.changes.some((c) => !concernsGeneratedLoads(c.when)));
   const loc = $derived(registryLocale(i18n.locale));
   const openAdvisories = $derived(recheckStore.openAdvisories);
-  const certain = $derived(openAdvisories.filter((x) => !x.analysis));
+  const maybe = (x: Advisory) => !!a?.maybe.includes(x.id);
+  const certain = $derived(openAdvisories.filter((x) => !x.analysis && !maybe(x)));
   const listed = $derived(recheckStore.noticeOpen ? a?.advisories ?? [] : openAdvisories);
   const analysisLabel = (x: Advisory) => x.ifUsed?.[loc] ?? x.analysis ?? '';
   const advisoryText = (x: Advisory, banner: boolean) => {
     const vars = { name: advisoryName(x), analysis: analysisLabel(x) };
-    if (a?.maybe.includes(x.id)) return tp(banner ? 'recheck.advisoryBannerMaybe' : 'recheck.advisoryMaybe', vars);
+    if (maybe(x) && !x.analysis) return tp(banner ? 'recheck.advisoryBannerMaybeIf' : 'recheck.advisoryMaybeIf', vars);
+    if (maybe(x)) return tp(banner ? 'recheck.advisoryBannerMaybe' : 'recheck.advisoryMaybe', vars);
     return x.analysis ? tp('recheck.advisoryAnalysis', vars) + (banner ? '.' : '') : tp('recheck.advisory', vars);
   };
 
@@ -171,7 +173,7 @@
     {#if openAdvisories.length}
       <span data-testid="recheck-advisory-banner">
         {#if certain.length}{tp('recheck.advisoryBanner', { names: certain.map(advisoryName).join(', ') })}{/if}
-        {#each openAdvisories.filter((x) => x.analysis) as adv (adv.id)} {advisoryText(adv, true)}{/each}
+        {#each openAdvisories.filter((x) => x.analysis || maybe(x)) as adv (adv.id)} {advisoryText(adv, true)}{/each}
       </span>
     {:else}
       <span>{tp('recheck.banner', { n: a.changes.length })}</span>

@@ -164,6 +164,12 @@ const body: PostBody = {
           "Behoben in der nächsten Version"
         ],
         [
+          "SA-2026-047",
+          "Schalen: Ein Lastfall mit eingeprägter Auflagerverschiebung verlor seine Schalenspannungen, und Kombinationen und Umhüllende summierten nur die der anderen Lastfälle (möglicherweise unsicher, ohne Warnung); 0.2.0 bis 0.4.0",
+          "Hoch",
+          "Behoben in der nächsten Version"
+        ],
+        [
           "SA-2026-037",
           "Korotationale 3D-Analyse: Rotationsvektoren wurden subtrahiert (der Bathe–Bolourchi-Bogen 1,3 % daneben, ohne Besserung bei Netzverfeinerung)",
           "Mittel",
