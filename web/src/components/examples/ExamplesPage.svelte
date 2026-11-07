@@ -16,6 +16,7 @@
   import { readValues, writeValues, mergeQuery, referenceGap, type Outcome, type Values } from './define';
   import { editorHref } from './editor';
   import { te } from './strings';
+  import { colourFor } from '../../lib/three/colour-maps';
   import '../landing/landing.css';
   import '../blog/blog.css';
   import '../research/research.css';
@@ -92,6 +93,7 @@
   }
   const viewerNote = (notes: string[]) => `note.${['chord', 'drawing', 'modeShapes'].find(n => notes.includes(n)) ?? 'magnified'}`;
   const number = (n: number, digits = 5) => new Intl.NumberFormat(publicI18n.locale, { maximumSignificantDigits: digits }).format(n);
+  const swatch = (category: number) => `#${colourFor('diverging', category, -1, 1).toString(16).padStart(6, '0')}`;
   const view = $derived(outcome?.status === 'ok' ? outcome.views[active] : undefined);
 </script>
 
@@ -113,14 +115,25 @@
             {:else}
               <p class="viewer-heading">{te(`pane.${active}`)}</p>
             {/if}
+            {#if view?.legend}
+              {@const legend = view.legend}
+              <ul class="viewer-legend" data-testid="viewer-legend" data-shape={legend.shape} data-scale={legend.scale} aria-label={te('legend.title')}>
+                <li><span class="swatch" style:background={swatch(0)} aria-hidden="true"></span>{te('legend.undeformed')}</li>
+                <li><span class="swatch" style:background={swatch(1)} aria-hidden="true"></span>{legend.shape === 'mode' ? te('legend.mode') : te('legend.deformed').replace('{scale}', number(legend.scale ?? 1, 3))}</li>
+              </ul>
+            {/if}
             {#if view}
               <div class="viewer-body" class:stale={busy} aria-busy={busy} data-testid="viewer-body">
               <ScalarFieldViewer xy={view.xy} cells={view.cells} cellSize={view.cellSize} values={view.values} perCell={view.perCell} lineWidth={view.lineWidth ?? 3}
                 colourMap={view.geometryOnly ? 'diverging' : 'sequential'} geometryOnly={view.geometryOnly} range={view.range} title={te(`pane.${view.field}`)} unit={view.unit}
-                view={view.bounds} height="clamp(15rem, 34vh, 26rem)" editorButton={false} />
+                view={view.bounds} height="clamp(15rem, 34vh, 26rem)" chrome={false} showAxes={false} />
               </div>
             {/if}
             <p class="note">{busy ? te('stale') : te(viewerNote(outcome.notes))}</p>
+          {:else if outcome?.status === 'refused'}
+            <div class="placeholder viewer-refusal" class:stale={busy} data-testid="viewer-refusal" data-code={outcome.code}>
+              <p class="warning">{te('refused')} {te(`refuse.${outcome.code}`)}</p>
+            </div>
           {:else}
             <div class="placeholder"><ExampleThumb {id} /></div>
           {/if}
@@ -230,7 +243,6 @@
   .examples :global(.rs-tabs button) { min-height: 44px; min-width: 44px; }
   .examples :global(.rs-tabs) { flex-wrap: wrap; }
   .examples :global(.rs-param) { grid-template-columns: minmax(0, 1fr) minmax(8rem, 14rem) 3.5rem; }
-  .examples :global(.sfv-wrap button) { min-height: 44px; min-width: 44px; font-size: 12px; }
   form { border-top: 1px solid var(--hair); padding-top: .75rem; }
   select { min-height: 44px; min-width: 0; background: var(--card); color: var(--fg); border: 1px solid var(--hair); border-radius: 3px; padding: .4rem; font: .875rem var(--lp-mono); }
   .slider { display: grid; grid-template-columns: minmax(0, 1fr) 3.5rem; align-items: center; gap: .5rem; }
@@ -242,7 +254,12 @@
   .ex-results :global(a) { display: inline-flex; align-items: center; min-height: 44px; }
   .ex-viewer { border: 1px solid var(--card-hair); border-radius: 6px; background: var(--card); overflow: hidden; }
   .viewer-heading { padding: .75rem 1rem; font: .875rem var(--lp-mono); color: var(--fg); border-bottom: 1px solid var(--hair); margin: 0; }
+  .viewer-legend { display: flex; flex-wrap: wrap; gap: .25rem 1.25rem; list-style: none; margin: 0; padding: .5rem 1rem; font: .8125rem var(--lp-mono); color: var(--fg-2); border-bottom: 1px solid var(--hair); }
+  .viewer-legend li { display: inline-flex; align-items: center; gap: .5rem; }
+  .swatch { display: inline-block; width: 1.25rem; height: 3px; border-radius: 2px; }
   .placeholder { display: grid; place-items: center; min-height: clamp(15rem, 34vh, 26rem); background: var(--lp-ink-2); }
+  .viewer-refusal { place-items: center start; padding: 1.5rem; }
+  .viewer-refusal .warning { max-width: 36rem; margin: 0; font-size: 1rem; line-height: 1.5; }
   .stale { opacity: .3; pointer-events: none; transition: opacity .15s; }
   .note { padding: .75rem 1rem; color: var(--fg-2); font-size: .8125rem; line-height: 1.5; margin: 0; }
   .readouts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.25rem; padding: 1.25rem 0; border-block: 1px solid var(--hair); }

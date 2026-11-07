@@ -7,7 +7,7 @@ import { POSTS, writtenIn as writtenInContent } from '../lib/blog';
 import { PUBLIC_LOCALES } from '../lib/i18n/offered';
 import { PAPER_LOCALES } from '../components/paper/locales';
 import { publicPaths, writtenIn } from '../../scripts/public-paths';
-import { SITE_NAV } from '../components/site/site-nav';
+import { SITE_NAV, currentNav } from '../components/site/site-nav';
 
 const source = (file: string) => readFileSync(new URL(file, import.meta.url), 'utf8');
 const routes = [
@@ -34,13 +34,18 @@ describe('merged public routes', () => {
   });
   it('keeps the combined navigation order and resolves every page destination', () => {
     expect(SITE_NAV.map(item => item.id)).toEqual([
-      'basic', 'pro', 'ai', 'education', 'pricing', 'examples', 'tools', 'blog', 'changelog', 'paper', 'research',
+      'basic', 'examples', 'tools', 'research', 'pricing', 'blog',
     ]);
     for (const item of SITE_NAV) {
       if (item.kind === 'page') {
         expect(routeKind({ pathname: `/en${item.to}/`, search: '', hash: '' }).kind).not.toBe('landing');
       }
     }
+  });
+  it('marks the section a page belongs to: the paper under research, the changelog under the blog', () => {
+    expect(['/', '/cirsoc', '/reliability', '/sap2000-alternative', '/blogger', '/papers'].map(currentNav)).toEqual([null, null, null, null, null, null]);
+    expect(['/examples', '/examples/beam-frame', '/tools', '/tools/truss-2d', '/research', '/research/benchmarks/navier-plate', '/paper', '/blog', '/blog/safety-advisories', '/changelog'].map(currentNav))
+      .toEqual(['examples', 'examples', 'tools', 'tools', 'research', 'research', 'research', 'blog', 'blog', 'blog']);
   });
   it('prerenders paper, research, tools, every standing page and every post, each once', async () => {
     const paths = await publicPaths();

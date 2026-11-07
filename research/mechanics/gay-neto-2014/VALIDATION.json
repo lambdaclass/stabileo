@@ -1,0 +1,123 @@
+{
+  "checks": [
+    {
+      "metric": "T1 tip X and Z at t = 0.1 … 1.0 vs reference Figure 1-6 [m, max abs]",
+      "observed": 0.00031340130279822187,
+      "ours": [
+        0.8413861863415153,
+        0.40559715623575293
+      ],
+      "passed": true,
+      "rationale": "0.1% of the 1 m span: the figure's vector polyline and the reference run's 1e-4 convergence tolerance",
+      "reference": [
+        0.841304,
+        0.405552
+      ],
+      "source": "figure",
+      "tolerance": 0.001
+    },
+    {
+      "metric": "T1 tip at t = 1, 5 elements vs Reissner rod boundary-value solution [m, max abs]",
+      "observed": 0.00016497091871381375,
+      "ours": [
+        0.8413861863415153,
+        0.40559715623575293
+      ],
+      "passed": true,
+      "rationale": "discretization error of the tutorial's 5-element mesh, same bound as the figure check",
+      "reference": [
+        0.8415511572602291,
+        0.40546750501654427
+      ],
+      "source": "exact",
+      "tolerance": 0.001
+    },
+    {
+      "metric": "T1 tip at t = 1, 40 elements vs Reissner rod boundary-value solution [m, max abs]",
+      "observed": 4.546639242875017e-8,
+      "ours": [
+        0.8415511117938367,
+        0.4054675366746889
+      ],
+      "passed": true,
+      "rationale": "refinement must converge to the independent rod solution (RK4, 20 000 steps)",
+      "reference": [
+        0.8415511572602291,
+        0.40546750501654427
+      ],
+      "source": "exact",
+      "tolerance": 1e-6
+    },
+    {
+      "metric": "T16 step 3: M(e1) per element vs reference Figure 16-12 data [N·m, max abs over 134 elements]",
+      "observed": 0.014860808670789538,
+      "ours": -294.3244316293195,
+      "passed": true,
+      "rationale": "reference run converged to 1e-4 relative; 1e-4 of the 294 N·m plateau is 0.03 N·m, bound set at about 3 times that",
+      "reference": -294.3244,
+      "source": "giraffe",
+      "tolerance": 0.1
+    },
+    {
+      "metric": "T16 step 3: V(e2) per element vs reference Figure 16-13 data [N, max abs over 134 elements]",
+      "observed": 0.012582030857187121,
+      "ours": -91.99618670684974,
+      "passed": true,
+      "rationale": "same convergence budget as the moment, applied to the 92 N peak",
+      "reference": -91.99689,
+      "source": "giraffe",
+      "tolerance": 0.1
+    },
+    {
+      "metric": "T16 step 3: touchdown (moment at half its plateau) vs reference data [m]",
+      "observed": 0.000011176718999195145,
+      "ours": 216.72792952217853,
+      "passed": true,
+      "rationale": "the transition crosses one 4.18 m element; 0.05 m is about 1% of it",
+      "reference": 216.72791834545953,
+      "source": "giraffe",
+      "tolerance": 0.05
+    },
+    {
+      "metric": "T16 step 3: touchdown, last node on the seabed vs elastic catenary [m of line]",
+      "observed": 0.7450337498216584,
+      "ours": 217.191,
+      "passed": true,
+      "rationale": "bending boundary layer sqrt(EI/H) on each side, plus one node spacing in the refined zone",
+      "reference": 216.44596625017834,
+      "source": "catenary",
+      "tolerance": 3.141403062578762
+    },
+    {
+      "metric": "T16 step 3: suspended shape vs elastic catenary hung from the computed fairlead [m, max distance]",
+      "observed": 0.000227508821673204,
+      "ours": null,
+      "passed": true,
+      "rationale": "the cable solution ignores bending, which moves the line by about sqrt(EI/H) near the touchdown",
+      "reference": null,
+      "source": "catenary",
+      "tolerance": 1.051403062578762
+    }
+  ],
+  "scope": "Tutorial 1 (static cantilever) and tutorial 16 steps 1-3 (self-weight and seabed contact, axial pull, fairlead lift). Agreement with the reference code is not experimental validation.",
+  "tutorial16": {
+    "anchor_axial_force_N": 954963.7622351585,
+    "boundary_layer_m": 0.525701531289381,
+    "fairlead": [
+      798.6018697413334,
+      0.0,
+      186.0
+    ],
+    "moment_plateau_Nm": {
+      "ours": -294.3244316293195,
+      "reference": -294.3244
+    },
+    "submerged_weight_N_per_m": 1065.6703871524405,
+    "touchdown_elastic_catenary_m": 216.44596625017834,
+    "touchdown_half_plateau_m": {
+      "ours": 216.72792952217853,
+      "reference": 216.72791834545953
+    },
+    "touchdown_last_contact_node_m": 217.191
+  }
+}

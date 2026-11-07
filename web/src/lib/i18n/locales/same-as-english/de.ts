@@ -267,7 +267,6 @@ export const SAME_AS_ENGLISH: readonly string[] = [
   'landing.footRepo',
   'landing.modAi',
   'landing.navBlog',
-  'landing.navPro',
   'lang.ar',
   'lang.de',
   'lang.en',

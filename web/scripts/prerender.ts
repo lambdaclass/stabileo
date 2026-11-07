@@ -51,6 +51,7 @@ import { paperStructuredData } from './paper-structured-data';
 import { withResearchCard } from './research-card';
 import { POST_DATE, POST_LASTMOD, publicPaths, writtenIn } from './public-paths';
 import { PUBLIC_LOCALES, type Locale } from '../src/lib/i18n/offered';
+import { isResearchRoute } from '../src/lib/i18n/research-routes';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 /**
@@ -377,7 +378,8 @@ async function main() {
             // pointed the default of every URL in the file at the English home
             // page instead of at the page declaring it.
             const xDefault = `${ORIGIN}/${DEFAULT_LOCALE}${path === '/' ? '' : path}/`;
-            return `  <url>\n    <loc>${loc}</loc>\n    <lastmod>${POST_LASTMOD.get(path) ?? TODAY}</lastmod>\n${alts}\n    <xhtml:link rel="alternate" hreflang="x-default" href="${xDefault}"/>\n  </url>`;
+            const lastmod = POST_LASTMOD.get(path) ?? (isResearchRoute(path) ? undefined : TODAY);
+            return `  <url>\n    <loc>${loc}</loc>\n${lastmod ? `    <lastmod>${lastmod}</lastmod>\n` : ''}${alts}\n    <xhtml:link rel="alternate" hreflang="x-default" href="${xDefault}"/>\n  </url>`;
           }),
         ).join('\n') +
         `\n</urlset>\n`,

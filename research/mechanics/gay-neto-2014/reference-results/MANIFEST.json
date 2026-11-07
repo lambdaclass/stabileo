@@ -1,0 +1,16 @@
+{
+  "source": "GIRAFFE documentation at alfredogneto/GIRAFFE commit 1b8241ed337e79d29e0b65262a4ec340e2f1f443 (BSD-3-Clause, see ../inputs/LICENSE-GIRAFFE)",
+  "files": {
+    "tutorial16_step3_resultants.csv": "Cached chart data of Figures 16-12 and 16-13 in 'documentation/Giraffe Tutorials 2.0 v20.docx' (word/charts/chart5.xml, chart6.xml): the reference code's element results at the end of step 3, one value per element at the reference x of its middle node",
+    "tutorial01_tip_history.csv": "Vector polylines of Figure 1-6 on page 10 of 'documentation/Giraffe Tutorials 2.0 v21.pdf', converted with pdftocairo -svg and scaled by the plot's own 0 and 1 gridlines",
+    "replay.json": "Our own run (cargo run --release --bin replay -- reference-results/replay.json), the page's precomputed replay"
+  },
+  "command": "python3 -I extract_reference.py '<docx>' '<pdf>'",
+  "tools": "Python 3 standard library; pdftocairo from poppler-utils 26.10.0",
+  "date": "2026-11-05",
+  "files_sha256": {
+    "replay.json": "e5310138649e3c6df7027e0b6fe2150bea4c200a53cfd380335ecf37af104595",
+    "tutorial01_tip_history.csv": "d3a0e880fa047a9982b4b9c25a9ea06913e84a97d6f173d7df0d225d594dbb39",
+    "tutorial16_step3_resultants.csv": "018975c344883d471bd59a29432c70d316cbf6987248c2fcf916bdc1218d7a9b"
+  }
+}

@@ -2,6 +2,7 @@
   import { tPublic as t } from '../../lib/i18n/store.svelte';
   import Eyebrow from './Eyebrow.svelte';
   import Shot from './Shot.svelte';
+  import PublicLink from './PublicLink.svelte';
 
   /**
    * Basic: the one mode finished enough to hand a stranger.
@@ -43,5 +44,8 @@
         </article>
       {/each}
     </div>
+    <p class="link-row">
+      <PublicLink to="/tools" class="link-arrow">{t('landing.navTools')}</PublicLink>
+    </p>
   </div>
 </section>

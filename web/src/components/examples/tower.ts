@@ -123,7 +123,7 @@ export const tower = defineExample<Model>({
       const top = Math.max(...shape.map(d => Math.abs(d.ux)), 1e-12);
       const pts = shape.map(d => [d.ux / top * H * 0.15, H * (d.nodeId - 1) / SEGMENTS] as [number, number]).sort((a, b) => a[1] - b[1]);
       s.polyline(pts);
-      return s.view(field, '', boundsOf([-H * 0.2, 0, H * 0.2, H], 0.04));
+      return { ...s.view(field, '', boundsOf([-H * 0.2, 0, H * 0.2, H], 0.04)), legend: { shape: 'mode' } };
     };
     const views: Record<string, View> = {};
     modes.forEach((m, k) => { views[`mode${k + 1}`] = draw(`mode${k + 1}`, m.displacements); });

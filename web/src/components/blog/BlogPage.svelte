@@ -283,6 +283,7 @@
         </p>
         <h1 class="display">{t('blog.title')}</h1>
         <p class="lead">{t('blog.lead')}</p>
+        <p class="link-row"><PublicLink to="/changelog" class="link-arrow">{t('landing.footChangelog')}</PublicLink></p>
       </div>
     </section>
 

@@ -785,6 +785,45 @@ jobs:
       - name: Check for modified migration files
         run: ./.github/scripts/check-migrations-immutable.sh "origin/${{ github.base_ref }}"
 
+  revert-check:
+    name: Revert Check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    needs: [changes]
+    if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: The merge deletes no recent lines the branch never had
+        env:
+          BASE: ${{ github.event_name == 'merge_group' && github.event.merge_group.base_sha || format('origin/{0}', github.base_ref) }}
+          EVENT: ${{ github.event_name }}
+          PR_LABELS: ${{ needs.changes.outputs.labels }}
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          if ! git cat-file -e "$BASE:.github/scripts/revert-check.py"; then
+            echo "$BASE has no revert check yet; the pull request's own copy is not trusted to judge it."
+            exit 0
+          fi
+          git show "$BASE:.github/scripts/revert-check.py" > "$RUNNER_TEMP/revert-check.py"
+          if [ "$EVENT" != merge_group ]; then
+            LABELS=$PR_LABELS exec python3 -B -I "$RUNNER_TEMP/revert-check.py" "$BASE" HEAD --event ''
+          fi
+          status=0
+          for step in $(git rev-list --first-parent --reverse "$BASE..HEAD"); do
+            pr=$(git show -s --format=%s "$step" | sed -nE 's/^Merge pull request #([0-9]+) from .*/\1/p')
+            if [ -z "$pr" ] || [ "$(gh api "repos/$GH_REPO/pulls/$pr" --jq .head.sha)" != "$(git rev-parse -q --verify "$step^2")" ]; then
+              echo "$step is not the merge queue's merge of a pull request's current head, so whose acknowledgement applies is unknown."
+              exit 1
+            fi
+            echo "Pull request #$pr:"
+            LABELS=$(gh api "repos/$GH_REPO/pulls/$pr" --jq '[.labels[].name] | join(",")') python3 -B -I "$RUNNER_TEMP/revert-check.py" "$step^1" "$step^2" --event '' || status=1
+          done
+          exit "$status"
   check-migrations:
     name: Check Migration Safety
     runs-on: ubuntu-24.04
@@ -1012,6 +1051,21 @@ jobs:
         with:
           path: web/public/research-wasm/fairclough-2026
           key: research-assets-v3-fairclough-2026-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.nix', 'flake.lock', 'rust-toolchain.toml', 'Cargo.toml', 'Cargo.lock', '.cargo/**', 'research/tools/**', 'engine/src/**', 'engine/Cargo.toml', 'engine/build.rs', 'engine/.cargo/**', 'research/optimisation/fairclough-2026/**') }}
+      - name: Research compiled assets (gay-neto-2014)
+        id: research-gay-neto-2014
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        continue-on-error: true
+        with:
+          path: web/public/research-wasm/gay-neto-2014
+          key: research-assets-v3-gay-neto-2014-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.nix', 'flake.lock', 'rust-toolchain.toml', 'Cargo.toml', 'Cargo.lock', '.cargo/**', 'research/tools/**', 'engine/src/**', 'engine/Cargo.toml', 'engine/build.rs', 'engine/.cargo/**', 'research/mechanics/gay-neto-2014/**') }}
+      - name: Research compiled assets (gay-neto-2014, second try)
+        id: retry-gay-neto-2014
+        if: steps.research-gay-neto-2014.outputs.cache-hit != 'true'
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        continue-on-error: true
+        with:
+          path: web/public/research-wasm/gay-neto-2014
+          key: research-assets-v3-gay-neto-2014-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.nix', 'flake.lock', 'rust-toolchain.toml', 'Cargo.toml', 'Cargo.lock', '.cargo/**', 'research/tools/**', 'engine/src/**', 'engine/Cargo.toml', 'engine/build.rs', 'engine/.cargo/**', 'research/mechanics/gay-neto-2014/**') }}
       - if: runner.environment == 'github-hosted'
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         continue-on-error: true
@@ -1021,6 +1075,7 @@ jobs:
             research/metamaterials/grossman-2026/wasm
             research/form-finding/pastrana-2026/wasm
             research/optimisation/fairclough-2026
+            research/mechanics/gay-neto-2014
           shared-key: research-wasm
       - name: Install viewer dependencies
         run: .github/scripts/retry-infra.sh make web.deps
@@ -1035,6 +1090,7 @@ jobs:
             grossman-2026=${{ (steps.research-grossman-2026.outputs.cache-hit == 'true' || steps.retry-grossman-2026.outputs.cache-hit == 'true') && 'hit' || steps.research-grossman-2026.outputs.cache-primary-key || steps.retry-grossman-2026.outputs.cache-primary-key || 'none' }}
             pastrana-2026=${{ (steps.research-pastrana-2026.outputs.cache-hit == 'true' || steps.retry-pastrana-2026.outputs.cache-hit == 'true') && 'hit' || steps.research-pastrana-2026.outputs.cache-primary-key || steps.retry-pastrana-2026.outputs.cache-primary-key || 'none' }}
             fairclough-2026=${{ (steps.research-fairclough-2026.outputs.cache-hit == 'true' || steps.retry-fairclough-2026.outputs.cache-hit == 'true') && 'hit' || steps.research-fairclough-2026.outputs.cache-primary-key || steps.retry-fairclough-2026.outputs.cache-primary-key || 'none' }}
+            gay-neto-2014=${{ (steps.research-gay-neto-2014.outputs.cache-hit == 'true' || steps.retry-gay-neto-2014.outputs.cache-hit == 'true') && 'hit' || steps.research-gay-neto-2014.outputs.cache-primary-key || steps.retry-gay-neto-2014.outputs.cache-primary-key || 'none' }}
         run: .github/scripts/research-host-cache.sh restore
       - name: Build research WASM (cache misses, in parallel)
         id: build-research
@@ -1053,6 +1109,7 @@ jobs:
             grossman-2026=${{ steps.build-research.outputs.grossman-2026 == 'ok' && (steps.research-grossman-2026.outputs.cache-primary-key || steps.retry-grossman-2026.outputs.cache-primary-key) || '' }}
             pastrana-2026=${{ steps.build-research.outputs.pastrana-2026 == 'ok' && (steps.research-pastrana-2026.outputs.cache-primary-key || steps.retry-pastrana-2026.outputs.cache-primary-key) || '' }}
             fairclough-2026=${{ steps.build-research.outputs.fairclough-2026 == 'ok' && (steps.research-fairclough-2026.outputs.cache-primary-key || steps.retry-fairclough-2026.outputs.cache-primary-key) || '' }}
+            gay-neto-2014=${{ steps.build-research.outputs.gay-neto-2014 == 'ok' && (steps.research-gay-neto-2014.outputs.cache-primary-key || steps.retry-gay-neto-2014.outputs.cache-primary-key) || '' }}
         run: .github/scripts/research-host-cache.sh save
       - name: Save research compiled assets (shauer-2025)
         if: always() && steps.build-research.outputs.shauer-2025 == 'ok'
@@ -1096,6 +1153,13 @@ jobs:
         with:
           path: web/public/research-wasm/fairclough-2026
           key: ${{ steps.research-fairclough-2026.outputs.cache-primary-key || steps.retry-fairclough-2026.outputs.cache-primary-key }}
+      - name: Save research compiled assets (gay-neto-2014)
+        if: always() && steps.build-research.outputs.gay-neto-2014 == 'ok'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        continue-on-error: true
+        with:
+          path: web/public/research-wasm/gay-neto-2014
+          key: ${{ steps.research-gay-neto-2014.outputs.cache-primary-key || steps.retry-gay-neto-2014.outputs.cache-primary-key }}
       - name: Build viewer and publish matching asset identity (also on cache hits)
         run: |
           nix develop --command bash -c 'cd web && npx --no-install vite build -c vite.research-viewer.config.ts --outDir public/research-wasm/viewer --logLevel warn'
@@ -2001,6 +2065,7 @@ jobs:
       - test-backend
       - check-migrations-immutable
       - check-migrations
+      - revert-check
       - wasm
       - research-wasm
       - research
@@ -2056,6 +2121,7 @@ jobs:
       - test-backend
       - check-migrations-immutable
       - check-migrations
+      - revert-check
       - wasm
       - research-wasm
       - research
