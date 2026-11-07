@@ -271,6 +271,7 @@
   }
   .rc-banner-btn { padding: 3px 8px; font-size: 0.75rem; }
   .rc-banner-advisory, .rc-advisory { border-color: var(--st-danger, #d9534f); }
+  .rc-banner-advisory { z-index: 920; }
   /* Only one of .rc and .rc-list may scroll: a drag on a nested list never reaches the controls below it. */
   @media (max-height: 520px) {
     .rc-list { flex-shrink: 0; overflow-y: visible; overscroll-behavior: auto; }

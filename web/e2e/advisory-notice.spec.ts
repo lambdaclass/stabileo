@@ -47,13 +47,15 @@ for (const [label, viewport] of [['phone', { width: 390, height: 844 }], ['table
       const layout = await banner.evaluate((el) => {
         const r = el.getBoundingClientRect();
         const button = el.querySelector('[data-testid="recheck-banner-rerun"]')!.getBoundingClientRect();
-        return { left: r.left, right: r.right, pageOverflow: document.documentElement.scrollWidth - window.innerWidth, buttonHeight: button.height };
+        const onTop = el.contains(document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2));
+        return { left: r.left, right: r.right, pageOverflow: document.documentElement.scrollWidth - window.innerWidth, buttonHeight: button.height, onTop };
       });
       await page.screenshot({ path: test.info().outputPath(`${label}.png`) });
       expect(layout.left).toBeGreaterThanOrEqual(0);
       expect(layout.right).toBeLessThanOrEqual(viewport.width);
       expect(layout.pageOverflow).toBeLessThanOrEqual(0);
       expect(layout.buttonHeight).toBeGreaterThanOrEqual(44);
+      expect(layout.onTop, 'the advisory is not hidden under the design desk or any other panel').toBe(true);
 
       await page.getByTestId('recheck-banner-rerun').click();
       await expect(banner).toBeHidden({ timeout: 45_000 });
