@@ -63,9 +63,10 @@ import { searchMetadataSuite } from './search-metadata';
 import { sharedBuild, SHARED_PRERENDERED_BUILD } from '../../utils/__tests__/shared-build';
 import catalog from '../../../../../research/papers.json';
 import { EXPERIMENTS } from '../../../components/research/experiments';
-import { RESEARCH_GALLERY, RESEARCH_PAPER_PATHS, researchLastReview, researchLocales } from '../../../components/research/locales';
+import { RESEARCH_GALLERY, RESEARCH_PAPER_PATHS, researchLastReview } from '../../../components/research/locales';
 import { PAPER_LOCALES } from '../../../components/paper/locales';
 import { PUBLIC_LOCALES } from '../offered';
+import { publishedLocales } from '../published';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const WEB_ROOT = resolve(__dirname, '../../../..');
@@ -234,7 +235,8 @@ describe('every published URL is served, not redirected', () => {
   });
 
   describe('research', () => {
-    const published = [RESEARCH_GALLERY, ...RESEARCH_PAPER_PATHS].flatMap((path) => researchLocales(path).map((locale) => ({ path, locale, url: `${ORIGIN}/${locale}${path}/` })));
+    const publishedIn = (path: string): readonly string[] => publishedLocales(path);
+    const published = [RESEARCH_GALLERY, ...RESEARCH_PAPER_PATHS].flatMap((path) => publishedIn(path).map((locale) => ({ path, locale, url: `${ORIGIN}/${locale}${path}/` })));
     const html = (url: string) => readFileSync(join(DIST, new URL(url).pathname, 'index.html'), 'utf8');
     const prerendered = (page: string) => page.match(/<div id="prerender">([\s\S]*)<div id="app">/)?.[1] ?? '';
     const text = (s: string) => s.replace(/<(script|style|svg)[\s\S]*?<\/\1>/g, '').replace(/<[^>]+>/g, '\n').replace(/&[a-z#0-9]+;/g, ' ');
@@ -254,18 +256,18 @@ describe('every published URL is served, not redirected', () => {
     it('declares exactly the languages each research page is published in as its hreflang set', () => {
       for (const { path, url } of published) {
         const declared = hreflangSet(html(url)).filter((l) => !l.startsWith('x-default '));
-        expect(declared, url).toEqual(researchLocales(path).map((l) => `${l} ${ORIGIN}/${l}${path}/`).sort());
+        expect(declared, url).toEqual(publishedIn(path).map((l) => `${l} ${ORIGIN}/${l}${path}/`).sort());
       }
     });
 
     it('writes no research page in a language it is not published in', () => {
       const stray = [RESEARCH_GALLERY, ...RESEARCH_PAPER_PATHS].flatMap((path) =>
-        ['en', 'es', 'pt', 'de', 'fr', 'tr'].filter((l) => !researchLocales(path).includes(l) && existsSync(join(DIST, l, path, 'index.html'))).map((l) => `/${l}${path}/`),
+        ['en', 'es', 'pt', 'de', 'fr', 'tr'].filter((l) => !publishedIn(path).includes(l) && existsSync(join(DIST, l, path, 'index.html'))).map((l) => `/${l}${path}/`),
       );
       expect(stray).toEqual([]);
       const unlisted = publishedUrls().filter((u) => /\/(de|fr|tr)\/research(\/|$)/.test(u)).filter((u) => {
         const [, locale, path] = new URL(u).pathname.match(/^\/(\w+)(\/research.*?)\/?$/)!;
-        return !researchLocales(path).includes(locale);
+        return !publishedIn(path).includes(locale);
       });
       expect(unlisted).toEqual([]);
     });
@@ -273,7 +275,7 @@ describe('every published URL is served, not redirected', () => {
     it.each(RESEARCH_PAPER_PATHS)('%s ships its content, a self canonical, no noindex and a citation of the paper', (path) => {
       const paperId = EXPERIMENTS.find((e) => e.path === path)!.paperId;
       const doi = catalog.papers.find((p) => p.id === paperId)!.doi;
-      for (const locale of researchLocales(path)) {
+      for (const locale of publishedIn(path)) {
         const url = `${ORIGIN}/${locale}${path}/`;
         const page = html(url);
         const body = prerendered(page);
@@ -291,10 +293,10 @@ describe('every published URL is served, not redirected', () => {
       }
     });
 
-    it.each(RESEARCH_PAPER_PATHS.filter((path) => researchLocales(path).length > 1))('%s is translated wherever it is published', (path) => {
+    it.each(RESEARCH_PAPER_PATHS.filter((path) => publishedIn(path).length > 1))('%s is translated wherever it is published', (path) => {
       const en = html(`${ORIGIN}/en${path}/`);
       const english = lines(prerendered(en));
-      for (const locale of researchLocales(path).filter((l) => l !== 'en')) {
+      for (const locale of publishedIn(path).filter((l) => l !== 'en')) {
         const page = html(`${ORIGIN}/${locale}${path}/`);
         expect(title(page), `${locale}${path} keeps the English <title>`).not.toBe(title(en));
         const ownLines = new Set(lines(prerendered(page)));
@@ -305,10 +307,10 @@ describe('every published URL is served, not redirected', () => {
     });
 
     it('links every paper from the gallery with a crawlable href to a URL it is published under', () => {
-      for (const locale of researchLocales(RESEARCH_GALLERY)) {
+      for (const locale of publishedIn(RESEARCH_GALLERY)) {
         const body = prerendered(html(`${ORIGIN}/${locale}${RESEARCH_GALLERY}/`));
         for (const path of RESEARCH_PAPER_PATHS) {
-          const target = researchLocales(path).includes(locale) ? locale : 'en';
+          const target = publishedIn(path).includes(locale) ? locale : 'en';
           expect(body, `/${locale}/research/ does not link ${path}`).toContain(`href="/${target}${path}/"`);
         }
       }
