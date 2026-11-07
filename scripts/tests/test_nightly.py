@@ -93,6 +93,9 @@ class Models(unittest.TestCase):
             with self.subTest(wrapped=wrapped):
                 self.replay('mismatch', wrapped)
 
+    def test_a_buckling_difference_still_above_tolerance_on_the_finest_mesh_is_a_finding(self):
+        self.replay('converging')
+
     def test_false_rejection_reduces_despite_solver_rejection(self):
         for wrapped in (False, True):
             with self.subTest(wrapped=wrapped):

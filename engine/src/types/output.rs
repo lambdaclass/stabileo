@@ -492,6 +492,10 @@ pub struct MemberSpan {
     /// E·I and 1/(G·As) of bending in the local x–y and x–z planes; 2D uses the first.
     pub ei: [f64; 2],
     pub shear_flexibility: [f64; 2],
+    /// The free curvature of the case's thermal gradients in each plane, in the sense of ψ; `None`
+    /// in a record written before it was recorded, which a combination cannot complete.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub curvature: Option<[f64; 2]>,
 }
 
 // ==================== Solver Run Metadata ====================

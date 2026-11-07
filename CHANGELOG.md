@@ -329,6 +329,16 @@ was exposed. No calculation changes.
 
 ### Added
 
+#### A scheduled job that stays red opens an issue (2026-11-06)
+
+- A daily workflow, Red nightlies (`.github/workflows/red-nightlies.yml`), reads the last scheduled
+  runs on main of every scheduled workflow, job by job (matrix shards together). A job whose last
+  two scheduled runs failed, timed out, or were cancelled by GitHub for exceeding their timeout
+  opens one issue titled `Stays red: <workflow> / <job>`, labelled `nightly-red` and assigned to
+  unbalancedparentheses and Batuis; later red runs comment on it, and the first green run closes
+  it. The OpenSees comparison had been timing out every night since 21 October unnoticed: the
+  workflow-level alert only said that Nightly verification as a whole was red.
+
 #### The AI assistant works with your own Anthropic or OpenAI key (2026-11-01)
 
 The AI panel was switched off while its server was being built. It now works with an API key you
@@ -1412,6 +1422,23 @@ test must count the work instead, or be marked ignored and listed to run alone i
   reproducer passes, and to triage nightly wrong-result candidates daily with a recorded decision.
 
 ### Fixed
+
+#### The span check includes a member's shear slope and the thermal curvature at a release (2026-11-06)
+
+`LIN-SMALL-DISPLACEMENT`'s in-span check (#1506) read only the section rotation ψ, so it missed two cases (#1569).
+- A shear-flexible (Timoshenko) member whose axis turned past 0.1 rad by shear deformation was not warned. An example is a member rigid in bending with G·As = 77 kN under a 20 kN midspan load: its axis turns 0.13 rad while ψ stays near 1e-7.
+- A thermal gradient's free curvature was dropped at a member release, so the rotation at a hinged end read as zero instead of κL/4.
+
+The check now judges the larger of ψ and the axis slope ψ − V/(G·As), on both sides of each point load, and includes each member's thermal curvature α·ΔT/h. Each result records that curvature in `resultSummary.memberSpans[].curvature`. A load combination sums its cases' curvatures with their factors. Numerical values are unchanged; some results gain the warning.
+
+#### The route-size check measures a pull request with main's script and budgets (2026-11-06)
+
+- The Landing and app route byte budgets job copied the pull request's measurement script over
+  main's before measuring main, so a branch carrying an old copy measured main's newer code with
+  old rules and failed for reasons it did not cause (#1593 and #1600). The job now measures both
+  main and the pull request with main's (or the merge queue base's) `web/scripts`, placed in
+  `web/.route-base` by `.github/scripts/route-size-from-base.sh`; the pull request's own
+  `research-route-allowances.json` is used only when the pull request changes it. No budget changed.
 
 #### "Check an exported report…" fails closed (2026-11-03)
 

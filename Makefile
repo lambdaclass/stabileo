@@ -475,6 +475,7 @@ test.nightly-scripts:
 	python3 -B -I scripts/tests/test_nightly.py
 	python3 -B -I scripts/tests/test_mutants_plan.py
 	python3 -B -I tools/opensees/test_gen_models.py
+	python3 -B -I tools/opensees/test_compare.py
 	$(NIX_RUN) node --test scripts/tests/nightly-findings.test.cjs
 	$(NIX_RUN) node --test scripts/tests/verification-alert.test.cjs
 	$(NIX_RUN) node --test scripts/tests/slow-e2e-alert.test.cjs
@@ -505,7 +506,9 @@ test.ci-scripts: test.nightly-scripts check.cadence
 	python3 -B -I scripts/tests/test_ci_runners.py
 	python3 -B -I scripts/tests/test_ci_events.py
 	python3 -B -I scripts/tests/test_post_merge_revert.py
+	python3 -B -I scripts/tests/test_red_nightlies.py
 	python3 -B -I scripts/tests/test_required_checks.py
+	python3 -B -I scripts/tests/test_route_size_from_base.py
 	python3 -B -I scripts/tests/test_wall_clock.py
 	python3 -B -I scripts/tests/test_check_quick.py
 	python3 -B -I scripts/tests/test_infra_retry.py
@@ -519,7 +522,7 @@ test.ci-scripts: test.nightly-scripts check.cadence
 	python3 -B -I scripts/tests/test_timing_budgets_gate.py
 	python3 -B -I scripts/tests/test_verify_changes.py
 	$(NIX_RUN) bash -c 'shellcheck -S warning .github/scripts/*.sh'
-	$(NIX_RUN) actionlint .github/workflows/ci.yml .github/workflows/research.yml .github/workflows/merge-queue-supersede.yml .github/workflows/post-merge.yml .github/workflows/infra-retry.yml .github/workflows/stop-failed-run.yml .github/workflows/nightly.yml .github/workflows/route-size.yml .github/workflows/issue-reproducers.yml .github/workflows/verify.yml
+	$(NIX_RUN) actionlint .github/workflows/ci.yml .github/workflows/research.yml .github/workflows/merge-queue-supersede.yml .github/workflows/post-merge.yml .github/workflows/infra-retry.yml .github/workflows/stop-failed-run.yml .github/workflows/nightly.yml .github/workflows/route-size.yml .github/workflows/issue-reproducers.yml .github/workflows/verify.yml .github/workflows/red-nightlies.yml
 
 # DIST=web/dist checks a real build instead of the fixture site.
 test.infra.caddy:

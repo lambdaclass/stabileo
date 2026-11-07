@@ -58,6 +58,7 @@ stabileo's refusals and warnings are checked against OpenSees too:
 | `false_reject` | stabileo refuses a model whose OpenSees stiffness is regular (κ < 1e10): flagged, exit 1 |
 | `false_warning` | stabileo flags a model ill-conditioned whose OpenSees stiffness is well conditioned (κ < 1e8): flagged, exit 1 |
 | `not_applicable` | buckling with no load factor on either side (no member in compression, or none whose compression reaches a free DOF); an OpenSees factor above 1e9 comes from axial forces of round-off size and counts as none |
+| `converging` | buckling with an axial span load on a frame (see Buckling): engine and OpenSees differ above tolerance on every common mesh tried, but the difference at least halves at each doubling of the elements per member; flagged, exit 1: it never agreed, and a constant difference cannot be told apart from the remaining discretisation difference |
 | `stabileo_failed` | a refusal neither side decides (1e10 ≤ κ ≤ 1e12, or OpenSees failed for a reason other than a singular stiffness) |
 
 The converter used to drop nodal moments silently in truss-only models
@@ -207,6 +208,48 @@ member loads that need station nodes (they would split the member's Kg), and
 settlements (OpenSees' linear step sees them through the already-geometric
 elements). Eigenvalues of OpenSees below 1e-9 of the largest μ are the
 round-off of Kg's null space, not modes.
+
+A frame with an axial span load (qX) is compressed by a force that varies
+along it. The engine's Kg integrates that linear N(x); `ElasticTimoshenkoBeam`
+takes N constant over the element, so with one element per member the two
+are different discretisations of the same member and differ by O(h²): in a
+night of 300 3D jobs (seed 763000) every one of the 138 buckling mismatches
+had such a load, and none of the 414 models without one mismatched. When the
+one-element comparison of such a model fails, both solvers run again on the
+same meshes of n = 2, 4, 8, 16 elements per frame (`mesh`, trusses whole) and
+are compared there at the unchanged tolerance: `ok` at the first n where they
+agree, `mismatch` when the difference stops halving from n to 2n, and
+`converging` when it keeps halving but its rate cannot bring it within
+tolerance on the next mesh (refinement stops there: OpenSees' dense eigen
+solve dominates the run). The difference is the largest load-factor or 1−MAC
+error; a mode whose gap to a neighbour is within ten times its own
+load-factor error (the solvers may order such modes either way) is measured
+against the span of OpenSees' modes of that connected cluster instead of the
+single mode. Every mesh is compared at the unmeshed model's tolerance; a mesh
+whose κ puts its round-off (100·ε·κ) above it ends the refinement.
+`converging` is flagged like a `mismatch`: a constant difference smaller than
+the remaining discretisation difference cannot be told apart from it on these
+meshes, so only agreement within tolerance on a common mesh passes. The engine failing on a finer mesh is a `mismatch`, OpenSees
+failing on one keeps the one-element `mismatch`, and a mesh OpenSees cannot take (too large,
+ill-conditioned) ends the refinement.
+On seed 763000 the 138 mismatches became 47 `ok` on a common mesh (8 at
+n = 2, 17 at 4, 20 at 8, 2 at 16) and 91 `converging`; the part takes about
+six times as long (2,100 s against 344 s at two jobs on a loaded runner), so
+buckling is its own nightly part, run four at a time. buckling3d-763297
+(member 4, a cantilever under an axial span load, governs mode 1):
+
+| n | engine λ1 | OpenSees λ1 |
+|---|---|---|
+| 1 | 18.910439 | 13.713721 |
+| 2 | 18.757870 | 17.400979 |
+| 4 | 18.743044 | 18.406372 |
+| 8 | 18.741926 | 18.658027 |
+| 16 | 18.741853 | 18.720896 |
+
+The engine's factor converges to 18.742 at about h⁴ and is within 1 % of it
+with one element; OpenSees' constant-N factor approaches it at h² (differences
+0.27, 0.072, 0.018, 0.0045, 0.0011 of λ1). Richardson extrapolation of
+OpenSees' n = 8 and 16 gives 18.741853, the engine's n = 16 value to 1e-8.
 
 ### Modal
 

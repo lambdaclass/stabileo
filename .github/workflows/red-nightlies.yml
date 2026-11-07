@@ -1,0 +1,44 @@
+name: Red nightlies
+
+on:
+  schedule:
+    - cron: "30 13 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Only print what would be opened, commented or closed"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: red-nightlies
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: Red nightlies
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      actions: read
+      checks: read
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/scripts
+      - name: Open, update or close one issue per scheduled job red twice in a row
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+        run: |
+          if [ "$DRY_RUN" = true ]; then
+            python3 -B -I .github/scripts/red-nightlies.py --dry-run
+          else
+            python3 -B -I .github/scripts/red-nightlies.py
+          fi
