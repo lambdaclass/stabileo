@@ -49,9 +49,6 @@
 
 import { test, expect, designAll, loadModel, openDocumentsStage, designPlace, openFloorPass } from './fixtures';
 import { assertBudget } from '../src/lib/engine/__tests__/wall-clock-budget';
-import { diagStart, diagStop } from './diag-1667';
-
-test.use(process.env.DIAG_NO_PWTRACE ? { trace: 'off', video: 'off' } : {});
 
 
 type Page = import('@playwright/test').Page;
@@ -151,31 +148,23 @@ test('@slow the 3-D workspace opens without freezing the window', async ({ pro: 
   await generateDetailing(page);
 
   // 1. Global design only.
-  await diagStart(page);
   rows.push(['global design only', await openAndTime(page, 'global')]);
   await closeWorkspace(page);
-  await diagStop(page, 'global');
 
   // 2. After the floor design — slabs, walls, and foundations where the model has them.
   await runFloorDesign(page);
-  await diagStart(page);
   rows.push(['after floor design', await openAndTime(page, 'floors')]);
   await closeWorkspace(page);
-  await diagStop(page, 'floors');
 
   // 3. Reopened: the second visit must cost what the first did, and must not accumulate.
-  await diagStart(page);
   rows.push(['reopened', await openAndTime(page, 'reopen')]);
 
   // 4. With the conflict markers hidden — 39 240 of them on this model. Hiding them is the
   //    USER's choice about what to look at; nothing here hides anything to look faster.
   await page.getByTestId('rebar-layer-conflicts').click();
   await closeWorkspace(page);
-  await diagStop(page, 'reopen');
-  await diagStart(page);
   rows.push(['reopened, markers hidden', await openAndTime(page, 'no-markers')]);
   await closeWorkspace(page);
-  await diagStop(page, 'no-markers');
 
   console.log('\nopen cost (ms)                     status  workspace  firstFrame  settled  builds  misses  +canvas  +ctx');
   for (const [name, r] of rows) {
