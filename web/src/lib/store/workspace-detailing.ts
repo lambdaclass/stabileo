@@ -143,15 +143,37 @@ export async function pruneDetailing(keepNow: () => ReadonlySet<string>): Promis
   }
 }
 
+const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
+const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
+const finiteList = (v: unknown): boolean => Array.isArray(v) && v.every(finite);
+const isPoint = (p: unknown): boolean => isObj(p) && finite(p.x) && finite(p.y) && finite(p.z);
+
+function isSegment(s: unknown): boolean {
+  return isObj(s) && (s.kind === 'straight' || s.kind === 'arc') && isPoint(s.start) && isPoint(s.end)
+    && (s.radius === undefined || finite(s.radius)) && (s.sweepDeg === undefined || finite(s.sweepDeg));
+}
+
+function isEnd(e: unknown): boolean {
+  return isObj(e) && (e.kind === 'straight' || e.kind === 'continuous' || (e.kind === 'hook' && isObj(e.hook)));
+}
+
+function isBar(b: unknown): boolean {
+  return isObj(b) && typeof b.id === 'string' && finite(b.diameterMm) && b.diameterMm > 0
+    && (b.role === 'longitudinal' || b.role === 'transverse')
+    && Array.isArray(b.segments) && b.segments.every(isSegment)
+    && isEnd(b.startTreatment) && isEnd(b.endTreatment)
+    && finite(b.cuttingLength) && b.cuttingLength >= 0 && finiteList(b.ownerElementIds);
+}
+
+function isAssembly(a: unknown): boolean {
+  return isObj(a) && typeof a.id === 'string' && finiteList(a.elementIds) && Array.isArray(a.bars) && a.bars.every(isBar)
+    && ['marks', 'joints', 'conflicts', 'unsupported'].every((k) => a[k] === undefined || Array.isArray(a[k]));
+}
+
 function isHeavy(h: unknown): h is HeavyDetailing {
-  if (!h || typeof h !== 'object') return false;
-  const { assemblies, designRefusals, floorReadings } = h as Record<string, unknown>;
-  return Array.isArray(assemblies)
-    && assemblies.every((a) => !!a && typeof a === 'object' && typeof (a as { id?: unknown }).id === 'string'
-      && Array.isArray((a as { bars?: unknown }).bars)
-      && ((a as { bars: unknown[] }).bars).every((b) => !!b && typeof b === 'object' && typeof (b as { id?: unknown }).id === 'string'))
-    && (designRefusals === undefined || (!!designRefusals && typeof designRefusals === 'object'))
-    && (floorReadings === undefined || (!!floorReadings && typeof floorReadings === 'object'));
+  return isObj(h) && Array.isArray(h.assemblies) && h.assemblies.every(isAssembly)
+    && (h.designRefusals === undefined || isObj(h.designRefusals))
+    && (h.floorReadings === undefined || isObj(h.floorReadings));
 }
 
 /** Null when the store could not be read, which is not the same as a version that is not there. */

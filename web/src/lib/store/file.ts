@@ -21,6 +21,7 @@ import {
   autosaveClear, autosaveRead, autosaveStatus, autosaveWrite,
   type AutosaveFingerprint, type AutosavePolicy, type AutosaveReadResult, type AutosaveWriteResult,
 } from './autosave-db';
+import { emptyDetailingStore } from '../engine/detailing/assembly';
 import { noteDetailingKnown, pruneDetailing, readDetailing, splitDetailing, stageDetailing, storeDetailing, type HeavyDetailing, type StagedDetailing } from './workspace-detailing';
 import { workspaceSaveStatus } from './workspace-save-status.svelte';
 import {
@@ -488,7 +489,7 @@ function workspaceTab(tab: TabState, staged: StagedDetailing[]): TabState {
     out.detailingRef = s.ref;
   } else {
     const unread = unreadDetailing.get(tab.id);
-    if (unread && sameParts(unread.parts, detailingParts(tab.modelSnapshot.detailing))) out.detailingRef = unread.ref;
+    if (unread && unread.key === detailingKey(tab.modelSnapshot.detailing)) out.detailingRef = unread.ref;
     else unreadDetailing.delete(tab.id);
   }
   return out as unknown as TabState;
@@ -1156,11 +1157,9 @@ function protectStoredWorkspace(raw: string, reason: WorkspaceBackup['reason'], 
 }
 
 let workspaceRestorePending = false;
-const unreadDetailing = new Map<string, { ref: string; parts: unknown[] }>();
+const unreadDetailing = new Map<string, { ref: string; key: string }>();
 
-const detailingParts = (d: ModelSnapshot['detailing']): unknown[] =>
-  d ? Object.values(d).filter((v) => v !== null && typeof v === 'object') : [];
-const sameParts = (a: unknown[], b: unknown[]): boolean => a.length === b.length && a.every((p, i) => p === b[i]);
+const detailingKey = (d: ModelSnapshot['detailing']): string => JSON.stringify(d ?? null);
 let saveGen = 0;
 let publishedGen = 0;
 let finishedGen = 0;
@@ -1264,16 +1263,24 @@ export async function saveWorkspaceSettled(): Promise<boolean> {
   return ok && !workspaceSaveStatus.failed;
 }
 
+/** Nodes, or project data stated before the first node. */
+export function snapshotHoldsWork(s: ModelSnapshot | undefined): boolean {
+  const r = s as unknown as Record<string, unknown> | undefined;
+  return !!r && ((r.nodes as unknown[] | undefined)?.length ?? 0) > 0
+    || ['grid', 'analysis', 'projectInfo', 'deflectionLimits', 'dynamics', 'notes'].some((k) => r?.[k] != null);
+}
+
 export function workspaceNeedsDetailing(session: DedalSessionFile): boolean {
   return session.tabs.some((tab) => typeof tab.detailingRef === 'string');
 }
 
 /**
- * Mutates `session`, then hands it to `apply`. Workspace saves are refused until it settles, so the
+ * Mutates `session`, then hands it to `replace`, unless work was started while the bars were read:
+ * the restored tabs are then opened beside it. Workspace saves are refused until it settles, so the
  * empty start-up tab is not written over the stored one. Bars the store could not read keep their
  * ref only while the tab's detailing stays the one restored.
  */
-export async function restoreWorkspaceDetailing(session: DedalSessionFile, apply: (session: DedalSessionFile) => void): Promise<void> {
+export async function restoreWorkspaceDetailing(session: DedalSessionFile, replace: (session: DedalSessionFile) => void): Promise<void> {
   const wanted = session.tabs.filter((tab) => typeof tab.detailingRef === 'string');
   workspaceRestorePending = true;
   try {
@@ -1294,13 +1301,17 @@ export async function restoreWorkspaceDetailing(session: DedalSessionFile, apply
       }
       delete tab.detailingRef;
     }
-    apply(session);
+    const beside = tabManager.tabs.length > 1 || snapshotHoldsWork(modelStore.snapshot());
+    if (beside) tabManager.addTabs(session.tabs);
+    else replace(session);
+    const cleared = detailingKey(emptyDetailingStore());
     for (const [id, ref] of unread) {
       const tab = tabManager.tabs.find((x) => x.id === id);
       if (!tab) continue;
-      const detailing = id === tabManager.activeTabId ? modelStore.snapshot().detailing : tab.modelSnapshot.detailing;
-      unreadDetailing.set(id, { ref, parts: detailingParts(detailing) });
+      const key = detailingKey(id === tabManager.activeTabId ? modelStore.snapshot().detailing : tab.modelSnapshot.detailing);
+      if (key !== cleared) unreadDetailing.set(id, { ref, key });
     }
+    if (beside) uiStore.toast(t('file.workspaceRestoredBeside'), 'info', undefined, true);
     if (lost.length > 0) {
       const message = records ? t('file.workspaceDetailingLost') : t('file.workspaceDetailingUnread');
       uiStore.toast(message.replace('{names}', droppedTabNames(lost)), 'error', undefined, true);
