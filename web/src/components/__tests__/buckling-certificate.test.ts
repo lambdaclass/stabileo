@@ -3,6 +3,7 @@ import { render } from 'svelte/server';
 import BucklingCertificate from '../advanced/BucklingCertificate.svelte';
 import { setLocale } from '../../lib/i18n';
 import { ensureLocale } from '../../lib/i18n/store.svelte';
+import { OFFERED_LOCALES, type Locale } from '../../lib/i18n/offered';
 import { formatSeparated } from '../../lib/utils/certificate-format';
 import type { BucklingCertificate as Certificate } from '../../lib/engine/wasm-solver';
 
@@ -23,7 +24,7 @@ describe('a buckling factor above its certified upper bound', () => {
     ['de', 'λ_cr nicht zertifiziert: der berechnete Lastfaktor 4691.39 überschreitet die zertifizierte obere Schranke 4688.93'],
     ['fr', 'λ_cr non certifié\u00a0: le facteur de charge calculé 4691.39 dépasse la borne supérieure certifiée 4688.93'],
     ['tr', 'λ_cr sertifikalı değil: hesaplanan yük katsayısı 4691.39, sertifikalı üst sınır 4688.93 değerini aşıyor'],
-  ])('is refused in %s by its code, not the English reason', async (locale, expected) => {
+  ].filter(([locale]) => OFFERED_LOCALES.includes(locale as Locale)))('is refused in %s by its code, not the English reason', async (locale, expected) => {
     await ensureLocale(locale);
     setLocale(locale);
     const html = render(BucklingCertificate, { props: { certificate: refused } }).body;

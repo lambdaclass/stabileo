@@ -51,7 +51,7 @@ export function ensurePublicLocale(loc: string): Promise<void> {
 
 /** Register a lazy public feature without enabling application locale loading. */
 export function registerFeatureDictionaries(feature: Record<string, Translations>): void {
-  for (const loc in feature) Object.assign(dicts[loc], feature[loc]);
+  for (const loc in feature) if (dicts[loc]) Object.assign(dicts[loc], feature[loc]);
   _revision++;
 }
 

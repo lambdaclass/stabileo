@@ -240,7 +240,7 @@
   .card-body :global(h2 a) { text-decoration: none; }
   .tool-card :global(.preview) { display: grid; align-items: center; background: var(--lp-ink-2); min-height: 15rem; }
   @media(min-width: 52rem) { .tool-card { grid-template-columns: 1.1fr 1fr; } }
-  @media(max-height: 450px) and (max-width: 69.99rem) { .tools main.sec { padding-top: .75rem; } .lead { font-size: .95rem; } .crumb { margin: 0 0 .25rem; } h1 { margin: .5rem 0; font-size: 2rem; } .lead { margin-top: .5rem; } .tool-layout { gap: 1rem; } }
+  @media(max-height: 450px) and (max-width: 69.99rem) { .tools main.sec { padding-top: .75rem; } .lead { font-size: .95rem; } .crumb { margin: 0 0 .25rem; } h1 { margin: .5rem 0; font-size: 1.75rem; } .lead { margin-top: .5rem; } .tool-layout { gap: 1rem; } }
   @media(min-width: 70rem) {
     .tool-layout { grid-template-columns: minmax(25rem, 38rem) minmax(0, 1fr); column-gap: 3rem; align-items: start; }
     .tool-intro { grid-column: 1; grid-row: 1; }

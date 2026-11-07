@@ -36,7 +36,7 @@
     "tr": "Bir frekans, yüke bağlı olan modal yanıtının artığı 10⁻²'yi aştığında doğrudan çözülüyor, bunun altında modal yanıt tutuluyordu. Böylece bir yük toplamı bir yolla, her yük ise diğer yolla çözülebiliyor, süperpozisyon ve karşılıklılık bozuluyordu; tutulan modal yanıtlar bir düğümde doğrudan çözümden %106'ya kadar, sanal kısımları ise 8,6 katına kadar sapıyordu (#1537–#1541). Artık 64'ten az serbestlik derecesi olan bir model her frekansta doğrudan çözülüyor; daha büyük bir model modal yanıtı yalnızca atlanan modların sınırlı olduğu yerde tutuyor, diğer frekansları her yük için aynı olacak şekilde doğrudan çözüyor ve artığı hâlâ 10⁻²'yi aşan tutulmuş bir modal yanıtı reddediyor. 3000 serbestlik derecesinin üzerinde hiçbir frekans yeniden çözülmüyor ve atlanan modlara yakın ya da onların üzerindeki frekanslar HARM-TRUNCATION uyarısını taşımaya devam ediyor. Küçük modeller artık tam kararlı durumu veriyor; büyük modeller bir frekansın artık doğrudan çözüldüğü yerde değişiyor."
   },
   "changelog": {
-    "file": "changelog.d/1537-harmonic-linear-in-the-load.md",
+    "file": "CHANGELOG.md",
     "heading": "Harmonic analysis chooses between modal superposition and the direct solve per model and frequency, never per load (2026-11-06)"
   }
 }

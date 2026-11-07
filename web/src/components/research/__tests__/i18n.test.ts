@@ -2,6 +2,7 @@ import { expect, it } from 'vitest';
 import { publicI18n, setLocale } from '../../../lib/i18n/store.svelte';
 import { rs } from '../i18n';
 import { topoptStrings } from '../andreassen2011/i18n';
+import { PUBLIC_LOCALES } from '../../../lib/i18n/offered';
 
 it('attributes reset parameters to reference code in every public locale', () => {
   const original = publicI18n.locale;
@@ -43,7 +44,7 @@ it('preserves numeric values and interpolation tokens in research translations',
 it('preserves topology article numbers and translates every research string', () => {
   const english = topoptStrings('en');
   const numbers = (s: string) => s.match(/\d+(?:\.\d+)*(?:e[+-]?\d+)?/g) ?? [];
-  for (const locale of ['es', 'pt', 'de', 'fr', 'tr']) {
+  for (const locale of PUBLIC_LOCALES.filter((l) => l !== 'en')) {
     const translated = topoptStrings(locale);
     expect(Object.keys(translated).sort()).toEqual(Object.keys(english).sort());
     for (const key of Object.keys(english) as (keyof typeof english)[]) {
@@ -59,7 +60,7 @@ it('formats numbers in all six public locales', async () => {
   const { researchLocale } = await import('../i18n');
   const original = publicI18n.locale;
   try {
-    for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
+    for (const locale of PUBLIC_LOCALES) {
       setLocale(locale);
       expect(researchLocale()).toBe(locale);
       expect(new Intl.NumberFormat(researchLocale()).format(2.4313)).toBe(new Intl.NumberFormat(locale).format(2.4313));
