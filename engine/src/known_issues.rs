@@ -1648,6 +1648,20 @@ mod span_tests {
         assert!((largest - 10.0 * f).abs() < 1e-6 * largest, "{largest}");
     }
 
+    #[test]
+    fn the_axis_slope_follows_the_deflection_under_distributed_span_loads_1569() {
+        use crate::postprocess::diagrams::SpanRotation;
+        let (l, ei, f) = (1.0, 2e3, 1.0 / 76.923);
+        for dist in [vec![(-40.0, -40.0, 0.0, l)], vec![(-10.0, -70.0, 0.2, 0.8)]] {
+            let plane = SpanRotation::new(l, ei, f, 0.0, 0.0, 0.0, 0.0, false, false, Vec::new(), dist.clone(), Vec::new(), 0.0);
+            for x in [0.1, 0.25, 0.4, 0.55, 0.7, 0.9] {
+                let numeric = (plane.deflection(x + 1e-6) - plane.deflection(x - 1e-6)) / 2e-6;
+                let axis = plane.at(x) - f * plane.shear(x);
+                assert!((numeric - axis).abs() < 1e-6 * (1.0 + axis.abs()), "{dist:?} x {x}: {numeric} vs {axis}");
+            }
+        }
+    }
+
     fn propped_thermal_2d(split: bool) -> (SolverInput, AnalysisResults) {
         let thermal = |id: usize| serde_json::json!({"type":"thermal","data":{"elementId":id,"dtUniform":0,"dtGradient":30,"alpha":1.2e-5,"depth":0.3}});
         let (nodes, elements, loads) = if split {
