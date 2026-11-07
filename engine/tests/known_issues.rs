@@ -2514,6 +2514,13 @@ fn a_case_recorded_without_thermal_curvatures_leaves_the_combination_span_record
     let combine = |case_id: usize| combine_results_refs(&[CombinationFactor { case_id, factor: 2.5 }], &both).unwrap();
     assert!(combine(1).result_summary.unwrap().member_spans.is_some());
     assert!(combine(2).result_summary.unwrap().member_spans.is_none(), "an unknown curvature is not read as zero");
+    let mut moderate = serde_json::to_value(fixed_ended_span_2d(-150_000.0)).unwrap();
+    for span in moderate["resultSummary"]["memberSpans"].as_array_mut().unwrap() {
+        span.as_object_mut().unwrap().remove("curvature");
+    }
+    let moderate: AnalysisResults = serde_json::from_value(moderate).unwrap();
+    let doubled = combine_results_refs(&[CombinationFactor { case_id: 1, factor: 2.0 }], &[(1, &moderate)]).unwrap();
+    assert_eq!(beyond_small_displacement(&doubled.structured_diagnostics).map(|d| d.element_ids.clone()), Some(vec![1]), "the span loads of a record without curvatures are still judged: 0.06 doubled");
 }
 
 fn unequal_shear_span_3d(py: f64, pz: f64, as_y: f64, as_z: f64, split: bool) -> AnalysisResults3D {

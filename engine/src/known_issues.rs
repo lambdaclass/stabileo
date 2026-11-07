@@ -612,6 +612,7 @@ pub(crate) fn combined_small_displacement<'a>(
     let mut summed: Option<std::collections::BTreeMap<usize, [f64; 3]>> = Some(std::collections::BTreeMap::new());
     let mut spans: Option<Option<&Vec<MemberSpan>>> = Some(None);
     let mut curvature: std::collections::BTreeMap<usize, [f64; 2]> = std::collections::BTreeMap::new();
+    let mut curvature_unknown = false;
     for (factor, summary) in cases {
         match (summary.and_then(|s| s.member_chords.as_ref()), summed.as_mut()) {
             (Some(chords), Some(sum)) => {
@@ -626,16 +627,17 @@ pub(crate) fn combined_small_displacement<'a>(
             _ => {}
         }
         match (summary.and_then(|s| s.member_spans.as_ref()), spans.as_mut()) {
-            (Some(own), Some(first)) if own.iter().all(|span| span.curvature.is_some()) => {
+            (Some(own), Some(first)) => {
                 first.get_or_insert(own);
                 for span in own {
+                    curvature_unknown |= span.curvature.is_none();
                     let sum = curvature.entry(span.element_id).or_insert([0.0; 2]);
                     for (s, k) in sum.iter_mut().zip(span.curvature.unwrap_or_default()) {
                         *s += factor * k;
                     }
                 }
             }
-            (Some(_), Some(_)) | (None, _) => spans = None,
+            (None, _) => spans = None,
             _ => {}
         }
     }
@@ -648,7 +650,7 @@ pub(crate) fn combined_small_displacement<'a>(
         spans
     });
     let mut elements = Vec::new();
-    if chords.is_none() || spans.is_none() {
+    if chords.is_none() || spans.is_none() || curvature_unknown {
         elements.extend(carried.iter().filter(|d| d.phase.as_deref() == Some("LIN-SMALL-DISPLACEMENT")).flat_map(|d| d.element_ids.iter().copied()));
     }
     if let Some(chords) = &chords {
@@ -657,7 +659,7 @@ pub(crate) fn combined_small_displacement<'a>(
     if let Some(spans) = &spans {
         elements.extend(span_rotations(spans));
     }
-    (small_displacement(nodes, elements), chords, spans)
+    (small_displacement(nodes, elements), chords, spans.filter(|_| !curvature_unknown))
 }
 
 /// [`small_displacement_2d`] in 3D: the norm of each node's rotation vector, the chord of every
