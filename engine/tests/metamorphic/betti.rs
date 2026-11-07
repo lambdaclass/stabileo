@@ -73,7 +73,7 @@ pub fn check(p: &Pair, s: &Solves, rel: f64) -> Verdict {
     let mut worst: f64 = 0.0;
     for (what, l, r, tol) in rows {
         let tol = tol + f64::MIN_POSITIVE;
-        if !((l - r).abs() <= tol) {
+        if ![l, r, tol].iter().all(|x| x.is_finite()) || !((l - r).abs() <= tol) {
             return Verdict::Fail(format!("{what}: {l:.10e} vs {r:.10e}, |diff| {:.3e} > tol {tol:.3e}", (l - r).abs()));
         }
         worst = worst.max((l - r).abs() / tol);
@@ -137,6 +137,16 @@ mod tests {
         let mut s = solves(vec![0.0], vec![0.0, 0.0]);
         s.moment_a = resp(&[(1, "u", vec![0.2, 0.0]), (1, "ry", vec![0.7]), (2, "u", vec![0.1, 0.0]), (2, "ry", vec![0.41])]);
         assert!(matches!(check(&pair(), &s, 1e-12), Verdict::Fail(_)));
+    }
+
+    #[test]
+    fn a_nonfinite_response_fails() {
+        for bad in [f64::INFINITY, f64::NEG_INFINITY, f64::NAN] {
+            let mut s = solves(vec![0.0], vec![0.0, 0.0]);
+            s.force_a = resp(&[(1, "u", vec![1.0, 0.0]), (1, "ry", vec![0.2]), (2, "u", vec![0.5, 0.1]), (2, "ry", vec![bad])]);
+            s.moment_b = resp(&[(1, "u", vec![bad, 0.9]), (1, "ry", vec![0.4]), (2, "u", vec![0.0, 0.0]), (2, "ry", vec![0.8])]);
+            assert!(matches!(check(&pair(), &s, 1e-12), Verdict::Fail(_)), "{bad}");
+        }
     }
 
     #[test]

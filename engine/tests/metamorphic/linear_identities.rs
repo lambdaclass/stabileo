@@ -155,6 +155,10 @@ fn shell_groups(r: &AnalysisResults3D) -> [Vec<(String, f64)>; 3] {
     g
 }
 
+fn mitc4_shear_reported(s: &SolverInput3D, r: &AnalysisResults3D) -> bool {
+    r.quad_stresses.len() >= s.quads.len() && r.quad_stresses[..s.quads.len()].iter().all(|q| q.qx.is_some() && q.qy.is_some())
+}
+
 fn group_max(g: &[(String, f64)]) -> f64 {
     g.iter().fold(0.0, |m, x| m.max(x.1.abs()))
 }
@@ -183,7 +187,7 @@ fn compare_shells(got: &AnalysisResults3D, terms: &[(f64, &AnalysisResults3D)], 
         let scale = terms.iter().map(|(w, r)| w.abs() * group_max(&shell_groups(r)[k])).sum::<f64>().max(floors[k]);
         let tol = rel * scale + f64::MIN_POSITIVE;
         for ((label, x), (_, y)) in a.iter().zip(e) {
-            if !((x - y).abs() <= tol) {
+            if ![*x, *y, tol].iter().all(|v| v.is_finite()) || !((x - y).abs() <= tol) {
                 return Err(format!("{family} {label}: got {x:.10e}, expected {y:.10e}, |diff| {:.3e} > tol {tol:.3e}", (x - y).abs()));
             }
         }
@@ -254,6 +258,9 @@ fn combinations_3d(s: &SolverInput3D) -> Outcome {
         if let Err(e) = compare_compliant(&fc, &fd, &magnitude_of(&[(1.0, &fc), (1.0, &fd)]), cond.lchar, rel, floor, cond.compliance()) {
             return Outcome::Violation(format!("case {} ≠ its linear solve: {e}", CASES[c]));
         }
+        if !mitc4_shear_reported(s, case) || !mitc4_shear_reported(s, &direct) {
+            return Outcome::Violation(format!("case {}: MITC4 quads report no transverse shear", CASES[c]));
+        }
         if let Err(e) = compare_shells(case, &[(1.0, case), (1.0, &direct)], &direct, rel, floor, thickness_range(s).unwrap_or(1.0)) {
             return Outcome::Violation(format!("case {} shell results ≠ its linear solve: {e}", CASES[c]));
         }
@@ -302,6 +309,9 @@ fn shell_superposition(s: &SolverInput3D) -> Outcome {
     };
     let plate = |r: &AnalysisResults3D| r.plate_stresses.iter().map(|p| [p.sigma_xx, p.sigma_yy, p.tau_xy, p.mx, p.my, p.mxy, p.qx.unwrap_or(0.0), p.qy.unwrap_or(0.0)]).collect();
     let quad = |r: &AnalysisResults3D| r.quad_stresses.iter().map(|q| [q.sigma_xx, q.sigma_yy, q.tau_xy, q.mx, q.my, q.mxy, q.qx.unwrap_or(0.0), q.qy.unwrap_or(0.0)]).collect();
+    if [&ra, &rb, &r0, &rab].iter().any(|r| !mitc4_shear_reported(s, r)) {
+        return Outcome::Violation("MITC4 quads report no transverse shear".into());
+    }
     let shear_presence = |r: &AnalysisResults3D| -> Vec<(usize, bool, bool)> {
         r.plate_stresses.iter().map(|p| (p.element_id, p.qx.is_some(), p.qy.is_some())).chain(r.quad_stresses.iter().map(|q| (q.element_id, q.qx.is_some(), q.qy.is_some()))).collect()
     };
@@ -549,4 +559,39 @@ fn factored_combinations_equal_the_factored_solve_3d() {
 fn shell_stress_components_superpose() {
     let covered = run("shell superposition", models_3d().filter(|(_, s)| thickness_range(s).is_some()), shell_superposition, tags_3d);
     require(&covered, &["plates", "quads", "quad9s", "solid shells", "curved shells"]);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn quad_building() -> (SolverInput3D, AnalysisResults3D) {
+        let s = building_3d(1);
+        assert!(!s.quads.is_empty());
+        let r = linear::solve_3d(&s).unwrap();
+        (s, r)
+    }
+
+    #[test]
+    fn nonfinite_shell_stresses_fail() {
+        let (_, r) = quad_building();
+        for bad in [f64::INFINITY, f64::NAN] {
+            let mut got = r.clone();
+            got.quad_stresses[0].mx = bad;
+            assert!(compare_shells(&got, &[(1.0, &got), (1.0, &r)], &r, 1e-10, 1.0, 0.1).is_err(), "got {bad}");
+            assert!(compare_shells(&r, &[(1.0, &got), (1.0, &r)], &got, 1e-10, 1.0, 0.1).is_err(), "expected {bad}");
+        }
+        assert!(compare_shells(&r, &[(1.0, &r)], &r, 1e-10, 1.0, 0.1).is_ok());
+    }
+
+    #[test]
+    fn missing_mitc4_shear_is_caught() {
+        let (s, r) = quad_building();
+        assert!(mitc4_shear_reported(&s, &r));
+        let mut stripped = r.clone();
+        for q in &mut stripped.quad_stresses {
+            (q.qx, q.qy) = (None, None);
+        }
+        assert!(!mitc4_shear_reported(&s, &stripped));
+    }
 }
