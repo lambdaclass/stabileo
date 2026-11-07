@@ -33,6 +33,7 @@ mod quick;
 mod regressions;
 mod harmonic_linearity;
 mod linear_identities;
+mod completeness;
 mod response;
 mod symmetry;
 mod tally;
