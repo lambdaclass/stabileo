@@ -38,6 +38,7 @@
   const loc = $derived(registryLocale(i18n.locale));
   const openAdvisories = $derived(recheckStore.openAdvisories);
   const certain = $derived(openAdvisories.filter((x) => !x.analysis));
+  const listed = $derived(recheckStore.noticeOpen ? a?.advisories ?? [] : openAdvisories);
   const analysisLabel = (x: Advisory) => x.ifUsed?.[loc] ?? x.analysis ?? '';
   const advisoryText = (x: Advisory, banner: boolean) => {
     const vars = { name: advisoryName(x), analysis: analysisLabel(x) };
@@ -118,9 +119,9 @@
           {#if recoveryFailed}<p role="alert">{t('recheck.recoveryFailed')}</p>{/if}
         {/if}
       {/if}
-      {#if details && a.advisories.length}
+      {#if details && listed.length}
         <ul class="rc-list rc-advisories" role="alert" data-testid="recheck-advisories">
-          {#each a.advisories as adv (adv.id)}
+          {#each listed as adv (adv.id)}
             <li class="rc-item rc-advisory" data-advisory-id={adv.id}>
               <span class="rc-item-title">{advisoryText(adv, false)}</span>
               <p class="rc-item-text">{adv.title[loc]}</p>

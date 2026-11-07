@@ -160,6 +160,26 @@ describe('advisories', () => {
     expect(recheckStore.stale).toBe(false);
   });
 
+  it.each([
+    ['a static solve', 'linear', ['SA-2026-046']],
+    ['a harmonic run', 'harmonic', ['issue-1569']],
+  ] as const)('after %s, saving and reopening keeps up the advisories still not run again', async (_label, kind, open) => {
+    frame({ shear: true });
+    await reopen(HARMONIC_FROM, ['linear', 'harmonic']);
+    recheckStore.acknowledge();
+    recheckStore.noteSolved(kind);
+    const text = serializeProject();
+    expect(JSON.parse(text).snapshot.pendingRecheckNotice.stamp.id).toBe(`old-${HARMONIC_FROM}`);
+    recheckStore.reset();
+    expect(deserializeProject(text)).toBe(true);
+    await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
+    expect(recheckStore.openAdvisories.map((a) => a.id)).toEqual(open);
+    expect(recheckStore.stale).toBe(true);
+    recheckStore.noteSolved(kind === 'linear' ? 'harmonic' : 'linear');
+    expect(recheckStore.stale).toBe(false);
+    expect(JSON.parse(serializeProject()).snapshot.pendingRecheckNotice).toBeUndefined();
+  });
+
   it('says the results are affected when the stamp records that harmonic analysis ran, and nothing when it records it did not', async () => {
     frame();
     const all: SolveStamp['recorded'] = ['linear', 'pdelta', 'modal', 'buckling', 'spectral', 'timeHistory', 'plastic', 'nonlinear', 'harmonic', 'ssi'];

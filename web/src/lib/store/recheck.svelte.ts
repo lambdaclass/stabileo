@@ -30,7 +30,10 @@ import { analysesContext, freshStamp, readStamp, stampSolve, unknownStamp, type 
 import { RESULTS_VERSION } from '../provenance/registry';
 import { loadsGeneratedWith, modelFeatures, type AnalysisKind, type FeatureSnapshot } from '../provenance/model-features';
 
-/** Independent of the latest solve: retained until the original notice is read. */
+/**
+ * Independent of the latest solve: retained until the original notice is read, and saved after
+ * that while a solve has replaced the stamp but something it lists has not been run again.
+ */
 export interface PendingRecheckNotice {
   stamp: SolveStamp;
   features: string[];
@@ -174,12 +177,12 @@ export function createRecheckStore(load = () => import('../provenance/applicabil
     acknowledge(): void {
       if (!pending && assessedStampId) {
         acknowledged = new Set([...acknowledged, assessedStampId]);
-        outstanding = undefined;
       }
     },
 
     captureNotice(): PendingRecheckNotice | undefined {
-      if (!outstanding || acknowledged.has(outstanding.stamp.id)) return undefined;
+      if (!outstanding) return undefined;
+      if (acknowledged.has(outstanding.stamp.id) && !(stale() && stamp?.id !== outstanding.stamp.id)) return undefined;
       return { stamp: { ...outstanding.stamp, analyses: [...outstanding.stamp.analyses] }, features: [...outstanding.features] };
     },
 

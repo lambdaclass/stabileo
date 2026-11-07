@@ -82,6 +82,11 @@ test('a static solve leaves the harmonic advisory up, and running harmonic analy
   await expect(advisory).not.toContainText('#1569', { timeout: 45_000 });
   await expect(advisory).toContainText('SA-2026-046');
   await expect(page.getByTestId('recheck-banner-rerun')).toHaveCount(0);
+  await page.getByTestId('recheck-banner-details').click();
+  await expect(notice.locator('[data-advisory-id="SA-2026-046"]')).toBeVisible();
+  await expect(notice.locator('[data-advisory-id="issue-1569"]')).toHaveCount(0);
+  await page.getByTestId('recheck-close').click();
+  await expect(notice).toBeHidden();
   const solved = await page.evaluate(() => JSON.parse(window.__stabileoActions.serializeProject()).snapshot.solvedWith.analyses);
   expect(solved).toContain('linear');
   expect(solved).not.toContain('harmonic');
