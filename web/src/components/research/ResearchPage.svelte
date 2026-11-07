@@ -9,7 +9,8 @@
   import { publicI18n, type PublicLocale } from '../../lib/i18n/store.svelte';
   import { EXPERIMENTS } from './experiments';
   import { paperHead } from './head.svelte';
-  import { RESEARCH_GALLERY, researchLocales } from './locales';
+  import { RESEARCH_GALLERY } from './locales';
+  import { publishedLocales } from '../../lib/i18n/published';
   import { galleryGraph, paperMeta } from './meta';
   import LandingFooter from '../landing/LandingFooter.svelte';
   import PublicLink from '../landing/PublicLink.svelte';
@@ -30,7 +31,7 @@
     const head = paperHead.current;
     const paperPath = head ? EXPERIMENTS.find((e) => e.paperId === head.paperId)?.path : undefined;
     if (route === RESEARCH_GALLERY) {
-      applyPageMeta({ title: `${strings.researchTitle} — Stabileo Research`, description: strings.galleryLead, locale, path: route, written: researchLocales(route) as readonly PublicLocale[], graph: galleryGraph(locale, labels) });
+      applyPageMeta({ title: `${strings.researchTitle} — Stabileo Research`, description: strings.galleryLead, locale, path: route, written: publishedLocales(route) as readonly PublicLocale[], graph: galleryGraph(locale, labels) });
     } else if (head && paperPath === route) {
       applyPageMeta({ ...paperMeta(head, locale, labels), locale });
     }

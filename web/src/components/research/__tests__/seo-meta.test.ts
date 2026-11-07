@@ -52,7 +52,7 @@ it.each(EXPERIMENTS)('$paperId states a self canonical path, its title and a cit
     const own = publishedLocale(e.path, locale);
     const url = `https://stabileo.com/${own}${e.path}/`;
     expect(meta.path).toBe(e.path);
-    expect(meta.written).toEqual(researchLocales(e.path));
+    expect(meta.written).toEqual(publishedLocales(e.path));
     expect(meta.title).toMatch(/^A page name .*— Stabileo Research$/);
     expect(meta.title).toContain(String(bibliography(paper).year));
     expect(meta.description).toBe('What the page reproduces and how it was checked.');
