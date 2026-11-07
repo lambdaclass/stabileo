@@ -121,6 +121,10 @@
               </div>
             {/if}
             <p class="note">{busy ? te('stale') : te(viewerNote(outcome.notes))}</p>
+          {:else if outcome?.status === 'refused'}
+            <div class="placeholder viewer-refusal" class:stale={busy} data-testid="viewer-refusal" data-code={outcome.code}>
+              <p class="warning">{te('refused')} {te(`refuse.${outcome.code}`)}</p>
+            </div>
           {:else}
             <div class="placeholder"><ExampleThumb {id} /></div>
           {/if}
@@ -243,6 +247,8 @@
   .ex-viewer { border: 1px solid var(--card-hair); border-radius: 6px; background: var(--card); overflow: hidden; }
   .viewer-heading { padding: .75rem 1rem; font: .875rem var(--lp-mono); color: var(--fg); border-bottom: 1px solid var(--hair); margin: 0; }
   .placeholder { display: grid; place-items: center; min-height: clamp(15rem, 34vh, 26rem); background: var(--lp-ink-2); }
+  .viewer-refusal { place-items: center start; padding: 1.5rem; }
+  .viewer-refusal .warning { max-width: 36rem; margin: 0; font-size: 1rem; line-height: 1.5; }
   .stale { opacity: .3; pointer-events: none; transition: opacity .15s; }
   .note { padding: .75rem 1rem; color: var(--fg-2); font-size: .8125rem; line-height: 1.5; margin: 0; }
   .readouts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.25rem; padding: 1.25rem 0; border-block: 1px solid var(--hair); }

@@ -64,6 +64,22 @@ test('@smoke examples report the engine refusing a model with no load', async ({
   await expect(page.getByTestId('readout-maxMoment')).toHaveCount(0);
 });
 
+test('@smoke an example the engine refuses says why in the viewer, in place of the drawing', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/en/examples/rc-column/?e2e=1');
+  await expect(page.locator('.ex-viewer canvas').first()).toBeVisible({ timeout: 30000 });
+  await page.getByTestId('param-b').fill('0.5');
+  const reason = page.getByTestId('viewer-refusal');
+  await expect(reason).toHaveAttribute('data-code', 'needsCrossties');
+  await expect(reason).toContainText('needs a crosstie');
+  await expect(page.locator('.ex-viewer canvas')).toHaveCount(0);
+  await expect(page.locator('.ex-viewer svg')).toHaveCount(0);
+  await expect(page.getByTestId('refusal')).toHaveAttribute('data-code', 'needsCrossties');
+  await page.getByTestId('param-b').fill('0.4');
+  await expect(page.locator('.ex-viewer canvas').first()).toBeVisible();
+  await expect(reason).toHaveCount(0);
+});
+
 const CERTIFICATE: Record<string, string> = { 'rc-column': 'unavailable' };
 
 for (const id of EXAMPLE_IDS) test(`@smoke example ${id} solves in the browser`, async ({ page }) => {
