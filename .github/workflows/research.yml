@@ -104,6 +104,9 @@ jobs:
           else
             echo research=false >> "$GITHUB_OUTPUT"
           fi
+          if printf '%s\n' "$CHANGED" | grep -Fqx 'web/scripts/research-route-allowances.json'; then
+            echo allowances=true >> "$GITHUB_OUTPUT"
+          fi
       - if: runner.environment == 'github-hosted'
         uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
         continue-on-error: true
@@ -115,15 +118,20 @@ jobs:
       - name: Prepare Nix shell (infrastructure retries)
         run: |
           .github/scripts/retry-infra.sh nix develop --command true
-      - name: Build main and the candidate with the same pinned toolchain and measurement script
+      - name: Build main and the candidate with the same pinned toolchain and main's measurement script and budgets
         env:
           RESEARCH_ISOLATION: ${{ steps.scope.outputs.research }}
+          PR_ALLOWANCES: ${{ steps.scope.outputs.allowances }}
         run: |
-          cp web/scripts/check-research-route-size.mjs web/scripts/research-route-budget.mjs route-main/web/scripts/
+          if [ "$PR_ALLOWANCES" = true ]; then
+            .github/scripts/route-size-from-base.sh route-main . --pr-allowances
+          else
+            .github/scripts/route-size-from-base.sh route-main .
+          fi
           .github/scripts/retry-infra.sh nix develop . -c sh -c 'cd route-main/web && npm ci'
           .github/scripts/retry-infra.sh nix develop . -c sh -c 'cd web && npm ci'
           nix develop . -c sh -c "cd route-main/web && node scripts/check-research-route-size.mjs --baseline '$RUNNER_TEMP/route-main.json' --update"
-          nix develop . -c sh -c "cd web && node --test scripts/research-route-budget.test.mjs scripts/research-cargo-notices.test.mjs && node scripts/check-research-route-size.mjs --baseline '$RUNNER_TEMP/route-main.json'"
+          nix develop . -c sh -c "cd web && node --test scripts/research-route-budget.test.mjs scripts/research-cargo-notices.test.mjs && node .route-base/check-research-route-size.mjs --baseline '$RUNNER_TEMP/route-main.json'"
       - run: nix develop . -c node --test research/fracture/shauer-2025/wasm/check.test.mjs
 
   # Offline: part of the required CI OK (ci.yml calls this workflow), so it never depends on the network.
@@ -398,6 +406,23 @@ jobs:
         run: |
           .github/scripts/retry-infra.sh nix develop --command true
       - run: nix develop -c cargo test --locked --manifest-path research/optimisation/fairclough-2026/Cargo.toml
+  gay-neto:
+    if: ${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name == 'schedule') }}
+    name: Offshore riser (Gay Neto 2014) validation
+    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' && fromJSON('["self-hosted","stabileo"]') || (github.ref == 'refs/heads/main' && github.event_name != 'schedule') && (vars.STABILEO_PR_POOL == 'true' && fromJSON('["self-hosted","stabileo-pr"]') || fromJSON('["self-hosted","stabileo"]'))) || 'ubuntu-24.04' }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - if: runner.environment == 'github-hosted'
+        uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a
+      - name: Prepare Nix shell (infrastructure retries)
+        run: |
+          .github/scripts/retry-infra.sh nix develop --command true
+      - run: nix develop -c cargo test --release --locked --manifest-path research/mechanics/gay-neto-2014/Cargo.toml
+      - run: nix develop -c cargo clippy --release --locked --all-targets --manifest-path research/mechanics/gay-neto-2014/Cargo.toml -- -D warnings
+      - run: python3 -I -c "import json, sys; c = json.load(open('research/mechanics/gay-neto-2014/VALIDATION.json'))['checks']; sys.exit(not c or not all(x['passed'] for x in c))"
   riks-crisfield:
     if: ${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name == 'schedule') }}
     name: Arc-length (Riks–Crisfield) native and WASM validation

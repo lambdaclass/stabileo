@@ -127,6 +127,16 @@ export const EXPERIMENTS: Experiment[] = [
     code: 'https://github.com/lambdaclass/stabileo/tree/main/research/mechanics/biggins-2026',
   },
   {
+    paperId: 'gay-neto-2014',
+    path: '/research/mechanics/gay-neto-2014',
+    name: 'A riser lifted off the seabed',
+    hook: 'An 835 m line on the seabed, pulled and lifted 186 m: a geometrically exact rod with seabed contact, checked element by element against the authors’ code.',
+    thumbnail: 'research-thumbs/gay-neto-2014.svg',
+    thumbnailAlt: 'The riser shape from our run at the end of the lift, over the seabed',
+    thumbnailQuery: '',
+    code: 'https://github.com/lambdaclass/stabileo/tree/main/research/mechanics/gay-neto-2014',
+  },
+  {
     paperId: 'cqc-1981', path: '/research/benchmarks/cqc-1981',
     name: 'SRSS vs CQC', hook: 'Closely spaced building modes.',
     thumbnail: 'research-thumbs/cqc-1981.webp', thumbnailAlt: 'Base shear from our SRSS and CQC runs', thumbnailQuery: '',

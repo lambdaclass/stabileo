@@ -1,0 +1,29 @@
+id: gay-neto-2014
+doi: 10.1007/s00466-013-0897-9
+citation: "A. Gay Neto, C. A. Martins, P. M. Pimenta, Static analysis of offshore risers with a geometrically-exact 3D beam model subjected to unilateral contact, Computational Mechanics 53 (2014) 125-145"
+reference_code: {url: https://github.com/alfredogneto/GIRAFFE, commit: 1b8241ed337e79d29e0b65262a4ec340e2f1f443, license: BSD-3-Clause}
+equations: >
+  Geometrically exact 3D rod (Reissner), quadratic three-node element, two Gauss points.
+  Strains in the section frame: Gamma = Q^T x' - e3, K = axial vector of Q^T Q'.
+  Energy 1/2 (Gamma . C Gamma + K . D K), C = diag(GA, GA, EA), D = diag(EI1, EI2, GJ).
+  Rotations interpolated as rotation vectors relative to the middle node; tangent from second-order
+  forward differentiation of the element energy. Node-to-plane penalty contact with Coulomb friction.
+assumptions:
+  - static analysis; contact damping (CN, CT) has no effect and is ignored
+  - submerged weight (Rho - rho_water * pi De^2 / 4) g per reference length, applied as a dead load, as in the reference code's Pipe_1
+  - shear stiffness of the rectangle is G A with no correction factor, as in the reference code's Beam_1
+  - element results are the average of the two Gauss points, as in the reference code's output
+units: {length: m, force: N, moment: N m}
+experiments:
+  - name: tutorial01
+    inputs: inputs/tutorial01.inp
+    mesh: {elements: 5, type: three-node beam}
+    solver: {increments: 10, tolerances: {residual_relative: 1.0e-7, increment_relative: 1.0e-10}}
+    references: [reference-results/tutorial01_tip_history.csv, planar Reissner rod boundary-value solution (tests/validation.rs)]
+  - name: tutorial16-steps-1-3
+    inputs: inputs/tutorial16.inp
+    mesh: {elements: 134, type: three-node pipe}
+    solver: {steps: [1, 2, 3], tolerances: {residual_relative: 1.0e-7, increment_relative: 1.0e-10}}
+    references: [reference-results/tutorial16_step3_resultants.csv, elastic catenary (tests/validation.rs)]
+excluded: [step 4 (sea current, Morison loads), beam-to-beam contact, dynamics]
+environment: {rust: from the repository flake, reference extraction: Python 3 standard library and poppler pdftocairo}

@@ -78,6 +78,7 @@ help:
 	@echo "CI-shaped targets (what each CI job runs):"
 	@echo "  make check-pins           - One version of each tool in rust-toolchain.toml, .nvmrc, flake.nix and CI"
 	@echo "  make check.changelog      - changelog.d/ fragments are well formed"
+	@echo "  make check.reverts [BASE=origin/main] [HEAD=HEAD] - Merging HEAD into BASE deletes no recent lines HEAD's branch never had"
 	@echo "  make lint.engine          - Clippy over the engine"
 	@echo "  make test.engine.gates    - The named engine correctness gates"
 	@echo "  make test.engine.metamorphic - Metamorphic tests, in release"
@@ -456,6 +457,12 @@ release.step:
 	@test -n "$(VERSION)" -a -n "$(DATE)" || { echo 'usage: make release.step VERSION=0.5.0 DATE=2026-11-06'; exit 2; }
 	$(NIX_RUN) python3 -I scripts/release-step.py $(VERSION) $(DATE)
 
+## Merging HEAD into BASE deletes no lines written in the last 21 days that reached the branch only by merging BASE
+## (the `reverts-ok` label, in $$GITHUB_EVENT_PATH or LABELS=a,b, acknowledges them)
+.PHONY: check.reverts
+check.reverts:
+	python3 -B -I .github/scripts/revert-check.py $(or $(BASE),origin/main) $(or $(HEAD),HEAD)
+
 # The engine's test files are modules of a few listed binaries (autotests = false): a file
 # in no binary would never run, one in two would run twice.
 check.test-targets:
@@ -475,6 +482,7 @@ test.nightly-scripts:
 	python3 -B -I scripts/tests/test_nightly.py
 	python3 -B -I scripts/tests/test_mutants_plan.py
 	python3 -B -I tools/opensees/test_gen_models.py
+	python3 -B -I tools/opensees/test_compare.py
 	$(NIX_RUN) node --test scripts/tests/nightly-findings.test.cjs
 	$(NIX_RUN) node --test scripts/tests/verification-alert.test.cjs
 	$(NIX_RUN) node --test scripts/tests/slow-e2e-alert.test.cjs
@@ -505,8 +513,10 @@ test.ci-scripts: test.nightly-scripts check.cadence
 	python3 -B -I scripts/tests/test_ci_runners.py
 	python3 -B -I scripts/tests/test_ci_events.py
 	python3 -B -I scripts/tests/test_post_merge_revert.py
+	python3 -B -I scripts/tests/test_revert_check.py
 	python3 -B -I scripts/tests/test_red_nightlies.py
 	python3 -B -I scripts/tests/test_required_checks.py
+	python3 -B -I scripts/tests/test_route_size_from_base.py
 	python3 -B -I scripts/tests/test_wall_clock.py
 	python3 -B -I scripts/tests/test_check_quick.py
 	python3 -B -I scripts/tests/test_infra_retry.py
@@ -561,6 +571,7 @@ research.wasm: web.deps
 	$(NIX_RUN) research/fracture/shauer-2025/wasm/build.sh
 	$(NIX_RUN) research/optimization/andreassen-2011/wasm/build.sh
 	$(NIX_RUN) research/mechanics/biggins-2026/build.sh
+	$(NIX_RUN) research/mechanics/gay-neto-2014/build.sh
 	$(NIX_RUN) research/metamaterials/grossman-2026/wasm/build.sh
 	$(NIX_RUN) research/form-finding/pastrana-2026/wasm/build.sh
 	$(NIX_RUN) research/optimisation/fairclough-2026/wasm/build.sh

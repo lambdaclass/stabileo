@@ -151,9 +151,10 @@ check_stacked_group(['research/papers.json'], 'true')
 measured = [step for step in route if 'check-research-route-size.mjs' in step.get('run', '')]
 assert measured and all('if' not in step for step in measured)
 assert measured[0]['env']['RESEARCH_ISOLATION'] == '${{ steps.scope.outputs.research }}'
-copy = next(line for line in measured[0]['run'].splitlines() if line.startswith('cp '))
-assert 'web/scripts/product-route-growth-budgets.json' not in copy.split()
-assert copy.split()[-1] == 'route-main/web/scripts/'
+assert not any(line.strip().startswith('cp ') for line in measured[0]['run'].splitlines())
+assert '.github/scripts/route-size-from-base.sh route-main .' in measured[0]['run']
+assert 'node .route-base/check-research-route-size.mjs' in measured[0]['run']
+assert 'product-route-growth-budgets.json' not in measured[0]['run']
 assert 'force_routes' not in jobs['research'].get('with', {})
 assert 'FORCE_ROUTES' not in scope['env']
 triggers = research.get('on', research.get(True))
@@ -196,7 +197,7 @@ print('ok online audit runs on research PRs without duplicating required jobs')
 
 steps = jobs['research-wasm']['steps']
 caches = {step['id'].removeprefix('research-'): step for step in steps if step.get('id', '').startswith('research-')}
-assert set(caches) == {'shauer-2025', 'andreassen-2011', 'biggins-2026', 'grossman-2026', 'pastrana-2026', 'fairclough-2026'}, sorted(caches)
+assert set(caches) == {'shauer-2025', 'andreassen-2011', 'biggins-2026', 'grossman-2026', 'pastrana-2026', 'fairclough-2026', 'gay-neto-2014'}, sorted(caches)
 for name, cache in caches.items():
     assert cache['with']['path'] == f'web/public/research-wasm/{name}', name
 build = next(step for step in steps if step.get('name') == 'Build research WASM (cache misses, in parallel)')
