@@ -94,6 +94,20 @@ class Registry(unittest.TestCase):
             self.assertEqual(json.loads((directory / "x.json").read_text())["changelog"], {"file": "CHANGELOG.md", "heading": "X"})
             self.assertEqual(step.registry_fragment_links(directory), [])
 
+    def test_the_numbered_entries_that_linked_a_fragment_link_the_changelog(self):
+        with tempfile.TemporaryDirectory() as d:
+            directory = pathlib.Path(d)
+            numbered = {"schema": 1, "changes": [
+                {"id": "a", "resultsVersion": 1, "changelog": {"file": "CHANGELOG.md", "heading": "A"}},
+                {"id": "b", "resultsVersion": 2, "changelog": {"file": "changelog.d/2-b.md", "heading": "B"}},
+            ]}
+            (directory / "numbered.json").write_text(json.dumps(numbered, indent=2))
+            self.assertEqual(step.registry_fragment_links(directory), ["numbered.json"])
+            self.assertEqual(step.repoint_registry(directory), ["numbered.json"])
+            changes = json.loads((directory / "numbered.json").read_text())["changes"]
+            self.assertEqual([c["changelog"] for c in changes], [{"file": "CHANGELOG.md", "heading": "A"}, {"file": "CHANGELOG.md", "heading": "B"}])
+            self.assertEqual(step.registry_fragment_links(directory), [])
+
     def test_an_escaped_fragment_path_is_found_and_repointed(self):
         with tempfile.TemporaryDirectory() as d:
             directory = pathlib.Path(d)
