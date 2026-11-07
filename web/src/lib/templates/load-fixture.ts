@@ -28,6 +28,7 @@ export interface JSONModel {
     sectionId: number;
     hingeStart?: boolean;
     hingeEnd?: boolean;
+    behaviour?: import('../engine/member-behaviour').MemberBehaviour;
     /**
      * Per-axis end releases, for a space model: `hingeStart`/`hingeEnd` are a
      * plane frame's hinge (the in-plane moment) and cannot say which axis a 3D
@@ -182,8 +183,8 @@ export function loadFixture(json: JSONModel, api: FixtureLoader, opts: { keepCom
 
     // Analytical member offset (PR [7]) and profile roll — both set directly on the
     // created element, because `FixtureLoader` exposes no setter for either.
-    if (e.offset || e.rollAngle !== undefined || e.variableSection || e.name) {
-      type Carried = { offset?: unknown; rollAngle?: number; variableSection?: { sectionJ: number; segments?: number }; name?: string };
+    if (e.offset || e.rollAngle !== undefined || e.variableSection || e.name || e.behaviour) {
+      type Carried = { offset?: unknown; rollAngle?: number; variableSection?: { sectionJ: number; segments?: number }; name?: string; behaviour?: string };
       const created = (api.model as unknown as { elements?: Map<number, Carried> }).elements?.get?.(newId)
         ?? (api as unknown as { elements?: Map<number, Carried> }).elements?.get?.(newId);
       if (created) {
@@ -191,6 +192,7 @@ export function loadFixture(json: JSONModel, api: FixtureLoader, opts: { keepCom
         if (e.rollAngle !== undefined) created.rollAngle = e.rollAngle;
         if (e.variableSection) created.variableSection = { ...e.variableSection, sectionJ: secMap.get(e.variableSection.sectionJ) ?? e.variableSection.sectionJ };
         if (e.name) created.name = e.name;
+        if (e.behaviour) created.behaviour = e.behaviour;
       }
     }
 

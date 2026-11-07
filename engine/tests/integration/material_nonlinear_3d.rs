@@ -411,3 +411,91 @@ fn nonlinear_material_3d_support_settlement_matches_linear() {
         nl_tip.uz, lin_tip.uz
     );
 }
+
+fn mixed_warping_cantilever() -> NonlinearMaterialInput3D {
+    let mut input = cantilever_3d_nl(
+        3.0, 0.0, 0.002, -0.001,
+        200.0, 0.3,
+        0.01, 1e-4, 1e-4, 1e-4,
+        1e6, 1e6, 1e6,
+        1,
+    );
+    let s = &mut input.solver;
+    s.nodes.insert("3".into(), SolverNode3D { id: 3, x: 6.0, y: 0.0, z: 0.0 });
+    let mut warping = s.sections["1"].clone();
+    warping.id = 2;
+    warping.cw = Some(1e-6);
+    s.sections.insert("2".into(), warping);
+    let mut second = s.elements["1"].clone();
+    second.id = 2;
+    second.node_i = 2;
+    second.node_j = 3;
+    second.section_id = 2;
+    s.elements.insert("2".into(), second);
+    input.section_capacities.insert("2".into(), input.section_capacities["1"].clone());
+    input
+}
+
+#[test]
+fn a_frame_without_warping_beside_one_with_it_solves_as_the_linear_path_does() {
+    let input = mixed_warping_cantilever();
+    let nl = solve_nonlinear_material_3d(&input).unwrap();
+    let lin = solve_3d(&input.solver).unwrap();
+    assert!(nl.converged);
+    for node in [2, 3] {
+        let l = lin.displacements.iter().find(|d| d.node_id == node).unwrap();
+        let n = nl.results.displacements.iter().find(|d| d.node_id == node).unwrap();
+        for (a, b) in [(l.uy, n.uy), (l.uz, n.uz), (l.rx, n.rx), (l.ry, n.ry), (l.rz, n.rz)] {
+            assert!((a - b).abs() <= 1e-9 * l.uy.abs().max(l.uz.abs()), "node {node}: linear {a} vs nonlinear {b}");
+        }
+    }
+}
+
+fn truss_tied_cantilever() -> NonlinearMaterialInput3D {
+    let mut input = cantilever_3d_nl(
+        3.0, 0.0, 0.002, -0.001,
+        200.0, 0.3,
+        0.01, 1e-4, 1e-4, 1e-4,
+        1e6, 1e6, 1e6,
+        1,
+    );
+    let s = &mut input.solver;
+    s.nodes.insert("3".into(), SolverNode3D { id: 3, x: 3.0, y: 0.0, z: -2.0 });
+    let mut tie = s.elements["1"].clone();
+    tie.id = 2;
+    tie.elem_type = "truss".into();
+    tie.node_i = 2;
+    tie.node_j = 3;
+    s.elements.insert("2".into(), tie);
+    let mut pin = s.supports["1"].clone();
+    pin.node_id = 3;
+    pin.rrx = false;
+    pin.rry = false;
+    pin.rrz = false;
+    s.supports.insert("2".into(), pin);
+    input
+}
+
+#[test]
+fn a_node_reached_only_by_a_truss_solves_as_the_linear_path_does() {
+    let input = truss_tied_cantilever();
+    let nl = solve_nonlinear_material_3d(&input).unwrap();
+    let lin = solve_3d(&input.solver).unwrap();
+    assert!(nl.converged);
+    let l = lin.displacements.iter().find(|d| d.node_id == 2).unwrap();
+    let n = nl.results.displacements.iter().find(|d| d.node_id == 2).unwrap();
+    for (a, b) in [(l.ux, n.ux), (l.uy, n.uy), (l.uz, n.uz), (l.rx, n.rx), (l.ry, n.ry), (l.rz, n.rz)] {
+        assert!((a - b).abs() <= 1e-9 * l.uy.abs().max(l.uz.abs()), "linear {a} vs nonlinear {b}");
+    }
+}
+
+#[test]
+fn a_bimoment_on_a_warping_dof_no_member_holds_is_refused_as_the_linear_path_does() {
+    let mut input = mixed_warping_cantilever();
+    input.solver.loads.push(SolverLoad3D::Nodal(SolverNodalLoad3D {
+        node_id: 1, fx: 0.0, fy: 0.0, fz: 0.0, mx: 0.0, my: 0.0, mz: 0.0, bw: Some(0.5),
+    }));
+    let linear = solve_3d(&input.solver).unwrap_err();
+    let nonlinear = solve_nonlinear_material_3d(&input).unwrap_err();
+    assert_eq!(nonlinear, linear);
+}

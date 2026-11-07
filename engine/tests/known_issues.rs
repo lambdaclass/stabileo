@@ -783,16 +783,21 @@ fn md_orthogonality_follows_the_harmonic_method_not_its_label() {
         assert_eq!(serde_json::from_value::<HarmonicMethod>(serde_json::json!(label)).unwrap(), method);
         assert_eq!(method.superposes_modes(), modal, "{method:?}");
     }
-    let solver: SolverInput3D = serde_json::from_str(include_str!("metamorphic_corpus/differential/modal3d-5.json")).unwrap();
-    let densities: HashMap<String, f64> = solver.materials.keys().map(|id| (id.clone(), 7850.0)).collect();
+    let solver = make_3d_beam(16, 8.0, E, 0.3, 0.01, 1e-4, 1e-4, 1e-5, vec![true; 6], None,
+        vec![SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: 9, fx: 1.0, fy: 0.0, fz: -10.0, mx: 0.0, my: 0.0, mz: 0.0, bw: None })]);
+    let densities: HashMap<String, f64> = HashMap::from([("1".to_string(), 7850.0)]);
     let mut seen = Vec::new();
     for frequencies in [vec![0.1, 1000.0], vec![0.1]] {
-        let input = HarmonicInput3D { solver: solver.clone(), densities: densities.clone(), frequencies, damping_ratio: 0.05, response_node_id: 6, response_dof: "x".into() };
+        let input = HarmonicInput3D { solver: solver.clone(), densities: densities.clone(), frequencies, damping_ratio: 0.05, response_node_id: 9, response_dof: "x".into() };
         let result = solve_harmonic_3d(&input).unwrap();
-        let warned = ids(&result.structured_diagnostics).contains(&"MD-ORTHOGONALITY".into());
-        match result.method {
-            HarmonicMethod::Modal | HarmonicMethod::ModalStatic => assert_warning(&result.structured_diagnostics, "MD-ORTHOGONALITY", 759.0),
-            HarmonicMethod::Direct => assert!(!warned, "{:?}", result.structured_diagnostics),
+        let certified = dedaliano_engine::certify::harmonic::certify_harmonic_3d(&input).unwrap().results;
+        assert_eq!(certified.method, result.method);
+        for r in [&result, &certified] {
+            let warned = ids(&r.structured_diagnostics).contains(&"MD-ORTHOGONALITY".into());
+            match r.method {
+                HarmonicMethod::Modal | HarmonicMethod::ModalStatic => assert_warning(&r.structured_diagnostics, "MD-ORTHOGONALITY", 759.0),
+                HarmonicMethod::Direct => assert!(!warned, "{:?}", r.structured_diagnostics),
+            }
         }
         seen.push(result.method.superposes_modes());
     }
@@ -800,16 +805,16 @@ fn md_orthogonality_follows_the_harmonic_method_not_its_label() {
 }
 
 #[test]
-fn reported_modal_model_harmonic_and_certificate_warn() {
+fn reported_modal_model_harmonic_is_solved_directly_without_the_modal_warning() {
     use dedaliano_engine::solver::harmonic::*;
     let solver: SolverInput3D = serde_json::from_str(include_str!("metamorphic_corpus/differential/modal3d-5.json")).unwrap();
     let densities = solver.materials.keys().map(|id| (id.clone(), 7850.0)).collect();
     let input = HarmonicInput3D { solver, densities, frequencies: vec![0.1, 1000.0], damping_ratio: 0.05, response_node_id: 6, response_dof: "x".into() };
     let plain = solve_harmonic_3d(&input).unwrap();
-    assert!(plain.method.superposes_modes(), "{:?}", plain.method);
-    assert_warning(&plain.structured_diagnostics, "MD-ORTHOGONALITY", 759.0);
+    assert_eq!(plain.method, HarmonicMethod::Direct);
+    assert!(!ids(&plain.structured_diagnostics).contains(&"MD-ORTHOGONALITY".into()), "{:?}", plain.structured_diagnostics);
     let certified = dedaliano_engine::certify::harmonic::certify_harmonic_3d(&input).unwrap();
-    assert_warning(&certified.results.structured_diagnostics, "MD-ORTHOGONALITY", 759.0);
+    assert!(!ids(&certified.results.structured_diagnostics).contains(&"MD-ORTHOGONALITY".into()), "{:?}", certified.results.structured_diagnostics);
     assert_eq!(serde_json::to_value(&plain.response_points).unwrap(), serde_json::to_value(&certified.results.response_points).unwrap());
 }
 
@@ -1899,20 +1904,19 @@ fn harmonic_beam(frequencies: Vec<f64>) -> dedaliano_engine::solver::harmonic::H
 }
 
 #[test]
-fn harmonic_above_the_kept_modes_is_warned_1434() {
-    let low = harmonic_beam(vec![0.5, 1.0, 2.0]);
-    assert!(low.modes_used < low.n_dof, "{} of {}", low.modes_used, low.n_dof);
-    assert!(low.warnings.is_empty(), "{:?}", low.warnings);
-    assert!(!ids(&low.structured_diagnostics).contains(&"HARM-TRUNCATION".to_string()), "{:?}", ids(&low.structured_diagnostics));
-    let high = harmonic_beam((1..=40).map(|i| i as f64 * 250.0).collect());
-    assert!(high.warnings.iter().any(|w| w.contains("static correction not applied")), "{:?}", high.warnings);
-    assert!(ids(&high.structured_diagnostics).contains(&"HARM-TRUNCATION".to_string()), "{:?}", ids(&high.structured_diagnostics));
+fn harmonic_above_the_kept_modes_of_a_small_model_is_solved_directly_1434() {
+    for frequencies in [vec![0.5, 1.0, 2.0], (1..=40).map(|i| i as f64 * 250.0).collect()] {
+        let r = harmonic_beam(frequencies);
+        assert_eq!(r.method, dedaliano_engine::solver::harmonic::HarmonicMethod::Direct);
+        assert!(r.warnings.is_empty(), "{:?}", r.warnings);
+        assert!(!ids(&r.structured_diagnostics).contains(&"HARM-TRUNCATION".to_string()), "{:?}", ids(&r.structured_diagnostics));
+    }
 }
 
 #[test]
 fn harmonic_above_the_kept_modes_is_solved_directly_in_3d_1434() {
     let run = |frequencies: Vec<f64>| {
-        let solver = make_3d_beam(8, 8.0, E, 0.3, 0.01, 1e-4, 1e-4, 1e-5, vec![true; 6], None,
+        let solver = make_3d_beam(16, 8.0, E, 0.3, 0.01, 1e-4, 1e-4, 1e-5, vec![true; 6], None,
             vec![SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: 5, fx: 0.0, fy: 0.0, fz: -10.0, mx: 0.0, my: 0.0, mz: 0.0, bw: None })]);
         let input = dedaliano_engine::solver::harmonic::HarmonicInput3D {
             solver, densities: HashMap::from([("1".to_string(), 7850.0)]), frequencies, damping_ratio: 0.05, response_node_id: 5, response_dof: "z".into(),
@@ -1922,7 +1926,7 @@ fn harmonic_above_the_kept_modes_is_solved_directly_in_3d_1434() {
     let low = run(vec![0.5, 1.0, 2.0]);
     assert!(low.modes_used < low.n_dof, "{} of {}", low.modes_used, low.n_dof);
     assert!(!ids(&low.structured_diagnostics).contains(&"HARM-TRUNCATION".to_string()), "{:?}", ids(&low.structured_diagnostics));
-    let high = run((1..=40).map(|i| i as f64 * 500.0).collect());
+    let high = run(std::iter::once(0.5).chain((1..=40).map(|i| i as f64 * 500.0)).collect());
     assert!(!high.direct_frequencies.is_empty(), "{:?}", high.warnings);
     assert!(!high.warnings.iter().any(|w| w.contains("static correction not applied")), "{:?}", high.warnings);
     let found = ids(&high.structured_diagnostics);
@@ -2046,7 +2050,7 @@ fn a_combination_past_small_displacements_is_warned_though_its_cases_are_not_144
     assert_eq!(beyond_small_displacement(&both.structured_diagnostics).map(|d| d.node_ids.clone()), Some(vec![2]));
     let single = case(2400.0);
     let warning = beyond_small_displacement(&single.structured_diagnostics).unwrap_or_else(|| panic!("{:?}", ids(&single.structured_diagnostics)));
-    assert_eq!((warning.node_ids.clone(), warning.element_ids.clone()), (vec![2], vec![]), "the tip turns 0.12 rad while the chord turns 0.06");
+    assert_eq!((warning.node_ids.clone(), warning.element_ids.clone()), (vec![2], vec![1]), "the tip, and the member next to it, turn 0.12 rad while the chord turns 0.06");
 }
 
 fn cantilever_with_tip_moment(mx: f64, my: f64, mz: f64) -> AnalysisResults3D {
@@ -2108,6 +2112,85 @@ fn a_combination_carries_the_member_chord_warning_of_its_cases_1446() {
     assert_eq!(combined.structured_diagnostics.iter().filter(|d| d.phase.as_deref() == Some("LIN-SMALL-DISPLACEMENT")).count(), 1);
 }
 
+fn chord_case_2d(fx: f64, fz: f64) -> AnalysisResults {
+    solve_2d(&make_beam(1, 1.0, E, 0.01, 1e-4, "fixed", None, vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx, fz, my: 0.0 })])).unwrap()
+}
+
+fn chord_case_3d(fx: f64, fz: f64) -> AnalysisResults3D {
+    let load = SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: 2, fx, fy: 0.0, fz, mx: 0.0, my: 0.0, mz: 0.0, bw: None });
+    dedaliano_engine::solver::linear::solve_3d(&make_3d_beam(1, 1.0, E, 0.3, 0.01, 1e-4, 1e-4, 1e-5, vec![true; 6], None, vec![load])).unwrap()
+}
+
+fn warned_chords(diagnostics: &[StructuredDiagnostic]) -> Option<(Vec<usize>, Vec<usize>)> {
+    beyond_small_displacement(diagnostics).map(|d| (d.node_ids.clone(), d.element_ids.clone()))
+}
+
+#[test]
+fn a_combination_judges_member_chords_on_its_own_displacements_1506() {
+    use dedaliano_engine::postprocess::combinations::{combine_results_refs, CombinationFactor};
+    let (along, across, far) = (chord_case_2d(120_000.0, 0.0), chord_case_2d(0.0, -3600.0), chord_case_2d(600_000.0, 0.0));
+    let tip = |r: &AnalysisResults| r.displacements.iter().find(|d| d.node_id == 2).unwrap().clone();
+    assert!((tip(&along).ux - 0.06).abs() < 1e-9 && (tip(&across).uz.abs() - 0.06).abs() < 1e-9 && (tip(&across).ry.abs() - 0.09).abs() < 1e-9);
+    assert_eq!((warned_chords(&along.structured_diagnostics), warned_chords(&across.structured_diagnostics)), (None, None));
+    assert_eq!(warned_chords(&far.structured_diagnostics), Some((vec![], vec![1])));
+    let cases = [(1, &along), (2, &across), (3, &far), (4, &far)];
+    let combine = |factors: &[(usize, f64)]| {
+        let f: Vec<CombinationFactor> = factors.iter().map(|&(case_id, factor)| CombinationFactor { case_id, factor }).collect();
+        combine_results_refs(&f, &cases).unwrap().structured_diagnostics
+    };
+    assert_eq!(warned_chords(&combine(&[(1, 2.0)])), Some((vec![], vec![1])), "0.06 amplified twice is 0.12");
+    assert_eq!(warned_chords(&combine(&[(1, 1.0), (1, 1.0)])), Some((vec![], vec![1])));
+    assert_eq!(warned_chords(&combine(&[(1, 1.0), (2, 1.0)])), None, "perpendicular chords of 0.06 make 0.085");
+    assert_eq!(warned_chords(&combine(&[(3, 0.1)])), None, "0.3 reduced to 0.03");
+    assert_eq!(warned_chords(&combine(&[(3, 1.0), (4, -1.0)])), None, "cancelled");
+    assert_eq!(warned_chords(&combine(&[(3, 1.0), (4, -0.6)])), Some((vec![], vec![1])));
+    let summed = combine_results_refs(&[CombinationFactor { case_id: 1, factor: 2.0 }, CombinationFactor { case_id: 2, factor: 0.5 }], &cases).unwrap();
+    let chord = summed.result_summary.as_ref().and_then(|s| s.member_chords.clone()).unwrap();
+    assert_eq!(chord.len(), 1);
+    assert!((chord[0].chord[0] - 0.12).abs() < 1e-12 && chord[0].chord[1] == 0.0 && (chord[0].chord[2] + 0.03).abs() < 1e-12, "{chord:?}");
+}
+
+#[test]
+fn a_case_without_recorded_chords_has_its_chord_warnings_carried_1506() {
+    use dedaliano_engine::postprocess::combinations::{combine_results_refs, CombinationFactor};
+    let mut far = chord_case_2d(600_000.0, 0.0);
+    let mut along = chord_case_2d(120_000.0, 0.0);
+    for r in [&mut far, &mut along] {
+        r.result_summary.as_mut().unwrap().member_chords = None;
+    }
+    let combined = combine_results_refs(&[CombinationFactor { case_id: 1, factor: 0.1 }, CombinationFactor { case_id: 2, factor: 2.0 }], &[(1, &far), (2, &along)]).unwrap();
+    assert_eq!(warned_chords(&combined.structured_diagnostics), Some((vec![], vec![1])));
+    assert_eq!(combined.result_summary.and_then(|s| s.member_chords), None);
+    let recorded = chord_case_2d(600_000.0, 0.0);
+    let mut unrecorded = chord_case_2d(160_000.0, 0.0);
+    unrecorded.result_summary.as_mut().unwrap().member_chords = None;
+    assert_eq!(warned_chords(&unrecorded.structured_diagnostics), None);
+    let mixed = combine_results_refs(&[CombinationFactor { case_id: 1, factor: 0.1 }, CombinationFactor { case_id: 2, factor: 1.0 }], &[(1, &recorded), (2, &unrecorded)]).unwrap();
+    assert_eq!(warned_chords(&mixed.structured_diagnostics), Some((vec![], vec![1])), "0.03 recorded and 0.08 unrecorded make 0.11; the recorded case's warning is carried");
+    assert_eq!(mixed.result_summary.and_then(|s| s.member_chords), None);
+}
+
+#[test]
+fn a_3d_combination_judges_member_chords_on_its_own_displacements_1506() {
+    use dedaliano_engine::postprocess::combinations::{combine_results_3d_refs, CombinationFactor};
+    let (along, across, far) = (chord_case_3d(120_000.0, 0.0), chord_case_3d(0.0, -3600.0), chord_case_3d(600_000.0, 0.0));
+    let tip = |r: &AnalysisResults3D| r.displacements.iter().find(|d| d.node_id == 2).unwrap().clone();
+    assert!((tip(&along).ux - 0.06).abs() < 1e-9 && (tip(&across).uz.abs() - 0.06).abs() < 1e-9 && (tip(&across).ry.abs() - 0.09).abs() < 1e-9);
+    assert_eq!((warned_chords(&along.structured_diagnostics), warned_chords(&across.structured_diagnostics)), (None, None));
+    assert_eq!(warned_chords(&far.structured_diagnostics), Some((vec![], vec![1])));
+    let cases = [(1, &along), (2, &across), (3, &far), (4, &far)];
+    let combine = |factors: &[(usize, f64)]| {
+        let f: Vec<CombinationFactor> = factors.iter().map(|&(case_id, factor)| CombinationFactor { case_id, factor }).collect();
+        combine_results_3d_refs(&f, &cases).unwrap().unwrap().structured_diagnostics
+    };
+    assert_eq!(warned_chords(&combine(&[(1, 2.0)])), Some((vec![], vec![1])), "0.06 amplified twice is 0.12");
+    assert_eq!(warned_chords(&combine(&[(1, 1.0), (1, 1.0)])), Some((vec![], vec![1])));
+    assert_eq!(warned_chords(&combine(&[(1, 1.0), (2, 1.0)])), None, "perpendicular chords of 0.06 make 0.085");
+    assert_eq!(warned_chords(&combine(&[(3, 0.1)])), None, "0.3 reduced to 0.03");
+    assert_eq!(warned_chords(&combine(&[(3, 1.0), (4, -1.0)])), None, "cancelled");
+    assert_eq!(warned_chords(&combine(&[(3, 1.0), (4, -0.6)])), Some((vec![], vec![1])));
+}
+
 #[test]
 fn every_export_the_app_falls_back_on_refuses_no_free_dofs_with_a_code() {
     use dedaliano_engine::solver::{buckling::*, modal::*, pdelta::*};
@@ -2144,4 +2227,120 @@ fn buckling_with_nothing_compressed_refuses_with_a_code_in_2d_and_3d() {
         assert_eq!(codes(&error), ["no_compressed_elements"], "{name}: {error}");
         assert_eq!(serde_json::from_str::<serde_json::Value>(&error).unwrap()["message"], "No compressed elements — buckling not applicable");
     }
+}
+
+fn fixed_ended_span_2d(q: f64) -> AnalysisResults {
+    let input = common::make_input(
+        vec![(1, 0.0, 0.0), (2, 1.0, 0.0), (3, 2.0, 0.0)],
+        vec![(1, E, 0.3)],
+        vec![(1, 0.01, 1e-4)],
+        vec![(1, "frame", 1, 2, 1, 1, false, false), (2, "frame", 2, 3, 1, 1, false, false)],
+        vec![(1, 1, "fixed"), (2, 2, "fixed")],
+        vec![
+            SolverLoad::Distributed(SolverDistributedLoad { element_id: 1, q_i: q, q_j: q, a: None, b: None }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: -1.0, my: 0.0 }),
+        ],
+    );
+    solve_2d(&input).unwrap()
+}
+
+fn fixed_ended_span_3d(qy: f64, qz: f64) -> AnalysisResults3D {
+    let input = common::make_3d_input(
+        vec![(1, 0.0, 0.0, 0.0), (2, 1.0, 0.0, 0.0), (3, 2.0, 0.0, 0.0)],
+        vec![(1, E, 0.3)],
+        vec![(1, 0.01, 1e-4, 1e-4, 1e-4)],
+        vec![(1, "frame", 1, 2, 1, 1), (2, "frame", 2, 3, 1, 1)],
+        vec![(1, vec![true; 6]), (2, vec![true; 6])],
+        vec![
+            SolverLoad3D::Distributed(SolverDistributedLoad3D { q_xi: 0.0, q_xj: 0.0, element_id: 1, q_yi: qy, q_yj: qy, q_zi: qz, q_zj: qz, a: None, b: None }),
+            SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: 3, fx: 0.0, fy: 0.0, fz: -1.0, mx: 0.0, my: 0.0, mz: 0.0, bw: None }),
+        ],
+    );
+    dedaliano_engine::solver::linear::solve_3d(&input).unwrap()
+}
+
+#[test]
+fn a_rotation_inside_a_fixed_ended_span_is_warned_1506() {
+    let largest = |q: f64| q.abs() / (72.0 * 3f64.sqrt() * 2e4);
+    let loaded = fixed_ended_span_2d(-500_000.0);
+    assert!(largest(500_000.0) > 0.2);
+    assert!(loaded.displacements.iter().filter(|d| d.node_id != 3).all(|d| d.ux == 0.0 && d.uz == 0.0 && d.ry == 0.0), "{:?}", loaded.displacements);
+    assert_eq!(beyond_small_displacement(&loaded.structured_diagnostics).map(|d| (d.node_ids.clone(), d.element_ids.clone())), Some((vec![], vec![1])), "{:?}", ids(&loaded.structured_diagnostics));
+    let light = fixed_ended_span_2d(-100_000.0);
+    assert!(largest(100_000.0) < 0.05);
+    assert!(beyond_small_displacement(&light.structured_diagnostics).is_none(), "{:?}", ids(&light.structured_diagnostics));
+}
+
+#[test]
+fn a_rotation_inside_a_fixed_ended_3d_span_is_warned_in_either_plane_1506() {
+    for (qy, qz) in [(-500_000.0, 0.0), (0.0, -500_000.0), (200_000.0, -200_000.0)] {
+        let loaded = fixed_ended_span_3d(qy, qz);
+        assert!(loaded.displacements.iter().filter(|d| d.node_id != 3).all(|d| [d.ux, d.uy, d.uz, d.rx, d.ry, d.rz] == [0.0; 6]), "{:?}", loaded.displacements);
+        assert_eq!(beyond_small_displacement(&loaded.structured_diagnostics).map(|d| (d.node_ids.clone(), d.element_ids.clone())), Some((vec![], vec![1])), "qy {qy} qz {qz}: {:?}", ids(&loaded.structured_diagnostics));
+    }
+    for (qy, qz) in [(-100_000.0, 0.0), (0.0, -100_000.0)] {
+        let light = fixed_ended_span_3d(qy, qz);
+        assert!(beyond_small_displacement(&light.structured_diagnostics).is_none(), "qy {qy} qz {qz}: {:?}", ids(&light.structured_diagnostics));
+    }
+}
+
+#[test]
+fn a_combination_judges_span_rotations_on_its_own_displacements_and_span_loads_1506() {
+    use dedaliano_engine::postprocess::combinations::{combine_results_refs, CombinationFactor};
+    let (moderate, large) = (fixed_ended_span_2d(-150_000.0), fixed_ended_span_2d(-500_000.0));
+    assert!(beyond_small_displacement(&moderate.structured_diagnostics).is_none(), "{:?}", ids(&moderate.structured_diagnostics));
+    let cases = [(1, &moderate), (2, &large), (3, &large)];
+    let combine = |factors: &[(usize, f64)]| {
+        let f: Vec<CombinationFactor> = factors.iter().map(|&(case_id, factor)| CombinationFactor { case_id, factor }).collect();
+        combine_results_refs(&f, &cases).unwrap().structured_diagnostics
+    };
+    let warned = |d: &[StructuredDiagnostic]| beyond_small_displacement(d).map(|d| (d.node_ids.clone(), d.element_ids.clone()));
+    assert_eq!(warned(&combine(&[(1, 2.0)])), Some((vec![], vec![1])), "0.06 amplified twice is 0.12");
+    assert_eq!(warned(&combine(&[(2, 0.1)])), None, "0.2 reduced to 0.02");
+    assert_eq!(warned(&combine(&[(2, 1.0), (3, -1.0)])), None, "cancelled");
+    assert_eq!(warned(&combine(&[(2, 1.0), (3, -0.4)])), Some((vec![], vec![1])));
+}
+
+#[test]
+fn a_3d_combination_judges_span_rotations_on_its_own_displacements_and_span_loads_1506() {
+    use dedaliano_engine::postprocess::combinations::{combine_results_3d_refs, CombinationFactor};
+    let (moderate, large) = (fixed_ended_span_3d(0.0, -150_000.0), fixed_ended_span_3d(-500_000.0, 0.0));
+    assert!(beyond_small_displacement(&moderate.structured_diagnostics).is_none(), "{:?}", ids(&moderate.structured_diagnostics));
+    let cases = [(1, &moderate), (2, &large), (3, &large)];
+    let combine = |factors: &[(usize, f64)]| {
+        let f: Vec<CombinationFactor> = factors.iter().map(|&(case_id, factor)| CombinationFactor { case_id, factor }).collect();
+        combine_results_3d_refs(&f, &cases).unwrap().unwrap().structured_diagnostics
+    };
+    let warned = |d: &[StructuredDiagnostic]| beyond_small_displacement(d).map(|d| (d.node_ids.clone(), d.element_ids.clone()));
+    assert_eq!(warned(&combine(&[(1, 2.0)])), Some((vec![], vec![1])), "0.06 amplified twice is 0.12");
+    assert_eq!(warned(&combine(&[(2, 0.1)])), None, "0.2 reduced to 0.02");
+    assert_eq!(warned(&combine(&[(2, 1.0), (3, -1.0)])), None, "cancelled");
+    assert_eq!(warned(&combine(&[(1, 1.5), (2, 0.4)])), Some((vec![], vec![1])), "0.09 and 0.08 in perpendicular planes make 0.12");
+}
+
+#[test]
+fn a_case_without_recorded_spans_has_its_span_warnings_carried_1506() {
+    use dedaliano_engine::postprocess::combinations::{combine_results_refs, CombinationFactor};
+    let mut large = fixed_ended_span_2d(-500_000.0);
+    large.result_summary.as_mut().unwrap().member_spans = None;
+    let combined = combine_results_refs(&[CombinationFactor { case_id: 1, factor: 0.1 }], &[(1, &large)]).unwrap();
+    assert_eq!(beyond_small_displacement(&combined.structured_diagnostics).map(|d| d.element_ids.clone()), Some(vec![1]));
+    assert_eq!(combined.result_summary.and_then(|s| s.member_spans), None);
+}
+
+#[test]
+fn a_combination_runs_the_check_whose_record_is_complete_1506() {
+    use dedaliano_engine::postprocess::combinations::{combine_results_refs, CombinationFactor};
+    let mut along = chord_case_2d(120_000.0, 0.0);
+    along.result_summary.as_mut().unwrap().member_spans = None;
+    let chords_only = combine_results_refs(&[CombinationFactor { case_id: 1, factor: 2.0 }], &[(1, &along)]).unwrap();
+    assert_eq!(beyond_small_displacement(&chords_only.structured_diagnostics).map(|d| d.element_ids.clone()), Some(vec![1]), "0.06 amplified twice is 0.12 with no span record");
+    let summary = chords_only.result_summary.unwrap();
+    assert!(summary.member_chords.is_some() && summary.member_spans.is_none());
+    let mut moderate = fixed_ended_span_2d(-150_000.0);
+    moderate.result_summary.as_mut().unwrap().member_chords = None;
+    let spans_only = combine_results_refs(&[CombinationFactor { case_id: 1, factor: 2.0 }], &[(1, &moderate)]).unwrap();
+    assert_eq!(beyond_small_displacement(&spans_only.structured_diagnostics).map(|d| d.element_ids.clone()), Some(vec![1]), "a 0.06 span rotation amplified twice with no chord record");
+    let summary = spans_only.result_summary.unwrap();
+    assert!(summary.member_chords.is_none() && summary.member_spans.is_some());
 }

@@ -53,6 +53,7 @@ const ogAlternates = (locale: Locale) => PUBLIC_LOCALES.filter((l) => l !== loca
  */
 const SECTIONS = [
   'hero',
+  'fit',
   'basic',
   'pro-calc',
   'pro-design',
@@ -194,6 +195,21 @@ test.describe('@landing landing page', () => {
   });
 
 
+  test('the positioning block links to reliability and the SAP2000 page, and PRO Design names #532', async ({ page }) => {
+    await bootLanding(page);
+
+    const fit = page.locator('section[data-section="fit"]');
+    await expect(fit.locator('.card h3')).toHaveText(['Commercial desktop packages', 'Open-source solvers', 'Teaching software']);
+    await expect(fit.locator('.card').nth(1)).toContainText('OpenSees, Code_Aster, CalculiX');
+    await expect(fit.locator('a[href*="/sap2000-alternative"]')).toBeVisible();
+    await expect(page.locator('section[data-section="basic"] .tick-list li')).toHaveCount(5);
+    await expect(page.locator('section[data-section="pro-design"] p.lead').nth(1)).toContainText('#532: 3D design demands may be taken about the wrong axis');
+    await expect(page.locator('section[data-section="pro-design"] a[href="https://github.com/lambdaclass/stabileo/issues/532"]')).toBeVisible();
+
+    await fit.locator('a[href*="/reliability"]').click();
+    await expect(page).toHaveURL(/\/en\/reliability\/?$/);
+  });
+
   test('every section is an accessibly-named landmark', async ({ page }) => {
     await bootLanding(page);
 
@@ -222,19 +238,12 @@ test.describe('@landing landing page', () => {
     await expect(page.locator('.app-container.hidden-behind-landing')).toHaveCount(0);
   });
 
-  test('the hero offers one action and no dead link', async ({ page }) => {
-    /*
-     * The hero used to carry a second button pointing at /demo, the guided
-     * tour. That route is being retired by the tutorials workstream, so the
-     * button went with it: a link to a page that will 404 looks exactly like a
-     * working one until someone presses it, and this one sat in the first
-     * screen of the site.
-     *
-     * What remains is one primary action and the quiet blog link below it.
-     */
+  test('the hero offers the editor and the live examples, and no dead link', async ({ page }) => {
     await bootLanding(page);
 
-    await expect(page.locator('.landing .hero-ctas .btn')).toHaveCount(1);
+    await expect(page.locator('.landing .hero-ctas .btn')).toHaveCount(2);
+    await expect(page.locator('.landing .hero-ctas .btn-primary')).toHaveCount(1);
+    await expect(page.locator('.landing .hero-ctas a.btn')).toHaveAttribute('href', /\/examples\/$/);
     await expect(page.locator('.landing a[href="/demo"]')).toHaveCount(0);
     await expect(page.locator('.landing .hero-blog')).toBeVisible();
 
@@ -280,7 +289,7 @@ test.describe('@landing landing page', () => {
     await bootLanding(page, { locale: 'en' });
 
     const h1 = page.locator('.landing h1');
-    await expect(h1).toHaveText('Structural analysis, in a browser tab.');
+    await expect(h1).toHaveText('Open-source structural engineering software, with AI on the way.');
 
     /*
        A drawn listbox now, not a native `<select>` — the platform put the
@@ -290,7 +299,7 @@ test.describe('@landing landing page', () => {
     await page.getByTestId('nav-lang-button').click();
     await page.getByTestId('nav-lang-list').getByRole('option', { name: 'Español' }).click();
 
-    await expect(h1).toHaveText('Cálculo estructural, en una pestaña del navegador.');
+    await expect(h1).toHaveText('Software de ingeniería estructural de código abierto, con IA en camino.');
     /*
      * A second heading, further down, so the assertion covers the whole page
      * rather than the one string the switcher is most likely to get right.
@@ -321,7 +330,7 @@ test.describe('@landing landing page', () => {
     const ctx = await browser.newContext({ locale: 'pt-BR' });
     const page = await ctx.newPage();
     await bootLanding(page, { manual: false });
-    await expect(page.locator('.landing h1')).toHaveText('Cálculo estrutural, numa aba do navegador.');
+    await expect(page.locator('.landing h1')).toHaveText('Software de engenharia estrutural de código aberto, com IA a caminho.');
     await expect(page.getByTestId('nav-lang')).toHaveAttribute('data-value', 'pt');
     await ctx.close();
   });
@@ -330,7 +339,7 @@ test.describe('@landing landing page', () => {
     const ctx = await browser.newContext({ locale: 'es-AR' });
     const page = await ctx.newPage();
     await bootLanding(page, { manual: false });
-    await expect(page.locator('.landing h1')).toHaveText('Cálculo estructural, en una pestaña del navegador.');
+    await expect(page.locator('.landing h1')).toHaveText('Software de ingeniería estructural de código abierto, con IA en camino.');
     await ctx.close();
   });
 
@@ -346,7 +355,7 @@ test.describe('@landing landing page', () => {
     const ctx = await browser.newContext({ locale: 'it-IT' });
     const page = await ctx.newPage();
     await bootLanding(page, { manual: false });
-    await expect(page.locator('.landing h1')).toHaveText('Structural analysis, in a browser tab.');
+    await expect(page.locator('.landing h1')).toHaveText('Open-source structural engineering software, with AI on the way.');
     await expect(page.getByTestId('nav-lang')).toHaveAttribute('data-value', 'en');
     await ctx.close();
   });
@@ -504,7 +513,7 @@ test.describe('@landing landing page', () => {
    */
   test.describe('metadata', () => {
     const SOCIAL = 'https://stabileo.com/og/stabileo-social.png';
-    const EN_TITLE = 'Stabileo — Open-source structural engineering software';
+    const EN_TITLE = 'Stabileo — Open-source structural engineering software, AI in development';
 
     function readHead(page: Page) {
       return page.evaluate(() => {
@@ -546,7 +555,7 @@ test.describe('@landing landing page', () => {
        * file a crawler receives already holds the page's real metadata — there
        * is no longer a generic head to be refined later.
        */
-      expect(one(h, 'description')).toMatch(/^Free in your browser: .*bring your own Claude or OpenAI key/);
+      expect(one(h, 'description')).toMatch(/^Free and open source, in your browser: .*CIRSOC 201 design, experimental AISC, ACI and Eurocode checks, and an AI assistant in development\.$/);
       expect(one(h, 'theme-color')).toBe('#0c1620');
       expect(one(h, 'og:type')).toBe('website');
       // og:url names the page, and the page here is /en — the same address
@@ -612,19 +621,17 @@ test.describe('@landing landing page', () => {
        * already uses.
        */
       await pickLanguage(page, 'nav-lang', 'es');
-      await expect(page.locator('.landing h1')).toHaveText('Cálculo estructural, en una pestaña del navegador.');
+      await expect(page.locator('.landing h1')).toHaveText('Software de ingeniería estructural de código abierto, con IA en camino.');
       const h = await readHead(page);
 
       expect(h.headTitles).toBe(1);
       expect(h.lang).toBe('es');
-      expect(h.title).toBe('Stabileo — Software de ingeniería estructural de código abierto');
+      expect(h.title).toBe('Stabileo — Software de ingeniería estructural de código abierto, IA en desarrollo');
       expect(one(h, 'og:title')).toBe(h.title);
       expect(one(h, 'og:locale')).toBe('es_AR');
       expect(h.meta['og:locale:alternate']).toEqual(ogAlternates('es'));
       expect(h.canonicals).toEqual(['https://stabileo.com/es/']);
-      // The description is the hero lead, which now carries the positioning:
-      // a free, open platform with three modes, rather than live re-solving.
-      expect(one(h, 'description')).toMatch(/^Gratis en el navegador: .*tu propia clave de Claude u OpenAI/);
+      expect(one(h, 'description')).toMatch(/^Gratis y de código abierto, en el navegador: .*diseño CIRSOC 201, verificación experimental AISC, ACI y Eurocódigo, y un asistente de IA en desarrollo\.$/);
       expect(one(h, 'twitter:description')).toBe(one(h, 'description'));
       // The canonical DOES vary by locale now: each language is its own
       // indexable page, which is the whole reason the prefixes exist.
@@ -634,12 +641,12 @@ test.describe('@landing landing page', () => {
     test('the Portuguese landing carries Portuguese metadata', async ({ page }) => {
       await bootLanding(page);
       await pickLanguage(page, 'nav-lang', 'pt');
-      await expect(page.locator('.landing h1')).toHaveText('Cálculo estrutural, numa aba do navegador.');
+      await expect(page.locator('.landing h1')).toHaveText('Software de engenharia estrutural de código aberto, com IA a caminho.');
       const h = await readHead(page);
 
       expect(h.headTitles).toBe(1);
       expect(h.lang).toBe('pt');
-      expect(h.title).toBe('Stabileo — Software de engenharia estrutural de código aberto');
+      expect(h.title).toBe('Stabileo — Software de engenharia estrutural de código aberto, IA em desenvolvimento');
       expect(one(h, 'og:title')).toBe(h.title);
       expect(one(h, 'og:locale')).toBe('pt_BR');
       expect(h.meta['og:locale:alternate']).toEqual(ogAlternates('pt'));
@@ -699,7 +706,7 @@ test.describe('@landing landing page', () => {
        * file a crawler receives already holds the page's real metadata — there
        * is no longer a generic head to be refined later.
        */
-      expect(one(h, 'description')).toMatch(/^Free in your browser: .*bring your own Claude or OpenAI key/);
+      expect(one(h, 'description')).toMatch(/^Free and open source, in your browser: .*CIRSOC 201 design, experimental AISC, ACI and Eurocode checks, and an AI assistant in development\.$/);
     });
 
     test('the social card exists, resolves, and is a 1200x630 PNG', async ({ page }) => {
@@ -853,15 +860,12 @@ test.describe('@landing the model the deck states', () => {
         trs.map((tr) => [...tr.querySelectorAll('th,td')].map((c) => c.textContent?.trim() ?? '')),
       );
 
-    // Five modules, two audiences. Universities are one audience now: public
-    // and private were separate rows and everything is free for both.
+    // Five modules, two audiences. Stabileo AI is paid by everyone, universities included.
     expect(rows).toEqual([
       ['Básico', 'Gratis', 'Gratis'],
       ['PRO · Cálculo', 'Gratis', 'Gratis'],
       ['PRO · Diseño normativo', 'Gratis durante el desarrollo*', 'Gratis'],
-      // Blank on purpose: a university brings its own model API, and the
-      // paragraph under the table is where that is explained.
-      ['Stabileo IA', 'Pago por token**', ''],
+      ['Stabileo IA', 'Pago por token**', 'Pago por token**'],
       ['Educativo', '', 'Gratis'],
     ]);
   });
@@ -901,16 +905,11 @@ test.describe('@landing the model the deck states', () => {
     const pricing = page.locator('section[data-section="pricing"]');
     await expect(pricing).toContainText('Para las universidades, el programa es gratuito');
 
-    /*
-     * And the table agrees. Every module is free for universities, and the
-     * AI's cell is blank rather than priced: what a university pays for the
-     * agent depends on the model API it brings, which the paragraph under the
-     * table explains and a number in a cell would contradict.
-     */
+    await expect(pricing).toContainText('salvo Stabileo IA y el cálculo intensivo en la nube');
     const unis = await pricing
       .locator('.model-table tbody tr')
       .evaluateAll((trs) => trs.map((tr) => tr.querySelectorAll('td')[1]?.textContent?.trim() ?? ''));
-    expect(unis).toEqual(['Gratis', 'Gratis', 'Gratis', '', 'Gratis']);
+    expect(unis).toEqual(['Gratis', 'Gratis', 'Gratis', 'Pago por token**', 'Gratis']);
 
     // And the firms column, where Education is blank for the same kind of
     // reason: a price there would answer a question the mode does not pose.
@@ -934,10 +933,9 @@ test.describe('@landing the model the deck states', () => {
      */
     const inTable = await pricing.locator('.model-table .fn').allInnerTexts();
     const inNotes = await pricing.locator('.mode-note .fn').allInnerTexts();
-    expect(inTable.sort()).toEqual(inNotes.sort());
+    expect([...new Set(inTable)].sort()).toEqual(inNotes.sort());
 
-    // And the explanation is actually there, since the blank now depends on it.
-    await expect(pricing).toContainText('conectar la API del modelo de lenguaje');
+    await expect(pricing).toContainText('será paga para todos, universidades incluidas');
   });
 
   test('the AI section shows the panel, and the panel shows a decision', async ({ page }) => {
@@ -951,6 +949,15 @@ test.describe('@landing the model the deck states', () => {
     const img = ai.locator('img');
     await expect(img).toHaveCount(1);
     await expect(img).toHaveAttribute('alt', /propone|aplicarl/i);
+  });
+
+  test('the AI section lists what the assistant does, and says it is switched off', async ({ page }) => {
+    await bootLanding(page, { locale: 'es' });
+    const ai = page.locator('section[data-section="ai"]');
+    await expect(ai.locator('.tick-list li')).toHaveCount(4);
+    await expect(ai.locator('.tick-list li').first()).toContainText('Arma un modelo a partir de una descripción');
+    await expect(ai).toContainText('responsabilidad del ingeniero');
+    await expect(ai.locator('.mode-note')).toHaveText('El panel ya está en el editor, desactivado mientras lo probamos.');
   });
 
   test('the footer links the five accounts, and opens none of them in place', async ({ page }) => {
@@ -981,6 +988,18 @@ test.describe('@landing the model the deck states', () => {
       expect(target).toBe('_blank');
     }
   });
+
+  test('the footer links both alternative pages, with a 44px target each', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await bootLanding(page);
+    for (const [path, name] of [['/sap2000-alternative', 'SAP2000 alternative'], ['/etabs-alternative', 'ETABS alternative']]) {
+      const link = page.locator(`.landing .footer-links a[href$="${path}/"], .landing .footer-links a[href$="${path}"]`);
+      await expect(link).toHaveText(name);
+      const box = (await link.boundingBox())!;
+      expect(box.height).toBeGreaterThanOrEqual(44);
+      expect(box.width).toBeGreaterThanOrEqual(44);
+    }
+  });
 });
 
 /*
@@ -1005,7 +1024,7 @@ test.describe('@landing every language gets the whole deck', () => {
   };
 
   for (const locale of PUBLIC_LOCALES) {
-    test(`${locale}: nine sections, no raw keys, and a priced table`, async ({ page }) => {
+    test(`${locale}: ten sections, no raw keys, and a priced table`, async ({ page }) => {
       await bootLanding(page, { locale });
 
       const order = await page

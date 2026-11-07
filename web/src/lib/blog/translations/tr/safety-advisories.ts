@@ -56,6 +56,12 @@ const body: PostBody = {
           "0.4.0'da düzeltildi"
         ],
         [
+          "SA-2026-039",
+          "Excel ve IFC içe aktarma: dikdörtgen ve boru kesitlerde Iy ile Iz yer değiştirmişti (20 × 40 bir konsol 4 kat fazla esnek, 40 × 20 bir konsol 4 kat fazla rijit)",
+          "Yüksek",
+          "Bir sonraki sürümde düzeltildi"
+        ],
+        [
           "SA-2026-027",
           "Kabuk zarfı: her bileşenin uç değeri yerine en büyük Von Mises gerilmesine sahip kombinasyonu alıyordu (bir örnekte mx %14 düşük)",
           "Yüksek",
@@ -148,6 +154,12 @@ const body: PostBody = {
         [
           "SA-2026-045",
           "3B plastik göçme: kullanılabilir plastik momenti olmayan bir çubuk hiç akmayan bir çubuk gibi ele alınıyordu (bir örnekte 6 kat yüksek ve sertifikalı)",
+          "Yüksek",
+          "Bir sonraki sürümde düzeltildi"
+        ],
+        [
+          "SA-2026-046",
+          "Harmonik analiz: modal süperpozisyon ile doğrudan çözüm arasında yüke göre seçim yapıyordu; süperpozisyon ve karşılıklılık bozuluyordu (bir örnekte bir düğümde %107); 5 Kasım 2026'dan düzeltmeye kadar stabileo.com ve main dalının motor/WASM derlemeleri",
           "Yüksek",
           "Bir sonraki sürümde düzeltildi"
         ],

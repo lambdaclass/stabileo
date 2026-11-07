@@ -23,6 +23,8 @@ fn test_result_summary() -> ResultSummary {
         displacement_resultant: None,
         reaction_resultant: None,
         second_order_ratio: None,
+        member_chords: None,
+        member_spans: None,
     }
 }
 

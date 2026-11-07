@@ -57,7 +57,8 @@ function runtimeClosure() {
   const found = new Map();
   (function walk(node) {
     for (const [name, dep] of Object.entries(node.dependencies ?? {})) {
-      if (!found.has(name)) found.set(name, dep.version ?? '?');
+      if (dep.version === undefined) continue;
+      if (!found.has(name)) found.set(name, dep.version);
       walk(dep);
     }
   })(tree);
@@ -77,6 +78,8 @@ function readLicenceText(name) {
   try { entries = fs.readdirSync(dir); } catch { return null; }
   const file = entries.find((f) => /^(LICEN[CS]E|COPYING)([-.]|$)/i.test(f));
   if (file) return { file, text: fs.readFileSync(path.join(dir, file), 'utf8').replace(/\r\n/g, '\n').trimEnd() };
+  const upstream = path.join(WEB, 'scripts', 'licences', `${name.replaceAll('/', '__')}.txt`);
+  if (fs.existsSync(upstream)) return { file: `upstream licence (scripts/licences/${path.basename(upstream)})`, text: fs.readFileSync(upstream, 'utf8').trimEnd() };
   // Some packages (splaytree) ship their full licence in the README only.
   const readme = entries.find((f) => /^README\.md$/i.test(f));
   if (readme) {

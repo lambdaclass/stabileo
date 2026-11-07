@@ -13,7 +13,7 @@
     -->
     <meta
       name="description"
-      content="Free in your browser: 2D and 3D frames and trusses, CIRSOC design checks, and an AI assistant in development (bring your own Claude or OpenAI key)."
+      content="Free and open source, in your browser: 2D and 3D frames and trusses, CIRSOC 201 design, experimental AISC, ACI and Eurocode checks, and an AI assistant in development."
     />
     <meta name="theme-color" content="#0c1620" />
     <link rel="canonical" href="https://stabileo.com/" />
@@ -24,10 +24,10 @@
     <meta property="og:locale" content="en_US" />
     <meta property="og:locale:alternate" content="es_AR" />
     <meta property="og:locale:alternate" content="pt_BR" />
-    <meta property="og:title" content="Stabileo — Open-source structural engineering software" />
+    <meta property="og:title" content="Stabileo — Open-source structural engineering software, AI in development" />
     <meta
       property="og:description"
-      content="Free in your browser: 2D and 3D frames and trusses, CIRSOC design checks, and an AI assistant in development (bring your own Claude or OpenAI key)."
+      content="Free and open source, in your browser: 2D and 3D frames and trusses, CIRSOC 201 design, experimental AISC, ACI and Eurocode checks, and an AI assistant in development."
     />
     <!--
       Absolute, because crawlers do not reliably resolve relative og:image URLs.
@@ -48,10 +48,10 @@
     />
 
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Stabileo — Open-source structural engineering software" />
+    <meta name="twitter:title" content="Stabileo — Open-source structural engineering software, AI in development" />
     <meta
       name="twitter:description"
-      content="Free in your browser: 2D and 3D frames and trusses, CIRSOC design checks, and an AI assistant in development (bring your own Claude or OpenAI key)."
+      content="Free and open source, in your browser: 2D and 3D frames and trusses, CIRSOC 201 design, experimental AISC, ACI and Eurocode checks, and an AI assistant in development."
     />
     <meta name="twitter:image" content="https://stabileo.com/og/stabileo-social.png" />
     <meta
@@ -62,7 +62,7 @@
          development variant is swapped in from src/main.ts, behind a
          build-time flag; see the note there for why it cannot live here. -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <title>Stabileo — Open-source structural engineering software</title>
+    <title>Stabileo — Open-source structural engineering software, AI in development</title>
     <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
     <style>
       * {
@@ -83,7 +83,19 @@
       #prerender ~ #app {
         visibility: hidden;
       }
+      html.app-boot #prerender {
+        display: none;
+      }
+      html.app-boot #prerender ~ #app {
+        visibility: visible;
+      }
+      html.app-boot #app:empty {
+        background: #0c1620 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpolygon points='16,4 29,27 3,27' fill='none' stroke='%238fa3b3' stroke-width='3.4' stroke-linejoin='round'/%3E%3C/svg%3E") center / 48px no-repeat;
+      }
     </style>
+    <script>
+      if (/^\/app(\/|$)/.test(location.pathname)) document.documentElement.classList.add('app-boot');
+    </script>
   </head>
   <body>
     <div id="app"></div>
