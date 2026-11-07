@@ -852,7 +852,7 @@ mod tests {
         let mut r = mc.case_results[0].results.clone();
         let id = r.plate_stresses[0].element_id;
         let close = |got: f64, want: f64| assert!((got / want - 1.0).abs() < 1e-14, "{got} vs {want}");
-        for (m, t, bending) in [(4e307, 2.0, 6e307), (1e200, 1e200, 6e-200)] {
+        for (m, t, bending) in [(4e307, 2.0, 6e307), (1e200, 1e200, 6e-200), (1e-300, 1e-200, 6e100)] {
             let p = &mut r.plate_stresses[0];
             (p.sigma_xx, p.sigma_yy, p.tau_xy, p.mx, p.my, p.mxy) = (0.0, 0.0, 0.0, m, 0.0, 0.0);
             let mut thickness = plate_thicknesses(&s);
@@ -874,6 +874,26 @@ mod tests {
         let two = [CombinationFactor { case_id: 0, factor: 2.0 }, CombinationFactor { case_id: 1, factor: 2.0 }];
         let q = combine_results_3d_refs(&two, &[(0, &a), (1, &b)]).unwrap().unwrap().quad_stresses[0].clone();
         assert_eq!((q.sigma_xx, q.von_mises, q.qx), (1e308, 1e308, Some(1e308)));
+        let mut c = a.clone();
+        for (r, x) in [(&mut a, 1e308), (&mut b, 1e308), (&mut c, 1e-200)] {
+            (r.quad_stresses[0].sigma_xx, r.quad_stresses[0].qx) = (x, Some(x));
+        }
+        let cancelling = [CombinationFactor { case_id: 0, factor: 2.0 }, CombinationFactor { case_id: 1, factor: -2.0 }, CombinationFactor { case_id: 2, factor: 1.0 }];
+        let q = combine_results_3d_refs(&cancelling, &[(0, &a), (1, &b), (2, &c)]).unwrap().unwrap().quad_stresses[0].clone();
+        assert_eq!((q.sigma_xx, q.von_mises, q.qx), (1e-200, 1e-200, Some(1e-200)));
+    }
+
+    #[test]
+    fn a_plate_face_beyond_f64_is_refused_even_when_the_other_face_is_finite() {
+        let (s, mc) = two_cases(0);
+        let mut r = mc.case_results[0].results.clone();
+        let id = r.plate_stresses[0].element_id;
+        let p = &mut r.plate_stresses[0];
+        (p.sigma_xx, p.sigma_yy, p.tau_xy, p.mx, p.my, p.mxy) = (-1.5 * 2f64.powi(1023), 0.0, 0.0, 2f64.powi(1023), 0.0, 0.0);
+        let mut thickness = plate_thicknesses(&s);
+        thickness.insert(id, 2.0);
+        let one = [CombinationFactor { case_id: 0, factor: 1.0 }];
+        assert!(combine_results_3d_refs_with_thickness(&one, &[(0, &r)], &thickness).unwrap_err().contains("beyond the range of f64"));
     }
 
     #[test]

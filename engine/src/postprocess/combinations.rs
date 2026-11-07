@@ -448,16 +448,26 @@ fn membrane_von_mises(sxx: f64, syy: f64, txy: f64) -> f64 {
     (sxx * sxx - sxx * syy + syy * syy + 3.0 * txy * txy).sqrt() * up
 }
 
-/// Σ f·b for finite terms whose plain sum overflowed partway: each product is scaled to the largest
-/// one's binary exponent before adding, so only a sum that is itself beyond f64 stays non-finite.
+/// Σ f·b for finite terms whose plain sum overflowed partway. Products are summed scaled down by 2^shift,
+/// and those too small to survive that scaling are summed apart, unscaled, so a residual left by cancelling
+/// large terms is kept and only a total beyond f64 stays non-finite.
 fn rescaled_sum(terms: impl Iterator<Item = (f64, f64)> + Clone) -> f64 {
     use crate::element::plate::{binary_exponent, ldexp};
     if terms.clone().any(|(f, b)| !f.is_finite() || !b.is_finite()) {
         return terms.fold(0.0, |a, (f, b)| a + f * b);
     }
-    let nonzero = terms.filter(|&(f, b)| f != 0.0 && b != 0.0).map(|(f, b)| (binary_exponent(f) + binary_exponent(b), ldexp(f, -binary_exponent(f)) * ldexp(b, -binary_exponent(b))));
-    let Some(top) = nonzero.clone().map(|(e, _)| e).max() else { return 0.0 };
-    ldexp(nonzero.fold(0.0, |a, (e, p)| a + ldexp(p, e - top)), top)
+    let products = terms.filter(|&(f, b)| f != 0.0 && b != 0.0).map(|(f, b)| (binary_exponent(f) + binary_exponent(b), ldexp(f, -binary_exponent(f)) * ldexp(b, -binary_exponent(b))));
+    let Some(top) = products.clone().map(|(e, _)| e).max() else { return 0.0 };
+    let shift = (top - 1000).max(0);
+    let (mut large, mut small) = (0.0, 0.0);
+    for (e, p) in products {
+        if e - shift >= -1000 {
+            large += ldexp(p, e - shift);
+        } else {
+            small += ldexp(p, e);
+        }
+    }
+    ldexp(large, shift) + small
 }
 
 fn combine_shells(terms: &[(f64, usize, &AnalysisResults3D)], template: (usize, &AnalysisResults3D), plate_thickness: &PlateThicknesses) -> Result<CombinedShells, String> {

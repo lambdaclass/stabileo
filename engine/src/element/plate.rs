@@ -988,7 +988,7 @@ pub fn plate_worse_face(sigma_xx: f64, sigma_yy: f64, tau_xy: f64, mx: f64, my: 
     let (bend_xx, bend_yy, bend_xy) = (bending_stress(mx, t), bending_stress(my, t), bending_stress(mxy, t));
     let (s1_top, s2_top, vm_top) = principal_and_von_mises(sigma_xx - bend_xx, sigma_yy - bend_yy, tau_xy - bend_xy);
     let (s1_bot, s2_bot, vm_bot) = principal_and_von_mises(sigma_xx + bend_xx, sigma_yy + bend_yy, tau_xy + bend_xy);
-    if vm_top >= vm_bot {
+    if vm_top.is_nan() || vm_top >= vm_bot {
         (s1_top, s2_top, vm_top)
     } else {
         (s1_bot, s2_bot, vm_bot)
@@ -1009,8 +1009,11 @@ fn principal_and_von_mises(sx: f64, sy: f64, txy: f64) -> (f64, f64, f64) {
 }
 
 fn bending_stress(m: f64, t: f64) -> f64 {
-    if m == 0.0 || t == 0.0 || !m.is_finite() || !t.is_finite() {
+    if t == 0.0 || !m.is_finite() || !t.is_finite() {
         return 6.0 * m / (t * t);
+    }
+    if m == 0.0 {
+        return 6.0 * m;
     }
     let (em, et) = (binary_exponent(m), binary_exponent(t));
     let t = ldexp(t, -et);
