@@ -9,9 +9,16 @@
 
 import { getElevation, hasElevation, VERTICAL_AXIS, type CoordinateNode } from '../geometry/coordinate-system';
 import { APP_VERSION } from '../build-info';
+import { aiKeys } from './keys.svelte';
 
 const BACKEND_URL = import.meta.env.VITE_AI_BACKEND_URL || 'http://localhost:3001';
 const API_KEY = import.meta.env.VITE_AI_API_KEY || '';
+
+export const aiBackendConfigured = Boolean(import.meta.env.VITE_AI_BACKEND_URL);
+
+function browserProvider() {
+  return import('./browser-provider');
+}
 
 // ─── Types ─────────────────────────────────────────────────────
 
@@ -304,6 +311,8 @@ export async function reviewModel(
   locale: string,
   context?: string,
 ): Promise<ReviewModelResponse> {
+  const creds = aiKeys.active;
+  if (creds) return (await browserProvider()).reviewModel(creds, artifact, locale, context);
   return post('/api/ai/review-model', { artifact, locale, context });
 }
 
@@ -313,6 +322,8 @@ export async function explainDiagnostic(
   message?: string,
   locale?: string,
 ): Promise<ExplainDiagnosticResponse> {
+  const creds = aiKeys.active;
+  if (creds) return (await browserProvider()).explainDiagnostic(creds, code, severity, message, locale ?? 'en');
   return post('/api/ai/explain-diagnostic', {
     code,
     severity,
@@ -327,6 +338,8 @@ export async function interpretResults(
   locale?: string,
   modelInfo?: { nElements?: number; nNodes?: number; maxSpan?: number; structureType?: string },
 ): Promise<InterpretResultsResponse> {
+  const creds = aiKeys.active;
+  if (creds) return (await browserProvider()).interpretResults(creds, resultSummary, question, locale ?? 'en', modelInfo);
   return post('/api/ai/interpret-results', {
     resultSummary,
     question,
@@ -356,6 +369,12 @@ export async function buildModel(
   solverDiagnostics?: SolverDiagnosticMsg[],
   signal?: AbortSignal,
 ): Promise<BuildModelResponse> {
+  const creds = aiKeys.active;
+  if (creds) {
+    return (await browserProvider()).buildModel(
+      creds, description, locale ?? 'en', analysisMode ?? '2d', modelContext, currentSnapshot, messages, solverDiagnostics, signal,
+    );
+  }
   const body: Record<string, unknown> = {
     description,
     locale: locale ?? 'en',

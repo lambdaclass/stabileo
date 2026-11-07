@@ -26,7 +26,7 @@ no warning.
 |---|---|---|---|
 | Cantilever, compression rising from 0 at the support to P at the tip | 3.477 | 4.972 (+43 %) | 3.542 (+1.9 %) |
 | Pinned-base sway column, compression largest at the pin | 3.477 | 4.972 (+43 %) | 3.542 (+1.9 %) |
-| Cantilever, axial point load at mid-span (N = 0 below, −P above) | 2.961 | 4.972 (+68 %) | 3.056 (+3.2 %) |
+| Cantilever, thrust P at the tip and an opposite axial point load P at mid-span (N = 0 below it, −P above) | 2.961 | 4.972 (+68 %) | 3.056 (+3.2 %) |
 | Euler's heavy column (compression largest at the support) | 7.837 | 4.972 (−37 %) | 7.889 (+0.7 %) |
 
 The exact values solve θ'' + λ·c(x)/EI·θ = 0 in closed form (Bessel functions of order −2/3 and

@@ -1,0 +1,27 @@
+{
+  "id": "span-check-shear-thermal",
+  "date": "2026-11-06",
+  "prs": [1593],
+  "area": "analysis",
+  "when": { "any": ["frameMembers"] },
+  "title": {
+    "en": "The span rotation check includes shear deformation and thermal curvature at a release",
+    "es": "La verificación del giro en el tramo incluye la deformación por corte y la curvatura térmica en una liberación",
+    "pt": "A verificação da rotação no vão inclui a deformação por cisalhamento e a curvatura térmica numa liberação",
+    "de": "Die Prüfung der Verdrehung im Feld berücksichtigt Schubverformung und die Temperaturkrümmung an einem Gelenk",
+    "fr": "La vérification de la rotation en travée prend en compte la déformation d’effort tranchant et la courbure thermique à un relâchement",
+    "tr": "Açıklık içi dönme denetimi kayma şekil değiştirmesini ve serbest bırakmadaki sıcaklık eğriliğini içeriyor"
+  },
+  "explanation": {
+    "en": "The LIN-SMALL-DISPLACEMENT check inside a member's span read only the rotation of the section. It missed the slope a shear-deformable member's axis adds by shear deformation: a member rigid in bending could turn its axis 0.13 rad unwarned. It also dropped the curvature of a thermal gradient at a member release (#1569). It now judges the larger of the section rotation and the axis slope, and includes each member's thermal curvature, in 2D, 3D and load combinations. Numerical values are unchanged; some results gain the warning.",
+    "es": "La verificación LIN-SMALL-DISPLACEMENT dentro del tramo de una barra solo leía el giro de la sección. No veía la pendiente que agrega la deformación por corte al eje de una barra deformable por corte: una barra rígida a flexión podía girar su eje 0,13 rad sin advertencia. Tampoco tenía en cuenta la curvatura de un gradiente térmico en una liberación de la barra (#1569). Ahora evalúa el mayor entre el giro de la sección y la pendiente del eje, e incluye la curvatura térmica de cada barra, en 2D, 3D y combinaciones de cargas. Los valores numéricos no cambian; algunos resultados pasan a tener la advertencia.",
+    "pt": "A verificação LIN-SMALL-DISPLACEMENT dentro do vão de uma barra só lia a rotação da seção. Não via a inclinação que a deformação por cisalhamento acrescenta ao eixo de uma barra deformável por cisalhamento: uma barra rígida à flexão podia girar seu eixo 0,13 rad sem aviso. Também desconsiderava a curvatura de um gradiente térmico numa liberação da barra (#1569). Agora avalia o maior entre a rotação da seção e a inclinação do eixo, e inclui a curvatura térmica de cada barra, em 2D, 3D e combinações de cargas. Os valores numéricos não mudam; alguns resultados passam a ter o aviso.",
+    "de": "Die Prüfung LIN-SMALL-DISPLACEMENT im Feld eines Stabs las nur die Verdrehung des Querschnitts. Sie übersah die Neigung, die die Schubverformung bei einem schubweichen Stab der Stabachse hinzufügt: Ein biegesteifer Stab konnte seine Achse um 0,13 rad verdrehen, ohne gemeldet zu werden. Außerdem ließ sie die Krümmung aus einem Temperaturgradienten an einem Stabgelenk weg (#1569). Jetzt beurteilt sie das Größere aus Querschnittsverdrehung und Achsneigung und berücksichtigt die Temperaturkrümmung jedes Stabs, in 2D, 3D und Lastkombinationen. Die Zahlenwerte bleiben unverändert; manche Ergebnisse erhalten die Warnung.",
+    "fr": "La vérification LIN-SMALL-DISPLACEMENT dans la travée d’une barre ne lisait que la rotation de la section. Elle manquait la pente que la déformation d’effort tranchant ajoute à l’axe d’une barre déformable à l’effort tranchant : une barre rigide en flexion pouvait faire tourner son axe de 0,13 rad sans avertissement. Elle omettait aussi la courbure d’un gradient thermique à un relâchement de la barre (#1569). Elle juge désormais le plus grand de la rotation de section et de la pente de l’axe, et inclut la courbure thermique de chaque barre, en 2D, en 3D et dans les combinaisons de charges. Les valeurs numériques ne changent pas ; certains résultats reçoivent l’avertissement.",
+    "tr": "Bir çubuğun açıklığı içindeki LIN-SMALL-DISPLACEMENT denetimi yalnızca kesitin dönmesini okuyordu. Kayma şekil değiştirmesine açık bir çubuğun eksenine kaymanın eklediği eğimi görmüyordu: eğilmeye rijit bir çubuk ekseni 0,13 rad döndüğü halde uyarılmayabiliyordu. Ayrıca bir çubuk serbest bırakmasında sıcaklık gradyanının eğriliğini düşürüyordu (#1569). Artık kesit dönmesi ile eksen eğiminden büyük olanı değerlendiriyor ve her çubuğun sıcaklık eğriliğini 2B, 3B ve yük kombinasyonlarında hesaba katıyor. Sayısal değerler değişmez; bazı sonuçlar uyarı alır."
+  },
+  "changelog": {
+    "file": "changelog.d/1569-span-shear-thermal.md",
+    "heading": "The span check includes a member's shear slope and the thermal curvature at a release (2026-11-06)"
+  }
+}

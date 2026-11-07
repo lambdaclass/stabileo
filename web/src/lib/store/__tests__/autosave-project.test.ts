@@ -35,10 +35,10 @@ import { detailingStore } from '../detailing.svelte';
 import { designRunStore } from '../design-run.svelte';
 import { verificationStore } from '../verification.svelte';
 import {
-  acceptAutosavePayload, autosaveFingerprint, buildProjectFile,
+  acceptAutosavePayload, autosaveFingerprint, buildProjectFile, projectAutosavePolicy,
   clearAutosave, loadAutosave, resetAutosaveNotices, saveAutosave,
 } from '../file';
-import { resetAutosaveDbForTests } from '../autosave-db';
+import { autosaveRevisions, autosaveWrite, resetAutosaveDbForTests } from '../autosave-db';
 import { requestAutosave, resetAutosaveService, lastAutosaveOutcome, autosaveSettled } from '../autosave-service';
 import { findUncloneablePath } from '../../utils/plain-deep-copy';
 import { isSolverReady } from '../../engine/wasm-solver';
@@ -233,6 +233,47 @@ describe('autosave — a designed project, saved and restored', () => {
     expect(read.value!.name).toBe('third');
     expect(read.revision).toBe(last.revision);
     modelStore.model.name = designed.name;
+  });
+
+  it('does not copy the detailing again for the payload', () => {
+    const payload = buildProjectFile();
+    expect(payload.snapshot.detailing!.assemblies.length).toBe(designed.assemblies);
+    expect(payload.snapshot.detailing!.assemblies).toBe(modelStore.snapshot().detailing!.assemblies);
+    expect(Object.keys(payload.snapshot)).toEqual(Object.keys(modelStore.snapshot()));
+  });
+
+  it('does not write an unchanged project again while its write is still the newest', async () => {
+    const first = await saveAutosave();
+    expect(first.ok).toBe(true);
+    const again = await saveAutosave();
+    expect(again).toMatchObject({ ok: true, backend: 'indexeddb', revision: first.revision });
+    expect((await autosaveRevisions()).map((r) => r.revision)).toEqual([first.revision]);
+
+    modelStore.model.name = 'renamed';
+    const renamed = await saveAutosave();
+    expect(renamed.revision).toBe(first.revision! + 1);
+    expect((await loadAutosave()).value!.name).toBe('renamed');
+    modelStore.model.name = designed.name;
+
+    const detailing = modelStore.model.detailing!;
+    modelStore.model.detailing = { ...detailing, assemblies: detailing.assemblies.slice(1) };
+    const lessBars = await saveAutosave();
+    expect(lessBars.revision, 'a new detailing is written').toBe(renamed.revision! + 1);
+    expect((await loadAutosave()).value!.snapshot.detailing!.assemblies.length).toBe(designed.assemblies - 1);
+    modelStore.model.detailing = detailing;
+    const restored = await saveAutosave();
+    expect((await loadAutosave()).value!.snapshot.detailing!.assemblies.length).toBe(designed.assemblies);
+
+    const other = buildProjectFile();
+    await autosaveWrite({ ...other, name: 'another window' }, projectAutosavePolicy);
+    const afterOther = await saveAutosave();
+    expect(afterOther.revision, 'another window wrote since: written again').toBe(restored.revision! + 2);
+    expect((await loadAutosave()).value!.name).toBe(designed.name);
+
+    await clearAutosave();
+    const afterClear = await saveAutosave();
+    expect(afterClear.ok).toBe(true);
+    expect((await loadAutosave()).value!.name, 'a discarded save is written again').toBe(designed.name);
   });
 
   it('clears every revision when the user discards the save', async () => {

@@ -20,7 +20,7 @@
  * have, so a reader can show what the settlement alone does.
  */
 import { combineResults, combineResults3D, computeEnvelope, computeEnvelope3D } from './wasm-solver';
-import { enrichComboShellStresses } from './shell-combos';
+import { enrichComboShellStresses, type PlateThickness } from './shell-combos';
 import { postProcessShellStresses } from './solver-shells';
 import type { AnalysisResults3D, FullEnvelope3D } from './types-3d';
 import type { AnalysisResults, FullEnvelope } from './types';
@@ -80,7 +80,7 @@ export function addSettlementCase(
   const withIt = combinations.map((c) => ({ ...c, factors: [...c.factors, { caseId: SETTLEMENT_CASE_ID, factor: 1 }] }));
   const perCombo = new Map<number, AnalysisResults3D>();
   for (const combo of withIt) {
-    const combined = combineResults3D(combo.factors, perCase);
+    const combined = combineResults3D(combo.factors, perCase, shells?.plates ?? new Map());
     if (!combined) continue;
     if (shells) postProcessShellStresses(combined, shells.nodes, shells.quads, shells.plates, shells.materials);
     perCombo.set(combo.id, combined);
@@ -127,6 +127,7 @@ export function addSettlementToMultiCase3D<R extends MultiCase3D>(
   settlement: AnalysisResults3D,
   combinations: ReadonlyArray<{ name: string; factors: Record<string, number> }>,
   settlementName: string,
+  plates: PlateThickness,
 ): R {
   const cases = result.caseResults ?? [];
   const perCase = new Map<number, AnalysisResults3D>(cases.map((c, i) => [i, c.results]));
@@ -136,7 +137,7 @@ export function addSettlementToMultiCase3D<R extends MultiCase3D>(
     const factors = Object.entries(cb.factors)
       .filter(([name]) => idOf.has(name))
       .map(([name, factor]) => ({ caseId: idOf.get(name)!, factor }));
-    const combined = combineResults3D([...factors, { caseId: SETTLEMENT_CASE_ID, factor: 1 }], perCase);
+    const combined = combineResults3D([...factors, { caseId: SETTLEMENT_CASE_ID, factor: 1 }], perCase, plates);
     return combined ? [{ name: cb.name, results: combined }] : [];
   });
   const envelope = computeEnvelope3D(combinationResults.map((c) => c.results)) ?? result.envelope;

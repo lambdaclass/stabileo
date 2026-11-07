@@ -12,11 +12,6 @@
    * language the reader who noticed does not speak.
    */
   const mark = (n: number) => '*'.repeat(n);
-  /*
-   * In the order the page introduced them: Basic, PRO Analysis, PRO Design,
-   * the agent, Education. The table read Education before the agent, so the
-   * one row a reader had not met yet arrived out of sequence.
-   */
   const rows = [
     { mod: 'modBasic',     firms: FREE, unis: FREE },
     { mod: 'modProCalc',   firms: FREE, unis: FREE },

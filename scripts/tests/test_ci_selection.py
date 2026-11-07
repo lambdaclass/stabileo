@@ -152,7 +152,7 @@ exit 0
                     subprocess.run(['bash', '-eu', '-c', script_with_diff], env=env, check=True, stdout=subprocess.DEVNULL)
                     self.assertEqual(output.read_text().strip(), 'research=' + expected)
         self.assertIn('RESEARCH_ISOLATION: ${{ steps.scope.outputs.research }}', workflow)
-        self.assertIn('web/scripts/research-route-budget.mjs route-main/web/scripts/', workflow)
+        self.assertIn('.github/scripts/route-size-from-base.sh route-main .', workflow)
         self.assertNotIn('product-route-growth-budgets.json', workflow)
         self.assertNotIn('--product-budget', workflow)
 
@@ -434,6 +434,152 @@ exit 0
         script = '\n'.join(line[10:] for line in script.splitlines())
         for result, code in [('success skipped', 0), ('failure skipped', 1), ('cancelled success', 1)]:
             self.assertEqual(subprocess.run(['sh', '-c', script], env={'RESULTS': result}, capture_output=True).returncode, code)
+
+    def test_merge_queue_engine_path_selects_design_desk_and_sweep_slow_specs(self):
+        for path in [
+            'engine/src/postprocess/result_summary.rs',
+            'engine/src/solver/linear.rs',
+            'web/src/lib/engine/verification-service.ts',
+            'web/src/lib/engine/steps/catalog.ts',
+            'web/src/lib/store/steel-check.ts',
+            'web/src/lib/wasm/stabileo_engine.js',
+        ]:
+            with self.subTest(path=path):
+                result = selection.select('merge_group', [path], ROOT)
+                self.assertEqual(result['slow_e2e'], 'true')
+                specs = json.loads(result['slow_specs'])
+                self.assertIn('design-desk.spec.ts', specs)
+                self.assertTrue(any(s.startswith('basic-advanced-sweep-') for s in specs))
+                self.assertIn('explained-steps.spec.ts', specs)
+                self.assertIn('basic-plastic-course.spec.ts', specs)
+                self.assertIn('excel-import.spec.ts', specs)
+                self.assertIn('basic-draw-members.spec.ts', specs)
+                self.assertEqual(specs, list(selection.ALL_SLOW_SPECS))
+
+    def test_merge_queue_unknown_path_selects_all_slow_specs(self):
+        for paths in [
+            ['unknown/new-area/file.xyz'],
+            ['Makefile'],
+            ['flake.nix'],
+            ['web/package.json'],
+            ['web/src/App.svelte'],
+            ['../outside'],
+            None,
+            [],
+            [None],
+        ]:
+            with self.subTest(paths=paths):
+                result = selection.select('merge_group', paths, ROOT)
+                self.assertEqual(result['slow_e2e'], 'true')
+                self.assertEqual(json.loads(result['slow_specs']), list(selection.ALL_SLOW_SPECS))
+
+    def test_merge_queue_docs_only_selects_no_slow_specs(self):
+        for paths in [
+            self.DOCS_ONLY,
+            ['docs/a.md'],
+            ['README.md'],
+            ['changelog.d/1519-queue-slow-e2e.md'],
+            ['research/DESIGN.md', 'docs/b.md'],
+        ]:
+            with self.subTest(paths=paths):
+                result = selection.select('merge_group', paths, ROOT)
+                self.assertEqual(result['slow_e2e'], 'false')
+                self.assertEqual(json.loads(result['slow_specs']), [])
+
+    def test_merge_queue_script_error_selects_all_slow_specs(self):
+        with patch.object(selection, 'slow_specs_for_path', side_effect=RuntimeError('boom')):
+            result = selection.select('merge_group', ['docs/a.md'], ROOT)
+        self.assertEqual(result['slow_e2e'], 'true')
+        self.assertEqual(json.loads(result['slow_specs']), list(selection.ALL_SLOW_SPECS))
+        with tempfile.TemporaryDirectory() as tmp:
+            output = Path(tmp) / 'outputs'
+            env = {'GITHUB_EVENT_NAME': 'merge_group', 'BASE_SHA': 'base', 'HEAD_SHA': 'head',
+                   'GITHUB_OUTPUT': str(output)}
+            with patch.dict(os.environ, env, clear=True), patch('subprocess.check_output', side_effect=subprocess.CalledProcessError(128, 'git')):
+                runpy.run_path(str(ROOT / '.github/scripts/select-ci.py'), run_name='__main__')
+            written = dict(line.split('=', 1) for line in output.read_text().splitlines())
+            self.assertEqual(written['slow_e2e'], 'true')
+            self.assertEqual(json.loads(written['slow_specs']), list(selection.ALL_SLOW_SPECS))
+
+    def test_slow_shard_filters_selected_specs_and_fails_closed(self):
+        shard_script = ROOT / 'web/scripts/e2e-shard.mjs'
+        subset = ['design-desk.spec.ts', 'basic-advanced-sweep-2d-a.spec.ts']
+        assigned = []
+        for idx in range(1, selection.E2E_SHARDS + 1):
+            proc = subprocess.run(
+                ['node', str(shard_script), '--suite', 'slow', str(idx), str(selection.E2E_SHARDS)],
+                cwd=ROOT / 'web',
+                env={**os.environ, 'E2E_SLOW_SPECS': json.dumps(subset)},
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            assigned.append(proc.stdout.split())
+        flat = [f for shard in assigned for f in shard]
+        self.assertEqual(sorted(flat), ['e2e/basic-advanced-sweep-2d-a.spec.ts', 'e2e/design-desk.spec.ts'])
+        self.assertEqual(sum(1 for shard in assigned if not shard), selection.E2E_SHARDS - 2)
+        for bad in ['not-json', '[]', '["nonexistent-spec.spec.ts"]', '["design-desk.spec.ts", "missing.spec.ts"]', '["design-desk.spec.ts", 7]']:
+            with self.subTest(bad=bad):
+                proc = subprocess.run(
+                    ['node', str(shard_script), '--suite', 'slow', '1', '1'],
+                    cwd=ROOT / 'web',
+                    env={**os.environ, 'E2E_SLOW_SPECS': bad},
+                    capture_output=True,
+                    text=True,
+                    check=True,
+                )
+                self.assertGreater(len(proc.stdout.split()), 100)
+
+    def test_shard_runner_and_playwright_config_select_all_slow_specs(self):
+        for path in ['web/scripts/e2e-shard.mjs', 'web/playwright.config.ts', 'web/e2e/shard-timings-slow.json']:
+            with self.subTest(path=path):
+                self.assertEqual(selection.slow_specs_for_path(path), selection.ALL_SLOW_SPECS)
+
+    def test_slow_discovery_follows_helpers_transitively_and_skips_smoke_only_specs(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            e2e = Path(tmp)
+            (e2e / 'url-title.spec.ts').write_text("test('https://example.test @slow', async () => {});\n")
+            (e2e / 'smoke-only.spec.ts').write_text("test('fast @smoke', async () => {});\n")
+            (e2e / 'deep.ts').write_text("export const t = (n: string) => `${n} @slow`;\n")
+            (e2e / 'mid.ts').write_text("export { t } from './deep';\n")
+            (e2e / 'via-helper.spec.ts').write_text("import { t } from './mid.ts';\ntest(t('x'), async () => {});\n")
+            (e2e / 'rc-design-visual.spec.ts').write_text("test('visual @slow', async () => {});\n")
+            self.assertEqual(selection.discover_slow_specs(e2e), ('url-title.spec.ts', 'via-helper.spec.ts'))
+
+    def test_a_smoke_only_spec_change_selects_no_slow_run(self):
+        smoke_only = next(p.name for p in sorted((ROOT / 'web/e2e').glob('*.spec.ts')) if p.name not in selection.ALL_SLOW_SET)
+        self.assertEqual(selection.slow_specs_for_path(f'web/e2e/{smoke_only}'), ())
+
+    def test_an_unknown_web_script_selects_every_slow_spec(self):
+        self.assertEqual(selection.slow_specs_for_path('web/scripts/new-script.mjs'), selection.ALL_SLOW_SPECS)
+        self.assertEqual(selection.slow_specs_for_path('web/scripts/__tests__/x.test.mjs'), ())
+
+    def test_shared_web_paths_select_every_slow_spec(self):
+        for path in ['web/src/styles/tokens.css', 'web/src/lib/geometry/plane.ts', 'web/src/components/viewport/Viewport.svelte',
+                     'web/src/components/pro/ProShell.svelte', 'web/src/lib/store/model.svelte.ts']:
+            with self.subTest(path=path):
+                self.assertEqual(selection.slow_specs_for_path(path), selection.ALL_SLOW_SPECS)
+
+    def test_area_runner_falls_back_to_every_spec_when_one_pattern_matches_nothing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / 'e2e').mkdir()
+            for name in ('a.spec.ts', 'b.spec.ts', 'c.spec.ts'):
+                (root / 'e2e' / name).write_text('')
+            bin_dir = root / 'bin'
+            bin_dir.mkdir()
+            log = root / 'calls'
+            (bin_dir / 'npx').write_text(f'#!/bin/sh\nprintf "%s\\n" "$*" >> {log}\n')
+            (bin_dir / 'npx').chmod(0o755)
+            env = {**os.environ, 'PATH': f'{bin_dir}{os.pathsep}{os.environ["PATH"]}', 'E2E_SUITE': 'slow'}
+            for specs, expected in [('["a.spec.ts"]', ['e2e/a.spec.ts']),
+                                    ('["a.spec.ts", "missing.spec.ts"]', ['e2e/a.spec.ts', 'e2e/b.spec.ts', 'e2e/c.spec.ts'])]:
+                with self.subTest(specs=specs):
+                    log.unlink(missing_ok=True)
+                    subprocess.run([sys.executable, '-I', str(ROOT / '.github/scripts/run-area-e2e.py')], cwd=root,
+                                   env={**env, 'E2E_SPECS': specs}, check=True)
+                    args = log.read_text().split()
+                    self.assertEqual([a for a in args if a.startswith('e2e/')], expected)
 
 
 if __name__ == '__main__':

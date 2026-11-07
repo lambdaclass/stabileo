@@ -16,6 +16,7 @@ const body: PostBody = {
       "k": "note",
       "t": "État au 28 octobre 2026 : SA-2026-001 à 020 sont corrigés dans la version 0.3.0 et SA-2026-021 à 024 dans la version 0.4.0 (en ligne sur stabileo.com, SA-2026-021 et 022 depuis le 22 octobre et SA-2026-023 et 024 depuis le 25 et le 26 octobre). Les publier fait partie de notre manière de vérifier les résultats ; ce n'est pas le signe qu'ils sont encore ouverts. Un avis est considéré comme corrigé lorsque la correction est en ligne sur stabileo.com, et non lorsque la modification existe. Tant qu'un avis est ouvert, appliquez sa solution de contournement et vérifiez à la main le résultat concerné avant de signer."
     },
+    {"k": "img", "base": "blog/recheck-stale", "w": 1600, "h": 1000, "alt": "Stabileo PRO avec un portique en béton enregistré avant que les résultats soient versionnés. Un bandeau en bas indique des résultats périmés : le projet a été résolu avec une version antérieure et 19 changements enregistrés le concernent, avec les boutons pour voir ce qui a changé et relancer le calcul.", "caption": "Comment une correction atteint un projet enregistré : tant qu’il n’est pas recalculé, ses résultats restent marqués périmés, et les changements qui le concernent sont à un clic."},
     {
       "k": "h",
       "t": "Résumé"
@@ -53,6 +54,12 @@ const body: PostBody = {
           "Semelles, nœuds, dalles, voiles et l'optimiseur acier dimensionnaient pour les charges non pondérées lorsque des combinaisons étaient définies mais non calculées (calcul en direct, échec du calcul d'une combinaison ou liste active vide)",
           "Élevée",
           "Corrigé dans la 0.4.0"
+        ],
+        [
+          "SA-2026-039",
+          "Import Excel et IFC : Iy et Iz des rectangles et des tubes étaient inversés (une console de 20 × 40 quatre fois trop souple, une de 40 × 20 quatre fois trop rigide)",
+          "Élevée",
+          "Corrigé dans la prochaine version"
         ],
         [
           "SA-2026-027",
@@ -147,6 +154,18 @@ const body: PostBody = {
         [
           "SA-2026-045",
           "Effondrement plastique 3D : une barre sans moment plastique utilisable était traitée comme si elle ne plastifiait jamais (6 fois trop haut dans un exemple, et certifié)",
+          "Élevée",
+          "Corrigé dans la prochaine version"
+        ],
+        [
+          "SA-2026-046",
+          "Analyse harmonique : choisissait entre la superposition modale et la résolution directe selon la charge, si bien que la superposition et la réciprocité échouaient (107 % en un nœud dans un exemple) ; stabileo.com et les builds moteur/WASM de main, du 5 novembre 2026 jusqu'à la correction",
+          "Élevée",
+          "Corrigé dans la prochaine version"
+        ],
+        [
+          "SA-2026-047",
+          "Coques : un cas de charge imposant un déplacement d'appui perdait ses contraintes de coque, et les combinaisons et enveloppes ne sommaient que celles des autres cas (parfois du côté de l'insécurité, sans avertissement) ; 0.2.0 à 0.4.0",
           "Élevée",
           "Corrigé dans la prochaine version"
         ],

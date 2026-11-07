@@ -48,8 +48,10 @@ import { rootHandoffScript } from './root-handoff';
 import { notFoundPage } from './not-found-page';
 import { buildStarCount, serveStarCount } from './build-stars';
 import { paperStructuredData } from './paper-structured-data';
+import { withResearchCard } from './research-card';
 import { POST_DATE, POST_LASTMOD, publicPaths, writtenIn } from './public-paths';
 import { PUBLIC_LOCALES, type Locale } from '../src/lib/i18n/offered';
+import { isResearchRoute } from '../src/lib/i18n/research-routes';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 /**
@@ -327,7 +329,7 @@ async function main() {
         if (body.length < MIN_CAPTURE_CHARS) throw new Error(`prerender: ${href} came back nearly empty (${body.length} chars)`);
         const out = join(DIST, href.slice(1), 'index.html');
         await mkdir(dirname(out), { recursive: true });
-        await writeFile(out, page(path === '/paper' ? head + paperStructuredData(ORIGIN, locale) : head, body, lang));
+        await writeFile(out, page(path === '/paper' ? head + paperStructuredData(ORIGIN, locale) : withResearchCard(head, path, DIST), body, lang));
         return { head, href };
       });
     // Pool results retain the original route order, including feed date ties.
@@ -376,7 +378,8 @@ async function main() {
             // pointed the default of every URL in the file at the English home
             // page instead of at the page declaring it.
             const xDefault = `${ORIGIN}/${DEFAULT_LOCALE}${path === '/' ? '' : path}/`;
-            return `  <url>\n    <loc>${loc}</loc>\n    <lastmod>${POST_LASTMOD.get(path) ?? TODAY}</lastmod>\n${alts}\n    <xhtml:link rel="alternate" hreflang="x-default" href="${xDefault}"/>\n  </url>`;
+            const lastmod = POST_LASTMOD.get(path) ?? (isResearchRoute(path) ? undefined : TODAY);
+            return `  <url>\n    <loc>${loc}</loc>\n${lastmod ? `    <lastmod>${lastmod}</lastmod>\n` : ''}${alts}\n    <xhtml:link rel="alternate" hreflang="x-default" href="${xDefault}"/>\n  </url>`;
           }),
         ).join('\n') +
         `\n</urlset>\n`,

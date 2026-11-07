@@ -57,11 +57,11 @@ describe('reading a workbook', () => {
     });
   });
 
-  it('derives a rectangle rather than asking for the arithmetic', () => {
+  it('derives a rectangle about its depth rather than asking for the arithmetic (#532)', () => {
     const s = parseWorkbook(goodBook()).model.sections[0];
     expect(s.a).toBeCloseTo(0.08, 10);
-    expect(s.iz).toBeCloseTo((0.2 * 0.4 ** 3) / 12, 12);
-    expect(s.iy).toBeCloseTo((0.4 * 0.2 ** 3) / 12, 12);
+    expect(s.iy).toBeCloseTo((0.2 * 0.4 ** 3) / 12, 12);
+    expect(s.iz).toBeCloseTo((0.4 * 0.2 ** 3) / 12, 12);
   });
 
   it('resolves a rolled profile from its name alone', () => {

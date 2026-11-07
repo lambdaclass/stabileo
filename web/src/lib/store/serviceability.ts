@@ -112,7 +112,7 @@ function loadSets(): LoadSets | null {
   const of = (types: string[]) => modelStore.loadCases.filter((c) => types.includes((c.type || '').toUpperCase()) && perCase.has(c.id));
   const D = of(['D']), L = of(['L']), R = of(['LR', 'S', 'R']);
   if (!D.length) return null;
-  const sum = (cs: typeof D) => combineResults3D(cs.map((c) => ({ caseId: c.id, factor: 1 })), perCase);
+  const sum = (cs: typeof D) => combineResults3D(cs.map((c) => ({ caseId: c.id, factor: 1 })), perCase, modelStore.plates);
   const sD = sum(D), sAll = sum([...D, ...L, ...R]);
   if (!sD || !sAll) return null;
   const nm = (cs: typeof D) => cs.map((c) => c.name).join(' + ');

@@ -34,6 +34,7 @@
   import { EDIT_TOOLS } from './lib/store/ui.svelte';
   import { syncModelTabWithResults } from './lib/store/view-mode';
   import { t, i18n, setLocale } from './lib/i18n';
+  import { LOCALE_NAMES } from './lib/i18n/offered';
   import { OFFERED_LOCALES } from './lib/i18n/store.svelte';
   import { deleteSelection } from './lib/actions/delete-selection';
   import { overlayWasOpenAtKeydown } from './lib/utils/modal-overlay';
@@ -47,7 +48,7 @@
   import ContactMenu from './components/ContactMenu.svelte';
   import {
     loadAutosave, clearAutosave,
-    loadWorkspaceFromLocalStorage, saveWorkspaceToLocalStorage,
+    loadWorkspaceFromLocalStorage, saveWorkspaceToLocalStorage, workspaceNeedsDetailing, restoreWorkspaceDetailing, snapshotHoldsWork,
     downloadCanvasPNG, downloadDataUrlPNG, onProjectOpened, noteBasicSelfWeightRuleIfNeeded, adoptStoredProject,
     type DedalFile,
   } from './lib/store/file';
@@ -325,6 +326,7 @@
   import ColourScaleLegend from './components/ColourScaleLegend.svelte';
   import SwitchTo2DDialog from './components/SwitchTo2DDialog.svelte';
   import RecheckNotice from './components/RecheckNotice.svelte';
+  import WorkspaceSaveNotice from './components/WorkspaceSaveNotice.svelte';
   import { prepareExportProvenance, pngWithProvenance } from './lib/export/provenance-attach';
   import ReproduceDialog from './components/ReproduceDialog.svelte';
   import TabBar from './components/TabBar.svelte';
@@ -574,7 +576,7 @@
   const initialPublicRoute = routeKind();
   const initialShell = publicShell();
   let showLanding = $state(initialShell.kind === 'landing');
-  let showExperiment = $state(['research', 'tools'].includes(initialPublicRoute.kind));
+  let showExperiment = $state(['research', 'tools', 'examples'].includes(initialPublicRoute.kind));
   let showPaper = $state(initialPublicRoute.kind === 'paper');
   let publicPage = $state<import('svelte').Component<{ path: string }> | null>(null);
   let publicRevision = 0;
@@ -625,7 +627,7 @@
       if (token === publicRevision) location.reload();
       return;
     }
-    showExperiment = next.kind === 'research' || next.kind === 'tools';
+    showExperiment = next.kind === 'research' || next.kind === 'tools' || next.kind === 'examples';
     showPaper = next.kind === 'paper';
     adoptLocaleFromPath();
     showBlog = shell.kind === 'blog';
@@ -1041,14 +1043,21 @@
     if (!hashMode) {
       const savedWorkspace = loadWorkspaceFromLocalStorage();
       if (savedWorkspace && savedWorkspace.tabs.length > 0) {
-        tabManager.restoreSession(savedWorkspace.tabs, savedWorkspace.activeTabId);
-        const requestedTab = findTabBySlug(new URLSearchParams(location.search).get('tab'));
-        if (requestedTab && requestedTab.id !== tabManager.activeTabId) {
-          tabManager.switchTab(requestedTab.id);
+        const restoreWorkspace = () => {
+          tabManager.restoreSession(savedWorkspace.tabs, savedWorkspace.activeTabId);
+          const requestedTab = findTabBySlug(new URLSearchParams(location.search).get('tab'));
+          if (requestedTab && requestedTab.id !== tabManager.activeTabId) {
+            tabManager.switchTab(requestedTab.id);
+          }
+          currentAppMode = uiStore.appMode;
+          replaceAppUrl(currentAppMode, modelStore.model.name);
+          autosaveData = null;
+        };
+        if (workspaceNeedsDetailing(savedWorkspace)) {
+          void restoreWorkspaceDetailing(savedWorkspace, restoreWorkspace);
+        } else {
+          restoreWorkspace();
         }
-        currentAppMode = uiStore.appMode;
-        replaceAppUrl(currentAppMode, modelStore.model.name);
-        autosaveData = null;
       }
 
       // Load autosave data if no workspace was restored.
@@ -1062,10 +1071,7 @@
       // the banner, so "this is not your newest save" is on screen and not only in a toast.
       if (!savedWorkspace) {
         void loadAutosave().then((result) => {
-          // Offered when it holds work: nodes, or project data stated before the first node.
-          const s = result.value?.snapshot as unknown as Record<string, unknown> | undefined;
-          const holdsWork = !!s && ((s.nodes as unknown[]).length > 0 || ['grid', 'analysis', 'projectInfo', 'deflectionLimits', 'dynamics', 'notes'].some((k) => s[k] != null));
-          if (result.value && holdsWork) {
+          if (result.value && snapshotHoldsWork(result.value.snapshot)) {
             autosaveData = result.value;
             autosaveStamp = { timestamp: result.timestamp, older: result.rejected.length > 0 };
           }
@@ -1546,7 +1552,7 @@
         <LocaleSelect
           value={i18n.locale}
           options={OFFERED_LOCALES}
-          label={(c) => t(`lang.${c}`)}
+          label={(c) => LOCALE_NAMES[c as keyof typeof LOCALE_NAMES]}
           onChange={(c) => { setLocale(c); tabManager.updateDefaultNames(); }}
           ariaLabel={t('app.language')}
           testid="lang-select"
@@ -1591,9 +1597,8 @@
           class="btn-ai"
           class:on={aiPanelOpen}
           onclick={openAiPanel}
-          title="{t('ai.title')} — {t('ai.devShort')}"
-          aria-label="{t('ai.title')} — {t('ai.devShort')}"
-          data-dev="1"
+          title={t('ai.title')}
+          aria-label={t('ai.title')}
           data-testid="ai-open"
         >
           <span class="ai-glyph" aria-hidden="true">△</span>
@@ -2351,6 +2356,7 @@
   its results marked stale until they are re-run (`lib/store/recheck.svelte.ts`).
 -->
 <RecheckNotice />
+<WorkspaceSaveNotice />
 <ReproduceDialog />
 
 <DxfImportDialog

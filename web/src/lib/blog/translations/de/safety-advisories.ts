@@ -16,6 +16,7 @@ const body: PostBody = {
       "k": "note",
       "t": "Stand 28. Oktober 2026: SA-2026-001 bis 020 sind in Version 0.3.0 behoben, SA-2026-021 bis 024 in Version 0.4.0 (online auf stabileo.com, SA-2026-021 und 022 seit dem 22. Oktober, SA-2026-023 und 024 seit dem 25. und 26. Oktober). Die Veröffentlichung gehört zu unserer Art, die Ergebnisse zu verifizieren, und ist kein Zeichen dafür, dass die Hinweise noch offen sind. Ein Sicherheitshinweis gilt als behoben, wenn die Korrektur auf stabileo.com online ist, nicht schon, wenn die Änderung existiert. Solange ein Hinweis offen ist, verwenden Sie die angegebene Umgehung und prüfen Sie das betroffene Ergebnis von Hand, bevor Sie unterschreiben."
     },
+    {"k": "img", "base": "blog/recheck-stale", "w": 1600, "h": 1000, "alt": "Stabileo PRO mit einem Stahlbetonrahmen, gespeichert, bevor Ergebnisse versioniert wurden. Ein Hinweis unten meldet veraltete Ergebnisse: Das Projekt wurde mit einer älteren Version gelöst, und 19 registrierte Änderungen betreffen es; daneben die Schaltflächen, um die Änderungen zu sehen und neu zu rechnen.", "caption": "Wie eine Korrektur ein gespeichertes Projekt erreicht: Bis es neu gelöst ist, bleiben seine Ergebnisse als veraltet markiert, und die Änderungen, die es betreffen, sind einen Klick entfernt."},
     {
       "k": "h",
       "t": "Übersicht"
@@ -53,6 +54,12 @@ const body: PostBody = {
           "Fundamente, Knoten, Decken, Wände und der Stahloptimierer wurden für die Lasten ohne Teilsicherheitsbeiwerte bemessen, wenn Kombinationen definiert, aber nicht berechnet waren (Live-Berechnung, eine fehlgeschlagene Berechnung der Kombinationen oder eine leere Liste aktiver Kombinationen)",
           "Hoch",
           "Behoben in 0.4.0"
+        ],
+        [
+          "SA-2026-039",
+          "Excel- und IFC-Import: Iy und Iz von Rechtecken und Rohren vertauscht (ein Kragträger 20 × 40 viermal zu weich, einer 40 × 20 viermal zu steif)",
+          "Hoch",
+          "Behoben in der nächsten Version"
         ],
         [
           "SA-2026-027",
@@ -147,6 +154,18 @@ const body: PostBody = {
         [
           "SA-2026-045",
           "3D-Plastischer Kollaps: Ein Stab ohne verwendbares plastisches Moment wurde behandelt, als würde er nie plastifizieren (6-fach zu hoch in einem Beispiel, und zertifiziert)",
+          "Hoch",
+          "Behoben in der nächsten Version"
+        ],
+        [
+          "SA-2026-046",
+          "Harmonische Analyse: Wählte je Last zwischen Modalsuperposition und direkter Lösung, sodass Superposition und Reziprozität versagten (107 % an einem Knoten in einem Beispiel); stabileo.com und Engine-/WASM-Builds von main, vom 5. November 2026 bis zur Korrektur",
+          "Hoch",
+          "Behoben in der nächsten Version"
+        ],
+        [
+          "SA-2026-047",
+          "Schalen: Ein Lastfall mit eingeprägter Auflagerverschiebung verlor seine Schalenspannungen, und Kombinationen und Umhüllende summierten nur die der anderen Lastfälle (möglicherweise unsicher, ohne Warnung); 0.2.0 bis 0.4.0",
           "Hoch",
           "Behoben in der nächsten Version"
         ],

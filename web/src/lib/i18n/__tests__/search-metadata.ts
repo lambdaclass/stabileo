@@ -3,6 +3,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import toolReviews from '../../../../../research/tools/batches/VALIDATION.json';
 import { BATCH_IDS } from '../../../components/tools/batch';
+import { EXPERIMENTS } from '../../../components/research/experiments';
+import { webpSize } from '../../../../scripts/research-card';
 
 const ORIGIN = 'https://stabileo.com';
 const ORGANIZATION = 'https://stabileo.com/#organization';
@@ -273,6 +275,35 @@ export function searchMetadataSuite(dist: string) {
         return out;
       });
       expect(problems, report(problems)).toEqual([]);
+    });
+
+    it('cards each research page with its own raster thumbnail at its real size, and the rest with the site card', () => {
+      const meta = (p: Page, prop: string) => decode(p.head.match(new RegExp(`(?:property|name)="${prop}" content="([^"]*)"`))?.[1] ?? '');
+      const research = pages().filter((p) => p.path.startsWith('/research/'));
+      expect(research.length).toBeGreaterThan(0);
+      let own = 0;
+      const problems = research.flatMap((p) => {
+        const experiment = EXPERIMENTS.find((e) => e.path === p.path);
+        if (!experiment) return [`${p.url}: no experiment`];
+        const out: string[] = [];
+        if (!experiment.thumbnail.endsWith('.webp')) {
+          if (meta(p, 'og:image') !== `${ORIGIN}/og/stabileo-social.png`) out.push(`${p.url}: a vector thumbnail must leave the site card, got ${meta(p, 'og:image')}`);
+          return out;
+        }
+        own++;
+        const file = readFileSync(join(dist, experiment.thumbnail));
+        const size = webpSize(file);
+        if (meta(p, 'og:image') !== `${ORIGIN}/${experiment.thumbnail}` || meta(p, 'twitter:image') !== meta(p, 'og:image')) out.push(`${p.url}: og/twitter image is ${meta(p, 'og:image')}`);
+        if (meta(p, 'og:image:type') !== 'image/webp') out.push(`${p.url}: og:image:type is ${meta(p, 'og:image:type')}`);
+        if (meta(p, 'og:image:width') !== String(size.width) || meta(p, 'og:image:height') !== String(size.height)) out.push(`${p.url}: declared ${meta(p, 'og:image:width')}x${meta(p, 'og:image:height')}, file is ${size.width}x${size.height}`);
+        if (meta(p, 'og:image:alt') !== experiment.thumbnailAlt) out.push(`${p.url}: og:image:alt is "${meta(p, 'og:image:alt')}"`);
+        return out;
+      });
+      expect(own).toBeGreaterThan(0);
+      expect(problems, report(problems)).toEqual([]);
+      const landing = pages().find((p) => p.path === '/' && p.locale === 'en')!;
+      expect([meta(landing, 'og:image'), meta(landing, 'og:image:type'), meta(landing, 'og:image:width'), meta(landing, 'og:image:height')])
+        .toEqual([`${ORIGIN}/og/stabileo-social.png`, 'image/png', '1200', '630']);
     });
   });
 }

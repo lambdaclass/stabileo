@@ -16,6 +16,7 @@ const body: PostBody = {
       "k": "note",
       "t": "28 Ekim 2026 itibarıyla durum: SA-2026-001 ile 020 arası 0.3.0 sürümünde, SA-2026-021 ile 024 arası 0.4.0 sürümünde düzeltildi (stabileo.com'da yayında; SA-2026-021 ve 022 22 Ekim'den, SA-2026-023 ve 024 ise 25 ve 26 Ekim'den beri). Bunları yayımlamak, sonuçları nasıl doğruladığımızın bir parçasıdır; hâlâ açık oldukları anlamına gelmez. Bir uyarı, değişikliğin var olmasıyla değil, düzeltme stabileo.com'da yayına girdiğinde düzeltilmiş sayılır. Bir uyarı açık olduğu sürece önerilen geçici çözümü uygulayın ve imzalamadan önce etkilenen sonucu elle kontrol edin."
     },
+    {"k": "img", "base": "blog/recheck-stale", "w": 1600, "h": 1000, "alt": "Sonuçlar sürümlenmeden önce kaydedilmiş bir betonarme çerçeve ile Stabileo PRO. Alttaki bir şerit, projenin eski bir sürümle çözüldüğünü ve kayıtlı 19 değişikliğin onu ilgilendirdiğini, yani sonuçların eskidiğini söylüyor; yanında neyin değiştiğini görme ve yeniden çözme düğmeleri var.", "caption": "Bir düzeltme kayıtlı bir projeye böyle ulaşır: yeniden çözülene kadar sonuçları eskimiş olarak işaretli kalır ve onu ilgilendiren değişiklikler bir tık uzaktadır."},
     {
       "k": "h",
       "t": "Özet"
@@ -53,6 +54,12 @@ const body: PostBody = {
           "Kombinasyonlar tanımlı olup çözülmemişken temeller, birleşim bölgeleri, döşemeler, perdeler ve çelik optimizasyonu katsayısız yüklere göre tasarlanıyordu (canlı hesaplama, başarısız bir kombinasyon çözümü veya boş bir etkin liste)",
           "Yüksek",
           "0.4.0'da düzeltildi"
+        ],
+        [
+          "SA-2026-039",
+          "Excel ve IFC içe aktarma: dikdörtgen ve boru kesitlerde Iy ile Iz yer değiştirmişti (20 × 40 bir konsol 4 kat fazla esnek, 40 × 20 bir konsol 4 kat fazla rijit)",
+          "Yüksek",
+          "Bir sonraki sürümde düzeltildi"
         ],
         [
           "SA-2026-027",
@@ -147,6 +154,18 @@ const body: PostBody = {
         [
           "SA-2026-045",
           "3B plastik göçme: kullanılabilir plastik momenti olmayan bir çubuk hiç akmayan bir çubuk gibi ele alınıyordu (bir örnekte 6 kat yüksek ve sertifikalı)",
+          "Yüksek",
+          "Bir sonraki sürümde düzeltildi"
+        ],
+        [
+          "SA-2026-046",
+          "Harmonik analiz: modal süperpozisyon ile doğrudan çözüm arasında yüke göre seçim yapıyordu; süperpozisyon ve karşılıklılık bozuluyordu (bir örnekte bir düğümde %107); 5 Kasım 2026'dan düzeltmeye kadar stabileo.com ve main dalının motor/WASM derlemeleri",
+          "Yüksek",
+          "Bir sonraki sürümde düzeltildi"
+        ],
+        [
+          "SA-2026-047",
+          "Kabuklar: mesnet yer değiştirmesi zorlayan bir yük durumu kabuk gerilmelerini kaybediyor, kombinasyonlar ve zarflar yalnızca diğer durumlarınkini topluyordu (güvensiz tarafta kalabiliyordu, uyarısız); 0.2.0 ile 0.4.0 arası",
           "Yüksek",
           "Bir sonraki sürümde düzeltildi"
         ],

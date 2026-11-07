@@ -93,6 +93,9 @@ class Models(unittest.TestCase):
             with self.subTest(wrapped=wrapped):
                 self.replay('mismatch', wrapped)
 
+    def test_a_buckling_difference_still_above_tolerance_on_the_finest_mesh_is_a_finding(self):
+        self.replay('converging')
+
     def test_false_rejection_reduces_despite_solver_rejection(self):
         for wrapped in (False, True):
             with self.subTest(wrapped=wrapped):
@@ -148,6 +151,31 @@ class Models(unittest.TestCase):
             finding = json.loads(next(out.glob('*.finding.json')).read_text())
             self.assertEqual(finding['model'], {'loads': [1], 'elements': {'needed': {}}})
             self.assertTrue(all('needed' in model['elements'] for model in evaluated))
+
+    def test_reduction_keeps_a_load_when_the_failure_does_not_need_one(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            source = base / 'model.json'
+            source.write_text(json.dumps({'loads': [1, 2, 3], 'elements': {'a': {}, 'b': {}}}))
+            out = base / 'out'
+            def replay(cmd, **kwargs):
+                if '-c' in cmd:
+                    return subprocess.CompletedProcess(cmd, 1)
+                if 'input' in kwargs:
+                    return subprocess.CompletedProcess(cmd, 0, '{}', '')
+                failure = {'test': 'metamorphic/static/rotation',
+                           'details': ['replay: original solved but transformed model failed: Singular stiffness matrix']}
+                row = dict.fromkeys(['pass', 'fail', 'refused', 'inconclusive', 'unrepresentable', 'not_applicable'], 0)
+                row['fail'] = 1
+                Path(kwargs['env']['NIGHTLY_RESULTS']).write_text(json.dumps({'failures': [failure], 'verdicts': [row]}))
+                return subprocess.CompletedProcess(cmd, 101, '', '')
+            with patch.object(sys, 'argv', ['nightly', '--model', str(source), '--check', 'metamorphic', '--out', str(out)]), \
+                    patch.dict(os.environ, {'NIGHTLY_REPLAY_BIN': 'replay', 'ASTER_PYTHON': ''}), \
+                    patch.object(models, 'run', side_effect=replay), contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(models.main(), 1)
+            finding = json.loads(next(out.glob('*.finding.json')).read_text())
+            self.assertEqual(len(finding['model']['loads']), 1)
+            self.assertEqual(finding['model']['elements'], {})
 
     def test_metamorphic_coverage_requires_usable_verdicts(self):
         for verdict in ('pass', 'refused', 'inconclusive', 'unrepresentable', 'not_applicable'):
@@ -363,6 +391,27 @@ class Workflow(unittest.TestCase):
             self.assertRegex(source.read_text(), rf'(?m)^#\[test\]\n#\[ignore\]\nfn {fn}\(\)', name)
             self.assertIn('--ignored', workflow.split(name, 1)[1].split('\n', 1)[0])
 
+
+
+class OpenSeesShards(unittest.TestCase):
+    def test_every_opensees_case_runs_in_exactly_one_part_with_its_own_artifacts(self):
+        workflow = (ROOT / '.github/workflows/nightly.yml').read_text()
+        job = workflow[workflow.index('  opensees-diff:'):workflow.index('  codeaster-diff:')]
+        parts = re.search(r'part: \[([^\]]*)\]', job).group(1).split(', ')
+        arms = dict(re.findall(r'\n\s+(\w+)\) cases=\(([^)]*(?:\)\)[^)]*)*)\) ;;', job))
+        self.assertEqual(sorted(arms), sorted(parts))
+        flags = [f for arm in arms.values() for f in re.findall(r'--(\w+)', arm)]
+        source = (ROOT / 'tools/opensees/compare.py').read_text()
+        kinds = re.findall(r"[\"'](\w+)[\"']", re.search(r'^EXT_KINDS = (.*)$', source, re.M).group(1))
+        static = ['fixtures', 'random2d', 'random3d', 'rich2d', 'rich3d', 'plates', 'shells']
+        for case in static:
+            self.assertIn(f'"--{case}"', source)
+        self.assertEqual(len(re.findall(r'ap\.add_argument\("--(?:fixtures|random[23]d|rich[23]d|plates|shells)"', source)), len(static))
+        cases = static + [k + d for k in kinds for d in ('2d', '3d')]
+        self.assertEqual(sorted(flags), sorted(cases))
+        self.assertIn('name: nightly-findings-opensees-${{ matrix.part }}', job)
+        self.assertIn('name: opensees-report-${{ matrix.part }}', job)
+        self.assertIn('fail-fast: false', job)
 
 if __name__ == '__main__':
     unittest.main()

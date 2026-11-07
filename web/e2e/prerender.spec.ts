@@ -152,7 +152,7 @@ test.describe('@smoke prerender', () => {
       } finally {
         await close();
       }
-      for (const path of ['/blog/bars-or-finite-elements', '/blog/verificacion-flexion-cirsoc-201', '/reliability', '/sap2000-alternative', '/cirsoc']) {
+      for (const path of ['/blog/bars-or-finite-elements', '/blog/verificacion-flexion-cirsoc-201', '/reliability', '/sap2000-alternative', '/etabs-alternative', '/cirsoc']) {
         const crawled = await crawl(browser, `/${locale}${path}/`);
         try {
           expect(unfinishedProClaims(await crawled.page.locator('#prerender').innerText(), locale, { aboutPro: false }), path).toEqual([]);

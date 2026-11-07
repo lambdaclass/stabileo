@@ -3,6 +3,7 @@
   python3 -I research/tools/test_catalog.py [--online]
 """
 import hashlib
+import base64
 import copy
 import importlib.util
 import json
@@ -57,6 +58,15 @@ def main():
                     + "/license?ref=" + c["commit"] for c in base[0]["code"]], urls
     assert base[0]["code"][0]["commit"] == json.loads((Path(CATALOG).parent / base[0]["implementation"] / "reference-results/MANIFEST.json").read_text())["reference_code"]["commit"]
     print("ok   licence requests use pinned commits, including the reproduced manifest revision")
+    bsd = base64.b64encode(b"BSD 3-Clause License\n\nRedistributions of source code must retain the above copyright notice, ...\nRedistributions in binary form must reproduce the above copyright notice, ...\nNeither the name of the copyright holder nor the names of its\n   contributors ...\n\nThird-party: exprtk, MIT").decode()
+    entry = copy.deepcopy(base[0])
+    entry["code"] = [dict(entry["code"][0], license="BSD-3-Clause")]
+    for content, expected in [(bsd, []), (base64.b64encode(b"BSD 3-Clause License").decode(), 1)]:
+        catalog.get_json = lambda url: {"license": {"spdx_id": "NOASSERTION"}, "content": content}
+        errors = []
+        catalog.check_links(entry, errors)
+        assert (errors if expected == [] else len(errors)) == expected, errors
+    print("ok   a licence GitHub cannot classify is accepted only when the file holds every clause")
     marked = copy.deepcopy(base)
     marked[0]["crossref"]["title"] = "A <i>phase-field</i> method"
     assert json.loads(catalog.export_text(marked))["papers"][0]["crossref"]["title"] == "A phase-field method"

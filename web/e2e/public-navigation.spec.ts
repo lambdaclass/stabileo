@@ -53,7 +53,7 @@ for (const width of [1440, 390]) {
       Object.defineProperty(navigator, 'connection', { configurable: true, value: { saveData: true } });
     });
     await page.route('**/assets/*.js', async route => {
-      if (/\/(?:load-page|ResearchPage|ToolsPage|BlogPage)-/.test(route.request().url())) {
+      if (/\/(?:load-page|ResearchPage|ToolsPage|ExamplesPage|BlogPage)-/.test(route.request().url())) {
         await new Promise(resolve => setTimeout(resolve, 750));
       }
       await route.continue();
@@ -95,7 +95,7 @@ for (const width of [1440, 390]) {
       const timer = window.setInterval(() => samples.push(read()), 50);
       Object.assign(window, { headerProbe: { baseline, samples, timer, read } });
     });
-    for (const destination of ['research', 'tools', 'blog', '']) {
+    for (const destination of ['research', 'tools', 'examples', 'blog', '']) {
       if (width === 390 && destination) await header.locator('.nav-toggle').click();
       await header.locator(destination ? `[data-nav="${destination}"]` : '.nav-brand').click();
       await expect(header).toHaveAttribute('data-current', destination);
@@ -115,7 +115,7 @@ for (const width of [1440, 390]) {
     });
     expect(probe.baseline.present).toBe(true);
     expect(probe.baseline.height).toBe(58);
-    expect(probe.baseline.links).toHaveLength(12);
+    expect(probe.baseline.links).toHaveLength(8);
     expect(probe.samples.length).toBeGreaterThan(20);
     for (const sample of probe.samples) expect(sample).toEqual(probe.baseline);
   });

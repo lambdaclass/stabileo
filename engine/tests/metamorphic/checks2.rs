@@ -95,7 +95,7 @@ pub fn judge(res: Result<dedaliano_engine::metamorphic::compare::Report, String>
 pub fn judge_split(got: &Resp, expected: &Resp, rel: f64, base: f64, cmp: impl Fn(&Resp, &Resp, f64) -> Result<dedaliano_engine::metamorphic::compare::Report, String>) -> Verdict {
     let free: std::collections::HashSet<String> = expected.0.iter().filter(|i| EIGEN_FREE.contains(&i.tag.as_str())).map(|i| i.tag.clone()).collect();
     if !free.is_empty() && base <= INCONCLUSIVE {
-        let only = |r: &Resp| Resp(r.0.iter().filter(|i| free.contains(&i.tag)).cloned().collect(), r.1.clone());
+        let only = |r: &Resp| Resp(r.0.iter().filter(|i| free.contains(&i.tag)).cloned().collect(), r.1.clone(), r.2);
         if let Err(e) = cmp(&only(got), &only(expected), base) {
             return Verdict::Fail(e);
         }
@@ -126,7 +126,7 @@ fn same(a: &Ana2, tc: &Case2, expected: Result<Resp, String>, cond: &Conditionin
     match run(a, tc) {
         Ok(got) => bounded(&got, &expected, rel).unwrap_or_else(|| crate::checks2::judge_split(&got, &expected, rel, crate::checks2::rel_without_eigen(a.name, a.iter_tol, &c2), |g, e, rel| compare_with_compliance(&g.flat(), &e.flat(), c2.lchar, rel, load_floor_2d(&tc.s, c2.lchar), crate::checks2::compliance(a.name, &c2)))),
         Err(e) if is_lower_bound(&expected) && crate::response::incomplete_collapse(&e) => Verdict::Inconclusive(rel),
-        Err(e) => transformed_failure(e),
+        Err(e) => transformed_failure(e, expected.2),
     }
 }
 
@@ -152,14 +152,23 @@ pub fn bounded(got: &Resp, expected: &Resp, rel: f64) -> Option<Verdict> {
     })
 }
 
+const NEAR_MECHANISM_REFUSALS: [&str; 8] = [
+    "singular", "mechanism", "not positive definite", "conditioning", "self-check", "did not converge",
+    "eigenvalue decomposition failed", "sturm",
+];
+
 /// The original solved and its transformed copy did not. A refusal that
 /// names a feature the transform introduced (a rotated roller becomes an
 /// inclined support, which some analyses refuse by name) is a documented
-/// limitation; anything else is a violation.
-pub fn transformed_failure(e: String) -> Verdict {
+/// limitation, and so is a numerical (singular, unconverged, self-check)
+/// refusal of a copy whose original solve carried the #762 near-mechanism
+/// warning; anything else is a violation.
+pub fn transformed_failure(e: String, original: crate::response::NearMechanism) -> Verdict {
     let l = e.to_lowercase();
     if !crate::generated::strict() && l.contains("inclined support") && ["not supported", "not yet supported", "unsupported", "does not support"].iter().any(|k| l.contains(k)) {
         Verdict::Refused(format!("transformed model: {e}"))
+    } else if !crate::generated::strict() && original.0 && NEAR_MECHANISM_REFUSALS.iter().any(|k| l.contains(k)) {
+        Verdict::Refused(format!("original solved with the near-mechanism warning (#762), transformed model refused: {e}"))
     } else {
         Verdict::Fail(format!("original solved but transformed model failed: {e}"))
     }
@@ -203,7 +212,7 @@ pub struct Ctx<'a> {
     pub rng_seed: u64,
 }
 
-fn scale_loads_2d(loads: &[SolverLoad], k: f64) -> Vec<SolverLoad> {
+pub(crate) fn scale_loads_2d(loads: &[SolverLoad], k: f64) -> Vec<SolverLoad> {
     let u = Units { length: 1.0, force: k, time: 1.0 };
     loads
         .iter()
@@ -538,10 +547,75 @@ fn free_nodes(c: &Case2) -> Vec<usize> {
     v
 }
 
+fn reciprocity(a: &Ana2, c: &Case2, cond: &Conditioning, rng: &mut Rng) -> Verdict {
+    if a.law != Law::Linear {
+        return Verdict::NotApplicable;
+    }
+    let seed = rng.clone().next_u64() ^ 0x9e37_79b9_7f4a_7c15;
+    crate::betti::both(translational_reciprocity(a, c, cond, rng), || rotational_reciprocity(a, c, cond, seed))
+}
+
+fn rotational_nodes(c: &Case2) -> Vec<usize> {
+    free_nodes(c)
+        .into_iter()
+        .filter(|&n| c.s.elements.values().any(|e| e.elem_type == "frame" && ((e.node_i == n && !e.hinge_start) || (e.node_j == n && !e.hinge_end))))
+        .collect()
+}
+
+fn rotational_reciprocity(a: &Ana2, c: &Case2, cond: &Conditioning, seed: u64) -> Verdict {
+    let nodes = rotational_nodes(c);
+    if nodes.is_empty() {
+        return Verdict::NotApplicable;
+    }
+    let mut rng = Rng::new(seed);
+    let (na, nb) = (nodes[rng.below(nodes.len())], nodes[rng.below(nodes.len())]);
+    let t = rng.range(0.0, std::f64::consts::TAU);
+    let da = [t.cos(), t.sin()];
+    let sign = |r: &mut Rng| if r.f64() < 0.5 { -1.0 } else { 1.0 };
+    let (ma, mb) = ([sign(&mut rng)], [sign(&mut rng)]);
+    let mut c = c.clone();
+    for sp in c.s.supports.values_mut() {
+        (sp.dx, sp.dz, sp.dry) = (None, None, None);
+    }
+    let at = |n: usize, probes: Vec<usize>, fx: f64, fz: f64, my: f64| {
+        let mut x = c.with_loads(if fx == 0.0 && fz == 0.0 && my == 0.0 { vec![] } else { vec![SolverLoad::Nodal(SolverNodalLoad { node_id: n, fx, fz, my })] });
+        x.probes = probes;
+        x
+    };
+    let force_a = match run(a, &at(na, vec![nb, na], da[0], da[1], 0.0)) {
+        Ok(r) => r,
+        Err(e) if crate::generated::strict() => return Verdict::Fail(format!("unit force: {e}")),
+        Err(e) => return Verdict::Refused(e),
+    };
+    if !crate::betti::has_rotations(&force_a, "ry") {
+        return if a.name == "harmonic" { Verdict::NotApplicable } else { Verdict::Fail(format!("{} reports no rotations", a.name)) };
+    }
+    let r = (|| -> Result<crate::betti::Solves, String> {
+        let moment_a = run(a, &at(na, vec![nb, na], 0.0, 0.0, ma[0]))?;
+        let moment_b = run(a, &at(nb, vec![na, nb], 0.0, 0.0, mb[0]))?;
+        let zero = match run(a, &at(na, vec![nb, na], 0.0, 0.0, 0.0)) {
+            Ok(r) => Some(r),
+            Err(e) if crate::generated::strict() => return Err(format!("zero-load solve: {e}")),
+            Err(_) => None,
+        };
+        Ok(crate::betti::Solves { force_a: force_a.clone(), moment_a, moment_b, zero })
+    })();
+    let solves = match r {
+        Ok(x) => x,
+        Err(e) if crate::generated::strict() => return Verdict::Fail(e),
+        Err(e) => return Verdict::Refused(e),
+    };
+    let rel = rel_without_eigen(a.name, a.iter_tol, cond);
+    if rel > INCONCLUSIVE {
+        return Verdict::Inconclusive(rel);
+    }
+    crate::betti::check(&crate::betti::Pair { a: na, b: nb, force_a: &da, moment_a: &ma, moment_b: &mb, rotation: "ry" }, &solves, rel)
+}
+
 /// Maxwell–Betti: the translation at b along d_b under a unit force at a
 /// along d_a equals the translation at a along d_a under a unit force at b
 /// along d_b. Responses minus R(∅).
-fn reciprocity(a: &Ana2, c: &Case2, cond: &Conditioning, rng: &mut Rng) -> Verdict {
+fn translational_reciprocity(a: &Ana2, c: &Case2, cond: &Conditioning, rng: &mut Rng) -> Verdict {
     if a.law != Law::Linear {
         return Verdict::NotApplicable;
     }
@@ -753,7 +827,7 @@ fn a_one_sided_failure_or_refusal_or_a_nonfinite_3d_result_fails_the_planes_chec
     }));
     assert!(fails(|_| Err("singular".into())));
     let id = ENTRIES.iter().find(|e| e.mode == Mode::Refuse).unwrap();
-    let refused_2d = Resp(Vec::new(), vec![(id.id.to_string(), id.issue as u64)]);
+    let refused_2d = Resp(Vec::new(), vec![(id.id.to_string(), id.issue as u64)], Default::default());
     let refuse_in_xz = |s: &SolverInput3D| {
         if normal_axis(s) == 1 {
             let id = ENTRIES.iter().find(|e| e.mode == Mode::Refuse).unwrap().id;

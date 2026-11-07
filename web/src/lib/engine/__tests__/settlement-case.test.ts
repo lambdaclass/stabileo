@@ -130,7 +130,7 @@ describe('a settlement in the Advanced multi-case solve', () => {
     const r = solveMultiCase3D({ solver: input, loadCases: [{ name: 'D', loads: loadsOf(dead) }, { name: 'L', loads: loadsOf(live) }], combinations: combos });
     const settle = solve3D({ ...buildSolverInput3D(modelStore.model as never, false, false)!, loads: [] });
     if (typeof settle === 'string') throw new Error(settle);
-    const out = addSettlementToMultiCase3D(r, settle, combos, 'Settlement');
+    const out = addSettlementToMultiCase3D(r, settle, combos, 'Settlement', new Map());
     expect(out.caseResults.map((c: { name: string }) => c.name)).toEqual(['D', 'L', 'Settlement']);
     expect(uz(out.combinationResults[0].results, mid)).toBeCloseTo(SETTLE, 9);
   });

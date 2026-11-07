@@ -298,6 +298,10 @@ jobs:
     if: contains(needs.plan.outputs.jobs, ' opensees-diff ')
     runs-on: ${{ (needs.plan.outputs.night == 'true' && vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo-nightly"]') || 'ubuntu-24.04' }}
     timeout-minutes: ${{ needs.plan.outputs.monthly == 'true' && 150 || 45 }}
+    strategy:
+      fail-fast: false
+      matrix:
+        part: [frames, buckling, pdelta, dynamics, shells]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -323,17 +327,22 @@ jobs:
       - name: Compare with OpenSees (three times the counts on the monthly night)
         env:
           S: ${{ needs.plan.outputs.scale }}
+          PART: ${{ matrix.part }}
         run: |
           seed=$(( $(date -u +%s) / 86400 % 1000 * 1000 ))
           echo "seed-start $seed"
           echo "DIFF_SEED=$seed" >> "$GITHUB_ENV"
-          python tools/opensees/compare.py --fixtures \
-            --random2d $((300 * S)) --random3d $((300 * S)) --rich2d $((500 * S)) --rich3d $((500 * S)) \
-            --buckling2d $((300 * S)) --buckling3d $((300 * S)) --modal2d $((300 * S)) --modal3d $((300 * S)) \
-            --pdelta2d $((300 * S)) --pdelta3d $((300 * S)) --th2d $((200 * S)) --th3d $((200 * S)) \
-            --plates $((300 * S)) --shells $((60 * S)) \
+          case "$PART" in
+            frames) cases=(--fixtures --random2d $((300 * S)) --random3d $((300 * S)) --rich2d $((500 * S)) --rich3d $((500 * S))) ;;
+            buckling) cases=(--buckling2d $((300 * S)) --buckling3d $((300 * S))) ;;
+            pdelta) cases=(--pdelta2d $((300 * S)) --pdelta3d $((300 * S))) ;;
+            dynamics) cases=(--modal2d $((300 * S)) --modal3d $((300 * S)) --th2d $((200 * S)) --th3d $((200 * S)) --plates $((300 * S))) ;;
+            shells) cases=(--shells $((60 * S))) ;;
+            *) echo "unknown part $PART"; exit 2 ;;
+          esac
+          python tools/opensees/compare.py "${cases[@]}" \
             --bin "${CARGO_TARGET_DIR:-$GITHUB_WORKSPACE/target}/release/examples/solve_json" \
-            --seed-start "$seed" -j 2 --report opensees-report.json \
+            --seed-start "$seed" -j "$([ "$PART" = buckling ] && echo 4 || echo 2)" --report opensees-report.json \
             --dump-dir opensees-mismatches
       - name: Reduce and package opensees findings
         if: failure()
@@ -342,14 +351,14 @@ jobs:
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
-          name: nightly-findings-opensees
+          name: nightly-findings-opensees-${{ matrix.part }}
           path: nightly-findings/
           retention-days: 90
           if-no-files-found: ignore
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
-          name: opensees-report
+          name: opensees-report-${{ matrix.part }}
           path: |
             opensees-report.json
             opensees-mismatches/

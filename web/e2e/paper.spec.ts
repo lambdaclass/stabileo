@@ -1,20 +1,18 @@
 import { test, expect } from '@playwright/test';
 
 /**
- * /paper: the JAIE 2026 paper in full, in English, set as its LaTeX article (KaTeX), between Changelog
- * and Research in the site header, with the typeset PDF and the Spanish original.
+ * /paper: the JAIE 2026 paper in full, in English, set as its LaTeX article (KaTeX), linked from
+ * the footer and filed under Research in the site header, with the typeset PDF and the Spanish original.
  *
  *   npx playwright test --grep "@smoke paper"
  */
 test.describe('@smoke paper', () => {
-  test('the header links Blog, Changelog, Paper, Research in that order and Paper opens the paper', async ({ page }) => {
+  test('the footer links the paper, which the header files under Research', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto('/es/blog/');
-    const nav = page.locator('nav.site-header [data-nav]');
-    const ids = await nav.evaluateAll((els) => els.map((e) => e.getAttribute('data-nav')));
-    expect(ids.slice(ids.indexOf('blog'), ids.indexOf('blog') + 4)).toEqual(['blog', 'changelog', 'paper', 'research']);
-    const link = page.locator('nav.site-header [data-nav="paper"]');
-    await expect(link).toHaveText('Paper');
+    await page.goto('/es/research/');
+    await expect(page.locator('nav.site-header [data-nav="paper"]')).toHaveCount(0);
+    const link = page.locator('footer a[href="/es/paper/"]');
+    await expect(link).toHaveCount(1);
     await link.click();
     await expect(page).toHaveURL(/\/es\/paper\/$/);
     await expect(page.locator('[data-testid="paper"] h1')).toContainText('Developing a structural calculation agent on top of a verified solver');
@@ -69,7 +67,7 @@ test.describe('@smoke paper', () => {
     await expect(page.getByTestId('paper-original')).toHaveText('Original en castellano (PDF)');
     await page.goto('/en/paper/');
     await expect(page.getByTestId('paper-download')).toHaveText('Download PDF');
-    await expect(page.locator('nav.site-header [data-nav="paper"][aria-current="page"]')).toHaveCount(1);
+    await expect(page.locator('nav.site-header [data-nav="research"][aria-current="page"]')).toHaveCount(1);
   });
 
   test('fits a phone without scrolling sideways', async ({ page }) => {

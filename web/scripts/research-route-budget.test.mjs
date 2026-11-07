@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
-import { checkResearchIsolation, routeAllowances, growthTable, overCeilings, reviewRouteGrowth, routeChunkFiles, routeGrowth, BLOG_ROUTE_BOUNDARY, COURSE_ROUTE_BOUNDARY } from './research-route-budget.mjs';
+import { checkResearchIsolation, routeAllowances, growthTable, overCeilings, reviewRouteGrowth, routeChunkFiles, routeGrowth, BLOG_ROUTE_BOUNDARY, COURSE_ROUTE_BOUNDARY, isBlogPostsChunk, isLazyRouteBoundary } from './research-route-budget.mjs';
 
 const baseline = { '/en/': 1000, '/app/basic': 2000 };
 
@@ -49,10 +49,10 @@ test('allowances need bytes, a reason and an existing module', () => {
   assert.throws(() => parse([]), /invalid route allowance/);
   assert.throws(() => parse([entry, { ...entry, reason: '' }]), /invalid route allowance/);
 });
-test('the shipped allowances are the #1483 related links on research and tools, and the #447 containment messages on tools', () => {
+test('the shipped allowances are the #1483 related links on research and tools, the #1619 riser card on research, and the #447 containment messages on tools', () => {
   const routes = routeAllowances(readFileSync(new URL('./research-route-allowances.json', import.meta.url), 'utf8'), () => true);
   assert.deepEqual(Object.keys(routes).sort(), ['/en/research/', '/en/tools/', '/en/tools/continuous-beam/', '/en/tools/simply-supported-beam/']);
-  assert.deepEqual(routes['/en/research/'], { bytes: 700, reason: '#1483 related links styled as theme chips', modules: ['src/components/research/RelatedLinks.svelte'] });
+  assert.deepEqual(routes['/en/research/'], { bytes: 2600, reason: '#1483 related links styled as theme chips + #1619 riser gallery card and catalogue entry', modules: ['src/components/research/RelatedLinks.svelte', 'src/components/research/gayNeto2014/card.ts'] });
   for (const route of ['/en/tools/', '/en/tools/continuous-beam/', '/en/tools/simply-supported-beam/']) {
     assert.deepEqual(routes[route], { bytes: 1300, reason: '#1483 related links styled as theme chips + #447 containment messages', modules: ['src/components/research/RelatedLinks.svelte', 'src/lib/engine/known-issue-message.ts'] });
   }
@@ -95,6 +95,20 @@ test('only the named blog entry is a boundary, not every blog module', () => {
   const lazyBlogPart = { ...manifest, 'src/App.svelte': { ...manifest['src/App.svelte'], dynamicImports: ['src/components/blog/ChangelogView.svelte'] },
     'src/components/blog/ChangelogView.svelte': { file: 'ChangelogView.js' } };
   assert.ok(routeChunkFiles(lazyBlogPart, appRoots).has('ChangelogView.js'));
+});
+test('the posts chunk the landing teaser loads lazily leaves the app footprint; imported statically it counts', () => {
+  const posts = { ...manifest, 'index.html': { ...manifest['index.html'], dynamicImports: [...manifest['index.html'].dynamicImports, '_posts.js'] },
+    'src/App.svelte': { ...manifest['src/App.svelte'], imports: ['_shared.js', 'index.html'] }, '_posts.js': { file: 'posts.js' } };
+  const boundary = (key) => isLazyRouteBoundary(key) || key === '_posts.js';
+  assert.ok(routeChunkFiles(posts, appRoots).has('posts.js'));
+  assert.ok(!routeChunkFiles(posts, appRoots, () => {}, boundary).has('posts.js'));
+  const staticPosts = { ...posts, 'src/App.svelte': { ...posts['src/App.svelte'], imports: ['_shared.js', 'index.html', '_posts.js'] } };
+  assert.ok(routeChunkFiles(staticPosts, appRoots, () => {}, boundary).has('posts.js'));
+});
+test('only a chunk of nothing but the blog posts and their index is the posts boundary', () => {
+  assert.ok(isBlogPostsChunk(['/w/src/lib/blog/index.ts', '/w/src/lib/blog/posts/a.ts', '/w/src/lib/blog/translations/de/a.ts']));
+  assert.ok(!isBlogPostsChunk(['/w/src/lib/blog/posts/a.ts']));
+  assert.ok(!isBlogPostsChunk(['/w/src/lib/blog/index.ts', '/w/src/lib/store/model.svelte.ts']));
 });
 test('the landing footprint takes no lazy chunk', () => {
   assert.deepEqual([...routeChunkFiles(manifest, [['index.html', false]])], ['index.html']);

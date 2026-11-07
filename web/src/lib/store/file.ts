@@ -18,9 +18,11 @@ import { t } from '../i18n';
 import { plainDeepCopy, findUncloneablePath } from '../utils/plain-deep-copy';
 import {
   LEGACY_AUTOSAVE_KEY,
-  autosaveClear, autosaveRead, autosaveStatus, autosaveWrite,
+  autosaveClear, autosaveLatestWriteId, autosaveRead, autosaveStatus, autosaveWrite,
   type AutosaveFingerprint, type AutosavePolicy, type AutosaveReadResult, type AutosaveWriteResult,
 } from './autosave-db';
+import { noteDetailingKnown, onDetailingWrite, pruneDetailing, readDetailing, splitDetailing, stageDetailing, storeDetailing, type HeavyDetailing, type StagedDetailing } from './workspace-detailing';
+import { workspaceSaveStatus } from './workspace-save-status.svelte';
 import {
   type ViewportPresentation3D,
   get2DDisplayDisplacementVertical,
@@ -223,13 +225,17 @@ export function sessionPayload(): { content: string; filename: string } {
  * matters more than it used to: `localStorage` took a string, so a proxy could only ever have
  * cost a slower `JSON.stringify`, whereas IndexedDB takes the object itself and structured
  * clone refuses a proxy outright with `DataCloneError`.
+ *
+ * The detailing is not copied again: the snapshot's is already a plain, frozen copy shared with
+ * every other snapshot of the same version, so the returned file's detailing cannot be written.
  */
 export function buildProjectFile(): DedalFile {
-  return plainDeepCopy<DedalFile>({
+  const snapshot = modelStore.snapshot();
+  const file = plainDeepCopy<DedalFile>({
     version: DEDAL_FILE_VERSION,
     name: modelStore.model.name,
     timestamp: new Date().toISOString(),
-    snapshot: modelStore.snapshot(),
+    snapshot: { ...snapshot, detailing: undefined },
     appMode: uiStore.appMode,
     analysisMode: uiStore.analysisMode,
     axisConvention3D: uiStore.axisConvention3D,
@@ -248,6 +254,8 @@ export function buildProjectFile(): DedalFile {
     includeSelfWeight: uiStore.includeSelfWeight,
     selfWeightCaseId: statedSelfWeightCaseId(),
   });
+  file.snapshot.detailing = snapshot.detailing;
+  return file;
 }
 
 /**
@@ -470,6 +478,26 @@ const SESSION_TAB_MODES = new Set(['2d', '3d', 'pro', 'edu']);
  */
 function sessionTabsCopy(): TabState[] {
   return plainDeepCopy(tabManager.tabs);
+}
+
+const HISTORY_KEYS = new Set(['undoStack', 'redoStack', 'undoKinds', 'redoKinds']);
+
+function workspaceTab(tab: TabState, staged: StagedDetailing[]): TabState {
+  const out: Record<string, unknown> = { undoStack: [], redoStack: [], undoKinds: [], redoKinds: [] };
+  for (const [k, v] of Object.entries(tab)) if (!HISTORY_KEYS.has(k) && k !== 'detailingRef') out[k] = v;
+  const { light, heavy } = splitDetailing(tab.modelSnapshot.detailing);
+  if (heavy) {
+    unreadDetailing.delete(tab.id);
+    const s = stageDetailing(tab.id, heavy);
+    staged.push(s);
+    out.modelSnapshot = { ...tab.modelSnapshot, detailing: light };
+    out.detailingRef = s.ref;
+  } else {
+    const unread = unreadDetailing.get(tab.id);
+    if (unread && unread.key === detailingKey(tab.modelSnapshot.detailing)) out.detailingRef = unread.ref;
+    else unreadDetailing.delete(tab.id);
+  }
+  return out as unknown as TabState;
 }
 
 /** A stored tab the project gate refused: where it was and what it was called. */
@@ -953,6 +981,25 @@ function noticeOnce(kind: string, message: string, type: 'error' | 'info' = 'err
   uiStore.toast(message, type);
 }
 
+let lastAutosave: { key: string; writeId: string; revision: number } | null = null;
+const detailingVersions = new WeakMap<object, number>();
+let detailingVersionCount = 0;
+
+function detailingVersion(part: object): { version: number } {
+  let version = detailingVersions.get(part);
+  if (version === undefined) {
+    version = ++detailingVersionCount;
+    detailingVersions.set(part, version);
+  }
+  return { version };
+}
+
+function autosaveKey(file: DedalFile): string {
+  const detailing = Object.fromEntries(Object.entries(file.snapshot.detailing ?? {})
+    .map(([k, v]) => [k, v !== null && typeof v === 'object' ? detailingVersion(v) : v]));
+  return JSON.stringify({ ...file, timestamp: null, snapshot: { ...file.snapshot, detailing } });
+}
+
 /**
  * Autosave the project, and SAY SO when it cannot.
  *
@@ -972,6 +1019,9 @@ function noticeOnce(kind: string, message: string, type: 'error' | 'info' = 'err
  * the write result rather than a bare boolean: a caller — the timer, a post-design hook, a
  * test — can tell "saved as revision 7" from "refused for quota" from "this browser has no
  * storage at all". Nothing here ever reports a save that did not happen.
+ *
+ * A project unchanged since this page's last write is not written again while that write is
+ * still the newest; the result then names it.
  */
 export async function saveAutosave(): Promise<AutosaveWriteResult> {
   let payload: DedalFile;
@@ -985,7 +1035,14 @@ export async function saveAutosave(): Promise<AutosaveWriteResult> {
     };
   }
 
+  const key = autosaveKey(payload);
+  if (lastAutosave?.key === key && await autosaveLatestWriteId() === lastAutosave.writeId) {
+    return { ok: true, backend: 'indexeddb', revision: lastAutosave.revision, writeId: lastAutosave.writeId };
+  }
   const result = await autosaveWrite(payload, projectAutosavePolicy);
+  lastAutosave = result.ok && result.writeId && result.revision !== null
+    ? { key, writeId: result.writeId, revision: result.revision }
+    : null;
   if (result.ok) {
     if (result.backend === 'localstorage') noticeOnce('degraded', t('file.autosaveDegraded'), 'info');
     return result;
@@ -1055,9 +1112,9 @@ export const WORKSPACE_BACKUP_LIMIT = 3;
 export interface WorkspaceBackup {
   /** When the copy was taken (ISO 8601). */
   savedAt: string;
-  /** `tabs-dropped`: some or all tabs were refused; `unreadable`: the text is not a session. */
-  reason: 'tabs-dropped' | 'unreadable';
-  /** Names of the refused tabs (empty for `unreadable`). */
+  /** `tabs-dropped`: some or all tabs were refused; `unreadable`: the text is not a session; `save-failed`: a newer save could not replace it. */
+  reason: 'tabs-dropped' | 'unreadable' | 'save-failed';
+  /** Names of the refused tabs (empty for `unreadable` and `save-failed`). */
   dropped: string[];
   /** The stored workspace text, exactly as it was found. */
   raw: string;
@@ -1133,28 +1190,184 @@ function protectStoredWorkspace(raw: string, reason: WorkspaceBackup['reason'], 
   uiStore.toast(`${head} ${tail}`, 'error');
 }
 
-export function saveWorkspaceToLocalStorage(): boolean {
-  if (workspaceOverwriteHeld) return false;
+let workspaceRestorePending = false;
+const unreadDetailing = new Map<string, { ref: string; key: string }>();
+onDetailingWrite(() => unreadDetailing.delete(tabManager.activeTabId ?? ''));
+
+const detailingKey = (d: ModelSnapshot['detailing']): string => JSON.stringify(d ?? null);
+let saveGen = 0;
+let publishedGen = 0;
+let workspaceStamp = '';
+let finishedGen = 0;
+let lastSave: Promise<boolean> = Promise.resolve(true);
+const savesUnderWay = new Set<Promise<boolean>>();
+
+function finishSave(gen: number, ok: boolean): boolean {
+  if (gen >= finishedGen) {
+    finishedGen = gen;
+    workspaceSaveStatus.report(ok);
+  }
+  return ok;
+}
+
+function publishWorkspace(gen: number, text: string): boolean {
+  if (gen < publishedGen) return true;
   try {
-    tabManager.syncCurrentTab();
-    const session: DedalSessionFile = {
-      version: '1.0',
-      type: 'session',
-      timestamp: new Date().toISOString(),
-      activeTabId: tabManager.activeTabId ?? '',
-      // The tabs without their undo stacks: a reload does not undo across it, and the stacks (up to
-      // 50 snapshots a tab, the detailing in each) are what overflowed localStorage on a designed
-      // project.
-      tabs: sessionTabsCopy().map((tab) => ({ ...tab, undoStack: [], redoStack: [], undoKinds: [], redoKinds: [] })),
-    };
-    localStorage.setItem(WORKSPACE_KEY, JSON.stringify(session));
+    if (localStorage.getItem(WORKSPACE_KEY) !== text) localStorage.setItem(WORKSPACE_KEY, text);
+    publishedGen = gen;
     return true;
   } catch {
-    // localStorage is full or unavailable. The workspace written before stays behind otherwise, and
-    // at the next start it would be restored over the newer autosave: withdrawn, so the autosave is
-    // offered instead.
-    clearWorkspaceFromLocalStorage();
+    withdrawWorkspace();
+    publishedGen = Math.max(publishedGen, gen);
     return false;
+  }
+}
+
+function storedWorkspaceText(): string | null {
+  try {
+    return localStorage.getItem(WORKSPACE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+/** The workspace written before would be restored at the next start over the newer autosave, so it is moved to the backups. */
+function withdrawWorkspace(): void {
+  const previous = storedWorkspaceText();
+  const kept = !!previous && backupStoredWorkspace(previous, 'save-failed', []);
+  clearWorkspaceFromLocalStorage();
+  if (previous && !kept) backupStoredWorkspace(previous, 'save-failed', []);
+}
+
+/**
+ * Each tab's detailing bars go to IndexedDB (`workspace-detailing.ts`) and the text naming them is
+ * written only once they are stored, so a page closed mid-save keeps the previous complete
+ * workspace. True when the save was written or is under way; `saveWorkspaceSettled` waits for it.
+ */
+export function saveWorkspaceToLocalStorage(): boolean {
+  if (workspaceOverwriteHeld || workspaceRestorePending) return false;
+  const gen = ++saveGen;
+  const staged: StagedDetailing[] = [];
+  let text: string;
+  try {
+    tabManager.syncCurrentTab();
+    const activeTabId = tabManager.activeTabId ?? '';
+    const tabs = tabManager.tabs.map((tab) => workspaceTab(tab, staged));
+    const sessionText = (timestamp: string) => JSON.stringify({ version: '1.0', type: 'session', timestamp, activeTabId, tabs } satisfies DedalSessionFile);
+    text = sessionText(workspaceStamp);
+    if (text !== storedWorkspaceText()) {
+      workspaceStamp = new Date().toISOString();
+      text = sessionText(workspaceStamp);
+    }
+  } catch {
+    withdrawWorkspace();
+    publishedGen = Math.max(publishedGen, gen);
+    lastSave = Promise.resolve(finishSave(gen, false));
+    return false;
+  }
+  if (staged.length === 0) {
+    const ok = finishSave(gen, publishWorkspace(gen, text));
+    lastSave = Promise.resolve(ok);
+    return ok;
+  }
+  const save = storeDetailing(staged).then((stored) => {
+    if (!stored && gen > publishedGen) {
+      withdrawWorkspace();
+      publishedGen = gen;
+    }
+    const ok = stored && publishWorkspace(gen, text);
+    if (ok && gen === publishedGen) void pruneDetailing(() => new Set([...staged.map((s) => s.ref), ...storedWorkspaceRefs()]));
+    return finishSave(gen, ok);
+  });
+  lastSave = save;
+  savesUnderWay.add(save);
+  void save.finally(() => savesUnderWay.delete(save));
+  return true;
+}
+
+/** Test seam: every save started so far has finished. */
+export async function workspaceSavesFinished(): Promise<void> {
+  await Promise.all([...savesUnderWay]);
+}
+
+function refsIn(text: string | null): string[] {
+  try {
+    const tabs = (JSON.parse(text ?? 'null') as { tabs?: Array<{ detailingRef?: unknown }> } | null)?.tabs;
+    return Array.isArray(tabs) ? tabs.flatMap((tab) => (typeof tab?.detailingRef === 'string' ? [tab.detailingRef] : [])) : [];
+  } catch {
+    return [];
+  }
+}
+
+function storedWorkspaceRefs(): string[] {
+  return [...refsIn(storedWorkspaceText()), ...readWorkspaceBackups().flatMap((b) => refsIn(b.raw))];
+}
+
+/** For a caller about to reload the page. */
+export async function saveWorkspaceSettled(): Promise<boolean> {
+  if (!saveWorkspaceToLocalStorage()) return false;
+  const ok = await lastSave;
+  await workspaceSavesFinished();
+  return ok && !workspaceSaveStatus.failed;
+}
+
+/** Nodes, or project data stated before the first node. */
+export function snapshotHoldsWork(s: ModelSnapshot | undefined): boolean {
+  const r = s as unknown as Record<string, unknown> | undefined;
+  return !!r && ((r.nodes as unknown[] | undefined)?.length ?? 0) > 0
+    || ['grid', 'analysis', 'projectInfo', 'deflectionLimits', 'dynamics', 'notes'].some((k) => r?.[k] != null);
+}
+
+export function workspaceNeedsDetailing(session: DedalSessionFile): boolean {
+  return session.tabs.some((tab) => typeof tab.detailingRef === 'string');
+}
+
+/**
+ * Mutates `session`, then hands it to `replace`, unless work was started while the bars were read:
+ * the restored tabs are then opened beside it. Workspace saves are refused until it settles, so the
+ * empty start-up tab is not written over the stored one. Bars the store could not read keep their
+ * ref only while the tab's detailing stays the one restored.
+ */
+export async function restoreWorkspaceDetailing(session: DedalSessionFile, replace: (session: DedalSessionFile) => void): Promise<void> {
+  const wanted = session.tabs.filter((tab) => typeof tab.detailingRef === 'string');
+  workspaceRestorePending = true;
+  try {
+    const records = wanted.length > 0 ? await readDetailing(wanted.map((tab) => tab.detailingRef!)) : new Map<string, HeavyDetailing>();
+    const lost: DroppedSessionTab[] = [];
+    const unread = new Map<TabState, string>();
+    const known: [TabState, string, HeavyDetailing][] = [];
+    for (const tab of wanted) {
+      const ref = tab.detailingRef!;
+      const heavy = records?.get(ref);
+      unreadDetailing.delete(tab.id);
+      if (heavy) {
+        tab.modelSnapshot = { ...tab.modelSnapshot, detailing: { ...tab.modelSnapshot.detailing!, ...heavy } };
+        forgetSessionDemandRevisions(tab.modelSnapshot);
+        known.push([tab, ref, heavy]);
+      } else {
+        lost.push({ index: session.tabs.indexOf(tab), name: tab.name });
+        if (!records) unread.set(tab, ref);
+      }
+      delete tab.detailingRef;
+    }
+    const beside = tabManager.tabs.length > 1 || snapshotHoldsWork(modelStore.snapshot());
+    if (beside) tabManager.addTabs(session.tabs);
+    else replace(session);
+    for (const [tab, ref, heavy] of known) noteDetailingKnown(tab.id, ref, heavy);
+    for (const [saved, ref] of unread) {
+      const id = saved.id;
+      const tab = tabManager.tabs.find((x) => x.id === id);
+      if (!tab) continue;
+      const key = detailingKey(id === tabManager.activeTabId ? modelStore.snapshot().detailing : tab.modelSnapshot.detailing);
+      unreadDetailing.set(id, { ref, key });
+    }
+    if (beside) uiStore.toast(t('file.workspaceRestoredBeside'), 'info', undefined, true);
+    if (lost.length > 0) {
+      const message = records ? t('file.workspaceDetailingLost') : t('file.workspaceDetailingUnread');
+      uiStore.toast(message.replace('{names}', droppedTabNames(lost)), 'error', undefined, true);
+    }
+  } finally {
+    workspaceRestorePending = false;
   }
 }
 

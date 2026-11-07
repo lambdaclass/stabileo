@@ -111,21 +111,22 @@ test.describe('@landing landing page', () => {
     expect(widths.landing).toBeLessThanOrEqual(widths.view);
   });
 
-  test('the nav\'s Changelog item, beside Blog, opens the whole history, and the landing ends at the blog', async ({ page }) => {
+  test('the changelog is reached from the blog\'s header and the footer, not the nav, and the landing ends at the blog', async ({ page }) => {
     await bootLanding(page, { locale: 'es' });
     await expect(page.locator('#changelog')).toHaveCount(0);
     await expect(page.locator('.landing [data-section]').last()).toHaveAttribute('data-section', 'blog');
+    await expect(page.locator('nav.site-header [data-nav="changelog"]')).toHaveCount(0);
+    await expect(page.locator('footer.lp-footer a[href="/es/changelog/"]')).toHaveText('Historial de cambios');
 
-    const blog = page.locator('nav.site-header .nav-links a[data-nav="blog"]');
-    await expect(blog).toHaveCount(1);
-    const changelog = page.locator('nav.site-header .nav-links a[data-nav="blog"] + a');
-    await expect(changelog).toHaveAttribute('data-nav', 'changelog');
-    await expect(changelog).toHaveText('Changelog');
-    await expect(changelog).toHaveAttribute('href', '/es/changelog/');
+    await page.locator('nav.site-header .nav-links a[data-nav="blog"]').click();
+    await expect(page).toHaveURL(/\/es\/blog\/$/);
+    const changelog = page.locator('.blog-head a[href="/es/changelog/"]');
+    await expect(changelog).toHaveText('Historial de cambios');
     await changelog.click();
     await expect(page).toHaveURL(/\/es\/changelog\/$/);
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Historial de cambios de Stabileo');
     await expect(page.getByTestId('changelog-entry').first()).toBeVisible();
+    await expect(page.locator('nav.site-header [aria-current="page"]')).toHaveAttribute('data-nav', 'blog');
   });
 
   test('the nav\'s Blog item opens the blog, not the teaser at the foot of the page', async ({ page }) => {
@@ -220,19 +221,12 @@ test.describe('@landing landing page', () => {
     await expect(page.locator('.app-container.hidden-behind-landing')).toHaveCount(0);
   });
 
-  test('the hero offers one action and no dead link', async ({ page }) => {
-    /*
-     * The hero used to carry a second button pointing at /demo, the guided
-     * tour. That route is being retired by the tutorials workstream, so the
-     * button went with it: a link to a page that will 404 looks exactly like a
-     * working one until someone presses it, and this one sat in the first
-     * screen of the site.
-     *
-     * What remains is one primary action and the quiet blog link below it.
-     */
+  test('the hero offers the editor and the live examples, and no dead link', async ({ page }) => {
     await bootLanding(page);
 
-    await expect(page.locator('.landing .hero-ctas .btn')).toHaveCount(1);
+    await expect(page.locator('.landing .hero-ctas .btn')).toHaveCount(2);
+    await expect(page.locator('.landing .hero-ctas .btn-primary')).toHaveCount(1);
+    await expect(page.locator('.landing .hero-ctas a.btn')).toHaveAttribute('href', /\/examples\/$/);
     await expect(page.locator('.landing a[href="/demo"]')).toHaveCount(0);
     await expect(page.locator('.landing .hero-blog')).toBeVisible();
 
@@ -278,7 +272,7 @@ test.describe('@landing landing page', () => {
     await bootLanding(page, { locale: 'en' });
 
     const h1 = page.locator('.landing h1');
-    await expect(h1).toHaveText('Open-source structural engineering software, with AI on the way.');
+    await expect(h1).toHaveText('Structural analysis you can check.');
 
     /*
        A drawn listbox now, not a native `<select>` — the platform put the
@@ -288,7 +282,7 @@ test.describe('@landing landing page', () => {
     await page.getByTestId('nav-lang-button').click();
     await page.getByTestId('nav-lang-list').getByRole('option', { name: 'Español' }).click();
 
-    await expect(h1).toHaveText('Software de ingeniería estructural de código abierto, con IA en camino.');
+    await expect(h1).toHaveText('Análisis estructural que puedes verificar.');
     /*
      * A second heading, further down, so the assertion covers the whole page
      * rather than the one string the switcher is most likely to get right.
@@ -319,7 +313,7 @@ test.describe('@landing landing page', () => {
     const ctx = await browser.newContext({ locale: 'pt-BR' });
     const page = await ctx.newPage();
     await bootLanding(page, { manual: false });
-    await expect(page.locator('.landing h1')).toHaveText('Software de engenharia estrutural de código aberto, com IA a caminho.');
+    await expect(page.locator('.landing h1')).toHaveText('Análise estrutural que você pode verificar.');
     await expect(page.getByTestId('nav-lang')).toHaveAttribute('data-value', 'pt');
     await ctx.close();
   });
@@ -328,7 +322,7 @@ test.describe('@landing landing page', () => {
     const ctx = await browser.newContext({ locale: 'es-AR' });
     const page = await ctx.newPage();
     await bootLanding(page, { manual: false });
-    await expect(page.locator('.landing h1')).toHaveText('Software de ingeniería estructural de código abierto, con IA en camino.');
+    await expect(page.locator('.landing h1')).toHaveText('Análisis estructural que puedes verificar.');
     await ctx.close();
   });
 
@@ -344,7 +338,7 @@ test.describe('@landing landing page', () => {
     const ctx = await browser.newContext({ locale: 'it-IT' });
     const page = await ctx.newPage();
     await bootLanding(page, { manual: false });
-    await expect(page.locator('.landing h1')).toHaveText('Open-source structural engineering software, with AI on the way.');
+    await expect(page.locator('.landing h1')).toHaveText('Structural analysis you can check.');
     await expect(page.getByTestId('nav-lang')).toHaveAttribute('data-value', 'en');
     await ctx.close();
   });
@@ -610,7 +604,7 @@ test.describe('@landing landing page', () => {
        * already uses.
        */
       await pickLanguage(page, 'nav-lang', 'es');
-      await expect(page.locator('.landing h1')).toHaveText('Software de ingeniería estructural de código abierto, con IA en camino.');
+      await expect(page.locator('.landing h1')).toHaveText('Análisis estructural que puedes verificar.');
       const h = await readHead(page);
 
       expect(h.headTitles).toBe(1);
@@ -630,7 +624,7 @@ test.describe('@landing landing page', () => {
     test('the Portuguese landing carries Portuguese metadata', async ({ page }) => {
       await bootLanding(page);
       await pickLanguage(page, 'nav-lang', 'pt');
-      await expect(page.locator('.landing h1')).toHaveText('Software de engenharia estrutural de código aberto, com IA a caminho.');
+      await expect(page.locator('.landing h1')).toHaveText('Análise estrutural que você pode verificar.');
       const h = await readHead(page);
 
       expect(h.headTitles).toBe(1);
@@ -912,6 +906,18 @@ test.describe('@landing the model the deck states', () => {
     }
     for (const target of await links.evaluateAll((els) => els.map((e) => e.getAttribute('target')))) {
       expect(target).toBe('_blank');
+    }
+  });
+
+  test('the footer links both alternative pages, with a 44px target each', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await bootLanding(page);
+    for (const [path, name] of [['/sap2000-alternative', 'SAP2000 alternative'], ['/etabs-alternative', 'ETABS alternative']]) {
+      const link = page.locator(`.landing .footer-links a[href$="${path}/"], .landing .footer-links a[href$="${path}"]`);
+      await expect(link).toHaveText(name);
+      const box = (await link.boundingBox())!;
+      expect(box.height).toBeGreaterThanOrEqual(44);
+      expect(box.width).toBeGreaterThanOrEqual(44);
     }
   });
 });

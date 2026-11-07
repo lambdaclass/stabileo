@@ -357,6 +357,47 @@ papers:
   - round: 2
     reviewers: [kimi, codex, claude]
     date: "2026-10-30"
+- id: gay-neto-2014
+  doi: 10.1007/s00466-013-0897-9
+  crossref:
+    title: Static analysis of offshore risers with a geometrically-exact 3D beam model
+      subjected to unilateral contact
+    authors:
+    - Alfredo Gay Neto
+    - Clóvis A. Martins
+    - Paulo M. Pimenta
+    year: 2013
+    venue: Computational Mechanics
+  area: numerical-methods
+  keywords:
+  - geometrically exact beam
+  - offshore riser
+  - catenary
+  - unilateral contact
+  - friction
+  summary: ''
+  summary_source: null
+  code:
+  - url: https://github.com/alfredogneto/GIRAFFE
+    license: BSD-3-Clause
+    commit: 1b8241ed337e79d29e0b65262a4ec340e2f1f443
+  data: []
+  methods:
+  - geometrically exact 3D rod
+  - penalty node-to-surface contact with Coulomb friction
+  - Newton-Raphson with load stepping
+  dependencies: []
+  complexity: medium
+  relevance: A new research crate solves the reference code's tutorials 1 and 16 (steps 1 to 3) from their
+    own input files. Element bending moments and shear forces match the reference code's stored tutorial
+    results to 0.015 N·m and 0.013 N; touchdown and hanging shape are also checked against the elastic
+    catenary. Sea current, Morison loads and line-to-line contact are not reproduced.
+  status: interactive
+  reproduced_published_results: false
+  benchmarks: []
+  implementation: mechanics/gay-neto-2014
+  page: web/src/components/research/gayNeto2014/RiserPage.svelte
+  contacts: []
 - id: feher-2026
   doi: 10.1016/j.euromechsol.2026.106217
   crossref:

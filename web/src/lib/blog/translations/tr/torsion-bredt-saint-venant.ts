@@ -84,6 +84,7 @@ const body: PostBody = {
       "k": "p",
       "t": "%4,5'lik bir fark bir tasarım kontrolünde göze çarpmaz; bu yüzden kontrolü sağlamayan bir çubuk sağlıyormuş gibi görünebilir."
     },
+    {"k": "img", "base": "blog/torsion-tube", "w": 1600, "h": 1000, "alt": "Stabileo Basic’te 1 kN·m burulma momenti altında CHS 105×5 boru konsol. Kesit paneli Burulma bölümünde açık: T = 1,00 kN·m, τmax = 13,34 MPa, J = 393,7 cm⁴, tam dairesel kesit olarak işaretli; altında Saint-Venant ile başlayan üç teori.", "caption": "Tablodaki boru Stabileo’da: 13,34 MPa; her teori formülüyle birlikte altında listeleniyor."},
     {
       "k": "embed",
       "query": "example=torsion-tube&inspect=1&open=torsion",

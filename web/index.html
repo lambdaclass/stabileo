@@ -83,7 +83,19 @@
       #prerender ~ #app {
         visibility: hidden;
       }
+      html.app-boot #prerender {
+        display: none;
+      }
+      html.app-boot #prerender ~ #app {
+        visibility: visible;
+      }
+      html.app-boot #app:empty {
+        background: #0c1620 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpolygon points='16,4 29,27 3,27' fill='none' stroke='%238fa3b3' stroke-width='3.4' stroke-linejoin='round'/%3E%3C/svg%3E") center / 48px no-repeat;
+      }
     </style>
+    <script>
+      if (/^\/app(\/|$)/.test(location.pathname)) document.documentElement.classList.add('app-boot');
+    </script>
   </head>
   <body>
     <div id="app"></div>

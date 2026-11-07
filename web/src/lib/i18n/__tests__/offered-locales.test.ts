@@ -75,12 +75,9 @@ describe('the languages the app offers', () => {
   it('names each of them in its own language, so the picker is readable to its speaker',
     async () => {
       const { store } = await boot(['en']);
-      expect(store.tAt('lang.en', 'en')).toBe('English');
-      expect(store.tAt('lang.es', 'en')).toBe('Español');
-      expect(store.tAt('lang.pt', 'en')).toBe('Português');
-      expect(store.tAt('lang.de', 'en')).toBe('Deutsch');
-      expect(store.tAt('lang.fr', 'en')).toBe('Français');
-      expect(store.tAt('lang.tr', 'en')).toBe('Türkçe');
+      const { LOCALE_NAMES } = await import('../offered');
+      expect(LOCALE_NAMES).toEqual({ en: 'English', es: 'Español', pt: 'Português', de: 'Deutsch', fr: 'Français', tr: 'Türkçe' });
+      for (const code of [...store.OFFERED_LOCALES, ...store.PUBLIC_LOCALES]) expect(store.tAt(`lang.${code}`, 'en')).toBe(LOCALE_NAMES[code]);
     });
 
   it('bundles exactly the dictionaries it offers, and keeps the rest on disk', async () => {

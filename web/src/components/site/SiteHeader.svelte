@@ -1,6 +1,7 @@
 <script lang="ts">
   import { tPublic as t, publicI18n, PUBLIC_LOCALES } from '../../lib/i18n/store.svelte';
   import LocaleSelect from '../LocaleSelect.svelte';
+  import { LOCALE_NAMES } from '../../lib/i18n/offered';
   import { REPO_URL, enterApp, scrollToId, fetchGithubStars, switchPublicLocale, goPublic } from '../landing/landing-utils';
   import { publicHref } from '../../lib/i18n/public-routes';
   import { SITE_NAV, currentNav } from './site-nav';
@@ -14,7 +15,6 @@
   let stars = $state<number | null>(null);
   let open = $state(false);
 
-  const LOCALE_NAMES: Record<string, string> = { en: 'English', es: 'Español', pt: 'Português', de: 'Deutsch', fr: 'Français', tr: 'Türkçe' };
 
 
   $effect(() => {
@@ -65,6 +65,7 @@
           <PublicLink to={item.to} class="nav-link{current === item.id ? ' current' : ''}" data-nav={item.id} aria-current={current === item.id ? 'page' : undefined}>{t(item.key)}</PublicLink>
         {/if}
       {/each}
+      <button class="btn btn-primary nav-menu-cta" onclick={() => { open = false; enterApp(); }}>{t('landing.navOpenEditor')}</button>
     </div>
 
     <div class="nav-actions">

@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest';
 import { assessProject, conditionHolds } from '../applicability';
 import { modelFeatures, type FeatureSnapshot } from '../model-features';
 import { RESULTS_VERSION, type ResultChangeRegistry } from '../registry';
-import { stampSolve, unknownStamp, type SolveStamp } from '../solve-stamp';
+import { analysesContext, readStamp, stampSolve, unknownStamp, type SolveStamp } from '../solve-stamp';
 
 const STEEL = { id: 1, name: 'F-24', e: 200000, nu: 0.3, rho: 78.5, fy: 235 };
 const CONCRETE = { id: 2, name: 'H-25', e: 30000, nu: 0.2, rho: 25, fy: 25 };
@@ -329,12 +329,45 @@ describe('versions and recorded analyses (a later registry)', () => {
     expect(assessProject(steel, null, 'pro', later).changes.map((c) => c.id)).toContain('next-modal');
   });
 
-  it('counts the analyses the stamp cannot see as run', () => {
+  it('counts the analyses a stamp written before #1658 cannot see as run', () => {
     const f = modelFeatures(steel, { analysesRun: ['linear'] });
-    expect(f.has('analysis:timeHistory')).toBe(true);
-    // Soil-structure interaction is solved in the PRO panel from springs a file never carries.
-    expect(f.has('analysis:ssi')).toBe(true);
+    for (const k of ['timeHistory', 'nonlinear', 'harmonic', 'ssi']) expect(f.has(`analysis:${k}` as never), k).toBe(true);
     expect(f.has('analysis:modal')).toBe(false);
+  });
+
+  it('counts an analysis a stamp records as run only when it ran', () => {
+    const stamp = solvedHere(['linear']);
+    const f = modelFeatures(steel, { analysesRun: stamp.analyses, analysesRecorded: stamp.recorded });
+    for (const k of ['timeHistory', 'nonlinear', 'harmonic', 'ssi', 'modal']) expect(f.has(`analysis:${k}` as never), k).toBe(false);
+    const harmonic = stampSolve('harmonic', stamp);
+    expect(harmonic.analyses).toEqual(['harmonic', 'linear']);
+    expect(modelFeatures(steel, { analysesRun: harmonic.analyses, analysesRecorded: harmonic.recorded }).has('analysis:harmonic')).toBe(true);
+  });
+
+  it('a solve in another build never makes an analysis that ran under the previous stamp read as not run', () => {
+    const before = { ...stampSolve('harmonic', solvedHere(['linear'])), resultsVersion: 1, commit: 'old' };
+    expect(before.analyses).toEqual(['harmonic', 'linear']);
+    const solved = stampSolve('linear', before);
+    expect(solved.analyses).toEqual(['linear']);
+    expect(solved.recorded).not.toContain('harmonic');
+    expect(modelFeatures(steel, analysesContext(solved)).has('analysis:harmonic')).toBe(true);
+    expect(modelFeatures(steel, analysesContext(solved)).has('analysis:nonlinear')).toBe(false);
+    const fromUnknown = stampSolve('linear', unknownStamp());
+    expect(fromUnknown.recorded).toEqual(['linear']);
+  });
+
+  it('a solve on top of a stamp written before #1658 keeps the analyses it did not record counted as run', () => {
+    const { recorded: _all, ...legacy } = { ...solvedHere(['linear', 'harmonic']), resultsVersion: 1, commit: 'old' };
+    const solved = stampSolve('linear', legacy);
+    expect(solved.analyses).toEqual(['linear']);
+    expect(solved.recorded).not.toContain('harmonic');
+    const reread = readStamp(JSON.parse(JSON.stringify(solved)))!;
+    expect(reread.recorded).toEqual(solved.recorded);
+    const f = modelFeatures(steel, analysesContext(reread));
+    for (const k of ['timeHistory', 'nonlinear', 'harmonic', 'ssi']) expect(f.has(`analysis:${k}` as never), k).toBe(true);
+    const ran = stampSolve('harmonic', reread);
+    expect(ran.recorded).toContain('harmonic');
+    expect(modelFeatures(steel, analysesContext(ran)).has('analysis:nonlinear')).toBe(true);
   });
 });
 

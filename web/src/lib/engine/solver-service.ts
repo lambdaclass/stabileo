@@ -2509,14 +2509,14 @@ function withCaseDisplacements(solved: Bundle3D, model: ModelData, combinations:
     if (typeof r === 'string') return r;
     const pruned = pruneComboBundle3D({ perCase: new Map([[0, r]]), perCombo: new Map(), envelope: undefined as never }, model).perCase.get(0)!;
     const base = perCase.get(c);
-    const sum = base ? combineResults3D([{ caseId: c, factor: 1 }, { caseId: TMP, factor: 1 }], new Map([[c, base], [TMP, pruned]])) : pruned;
+    const sum = base ? combineResults3D([{ caseId: c, factor: 1 }, { caseId: TMP, factor: 1 }], new Map([[c, base], [TMP, pruned]]), model.plates ?? new Map()) : pruned;
     if (sum) perCase.set(c, shells(sum));
   }
   const settled = perCase.has(SETTLEMENT_CASE_ID);
   const withIt = combinations.map((cb) => ({ ...cb, factors: settled ? [...cb.factors, { caseId: SETTLEMENT_CASE_ID, factor: 1 }] : cb.factors }));
   const perCombo = new Map<number, AnalysisResults3D>();
   for (const cb of withIt) {
-    const r = combineResults3D(cb.factors, perCase);
+    const r = combineResults3D(cb.factors, perCase, model.plates ?? new Map());
     if (r) perCombo.set(cb.id, shells(r));
   }
   const envelope = computeEnvelope3D([...perCombo.values()]);
@@ -2629,9 +2629,8 @@ function solveCombinations3DCore(
       if (again) mcResult.envelope = again;
     }
 
-    // Shell stress enrichment. The WASM combine drops plate/quad stresses, but
-    // they are linear in displacement → recombine per-combo + envelope from the
-    // per-case results (which DO carry them). No solver change.
+    // Shell stresses by the shell combination kernel, the same as every other path, and the
+    // envelope's, which the engine's envelope leaves out.
     const t1 = performance.now();
     if (hasShells) {
       enrichComboShellStresses(perCase, perCombo, mcResult.envelope?.maxAbsResults3D, combinations, model.plates ?? new Map());
@@ -2684,7 +2683,7 @@ function solveCombinations3DFallback(
 
   const perCombo = new Map<number, AnalysisResults3D>();
   for (const combo of combinations) {
-    const combined = combineResults3D(combo.factors, perCase);
+    const combined = combineResults3D(combo.factors, perCase, model.plates ?? new Map());
     if (combined) {
       if (hasShells) postProcessShellStresses(combined, model.nodes, model.quads ?? new Map(), model.plates ?? new Map(), model.materials);
       perCombo.set(combo.id, combined);
@@ -2765,7 +2764,7 @@ function solveCombinations3DNonlinear(
         continue;
       }
       const factors = settled ? [...combo.factors, { caseId: SETTLEMENT_CASE_ID, factor: 1 }] : combo.factors;
-      const summed = combineResults3D(factors, perCase);
+      const summed = combineResults3D(factors, perCase, model.plates ?? new Map());
       if (!summed) continue;
       if (hasShells) postProcessShellStresses(summed, model.nodes, model.quads ?? new Map(), model.plates ?? new Map(), model.materials);
       perCombo.set(combo.id, { ...summed, nonlinear: superposedReport(model, factors, perCase, summed) });
@@ -3040,7 +3039,7 @@ async function solveCombinations3DParallelCore(
         caseId: f.caseId,
         factor: f.factor,
       }));
-      const combined = combineResults3D(factors, perCase);
+      const combined = combineResults3D(factors, perCase, model.plates ?? new Map());
       if (combined) {
         if (hasShells) {
           postProcessShellStresses(combined, model.nodes, model.quads ?? new Map(), model.plates ?? new Map(), model.materials);

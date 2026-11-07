@@ -4,7 +4,7 @@ import RecheckNotice from '../RecheckNotice.svelte';
 import { recheckStore } from '../../lib/store/recheck.svelte';
 import { t, setLocale } from '../../lib/i18n';
 
-vi.mock('../../lib/store/file', () => ({ saveWorkspaceToLocalStorage: vi.fn() }));
+vi.mock('../../lib/store/file', () => ({ saveWorkspaceSettled: vi.fn() }));
 vi.mock('../../lib/actions/recheck', () => ({
   rerunAnalysisAndDesign: vi.fn(),
   recheckKey: (key: string) => key,
@@ -104,7 +104,7 @@ it('does not claim results changed when the change list could not be loaded', ()
   vi.spyOn(recheckStore, 'loadFailed', 'get').mockReturnValue(true);
   vi.spyOn(recheckStore, 'pending', 'get').mockReturnValue(true);
   vi.spyOn(recheckStore, 'noticeOpen', 'get').mockReturnValue(true);
-  vi.spyOn(recheckStore, 'assessment', 'get').mockReturnValue({ solvedVersion: 1, currentVersion: 2, older: true, newer: false, changes: [] });
+  vi.spyOn(recheckStore, 'assessment', 'get').mockReturnValue({ solvedVersion: 1, currentVersion: 2, older: true, newer: false, changes: [], advisories: [], maybe: [] });
   const html = render(RecheckNotice).body;
   expect(html).toContain('data-testid="recheck-overlay"');
   expect(html).toContain(t('recheck.checkingTitle'));
