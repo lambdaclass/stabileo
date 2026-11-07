@@ -36,8 +36,11 @@ pub fn has_rotations(r: &Resp, rotation: &str) -> bool {
 
 fn project(s: &Solves, r: &Resp, node: usize, tag: &str, dir: &[f64]) -> Option<f64> {
     let v = r.node_vec(node, tag)?;
-    let z = s.zero.as_ref().and_then(|z| z.node_vec(node, tag)).unwrap_or_else(|| vec![0.0; v.len()]);
-    (v.len() == dir.len()).then(|| v.iter().zip(&z).zip(dir).map(|((x, x0), d)| (x - x0) * d).sum())
+    let z = match &s.zero {
+        Some(z) => z.node_vec(node, tag)?,
+        None => vec![0.0; v.len()],
+    };
+    (v.len() == dir.len() && z.len() == v.len()).then(|| v.iter().zip(&z).zip(dir).map(|((x, x0), d)| (x - x0) * d).sum())
 }
 
 pub fn check(p: &Pair, s: &Solves, rel: f64) -> Verdict {
@@ -87,5 +90,54 @@ pub fn both(first: Verdict, then: impl FnOnce() -> Verdict) -> Verdict {
         },
         Verdict::NotApplicable => then(),
         other => other,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::response::{Dim, Kind};
+
+    fn resp(entries: &[(usize, &str, Vec<f64>)]) -> Resp {
+        let mut r = Resp::default();
+        for (n, tag, v) in entries {
+            let kind = if *tag == "u" { Kind::V2(Dim::LEN) } else { Kind::P2(Dim::NONE) };
+            r.push(Some(*n), None, tag, kind, v.clone());
+        }
+        r
+    }
+
+    fn solves(zero_at_b: Vec<f64>, zero_u_at_a: Vec<f64>) -> Solves {
+        Solves {
+            force_a: resp(&[(1, "u", vec![1.0, 0.0]), (1, "ry", vec![0.2]), (2, "u", vec![0.5, 0.1]), (2, "ry", vec![0.3])]),
+            moment_a: resp(&[(1, "u", vec![0.2, 0.0]), (1, "ry", vec![0.7]), (2, "u", vec![0.1, 0.0]), (2, "ry", vec![0.4])]),
+            moment_b: resp(&[(1, "u", vec![0.3, 0.9]), (1, "ry", vec![0.4]), (2, "u", vec![0.0, 0.0]), (2, "ry", vec![0.8])]),
+            zero: Some(resp(&[(1, "u", zero_u_at_a), (1, "ry", vec![0.0]), (2, "u", vec![0.0, 0.0]), (2, "ry", zero_at_b)])),
+        }
+    }
+
+    fn pair() -> Pair<'static> {
+        Pair { a: 1, b: 2, force_a: &[1.0, 0.0], moment_a: &[1.0], moment_b: &[1.0], rotation: "ry" }
+    }
+
+    #[test]
+    fn a_reciprocal_response_passes() {
+        assert!(matches!(check(&pair(), &solves(vec![0.0], vec![0.0, 0.0]), 1e-12), Verdict::Pass(_)));
+    }
+
+    #[test]
+    fn a_nonreciprocal_response_fails() {
+        let mut s = solves(vec![0.0], vec![0.0, 0.0]);
+        s.moment_b = resp(&[(1, "u", vec![0.31, 0.9]), (1, "ry", vec![0.4]), (2, "u", vec![0.0, 0.0]), (2, "ry", vec![0.8])]);
+        assert!(matches!(check(&pair(), &s, 1e-12), Verdict::Fail(_)));
+    }
+
+    #[test]
+    fn an_empty_or_truncated_baseline_fails() {
+        assert!(matches!(check(&pair(), &solves(vec![], vec![0.0, 0.0]), 1e-12), Verdict::Fail(_)));
+        assert!(matches!(check(&pair(), &solves(vec![0.0], vec![0.0]), 1e-12), Verdict::Fail(_)));
+        let mut s = solves(vec![0.0], vec![0.0, 0.0]);
+        s.zero = Some(resp(&[(2, "ry", vec![0.0])]));
+        assert!(matches!(check(&pair(), &s, 1e-12), Verdict::Fail(_)));
     }
 }
