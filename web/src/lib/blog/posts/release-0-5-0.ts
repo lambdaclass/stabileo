@@ -1,4 +1,4 @@
-/** Numbers are quoted from docs/releases/v0.5.0.md (#1422) and docs/advisories/SA-2026-025…045; re-sync both when the notes change. */
+/** Numbers are quoted from docs/releases/v0.5.0.md (#1422) and docs/advisories/SA-2026-025…046; re-sync both when the notes change. */
 import type { Post } from '../types';
 
 const REPO = 'https://github.com/lambdaclass/stabileo/blob/main';
@@ -11,16 +11,15 @@ export const release050: Post = {
   tagKeys: ['blog.tag.safety', 'blog.tag.verification', 'blog.tag.solver'],
   i18n: {
     en: {
-      title: 'Stabileo 0.5.0: twenty more advisories, and every open wrong-result issue warned or refused',
+      title: 'Stabileo 0.5.0: twenty-two more advisories, and every open wrong-result issue warned or refused',
       excerpt:
-        'What changed since 0.4.0: twenty defects that could give a wrong or unconservative result, fixed and written up as advisories; a warning or a refusal for every defect still open; the step-by-step course in Basic; and the app in six languages.',
+        'What changed since 0.4.0: twenty-two defects that could give a wrong or unconservative result, fixed and written up as advisories; a warning or a refusal for every defect still open; and the step-by-step course in Basic.',
       blocks: [
         { k: 'p', t: 'Since 0.4.0 we kept checking Stabileo from several sides at once: the solver against published solutions and other programs, the design checks against worked examples, the same structure renumbered, rescaled and moved, and the files that earlier releases saved. That found twenty more defects that could give a wrong or unconservative result. They are fixed, and each one has an advisory saying what was wrong, who is affected and what to re-check.' },
-        { k: 'note', t: 'stabileo.com publishes every change as soon as it is merged, so most of these fixes are already live, each from the day it was merged. Projects saved before a change that concerns them ask for a re-check when they are opened, in the reader’s language. One fix cannot do that: a 2D model cut from 3D before #1295 opens without a notice, because the model is what was wrong (SA-2026-035). Re-cut it from 3D, or solve it in 3D.' },
+        { k: 'note', t: 'stabileo.com publishes every change as soon as it is merged, so most of these fixes are already live, each from the day it was merged. Projects saved before a change that concerns them ask for a re-check when they are opened, in the reader’s language. One fix cannot do that: a 2D model cut from 3D before #1295 opens without a notice, because the model is what was wrong (SA-2026-035). Re-cut it from 3D, or solve it in 3D. The same holds for a rectangle or tube imported from Excel or IFC before #1310 (SA-2026-039): import it again.' },
 
         { k: 'h', t: 'Re-run your projects' },
         { k: 'p', t: 'These are the cases that move a design result the most. Each advisory has the worked case and what to do with results you already delivered.' },
-        { k: 'img', base: 'blog/release-050-recheck-de', w: 1600, h: 1000, alt: 'Stabileo Basic in German, opening a plane frame from the examples that was last solved with results version 15. The re-check notice lists the changes that concern it, each with its title and explanation in German, and asks the reader to tick that they have read them before continuing or re-running the analysis.', caption: 'The re-check notice now explains each change in all six languages: here, in German.' },
         {
           k: 'table',
           caption: 'Some of the 0.5.0 fixes, as each advisory documents them, with the results version that brought each one in; SA-2026-035 has none, so its advisory is the only notice.',
@@ -38,7 +37,7 @@ export const release050: Post = {
             ['SA-2026-027', '11', 'The shell envelope kept the combination with the largest Von Mises, not each component’s extreme: mx 14 % low in an example', 'High'],
           ],
         },
-        { k: 'p', t: 'The other advisories cover concrete members with torsion under ACI 318 and EN 1992 (SA-2026-040), constraints of a model cut to 2D from a Y–Z or X–Y plane (SA-2026-036), 3D co-rotational analysis with large rotations (SA-2026-037), a load at t = 0 on a node without mass in time history (SA-2026-031), the zero mode of a mechanism in modal analysis (SA-2026-032), the equilibrium check of the report after the analysis (SA-2026-034), 2D plastic collapse, which stays refused until #758 is fixed (SA-2026-044), 3D plastic collapse with a member that has no usable plastic moment, now refused (SA-2026-045) and, for those who call the engine directly, steel shear without a shear area under AISC 360 and EN 1993 (SA-2026-025 and 026).' },
+        { k: 'p', t: 'The other advisories cover concrete members with torsion under ACI 318 and EN 1992 (SA-2026-040), constraints of a model cut to 2D from a Y–Z or X–Y plane (SA-2026-036), 3D co-rotational analysis with large rotations (SA-2026-037), a load at t = 0 on a node without mass in time history (SA-2026-031), the zero mode of a mechanism in modal analysis (SA-2026-032), the equilibrium check of the report after the analysis (SA-2026-034), 2D plastic collapse, which stays refused until #758 is fixed (SA-2026-044), 3D plastic collapse with a member that has no usable plastic moment, now refused (SA-2026-045), harmonic analysis that chose between modal superposition and the direct solve per load, so superposition broke (SA-2026-046), rectangles and tubes imported from Excel or IFC with Iy and Iz swapped (SA-2026-039) and, for those who call the engine directly, steel shear without a shear area under AISC 360 and EN 1993 (SA-2026-025 and 026).' },
 
         { k: 'h', t: 'Other changes that move results' },
         { k: 'p', t: 'These are not defects with an advisory, but they change numbers, so each one is in the re-check notice:' },
@@ -46,11 +45,12 @@ export const release050: Post = {
           k: 'ul',
           items: [
             'A member’s governing value and the 2D envelope read the true peak of the diagram, not the nearest of 21 stations: they can rise, by 0.23 % under a triangular load and 1.05 % under a short partial load in the documented cases, and never fall.',
-            'Mechanisms are refused instead of solved: behind a rigid link or a diaphragm in 2D, behind a connector in 2D (#1415), and in modal analysis, which used to drop the zero mode and return the others as complete.',
+            'Mechanisms are refused instead of solved: behind a rigid link or a diaphragm in 2D, behind a connector in 2D (#1415), and in modal analysis, which used to drop the zero mode and return the others as complete, including a mechanism that slides along inclined supports.',
+            '3D material-nonlinear analysis solves frames with and without a warping constant side by side, and nodes reached only by trusses, instead of crashing or refusing them; models that solved before give the same numbers.',
             'Repeated eigenvalues keep their multiplicity, and static and modal results check their own equilibrium and orthogonality before they are shown.',
             'In Basic, P-Δ and the critical load split each member into elements, plastic collapse closes hinges that unload, and the influence line of the bending moment takes sagging as positive, as every other moment in Basic.',
             'A design check that cannot be evaluated is refused instead of passing, and a soft but real node rotation is no longer locked when the model has a much stiffer part.',
-            'Linear analysis warns when a rotation passes 0.1 rad, and when compression may amplify its moments past 10 %; while that second warning is shown, the CIRSOC 301 checks are held. Where they warn, run a nonlinear or P-Δ analysis.',
+            'Linear analysis warns when a rotation passes 0.1 rad, also inside a member’s span and on a combination’s own displacements, and when compression may amplify its moments past 10 %; while that second warning is shown, the CIRSOC 301 checks are held. Where they warn, run a nonlinear or P-Δ analysis.',
           ],
         },
 
@@ -71,7 +71,8 @@ export const release050: Post = {
           k: 'ul',
           items: [
             'Basic teaches structural analysis step by step: statics, the force and displacement methods, influence lines, second order and buckling, plastic analysis and dynamics, each explained step by step in the app. Its plastic collapse unit is withheld with the rest of 2D plastic collapse until #758 is fixed.',
-            'The app and the public site in German, French and Turkish, alongside Spanish, English and Portuguese. The re-check notice explains each change in all six.',
+            'German, French and Turkish are not offered in 0.5.0: they return once a native speaker has checked them, and until then their pages open in English.',
+            'The AI assistant works with your own Anthropic or OpenAI key, kept only in your browser, and /examples has live models the engine solves again as a slider moves.',
             'PRO: master and similar storeys, plate results per unit width with principal moments and directions, the report after the analysis, a read-only viewer with “Duplicate and edit”, and a linked IFC drawn as a 3D reference.',
             'Files saved by 0.2.0, 0.3.0 and 0.4.0 open, migrate and give the same results on every change, except where a registered result change applies; a file saved by a newer version is refused with a message that says so.',
             'The same structure rescaled, renumbered, reversed or moved must give the same answer, checked across 17 analysis types on every change and on 8,192 generated models every night.',
@@ -85,16 +86,15 @@ export const release050: Post = {
       ],
     },
     es: {
-      title: 'Stabileo 0.5.0: veinte avisos más, y advertencia o rechazo para cada error abierto',
+      title: 'Stabileo 0.5.0: veintidós avisos más, y advertencia o rechazo para cada error abierto',
       excerpt:
-        'Qué cambió desde la 0.4.0: veinte errores que podían dar un resultado equivocado o del lado inseguro, corregidos y documentados como avisos; una advertencia o un rechazo para cada error todavía abierto; el curso paso a paso en Básico; y la aplicación en seis idiomas.',
+        'Qué cambió desde la 0.4.0: veintidós errores que podían dar un resultado equivocado o del lado inseguro, corregidos y documentados como avisos; una advertencia o un rechazo para cada error todavía abierto; y el curso paso a paso en Básico.',
       blocks: [
         { k: 'p', t: 'Desde la 0.4.0 seguimos verificando Stabileo desde varios lados a la vez: el solver contra soluciones publicadas y otros programas, las verificaciones de dimensionado contra ejemplos resueltos, la misma estructura renumerada, reescalada y desplazada, y los archivos que guardaron las versiones anteriores. Así encontramos veinte errores más que podían dar un resultado equivocado o del lado inseguro. Están corregidos, y cada uno tiene un aviso que dice qué estaba mal, a quién afecta y qué revisar.' },
-        { k: 'note', t: 'stabileo.com publica cada cambio en cuanto se integra, así que la mayoría de estas correcciones ya están en línea, cada una desde el día en que se integró. Los proyectos guardados antes de un cambio que los afecta piden revisión al abrirlos, en el idioma de quien los abre. Una corrección no puede hacerlo: un modelo 2D cortado de uno 3D antes de #1295 se abre sin aviso, porque lo que estaba mal es el modelo (SA-2026-035). Volvé a cortarlo desde el 3D, o resolvelo en 3D.' },
+        { k: 'note', t: 'stabileo.com publica cada cambio en cuanto se integra, así que la mayoría de estas correcciones ya están en línea, cada una desde el día en que se integró. Los proyectos guardados antes de un cambio que los afecta piden revisión al abrirlos, en el idioma de quien los abre. Una corrección no puede hacerlo: un modelo 2D cortado de uno 3D antes de #1295 se abre sin aviso, porque lo que estaba mal es el modelo (SA-2026-035). Volvé a cortarlo desde el 3D, o resolvelo en 3D. Lo mismo vale para un rectángulo o un tubo importado de Excel o IFC antes de #1310 (SA-2026-039): volvé a importarlo.' },
 
         { k: 'h', t: 'Volvé a resolver tus proyectos' },
         { k: 'p', t: 'Estos son los casos que más mueven un resultado de diseño. Cada aviso tiene el caso resuelto y qué hacer con los resultados que ya entregaste.' },
-        { k: 'img', base: 'blog/release-050-recheck-de', w: 1600, h: 1000, alt: 'Stabileo Básico en alemán, al abrir un pórtico plano de los ejemplos que se resolvió por última vez con la versión de resultados 15. El diálogo de revisión lista los cambios que lo afectan, cada uno con su título y su explicación en alemán, y pide marcar que se leyeron antes de continuar o de volver a correr el análisis.', caption: 'El diálogo de revisión ahora explica cada cambio en los seis idiomas: acá, en alemán.' },
         {
           k: 'table',
           caption: 'Algunas correcciones de la 0.5.0, tal como las documenta cada aviso, con la versión de resultados que trajo cada una; SA-2026-035 no tiene, así que su aviso es la única notificación.',
@@ -112,7 +112,7 @@ export const release050: Post = {
             ['SA-2026-027', '11', 'La envolvente de láminas guardaba la combinación con el mayor Von Mises, no el extremo de cada componente: mx 14 % bajo en un ejemplo', 'Alta'],
           ],
         },
-        { k: 'p', t: 'Los demás avisos cubren las barras de hormigón con torsión según ACI 318 y EN 1992 (SA-2026-040), las restricciones de un modelo cortado a 2D desde un plano Y–Z o X–Y (SA-2026-036), el análisis corrotacional 3D con grandes rotaciones (SA-2026-037), una carga en t = 0 sobre un nudo sin masa en historia en el tiempo (SA-2026-031), el modo nulo de un mecanismo en el análisis modal (SA-2026-032), la verificación de equilibrio de la memoria después del análisis (SA-2026-034), el colapso plástico 2D, que sigue rechazado hasta que se corrija #758 (SA-2026-044), el colapso plástico 3D con una barra sin momento plástico utilizable, ahora rechazado (SA-2026-045) y, para quienes llaman al motor directamente, el corte en acero sin área de corte según AISC 360 y EN 1993 (SA-2026-025 y 026).' },
+        { k: 'p', t: 'Los demás avisos cubren las barras de hormigón con torsión según ACI 318 y EN 1992 (SA-2026-040), las restricciones de un modelo cortado a 2D desde un plano Y–Z o X–Y (SA-2026-036), el análisis corrotacional 3D con grandes rotaciones (SA-2026-037), una carga en t = 0 sobre un nudo sin masa en historia en el tiempo (SA-2026-031), el modo nulo de un mecanismo en el análisis modal (SA-2026-032), la verificación de equilibrio de la memoria después del análisis (SA-2026-034), el colapso plástico 2D, que sigue rechazado hasta que se corrija #758 (SA-2026-044), el colapso plástico 3D con una barra sin momento plástico utilizable, ahora rechazado (SA-2026-045), el análisis armónico que elegía entre superposición modal y solución directa por carga, así que la superposición fallaba (SA-2026-046), los rectángulos y tubos importados de Excel o IFC con Iy e Iz intercambiados (SA-2026-039) y, para quienes llaman al motor directamente, el corte en acero sin área de corte según AISC 360 y EN 1993 (SA-2026-025 y 026).' },
 
         { k: 'h', t: 'Otros cambios que mueven resultados' },
         { k: 'p', t: 'No son errores con aviso, pero cambian números, así que cada uno está en el diálogo de revisión:' },
@@ -120,11 +120,12 @@ export const release050: Post = {
           k: 'ul',
           items: [
             'El valor determinante de una barra y la envolvente 2D leen el pico real del diagrama, no la más cercana de 21 estaciones: pueden subir, 0,23 % con una carga triangular y 1,05 % con una carga parcial corta en los casos documentados, y nunca bajan.',
-            'Los mecanismos se rechazan en lugar de resolverse: detrás de un vínculo rígido o un diafragma en 2D, detrás de un conector en 2D (#1415), y en el análisis modal, que antes descartaba el modo nulo y devolvía los demás como completos.',
+            'Los mecanismos se rechazan en lugar de resolverse: detrás de un vínculo rígido o un diafragma en 2D, detrás de un conector en 2D (#1415), y en el análisis modal, que antes descartaba el modo nulo y devolvía los demás como completos, también un mecanismo que se desliza sobre apoyos inclinados.',
+            'El análisis no lineal de material 3D resuelve barras con y sin constante de alabeo juntas, y nudos a los que solo llegan bielas, en lugar de fallar o rechazarlos; los modelos que ya se resolvían dan los mismos números.',
             'Los autovalores repetidos conservan su multiplicidad, y los resultados estáticos y modales verifican su propio equilibrio y su ortogonalidad antes de mostrarse.',
             'En Básico, P-Δ y la carga crítica dividen cada barra en elementos, el colapso plástico cierra las rótulas que se descargan, y la línea de influencia del momento flector toma como positivo el momento que tracciona la fibra inferior, como todo otro momento en Básico.',
             'Una verificación de dimensionado que no se puede evaluar se rechaza en lugar de aprobar, y una rotación de nudo flexible pero real ya no se bloquea cuando el modelo tiene una parte mucho más rígida.',
-            'El análisis lineal advierte cuando una rotación pasa de 0,1 rad, y cuando la compresión puede amplificar sus momentos más de un 10 %; mientras se muestra esa segunda advertencia, las verificaciones CIRSOC 301 quedan retenidas. Donde advierte, corré un análisis no lineal o P-Δ.',
+            'El análisis lineal advierte cuando una rotación pasa de 0,1 rad, también dentro del tramo de una barra y con los propios desplazamientos de una combinación, y cuando la compresión puede amplificar sus momentos más de un 10 %; mientras se muestra esa segunda advertencia, las verificaciones CIRSOC 301 quedan retenidas. Donde advierte, corré un análisis no lineal o P-Δ.',
           ],
         },
 
@@ -145,7 +146,8 @@ export const release050: Post = {
           k: 'ul',
           items: [
             'Básico enseña análisis estructural paso a paso: estática, los métodos de las fuerzas y de los desplazamientos, líneas de influencia, segundo orden y pandeo, análisis plástico y dinámica, cada uno explicado paso a paso en la aplicación. Su unidad de colapso plástico queda retenida con el resto del colapso plástico 2D hasta que se corrija #758.',
-            'La aplicación y el sitio público en alemán, francés y turco, junto al español, el inglés y el portugués. El diálogo de revisión explica cada cambio en los seis.',
+            'El alemán, el francés y el turco no se ofrecen en la 0.5.0: vuelven cuando un hablante nativo los haya revisado, y mientras tanto sus páginas abren en inglés.',
+            'El asistente de IA funciona con tu propia clave de Anthropic u OpenAI, guardada solo en tu navegador, y /examples tiene modelos en vivo que el motor vuelve a resolver al mover un control.',
             'PRO: plantas madre y plantas similares, resultados de placas por unidad de ancho con momentos y direcciones principales, la memoria después del análisis, un visor de solo lectura con “Duplicar y editar”, y un IFC vinculado dibujado como referencia 3D.',
             'Los archivos guardados por la 0.2.0, la 0.3.0 y la 0.4.0 se abren, se migran y dan los mismos resultados en cada cambio, salvo donde se aplica un cambio de resultados registrado; un archivo guardado por una versión más nueva se rechaza con un mensaje que lo dice.',
             'La misma estructura reescalada, renumerada, invertida o desplazada tiene que dar la misma respuesta, y eso se verifica en 17 tipos de análisis en cada cambio y sobre 8.192 modelos generados cada noche.',
@@ -159,16 +161,15 @@ export const release050: Post = {
       ],
     },
     pt: {
-      title: 'Stabileo 0.5.0: mais vinte avisos, e advertência ou recusa para cada erro aberto',
+      title: 'Stabileo 0.5.0: mais vinte e dois avisos, e advertência ou recusa para cada erro aberto',
       excerpt:
-        'O que mudou desde a 0.4.0: vinte erros que podiam dar um resultado errado ou contra a segurança, corrigidos e documentados como avisos; uma advertência ou uma recusa para cada erro ainda aberto; o curso passo a passo no Básico; e o aplicativo em seis idiomas.',
+        'O que mudou desde a 0.4.0: vinte e dois erros que podiam dar um resultado errado ou contra a segurança, corrigidos e documentados como avisos; uma advertência ou uma recusa para cada erro ainda aberto; e o curso passo a passo no Básico.',
       blocks: [
         { k: 'p', t: 'Desde a 0.4.0 continuamos verificando o Stabileo por vários lados ao mesmo tempo: o solver contra soluções publicadas e outros programas, as verificações de dimensionamento contra exemplos resolvidos, a mesma estrutura renumerada, reescalada e deslocada, e os arquivos que as versões anteriores salvaram. Assim encontramos mais vinte erros que podiam dar um resultado errado ou contra a segurança. Estão corrigidos, e cada um tem um aviso que diz o que estava errado, a quem afeta e o que revisar.' },
-        { k: 'note', t: 'stabileo.com publica cada mudança assim que é integrada, então a maioria destas correções já está no ar, cada uma desde o dia em que foi integrada. Os projetos salvos antes de uma mudança que os afeta pedem revisão ao serem abertos, no idioma de quem os abre. Uma correção não consegue fazer isso: um modelo 2D cortado de um 3D antes de #1295 abre sem aviso, porque o que estava errado é o modelo (SA-2026-035). Corte-o de novo a partir do 3D, ou resolva-o em 3D.' },
+        { k: 'note', t: 'stabileo.com publica cada mudança assim que é integrada, então a maioria destas correções já está no ar, cada uma desde o dia em que foi integrada. Os projetos salvos antes de uma mudança que os afeta pedem revisão ao serem abertos, no idioma de quem os abre. Uma correção não consegue fazer isso: um modelo 2D cortado de um 3D antes de #1295 abre sem aviso, porque o que estava errado é o modelo (SA-2026-035). Corte-o de novo a partir do 3D, ou resolva-o em 3D. O mesmo vale para um retângulo ou tubo importado do Excel ou IFC antes de #1310 (SA-2026-039): importe-o de novo.' },
 
         { k: 'h', t: 'Resolva seus projetos de novo' },
         { k: 'p', t: 'Estes são os casos que mais movem um resultado de projeto. Cada aviso tem o caso resolvido e o que fazer com os resultados que você já entregou.' },
-        { k: 'img', base: 'blog/release-050-recheck-de', w: 1600, h: 1000, alt: 'Stabileo Básico em alemão, ao abrir um pórtico plano dos exemplos que foi resolvido pela última vez com a versão de resultados 15. O diálogo de revisão lista as mudanças que o afetam, cada uma com seu título e sua explicação em alemão, e pede para marcar que foram lidas antes de continuar ou de executar a análise novamente.', caption: 'O diálogo de revisão agora explica cada mudança nos seis idiomas: aqui, em alemão.' },
         {
           k: 'table',
           caption: 'Algumas correções da 0.5.0, tal como cada aviso as documenta, com a versão de resultados que trouxe cada uma; SA-2026-035 não tem, então seu aviso é a única notificação.',
@@ -186,7 +187,7 @@ export const release050: Post = {
             ['SA-2026-027', '11', 'A envoltória de cascas guardava a combinação com o maior Von Mises, não o extremo de cada componente: mx 14 % abaixo num exemplo', 'Alta'],
           ],
         },
-        { k: 'p', t: 'Os demais avisos cobrem barras de concreto com torção pela ACI 318 e pela EN 1992 (SA-2026-040), as restrições de um modelo cortado para 2D a partir de um plano Y–Z ou X–Y (SA-2026-036), a análise corrotacional 3D com grandes rotações (SA-2026-037), uma carga em t = 0 sobre um nó sem massa no histórico no tempo (SA-2026-031), o modo nulo de um mecanismo na análise modal (SA-2026-032), a verificação de equilíbrio do memorial depois da análise (SA-2026-034), o colapso plástico 2D, que continua recusado até que #758 seja corrigido (SA-2026-044), o colapso plástico 3D com uma barra sem momento plástico utilizável, agora recusado (SA-2026-045) e, para quem chama o motor diretamente, o cisalhamento em aço sem área de cisalhamento pela AISC 360 e pela EN 1993 (SA-2026-025 e 026).' },
+        { k: 'p', t: 'Os demais avisos cobrem barras de concreto com torção pela ACI 318 e pela EN 1992 (SA-2026-040), as restrições de um modelo cortado para 2D a partir de um plano Y–Z ou X–Y (SA-2026-036), a análise corrotacional 3D com grandes rotações (SA-2026-037), uma carga em t = 0 sobre um nó sem massa no histórico no tempo (SA-2026-031), o modo nulo de um mecanismo na análise modal (SA-2026-032), a verificação de equilíbrio do memorial depois da análise (SA-2026-034), o colapso plástico 2D, que continua recusado até que #758 seja corrigido (SA-2026-044), o colapso plástico 3D com uma barra sem momento plástico utilizável, agora recusado (SA-2026-045), a análise harmônica que escolhia entre superposição modal e solução direta por carga, de modo que a superposição falhava (SA-2026-046), retângulos e tubos importados do Excel ou IFC com Iy e Iz trocados (SA-2026-039) e, para quem chama o motor diretamente, o cisalhamento em aço sem área de cisalhamento pela AISC 360 e pela EN 1993 (SA-2026-025 e 026).' },
 
         { k: 'h', t: 'Outras mudanças que alteram resultados' },
         { k: 'p', t: 'Não são erros com aviso, mas mudam números, então cada uma está no diálogo de revisão:' },
@@ -194,11 +195,12 @@ export const release050: Post = {
           k: 'ul',
           items: [
             'O valor determinante de uma barra e a envoltória 2D leem o pico real do diagrama, não a mais próxima de 21 estações: podem subir, 0,23 % sob uma carga triangular e 1,05 % sob uma carga parcial curta nos casos documentados, e nunca descem.',
-            'Os mecanismos são recusados em vez de resolvidos: atrás de um vínculo rígido ou de um diafragma em 2D, atrás de um conector em 2D (#1415), e na análise modal, que antes descartava o modo nulo e devolvia os demais como completos.',
+            'Os mecanismos são recusados em vez de resolvidos: atrás de um vínculo rígido ou de um diafragma em 2D, atrás de um conector em 2D (#1415), e na análise modal, que antes descartava o modo nulo e devolvia os demais como completos, inclusive um mecanismo que desliza sobre apoios inclinados.',
+            'A análise não linear de material 3D resolve barras com e sem constante de empenamento lado a lado, e nós aos quais só chegam treliças, em vez de falhar ou recusá-los; os modelos que já eram resolvidos dão os mesmos números.',
             'Autovalores repetidos mantêm sua multiplicidade, e os resultados estáticos e modais verificam seu próprio equilíbrio e sua ortogonalidade antes de serem mostrados.',
             'No Básico, o P-Δ e a carga crítica dividem cada barra em elementos, o colapso plástico fecha as rótulas que descarregam, e a linha de influência do momento fletor toma como positivo o momento que traciona a fibra inferior, como todo outro momento no Básico.',
             'Uma verificação de dimensionamento que não pode ser avaliada é recusada em vez de aprovada, e uma rotação de nó flexível mas real não é mais travada quando o modelo tem uma parte muito mais rígida.',
-            'A análise linear avisa quando uma rotação passa de 0,1 rad, e quando a compressão pode amplificar seus momentos em mais de 10 %; enquanto esse segundo aviso aparece, as verificações CIRSOC 301 ficam retidas. Onde ela avisa, rode uma análise não linear ou P-Δ.',
+            'A análise linear avisa quando uma rotação passa de 0,1 rad, também dentro do vão de uma barra e com os próprios deslocamentos de uma combinação, e quando a compressão pode amplificar seus momentos em mais de 10 %; enquanto esse segundo aviso aparece, as verificações CIRSOC 301 ficam retidas. Onde ela avisa, rode uma análise não linear ou P-Δ.',
           ],
         },
 
@@ -219,7 +221,8 @@ export const release050: Post = {
           k: 'ul',
           items: [
             'O Básico ensina análise estrutural passo a passo: estática, os métodos das forças e dos deslocamentos, linhas de influência, segunda ordem e flambagem, análise plástica e dinâmica, cada um explicado passo a passo no aplicativo. Sua unidade de colapso plástico fica retida com o resto do colapso plástico 2D até que #758 seja corrigido.',
-            'O aplicativo e o site público em alemão, francês e turco, junto com espanhol, inglês e português. O diálogo de revisão explica cada mudança nos seis.',
+            'Alemão, francês e turco não são oferecidos na 0.5.0: voltam quando um falante nativo os tiver revisado, e até lá as suas páginas abrem em inglês.',
+            'O assistente de IA funciona com a sua própria chave da Anthropic ou da OpenAI, guardada só no seu navegador, e /examples tem modelos ao vivo que o motor resolve de novo ao mover um controle.',
             'PRO: pavimentos mestre e pavimentos semelhantes, resultados de placas por unidade de largura com momentos e direções principais, o memorial depois da análise, um visualizador somente leitura com “Duplicar e editar”, e um IFC vinculado desenhado como referência 3D.',
             'Os arquivos salvos pela 0.2.0, pela 0.3.0 e pela 0.4.0 abrem, migram e dão os mesmos resultados em cada mudança, exceto onde se aplica uma mudança de resultados registrada; um arquivo salvo por uma versão mais nova é recusado com uma mensagem que diz isso.',
             'A mesma estrutura reescalada, renumerada, invertida ou deslocada deve dar a mesma resposta, o que é verificado em 17 tipos de análise em cada mudança e em 8.192 modelos gerados todas as noites.',
