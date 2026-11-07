@@ -187,7 +187,7 @@ function isBar(b: unknown): boolean {
 
 function isAssembly(a: unknown): boolean {
   return isObj(a) && typeof a.id === 'string' && finiteList(a.elementIds) && Array.isArray(a.bars) && a.bars.every(isBar)
-    && ['marks', 'joints', 'conflicts', 'unsupported'].every((k) => a[k] === undefined || Array.isArray(a[k]));
+    && ['marks', 'joints', 'conflicts', 'unsupported'].every((k) => a[k] === undefined || (Array.isArray(a[k]) && a[k].every(isObj)));
 }
 
 function isHeavy(h: unknown): h is HeavyDetailing {

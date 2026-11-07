@@ -400,6 +400,8 @@ describe('the designed and detailed 7-storey building', () => {
       { assemblies: [{ id: 'a', bars: [{ id: 'b' }] }] },
       withBar({ ...bar, diameterMm: Number.NaN }),
       withBar({ ...bar, segments: [] }),
+      { assemblies: [{ ...real, conflicts: [null] }] },
+      { assemblies: [{ ...real, marks: [null] }] },
       withBar({ ...bar, cuttingLength: undefined }),
       withBar({ ...bar, role: 'diagonal' }),
       withBar({ ...bar, segments: [{ ...bar.segments[0]!, start: { x: 0, y: Number.POSITIVE_INFINITY, z: 0 } }] }),
