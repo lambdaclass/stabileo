@@ -158,6 +158,12 @@ const body: PostBody = {
           "Behoben in der nächsten Version"
         ],
         [
+          "SA-2026-046",
+          "Harmonische Analyse: Wählte je Last zwischen Modalsuperposition und direkter Lösung, sodass Superposition und Reziprozität versagten (107 % an einem Knoten in einem Beispiel); stabileo.com und Engine-/WASM-Builds von main, vom 5. November 2026 bis zur Korrektur",
+          "Hoch",
+          "Behoben in der nächsten Version"
+        ],
+        [
           "SA-2026-037",
           "Korotationale 3D-Analyse: Rotationsvektoren wurden subtrahiert (der Bathe–Bolourchi-Bogen 1,3 % daneben, ohne Besserung bei Netzverfeinerung)",
           "Mittel",

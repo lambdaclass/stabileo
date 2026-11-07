@@ -258,8 +258,10 @@ fn harmonic_3d_issue_1371_frame_modal_matches_direct() {
 
 /// Forcing frequencies around the first mode the engine omits: below the first,
 /// between the last it computes and the next, just above and well above that one.
-/// A probe at a frequency above the whole spectrum reports how many it computes.
+/// A probe at a frequency above the whole spectrum reports how many it computes; a
+/// model it solves directly is probed around the middle of its spectrum.
 fn around_the_first_omitted_mode(d: &Dense, kept: usize) -> Result<Vec<f64>, String> {
+    let kept = if kept == 0 { d.n / 2 } else { kept };
     if kept == 0 || kept >= d.n {
         return Err(format!("the engine computed {kept} of {} modes", d.n));
     }
@@ -424,8 +426,8 @@ fn time_history_slow_ramp_settles_on_the_static_solution() {
     agree("time history slow ramp vs static", Ok(r));
 }
 
-/// A pinned 8-element beam driven well above its kept modes: the modal residual stays
-/// under the direct-solve threshold while the imaginary part is off by up to 60 %.
+/// A pinned 8-element beam driven well above its kept modes, where modal superposition
+/// accepted under the residual threshold was off by up to 60 % (#1434).
 #[test]
 fn harmonic_2d_beam_above_the_kept_modes_matches_direct() {
     let n = 8;
@@ -433,5 +435,5 @@ fn harmonic_2d_beam_above_the_kept_modes_matches_direct() {
     let elems = (0..n).map(|i| (i + 1, "frame", i + 1, i + 2, 1, 1, false, false)).collect();
     let solver = crate::common::make_input(nodes, vec![(1, 200_000.0, 0.3)], vec![(1, 0.05, 1e-4)], elems, vec![(1, 1, "pinned"), (2, n + 1, "rollerX")],
         vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fz: -10.0, my: 0.0 })]);
-    known_issue(1434, "2D beam harmonic above the kept modes vs direct", &[", uncorrected)"], harmonic_2d(solver, 4, "y", (1..=40).map(|i| i as f64 * 250.0).collect()));
+    agree("2D beam harmonic above the kept modes vs direct", harmonic_2d(solver, 4, "y", (1..=40).map(|i| i as f64 * 250.0).collect()));
 }

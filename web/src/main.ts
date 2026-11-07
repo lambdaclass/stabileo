@@ -46,6 +46,7 @@ async function bootstrap() {
   const target = document.getElementById('app')!;
   if (routeKind().kind === 'app') {
     document.getElementById('prerender')?.remove();
+    document.documentElement.classList.add('app-boot');
     await ensureLocale(i18n.locale);
     // Keep the loader namespace separate: Vite's dynamic-import analysis treats
     // destructuring an awaited .then() chain as destructuring the import itself.

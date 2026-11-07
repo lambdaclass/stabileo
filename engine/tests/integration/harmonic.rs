@@ -505,19 +505,17 @@ fn harmonic_3d_with_constraints() {
     }
 }
 
-/// A well-conditioned beam stays on modal superposition: no frequency of the
-/// sweep needs the direct fallback, and the modal values match the direct
-/// complex solve.
 #[test]
 fn harmonic_3d_well_behaved_beam_stays_modal() {
     use dedaliano_engine::solver::{assembly, dof::DofNumbering, mass_matrix};
-    let solver = make_ss_beam_3d_with_load();
+    let solver = crate::common::make_3d_beam(16, 10.0, 200e6, 0.3, 0.05, 1e-4, 5e-5, 1.5e-4, vec![true, true, true, true, false, false], Some(vec![false, true, true, true, false, false]),
+        vec![SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: 9, fx: 0.0, fy: 0.0, fz: -10.0, mx: 0.0, my: 0.0, mz: 0.0, bw: None })]);
     let mut densities = HashMap::new();
     densities.insert("1".to_string(), 7850.0);
     let frequencies: Vec<f64> = (0..=40).map(|i| i as f64 * 1.5).collect();
     let input = HarmonicInput3D {
         solver: solver.clone(), densities: densities.clone(), frequencies, damping_ratio: 0.05,
-        response_node_id: 2, response_dof: "z".to_string(),
+        response_node_id: 9, response_dof: "z".to_string(),
     };
     let (r, (a0, a1)) = solve_harmonic_3d_with_damping(&input).unwrap();
     assert_eq!(r.method, dedaliano_engine::solver::harmonic::HarmonicMethod::ModalStatic);
@@ -531,7 +529,8 @@ fn harmonic_3d_well_behaved_beam_stays_modal() {
     let kff: Vec<f64> = (0..nf * nf).map(|i| asm.k[(i / nf) * n + i % nf]).collect();
     let mff: Vec<f64> = (0..nf * nf).map(|i| m[(i / nf) * n + i % nf]).collect();
     let cff: Vec<f64> = (0..nf * nf).map(|i| a0 * mff[i] + a1 * kff[i]).collect();
-    let g = dn.global_dof(2, 2).unwrap();
+    assert!(nf >= DIRECT_HARMONIC_DOFS, "{nf}");
+    let g = dn.global_dof(9, 2).unwrap();
     let peak = r.peak_amplitude;
     for pt in &r.response_points {
         let (re, im) = solve_complex_system(&kff, &mff, &cff, &asm.f[..nf], nf, pt.omega).unwrap();
