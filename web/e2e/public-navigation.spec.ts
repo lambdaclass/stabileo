@@ -125,7 +125,7 @@ test('@smoke moving through history onto another language shows that language wi
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/en/tools/');
   await expect(page.locator('#app .landing h1')).toBeVisible();
-  await page.route(/\/assets\/de-[^/]+\.js$/, async (route) => {
+  await page.route(/\/assets\/es-[^/]+\.js$/, async (route) => {
     await new Promise((resolve) => setTimeout(resolve, 1200));
     await route.continue();
   });
@@ -137,17 +137,17 @@ test('@smoke moving through history onto another language shows that language wi
     };
     (window as unknown as { langSamples: typeof samples; langTimer: number }).langSamples = samples;
     (window as unknown as { langTimer: number }).langTimer = window.setInterval(read, 25);
-    history.pushState(null, '', '/de/tools/');
+    history.pushState(null, '', '/es/tools/');
     window.dispatchEvent(new PopStateEvent('popstate'));
   });
-  await expect(page.locator('#app .site-header [data-nav="tools"]')).toHaveText('Werkzeuge', { timeout: 10_000 });
+  await expect(page.locator('#app .site-header [data-nav="tools"]')).toHaveText('Herramientas', { timeout: 10_000 });
   const samples = await page.evaluate(() => {
     const w = window as unknown as { langSamples: Array<{ href: string | null; text: string }>; langTimer: number };
     clearInterval(w.langTimer);
     return w.langSamples;
   });
   expect(samples.length).toBeGreaterThan(20);
-  for (const s of samples) if (s.href?.startsWith('/de/')) expect(s.text).toBe('Werkzeuge');
+  for (const s of samples) if (s.href?.startsWith('/es/')) expect(s.text).toBe('Herramientas');
 });
 
 for (const rootSize of [16, 20, 24]) {
@@ -187,8 +187,8 @@ for (const width of [390, 1440]) {
 test('@smoke a direct load whose language fails to download still opens a working page, in English', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   let aborted = 0;
-  await page.route(/\/assets\/de-[^/]+\.js$/, (route) => { aborted++; return route.abort(); });
-  await page.goto('/de/tools/');
+  await page.route(/\/assets\/es-[^/]+\.js$/, (route) => { aborted++; return route.abort(); });
+  await page.goto('/es/tools/');
   await expect(page.locator('#prerender')).toHaveCount(0);
   await expect(page.locator('#app .site-header')).toHaveAttribute('data-current', 'tools');
   await expect(page.locator('#app .tools-wrap')).toBeVisible();

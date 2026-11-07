@@ -1,7 +1,8 @@
 import { test, expect } from '@playwright/test';
+import { PUBLIC_LOCALES } from '../src/lib/i18n/offered';
 
 // The site nav shows its links whenever they fit (from 1141px), and never overlaps or overflows.
-for (const lang of ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
+for (const lang of PUBLIC_LOCALES) {
   for (const width of [1141, 1280, 1440]) {
     test(`@smoke site nav in ${lang} at ${width}px shows every link without overlap`, async ({ page }) => {
       await page.setViewportSize({ width, height: 800 });
