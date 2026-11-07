@@ -60,7 +60,18 @@ UPDATE_METAMORPHIC_DOC=1 cargo test --locked --release --test metamorphic metamo
   `modal_checks.rs`, `corpus.rs`, `regressions.rs` (one minimal test per bug
   found), `active.rs` (active cable fixtures), `generated.rs` (strict generated
   coverage), `safety_cases.rs` (issue-linked reproductions), and `stiffness.rs`
-  (priority invariances and uniform stiffness scaling).
+  (priority invariances and uniform stiffness scaling), and `linear_identities.rs`
+  (load combinations 1.2A + 1.6B + 0.5C, 0.9A − 1.0B, 0A + 1.4C and 1.0B on three cases, each case also against its own linear solve,
+  `solve_multi_case_2d/3d` on its prepared and constrained paths, against the linear
+  solve of the factored loads with settlements counted once; and superposition
+  R(aA + bB) = a·R(A) + b·R(B) + (1 − a − b)·R(∅) of the shell stress components
+  σxx, σyy, τxy, mx, my, mxy, qx, qy of every shell family, which the matrix's
+  superposition cell does not see: it compares von Mises only, and von Mises is not
+  linear). Models: the fuzz generators (seeds 0–47, constraints on odd seeds) and 20
+  generated frame buildings with a roof slab of plates, MITC4, MITC9, solid or curved
+  shells, pressure, thermal, member, point and nodal loads, a spring and a settlement.
+  Membrane stress, bending moment and shear per length are compared each against its
+  own magnitude, floored by the load floor carried through the thinnest shell.
 
 ## Invariants
 
@@ -72,7 +83,7 @@ UPDATE_METAMORPHIC_DOC=1 cargo test --locked --release --test metamorphic metamo
 | reversal | Half the members reversed: displacements and reactions unchanged; end forces map as in `reversal.rs`. |
 | units | (λ, φ) ∈ {(10⁻³, 10³), (25, 10⁻²), (0.3048, 4.448)} with τ = √λ: every result scales by its dimension. |
 | superposition | Linear analyses: R(A+B) − R(∅) = (R(A) − R(∅)) + (R(B) − R(∅)) and R(kA) − R(∅) = k·(R(A) − R(∅)) (R(∅) carries settlements). Load-factor analyses (buckling, plastic collapse): all actions × k ⇒ factor / k. |
-| reciprocity | Maxwell–Betti: δ_ab·d_b under a unit force at a along d_a equals δ_ba·d_a under a unit force at b along d_b, random nodes and directions; for harmonic analysis at every frequency (real and imaginary parts), for time history at every sampled time. |
+| reciprocity | Maxwell–Betti: δ_ab·d_b under a unit force at a along d_a equals δ_ba·d_a under a unit force at b along d_b, random nodes and directions; for harmonic analysis at every frequency (real and imaginary parts), for time history at every sampled time. Where the analysis reports rotations (static rows, time history), also with moments (`betti.rs`), at nodes a frame end holds rotationally, settlements removed: θ_b·m_b under a unit force at a equals u_a·d_a under a unit moment at b about m_b, and θ_b·m_b under a unit moment at a equals θ_a·m_a under a unit moment at b. Each side is compared at `rel` times the magnitude of the field it is read from, so both sides of an identity have one dimension (rotation per force for the force–moment pair, rotation per moment for the moment–moment pair). |
 | energy | Clapeyron under random nodal forces and moments: Σ P·u = Σ_e f_e·u_e (member end forces in member axes) + Σ springs uᵀKu — the external work equals twice the strain energy recovered from the reported member forces. |
 | symmetry | Symmetric models built from any model (2D: mirrored about a vertical line through its right-most node and joined there; 3D: C2 rotation about a vertical axis through a node), symmetric and antisymmetric (linear analyses) loads and settlements: the response equals its own image (or minus it), nodes and members exchanged pairwise. |
 | linear agreement | Every analysis that reduces to the linear solve on the model given (dense / sparse / PCG paths, constrained, certified, one combination of two cases, one or two stages with the full structure, Winkler without foundation, contact without gaps, SSI without soil springs, creep at t₀) reproduces the linear solution. |
