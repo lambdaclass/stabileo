@@ -80,7 +80,7 @@
       <p class="rs-g-lead">
         {s.galleryLead}
       </p>
-      <p class="link-row"><PublicLink to="/paper" class="link-arrow">{tPublic('landing.navPaper')} · JAIE 2026</PublicLink></p>
+      <p class="link-row"><PublicLink to="/paper" class="link-arrow">{tPublic('landing.navPaper')}{' · JAIE 2026'}</PublicLink></p>
       <p class="rs-g-note"><strong>{s.notDesign}.</strong> {s.galleryDisclaimer} <a href="https://github.com/lambdaclass/stabileo/blob/main/research/CONTRIBUTING.md" rel="noreferrer" target="_blank">{"CONTRIBUTING.md"}</a>.</p>
     </header>
 

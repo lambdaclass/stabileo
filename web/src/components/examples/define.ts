@@ -40,6 +40,7 @@ export type View = {
   geometryOnly: boolean;
   lineWidth?: number;
   bounds: [number, number, number, number];
+  legend?: { shape: 'deformed' | 'mode'; scale?: number };
 };
 
 export type Overlay = { key: string; points: [number, number][]; dashed?: boolean; markers?: boolean };

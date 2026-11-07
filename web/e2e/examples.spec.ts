@@ -66,9 +66,9 @@ test('@smoke examples report the engine refusing a model with no load', async ({
 
 test('@smoke an example the engine refuses says why in the viewer, in place of the drawing', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto('/en/examples/rc-column/?e2e=1');
+  await page.goto('/en/examples/rc-column/?barDia=12&e2e=1');
   await expect(page.locator('.ex-viewer canvas').first()).toBeVisible({ timeout: 30000 });
-  await page.getByTestId('param-b').fill('0.5');
+  await page.getByTestId('param-b').fill('0.45');
   const reason = page.getByTestId('viewer-refusal');
   await expect(reason).toHaveAttribute('data-code', 'needsCrossties');
   await expect(reason).toContainText('needs a crosstie');
@@ -78,6 +78,51 @@ test('@smoke an example the engine refuses says why in the viewer, in place of t
   await page.getByTestId('param-b').fill('0.4');
   await expect(page.locator('.ex-viewer canvas').first()).toBeVisible();
   await expect(reason).toHaveCount(0);
+});
+
+test('@smoke rc-column solves at its widest section with the default three bars per face', async ({ page }) => {
+  await page.goto('/en/examples/rc-column/?e2e=1');
+  await expect(page.getByTestId('certificate')).toBeVisible({ timeout: 30000 });
+  await expect(page.getByTestId('param-b')).toHaveAttribute('max', '0.45');
+  await page.getByTestId('param-b').fill('0.8');
+  await expect(page.getByTestId('value-b')).toHaveText('0.45');
+  await expect(page.getByTestId('certificate')).toBeVisible();
+  await expect(page.getByTestId('refusal')).toHaveCount(0);
+  await expect(page.locator('.ex-viewer canvas').first()).toBeVisible();
+});
+
+const LEGENDS: [string, string, string, RegExp][] = [
+  ['outrigger', '', 'deformed', /^deformed ×[\d,]+$/],
+  ['earthquake-frame', '', 'deformed', /^deformed ×[\d,.]+$/],
+  ['beam-frame', 'Deflection', 'deformed', /^deformed ×[\d,.]+$/],
+  ['tower', '', 'mode', /^mode shape, normalised$/],
+];
+for (const [id, tab, shape, second] of LEGENDS) test(`@smoke example ${id} labels the undeformed and the ${shape} shape it overlays`, async ({ page }) => {
+  await page.goto(`/en/examples/${id}/?e2e=1`);
+  await expect(page.getByTestId('certificate')).toBeVisible({ timeout: 30000 });
+  if (tab) await page.locator('.ex-viewer').getByRole('tab', { name: tab }).click();
+  const legend = page.getByTestId('viewer-legend');
+  await expect(legend).toHaveAttribute('data-shape', shape);
+  const items = (await legend.locator('li').allTextContents()).map(text => text.trim());
+  expect(items[0]).toBe('undeformed');
+  expect(items[1]).toMatch(second);
+  if (shape === 'deformed') expect(Number(await legend.getAttribute('data-scale'))).toBeGreaterThan(1);
+});
+
+test('@smoke the example legend is translated', async ({ page }) => {
+  await page.goto('/es/examples/outrigger/?e2e=1');
+  await expect(page.getByTestId('viewer-legend').locator('li').first()).toHaveText('sin deformar', { timeout: 30000 });
+  await expect(page.getByTestId('viewer-legend').locator('li').nth(1)).toHaveText(/^deformada ×/);
+});
+
+for (const id of EXAMPLE_IDS) test(`@smoke example ${id} viewer has one title and no editor chrome`, async ({ page }) => {
+  await page.goto(`/en/examples/${id}/?e2e=1`);
+  await expect(page.getByTestId('certificate')).toBeVisible({ timeout: 30000 });
+  const viewer = page.locator('.ex-viewer');
+  await expect(viewer.locator('.viewer-heading, [role="tablist"]')).toHaveCount(1);
+  await expect(viewer.locator('.sfv-mark, .sfv-navigation, .sfv-status')).toHaveCount(0);
+  await expect(viewer.getByText(/stabileo viewer/i)).toHaveCount(0);
+  await expect(viewer.locator('.axis-gizmo')).toBeHidden();
 });
 
 const CERTIFICATE: Record<string, string> = { 'rc-column': 'unavailable' };

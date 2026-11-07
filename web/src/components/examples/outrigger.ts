@@ -133,7 +133,7 @@ export const outrigger = defineExample<Model>({
     }
     return {
       status: 'ok', readouts, certificate, notes: ['chord'],
-      views: { outrigger: s.view('outrigger', 'mm', boundsOf(s.xy, 0.06)) },
+      views: { outrigger: { ...s.view('outrigger', 'mm', boundsOf(s.xy, 0.06)), legend: { shape: 'deformed', scale } } },
       charts: [{ key: 'driftSweep', xUnit: 'm', yUnit: 'mm', points, marker: model.level * model.storeyHeight, xLabel: 'z (m)' }],
     };
   },

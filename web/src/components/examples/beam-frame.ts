@@ -122,6 +122,7 @@ export const beamFrame = defineExample<Model>({
     ];
     if (model.portal) readouts.push({ key: 'drift', value: Math.abs(drift) * 1000, unit: 'mm' });
     const h = size * 0.03;
+    const deformScale = size * 0.08 / Math.max(...samples.map(p => Math.hypot(...p.at)), 1e-12);
     const views: Record<string, View> = {};
     for (const key of ['moment', 'shear', 'deflection'] as const) {
       const s = new Sketch();
@@ -146,8 +147,7 @@ export const beamFrame = defineExample<Model>({
       }
       s.category = 1;
       if (key === 'deflection') {
-        const scale = size * 0.08 / Math.max(...samples.map(p => Math.hypot(...p.at)), 1e-12);
-        for (const member of deformed) s.polyline(member.map(p => [p.base[0] + p.at[0] * scale, p.base[1] + p.at[1] * scale]));
+        for (const member of deformed) s.polyline(member.map(p => [p.base[0] + p.at[0] * deformScale, p.base[1] + p.at[1] * deformScale]));
       } else {
         const scale = size * 0.15 / Math.max(...station(key).map(p => Math.abs(p.value)), 1e-12);
         for (const d of diagrams[key]) {
@@ -158,7 +158,8 @@ export const beamFrame = defineExample<Model>({
           s.polyline(d.points.map(p => [ni.x + p.t * (nj.x - ni.x) + nx * p.value * scale, ni.z + p.t * (nj.z - ni.z) + nz * p.value * scale]));
         }
       }
-      views[key] = s.view(key, key === 'moment' ? 'kN·m' : key === 'shear' ? 'kN' : 'mm', boundsOf(s.xy, 0.08));
+      const drawn = s.view(key, key === 'moment' ? 'kN·m' : key === 'shear' ? 'kN' : 'mm', boundsOf(s.xy, 0.08));
+      views[key] = key === 'deflection' ? { ...drawn, legend: { shape: 'deformed', scale: deformScale } } : drawn;
     }
     const charts: Chart[] = [];
     if (!model.portal) {
