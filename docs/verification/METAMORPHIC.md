@@ -60,7 +60,45 @@ UPDATE_METAMORPHIC_DOC=1 cargo test --locked --release --test metamorphic metamo
   `modal_checks.rs`, `corpus.rs`, `regressions.rs` (one minimal test per bug
   found), `active.rs` (active cable fixtures), `generated.rs` (strict generated
   coverage), `safety_cases.rs` (issue-linked reproductions), and `stiffness.rs`
-  (priority invariances and uniform stiffness scaling).
+  (priority invariances and uniform stiffness scaling), and `linear_identities.rs`
+  (load combinations 1.2A + 1.6B + 0.5C, 0.9A − 1.0B, 0A + 1.4C and 1.0B on three cases, each case also against its own linear solve,
+  `solve_multi_case_2d/3d` on its prepared and constrained paths, against the linear
+  solve of the factored loads with settlements counted once; and superposition
+  R(aA + bB) = a·R(A) + b·R(B) + (1 − a − b)·R(∅) of the shell stress components
+  σxx, σyy, τxy, mx, my, mxy, qx, qy of every shell family, which the matrix's
+  superposition cell does not see: it compares von Mises only, and von Mises is not
+  linear). Models: the fuzz generators (seeds 0–47, constraints on odd seeds) and 20
+  generated frame buildings with a roof slab of plates, MITC4, MITC9, solid or curved
+  shells, pressure, thermal, member, point and nodal loads, a spring and a settlement.
+  Membrane stress, bending moment and shear per length are compared each against its
+  own magnitude, floored by the load floor carried through the thinnest shell.
+* `completeness.rs`: result completeness. The metamorphic checks compare responses with
+  each other, so a record missing from every response would pass them. Here every result is
+  checked against the input model: one displacement per node, one reaction per distinct
+  support node, one force record per element (curved beams expanded), one plate stress per
+  plate, quad stresses per family in the engine's order (MITC4, MITC9, solid shells, curved
+  shells), and on the linear solve one quad nodal stress per MITC4/MITC9 element node, in the
+  engine's element and node order (the record carries no element id, so its position is its
+  identity). A
+  missing id, an id reported twice or an id not in the model fails. It runs linear, load
+  session, constrained, certified linear, load combinations (every case and the
+  combination), staged (every stage and the final result; the case, combination and stage
+  names must be exactly the requested ones), Winkler and SSI without springs and in 3D with
+  foundation springs on every unreleased member and soil springs on six free nodes, contact, P-Delta,
+  corotational, material and fiber nonlinear, cable, and every mode shape (4 modes on the
+  buildings and frame copies, 1 to 4 on fuzz models). Models: the same
+  fuzz seeds and 20 buildings as `linear_identities.rs`, plus frame-only copies of the
+  plate, MITC4 and curved-shell buildings (no settlement or thermal load) so that
+  corotational and fiber analyses are reached. Every analysis and every shell family on the
+  linear solve must be checked at least once. On the buildings and frame copies, the only
+  accepted refusals are the declared unsupported features (`DECLARED_REFUSALS`: shells in
+  corotational, material and fiber nonlinear, and staged MITC9/solid/curved shells; releases and
+  settlements in fiber nonlinear; settlements in SSI), and only when the model has that feature. Any other refusal fails. Fuzz models
+  may be refused. Two engine bugs are asserted as they are now,
+  not exempted: SSI reports no reactions (#1672), and 3D combination results have no plate,
+  quad or quad nodal stresses (#1673). Every other field of those results is fully checked.
+  When either bug is fixed, the test fails and points to the issue, and the case moves to
+  the full check.
 
 ## Invariants
 
@@ -72,7 +110,7 @@ UPDATE_METAMORPHIC_DOC=1 cargo test --locked --release --test metamorphic metamo
 | reversal | Half the members reversed: displacements and reactions unchanged; end forces map as in `reversal.rs`. |
 | units | (λ, φ) ∈ {(10⁻³, 10³), (25, 10⁻²), (0.3048, 4.448)} with τ = √λ: every result scales by its dimension. |
 | superposition | Linear analyses: R(A+B) − R(∅) = (R(A) − R(∅)) + (R(B) − R(∅)) and R(kA) − R(∅) = k·(R(A) − R(∅)) (R(∅) carries settlements). Load-factor analyses (buckling, plastic collapse): all actions × k ⇒ factor / k. |
-| reciprocity | Maxwell–Betti: δ_ab·d_b under a unit force at a along d_a equals δ_ba·d_a under a unit force at b along d_b, random nodes and directions; for harmonic analysis at every frequency (real and imaginary parts), for time history at every sampled time. |
+| reciprocity | Maxwell–Betti: δ_ab·d_b under a unit force at a along d_a equals δ_ba·d_a under a unit force at b along d_b, random nodes and directions; for harmonic analysis at every frequency (real and imaginary parts), for time history at every sampled time. Where the analysis reports rotations (static rows, time history), also with moments (`betti.rs`), at nodes a frame end holds rotationally, settlements removed: θ_b·m_b under a unit force at a equals u_a·d_a under a unit moment at b about m_b, and θ_b·m_b under a unit moment at a equals θ_a·m_a under a unit moment at b. Each side is compared at `rel` times the magnitude of the field it is read from, so both sides of an identity have one dimension (rotation per force for the force–moment pair, rotation per moment for the moment–moment pair). |
 | energy | Clapeyron under random nodal forces and moments: Σ P·u = Σ_e f_e·u_e (member end forces in member axes) + Σ springs uᵀKu — the external work equals twice the strain energy recovered from the reported member forces. |
 | symmetry | Symmetric models built from any model (2D: mirrored about a vertical line through its right-most node and joined there; 3D: C2 rotation about a vertical axis through a node), symmetric and antisymmetric (linear analyses) loads and settlements: the response equals its own image (or minus it), nodes and members exchanged pairwise. |
 | linear agreement | Every analysis that reduces to the linear solve on the model given (dense / sparse / PCG paths, constrained, certified, one combination of two cases, one or two stages with the full structure, Winkler without foundation, contact without gaps, SSI without soil springs, creep at t₀) reproduces the linear solution. |

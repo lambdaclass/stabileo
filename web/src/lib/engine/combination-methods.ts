@@ -43,7 +43,7 @@ import type { ResultPiece } from './variable-members';
 import { mergeResultDiagnostics } from './result-diagnostics';
 import { envelopeOver, isMagnitudeCombination } from './result-scopes';
 import { SETTLEMENT_CASE_ID } from './settlement-case';
-import { combineShellStresses, type PlateThickness } from './shell-combos';
+import { combineShellStresses, shellsById, uniqueShells, type PlateThickness } from './shell-combos';
 
 export type MagnitudeMethod = 'srss' | 'abs';
 
@@ -260,8 +260,8 @@ export function superposed(parts: ReadonlyArray<{ r: AnalysisResults3D; f: numbe
   const shells = parts.some(({ r }) => r.plateStresses?.length || r.quadStresses?.length)
     ? combineShellStresses(
         parts.map(({ f }, i) => ({ caseId: i, factor: f })),
-        new Map(parts.map(({ r }, i) => [i, new Map((r.plateStresses ?? []).map((s) => [s.elementId, s]))])),
-        new Map(parts.map(({ r }, i) => [i, new Map((r.quadStresses ?? []).map((s) => [s.elementId, s]))])),
+        new Map(parts.map(({ r }, i) => [i, shellsById(r.plateStresses)])),
+        new Map(parts.map(({ r }, i) => [i, shellsById(r.quadStresses)])),
         plates,
       )
     : null;
@@ -304,7 +304,7 @@ function combinedVonMises(method: MagnitudeMethod, rows: ReadonlyArray<{ vonMise
 
 /** The plates' stresses combined: Von Mises, σ1 and σ2 from the parts' own (`scaledShell`). */
 function combinedPlates(method: MagnitudeMethod, lists: ReadonlyArray<readonly PlateStress[] | undefined>): PlateStress[] {
-  return groupById(lists, 'elementId').map((rows) => ({
+  return groupById(lists.map(uniqueShells), 'elementId').map((rows) => ({
     elementId: rows[0]!.elementId, ...combinedMembrane(method, rows),
     sigma1: combine(method, rows.map((r) => r.sigma1)), sigma2: combine(method, rows.map((r) => r.sigma2)),
     ...combinedVonMises(method, rows),
@@ -313,7 +313,7 @@ function combinedPlates(method: MagnitudeMethod, lists: ReadonlyArray<readonly P
 
 /** The quads' stresses combined: Von Mises from the parts' own; Q where every part has it. */
 function combinedQuads(method: MagnitudeMethod, lists: ReadonlyArray<readonly QuadStress[] | undefined>): QuadStress[] {
-  return groupById(lists, 'elementId').map((rows) => {
+  return groupById(lists.map(uniqueShells), 'elementId').map((rows) => {
     const q = rows.every((r) => r.qx !== undefined && r.qy !== undefined)
       ? { qx: combine(method, rows.map((r) => r.qx!)), qy: combine(method, rows.map((r) => r.qy!)) } : {};
     return { elementId: rows[0]!.elementId, ...combinedMembrane(method, rows), ...combinedVonMises(method, rows), ...q };
