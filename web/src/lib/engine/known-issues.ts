@@ -84,10 +84,19 @@ export function freezeResult<T>(result: T): T {
 
 function assertSealed(value: object): void {
   if (!Object.isFrozen(value) || ArrayBuffer.isView(value) || value instanceof Map || value instanceof Set || !PLAIN_PROTOTYPES.has(Object.getPrototypeOf(value))) throw UNSOUND;
-  const keys = Object.getOwnPropertyNames(value);
-  if (Array.isArray(value) && keys.length !== value.length + 1) throw UNSOUND;
-  for (const key of keys) if (!('value' in Object.getOwnPropertyDescriptor(value, key)!)) throw UNSOUND;
+  if (Array.isArray(value)) for (let i = 0; i < value.length; i++) if (!Object.prototype.hasOwnProperty.call(value, i)) throw UNSOUND;
+  for (const key of Object.getOwnPropertyNames(value)) if (!('value' in Object.getOwnPropertyDescriptor(value, key)!)) throw UNSOUND;
 }
+
+function ownRead(record: object, key: string): unknown {
+  const property = Object.getOwnPropertyDescriptor(record, key);
+  if (!property && key in record) throw UNSOUND;
+  if ((record as Record<string, unknown>)[key] !== property?.value) throw UNSOUND;
+  return property?.value;
+}
+
+const isOwnKnownIssue = (d: unknown): d is Diagnostic =>
+  !!d && typeof d === 'object' && ownRead(d, 'code') === 'known_issue' && typeof ownRead(d, 'message') === 'string';
 
 function frozenDiagnosticsOf(result: object): Diagnostic[] {
   const cached = frozenDiagnostics.get(result);
@@ -112,16 +121,18 @@ function diagnosticsIn(result: unknown, root: object | null, sealed: boolean): D
   const seen = new Set<object>();
   const scanned = new Set<object>();
   const check = sealed ? assertSealed : () => {};
+  const read = sealed ? ownRead : (record: object, key: string) => (record as Record<string, unknown>)[key];
+  const knownIssue = sealed ? isOwnKnownIssue : isKnownIssue;
   function collect(value: unknown): void {
     if (value && typeof value === 'object') check(value);
     if (Array.isArray(value)) value.forEach(collect);
-    else if (isKnownIssue(value)) diagnostics.push(value);
+    else if (knownIssue(value)) diagnostics.push(value);
   }
   function scan(value: unknown): void {
     if (!value || typeof value !== 'object' || scanned.has(value)) return;
     scanned.add(value);
     check(value);
-    if (isKnownIssue(value)) diagnostics.push(value);
+    if (knownIssue(value)) diagnostics.push(value);
     (value instanceof Map ? [...value.values()] : Object.values(value)).forEach(scan);
   }
   function values(value: unknown): void {
@@ -142,11 +153,10 @@ function diagnosticsIn(result: unknown, root: object | null, sealed: boolean): D
     check(value);
     if (Array.isArray(value)) { value.forEach(visit); return; }
     if (value instanceof Map) { value.forEach(visit); return; }
-    const record = value as Record<string, unknown>;
-    for (const key of DIAGNOSTIC_KEYS) collect(record[key]);
-    for (const key of OPAQUE_KEYS) scan(record[key]);
-    for (const key of MAP_KEYS) values(record[key]);
-    for (const key of RECORD_KEYS) visit(record[key]);
+    for (const key of DIAGNOSTIC_KEYS) collect(read(value, key));
+    for (const key of OPAQUE_KEYS) scan(read(value, key));
+    for (const key of MAP_KEYS) values(read(value, key));
+    for (const key of RECORD_KEYS) visit(read(value, key));
   }
   visit(result);
   return diagnostics;
