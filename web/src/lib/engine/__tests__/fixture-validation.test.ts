@@ -397,3 +397,15 @@ describe('the deep-beam fixtures read what the post tells the reader to look for
     expect((mid.uz * 1000).toFixed(3)).toBe('-0.042');
   });
 });
+
+describe('member behaviour in a fixture', () => {
+  it('reaches the model: the industrial building\'s Ø16 tie rods are tension-only, nothing else is', () => {
+    const json = loadFixtureFile('3d-nave-industrial');
+    const { model, api } = createStoreMock();
+    loadFixture(json, api);
+    const rods = new Set(json.sections.filter((s) => /Tirante/.test(String(s.name))).map((s) => s.id));
+    const behaviours = [...model.elements.values()].map((e: { sectionId: number; behaviour?: string }) => [rods.has(e.sectionId), e.behaviour ?? null] as const);
+    expect(behaviours.filter(([rod]) => rod)).toHaveLength(116);
+    for (const [rod, behaviour] of behaviours) expect(behaviour).toBe(rod ? 'tensionOnly' : null);
+  });
+});

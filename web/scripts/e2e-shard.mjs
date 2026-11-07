@@ -73,12 +73,27 @@ function durationsFrom(reports) {
   return Object.fromEntries(Object.entries(secs).sort().map(([f, s]) => [f, Math.round(s)]));
 }
 
-function assign(table, total) {
+function selectedSpecFiles(suite) {
+  const all = specFiles();
+  if (suite !== 'slow' || !process.env.E2E_SLOW_SPECS) return all;
+  try {
+    const raw = JSON.parse(process.env.E2E_SLOW_SPECS);
+    if (!Array.isArray(raw) || raw.length === 0) return all;
+    if (!raw.every((s) => typeof s === 'string')) return all;
+    const wanted = new Set(raw.map((s) => s.replace(/^e2e\//, '')));
+    const matched = all.filter((f) => wanted.has(f));
+    return matched.length === wanted.size ? matched : all;
+  } catch {
+    return all;
+  }
+}
+
+function assign(table, total, selected = specFiles()) {
   const timings = JSON.parse(readFileSync(table, 'utf8'));
   // The median of files that ran something: a new spec file is presumably one.
   const known = Object.values(timings).filter((v) => v > 0).sort((a, b) => a - b);
   const median = known.length > 0 ? known[Math.floor(known.length / 2)] : 30;
-  const files = specFiles().map((f) => ({ f, s: timings[f] ?? median }));
+  const files = selected.map((f) => ({ f, s: timings[f] ?? median }));
   // Longest first, ties by name, so every shard computes the same assignment.
   files.sort((a, b) => b.s - a.s || a.f.localeCompare(b.f));
   const bins = Array.from({ length: total }, () => ({ s: 0, files: [] }));
@@ -114,7 +129,7 @@ if (a === '--update') {
     console.error('usage: node scripts/e2e-shard.mjs [--suite smoke|slow] <index> <total>');
     process.exit(2);
   }
-  const bins = assign(TIMINGS, total);
+  const bins = assign(TIMINGS, total, selectedSpecFiles(suite));
   console.error(`e2e ${suite} shard ${index}/${total}: ~${Math.round(bins[index - 1].s / 60 * 10) / 10} min over ${bins[index - 1].files.length} files`);
   for (const f of bins[index - 1].files.sort()) console.log(`e2e/${f}`);
 }

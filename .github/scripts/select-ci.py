@@ -29,6 +29,86 @@ DOCKER_SOURCE_INPUTS = re.compile(
 
 SITE_EXCLUDED = ('web/package.json', 'web/package-lock.json', 'web/src/lib/wasm/', 'web/public/research-wasm',
                  'web/vite.research-viewer.config.ts', 'web/Dockerfile')
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+SLOW_TAG = re.compile(r'@slow\b')
+IMPORT = re.compile(r'''(?:from|import)\s*\(?\s*['"](\.{1,2}/[^'"]+)['"]''')
+
+
+def _resolve(base, spec):
+    target = (base.parent / spec).resolve()
+    for candidate in (target, target.with_name(target.name + '.ts'), target.with_name(target.name + '.mjs'),
+                      target.with_name(target.name + '.js'), target / 'index.ts'):
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+def _reaches_slow(path, seen):
+    if path in seen:
+        return False
+    seen.add(path)
+    source = path.read_text(errors='replace')
+    if SLOW_TAG.search(source):
+        return True
+    for spec in IMPORT.findall(source):
+        target = _resolve(path, spec)
+        if target is not None and target.suffix in ('.ts', '.mjs', '.js') and _reaches_slow(target, seen):
+            return True
+    return False
+
+
+def discover_slow_specs(e2e_dir):
+    return tuple(p.name for p in sorted(e2e_dir.glob('*.spec.ts'))
+                 if p.name != 'rc-design-visual.spec.ts' and _reaches_slow(p.resolve(), set()))
+
+
+ALL_SLOW_SPECS = discover_slow_specs(REPO_ROOT / 'web/e2e')
+ALL_SLOW_SET = frozenset(ALL_SLOW_SPECS)
+RESEARCH_SLOW_SPECS = ('research-dadeppo.spec.ts', 'research-ferrari.spec.ts')
+
+
+def slow_specs_for_path(path):
+    if not isinstance(path, str) or not path or path.startswith('/') or '..' in path.split('/'):
+        return ALL_SLOW_SPECS
+    if path.startswith(('docs/', 'changelog.d/', 'backend/', 'verify/', 'tools/', 'ai-backend/',
+                        'engine/tests/', 'engine/benches/', 'scripts/tests/')):
+        return ()
+    if '/' not in path and path.endswith('.md'):
+        return ()
+    if path.startswith('research/') and path.endswith('.md') and not path.startswith('research/tools/'):
+        return ()
+    if path.startswith(('web/src/components/tools/', 'web/src/components/paper/', 'web/src/lib/paper/',
+                        'web/src/admin/', 'web/src/components/account/')):
+        return ()
+    if path.startswith('web/src/') and (path.endswith('.test.ts') or '/__tests__/' in path):
+        return ()
+    if path in ('web/scripts/e2e-shard.mjs', 'web/playwright.config.ts') or path.startswith('web/e2e/shard-timings'):
+        return ALL_SLOW_SPECS
+    if path.startswith('web/scripts/') and re.search(r'(^|/)(__tests__/|[^/]+\.test\.(m?js|ts)$)', path):
+        return ()
+    if path.startswith(('research/', 'web/src/components/research/', 'web/public/research-wasm')):
+        return RESEARCH_SLOW_SPECS
+    if re.fullmatch(r'web/e2e/[^/]+\.spec\.ts', path):
+        name = path.rsplit('/', 1)[1]
+        return (name,) if name in ALL_SLOW_SET else ()
+    return ALL_SLOW_SPECS
+
+
+def select_slow_specs(paths):
+    try:
+        if not isinstance(paths, list) or not paths:
+            return list(ALL_SLOW_SPECS)
+        selected = set()
+        for path in paths:
+            specs = slow_specs_for_path(path)
+            if specs is ALL_SLOW_SPECS:
+                return list(ALL_SLOW_SPECS)
+            selected.update(s for s in specs if s in ALL_SLOW_SET)
+        return sorted(selected)
+    except Exception:
+        return list(ALL_SLOW_SPECS)
 
 
 def area(path):
@@ -71,23 +151,34 @@ def select(event, paths, root=None, force_full=False, tested=False):
             scope = 'full'
     full = scope == 'full'
     text = scope in ('docs', 'prose')
+    if event == 'pull_request':
+        slow = list(ALL_SLOW_SPECS) if force_full else []
+        slow_e2e = False
+    elif queue:
+        slow = list(ALL_SLOW_SPECS) if force_full else select_slow_specs(paths)
+        slow_e2e = bool(slow)
+    else:
+        slow = list(ALL_SLOW_SPECS)
+        slow_e2e = True
     outputs = {'backend': full, 'ci_scripts': full or scope == 'site'}
-    outputs.update(docker=not text and not queue, web_build=not text, ai_backend=full or scope == 'engine',
-                   engine=full or scope == 'engine', web=not text,
+    outputs.update(docker=not text and not queue, web_build=not text or slow_e2e, ai_backend=full or scope == 'engine',
+                   engine=full or scope == 'engine', web=not text or slow_e2e,
                    research=full or scope in ('research', 'tools', 'engine', 'site', 'prose'),
                    research_route_only=queue or scope in ('tools', 'site'),
                    determinism=(full or scope in ('engine', 'site')) and not queue, results=full or scope in ('engine', 'site'),
-                   flaky=(full or scope == 'site') and not queue, slow_e2e=event in POST_MERGE_EVENTS, retest=True)
+                   flaky=(full or scope == 'site') and not queue, slow_e2e=slow_e2e, retest=True)
     outputs['docker_source'] = outputs['docker'] and (
         event != 'pull_request' or force_full or not isinstance(paths, list) or not paths
         or any(not isinstance(path, str) or DOCKER_SOURCE_INPUTS.fullmatch(path) for path in paths))
     if event == 'push' and tested:
         outputs.update(backend=False, ci_scripts=False, ai_backend=False, engine=False, results=False, retest=False)
     outputs = {key: str(value).lower() for key, value in outputs.items()}
+    sharded = full or scope == 'site' or slow_e2e
     outputs.update(scope=scope, unit_area=scope if scope in ('research', 'tools') else '',
                    e2e_specs=json.dumps(SPECS.get(scope, [])),
-                   e2e_shards=json.dumps(list(range(1, E2E_SHARDS + 1)) if full or scope == 'site' else [1]),
-                   e2e_total=str(E2E_SHARDS) if full or scope == 'site' else '1')
+                   slow_specs=json.dumps(slow),
+                   e2e_shards=json.dumps(list(range(1, E2E_SHARDS + 1)) if sharded else [1]),
+                   e2e_total=str(E2E_SHARDS) if sharded else '1')
     return outputs
 
 
