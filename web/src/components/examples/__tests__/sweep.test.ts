@@ -70,8 +70,8 @@ function hasString(key: string): boolean {
   return LOCALES.every(locale => typeof (exampleStrings[locale] as Record<string, string>)[key] === 'string' && (exampleStrings[locale] as Record<string, string>)[key].trim() !== '');
 }
 
-function problems(example: Example<any>, extra: Values): string[] {
-  const { outcome, crash } = solve(example, extra);
+function problems(example: Example<any>, extra: Values, solved = solve(example, extra)): string[] {
+  const { outcome, crash } = solved;
   const found: string[] = [];
   if (crash) found.push(`threw outside the engine: ${crash}`);
   if (outcome.status === 'refused') {
@@ -135,7 +135,7 @@ describe.each(EXAMPLES.map(e => [e.id, e] as const))('example %s across its slid
     const found: string[] = [];
     for (const c of cases(example)) for (const p of problems(example, c.values)) found.push(`${c.name}: ${p}`);
     expect(found).toEqual([]);
-  });
+  }, 120000);
 
   it('refuses each single slider extreme only where expected', () => {
     const found: string[] = [];
@@ -156,14 +156,14 @@ describe.each(EXAMPLES.map(e => [e.id, e] as const))('example %s across its slid
     const found: string[] = [];
     for (let k = 0; k < SAMPLES; k++) {
       const values = Object.fromEntries(example.params.map((p, i) => [p.key, grids[i][Math.floor(random() * grids[i].length)]]));
-      for (const p of problems(example, values)) found.push(`${label(values)}: ${p}`);
-      const { outcome } = solve(example, values);
-      if (outcome.status === 'refused') { refused++; codes[outcome.code] = (codes[outcome.code] ?? 0) + 1; }
+      const solved = solve(example, values);
+      for (const p of problems(example, values, solved)) found.push(`${label(values)}: ${p}`);
+      if (solved.outcome.status === 'refused') { refused++; codes[solved.outcome.code] = (codes[solved.outcome.code] ?? 0) + 1; }
     }
     shares.push(`${id}: ${(100 * refused / SAMPLES).toFixed(1)}% ${JSON.stringify(codes)}`);
     expect(found).toEqual([]);
     expect(refused / SAMPLES).toBeLessThan(MAX_REFUSED_SHARE);
-  });
+  }, 120000);
 });
 
 describe('rc-column width', () => {

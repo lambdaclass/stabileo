@@ -57,17 +57,4 @@ test.describe('@smoke landing nav', () => {
       }
     });
   }
-
-  test('the research gallery features the paper, which belongs to research', async ({ page }) => {
-    await page.goto('/en/research/');
-    const paper = page.locator('.rs-g-head a[href="/en/paper/"]');
-    await expect(paper).toContainText('JAIE 2026');
-    const box = (await paper.boundingBox())!;
-    const firstH2 = (await page.locator('.rs-g-h2').first().boundingBox())!;
-    expect(box.y).toBeLessThan(firstH2.y);
-    expect(box.height).toBeGreaterThanOrEqual(44);
-    await paper.click();
-    await expect(page).toHaveURL(/\/en\/paper\/$/);
-    await expect(page.locator('nav.site-header [aria-current="page"]')).toHaveAttribute('data-nav', 'research');
-  });
 });

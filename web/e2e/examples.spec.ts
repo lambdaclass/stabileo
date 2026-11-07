@@ -2,6 +2,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { EXAMPLE_IDS } from '../src/components/examples/ids';
 
 const value = async (page: Page, testId: string) => Number(await page.getByTestId(testId).getAttribute('data-value'));
+const slide = (page: Page, key: string, to: number) => page.getByTestId(`param-${key}`).evaluate((el: HTMLInputElement, v) => { el.value = String(v); el.dispatchEvent(new Event('input', { bubbles: true })); }, to);
 const near = (actual: number, expected: number, relative: number) => expect(Math.abs(actual - expected)).toBeLessThanOrEqual(relative * Math.abs(expected));
 const receivesPointer = (el: Element) => {
   const b = el.getBoundingClientRect();
@@ -84,7 +85,7 @@ test('@smoke rc-column solves at its widest section with the default three bars 
   await page.goto('/en/examples/rc-column/?e2e=1');
   await expect(page.getByTestId('certificate')).toBeVisible({ timeout: 30000 });
   await expect(page.getByTestId('param-b')).toHaveAttribute('max', '0.45');
-  await page.getByTestId('param-b').fill('0.8');
+  await slide(page, 'b', 0.8);
   await expect(page.getByTestId('value-b')).toHaveText('0.45');
   await expect(page.getByTestId('certificate')).toBeVisible();
   await expect(page.getByTestId('refusal')).toHaveCount(0);
@@ -92,7 +93,7 @@ test('@smoke rc-column solves at its widest section with the default three bars 
 });
 
 const LEGENDS: [string, string, string, RegExp][] = [
-  ['outrigger', '', 'deformed', /^deformed ×[\d,]+$/],
+  ['outrigger', '', 'deformed', /^deformed ×[\d,.]+$/],
   ['earthquake-frame', '', 'deformed', /^deformed ×[\d,.]+$/],
   ['beam-frame', 'Deflection', 'deformed', /^deformed ×[\d,.]+$/],
   ['tower', '', 'mode', /^mode shape, normalised$/],
