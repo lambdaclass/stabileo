@@ -142,7 +142,7 @@ class CiRunners(unittest.TestCase):
         ci = jobs('ci.yml')
         hosted = {name for name, job in ci.items() if job.get('runs-on') == 'ubuntu-24.04'}
         self.assertEqual(hosted, {'changes', 'caddy-routing', 'docker-smoke', 'determinism', 'timing-budgets', 'timing-budgets-alert', 'e2e', 'e2e-flaky', 'e2e-timings', 'ci-ok', 'superseded', 'web-typecheck',
-                                  'test-ci-scripts', 'lint-backend', 'check-migrations-immutable', 'check-migrations', 'results-snapshot'})
+                                  'test-ci-scripts', 'lint-backend', 'check-migrations-immutable', 'check-migrations', 'results-snapshot', 'revert-check'})
         self.assertEqual({name for name, job in jobs('research.yml').items() if job.get('runs-on') == 'ubuntu-24.04'}, {'isolation', 'catalog'})
         for name in ['test-engine-gates', 'web-unit']:
             self.assertEqual(labels(ci[name]['runs-on']), {'stabileo-timing'})

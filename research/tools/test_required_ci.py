@@ -197,7 +197,7 @@ print('ok online audit runs on research PRs without duplicating required jobs')
 
 steps = jobs['research-wasm']['steps']
 caches = {step['id'].removeprefix('research-'): step for step in steps if step.get('id', '').startswith('research-')}
-assert set(caches) == {'shauer-2025', 'andreassen-2011', 'biggins-2026', 'grossman-2026', 'pastrana-2026', 'fairclough-2026'}, sorted(caches)
+assert set(caches) == {'shauer-2025', 'andreassen-2011', 'biggins-2026', 'grossman-2026', 'pastrana-2026', 'fairclough-2026', 'gay-neto-2014'}, sorted(caches)
 for name, cache in caches.items():
     assert cache['with']['path'] == f'web/public/research-wasm/{name}', name
 build = next(step for step in steps if step.get('name') == 'Build research WASM (cache misses, in parallel)')

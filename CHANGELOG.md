@@ -329,6 +329,19 @@ was exposed. No calculation changes.
 
 ### Added
 
+#### Revert Check: a pull request cannot silently undo newer work on main (2026-11-06)
+
+- A new pull-request job, Revert Check, runs the base branch's copy of the checker (`make check.reverts`
+  locally), simulates the merge into the base branch and blames every line it deletes. It fails, listing file, line count, commit, date and
+  subject, when the merge deletes lines written in the last 21 days that the branch never started
+  from and did not write: lines that reached it only by merging the base, then went missing, as a
+  stale conflict resolution does. Edits to lines the branch started from, its own lines and older
+  lines pass. The `reverts-ok` label acknowledges an intended removal (push, or re-run all jobs,
+  after adding it).
+  A merge that conflicts fails and names the files. The merge queue runs it too, on each
+  pull request in the queued group against the group before it, with that pull request's own labels;
+  a group commit that is not GitHub's merge of a pull request's current head fails.
+
 #### A scheduled job that stays red opens an issue (2026-11-06)
 
 - A daily workflow, Red nightlies (`.github/workflows/red-nightlies.yml`), reads the last scheduled
@@ -644,7 +657,8 @@ the public site, standing pages, release notes and translated blog articles use 
 Only articles available in a language appear in its sitemap and feeds. Full app dictionaries load
 for the chosen language, and a coverage gate catches missing keys and undeclared English text.
 Re-check saved language preferences, public links and exported labels in the newly offered
-languages. Model data and calculation results are unchanged.
+languages. Model data and calculation results are unchanged. This release then withdraws the
+three languages until a native speaker has checked them (see the top of this section).
 
 #### Stabileo Research catalogue: 19 more verified papers (2026-10-29)
 
@@ -782,6 +796,23 @@ of every public page and in the footer. Nothing in the editor changes.
 Re-check the timeline filters and language links when adding an entry (#790).
 
 ### Changed
+
+#### The landing heading says what Stabileo is for: structural analysis you can check (2026-11-07)
+
+- The heading was "Open-source structural engineering software, with AI on the way." It now reads
+  "Structural analysis you can check.", in every language. The paragraph below still says the
+  results are checked against seven other finite-element programs and that the AI assistant is in
+  development.
+
+#### The public footer is a sitemap (2026-11-06)
+
+- Every public page's footer lists the site in three groups: Product (open the editor, Examples, Tools, Pricing), Verification (Reliability, Research, the paper, CIRSOC, the SAP2000 and ETABS alternative pages) and Project (Blog, Changelog, Documentation, GitHub). Examples, Tools, Research and the paper were missing from it.
+- The landing's sections link to the pages that extend them: Basic to Tools, PRO analysis to Examples, Verification to Reliability and Research.
+
+#### The site's top bar has six items instead of eleven (2026-11-06)
+
+- The header on every public page now holds Product, Examples, Tools, Research, Pricing and Blog, beside the Open the editor button, with more room around each link. PRO, AI and Education stay on the landing; the changelog is linked from the blog's header and the footer, and the paper from the footer. The paper's page marks Research as current, and the changelog's marks Blog.
+- On a phone the menu ends with the Open the editor button, which the bar hides at that width.
 
 #### The merge queue runs the `@slow` E2E specs (2026-11-06)
 
@@ -1422,6 +1453,28 @@ test must count the work instead, or be marked ignored and listed to run alone i
   reproducer passes, and to triage nightly wrong-result candidates daily with a recorded decision.
 
 ### Fixed
+
+#### Example drawings say which shape is which, under one title (2026-11-07)
+
+- The outrigger, earthquake frame and beam deflection views drew the undeformed and the deformed
+  shape on top of each other with no legend, so they read as two structures. They now label
+  both, with the deformed shape's magnification, in all six languages; the tower's mode shapes
+  are labelled as normalised.
+- Each example viewer had two headers and an editor toolbar. It now has one title: the
+  "Stabileo viewer" mark, camera buttons, axis triad and position and zoom readout are gone from
+  the example pages. Dragging and the wheel still pan and zoom.
+- The reinforced concrete column's width slider ran to 0.8 m, so with the default three bars per
+  face every width from 0.5 m was refused for a missing crosstie. It now runs from 0.25 to
+  0.45 m, where the defaults always solve. The crosstie check is unchanged.
+- The slab example on walls compared a soft-supported plate with the hard-support Navier solution
+  and showed up to a 6.4% "difference" that came from the reference, not the engine. The walls
+  now hold the edge rotations, and the reference includes the plate's transverse shear.
+
+#### An example the engine refuses says why where the drawing was (2026-11-07)
+
+- Moving a slider to a model an example refuses, such as a 0.5 m wide column with three bars per
+  face, replaced the drawing with the gallery thumbnail and printed the reason only far below, in
+  Results. The page looked broken. The viewer now shows the reason in place of the drawing.
 
 #### The landing says the AI assistant works with your own key (2026-11-07)
 

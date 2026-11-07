@@ -11,6 +11,7 @@ every DOI from Crossref and fails unless title, authors, year and venue match ex
 also fetches each GitHub code link (set GITHUB_TOKEN to avoid the anonymous rate limit) and fails unless its detected license matches the catalog.
 `show` prints the Crossref block for a DOI, to paste into a new entry.
 """
+import base64
 import copy
 import hashlib
 import math
@@ -224,6 +225,25 @@ def check_crossref(p, errors):
             errors.append(f"{p['id']}: crossref.{k} is {want.get(k)!r}, Crossref says {got[k]!r}")
 
 
+LICENSE_CLAUSES = {
+    "BSD-3-Clause": [
+        "BSD 3-Clause License",
+        "Redistributions of source code must retain the above copyright notice",
+        "Redistributions in binary form must reproduce the above copyright notice",
+        "Neither the name of the copyright holder nor the names of its",
+    ],
+}
+
+
+def license_text_matches(spdx, content):
+    """GitHub reports NOASSERTION when a licence file appends third-party notices; accept it only if every clause of the claimed licence is in the file."""
+    clauses = LICENSE_CLAUSES.get(spdx)
+    if not clauses or not content:
+        return False
+    text = " ".join(base64.b64decode(content).decode("utf-8", "replace").split())
+    return all(clause in text for clause in clauses)
+
+
 def check_links(p, errors):
     for c in p.get("code") or []:
         m = re.match(r"https://github\.com/([^/]+)/([^/#?]+)/?$", c["url"])
@@ -240,7 +260,7 @@ def check_links(p, errors):
             continue
         spdx = (repo.get("license") or {}).get("spdx_id") or "none"
         if spdx == "NOASSERTION":
-            spdx = "none"
+            spdx = c["license"] if license_text_matches(c["license"], repo.get("content")) else "none"
         if spdx != c["license"]:
             errors.append(f"{p['id']}: {c['url']} license is {spdx}, catalog says {c['license']}")
 

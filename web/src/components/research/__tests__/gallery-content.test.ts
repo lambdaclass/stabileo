@@ -29,6 +29,8 @@ it('renders citations without empty separators and descriptive leads for every l
 /** Papers whose second review round (Kimi, Codex, Claude; 2026-10-30) is fixed and recorded. */
 const SECOND_ROUND = new Set(['mattiasson-elastica', 'ferrari-2025', 'shauer-2025', 'grossman-2026', 'fairclough-2026', 'zmyslony-2026', 'pastrana-2026', 'riks-1979', 'horne-1979', 'macneal-harder-1985', 'cqc-1981', 'newmark-1959', 'navier-plate', 'dadeppo-arch-1975', 'lee-frame-1968', 'andreassen-2011']);
 const ROUNDS: Record<string, number> = { 'mattiasson-elastica': 3 };
+const AWAITING_REVIEW = new Set(['gay-neto-2014']);
+const REVIEWED = EXPERIMENTS.filter(e => !AWAITING_REVIEW.has(e.paperId));
 const REVIEW_NOTE = /First version|Primera versión|Primeira versão|Erste Version|Première version|İlk sürüm|review rounds?\b|rondas? de revisión|rodadas? de revisão|Prüfrunden?|cycles? de revue|inceleme turu/;
 it.each(EXPERIMENTS)('$paperId has authors, publication, year and its completed review rounds', e => {
   const paper = catalog.papers.find(p => p.id === e.paperId)!;
@@ -37,6 +39,10 @@ it.each(EXPERIMENTS)('$paperId has authors, publication, year and its completed 
   expect(b.venue.trim()).not.toBe('');
   expect(b.year).toBeGreaterThan(1800);
   expect(citation(paper)).not.toMatch(/,\s*,/);
+  if (AWAITING_REVIEW.has(e.paperId)) {
+    expect(paper.reviews ?? []).toEqual([]);
+    return;
+  }
   expect(reviewCount(e.paperId)).toBe(ROUNDS[e.paperId] ?? (SECOND_ROUND.has(e.paperId) ? 2 : 1));
   expect(paper.reviews).toContainEqual({ round: 1, reviewers: ['codex', 'kimi'], date: '2026-10-30' });
   if (SECOND_ROUND.has(e.paperId)) {
@@ -60,7 +66,7 @@ it('translates the gallery scope in all six locales', () => {
 });
 it('shows no first-version or review-round note on any card, while the catalogue keeps the records', () => {
   expect(finalReview('mattiasson-elastica')).toBe(true);
-  for (const e of EXPERIMENTS) expect(reviewCount(e.paperId)).toBeGreaterThan(0);
+  for (const e of REVIEWED) expect(reviewCount(e.paperId)).toBeGreaterThan(0);
   expect(reviewCount('tools-batch-1')).toBe(2);
   expect(reviewCount('tools-batch-2')).toBe(2);
   for (const locale of PUBLIC_LOCALES) {

@@ -278,7 +278,7 @@
 
 .landing .link-arrow {
   font-family: var(--lp-mono);
-  font-size: 0.74rem;
+  font-size: 0.75rem;
   letter-spacing: 0.09em;
   text-transform: uppercase;
   color: var(--accent-text);
@@ -889,10 +889,12 @@
 }
 
 .landing .footer-right {
+  flex: 1 1 32rem;
+  max-width: 46rem;
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
-  gap: 1rem;
+  align-items: stretch;
+  gap: 1.25rem;
 }
 
 .landing .footer-tagline {
@@ -903,7 +905,7 @@
   display: flex;
   gap: 0.4rem;
   flex-wrap: wrap;
-  justify-content: flex-end;
+  justify-content: flex-start;
   list-style: none;
   margin: 0;
   padding: 0;
@@ -931,11 +933,6 @@
 
 .landing .social-mark { display: inline-flex; }
 
-@media (max-width: 700px) {
-  .landing .footer-right { align-items: flex-start; }
-  .landing .footer-social { justify-content: flex-start; }
-}
-
 .landing .footer-brand {
   display: flex;
   gap: 0.7rem;
@@ -956,9 +953,24 @@
 }
 
 .landing .footer-links {
-  display: flex;
-  gap: 0 1.25rem;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+  gap: 1rem 1.5rem;
+}
+
+.landing .footer-head {
+  margin: 0 0 0.25rem;
+  font-family: var(--lp-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fg-2);
+}
+
+.landing .footer-links ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
 }
 
 .landing .footer-links a,
@@ -966,6 +978,7 @@
   background: none;
   border: 0;
   padding: 0.25rem 0;
+  text-align: left;
   min-height: 44px;
   min-width: 44px;
   display: inline-flex;
@@ -1003,10 +1016,9 @@
 }
 
 /* ─── RESPONSIVE ─────────────────────────────────────────────────────────
-   Verified at 360, 390, 768, 1024 and 1440. The nav collapses at 1140px, below
-   which its longest language (Spanish, about 1,100px with the gutters) would
-   overflow; at 760px the full nav had overflowed by 45px. 1280px laptops keep
-   the links (e2e/site-nav-width.spec.ts).
+   Verified at 360, 390, 768, 1024 and 1440. The nav collapses at 1080px, below
+   which its longest language (Spanish, about 1,070px with the gutters) would
+   overflow (e2e/site-nav-width.spec.ts).
    ───────────────────────────────────────────────────────────────────────── */
 
 @media (max-width: 1100px) {
