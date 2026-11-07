@@ -26,19 +26,22 @@ export function splitDetailing(d: DetailingStore | undefined): { light: Detailin
 const partsOf = (h: HeavyDetailing): unknown[] => HEAVY_DETAILING_KEYS.map((k) => h[k]);
 
 const held = new Map<string, { ref: string; parts: unknown[] }>();
+const writing = new Map<string, { ref: string; parts: unknown[] }>();
 let seq = 0;
 
 /** Test seam: forget what this page has written. */
 export function resetWorkspaceDetailingMemory(): void {
   held.clear();
+  writing.clear();
 }
 
 export interface StagedDetailing { tabId: string; ref: string; heavy: HeavyDetailing; write: boolean }
 
 export function stageDetailing(tabId: string, heavy: HeavyDetailing): StagedDetailing {
-  const prev = held.get(tabId);
   const parts = partsOf(heavy);
-  if (prev && prev.parts.every((p, i) => p === parts[i])) return { tabId, ref: prev.ref, heavy, write: false };
+  for (const prev of [writing.get(tabId), held.get(tabId)]) {
+    if (prev && prev.parts.every((p, i) => p === parts[i])) return { tabId, ref: prev.ref, heavy, write: false };
+  }
   return { tabId, ref: `${tabId}:${Date.now().toString(36)}:${(++seq).toString(36)}`, heavy, write: true };
 }
 
@@ -85,8 +88,12 @@ function done(tx: IDBTransaction): Promise<void> {
 /** Records of tabs this page no longer has are dropped only once a day old: another window's workspace may still name them. */
 export async function writeDetailing(staged: StagedDetailing[], liveTabIds: readonly string[]): Promise<boolean> {
   const pending = staged.filter((s) => s.write);
+  for (const s of pending) writing.set(s.tabId, { ref: s.ref, parts: partsOf(s.heavy) });
   const database = await db().catch(() => null);
-  if (!database) return pending.length === 0;
+  if (!database) {
+    for (const s of pending) if (writing.get(s.tabId)?.ref === s.ref) writing.delete(s.tabId);
+    return pending.length === 0;
+  }
   let ok = true;
   for (const s of pending) {
     try {
@@ -97,6 +104,8 @@ export async function writeDetailing(staged: StagedDetailing[], liveTabIds: read
       noteDetailingHeld(s.tabId, s.ref, s.heavy);
     } catch {
       ok = false;
+    } finally {
+      if (writing.get(s.tabId)?.ref === s.ref) writing.delete(s.tabId);
     }
   }
   try {
@@ -148,4 +157,5 @@ export async function resetWorkspaceDetailingDb(): Promise<void> {
   d?.close();
   dbPromise = undefined;
   held.clear();
+  writing.clear();
 }

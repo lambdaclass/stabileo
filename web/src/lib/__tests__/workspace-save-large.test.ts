@@ -187,6 +187,8 @@ describe('the designed and detailed 7-storey building', () => {
     startWith([designed], designed.id);
     expect(saveWorkspaceToLocalStorage()).toBe(true);
     const first = JSON.parse(storage.getItem(WORKSPACE_KEY)!).tabs[0].detailingRef;
+    expect(saveWorkspaceToLocalStorage()).toBe(true);
+    expect(JSON.parse(storage.getItem(WORKSPACE_KEY)!).tabs[0].detailingRef, 'a save while the bars are being written names the same write').toBe(first);
     await settled();
     expect(saveWorkspaceToLocalStorage()).toBe(true);
     expect(JSON.parse(storage.getItem(WORKSPACE_KEY)!).tabs[0].detailingRef).toBe(first);
