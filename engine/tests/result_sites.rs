@@ -1149,6 +1149,7 @@ fn a_3d_combination_keeps_every_known_issue_of_a_contributing_case_wherever_the_
     let clean = dedaliano_engine::solver::linear::solve_3d(&input).unwrap();
     for site in case_sites("AnalysisResults3D") {
         let combo = |a: f64, first: AnalysisResults3D| CombinationInput3D {
+            plate_thicknesses: vec![],
             factors: vec![CombinationFactor { case_id: 1, factor: a }, CombinationFactor { case_id: 2, factor: 0.5 }],
             cases: vec![CaseEntry3D { case_id: 1, results: first }, CaseEntry3D { case_id: 2, results: clean.clone() }],
         };

@@ -17,6 +17,7 @@ import { designFingerprint } from './design-fingerprint';
 import { isModelStale, revisionAfterChange, withStamps } from './detailing-stamps';
 import { readingsOf } from './floor-readings';
 import { requestAutosave } from './autosave-service';
+import { noteDetailingWrite } from './workspace-detailing';
 import {
   applyReview, emptyDetailingStore, invalidateAffected, isDemandStale, isReviewStale,
   type DetailingAssembly, type DetailingStore, type ReviewRecord,
@@ -101,8 +102,8 @@ function createDetailingStore() {
   let lastFootingRun = $state<RunFootingDesignResult | null>(null);
   /** The inputs `lastFootingRun` was produced from. See `footingRunFingerprint`. */
   let lastFootingRunFingerprint = $state<string | null>(null);
-  let currentDocument = $state<DocumentModel | null>(null);
-  let supersededDocs = $state<DocumentModel[]>([]);
+  let currentDocument = $state.raw<DocumentModel | null>(null);
+  let supersededDocs = $state.raw<DocumentModel[]>([]);
   /**
    * The last design–detailing feedback loop: its outcome, iterations and full trace.
    *
@@ -140,7 +141,10 @@ function createDetailingStore() {
   }
 
   /** Replace the stored detailing, keeping its stamps (`detailing-stamps.ts`). */
-  const write = (next: DetailingStore): void => { modelStore.model.detailing = withStamps(next, persisted()); };
+  const write = (next: DetailingStore): void => {
+    modelStore.model.detailing = withStamps(next, persisted());
+    noteDetailingWrite();
+  };
 
   /**
    * Publish a new set of assemblies, the ONE path that replaces them: retires the current document

@@ -23,7 +23,13 @@ Feature ids are defined in `web/src/lib/provenance/model-features.ts`, read from
 snapshot. When in doubt a feature counts as present: a false "present" shows one notice too many,
 a false "absent" hides a change that moved the engineer's numbers. In particular, a steel code
 not bound to another code counts as CIRSOC 301, an unbound concrete code as CIRSOC 201, and
-analyses a project does not record count as run.
+analyses a project's stamp does not record count as run. A stamp lists the analyses it knows
+the runs of (`recorded`): since #1658 the PRO advanced panel's time history, nonlinear, harmonic
+and SSI runs report themselves, and a project begun since lists every analysis. A stamp without
+`recorded` was written before, and for it those four always count as run. A solve in another
+build adds the analysis it ran and drops from `recorded` those the previous stamp listed as run,
+so an analysis that ran under an earlier stamp never reads as not run. An advanced-panel run whose
+result is refused is not recorded.
 
 **Adding a change**: add one file, `result-changes/<id>.json`, with no `resultsVersion`
 ([its README](../../web/src/lib/provenance/result-changes/README.md)). The versions numbered by hand are
@@ -54,6 +60,25 @@ wind minimum and the earth-pressure dead load, #581 and #593); version 3, the co
 version 4, the design chain (`docs/results-changes/2026-10-design-chain.md`): #460 and #461
 reached main without entries and their builds stamped 3, so their changes are told at 4 with
 those of #462–#475, which entered with the design switch (#624) in one merge.
+
+## Known wrong-result advisories (#1622)
+
+`web/src/lib/provenance/advisories.ts` lists the bugs known to have given wrong results, each with
+its issue or advisory, the affected feature (`when`, any one of its conditions) and the affected
+results versions: from the version of the result change that introduced the bug
+(`introducedBy`, or every earlier version when null) up to, not including, the version of the
+change that fixed it (`fixedBy`). The range is read from the registry, never written as numbers,
+and `advisories.test.ts` fails on an id it does not hold. A project opened with a stamp in that
+range, whose model uses the feature, lists the advisory in the re-check notice; once the notice
+is read, the stale banner names it until the model is solved again in this build. An advisory
+about one analysis (`analysis`) stays up until that analysis is run again, not on a static solve
+alone; when the stamp does not record that analysis, it says the results may be affected if the
+analysis was used (`ifUsed`).
+
+| Advisory | Feature | Introduced by | Fixed by | Source |
+|---|---|---|---|---|
+| SA-2026-046 (#1587) | harmonic analysis | `harmonic-modal-residual-checked` (#1423) | `harmonic-modal-or-direct-per-frequency` (#1587) | `docs/advisories/SA-2026-046-harmonic-modal-or-direct-per-load.md` |
+| #1569 | frame members with shear areas, or a thermal load on a frame member with a release | every earlier version | `span-check-shear-thermal` (#1593) | `docs/verification/CONTAINMENT.md`, row #1569 |
 
 ## CIRSOC 301 Qa ≤ 0 refused (PR #1246, issue #467)
 

@@ -72,7 +72,7 @@ export function serviceSets(): ServiceSets {
     const gravity = modelStore.loadCases.filter((c) => GRAVITY.has((c.type || '').toUpperCase()) && !isCompositeCase(c) && perCase.has(c.id) && loaded.has(c.id));
     const sets: ServiceSets['sets'] = [];
     if (gravity.length > 1) {
-      const sum = combineResults3D(gravity.map((c) => ({ caseId: c.id, factor: 1 })), perCase);
+      const sum = combineResults3D(gravity.map((c) => ({ caseId: c.id, factor: 1 })), perCase, modelStore.plates);
       if (sum) sets.push({ id: GRAVITY_SUM_ID, name: gravity.map((c) => c.name).join(' + '), results: sum });
     }
     for (const [id, results] of perCase) sets.push({ id: -id, name: caseName.get(id) ?? String(id), results });

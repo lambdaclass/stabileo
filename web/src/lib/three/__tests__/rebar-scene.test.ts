@@ -113,6 +113,47 @@ describe('the tube walks the polyline the document sampled', () => {
     built.dispose();
   });
 
+  it('fills buffers sized to the tubes exactly, with every triangle on the bar\'s own rings', () => {
+    const radial = 5;
+    const s = scene({
+      bars: [
+        bar({ barId: 'A' }),
+        bar({ barId: 'dot', polyline: [{ x: 9, y: 9, z: 9 }] }),
+        bar({ barId: 'B', polyline: [{ x: 0, y: 1, z: 0 }, { x: 0, y: 1, z: 2 }] }),
+      ],
+    });
+    const built = createRebarScene(s, { radialSegments: radial });
+    const geom = built.bars[0].mesh.geometry;
+    const vertices = (4 + 2) * radial;
+    expect(geom.getAttribute('position').array).toBeInstanceOf(Float32Array);
+    expect(geom.getAttribute('position').array.length).toBe(vertices * 3);
+    expect(geom.getAttribute('normal').array.length).toBe(vertices * 3);
+    const index = geom.getIndex()!.array;
+    expect(index).toBeInstanceOf(Uint16Array);
+    expect(index.length).toBe((3 + 1) * radial * 6);
+    expect(built.bars[0].ranges.map((r) => [r.barId, r.firstTri, r.triCount]))
+      .toEqual([['A', 0, 3 * radial * 2], ['B', 3 * radial * 2, radial * 2]]);
+    const firstOfB = 4 * radial;
+    for (let k = 3 * radial * 6; k < index.length; k++) {
+      expect(index[k]).toBeGreaterThanOrEqual(firstOfB);
+      expect(index[k]).toBeLessThan(vertices);
+    }
+    built.dispose();
+  });
+
+  it('switches to a 32-bit index once a batch passes 65 535 vertices', () => {
+    const run = Array.from({ length: 2000 }, (_, i) => ({ x: i * 0.01, y: 0, z: 0 }));
+    const built = createRebarScene(scene({
+      bars: Array.from({ length: 5 }, (_, i) => bar({ barId: `L${i}`, polyline: run })),
+    }), { radialSegments: 8 });
+    const geom = built.bars[0].mesh.geometry;
+    expect(geom.getAttribute('position').count).toBe(5 * 2000 * 8);
+    const index = geom.getIndex()!.array;
+    expect(index).toBeInstanceOf(Uint32Array);
+    expect(Math.max(...index.subarray(index.length - 6))).toBe(5 * 2000 * 8 - 1);
+    built.dispose();
+  });
+
   it('skips a degenerate one-point bar rather than emitting a broken mesh', () => {
     const built = createRebarScene(scene({
       bars: [bar({ polyline: [{ x: 0, y: 0, z: 0 }] })],

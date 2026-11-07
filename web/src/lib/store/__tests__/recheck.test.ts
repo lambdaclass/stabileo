@@ -250,7 +250,10 @@ describe('edited projects with older provenance', () => {
     materials: [[1, STEEL]],
     elements: [[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1 }]],
   }) as import('../../provenance/model-features').FeatureSnapshot;
-  const oldStamp = () => ({ ...createRecheckStore().capture()!, resultsVersion: 4, analyses: ['linear' as const] });
+  const oldStamp = () => {
+    const { recorded: _recorded, ...stamp } = createRecheckStore().capture()!;
+    return { ...stamp, resultsVersion: 4, analyses: ['linear' as const] };
+  };
 
   it.each(['delayed', 'rejected'] as const)('keeps distinct opening results stale during %s loading', async loading => {
     const module = await import('../../provenance/applicability');

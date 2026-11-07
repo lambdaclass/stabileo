@@ -14,12 +14,16 @@ One file per change in [`changelog.d/`](changelog.d/README.md); `scripts/changel
 ## 0.5.0 (2026-11-07)
 
 Release notes: [`docs/releases/v0.5.0.md`](docs/releases/v0.5.0.md) (also in [Spanish](docs/releases/v0.5.0.es.md) and [Portuguese](docs/releases/v0.5.0.pt.md)).
-Safety advisories SA-2026-025…046 are published in this release, and all but SA-2026-044 are fixed:
+Safety advisories SA-2026-025…047 are published in this release, and all but SA-2026-044 are fixed:
 2D plastic collapse stays refused until #758 is fixed. German, French and
 Turkish are not offered in this release: they return once a native speaker has checked them, and
 their pages redirect to English until then.
 
 ### BREAKING (results)
+
+#### A load case with an imposed displacement keeps its shell stresses (2026-11-07)
+
+- Fix #1673: in a model with shells, a load case that imposes a support displacement along with its loads lost all of its plate and quad stresses, and every combination and envelope summed the shell stresses of the other cases only, without a word. That case now reports its shell stresses, and the combinations and envelopes include them. Re-check the shell stresses and slab design of any model with imposed displacements in a load case. Every combination of a model with quads now also lists the nodal stresses of its quads (`quadNodalStresses`), summed from the cases'; no other value changes.
 
 #### The load generator keeps a floor's area loads when low roof structure stands over only part of it (2026-11-03)
 
@@ -328,6 +332,26 @@ ssl_verify_fun are updated (#1069). Lock file only; the backend is not deployed 
 was exposed. No calculation changes.
 
 ### Added
+
+#### A project solved with a version that had a known wrong-result bug says so until it is solved again (2026-11-07)
+
+Projects record which build solved them. A project whose results came from a version affected by
+a known wrong-result bug, in a feature the model uses, now names the advisory when it opens, and
+after the notice is read a warning stays on screen until the model is solved again. The list
+starts with SA-2026-046 (harmonic analysis, between #1423 and #1587) and #1569 (the span check
+missed a member's shear slope and the thermal curvature at a released end, before #1593) (#1622).
+
+#### SA-2026-047: a project with shells solved before #1676 names the imposed-displacement shell stress advisory (2026-11-07)
+
+From #254 (2026-10-06, so 0.2.0, 0.3.0 and 0.4.0) until #1676, a load case that imposed a support
+displacement in a model with plates or quads lost all of its shell stresses, and combinations and
+envelopes summed only the other cases' shell stresses, without a warning (#1673); the combined
+stresses could be unconservative. A project with shells solved with those versions now opens
+with advisory SA-2026-047 until it is solved again (#1691): as affected when the model has shells, a
+load case that imposes a displacement and load combinations, and as possibly affected when it has
+shells but not the other two now, since a saved project cannot show it never had them when it was
+solved. A model without shells is not warned. Re-solve and compare the shell stresses of the
+combinations that include that case.
 
 #### Revert Check: a pull request cannot silently undo newer work on main (2026-11-06)
 
@@ -796,6 +820,23 @@ of every public page and in the footer. Nothing in the editor changes.
 Re-check the timeline filters and language links when adding an entry (#790).
 
 ### Changed
+
+#### The engine tests check reciprocity with moments, factored combinations and shell stress superposition, and that every result has one record per node, support, element and shell (2026-11-07)
+
+- The metamorphic suite adds Maxwell–Betti reciprocity between forces and moments, every load
+  combination compared with a linear solve of its factored loads, and superposition of each shell
+  stress component (σxx, σyy, τxy, mx, my, mxy, qx, qy) for plates and every quad family (#1665).
+  No identity failed.
+- A completeness check compares each result with its model: one displacement per node, one
+  reaction per support node, one force record per element, one stress record per plate and quad,
+  for the linear, multi-case, staged, nonlinear, SSI and modal analyses in 2D and 3D (#1674). It
+  found that SSI returned no reactions (#1672) and that 3D combinations had no shell stresses
+  (#1673), both fixed in this release. Test-only: no result changes.
+
+#### Research links the paper and Examples (2026-11-07)
+
+- The research gallery links the JAIE 2026 paper above its first section, now that the paper sits
+  under Research in the site header. Related links on research and tools pages include Examples.
 
 #### The landing heading says what Stabileo is for: structural analysis you can check (2026-11-07)
 
@@ -1453,6 +1494,52 @@ test must count the work instead, or be marked ignored and listed to run alone i
   reproducer passes, and to triage nightly wrong-result candidates daily with a recorded decision.
 
 ### Fixed
+
+#### The workspace save keeps a designed building and says so when the browser refuses it (2026-11-07)
+
+Every 30 s the open tabs are saved to the browser for the next visit. On a designed and detailed
+building that save produced about 46 MB of text, more than browsers allow, so it failed without a
+word and the tabs were not kept. The detailing's bars now go to the browser's database beside the
+tabs, written once per version of them, and the saved text holds the rest: about 160 kB on the
+7-storey example instead of 46 MB, written in a few milliseconds instead of 0.3 s (Node) and 1.4 to
+3.4 s (browser). Pinned bars and the title block come back with the project. When a save is
+refused anyway, a notice stays on screen saying the work is not being autosaved, with a button to
+save the session to a file, and a tab whose bars could not be read back is named when it opens
+(#1621).
+
+#### Work started while the saved workspace loads is kept (2026-11-07)
+
+At start-up the saved workspace's bars are read from the browser's database, which can take a
+moment on a detailed building. Anything started in that moment, such as a node drawn or an example
+opened from a link, used to be replaced by the saved tabs when the read finished. The saved tabs
+now open beside it, with a notice. Bars that could not be read keep their place in the workspace
+across tab switches until the detailing changes, and restored bars are checked field by field, so
+a damaged record is reported as lost bars instead of loaded (#1633).
+
+#### A harmonic advisory stays up until harmonic analysis is run again, and projects record every analysis they ran (2026-11-07)
+
+The results stamp now records the time history, nonlinear, harmonic, SSI and spectral runs of the
+PRO advanced panel, not only the analyses of the main solve. An advisory about one analysis, such
+as SA-2026-046 (harmonic), is no longer cleared by a static solve: it stays on screen until that
+analysis is run again. For a project solved after this change, an advisory says its results are
+affected when the stamp shows the analysis ran, and does not apply when it shows it did not;
+older projects keep saying they may be affected if the analysis was used (#1658).
+
+#### Shells of two families with the same id are refused by the combinations and envelopes (2026-11-07)
+
+MITC4, MITC9, solid and curved shells number their ids independently, and the shell stresses of a combination, of the "All loads" view, of an SRSS or ABS combination, of a spectral case, of the envelope and of the slab service deflection were matched by id alone. A model with, say, a MITC4 and a MITC9 both numbered 7 had one of them silently combined in place of the other. Such a result set is now refused with the id named. Models built in the app number all their shells in one sequence and are unaffected; no result changes.
+
+#### Soil-structure interaction reports support reactions (2026-11-07)
+
+The soil-structure interaction analysis (2D and 3D, the SSI run in the Pro Advanced tab) returned no support reactions at all, for every model, so its results showed an empty reaction list as if the supports carried nothing (#1672). It now computes them as the linear solve does, including support springs, inclined supports, constraints and the soil springs at an inclined support, on small and large models. Without soil springs they equal the linear solve's reactions; with them, the reactions and the soil spring forces together balance the applied loads. A constraint force carried into a supported master node now joins that support's reaction, and the constraint force on a constrained node that also has a soil spring now includes that spring, which it used to leave out. Re-run SSI to see the reactions.
+
+#### Load combinations of a model with shells report their shell stresses (2026-11-07)
+
+`solve_multi_case_3d` and `combine_results_3d` returned every combination without plate stresses, quad stresses or quad nodal stresses, and said nothing about it (#1673). They now sum each component (σxx, σyy, τxy, mx, my, mxy, qx, qy, and the nodal stresses) with the combination's factors and recompute the von Mises and principal stresses from the sums, never by combining them. A plate's face stresses need its thickness: `combine_results_3d` takes `plateThicknesses` and refuses a plate without one. A combination is refused when its cases list their shells differently, or when two quads of different families (MITC4, MITC9, solid, curved) share an id (#1666), and when a combined value overflows. The nodal von Mises lists are not recomputed, since the cases do not carry what they are made from; they are left out of a combination, as before. The envelope's maximum-magnitude result still carries no shell stresses; the app takes them from the shell combination kernel.
+
+#### Shell von Mises and principal stresses no longer overflow or underflow at extreme magnitudes (2026-11-07)
+
+A combination's quad von Mises, and every plate's principal and von Mises stresses (per case and combined), squared the unscaled components (#1678). Above about 1e154 kN/m² the squares overflowed, so a representable result was refused as beyond the range of f64; below about 1e-160 they underflowed, so a stress of 1e-200 gave a von Mises of 0. The components are now scaled by a power of two near the largest before squaring and the result is scaled back, which is exact: results in the normal range are bit-identical, and only a result that is itself beyond f64 is refused. The same holds for a plate's bending stress 6M/t², which overflowed when 6M did and came out as 0 when t² overflowed, and for a combined shell component whose running factored sum overflowed although the total fits, including a small residual left after large terms cancel. A plate whose one face overflowed reported the other, finite face; it is now refused. The multi-case parity test now builds its reference combination with the plates' thicknesses and checks a plate model, which it could not before.
 
 #### Example drawings say which shape is which, under one title (2026-11-07)
 
@@ -2114,6 +2201,37 @@ tier) when it touches what they cover, as pull requests already did; if the diff
 run anyway. A test requires every workflow that provides a required check to run in the merge queue.
 
 ### Performance
+
+#### The 30 s autosave no longer copies and rewrites an unchanged project (2026-11-07)
+
+Every 30 s the project autosave deep-copied the whole model, the detailing bars included, and
+wrote it to IndexedDB as a new revision, even when nothing had changed: about 46 MB and 440 ms
+(Node, `fake-indexeddb`) per tick on the designed and detailed 7-storey building, and the three
+kept revisions were all the same project. The detailing, already a plain frozen copy per version,
+is no longer copied again, and a project unchanged since this page's last write is not written
+again while that write is still the newest (another window's write or a discard makes it write
+again). On the same building a tick now takes about 2 ms. The workspace save (every open tab) no
+longer rewrites unchanged text, and when a newer workspace cannot be written the previous one is
+moved to the workspace backups instead of being deleted; the save notice still shows (#1662).
+
+#### Published 3D results are frozen, and the known-issue refusal check runs once per result (2026-11-07)
+
+Every read of the 3D results, cases and combinations ran the known-issue refusal check over the
+whole solve again, and the member verdicts read them once per member: about 550 ms per open of a
+large 3D workspace. Published 3D results, cases, combinations and envelopes are now frozen, so
+editing one in place throws (typed arrays inside stay writable, and a Map or Set inside is locked
+but can still be reached through `Map.prototype`). The check keeps its verdict only for a result
+whose scanned part is frozen plain data; anything else is checked on every read, as before. A new
+result is always a new object and is checked again. Nothing that was withheld is shown (#1686).
+
+#### The 3-D reinforcement view opens with less garbage to collect (2026-11-07)
+
+Opening the 3-D reinforcement view on the 7-storey example made the garbage collector pause for
+about a second, at a different point on each open (#1667). The issued document was wrapped in a
+reactive proxy, so building the 3-D scene from it created a tracked value for every field it read.
+The tube geometry was built through growing JavaScript arrays and about half a million temporary
+vectors. The document is now stored as built, and the tubes are written into buffers sized up
+front with their frame vectors reused. The geometry is bit-identical to before.
 
 #### Focus pull-request CI on the changed area (2026-10-29)
 

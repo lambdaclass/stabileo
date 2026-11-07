@@ -63,6 +63,7 @@ export interface TabState {
   // (historyStore.setStacks defaults missing entries to 'structural').
   undoKinds?: SnapshotKind[];
   redoKinds?: SnapshotKind[];
+  detailingRef?: string;
   // === Independent per-tab visualization config ===
   // 2D config
   showGrid: boolean;
@@ -112,7 +113,7 @@ function generateTabId(): string {
 }
 
 function createTabManager() {
-  let tabs = $state<TabState[]>([]);
+  let tabs = $state.raw<TabState[]>([]);
   let activeTabId = $state<string | null>(null);
 
   // AbortController to cancel pending deferred operations (solve, DSM) on rapid tab switches
@@ -610,6 +611,21 @@ function createTabManager() {
       const updated = [...tabs];
       updated[idx] = captureCurrentState();
       tabs = updated;
+    },
+
+    /** Open stored tabs after the current ones, leaving the active tab as it is. */
+    /** Gives a saved tab whose id is already open a new one, in place. */
+    addTabs(savedTabs: TabState[]): void {
+      if (savedTabs.length === 0) return;
+      const ids = new Set(tabs.map((tab) => tab.id));
+      const updated = [...tabs];
+      const idx = updated.findIndex((tab) => tab.id === activeTabId);
+      if (idx !== -1) updated[idx] = captureCurrentState();
+      for (const tab of savedTabs) {
+        if (ids.has(tab.id)) tab.id = generateTabId();
+        ids.add(tab.id);
+      }
+      tabs = [...updated, ...savedTabs];
     },
 
     /** Restore a full session (all tabs) from a saved file */

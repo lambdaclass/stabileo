@@ -164,6 +164,12 @@ const body: PostBody = {
           "Bir sonraki sürümde düzeltildi"
         ],
         [
+          "SA-2026-047",
+          "Kabuklar: mesnet yer değiştirmesi zorlayan bir yük durumu kabuk gerilmelerini kaybediyor, kombinasyonlar ve zarflar yalnızca diğer durumlarınkini topluyordu (güvensiz tarafta kalabiliyordu, uyarısız); 0.2.0 ile 0.4.0 arası",
+          "Yüksek",
+          "Bir sonraki sürümde düzeltildi"
+        ],
+        [
           "SA-2026-037",
           "3B eşdönel analiz: dönme vektörleri çıkarılıyordu (Bathe–Bolourchi eğrisi %1,3 sapmalı, ağ sıklaştırmayla düzelmiyordu)",
           "Orta",

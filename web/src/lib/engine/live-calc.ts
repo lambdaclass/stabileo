@@ -436,7 +436,7 @@ async function globalSolve3D(isStale: () => boolean, directBase: boolean): Promi
       firstCaseResult = single;
     } else {
       const only = factors.length === 1 && factors[0]!.factor === 1 ? comboResult.perCase.get(factors[0]!.caseId) : null;
-      const combined = only ? null : combineResults3D(factors, comboResult.perCase);
+      const combined = only ? null : combineResults3D(factors, comboResult.perCase, modelStore.plates);
       firstCaseResult = only ?? (combined ? allLoadsResult3D(combined, comboResult.perCase, modelStore.plates, factors) : null);
       // No single solve returned this sum: the discretization estimate reads the one it stands for.
       if (firstCaseResult) markAllLoads(firstCaseResult, comboResult.perCase, factors);
