@@ -193,6 +193,27 @@ describe('the designed and detailed 7-storey building', () => {
     expect(toast).not.toHaveBeenCalled();
   }, 300_000);
 
+  it('stores the bars of an edit made through the detailing store, not the version before it', async () => {
+    startWith([designed], designed.id);
+    expect(await saveWorkspaceSettled()).toBe(true);
+    const before = storedRef();
+    const assembly = modelStore.model.detailing!.assemblies.find((a) => a.bars.some((b) => !(b as { locked?: boolean }).locked))!;
+    const bar = assembly.bars.find((b) => !(b as { locked?: boolean }).locked)!;
+    detailingStore.select(assembly.id);
+    detailingStore.toggleLock(bar.id);
+    const edited = pinned(modelStore.snapshot().detailing);
+    expect(edited).toBeGreaterThan(pinned(designed.modelSnapshot.detailing));
+
+    expect(await saveWorkspaceSettled()).toBe(true);
+    expect(storedRef(), 'an edit that kept the old version would store the bars before it').not.toBe(before);
+
+    await reload();
+    const restored = modelStore.snapshot().detailing!;
+    expect(pinned(restored)).toBe(edited);
+    const back = restored.assemblies.find((a) => a.id === assembly.id)!.bars.find((b) => b.id === bar.id) as { locked?: boolean };
+    expect(back.locked).toBe(true);
+  }, 300_000);
+
   it('writes the text naming new bars only once they are stored: a reload mid-save gets the previous complete workspace', async () => {
     startWith([designed], designed.id);
     expect(await saveWorkspaceSettled()).toBe(true);
