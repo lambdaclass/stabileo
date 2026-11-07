@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest';
 import { assessProject, conditionHolds } from '../applicability';
 import { modelFeatures, type FeatureSnapshot } from '../model-features';
 import { RESULTS_VERSION, type ResultChangeRegistry } from '../registry';
-import { stampSolve, unknownStamp, type SolveStamp } from '../solve-stamp';
+import { analysesContext, readStamp, stampSolve, unknownStamp, type SolveStamp } from '../solve-stamp';
 
 const STEEL = { id: 1, name: 'F-24', e: 200000, nu: 0.3, rho: 78.5, fy: 235 };
 const CONCRETE = { id: 2, name: 'H-25', e: 30000, nu: 0.2, rho: 25, fy: 25 };
@@ -342,6 +342,20 @@ describe('versions and recorded analyses (a later registry)', () => {
     const harmonic = stampSolve('harmonic', stamp);
     expect(harmonic.analyses).toEqual(['harmonic', 'linear']);
     expect(modelFeatures(steel, { analysesRun: harmonic.analyses, analysesRecorded: harmonic.recorded }).has('analysis:harmonic')).toBe(true);
+  });
+
+  it('a solve on top of a stamp written before #1658 keeps the analyses it did not record counted as run', () => {
+    const { recorded: _all, ...legacy } = { ...solvedHere(['linear', 'harmonic']), resultsVersion: 1, commit: 'old' };
+    const solved = stampSolve('linear', legacy);
+    expect(solved.analyses).toEqual(['linear']);
+    expect(solved.recorded).not.toContain('harmonic');
+    const reread = readStamp(JSON.parse(JSON.stringify(solved)))!;
+    expect(reread.recorded).toEqual(solved.recorded);
+    const f = modelFeatures(steel, analysesContext(reread));
+    for (const k of ['timeHistory', 'nonlinear', 'harmonic', 'ssi']) expect(f.has(`analysis:${k}` as never), k).toBe(true);
+    const ran = stampSolve('harmonic', reread);
+    expect(ran.recorded).toContain('harmonic');
+    expect(modelFeatures(steel, analysesContext(ran)).has('analysis:nonlinear')).toBe(true);
   });
 });
 

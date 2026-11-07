@@ -23,10 +23,11 @@ Feature ids are defined in `web/src/lib/provenance/model-features.ts`, read from
 snapshot. When in doubt a feature counts as present: a false "present" shows one notice too many,
 a false "absent" hides a change that moved the engineer's numbers. In particular, a steel code
 not bound to another code counts as CIRSOC 301, an unbound concrete code as CIRSOC 201, and
-analyses a project's stamp does not record count as run. A stamp lists the analyses its build
-reports (`recorded`): every one since #1658, when the PRO advanced panel's time history,
-nonlinear, harmonic and SSI runs began to report themselves. A stamp without `recorded` was
-written before, and for it those four always count as run.
+analyses a project's stamp does not record count as run. A stamp lists the analyses it knows
+the runs of (`recorded`): since #1658 the PRO advanced panel's time history, nonlinear, harmonic
+and SSI runs report themselves, and a project begun since lists every analysis. A stamp without
+`recorded` was written before, and for it those four always count as run; a solve on top of
+such a stamp adds only the analysis it ran.
 
 **Adding a change**: add one file, `result-changes/<id>.json`, with no `resultsVersion`
 ([its README](../../web/src/lib/provenance/result-changes/README.md)). The versions numbered by hand are

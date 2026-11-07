@@ -12,7 +12,7 @@
  */
 import { RESULTS_VERSION } from './registry';
 import { buildIdentity } from './build-identity';
-import { ANALYSIS_KINDS, type AnalysisKind, type FeatureContext } from './model-features';
+import { ANALYSIS_KINDS, LEGACY_RECORDED_ANALYSES, type AnalysisKind, type FeatureContext } from './model-features';
 
 /** Bumped when the shape of stored results changes (independent of what the numbers are). */
 export const RESULTS_SCHEMA_VERSION = 1;
@@ -32,8 +32,9 @@ export interface SolveStamp {
   /** The analyses run under this stamp (best effort: the static solve and the advanced panels). */
   analyses: AnalysisKind[];
   /**
-   * The analyses whose runs this stamp's build reports: one listed here and absent from
-   * `analyses` was not run. Absent on stamps written before #1658 (`LEGACY_RECORDED_ANALYSES`).
+   * The analyses the stamp knows the runs of: one listed here and absent from `analyses` was not
+   * run. Absent on stamps written before #1658 (`LEGACY_RECORDED_ANALYSES`); a solve on top of
+   * one adds only the analysis it ran, so an older run nothing recorded never reads as absent.
    */
   recorded?: AnalysisKind[];
 }
@@ -90,7 +91,7 @@ export function stampSolve(kind: AnalysisKind, previous: SolveStamp | null | und
     wasmHash: b.wasmHash,
     solvedAt: now.toISOString(),
     analyses,
-    recorded: [...ANALYSIS_KINDS],
+    recorded: previous ? [...new Set<AnalysisKind>([...(previous.recorded ?? LEGACY_RECORDED_ANALYSES), kind])].sort() : [...ANALYSIS_KINDS],
   };
 }
 
