@@ -247,7 +247,7 @@ const en: Record<string, string> = {
   'landing.navResearch': 'Research',
   'landing.navChangelog': 'Changelog',
   'landing.ebHero': 'FREE AND OPEN · STRUCTURAL ANALYSIS',
-  'landing.heroH': 'Open-source structural engineering software, with AI on the way.',
+  'landing.heroH': 'Structural analysis you can check.',
   'landing.heroP': 'Frames and trusses in 2D and 3D, solved on your own machine and checked against seven other finite-element programs. The AI assistant, still in development, will work on the same model and solver.',
   'landing.heroCtaPrimary': 'Open the editor',
   'landing.heroBlogLink': 'Read our blog',

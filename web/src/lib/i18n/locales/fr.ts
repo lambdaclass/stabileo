@@ -247,7 +247,7 @@ const fr: Translations = {
   'landing.reload': "Réessayer",
   'landing.navResearch': 'Recherche',
   'landing.ebHero': 'LIBRE ET OUVERT · CALCUL DE STRUCTURES',
-  'landing.heroH': 'Logiciel open source de calcul de structures. L’IA est en chantier.',
+  'landing.heroH': 'Un calcul de structures que vous pouvez vérifier.',
   'landing.heroP': 'Portiques et treillis en 2D et 3D, résolus sur votre propre machine et confrontés à sept autres logiciels d’éléments finis. L’assistant IA, encore en développement, s’appuiera sur le même modèle et le même solveur.',
   'landing.heroCtaPrimary': 'Ouvrir l\'éditeur',
   'landing.heroBlogLink': 'Lire notre blog',
