@@ -785,6 +785,45 @@ jobs:
       - name: Check for modified migration files
         run: ./.github/scripts/check-migrations-immutable.sh "origin/${{ github.base_ref }}"
 
+  revert-check:
+    name: Revert Check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    needs: [changes]
+    if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: The merge deletes no recent lines the branch never had
+        env:
+          BASE: ${{ github.event_name == 'merge_group' && github.event.merge_group.base_sha || format('origin/{0}', github.base_ref) }}
+          EVENT: ${{ github.event_name }}
+          PR_LABELS: ${{ needs.changes.outputs.labels }}
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          if ! git cat-file -e "$BASE:.github/scripts/revert-check.py"; then
+            echo "$BASE has no revert check yet; the pull request's own copy is not trusted to judge it."
+            exit 0
+          fi
+          git show "$BASE:.github/scripts/revert-check.py" > "$RUNNER_TEMP/revert-check.py"
+          if [ "$EVENT" != merge_group ]; then
+            LABELS=$PR_LABELS exec python3 -B -I "$RUNNER_TEMP/revert-check.py" "$BASE" HEAD --event ''
+          fi
+          status=0
+          for step in $(git rev-list --first-parent --reverse "$BASE..HEAD"); do
+            pr=$(git show -s --format=%s "$step" | sed -nE 's/^Merge pull request #([0-9]+) from .*/\1/p')
+            if [ -z "$pr" ] || [ "$(gh api "repos/$GH_REPO/pulls/$pr" --jq .head.sha)" != "$(git rev-parse -q --verify "$step^2")" ]; then
+              echo "$step is not the merge queue's merge of a pull request's current head, so whose acknowledgement applies is unknown."
+              exit 1
+            fi
+            echo "Pull request #$pr:"
+            LABELS=$(gh api "repos/$GH_REPO/pulls/$pr" --jq '[.labels[].name] | join(",")') python3 -B -I "$RUNNER_TEMP/revert-check.py" "$step^1" "$step^2" --event '' || status=1
+          done
+          exit "$status"
   check-migrations:
     name: Check Migration Safety
     runs-on: ubuntu-24.04
@@ -2001,6 +2040,7 @@ jobs:
       - test-backend
       - check-migrations-immutable
       - check-migrations
+      - revert-check
       - wasm
       - research-wasm
       - research
@@ -2056,6 +2096,7 @@ jobs:
       - test-backend
       - check-migrations-immutable
       - check-migrations
+      - revert-check
       - wasm
       - research-wasm
       - research
