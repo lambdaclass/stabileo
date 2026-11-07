@@ -61,12 +61,18 @@ def unquote(name):
 
 def deleted_ranges(repo, base, tree):
     out = git(repo, 'diff', '-U0', '--find-renames', '--no-color', base, tree).stdout
-    ranges, path = {}, None
+    ranges, path, header = {}, None, False
     for line in out.splitlines():
-        if line.startswith('--- '):
+        if line.startswith('diff --git '):
+            path, header = None, True
+        elif header and line.startswith('--- '):
             name = unquote(line[4:].rstrip('\t'))
             path = name[2:] if name.startswith('a/') else None
-        elif path and (m := HUNK.match(line)):
+        elif line.startswith('@@'):
+            header = False
+            m = HUNK.match(line)
+            if not (path and m):
+                continue
             start, count = int(m.group(1)), int(m.group(2) if m.group(2) is not None else 1)
             if count:
                 ranges.setdefault(path, []).append((start, count))

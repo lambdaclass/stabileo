@@ -131,6 +131,14 @@ class RevertCheck(unittest.TestCase):
                 rows, _ = check.recent_foreign_deletions(self.repo, 'main', 'pr', 21, NOW)
                 self.assertEqual([(r['file'], r['lines']) for r in rows], [(name, 1)])
 
+    def test_a_deleted_line_that_looks_like_a_file_header_does_not_hide_later_hunks(self):
+        old_text = '-- /dev/null\n-- old comment\n' + ''.join(f'keep {i}\n' for i in range(10))
+        commit(self.repo, {'q.sql': old_text}, 'Old SQL', NOW - 100 * DAY)
+        git(self.repo, 'branch', '-f', 'fork-point')
+        self.pr_merges_main_work_then_drops_it('q.sql', old_text + 'recent\n', ''.join(f'keep {i}\n' for i in range(10)), NOW - 3 * DAY)
+        rows, _ = check.recent_foreign_deletions(self.repo, 'main', 'pr', 21, NOW)
+        self.assertEqual([(r['file'], r['lines']) for r in rows], [('q.sql', 1)])
+
     def test_a_conflict_git_reports_without_naming_a_file_still_fails(self):
         real = check.git
         def git_stub(repo, *args, ok=(0,)):
