@@ -103,6 +103,7 @@ function assertSealed(value: object): void {
 function ownReader(absent: Absent) {
   return (record: object, key: string): unknown => {
     const property = getOwnPropertyDescriptor(record, key);
+    if (!property && key in record) throw UNSOUND;
     if ((record as Record<string, unknown>)[key] !== property?.value) throw UNSOUND;
     if (!property) absent.push([record, key]);
     return property?.value;
@@ -110,7 +111,10 @@ function ownReader(absent: Absent) {
 }
 
 function stillAbsent(absent: Absent): boolean {
-  for (let i = 0; i < absent.length; i++) if ((absent[i]![0] as Record<string, unknown>)[absent[i]![1]] !== undefined) return false;
+  for (let i = 0; i < absent.length; i++) {
+    const [record, key] = absent[i]!;
+    if (key in record || (record as Record<string, unknown>)[key] !== undefined) return false;
+  }
   return true;
 }
 

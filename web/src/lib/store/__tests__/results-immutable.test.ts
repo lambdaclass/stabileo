@@ -316,6 +316,30 @@ describe('what the cache cannot see is scanned on every read', () => {
     expect(resultsStore.results3D).toBeNull();
   });
 
+  it('a stateful inherited getter is never read by the check that decides whether to cache', () => {
+    let reads = 0;
+    Object.defineProperty(Object.prototype, 'findings', { get: () => (reads++ === 0 ? [refusal()] : undefined), configurable: true });
+    try {
+      resultsStore.setResults3D(result(1) as never);
+      expect(resultsStore.results3D).toBeNull();
+    } finally {
+      delete (Object.prototype as Record<string, unknown>).findings;
+    }
+  });
+
+  it('a stateful inherited getter added after caching is never read by the check that reuses the cache', () => {
+    const r = result(1);
+    resultsStore.setResults3D(r as never);
+    expect(resultsStore.results3D).toBe(r);
+    let reads = 0;
+    Object.defineProperty(Object.prototype, 'findings', { get: () => (reads++ === 0 ? [refusal()] : undefined), configurable: true });
+    try {
+      expect(resultsStore.results3D).toBeNull();
+    } finally {
+      delete (Object.prototype as Record<string, unknown>).findings;
+    }
+  });
+
   it('a case added to the published map through the native mutator is scanned', () => {
     resultsStore.setResults3D(result(0) as never);
     resultsStore.setCombinationResults3D(new Map([[1, result(1)]]) as never, new Map([[2, result(2)]]) as never, { maxAbsResults3D: result(3) } as never);
