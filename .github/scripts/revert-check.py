@@ -158,7 +158,7 @@ def main(argv=None):
     if LABEL in labels(a.event) | set(a.labels.split(',')):
         print(f'Acknowledged by the {LABEL} label.')
         return 0
-    print(f'If this pull request means to remove them, add the {LABEL} label and push or re-run all jobs; otherwise restore them on the branch.')
+    print(f'If this pull request means to remove them, add the {LABEL} label (Revert Check then reruns once the CI run has finished, with no push); otherwise restore them on the branch.')
     return 1
 
 
