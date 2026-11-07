@@ -23,6 +23,7 @@
   } from '../../lib/engine/dynamics/requests';
   import ProDiagnosticsTab from './ProDiagnosticsTab.svelte';
   import { modelStore, resultsStore, uiStore } from '../../lib/store';
+  import { recheckStore } from '../../lib/store/recheck.svelte';
   import { t, tp } from '../../lib/i18n';
   import { te, localizeEngineText } from '../../lib/i18n/engine-text';
   import { modelHasMemberOffsets } from '../../lib/engine/member-offsets';
@@ -383,6 +384,7 @@
       const containment = knownIssueResultDisposition(byDir);
       if (containment.refused) { solveError = `${t('pro.spectralTitle')}: ${containment.messages.join('\n')}`; solving = false; return; }
       spectralResult = byDir;
+      recheckStore.noteSolved('spectral');
       advancedResults = { ...advancedResults, spectral: { disposition: containment, baseShearX: byDir.X!.baseShear, baseShearY: byDir.Y!.baseShear } };
     } catch (e: any) {
       solveError = `${t('pro.spectralTitle')}: ${errorText(e, t('pro.unknownError'))}`;
@@ -465,6 +467,7 @@
       const elapsed = performance.now() - t0;
       harmonicElapsed = elapsed;
       harmResult = res;
+      recheckStore.noteSolved('harmonic');
     } catch (e: any) {
       solveError = tp('adv.failed', { analysis: t('adv.name.harmonic'), error: errorText(e, t('pro.unknownError')) });
     }
@@ -575,6 +578,7 @@
         const co: any = solveCorotational3D(input, nlMaxIter, nlTol, nlIncrements);
         nlResult = co?.results ? { ...co, results: asModel(co.results) } : co;
       }
+      recheckStore.noteSolved('nonlinear');
       // The fibre analysis was offered here and never ran: the engine needs fibre sections and
       // material laws this panel does not build, so it is out of the list until it does.
     } catch (e: any) {
@@ -748,7 +752,7 @@
       // member's load until it is given back.
       if (res.results) finishSolve3D(res.results, input);
       ssiResult = res?.results ? { ...res, results: asModel(res.results) } : res;
-      if (res.results) { resultsStore.setResults3D(res.results); ssiPublished = resultsStore.results3D; }
+      if (res.results) { resultsStore.setResults3D(res.results); ssiPublished = resultsStore.results3D; recheckStore.noteSolved('ssi'); }
     } catch (e: any) {
       solveError = tp('adv.failed', { analysis: t('adv.name.ssi'), error: errorText(e, t('pro.unknownError')) });
     }
@@ -1321,7 +1325,7 @@
             </select>
           </label>
         </div>
-        <button class="adv-run-btn" onclick={handleHarmonic} disabled={!hasModel || solving || !wasmAvailable}>{solving ? t('pro.solving') : t('pro.runHarmonic')}</button>
+        <button class="adv-run-btn" onclick={handleHarmonic} disabled={!hasModel || solving || !wasmAvailable} data-testid="adv-run-harmonic">{solving ? t('pro.solving') : t('pro.runHarmonic')}</button>
       </div>
       <Hint text={t('adv.help.harmonic')} />
       {#each knownIssueResultDisposition(harmResult).messages as message}<div role="alert">{message}</div>{/each}

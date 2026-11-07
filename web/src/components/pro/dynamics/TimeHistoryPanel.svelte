@@ -15,6 +15,7 @@
   import { t, tp } from '../../../lib/i18n';
   import { modelStore } from '../../../lib/store';
   import { resultsStore } from '../../../lib/store';
+  import { recheckStore } from '../../../lib/store/recheck.svelte';
   import { solveTimeHistory3D } from '../../../lib/engine/wasm-solver';
   import { errorText } from '../../../lib/utils/error-text';
   import { te } from '../../../lib/i18n/engine-text';
@@ -124,6 +125,7 @@
       const fields = timeHistoryInput(spec, densities, spectrumSa);
       const res = solveTimeHistory3D({ solver: input, ...fields }) as TimeHistoryResult3D;
       timeHistoryView.set(res, modelStore.modelVersion);
+      recheckStore.noteSolved('timeHistory');
       const main = (['x', 'y', 'z'] as const).find((d) => spec.ground[d].source !== 'none') ?? 'x';
       component = main === 'z' ? 'uz' : main === 'y' ? 'uy' : 'ux';
       nodeId = peakNode(res);

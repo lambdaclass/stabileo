@@ -18,8 +18,9 @@ const SPAN_FIX = versionOf('span-check-shear-thermal');
 const HARMONIC_FROM = versionOf('harmonic-modal-residual-checked');
 const HARMONIC_FIX = versionOf('harmonic-modal-or-direct-per-frequency');
 
-function stamp(resultsVersion: number, analyses: SolveStamp['analyses'] = ['linear']): SolveStamp {
-  return { ...recheckStore.capture()!, id: `old-${resultsVersion}`, resultsVersion, analyses };
+function stamp(resultsVersion: number, analyses: SolveStamp['analyses'] = ['linear'], recorded?: SolveStamp['recorded']): SolveStamp {
+  const { recorded: _current, ...rest } = recheckStore.capture()!;
+  return { ...rest, id: `old-${resultsVersion}`, resultsVersion, analyses, ...(recorded ? { recorded } : {}) };
 }
 
 function frame(opts: { shear?: boolean; thermal?: boolean; hinge?: boolean } = {}) {
@@ -37,8 +38,8 @@ function frame(opts: { shear?: boolean; thermal?: boolean; hinge?: boolean } = {
   return e;
 }
 
-async function reopen(resultsVersion: number, analyses?: SolveStamp['analyses']) {
-  recheckStore.restoreStamp(stamp(resultsVersion, analyses));
+async function reopen(resultsVersion: number, analyses?: SolveStamp['analyses'], recorded?: SolveStamp['recorded']) {
+  recheckStore.restoreStamp(stamp(resultsVersion, analyses, recorded));
   const text = serializeProject();
   recheckStore.reset();
   expect(deserializeProject(text)).toBe(true);
@@ -59,7 +60,10 @@ describe('advisories', () => {
       expect(a.when.length, a.id).toBeGreaterThan(0);
       for (const w of a.when) for (const f of conditionGroups(w).flat()) expect(features.has(f), `${a.id}: ${f}`).toBe(true);
       for (const l of REGISTRY_LOCALES) expect(a.title[l], `${a.id} ${l}`).toBeTruthy();
-      if (a.ifUsed) for (const l of REGISTRY_LOCALES) expect(a.ifUsed[l], `${a.id} ifUsed ${l}`).toBeTruthy();
+      if (a.analysis) {
+        for (const l of REGISTRY_LOCALES) expect(a.ifUsed?.[l], `${a.id} ifUsed ${l}`).toBeTruthy();
+        for (const w of a.when) expect(conditionGroups(w).some((g) => g.length === 1 && g[0] === `analysis:${a.analysis}`), `${a.id} when`).toBe(true);
+      }
     }
   });
 
@@ -124,6 +128,77 @@ describe('advisories', () => {
       t('recheck.advisoryBannerMaybe').replace('{name}', 'SA-2026-046').replace('{analysis}', harmonic.ifUsed![registryLocale(i18n.locale)]),
     );
     expect(html).not.toContain(t('recheck.advisoryBanner').replace('{names}', 'SA-2026-046'));
+  });
+
+  it('a static solve leaves a harmonic advisory up; running harmonic analysis again clears it', async () => {
+    frame();
+    expect(await reopen(HARMONIC_FROM, ['linear', 'harmonic'])).toContain('SA-2026-046');
+    recheckStore.acknowledge();
+    recheckStore.noteSolved('linear');
+    expect(recheckStore.stale).toBe(true);
+    expect(recheckStore.solvedAgain).toBe(true);
+    expect(recheckStore.openAdvisories.map((a) => a.id)).toEqual(['SA-2026-046']);
+    const html = banner();
+    expect(html).toContain('recheck-advisory-banner');
+    expect(html).toContain('SA-2026-046');
+    expect(html, 'a static solve does not clear it, so the banner does not offer one').not.toContain('recheck-banner-rerun');
+    recheckStore.noteSolved('harmonic');
+    expect(recheckStore.openAdvisories).toEqual([]);
+    expect(recheckStore.stale).toBe(false);
+    expect(banner()).not.toContain('recheck-advisory-banner');
+  });
+
+  it('a harmonic run alone clears the harmonic advisory but not a static one', async () => {
+    frame({ shear: true });
+    const both = await reopen(HARMONIC_FROM, ['linear', 'harmonic']);
+    expect(both).toEqual(expect.arrayContaining(['SA-2026-046', 'issue-1569']));
+    recheckStore.acknowledge();
+    recheckStore.noteSolved('harmonic');
+    expect(recheckStore.openAdvisories.map((a) => a.id)).toEqual(['issue-1569']);
+    expect(recheckStore.stale).toBe(true);
+    recheckStore.noteSolved('linear');
+    expect(recheckStore.stale).toBe(false);
+  });
+
+  it('says the results are affected when the stamp records that harmonic analysis ran, and nothing when it records it did not', async () => {
+    frame();
+    const all: SolveStamp['recorded'] = ['linear', 'pdelta', 'modal', 'buckling', 'spectral', 'timeHistory', 'plastic', 'nonlinear', 'harmonic', 'ssi'];
+    expect(await reopen(HARMONIC_FROM, ['linear'], all), 'recorded and not run').not.toContain('SA-2026-046');
+    expect(await reopen(HARMONIC_FROM, ['linear', 'harmonic'], all)).toContain('SA-2026-046');
+    expect(recheckStore.assessment!.maybe).toEqual([]);
+    recheckStore.acknowledge();
+    const harmonic = ADVISORIES.find((x) => x.id === 'SA-2026-046')!;
+    const html = banner();
+    expect(html).toContain(t('recheck.advisoryAnalysis').replace('{name}', 'SA-2026-046').replace('{analysis}', harmonic.ifUsed![registryLocale(i18n.locale)]));
+    expect(html).not.toContain(t('recheck.advisoryBannerMaybe').replace('{name}', 'SA-2026-046').replace('{analysis}', harmonic.ifUsed![registryLocale(i18n.locale)]));
+    expect(await reopen(HARMONIC_FROM, ['linear'], ['linear', 'pdelta', 'modal', 'buckling', 'plastic', 'spectral']), 'a stamp that does not record harmonic').toContain('SA-2026-046');
+    expect(recheckStore.assessment!.maybe).toEqual(['SA-2026-046']);
+  });
+
+  it('a project saved before stamps recorded every analysis still opens, and still counts harmonic as run', async () => {
+    frame();
+    recheckStore.restoreStamp(stamp(HARMONIC_FROM, ['linear']));
+    const file = JSON.parse(serializeProject());
+    expect(file.snapshot.solvedWith.recorded).toBeUndefined();
+    recheckStore.reset();
+    expect(deserializeProject(JSON.stringify(file))).toBe(true);
+    await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
+    expect(recheckStore.capture()!.recorded).toBeUndefined();
+    expect(recheckStore.assessment!.advisories.map((a) => a.id)).toContain('SA-2026-046');
+    expect(recheckStore.assessment!.maybe).toEqual(['SA-2026-046']);
+  });
+
+  it('records a harmonic run in the stamp, and the stamp keeps it through save and load', async () => {
+    frame();
+    recheckStore.noteSolved('linear');
+    recheckStore.noteSolved('harmonic');
+    const solved = recheckStore.capture()!;
+    expect(solved.analyses).toEqual(['harmonic', 'linear']);
+    expect(solved.recorded).toContain('harmonic');
+    const text = serializeProject();
+    recheckStore.reset();
+    expect(deserializeProject(text)).toBe(true);
+    expect(recheckStore.capture()).toEqual(solved);
   });
 
   it('keeps the version stamp through save, load and export', async () => {

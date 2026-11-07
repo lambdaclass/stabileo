@@ -12,7 +12,7 @@
  */
 import { RESULTS_VERSION } from './registry';
 import { buildIdentity } from './build-identity';
-import type { AnalysisKind } from './model-features';
+import { ANALYSIS_KINDS, type AnalysisKind, type FeatureContext } from './model-features';
 
 /** Bumped when the shape of stored results changes (independent of what the numbers are). */
 export const RESULTS_SCHEMA_VERSION = 1;
@@ -31,6 +31,16 @@ export interface SolveStamp {
   solvedAt: string;
   /** The analyses run under this stamp (best effort: the static solve and the advanced panels). */
   analyses: AnalysisKind[];
+  /**
+   * The analyses whose runs this stamp's build reports: one listed here and absent from
+   * `analyses` was not run. Absent on stamps written before #1658 (`LEGACY_RECORDED_ANALYSES`).
+   */
+  recorded?: AnalysisKind[];
+}
+
+/** What a stamp says about which analyses its results came from (`modelFeatures`). */
+export function analysesContext(s: SolveStamp): Pick<FeatureContext, 'analysesRun' | 'analysesRecorded'> {
+  return { analysesRun: s.resultsVersion > 0 ? s.analyses : null, analysesRecorded: s.recorded };
 }
 
 /** A stamp for a project that carries none: the oldest version, nothing else known. */
@@ -80,6 +90,7 @@ export function stampSolve(kind: AnalysisKind, previous: SolveStamp | null | und
     wasmHash: b.wasmHash,
     solvedAt: now.toISOString(),
     analyses,
+    recorded: [...ANALYSIS_KINDS],
   };
 }
 
@@ -103,5 +114,6 @@ export function readStamp(v: unknown): SolveStamp | undefined {
     wasmHash: str('wasmHash'),
     solvedAt: str('solvedAt', ''),
     analyses: Array.isArray(s.analyses) ? (s.analyses.filter((a) => typeof a === 'string') as AnalysisKind[]) : [],
+    ...(Array.isArray(s.recorded) ? { recorded: s.recorded.filter((a): a is AnalysisKind => (ANALYSIS_KINDS as readonly unknown[]).includes(a)) } : {}),
   };
 }

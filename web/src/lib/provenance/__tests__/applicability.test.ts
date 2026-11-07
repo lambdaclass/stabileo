@@ -329,12 +329,19 @@ describe('versions and recorded analyses (a later registry)', () => {
     expect(assessProject(steel, null, 'pro', later).changes.map((c) => c.id)).toContain('next-modal');
   });
 
-  it('counts the analyses the stamp cannot see as run', () => {
+  it('counts the analyses a stamp written before #1658 cannot see as run', () => {
     const f = modelFeatures(steel, { analysesRun: ['linear'] });
-    expect(f.has('analysis:timeHistory')).toBe(true);
-    // Soil-structure interaction is solved in the PRO panel from springs a file never carries.
-    expect(f.has('analysis:ssi')).toBe(true);
+    for (const k of ['timeHistory', 'nonlinear', 'harmonic', 'ssi']) expect(f.has(`analysis:${k}` as never), k).toBe(true);
     expect(f.has('analysis:modal')).toBe(false);
+  });
+
+  it('counts an analysis a stamp records as run only when it ran', () => {
+    const stamp = solvedHere(['linear']);
+    const f = modelFeatures(steel, { analysesRun: stamp.analyses, analysesRecorded: stamp.recorded });
+    for (const k of ['timeHistory', 'nonlinear', 'harmonic', 'ssi', 'modal']) expect(f.has(`analysis:${k}` as never), k).toBe(false);
+    const harmonic = stampSolve('harmonic', stamp);
+    expect(harmonic.analyses).toEqual(['harmonic', 'linear']);
+    expect(modelFeatures(steel, { analysesRun: harmonic.analyses, analysesRecorded: harmonic.recorded }).has('analysis:harmonic')).toBe(true);
   });
 });
 

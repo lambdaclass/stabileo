@@ -10,7 +10,7 @@
  * moved their numbers. So every reading below errs towards present:
  *   - a steel code that is not bound to something else counts as CIRSOC 301, the app's own;
  *   - a concrete code that is not bound counts as CIRSOC 201, the default of every new project;
- *   - analyses the project does not record count as run (`analysesRun` null: all of them).
+ *   - analyses the project's stamp does not record count as run (`analysesRun` null: all of them).
  *
  * Pure: no store, no runes.
  */
@@ -24,13 +24,10 @@ export const ANALYSIS_KINDS = [
 export type AnalysisKind = (typeof ANALYSIS_KINDS)[number];
 
 /**
- * Analyses whose runs are not reported to the stamp: the PRO advanced panel solves time
- * histories, nonlinear and harmonic analyses into its own state rather than through the results
- * store's setters. Soil-structure interaction (`ssi`) is solved there too, from soil springs kept
- * in the panel and never saved with the model, so nothing in a file says it was not run. Since a
- * stamp cannot say they were NOT run, they always count as run.
+ * The analyses a stamp written before #1658 records. The PRO advanced panel's time history,
+ * nonlinear, harmonic and SSI runs were not reported then, so for such a stamp they count as run.
  */
-export const UNTRACKED_ANALYSES: readonly AnalysisKind[] = ['timeHistory', 'nonlinear', 'harmonic', 'ssi'];
+export const LEGACY_RECORDED_ANALYSES: readonly AnalysisKind[] = ['linear', 'pdelta', 'modal', 'buckling', 'plastic', 'spectral'];
 
 /** Every feature id a registry entry may name. The registry test fails on any other. */
 export const FEATURE_IDS = [
@@ -94,6 +91,8 @@ export interface FeatureContext {
   analysisMode?: string;
   /** Analyses the project's results came from, as its stamp records them; null: not recorded. */
   analysesRun?: readonly string[] | null;
+  /** Analyses whose runs the stamp records; any other counts as run. Absent: `LEGACY_RECORDED_ANALYSES`. */
+  analysesRecorded?: readonly string[];
 }
 
 interface Offset3 { x?: number; y?: number; z?: number }
@@ -249,7 +248,8 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   } else {
     for (const k of run) if ((ANALYSIS_KINDS as readonly string[]).includes(k)) f.add(`analysis:${k}` as FeatureId);
     f.add('analysis:linear');
-    for (const k of UNTRACKED_ANALYSES) f.add(`analysis:${k}`);
+    const recorded = ctx.analysesRecorded ?? LEGACY_RECORDED_ANALYSES;
+    for (const k of ANALYSIS_KINDS) if (!recorded.includes(k)) f.add(`analysis:${k}`);
     if (s.dynamics?.timeHistory) f.add('analysis:timeHistory');
     if ((s.dynamics?.spectra?.length ?? 0) > 0 || cases.some((c) => c.spectral)) { f.add('analysis:spectral'); f.add('analysis:modal'); }
   }

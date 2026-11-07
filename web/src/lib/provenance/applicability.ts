@@ -10,8 +10,8 @@
  */
 import { conditionGroups, concernsGeneratedLoads, type ResultChange, type ResultChangeRegistry, type ChangeCondition } from './registry';
 import { RESULT_CHANGES } from './full-registry';
-import { loadsGeneratedWith, modelFeatures, type FeatureSnapshot } from './model-features';
-import type { SolveStamp } from './solve-stamp';
+import { LEGACY_RECORDED_ANALYSES, loadsGeneratedWith, modelFeatures, type FeatureSnapshot } from './model-features';
+import { analysesContext, type SolveStamp } from './solve-stamp';
 import { advisoriesFor, type Advisory } from './advisories';
 
 export function conditionHolds(w: ChangeCondition, features: ReadonlySet<string>): boolean {
@@ -31,6 +31,8 @@ export interface RecheckAssessment {
   changes: ResultChange[];
   /** Known wrong-result bugs in the version that solved it, in a feature this model uses. */
   advisories: Advisory[];
+  /** The advisories whose analysis the stamp does not record: their results may be affected. */
+  maybe: string[];
 }
 
 export function assessProject(
@@ -43,13 +45,14 @@ export function assessProject(
 ): RecheckAssessment {
   const solvedVersion = stamp?.resultsVersion ?? 0;
   const currentVersion = registry.currentResultsVersion;
-  const known = !!stamp && solvedVersion > 0;
-  const features = originalFeatures ?? modelFeatures(snapshot, { analysisMode, analysesRun: known ? stamp!.analyses : null });
+  const features = originalFeatures ?? modelFeatures(snapshot, { analysisMode, ...(stamp ? analysesContext(stamp) : { analysesRun: null }) });
   const changes = registry.changes
     .filter((c) => c.resultsVersion <= currentVersion && c.scope !== 'examples')
     .filter((c) => c.resultsVersion > solvedVersion || (c.resultsVersion > loadsVersion && concernsGeneratedLoads(c.when)))
     .filter((c) => conditionHolds(c.when ?? {}, features))
     .sort((a, b) => a.resultsVersion - b.resultsVersion || a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
   const advisories = advisoriesFor(solvedVersion, (w) => conditionHolds(w, features), registry);
-  return { solvedVersion, currentVersion, older: solvedVersion < currentVersion, newer: solvedVersion > currentVersion, changes, advisories };
+  const recorded = solvedVersion > 0 ? stamp?.recorded ?? LEGACY_RECORDED_ANALYSES : [];
+  const maybe = advisories.filter((a) => a.analysis && !recorded.includes(a.analysis)).map((a) => a.id);
+  return { solvedVersion, currentVersion, older: solvedVersion < currentVersion, newer: solvedVersion > currentVersion, changes, advisories, maybe };
 }

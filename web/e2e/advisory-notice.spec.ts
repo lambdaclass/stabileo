@@ -1,10 +1,11 @@
 import { test, expect, bootPro } from './fixtures';
+import { readRegistry } from '../scripts/result-changes/registry.mjs';
 
 test.use({ recheckNotice: 'assert' });
 
 const rel = { tx: false, ry: false, rz: false, my: false, mz: false, t: false };
 
-function shearProject() {
+function shearProject(solvedWith?: object) {
   return {
     version: '2.0',
     name: 'Old Timoshenko frame',
@@ -24,6 +25,7 @@ function shearProject() {
       loadCases: [{ id: 1, type: 'D', name: 'Dead Load' }],
       combinations: [],
       nextId: { node: 4, material: 2, section: 2, element: 3, support: 3, load: 2, loadCase: 2, combination: 1 },
+      ...(solvedWith ? { solvedWith } : {}),
     },
   };
 }
@@ -63,3 +65,45 @@ for (const [label, viewport] of [['phone', { width: 390, height: 844 }], ['table
     });
   });
 }
+
+test('a static solve leaves the harmonic advisory up, and running harmonic analysis again clears it', async ({ page }) => {
+  const harmonicFrom = readRegistry().changes.find((c: { id: string }) => c.id === 'harmonic-modal-residual-checked')!.resultsVersion;
+  await bootPro(page);
+  const project = shearProject({ id: 'e2e-harmonic', resultsVersion: harmonicFrom, analyses: ['harmonic', 'linear'] });
+  expect(await page.evaluate((f) => window.__stabileoActions.loadProject(f), project)).toBe(true);
+  const notice = page.getByTestId('recheck-notice');
+  await expect(notice.locator('[data-advisory-id="SA-2026-046"]')).toContainText('may be affected');
+  await page.getByTestId('recheck-ack').check();
+  await page.getByTestId('recheck-later').click();
+  await expect(notice).toBeHidden();
+
+  const advisory = page.getByTestId('recheck-advisory-banner');
+  await page.getByTestId('recheck-banner-rerun').click();
+  await expect(advisory).not.toContainText('#1569', { timeout: 45_000 });
+  await expect(advisory).toContainText('SA-2026-046');
+  await expect(page.getByTestId('recheck-banner-rerun')).toHaveCount(0);
+  const solved = await page.evaluate(() => JSON.parse(window.__stabileoActions.serializeProject()).snapshot.solvedWith.analyses);
+  expect(solved).toContain('linear');
+  expect(solved).not.toContain('harmonic');
+
+  for (const viewport of [{ width: 390, height: 844 }, { width: 820, height: 1180 }]) {
+    await page.setViewportSize(viewport);
+    const layout = await page.getByTestId('recheck-stale-banner').evaluate((el) => {
+      const r = el.getBoundingClientRect();
+      return { left: r.left, right: r.right, pageOverflow: document.documentElement.scrollWidth - window.innerWidth };
+    });
+    expect(layout.left).toBeGreaterThanOrEqual(0);
+    expect(layout.right).toBeLessThanOrEqual(viewport.width);
+    expect(layout.pageOverflow).toBeLessThanOrEqual(0);
+  }
+  await page.setViewportSize({ width: 1280, height: 800 });
+
+  await page.getByTestId('pr-stage-analyse').click();
+  await page.getByTestId('pr-cmd-advanced').click();
+  await page.getByTestId('adv-chip-harmonic').click();
+  await page.getByTestId('adv-run-harmonic').click();
+  await expect(page.getByTestId('recheck-stale-banner')).toBeHidden({ timeout: 45_000 });
+  const stamp = await page.evaluate(() => JSON.parse(window.__stabileoActions.serializeProject()).snapshot.solvedWith);
+  expect(stamp.analyses).toEqual(expect.arrayContaining(['harmonic', 'linear']));
+  expect(stamp.recorded).toContain('harmonic');
+});
