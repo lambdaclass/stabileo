@@ -3,6 +3,7 @@
   import { recheckStore } from '../lib/store/recheck.svelte';
   import { rerunAnalysisAndDesign, recheckKey } from '../lib/actions/recheck';
   import { changelogUrl, concernsGeneratedLoads, registryLocale } from '../lib/provenance/registry';
+  import { advisoryName } from '../lib/provenance/advisories';
   import { cycleTabWithin } from '../lib/utils/dialog-focus';
   import { t, tp, i18n } from '../lib/i18n';
 
@@ -109,6 +110,17 @@
           {#if recoveryFailed}<p role="alert">{t('recheck.recoveryFailed')}</p>{/if}
         {/if}
       {/if}
+      {#if details && a.advisories.length}
+        <ul class="rc-list rc-advisories" role="alert" data-testid="recheck-advisories">
+          {#each a.advisories as adv (adv.id)}
+            <li class="rc-item rc-advisory" data-advisory-id={adv.id}>
+              <span class="rc-item-title">{tp('recheck.advisory', { name: advisoryName(adv) })}</span>
+              <p class="rc-item-text">{adv.title[loc]}</p>
+              <a class="rc-link" href={adv.url} target="_blank" rel="noopener noreferrer">{t('recheck.advisoryLink')}</a>
+            </li>
+          {/each}
+        </ul>
+      {/if}
       <ul class="rc-list" data-testid="recheck-changes">
         {#each a.changes as c (c.id)}
           <li class="rc-item" data-change-id={c.id}>
@@ -146,8 +158,12 @@
 {/if}
 
 {#if !open && details && recheckStore.stale && a}
-  <div class="rc-banner" role="status" data-testid="recheck-stale-banner">
-    <span>{tp('recheck.banner', { n: a.changes.length })}</span>
+  <div class="rc-banner" class:rc-banner-advisory={a.advisories.length > 0} role={a.advisories.length ? 'alert' : 'status'} data-testid="recheck-stale-banner">
+    {#if a.advisories.length}
+      <span data-testid="recheck-advisory-banner">{tp('recheck.advisoryBanner', { names: a.advisories.map(advisoryName).join(', ') })}</span>
+    {:else}
+      <span>{tp('recheck.banner', { n: a.changes.length })}</span>
+    {/if}
     <button class="rc-banner-btn" onclick={() => (reviewing = true)} data-testid="recheck-banner-details">{t('recheck.bannerDetails')}</button>
     {#if resolve}<button class="rc-banner-btn rc-primary" disabled={busy} onclick={rerun} data-testid="recheck-banner-rerun">{t('recheck.bannerRerun')}</button>{/if}
   </div>
@@ -249,6 +265,7 @@
     box-shadow: 0 4px 16px rgb(0 0 0 / 0.25);
   }
   .rc-banner-btn { padding: 3px 8px; font-size: 0.75rem; }
+  .rc-banner-advisory, .rc-advisory { border-color: var(--st-danger, #d9534f); }
   /* Only one of .rc and .rc-list may scroll: a drag on a nested list never reaches the controls below it. */
   @media (max-height: 520px) {
     .rc-list { flex-shrink: 0; overflow-y: visible; overscroll-behavior: auto; }
