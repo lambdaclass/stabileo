@@ -2495,9 +2495,25 @@ fn a_combination_sums_its_cases_thermal_curvatures_1569() {
     let amplified = combine(&[(1, 2.5)]);
     assert_eq!(warned_chords(&amplified.structured_diagnostics), Some((vec![], vec![1])), "κL/4 = 0.048 amplified 2.5 times is 0.12");
     let span = amplified.result_summary.unwrap().member_spans.unwrap();
-    assert!((span[0].curvature[0] - 2.5 * 1.2e-5 * 200.0 / 0.05).abs() < 1e-12, "{span:?}");
+    assert!((span[0].curvature.unwrap()[0] - 2.5 * 1.2e-5 * 200.0 / 0.05).abs() < 1e-12, "{span:?}");
     assert_eq!(warned_chords(&combine(&[(2, 1.0), (3, -1.0)]).structured_diagnostics), None, "cancelled");
     assert_eq!(warned_chords(&combine(&[(2, 0.3)]).structured_diagnostics), None, "0.15 reduced to 0.045");
+}
+
+#[test]
+fn a_case_recorded_without_thermal_curvatures_leaves_the_combination_span_record_incomplete_1569() {
+    use dedaliano_engine::postprocess::combinations::{combine_results_refs, CombinationFactor};
+    let fresh = warmed_propped_span_2d(0.0, false);
+    let mut json = serde_json::to_value(&fresh).unwrap();
+    assert!(json["resultSummary"]["memberSpans"][0].get("curvature").is_some(), "a zero curvature is still recorded");
+    for span in json["resultSummary"]["memberSpans"].as_array_mut().unwrap() {
+        span.as_object_mut().unwrap().remove("curvature");
+    }
+    let legacy: AnalysisResults = serde_json::from_value(json).unwrap();
+    let both = [(1, &fresh), (2, &legacy)];
+    let combine = |case_id: usize| combine_results_refs(&[CombinationFactor { case_id, factor: 2.5 }], &both).unwrap();
+    assert!(combine(1).result_summary.unwrap().member_spans.is_some());
+    assert!(combine(2).result_summary.unwrap().member_spans.is_none(), "an unknown curvature is not read as zero");
 }
 
 fn unequal_shear_span_3d(py: f64, pz: f64, as_y: f64, as_z: f64, split: bool) -> AnalysisResults3D {

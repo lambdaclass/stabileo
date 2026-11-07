@@ -626,16 +626,16 @@ pub(crate) fn combined_small_displacement<'a>(
             _ => {}
         }
         match (summary.and_then(|s| s.member_spans.as_ref()), spans.as_mut()) {
-            (Some(own), Some(first)) => {
+            (Some(own), Some(first)) if own.iter().all(|span| span.curvature.is_some()) => {
                 first.get_or_insert(own);
                 for span in own {
                     let sum = curvature.entry(span.element_id).or_insert([0.0; 2]);
-                    for (s, k) in sum.iter_mut().zip(span.curvature) {
+                    for (s, k) in sum.iter_mut().zip(span.curvature.unwrap_or_default()) {
                         *s += factor * k;
                     }
                 }
             }
-            (None, _) => spans = None,
+            (Some(_), Some(_)) | (None, _) => spans = None,
             _ => {}
         }
     }
@@ -643,7 +643,7 @@ pub(crate) fn combined_small_displacement<'a>(
     let spans: Option<Vec<MemberSpan>> = spans.map(|s| {
         let mut spans = s.cloned().unwrap_or_default();
         for span in &mut spans {
-            span.curvature = curvature.get(&span.element_id).copied().unwrap_or([0.0; 2]);
+            span.curvature = Some(curvature.get(&span.element_id).copied().unwrap_or([0.0; 2]));
         }
         spans
     });
@@ -794,7 +794,7 @@ fn member_spans_2d(input: &SolverInput, loads: &[SolverLoad]) -> Vec<MemberSpan>
             SolverLoad::Thermal(t) if t.element_id == e.id => THERMAL_CURVATURE_2D * t.alpha() * t.dt_gradient / t.depth(sec.a, sec.iz),
             _ => 0.0,
         }).sum();
-        out.push(MemberSpan { element_id: e.id, nodes: [e.node_i, e.node_j], length, axes: [[cos, 0.0, sin], [-sin, 0.0, cos], [0.0, 1.0, 0.0]], ei: [e_mod * sec.iz, 0.0], shear_flexibility: [shear, 0.0], curvature: [curvature, 0.0] });
+        out.push(MemberSpan { element_id: e.id, nodes: [e.node_i, e.node_j], length, axes: [[cos, 0.0, sin], [-sin, 0.0, cos], [0.0, 1.0, 0.0]], ei: [e_mod * sec.iz, 0.0], shear_flexibility: [shear, 0.0], curvature: Some([curvature, 0.0]) });
     }
     out
 }
@@ -822,7 +822,7 @@ fn member_spans_3d(input: &SolverInput3D, loads: &[SolverLoad3D]) -> Vec<MemberS
                 }
             }
         }
-        out.push(MemberSpan { element_id: e.id, nodes: [e.node_i, e.node_j], length, axes: [ex, ey, ez], ei: [e_mod * sec.iz, e_mod * sec.iy], shear_flexibility: [shear(sec.as_z), shear(sec.as_y)], curvature });
+        out.push(MemberSpan { element_id: e.id, nodes: [e.node_i, e.node_j], length, axes: [ex, ey, ez], ei: [e_mod * sec.iz, e_mod * sec.iy], shear_flexibility: [shear(sec.as_z), shear(sec.as_y)], curvature: Some(curvature) });
     }
     out
 }
@@ -855,7 +855,7 @@ fn span_planes_2d(spans: &[MemberSpan], r: &AnalysisResults) -> Vec<(usize, f64,
         }
         let points = ef.point_loads.iter().map(|p| (p.a, p.p)).collect();
         let couples = ef.point_loads.iter().filter_map(|p| p.my.map(|m| (p.a, m))).collect();
-        out.push((span.element_id, span.length, SpanRotation::new(span.length, span.ei[0], span.shear_flexibility[0], v_i, r_i, v_j, r_j, ef.hinge_start, ef.hinge_end, points, dist, couples, span.curvature[0])));
+        out.push((span.element_id, span.length, SpanRotation::new(span.length, span.ei[0], span.shear_flexibility[0], v_i, r_i, v_j, r_j, ef.hinge_start, ef.hinge_end, points, dist, couples, span.curvature.unwrap_or_default()[0])));
     }
     out
 }
@@ -891,8 +891,8 @@ fn span_planes_3d(spans: &[MemberSpan], r: &AnalysisResults3D) -> Vec<SpanPlanes
         let (py, dy) = loads(&ef.distributed_loads_y, (ef.q_yi, ef.q_yj), &ef.point_loads_y);
         let (pz, dz) = loads(&ef.distributed_loads_z, (ef.q_zi, ef.q_zj), &ef.point_loads_z);
         let planes = [
-            SpanRotation::new(span.length, span.ei[0], span.shear_flexibility[0], ti[0], ri[2], tj[0], rj[2], ef.release_mz_start, ef.release_mz_end, py, dy, Vec::new(), span.curvature[0]),
-            SpanRotation::new(span.length, span.ei[1], span.shear_flexibility[1], ti[1], -ri[1], tj[1], -rj[1], ef.release_my_start, ef.release_my_end, pz, dz, Vec::new(), span.curvature[1]),
+            SpanRotation::new(span.length, span.ei[0], span.shear_flexibility[0], ti[0], ri[2], tj[0], rj[2], ef.release_mz_start, ef.release_mz_end, py, dy, Vec::new(), span.curvature.unwrap_or_default()[0]),
+            SpanRotation::new(span.length, span.ei[1], span.shear_flexibility[1], ti[1], -ri[1], tj[1], -rj[1], ef.release_my_start, ef.release_my_end, pz, dz, Vec::new(), span.curvature.unwrap_or_default()[1]),
         ];
         let twist = match (ef.release_t_start, ef.release_t_end) {
             (false, false) => (ri[0], rj[0]),
