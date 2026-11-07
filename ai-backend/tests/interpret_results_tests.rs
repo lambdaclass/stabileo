@@ -24,6 +24,7 @@ fn test_result_summary() -> ResultSummary {
         reaction_resultant: None,
         second_order_ratio: None,
         member_chords: None,
+        member_spans: None,
     }
 }
 

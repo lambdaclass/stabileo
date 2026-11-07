@@ -96,6 +96,8 @@ web/src/lib/report/memoria/render.ts: const note = (s: string) => { let i = reas
 web/src/lib/store/file.ts: switch (result.failure?.kind) {
 
 ## Matches text Stabileo does not write (backend validation messages, GitHub Actions logs, browser and runtime errors, git subjects): there is no code to key on.
+.github/scripts/select-ci.py: if SLOW_TAG.search(source):
+.github/scripts/select-ci.py: for spec in IMPORT.findall(source):
 web/src/lib/api/error-text.ts: if (message === 'has already been taken') return t('account.field.taken');
 web/src/lib/api/error-text.ts: if (message === "can't be blank") return t('account.field.blank');
 web/src/lib/api/error-text.ts: if (message === 'has invalid format' || message === 'is invalid') return t('account.field.invalid');

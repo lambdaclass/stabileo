@@ -45,8 +45,8 @@ Inputs:
   `NUM-INVARIANCE`). Each must now end `ok`, `refused` or `warned_singular`.
   A singular Code_Aster solve whose forces also disagree is `warned_singular`
   only when stabileo carries `NUM-INVARIANCE` and, solved again with every
-  disagreeing displacement held at its own value, gives bit-identical
-  reactions and member forces and no force at any support the holding added,
+  disagreeing displacement held at its own value, gives the same reactions
+  and member forces to round-off (64 eps of the largest, no absolute floor) and no force at any support the holding added,
   and moving those displacements needs no force and changes nothing else.
 - `--fixtures`: the 3D `engine/tests/fixtures/*-input.json` files, which
   include the example models (buildings, industrial hall, tower, grid slab,

@@ -6,9 +6,12 @@
 Run by the codeaster-diff job (.github/workflows/nightly.yml) before the
 comparison.
 """
+import math
 import os
 import sys
 import unittest
+
+HERE = os.path.dirname(os.path.abspath(__file__))
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import to_aster as T  # noqa: E402
@@ -391,7 +394,7 @@ class SingularVerdict(unittest.TestCase):
         r = self.finish(["known_issue"], ["NUM-INVARIANCE"], bad, held_forces=lambda bad: True)
         self.assertEqual(r["status"], "warned_singular")
         self.assertIn("stabileo warned: NUM-INVARIANCE", r["why"])
-        self.assertIn("stabileo forces bit-identical with the disagreeing DOFs held, moving them needs no force, and code_aster agrees on the held model: 5 rz", r["why"])
+        self.assertIn("stabileo forces the same to round-off with the disagreeing DOFs held, moving them needs no force, and code_aster agrees on the held model: 5 rz", r["why"])
 
     def test_held_forces_without_a_proven_mechanism_are_silent(self):
         bad = [("disp", 5, "rz", 0.0, 1.04e13, 1.0), ("force", 1, "mz", 1.0, 2.0, 1.0)]
@@ -435,7 +438,8 @@ class SingularVerdict(unittest.TestCase):
 
 class HeldForces(unittest.TestCase):
     """Stabileo solved again with the disagreeing displacements held at its own values: inconclusive
-    only if every reaction and member force is bit-identical and no held DOF needs a force."""
+    only if every reaction and member force is the same to 64 eps of the largest one and no held DOF
+    needs a force. The largest force or reaction of _raw is 3.0."""
 
     def held(self, rerun, bad=(("disp", 5, "rz", 0.0, 1.04e13, 1.0), ("force", 1, "myStart", 3.0, 4.0, 0.25)), binary="bin", model=None, original=None):
         from unittest import mock
@@ -459,17 +463,22 @@ class HeldForces(unittest.TestCase):
         self.assertTrue(sup["rrz"])
         self.assertEqual(sup["drz"], 0.0)
 
-    def test_a_member_force_one_ulp_off_is_not(self):
-        import math
-        self.assertFalse(self.held(_raw(rz5=0.0, reac5=0.0, m12=math.nextafter(3.0, 4.0)))[0])
+    def test_round_off_of_the_largest_force_is_the_same_answer(self):
+        import sys as S
+        self.assertTrue(self.held(_raw(rz5=0.0, reac5=0.0, m12=3.0 + 60 * S.float_info.epsilon * 3.0))[0])
+        self.assertFalse(self.held(_raw(rz5=0.0, reac5=0.0, m12=3.0 + 70 * S.float_info.epsilon * 3.0))[0])
+
+    def test_a_member_force_off_by_1e_9_of_the_largest_is_not(self):
+        self.assertFalse(self.held(_raw(rz5=0.0, reac5=0.0, m12=3.0 + 1e-9 * 3.0))[0])
 
     def test_a_force_at_the_held_dof_is_not(self):
-        self.assertFalse(self.held(_raw(rz5=0.0, reac5=1e-300))[0], "the held DOF carries load")
+        self.assertFalse(self.held(_raw(rz5=0.0, reac5=1e-9 * 3.0))[0], "the held DOF carries load")
+        self.assertTrue(self.held(_raw(rz5=0.0, reac5=1e-15))[0], "round-off at the held DOF")
         self.assertFalse(self.held(_raw(rz5=0.0))[0], "no reaction reported at the held DOF")
 
     def test_a_new_support_with_any_force_is_not(self):
         rerun = _raw(rz5=0.0, reac5=0.0)
-        next(r for r in rerun["reactions"] if r["nodeId"] == 5)["fx"] = 1e-300
+        next(r for r in rerun["reactions"] if r["nodeId"] == 5)["fx"] = 1e-9 * 3.0
         self.assertFalse(self.held(rerun)[0])
 
     def test_a_force_at_a_held_dof_of_an_existing_support_is_not(self):
@@ -480,8 +489,10 @@ class HeldForces(unittest.TestCase):
 
     def test_a_reaction_that_moves_is_not(self):
         moved = _raw(rz5=0.0, reac5=0.0)
-        moved["reactions"][0]["fz"] = math_next(1.0)
+        moved["reactions"][0]["fz"] = 1.0 + 1e-9 * 3.0
         self.assertFalse(self.held(moved)[0])
+        moved["reactions"][0]["fz"] = math_next(1.0)
+        self.assertTrue(self.held(moved)[0])
 
     def test_only_free_displacements_of_known_nodes_with_a_binary_qualify(self):
         rerun = _raw(rz5=0.0, reac5=0.0)
@@ -490,6 +501,43 @@ class HeldForces(unittest.TestCase):
         self.assertFalse(self.held(rerun, bad=[("disp", 1, "rz", 0.0, 1.0, 1.0)])[0], "node 1 is fixed")
         self.assertFalse(self.held(rerun, binary=None)[0])
         self.assertFalse(self.held(RuntimeError("stabileo: refused"))[0])
+
+
+class HeldRoundOffRegression(unittest.TestCase):
+    """aster3d-763354, unreduced: holding node 4 rz moves forces by up to 3.6e-15 on 32.6 (a different
+    factorization of a larger system), which must count as the same answer; 1e-9 of it must not."""
+
+    def load(self):
+        import json as J
+        with open(os.path.join(HERE, "fixtures", "held-aster3d-763354.json")) as f:
+            d = J.load(f)
+        side = lambda x: {"forces": {int(k): v for k, v in x["forces"].items()}, "reac": {int(k): v for k, v in x["reac"].items()}}
+        return side(d["sres"]), side(d["hres"]), [tuple(t) for t in d["dofs"]]
+
+    def test_the_nightly_model_is_the_same_answer_to_round_off(self):
+        import run as R
+        sres, hres, dofs = self.load()
+        self.assertTrue(any(sres["forces"][e][k] != hres["forces"][e][k] for e in sres["forces"] for k in sres["forces"][e]))
+        self.assertTrue(R._held_identical(sres, hres, dofs))
+
+    def test_1e_9_of_the_largest_force_is_not(self):
+        import run as R
+        sres, hres, dofs = self.load()
+        top = max(abs(v) for f in sres["forces"].values() for v in f.values())
+        e, k = next((e, k) for e, f in hres["forces"].items() for k, v in f.items() if abs(sres["forces"][e][k]) == top)
+        hres["forces"][e][k] += 1e-9 * top
+        self.assertFalse(R._held_identical(sres, hres, dofs))
+        sres, hres, dofs = self.load()
+        nid = next(iter(sres["reac"]))
+        hres["reac"][nid][0] += 1e-9 * top
+        self.assertFalse(R._held_identical(sres, hres, dofs))
+
+    def test_a_reaction_of_another_length_is_not(self):
+        import run as R
+        for change in (lambda r: r.pop(), lambda r: r.append(0.0), lambda r: r.append(math.nan)):
+            sres, hres, dofs = self.load()
+            change(hres["reac"][next(iter(sres["reac"]))])
+            self.assertFalse(R._held_identical(sres, hres, dofs))
 
 
 class AsterOnTheHeldModel(unittest.TestCase):
