@@ -71,10 +71,12 @@ it('provides German, French and Turkish copy for every Shauer and shell string i
   keys.delete('notComparedWhy');
   for (const mesh of Object.values(MESHES)) keys.add(mesh.label);
   try {
-    for (const locale of PUBLIC_LOCALES.filter((l) => !['en', 'es', 'pt'].includes(l))) {
+    for (const key of keys) expect(shauerLocaleKeys, key).toContain(key);
+    for (const locale of ['de', 'fr', 'tr'] as const) {
+      for (const key of shauerLocaleKeys) expect(shauerLocales[locale][key], `${locale}.${key}`).toBeTruthy();
+      if (!PUBLIC_LOCALES.includes(locale)) continue;
       setLocale(locale);
       expect(researchLocale()).toBe(locale);
-      for (const key of keys) expect(shauerLocaleKeys, `${locale}.${key}`).toContain(key);
       for (const key of shauerLocaleKeys) expect(rs()[key]).toBe(shauerLocales[locale][key]);
     }
   } finally { setLocale(previous); }

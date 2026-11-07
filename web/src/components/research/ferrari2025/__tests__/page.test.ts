@@ -45,8 +45,8 @@ for (const locale of ['en', 'es', 'pt']) {
   });
 }
 
-for (const locale of PUBLIC_LOCALES.filter((l) => !['en', 'es', 'pt'].includes(l))) {
-  it(`renders English copy with ${locale} numbers`, () => {
+for (const locale of ['de', 'fr', 'tr'] as const) {
+  it.skipIf(!PUBLIC_LOCALES.includes(locale))(`renders English copy with ${locale} numbers`, () => {
     setLocale(locale);
     const body = render(FerrariPage).body.replace(/<!--.*?-->/g, '');
     const english = (setLocale('en'), rs());
