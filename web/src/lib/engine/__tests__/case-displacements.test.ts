@@ -118,3 +118,42 @@ describe('the parallel entry, as Solve calls it', () => {
     expect(r).toBe(sync);
   });
 });
+
+describe('a slab with a displacement imposed by a load case (#1673)', () => {
+  /** A slab fixed along x = 0, a settling support at the far corner and a load at mid-edge (case 1), a load at the free corner (case 2). */
+  function slab(kind: 'quad' | 'plate') {
+    const id = (i: number, j: number) => i * 2 + j + 1;
+    for (let i = 0; i < 3; i++) for (let j = 0; j < 2; j++) modelStore.addNode(i * 2, j * 2, 0);
+    const mat = modelStore.addMaterial({ name: 'H', e: 25000, nu: 0.2, rho: 0 });
+    for (let i = 0; i < 2; i++) {
+      const c = [id(i, 0), id(i + 1, 0), id(i + 1, 1), id(i, 1)] as [number, number, number, number];
+      if (kind === 'quad') modelStore.addQuad(c, mat, 0.2);
+      else { modelStore.addPlate([c[0], c[1], c[2]], mat, 0.2); modelStore.addPlate([c[0], c[2], c[3]], mat, 0.2); }
+    }
+    modelStore.addSupport(id(0, 0), 'fixed3d'); modelStore.addSupport(id(0, 1), 'fixed3d');
+    modelStore.addSupport(id(2, 1), 'pinned3d');
+    const [c1, c2] = modelStore.model.loadCases;
+    modelStore.addLoadEntry({ type: 'displacement3d', data: { id: 0, nodeId: id(2, 1), dz: DZ, caseId: c1!.id } });
+    modelStore.addNodalLoad3D(id(1, 0), 0, 0, -4, 0, 0, 0, c1!.id);
+    modelStore.addNodalLoad3D(id(2, 0), 0, 0, -10, 0, 0, 0, c2!.id);
+    const cid = modelStore.addCombination('1.5 A + B', [{ caseId: c1!.id, factor: 1.5 }, { caseId: c2!.id, factor: 1 }]);
+    return { c1: c1!.id, c2: c2!.id, cid };
+  }
+
+  for (const kind of ['quad', 'plate'] as const) {
+    it(`the case keeps its ${kind} stresses, and the combination adds 1,5 times them`, () => {
+      const { c1, c2, cid } = slab(kind);
+      const r = modelStore.solveCombinations3D(false, false, true);
+      if (!r || typeof r === 'string') throw new Error(String(r));
+      const list = (res: typeof r.perCombo extends Map<number, infer R> ? R : never) => (kind === 'quad' ? res.quadStresses : res.plateStresses) ?? [];
+      const [settled, loaded, combo] = [list(r.perCase.get(c1)!), list(r.perCase.get(c2)!), list(r.perCombo.get(cid)!)];
+      expect(settled.length).toBe(kind === 'quad' ? 2 : 4);
+      expect(Math.max(...settled.map((s) => Math.abs(s.mx)))).toBeGreaterThan(1);
+      combo.forEach((s, k) => {
+        expect(s.elementId).toBe(settled[k]!.elementId);
+        expect(s.mx).toBeCloseTo(1.5 * settled[k]!.mx + loaded[k]!.mx, 6);
+        expect(s.sigmaXx).toBeCloseTo(1.5 * settled[k]!.sigmaXx + loaded[k]!.sigmaXx, 6);
+      });
+    });
+  }
+});

@@ -514,6 +514,7 @@ fn validation_comb_ext_3d_distributed_combo() {
 
     // Combine: 2.0*LC1 + 0.5*LC2
     let combo = CombinationInput3D {
+        plate_thicknesses: vec![],
         factors: vec![
             CombinationFactor { case_id: 1, factor: 2.0 },
             CombinationFactor { case_id: 2, factor: 0.5 },

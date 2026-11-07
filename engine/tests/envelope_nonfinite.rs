@@ -33,6 +33,7 @@ fn results_2d() -> Vec<AnalysisResults> {
 fn results_3d() -> Vec<AnalysisResults3D> {
     let r = linear::solve_3d(&fixture::<SolverInput3D>("ex-3d-portal-frame-input.json")).unwrap();
     let scaled = combine_results_3d(&CombinationInput3D {
+        plate_thicknesses: vec![],
         factors: vec![CombinationFactor { case_id: 1, factor: -0.5 }],
         cases: vec![CaseEntry3D { case_id: 1, results: r.clone() }],
     })

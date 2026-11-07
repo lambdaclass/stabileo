@@ -798,34 +798,7 @@ pub fn plate_stress_recovery(
     let my = -mom[1];
     let mxy = -mom[2];
 
-    // -----------------------------------------------------------------------
-    // Combined top/bottom fibre stresses and principal / von Mises
-    // -----------------------------------------------------------------------
-    // Bending stress at extreme fibre (z = ±t/2):
-    //   sigma_bending = ∓6 * M / t² (M is sagging-positive)
-    let bend_xx = 6.0 * mx / (t * t);
-    let bend_yy = 6.0 * my / (t * t);
-    let bend_xy = 6.0 * mxy / (t * t);
-
-    // Top fibre (z = +t/2): membrane - bending.
-    let sx_top = sigma_xx - bend_xx;
-    let sy_top = sigma_yy - bend_yy;
-    let txy_top = tau_xy - bend_xy;
-
-    // Bottom fibre (z = -t/2): membrane + bending.
-    let sx_bot = sigma_xx + bend_xx;
-    let sy_bot = sigma_yy + bend_yy;
-    let txy_bot = tau_xy + bend_xy;
-
-    // Principal stresses and von Mises on both faces; report worst case.
-    let (s1_top, s2_top, vm_top) = principal_and_von_mises(sx_top, sy_top, txy_top);
-    let (s1_bot, s2_bot, vm_bot) = principal_and_von_mises(sx_bot, sy_bot, txy_bot);
-
-    let (sigma_1, sigma_2, von_mises) = if vm_top >= vm_bot {
-        (s1_top, s2_top, vm_top)
-    } else {
-        (s1_bot, s2_bot, vm_bot)
-    };
+    let (sigma_1, sigma_2, von_mises) = plate_worse_face(sigma_xx, sigma_yy, tau_xy, mx, my, mxy, t);
 
     PlateStressLocal {
         sigma_xx,
@@ -997,25 +970,7 @@ pub fn plate_stress_at_nodes_thermal(
         let my = -mom[1];
         let mxy = -mom[2];
 
-        let bend_xx = 6.0 * mx / (t * t);
-        let bend_yy = 6.0 * my / (t * t);
-        let bend_xy = 6.0 * mxy / (t * t);
-
-        let sx_top = sigma_xx - bend_xx;
-        let sy_top = sigma_yy - bend_yy;
-        let txy_top = tau_xy - bend_xy;
-        let sx_bot = sigma_xx + bend_xx;
-        let sy_bot = sigma_yy + bend_yy;
-        let txy_bot = tau_xy + bend_xy;
-
-        let (s1_top, s2_top, vm_top) = principal_and_von_mises(sx_top, sy_top, txy_top);
-        let (s1_bot, s2_bot, vm_bot) = principal_and_von_mises(sx_bot, sy_bot, txy_bot);
-
-        let (sigma_1, sigma_2, von_mises) = if vm_top >= vm_bot {
-            (s1_top, s2_top, vm_top)
-        } else {
-            (s1_bot, s2_bot, vm_bot)
-        };
+        let (sigma_1, sigma_2, von_mises) = plate_worse_face(sigma_xx, sigma_yy, tau_xy, mx, my, mxy, t);
 
         results[idx] = PlateStressLocal {
             sigma_xx, sigma_yy, tau_xy,
@@ -1025,6 +980,21 @@ pub fn plate_stress_at_nodes_thermal(
     }
 
     results
+}
+
+/// Principal stresses and von Mises on the face (z = ±t/2, membrane ∓ 6M/t²) with the larger von
+/// Mises, the top face on a tie.
+pub fn plate_worse_face(sigma_xx: f64, sigma_yy: f64, tau_xy: f64, mx: f64, my: f64, mxy: f64, t: f64) -> (f64, f64, f64) {
+    let bend_xx = 6.0 * mx / (t * t);
+    let bend_yy = 6.0 * my / (t * t);
+    let bend_xy = 6.0 * mxy / (t * t);
+    let (s1_top, s2_top, vm_top) = principal_and_von_mises(sigma_xx - bend_xx, sigma_yy - bend_yy, tau_xy - bend_xy);
+    let (s1_bot, s2_bot, vm_bot) = principal_and_von_mises(sigma_xx + bend_xx, sigma_yy + bend_yy, tau_xy + bend_xy);
+    if vm_top >= vm_bot {
+        (s1_top, s2_top, vm_top)
+    } else {
+        (s1_bot, s2_bot, vm_bot)
+    }
 }
 
 /// Compute principal stresses and von Mises equivalent from 2D plane stress.

@@ -331,6 +331,11 @@ fn combined_shells_3d(s: &SolverInput3D) -> Outcome {
     }
 }
 
+fn shell_ids_collide(s: &SolverInput3D) -> bool {
+    let ids: Vec<usize> = s.quads.values().map(|e| e.id).chain(s.quad9s.values().map(|e| e.id)).chain(s.solid_shells.values().map(|e| e.id)).chain(s.curved_shells.values().map(|e| e.id)).collect();
+    ids.iter().collect::<std::collections::HashSet<_>>().len() != ids.len()
+}
+
 fn combinations_3d(s: &SolverInput3D) -> Outcome {
     let solve = |loads: Vec<SolverLoad3D>| linear::solve_3d(&SolverInput3D { loads, ..s.clone() });
     if !matches!(solve(s.loads.clone()), Ok(r) if !refused(&r.structured_diagnostics, &r)) {
@@ -352,6 +357,8 @@ fn combinations_3d(s: &SolverInput3D) -> Outcome {
         combinations: definitions(),
     };
     let mc = match load_cases::solve_multi_case_3d(&input) {
+        Ok(_) if shell_ids_collide(s) => return Outcome::Violation("combined shells whose ids collide across families were not refused".into()),
+        Err(_) if shell_ids_collide(s) => return Outcome::Skipped("shell ids collide across families: combinations refused (#1666)".into()),
         Ok(m) if m.case_results.iter().any(|c| refused(&c.results.structured_diagnostics, &c.results)) || m.combination_results.iter().any(|c| refused(&c.results.structured_diagnostics, &c.results)) => {
             return Outcome::Violation("multi-case result carries a refusal the linear solve does not".into())
         }
@@ -379,8 +386,10 @@ fn combinations_3d(s: &SolverInput3D) -> Outcome {
         if let Err(e) = compare_compliant(&flat(&got.results), &exp_flat, &magnitude_of(&terms), cond.lchar, rel, floor, cond.compliance()) {
             return Outcome::Violation(format!("{name} ≠ linear solve of the factored loads: {e}"));
         }
-        if !got.results.plate_stresses.is_empty() || !got.results.quad_stresses.is_empty() {
-            return Outcome::Violation(format!("{name}: combinations now report shell stresses; compare them against the factored solve"));
+        let mut shell_terms: Vec<(f64, &AnalysisResults3D)> = fs.iter().map(|&(c, f)| (f, &mc.case_results[c].results)).collect();
+        shell_terms.push((1.0 - sum, &r0));
+        if let Err(e) = check_combined_shells(s, &got.results, &exp, &shell_terms, rel, floor) {
+            return Outcome::Violation(format!("{name}: {e}"));
         }
     }
     for (c, loads) in parts.iter().enumerate() {
@@ -698,7 +707,6 @@ fn shell_stress_components_superpose() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1673 multi-case 3D combinations report no shell stresses"]
 fn issue_1673_combinations_report_the_shell_stresses_of_the_factored_solve() {
     for seed in 0..5 {
         match combined_shells_3d(&building_3d(seed)) {
@@ -711,6 +719,7 @@ fn issue_1673_combinations_report_the_shell_stresses_of_the_factored_solve() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use dedaliano_engine::postprocess::combinations::{combine_results_3d, combine_results_3d_refs, combine_results_3d_refs_with_thickness, CaseEntry3D, CombinationFactor, CombinationInput3D, PlateThicknesses};
 
     fn quad_building() -> (SolverInput3D, AnalysisResults3D) {
         let s = building_3d(1);
@@ -729,6 +738,79 @@ mod tests {
             assert!(compare_shells(&r, &[(1.0, &got), (1.0, &r)], &got, 1e-10, 1.0, 0.1).is_err(), "expected {bad}");
         }
         assert!(compare_shells(&r, &[(1.0, &r)], &r, 1e-10, 1.0, 0.1).is_ok());
+    }
+
+    fn two_cases(seed: u64) -> (SolverInput3D, load_cases::MultiCaseResult3D) {
+        let s = building_3d(seed);
+        let [a, b, _] = split(&s.loads);
+        let input = load_cases::MultiCaseInput3D {
+            solver: SolverInput3D { loads: vec![], ..s.clone() },
+            load_cases: vec![load_cases::LoadCase3D { name: "A".into(), loads: a }, load_cases::LoadCase3D { name: "B".into(), loads: b }],
+            combinations: vec![load_cases::CombinationDef { name: "1.2A+1.6B".into(), factors: [("A".to_string(), 1.2), ("B".to_string(), 1.6)].into_iter().collect() }],
+        };
+        let mc = load_cases::solve_multi_case_3d(&input).unwrap();
+        (s, mc)
+    }
+
+    fn factors() -> Vec<CombinationFactor> {
+        vec![CombinationFactor { case_id: 0, factor: 1.2 }, CombinationFactor { case_id: 1, factor: 1.6 }]
+    }
+
+    #[test]
+    fn a_combination_of_given_cases_needs_each_plates_thickness() {
+        let (s, mc) = two_cases(0);
+        let (a, b) = (&mc.case_results[0].results, &mc.case_results[1].results);
+        assert!(!a.plate_stresses.is_empty());
+        assert!(combine_results_3d_refs(&factors(), &[(0, a), (1, b)]).is_err());
+        let mut thickness = plate_thicknesses(&s);
+        let combined = combine_results_3d_refs_with_thickness(&factors(), &[(0, a), (1, b)], &thickness).unwrap().unwrap();
+        let expected = &mc.combination_results[0].results;
+        assert_eq!(serde_json::to_value(&combined.plate_stresses).unwrap(), serde_json::to_value(&expected.plate_stresses).unwrap());
+        let input = CombinationInput3D {
+            factors: factors(),
+            cases: vec![CaseEntry3D { case_id: 0, results: a.clone() }, CaseEntry3D { case_id: 1, results: b.clone() }],
+            plate_thicknesses: thickness.iter().map(|(&id, &t)| (id, t)).collect(),
+        };
+        assert_eq!(serde_json::to_value(combine_results_3d(&input).unwrap().unwrap().plate_stresses).unwrap(), serde_json::to_value(&expected.plate_stresses).unwrap());
+        for t in [0.0, f64::NAN] {
+            thickness.insert(a.plate_stresses[0].element_id, t);
+            assert!(combine_results_3d_refs_with_thickness(&factors(), &[(0, a), (1, b)], &thickness).is_err(), "thickness {t}");
+        }
+    }
+
+    #[test]
+    fn shells_that_do_not_line_up_are_refused() {
+        let (_, mc) = two_cases(1);
+        let (a, b) = (&mc.case_results[0].results, &mc.case_results[1].results);
+        assert!(a.quad_stresses.len() > 1 && !a.quad_nodal_stresses.is_empty());
+        let none = PlateThicknesses::new();
+        let combine = |x: &AnalysisResults3D, y: &AnalysisResults3D| combine_results_3d_refs_with_thickness(&factors(), &[(0, x), (1, y)], &none);
+        assert_eq!(combine(a, b).unwrap().unwrap().quad_stresses.len(), a.quad_stresses.len());
+        let mut reordered = b.clone();
+        reordered.quad_stresses.reverse();
+        let mut missing = b.clone();
+        missing.quad_stresses.pop();
+        let mut nodal = b.clone();
+        nodal.quad_nodal_stresses.pop();
+        let mut repeated = a.clone();
+        repeated.quad_stresses[1].element_id = repeated.quad_stresses[0].element_id;
+        for (what, x, y) in [("reordered", a, &reordered), ("missing", a, &missing), ("nodal", a, &nodal), ("repeated id", &repeated, &repeated)] {
+            assert!(combine(x, y).is_err(), "{what}");
+        }
+        let zero = [CombinationFactor { case_id: 0, factor: 1.0 }, CombinationFactor { case_id: 1, factor: 0.0 }];
+        assert!(combine_results_3d_refs_with_thickness(&zero, &[(0, a), (1, &missing)], &none).is_ok());
+    }
+
+    #[test]
+    fn a_shell_shear_is_combined_only_where_every_case_has_it() {
+        let (_, mc) = two_cases(1);
+        let (a, mut b) = (&mc.case_results[0].results, mc.case_results[1].results.clone());
+        assert!(a.quad_stresses[0].qx.is_some());
+        b.quad_stresses[0].qy = None;
+        let combined = combine_results_3d_refs(&factors(), &[(0, a), (1, &b)]).unwrap().unwrap();
+        assert_eq!((combined.quad_stresses[0].qx, combined.quad_stresses[0].qy), (None, None));
+        let q = &combined.quad_stresses[1];
+        assert_eq!(q.qx, Some(1.2 * a.quad_stresses[1].qx.unwrap() + 1.6 * b.quad_stresses[1].qx.unwrap()));
     }
 
     #[test]
