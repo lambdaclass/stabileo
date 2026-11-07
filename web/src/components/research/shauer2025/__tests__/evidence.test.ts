@@ -7,6 +7,7 @@ import { checkMetadata, checkLabel, metricLabel } from '../validation-labels';
 import validation from '../../../../../../research/fracture/shauer-2025/VALIDATION.json';
 import { num } from '../../shell/format';
 import { MESHES } from '../model';
+import { PUBLIC_LOCALES } from '../../../../lib/i18n/offered';
 
 const csv: Record<number, URL> = {
   1: new URL('../../../../../../research/fracture/shauer-2025/reference-results/ex1_steps.csv', import.meta.url),
@@ -45,7 +46,7 @@ it('localizes every validation name and metric without changing numbers or toler
   const previous = publicI18n.locale;
   try {
     expect(Object.keys(checkMetadata)).toEqual(validation.checks.map(c => c.name));
-    for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
+    for (const locale of PUBLIC_LOCALES) {
       setLocale(locale);
       for (const c of validation.checks) {
         expect(checkLabel(c.name)).toBeTruthy();
@@ -70,7 +71,7 @@ it('provides German, French and Turkish copy for every Shauer and shell string i
   keys.delete('notComparedWhy');
   for (const mesh of Object.values(MESHES)) keys.add(mesh.label);
   try {
-    for (const locale of ['de', 'fr', 'tr']) {
+    for (const locale of PUBLIC_LOCALES.filter((l) => !['en', 'es', 'pt'].includes(l))) {
       setLocale(locale);
       expect(researchLocale()).toBe(locale);
       for (const key of keys) expect(shauerLocaleKeys, `${locale}.${key}`).toContain(key);
@@ -102,7 +103,7 @@ it('keeps the complete energy series accessible and uses distinct energy colours
 it('bundles viewer translations for all public locales', () => {
   const config = readFileSync(new URL('../../../../../vite.research-viewer.config.ts', import.meta.url), 'utf8');
   expect(config).not.toContain('export const ${locale} = {};');
-  for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
+  for (const locale of PUBLIC_LOCALES) {
     const source = readFileSync(new URL(`../../../../lib/i18n/locales/${locale}.ts`, import.meta.url), 'utf8');
     expect(source).toContain('scalarViewer.viewOptions');
   }

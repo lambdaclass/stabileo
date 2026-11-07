@@ -7,6 +7,7 @@ import validation from '../../../../../../research/stability/ferrari-sigmund-202
 import PlotXY from '../../grossman2026/PlotXY.svelte';
 import { setLocale } from '../../../../lib/i18n/store.svelte';
 import { rs } from '../../i18n';
+import { PUBLIC_LOCALES } from '../../../../lib/i18n/offered';
 
 afterEach(() => setLocale('en'));
 for (const locale of ['en', 'es', 'pt']) {
@@ -44,7 +45,7 @@ for (const locale of ['en', 'es', 'pt']) {
   });
 }
 
-for (const locale of ['de', 'fr', 'tr']) {
+for (const locale of PUBLIC_LOCALES.filter((l) => !['en', 'es', 'pt'].includes(l))) {
   it(`renders English copy with ${locale} numbers`, () => {
     setLocale(locale);
     const body = render(FerrariPage).body.replace(/<!--.*?-->/g, '');
@@ -63,7 +64,7 @@ for (const locale of ['de', 'fr', 'tr']) {
   });
 }
 
-for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
+for (const locale of PUBLIC_LOCALES) {
   it(`localizes chart ticks in ${locale}`, () => {
     setLocale(locale);
     const body = render(PlotXY, { props: {
