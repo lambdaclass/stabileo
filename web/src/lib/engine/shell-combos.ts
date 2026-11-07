@@ -25,8 +25,20 @@ export interface ComboFactor { caseId: number; factor: number; }
 
 type Membrane = { sigmaXx: number; sigmaYy: number; tauXy: number; mx: number; my: number; mxy: number; qx?: number; qy?: number };
 
+export function uniqueShells<T extends { elementId: number }>(list: readonly T[] | undefined): readonly T[] {
+  const seen = new Set<number>();
+  for (const s of list ?? []) {
+    if (seen.has(s.elementId)) throw new Error(`Shell element ${s.elementId} appears twice in one result set: shell families number their ids independently, so its stresses cannot be told apart`);
+    seen.add(s.elementId);
+  }
+  return list ?? [];
+}
+
+export const shellsById = <T extends { elementId: number }>(list: readonly T[] | undefined): Map<number, T> =>
+  new Map(uniqueShells(list).map((s) => [s.elementId, s]));
+
 const toMembraneMap = (list: Array<{ elementId: number } & Membrane> | undefined): Map<number, Membrane> =>
-  new Map((list ?? []).map(s => [s.elementId, { sigmaXx: s.sigmaXx, sigmaYy: s.sigmaYy, tauXy: s.tauXy, mx: s.mx, my: s.my, mxy: s.mxy, qx: s.qx, qy: s.qy }]));
+  new Map(uniqueShells(list).map(s => [s.elementId, { sigmaXx: s.sigmaXx, sigmaYy: s.sigmaYy, tauXy: s.tauXy, mx: s.mx, my: s.my, mxy: s.mxy, qx: s.qx, qy: s.qy }]));
 
 /** The plates' thicknesses, which their face stresses need. */
 export type PlateThickness = ReadonlyMap<number, { thickness: number }>;
