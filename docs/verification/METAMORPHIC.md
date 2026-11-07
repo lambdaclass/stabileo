@@ -94,11 +94,9 @@ UPDATE_METAMORPHIC_DOC=1 cargo test --locked --release --test metamorphic metamo
   accepted refusals are the declared unsupported features (`DECLARED_REFUSALS`: shells in
   corotational, material and fiber nonlinear, and staged MITC9/solid/curved shells; releases and
   settlements in fiber nonlinear; settlements in SSI), and only when the model has that feature. Any other refusal fails. Fuzz models
-  may be refused. One engine bug is asserted as it is now, not exempted: SSI reports no
-  reactions (#1672). Every other field of those results is fully checked. When it is fixed,
-  the test fails and points to the issue, and the case moves to the full check. 3D
-  combinations, which had no plate, quad or quad nodal stresses until #1673, have the full
-  check.
+  may be refused. No engine bug is exempted. SSI reactions (#1672) and the plate, quad and
+  quad nodal stresses of 3D combinations (#1673) were asserted missing as known bugs until
+  they were fixed, and now have the full check.
 
 ## Invariants
 
