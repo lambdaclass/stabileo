@@ -4,7 +4,7 @@ import RecheckNotice from '../RecheckNotice.svelte';
 import { recheckStore } from '../../lib/store/recheck.svelte';
 import { t, setLocale } from '../../lib/i18n';
 
-vi.mock('../../lib/store/file', () => ({ saveWorkspaceToLocalStorage: vi.fn() }));
+vi.mock('../../lib/store/file', () => ({ saveWorkspaceSettled: vi.fn() }));
 vi.mock('../../lib/actions/recheck', () => ({
   rerunAnalysisAndDesign: vi.fn(),
   recheckKey: (key: string) => key,

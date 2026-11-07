@@ -63,6 +63,7 @@ export interface TabState {
   // (historyStore.setStacks defaults missing entries to 'structural').
   undoKinds?: SnapshotKind[];
   redoKinds?: SnapshotKind[];
+  detailingRef?: string;
   // === Independent per-tab visualization config ===
   // 2D config
   showGrid: boolean;
@@ -112,7 +113,7 @@ function generateTabId(): string {
 }
 
 function createTabManager() {
-  let tabs = $state<TabState[]>([]);
+  let tabs = $state.raw<TabState[]>([]);
   let activeTabId = $state<string | null>(null);
 
   // AbortController to cancel pending deferred operations (solve, DSM) on rapid tab switches
