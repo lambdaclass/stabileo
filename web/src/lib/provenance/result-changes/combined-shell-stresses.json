@@ -1,7 +1,9 @@
 {
   "id": "combined-shell-stresses",
   "date": "2026-11-07",
-  "prs": [],
+  "prs": [
+    1676
+  ],
   "area": "analysis",
   "when": {
     "allOf": [
