@@ -46,6 +46,17 @@ export function stageDetailing(tabId: string, heavy: HeavyDetailing): StagedDeta
   return { tabId, ref, heavy };
 }
 
+let detailingWritten: (() => void) | null = null;
+
+/** Called on every replacement of the active tab's detailing by the detailing store. */
+export function noteDetailingWrite(): void {
+  detailingWritten?.();
+}
+
+export function onDetailingWrite(fn: () => void): void {
+  detailingWritten = fn;
+}
+
 export function noteDetailingKnown(tabId: string, ref: string, heavy: HeavyDetailing): void {
   known.set(tabId, { ref, parts: partsOf(heavy) });
 }
@@ -169,7 +180,7 @@ function isEnd(e: unknown): boolean {
 function isBar(b: unknown): boolean {
   return isObj(b) && typeof b.id === 'string' && finite(b.diameterMm) && b.diameterMm > 0
     && (b.role === 'longitudinal' || b.role === 'transverse')
-    && Array.isArray(b.segments) && b.segments.every(isSegment)
+    && Array.isArray(b.segments) && b.segments.length > 0 && b.segments.every(isSegment)
     && isEnd(b.startTreatment) && isEnd(b.endTreatment)
     && isNonNeg(b.cuttingLength) && finiteList(b.ownerElementIds);
 }

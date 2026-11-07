@@ -7,7 +7,7 @@ import {
   saveWorkspaceSettled, saveWorkspaceToLocalStorage, snapshotHoldsWork, workspaceNeedsDetailing, workspaceSavesFinished,
 } from '../store/file';
 import { pruneDetailing, readDetailing, resetWorkspaceDetailingDb, resetWorkspaceDetailingMemory } from '../store/workspace-detailing';
-import type { DetailingStore } from '../engine/detailing/assembly';
+import { emptyDetailingStore, type DetailingStore } from '../engine/detailing/assembly';
 import { workspaceSaveStatus } from '../store/workspace-save-status.svelte';
 import { modelStore } from '../store/model.svelte';
 import { detailingStore } from '../store/detailing.svelte';
@@ -399,6 +399,7 @@ describe('the designed and detailed 7-storey building', () => {
       {}, { assemblies: [{ id: 'a', bars: [null] }] }, { assemblies: [{ bars: [] }] },
       { assemblies: [{ id: 'a', bars: [{ id: 'b' }] }] },
       withBar({ ...bar, diameterMm: Number.NaN }),
+      withBar({ ...bar, segments: [] }),
       withBar({ ...bar, cuttingLength: undefined }),
       withBar({ ...bar, role: 'diagonal' }),
       withBar({ ...bar, segments: [{ ...bar.segments[0]!, start: { x: 0, y: Number.POSITIVE_INFINITY, z: 0 } }] }),
@@ -468,6 +469,39 @@ describe('the designed and detailed 7-storey building', () => {
     expect(await saveWorkspaceSettled()).toBe(true);
     const stored = JSON.parse(storage.getItem(WORKSPACE_KEY)!).tabs as TabState[];
     expect(stored.map((tab) => tab.detailingRef)).toEqual([undefined, ref, undefined]);
+  }, 300_000);
+
+  it('bars the store could not read keep their ref when the rest of the detailing is the default', async () => {
+    const bare = { ...emptyDetailingStore(), assemblies: designed.modelSnapshot.detailing!.assemblies };
+    startWith([{ ...designed, modelSnapshot: { ...designed.modelSnapshot, detailing: bare } } as TabState], designed.id);
+    expect(await saveWorkspaceSettled()).toBe(true);
+    const ref = storedRef();
+
+    await resetWorkspaceDetailingDb();
+    vi.stubGlobal('indexedDB', undefined);
+    await reload();
+    expect(await saveWorkspaceSettled()).toBe(true);
+    expect(storedRef()).toBe(ref);
+
+    detailingStore.clear();
+    expect(JSON.stringify(modelStore.snapshot().detailing), 'a clear that reads the same as the restored detailing').toBe(JSON.stringify({ ...bare, assemblies: [] }));
+    expect(await saveWorkspaceSettled()).toBe(true);
+    expect(storedRef(), 'cleared: the ref is dropped').toBeUndefined();
+  }, 300_000);
+
+  it('a stored tab whose id is already open keeps reusing its stored bars under its new id', async () => {
+    startWith([designed], designed.id);
+    expect(await saveWorkspaceSettled()).toBe(true);
+    const ref = storedRef();
+
+    resetWorkspaceDetailingMemory();
+    tabManager.restoreSession([{ ...bootTab(), id: designed.id }], designed.id);
+    detailingStore.clear();
+    modelStore.addNode(1, 2, 3);
+    await restoreWorkspaceDetailing(loadWorkspaceFromLocalStorage()!, (session) => tabManager.restoreSession(session.tabs, session.activeTabId));
+    expect(await saveWorkspaceSettled()).toBe(true);
+    const stored = JSON.parse(storage.getItem(WORKSPACE_KEY)!).tabs as TabState[];
+    expect(stored.map((tab) => tab.detailingRef)).toEqual([undefined, ref]);
   }, 300_000);
 
   it('bars the store could not read keep their ref across tab switches', async () => {

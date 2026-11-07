@@ -21,8 +21,7 @@ import {
   autosaveClear, autosaveRead, autosaveStatus, autosaveWrite,
   type AutosaveFingerprint, type AutosavePolicy, type AutosaveReadResult, type AutosaveWriteResult,
 } from './autosave-db';
-import { emptyDetailingStore } from '../engine/detailing/assembly';
-import { noteDetailingKnown, pruneDetailing, readDetailing, splitDetailing, stageDetailing, storeDetailing, type HeavyDetailing, type StagedDetailing } from './workspace-detailing';
+import { noteDetailingKnown, onDetailingWrite, pruneDetailing, readDetailing, splitDetailing, stageDetailing, storeDetailing, type HeavyDetailing, type StagedDetailing } from './workspace-detailing';
 import { workspaceSaveStatus } from './workspace-save-status.svelte';
 import {
   type ViewportPresentation3D,
@@ -1158,6 +1157,7 @@ function protectStoredWorkspace(raw: string, reason: WorkspaceBackup['reason'], 
 
 let workspaceRestorePending = false;
 const unreadDetailing = new Map<string, { ref: string; key: string }>();
+onDetailingWrite(() => unreadDetailing.delete(tabManager.activeTabId ?? ''));
 
 const detailingKey = (d: ModelSnapshot['detailing']): string => JSON.stringify(d ?? null);
 let saveGen = 0;
@@ -1287,6 +1287,7 @@ export async function restoreWorkspaceDetailing(session: DedalSessionFile, repla
     const records = wanted.length > 0 ? await readDetailing(wanted.map((tab) => tab.detailingRef!)) : new Map<string, HeavyDetailing>();
     const lost: DroppedSessionTab[] = [];
     const unread = new Map<TabState, string>();
+    const known: [TabState, string, HeavyDetailing][] = [];
     for (const tab of wanted) {
       const ref = tab.detailingRef!;
       const heavy = records?.get(ref);
@@ -1294,7 +1295,7 @@ export async function restoreWorkspaceDetailing(session: DedalSessionFile, repla
       if (heavy) {
         tab.modelSnapshot = { ...tab.modelSnapshot, detailing: { ...tab.modelSnapshot.detailing!, ...heavy } };
         forgetSessionDemandRevisions(tab.modelSnapshot);
-        noteDetailingKnown(tab.id, ref, heavy);
+        known.push([tab, ref, heavy]);
       } else {
         lost.push({ index: session.tabs.indexOf(tab), name: tab.name });
         if (!records) unread.set(tab, ref);
@@ -1304,13 +1305,13 @@ export async function restoreWorkspaceDetailing(session: DedalSessionFile, repla
     const beside = tabManager.tabs.length > 1 || snapshotHoldsWork(modelStore.snapshot());
     if (beside) tabManager.addTabs(session.tabs);
     else replace(session);
-    const cleared = detailingKey(emptyDetailingStore());
+    for (const [tab, ref, heavy] of known) noteDetailingKnown(tab.id, ref, heavy);
     for (const [saved, ref] of unread) {
       const id = saved.id;
       const tab = tabManager.tabs.find((x) => x.id === id);
       if (!tab) continue;
       const key = detailingKey(id === tabManager.activeTabId ? modelStore.snapshot().detailing : tab.modelSnapshot.detailing);
-      if (key !== cleared) unreadDetailing.set(id, { ref, key });
+      unreadDetailing.set(id, { ref, key });
     }
     if (beside) uiStore.toast(t('file.workspaceRestoredBeside'), 'info', undefined, true);
     if (lost.length > 0) {
