@@ -14,10 +14,11 @@ const PAGES: Array<[string, string | null]> = [
   ['/en/blog/', 'blog'],
   ['/en/blog/the-determinism-boundary/', 'blog'],
   ['/en/cirsoc/', null],
-  ['/en/changelog/', 'changelog'],
-  ['/en/paper/', 'paper'],
+  ['/en/changelog/', 'blog'],
+  ['/en/paper/', 'research'],
   ['/en/research/', 'research'],
   ['/en/tools/', 'tools'],
+  ['/en/examples/', 'examples'],
   ...EXPERIMENTS.map(({ path }): [string, string] => [`/en${path}/`, 'research']),
 ];
 
@@ -36,9 +37,9 @@ test.describe('@smoke site header', () => {
   }
 });
 
-// Below 1141px the nav collapses into its menu; from 1141px the links show (site-nav-width.spec.ts).
+// At 1080px and below the nav collapses into its menu; from 1081px the links show (site-nav-width.spec.ts).
 for (const locale of ['en', 'es', 'pt']) {
-  for (const width of [1000, 1100]) {
+  for (const width of [1000, 1080]) {
     test(`@smoke site header bounds ${locale} at ${width}px`, async ({ page }) => {
       await page.setViewportSize({ width, height: 900 });
       await page.goto(`/${locale}/research/`);

@@ -118,7 +118,7 @@ export const rcColumn = defineExample<Model>({
   id: 'rc-column',
   dimension: '2d',
   params: [
-    { key: 'b', value: 0.4, min: 0.2, max: 0.8, step: 0.05, unit: 'm' },
+    { key: 'b', value: 0.4, min: 0.25, max: 0.45, step: 0.05, unit: 'm' },
     { key: 'h', value: 0.5, min: 0.2, max: 1, step: 0.05, unit: 'm' },
     { key: 'perFace', value: 3, min: 2, max: 3, step: 1, unit: '' },
     { key: 'barDia', value: 20, min: 12, max: 32, step: 2, unit: 'mm' },

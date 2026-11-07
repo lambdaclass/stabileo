@@ -137,7 +137,7 @@ export const earthquake = defineExample<Model>({
     const ground = config.groundAccelX.map((a, k) => [k * DT, a / G] as [number, number]);
     return {
       status: 'ok', readouts, certificate, notes: ['chord', 'editorFrameOnly', 'elasticShear'],
-      views: { deformed: s.view('deformed', 'mm', boundsOf(s.xy, 0.1)) },
+      views: { deformed: { ...s.view('deformed', 'mm', boundsOf(s.xy, 0.1)), legend: { shape: 'deformed', scale } } },
       charts: [
         { key: 'roof', xUnit: 's', yUnit: 'mm', points: roofPoints, marker: peakTime },
         { key: 'ground', xUnit: 's', yUnit: 'g', points: ground },

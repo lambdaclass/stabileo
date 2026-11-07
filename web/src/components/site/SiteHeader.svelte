@@ -65,6 +65,7 @@
           <PublicLink to={item.to} class="nav-link{current === item.id ? ' current' : ''}" data-nav={item.id} aria-current={current === item.id ? 'page' : undefined}>{t(item.key)}</PublicLink>
         {/if}
       {/each}
+      <button class="btn btn-primary nav-menu-cta" onclick={() => { open = false; enterApp(); }}>{t('landing.navOpenEditor')}</button>
     </div>
 
     <div class="nav-actions">

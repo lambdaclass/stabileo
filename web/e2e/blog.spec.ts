@@ -59,7 +59,8 @@ test.describe('blog', () => {
     await boot(page, '/es/changelog/', 'es');
 
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Historial de cambios de Stabileo');
-    await expect(page.locator('nav .nav-links a[data-nav="changelog"]')).toHaveAttribute('aria-current', 'page');
+    await expect(page.locator('nav .nav-links a[data-nav="blog"]')).toHaveAttribute('aria-current', 'page');
+    await expect(page.locator('nav .nav-links [aria-current]')).toHaveCount(1);
     const weeks = page.getByTestId('changelog-entry');
     await expect(weeks).toHaveCount(CHANGELOG.length);
     await expect(weeks.first()).toHaveAttribute('data-date', CHANGELOG[0].date);
@@ -659,7 +660,7 @@ test.describe('blog', () => {
   test('@smoke the editor is one click away and leaves the blog behind', async ({ page }) => {
     await boot(page, `/blog/${SLUG}`);
 
-    await page.locator('#app .site-header .btn-primary').click();
+    await page.locator('#app .site-header .nav-actions .btn-primary').click();
 
     await expect(page.locator('.landing.blog')).toHaveCount(0);
     await expect(page.locator('.app-container')).not.toHaveClass(/hidden-behind-landing/);

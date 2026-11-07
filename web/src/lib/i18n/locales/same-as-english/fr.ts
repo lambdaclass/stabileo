@@ -348,7 +348,6 @@ export const SAME_AS_ENGLISH: readonly string[] = [
   'landing.modAi',
   'landing.navBlog',
   'landing.navMenuOpen',
-  'landing.navPro',
   'lang.ar',
   'lang.de',
   'lang.en',
