@@ -1,7 +1,7 @@
 import type { SolverInput } from '../../lib/engine/types';
 import { withSection, type Bar } from '../../lib/engine/codes/argentina/cirsoc201-section';
 import { ES_MPA } from '../../lib/engine/codes/argentina/cirsoc201-basis';
-import { defineExample, type Readout, type Values } from './define';
+import { defineExample, type Readout, type Stopped, type Values } from './define';
 import { barsFit, barsTied } from './rc-column';
 import { Sketch, boundsOf } from './draw';
 
@@ -109,6 +109,10 @@ export function sectionPeak(v: Values, strips = 400, steps = 200, iterations = 6
   return best * 1000;
 }
 
+function lateralLoad(lateral: number): SolverInput['loads'] {
+  return [{ type: 'nodal', data: { nodeId: SEGMENTS + 1, fx: lateral, fz: 0, my: 0 } }];
+}
+
 export function build(v: Values): Model {
   const nodes: SolverInput['nodes'] = new Map();
   const elements: SolverInput['elements'] = new Map();
@@ -123,7 +127,7 @@ export function build(v: Values): Model {
       materials: new Map([[1, { id: 1, e: concreteModulus(v.fc), nu: 0.2 }]]),
       sections: new Map([[1, { id: 1, a: v.b * v.h, iz: v.b * v.h ** 3 / 12 }]]),
       supports: new Map([[1, { id: 1, nodeId: 1, type: 'fixed' as const }]]),
-      loads: [{ type: 'nodal', data: { nodeId: SEGMENTS + 1, fx: lateral, fz: 0, my: 0 } }],
+      loads: lateralLoad(lateral),
     },
   };
 }
@@ -142,6 +146,14 @@ export function fiberSection(v: Values) {
 }
 
 type Displacement = { nodeId: number; ux: number; uz: number; ry: number };
+
+export function baseCompression(v: Values, displacements: Displacement[]): number {
+  const l = v.height / SEGMENTS;
+  const top = displacements.find(d => d.nodeId === 2)!;
+  const curvature = 6 * top.ux / l ** 2 + 2 * top.ry / l;
+  return Math.abs(curvature) * v.h / 2 - top.uz / l;
+}
+
 type Run = {
   status: 'complete' | 'stopped';
   lastConvergedLoadFactor: number;
@@ -169,15 +181,26 @@ export const rcPushover = defineExample<Model>({
   analyses(model, v, engine) {
     if (!barsFit({ ...v, cover: COVER })) return { status: 'refused', code: 'barsDoNotFit' };
     if (!barsTied({ ...v, cover: COVER })) return { status: 'refused', code: 'needsCrossties' };
-    const run = engine.solveFiberNonlinear2D({
-      solver: model.solver, fiberSections: { 1: fiberSection(v) },
-      nIntegrationPoints: 5, maxIter: 40, tolerance: 1e-8, nIncrements: INCREMENTS, modifiedNr: false,
+    const solve = (lateral: number, nIncrements: number) => engine.solveFiberNonlinear2D({
+      solver: { ...model.solver, loads: lateralLoad(lateral) }, fiberSections: { 1: fiberSection(v) },
+      nIntegrationPoints: 5, maxIter: 40, tolerance: 1e-8, nIncrements, modifiedNr: false,
     }) as Run;
+    let run = solve(model.lateral, INCREMENTS);
+    let scale = 1;
+    let stopped: Stopped | undefined = run.status === 'stopped' ? { loadFactor: run.lastConvergedLoadFactor, reason: run.stopReason ?? '' } : undefined;
+    const crushed = run.history.findIndex(h => baseCompression(v, h.displacements) > EPS_CU);
+    if (crushed > 0) {
+      scale = run.history[crushed - 1].loadFactor;
+      run = solve(scale * model.lateral, crushed);
+      if (run.status !== 'complete') return { status: 'refused', code: 'engine', reason: run.stopReason ?? 'the run to the last step before crushing did not complete' };
+      stopped = { loadFactor: scale, reason: 'εc > εcu at the base', crushed: true };
+    }
+    const lateral = scale * model.lateral;
     const tip = (d: Displacement[]) => d.find(x => x.nodeId === SEGMENTS + 1)!.ux;
-    const curve: [number, number][] = [[0, 0], ...run.history.map(h => [tip(h.displacements) * 1000, h.loadFactor * model.lateral] as [number, number])];
+    const curve: [number, number][] = [[0, 0], ...run.history.map(h => [tip(h.displacements) * 1000, h.loadFactor * lateral] as [number, number])];
     if (!curve.flat().every(Number.isFinite)) return { status: 'refused', code: 'nonFinite' };
     if (run.history.length === 0) return { status: 'refused', code: 'engine', reason: run.stopReason ?? 'no converged load step' };
-    const carried = run.lastConvergedLoadFactor * model.lateral;
+    const carried = run.lastConvergedLoadFactor * lateral;
     const first = run.history[0];
     const cracked = crackedStiffness(v);
     const section = sectionPeak(v) / v.height;
@@ -201,7 +224,7 @@ export const rcPushover = defineExample<Model>({
     return {
       status: 'ok', readouts, notes: ['magnified'],
       certificate: { status: 'unavailable', kind: 'fiber', code: 'noCertifier' },
-      stopped: run.status === 'stopped' ? { loadFactor: run.lastConvergedLoadFactor, reason: run.stopReason ?? '' } : undefined,
+      stopped,
       views: { pushover: s.view('pushover', 'mm', boundsOf([-H * 0.3, 0, H * 0.3, H], 0.05)) },
       charts: [{
         key: 'pushoverCurve', xUnit: 'mm', yUnit: 'kN', xLabel: 'δ (mm)', points: curve,

@@ -89,7 +89,7 @@ for (const [id, query, key, tolerance] of CLOSED_FORMS) test(`@smoke example ${i
 test('@smoke the pushover past its capacity is shown as stopped, below the target', async ({ page }) => {
   await page.goto('/en/examples/rc-pushover/?target=1.4&e2e=1');
   await expect(page.getByTestId('stopped')).toBeVisible({ timeout: 60000 }); // slow-ok: 80 fibre increments with Newton iterations run in the worker before the first result.
-  await expect(page.getByTestId('stopped')).toContainText('not converged');
+  await expect(page.getByTestId('stopped')).toContainText('passes εcu = 0.004');
   near(await value(page, 'readout-peakShear'), await value(page, 'reference-peakShear'), 0.1);
   await page.getByTestId('param-target').fill('0.6');
   await expect(page.getByTestId('stopped')).toHaveCount(0, { timeout: 60000 }); // slow-ok: the second fibre run re-solves all increments.

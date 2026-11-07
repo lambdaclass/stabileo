@@ -46,8 +46,10 @@ export type Overlay = { key: string; points: [number, number][]; dashed?: boolea
 
 export type Chart = { key: string; xUnit: string; yUnit: string; points: [number, number][]; marker?: number; xLabel?: string; overlays?: Overlay[] };
 
+export type Stopped = { loadFactor: number; reason: string; crushed?: boolean };
+
 export type Outcome =
-  | { status: 'ok'; readouts: Readout[]; certificate: Certificate; views: Record<string, View>; charts: Chart[]; notes: string[]; stopped?: { loadFactor: number; reason: string } }
+  | { status: 'ok'; readouts: Readout[]; certificate: Certificate; views: Record<string, View>; charts: Chart[]; notes: string[]; stopped?: Stopped }
   | { status: 'refused'; code: 'engine' | 'noLoad' | 'nonFinite' | 'barsDoNotFit' | 'needsCrossties'; reason?: string };
 
 export function refusedOutcome(error: unknown): Extract<Outcome, { status: 'refused' }> {

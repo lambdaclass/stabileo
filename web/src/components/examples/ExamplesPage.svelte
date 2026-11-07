@@ -157,7 +157,7 @@
             {#if outcome?.status === 'refused'}
               <p class="warning" role="alert" data-testid="refusal" data-code={outcome.code}>{te('refused')} {te(`refuse.${outcome.code}`)}{#if outcome.reason}{' '}<span lang="en">({outcome.reason})</span>{/if}</p>
             {:else if outcome?.status === 'ok' && !busy}
-              {#if outcome.stopped}<p class="warning" role="alert" data-testid="stopped" data-load-factor={outcome.stopped.loadFactor}>{te('stopped').replace('{lambda}', number(outcome.stopped.loadFactor, 3))} <span lang="en">({outcome.stopped.reason})</span></p>{/if}
+              {#if outcome.stopped}<p class="warning" role="alert" data-testid="stopped" data-load-factor={outcome.stopped.loadFactor}>{te(outcome.stopped.crushed ? 'crushed' : 'stopped').replace('{lambda}', number(outcome.stopped.loadFactor, 3))} <span lang="en">({outcome.stopped.reason})</span></p>{/if}
               <div class="readouts">
                 {#each outcome.readouts as r (r.key)}
                   <div class="readout" data-testid={`readout-${r.key}`} data-value={r.value}>
