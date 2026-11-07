@@ -16,8 +16,9 @@ function result(ux: number, diagnostics: object[] = []) {
 
 function counted(ux: number, diagnostics: object[] = []) {
   const reads = { n: 0 };
-  const r = result(ux, diagnostics);
-  Object.defineProperty(r, 'findings', { enumerable: false, get() { reads.n++; return []; } });
+  const target = result(ux, diagnostics);
+  Object.defineProperty(target, 'findings', { value: Object.freeze([]), enumerable: false });
+  const r = new Proxy(target, { get(t, key, receiver) { if (key === 'findings') reads.n++; return Reflect.get(t, key, receiver); } });
   return { r, reads };
 }
 
@@ -158,6 +159,57 @@ describe('a refused result is withheld on every read path', () => {
     expect(resultsStore.results3D).toBeNull();
     resultsStore.setResults3D(result(2, shared) as never);
     expect(resultsStore.results3D).toBeNull();
+  });
+});
+
+describe('what the cache cannot see is scanned on every read', () => {
+  it('a diagnostic list the freeze cannot reach is not cached: an edit to it is seen', () => {
+    const list: object[] = [];
+    const r = result(1);
+    Object.defineProperty(r, 'findings', { value: list, enumerable: false });
+    resultsStore.setResults3D(r as never);
+    expect(resultsStore.results3D).toBe(r);
+    list.push(refusal());
+    expect(resultsStore.results3D).toBeNull();
+    expect(resultsStore.knownIssues3D.refused).toBe(true);
+  });
+
+  it('a diagnostic accessor is not cached: what it returns next is seen', () => {
+    let refuse = false;
+    const r = result(1);
+    Object.defineProperty(r, 'findings', { enumerable: false, get: () => (refuse ? [refusal()] : []) });
+    resultsStore.setResults3D(r as never);
+    expect(resultsStore.results3D).toBe(r);
+    refuse = true;
+    expect(resultsStore.results3D).toBeNull();
+  });
+
+  it('a Map inside a result is locked, and the native mutator that still reaches it is seen', () => {
+    const params = new Map<string, unknown>();
+    const r = { ...result(1), params };
+    resultsStore.setResults3D(r as never);
+    expect(() => params.set('x', refusal())).toThrow(TypeError);
+    expect(resultsStore.results3D).toBe(r);
+    Map.prototype.set.call(params, 'x', refusal());
+    expect(resultsStore.results3D).toBeNull();
+  });
+
+  it('a case added to the published map through the native mutator is scanned', () => {
+    resultsStore.setResults3D(result(0) as never);
+    resultsStore.setCombinationResults3D(new Map([[1, result(1)]]) as never, new Map([[2, result(2)]]) as never, { maxAbsResults3D: result(3) } as never);
+    expect(resultsStore.perCase3D.size).toBe(1);
+    Map.prototype.set.call(resultsStore.perCase3D, 9, freezeResult(result(9, [refusal()])));
+    expect(resultsStore.perCase3D.size).toBe(0);
+    expect(resultsStore.perCombo3D.size).toBe(0);
+    expect(resultsStore.envelope3D).toBeNull();
+  });
+
+  it('filling one withheld map never shows in the next', () => {
+    resultsStore.setResults3D(result(0) as never);
+    resultsStore.setCombinationResults3D(new Map([[1, result(1, [refusal()])]]) as never, new Map([[2, result(2)]]) as never, null as never);
+    Map.prototype.set.call(resultsStore.perCase3D, 1, result(777777));
+    expect(resultsStore.perCase3D.size).toBe(0);
+    expect(resultsStore.perCombo3D.size).toBe(0);
   });
 });
 

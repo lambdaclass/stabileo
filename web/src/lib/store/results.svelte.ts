@@ -275,7 +275,7 @@ function createResultsStore() {
   let unstableCombinations3D = $state<number[]>([]);
   let envelope3D = $state.raw<FullEnvelope3D | null>(null);
   const anyRefused = (...maps: ReadonlyMap<number, unknown>[]) => maps.some(m => [...m.values()].some(r => knownIssueResultDisposition(r).refused));
-  const NO_RESULTS = freezeResult(new Map<number, never>());
+  const noResults = () => freezeResult(new Map<number, never>());
   const combosRefused2D = () => anyRefused(perCase, perCombo);
   const combosRefused3D = () => anyRefused(perCase3D, perCombo3D);
   const comboRefused2D = () => combosRefused2D() || knownIssueResultDisposition(envelope?.maxAbsResults).refused;
@@ -526,8 +526,8 @@ function createResultsStore() {
     set animSpeed(v: number) { animSpeed = Math.max(0.25, Math.min(3, v)); },
 
     // Combination state
-    get perCase(): Map<number, AnalysisResults> { return anyRefused(perCase) ? NO_RESULTS : perCase; },
-    get perCombo(): Map<number, AnalysisResults> { return combosRefused2D() ? NO_RESULTS : perCombo; },
+    get perCase(): Map<number, AnalysisResults> { return anyRefused(perCase) ? noResults() : perCase; },
+    get perCombo(): Map<number, AnalysisResults> { return combosRefused2D() ? noResults() : perCombo; },
     get envelope() { return comboRefused2D() ? null : envelope; },
     get activeView() { return activeView; },
     set activeView(v: ResultsView) {
@@ -1221,8 +1221,8 @@ function createResultsStore() {
     caseDisposition3D(ids: readonly number[]) {
       return knownIssueResultDisposition(ids.map(id => perCase3D.get(id)));
     },
-    get perCase3D(): Map<number, AnalysisResults3D> { return anyRefused(perCase3D) ? NO_RESULTS : perCase3D; },
-    get perCombo3D(): Map<number, AnalysisResults3D> { return combosRefused3D() ? NO_RESULTS : perCombo3D; },
+    get perCase3D(): Map<number, AnalysisResults3D> { return anyRefused(perCase3D) ? noResults() : perCase3D; },
+    get perCombo3D(): Map<number, AnalysisResults3D> { return combosRefused3D() ? noResults() : perCombo3D; },
     get unstableCombinations3D(): readonly number[] { return unstableCombinations3D; },
     get envelope3D() { return comboRefused3D() ? null : envelope3D; },
     get hasCombinations3D() { return perCombo3D.size > 0 && !combosRefused3D(); },

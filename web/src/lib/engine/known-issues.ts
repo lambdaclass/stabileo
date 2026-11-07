@@ -60,15 +60,21 @@ function lockCollection(value: Map<unknown, unknown> | Set<unknown>): void {
   Object.defineProperties(value, value instanceof Map ? { set: locked, delete: locked, clear: locked } : { add: locked, delete: locked, clear: locked });
 }
 
-/** Typed arrays inside stay writable: they hold numbers only, never a diagnostic. */
+const PLAIN_PROTOTYPES = new Set<unknown>([Object.prototype, Array.prototype, null]);
+const UNSOUND = Symbol('unsound');
+
+/** Typed arrays inside stay writable. A result keeps its refusal verdict only if everything the scan reads is frozen plain data. */
 export function freezeResult<T>(result: T): T {
   const walked = new Set<object>();
   function walk(value: unknown): void {
     if (!value || typeof value !== 'object' || walked.has(value) || frozenResults.has(value) || ArrayBuffer.isView(value)) return;
     walked.add(value);
-    if (value instanceof Map) { value.forEach((v, k) => { walk(k); walk(v); }); lockCollection(value); }
-    else if (value instanceof Set) { value.forEach(walk); lockCollection(value); }
-    Object.values(value).forEach(walk);
+    if (value instanceof Map || value instanceof Set) {
+      value.forEach((v, k) => { walk(k); walk(v); });
+      lockCollection(value);
+    }
+    if (Array.isArray(value)) for (let i = 0; i < value.length; i++) walk(value[i]);
+    else for (const key in value) walk((value as Record<string, unknown>)[key]);
     Object.freeze(value);
   }
   walk(result);
@@ -76,39 +82,62 @@ export function freezeResult<T>(result: T): T {
   return result;
 }
 
+function assertSealed(value: object): void {
+  if (!Object.isFrozen(value) || ArrayBuffer.isView(value) || value instanceof Map || value instanceof Set || !PLAIN_PROTOTYPES.has(Object.getPrototypeOf(value))) throw UNSOUND;
+  for (const key of Object.getOwnPropertyNames(value)) if (!('value' in Object.getOwnPropertyDescriptor(value, key)!)) throw UNSOUND;
+}
+
 function frozenDiagnosticsOf(result: object): Diagnostic[] {
-  let found = frozenDiagnostics.get(result);
-  if (!found) { found = diagnosticsIn(result, result); frozenDiagnostics.set(result, found); }
-  return found;
+  const cached = frozenDiagnostics.get(result);
+  if (cached) return cached;
+  try {
+    const found = diagnosticsIn(result, result, true);
+    frozenDiagnostics.set(result, found);
+    return found;
+  } catch (error) {
+    if (error !== UNSOUND) throw error;
+    frozenResults.delete(result);
+    return diagnosticsIn(result, null, false);
+  }
 }
 
 export function knownIssueDiagnosticsIn(result: unknown): Diagnostic[] {
-  return diagnosticsIn(result, null);
+  return diagnosticsIn(result, null, false);
 }
 
-function diagnosticsIn(result: unknown, root: object | null): Diagnostic[] {
+function diagnosticsIn(result: unknown, root: object | null, sealed: boolean): Diagnostic[] {
   const diagnostics: Diagnostic[] = [];
   const seen = new Set<object>();
   const scanned = new Set<object>();
+  const check = sealed ? assertSealed : () => {};
   function collect(value: unknown): void {
+    if (value && typeof value === 'object') check(value);
     if (Array.isArray(value)) value.forEach(collect);
     else if (isKnownIssue(value)) diagnostics.push(value);
   }
   function scan(value: unknown): void {
     if (!value || typeof value !== 'object' || scanned.has(value)) return;
     scanned.add(value);
+    check(value);
     if (isKnownIssue(value)) diagnostics.push(value);
     (value instanceof Map ? [...value.values()] : Object.values(value)).forEach(scan);
   }
   function values(value: unknown): void {
     if (!value || typeof value !== 'object') return;
+    check(value);
     if (Array.isArray(value)) { value.forEach(values); return; }
     (value instanceof Map ? [...value.values()] : Object.values(value)).forEach(visit);
   }
   function visit(value: unknown): void {
     if (!value || typeof value !== 'object' || seen.has(value)) return;
     seen.add(value);
-    if (value !== root && frozenResults.has(value)) { diagnostics.push(...frozenDiagnosticsOf(value)); return; }
+    if (value !== root && frozenResults.has(value)) {
+      const found = frozenDiagnosticsOf(value);
+      if (sealed && !frozenResults.has(value)) throw UNSOUND;
+      diagnostics.push(...found);
+      return;
+    }
+    check(value);
     if (Array.isArray(value)) { value.forEach(visit); return; }
     if (value instanceof Map) { value.forEach(visit); return; }
     const record = value as Record<string, unknown>;
