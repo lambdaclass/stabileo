@@ -55,6 +55,22 @@ version 4, the design chain (`docs/results-changes/2026-10-design-chain.md`): #4
 reached main without entries and their builds stamped 3, so their changes are told at 4 with
 those of #462–#475, which entered with the design switch (#624) in one merge.
 
+## Known wrong-result advisories (#1622)
+
+`web/src/lib/provenance/advisories.ts` lists the bugs known to have given wrong results, each with
+its issue or advisory, the affected feature (`when`, any one of its conditions) and the affected
+results versions: from the version of the result change that introduced the bug
+(`introducedBy`, or every earlier version when null) up to, not including, the version of the
+change that fixed it (`fixedBy`). The range is read from the registry, never written as numbers,
+and `advisories.test.ts` fails on an id it does not hold. A project opened with a stamp in that
+range, whose model uses the feature, lists the advisory in the re-check notice; once the notice
+is read, the stale banner names it until the model is solved again in this build.
+
+| Advisory | Feature | Introduced by | Fixed by | Source |
+|---|---|---|---|---|
+| SA-2026-046 (#1587) | harmonic analysis | `harmonic-modal-residual-checked` (#1423) | `harmonic-modal-or-direct-per-frequency` (#1587) | `docs/advisories/SA-2026-046-harmonic-modal-or-direct-per-load.md` |
+| #1569 | frame members with shear areas, or a thermal load on a frame member with a release | every earlier version | `span-check-shear-thermal` (#1593) | `docs/verification/CONTAINMENT.md`, row #1569 |
+
 ## CIRSOC 301 Qa ≤ 0 refused (PR #1246, issue #467)
 
 Results version 12, after #1237's 11, registers `cirsoc301-q-nonpositive-refused`: a CIRSOC 301 compression member whose §E.7

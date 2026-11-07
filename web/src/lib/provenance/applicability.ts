@@ -12,6 +12,7 @@ import { conditionGroups, concernsGeneratedLoads, type ResultChange, type Result
 import { RESULT_CHANGES } from './full-registry';
 import { loadsGeneratedWith, modelFeatures, type FeatureSnapshot } from './model-features';
 import type { SolveStamp } from './solve-stamp';
+import { advisoriesFor, type Advisory } from './advisories';
 
 export function conditionHolds(w: ChangeCondition, features: ReadonlySet<string>): boolean {
   return conditionGroups(w).every((g) => g.some((f) => features.has(f)));
@@ -28,6 +29,8 @@ export interface RecheckAssessment {
   newer: boolean;
   /** The changes that concern this model, oldest first. */
   changes: ResultChange[];
+  /** Known wrong-result bugs in the version that solved it, in a feature this model uses. */
+  advisories: Advisory[];
 }
 
 export function assessProject(
@@ -47,5 +50,6 @@ export function assessProject(
     .filter((c) => c.resultsVersion > solvedVersion || (c.resultsVersion > loadsVersion && concernsGeneratedLoads(c.when)))
     .filter((c) => conditionHolds(c.when ?? {}, features))
     .sort((a, b) => a.resultsVersion - b.resultsVersion || a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
-  return { solvedVersion, currentVersion, older: solvedVersion < currentVersion, newer: solvedVersion > currentVersion, changes };
+  const advisories = advisoriesFor(solvedVersion, (w) => conditionHolds(w, features), registry);
+  return { solvedVersion, currentVersion, older: solvedVersion < currentVersion, newer: solvedVersion > currentVersion, changes, advisories };
 }

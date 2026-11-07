@@ -51,7 +51,7 @@ export function createRecheckStore(load = () => import('../provenance/applicabil
 
   // Ended by the static solve: a modal run alone leaves the results the older version's.
   const stale = (): boolean =>
-    !!assessment && (pending || assessment.changes.length > 0)
+    !!assessment && (pending || assessment.changes.length > 0 || assessment.advisories.length > 0)
     && (stamp === null || stamp.id === assessedStampId || stamp.id === currentAssessmentStampId || !stamp.analyses.includes('linear'));
 
   return {
@@ -66,7 +66,7 @@ export function createRecheckStore(load = () => import('../provenance/applicabil
     get noticeOpen() {
       // Not tied to `stale`: live calc may re-solve the moment a project opens, and the notice
       // must still be read. What changed is worth knowing even once the numbers are current.
-      return !!assessment && (pending || assessment.changes.length > 0) && assessedStampId !== null && !acknowledged.has(assessedStampId);
+      return !!assessment && (pending || assessment.changes.length > 0 || assessment.advisories.length > 0) && assessedStampId !== null && !acknowledged.has(assessedStampId);
     },
     /** Opened in an older build than the one that solved it. */
     get solvedWithNewer() { return !!stamp && stamp.resultsVersion > RESULTS_VERSION; },
@@ -104,7 +104,7 @@ export function createRecheckStore(load = () => import('../provenance/applicabil
       loadFailed = false;
       assessment = {
         solvedVersion: original.resultsVersion, currentVersion: RESULTS_VERSION,
-        older: pending, newer: stored.resultsVersion > RESULTS_VERSION, changes: [],
+        older: pending, newer: stored.resultsVersion > RESULTS_VERSION, changes: [], advisories: [],
       };
       const features = new Set(outstanding?.features);
       retry = async () => {
@@ -121,10 +121,11 @@ export function createRecheckStore(load = () => import('../provenance/applicabil
             newer: current.newer,
             changes: [...new Map([...preserved.changes, ...current.changes].map(c => [c.id, c])).values()]
               .sort((a, b) => a.resultsVersion - b.resultsVersion || a.date.localeCompare(b.date) || a.id.localeCompare(b.id)),
+            advisories: [...new Map([...preserved.advisories, ...current.advisories].map(x => [x.id, x])).values()],
           };
           // An empty assessment has no notice to preserve. Never let its frozen
           // features suppress changes applicable to a later edited snapshot.
-          if (!assessment.changes.length) outstanding = undefined;
+          if (!assessment.changes.length && !assessment.advisories.length) outstanding = undefined;
           pending = false;
           retry = () => Promise.resolve();
         } catch {
