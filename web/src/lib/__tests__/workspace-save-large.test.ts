@@ -3,7 +3,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { render } from 'svelte/server';
 import { workspaceScene } from '../engine/detailing/__tests__/helpers/workspace-scene';
 import {
-  loadWorkspaceFromLocalStorage, resetWorkspaceGuard, restoreWorkspaceDetailing,
+  loadWorkspaceFromLocalStorage, readWorkspaceBackups, resetWorkspaceGuard, restoreWorkspaceDetailing,
   saveWorkspaceSettled, saveWorkspaceToLocalStorage, snapshotHoldsWork, workspaceNeedsDetailing, workspaceSavesFinished,
 } from '../store/file';
 import { pruneDetailing, readDetailing, resetWorkspaceDetailingDb, resetWorkspaceDetailingMemory } from '../store/workspace-detailing';
@@ -121,6 +121,70 @@ describe('a workspace save the browser refuses', () => {
     expect(saveWorkspaceToLocalStorage()).toBe(true);
     expect(workspaceSaveStatus.failed).toBe(false);
     expect(render(WorkspaceSaveNotice).body).not.toContain('workspace-save-notice');
+  });
+
+  it('keeps the previous workspace as a backup when a newer one cannot be written', () => {
+    let full = false;
+    storage = memoryStorage((k) => (full && k === WORKSPACE_KEY ? quota() : null));
+    vi.stubGlobal('localStorage', storage);
+    tabManager.restoreSession([smallTab('a', 'Pórtico A')], 'a');
+    expect(saveWorkspaceToLocalStorage()).toBe(true);
+    const previous = storage.getItem(WORKSPACE_KEY)!;
+
+    full = true;
+    modelStore.model.name = 'Pórtico A, editado';
+    expect(saveWorkspaceToLocalStorage()).toBe(false);
+    expect(workspaceSaveStatus.failed).toBe(true);
+    expect(render(WorkspaceSaveNotice).body).toContain('data-testid="workspace-save-notice"');
+    expect(storage.getItem(WORKSPACE_KEY), 'not restored over the newer autosave').toBeNull();
+    const backups = readWorkspaceBackups();
+    expect(backups).toHaveLength(1);
+    expect(backups[0]!.reason).toBe('save-failed');
+    expect(backups[0]!.raw).toBe(previous);
+    expect(JSON.parse(backups[0]!.raw).tabs[0].name).toBe('Pórtico A');
+
+    expect(saveWorkspaceToLocalStorage()).toBe(false);
+    expect(readWorkspaceBackups(), 'a failure with nothing stored backs nothing up').toHaveLength(1);
+  });
+
+  it('backs the previous workspace up in the room it frees when the storage is full', () => {
+    let full = false;
+    storage = memoryStorage((k) => (full && (k === WORKSPACE_KEY || storage.map.has(WORKSPACE_KEY)) ? quota() : null));
+    vi.stubGlobal('localStorage', storage);
+    tabManager.restoreSession([smallTab('a', 'Pórtico A')], 'a');
+    expect(saveWorkspaceToLocalStorage()).toBe(true);
+    const previous = storage.getItem(WORKSPACE_KEY)!;
+
+    full = true;
+    modelStore.model.name = 'Pórtico A, editado';
+    expect(saveWorkspaceToLocalStorage()).toBe(false);
+    expect(workspaceSaveStatus.failed).toBe(true);
+    expect(storage.getItem(WORKSPACE_KEY)).toBeNull();
+    expect(readWorkspaceBackups().map((b) => b.raw)).toEqual([previous]);
+  });
+
+  it('does not write a workspace that has not changed since it was stored', () => {
+    tabManager.restoreSession([smallTab('a', 'Pórtico A'), smallTab('b', 'Pórtico B')], 'a');
+    const writes = vi.spyOn(storage, 'setItem');
+    const workspaceWrites = () => writes.mock.calls.filter(([k]) => k === WORKSPACE_KEY).length;
+
+    expect(saveWorkspaceToLocalStorage()).toBe(true);
+    const first = storage.getItem(WORKSPACE_KEY);
+    expect(saveWorkspaceToLocalStorage()).toBe(true);
+    expect(workspaceWrites()).toBe(1);
+    expect(storage.getItem(WORKSPACE_KEY)).toBe(first);
+    expect(workspaceSaveStatus.failed).toBe(false);
+
+    modelStore.model.name = 'Pórtico A, editado';
+    expect(saveWorkspaceToLocalStorage()).toBe(true);
+    expect(workspaceWrites()).toBe(2);
+    expect(JSON.parse(storage.getItem(WORKSPACE_KEY)!).tabs[0].name).toBe('Pórtico A, editado');
+
+    storage.setItem(WORKSPACE_KEY, first!);
+    expect(saveWorkspaceToLocalStorage()).toBe(true);
+    expect(workspaceWrites(), 'another window wrote over it: written again').toBe(4);
+    expect(JSON.parse(storage.getItem(WORKSPACE_KEY)!).tabs[0].name).toBe('Pórtico A, editado');
+    writes.mockRestore();
   });
 
   it('shows the notice for any other write error too', () => {

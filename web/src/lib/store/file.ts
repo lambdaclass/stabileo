@@ -18,7 +18,7 @@ import { t } from '../i18n';
 import { plainDeepCopy, findUncloneablePath } from '../utils/plain-deep-copy';
 import {
   LEGACY_AUTOSAVE_KEY,
-  autosaveClear, autosaveRead, autosaveStatus, autosaveWrite,
+  autosaveClear, autosaveLatestWriteId, autosaveRead, autosaveStatus, autosaveWrite,
   type AutosaveFingerprint, type AutosavePolicy, type AutosaveReadResult, type AutosaveWriteResult,
 } from './autosave-db';
 import { noteDetailingKnown, onDetailingWrite, pruneDetailing, readDetailing, splitDetailing, stageDetailing, storeDetailing, type HeavyDetailing, type StagedDetailing } from './workspace-detailing';
@@ -225,13 +225,17 @@ export function sessionPayload(): { content: string; filename: string } {
  * matters more than it used to: `localStorage` took a string, so a proxy could only ever have
  * cost a slower `JSON.stringify`, whereas IndexedDB takes the object itself and structured
  * clone refuses a proxy outright with `DataCloneError`.
+ *
+ * The detailing is not copied again: the snapshot's is already a plain, frozen copy shared with
+ * every other snapshot of the same version, so the returned file's detailing cannot be written.
  */
 export function buildProjectFile(): DedalFile {
-  return plainDeepCopy<DedalFile>({
+  const snapshot = modelStore.snapshot();
+  const file = plainDeepCopy<DedalFile>({
     version: DEDAL_FILE_VERSION,
     name: modelStore.model.name,
     timestamp: new Date().toISOString(),
-    snapshot: modelStore.snapshot(),
+    snapshot: { ...snapshot, detailing: undefined },
     appMode: uiStore.appMode,
     analysisMode: uiStore.analysisMode,
     axisConvention3D: uiStore.axisConvention3D,
@@ -250,6 +254,8 @@ export function buildProjectFile(): DedalFile {
     includeSelfWeight: uiStore.includeSelfWeight,
     selfWeightCaseId: statedSelfWeightCaseId(),
   });
+  file.snapshot.detailing = snapshot.detailing;
+  return file;
 }
 
 /**
@@ -975,6 +981,25 @@ function noticeOnce(kind: string, message: string, type: 'error' | 'info' = 'err
   uiStore.toast(message, type);
 }
 
+let lastAutosave: { key: string; writeId: string; revision: number } | null = null;
+const detailingVersions = new WeakMap<object, number>();
+let detailingVersionCount = 0;
+
+function detailingVersion(part: object): { version: number } {
+  let version = detailingVersions.get(part);
+  if (version === undefined) {
+    version = ++detailingVersionCount;
+    detailingVersions.set(part, version);
+  }
+  return { version };
+}
+
+function autosaveKey(file: DedalFile): string {
+  const detailing = Object.fromEntries(Object.entries(file.snapshot.detailing ?? {})
+    .map(([k, v]) => [k, v !== null && typeof v === 'object' ? detailingVersion(v) : v]));
+  return JSON.stringify({ ...file, timestamp: null, snapshot: { ...file.snapshot, detailing } });
+}
+
 /**
  * Autosave the project, and SAY SO when it cannot.
  *
@@ -994,6 +1019,9 @@ function noticeOnce(kind: string, message: string, type: 'error' | 'info' = 'err
  * the write result rather than a bare boolean: a caller — the timer, a post-design hook, a
  * test — can tell "saved as revision 7" from "refused for quota" from "this browser has no
  * storage at all". Nothing here ever reports a save that did not happen.
+ *
+ * A project unchanged since this page's last write is not written again while that write is
+ * still the newest; the result then names it.
  */
 export async function saveAutosave(): Promise<AutosaveWriteResult> {
   let payload: DedalFile;
@@ -1007,7 +1035,14 @@ export async function saveAutosave(): Promise<AutosaveWriteResult> {
     };
   }
 
+  const key = autosaveKey(payload);
+  if (lastAutosave?.key === key && await autosaveLatestWriteId() === lastAutosave.writeId) {
+    return { ok: true, backend: 'indexeddb', revision: lastAutosave.revision, writeId: lastAutosave.writeId };
+  }
   const result = await autosaveWrite(payload, projectAutosavePolicy);
+  lastAutosave = result.ok && result.writeId && result.revision !== null
+    ? { key, writeId: result.writeId, revision: result.revision }
+    : null;
   if (result.ok) {
     if (result.backend === 'localstorage') noticeOnce('degraded', t('file.autosaveDegraded'), 'info');
     return result;
@@ -1077,9 +1112,9 @@ export const WORKSPACE_BACKUP_LIMIT = 3;
 export interface WorkspaceBackup {
   /** When the copy was taken (ISO 8601). */
   savedAt: string;
-  /** `tabs-dropped`: some or all tabs were refused; `unreadable`: the text is not a session. */
-  reason: 'tabs-dropped' | 'unreadable';
-  /** Names of the refused tabs (empty for `unreadable`). */
+  /** `tabs-dropped`: some or all tabs were refused; `unreadable`: the text is not a session; `save-failed`: a newer save could not replace it. */
+  reason: 'tabs-dropped' | 'unreadable' | 'save-failed';
+  /** Names of the refused tabs (empty for `unreadable` and `save-failed`). */
   dropped: string[];
   /** The stored workspace text, exactly as it was found. */
   raw: string;
@@ -1162,6 +1197,7 @@ onDetailingWrite(() => unreadDetailing.delete(tabManager.activeTabId ?? ''));
 const detailingKey = (d: ModelSnapshot['detailing']): string => JSON.stringify(d ?? null);
 let saveGen = 0;
 let publishedGen = 0;
+let workspaceStamp = '';
 let finishedGen = 0;
 let lastSave: Promise<boolean> = Promise.resolve(true);
 const savesUnderWay = new Set<Promise<boolean>>();
@@ -1177,15 +1213,30 @@ function finishSave(gen: number, ok: boolean): boolean {
 function publishWorkspace(gen: number, text: string): boolean {
   if (gen < publishedGen) return true;
   try {
-    localStorage.setItem(WORKSPACE_KEY, text);
+    if (localStorage.getItem(WORKSPACE_KEY) !== text) localStorage.setItem(WORKSPACE_KEY, text);
     publishedGen = gen;
     return true;
   } catch {
-    // The workspace written before would be restored at the next start over the newer autosave.
-    clearWorkspaceFromLocalStorage();
+    withdrawWorkspace();
     publishedGen = Math.max(publishedGen, gen);
     return false;
   }
+}
+
+function storedWorkspaceText(): string | null {
+  try {
+    return localStorage.getItem(WORKSPACE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+/** The workspace written before would be restored at the next start over the newer autosave, so it is moved to the backups. */
+function withdrawWorkspace(): void {
+  const previous = storedWorkspaceText();
+  const kept = !!previous && backupStoredWorkspace(previous, 'save-failed', []);
+  clearWorkspaceFromLocalStorage();
+  if (previous && !kept) backupStoredWorkspace(previous, 'save-failed', []);
 }
 
 /**
@@ -1200,16 +1251,16 @@ export function saveWorkspaceToLocalStorage(): boolean {
   let text: string;
   try {
     tabManager.syncCurrentTab();
-    const session: DedalSessionFile = {
-      version: '1.0',
-      type: 'session',
-      timestamp: new Date().toISOString(),
-      activeTabId: tabManager.activeTabId ?? '',
-      tabs: tabManager.tabs.map((tab) => workspaceTab(tab, staged)),
-    };
-    text = JSON.stringify(session);
+    const activeTabId = tabManager.activeTabId ?? '';
+    const tabs = tabManager.tabs.map((tab) => workspaceTab(tab, staged));
+    const sessionText = (timestamp: string) => JSON.stringify({ version: '1.0', type: 'session', timestamp, activeTabId, tabs } satisfies DedalSessionFile);
+    text = sessionText(workspaceStamp);
+    if (text !== storedWorkspaceText()) {
+      workspaceStamp = new Date().toISOString();
+      text = sessionText(workspaceStamp);
+    }
   } catch {
-    clearWorkspaceFromLocalStorage();
+    withdrawWorkspace();
     publishedGen = Math.max(publishedGen, gen);
     lastSave = Promise.resolve(finishSave(gen, false));
     return false;
@@ -1221,8 +1272,7 @@ export function saveWorkspaceToLocalStorage(): boolean {
   }
   const save = storeDetailing(staged).then((stored) => {
     if (!stored && gen > publishedGen) {
-      // An older workspace left in place would be restored at the next start over the newer autosave.
-      clearWorkspaceFromLocalStorage();
+      withdrawWorkspace();
       publishedGen = gen;
     }
     const ok = stored && publishWorkspace(gen, text);
@@ -1250,9 +1300,7 @@ function refsIn(text: string | null): string[] {
 }
 
 function storedWorkspaceRefs(): string[] {
-  let current: string | null = null;
-  try { current = localStorage.getItem(WORKSPACE_KEY); } catch { /* none */ }
-  return [...refsIn(current), ...readWorkspaceBackups().flatMap((b) => refsIn(b.raw))];
+  return [...refsIn(storedWorkspaceText()), ...readWorkspaceBackups().flatMap((b) => refsIn(b.raw))];
 }
 
 /** For a caller about to reload the page. */
