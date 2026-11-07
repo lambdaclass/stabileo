@@ -8,14 +8,25 @@ const SUPPORTS = ['columns', 'walls'] as const;
 
 type Model = SolverInput3D & { size: number; n: number; spacing: number; centre: number };
 
-export function navierCentre(width: number, thickness: number, q: number, terms = 100): number {
-  const d = CONCRETE.e * 1000 * thickness ** 3 / (12 * (1 - CONCRETE.nu ** 2));
+export const SHEAR_CORRECTION = 5 / 6;
+
+function oddSeries(width: number, power: number, terms: number): number {
   let sum = 0;
   for (let i = 0; i < terms; i++) for (let j = 0; j < terms; j++) {
     const m = 2 * i + 1, n = 2 * j + 1;
-    sum += (-1) ** (i + j) / (m * n * ((m / width) ** 2 + (n / width) ** 2) ** 2);
+    sum += (-1) ** (i + j) / (m * n * ((m / width) ** 2 + (n / width) ** 2) ** power);
   }
-  return 16 * q * sum / (Math.PI ** 6 * d);
+  return sum;
+}
+
+export function navierCentre(width: number, thickness: number, q: number, terms = 100): number {
+  const d = CONCRETE.e * 1000 * thickness ** 3 / (12 * (1 - CONCRETE.nu ** 2));
+  return 16 * q * oddSeries(width, 2, terms) / (Math.PI ** 6 * d);
+}
+
+export function mindlinCentre(width: number, thickness: number, q: number, terms = 100): number {
+  const shear = SHEAR_CORRECTION * CONCRETE.e * 1000 / (2 * (1 + CONCRETE.nu)) * thickness;
+  return navierCentre(width, thickness, q, terms) + 16 * q * oddSeries(width, 1, terms) / (Math.PI ** 4 * shear);
 }
 
 export function build(v: Values): Model {
@@ -36,7 +47,7 @@ export function build(v: Values): Model {
   for (let j = 0; j <= n; j++) for (let i = 0; i <= n; i++) {
     const held = walls ? i === 0 || j === 0 || i === n || j === n : i % PER_BAY === 0 && j % PER_BAY === 0;
     if (!held) continue;
-    const s: SolverSupport3D = { nodeId: id(i, j), rx: i === 0 && j === 0, ry: j === 0 && (i === 0 || i === n), rz: true, rrx: false, rry: false, rrz: false };
+    const s: SolverSupport3D = { nodeId: id(i, j), rx: i === 0 && j === 0, ry: j === 0 && (i === 0 || i === n), rz: true, rrx: walls && (i === 0 || i === n), rry: walls && (j === 0 || j === n), rrz: false };
     supports.set(s.nodeId, s);
   }
   return {
@@ -82,7 +93,7 @@ export const slab = defineExample<Model>({
     const walls = SUPPORTS[v.supports] === 'walls';
     const span = walls ? model.size : model.spacing;
     const readouts: Readout[] = [
-      { key: 'maxDeflection', value: max, unit: 'mm', reference: walls ? { value: navierCentre(model.size, v.thickness, v.load) * 1000, source: 'Navier' } : undefined },
+      { key: 'maxDeflection', value: max, unit: 'mm', reference: walls ? { value: mindlinCentre(model.size, v.thickness, v.load) * 1000, source: 'Reissner–Mindlin Navier series, κ = 5/6 (Reddy 2007; Wang, Reddy & Lee 2000)' } : undefined },
       { key: 'spanRatio', value: span / (max / 1000), unit: 'L/δ' },
       { key: 'totalLoad', value: model.loads.reduce((s, l) => s - (l.type === 'nodal' ? l.data.fz : 0), 0), unit: 'kN' },
     ];

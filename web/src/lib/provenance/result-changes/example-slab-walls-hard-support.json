@@ -1,0 +1,28 @@
+{
+  "id": "example-slab-walls-hard-support",
+  "date": "2026-11-07",
+  "prs": [1627],
+  "area": "analysis",
+  "scope": "examples",
+  "examples": ["slab-on-columns"],
+  "title": {
+    "en": "The slab example on walls holds its edges against twisting and is compared with the shear-deformable series",
+    "es": "El ejemplo de losa sobre muros impide el giro de sus bordes y se compara con la serie con deformación por corte",
+    "pt": "O exemplo de laje sobre paredes impede o giro das bordas e é comparado com a série com deformação por cisalhamento",
+    "de": "Das Plattenbeispiel auf Wänden hält seine Ränder gegen Verdrehen und wird mit der schubweichen Reihe verglichen",
+    "fr": "L’exemple de dalle sur murs empêche ses bords de tourner et est comparé à la série avec déformation d’effort tranchant",
+    "tr": "Duvarlar üzerindeki döşeme örneği kenarlarını dönmeye karşı tutar ve kayma şekil değiştirmeli seriyle karşılaştırılır"
+  },
+  "explanation": {
+    "en": "Only the website's slab-on-columns example changed; a saved model gives the same numbers as before. On walls it held only the vertical displacement of the edges, so the Reissner–Mindlin shell element solved a soft simply supported plate, whose edge boundary layer makes it deflect more than the hard simply supported plate of the Navier series it was shown beside: up to 6.4% more at the slider extremes, and more with a finer mesh. The walls now also hold the rotation along each edge, and the reference is the Navier series of that plate with its transverse shear term (κ = 5/6), which the element approaches within 0.6% on the example's mesh and 0.01% on a fine one.",
+    "es": "Sólo cambió el ejemplo de losa sobre columnas del sitio; un modelo guardado da los mismos números que antes. Sobre muros sólo sostenía el desplazamiento vertical de los bordes, así que el elemento de cáscara Reissner–Mindlin resolvía una placa con apoyo simple blando, cuya capa límite de borde la hace flechar más que la placa con apoyo simple rígido de la serie de Navier junto a la que se mostraba: hasta un 6,4 % más en los extremos de los controles, y más con una malla más fina. Ahora los muros también impiden el giro a lo largo de cada borde, y la referencia es la serie de Navier de esa placa con su término de corte transversal (κ = 5/6), a la que el elemento se acerca a menos de 0,6 % con la malla del ejemplo y 0,01 % con una fina.",
+    "pt": "Só o exemplo de laje sobre pilares do site mudou; um modelo salvo dá os mesmos números de antes. Sobre paredes ele só restringia o deslocamento vertical das bordas, então o elemento de casca Reissner–Mindlin resolvia uma placa com apoio simples flexível, cuja camada-limite de borda a faz fletir mais do que a placa com apoio simples rígido da série de Navier ao lado da qual era mostrada: até 6,4 % a mais nos extremos dos controles, e mais com uma malha mais fina. Agora as paredes também impedem o giro ao longo de cada borda, e a referência é a série de Navier dessa placa com o seu termo de cisalhamento transversal (κ = 5/6), da qual o elemento fica a menos de 0,6 % na malha do exemplo e 0,01 % numa malha fina.",
+    "de": "Nur das Beispiel Platte auf Stützen der Website hat sich geändert; ein gespeichertes Modell liefert dieselben Zahlen wie zuvor. Auf Wänden hielt es nur die vertikale Verschiebung der Ränder, sodass das Reissner–Mindlin-Schalenelement eine weich gelenkig gelagerte Platte löste, deren Randgrenzschicht sie stärker durchbiegen lässt als die hart gelenkig gelagerte Platte der Navier-Reihe, neben der sie gezeigt wurde: bis zu 6,4 % mehr an den Reglergrenzen und mehr bei feinerem Netz. Die Wände halten jetzt auch die Verdrehung entlang jedes Randes, und die Referenz ist die Navier-Reihe dieser Platte mit ihrem Querschubterm (κ = 5/6), der das Element auf dem Netz des Beispiels bis auf 0,6 % und auf einem feinen Netz bis auf 0,01 % nahekommt.",
+    "fr": "Seul l’exemple de dalle sur poteaux du site a changé ; un modèle enregistré donne les mêmes chiffres qu’avant. Sur murs il ne retenait que le déplacement vertical des bords, si bien que l’élément de coque Reissner–Mindlin résolvait une plaque en appui simple souple, dont la couche limite de bord la fait fléchir davantage que la plaque en appui simple rigide de la série de Navier à côté de laquelle elle était affichée : jusqu’à 6,4 % de plus aux extrémités des curseurs, et davantage avec un maillage plus fin. Les murs retiennent désormais aussi la rotation le long de chaque bord, et la référence est la série de Navier de cette plaque avec son terme de cisaillement transversal (κ = 5/6), dont l’élément s’approche à moins de 0,6 % sur le maillage de l’exemple et 0,01 % sur un maillage fin.",
+    "tr": "Yalnızca sitedeki kolonlar üzerindeki döşeme örneği değişti; kaydedilmiş bir model öncekiyle aynı sayıları verir. Duvarlarda yalnızca kenarların düşey yer değiştirmesini tutuyordu; bu yüzden Reissner–Mindlin kabuk elemanı yumuşak basit mesnetli bir plak çözüyordu ve kenar sınır tabakası onu, yanında gösterildiği Navier serisinin rijit basit mesnetli plağından daha fazla sehim yaptırıyordu: kaydırıcı uçlarında %6,4'e kadar fazla, daha ince ağda daha da fazla. Duvarlar artık her kenar boyunca dönmeyi de tutuyor ve referans, bu plağın enine kayma terimli Navier serisidir (κ = 5/6); eleman örneğin ağında %0,6, ince bir ağda %0,01 yakınına geliyor."
+  },
+  "changelog": {
+    "file": "changelog.d/example-slab-walls-hard-support.md",
+    "heading": "The slab example on walls is compared with the series for the plate it solves (2026-11-07)"
+  }
+}

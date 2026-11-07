@@ -71,7 +71,7 @@ describe('result-change registry', () => {
   });
 
   it('takes an examples-scoped entry only with the example ids it changed, and no when or quantities', () => {
-    const entry = RESULT_CHANGES.changes.find((c) => c.scope === 'examples')!;
+    const entry = RESULT_CHANGES.changes.find((c) => c.id === 'example-cantilever-small-rotations')!;
     expect(entry.examples).toEqual(['3d-cantilever-load']);
     const check = (over: Record<string, unknown>) => validateRegistry({ ...RESULT_CHANGES, changes: [{ ...entry, resultsVersion: RESULT_CHANGES.currentResultsVersion, ...over } as typeof entry] }, new Set(FEATURE_IDS));
     expect(check({})).toEqual([]);

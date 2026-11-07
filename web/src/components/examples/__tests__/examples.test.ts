@@ -12,7 +12,7 @@ import { BATCH_IDS } from '../../tools/batch';
 
 const BENCHMARK_ROUTES = [...EXPERIMENTS.map(x => x.path), ...[...TOOL_IDS, ...BATCH_IDS].map(id => `/tools/${id}`)];
 import { beamFrame, EI, build as buildBeam } from '../beam-frame';
-import { slab, navierCentre } from '../slab';
+import { slab, navierCentre, mindlinCentre, CONCRETE, SHEAR_CORRECTION } from '../slab';
 import { earthquake, G, DT, DURATION, CYCLES, BEAM, COLUMN, baseShear, timeCertificate } from '../earthquake';
 
 function run(example: typeof EXAMPLES[number], extra: Values = {}): Extract<Outcome, { status: 'ok' }> {
@@ -114,12 +114,33 @@ describe('beam and frame playground', () => {
 });
 
 describe('slab on columns', () => {
-  it('agrees with Navier for a plate on walls', () => {
+  it('agrees with the Navier series with its shear term for a plate on walls', () => {
     const out = run(slab, { supports: 1, bays: 1, spacing: 8, thickness: 0.2, load: 10 });
-    const reference = navierCentre(8, 0.2, 10) * 1000;
+    const reference = mindlinCentre(8, 0.2, 10) * 1000;
     expect(readout(out, 'maxDeflection').reference!.value).toBeCloseTo(reference, 12);
     expect(Math.abs(readout(out, 'maxDeflection').value / reference - 1)).toBeLessThan(0.02);
     expect(readout(out, 'totalLoad').value).toBeCloseTo(640, 8);
+  });
+  it('adds the Marcus-moment shear term 0.07367 q a²/(κGt) to the thin-plate series at the centre', () => {
+    const G = CONCRETE.e * 1000 / (2 * (1 + CONCRETE.nu));
+    for (const [a, t] of [[4.5, 0.35], [8, 0.2], [27, 0.15]]) {
+      const shear = (mindlinCentre(a, t, 1) - navierCentre(a, t, 1)) * SHEAR_CORRECTION * G * t / (a * a);
+      expect(shear).toBeCloseTo(0.0736713, 6);
+    }
+  });
+  it('holds a thick slab on walls by its edges and its edge rotations, and stays within 2% of the shear-deformable series', () => {
+    const v = { ...defaults(slab.params), supports: 1, bays: 1, spacing: 4.5, thickness: 0.35, load: 1 };
+    const model = slab.build(v);
+    for (const s of model.supports.values()) {
+      const node = model.nodes.get(s.nodeId)!;
+      expect(s.rz).toBe(true);
+      expect(s.rrx).toBe(node.x === 0 || Math.abs(node.x - model.size) < 1e-9);
+      expect(s.rry).toBe(node.y === 0 || Math.abs(node.y - model.size) < 1e-9);
+    }
+    const out = run(slab, v);
+    const r = readout(out, 'maxDeflection');
+    expect(Math.abs(r.value / r.reference!.value - 1)).toBeLessThan(0.02);
+    expect(r.reference!.value / (navierCentre(4.5, 0.35, 1) * 1000)).toBeGreaterThan(1.027);
   });
   it('carries the whole load to the columns, symmetric about the centre', () => {
     const v = { ...defaults(slab.params) };
