@@ -481,10 +481,13 @@ function workspaceTab(tab: TabState, staged: StagedDetailing[]): TabState {
   for (const [k, v] of Object.entries(tab)) if (!HISTORY_KEYS.has(k) && k !== 'detailingRef') out[k] = v;
   const { light, heavy } = splitDetailing(tab.modelSnapshot.detailing);
   if (heavy) {
+    unreadDetailing.delete(tab.id);
     const s = stageDetailing(tab.id, heavy);
     staged.push(s);
     out.modelSnapshot = { ...tab.modelSnapshot, detailing: light };
     out.detailingRef = s.ref;
+  } else if (unreadDetailing.has(tab.id)) {
+    out.detailingRef = unreadDetailing.get(tab.id);
   }
   return out as unknown as TabState;
 }
@@ -1151,10 +1154,12 @@ function protectStoredWorkspace(raw: string, reason: WorkspaceBackup['reason'], 
 }
 
 let workspaceRestorePending = false;
+const unreadDetailing = new Map<string, string>();
 let saveGen = 0;
 let publishedGen = 0;
 let finishedGen = 0;
 let lastSave: Promise<boolean> = Promise.resolve(true);
+const savesUnderWay = new Set<Promise<boolean>>();
 
 function finishSave(gen: number, ok: boolean): boolean {
   if (gen >= finishedGen) {
@@ -1173,6 +1178,7 @@ function publishWorkspace(gen: number, text: string): boolean {
   } catch {
     // The workspace written before would be restored at the next start over the newer autosave.
     clearWorkspaceFromLocalStorage();
+    publishedGen = Math.max(publishedGen, gen);
     return false;
   }
 }
@@ -1206,12 +1212,20 @@ export function saveWorkspaceToLocalStorage(): boolean {
     lastSave = Promise.resolve(ok);
     return ok;
   }
-  lastSave = storeDetailing(staged).then((stored) => {
+  const save = storeDetailing(staged).then((stored) => {
     const ok = stored && publishWorkspace(gen, text);
     if (ok && gen === publishedGen) void pruneDetailing(() => new Set([...staged.map((s) => s.ref), ...storedWorkspaceRefs()]));
     return finishSave(gen, ok);
   });
+  lastSave = save;
+  savesUnderWay.add(save);
+  void save.finally(() => savesUnderWay.delete(save));
   return true;
+}
+
+/** Test seam: every save started so far has finished. */
+export async function workspaceSavesFinished(): Promise<void> {
+  await Promise.all([...savesUnderWay]);
 }
 
 function refsIn(text: string | null): string[] {
@@ -1247,18 +1261,22 @@ export async function restoreWorkspaceDetailing(session: DedalSessionFile): Prom
     const records = await readDetailing(wanted.map((tab) => tab.detailingRef!));
     const lost: DroppedSessionTab[] = [];
     for (const tab of wanted) {
-      const heavy = records.get(tab.detailingRef!);
+      const ref = tab.detailingRef!;
+      const heavy = records?.get(ref);
       if (heavy) {
         tab.modelSnapshot = { ...tab.modelSnapshot, detailing: { ...tab.modelSnapshot.detailing!, ...heavy } };
         forgetSessionDemandRevisions(tab.modelSnapshot);
-        noteDetailingKnown(tab.id, tab.detailingRef!, heavy);
+        noteDetailingKnown(tab.id, ref, heavy);
+        unreadDetailing.delete(tab.id);
       } else {
         lost.push({ index: session.tabs.indexOf(tab), name: tab.name });
+        if (!records) unreadDetailing.set(tab.id, ref);
       }
       delete tab.detailingRef;
     }
     if (lost.length > 0) {
-      uiStore.toast(t('file.workspaceDetailingLost').replace('{names}', droppedTabNames(lost)), 'error', undefined, true);
+      const message = records ? t('file.workspaceDetailingLost') : t('file.workspaceDetailingUnread');
+      uiStore.toast(message.replace('{names}', droppedTabNames(lost)), 'error', undefined, true);
     }
   } finally {
     workspaceRestorePending = false;

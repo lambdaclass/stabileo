@@ -154,10 +154,11 @@ function isHeavy(h: unknown): h is HeavyDetailing {
     && (floorReadings === undefined || (!!floorReadings && typeof floorReadings === 'object'));
 }
 
-export async function readDetailing(refs: readonly string[]): Promise<Map<string, HeavyDetailing>> {
+/** Null when the store could not be read, which is not the same as a version that is not there. */
+export async function readDetailing(refs: readonly string[]): Promise<Map<string, HeavyDetailing> | null> {
   const out = new Map<string, HeavyDetailing>();
   const database = await db().catch(() => null);
-  if (!database) return out;
+  if (!database) return null;
   try {
     const tx = database.transaction(STORE, 'readonly');
     const store = tx.objectStore(STORE);
@@ -170,7 +171,7 @@ export async function readDetailing(refs: readonly string[]): Promise<Map<string
     }
     await done(tx);
   } catch {
-    return out;
+    return null;
   }
   return out;
 }

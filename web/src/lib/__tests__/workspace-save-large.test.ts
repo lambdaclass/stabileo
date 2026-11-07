@@ -4,7 +4,7 @@ import { render } from 'svelte/server';
 import { workspaceScene } from '../engine/detailing/__tests__/helpers/workspace-scene';
 import {
   loadWorkspaceFromLocalStorage, resetWorkspaceGuard, restoreWorkspaceDetailing,
-  saveWorkspaceSettled, saveWorkspaceToLocalStorage, workspaceNeedsDetailing,
+  saveWorkspaceSettled, saveWorkspaceToLocalStorage, workspaceNeedsDetailing, workspaceSavesFinished,
 } from '../store/file';
 import { pruneDetailing, readDetailing, resetWorkspaceDetailingDb, resetWorkspaceDetailingMemory } from '../store/workspace-detailing';
 import type { DetailingStore } from '../engine/detailing/assembly';
@@ -16,6 +16,7 @@ import { uiStore } from '../store/ui.svelte';
 import type { ModelSnapshot } from '../store/history.svelte';
 import WorkspaceSaveNotice from '../../components/WorkspaceSaveNotice.svelte';
 import '../store/index';
+import { t } from '../i18n';
 
 const WORKSPACE_KEY = 'stabileo-workspace';
 
@@ -179,10 +180,10 @@ describe('the designed and detailed 7-storey building', () => {
     startWith([designed], designed.id);
     expect(await saveWorkspaceSettled()).toBe(true);
     const text = storage.getItem(WORKSPACE_KEY)!;
-    expect(text.length, 'the workspace text carries the detailing again').toBeLessThan(1_000_000);
+    expect(text.length, 'the bars are back in the workspace text').toBeLessThan(1_000_000);
     const stored = JSON.parse(text);
     expect(stored.tabs[0].modelSnapshot.detailing.assemblies).toEqual([]);
-    expect((await readDetailing([storedRef()])).get(storedRef())?.assemblies?.length).toBe(designed.modelSnapshot.detailing!.assemblies.length);
+    expect((await readDetailing([storedRef()]))!.get(storedRef())?.assemblies?.length).toBe(designed.modelSnapshot.detailing!.assemblies.length);
   }, 300_000);
 
   it('round-trips every input of the designed model, the pinned bar included', async () => {
@@ -257,10 +258,10 @@ describe('the designed and detailed 7-storey building', () => {
     expect(await saveWorkspaceSettled()).toBe(true);
     const ref = storedRef();
     await rawWrite('detailing', (s) => s.delete(ref));
-    expect((await readDetailing([ref])).has(ref)).toBe(false);
+    expect((await readDetailing([ref]))!.has(ref)).toBe(false);
     expect(await saveWorkspaceSettled()).toBe(true);
     expect(storedRef()).toBe(ref);
-    expect((await readDetailing([ref])).has(ref)).toBe(true);
+    expect((await readDetailing([ref]))!.has(ref)).toBe(true);
   }, 300_000);
 
   it('a snapshot of the detailing cannot be written in place', () => {
@@ -282,11 +283,11 @@ describe('the designed and detailed 7-storey building', () => {
 
     await resetWorkspaceDetailingDb();
     await pruneDetailing(() => new Set());
-    expect((await readDetailing([ref])).has(ref), 'used just now: kept').toBe(true);
+    expect((await readDetailing([ref]))!.has(ref), 'used just now: kept').toBe(true);
 
     await rawWrite('touched', (s) => s.put({ ref, at: old }));
     await pruneDetailing(() => new Set());
-    expect((await readDetailing([ref])).has(ref), 'not used for an hour and named by nothing: pruned').toBe(false);
+    expect((await readDetailing([ref]))!.has(ref), 'not used for an hour and named by nothing: pruned').toBe(false);
   }, 300_000);
 
   it('the save keeps the versions the workspace backup names, and prunes them once nothing names them', async () => {
@@ -303,10 +304,36 @@ describe('the designed and detailed 7-storey building', () => {
       return ref;
     };
     const unnamed = await aged(false);
-    await vi.waitFor(async () => expect((await readDetailing([unnamed])).has(unnamed)).toBe(false));
+    await vi.waitFor(async () => expect((await readDetailing([unnamed]))!.has(unnamed)).toBe(false));
     const named = await aged(true);
     await new Promise((r) => setTimeout(r, 300));
-    expect((await readDetailing([named])).has(named)).toBe(true);
+    expect((await readDetailing([named]))!.has(named)).toBe(true);
+  }, 300_000);
+
+  it('a store that cannot be read keeps the ref, says so, and the bars come back on the next start', async () => {
+    startWith([designed, smallTab('b', 'Pórtico B')], designed.id);
+    const before = modelStore.snapshot();
+    expect(await saveWorkspaceSettled()).toBe(true);
+    const ref = storedRef();
+
+    await resetWorkspaceDetailingDb();
+    vi.stubGlobal('indexedDB', undefined);
+    await reload();
+    expect(modelStore.snapshot().detailing?.assemblies ?? []).toEqual([]);
+    const unread = toast.mock.calls.find((c) => String(c[0]).includes('«Edificio»'));
+    expect(unread?.[1]).toBe('error');
+    expect(unread?.[3]).toBe(true);
+    expect(String(unread?.[0])).toContain(t('file.workspaceDetailingUnread').split('{names}')[0]!);
+
+    expect(await saveWorkspaceSettled(), 'a tab with no bars to write saves as text').toBe(true);
+    expect(storedRef(), 'the ref the store could not read is kept for the next start').toBe(ref);
+
+    vi.unstubAllGlobals();
+    vi.stubGlobal('localStorage', storage);
+    toast.mockClear();
+    await reload();
+    expect(canon(withoutDemandRevision(modelStore.snapshot().detailing))).toBe(canon(withoutDemandRevision(before.detailing)));
+    expect(toast).not.toHaveBeenCalled();
   }, 300_000);
 
   it('treats a malformed record as lost bars, not as a tab with none', async () => {
@@ -338,6 +365,20 @@ describe('the designed and detailed 7-storey building', () => {
     const lost = toast.mock.calls.find((c) => String(c[0]).includes('«Edificio»'));
     expect(lost?.[1]).toBe('error');
     expect(lost?.[3], 'kept on screen until dismissed').toBe(true);
+  }, 300_000);
+
+  it('an earlier save still storing its bars does not write over a later save the browser refused', async () => {
+    let full = false;
+    storage = memoryStorage((k) => (full && k === WORKSPACE_KEY ? quota() : null));
+    vi.stubGlobal('localStorage', storage);
+    startWith([designed], designed.id);
+    expect(saveWorkspaceToLocalStorage()).toBe(true);
+    full = true;
+    startWith([smallTab('b', 'Pórtico B')], 'b');
+    expect(saveWorkspaceToLocalStorage()).toBe(false);
+    full = false;
+    await workspaceSavesFinished();
+    expect(storage.getItem(WORKSPACE_KEY), 'the earlier save published its older tabs after the refusal').toBeNull();
   }, 300_000);
 
   it('when the bars cannot be stored, keeps the previous workspace, shows the notice, and clears it once the tab is closed', async () => {

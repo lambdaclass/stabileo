@@ -3207,6 +3207,7 @@ const pt: Translations = {
   'file.workspaceNotSaved': 'Seu trabalho NÃO está sendo salvo automaticamente: o navegador recusou guardar este espaço de trabalho. Salve-o em um arquivo para não perdê-lo.',
   'file.workspaceSaveToFile': 'Salvar sessão em arquivo',
   'file.workspaceDetailingLost': 'O detalhamento destas abas não pôde ser recuperado do navegador, então elas foram restauradas sem barras: {names}. Gere o detalhamento novamente ou abra o arquivo .ded salvo.',
+  'file.workspaceDetailingUnread': 'O detalhamento destas abas não pôde ser lido do navegador desta vez, então elas abriram sem barras: {names}. Ele continua guardado e será lido de novo na próxima vez que você abrir a página; não o gere novamente se não for necessário.',
   'file.autosaveDegraded': 'O IndexedDB não está disponível, portanto o salvamento automático caiu para o armazenamento do navegador, que tem um limite de poucos megabytes. Um projeto dimensionado pode não caber — use Salvar projeto para ter um .ded.',
   'file.autosaveFailed': 'O salvamento automático falhou e o seu trabalho recente NÃO foi armazenado. Use Salvar projeto para conservá-lo como arquivo .ded.',
   'file.autosaveOlderRestored': 'Não foi possível ler o salvamento automático mais recente, portanto é oferecido um anterior. Verifique a data do projeto antes de continuar.',
