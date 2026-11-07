@@ -34,7 +34,7 @@ export const UNTRACKED_ANALYSES: readonly AnalysisKind[] = ['timeHistory', 'nonl
 
 /** Every feature id a registry entry may name. The registry test fails on any other. */
 export const FEATURE_IDS = [
-  'plane2D', 'space3D', 'members', 'frameMembers', 'trussMembers', 'hinges', 'arcMembers', 'shearAreas',
+  'plane2D', 'space3D', 'members', 'frameMembers', 'trussMembers', 'hinges', 'arcMembers', 'shearAreas', 'thermalAtRelease',
   'steelMembers', 'steelCirsoc301', 'steelTensionWithoutConnection', 'timberOrAluminiumMembers',
   'concreteMembers', 'cirsoc201', 'aci318', 'footings', 'jointDesigns',
   'shells', 'curvedShells', 'shellEdgeLoads', 'eccentricities',
@@ -154,12 +154,13 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   const concreteCode = roles.concrete?.adapterId ?? null;
   const loadsCode = roles.loads?.adapterId ?? null;
 
+  const released = new Set<number>();
   const sheared = new Set(values(s.sections).filter((x) => x.shearAreas != null).map((x) => x.id));
   if (elements.length) f.add('members');
   let steel = 0, concrete = 0, steelWithoutConnection = 0;
   for (const e of elements) {
     if (e.type === 'truss') f.add('trussMembers'); else f.add('frameMembers');
-    if (hasRelease(e.releaseI) || hasRelease(e.releaseJ) || e.semiRigid) f.add('hinges');
+    if (hasRelease(e.releaseI) || hasRelease(e.releaseJ) || e.semiRigid) { f.add('hinges'); if (e.type !== 'truss') released.add(e.id); }
     if (e.type !== 'truss' && e.sectionId !== undefined && sheared.has(e.sectionId)) f.add('shearAreas');
     if (e.arc) f.add('arcMembers');
     if (offsetMoves(e.offset?.i) || offsetMoves(e.offset?.j)) f.add('eccentricities');
@@ -220,6 +221,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
     if (/^(distributed|pointOnElement|thermal)/.test(t)) f.add('memberLoads');
     if (t.startsWith('pointOnElement') || (t.startsWith('distributed') && (positive(d.a) || d.b !== undefined))) f.add('pointOrPartialMemberLoads');
     if (t === 'thermal') f.add('memberThermalLoads');
+    if (t === 'thermal' && released.has(d.elementId as number)) f.add('thermalAtRelease');
     if (/edge/i.test(t)) f.add('shellEdgeLoads');
     const dead = caseType.get(d.caseId as number) === 'D' || d.caseId === undefined;
     if ((t === 'surface3d' || d.fromDef !== undefined) && dead) f.add('areaDeadLoads');

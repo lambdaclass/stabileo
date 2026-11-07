@@ -18,8 +18,8 @@ const SPAN_FIX = versionOf('span-check-shear-thermal');
 const HARMONIC_FROM = versionOf('harmonic-modal-residual-checked');
 const HARMONIC_FIX = versionOf('harmonic-modal-or-direct-per-frequency');
 
-function stamp(resultsVersion: number): SolveStamp {
-  return { ...recheckStore.capture()!, id: `old-${resultsVersion}`, resultsVersion, analyses: ['linear'] };
+function stamp(resultsVersion: number, analyses: SolveStamp['analyses'] = ['linear']): SolveStamp {
+  return { ...recheckStore.capture()!, id: `old-${resultsVersion}`, resultsVersion, analyses };
 }
 
 function frame(opts: { shear?: boolean; thermal?: boolean; hinge?: boolean } = {}) {
@@ -37,8 +37,8 @@ function frame(opts: { shear?: boolean; thermal?: boolean; hinge?: boolean } = {
   return e;
 }
 
-async function reopen(resultsVersion: number) {
-  recheckStore.restoreStamp(stamp(resultsVersion));
+async function reopen(resultsVersion: number, analyses?: SolveStamp['analyses']) {
+  recheckStore.restoreStamp(stamp(resultsVersion, analyses));
   const text = serializeProject();
   recheckStore.reset();
   expect(deserializeProject(text)).toBe(true);
@@ -79,6 +79,11 @@ describe('advisories', () => {
     expect(await reopen(SPAN_FIX - 1)).toContain('issue-1569');
     frame({ thermal: true });
     expect(await reopen(SPAN_FIX - 1)).not.toContain('issue-1569');
+    const heated = frame({ thermal: true });
+    const b = modelStore.addNode(8, 0, 0);
+    const released = modelStore.addElement(modelStore.model.elements.get(heated)!.nodeJ, b, 'frame');
+    modelStore.toggleHinge(released, 'end');
+    expect(await reopen(SPAN_FIX - 1), 'a release on one member and a thermal load on another').not.toContain('issue-1569');
   });
 
   it('the same model without the affected feature has no advisory, though the result change is still listed', async () => {
@@ -106,11 +111,11 @@ describe('advisories', () => {
 
   it('flags harmonic results only from the versions between the change that introduced the bug and its fix', async () => {
     frame();
-    expect(await reopen(HARMONIC_FROM - 1)).not.toContain('SA-2026-046');
-    expect(await reopen(HARMONIC_FROM)).toContain('SA-2026-046');
-    expect(await reopen(HARMONIC_FIX - 1)).toContain('SA-2026-046');
-    expect(await reopen(HARMONIC_FIX)).not.toContain('SA-2026-046');
-    await reopen(HARMONIC_FROM);
+    expect(await reopen(HARMONIC_FROM - 1, ['linear', 'harmonic'])).not.toContain('SA-2026-046');
+    expect(await reopen(HARMONIC_FROM, ['linear', 'harmonic'])).toContain('SA-2026-046');
+    expect(await reopen(HARMONIC_FIX - 1, ['linear', 'harmonic'])).toContain('SA-2026-046');
+    expect(await reopen(HARMONIC_FIX, ['linear', 'harmonic'])).not.toContain('SA-2026-046');
+    await reopen(HARMONIC_FROM, ['linear', 'harmonic']);
     recheckStore.acknowledge();
     expect(banner()).toContain(t('recheck.advisoryBanner').replace('{names}', 'SA-2026-046'));
   });

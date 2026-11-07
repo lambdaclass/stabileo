@@ -69,7 +69,7 @@ is read, the stale banner names it until the model is solved again in this build
 | Advisory | Feature | Introduced by | Fixed by | Source |
 |---|---|---|---|---|
 | SA-2026-046 (#1587) | harmonic analysis | `harmonic-modal-residual-checked` (#1423) | `harmonic-modal-or-direct-per-frequency` (#1587) | `docs/advisories/SA-2026-046-harmonic-modal-or-direct-per-load.md` |
-| #1569 | frame members with shear areas, or with a thermal load and a release | every earlier version | `span-check-shear-thermal` (#1593) | `docs/verification/CONTAINMENT.md`, row #1569 |
+| #1569 | frame members with shear areas, or a thermal load on a frame member with a release | every earlier version | `span-check-shear-thermal` (#1593) | `docs/verification/CONTAINMENT.md`, row #1569 |
 
 ## CIRSOC 301 Qa ≤ 0 refused (PR #1246, issue #467)
 

@@ -42,7 +42,7 @@ export const ADVISORIES: readonly Advisory[] = [
     introducedBy: null,
     fixedBy: 'span-check-shear-thermal',
     when: [
-      { allOf: [['frameMembers'], ['memberThermalLoads'], ['hinges']] },
+      { allOf: [['thermalAtRelease']] },
       { allOf: [['frameMembers'], ['shearAreas']] },
     ],
     title: {
