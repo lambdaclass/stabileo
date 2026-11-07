@@ -248,7 +248,7 @@ const de: Translations = {
   'landing.navResearch': 'Forschung',
   'landing.ebHero': 'KOSTENLOS UND OFFEN · TRAGWERKSBERECHNUNG',
   'landing.heroH': 'Quelloffene Software für die Tragwerksplanung. Die KI ist in Arbeit.',
-  'landing.heroP': 'Rahmen und Fachwerke in 2D und 3D, berechnet auf Ihrem eigenen Rechner und mit sieben anderen FE-Programmen abgeglichen. Der KI-Assistent ist noch in Entwicklung und wird mit demselben Modell und demselben Löser arbeiten.',
+  'landing.heroP': 'Rahmen und Fachwerke in 2D und 3D, berechnet auf Ihrem eigenen Rechner und mit sieben anderen FE-Programmen abgeglichen. Der KI-Assistent ist noch in Entwicklung und arbeitet schon mit demselben Modell und demselben Löser, mit Ihrem eigenen Claude- oder OpenAI-Schlüssel.',
   'landing.heroCtaPrimary': 'Editor öffnen',
   'landing.heroBlogLink': 'Unseren Blog lesen',
   'landing.heroMetaA': 'Läuft in jedem aktuellen Browser',
