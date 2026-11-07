@@ -35,11 +35,11 @@ jobs:
           done
           ls web/src/lib/wasm
       - run: make web.deps
-      - run: make e2e.web.build
       - run: make e2e.web.setup
       - uses: ./.github/actions/browser-deps
         with:
           browsers: chromium
+      - run: make e2e.web.build
       - name: Profiled runs
         env:
           DIAG_NO_PWTRACE: ${{ matrix.variant == 'nopwtrace' && '1' || '' }}
