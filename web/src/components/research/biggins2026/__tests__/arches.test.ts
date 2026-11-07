@@ -3,6 +3,7 @@ import { decodeRun, postSnapStep } from '../protocol';
 import replay from '../../../../../../research/mechanics/biggins-2026/reference-results/replay.json';
 import { archStrings } from '../strings';
 import { setLocale } from '../../../../lib/i18n/store.svelte';
+import { PUBLIC_LOCALES } from '../../../../lib/i18n/offered';
 it('replays the checked threshold and an equilibrium jump', () => {
   const run = decodeRun(replay);
   expect(run.threshold / Math.sqrt(run.compression)).toBeCloseTo(21.52, 2);
@@ -13,14 +14,14 @@ it('replays the checked threshold and an equilibrium jump', () => {
 });
 it('translates the experiment in all research locales', () => {
   const titles = new Set<string>();
-  for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
+  for (const locale of PUBLIC_LOCALES) {
     setLocale(locale);
     const s = archStrings();
     titles.add(s.title);
     expect(Object.values(s).every(v => typeof v === 'string' ? v.length > 0 : Object.values(v).every(t => t.length > 0))).toBe(true);
   }
   setLocale('en');
-  expect(titles.size).toBe(6);
+  expect(titles.size).toBe(PUBLIC_LOCALES.length);
 });
 
 it('identifies both critical equilibria without relying on rounded alpha', () => {
@@ -52,7 +53,7 @@ it('checks the evidence numbers and keys used in every locale', async () => {
   for (const c of validation.checks) expect(c.passed).toBe(c.observed <= c.tolerance);
   const labels = new Set<string>();
   try {
-    for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
+    for (const locale of PUBLIC_LOCALES) {
       setLocale(locale);
       const s = archStrings();
       expect(Object.keys(s.checkLabels).sort()).toEqual(validation.checks.map(c => c.metric).sort());
@@ -65,6 +66,6 @@ it('checks the evidence numbers and keys used in every locale', async () => {
       expect(chartStrings().axes).toContain('{y}');
       labels.add(rs().replaySource);
     }
-    expect(labels.size).toBe(6);
+    expect(labels.size).toBe(PUBLIC_LOCALES.length);
   } finally { setLocale('en'); }
 });

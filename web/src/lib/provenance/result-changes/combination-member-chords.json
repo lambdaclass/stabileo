@@ -21,7 +21,7 @@
     "tr": "Bir yük kombinasyonu, bir çubuk için LIN-SMALL-DISPLACEMENT uyarısını yalnızca yüklemelerinden biri verdiğinde veriyordu; bu yüzden uçlarının göreli yer değiştirmesinin boyuna oranı bir yüklemede 0,06, katsayısı 2 olan bir kombinasyonda 0,12 olan bir çubuk uyarılmıyor, bir yüklemede uyarılan bir çubuk ise kombinasyonun bu değeri azalttığı veya sıfırladığı yerde uyarılı kalıyordu (#1506). Her doğrusal sonuç artık her çubuğun uçlarının göreli yer değiştirmesinin boyuna oranını kaydediyor (resultSummary.memberChords) ve bir kombinasyon bunları katsayılarıyla topluyor, kendi değeri 0,1'i aştığında uyarıyor. Bir yüklemede bu kayıt yoksa kombinasyon, yüklemelerinin çubuk uyarılarını eskisi gibi aktarıyor. Sayısal değerler değişmez."
   },
   "changelog": {
-    "file": "changelog.d/1506-combination-member-chords.md",
+    "file": "CHANGELOG.md",
     "heading": "A load combination judges its members' relative displacement on its own displacements (2026-11-06)"
   }
 }

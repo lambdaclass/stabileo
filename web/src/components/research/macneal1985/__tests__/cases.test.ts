@@ -10,6 +10,7 @@ import { scalarViewerTranslations } from '../../../viewport/scalar-viewer-i18n';
 import { t } from '../../../../lib/i18n';
 import { publicI18n, setLocale } from '../../../../lib/i18n/store.svelte';
 import LZString from 'lz-string';
+import { PUBLIC_LOCALES } from '../../../../lib/i18n/offered';
 
 const byId = (id: string) => cases.find(c => c.id === id)!;
 const tip = (c: Case, v: number) => c.measurement.nodes.map(nodeId => ({ nodeId, [c.measurement.component]: v }));
@@ -191,11 +192,11 @@ describe('engine benchmark evidence', () => {
     }
   });
   it('labels withheld rows in every page locale', () => {
-    for (const loc of ['es', 'pt', 'de', 'fr', 'tr'] as const) {
+    for (const loc of PUBLIC_LOCALES.filter((l) => l !== 'en')) {
       expect(strings[loc].withheld, loc).not.toBe(strings.en.withheld);
       expect(strings[loc].withheldTally, loc).not.toBe(strings.en.withheldTally);
     }
-    for (const loc of ['en', 'es', 'pt', 'de', 'fr', 'tr'] as const) {
+    for (const loc of PUBLIC_LOCALES) {
       expect(strings[loc].withheld, loc).toContain('#798');
       expect(strings[loc].withheldTally, loc).toContain('{n}');
     }
@@ -224,7 +225,7 @@ describe('engine benchmark evidence', () => {
 });
 
 describe('page language coverage', () => {
-  const locales = ['en', 'es', 'pt', 'de', 'fr', 'tr'] as const;
+  const locales = PUBLIC_LOCALES;
   it.each(locales)('%s has every key, non-empty, with case labels and native reasons', locale => {
     const s = strings[locale];
     expect(Object.keys(s).sort()).toEqual(Object.keys(strings.en).sort());
@@ -251,12 +252,12 @@ describe('page language coverage', () => {
 
 describe('containment explanation is localized', () => {
   it('translates which results are withheld and why', () => {
-    for (const loc of ['es', 'pt', 'de', 'fr', 'tr'] as const) {
+    for (const loc of PUBLIC_LOCALES.filter((l) => l !== 'en')) {
       for (const key of ['accuracyDescription', 'limitationsBefore', 'limitationsMiddle', 'limitationsAfter', 'withheld', 'withheldTally'] as const) {
         expect(strings[loc][key], `${loc} ${key}`).not.toBe(strings.en[key]);
       }
     }
-    for (const loc of ['en', 'es', 'pt', 'de', 'fr', 'tr'] as const) {
+    for (const loc of PUBLIC_LOCALES) {
       expect(strings[loc].limitationsMiddle, loc).toMatch(/SH-MITC4-DISTORTION/);
       expect(strings[loc].issueLink, loc).toMatch(/#798/);
     }

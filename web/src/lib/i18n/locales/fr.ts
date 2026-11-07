@@ -243,7 +243,7 @@ const fr: Translations = {
   'landing.navResearch': 'Recherche',
   'landing.ebHero': 'LIBRE ET OUVERT · CALCUL DE STRUCTURES',
   'landing.heroH': 'Un calcul de structures que vous pouvez vérifier.',
-  'landing.heroP': 'Portiques et treillis en 2D et 3D, résolus sur votre propre machine et confrontés à sept autres logiciels d’éléments finis. L’assistant IA, encore en développement, s’appuiera sur le même modèle et le même solveur.',
+  'landing.heroP': 'Portiques et treillis en 2D et 3D, résolus sur votre propre machine et confrontés à sept autres logiciels d’éléments finis. L’assistant IA, encore en développement, s’appuie déjà sur le même modèle et le même solveur, avec votre propre clé Claude ou OpenAI.',
   'landing.heroCtaPrimary': 'Ouvrir l\'éditeur',
   'landing.heroBlogLink': 'Lire notre blog',
   'landing.heroMetaA': 'Fonctionne dans tout navigateur récent',

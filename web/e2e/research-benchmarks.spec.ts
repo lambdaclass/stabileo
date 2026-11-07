@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import data from '../../engine/tests/benchmarks/macneal_harder.json' with { type: 'json' };
+import { isComplete } from '../src/lib/i18n/offered';
 
 const PAGE = '/en/research/benchmarks/macneal-harder-1985/';
 const VERDICT: Record<string, string> = {
@@ -92,6 +93,7 @@ test('benchmark keyboard focus, camera menu and viewer navigation @smoke', async
 });
 
 test('benchmark page in German is translated, tagged and has no raw keys @smoke', async ({ page }) => {
+  test.skip(!isComplete('de'), 'German is not offered until a native speaker checks it (#1628)');
   await page.goto('/de/research/benchmarks/macneal-harder-1985/');
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('MacNeal–Harder (1985): Benchmarks der Rechenengine');
   await expect(page.getByRole('heading', { level: 1 })).toHaveAttribute('lang', 'de');

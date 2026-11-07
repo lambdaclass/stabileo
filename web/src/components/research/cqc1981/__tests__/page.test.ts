@@ -3,6 +3,7 @@ import { render } from 'svelte/server';
 import CqcPage from '../CqcPage.svelte';
 import { publicI18n, setLocale } from '../../../../lib/i18n/store.svelte';
 import { translations } from '../strings';
+import { PUBLIC_LOCALES } from '../../../../lib/i18n/offered';
 
 const original = publicI18n.locale;
 afterEach(() => setLocale(original));
@@ -40,7 +41,7 @@ it('shows every number the page reports from the replay, in tables', () => {
 });
 
 it('renders the page, shell and metadata language in all six locales', () => {
-  for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr'] as const) {
+  for (const locale of PUBLIC_LOCALES) {
     setLocale(locale);
     const { body } = render(CqcPage);
     expect(body).toMatch(new RegExp(`<h1 lang="${locale}"`));

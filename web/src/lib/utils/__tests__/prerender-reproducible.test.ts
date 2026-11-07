@@ -52,7 +52,7 @@ describe('two prerenders of one build are byte-identical (#875)', () => {
 
   it('both runs wrote the same files, the prerendered pages among them', () => {
     expect(files(SECOND)).toEqual(files(FIRST));
-    for (const page of ['index.html', 'en/index.html', 'es/research/fracture/shauer-2025/index.html', 'de/tools/simply-supported-beam/index.html']) {
+    for (const page of ['index.html', 'en/index.html', 'es/research/fracture/shauer-2025/index.html', 'pt/tools/simply-supported-beam/index.html']) {
       expect(readFileSync(join(FIRST, page), 'utf8')).toContain('<div id="prerender">');
     }
   });

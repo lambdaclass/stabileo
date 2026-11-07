@@ -117,6 +117,7 @@ test.describe('the landing below the hero', () => {
 
 test.describe('@landing landing page', () => {
   test('a long German compound in the hero does not widen the page on a phone', async ({ page }) => {
+    test.skip(!isComplete('de'), 'German is not offered until a native speaker checks it (#1628)');
     // "Tragwerksberechnung" once set the hero grid's minimum width: 424 px of page at 390 px.
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/de/');
