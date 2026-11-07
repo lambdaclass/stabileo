@@ -41,7 +41,7 @@ export const release050: Post = {
         { k: 'p', t: 'The other advisories cover concrete members with torsion under ACI 318 and EN 1992 (SA-2026-040), constraints of a model cut to 2D from a Y–Z or X–Y plane (SA-2026-036), 3D co-rotational analysis with large rotations (SA-2026-037), a load at t = 0 on a node without mass in time history (SA-2026-031), the zero mode of a mechanism in modal analysis (SA-2026-032), the equilibrium check of the report after the analysis (SA-2026-034), 2D plastic collapse, which stays refused until #758 is fixed (SA-2026-044), 3D plastic collapse with a member that has no usable plastic moment, now refused (SA-2026-045), harmonic analysis that chose between modal superposition and the direct solve per load, so superposition broke (SA-2026-046), rectangles and tubes imported from Excel or IFC with Iy and Iz swapped (SA-2026-039) and, for those who call the engine directly, steel shear without a shear area under AISC 360 and EN 1993 (SA-2026-025 and 026).' },
 
         { k: 'h', t: 'Other changes that move results' },
-        { k: 'p', t: 'These are not defects with an advisory, but they change numbers, so each one is in the re-check notice:' },
+        { k: 'p', t: 'Other changes move numbers too, so each one is in the re-check notice; most have no advisory of their own, and the modal zero mode is SA-2026-032 above:' },
         {
           k: 'ul',
           items: [
@@ -117,7 +117,7 @@ export const release050: Post = {
         { k: 'p', t: 'Los demás avisos cubren las barras de hormigón con torsión según ACI 318 y EN 1992 (SA-2026-040), las restricciones de un modelo cortado a 2D desde un plano Y–Z o X–Y (SA-2026-036), el análisis corrotacional 3D con grandes rotaciones (SA-2026-037), una carga en t = 0 sobre un nudo sin masa en historia en el tiempo (SA-2026-031), el modo nulo de un mecanismo en el análisis modal (SA-2026-032), la verificación de equilibrio de la memoria después del análisis (SA-2026-034), el colapso plástico 2D, que sigue rechazado hasta que se corrija #758 (SA-2026-044), el colapso plástico 3D con una barra sin momento plástico utilizable, ahora rechazado (SA-2026-045), el análisis armónico que elegía entre superposición modal y solución directa por carga, así que la superposición fallaba (SA-2026-046), los rectángulos y tubos importados de Excel o IFC con Iy e Iz intercambiados (SA-2026-039) y, para quienes llaman al motor directamente, el corte en acero sin área de corte según AISC 360 y EN 1993 (SA-2026-025 y 026).' },
 
         { k: 'h', t: 'Otros cambios que mueven resultados' },
-        { k: 'p', t: 'No son errores con aviso, pero cambian números, así que cada uno está en el diálogo de revisión:' },
+        { k: 'p', t: 'Otros cambios también mueven números, así que cada uno está en el diálogo de revisión; la mayoría no tiene aviso propio, y el modo nulo modal es el SA-2026-032 de arriba:' },
         {
           k: 'ul',
           items: [
@@ -193,7 +193,7 @@ export const release050: Post = {
         { k: 'p', t: 'Os demais avisos cobrem barras de concreto com torção pela ACI 318 e pela EN 1992 (SA-2026-040), as restrições de um modelo cortado para 2D a partir de um plano Y–Z ou X–Y (SA-2026-036), a análise corrotacional 3D com grandes rotações (SA-2026-037), uma carga em t = 0 sobre um nó sem massa no histórico no tempo (SA-2026-031), o modo nulo de um mecanismo na análise modal (SA-2026-032), a verificação de equilíbrio do memorial depois da análise (SA-2026-034), o colapso plástico 2D, que continua recusado até que #758 seja corrigido (SA-2026-044), o colapso plástico 3D com uma barra sem momento plástico utilizável, agora recusado (SA-2026-045), a análise harmônica que escolhia entre superposição modal e solução direta por carga, de modo que a superposição falhava (SA-2026-046), retângulos e tubos importados do Excel ou IFC com Iy e Iz trocados (SA-2026-039) e, para quem chama o motor diretamente, o cisalhamento em aço sem área de cisalhamento pela AISC 360 e pela EN 1993 (SA-2026-025 e 026).' },
 
         { k: 'h', t: 'Outras mudanças que alteram resultados' },
-        { k: 'p', t: 'Não são erros com aviso, mas mudam números, então cada uma está no diálogo de revisão:' },
+        { k: 'p', t: 'Outras mudanças também mexem nos números, então cada uma está no diálogo de revisão; a maioria não tem aviso próprio, e o modo nulo modal é o SA-2026-032 acima:' },
         {
           k: 'ul',
           items: [
