@@ -15,9 +15,13 @@ interface Ev { name: string; ph: string; ts: number; dur?: number; pid: number; 
 
 export async function diagStop(page: Page, label: string): Promise<void> {
   const buf = await page.context().browser()!.stopTracing();
-  mkdirSync('e2e/.artifacts/diag', { recursive: true });
-  writeFileSync(`e2e/.artifacts/diag/${label}.json`, buf);
   const events: Ev[] = (JSON.parse(buf.toString()).traceEvents ?? JSON.parse(buf.toString()));
+  const c0 = events.find((e) => e.name === 'stabileo:3d:click');
+  const d0 = events.find((e) => e.name === 'stabileo:3d:document');
+  if (c0 && d0 && d0.ts - c0.ts > 450_000) {
+    mkdirSync('../diag-keep', { recursive: true });
+    writeFileSync(`../diag-keep/${label}-${Date.now()}.json`, buf);
+  }
   const marks = events.filter((e) => e.name?.startsWith('stabileo:3d:'));
   const click = marks.find((e) => e.name === 'stabileo:3d:click');
   if (!click) { console.log(`[diag ${label}] no click mark`); return; }
