@@ -1,3 +1,4 @@
+import os
 import pathlib
 import re
 import subprocess
@@ -78,8 +79,16 @@ class Workflow(unittest.TestCase):
 
     def test_the_pull_request_allowances_are_used_only_when_it_changes_them(self):
         job = route_job()
-        self.assertIn("grep -qx 'web/scripts/research-route-allowances.json'", job)
         self.assertIn('.github/scripts/route-size-from-base.sh route-main . --pr-allowances', job)
+        test = next(line.strip() for line in job.splitlines() if 'research-route-allowances.json' in line and 'grep' in line)
+        self.assertTrue(test.startswith('if ') and test.endswith('; then'))
+        cond = test[3:-len('; then')]
+        def allows(changed):
+            return subprocess.run(['bash', '-c', cond], env={**os.environ, 'CHANGED': changed}).returncode == 0
+        self.assertTrue(allows('web/src/x.ts\nweb/scripts/research-route-allowances.json'))
+        self.assertFalse(allows('web/scripts/research-route-allowancesXjson'))
+        self.assertFalse(allows('web/scripts/research-route-allowances.json.bak'))
+        self.assertFalse(allows('web/src/x.ts'))
 
 
 if __name__ == '__main__':

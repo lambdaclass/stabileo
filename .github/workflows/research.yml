@@ -104,7 +104,7 @@ jobs:
           else
             echo research=false >> "$GITHUB_OUTPUT"
           fi
-          if printf '%s\n' "$CHANGED" | grep -qx 'web/scripts/research-route-allowances.json'; then
+          if printf '%s\n' "$CHANGED" | grep -Fqx 'web/scripts/research-route-allowances.json'; then
             echo allowances=true >> "$GITHUB_OUTPUT"
           fi
       - if: runner.environment == 'github-hosted'
