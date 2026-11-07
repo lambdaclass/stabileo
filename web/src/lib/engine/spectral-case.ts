@@ -32,6 +32,7 @@ import type { ModalResult3D } from './result-types';
 import { mergeResultDiagnostics } from './result-diagnostics';
 import { cqcRho } from './loads/seismic-modal';
 import { reduceById, ELEMENT_KEEP } from './combination-methods';
+import { uniqueShells } from './shell-combos';
 import { parseDecimal } from '../utils/numeric-input';
 
 /** Standard gravity as the engine's spectral analysis takes it. */
@@ -230,8 +231,8 @@ function reduceResults(reduce: (vs: readonly number[]) => number, results: reado
     displacements: reduceById(reduce, results.map((r) => r.displacements), 'nodeId', keepNode),
     reactions: reduceById(reduce, results.map((r) => r.reactions), 'nodeId', keepNode),
     elementForces,
-    ...(results.some((r) => r.plateStresses?.length) ? { plateStresses: reduceById(reduce, results.map((r) => r.plateStresses), 'elementId', keepEl).map(sized) } : {}),
-    ...(results.some((r) => r.quadStresses?.length) ? { quadStresses: reduceById(reduce, results.map((r) => r.quadStresses), 'elementId', keepEl).map(sized) } : {}),
+    ...(results.some((r) => r.plateStresses?.length) ? { plateStresses: reduceById(reduce, results.map((r) => uniqueShells(r.plateStresses)), 'elementId', keepEl).map(sized) } : {}),
+    ...(results.some((r) => r.quadStresses?.length) ? { quadStresses: reduceById(reduce, results.map((r) => uniqueShells(r.quadStresses)), 'elementId', keepEl).map(sized) } : {}),
   };
 }
 
