@@ -1,0 +1,178 @@
+{
+ "connectors": {},
+ "constraints": [],
+ "elements": {
+  "1": {
+   "hingeEnd": true,
+   "hingeStart": false,
+   "id": 1,
+   "materialId": 2,
+   "nodeI": 2,
+   "nodeJ": 5,
+   "sectionId": 3,
+   "type": "frame"
+  },
+  "2": {
+   "hingeEnd": false,
+   "hingeStart": false,
+   "id": 2,
+   "materialId": 2,
+   "nodeI": 3,
+   "nodeJ": 5,
+   "sectionId": 3,
+   "type": "truss"
+  },
+  "3": {
+   "hingeEnd": false,
+   "hingeStart": false,
+   "id": 3,
+   "materialId": 2,
+   "nodeI": 2,
+   "nodeJ": 1,
+   "sectionId": 3,
+   "type": "frame"
+  },
+  "4": {
+   "hingeEnd": false,
+   "hingeStart": false,
+   "id": 4,
+   "materialId": 2,
+   "nodeI": 4,
+   "nodeJ": 2,
+   "sectionId": 1,
+   "type": "truss"
+  }
+ },
+ "loads": [
+  {
+   "data": {
+    "a": null,
+    "b": null,
+    "elementId": 1,
+    "qI": -24.373604150844614,
+    "qJ": 90.78738285901045
+   },
+   "type": "distributed"
+  },
+  {
+   "data": {
+    "fx": -386.33866610584676,
+    "fz": 366.43861728832894,
+    "my": 172.8938703439229,
+    "nodeId": 2
+   },
+   "type": "nodal"
+  },
+  {
+   "data": {
+    "a": 0.3779609571521446,
+    "elementId": 1,
+    "my": null,
+    "p": -85.34243465551293,
+    "px": null
+   },
+   "type": "pointOnElement"
+  },
+  {
+   "data": {
+    "a": null,
+    "b": null,
+    "elementId": 3,
+    "qI": 51.002462385431045,
+    "qJ": 88.93684836847135
+   },
+   "type": "distributed"
+  }
+ ],
+ "materials": {
+  "1": {
+   "e": 5774.434385351951,
+   "id": 1,
+   "nu": 0.3593790091547835
+  },
+  "2": {
+   "e": 122082.10541965612,
+   "id": 2,
+   "nu": 0.13206240819349915
+  },
+  "3": {
+   "e": 1925.7174802965767,
+   "id": 3,
+   "nu": 0.19187790630364027
+  }
+ },
+ "nodes": {
+  "1": {
+   "id": 1,
+   "x": -11.751505200767241,
+   "z": 81.8188293655146
+  },
+  "2": {
+   "id": 2,
+   "x": 33.41920117123274,
+   "z": -74.72559931207826
+  },
+  "3": {
+   "id": 3,
+   "x": -65.94631522979451,
+   "z": 68.84208466283263
+  },
+  "4": {
+   "id": 4,
+   "x": -55.63177455178718,
+   "z": -42.47455571784342
+  },
+  "5": {
+   "id": 5,
+   "x": -57.91938066764821,
+   "z": -28.24457897762187
+  }
+ },
+ "sections": {
+  "1": {
+   "a": 0.04870563957734039,
+   "asY": null,
+   "id": 1,
+   "iz": 2.1889508870304597e-06
+  },
+  "2": {
+   "a": 0.0963928071517753,
+   "asY": null,
+   "id": 2,
+   "iz": 9.689478532511737e-06
+  },
+  "3": {
+   "a": 0.5163458682049598,
+   "asY": null,
+   "id": 3,
+   "iz": 2.962924550416679e-08
+  }
+ },
+ "solverOptions": null,
+ "supports": {
+  "1": {
+   "angle": null,
+   "dry": null,
+   "dx": null,
+   "dz": null,
+   "id": 1,
+   "kx": null,
+   "ky": null,
+   "kz": null,
+   "nodeId": 1,
+   "type": "pinned"
+  },
+  "2": {
+   "angle": null,
+   "dry": null,
+   "dx": null,
+   "dz": null,
+   "id": 2,
+   "kx": null,
+   "ky": null,
+   "kz": null,
+   "nodeId": 2,
+   "type": "rollerZ"
+  }
+ }
+}

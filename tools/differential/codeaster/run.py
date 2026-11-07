@@ -279,7 +279,7 @@ def finish(r, tol, dump_dir, model, binary=None):
                   and held_mechanism(model, sres, [b for b in bad if b[0] == "disp"], binary, tol)
                   and aster_agrees_held(model, own, hres, bad, job, tol)):
                 st = "warned_singular"
-                held = ["stabileo warned: NUM-INVARIANCE", "stabileo forces bit-identical with the disagreeing DOFs held, "
+                held = ["stabileo warned: NUM-INVARIANCE", "stabileo forces the same to round-off with the disagreeing DOFs held, "
                         "moving them needs no force, and code_aster agrees on the held model: "
                         + ", ".join(f"{b[1]} {b[2]}" for b in bad if b[0] == "disp")]
         if bad:
@@ -377,6 +377,9 @@ def held_mechanism(model, sres, bad, binary, tol):
     return True
 
 
+HELD_ROUND_OFF = 64 * sys.float_info.epsilon
+
+
 def held_model(model, sres, bad):
     """The model with every disagreeing displacement restrained at stabileo's own value, and those
     DOFs; None when one is not a free DOF of a known node."""
@@ -404,8 +407,9 @@ def held_model(model, sres, bad):
 
 def held_solve(model, sres, bad, binary):
     """Stabileo's answer for its model with every disagreeing displacement held at its own value, when
-    every member force and reaction is bit-identical and no held DOF or support the holding added
-    carries a force; None otherwise. This alone is self-consistency (a stiff DOF passes too)."""
+    every member force and reaction is the same to round-off (HELD_ROUND_OFF of the largest force or
+    reaction, no absolute floor) and no held DOF or support the holding added carries a force; None
+    otherwise. This alone is self-consistency (a stiff DOF passes too)."""
     built = held_model(model, sres, bad)
     if not binary or built is None:
         return None
@@ -418,20 +422,29 @@ def held_solve(model, sres, bad, binary):
 
 
 def _held_identical(sres, hres, dofs):
+    values = [v for f in sres["forces"].values() for v in f.values()] + [v for r in sres["reac"].values() for v in r]
+    if not values or not all(math.isfinite(v) for v in values):
+        return False
+    bound = HELD_ROUND_OFF * max(abs(v) for v in values)
+
+    def same(a, b):
+        return math.isfinite(b) and abs(a - b) <= bound
+
     if not sres["forces"] or set(hres["forces"]) != set(sres["forces"]):
         return False
     for eid, f in sres["forces"].items():
-        if hres["forces"][eid] != f or not all(math.isfinite(v) for v in f.values()):
+        if set(hres["forces"][eid]) != set(f) or not all(same(v, hres["forces"][eid][k]) for k, v in f.items()):
             return False
     for nid, r in sres["reac"].items():
-        if hres["reac"].get(nid) != r or not all(math.isfinite(v) for v in r):
+        h = hres["reac"].get(nid)
+        if h is None or len(h) != len(r) or not all(same(a, b) for a, b in zip(r, h)):
             return False
     for nid, k in dofs:
         r = hres["reac"].get(int(nid)) or hres["reac"].get(nid)
-        if r is None or r[k] != 0.0:
+        if r is None or k >= len(r) or not same(0.0, r[k]):
             return False
     for nid, r in hres["reac"].items():
-        if nid not in sres["reac"] and any(v != 0.0 for v in r):
+        if nid not in sres["reac"] and not all(same(0.0, v) for v in r):
             return False
     return True
 

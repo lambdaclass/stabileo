@@ -65,7 +65,19 @@ pub struct Item {
 }
 
 #[derive(Clone, Debug, Default)]
-pub struct Resp(pub Vec<Item>, pub Vec<(String, u64)>);
+pub struct Resp(pub Vec<Item>, pub Vec<(String, u64)>, pub NearMechanism);
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct NearMechanism(pub bool);
+
+impl NearMechanism {
+    pub fn of(diagnostics: &[StructuredDiagnostic]) -> NearMechanism {
+        NearMechanism(diagnostics.iter().any(|d| {
+            d.code == DiagnosticCode::StiffnessNotPositiveDefinite
+                || (d.code == DiagnosticCode::KnownIssue && d.phase.as_deref() == Some("NUM-INVARIANCE"))
+        }))
+    }
+}
 
 /// Only structured, error-severity known issues are solver refusals. Ordinary
 /// failures (including malformed refusal JSON) remain errors, never passes.
@@ -92,7 +104,7 @@ pub fn outcome(result: Result<Resp, String>) -> Result<Resp, String> {
         if ids.is_empty() { return Err(error); }
         ids.sort();
         ids.dedup();
-        Ok(Resp(Vec::new(), ids))
+        Ok(Resp(Vec::new(), ids, NearMechanism(false)))
     })
 }
 
@@ -124,7 +136,7 @@ impl Resp {
     }
     /// Without the stress invariants (von Mises is not linear in the loads).
     pub fn without_stress(&self) -> Resp {
-        Resp(self.0.iter().filter(|i| !matches!(i.kind, Kind::Stress)).cloned().collect(), self.1.clone())
+        Resp(self.0.iter().filter(|i| !matches!(i.kind, Kind::Stress)).cloned().collect(), self.1.clone(), self.2)
     }
     pub fn set_floor(&mut self, tag: &str, floor: f64) {
         for it in self.0.iter_mut().filter(|i| i.tag == tag) {
@@ -134,7 +146,7 @@ impl Resp {
     /// Keep only items whose key (node, element, tag) is also in `other`.
     pub fn common(&self, other: &Resp) -> Resp {
         let keys: std::collections::HashSet<(Option<usize>, Option<usize>, String)> = other.0.iter().map(|i| (i.node, i.elem, i.tag.clone())).collect();
-        Resp(self.0.iter().filter(|i| keys.contains(&(i.node, i.elem, i.tag.clone()))).cloned().collect(), self.1.clone())
+        Resp(self.0.iter().filter(|i| keys.contains(&(i.node, i.elem, i.tag.clone()))).cloned().collect(), self.1.clone(), self.2)
     }
     /// Keep only items on the given nodes/elements (drop padding).
     /// `elems` are frame element ids: shell stresses are keyed by shell id
@@ -420,7 +432,7 @@ impl Resp {
 // ==================== static results → responses ====================
 
 pub fn static_2d(r: &AnalysisResults) -> Resp {
-    let mut o = Resp::default();
+    let mut o = Resp(Vec::new(), Vec::new(), NearMechanism::of(&r.structured_diagnostics));
     for d in &r.displacements {
         o.push(Some(d.node_id), None, "u", Kind::V2(Dim::LEN), vec![d.ux, d.uz]);
         o.push(Some(d.node_id), None, "ry", Kind::P2(Dim::NONE), vec![d.ry]);
@@ -468,7 +480,7 @@ pub fn planar_static(p: &dedaliano_engine::metamorphic::planes::PlanarStatic) ->
 }
 
 pub fn disp_2d(r: &AnalysisResults) -> Resp {
-    let mut o = Resp::default();
+    let mut o = Resp(Vec::new(), Vec::new(), NearMechanism::of(&r.structured_diagnostics));
     for d in &r.displacements {
         o.push(Some(d.node_id), None, "u", Kind::V2(Dim::LEN), vec![d.ux, d.uz]);
         o.push(Some(d.node_id), None, "ry", Kind::P2(Dim::NONE), vec![d.ry]);
@@ -505,7 +517,7 @@ pub fn static_3d(r: &AnalysisResults3D) -> Resp {
 }
 
 pub fn disp_3d(r: &AnalysisResults3D) -> Resp {
-    let mut o = Resp::default();
+    let mut o = Resp(Vec::new(), Vec::new(), NearMechanism::of(&r.structured_diagnostics));
     for d in &r.displacements {
         o.push(Some(d.node_id), None, "u", Kind::V3(Dim::LEN), vec![d.ux, d.uy, d.uz]);
         o.push(Some(d.node_id), None, "r", Kind::V3(Dim::NONE), vec![d.rx, d.ry, d.rz]);
@@ -544,7 +556,7 @@ pub fn widened_past(r: &Resp, rel: f64, limit: f64) -> std::collections::HashSet
 
 impl Resp {
     pub fn without_tags(&self, tags: &std::collections::HashSet<String>) -> Resp {
-        Resp(self.0.iter().filter(|i| !tags.contains(&i.tag)).cloned().collect(), self.1.clone())
+        Resp(self.0.iter().filter(|i| !tags.contains(&i.tag)).cloned().collect(), self.1.clone(), self.2)
     }
 }
 

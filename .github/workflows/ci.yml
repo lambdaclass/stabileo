@@ -114,6 +114,7 @@ jobs:
       scope: ${{ steps.select.outputs.scope }}
       unit_area: ${{ steps.select.outputs.unit_area }}
       e2e_specs: ${{ steps.select.outputs.e2e_specs }}
+      slow_specs: ${{ steps.select.outputs.slow_specs }}
       e2e_shards: ${{ steps.select.outputs.e2e_shards }}
       e2e_total: ${{ steps.select.outputs.e2e_total }}
       web_build: ${{ steps.select.outputs.web_build }}
@@ -1690,6 +1691,7 @@ jobs:
         if: needs.changes.outputs.slow_e2e == 'true' || needs.changes.outputs.run_e2e == 'true'
         env:
           NO_WALL_CLOCK: ${{ runner.environment == 'self-hosted' && '1' || '' }}
+          E2E_SLOW_SPECS: ${{ needs.changes.outputs.slow_specs }}
         run: |
           if [ "${{ runner.environment }}" = self-hosted ]; then
             nix develop .#e2e -c make e2e.web.slow SHARD=${{ matrix.shard }}/${{ needs.changes.outputs.e2e_total }} NIX_RUN= NO_WALL_CLOCK="$NO_WALL_CLOCK"
