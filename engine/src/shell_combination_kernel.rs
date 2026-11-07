@@ -409,7 +409,7 @@ fn combine(input: Input) -> Output {
     }
 }
 
-fn unique_ids(ids: impl Iterator<Item = usize>) -> Result<(), String> {
+pub(crate) fn unique_ids(ids: impl Iterator<Item = usize>) -> Result<(), String> {
     let mut seen = HashSet::new();
     for id in ids {
         if !seen.insert(id) {

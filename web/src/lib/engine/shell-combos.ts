@@ -2,9 +2,7 @@ import { getShellCombinationKernel, getShellEnvelopeKernel, type ShellEnvelopeRo
 import { EngineUnavailableError } from './engine-unavailable';
 // Combine per-case shell stresses into per-combination + envelope results.
 //
-// The WASM combination solver linearly combines displacements / reactions /
-// element forces, but drops plate/quad stresses (combine_results_3d sets them
-// to empty). Shell membrane stresses (σxx, σyy, τxy), bending moments
+// Shell membrane stresses (σxx, σyy, τxy), bending moments
 // (mx, my, mxy) and the quads' transverse shears (qx, qy) are LINEAR in the
 // displacement field, so for a linear-elastic combo they equal
 // Σ factorᵢ · (case-i value). The engine's shell combination kernel
@@ -172,13 +170,14 @@ export function enrichComboShellStresses(
  * parts are in it already.
  *
  * `combined` is the engine's combination of the cases (displacements, reactions, member
- * forces). The engine leaves out everything else, and the baseline is read for more than the
- * frame: the floor design takes the slab moments from its quad stresses, the solve toasts its
+ * forces, shell stresses). The engine leaves out the rest, and the baseline is read for more than
+ * the frame: the floor design takes the slab moments from its quad stresses, the solve toasts its
  * solver diagnostics, and the diagnostics panel its structured findings. So, from the cases:
- *   · shell stresses and constraint forces are summed — both linear in the displacements;
+ *   · shell stresses (by the kernel, as every combination) and constraint forces are summed —
+ *     both linear in the displacements;
  *   · the diagnostics, which describe the model and the solve rather than one case's loads,
  *     and the timings are the first case's.
- * Nodal shell stresses are not carried, as for every combination (see the header).
+ * The nodal Von Mises lists are not carried, as for every combination (see the header).
  */
 export function allLoadsResult3D(
   combined: AnalysisResults3D,
