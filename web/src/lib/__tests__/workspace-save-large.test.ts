@@ -171,8 +171,9 @@ describe('the designed and detailed 7-storey building', () => {
     detailingStore.clear();
     const saved = loadWorkspaceFromLocalStorage()!;
     expect(saved).not.toBeNull();
-    if (workspaceNeedsDetailing(saved)) await restoreWorkspaceDetailing(saved);
-    tabManager.restoreSession(saved.tabs, saved.activeTabId);
+    const apply = (session: typeof saved) => tabManager.restoreSession(session.tabs, session.activeTabId);
+    if (workspaceNeedsDetailing(saved)) await restoreWorkspaceDetailing(saved, apply);
+    else apply(saved);
     return saved;
   }
 
@@ -334,6 +335,38 @@ describe('the designed and detailed 7-storey building', () => {
     await reload();
     expect(canon(withoutDemandRevision(modelStore.snapshot().detailing))).toBe(canon(withoutDemandRevision(before.detailing)));
     expect(toast).not.toHaveBeenCalled();
+  }, 300_000);
+
+  it('bars the store could not read do not come back over a detailing the user cleared since', async () => {
+    startWith([designed], designed.id);
+    expect(await saveWorkspaceSettled()).toBe(true);
+
+    await resetWorkspaceDetailingDb();
+    vi.stubGlobal('indexedDB', undefined);
+    await reload();
+    expect(await saveWorkspaceSettled()).toBe(true);
+    expect(storedRef(), 'unchanged: the ref is kept for the next start').toEqual(expect.any(String));
+
+    detailingStore.clear();
+    expect(await saveWorkspaceSettled()).toBe(true);
+    expect(storedRef(), 'cleared: the ref is dropped').toBeUndefined();
+
+    vi.unstubAllGlobals();
+    vi.stubGlobal('localStorage', storage);
+    await reload();
+    expect(modelStore.snapshot().detailing?.assemblies ?? []).toEqual([]);
+  }, 300_000);
+
+  it('an earlier save still storing its bars does not publish after a later save failed to store its own', async () => {
+    startWith([designed], designed.id);
+    expect(saveWorkspaceToLocalStorage()).toBe(true);
+    await new Promise((r) => setTimeout(r, 0));
+    await resetWorkspaceDetailingDb();
+    vi.stubGlobal('indexedDB', undefined);
+    startWith([repinned()], designed.id);
+    expect(await saveWorkspaceSettled()).toBe(false);
+    await workspaceSavesFinished();
+    expect(storage.getItem(WORKSPACE_KEY), 'the earlier save published its older tabs after the later one failed').toBeNull();
   }, 300_000);
 
   it('treats a malformed record as lost bars, not as a tab with none', async () => {

@@ -1054,7 +1054,7 @@
           autosaveData = null;
         };
         if (workspaceNeedsDetailing(savedWorkspace)) {
-          void restoreWorkspaceDetailing(savedWorkspace).then(restoreWorkspace);
+          void restoreWorkspaceDetailing(savedWorkspace, restoreWorkspace);
         } else {
           restoreWorkspace();
         }

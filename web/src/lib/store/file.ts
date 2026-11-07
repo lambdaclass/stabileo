@@ -21,7 +21,7 @@ import {
   autosaveClear, autosaveRead, autosaveStatus, autosaveWrite,
   type AutosaveFingerprint, type AutosavePolicy, type AutosaveReadResult, type AutosaveWriteResult,
 } from './autosave-db';
-import { noteDetailingKnown, pruneDetailing, readDetailing, splitDetailing, stageDetailing, storeDetailing, type StagedDetailing } from './workspace-detailing';
+import { noteDetailingKnown, pruneDetailing, readDetailing, splitDetailing, stageDetailing, storeDetailing, type HeavyDetailing, type StagedDetailing } from './workspace-detailing';
 import { workspaceSaveStatus } from './workspace-save-status.svelte';
 import {
   type ViewportPresentation3D,
@@ -486,8 +486,10 @@ function workspaceTab(tab: TabState, staged: StagedDetailing[]): TabState {
     staged.push(s);
     out.modelSnapshot = { ...tab.modelSnapshot, detailing: light };
     out.detailingRef = s.ref;
-  } else if (unreadDetailing.has(tab.id)) {
-    out.detailingRef = unreadDetailing.get(tab.id);
+  } else {
+    const unread = unreadDetailing.get(tab.id);
+    if (unread && sameParts(unread.parts, detailingParts(tab.modelSnapshot.detailing))) out.detailingRef = unread.ref;
+    else unreadDetailing.delete(tab.id);
   }
   return out as unknown as TabState;
 }
@@ -1154,7 +1156,11 @@ function protectStoredWorkspace(raw: string, reason: WorkspaceBackup['reason'], 
 }
 
 let workspaceRestorePending = false;
-const unreadDetailing = new Map<string, string>();
+const unreadDetailing = new Map<string, { ref: string; parts: unknown[] }>();
+
+const detailingParts = (d: ModelSnapshot['detailing']): unknown[] =>
+  d ? Object.values(d).filter((v) => v !== null && typeof v === 'object') : [];
+const sameParts = (a: unknown[], b: unknown[]): boolean => a.length === b.length && a.every((p, i) => p === b[i]);
 let saveGen = 0;
 let publishedGen = 0;
 let finishedGen = 0;
@@ -1215,6 +1221,7 @@ export function saveWorkspaceToLocalStorage(): boolean {
     return ok;
   }
   const save = storeDetailing(staged).then((stored) => {
+    if (!stored) publishedGen = Math.max(publishedGen, gen);
     const ok = stored && publishWorkspace(gen, text);
     if (ok && gen === publishedGen) void pruneDetailing(() => new Set([...staged.map((s) => s.ref), ...storedWorkspaceRefs()]));
     return finishSave(gen, ok);
@@ -1254,27 +1261,38 @@ export function workspaceNeedsDetailing(session: DedalSessionFile): boolean {
   return session.tabs.some((tab) => typeof tab.detailingRef === 'string');
 }
 
-/** Mutates `session`. Workspace saves are refused until it settles, so the empty start-up tab is not written over the stored one. */
-export async function restoreWorkspaceDetailing(session: DedalSessionFile): Promise<void> {
+/**
+ * Mutates `session`, then hands it to `apply`. Workspace saves are refused until it settles, so the
+ * empty start-up tab is not written over the stored one. Bars the store could not read keep their
+ * ref only while the tab's detailing stays the one restored.
+ */
+export async function restoreWorkspaceDetailing(session: DedalSessionFile, apply: (session: DedalSessionFile) => void): Promise<void> {
   const wanted = session.tabs.filter((tab) => typeof tab.detailingRef === 'string');
-  if (wanted.length === 0) return;
   workspaceRestorePending = true;
   try {
-    const records = await readDetailing(wanted.map((tab) => tab.detailingRef!));
+    const records = wanted.length > 0 ? await readDetailing(wanted.map((tab) => tab.detailingRef!)) : new Map<string, HeavyDetailing>();
     const lost: DroppedSessionTab[] = [];
+    const unread = new Map<string, string>();
     for (const tab of wanted) {
       const ref = tab.detailingRef!;
       const heavy = records?.get(ref);
+      unreadDetailing.delete(tab.id);
       if (heavy) {
         tab.modelSnapshot = { ...tab.modelSnapshot, detailing: { ...tab.modelSnapshot.detailing!, ...heavy } };
         forgetSessionDemandRevisions(tab.modelSnapshot);
         noteDetailingKnown(tab.id, ref, heavy);
-        unreadDetailing.delete(tab.id);
       } else {
         lost.push({ index: session.tabs.indexOf(tab), name: tab.name });
-        if (!records) unreadDetailing.set(tab.id, ref);
+        if (!records) unread.set(tab.id, ref);
       }
       delete tab.detailingRef;
+    }
+    apply(session);
+    for (const [id, ref] of unread) {
+      const tab = tabManager.tabs.find((x) => x.id === id);
+      if (!tab) continue;
+      const detailing = id === tabManager.activeTabId ? modelStore.snapshot().detailing : tab.modelSnapshot.detailing;
+      unreadDetailing.set(id, { ref, parts: detailingParts(detailing) });
     }
     if (lost.length > 0) {
       const message = records ? t('file.workspaceDetailingLost') : t('file.workspaceDetailingUnread');
