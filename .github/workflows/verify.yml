@@ -147,7 +147,7 @@ jobs:
         run: |
           .github/scripts/retry-infra.sh nix develop .#verify --command true
       - name: Install Kani
-        run: nix develop .#verify -c ./scripts/kani-setup.sh
+        run: .github/scripts/retry-infra.sh nix develop .#verify -c ./scripts/kani-setup.sh
       # One harness at a time under a memory/time watchdog: CBMC can need tens of GB
       # per float-heavy harness, and the runner has 16 GB.
       # Pull requests and the merge queue run the fast tier; the nightly schedule and manual runs
