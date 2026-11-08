@@ -457,7 +457,7 @@ fn a_spin_about_a_collinear_rigid_link_is_a_free_rotation_and_any_offset_one_is_
         }
     }
     for (what, s) in all {
-        assert!(matches!(s.verdict, Verdict::Mechanism | Verdict::Singular), "{what}: {s:?}");
+        assert_eq!(s.verdict, Verdict::Mechanism, "{what}: {s:?}");
     }
 }
 
@@ -658,6 +658,20 @@ fn a_free_rotation_swinging_a_constrained_translation_is_a_mechanism_at_any_arm_
                 let r = stability::analyze_dense_constrained(&k, 3, &tags, &moves);
                 assert_eq!(r.verdict, Verdict::Mechanism, "arm {arm} angle {angle} scale {scale}: {r:?}");
             }
+        }
+    }
+}
+
+#[test]
+fn free_rotations_coupled_only_to_each_other_are_refused_even_when_nothing_else_is_kept() {
+    for delta in [1e-300, 1e-16, 1.0, 1e200] {
+        for swap in [false, true] {
+            let (a, b) = if swap { (3, 2) } else { (2, 3) };
+            let alone = analyze_dense(&[0.0, delta, delta, 0.0], 2, &[t(a, DofKind::Rotation), t(b, DofKind::Rotation)]);
+            assert_eq!((alone.verdict, alone.reason), (Verdict::Singular, Reason::CoupledSoftDirection), "{delta} {swap}: {alone:?}");
+            let k = [1.0, 0.0, 0.0, 0.0, 0.0, delta, 0.0, delta, 0.0];
+            let beside = analyze_dense(&k, 3, &[t(1, DofKind::Translation), t(a, DofKind::Rotation), t(b, DofKind::Rotation)]);
+            assert_eq!(beside.verdict, Verdict::Singular, "{delta} {swap}: {beside:?}");
         }
     }
 }

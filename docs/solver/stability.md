@@ -126,6 +126,9 @@ before an uncertified estimate becomes a refusal.
     at different nodes that close a mechanism together (Codex's two-node example: each
     node's own check gives `2⁻²⁰`, the joint one `1`).
 
+  The check also runs when every direction is dropped and nothing is kept, so two free
+  rotations coupled only to each other are refused too.
+
   A refusal of either kind has its own reason and wording, not the condition number.
 - All block eigenproblems and singular values run on the block divided by its largest
   entry, so scaling a block by `1e±200` neither underflows nor overflows.

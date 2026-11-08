@@ -226,6 +226,10 @@ pub fn analyze_constrained(k: &CscMatrix, tags: &[DofTag], moves_translation: &[
     }
     let m = columns.len();
     if m == 0 {
+        let coupled = coupled_free(k, &free, &own, &columns, &groups, &group_of, 1.0);
+        if !coupled.is_empty() {
+            return Stability { verdict: Verdict::Singular, reason: Reason::CoupledSoftDirection, kappa: f64::INFINITY, anisotropy, free, mode_nodes: coupled };
+        }
         return Stability { verdict: Verdict::Stable, reason: Reason::Resolved, kappa: 1.0, anisotropy, free, mode_nodes: Vec::new() };
     }
     let s = scaled(k, &groups, &group_of, &columns);
