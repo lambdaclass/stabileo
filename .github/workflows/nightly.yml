@@ -361,6 +361,7 @@ jobs:
           name: opensees-report-${{ matrix.part }}
           path: |
             opensees-report.json
+            opensees-report.json.progress.jsonl
             opensees-mismatches/
           if-no-files-found: ignore
 

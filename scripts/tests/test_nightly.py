@@ -411,6 +411,7 @@ class OpenSeesShards(unittest.TestCase):
         self.assertEqual(sorted(flags), sorted(cases))
         self.assertIn('name: nightly-findings-opensees-${{ matrix.part }}', job)
         self.assertIn('name: opensees-report-${{ matrix.part }}', job)
+        self.assertIn('opensees-report.json.progress.jsonl', job)
         self.assertIn('fail-fast: false', job)
 
 if __name__ == '__main__':
