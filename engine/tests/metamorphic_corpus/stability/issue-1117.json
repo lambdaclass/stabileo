@@ -1,0 +1,131 @@
+{
+ "nodes": {
+  "1": {
+   "id": 1,
+   "x": -32.94097390668198,
+   "y": -34.77191383300278,
+   "z": 41.39296232970537
+  },
+  "2": {
+   "id": 2,
+   "x": 46.90842128032506,
+   "y": 34.7832800853286,
+   "z": 35.650209629933656
+  }
+ },
+ "materials": {
+  "1": {
+   "id": 1,
+   "e": 46323055.71034658,
+   "nu": 0.4163140667654227
+  },
+  "2": {
+   "id": 2,
+   "e": 107716078.76879975,
+   "nu": 0.2872494713013613
+  },
+  "3": {
+   "id": 3,
+   "e": 370109.9757856981,
+   "nu": 0.27046046137003765
+  }
+ },
+ "sections": {
+  "1": {
+   "id": 1,
+   "name": null,
+   "a": 0.0005316753822349938,
+   "iy": 0.00401620363801445,
+   "iz": 1.5889116448632147e-08,
+   "j": 3.213842786062143e-05,
+   "cw": null,
+   "asY": null,
+   "asZ": null,
+   "shearCenterY": null,
+   "shearCenterZ": null
+  },
+  "2": {
+   "id": 2,
+   "name": null,
+   "a": 0.3629008292029935,
+   "iy": 7.743189942856169e-08,
+   "iz": 7.055364415031274e-07,
+   "j": 0.00024890202179408976,
+   "cw": null,
+   "asY": null,
+   "asZ": null,
+   "shearCenterY": null,
+   "shearCenterZ": null
+  }
+ },
+ "elements": {
+  "1": {
+   "id": 1,
+   "type": "frame",
+   "nodeI": 2,
+   "nodeJ": 1,
+   "materialId": 1,
+   "sectionId": 1,
+   "releaseMyStart": false,
+   "releaseMyEnd": false,
+   "releaseMzStart": false,
+   "releaseMzEnd": false,
+   "releaseTStart": false,
+   "releaseTEnd": false,
+   "localYx": null,
+   "localYy": null,
+   "localYz": null,
+   "rollAngle": null
+  }
+ },
+ "supports": {
+  "1": {
+   "nodeId": 1,
+   "rx": true,
+   "ry": true,
+   "rz": true,
+   "rrx": true,
+   "rry": true,
+   "rrz": true,
+   "kx": null,
+   "ky": null,
+   "kz": null,
+   "krx": null,
+   "kry": null,
+   "krz": null,
+   "dx": null,
+   "dy": null,
+   "dz": null,
+   "drx": null,
+   "dry": null,
+   "drz": null,
+   "rw": null,
+   "kw": null,
+   "normalX": null,
+   "normalY": null,
+   "normalZ": null,
+   "isInclined": null
+  }
+ },
+ "loads": [
+  {
+   "type": "pointOnElement",
+   "data": {
+    "elementId": 1,
+    "a": 0.8418455073529746,
+    "py": 283.8803091713014,
+    "pz": 262.42357110605474
+   }
+  }
+ ],
+ "constraints": [],
+ "leftHand": null,
+ "plates": {},
+ "quads": {},
+ "quad9s": {},
+ "solidShells": {},
+ "curvedShells": {},
+ "curvedBeams": [],
+ "connectors": {},
+ "solverOptions": null
+}

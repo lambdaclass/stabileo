@@ -1,0 +1,59 @@
+{
+ "nodes": {
+  "1": {
+   "id": 1,
+   "x": 93.1220716661476,
+   "z": -31.99269080495894
+  },
+  "2": {
+   "id": 2,
+   "x": -56.460203443677685,
+   "z": 70.44886872829909
+  }
+ },
+ "materials": {
+  "1": {
+   "id": 1,
+   "e": 2607442.530841136,
+   "nu": 0.3606514767855208
+  }
+ },
+ "sections": {
+  "1": {
+   "id": 1,
+   "a": 0.00036327331396182106,
+   "iz": 0.00010654331533896425,
+   "asY": null
+  }
+ },
+ "elements": {
+  "1": {
+   "id": 1,
+   "type": "frame",
+   "nodeI": 1,
+   "nodeJ": 2,
+   "materialId": 1,
+   "sectionId": 1,
+   "hingeStart": false,
+   "hingeEnd": false
+  }
+ },
+ "supports": {
+  "1": {
+   "id": 1,
+   "nodeId": 1,
+   "type": "pinned",
+   "kx": null,
+   "ky": null,
+   "kz": null,
+   "dx": null,
+   "dz": null,
+   "dry": null,
+   "angle": null
+  }
+ },
+ "loads": [],
+ "constraints": [],
+ "connectors": {},
+ "solverOptions": null
+}

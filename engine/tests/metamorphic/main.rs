@@ -37,6 +37,7 @@ mod completeness;
 mod response;
 mod symmetry;
 mod tally;
+mod stability;
 
 use tally::Tally;
 

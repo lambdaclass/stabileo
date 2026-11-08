@@ -1,0 +1,123 @@
+{
+ "_nightly_dens": {
+  "1": 3634.566729162668
+ },
+ "_nightly_name": "fuzz_rich_2d/21734",
+ "connectors": {
+  "1": {
+   "id": 1,
+   "kAxial": 74432.97170589183,
+   "kBendY": 0,
+   "kBendZ": 0,
+   "kMoment": 43269.78456949835,
+   "kShear": 335.69396146875556,
+   "kShearZ": 0,
+   "nodeI": 1,
+   "nodeJ": 3
+  }
+ },
+ "constraints": [],
+ "elements": {
+  "1": {
+   "hingeEnd": false,
+   "hingeStart": false,
+   "id": 1,
+   "materialId": 1,
+   "nodeI": 2,
+   "nodeJ": 1,
+   "sectionId": 2,
+   "type": "frame"
+  },
+  "2": {
+   "hingeEnd": true,
+   "hingeStart": false,
+   "id": 2,
+   "materialId": 1,
+   "nodeI": 1,
+   "nodeJ": 3,
+   "sectionId": 2,
+   "type": "frame"
+  },
+  "3": {
+   "hingeEnd": false,
+   "hingeStart": false,
+   "id": 3,
+   "materialId": 1,
+   "nodeI": 2,
+   "nodeJ": 4,
+   "sectionId": 1,
+   "type": "frame"
+  }
+ },
+ "loads": [],
+ "materials": {
+  "1": {
+   "e": 16872.163190947365,
+   "id": 1,
+   "nu": 0.21402974253292165
+  }
+ },
+ "nodes": {
+  "1": {
+   "id": 1,
+   "x": 7.503490015317755,
+   "z": 1.1571697040385587
+  },
+  "2": {
+   "id": 2,
+   "x": 0.5963650471596758,
+   "z": -1.5916047681927594
+  },
+  "3": {
+   "id": 3,
+   "x": -0.43692171612832453,
+   "z": -5.614723128311766
+  },
+  "4": {
+   "id": 4,
+   "x": 5.277000755930057,
+   "z": -6.5471898940045925
+  }
+ },
+ "sections": {
+  "1": {
+   "a": 0.035578484785937926,
+   "asY": null,
+   "id": 1,
+   "iz": 4.291479016340436e-05
+  },
+  "2": {
+   "a": 0.007334035333848504,
+   "asY": null,
+   "id": 2,
+   "iz": 0.0001561338435038459
+  }
+ },
+ "solverOptions": null,
+ "supports": {
+  "1": {
+   "angle": null,
+   "dry": null,
+   "dx": null,
+   "dz": -0.0037539416439529207,
+   "id": 1,
+   "kx": null,
+   "ky": null,
+   "kz": null,
+   "nodeId": 1,
+   "type": "fixed"
+  },
+  "2": {
+   "angle": -2.8974361398856474,
+   "dry": null,
+   "dx": null,
+   "dz": null,
+   "id": 2,
+   "kx": null,
+   "ky": 19094.690296412602,
+   "kz": null,
+   "nodeId": 2,
+   "type": "spring"
+  }
+ }
+}

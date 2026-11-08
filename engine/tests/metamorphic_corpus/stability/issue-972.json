@@ -1,0 +1,136 @@
+{
+ "nodes": {
+  "1": {
+   "id": 1,
+   "x": 32.487148062214516,
+   "y": 33.88792875557665,
+   "z": -37.70436661039771
+  },
+  "2": {
+   "id": 2,
+   "x": 0.7604921155949924,
+   "y": -26.139002825638656,
+   "z": 0.8746150570297004
+  }
+ },
+ "materials": {
+  "1": {
+   "id": 1,
+   "e": 17613201.44332452,
+   "nu": 0.4497889680259538
+  },
+  "2": {
+   "id": 2,
+   "e": 1681730.7808188207,
+   "nu": 0.21357458840822252
+  },
+  "3": {
+   "id": 3,
+   "e": 802715421.625234,
+   "nu": 0.303032108982879
+  }
+ },
+ "sections": {
+  "1": {
+   "id": 1,
+   "name": null,
+   "a": 0.0901397326772624,
+   "iy": 7.842520411813588e-08,
+   "iz": 7.329689011478252e-06,
+   "j": 0.0003449292383800642,
+   "cw": null,
+   "asY": null,
+   "asZ": null,
+   "shearCenterY": null,
+   "shearCenterZ": null
+  },
+  "2": {
+   "id": 2,
+   "name": null,
+   "a": 0.011317754158178086,
+   "iy": 3.766298289277696e-06,
+   "iz": 0.0006895891509735599,
+   "j": 0.00018196772033825413,
+   "cw": null,
+   "asY": null,
+   "asZ": null,
+   "shearCenterY": null,
+   "shearCenterZ": null
+  }
+ },
+ "elements": {
+  "1": {
+   "id": 1,
+   "type": "frame",
+   "nodeI": 2,
+   "nodeJ": 1,
+   "materialId": 1,
+   "sectionId": 1,
+   "releaseMyStart": false,
+   "releaseMyEnd": false,
+   "releaseMzStart": false,
+   "releaseMzEnd": false,
+   "releaseTStart": false,
+   "releaseTEnd": false,
+   "localYx": null,
+   "localYy": null,
+   "localYz": null,
+   "rollAngle": null
+  }
+ },
+ "supports": {
+  "1": {
+   "nodeId": 1,
+   "rx": true,
+   "ry": true,
+   "rz": true,
+   "rrx": true,
+   "rry": true,
+   "rrz": true,
+   "kx": null,
+   "ky": null,
+   "kz": null,
+   "krx": null,
+   "kry": null,
+   "krz": null,
+   "dx": null,
+   "dy": null,
+   "dz": null,
+   "drx": null,
+   "dry": null,
+   "drz": null,
+   "rw": null,
+   "kw": null,
+   "normalX": null,
+   "normalY": null,
+   "normalZ": null,
+   "isInclined": null
+  }
+ },
+ "loads": [
+  {
+   "type": "distributed",
+   "data": {
+    "qXI": 0,
+    "qXJ": 0,
+    "elementId": 1,
+    "qYI": 0.13008201911132744,
+    "qYJ": 69.87711480479288,
+    "qZI": -27.40181057574334,
+    "qZJ": -80.79576605653256,
+    "a": null,
+    "b": null
+   }
+  }
+ ],
+ "constraints": [],
+ "leftHand": null,
+ "plates": {},
+ "quads": {},
+ "quad9s": {},
+ "solidShells": {},
+ "curvedShells": {},
+ "curvedBeams": [],
+ "connectors": {},
+ "solverOptions": null
+}

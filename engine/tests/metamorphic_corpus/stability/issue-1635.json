@@ -1,0 +1,117 @@
+{
+ "nodes": {
+  "1": {
+   "id": 1,
+   "x": 42.46622282797941,
+   "y": -44.48163559399965,
+   "z": -16.35831806448624
+  },
+  "2": {
+   "id": 2,
+   "x": 30.613251408392884,
+   "y": -42.02996169926456,
+   "z": -42.62805348232608
+  }
+ },
+ "materials": {
+  "1": {
+   "id": 1,
+   "e": 146162.4082515502,
+   "nu": 0.1338252227196757
+  },
+  "2": {
+   "id": 2,
+   "e": 285021640.11932987,
+   "nu": 0.17769149505092852
+  }
+ },
+ "sections": {
+  "1": {
+   "id": 1,
+   "name": null,
+   "a": 0.0001260484304430328,
+   "iy": 0.005361797293853436,
+   "iz": 7.208319860265991e-06,
+   "j": 0.0006261093335670872,
+   "cw": null,
+   "asY": null,
+   "asZ": null,
+   "shearCenterY": null,
+   "shearCenterZ": null
+  }
+ },
+ "elements": {
+  "1": {
+   "id": 1,
+   "type": "frame",
+   "nodeI": 2,
+   "nodeJ": 1,
+   "materialId": 2,
+   "sectionId": 1,
+   "releaseMyStart": false,
+   "releaseMyEnd": false,
+   "releaseMzStart": true,
+   "releaseMzEnd": false,
+   "releaseTStart": false,
+   "releaseTEnd": false,
+   "localYx": null,
+   "localYy": null,
+   "localYz": null,
+   "rollAngle": null
+  }
+ },
+ "supports": {
+  "1": {
+   "nodeId": 1,
+   "rx": true,
+   "ry": true,
+   "rz": true,
+   "rrx": true,
+   "rry": true,
+   "rrz": true,
+   "kx": null,
+   "ky": null,
+   "kz": null,
+   "krx": null,
+   "kry": null,
+   "krz": null,
+   "dx": null,
+   "dy": null,
+   "dz": null,
+   "drx": null,
+   "dry": null,
+   "drz": null,
+   "rw": null,
+   "kw": null,
+   "normalX": null,
+   "normalY": null,
+   "normalZ": null,
+   "isInclined": null
+  }
+ },
+ "loads": [
+  {
+   "type": "nodal",
+   "data": {
+    "nodeId": 1,
+    "fx": -31.138445173792377,
+    "fy": -276.49447432279976,
+    "fz": 478.0698450155329,
+    "mx": -176.68263789195188,
+    "my": 1.880241333984145,
+    "mz": -6.248345044667417,
+    "bw": null
+   }
+  }
+ ],
+ "constraints": [],
+ "leftHand": null,
+ "plates": {},
+ "quads": {},
+ "quad9s": {},
+ "solidShells": {},
+ "curvedShells": {},
+ "curvedBeams": [],
+ "connectors": {},
+ "solverOptions": null
+}

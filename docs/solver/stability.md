@@ -1,6 +1,6 @@
 # Scale-invariant stability and rank test
 
-Status: design, slice 1 (`engine/src/solver/stability.rs`) implemented. Tracks #762, #758,
+Status: slice 1 (`engine/src/solver/stability.rs`, the verdict) implemented; no solver calls it yet. Tracks #762, #758,
 #1445, #369, #382 and the 47 nightly findings of triage cluster C08 (canonical #954).
 
 ## 1. How the engine decides today
@@ -74,35 +74,59 @@ has identity diagonal blocks. Under rotation, mirror and relabelling `S` is repl
 **exactly invariant** under all four transforms. Plain Jacobi scaling (`D = diag K`) is
 invariant under units but not under rotation, which is why `kinematic.rs` still moved.
 
-`λ_max(S)` comes from power iteration, `λ_min(S)` from inverse iteration on a Cholesky
-factor of `S` (dense below 600 DOFs, sparse above), each to `1e-6` relative. A Cholesky that
-breaks down means `S` is numerically not positive definite: `λ_min ≤ O(ε) λ_max`.
+`λ_max(S)` comes from power iteration and `λ_min(S)` from inverse iteration on a sparse
+Cholesky factor of `S`, both with Rayleigh quotients converged to `1e-9` relative. The
+iterations start from a fixed vector, but their limits are eigenvalues and do not depend on
+it. A Cholesky that breaks down means `S` is numerically not positive definite.
 
 ### 2.3 Verdict
 
-    κ_S = λ_max(S) / λ_min(S)        A = max over nodes of μ_b / μ_1 (kept directions)
+    κ_S = λ_max(S) / λ_min(S)        A = max over nodes of μ_b / μ_min (kept directions)
 
-- **Mechanism** if any local free direction has a translational component, or `S` does
-  not factor, or `κ_S > 1/τ_mech` with `τ_mech = 1e-13`.
-- **Unresolved** if `κ_S · A > R_max = 1e12`: the smallest eigenvalue is within the
-  assembly rounding `ε · A · λ_max` amplified by `κ_S`, so the rank itself is not
-  determined in double precision.
-- **Stable**, with a list of **free rotations** (local free directions that are rotations or
+- **Mechanism** if a local free direction is a translation: a node can move in a direction
+  nothing stiffens. This is decided node by node and is exact.
+- **Singular** if `κ_S · A > R = 1e12`, or `S` does not factor. Assembly rounds every node
+  block to `ε μ_b`; scaled by `B^{-1/2}` that is `ε A` in `S`, and the smallest eigenvalue
+  moves by `ε A κ_S` relative. At `R` that is `2.2e-4`: the smallest eigenpair, and the
+  displacement it carries, keep fewer than four digits, and a stable and a singular model
+  cannot be told apart beyond that. A mechanism and a near-mechanism are one verdict on
+  purpose: which of the two a copy is reported as depends on rounding, so separate verdicts
+  were not invariant (measured on the C08 models: `κ_S` of the same model was 2.7e11 in one
+  frame and a failed factorization in another).
+- **Stable**, with its **free rotations** (local free directions that are rotations or
   warping), otherwise.
 
 Every quantity in the verdict is a function of the spectra of `B` and `S`, so two
-transformed copies of a model get different verdicts only if one of `κ_S`, `κ_S · A`, `μ/μ_b`
-lies within its own estimation error (`≲ 1e-6` relative) of a threshold. The proof tests
-check the verdicts of the C08 models under units, rotation, mirror and relabelling.
+transformed copies of a model get different verdicts only if `κ_S · A` or a block ratio
+`μ/μ_b` lies within its own rounding of a threshold.
+
+### 2.4 Evidence (slice 1, `engine/tests/metamorphic/stability.rs`)
+
+- The 47 C08 reproducers under 4 unit systems, 3 general rotations, 3 quarter turns, 4
+  mirrors and 4 relabellings (3D: random rotations, axis permutations, mirrors about each
+  axis): every stable or refused verdict, and the number of free directions, is identical.
+  25 are refused (13 Mechanism, 12 Singular), 22 are Stable.
+- The predicted drift `ε κ_S A` matches what the harness measures today: #993
+  (`κ_S A = 1.0e12`) drifts 1.4e-4 under units and #1115 (`2.8e12`) 2.9e-4, against a
+  prediction of 2.3e-4 and 6.3e-4.
+- Of the 13 Stable reproducers whose recorded analysis and relation hold today, all hold;
+  the other 9 Stable ones do not hold today for reasons the verdict does not cover (§5).
+- No model of the example, fixture, feature-matrix or differential corpus is refused.
+  Of the 117 refused random `fuzz_rich` models, 102 are refused by the linear solver today
+  and 14 are solved with `StiffnessNotPositiveDefinite` or `NUM-INVARIANCE`; the last,
+  `fuzz_rich_3d/74` (`κ_S A = 7.9e13`), is solved silently today, and the metamorphic
+  harness rates every one of its transforms inconclusive.
+- A stiff frame on springs a million times softer than its members (`κ_S A = 3.9e12`) is
+  refused in every frame; on springs a thousand times softer it is Stable.
 
 ## 3. Refusal policy
 
-- Mechanism and Unresolved are refusals at every solver entry, before any factorization of
+- Mechanism and Singular are refusals at every solver entry, before any factorization of
   the system the solver uses, with a diagnostic naming the nodes that carry the
   near-null vector (the converged inverse-iteration vector) and `κ_S`, `A`.
 - No entry may shift, regularize or LU-solve its way past a refusal. The PCG and LU
   fallbacks stay only for systems the test called Stable.
-- An Unresolved verdict is never downgraded to a warning: the result would be one of two
+- A Singular verdict is never downgraded to a warning: the result would be one of two
   answers, and the test cannot say which.
 - Existing warnings (`NUM-INVARIANCE`, `StiffnessNotPositiveDefinite`, `CERT-MECHANISM`)
   remain for Stable systems whose forward error bound `4(n+24) ε κ_S A` exceeds `1e-6`.
@@ -132,12 +156,20 @@ rigid motion) and connector/skew mechanisms are not special cases: they are null
 1. `solver/stability.rs`, the verdict and its metamorphic proof on the C08 corpus (this
    slice changes no result).
 2. Linear 2D and 3D (dense, sparse, PCG, constrained), including the spring removal and the
-   `NUM-INVARIANCE`/`ORPHAN-SOFT-ROTATION` entries it retires.
-3. P-Delta and the nonlinear tangents that consume `artificial_stiffness_entries`.
-4. Buckling and modal (the stiffness side of the pencil).
+   `NUM-INVARIANCE`/`ORPHAN-SOFT-ROTATION` entries it retires. Reproducers: the Singular and
+   Mechanism C08 models with a linear relation (#993, #1353, #1355, #1651), and #1106,
+   whose free rotation is held by no spring in one orientation.
+3. P-Delta and the nonlinear tangents that consume `artificial_stiffness_entries`
+   (#972, #1090, #1647, #1653).
+4. Buckling, modal and time history: the stiffness side of the pencil (#1351, #1352,
+   #1362, #1635, #1648).
 5. Plastic 2D (#758: every hinge stage is a new `K`; the original-path refusal is lifted
    only when the stage verdicts are invariant).
-6. Staged construction (#1445: its own spring copy).
+6. Staged construction (#1445: its own spring copy; #968, #1091).
+
+Not this test: #1099 (Stable, `κ_S = 5.4`) breaks linear superposition by 12 % on the
+sparse path, which no conditioning explains, and #1193 refuses an SSI copy of a Stable
+model; both go back to triage.
 
 Each slice carries its reproducers, a results-change registry entry for every model whose
 answer becomes a refusal, and states whether an advisory is needed.

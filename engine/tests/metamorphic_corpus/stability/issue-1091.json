@@ -1,0 +1,70 @@
+{
+ "nodes": {
+  "1": {
+   "id": 1,
+   "x": -11.055416158560632,
+   "z": -2.157193566769024
+  },
+  "2": {
+   "id": 2,
+   "x": -69.43871994042503,
+   "z": -6.732918115947356
+  }
+ },
+ "materials": {
+  "1": {
+   "id": 1,
+   "e": 72420.49548099095,
+   "nu": 0.3048792777950263
+  },
+  "2": {
+   "id": 2,
+   "e": 2608.630051301775,
+   "nu": 0.23103164523106773
+  }
+ },
+ "sections": {
+  "1": {
+   "id": 1,
+   "a": 0.0071702822223145965,
+   "iz": 0.0012211027416416656,
+   "asY": null
+  },
+  "2": {
+   "id": 2,
+   "a": 0.00025130709158620193,
+   "iz": 2.8427525307370222e-05,
+   "asY": null
+  }
+ },
+ "elements": {
+  "1": {
+   "id": 1,
+   "type": "frame",
+   "nodeI": 1,
+   "nodeJ": 2,
+   "materialId": 1,
+   "sectionId": 1,
+   "hingeStart": false,
+   "hingeEnd": true
+  }
+ },
+ "supports": {
+  "1": {
+   "id": 1,
+   "nodeId": 1,
+   "type": "pinned",
+   "kx": null,
+   "ky": null,
+   "kz": null,
+   "dx": null,
+   "dz": null,
+   "dry": null,
+   "angle": null
+  }
+ },
+ "loads": [],
+ "constraints": [],
+ "connectors": {},
+ "solverOptions": null
+}
