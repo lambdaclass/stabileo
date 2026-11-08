@@ -130,6 +130,128 @@ fn test_portal_frame_hyperstatic() {
     assert!(result.is_solvable, "Portal frame should be solvable");
 }
 
+fn inclined_2d_spring_beam(angle: Option<f64>, springs: [Option<f64>; 3]) -> SolverInput {
+    let mut input = make_input(
+        vec![(1, 0.0, 0.0), (2, 6.0, 4.0)],
+        vec![(1, 200000.0, 0.3)],
+        vec![(1, 0.01, 0.001)],
+        vec![(1, "frame", 1, 2, 1, 1, false, false)],
+        vec![(1, 1, "pinned"), (2, 2, "inclinedRoller")],
+        vec![],
+    );
+    let support = input.supports.get_mut("2").unwrap();
+    support.angle = angle;
+    [support.kx, support.ky, support.kz] = springs;
+    input
+}
+
+#[test]
+#[ignore = "known wrong result: #1780"]
+fn issue_1780_inclined_2d_normal_and_global_y_spring_are_independent() {
+    let input = inclined_2d_spring_beam(
+        Some(std::f64::consts::FRAC_PI_4), [None, Some(1.0), None],
+    );
+    let result = analyze_kinematics_2d(&input);
+    assert_eq!(result.invalid_input, None);
+    assert!(result.is_solvable);
+    assert_eq!(result.mechanism_modes, 0);
+    assert_eq!(result.degree, 1);
+    assert_eq!(result.classification, "hyperstatic");
+}
+
+#[test]
+#[ignore = "known wrong result: #1780"]
+fn issue_1780_inclined_2d_normal_and_global_x_spring_coincide() {
+    let input = inclined_2d_spring_beam(
+        Some(std::f64::consts::FRAC_PI_2), [Some(1.0), None, None],
+    );
+    let result = analyze_kinematics_2d(&input);
+    assert_eq!(result.invalid_input, None);
+    assert!(result.is_solvable);
+    assert_eq!(result.mechanism_modes, 0);
+    assert_eq!(result.degree, 0);
+    assert_eq!(result.classification, "isostatic");
+}
+
+#[test]
+#[ignore = "known wrong result: #1780"]
+fn issue_1780_inclined_2d_periodic_normal_and_global_x_spring_coincide() {
+    let input = inclined_2d_spring_beam(
+        Some(3.0 * std::f64::consts::FRAC_PI_2), [Some(1.0), None, None],
+    );
+    let result = analyze_kinematics_2d(&input);
+    assert_eq!(result.invalid_input, None);
+    assert!(result.is_solvable);
+    assert_eq!(result.mechanism_modes, 0);
+    assert_eq!(result.degree, 0);
+    assert_eq!(result.classification, "isostatic");
+}
+
+#[test]
+#[ignore = "known wrong result: #1780"]
+fn issue_1780_inclined_2d_near_quarter_turn_normal_and_global_x_spring_coincide() {
+    for offset in [-4.0 * f64::EPSILON, 4.0 * f64::EPSILON] {
+        let input = inclined_2d_spring_beam(
+            Some(std::f64::consts::FRAC_PI_2 + offset), [Some(1.0), None, None],
+        );
+        let result = analyze_kinematics_2d(&input);
+        assert_eq!(result.invalid_input, None);
+        assert!(result.is_solvable);
+        assert_eq!(result.mechanism_modes, 0);
+        assert_eq!(result.degree, 0, "{offset}");
+        assert_eq!(result.classification, "isostatic", "{offset}");
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #1780"]
+fn issue_1780_inclined_2d_count_matches_direction_rank() {
+    use std::f64::consts::{FRAC_PI_2, FRAC_PI_4, PI};
+    let cases = [
+        (0.0, [1, 2, 1, 2]),
+        (FRAC_PI_2, [1, 1, 2, 2]),
+        (-FRAC_PI_2, [1, 1, 2, 2]),
+        (PI, [1, 2, 1, 2]),
+        (-PI, [1, 2, 1, 2]),
+        (2.0 * PI, [1, 2, 1, 2]),
+        (3.0 * FRAC_PI_2, [1, 1, 2, 2]),
+        (FRAC_PI_2 + 1e-15, [1, 1, 2, 2]),
+        (FRAC_PI_2 - 1e-15, [1, 1, 2, 2]),
+        (1e-15, [1, 2, 1, 2]),
+        (-1e-15, [1, 2, 1, 2]),
+        (FRAC_PI_4, [1, 2, 2, 2]),
+        (-FRAC_PI_4, [1, 2, 2, 2]),
+        (1e-12, [1, 2, 2, 2]),
+        (FRAC_PI_2 + 1e-12, [1, 2, 2, 2]),
+    ];
+    for (angle, ranks) in cases {
+        for (mask, rank) in ranks.into_iter().enumerate() {
+            for rotation in [false, true] {
+                let springs = [
+                    (mask & 1 != 0).then_some(1.0),
+                    (mask & 2 != 0).then_some(1.0),
+                    rotation.then_some(1.0),
+                ];
+                let result = analyze_kinematics_2d(&inclined_2d_spring_beam(Some(angle), springs));
+                assert_eq!(result.invalid_input, None, "{angle}, {mask}, {rotation}");
+                assert!(result.is_solvable, "{angle}, {mask}, {rotation}");
+                assert_eq!(result.mechanism_modes, 0, "{angle}, {mask}, {rotation}");
+                let degree = rank - 1 + i32::from(rotation);
+                assert_eq!(result.degree, degree, "{angle}, {mask}, {rotation}");
+                let classification = if degree == 0 { "isostatic" } else { "hyperstatic" };
+                assert_eq!(result.classification, classification, "{angle}, {mask}, {rotation}");
+            }
+        }
+    }
+    for angle in [None, Some(0.0)] {
+        let result = analyze_kinematics_2d(&inclined_2d_spring_beam(angle, [Some(1.0), None, None]));
+        assert_eq!(result.invalid_input, None);
+        assert!(result.is_solvable);
+        assert_eq!(result.degree, 1);
+        assert_eq!(result.classification, "hyperstatic");
+    }
+}
+
 // ==================== 3D Kinematic Tests ====================
 
 fn make_3d_input(
