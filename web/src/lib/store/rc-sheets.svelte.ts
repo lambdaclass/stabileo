@@ -2,9 +2,12 @@ import { modelStore } from './model.svelte';
 import { resultsStore } from './results.svelte';
 import { physicalGroups, physicalThickness } from './physical';
 import { designData, patchOwnDesignData } from './design-data';
-import { designComboIds, narrowPerCombo } from '../engine/result-scopes';
+import { activePerCombo3D, activeResultSet3D } from './active-results';
+import { seismicCaseIds, seismicSettings } from './seismic-design.svelte';
+import { levelNamer } from './takeoff';
 import { computeJointPsiFromModel } from '../engine/codes/argentina/cirsoc201';
 import { computeBeamCriticalSections } from '../engine/station-design-forces';
+import { beamFlangeSides } from '../engine/design/beam-flange';
 import { jointChecks } from '../rc-sheets/joints';
 import { concreteFc } from '../model/design-data';
 import { beamDemands, columnDemands, punchingDemands, slabDemands, wallDemands, type DemandGroup, type DemandInput, type DemandSet } from '../rc-sheets/demands';
@@ -82,16 +85,18 @@ export function designSets(): { sets: DemandSet[]; basis: SheetRows['basis']; de
   const combos = modelStore.combinations;
   const deadIds = new Set(modelStore.model.loadCases.filter((c) => isDeadCase(c.type)).map((c) => c.id));
   const dead = [...deadIds].map((id) => resultsStore.perCase3D.get(id)).filter((r): r is AnalysisResults3D => !!r);
-  const solved = narrowPerCombo(resultsStore.perCombo3D, designComboIds(combos));
+  const solved = activePerCombo3D();
+  const quake = seismicCaseIds();
   if (solved.size) {
     const sets = [...solved].map(([id, result]) => {
       const c = combos.find((x) => x.id === id);
-      return { name: c?.name ?? `#${id}`, result, deadFactor: (c?.factors ?? []).filter((f) => deadIds.has(f.caseId)).reduce((s, f) => s + f.factor, 0) };
+      const factors = c?.factors ?? [];
+      return { name: c?.name ?? `#${id}`, result, deadFactor: factors.filter((f) => deadIds.has(f.caseId)).reduce((s, f) => s + f.factor, 0), seismic: factors.some((f) => quake.has(f.caseId) && f.factor !== 0) };
     });
     return { sets, basis: 'combinations', dead };
   }
-  const r = resultsStore.results3D;
-  return r && !r.magnitude ? { sets: [{ name: '—', result: r }], basis: 'single', dead: [] } : { sets: [], basis: 'none', dead: [] };
+  const r = activeResultSet3D();
+  return r ? { sets: [{ name: '—', result: r }], basis: 'single', dead: [] } : { sets: [], basis: 'none', dead: [] };
 }
 
 function demandInput(sets: DemandSet[], dead: AnalysisResults3D[], opts: { faces: boolean; flange: boolean }): DemandInput {
@@ -104,7 +109,8 @@ function demandInput(sets: DemandSet[], dead: AnalysisResults3D[], opts: { faces
     nodes: modelStore.nodes, elements: modelStore.elements as never, sections: modelStore.sections as never,
     supportNodes: new Set(supportsByNode.keys()),
     shells: { nodes: modelStore.nodes, quads: modelStore.quads, plates: modelStore.plates },
-    groups, sets, dead, faces: opts.faces, flange: opts.flange,
+    groups, sets, dead, faces: opts.faces,
+    ...(opts.flange ? { flangeSides: ((f) => (id: number) => f.get(id)?.sides)(beamFlangeSides({ nodes: modelStore.nodes, elements: modelStore.elements, sections: modelStore.sections, quads: modelStore.quads })) } : {}),
     faceOffset: (id, end) => {
       const e = modelStore.elements.get(id);
       const sec = e ? modelStore.sections.get(e.sectionId) : undefined;
@@ -113,7 +119,7 @@ function demandInput(sets: DemandSet[], dead: AnalysisResults3D[], opts: { faces
       return cs ? (end === 'i' ? cs.start.halfDepth : cs.end.halfDepth) : 0;
     },
     levelZs: (modelStore.grid?.levels ?? []).map((l) => l.z),
-    levelAt: (z) => modelStore.grid?.levels.find((l) => Math.abs(l.z - z) < 0.01)?.name ?? `z = ${z.toFixed(2)} m`,
+    levelAt: levelNamer().name,
     psi: (id) => computeJointPsiFromModel(id, modelStore.nodes as never, modelStore.elements as never, modelStore.sections as never, modelStore.materials as never, supportsByNode as never),
   };
 }
@@ -162,10 +168,10 @@ export function buildSheetRows(fmt: Fmt = makeFmt(',')): SheetRows {
   if (!sets.length) return { beam: [], line: [], column: [], slab: [], wall: [], punching: [], code: codeName, basis, combos: 0 };
   const dd = designData();
   const data = rcSheetsData();
-  const key = basis === 'combinations' ? resultsStore.perCombo3D : resultsStore.results3D!;
+  const key = basis === 'combinations' ? resultsStore.perCombo3D : sets[0]!.result;
   const groupsRev = modelStore.model.groups;
   const opts = { faces: data.faces === true, flange: data.flange === true };
-  const optsKey = JSON.stringify(opts);
+  const optsKey = JSON.stringify({ ...opts, sets: sets.map((x) => x.name) });
   let dem = demandCache.get(key);
   if (!dem || dem.groupsRev !== groupsRev || dem.opts !== optsKey) {
     const input = demandInput(sets, dead, opts);
@@ -183,7 +189,8 @@ export function buildSheetRows(fmt: Fmt = makeFmt(',')): SheetRows {
   const groupOf = (k: string) => groupsById.get(Number(k.split(':')[1]));
   const fy = dd.rebarFy;
   const dec = fmt(1.5, 1);
-  const beamCtx = (d: (typeof dem.beams)[number]) => ({ mat: { fc: fcOfElement(groupOf(d.key)?.members.elements?.[0]), fy }, cover: dd.covers.beam, stirrupDia: dd.stirrupDiaMm, diameters: dd.longDiametersMm, torsion: data.torsion, seismic: data.seismic === true });
+  const seismic = data.seismic ? { overstrength: seismicSettings().overstrength } : undefined;
+  const beamCtx = (d: (typeof dem.beams)[number]) => ({ mat: { fc: fcOfElement(groupOf(d.key)?.members.elements?.[0]), fy }, cover: dd.covers.beam, stirrupDia: dd.stirrupDiaMm, diameters: dd.longDiametersMm, torsion: data.torsion, seismic });
   const proposals = dem.beams.map((d) => { const ctx = beamCtx(d); return cached(d, [ctx, undefined, dec, 'proposal'], () => beamRow(d, ctx, undefined, fmt)); });
   const byLine = new Map<number, BeamRow[]>();
   for (const r of proposals) { const g = r.demand.line?.group ?? -1; byLine.set(g, [...(byLine.get(g) ?? []), r]); }
@@ -216,7 +223,7 @@ export function buildSheetRows(fmt: Fmt = makeFmt(',')): SheetRows {
   });
   const below = new Map<number, ColumnRow>();
   const column = dem.columns.map((d) => {
-    const ctx = { mat: { fc: fcOfElement(groupOf(d.key)?.members.elements?.[0]), fy }, cover: dd.covers.column, tieDia: dd.stirrupDiaMm, diameters: dd.longDiametersMm, seismic: data.seismic === true };
+    const ctx = { mat: { fc: fcOfElement(groupOf(d.key)?.members.elements?.[0]), fy }, cover: dd.covers.column, tieDia: dd.stirrupDiaMm, diameters: dd.longDiametersMm, seismic };
     const a = data.adopted[d.key] as ColumnAdopted | undefined;
     const g = Number(d.key.split(':')[1]);
     const prev = below.get(g);
@@ -244,7 +251,7 @@ export function buildSheetRows(fmt: Fmt = makeFmt(',')): SheetRows {
     const ctx = { fc: fcOfElement(d.joint.columnElementId), fy, cover: dd.covers.slab, topBarDia: 12 };
     return cached(d, [ctx, dec], () => punchingRow(d, ctx, fmt));
   });
-  const columnsFinal = data.seismic ? jointChecks(column, beam, modelStore.nodes, fmt, { fc: (r) => fcOfElement(groupOf(r.key)?.members.elements?.[0]), fy, cover: dd.covers.column, beamCover: dd.covers.beam }) : column;
+  const columnsFinal = data.seismic ? jointChecks(column, beam, modelStore.nodes, fmt, { fc: (r) => fcOfElement(groupOf(r.key)?.members.elements?.[0]), beamFc: (b) => fcOfElement(groupOf(b.key)?.members.elements?.[0]), fy, cover: dd.covers.column, beamCover: dd.covers.beam, settings: seismicSettings() }) : column;
   const sort = <T extends { level?: string; name: string }>(rows: T[]) => rows.sort((a, b) => (a.level ?? '').localeCompare(b.level ?? '', undefined, { numeric: true }) || a.name.localeCompare(b.name, undefined, { numeric: true }));
   return { beam: sort(beam), line: sort(line), column: sort(columnsFinal), slab: sort(slab), wall: sort(wall), punching: sort(punching), code: codeName, basis, combos: sets.length };
 }

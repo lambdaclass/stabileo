@@ -63,6 +63,25 @@ function slab() {
 }
 
 describe('reinforcement sheets from a solved model', () => {
+  it('reads a piece drawn against the line with the same sagging sign', () => {
+    const conc = modelStore.addMaterial({ name: 'H-30', e: 27000, nu: 0.2, rho: 25, fy: 30, fc: 30 });
+    const bm = modelStore.addSection({ name: '30×60', a: 0.18, iy: 0.3 * 0.6 ** 3 / 12, iz: 0.6 * 0.3 ** 3 / 12, j: 0.0037, b: 0.3, h: 0.6, shape: 'rect' } as never);
+    const n = [0, 3, 6].map((x) => modelStore.addNode(x, 0, 3));
+    const beams = [modelStore.addElement(n[0]!, n[1]!, 'frame'), modelStore.addElement(n[2]!, n[1]!, 'frame')];
+    for (const b of beams) { modelStore.updateElementSection(b, bm); modelStore.updateElementMaterial(b, conc); }
+    modelStore.addSupport(n[0]!, 'fixed3d'); modelStore.addSupport(n[2]!, 'pinned3d');
+    const D = modelStore.model.loadCases.find((c) => c.type === 'D')!.id;
+    for (const b of beams) modelStore.addDistributedLoad3D(b, 0, 0, -10, -10, undefined, undefined, D);
+    modelStore.addCombination('1.4D', [{ caseId: D, factor: 1.4 }]);
+    solve();
+    const [r] = buildSheetRows().beam;
+    const w = 14, L = 6;
+    expect(r!.demand.start.neg.value).toBeCloseTo(w * L * L / 8, 3);
+    expect(r!.demand.span.pos.value).toBeCloseTo(9 * w * L * L / 128, 3);
+    expect(r!.demand.span.x).toBeCloseTo(L - 3 * L / 8, 3);
+    expect(Math.max(...r!.demand.env!.filter((e) => e.x > 3).map((e) => e.neg))).toBeLessThan(1e-6);
+  });
+
   it('cuts the continuous beam into its two spans at the middle column and envelopes each section whole', () => {
     frame(); solve();
     const rows = buildSheetRows();
@@ -124,6 +143,24 @@ describe('reinforcement sheets from a solved model', () => {
     expect(beam.steps[0]!.steps.some((x) => x.label === 'rcSheets.s.flange')).toBe(true);
   });
 
+  it('stops the flange at half the clear distance to the next parallel web', () => {
+    frame();
+    const conc = [...modelStore.materials.values()][0]!.id;
+    const [a, b] = [...modelStore.nodes.values()].filter((n) => (n.z ?? 0) > 2.9 && n.x < 5.1).sort((p, q) => p.x - q.x);
+    const c = modelStore.addNode(5, 4, 3), d = modelStore.addNode(0, 4, 3);
+    modelStore.addQuad([a!.id, b!.id, c, d], conc, 0.15);
+    modelStore.addSupport(c, 'pinned3d'); modelStore.addSupport(d, 'pinned3d');
+    const p0 = modelStore.addNode(0, 0.8, 3), p1 = modelStore.addNode(5, 0.8, 3);
+    const other = modelStore.addElement(p0, p1, 'frame');
+    const first = modelStore.elements.get([...modelStore.elements.values()].find((e) => e.nodeI === a!.id && e.nodeJ === b!.id)!.id)!;
+    for (const id of [other, modelStore.addElement(a!.id, p0, 'frame'), modelStore.addElement(b!.id, p1, 'frame')]) { modelStore.updateElementSection(id, first.sectionId); modelStore.updateElementMaterial(id, conc); }
+    modelStore.addSupport(p0, 'fixed3d'); modelStore.addSupport(p1, 'fixed3d');
+    solve();
+    setRcOption('flange', true);
+    const beam = buildSheetRows().beam.find((r) => r.demand.line?.startNode === a!.id)!;
+    expect(beam.demand.flange!.bf).toBeCloseTo(0.3 + (0.8 - 0.3) / 2, 3);
+  });
+
   it('arms the two-span beam as one run: continuous bars, an extra top bar over the middle support cut where it is no longer needed, every station verified', () => {
     frame(); solve();
     const rows = buildSheetRows();
@@ -144,6 +181,10 @@ describe('reinforcement sheets from a solved model', () => {
     expect(span1.adopted.at!.end!.top.reduce((s, g) => s + g.count, 0)).toBeGreaterThan(span1.adopted.at!.span!.top.reduce((s, g) => s + g.count, 0));
     expect(span1.status).not.toBe('fail');
     expect(ln.envelope.every((e) => e.pos <= e.phiPos + 1e-6 && e.neg <= e.phiNeg + 1e-6)).toBe(true);
+    const cuts = ln.cutoffs.filter((x) => x.mark === mid.mark);
+    expect(cuts.map((x) => x.x).sort((p, q) => p - q)).toEqual([mid.from, mid.to]);
+    expect(cuts.every((x) => x.legality !== 'illegal')).toBe(true);
+    expect(ln.steps[0]!.steps.filter((x) => x.label === 'rcSheets.s.lineCutoff')).toHaveLength(ln.cutoffs.length);
   });
 
   it('cuts a column per storey, with its clear height and the fixed foot\'s restraint', () => {

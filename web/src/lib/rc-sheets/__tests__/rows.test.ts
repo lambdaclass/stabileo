@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { beamRow, type BeamDemand, type SectionEnv } from '../beam-row';
+import { beamLine } from '../beam-line';
 import { columnRow, columnArea, columnSplice, type ColumnDemand } from '../column-row';
 import { slabRow } from '../slab-row';
 import { wallRow, type WallDemand } from '../wall-row';
@@ -88,6 +89,13 @@ describe('beam row', () => {
     expect(beamRow(v0001, beamCtx, undefined, f).req.skin).toBeNull();
   });
 
+  it('caps the stirrup spacing at d/2 and 40 cm (Table 9.7.6.2.2)', () => {
+    const deep: BeamDemand = { ...v0001, h: 1.2, vu: { value: 60 }, tu: { value: 0.5 } };
+    const r = beamRow(deep, beamCtx, undefined, f);
+    expect(r.req.sMax).toBeCloseTo(0.4, 6);
+    expect(r.adopted.stirrups.spacing).toBeLessThanOrEqual(0.4 + 1e-9);
+  });
+
   it('breaks the adopted bars down by combination', () => {
     const combos = [
       { combo: 'A', mStart: -309, mSpan: 216, mEnd: -100, mPos: 216, mNeg: 309, nStart: 0, nSpan: 0, nEnd: 0, v: 160, nV: 0, t: 50 },
@@ -100,19 +108,50 @@ describe('beam row', () => {
   });
 });
 
+describe('beam line', () => {
+  const L = 6;
+  const stations = Array.from({ length: 33 }, (_, i) => { const x = (i / 32) * L; return { x, pos: 260 * (1 - (2 * x / L - 1) ** 2), neg: 0, v: 420 * Math.abs(1 - 2 * x / L) + 260 }; });
+  const d: BeamDemand = { ...v0001, length: L, h: 0.6, start: env(0, 0, 0), span: env(3, 260, 0), end: env(L, 0, 0), vu: { value: 680 }, tu: { value: 0 }, env: stations, line: { group: 1, index: 0, spans: 1, startNode: 1, endNode: 2, lineName: 'V' } };
+  const row = beamRow(d, beamCtx, undefined, f);
+  const adopted = { bottom: { count: 3, dia: 20 }, top: { count: 2, dia: 12 }, supportTop: [{ count: 0, dia: 12 }, { count: 0, dia: 12 }], spanBottom: [{ count: 3, dia: 20 }] };
+
+  it('runs a span bar on to the supports where §9.7.3.5 allows no cut-off', () => {
+    const open = beamLine([row], beamCtx, { ...adopted, stirrups: [{ dia: 8, legs: 2, spacing: 0.3 }] }, f);
+    const bar = open.bars.find((b) => b.kind === 'span')!;
+    expect([bar.from, bar.to]).toEqual([0, L]);
+    expect(open.cutoffs.filter((x) => x.mark === bar.mark)).toEqual([]);
+  });
+
+  it('cuts it where the stirrups give (c)', () => {
+    const dense = beamLine([row], beamCtx, { ...adopted, stirrups: [{ dia: 10, legs: 2, spacing: 0.06 }] }, f);
+    const bar = dense.bars.find((b) => b.kind === 'span')!;
+    expect(bar.from).toBeGreaterThan(0);
+    expect(bar.to).toBeLessThan(L);
+    expect(dense.cutoffs.filter((x) => x.mark === bar.mark).map((x) => x.legality)).toEqual(['extraStirrups', 'extraStirrups']);
+  });
+});
+
 describe('seismic provisions', () => {
   it('a beam proposal meets chapter 18: capacity shear, hoops in 2h, the half and quarter rules', () => {
     const combos = [{ combo: 'U2', mStart: -309, mSpan: 216, mEnd: -100, mPos: 216, mNeg: 309, nStart: 0, nSpan: 0, nEnd: 0, v: 160, nV: 0, t: 5 }];
-    const r = beamRow({ ...v0001, combos, tu: { value: 5 } }, { ...beamCtx, seismic: true }, undefined, f);
+    const r = beamRow({ ...v0001, combos, tu: { value: 5 } }, { ...beamCtx, seismic: { overstrength: 1.25 } }, undefined, f);
     const labels = r.verifications.map((v) => v.label);
     expect(labels).toEqual(expect.arrayContaining(['rcSheets.v.seisBeamVe', 'rcSheets.v.seisBeamHoops', 'rcSheets.v.seisBeamHalf', 'rcSheets.v.seisBeamQuarter']));
     expect(r.verifications.filter((v) => v.label.startsWith('rcSheets.v.seis')).every((v) => v.ok)).toBe(true);
     expect(r.adopted.stirrups.spacing).toBeLessThanOrEqual(Math.min(0.759 / 4, 0.15) + 1e-9);
   });
 
+  it('takes the gravity shear from the combinations without an earthquake case, whatever their names', () => {
+    const base = { mStart: -309, mSpan: 216, mEnd: -100, mPos: 216, mNeg: 309, nStart: 0, nSpan: 0, nEnd: 0, nV: 0, t: 5 };
+    const combos = [{ ...base, combo: 'ELU 1', v: 100 }, { ...base, combo: 'U2', seismic: true, v: 160 }];
+    const r = beamRow({ ...v0001, combos, tu: { value: 5 } }, { ...beamCtx, seismic: { overstrength: 1.25 } }, undefined, f);
+    const ve = r.steps.find((g) => g.title === 'rcSheets.g.seismic')!.steps.find((s) => s.label === 'rcSheets.s.seisVe')!;
+    expect(ve.value).toContain(`+ ${f(100)} =`);
+  });
+
   it('a column proposal meets chapter 18: confinement spacing and Ash', () => {
     const col: ColumnDemand = { key: 'column:1:0', name: 'C1', b: 0.4, h: 0.4, length: 3, lu: 2.7, psiTop: 1.5, psiBot: 0.2, cases: [{ combo: 'U', pu: 1400, mxTop: 80, mxBot: -40, myTop: 25, myBot: -10, vx: 40, vy: 12 }] };
-    const r = columnRow(col, { mat: { fc: 30, fy: 420 }, cover: 0.03, tieDia: 8, diameters: [12, 16, 20, 25], seismic: true }, undefined, f);
+    const r = columnRow(col, { mat: { fc: 30, fy: 420 }, cover: 0.03, tieDia: 8, diameters: [12, 16, 20, 25], seismic: { overstrength: 1.25 } }, undefined, f);
     for (const l of ['rcSheets.v.seisColSo', 'rcSheets.v.seisColAsh', 'rcSheets.v.seisColDim', 'rcSheets.v.seisColRho']) expect(ok(r, l)).toBe(true);
   });
 });
@@ -172,6 +211,13 @@ describe('column row', () => {
   it('laps column bars 0.071·fy·db in compression, and as a class B tension splice otherwise', () => {
     expect(columnSplice(ctx, 16, false).length).toBeCloseTo(0.071 * 420 * 16 / 1000, 6);
     expect(columnSplice(ctx, 16, true).length).toBeGreaterThan(columnSplice(ctx, 16, false).length);
+  });
+
+  it('braces every bar more than min(15·dbe; 150 mm) clear from a braced one', () => {
+    const wide = { ...base, b: 0.5, h: 0.5 };
+    const layout = { corner: 16, nx: 2, dx: 16, ny: 2, dy: 16, tieSpacing: 0.15 };
+    expect(columnRow(wide, ctx, { ...layout, tieDia: 6 }, f).checks.crossties.x).toBe(2);
+    expect(columnRow(wide, ctx, { ...layout, tieDia: 10 }, f).checks.crossties.x).toBe(0);
   });
 
   it('refuses the approximate method past k·lu/r = 100', () => {

@@ -1,17 +1,17 @@
 import { checkSlender, type ConcreteDesignParams } from '../engine/codes/argentina/cirsoc201';
-import { COLUMN_STEEL_RATIO } from '../engine/codes/argentina/cirsoc201-basis';
+import { COLUMN_STEEL_RATIO, shearFy } from '../engine/codes/argentina/cirsoc201-basis';
 import { withSection, type Bar } from '../engine/codes/argentina/cirsoc201-section';
 import { evaluateBeamSections, type BeamSectionQuery } from '../engine/codes/argentina/cirsoc201-beam-kernel';
 import { columnTieSpacing } from '../codes/cirsoc201/transverse-spacing';
 import { minClearSpacingColumn } from '../codes/cirsoc201/spacing';
 import { barArea, roundDown } from './bars';
-import { deriveDevelopment } from '../codes/cirsoc201/anchorage';
-import { columnSeismic } from './seismic';
+import { compressionLapMm, deriveDevelopment, deriveLap } from '../codes/cirsoc201/anchorage';
+import { unbracedClearLimit } from '../codes/cirsoc201/transverse-cage';
+import { columnSeismic, type Seismic } from './seismic';
 import type { Fmt } from './format';
 import { check, ratioOf, type CheckLine, type ColumnAdopted, type ComboTable, type Materials, type RowStatus, type Step, type StepGroup } from './types';
 
 const EDITION = '2025' as const;
-const MAX_UNSUPPORTED_CLEAR = 0.15;
 
 /** Moments about the section's x axis bend it over its depth h; about y, over its width b. */
 export interface ColumnCase {
@@ -41,7 +41,7 @@ export interface ColumnContext {
   cover: number;
   tieDia: number;
   diameters: readonly number[];
-  seismic?: boolean;
+  seismic?: Seismic;
 }
 
 interface AxisResult { klr: number; lim: number; slender: boolean; m1: number; m2: number; delta: number; mc: number; k: number }
@@ -129,12 +129,12 @@ function clearOk(d: ColumnDemand, c: ColumnContext, a: ColumnAdopted): boolean {
 function crossties(side: number, n: number, dia: number, cornerDia: number, c: ColumnContext, tie: number): number {
   if (n <= 0) return 0;
   const span = side - 2 * coverToBar(c, tie, cornerDia);
-  const pitch = span / (n + 1);
+  const pitch = span / (n + 1), limit = unbracedClearLimit(tie);
   let lastSupported = 0, count = 0;
   for (let i = 1; i <= n; i++) {
     const back = (i - lastSupported) * pitch - dia / 1000;
     const ahead = (n + 1 - i) * pitch - dia / 1000;
-    if (back > MAX_UNSUPPORTED_CLEAR + 1e-9 && ahead > MAX_UNSUPPORTED_CLEAR + 1e-9) { count++; lastSupported = i; }
+    if (back > limit + 1e-9 && ahead > limit + 1e-9) { count++; lastSupported = i; }
   }
   return count;
 }
@@ -159,7 +159,7 @@ function governing(tuples: Tuple[]): Tuple[] {
 
 function shearQueries(d: ColumnDemand, c: ColumnContext, a: ColumnAdopted, ct: { x: number; y: number }, pu: number): BeamSectionQuery[] {
   const ab = barArea(a.tieDia) * 1e-4;
-  const base = { edition: EDITION, fc: c.mat.fc * 1e6, fy: c.mat.fy * 1e6, s: a.tieSpacing, fyt: c.mat.fy * 1e6, Ag: d.b * d.h, NuCompression: Math.max(0, pu) * 1e3 };
+  const base = { edition: EDITION, fc: c.mat.fc * 1e6, fy: c.mat.fy * 1e6, s: a.tieSpacing, fyt: shearFy(c.mat.fy) * 1e6, Ag: d.b * d.h, NuCompression: Math.max(0, pu) * 1e3 };
   return [
     { ...base, b: d.b, h: d.h, d: d.h - coverToBar(c, a.tieDia, a.corner), As: (2 * barArea(a.corner) + a.nx * barArea(a.dx)) * 1e-4, Av: (2 + ct.x) * ab },
     { ...base, b: d.h, h: d.b, d: d.b - coverToBar(c, a.tieDia, a.corner), As: (2 * barArea(a.corner) + a.ny * barArea(a.dy)) * 1e-4, Av: (2 + ct.y) * ab },
@@ -181,10 +181,8 @@ export interface StackPlace { pattern?: { nx: number; ny: number; maxDia: number
 
 /** §25.5.5.1 in compression, or a class B tension splice (§25.5.2) where the column is not compression-dominated. */
 export function columnSplice(c: ColumnContext, dia: number, tension: boolean): { length: number; tension: boolean } {
-  if (tension) return { length: Math.max(0.3, 1.3 * deriveDevelopment({ diameterMm: dia, fy: c.mat.fy, fc: c.mat.fc, favourableSpacing: false, edition: EDITION }).ldM), tension };
-  const fy = c.mat.fy;
-  const per = fy <= 420 ? 0.071 * fy : 0.13 * fy - 24;
-  return { length: Math.max(0.3, per * dia / 1000), tension };
+  if (tension) return { length: deriveLap(deriveDevelopment({ diameterMm: dia, fy: c.mat.fy, fc: c.mat.fc, favourableSpacing: false, edition: EDITION }), { edition: EDITION }).lapM, tension };
+  return { length: compressionLapMm(c.mat.fy, dia) / 1000, tension };
 }
 
 export function columnRow(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdopted | undefined, fmt: Fmt, stack: StackPlace = {}): ColumnRow {
@@ -221,7 +219,7 @@ export function columnRow(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdop
   if (c.seismic) {
     for (let guard = 0; guard < 12; guard++) {
       const ct0 = { x: crossties(d.b, proposed.nx, proposed.dx, proposed.corner, c, proposed.tieDia), y: crossties(d.h, proposed.ny, proposed.dy, proposed.corner, c, proposed.tieDia) };
-      const s0 = columnSeismic(d, c, proposed, columnBars(d, proposed, c), ct0, fmt);
+      const s0 = columnSeismic(d, { ...c, overstrength: c.seismic!.overstrength }, proposed, columnBars(d, proposed, c), ct0, fmt);
       const bad = (l: string) => s0.checks.some((k) => k.label === l && !k.ok);
       if (!bad('rcSheets.v.seisColSo') && !bad('rcSheets.v.seisColAsh') && !bad('rcSheets.v.seisColVe')) break;
       iterations++;
@@ -250,7 +248,7 @@ export function columnRow(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdop
   const vxMax = Math.max(0, ...d.cases.map((cs) => cs.vx ?? 0)), vyMax = Math.max(0, ...d.cases.map((cs) => cs.vy ?? 0));
   const generous = area > 1.2 * ast + 1e-6 && ast > lo0 + 1e-6;
   const splice = columnSplice(c, longest, d.cases.some((cs) => (cs.puMin ?? cs.pu) < 0.1 * c.mat.fc * 1000 * Ag));
-  const seis = c.seismic ? columnSeismic(d, c, a, columnBars(d, a, c), ct, fmt) : null;
+  const seis = c.seismic ? columnSeismic(d, { ...c, overstrength: c.seismic.overstrength }, a, columnBars(d, a, c), ct, fmt) : null;
 
   const verifications: CheckLine[] = [
     check('rcSheets.v.biaxial', ratio <= 1 + 1e-6, { clause: '§22.4, §22.2', demand: gov?.c.combo ?? '', capacity: '', ratio }),
@@ -307,7 +305,7 @@ export function columnRow(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdop
       steps: [
         { label: 'rcSheets.s.tieDia', formula: 'db ≤ 16 → Ø6; ≤ 25 → Ø8; > 25 → Ø10', value: `Ø${a.tieDia}`, ok: tieDiaOk },
         { label: 'rcSheets.s.tieSpacing', formula: 's ≤ min(16·db; 48·de; b) (§25.7.2.1)', value: `${tieLabel(a)} ≤ ${fmt(tieMax * 100, 0)} cm`, ok: a.tieSpacing <= tieMax + 1e-6 },
-        { label: 'rcSheets.s.crossties', formula: '≤ 150 mm (§25.7.2.3)', value: `${ct.x} (b) · ${ct.y} (h)` },
+        { label: 'rcSheets.s.crossties', formula: '≤ min(15·dbe; 150 mm) (§25.7.2.3)', value: `${ct.x} (b) · ${ct.y} (h)` },
         { label: 'rcSheets.s.colShear', formula: 'φVn = φ·(Vc(Nu) + Av·fyt·d/s)', value: `${fmt(Math.max(shearX, shearY), 3)}`, ok: shearX <= 1 + 1e-6 && shearY <= 1 + 1e-6 },
       ],
     },

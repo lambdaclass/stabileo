@@ -1,10 +1,9 @@
-import { REBAR_DB } from '../engine/codes/argentina/cirsoc201';
+import { rebarGroupArea } from '../engine/station-design-forces';
 import { chooseBars } from '../engine/codes/argentina/cirsoc201-bars';
+import { barsPerRow, layerClearBetween, minClearSpacingInLayer } from '../codes/cirsoc201/spacing';
 import type { BarGroup, MeshBars, Stirrups } from './types';
 
-export function barArea(dia: number): number {
-  return REBAR_DB.find((r) => r.diameter === dia)?.area ?? (Math.PI / 4) * (dia / 10) ** 2;
-}
+export const barArea = (dia: number): number => rebarGroupArea({ count: 1, diameter: dia });
 
 export const groupsArea = (groups: readonly BarGroup[]): number => groups.reduce((s, g) => s + g.count * barArea(g.dia), 0);
 
@@ -17,7 +16,7 @@ export const meshLabel = (m: MeshBars): string => `Ø${m.dia} c/${Math.round(m.s
 
 export const meshArea = (m: MeshBars): number => (m.spacing > 0 ? barArea(m.dia) / m.spacing : 0);
 
-export const minClearSpacing = (dia: number): number => Math.max(dia, 25) / 1000;
+export const minClearSpacing = (dia: number): number => minClearSpacingInLayer('2025', { barDiameterMm: dia, maxAggregateSizeMm: 0 }).minClear;
 
 export function faceLayout(groups: readonly BarGroup[], b: number, cover: number, stirrupDia: number): {
   centroidFromFace: number; fits: boolean; clear: number[];
@@ -28,7 +27,7 @@ export function faceLayout(groups: readonly BarGroup[], b: number, cover: number
   const clear: number[] = [];
   const used = groups.filter((g) => g.count > 0);
   used.forEach((g, i) => {
-    if (i > 0) y += used[i - 1]!.dia / 1000 + 0.025;
+    if (i > 0) y += used[i - 1]!.dia / 1000 + layerClearBetween('2025', used[i - 1]!.dia, g.dia);
     const yc = y + g.dia / 2000;
     const a = g.count * barArea(g.dia);
     moment += a * yc; area += a;
@@ -44,7 +43,7 @@ export function proposeBeamFace(AsCm2: number, b: number, h: number, cover: numb
   const pick = chooseBars(Math.max(AsCm2, 0), { widthM: b, coverM: cover + stirrupDia / 1000 + 0.008, minCount: 2, maxLayers: 2, heightM: h });
   const dia = allowed.includes(pick.diameter) ? pick.diameter : nearest(allowed, pick.diameter);
   const n = Math.max(2, Math.ceil(AsCm2 / barArea(dia)));
-  const perLayer = Math.max(2, Math.floor(((b - 2 * cover - 2 * stirrupDia / 1000) + minClearSpacing(dia)) / (dia / 1000 + minClearSpacing(dia))));
+  const perLayer = Math.max(2, barsPerRow(b - 2 * cover - 2 * stirrupDia / 1000, dia, minClearSpacingInLayer('2025', { barDiameterMm: dia, maxAggregateSizeMm: 0 }), Infinity));
   if (n <= perLayer) return [{ count: n, dia }];
   return [{ count: perLayer, dia }, { count: Math.max(2, n - perLayer), dia }];
 }

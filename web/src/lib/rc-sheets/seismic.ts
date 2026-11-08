@@ -3,19 +3,20 @@ import { faceLayout, groupsArea } from './bars';
 import type { Fmt } from './format';
 import { check, ratioOf, type BarGroup, type BeamAdopted, type CheckLine, type ColumnAdopted, type Step } from './types';
 
-export const OVERSTRENGTH = 1.25;
+/** Chapter 18 as the project sets it: λo, the probable over nominal strength of the bars. */
+export interface Seismic { overstrength: number }
 
 interface BeamSide { top: BarGroup[]; bottom: BarGroup[] }
 
-/** Gravity shear at the ends: the largest of the combinations with no wind or earthquake in their name, else half the design shear. */
-function gravityShear(combos: Array<{ combo: string; v: number }>, vu: number): number {
-  const g = combos.filter((k) => !/[EW]/.test(k.combo));
+/** Gravity shear at the ends: the largest of the combinations with no earthquake case, else half the design shear. */
+function gravityShear(combos: Array<{ seismic?: boolean; v: number }>, vu: number): number {
+  const g = combos.filter((k) => !k.seismic);
   return g.length ? Math.max(...g.map((k) => k.v)) : vu / 2;
 }
 
 export function beamSeismic(
-  d: { b: number; h: number; length: number; faces?: { start: number; end: number }; combos: Array<{ combo: string; v: number }>; vu: { value: number } },
-  c: { mat: { fc: number; fy: number }; cover: number },
+  d: { b: number; h: number; length: number; faces?: { start: number; end: number }; combos: Array<{ seismic?: boolean; v: number }>; vu: { value: number } },
+  c: { mat: { fc: number; fy: number }; cover: number; overstrength: number },
   a: BeamAdopted, at: (s: 'start' | 'span' | 'end') => BeamSide, fmt: Fmt,
 ): { checks: CheckLine[]; steps: Step[]; sZone: number } {
   const sd = a.stirrups.dia;
@@ -29,7 +30,7 @@ export function beamSeismic(
   const cap = beamCapacityShear({
     b: d.b, h: d.h, d: dEff, dPrime, fc: c.mat.fc, fy: c.mat.fy, fyt: c.mat.fy,
     ends: [{ top: area(S.top), bottom: area(S.bottom) }, { top: area(E.top), bottom: area(E.bottom) }],
-    ln, vg: [vg, vg], hoops: { diameter: sd, legs: a.stirrups.legs, spacing: a.stirrups.spacing, length: 2 * d.h }, longMinDiaMm: dbMin, overstrength: OVERSTRENGTH,
+    ln, vg: [vg, vg], hoops: { diameter: sd, legs: a.stirrups.legs, spacing: a.stirrups.spacing, length: 2 * d.h }, longMinDiaMm: dbMin, overstrength: c.overstrength,
   });
   const sVe = hoopSpacingFor(cap.ve, cap.vcZero, d.b, dEff, c.mat.fc, c.mat.fy, sd, a.stirrups.legs);
   const sZone = Math.min(cap.hoops.spacing, sVe ?? 0.05);
@@ -47,7 +48,7 @@ export function beamSeismic(
       check('rcSheets.v.seisBeamRho', rho <= 0.025 + 1e-9, { clause: '§18.6.3.1', demand: `${fmt(rho * 100, 2)} %`, capacity: '≤ 2.5 %' }),
     ],
     steps: [
-      { label: 'rcSheets.s.seisMpr', formula: 'Mpr = Mn(1.25·fy), φ = 1', value: `${fmt(cap.mprNeg[0])} · ${fmt(cap.mprPos[1])} kN·m` },
+      { label: 'rcSheets.s.seisMpr', formula: `Mpr = Mn(${fmt(c.overstrength)}·fy), φ = 1`, value: `${fmt(cap.mprNeg[0])} · ${fmt(cap.mprPos[1])} kN·m` },
       { label: 'rcSheets.s.seisVe', formula: 'Ve = (Mpr,i + Mpr,j)/ln + Vg', value: `(${fmt(Math.max(cap.mprNeg[0] + cap.mprPos[1], cap.mprPos[0] + cap.mprNeg[1]))})/${fmt(ln)} + ${fmt(vg)} = ${fmt(cap.ve)} kN${cap.vcZero ? ' (Vc = 0)' : ''}` },
       { label: 'rcSheets.s.seisZone', formula: 's ≤ min(d/4; 6·db; 150 mm) @ 2h', value: `${fmt(sZone * 100, 1)} cm` },
     ],
@@ -56,7 +57,7 @@ export function beamSeismic(
 
 export function columnSeismic(
   d: { b: number; h: number; lu: number; cases: Array<{ pu: number; vx?: number; vy?: number }> },
-  c: { mat: { fc: number; fy: number }; cover: number },
+  c: { mat: { fc: number; fy: number }; cover: number; overstrength: number },
   a: ColumnAdopted, bars: Array<{ x: number; y: number; area: number }>, ct: { x: number; y: number }, fmt: Fmt,
 ): { checks: CheckLine[]; steps: Step[]; so: number } {
   const minDim = Math.min(d.b, d.h), Ag = d.b * d.h;
@@ -67,8 +68,8 @@ export function columnSeismic(
   const conf = columnConfinement({ b: d.b, h: d.h, cover: c.cover, lu: d.lu, fc: c.mat.fc, fyt: c.mat.fy, longMinDiaMm: longMin, tieDiaMm: a.tieDia, legsB: 2 + ct.x, legsH: 2 + ct.y, hx, provided: { length: Math.max(d.b, d.h, d.lu / 6, 0.45), spacing: a.tieSpacing } });
   const puMax = Math.max(0, ...d.cases.map((k) => k.pu));
   const outline = { kind: 'rect' as const, b: d.b, h: d.h };
-  const mprX = nominalMomentAt(outline, bars, c.mat.fc, OVERSTRENGTH * c.mat.fy, Math.PI / 2, puMax);
-  const mprY = nominalMomentAt(outline, bars, c.mat.fc, OVERSTRENGTH * c.mat.fy, 0, puMax);
+  const mprX = nominalMomentAt(outline, bars, c.mat.fc, c.overstrength * c.mat.fy, Math.PI / 2, puMax);
+  const mprY = nominalMomentAt(outline, bars, c.mat.fc, c.overstrength * c.mat.fy, 0, puMax);
   const ties = (legs: number) => ({ diameter: a.tieDia, legs, spacing: Math.min(a.tieSpacing, conf.so) });
   const vx = Math.max(0, ...d.cases.map((k) => k.vx ?? 0)), vy = Math.max(0, ...d.cases.map((k) => k.vy ?? 0));
   const shX = columnCapacityShear({ b: d.b, h: d.h, d: d.h - c.cover - 0.02, fc: c.mat.fc, fyt: c.mat.fy, mpr: [mprX, mprX], lu: d.lu, vu: vx, pu: puMax, ties: ties(2 + ct.x) });
@@ -83,7 +84,7 @@ export function columnSeismic(
       check('rcSheets.v.seisColVe', shX.utilization <= 1 + 1e-6 && shY.utilization <= 1 + 1e-6, { clause: '§18.7.6', demand: `${fmt(shX.ve)} · ${fmt(shY.ve)} kN`, capacity: `${fmt(shX.phiVn)} · ${fmt(shY.phiVn)} kN`, ratio: Math.max(shX.utilization, shY.utilization) }),
     ],
     steps: [
-      { label: 'rcSheets.s.seisColMpr', formula: 'Mpr = Mn(1.25·fy; Pu,max)', value: `${fmt(mprX)} · ${fmt(mprY)} kN·m` },
+      { label: 'rcSheets.s.seisColMpr', formula: `Mpr = Mn(${fmt(c.overstrength)}·fy; Pu,max)`, value: `${fmt(mprX)} · ${fmt(mprY)} kN·m` },
       { label: 'rcSheets.s.seisColConf', formula: 'lo = max(b; h; lu/6; 450 mm); so; Ash', value: `${fmt(conf.lo * 100, 0)} cm · ${fmt(conf.so * 100, 1)} cm` },
     ],
   };

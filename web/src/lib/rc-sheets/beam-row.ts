@@ -1,11 +1,13 @@
 import { checkFlexure, checkShear, checkTorsion, type ConcreteDesignParams } from '../engine/codes/argentina/cirsoc201';
-import { evaluateBeamSections, type BeamSectionQuery } from '../engine/codes/argentina/cirsoc201-beam-kernel';
+import { evaluateBeamSections, type BeamSectionAnswer, type BeamSectionQuery } from '../engine/codes/argentina/cirsoc201-beam-kernel';
 import { beta1, ductilityStrain, phiFromStrain, shearFy, shearSqrtFc, tensionControlledStrain } from '../engine/codes/argentina/cirsoc201-basis';
-import { crackControlMaxSpacing } from '../codes/cirsoc201/crack-control';
+import { crackControlFaceSpacing } from '../engine/design/crack-spacing';
+import { checkTorsion2025 } from '../codes/cirsoc201/torsion';
+import { transverseSpacingLimits } from '../codes/cirsoc201/transverse-spacing';
 import { proposeSkin } from '../codes/cirsoc201/skin';
 import { barArea, faceLayout, groupsArea, groupsLabel, proposeBeamFace, roundDown, stirrupsLabel } from './bars';
 import type { Fmt } from './format';
-import { beamSeismic } from './seismic';
+import { beamSeismic, type Seismic } from './seismic';
 import { check, ratioOf, type BarGroup, type BeamAdopted, type CheckLine, type ComboTable, type Materials, type MeshBars, type RowStatus, type Signed, type Step, type StepGroup, type Stirrups, type TorsionMode } from './types';
 
 const EDITION = '2025' as const;
@@ -21,6 +23,7 @@ export interface SectionEnv { x: number; pos: Signed; neg: Signed; nPos: number;
 /** One combination on a span: signed moments at the three sections, its own peaks anywhere, and V and T peaks. */
 export interface BeamComboForces {
   combo: string;
+  seismic?: boolean;
   mStart: number; mSpan: number; mEnd: number;
   mPos: number; mNeg: number;
   nStart: number; nSpan: number; nEnd: number;
@@ -57,8 +60,8 @@ export interface BeamContext {
   stirrupDia: number;
   diameters: readonly number[];
   torsion: TorsionMode;
-  /** Special moment frame provisions (chapter 18). */
-  seismic?: boolean;
+  /** Special moment frame provisions (chapter 18), with the project's λo. */
+  seismic?: Seismic;
 }
 
 export interface FlexureCheck { section: SectionName; sign: 'pos' | 'neg'; phiMn: number; mu: number; epsT: number; epsTMin: number; d: number; ok: boolean; ductile: boolean }
@@ -94,19 +97,26 @@ export interface BeamRow {
 const paramsOf = (d: BeamDemand, c: BeamContext, stirrupDia = c.stirrupDia): ConcreteDesignParams =>
   ({ fc: c.mat.fc, fy: c.mat.fy, cover: c.cover, b: d.b, h: d.h, stirrupDia });
 
+const hoopPerimeter = (d: BeamDemand, c: BeamContext, sd: number) => 2 * ((d.b - 2 * c.cover - sd / 1000) + (d.h - 2 * c.cover - sd / 1000));
+
 const sectionOf = (d: BeamDemand, s: SectionName) => (s === 'start' ? d.start : s === 'span' ? d.span : d.end);
 
-function query(c: BeamContext, d: BeamDemand, tension: BarGroup[], compression: BarGroup[], stirrupDia: number, nc: number, shear?: Stirrups, sagging = false): BeamSectionQuery {
+/** The kernel query for one section: `tension` bars against the moment, `compression` on the other face; the flange counts only when sagging. */
+export function sectionQuery(c: BeamContext, d: { b: number; h: number; flange?: { bf: number; hf: number } }, tension: BarGroup[], compression: BarGroup[], stirrupDia: number, nc = 0, shear?: Stirrups, sagging = false): BeamSectionQuery {
   const t = faceLayout(tension, d.b, c.cover, stirrupDia);
   const k = faceLayout(compression, d.b, c.cover, stirrupDia);
   return {
     edition: EDITION, fc: c.mat.fc * 1e6, fy: c.mat.fy * 1e6, b: d.b, h: d.h, d: d.h - t.centroidFromFace,
     As: groupsArea(tension) * 1e-4, AsComp: groupsArea(compression) * 1e-4, dPrime: k.centroidFromFace,
     Ag: d.b * d.h, NuCompression: nc * 1e3,
-    ...(shear ? { Av: shear.legs * barArea(shear.dia) * 1e-4, s: shear.spacing, fyt: c.mat.fy * 1e6 } : {}),
+    ...(shear ? { Av: shear.legs * barArea(shear.dia) * 1e-4, s: shear.spacing, fyt: shearFy(c.mat.fy) * 1e6 } : {}),
     ...(sagging && d.flange ? { bf: d.flange.bf, hf: d.flange.hf } : {}),
   };
 }
+
+/** φMn of a kernel answer, kN·m; 0 where the section gave none. */
+export const phiMnOf = (r: BeamSectionAnswer | undefined): number =>
+  (r && r.flexureValid && Number.isFinite(r.phiMn) ? r.phiMn / 1e3 : 0);
 
 const barsAt = (a: BeamAdopted, s: SectionName) => a.at?.[s] ?? { top: a.top, bottom: a.bottom };
 
@@ -118,10 +128,10 @@ function flexChecks(c: BeamContext, d: BeamDemand, a: BeamAdopted): FlexureCheck
     items.push({ section: s, sign: 'pos', mu: e.pos.value, nc: e.nPos }, { section: s, sign: 'neg', mu: e.neg.value, nc: e.nNeg });
   }
   if (d.negAny.value > Math.max(d.start.neg.value, d.span.neg.value, d.end.neg.value) + 1e-6) items.push({ section: 'span', sign: 'neg', mu: d.negAny.value, nc: d.nNegAny });
-  const answers = evaluateBeamSections(items.map((i) => { const g = barsAt(a, i.section); return i.sign === 'pos' ? query(c, d, g.bottom, g.top, sd, i.nc, undefined, true) : query(c, d, g.top, g.bottom, sd, i.nc); })) ?? [];
+  const answers = evaluateBeamSections(items.map((i) => { const g = barsAt(a, i.section); return i.sign === 'pos' ? sectionQuery(c, d, g.bottom, g.top, sd, i.nc, undefined, true) : sectionQuery(c, d, g.top, g.bottom, sd, i.nc); })) ?? [];
   return items.map((i, k) => {
     const r = answers[k];
-    const phiMn = r && r.flexureValid && Number.isFinite(r.phiMn) ? r.phiMn / 1e3 : 0;
+    const phiMn = phiMnOf(r);
     const epsT = r?.epsilonT ?? 0, epsTMin = r?.epsilonTMin ?? 0;
     const ductile = !(i.mu > 1e-6) || epsT >= epsTMin - 1e-9;
     const depth = d.h - faceLayout(i.sign === 'pos' ? barsAt(a, i.section).bottom : barsAt(a, i.section).top, d.b, c.cover, sd).centroidFromFace;
@@ -129,7 +139,7 @@ function flexChecks(c: BeamContext, d: BeamDemand, a: BeamAdopted): FlexureCheck
   });
 }
 
-interface Requirement { bottom: number; top: number; al: number; alMin: number; neglect: boolean; torSection: boolean; atOverS: number; bySection: Array<{ section: SectionName; sign: 'pos' | 'neg'; req: number }> }
+interface Requirement { bottom: number; top: number; al: number; alMin: number; transverseMin: number; neglect: boolean; torSection: boolean; atOverS: number; bySection: Array<{ section: SectionName; sign: 'pos' | 'neg'; req: number }> }
 
 interface Evaluation {
   flex: FlexureCheck[];
@@ -148,11 +158,10 @@ function evaluate(d: BeamDemand, c: BeamContext, a: BeamAdopted, req: Requiremen
   const flex = flexChecks(c, d, a);
   const fits = (face: 'top' | 'bottom') => SECTION_NAMES.every((s) => faceLayout(barsAt(a, s)[face], d.b, c.cover, sd).fits);
   const fb = { fits: fits('bottom') }, ft = { fits: fits('top') };
-  const crackMax = crackControlMaxSpacing(EDITION, { fy: c.mat.fy, clearCoverToTensionFace: c.cover + sd / 1000 }).maxSpacing;
   const crack = (groups: BarGroup[], used: boolean) => {
-    const g = groups.find((x) => x.count > 0);
-    const s = g && g.count > 1 ? (d.b - 2 * (c.cover + sd / 1000) - g.dia / 1000) / (g.count - 1) : d.b - 2 * (c.cover + sd / 1000);
-    return { s, max: crackMax, ok: !used || s <= crackMax + 1e-6 };
+    const first = groups.find((x) => x.count > 0) ?? { count: 0, dia: 10 };
+    const f = crackControlFaceSpacing(EDITION, [{ count: Math.max(1, first.count), diameter: first.dia, row: 0 }], d.b, c.cover, sd, c.mat.fy)!;
+    return { s: f.spacing, max: f.limit.maxSpacing, ok: !used || f.ok };
   };
   const hogUsed = req.top > 0;
   const shear = checkShear(paramsOf(d, c, sd), d.vu.value, d.nAtV, { edition: EDITION, AsTensionCm2: groupsArea(a.bottom), spacing: a.stirrups.spacing, legs: a.stirrups.legs });
@@ -160,12 +169,11 @@ function evaluate(d: BeamDemand, c: BeamContext, a: BeamAdopted, req: Requiremen
   const perLegProvided = a.stirrups.spacing > 0 ? ab / a.stirrups.spacing : 0;
   const legs = Math.max(1, a.stirrups.legs);
   const perLegRequired = Math.max(shear.AvOverSReq ?? 0, shear.AvOverSMin) / legs + (req.neglect ? 0 : req.atOverS);
-  const fyt = shearFy(c.mat.fy);
-  const transverseMin = req.neglect ? 0 : Math.max(0.062 * shearSqrtFc(c.mat.fc), 0.35) * d.b / fyt * 1e4;
+  const transverseMin = req.neglect ? 0 : req.transverseMin;
   const transverseProvided = a.stirrups.spacing > 0 ? legs * ab / a.stirrups.spacing : 0;
   const al = a.torsionLong;
   const alProvided = al ? al.count * barArea(al.dia) : 0;
-  const ph = 2 * ((d.b - 2 * c.cover - sd / 1000) + (d.h - 2 * c.cover - sd / 1000));
+  const ph = hoopPerimeter(d, c, sd);
   const alSpacing = al && al.count > 0 ? ph / al.count : Infinity;
   const alDiaMin = Math.max(0.042 * a.stirrups.spacing * 1000, 10);
   const ok = {
@@ -258,20 +266,23 @@ export function beamRow(d: BeamDemand, c: BeamContext, adopted: BeamAdopted | un
   const tor0 = checkTorsion(p, d.tu.value, d.vu.value, EDITION);
   const tuDesign = !tor0.neglect && c.torsion === 'compatibility' ? Math.min(d.tu.value, PHI_V * tor0.Tcr) : d.tu.value;
   const tor = tuDesign === d.tu.value ? tor0 : checkTorsion(p, tuDesign, d.vu.value, EDITION);
-  const legs = Math.max(2, shear.stirrupLegs);
-  const ph = 2 * ((d.b - 2 * c.cover - c.stirrupDia / 1000) + (d.h - 2 * c.cover - c.stirrupDia / 1000));
-  const fyt = shearFy(fy);
+  const limits = transverseSpacingLimits(EDITION, { VsRequired: shear.Vs, bw: d.b, d: shear.d, fc, cover: c.cover, stirrupDiaMm: c.stirrupDia });
+  const legs = Math.max(2, shear.stirrupLegs, limits.requiredLegs);
+  const ph = hoopPerimeter(d, c, c.stirrupDia);
   const atS = tor.neglect ? 0 : tor.AtOverS;
-  const alMin = tor.neglect ? 0 : Math.max(0, 0.42 * Math.sqrt(fc) * d.b * d.h / fy * 1e4 - Math.max(atS, 0.175 * d.b / fyt * 1e4) * ph * (fyt / fy));
+  const torsion25 = (Tu: number) => checkTorsion2025({ b: d.b, h: d.h, d: shear.d, cover: c.cover, stirrupDiaMm: c.stirrupDia, fc, fy, fyt: fy, Vu: 0, Tu });
+  const t25 = torsion25(tuDesign);
+  const alMin = tor.neglect ? 0 : t25.AlMin * 1e4;
+  const transverseMin = torsion25(0).transverseRequired * 1e4;
   const alReq = tor.neglect ? 0 : tor.AlReq;
   const perLeg = Math.max(shear.AvOverSReq ?? 0, shear.AvOverSMin) / legs + atS;
-  const sMax = Math.min(sMaxShear(shear.d, d.b, fc, shear.Vs), tor.neglect ? Infinity : Math.min(ph / 8, 0.3));
+  const sMax = Math.min(limits.alongMax, tor.neglect ? Infinity : t25.sMax);
   const skin = proposeSkin(EDITION, d.h, fy, c.cover, c.stirrupDia);
   const bySection = [
     ...posReq.filter((x) => x.env.value > 1e-6 || x.s === 'span').map((x) => ({ section: x.s, sign: 'pos' as const, req: x.r.AsReq })),
     ...negList.filter((x) => x.env.value > 1e-6).map((x) => ({ section: x.s, sign: 'neg' as const, req: x.r.AsReq })),
   ];
-  const req: Requirement = { bottom: bottomReq, top: topReq, al: alReq, alMin, neglect: tor.neglect, torSection: tor.status !== 'fail', atOverS: atS, bySection };
+  const req: Requirement = { bottom: bottomReq, top: topReq, al: alReq, alMin, transverseMin, neglect: tor.neglect, torSection: tor.status !== 'fail', atOverS: atS, bySection };
 
   const initial: BeamAdopted = {
     bottom: proposeBeamFace(bottomReq, d.b, d.h, c.cover, c.stirrupDia, c.diameters),
@@ -279,7 +290,7 @@ export function beamRow(d: BeamDemand, c: BeamContext, adopted: BeamAdopted | un
     stirrups: proposeStirrups(perLeg, legs, roundDown(sMax), [6, 8, 10, 12], c.stirrupDia),
     ...(tor.neglect ? {} : { torsionLong: { count: Math.max(4, 2 * Math.ceil(ph / 0.3 / 2)), dia: 10 } }),
   };
-  const seisOf = (x: BeamAdopted) => (c.seismic ? beamSeismic(d, c, x, (sec) => barsAt(x, sec), fmt) : null);
+  const seisOf = (x: BeamAdopted) => (c.seismic ? beamSeismic(d, { ...c, overstrength: c.seismic.overstrength }, x, (sec) => barsAt(x, sec), fmt) : null);
   let proposed = initial, iterations = 0;
   let ev = evaluate(d, c, proposed, req);
   let seis = seisOf(proposed);
@@ -347,32 +358,28 @@ export function beamRow(d: BeamDemand, c: BeamContext, adopted: BeamAdopted | un
 
 function comboTable(d: BeamDemand, c: BeamContext, a: BeamAdopted, fmt: Fmt): ComboTable {
   const sd = a.stirrups.dia;
+  const p = paramsOf(d, c, sd);
+  const S = barsAt(a, 'start'), M = barsAt(a, 'span'), E = barsAt(a, 'end');
   const qs: BeamSectionQuery[] = [];
   for (const k of d.combos) {
-    const S = barsAt(a, 'start'), M = barsAt(a, 'span'), E = barsAt(a, 'end');
-    qs.push(query(c, d, M.bottom, M.top, sd, k.nSpan, undefined, true), query(c, d, S.top, S.bottom, sd, k.nStart), query(c, d, E.top, E.bottom, sd, k.nEnd),
-      query(c, d, S.bottom, S.top, sd, k.nStart, undefined, true), query(c, d, E.bottom, E.top, sd, k.nEnd, undefined, true), query(c, d, M.top, M.bottom, sd, k.nSpan),
-      query(c, d, S.bottom, S.top, sd, k.nV, a.stirrups));
+    qs.push(sectionQuery(c, d, M.bottom, M.top, sd, k.nSpan, undefined, true), sectionQuery(c, d, S.top, S.bottom, sd, k.nStart), sectionQuery(c, d, E.top, E.bottom, sd, k.nEnd),
+      sectionQuery(c, d, S.bottom, S.top, sd, k.nStart, undefined, true), sectionQuery(c, d, E.bottom, E.top, sd, k.nEnd, undefined, true), sectionQuery(c, d, M.top, M.bottom, sd, k.nSpan));
   }
   const ans = evaluateBeamSections(qs) ?? [];
-  const cap = (i: number) => { const r = ans[i]; return r && r.flexureValid && Number.isFinite(r.phiMn) ? r.phiMn / 1e3 : 0; };
-  const ab = barArea(sd), legs = Math.max(1, a.stirrups.legs);
-  const fyt = shearFy(c.mat.fy);
-  const a0 = 0.85 * (d.b - 2 * c.cover - sd / 1000) * (d.h - 2 * c.cover - sd / 1000);
-  const dEff = d.h - faceLayout(a.bottom, d.b, c.cover, sd).centroidFromFace;
-  const th = PHI_V * 0.33 * shearSqrtFc(c.mat.fc) * (d.b * d.h) ** 2 / (2 * (d.b + d.h)) * 1000 / 4;
+  const cap = (i: number) => phiMnOf(ans[i]);
+  const legs = Math.max(1, a.stirrups.legs);
+  const perLegProvided = a.stirrups.spacing > 0 ? barArea(sd) / a.stirrups.spacing : 0;
+  const tcr = checkTorsion(p, 0, 0, EDITION).Tcr;
   const rows = d.combos.map((k, i) => {
-    const o = i * 7;
+    const o = i * 6;
     const mRatio = (m: number, iPos: number, iNeg: number) => (m >= 0 ? ratioOf(m, cap(iPos)) : ratioOf(-m, cap(iNeg)));
     const flex = Math.max(mRatio(k.mStart, o + 3, o + 1), mRatio(k.mSpan, o, o + 5), mRatio(k.mEnd, o + 4, o + 2), ratioOf(k.mPos, cap(o)),
       ratioOf(k.mNeg, Math.min(cap(o + 1), cap(o + 2), cap(o + 5))));
-    const sh = ans[o + 6];
-    const vc = sh && sh.shearValid ? sh.Vc / 1e3 : 0;
-    const avs = Math.max(0, k.v / PHI_V - vc) / (fyt * 1000 * dEff) * 1e4;
-    const ats = k.t > th ? k.t / (PHI_V * 2 * a0 * fyt * 1000) * 1e4 : 0;
-    const stir = ratioOf(avs / legs + ats, a.stirrups.spacing > 0 ? ab / a.stirrups.spacing : 0);
-    const shearRatio = sh && sh.shearValid ? ratioOf(k.v, sh.phiVn / 1e3) : 0;
-    const ratio = Math.max(flex, stir, shearRatio);
+    const sh = checkShear(p, k.v, k.nV, { edition: EDITION, AsTensionCm2: groupsArea(a.bottom), spacing: a.stirrups.spacing, legs: a.stirrups.legs });
+    const t = c.torsion === 'compatibility' ? Math.min(k.t, PHI_V * tcr) : k.t;
+    const tor = checkTorsion(p, t, k.v, EDITION);
+    const stir = ratioOf((sh.AvOverSReq ?? 0) / legs + (tor.neglect ? 0 : tor.AtOverS), perLegProvided);
+    const ratio = Math.max(flex, stir, ratioOf(k.v, sh.phiVn));
     return { combo: k.combo, values: [fmt(k.mStart, 1), fmt(k.mSpan, 1), fmt(k.mEnd, 1), fmt(k.v, 1), fmt(k.t, 1), fmt(k.nSpan, 1)], ratio, ok: ratio <= 1 + 1e-6 };
   });
   return { headers: ['M i', 'M x*', 'M j', 'V', 'T', 'N'], rows };
@@ -388,11 +395,6 @@ function proposeStirrups(perLeg: number, legs: number, sMax: number, dias: reado
   }
   const dia = list[list.length - 1]!;
   return { dia, legs, spacing: roundDown(Math.max(0.05, Math.min(sMax, barArea(dia) / Math.max(perLeg, 1e-9)))) };
-}
-
-function sMaxShear(dEff: number, bw: number, fc: number, vs: number): number {
-  const lim = 0.33 * shearSqrtFc(fc) * bw * dEff * 1000;
-  return vs > lim ? Math.min(dEff / 4, 0.3) : Math.min(dEff / 2, 0.6);
 }
 
 function dataSteps(d: BeamDemand, c: BeamContext, f: Fmt): StepGroup {

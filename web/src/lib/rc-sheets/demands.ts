@@ -2,6 +2,7 @@ import { buildCriticalStations, extractForcesAtStation, type StationForces } fro
 import { shellCentreRows, shellLocalAxes, type ShellModel } from '../engine/shell-results';
 import { woodArmer } from '../engine/wood-armer';
 import { effectiveFlange, type FlangeSide } from '../codes/cirsoc201/effective-flange';
+import { wallBaseResultants } from '../engine/detailing/wall-design';
 import type { AnalysisResults3D, ElementForces3D } from '../engine/types-3d';
 import type { BeamComboForces, BeamDemand, SectionEnv } from './beam-row';
 import type { ColumnCase, ColumnDemand } from './column-row';
@@ -25,6 +26,8 @@ export interface DemandSet {
   result: AnalysisResults3D;
   /** Sum of the factors the combination gives the dead-load cases. */
   deadFactor?: number;
+  /** The combination carries an earthquake case. */
+  seismic?: boolean;
 }
 
 export interface DemandInput {
@@ -46,8 +49,8 @@ export interface DemandInput {
   faces?: boolean;
   /** Half the support's extent along the beam at an element's end, m. */
   faceOffset?: (elementId: number, end: 'i' | 'j') => number;
-  /** Beams designed with the slab cast on them as a compression flange (Table 6.3.2.1). */
-  flange?: boolean;
+  /** The slab beside a beam element as flange sides; given only when beams are designed with the slab as a compression flange (Table 6.3.2.1). */
+  flangeSides?: (elementId: number) => readonly FlangeSide[] | undefined;
 }
 
 const zOf = (p: Pt | undefined) => p?.z ?? 0;
@@ -139,28 +142,8 @@ function take(env: SectionEnv, m: number, n: number, combo: string): void {
 }
 
 function flangeOf(m: DemandInput, span: Array<{ e: El; forward: boolean }>, bw: number, ln: number): { bf: number; hf: number } | null {
-  const ids = new Set(span.flatMap(({ e }) => [e.nodeI, e.nodeJ]));
-  const first = span[0]!.e, last = span[span.length - 1]!.e;
-  const p0 = m.nodes.get(span[0]!.forward ? first.nodeI : first.nodeJ), p1 = m.nodes.get(span[span.length - 1]!.forward ? last.nodeJ : last.nodeI);
-  if (!p0 || !p1) return null;
-  const ux = p1.x - p0.x, uy = p1.y - p0.y, ul = Math.hypot(ux, uy) || 1;
-  const perp = (p: Pt) => ((p.x - p0.x) * -uy + (p.y - p0.y) * ux) / ul;
-  const sides: FlangeSide[] = [];
-  for (const sign of [1, -1]) {
-    let hf = 0, reach = 0;
-    for (const g of m.groups) {
-      if (g.kind === 'wall' || (!g.quads.length && !g.plates.length)) continue;
-      const shells = [...g.quads.map((id) => m.shells.quads?.get(id)), ...g.plates.map((id) => m.shells.plates?.get(id))].filter((x): x is { id: number; nodes: readonly number[]; thickness: number } => !!x);
-      const touching = shells.filter((sh) => sh.nodes.filter((n) => ids.has(n)).length >= 2);
-      const onSide = touching.filter((sh) => { const c = sh.nodes.map((n) => m.nodes.get(n)).filter((p): p is Pt => !!p); return c.length && Math.sign(c.reduce((a, p) => a + perp(p), 0)) === sign; });
-      if (!onSide.length) continue;
-      const pts = shells.flatMap((sh) => sh.nodes.map((n) => m.nodes.get(n))).filter((p): p is Pt => !!p && Math.sign(perp(p)) === sign && Math.abs(zOf(p) - zOf(p0)) < 0.05);
-      hf = Math.max(hf, Math.min(...onSide.map((sh) => sh.thickness)));
-      reach = Math.max(reach, ...pts.map((p) => Math.abs(perp(p))));
-    }
-    if (hf > 0 && reach > bw) sides.push({ hf, clear: reach - bw });
-  }
-  const f = effectiveFlange(bw, ln, sides);
+  const sides = span.map(({ e }) => m.flangeSides?.(e.id)).find((x) => x && x.length);
+  const f = sides ? effectiveFlange(bw, ln, [...sides]) : null;
   return f && f.bf > bw + 1e-6 ? { bf: f.bf, hf: f.hf } : null;
 }
 
@@ -222,7 +205,7 @@ export function beamDemands(m: DemandInput): BeamDemand[] {
           t = Math.max(t, Math.abs(s.torsion));
           if (Math.abs(s.torsion) > tu.value) tu = { value: Math.abs(s.torsion), source: { combo: set.name, x } };
         }
-        combos.push({ combo: set.name, mStart: s0[flex], mSpan: sm[flex], mEnd: s1[flex], mPos, mNeg, nStart: -s0.n, nSpan: -sm.n, nEnd: -s1.n, v, nV: nv, t });
+        combos.push({ combo: set.name, ...(set.seismic ? { seismic: true } : {}), mStart: s0[flex], mSpan: sm[flex], mEnd: s1[flex], mPos, mNeg, nStart: -s0.n, nSpan: -sm.n, nEnd: -s1.n, v, nV: nv, t });
       });
       out.push({
         key: `beam:${g.id}:${k}`, name: spans.length > 1 ? `${g.name}-${k + 1}` : g.name, level: g.level,
@@ -231,7 +214,7 @@ export function beamDemands(m: DemandInput): BeamDemand[] {
         faces: m.faces ? { start: faceI, end: faceJ, shearAt: dv } : undefined,
         line: { group: g.id, index: k, spans: spans.length, startNode: span[0]!.forward ? first.nodeI : first.nodeJ, endNode: lastEl.forward ? lastEl.e.nodeJ : lastEl.e.nodeI, lineName: g.name },
         env,
-        ...((fl) => (fl ? { flange: fl } : {}))(m.flange ? flangeOf(m, span, turned ? sec.h : sec.b, x1 - x0) : null),
+        ...((fl) => (fl ? { flange: fl } : {}))(m.flangeSides && !turned ? flangeOf(m, span, sec.b, x1 - x0) : null),
       });
     });
   }
@@ -383,7 +366,8 @@ export function wallDemands(m: DemandInput): WallDemand[] {
       const baseBy = new Map(base.map((x) => [x.key, x]));
       const combos: WallComboForces[] = [];
       for (const set of m.sets) {
-        let pu = 0, mu = 0, vu = 0, muV = 0, muH = 0;
+        let muV = 0, muH = 0;
+        const strips: Parameters<typeof wallBaseResultants>[0][number][] = [];
         for (const row of shellCentreRows(set.result, m.shells)) {
           const key = `${row.kind === 'quad' ? 'q' : 'p'}${row.id}`;
           if (!keys.has(key) || !row.global) continue;
@@ -392,13 +376,9 @@ export function wallDemands(m: DemandInput): WallDemand[] {
           const b = baseBy.get(key);
           if (!b) continue;
           const bu = b.pts.map(uOf);
-          const w = Math.max(...bu) - Math.min(...bu);
-          const uc = bu.reduce((s, x) => s + x, 0) / bu.length;
-          const f = -tensorAlong(row.global.stress, v, v) * row.thickness * w;
-          pu += f;
-          mu += f * (uc - centre);
-          vu += tensorAlong(row.global.stress, u, v) * row.thickness * w;
+          strips.push({ u: bu.reduce((s, x) => s + x, 0) / bu.length, width: Math.max(...bu) - Math.min(...bu), thickness: row.thickness, sigma: tensorAlong(row.global.stress, v, v), tau: tensorAlong(row.global.stress, u, v) });
         }
+        const { pu, mu, vu } = wallBaseResultants(strips, centre);
         combos.push({ combo: set.name, pu, mu: Math.abs(mu), vu: Math.abs(vu), muV, muH });
       }
       out.push({
