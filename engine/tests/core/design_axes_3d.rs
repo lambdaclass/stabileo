@@ -385,3 +385,118 @@ fn rc_shear_capacity_does_not_read_the_axial_force_the_extraction_pairs_with_pea
     assert_eq!(at(-5e5), at(5e5));
     assert_eq!(at(0.0), at(5e5));
 }
+
+fn two_station_3d_group(s0: (f64, f64, f64, f64, f64, f64), s1: (f64, f64, f64, f64, f64, f64)) -> GroupedBeamStationResult3D {
+    let st = |idx: usize, t: f64, (n, vy, vz, my, mz, torsion): (f64, f64, f64, f64, f64, f64)| BeamStation3D {
+        member_id: 1,
+        label: None,
+        station_index: idx,
+        t,
+        station_x: t * 6.0,
+        section_id: 1,
+        material_id: 1,
+        combo_forces: vec![StationComboForces3D { combo_id: 1, combo_name: None, n, vy, vz, my, mz, torsion }],
+        governing: GoverningInfo3D {
+            axial: None, shear_y: None, shear_z: None, moment_y: None, moment_z: None, torsion: None,
+        },
+    };
+    GroupedBeamStationResult3D {
+        schema_version: 1,
+        members: vec![MemberStationGroup3D {
+            member_id: 1,
+            label: None,
+            section_id: 1,
+            material_id: 1,
+            length: 6.0,
+            stations: vec![st(0, 0.0, s0), st(1, 0.5, s1)],
+            member_governing: MemberGoverning3D {
+                axial: None, shear_y: None, shear_z: None, moment_y: None, moment_z: None, torsion: None,
+            },
+        }],
+        num_combinations: 1,
+        num_stations_per_member: 2,
+        sign_convention: SignConvention3D {
+            local_x: String::new(), local_yz: String::new(),
+            axial: String::new(), shear_y: String::new(), shear_z: String::new(),
+            moment_y: String::new(), moment_z: String::new(), torsion: String::new(),
+            station_x: String::new(),
+        },
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #1317"]
+fn non_governing_infinite_station_is_refused() {
+    let bad = two_station_3d_group(
+        (f64::INFINITY, 0.0, 5.0, -30.0, 0.0, 0.0),
+        (0.0, 0.0, 3.0, -60.0, 0.0, 0.0),
+    );
+    assert!(extract_rc_demands_3d(&bad, DemandStrategy::MaxAbsMoment).is_err());
+    let steel_forces = extract_steel_demands_3d(&bad, DemandStrategy::MaxAbsMoment);
+    let r = &check_steel_members(&SteelCheckInput { members: vec![ipe300(1)], forces: steel_forces })[0];
+    assert!(!r.unevaluated.is_empty(), "{r:?}");
+    assert!(r.governing_check.ends_with("(incomplete)"), "{r:?}");
+
+    let bad_torsion = two_station_3d_group(
+        (0.0, 0.0, 5.0, -30.0, 0.0, f64::INFINITY),
+        (0.0, 0.0, 3.0, -60.0, 0.0, 0.0),
+    );
+    assert!(extract_rc_demands_3d(&bad_torsion, DemandStrategy::MaxAbsMoment).is_err());
+    let steel_forces_t = extract_steel_demands_3d(&bad_torsion, DemandStrategy::MaxAbsMoment);
+    let rt = &check_steel_members(&SteelCheckInput { members: vec![ipe300(1)], forces: steel_forces_t })[0];
+    assert!(!rt.unevaluated.is_empty(), "{rt:?}");
+    assert!(rt.governing_check.ends_with("(incomplete)"), "{rt:?}");
+
+    let control = two_station_3d_group(
+        (-100.0, 0.0, 5.0, -30.0, 0.0, 0.0),
+        (0.0, 0.0, 3.0, -60.0, 0.0, 0.0),
+    );
+    let rc_ok = extract_rc_demands_3d(&control, DemandStrategy::MaxAbsMoment).unwrap();
+    close(rc_ok[0].mu, -60.0, "governing Mu");
+    close(rc_ok[0].vu.unwrap(), 5.0, "peak Vu");
+    close(rc_ok[0].nu.unwrap(), 0.0, "coincident Nu");
+    let steel_ok = extract_steel_demands_3d(&control, DemandStrategy::MaxAbsMoment);
+    let r_ok = &check_steel_members(&SteelCheckInput { members: vec![ipe300(1)], forces: steel_ok })[0];
+    assert!(r_ok.unevaluated.is_empty(), "{r_ok:?}");
+    assert!(!r_ok.governing_check.ends_with("(incomplete)"), "{r_ok:?}");
+}
+
+#[test]
+#[ignore = "known wrong result: #1314"]
+fn torsion_only_rc_member_cannot_pass() {
+    let cantilever = |fz: f64, mx: f64| {
+        make_3d_input(
+            vec![(1, 0.0, 0.0, 0.0), (2, 3.0, 0.0, 0.0)],
+            vec![(1, 25e9, 0.2)],
+            vec![(1, 0.18, 5.4e-3, 1.35e-3, 3.1e-3)],
+            vec![(1, "frame", 1, 2, 1, 1)],
+            vec![(1, vec![true; 6]), (2, free())],
+            vec![SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: 2, fx: 0.0, fy: 0.0, fz, mx, my: 0.0, mz: 0.0, bw: None })],
+        )
+    };
+    let torque = 20_000.0;
+    let grouped = stations_3d(&cantilever(0.0, torque));
+    let forces = extract_rc_demands_3d(&grouped, DemandStrategy::MaxAbsMoment).unwrap();
+    close(forces[0].mu, 0.0, "Mu");
+    close(forces[0].vu.unwrap(), 0.0, "Vu");
+    let r = &check_rc_members(&RCCheckInput { members: vec![rc_beam(1)], forces: forces.clone() })[0];
+    assert!(!r.unevaluated.is_empty(), "{r:?}");
+    assert!(r.governing_check.ends_with("(incomplete)"), "{r:?}");
+    let cert = &certify_rc_members(&CertifiedRcCheckInput {
+        members: vec![rc_beam(1)],
+        demands: vec![BoundedRcDemand {
+            forces: forces.into_iter().next().unwrap(),
+            bound: DemandBound { n: 0.0, my: 0.0, mz: 0.0, v_strong: 0.0, v_weak: 0.0 },
+        }],
+    })[0];
+    assert!(!cert.certified && !cert.certified_ok, "{cert:?}");
+
+    let control_grouped = stations_3d(&cantilever(-10_000.0, 0.0));
+    let control_forces = extract_rc_demands_3d(&control_grouped, DemandStrategy::MaxAbsMoment).unwrap();
+    close(control_forces[0].mu.abs(), 30_000.0, "Mu = P L");
+    close(control_forces[0].vu.unwrap().abs(), 10_000.0, "Vu = P");
+    let r_ctrl = &check_rc_members(&RCCheckInput { members: vec![rc_beam(1)], forces: control_forces })[0];
+    assert!(r_ctrl.unevaluated.is_empty(), "{r_ctrl:?}");
+    assert!(!r_ctrl.governing_check.ends_with("(incomplete)"), "{r_ctrl:?}");
+    assert!(r_ctrl.unity_ratio > 0.0 && r_ctrl.unity_ratio < 1.0, "{r_ctrl:?}");
+}

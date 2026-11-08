@@ -411,3 +411,74 @@ fn non_finite_reported_results_are_uncertified() {
         ok("pdelta_2d", w, c.is_certified(), undocumented_non_finite(&c));
     });
 }
+
+#[test]
+#[ignore = "known wrong result: #1572"]
+fn point_load_on_support_serializes_zero_solution_with_unbounded_rel_bound() {
+    let beam = |a: f64| -> SolverInput {
+        serde_json::from_value(json!({
+            "nodes": {
+                "1": { "id": 1, "x": 0.0, "z": 0.0 },
+                "2": { "id": 2, "x": 6.0, "z": 0.0 }
+            },
+            "materials": {
+                "1": { "id": 1, "e": 200000.0, "nu": 0.3 }
+            },
+            "sections": {
+                "1": { "id": 1, "a": 0.00538, "iz": 0.00008356 }
+            },
+            "elements": {
+                "1": { "id": 1, "type": "frame", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1 }
+            },
+            "supports": {
+                "1": { "id": 1, "nodeId": 1, "type": "pinned" },
+                "2": { "id": 2, "nodeId": 2, "type": "rollerX" }
+            },
+            "loads": [
+                { "type": "pointOnElement", "data": { "elementId": 1, "a": a, "p": -50.0 } }
+            ]
+        }))
+        .unwrap()
+    };
+
+    let on_support = beam(0.0);
+    let certified = certify::certify_linear_2d_full(&on_support).unwrap();
+    for d in &certified.results.displacements {
+        assert_eq!((d.ux, d.uz, d.ry), (0.0, 0.0, 0.0));
+    }
+    let r1 = certified.results.reactions.iter().find(|r| r.node_id == 1).unwrap();
+    let r2 = certified.results.reactions.iter().find(|r| r.node_id == 2).unwrap();
+    assert!((r1.rz - 50.0).abs() < 1e-12);
+    assert!(r2.rz.abs() < 1e-12);
+
+    let json_str = dedaliano_engine::boundary::to_json(&certified).expect("boundary serializes documented +inf relBound as null");
+    let v: Json = serde_json::from_str(&json_str).unwrap();
+    assert_eq!(v["certificate"]["status"], "certified");
+    assert_eq!(v["certificate"].get("relBound"), Some(&Json::Null), "{v}");
+    assert_eq!(v["endToEnd"]["status"], "certified");
+    assert_eq!(v["endToEnd"].get("relBound"), Some(&Json::Null), "{v}");
+
+    let bundle_res = bundle::export_linear_bundle_2d(&on_support).unwrap();
+    let bundle_json = dedaliano_engine::boundary::to_json(&bundle_res).expect("bundle boundary serializes documented +inf relBound as null");
+    let bv: Json = serde_json::from_str(&bundle_json).unwrap();
+    assert_eq!(bv["info"].get("relBound"), Some(&Json::Null), "{bv}");
+
+    let pdelta_res = pdelta::certify_pdelta_2d(&on_support, 20, 1e-8).unwrap();
+    let pdelta_json = dedaliano_engine::boundary::to_json(&pdelta_res).expect("pdelta boundary serializes documented +inf relBound as null");
+    let pv: Json = serde_json::from_str(&pdelta_json).unwrap();
+    assert_eq!(pv["certificate"]["status"], "certified");
+    assert_eq!(pv["certificate"].get("relBound"), Some(&Json::Null), "{pv}");
+    assert!(pv["certificate"]["uniquenessRadius"].as_f64().is_some_and(|r| r > 0.0), "{pv}");
+
+    let midspan = beam(3.0);
+    let ctrl = certify::certify_linear_2d_full(&midspan).unwrap();
+    for r in &ctrl.results.reactions {
+        assert!((r.rz - 25.0).abs() < 1e-9, "{r:?}");
+    }
+    let ctrl_json = dedaliano_engine::boundary::to_json(&ctrl).unwrap();
+    let cv: Json = serde_json::from_str(&ctrl_json).unwrap();
+    assert_eq!(cv["certificate"]["status"], "certified");
+    assert!(cv["certificate"]["relBound"].as_f64().is_some_and(|b| b > 0.0 && b < 1e-10), "{cv}");
+    assert_eq!(cv["endToEnd"]["status"], "certified");
+    assert!(cv["endToEnd"]["relBound"].as_f64().is_some_and(|b| b > 0.0 && b < 1e-10), "{cv}");
+}
