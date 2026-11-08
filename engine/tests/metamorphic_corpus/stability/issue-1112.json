@@ -1,0 +1,133 @@
+{
+ "nodes": {
+  "1": {
+   "id": 1,
+   "x": -3.928401849429264,
+   "z": -21.520023852439436
+  },
+  "2": {
+   "id": 2,
+   "x": 98.78617186510007,
+   "z": 79.99952606995802
+  },
+  "3": {
+   "id": 3,
+   "x": 77.86155605095456,
+   "z": 33.58650723086342
+  },
+  "4": {
+   "id": 4,
+   "x": 93.07698673908212,
+   "z": -56.24986879757836
+  }
+ },
+ "materials": {
+  "1": {
+   "id": 1,
+   "e": 88245516.57046843,
+   "nu": 0.1901627179082181
+  },
+  "2": {
+   "id": 2,
+   "e": 2643300.5642246576,
+   "nu": 0.2987437872294725
+  },
+  "3": {
+   "id": 3,
+   "e": 54036103.422609165,
+   "nu": 0.25571157052563886
+  }
+ },
+ "sections": {
+  "1": {
+   "id": 1,
+   "a": 0.24437057677786025,
+   "iz": 0.0003404447620574557,
+   "asY": null
+  },
+  "2": {
+   "id": 2,
+   "a": 0.30133696014808314,
+   "iz": 0.0008251727068390953,
+   "asY": null
+  },
+  "3": {
+   "id": 3,
+   "a": 0.005528131387688075,
+   "iz": 0.0002605470201870984,
+   "asY": null
+  }
+ },
+ "elements": {
+  "1": {
+   "id": 1,
+   "type": "truss",
+   "nodeI": 1,
+   "nodeJ": 2,
+   "materialId": 1,
+   "sectionId": 2,
+   "hingeStart": false,
+   "hingeEnd": false
+  },
+  "2": {
+   "id": 2,
+   "type": "frame",
+   "nodeI": 3,
+   "nodeJ": 1,
+   "materialId": 2,
+   "sectionId": 1,
+   "hingeStart": false,
+   "hingeEnd": false
+  },
+  "3": {
+   "id": 3,
+   "type": "frame",
+   "nodeI": 4,
+   "nodeJ": 1,
+   "materialId": 3,
+   "sectionId": 1,
+   "hingeStart": false,
+   "hingeEnd": false
+  }
+ },
+ "supports": {
+  "1": {
+   "id": 1,
+   "nodeId": 1,
+   "type": "pinned",
+   "kx": null,
+   "ky": null,
+   "kz": null,
+   "dx": null,
+   "dz": null,
+   "dry": null,
+   "angle": null
+  },
+  "2": {
+   "id": 2,
+   "nodeId": 4,
+   "type": "pinned",
+   "kx": null,
+   "ky": null,
+   "kz": null,
+   "dx": null,
+   "dz": null,
+   "dry": null,
+   "angle": null
+  }
+ },
+ "loads": [
+  {
+   "type": "nodal",
+   "data": {
+    "nodeId": 4,
+    "fx": 183.2791113395449,
+    "fz": -298.2514414173223,
+    "my": -352.51070293500874
+   }
+  }
+ ],
+ "constraints": [],
+ "connectors": {},
+ "solverOptions": null
+}
