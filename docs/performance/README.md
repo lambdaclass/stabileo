@@ -77,6 +77,16 @@ application page. The first of the three runs also had a slower server response 
 123 ms) and gave public-page medians up to 4 points lower than the other two. Each baseline is the
 midpoint of its lowest and highest median, so every observed median is within 2 points of it.
 
+### Re-baseline of 2026-11-08
+
+From 2026-11-06, both presets failed every day on `RAISE` alone. Accessibility went up one point on
+mobile `/app/basic` and `/app/pro` (73 to 74) and on desktop `/app/basic` (75 to 76), `/app/pro`
+(77 to 78) and, from 2026-11-07, the blog page (93 to 94). Each of these values was identical in
+every run since it appeared (runs 42176395212, 42348262635 and 42427965763). Desktop performance
+medians in those three runs were 96, 99, 99 for the blog page, 42, 43, 45 for `/app/basic` and 39, 42,
+42 for `/app/pro`. Their baselines are now 97, 43 and 40, the midpoints. No baseline went down, and
+no margin changed.
+
 ### The mobile application pages
 
 On simulated mobile, which element is the largest contentful paint on `/app/basic` and `/app/pro`
