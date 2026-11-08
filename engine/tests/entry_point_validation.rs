@@ -512,3 +512,107 @@ fn f8_pdelta_3d_dangling_node() {
     let input = beam_3d_dangling();
     expect_err("solve_pdelta_3d", || solve_pdelta_3d(&input, 20, 1e-6));
 }
+
+fn same_first_refusal_2d(mut input: SolverInput, expected: &str) {
+    use dedaliano_engine::load_session::LoadSession2D;
+    use dedaliano_engine::solver::linear;
+    use dedaliano_engine::types::units::ElasticInput2D;
+    for constrained in [false, true] {
+        if constrained {
+            input.constraints.push(Constraint::EqualDOF(EqualDOFConstraint {
+                master_node: 1, slave_node: 2, dofs: vec![0],
+            }));
+        }
+        let error = linear::solve_2d(&input).unwrap_err();
+        assert!(error.contains(expected), "{error}");
+        let typed: ElasticInput2D = serde_json::from_value(serde_json::to_value(&input).unwrap()).unwrap();
+        assert_eq!(linear::solve_2d_typed(&typed).unwrap_err(), error);
+        let session = LoadSession2D::from_input(input.clone()).err().expect("invalid session input must be refused");
+        assert_eq!(session, error, "constrained={constrained}");
+        if !constrained {
+            assert_eq!(linear::prepare_static_2d(&input).err().unwrap(), error);
+            assert_eq!(linear::prepare_static_2d_dense_reference(&input).err().unwrap(), error);
+        }
+    }
+}
+
+fn same_first_refusal_3d(mut input: SolverInput3D, expected: &str) {
+    use dedaliano_engine::load_session::LoadSession3D;
+    use dedaliano_engine::solver::linear;
+    use dedaliano_engine::types::units::ElasticInput3D;
+    for constrained in [false, true] {
+        if constrained {
+            input.constraints.push(Constraint::EqualDOF(EqualDOFConstraint {
+                master_node: 1, slave_node: 2, dofs: vec![0],
+            }));
+        }
+        let error = linear::solve_3d(&input).unwrap_err();
+        assert!(error.contains(expected), "{error}");
+        let typed: ElasticInput3D = serde_json::from_value(serde_json::to_value(&input).unwrap()).unwrap();
+        assert_eq!(linear::solve_3d(&typed.into_legacy()).unwrap_err(), error);
+        let session = LoadSession3D::from_input(input.clone()).err().expect("invalid session input must be refused");
+        assert_eq!(session, error, "constrained={constrained}");
+        if !constrained {
+            assert_eq!(linear::prepare_static_3d(&input).err().unwrap(), error);
+        }
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #1780"]
+fn issue_1780_2d_section_fault_precedes_support_conflict_on_every_path() {
+    let mut input = beam_2d();
+    input.sections.get_mut("1").unwrap().as_y = Some(0.0);
+    input.supports.get_mut("1").unwrap().kx = Some(1.0);
+    same_first_refusal_2d(input, "shear area asY must be positive");
+}
+
+#[test]
+#[ignore = "known wrong result: #1780"]
+fn issue_1780_2d_unknown_support_precedes_support_conflict_on_every_path() {
+    let mut input = beam_2d();
+    input.supports.get_mut("1").unwrap().kx = Some(1.0);
+    let mut other = input.supports["1"].clone();
+    other.id = 2;
+    other.node_id = 2;
+    other.support_type = "unknown".into();
+    input.supports.insert("2".into(), other);
+    same_first_refusal_2d(input, "unknown type 'unknown'");
+}
+
+#[test]
+#[ignore = "known wrong result: #1780"]
+fn issue_1780_3d_left_hand_precedes_support_conflict_on_every_path() {
+    let mut input = beam_3d();
+    input.left_hand = Some(true);
+    input.supports.get_mut("1").unwrap().ky = Some(1.0);
+    same_first_refusal_3d(input, "leftHand: true is not supported");
+}
+
+#[test]
+#[ignore = "known wrong result: #1780"]
+fn issue_1780_3d_missing_normal_precedes_rotation_conflict_on_every_path() {
+    let mut input = beam_3d();
+    let support = input.supports.get_mut("1").unwrap();
+    support.is_inclined = Some(true);
+    support.krx = Some(1.0);
+    same_first_refusal_3d(input, "an inclined support needs a non-zero normal");
+}
+
+#[test]
+#[ignore = "known wrong result: #1780"]
+fn issue_1780_2d_initial_load_fault_precedes_material_fault_in_sessions() {
+    let mut input = beam_2d();
+    input.materials.get_mut("1").unwrap().e = 0.0;
+    if let SolverLoad::Nodal(load) = &mut input.loads[0] { load.node_id = 99; }
+    same_first_refusal_2d(input, "node 99 does not exist");
+}
+
+#[test]
+#[ignore = "known wrong result: #1780"]
+fn issue_1780_3d_initial_load_fault_precedes_material_fault_in_sessions() {
+    let mut input = beam_3d();
+    input.materials.get_mut("1").unwrap().e = 0.0;
+    if let SolverLoad3D::Nodal(load) = &mut input.loads[0] { load.node_id = 99; }
+    same_first_refusal_3d(input, "node 99 does not exist");
+}
