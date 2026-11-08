@@ -42,7 +42,7 @@ use crate::postprocess::rc_check::{
     axial_capacity as rc_axial_capacity, flexural_capacity as rc_flexural_capacity,
     flexure_section as rc_flexure_section, interaction_c_range, interaction_point,
     shear_capacity as rc_shear_capacity, RCDesignForces, RCMemberData, RCSectionType, RC_AXIAL, RC_FLEXURE,
-    RC_SHEAR,
+    RC_SHEAR, RC_TORSION,
 };
 use crate::postprocess::cfs_check::{
     cfs_capacities, CfsCapacities, CfsDesignForces, CfsMemberData, CFS_CHECK_NAMES, PHI_B as CFS_PHI_B,
@@ -906,6 +906,11 @@ fn interaction_moment_enclosure(m: &RCMemberData, es: f64, pu: Interval) -> Resu
 /// of both. A T-beam with a possibly non-zero axial force is refused (the f64
 /// check flags it incomplete).
 pub fn rc_ratio_enclosures(m: &RCMemberData, f: &RCDesignForces, b: &DemandBound) -> Result<[Interval; 3], String> {
+    if let Some(tu) = f.tu {
+        if !tu.is_finite() || tu != 0.0 {
+            return Err(format!("{RC_TORSION}: torsion check not implemented (Tu = {tu})"));
+        }
+    }
     let mu = around(f.mu, b.my, "Mu")?.abs();
     let vu = around(f.vu.unwrap_or(0.0), b.v_strong, "Vu")?.abs();
     let nu = around(f.nu.unwrap_or(0.0), b.n, "Nu")?;
@@ -977,7 +982,7 @@ pub fn rc_demands(demands: &[BoundedSteelDemand]) -> Result<Vec<BoundedRcDemand>
         .map(|d| {
             strong_axis_only(d, "ACI 318", false)?;
             Ok(BoundedRcDemand {
-                forces: RCDesignForces { element_id: d.forces.element_id, mu: d.forces.my, vu: d.forces.v_strong, nu: Some(d.forces.n) },
+                forces: RCDesignForces { element_id: d.forces.element_id, mu: d.forces.my, vu: d.forces.v_strong, nu: Some(d.forces.n), tu: None },
                 bound: d.bound,
             })
         })
@@ -2157,6 +2162,7 @@ mod tests {
             mu: g.range(-8e5, 8e5),
             vu: if g.unit() < 0.1 { None } else { Some(g.range(-6e5, 6e5)) },
             nu: if !rect || g.unit() < 0.3 { None } else { Some(g.range(-0.6 * po, 0.1 * po)) },
+            tu: None,
         }
     }
 
@@ -2218,6 +2224,7 @@ mod tests {
                     mu: f.mu + b.my * g.range(-1.0, 1.0),
                     vu: Some(f.vu.unwrap_or(0.0) + b.v_strong * g.range(-1.0, 1.0)),
                     nu: Some(nu),
+                    tu: None,
                 };
                 let p = aci_f64(&m, &s).unwrap_or_else(|| panic!("{i}: certified box contains an unevaluable point"));
                 for k in 0..3 {
@@ -2252,7 +2259,7 @@ mod tests {
             s_stirrup: None,
             lambda: None,
         };
-        let f = RCDesignForces { element_id: 1, mu: 1.5e5, vu: None, nu: Some(0.0) };
+        let f = RCDesignForces { element_id: 1, mu: 1.5e5, vu: None, nu: Some(0.0), tu: None };
         let r = rc_ratio_enclosures(&m, &f, &DemandBound { n: 5e4, ..ZERO_BOUND }).unwrap();
         for nu in [-5e4, -1e4, -1.0, 0.0, 1.0, 1e4, 5e4] {
             let p = aci_f64(&m, &RCDesignForces { nu: Some(nu), ..f.clone() }).unwrap();
@@ -2298,7 +2305,7 @@ mod tests {
         let sqrt_fc = 28.0f64.sqrt();
         let av_min_mm2 = (0.062 * sqrt_fc * 300.0 * 200.0 / 420.0).max(0.35 * 300.0 * 200.0 / 420.0);
         m.av = Some(av_min_mm2 / 1e6);
-        let f = RCDesignForces { element_id: 1, mu: 1e5, vu: Some(2e5), nu: None };
+        let f = RCDesignForces { element_id: 1, mu: 1e5, vu: Some(2e5), nu: None, tu: None };
         let r = rc_ratio_enclosures(&m, &f, &ZERO_BOUND).unwrap();
         let p = aci_f64(&m, &f).unwrap();
         for k in 0..3 {

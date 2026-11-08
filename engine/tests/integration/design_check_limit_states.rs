@@ -271,7 +271,7 @@ fn rc_beam(av: Option<f64>, s: Option<f64>) -> RCMemberData {
 fn aci_shear_applies_the_size_effect_without_minimum_stirrups() {
     let results = check_rc_members(&RCCheckInput {
         members: vec![rc_beam(None, None)],
-        forces: vec![RCDesignForces { element_id: 1, mu: 100_000.0, vu: Some(60_000.0), nu: None }],
+        forces: vec![RCDesignForces { element_id: 1, mu: 100_000.0, vu: Some(60_000.0), nu: None, tu: None }],
     });
     let r = &results[0];
 
@@ -293,7 +293,7 @@ fn aci_shear_applies_the_size_effect_without_minimum_stirrups() {
 fn aci_shear_skips_the_size_effect_with_minimum_stirrups() {
     let results = check_rc_members(&RCCheckInput {
         members: vec![rc_beam(Some(1.0e-4), Some(0.20))],
-        forces: vec![RCDesignForces { element_id: 1, mu: 100_000.0, vu: Some(60_000.0), nu: None }],
+        forces: vec![RCDesignForces { element_id: 1, mu: 100_000.0, vu: Some(60_000.0), nu: None, tu: None }],
     });
     let r = &results[0];
 
