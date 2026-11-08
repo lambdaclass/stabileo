@@ -115,6 +115,9 @@ module.exports = async ({github, context, core}) => {
   }
   const issues = await github.paginate(github.rest.issues.listForRepo, {owner, repo, labels: 'nightly-finding', state: 'all', per_page: 100});
   const claimedIssues = new Set();
+  const exactMarkers = [...findings.keys()].map(k => `<!-- nightly-finding:${k} -->`);
+  const exactIssue = marker => issues.find(i => !i.pull_request && i.body?.includes(marker));
+  for (const marker of exactMarkers) { const i = exactIssue(marker); if (i) claimedIssues.add(i.number); }
   const run = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
   for (const [key, group] of findings) {
     const f = group.example;
@@ -129,8 +132,9 @@ module.exports = async ({github, context, core}) => {
     // Large JSON remains complete in the artifact: never silently truncate it.
     const inline = model.length < 40000 ? `Save as model.json:\n\n\`\`\`json\n${model}\n\`\`\`` : `Model JSON exceeds the issue body limit; download the finding JSON from the [run artifacts](${run}) and save its model field as model.json.`;
     const body = `${marker}\n${occurrence}\n${summary}\n\nTest: **${f.test}**\n\nSeed: \`${f.seed}\` · model SHA-256: \`${f.modelHash}\`\n\n[Run and artifacts](${run}) · commit \`${context.sha}\`\n\nReduction: ${f.reduction}\n\nBuild/replay setup: [NIGHTLY.md](${context.serverUrl}/${owner}/${repo}/blob/${context.sha}/docs/verification/NIGHTLY.md).\n\n\`\`\`sh\n${f.command}\n\`\`\`\n\n${inline}\n\nDetails:\n\n\`\`\`text\n${JSON.stringify(f.details).slice(0, 4000)}\n\`\`\``;
-    const markers = [key, ...group.legacyKeys].map(k => `<!-- nightly-finding:${k} -->`);
-    const existing = issues.find(i => !i.pull_request && !claimedIssues.has(i.number) && markers.some(m => i.body?.includes(m)));
+    const legacyMarkers = [...group.legacyKeys].map(k => `<!-- nightly-finding:${k} -->`);
+    const existing = exactIssue(marker) ||
+      issues.find(i => !i.pull_request && !claimedIssues.has(i.number) && legacyMarkers.some(m => i.body?.includes(m)));
     if (existing) claimedIssues.add(existing.number);
     if (dry) { core.info(`[dry run] ${existing ? `update #${existing.number}` : 'create'} ${f.test}\n${body}`); continue; }
     if (existing) {

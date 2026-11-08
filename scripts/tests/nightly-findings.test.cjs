@@ -419,3 +419,15 @@ test('reason findings take the model analysis when the details give none', () =>
   assert.ok(created.some(c => c.args.body.includes('Analyses (hits): static: 1')));
   assert.ok(created.some(c => c.args.body.includes('Analyses (hits): modal: 1')));
 }));
+
+test('an exact-signature issue wins over a legacy alias listed before it', () => fixture(async ({args, calls, issues, save}) => {
+  const sha = parts => require('node:crypto').createHash('sha256').update(JSON.stringify(parts)).digest('hex');
+  issues.push(
+    {number: 91, state: 'open', body: `<!-- nightly-finding:${sha(['opensees', 'wrong-result-candidate', 'static: force/nStart'])} -->`},
+    {number: 92, state: 'open', body: `<!-- nightly-finding:${sha(['opensees', 'wrong-result-candidate', 'static', 'unspecified', 'static: force'])} -->`}
+  );
+  save('first', {...finding, test: 'opensees/mismatch', details: {status: 'mismatch', analysis: 'static', worst: [['force', 1, 'nStart', 1, 2, 0.2]]}});
+  await report(args);
+  assert.equal(calls.filter(c => c.name === 'create').length, 0);
+  assert.deepEqual(calls.filter(c => c.name === 'createComment').map(c => c.args.issue_number), [92]);
+}));
