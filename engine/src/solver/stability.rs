@@ -125,7 +125,7 @@ pub fn analyze_dense(k: &[f64], n: usize, tags: &[DofTag]) -> Stability {
     analyze_dense_constrained(k, n, tags, &[])
 }
 
-pub fn analyze_dense_constrained(k: &[f64], n: usize, tags: &[DofTag], moves_translation: &[bool]) -> Stability {
+pub fn analyze_dense_constrained(k: &[f64], n: usize, tags: &[DofTag], moves_translation: &[Vec<(usize, f64)>]) -> Stability {
     let (mut rows, mut cols, mut vals) = (Vec::new(), Vec::new(), Vec::new());
     for j in 0..n {
         for i in j..n {
@@ -144,7 +144,7 @@ pub fn analyze(k: &CscMatrix, tags: &[DofTag]) -> Stability {
     analyze_constrained(k, tags, &[])
 }
 
-pub fn analyze_constrained(k: &CscMatrix, tags: &[DofTag], moves_translation: &[bool]) -> Stability {
+pub fn analyze_constrained(k: &CscMatrix, tags: &[DofTag], moves_translation: &[Vec<(usize, f64)>]) -> Stability {
     let n = k.n;
     let mut groups: BTreeMap<(usize, DofKind), Vec<usize>> = BTreeMap::new();
     for (i, t) in tags.iter().enumerate().take(n) {
@@ -187,8 +187,8 @@ pub fn analyze_constrained(k: &CscMatrix, tags: &[DofTag], moves_translation: &[
         }
         if lowest_kept.is_finite() { anisotropy = anisotropy.max(top / lowest_kept); }
     }
-    let moves = |f: &FreeDirection| f.dofs.iter().zip(&f.direction).any(|(&d, v)| v.abs() > 1e-8 && moves_translation.get(d).copied().unwrap_or(false));
-    let translation_free: Vec<usize> = free.iter().filter(|f| f.kind == DofKind::Translation || moves(f)).map(|f| f.node).collect();
+    let mut translation_free: Vec<usize> = free.iter().filter(|f| f.kind == DofKind::Translation).map(|f| f.node).collect();
+    translation_free.extend(swinging(&free, moves_translation));
     if !translation_free.is_empty() {
         let mut mode_nodes = translation_free;
         mode_nodes.sort_unstable();
@@ -204,6 +204,34 @@ pub fn analyze_constrained(k: &CscMatrix, tags: &[DofTag], moves_translation: &[
     let mode_nodes = mode.map(|x| mode_nodes(&x, &columns, &groups)).unwrap_or_default();
     let verdict = if kappa * anisotropy <= RESOLVABLE { Verdict::Stable } else { Verdict::Singular };
     Stability { verdict, kappa, anisotropy, free, mode_nodes: if verdict == Verdict::Stable { Vec::new() } else { mode_nodes } }
+}
+
+pub const SWING: f64 = 1e-8;
+
+fn swinging(free: &[FreeDirection], moves_translation: &[Vec<(usize, f64)>]) -> Vec<usize> {
+    if moves_translation.is_empty() { return Vec::new(); }
+    let mut by_group: BTreeMap<(usize, DofKind), Vec<&FreeDirection>> = BTreeMap::new();
+    for f in free.iter().filter(|f| f.kind != DofKind::Translation) { by_group.entry((f.node, f.kind)).or_default().push(f); }
+    let mut out = Vec::new();
+    for ((node, _), dirs) in by_group {
+        let dofs = &dirs[0].dofs;
+        let arm = dofs.iter().map(|&d| moves_translation[d].iter().map(|(_, v)| v * v).sum::<f64>().sqrt()).fold(0.0f64, f64::max);
+        if arm <= 0.0 { continue; }
+        let mut rows: BTreeMap<usize, Vec<f64>> = BTreeMap::new();
+        for (c, f) in dirs.iter().enumerate() {
+            for (&d, &v) in f.dofs.iter().zip(&f.direction) {
+                for &(r, x) in &moves_translation[d] { rows.entry(r).or_insert_with(|| vec![0.0; dirs.len()])[c] += x * v; }
+            }
+        }
+        let n = dirs.len();
+        let mut gram = vec![0.0; n * n];
+        for m in rows.values() {
+            for a in 0..n { for b in 0..n { gram[a * n + b] += m[a] * m[b]; } }
+        }
+        let (mu, _) = sym_eigen_small(&gram, n);
+        if mu[n - 1].max(0.0).sqrt() > SWING * arm { out.push(node); }
+    }
+    out
 }
 
 fn scaled(k: &CscMatrix, groups: &[((usize, DofKind), Vec<usize>)], group_of: &[(usize, usize)], columns: &[Column]) -> CscMatrix {
@@ -237,15 +265,21 @@ fn norm(x: &[f64]) -> f64 { x.iter().map(|a| a * a).sum::<f64>().sqrt() }
 
 fn dot(a: &[f64], b: &[f64]) -> f64 { a.iter().zip(b).map(|(x, y)| x * y).sum() }
 
-fn start(m: usize) -> Vec<f64> {
-    let x: Vec<f64> = (0..m).map(|i| 1.0 + ((i * 7919) % 101) as f64 / 101.0).collect();
+fn start(m: usize, seed: u64) -> Vec<f64> {
+    let mut h = seed.wrapping_mul(0x9E37_79B9_7F4A_7C15) | 1;
+    let x: Vec<f64> = (0..m).map(|_| {
+        h ^= h << 13;
+        h ^= h >> 7;
+        h ^= h << 17;
+        (h >> 11) as f64 / (1u64 << 53) as f64 - 0.5
+    }).collect();
     let nx = norm(&x);
     x.into_iter().map(|a| a / nx).collect()
 }
 
-fn lanczos_top(apply: &dyn Fn(&[f64]) -> Vec<f64>, m: usize) -> Option<(f64, Vec<f64>)> {
+fn lanczos_top(apply: &dyn Fn(&[f64]) -> Vec<f64>, m: usize, seed: u64) -> Option<(f64, Vec<f64>)> {
     let steps = m.min(200);
-    let mut basis: Vec<Vec<f64>> = vec![start(m)];
+    let mut basis: Vec<Vec<f64>> = vec![start(m, seed)];
     let (mut alpha, mut beta): (Vec<f64>, Vec<f64>) = (Vec::new(), Vec::new());
     loop {
         let j = basis.len() - 1;
@@ -311,12 +345,16 @@ fn spectrum(s: &CscMatrix) -> (f64, Option<Vec<f64>>) {
     }
     let sym = Rc::new(symbolic_cholesky(s));
     let Some(factor) = numeric_cholesky(&sym, s) else { return (f64::INFINITY, None) };
-    let Some((inverse_top, x)) = lanczos_top(&|v| sparse_cholesky_solve(&factor, v), m) else { return (f64::INFINITY, None) };
-    let Some((lmax, _)) = lanczos_top(&|v| s.sym_mat_vec(v), m) else { return (f64::INFINITY, Some(x)) };
-    if !(inverse_top.is_finite() && inverse_top > 0.0 && lmax > 0.0) { return (f64::INFINITY, Some(x)); }
-    let (lower, upper) = ((1.0 - CERTIFY) / inverse_top, (1.0 + CERTIFY) * lmax);
-    if !positive_definite(s, 1.0, -lower) || !positive_definite(s, -1.0, upper) { return (f64::INFINITY, Some(x)); }
-    (upper / lower, Some(x))
+    let mut mode = None;
+    for seed in 1..=3 {
+        let Some((inverse_top, x)) = lanczos_top(&|v| sparse_cholesky_solve(&factor, v), m, seed) else { continue };
+        mode = Some(x);
+        let Some((lmax, _)) = lanczos_top(&|v| s.sym_mat_vec(v), m, seed) else { continue };
+        if !(inverse_top.is_finite() && inverse_top > 0.0 && lmax > 0.0) { continue; }
+        let (lower, upper) = ((1.0 - CERTIFY) / inverse_top, (1.0 + CERTIFY) * lmax);
+        if positive_definite(s, 1.0, -lower) && positive_definite(s, -1.0, upper) { return (upper / lower, mode); }
+    }
+    (f64::INFINITY, mode)
 }
 
 fn mode_nodes(x: &[f64], columns: &[Column], groups: &[((usize, DofKind), Vec<usize>)]) -> Vec<usize> {
@@ -337,16 +375,16 @@ fn without_springs(asm: &crate::solver::assembly::AssemblyResult) -> Vec<f64> {
     k
 }
 
-fn reduced(k: &[f64], dof: &DofNumbering, tags: Vec<DofTag>, ct: Option<crate::solver::constraints::ConstraintTransform>) -> (Vec<f64>, usize, Vec<DofTag>, Vec<bool>) {
+fn reduced(k: &[f64], dof: &DofNumbering, tags: Vec<DofTag>, ct: Option<crate::solver::constraints::ConstraintTransform>) -> (Vec<f64>, usize, Vec<DofTag>, Vec<Vec<(usize, f64)>>) {
     let n = dof.n_total;
     let nf = dof.n_free;
-    let (k, size, idx, tag_of, moves): (Vec<f64>, usize, Vec<usize>, Vec<usize>, Vec<bool>) = match ct {
+    let (k, size, idx, tag_of, moves): (Vec<f64>, usize, Vec<usize>, Vec<usize>, Vec<Vec<(usize, f64)>>) = match ct {
         None => (k.to_vec(), n, (0..nf).collect(), (0..nf).collect(), Vec::new()),
         Some(ct) => {
             let idx: Vec<usize> = (0..ct.n_independent).filter(|&j| ct.independent_dofs[j] < nf).collect();
             let tag_of = idx.iter().map(|&j| ct.independent_dofs[j]).collect();
             let c = &ct.c;
-            let moves = idx.iter().map(|&j| (c.col_ptr[j]..c.col_ptr[j + 1]).any(|p| c.csc_vals[p] != 0.0 && tags[c.row_idx[p]].kind == DofKind::Translation)).collect();
+            let moves = idx.iter().map(|&j| (c.col_ptr[j]..c.col_ptr[j + 1]).filter(|&p| c.csc_vals[p] != 0.0 && tags[c.row_idx[p]].kind == DofKind::Translation).map(|p| (c.row_idx[p], c.csc_vals[p])).collect()).collect();
             (c.reduce_dense(k), ct.n_independent, idx, tag_of, moves)
         }
     };

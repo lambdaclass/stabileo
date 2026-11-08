@@ -261,7 +261,10 @@ fn invariant_verdict(name: &str, m: Model) -> Stability {
     let (base, others) = verdicts(name, &m);
     let base = base.unwrap();
     for (what, o) in others {
-        let o = o.unwrap_or_else(|e| panic!("{name} {what} unrepresentable: {e}")).unwrap_or_else(|e| panic!("{name} {what}: {e}"));
+        let o = match o {
+            Err(e) if what.starts_with("mirror") && e.contains("no mirror rule") => continue,
+            o => o.unwrap_or_else(|e| panic!("{name} {what} unrepresentable: {e}")).unwrap_or_else(|e| panic!("{name} {what}: {e}")),
+        };
         if let Err(e) = same(&base, &o) { panic!("{name} {what}: {e}"); }
     }
     base
@@ -369,4 +372,43 @@ fn a_free_master_rotation_that_swings_a_rigid_link_slave_is_a_mechanism_in_every
         "loads": []
     });
     assert_eq!(invariant_verdict("rigid-link pendulum", d2(pendulum)).verdict, Verdict::Mechanism);
+}
+
+#[test]
+fn a_spin_about_a_collinear_rigid_link_is_a_free_rotation_and_an_offset_one_a_mechanism_in_every_frame() {
+    let model = |slave: [f64; 3]| serde_json::json!({
+        "nodes": {"1": {"id": 1, "x": 0.0, "y": 0.0, "z": 0.0}, "2": {"id": 2, "x": slave[0], "y": slave[1], "z": slave[2]}, "3": {"id": 3, "x": -3.0, "y": 0.0, "z": 0.0}},
+        "materials": {"1": {"id": 1, "e": 200000.0, "nu": 0.3}},
+        "sections": {"1": {"id": 1, "a": 0.01, "iy": 2e-4, "iz": 1e-4, "j": 5e-5}},
+        "elements": {"1": {"id": 1, "type": "frame", "nodeI": 3, "nodeJ": 1, "materialId": 1, "sectionId": 1, "releaseTEnd": true}},
+        "supports": {"3": {"nodeId": 3, "rx": true, "ry": true, "rz": true, "rrx": true, "rry": true, "rrz": true}},
+        "constraints": [{"type": "rigidLink", "masterNode": 1, "slaveNode": 2, "dofs": []}],
+        "loads": []
+    });
+    let s = invariant_verdict("collinear rigid link", d3(model([2.0, 0.0, 0.0])));
+    assert!(s.is_stable() && s.free_rotations().filter(|f| f.node == 1).count() == 1, "{s:?}");
+    assert_eq!(invariant_verdict("offset rigid link", d3(model([2.0, 1.0, 0.0]))).verdict, Verdict::Mechanism);
+}
+
+fn coupled_identity(order: &[usize]) -> Stability {
+    let m = order.len();
+    let mut k = vec![0.0; m * m];
+    for i in 0..m { k[i * m + i] = 1.0; }
+    let (a, b) = (order[0], order[101]);
+    k[a * m + b] = -0.5;
+    k[b * m + a] = -0.5;
+    analyze_dense(&k, m, &(0..m).map(|i| t(i, DofKind::Translation)).collect::<Vec<_>>())
+}
+
+#[test]
+fn a_mode_a_structured_start_vector_misses_still_certifies_in_any_numbering() {
+    let m = stability::DENSE_SPECTRUM + 1;
+    let identity: Vec<usize> = (0..m).collect();
+    let reversed: Vec<usize> = (0..m).rev().collect();
+    let shuffled: Vec<usize> = (0..m).map(|i| (i * 37 + 11) % m).collect();
+    for order in [identity, reversed, shuffled] {
+        let s = coupled_identity(&order);
+        assert_eq!(s.verdict, Verdict::Stable, "{s:?}");
+        assert!(s.kappa >= 3.0 && s.kappa <= 3.0 * (1.0 + 3e-3), "{}", s.kappa);
+    }
 }

@@ -83,9 +83,14 @@ Cholesky of `S` that breaks down, give Singular: the threshold is never passed o
 unproved number.
 
 With constraints, `K` is the reduced matrix and each independent DOF takes the node and
-kind of its physical DOF. A free rotation whose constraint column moves a physical
-translation (a master rotation that swings an offset rigid-link slave) is a Mechanism, not
-a free rotation.
+kind of its physical DOF. For each node, the constraint's translation rows are applied to
+its whole free rotation subspace: if some unit direction in it moves a physical translation
+by more than `1e-8` times the node's arm (the largest translation its constraint column
+gives a unit rotation), the node is a Mechanism (a master rotation that swings an offset
+rigid-link slave); a spin about a collinear link moves nothing and stays a free rotation.
+The test is the largest singular value of that map, so it does not depend on how the free
+subspace is spanned. Lanczos starts from a pseudo-random vector and restarts from two more
+before an uncertified estimate becomes a refusal.
 
 ### 2.3 Verdict
 
@@ -159,7 +164,7 @@ stiffness), now found per direction instead of per global axis.
 
 Free motions of the whole model (a model held only by springs that do not reach every
 rigid motion) and connector/skew mechanisms are not special cases: they are null vectors of
-`S` with translations, hence Mechanism.
+`S`, hence Singular (Mechanism is reserved for the exact, node-local case).
 
 ## 5. Slices
 
