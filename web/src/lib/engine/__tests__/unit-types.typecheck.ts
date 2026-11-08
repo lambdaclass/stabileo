@@ -1,7 +1,7 @@
 import { input2DToWireObject, input3DToWireObject } from '../wasm-solver';
 import type { SolverInput } from '../types';
 import type { SolverInput3D } from '../types-3d';
-import { areaM2, inertiaM4, mpa, ratio, modulusInternal, elasticFromDisplay, elasticToDisplay, type ElasticMaterialWire, type ElasticSectionWire, type Force, type Length, type Moment, materialToWire, sectionToWire, section3DToWire, warpingM6, lengthM, forceKn, momentKnM, bimomentKnM2, nodeToWire, node3DToWire, loadToWire, load3DToWire, lineLoadKnM, areaLoadKnM2, temperatureDeltaC, expansionPerC, springKnM, springKnMRad, angleRad, angleDeg, plateThermalToWire, supportToWire, support3DToWire, element3DToWire, type AreaLoad, type TemperatureDifference, type TranslationalStiffness, type RotationalStiffness, type Angle, type LineLoad } from '../unit-types';
+import { areaM2, inertiaM4, mpa, ratio, modulusInternal, elasticFromDisplay, elasticToDisplay, type ElasticMaterialWire, type ElasticSectionWire, type Force, type Length, type Moment, materialToWire, sectionToWire, section3DToWire, warpingM6, lengthM, forceKn, momentKnM, bimomentKnM2, nodeToWire, node3DToWire, loadToWire, load3DToWire, lineLoadKnM, areaLoadKnM2, temperatureDeltaC, expansionPerC, springKnM, springKnMRad, angleRad, angleDeg, plateThermalToWire, pressureToWire, quadEdgeToWire, supportToWire, support3DToWire, element3DToWire, type AreaLoad, type TemperatureDifference, type TranslationalStiffness, type RotationalStiffness, type Angle, type LineLoad } from '../unit-types';
 const material: ElasticMaterialWire = { id: 1, e: mpa(200000), nu: ratio(0.3) };
 const section: ElasticSectionWire = { id: 1, a: areaM2(0.01), iz: inertiaM4(0.0001) };
 material.e = elasticFromDisplay(29000, 'stress', 'Imperial');
@@ -239,3 +239,13 @@ void notLineLoad;
 elasticToDisplay(delta, 'displacement', 'SI');
 // @ts-expect-error a rotational spring cannot be shown as a translational one
 elasticToDisplay(springR, 'springK', 'SI');
+const shellPressure = pressureToWire({ elementId: 1, pressure: 2 });
+shellPressure.pressure = areaLoadKnM2(2.5);
+// @ts-expect-error a shell pressure is kN/m², not kN/m
+shellPressure.pressure = lineLoadKnM(2);
+// @ts-expect-error a shell pressure is a load, not a kN/m² modulus
+shellPressure.pressure = modulusInternal(mpa(1));
+const shellEdge = quadEdgeToWire({ elementId: 1, edge: 0, qn: 1 });
+shellEdge.qt = lineLoadKnM(-1);
+// @ts-expect-error a shell edge load is kN/m, not kN/m²
+shellEdge.qn = areaLoadKnM2(1);

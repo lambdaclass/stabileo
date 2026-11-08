@@ -228,6 +228,14 @@ export function load3DToWire(load: SolverLoad3D): Load3DWire {
       return unbranded(load);
   }
 }
+export interface PressureLoadWire { elementId: number; pressure: AreaLoad }
+export interface QuadEdgeLoadWire { elementId: number; edge: number; qn?: LineLoad; qt?: LineLoad }
+export function pressureToWire(d: { elementId: number; pressure: number }): PressureLoadWire {
+  return { ...d, ...present(d, 'pressure', d.pressure, areaLoadKnM2) } as PressureLoadWire;
+}
+export function quadEdgeToWire(d: { elementId: number; edge: number; qn?: number; qt?: number }): QuadEdgeLoadWire {
+  return { ...d, ...present(d, 'qn', d.qn, lineLoadKnM), ...present(d, 'qt', d.qt, lineLoadKnM) } as QuadEdgeLoadWire;
+}
 type PlateThermalNumbers = { elementId: number; dtUniform: number; dtGradient: number; alpha?: number };
 export function plateThermalToWire(d: PlateThermalNumbers): PlateThermalLoadWire {
   return {

@@ -312,14 +312,14 @@ support normal and member orientation vector (dimensionless directions), the sel
 distinct brands for same-dimension roles (a kN/m line load is not a kN/m spring; a kN/m² area load
 is not a kN/m² modulus); `loadToWire`/`load3DToWire` brand every member load variant,
 `supportToWire`, `support3DToWire`, `element3DToWire` are used by `input2DToWireObject`/
-`input3DToWireObject`, and `plateThermalToWire` by the shell thermal load builder; `unitInputCommit`
+`input3DToWireObject`, and `plateThermalToWire` by the shell thermal load builder; `pressureToWire` and `quadEdgeToWire` brand shell pressures and edge loads, which the web app does not send today (it turns surface loads into nodal forces); `unitInputCommit`
 enters line loads, area loads, temperature differences, springs, displacements and rotations through
 the typed conversion. Proof: `engine/tests/core/units_boundary_distributed_thermal_supports.rs`
 (every 2D and 3D fixture plus models with every slice-4 field, aliases, absent optionals and signed
 zeros: the same bits for every support, element and load component against the legacy derive and
 `tests/core/units_legacy_3d.rs`, byte-identical serialized records and results, the same error text
 for 23 malformed inputs at model and record level and for each record's wrong-shape input); 16 new
-`compile_fail` doctests with their error code plus a positive control; 27 new `@ts-expect-error`
+`compile_fail` doctests with their error code plus a positive control; 30 new `@ts-expect-error`
 checks; Vitest checks that the support, element and load JSON text, key paths, extra web-only keys
 and signed zeros equal the previous builder's, that the stored model is not touched, and that the
 typed display entry commits the same numbers.

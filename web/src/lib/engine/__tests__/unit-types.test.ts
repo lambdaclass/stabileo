@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { elasticFromDisplay, elasticToDisplay, materialToWire, sectionToWire, section3DToWire, modulusInternal, nodeToWire, node3DToWire, loadToWire, load3DToWire, supportToWire, support3DToWire, element3DToWire, plateThermalToWire } from '../unit-types';
+import { elasticFromDisplay, elasticToDisplay, materialToWire, sectionToWire, section3DToWire, modulusInternal, nodeToWire, node3DToWire, loadToWire, load3DToWire, supportToWire, support3DToWire, element3DToWire, plateThermalToWire, pressureToWire, quadEdgeToWire } from '../unit-types';
 import { convertThermalQuadLoad } from '../solver-shells';
 import { unitInputCommit } from '../../utils/unit-input';
 import { fromDisplay, toDisplay, UNIT_SYSTEMS } from '../../utils/units';
@@ -270,6 +270,14 @@ describe('distributed, thermal and support unit boundary', () => {
     const plate = { elementId: 7, dtUniform: 10, dtGradient: -0, alpha: 1.1e-5 };
     expect(plateThermalToWire(plate)).toStrictEqual(plate);
     expect(Object.keys(plateThermalToWire({ elementId: 7, dtUniform: 1, dtGradient: 0 }))).toStrictEqual(['elementId', 'dtUniform', 'dtGradient']);
+    for (const p of [{ elementId: 7, pressure: -0 }, { pressure: 2.75, elementId: 8 }]) {
+      expect(pressureToWire(p)).toStrictEqual(p);
+      expect(Object.keys(pressureToWire(p))).toStrictEqual(Object.keys(p));
+    }
+    for (const e of [{ elementId: 8, edge: 3 }, { qt: -0, elementId: 8, edge: 1, qn: 2.5 }]) {
+      expect(quadEdgeToWire(e)).toStrictEqual(e);
+      expect(Object.keys(quadEdgeToWire(e))).toStrictEqual(Object.keys(e));
+    }
     const stored = model3D();
     const wire = input3DToWireObject(stored);
     (wire.supports['2'] as { kx?: number }).kx = 99;
