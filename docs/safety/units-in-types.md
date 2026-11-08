@@ -367,7 +367,7 @@ Follow-up in #1769, to the slice-5 deferrals: the 3D warping displacement is `Tw
 app's `combineResults`/`combineResults3D` return the branded result types. Proof: the result
 boundary test now solves a cantilever with a warping DOF and combines 2D and 3D cases against the
 independent legacy serializer, and its source check covers the combination exports; 3 new
-`compile_fail` doctests; 7 new `@ts-expect-error` checks; a Vitest check that a combination
+`compile_fail` doctests; 6 new `@ts-expect-error` checks; a Vitest check that a combination
 through the typed admission gives the same JSON text. The envelope and multi-case exports return
 their own types; their displacement, reaction and force records already serialize through the
 typed records.
