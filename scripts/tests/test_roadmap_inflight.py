@@ -1,6 +1,11 @@
 import importlib.util
+import io
+import json
 import pathlib
+import sys
+import tempfile
 import unittest
+from unittest import mock
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
 spec = importlib.util.spec_from_file_location("roadmap_inflight", ROOT / "scripts/roadmap-inflight.py")
@@ -53,12 +58,26 @@ class RoadmapInflight(unittest.TestCase):
     def test_escapes_pipes_in_titles(self):
         self.assertIn("a \\| b", inflight.table([pr(9, "a | b")]))
 
+    def test_titles_render_literally(self):
+        out = inflight.table([pr(9, "frozen versions (/@<sha>/), *bold* `code` [x](y)")])
+        self.assertIn("(/@\\<sha\\>/), \\*bold\\* \\`code\\` \\[x\\](y)", out)
+
     def test_empty_list_says_so(self):
         self.assertEqual(inflight.table([]), "No pull requests are open.")
 
     def test_missing_markers_fail(self):
         with self.assertRaises(SystemExit):
             inflight.rewrite("# Roadmap\n", [])
+
+    def test_a_full_page_refuses_to_rewrite(self):
+        with tempfile.TemporaryDirectory() as d:
+            doc = pathlib.Path(d) / "ROADMAP.md"
+            doc.write_text(DOC)
+            stdin = io.StringIO(json.dumps([pr(1, "a"), pr(2, "b")]))
+            with mock.patch.object(sys, "argv", ["x", str(doc), "2"]), mock.patch.object(sys, "stdin", stdin):
+                with self.assertRaises(SystemExit):
+                    inflight.main()
+            self.assertEqual(doc.read_text(), DOC)
 
     def test_is_idempotent(self):
         once = inflight.rewrite(DOC, [pr(7, "Fix A"), pr(8, "Fix B", draft=True)])

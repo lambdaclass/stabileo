@@ -15,8 +15,12 @@ def state_of(pr):
     return "draft" if pr.get("isDraft") else "ready"
 
 
+MARKDOWN = "\\`*_[]<>|#~"
+
+
 def cell(text):
-    return text.replace("|", "\\|").replace("\n", " ").strip()
+    text = " ".join(text.split())
+    return "".join("\\" + c if c in MARKDOWN else c for c in text)
 
 
 def table(prs):
@@ -46,7 +50,10 @@ def rewrite(text, prs):
 
 def main():
     path = pathlib.Path(sys.argv[1])
+    limit = int(sys.argv[2])
     prs = json.load(sys.stdin)
+    if len(prs) >= limit:
+        raise SystemExit(f"{len(prs)} pull requests read, the limit of {limit}: raise it so none are left out")
     new = rewrite(path.read_text(), prs)
     if new != path.read_text():
         path.write_text(new)

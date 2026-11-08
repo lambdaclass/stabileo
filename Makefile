@@ -451,8 +451,8 @@ check-pins:
 ## The roadmap's in-flight table, rewritten from the open pull requests (scripts/roadmap-inflight.py)
 .PHONY: roadmap.inflight
 roadmap.inflight:
-	gh pr list -R lambdaclass/stabileo --state open --limit 200 --json number,title,isDraft,baseRefName,author,labels \
-	  | $(NIX_RUN) python3 -I scripts/roadmap-inflight.py docs/roadmap/PRODUCT_ROADMAP.md
+	gh pr list -R lambdaclass/stabileo --state open --limit 1000 --json number,title,isDraft,baseRefName,author,labels \
+	  | $(NIX_RUN) python3 -I scripts/roadmap-inflight.py docs/roadmap/PRODUCT_ROADMAP.md 1000
 
 ## Unreleased changes are one file each in changelog.d/ (scripts/changelog.py)
 check.changelog:
