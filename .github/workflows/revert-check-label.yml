@@ -1,0 +1,46 @@
+name: Revert Check label
+
+on:
+  pull_request:
+    types: [labeled, unlabeled]
+
+permissions: {}
+
+jobs:
+  rerun:
+    name: Rerun Revert Check on the reverts-ok label
+    if: github.event.label.name == 'reverts-ok' && github.event.pull_request.head.repo.full_name == github.repository
+    concurrency:
+      group: revert-check-label-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    permissions:
+      actions: write
+    steps:
+      - name: Rerun the Revert Check job of the head's CI run once that run finishes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          while :; do
+            latest=$(gh api "repos/$GH_REPO/actions/workflows/ci.yml/runs?event=pull_request&head_sha=$SHA&per_page=100" \
+              --jq "[.workflow_runs[] | select([.pull_requests[].number] | index($PR))] | max_by(.id) // {} | \"\(.id // \"\") \(.status // \"\")\"")
+            read -r run status <<<"$latest"
+            if [ -z "$run" ]; then
+              echo "No CI run on $SHA yet; when it runs, Revert Check reads the labels then."
+              exit 0
+            fi
+            [ "$status" = completed ] && break
+            echo "CI run $run is $status; waiting for it to finish."
+            sleep 60
+          done
+          job=$(gh api --paginate "repos/$GH_REPO/actions/runs/$run/jobs?per_page=100" --jq '.jobs[] | select(.name == "Revert Check") | .id' | head -n1)
+          if [ -z "$job" ]; then
+            echo "CI run $run has no Revert Check job."
+            exit 1
+          fi
+          echo "Rerunning Revert Check (job $job) and the jobs that need it in CI run $run."
+          gh api -X POST "repos/$GH_REPO/actions/jobs/$job/rerun"

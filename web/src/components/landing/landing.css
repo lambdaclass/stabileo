@@ -206,7 +206,7 @@
   gap: 0.75rem;
   margin: 0 0 1.5rem;
   font-family: var(--lp-mono);
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   font-weight: 500;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -224,6 +224,7 @@
 }
 
 .landing .eyebrow-label {
+  min-width: 0;
   color: var(--accent-text);
 }
 
@@ -390,7 +391,7 @@
 
 .landing .hero-meta dt {
   font-family: var(--lp-mono);
-  font-size: 0.73rem;
+  font-size: 0.75rem;
   letter-spacing: 0.05em;
   color: var(--fg-2);
 }
@@ -472,7 +473,7 @@
   gap: 0.4rem 1.15rem;
   margin-top: 1.15rem;
   font-family: var(--lp-mono);
-  font-size: 0.64rem;
+  font-size: 0.75rem;
   letter-spacing: 0.12em;
   color: var(--fg-2);
 }
@@ -496,6 +497,7 @@
 .landing .tf-key-z::before { background: var(--tf-zero); opacity: 0.5; height: 1px; }
 .landing .tf-key-g::before { background: var(--fg-2); opacity: 0.24; height: 1px; }
 .landing .tf-key-n::before { display: none; }
+.landing .tf-key-n { max-width: 100%; white-space: normal; }
 
 /* compact still frames used by the real-time comparison */
 .landing .truss-fig.compact .tf-caption {
@@ -745,7 +747,7 @@
 .landing .badge {
   display: inline-block;
   font-family: var(--lp-mono);
-  font-size: 0.64rem;
+  font-size: 0.75rem;
   font-weight: 600;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -1023,7 +1025,7 @@
 
 @media (max-width: 1100px) {
   .landing .card-row.cols-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .landing .hero-grid { grid-template-columns: 1fr; }
+  .landing .hero-grid { grid-template-columns: minmax(0, 1fr); }
 }
 
 @media (max-width: 1000px) {
@@ -1062,7 +1064,7 @@
 }
 
 @media (max-width: 420px) {
-  .landing .tf-legend { font-size: 0.6rem; gap: 0.3rem 0.8rem; }
+  .landing .tf-legend { gap: 0.3rem 0.8rem; }
 }
 
 /* ─── FOCUS VISIBILITY ───────────────────────────────────────────────────── */
@@ -1215,13 +1217,8 @@
    Added with the shorter deck (September 2026).
    ───────────────────────────────────────────────────────────── */
 
-/* The table scrolls inside its own box. Three columns on a phone is the one
-   place this page can widen the document, and a landing that slides sideways
-   reads as broken. */
 .landing .model-table-wrap {
-  overflow-x: auto;
   margin: 1.6rem 0 1rem;
-  -webkit-overflow-scrolling: touch;
 }
 
 .landing .model-table {
@@ -1229,7 +1226,7 @@
   /* Three short columns stretched across a 1660px section put the prices a
      screen away from the module they belong to. */
   max-width: 56rem;
-  min-width: 30rem;
+  table-layout: fixed;
   border-collapse: collapse;
   font-size: 0.95rem;
 }
@@ -1237,13 +1234,15 @@
 .landing .model-table th,
 .landing .model-table td {
   text-align: left;
-  padding: 0.7rem 0.9rem;
+  padding: 0.7rem clamp(0.35rem, 1.5vw, 0.9rem);
+  overflow-wrap: break-word;
+  hyphens: auto;
   border-bottom: 1px solid rgba(143, 163, 179, 0.18);
 }
 
 .landing .model-table thead th {
   font-family: var(--lp-sans);
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--lp-slate-2);
@@ -1252,20 +1251,17 @@
 
 .landing .model-table tbody th {
   font-weight: 600;
-  white-space: nowrap;
 }
 
 .landing .model-table td { color: var(--lp-slate-2); }
 
 .landing .model-table thead th:not(:first-child),
-.landing .model-table thead th:not(:first-child),
 .landing .model-table .price {
   text-align: right;
   font-weight: 600;
-  white-space: nowrap;
 }
 
-.landing .model-table thead th:not(:first-child) { width: 22%; }
+.landing .model-table thead th:not(:first-child) { width: 30%; }
 
 /* Colour carries the same distinction the words do, never on its own. */
 /* Per CELL, not per row. "PRO · Diseño" is paid for firms and free for
