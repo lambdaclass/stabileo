@@ -13926,6 +13926,8 @@ const fr: Translations = {
   'recheck.advisoryMaybe': 'Ce modèle peut être touché par une erreur de résultats connue ({name}) : si vous avez utilisé {analysis}, relancez cette analyse',
   'recheck.advisoryBannerMaybe': 'Les résultats peuvent être touchés par une erreur de résultats connue ({name}) : si vous avez utilisé {analysis}, relancez cette analyse.',
   'recheck.advisoryAnalysis': 'Erreur de résultats connue ({name}) touchant {analysis} : relancez cette analyse',
+  'recheck.advisoryMaybeIf': 'Ce modèle peut être touché par une erreur de résultats connue ({name}) : s\'il avait {analysis} lors du calcul, recalculez-le',
+  'recheck.advisoryBannerMaybeIf': 'Les résultats peuvent être touchés par une erreur de résultats connue ({name}) : si le modèle avait {analysis} lors du calcul, recalculez-le.',
   'recheck.rerunning': 'Nouveau calcul de l\'analyse et du dimensionnement…',
   'recheck.rerunDone': 'Analyse et dimensionnement recalculés avec la version de résultats {v}.',
   'recheck.rerunAnalysis': 'Relancer l\'analyse',

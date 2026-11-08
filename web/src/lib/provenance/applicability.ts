@@ -31,7 +31,7 @@ export interface RecheckAssessment {
   changes: ResultChange[];
   /** Known wrong-result bugs in the version that solved it, in a feature this model uses. */
   advisories: Advisory[];
-  /** The advisories whose analysis the stamp does not record: their results may be affected. */
+  /** The advisories whose analysis the stamp does not record, or whose `certain` condition the model does not meet: their results may be affected. */
   maybe: string[];
 }
 
@@ -53,6 +53,8 @@ export function assessProject(
     .sort((a, b) => a.resultsVersion - b.resultsVersion || a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
   const advisories = advisoriesFor(solvedVersion, (w) => conditionHolds(w, features), registry);
   const recorded = solvedVersion > 0 ? stamp?.recorded ?? LEGACY_RECORDED_ANALYSES : [];
-  const maybe = advisories.filter((a) => a.analysis && !recorded.includes(a.analysis)).map((a) => a.id);
+  const maybe = advisories
+    .filter((a) => (a.analysis && !recorded.includes(a.analysis)) || (a.certain && !a.certain.some((w) => conditionHolds(w, features))))
+    .map((a) => a.id);
   return { solvedVersion, currentVersion, older: solvedVersion < currentVersion, newer: solvedVersion > currentVersion, changes, advisories, maybe };
 }

@@ -17,6 +17,7 @@ const versionOf = (id: string) => RESULT_CHANGES.changes.find((c) => c.id === id
 const SPAN_FIX = versionOf('span-check-shear-thermal');
 const HARMONIC_FROM = versionOf('harmonic-modal-residual-checked');
 const HARMONIC_FIX = versionOf('harmonic-modal-or-direct-per-frequency');
+const SHELL_FIX = versionOf('combined-shell-stresses');
 
 function stamp(resultsVersion: number, analyses: SolveStamp['analyses'] = ['linear'], recorded?: SolveStamp['recorded']): SolveStamp {
   const { recorded: _current, ...rest } = recheckStore.capture()!;
@@ -36,6 +37,23 @@ function frame(opts: { shear?: boolean; thermal?: boolean; hinge?: boolean } = {
   if (opts.hinge) modelStore.toggleHinge(e, 'end');
   if (opts.thermal) modelStore.addThermalLoad(e, 0, 30);
   return e;
+}
+
+function slab(opts: { imposed?: boolean; settlement?: boolean; combinations?: boolean } = {}) {
+  modelStore.clear();
+  const n = [[0, 0], [2, 0], [2, 2], [0, 2]].map(([x, y]) => modelStore.addNode(x!, y!, 0));
+  const mat = modelStore.addMaterial({ name: 'H', e: 25000, nu: 0.2, rho: 0 });
+  modelStore.addQuad(n as [number, number, number, number], mat, 0.2);
+  modelStore.addSupport(n[0]!, 'fixed3d');
+  modelStore.addSupport(n[1]!, 'fixed3d');
+  const sup = modelStore.addSupport(n[2]!, 'pinned3d');
+  if (opts.settlement) modelStore.updateSupport(sup, { dz: -0.01 });
+  const [c1, c2] = modelStore.model.loadCases;
+  if (opts.imposed) modelStore.addLoadEntry({ type: 'displacement3d', data: { id: 0, nodeId: n[2]!, dz: -0.01, caseId: c1!.id } });
+  modelStore.addNodalLoad3D(n[3]!, 0, 0, -10, 0, 0, 0, c2!.id);
+  if (opts.combinations ?? true) modelStore.addCombination('1.2 D + 1.6 L', [{ caseId: c1!.id, factor: 1.2 }, { caseId: c2!.id, factor: 1.6 }]);
+  else for (const c of [...modelStore.model.combinations]) modelStore.removeCombination(c.id);
+  return { corner: n[2]!, c1: c1!.id };
 }
 
 async function reopen(resultsVersion: number, analyses?: SolveStamp['analyses'], recorded?: SolveStamp['recorded']) {
@@ -60,8 +78,9 @@ describe('advisories', () => {
       expect(a.when.length, a.id).toBeGreaterThan(0);
       for (const w of a.when) for (const f of conditionGroups(w).flat()) expect(features.has(f), `${a.id}: ${f}`).toBe(true);
       for (const l of REGISTRY_LOCALES) expect(a.title[l], `${a.id} ${l}`).toBeTruthy();
+      if (a.analysis || a.certain) for (const l of REGISTRY_LOCALES) expect(a.ifUsed?.[l], `${a.id} ifUsed ${l}`).toBeTruthy();
+      for (const w of a.certain ?? []) for (const f of conditionGroups(w).flat()) expect(features.has(f), `${a.id}: ${f}`).toBe(true);
       if (a.analysis) {
-        for (const l of REGISTRY_LOCALES) expect(a.ifUsed?.[l], `${a.id} ifUsed ${l}`).toBeTruthy();
         for (const w of a.when) expect(conditionGroups(w).some((g) => g.length === 1 && g[0] === `analysis:${a.analysis}`), `${a.id} when`).toBe(true);
       }
     }
@@ -219,6 +238,56 @@ describe('advisories', () => {
     recheckStore.reset();
     expect(deserializeProject(text)).toBe(true);
     expect(recheckStore.capture()).toEqual(solved);
+  });
+
+  it('a shell model with a load case that imposes a displacement and combinations, solved before the fix, is affected', async () => {
+    slab({ imposed: true });
+    expect(await reopen(SHELL_FIX - 1)).toContain('SA-2026-047');
+    expect(recheckStore.assessment!.maybe).not.toContain('SA-2026-047');
+    recheckStore.acknowledge();
+    const html = banner();
+    expect(html).toContain(t('recheck.advisoryBanner').replace('{names}', 'SA-2026-047'));
+    expect(html).not.toContain(t('recheck.advisoryBannerMaybeIf').replace('{name}', 'SA-2026-047').split(':')[0]);
+    recheckStore.noteSolved('linear');
+    expect(recheckStore.openAdvisories.map((a) => a.id)).not.toContain('SA-2026-047');
+  });
+
+  it.each([
+    ['without an imposed displacement', {}],
+    ['with a support settlement and no imposed displacement in a case', { settlement: true }],
+    ['with an imposed displacement and no combinations, which the solve without them handles', { imposed: true, combinations: false }],
+  ] as const)('a shell model %s, solved before the fix, may be affected', async (_label, opts) => {
+    slab(opts);
+    expect(await reopen(SHELL_FIX - 1)).toContain('SA-2026-047');
+    expect(recheckStore.assessment!.maybe).toEqual(['SA-2026-047']);
+    recheckStore.acknowledge();
+    const shell = ADVISORIES.find((x) => x.id === 'SA-2026-047')!;
+    const html = banner();
+    expect(html).toContain(t('recheck.advisoryBannerMaybeIf').replace('{name}', 'SA-2026-047').replace('{analysis}', shell.ifUsed![registryLocale(i18n.locale)]));
+    expect(html).not.toContain(t('recheck.advisoryBanner').replace('{names}', 'SA-2026-047'));
+  });
+
+  it('a model without shells is not warned, even with an imposed displacement and a settlement', async () => {
+    const e = frame();
+    const node = modelStore.model.elements.get(e)!.nodeJ;
+    modelStore.updateSupport(modelStore.addSupport(node, 'pinned3d'), { dz: -0.01 });
+    modelStore.addLoadEntry({ type: 'displacement3d', data: { id: 0, nodeId: node, dz: -0.01, caseId: modelStore.model.loadCases[0]!.id } });
+    expect(await reopen(SHELL_FIX - 1)).not.toContain('SA-2026-047');
+    expect(await reopen(0)).not.toContain('SA-2026-047');
+  });
+
+  it('a shell model is warned at results versions 0 (unknown) and 1, and not once solved with the fix', async () => {
+    slab({ imposed: true });
+    expect(await reopen(SHELL_FIX)).not.toContain('SA-2026-047');
+    expect(await reopen(0)).toContain('SA-2026-047');
+    expect(await reopen(1)).toContain('SA-2026-047');
+  });
+
+  it('an imposed displacement of zero does not make the model affected', async () => {
+    const { corner, c1 } = slab();
+    modelStore.addLoadEntry({ type: 'displacement3d', data: { id: 0, nodeId: corner, dz: 0, caseId: c1 } });
+    await reopen(SHELL_FIX - 1);
+    expect(recheckStore.assessment!.maybe).toEqual(['SA-2026-047']);
   });
 
   it('keeps the version stamp through save, load and export', async () => {
