@@ -13,15 +13,17 @@ others, with a `BU-UNRESOLVED-MODE` warning.
 Now:
 
 - A member whose mean axial force is within its round-off bound contributes no Kg. The bound is
-  100 ε times the round-off scale of the member's elongation (as before), plus its own end forces
-  and the largest force in the model; the absolute 1e-6 kN floors are gone, so the decision does
-  not depend on units. Every frame, truss and cable Kg term is proportional to the axial force, so
+  100 ε times the round-off scale of the member's own elongation, as before; the absolute 1e-6 kN
+  floors are gone, so the decision does not depend on units, and a large force elsewhere in the
+  model does not move it. Every frame, truss and cable Kg term is proportional to the axial force, so
   what is left out is round-off itself.
 - An eigenvalue 1/λ below 100 ε of the largest one is dropped as round-off of the eigensolve. That
   can only drop modes with λ above 4.5e13 times the critical factor, never the critical mode.
-- A model whose only compression is within the bound is refused as not determinable, as before.
+- A model whose only compression is within the bound is refused as not determinable, as before; a
+  compression below 1e-6 kN that is above its round-off is now analysed instead of refused.
 - The `BU-UNRESOLVED-MODE` warning still names any returned mode that the round-off of the axial
-  forces can change by more than 1 % of its geometric work.
+  forces can change by more than 1 % of its geometric work, counting the members left out of Kg in
+  the uncertainty, and names those members.
 
 ## What moves
 

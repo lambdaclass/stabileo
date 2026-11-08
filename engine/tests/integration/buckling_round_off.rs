@@ -193,3 +193,36 @@ fn a_slender_tie_in_tension_leaves_the_cantilever_column_factor_unchanged() {
         }
     }
 }
+
+#[test]
+fn a_large_force_in_a_separate_member_leaves_a_small_resolved_compression_in_kg() {
+    let model = |with_tie: bool| -> SolverInput {
+        let mut v = serde_json::json!({
+            "nodes": {"1": {"id": 1, "x": 0.0, "z": 0.0}, "2": {"id": 2, "x": 0.0, "z": 10.0}},
+            "materials": {"1": {"id": 1, "e": 200000.0, "nu": 0.3}},
+            "sections": {"1": {"id": 1, "a": 1e-4, "iz": 1e-12}, "2": {"id": 2, "a": 0.01, "iz": 1e-4}},
+            "elements": {"1": {"id": 1, "type": "frame", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1}},
+            "supports": {"1": {"id": 1, "nodeId": 1, "type": "fixed"}},
+            "loads": [{"type": "nodal", "data": {"nodeId": 2, "fx": 0.0, "fz": -1e-9, "my": 0.0}}]
+        });
+        if with_tie {
+            v["nodes"]["3"] = serde_json::json!({"id": 3, "x": 10.0, "z": 0.0});
+            v["nodes"]["4"] = serde_json::json!({"id": 4, "x": 14.0, "z": 0.0});
+            v["elements"]["2"] = serde_json::json!({"id": 2, "type": "frame", "nodeI": 3, "nodeJ": 4, "materialId": 1, "sectionId": 2});
+            v["supports"]["3"] = serde_json::json!({"id": 3, "nodeId": 3, "type": "pinned"});
+            v["supports"]["4"] = serde_json::json!({"id": 4, "nodeId": 4, "type": "rollerX"});
+            v["loads"].as_array_mut().unwrap().push(serde_json::json!({"type": "nodal", "data": {"nodeId": 4, "fx": 1e6, "fz": 0.0, "my": 0.0}}));
+        }
+        serde_json::from_value(v).unwrap()
+    };
+    let ei = 200000.0 * 1000.0 * 1e-12;
+    let one_element = (5.2 - 19.84f64.sqrt()) / 0.3 * ei / 10.0f64.powi(2) / 1e-9;
+    for with_tie in [false, true] {
+        let input = model(with_tie);
+        let plane = solve_buckling_2d(&input, 1).unwrap_or_else(|e| panic!("tie {with_tie}: {e}")).modes[0].load_factor;
+        let space = solve_buckling_3d(&embed_2d(&input, Plane::XZ).unwrap(), 1).unwrap_or_else(|e| panic!("tie {with_tie}: {e}")).modes[0].load_factor;
+        for lambda in [plane, space] {
+            assert!((lambda / one_element - 1.0).abs() < 1e-6, "tie {with_tie}: λ = {lambda}, one-element root {one_element}");
+        }
+    }
+}
