@@ -622,3 +622,18 @@ fn connector_mechanism_through_a_frame_3d_is_refused() {
     let e = solve_3d(&input).err().expect("common twist of nodes 1, 2 and 3 is free");
     assert!(e.contains("Connector 1") && e.contains("node(s) 1, 2") && e.contains("mechanism"), "{e}");
 }
+
+/// #1748: a negative torsion spring makes the connectors' rotation block
+/// indefinite, not singular; that is an instability for the analyses' own
+/// refusals, not a free rotation for the connector check.
+#[test]
+fn negative_torsion_connector_is_not_called_a_free_rotation() {
+    let mut input = arm_pair_3d(0.0, Node3Rotation::Restrained, false, 1.0);
+    let c = input.connectors.get_mut("1").unwrap();
+    c.k_moment = -10.0;
+    c.k_bend_y = 50.0;
+    c.k_bend_z = 50.0;
+    if let Err(e) = solve_3d(&input) {
+        assert!(!e.contains("that has no stiffness"), "{e}");
+    }
+}

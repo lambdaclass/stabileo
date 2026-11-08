@@ -144,7 +144,9 @@ pub(crate) fn rotation_tied_nodes_2d(input: &SolverInput) -> std::collections::H
 /// checked on the assembled K, so partial member releases, rotational springs and supports
 /// count in each rotation DOF exactly: K is positive semi-definite, so a null
 /// vector of that block is one of K. Each connected block is factored and its
-/// pivots judged against `SINGULAR_PIVOT_RATIO`. Only constraints that tie a
+/// pivots judged against `SINGULAR_PIVOT_RATIO`; a block made indefinite by a
+/// negative spring, with no round-off pivot, is left to the analyses' own
+/// instability refusals. Only constraints that tie a
 /// rotation leave their nodes out (#1749); a rotation the orphan guard holds
 /// with artificial stiffness keeps it, as the solve does.
 pub(crate) fn refuse_connector_arm_mechanism_3d(input: &SolverInput3D) -> Result<(), String> {
@@ -239,7 +241,7 @@ pub(crate) fn refuse_connector_arm_mechanism_3d(input: &SolverInput3D) -> Result
         let sym = std::rc::Rc::new(crate::linalg::sparse_chol::symbolic_cholesky(&block));
         let singular = match crate::linalg::sparse_chol::numeric_cholesky(&sym, &block) {
             Some(num) => super::definiteness::sparse_pivot_check(&num, &block).is_some(),
-            None => true,
+            None => crate::linalg::sparse_chol::sparse_negative_inertia(&sym, &block).is_none(),
         };
         if singular {
             let group: BTreeSet<usize> = group.iter().map(|d| owner[d]).filter(|n| nodes.contains(n)).collect();
