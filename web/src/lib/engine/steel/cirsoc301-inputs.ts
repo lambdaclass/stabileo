@@ -11,8 +11,14 @@ export function cirsoc301InputsAvailable(): boolean { return kernel !== null; }
 
 export function cirsoc301InputsRequest<T>(op: string, what: string, payload: object): T {
   if (!kernel) throw new EngineUnavailableError(what);
+  const nonFinite: string[] = [];
+  const json = JSON.stringify({ ...payload, op }, (key, v) => {
+    if (typeof v === 'number' && !Number.isFinite(v)) nonFinite.push(`${key} = ${v}`);
+    return v;
+  });
+  if (nonFinite.length) throw new EngineCheckError(what, `non-finite input: ${nonFinite.join(', ')}`);
   let raw: string;
-  try { raw = kernel(JSON.stringify({ ...payload, op })); }
+  try { raw = kernel(json); }
   catch (e) { throw new EngineCheckError(what, e instanceof Error ? e.message : String(e)); }
   return JSON.parse(raw) as T;
 }

@@ -44,3 +44,14 @@ describe('section constants from the engine, against the closed forms written ou
     }
   });
 });
+
+describe('the engine boundary does not let JSON turn a non-finite number into a missing one', () => {
+  it.each([['iz', Number.NaN], ['j', Number.POSITIVE_INFINITY], ['tw', Number.NEGATIVE_INFINITY]] as const)('%s = %s is refused', (field, v) => {
+    const s = { shape: 'U', b: 0.075, h: 0.2, tw: 0.0085, tf: 0.0115, iz: 148e-8, [field]: v };
+    expect(() => engine(s)).toThrow(new RegExp(`non-finite input: ${field}`));
+  });
+
+  it('and so is a non-finite moment in a Cb diagram', () => {
+    expect(() => cirsoc301InputsRequest('momentGradient', 'Cb', { stations: [{ t: 0, m: Number.NaN }], shape: 'I' })).toThrow(/non-finite input: m = NaN/);
+  });
+});
