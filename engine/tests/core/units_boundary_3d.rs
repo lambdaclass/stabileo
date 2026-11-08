@@ -172,6 +172,55 @@ fn units_3d_boundary_rejects_malformed_sections_with_the_same_message() {
     }
 }
 
+fn unrouted_lines(text: &str) -> (usize, Vec<usize>) {
+    let production_lines = text.split("#[cfg(test)]\nmod ").next().unwrap().lines().count();
+    let lines: Vec<&str> = text.lines().collect();
+    let mut routed = 0;
+    let mut unrouted = Vec::new();
+    for (i, line) in lines.iter().enumerate() {
+        let t = line.trim();
+        if t.starts_with("pub solver: SolverInput3D") || t.starts_with("solver: types::SolverInput3D") {
+            if i > 0 && lines[i - 1].contains("deserialize_input_3d") {
+                routed += 1;
+            } else {
+                unrouted.push(i + 1);
+            }
+        }
+        if i >= production_lines {
+            continue;
+        }
+        let parses = t.contains("from_js_value") || t.contains("serde_json::from_");
+        let annotated = t.contains(": SolverInput3D =") || t.contains(": types::SolverInput3D =") || t.contains(": crate::types::SolverInput3D =");
+        let turbofish = t.contains("::<SolverInput3D>") || t.contains("::<types::SolverInput3D>") || t.contains("::<crate::types::SolverInput3D>");
+        let inferred_session = t.contains("LoadSession3D::from_input(") && !t.contains("ElasticInput3D");
+        if (parses && (annotated || turbofish)) || inferred_session {
+            unrouted.push(i + 1);
+        }
+    }
+    (routed, unrouted)
+}
+
+#[test]
+fn units_3d_routing_scan_catches_each_bypass() {
+    for bypass in [
+        "    let input: types::SolverInput3D = from_js_value(input)?;",
+        "    let input = from_js_value::<types::SolverInput3D>(input)?;",
+        "    let input = serde_json::from_str::<SolverInput3D>(json)",
+        "    let input: SolverInput3D = serde_json::from_str(json).map_err(|e| e.to_string())?;",
+        "        LoadSession3D::from_input(crate::from_js_value(input)?).map_err(|e| JsValue::from_str(&e))",
+        "struct W {\n    pub solver: SolverInput3D,\n}",
+    ] {
+        assert_eq!(unrouted_lines(bypass).1.len(), 1, "{bypass}");
+    }
+    for routed in [
+        "    let input = from_js_value::<types::units::ElasticInput3D>(input)?.into_legacy();",
+        "        LoadSession3D::from_input(crate::from_js_value::<crate::types::units::ElasticInput3D>(input)?.into_legacy())",
+        "struct W {\n    #[serde(deserialize_with = \"crate::types::units::deserialize_input_3d\")]\n    pub solver: SolverInput3D,\n}",
+    ] {
+        assert!(unrouted_lines(routed).1.is_empty(), "{routed}");
+    }
+}
+
 #[test]
 fn units_3d_every_deserialized_model_goes_through_the_typed_boundary() {
     fn rust_files(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {
@@ -189,25 +238,9 @@ fn units_3d_every_deserialized_model_goes_through_the_typed_boundary() {
     let mut wrappers = 0;
     let mut unrouted = Vec::new();
     for path in files {
-        let text = std::fs::read_to_string(&path).unwrap();
-        let production_lines = text.split("#[cfg(test)]\nmod ").next().unwrap().lines().count();
-        let lines: Vec<&str> = text.lines().collect();
-        for (i, line) in lines.iter().enumerate() {
-            let t = line.trim();
-            let field = t.starts_with("pub solver: SolverInput3D") || t.starts_with("solver: types::SolverInput3D");
-            if field {
-                if lines[i - 1].contains("deserialize_input_3d") {
-                    wrappers += 1;
-                } else {
-                    unrouted.push(format!("{}:{}", path.display(), i + 1));
-                }
-            }
-            let raw_parse = (t.contains(": SolverInput3D =") || t.contains(": types::SolverInput3D ="))
-                && (t.contains("from_js_value") || t.contains("serde_json::from_"));
-            if raw_parse && i < production_lines {
-                unrouted.push(format!("{}:{}", path.display(), i + 1));
-            }
-        }
+        let (routed, lines) = unrouted_lines(&std::fs::read_to_string(&path).unwrap());
+        wrappers += routed;
+        unrouted.extend(lines.into_iter().map(|l| format!("{}:{l}", path.display())));
     }
     assert!(unrouted.is_empty(), "3D models parsed without the typed boundary: {unrouted:?}");
     assert_eq!(wrappers, 18, "routed wrapper fields");

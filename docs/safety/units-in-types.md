@@ -161,8 +161,10 @@ validation stays at the existing boundaries; this slice adds no refusals.
   extra operation: `in_m2()` returns the stored bits and `a * b` performs the single `f64`
   multiplication the untyped code performed. A migration must keep the original operation
   order (no regrouping `E·I/L³` as `E·(I/L³)`) and the original constants; any change of
-  order is a result change and does not belong in a units PR. WASM has no extra code or
-  copies: the types erase at compile time, and serde reads the same JSON number.
+  order is a result change and does not belong in a units PR. The quantity wrappers add no
+  code or storage in WASM: they erase at compile time, and serde reads the same JSON number.
+  The transitional `into_legacy()` / `legacy_view()` adapters do rebuild the material and
+  section maps; that cost goes away as each slice moves the erasure point inward.
 - **Wire records.** Each typed record mirrors its legacy DTO field for field, with the same
   serde attributes, so the same JSON parses to the same bits and malformed JSON gives the
   same error text. The legacy DTOs become `SolverInput<M, S>` / `SolverInput3D<M, S>`
