@@ -182,12 +182,6 @@ const body: PostBody = {
           "Brouillon ; correction préparée dans #1780, ni publiée ni déployée"
         ],
         [
-          "SA-2026-050",
-          "Appuis inclinés 3D : la branche de #1780 mélangeait la normale locale et les ressorts selon les axes globaux dans le décompte des blocages, modifiant le degré statique et sa classification",
-          "Moyenne",
-          "Brouillon ; correction préparée dans #1780, ni publiée ni déployée"
-        ],
-        [
           "SA-2026-037",
           "Analyse corotationnelle 3D : les vecteurs de rotation étaient soustraits (le coude de Bathe–Bolourchi à 1,3 %, sans amélioration au raffinement)",
           "Moyenne",

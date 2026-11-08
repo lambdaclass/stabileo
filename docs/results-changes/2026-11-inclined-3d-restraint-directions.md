@@ -42,4 +42,5 @@ This is a correction to the unmerged support-rule branch in
 PR [#1780](https://github.com/lambdaclass/stabileo/pull/1780), not a release or deployment
 claim. The exact review case was counted correctly by the earlier counter inspected in
 tags v0.2.0 through v0.5.0; other legacy inclined-support counting combinations have not
-been exhaustively audited. See [SA-2026-050](../advisories/SA-2026-050-inclined-3d-restraint-directions.md).
+been exhaustively audited. The degree-of-indeterminacy count is a diagnostic, not a design
+result, so this counting correction does not warrant a safety advisory.

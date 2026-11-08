@@ -182,12 +182,6 @@ const body: PostBody = {
           "Taslak; düzeltme #1780 içinde hazırlandı, henüz yayımlanmadı veya devreye alınmadı"
         ],
         [
-          "SA-2026-050",
-          "Eğik 3D mesnetler: #1780 dalı, kısıtları sayarken yerel normali küresel eksenlerdeki yaylarla karıştırıyor, statik belirsizlik derecesini ve sınıflandırmasını değiştiriyordu",
-          "Orta",
-          "Taslak; düzeltme #1780 içinde hazırlandı, henüz yayımlanmadı veya devreye alınmadı"
-        ],
-        [
           "SA-2026-037",
           "3B eşdönel analiz: dönme vektörleri çıkarılıyordu (Bathe–Bolourchi eğrisi %1,3 sapmalı, ağ sıklaştırmayla düzelmiyordu)",
           "Orta",

@@ -182,12 +182,6 @@ const body: PostBody = {
           "Entwurf; Korrektur in #1780 vorbereitet, weder veröffentlicht noch bereitgestellt"
         ],
         [
-          "SA-2026-050",
-          "Geneigte 3D-Auflager: Der Branch von #1780 vermischte beim Zählen der Bindungen die lokale Normale mit Federn in globalen Achsen und änderte damit den Grad der statischen Unbestimmtheit und die Klassifikation",
-          "Mittel",
-          "Entwurf; Korrektur in #1780 vorbereitet, weder veröffentlicht noch bereitgestellt"
-        ],
-        [
           "SA-2026-037",
           "Korotationale 3D-Analyse: Rotationsvektoren wurden subtrahiert (der Bathe–Bolourchi-Bogen 1,3 % daneben, ohne Besserung bei Netzverfeinerung)",
           "Mittel",

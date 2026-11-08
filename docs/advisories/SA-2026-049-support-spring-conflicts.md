@@ -57,6 +57,8 @@ the old engine and pass with the correction. Existing spring reaction and warpin
 their numerical assertions with explicitly free spring DOFs and additionally require refusal of
 the contradictory form.
 
+The same PR also [corrects the diagnostic degree-of-indeterminacy count for inclined 3D normal restraints and global-axis springs](../results-changes/2026-11-inclined-3d-restraint-directions.md) by counting their independent directions in a common frame.
+
 ## Workaround
 
 Decide which boundary condition is intended. For a rigid DOF, remove its spring field. For an
