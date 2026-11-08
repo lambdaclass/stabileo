@@ -2,7 +2,8 @@
 //!
 //! `moment_gradient`: Cb of one unbraced segment, CIRSOC 301-2018 §F.1(3), Ec. F.1-1, with the
 //! scope that clause states. Cb = 1 is the clause's own conservative value and is returned,
-//! with its basis, wherever F.1-1 does not apply.
+//! with its basis, wherever F.1-1 does not apply. The curvature and Mmáx are read over the
+//! stations inside the segment and the diagram interpolated at both of its ends.
 
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -141,7 +142,9 @@ pub fn moment_gradient(input: &MomentGradientInput) -> Result<MomentGradient, St
         .filter(|s| s.t >= t_start - SEGMENT_EDGE_TOLERANCE && s.t <= t_end + SEGMENT_EDGE_TOLERANCE)
         .collect();
 
-    let mut signs = in_segment.iter().filter(|s| s.m != 0.0).map(|s| s.m > 0.0);
+    let ends = if in_segment.is_empty() { vec![] } else { vec![moment_at(&sorted, t_start), moment_at(&sorted, t_end)] };
+    let read = || in_segment.iter().map(|s| s.m).chain(ends.iter().copied());
+    let mut signs = read().filter(|&m| m != 0.0).map(|m| m > 0.0);
     let curvature = match signs.next() {
         None => Curvature::None,
         Some(first) => if signs.any(|x| x != first) { Curvature::Double } else { Curvature::Single },
@@ -169,7 +172,7 @@ pub fn moment_gradient(input: &MomentGradientInput) -> Result<MomentGradient, St
     let m_a = moment_at(&sorted, t_start + 0.25 * span).abs();
     let m_b = moment_at(&sorted, t_start + 0.50 * span).abs();
     let m_c = moment_at(&sorted, t_start + 0.75 * span).abs();
-    let m_max = in_segment.iter().map(|s| s.m.abs()).chain([m_a, m_b, m_c]).fold(f64::NEG_INFINITY, f64::max);
+    let m_max = read().map(f64::abs).chain([m_a, m_b, m_c]).fold(f64::NEG_INFINITY, f64::max);
 
     let denom = 2.5 * m_max + 3.0 * m_a + 4.0 * m_b + 3.0 * m_c;
     if denom <= 0.0 {

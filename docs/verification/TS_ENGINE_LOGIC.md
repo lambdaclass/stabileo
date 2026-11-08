@@ -532,8 +532,12 @@ WASM `cirsoc301_inputs` op `momentGradient`. Caller: `verification-service.ts`
 `checkSteelMember`. References: the closed form of Ec. F.1-1 on uniform, parabolic, triangular,
 fixed-ended, linear and reversing diagrams (`engine/tests/cirsoc301_inputs.rs`); metamorphic
 scaling, sign, reversal and refinement (`engine/tests/metamorphic/steel_inputs.rs`). Parity:
-38 760 inputs, every field bit-identical. The one behaviour change is that a non-finite diagram
-is refused instead of giving Cb = NaN. No results change. Not moved, and the next slice to take:
+38 760 inputs. 37 029 are bit-identical. 379 differ on purpose: the engine also reads the moment
+interpolated at both segment ends, which the TypeScript missed. A sign change there is double
+curvature, so a channel got Cb = 2.55 where §F.1(4) requires 1. Those 379 agree to 1e-12 with
+the oracle run on the stations plus the two interpolated ends. The other 1 352 have fewer than
+three stations in the window and give Cb = 1 on both sides. The fix is the results change
+`cb-segment-ends`. A non-finite diagram is now refused instead of giving Cb = NaN. Not moved, and the next slice to take:
 `stationMomentEnvelope` and `steelSegmentDiagram` (slice 4).
 
 #### 2. Ae, net area from end connections

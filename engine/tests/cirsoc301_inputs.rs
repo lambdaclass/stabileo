@@ -180,3 +180,28 @@ fn the_wasm_request_answers_in_the_app_field_names() {
     assert_eq!(v["mA"], 75.0);
     assert_eq!(v["cb"].as_f64().unwrap(), 12.5 / 7.5);
 }
+
+#[test]
+fn a_sign_change_at_an_interpolated_segment_end_is_double_curvature() {
+    let s = [(0.0, -100.0), (0.25, 100.0), (0.5, 0.0), (0.75, 0.0), (1.0, 0.0)]
+        .map(|(t, m)| StationMoment { t, m }).to_vec();
+    let mut i = input(s, "U");
+    (i.t_start, i.t_end) = (0.1, 0.9);
+    let g = moment_gradient(&i).unwrap();
+    assert_eq!(g.curvature, Curvature::Double);
+    assert_eq!((g.cb, g.basis, g.reason_key), (1.0, CbBasis::UnityOutOfScope, "steel.cb.reason.singlySymmetricDoubleCurvature"));
+    i.shape = Some("I".into());
+    let g = moment_gradient(&i).unwrap();
+    close(g.m_max, 100.0);
+}
+
+#[test]
+fn the_maximum_includes_an_interpolated_segment_end() {
+    let s = [(0.0, 200.0), (0.5, 50.0), (0.6, 40.0), (0.8, 20.0), (1.0, 0.0)]
+        .map(|(t, m)| StationMoment { t, m }).to_vec();
+    let mut i = input(s, "I");
+    (i.t_start, i.t_end) = (0.25, 1.0);
+    let g = moment_gradient(&i).unwrap();
+    close(g.m_max, 125.0);
+    close(g.cb, f11(125.0, g.m_a, g.m_b, g.m_c));
+}

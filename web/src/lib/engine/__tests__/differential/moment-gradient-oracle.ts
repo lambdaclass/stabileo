@@ -172,7 +172,7 @@ export function momentGradient(input: MomentGradientInput): MomentGradient {
   }
 
   /*
-   * F.1.1. No cap is applied: the expression's own maximum is 3,0 for a diagram that is zero
+   * F.1.1. No cap is applied: the expression's own maximum is 5,0 for a diagram that is zero
    * everywhere but at one end, and AISC's `Cb ≤ 3` limit does not appear in this clause — so
    * clamping it would be adding a rule the shipped text does not state.
    */
