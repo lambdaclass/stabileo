@@ -1,7 +1,8 @@
 import { input2DToWireObject, input3DToWireObject } from '../wasm-solver';
 import type { SolverInput } from '../types';
 import type { SolverInput3D } from '../types-3d';
-import { areaM2, inertiaM4, mpa, ratio, modulusInternal, elasticFromDisplay, elasticToDisplay, type ElasticMaterialWire, type ElasticSectionWire, type Force, type Length, type Moment, materialToWire, sectionToWire, section3DToWire, warpingM6, lengthM, forceKn, momentKnM, bimomentKnM2, nodeToWire, node3DToWire, loadToWire, load3DToWire, lineLoadKnM, areaLoadKnM2, temperatureDeltaC, expansionPerC, springKnM, springKnMRad, angleRad, angleDeg, plateThermalToWire, pressureToWire, quadEdgeToWire, supportToWire, support3DToWire, element3DToWire, type AreaLoad, type TemperatureDifference, type TranslationalStiffness, type RotationalStiffness, type Angle, type LineLoad } from '../unit-types';
+import { areaM2, inertiaM4, mpa, ratio, modulusInternal, elasticFromDisplay, elasticToDisplay, type ElasticMaterialWire, type ElasticSectionWire, type Force, type Length, type Moment, materialToWire, sectionToWire, section3DToWire, warpingM6, lengthM, forceKn, momentKnM, bimomentKnM2, nodeToWire, node3DToWire, loadToWire, load3DToWire, lineLoadKnM, areaLoadKnM2, temperatureDeltaC, expansionPerC, springKnM, springKnMRad, angleRad, angleDeg, plateThermalToWire, pressureToWire, quadEdgeToWire, supportToWire, support3DToWire, element3DToWire, type AreaLoad, type TemperatureDifference, type TranslationalStiffness, type RotationalStiffness, type Angle, type LineLoad, type Bimoment, resultsFromWasm, results3DFromWasm } from '../unit-types';
+import { fmtTypedQ, toTypedQ } from '../../store/display-units.svelte';
 const material: ElasticMaterialWire = { id: 1, e: mpa(200000), nu: ratio(0.3) };
 const section: ElasticSectionWire = { id: 1, a: areaM2(0.01), iz: inertiaM4(0.0001) };
 material.e = elasticFromDisplay(29000, 'stress', 'Imperial');
@@ -249,3 +250,54 @@ const shellEdge = quadEdgeToWire({ elementId: 1, edge: 0, qn: 1 });
 shellEdge.qt = lineLoadKnM(-1);
 // @ts-expect-error a shell edge load is kN/m, not kN/m²
 shellEdge.qn = areaLoadKnM2(1);
+
+const results = resultsFromWasm({});
+const disp = results.displacements[0];
+disp.ux = lengthM(0.001);
+disp.ry = angleRad(1e-4);
+const shown: number = toTypedQ(disp.ux, 'displacement');
+fmtTypedQ(disp.ry, 'rotation');
+fmtTypedQ(results.reactions[0].my, 'moment');
+fmtTypedQ(results.elementForces[0].nStart, 'force');
+void shown;
+// @ts-expect-error a displacement is a length, not a force
+disp.uz = forceKn(1);
+// @ts-expect-error a rotation is an angle, not a length
+disp.ry = lengthM(0.001);
+// @ts-expect-error raw numbers require an explicit boundary constructor
+disp.ux = 0.001;
+// @ts-expect-error a reaction moment cannot be shown as a force
+fmtTypedQ(results.reactions[0].my, 'force');
+// @ts-expect-error a reaction force cannot be shown as a moment
+toTypedQ(results.reactions[0].rz, 'moment');
+// @ts-expect-error an end moment is kN·m, not kN
+results.elementForces[0].mEnd = forceKn(1);
+// @ts-expect-error an end shear is kN, not kN·m
+results.elementForces[0].vStart = momentKnM(1);
+// @ts-expect-error a member length is a length, not a line load
+results.elementForces[0].length = lineLoadKnM(1);
+// @ts-expect-error the line load carried with the forces is kN/m, not kN
+results.elementForces[0].qI = forceKn(1);
+// @ts-expect-error a rotation cannot be shown as a displacement
+fmtTypedQ(disp.ry, 'displacement');
+const results3D = results3DFromWasm({});
+results3D.displacements[0].rz = angleRad(0.01);
+results3D.reactions[0].bimoment = bimomentKnM2(0.01);
+results3D.elementForces[0].mzStart = momentKnM(4);
+fmtTypedQ(results3D.elementForces[0].mzStart, 'moment');
+declare const someBimoment: Bimoment;
+fmtTypedQ(someBimoment, 'bimoment');
+// @ts-expect-error a 3D translation is a length, not an angle
+results3D.displacements[0].uy = angleRad(0.01);
+// @ts-expect-error a 3D reaction moment is kN·m, not kN
+results3D.reactions[0].mx = forceKn(1);
+// @ts-expect-error a reaction bimoment is kN·m², not kN·m
+results3D.reactions[0].bimoment = momentKnM(1);
+// @ts-expect-error a 3D axial force is kN, not kN·m
+results3D.elementForces[0].nEnd = momentKnM(1);
+// @ts-expect-error a 3D end moment cannot be shown as a force
+fmtTypedQ(results3D.elementForces[0].myEnd, 'force');
+// @ts-expect-error a 3D shear cannot be shown as a bimoment
+toTypedQ(results3D.elementForces[0].vzEnd, 'bimoment');
+// @ts-expect-error the point loads carried with the forces keep their brands
+results3D.elementForces[0].pointLoadsY[0].a = forceKn(1);

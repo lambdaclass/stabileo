@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { elasticFromDisplay, elasticToDisplay, materialToWire, sectionToWire, section3DToWire, modulusInternal, nodeToWire, node3DToWire, loadToWire, load3DToWire, supportToWire, support3DToWire, element3DToWire, plateThermalToWire, pressureToWire, quadEdgeToWire } from '../unit-types';
+import { elasticFromDisplay, elasticToDisplay, materialToWire, sectionToWire, section3DToWire, modulusInternal, nodeToWire, node3DToWire, loadToWire, load3DToWire, supportToWire, support3DToWire, element3DToWire, plateThermalToWire, pressureToWire, quadEdgeToWire, resultsFromWasm, results3DFromWasm } from '../unit-types';
 import { convertThermalQuadLoad } from '../solver-shells';
 import { unitInputCommit } from '../../utils/unit-input';
 import { fromDisplay, toDisplay, UNIT_SYSTEMS } from '../../utils/units';
@@ -302,4 +302,33 @@ describe('distributed, thermal and support unit boundary', () => {
       expect(unitInputCommit('68', 0, 'temperature', system)).toBe(fromDisplay(68, 'temperature', system));
     });
   }
+});
+
+describe('result unit boundary', () => {
+  for (const system of UNIT_SYSTEMS) {
+    it(`converts typed results for display exactly as before in ${system}`, () => {
+      for (const q of ['length', 'force', 'moment', 'bimoment', 'displacement', 'rotation'] as const) {
+        expect(elasticFromDisplay(123.456, q, system)).toBe(fromDisplay(123.456, q, system));
+        expect(elasticToDisplay(elasticFromDisplay(7.25, q, system), q, system)).toBe(toDisplay(fromDisplay(7.25, q, system), q, system));
+        expect(unitInputCommit('123.456', 0, q, system)).toBe(fromDisplay(123.456, q, system));
+      }
+    });
+  }
+  it('admits the solve result unchanged: same object, same JSON text, signed zeros kept', () => {
+    const raw = {
+      displacements: [{ nodeId: 1, ux: -0, uz: 1e-17, ry: 0 }],
+      reactions: [{ nodeId: 1, rx: -0, rz: 12.5, my: -3.25 }],
+      elementForces: [],
+    };
+    const text = JSON.stringify(raw);
+    expect(resultsFromWasm(raw)).toBe(raw);
+    expect(results3DFromWasm(raw)).toBe(raw);
+    expect(JSON.stringify(resultsFromWasm(raw))).toBe(text);
+    expect(Object.is(resultsFromWasm(raw).displacements[0].ux, -0)).toBe(true);
+  });
+  it('solves through the typed admission with the full result unchanged', () => {
+    const results = solve(input());
+    expect(results.displacements.length).toBe(2);
+    expect(JSON.stringify(solve(input()))).toBe(JSON.stringify(results));
+  });
 });

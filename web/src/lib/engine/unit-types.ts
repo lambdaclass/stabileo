@@ -1,7 +1,7 @@
 /** Canonical wire quantities. Brands disappear at runtime and JSON stays numeric. */
 import { fromDisplay, toDisplay, type UnitSystem } from '../utils/units';
-import type { SolverAxialDistributedLoad, SolverDistributedLoad, SolverLoad, SolverNodalLoad, SolverNode, SolverPointLoadOnElement, SolverSupport, SolverThermalLoad } from './types';
-import type { SolverDistributedLoad3D, SolverElement3D, SolverLoad3D, SolverNodalLoad3D, SolverNode3D, SolverPointLoad3D, SolverSupport3D, SolverThermalLoad3D } from './types-3d';
+import type { AnalysisResults, Displacement, ElementForces, Reaction, SolverAxialDistributedLoad, SolverDistributedLoad, SolverLoad, SolverNodalLoad, SolverNode, SolverPointLoadOnElement, SolverSupport, SolverThermalLoad } from './types';
+import type { AnalysisResults3D, Displacement3D, ElementForces3D, Reaction3D, SolverDistributedLoad3D, SolverElement3D, SolverLoad3D, SolverNodalLoad3D, SolverNode3D, SolverPointLoad3D, SolverSupport3D, SolverThermalLoad3D } from './types-3d';
 
 declare const unit: unique symbol;
 export type Quantity<U extends string> = number & { readonly [unit]: U };
@@ -44,7 +44,7 @@ export const angleRad = (value: number): Angle => value as Angle;
 export const angleDeg = (value: number): AngleDeg => value as AngleDeg;
 export const modulusInternal = (value: ModulusMPa): Modulus => (value * 1000) as Modulus;
 
-interface DisplayQuantities {
+export interface DisplayQuantities {
   stress: ModulusMPa;
   sectionArea: Area;
   sectionInertia: SecondMoment;
@@ -55,10 +55,15 @@ interface DisplayQuantities {
   springKr: RotationalStiffness;
   displacement: Length;
   rotation: Angle;
+  length: Length;
+  force: Force;
+  moment: Moment;
+  bimoment: Bimoment;
 }
 const DISPLAY_QUANTITIES = {
   stress: true, sectionArea: true, sectionInertia: true, distributedLoad: true, areaLoad: true,
   temperatureDelta: true, springK: true, springKr: true, displacement: true, rotation: true,
+  length: true, force: true, moment: true, bimoment: true,
 } satisfies Record<keyof DisplayQuantities, true>;
 export const isTypedDisplayQuantity = (quantity: string): quantity is keyof DisplayQuantities => Object.hasOwn(DISPLAY_QUANTITIES, quantity);
 /** Enter a display number once; the return value carries the canonical wire unit. */
@@ -260,3 +265,35 @@ export function support3DToWire(s: SolverSupport3D): Branded<SolverSupport3D, Su
 export function element3DToWire(e: SolverElement3D): Branded<SolverElement3D, Element3DWire> {
   return { ...e, ...present(e, 'rollAngle', e.rollAngle, angleDeg) } as Branded<SolverElement3D, Element3DWire>;
 }
+
+export interface DisplacementWire { ux: Length; uz: Length; ry: Angle }
+export interface ReactionWire { rx: Force; rz: Force; my: Moment }
+export interface PointLoadInfoWire { a: Length; p: Force; px?: Force; my?: Moment }
+export interface DistributedLoadInfoWire { qI: LineLoad; qJ: LineLoad; a: Length; b: Length }
+export interface ElementForcesWire {
+  nStart: Force; nEnd: Force; vStart: Force; vEnd: Force; mStart: Moment; mEnd: Moment; length: Length; qI: LineLoad; qJ: LineLoad;
+  pointLoads: PointLoadInfoWire[]; distributedLoads: DistributedLoadInfoWire[]; distributedLoadsX?: DistributedLoadInfoWire[];
+}
+export interface Displacement3DWire { ux: Length; uy: Length; uz: Length; rx: Angle; ry: Angle; rz: Angle }
+export interface Reaction3DWire { fx: Force; fy: Force; fz: Force; mx: Moment; my: Moment; mz: Moment; bimoment?: Bimoment }
+export interface PointLoadInfo3DWire { a: Length; p: Force }
+export interface ElementForces3DWire {
+  length: Length; nStart: Force; nEnd: Force; vyStart: Force; vyEnd: Force; vzStart: Force; vzEnd: Force;
+  mxStart: Moment; mxEnd: Moment; myStart: Moment; myEnd: Moment; mzStart: Moment; mzEnd: Moment;
+  qYI: LineLoad; qYJ: LineLoad; distributedLoadsY: DistributedLoadInfoWire[]; pointLoadsY: PointLoadInfo3DWire[];
+  qZI: LineLoad; qZJ: LineLoad; distributedLoadsZ: DistributedLoadInfoWire[]; distributedLoadsX?: DistributedLoadInfoWire[];
+  pointLoadsZ: PointLoadInfo3DWire[]; bimomentStart?: Bimoment; bimomentEnd?: Bimoment;
+}
+export type AnalysisResultsWire = Branded<AnalysisResults, {
+  displacements: Branded<Displacement, DisplacementWire>[];
+  reactions: Branded<Reaction, ReactionWire>[];
+  elementForces: Branded<ElementForces, ElementForcesWire>[];
+}>;
+export type AnalysisResults3DWire = Branded<AnalysisResults3D, {
+  displacements: Branded<Displacement3D, Displacement3DWire>[];
+  reactions: Branded<Reaction3D, Reaction3DWire>[];
+  elementForces: Branded<ElementForces3D, ElementForces3DWire>[];
+}>;
+/** What the 2D and 3D solve exports return, in the engine's units; the brands admit nothing at runtime. */
+export const resultsFromWasm = (raw: unknown): AnalysisResultsWire => raw as AnalysisResultsWire;
+export const results3DFromWasm = (raw: unknown): AnalysisResults3DWire => raw as AnalysisResults3DWire;

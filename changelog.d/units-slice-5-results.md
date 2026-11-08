@@ -1,0 +1,4 @@
+### Changed
+#### Displacements, reactions and element forces go through unit-typed result records (2026-11-08)
+
+Every serialization of a displacement, reaction or element-force record (2D and 3D, in every result that carries one) now goes through unit-typed records: lengths in m, rotations in rad, forces in kN, moments in kN·m, line loads in kN/m and the warping bimoment in kN·m². The 2D and 3D linear solve exports build the typed results at one named point (`into_typed`). The web app admits the solve results through branded result types and has typed display conversions, so showing a moment as a force or a rotation as a displacement no longer compiles. No result changes: the serialized results are byte-identical to the previous serializer's, signed zeros and absent optionals included. Plan for the remaining slices: docs/safety/units-in-types.md.
