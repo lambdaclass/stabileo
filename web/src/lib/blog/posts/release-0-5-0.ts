@@ -74,7 +74,7 @@ export const release050: Post = {
           k: 'ul',
           items: [
             'Basic teaches structural analysis step by step: statics, the force and displacement methods, influence lines, second order and buckling, plastic analysis and dynamics, each explained step by step in the app. Its plastic collapse unit is withheld with the rest of 2D plastic collapse until #758 is fixed.',
-            'German, French and Turkish are not offered in 0.5.0: they return once a native speaker has checked them, and until then their pages open in English.',
+            'German, French and Turkish are offered again.',
             'The AI assistant works with your own Anthropic or OpenAI key, kept only in your browser, and /examples has live models the engine solves again as a slider moves.',
             'PRO: master and similar storeys, plate results per unit width with principal moments and directions, the report after the analysis, a read-only viewer with “Duplicate and edit”, and a linked IFC drawn as a 3D reference.',
             'Files saved by 0.2.0, 0.3.0 and 0.4.0 open, migrate and give the same results on every change, except where a registered result change applies; a file saved by a newer version is refused with a message that says so.',
@@ -156,7 +156,7 @@ export const release050: Post = {
           k: 'ul',
           items: [
             'Básico enseña análisis estructural paso a paso: estática, los métodos de las fuerzas y de los desplazamientos, líneas de influencia, segundo orden y pandeo, análisis plástico y dinámica, cada uno explicado paso a paso en la aplicación. Su unidad de colapso plástico queda retenida con el resto del colapso plástico 2D hasta que se corrija #758.',
-            'El alemán, el francés y el turco no se ofrecen en la 0.5.0: vuelven cuando un hablante nativo los haya revisado, y mientras tanto sus páginas abren en inglés.',
+            'El alemán, el francés y el turco vuelven a estar disponibles.',
             'El asistente de IA funciona con tu propia clave de Anthropic u OpenAI, guardada solo en tu navegador, y /examples tiene modelos en vivo que el motor vuelve a resolver al mover un control.',
             'PRO: plantas madre y plantas similares, resultados de placas por unidad de ancho con momentos y direcciones principales, la memoria después del análisis, un visor de solo lectura con “Duplicar y editar”, y un IFC vinculado dibujado como referencia 3D.',
             'Los archivos guardados por la 0.2.0, la 0.3.0 y la 0.4.0 se abren, se migran y dan los mismos resultados en cada cambio, salvo donde se aplica un cambio de resultados registrado; un archivo guardado por una versión más nueva se rechaza con un mensaje que lo dice.',
@@ -238,7 +238,7 @@ export const release050: Post = {
           k: 'ul',
           items: [
             'O Básico ensina análise estrutural passo a passo: estática, os métodos das forças e dos deslocamentos, linhas de influência, segunda ordem e flambagem, análise plástica e dinâmica, cada um explicado passo a passo no aplicativo. Sua unidade de colapso plástico fica retida com o resto do colapso plástico 2D até que #758 seja corrigido.',
-            'Alemão, francês e turco não são oferecidos na 0.5.0: voltam quando um falante nativo os tiver revisado, e até lá as suas páginas abrem em inglês.',
+            'Alemão, francês e turco voltam a ser oferecidos.',
             'O assistente de IA funciona com a sua própria chave da Anthropic ou da OpenAI, guardada só no seu navegador, e /examples tem modelos ao vivo que o motor resolve de novo ao mover um controle.',
             'PRO: pavimentos mestre e pavimentos semelhantes, resultados de placas por unidade de largura com momentos e direções principais, o memorial depois da análise, um visualizador somente leitura com “Duplicar e editar”, e um IFC vinculado desenhado como referência 3D.',
             'Os arquivos salvos pela 0.2.0, pela 0.3.0 e pela 0.4.0 abrem, migram e dão os mesmos resultados em cada mudança, exceto onde se aplica uma mudança de resultados registrada; um arquivo salvo por uma versão mais nova é recusado com uma mensagem que diz isso.',

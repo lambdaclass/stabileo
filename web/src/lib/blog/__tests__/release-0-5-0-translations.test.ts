@@ -1,12 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import { findPost, type Block } from '..';
 
-function safetyTokens(text: string, locale: string): (string | number)[] {
+function safetyTokens(text: string, locale: string): string[] {
   const grouping = new Intl.NumberFormat(locale).format(1000).charAt(1);
   const pattern = new RegExp(`\\b\\d{1,3}(?:${grouping === '.' ? '\\.' : grouping}\\d{3})+\\b`, 'g');
   const normalized = text.replace(pattern, (count) => count.split(grouping).join(''));
-  return (normalized.match(/SA-\d{4}-\d{3}|#\d+|\d+(?:[.,]\d+)*|\b(?:Qa|MRd|Mz|mx|Iy|Iz|MITC4|MITC9)\b|P-Δ|Y–Z|X–Y|[+≤%]/g) ?? [])
-    .map((token) => /^\d+(?:[.,]\d+)?$/.test(token) ? Number(token.replace(',', '.')) : token).sort();
+  return (normalized.match(/SA-\d{4}-\d{3}|#\d+|\d+(?:\.\d+){2,}|(?:(?<![\p{L}\p{N}_])[+−-])?\d+(?:[.,]\d+)?(?:\s*(?:[kMGTmunµμ]?(?:Hz|rad|s)|%)(?![\p{L}\p{N}_]))?|\b(?:Qa|MRd|Mz|mx|Iy|Iz|MITC4|MITC9)\b|P-Δ|Y–Z|X–Y|[+≤%]/gu) ?? [])
+    .map((token) => {
+      const quantity = token.match(/^([+−-]?)(\d+(?:[.,]\d+)?)(?:\s*(\S+))?$/u);
+      return quantity
+        ? `${quantity[1].replace('−', '-')}${Number(quantity[2].replace(',', '.'))}${quantity[3] ?? ''}`
+        : token;
+    }).sort();
 }
 
 function safetyData(block: Block, locale = 'en') {
@@ -70,7 +75,7 @@ describe('0.5.0 release notes in the newly offered languages', () => {
   });
 });
 
-describe.skip('0.5.0 release-note review regressions (known wrong result: #1785)', () => {
+describe('0.5.0 release-note review regressions', () => {
   it.each([
     ['en', 'German, French and Turkish are offered again.'],
     ['es', 'El alemán, el francés y el turco vuelven a estar disponibles.'],

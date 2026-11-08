@@ -77,13 +77,13 @@ const body: PostBody = {
         [
           "SA-2026-043",
           "32",
-          "In der harmonischen Analyse ging die Korrektur der nicht berücksichtigten Eigenformen verloren, wenn eine Eigenform viel weicher war als die übrigen: in einem Beispiel bei 2.3 Hz um den Faktor 79 falsch",
+          "In der harmonischen Analyse ging die Korrektur der nicht berücksichtigten Eigenformen verloren, wenn eine Eigenform viel weicher war als die übrigen: in einem Beispiel bei 2,3 Hz um den Faktor 79 falsch",
           "Hoch"
         ],
         [
           "SA-2026-035",
           "—",
-          "Ein Schnitt von 3D nach 2D bog Stäbe um die falsche Querschnittsachse: ein Y–Z-Portalrahmen war 13.5-mal zu steif",
+          "Ein Schnitt von 3D nach 2D bog Stäbe um die falsche Querschnittsachse: ein Y–Z-Portalrahmen war 13,5-mal zu steif",
           "Hoch"
         ],
         [
@@ -125,13 +125,13 @@ const body: PostBody = {
     {
       "k": "ul",
       "items": [
-        "Der maßgebende Wert eines Stabes und die 2D-Hüllkurve lesen den tatsächlichen Extremwert des Schnittgrößenverlaufs statt der nächstgelegenen von 21 Auswertestellen: Die Werte können steigen, in den dokumentierten Fällen um 0.23 % bei einer Dreieckslast und um 1.05 % bei einer kurzen Teilstreckenlast, und sinken nie.",
+        "Der maßgebende Wert eines Stabes und die 2D-Hüllkurve lesen den tatsächlichen Extremwert des Schnittgrößenverlaufs statt der nächstgelegenen von 21 Auswertestellen: Die Werte können steigen, in den dokumentierten Fällen um 0,23 % bei einer Dreieckslast und um 1,05 % bei einer kurzen Teilstreckenlast, und sinken nie.",
         "Mechanismen werden verweigert statt berechnet: hinter einem starren Verbindungselement oder einer Deckenscheibe in 2D, hinter einem Verbindungselement in 2D (#1415) und in der Modalanalyse, die zuvor die Nullmode verwarf und die übrigen Eigenformen als vollständig zurückgab; darunter fällt auch ein Mechanismus, der entlang geneigter Auflager gleitet.",
         "Die materiell nichtlineare 3D-Analyse berechnet Stabtragwerke, in denen Stäbe mit und ohne Wölbkonstante gemeinsam vorkommen, sowie Knoten, an die nur Fachwerkstäbe anschließen, statt abzustürzen oder sie zu verweigern; bereits zuvor berechenbare Modelle liefern dieselben Zahlen.",
         "Mehrfache Eigenwerte behalten ihre Vielfachheit, und statische sowie modale Ergebnisse prüfen vor der Anzeige ihr eigenes Gleichgewicht und ihre Orthogonalität.",
         "In Basic unterteilen P-Δ und die kritische Last jeden Stab in Elemente, die plastische Traglastberechnung schließt sich entlastende Gelenke, und die Einflusslinie des Biegemoments setzt ein Moment mit Zug an der Unterseite positiv an, wie alle anderen Momente in Basic.",
         "Ein nicht auswertbarer Bemessungsnachweis wird verweigert, statt als erfüllt zu gelten. Eine weiche, aber reale Knotenverdrehung wird nicht mehr gesperrt, wenn das Modell einen wesentlich steiferen Teil enthält.",
-        "Die lineare Analyse warnt, wenn eine Verdrehung 0.1 rad überschreitet, auch innerhalb der Stablänge (einschließlich der Neigung, die die Schubverformung zur Stabachse beiträgt, und der Krümmung aus einem Temperaturgradienten an einem freigegebenen Ende, #1569) sowie anhand der eigenen Verschiebungen einer Kombination. Sie warnt auch, wenn Druckkräfte die Momente um mehr als 10 % vergrößern können; solange diese zweite Warnung erscheint, werden die Nachweise nach CIRSOC 301 zurückgehalten. Bei einer Verdrehungswarnung ist eine geometrisch nichtlineare Analyse mit großen Verdrehungen durchzuführen; bei einer Vergrößerungswarnung eine P-Δ-Analyse oder eine andere Berechnung nach Theorie zweiter Ordnung."
+        "Die lineare Analyse warnt, wenn eine Verdrehung 0,1 rad überschreitet, auch innerhalb der Stablänge (einschließlich der Neigung, die die Schubverformung zur Stabachse beiträgt, und der Krümmung aus einem Temperaturgradienten an einem freigegebenen Ende, #1569) sowie anhand der eigenen Verschiebungen einer Kombination. Sie warnt auch, wenn Druckkräfte die Momente um mehr als 10 % vergrößern können; solange diese zweite Warnung erscheint, werden die Nachweise nach CIRSOC 301 zurückgehalten. Bei einer Verdrehungswarnung ist eine geometrisch nichtlineare Analyse mit großen Verdrehungen durchzuführen; bei einer Vergrößerungswarnung eine P-Δ-Analyse oder eine andere Berechnung nach Theorie zweiter Ordnung."
       ]
     },
     {
@@ -145,7 +145,7 @@ const body: PostBody = {
     {
       "k": "ul",
       "items": [
-        "Verweigert: der plastische Traglastfaktor in 2D, der sich mit der Nummerierung, der Stabrichtung und den Einheiten um bis zu Faktor 4.6 ändern kann (#758); ein Knickfaktor außerhalb der Grenzen seines eigenen Zertifikats (#741); MITC4-Schalen auf verzerrten Netzen bei erheblicher Biegung in der Ebene (#798); sowie MITC4- und MITC9-Schalen auf verwundener Geometrie (#1057).",
+        "Verweigert: der plastische Traglastfaktor in 2D, der sich mit der Nummerierung, der Stabrichtung und den Einheiten um bis zu Faktor 4,6 ändern kann (#758); ein Knickfaktor außerhalb der Grenzen seines eigenen Zertifikats (#741); MITC4-Schalen auf verzerrten Netzen bei erheblicher Biegung in der Ebene (#798); sowie MITC4- und MITC9-Schalen auf verwundener Geometrie (#1057).",
         "Mit Warnung: unter anderem Zeitverlaufsanalyse, modale Superposition in 3D, nahezu singuläre Modelle, Kontakt, materiell nichtlineare Analyse und Verbindungselemente mit ungleichen Steifigkeiten.",
         "Abgesehen von den verweigerten Ergebnissen verändert diese Absicherung gegen offene Fehler genau einen Zahlenwert: Die 2D-Auflagerreaktion eines Auflagers mit vorgegebener Setzung und einer Feder in Setzungsrichtung enthält jetzt die Kraft dieser Feder. Alle übrigen der 145.515 Werte im Ergebniskorpus sind identisch."
       ]
@@ -162,7 +162,7 @@ const body: PostBody = {
       "k": "ul",
       "items": [
         "Basic vermittelt Baustatik Schritt für Schritt: Statik, Kraftgrößen- und Weggrößenverfahren, Einflusslinien, Theorie zweiter Ordnung und Knicken, plastische Analyse und Dynamik, jeweils Schritt für Schritt in der App erklärt. Die Lerneinheit zur plastischen Traglast bleibt zusammen mit der übrigen plastischen Traglastberechnung in 2D zurückgehalten, bis #758 behoben ist.",
-        "Deutsch, Französisch und Türkisch werden in 0.5.0 nicht angeboten: Sie kehren zurück, sobald ein Muttersprachler sie geprüft hat; bis dahin öffnen sich ihre Seiten auf Englisch.",
+        "Deutsch, Französisch und Türkisch werden wieder angeboten.",
         "Der KI-Assistent arbeitet mit Ihrem eigenen Anthropic- oder OpenAI-Schlüssel, der nur in Ihrem Browser gespeichert wird. Unter /examples gibt es interaktive Modelle, die der Rechenkern beim Bewegen eines Schiebereglers erneut berechnet.",
         "PRO: Mastergeschosse und ähnliche Geschosse, Plattenergebnisse pro Breiteneinheit mit Hauptmomenten und Hauptrichtungen, der Bericht nach der Berechnung, ein schreibgeschützter Betrachter mit „Duplizieren und bearbeiten“ sowie ein verknüpftes IFC als dargestellte 3D-Referenz.",
         "Mit 0.2.0, 0.3.0 und 0.4.0 gespeicherte Dateien werden bei jeder Änderung geöffnet, migriert und mit denselben Ergebnissen berechnet, außer wenn eine registrierte Ergebnisänderung greift; eine mit einer neueren Version gespeicherte Datei wird mit einer entsprechenden Meldung verweigert.",

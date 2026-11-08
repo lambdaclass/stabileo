@@ -77,13 +77,13 @@ const body: PostBody = {
         [
           "SA-2026-043",
           "32",
-          "Harmonik analizde bir mod diğerlerinden çok daha esnek olduğunda hesaba katılmayan modların düzeltmesi kayboluyordu: bir örnekte 2.3 Hz’de 79 kat hatalı sonuç",
+          "Harmonik analizde bir mod diğerlerinden çok daha esnek olduğunda hesaba katılmayan modların düzeltmesi kayboluyordu: bir örnekte 2,3 Hz’de 79 kat hatalı sonuç",
           "Yüksek"
         ],
         [
           "SA-2026-035",
           "—",
-          "3D’den 2D’ye kesit alma işlemi çubukları yanlış kesit ekseni etrafında eğiyordu: bir Y–Z çerçevesi 13.5 kat fazla rijit çıkıyordu",
+          "3D’den 2D’ye kesit alma işlemi çubukları yanlış kesit ekseni etrafında eğiyordu: bir Y–Z çerçevesi 13,5 kat fazla rijit çıkıyordu",
           "Yüksek"
         ],
         [
@@ -125,13 +125,13 @@ const body: PostBody = {
     {
       "k": "ul",
       "items": [
-        "Bir çubuğun belirleyici değeri ve 2D zarf, 21 hesap noktasından en yakınını değil iç kuvvetler diyagramının gerçek tepe noktasını okur: belgelenmiş örneklerde üçgen yük altında 0.23 %, kısa bir kısmi yayılı yük altında 1.05 % artabilir ve hiçbir zaman azalmaz.",
+        "Bir çubuğun belirleyici değeri ve 2D zarf, 21 hesap noktasından en yakınını değil iç kuvvetler diyagramının gerçek tepe noktasını okur: belgelenmiş örneklerde üçgen yük altında 0,23 %, kısa bir kısmi yayılı yük altında 1,05 % artabilir ve hiçbir zaman azalmaz.",
         "Mekanizmalar çözülmek yerine reddedilir: 2D’de rijit bağlantı veya diyafram arkasında, 2D’de bağlayıcı arkasında (#1415) ve daha önce sıfır modu atıp diğer modları tam bir küme olarak döndüren modal analizde; buna eğik mesnetler boyunca kayan bir mekanizma da dahildir.",
         "3D malzeme bakımından doğrusal olmayan analiz, çarpılma sabiti olan ve olmayan çubukları birlikte içeren çerçeveleri ve yalnızca kafes çubuklarının bağlandığı düğümleri, çökmek veya reddetmek yerine çözer; daha önce çözülebilen modeller aynı sayısal değerleri verir.",
         "Tekrarlı özdeğerler katlılıklarını korur; statik ve modal sonuçlar gösterilmeden önce kendi dengelerini ve ortogonalliklerini kontrol eder.",
         "Basic’te P-Δ ve kritik yük hesabı her çubuğu elemanlara böler, plastik göçme hesabı boşalan mafsalları kapatır ve eğilme momenti tesir çizgisi, Basic’teki diğer tüm momentler gibi alt lifte çekme oluşturan momenti pozitif alır.",
         "Değerlendirilemeyen bir tasarım kontrolü sağlanmış sayılmak yerine reddedilir; modelde çok daha rijit bir bölüm olduğunda esnek ama gerçek bir düğüm dönmesi artık kilitlenmez.",
-        "Doğrusal analiz, bir dönme 0.1 rad’ı aştığında uyarı verir; bu kontrol çubuk açıklığı içinde de yapılır (kayma deformasyonunun çubuk eksenine eklediği eğim ve serbest bırakılmış bir uçta sıcaklık gradyanının oluşturduğu eğrilik dahil, #1569) ve birleşimin kendi deplasmanlarına da uygulanır. Basınç kuvveti momentleri 10 %’dan fazla büyütebilecekse de uyarı verir; bu ikinci uyarı gösterilirken CIRSOC 301 kontrolleri bekletilir. Dönme uyarısında geometrik olarak doğrusal olmayan, büyük dönmeli bir analiz; büyütme uyarısında ise P-Δ veya başka bir ikinci mertebe analizi çalıştırın."
+        "Doğrusal analiz, bir dönme 0,1 rad’ı aştığında uyarı verir; bu kontrol çubuk açıklığı içinde de yapılır (kayma deformasyonunun çubuk eksenine eklediği eğim ve serbest bırakılmış bir uçta sıcaklık gradyanının oluşturduğu eğrilik dahil, #1569) ve birleşimin kendi deplasmanlarına da uygulanır. Basınç kuvveti momentleri 10 %’dan fazla büyütebilecekse de uyarı verir; bu ikinci uyarı gösterilirken CIRSOC 301 kontrolleri bekletilir. Dönme uyarısında geometrik olarak doğrusal olmayan, büyük dönmeli bir analiz; büyütme uyarısında ise P-Δ veya başka bir ikinci mertebe analizi çalıştırın."
       ]
     },
     {
@@ -145,7 +145,7 @@ const body: PostBody = {
     {
       "k": "ul",
       "items": [
-        "Reddedilenler: numaralandırmaya, çubuk yönlerine ve birimlere göre 4.6 kata kadar değişebilen 2D plastik göçme katsayısı (#758); kendi sertifikasının sınırları dışında kalan burkulma katsayısı (#741); düzlem içi eğilmenin önemli olduğu çarpık ağlardaki MITC4 kabuklar (#798); ve burulmuş geometri üzerindeki MITC4 ve MITC9 kabuklar (#1057).",
+        "Reddedilenler: numaralandırmaya, çubuk yönlerine ve birimlere göre 4,6 kata kadar değişebilen 2D plastik göçme katsayısı (#758); kendi sertifikasının sınırları dışında kalan burkulma katsayısı (#741); düzlem içi eğilmenin önemli olduğu çarpık ağlardaki MITC4 kabuklar (#798); ve burulmuş geometri üzerindeki MITC4 ve MITC9 kabuklar (#1057).",
         "Uyarı verilenler: diğerlerinin yanı sıra zaman tanım alanı analizi, 3D modal süperpozisyon, tekilliğe yakın modeller, temas, malzeme bakımından doğrusal olmayan analiz ve rijitlikleri farklı bağlayıcılar.",
         "Reddedilen sonuçlar dışında, açık hataları sınırlayan bu önlemler yalnızca bir sayısal değeri değiştirir: oturma uygulanmış ve oturma doğrultusunda yayı da bulunan bir mesnedin 2D tepkisi artık bu yayın kuvvetini içerir. Sonuç derlemindeki 145.515 değerin diğerlerinin tamamı aynıdır."
       ]
@@ -162,7 +162,7 @@ const body: PostBody = {
       "k": "ul",
       "items": [
         "Basic, yapı analizini adım adım öğretir: statik, kuvvet ve deplasman yöntemleri, tesir çizgileri, ikinci mertebe ve burkulma, plastik analiz ve dinamik; her biri uygulama içinde adım adım açıklanır. Plastik göçme eğitim birimi de diğer 2D plastik göçme hesaplarıyla birlikte #758 düzeltilene kadar gösterilmez.",
-        "Almanca, Fransızca ve Türkçe 0.5.0’da sunulmuyor: bu dilleri ana dili olarak konuşan biri kontrol ettikten sonra geri gelecekler; o zamana kadar sayfaları İngilizce açılır.",
+        "Almanca, Fransızca ve Türkçe yeniden sunuluyor.",
         "Yapay zekâ asistanı, yalnızca tarayıcınızda tutulan kendi Anthropic veya OpenAI anahtarınızla çalışır; /examples sayfasında ise bir kaydırıcı hareket ettiğinde motorun yeniden çözdüğü etkileşimli modeller bulunur.",
         "PRO: ana ve benzer katlar, asal momentler ve doğrultularla birim genişlik başına plak sonuçları, analiz sonrası rapor, «Çoğalt ve düzenle» seçeneği olan salt okunur görüntüleyici ve 3D referans olarak çizilen bağlantılı bir IFC.",
         "0.2.0, 0.3.0 ve 0.4.0 tarafından kaydedilen dosyalar her değişiklikte açılır, yeni biçime dönüştürülür ve kayıtlı bir sonuç değişikliği uygulanmadıkça aynı sonuçları verir; daha yeni bir sürümle kaydedilmiş dosya, bunu belirten bir mesajla reddedilir.",
