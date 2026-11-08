@@ -405,6 +405,10 @@ fn connector_assembly_paths_agree() {
 }
 
 fn arm_pair_2d(k_moment: f64, padded: bool, scale: f64) -> SolverInput {
+    arm_pair_with_spring_2d(k_moment, None, padded, scale)
+}
+
+fn arm_pair_with_spring_2d(k_moment: f64, spring3: Option<f64>, padded: bool, scale: f64) -> SolverInput {
     let chain = if padded { 30 } else { 1 };
     let mut nodes = vec![
         (1, -2.371208653147953, -7.645282926496574),
@@ -437,6 +441,12 @@ fn arm_pair_2d(k_moment: f64, padded: bool, scale: f64) -> SolverInput {
         id: 1, node_i: 3, node_j: 2, k_axial: 12522.881824758246, k_shear: 1940.454941227356, k_moment: k_moment,
         k_shear_z: 0.0, k_bend_y: 0.0, k_bend_z: 0.0,
     });
+    if let Some(kz) = spring3 {
+        input.supports.insert("4".into(), SolverSupport {
+            id: 4, node_id: 3, support_type: "spring".into(),
+            kx: None, ky: None, kz: Some(kz), dx: None, dz: None, dry: None, angle: None,
+        });
+    }
     input
 }
 
@@ -453,7 +463,6 @@ fn disp_at(r: &dedaliano_engine::types::AnalysisResults, node: usize) -> [f64; 3
 /// undetermined. The dense and sparse paths both returned round-off-pivot
 /// rotations with r(k·a) ≠ k·r(a). The model must be refused.
 #[test]
-#[ignore = "known wrong result: #1099"]
 fn connector_arm_mechanism_between_truss_nodes_is_refused() {
     for padded in [false, true] {
         let a = solve_2d(&arm_pair_2d(0.0, padded, 1.0));
@@ -493,5 +502,24 @@ fn connector_arm_pair_with_rotational_spring_solves() {
                 assert!((y[i] + 2.5 * x[i]).abs() <= 1e-12 * x[i].abs().max(1e-12), "padded={padded}: node {n} dof {i}: r(kA) {:e} vs k·r(A) {:e}", y[i], -2.5 * x[i]);
             }
         }
+    }
+}
+
+
+/// Negative control for #1099: a rotational spring support on node 3 holds
+/// θ_3. The θ_2 row (only the shear spring reaches it) gives δ = 0 and the θ_3
+/// row then k_z·θ_3 = 0, so θ_3 = 0 and θ_2 = 2·(c·(uz_2 − uz_3) −
+/// s·(ux_2 − ux_3))/L.
+#[test]
+fn connector_arm_with_one_rotation_held_solves() {
+    let (dx, dz): (f64, f64) = (-4.7992993868328675 - -0.6291861435879511, 0.13482899599091525 - 3.6260394623324252);
+    let l = (dx * dx + dz * dz).sqrt();
+    let (c, s) = (dx / l, dz / l);
+    for padded in [true, false] {
+        let a = solve_2d(&arm_pair_with_spring_2d(0.0, Some(300.0), padded, 1.0)).unwrap();
+        let ([ux2, uz2, ry2], [ux3, uz3, ry3]) = (disp_at(&a, 2), disp_at(&a, 3));
+        let twice = 2.0 * (c * (uz2 - uz3) - s * (ux2 - ux3)) / l;
+        assert!(twice.abs() > 1e-8, "padded={padded}: arm rotation {twice:e}");
+        assert!((ry2 - twice).abs() <= 1e-9 * twice.abs() && ry3.abs() <= 1e-9 * twice.abs(), "padded={padded}: ry2 {ry2:e} (expected {twice:e}), ry3 {ry3:e} (expected 0)");
     }
 }
