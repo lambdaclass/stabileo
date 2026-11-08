@@ -191,7 +191,7 @@ fn unrouted_lines(text: &str) -> (usize, Vec<usize>) {
         }
         let parses = t.contains("from_js_value") || t.contains("serde_json::from_");
         let annotated = t.contains(": SolverInput3D =") || t.contains(": types::SolverInput3D =") || t.contains(": crate::types::SolverInput3D =");
-        let turbofish = t.contains("::<SolverInput3D>") || t.contains("::<types::SolverInput3D>") || t.contains("::<crate::types::SolverInput3D>");
+        let turbofish = ["<SolverInput3D>", "<types::SolverInput3D>", "<crate::types::SolverInput3D>"].iter().any(|g| t.contains(g));
         let inferred_session = t.contains("LoadSession3D::from_input(") && !t.contains("ElasticInput3D");
         if (parses && (annotated || turbofish)) || inferred_session {
             unrouted.push(i + 1);
@@ -206,6 +206,7 @@ fn units_3d_routing_scan_catches_each_bypass() {
         "    let input: types::SolverInput3D = from_js_value(input)?;",
         "    let input = from_js_value::<types::SolverInput3D>(input)?;",
         "    let input = serde_json::from_str::<SolverInput3D>(json)",
+        "    let input: types::CableInput<types::SolverInput3D> = serde_json::from_str(json)",
         "    let input: SolverInput3D = serde_json::from_str(json).map_err(|e| e.to_string())?;",
         "        LoadSession3D::from_input(crate::from_js_value(input)?).map_err(|e| JsValue::from_str(&e))",
         "struct W {\n    pub solver: SolverInput3D,\n}",
@@ -214,6 +215,7 @@ fn units_3d_routing_scan_catches_each_bypass() {
     }
     for routed in [
         "    let input = from_js_value::<types::units::ElasticInput3D>(input)?.into_legacy();",
+        "    let input: types::CableInput<types::units::ElasticInput3D> = serde_json::from_str(json)",
         "        LoadSession3D::from_input(crate::from_js_value::<crate::types::units::ElasticInput3D>(input)?.into_legacy())",
         "struct W {\n    #[serde(deserialize_with = \"crate::types::units::deserialize_input_3d\")]\n    pub solver: SolverInput3D,\n}",
     ] {
