@@ -558,3 +558,26 @@ fn connector_free_twist_3d_is_refused_in_any_orientation() {
         assert!(e.contains("Connector 1") && e.contains("node(s) 2") && e.contains("mechanism"), "{name}: {e}");
     }
 }
+
+/// #1748 (Codex review): a collinear connector A–B with shear and torsion
+/// springs followed by an unreleased frame B–C, every translation restrained
+/// and no rotation held. Twisting A, B and C together about the common axis
+/// costs no energy, though the rotation block of A and B alone is regular; the
+/// check follows the frame to C and refuses it.
+#[test]
+fn connector_mechanism_through_a_frame_3d_is_refused() {
+    let pin = vec![true, true, true, false, false, false];
+    let mut input = make_3d_input(
+        vec![(1, 0.0, 0.0, 0.0), (2, 2.0, 0.0, 0.0), (3, 5.0, 0.0, 0.0)],
+        vec![(1, 200_000.0, 0.3)],
+        vec![(1, 0.01, 2e-4, 1e-4, 1e-4)],
+        vec![(1, "frame", 2, 3, 1, 1)],
+        vec![(1, pin.clone()), (2, pin.clone()), (3, pin)],
+        vec![],
+    );
+    input.connectors.insert("1".into(), ConnectorElement {
+        id: 1, node_i: 1, node_j: 2, k_axial: 1e4, k_shear: 2e3, k_moment: 900.0, k_shear_z: 3e3, k_bend_y: 0.0, k_bend_z: 0.0,
+    });
+    let e = solve_3d(&input).err().expect("common twist of nodes 1, 2 and 3 is free");
+    assert!(e.contains("Connector 1") && e.contains("node(s) 1, 2") && e.contains("mechanism"), "{e}");
+}
