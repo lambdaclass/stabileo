@@ -126,7 +126,7 @@ describe('Cb: the engine against the TypeScript it replaced', () => {
       for (const k of ['cb', 'mMax', 'mA', 'mB', 'mC'] as const) {
         const same = kind === 'same'
           ? Object.is(zero(ts[k]), zero(rs[k]))
-          : Math.abs(ts[k] - rs[k]) <= 1e-12 * Math.max(Math.abs(ts.mMax), Math.abs(ts.cb));
+          : Math.abs(ts[k] - rs[k]) <= 1e-12 * (k === 'cb' ? Math.max(1, Math.abs(ts.cb)) : Math.max(Math.abs(ts.mMax), Number.MIN_VALUE));
         if (!same) mismatches.push(`${kind} ${k}: ${ts[k]} vs ${rs[k]} for ${JSON.stringify(input)}`);
       }
       for (const k of ['basis', 'reasonKey', 'curvature'] as const) {

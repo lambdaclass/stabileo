@@ -1,9 +1,20 @@
 {
   "id": "cb-segment-ends",
   "date": "2026-11-08",
-  "prs": [1718],
+  "prs": [
+    1718
+  ],
   "area": "design",
-  "when": { "any": ["steelCirsoc301"] },
+  "when": {
+    "allOf": [
+      [
+        "steelCirsoc301"
+      ],
+      [
+        "steelDeclaredUnbracedLength"
+      ]
+    ]
+  },
   "title": {
     "en": "Cb of the CIRSOC 301 check reads the moment at both ends of the unbraced segment",
     "es": "El Cb de la verificación CIRSOC 301 lee el momento en ambos extremos del segmento no arriostrado",
@@ -13,12 +24,12 @@
     "tr": "CIRSOC 301 denetimindeki Cb, desteksiz bölümün iki ucundaki momenti okuyor"
   },
   "explanation": {
-    "en": "When a declared unbraced length was shorter than the member, Cb (Ec. F.1-1) was read over the stations inside that segment only, not the moment interpolated at its ends. A sign change at an end was missed, so a channel or tee in double curvature, for which §F.1(4) requires Cb = 1, could get a computed Cb of 2.5. A larger moment at an end was also left out of Mmáx. Cb is now computed by the engine, and reads both segment ends. Members whose unbraced length is the whole member give the same numbers.",
-    "es": "Cuando una longitud no arriostrada declarada era menor que la barra, Cb (Ec. F.1-1) se leía solo en las estaciones dentro de ese segmento, sin el momento interpolado en sus extremos. Un cambio de signo en un extremo pasaba inadvertido, así que un perfil U o T en doble curvatura, para el que §F.1(4) exige Cb = 1, podía recibir un Cb calculado de 2,5. Un momento mayor en un extremo también quedaba fuera de Mmáx. Cb lo calcula ahora el motor y lee ambos extremos del segmento. Las barras cuya longitud no arriostrada es la barra entera dan los mismos números.",
-    "pt": "Quando um comprimento não contraventado declarado era menor que a barra, Cb (Ec. F.1-1) era lido apenas nas estações dentro desse segmento, sem o momento interpolado nas suas extremidades. Uma mudança de sinal numa extremidade passava despercebida, de modo que um perfil U ou T em dupla curvatura, para o qual a §F.1(4) exige Cb = 1, podia receber um Cb calculado de 2,5. Um momento maior numa extremidade também ficava fora de Mmáx. Cb agora é calculado pelo motor e lê as duas extremidades do segmento. Barras cujo comprimento não contraventado é a barra inteira dão os mesmos números.",
-    "de": "War eine angegebene nicht ausgesteifte Länge kürzer als der Stab, wurde Cb (Gl. F.1-1) nur an den Stationen innerhalb dieses Abschnitts gelesen, ohne das an seinen Enden interpolierte Moment. Ein Vorzeichenwechsel an einem Ende blieb unbemerkt, sodass ein U- oder T-Profil mit doppelter Krümmung, für das §F.1(4) Cb = 1 verlangt, ein berechnetes Cb von 2,5 erhalten konnte. Ein größeres Moment an einem Ende fehlte auch in Mmáx. Cb wird jetzt von der Engine berechnet und liest beide Abschnittsenden. Stäbe, deren nicht ausgesteifte Länge der ganze Stab ist, ergeben dieselben Zahlen.",
-    "fr": "Lorsqu’une longueur non maintenue déclarée était plus courte que la barre, Cb (éq. F.1-1) n’était lu qu’aux stations à l’intérieur de ce tronçon, sans le moment interpolé à ses extrémités. Un changement de signe à une extrémité passait inaperçu, de sorte qu’un profilé U ou T en double courbure, pour lequel le §F.1(4) impose Cb = 1, pouvait recevoir un Cb calculé de 2,5. Un moment plus grand à une extrémité était aussi omis de Mmáx. Cb est désormais calculé par le moteur et lit les deux extrémités du tronçon. Les barres dont la longueur non maintenue est la barre entière donnent les mêmes valeurs.",
-    "tr": "Beyan edilen desteksiz boy çubuktan kısa olduğunda Cb (Denk. F.1-1) yalnızca o bölümün içindeki istasyonlarda okunuyor, uçlarında enterpole edilen moment okunmuyordu. Bir uçtaki işaret değişimi gözden kaçıyordu; bu yüzden §F.1(4)'ün Cb = 1 istediği çift eğrilikteki bir U veya T profil, 2,5'lik hesaplanmış bir Cb alabiliyordu. Bir uçtaki daha büyük moment de Mmáx'a girmiyordu. Cb artık motor tarafından hesaplanıyor ve bölümün iki ucunu da okuyor. Desteksiz boyu çubuğun tamamı olan çubuklar aynı sayıları verir."
+    "en": "When a declared unbraced length was shorter than the member, Cb (Ec. F.1-1) was read over the stations inside that segment only, not the moment interpolated at its ends. A sign change at an end was missed, so a channel or tee in double curvature, where §F.1(4) requires both flanges to be checked and the app therefore takes the conservative Cb = 1, could get a computed Cb of 2.5. A larger moment at an end was also left out of Mmáx. Cb is now computed by the engine, and reads both segment ends. Members whose unbraced length is the whole member give the same numbers.",
+    "es": "Cuando una longitud no arriostrada declarada era menor que la barra, Cb (Ec. F.1-1) se leía solo en las estaciones dentro de ese segmento, sin el momento interpolado en sus extremos. Un cambio de signo en un extremo pasaba inadvertido, así que un perfil U o T en doble curvatura, donde §F.1(4) exige verificar ambas alas y la aplicación toma por eso el valor conservador Cb = 1, podía recibir un Cb calculado de 2,5. Un momento mayor en un extremo también quedaba fuera de Mmáx. Cb lo calcula ahora el motor y lee ambos extremos del segmento. Las barras cuya longitud no arriostrada es la barra entera dan los mismos números.",
+    "pt": "Quando um comprimento não contraventado declarado era menor que a barra, Cb (Ec. F.1-1) era lido apenas nas estações dentro desse segmento, sem o momento interpolado nas suas extremidades. Uma mudança de sinal numa extremidade passava despercebida, de modo que um perfil U ou T em dupla curvatura, onde a §F.1(4) exige verificar as duas mesas e o aplicativo por isso adota o valor conservador Cb = 1, podia receber um Cb calculado de 2,5. Um momento maior numa extremidade também ficava fora de Mmáx. Cb agora é calculado pelo motor e lê as duas extremidades do segmento. Barras cujo comprimento não contraventado é a barra inteira dão os mesmos números.",
+    "de": "War eine angegebene nicht ausgesteifte Länge kürzer als der Stab, wurde Cb (Gl. F.1-1) nur an den Stationen innerhalb dieses Abschnitts gelesen, ohne das an seinen Enden interpolierte Moment. Ein Vorzeichenwechsel an einem Ende blieb unbemerkt, sodass ein U- oder T-Profil mit doppelter Krümmung, für das §F.1(4) den Nachweis beider Gurte verlangt und die App deshalb das konservative Cb = 1 ansetzt, ein berechnetes Cb von 2,5 erhalten konnte. Ein größeres Moment an einem Ende fehlte auch in Mmáx. Cb wird jetzt von der Engine berechnet und liest beide Abschnittsenden. Stäbe, deren nicht ausgesteifte Länge der ganze Stab ist, ergeben dieselben Zahlen.",
+    "fr": "Lorsqu’une longueur non maintenue déclarée était plus courte que la barre, Cb (éq. F.1-1) n’était lu qu’aux stations à l’intérieur de ce tronçon, sans le moment interpolé à ses extrémités. Un changement de signe à une extrémité passait inaperçu, de sorte qu’un profilé U ou T en double courbure, pour lequel le §F.1(4) impose de vérifier les deux semelles et où l’application retient donc la valeur prudente Cb = 1, pouvait recevoir un Cb calculé de 2,5. Un moment plus grand à une extrémité était aussi omis de Mmáx. Cb est désormais calculé par le moteur et lit les deux extrémités du tronçon. Les barres dont la longueur non maintenue est la barre entière donnent les mêmes valeurs.",
+    "tr": "Beyan edilen desteksiz boy çubuktan kısa olduğunda Cb (Denk. F.1-1) yalnızca o bölümün içindeki istasyonlarda okunuyor, uçlarında enterpole edilen moment okunmuyordu. Bir uçtaki işaret değişimi gözden kaçıyordu; bu yüzden §F.1(4)'ün iki başlığın da denetlenmesini istediği ve uygulamanın bu nedenle güvenli tarafta Cb = 1 aldığı çift eğrilikteki bir U veya T profil, 2,5'lik hesaplanmış bir Cb alabiliyordu. Bir uçtaki daha büyük moment de Mmáx'a girmiyordu. Cb artık motor tarafından hesaplanıyor ve bölümün iki ucunu da okuyor. Desteksiz boyu çubuğun tamamı olan çubuklar aynı sayıları verir."
   },
   "changelog": {
     "file": "docs/results-changes/cb-segment-ends.md",

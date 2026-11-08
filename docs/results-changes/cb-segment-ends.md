@@ -9,9 +9,10 @@ a window of that length, and the window's ends generally fall between stations. 
 interpolated the quarter points but never the window's ends.
 
 - **Missed double curvature.** A channel with stations (t, M) = (0, −100), (0.25, 100), (0.5, 0),
-  (0.75, 0), (1, 0) read over [0.1, 0.9] starts at −20 kN·m and reaches +100 kN·m. §F.1(4)
-  requires Cb = 1 in double curvature for a singly symmetric section. The old read reported
-  single curvature and Cb = 2.55, so the lateral-torsional buckling capacity was overstated.
+  (0.75, 0), (1, 0) read over [0.1, 0.9] starts at −20 kN·m and reaches +100 kN·m. For a singly
+  symmetric section in double curvature §F.1(4) requires lateral-torsional buckling to be checked
+  for both flanges. The app computes one Mn, so it takes the conservative Cb = 1 there. The old
+  read reported single curvature and Cb = 2.55, so the capacity was overstated.
 - **Missed maximum.** A larger moment at a window end was left out of Mmáx, which understated Cb.
 
 The engine (`engine/src/postprocess/cirsoc301_inputs.rs`) now adds the interpolated moment at

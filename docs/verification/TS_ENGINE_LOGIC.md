@@ -534,7 +534,8 @@ fixed-ended, linear and reversing diagrams (`engine/tests/cirsoc301_inputs.rs`);
 scaling, sign, reversal and refinement (`engine/tests/metamorphic/steel_inputs.rs`). Parity:
 38 760 inputs. 37 029 are bit-identical. 379 differ on purpose: the engine also reads the moment
 interpolated at both segment ends, which the TypeScript missed. A sign change there is double
-curvature, so a channel got Cb = 2.55 where §F.1(4) requires 1. Those 379 agree to 1e-12 with
+curvature, where §F.1(4) requires both flanges to be checked and the app takes Cb = 1, yet a
+channel got Cb = 2.55. Those 379 agree to 1e-12 with
 the oracle run on the stations plus the two interpolated ends. The other 1 352 have fewer than
 three stations in the window and give Cb = 1 on both sides. The fix is the results change
 `cb-segment-ends`. A non-finite diagram is now refused instead of giving Cb = NaN. Not moved, and the next slice to take:
