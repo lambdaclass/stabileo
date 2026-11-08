@@ -3,7 +3,6 @@
   import DataTable from '../DataTable.svelte';
   import { t, tp, capitalized } from '../../lib/i18n';
   import { selectShellFamily } from '../../lib/engine/shell-family-selector';
-  import ProMesher from './ProMesher.svelte';
   import ProSurfaces from './ProSurfaces.svelte';
   import type { ShellRecommendation } from '../../lib/engine/types-3d';
   import type { Vec3 } from '../../lib/engine/shell-family-selector';
@@ -11,6 +10,8 @@
   import { createPlate, plateOfShell } from '../../lib/store/physical-plates';
   import PlatePanel from './plates/PlatePanel.svelte';
   import PlateList from './plates/PlateList.svelte';
+  import LooseShells from './plates/LooseShells.svelte';
+  import CirclePlateForm from './plates/CirclePlateForm.svelte';
   import WriteInPanelButton from './WriteInPanelButton.svelte';
   import WriteCard from './WriteCard.svelte';
   import Icon from '../ribbon/Icon.svelte';
@@ -189,7 +190,8 @@
     newCurved = false;
   }
 
-  let showMeshGen = $state(false);
+  let showCircle = $state(false);
+  let showSurfaces = $state(false);
 
 
 
@@ -224,6 +226,7 @@
   </div>
 
   <div class="pro-shells-scroll">
+    <LooseShells />
     <PlatePanel />
     {#if uiStore.selectedPlates.size === 0 && uiStore.selectedShells.size > 0}
       {@const owner = plateOfShell([...uiStore.selectedShells][0]!)}
@@ -348,20 +351,22 @@
       flight, landings and supports and designed (roadmap, review at the close of stage 1).
     -->
 
-    <!-- Quick mesh generator -->
     <div class="section">
-      <button class="section-toggle" onclick={() => showMeshGen = !showMeshGen}>
-        <span class="toggle-arrow">{showMeshGen ? '\u25BE' : '\u25B8'}</span>
-        {t('pro.meshGenerator')}
+      <button class="section-toggle" onclick={() => showCircle = !showCircle} data-testid="plate-circle-toggle">
+        <span class="toggle-arrow">{showCircle ? '\u25BE' : '\u25B8'}</span>
+        {t('plates.circle.title')}
       </button>
-      {#if showMeshGen}
-        <div class="section-body">
-          <ProMesher />
-          <div class="mesh-hint" style="margin-top: 8px; font-weight: 600;">{t('surface.title')}</div>
-          <ProSurfaces />
+      {#if showCircle}<div class="section-body"><CirclePlateForm /></div>{/if}
+    </div>
 
-          <!-- How shells connect & transfer load (lives with the mesh tool, the
-               place where node-sharing actually matters) -->
+    <div class="section">
+      <button class="section-toggle" onclick={() => showSurfaces = !showSurfaces} data-testid="surfaces-toggle">
+        <span class="toggle-arrow">{showSurfaces ? '\u25BE' : '\u25B8'}</span>
+        {t('surface.title')}
+      </button>
+      {#if showSurfaces}
+        <div class="section-body">
+          <ProSurfaces />
           <div class="shell-info">
             <button class="shell-info-toggle" onclick={() => showShellInfo = !showShellInfo}>
               <span>{showShellInfo ? '▾' : '▸'}</span> {t('pro.shellInfoTitle')}
@@ -378,7 +383,6 @@
         </div>
       {/if}
     </div>
-
 
     <!--
       ── Tools above, the shared table below ────────────────────────────

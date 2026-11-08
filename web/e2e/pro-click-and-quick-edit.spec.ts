@@ -83,10 +83,11 @@ test.describe('@smoke PRO click selection and the quick editor', () => {
     await card.getByTestId('qe-flip').click();
     const [n0, n1, n2, n3] = t0.nodes;
     await expect(card.getByTestId('qe-shell-nodes')).toHaveValue([n0, n3, n2, n1].join(', '));
-    const before = quads.length;
-    await card.getByTestId('qe-mesh-size').fill('0.25');
-    await card.getByTestId('qe-mesh').click();
-    await expect.poll(async () => (await page.evaluate(() => window.__stabileo.quadIds())).length).toBeGreaterThan(before);
+    await card.getByTestId('qe-to-plate').click();
+    await expect(page.getByTestId('plate-panel')).toBeVisible();
+    const sel = await page.evaluate(() => window.__stabileo.plateSelection());
+    expect(sel.plates).toHaveLength(1);
+    expect((await page.evaluate(() => window.__stabileo.plates())).find((p) => p.id === sel.plates[0])).toMatchObject({ status: 'current' });
   });
 
   test("the shells list edits a quad's nodes, and refuses three", async ({ pro: page }) => {

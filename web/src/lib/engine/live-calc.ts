@@ -13,7 +13,7 @@ import { knownIssueRefusal } from './known-issues';
  * stays thin.
  */
 
-import { meshDeferredSlabs, representFootprints } from '../model/building/deferred-slabs';
+import { platesFromMeshAtSolve } from '../store/plates-from-shells';
 import { platesNeedingMesh, preparePlatesForAnalysis } from '../store/physical-plates';
 import { noteBaseSolveInput } from '../store/result-provenance';
 import { syncDefinedLoadsForAnalysis } from '../store/defined-loads';
@@ -264,15 +264,9 @@ export async function runGlobalSolve(options: { directBase?: boolean } = {}): Pr
   // (`store/recheck.svelte.ts`): its single-solve publish stamps the project, so the stamp before it
   // is put back below. Every entry point, not only the re-check's re-run.
   const stampBefore = recheckStore.capture();
-  // Slabs placed to be meshed at the analysis get their mesh first, so what follows (the floor
-  // loads, the solve, the results, the slab design) reads the mesh (`deferred-slabs.ts`).
   if (uiStore.is3DWorkspace) {
-    // A slab meshed before its columns' sections were represented is meshed again with them
-    // (`column-footprints.ts`): held at one node, its load split is the mesh's, not the building's.
-    const f = representFootprints();
-    if (f.slabs > 0) uiStore.toast(tp('building.slabs.footprintsAtSolve', { n: f.slabs }), 'info');
-    const m = meshDeferredSlabs();
-    if (m.slabs > 0) uiStore.toast(tp('building.slabs.meshedAtSolve', { n: m.slabs, shells: m.shells }), 'info');
+    // A project saved before slabs were plates keeps them as shells waiting for the solve: made plates first.
+    platesFromMeshAtSolve();
     // Physical plates with no mesh or an out-of-date one (`store/physical-plates.ts`): meshed here,
     // once for the whole solve and before its inputs are taken, or the solve stops and says which.
     const p = preparePlatesForAnalysis();

@@ -60,22 +60,27 @@ test.describe('@smoke PRO plates and dynamics', () => {
     expect(s1.kz).toBeGreaterThan(0);
   });
 
-  test('the mesher meshes a circular plate with a hole, and a cylinder is placed with the ghost', async ({ pro: page }) => {
+  test('a circular plate with a hole is meshed from its panel, and a cylinder is placed with the ghost', async ({ pro: page }) => {
     await page.getByTestId('pr-stage-model').click();
     await page.getByTestId('pr-cmd-shells').click();
-    await page.getByRole('button', { name: /Generador de malla|Mesh generator|Gerador de malha/ }).click();
-    await page.getByTestId('ms-circle').check();
-    await page.getByTestId('ms-center').fill('0; 0; 0');
-    await page.getByTestId('ms-radius').fill('3');
-    await page.getByTestId('ms-add-hole').click();
-    await page.getByTestId('ms-hole-center-0').fill('1; 0; 0');
-    await page.getByTestId('ms-hole-r-0').fill('0.5');
-    await expect(page.getByTestId('ms-summary')).toBeVisible();
-    await page.getByTestId('ms-apply').click();
-    await expect(page.getByTestId('ms-done')).toBeVisible();
+    await page.getByTestId('plate-circle-toggle').click();
+    await page.getByTestId('plate-circle-center').fill('0; 0; 0');
+    await page.getByTestId('plate-circle-radius').fill('3');
+    await page.getByTestId('plate-circle-hole').check();
+    await page.getByTestId('plate-circle-hole-center').fill('1; 0; 0');
+    await page.getByTestId('plate-circle-hole-radius').fill('0.5');
+    await page.getByTestId('plate-circle-create').click();
+    await expect(page.getByTestId('plate-panel')).toBeVisible();
+    await page.getByTestId('plate-mesh-open').click();
+    await expect(page.getByTestId('plate-mesh-plan')).toBeVisible();
+    await page.getByTestId('plate-mesh-size').fill('0.5');
+    await page.getByTestId('plate-mesh-size').press('Tab');
+    await expect(page.getByTestId('plate-mesh-apply')).toBeEnabled();
+    await page.getByTestId('plate-mesh-apply').click();
+    await expect.poll(() => page.evaluate(() => window.__stabileo.quadIds().length)).toBeGreaterThan(20);
     const plate = await page.evaluate(() => window.__stabileo.quadIds().length);
-    expect(plate).toBeGreaterThan(20);
 
+    await page.getByTestId('surfaces-toggle').click();
     await page.getByTestId('sf-kind').selectOption('cylinder');
     await expect(page.getByTestId('sf-summary')).toBeVisible();
     await page.getByTestId('sf-place').click();

@@ -65,7 +65,11 @@ export interface PlateSurface {
    */
   arcMids?: number[];
   /** Set when the current mesh was made: what it was made from, and what it is. */
-  meshed?: { signature: string; cells: number; quality: MeshQuality };
+  meshed?: {
+    signature: string; cells: number; quality: MeshQuality;
+    /** Mesh nodes given the plain support both ends of their outline side carry, taken away with the mesh. */
+    supported?: number[];
+  };
 }
 
 export interface MeshQuality {

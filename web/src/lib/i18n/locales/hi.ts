@@ -2715,7 +2715,6 @@ const hi: Translations = {
   'pro.nPlatesQuads': '{plates} प्लेट, {quads} क्वाड',
   'pro.plateTriDKT': 'त्रिभुज प्लेट (DKT)',
   'pro.quadMITC4': 'क्वाड MITC4',
-  'pro.meshGenerator': 'जाल जनरेटर',
   'pro.meshHint': '4 कोने नोड (वामावर्त) और NxM उपविभाजन परिभाषित करें। मध्यवर्ती नोड और क्वाड स्वतः बनते हैं।',
   'pro.corners': 'कोने',
   'pro.subdivisions': 'उपविभाजन',

@@ -20,7 +20,7 @@
  * mesher's own grid, and the indicator still says what it says.
  *
  * Pure geometry in `footprintGrid`; the model edits in `tieFootprints` and `untieNodes`, inside
- * the caller's batch (`deferred-slabs.ts` `meshWithFootprints`).
+ * the caller's batch (`physical-plates.ts`, when a slab plate is meshed).
  */
 import { modelStore } from '../../store/model.svelte';
 import { planHalf } from './build-on-grid';

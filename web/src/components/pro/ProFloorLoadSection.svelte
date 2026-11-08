@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { plateSurfaceOf } from '../../lib/model/physical/plate';
   import Hint from './Hint.svelte';
   import PickKind from './PickKind.svelte';
   import QuantityInput from './loads/QuantityInput.svelte';
@@ -21,7 +22,7 @@
   const floorGroups = $derived([...modelStore.model.groups.values()].filter((g) => g.kind === 'floor' && (g.members.elements?.length ?? 0) > 0));
   const zones = $derived([...modelStore.model.groups.values()].filter((g) => g.kind === 'loadZone'));
   /** The slabs placed or recognised (`model/physical`): a load on one goes onto its shells. */
-  const slabs = $derived(physicalGroups().filter((g) => g.physical.kind === 'slab' && (g.members.quads?.length ?? 0) + (g.members.plates?.length ?? 0) > 0));
+  const slabs = $derived(physicalGroups().filter((g) => g.physical.kind === 'slab' && ((g.members.quads?.length ?? 0) + (g.members.plates?.length ?? 0) > 0 || !!plateSurfaceOf(g))));
   /** The levels to offer: the grid's, or else every elevation that has horizontal beams. */
   const levels = $derived.by(() => {
     const named = sortedLevels(modelStore.grid);
@@ -100,12 +101,15 @@
     ? expandDefinition(modelStore.model as unknown as DefinitionModel, def, own, -1, { leftHand: uiStore.axisConvention3D === 'leftHand' })
     : null);
   const result = $derived(preview?.result ?? null);
+  /** A slab plate waiting for its mesh takes its load now, which lands on its shells when it is meshed. */
+  const waitingPlate = $derived(def?.target.by === 'group' && def.distribution === 'slab' && !!plateSurfaceOf(modelStore.model.groups.get(def.target.groupId)));
+  const canAdd = $derived(!!def && !!preview && (preview.loads.length > 0 || waitingPlate));
 
   function add() {
-    if (!def || !preview || preview.loads.length === 0) return;
+    if (!def || !canAdd) return;
     const label = name.trim() || tp('floorLoad.defaultName', { n: [...modelStore.model.groups.values()].filter((g) => g.kind === 'floorLoad').length + 1 });
     addFloorLoadDef(label, def, own);
-    applied = tp('floorLoad.added', { name: label, n: preview.loads.length });
+    applied = tp('floorLoad.added', { name: label, n: preview?.loads.length ?? 0 });
     name = '';
   }
 
@@ -210,7 +214,7 @@
     <p class="fl-hint">{t(preview.problem === 'noZone' ? 'floorLoad.noZone' : 'floorLoad.none')}</p>
   {/if}
 
-  <button class="pk-btn pk-btn-primary" disabled={!preview || preview.loads.length === 0} onclick={add} data-testid="fl-apply">{t('floorLoad.add')}</button>
+  <button class="pk-btn pk-btn-primary" disabled={!canAdd} onclick={add} data-testid="fl-apply">{t('floorLoad.add')}</button>
   {#if applied}<p class="fl-hint" data-testid="fl-applied">{applied}</p>{/if}
 
   {#if defs.length}

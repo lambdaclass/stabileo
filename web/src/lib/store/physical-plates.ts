@@ -36,6 +36,8 @@ import { constraintNodes } from '../engine/steel/unbraced-length';
 import { meshBeforeAnalysis } from './mesh-policy.svelte';
 export { meshBeforeAnalysis };
 import type { FloorLoadDef } from '../model/loads/floor-definitions';
+import { columnFootprintsAt, footprintGrid, outsideFootprints, tieFootprints, untieNodes, type ColumnFootprint } from '../model/building/column-footprints';
+import { designData } from './design-data';
 import type { ModelGroup } from './model.svelte';
 
 export type PlateStatus = 'unmeshed' | 'current' | 'stale' | 'invalid';
@@ -137,6 +139,80 @@ function featuresOf(e: PlateEntry, spec: PlateMeshSpec = e.surface.mesh) {
   return { geo, features: externalFeatures(plateModel(), geo, owned, loopNodes, { mine, neighbours }) };
 }
 
+/** A plate's mesh settings as meshed: a waffle slab no coarser than its rib spacing, so each rib has its row of elements. */
+function specOf(e: PlateEntry, override?: Partial<PlateMeshSpec>): PlateMeshSpec {
+  const spec = { ...e.surface.mesh, ...(override ?? {}) };
+  const rib = e.physical.typology === 'waffle' ? designData().specialFloors?.systems?.[`S${e.id}`]?.ribbed : undefined;
+  return rib ? { ...spec, size: Math.min(spec.size, rib.spacingX, rib.spacingY ?? rib.spacingX) } : spec;
+}
+
+/**
+ * The columns a slab's mesh has to represent: a horizontal rectangle in plan with columns reaching
+ * it gets lines on their faces and its nodes inside each section tied to the column. Null for
+ * anything else, which meshes as it always did.
+ */
+function footprintsOf(e: PlateEntry, geo: NonNullable<ReturnType<typeof plateGeometry>>): { corners: Array<{ x: number; y: number; z: number }>; columns: ColumnFootprint[]; z: number } | null {
+  if (e.physical.kind !== 'slab' || geo.holes.length || geo.outer.length !== 4 || Math.abs(geo.frame.n[2]) < 1 - 1e-6) return null;
+  const corners = geo.outer.map((p) => ({ x: p[0], y: p[1], z: p[2] }));
+  const z = corners[0]!.z;
+  const columns = columnFootprintsAt(z);
+  if (!columns.length || !footprintGrid(corners, e.surface.mesh.size, columns)) return null;
+  const x0 = Math.min(...corners.map((c) => c.x)), x1 = Math.max(...corners.map((c) => c.x)), y0 = Math.min(...corners.map((c) => c.y)), y1 = Math.max(...corners.map((c) => c.y));
+  const near = columns.filter((c) => c.x > x0 - c.hx - 1e-6 && c.x < x1 + c.hx + 1e-6 && c.y > y0 - c.hy - 1e-6 && c.y < y1 + c.hy + 1e-6);
+  return near.length ? { corners, columns: near, z } : null;
+}
+
+const r6 = (v: number) => Math.round(v * 1e6) / 1e6;
+
+/** What a mesh is made from (`plateSignature`), with the column sections it represents. */
+function signatureOf(e: PlateEntry, f: NonNullable<ReturnType<typeof featuresOf>>, spec: PlateMeshSpec): string {
+  const fp = footprintsOf(e, f.geo);
+  return plateSignature(f.geo, spec, f.features) + (fp ? `#fp:${fp.columns.map((c) => `${r6(c.x)},${r6(c.y)},${r6(c.hx)},${r6(c.hy)}`).sort().join(';')}` : '');
+}
+
+/**
+ * The plate's shells as they are, taken as its current mesh: what a plate made from shells already in
+ * the model keeps, so its answer does not change until its definition does.
+ */
+export function adoptCurrentMesh(id: number): void {
+  const e = plateEntry(id);
+  const f = e ? featuresOf(e) : null;
+  if (!e || !f) return;
+  const cells: number[][] = [], index = new Map<number, number>(), points: Vec3[] = [];
+  const at = (n: number) => { let k = index.get(n); if (k === undefined) { const p = modelStore.nodes.get(n)!; k = points.push([p.x, p.y, p.z ?? 0]) - 1; index.set(n, k); } return k; };
+  for (const q of e.group.members.quads ?? []) { const sh = modelStore.quads.get(q); if (sh) cells.push(sh.nodes.map(at)); }
+  for (const q of e.group.members.plates ?? []) { const sh = modelStore.plates.get(q); if (sh) cells.push(sh.nodes.map(at)); }
+  if (!cells.length) return;
+  writeSurface(id, (s) => ({ ...s, meshed: { ...(s.meshed ?? {}), signature: signatureOf(e, f, specOf(e)), cells: cells.length, quality: meshQuality({ points, cells }) } }));
+}
+
+/** A plain support (a type and nothing else) at both ends of an outline side holds the whole side: the mesh's nodes on it get it too. */
+function supportSides(outer: readonly number[], created: readonly number[]): number[] {
+  const plain = (n: number) => {
+    const sp = [...modelStore.supports.values()].find((x) => x.nodeId === n);
+    return sp && Object.keys(sp).every((k) => k === 'id' || k === 'nodeId' || k === 'type') ? sp.type : undefined;
+  };
+  const added: number[] = [];
+  outer.forEach((a, i) => {
+    const b = outer[(i + 1) % outer.length]!;
+    const type = plain(a);
+    if (!type || plain(b) !== type) return;
+    const A = modelStore.nodes.get(a), B = modelStore.nodes.get(b);
+    if (!A || !B) return;
+    const d = [B.x - A.x, B.y - A.y, (B.z ?? 0) - (A.z ?? 0)], L2 = d[0]! ** 2 + d[1]! ** 2 + d[2]! ** 2;
+    if (L2 < 1e-18) return;
+    for (const n of created) {
+      const P = modelStore.nodes.get(n);
+      if (!P || plain(n) !== undefined) continue;
+      const w = [P.x - A.x, P.y - A.y, (P.z ?? 0) - (A.z ?? 0)];
+      const t = (w[0]! * d[0]! + w[1]! * d[1]! + w[2]! * d[2]!) / L2;
+      const off = Math.hypot(w[0]! - t * d[0]!, w[1]! - t * d[1]!, w[2]! - t * d[2]!);
+      if (t > 1e-6 && t < 1 - 1e-6 && off < 1e-6) { modelStore.addSupport(n, type); added.push(n); }
+    }
+  });
+  return added;
+}
+
 let statusMemo: { version: number; groups: unknown; map: Map<number, PlateStatus> } | null = null;
 
 /** Whether a plate has a mesh, and whether it is the one its definition asks for now. */
@@ -153,7 +229,7 @@ export function plateStatus(id: number): PlateStatus {
     const shells = (e.group.members.quads?.length ?? 0) + (e.group.members.plates?.length ?? 0);
     if (!f) s = 'invalid';
     else if (!e.surface.meshed || shells === 0) s = 'unmeshed';
-    else s = plateSignature(f.geo, e.surface.mesh, f.features) === e.surface.meshed.signature ? 'current' : 'stale';
+    else s = signatureOf(e, f, specOf(e)) === e.surface.meshed.signature ? 'current' : 'stale';
   }
   statusMemo.map.set(id, s);
   return s;
@@ -172,6 +248,8 @@ export interface NewPlate {
   arcMids?: number[];
   /** A side between two nodes a curved member joins follows the member (default true). */
   followArcs?: boolean;
+  /** Indices of the holes' nodes, counted through them all in order, that are points of curved sides. */
+  holeArcMids?: number[];
 }
 
 /** An outline with the sides a curved member joins made curved, through the member's middle node. */
@@ -197,7 +275,8 @@ export function createPlate(p: NewPlate): { id: number } | { problem: PlateProbl
   const problem = plateProblem(plateModel(), arcs.outline, holes, arcs.arcMids);
   if (problem) return { problem };
   p = { ...p, outline: arcs.outline };
-  const surface: PlateSurface = { loops: [p.outline.length, ...holes.map((h) => h.length)], materialId: p.materialId, thickness: p.thickness, mesh: { ...(p.mesh ?? DEFAULT_PLATE_MESH) }, ...(arcs.arcMids.length ? { arcMids: arcs.arcMids } : {}) };
+  const mids = [...arcs.arcMids, ...(p.holeArcMids ?? []).map((i) => p.outline.length + i)];
+  const surface: PlateSurface = { loops: [p.outline.length, ...holes.map((h) => h.length)], materialId: p.materialId, thickness: p.thickness, mesh: { ...(p.mesh ?? DEFAULT_PLATE_MESH) }, ...(mids.length ? { arcMids: mids } : {}) };
   const temp = { id: 0, members: { nodes: [...p.outline, ...holes.flat()] }, data: { surface } };
   const geo = plateGeometry(plateModel(), temp)!;
   const physical: PhysicalData & { surface: PlateSurface } = { kind: plateKindOf(geo), provenance: 'declared', surface };
@@ -215,6 +294,20 @@ function writeSurface(id: number, surface: PlateSurface | ((s: PlateSurface) => 
   if (!g || !d || !s) return;
   const next = typeof surface === 'function' ? surface(s) : surface;
   modelStore.setGroupData(id, { ...d, surface: next } as unknown as Record<string, unknown>);
+}
+
+/** A circular plate in plan, its outline and an optional circular hole each four arcs through eight new nodes; one undo step. */
+export function createCircularPlate(o: { center: Vec3; radius: number; hole?: { center: Vec3; radius: number }; materialId: number; thickness: number }): { id: number } | { problem: PlateProblem } {
+  const ring = (c: Vec3, r: number) => Array.from({ length: 8 }, (_, k) => modelStore.addNode(c[0] + r * Math.cos((k * Math.PI) / 4), c[1] + r * Math.sin((k * Math.PI) / 4), c[2]));
+  let out: { id: number } | { problem: PlateProblem } = { problem: 'needNodes' };
+  if (!(o.radius > 0) || (o.hole && !(o.hole.radius > 0))) return out;
+  modelStore.batch(() => {
+    const outline = ring(o.center, o.radius);
+    const holes = o.hole ? [ring(o.hole.center, o.hole.radius)] : [];
+    out = createPlate({ outline, holes, materialId: o.materialId, thickness: o.thickness, arcMids: [1, 3, 5, 7], followArcs: false, ...(o.hole ? { holeArcMids: [1, 3, 5, 7] } : {}) });
+    if ('problem' in out) for (const n of [...outline, ...holes.flat()]) modelStore.removeNode(n);
+  });
+  return out;
 }
 
 /** Change a plate's material or thickness, on its definition and its shells; one undo step. */
@@ -357,6 +450,8 @@ export interface PlateMeshPlan {
   mixed: boolean;
   /** A grid's mesh: its rectangles, the strip along the boundary, and the rectangles' sides as they came out. */
   grid?: { gridCells: number; bandCells: number; cellA: number; cellB: number };
+  /** The column sections a slab's mesh represents (`footprintsOf`). */
+  footprints?: { columns: ColumnFootprint[]; z: number };
 }
 
 /** Every node something holds; `except` a plate whose own outline and mesh do not count. */
@@ -416,12 +511,18 @@ export async function planPlateMeshes(ids: readonly number[], spec?: Partial<Pla
 export function planPlateMesh(id: number, specOverride?: Partial<PlateMeshSpec>): PlateMeshPlan | null {
   const e = plateEntry(id);
   if (!e) return null;
-  const spec = { ...e.surface.mesh, ...(specOverride ?? {}) };
+  const spec = specOf(e, specOverride);
   const base = { id, name: e.name, spec, localLoads: localLoadsOn(e), keptNodes: keptMeshNodes(e) };
   const f = featuresOf(e, spec);
   if (!f) return { ...base, mesh: null, refused: 'invalid', cells: 0, quality: null, signature: '', input: null, mixed: false };
   const input = plateMeshInput(f.geo, spec, f.features);
-  const signature = plateSignature(f.geo, spec, f.features);
+  const signature = signatureOf(e, f, spec);
+  const fp = footprintsOf(e, f.geo);
+  const fpMesh = fp ? footprintGrid(fp.corners, spec.size, fp.columns) : null;
+  if (fp && fpMesh) {
+    if (fpMesh.cells.length > MAX_MESH_CELLS) return { ...base, mesh: null, refused: 'tooManyCells', cells: fpMesh.cells.length, quality: null, signature, input, mixed: false };
+    return { ...base, mesh: fpMesh, cells: fpMesh.cells.length, quality: meshQuality(fpMesh), signature, input, mixed: false, footprints: { columns: fp.columns, z: fp.z } };
+  }
   // A plate far past the cap would be a long wait for a refusal: estimate from the area first.
   const estimate = plateAreaEstimate(f.geo, spec);
   if (estimate > MAX_MESH_CELLS * 1.5) return { ...base, mesh: null, refused: 'tooManyCells', cells: Math.round(estimate), quality: null, signature, input, mixed: false };
@@ -462,6 +563,9 @@ export function clearPlateMesh(id: number): { removedNodes: number; keptNodes: n
   const owned = new Set(loops.owned);
   let removedNodes = 0, keptNodes = 0;
   modelStore.batch(() => {
+    untieNodes(owned);
+    const spread = new Set(e.surface.meshed?.supported ?? []);
+    for (const sp of [...modelStore.supports.values()]) if (spread.has(sp.nodeId) && owned.has(sp.nodeId)) modelStore.removeSupport(sp.id);
     for (const q of e.group.members.quads ?? []) if (modelStore.quads.has(q)) modelStore.removeQuad(q);
     for (const p of e.group.members.plates ?? []) if (modelStore.plates.has(p)) modelStore.removePlate(p);
     // The members the mesh cut, whole again where the cut node is the mesh's and holds nothing else.
@@ -488,6 +592,8 @@ export function applyPlateMeshes(plans: readonly PlateMeshPlan[]): PlateMeshRepo
   const ok = plans.filter((p) => p.mesh && p.input);
   for (const p of plans) if (!p.mesh) report.refused.push({ id: p.id, reason: p.refused ?? 'cannotMesh' });
   if (!ok.length) return report;
+  const current = physicalPlates().filter((e) => plateStatus(e.id) === 'current').map((e) => e.id);
+  const meshed: number[] = [];
   modelStore.batch(() => {
     for (const [k, planned] of ok.entries()) {
       // After the first, each plate is planned again on the model as it now is, so it meets the
@@ -499,16 +605,22 @@ export function applyPlateMeshes(plans: readonly PlateMeshPlan[]): PlateMeshRepo
       report.droppedLocalLoads += p.localLoads;
       report.keptNodes += clearPlateMesh(p.id).keptNodes;
       const before = new Set(modelStore.nodes.keys());
-      const r = applyMesh(p.input!, { materialId: e.surface.materialId, thickness: e.surface.thickness, splitBeams: p.spec.followMembers }, p.mesh!);
+      const fp = p.footprints;
+      const r = applyMesh(p.input!, { materialId: e.surface.materialId, thickness: e.surface.thickness, splitBeams: p.spec.followMembers, ...(fp ? { splitAt: outsideFootprints(fp.columns, fp.z) } : {}) }, p.mesh!);
       if (!r || r.occupied) { report.refused.push({ id: p.id, reason: 'occupied' }); continue; }
       const created = [...new Set(r.nodeIds)].filter((n) => !before.has(n));
+      if (fp) tieFootprints(new Set(r.nodeIds), fp.columns);
       const g = modelStore.model.groups.get(p.id)!;
       const loops = plateLoops(g);
+      const supported = supportSides(loops.outer, created);
       modelStore.setGroupMembers(p.id, { ...g.members, nodes: [...loops.outer, ...loops.holes.flat(), ...created], quads: r.quads, plates: r.plates });
-      writeSurface(p.id, (s) => ({ ...s, mesh: p.spec, meshed: { signature: p.signature, cells: r.quads.length + r.plates.length, quality: p.quality! } }));
+      writeSurface(p.id, (s) => ({ ...s, mesh: p.spec, meshed: { signature: p.signature, cells: r.quads.length + r.plates.length, quality: p.quality!, ...(supported.length ? { supported } : {}) } }));
       report.plates++;
       report.cells += r.quads.length + r.plates.length;
+      meshed.push(p.id);
     }
+    // Each mesh after the first met the ones put in before it, which reads them out of date by their neighbours' nodes alone.
+    for (const id of new Set([...meshed, ...current])) if (plateStatus(id) === 'stale') adoptCurrentMesh(id);
   });
   return report;
 }

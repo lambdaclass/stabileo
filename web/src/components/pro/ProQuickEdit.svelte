@@ -18,9 +18,9 @@
   import { t, tp } from '../../lib/i18n';
   import EditorCard from '../EditorCard.svelte';
   import { quickEdit } from '../../lib/store/pro-quick-edit.svelte';
-  import { setShellProperties } from '../../lib/store/physical-plates';
+  import { plateOfShell, setShellProperties } from '../../lib/store/physical-plates';
   import { AXIAL_CHOICES, axialOf, setAxial, type Axial } from '../../lib/pro/member-axial';
-  import { meshQuad } from '../../lib/model/edit/mesh-region';
+  import { platesFromShells } from '../../lib/store/plates-from-shells';
   import { parseIdList } from '../../lib/model/select-ops';
   import QuantityInput from './loads/QuantityInput.svelte';
 
@@ -122,20 +122,15 @@
     if (plates.length) uiStore.toast(tp('plates.editedWhole', { names: plates.map((id) => modelStore.model.groups.get(id)?.name ?? `#${id}`).join(', '), n: plates.length }), 'info');
   }
 
-  /**
-   * Mesh a quad into a grid of the size given, welded to the members around it; one undo step.
-   * The mesh keeps the quad's loads and groups (`meshQuad`); a region the mesher refuses leaves
-   * the quad as it was.
-   */
-  let meshSize = $state(0.5);
-  let meshNote = $state<string | null>(null);
-  function mesh() {
-    if (!shell || target?.kind !== 'quad' || !(meshSize > 0)) return;
-    const r = meshQuad(shell.id, { density: { mode: 'targetSize', size: meshSize }, splitBeams: true });
-    if (!r) return;
-    if ('refused' in r) { uiStore.toast(t(r.refused === 'occupied' ? 'mesher.occupied' : 'mesher.failed'), 'error'); return; }
-    meshNote = tp('quickEdit.meshed', { n: r.quadCount });
-    uiStore.toast(meshNote, 'success');
+  /** A loose shell made a plate, or a plate's shell, opened as the plate in the Plates panel, where it is meshed. */
+  function toPlate() {
+    if (!shell || !target) return;
+    const key = `${target.kind === 'plate' ? 'p' : 'q'}${shell.id}`;
+    const ids = plateOfShell(key) !== null ? [plateOfShell(key)!] : platesFromShells([key]);
+    if (!ids.length) { uiStore.toast(t('plates.convertFailed'), 'error'); return; }
+    uiStore.shellPickScope = 'plate';
+    uiStore.selectPlates(ids);
+    uiStore.proActiveTab = 'shells';
     quickEdit.close();
   }
 </script>
@@ -201,15 +196,8 @@
           </label>
         </div>
         <button class="qe-btn" onclick={flip} title={t('quickEdit.flipHint')} data-testid="qe-flip">{t('quickEdit.flip')}</button>
-        {#if target.kind === 'quad'}
-          <div class="qe-row">
-            <label class="qe-field qe-narrow"><span>{t('quickEdit.meshSize')}</span>
-              <QuantityInput min={0.05} bind:value={meshSize} quantity="length" cls="qe-num" testid="qe-mesh-size" />
-            </label>
-            <button class="qe-btn" onclick={mesh} disabled={!(meshSize > 0)} data-testid="qe-mesh">{t('quickEdit.mesh')}</button>
-          </div>
-          <Hint text={t('quickEdit.meshHint')} />
-        {/if}
+        <button class="qe-btn" onclick={toPlate} data-testid="qe-to-plate">{t(plateOfShell(`${target.kind === 'plate' ? 'p' : 'q'}${shell.id}`) !== null ? 'quickEdit.meshPlate' : 'quickEdit.toPlate')}</button>
+        <Hint text={t('quickEdit.toPlateHint')} />
       {/if}
     </div>
   </EditorCard>

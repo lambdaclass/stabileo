@@ -328,8 +328,6 @@ export const SAME_AS_ENGLISH: readonly string[] = [
   'memo.el.material',
   'memo.ficha.symbol',
   'memo.summary.element',
-  'mesher.auto',
-  'mesher.polygon',
   'moving.vehicleName',
   'osnap.quadrant',
   'otherCodes.code.aci318',

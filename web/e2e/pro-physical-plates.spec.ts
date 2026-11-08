@@ -184,3 +184,27 @@ test('@smoke Diagnostics opens from the Analyse row and lists a plate with no me
   await expect(page.getByTestId('pr-cmd-diagnostics')).toHaveClass(/\bactive\b/);
   await expect(page.locator('.diag-item').filter({ hasText: /no mesh|sin malla|sem malha/ })).toHaveCount(1);
 });
+
+test('@smoke the shells of an example become plates, keep their mesh, and mesh again from the panel', async ({ pro: page }) => {
+  await loadModel(page, 'pro-edificio-7p');
+  await page.getByTestId('pr-stage-model').click();
+  await page.getByTestId('pr-cmd-shells').click();
+  await expect(page.getByTestId('plates-loose')).toBeVisible();
+  const before = await quads(page);
+  await page.getByTestId('plates-convert-all').click();
+  await expect(page.getByTestId('plates-loose')).toBeHidden();
+  const made = await plates(page);
+  expect(made.length).toBeGreaterThan(10);
+  expect(made.every((p) => p.status === 'current')).toBe(true);
+  expect(made.reduce((s, p) => s + p.shells, 0)).toBe(before);
+  expect(await quads(page)).toBe(before);
+  expect((await sel(page)).plates).toHaveLength(made.length);
+
+  await page.getByTestId('plate-mesh-open').click();
+  await page.getByTestId('plate-mesh-size').fill('0.5');
+  await page.getByTestId('plate-mesh-size').press('Tab');
+  await expect(page.getByTestId('plate-mesh-apply')).toBeEnabled();
+  await page.getByTestId('plate-mesh-apply').click();
+  await expect.poll(() => quads(page), { timeout: 60_000 }).toBeGreaterThan(before * 4); // slow-ok: meshes every plate of the seven-storey building at once
+  expect((await plates(page)).every((p) => p.status === 'current')).toBe(true);
+});
