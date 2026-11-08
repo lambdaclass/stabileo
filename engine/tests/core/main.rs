@@ -21,5 +21,6 @@ mod thermal_3d;
 mod truss_loads;
 mod constrained_sparse;
 mod units_boundary_3d;
+mod units_boundary_nodes_loads;
 
 mod modal_orthogonality;
