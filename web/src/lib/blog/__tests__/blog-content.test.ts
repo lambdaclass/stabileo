@@ -363,7 +363,7 @@ describe('the safety-advisories post quotes the advisories', () => {
     expect(summary.rows.map((r) => r[0]).sort()).toEqual(ids);
   });
 
-  it.fails('known wrong result: #1782 — lists every advisory in every written language', async () => {
+  it('known wrong result: #1782 — lists every advisory in every written language', async () => {
     const { readdirSync } = await import('node:fs');
     const { join } = await import('node:path');
     const ids = readdirSync(join(__dirname, '../../../../../docs/advisories'))

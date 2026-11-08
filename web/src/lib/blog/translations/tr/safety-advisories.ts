@@ -14,7 +14,7 @@ const body: PostBody = {
     },
     {
       "k": "note",
-      "t": "28 Ekim 2026 itibarıyla durum: SA-2026-001 ile 020 arası 0.3.0 sürümünde, SA-2026-021 ile 024 arası 0.4.0 sürümünde düzeltildi (stabileo.com'da yayında; SA-2026-021 ve 022 22 Ekim'den, SA-2026-023 ve 024 ise 25 ve 26 Ekim'den beri). Bunları yayımlamak, sonuçları nasıl doğruladığımızın bir parçasıdır; hâlâ açık oldukları anlamına gelmez. Bir uyarı, değişikliğin var olmasıyla değil, düzeltme stabileo.com'da yayına girdiğinde düzeltilmiş sayılır. Bir uyarı açık olduğu sürece önerilen geçici çözümü uygulayın ve imzalamadan önce etkilenen sonucu elle kontrol edin."
+      "t": "8 Kasım 2026 itibarıyla durum: SA-2026-001 ile 020 arası 0.3.0 sürümünde, SA-2026-021 ile 024 arası 0.4.0 sürümünde düzeltildi (stabileo.com'da yayında; SA-2026-021 ve 022 22 Ekim'den, SA-2026-023 ve 024 ise 25 ve 26 Ekim'den beri). SA-2026-051 ve SA-2026-052 taslaktır: PR #1783 içindeki düzeltmeleri henüz yayımlanmadı veya canlıya alınmadı. Bunları yayımlamak, sonuçları nasıl doğruladığımızın bir parçasıdır; hâlâ açık oldukları anlamına gelmez. Bir uyarı, değişikliğin var olmasıyla değil, düzeltme stabileo.com'da yayına girdiğinde düzeltilmiş sayılır. Bir uyarı açık olduğu sürece önerilen geçici çözümü uygulayın ve imzalamadan önce etkilenen sonucu elle kontrol edin."
     },
     {"k": "img", "base": "blog/recheck-stale", "w": 1600, "h": 1000, "alt": "Sonuçlar sürümlenmeden önce kaydedilmiş bir betonarme çerçeve ile Stabileo PRO. Alttaki bir şerit, projenin eski bir sürümle çözüldüğünü ve kayıtlı 19 değişikliğin onu ilgilendirdiğini, yani sonuçların eskidiğini söylüyor; yanında neyin değiştiğini görme ve yeniden çözme düğmeleri var.", "caption": "Bir düzeltme kayıtlı bir projeye böyle ulaşır: yeniden çözülene kadar sonuçları eskimiş olarak işaretli kalır ve onu ilgilendiren değişiklikler bir tık uzaktadır."},
     {
@@ -174,6 +174,18 @@ const body: PostBody = {
           "CIRSOC 301 çelik: Cb, çubuktan kısa beyan edilen desteksiz boyun uçlarındaki işaret değişimini görmüyordu (çift eğrilikteki bir U profil 1 yerine Cb = 2,55 aldı, yanal burulmalı burkulma kapasitesi olduğundan yüksek çıktı); 0.2.0 ile 0.5.0 arası, masaüstü alfa sürümleri ve 8 Kasım 2026'ya kadar stabileo.com",
           "Yüksek",
           "0.5.0'dan sonra düzeltildi; 8 Kasım 2026'dan beri stabileo.com'da"
+        ],
+        [
+          "SA-2026-051",
+          "3D hareketli yükler: zarflar, çubuk içindeki kesit tesiri tepe değerlerini atlıyor ve eğimli çubuklarda dingil ağırlığının eksenel bileşenini kaybediyordu; talep uyarı verilmeden düşük hesaplanabiliyordu; 0.2.0 ile 0.5.0 arası ve desktop-v0.1.0-alpha.1 ile alpha.3 arası",
+          "Yüksek",
+          "Taslak: düzeltme bu dalda, 0.5.0 sonrası; henüz yayımlanmadı veya canlıya alınmadı"
+        ],
+        [
+          "SA-2026-052",
+          "Motorun 2D ve 3D hareketli yükleri: kalıcı kısmi eksenel yayılı yükler içeren eksenel kuvvet zarfları, örnekleme noktaları arasındaki yük bölgesi sınırlarında uç değerleri atlayabiliyordu; talep uyarı verilmeden düşük hesaplanabiliyordu; yayımlanmış sürümler için bir sınır ileri sürülmüyor",
+          "Yüksek",
+          "Taslak: düzeltme PR #1783 içinde, 0.5.0 sonrası; henüz yayımlanmadı veya canlıya alınmadı"
         ],
         [
           "SA-2026-037",
