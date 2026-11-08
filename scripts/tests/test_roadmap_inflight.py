@@ -63,7 +63,7 @@ class RoadmapInflight(unittest.TestCase):
         self.assertIn("(/@\\<sha\\>/), \\*bold\\* \\`code\\` \\[x\\](y)", out)
 
     def test_empty_list_says_so(self):
-        self.assertEqual(inflight.table([]), "No pull requests are open.")
+        self.assertEqual(inflight.table([]), "No pull requests into main are open, apart from Dependabot updates.")
 
     def test_missing_markers_fail(self):
         with self.assertRaises(SystemExit):

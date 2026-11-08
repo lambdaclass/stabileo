@@ -32,7 +32,7 @@ def table(prs):
     order = {"ready": 0, "draft": 1, "parked": 2}
     rows.sort(key=lambda pr: (order[state_of(pr)], -pr["number"]))
     if not rows:
-        return "No pull requests are open."
+        return "No pull requests into main are open, apart from Dependabot updates."
     out = ["| PR | What | State |", "|---|---|---|"]
     for pr in rows:
         n = pr["number"]

@@ -33,7 +33,7 @@ one in [`CONTAINMENT.md`](../verification/CONTAINMENT.md). Wrong results come fi
 
 ### In flight
 
-The open pull requests, rewritten by `make roadmap.inflight`.
+The open pull requests into main, apart from Dependabot updates, rewritten by `make roadmap.inflight`.
 
 <!-- inflight:start -->
 | PR | What | State |
