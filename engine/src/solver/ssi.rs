@@ -144,6 +144,7 @@ pub struct SSIInput {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SSIInput3D {
+    #[serde(deserialize_with = "crate::types::units::deserialize_input_3d")]
     pub solver: SolverInput3D,
     pub soil_springs: Vec<SoilSpring>,
     #[serde(default = "default_max_iter")]

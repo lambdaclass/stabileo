@@ -27,6 +27,50 @@
 //!     input.sections.get_mut("1").unwrap().a = Length::from_m(0.01);
 //! }
 //! ```
+//! The 3D WASM boundary records accept each quantity in its own unit:
+//! ```
+//! use dedaliano_engine::types::units::*;
+//! fn right(input: &mut ElasticInput3D) {
+//!     let s = input.sections.get_mut("1").unwrap();
+//!     s.iy = SecondMoment::from_m4(1e-4);
+//!     s.j = SecondMoment::from_m4(1e-5);
+//!     s.cw = Some(WarpingConstant::from_m6(1e-9));
+//!     s.as_z = Some(Area::from_m2(0.004));
+//!     s.shear_center_y = Some(Length::from_m(-0.02));
+//!     input.materials.get_mut("1").unwrap().e = ModulusMPa::from_mpa(200_000.0);
+//! }
+//! ```
+//! and reject the wrong ones:
+//! ```compile_fail
+//! use dedaliano_engine::types::units::{ElasticInput3D, Area};
+//! fn wrong(input: &mut ElasticInput3D) {
+//!     input.sections.get_mut("1").unwrap().iy = Area::from_m2(0.01);
+//! }
+//! ```
+//! ```compile_fail
+//! use dedaliano_engine::types::units::{ElasticInput3D, SecondMoment};
+//! fn wrong(input: &mut ElasticInput3D) {
+//!     input.sections.get_mut("1").unwrap().cw = Some(SecondMoment::from_m4(1e-6));
+//! }
+//! ```
+//! ```compile_fail
+//! use dedaliano_engine::types::units::{ElasticInput3D, Area};
+//! fn wrong(input: &mut ElasticInput3D) {
+//!     input.sections.get_mut("1").unwrap().shear_center_y = Some(Area::from_m2(0.01));
+//! }
+//! ```
+//! ```compile_fail
+//! use dedaliano_engine::types::units::{ElasticInput3D, Modulus};
+//! fn wrong(input: &mut ElasticInput3D) {
+//!     input.materials.get_mut("1").unwrap().e = Modulus::from_kn_per_m2(200e6);
+//! }
+//! ```
+//! ```compile_fail
+//! use dedaliano_engine::types::units::ElasticInput3D;
+//! fn wrong(input: &mut ElasticInput3D) {
+//!     input.sections.get_mut("1").unwrap().j = 1e-5;
+//! }
+//! ```
 use serde::{Deserialize, Serialize};
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
@@ -101,6 +145,7 @@ quantity!(Length, from_m, in_m);
 quantity!(Area, from_m2, in_m2);
 quantity!(Volume, from_m3, in_m3);
 quantity!(SecondMoment, from_m4, in_m4);
+quantity!(WarpingConstant, from_m6, in_m6);
 quantity!(Force, from_kn, in_kn);
 quantity!(Moment, from_kn_m, in_kn_m);
 quantity!(Modulus, from_kn_per_m2, in_kn_per_m2);
@@ -230,6 +275,74 @@ impl From<super::SolverSection> for ElasticSection2D {
     fn from(s: super::SolverSection) -> Self {
         Self::from(&s)
     }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ElasticSection3D {
+    pub id: usize,
+    #[serde(default)]
+    pub name: Option<String>,
+    pub a: Area,
+    pub iy: SecondMoment,
+    pub iz: SecondMoment,
+    pub j: SecondMoment,
+    #[serde(default)]
+    pub cw: Option<WarpingConstant>,
+    #[serde(default)]
+    pub as_y: Option<Area>,
+    #[serde(default)]
+    pub as_z: Option<Area>,
+    #[serde(default)]
+    pub shear_center_y: Option<Length>,
+    #[serde(default)]
+    pub shear_center_z: Option<Length>,
+}
+impl From<ElasticSection3D> for super::SolverSection3D {
+    fn from(s: ElasticSection3D) -> Self {
+        Self {
+            id: s.id,
+            name: s.name,
+            a: s.a.in_m2(),
+            iy: s.iy.in_m4(),
+            iz: s.iz.in_m4(),
+            j: s.j.in_m4(),
+            cw: s.cw.map(WarpingConstant::in_m6),
+            as_y: s.as_y.map(Area::in_m2),
+            as_z: s.as_z.map(Area::in_m2),
+            shear_center_y: s.shear_center_y.map(Length::in_m),
+            shear_center_z: s.shear_center_z.map(Length::in_m),
+        }
+    }
+}
+
+/// What every 3D WASM export deserializes. `into_legacy` is the only place its units are erased.
+pub type ElasticInput3D = super::SolverInput3D<ElasticMaterial, ElasticSection3D>;
+impl ElasticInput3D {
+    pub fn into_legacy(self) -> super::SolverInput3D {
+        super::SolverInput3D {
+            nodes: self.nodes,
+            materials: self.materials.into_iter().map(|(k, v)| (k, v.into())).collect(),
+            sections: self.sections.into_iter().map(|(k, v)| (k, v.into())).collect(),
+            elements: self.elements,
+            supports: self.supports,
+            loads: self.loads,
+            constraints: self.constraints,
+            left_hand: self.left_hand,
+            plates: self.plates,
+            quads: self.quads,
+            quad9s: self.quad9s,
+            solid_shells: self.solid_shells,
+            curved_shells: self.curved_shells,
+            curved_beams: self.curved_beams,
+            connectors: self.connectors,
+            solver_options: self.solver_options,
+            masses: self.masses,
+        }
+    }
+}
+pub fn deserialize_input_3d<'de, D: serde::Deserializer<'de>>(d: D) -> Result<super::SolverInput3D, D::Error> {
+    ElasticInput3D::deserialize(d).map(ElasticInput3D::into_legacy)
 }
 
 /// The direct linear WASM boundary retains these types through frame assembly/recovery.

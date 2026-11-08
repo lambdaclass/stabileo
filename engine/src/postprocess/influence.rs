@@ -367,6 +367,7 @@ pub struct InfluenceLineResult3D {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InfluenceLineInput3D {
+    #[serde(deserialize_with = "crate::types::units::deserialize_input_3d")]
     pub solver: SolverInput3D,
     /// Quantity to compute: "Fy", "Fz", "Fx", "Mx", "My", "Mz" (reactions),
     /// "Vy", "Vz", "N", "My_diag", "Mz_diag", "T" (element forces at target position)

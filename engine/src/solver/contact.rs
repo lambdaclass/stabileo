@@ -154,6 +154,7 @@ pub struct ContactInput {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ContactInput3D {
+    #[serde(deserialize_with = "crate::types::units::deserialize_input_3d")]
     pub solver: SolverInput3D,
     #[serde(default)]
     pub element_behaviors: HashMap<String, String>,

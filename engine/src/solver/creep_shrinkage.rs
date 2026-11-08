@@ -337,6 +337,7 @@ pub struct TimeStep3D {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CreepShrinkageInput3D {
+    #[serde(deserialize_with = "crate::types::units::deserialize_input_3d")]
     pub solver: SolverInput3D,
     pub creep_params: HashMap<String, ConcreteCreepParams>,
     pub time_steps: Vec<TimeStep3D>,

@@ -605,10 +605,10 @@ pub struct SolverPlateThermalLoad {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct SolverInput3D {
+pub struct SolverInput3D<M = SolverMaterial, S = SolverSection3D> {
     pub nodes: HashMap<String, SolverNode3D>,
-    pub materials: HashMap<String, SolverMaterial>,
-    pub sections: HashMap<String, SolverSection3D>,
+    pub materials: HashMap<String, M>,
+    pub sections: HashMap<String, S>,
     pub elements: HashMap<String, SolverElement3D>,
     pub supports: HashMap<String, SolverSupport3D>,
     pub loads: Vec<SolverLoad3D>,
@@ -870,6 +870,7 @@ pub struct SpectrumPoint {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SpectralInput3D {
+    #[serde(deserialize_with = "crate::types::units::deserialize_input_3d")]
     pub solver: SolverInput3D,
     pub modes: Vec<SpectralModeInput3D>,
     pub densities: HashMap<String, f64>,
@@ -918,6 +919,7 @@ pub struct SpectralModeDisp3D {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ModalInput3D {
+    #[serde(deserialize_with = "crate::types::units::deserialize_input_3d")]
     pub solver: SolverInput3D,
     pub densities: HashMap<String, f64>,
 }
@@ -970,6 +972,7 @@ pub struct PlasticMaterialData {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PlasticInput3D {
+    #[serde(deserialize_with = "crate::types::units::deserialize_input_3d")]
     pub solver: SolverInput3D,
     pub sections: HashMap<String, PlasticSectionData3D>,
     pub materials: HashMap<String, PlasticMaterialData>,
@@ -1026,6 +1029,7 @@ pub struct Axle {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MovingLoadInput3D {
+    #[serde(deserialize_with = "crate::types::units::deserialize_input_3d")]
     pub solver: SolverInput3D,
     pub train: LoadTrain,
     #[serde(default)]
@@ -1079,6 +1083,7 @@ pub struct SectionCapacity {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NonlinearMaterialInput3D {
+    #[serde(deserialize_with = "crate::types::units::deserialize_input_3d")]
     pub solver: SolverInput3D,
     pub material_models: HashMap<String, MaterialModel>,
     pub section_capacities: HashMap<String, SectionCapacity3D>,
@@ -1227,6 +1232,7 @@ pub struct TimeForceRecord {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TimeHistoryInput3D {
+    #[serde(deserialize_with = "crate::types::units::deserialize_input_3d")]
     pub solver: SolverInput3D,
     pub densities: HashMap<String, f64>,
     pub time_step: f64,
