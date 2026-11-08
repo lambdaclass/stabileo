@@ -23,6 +23,7 @@ export type TranslationalStiffness = Quantity<'kN/m spring'>;
 export type RotationalStiffness = Quantity<'kN·m/rad'>;
 export type Angle = Quantity<'rad'>;
 export type AngleDeg = Quantity<'°'>;
+export type TwistRate = Quantity<'rad/m'>;
 
 // Explicit admission of existing canonical model values, only at the legacy DTO boundary.
 export const mpa = (value: number): ModulusMPa => value as ModulusMPa;
@@ -42,6 +43,7 @@ export const springKnM = (value: number): TranslationalStiffness => value as Tra
 export const springKnMRad = (value: number): RotationalStiffness => value as RotationalStiffness;
 export const angleRad = (value: number): Angle => value as Angle;
 export const angleDeg = (value: number): AngleDeg => value as AngleDeg;
+export const twistRateRadM = (value: number): TwistRate => value as TwistRate;
 export const modulusInternal = (value: ModulusMPa): Modulus => (value * 1000) as Modulus;
 
 export interface DisplayQuantities {
@@ -274,7 +276,7 @@ export interface ElementForcesWire {
   nStart: Force; nEnd: Force; vStart: Force; vEnd: Force; mStart: Moment; mEnd: Moment; length: Length; qI: LineLoad; qJ: LineLoad;
   pointLoads: PointLoadInfoWire[]; distributedLoads: DistributedLoadInfoWire[]; distributedLoadsX?: DistributedLoadInfoWire[];
 }
-export interface Displacement3DWire { ux: Length; uy: Length; uz: Length; rx: Angle; ry: Angle; rz: Angle }
+export interface Displacement3DWire { ux: Length; uy: Length; uz: Length; rx: Angle; ry: Angle; rz: Angle; warping?: TwistRate }
 export interface Reaction3DWire { fx: Force; fy: Force; fz: Force; mx: Moment; my: Moment; mz: Moment; bimoment?: Bimoment }
 export interface PointLoadInfo3DWire { a: Length; p: Force }
 export interface ElementForces3DWire {

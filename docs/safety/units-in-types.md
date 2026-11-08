@@ -361,6 +361,17 @@ doctests (E0308) plus a positive control; 21 new `@ts-expect-error` checks (four
 admission returns the same object and JSON text and that the typed display conversions give the same
 numbers.
 
+Follow-up in #1769, to the slice-5 deferrals: the 3D warping displacement is `TwistRate` (rad/m,
+`from_rad_per_m`; TS `twistRateRadM`), so it cannot be assigned a rotation or a length; the
+`combine_results_2d`/`combine_results_3d` exports serialize `into_typed()` output, and the web
+app's `combineResults`/`combineResults3D` return the branded result types. Proof: the result
+boundary test now solves a cantilever with a warping DOF and combines 2D and 3D cases against the
+independent legacy serializer, and its source check covers the combination exports; 3 new
+`compile_fail` doctests; 7 new `@ts-expect-error` checks; a Vitest check that a combination
+through the typed admission gives the same JSON text. The envelope and multi-case exports return
+their own types; their displacement, reaction and force records already serialize through the
+typed records.
+
 **Slice 6 — 3D frame kernel.** Thread `ElasticSection3D`/`ElasticMaterial` through
 `prepare_static_3d` into `frame_local_stiffness_3d` / `_warping` and 3D force recovery, as
 #864 did for 2D: typed `E·A/L`, `E·I/L³`, `G·J/L`, `E·Cw/L³`, shear `φy`/`φz`, erasing only

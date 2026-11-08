@@ -1,7 +1,7 @@
-import { input2DToWireObject, input3DToWireObject, solve, solve3D } from '../wasm-solver';
+import { input2DToWireObject, input3DToWireObject, solve, solve3D, combineResults, combineResults3D } from '../wasm-solver';
 import type { SolverInput } from '../types';
 import type { SolverInput3D } from '../types-3d';
-import { areaM2, inertiaM4, mpa, ratio, modulusInternal, elasticFromDisplay, elasticToDisplay, type ElasticMaterialWire, type ElasticSectionWire, type Force, type Length, type Moment, materialToWire, sectionToWire, section3DToWire, warpingM6, lengthM, forceKn, momentKnM, bimomentKnM2, nodeToWire, node3DToWire, loadToWire, load3DToWire, lineLoadKnM, areaLoadKnM2, temperatureDeltaC, expansionPerC, springKnM, springKnMRad, angleRad, angleDeg, plateThermalToWire, pressureToWire, quadEdgeToWire, supportToWire, support3DToWire, element3DToWire, type AreaLoad, type TemperatureDifference, type TranslationalStiffness, type RotationalStiffness, type Angle, type LineLoad, type Bimoment, resultsFromWasm, results3DFromWasm } from '../unit-types';
+import { areaM2, inertiaM4, mpa, ratio, modulusInternal, elasticFromDisplay, elasticToDisplay, type ElasticMaterialWire, type ElasticSectionWire, type Force, type Length, type Moment, materialToWire, sectionToWire, section3DToWire, warpingM6, lengthM, forceKn, momentKnM, bimomentKnM2, nodeToWire, node3DToWire, loadToWire, load3DToWire, lineLoadKnM, areaLoadKnM2, temperatureDeltaC, expansionPerC, springKnM, springKnMRad, angleRad, angleDeg, plateThermalToWire, pressureToWire, quadEdgeToWire, supportToWire, support3DToWire, element3DToWire, type AreaLoad, type TemperatureDifference, type TranslationalStiffness, type RotationalStiffness, type Angle, type LineLoad, type Bimoment, resultsFromWasm, results3DFromWasm, twistRateRadM } from '../unit-types';
 import { fmtTypedQ, toTypedQ } from '../../store/display-units.svelte';
 const material: ElasticMaterialWire = { id: 1, e: mpa(200000), nu: ratio(0.3) };
 const section: ElasticSectionWire = { id: 1, a: areaM2(0.01), iz: inertiaM4(0.0001) };
@@ -314,3 +314,24 @@ fmtTypedQ(solved3D.elementForces[0].mzStart, 'moment');
 solved3D.elementForces[0].mzStart = forceKn(1);
 // @ts-expect-error the public 3D solve keeps the length brand on displacements
 solved3D.displacements[0].uz = angleRad(0.01);
+solved3D.displacements[0].warping = twistRateRadM(-1e-4);
+// @ts-expect-error the warping displacement is a twist rate in rad/m, not a rotation
+solved3D.displacements[0].warping = angleRad(0.01);
+// @ts-expect-error a rotation is not a twist rate
+solved3D.displacements[0].rx = twistRateRadM(1e-4);
+// @ts-expect-error raw numbers require an explicit boundary constructor
+solved3D.displacements[0].warping = 1e-4;
+const combined = combineResults([{ caseId: 1, factor: 1 }], new Map([[1, solved]]));
+if (combined) {
+  fmtTypedQ(combined.reactions[0].my, 'moment');
+  // @ts-expect-error a combined reaction moment cannot be shown as a force
+  fmtTypedQ(combined.reactions[0].my, 'force');
+}
+declare const plates: Parameters<typeof combineResults3D>[2];
+const combined3D = combineResults3D([{ caseId: 1, factor: 1 }], new Map([[1, solved3D]]), plates);
+if (combined3D) {
+  // @ts-expect-error a combined 3D end moment is kN·m, not kN
+  combined3D.elementForces[0].myStart = forceKn(1);
+  // @ts-expect-error a combined warping displacement is a twist rate, not a length
+  combined3D.displacements[0].warping = lengthM(1);
+}
