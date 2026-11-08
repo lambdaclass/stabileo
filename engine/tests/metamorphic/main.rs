@@ -36,6 +36,7 @@ mod linear_identities;
 mod completeness;
 mod response;
 mod steel_inputs;
+mod tension_net_area;
 mod symmetry;
 mod tally;
 mod stability;
