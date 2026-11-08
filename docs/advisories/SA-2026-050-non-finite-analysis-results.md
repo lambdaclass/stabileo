@@ -5,7 +5,7 @@
 | Severity | Medium |
 | Status | Draft 2026-11-08 (fix not yet merged or deployed) |
 | Issue | [#1759](https://github.com/lambdaclass/stabileo/issues/1759), [#1761](https://github.com/lambdaclass/stabileo/issues/1761) |
-| Fix | This change; no PR opened |
+| Fix | This change; PR [#1784](https://github.com/lambdaclass/stabileo/pull/1784) |
 | Affected versions | Current main before this change (engine version 0.5.0); the first affected version has not been bisected |
 | Re-check registry | results-change entry `non-finite-analysis-results` |
 
@@ -38,9 +38,9 @@ Your results are affected if either applies:
   per-member output has NaN, infinity or an unexplained zero slenderness;
 - a multi-case result contains NaN or infinity, including a value serialized as `null` by JSON.
 
-The re-check registry entry `non-finite-analysis-results` flags saved projects that use buckling or
-combinations. That condition is deliberately wider than the invalid inputs above; most flagged
-projects produce identical finite results.
+The re-check registry entry `non-finite-analysis-results` flags saved member models that use buckling
+or combinations, and declares only refusals (`solve.ok`). That condition is deliberately wider than
+the invalid inputs above; most flagged projects produce identical finite results.
 
 ## Fixed in
 
@@ -51,10 +51,11 @@ radius-of-gyration and slenderness path returns an error when it cannot produce 
 value instead of substituting zero. Buckling and all prepared/per-case 2D/3D multi-case return paths
 also run the existing non-finite-result refusal before returning.
 
-Regression tests: `issue_1759_buckling_rejects_negative_truss_inertia` (both 2D and 3D) and
-`issue_1761_multi_case_overflow_is_refused` in `engine/tests/fuzz_regressions.rs`. Both failed on
-`Ok` before the fix and pass by returning the intended error after it. The fail-closed lint now also
-covers `engine/src/solver/buckling.rs`.
+Regression tests: `issue_1759_buckling_rejects_negative_truss_inertia` (2D and 3D negative inertia,
+unresolved radius of gyration and overflowing buckling output) and
+`issue_1761_multi_case_overflow_is_refused` (prepared and settlement-triggered per-case 2D/3D paths)
+in `engine/tests/fuzz_regressions.rs`. Both failed on `Ok` before the fix and pass by returning the
+intended error after it. The fail-closed lint now also covers `engine/src/solver/buckling.rs`.
 
 ## Workaround
 

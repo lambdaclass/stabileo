@@ -1,10 +1,10 @@
 {
   "id": "non-finite-analysis-results",
   "date": "2026-11-08",
-  "prs": [],
+  "prs": [1784],
   "area": "analysis",
-  "when": { "allOf": [["analysis:buckling", "combinations"]] },
-  "quantities": ["*", "solve.ok"],
+  "when": { "allOf": [["members"], ["analysis:buckling", "combinations"]] },
+  "quantities": ["solve.ok"],
   "title": {
     "en": "Buckling and multi-case analysis refuse non-finite results",
     "es": "Pandeo y análisis de casos de carga rechazan resultados no finitos",
