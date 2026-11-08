@@ -163,7 +163,9 @@ exit 0
                       ['web/package-lock.json'], ['web/package.json'], ['web/src/lib/wasm/stabileo_engine.js'],
                       ['web/public/research-wasm/x.wasm'], ['web/vite.research-viewer.config.ts'],
                       ['web/src/App.svelte', 'engine/src/lib.rs'], ['web/src/App.svelte', 'research/a.rs'],
-                      ['backend/mix.exs', 'docs/a.md']]:
+                      ['backend/mix.exs', 'web/src/App.svelte'], ['backend/mix.exs', 'engine/src/lib.rs'],
+                      ['backend/mix.exs', 'research/DESIGN.md'], ['backend/mix.exs', 'Makefile'],
+                      ['backend/mix.exs', 'flake.lock'], ['specs/x.json']]:
             with self.subTest(paths=paths):
                 self.assert_full(selection.select('pull_request', paths))
 
@@ -223,14 +225,53 @@ exit 0
                 result = selection.select('merge_group', paths, ROOT)
                 self.assert_site(result, queue=True)
         for paths in [self.PR_1250 + ['engine/src/lib.rs'], self.DOCS_ONLY + ['engine/src/solver/linear.rs'],
-                      ['web/src/App.svelte', 'Cargo.lock'], ['web/package-lock.json'], ['backend/mix.lock'],
-                      ['.github/workflows/ci.yml'], ['engine/src/lib.rs']]:
+                      ['web/src/App.svelte', 'Cargo.lock'], ['web/package-lock.json'], ['backend/mix.lock', 'web/src/App.svelte'],
+                      ['.github/workflows/ci.yml'], ['engine/src/lib.rs'], ['backend/mix.lock', 'scripts/x.py'],
+                      ['backend/mix.lock', 'ai-backend/src/main.rs'], ['docs/a.md', '.github/scripts/select-ci.py']]:
             with self.subTest(paths=paths[-1]):
                 result = selection.select('merge_group', paths, ROOT)
                 self.assertEqual(result['scope'], 'full')
                 for key in ['engine', 'ai_backend', 'backend', 'ci_scripts', 'web', 'research', 'results']:
                     self.assertEqual(result[key], 'true', key)
                 self.assertEqual(result['research_route_only'], 'true')
+
+    BACKEND_ONLY = ['backend/apps/stabileo_web/lib/router.ex', 'backend/mix.lock',
+                    'backend/apps/stabileo_repo/priv/repo/migrations/20261108000000_x.exs', 'changelog.d/a.md',
+                    'specs/services/accounts.md']
+
+    def test_backend_only_changes_run_only_the_backend_jobs(self):
+        for event in ['pull_request', 'merge_group']:
+            with self.subTest(event=event):
+                result = selection.select(event, self.BACKEND_ONLY, ROOT)
+                self.assertEqual(result['scope'], 'backend')
+                self.assertEqual({k for k, v in result.items() if v == 'true'} - {'research_route_only'}, {'backend', 'retest'})
+                self.assertEqual(json.loads(result['slow_specs']), [])
+                self.assertEqual(json.loads(result['e2e_shards']), [1])
+        for event in ['push', 'schedule', 'workflow_dispatch']:
+            with self.subTest(event=event):
+                self.assert_full(selection.select(event, self.BACKEND_ONLY, ROOT))
+        self.assertEqual(selection.select('merge_group', self.BACKEND_ONLY, ROOT, force_full=True)['scope'], 'full')
+
+    def test_specs_prose_is_docs(self):
+        for event in ['pull_request', 'merge_group']:
+            with self.subTest(event=event):
+                result = selection.select(event, ['specs/services/admin.md', 'specs/README.md'], ROOT)
+                self.assertEqual(result['scope'], 'docs')
+                self.assert_docs(result)
+                self.assertEqual(result['slow_e2e'], 'false')
+
+    def test_the_backend_jobs_and_ci_ok_read_the_backend_output(self):
+        workflow = (ROOT / '.github/workflows/ci.yml').read_text()
+        jobs = dict(re.findall(r'(?ms)^  ([a-z0-9-]+):\n(.*?)(?=^  [a-z0-9-]+:\n|\Z)', workflow.split('\njobs:\n', 1)[1]))
+        for name in ['lint-backend', 'test-backend', 'check-migrations']:
+            self.assertIn("if: needs.changes.outputs.backend == 'true'", jobs[name])
+        for name in ['test-engine-suite', 'test-engine-metamorphic', 'test-engine-quick', 'test-engine-gates', 'lint-engine']:
+            self.assertIn("if: needs.changes.outputs.engine == 'true'", jobs[name])
+        ci_ok = jobs['ci-ok'].split('    steps:', 1)[0]
+        for name in ['lint-backend', 'test-backend', 'check-migrations', 'lint-repo', 'revert-check',
+                     'test-engine-suite', 'wasm', 'e2e', 'web-build']:
+            self.assertIn(f'      - {name}\n', ci_ok)
+        self.assertIn('case "$r" in success|skipped) ;; *) exit 1 ;; esac', jobs['ci-ok'])
 
     def test_merge_queue_reads_its_diff_and_fails_open(self):
         for diff, expected in [('docs/a.md\0changelog.d/b.md\0', 'docs'), ('web/src/App.svelte\0', 'site'),

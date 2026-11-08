@@ -10,7 +10,8 @@
 # Research cache excludes viewer: always rebuild viewer and republish asset identity.
 # Research WASM keeps the 60-minute budget for the expanded research crate set.
 # PR and merge-queue selection (docs/changelog may accompany any single area):
-# docs/**, root *.md, changelog.d/**: repository lint/changelog only; research/**/*.md (not tools): plus research.
+# docs/**, root *.md, changelog.d/**, specs/**/*.md: repository lint/changelog only; research/**/*.md (not tools): plus research.
+# backend/** (Elixir; nothing in the engine, web or Docker builds reads it), alone or with docs: the backend jobs only.
 # research/**, web/src/components/research/**, web/e2e/research*.spec.ts:
 # research validation/WASM, research unit + E2E, route budgets, shared WASM/site.
 # web/src/components/tools/** (+ tools*.spec.ts): tools unit + E2E, route budgets;
@@ -18,7 +19,7 @@
 # engine/**: engine/AI-backend/research suites, determinism/results, full web unit, @engine smoke.
 # Other web/** (site, blog, locales, e2e; not package manifests or WASM): everything but the engine,
 # AI-backend and backend jobs and full research validation (route checks only), with the full E2E smoke suite.
-# Merge queue: each entry by its diff against the entry ahead; docs only, or site/research/tools only
+# Merge queue: each entry by its diff against the entry ahead; docs only, backend only, or site/research/tools only
 # (engine jobs skipped, research route checks only); else full.
 # Every web selection includes Web Build and its TypeScript/Svelte gates.
 # Other/mixed/unknown paths and run-e2e label: full pipeline. The label is read when the run starts:
