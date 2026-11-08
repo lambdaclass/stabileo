@@ -1,6 +1,6 @@
 """Conservative PR and merge-group path -> jobs/spec globs. No paths or unknown/mixed areas mean full.
 
-A merge group narrows only to docs or to site (no engine path); the merge queue otherwise runs the full set minus the heavy jobs that combining PRs rarely breaks
+A merge group narrows only to docs, to the Elixir backend, or to site (no engine path); the merge queue otherwise runs the full set minus the heavy jobs that combining PRs rarely breaks
 (slow E2E, visual baselines, Docker smoke, Determinism, quarantined E2E, research validation
 beyond route budgets); pushes to main and the scheduled run add them back. A pull request builds
 the Docker image from source only when the Dockerfile's recipe or a toolchain or dependency pin it
@@ -72,7 +72,7 @@ RESEARCH_SLOW_SPECS = ('research-dadeppo.spec.ts', 'research-ferrari.spec.ts')
 def slow_specs_for_path(path):
     if not isinstance(path, str) or not path or path.startswith('/') or '..' in path.split('/'):
         return ALL_SLOW_SPECS
-    if path.startswith(('docs/', 'changelog.d/', 'backend/', 'verify/', 'tools/', 'ai-backend/',
+    if path.startswith(('docs/', 'changelog.d/', 'specs/', 'backend/', 'verify/', 'tools/', 'ai-backend/',
                         'engine/tests/', 'engine/benches/', 'scripts/tests/')):
         return ()
     if '/' not in path and path.endswith('.md'):
@@ -116,6 +116,10 @@ def area(path):
         return 'full'
     if path.startswith(('docs/', 'changelog.d/')) or ('/' not in path and path.endswith('.md')):
         return 'docs'
+    if path.startswith('specs/') and path.endswith('.md'):
+        return 'docs'
+    if path.startswith('backend/'):
+        return 'backend'
     if path.startswith('research/') and path.endswith('.md') and not path.startswith('research/tools/'):
         return 'prose'
     if path.startswith(('research/', 'web/src/components/research/')) or re.fullmatch(r'web/e2e/research[^/]*\.spec\.ts', path):
@@ -132,6 +136,10 @@ def area(path):
 def narrow(areas, queue):
     if not areas - {'docs', 'prose'}:
         return 'prose' if 'prose' in areas else 'docs'
+    if areas - {'docs'} == {'backend'}:
+        return 'backend'
+    if 'backend' in areas:
+        return 'full'
     areas = areas - {'docs', 'prose'}
     if queue:
         return 'site' if areas <= {'site', 'research', 'tools'} else 'full'
@@ -150,7 +158,7 @@ def select(event, paths, root=None, force_full=False, tested=False):
         if not any(units.rglob('*.test.ts')) or not all(list((root / 'web/e2e').glob(g)) for g in SPECS[scope]):
             scope = 'full'
     full = scope == 'full'
-    text = scope in ('docs', 'prose')
+    text = scope in ('docs', 'prose', 'backend')
     if event == 'pull_request':
         slow = list(ALL_SLOW_SPECS) if force_full else []
         slow_e2e = False
@@ -160,7 +168,7 @@ def select(event, paths, root=None, force_full=False, tested=False):
     else:
         slow = list(ALL_SLOW_SPECS)
         slow_e2e = True
-    outputs = {'backend': full, 'ci_scripts': full or scope == 'site'}
+    outputs = {'backend': full or scope == 'backend', 'ci_scripts': full or scope == 'site'}
     outputs.update(docker=not text and not queue, web_build=not text or slow_e2e, ai_backend=full or scope == 'engine',
                    engine=full or scope == 'engine', web=not text or slow_e2e,
                    research=full or scope in ('research', 'tools', 'engine', 'site', 'prose'),
