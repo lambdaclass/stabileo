@@ -159,10 +159,11 @@ fn make_mitc4_plate(
     boundary.sort();
     boundary.dedup();
     for &n in &boundary {
-        supports.insert(sid.to_string(), pin_z(n));
+        let mut support = pin_z(n);
+        support.ry = n == grid[nx][0];
+        supports.insert(sid.to_string(), support);
         sid += 1;
     }
-    // Pin one corner fully to prevent rigid body modes
     supports.insert(
         sid.to_string(),
         SolverSupport3D {

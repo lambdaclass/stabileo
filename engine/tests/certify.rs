@@ -1314,11 +1314,9 @@ fn full_results_bounds_only_when_certified() {
     assert_honest_gen(&full.certificate, &gen_3d("constrained MITC4 strip", &shell, &full.results));
     assert_eq!(full.shell_bounds.len(), shell.quads.len());
     assert!(full.shell_bounds.iter().all(|b| b.mx > 0.0 && b.qx.is_some()));
-    // A non-positive-definite model the solver still answers: no bounds at all.
     let bad = fuzz_models::random_3d_model(100_031);
-    let full = certify_linear_3d_full(&bad).unwrap();
-    assert!(!full.certificate.is_certified());
-    assert!(full.force_bounds.is_empty() && full.shell_bounds.is_empty());
+    let error = certify_linear_3d_full(&bad).unwrap_err();
+    assert!(error.starts_with("the structure is a mechanism") || error.starts_with("the stiffness matrix is not positive"), "{error}");
 }
 
 /// σ must be positive and finite. A negative σ makes `S − σI` positive

@@ -1,6 +1,7 @@
 # Scale-invariant stability and rank test
 
-Status: slice 1 (`engine/src/solver/stability.rs`, the verdict) implemented; no solver calls it yet. Tracks #762, #758,
+Status: slice 1 (`engine/src/solver/stability.rs`, the verdict) and slice 2 (the linear 2D and 3D solvers: dense,
+sparse, PCG and constrained) implemented; the other solvers do not call it yet. Tracks #762, #758,
 #1445, #369, #382 and the 47 nightly findings of triage cluster C08 (canonical #954).
 
 ## 1. How the engine decides today
@@ -175,6 +176,18 @@ that Stable verdict or a Singular refusal for rounding, never a Mechanism. A lin
 No model of the example, fixture,
 feature-matrix or differential corpus is refused by the rule.
 
+Since slice 2 the linear solves refuse these real, if extreme, structures, measured on the
+tests that build them:
+
+| Model | Verdict | Why |
+|---|---|---|
+| MITC9 twisted strip, 24×8 mesh, `t = 0.0254` and `0.047` (`t/L` about 0.002 to 0.004) | Singular | `κ_S A` = 3.8e10 × 8.4e2 and 1.1e10 × 1.2e3, above `1e12`: thin quadratic shells of this slenderness are refused (MITC4 on the same strip is Stable) |
+| Cantilever with `Iy = 1e-10`, `Iz = 1e3` (#1496) | Mechanism | the weak-axis translation is below `1e-12` of the strong one at each node |
+| Beam with `A = 0.01`, `I = 1e-12` | Singular | `κ_S A` = 1.5e3 × 8.3e8 |
+
+Each is a structure whose weak direction keeps fewer than four digits in double precision;
+the old solves returned it with `HighDiagonalRatio` or `NUM-INVARIANCE`, or silently.
+
 ### 2.5 Evidence (slice 1, `engine/tests/metamorphic/stability.rs`)
 
 - The 47 C08 reproducers (43 distinct models: #965 and #968 report #964's model, #1041 #1029's and #1352 #1351's) under 4 unit systems, 3 general rotations, 3 quarter turns, 4
@@ -212,24 +225,43 @@ feature-matrix or differential corpus is refused by the rule.
   fallbacks stay only for systems the test called Stable.
 - A Singular verdict is never downgraded to a warning: the result would be one of two
   answers, and the test cannot say which.
-- Existing warnings (`NUM-INVARIANCE`, `StiffnessNotPositiveDefinite`, `CERT-MECHANISM`)
-  remain for Stable systems whose forward error bound `4(n+24) ε κ_S A` exceeds `1e-6`.
+- The solvers not yet moved to the test keep their warnings (`NUM-INVARIANCE`,
+  `StiffnessNotPositiveDefinite`, `CERT-MECHANISM`) until their slice (§5).
 
 ## 4. Replacing the artificial springs
 
 A Stable verdict's free rotations are exactly the DOFs the springs exist for (truss-only
 nodes, nodes where every member is hinged, torsion-free member ends, warping without
-stiffness), now found per direction instead of per global axis.
+stiffness), now found per direction instead of per global axis. The linear solvers
+(slice 2) assemble with the springs switched off (`assembly::without_artificial_stiffness`),
+take the verdict on the `K_ff` (or `CᵀK_ffC`) they factor, and then:
 
-1. The entry removes them from the system: `u = W' y` over the kept directions, so the
-   solved system is `Wᵀ K W` restricted to the kept directions, with no spring. Their
-   displacement is reported as zero (as the spring gave for an unloaded DOF).
+1. Pin each free rotation: `K + s v vᵀ` along its direction `v`, with `s` the largest
+   eigenvalue of the node block (1 when the block is zero). When `K v` is zero outside the
+   block, this is the exact elimination of `v`: the solve gives `vᵀu = vᵀf / (μ + s)`, which
+   (2) keeps at rounding, and every other component is the solution of the system without
+   `v`. The displacement along `v` is reported as zero.
 2. A load with a component along a free rotation (nodal moment, or the end moment of a
-   member load) is refused, as 3D does today (#1445 parity).
-3. After the solve, the residual `vᵀ(f − K u)` on each removed direction is the force the
-   removal attracted. It must be at round-off of the node's forces; otherwise the direction
-   was real but soft and the result is refused (the hard form of `ORPHAN-SOFT-ROTATION`,
-   #1496).
+   member load) beyond `64 b ε max|f|` is refused before the solve.
+3. A free rotation whose `K v` is not zero outside its block (μ above the rounding level, so
+   the verdict resolved it, §2.3) is real but soft. After the solve, the force its pin
+   carries through that coupling, `Σ (K v)_i u_i`, must cancel to rounding (`64 m ε Σ|(K v)_i
+   u_i|`); otherwise the pin held a real response and the result is refused (the hard form of
+   `ORPHAN-SOFT-ROTATION`, #1496, which this retires).
+4. Cholesky of the pinned matrix must succeed: a Stable verdict with a failing Cholesky is an
+   indefinite system that the block test did not see (a negative spring on a coupled
+   direction), and it is refused. A negative eigenvalue of a node block, or one of `S` below
+   `-64 m ε A λ_max(S)` (the rounding of `S` itself, §2.3; full spectrum only, up to 240 kept
+   directions), is already Singular (`Indefinite`). There is no LU, no diagonal shift and no PCG past a failed Cholesky.
+
+The dense LU on a bad sparse residual (3D sparse and PCG paths) stays, as §3 allows: it runs
+only on a Stable, pinned, positive-definite matrix. The linear solves no longer warn from
+the raw-diagonal ratio, the near-zero diagonal or a round-off pivot (`HighDiagonalRatio`,
+`NearZeroDiagonal`, `StiffnessNotPositiveDefinite`), and attach `NUM-INVARIANCE` only from
+an `ExcessiveDisplacement` diagnostic: what those tests flagged is now either Stable, with
+`κ_S A ≤ 1e12`, or refused. A forward-error warning (`4(n+24) ε κ_S A > 1e-6`) was tried and
+dropped: it fired on 24 ordinary corpus models, a plain 20-element cantilever among them.
+The other solvers keep the old tests until their slices.
 
 Free motions of the whole model (a model held only by springs that do not reach every
 rigid motion) and connector/skew mechanisms are not special cases: they are null vectors of
@@ -240,7 +272,7 @@ rigid motion) and connector/skew mechanisms are not special cases: they are null
 1. `solver/stability.rs`, the verdict and its metamorphic proof on the C08 corpus (this
    slice changes no result).
 2. Linear 2D and 3D (dense, sparse, PCG, constrained), including the spring removal and the
-   `NUM-INVARIANCE`/`ORPHAN-SOFT-ROTATION` entries it retires. Reproducers: the Singular and
+   `NUM-INVARIANCE`/`ORPHAN-SOFT-ROTATION` entries it retires (done). Reproducers: the Singular and
    Mechanism C08 models with a linear relation (#993, #1353, #1355, #1651), and #1106,
    whose free rotation is held by no spring in one orientation.
 3. P-Delta and the nonlinear tangents that consume `artificial_stiffness_entries`

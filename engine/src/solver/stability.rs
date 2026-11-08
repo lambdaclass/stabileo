@@ -25,7 +25,7 @@ pub struct DofTag { pub node: usize, pub kind: DofKind }
 pub enum Verdict { Stable, Mechanism, Singular }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Reason { Resolved, FreeTranslation, SwingAtRounding, Conditioning, CoupledSoftDirection, NonFinite }
+pub enum Reason { Resolved, FreeTranslation, SwingAtRounding, Conditioning, CoupledSoftDirection, Indefinite, NonFinite }
 
 #[derive(Debug, Clone)]
 pub struct FreeDirection {
@@ -33,6 +33,8 @@ pub struct FreeDirection {
     pub kind: DofKind,
     pub dofs: Vec<usize>,
     pub direction: Vec<f64>,
+    pub scale: f64,
+    pub coupling: Vec<(usize, f64)>,
 }
 
 #[derive(Debug, Clone)]
@@ -48,6 +50,74 @@ pub struct Stability {
 impl Stability {
     pub fn is_stable(&self) -> bool { self.verdict == Verdict::Stable }
 
+    pub fn stable() -> Self {
+        Stability { verdict: Verdict::Stable, reason: Reason::Resolved, kappa: 1.0, anisotropy: 1.0, free: Vec::new(), mode_nodes: Vec::new() }
+    }
+
+    pub fn pins(&self) -> Vec<(usize, usize, f64)> {
+        let mut out = Vec::new();
+        for f in self.free_rotations() {
+            for (a, (&i, &vi)) in f.dofs.iter().zip(&f.direction).enumerate() {
+                for (&j, &vj) in f.dofs.iter().zip(&f.direction).take(a + 1) {
+                    let x = f.scale * vi * vj;
+                    if x != 0.0 { out.push((i.max(j), i.min(j), x)); }
+                }
+            }
+        }
+        out
+    }
+
+    pub fn pin_dense(&self, k: &mut [f64], n: usize) {
+        for (i, j, x) in self.pins() {
+            k[i * n + j] += x;
+            if i != j { k[j * n + i] += x; }
+        }
+    }
+
+    pub fn pin_sparse(&self, k: &CscMatrix) -> CscMatrix {
+        let pins = self.pins();
+        if pins.is_empty() { return k.clone(); }
+        let (mut rows, mut cols, mut vals) = (Vec::new(), Vec::new(), Vec::new());
+        for j in 0..k.n {
+            for p in k.col_ptr[j]..k.col_ptr[j + 1] {
+                rows.push(k.row_idx[p]);
+                cols.push(j);
+                vals.push(k.values[p]);
+            }
+        }
+        for (i, j, x) in pins {
+            rows.push(i);
+            cols.push(j);
+            vals.push(x);
+        }
+        CscMatrix::from_triplets(k.n, &rows, &cols, &vals)
+    }
+
+    pub fn load_on_free_rotation(&self, f: &[f64]) -> Option<usize> {
+        let scale = f.iter().fold(0.0f64, |m, x| m.max(x.abs()));
+        self.free_rotations().find(|d| {
+            let along: f64 = d.dofs.iter().zip(&d.direction).map(|(&i, &v)| f.get(i).copied().unwrap_or(0.0) * v).sum();
+            along.abs() > ROUNDING * d.dofs.len() as f64 * f64::EPSILON * scale
+        }).map(|d| d.node)
+    }
+
+    pub fn check_pins(&self, u: &[f64]) -> Result<(), String> {
+        let held = self.free_rotations().find(|d| {
+            let (force, size) = d.coupling.iter().fold((0.0f64, 0.0f64), |(f, m), &(i, c)| {
+                let x = c * u.get(i).copied().unwrap_or(0.0);
+                (f + x, m + x.abs())
+            });
+            !(force.abs() <= ROUNDING * d.coupling.len() as f64 * f64::EPSILON * size)
+        });
+        match held {
+            Some(d) => Err(format!(
+                "the structure cannot be solved reliably: a rotation at node {} is so much softer than the other rotations there that its stiffness cannot be resolved, and the solution loads it through its connections; stiffen that rotation or release it explicitly",
+                d.node
+            )),
+            None => Ok(()),
+        }
+    }
+
     pub fn free_rotations(&self) -> impl Iterator<Item = &FreeDirection> {
         self.free.iter().filter(|f| f.kind != DofKind::Translation)
     }
@@ -58,6 +128,9 @@ impl Stability {
             Reason::Resolved => None,
             Reason::FreeTranslation => Some(format!(
                 "the structure is a mechanism{nodes}: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases"
+            )),
+            Reason::Indefinite => Some(format!(
+                "the stiffness matrix is not positive semidefinite{nodes}: the structure has a direction of negative stiffness (a negative spring or a negative member property, say), so it is unstable; check the springs and member properties there"
             )),
             Reason::NonFinite => Some(
                 "the stiffness matrix has an infinite or undefined entry: check member properties, spring stiffnesses and node coordinates for zero lengths, infinities or missing values".to_string()
@@ -197,12 +270,15 @@ pub fn analyze_constrained(k: &CscMatrix, tags: &[DofTag], moves_translation: &[
     for (g, (((node, kind), dofs), (mu, vecs))) in groups.iter().zip(&eig).enumerate() {
         let b = dofs.len();
         let top = mu.last().copied().unwrap_or(0.0);
+        if mu.first().is_some_and(|&low| low < -ROUNDING * b as f64 * f64::EPSILON * top.abs()) || top < 0.0 {
+            return Stability { verdict: Verdict::Singular, reason: Reason::Indefinite, kappa: f64::NAN, anisotropy, free, mode_nodes: vec![*node] };
+        }
         let whole_free = top <= 0.0;
         let mut lowest_kept = f64::INFINITY;
         for c in 0..b {
             let v: Vec<f64> = (0..b).map(|r| vecs[r * b + c]).collect();
             if whole_free || mu[c] <= LOCAL_FREE * top {
-                free.push(FreeDirection { node: *node, kind: *kind, dofs: dofs.clone(), direction: v });
+                free.push(FreeDirection { node: *node, kind: *kind, dofs: dofs.clone(), direction: v, scale: if top > 0.0 { top } else { 1.0 }, coupling: Vec::new() });
                 own.push((mu[c], top.max(0.0), b));
             } else {
                 lowest_kept = lowest_kept.min(mu[c]);
@@ -226,18 +302,21 @@ pub fn analyze_constrained(k: &CscMatrix, tags: &[DofTag], moves_translation: &[
     }
     let m = columns.len();
     if m == 0 {
-        let coupled = coupled_free(k, &free, &own, &columns, &groups, &group_of, 1.0);
+        let coupled = coupled_free(k, &mut free, &own, &columns, &groups, &group_of, 1.0);
         if !coupled.is_empty() {
             return Stability { verdict: Verdict::Singular, reason: Reason::CoupledSoftDirection, kappa: f64::INFINITY, anisotropy, free, mode_nodes: coupled };
         }
         return Stability { verdict: Verdict::Stable, reason: Reason::Resolved, kappa: 1.0, anisotropy, free, mode_nodes: Vec::new() };
     }
     let s = scaled(k, &groups, &group_of, &columns);
-    let (kappa, mode) = spectrum(&s);
+    let (kappa, mode, indefinite) = spectrum(&s, anisotropy);
     let mode_nodes = mode.map(|x| mode_nodes(&x, &columns, &groups)).unwrap_or_default();
+    if indefinite {
+        return Stability { verdict: Verdict::Singular, reason: Reason::Indefinite, kappa, anisotropy, free, mode_nodes };
+    }
     let verdict = if kappa * anisotropy <= RESOLVABLE { Verdict::Stable } else { Verdict::Singular };
     if verdict == Verdict::Stable {
-        let coupled = coupled_free(k, &free, &own, &columns, &groups, &group_of, kappa);
+        let coupled = coupled_free(k, &mut free, &own, &columns, &groups, &group_of, kappa);
         if !coupled.is_empty() {
             return Stability { verdict: Verdict::Singular, reason: Reason::CoupledSoftDirection, kappa, anisotropy, free, mode_nodes: coupled };
         }
@@ -253,7 +332,7 @@ fn non_finite() -> Stability {
     Stability { verdict: Verdict::Singular, reason: Reason::NonFinite, kappa: f64::NAN, anisotropy: f64::NAN, free: Vec::new(), mode_nodes: Vec::new() }
 }
 
-fn coupled_free(k: &CscMatrix, free: &[FreeDirection], own: &[(f64, f64, usize)], columns: &[Column], groups: &[((usize, DofKind), Vec<usize>)], group_of: &[(usize, usize)], kappa: f64) -> Vec<usize> {
+fn coupled_free(k: &CscMatrix, free: &mut [FreeDirection], own: &[(f64, f64, usize)], columns: &[Column], groups: &[((usize, DofKind), Vec<usize>)], group_of: &[(usize, usize)], kappa: f64) -> Vec<usize> {
     let dropped: Vec<usize> = (0..free.len()).filter(|&j| free[j].kind != DofKind::Translation).collect();
     let mut columns_of: Vec<Vec<usize>> = vec![Vec::new(); groups.len()];
     for (c, col) in columns.iter().enumerate() { columns_of[col.group].push(c); }
@@ -270,18 +349,20 @@ fn coupled_free(k: &CscMatrix, free: &[FreeDirection], own: &[(f64, f64, usize)]
         for (&d, &v) in f.dofs.iter().zip(&f.direction) { u[d] = v; }
         let ku = k.sym_mat_vec(&u);
         let (mut c, mut x) = (BTreeMap::new(), BTreeMap::new());
-        let mut outside = false;
+        let mut outside = Vec::new();
         for (d, &val) in ku.iter().enumerate() {
             let (h, l) = group_of[d];
             if val == 0.0 || h == g { continue; }
-            outside = true;
+            outside.push((d, val));
             for &col in &columns_of[h] { *c.entry(col).or_insert(0.0) += columns[col].w[l] * val; }
             for &r in &dropped_of[h] { *x.entry(r).or_insert(0.0) += free[dropped[r]].direction[l] * val; }
         }
         let (mu, top, b) = own[j];
-        if !outside { continue; }
+        if outside.is_empty() { continue; }
+        let node = f.node;
+        free[j].coupling = outside;
         if mu <= ROUNDING * b as f64 * f64::EPSILON * top {
-            refused.push(f.node);
+            refused.push(node);
             continue;
         }
         joint.push(j);
@@ -475,16 +556,17 @@ fn positive_definite(s: &CscMatrix, scale: f64, shift: f64) -> bool {
 
 const CERTIFY: f64 = 1e-3;
 
-fn spectrum(s: &CscMatrix) -> (f64, Option<Vec<f64>>) {
+fn spectrum(s: &CscMatrix, anisotropy: f64) -> (f64, Option<Vec<f64>>, bool) {
     let m = s.n;
     if m <= DENSE_SPECTRUM {
         let (mu, vecs) = sym_eigen_small(&s.to_dense_symmetric(), m);
         let x: Vec<f64> = (0..m).map(|r| vecs[r * m]).collect();
-        if mu[0].is_nan() || mu[0] <= 0.0 { return (f64::INFINITY, Some(x)); }
-        return (mu[m - 1] / mu[0], Some(x));
+        let indefinite = -mu[0] > ROUNDING * m as f64 * f64::EPSILON * anisotropy * mu[m - 1].abs();
+        if mu[0].is_nan() || mu[0] <= 0.0 { return (f64::INFINITY, Some(x), indefinite); }
+        return (mu[m - 1] / mu[0], Some(x), false);
     }
     let sym = Rc::new(symbolic_cholesky(s));
-    let Some(factor) = numeric_cholesky(&sym, s) else { return (f64::INFINITY, None) };
+    let Some(factor) = numeric_cholesky(&sym, s) else { return (f64::INFINITY, None, false) };
     let mut mode = None;
     for seed in 1..=3 {
         let Some((inverse_top, x)) = lanczos_top(&|v| sparse_cholesky_solve(&factor, v), m, seed) else { continue };
@@ -492,9 +574,9 @@ fn spectrum(s: &CscMatrix) -> (f64, Option<Vec<f64>>) {
         let Some((lmax, _)) = lanczos_top(&|v| s.sym_mat_vec(v), m, seed) else { continue };
         if !(inverse_top.is_finite() && inverse_top > 0.0 && lmax > 0.0) { continue; }
         let (lower, upper) = ((1.0 - CERTIFY) / inverse_top, (1.0 + CERTIFY) * lmax);
-        if positive_definite(s, 1.0, -lower) && positive_definite(s, -1.0, upper) { return (upper / lower, mode); }
+        if positive_definite(s, 1.0, -lower) && positive_definite(s, -1.0, upper) { return (upper / lower, mode, false); }
     }
-    (f64::INFINITY, mode)
+    (f64::INFINITY, mode, false)
 }
 
 fn mode_nodes(x: &[f64], columns: &[Column], groups: &[((usize, DofKind), Vec<usize>)]) -> Vec<usize> {

@@ -171,35 +171,27 @@ fn constrained_2d_entry_points_refuse_a_withheld_result() {
 }
 
 #[test]
-fn invariance_reported_seeds_are_flagged_or_refused() {
+fn invariance_reported_seeds_are_refused_or_stable() {
     for seed in [20800,20833,20865,20795,20756,20824,20840,20806] {
         let (mut input, _) = crate::fuzz_models::random_2d_model_rich(seed);
         if (seed - 20754) % 3 == 2 { crate::fuzz_models::add_random_constraints_2d(&mut input, seed); }
-        if seed == 20806 {
-            assert_eq!(solve_2d(&input).unwrap_err(), "Singular stiffness matrix — structure is a mechanism");
-            continue;
-        }
         match solve_2d(&input) {
             Ok(r) => {
                 eprintln!("#762 2D/{seed}: {:?}", r.structured_diagnostics);
-                assert!(ids(&r.structured_diagnostics).contains(&"NUM-INVARIANCE".into()), "2D/{seed}");
+                assert!(dedaliano_engine::solver::stability::of_2d(&input).unwrap().is_stable(), "2D/{seed}");
             }
-            Err(e) => assert!(e.contains("self-check static_residual"), "#762 2D/{seed}: expected NUM-INVARIANCE warning or the residual self-check refusal, got {e}"),
+            Err(e) => assert!(e.starts_with("the structure is a mechanism"), "#762 2D/{seed}: expected NUM-INVARIANCE warning or the stability refusal, got {e}"),
         }
     }
     for seed in [20761,20788] {
         let (mut input, _) = crate::fuzz_models::random_3d_model_rich(seed);
         if (seed - 20754) % 3 == 2 { crate::fuzz_models::add_random_constraints_3d(&mut input, seed); }
-        if seed == 20761 {
-            assert_eq!(dedaliano_engine::solver::linear::solve_3d(&input).unwrap_err(), "Singular stiffness matrix — structure is a mechanism");
-            continue;
-        }
         match dedaliano_engine::solver::linear::solve_3d(&input) {
             Ok(r) => {
                 eprintln!("#762 3D/{seed}: {:?}", r.structured_diagnostics);
-                assert!(ids(&r.structured_diagnostics).contains(&"NUM-INVARIANCE".into()), "3D/{seed}");
+                assert!(dedaliano_engine::solver::stability::of_3d(&input).unwrap().is_stable(), "3D/{seed}");
             }
-            Err(e) => assert!(e.contains("self-check static_residual"), "#762 3D/{seed}: expected NUM-INVARIANCE warning or the residual self-check refusal, got {e}"),
+            Err(e) => assert!(e.starts_with("the structure is a mechanism"), "#762 3D/{seed}: expected NUM-INVARIANCE warning or the stability refusal, got {e}"),
         }
     }
 }
@@ -521,6 +513,11 @@ fn creep_preserves_step_only_diagnostics_and_values() {
     }
 }
 
+fn refused_as_unresolvable<T: std::fmt::Debug>(r: Result<T, String>) {
+    let e = r.expect_err("the linear solve of a model the stability test cannot resolve must be refused");
+    assert!(e.contains("cannot be decided in double precision"), "{e}");
+}
+
 #[test]
 fn buckling_and_certificate_exports_preserve_warnings() {
     use dedaliano_engine::solver::buckling::*;
@@ -529,16 +526,25 @@ fn buckling_and_certificate_exports_preserve_warnings() {
     for affected in [false, true] {
         let solver = make_beam(4, 4.0, E, 0.01, if affected { 1e-12 } else { 1e-4 }, "fixed", None,
             vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: -1.0, fz: 0.0, my: 0.0 })]);
+        let multi = MultiCaseInput { solver: solver.clone(), load_cases: vec![LoadCase { name: "A".into(), loads: solver.loads.clone() }],
+            combinations: vec![CombinationDef { name: "C".into(), factors: HashMap::from([("A".into(), 1.0)]) }] };
+        if affected {
+            refused_as_unresolvable(solve_buckling_2d(&solver, 1));
+            refused_as_unresolvable(certify_buckling_2d(&solver, 1));
+            refused_as_unresolvable(export_linear_bundle_2d(&solver));
+            refused_as_unresolvable(export_combination_bundle_2d(&multi));
+            continue;
+        }
         let plain = solve_buckling_2d(&solver, 1).unwrap();
         let certified = certify_buckling_2d(&solver, 1).unwrap();
         assert_eq!(plain.modes[0].load_factor.to_bits(), certified.results.modes[0].load_factor.to_bits());
+        for ds in [&plain.structured_diagnostics, &certified.results.structured_diagnostics] {
+            assert!(!ids(ds).contains(&"NUM-INVARIANCE".into()));
+        }
         let linear = export_linear_bundle_2d(&solver).unwrap();
-        let multi = MultiCaseInput { solver: solver.clone(), load_cases: vec![LoadCase { name: "A".into(), loads: solver.loads.clone() }],
-            combinations: vec![CombinationDef { name: "C".into(), factors: HashMap::from([("A".into(), 1.0)]) }] };
         let combination = export_combination_bundle_2d(&multi).unwrap();
-        for ds in [&plain.structured_diagnostics, &certified.results.structured_diagnostics, &linear.structured_diagnostics, &combination.structured_diagnostics] {
-            if affected { assert_warning(ds, "NUM-INVARIANCE", 762.0); }
-            else { assert!(!ids(ds).contains(&"NUM-INVARIANCE".into())); }
+        for ds in [&linear.structured_diagnostics, &combination.structured_diagnostics] {
+            assert!(!ids(ds).contains(&"NUM-INVARIANCE".into()));
         }
         assert_eq!(LinearBundle::from_json(&linear.to_json()).unwrap().structured_diagnostics, linear.structured_diagnostics);
         assert_eq!(CombinationBundle::from_json(&combination.to_json()).unwrap().structured_diagnostics, combination.structured_diagnostics);
@@ -568,18 +574,27 @@ fn advanced_3d_and_bundles_keep_conditioning() {
         let creep: CreepShrinkageInput3D = serde_json::from_value(serde_json::json!({
             "solver": solver, "creepParams": {}, "timeSteps": [{"tDays": 28.0}]
         })).unwrap();
-        let creep = solve_creep_shrinkage_3d(&creep).unwrap();
-        let plain = solve_buckling_3d(&solver, 1).unwrap();
-        let certified = certify_buckling_3d(&solver, 1).unwrap();
-        assert_eq!(plain.modes[0].load_factor.to_bits(), certified.results.modes[0].load_factor.to_bits());
-        let linear = export_linear_bundle_3d(&solver).unwrap();
         let multi = MultiCaseInput3D { solver: solver.clone(), load_cases: vec![LoadCase3D { name: "A".into(), loads: solver.loads.clone() }],
             combinations: vec![CombinationDef { name: "C".into(), factors: HashMap::from([("A".into(), 1.0)]) }] };
-        let combination = export_combination_bundle_3d(&multi).unwrap();
-        for ds in [&modal.structured_diagnostics, &harmonic.structured_diagnostics, &guyan.structured_diagnostics,
-            &cb.structured_diagnostics, &time.structured_diagnostics, &creep.structured_diagnostics,
-            &plain.structured_diagnostics, &certified.results.structured_diagnostics, &linear.structured_diagnostics,
-            &combination.structured_diagnostics] {
+        let mut all = vec![modal.structured_diagnostics, harmonic.structured_diagnostics, guyan.structured_diagnostics,
+            cb.structured_diagnostics, time.structured_diagnostics];
+        if affected {
+            refused_as_unresolvable(solve_creep_shrinkage_3d(&creep));
+            refused_as_unresolvable(solve_buckling_3d(&solver, 1));
+            refused_as_unresolvable(certify_buckling_3d(&solver, 1));
+            refused_as_unresolvable(export_linear_bundle_3d(&solver));
+            refused_as_unresolvable(export_combination_bundle_3d(&multi));
+        } else {
+            all.push(solve_creep_shrinkage_3d(&creep).unwrap().structured_diagnostics);
+            let plain = solve_buckling_3d(&solver, 1).unwrap();
+            let certified = certify_buckling_3d(&solver, 1).unwrap();
+            assert_eq!(plain.modes[0].load_factor.to_bits(), certified.results.modes[0].load_factor.to_bits());
+            all.push(plain.structured_diagnostics);
+            all.push(certified.results.structured_diagnostics);
+            all.push(export_linear_bundle_3d(&solver).unwrap().structured_diagnostics);
+            all.push(export_combination_bundle_3d(&multi).unwrap().structured_diagnostics);
+        }
+        for ds in &all {
             if affected { assert_warning(ds, "NUM-INVARIANCE", 762.0); }
             else { assert!(!ids(ds).contains(&"NUM-INVARIANCE".into()), "{ds:?}"); }
         }
@@ -717,12 +732,13 @@ fn winkler_and_stages_check_the_solved_matrix() {
     for affected in [false, true] {
         let inertia = if affected { 1e-12 } else { 1e-4 };
         let solver = make_beam(4, 4.0, E, 0.01, inertia, "fixed", None, tip(-1.0));
-        let ordinary = solve_2d(&solver).unwrap();
         let winkler = solve_winkler_2d(&WinklerInput { solver: solver.clone(), foundation_springs: vec![] }).unwrap();
         let mut staged = serde_json::to_value(&solver).unwrap();
         staged["stages"] = serde_json::json!([{ "name": "all", "elementsAdded": [1,2,3,4], "supportsAdded": [1], "loadIndices": [0] }]);
         let staged = solve_staged_2d(&serde_json::from_value(staged).unwrap()).unwrap();
-        for ds in [&ordinary.structured_diagnostics, &winkler.structured_diagnostics, &staged.final_results.structured_diagnostics, &staged.stages[0].results.structured_diagnostics] {
+        if affected { refused_as_unresolvable(solve_2d(&solver)); }
+        else { assert!(!ids(&solve_2d(&solver).unwrap().structured_diagnostics).contains(&"NUM-INVARIANCE".into())); }
+        for ds in [&winkler.structured_diagnostics, &staged.final_results.structured_diagnostics, &staged.stages[0].results.structured_diagnostics] {
             assert_eq!(ids(ds).contains(&"NUM-INVARIANCE".into()), affected);
         }
         let mut solver = beam3d();
@@ -941,7 +957,7 @@ fn a_negligible_rotational_spring_at_an_all_hinged_node_still_warns() {
             Err(e) => panic!("kz {kz}: {e}"),
         };
         eprintln!("kz {kz}: {found:?}");
-        assert_eq!(found.contains(&"NUM-INVARIANCE".into()) || found.contains(&"CERT-MECHANISM".into()), warns, "kz {kz}: {found:?}");
+        assert_eq!(found.contains(&"LIN-SMALL-DISPLACEMENT".into()) || found.contains(&"NUM-INVARIANCE".into()) || found.contains(&"CERT-MECHANISM".into()), warns, "kz {kz}: {found:?}");
     }
 }
 
@@ -1710,30 +1726,37 @@ fn twisted_beam_theory(degrees: f64, t: f64, load_a: bool) -> f64 {
 fn warped_mitc_bands_bound_the_measured_twisted_beam_error() {
     let kappa = std::f64::consts::FRAC_PI_2 / 12.0;
     for (quad9, nx, ny, warn, refuse) in [(false, 24, 8, 0.009, 0.016), (true, 24, 8, 0.0035, 0.0065)] {
-        let excess = |kt: f64| -> (f64, Vec<StructuredDiagnostic>) {
+        let excess = |kt: f64| -> Result<(f64, Vec<StructuredDiagnostic>), String> {
             let t = kt / kappa;
             let mut worst = 0.0f64;
             let mut diagnostics = vec![];
             for (load_a, load) in [(true, [0.0, 0.0, 1.0]), (false, [0.0, 1.0, 0.0])] {
-                let ratio = |degrees: f64| {
+                let ratio = |degrees: f64| -> Result<(f64, Vec<StructuredDiagnostic>), String> {
                     let (input, tip) = twisted_strip(quad9, nx, ny, degrees, t, load);
-                    let r = dedaliano_engine::solver::linear::solve_3d(&input).unwrap_or_else(|e| panic!("{quad9} κt {kt}: {e}"));
+                    let r = dedaliano_engine::solver::linear::solve_3d(&input)?;
                     let d = r.displacements.iter().find(|d| d.node_id == tip).unwrap();
-                    (if load_a { d.uz } else { d.uy } / twisted_beam_theory(degrees, t, load_a), r.structured_diagnostics)
+                    Ok((if load_a { d.uz } else { d.uy } / twisted_beam_theory(degrees, t, load_a), r.structured_diagnostics))
                 };
-                let (twisted, ds) = ratio(90.0);
-                let (flat, _) = ratio(0.0);
+                let (twisted, ds) = ratio(90.0)?;
+                let (flat, _) = ratio(0.0)?;
                 assert!((flat - 1.0).abs() < 0.01, "{quad9} load {load_a}: the untwisted mesh is {flat} of beam theory");
                 assert!(twisted.is_finite() && flat.is_finite(), "{quad9} load {load_a}: {twisted} / {flat}");
                 worst = worst.max((twisted / flat - 1.0).abs());
                 diagnostics = ds;
             }
-            (worst, diagnostics)
+            Ok((worst, diagnostics))
         };
-        let (below_warn, ds) = excess(0.95 * warn);
+        if quad9 {
+            for kt in [0.95 * warn, 0.95 * refuse] {
+                let e = excess(kt).expect_err("the thin MITC9 strip is a known conservative refusal of the stability test");
+                assert!(e.contains("cannot be decided in double precision"), "κt {kt}: {e}");
+            }
+            continue;
+        }
+        let (below_warn, ds) = excess(0.95 * warn).unwrap_or_else(|e| panic!("{quad9}: {e}"));
         assert!(warped_findings(&ds).is_empty(), "{quad9}");
         assert!(below_warn < 0.015, "{quad9}: {below_warn} unflagged, over the 1.5 % warning band");
-        let (below_refuse, ds) = excess(0.95 * refuse);
+        let (below_refuse, ds) = excess(0.95 * refuse).unwrap_or_else(|e| panic!("{quad9}: {e}"));
         assert_eq!(warped_findings(&ds).iter().map(|d| d.severity).collect::<Vec<_>>(), vec![Severity::Warning], "{quad9}");
         assert!(below_refuse > below_warn && below_refuse < 0.05, "{quad9}: {below_refuse} only warned, over the 5 % refusal band");
     }
@@ -1808,7 +1831,6 @@ fn a_soft_rotation_beside_a_stiff_member_is_not_held_1367() {
         let r = dedaliano_engine::solver::linear::solve_3d(&soft_rotation_beside_a_stiff_member(inertia)).unwrap();
         let theta = r.displacements.iter().find(|d| d.node_id == 2).unwrap().ry.abs();
         assert!((theta - tip_rotation(inertia)).abs() < tip_tolerance(inertia) * tip_rotation(inertia), "I = {inertia:e}: θ {theta}, PL²/2EI {}", tip_rotation(inertia));
-        assert!(!ids(&r.structured_diagnostics).contains(&"ORPHAN-SOFT-ROTATION".to_string()), "{:?}", ids(&r.structured_diagnostics));
     }
 }
 
@@ -1824,22 +1846,20 @@ fn cantilever_soft_about_y(iy: f64) -> SolverInput3D {
 }
 
 #[test]
-fn a_rotation_far_softer_than_another_at_its_node_is_warned_1496() {
+fn a_rotation_far_softer_than_another_at_its_node_is_solved_exactly_or_refused_1496() {
     let input = cantilever_soft_about_y(1e-10);
-    let regular = dedaliano_engine::solver::linear::solve_3d(&input).unwrap();
-    let prepared = dedaliano_engine::solver::linear::prepare_static_3d(&input).unwrap().solve_loads(&input.loads).unwrap();
+    let regular = dedaliano_engine::solver::linear::solve_3d(&input);
+    let prepared = dedaliano_engine::solver::linear::prepare_static_3d(&input).and_then(|p| p.solve_loads(&input.loads));
     for r in [&regular, &prepared] {
-        let theta = r.displacements.iter().find(|d| d.node_id == 2).unwrap().ry.abs();
-        assert!(theta.is_finite(), "θ {theta}: {:?}", ids(&r.structured_diagnostics));
-        if (theta - tip_rotation(1e-10)).abs() > 1e-6 * tip_rotation(1e-10) {
-            let warning = r.structured_diagnostics.iter().find(|d| d.phase.as_deref() == Some("ORPHAN-SOFT-ROTATION")).unwrap_or_else(|| panic!("θ {theta}: {:?}", ids(&r.structured_diagnostics)));
-            assert_eq!(warning.severity, dedaliano_engine::types::Severity::Warning);
+        if let Ok(r) = r {
+            let theta = r.displacements.iter().find(|d| d.node_id == 2).unwrap().ry.abs();
+            assert!((theta - tip_rotation(1e-10)).abs() <= 1e-6 * tip_rotation(1e-10), "θ {theta}: {:?}", ids(&r.structured_diagnostics));
         }
     }
+    assert_eq!(regular.is_ok(), prepared.is_ok(), "{:?} vs {:?}", regular.as_ref().err(), prepared.as_ref().err());
     let held = dedaliano_engine::solver::linear::solve_3d(&cantilever_soft_about_y(1e-4)).unwrap();
     let theta = held.displacements.iter().find(|d| d.node_id == 2).unwrap().ry.abs();
     assert!((theta - tip_rotation(1e-4)).abs() < 1e-9 * tip_rotation(1e-4), "{theta}");
-    assert!(!ids(&held.structured_diagnostics).contains(&"ORPHAN-SOFT-ROTATION".to_string()), "{:?}", ids(&held.structured_diagnostics));
 }
 
 #[test]
@@ -1869,13 +1889,11 @@ fn a_soft_rotation_beside_a_stiff_member_is_not_held_in_2d_1367() {
         let r = solve_2d(&soft_rotation_beside_a_stiff_member_2d(inertia)).unwrap();
         let theta = r.displacements.iter().find(|d| d.node_id == 2).unwrap().ry.abs();
         assert!((theta - tip_rotation(inertia)).abs() < tip_tolerance(inertia) * tip_rotation(inertia), "I = {inertia:e}: θ {theta}, PL²/2EI {}", tip_rotation(inertia));
-        assert!(!ids(&r.structured_diagnostics).contains(&"ORPHAN-SOFT-ROTATION".to_string()), "{:?}", ids(&r.structured_diagnostics));
     }
     let mut hinged = soft_rotation_beside_a_stiff_member_2d(1e-4);
     for e in hinged.elements.values_mut().filter(|e| e.id == 1) { e.hinge_end = true; }
     let hinged = solve_2d(&hinged).unwrap();
     assert_eq!(hinged.displacements.iter().find(|d| d.node_id == 2).unwrap().ry, 0.0);
-    assert!(!ids(&hinged.structured_diagnostics).contains(&"ORPHAN-SOFT-ROTATION".to_string()), "{:?}", ids(&hinged.structured_diagnostics));
     let masked = common::make_input(
         vec![(1, 0.0, 0.0), (2, 1.0, 0.0), (3, 0.0, 5.0), (4, 1.0, 5.0), (5, 0.0, 10.0), (6, 1.0, 10.0)],
         vec![(1, E, 0.3)],
@@ -1943,7 +1961,6 @@ fn a_soft_spring_at_a_hinged_node_is_not_replaced_by_the_orphan_spring_1437() {
     let ry = out.results.displacements.iter().find(|d| d.node_id == 2).unwrap().ry;
     let found = ids(&out.results.structured_diagnostics);
     assert!((ry - 5.0e10).abs() <= 1e-6 * 5.0e10, "ry {ry}: {found:?}");
-    assert!(!found.contains(&"ORPHAN-SOFT-ROTATION".to_string()), "{found:?}");
 }
 
 fn beyond_small_displacement(diagnostics: &[StructuredDiagnostic]) -> Option<&StructuredDiagnostic> {

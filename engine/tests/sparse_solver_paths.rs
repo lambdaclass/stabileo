@@ -17,6 +17,11 @@ use serde_json::{json, Value};
 
 const SINGULAR: &str = "Singular stiffness matrix — structure is a mechanism";
 
+fn refused_as_unstable(label: &str, r: Result<impl std::fmt::Debug, String>) {
+    let e = r.expect_err(&format!("{label}: an unstable structure was solved"));
+    assert!(e.starts_with("the structure is a mechanism") || e.starts_with("the stiffness matrix is not positive"), "{label}: {e}");
+}
+
 // ==================== 2D model builder ====================
 
 /// E in MPa as the engine takes it; stiffness uses E·1000 (kN/m²).
@@ -592,16 +597,9 @@ fn check_2d(
     assert_small_displacement(label, &r.structured_diagnostics, small_displacement_oracle_2d(r, &m.input()));
     let tail: Vec<&StructuredDiagnostic> = sd.iter().copied().filter(|d| d.phase.as_deref() != Some("pre_solve") && !screen_warning(d)).collect();
     let excessive = ex.max_translation > 1000.0 * ex.char_length;
-    let high = ex.ratio > 1e8;
     let mut want: Vec<C> = head.to_vec();
     if excessive {
         want.push(C::ExcessiveDisplacement);
-    }
-    if high {
-        want.push(C::HighDiagonalRatio);
-    }
-    if !ex.near_zero.is_empty() {
-        want.push(C::NearZeroDiagonal);
     }
     want.push(C::ResidualOk);
     assert_eq!(tail.iter().map(|d| d.code).collect::<Vec<_>>(), want, "{label}: diagnostics {:#?}", tail);
@@ -830,57 +828,27 @@ fn solver_options_dispatch_2d() {
     }
 }
 
-/// Indefinite, non-singular K_ff (the connector gadget): sparse Cholesky
-/// fails and every path solves by dense LU, reporting it; the zero diagonals
-/// are named. The gadget is decoupled, so the frame matches the reference
-/// and u_Q = 10/k, u_P = −4/k with spring reactions −k·u.
+/// Indefinite, non-singular K_ff (the connector gadget): the stability test
+/// refuses it on every path, before any factorization.
 #[test]
-fn indefinite_stiffness_falls_back_to_dense_lu_on_every_2d_path() {
+fn indefinite_stiffness_is_refused_on_every_2d_path() {
     for seg in [4, 1] {
         let mut m = mixed(seg);
-        let (p, q) = add_gadget(&mut m, 1e6);
-        let rf = reference_2d(&m);
-        // closed form for the gadget (independent of the reference solve)
-        assert!(close(rf.disp[&q][0], 1e-5, 1e-9) && close(rf.disp[&p][0], -4e-6, 1e-9));
-        assert!(close(rf.reac[&q][0], -10.0, 1e-9) && close(rf.reac[&p][0], 4.0, 1e-9));
-        let lu = [C::StiffnessNotPositiveDefinite, C::DenseLu, C::CholeskyFailedLuFallback];
-        let paths: Vec<(Path2, &[C])> = if seg == 4 {
-            vec![
-                (Path2::Default, &lu[..]),
-                (Path2::DenseRef, &lu[..]),
-                (Path2::Pcg("ics"), &[C::StiffnessNotPositiveDefinite, C::PcgFallbackDirect, C::CholeskyFailedLuFallback][..]),
-                (Path2::Pcg("jacobi"), &[C::StiffnessNotPositiveDefinite, C::PcgFallbackDirect, C::CholeskyFailedLuFallback][..]),
-            ]
-        } else {
-            vec![(Path2::Default, &lu[..])]
-        };
-        for (path, head) in paths {
-            let label = format!("seg {seg} {path:?}");
-            let r = solve_path_2d(&m, path).unwrap();
-            check_2d(&label, &r, &m, &rf, "dense_lu", &[], head, 1e-9, 1e-12);
-            let why = match (seg, path) {
-                (4, Path2::Default) | (4, Path2::Pcg(_)) => "sparse Cholesky failed; solved by dense LU",
-                _ => "Cholesky failed; solved by dense LU",
-            };
-            assert!(not_pd_message(&r).contains(&format!("({why})")), "{label}: {}", not_pd_message(&r));
-            if let Path2::Pcg(_) = path {
-                // PCG is never tried on a matrix unshifted Cholesky cannot verify
-                assert_eq!(r.solver_diagnostics.len(), 1, "{label}: {:?}", r.solver_diagnostics);
-                let d = &r.solver_diagnostics[0];
-                assert_eq!((d.category.as_str(), d.severity.as_str()), ("fallback", "warning"));
-                assert_eq!(d.message, "Unshifted Cholesky could not verify structural stability; using the direct solver chain instead of PCG");
-            }
+        add_gadget(&mut m, 1e6);
+        let paths = if seg == 4 { vec![Path2::Default, Path2::DenseRef, Path2::Pcg("ics"), Path2::Pcg("jacobi"), Path2::PcgMaxit1] } else { vec![Path2::Default] };
+        for path in paths {
+            refused_as_unstable(&format!("seg {seg} {path:?}"), solve_path_2d(&m, path));
         }
     }
 }
 
-/// A spring-held free node of stiffness 1e-2 sets the diagonal ratio above
-/// 1e8 (HighDiagonalRatio, value = max/min diagonal of the reference) on
-/// every path; its moment gives a rotation (my/k = 1e5) far above 1000× the
-/// characteristic length while every translation is small, so only
-/// translations count as excessive displacement.
+/// A spring-held free node of stiffness 1e-2 (diagonal ratio above 1e8, which
+/// no longer warns) solves on every path; its moment gives a rotation
+/// (my/k = 1e5) far above 1000× the characteristic length while every
+/// translation is small, so only translations count as excessive
+/// displacement. With the indefinite gadget every path refuses.
 #[test]
-fn high_diagonal_ratio_and_rotation_only_node_on_every_2d_path() {
+fn soft_floating_node_and_rotation_only_node_on_every_2d_path() {
     for (seg, gadget) in [(4, false), (4, true), (1, false), (1, true)] {
         let mut m = mixed(seg);
         let f = add_floating(&mut m, 1e-2, 1e3);
@@ -891,28 +859,25 @@ fn high_diagonal_ratio_and_rotation_only_node_on_every_2d_path() {
         assert!(close(rf.disp[&f][2], 1e5, 1e-9));
         let ex = expect_2d(&m, &rf);
         assert!(ex.ratio > 1e8 && ex.ratio < 1e12 && ex.max_translation < 1000.0 * ex.char_length);
-        let lu = [C::StiffnessNotPositiveDefinite, C::DenseLu, C::CholeskyFailedLuFallback];
-        let pcg_lu = [C::StiffnessNotPositiveDefinite, C::PcgFallbackDirect, C::CholeskyFailedLuFallback];
-        let runs: Vec<(Path2, &str, &[C])> = match (seg, gadget) {
-            (4, false) => vec![
+        let runs: Vec<(Path2, &str, &[C])> = match seg {
+            4 => vec![
                 (Path2::Default, "sparse_cholesky", &[C::SparseCholesky][..]),
                 (Path2::DenseRef, "sparse_cholesky", &[C::SparseCholesky][..]),
                 (Path2::Pcg("ics"), "pcg_ics", &[C::PcgSolve][..]),
                 (Path2::PcgMaxit1, "pcg_fallback_sparse_cholesky", &[C::PcgFallbackDirect, C::SparseCholesky][..]),
             ],
-            (4, true) => vec![
-                (Path2::Default, "dense_lu", &lu[..]),
-                (Path2::DenseRef, "dense_lu", &lu[..]),
-                (Path2::Pcg("ics"), "dense_lu", &pcg_lu[..]),
-            ],
-            (_, false) => vec![(Path2::Default, "dense_lu", &[C::DenseLu][..])],
-            (_, true) => vec![(Path2::Default, "dense_lu", &lu[..])],
+            _ => vec![(Path2::Default, "dense_lu", &[C::DenseLu][..])],
         };
         for (p, path, head) in runs {
+            let label = format!("seg {seg} gadget {gadget} {p:?}");
+            if gadget {
+                refused_as_unstable(&label, solve_path_2d(&m, p));
+                continue;
+            }
             let r = solve_path_2d(&m, p).unwrap();
             let tol = if matches!(p, Path2::Pcg(_)) { 1e-7 } else { 1e-9 };
             let res = if matches!(p, Path2::Pcg(_)) { 1e-11 } else { 1e-12 };
-            check_2d(&format!("seg {seg} gadget {gadget} {p:?}"), &r, &m, &rf, path, &[C::DisconnectedNode], head, tol, res);
+            check_2d(&label, &r, &m, &rf, path, &[C::DisconnectedNode], head, tol, res);
         }
     }
 }
@@ -931,48 +896,36 @@ fn excessive_displacement_on_every_2d_path() {
         let rf = reference_2d(&m);
         let ex = expect_2d(&m, &rf);
         assert!(ex.max_translation > 1000.0 * ex.char_length);
-        let lu = [C::StiffnessNotPositiveDefinite, C::DenseLu, C::CholeskyFailedLuFallback];
-        let pcg_lu = [C::StiffnessNotPositiveDefinite, C::PcgFallbackDirect, C::CholeskyFailedLuFallback];
-        let runs: Vec<(Path2, &str, &[C])> = match (seg, gadget) {
-            (4, false) => vec![
+        let runs: Vec<(Path2, &str, &[C])> = match seg {
+            4 => vec![
                 (Path2::Default, "sparse_cholesky", &[C::SparseCholesky][..]),
                 (Path2::DenseRef, "sparse_cholesky", &[C::SparseCholesky][..]),
                 (Path2::Pcg("ics"), "pcg_ics", &[C::PcgSolve][..]),
                 (Path2::PcgMaxit1, "pcg_fallback_sparse_cholesky", &[C::PcgFallbackDirect, C::SparseCholesky][..]),
             ],
-            (4, true) => vec![
-                (Path2::Default, "dense_lu", &lu[..]),
-                (Path2::DenseRef, "dense_lu", &lu[..]),
-                (Path2::Pcg("ics"), "dense_lu", &pcg_lu[..]),
-            ],
-            (_, false) => vec![(Path2::Default, "dense_lu", &[C::DenseLu][..])],
-            (_, true) => vec![(Path2::Default, "dense_lu", &lu[..])],
+            _ => vec![(Path2::Default, "dense_lu", &[C::DenseLu][..])],
         };
         for (p, path, head) in runs {
+            let label = format!("soft seg {seg} gadget {gadget} {p:?}");
+            if gadget {
+                refused_as_unstable(&label, solve_path_2d(&m, p));
+                continue;
+            }
             let r = solve_path_2d(&m, p).unwrap();
             let tol = if matches!(p, Path2::Pcg(_)) { 1e-7 } else { 1e-9 };
-            check_2d(&format!("soft seg {seg} gadget {gadget} {p:?}"), &r, &m, &rf, path, &[], head, tol, 1e-10);
+            check_2d(&label, &r, &m, &rf, path, &[], head, tol, 1e-10);
         }
     }
 }
 
 /// Runs of the frame on each path family: large sparse (seg 4) through
-/// default, dense-reference, PCG and PCG-fallback; small dense (seg 1); and,
-/// with the gadget, the dense-LU fallbacks.
+/// default, dense-reference, PCG and PCG-fallback; small dense (seg 1).
 fn all_2d_variants(base: impl Fn(usize) -> M2) -> Vec<(String, M2, Path2)> {
     let mut v = Vec::new();
     for p in [Path2::Default, Path2::DenseRef, Path2::Pcg("ics"), Path2::PcgMaxit1] {
         v.push((format!("large {p:?}"), base(4), p));
     }
     v.push(("small Default".into(), base(1), Path2::Default));
-    for p in [Path2::Default, Path2::DenseRef, Path2::Pcg("ics")] {
-        let mut m = base(4);
-        add_gadget(&mut m, 1e6);
-        v.push((format!("gadget {p:?}"), m, p));
-    }
-    let mut m = base(1);
-    add_gadget(&mut m, 1e6);
-    v.push(("small gadget Default".into(), m, Path2::Default));
     v
 }
 
@@ -1011,10 +964,10 @@ fn overflowing_loads_on_every_2d_path() {
     }
 }
 
-/// A floor joint with every member end hinged gets artificial rotational
-/// stiffness 1e-10·max diag: the frame still solves (the diagonal ratio is
-/// exactly 1e10) and balances its loads, and a nodal moment at that joint,
-/// which nothing can carry, is refused before the solve, on every path.
+/// A floor joint with every member end hinged has a rotation nothing
+/// stiffens: the stability test eliminates it, the frame solves and balances
+/// its loads, and a nodal moment at that joint, which nothing can carry, is
+/// refused before the solve, on every path.
 #[test]
 fn all_hinged_joint_on_every_2d_path() {
     let hinged = |seg: usize, my: f64| {
@@ -1036,8 +989,8 @@ fn all_hinged_joint_on_every_2d_path() {
     };
     for (label, m, p) in all_2d_variants(|seg| hinged(seg, 0.0)) {
         let r = solve_path_2d(&m, p).unwrap_or_else(|e| panic!("{label}: {e}"));
-        let hd = diag(&r.structured_diagnostics, C::HighDiagonalRatio);
-        assert!(close(hd.value.unwrap(), 1e10, 1e-9), "{label}: {:?}", hd.value);
+        assert!(!r.structured_diagnostics.iter().any(|d| d.code == C::HighDiagonalRatio), "{label}");
+        assert_eq!(r.displacements.iter().find(|d| d.node_id == 2).unwrap().ry, 0.0, "{label}");
         // global force equilibrium from the reported reactions (springs and
         // the inclined roller included)
         let input = m.input();
@@ -1076,27 +1029,24 @@ fn rolling_beam(n: usize) -> M2 {
     m
 }
 
-/// A genuine mechanism is refused on every path: at prepare by the direct
-/// paths (Cholesky and LU both fail), at solve by PCG (whose stability check
-/// is lazy).
+/// A genuine mechanism is refused at prepare on every path, by the stability
+/// test.
 #[test]
 fn mechanism_is_refused_on_every_2d_path() {
     let large = rolling_beam(40);
     for p in [Path2::Default, Path2::DenseRef] {
         let i = large.input();
         let prep = if matches!(p, Path2::DenseRef) { prepare_static_2d_dense_reference(&i) } else { prepare_static_2d(&i) };
-        assert_eq!(prep.err().as_deref(), Some(SINGULAR), "{p:?}");
+        refused_as_unstable(&format!("{p:?}"), prep.map(|_| ()));
     }
     for p in [Path2::Pcg("ics"), Path2::PcgMaxit1] {
         let mm = match p {
             Path2::Pcg(pc) => with_opts(&large, json!({ "method": "pcg", "preconditioner": pc })),
             _ => with_opts(&large, json!({ "method": "pcg", "maxIterations": 1 })),
         };
-        let i = mm.input();
-        let prepared = prepare_static_2d(&i).unwrap();
-        assert_eq!(prepared.solve_loads(&i.loads).err().as_deref(), Some(SINGULAR), "{p:?}");
+        refused_as_unstable(&format!("{p:?}"), prepare_static_2d(&mm.input()).map(|_| ()));
     }
-    assert_eq!(solve_2d(&rolling_beam(10).input()).err().as_deref(), Some(SINGULAR), "small");
+    refused_as_unstable("small", solve_2d(&rolling_beam(10).input()));
 }
 
 /// Every DOF restrained (nf = 0): reactions are K·u_r − F, with a settlement
@@ -1589,12 +1539,6 @@ fn check_3d(label: &str, r: &AnalysisResults3D, m: &M3, path: &str, want: &[C], 
     }
 }
 
-fn not_pd_message3(r: &AnalysisResults3D) -> &str {
-    let v: Vec<_> = r.structured_diagnostics.iter().filter(|d| d.code == C::StiffnessNotPositiveDefinite).collect();
-    assert_eq!(v.len(), 1);
-    &v[0].message
-}
-
 fn legacy3(r: &AnalysisResults3D) -> Vec<(String, String, String)> {
     r.solver_diagnostics.iter().map(|d| (d.category.clone(), d.severity.clone(), d.message.clone())).collect()
 }
@@ -1732,131 +1676,33 @@ fn solver_options_dispatch_3d() {
     }
 }
 
-/// A small negative stiffness (−0.5e-6·c, c the largest diagonal) breaks
-/// unshifted Cholesky; the first shift of the ladder, 1e-6·c, factors K_ff
-/// and iterative refinement recovers the unshifted solution. Sparse path and
-/// PCG (whose stability check refuses a shifted factor) both report the
-/// shift; the coarse dense path solves by LU. The gadget is unloaded along
-/// x and decoupled: u_A = (0, 50/c, 0).
+/// A negative stiffness, small (−0.5e-6·c and −0.5e-2·c, c the largest
+/// diagonal, which the old shift ladder absorbed) or far below −10·c (which
+/// beat every shift), is refused before any factorization on the dense,
+/// sparse and PCG paths, never solved behind a shift or by LU.
 #[test]
-fn diagonal_shift_regularization_3d() {
+fn indefinite_stiffness_is_refused_on_every_3d_path() {
     let c = 1e8;
-    let mut cm = frame3(1);
-    add_shift_gadget(&mut cm, 0.5e-6, c);
-    let coarse = solve_path_3d(&cm, Path3::Default).unwrap();
-    check_3d("coarse", &coarse, &cm, "dense_lu", &[C::StiffnessNotPositiveDefinite, C::DenseLu, C::CholeskyFailedLuFallback, C::ResidualOk], 0.0, &[], 1e-13);
-    assert!(not_pd_message3(&coarse).contains("(Cholesky failed; solved by dense LU)"));
-    let mut m = frame3(3);
-    let a = add_shift_gadget(&mut m, 0.5e-6, c);
-    let shift = 1e-6 * c;
-    let reg = format!("Regularized K_ff with diagonal shift {shift:.2e} (drilling DOF stabilization)");
-    for (p, path, want) in [
-        (Path3::Default, "sparse_cholesky", vec![C::StiffnessNotPositiveDefinite, C::SparseCholesky, C::SparseFillRatio, C::DiagonalRegularization, C::ResidualOk]),
-        (Path3::Pcg("ics"), "pcg_fallback_sparse_cholesky", vec![C::StiffnessNotPositiveDefinite, C::PcgFallbackDirect, C::SparseCholesky, C::SparseFillRatio, C::DiagonalRegularization, C::ResidualOk]),
-    ] {
-        let label = format!("{p:?}");
-        let r = solve_path_3d(&m, p).unwrap();
-        check_3d(&label, &r, &m, path, &want, shift, &[], 1e-6);
-        let balance = r.structured_diagnostics.iter().find(|d| d.phase.as_deref() == Some("self_check:static_balance")).unwrap();
-        assert_eq!(balance.severity, Severity::Warning);
-        assert!(balance.value.unwrap() >= balance.threshold.unwrap());
-        assert!(not_pd_message3(&r).contains(&format!("(Cholesky needed a diagonal shift of {shift:.2e})")), "{label}");
-        // Refinement stops at the 1e-6 residual check, which on this
-        // conditioning still leaves ~3e-4 relative error in the rotations.
-        assert_matches_coarse(&r, &coarse, 1e-3, &label);
-        let d = r.displacements.iter().find(|d| d.node_id == a).unwrap();
-        assert!(d.ux.abs() < 1e-9 && close(d.uy, 50.0 / c, 1e-3), "{label}: {d:?}");
-        let mut l = legacy3(&r);
-        if matches!(p, Path3::Pcg(_)) {
-            assert_eq!(l.remove(0), lg("fallback", "warning", "Unshifted Cholesky could not verify structural stability; using the direct solver chain instead of PCG"));
+    for seg in [1, 3] {
+        let mut models: Vec<(String, M3)> = Vec::new();
+        for eps in [0.5e-6, 0.5e-2] {
+            let mut m = frame3(seg);
+            add_shift_gadget(&mut m, eps, c);
+            models.push((format!("seg {seg} shift gadget {eps:e}"), m));
         }
-        assert_eq!(l, vec![lg("solver_path", "info", &reg), lg("solver_path", "info", "Sparse Cholesky solver (149 free DOFs)")], "{label}");
-    }
-}
-
-/// A larger negative stiffness (−0.5e-2·c) walks the ladder to the shift
-/// 1e-2·c, too large for refinement to undo: the residual check rejects the
-/// shifted solution and the dense LU of the unshifted K_ff answers, exactly.
-#[test]
-fn shift_ladder_then_residual_fallback_to_dense_lu_3d() {
-    let c = 1e8;
-    let mut cm = frame3(1);
-    add_shift_gadget(&mut cm, 0.5e-2, c);
-    let coarse = solve_path_3d(&cm, Path3::Default).unwrap();
-    let mut m = frame3(3);
-    let a = add_shift_gadget(&mut m, 0.5e-2, c);
-    let shift = 1e-2 * c;
-    for (p, want) in [
-        (Path3::Default, vec![C::StiffnessNotPositiveDefinite, C::SparseFallbackDenseLu, C::SparseFillRatio, C::DiagonalRegularization, C::ResidualOk]),
-        (Path3::Pcg("ics"), vec![C::StiffnessNotPositiveDefinite, C::PcgFallbackDirect, C::SparseFallbackDenseLu, C::DiagonalRegularization, C::ResidualOk]),
-    ] {
-        let label = format!("{p:?}");
-        let r = solve_path_3d(&m, p).unwrap();
-        check_3d(&label, &r, &m, "sparse_fallback_dense_lu", &want, shift, &[], 1e-12);
-        assert!(not_pd_message3(&r).contains(&format!("(Cholesky needed a diagonal shift of {shift:.2e})")), "{label}");
-        assert_matches_coarse(&r, &coarse, 1e-9, &label);
-        let d = r.displacements.iter().find(|d| d.node_id == a).unwrap();
-        assert!(d.ux.abs() < 1e-12 && close(d.uy, 50.0 / c, 1e-9), "{label}: {d:?}");
-        let l = legacy3(&r);
-        let n = l.len();
-        assert_eq!(l[n - 2], lg("solver_path", "info", &format!("Regularized K_ff with diagonal shift {shift:.2e} (drilling DOF stabilization)")), "{label}");
-        assert_eq!((l[n - 1].0.as_str(), l[n - 1].1.as_str()), ("fallback", "warning"), "{label}");
-        let rejected: f64 = l[n - 1]
-            .2
-            .strip_prefix("Sparse Cholesky residual too large (")
-            .and_then(|x| x.strip_suffix("), fell back to dense LU"))
-            .unwrap()
-            .parse()
-            .unwrap();
-        assert!(rejected >= 1e-6, "{label}: rejected residual {rejected}");
-    }
-}
-
-/// An eigenvalue −k far below −10·max diag: every shift of the ladder fails.
-/// The sparse path solves by dense LU at prepare, PCG by its lazy dense LU;
-/// the coarse dense path by LU, naming the two zero diagonals. u_Q = 10/k,
-/// u_P = −4/k, spring reactions −k·u.
-#[test]
-fn every_shift_fails_dense_lu_3d() {
-    let k = 1e12;
-    let mut cm = frame3(1);
-    let (cp, cq) = add_gadget3(&mut cm, k);
-    let coarse = solve_path_3d(&cm, Path3::Default).unwrap();
-    let cdn = DofNumbering::build_3d(&cm.input());
-    let nz = vec![cdn.map[&(cp, 0)], cdn.map[&(cq, 0)]];
-    check_3d(
-        "coarse",
-        &coarse,
-        &cm,
-        "dense_lu",
-        &[C::StiffnessNotPositiveDefinite, C::DenseLu, C::CholeskyFailedLuFallback, C::NearZeroDiagonal, C::ResidualOk],
-        0.0,
-        &nz,
-        1e-13,
-    );
-    let mut m = frame3(3);
-    let (p, q) = add_gadget3(&mut m, k);
-    for (pp, want) in [
-        (Path3::Default, vec![C::StiffnessNotPositiveDefinite, C::SparseFallbackDenseLu, C::CholeskyFailedLuFallback, C::ResidualOk]),
-        (Path3::Pcg("ics"), vec![C::StiffnessNotPositiveDefinite, C::PcgFallbackDirect, C::SparseFallbackDenseLu, C::ResidualOk]),
-    ] {
-        let label = format!("{pp:?}");
-        let r = solve_path_3d(&m, pp).unwrap();
-        check_3d(&label, &r, &m, "sparse_fallback_dense_lu", &want, 0.0, &[], 1e-12);
-        assert!(not_pd_message3(&r).contains("(sparse Cholesky failed even with a diagonal shift; solved by dense LU)"), "{label}");
-        assert_matches_coarse(&r, &coarse, 1e-9, &label);
-        let u = |n: usize| r.displacements.iter().find(|d| d.node_id == n).unwrap().ux;
-        assert!(close(u(q), 10.0 / k, 1e-6) && close(u(p), -4.0 / k, 1e-6), "{label}");
-        let rx = |n: usize| r.reactions.iter().find(|x| x.node_id == n).unwrap().fx;
-        assert!(close(rx(q), -10.0, 1e-6) && close(rx(p), 4.0, 1e-6), "{label}");
-        let l = legacy3(&r);
-        assert!(l.contains(&lg("fallback", "warning", "Sparse Cholesky failed even with regularization, fell back to dense LU")), "{label}: {l:?}");
+        let mut m = frame3(seg);
+        add_gadget3(&mut m, 1e12);
+        models.push((format!("seg {seg} gadget 1e12"), m));
+        for (label, m) in models {
+            for p in [Path3::Default, Path3::Pcg("ics"), Path3::PcgMaxit1] {
+                refused_as_unstable(&format!("{label} {p:?}"), solve_path_3d(&m, p));
+            }
+        }
     }
 }
 
 /// One run of a 3D variant: model, path option, expected solver path, the
-/// path's own leading codes, how the remaining codes are ordered, and the
-/// regularization shift it reports (0 if none).
+/// path's own leading codes and how the remaining codes are ordered.
 struct Run3 {
     label: String,
     m: M3,
@@ -1865,178 +1711,63 @@ struct Run3 {
     head: Vec<C>,
     kind: Kind3,
     shift: f64,
-    near_zero: Vec<usize>,
 }
 
 #[derive(Clone, Copy, PartialEq)]
 enum Kind3 {
-    /// dense path: head, excessive, conditioning, near-zero, residual
+    /// dense path: head, excessive, residual
     Dense,
-    /// sparse / PCG with a factorization: head, fill, conditioning, shift, excessive, residual
+    /// sparse / PCG with a factorization: head, fill, excessive, residual
     Factored,
-    /// PCG converged or a PCG-side dense LU: head, conditioning, shift, excessive, residual
+    /// PCG converged: head, excessive, residual
     NoFill,
-    /// prepare-time dense LU: head, excessive, conditioning, residual
-    PreparedLu,
 }
 
 /// The frame (modified by `f`) on every 3D path family: dense (coarse),
-/// sparse, PCG, PCG fallback, the shift ladder with refinement (G1 small),
-/// the ladder with the residual fallback (G1 large), every shift failing
-/// (G2) on the sparse and PCG paths, and G2 on the dense path.
-fn variants3(f: impl Fn(&mut M3), pcg_path: &'static str, with_shifted: bool) -> Vec<Run3> {
-    let c = 1e8;
+/// sparse, PCG and PCG fallback.
+fn variants3(f: impl Fn(&mut M3), pcg_path: &'static str) -> Vec<Run3> {
     let mut v = Vec::new();
     let base = |seg: usize| {
         let mut m = frame3(seg);
         f(&mut m);
         m
     };
-    let run = |label: &str, m: M3, p: Path3, path: &'static str, head: Vec<C>, kind: Kind3, shift: f64| Run3 {
-        label: label.to_string(),
-        m,
-        p,
-        path,
-        head,
-        kind,
-        shift,
-        near_zero: vec![],
-    };
+    let run = |label: &str, m: M3, p: Path3, path: &'static str, head: Vec<C>, kind: Kind3| Run3 { label: label.to_string(), m, p, path, head, kind, shift: 0.0 };
     use C::*;
-    v.push(run("coarse", base(1), Path3::Default, "dense_lu", vec![DenseLu], Kind3::Dense, 0.0));
-    v.push(run("sparse", base(3), Path3::Default, "sparse_cholesky", vec![SparseCholesky], Kind3::Factored, 0.0));
+    v.push(run("coarse", base(1), Path3::Default, "dense_lu", vec![DenseLu], Kind3::Dense));
+    v.push(run("sparse", base(3), Path3::Default, "sparse_cholesky", vec![SparseCholesky], Kind3::Factored));
     if pcg_path == "pcg_fallback_sparse_cholesky" {
-        v.push(run("pcg", base(3), Path3::Pcg("ics"), pcg_path, vec![PcgFallbackDirect, SparseCholesky], Kind3::Factored, 0.0));
+        v.push(run("pcg", base(3), Path3::Pcg("ics"), pcg_path, vec![PcgFallbackDirect, SparseCholesky], Kind3::Factored));
     } else {
-        v.push(run("pcg", base(3), Path3::Pcg("ics"), pcg_path, vec![PcgSolve], Kind3::NoFill, 0.0));
+        v.push(run("pcg", base(3), Path3::Pcg("ics"), pcg_path, vec![PcgSolve], Kind3::NoFill));
     }
-    v.push(run("pcg maxit 1", base(3), Path3::PcgMaxit1, "pcg_fallback_sparse_cholesky", vec![PcgFallbackDirect, SparseCholesky], Kind3::Factored, 0.0));
-    let g1 = |eps: f64| {
-        let mut m = base(3);
-        add_shift_gadget(&mut m, eps, c);
-        m
-    };
-    if with_shifted {
-    v.push(run("shifted", g1(0.5e-6), Path3::Default, "sparse_cholesky", vec![StiffnessNotPositiveDefinite, SparseCholesky], Kind3::Factored, 1e-6 * c));
-    v.push(run(
-        "shifted pcg",
-        g1(0.5e-6),
-        Path3::Pcg("ics"),
-        "pcg_fallback_sparse_cholesky",
-        vec![StiffnessNotPositiveDefinite, PcgFallbackDirect, SparseCholesky],
-        Kind3::Factored,
-        1e-6 * c,
-    ));
-    }
-    v.push(run("ladder", g1(0.5e-2), Path3::Default, "sparse_fallback_dense_lu", vec![StiffnessNotPositiveDefinite, SparseFallbackDenseLu], Kind3::Factored, 1e-2 * c));
-    v.push(run(
-        "ladder pcg",
-        g1(0.5e-2),
-        Path3::Pcg("ics"),
-        "sparse_fallback_dense_lu",
-        vec![StiffnessNotPositiveDefinite, PcgFallbackDirect, SparseFallbackDenseLu],
-        Kind3::NoFill,
-        1e-2 * c,
-    ));
-    let g2 = |seg: usize| {
-        let mut m = base(seg);
-        add_gadget3(&mut m, 1e12);
-        m
-    };
-    v.push(run(
-        "all shifts fail",
-        g2(3),
-        Path3::Default,
-        "sparse_fallback_dense_lu",
-        vec![StiffnessNotPositiveDefinite, SparseFallbackDenseLu, CholeskyFailedLuFallback],
-        Kind3::PreparedLu,
-        0.0,
-    ));
-    v.push(run(
-        "all shifts fail pcg",
-        g2(3),
-        Path3::Pcg("ics"),
-        "sparse_fallback_dense_lu",
-        vec![StiffnessNotPositiveDefinite, PcgFallbackDirect, SparseFallbackDenseLu],
-        Kind3::NoFill,
-        0.0,
-    ));
-    let cm = g2(1);
-    if 6 * cm.nodes.len() >= 64 {
-        return v; // no longer on the dense path
-    }
-    let dn = DofNumbering::build_3d(&cm.input());
-    let (pn, qn) = (cm.nodes.len() - 1, cm.nodes.len());
-    let mut r = run("coarse gadget", cm, Path3::Default, "dense_lu", vec![StiffnessNotPositiveDefinite, DenseLu, CholeskyFailedLuFallback], Kind3::Dense, 0.0);
-    r.near_zero = vec![dn.map[&(pn, 0)], dn.map[&(qn, 0)]];
-    v.push(r);
+    v.push(run("pcg maxit 1", base(3), Path3::PcgMaxit1, "pcg_fallback_sparse_cholesky", vec![PcgFallbackDirect, SparseCholesky], Kind3::Factored));
     v
 }
 
-fn want3(run: &Run3, cond: Option<C>, excessive: bool) -> Vec<C> {
+fn want3(run: &Run3, excessive: bool) -> Vec<C> {
     let mut w = run.head.clone();
-    let reg = run.shift > 0.0;
-    match run.kind {
-        Kind3::Dense => {
-            w.extend(excessive.then_some(C::ExcessiveDisplacement));
-            w.extend(cond);
-            if !run.near_zero.is_empty() {
-                w.push(C::NearZeroDiagonal);
-            }
-        }
-        Kind3::Factored | Kind3::NoFill => {
-            if run.kind == Kind3::Factored {
-                w.push(C::SparseFillRatio);
-            }
-            w.extend(cond);
-            w.extend(reg.then_some(C::DiagonalRegularization));
-            w.extend(excessive.then_some(C::ExcessiveDisplacement));
-        }
-        Kind3::PreparedLu => {
-            w.extend(excessive.then_some(C::ExcessiveDisplacement));
-            w.extend(cond);
-        }
+    if run.kind == Kind3::Factored {
+        w.push(C::SparseFillRatio);
     }
+    w.extend(excessive.then_some(C::ExcessiveDisplacement));
     w.push(C::ResidualOk);
     w
 }
 
-/// A free node on springs sets the minimum diagonal: translational springs
-/// 1e-3 give a ratio in (1e8, 1e12] (HighDiagonalRatio), 1e-7 above 1e12
-/// (ExtremelyHighDiagonalRatio); max diag / ratio is the spring on every
-/// path. Its moment turns it by 1e6 rad (far above 1000× the characteristic
-/// length) while no translation is large: only translations are excessive,
-/// and the rotation is past small displacements (known issue #1446).
+/// A free node on springs 1e-3 and 1e-7 (diagonal ratios above 1e8 and 1e12,
+/// which no longer warn: the stability test resolves the node) solves on
+/// every path. Its moment turns it by 1e6 rad (far above 1000× the
+/// characteristic length) while no translation is large: only translations
+/// are excessive, and the rotation is past small displacements (known issue
+/// #1446).
 #[test]
-fn diagonal_ratio_and_rotation_only_node_on_every_3d_path() {
-    for (kt, cond, pcg_path) in [(1e-3, C::HighDiagonalRatio, "pcg_ics"), (1e-7, C::ExtremelyHighDiagonalRatio, "pcg_ics")] {
-        // (a soft spring node defeats refinement: no "shifted" variants)
-        for mut run in variants3(|m| { add_floating3(m, kt, 1e-3, 1e3); }, pcg_path, false) {
+fn soft_floating_node_and_rotation_only_node_on_every_3d_path() {
+    for kt in [1e-3, 1e-7] {
+        for run in variants3(|m| { add_floating3(m, kt, 1e-3, 1e3); }, "pcg_ics") {
             let label = format!("kt {kt:e} {}", run.label);
             let r = solve_path_3d(&run.m, run.p).unwrap_or_else(|e| panic!("{label}: {e}"));
-            let mut cond = cond;
-            if run.kind == Kind3::Dense && kt < 1e-6 {
-                // the dense check counts a diagonal ≤ 1e-12·max as near-zero
-                // (so its ratio never exceeds 1e12): the three springs are
-                // named and the rotational springs set the ratio
-                let n = floating_id(&run.m);
-                let dn = DofNumbering::build_3d(&run.m.input());
-                run.near_zero = (0..3).map(|k| dn.map[&(n, k)]).collect();
-                run.near_zero.sort();
-                cond = C::HighDiagonalRatio;
-            }
-            check_3d(&label, &r, &run.m, run.path, &want3(&run, Some(cond), false), run.shift, &run.near_zero, 1e-9);
-            let v = r.structured_diagnostics.iter().find(|d| d.code == cond).unwrap().value.unwrap();
-            // ratio = max diagonal / spring: 2EA/l = 4e6 on the fine frame
-            // (1 m column segments), c = 1e8 with the ladder gadget
-            let want_max = match run.label.as_str() {
-                "coarse" => None,
-                "ladder" | "ladder pcg" => Some(1e8),
-                _ => Some(2.0 * E_MPA * 1000.0 * A / 1.0),
-            };
-            if let (Some(w), false) = (want_max, run.kind == Kind3::Dense) {
-                assert!(close(v * kt, w, 1e-9), "{label}: ratio {v:e}");
-            }
+            check_3d(&label, &r, &run.m, run.path, &want3(&run, false), run.shift, &[], 1e-9);
             let rx = r.displacements.iter().find(|d| d.node_id == floating_id(&run.m)).unwrap().rx;
             assert!(close(rx, 1e6, 1e-6), "{label}: floating rotation {rx}");
         }
@@ -2045,16 +1776,12 @@ fn diagonal_ratio_and_rotation_only_node_on_every_3d_path() {
 
 /// A very soft frame (E = 1e-3 MPa) on every 3D path: translations far
 /// above 1000× the characteristic length (bounding-box diagonal), reported
-/// with the exact maximum and threshold; the soft members also push the
-/// diagonal ratio above 1e8.
+/// with the exact maximum and threshold.
 #[test]
 fn excessive_displacement_on_every_3d_path() {
-    // (the ladder gadget's springs of 1e8 against these soft members make the
-    // ratio 5e11: equilibrium of its LU answer is only good to ~5%, so those
-    // runs are in the conditioning test instead)
-    for run in variants3(|m| m.e = Some(1e-3), "pcg_ics", false).into_iter().filter(|r| !r.label.starts_with("ladder")) {
+    for run in variants3(|m| m.e = Some(1e-3), "pcg_ics") {
         let r = solve_path_3d(&run.m, run.p).unwrap_or_else(|e| panic!("{}: {e}", run.label));
-        check_3d(&run.label, &r, &run.m, run.path, &want3(&run, Some(C::HighDiagonalRatio), true), run.shift, &run.near_zero, 1e-11);
+        check_3d(&run.label, &r, &run.m, run.path, &want3(&run, true), run.shift, &[], 1e-11);
     }
 }
 
@@ -2072,7 +1799,7 @@ fn overflowing_loads_on_every_3d_path() {
             }
         }
     };
-    for run in variants3(huge(1e305, E_MPA), "pcg_ics", true) {
+    for run in variants3(huge(1e305, E_MPA), "pcg_ics") {
         let label = &run.label;
         let r = solve_path_3d(&run.m, run.p).unwrap_or_else(|e| panic!("{label}: {e}"));
         let nf = r.solver_run_meta.as_ref().unwrap().n_free_dofs;
@@ -2087,22 +1814,20 @@ fn overflowing_loads_on_every_3d_path() {
         assert_eq!(d.message, msg, "{label}");
         assert!(!r.equilibrium.as_ref().unwrap().residual_ok, "{label}");
         assert!(r.displacements.iter().all(|x| x.ux.is_finite() && x.uz.is_finite()), "{label}");
-        if !dense && run.kind != Kind3::PreparedLu && !run.label.contains("all shifts") {
+        if !dense {
             let l = legacy3(&r);
             assert!(l.contains(&lg("fallback", "warning", "Sparse Cholesky residual too large (NaN), fell back to dense LU")), "{label}: {l:?}");
         }
     }
-    for run in variants3(huge(1e306, 1e-3), "pcg_ics", true) {
+    for run in variants3(huge(1e306, 1e-3), "pcg_ics") {
         assert!(prepare_static_3d(&run.m.input()).is_ok(), "{}: prepare", run.label);
         assert_eq!(solve_path_3d(&run.m, run.p).err().as_deref(), Some(SINGULAR), "{}", run.label);
     }
 }
 
 /// A beam along x restrained in translation only at both ends: free to spin
-/// about its axis. The shift ladder factors the singular K_ff (and warns);
-/// a load that does not excite the spin is solved (midspan deflection
-/// PL³/48EI), a torque that does is refused as a mechanism once the dense LU
-/// of the unshifted K_ff fails. The small dense path refuses at prepare.
+/// about its axis. The stability test refuses it at prepare on every path,
+/// whether or not the load excites the spin.
 #[test]
 fn spinning_beam_mechanism_3d() {
     let beam = |n: usize, torque: f64| {
@@ -2119,21 +1844,14 @@ fn spinning_beam_mechanism_3d() {
         m.load(n / 2 + 1, [0.0, 4.0, 0.0, torque, 0.0, 0.0]);
         m
     };
-    let m = beam(20, 0.0);
-    for p in [Path3::Default, Path3::Pcg("ics")] {
-        let r = solve_path_3d(&m, p).unwrap();
-        let tail: Vec<C> = solver_diagnostics_with_self_checks(&r.structured_diagnostics).into_iter().filter(|d| d.phase.as_deref() != Some("pre_solve")).map(|d| d.code).collect();
-        assert!(tail.contains(&C::StiffnessNotPositiveDefinite) && tail.contains(&C::DiagonalRegularization), "{p:?}: {tail:?}");
-        let uy = r.displacements.iter().find(|d| d.node_id == 11).unwrap().uy;
-        let want = 4.0 * 5.0f64.powi(3) / (48.0 * E_MPA * 1000.0 * IZ3);
-        assert!(close(uy, want, 1e-6), "{p:?}: uy {uy}, PL³/48EI {want}");
+    for torque in [0.0, 1.0] {
+        let m = beam(20, torque);
+        refused_as_unstable(&format!("torque {torque} prepare"), prepare_static_3d(&with_opts3(&m, json!({ "method": "pcg" })).input()).map(|_| ()));
+        for p in [Path3::Default, Path3::Pcg("ics"), Path3::PcgMaxit1] {
+            refused_as_unstable(&format!("torque {torque} {p:?}"), solve_path_3d(&m, p));
+        }
+        refused_as_unstable(&format!("torque {torque} small"), solve_3d(&beam(2, torque).input()));
     }
-    let m = beam(20, 1.0);
-    for p in [Path3::Default, Path3::Pcg("ics"), Path3::PcgMaxit1] {
-        assert!(prepare_static_3d(&with_opts3(&m, json!({ "method": "pcg" })).input()).is_ok());
-        assert_eq!(solve_path_3d(&m, p).err().as_deref(), Some(SINGULAR), "{p:?}");
-    }
-    assert_eq!(solve_3d(&beam(2, 1.0).input()).err().as_deref(), Some(SINGULAR), "small");
 }
 
 /// Every DOF restrained (nf = 0): reactions K·u_r − F (equal and opposite
@@ -2298,12 +2016,12 @@ fn solver_diagnostics_with_self_checks(ds: &[StructuredDiagnostic]) -> Vec<&Stru
 }
 
 #[test]
-fn self_checks_settlement_only_dense_fallback_3d() {
+fn self_checks_settlement_only_sparse_3d() {
     let mut model = frame3(3);
-    add_gadget3(&mut model, 1e12);
     model.loads.clear();
     let result = solve_3d(&model.input()).unwrap();
-    assert_eq!(path_3d(&result), "sparse_fallback_dense_lu");
+    assert_eq!(path_3d(&result), "sparse_cholesky");
     solver_diagnostics_with_self_checks(&result.structured_diagnostics);
+    assert!(result.displacements.iter().any(|d| d.uz.abs() > 1e-6));
     assert!(result.displacements.iter().any(|d| d.uz.abs() > 1e-6));
 }

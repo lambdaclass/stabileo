@@ -1545,7 +1545,7 @@ fn solve_constrained_2d_dense_validated(
     let nf = dof_num.n_free;
     let nr = n - nf;
 
-    let asm = assembly::assemble_2d(&input.solver, &dof_num);
+    let asm = assembly::without_artificial_stiffness(|| assembly::assemble_2d(&input.solver, &dof_num));
 
     // Build prescribed displacements
     let mut u_r = vec![0.0; nr];
@@ -1680,32 +1680,16 @@ fn solve_constrained_2d_dense_validated(
     // K_reduced = C_ff^T * K_ff * C_ff
     // F_reduced = C_ff^T * F_f
     let k_reduced = fcs.reduce_matrix(&k_ff);
-    let containment_conditioning = crate::known_issues::conditioning(&super::conditioning::check_conditioning(&k_ff, nf)).or_else(|| crate::known_issues::conditioning(&super::conditioning::check_conditioning(&k_reduced, n_free_indep)));
     let f_reduced = fcs.reduce_vector(&f_f);
-
-    // Solve reduced system
-    let mut used_fallback = false;
-    let mut definiteness = None;
+    let stability = fcs.stability(&crate::linalg::sparse::CscMatrix::from_dense_symmetric(&k_reduced, n_free_indep), dof_num);
+    refuse_unstable(&stability, &f_reduced)?;
     let u_indep = {
-        // `cholesky_solve`, unrolled to inspect the factor's pivots.
         let mut k_work = k_reduced.clone();
-        match cholesky_decompose(&mut k_work, n_free_indep).then(|| {
-            definiteness = super::definiteness::dense_pivot_check(&k_work, &k_reduced, n_free_indep);
-            back_solve(&k_work, &forward_solve(&k_work, &f_reduced, n_free_indep), n_free_indep)
-        }) {
-            Some(u) => u,
-            None => {
-                used_fallback = true;
-                definiteness = Some(super::definiteness::not_positive_definite(
-                    "constrained CᵀKC: Cholesky failed; solved by dense LU",
-                ));
-                let mut k_work = k_reduced.clone();
-                let mut f_work = f_reduced.clone();
-                lu_solve(&mut k_work, &mut f_work, n_free_indep)
-                    .ok_or("Singular stiffness in constrained system")?
-            }
-        }
+        stability.pin_dense(&mut k_work, n_free_indep);
+        if !cholesky_decompose(&mut k_work, n_free_indep) { return Err(linear::not_positive_definite()); }
+        back_solve(&k_work, &forward_solve(&k_work, &f_reduced, n_free_indep), n_free_indep)
     };
+    stability.check_pins(&u_indep)?;
 
     // Recover free DOF displacements: u_f = C_ff * u_indep
     let mut u_f = fcs.expand_solution(&u_indep);
@@ -1815,17 +1799,10 @@ fn solve_constrained_2d_dense_validated(
     let equilibrium = linear::compute_equilibrium_summary_2d(&asm.f, &reactions_vec, &dof_num, rel_residual, &asm.inclined_transforms_2d);
 
     // Solver-path diagnostic — report the actual solver that produced the result
-    let (path_code, path_sev) = if used_fallback {
-        (DiagnosticCode::SparseFallbackDenseLu, Severity::Warning)
-    } else {
-        (DiagnosticCode::DenseLu, Severity::Info)
-    };
     constraint_diags.push(StructuredDiagnostic::global(
-        path_code,
-        path_sev,
-        format!("Constrained 2D {} ({} free DOFs, {} independent)",
-            if used_fallback { "Cholesky failed, dense LU fallback" } else { "Dense" },
-            nf, n_free_indep),
+        DiagnosticCode::DenseLu,
+        Severity::Info,
+        format!("Constrained 2D Dense ({} free DOFs, {} independent)", nf, n_free_indep),
     ).with_phase("solve"));
 
     // Residual diagnostic
@@ -1843,8 +1820,6 @@ fn solve_constrained_2d_dense_validated(
         ).with_value(rel_residual, 1e-6).with_phase("solve")
     });
 
-    constraint_diags.extend(definiteness);
-    constraint_diags.extend(containment_conditioning);
     constraint_diags.push(checked_residual?);
 
     let mut result = AnalysisResults {
@@ -1879,7 +1854,7 @@ fn solve_constrained_2d_sparse(
     let nf = dof_num.n_free;
     let nr = n - nf;
 
-    let stiff = super::sparse_assembly::assemble_stiffness_sparse_2d(&input.solver, dof_num);
+    let stiff = assembly::without_artificial_stiffness(|| super::sparse_assembly::assemble_stiffness_sparse_2d(&input.solver, dof_num));
     let k_full = &stiff.k_full;
     let k_ff = &stiff.k_ff;
     let f = assembly::assemble_load_vector_2d(&input.solver, &input.solver.loads, dof_num, &stiff.inclined_transforms_2d);
@@ -1980,19 +1955,14 @@ fn solve_constrained_2d_sparse(
     }
 
     // K_reduced = C_ff^T * K_ff * C_ff as a sparse triple product.
-    let containment_conditioning = crate::known_issues::sparse_conditioning(k_ff);
     let k_reduced = fcs.reduce_matrix_sparse(k_ff);
-    let containment_conditioning = containment_conditioning.or_else(|| crate::known_issues::sparse_conditioning(&k_reduced));
     let f_reduced = fcs.reduce_vector(&f_f);
-
-    // NO diagonal-shift regularization (the 2D contract): a mechanism fails
-    // here and is reported by the dense path's LU, as the legacy solver did.
-    // `sparse_cholesky_solve_full`, unrolled to inspect the factor's pivots.
-    let Some(num) = numeric_cholesky(&std::rc::Rc::new(symbolic_cholesky(&k_reduced)), &k_reduced) else {
-        return Ok(None);
-    };
-    let definiteness = super::definiteness::sparse_pivot_check(&num, &k_reduced);
+    let stability = fcs.stability(&k_reduced, dof_num);
+    refuse_unstable(&stability, &f_reduced)?;
+    let k_pinned = stability.pin_sparse(&k_reduced);
+    let num = numeric_cholesky(&std::rc::Rc::new(symbolic_cholesky(&k_pinned)), &k_pinned).ok_or_else(linear::not_positive_definite)?;
     let u_indep = sparse_cholesky_solve(&num, &f_reduced);
+    stability.check_pins(&u_indep)?;
 
     let mut u_f = fcs.expand_solution(&u_indep);
     if has_up {
@@ -2097,8 +2067,6 @@ fn solve_constrained_2d_sparse(
         ).with_value(rel_residual, 1e-6).with_phase("solve")
     });
 
-    constraint_diags.extend(definiteness);
-    constraint_diags.extend(containment_conditioning);
     constraint_diags.push(checked_residual?);
 
     let mut result = AnalysisResults {
@@ -2159,7 +2127,7 @@ pub(crate) fn solve_constrained_3d_inner(input: &ConstrainedInput3D, analysis: c
     // prescribed-DOF correction and reactions). The constrained path used to
     // assemble K densely (n×n) and reduce with a dense C (nf × n_indep) —
     // with a single rigid diaphragm that dominated both memory and time.
-    let sasm = assembly::assemble_sparse_3d(&input.solver, &dof_num, true);
+    let sasm = assembly::without_artificial_stiffness(|| assembly::assemble_sparse_3d(&input.solver, &dof_num, true));
     // Every other precondition in this function returns Err, and it is reached
     // from the WASM dispatch — a panic here crosses the FFI boundary as an abort
     // rather than a solver message. Unreachable while the call above passes
@@ -2289,30 +2257,14 @@ pub(crate) fn solve_constrained_3d_inner(input: &ConstrainedInput3D, analysis: c
 
     // K_reduced = C_ff^T * K_ff * C_ff, computed as a sparse triple product
     // over the triplets of K (near-linear in nnz(K) for MPC transforms).
-    let containment_conditioning = crate::known_issues::sparse_conditioning(k_ff);
     let k_reduced = fcs.reduce_matrix_sparse(k_ff);
-    let containment_conditioning = containment_conditioning.or_else(|| crate::known_issues::sparse_conditioning(&k_reduced));
     let f_reduced = fcs.reduce_vector(&f_f);
-
-    let mut used_fallback = false;
-    // `sparse_cholesky_solve_full`, unrolled to inspect the factor's pivots.
-    let factor = numeric_cholesky(&std::rc::Rc::new(symbolic_cholesky(&k_reduced)), &k_reduced);
-    let definiteness = match &factor {
-        Some(num) => super::definiteness::sparse_pivot_check(num, &k_reduced),
-        None => Some(super::definiteness::not_positive_definite(
-            "constrained CᵀKC: Cholesky failed; solved by dense LU",
-        )),
-    };
-    let u_indep = match factor.map(|num| sparse_cholesky_solve(&num, &f_reduced)) {
-        Some(u) => u,
-        None => {
-            used_fallback = true;
-            let mut k_work = k_reduced.to_dense_symmetric();
-            let mut f_work = f_reduced.clone();
-            lu_solve(&mut k_work, &mut f_work, n_free_indep)
-                .ok_or("Singular stiffness in 3D constrained system")?
-        }
-    };
+    let stability = fcs.stability(&k_reduced, &dof_num);
+    refuse_unstable(&stability, &f_reduced)?;
+    let k_pinned = stability.pin_sparse(&k_reduced);
+    let num = numeric_cholesky(&std::rc::Rc::new(symbolic_cholesky(&k_pinned)), &k_pinned).ok_or_else(linear::not_positive_definite)?;
+    let u_indep = sparse_cholesky_solve(&num, &f_reduced);
+    stability.check_pins(&u_indep)?;
 
     let mut u_f = fcs.expand_solution(&u_indep);
     if has_up {
@@ -2410,19 +2362,10 @@ pub(crate) fn solve_constrained_3d_inner(input: &ConstrainedInput3D, analysis: c
     // One dispatch, not two: the label used to be re-derived by matching on the
     // code this `if` had just produced, with a catch-all arm that would silently
     // mislabel any path code added here later.
-    let (path_code, path_sev, solver_label) = if used_fallback {
-        (
-            DiagnosticCode::SparseFallbackDenseLu,
-            Severity::Warning,
-            "Cholesky failed, dense LU fallback",
-        )
-    } else {
-        (DiagnosticCode::SparseCholesky, Severity::Info, "Sparse Cholesky")
-    };
     constraint_diags.push(StructuredDiagnostic::global(
-        path_code,
-        path_sev,
-        format!("Constrained 3D {} ({} free DOFs, {} independent)", solver_label, nf, n_free_indep),
+        DiagnosticCode::SparseCholesky,
+        Severity::Info,
+        format!("Constrained 3D Sparse Cholesky ({} free DOFs, {} independent)", nf, n_free_indep),
     ).with_phase("solve"));
 
     // Residual diagnostic
@@ -2440,8 +2383,6 @@ pub(crate) fn solve_constrained_3d_inner(input: &ConstrainedInput3D, analysis: c
         ).with_value(rel_residual, 1e-6).with_phase("solve")
     });
 
-    constraint_diags.extend(definiteness);
-    constraint_diags.extend(containment_conditioning);
     constraint_diags.push(checked_residual?);
 
     let mut result = AnalysisResults3D {
@@ -2471,6 +2412,14 @@ pub(crate) fn solve_constrained_3d_inner(input: &ConstrainedInput3D, analysis: c
 // ==================== Helper functions ====================
 
 /// Get offset vector from master to slave node.
+fn refuse_unstable(stability: &super::stability::Stability, f_reduced: &[f64]) -> Result<(), String> {
+    if let Some(refusal) = stability.refusal() { return Err(refusal); }
+    if let Some(node) = stability.load_on_free_rotation(f_reduced) {
+        return Err(format!("Nodal moment at node {node} is not supported: no member, support or spring stiffens that rotation, so the moment would not reach the structure. Apply it as a force couple, or connect the node to a frame or shell"));
+    }
+    Ok(())
+}
+
 fn get_node_offset(
     master: usize,
     slave: usize,
@@ -2553,6 +2502,7 @@ pub struct FreeConstraintSystem {
     /// row of an independent DOF. Sniffing it classified those as independent
     /// and dropped their constraint forces from the results entirely.
     dependent: Vec<bool>,
+    independent: Vec<usize>,
     restrained_masters: Vec<Vec<(usize, f64)>>,
     /// Inclined-support frames the transform was built in (constraint
     /// forces there are rotated back to global components).
@@ -2597,13 +2547,14 @@ impl FreeConstraintSystem {
     fn from_transform(ct: &ConstraintTransform, nf: usize, dimensions: usize) -> Self {
         // Keep only the free-independent columns, remapped to 0..n_free_indep.
         let mut col_map = vec![usize::MAX; ct.n_independent];
-        let mut n_free_indep = 0;
+        let mut independent = Vec::new();
         for (j_old, &d) in ct.independent_dofs.iter().enumerate() {
             if d < nf {
-                col_map[j_old] = n_free_indep;
-                n_free_indep += 1;
+                col_map[j_old] = independent.len();
+                independent.push(d);
             }
         }
+        let n_free_indep = independent.len();
 
         // Slice rows 0..nf (free DOFs) and remap columns.
         let mut rows: Vec<Vec<(usize, f64)>> = vec![Vec::new(); nf];
@@ -2632,6 +2583,7 @@ impl FreeConstraintSystem {
             n_free_indep,
             nf,
             dependent,
+            independent,
             restrained_masters,
             inclined: Vec::new(),
             dimensions,
@@ -2656,6 +2608,19 @@ impl FreeConstraintSystem {
 
     /// Reduce a dense symmetric matrix: K_reduced = C_ff^T * K_ff * C_ff
     /// (dense p×p out; the nonlinear/dynamic paths feed dense matrices).
+    pub fn stability(&self, k_reduced: &CscMatrix, dof_num: &DofNumbering) -> super::stability::Stability {
+        let tags = super::stability::tags(dof_num, self.dimensions == 2);
+        let reduced_tags: Vec<_> = self.independent.iter().map(|&d| tags[d]).collect();
+        let c = &self.c_ff;
+        let moves: Vec<Vec<(usize, f64)>> = (0..self.n_free_indep).map(|j| {
+            (c.col_ptr[j]..c.col_ptr[j + 1])
+                .filter(|&p| c.csc_vals[p] != 0.0 && tags[c.row_idx[p]].kind == super::stability::DofKind::Translation)
+                .map(|p| (c.row_idx[p], c.csc_vals[p]))
+                .collect()
+        }).collect();
+        super::stability::analyze_constrained(k_reduced, &reduced_tags, &moves)
+    }
+
     pub fn reduce_matrix(&self, k_ff: &[f64]) -> Vec<f64> {
         self.c_ff.reduce_dense(k_ff)
     }

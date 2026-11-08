@@ -239,24 +239,18 @@ fn no_model_of_the_example_and_feature_corpus_is_refused() {
     assert!(refused.is_empty(), "{}", refused.join("\n"));
 }
 
-fn warned_near_singular(d: &[dedaliano_engine::types::StructuredDiagnostic]) -> bool {
-    use dedaliano_engine::types::DiagnosticCode::*;
-    d.iter().any(|d| matches!(d.code, StiffnessNotPositiveDefinite) || d.phase.as_deref() == Some("NUM-INVARIANCE"))
-}
-
 #[test]
-fn every_random_model_the_verdict_refuses_is_refused_or_warned_near_singular_today() {
-    let silent_but_unverifiable = ["fuzz_rich_3d/74"];
-    let mut silent = Vec::new();
+fn every_random_model_the_verdict_refuses_is_refused_by_the_linear_solve() {
+    let mut solved = Vec::new();
     for c in corpus::cases_2d(Tier::Nightly, 0).into_iter().filter(|c| c.name.starts_with("fuzz_")) {
         if stability::of_2d(&c.s).is_ok_and(|s| s.is_stable()) { continue; }
-        if dedaliano_engine::solver::linear::solve_2d(&c.s).is_ok_and(|r| !warned_near_singular(&r.structured_diagnostics)) { silent.push(c.name.clone()); }
+        if dedaliano_engine::solver::linear::solve_2d(&c.s).is_ok() { solved.push(c.name.clone()); }
     }
     for c in corpus::cases_3d(Tier::Nightly, 0).into_iter().filter(|c| c.name.starts_with("fuzz_")) {
         if stability::of_3d(&c.s).is_ok_and(|s| s.is_stable()) { continue; }
-        if dedaliano_engine::solver::linear::solve_3d(&c.s).is_ok_and(|r| !warned_near_singular(&r.structured_diagnostics)) { silent.push(c.name.clone()); }
+        if dedaliano_engine::solver::linear::solve_3d(&c.s).is_ok() { solved.push(c.name.clone()); }
     }
-    assert_eq!(silent, silent_but_unverifiable);
+    assert_eq!(solved, Vec::<String>::new());
 }
 
 fn t(node: usize, kind: DofKind) -> DofTag { DofTag { node, kind } }
@@ -693,21 +687,16 @@ fn the_linear_solve_refuses_what_the_verdict_refuses(issue: u32) {
 }
 
 #[test]
-#[ignore = "known wrong result: #993"]
 fn issue_993_the_sparse_linear_solve_refuses_in_every_unit_system() { the_linear_solve_refuses_what_the_verdict_refuses(993) }
 
 #[test]
-#[ignore = "known wrong result: #1353"]
 fn issue_1353_the_linear_solve_refuses_in_every_orientation() { the_linear_solve_refuses_what_the_verdict_refuses(1353) }
 
 #[test]
-#[ignore = "known wrong result: #1355"]
 fn issue_1355_the_pcg_linear_solve_refuses_in_every_unit_system() { the_linear_solve_refuses_what_the_verdict_refuses(1355) }
 
 #[test]
-#[ignore = "known wrong result: #1651"]
 fn issue_1651_the_linear_solve_refuses_in_every_plane() { the_linear_solve_refuses_what_the_verdict_refuses(1651) }
 
 #[test]
-#[ignore = "known wrong result: #1106"]
 fn issue_1106_the_linear_solve_refuses_in_both_load_directions() { the_linear_solve_refuses_what_the_verdict_refuses(1106) }
