@@ -176,6 +176,18 @@ const body: PostBody = {
           "Corrigé après 0.5.0 ; sur stabileo.com depuis le 8 novembre 2026"
         ],
         [
+          "SA-2026-049",
+          "Appuis avec un ressort positif et un blocage rigide sur le même degré de liberté : en 3D, le ressort libérait le blocage et modifiait la condition aux limites ; code du moteur de 0.2.0 à 0.5.0",
+          "Élevée",
+          "Brouillon ; correction préparée dans #1780, ni publiée ni déployée"
+        ],
+        [
+          "SA-2026-050",
+          "Appuis inclinés 3D : la branche de #1780 mélangeait la normale locale et les ressorts selon les axes globaux dans le décompte des blocages, modifiant le degré statique et sa classification",
+          "Moyenne",
+          "Brouillon ; correction préparée dans #1780, ni publiée ni déployée"
+        ],
+        [
           "SA-2026-037",
           "Analyse corotationnelle 3D : les vecteurs de rotation étaient soustraits (le coude de Bathe–Bolourchi à 1,3 %, sans amélioration au raffinement)",
           "Moyenne",

@@ -176,6 +176,18 @@ const body: PostBody = {
           "Behoben nach 0.5.0; auf stabileo.com seit dem 8. November 2026"
         ],
         [
+          "SA-2026-049",
+          "Auflager mit positiver Feder und starrer Bindung am selben Freiheitsgrad: In 3D hob die Feder die Bindung auf und änderte die Randbedingung; Engine-Code in 0.2.0 bis 0.5.0",
+          "Hoch",
+          "Entwurf; Korrektur in #1780 vorbereitet, weder veröffentlicht noch bereitgestellt"
+        ],
+        [
+          "SA-2026-050",
+          "Geneigte 3D-Auflager: Der Branch von #1780 vermischte beim Zählen der Bindungen die lokale Normale mit Federn in globalen Achsen und änderte damit den Grad der statischen Unbestimmtheit und die Klassifikation",
+          "Mittel",
+          "Entwurf; Korrektur in #1780 vorbereitet, weder veröffentlicht noch bereitgestellt"
+        ],
+        [
           "SA-2026-037",
           "Korotationale 3D-Analyse: Rotationsvektoren wurden subtrahiert (der Bathe–Bolourchi-Bogen 1,3 % daneben, ohne Besserung bei Netzverfeinerung)",
           "Mittel",

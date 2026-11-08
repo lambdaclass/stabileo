@@ -176,6 +176,18 @@ const body: PostBody = {
           "0.5.0'dan sonra düzeltildi; 8 Kasım 2026'dan beri stabileo.com'da"
         ],
         [
+          "SA-2026-049",
+          "Aynı serbestlik derecesinde pozitif yay ve rijit kısıt bulunan mesnetler: 3D’de yay kısıtı kaldırıyor ve sınır koşulunu değiştiriyordu; 0.2.0 ile 0.5.0 arasındaki motor kodu",
+          "Yüksek",
+          "Taslak; düzeltme #1780 içinde hazırlandı, henüz yayımlanmadı veya devreye alınmadı"
+        ],
+        [
+          "SA-2026-050",
+          "Eğik 3D mesnetler: #1780 dalı, kısıtları sayarken yerel normali küresel eksenlerdeki yaylarla karıştırıyor, statik belirsizlik derecesini ve sınıflandırmasını değiştiriyordu",
+          "Orta",
+          "Taslak; düzeltme #1780 içinde hazırlandı, henüz yayımlanmadı veya devreye alınmadı"
+        ],
+        [
           "SA-2026-037",
           "3B eşdönel analiz: dönme vektörleri çıkarılıyordu (Bathe–Bolourchi eğrisi %1,3 sapmalı, ağ sıklaştırmayla düzelmiyordu)",
           "Orta",
