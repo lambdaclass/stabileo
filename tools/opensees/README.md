@@ -18,6 +18,11 @@ tools/opensees/run.sh --fixtures -v         # any compare.py arguments
 tools/opensees/run.sh --rich3d 200 --seed-start 5000 --report /tmp/r.json
 ```
 
+With `--report R.json`, `R.json.progress.jsonl` gets one line per model as it starts and as it
+ends (with its status and `seconds`), so a run cut off by a timeout still shows which models
+finished, how long each took and which were still running. `R.json` itself is written at the end,
+and each of its rows also carries `seconds`.
+
 `run.sh` creates `tools/opensees/.venv` (gitignored; `pip install openseespy
 numpy`; openseespy 3.8 has wheels for CPython 3.14 on macOS arm64 and for 3.12
 on Linux) and builds the solver CLI `engine/examples/solve_json.rs`:

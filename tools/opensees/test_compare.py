@@ -259,5 +259,79 @@ class RefinedBucklingTest(unittest.TestCase):
         self.assertEqual(r["status"], "mismatch")
 
 
+class ProgressTest(unittest.TestCase):
+    RUNNER = """
+import sys, time
+sys.path.insert(0, sys.argv[1])
+import compare as C
+def run_one(name, model, *rest):
+    if name == "b.json":
+        time.sleep(600)
+    return dict(name=name, status="ok", max_err={})
+C.run_one = run_one
+sys.argv = ["compare.py", *sys.argv[2:]]
+sys.exit(C.main())
+"""
+
+    def test_a_killed_run_leaves_a_parseable_progress_log(self):
+        import json
+        import signal
+        import subprocess
+        import tempfile
+        import time
+        with tempfile.TemporaryDirectory() as tmp:
+            for name in ("a.json", "b.json", "c.json"):
+                with open(os.path.join(tmp, name), "w") as f:
+                    json.dump(column(), f)
+            binary = os.path.join(tmp, "solve_json")
+            open(binary, "w").close()
+            report = os.path.join(tmp, "report.json")
+            log = report + ".progress.jsonl"
+            proc = subprocess.Popen(
+                [sys.executable, "-I", "-c", self.RUNNER, os.path.dirname(os.path.abspath(__file__)),
+                 *(os.path.join(tmp, n) for n in ("a.json", "b.json", "c.json")),
+                 "--bin", binary, "--report", report, "-j", "1"],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            try:
+                deadline = time.monotonic() + 30
+                while time.monotonic() < deadline:
+                    if os.path.exists(log) and '"start", "name": "b.json"' in open(log).read():
+                        break
+                    time.sleep(0.05)
+                proc.send_signal(signal.SIGKILL)
+            finally:
+                proc.wait()
+            self.assertFalse(os.path.exists(report))
+            rows = [json.loads(line) for line in open(log).read().splitlines()]
+            self.assertEqual(rows[0]["event"], "begin")
+            self.assertEqual(rows[0]["total"], 3)
+            done = [r for r in rows if r["event"] == "done"]
+            self.assertEqual([(r["name"], r["status"]) for r in done], [("a.json", "ok")])
+            self.assertGreaterEqual(done[0]["seconds"], 0.0)
+            started = {r["name"] for r in rows if r["event"] == "start"}
+            self.assertEqual(started - {r["name"] for r in done}, {"b.json"})
+            self.assertNotIn("end", [r["event"] for r in rows])
+
+    def test_a_finished_run_records_each_model_time_in_the_report(self):
+        import json
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "a.json")
+            with open(path, "w") as f:
+                json.dump(column(), f)
+            binary = os.path.join(tmp, "solve_json")
+            open(binary, "w").close()
+            report = os.path.join(tmp, "report.json")
+            ok = lambda name, *rest: dict(name=name, status="ok", max_err={})
+            with mock.patch.object(C, "run_one", ok), mock.patch.object(sys, "argv", ["compare.py", path, "--bin", binary, "--report", report]), \
+                    mock.patch("sys.stdout"):
+                self.assertEqual(C.main(), 0)
+            rows = json.load(open(report))
+            self.assertEqual(rows[0]["name"], "a.json")
+            self.assertGreaterEqual(rows[0]["seconds"], 0.0)
+            events = [json.loads(line)["event"] for line in open(report + ".progress.jsonl")]
+            self.assertEqual(events, ["begin", "start", "done", "end"])
+
+
 if __name__ == "__main__":
     unittest.main()
