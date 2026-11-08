@@ -11,15 +11,15 @@ pub(crate) enum BucklingKg<'a> {
 }
 
 impl BucklingKg<'_> {
-    fn axial_force(&self, id: usize) -> Option<Option<f64>> {
+    pub(crate) fn axial_force(&self, id: usize) -> Option<Option<f64>> {
         match *self {
             BucklingKg::All => Some(None),
             BucklingKg::Resolved { mean_n, noise } | BucklingKg::RoundOffAtCompression { mean_n, noise } => {
                 let e = noise.get(&id).copied().unwrap_or(0.0);
-                let round_off = mean_n.get(&id).copied().unwrap_or(0.0).abs() <= e;
-                match (self, round_off) {
+                let n = mean_n.get(&id).copied().unwrap_or(0.0);
+                match (self, n.abs() <= e) {
                     (BucklingKg::Resolved { .. }, false) => Some(None),
-                    (BucklingKg::RoundOffAtCompression { .. }, true) if e > 0.0 => Some(Some(-e)),
+                    (BucklingKg::RoundOffAtCompression { .. }, true) if e > 0.0 => Some(Some(n - e)),
                     _ => None,
                 }
             }

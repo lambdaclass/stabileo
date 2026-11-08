@@ -253,10 +253,13 @@ fn geometric_work_uncertainty(
         let e = noise.get(&t.element_id).copied().unwrap_or(0.0);
         if n.abs() > e {
             work += n * g;
-        } else if g != 0.0 {
-            drivers.push(t.element_id);
+            uncertainty += e * g.abs();
+        } else {
+            uncertainty += (n.abs() + e) * g.abs();
+            if g != 0.0 {
+                drivers.push(t.element_id);
+            }
         }
-        uncertainty += e * g.abs();
     }
     (work, uncertainty, drivers)
 }
@@ -725,5 +728,21 @@ mod tests {
         let (work, uncertainty, _) = geometric_work_uncertainty(&[term], &span, &mean_n, &noise, &phi);
         assert_eq!(work, -8.0);
         assert!(uncertainty <= MODE_RESOLUTION * work.abs(), "work {work}, uncertainty {uncertainty}");
+    }
+
+    #[test]
+    fn a_member_left_out_at_its_bound_counts_twice_its_bound_and_is_tested_at_n_less_its_bound() {
+        let term = super::super::geometric_stiffness::KgAffineTerm {
+            element_id: 1, dofs: vec![0, 1], g: vec![1.0, -1.0, -1.0, 1.0], elongation: vec![], e: 0.0, a: 0.0, l: 1.0, alpha: 0.0, dt: 0.0,
+        };
+        let mean_n = HashMap::from([(1, -1e-9)]);
+        let noise = HashMap::from([(1, 1e-9)]);
+        let phi = [1.0, -1.0];
+        let (work, uncertainty, drivers) = geometric_work_uncertainty(&[term], &[], &mean_n, &noise, &phi);
+        assert_eq!((work, uncertainty, drivers), (0.0, 8e-9, vec![1]));
+        let worst = super::super::geometric_stiffness::BucklingKg::RoundOffAtCompression { mean_n: &mean_n, noise: &noise };
+        assert_eq!(worst.axial_force(1), Some(Some(-2e-9)));
+        let resolved = super::super::geometric_stiffness::BucklingKg::Resolved { mean_n: &mean_n, noise: &noise };
+        assert_eq!(resolved.axial_force(1), None);
     }
 }
