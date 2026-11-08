@@ -1,6 +1,5 @@
 # SA-2026-047: A load case that imposed a support displacement lost its shell stresses, and combinations summed only the other cases'
 
-| | |
 |---|---|
 | Severity | High |
 | Status | Draft |
